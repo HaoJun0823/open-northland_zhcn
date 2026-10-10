@@ -101,6 +101,22 @@ export function isFighterTarget(world: World, ctx: SystemContext, t: Entity): bo
   return world.has(t, Person) && isFighterJob(ctx.content, world.get(t, Settler).jobType);
 }
 
+/** How a fighter ranks an enemy that strikes it against the target it holds, first rank first: an enemy
+ *  fighter, then a building shooting at it, then anything else. */
+export const STRIKE_RANK = { FIGHTER: 0, FIRING_BUILDING: 1, OTHER: 2 } as const;
+export type StrikeRank = (typeof STRIKE_RANK)[keyof typeof STRIKE_RANK];
+
+/** The {@link STRIKE_RANK} of `t`; `fires` says whether a building shoots this tick. */
+export function strikeRank(
+  world: World,
+  ctx: SystemContext,
+  t: Entity,
+  fires: (building: Entity) => boolean,
+): StrikeRank {
+  if (isFighterTarget(world, ctx, t)) return STRIKE_RANK.FIGHTER;
+  return world.has(t, Building) && fires(t) ? STRIKE_RANK.FIRING_BUILDING : STRIKE_RANK.OTHER;
+}
+
 /** Whether `t` is a live target this attacker may swing at - a positioned, `Health`-bearing enemy settler,
  *  enemy building or enemy vehicle for which the {@link mayTarget} hostility relation holds. A building or
  *  vehicle is a target only for an owned attacker, keyed on its `tribe` so the same hostility as a unit

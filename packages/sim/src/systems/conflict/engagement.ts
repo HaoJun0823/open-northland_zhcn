@@ -43,6 +43,7 @@ import {
   isStructureTarget,
   isValidTarget,
   SIGHT_RADIUS_NODES,
+  strikeRank,
   wildPursuit,
 } from './targeting.js';
 import { givenUpTargetVeto } from './unreachable-targets.js';
@@ -563,10 +564,11 @@ function fighterInReach(
 }
 
 /**
- * The enemy fighter a combatant ordered onto `structure` fights first: the one it already turned to, the
- * one that struck it included, while it still holds it, else the nearest {@link fighterInReach} finds.
- * Null takes the structure up again, and the order stands throughout: a chase the fighter escapes lets
- * only the fighter go.
+ * The enemy a combatant ordered onto `structure` fights first: the one it already turned to while that
+ * still outranks the structure ({@link strikeRank}: a fighter, or a building shooting where the structure
+ * does not), the striker it turned on included, else the nearest fighter {@link fighterInReach} finds.
+ * Null takes the structure up again, and the order stands throughout: a chase the enemy escapes lets
+ * only that enemy go.
  */
 function fighterOverStructure(
   world: World,
@@ -580,11 +582,12 @@ function fighterOverStructure(
   structure: Entity,
 ): { target: Entity; dist: number } | null {
   const engaged = world.tryGet(self, Engagement)?.target;
+  const fires = (building: Entity): boolean => pass.index.firing.has(building);
   if (
     engaged !== undefined &&
     engaged !== structure &&
     world.isAlive(engaged) &&
-    isFighterTarget(world, ctx, engaged) &&
+    strikeRank(world, ctx, engaged, fires) < strikeRank(world, ctx, structure, fires) &&
     hold.keep(engaged)
   ) {
     return focusedOn(world, ctx, terrain, here, engaged);

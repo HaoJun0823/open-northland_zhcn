@@ -16,9 +16,18 @@ import {
   setDiplomacyStance,
 } from '../../../../../../components/index.js';
 import type { Entity, World } from '../../../../../../ecs/world.js';
+import { passIndexOf } from '../../../../../conflict/combat-index.js';
 import { frightenKin } from '../../../../../conflict/fright.js';
 import { combatTargetNode } from '../../../../../conflict/target-node.js';
-import { isFighterTarget, isStructureTarget, isValidTarget } from '../../../../../conflict/targeting.js';
+import {
+  firingBuildings,
+  isFighterTarget,
+  isStructureTarget,
+  isValidTarget,
+  STRIKE_RANK,
+  strikeRank,
+} from '../../../../../conflict/targeting.js';
+import { standsAtPost } from '../../../../../conflict/tower-post.js';
 import type { SystemContext } from '../../../../../context.js';
 import { herdLeaderOf } from '../../../../../movement/herd-leader.js';
 import {
@@ -96,9 +105,10 @@ export function provokeHostility(world: World, ctx: SystemContext, attacker: Ent
 /**
  * Turn a struck fighter on its attacker. Original behavior: a soldier or hero under ATTACK or DEFEND takes
  * the one who struck it for its target, unless the enemy it already holds stands no farther off in map
- * points. Owner rule: a fighter striking it always wins over a held target of another kind, however near,
- * and over an attack order on a structure, which it takes up again afterwards. Only an owned fighter holds
- * a target, and any other attack order outranks the reaction. Original
+ * points. Owner rule: a striker of a higher {@link STRIKE_RANK} than the held target wins however near,
+ * and so it does over an attack order on a structure, which the fighter takes up again afterwards; an
+ * archer shooting from a tower strikes as the tower, the only body of it a fighter can reach. Only an
+ * owned fighter holds a target, and any other attack order outranks the reaction. Original
  * behavior: a walking soldier ignores a blow only for its first ten steps, then turns. Deviation: a plain
  * move order is the player's and holds for its whole walk; attack-move turns.
  */
@@ -107,41 +117,56 @@ export function turnOnAttacker(world: World, ctx: SystemContext, attacker: Entit
   const settler = world.tryGet(victim, Settler);
   if (terrain === undefined || settler === undefined || !world.has(victim, Owner)) return;
   if (!isFighterJob(ctx.content, settler.jobType)) return;
-  if (!orderYieldsTo(world, ctx, victim, attacker)) return;
+  const striker = standsAtPost(world, attacker) ?? attacker;
+  const outranks = outranking(world, ctx, striker);
+  if (!orderYieldsTo(world, victim, outranks)) return;
   const order = world.tryGet(victim, PlayerOrder);
   if (order !== undefined && order.attackMove === undefined) return;
   const mode = stanceMode(world, ctx.content, victim, settler.jobType);
   if (mode !== MILITARY_MODE.ATTACK && mode !== MILITARY_MODE.DEFEND) return;
-  if (!world.has(attacker, Position) || !isValidTarget(world, ctx, victim, settler, attacker)) return;
+  if (!world.has(striker, Position) || !isValidTarget(world, ctx, victim, settler, striker)) return;
   const here = entityNode(world, terrain, victim);
   const reach = (t: Entity): number =>
     hexNodeDistance(terrain, here, combatTargetNode(world, ctx, terrain, here, t));
   const engagement = world.tryGet(victim, Engagement);
   const held = engagement?.target;
-  if (held === attacker) return;
+  if (held === striker) return;
   if (
     held !== undefined &&
     world.isAlive(held) &&
     world.has(held, Position) &&
-    (isFighterTarget(world, ctx, held) || !isFighterTarget(world, ctx, attacker)) &&
-    reach(held) <= reach(attacker)
+    !outranks(held) &&
+    reach(held) <= reach(striker)
   ) {
     return;
   }
-  if (engagement === undefined) world.add(victim, Engagement, { repathAt: ctx.tick, target: attacker });
-  else world.mut(victim, Engagement).target = attacker;
+  if (engagement === undefined) world.add(victim, Engagement, { repathAt: ctx.tick, target: striker });
+  else world.mut(victim, Engagement).target = striker;
 }
 
-/** Whether `victim`'s attack order, if any, lets it turn on `attacker`: only an order on a structure, and
- *  only to a fighter. */
-function orderYieldsTo(world: World, ctx: SystemContext, victim: Entity, attacker: Entity): boolean {
+/** Whether `victim`'s attack order, if any, lets it turn on the striker that `outranks` its target: only
+ *  an order on a structure. */
+function orderYieldsTo(world: World, victim: Entity, outranks: (t: Entity) => boolean): boolean {
   const order = world.tryGet(victim, AttackOrder);
   if (order === undefined) return true;
-  return (
-    order.breach === undefined &&
-    isStructureTarget(world, order.target) &&
-    isFighterTarget(world, ctx, attacker)
-  );
+  return order.breach === undefined && isStructureTarget(world, order.target) && outranks(order.target);
+}
+
+/**
+ * Whether `striker` holds a higher {@link STRIKE_RANK} than a target. The buildings firing this tick are
+ * read only for a striker that is one, the pass's own set when the blow lands after the pass: a melee blow
+ * lands before it, and every blow on a besieger would otherwise rebuild the set.
+ */
+function outranking(world: World, ctx: SystemContext, striker: Entity): (t: Entity) => boolean {
+  let firing: ReadonlySet<Entity> | undefined;
+  const fires = (building: Entity): boolean => {
+    firing ??= passIndexOf(world, ctx.tick)?.firing ?? firingBuildings(world, ctx);
+    return firing.has(building);
+  };
+  const rank = strikeRank(world, ctx, striker, fires);
+  if (rank === STRIKE_RANK.OTHER) return () => false;
+  if (rank === STRIKE_RANK.FIGHTER) return (t) => !isFighterTarget(world, ctx, t);
+  return (t) => strikeRank(world, ctx, t, fires) > rank;
 }
 
 /** How far (map points) a blow on an animal carries to the animals of its kind and side. Original behavior. */

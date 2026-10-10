@@ -1,6 +1,7 @@
 import { type ContentSet, parseContentSet, WeaponType } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
+  AttackOrder,
   addCurrentAtomic,
   addPerson,
   Building,
@@ -29,6 +30,7 @@ import { garrisonReach, TOWER_RANGE_BONUS_NODES } from '../../src/systems/confli
 import { plannerSystem } from '../../src/systems/index.js';
 import { razeBuilding } from '../../src/systems/lifecycle/cleanup.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
+import { resolveCombatHit } from '../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
 import { testContent } from '../fixtures/content.js';
 import { needsOf, setNeeds } from '../fixtures/settler.js';
 import { ctxOf, grassMap } from '../settlers/needs/support.js';
@@ -677,5 +679,45 @@ describe('the tower garrison - its needs', () => {
     run(sim, 600);
     expect(needsOf(sim, soldier).hunger).toBeLessThan(STARVING); // it ate
     expect(sim.world.tryGet(soldier, Garrison)?.post).toBe(tower); // and went back up
+  });
+});
+
+describe('the tower garrison - a besieger it shoots', () => {
+  const TOWER_X = 6;
+  const ROW = 3;
+  /** A house two cells past the tower, and its besieger a cell further, inside the garrison's reach. */
+  const HOUSE_X = TOWER_X + 2;
+  const BESIEGER_X = HOUSE_X + 1;
+
+  function siegeUnderTower(): {
+    sim: Simulation;
+    tower: Entity;
+    house: Entity;
+    besieger: Entity;
+    garrison: Entity;
+  } {
+    const sim = simWithTower();
+    const tower = towerAt(sim, TOWER_X, ROW);
+    const garrison = settlerAt(sim, SOLDIER_JOB, 2, ROW);
+    manTheTower(sim, garrison, tower);
+    const house = larderAt(sim, HOUSE_X, ROW);
+    sim.world.add(house, Health, { hitpoints: TOWER_HITPOINTS, max: TOWER_HITPOINTS });
+    const besieger = settlerAt(sim, SOLDIER_JOB, BESIEGER_X, ROW, ENEMY, TOUGH);
+    return { sim, tower, house, besieger, garrison };
+  }
+
+  it('turns from the house it holds on the tower whose garrison shoots it', () => {
+    const { sim, tower, house, besieger, garrison } = siegeUnderTower();
+    sim.world.add(besieger, Engagement, { repathAt: sim.tick, target: house });
+    resolveCombatHit(sim.world, ctxOf(sim), garrison, besieger, { damage: 1 }, [], 'projectile');
+    expect(sim.world.get(besieger, Engagement).target).toBe(tower);
+  });
+
+  it('batters the shooting tower under an attack order on the house, the order kept', () => {
+    const { sim, tower, house, besieger } = siegeUnderTower();
+    sim.enqueueSetup({ kind: 'attackUnit', entity: besieger, target: house });
+    run(sim, 200);
+    expect(sim.world.get(tower, Health).hitpoints).toBeLessThan(TOWER_HITPOINTS);
+    expect(sim.world.get(besieger, AttackOrder).target).toBe(house);
   });
 });

@@ -100,7 +100,6 @@ import {
 } from '../game-tool-panel.js';
 import { createSignpostMapOverlay } from '../map-overlays/signposts.js';
 import { floatParam, introParam, tintParam, weatherParam } from '../params.js';
-import { mountPerfOverlay } from '../perf-overlay.js';
 import { nodeBounds } from '../picking.js';
 import {
   createFogGates,
@@ -123,11 +122,7 @@ import { chestTooltipLines, createWorldHover } from '../world-hover.js';
 import { installDebugHandle } from './debug-handle.js';
 import { mountDebugOverlays } from './debug-mounts.js';
 import { startFrameLoop } from './frame-loop.js';
-import {
-  createLiveGameSettings,
-  debugPalettePositionForUiScale,
-  perfCornerForUiScale,
-} from './game-live-settings.js';
+import { createLiveGameSettings } from './game-live-settings.js';
 import { mountGamePresentation } from './game-presentation.js';
 import { createHostAnswers } from './host-answers.js';
 import { createMenuExit } from './menu-exit.js';
@@ -405,11 +400,6 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     // The HUD's click feedback, played straight from the input event rather than through the sim.
     const uiCue = (cue: UiCue): void => soundDriver?.cue(cue);
 
-    // Along the bottom edge between the minimap and the details panel, clear of the notes up top.
-    const perfCorner = perfCornerForUiScale(uiscale);
-    const perf = mountPerfOverlay(perfCorner.left, perfCorner.right, perfCorner.bottom);
-    cleanup.push(() => perf.dispose());
-
     // Long-lived consumers close over these predicates; the frame loop refreshes them via `setFrame`.
     const fogGates = createFogGates();
 
@@ -536,6 +526,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     // The DOM plane the redesigned HUD regions mount on; it scales with the Pixi parts.
     const hudDom = mountHudDomRoot(uiscale);
     cleanup.push(() => hudDom.dispose());
+    // The system bar's debug corner: the frame-rate counter and the debug tools' toggle stand here.
+    const barLead = document.createElement('div');
     const vehicleSiteTypes = new Set(
       host.content.buildings.filter((b) => b.kind === BUILDING_KIND.vehicle).map((b) => b.typeId),
     );
@@ -544,6 +536,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       app,
       canvas,
       plane: hudDom.element,
+      barLead,
       uiscale,
       camera: () => cameraCtl.camera(),
       enqueue: issueCommand,
@@ -715,7 +708,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         sharedClock,
       },
       initiallyShown: storedSettings.fpsCounter,
-      controller: () => toolPanel.controller,
+      lead: barLead,
     });
     cleanup.push(() => perfReadout.dispose());
 
@@ -982,9 +975,9 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       canvas,
       params,
       host,
-      perf,
+      plane: hudDom.element,
+      barLead,
       initialToolsEnabled: storedSettings.debugToolsEnabled,
-      palettePosition: debugPalettePositionForUiScale(uiscale),
       allowWorldEdits: !sharedClock,
       // The admin palette is a dev channel rather than part of the seat's HUD, so a read-only spectator
       // still pokes with it.
@@ -1000,6 +993,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       seatTribeOf,
       enterStandingWall: (owner, tribe) => toolPanel.controller.enterStandingWall(owner, tribe),
       ...(sharedClock ? {} : { clock: driver }),
+      paintGood: goodIcons,
     });
 
     cleanup.push(() => debugMounts.dispose());
@@ -1097,8 +1091,6 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       minimap: mountedMinimap,
       controls,
       hudDom,
-      perf,
-      placeDebugPalette: debugMounts.placePalette,
       sound: soundDriver,
       setDebugToolsEnabled: debugMounts.setToolsEnabled,
       setSelectionStyle: (style) => renderer.setSelectionStyle(style),
@@ -1223,9 +1215,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       canPlaceSignpostAt,
       soundDriver,
       presentation,
-      perf,
       perfReadout,
-      netReadout,
       ...(netOverlays === null ? {} : { clockHeld: () => netOverlays.clockHeld() }),
       // A relayed room's pace reaches the bar through the network panel's model instead.
       ...(sharedClock || netOverlays !== null

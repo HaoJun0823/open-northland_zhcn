@@ -31,7 +31,6 @@ import { placementPointer } from '../cursors/placement.js';
 import { createFellingPresenter } from '../felling-presenter.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';
 import type { SignpostMapOverlay } from '../map-overlays/signposts.js';
-import type { PerfOverlayHandle } from '../perf-overlay.js';
 import type {
   LitAnswers,
   makeDockOverlaySource,
@@ -54,7 +53,6 @@ import { lostGoalPulse } from '../unit-controls/lost-goals.js';
 import type { WorldHover } from '../world-hover.js';
 import { presentCombatEffects, type TickEffects } from './combat-effects.js';
 import type { GameViewDeps } from './game-view.js';
-import type { NetReadout } from './net-readout.js';
 import type { PerfReadout } from './perf-readout.js';
 import { placementCursor } from './placement-cursor.js';
 import { type RafLoop, startRafLoop } from './raf-loop.js';
@@ -110,10 +108,7 @@ export interface FrameLoopDeps {
   readonly soundDriver: ReturnType<typeof createSoundDriver> | null;
   /** The map script's display: its camera jitter for the frame, and its overlays after the draw. */
   readonly presentation: Pick<ScriptPresentation, 'jitter' | 'frame' | 'followCamera'> | null;
-  readonly perf: PerfOverlayHandle;
   readonly perfReadout: PerfReadout;
-  /** A relayed session's connection figures for the overlay; null in a local session. */
-  readonly netReadout: () => NetReadout | null;
   /** True while a relay holds the clock for a member, which washes the world as a pause does; omitted
    *  outside a relayed game. */
   readonly clockHeld?: () => boolean;
@@ -164,9 +159,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     canPlaceSignpostAt,
     soundDriver,
     presentation,
-    perf,
     perfReadout,
-    netReadout,
     pointer: pointerAt,
     syncViewport,
   } = loop;
@@ -200,7 +193,6 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
   const buildingOverlay = ({ typeId, tribe, paper }: BuildingPick) =>
     overlayFrame(typeId, tribe, cameraCtl.camera(), app.screen.width, app.screen.height, paper ?? undefined);
   const signpostOverlay = () => signpostOverlayFrame(cameraCtl.camera(), app.screen.width, app.screen.height);
-  const frameReport = () => frameStats.report();
   const visiblePlots = createVisiblePlots(() => host.constructionPlots(), fogGates.seesNode);
   const presentFellings =
     deps.fellingClips === undefined
@@ -446,7 +438,6 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       ...renderer.stats(),
     };
     frameStats.record(sample);
-    perf.update(frameReport, netReadout);
     const shortfallSpeed = frameStats.sustainedShortfallSpeed();
     perfReadout.record(sample, shortfallSpeed);
     loop.onSpeedShortfall?.(shortfallSpeed, driver.speed);

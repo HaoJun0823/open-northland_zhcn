@@ -6,7 +6,6 @@ import { currentDiagGameSession, setDiagGameSession } from '../src/diag/session.
 import * as hudDom from '../src/hud/dom/root.js';
 import { inlineSessionHost } from '../src/session/index.js';
 import * as toolPanel from '../src/view/game-tool-panel.js';
-import * as perfOverlay from '../src/view/perf-overlay.js';
 import * as presentation from '../src/view/runtime/game-presentation.js';
 import { type GameViewDeps, startGameView } from '../src/view/runtime/game-view.js';
 import * as tooltips from '../src/view/tooltip.js';
@@ -21,6 +20,8 @@ it.each([false, true])(
   'releases a failed mount before another attempt (cleanup throws: %s)',
   async (cleanupThrows) => {
     vi.stubGlobal('window', { location: { search: '' }, screen: { height: 1080 } });
+    // The bar's debug corner is a detached node until the tool panel mounts it.
+    vi.stubGlobal('document', { createElement: () => ({}) });
     const live = new Set<string>();
     const acquire = (name: string) => {
       expect(live.has(name)).toBe(false);
@@ -34,12 +35,6 @@ it.each([false, true])(
         return { close: acquire('sound') } as unknown as SoundDriver;
       },
     );
-    vi.spyOn(perfOverlay, 'mountPerfOverlay').mockImplementation(() => ({
-      dispose: acquire('perf'),
-      update() {},
-      place() {},
-      setVisible() {},
-    }));
     vi.spyOn(tooltips, 'createTooltip').mockImplementation(() => {
       const release = acquire('tooltip');
       return { show() {}, hide() {}, destroy: release };

@@ -279,13 +279,16 @@ it exits 0 when the retained inputs agree, 1 when it names a difference, and 2 w
 a bundle without a verdict or without inputs, verdicts for different ticks, unreadable JSON or a
 missing build.
 
-The on-canvas stats readout and the Admin / Debug palette are off by default: the "Debug tools"
-toggle on the settings screen's Gameplay tab shows both, persists with the other settings, and applies
-live inside a running game. A relayed session shows only the readout, since the palette's pokes are
-trusted world edits with no wire.
+The debug tools are off by default: the "Debug tools" toggle on the settings screen's Gameplay tab
+puts a wrench button on the top bar, persists with the other settings, and applies live inside a
+running game. The button drops a panel with three tabs: **Spawn** (units, monsters, wildlife,
+vehicles, deposits, goods and a standing stockade, for a chosen owner, health and armor), **Act**
+(click-a-target orders) and **World** (needs, visibility, test speeds, the building grid, unlimited
+zoom out). A relayed session has no tools, since their pokes are trusted world edits with no wire.
+The frame-rate counter is the separate "FPS counter" graphics setting.
 
-In the palette's **Actions** section, enter **Target HP (%)**, arm **Set HP**, then click a building or
-unit of any owner. The range is 1–100%, initially 1%; 100% restores its available pool. Tiny pools retain
+On the **Act** tab, enter the share beside **Set health**, arm it, then click a building, settler or
+vehicle of any owner. The range is 1–100%, initially 1%; 100% restores its available pool. Tiny pools retain
 at least one hitpoint. Construction uses its currently built pool, while upgrades use the standing
 building's pool. Like the other admin orders, the change applies on the next simulation tick; ordinary
 regeneration and repair still run.
@@ -558,7 +561,7 @@ everyone is. The creator's lobby card links the next player in a new tab, its ro
 filled in. A `nick=` in the URL gets its own reconnect token for that relay, so tabs of one browser
 play as different people and a reload rejoins the same seat; without one, the tab uses the menu's
 identity. Enter opens the
-chat line. The perf overlay's third line and `perf().net` carry the round trip, the assigned input
+chat line. `perf().net` carries the round trip, the assigned input
 delay, the click-to-apply time and the jitter buffer's depth. The runtime has no write access to the
 world, so a forced divergence for a resync check runs in the headless multi-client harness under
 `packages/net-server/test/support/`, not from a browser console.

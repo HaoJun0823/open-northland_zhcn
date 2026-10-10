@@ -5,13 +5,12 @@ import type { Application } from 'pixi.js';
 import { ANIMAL_PALETTE_BY_TRIBE } from '../../catalog/animal-roster.js';
 import { hasDebugFlag, setDebugFlag } from '../../diag/index.js';
 import { vehicleLabel } from '../../game/technology.js';
+import type { GoodIconPainter } from '../../hud/dom/good-art.js';
 import type { SessionHost } from '../../session/index.js';
-import type { AdminPalettePosition } from '../admin-debug/chrome.js';
 import { createAdminEntityPicker } from '../admin-debug/entity-picker.js';
 import { type AdminDebugHandle, mountAdminDebug } from '../admin-debug/index.js';
 import type { CameraController } from '../camera/index.js';
 import { replaceEntryUrl } from '../navigation-guard.js';
-import type { PerfOverlayHandle } from '../perf-overlay.js';
 import {
   createGeometryDebugOverlay,
   type GeometryBuildingInfoOf,
@@ -28,9 +27,11 @@ export interface DebugMountsOptions {
   readonly host: SessionHost;
   readonly renderer: WorldRenderer;
   readonly cameraCtl: CameraController;
-  readonly perf: PerfOverlayHandle;
+  /** The DOM HUD plane the tools' panel drops onto. */
+  readonly plane: HTMLElement;
+  /** The system bar's lead, where the tools' toggle stands. */
+  readonly barLead: HTMLElement;
   readonly initialToolsEnabled: boolean;
-  readonly palettePosition: AdminPalettePosition;
   readonly elevation?: ElevationField;
   readonly geometryOf: GeometryBuildingInfoOf;
   readonly clientToScreen: (clientX: number, clientY: number) => { x: number; y: number };
@@ -46,19 +47,18 @@ export interface DebugMountsOptions {
   readonly seatTribeOf: (player: number) => number;
   /** Hand the HUD's wall line tool a standing-wall line for `owner`; false when it cannot take one. */
   readonly enterStandingWall?: (owner: number, tribe: number) => boolean;
-  /** The session's own clock for the palette's debug tempos; absent under a shared clock. */
+  /** The session's own clock for the debug tempos; absent under a shared clock. */
   readonly clock?: Pick<SessionClock, 'speed' | 'setSpeed'>;
+  readonly paintGood?: GoodIconPainter;
 }
 
 export interface DebugMounts {
   readonly geometryDebug: GeometryDebugOverlay;
-  /** Shows or hides the stats readout, the admin palette and its geometry grid together, as the one
-   *  settings toggle. */
+  /** Shows or hides the debug tools and the aids they switch on, as the one settings toggle. */
   setToolsEnabled(enabled: boolean): void;
-  /** Hide the readout and the palette with the rest of the HUD, leaving the tools switched on. */
+  /** Hide the tools with the rest of the HUD, leaving them switched on. */
   setHudHidden(hidden: boolean): void;
-  placePalette(position: AdminPalettePosition): void;
-  /** Tear the palette's listeners and DOM down with the world that mounted it. */
+  /** Tear the tools' listeners and DOM down with the world that mounted them. */
   dispose(): void;
 }
 
@@ -90,22 +90,23 @@ export function mountDebugOverlays(opts: DebugMountsOptions): DebugMounts {
   let admin: AdminDebugHandle | null = null;
   let toolsEnabled = false;
   let hudHidden = false;
-  let palettePosition = opts.palettePosition;
   const setToolsEnabled = (enabled: boolean): void => {
     toolsEnabled = enabled;
-    opts.perf.setVisible(enabled && !hudHidden);
     if (!enabled) {
       admin?.setVisible(false);
-      // The grid's only switch is on the palette, so it must not outlive it.
+      // The grid's only switch is on the panel, so it must not outlive it.
       if (admin !== null && geometryDebug.enabled()) setGeometryEnabled(false);
       if (zoomOutUnlocked) setZoomOutUnlocked(false);
       return;
     }
     if (opts.allowWorldEdits === false) return;
-    admin ??= mountAdminPalette(opts, geometryDebug, setGeometryEnabled, palettePosition, {
-      unlocked: () => zoomOutUnlocked,
-      setUnlocked: setZoomOutUnlocked,
-    });
+    if (admin === null) {
+      admin = mountAdminPanel(opts, geometryDebug, setGeometryEnabled, {
+        unlocked: () => zoomOutUnlocked,
+        setUnlocked: setZoomOutUnlocked,
+      });
+      opts.barLead.append(admin.toggle);
+    }
     admin.setVisible(!hudHidden);
   };
   setToolsEnabled(opts.initialToolsEnabled);
@@ -115,12 +116,7 @@ export function mountDebugOverlays(opts: DebugMountsOptions): DebugMounts {
     setToolsEnabled,
     setHudHidden: (hidden) => {
       hudHidden = hidden;
-      opts.perf.setVisible(toolsEnabled && !hidden);
       admin?.setVisible(toolsEnabled && !hidden);
-    },
-    placePalette: (position) => {
-      palettePosition = position;
-      admin?.place(position);
     },
     dispose: () => {
       admin?.dispose();
@@ -129,16 +125,16 @@ export function mountDebugOverlays(opts: DebugMountsOptions): DebugMounts {
   };
 }
 
-function mountAdminPalette(
+function mountAdminPanel(
   opts: DebugMountsOptions,
   geometryDebug: GeometryDebugOverlay,
   setGeometryEnabled: (enabled: boolean) => void,
-  position: AdminPalettePosition,
   zoomOut: { readonly unlocked: () => boolean; readonly setUnlocked: (unlocked: boolean) => void },
 ): AdminDebugHandle {
   const { app, canvas, host, renderer } = opts;
   return mountAdminDebug({
     canvas,
+    plane: opts.plane,
     enqueue: opts.enqueue,
     clientToTile: (x, y) => opts.clientToTile(x, y),
     // A viewport-bounded pass over every owner, rebuilt per click rather than cached like the
@@ -182,6 +178,6 @@ function mountAdminPalette(
     setGeometryEnabled,
     zoomOutUnlocked: zoomOut.unlocked,
     setZoomOutUnlocked: zoomOut.setUnlocked,
-    position,
+    ...(opts.paintGood !== undefined ? { paintGood: opts.paintGood } : {}),
   });
 }

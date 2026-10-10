@@ -351,11 +351,9 @@ describe('createGameSettingsRuntime', () => {
         if (scale !== initialScale) throw new Error('mount failed');
       }),
     };
-    const perf = vi.fn();
     const hud = createGameHudScaleCoordinator({
       initialScale,
       targets: [target],
-      placeDebugOverlays: perf,
       onError: vi.fn(),
     });
     const viewport = createGameViewportCoordinator({
@@ -377,7 +375,6 @@ describe('createGameSettingsRuntime', () => {
     expect(viewport.uiScaleFactor()).toBe(1);
     expect(hud.currentScale()).toBe(initialScale);
     expect(h.persist).not.toHaveBeenCalled();
-    expect(perf).toHaveBeenLastCalledWith(initialScale);
   });
 
   it('reports the effective and candidate UI scales supplied by the viewport owner', () => {

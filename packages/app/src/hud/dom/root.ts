@@ -2,7 +2,7 @@ import { uiFoundationArt } from '../../content/ui-foundation.js';
 import './foundation.css';
 import { HUD_SYMBOLS } from './symbols.js';
 
-/** Below the DOM diagnostics overlays (perf 50, admin 150/160) and the system menu (2000). */
+/** Below the system menu (2000). */
 export const HUD_DOM_Z = 40;
 
 export interface HudPlane {

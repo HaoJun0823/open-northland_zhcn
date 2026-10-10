@@ -1,47 +1,17 @@
 import type { SoundDriver } from '@open-northland/audio';
 import type { WorldEnhancements } from '@open-northland/render';
 import { diag } from '../../diag/index.js';
-import { panelSpanFromRight } from '../../hud/details-panel/layout/shared.js';
 import type { MinimapHandle } from '../../hud/minimap/index.js';
-import { minimapPanelWidth } from '../../hud/minimap/model.js';
-import { NAV_BEAM_H } from '../../hud/nav-beam.js';
-import { GOAL_SLIP, TOP_BAR_HEIGHT } from '../../hud/regions.js';
 import { displayViewOf, uiScaleFor } from '../../hud/ui-scale.js';
 import { defaultLocale, localeParam } from '../../i18n/index.js';
-import type { AdminPalettePosition } from '../admin-debug/chrome.js';
 import type { CameraController } from '../camera/index.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';
 import { replaceEntryUrl } from '../navigation-guard.js';
-import type { PerfOverlayHandle } from '../perf-overlay.js';
 import { type MenuSettings, patchStoredSettings } from '../settings-store.js';
 import type { UnitControls } from '../unit-controls/index.js';
 import { createGameHudScaleCoordinator, type HudScaleTarget } from './game-hud-scale.js';
 import { createGameSettingsRuntime, type GameSettingsRuntime, gameSoundEnabled } from './game-settings.js';
 import { createGameViewportCoordinator } from './game-viewport.js';
-
-const DEBUG_HUD_GAP = 8;
-
-/** The debug readout's span along the bottom edge: from just right of the minimap window to just left of
- *  where the details panel stands, above the navigation beam. */
-export function perfCornerForUiScale(scale: number): {
-  readonly left: number;
-  readonly right: number;
-  readonly bottom: number;
-} {
-  return {
-    left: minimapPanelWidth(scale, 'xl') + DEBUG_HUD_GAP,
-    right: panelSpanFromRight(scale) + DEBUG_HUD_GAP,
-    bottom: NAV_BEAM_H * scale + DEBUG_HUD_GAP,
-  };
-}
-
-/** Place the admin chip and panel to the left of the expanded goal slip. */
-export function debugPalettePositionForUiScale(scale: number): AdminPalettePosition {
-  return {
-    top: TOP_BAR_HEIGHT * scale + DEBUG_HUD_GAP,
-    right: (GOAL_SLIP.width + GOAL_SLIP.right) * scale + DEBUG_HUD_GAP,
-  };
-}
 
 export interface LiveGameSettingsDeps {
   readonly screen: { readonly width: number; readonly height: number };
@@ -55,8 +25,6 @@ export interface LiveGameSettingsDeps {
   readonly controls: UnitControls;
   /** The DOM HUD plane, scaled with the Pixi parts. */
   readonly hudDom: HudScaleTarget;
-  readonly perf: PerfOverlayHandle;
-  readonly placeDebugPalette: (position: AdminPalettePosition) => void;
   readonly sound: SoundDriver | null;
   readonly setDebugToolsEnabled: (enabled: boolean) => void;
   readonly setSelectionStyle: (style: MenuSettings['selectionStyle']) => void;
@@ -86,11 +54,6 @@ export function createLiveGameSettings(deps: LiveGameSettingsDeps): LiveGameSett
   const hudScale = createGameHudScaleCoordinator({
     initialScale: initialUiScale,
     targets: [deps.toolPanel, deps.minimap, deps.controls, deps.hudDom],
-    placeDebugOverlays: (scale) => {
-      const corner = perfCornerForUiScale(scale);
-      deps.perf.place(corner.left, corner.right, corner.bottom);
-      deps.placeDebugPalette(debugPalettePositionForUiScale(scale));
-    },
     onError: (error) => diag.warn('ui', `HUD scale rebuild failed: ${String(error)}`),
   });
   const viewport = createGameViewportCoordinator({

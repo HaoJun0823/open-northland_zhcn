@@ -1,63 +1,48 @@
 import type { SessionClock } from '@open-northland/lockstep';
-import { type Command, type Entity, type FogMode, systems } from '@open-northland/sim';
+import {
+  type Command,
+  type Entity,
+  FOG_MODE,
+  type FogMode,
+  type FogSettings,
+  fogModeOf,
+  fogSettings,
+  systems,
+} from '@open-northland/sim';
 import { HUMAN_PLAYER } from '../../game/rules.js';
 import { resourceCommand } from '../../game/sandbox/place/index.js';
+import { type AdminPanel, createAdminPanel } from '../../hud/dom/admin-panel/index.js';
+import type { AdminWorldState, FogMapKey } from '../../hud/dom/admin-panel/model.js';
+import type { GoodIconPainter } from '../../hud/dom/good-art.js';
 import { formatMessage, messages } from '../../i18n/index.js';
-import { BUTTON_STYLE, el } from '../overlay.js';
-import { DEBUG_ACTIONS, type DebugAction, type DebugTargetKind } from './actions-catalog.js';
-import {
-  ADMIN_PANEL_STYLE,
-  type AdminPalettePosition,
-  BODY_STYLE,
-  collapsibleSection,
-  FOOTER_STYLE,
-  filterInput,
-  HEADER_STYLE,
-  type LabelledButton,
-  numberField,
-  PANEL_BELOW_CHIP_PX,
-  ROW_STYLE,
-  rowOf,
-  SECTION_TITLE_STYLE,
-  selectField,
-  setButtonActive,
-  TOGGLE_STYLE,
-} from './chrome.js';
+import type { DebugAction, DebugTargetKind } from './actions-catalog.js';
 import { createHoldRepeat } from './hold-repeat.js';
-import { type Armed, createAdminLabels, sameArmed } from './labels.js';
-import {
-  createFogSwitcher,
-  createGeometryToggle,
-  createNeedsToggle,
-  createSpeedRow,
-  createZoomOutToggle,
-} from './live-toggles.js';
+import { createAdminLabels } from './labels.js';
 import {
   type AnimalEntry,
   ARMOR_CLASSES,
   animalSpawnCommand,
-  CIVILIAN_PRESETS,
-  CREATURE_PRESETS,
   creatureSpawnCommand,
   type GoodEntry,
   goodDropCommand,
   PLAYER_SWATCHES,
-  RESOURCE_ENTRIES,
   unitSpawnCommand,
   type VehicleEntry,
   vehicleSpawnCommand,
-  WARRIOR_PRESETS,
 } from './spawn-catalog.js';
+import { type Armed, armedKey, createAdminToolCatalogue } from './tools.js';
 
 /**
- * The admin and debug spawn palette: arm a tool, then click the map to drop a test entity or run an
- * entity action on what is already there. Every poke goes through the sim command seam, so it stays as
+ * The debug tools: arm a tool in the panel, then click the map to drop a test entity or run an entity
+ * action on what is already there. Every poke goes through the sim command seam, so it stays as
  * replay-faithful as a player order. The session owns its listeners and DOM lifetime: a world torn
  * down in place disposes it before the next one mounts its own.
  */
 
 export interface AdminDebugDeps {
   readonly canvas: HTMLCanvasElement;
+  /** The DOM HUD plane the panel drops onto. */
+  readonly plane: HTMLElement;
   readonly enqueue: (command: Command) => void;
   /** Map a client point to a map tile, null off the map. */
   readonly clientToTile: (clientX: number, clientY: number) => { col: number; row: number } | null;
@@ -72,18 +57,18 @@ export interface AdminDebugDeps {
    *  that slot's buildings. */
   readonly seatTribeOf: (player: number) => number;
   /** Hand the HUD's wall line tool a line of finished walls for an owner; false when it cannot take one.
-   *  Absent hides the structures section. */
+   *  Absent hides the structures group. */
   readonly enterStandingWall?: (owner: number, tribe: number) => boolean;
   /** Every good the running content defines, each droppable as a loose pile. Live-sourced, so no entry
    *  can trip the sim's `dropGood` content guard. */
   readonly goods: readonly GoodEntry[];
-  /** Wildlife entries, each spawnable as its data-pinned herd. Empty or absent hides the section. */
+  /** Wildlife entries, each spawnable as its data-pinned herd. Empty or absent hides the group. */
   readonly animals?: readonly AnimalEntry[];
-  /** The running content's vehicle types. Empty or absent hides the section. */
+  /** The running content's vehicle types. Empty or absent hides the group. */
   readonly vehicles?: readonly VehicleEntry[];
-  /** The sim's live needs-rule state, drawn on the toggle button. */
+  /** The sim's live needs rule. */
   readonly needsEnabled?: () => boolean;
-  /** The sim's live fog mode. Absent hides the visibility section. */
+  /** The sim's live fog mode. Absent hides the visibility settings. */
   readonly fogMode?: () => FogMode;
   readonly geometryEnabled: () => boolean;
   readonly setGeometryEnabled: (enabled: boolean) => void;
@@ -91,48 +76,57 @@ export interface AdminDebugDeps {
   readonly setZoomOutUnlocked: (unlocked: boolean) => void;
   /** The session's own clock, for the debug tempos. Absent (a shared clock) hides the row. */
   readonly clock?: Pick<SessionClock, 'speed' | 'setSpeed'>;
-  readonly position: AdminPalettePosition;
+  readonly paintGood?: GoodIconPainter;
 }
 
 export interface AdminDebugHandle {
+  /** The panel's toggle, which the owner stands in the system bar. */
+  readonly toggle: HTMLElement;
   setVisible(visible: boolean): void;
-  /** Move the chip and the panel beneath it together. */
-  place(position: AdminPalettePosition): void;
   dispose(): void;
 }
 
-/** How long the copy button reads "copied" before it turns back. */
-const COPIED_FLASH_MS = 1500;
-
 /** The pool an untouched spawn gets, so the field shows it. */
 const DEFAULT_HITPOINTS = systems.HUMAN_HITPOINTS;
+/** The action tools' health share until the field is edited. */
+const DEFAULT_HEALTH_PERCENT = 1;
+const UNARMORED = 0;
+/** The debug tempos beyond the HUD's ×1..×3, for watching a map script's slow chains. */
+const DEBUG_GAME_SPEEDS: readonly number[] = [5, 10, 15, 20];
 
-/** Mount the admin/debug spawn palette with its toggle chip showing and the panel closed. */
+const FOG_MAP_SETTINGS: Readonly<Record<Exclude<FogMapKey, 'off'>, boolean>> = {
+  classic: false,
+  recon: true,
+};
+
+function fogMapOf(settings: FogSettings | null): FogMapKey {
+  if (settings === null) return 'off';
+  return settings.terrainKnown ? 'recon' : 'classic';
+}
+
+/** Mount the debug tools with the panel closed; the owner places `toggle`. */
 export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
   const { canvas } = deps;
   const msgs = messages();
   const copy = msgs.admin;
-  const labels = createAdminLabels(msgs, deps.goodLabel, deps.goods);
+  const labels = createAdminLabels(msgs, deps.goodLabel);
+  const catalogue = createAdminToolCatalogue(msgs, labels, {
+    goods: deps.goods,
+    animals: deps.animals ?? [],
+    vehicles: deps.vehicles ?? [],
+    standingWall: deps.enterStandingWall !== undefined,
+  });
   // The goods table in the weapon-lookup seam shape (`GoodEntry` names the typeId `good`).
   const spawnGoods = deps.goods.map((g) => ({ typeId: g.good, id: g.id }));
 
   let armed: Armed | null = null;
   let player = HUMAN_PLAYER;
   let hitpoints = DEFAULT_HITPOINTS;
-  let healthPercent = 1;
-  let armorClass = 0; // 0 = unarmored
-
-  const armedButtons: { readonly button: HTMLButtonElement; readonly armed: Armed }[] = [];
-  const swatchButtons: { readonly button: HTMLButtonElement; readonly player: number }[] = [];
-  const status = el('div', FOOTER_STYLE);
-
-  const refresh = (): void => {
-    for (const { button, armed: a } of armedButtons) setButtonActive(button, sameArmed(a, armed));
-    for (const { button, player: p } of swatchButtons)
-      button.style.outline = p === player ? '2px solid #e8dcc8' : '1px solid #000';
-    status.textContent = labels.status(armed, player);
-    canvas.style.cursor = armed === null ? '' : 'var(--cursor-crosshair, crosshair)';
-  };
+  let healthPercent = DEFAULT_HEALTH_PERCENT;
+  let armorClass = UNARMORED;
+  // The rules as last requested: a command applies next tick, so the sim's read lags a click.
+  let needs = deps.needsEnabled?.() ?? true;
+  let fog: FogSettings | null = fogSettings(deps.fogMode?.() ?? FOG_MODE.OFF);
 
   // A held spawn press keeps dropping at the pointer, following it, until the button comes up.
   const hold = createHoldRepeat();
@@ -142,246 +136,103 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
     heldAt = null;
   };
 
+  const worldState = (): AdminWorldState => ({
+    needs,
+    fog: deps.fogMode === undefined ? null : { map: fogMapOf(fog), fogOfWar: fog?.fogOfWar === true },
+    geometry: deps.geometryEnabled(),
+    zoomOut: deps.zoomOutUnlocked(),
+    speed: deps.clock?.speed ?? null,
+  });
+  const requestFog = (next: FogSettings | null): void => {
+    fog = next;
+    deps.enqueue({ kind: 'setFogMode', mode: next === null ? FOG_MODE.OFF : fogModeOf(next) });
+    panel.showWorld(worldState());
+  };
+
   const setArmed = (next: Armed | null): void => {
     stopHold();
     armed = next;
-    refresh();
+    panel.showArmed(next === null ? null : catalogue.describe(next, player));
+    canvas.style.cursor = next === null ? '' : 'var(--cursor-crosshair, crosshair)';
   };
 
-  const needs = createNeedsToggle({ enqueue: deps.enqueue, needsEnabled: deps.needsEnabled });
-  const fog = createFogSwitcher({ enqueue: deps.enqueue, fogMode: deps.fogMode });
-  const geometry = createGeometryToggle({
-    enabled: deps.geometryEnabled,
-    setEnabled: deps.setGeometryEnabled,
-  });
-  const zoomOut = createZoomOutToggle({
-    unlocked: deps.zoomOutUnlocked,
-    setUnlocked: deps.setZoomOutUnlocked,
-  });
-  const clock = deps.clock;
-  const speed =
-    clock === undefined
-      ? null
-      : createSpeedRow({ speed: () => clock.speed, setSpeed: (multiplier) => clock.setSpeed(multiplier) });
-
-  const panel = el('div', ADMIN_PANEL_STYLE);
-  panel.style.display = 'none';
-
-  const toggle = el('button', TOGGLE_STYLE, copy.toggle);
-  let open = false;
-  const setOpen = (next: boolean): void => {
-    open = next;
-    panel.style.display = open ? 'flex' : 'none';
-    if (!open) setArmed(null); // hiding the panel disarms, so no stray crosshair click survives it
-    if (open) {
-      needs.refresh(); // the boot value may predate a scene's own toggle
-      fog.refresh();
-      geometry.refresh();
-      zoomOut.refresh();
-      speed?.refresh(); // the HUD's own buttons may have moved the tempo since
-    }
-  };
-  toggle.addEventListener('click', () => setOpen(!open));
-
-  const header = el('div', HEADER_STYLE);
-  header.append(el('div', 'font-weight:700;font-size:13px;margin-bottom:2px', copy.title));
-  header.append(el('div', 'opacity:0.7;font-size:11px;margin-bottom:8px', copy.intro));
-
-  header.append(el('div', SECTION_TITLE_STYLE, copy.playerOwner));
-  const swatchRow = el('div', ROW_STYLE);
-  for (const s of PLAYER_SWATCHES) {
-    const b = el(
-      'button',
-      `width:26px;height:22px;border-radius:4px;cursor:var(--cursor-pointer, pointer);background:${s.css};border:1px solid #000`,
-    );
-    b.title = formatMessage(copy.playerTitle, { player: s.player, name: labels.player(s.player) });
-    b.addEventListener('click', () => {
-      player = s.player;
-      refresh();
-    });
-    swatchButtons.push({ button: b, player: s.player });
-    swatchRow.append(b);
-  }
-  header.append(swatchRow);
-
-  // Applied to every spawned unit; a vehicle or a resource ignores them.
-  const statsRow = el('div', 'display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap');
-  statsRow.append(
-    numberField('HP', DEFAULT_HITPOINTS, (v) => {
-      hitpoints = v;
-    }),
-  );
-  statsRow.append(
-    selectField(
-      copy.armor,
-      ARMOR_CLASSES.map((value, index) => ({ value, label: copy.armorClasses[index] ?? String(value) })),
-      0,
-      (v) => {
-        armorClass = v;
-      },
-    ),
-  );
-  header.append(statsRow);
-  header.append(needs.row);
-  if (deps.fogMode !== undefined) {
-    header.append(el('div', SECTION_TITLE_STYLE, copy.fog));
-    header.append(fog.row);
-  }
-  header.append(el('div', SECTION_TITLE_STYLE, copy.geometry));
-  header.append(geometry.row);
-  header.append(el('div', `${SECTION_TITLE_STYLE};margin-top:8px`, copy.camera));
-  header.append(zoomOut.row);
-  if (speed !== null) header.append(speed.row);
-  const cursorRow = el('div', 'display:flex;gap:8px;align-items:center;margin-top:6px');
-  const cursor = el(
-    'span',
-    'opacity:0.85;font-variant-numeric:tabular-nums;user-select:text',
-    copy.cursorOffMap,
-  );
-  const copyCursor = el('button', BUTTON_STYLE, copy.copyCursor);
-  copyCursor.addEventListener('click', () => {
-    const text = cursor.textContent ?? '';
-    // Absent off a secure origin, such as a preview opened by LAN address.
-    navigator.clipboard?.writeText(text).then(
-      () => {
-        copyCursor.textContent = copy.copiedCursor;
-        setTimeout(() => {
-          copyCursor.textContent = copy.copyCursor;
-        }, COPIED_FLASH_MS);
-      },
-      () => undefined, // no clipboard access: the text stays selectable
-    );
-  });
-  cursorRow.append(cursor, copyCursor);
-  header.append(cursorRow);
-  header.append(el('div', 'opacity:0.6;font-size:11px', copy.cursorHint));
-
-  const body = el('div', BODY_STYLE);
-
-  /** Append one collapsible section of arm/disarm buttons, with an optional name filter above the row. */
-  const addPaletteSection = (
-    title: string,
-    entries: readonly { readonly label: string; readonly armed: Armed }[],
-    startOpen: boolean,
-    filterHint?: string,
-    note?: string,
-  ): HTMLElement => {
-    const section = collapsibleSection(title, entries.length, startOpen);
-    const buttons = armEntries(entries);
-    if (note !== undefined) section.content.append(el('div', 'opacity:0.7;margin-bottom:6px', note));
-    if (filterHint !== undefined) section.content.append(filterInput(buttons, filterHint));
-    section.content.append(rowOf(buttons));
-    body.append(section.wrap);
-    return section.content;
-  };
-
-  // Open by default: the first section a spawn-a-fight session reaches for.
-  addPaletteSection(
-    copy.warriors,
-    WARRIOR_PRESETS.map((preset) => ({ label: labels.unit(preset), armed: { kind: 'unit', preset } })),
-    true,
-  );
-  addPaletteSection(
-    copy.civilians,
-    CIVILIAN_PRESETS.map((preset) => ({ label: labels.unit(preset), armed: { kind: 'unit', preset } })),
-    false,
-  );
-  addPaletteSection(
-    copy.creatures,
-    CREATURE_PRESETS.map((preset) => ({
-      label: labels.creature(preset),
-      armed: { kind: 'creature', preset },
-    })),
-    false,
-    undefined,
-    copy.creaturesHint,
-  );
-  const vehicles = deps.vehicles ?? [];
-  if (vehicles.length > 0) {
-    addPaletteSection(
-      copy.vehicles,
-      vehicles.map((entry) => ({ label: entry.label, armed: { kind: 'vehicle', entry } })),
-      false,
-    );
-  }
-  // A herd is unowned, so the player, HP and armor knobs do not apply to it.
-  const animals = deps.animals ?? [];
-  if (animals.length > 0) {
-    addPaletteSection(
-      copy.animals,
-      animals.map((entry) => ({ label: labels.animal(entry), armed: { kind: 'animal', entry } })),
-      false,
-      copy.filterAnimals,
-    );
-  }
-  addPaletteSection(
-    copy.resources,
-    RESOURCE_ENTRIES.map((r) => ({ label: labels.good(r), armed: { kind: 'resource', good: r.good } })),
-    false,
-  );
-  // Live-sourced, so the palette can never offer a good the sim would refuse to drop.
-  addPaletteSection(
-    copy.goods,
-    deps.goods.map((g) => ({ label: labels.good(g), armed: { kind: 'good', good: g.good } })),
-    false,
-    copy.filterGoods,
-  );
-  // The wall line tool keeps its preview and reach; only its commit turns into finished walls.
-  const enterStandingWall = deps.enterStandingWall;
-  if (enterStandingWall !== undefined) {
-    const section = collapsibleSection(copy.structures, 1, false);
-    const button = el('button', BUTTON_STYLE, copy.standingPalisade);
-    button.addEventListener('click', () => {
-      setArmed(null);
-      enterStandingWall(player, deps.seatTribeOf(player));
-    });
-    section.content.append(rowOf([{ button, label: copy.standingPalisade }]));
-    body.append(section.wrap);
-  }
-  // Click-a-target tools, inert without an entity picker.
-  const actions = addPaletteSection(
-    copy.actions,
-    [
-      ...DEBUG_ACTIONS.map(
-        (action) => ({ label: labels.action(action), armed: { kind: 'action', action } }) as const,
-      ),
-      { label: copy.teleport, armed: { kind: 'teleport', target: null } },
-    ],
-    false,
-  );
-  actions.prepend(
-    numberField(
-      copy.healthPercent,
+  const panel: AdminPanel = createAdminPanel(
+    deps.plane,
+    {
+      owners: PLAYER_SWATCHES.map((s) => ({ player: s.player, css: s.css, name: labels.player(s.player) })),
+      owner: player,
+      hitpoints,
+      armorClasses: ARMOR_CLASSES,
+      groups: catalogue.groups,
+      actions: catalogue.actions,
       healthPercent,
-      (value) => {
-        healthPercent = value;
+      hasFog: deps.fogMode !== undefined,
+      speeds: deps.clock === undefined ? [] : DEBUG_GAME_SPEEDS,
+      ...(deps.paintGood !== undefined ? { paintGood: deps.paintGood } : {}),
+    },
+    {
+      onOpen: (open) => {
+        // Closing disarms, so no stray crosshair click survives the panel.
+        if (!open) {
+          setArmed(null);
+          return;
+        }
+        // A scene's own boot toggle, or the HUD's speed buttons, may have moved these since.
+        needs = deps.needsEnabled?.() ?? needs;
+        if (deps.fogMode !== undefined) fog = fogSettings(deps.fogMode());
+        panel.showWorld(worldState());
       },
-      { min: 1, max: 100 },
-    ),
+      onTool: (key) => {
+        const choice = catalogue.choiceOf(key);
+        if (choice === undefined) return;
+        if (choice.kind === 'standingWall') {
+          setArmed(null);
+          deps.enterStandingWall?.(player, deps.seatTribeOf(player));
+          return;
+        }
+        setArmed(armed !== null && armedKey(armed) === key ? null : choice);
+      },
+      onDisarm: () => setArmed(null),
+      onOwner: (next) => {
+        player = next;
+        if (armed !== null) panel.showArmed(catalogue.describe(armed, player));
+      },
+      onHitpoints: (next) => {
+        hitpoints = next;
+      },
+      onArmor: (next) => {
+        armorClass = next;
+      },
+      onHealthPercent: (next) => {
+        healthPercent = next;
+      },
+      onNeeds: (enabled) => {
+        needs = enabled;
+        deps.enqueue({ kind: 'setNeedsEnabled', enabled });
+        panel.showWorld(worldState());
+      },
+      onFogMap: (map) => {
+        requestFog(
+          map === 'off' ? null : { terrainKnown: FOG_MAP_SETTINGS[map], fogOfWar: fog?.fogOfWar ?? false },
+        );
+      },
+      onFogOfWar: (enabled) => {
+        if (fog !== null) requestFog({ ...fog, fogOfWar: enabled });
+      },
+      onGeometry: (enabled) => {
+        deps.setGeometryEnabled(enabled);
+        panel.showWorld(worldState());
+      },
+      onZoomOut: (unlocked) => {
+        deps.setZoomOutUnlocked(unlocked);
+        panel.showWorld(worldState());
+      },
+      onSpeed: (multiplier) => {
+        deps.clock?.setSpeed(multiplier);
+        panel.showWorld(worldState());
+      },
+    },
   );
-
-  panel.append(header, body, status);
-  const place = ({ top, right }: AdminPalettePosition): void => {
-    toggle.style.top = `${top}px`;
-    toggle.style.right = `${right}px`;
-    panel.style.top = `${top + PANEL_BELOW_CHIP_PX}px`;
-    panel.style.right = `${right}px`;
-  };
-  place(deps.position);
-  document.body.append(toggle, panel);
-  refresh();
-
-  /** Build one arm/disarm button per entry, registered for the armed-highlight refresh. */
-  function armEntries(
-    entries: readonly { readonly label: string; readonly armed: Armed }[],
-  ): readonly LabelledButton[] {
-    return entries.map(({ label, armed: choice }) => {
-      const button = el('button', BUTTON_STYLE, label);
-      button.addEventListener('click', () => setArmed(sameArmed(choice, armed) ? null : choice));
-      armedButtons.push({ button, armed: choice });
-      return { button, label };
-    });
-  }
 
   const spawnAtTile = (col: number, row: number): void => {
     if (armed === null || armed.kind === 'action' || armed.kind === 'teleport') return;
@@ -495,31 +346,28 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
    *  readout, so the pointer can travel to the copy button without dragging it along. */
   const onPointerMove = (e: MouseEvent): void => {
     if (heldAt !== null) heldAt = { clientX: e.clientX, clientY: e.clientY, onCanvas: e.target === canvas };
-    if (!open || e.shiftKey || e.target !== canvas) return;
+    if (!panel.isOpen() || e.shiftKey || e.target !== canvas) return;
     const tile = deps.clientToTile(e.clientX, e.clientY);
-    const text =
+    panel.showCursor(
       tile === null
         ? copy.cursorOffMap
-        : formatMessage(copy.cursorNode, { x: tile.col, y: tile.row, cx: tile.col >> 1, cy: tile.row >> 1 });
-    if (cursor.textContent !== text) cursor.textContent = text;
+        : formatMessage(copy.cursorNode, { x: tile.col, y: tile.row, cx: tile.col >> 1, cy: tile.row >> 1 }),
+    );
   };
   window.addEventListener('mousemove', onPointerMove, { passive: true });
 
   return {
-    setVisible(visible): void {
-      toggle.style.display = visible ? '' : 'none';
-      if (!visible && open) setOpen(false);
-    },
-    place,
+    toggle: panel.toggle,
+    setVisible: (visible) => panel.setVisible(visible),
     dispose(): void {
       stopHold();
+      canvas.style.cursor = '';
       window.removeEventListener('mousedown', onPointerDown, { capture: true });
       window.removeEventListener('mouseup', onPointerUp, { capture: true });
       window.removeEventListener('blur', stopHold);
       window.removeEventListener('keydown', onKeyDown, { capture: true });
       window.removeEventListener('mousemove', onPointerMove);
-      toggle.remove();
-      panel.remove();
+      panel.dispose();
     },
   };
 }

@@ -1775,20 +1775,22 @@ body.on-drag-scroll * {
   translate: 0 -50%;
   pointer-events: none;
 }
-/* The frame-rate counter standing first in the bar; its breakdown opens like the counters'. */
+/* The debug corner standing first in the bar: the frame-rate counter, whose breakdown opens like the
+   counters', and the debug tools' toggle. */
 .on-hud .on-bar__lead {
   display: flex;
   align-items: center;
+  gap: 3px;
+  padding-right: 5px;
+  border-right: 1px solid var(--bronze-lo);
 }
-.on-hud .on-bar__lead[hidden] {
+.on-hud .on-bar__lead:empty {
   display: none;
 }
 .on-hud .on-perf {
   position: relative;
   display: flex;
   align-items: center;
-  padding-right: 5px;
-  border-right: 1px solid var(--bronze-lo);
 }
 .on-hud .on-perf__fps {
   display: flex;
@@ -1911,17 +1913,43 @@ body.on-drag-scroll * {
   stroke-dasharray: 3 3;
   vector-effect: non-scaling-stroke;
 }
-.on-hud .on-perf__foot {
-  margin: 0;
+.on-hud .on-perf__figures {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #8d754966;
+}
+.on-hud .on-perf__figure {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 3px 0;
   font-size: 12px;
   color: var(--ink-muted);
-  font-variant-numeric: tabular-nums;
 }
-.on-hud .on-perf__speed {
+.on-hud .on-perf__figure[hidden] {
+  display: none;
+}
+.on-hud .on-perf__figure span {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+}
+.on-hud .on-perf__figure span::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px dotted #8d7549aa;
+  transform: translateY(-3px);
+}
+.on-hud .on-perf__figure b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.on-hud .on-perf__figure[data-health="warn"] b {
   color: var(--paper-warn);
 }
-.on-hud .on-perf__speed[hidden] {
-  display: none;
+.on-hud .on-perf__figure[data-health="bad"] b {
+  color: var(--paper-error);
 }
 .on-hud .on-summary {
   display: flex;
@@ -8359,4 +8387,446 @@ body.on-drag-scroll * {
 
 .on-hud .on-picker[hidden] {
   display: none;
+}
+
+/* ---------- debug tools: the bar's toggle, the panel it drops at the right edge ---------- */
+.on-hud .on-admin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  min-height: 30px;
+  padding: 4px 4px 4px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--bronze-hi);
+}
+.on-hud .on-admin-toggle[hidden] {
+  display: none;
+}
+.on-hud .on-admin-toggle .on-glyph {
+  width: 19px;
+  height: 19px;
+}
+.on-hud .on-admin-toggle .on-glyph + .on-glyph {
+  width: 12px;
+  height: 12px;
+  color: var(--muted);
+  transition: rotate 0.12s;
+}
+.on-hud .on-admin-toggle:hover,
+.on-hud .on-admin-toggle:focus-visible,
+.on-hud .on-admin-toggle[aria-expanded="true"] {
+  background: #c9a26222;
+  box-shadow: inset 0 -2px var(--bronze);
+}
+.on-hud .on-admin-toggle[aria-expanded="true"] .on-glyph + .on-glyph {
+  rotate: 180deg;
+}
+/* A tool waits for a map click: the wrench lights so the armed state reads from the bar too. */
+.on-hud .on-admin-toggle[data-armed="true"] .on-glyph:first-child {
+  color: var(--active);
+  filter: drop-shadow(0 0 4px #e3b86899);
+}
+.on-hud .on-admin {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  width: 404px;
+  min-height: 0;
+}
+.on-hud .on-admin[hidden],
+.on-hud .on-admin [hidden] {
+  display: none;
+}
+/* Only the body scrolls; the head, the tabs and the footer keep their height in a short window. */
+.on-hud .on-admin > :not(.on-admin__body) {
+  flex-shrink: 0;
+}
+.on-hud .on-admin__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 8px 16px;
+  color: var(--bronze);
+}
+.on-hud .on-admin__title {
+  flex: 1;
+  margin: 0;
+  font: 700 15px / 1.2 var(--font-title);
+  letter-spacing: 0.04em;
+  color: var(--bronze-hi);
+  text-shadow: 0 1px 2px #000;
+}
+.on-hud .on-admin__close {
+  width: 28px;
+  height: 28px;
+}
+.on-hud .on-admin__close .on-glyph {
+  width: 15px;
+  height: 15px;
+}
+.on-hud .on-admin__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 14px;
+  border: 1px solid var(--bronze-lo);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #0f1512aa;
+  box-shadow: inset 0 1px 3px #000a;
+}
+.on-hud .on-admin__tab {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 0;
+  border-right: 1px solid #ffffff10;
+  background: transparent;
+  color: #b9b09a;
+  font: 700 12.5px / 1 var(--font-body);
+  letter-spacing: 0.03em;
+}
+.on-hud .on-admin__tab:last-child {
+  border-right: 0;
+}
+.on-hud .on-admin__tab:hover:not([aria-selected="true"]) {
+  background: #c9a26222;
+  color: var(--text-hi);
+}
+.on-hud .on-admin__tab[aria-selected="true"] {
+  background: linear-gradient(#c9a262, #9d7a3f);
+  color: #1b1d18;
+  box-shadow: inset 0 1px #fff6;
+}
+.on-hud .on-admin__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 14px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bronze-lo) transparent;
+}
+.on-hud .on-admin__pane > .on-section:first-child,
+.on-hud .on-admin__pane > div:first-child > .on-section:first-child {
+  margin-top: 2px;
+}
+.on-hud .on-admin__knobs {
+  display: grid;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid #c9a26233;
+  border-radius: 3px;
+  background: #0f151266;
+}
+.on-hud .on-admin__knob {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  transition: opacity 0.12s;
+}
+/* A setting the open group's spawns ignore (a herd has no owner) fades but stays editable. */
+.on-hud .on-admin__knob--idle {
+  opacity: 0.38;
+}
+.on-hud .on-admin__label {
+  flex-shrink: 0;
+  font: 700 10.5px var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bronze);
+}
+.on-hud .on-admin__knob-pair {
+  display: flex;
+  gap: 14px;
+}
+.on-hud .on-admin__knob-pair > .on-admin__knob:last-child {
+  flex: 1;
+}
+.on-hud .on-admin__swatches {
+  display: flex;
+  gap: 5px;
+}
+.on-hud .on-admin__swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid #000a;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #fff6, transparent 55%), var(--swatch);
+  box-shadow:
+    inset 0 -2px 3px #0006,
+    0 1px 2px #000a;
+}
+.on-hud .on-admin__swatch:hover {
+  transform: scale(1.12);
+}
+.on-hud .on-admin__swatch[aria-checked="true"] {
+  outline: 2px solid var(--bronze-hi);
+  outline-offset: 2px;
+}
+.on-hud .on-admin__owner-name {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+.on-hud .on-admin__number {
+  min-height: 28px;
+  padding: 0 6px;
+}
+.on-hud .on-admin__number input {
+  width: 58px;
+  font-variant-numeric: tabular-nums;
+}
+.on-hud .on-admin__number--percent {
+  flex-shrink: 0;
+}
+.on-hud .on-admin__number--percent input {
+  width: 38px;
+  text-align: right;
+}
+.on-hud .on-admin__segmented {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+.on-hud .on-admin__segmented > button {
+  min-height: 26px;
+  font-size: 12px;
+}
+.on-hud .on-admin__search {
+  margin-top: 10px;
+}
+.on-hud .on-admin__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 8px 0 6px;
+}
+.on-hud .on-admin__chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid var(--wood-lo);
+  border-radius: 12px;
+  background: #0f1512aa;
+  color: #cfc6ae;
+  font: 600 12px / 1.2 var(--font-body);
+}
+.on-hud .on-admin__chip small {
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+.on-hud .on-admin__chip:hover:not([aria-pressed="true"]) {
+  border-color: var(--bronze-lo);
+  color: var(--text-hi);
+}
+.on-hud .on-admin__chip[aria-pressed="true"] {
+  border-color: var(--bronze-lo);
+  background: linear-gradient(#c9a262, #9d7a3f);
+  color: #1b1d18;
+  box-shadow: inset 0 1px #fff6;
+}
+/* A search runs over every group, so no chip stands for what the list shows. */
+.on-hud .on-admin__pane--searching .on-admin__chips {
+  opacity: 0.5;
+}
+.on-hud .on-admin__note,
+.on-hud .on-admin__empty {
+  margin: 2px 0 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.on-hud .on-admin__group-title {
+  margin: 10px 0 5px;
+  font: 700 12px var(--font-body);
+  font-variant: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--bronze);
+}
+.on-hud .on-admin__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.on-hud .on-admin__tile {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--wood-lo);
+  border-radius: 3px;
+  background: linear-gradient(#22322c, #1b2823);
+  color: var(--text);
+  font: 500 13px / 1.15 var(--font-body);
+  text-align: left;
+  box-shadow: inset 0 1px #ffffff0d;
+}
+.on-hud .on-admin__tile:hover:not([aria-pressed="true"]) {
+  border-color: var(--bronze-lo);
+  background: linear-gradient(#2c4038, #22322c);
+  color: var(--text-hi);
+}
+.on-hud .on-admin__tile[aria-pressed="true"] {
+  border-color: var(--bronze);
+  background: linear-gradient(#e8c479, #b58a3f);
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: inset 0 1px #fff8;
+}
+.on-hud .on-admin__tile .on-good {
+  flex-shrink: 0;
+  margin: -3px 0;
+}
+.on-hud .on-admin__tile-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.on-hud .on-admin__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.on-hud .on-admin__action {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.on-hud .on-admin__tile--action {
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 10px;
+}
+.on-hud .on-admin__tile--action b {
+  font-weight: 600;
+}
+.on-hud .on-admin__tile--action small {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.on-hud .on-admin__tile--action[aria-pressed="true"] small {
+  color: var(--ink-muted);
+}
+.on-hud .on-admin__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid #c9a2621f;
+}
+.on-hud .on-admin__row-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.on-hud .on-admin__row-text b {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text-hi);
+}
+.on-hud .on-admin__row-text small {
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+.on-hud .on-admin__row .on-admin__segmented {
+  flex: 0 0 196px;
+}
+.on-hud .on-admin__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 14px 12px;
+  border-top: 1px solid #c9a26244;
+  background: #0f151259;
+}
+.on-hud .on-admin__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+.on-hud .on-admin__status::before {
+  content: "";
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6b6a5c;
+  box-shadow: inset 0 1px 1px #0008;
+}
+.on-hud .on-admin__status[data-armed="true"]::before {
+  background: var(--active);
+  box-shadow: 0 0 6px var(--active);
+}
+.on-hud .on-admin__status-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.on-hud .on-admin__status-text b {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--active);
+}
+.on-hud .on-admin__status[data-armed="false"] .on-admin__status-text b {
+  font-weight: 400;
+  color: var(--muted);
+}
+.on-hud .on-admin__status-text small {
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--muted);
+}
+.on-hud :is(.on-admin__disarm, .on-admin__copy) {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--bronze-lo);
+  border-radius: 3px;
+  background: #0f1512aa;
+  color: var(--text);
+  font: 600 12px / 1.3 var(--font-body);
+}
+.on-hud :is(.on-admin__disarm, .on-admin__copy):hover {
+  border-color: var(--bronze);
+  color: var(--text-hi);
+}
+.on-hud .on-admin__cursor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed #c9a26229;
+  font-size: 12px;
+}
+.on-hud .on-admin__cursor-text {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi);
+  user-select: text;
+}
+.on-hud .on-admin__cursor small {
+  flex: 1;
+  font-size: 11px;
+  color: var(--muted);
 }

@@ -31,6 +31,9 @@ export interface HudSystemBarDeps {
   readonly onPauseToggle: () => void;
   readonly onSpeed: (running: RunningGameSpeed) => void;
   readonly onMenu: () => void;
+  /** The caller's own node standing first in the bar's row (the frame rate, the debug tools); a rebuilt
+   *  bar takes it over, so what it holds survives a HUD rescale. Hidden while empty. */
+  readonly lead?: HTMLElement;
 }
 
 /** The top-right bar, one panel: the summary counters, the sim clock, the pause and running-speed
@@ -45,9 +48,6 @@ export interface HudSystemBar {
   /** Hang `node` just left of the bar, right-aligned to it on its vertical centre; null takes the hung
    *  node down. The bar owns the place, the caller the node. */
   setAside(node: HTMLElement | null): void;
-  /** Stand `node` first in the bar's row; null takes it down. The bar owns the place, the caller the
-   *  node. */
-  setLead(node: HTMLElement | null): void;
   dispose(): void;
 }
 
@@ -112,11 +112,10 @@ export function createHudSystemBar(plane: HTMLElement, deps: HudSystemBarDeps): 
   const aside = document.createElement('div');
   aside.className = 'on-bar__aside';
 
-  const lead = document.createElement('div');
-  lead.className = 'on-bar__lead';
-  lead.hidden = true;
-
-  bar.append(lead);
+  if (deps.lead !== undefined) {
+    deps.lead.classList.add('on-bar__lead');
+    bar.append(deps.lead);
+  }
   if (picker !== null) bar.append(picker.element);
   bar.append(summary.element, clock, speed, menu, aside);
   plane.append(bar);
@@ -162,11 +161,6 @@ export function createHudSystemBar(plane: HTMLElement, deps: HudSystemBarDeps): 
     setAside: (node) => {
       if (node === null) aside.replaceChildren();
       else if (aside.firstElementChild !== node) aside.replaceChildren(node);
-    },
-    setLead: (node) => {
-      lead.hidden = node === null;
-      if (node === null) lead.replaceChildren();
-      else if (lead.firstElementChild !== node) lead.replaceChildren(node);
     },
     dispose: () => {
       picker?.dispose();

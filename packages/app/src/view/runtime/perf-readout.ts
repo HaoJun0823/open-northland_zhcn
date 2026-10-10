@@ -3,7 +3,6 @@ import type { Application } from 'pixi.js';
 import type { FrameSample } from '../../diag/frame-stats.js';
 import { type PerfReadingContext, PerfReadingWindow } from '../../diag/perf-reading.js';
 import { createPerfReadoutView, type PerfReadoutView } from '../../hud/dom/perf-readout.js';
-import type { ToolPanelController } from '../../hud/tool-panel/index.js';
 
 /** The player's frame-rate counter on the top bar, fed once a frame by the frame loop. */
 export interface PerfReadout {
@@ -20,8 +19,8 @@ export interface PerfReadoutDeps {
   readonly app: Application;
   readonly context: PerfReadingContext;
   readonly initiallyShown: boolean;
-  /** The current tool panel controller; a HUD rescale replaces it and its bar. */
-  readonly controller: () => Pick<ToolPanelController, 'showInBar'>;
+  /** The system bar's lead node, which the counter stands in while shown. */
+  readonly lead: HTMLElement;
 }
 
 /** About two seconds of frames at 60 fps: enough to see a hitch, short enough to read at a glance. */
@@ -40,7 +39,6 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
   // Built on the first use, so a player who keeps the counter off pays nothing for it.
   let view: PerfReadoutView | null = null;
   let gpu: GpuFrameTimer | null | undefined;
-  let shownIn: Pick<ToolPanelController, 'showInBar'> | null = null;
   let gpuOpen = false;
   const takeGpu = (ms: number): void => readings.recordGpu(ms);
   const discardGpu = (): void => {};
@@ -48,11 +46,12 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
   const setShown = (next: boolean): void => {
     shown = next;
     if (!next) {
-      shownIn?.showInBar(null);
-      shownIn = null;
+      view?.element.remove();
       return;
     }
     view ??= createPerfReadoutView();
+    // First in the lead, before the debug tools' toggle.
+    deps.lead.prepend(view.element);
     gpu ??= createGpuFrameTimer(deps.app);
     // Measurements left in flight when the counter went off belong to another stretch of play.
     gpu?.drain(discardGpu);
@@ -73,11 +72,6 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
     },
     record(sample, shortfallSpeed): void {
       if (!shown || view === null) return;
-      const controller = deps.controller();
-      if (controller !== shownIn) {
-        controller.showInBar(view.element);
-        shownIn = controller;
-      }
       newest = (newest + 1) % GRAPH_FRAMES;
       frameTimes[newest] = sample.elapsedMs;
       gpu?.drain(takeGpu);
@@ -87,7 +81,7 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
       view.show(reading, ordered);
     },
     dispose(): void {
-      shownIn?.showInBar(null);
+      view?.element.remove();
       gpu?.dispose();
     },
   };

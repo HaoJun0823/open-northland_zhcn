@@ -58,6 +58,8 @@ export interface GameToolPanelDeps {
   readonly canvas: HTMLCanvasElement;
   /** The DOM HUD plane the shell regions mount on. */
   readonly plane: HTMLElement;
+  /** The node standing first in the system bar, kept across a rescale's rebuilt bar. */
+  readonly barLead?: HTMLElement;
   /** Shared with the unit controls; may be fractional. */
   readonly uiscale: number;
   readonly camera: () => Camera;
@@ -274,6 +276,7 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
       app: deps.app,
       canvas: deps.canvas,
       plane: deps.plane,
+      ...(deps.barLead !== undefined ? { barLead: deps.barLead } : {}),
       uiscale,
       buildings: deps.buildings,
       buildingLabels: deps.buildingLabels,

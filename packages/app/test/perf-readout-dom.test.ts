@@ -13,7 +13,7 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-function systemBar(): { bar: HudSystemBar; plane: HTMLElement } {
+function systemBar(lead: HTMLElement): { bar: HudSystemBar; plane: HTMLElement } {
   const plane = document.createElement('div');
   document.body.append(plane);
   const bar = createHudSystemBar(plane, {
@@ -21,6 +21,7 @@ function systemBar(): { bar: HudSystemBar; plane: HTMLElement } {
     onPauseToggle: () => undefined,
     onSpeed: () => undefined,
     onMenu: () => undefined,
+    lead,
   });
   bars.push(bar);
   return { bar, plane };
@@ -54,41 +55,44 @@ function feedSecond(readout: ReturnType<typeof mountPerfReadout>): void {
 }
 
 it('stands first in the bar once switched on, and follows a rebuilt bar after a HUD rescale', () => {
-  const first = systemBar();
-  let bar = first.bar;
+  const lead = document.createElement('div');
+  const first = systemBar(lead);
+  const toggle = document.createElement('button');
+  lead.append(toggle);
   const readout = mountPerfReadout({
     app,
     context: { capFps: null, simOnMainThread: false, sharedClock: false },
     initiallyShown: false,
-    controller: () => ({ showInBar: (node) => bar.setLead(node) }),
+    lead,
   });
   feedSecond(readout);
   expect(first.plane.querySelector('.on-perf')).toBeNull();
 
   readout.setShown(true);
   feedSecond(readout);
-  const lead = first.plane.querySelector<HTMLElement>('.on-bar__lead');
-  expect(lead?.hidden).toBe(false);
   expect(first.plane.querySelector('.on-bar')?.firstElementChild).toBe(lead);
+  // The counter leads the debug corner, ahead of the tools' toggle mounted before it.
+  expect(lead.firstElementChild?.classList.contains('on-perf')).toBe(true);
+  expect(lead.lastElementChild).toBe(toggle);
   expect(first.plane.querySelector('.on-perf__fps b')?.textContent).toBe('60');
 
-  const second = systemBar();
-  bar = second.bar;
+  const second = systemBar(lead);
   feedSecond(readout);
   expect(second.plane.querySelector('.on-perf')).not.toBeNull();
 
   readout.setShown(false);
-  expect(second.plane.querySelector<HTMLElement>('.on-bar__lead')?.hidden).toBe(true);
+  expect(lead.querySelector('.on-perf')).toBeNull();
   readout.dispose();
 });
 
 it('opens the breakdown on hover with the latest reading and closes it on leave', () => {
-  const { bar, plane } = systemBar();
+  const lead = document.createElement('div');
+  const { plane } = systemBar(lead);
   const readout = mountPerfReadout({
     app,
     context: { capFps: null, simOnMainThread: false, sharedClock: false },
     initiallyShown: true,
-    controller: () => ({ showInBar: (node) => bar.setLead(node) }),
+    lead,
   });
   feedSecond(readout);
   const counter = plane.querySelector<HTMLElement>('.on-perf');
@@ -102,6 +106,9 @@ it('opens the breakdown on hover with the latest reading and closes it on leave'
     copy.verdicts.display.replace('{hz}', '60'),
   );
   expect(plane.querySelectorAll('.on-perf__row b')[2]?.textContent).toBe(copy.notMeasured);
+  const figures = [...plane.querySelectorAll('.on-perf__figure')].map((row) => row.textContent);
+  expect(figures[0]).toBe(`${copy.speed}${copy.speedValue.replace('{speed}', '1')}`);
+  expect(figures[2]).toBe(`${copy.worst}${copy.ms.replace('{value}', '17')}`);
 
   counter?.dispatchEvent(new MouseEvent('mouseleave'));
   expect(tip?.hidden).toBe(true);

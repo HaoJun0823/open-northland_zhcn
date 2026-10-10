@@ -1,9 +1,10 @@
+import { heapMb } from '../../diag/heap.js';
 import type { PerfReading, PerfVerdict } from '../../diag/perf-reading.js';
 import { formatMessage, messages } from '../../i18n/index.js';
 
 /** The frame rate on the top bar, with a breakdown that opens on hover, focus or a click like the bar's
- *  other counters: a verdict, a load meter each for the sim, the main thread and the GPU, and the
- *  recent frame times against the frame budget. */
+ *  other counters: a verdict, a load meter each for the sim, the main thread and the GPU, the recent
+ *  frame times against the frame budget, and the game speed, frame times and memory as figures. */
 export interface PerfReadoutView {
   readonly element: HTMLElement;
   /** `frameTimes` are the newest frame intervals in ms, oldest first; the view keeps the reference and
@@ -87,6 +88,28 @@ function showMeter(meter: Meter, load: number | null, text: string): void {
   setText(meter.value, text);
 }
 
+interface Figure {
+  readonly row: HTMLElement;
+  readonly value: HTMLElement;
+}
+
+function figureRow(label: string): Figure {
+  const row = document.createElement('div');
+  row.className = 'on-perf__figure';
+  const name = document.createElement('span');
+  name.textContent = label;
+  const value = document.createElement('b');
+  row.append(name, value);
+  return { row, value };
+}
+
+/** `health` null shows the figure plain. */
+function showFigure(figure: Figure, text: string, health: Health | null): void {
+  setText(figure.value, text);
+  if (health === null) delete figure.row.dataset.health;
+  else figure.row.dataset.health = health;
+}
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /** One bar per frame, right-aligned so the newest frame stands at the right edge, in two paths split at
@@ -147,12 +170,14 @@ export function createPerfReadoutView(): PerfReadoutView {
   const budgetY = GRAPH_H - GRAPH_H / GRAPH_BUDGETS;
   budgetLine.setAttribute('d', `M0 ${budgetY}H${GRAPH_W}`);
   graph.append(within, over, budgetLine);
-  const frame = document.createElement('p');
-  frame.className = 'on-perf__foot';
-  const speed = document.createElement('p');
-  speed.className = 'on-perf__foot on-perf__speed';
-  speed.hidden = true;
-  tip.append(verdict, hint, sim.row, cpu.row, gpu.row, graph, frame, speed);
+  const figures = document.createElement('div');
+  figures.className = 'on-perf__figures';
+  const speed = figureRow(copy.speed);
+  const frame = figureRow(copy.frame);
+  const worst = figureRow(copy.worst);
+  const memory = figureRow(copy.memory);
+  figures.append(speed.row, frame.row, worst.row, memory.row);
+  tip.append(verdict, hint, sim.row, cpu.row, gpu.row, graph, figures);
   element.append(button, tip);
 
   const ms = (value: number): string => formatMessage(copy.ms, { value: decimal(value) });
@@ -180,20 +205,28 @@ export function createPerfReadoutView(): PerfReadoutView {
     const paths = graphPaths(frameTimes, reading.budgetMs);
     within.setAttribute('d', paths.within);
     over.setAttribute('d', paths.over);
-    setText(
-      frame,
-      formatMessage(copy.frame, { ms: decimal(reading.frameMs), worst: Math.round(reading.worstMs) }),
+    const delivered = reading.deliveredSpeed;
+    showFigure(
+      speed,
+      reading.verdict === 'paused'
+        ? copy.verdicts.paused
+        : delivered === null
+          ? formatMessage(copy.speedValue, { speed: reading.requestedSpeed })
+          : formatMessage(copy.speedShort, {
+              requested: reading.requestedSpeed,
+              delivered: delivered.toFixed(1),
+            }),
+      delivered === null ? null : 'warn',
     );
-    speed.hidden = reading.deliveredSpeed === null;
-    if (reading.deliveredSpeed !== null) {
-      setText(
-        speed,
-        formatMessage(copy.speed, {
-          requested: reading.requestedSpeed,
-          delivered: reading.deliveredSpeed.toFixed(1),
-        }),
-      );
-    }
+    showFigure(frame, ms(reading.frameMs), null);
+    showFigure(
+      worst,
+      formatMessage(copy.ms, { value: Math.round(reading.worstMs) }),
+      reading.worstMs > reading.budgetMs * FRAME_WARN_RATIO ? 'bad' : null,
+    );
+    const heap = heapMb();
+    memory.row.hidden = heap === null;
+    if (heap !== null) showFigure(memory, formatMessage(copy.megabytes, { value: heap }), null);
   };
 
   let open = false;

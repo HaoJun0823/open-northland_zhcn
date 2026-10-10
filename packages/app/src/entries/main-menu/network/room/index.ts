@@ -1,12 +1,12 @@
 import { type ChatLine, MAX_CHAT_LENGTH, type RoomView } from '@open-northland/net-protocol';
 import { quietTextField } from '../../../../hud/dom/parts/text-field.js';
 import { formatClockTime, formatMessage, messages } from '../../../../i18n/index.js';
-import { memberLoadText } from '../../../../view/net/member-load.js';
 import { node } from '../../dom.js';
 import { createMapDetailsCard } from '../../map-card.js';
 import type { MapSelectItem } from '../../map-select-model.js';
 import { button } from './controls.js';
 import { roomPermissions } from './model.js';
+import { roomObservers } from './observers.js';
 import { roomSeats } from './seats.js';
 import { roomSettings } from './settings.js';
 import type { NetworkRoomDeps } from './types.js';
@@ -45,8 +45,8 @@ export function mountNetworkRoom(deps: NetworkRoomDeps) {
   preview.root.classList.add('network-room__map-card');
   let previewItem: MapSelectItem | null = null;
   const roster = node('section', 'network-room__card network-room__roster');
-  const members = node('p', 'network-room__muted');
-  roster.append(node('h3', '', copy.players), seats.root, members);
+  const observers = roomObservers(deps);
+  roster.append(node('h3', '', copy.players), seats.root, observers.root);
   const checks = node('section', 'network-room__card network-room__checks');
   const issues = node('div', 'network-room__issues');
   issues.setAttribute('role', 'status');
@@ -123,15 +123,7 @@ export function mountNetworkRoom(deps: NetworkRoomDeps) {
         if (map === null) preview.hide();
         else preview.show(map);
       }
-      members.textContent = room.members
-        .filter((member) => member.seat === null)
-        .map((member) =>
-          [member.nick, copy.unseated, member.connected ? '' : copy.disconnected, memberLoadText(member)]
-            .filter(Boolean)
-            .join(' · '),
-        )
-        .join(' · ');
-      members.hidden = members.textContent === '';
+      observers.update(room, connected);
       const net = messages().net;
       issues.replaceChildren(
         ...permissions.issues.map((issue) =>
@@ -154,10 +146,10 @@ export function mountNetworkRoom(deps: NetworkRoomDeps) {
       release.hidden = rejoinable || permissions.self?.seat == null;
       mySeat.textContent =
         permissions.self?.seat == null
-          ? copy.unseated
+          ? messages().mainMenu.lobby.observerTaken
           : formatMessage(copy.yourSeat, { seat: permissions.self.seat + 1 });
       release.disabled = !permissions.interactive || permissions.self?.seat == null;
-      ready.hidden = rejoinable;
+      ready.hidden = rejoinable || permissions.self?.seat == null;
       ready.disabled = !permissions.canReady;
       ready.textContent = permissions.ready ? copy.withdrawReady : copy.becomeReady;
       ready.setAttribute('aria-pressed', String(permissions.ready));
@@ -170,7 +162,7 @@ export function mountNetworkRoom(deps: NetworkRoomDeps) {
         : !connected
           ? copy.reconnecting
           : permissions.self?.seat == null
-            ? copy.chooseSeat
+            ? messages().mainMenu.lobby.observerDetail
             : permissions.issues.length > 0
               ? copy.checkFiles
               : !permissions.ready

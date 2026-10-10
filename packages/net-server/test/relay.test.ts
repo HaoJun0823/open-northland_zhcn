@@ -377,7 +377,7 @@ describe('relay rooms', () => {
     expect(s.relay.roomCount).toBe(0);
   });
 
-  it('starts only by the creator, once everyone is seated and ready, with a descriptor per seat', () => {
+  it('starts only by the creator, once the players are ready, with a descriptor per seat', () => {
     const s = stage();
     const a = s.introduce(TOKEN_A, 'Ania');
     const b = s.introduce(TOKEN_B, 'Bartek');
@@ -385,8 +385,6 @@ describe('relay rooms', () => {
     b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });
     a.send({ kind: 'claimSeat', player: 0 });
     a.send({ kind: 'setReady', ready: true });
-    a.send({ kind: 'start' });
-    expect(a.last('rejected')?.reason).toEqual({ code: 'memberUnseated', nick: 'Bartek' });
     b.send({ kind: 'claimSeat', player: 1 });
     a.send({ kind: 'setReady', ready: true });
     a.send({ kind: 'start' });

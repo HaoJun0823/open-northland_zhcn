@@ -4,8 +4,6 @@ export const TICK_MS = 1000 / TICKS_PER_SECOND;
 
 /** Seat indices a room may carry; equal to the sim's `MAX_PLAYERS`, which a test pins. */
 export const MAX_SEATS = 16;
-/** People in one room, seated or not. */
-export const MAX_MEMBERS = 12;
 
 /** The envelope version the wire carries; equal to the sim's `COMMAND_ENVELOPE_VERSION`, which a test
  *  pins. */

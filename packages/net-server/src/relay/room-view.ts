@@ -41,7 +41,6 @@ export function sessionForMember(
   settings: RoomSettings,
   seats: GameSession['seats'] | null,
 ): GameSession {
-  if (member.seat === null) throw new Error(`${member.nick} has no seat in a started room`);
   if (seats === null) throw new Error('no descriptor before the start');
   return {
     ...(settings.initialSave === undefined ? {} : { initialSave: settings.initialSave }),
@@ -49,7 +48,7 @@ export function sessionForMember(
     world: settings.world,
     seed: settings.seed,
     seats,
-    localSeat: member.seat,
+    localSeat: member.seat ?? 'observer',
     rules: settings.rules,
     speed: settings.speed,
   };

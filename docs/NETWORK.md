@@ -1,6 +1,6 @@
 # Network protocol
 
-The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 26` in
+The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 28` in
 `packages/net-protocol`. A change one side of the current version could not honour, a message shape
 or the value set of a validated field such as the fog mode ids, bumps the version; the relay refuses a
 `hello` that names another.
@@ -19,8 +19,8 @@ trader route orders and civilian lessons; all peers must understand their payloa
 WebSocket, one JSON text frame per message. A client message is at most `MAX_CLIENT_MESSAGE_BYTES`
 (513 KiB), except a `blob`, which is at most `MAX_BLOB_MESSAGE_BYTES` (a 16 MiB payload in base64
 plus its fields). A relay message is bounded by what it carries: a full tick frame holds up to
-`MAX_MEMBERS * MAX_COMMANDS_PER_TICK` envelopes, with at most 1 MiB of serialized envelopes per
-member plus sequence wrappers (a little over 12 MiB in all), and a blob is as large as the one a client
+`MAX_SEATS * MAX_COMMANDS_PER_TICK` envelopes, with at most 1 MiB of serialized envelopes per
+member plus sequence wrappers (a little over 16 MiB in all), and a blob is as large as the one a client
 sent. A binary frame or unparsable text closes the connection. Every message is an object with a string `kind`. A close
 with `CLOSE_REPLACED` (4000), `CLOSE_PROTOCOL_ERROR` (1002) or `CLOSE_SERVICE_RESTART` (1012, the
 relay shutting down with its rooms) is final; after any other close a client may reconnect on its
@@ -95,8 +95,9 @@ or a reserved map AI camp with autonomous control disabled.
 An `absent` seat idles, and a fresh world places none of its authored settlers,
 buildings, walls, animals or signposts. A room resumed from a save refuses `absent`, since its world
 already stands. `joinRoom { roomId }` joins a room in the lobby; a room that has started refuses. A
-duplicate nick within a room gets a numeric suffix (`Ania`, `Ania2`). At most `MAX_MEMBERS` (12)
-people share a room.
+duplicate nick within a room gets a numeric suffix (`Ania`, `Ania2`). Observers occupy no map seat
+and have no room slot limit. The lobby shows each observer and one additional free observer row;
+multiplayer never offers the sandbox overseer role.
 
 Every change to a room is broadcast to its members as `room { room }`, the whole view:
 `{ id, state, creator, settings, seats: [{ player, mode, claimable, offers, color, authoredTribe?, tribe?, difficulty?, nick, ready }], members: [{ nick, seat, connected, compatibility, load, loading, roundTripMs, delayTicks, behindTicks }] }`,
@@ -114,7 +115,10 @@ view: a link measurement is stored and shown with the next view, and progress is
 refused with `gameNotStarted`. Any other change carries the current figures with it.
 
 - `claimSeat { player }` sits down in a seat nobody holds, which makes it `human` whatever it was;
-  `claimSeat { player: null }` stands up and returns it to its lobby setting.
+  `claimSeat { player: null }` becomes a read-only observer. In the lobby it returns the seat to its
+  vacant setting; in a running game it releases control, marks that seat idle in the room view and
+  leaves the shared world unchanged. A running observer cannot reclaim a seat. Reconnect retains
+  the observer role.
 - `setSeat { player, mode?, color?, tribe?, difficulty? }` is the creator's: `mode` only on a
   vacant seat that offers it. A seated member may also send `tribe` alone for its own seat. `tribe` needs
   a seat with an `authoredTribe` (else `seatTribeUnavailable`), and reaches the start descriptor's seat
@@ -151,14 +155,13 @@ refusal naming the member and category. `compatibilityIssues` exposes these resu
 (`nick`, `kind`, `reason`) for a lobby display. The hashes are client reports, not server-side content
 validation; the relay does not read local content or map files.
 
-`start` is the creator's, and goes through only when every member passes compatibility, has a seat
-and is ready. The relay
-then sends each member `start { session, snapshotTick: null }`: the `GameSession` descriptor with
+`start` is the creator's, and goes through only when every member passes compatibility and every
+seated player is ready. The relay then sends each member `start { session, snapshotTick: null }`: the `GameSession` descriptor with
 that member's own `localSeat`, and every claimed seat as `human`. Each member builds its world from
 it and reports `loaded { tick, world: 0 }` with the tick that world stands at (0 for a world with no
 setup tick, 1 for a decoded map whose placements drain on one). The first report fixes the room's
 built tick; the relay refuses any other tick from the rest, a second `loaded` on the same connection,
-and a command sent before any world has loaded. The clock starts once every member has loaded, one
+and a command sent before any world has loaded. The clock starts once every seated player has loaded, one
 whose connection dropped included, so a game never starts without one of its players. The start is
 announced by `clock { tick, speed, paused: false, by: null, governed: null }` naming the first tick
 to run. The app reports `loaded` only once its display has shown the world's first frame and begun
@@ -346,6 +349,11 @@ drop or return) ends the room: every connected member gets `error { loadingTimed
 `left`, and the players host again. The app shows no countdown for it and offers no vote on its
 loading screen. A seated member that leaves the room before the clock runs ends it at once, with
 `error { leftBeforeStart, nick }` and `left` to the others.
+
+Observers cannot issue commands, change the shared clock or responsiveness, or vote to kick a player.
+Their loading, disconnection and rendering speed never hold or pace the game. Their digests are
+compared against the players without counting toward the majority; when only observers remain,
+their reports decide the reference and the final result.
 
 ## Pacing
 
@@ -580,7 +588,7 @@ every return of its token, before `start` and `clock`.
 | `MAX_BLOB_BYTES` (decoded) | 16 MiB |
 | `MAX_ENVELOPE_BYTES` | 512 KiB |
 | `MAX_SEATS` (seat indices) | 16, the sim's `MAX_PLAYERS` |
-| `MAX_MEMBERS` per room | 12 |
+| Observer slots per room | No slot limit |
 | rooms per relay | `RELAY_MAX_ROOMS`, 64 by default |
 | `HELLO_TIMEOUT_MS` | 10 s |
 | `SILENT_SOCKET_MS` | 30 s |

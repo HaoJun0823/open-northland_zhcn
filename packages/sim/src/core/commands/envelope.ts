@@ -165,6 +165,7 @@ export const COMMAND_ISSUER: {
   setHouseholdGoodUse: 'seat',
   setJob: 'seat',
   setMatchParticipants: 'trusted',
+  continueMatch: 'trusted',
   setMissionsEnabled: 'trusted',
   setNeedsEnabled: 'trusted',
   setAiControl: 'trusted',

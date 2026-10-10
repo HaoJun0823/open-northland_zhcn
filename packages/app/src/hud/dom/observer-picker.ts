@@ -5,6 +5,7 @@ import { messages } from '../../i18n/index.js';
 import { GLYPH } from './icons.js';
 
 export interface ObserverPickerDeps {
+  readonly enabled?: () => boolean;
   readonly seats: readonly ObserverSeatEntry[];
   /** What the picker shows as chosen; the choice itself goes through `onWatch`. */
   readonly viewer: ViewerSeat;
@@ -33,6 +34,7 @@ export function createObserverPicker(deps: ObserverPickerDeps): ObserverPicker {
   const copy = messages().hud;
   const root = document.createElement('div');
   root.className = 'on-resource on-picker';
+  root.hidden = deps.enabled?.() === false;
 
   const button = document.createElement('button');
   button.type = 'button';
@@ -117,6 +119,7 @@ export function createObserverPicker(deps: ObserverPickerDeps): ObserverPicker {
   return {
     element: root,
     refresh: () => {
+      root.hidden = deps.enabled?.() === false;
       const seat = deps.viewer.seat();
       if (seat === shown) return;
       shown = seat;

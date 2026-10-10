@@ -370,7 +370,7 @@ describe('room guidance and chat', () => {
     const hint = (): string | null | undefined =>
       room.element.querySelector('.network-room__actions p')?.textContent;
     room.update(view, true);
-    expect(hint()).toBe(copy.chooseSeat);
+    expect(hint()).toBe(messages().mainMenu.lobby.observerDetail);
     expect(button(copy.becomeReady).disabled).toBe(true);
     button(copy.takeSeat).click();
     expect(client.claimSeat).toHaveBeenCalledWith(0);
@@ -418,4 +418,23 @@ describe('room guidance and chat', () => {
     form.dispatchEvent(new Event('submit', { cancelable: true }));
     expect(client.say).toHaveBeenCalledTimes(1);
   });
+});
+
+it('always leaves one free observer row after the occupied rows', () => {
+  const view = lobby();
+  const first = view.members[0];
+  if (first === undefined) throw new Error('missing fixture member');
+  const { room, client } = mount();
+  room.update(view, true);
+  expect(room.element.querySelectorAll('.network-room__observer')).toHaveLength(2);
+  room.update({ ...view, members: [...view.members, { ...first, nick: 'Guest' }] }, true);
+  expect(room.element.querySelectorAll('.network-room__observer')).toHaveLength(3);
+  expect(room.element.querySelector('.network-room__observers')?.textContent).not.toContain(
+    messages().mainMenu.lobby.overseerName,
+  );
+  room.update({ ...view, members: [{ ...first, seat: 0 }] }, true);
+  const join = room.element.querySelector<HTMLButtonElement>('.network-room__observers button');
+  expect(join?.disabled).toBe(false);
+  join?.click();
+  expect(client.claimSeat).toHaveBeenCalledWith(null);
 });

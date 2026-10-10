@@ -173,3 +173,25 @@ describe('a relayed session', () => {
     expect(captures.get(ania)?.log).toEqual(captures.get(bartek)?.log);
   });
 });
+
+it('keeps a player and observer on the same simulation and lets a player become an observer live', async () => {
+  const stage = stageFor(12);
+  const ania = client('Ania');
+  const bartek = client('Bartek');
+  const observer = client('Observer');
+  for (const member of [ania, bartek, observer]) stage.network.link(member, FAST_LINK);
+  await assembleRoom(stage, [ania, bartek, observer], {
+    settings: SETTINGS,
+    seats: SEATS,
+    seatOf: (i) => (i < 2 ? i : null),
+    settleMs: 400,
+  });
+  expect(observer.session?.localSeat).toBe('observer');
+  bartek.claimSeat(null);
+  settle(stage, 400);
+  expect(bartek.session?.localSeat).toBe('observer');
+  const captures = await runUntil(stage, [ania, bartek, observer], 48, { onTick: orderAt });
+  expect(captures.get(ania)?.hash).toBe(captures.get(bartek)?.hash);
+  expect(captures.get(observer)?.hash).toBe(captures.get(ania)?.hash);
+  for (const member of [ania, bartek, observer]) expect(member.desyncs).toEqual([]);
+});

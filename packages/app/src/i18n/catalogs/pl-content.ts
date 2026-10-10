@@ -478,6 +478,10 @@ export const plContent = {
         '501': 'Jeździec od starszyzny: bród wytyczono pod palisadę. Trzymaj straż wewnątrz kręgu.',
       },
     },
+    defeat: {
+      title: 'Gra po przegranej',
+      summary: 'Przegrana misja próbuje opuścić mapę. Wybierz „Graj dalej” i wydawaj rozkazy ocalałym.',
+    },
     victory: {
       title: 'Zwycięstwo i porażka',
       summary:

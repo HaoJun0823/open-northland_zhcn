@@ -83,6 +83,22 @@ export const MatchGoals = matchGoals.component;
 
 export type MatchOutcome = 'undecided' | 'defeat' | 'victory';
 
+const matchContinuation = defineWorldSingleton<{ players: number }>('MatchContinuation', 'players', () => ({
+  players: 0,
+}));
+
+/** Local free play after a verdict preserves the result while accepting the seat's own orders. */
+export function continueMatch(world: World, player: number): void {
+  if (matchOutcome(world, player) === 'undecided' || isContinuingMatch(world, player)) return;
+  matchContinuation.write(world, (state) => {
+    state.players |= playerBit(player);
+  });
+}
+
+export function isContinuingMatch(world: World, player: number): boolean {
+  return isValidPlayer(player) && (matchContinuation.read(world).players & playerBit(player)) !== 0;
+}
+
 export function playerBit(player: number): number {
   return 1 << player;
 }
@@ -172,6 +188,11 @@ export function setMatchParticipants(
     rules.won &= bits;
     if (victory !== 'elimination') rules.won = 0;
   });
+  if (matchContinuation.read(world).players !== 0) {
+    matchContinuation.write(world, (state) => {
+      state.players = 0;
+    });
+  }
   const enabled = victory === 'script';
   if (scriptedMatchVictory(world) !== enabled) {
     scriptMatchRules.write(world, (rules) => {

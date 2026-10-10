@@ -5,7 +5,6 @@ import {
   type DepartureCause,
   type LobbyCompatibility,
   type LobbySettings,
-  MAX_MEMBERS,
   MAX_NICK_LENGTH,
   type PlayerWireEnvelope,
   type ResponsivenessMode,
@@ -155,7 +154,6 @@ export class Room {
 
   join(member: Member): Refusal {
     if (this.game !== null) return { code: 'gameStarted' };
-    if (this.members.size >= MAX_MEMBERS) return { code: 'roomFull', members: MAX_MEMBERS };
     this.admit(member);
     this.log('room joined', { nick: member.nick, members: this.members.size });
     return null;
@@ -219,8 +217,18 @@ export class Room {
     this.carryOutKickVotes(now);
   }
 
-  claimSeat(member: Member, player: number | null): Refusal {
-    if (this.game !== null) return { code: 'gameStarted' };
+  claimSeat(member: Member, player: number | null, now: number): Refusal {
+    if (this.game !== null) {
+      if (player !== null) return { code: 'gameStarted' };
+      const seat = member.seat;
+      if (seat === null) return null;
+      this.seats.standUp(member);
+      this.seats.vacate(seat, 'idle');
+      this.game.observe(member, now);
+      this.broadcastView();
+      this.carryOutKickVotes(now);
+      return null;
+    }
     return this.lobby.claimSeat(member, player);
   }
 
@@ -334,6 +342,7 @@ export class Room {
   }
 
   setResponsiveness(member: Member, mode: ResponsivenessMode): Refusal {
+    if (member.seat === null) return { code: 'seatRequired' };
     if (this.responsiveness.select(mode, member.nick)) this.broadcast(this.responsiveness.message());
     return null;
   }
@@ -471,7 +480,7 @@ export class Room {
    *  game never starts without one of its players, so the others host again. */
   private stalledLoad(now: number): Refusal {
     for (const member of this.members.values()) {
-      if (!member.loaded && now - member.progressAt >= LOADING_STALL_MS)
+      if (member.seat !== null && !member.loaded && now - member.progressAt >= LOADING_STALL_MS)
         return { code: 'loadingTimedOut', nick: member.nick };
     }
     return null;

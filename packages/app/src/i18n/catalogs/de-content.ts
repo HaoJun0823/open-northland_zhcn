@@ -483,6 +483,11 @@ export const deContent = {
           'Ein Reiter bringt Nachricht von den Ältesten: An der Furt ist der Verlauf der Palisade markiert. Lasst die Wache innerhalb des Rings.',
       },
     },
+    defeat: {
+      title: 'Nach der Niederlage weiterspielen',
+      summary:
+        'Eine gescheiterte Mission will die Karte verlassen. Wähle „Weiterspielen“ und befehlige die Überlebenden.',
+    },
     victory: {
       title: 'Sieg und Niederlage',
       summary:

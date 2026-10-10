@@ -85,6 +85,11 @@ export type RulesCommand =
       readonly goals?: readonly MatchGoal[];
       /** Seats beyond `players` the goal table checks: those on the map that cannot die. */
       readonly goalSeats?: readonly number[];
+    }
+  | {
+      /** Local free play after the result; shared sessions never accept this trusted command. */
+      readonly kind: 'continueMatch';
+      readonly player: number;
     };
 
 /**

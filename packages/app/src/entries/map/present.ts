@@ -48,6 +48,7 @@ export interface MapRuntime {
   readonly confirmedMatchEnd?: () => number | null;
   readonly networkSave?: GameViewDeps['networkSave'];
   readonly onReturnToMenu?: () => void;
+  readonly onWatchAfterResult?: () => void;
   readonly introAtStart: boolean;
   /** Present for a relayed session: the connection readouts the overlays show. */
   readonly netReadout?: () => NetReadout | null;
@@ -201,6 +202,7 @@ export async function presentMapWorld(
     ...(runtime.confirmedMatchEnd === undefined ? {} : { confirmedMatchEnd: runtime.confirmedMatchEnd }),
     ...(runtime.networkSave === undefined ? {} : { networkSave: runtime.networkSave }),
     ...(runtime.sharedClock !== undefined ? { sharedClock: runtime.sharedClock } : {}),
+    ...(runtime.onWatchAfterResult === undefined ? {} : { onWatchAfterResult: runtime.onWatchAfterResult }),
     ...(runtime.onReturnToMenu !== undefined ? { onReturnToMenu: runtime.onReturnToMenu } : {}),
     ...(runtime.netReadout !== undefined ? { netReadout: runtime.netReadout } : {}),
     ...(runtime.netPanel !== undefined ? { netPanel: runtime.netPanel } : {}),
@@ -210,7 +212,7 @@ export async function presentMapWorld(
     localPlayer,
     observer: isSpectator(session),
     readOnly: isReadOnlySpectator(session),
-    ...(isReadOnlySpectator(session)
+    ...(isReadOnlySpectator(session) || runtime.sharedClock === true
       ? { observerSeats: observerSeats(session, script, currentLocale()) }
       : {}),
     playerColourOf,

@@ -14,8 +14,7 @@ export function roomPermissions(room: RoomView, nick: string, connected: boolean
     room.members.every(
       (member) =>
         member.connected &&
-        member.seat !== null &&
-        room.seats.some((seat) => seat.player === member.seat && seat.ready),
+        (member.seat === null || room.seats.some((seat) => seat.player === member.seat && seat.ready)),
     );
   return {
     interactive,

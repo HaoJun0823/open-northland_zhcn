@@ -3,10 +3,12 @@ import {
   Age,
   Female,
   Health,
+  isContinuingMatch,
   MatchRules,
   matchParticipantBits,
   Owner,
   playersOfBits,
+  Stance,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import {
@@ -285,6 +287,56 @@ describe('matchSystem - death and victory over the declared participants', () =>
       { kind: 'playerWon', player: P0 },
       { kind: 'playerWon', player: P1 },
     ]);
+  });
+
+  it('continues a defeated local seat through its own command path and a saved world', () => {
+    const sim = fresh();
+    declare(sim, [P0, P1]);
+    const winner = personOf(sim, P0);
+    const survivor = personOf(sim, P1, { female: true });
+    runTo(sim, FIRST_CHECK_TICK);
+    const order = playerCommand(P1, { kind: 'setStance', entity: survivor, mode: 0 });
+    sim.enqueue(order);
+    sim.step();
+    expect(sim.world.tryGet(survivor, Stance)).toBeUndefined();
+    sim.enqueue(adminCommand({ kind: 'continueMatch', player: P1 }));
+    sim.enqueue(order);
+    sim.step();
+    expect(sim.world.get(survivor, Stance).mode).toBe(0);
+    expect(sim.matchOutcome(P1)).toBe('defeat');
+    expect(sim.matchOutcome(P0)).toBe('victory');
+    expect(
+      authorizedCommand(sim.world, playerCommand(P1, { kind: 'setStance', entity: winner, mode: 0 })),
+    ).toBeUndefined();
+    const restored = restoreSimulation(parseSaveGame(JSON.parse(serializeSaveGame(exportSaveGame(sim)))), {
+      content: testContent(),
+    });
+    expect(restored.hashState()).toBe(sim.hashState());
+    expect(isContinuingMatch(restored.world, P1)).toBe(true);
+    restored.enqueue(playerCommand(P1, { kind: 'setStance', entity: survivor, mode: 1 }));
+    restored.step();
+    expect(restored.world.get(survivor, Stance).mode).toBe(1);
+    expect(restored.matchOutcome(P1)).toBe('defeat');
+  });
+
+  it('does not grant continuation before a result or through a player envelope', () => {
+    const sim = fresh();
+    declare(sim, [P0, P1]);
+    personOf(sim, P0);
+    sim.enqueueSetup({ kind: 'continueMatch', player: P0 });
+    sim.step();
+    expect(isContinuingMatch(sim.world, P0)).toBe(false);
+    runTo(sim, FIRST_CHECK_TICK);
+    const forged = {
+      v: 1,
+      origin: 'player',
+      player: P1,
+      command: { kind: 'continueMatch', player: P1 },
+    } as const;
+    expect(
+      authorizedCommand(sim.world, forged as unknown as Parameters<typeof authorizedCommand>[1]),
+    ).toBeUndefined();
+    expect(isContinuingMatch(sim.world, P1)).toBe(false);
   });
 
   it('carries a decided match through the save round trip', () => {

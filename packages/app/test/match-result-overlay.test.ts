@@ -1,50 +1,49 @@
+// @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { createMatchResultOverlay } from '../src/view/match-result.js';
+import { createMatchResultOverlay, type MatchResultOverlay } from '../src/hud/dom/match-result.js';
 
-class Element extends EventTarget {
-  readonly style: Record<string, string> = {};
-  readonly children: Element[] = [];
-  textContent = '';
-  type = '';
-  parent: Element | null = null;
-  constructor(readonly tag: string) {
-    super();
-  }
-  setAttribute(): void {}
-  focus(): void {}
-  append(...children: Element[]): void {
-    for (const child of children) {
-      child.parent = this;
-      this.children.push(child);
-    }
-  }
-  remove(): void {
-    if (this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1);
-    this.parent = null;
-  }
-  buttons(): Element[] {
-    return this.children.flatMap((child) => (child.tag === 'button' ? [child] : child.buttons()));
-  }
-}
-afterEach(() => vi.unstubAllGlobals());
+const overlays: MatchResultOverlay[] = [];
+afterEach(() => {
+  for (const overlay of overlays.splice(0)) overlay.dispose();
+  document.body.replaceChildren();
+  vi.unstubAllGlobals();
+});
 function setup(sharedClock: boolean) {
-  const body = new Element('body');
-  vi.stubGlobal('document', { body, createElement: (tag: string) => new Element(tag) });
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
   const pause = vi.fn();
   const resume = vi.fn();
   const onQuit = vi.fn();
+  const onContinue = vi.fn();
+  const hud = document.createElement('div');
+  document.body.append(hud);
   const overlay = createMatchResultOverlay({
     localPlayer: 0,
     sharedClock,
     pause,
     resume,
     onQuit,
-    uiString: (_page, _id, fallback) => fallback,
+    onContinue,
+    hud: { element: hud, currentScale: () => 1 },
+    onOpen: vi.fn(),
+    setCameraSuspended: vi.fn(),
   });
-  return { body, pause, resume, onQuit, overlay };
+  overlays.push(overlay);
+  const body = {
+    buttons: () => [...document.querySelectorAll<HTMLButtonElement>('.on-result button')],
+    get children() {
+      return document.querySelectorAll('.on-result-backdrop');
+    },
+  };
+  return { body, pause, resume, onQuit, onContinue, overlay, hud };
 }
 
-it('lets a defeated player watch without pausing, then replaces the verdict with a terminal result', () => {
+it('lets a defeated player watch without pausing and inspect the map after the match ends', () => {
   const h = setup(true);
   h.overlay.announce('defeat');
   expect(h.body.buttons()).toHaveLength(2);
@@ -54,11 +53,11 @@ it('lets a defeated player watch without pausing, then replaces the verdict with
   expect(h.resume).not.toHaveBeenCalled();
   h.overlay.finish('defeat');
   expect(h.body.children).toHaveLength(1);
-  expect(h.body.buttons()).toHaveLength(1);
+  expect(h.body.buttons()).toHaveLength(2);
   h.overlay.finish('defeat');
   h.overlay.announce('victory');
   expect(h.body.children).toHaveLength(1);
-  h.body.buttons()[0]?.dispatchEvent(new Event('click'));
+  h.body.buttons()[1]?.click();
   expect(h.onQuit).toHaveBeenCalledOnce();
   expect(h.body.children).toHaveLength(0);
 });
@@ -68,28 +67,35 @@ it('replaces an open earlier defeat and supports an observer without a local out
   h.overlay.announce('defeat');
   h.overlay.finish('undecided');
   expect(h.body.children).toHaveLength(1);
-  expect(h.body.buttons()).toHaveLength(1);
+  expect(h.body.buttons()).toHaveLength(2);
   h.overlay.dispose();
   expect(h.body.children).toHaveLength(0);
 });
 
-it('keeps single-player pause and continue behavior', () => {
-  const h = setup(false);
-  h.overlay.announce('victory');
-  expect(h.pause).toHaveBeenCalledOnce();
-  expect(h.body.buttons()).toHaveLength(2);
-  h.body.buttons()[0]?.dispatchEvent(new Event('click'));
-  expect(h.resume).toHaveBeenCalledOnce();
-  h.overlay.announce('victory');
-  expect(h.body.children).toHaveLength(0);
-});
+it.each(['victory', 'defeat'] as const)(
+  'continues a local %s without quitting and restores input',
+  (outcome) => {
+    const h = setup(false);
+    h.overlay.announce(outcome);
+    expect(h.hud.inert).toBe(true);
+    expect(h.pause).toHaveBeenCalledOnce();
+    expect(h.body.buttons()).toHaveLength(2);
+    h.body.buttons()[0]?.dispatchEvent(new Event('click'));
+    expect(h.resume).toHaveBeenCalledOnce();
+    expect(h.onContinue).toHaveBeenCalledOnce();
+    expect(h.onQuit).not.toHaveBeenCalled();
+    expect(h.hud.inert).not.toBe(true);
+    h.overlay.announce('victory');
+    expect(h.body.children).toHaveLength(0);
+  },
+);
 
 it('waits for server confirmation before showing shared victory', () => {
   const h = setup(true);
   h.overlay.announce('victory');
   expect(h.body.children).toHaveLength(0);
   h.overlay.finish('victory');
-  expect(h.body.buttons()).toHaveLength(1);
+  expect(h.body.buttons()).toHaveLength(2);
   expect(h.pause).not.toHaveBeenCalled();
 });
 
@@ -105,7 +111,7 @@ it.each(['playerWon', 'playerDefeated'] as const)(
     h.overlay.onEvents([{ kind, player: 0 }]);
     expect(h.body.children).toHaveLength(0);
     h.overlay.finish(kind === 'playerWon' ? 'victory' : 'defeat');
-    expect(h.body.buttons()).toHaveLength(1);
+    expect(h.body.buttons()).toHaveLength(2);
   },
 );
 
@@ -129,3 +135,35 @@ it.each(['playerWon', 'playerDefeated'] as const)(
     expect(h.pause).not.toHaveBeenCalled();
   },
 );
+
+it('keeps keyboard focus in the result, cancels leaving, and resumes with Escape', async () => {
+  const h = setup(false);
+  h.hud.tabIndex = 0;
+  h.hud.focus();
+  h.overlay.announce('defeat');
+  const [stay, quit] = h.body.buttons();
+  expect(document.activeElement).toBe(stay);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+  expect(document.activeElement).toBe(quit);
+  quit?.click();
+  expect(document.querySelector('.on-system-confirm')).not.toBeNull();
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await Promise.resolve();
+  expect(h.onQuit).not.toHaveBeenCalled();
+  expect(h.overlay.isOpen()).toBe(true);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  expect(h.onContinue).toHaveBeenCalledOnce();
+  expect(h.overlay.isOpen()).toBe(false);
+  expect(document.activeElement).toBe(h.hud);
+});
+
+it('cancels an outstanding quit confirmation when disposed', async () => {
+  const h = setup(false);
+  h.overlay.announce('defeat');
+  h.body.buttons()[1]?.click();
+  h.overlay.dispose();
+  await Promise.resolve();
+  expect(h.onQuit).not.toHaveBeenCalled();
+  expect(h.resume).toHaveBeenCalledOnce();
+  expect(document.querySelector('.on-system-confirm')).toBeNull();
+});

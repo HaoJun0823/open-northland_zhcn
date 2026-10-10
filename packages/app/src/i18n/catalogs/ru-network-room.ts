@@ -52,7 +52,7 @@ export const ruNetworkRoom = {
   chat: 'Чат комнаты',
   chatPlaceholder: 'Сообщение в комнату',
   send: 'Отправить',
-  unseated: 'Нет места',
+  unseated: 'Наблюдатель',
   disconnected: 'Соединение разорвано',
   load: '{ms} мс/такт, в буфере: {buffered}',
 } as const;

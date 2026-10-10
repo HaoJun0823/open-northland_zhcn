@@ -17,5 +17,5 @@ export function matchResultState() {
   };
 }
 export function matchResultActions(shared: boolean, terminal: boolean) {
-  return { pause: !shared, stay: !terminal, confirmQuit: !terminal };
+  return { pause: !shared, confirmQuit: !terminal };
 }

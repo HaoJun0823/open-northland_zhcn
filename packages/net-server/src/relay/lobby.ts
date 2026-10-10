@@ -112,7 +112,7 @@ export class Lobby {
     const compatibility = this.compatibilityRefusal();
     if (compatibility !== null) return compatibility;
     for (const member of this.members.values()) {
-      if (member.seat === null) return { code: 'memberUnseated', nick: member.nick };
+      if (member.seat === null) continue;
       if (!member.ready) return { code: 'memberNotReady', nick: member.nick };
     }
     return null;

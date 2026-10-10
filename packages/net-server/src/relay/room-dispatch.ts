@@ -10,7 +10,7 @@ export type RoomMessage = Exclude<
 export function dispatchRoomMessage(room: Room, member: Member, message: RoomMessage, now: number): Refusal {
   switch (message.kind) {
     case 'claimSeat':
-      return room.claimSeat(member, message.player);
+      return room.claimSeat(member, message.player, now);
     case 'setSeat':
       return room.setSeat(member, message.player, message);
     case 'requestMap':

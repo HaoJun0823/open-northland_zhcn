@@ -88,7 +88,7 @@ export interface RoomPlan {
   readonly settings: Parameters<HeadlessClient['createRoom']>[0];
   readonly seats: Parameters<HeadlessClient['createRoom']>[1];
   /** The seat each client claims, by its index in `clients`. */
-  readonly seatOf: (index: number) => number;
+  readonly seatOf: (index: number) => number | null;
   /** Virtual time to let each lobby step cross the links; a link's round trip plus margin. */
   readonly settleMs: number;
 }
@@ -114,7 +114,7 @@ export async function assembleRoom(
     client.claimSeat(plan.seatOf(index));
   });
   settle(stage, plan.settleMs);
-  for (const client of clients) client.setReady(true);
+  for (const [index, client] of clients.entries()) if (plan.seatOf(index) !== null) client.setReady(true);
   settle(stage, plan.settleMs);
   host.start();
   settle(stage, plan.settleMs);

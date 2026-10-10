@@ -52,6 +52,10 @@ export class RelayState {
         break;
       case 'room':
         this.room = message.room;
+        if (this.session !== null) {
+          const self = message.room.members.find((member) => member.nick === this.nick);
+          if (self !== undefined) this.session = { ...this.session, localSeat: self.seat ?? 'observer' };
+        }
         break;
       case 'ended':
         this.waitingFor = [];

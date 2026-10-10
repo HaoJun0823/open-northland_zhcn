@@ -158,3 +158,13 @@ describe('sync ledger', () => {
     expect(ledger.report(10, report('back', 1, 2))).toBeNull();
   });
 });
+
+it('compares observers against players without giving observers majority votes', () => {
+  const ledger = new SyncLedger();
+  ledger.report(1, report('player', 10, 1));
+  ledger.report(1, { ...report('observer-a', 0, 2), observer: true });
+  ledger.report(1, { ...report('observer-b', 1, 2), observer: true });
+  const [verdict] = ledger.settle(1, new Set(['player', 'observer-a', 'observer-b']));
+  expect(verdict?.reference.token).toBe('player');
+  expect(verdict?.outOfSync.map((entry) => entry.token)).toEqual(['observer-a', 'observer-b']);
+});

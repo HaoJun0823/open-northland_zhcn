@@ -43,6 +43,7 @@ export class KickVotes {
     now: number,
     waitedNow: WaitedNow,
   ): KickOutcome {
+    if (voter.seat === null) return { refused: { code: 'seatRequired' } };
     const target = [...members.values()].find((member) => member.seat === player);
     if (target === undefined) return { refused: { code: 'seatEmpty', player } };
     if (target === voter) return { refused: { code: 'voteSelf' } };
@@ -118,10 +119,11 @@ function tallyOf(
   voters: ReadonlySet<string>,
 ): KickTally {
   let others = 0;
-  for (const member of members.values()) if (member.connected && member !== target) others++;
+  for (const member of members.values())
+    if (member.seat !== null && member.connected && member !== target) others++;
   const yes = [...voters].flatMap((token) => {
     const member = members.get(token);
-    return member?.connected === true && member !== target ? [member.nick] : [];
+    return member?.seat != null && member.connected && member !== target ? [member.nick] : [];
   });
   return { kind: 'kickVote', player, nick: target.nick, yes, needed: kickVotesNeeded(others) };
 }

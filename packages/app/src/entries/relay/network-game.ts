@@ -302,6 +302,7 @@ export function renderNetworkGame(
         return startWait.untilStart(() => !closed && mine === revision);
       },
       onReturnToMenu: returnToMenu,
+      onWatchAfterResult: () => client.claimSeat(null),
     })
       .then((presented) => {
         if (closed || mine !== revision) {

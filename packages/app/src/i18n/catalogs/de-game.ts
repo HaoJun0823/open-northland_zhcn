@@ -278,15 +278,15 @@ export const deGame = {
     },
     systemMenu: 'Menü',
     skirmishGoal: 'Besiege alle Gegner in dieser Partie.',
-    matchWonTitle: 'Mission erfolgreich!',
-    matchLostTitle: 'Mission gescheitert!',
+    matchWonTitle: 'Sieg!',
+    matchLostTitle: 'Niederlage',
     matchFinishedTitle: 'Partie beendet',
-    matchFinishedDetail:
-      'Die Mehrspielerpartie ist beendet. Kehre ins Menü zurück, um diese Sitzung zu verlassen.',
-    matchWonDetail:
-      'Alle Gegner in dieser Partie sind besiegt. Du kannst weiterbauen oder ins Menü zurückkehren.',
-    matchLostDetail:
-      'Dein letzter Mann ist gefallen, und dein Stamm kann keine Befehle mehr erteilen. Du kannst weiter zuschauen oder ins Menü zurückkehren.',
+    matchFinishedDetail: 'Die Partie ist beendet.',
+    matchWonDetail: 'Dein Stamm hat gesiegt. Diese Geschichte gehört dir.',
+    matchLostDetail: 'Diesmal blieb der Sieg aus. Die Geschichte deiner Siedlung kann weitergehen.',
+    matchKicker: 'Das Schicksal deines Stammes',
+    matchContinueHint: 'Du kannst auf dieser Karte weiterspielen. Das Ergebnis bleibt unverändert.',
+    matchWatchHint: 'Du kannst die Karte und die anderen Spieler beobachten, ohne Befehle zu erteilen.',
     matchContinue: 'Weiterspielen',
     matchWatch: 'Weiter zuschauen',
     returnToMenu: 'Zurück zum Menü',

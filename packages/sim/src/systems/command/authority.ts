@@ -1,6 +1,6 @@
 import { AiControl, aiControlEntity, computerModuleRuns } from '../../components/ai-control.js';
 import { hasMissionBehaviour, MISSION_BEHAVIOUR } from '../../components/behaviour.js';
-import { isPlayerDead } from '../../components/match.js';
+import { isContinuingMatch, isPlayerDead } from '../../components/match.js';
 import { isValidPlayer, ownerOf, ownersCompatible } from '../../components/ownership.js';
 import { buildTribes, playerPlacementTribes } from '../../components/player-placement.js';
 import type {
@@ -116,8 +116,8 @@ function seatMayIssue(
   terrain: TerrainGraph | undefined,
 ): boolean {
   if (COMMAND_ISSUER[command.kind] !== 'seat') return false;
-  // A seat that died in the match keeps watching but never commands again.
-  if (isPlayerDead(world, seat)) return false;
+  // Only a trusted local continuation restores a defeated seat's orders.
+  if (isPlayerDead(world, seat) && !isContinuingMatch(world, seat)) return false;
   if (command.kind === 'placeBuilding' || command.kind === 'placePalisade') {
     if (hasAuthoredOptions(command)) return false;
   }

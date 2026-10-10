@@ -480,6 +480,10 @@ export const enContent = {
           'A rider from the elders: the ford is marked out for the stockade. Keep the guard inside the ring.',
       },
     },
+    defeat: {
+      title: 'Play after defeat',
+      summary: 'A failed mission asks to leave the map. Choose “Keep playing” and command the survivors.',
+    },
     victory: {
       title: 'Victory and defeat',
       summary:

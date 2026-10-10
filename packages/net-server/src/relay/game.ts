@@ -165,6 +165,7 @@ export class Game {
       connectedSince: member.connectedSince,
       joinOrder: member.joinOrder,
       digest,
+      ...(member.seat === null ? { observer: true } : {}),
     };
     const late = this.ledger.report(tick, report);
     if (late !== null) this.apply(late, now);
@@ -188,6 +189,7 @@ export class Game {
   }
 
   setClock(member: Member, speed: number | undefined, paused: boolean | undefined): Refusal {
+    if (member.seat === null) return { code: 'seatRequired' };
     if (this.endedTick !== null) return { code: 'matchEnded' };
     if (speed !== undefined) this.clock.setSpeed(speed);
     if (paused !== undefined) this.clock.setPaused(paused);
@@ -228,6 +230,16 @@ export class Game {
     this.waiting.forget(member.token);
     this.kickVotes.forget(member.token);
     this.pacing.forget(member.token);
+  }
+
+  /** A former player no longer contributes held votes or digests to the remaining players. */
+  observe(member: Member, now: number): void {
+    this.ledger.forget(member.token);
+    this.kickVotes.forget(member.token);
+    this.pacing.forget(member.token);
+    this.waiting.forget(member.token);
+    this.removed(now);
+    if (this.endedTick === null) this.updateWaiting(now);
   }
 
   /** The kicked member is out of the room: the rest may be complete now. */
@@ -360,7 +372,9 @@ export class Game {
   }
 
   private slowMembers(): Member[] {
-    return [...this.members.values()].filter((member) => this.pacing.isSlow(member.token));
+    return [...this.members.values()].filter(
+      (member) => member.seat !== null && this.pacing.isSlow(member.token),
+    );
   }
 
   private waitedNow(member: Member, now: number): boolean {
@@ -368,6 +382,7 @@ export class Game {
   }
 
   private waitReason(member: Member, now: number): WaitReason | null {
+    if (member.seat === null) return null;
     if (!member.connected) return 'gone';
     if (member.outOfSync !== null) return 'resync';
     if (!member.loaded) return 'loading';
@@ -379,7 +394,7 @@ export class Game {
   private startClockWhenLoaded(now: number): void {
     if (this.clock.running || this.builtTick === null) return;
     for (const member of this.members.values()) {
-      if (!member.loaded) return;
+      if (member.seat !== null && !member.loaded) return;
     }
     this.clock.start();
     this.resync.restartCadence(now);
@@ -392,11 +407,12 @@ export class Game {
     const synced = new Set<string>();
     let passed = Number.POSITIVE_INFINITY;
     let lowest = Number.POSITIVE_INFINITY;
+    const hasPlayers = [...this.members.values()].some((member) => member.seat !== null && isSynced(member));
     for (const member of this.members.values()) {
-      lowest = Math.min(lowest, member.ackedTick);
+      if (member.seat !== null || isSynced(member)) lowest = Math.min(lowest, member.ackedTick);
       if (!isSynced(member)) continue;
       synced.add(member.token);
-      passed = Math.min(passed, member.ackedTick);
+      if (member.seat !== null || !hasPlayers) passed = Math.min(passed, member.ackedTick);
     }
     if (synced.size === 0) return;
     for (const verdict of this.ledger.settle(passed, synced)) this.apply(verdict, now);

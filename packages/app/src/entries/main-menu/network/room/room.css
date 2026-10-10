@@ -490,3 +490,21 @@
 .network-room__seats:not(.has-difficulty) .network-room__difficulty {
   display: none;
 }
+
+.network-room__observers {
+  margin-top: 16px;
+  border-top: 1px solid var(--bronze-lo);
+  padding-top: 12px;
+}
+.network-room__observer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+.network-room__observer > button {
+  margin-left: auto;
+}
+.network-room__observer p {
+  margin: 4px 0 0;
+}

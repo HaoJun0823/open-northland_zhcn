@@ -45,8 +45,9 @@ export class MatchEnd {
     if (this.result !== null) return;
     let candidate: FinishReport | null = null;
     let mismatch = false;
+    const hasPlayers = [...this.members.values()].some((member) => member.seat !== null);
     for (const member of this.members.values()) {
-      if (!member.connected) continue;
+      if (!member.connected || (hasPlayers && member.seat === null)) continue;
       const report = this.reports.get(member.token);
       if (
         !isSynced(member) ||

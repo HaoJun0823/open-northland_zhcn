@@ -54,6 +54,7 @@ import type { DiplomacyPanelRow } from '../../hud/dom/diplomacy-window/model.js'
 import { createGoodIconPainter } from '../../hud/dom/good-art.js';
 import { createHoverCard } from '../../hud/dom/hover-card.js';
 import { createLinkLostScreen, type LinkLostScreen } from '../../hud/dom/link-lost-screen.js';
+import { createMatchResultOverlay, type MatchResultOverlay } from '../../hud/dom/match-result.js';
 import { mountHudDomRoot } from '../../hud/dom/root.js';
 import { createSystemMenu } from '../../hud/dom/system-menu.js';
 import { type BuildingHoverContext, buildingHoverModel } from '../../hud/hover-card/building.js';
@@ -98,7 +99,6 @@ import {
   palisadeToolsOf,
 } from '../game-tool-panel.js';
 import { createSignpostMapOverlay } from '../map-overlays/signposts.js';
-import { createMatchResultOverlay, type MatchResultOverlay } from '../match-result.js';
 import { floatParam, introParam, tintParam, weatherParam } from '../params.js';
 import { mountPerfOverlay } from '../perf-overlay.js';
 import { nodeBounds } from '../picking.js';
@@ -216,6 +216,7 @@ export interface GameViewDeps {
   readonly observer?: boolean;
   /** Read-only spectator: the interactive HUD's command seam is a no-op, so a selection can inspect but never re-task. */
   readonly readOnly?: boolean;
+  readonly onWatchAfterResult?: () => void;
   /** The seats a read-only spectator may watch one at a time, which mounts the seat picker and starts
    *  the view on the whole map with nobody's figures; absent, a spectator keeps `localPlayer`'s. */
   readonly observerSeats?: readonly ObserverSeatEntry[];
@@ -277,9 +278,10 @@ const SCRIPT_OVERLAY_Z = 900;
 export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle> {
   const { app, canvas, params, renderer, host, driver, cameraCtl } = deps;
   const localPlayer = deps.localPlayer ?? HUMAN_PLAYER;
-  // A spectator with a picker follows the seat it chose to watch; the overseer sees the whole map with
-  // its own seat's figures; a played session's view is its own seat for good.
-  const switchableSeat = deps.observerSeats === undefined ? null : switchableViewerSeat(null);
+  // Shared players start on their own seat and may switch to observation after a result.
+  let watching = deps.observer === true && deps.readOnly === true;
+  const switchableSeat =
+    deps.observerSeats === undefined ? null : switchableViewerSeat(watching ? null : localPlayer);
   const viewer: ViewerSeat =
     switchableSeat ??
     (deps.observer === true ? overseerViewerSeat(localPlayer) : fixedViewerSeat(localPlayer));
@@ -439,14 +441,14 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     // A read-only spectator drops every HUD command here. Setup commands enqueue on the world's builder.
     // The overseer seat commands every player, so its orders enter as trusted admin input instead of one
     // seat reaching into another's units.
-    const readOnly = deps.readOnly === true;
-    const overseer = deps.observer === true && !readOnly;
+    const readOnly = (): boolean => deps.readOnly === true || watching;
+    const overseer = deps.observer === true && !readOnly();
     // A trusted command has no wire: a shared session drops it rather than hand it to the relay.
     const issueTrusted = (command: Command): void => {
       if (!sharedClock) driver.submit(adminCommand(command));
     };
     const issueCommand = (command: PlayerCommand): void => {
-      if (readOnly) return;
+      if (readOnly()) return;
       driver.submit(overseer ? adminCommand(command) : playerCommand(localPlayer, command));
       // The ordered settlers answer at once, as in the original, whatever the sim then makes of the order.
       const answer = orderAnswerOf(command);
@@ -467,8 +469,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         goodLabelOf: (goodType) => goodLabelByType.get(goodType),
         goodIdOf: (goodType) => goodIdByType.get(goodType),
         tribeOf: seatTribeOf,
-        canPay: !readOnly,
-        canDeclare: !readOnly,
+        canPay: !readOnly(),
+        canDeclare: !readOnly(),
         ...(deps.relationFlags !== undefined ? { relationFlags: deps.relationFlags } : {}),
         ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
         ...(deps.playerColourOf !== undefined ? { playerColourOf: deps.playerColourOf } : {}),
@@ -547,11 +549,11 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       enqueue: issueCommand,
       ...(sharedClock ? {} : { enqueueTrusted: issueTrusted }),
       assistant: {
-        counters: assistantCountersSeam(host, viewer.seat, issueCommand, !readOnly),
-        switches: assistantGrantsSeam(host, host.content, viewer.seat, issueCommand, !readOnly),
+        counters: assistantCountersSeam(host, viewer.seat, issueCommand, !readOnly()),
+        switches: assistantGrantsSeam(host, host.content, viewer.seat, issueCommand, !readOnly()),
         bookings: () => assistantBookingsFor(host.snapshot()),
         shortages: () => assistantShortagesOf(host.snapshot(), host.content, viewer.seat()),
-        access: () => (viewer.seat() === null ? 'noSeat' : readOnly ? 'watching' : 'control'),
+        access: () => (viewer.seat() === null ? 'noSeat' : readOnly() ? 'watching' : 'control'),
         tooltip: assistantTip,
         paintGood: goodIcons,
       },
@@ -588,7 +590,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         ...createDiplomacyActions({
           host,
           viewer: viewer.seat,
-          canCommand: () => !readOnly && !lifetime.signal.aborted,
+          canCommand: () => !readOnly() && !lifetime.signal.aborted,
           wholeMap: viewer.wholeMap,
           roster: deps.rosterPlayers ?? [],
           flags: deps.relationFlags ?? [],
@@ -628,9 +630,19 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       owner: localPlayer,
       viewer,
       ...(switchableSeat !== null && deps.observerSeats !== undefined
-        ? { observer: { seats: deps.observerSeats, onWatch: (seat) => switchableSeat.watch(seat) } }
+        ? {
+            observer: {
+              seats: deps.observerSeats,
+              enabled: () => watching,
+              onWatch: (seat) => {
+                if (watching) switchableSeat.watch(seat);
+              },
+            },
+          }
         : {}),
-      onSpeed: (spec, cause) => applyGameSpeed(driver, spec, cause),
+      onSpeed: (spec, cause) => {
+        if (!sharedClock || !watching) applyGameSpeed(driver, spec, cause);
+      },
       clockPaused: () => driver.paused,
       pauseHeld: pauseHolds.isHeld,
       deferToOverlay: (clientX, clientY) => minimap?.claimsPointer(clientX, clientY) ?? false,
@@ -639,7 +651,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       onSaveGame: () => systemMenu?.openPage('save'),
       ...(sharedClock ? {} : { onLoadGame: () => systemMenu?.openPage('load') }),
       onToggleHud: () => toggleHud?.(),
-      modalOpen: () => systemMenu?.isOpen() === true || linkLost?.isOpen() === true,
+      modalOpen: () =>
+        systemMenu?.isOpen() === true || linkLost?.isOpen() === true || verdict?.isOpen() === true,
       escapeClaimed: () => escapeClaimed?.() === true,
       ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
       ...(mission !== undefined ? { mission } : {}),
@@ -712,10 +725,19 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       verdict = createMatchResultOverlay({
         localPlayer,
         sharedClock,
-        uiString: toolPanel.controller.uiString,
+        hud: hudDom,
+        onOpen: () => systemMenu?.close(),
+        setCameraSuspended: cameraCtl.setSuspended,
         pause: () => pauseHolds.hold(PAUSE_HOLDER_VERDICT),
         resume: () => pauseHolds.release(PAUSE_HOLDER_VERDICT),
         onQuit: quitToMenu,
+        onContinue: () => {
+          if (sharedClock) {
+            watching = true;
+            switchableSeat?.watch(null);
+            deps.onWatchAfterResult?.();
+          } else issueTrusted({ kind: 'continueMatch', player: localPlayer });
+        },
       });
     }
     // Assembled below, once the controls and the camera it steers exist.
@@ -742,7 +764,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       scriptTints: scriptTints.onEvents,
       subMissions: (events) => !sharedClock && subMissions.onEvents(events),
       verdict: (events) => {
-        if (deps.observer !== true) verdict?.onEvents(events);
+        if (deps.observer !== true && !watching) verdict?.onEvents(events);
       },
       presentation: (events) => presentation?.onEvents(events),
     });
@@ -947,6 +969,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       ),
       mapText,
       now: () => performance.now(),
+      keepPlayingAfterResult: () => sharedClock || host.matchOutcome(localPlayer) !== 'undecided',
       exit: () => queueMicrotask(quitToMenu),
     });
 
@@ -1169,7 +1192,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       fpsLimit: storedSettings.fpsLimit,
       fogView: fogViewOf,
       viewer,
-      onMatchEnd: () => verdict?.finish(host.matchOutcome(localPlayer)),
+      onMatchEnd: () => verdict?.finish(watching ? 'undecided' : host.matchOutcome(localPlayer)),
       isDisposed: () => destroyed,
       ...(deps.onFirstFrameShown === undefined ? {} : { onFirstFrameShown: deps.onFirstFrameShown }),
       driver,

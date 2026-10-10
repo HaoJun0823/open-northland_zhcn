@@ -148,6 +148,7 @@ export interface ToolPanelOptions {
   readonly viewer: ViewerSeat;
   /** A spectator's seat picker on the system bar: the seats it may watch and where its choice goes. */
   readonly observer?: {
+    readonly enabled?: () => boolean;
     readonly seats: readonly ObserverSeatEntry[];
     readonly onWatch: (seat: number | null) => void;
   };
@@ -715,6 +716,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
         ? {
             observer: {
               seats: opts.observer.seats,
+              ...(opts.observer.enabled === undefined ? {} : { enabled: opts.observer.enabled }),
               viewer: opts.viewer,
               playerColourOf: opts.playerColourOf,
               onWatch: opts.observer.onWatch,

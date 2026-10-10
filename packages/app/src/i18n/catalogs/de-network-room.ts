@@ -53,7 +53,7 @@ export const deNetworkRoom = {
   chat: 'Raumchat',
   chatPlaceholder: 'Nachricht an den Raum',
   send: 'Senden',
-  unseated: 'Kein Platz',
+  unseated: 'Zuschauer',
   disconnected: 'Verbindung getrennt',
   load: '{ms} ms/Tick, gepuffert: {buffered}',
 } as const;

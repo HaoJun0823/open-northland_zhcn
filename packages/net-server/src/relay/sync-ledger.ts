@@ -8,6 +8,7 @@ export interface DigestReport {
   readonly connectedSince: number;
   readonly joinOrder: number;
   readonly digest: WireDigest;
+  readonly observer?: boolean;
 }
 
 export interface OutOfSync {
@@ -120,7 +121,8 @@ export class SyncLedger {
 
 function judge(tick: number, reports: readonly DigestReport[]): Verdict {
   const groups = new Map<string, DigestReport[]>();
-  for (const report of reports) {
+  const players = reports.filter((report) => report.observer !== true);
+  for (const report of players.length > 0 ? players : reports) {
     const key = SYNC_DOMAINS.map((domain) => report.digest[domain]).join(',');
     const group = groups.get(key);
     if (group === undefined) groups.set(key, [report]);
@@ -135,7 +137,7 @@ function judge(tick: number, reports: readonly DigestReport[]): Verdict {
   }
   const reference = earliest(majority);
   const outOfSync = reports
-    .filter((report) => !majority.includes(report))
+    .filter((report) => differing(reference.digest, report.digest).length > 0)
     .map((report) => ({ token: report.token, domains: differing(reference.digest, report.digest) }));
   return { tick, reference, outOfSync };
 }

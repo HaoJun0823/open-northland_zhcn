@@ -105,7 +105,7 @@ describe('network room permissions', () => {
     for (const seat of view.seats) expect(canClaimSeat(view, seat, 'Ania', true)).toBe(seat.nick === null);
   });
 
-  it('blocks start for disconnected or unseated members and reports mismatching players', () => {
+  it('blocks start for disconnected members and reports mismatching players', () => {
     const view = room();
     const changed = {
       ...view,
@@ -120,7 +120,7 @@ describe('network room permissions', () => {
     expect(permissions.issues).toContainEqual({ nick: 'Bartek', kind: 'content', reason: 'mismatch' });
     // A player can revoke an existing ready flag even while another player's files mismatch.
     expect(permissions.canReady).toBe(true);
-    for (const patch of [{ connected: false }, { seat: null }]) {
+    for (const patch of [{ connected: false }]) {
       expect(
         roomPermissions(
           {

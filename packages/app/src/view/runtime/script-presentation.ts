@@ -49,6 +49,8 @@ export interface ScriptPresentationDeps {
   /** The map's own string by id, for the info lines. */
   readonly mapText: (stringId: number) => string | undefined;
   readonly now: () => number;
+  /** A local verdict offers continued play, so a later script Exit must not leave the map. */
+  readonly keepPlayingAfterResult?: () => boolean;
   readonly exit: () => void;
 }
 
@@ -167,6 +169,7 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
             diag.warn(DIAG_CHANNEL, `mission ${event.mission}: ${event.opcode} could not act on the world`);
             break;
           case 'missionExit':
+            if (deps.keepPlayingAfterResult?.() === true) break;
             deps.exit();
             return;
           default:

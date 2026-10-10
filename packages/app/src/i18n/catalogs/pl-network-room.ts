@@ -54,7 +54,7 @@ export const plNetworkRoom: { readonly [Key in keyof typeof enNetworkRoom]: stri
   chat: 'Czat pokoju',
   chatPlaceholder: 'Wiadomość do pokoju',
   send: 'Wyślij',
-  unseated: 'Bez miejsca',
+  unseated: 'Obserwator',
   disconnected: 'Brak połączenia',
   load: '{ms} ms/krok, w buforze {buffered}',
 };

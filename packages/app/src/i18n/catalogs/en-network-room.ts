@@ -52,7 +52,7 @@ export const enNetworkRoom = {
   chat: 'Room chat',
   chatPlaceholder: 'Message to the room',
   send: 'Send',
-  unseated: 'No seat',
+  unseated: 'Observer',
   disconnected: 'Disconnected',
   load: '{ms} ms/tick, {buffered} buffered',
 } as const;

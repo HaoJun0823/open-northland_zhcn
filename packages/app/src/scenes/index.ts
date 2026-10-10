@@ -31,6 +31,7 @@ import { creatureBloodScene } from './creature-blood.js';
 import { creatureFormsScene } from './creature-forms.js';
 import { creaturesScene } from './creatures.js';
 import { deathLootScene } from './death-loot.js';
+import { defeatScene } from './defeat.js';
 import { diplomacyScene } from './diplomacy.js';
 import { equipmentScene } from './equipment.js';
 import { equipmentEffectsScene } from './equipment-effects.js';
@@ -188,6 +189,7 @@ export const SCENES: readonly SceneDefinition[] = [
   aiSiegeChargeScene,
   deathLootScene,
   victoryScene,
+  defeatScene,
   tradeScene,
   tradeDomesticScene,
   tributeScene,

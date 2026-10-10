@@ -16,25 +16,20 @@ export interface SessionRoles {
   readonly matchParticipants: readonly number[];
 }
 
-/**
- * Every seat a person plays, on this client or another, gets its grants and its place in the match,
- * so two clients of one session enqueue the same setup. A read-only spectator drives no seat and
- * takes no grants; the overseer's grants still start on for the seat its assistant window edits; a
- * spectator of either kind plays no seat in the match.
- */
+/** Human and AI seats build the same world for players and read-only observers. Only the local
+ * sandbox overseer adds its fallback seat's assistant grants. */
 export function sessionRoles(session: GameSession, neverDies: readonly number[]): SessionRoles {
   const machineSeats = machineSeatsOf(session);
   const humans = humanSeatsOf(session);
-  const controlled = isReadOnlySpectator(session)
-    ? []
-    : isSpectator(session)
-      ? [localPlayerOf(session)]
+  const controlled =
+    isSpectator(session) && !isReadOnlySpectator(session)
+      ? [...new Set([...humans, localPlayerOf(session)])]
       : humans;
   return {
     machineSeats,
     assistantSeats: [...controlled, ...machineSeats],
     matchParticipants: matchParticipants({
-      controlled: isSpectator(session) ? [] : humans,
+      controlled: humans,
       machineSeats,
       neverDies,
     }),

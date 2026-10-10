@@ -42,6 +42,7 @@ function harness(
   saved: MissionPresentationView = { guiMarkers: [], groundMarkers: [], weather: [] },
   seat: () => number | null = () => 0,
   showBriefings = true,
+  keepPlayingAfterResult = () => false,
 ) {
   const calls: string[] = [];
   const infoLines: (readonly string[])[] = [];
@@ -82,6 +83,7 @@ function harness(
     host,
     seat,
     showBriefings,
+    keepPlayingAfterResult,
     toolPanel,
     controls: { select: (ids) => calls.push(`select:${[...ids].join()}`) },
     camera: () => camera,
@@ -275,4 +277,13 @@ it('keeps following a human aboard a moving vehicle and after disembarking', () 
   expect(calls.at(-1)).toBe(`centre:${halfCellToScreen(13, 10).x},${halfCellToScreen(13, 10).y}`);
   presentation.followCamera(snapshotAt(2));
   expect(calls.at(-1)).toBe(`centre:${halfCellToScreen(11, 10).x},${halfCellToScreen(11, 10).y}`);
+});
+
+it('keeps a decided local map running when its script asks to exit after the result', () => {
+  const { presentation, calls } = harness([], undefined, undefined, true, () => true);
+  presentation.onEvents([
+    { kind: 'missionExit', mission: 0 },
+    { kind: 'missionEarthquake', seconds: 2 },
+  ]);
+  expect(calls).toEqual(['quake:2']);
 });

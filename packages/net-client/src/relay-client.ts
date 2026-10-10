@@ -245,6 +245,7 @@ export class RelayClient extends RelayLobby implements SessionDriver, RelayClien
 
   /** Commands need a connected world and must fit in one atomic wire envelope. */
   submit(envelope: CommandEnvelope): void {
+    if (this.session !== null && typeof this.session.localSeat !== 'number') return;
     if (this.resultTick !== null || this.completion.confirmedTick !== null) return;
     if (this.driver === null) {
       this.options.onError?.('command', new Error(`${this.nick} holds no world`));

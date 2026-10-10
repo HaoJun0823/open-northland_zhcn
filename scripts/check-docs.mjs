@@ -6,11 +6,13 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ticketReferenceFile = /\.(?:[cm]?[jt]sx?|json|ya?ml)$/;
 const ticketAreas = new Set([
+  'api',
   'app',
   'audio',
   'data',
   'desktop',
   'lockstep',
+  'map-import',
   'net-client',
   'net-protocol',
   'net-server',

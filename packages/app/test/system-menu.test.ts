@@ -229,6 +229,34 @@ describe('system menu navigation', () => {
     await vi.waitFor(() => expect(settings.current().volumes).toEqual(defaultSettings().volumes));
   });
 
+  it.each(['edit', 'dispose'] as const)('does not apply a delayed reset after a later %s', async (action) => {
+    let finishRecommendation: (settings: MenuSettings) => void = () => undefined;
+    const recommendation = new Promise<MenuSettings>((resolve) => {
+      finishRecommendation = resolve;
+    });
+    const recommend = vi.spyOn(graphicsStartup, 'recommendedSettings').mockReturnValue(recommendation);
+    const { menu, settings } = mount();
+    await settings.update({ soundEnabled: false });
+    menu.toggle();
+    openSettings();
+    const restore = button(messages().mainMenu.settings.restoreDefaults);
+    restore.click();
+    const question = document.querySelector('[role="alertdialog"]');
+    if (question === null) throw new Error('Missing confirmation');
+    button(messages().mainMenu.settings.restoreDefaults, question).click();
+    await vi.waitFor(() => expect(recommend).toHaveBeenCalledOnce());
+
+    if (action === 'edit') button(messages().mainMenu.settings.weather).click();
+    else menu.dispose();
+    const chosen = settings.current();
+    expect(chosen.soundEnabled).toBe(false);
+    expect(chosen.weather).toBe(action !== 'edit');
+    finishRecommendation(defaultSettings());
+    await vi.waitFor(() => expect(restore.disabled).toBe(false));
+
+    expect(settings.current()).toEqual(chosen);
+  });
+
   it('cancels a pending reset when a later UI scale choice is still rebuilding', async () => {
     let finishRecommendation: (settings: MenuSettings) => void = () => undefined;
     const recommendation = new Promise<MenuSettings>((resolve) => {

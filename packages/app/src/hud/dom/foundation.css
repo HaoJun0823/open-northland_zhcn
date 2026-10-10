@@ -3197,6 +3197,18 @@ body.on-drag-scroll * {
   font-size: 12px;
   color: #c7bda3;
 }
+/* Stacked lines share one label column as wide as their longest label, so none wraps into the next. */
+.on-hud .on-meter-list {
+  display: grid;
+  grid-template-columns: minmax(78px, max-content) 1fr 34px;
+  gap: 2px 8px;
+  margin: 2px 0;
+}
+.on-hud .on-meter-list > .on-meter-row {
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  margin: 0;
+}
 .on-hud .on-meter-row > b {
   text-align: right;
   color: var(--text-hi);

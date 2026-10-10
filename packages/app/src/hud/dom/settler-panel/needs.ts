@@ -35,7 +35,7 @@ export interface NeedsSection {
 export function createNeedsSection(deps: SettlerPanelDeps, entity: () => number): NeedsSection {
   const root = element('div', '');
   const title = createSection();
-  const list = element('div', '');
+  const list = element('div', 'on-meter-list');
   root.append(title.element, list);
   let shown = '';
   let rows: MeterRow[] = [];

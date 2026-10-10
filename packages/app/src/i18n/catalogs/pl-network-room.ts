@@ -24,7 +24,7 @@ export const plNetworkRoom: { readonly [Key in keyof typeof enNetworkRoom]: stri
   empty: 'Wolne miejsce',
   human: 'Gracz',
   seatMode: 'Tryb miejsca',
-  script: 'Skrypt',
+  script: 'AI mapy',
   ai: 'Komputer',
   idle: 'Bezczynne',
   absent: 'Brak',

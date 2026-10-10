@@ -75,12 +75,12 @@ export const plSurfaces = {
       freeSlot: 'Wolny slot',
       human: 'Człowiek',
       scenarioControl: 'SI - zablokowany',
-      vacantScript: 'Skrypt',
+      vacantScript: 'AI mapy',
       vacantComputer: 'Komputer',
       vacantIdle: 'Bezczynny',
       vacantAbsent: 'Brak',
       vacantToggleTitle:
-        'Skrypt stosuje ustawienia AI mapy; AI włącza wszystkie dostępne moduły; Bezczynny pozostawia gracza bez sterowania AI.',
+        'AI mapy stosuje ustawienia autora mapy; Komputer włącza wszystkie dostępne moduły AI; Bezczynny pozostawia gracza bez sterowania AI.',
       sit: 'Usiądź tutaj',
       footnote:
         'Sloty definiuje mapa - nie da się ich dodać ani usunąć. Możesz zmienić miejsce, siadając w wolnym slocie.',

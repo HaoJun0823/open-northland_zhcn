@@ -76,12 +76,12 @@ export const enSurfaces = {
       freeSlot: 'Open slot',
       human: 'Human',
       scenarioControl: 'AI - locked',
-      vacantScript: 'Script',
+      vacantScript: 'Map AI',
       vacantComputer: 'Computer',
       vacantIdle: 'Idle',
       vacantAbsent: 'None',
       vacantToggleTitle:
-        'Script follows the map’s AI settings; AI enables every available module; Idle leaves the seat without AI control.',
+        'Map AI follows the map author’s settings; Computer enables every available AI module; Idle leaves the seat without AI control.',
       sit: 'Sit here',
       footnote:
         'The map defines the slots - none can be added or removed. You can move by sitting in an open slot.',

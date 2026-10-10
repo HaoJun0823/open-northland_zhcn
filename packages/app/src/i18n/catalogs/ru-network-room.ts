@@ -22,7 +22,7 @@ export const ruNetworkRoom = {
   empty: 'Свободное место',
   human: 'Игрок',
   seatMode: 'Режим места',
-  script: 'Сценарий',
+  script: 'ИИ карты',
   ai: 'Компьютер',
   idle: 'Бездействие',
   absent: 'Нет',

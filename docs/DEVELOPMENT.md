@@ -167,7 +167,7 @@ weather is untouched; `weather=ambient[:<percent>]` holds the game's own weather
 names the seats a person could have taken that the strategic AI plays instead; a map's own computer
 seats (authored `ai`, offered to nobody) follow their script without being named. `script=<seat,...>`
 selects the map’s `[AIData]` configuration for an offered seat; `idle=<seat,...>` leaves its entities
-without AI control. Authored AI seats default to Script, human seats to Idle, and authored closed
+without AI control. Authored AI seats default to Map AI, human seats to Idle, and authored closed
 seats spawn no entities. The lobby offers no selectable Closed mode. `seed=<n>` picks
 the world seed a `?map=` session runs on, so two clients of one session start from the same world;
 without it the entry draws one and writes it into the address, so a match's link replays it. Without `lang`

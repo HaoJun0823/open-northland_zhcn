@@ -22,7 +22,7 @@ export const deNetworkRoom = {
   empty: 'Freier Platz',
   human: 'Spieler',
   seatMode: 'Platzmodus',
-  script: 'Skript',
+  script: 'Karten-KI',
   ai: 'Computer',
   idle: 'Inaktiv',
   absent: 'Nicht vorhanden',

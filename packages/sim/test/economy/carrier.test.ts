@@ -22,6 +22,7 @@ import {
   Simulation,
 } from '../../src/index.js';
 import { createPalisade, plannerSystem } from '../../src/systems/index.js';
+import { PORTER_COLLECT_RADIUS_NODES } from '../../src/systems/settlers/drives/economy/haul-targets.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassCellMap as grassMap } from '../fixtures/terrain.js';
@@ -231,6 +232,24 @@ describe('carrier - choosing what to haul', () => {
     // The pile really is haulable: the carrier walks to that exact tile.
     const pileNode = cellAnchorNode(4, 0);
     expect(sim.world.tryGet(carrier, MoveGoal)?.cell).toBe(sim.terrain?.nodeAt(pileNode.hx, pileNode.hy));
+  });
+
+  it('a porter lifts only ground piles within its collect radius of the store it works for', () => {
+    // The near pile lies beside the porter but past the radius from its store; the far one lies inside it.
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(32, 1) });
+    const hq = hqAt(sim, 0, 0);
+    const outside = Math.ceil(PORTER_COLLECT_RADIUS_NODES / 2) + 2;
+    const carrier = carrierAt(sim, outside + 1, 0, hq);
+    for (const cell of [outside, Math.floor(PORTER_COLLECT_RADIUS_NODES / 2) - 1]) {
+      const pile = sim.world.create();
+      sim.world.add(pile, Position, { x: fx.fromInt(cell), y: fx.fromInt(0) });
+      sim.world.add(pile, Stockpile, { amounts: new Map([[WOOD, 1]]) });
+    }
+
+    plannerSystem(sim.world, ctxOf(sim));
+
+    const inside = cellAnchorNode(Math.floor(PORTER_COLLECT_RADIUS_NODES / 2) - 1, 0);
+    expect(sim.world.tryGet(carrier, MoveGoal)?.cell).toBe(sim.terrain?.nodeAt(inside.hx, inside.hy));
   });
 
   it('a porter passes wall and road sites holding delivered material for the ground pile beyond', () => {

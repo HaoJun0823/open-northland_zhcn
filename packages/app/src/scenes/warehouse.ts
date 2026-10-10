@@ -37,11 +37,11 @@ const ENABLER = { x: 2, y: MAP_H - 2 } as const;
 const CARRIERS = 3;
 
 /** Wood hugs the store, so it is worked first and fills the store to its cap with a surplus left over;
- *  the other goods sit farther out, well under the cap. */
+ *  the other goods sit farther out, well under the cap and still inside the porters' collect radius. */
 const WOOD_OVERSUPPLY = 1.5;
 const WOOD_ROW_Y = 9;
 const WOOD_ROW_W = 12; // tiles per row
-const SCATTER_ROW_Y = 20;
+const SCATTER_ROW_Y = 12;
 const SCATTER_PILES_PER_GOOD = 3;
 const SCATTER_GOODS = [
   GOOD_STONE,
@@ -78,7 +78,7 @@ function build(sim: Simulation): void {
   SCATTER_GOODS.forEach((good, g) => {
     for (let p = 0; p < SCATTER_PILES_PER_GOOD; p++) {
       const x = WAREHOUSE_X - SCATTER_GOODS.length + g * 2;
-      const y = SCATTER_ROW_Y + p * 2;
+      const y = SCATTER_ROW_Y + p;
       dropSandboxGood(sim, good, x, y, STACK);
     }
   });

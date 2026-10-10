@@ -30,6 +30,8 @@ export const MISSION_BEHAVIOUR = {
   NO_JOB_EXPERIENCE: 1 << 11,
   /** Walking does not consume shoe condition; barefoot food drain is independent. */
   SHOES_DO_NOT_WEAR: 1 << 12,
+  /** A wild animal looking for a victim passes over it. */
+  HIDDEN_FROM_ANIMALS: 1 << 13,
   /** Walks at half pace. */
   WALKS_SLOWLY: 1 << 9,
   /** Walks faster than its trade would. */

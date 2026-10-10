@@ -3,7 +3,9 @@ import {
   AttackOrder,
   Building,
   Engagement,
+  hasMissionBehaviour,
   isWildlife,
+  MISSION_BEHAVIOUR,
   MoveGoal,
   Owner,
   Palisade,
@@ -67,6 +69,9 @@ export const DEFEND_LEASH_NODES = 40;
  *  weapon's near reach, left out here as plainly odd. */
 export const IGNORE_LEASH_NODES = 18;
 
+/** The behaviour bits that keep a human out of a wild animal's victim search. */
+const ANIMAL_BLIND_BEHAVIOUR = MISSION_BEHAVIOUR.INVULNERABLE | MISSION_BEHAVIOUR.HIDDEN_FROM_ANIMALS;
+
 export interface CombatantStance {
   /** Whether the unit has an {@link Owner}; an unowned combatant has no fog and carries no {@link Stance}. */
   readonly owned: boolean;
@@ -129,6 +134,10 @@ export class EngagementSpecs {
       this.reachable(t)
     );
   };
+  // Original behavior: a wild animal looking for a victim passes over a human the map made invulnerable
+  // or hid from animals; one it already holds it keeps.
+  private readonly wildAccept = (t: Entity): boolean =>
+    !hasMissionBehaviour(this.world, t, ANIMAL_BLIND_BEHAVIOUR) && this.advanceAccept(t);
   private readonly accept = (t: Entity): boolean => {
     if (this.world.has(t, Age)) return false;
     const i = this.current();
@@ -311,7 +320,7 @@ export class EngagementSpecs {
         case 'search':
           return {
             ...wild,
-            accept: advanceAccept,
+            accept: this.wildAccept,
             searchRadius: ANIMAL_AGGRO_RADIUS_NODES,
             searchCenter: pursuit.center,
             lock: null,

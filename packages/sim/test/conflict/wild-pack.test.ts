@@ -7,8 +7,10 @@ import {
   Frightened,
   Health,
   HerdMember,
+  MISSION_BEHAVIOUR,
   MoveGoal,
   StayPoint,
+  stampMissionBehaviour,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { Simulation } from '../../src/index.js';
@@ -219,5 +221,20 @@ describe('wild pack targeting', () => {
     combatSystem(sim.world, ctxOf(sim));
 
     expect(sim.world.get(bear, Engagement).target).toBe(nearStay);
+  });
+
+  it('a leader passes over a man the map made invulnerable or hid from animals', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(24, 1) });
+    const bear = animalAt(sim, BEAR, 10);
+    joinHerd(sim, bear);
+    const invulnerable = fighterAtNode(sim, 12, 0, VIKING, WOODCUTTER);
+    stampMissionBehaviour(sim.world, invulnerable, MISSION_BEHAVIOUR.INVULNERABLE);
+    const hidden = fighterAtNode(sim, 8, 0, VIKING, WOODCUTTER);
+    stampMissionBehaviour(sim.world, hidden, MISSION_BEHAVIOUR.HIDDEN_FROM_ANIMALS);
+    const plain = fighterAtNode(sim, 16, 0, VIKING, WOODCUTTER);
+
+    combatSystem(sim.world, ctxOf(sim));
+
+    expect(sim.world.get(bear, Engagement).target).toBe(plain);
   });
 });

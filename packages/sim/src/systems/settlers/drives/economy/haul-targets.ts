@@ -1,7 +1,10 @@
 import { Building, JobAssignment, Position, Stockpile, sameSideAs } from '../../../../components/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
+import { hexDistanceBetween } from '../../../../nav/halfcell.js';
+import { hexNodeBox, type SpatialGate } from '../../../../nav/node-circle.js';
 import type { SystemContext } from '../../../context.js';
 import { buildingBlockedCells } from '../../../footprint/index.js';
+import { entityNode } from '../../../spatial/nodes.js';
 import { buildingProduces, isLoosePile, lowestStockedGood, type SupplyTally } from '../../../stores/index.js';
 import type { PlannerContext } from '../../planner/context.js';
 import {
@@ -18,9 +21,9 @@ import { isFarmCarrierHaulOutRole } from './store-policy.js';
 
 /**
  * The nearest loose pickup a porter should make and the good to lift, or null when none is within reach.
- * Without a flag it is a ground pile, ranked from the porter. With one it is a ground pile or a workplace's
- * finished output inside the flag's area, ranked from the flag. Original behavior: a carrier's search around
- * its work point takes both. Approximation: the original favours a ground heap lying a few steps beyond the
+ * Without a flag it is a ground pile within {@link PORTER_COLLECT_RADIUS_NODES} of its workplace, ranked
+ * from the porter. With one it is a ground pile or a workplace's finished output inside the flag's area,
+ * ranked from the flag. Original behavior: a carrier's search around its work point takes both. Approximation: the original favours a ground heap lying a few steps beyond the
  * nearest such building; here plain distance decides.
  *
  * A ground pile is an {@link isLoosePile} heap not buried under a building's walls or out of every unit's
@@ -47,7 +50,7 @@ function nearestLoosePickup(
   const area = haulFlagArea(plan);
   const best =
     area === null
-      ? targets.stockpileCells.nearestLoose(here, groundPileGood, plan.limit ?? undefined, avoid, onSide)
+      ? targets.stockpileCells.nearestLoose(here, groundPileGood, workplaceCollectGate(plan), avoid, onSide)
       : targets.stockpileCells.nearest(
           here,
           (e) =>
@@ -60,6 +63,28 @@ function nearestLoosePickup(
           area.center,
         );
   return best === null ? null : { from: best.entity, goodType: best.payload };
+}
+
+/** How far (map points) from its workplace a porter without a flag lifts ground piles. Original behavior:
+ *  a store carrier searches this far around its work point. Approximation: the workplace stands in for
+ *  that point, and the original's random pick among the finds is the nearest one here. */
+export const PORTER_COLLECT_RADIUS_NODES = 20;
+
+/** The porter's pickup area without a flag: its collect radius around its workplace, inside its signpost
+ *  confinement. */
+function workplaceCollectGate(plan: PlannerContext): SpatialGate | undefined {
+  const { world, terrain, limit } = plan;
+  const workplace = world.tryGet(plan.entity, JobAssignment)?.workplace;
+  if (workplace === undefined || !world.has(workplace, Position)) return limit ?? undefined;
+  const at = entityNode(world, terrain, workplace);
+  const cx = terrain.xOf(at);
+  const cy = terrain.yOf(at);
+  return {
+    bounds: hexNodeBox(cx, cy, PORTER_COLLECT_RADIUS_NODES),
+    allowsNode: (node) =>
+      hexDistanceBetween(cx, cy, terrain.xOf(node), terrain.yOf(node)) <= PORTER_COLLECT_RADIUS_NODES &&
+      (limit === null || limit.allowsNode(node)),
+  };
 }
 
 /**

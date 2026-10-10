@@ -92,6 +92,7 @@ export async function openEngine(engine: EngineId, url: string): Promise<EngineS
   });
   const page = await browser.newPage({ viewport: VIEWPORT });
   const errors = watchErrors(page);
+  await skipOriginalGameGate(page);
   await page.goto(muted.href, { waitUntil: 'load' });
   return { page, errors, close: () => browser.close() };
 }
@@ -125,12 +126,23 @@ async function openElectron(url: string): Promise<EngineSession> {
   try {
     const page = await app.firstWindow();
     const errors = watchErrors(page);
+    await skipOriginalGameGate(page);
     await page.goto(url, { waitUntil: 'load' });
     return { page, errors, close };
   } catch (err) {
     await close();
     throw err;
   }
+}
+
+/** Marks the original-game check passed before the app reads its settings, so `?map=` boots. */
+async function skipOriginalGameGate(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const key = 'open-northland.settings';
+    const stored: unknown = JSON.parse(window.localStorage.getItem(key) ?? '{}');
+    const settings = typeof stored === 'object' && stored !== null ? stored : {};
+    window.localStorage.setItem(key, JSON.stringify({ ...settings, originalGameVerified: true }));
+  });
 }
 
 function watchErrors(page: Page): readonly string[] {

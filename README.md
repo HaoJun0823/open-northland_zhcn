@@ -11,6 +11,11 @@ an offline asset pipeline.
 
 The repository contains no original game files or decoded content. The maps, graphics, and audio
 the engine plays come from the original game, converted locally from the CulturesNation mod.
+Playing requires an installed original: *Cultures 2*, *Cultures: Northland* or *Cultures - 8th
+Wonder of the World* from disc, [Steam](https://store.steampowered.com/app/351870/),
+[GOG](https://www.gog.com/game/cultures_34) or the
+[Mac App Store](https://apps.apple.com/app/id702843717); the game checks for one at first start
+(see `docs/LEGAL.md`).
 
 You can play-test it from: [game.opennorthland.org](https://game.opennorthland.org)
 

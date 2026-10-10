@@ -3,6 +3,7 @@ import { type LaunchEntry, swapToEntry } from '../../launch.js';
 import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../view/brand-art.js';
 import { bindDisplayMode } from '../../view/fullscreen.js';
 import { servedByBrowser } from '../../view/host.js';
+import { originalGameCheckOwed } from '../../view/original-game-check.js';
 import { clearPendingLoad } from '../../view/runtime/save-load/pending-store.js';
 import { initialSettingsMemory } from '../../view/settings-page.js';
 import { warmGraphicsInBackground } from '../../view/shader-warmup.js';
@@ -25,8 +26,9 @@ import {
 } from './model.js';
 import { startMenuMusic } from './music.js';
 import { networkScreen } from './network/index.js';
+import { originalGameGateScreen } from './original-game/gate-screen.js';
 import { settingsScreen } from './settings.js';
-import { adoptStoredSettings, onSettingsChange, updateSettings } from './settings-state.js';
+import { adoptStoredSettings, menuSettings, onSettingsChange, updateSettings } from './settings-state.js';
 
 /** Grade layers above the scene, bottom to top; the scene layer itself is built as the backdrop host. */
 const OVERLAY_LAYERS = ['tint', 'shade', 'aurora-dusk', 'aurora-blue'] as const;
@@ -194,7 +196,14 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
     // The prompt sits outside `content`, so a language change reaches it only from here.
     fullscreenPrompt.relabel();
   };
-  show(params.get('menu') === 'multiplayer' ? 'multiplayer' : 'main');
+  const firstScreen: MenuScreen = params.get('menu') === 'multiplayer' ? 'multiplayer' : 'main';
+  if (originalGameCheckOwed(menuSettings())) {
+    // The gate stands in for the first screen and darkens like a sub-screen; passing it opens the menu.
+    root.classList.add('is-sub');
+    content.replaceChildren(originalGameGateScreen(updateSettings, () => show(firstScreen)));
+  } else {
+    show(firstScreen);
+  }
 
   const onKeydown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') {

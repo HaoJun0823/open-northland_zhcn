@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { countGlCalls } from './bench-browser-profile.mjs';
 import { repoRoot } from './content-dir.mjs';
+import { skipOriginalGameGate } from './original-game-gate.mjs';
 
 /**
  * Paused world screenshots of a checkpoint at fixed cameras, for comparing a render change pixel by
@@ -50,6 +51,7 @@ async function capture(checkpoint, origin, outDir) {
   const report = { checkpoint: resolve(checkpoint), steps, seat, views: {}, errors: [] };
   try {
     const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+    await skipOriginalGameGate(page);
     page.on('pageerror', (error) => report.errors.push(error.message));
     await page.goto(origin);
     await page.evaluate(async (text) => {

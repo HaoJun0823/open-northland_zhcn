@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { access, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron, type ElectronApplication, type Page } from 'playwright';
 import { test } from 'vitest';
+import { ORIGINAL_GAME_DIR_ENV } from '../src/original-game/detect.js';
+import { ORIGINAL_GAME_STATE_FILE } from '../src/original-game/state.js';
 import { resolveShellRoots } from '../src/paths.js';
+import { libraryHead } from '../test/original-game/fixture.js';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const roots = resolveShellRoots({
@@ -30,6 +33,14 @@ test('boots app://, lists map previews, and restores a save and the window mode 
   assert.ok(bob, 'converted content must include a sprite PNG');
 
   const profile = await mkdtemp(join(tmpdir(), 'northland-desktop-'));
+  // A synthetic install beside the profile: the shell opens no window before it recognizes one.
+  const originalGame = join(profile, 'original-game');
+  await mkdir(join(originalGame, 'DataX', 'Libs'), { recursive: true });
+  await writeFile(join(originalGame, 'DataX', 'Libs', 'data0001.lib'), libraryHead());
+  const launchEnv: Record<string, string> = { [ORIGINAL_GAME_DIR_ENV]: originalGame };
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && launchEnv[key] === undefined) launchEnv[key] = value;
+  }
   let desktop: ElectronApplication | undefined;
   const errors: string[] = [];
   async function windowFullscreen(): Promise<boolean> {
@@ -66,6 +77,7 @@ test('boots app://, lists map previews, and restores a save and the window mode 
   async function launch() {
     desktop = await _electron.launch({
       args: [packageRoot, `--user-data-dir=${profile}`, '--mute-audio'],
+      env: launchEnv,
       timeout: 30_000,
     });
     const page = await desktop.firstWindow();
@@ -83,6 +95,7 @@ test('boots app://, lists map previews, and restores a save and the window mode 
 
   try {
     let page = await launch();
+    await access(join(profile, ORIGINAL_GAME_STATE_FILE));
     // A fresh profile opens fullscreen.
     await waitForFullscreen(page, true);
     await page.getByRole('button', { name: 'Settings', exact: true }).click();

@@ -14,6 +14,7 @@ import {
   throttleCpu,
 } from './bench-browser-profile.mjs';
 import { repoRoot } from './content-dir.mjs';
+import { skipOriginalGameGate } from './original-game-gate.mjs';
 
 const [checkpoint, origin, output = 'bench-out/browser', secondsText = '15'] = process.argv.slice(2);
 if (!checkpoint || !origin || process.argv.length > 6)
@@ -130,6 +131,7 @@ try {
   const browserSession = await browser.newBrowserCDPSession();
   const system = await browserSession.send('SystemInfo.getInfo');
   page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  await skipOriginalGameGate(page);
   const errors = metadata.errors;
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => {

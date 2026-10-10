@@ -13,8 +13,12 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   like in a browser.
 - Serve the app and the content through `app://` as static files: the app root first, then the
   content root, both laid out exactly as the app fetches them. Content and app are read-only
-  resources. The shell's own code writes only the window state file in Electron's profile, beside
-  the page's IndexedDB that holds the saves.
+  resources. The shell's own code writes only the window state file and `original-game.json` in
+  Electron's profile, beside the page's IndexedDB that holds the saves.
+- Before the window opens, `src/original-game/` requires an installed original game: the profile's
+  `original-game.json`, else detection (or only the folder `ON_ORIGINAL_GAME_DIR` names), else a
+  blocking dialog. Its detection, state and gate modules import nothing from `electron`; only
+  `prompt.ts` does.
 - `src/paths.ts` owns where the two trees are: the packaged app's `resources/app` and
   `resources/content` (the `extraResources` of `electron-builder.yml`), else the checkout's
   `packages/app/dist` and `content/` with `ON_CONTENT_DIR` honoured like Vite does. Do not duplicate

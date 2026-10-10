@@ -91,6 +91,8 @@ describe('parseStoredSettings', () => {
       netNick: 'Ania',
       netRelayUrl: 'ws://localhost:8768',
       debugToolsEnabled: true,
+      originalGameVerified: true,
+      originalGameLabel: 'Cultures: Northland (PL)',
     } as const;
     expect(
       parseStoredSettings(JSON.stringify({ ...settings, changedKeyBindings: { pauseToggle: 'KeyO' } })),

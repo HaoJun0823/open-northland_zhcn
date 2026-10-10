@@ -8,7 +8,8 @@
     "dev:verify": "node scripts/dev-verify.mjs",
     "build": "tsc --build && vite build && node scripts/bundle-report.mjs",
     "preview": "vite preview",
-    "shot": "node scripts/shot.mjs"
+    "shot": "node scripts/shot.mjs",
+    "test:e2e": "vitest run --config vitest.e2e.ts"
   },
   "dependencies": {
     "@open-northland/art-contracts": "*",
@@ -17,6 +18,7 @@
     "@open-northland/lockstep": "*",
     "@open-northland/net-client": "*",
     "@open-northland/net-protocol": "*",
+    "@open-northland/original-check": "*",
     "@open-northland/render": "*",
     "@open-northland/sim": "*",
     "@pmndrs/detect-gpu": "6.0.25"

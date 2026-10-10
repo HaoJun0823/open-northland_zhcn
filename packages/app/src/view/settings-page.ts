@@ -393,7 +393,13 @@ export function createSettingsPage(opts: {
       const before = opts.settings.current();
       const beforeUiScaleCommit = uiScaleCommit;
       restore.disabled = true;
-      const { displayMode: _displayMode, ...defaults } = await recommendedSettings();
+      // The original-game check is a record of the player's install, not a preference to reset.
+      const {
+        displayMode: _displayMode,
+        originalGameVerified: _verified,
+        originalGameLabel: _label,
+        ...defaults
+      } = await recommendedSettings();
       restore.disabled = false;
       if (
         scope.signal.aborted ||

@@ -22,6 +22,14 @@ export const plSurfaces = {
     comingSoon: 'wkrótce',
     comingSoonTip: 'Wkrótce',
     fullscreenPrompt: 'Włącz pełny ekran',
+    originalGame: {
+      message:
+        'Do gry potrzebna jest zainstalowana oryginalna gra Cultures 2, Cultures: Northland lub Cultures - 8th Wonder of the World.',
+      pick: 'Wskaż folder gry',
+      checking: 'Sprawdzam folder…',
+      notRecognized: 'W tym folderze nie ma danych gry Cultures',
+      buy: 'Gdzie kupić',
+    },
     backLabels: { main: 'Menu', newGame: 'Wybór mapy' },
     screenTitles: {
       multiplayer: 'Gra wieloosobowa',

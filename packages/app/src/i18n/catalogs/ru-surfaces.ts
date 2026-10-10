@@ -21,6 +21,14 @@ export const ruSurfaces = {
     comingSoon: 'Скоро',
     comingSoonTip: 'Скоро появится',
     fullscreenPrompt: 'Для удобства играйте в полноэкранном режиме',
+    originalGame: {
+      message:
+        'Для игры нужна установленная оригинальная Cultures 2, Cultures: Northland или Cultures - 8th Wonder of the World.',
+      pick: 'Указать папку игры',
+      checking: 'Проверяем папку…',
+      notRecognized: 'В этой папке нет данных игры Cultures',
+      buy: 'Где купить',
+    },
     backLabels: {
       main: 'Меню',
       newGame: 'Выбор карты',

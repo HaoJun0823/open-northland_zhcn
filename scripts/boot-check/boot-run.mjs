@@ -3,6 +3,8 @@
 // and `boot.finish()` then removes the `.boot-card` loading overlay; a `.boot-notice` on the same
 // backdrop is a boot the app gave up on.
 
+import { skipOriginalGameGate } from '../original-game-gate.mjs';
+
 const VIEWPORT = { width: 1280, height: 720 };
 const POLL_MS = 250;
 /** Frames the world must draw after the loading screen is gone. */
@@ -181,7 +183,10 @@ export async function bootMap({
         return result;
       }
       page = await withTimeout(
-        browser.newContext({ viewport: VIEWPORT }).then((context) => context.newPage()),
+        browser.newContext({ viewport: VIEWPORT }).then(async (context) => {
+          await skipOriginalGameGate(context);
+          return context.newPage();
+        }),
         PAGE_CALL_TIMEOUT_MS,
         'opening the game page',
       );

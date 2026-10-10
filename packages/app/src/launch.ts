@@ -9,6 +9,7 @@ import {
 import { routeFor } from './routes.js';
 import { dismissBootProgress } from './view/boot-progress.js';
 import { guardEntry, pushEntryUrl, releaseDocument } from './view/navigation-guard.js';
+import { originalGameRedirect } from './view/original-game-check.js';
 
 let cursorsInstalled = false;
 
@@ -42,9 +43,14 @@ export async function runEntry(
   // Set once this entry took the document; a load that fails earlier leaves the running one held.
   let guarded = false;
   try {
+    const route = routeFor(params);
+    const redirect = originalGameRedirect(route.id, params);
+    if (redirect !== null) {
+      window.location.replace(redirect);
+      return;
+    }
     const locale = localeParam(params);
     setActiveLocale(locale);
-    const route = routeFor(params);
     const [run, tribeNames] = await Promise.all([route.load(), loadTribeNames(locale)]);
     if (!cursorsInstalled) {
       const { installCursorTheme } = await import('./view/cursors/theme.js');

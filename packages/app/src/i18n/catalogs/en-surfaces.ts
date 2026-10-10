@@ -22,6 +22,14 @@ export const enSurfaces = {
     comingSoon: 'coming soon',
     comingSoonTip: 'Coming soon',
     fullscreenPrompt: 'For a better experience, play in fullscreen',
+    originalGame: {
+      message:
+        'The game needs an installed original Cultures 2, Cultures: Northland or Cultures - 8th Wonder of the World.',
+      pick: 'Pick the game folder',
+      checking: 'Checking the folder…',
+      notRecognized: 'That folder holds no Cultures game data',
+      buy: 'Where to buy',
+    },
     // A back link names the screen it returns to, not "Back".
     backLabels: { main: 'Menu', newGame: 'Map selection' },
     screenTitles: {

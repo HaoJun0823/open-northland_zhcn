@@ -459,7 +459,7 @@ bars, so they neither fall nor refill.
 Original behavior: bit 12 stops only shoe wear; a barefoot step checks bit 0 instead.
 
 Bits 8, 10 and 18 appear in the corpus (bit 18 in mask 272507) with no known effect. The original
-sets 0x1800 plus bits 0 and 6, and bit 7 for one tribe, on the special soldier jobs it spawns.
+ORs 0x1800 plus bits 0 and 6 into every hero it creates, and bit 7 into all but the Frankish heroine.
 Corpus masks: `sethuman` mostly 0, then 272507, 8315, 64; `SetPlayerBehaviourFlag` mostly 512,
 131200, 16384, 8192; `SetHumanBehaviourFlag` mostly 32, 512, 33, 128, 8.
 

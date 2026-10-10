@@ -6,6 +6,8 @@
     "declarationMap": false,
     "sourceMap": false,
     "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.tests.tsbuildinfo",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },

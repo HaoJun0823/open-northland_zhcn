@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { configDefaults, defineConfig } from 'vitest/config';
 
 /** Bounded so several worktrees running suites at once do not oversubscribe one machine. */
@@ -15,8 +16,39 @@ const APP_SETUP_FILES = [
 const CONTENT_TESTS = 'packages/app/test/**/content/**/*.test.ts';
 
 /**
- * Three projects: `app` needs setup files, `core` is the plain default run, and `content` is opt-in.
- * No project isolates modules, so a test file must not depend on being the first to import one.
+ * The slow tier: scale, long-run and real-time files that `npm run test:slow` and CI run, and
+ * `npm test` skips. docs/TESTING.md says which changes run them before integration.
+ */
+const SLOW_APP_TESTS = [
+  'packages/app/test/army-march.test.ts',
+  'packages/app/test/scenes/battle.test.ts',
+  'packages/app/test/snapshot-mirror-scenes.test.ts',
+  'packages/app/test/session-worker.test.ts',
+  'packages/app/test/session-worker-pacing.test.ts',
+  'packages/app/test/session-worker-mirror-truth.test.ts',
+  'packages/app/test/lockstep-parity.test.ts',
+  'packages/app/test/net/relay-slow-display.test.ts',
+];
+const SLOW_CORE_TESTS = [
+  'packages/sim/test/movement/army-geometry.test.ts',
+  'packages/sim/test/lifecycle/needs-levels.test.ts',
+  'packages/net-server/test/socket-recovery.test.ts',
+  'packages/net-server/test/army-session.test.ts',
+  'packages/net-server/test/ws-host.test.ts',
+  'packages/net-server/test/relay-resilience-session.test.ts',
+  'packages/net-server/test/relay-responsiveness.test.ts',
+  'tools/asset-pipeline/test/maps-synth-minimap.test.ts',
+];
+// A renamed or deleted file would otherwise drop out of both tiers silently.
+for (const file of [...SLOW_APP_TESTS, ...SLOW_CORE_TESTS]) {
+  if (!existsSync(new URL(file, import.meta.url)))
+    throw new Error(`vitest.config.ts: slow test ${file} is missing`);
+}
+
+/**
+ * `app` needs setup files, `core` is the plain default run, each with a `-slow` twin, and `content`
+ * is opt-in. No project isolates modules, so a test file must not depend on being the first to
+ * import one.
  */
 export default defineConfig({
   ssr: { resolve: { conditions: ['source', 'module', 'node', 'development|production'] } },
@@ -30,9 +62,13 @@ export default defineConfig({
           ...SHARED,
           include: ['packages/app/test/**/*.test.ts'],
           // Spread the defaults: an explicit `exclude` REPLACES them, which would drop `**/dist/**`.
-          exclude: [...configDefaults.exclude, CONTENT_TESTS],
+          exclude: [...configDefaults.exclude, CONTENT_TESTS, ...SLOW_APP_TESTS],
           setupFiles: APP_SETUP_FILES,
         },
+      },
+      {
+        extends: true,
+        test: { name: 'app-slow', ...SHARED, include: SLOW_APP_TESTS, setupFiles: APP_SETUP_FILES },
       },
       {
         extends: true,
@@ -40,8 +76,12 @@ export default defineConfig({
           name: 'core',
           ...SHARED,
           include: ['{packages,tools}/*/test/**/*.test.ts'],
-          exclude: [...configDefaults.exclude, 'packages/app/**'],
+          exclude: [...configDefaults.exclude, 'packages/app/**', ...SLOW_CORE_TESTS],
         },
+      },
+      {
+        extends: true,
+        test: { name: 'core-slow', ...SHARED, include: SLOW_CORE_TESTS },
       },
       {
         extends: true,

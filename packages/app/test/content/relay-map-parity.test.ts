@@ -212,8 +212,8 @@ async function playThrough(
   return clients;
 }
 
-/** `ON_RELAY_PARITY=off` skips the file: these runs are most of the content suite's time. */
-const RUN_PARITY = process.env.ON_RELAY_PARITY !== 'off' && hasRealIr() && existsSync(realMapPath(MAP_ID));
+/** `npm run test:content` runs this file only with `ON_RELAY_PARITY=on`. */
+const RUN_PARITY = hasRealIr() && existsSync(realMapPath(MAP_ID));
 
 describe.runIf(RUN_PARITY)('relayed sessions on a decoded map', () => {
   it.skipIf(!existsSync(realMapPath(EIGHT_PLAYER_MAP_ID)))(

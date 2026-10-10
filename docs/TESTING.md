@@ -14,9 +14,15 @@ npm test
 `npm test` runs the `app` and `core` Vitest projects: simulation hygiene, deterministic state hashes,
 integration tests, and headless acceptance scenes. A third project, `content`, holds
 `packages/app/test/content`; only `npm run test:content` selects it, so a checkout with generated
-content still gets the same fast default suite. CI runs `npm test` on Ubuntu; a Windows run is
+content still gets the same fast default suite. The slow tier, the `app-slow` and `core-slow`
+projects listed in `vitest.config.ts`, holds scale, long-run and real-time files; `npm run test:slow`
+runs it and `npm test` skips it. CI runs `npm test` and `npm run test:slow` on Ubuntu; a Windows run is
 available through the CI workflow's manual dispatch checkbox. Formatting and production build checks
 run once on Ubuntu.
+
+`npm test`, `test:vitest`, `test:slow` and `test:content` run through `scripts/run-gated.mjs`: across
+all worktrees of the checkout at most two such runs proceed at once (`ON_GATE_SLOTS` changes it), the
+rest wait for a slot, and each runs at lowered priority. CI runs them directly.
 
 No project isolates modules: the files a worker runs share one module registry, so a test must not
 depend on being the first to import one. Name module-level fixtures uniquely and restore whatever the
@@ -27,13 +33,15 @@ earlier file already loaded.
 During iteration, run only the affected tests:
 
 ```bash
-npx vitest run --project core packages/sim/test/core/hygiene.test.ts
-npx vitest run --project app packages/app/test/scenes
+npx vitest run --project='!content' packages/sim/test/core/hygiene.test.ts
+npx vitest run --project='!content' packages/app/test/scenes
 ```
 
-Replace the paths with the affected tests; include dependent packages when their contracts change.
-`--project core` and `--project app` exclude real-content tests. For a selection spanning both,
-use `--project='!content'`. A path filters files; `-t 'test name'` filters test titles.
+Replace the paths with the affected test files; include dependent packages' tests when their
+contracts change. `--project='!content'` excludes real-content tests and includes the slow tier, so a
+path selects a slow file too. A path filters files; `-t 'test name'` filters test titles. A focused
+run is not gated, so keep it to the affected files; run a whole package's test directory through
+the gate with `npm run test:vitest -- <path>`.
 Vitest selects the workspace packages' `source` exports, so package edits are tested immediately.
 Focused runs and watch mode transpile TypeScript; they do not typecheck it or replace completion gates.
 Production builds and plain Node tools still use `dist/`; run `npx tsc --build` before a Node tool
@@ -50,13 +58,12 @@ repeating it through `npm test`:
 npm run check
 npm run build
 npm run test:scripts
-npx vitest run --project='!content'
+npm run test:vitest
 ```
 
 This is equivalent to the standard gates above; keep the standalone `npm test` entry for CI and
 fresh test runs. Run `npm run check:assets` and `npm run check:docs` before committing repository
-changes. Do not run multiple full suites or a benchmark alongside a build on the same machine.
-The root Vitest configuration caps its worker pool at four; simultaneous runners still multiply it.
+changes. Do not run a benchmark alongside a suite or a build on the same machine.
 
 ## Test layers
 
@@ -280,9 +287,9 @@ loaders, id joins, overlay behavior, or scenarios based on real extracted rows. 
 runs in it play a few hundred ticks by default; `ON_RELAY_TICKS=10000` lengthens them for a
 change to the relay or the lockstep seams.
 
-`ON_RELAY_PARITY=off` skips `relay-map-parity.test.ts`, which is more than half of the suite's
-runtime, for a quicker content check. A change to the relay or the lockstep seams still needs a run
-with the file.
+`relay-map-parity.test.ts` is more than half of the suite's runtime, so `test:content` skips it
+unless `ON_RELAY_PARITY=on`. A change to the relay or the lockstep seams runs it, and so does the
+release check.
 
 `test:pipeline` performs a fresh conversion into a temporary directory and runs the real-content
 checks against that result. Use it for source parsing, schemas, decoders, map conversion, and output
@@ -338,12 +345,23 @@ See [`DEVELOPMENT.md`](DEVELOPMENT.md) for benchmark controls.
 
 ## Choosing the required checks
 
+Run the completion gates once per task: rebase onto current `main` first, then run them on the final
+commit. Integration that fast-forwards `main` to that same tree (`git rev-parse HEAD^{tree}`) needs
+no second run; if `main` moved, rebase and run them again. Repeat a gate after a fix only for the
+area the fix touched.
+
 - Documentation-only work: `npm run check:docs`, `npm run check`, and any relevant link or example
   inspection.
 - Normal code: standard gates.
+- Army movement, orders or combat (`packages/sim/src/systems/{movement,orders,conflict}`), needs
+  (`systems/lifecycle`), the snapshot mirror or session host (`packages/sim/src/inspect`,
+  `packages/app/src/session`), networking (`packages/lockstep`, `packages/net-*`,
+  `packages/app/src/net`) or map conversion (`tools/asset-pipeline`): standard gates plus
+  `npm run test:slow`.
 - Sim behavior: standard gates plus a focused determinism or scenario test.
 - Pipeline or schema: standard gates plus `npm run test:pipeline`.
-- Real-content consumers: standard gates plus `npm run test:content` when local content exists.
+- Real-content consumers: standard gates plus `npm run test:content` when local content exists;
+  relay or lockstep-seam changes with `ON_RELAY_PARITY=on`.
 - Sort comparators, the local float allowance, or the state hash: standard gates plus
   `npm run test:engines` when local content and the Playwright browsers exist.
 - Visual or audio work: matching automated checks plus a stated human review step.

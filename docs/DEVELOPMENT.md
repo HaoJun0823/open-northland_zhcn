@@ -11,7 +11,8 @@ npm run dev             # browser development server
 npm run desktop         # Electron development build
 npm run relay           # lockstep relay server on PORT (default 8765)
 npm run build           # typecheck and build the browser app, then report per-mode JS size
-npm test                # normal Vitest suite
+npm test                # normal Vitest suite (fast tier)
+npm run test:slow       # slow tier: scale, long-run and real-time tests
 npm test -- scenario    # test files matching a path fragment (includes full typecheck)
 npm run test:watch      # watch mode
 npm run check           # Biome formatting and lint checks

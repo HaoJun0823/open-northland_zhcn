@@ -20,7 +20,18 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
-const result = spawnSync('npx', ['vitest', 'run', '--project', 'content'], {
+// Relayed sessions on a decoded map are most of the suite's time; relay and lockstep-seam changes
+// and the release check opt in. Excluding the file also skips importing the relay and worker bundle.
+const RELAY_PARITY_FILE = '**/relay-map-parity.test.ts';
+const args = ['vitest', 'run', '--project', 'content'];
+if (process.env.ON_RELAY_PARITY === 'on') {
+  console.log('test:content: relay parity included');
+} else {
+  args.push('--exclude', RELAY_PARITY_FILE);
+  console.log('test:content: relay parity SKIPPED (ON_RELAY_PARITY=on runs it)');
+}
+
+const result = spawnSync('npx', args, {
   stdio: 'inherit',
   cwd: repoRoot,
   env: process.env,

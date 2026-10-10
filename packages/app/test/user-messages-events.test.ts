@@ -405,6 +405,14 @@ describe('user messages from sim events', () => {
     ]);
   });
 
+  it('waits for the goal table before announcing a rival scripted defeat', () => {
+    const snap = snapshot(50, [{ id: 1, player: LOCAL, kind: 'person' }]);
+    expect(run([{ kind: 'playerDefeated', player: ENEMY, scripted: true }], snap)).toEqual([]);
+    const confirmed = run([{ kind: 'playerDefeated', player: ENEMY, notificationAlreadySent: true }], snap);
+    expect(confirmed).toEqual(run([{ kind: 'playerDefeated', player: ENEMY }], snap));
+    expect(confirmed).toHaveLength(1);
+  });
+
   it("notes this seat's settler the sim marked lost, and no one else's", () => {
     const snap = snapshot(50, [
       { id: 1, player: LOCAL, kind: 'person' },

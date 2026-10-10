@@ -109,7 +109,7 @@ export interface FrameLoopDeps {
   readonly canPlaceSignpostAt: (col: number, row: number) => boolean;
   readonly soundDriver: ReturnType<typeof createSoundDriver> | null;
   /** The map script's display: its camera jitter for the frame, and its overlays after the draw. */
-  readonly presentation: Pick<ScriptPresentation, 'jitter' | 'frame'> | null;
+  readonly presentation: Pick<ScriptPresentation, 'jitter' | 'frame' | 'followCamera'> | null;
   readonly perf: PerfOverlayHandle;
   readonly perfReadout: PerfReadout;
   /** A relayed session's connection figures for the overlay; null in a local session. */
@@ -342,6 +342,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     // Every frame, stepped or not: a playing clip ends on the tick, and its trunk shows with that frame.
     presentFellings?.(presentEvents, snap.tick);
     // A script's earthquake shakes the drawn world alone; picking and the HUD keep the steady frame.
+    presentation?.followCamera(snap);
     const jitter = presentation?.jitter(nowMs) ?? null;
     const camera = cameraCtl.camera();
     const drawnCamera =

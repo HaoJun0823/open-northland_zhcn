@@ -403,12 +403,20 @@ export type SimEvent =
        */
       readonly kind: 'playerDefeated';
       readonly player: number;
+      /** Script announcement before a multiplayer goal table decides the seat. */
+      readonly scripted?: true;
+      /** The goal table confirmed a verdict whose local notification already played. */
+      readonly notificationAlreadySent?: true;
     }
   | {
       /** The player won this tick: every seat still standing is a mutual friend of the others (once per
        *  winner, all in the same tick), or the map's script fired `MissionWon` for it. */
       readonly kind: 'playerWon';
       readonly player: number;
+      /** Script announcement before a multiplayer goal table decides the seat. */
+      readonly scripted?: true;
+      /** The goal table confirmed a verdict whose local notification already played. */
+      readonly notificationAlreadySent?: true;
     }
   | {
       /**

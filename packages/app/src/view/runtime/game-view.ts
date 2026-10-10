@@ -912,6 +912,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     app.stage.addChild(scriptOverlay);
     presentation = createScriptPresentation({
       host,
+      camera: cameraCtl.camera,
       missionTrace: hasDebugFlag(params, 'missions'),
       showBriefings: introParam(params),
       seat: viewer.seat,

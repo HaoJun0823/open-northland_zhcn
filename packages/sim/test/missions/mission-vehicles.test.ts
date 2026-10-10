@@ -454,7 +454,7 @@ describe('the crew results', () => {
 });
 
 describe('MoveUnitsInArea', () => {
-  it("sets the player's vehicles in the area down beside the destination, drives dropped", () => {
+  it("stacks the player's vehicles at the destination and submits their move orders", () => {
     const destination = { hx: POINT.hx, hy: POINT.hy + 20 };
     const sim = firingSim([
       {
@@ -470,19 +470,23 @@ describe('MoveUnitsInArea', () => {
     const other = cart(sim, { at: { hx: POINT.hx - 1, hy: POINT.hy } });
     const left = cart(sim, { at: FAR });
     const foreign = cart(sim, { at: POINT, owner: OTHER });
-    sim.run(PASS_TICKS);
+    sim.run(LOAD_PASS);
+    expect(sim.events.current().filter((event) => event.kind === 'vehicleMoveRefused')).toEqual([
+      { kind: 'vehicleMoveRefused', entity: moved, player: OWNER, reason: 'noCommander' },
+      { kind: 'vehicleMoveRefused', entity: other, player: OWNER, reason: 'noCommander' },
+    ]);
     for (const e of [moved, other]) {
-      expect(hexDistance(nodeOf(sim, e), destination)).toBeLessThanOrEqual(1);
+      expect(nodeOf(sim, e)).toEqual(destination);
       expect(sim.world.has(e, VehicleDrive)).toBe(false);
     }
-    expect(nodeOf(sim, moved)).not.toEqual(nodeOf(sim, other));
+    expect(nodeOf(sim, moved)).toEqual(nodeOf(sim, other));
     expect(nodeOf(sim, left)).toEqual(FAR);
     expect(nodeOf(sim, foreign)).toEqual(POINT);
   });
 });
 
 describe('MoveUnitsInArea over water', () => {
-  it('lands a cart on ground beside a destination at sea and leaves a vehicle loading into a ship alone', () => {
+  it('teleports exactly to a destination at sea and leaves a vehicle loading into a ship alone', () => {
     const source = { hx: 4, hy: 8 };
     const sim = missionSim(
       [
@@ -513,8 +517,7 @@ describe('MoveUnitsInArea over water', () => {
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('mapped sim expected');
     const at = nodeOf(sim, moved);
-    expect(terrain.isWalkable(terrain.nodeAt(at.hx, at.hy))).toBe(true);
-    expect(hexDistance(at, SEA)).toBeLessThanOrEqual(2);
+    expect(at).toEqual(SEA);
     expect(nodeOf(sim, loading)).toEqual({ hx: source.hx, hy: source.hy + 2 });
   });
 });

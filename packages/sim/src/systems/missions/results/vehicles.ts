@@ -10,13 +10,11 @@ import {
 } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
-import { type HalfCellNode, hexagonRing, positionOfNode } from '../../../nav/halfcell.js';
-import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
+import { type HalfCellNode, positionOfNode } from '../../../nav/halfcell.js';
 import type { SystemContext } from '../../context.js';
 import { vehicleAnchor, vehicleDoorNode } from '../../footprint/index.js';
 import { removeSettlerSilently } from '../../lifecycle/death.js';
 import { clearNavState } from '../../movement/nav-state.js';
-import { vehicleTraversal } from '../../readviews/vehicles.js';
 import { spawnSettler } from '../../spawn/index.js';
 import { createVehicle } from '../../vehicles/create.js';
 import {
@@ -26,7 +24,7 @@ import {
   landingOf,
   passengerJobAllowed,
 } from '../../vehicles/crew.js';
-import { dropHeldGoal, endDrive, endMarch, vehicleWalkBlocks } from '../../vehicles/movement.js';
+import { dropHeldGoal, endDrive, endMarch, moveVehicle } from '../../vehicles/movement.js';
 import { vehicleIndex } from '../../vehicles/registry.js';
 import { removeVehicle } from '../../vehicles/remove.js';
 import type { MissionPass } from '../pass.js';
@@ -42,10 +40,6 @@ const SCRIPT_REMOVAL_CAP = 50;
 
 /** How many vehicles one `MoveUnitsInArea` teleports beside its humans (reading: a 20-entry buffer). */
 const VEHICLE_TELEPORT_CAP = 20;
-
-/** How far around the destination a teleported vehicle may land, in hexagon rings, when the point
- *  itself cannot take it (approximation: the original stacks every vehicle on the point). */
-const TELEPORT_LANDING_RADIUS = 9;
 
 /**
  * `SetVehicle`: a vehicle of the type at the point for the player and tribe, with the id. With the
@@ -219,14 +213,9 @@ function stampVehicles(pass: MissionPass, player: number, id: number, keep: (e: 
   }
 }
 
-/**
- * The vehicle half of `MoveUnitsInArea`: up to {@link VEHICLE_TELEPORT_CAP} of the player's vehicles
- * standing within `range` of the source, a carried one excepted, are set down at the destination and
- * their drives dropped. Each lands on the first node in hexagon-ring order of its own traversal that
- * its walk-block admits, so a group fans out where the original stacks it and then orders every
- * vehicle to the same point; a vehicle no node within {@link TELEPORT_LANDING_RADIUS} takes stays
- * where it was.
- */
+/** Teleport up to {@link VEHICLE_TELEPORT_CAP} vehicles onto the destination, even when occupied,
+ *  then issue each the normal goto order. Carried vehicles stay attached to their carrier.
+ *  Original behavior: stacking precedes the move order; not yet checked in the running original. */
 export function teleportVehiclesInArea(
   pass: MissionPass,
   player: number,
@@ -237,45 +226,19 @@ export function teleportVehiclesInArea(
   const { world, ctx } = pass;
   const terrain = ctx.terrain;
   if (terrain === undefined || !isValidPlayer(player)) return;
-  const claimed = new Set<NodeId>();
   let moved = 0;
   for (const e of [...vehicleIndex(world).ownedBy(player)]) {
     if (moved >= VEHICLE_TELEPORT_CAP) break;
     // One riding a carrier, or on its way into one, stays with the ship (the original's carrier test).
     if (world.get(e, Vehicle).carrier !== null || vehicleAnchor(world, e) === null) continue;
     if (!withinRange(world, e, source, range)) continue;
-    if (teleportVehicle(world, ctx, terrain, e, destination, claimed)) moved++;
+    teleportVehicle(world, ctx, e, destination);
+    moved++;
   }
 }
 
-function teleportVehicle(
-  world: World,
-  ctx: SystemContext,
-  terrain: TerrainGraph,
-  e: Entity,
-  destination: HalfCellNode,
-  claimed: Set<NodeId>,
-): boolean {
-  const state = world.get(e, Vehicle);
-  const type = contentIndex(ctx.content).vehicles.get(state.vehicleType);
-  if (type === undefined) return false;
-  const blocked = vehicleWalkBlocks(world, ctx, terrain, e, type);
-  const traversal = vehicleTraversal(type);
-  let landing: NodeId | null = null;
-  for (let r = 0; r <= TELEPORT_LANDING_RADIUS && landing === null; r++) {
-    for (const { point } of hexagonRing(destination, r)) {
-      if (!terrain.inBounds(point.hx, point.hy)) continue;
-      const node = terrain.nodeAt(point.hx, point.hy);
-      // The walk-block knows nothing of land and water: a cart must land on ground, a ship at sea.
-      if (!terrain.traversable(node, traversal) || blocked.has(node) || claimed.has(node)) continue;
-      landing = node;
-      break;
-    }
-  }
-  if (landing === null) return false;
-  claimed.add(landing);
-  const { x, y } = terrain.coordsOf(landing);
-  const at = positionOfNode(x, y);
+function teleportVehicle(world: World, ctx: SystemContext, e: Entity, destination: HalfCellNode): void {
+  const at = positionOfNode(destination.hx, destination.hy);
   const pos = world.mut(e, Position);
   pos.x = at.x;
   pos.y = at.y;
@@ -285,12 +248,12 @@ function teleportVehicle(
   const live = world.mut(e, Vehicle);
   live.moored = false;
   live.mooring = null;
-  live.guard = { hx: x, hy: y };
+  live.guard = { ...destination };
   if (live.task !== 'attacks') live.task = 'none';
   // Riders still walking to the old door re-aim at the new one on their next rung; a route they hold
   // points at where the vehicle no longer stands.
   for (const seat of live.passengers) {
     if (seat !== null && !seat.inside && world.isAlive(seat.entity)) clearNavState(world, seat.entity);
   }
-  return true;
+  moveVehicle(world, ctx, { kind: 'moveVehicle', vehicle: e, x: destination.hx, y: destination.hy });
 }

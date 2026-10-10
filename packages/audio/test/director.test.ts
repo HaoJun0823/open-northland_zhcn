@@ -78,6 +78,8 @@ const bank: SoundBank = {
     },
   ],
   jingles: [
+    { name: '', musicType: 27, sfx: [{ file: 'jingles/won.wav', params: [] }] },
+    { name: '', musicType: 28, sfx: [{ file: 'jingles/lost.wav', params: [] }] },
     { name: '', musicType: 26, sfx: [{ file: 'jingles/jingles_housebuilt.wav', params: [] }] },
     { name: '', musicType: 23, sfx: [{ file: 'jingles/jingles_birth.wav', params: [] }] },
     { name: '', musicType: 25, sfx: [{ file: 'jingles/jingles_death.wav', params: [] }] },
@@ -182,6 +184,15 @@ function direct(
 const UNAUTHORED_GAIN = authoredVolumeGain(DEFAULT_AUTHORED_VOLUME);
 
 describe('directAudio one-shots', () => {
+  it.each(['playerWon', 'playerDefeated'] as const)(
+    'plays the scripted %s jingle without replaying it at goal confirmation',
+    (kind) => {
+      expect(direct([{ kind, player: 1, scripted: true }], { localPlayer: 1 }).oneShots).toHaveLength(1);
+      expect(
+        direct([{ kind, player: 1, notificationAlreadySent: true }], { localPlayer: 1 }).oneShots,
+      ).toEqual([]);
+    },
+  );
   it('does not invent a placement sound before any builder starts hammering', () => {
     const frame = direct([{ kind: 'buildingPlaced', entity: entity(7), at: { hx: 11, hy: 10 } }]);
     expect(frame.oneShots).toEqual([]);

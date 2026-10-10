@@ -1,26 +1,21 @@
-# Present scripted weather, selection and verdicts like the original
+# Verify the remaining scripted presentation differences
 
-**Area:** app, render · **Focus:** `packages/app/src/view/runtime/script-presentation.ts` · **Priority:** P3
-
-Three presentation results are stated approximations in `docs/formats/MISSIONS.md`:
-
-- `SetWeather` (207 corpus uses) and the `[misc_weather]` rectangles draw as a screen wash by the
-  density at the view's centre. Establish how the original draws rain, snow and sand over its
-  10-node sectors and draw the same over the visible sectors, screen-bounded.
-- `SelectHuman` (7): the view centres once; the original follows the human with the camera.
-- On a multiplayer map `MissionWon` and `MissionFailed` only raise goal-table rows, and the verdict
-  is announced at the next 120-tick goal check; the original still shows the won/lost message and
-  jingle the moment the result runs (stated in `missions/results/standing.ts`).
+**Area:** app, render · **Focus:** scripted camera and weather · **Priority:** P3
 
 ## Scope
 
-- Implement each through the existing presentation events; keep the sim's events and saved
-  presentation state unchanged unless the original's behavior needs more.
-- Rewrite the "Here:" texts and the `standing.ts` comment.
+The weather renderer samples the 10-node sector field at each visible particle, including script
+writes and restored weather. Particle appearance is project-tuned; fidelity to the original's rain,
+snow and sand still needs a running-game comparison and a reliable visible-sector frame-cost check.
+
+`SelectHuman` follows a human, including a rider's vehicle, until the target disappears, another
+script camera result runs, or the player moves or zooms the view. Confirm interruption and attachment
+behavior in the running original, and resolve the edition difference in the selection flag described
+in `docs/formats/MISSIONS.md` before changing that flag's semantics.
 
 ## Verify
 
-- App tests for the follow camera (stops when the human is gone or the player moves the view) and
-  for the immediate verdict message without a duplicate at the goal check.
-- Browser check on a map with `SetWeather` (screenshot, frame cost measured in the scenario) and on
-  one with `SelectHuman`, in a muted browser.
+- Compare weather boundaries, density and camera follow on the same authored map in the original and
+  this implementation; retain reference captures outside the repository.
+- Measure the weather scenario on an uncontended machine, in a muted browser. Synthetic tests prove
+  field sampling and follow interruption, not visual fidelity.

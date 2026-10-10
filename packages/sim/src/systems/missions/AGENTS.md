@@ -62,8 +62,8 @@ and announced through the match events, and a lock by a seat's own `declareDiplo
 read here or not yet at all. A reveal goes
 through `FogState` like the vision system's own stamps. A scripted map declares its mortal seats
 with `setMatchParticipants` in script-victory mode: death checks run for even one seat, while only
-script results award victory. A multiplayer map declares goals mode instead: a verdict result only
-raises the goal table's rows, and the match system's goal check decides. The default elimination mode
+script results award victory. A multiplayer map declares goals mode instead: a verdict result announces immediately and
+raises the goal table's rows; the match system's goal check decides without repeating that announcement. The default elimination mode
 preserves the skirmish rule.
 
 The tribute table is the one player table of this module a seat command reads and writes: `tributes.ts` counts and

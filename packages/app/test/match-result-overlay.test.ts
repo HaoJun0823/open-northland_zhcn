@@ -92,3 +92,40 @@ it('waits for server confirmation before showing shared victory', () => {
   expect(h.body.buttons()).toHaveLength(1);
   expect(h.pause).not.toHaveBeenCalled();
 });
+
+it.each(['playerWon', 'playerDefeated'] as const)(
+  'shows an immediate scripted %s in a shared game without pausing it',
+  (kind) => {
+    const h = setup(true);
+    h.overlay.onEvents([{ kind, player: 0, scripted: true }]);
+    expect(h.body.children).toHaveLength(1);
+    expect(h.body.buttons()).toHaveLength(2);
+    expect(h.pause).not.toHaveBeenCalled();
+    h.body.buttons()[0]?.dispatchEvent(new Event('click'));
+    h.overlay.onEvents([{ kind, player: 0 }]);
+    expect(h.body.children).toHaveLength(0);
+    h.overlay.finish(kind === 'playerWon' ? 'victory' : 'defeat');
+    expect(h.body.buttons()).toHaveLength(1);
+  },
+);
+
+it('does not let a suppressed shared victory hide a later scripted notice in the same frame', () => {
+  const h = setup(true);
+  h.overlay.onEvents([
+    { kind: 'playerWon', player: 0 },
+    { kind: 'playerWon', player: 0, scripted: true },
+  ]);
+  expect(h.body.children).toHaveLength(1);
+  expect(h.body.buttons()).toHaveLength(2);
+  expect(h.pause).not.toHaveBeenCalled();
+});
+
+it.each(['playerWon', 'playerDefeated'] as const)(
+  'does not redisplay a previously announced %s after loading a save',
+  (kind) => {
+    const h = setup(false);
+    h.overlay.onEvents([{ kind, player: 0, notificationAlreadySent: true }]);
+    expect(h.body.children).toHaveLength(0);
+    expect(h.pause).not.toHaveBeenCalled();
+  },
+);

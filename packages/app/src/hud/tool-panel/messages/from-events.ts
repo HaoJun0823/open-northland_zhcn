@@ -409,7 +409,7 @@ export function messagesFromEvents(
       case 'playerDefeated':
         // Every other seat hears an elimination: the original's own record carries the broadcast player id
         // rather than one seat's. The defeated seat's own defeat panel already tells it.
-        if (ev.player === localPlayer) break;
+        if (ev.player === localPlayer || ev.scripted === true) break;
         raiser.raise(
           `${USER_MESSAGE_TYPE.playerDied}|player:${ev.player}`,
           {

@@ -5,6 +5,8 @@ import type { HalfCellNode } from '../../src/nav/halfcell.js';
 import type { MissionDefinition, MissionGoalOp, MissionResultOp } from '../../src/systems/missions/index.js';
 import { FOG_STATE, VISION_CADENCE_TICKS } from '../../src/systems/vision/index.js';
 import { allyVision } from '../fixtures/allies.js';
+import { testContent } from '../fixtures/content.js';
+import { grassNodeMap } from '../fixtures/terrain.js';
 import {
   failedResultsNow,
   firingMission,
@@ -268,5 +270,63 @@ describe('FindHumans, FindHouses and FindAnimals', () => {
     const sim = goalSim({ opcode: 'FindHumans', player: BEYOND_SLOTS, humanId: MARK });
     sim.run(LOAD_PASS);
     expect(holds(sim)).toBe(false);
+  });
+});
+
+describe('ExploreArea object areas', () => {
+  it('reveals a foreign house build area when its anchor lies in the hexagon, and preserves it in a save', () => {
+    const content = testContent();
+    const house = content.buildings.find((type) => type.typeId === HEADQUARTERS);
+    if (house === undefined) throw new Error('fixture house missing');
+    house.footprint = {
+      blocked: [{ dx: 0, dy: 0 }],
+      familyBody: [{ dx: 0, dy: 0 }],
+      reserved: [
+        { dx: 0, dy: 0 },
+        { dx: 8, dy: 0 },
+      ],
+    };
+    const sim = scriptedSim([firingMission([explore(OWNER, POINT, 1)])], content);
+    sim.enqueueSetup({ kind: 'setFogMode', mode: FOG_MODE.CLASSIC });
+    houseAt(sim, RIVAL, POINT, MARK);
+    loadPassAfter(sim, FOG_SETTLED);
+    const fringe = { hx: POINT.hx + 8, hy: POINT.hy };
+    expect(cellState(sim, OWNER, fringe)).toBe(FOG_STATE.VISIBLE);
+    expect(cellState(sim, OWNER, { hx: POINT.hx + 4, hy: POINT.hy })).toBe(FOG_STATE.UNEXPLORED);
+    expect(cellState(roundTrip(sim), OWNER, fringe)).toBe(FOG_STATE.VISIBLE);
+  });
+
+  it.each([20, 21])('reveals a level-dependent landscape on anchor row %i without cascading', (hy) => {
+    const point = { hx: 20 + (hy & 1), hy: hy + 1 };
+    const map = {
+      ...grassNodeMap(MAP_NODES, MAP_NODES),
+      landscapes: {
+        types: [
+          {
+            typeId: 900,
+            walk: [],
+            build: [],
+            groups: [],
+            blockAreas: {
+              walk: [[0, -4, 1, 1] as [number, number, number, number]],
+              build: [
+                [0, 4, 1, 1],
+                [2, 6, 1, 1],
+              ] as [number, number, number, number][],
+            },
+          },
+        ],
+        placements: [
+          { id: 1, typeId: 900, hx: 24, hy, level: 1 },
+          { id: 2, typeId: 900, hx: 32, hy, level: 1 },
+        ],
+      },
+    };
+    const sim = scriptedSim([firingMission([explore(OWNER, point, 1)])], testContent(), map);
+    sim.enqueueSetup({ kind: 'setFogMode', mode: FOG_MODE.CLASSIC });
+    loadPassAfter(sim, FOG_SETTLED);
+    expect(cellState(sim, OWNER, { hx: 28 + (hy & 1), hy: hy + 1 })).toBe(FOG_STATE.VISIBLE);
+    expect(cellState(sim, OWNER, { hx: 30 + (hy & 1), hy: hy + 1 })).toBe(FOG_STATE.UNEXPLORED);
+    expect(cellState(sim, OWNER, { hx: 36 + (hy & 1), hy: hy + 1 })).toBe(FOG_STATE.UNEXPLORED);
   });
 });

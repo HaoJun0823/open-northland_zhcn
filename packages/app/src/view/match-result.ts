@@ -54,15 +54,6 @@ export interface MatchResultOverlay {
   dispose(): void;
 }
 
-/** The local seat's verdict for `events`, or null when none of them decides it. */
-export function localVerdict(events: readonly SimEvent[], localPlayer: number): MatchOutcome | null {
-  for (const event of events) {
-    if (event.kind === 'playerWon' && event.player === localPlayer) return 'victory';
-    if (event.kind === 'playerDefeated' && event.player === localPlayer) return 'defeat';
-  }
-  return null;
-}
-
 /** Local outcomes can be dismissed; a confirmed multiplayer finish replaces them permanently. */
 export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOverlay {
   const state = matchResultState();
@@ -151,16 +142,23 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
     backdrop = null;
   };
 
-  const announce = (outcome: MatchOutcome): void => {
-    if (deps.sharedClock && outcome === 'victory') return;
+  const announce = (outcome: MatchOutcome, scripted = false): void => {
+    if (deps.sharedClock && outcome === 'victory' && !scripted) return;
     if (!state.announce(outcome)) return;
     show(outcome);
   };
 
   return {
     onEvents(events): void {
-      const verdict = localVerdict(events, deps.localPlayer);
-      if (verdict !== null) announce(verdict);
+      for (const event of events) {
+        if (event.kind !== 'playerWon' && event.kind !== 'playerDefeated') continue;
+        if (event.player !== deps.localPlayer) continue;
+        if (event.notificationAlreadySent === true) continue;
+        const won = event.kind === 'playerWon';
+        if (deps.sharedClock && won && event.scripted !== true) continue;
+        announce(won ? 'victory' : 'defeat', event.scripted === true);
+        return;
+      }
     },
     announce,
     finish(outcome): void {

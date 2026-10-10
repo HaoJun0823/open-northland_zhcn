@@ -262,6 +262,8 @@ export function eventOneShots(input: DirectorInput): OneShot[] {
   const pending: Pending[] = [];
   const neededIds = new Set<number>();
   for (const ev of events) {
+    if ((ev.kind === 'playerWon' || ev.kind === 'playerDefeated') && ev.notificationAlreadySent === true)
+      continue;
     const node = eventNode(ev);
     const spatial = node === null ? null : computeSpatialAtNode(node.hx, node.hy, camera, canvasW, canvasH);
     const offScreen = node !== null && spatial === null;

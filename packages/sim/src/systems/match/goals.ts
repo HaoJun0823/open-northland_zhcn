@@ -3,6 +3,7 @@ import {
   deadPlayerBits,
   Female,
   isValidPlayer,
+  lostByScriptBits,
   type MatchGoal,
   markGoalVerdict,
   matchGoalTable,
@@ -14,6 +15,7 @@ import {
   playersOfBits,
   Settler,
   Stockpile,
+  wonByScriptBits,
 } from '../../components/index.js';
 import type { World } from '../../ecs/world.js';
 import type { SystemContext } from '../context.js';
@@ -50,7 +52,12 @@ export function checkMatchGoals(world: World, ctx: SystemContext): void {
     const verdict = playerVerdict(world, tallies, player);
     if (verdict === undefined) continue;
     markGoalVerdict(world, player, verdict);
-    ctx.events.emit({ kind: verdict === 'won' ? 'playerWon' : 'playerDefeated', player });
+    const announced = verdict === 'won' ? wonByScriptBits(world) : lostByScriptBits(world);
+    ctx.events.emit({
+      kind: verdict === 'won' ? 'playerWon' : 'playerDefeated',
+      player,
+      ...((announced & playerBit(player)) !== 0 ? { notificationAlreadySent: true as const } : {}),
+    });
   }
 }
 

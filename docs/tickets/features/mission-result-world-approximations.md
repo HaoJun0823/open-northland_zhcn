@@ -1,30 +1,27 @@
-# Replace the world-changing mission result approximations
+# Verify remaining world-result fidelity
 
 **Area:** sim · **Focus:** `packages/sim/src/systems/missions/results` · **Priority:** P2
 
-Four frequently used results run, but with a stated approximation in their "Here:" text in the
-Results table of `docs/formats/MISSIONS.md`, so the map plays differently from the original:
-
-- `ExploreArea` (1412 corpus uses): a revealed house or landscape uncovers only what its own eye
-  sees, where the original reveals the area of any house or landscape on a revealed point.
-- `MoveUnitsInArea` (346): each vehicle lands on the first ring node its walk block admits and its
-  drive is dropped; the original stacks them and orders each to the point.
-- `DockVehicle` (30): the seat's dock order's door-distance ring search stands in for the original's
-  radius-9 snap.
-- `MissionFailed` (110): the named player's commands stay accepted. Establish what the original lets
-  that player do afterwards (its dead flag stays clear) and match it; the HUD side of a refused order
-  is [defeated-seat-orders-are-silent](../app/defeated-seat-orders-are-silent.md).
+The implementation now expands `ExploreArea` through authored object areas, stacks teleported
+vehicles before their ordinary move orders, and snaps a blocked `DockVehicle` point within nine
+rings before the dock order. These rules have synthetic coverage; exact original behavior still
+needs confirmation on the running game.
 
 ## Scope
 
-- For each result, confirm the original's behavior first (reading or observation) and implement it
-  through the existing seams (fog, vehicle orders, the match tables), keeping the sim deterministic.
-- Rewrite the result's "Here:" text, keeping any remaining uncertainty.
+- `ExploreArea`: confirm house-anchor versus landscape-walk-cell triggers, build-area extents and
+  cell-grid precision at their boundaries. The current expansion does not cascade into neighbours.
+- `MoveUnitsInArea`: compare commanded, uncommanded and carried vehicles, especially a destination
+  outside the vehicle's traversal. A move refusal currently leaves the vehicle at the teleported point.
+- `DockVehicle`: establish the fallback when no same-component open point exists within nine rings.
+  This implementation retains the authored point in that case; it is not confirmed original behavior.
+- `MissionFailed`: establish whether and which orders the named player can still issue. The dead flag
+  stays clear and commands remain accepted here. Keep this separate from the HUD treatment of refused
+  orders in [defeated-seat-orders-are-silent](../app/defeated-seat-orders-are-silent.md).
 
 ## Verify
 
-- Sim tests per result: the house/landscape area reveal, stacked vehicles walking to the point, the
-  radius-9 dock snap at its boundary, and the post-failure command rule.
-- One real-content map per result runs its script without `missionResultFailed`; save/load keeps the
-  state hash.
-- Normal gates plus `npm run test:content`.
+Confirm each rule on the running original before removing its uncertainty in `docs/formats/MISSIONS.md`.
+Run focused sim regressions, standard gates and `npm run test:content`. The real-content mission
+fixtures activate authored missions and preserve their goals/results; they prove result execution and
+save/hash consistency, not the campaign route to those missions.

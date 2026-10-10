@@ -1,6 +1,7 @@
 import { Person, Position, Resting, Settler } from '../../../components/index.js';
-import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../../nav/halfcell.js';
+import { type HalfCellNode, hexagonRing, hexDistance, nodeOfPosition } from '../../../nav/halfcell.js';
 import type { NodeId } from '../../../nav/terrain/index.js';
+import { dynamicBlockOverlay } from '../../footprint/index.js';
 import { isTravelling } from '../../movement/nav-state.js';
 import { sendUnit } from '../../orders/movement.js';
 import { teleportHuman } from '../../orders/teleport.js';
@@ -31,12 +32,30 @@ export function sendScriptedVehicles(pass: MissionPass, id: number, point: HalfC
   }
 }
 
-/** Order every ship with the id to dock at the shore point: the seat's dock order, whose ring search
- *  is the snap (approximation: the original snaps the point within radius 9 first). */
+/** Original behavior: a blocked script dock point first snaps to an open point on the same
+ *  terrain component within nine hexagon rings; the normal dock order then finds its sea position.
+ *  The search boundary is not yet checked against the running original. */
 export function dockScriptedVehicles(pass: MissionPass, id: number, point: HalfCellNode): void {
   const { world, ctx } = pass;
+  const terrain = ctx.terrain;
+  if (terrain === undefined || !terrain.inBounds(point.hx, point.hy)) return;
+  const component = terrain.componentOf(terrain.nodeAt(point.hx, point.hy));
+  const blocked = dynamicBlockOverlay(world, ctx, terrain);
+  let target: HalfCellNode | null = null;
+  for (let radius = 0; radius <= 9 && target === null; radius++) {
+    for (const { point: candidate } of hexagonRing(point, radius)) {
+      if (!terrain.inBounds(candidate.hx, candidate.hy)) continue;
+      const node = terrain.nodeAt(candidate.hx, candidate.hy);
+      if (component < 0 || terrain.componentOf(node) !== component || blocked.has(node)) continue;
+      target = candidate;
+      break;
+    }
+  }
+  // No valid snap leaves the authored point for the ordinary dock order to judge.
+  // This failure fallback remains unconfirmed against the original.
+  target ??= point;
   for (const vehicle of missionVehicles(world, id)) {
-    dockVehicle(world, ctx, { kind: 'dockVehicle', vehicle, x: point.hx, y: point.hy });
+    dockVehicle(world, ctx, { kind: 'dockVehicle', vehicle, x: target.hx, y: target.hy });
   }
 }
 

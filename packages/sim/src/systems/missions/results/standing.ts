@@ -11,6 +11,7 @@ import {
 } from '../../../components/index.js';
 import type { MissionPass } from '../pass.js';
 import type { MissionResultOp } from '../script.js';
+import { exploreObjectAreas } from './exploration.js';
 
 /** Set one direction of a pair's stance, through any lock on the pair. */
 export function setScriptedStance(
@@ -37,11 +38,8 @@ export function lockScriptedStance(
   setDiplomacyLock(pass.world, op.player, op.otherPlayer, op.flag);
 }
 
-/** Declare the map won or lost for the player and announce it the way the match rule does. A repeat
- *  fire announces again, as the original re-sends its message; the verdict is recorded once. Under a
- *  goal table the verdict only raises the rows waiting for it, which decide at the next goal check.
- *  Approximation: the original still shows its won or lost message there at once; here the goal
- *  check's verdict is the only announcement. */
+/** Announce every scripted verdict immediately, including repeated fires. In goals mode the table
+ *  still decides at its normal check; the script mark also records that its message was delivered. */
 export function declareScriptedVerdict(
   pass: MissionPass,
   mission: number,
@@ -52,11 +50,12 @@ export function declareScriptedVerdict(
     return;
   }
   const won = op.opcode === 'MissionWon';
+  markScriptVerdict(pass.world, op.player, won ? 'won' : 'lost');
   if (goalsMatchVictory(pass.world)) {
     raiseMissionGoal(pass.world, op.player, won ? 'won' : 'lost');
+    pass.ctx.events.emit({ kind: won ? 'playerWon' : 'playerDefeated', player: op.player, scripted: true });
     return;
   }
-  markScriptVerdict(pass.world, op.player, won ? 'won' : 'lost');
   pass.ctx.events.emit({ kind: won ? 'playerWon' : 'playerDefeated', player: op.player });
 }
 
@@ -75,7 +74,10 @@ export function exploreScriptedArea(
   const fog = pass.ctx.fog;
   if (fog === undefined || fogMode(pass.world) === FOG_MODE.OFF) return;
   if (op.point.hx === 0 || op.point.hy === 0 || op.range === 0) fog.revealAll(op.player);
-  else fog.revealArea(op.player, op.point, op.range);
+  else {
+    fog.revealArea(op.player, op.point, op.range);
+    exploreObjectAreas(pass, op.player, op.point, op.range);
+  }
 }
 
 /** Raise or clear one of the player's AI condition slots. */

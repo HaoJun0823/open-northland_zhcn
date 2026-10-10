@@ -46,6 +46,7 @@ function harness(
   const calls: string[] = [];
   const infoLines: (readonly string[])[] = [];
   let tick = 0;
+  let camera = { ...CAMERA };
   const host = {
     get tick() {
       return tick;
@@ -83,7 +84,11 @@ function harness(
     showBriefings,
     toolPanel,
     controls: { select: (ids) => calls.push(`select:${[...ids].join()}`) },
-    centerOn: (x, y) => calls.push(`centre:${x},${y}`),
+    camera: () => camera,
+    centerOn: (x, y) => {
+      calls.push(`centre:${x},${y}`);
+      camera = { ...camera, offsetX: SCREEN.width / 2 - x, offsetY: SCREEN.height / 2 - y };
+    },
     screen: () => SCREEN,
     markers,
     effects,
@@ -96,6 +101,9 @@ function harness(
     presentation,
     calls,
     infoLines,
+    moveCamera: () => {
+      camera = { ...camera, offsetX: camera.offsetX + 10 };
+    },
     advance: (to: number) => {
       tick = to;
     },
@@ -218,4 +226,53 @@ it('can suppress automatic briefings while applying other script presentation', 
   ]);
   expect(calls).toEqual(['quake:2']);
   presentation.dispose();
+});
+
+it('follows a moving human until the player moves the view', () => {
+  const { presentation, calls, moveCamera } = harness();
+  presentation.onEvents([{ kind: 'missionSelectHuman', entity: HERO, select: false }]);
+  const moved = snapshotAt(1);
+  const entity = moved.entities[0];
+  if (entity === undefined) throw new Error('missing fixture human');
+  const snapshot = {
+    ...moved,
+    entities: [{ ...entity, components: { Position: { x: 6 * ONE, y: 5 * ONE } } }],
+  } as unknown as WorldSnapshot;
+  presentation.followCamera(snapshot);
+  expect(calls.at(-1)).toBe(`centre:${halfCellToScreen(13, 10).x},${halfCellToScreen(13, 10).y}`);
+  const count = calls.length;
+  moveCamera();
+  presentation.followCamera(snapshot);
+  presentation.followCamera(snapshotAt(2));
+  expect(calls).toHaveLength(count);
+});
+
+it('ends following when the human disappears or a script moves the camera', () => {
+  const { presentation, calls } = harness();
+  presentation.onEvents([{ kind: 'missionSelectHuman', entity: HERO, select: true }]);
+  presentation.followCamera({ ...snapshotAt(1), entities: [] });
+  presentation.followCamera(snapshotAt(2));
+  expect(calls).toHaveLength(2);
+  presentation.onEvents([
+    { kind: 'missionSelectHuman', entity: HERO, select: false },
+    { kind: 'missionCamera', point: { hx: 4, hy: 2 } },
+  ]);
+  presentation.followCamera(snapshotAt(3));
+  expect(calls).toHaveLength(4);
+});
+
+it('keeps following a human aboard a moving vehicle and after disembarking', () => {
+  const { presentation, calls } = harness();
+  presentation.onEvents([{ kind: 'missionSelectHuman', entity: HERO, select: false }]);
+  const aboard = {
+    ...snapshotAt(1),
+    entities: [
+      { id: HERO, components: { Rider: { vehicle: 4 } } },
+      { id: 4, components: { Position: { x: 6 * ONE, y: 5 * ONE } } },
+    ],
+  } as unknown as WorldSnapshot;
+  presentation.followCamera(aboard);
+  expect(calls.at(-1)).toBe(`centre:${halfCellToScreen(13, 10).x},${halfCellToScreen(13, 10).y}`);
+  presentation.followCamera(snapshotAt(2));
+  expect(calls.at(-1)).toBe(`centre:${halfCellToScreen(11, 10).x},${halfCellToScreen(11, 10).y}`);
 });

@@ -7,12 +7,12 @@ import type {
   SimEvent,
   WorldSnapshot,
 } from '@open-northland/sim';
-import { entityById, nodeOfPosition, TICKS_PER_SECOND } from '@open-northland/sim';
+import { entityById, TICKS_PER_SECOND } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
 import { infoLineTexts } from '../../game/info-lines.js';
-import { positionOf } from '../../game/snapshot-base.js';
 import { createLastAnswerCache, type SessionHost } from '../../session/index.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';
+import { entityAnchor } from '../projections/entity-anchor.js';
 import type { CameraJitter, ScriptEffects } from '../script-effects.js';
 import type { ScriptMarkers } from '../script-markers.js';
 import type { UnitControls } from '../unit-controls/index.js';
@@ -40,6 +40,7 @@ export interface ScriptPresentationDeps {
   readonly controls: Pick<UnitControls, 'select'>;
   /** Re-centre the view on a world-px point at the current zoom. */
   readonly centerOn: (worldX: number, worldY: number) => void;
+  readonly camera: () => Camera;
   readonly screen: () => { readonly width: number; readonly height: number };
   readonly elevation?: ElevationField;
   readonly markers: ScriptMarkers;
@@ -54,6 +55,8 @@ export interface ScriptPresentationDeps {
 export interface ScriptPresentation {
   /** The frame's sim events, unfiltered: a camera move to unexplored ground must still happen. */
   onEvents(events: readonly SimEvent[]): void;
+  /** Follow the scripted human before reading the camera for drawing. */
+  followCamera(snapshot: WorldSnapshot): void;
   /** The quake's camera offset for this frame, or null while the ground is still. */
   jitter(nowMs: number): CameraJitter | null;
   /** Per-frame, after the sim stepped: the info lines and the overlays under the camera. */
@@ -73,6 +76,8 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
   let linesSeat: number | null = null;
   const lineAnswers = createLastAnswerCache<readonly string[]>({ tick: () => host.tick });
   let disposed = false;
+  let followed: Entity | null = null;
+  let followedCamera: Camera | null = null;
 
   const restore = (saved: MissionPresentationView): void => {
     for (const marker of saved.guiMarkers) {
@@ -102,10 +107,24 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
     deps.centerOn(world.x, world.y - lift);
   };
 
-  const entityNode = (entity: Entity): HalfCellNode | null => {
-    const ent = entityById(host.snapshot(), entity);
-    const at = ent === undefined ? undefined : positionOf(ent);
-    return at === undefined ? null : nodeOfPosition(at.x, at.y);
+  const humanAnchor = (snapshot: WorldSnapshot, human: Entity): { x: number; y: number } | null => {
+    let id: number = human;
+    // A human may be indoors or aboard a vehicle carried by a ship. This attachment chain has at
+    // most three objects; a malformed or missing attachment never walks the whole snapshot.
+    for (let depth = 0; depth < 3; depth++) {
+      const anchor = entityAnchor(snapshot, id, deps.elevation);
+      if (anchor !== null) return anchor;
+      const entity = entityById(snapshot, id);
+      if (entity === undefined) return null;
+      const c = entity.components;
+      const next =
+        (c.Rider as { vehicle?: unknown } | undefined)?.vehicle ??
+        (c.Vehicle as { carrier?: unknown } | undefined)?.carrier ??
+        (c.Resting as { at?: unknown } | undefined)?.at;
+      if (typeof next !== 'number') return null;
+      id = next;
+    }
+    return null;
   };
 
   // Whether a script event reached this frame; the trace reads and clears it.
@@ -119,13 +138,15 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
             if (deps.showBriefings !== false) toolPanel.controller.openMission(event.page);
             break;
           case 'missionCamera':
+            followed = null;
             centreOn(event.point);
             break;
           case 'missionSelectHuman': {
             if (event.select) controls.select([event.entity]);
-            // Approximation: the original follows the human from then on; this view centres once.
-            const node = entityNode(event.entity);
-            if (node !== null) centreOn(node);
+            const anchor = humanAnchor(host.snapshot(), event.entity);
+            followed = anchor === null ? null : event.entity;
+            if (anchor !== null) deps.centerOn(anchor.x, anchor.y);
+            followedCamera = { ...deps.camera() };
             break;
           }
           case 'missionGuiMarker':
@@ -155,6 +176,27 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
             break;
         }
       }
+    },
+    followCamera(snapshot) {
+      if (followed === null || followedCamera === null) return;
+      const camera = deps.camera();
+      // A player pan, overview jump or zoom gives the view back to the player. Compare the steady
+      // camera, so an earthquake never cancels the follow.
+      if (
+        camera.offsetX !== followedCamera.offsetX ||
+        camera.offsetY !== followedCamera.offsetY ||
+        camera.scale !== followedCamera.scale
+      ) {
+        followed = null;
+        return;
+      }
+      const anchor = humanAnchor(snapshot, followed);
+      if (anchor === null) {
+        followed = null;
+        return;
+      }
+      deps.centerOn(anchor.x, anchor.y);
+      followedCamera = { ...deps.camera() };
     },
     jitter: (nowMs) => effects.jitter(nowMs),
     frame(snapshot, camera, nowMs) {

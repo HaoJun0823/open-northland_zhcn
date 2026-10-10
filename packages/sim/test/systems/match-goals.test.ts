@@ -25,7 +25,15 @@ import {
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { settlerAt } from '../fixtures/settler.js';
-import { eventsUntil, firingSim, HEADQUARTERS, POINT, SOLDIER, VIKING } from '../missions/support.js';
+import {
+  eventsUntil,
+  firingSim,
+  HEADQUARTERS,
+  POINT,
+  roundTrip,
+  SOLDIER,
+  VIKING,
+} from '../missions/support.js';
 
 const WOOD = 1;
 /** The fixture headquarters opens with this much wood before any authored stock. */
@@ -188,19 +196,28 @@ describe('multiplayer goal table', () => {
     expect(sim.matchRules()).toEqual({ participants: [0, 1, 2], victory: 'goals', lastStanding: true });
   });
 
-  it('takes a script verdict as the row it raises, announced at the next check', () => {
-    const waiting = firingSim([{ opcode: 'MissionWon', player: 0 }]);
-    goalsSim([0, 1], [{ kind: 'wonByMission' }], waiting);
-    const won = eventsUntil(waiting, SECOND_CHECK, ['playerWon']);
-    expect(won.map(({ event }) => event)).toEqual([{ kind: 'playerWon', player: 0 }]);
-    expect(won[0]?.tick).toBe(FIRST_CHECK);
-    expect(waiting.matchOutcome(0)).toBe('victory');
+  it.each(['MissionWon', 'MissionFailed'] as const)(
+    'announces %s immediately without repeating it at the goal check',
+    (opcode) => {
+      const won = opcode === 'MissionWon';
+      const event = { kind: won ? 'playerWon' : 'playerDefeated', player: 0, scripted: true };
+      const waiting = firingSim([{ opcode, player: 0 }]);
+      goalsSim([0, 1], [{ kind: won ? 'wonByMission' : 'lostByMission' }], waiting);
+      expect(verdicts(waiting.events.current())).toEqual([event]);
+      expect(waiting.matchOutcome(0)).toBe('undecided');
+      const restored = roundTrip(waiting);
+      expect(eventsUntil(restored, SECOND_CHECK, ['playerWon', 'playerDefeated'])).toEqual([
+        { tick: FIRST_CHECK, event: { kind: event.kind, player: 0, notificationAlreadySent: true } },
+      ]);
+      expect(restored.matchOutcome(0)).toBe(won ? 'victory' : 'defeat');
 
-    const unread = firingSim([{ opcode: 'MissionWon', player: 0 }]);
-    goalsSim([0, 1], [{ kind: 'lostByMission' }], unread);
-    expect(eventsUntil(unread, SECOND_CHECK, ['playerWon', 'playerDefeated'])).toEqual([]);
-    expect(unread.matchOutcome(0)).toBe('undecided');
-  });
+      const unread = firingSim([{ opcode, player: 0 }]);
+      goalsSim([0, 1], [{ kind: won ? 'lostByMission' : 'wonByMission' }], unread);
+      expect(verdicts(unread.events.current())).toEqual([event]);
+      expect(eventsUntil(unread, SECOND_CHECK, ['playerWon', 'playerDefeated'])).toEqual([]);
+      expect(unread.matchOutcome(0)).toBe('undecided');
+    },
+  );
 
   it('decides a seat that cannot die by its rows alone, and ends the match on the participants', () => {
     const sim = goalsSim([1], [{ kind: 'wonByMission' }], undefined, [0]);

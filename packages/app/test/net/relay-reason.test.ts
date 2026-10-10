@@ -20,7 +20,6 @@ const SAMPLES: { readonly [C in RelayReasonCode]: Extract<RelayReason, { code: C
   notInRoom: { code: 'notInRoom' },
   noRoom: { code: 'noRoom' },
   relayFull: { code: 'relayFull', rooms: 64 },
-  roomFull: { code: 'roomFull', members: 12 },
   gameStarted: { code: 'gameStarted' },
   gameNotStarted: { code: 'gameNotStarted' },
   creatorOnly: { code: 'creatorOnly' },
@@ -34,7 +33,6 @@ const SAMPLES: { readonly [C in RelayReasonCode]: Extract<RelayReason, { code: C
   seatTribeUnavailable: { code: 'seatTribeUnavailable', player: 2 },
   seatDifficultyUnavailable: { code: 'seatDifficultyUnavailable', player: 2 },
   seatRequired: { code: 'seatRequired' },
-  memberUnseated: { code: 'memberUnseated', nick: 'Bartek' },
   memberNotReady: { code: 'memberNotReady', nick: 'Bartek' },
   incompatible: { code: 'incompatible', nick: 'Bartek', kind: 'map', reason: 'missing' },
   initialSaveMissing: { code: 'initialSaveMissing' },
@@ -102,7 +100,6 @@ describe('relay reasons in the player language', () => {
     expect(relayReasonText(SAMPLES.seatTaken, pl)).toBe('miejsce 3 zajmuje Bartek');
     expect(relayReasonText(SAMPLES.seatModeUnavailable, en)).toBe('seat 2 cannot be set to Computer');
     expect(relayReasonText(SAMPLES.incompatible, pl)).toBe('Bartek: brak: mapa');
-    expect(relayReasonText(SAMPLES.roomFull, en)).toBe('the room is full (12 players)');
   });
 
   it('keeps the parser diagnostic out of what the player reads', () => {

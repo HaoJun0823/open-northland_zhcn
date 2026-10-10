@@ -389,7 +389,7 @@ export class Game {
     return now - member.lastHeardAt > SILENT_AFTER_MS ? 'silent' : null;
   }
 
-  /** The clock starts once every member has loaded, a dropped one included: a game never starts
+  /** The clock starts once every seated player has loaded, a dropped one included: a game never starts
    *  without one of its players. */
   private startClockWhenLoaded(now: number): void {
     if (this.clock.running || this.builtTick === null) return;

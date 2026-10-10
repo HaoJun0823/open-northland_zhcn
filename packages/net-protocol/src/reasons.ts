@@ -21,7 +21,6 @@ export type RelayReason =
   | { readonly code: 'notInRoom' }
   | { readonly code: 'noRoom' }
   | { readonly code: 'relayFull'; readonly rooms: number }
-  | { readonly code: 'roomFull'; readonly members: number }
   | { readonly code: 'gameStarted' }
   | { readonly code: 'gameNotStarted' }
   | { readonly code: 'creatorOnly' }
@@ -35,7 +34,6 @@ export type RelayReason =
   | { readonly code: 'seatTribeUnavailable'; readonly player: number }
   | { readonly code: 'seatDifficultyUnavailable'; readonly player: number }
   | { readonly code: 'seatRequired' }
-  | { readonly code: 'memberUnseated'; readonly nick: string }
   | { readonly code: 'memberNotReady'; readonly nick: string }
   | ({ readonly code: 'incompatible' } & CompatibilityIssue)
   | { readonly code: 'initialSaveMissing' }

@@ -621,7 +621,7 @@ describe('server messages', () => {
     for (const reason of [
       'the game has started',
       { code: 'bored' },
-      { code: 'roomFull' },
+      { code: 'seatTaken' },
       { code: 'seatTaken', player: 2, nick: '' },
       { code: 'seatModeUnavailable', player: 1, mode: 'human' },
       { code: 'incompatible', nick: 'A', kind: 'weather', reason: 'missing' },

@@ -54,9 +54,9 @@ export const SCRIPTED_LOOK_RECIPE_MAX_CHARS = 64;
 export interface MissionRecord {
   active: boolean;
   visible: boolean;
-  /** Tick of the last inactive-to-active transition, the epoch `TimeGone` counts from; 0 until first
-   *  activated. */
-  activationTick: number;
+  /** {@link missionClock} at the last inactive-to-active transition, the epoch `TimeGone` counts from;
+   *  1 for a mission active when the script loaded, 0 until first activated. */
+  activationClock: number;
   /** Per goal, whether it held at the last check. Rewritten by every check, never latched. */
   goalsHeld: boolean[];
   /** Goal indices whose last check was unavailable; omitted when every answer was known. */
@@ -71,13 +71,23 @@ export interface MissionRecord {
   fireCount?: number;
 }
 
-const missionState = defineWorldSingleton<{ missions: MissionRecord[] }>('MissionState', 'players', () => ({
+interface MissionStateValue {
+  /** The tick the mission system first ran the script on, which counts as the script's load. */
+  loadTick: number;
+  missions: MissionRecord[];
+}
+
+const missionState = defineWorldSingleton<MissionStateValue>('MissionState', 'players', () => ({
+  loadTick: 0,
   missions: [],
 }));
 
 /** The per-mission state of the world's script, materialized on the mission system's first tick and
  *  saved and hashed from there on. Absent for every world that runs no script. */
-export const MissionState: Component<{ missions: MissionRecord[] }> = missionState.component;
+export const MissionState: Component<MissionStateValue> = missionState.component;
+
+/** The script clock at load: missions active from the start carry it as their activation. */
+export const MISSION_LOAD_CLOCK = 1;
 
 export function missionRecords(world: World): DeepReadonly<MissionRecord[]> {
   return missionState.read(world).missions;
@@ -86,6 +96,24 @@ export function missionRecords(world: World): DeepReadonly<MissionRecord[]> {
 /** True once the script's records exist; false means the mission system has not initialized them. */
 export function missionStateExists(world: World): boolean {
   return world.lowestEntityWith(MissionState) !== null;
+}
+
+/** Load the script's records on `tick`, which starts the {@link missionClock} at {@link MISSION_LOAD_CLOCK}. */
+export function createMissionState(world: World, tick: number, missions: MissionRecord[]): void {
+  missionState.write(world, (state) => {
+    state.loadTick = tick;
+    state.missions = missions;
+  });
+}
+
+/**
+ * The script clock on `tick`: {@link MISSION_LOAD_CLOCK} when the script loads, then one more per tick.
+ * Original behavior: the game-time counter is set to 1 before the script loads and raised at the start
+ * of every tick, and the missions are evaluated at the end of that tick. The mission system runs before
+ * this build's world systems, so its pass on clock `c` has seen `c - 1` ticks, as the original's has.
+ */
+export function missionClock(world: World, tick: number): number {
+  return tick - missionState.read(world).loadTick + MISSION_LOAD_CLOCK;
 }
 
 /** The one write seam for mission state: a whole evaluation pass mutates inside a single call, so the

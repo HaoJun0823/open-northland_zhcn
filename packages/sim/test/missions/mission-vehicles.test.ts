@@ -26,18 +26,18 @@ import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 import {
+  FIRST_PASS,
   firingMission,
   firingSim,
+  firstPassAfter,
   goalMission,
   goalSim,
   holds,
-  LOAD_PASS,
-  loadPassAfter,
   MAP_NODES,
   missionSim,
   PASS_TICKS,
   POINT,
-  runLoadPass,
+  runFirstPass,
   scriptedSim,
   spawn,
   VIKING,
@@ -113,7 +113,7 @@ function goalVerdict(goal: MissionGoalOp, arrange: (sim: Simulation) => void): b
   const sim = scriptedSim([goalMission(goal)]);
   sim.enqueueSetup({ kind: 'setFogMode', mode: FOG_MODE.CLASSIC });
   arrange(sim);
-  loadPassAfter(sim, FOG_SETTLED);
+  firstPassAfter(sim, FOG_SETTLED);
   return holds(sim);
 }
 
@@ -232,7 +232,7 @@ describe('SetVehicle', () => {
     ];
     for (const line of lines) {
       const sim = firingSim([line]);
-      sim.run(LOAD_PASS);
+      sim.run(FIRST_PASS);
       expect(vehicles(sim)).toHaveLength(0);
       expect(sim.events.current().filter((e) => e.kind === 'missionResultFailed')).toHaveLength(1);
     }
@@ -249,7 +249,7 @@ describe('the removals', () => {
     const [crew] = missionObjects(sim.world, CREW_ID);
     if (crew === undefined) throw new Error('no crew');
     sim.enqueueSetup({ kind: 'attachToVehicle', entity: crew, vehicle: doomed });
-    loadPassAfter(sim, BOARDED);
+    firstPassAfter(sim, BOARDED);
     expect(vehicles(sim)).toEqual([spared]);
     expect(sim.world.isAlive(crew)).toBe(true);
     expect(sim.world.has(crew, Rider)).toBe(false);
@@ -269,7 +269,7 @@ describe('the removals', () => {
       const [crew] = missionObjects(sim.world, CREW_ID);
       if (crew === undefined) throw new Error('no crew');
       sim.enqueueSetup({ kind: 'attachToVehicle', entity: crew, vehicle: doomed });
-      loadPassAfter(sim, BOARDED);
+      firstPassAfter(sim, BOARDED);
       expect(vehicles(sim)).toHaveLength(0);
       expect(sim.world.isAlive(crew)).toBe(!flag);
     }
@@ -288,7 +288,7 @@ describe('ownership and ids', () => {
     const [crew] = missionObjects(sim.world, CREW_ID);
     if (crew === undefined) throw new Error('no crew');
     sim.enqueueSetup({ kind: 'attachToVehicle', entity: crew, vehicle: handed });
-    loadPassAfter(sim, BOARDED);
+    firstPassAfter(sim, BOARDED);
     expect(ownerOf(sim.world, handed)).toBe(OTHER);
     expect(ownerOf(sim.world, kept)).toBe(OWNER);
     expect(ownerOf(sim.world, crew)).toBe(OWNER);
@@ -384,7 +384,7 @@ describe('the crew results', () => {
     sim.enqueueSetup({ kind: 'attachToVehicle', entity: crew, vehicle: e });
     sim.step();
     expect(sim.world.has(crew, Rider)).toBe(true);
-    runLoadPass(sim);
+    runFirstPass(sim);
     expect(sim.world.has(crew, Rider)).toBe(false);
     expect(vehiclePassengers(sim.world.get(e, Vehicle))).toHaveLength(0);
   });
@@ -404,7 +404,7 @@ describe('the crew results', () => {
     sim.run(BOARD_TICKS);
     expect(isAboardVehicle(sim.world, crew)).toBe(true);
     sim.world.mut(ship, Vehicle).moored = false; // cast off
-    runLoadPass(sim);
+    runFirstPass(sim);
     expect(isAboardVehicle(sim.world, crew)).toBe(true); // nobody steps off at sea
     expect(sim.world.get(crew, Rider).leaving).toEqual({ to: null });
     expect(sim.events.current().filter((e) => e.kind === 'riderRefused')).toEqual([]);
@@ -438,7 +438,7 @@ describe('the crew results', () => {
     sim.enqueueSetup({ kind: 'attachToVehicle', entity: crew, vehicle: ship });
     sim.run(BOARD_TICKS);
     sim.world.mut(ship, Vehicle).moored = false; // cast off
-    runLoadPass(sim);
+    runFirstPass(sim);
     expect(isAboardVehicle(sim.world, crew)).toBe(true);
     expect(sim.world.get(crew, Rider).leaving).toEqual({ to: inland });
     sim.world.mut(ship, Vehicle).moored = true;

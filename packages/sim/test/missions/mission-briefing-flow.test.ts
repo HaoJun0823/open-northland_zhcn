@@ -11,7 +11,7 @@ import { playerCommand, positionOfNode } from '../../src/index.js';
 import { type MissionDefinition, SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
 import { allyVision } from '../fixtures/allies.js';
 import {
-  loadPassAfter,
+  firstPassAfter,
   missionSim,
   PASS_TICKS,
   POINT,
@@ -56,7 +56,7 @@ describe('briefing delivery and persistence', () => {
     sim.world.add(post, Signpost, { links: [] });
     sim.step();
     sim.fog?.revealArea(1, POINT, 1);
-    loadPassAfter(sim, PASS_TICKS);
+    firstPassAfter(sim, PASS_TICKS);
     expect(sim.hasMetPlayer(OWNER, rival)).toBe(false);
     expect(sim.hasMetPlayer(1, rival)).toBe(false);
     expect(sim.missionBriefingHistory()).toEqual([]);
@@ -86,7 +86,7 @@ describe('briefing delivery and persistence', () => {
     spawn(sim, { player: OWNER, missionId: HUMAN });
     spawn(sim, { player: 1, at: { hx: 42, hy: 4 } });
     spawn(sim, { player: 2, at: { hx: 4, hy: 42 } });
-    loadPassAfter(sim, FOG_SETTLED);
+    firstPassAfter(sim, FOG_SETTLED);
     expect(sim.missionBriefingHistory()).toEqual([]);
     sim.run(PASS_TICKS);
     expect(sim.missionBriefingHistory()).toEqual([PAGE + 1]);
@@ -116,7 +116,7 @@ describe('briefing delivery and persistence', () => {
     sim.enqueueSetup({ kind: 'setFogMode', mode: FOG_MODE.CLASSIC });
     spawn(sim, { player: 1 });
     sim.fog?.revealArea(OWNER, POINT, 1);
-    loadPassAfter(sim, FOG_SETTLED);
+    firstPassAfter(sim, FOG_SETTLED);
     expect(sim.hasMetPlayer(OWNER, 1)).toBe(true);
     expect(sim.missionStatus()[1]?.active).toBe(false);
     expect(sim.missionBriefingHistory()).toEqual([]);
@@ -167,7 +167,7 @@ describe('briefing delivery and persistence', () => {
     sim.enqueueSetup({ kind: 'setDiplomacy', from: rival, to: OWNER, state: 'friend' });
     spawn(sim, { player: OWNER, missionId: HUMAN });
     spawn(sim, { player: rival, at: destination });
-    loadPassAfter(sim, FOG_SETTLED);
+    firstPassAfter(sim, FOG_SETTLED);
     expect(sim.missionBriefingHistory()).toEqual([]);
     expect(sim.missionStatus()[1]?.visible).toBe(false);
     const restored = roundTrip(sim);

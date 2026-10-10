@@ -13,7 +13,8 @@ export interface MissionPass {
   readonly ctx: SystemContext;
   readonly script: MissionScript;
   readonly records: MissionRecord[];
-  readonly tick: number;
+  /** The script clock (`missionClock`) of this pass, which activations record and `TimeGone` compares. */
+  readonly clock: number;
   /** Report a goal or result opcode this build cannot run; deduplicated by the caller. */
   readonly report: (mission: number, opcode: string) => void;
   /** Report a result that ran but could not act on the world; deduplicated like {@link report}. */
@@ -34,7 +35,7 @@ export interface MissionPass {
 }
 
 /**
- * Set a mission's active flag, recording the activation tick only on the inactive-to-active
+ * Set a mission's active flag, recording the pass's clock only on the inactive-to-active
  * transition, so re-activating an active mission never restarts its `TimeGone` clock. Out-of-range
  * indices are the corpus's own bad arguments and are skipped.
  */
@@ -42,5 +43,5 @@ export function setMissionActive(pass: MissionPass, index: number, active: boole
   const record = pass.records[index];
   if (record === undefined || record.active === active) return;
   record.active = active;
-  if (active) record.activationTick = pass.tick;
+  if (active) record.activationClock = pass.clock;
 }

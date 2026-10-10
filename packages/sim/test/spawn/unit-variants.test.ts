@@ -155,7 +155,7 @@ function passOf(sim: Simulation): MissionPass {
     ctx: ctxOf(sim),
     script: { missions: [] },
     records: [],
-    tick: sim.tick,
+    clock: sim.tick,
     report: () => {},
     reportFailed: () => {},
     checking: new Set(),

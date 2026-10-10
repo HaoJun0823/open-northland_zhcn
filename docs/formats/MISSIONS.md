@@ -16,6 +16,8 @@ strongest first:
 - **reading**: the original's behavior as currently understood, not yet confirmed on the running
   original. A reading is a hypothesis until the running original confirms it; it names the
   mechanism to test, not a fact.
+- **byte-level**: read from the owned copy's program bytes; exact for that build, not yet confirmed
+  on the running original.
 - **observation**: confirmed on the running original.
 
 Constants and semantics are described as behavior; nothing here is copied from the original.
@@ -39,7 +41,7 @@ reading). Keys (corpus; defaults are a reading):
 | --- | --- | --- |
 | `debuginfo "<text>"` | editor name, kept to 30 characters | empty |
 | `description <stringId>` | goal text shown in the mission window; the corpus writes `-1` for none | 0 |
-| `active 0\|1` | active at load; an active mission records the load tick as its activation tick | 0 |
+| `active 0\|1` | active at load; an active mission takes the load counter (1) as its activation | 0 |
 | `visible 0\|1` | listed in the mission window | 0 |
 | `successfullif 0..3` | how many goals must hold: 0 all, 1 at least one, 2 at least half (rounded up), 3 none; any other value means always | 0 |
 | `goal "<Name>" args...` | one condition, repeated | none |
@@ -79,7 +81,7 @@ descriptions match the docs.
 | 5 | vehicle type *name* | 25 | diplomacy state *name* (`friend`, `neutral`, `enemy`) |
 | 6 | good *name* | 26 | sound id (`ATOMIC_ANIMATION_EVENT_SOUND_FX_TYPE_*` in `logicdefines.inc`) |
 | 7 | amount | 27 | string id in the map's `strings.ini` |
-| 8 | level | 28 | tribute slot (0..43) |
+| 8 | level | 28 | tribute slot (0..39) |
 | 9 | range in map points | 29 | human behaviour flags (bitmask, see below) |
 | 10 | human mission object id | 30 | captain flag |
 | 11 | second human object id | 31 | campaign id |
@@ -166,38 +168,42 @@ corpus uses no other verb.
 
 All of this section is a reading unless marked otherwise.
 
-- Evaluation runs when the tick count is a multiple of 36. At the original's 12 logic ticks per
-  second that is every 3 seconds. `TimeGone n` holds once the current tick reaches `activationTick + 12 * n`. The tick counter is reset to 1 before the script
-  loads and incremented before each tick's check, so the first pass runs at tick 36, never on the load
-  tick; missions active at load carry activation tick 1. Here: a load pass also runs on the tick the
-  script is enabled, the map's first live tick, so the opening briefing shows as the map opens
-  instead of three seconds in (a deliberate deviation); the cadence passes are unchanged.
+- Timing (byte-level): the game-time counter is set to 1 before the script loads and raised at the
+  start of every tick; at the end of that tick the missions are evaluated when the counter is a
+  multiple of 36, every 3 seconds at 12 ticks per second. Nothing else starts a pass: none runs on
+  load, so the first pass comes 35 ticks into the map, and an opening briefing shows about three
+  seconds in. A save carries the counter, so a loaded game continues it. Missions active at load
+  carry activation 1, a mission never activated carries 0, and `TimeGone n` holds once the counter
+  reaches `activation + 12 * n`, so a 2-second timer of a mission active at load fires on the first
+  pass and a 3-second one on the second. Here: the script clock
+  starts at 1 on the tick the script is enabled, the map's first live tick, and the pass runs before
+  that tick's world systems, so a pass on clock `c` has seen `c - 1` ticks, as the original's has.
 - A pass clears the pending sub-mission flags, then visits missions in index order, skipping inactive
   ones. A result can raise a stop flag (`PlayCutscene` does); the pass ends after that mission. After
   the loop the pending `EndSubMission` returns to the parent map, else a pending `StartSubMission`
   loads the sub map.
 - One mission check evaluates every goal in order and stores each goal's current truth in the goal's
   done flag. Flags are not latched: a goal that stops holding clears its flag on the next check.
-  `TimeGone` and `RandomTimeGone` are evaluated against the activation tick; every other goal runs
+  `TimeGone` and `RandomTimeGone` are evaluated against the activation counter; every other goal runs
   through the evaluator described in the goals table.
 - The count of true goals is judged by `successfullif`. On success the mission's active flag is
   cleared first, then every result executes in order, then the mission's "evaluated true" flag is
   set. That last flag is rewritten at every check and is not what `IsMissionDone` reads.
-- Activation records the current tick only on the inactive-to-active transition. Activating an
+- Activation records the current counter only on the inactive-to-active transition. Activating an
   already active mission does not restart its timer. A mission may re-activate itself from its own
-  results to loop (corpus: waves every N seconds). A mission never activated carries activation tick
+  results to loop (corpus: waves every N seconds). A mission never activated carries activation
   0, so a `CheckMission` probe of one reads its `TimeGone` as long since elapsed.
 - `RandomTimeGone n` draws from the game's random generator, `n/2 + rand % (n/2)` under integer
-  division (so `[n/2, 2 * (n/2))`), and caches the draw in the goal record. The cache is cleared the moment the span elapses,
+  division (so `[n/2, 2 * (n/2))`, byte-level), and caches the draw in the goal record. The cache is cleared the moment the span elapses,
   not when the mission fires, so a goal held back by a second goal redraws on every later check. A
   reimplementation must draw from the simulation's seeded generator.
-- A mission with no goals holds at once under `successfullif` 0, 2, and 3, and never under 1.
+- A mission with no goals holds at once under `successfullif` 0, 2, and 3, and never under 1. A rule
+  outside 0 to 3 never holds (byte-level; no corpus map writes one).
 - `CheckMission n` evaluates mission `n`'s goals immediately (updating its goal flags) and reports its
   `successfullif` verdict without executing results. `IsMissionDone n` reads mission `n`'s stored goal
   flags and applies `n`'s own `successfullif` without re-evaluating, so it stays true after `n` fired
   until `n` is re-activated and checked again, and it is true for a never-checked mission whose rule is
-  3 (no goals hold); a rule outside 0 to 3, which the mission itself treats as always holding, reads
-  false here. `IfMissionIsActive n` reads the active flag.
+  3 (no goals hold). `IfMissionIsActive n` reads the active flag.
 - Implementation safety rule (not an original-game claim): an unsupported goal or a recursive
   `CheckMission` cycle has an unknown answer, distinct from false. A mission fires only when its
   `successfullif` is true for every possible answer to unknown goals. Thus one known true goal can
@@ -318,7 +324,7 @@ reports `missionUnsupported` once; the same tickets carry them.
 | 7 | `RemoveHouses` | 14 | remove every house with the id | sim | 3 |
 | 8 | `RemoveLandscape` | 16, 17 | remove the live landscape at the point and its sprite | both | 446 |
 | 9 | `PlayCutscene` | 34, 33 | open briefing page `NNNN.hlt` in the mission window and add it to the shown-page history; with the replay flag the page is also stored as the map's current briefing, which the window opens on from the tool button; raises the pass's stop flag; plays the briefing pop-up sound (reading). Here: the `missionCutscene` event, the `MissionBriefing` page, and the pass ends after this mission; the pop-up sound is not in the decoded bank | both | 1450 |
-| 10 | `ActivateMission` | 21 | set the active flag (records the activation tick on the transition) | sim | 4665 |
+| 10 | `ActivateMission` | 21 | set the active flag (records the activation counter on the transition) | sim | 4665 |
 | 11 | `DeactivateMission` | 21 | clear the active flag | sim | 1905 |
 | 12 | `MissionWon` | 1 | set the map's won flag, send the "won" message and the notification with the player; in multiplayer also notify the multiplayer goals. Here: the player's script verdict, announced like the skirmish rule's; on a multiplayer map it also raises the goal table's rows, announcing immediately without repeating the same verdict at the next goal check | both | 120 |
 | 13 | `MissionFailed` | 1 | as above for "lost"; the player's dead flag stays clear and, here, its commands stay accepted (approximation) | both | 110 |
@@ -711,40 +717,42 @@ This build departs from it here:
 
 A reading of the original's tributes, which the goal `PayTribute` and results 27, 28, and 58 drive.
 
-- 44 slots (the corpus addresses 0 to 39). A slot holds: active flag, paid flag, payer, receiver,
-  description string id, and up to 5 demands (good, amount). `CreateTribute` initialises the slot as
-  active and paid with no demands and the string id from the fourth parameter. `AddTributeGoods` adds
-  to an existing demand or appends a new one, drops a sixth kind, and clears the paid flag; it is
-  skipped on an inactive slot. `ClearTribute` clears the active flag and nothing else.
+- 40 slots (byte-level; the corpus addresses 0 to 39). A slot holds: active flag, paid flag, payer,
+  receiver, description string id, and up to 5 demands (good, amount). `CreateTribute` initialises
+  the slot as active and paid with no demands and the string id from the fourth parameter.
+  `AddTributeGoods` adds to an existing demand or appends a new one and clears the paid flag; a sixth
+  kind is dropped and leaves the slot as it was, paid flag included (byte-level). It is skipped on an
+  inactive slot. `ClearTribute` clears the active flag and nothing else.
+- No message, sound or notice accompanies opening, extending, paying or clearing a tribute
+  (byte-level): the slot shows up in, and drops out of, the diplomacy window, and `PayTribute` reads it.
 - Where it shows: the diplomacy window, under the selected player's tab, lists every active unpaid
   slot from the viewer to that player as one button: the description from the map's string table
   (`"<MISSION STRINGS NOT LOADED>"` without one), then each demand as `amount good (have "in stores")`,
   where "have" is the payer's warehouses and workplaces summed. The button is disabled unless the
-  slot is payable, and pressing it sends the pay network command for the slot. The window
-  lists slots 0 to 39 only.
+  slot is payable, and pressing it sends the pay network command for the slot.
 - Payable: the demand amounts are copied once, then every warehouse and workplace of the payer
   subtracts what it holds from each copy, counted like the goal counts (a workplace's product slots,
   never its inputs); the slot is payable when the running sums cover every demand, so several
-  houses pay one slot together. A food demand is met by the first good of the same food class
-  (simple or extra) the house stores, walking the food goods in id order (`food_simple` and
-  `food_extra` first, then the dishes), so a warehouse pays bread out of its `food_simple` and a
-  bakery out of its bread. A slot demanding nothing is payable at once.
+  houses pay one slot together. Each demand reads a house's full stock, so two demands one house
+  answers with the same stocked good both count it. A food demand is met by the first good of the
+  same food class (simple or extra) the house stores, walking the food goods in id order
+  (`food_simple` and `food_extra` first, then the dishes), so a warehouse pays bread out of its
+  `food_simple` and a bakery out of its bread.
 - Paying takes goods out of a copy of the demands, house by house until every demand reaches zero:
   the first house of the headquarters type, then every warehouse in array order, then every
   workplace, each giving what it holds of what is still owed, so a payment can drain several houses
-  although one held everything. The slot's own demand amounts are untouched; only the paid flag is
-  set. The receiver gets nothing (the goods vanish). The command does not check who sent it.
+  although one held everything. Two demands sharing one stocked good share it as it drains, so a slot that
+  read payable can fall short: the goods taken are gone and the slot stays unpaid. The slot's own
+  demand amounts are untouched; only the paid flag is set. The receiver gets nothing (the goods
+  vanish). The command does not check who sent it.
 - `PayTribute n` holds when slot `n` is active and paid.
 - This build keeps the table in `components/tributes.ts`, pays it through the `payTribute` seat
-  command (`systems/missions/tributes.ts`) and lists it in the diplomacy window, with the same rule
+  command (`systems/missions/tributes.ts`) and lists it in the diplomacy window, with the same rules
   and drain order: the first finished headquarters (the `headquarters` content id), then the other
-  finished storages, then the finished workplaces, each group ascending by entity id; the
-  food class is the dish table of `readviews/food.ts`. Two demands a house meets with the same
-  stocked good share that stock here, where the original lets each see the full stock, drains what
-  it can and leaves the slot unpaid with the goods gone (deviation). The seat command is admitted
-  only for the slot's payer, and only while the slot is open, unpaid and payable. The window lists
-  all 44 slots where the original's walks 40 (unreachable in the corpus), under a discovered roster
-  player, which every corpus receiver is.
+  finished storages, then the finished workplaces, each group ascending by entity id; the food class
+  is the dish table of `readviews/food.ts`. The seat command is admitted only for the slot's payer,
+  and only while the slot is open, unpaid and payable, which every pay button the window offers is.
+  The window lists a slot under a discovered roster player, which every corpus receiver is.
 
 ## Trade agreements
 

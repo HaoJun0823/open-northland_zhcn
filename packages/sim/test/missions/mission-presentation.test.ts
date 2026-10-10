@@ -12,8 +12,8 @@ import { hexDistance } from '../../src/nav/halfcell.js';
 import type { MissionDefinition, MissionResultOp } from '../../src/systems/missions/index.js';
 import { SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
 import {
+  FIRST_PASS,
   firingSim,
-  LOAD_PASS,
   missionSim,
   PASS_TICKS,
   POINT,
@@ -38,9 +38,9 @@ const MARKER = 3;
 const LINE = 2;
 const FAR = { hx: 40, hy: 40 };
 
-function eventsAtLoadPass(results: readonly MissionResultOp[]): SimEvent[] {
+function eventsAtFirstPass(results: readonly MissionResultOp[]): SimEvent[] {
   const sim = firingSim(results);
-  sim.run(LOAD_PASS);
+  sim.run(FIRST_PASS);
   return [...sim.events.current()];
 }
 
@@ -61,12 +61,12 @@ describe('PlayCutscene', () => {
       mission({ results: [{ opcode: 'PlayCutscene', cutscene: PAGE, replay: true }] }),
       mission({ results: [{ opcode: 'Exit' }] }),
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(sim.events.current()).toEqual([{ kind: 'missionCutscene', mission: 0, page: PAGE, replay: true }]);
     expect(sim.missionBriefingPage()).toBe(PAGE);
     // The second mission waited for the next pass, which is when its own result fires.
     expect(missionRecords(sim.world)[1]?.active).toBe(true);
-    sim.run(PASS_TICKS - LOAD_PASS);
+    sim.run(PASS_TICKS);
     expect(sim.events.current()).toEqual([{ kind: 'missionExit', mission: 1 }]);
   });
 
@@ -75,8 +75,8 @@ describe('PlayCutscene', () => {
       mission({ results: [{ opcode: 'PlayCutscene', cutscene: PAGE, replay: true }] }),
       mission({ results: [{ opcode: 'PlayCutscene', cutscene: PAGE + 1, replay: false }] }),
     ]);
-    // The first cutscene ends the load pass; the second page comes with the next pass.
-    sim.run(PASS_TICKS);
+    // The first cutscene ends the first pass; the second page comes with the next pass.
+    sim.run(FIRST_PASS + PASS_TICKS);
     expect(missionBriefingPage(sim.world)).toBe(PAGE);
     expect(roundTrip(sim).missionBriefingPage()).toBe(PAGE);
     expect(sim.missionBriefingHistory()).toEqual([PAGE, PAGE + 1]);
@@ -90,7 +90,7 @@ describe('PlayCutscene', () => {
 describe('the one-shot display results', () => {
   it("fire their events with the line's point", () => {
     expect(
-      eventsAtLoadPass([
+      eventsAtFirstPass([
         { opcode: 'PlaySound', sound: 56, point: POINT },
         { opcode: 'SetCameraPosition', point: FAR },
         { opcode: 'StartEarthQuake', seconds: 3 },
@@ -106,7 +106,7 @@ describe('the one-shot display results', () => {
 
   it('places a GUI marker on a point and clears it with the origin; a slot past the ten is refused', () => {
     expect(
-      eventsAtLoadPass([
+      eventsAtFirstPass([
         { opcode: 'SetGuiMarker', objectId: MARKER, point: POINT },
         { opcode: 'SetGuiMarker', objectId: MARKER, point: { hx: 0, hy: 0 } },
         { opcode: 'SetGuiMarker', objectId: 10, point: POINT },
@@ -120,7 +120,7 @@ describe('the one-shot display results', () => {
 
   it('scales the weather density and names the kind after the flag', () => {
     expect(
-      eventsAtLoadPass([
+      eventsAtFirstPass([
         { opcode: 'SetWeather', point: POINT, range: 5, flag: false, amount: 15 },
         { opcode: 'SetWeather', point: POINT, range: 5, flag: true, amount: 200 },
       ]),
@@ -144,7 +144,7 @@ describe('the one-shot display results', () => {
 
   it('walks the hexagon ring for the area markers, every nth step', () => {
     const odd = { hx: 21, hy: 21 };
-    const [ring, sparse, oddRing] = eventsAtLoadPass([
+    const [ring, sparse, oddRing] = eventsAtFirstPass([
       { opcode: 'SetMapAreaMarker', point: POINT, range: 2, flag: true, index: 1 },
       { opcode: 'SetMapAreaMarkerMagic', point: POINT, range: 2, flag: false, index: 4 },
       { opcode: 'SetMapAreaMarker', point: odd, range: 3, flag: true, index: 1 },
@@ -191,7 +191,7 @@ describe('SelectHuman and SetHumanName', () => {
       { opcode: 'SelectHuman', humanId: HUMAN, flag: false },
       { opcode: 'SelectHuman', humanId: HUMAN + 1, flag: true },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const humans = sim.events.current().filter((e) => e.kind === 'missionSelectHuman');
     expect(humans).toEqual([{ kind: 'missionSelectHuman', entity: expect.any(Number), select: true }]);
     expect(sim.events.current()).toContainEqual({
@@ -203,7 +203,7 @@ describe('SelectHuman and SetHumanName', () => {
 
   it('name the first human carrying the id, once, and keep the name through a save', () => {
     const sim = withHuman([{ opcode: 'SetHumanName', humanId: HUMAN, stringId: STRING }]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const [only, ...rest] = [...sim.world.query(ScriptedName)];
     expect(rest).toHaveLength(0);
     if (only === undefined) throw new Error('nobody was named');
@@ -257,7 +257,7 @@ describe('the info lines', () => {
       { opcode: 'InfoClear', player: OWNER, index: 0 },
       { opcode: 'InfoShowString', player: OWNER, index: 5, stringId: STRING },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(sim.infoLines(OWNER)).toEqual([{ index: LINE, stringId: STRING, count: 0, extra: 0 }]);
     expect(sim.infoLines(OWNER + 1)).toEqual([]);
     expect(sim.events.current()).toContainEqual({
@@ -284,7 +284,7 @@ describe('the info lines', () => {
     spawn(sim, { player: OWNER, at: { hx: POINT.hx + 2, hy: POINT.hy }, job: SOLDIER });
     spawn(sim, { player: OWNER, at: FAR, job: SOLDIER });
     spawn(sim, { player: OWNER + 1, at: POINT, job: SOLDIER });
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(infoLinesOf(sim.world, 5)).toHaveLength(1);
     expect(sim.infoLines(OWNER)).toEqual([{ index: LINE, stringId: STRING, count: 2, extra: 4 }]);
     expect(sim.infoLines(OWNER + 1)).toEqual([{ index: LINE, stringId: STRING, count: 1, extra: 4 }]);
@@ -313,7 +313,7 @@ describe('the mission status probe', () => {
       [1, STRING + 1, true, false, false],
       [2, undefined, false, true, false],
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(sim.missionStatus().map((m) => [m.active, m.done])).toEqual([
       [false, true],
       [true, false],
@@ -334,9 +334,9 @@ describe('the mission status probe', () => {
       }),
       mission({ goals: [{ opcode: 'TimeGone', seconds: 3600 }] }),
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(sim.missionStatus()[0]).toMatchObject({ active: true, done: true, fireCount: 1 });
-    sim.run(PASS_TICKS - LOAD_PASS);
+    sim.run(PASS_TICKS);
     expect(missionRecords(sim.world)[0]?.evaluated).toBe(false);
     expect(sim.missionStatus()[0]).toMatchObject({ active: true, done: true, fireCount: 1 });
     expect(roundTrip(sim).missionStatus()[0]?.done).toBe(true);

@@ -133,8 +133,8 @@ function scriptedWorld(options: MapWorldOptions): boolean {
   return options.script?.missions !== undefined && options.missions !== false;
 }
 
-/** Enqueued after the boot step, so the script's load pass runs on the first live tick, where the
- *  frame loop collects its opening briefing; a boot tick's events reach nobody. */
+/** Enqueued after the boot step, so the script loads on the first live tick and its clock counts
+ *  live ticks only. */
 function enableScript(sim: Simulation, options: MapWorldOptions): void {
   const enabled = options.missions ?? (scriptedWorld(options) ? true : null);
   if (enabled !== null) sim.enqueueSetup({ kind: 'setMissionsEnabled', enabled });

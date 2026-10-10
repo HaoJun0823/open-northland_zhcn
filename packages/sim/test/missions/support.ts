@@ -16,8 +16,8 @@ import { MISSION_EVALUATION_TICKS, missionObjects, SUCCESSFUL_IF } from '../../s
 import { testContent } from '../fixtures/content.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 
-/** `setMissionsEnabled` applies on tick 1, and the load pass runs with it. */
-export const LOAD_PASS = 1;
+/** `setMissionsEnabled` applies on tick 1, which loads the script; its first pass is a period later. */
+export const FIRST_PASS = MISSION_EVALUATION_TICKS;
 /** One cadence period: from a fresh fixture it reaches the first cadence pass, by which setup
  *  placements have finished and a short walk has arrived; from any pass, the next one. */
 export const PASS_TICKS = MISSION_EVALUATION_TICKS;
@@ -94,12 +94,12 @@ export function scriptedSim(
   return new Simulation({ seed: 1, content, map, missions: { missions } });
 }
 
-/** The load pass runs on the tick this lands. */
+/** The script loads on the tick this lands, and passes a period later. */
 export function enableMissions(sim: Simulation): void {
   sim.enqueueSetup({ kind: 'setMissionsEnabled', enabled: true });
 }
 
-/** A scripted world enabled from tick 0, so the load pass judges the setup placements on `LOAD_PASS`. */
+/** A scripted world enabled from tick 0, so its first pass runs on `FIRST_PASS`. */
 export function missionSim(
   missions: readonly MissionDefinition[],
   content: ContentSet = testContent(),
@@ -112,21 +112,28 @@ export function missionSim(
 
 /**
  * Let the fixture settle for `ticks` before the script is enabled - a fog mode takes effect at the
- * vision system's slot, after the mission system's, and a walk needs its ticks - then run the load
- * pass, the way a map's boot enables the script after its own steps.
+ * vision system's slot, after the mission system's, and a walk needs its ticks - then run up to the
+ * script's first pass, the way a map's boot enables the script after its own steps.
  */
-export function loadPassAfter(sim: Simulation, ticks: number): void {
+export function firstPassAfter(sim: Simulation, ticks: number): void {
   sim.run(ticks);
-  runLoadPass(sim);
+  runFirstPass(sim);
 }
 
-/** Enable the script and run its load pass, the next tick. */
-export function runLoadPass(sim: Simulation): void {
-  enableMissions(sim);
+/** Enable the script and run through its first pass, a period after the tick it loads on. */
+export function runFirstPass(sim: Simulation): void {
+  untilFirstPass(sim);
   sim.step();
 }
 
-/** A mission with no goals holds under `all`, so it fires on the load pass. */
+/** Enable the script and stop on the tick before its first pass, so a test sets up what the pass
+ *  meets and its next step runs it. */
+export function untilFirstPass(sim: Simulation): void {
+  enableMissions(sim);
+  sim.run(FIRST_PASS - 1);
+}
+
+/** A mission with no goals holds under `all`, so it fires on the first pass. */
 export function firingMission(results: readonly MissionResultOp[]): MissionDefinition {
   return { successfullIf: SUCCESSFUL_IF.all, active: true, visible: false, goals: [], results };
 }
@@ -137,7 +144,7 @@ export function goalMission(goal: MissionGoalOp): MissionDefinition {
   return { successfullIf: SUCCESSFUL_IF.all, active: true, visible: false, goals: [goal], results: [] };
 }
 
-/** A world whose one mission fires on the load pass. */
+/** A world whose one mission fires on the first pass. */
 export function firingSim(
   results: readonly MissionResultOp[],
   content: ContentSet = testContent(),

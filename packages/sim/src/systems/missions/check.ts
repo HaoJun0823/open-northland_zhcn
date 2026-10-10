@@ -70,7 +70,7 @@ import {
 import type { MissionPass } from './pass.js';
 import { setMissionActive } from './pass.js';
 import { executeResult } from './results/index.js';
-import { isSuccessfulIfRule, type MissionGoalOp, ruleSatisfied } from './script.js';
+import { type MissionGoalOp, ruleSatisfied } from './script.js';
 
 /**
  * Evaluate mission `index`: store each goal's current truth, judge the count against `successfullif`
@@ -101,8 +101,8 @@ export function checkMission(pass: MissionPass, index: number, execute: boolean)
     // The active flag is cleared before the results run, so a mission that re-activates itself keeps
     // the activation its own results asked for.
     setMissionActive(pass, index, false);
-    record.firstFiredTick ??= pass.tick;
-    record.lastFiredTick = pass.tick;
+    record.firstFiredTick ??= pass.ctx.tick;
+    record.lastFiredTick = pass.ctx.tick;
     record.fireCount = (record.fireCount ?? 0) + 1;
     for (const result of definition.results) executeResult(pass, index, result);
   }
@@ -252,7 +252,7 @@ function goalHolds(
 }
 
 function elapsed(pass: MissionPass, record: MissionRecord, seconds: number): boolean {
-  return pass.tick >= record.activationTick + seconds * TICKS_PER_SECOND;
+  return pass.clock >= record.activationClock + seconds * TICKS_PER_SECOND;
 }
 
 /**
@@ -278,13 +278,11 @@ function randomTimeGone(pass: MissionPass, record: MissionRecord, goal: number, 
 }
 
 /** Mission `index`'s stored goal flags judged by its own rule, with no re-evaluation: it stays true
- *  after that mission fired, and a never-checked mission answers true under the `none` rule. A rule
- *  outside the four, which the mission itself treats as always holding, answers false here (reading). */
+ *  after that mission fired, and a never-checked mission answers true under the `none` rule. */
 function missionDone(pass: MissionPass, index: number): boolean | undefined {
   const definition = pass.script.missions[index];
   const record = pass.records[index];
   if (definition === undefined || record === undefined) return false;
-  if (!isSuccessfulIfRule(definition.successfullIf)) return false;
   const held = record.goalsHeld.reduce((count, flag) => (flag ? count + 1 : count), 0);
   return ruleVerdict(
     definition.successfullIf,

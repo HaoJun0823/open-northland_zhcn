@@ -43,18 +43,12 @@ function animalRemainsTypes(content: ContentSet): ScriptLandscapeType[] {
 
 /**
  * Builds a fresh deterministic sim for a scene world at tick 0, then runs `scene.build`, with the
- * scene's script enabled from the start: the headless twin's shape, where the load pass runs on tick 1.
+ * scene's script enabled from the start, so it loads on tick 1.
  */
 export function createSceneSim(scene: SceneWorld, options: WorldContentOptions = {}): Simulation {
   const sim = createSceneWorld(scene, options);
-  enableSceneScript(sim, scene);
-  return sim;
-}
-
-/** The load pass runs on the tick this lands, so a scene shown in the browser enables its script only
- *  after the boot tick, where the frame loop can collect the pass's briefing and camera events. */
-export function enableSceneScript(sim: Simulation, scene: SceneWorld): void {
   if (scene.missions !== undefined) sim.enqueueSetup({ kind: 'setMissionsEnabled', enabled: true });
+  return sim;
 }
 
 /**

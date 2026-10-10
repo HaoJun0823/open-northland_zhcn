@@ -6,7 +6,7 @@ import {
 } from '../../src/components/mission-presentation.js';
 import { Simulation } from '../../src/index.js';
 import { testContent } from '../fixtures/content.js';
-import { firingSim, LOAD_PASS, roundTrip } from './support.js';
+import { FIRST_PASS, firingSim, roundTrip } from './support.js';
 
 const POINT = { hx: 12, hy: 14 };
 
@@ -26,7 +26,7 @@ describe('persistent mission presentation', () => {
       { opcode: 'SetMapAreaMarkerMagic', point: POINT, range: 2, index: 1, flag: true },
       { opcode: 'SetWeather', point: POINT, range: 5, amount: 25, flag: false },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const before = sim.missionPresentation();
     expect(before.guiMarkers).toEqual([{ marker: 3, point: POINT }]);
     expect(before.groundMarkers).toHaveLength(13);
@@ -126,7 +126,7 @@ describe('persistent mission presentation', () => {
       { weather: 'sand', min: { hx: 0, hy: 0 }, max: { hx: 40, hy: 40 }, density: 10000 },
       { weather: 'snow', ...square, density: 0 },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(sim.missionPresentation().weather).toEqual([
       { weather: 'sand', min: { hx: 0, hy: 0 }, max: { hx: 40, hy: 40 }, density: 10000 },
       { weather: 'snow', ...square, density: 0 },

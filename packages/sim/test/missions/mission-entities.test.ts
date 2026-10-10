@@ -24,14 +24,14 @@ import type { MissionResultOp } from '../../src/systems/missions/index.js';
 import { missionObjects, SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 import {
+  FIRST_PASS,
   FRANK,
   firingMission,
   firingSim,
+  firstPassAfter,
   HUT,
   HUT_LARGE,
   houseContent,
-  LOAD_PASS,
-  loadPassAfter,
   MAP_NODES,
   missionSim,
   PASS_TICKS,
@@ -80,7 +80,7 @@ const SET_HUMAN: Extract<MissionResultOp, { opcode: 'SetHuman' }> = {
 describe('the spawn results', () => {
   it('places one settler for the owner, id and behaviour mask the line names', () => {
     const sim = firingSim([SET_HUMAN]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const spawned = only(missionObjects(sim.world, 77));
     expect(ownerOf(sim.world, spawned)).toBe(2);
     expect(sim.world.get(spawned, Settler).jobType).toBe(WOODCUTTER);
@@ -90,7 +90,7 @@ describe('the spawn results', () => {
 
   it('repeats the whole line `amount` times for SetHumanX', () => {
     const sim = firingSim([{ ...SET_HUMAN, opcode: 'SetHumanX', amount: 5 }]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(missionObjects(sim.world, 77)).toHaveLength(5);
   });
 
@@ -98,7 +98,7 @@ describe('the spawn results', () => {
     const sim = firingSim([
       { opcode: 'SetAnimal', player: WILD, tribe: WOLF, job: 0, point: POINT, objectId: 12, behaviour: 0 },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const animal = only(missionObjects(sim.world, 12));
     expect(isWildlife(sim.world, animal)).toBe(true);
     expect(sim.world.has(animal, Owner)).toBe(false);
@@ -108,7 +108,7 @@ describe('the spawn results', () => {
     const sim = firingSim([
       { opcode: 'SetAnimal', player: 3, tribe: WOLF, job: 0, point: POINT, objectId: 12, behaviour: 0 },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(ownerOf(sim.world, only(missionObjects(sim.world, 12)))).toBe(3);
   });
 });
@@ -129,7 +129,7 @@ describe('the house results', () => {
       ],
       houseContent(),
     );
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const house = only(missionObjects(sim.world, 5));
     const at = sim.world.get(house, Position);
     expect(nodeOfPosition(at.x, at.y)).toEqual(POINT);
@@ -152,7 +152,7 @@ describe('the house results', () => {
       ],
       houseContent(),
     );
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(sim.world.get(only(missionObjects(sim.world, 5)), Building).tribe).toBe(FRANK);
   });
 
@@ -171,7 +171,7 @@ describe('the house results', () => {
       ],
       houseContent(),
     );
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(buildings(sim)).toHaveLength(0);
     expect(sim.events.current().filter((e) => e.kind === 'missionResultFailed')).toHaveLength(1);
   });
@@ -191,7 +191,7 @@ describe('the house results', () => {
       ],
       houseContent(),
     );
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(sim.world.has(only(missionObjects(sim.world, 5)), UnderConstruction)).toBe(true);
   });
 
@@ -207,12 +207,12 @@ describe('the house results', () => {
     };
     // Two houses on one point: the reserved rings may not overlap, so the second steps aside.
     const sim = firingSim([blocking, { ...blocking, objectId: 6 }], houseContent());
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const second = sim.world.get(only(missionObjects(sim.world, 6)), Position);
     expect(nodeOfPosition(second.x, second.y)).not.toEqual(POINT);
     // Exactly the nearest spot the first house left buildable, the lowest node id among ties.
     const alone = firingSim([blocking], houseContent());
-    alone.run(LOAD_PASS);
+    alone.run(FIRST_PASS);
     const probe = alone.placementProbe(HUT, 1, VIKING);
     if (probe === null) throw new Error('mapped fixture');
     let expected: { hx: number; hy: number } | undefined;
@@ -258,7 +258,7 @@ describe('the house results', () => {
       },
     });
     sim.enqueueSetup({ kind: 'setMissionsEnabled', enabled: true });
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(buildings(sim)).toHaveLength(0);
     expect(sim.events.current().filter((e) => e.kind === 'missionResultFailed')).toEqual([
       { kind: 'missionResultFailed', mission: 0, opcode: 'SetHouse' },
@@ -281,7 +281,7 @@ describe('the house results', () => {
       ],
       houseContent(),
     );
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const house = only(missionObjects(sim.world, 5));
     expect(sim.world.get(house, Building).buildingType).toBe(HUT_LARGE);
     expect(sim.world.get(house, Building).level).toBe(1);
@@ -313,7 +313,7 @@ describe('the house results', () => {
       ],
       houseContent(),
     );
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const house = only(missionObjects(sim.world, 5));
     expect(sim.world.get(house, Building).buildingType).toBe(HUT);
     expect(sim.events.current().filter((e) => e.kind === 'buildingUpgraded')).toEqual([
@@ -326,11 +326,11 @@ describe('the house results', () => {
 describe('the removal results', () => {
   it('takes every human with the id off the board without a death cue', () => {
     const sim = firingSim([SET_HUMAN]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(missionObjects(sim.world, 77)).toHaveLength(1);
 
     const removing = firingSim([SET_HUMAN, { opcode: 'RemoveHumans', humanId: 77 }]);
-    removing.run(LOAD_PASS);
+    removing.run(FIRST_PASS);
     expect(missionObjects(removing.world, 77)).toHaveLength(0);
     expect(removing.events.current().filter((e) => e.kind === 'settlerDied')).toHaveLength(0);
   });
@@ -353,7 +353,7 @@ describe('the removal results', () => {
       ],
       houseContent(),
     );
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(missionObjects(sim.world, 12)).toHaveLength(0);
     expect(buildings(sim)).toHaveLength(0);
   });
@@ -363,7 +363,7 @@ describe('the removal results', () => {
       { opcode: 'SetAnimal', player: WILD, tribe: WOLF, job: 0, point: POINT, objectId: 9, behaviour: 0 },
       { opcode: 'RemoveHouses', objectId: 9 },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(missionObjects(sim.world, 9)).toHaveLength(1);
   });
 });
@@ -399,7 +399,7 @@ describe('the ownership results', () => {
 
   it('hands the humans with an id to another player and cuts their bindings', () => {
     const { sim, moved } = housed([{ opcode: 'ChangeHumanPlayerId', humanId: 77, player: 4 }]);
-    loadPassAfter(sim, 0);
+    firstPassAfter(sim, 0);
     expect(ownerOf(sim.world, moved)).toBe(4);
     expect(sim.world.has(moved, Residence)).toBe(false);
   });
@@ -408,14 +408,14 @@ describe('the ownership results', () => {
     const HOUSE_ID = 5;
     const { sim, moved } = housed([{ opcode: 'RemoveHouses', objectId: HOUSE_ID }]);
     sim.world.add(only(buildings(sim)), MissionObjectId, { id: HOUSE_ID });
-    loadPassAfter(sim, 0);
+    firstPassAfter(sim, 0);
     expect(buildings(sim)).toHaveLength(0);
     expect(sim.world.has(moved, Residence)).toBe(false);
   });
 
   it('leaves a whole nation`s bindings alone when it changes flag', () => {
     const { sim, moved } = housed([{ opcode: 'ChangePlayerPlayerId', player: 2, otherPlayer: 5 }]);
-    loadPassAfter(sim, 0);
+    firstPassAfter(sim, 0);
     expect(ownerOf(sim.world, moved)).toBe(5);
     // The house moved with its owner, so the settler keeps living in it.
     expect(sim.world.has(moved, Residence)).toBe(true);
@@ -427,7 +427,7 @@ describe('the ownership results', () => {
       { ...SET_HUMAN, humanId: 78 },
       { opcode: 'ChangePlayerPlayerId', player: 2, otherPlayer: 5 },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(humansOf(sim, 2)).toHaveLength(0);
     expect(humansOf(sim, 5)).toHaveLength(2);
   });
@@ -439,7 +439,7 @@ describe('the ownership results', () => {
       { ...SET_HUMAN, humanId: 78, point: far },
       { opcode: 'ChangePlayerIdInArea', player: 2, otherPlayer: 6, point: POINT, range: 3 },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(ownerOf(sim.world, only(missionObjects(sim.world, 77)))).toBe(6);
     expect(ownerOf(sim.world, only(missionObjects(sim.world, 78)))).toBe(2);
   });
@@ -457,7 +457,7 @@ describe('the ownership results', () => {
     const second = post(24, 2);
     expect(sim.world.get(first, Signpost).links).toEqual([second]);
 
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
 
     expect(sim.world.get(first, Signpost).links).toEqual([receiver, second]);
     expect(sim.world.get(second, Signpost).links).toEqual([first]);
@@ -479,7 +479,7 @@ describe('the ownership results', () => {
     const newNeighbour = post(POINT.hx, POINT.hy + 16, 6);
     expect(sim.world.get(handed, Signpost).links).toEqual([oldNeighbour]);
 
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
 
     expect(ownerOf(sim.world, handed)).toBe(6);
     expect(sim.world.get(handed, Signpost).links).toEqual([newNeighbour]);
@@ -497,7 +497,7 @@ describe('the ownership results', () => {
     const { sim, moved } = housed([
       { opcode: 'ChangePlayerIdInArea', player: 2, otherPlayer: 6, point: POINT, range: 6 },
     ]);
-    loadPassAfter(sim, 0);
+    firstPassAfter(sim, 0);
     expect(ownerOf(sim.world, moved)).toBe(6);
     expect(sim.world.has(moved, Residence)).toBe(false);
   });
@@ -525,7 +525,7 @@ describe('the ownership results', () => {
       owner: 2,
       missionId: HOUSE_ID,
     });
-    loadPassAfter(sim, 1);
+    firstPassAfter(sim, 1);
     const generation = sim.world.componentGeneration(Owner);
     sim.run(PASS_TICKS);
     expect(missionRecords(sim.world)[0]?.fireCount).toBe(2);
@@ -555,7 +555,7 @@ describe('the ownership results', () => {
         otherPlayer: 7,
       },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const tamed = [...sim.world.query(Settler)].filter((e) => ownerOf(sim.world, e) === 7);
     expect(tamed).toHaveLength(2);
   });
@@ -568,7 +568,7 @@ describe('the object-id results', () => {
       { ...SET_HUMAN, humanId: 78 },
       { opcode: 'ChangeMissionIdOfPlayer', player: 2, humanId: 99 },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(missionObjects(sim.world, 99)).toHaveLength(2);
     expect(missionObjects(sim.world, 77)).toHaveLength(0);
   });
@@ -580,7 +580,7 @@ describe('the object-id results', () => {
       { ...SET_HUMAN, humanId: 78, point: far },
       { opcode: 'ChangeHumanObjectIdInArea', player: 2, point: POINT, range: 3, humanId: 99 },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(missionObjects(sim.world, 99)).toHaveLength(1);
     expect(missionObjects(sim.world, 78)).toHaveLength(1);
   });
@@ -599,7 +599,7 @@ describe('the object-id results', () => {
         ],
       },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(missionObjects(sim.world, 99)).toHaveLength(1);
     const generation = sim.world.componentGeneration(MissionObjectId);
     sim.run(PASS_TICKS);
@@ -610,7 +610,7 @@ describe('the object-id results', () => {
 
   it('clears the id when the line renumbers to nothing', () => {
     const sim = firingSim([SET_HUMAN, { opcode: 'ChangeMissionIdOfPlayer', player: 2, humanId: 0 }]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(missionObjects(sim.world, 77)).toHaveLength(0);
     expect([...sim.world.query(MissionObjectId)]).toHaveLength(0);
   });

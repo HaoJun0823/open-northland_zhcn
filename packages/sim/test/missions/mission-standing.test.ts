@@ -21,14 +21,14 @@ import { resolveCombatHit } from '../../src/systems/settlers/atomics/effects/com
 import { ctxOf } from '../fixtures/context.js';
 import {
   eventsUntil,
+  FIRST_PASS,
   failedResultsUntil,
   firingMission,
   firingSim,
+  firstPassAfter,
   goalMission,
   goalSim,
   holds,
-  LOAD_PASS,
-  loadPassAfter,
   PASS_TICKS,
   POINT,
   roundTrip,
@@ -80,20 +80,20 @@ function lock(player: number, otherPlayer: number, flag: boolean): MissionResult
 describe('SetDiplomacy', () => {
   it('sets the one direction the line names', () => {
     const sim = firingSim([stance(OWNER, RIVAL, 'friend')]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(diplomacyStance(sim.world, OWNER, RIVAL)).toBe('friend');
     expect(diplomacyStance(sim.world, RIVAL, OWNER)).toBe('enemy');
   });
 
   it('writes through a lock on the pair', () => {
     const sim = firingSim([lock(OWNER, RIVAL, true), stance(OWNER, RIVAL, 'neutral')]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(diplomacyStance(sim.world, OWNER, RIVAL)).toBe('neutral');
   });
 
   it('reports a line whose state token resolved to nothing', () => {
     const sim = firingSim([{ opcode: 'SetDiplomacy', player: OWNER, otherPlayer: RIVAL, state: undefined }]);
-    expect(failedResultsUntil(sim, LOAD_PASS)).toEqual(['SetDiplomacy']);
+    expect(failedResultsUntil(sim, FIRST_PASS)).toEqual(['SetDiplomacy']);
     expect(diplomacyStance(sim.world, OWNER, RIVAL)).toBe('enemy');
   });
 });
@@ -101,18 +101,18 @@ describe('SetDiplomacy', () => {
 describe('SetDiplomacyNotChangeableFlag', () => {
   it('locks both directions and unlocks them again', () => {
     const sim = firingSim([lock(OWNER, RIVAL, true)]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(diplomacyLocked(sim.world, OWNER, RIVAL)).toBe(true);
     expect(diplomacyLocked(sim.world, RIVAL, OWNER)).toBe(true);
     expect(diplomacyLocked(sim.world, OWNER, STRIKER)).toBe(false);
     const cleared = firingSim([lock(OWNER, RIVAL, true), lock(RIVAL, OWNER, false)]);
-    cleared.run(LOAD_PASS);
+    cleared.run(FIRST_PASS);
     expect(diplomacyLocked(cleared.world, OWNER, RIVAL)).toBe(false);
   });
 
   it('carries the lock through the save round trip', () => {
     const sim = firingSim([lock(OWNER, RIVAL, true)]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(diplomacyLocked(roundTrip(sim).world, RIVAL, OWNER)).toBe(true);
   });
 });
@@ -128,18 +128,18 @@ describe('DiplomacyState', () => {
   it('holds for the direction that carries the stance and not for the reverse', () => {
     const forward = goalSim(goal(OWNER, RIVAL));
     forward.enqueueSetup({ kind: 'setDiplomacy', from: OWNER, to: RIVAL, state: 'friend' });
-    forward.run(LOAD_PASS);
+    forward.run(FIRST_PASS);
     expect(holds(forward)).toBe(true);
 
     const reverse = goalSim(goal(RIVAL, OWNER));
     reverse.enqueueSetup({ kind: 'setDiplomacy', from: OWNER, to: RIVAL, state: 'friend' });
-    reverse.run(LOAD_PASS);
+    reverse.run(FIRST_PASS);
     expect(holds(reverse)).toBe(false);
   });
 
   it('holds nowhere for a state token that resolved to nothing', () => {
     const sim = goalSim({ opcode: 'DiplomacyState', player: OWNER, otherPlayer: RIVAL, state: undefined });
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(holds(sim)).toBe(false);
   });
 });
@@ -147,8 +147,8 @@ describe('DiplomacyState', () => {
 describe('MissionWon and MissionFailed', () => {
   it('records the verdict for the named player and announces it the tick it fires', () => {
     const sim = firingSim([{ opcode: 'MissionWon', player: OWNER }]);
-    expect(eventsUntil(sim, LOAD_PASS, VERDICT_EVENTS)).toEqual([
-      { tick: LOAD_PASS, event: { kind: 'playerWon', player: OWNER } },
+    expect(eventsUntil(sim, FIRST_PASS, VERDICT_EVENTS)).toEqual([
+      { tick: FIRST_PASS, event: { kind: 'playerWon', player: OWNER } },
     ]);
     expect(sim.matchOutcome(OWNER)).toBe('victory');
     expect(sim.matchOutcome(RIVAL)).toBe('undecided');
@@ -159,11 +159,11 @@ describe('MissionWon and MissionFailed', () => {
       { opcode: 'MissionWon', player: OWNER },
       { opcode: 'ActivateMission', missionIndex: 0 },
     ]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     const recorded = sim.world.componentValueGeneration(ScriptVerdicts);
     // The mission re-activated itself, so the next pass fires it again.
-    expect(eventsUntil(sim, PASS_TICKS, VERDICT_EVENTS)).toEqual([
-      { tick: PASS_TICKS, event: { kind: 'playerWon', player: OWNER } },
+    expect(eventsUntil(sim, FIRST_PASS + PASS_TICKS, VERDICT_EVENTS)).toEqual([
+      { tick: FIRST_PASS + PASS_TICKS, event: { kind: 'playerWon', player: OWNER } },
     ]);
     expect(sim.world.componentValueGeneration(ScriptVerdicts)).toBe(recorded);
   });
@@ -171,8 +171,8 @@ describe('MissionWon and MissionFailed', () => {
   it('a failed player is beaten but keeps commanding, and has not died', () => {
     const sim = firingSim([{ opcode: 'MissionFailed', player: OWNER }]);
     spawn(sim, { player: OWNER, missionId: ATTACKER_ID });
-    expect(eventsUntil(sim, LOAD_PASS, VERDICT_EVENTS)).toEqual([
-      { tick: LOAD_PASS, event: { kind: 'playerDefeated', player: OWNER } },
+    expect(eventsUntil(sim, FIRST_PASS, VERDICT_EVENTS)).toEqual([
+      { tick: FIRST_PASS, event: { kind: 'playerDefeated', player: OWNER } },
     ]);
     expect(sim.matchOutcome(OWNER)).toBe('defeat');
     expect(isPlayerDead(sim.world, OWNER)).toBe(false);
@@ -190,7 +190,7 @@ describe('MissionWon and MissionFailed', () => {
     spawn(sim, { player: OWNER, job: SOLDIER });
     const events = eventsUntil(sim, FIRST_DEATH_CHECK, VERDICT_EVENTS);
     expect(events).toEqual([
-      { tick: LOAD_PASS, event: { kind: 'playerWon', player: OWNER } },
+      { tick: FIRST_PASS, event: { kind: 'playerWon', player: OWNER } },
       { tick: FIRST_DEATH_CHECK, event: { kind: 'playerDefeated', player: RIVAL } },
       { tick: FIRST_DEATH_CHECK, event: { kind: 'playerWon', player: OWNER } },
     ]);
@@ -199,13 +199,13 @@ describe('MissionWon and MissionFailed', () => {
 
   it('carries the verdict through the save round trip', () => {
     const sim = firingSim([{ opcode: 'MissionFailed', player: RIVAL }]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(roundTrip(sim).matchOutcome(RIVAL)).toBe('defeat');
   });
 
   it('reports a verdict for a slot the sim has no seat for', () => {
     const sim = firingSim([{ opcode: 'MissionWon', player: WILD }]);
-    expect(failedResultsUntil(sim, LOAD_PASS)).toEqual(['MissionWon']);
+    expect(failedResultsUntil(sim, FIRST_PASS)).toEqual(['MissionWon']);
   });
 });
 
@@ -214,7 +214,7 @@ describe('PlayerDied', () => {
     const sim = goalSim({ opcode: 'PlayerDied', player: RIVAL });
     sim.enqueueSetup({ kind: 'setMatchParticipants', players: [OWNER, RIVAL] });
     spawn(sim, { player: OWNER, job: SOLDIER });
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(holds(sim)).toBe(false);
     sim.run(FIRST_DEATH_CHECK + PASS_TICKS - sim.tick);
     expect(isPlayerDead(sim.world, RIVAL)).toBe(true);
@@ -225,19 +225,19 @@ describe('PlayerDied', () => {
 describe('PlayerSeen', () => {
   const seen: MissionGoalOp = { opcode: 'PlayerSeen', player: OWNER, otherPlayer: RIVAL };
 
-  /** The fixture under CLASSIC fog, its load pass run once the fog was stamped. */
+  /** The fixture under CLASSIC fog, enabled once the fog was stamped and run through its first pass. */
   function underFog(missions: readonly MissionDefinition[], rivalAt: { hx: number; hy: number }): Simulation {
     const sim = scriptedSim(missions);
     sim.enqueueSetup({ kind: 'setFogMode', mode: FOG_MODE.CLASSIC });
     spawn(sim, { player: OWNER });
     spawn(sim, { player: RIVAL, at: rivalAt });
-    loadPassAfter(sim, FOG_SETTLED);
+    firstPassAfter(sim, FOG_SETTLED);
     return sim;
   }
 
   it('holds in plain sight with fog off', () => {
     const sim = goalSim(seen);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(holds(sim)).toBe(true);
   });
 
@@ -254,7 +254,7 @@ describe('PlayerSeen', () => {
       ],
       FAR_EAST,
     );
-    // The contact pass runs after the load pass judged the mission, so the reveal shows next pass.
+    // The contact pass runs after the first pass judged the mission, so the reveal shows next pass.
     expect(missionRecords(sim.world)[1]?.evaluated).toBe(false);
     sim.run(PASS_TICKS);
     expect(missionRecords(sim.world)[1]?.evaluated).toBe(true);
@@ -290,12 +290,12 @@ describe('PlayerAttackedByPlayer', () => {
     strike(sim, A_BLOW);
     expect(wasAttackedBy(sim.world, RIVAL, STRIKER)).toBe(true);
     expect(wasAttackedBy(sim.world, STRIKER, RIVAL)).toBe(false);
-    sim.run(PASS_TICKS - sim.tick); // the blow landed after the load pass; the cadence pass reads it
+    sim.run(FIRST_PASS - sim.tick); // the blow landed before the first pass, which reads it
     expect(holds(sim)).toBe(true);
 
     const reverse = goalSim(attacked(STRIKER, RIVAL));
     strike(reverse, A_BLOW);
-    reverse.run(PASS_TICKS - reverse.tick);
+    reverse.run(FIRST_PASS - reverse.tick);
     expect(holds(reverse)).toBe(false);
   });
 
@@ -353,7 +353,7 @@ describe('SetExternalFlag', () => {
 
   it("raises and clears the player's condition slots and carries them through a save", () => {
     const sim = firingSim([flag(SLOT, true), flag(OTHER_SLOT, true), flag(SLOT, false)]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(aiExternalFlagRaised(sim.world, OWNER, OTHER_SLOT)).toBe(true);
     expect(aiExternalFlagRaised(sim.world, OWNER, SLOT)).toBe(false);
     expect(aiExternalFlagRaised(sim.world, RIVAL, OTHER_SLOT)).toBe(false);
@@ -362,7 +362,7 @@ describe('SetExternalFlag', () => {
 
   it('drops a slot past the ai.inc limit', () => {
     const sim = firingSim([flag(MAP_AI_CONDITION_SLOTS, true)]);
-    sim.run(LOAD_PASS);
+    sim.run(FIRST_PASS);
     expect(sim.world.lowestEntityWith(AiExternalFlags)).toBeNull();
   });
 });

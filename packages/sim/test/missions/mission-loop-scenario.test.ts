@@ -56,7 +56,7 @@ function fireTicks(seed: number, ticks: number): { fired: number[]; hash: string
   let lastActivation = -1;
   for (let i = 0; i < ticks; i++) {
     run.sim.step();
-    const activation = missionRecords(run.sim.world)[0]?.activationTick ?? -1;
+    const activation = missionRecords(run.sim.world)[0]?.activationClock ?? -1;
     if (activation !== lastActivation) {
       if (lastActivation >= 0) fired.push(activation);
       lastActivation = activation;

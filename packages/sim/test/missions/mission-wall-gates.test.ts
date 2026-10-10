@@ -9,7 +9,7 @@ import {
 } from '../../src/index.js';
 import { testContent } from '../fixtures/content.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
-import { enableMissions, failedResultsNow, firingMission, scriptedSim } from './support.js';
+import { failedResultsNow, firingMission, runFirstPass, scriptedSim, untilFirstPass } from './support.js';
 
 const CLOSED = 696;
 const OPEN = 700;
@@ -49,7 +49,7 @@ function gateMap(): TerrainMap {
   };
 }
 
-/** A world whose script fires on the load pass, with one completed gate already standing. */
+/** A world whose script fires on its first pass, with one completed gate already standing. */
 function gateSim(result: Parameters<typeof firingMission>[0][number], owner = OWNER): Simulation {
   const sim = scriptedSim([firingMission([result])], testContent(), gateMap());
   sim.enqueueSetup({
@@ -80,8 +80,7 @@ describe('1 Open/0 CloseWallGate', () => {
     const sim = gateSim({ opcode: '1 Open/0 CloseWallGate', player: OWNER, point: FLANK, flag: true });
     expect(isOpen(sim)).toBe(false);
 
-    enableMissions(sim);
-    sim.step();
+    runFirstPass(sim);
 
     expect(isOpen(sim)).toBe(true);
     expect(failedResultsNow(sim)).toEqual([]);
@@ -93,8 +92,7 @@ describe('1 Open/0 CloseWallGate', () => {
     sim.step();
     expect(isOpen(sim)).toBe(true);
 
-    enableMissions(sim);
-    sim.step();
+    runFirstPass(sim);
 
     expect(isOpen(sim)).toBe(false);
     expect(failedResultsNow(sim)).toEqual([]);
@@ -104,12 +102,11 @@ describe('1 Open/0 CloseWallGate', () => {
     const sim = gateSim({ opcode: '1 Open/0 CloseWallGate', player: OWNER, point: ANCHOR, flag: false });
     sim.enqueueSetup({ kind: 'setPalisadeGate', palisade: theGate(sim), open: true });
     sim.step();
+    untilFirstPass(sim);
     // Only a mover blocks a closing gate, so the occupant needs to be one.
     const occupant = sim.world.create();
     sim.world.add(occupant, Position, positionOfNode(ANCHOR.hx, ANCHOR.hy));
     addWildlife(sim.world, occupant, WOLF_TRIBE);
-
-    enableMissions(sim);
     sim.step();
 
     expect(isOpen(sim)).toBe(true);
@@ -122,8 +119,7 @@ describe('1 Open/0 CloseWallGate', () => {
       OTHER_PLAYER,
     );
 
-    enableMissions(sim);
-    sim.step();
+    runFirstPass(sim);
 
     expect(isOpen(sim)).toBe(false);
     expect(failedResultsNow(sim)).toEqual(['1 Open/0 CloseWallGate']);
@@ -137,8 +133,7 @@ describe('1 Open/0 CloseWallGate', () => {
       flag: true,
     });
 
-    enableMissions(sim);
-    sim.step();
+    runFirstPass(sim);
 
     expect(isOpen(sim)).toBe(false);
     expect(failedResultsNow(sim)).toEqual(['1 Open/0 CloseWallGate']);

@@ -4,7 +4,7 @@ import type { MissionGoalOp, MissionResultOp } from '../../src/systems/missions/
 import { SUCCESSFUL_IF, SUPPORTED_GOALS, SUPPORTED_RESULTS } from '../../src/systems/missions/index.js';
 import { testContent } from '../fixtures/content.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
-import { LOAD_PASS } from './support.js';
+import { FIRST_PASS } from './support.js';
 
 /**
  * The published support lists against the evaluators themselves: the coverage report reads the lists,
@@ -397,7 +397,7 @@ function reportedOpcodes(goals: MissionGoalOp[], results: MissionResultOp[]): st
     },
   });
   sim.enqueueSetup({ kind: 'setMissionsEnabled', enabled: true });
-  sim.run(LOAD_PASS);
+  sim.run(FIRST_PASS);
   return sim.events.current().flatMap((e) => (e.kind === 'missionUnsupported' ? [e.opcode] : []));
 }
 

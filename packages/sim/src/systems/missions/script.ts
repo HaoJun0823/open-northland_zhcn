@@ -49,9 +49,9 @@ export const SUCCESSFUL_IF = {
 } as const;
 
 export interface MissionDefinition {
-  /** A {@link SUCCESSFUL_IF} rule; any other value means the mission always holds. */
+  /** A {@link SUCCESSFUL_IF} rule; any other value means the mission never holds. */
   readonly successfullIf: number;
-  /** Active at load, which records the load tick as the activation tick. */
+  /** Active at load, which records the load clock as its activation. */
   readonly active: boolean;
   /** Listed in the mission window, which also needs a {@link description} to list it. */
   readonly visible: boolean;
@@ -70,14 +70,8 @@ export interface MissionScript {
   readonly missions: readonly MissionDefinition[];
 }
 
-const SUCCESSFUL_IF_RULES: ReadonlySet<number> = new Set(Object.values(SUCCESSFUL_IF));
-
-export function isSuccessfulIfRule(rule: number): boolean {
-  return SUCCESSFUL_IF_RULES.has(rule);
-}
-
 /** Whether `held` of `total` goals satisfies the rule (`MISSIONS.md`, "Execution model"). A mission
- *  with no goals holds under every rule but `any`. */
+ *  with no goals holds under every rule but `any`; a value outside the four never holds. */
 export function ruleSatisfied(rule: number, held: number, total: number): boolean {
   switch (rule) {
     case SUCCESSFUL_IF.all:
@@ -89,6 +83,6 @@ export function ruleSatisfied(rule: number, held: number, total: number): boolea
     case SUCCESSFUL_IF.none:
       return held === 0;
     default:
-      return true;
+      return false;
   }
 }

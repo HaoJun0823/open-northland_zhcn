@@ -1,5 +1,4 @@
 import type { MissionStatus } from '@open-northland/sim';
-import { systems } from '@open-northland/sim';
 import { formatMessage, messages } from '../../i18n/index.js';
 import type { SessionHost } from '../../session/index.js';
 import { el, PANEL_STYLE } from '../overlay.js';
@@ -13,10 +12,9 @@ export function firedMissionRows(status: readonly MissionStatus[]): MissionStatu
     .slice(0, MAX_VISIBLE_MISSIONS);
 }
 
-/** Rebuilds its rows on every cadence pass and on a frame that carried a script event, which is how
- *  the load pass, on no cadence tick, shows up. */
+/** Reads the status once per tick and rebuilds its rows when a mission fired since the last read. */
 export function mountMissionTrace(host: Pick<SessionHost, 'missionStatus'>): {
-  refresh(tick: number, scriptFired: boolean): void;
+  refresh(tick: number): void;
   dispose(): void;
 } {
   const copy = messages().missionTrace;
@@ -26,13 +24,17 @@ export function mountMissionTrace(host: Pick<SessionHost, 'missionStatus'>): {
   const body = el('div', 'max-height:35vh;overflow:auto;margin-top:8px');
   panel.append(summary, body);
   document.body.append(panel);
-  let pass = -1;
+  let readTick = -1;
+  let fired = -1;
   return {
-    refresh(tick, scriptFired) {
-      const current = Math.floor(tick / systems.MISSION_EVALUATION_TICKS);
-      if (current === pass && !scriptFired) return;
-      pass = current;
-      const rows = firedMissionRows(host.missionStatus());
+    refresh(tick) {
+      if (tick === readTick) return;
+      readTick = tick;
+      const status = host.missionStatus();
+      const total = status.reduce((sum, row) => sum + row.fireCount, 0);
+      if (total === fired) return;
+      fired = total;
+      const rows = firedMissionRows(status);
       summary.textContent = formatMessage(copy.atTick, { tick });
       body.replaceChildren(el('p', 'margin:0 0 8px;opacity:.8', copy.note));
       if (rows.length === 0) body.append(el('p', '', copy.empty));

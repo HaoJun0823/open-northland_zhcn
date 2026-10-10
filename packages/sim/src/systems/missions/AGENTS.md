@@ -15,10 +15,11 @@ format and the execution semantics live in [`docs/formats/MISSIONS.md`](../../..
 
 ## Evaluating
 
-- A pass runs on the tick the script is enabled (the load pass, a deliberate deviation so a map opens
-  on its briefing) and then every `MISSION_EVALUATION_TICKS`, visiting missions in index order. Order
-  is the contract: a mission a result activates is visited later in the same pass.
-- Goal flags are rewritten by every check and never latched. Activation records a tick only on the
+- The script loads on the first tick it is enabled, which starts its clock (`missionClock`) at 1, and
+  a pass runs whenever the clock is a multiple of `MISSION_EVALUATION_TICKS`, never on load. Timers
+  compare clock values, never raw ticks. A pass visits missions in index order. Order is the
+  contract: a mission a result activates is visited later in the same pass.
+- Goal flags are rewritten by every check and never latched. Activation records the clock only on the
   inactive-to-active transition.
 - Randomness comes from `ctx.rng` alone, drawn only where the original draws, so a run and its replay
   fire on the same ticks.

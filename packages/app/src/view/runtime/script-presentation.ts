@@ -127,12 +127,9 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
     return null;
   };
 
-  // Whether a script event reached this frame; the trace reads and clears it.
-  let scriptFired = false;
   return {
     onEvents(events) {
       for (const event of events) {
-        if (event.kind.startsWith('mission')) scriptFired = true;
         switch (event.kind) {
           case 'missionCutscene':
             if (deps.showBriefings !== false) toolPanel.controller.openMission(event.page);
@@ -201,8 +198,7 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
     jitter: (nowMs) => effects.jitter(nowMs),
     frame(snapshot, camera, nowMs) {
       weather.frame(snapshot.tick / TICKS_PER_SECOND);
-      trace?.refresh(snapshot.tick, scriptFired);
-      scriptFired = false;
+      trace?.refresh(snapshot.tick);
       // A seat switch re-reads at once: the cadence paces one seat's lines, not a change of seat.
       const seat = deps.seat();
       if (seat !== linesSeat || snapshot.tick - linesTick >= INFO_LINE_REFRESH_TICKS) {

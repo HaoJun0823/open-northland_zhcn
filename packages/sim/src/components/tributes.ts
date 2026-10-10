@@ -1,9 +1,9 @@
 import type { DeepReadonly, World } from '../ecs/world.js';
 import { defineWorldSingleton } from '../ecs/world-singleton.js';
 
-/** The tribute table's slot count (reading); the corpus addresses slots 0 to 39. */
-export const TRIBUTE_SLOTS = 44;
-/** The most distinct goods one slot demands (reading); a further kind is dropped. */
+/** The tribute table's slot count (byte-level). */
+export const TRIBUTE_SLOTS = 40;
+/** The most distinct goods one slot demands (byte-level); a further kind is dropped. */
 export const TRIBUTE_DEMAND_KINDS = 5;
 
 export interface TributeDemand {
@@ -57,7 +57,8 @@ export function createTribute(
 export type TributeDemandOutcome = 'added' | 'closed' | 'full';
 
 /** Ask for `amount` more of `good` on an open slot, which becomes unpaid: an existing demand for the
- *  good grows, and a new good takes a demand while the slot has fewer than {@link TRIBUTE_DEMAND_KINDS}. */
+ *  good grows, and a new good takes a demand while the slot has fewer than {@link TRIBUTE_DEMAND_KINDS}.
+ *  A dropped kind leaves the slot as it was, paid flag included. */
 export function addTributeDemand(
   world: World,
   slot: number,

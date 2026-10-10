@@ -42,7 +42,7 @@ import { boardRider, createVehicle, mooringProbe, removeVehicle } from '../../sr
 import { stockVehicleGoods } from '../../src/systems/vehicles/stock.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
-import { runLoadPass } from '../missions/support.js';
+import { runFirstPass } from '../missions/support.js';
 
 /**
  * The ships of docs/formats/VEHICLES.md "Ships and docking" on a synthetic island map: water edges
@@ -111,7 +111,7 @@ function sim(seed = 7, missions?: MissionScript, map: TerrainMap = islandMap()):
   return s;
 }
 
-/** One always-firing mission with `results`; {@link runLoadPass} enables it once the crews are seated. */
+/** One always-firing mission with `results`; {@link runFirstPass} enables it once the crews are seated. */
 function firing(results: readonly MissionResultOp[]): MissionScript {
   return {
     missions: [{ successfullIf: SUCCESSFUL_IF.all, active: true, visible: false, goals: [], results }],
@@ -637,7 +637,7 @@ describe('SendVehicle and DockVehicle', () => {
     const s = sim(7, firing([{ opcode: 'SendVehicle', vehicleId: SHIP_ID, point: goal }]));
     const { ship } = crewedShip(s, 20, MID_ROW, 1, SHIP_ID);
     const { ship: other } = crewedShip(s, 24, 26, 1, SHIP_ID + 1);
-    runLoadPass(s);
+    runFirstPass(s);
     expect(s.world.has(ship, VehicleDrive)).toBe(true);
     expect(s.world.has(other, VehicleDrive)).toBe(false);
     sailOut(s, ship);
@@ -649,7 +649,7 @@ describe('SendVehicle and DockVehicle', () => {
     const point = { hx: EAST_SHORE_X + 1, hy: MID_ROW };
     const s = sim(7, firing([{ opcode: 'DockVehicle', vehicleId: SHIP_ID, point }]));
     const { ship } = crewedShip(s, 20, MID_ROW, 1, SHIP_ID);
-    runLoadPass(s);
+    runFirstPass(s);
     expect(s.world.get(ship, Vehicle).task).toBe('docks');
     sailOut(s, ship);
     expect(s.world.get(ship, Vehicle).moored).toBe(true);

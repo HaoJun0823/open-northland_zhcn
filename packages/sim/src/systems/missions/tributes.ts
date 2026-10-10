@@ -18,7 +18,8 @@ import { edibleClassOf, edibleGoodFormOf } from '../readviews/food.js';
 import { countsAsOwnStock, stockOf, takeStock } from './stock.js';
 
 /** One open, unpaid tribute as the diplomacy window lists it: each demand with what the payer's
- *  stores hold toward it between them, and whether one store could pay the whole slot now. */
+ *  stores hold toward it between them, and whether every demand is covered so, each counted on its
+ *  own, which a payment can still fall short of. */
 export interface OpenTribute {
   readonly slot: number;
   readonly receiver: number;
@@ -89,58 +90,52 @@ function onHandOver(world: World, ctx: ContentContext, houses: readonly PayingHo
 }
 
 /**
- * The drain the demands would take out of `houses` in order, each house giving what it holds of what
- * is still owed, and whether that covers every demand (reading of the original's payable test, which
- * sums the payer's warehouses and workplaces). Two demands one house answers with the same stocked
- * good share its stock, so they cannot both take the same units (deviation: the original lets each
- * see the full stock and leaves the slot unpaid after draining it).
+ * Whether the payer's houses hold every demand between them, each demand summed over every house on
+ * its own. Original behavior: two demands one house answers with the same stocked good both count
+ * that stock in full, so such a slot can read payable and still fall short when paid.
  */
-function drainPlan(
+function payable(
   world: World,
   ctx: ContentContext,
   houses: readonly PayingHouse[],
   demands: DeepReadonly<TributeDemand[]>,
-): { readonly takes: ReadonlyMap<Entity, ReadonlyMap<number, number>>; readonly covered: boolean } {
+): boolean {
+  return demands.every((demand) => onHandOver(world, ctx, houses, demand.good) >= demand.amount);
+}
+
+/**
+ * Take the demands out of `houses` in order, each house giving what it holds of what is still owed,
+ * until every demand is met. Returns whether they were; the goods taken stay taken either way.
+ */
+function drain(
+  world: World,
+  ctx: ContentContext,
+  houses: readonly PayingHouse[],
+  demands: DeepReadonly<TributeDemand[]>,
+): boolean {
   const owed = demands.map((demand) => ({ good: demand.good, amount: demand.amount }));
-  const takes = new Map<Entity, Map<number, number>>();
   for (const house of houses) {
-    const left = new Map<number, number>();
-    let outstanding = 0;
     for (const demand of owed) {
       if (demand.amount <= 0) continue;
       const stocked = stockedFormOf(ctx, house.buildingType, demand.good);
-      if (stocked !== undefined) {
-        const available = left.get(stocked) ?? stockOf(world, house.entity, stocked);
-        const take = Math.min(available, demand.amount);
-        left.set(stocked, available - take);
-        demand.amount -= take;
-        if (take > 0) {
-          let given = takes.get(house.entity);
-          if (given === undefined) {
-            given = new Map();
-            takes.set(house.entity, given);
-          }
-          given.set(stocked, (given.get(stocked) ?? 0) + take);
-        }
-      }
-      if (demand.amount > 0) outstanding++;
+      if (stocked === undefined) continue;
+      const take = Math.min(stockOf(world, house.entity, stocked), demand.amount);
+      if (take > 0) takeStock(world, house.entity, stocked, take);
+      demand.amount -= take;
     }
-    if (outstanding === 0) break;
+    if (owed.every((demand) => demand.amount <= 0)) return true;
   }
-  return { takes, covered: owed.every((demand) => demand.amount <= 0) };
+  return false;
 }
 
-/** The `payTribute` command: hand the goods over out of the payer's houses in {@link payingHouses}
- *  order, each giving what it holds of what is still owed, and mark the slot paid. */
+/** The `payTribute` command: once the slot reads {@link payable}, {@link drain} the payer's houses in
+ *  {@link payingHouses} order and mark the slot paid when the drain covered it. */
 export function payTribute(world: World, ctx: ContentContext, command: TributeCommand): void {
   const held = tributeSlot(world, command.slot);
   if (held === undefined || held.payer !== command.player || !held.active || held.paid) return;
-  const plan = drainPlan(world, ctx, payingHouses(world, ctx, held.payer), held.demands);
-  if (!plan.covered) return;
-  for (const [entity, given] of plan.takes) {
-    for (const [stocked, amount] of given) takeStock(world, entity, stocked, amount);
-  }
-  markTributePaid(world, command.slot);
+  const houses = payingHouses(world, ctx, held.payer);
+  if (!payable(world, ctx, houses, held.demands)) return;
+  if (drain(world, ctx, houses, held.demands)) markTributePaid(world, command.slot);
 }
 
 /** The open, unpaid tributes `payer` owes, ascending by slot, as detached copies. */
@@ -157,6 +152,6 @@ export function openTributes(world: World, ctx: ContentContext, payer: number): 
       amount: demand.amount,
       onHand: onHandOver(world, ctx, houses, demand.good),
     })),
-    payable: drainPlan(world, ctx, houses, tribute.demands).covered,
+    payable: payable(world, ctx, houses, tribute.demands),
   }));
 }

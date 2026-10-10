@@ -19,7 +19,7 @@ import { type Fixed, ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, nodeOfPosition } from '../../nav/halfcell.js';
 import type { SystemContext } from '../context.js';
-import { droppedEquipmentOf, scatterSpilledStock } from '../economy/goods-spill.js';
+import { droppedOnDeathOf, scatterSpilledStock } from '../economy/goods-spill.js';
 import { releaseSiteClaim } from '../economy/site-claim.js';
 import { removeWorkFlag } from '../economy/work-flag.js';
 import { isMinor } from '../family/households.js';
@@ -53,7 +53,7 @@ export function reap(world: World, ctx: SystemContext, e: Entity): void {
   if (!animal && pos !== undefined) layBonePile(world, ctx.tick, eventAt(pos.x, pos.y));
   if (animal && pos !== undefined && settler !== undefined)
     layAnimalRemains(world, ctx, e, settler.tribe, pos);
-  const loot = droppedEquipmentOf(world, ctx.content, e);
+  const loot = droppedOnDeathOf(world, ctx.content, e);
   removeSettlerSilently(world, e);
   scatterSpilledStock(world, ctx, loot);
 }
@@ -105,7 +105,7 @@ function remainsSize(cadaverSize: number, young: boolean): number {
 }
 
 /** Destroy a settler and settle every binding it leaves dangling. The reaper layers the death event,
- *  the statistics and the dropped gear on top of this. */
+ *  the statistics and what the dead drop on top of this. */
 export function removeSettlerSilently(world: World, e: Entity): void {
   removeWorkFlag(world, e); // a work flag has no owner once its gatherer is gone
   releaseSiteClaim(world, e);

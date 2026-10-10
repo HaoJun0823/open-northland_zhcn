@@ -1,5 +1,6 @@
 import type { ContentSet } from '@open-northland/data';
 import {
+  Carrying,
   Equipment,
   type GoodsLine,
   Position,
@@ -9,7 +10,7 @@ import {
   Upgrading,
   wornSlot,
 } from '../../components/index.js';
-import type { Fixed } from '../../core/fixed.js';
+import { type Fixed, fx, ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeOfPosition } from '../../nav/halfcell.js';
 import { NEAREST_NODE_SEARCH_CAP } from '../../nav/nearest.js';
@@ -69,32 +70,38 @@ export function spilledStockOf(
 }
 
 /**
- * The gear a fallen character leaves beside its bones: one unit per equipment slot holding an unused good,
- * since a part-used unit drops nothing. Original behavior: only a soldier drops his weapon, so a hero's
- * class weapon dies with him. Call it before the destroy.
+ * What a fallen character leaves beside its bones: its carried load, shoes and a tool still at least 90%
+ * whole, and every other slot holding an unused good, one unit each. Original behavior: only a soldier
+ * drops his weapon, so a hero's class weapon dies with him. Call it before the destroy.
  *
  * Approximation: `misc.ini` `[tribelandscapeLinkData]` leaves a human death only the `skeleton` decal
- * and keeps the goods-bearing cadaver for the animal tribes. A carried load is not part of the rule.
+ * and keeps the goods-bearing cadaver for the animal tribes.
  */
-export function droppedEquipmentOf(
-  world: World,
-  content: ContentSet,
-  character: Entity,
-): SpilledStock | null {
+export function droppedOnDeathOf(world: World, content: ContentSet, character: Entity): SpilledStock | null {
   const pos = world.tryGet(character, Position);
-  const equipment = world.tryGet(character, Equipment);
-  if (pos === undefined || equipment === undefined) return null;
+  if (pos === undefined) return null;
   const held = new Map<number, number>();
-  const boots = wornSlot(world, character, 'boots', 0);
-  const soldier = isSoldierJob(content, world.tryGet(character, Settler)?.jobType ?? null);
-  const weapon = soldier ? equipment.weapon : null;
-  const slots = [weapon, equipment.armor, boots, equipment.tool, ...equipment.misc];
-  for (const slot of slots) {
-    if (slot === null || isUsed(slot)) continue;
-    held.set(slot.goodType, (held.get(slot.goodType) ?? 0) + 1);
+  const add = (goodType: number, amount: number): void => {
+    held.set(goodType, (held.get(goodType) ?? 0) + amount);
+  };
+  const load = world.tryGet(character, Carrying);
+  if (load !== undefined && load.amount > 0) add(load.goodType, load.amount);
+  const equipment = world.tryGet(character, Equipment);
+  if (equipment !== undefined) {
+    const boots = wornSlot(world, character, 'boots', 0);
+    for (const slot of [boots, equipment.tool]) {
+      if (slot !== null && slot.degreeOfUse <= DROPS_AS_NEW_WEAR) add(slot.goodType, 1);
+    }
+    const soldier = isSoldierJob(content, world.tryGet(character, Settler)?.jobType ?? null);
+    for (const slot of [soldier ? equipment.weapon : null, equipment.armor, ...equipment.misc]) {
+      if (slot !== null && !isUsed(slot)) add(slot.goodType, 1);
+    }
   }
   return spillOf(pos, held);
 }
+
+/** Original behavior: shoes or a tool worn by at most a tenth of its condition drops as a new good. */
+const DROPS_AS_NEW_WEAR = fx.div(ONE, fx.fromInt(10));
 
 /**
  * Heap a spill on the ground where it fell, each good scattered outward from its tile in canonical

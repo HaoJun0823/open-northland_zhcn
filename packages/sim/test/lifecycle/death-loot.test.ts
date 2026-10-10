@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   Building,
+  Carrying,
   Equipment,
   type EquipmentSlot,
   Health,
@@ -31,12 +32,15 @@ const MAIL = 18;
 const SHOES = 8;
 const TOOL = 11;
 const DRAUGHT = 13;
+const STONE = 4;
 const SOLDIER = 31;
 const HERO = 45;
 const CIVILIST = 6;
 
 const DEATH_TILE = { x: fx.fromInt(6), y: fx.fromInt(6) };
 const HALF_USED = fx.div(ONE, fx.fromInt(2));
+const TENTH_USED = fx.div(ONE, fx.fromInt(10));
+const FIFTH_USED = fx.div(ONE, fx.fromInt(5));
 
 /** A worn slot at `degreeOfUse` (ZERO = fresh, ONE = spent). */
 const worn = (goodType: number, degreeOfUse = fx.fromInt(0)): EquipmentSlot => ({ goodType, degreeOfUse });
@@ -164,6 +168,30 @@ describe('a fallen character drops its gear beside the bones', () => {
     cleanupSystem(sim.world, ctxOf(sim));
 
     expect(droppedUnits(sim)).toEqual(new Map([[SWORD, 1]]));
+  });
+
+  it('drops shoes and a tool worn by at most a tenth as new goods', () => {
+    const sim = mappedSim();
+    doomedWearing(sim, { boots: worn(SHOES, TENTH_USED), tool: worn(TOOL, FIFTH_USED) });
+
+    cleanupSystem(sim.world, ctxOf(sim));
+
+    expect(droppedUnits(sim)).toEqual(new Map([[SHOES, 1]]));
+  });
+
+  it('drops the load it was carrying beside its gear', () => {
+    const sim = mappedSim();
+    const porter = doomedWearing(sim, { armor: worn(MAIL) }, CIVILIST);
+    sim.world.add(porter, Carrying, { goodType: STONE, amount: 2 });
+
+    cleanupSystem(sim.world, ctxOf(sim));
+
+    expect(droppedUnits(sim)).toEqual(
+      new Map([
+        [STONE, 2],
+        [MAIL, 1],
+      ]),
+    );
   });
 
   it('drops nothing for a bare settler (no Equipment component at all)', () => {

@@ -946,7 +946,8 @@ footprints and indices. `Data/logic/landscapetypes.ini` provides logic classific
 `block` all have logic type 1 (`void`), so that classification cannot distinguish removal groups.
 
 Each group removal matches the anchored placements of these exact names on every point within
-`range` (original behavior). The shipped `Tools/result list EN.pdf` disagrees for two groups: it lists
+`range` (original behavior). Every removal, a plain one included, leaves a landscape anchored in the
+two-cell map border standing. The shipped `Tools/result list EN.pdf` disagrees for two groups: it lists
 FX1 with small fire and smoke, and Smoke without small fire or land waves.
 
 | Removal group | Exact graphic names |
@@ -964,8 +965,8 @@ sprite; ordinary maps keep the existing collision path.
 
 `SetLandscape point name size force` follows these rules (original behavior):
 
-- An unknown name, or a point a house or one of two other, unidentified occupant kinds holds, lays
-  nothing.
+- An unknown name, a point in the two-cell map border, or a point a house, another graphic's attach
+  point or one other, unidentified occupant kind holds, lays nothing.
 - Size 0 clears the landscape anchored on the point.
 - The logic type's `allowedoneverything`, `allowedonland` and `allowedonwater` must admit the
   point's ground and the ground under every node of the graphic's build area. A node is land when a
@@ -978,6 +979,11 @@ sprite; ordinary maps keep the existing collision path.
   area covers, the build area of the placement being replaced included; it then clears every
   landscape anchored on its walk area. With the flag it skips both. A graphic without a walk area
   needs a point no walk area blocks, flag or not.
+- A graphic with `LogicAdditionalAttachPointArea` lines (`dx dy run`, the same at every size) needs
+  every such point on the map and free of houses, attach points and the unidentified kind, flag or
+  not. It clears every landscape anchored on them and holds them until it is removed, so its own
+  points refuse another graphic at its anchor; the shipped scripts swap trigger plates with a
+  `RemoveLandscape` first.
 
 The shipped scripts set the force flag on most lines. Chest sizes reach 96 although their
 graphics have one frame state: the size cannot generally mean a frame number.

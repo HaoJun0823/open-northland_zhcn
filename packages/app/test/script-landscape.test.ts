@@ -89,6 +89,27 @@ describe('script landscape content', () => {
     ]);
   });
 
+  it('expands each attach area row into a run of points east of its offset', () => {
+    const [plate] = scriptLandscapeTypes({
+      landscapeGfx: [
+        {
+          index: 0,
+          editName: 'triggerplate',
+          logicType: 1,
+          attachAreas: [
+            [-1, -2, 2],
+            [3, 0, 1],
+          ],
+        },
+      ],
+    });
+    expect(plate?.attach).toEqual([
+      { dx: -1, dy: -2 },
+      { dx: 0, dy: -2 },
+      { dx: 3, dy: 0 },
+    ]);
+  });
+
   it('keeps ground unblocked and preserves placement ids, levels and resource ownership', () => {
     const map = TerrainMapFile.parse({
       width: 2,

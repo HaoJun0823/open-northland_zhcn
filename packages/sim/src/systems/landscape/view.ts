@@ -23,6 +23,8 @@ interface AuthoredLandscapes {
   /** File position by id: an area match is reported in file order, whatever node order found it. */
   readonly order: ReadonlyMap<number, number>;
   readonly resourceBacked: readonly ScriptLandscapePlacement[];
+  /** The placements whose type holds attach points, in file order. */
+  readonly attaching: readonly ScriptLandscapePlacement[];
   /** One past the highest authored id, where the script's own ids start. */
   readonly nextId: number;
 }
@@ -37,12 +39,15 @@ export function authoredLandscapes(terrain: TerrainGraph): AuthoredLandscapes {
   const atNode = new Map<NodeId, ScriptLandscapePlacement[]>();
   const order = new Map<number, number>();
   const resourceBacked: ScriptLandscapePlacement[] = [];
+  const attaching: ScriptLandscapePlacement[] = [];
+  const types = new Map(terrain.landscapes?.types.map((type) => [type.typeId, type]));
   let nextId = 0;
   placements.forEach((placement, index) => {
     byId.set(placement.id, placement);
     order.set(placement.id, index);
     nextId = Math.max(nextId, placement.id + 1);
     if (placement.resourceBacked === true) resourceBacked.push(placement);
+    if ((types.get(placement.typeId)?.attach?.length ?? 0) > 0) attaching.push(placement);
     if (!terrain.inBounds(placement.hx, placement.hy)) return;
     const node = terrain.nodeAt(placement.hx, placement.hy);
     const bucket = atNode.get(node);
@@ -50,11 +55,12 @@ export function authoredLandscapes(terrain: TerrainGraph): AuthoredLandscapes {
     else bucket.push(placement);
   });
   const built = {
-    types: new Map(terrain.landscapes?.types.map((type) => [type.typeId, type])),
+    types,
     byId,
     atNode,
     order,
     resourceBacked,
+    attaching,
     nextId,
   };
   authoredIndexes.set(terrain, built);
@@ -156,6 +162,38 @@ export function landscapesWithin(
     }
   }
   return found;
+}
+
+interface AttachNodes {
+  readonly revision: number;
+  readonly resources: number;
+  readonly nodes: ReadonlySet<NodeId>;
+}
+const attachNodeSets = new WeakMap<World, AttachNodes>();
+
+/** The points the standing placements hold through their attach areas, rebuilt after an edit from the
+ *  few placements whose type has one. */
+export function landscapeAttachNodes(world: World, terrain: TerrainGraph): ReadonlySet<NodeId> {
+  const state = landscapeEditState(world);
+  const resources = world.componentGeneration(LandscapeResource);
+  const held = attachNodeSets.get(world);
+  if (held?.revision === state.topologyRevision && held.resources === resources) return held.nodes;
+  const authored = authoredLandscapes(terrain);
+  const removed = removedIds(world);
+  const nodes = new Set<NodeId>();
+  const hold = (placement: ScriptLandscapePlacement): void => {
+    const cells = authored.types.get(placement.typeId)?.attach;
+    if (cells === undefined || !standing(placement, removed, () => landscapeResources(world))) return;
+    for (const cell of cells) {
+      const hx = placement.hx + footprintCellDx(placement.hy, cell);
+      const hy = placement.hy + cell.dy;
+      if (terrain.inBounds(hx, hy)) nodes.add(terrain.nodeAt(hx, hy));
+    }
+  };
+  for (const placement of authored.attaching) hold(placement);
+  for (const placement of state.added) hold(placement);
+  attachNodeSets.set(world, { revision: state.topologyRevision, resources, nodes });
+  return nodes;
 }
 
 export interface LandscapeBlockChange {

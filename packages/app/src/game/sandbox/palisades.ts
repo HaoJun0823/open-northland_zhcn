@@ -187,6 +187,7 @@ export function sandboxPalisadeGfx(): LandscapeGfx[] {
     walkBlockAreas: record.walkBlockAreas.map((area) => [...area]),
     buildBlockAreas: record.buildBlockAreas.map((area) => [...area]),
     workAreas: [],
+    attachAreas: [],
     frames: [],
     isStatic: false,
     loopAnimation: false,

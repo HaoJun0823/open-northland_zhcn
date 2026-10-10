@@ -50,6 +50,11 @@ export const LandscapeBlockArea = z.tuple([
 ]);
 export type LandscapeBlockArea = z.infer<typeof LandscapeBlockArea>;
 
+/** One `LogicAdditionalAttachPointArea` line: `dx dy run`, a run of points east of the offset, at every
+ *  valency. */
+export const LandscapeAttachArea = z.tuple([z.number().int(), z.number().int(), z.number().int()]);
+export type LandscapeAttachArea = z.infer<typeof LandscapeAttachArea>;
+
 /**
  * The `logicType` value meaning "no logic classification", the schema default for a record that omits
  * the key. Cross-reference checks skip it; every real record carries an explicit 1-based id.
@@ -98,6 +103,8 @@ export const LandscapeGfx = z.strictObject({
   buildBlockAreas: z.array(LandscapeBlockArea).default([]),
   /** Repeated `LogicWorkArea` lines - where a worker stands to work the object. */
   workAreas: z.array(LandscapeBlockArea).default([]),
+  /** Repeated `LogicAdditionalAttachPointArea` lines - points the object holds beyond its anchor. */
+  attachAreas: z.array(LandscapeAttachArea).default([]),
   /** `GfxBobLibs` first value - the body bob set, normalized. */
   bmd: z.string().optional(),
   /** `GfxBobLibs` second value - the shadow bob set, normalized, when the record names one. */

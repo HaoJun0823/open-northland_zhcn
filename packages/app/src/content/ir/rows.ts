@@ -4,6 +4,7 @@ import type {
   GfxInHouseProgram,
   GfxPattern,
   GfxPatternTransition,
+  LandscapeAttachArea,
   LandscapeBlockArea,
   ParticleGfx,
   SoundBank,
@@ -158,6 +159,8 @@ export interface LandscapeGfxRow {
   readonly walkBlockAreas?: readonly Readonly<LandscapeBlockArea>[];
   /** Repeated `LogicBuildBlockArea` lines - the object's build-exclusion ring. */
   readonly buildBlockAreas?: readonly Readonly<LandscapeBlockArea>[];
+  /** Repeated `LogicAdditionalAttachPointArea` lines, `[dx, dy, run]`. */
+  readonly attachAreas?: readonly Readonly<LandscapeAttachArea>[];
   /** `GfxTransition 11` - the {@link index} this record becomes when felled, picked, cut or opened
    *  (a tree's falling stage). */
   readonly cutTarget?: number;

@@ -1,4 +1,4 @@
-import { fullStateBlockAreaCells, type TerrainMapFile } from '@open-northland/data';
+import { type FootprintCell, fullStateBlockAreaCells, type TerrainMapFile } from '@open-northland/data';
 import type { LandscapeRemovalGroup, ScriptLandscapeType, TerrainMap } from '@open-northland/sim';
 import { GATHERERS } from '../game/sandbox/ids/index.js';
 import { withRecordDeposit } from '../game/sandbox/map-spawn.js';
@@ -110,6 +110,9 @@ export function scriptLandscapeTypes(ir: ContentIr): ScriptLandscapeType[] {
               water: logic.allowedOnWater === true,
             },
           }),
+      ...(g.attachAreas === undefined || g.attachAreas.length === 0
+        ? {}
+        : { attach: g.attachAreas.flatMap(([dx, dy, run]) => attachRun(dx, dy, run)) }),
       ...(resource === undefined ? {} : { resource }),
       ...(g.logicType === BUSH_WITH_FRUITS_LOGIC_TYPE ? { bushGfxIndex: g.index } : {}),
       ...(chestKind === undefined ? {} : { chest: { kind: chestKind, gfxIndex: g.index } }),
@@ -128,6 +131,10 @@ export function scriptLandscapeTypes(ir: ContentIr): ScriptLandscapeType[] {
           }),
     };
   });
+}
+
+function attachRun(dx: number, dy: number, run: number): FootprintCell[] {
+  return Array.from({ length: Math.max(0, run) }, (_, i) => ({ dx: dx + i, dy }));
 }
 
 /** Scripted objects own their mutable collision; the base grid contains only ground classes. */

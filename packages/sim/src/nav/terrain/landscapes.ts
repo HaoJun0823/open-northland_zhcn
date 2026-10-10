@@ -47,6 +47,8 @@ export interface ScriptLandscapeType {
   readonly maxLevel?: number;
   /** Absent, the type may be laid anywhere. */
   readonly ground?: LandscapeGround;
+  /** Points a placement holds beyond its walk and build areas, at every level. */
+  readonly attach?: readonly FootprintCell[];
   readonly resource?: ResourceSpec;
   readonly bushGfxIndex?: number;
   /** A placed record backed by the interactive chest entity rather than the static landscape layer. */

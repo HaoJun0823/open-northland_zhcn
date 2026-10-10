@@ -16,6 +16,7 @@ import type {
   LandscapeRemovalGroup,
   NodeId,
   ResourceSpec,
+  ScriptLandscapePlacement,
   ScriptLandscapeType,
   TerrainGraph,
 } from '../../nav/terrain/index.js';
@@ -36,7 +37,31 @@ import {
 } from '../footprint/resources.js';
 import { removePalisade } from '../palisades/index.js';
 import { placementBlockCells } from './footprint.js';
-import { authoredLandscapes, landscapeResources, landscapesWithin, landscapeTypes } from './view.js';
+import {
+  authoredLandscapes,
+  landscapeAttachNodes,
+  landscapeResources,
+  landscapesWithin,
+  landscapeTypes,
+} from './view.js';
+
+/** Cells this close to a map edge are the original's map border, where a script neither lays nor
+ *  removes a landscape and an `OnLand` write paints nothing. */
+const BORDER_CELLS = 2;
+
+function isBorderCell(terrain: TerrainGraph, cx: number, cy: number): boolean {
+  return (
+    cx < BORDER_CELLS ||
+    cy < BORDER_CELLS ||
+    cx >= terrain.cellColumns - BORDER_CELLS ||
+    cy >= terrain.cellRows - BORDER_CELLS
+  );
+}
+
+function isBorderPoint(terrain: TerrainGraph, point: HalfCellNode): boolean {
+  const { cx, cy } = cellOfNode(point.hx, point.hy);
+  return isBorderCell(terrain, cx, cy);
+}
 
 /** Remove every standing placement within `range` of `point`, with their backing resources and walls.
  *  Returns the walk cells they blocked, for a caller judging whether a later placement closes anything new. */
@@ -53,6 +78,35 @@ export function removeLandscapes(
   const matches = landscapesWithin(world, terrain, point, range).filter(
     (p) => group === undefined || types.get(p.typeId)?.groups.includes(group),
   );
+  return removePlacements(world, ctx, terrain, matches, onResourceRemoved);
+}
+
+/** A script removal: {@link removeLandscapes}, except that, as in the original, it leaves standing
+ *  what is anchored on the map border. */
+export function removeScriptedLandscapes(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  point: HalfCellNode,
+  range: number,
+  group: LandscapeRemovalGroup | undefined,
+  onResourceRemoved: (entity: Entity) => void,
+): NodeId[] {
+  const types = landscapeTypes(terrain);
+  const matches = landscapesWithin(world, terrain, point, range).filter(
+    (p) => (group === undefined || types.get(p.typeId)?.groups.includes(group)) && !isBorderPoint(terrain, p),
+  );
+  return removePlacements(world, ctx, terrain, matches, onResourceRemoved);
+}
+
+function removePlacements(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  matches: readonly ScriptLandscapePlacement[],
+  onResourceRemoved: ((entity: Entity) => void) | undefined,
+): NodeId[] {
+  const types = landscapeTypes(terrain);
   const freed: NodeId[] = [];
   if (matches.length === 0) return freed;
   const ids = new Set(matches.map((p) => p.id));
@@ -233,14 +287,11 @@ function groundTakes(terrain: TerrainGraph, ground: LandscapeGround | undefined,
 }
 
 /**
- * A script's `SetLandscape`, by the rules in docs/formats/MISSIONS.md: nothing on a building or on
- * ground the type may not stand on; level 0 clears the anchor; the level is capped
- * ({@link scriptLandscapeLevel}); the same type at the same level stays. Unless `force`, a walk area
- * must be clear of every build area and clears what stands anchored on it; a type without one needs an
- * unblocked anchor. Approximations: a building's body stands for the original's house points, the
- * placement grid's exclusion and building zones for its build-blocked points, and the dynamic walk
- * overlay for its walk-blocked ones. Returns null when refused, else the walk nodes the cleared
- * placements freed.
+ * A script's `SetLandscape`, by the rules in docs/formats/MISSIONS.md. Approximations: a building's body
+ * stands for the original's house points, the placement grid's exclusion and building zones for its
+ * build-blocked points, the dynamic walk overlay for its walk-blocked ones, and the attach points of
+ * every standing placement, the map's own included, for its held attach points. Returns null when
+ * refused, else the walk nodes the cleared placements freed.
  */
 export function setScriptedLandscape(
   world: World,
@@ -254,9 +305,11 @@ export function setScriptedLandscape(
   const terrain = ctx.terrain;
   if (terrain?.landscapes === undefined || !terrain.inBounds(point.hx, point.hy)) return null;
   const type = landscapeTypes(terrain).get(typeId);
-  if (type === undefined) return null;
+  if (type === undefined || isBorderPoint(terrain, point)) return null;
   const anchor = terrain.nodeAt(point.hx, point.hy);
-  if (buildingBodyCells(world, ctx, terrain).has(anchor)) return null;
+  const bodies = buildingBodyCells(world, ctx, terrain);
+  const held = landscapeAttachNodes(world, terrain);
+  if (bodies.has(anchor) || held.has(anchor)) return null;
   if (level === 0) return removeLandscapes(world, ctx, terrain, point, 0, undefined, onResourceRemoved);
   if (!groundTakes(terrain, type.ground, anchor)) return null;
   const size = scriptLandscapeLevel(type, level);
@@ -274,11 +327,15 @@ export function setScriptedLandscape(
   }
   const build = translatedCells(terrain, blocks.build, point.hx, point.hy);
   if (!build.every((node) => groundTakes(terrain, type.ground, node))) return null;
+  const attachCells = type.attach ?? [];
+  const attach = translatedCells(terrain, attachCells, point.hx, point.hy);
+  if (attach.length < attachCells.length || attach.some((node) => bodies.has(node) || held.has(node)))
+    return null;
   if (!setLandscape(world, ctx, point, typeId, size)) return null;
+  const cleared = new Set([...(force ? [] : walk), ...attach]);
+  cleared.delete(anchor);
   const freed: NodeId[] = [];
-  if (force) return freed;
-  for (const node of walk) {
-    if (node === anchor) continue;
+  for (const node of cleared) {
     freed.push(
       ...removeLandscapes(
         world,
@@ -331,18 +388,9 @@ export function setBuildForbidden(
 
 /** A script's palette index is stored in one byte: the original keeps the value's low byte. */
 const PALETTE_INDEX_MASK = 0xff;
-/** Cells this close to a map edge are the original's map border, which an `OnLand` write skips. */
-const BORDER_CELLS = 2;
-
 /** Original behavior: an `OnLand` write paints a cell off the map border whose anchor node is land. */
 function isLandCell(terrain: TerrainGraph, cx: number, cy: number): boolean {
-  if (
-    cx < BORDER_CELLS ||
-    cy < BORDER_CELLS ||
-    cx >= terrain.cellColumns - BORDER_CELLS ||
-    cy >= terrain.cellRows - BORDER_CELLS
-  )
-    return false;
+  if (isBorderCell(terrain, cx, cy)) return false;
   const anchor = cellAnchorNode(cx, cy);
   return terrain.groundKinds?.[terrain.nodeAt(anchor.hx, anchor.hy)] === GROUND_LAND;
 }

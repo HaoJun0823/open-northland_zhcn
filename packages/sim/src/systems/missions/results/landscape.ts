@@ -5,7 +5,7 @@ import { translatedCells } from '../../footprint/geometry.js';
 import { dynamicBlockOverlay } from '../../footprint/index.js';
 import {
   placementWalkCells,
-  removeLandscapes,
+  removeScriptedLandscapes,
   scriptLandscapeLevel,
   setBuildForbidden,
   setLandscape,
@@ -109,7 +109,7 @@ export function editScriptedLandscape(pass: MissionPass, mission: number, op: La
   }
   const revision = landscapeTopologyRevision(pass.world);
   const freed = freedThisPass(pass);
-  const opened = removeLandscapes(
+  const opened = removeScriptedLandscapes(
     pass.world,
     pass.ctx,
     terrain,

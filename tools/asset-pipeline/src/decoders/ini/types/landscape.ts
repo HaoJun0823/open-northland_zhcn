@@ -137,6 +137,7 @@ export function extractLandscapeGfx(sections: readonly RuleSection[], src: Sourc
         walkBlockAreas: blockAreas('LogicWalkBlockArea'),
         buildBlockAreas: blockAreas('LogicBuildBlockArea'),
         workAreas: blockAreas('LogicWorkArea'),
+        attachAreas: getIntRows(sec, 'LogicAdditionalAttachPointArea', (n) => n === 3),
         bmd: normalizeOptionalPath(bmd),
         shadowBmd: normalizeOptionalPath(shadow),
         paletteName: getPaletteName(sec, 'GfxPalette'),

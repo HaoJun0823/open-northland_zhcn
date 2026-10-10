@@ -59,30 +59,51 @@ it('stands first in the bar once switched on, and follows a rebuilt bar after a 
   const readout = mountPerfReadout({
     app,
     context: { capFps: null, simOnMainThread: false, sharedClock: false },
-    initialMode: 'off',
+    initiallyShown: false,
     controller: () => ({ showInBar: (node) => bar.setLead(node) }),
   });
   feedSecond(readout);
   expect(first.plane.querySelector('.on-perf')).toBeNull();
 
-  readout.setMode('details');
+  readout.setShown(true);
   feedSecond(readout);
   const lead = first.plane.querySelector<HTMLElement>('.on-bar__lead');
   expect(lead?.hidden).toBe(false);
   expect(first.plane.querySelector('.on-bar')?.firstElementChild).toBe(lead);
-  const copy = messages().performance.readout;
   expect(first.plane.querySelector('.on-perf__fps b')?.textContent).toBe('60');
-  expect(first.plane.querySelector('.on-perf__verdict')?.textContent).toBe(
-    copy.verdicts.display.replace('{hz}', '60'),
-  );
-  expect(first.plane.querySelectorAll('.on-perf__row b')[2]?.textContent).toBe(copy.notMeasured);
 
   const second = systemBar();
   bar = second.bar;
   feedSecond(readout);
   expect(second.plane.querySelector('.on-perf')).not.toBeNull();
 
-  readout.setMode('off');
+  readout.setShown(false);
   expect(second.plane.querySelector<HTMLElement>('.on-bar__lead')?.hidden).toBe(true);
+  readout.dispose();
+});
+
+it('opens the breakdown on hover with the latest reading and closes it on leave', () => {
+  const { bar, plane } = systemBar();
+  const readout = mountPerfReadout({
+    app,
+    context: { capFps: null, simOnMainThread: false, sharedClock: false },
+    initiallyShown: true,
+    controller: () => ({ showInBar: (node) => bar.setLead(node) }),
+  });
+  feedSecond(readout);
+  const counter = plane.querySelector<HTMLElement>('.on-perf');
+  const tip = plane.querySelector<HTMLElement>('.on-perf__tip');
+  expect(tip?.hidden).toBe(true);
+
+  counter?.dispatchEvent(new MouseEvent('mouseenter'));
+  const copy = messages().performance.readout;
+  expect(tip?.hidden).toBe(false);
+  expect(plane.querySelector('.on-perf__verdict')?.textContent).toBe(
+    copy.verdicts.display.replace('{hz}', '60'),
+  );
+  expect(plane.querySelectorAll('.on-perf__row b')[2]?.textContent).toBe(copy.notMeasured);
+
+  counter?.dispatchEvent(new MouseEvent('mouseleave'));
+  expect(tip?.hidden).toBe(true);
   readout.dispose();
 });

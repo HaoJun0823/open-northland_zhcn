@@ -4,12 +4,11 @@ import type { FrameSample } from '../../diag/frame-stats.js';
 import { type PerfReadingContext, PerfReadingWindow } from '../../diag/perf-reading.js';
 import { createPerfReadoutView, type PerfReadoutView } from '../../hud/dom/perf-readout.js';
 import type { ToolPanelController } from '../../hud/tool-panel/index.js';
-import type { PerfReadoutMode } from '../settings-store.js';
 
-/** The player's performance readout on the top bar, fed once a frame by the frame loop. */
+/** The player's frame-rate counter on the top bar, fed once a frame by the frame loop. */
 export interface PerfReadout {
-  setMode(mode: PerfReadoutMode): void;
-  /** Bracket the frame's GPU submissions; both are no-ops unless the detail card is up. */
+  setShown(shown: boolean): void;
+  /** Bracket the frame's GPU submissions; both are no-ops while the counter is off. */
   beginGpu(): void;
   endGpu(): void;
   /** `shortfallSpeed` is the delivered speed while a sustained shortfall holds, else null. */
@@ -20,7 +19,7 @@ export interface PerfReadout {
 export interface PerfReadoutDeps {
   readonly app: Application;
   readonly context: PerfReadingContext;
-  readonly initialMode: PerfReadoutMode;
+  readonly initiallyShown: boolean;
   /** The current tool panel controller; a HUD rescale replaces it and its bar. */
   readonly controller: () => Pick<ToolPanelController, 'showInBar'>;
 }
@@ -28,40 +27,43 @@ export interface PerfReadoutDeps {
 /** About two seconds of frames at 60 fps: enough to see a hitch, short enough to read at a glance. */
 const GRAPH_FRAMES = 120;
 
+/**
+ * Measures whenever the counter shows, so its breakdown opens on a current reading rather than half a
+ * second of nothing; the GPU timer costs two GL calls a frame.
+ */
 export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
   const readings = new PerfReadingWindow(deps.context);
   const frameTimes = new Float64Array(GRAPH_FRAMES);
   const ordered = new Float64Array(GRAPH_FRAMES);
   let newest = 0;
-  let mode: PerfReadoutMode = 'off';
-  // Built on the first use, so a player who keeps the readout off pays nothing for it.
+  let shown = false;
+  // Built on the first use, so a player who keeps the counter off pays nothing for it.
   let view: PerfReadoutView | null = null;
   let gpu: GpuFrameTimer | null | undefined;
   let shownIn: Pick<ToolPanelController, 'showInBar'> | null = null;
   let gpuOpen = false;
-
   const takeGpu = (ms: number): void => readings.recordGpu(ms);
   const discardGpu = (): void => {};
-  const detailsUp = (): boolean => mode === 'details' && gpu !== null && gpu !== undefined;
 
-  const setMode = (next: PerfReadoutMode): void => {
-    mode = next;
-    if (next === 'off') {
+  const setShown = (next: boolean): void => {
+    shown = next;
+    if (!next) {
       shownIn?.showInBar(null);
       shownIn = null;
       return;
     }
     view ??= createPerfReadoutView();
-    view.setLook(next);
-    if (next === 'details') gpu ??= createGpuFrameTimer(deps.app);
+    gpu ??= createGpuFrameTimer(deps.app);
+    // Measurements left in flight when the counter went off belong to another stretch of play.
+    gpu?.drain(discardGpu);
   };
-  setMode(deps.initialMode);
+  setShown(deps.initiallyShown);
 
   return {
-    setMode,
+    setShown,
     beginGpu(): void {
-      if (!detailsUp()) return;
-      gpu?.begin();
+      if (!shown || gpu === null || gpu === undefined) return;
+      gpu.begin();
       gpuOpen = true;
     },
     endGpu(): void {
@@ -70,7 +72,7 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
       gpuOpen = false;
     },
     record(sample, shortfallSpeed): void {
-      if (mode === 'off' || view === null) return;
+      if (!shown || view === null) return;
       const controller = deps.controller();
       if (controller !== shownIn) {
         controller.showInBar(view.element);
@@ -78,8 +80,7 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
       }
       newest = (newest + 1) % GRAPH_FRAMES;
       frameTimes[newest] = sample.elapsedMs;
-      // Drained in either look, so a return to the details takes no measurement from before it.
-      gpu?.drain(mode === 'details' ? takeGpu : discardGpu);
+      gpu?.drain(takeGpu);
       const reading = readings.record(sample, shortfallSpeed);
       if (reading === null) return;
       for (let i = 0; i < GRAPH_FRAMES; i++) ordered[i] = frameTimes[(newest + 1 + i) % GRAPH_FRAMES] ?? 0;

@@ -685,7 +685,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         simOnMainThread: deps.offThreadTickCost === undefined,
         sharedClock,
       },
-      initialMode: storedSettings.perfReadout,
+      initiallyShown: storedSettings.fpsCounter,
       controller: () => toolPanel.controller,
     });
     cleanup.push(() => perfReadout.dispose());
@@ -1059,7 +1059,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       setGraphicsEnhancements: applyEnhancementsWarmed((next) => renderer.setGraphicsEnhancements(next)),
       setBloodEnabled: (enabled) => renderer.setBloodEnabled(enabled),
       setBonesFade: (fades) => renderer.setBonesFade(fades),
-      setPerfReadout: perfReadout.setMode,
+      setFpsCounterShown: perfReadout.setShown,
       setWeatherEnabled: (enabled) => {
         renderer.setWeatherEnabled(enabled);
         soundDriver?.setWeatherEnabled(enabled);

@@ -1760,12 +1760,8 @@ body.on-drag-scroll * {
   translate: 0 -50%;
   pointer-events: none;
 }
-/* The performance readout standing first in the bar: the frame rate, and in detail a card hung under
-   it, left-aligned to the bar so it stays clear of the goal slip at the right edge. Read-only, so it
-   never takes a press from the world below. */
+/* The frame-rate counter standing first in the bar; its breakdown opens like the counters'. */
 .on-hud .on-bar__lead {
-  position: relative;
-  align-self: stretch;
   display: flex;
   align-items: center;
 }
@@ -1773,19 +1769,29 @@ body.on-drag-scroll * {
   display: none;
 }
 .on-hud .on-perf {
+  position: relative;
   display: flex;
   align-items: center;
-  height: 100%;
-  pointer-events: none;
+  padding-right: 5px;
+  border-right: 1px solid var(--bronze-lo);
 }
 .on-hud .on-perf__fps {
   display: flex;
   align-items: baseline;
   gap: 3px;
   min-width: 52px;
-  padding: 0 8px 0 6px;
-  border-right: 1px solid var(--bronze-lo);
+  min-height: 30px;
+  padding: 8px 6px 2px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
   text-shadow: 0 1px 2px #000;
+}
+.on-hud .on-perf__fps:hover,
+.on-hud .on-perf__fps:focus-visible,
+.on-hud .on-perf__fps[aria-expanded="true"] {
+  background: #c9a26222;
+  box-shadow: inset 0 -2px var(--bronze);
 }
 .on-hud .on-perf__fps b {
   min-width: 22px;
@@ -1805,72 +1811,58 @@ body.on-drag-scroll * {
   letter-spacing: 0.06em;
   color: var(--muted);
 }
-.on-hud .on-perf__card {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: -6px;
-  width: 248px;
-  padding: 8px 10px 7px;
-  border: 1px solid #17140f;
-  border-left: 3px solid var(--wax-ok);
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--deep) 90%, transparent);
-  box-shadow:
-    inset 0 0 0 1px var(--bronze-lo),
-    0 6px 14px #0007;
-  font: 13px / 1.3 var(--font-body);
-  color: var(--text);
-}
-.on-hud .on-perf:not([data-look="details"]) .on-perf__card {
-  display: none;
-}
-.on-hud .on-perf__card[data-health="warn"] {
-  border-left-color: var(--wax-warn);
-}
-.on-hud .on-perf__card[data-health="bad"] {
-  border-left-color: var(--wax-danger);
+.on-hud .on-tip.on-perf__tip {
+  width: 262px;
+  font-size: 13px;
+  line-height: 1.3;
 }
 .on-hud .on-perf__verdict {
-  margin: 0 0 6px;
-  font-weight: 700;
-  color: var(--ok);
+  color: var(--wax-ok);
 }
-.on-hud .on-perf__card[data-health="warn"] .on-perf__verdict {
-  color: var(--warning);
+.on-hud .on-perf__tip[data-health="warn"] .on-perf__verdict {
+  color: var(--paper-warn);
 }
-.on-hud .on-perf__card[data-health="bad"] .on-perf__verdict {
-  color: var(--danger);
+.on-hud .on-perf__tip[data-health="bad"] .on-perf__verdict {
+  color: var(--paper-error);
+}
+.on-hud .on-perf__hint {
+  margin: -2px 0 6px;
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+.on-hud .on-perf__hint[hidden] {
+  display: none;
 }
 .on-hud .on-perf__row {
   display: grid;
-  grid-template-columns: 86px 1fr 66px;
+  grid-template-columns: 92px 1fr 62px;
   align-items: center;
   gap: 8px;
-  margin: 3px 0;
+  margin: 4px 0;
 }
 .on-hud .on-perf__row span {
-  color: var(--muted);
+  color: var(--ink-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .on-hud .on-perf__row b {
   text-align: right;
-  font-weight: 600;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--text-hi);
+  color: var(--ink);
   white-space: nowrap;
 }
 .on-hud .on-perf__row[data-health="none"] b {
   font-weight: 400;
-  color: var(--muted);
+  color: var(--ink-muted);
 }
 .on-hud .on-perf__meter {
   display: block;
-  height: 7px;
+  height: 8px;
   border-radius: 2px;
-  background: #0006;
-  box-shadow: inset 0 0 0 1px #0008;
+  background: #2b231722;
+  box-shadow: inset 0 0 0 1px #2b231733;
   overflow: hidden;
 }
 .on-hud .on-perf__meter i {
@@ -1888,8 +1880,8 @@ body.on-drag-scroll * {
   display: block;
   width: 100%;
   height: 34px;
-  margin: 7px 0 4px;
-  background: #0005;
+  margin: 8px 0 5px;
+  background: #2b231718;
   border-radius: 2px;
 }
 .on-hud .on-perf__within {
@@ -1899,7 +1891,7 @@ body.on-drag-scroll * {
   fill: var(--wax-danger);
 }
 .on-hud .on-perf__budget {
-  stroke: var(--bronze);
+  stroke: var(--ink-muted);
   stroke-width: 1;
   stroke-dasharray: 3 3;
   vector-effect: non-scaling-stroke;
@@ -1907,11 +1899,14 @@ body.on-drag-scroll * {
 .on-hud .on-perf__foot {
   margin: 0;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
 .on-hud .on-perf__speed {
-  color: var(--warning);
+  color: var(--paper-warn);
+}
+.on-hud .on-perf__speed[hidden] {
+  display: none;
 }
 .on-hud .on-summary {
   display: flex;

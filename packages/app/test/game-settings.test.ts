@@ -70,14 +70,14 @@ it('fades bones by default and keeps them for good once switched off', async () 
   expect(h.persist).toHaveBeenCalledWith({ bonesFade: false });
 });
 
-it('shows the performance readout live, hidden until the player picks a mode', async () => {
-  expect(defaultSettings().perfReadout).toBe('off');
-  expect(parseStoredSettings('{"perfReadout":"verbose"}').perfReadout).toBe('off');
-  expect(parseStoredSettings('{"perfReadout":"details"}').perfReadout).toBe('details');
+it('shows or hides the frame-rate counter live, hidden until the player turns it on', async () => {
+  expect(defaultSettings().fpsCounter).toBe(false);
+  expect(parseStoredSettings('{"fpsCounter":"yes"}').fpsCounter).toBe(false);
+  expect(parseStoredSettings('{"fpsCounter":true}').fpsCounter).toBe(true);
   const h = harness();
-  await h.settings.update({ perfReadout: 'fps' });
-  expect(h.setPerfReadout).toHaveBeenCalledWith('fps');
-  expect(h.persist).toHaveBeenCalledWith({ perfReadout: 'fps' });
+  await h.settings.update({ fpsCounter: true });
+  expect(h.setFpsCounterShown).toHaveBeenCalledWith(true);
+  expect(h.persist).toHaveBeenCalledWith({ fpsCounter: true });
 });
 
 it('applies the background and mono sound choices live', async () => {
@@ -125,7 +125,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
   const setWeatherEnabled = vi.fn();
   const setBloodEnabled = vi.fn();
   const setBonesFade = vi.fn();
-  const setPerfReadout = vi.fn();
+  const setFpsCounterShown = vi.fn();
   const settings = createGameSettingsRuntime({
     initial: {
       ...defaultSettings(),
@@ -152,7 +152,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
     setWeatherEnabled,
     setBloodEnabled,
     setBonesFade,
-    setPerfReadout,
+    setFpsCounterShown,
     ...overrides,
   });
   return {
@@ -176,7 +176,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
     setWeatherEnabled,
     setBloodEnabled,
     setBonesFade,
-    setPerfReadout,
+    setFpsCounterShown,
   };
 }
 

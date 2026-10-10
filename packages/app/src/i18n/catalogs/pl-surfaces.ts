@@ -192,10 +192,9 @@ export const plSurfaces = {
       groupNumbers: 'Numery grup',
       groupNumbersTip:
         'Malutki numer grupy przy każdej jednostce przypisanej do grupy. Jednostka w kilku grupach pokazuje do trzech, np. 1,2,3.',
-      perfReadout: 'Wskaźnik wydajności',
-      perfReadoutTip:
-        'Liczba klatek na sekundę na górnym pasku. Szczegóły dodają, co hamuje grę: symulacja, procesor rysujący klatkę czy karta graficzna.',
-      perfReadoutModes: { off: 'Wyłączony', fps: 'FPS', details: 'Szczegóły' },
+      fpsCounter: 'Licznik FPS',
+      fpsCounterTip:
+        'Liczba klatek na sekundę na górnym pasku. Najedź na nią, aby zobaczyć, co hamuje grę: symulacja, procesor rysujący klatkę czy karta graficzna.',
       minimapFrameTip: 'Wygląd ramki wokół minimapy. Zmienia się w grze od razu.',
       minimapFrames: {
         zelazo: 'Żelazo',
@@ -556,6 +555,7 @@ export const plSurfaces = {
     reconnecting: 'łączenie',
     readout: {
       fps: 'FPS',
+      label: 'Klatki na sekundę: {fps}',
       verdicts: {
         display: 'Płynnie, ekran {hz} Hz',
         cap: 'Płynnie, limit {fps} FPS',
@@ -564,8 +564,10 @@ export const plSurfaces = {
         cpu: 'Hamuje procesor',
         gpu: 'Hamuje karta graficzna',
         room: 'Pokój zwalnia: inny gracz lub łącze',
-        other: 'Hamuje przeglądarka lub system',
+        other: 'Hamuje coś poza grą',
       },
+      otherHint:
+        'Symulacja, procesor i karta graficzna mają zapas: czas zabiera przeglądarka, inne programy lub system.',
       sim: 'Symulacja',
       cpu: 'Procesor',
       gpu: 'Karta graficzna',

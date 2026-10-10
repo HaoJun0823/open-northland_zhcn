@@ -1,15 +1,13 @@
 import type { PerfReading, PerfVerdict } from '../../diag/perf-reading.js';
 import { formatMessage, messages } from '../../i18n/index.js';
 
-/** How the readout looks: the frame rate alone, or with the card of what holds the game back. */
-export type PerfReadoutLook = 'fps' | 'details';
-
-/** The frame rate on the top bar and, in detail, a card hung under it: a verdict, a load meter each for
- *  the sim, the main thread and the GPU, and the recent frame times against the frame budget. */
+/** The frame rate on the top bar, with a breakdown that opens on hover, focus or a click like the bar's
+ *  other counters: a verdict, a load meter each for the sim, the main thread and the GPU, and the
+ *  recent frame times against the frame budget. */
 export interface PerfReadoutView {
   readonly element: HTMLElement;
-  setLook(look: PerfReadoutLook): void;
-  /** `frameTimes` are the newest frame intervals in ms, oldest first. */
+  /** `frameTimes` are the newest frame intervals in ms, oldest first; the view keeps the reference and
+   *  redraws from it when the breakdown opens. */
   show(reading: PerfReading, frameTimes: ArrayLike<number>): void;
 }
 
@@ -40,6 +38,9 @@ const VERDICT_HEALTH: Readonly<Record<PerfVerdict, Health>> = {
   cpu: 'bad',
   gpu: 'bad',
 };
+
+/** Tip ids run across mounts: a HUD rescale builds the next bar before disposing the last. */
+let nextTipId = 0;
 
 function frameHealth(reading: PerfReading): Health {
   if (reading.frameMs <= reading.budgetMs * FRAME_GOOD_RATIO) return 'good';
@@ -110,18 +111,26 @@ export function createPerfReadoutView(): PerfReadoutView {
   const element = document.createElement('div');
   element.className = 'on-perf';
 
-  const fps = document.createElement('div');
-  fps.className = 'on-perf__fps';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'on-perf__fps';
+  button.setAttribute('aria-expanded', 'false');
   const fpsValue = document.createElement('b');
   fpsValue.textContent = '-';
   const fpsUnit = document.createElement('small');
   fpsUnit.textContent = copy.fps;
-  fps.append(fpsValue, fpsUnit);
+  button.append(fpsValue, fpsUnit);
 
-  const card = document.createElement('div');
-  card.className = 'on-perf__card';
-  const verdict = document.createElement('p');
-  verdict.className = 'on-perf__verdict';
+  const tip = document.createElement('div');
+  tip.className = 'on-tip on-perf__tip';
+  tip.id = `on-perf-tip-${nextTipId++}`;
+  tip.setAttribute('role', 'tooltip');
+  tip.hidden = true;
+  button.setAttribute('aria-describedby', tip.id);
+  const verdict = document.createElement('h4');
+  verdict.className = 'on-tip__title on-perf__verdict';
+  const hint = document.createElement('p');
+  hint.className = 'on-perf__hint';
   const sim = meterRow(copy.sim);
   const cpu = meterRow(copy.cpu);
   const gpu = meterRow(copy.gpu);
@@ -143,55 +152,81 @@ export function createPerfReadoutView(): PerfReadoutView {
   const speed = document.createElement('p');
   speed.className = 'on-perf__foot on-perf__speed';
   speed.hidden = true;
-  card.append(verdict, sim.row, cpu.row, gpu.row, graph, frame, speed);
-  element.append(fps, card);
+  tip.append(verdict, hint, sim.row, cpu.row, gpu.row, graph, frame, speed);
+  element.append(button, tip);
 
-  let look: PerfReadoutLook = 'fps';
   const ms = (value: number): string => formatMessage(copy.ms, { value: decimal(value) });
+  let last: { reading: PerfReading; frameTimes: ArrayLike<number> } | null = null;
+
+  const fillTip = (reading: PerfReading, frameTimes: ArrayLike<number>): void => {
+    tip.dataset.health = VERDICT_HEALTH[reading.verdict];
+    setText(
+      verdict,
+      formatMessage(copy.verdicts[reading.verdict], {
+        hz: Math.round(reading.displayHz),
+        fps: Math.round(MS_PER_SECOND / reading.budgetMs),
+      }),
+    );
+    const hintText = reading.verdict === 'other' ? copy.otherHint : '';
+    hint.hidden = hintText === '';
+    setText(hint, hintText);
+    showMeter(sim, reading.simLoad, reading.simMsPerTick === null ? '-' : ms(reading.simMsPerTick));
+    showMeter(cpu, reading.drawMs / reading.budgetMs, ms(reading.drawMs));
+    showMeter(
+      gpu,
+      reading.gpuMs === null ? null : reading.gpuMs / reading.budgetMs,
+      reading.gpuMs === null ? copy.notMeasured : ms(reading.gpuMs),
+    );
+    const paths = graphPaths(frameTimes, reading.budgetMs);
+    within.setAttribute('d', paths.within);
+    over.setAttribute('d', paths.over);
+    setText(
+      frame,
+      formatMessage(copy.frame, { ms: decimal(reading.frameMs), worst: Math.round(reading.worstMs) }),
+    );
+    speed.hidden = reading.deliveredSpeed === null;
+    if (reading.deliveredSpeed !== null) {
+      setText(
+        speed,
+        formatMessage(copy.speed, {
+          requested: reading.requestedSpeed,
+          delivered: reading.deliveredSpeed.toFixed(1),
+        }),
+      );
+    }
+  };
+
+  let open = false;
+  const setOpen = (next: boolean): void => {
+    if (next === open) return;
+    open = next;
+    tip.hidden = !next;
+    button.setAttribute('aria-expanded', String(next));
+    if (next && last !== null) fillTip(last.reading, last.frameTimes);
+  };
+  element.addEventListener('mouseenter', () => setOpen(true));
+  element.addEventListener('mouseleave', () => setOpen(false));
+  element.addEventListener('focusin', () => setOpen(true));
+  element.addEventListener('focusout', (event) => {
+    const next = event.relatedTarget;
+    if (!(next instanceof Node && element.contains(next))) setOpen(false);
+  });
+  button.addEventListener('click', () => setOpen(!open));
+  element.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && open) {
+      setOpen(false);
+      event.stopPropagation();
+    }
+  });
 
   return {
     element,
-    setLook(next): void {
-      look = next;
-      element.dataset.look = next;
-    },
     show(reading, frameTimes): void {
+      last = { reading, frameTimes };
       setText(fpsValue, String(Math.round(reading.fps)));
-      fps.dataset.health = reading.verdict === 'paused' ? 'good' : frameHealth(reading);
-      if (look !== 'details') return;
-
-      card.dataset.health = VERDICT_HEALTH[reading.verdict];
-      setText(
-        verdict,
-        formatMessage(copy.verdicts[reading.verdict], {
-          hz: Math.round(reading.displayHz),
-          fps: Math.round(MS_PER_SECOND / reading.budgetMs),
-        }),
-      );
-      showMeter(sim, reading.simLoad, reading.simMsPerTick === null ? '-' : ms(reading.simMsPerTick));
-      showMeter(cpu, reading.drawMs / reading.budgetMs, ms(reading.drawMs));
-      showMeter(
-        gpu,
-        reading.gpuMs === null ? null : reading.gpuMs / reading.budgetMs,
-        reading.gpuMs === null ? copy.notMeasured : ms(reading.gpuMs),
-      );
-      const paths = graphPaths(frameTimes, reading.budgetMs);
-      within.setAttribute('d', paths.within);
-      over.setAttribute('d', paths.over);
-      setText(
-        frame,
-        formatMessage(copy.frame, { ms: decimal(reading.frameMs), worst: Math.round(reading.worstMs) }),
-      );
-      speed.hidden = reading.deliveredSpeed === null;
-      if (reading.deliveredSpeed !== null) {
-        setText(
-          speed,
-          formatMessage(copy.speed, {
-            requested: reading.requestedSpeed,
-            delivered: reading.deliveredSpeed.toFixed(1),
-          }),
-        );
-      }
+      button.dataset.health = reading.verdict === 'paused' ? 'good' : frameHealth(reading);
+      button.setAttribute('aria-label', formatMessage(copy.label, { fps: Math.round(reading.fps) }));
+      if (open) fillTip(reading, frameTimes);
     },
   };
 }

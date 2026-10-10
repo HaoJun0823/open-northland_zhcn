@@ -37,7 +37,7 @@ export interface GameSettingsRuntimeDeps {
   readonly setWeatherEnabled: (enabled: boolean) => void;
   readonly setBloodEnabled: (enabled: boolean) => void;
   readonly setBonesFade: (fades: boolean) => void;
-  readonly setPerfReadout: (mode: MenuSettings['perfReadout']) => void;
+  readonly setFpsCounterShown: (shown: boolean) => void;
   readonly previewBus?: (bus: SoundBus) => void;
 }
 
@@ -82,7 +82,7 @@ export function createGameSettingsRuntime(deps: GameSettingsRuntimeDeps): GameSe
     if (patch.blood !== undefined) deps.setBloodEnabled(patch.blood);
     if (patch.bonesFade !== undefined) deps.setBonesFade(patch.bonesFade);
     if (patch.weather !== undefined) deps.setWeatherEnabled(patch.weather);
-    if (patch.perfReadout !== undefined) deps.setPerfReadout(patch.perfReadout);
+    if (patch.fpsCounter !== undefined) deps.setFpsCounterShown(patch.fpsCounter);
     if (ENHANCEMENT_KEYS.some((key) => patch[key] !== undefined)) {
       deps.setGraphicsEnhancements(enhancementsOf(current));
     }

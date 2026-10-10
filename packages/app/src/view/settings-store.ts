@@ -41,11 +41,6 @@ import {
 /** Drawn-frame cap in frames per second; `null` follows the display's own refresh rate. */
 export type FpsLimit = 30 | 60 | null;
 
-/** The in-game performance readout: hidden, the frame rate alone, or the frame rate with what holds
- *  the game back. */
-export const PERF_READOUT_MODES = ['off', 'fps', 'details'] as const;
-export type PerfReadoutMode = (typeof PERF_READOUT_MODES)[number];
-
 export const RENDER_SCALE_MIN = 0.5;
 export const RENDER_SCALE_MAX = 2;
 const DEFAULT_RENDER_SCALE = 1;
@@ -80,7 +75,8 @@ export interface MenuSettings {
   /** Bone piles fade out with age; off keeps them for good. Local presentation only. */
   readonly bonesFade: boolean;
   readonly fpsLimit: FpsLimit;
-  readonly perfReadout: PerfReadoutMode;
+  /** The frame rate on the top bar; hovering it breaks down what holds the game back. */
+  readonly fpsCounter: boolean;
   readonly cursorTheme: CursorTheme;
   readonly cursorSize: CursorSize;
   readonly selectionStyle: SelectionStyle;
@@ -141,7 +137,7 @@ export function defaultSettings(): MenuSettings {
     blood: true,
     bonesFade: true,
     fpsLimit: null,
-    perfReadout: 'off',
+    fpsCounter: false,
     cursorTheme: DEFAULT_CURSOR_THEME,
     cursorSize: DEFAULT_CURSOR_SIZE,
     selectionStyle: DEFAULT_SELECTION_STYLE,
@@ -187,10 +183,6 @@ function clampScrollSpeed(value: unknown): number {
 
 function parseFpsLimit(value: unknown): FpsLimit {
   return value === 30 || value === 60 ? value : null;
-}
-
-function parsePerfReadout(value: unknown): PerfReadoutMode {
-  return PERF_READOUT_MODES.find((mode) => mode === value) ?? 'off';
 }
 
 /** Each slider rounded into its range; a channel missing or deformed in the blob takes its default. */
@@ -246,7 +238,7 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
     blood: typeof record.blood === 'boolean' ? record.blood : defaults.blood,
     bonesFade: typeof record.bonesFade === 'boolean' ? record.bonesFade : defaults.bonesFade,
     fpsLimit: parseFpsLimit(record.fpsLimit),
-    perfReadout: parsePerfReadout(record.perfReadout),
+    fpsCounter: typeof record.fpsCounter === 'boolean' ? record.fpsCounter : defaults.fpsCounter,
     cursorTheme: parseCursorTheme(record.cursorTheme),
     cursorSize: parseCursorSize(record.cursorSize),
     selectionStyle: parseSelectionStyle(record.selectionStyle),

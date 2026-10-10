@@ -1,5 +1,6 @@
 import type { ContentSet } from '@open-northland/data';
 import {
+  Age,
   AttackOrder,
   Building,
   ClaimAnimalOrder,
@@ -117,6 +118,7 @@ export function attackUnit(
   if (!world.isAlive(e) || !world.has(e, Settler) || !world.has(e, Position)) return;
   if (!world.has(e, Owner) || !world.has(e, Health)) return; // only an owned combatant may be ordered to fight
   const target = command.target;
+  if (world.has(target, Age)) return;
   if (target === e) return; // a unit can't attack itself
   if (!world.isAlive(target) || !world.has(target, Health) || !world.has(target, Position)) return;
   // A unit, a besiegeable building, a wall or a vehicle.

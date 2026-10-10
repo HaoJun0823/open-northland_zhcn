@@ -1,4 +1,5 @@
 import {
+  Age,
   Anger,
   Building,
   diplomacyStance,
@@ -298,6 +299,7 @@ export function mayTarget(
   t: Entity,
   targetTribe: number,
 ): boolean {
+  if (world.has(t, Age)) return false;
   const selfOwner = world.tryGet(self, Owner);
   const targetOwner = world.tryGet(t, Owner);
   if (selfOwner !== undefined && targetOwner !== undefined) {

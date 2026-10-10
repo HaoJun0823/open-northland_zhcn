@@ -1,4 +1,5 @@
 import {
+  Age,
   Health,
   HOUSE_BEHAVIOUR,
   hasHouseBehaviour,
@@ -137,6 +138,9 @@ export function resolveCombatHit(
   pendingReactions: PendingHitReaction[],
   source: 'melee' | 'projectile' | 'collateral',
 ): HitDamage | null {
+  // Children are immune until growth removes Age, including collateral projectile hits.
+  // Original behavior reported by the owner; not independently verified in the running original.
+  if (world.has(target, Age)) return null;
   // A target felled earlier this tick still holds its Health until cleanup reaps it: a blow there lands on a
   // corpse, which earns nothing and provokes no one, the same as a shot that is never loosed at one.
   const pool = world.tryGet(target, Health);

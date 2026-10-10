@@ -402,10 +402,10 @@ describe('engagement - a struck fighter turns on its attacker', () => {
     expect(held(s, soldier)).toBe(attacker);
   });
 
-  it('but keeps a nearer held enemy, and a civilian does not turn at all', () => {
+  it('but keeps a nearer held enemy fighter, and a civilian does not turn at all', () => {
     const s = sim();
     const soldier = unit(s, 0, P0, MILITARY_MODE.ATTACK);
-    const near = unit(s, 2, P1, MILITARY_MODE.IGNORE, WOMAN);
+    const near = unit(s, 2, P1, MILITARY_MODE.IGNORE);
     const attacker = unit(s, 12, P1, MILITARY_MODE.IGNORE);
     hold(s, soldier, near);
     resolveCombatHit(s.world, ctxOf(s), attacker, soldier, blow, [], 'projectile');
@@ -414,6 +414,16 @@ describe('engagement - a struck fighter turns on its attacker', () => {
     const civilian = unit(s, 20, P0, MILITARY_MODE.ATTACK, WOMAN);
     resolveCombatHit(s.world, ctxOf(s), attacker, civilian, blow, [], 'projectile');
     expect(held(s, civilian)).toBeUndefined();
+  });
+
+  it('even from a nearer held enemy of another kind', () => {
+    const s = sim();
+    const soldier = unit(s, 0, P0, MILITARY_MODE.ATTACK);
+    const near = unit(s, 2, P1, MILITARY_MODE.IGNORE, WOMAN);
+    const attacker = unit(s, 12, P1, MILITARY_MODE.IGNORE);
+    hold(s, soldier, near);
+    resolveCombatHit(s.world, ctxOf(s), attacker, soldier, blow, [], 'projectile');
+    expect(held(s, soldier)).toBe(attacker);
   });
 });
 

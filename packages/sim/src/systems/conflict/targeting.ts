@@ -8,6 +8,7 @@ import {
   isWildlife,
   Owner,
   Palisade,
+  Person,
   Position,
   Settler,
   type SettlerIdentity,
@@ -24,6 +25,7 @@ import {
   houseBow,
   isAggressiveAnimal,
   isAnimalTribe,
+  isFighterJob,
   mayAttack,
   mayHunt,
 } from '../readviews/index.js';
@@ -91,6 +93,12 @@ export function wildPursuit(
 /** A building, wall or vehicle: a hit on one is an impact on a hull, not a body - no blood, no scream. */
 export function isStructureTarget(world: World, t: Entity): boolean {
   return world.has(t, Building) || world.has(t, Palisade) || world.has(t, Vehicle);
+}
+
+/** A soldier or hero: the kind of enemy a fighter looks for first, and the one that takes it off a target
+ *  of any other kind. */
+export function isFighterTarget(world: World, ctx: SystemContext, t: Entity): boolean {
+  return world.has(t, Person) && isFighterJob(ctx.content, world.get(t, Settler).jobType);
 }
 
 /** Whether `t` is a live target this attacker may swing at - a positioned, `Health`-bearing enemy settler,

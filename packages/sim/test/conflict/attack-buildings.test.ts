@@ -34,6 +34,7 @@ import { MeleeSlots } from '../../src/systems/conflict/melee-slots.js';
 import { buildingBodyNodes } from '../../src/systems/conflict/target-node.js';
 import { combatSystem } from '../../src/systems/index.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
+import { resolveCombatHit } from '../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
 import { TEST_MANIFEST } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 
@@ -583,6 +584,76 @@ describe('warriors attack enemy buildings', () => {
 
     expect(sim.world.get(fort, Health).hitpoints).toBeLessThan(sim.world.get(fort, Health).max);
     expect(nodeOf(sim, soldier)).toEqual(settled); // parked on one slot, not pacing between two
+  });
+});
+
+describe('a besieger turns to an enemy fighter', () => {
+  /** Long enough for a few blows, and for a walker's look, which comes every 8 ticks. */
+  const TURN_TICKS = 40;
+  const IDLE = 0;
+  /** The second row, where an enemy stands beside the besieger without blocking the home. */
+  const SIDE_ROW = 1;
+
+  /** A warrior battering a home beside it, and an enemy fighter that never walks up by itself at cell
+   *  (x, y). */
+  function siege(x: number, y: number): { sim: Simulation; soldier: Entity; home: Entity; enemy: Entity } {
+    const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(10, 2) });
+    const soldier = warriorAt(sim, 0, 0, P1);
+    const home = buildingAt(sim, 1, 0, HOME, P2);
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(home);
+    const enemy = warriorAt(sim, x, y, P2);
+    sim.world.mut(enemy, Stance).mode = MILITARY_MODE.IGNORE;
+    return { sim, soldier, home, enemy };
+  }
+
+  it('leaves the building it strikes for an enemy fighter that steps up to it', () => {
+    const { sim, soldier, enemy } = siege(0, SIDE_ROW);
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(enemy);
+  });
+
+  it('keeps striking while the enemy fighter only stands in sight', () => {
+    const { sim, soldier, home } = siege(6, 0);
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(home);
+  });
+
+  it('on its way to a building, turns to an enemy fighter in sight', () => {
+    const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(10, 2) });
+    const soldier = warriorAt(sim, 0, 0, P1);
+    const home = buildingAt(sim, 8, 0, HOME, P2);
+    sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(home);
+    const enemy = warriorAt(sim, 4, SIDE_ROW, P2);
+    sim.world.mut(enemy, Stance).mode = MILITARY_MODE.IGNORE;
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(enemy);
+  });
+
+  it('fights the fighter first under an attack order on the building, then takes the building up again', () => {
+    const { sim, soldier, home, enemy } = siege(0, SIDE_ROW);
+    sim.enqueueSetup({ kind: 'attackUnit', entity: soldier, target: home });
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(enemy);
+    expect(sim.world.get(soldier, AttackOrder).target).toBe(home);
+
+    sim.world.mut(enemy, Owner).player = P1; // no longer an enemy
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(home);
+  });
+
+  it('turns on a fighter that strikes it, though the building it holds stands nearer', () => {
+    const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(10, 1) });
+    const soldier = warriorAt(sim, 0, 0, P1);
+    const home = buildingAt(sim, 1, 0, HOME, P2);
+    const attacker = warriorAt(sim, 3, 0, P2);
+    const civilian = warriorAt(sim, 4, 0, P2, IDLE);
+    sim.world.add(soldier, Engagement, { repathAt: sim.tick, target: home });
+    resolveCombatHit(sim.world, ctxOf(sim), civilian, soldier, { damage: 1 }, [], 'melee');
+    expect(sim.world.get(soldier, Engagement).target).toBe(home); // a civilian's blow does not take it off
+    resolveCombatHit(sim.world, ctxOf(sim), attacker, soldier, { damage: 1 }, [], 'melee');
+    expect(sim.world.get(soldier, Engagement).target).toBe(attacker);
   });
 });
 

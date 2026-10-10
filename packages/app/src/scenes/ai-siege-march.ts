@@ -102,10 +102,10 @@ const SCRIPTED_SEQUENCE = Number.MAX_SAFE_INTEGER;
 /** Between the barracks and the first leg, so the browser opens on the boarding and the launch. */
 const CAMERA_AT = { hx: 40, hy: 36 } as const;
 
-/** Past the HQ's fall: the boarding, the march, the tower and the assault. Short of the catapults' drive
- *  home once the wave is spent, which the check on how far they went in reads at the end. Measured:
- *  every check holds from tick 3300 to 3950. */
-const RUN_TICKS = 3625;
+/** Past the HQ's fall: the boarding, the march, the tower and the assault, where the wave cuts down the
+ *  guards beside the HQ before it falls. Short of the catapults' drive home once the wave is spent, which
+ *  the check on how far they went in reads at the end. Measured: every check holds from tick 3447 to 3616. */
+const RUN_TICKS = 3530;
 
 /** Past the tower's fall: the charge costs the wave its time and some men. Short of the parked drivers
  *  being sent for weapons, which hands a catapult to an armed man. Measured: every check holds from tick

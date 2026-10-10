@@ -18,7 +18,7 @@ import {
 import type { Entity, World } from '../../../../../../ecs/world.js';
 import { frightenKin } from '../../../../../conflict/fright.js';
 import { combatTargetNode } from '../../../../../conflict/target-node.js';
-import { isValidTarget } from '../../../../../conflict/targeting.js';
+import { isFighterTarget, isValidTarget } from '../../../../../conflict/targeting.js';
 import type { SystemContext } from '../../../../../context.js';
 import { herdLeaderOf } from '../../../../../movement/herd-leader.js';
 import {
@@ -96,7 +96,8 @@ export function provokeHostility(world: World, ctx: SystemContext, attacker: Ent
 /**
  * Turn a struck fighter on its attacker. Original behavior: a soldier or hero under ATTACK or DEFEND takes
  * the one who struck it for its target, unless the enemy it already holds stands no farther off in map
- * points. Only an owned fighter holds a target, and an attack order outranks the reaction. Original
+ * points. Owner rule: a fighter striking it always wins over a held target of another kind, however near.
+ * Only an owned fighter holds a target, and an attack order outranks the reaction. Original
  * behavior: a walking soldier ignores a blow only for its first ten steps, then turns. Deviation: a plain
  * move order is the player's and holds for its whole walk; attack-move turns.
  */
@@ -120,6 +121,7 @@ export function turnOnAttacker(world: World, ctx: SystemContext, attacker: Entit
     held !== undefined &&
     world.isAlive(held) &&
     world.has(held, Position) &&
+    (isFighterTarget(world, ctx, held) || !isFighterTarget(world, ctx, attacker)) &&
     reach(held) <= reach(attacker)
   ) {
     return;

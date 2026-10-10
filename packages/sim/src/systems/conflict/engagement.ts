@@ -8,7 +8,6 @@ import {
   Owner,
   Palisade,
   Person,
-  Settler,
   type SettlerIdentity,
   Stance,
   Vehicle,
@@ -40,6 +39,8 @@ import { combatTargetNode, targetReachable } from './target-node.js';
 import {
   ANIMAL_AGGRO_RADIUS_NODES,
   ANIMAL_LEASH_NODES,
+  isFighterTarget,
+  isStructureTarget,
   isValidTarget,
   SIGHT_RADIUS_NODES,
   wildPursuit,
@@ -391,7 +392,8 @@ export interface EngageSpec {
 /**
  * The enemy this combatant fights this tick with its reach from `here` in map points, or null. An
  * {@link AttackOrder} focus and a live `spec.lock` resolve ahead of the nearest search; a fighter's own
- * breach yields to a primary-tier target inside `weapon`'s band. Otherwise the nearest target `spec.accept`
+ * breach yields to a primary-tier target inside `weapon`'s band, and an order on a structure to an enemy
+ * fighter that walked up ({@link fighterOverStructure}). Otherwise the nearest target `spec.accept`
  * admits within `[spec.minDist, spec.searchRadius]`, with the `spec.lowPriority` tier searched only when the
  * primary tier finds nothing in sight. `moving` is the swing gate's own reading of whether the unit still
  * walks, so the held enemy is weighed against its neighbours on exactly the ticks a swing could start.
@@ -428,6 +430,20 @@ export function resolveTarget(
             SEARCH_METRIC,
           );
     if (rival !== null) return { target: rival.entity, dist: rival.distance };
+    if (spec.hold !== undefined && isStructureTarget(world, order.target)) {
+      const fighter = fighterOverStructure(
+        world,
+        ctx,
+        terrain,
+        pass,
+        self,
+        here,
+        spec,
+        spec.hold,
+        order.target,
+      );
+      if (fighter !== null) return fighter;
+    }
     return focusedOn(world, ctx, terrain, here, order.target);
   }
   if (spec.hold !== undefined) {
@@ -474,6 +490,8 @@ const SEARCH_METRIC: SearchMetric = 'hex';
 const PICK_CANDIDATES = 5;
 const PICK_SPREAD_NODES = 3;
 
+type PickTier = (world: World, ctx: SystemContext, index: CombatIndex, t: Entity) => boolean;
+
 /**
  * The kinds of enemy a fighter looks for, in the order it looks: its first pass takes enemy fighters, then
  * military buildings, then wild animals; its second anyone else, then any vehicle, then any building.
@@ -482,23 +500,110 @@ const PICK_SPREAD_NODES = 3;
  * own military house class. The original's first pass also takes some vehicles ahead of its houses; which
  * ones is unconfirmed, so every vehicle waits for the second pass (approximation).
  */
-const PICK_TIERS: readonly ((world: World, ctx: SystemContext, index: CombatIndex, t: Entity) => boolean)[] =
-  [
-    (world, ctx, _index, t) =>
-      world.has(t, Person) && isFighterJob(ctx.content, world.get(t, Settler).jobType),
-    (world, _ctx, index, t) => world.has(t, Building) && !index.isLowPriorityBuilding(t),
-    (world, _ctx, _index, t) => isWildlife(world, t),
-    (world, _ctx, _index, t) => world.has(t, Person),
-    (world, _ctx, _index, t) => world.has(t, Vehicle),
-    (world, _ctx, _index, t) => world.has(t, Building),
-  ];
+const PICK_TIERS: readonly PickTier[] = [
+  (world, ctx, _index, t) => isFighterTarget(world, ctx, t),
+  (world, _ctx, index, t) => world.has(t, Building) && !index.isLowPriorityBuilding(t),
+  (world, _ctx, _index, t) => isWildlife(world, t),
+  (world, _ctx, _index, t) => world.has(t, Person),
+  (world, _ctx, _index, t) => world.has(t, Vehicle),
+  (world, _ctx, _index, t) => world.has(t, Building),
+];
+
+/** The first of {@link PICK_TIERS} alone: the look for an enemy fighter that outranks another target. */
+const FIGHTER_TIER: readonly PickTier[] = PICK_TIERS.slice(0, 1);
+
+/**
+ * An enemy fighter that takes a combatant off a target of another kind: a building, a civilian or an
+ * animal. Standing `striking` that target it looks between blows, within its reach and a step past it
+ * ({@link stepPastReach}); otherwise across its sight every {@link REPATH_CADENCE} ticks, staggered by
+ * entity id. Owner rule: the original keeps such a target until it falls, so raiders kept battering a
+ * house while the soldiers who walked up cut them down.
+ */
+function fighterToTurnTo(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  pass: CombatPass,
+  self: Entity,
+  here: NodeId,
+  spec: EngageSpec,
+  hold: NonNullable<EngageSpec['hold']>,
+  asker: Asker | null,
+  striking: boolean,
+): { target: Entity; dist: number } | null {
+  if (striking) return fighterInReach(world, ctx, terrain, pass, here, spec, hold.band);
+  if (!onStride(ctx.tick, self, REPATH_CADENCE)) return null;
+  const x = terrain.xOf(here);
+  const y = terrain.yOf(here);
+  const found = pickByTier(world, ctx, terrain, pass, spec, asker, x, y, FIGHTER_TIER);
+  return found === null ? null : focusedOn(world, ctx, terrain, here, found.entity);
+}
+
+/** The nearest enemy fighter `spec` admits within {@link stepPastReach} of `here`: one small band scan. */
+function fighterInReach(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  pass: CombatPass,
+  here: NodeId,
+  spec: EngageSpec,
+  band: WeaponBand,
+): { target: Entity; dist: number } | null {
+  const reach = stepPastReach(band);
+  const found = pass.index.nearest(
+    terrain.xOf(here),
+    terrain.yOf(here),
+    reach.minRange,
+    reach.maxRange,
+    (t) => isFighterTarget(world, ctx, t) && spec.accept(t),
+    spec.player,
+    SEARCH_METRIC,
+  );
+  return found === null ? null : focusedOn(world, ctx, terrain, here, found.entity);
+}
+
+/**
+ * The enemy fighter a combatant ordered onto `structure` fights first: the one it already turned to while
+ * that stays within a step of its reach, else the nearest {@link fighterInReach} finds. Null takes the
+ * structure up again, and the order stands throughout. Only a fighter that walked up is taken: a chase
+ * that fails ends the order with it, so the man is never sent after one across the field.
+ */
+function fighterOverStructure(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  pass: CombatPass,
+  self: Entity,
+  here: NodeId,
+  spec: EngageSpec,
+  hold: NonNullable<EngageSpec['hold']>,
+  structure: Entity,
+): { target: Entity; dist: number } | null {
+  const engaged = world.tryGet(self, Engagement)?.target;
+  if (
+    engaged !== undefined &&
+    engaged !== structure &&
+    world.isAlive(engaged) &&
+    isFighterTarget(world, ctx, engaged) &&
+    hold.keep(engaged)
+  ) {
+    const fought = focusedOn(world, ctx, terrain, here, engaged);
+    if (fought.dist <= stepPastReach(hold.band).maxRange) return fought;
+  }
+  return fighterInReach(world, ctx, terrain, pass, here, spec, hold.band);
+}
+
+/** `band` widened by one step past its far reach: the enemy about to step into it counts as in reach. */
+function stepPastReach(band: WeaponBand): WeaponBand {
+  return { minRange: band.minRange, maxRange: band.maxRange + 1 };
+}
 
 /**
  * The enemy an owned combatant fights: the one it holds while its stance still keeps it, unless a rescan
  * finds one that scores strictly better ({@link crowdedScore}). Original behavior: a fighter keeps its
  * target until it is gone or strays past its leash, and a new scan takes over only a nearer enemy. It scans
  * when it has no target, then while it walks every tenth step ({@link RESCAN_WALK_STEPS}), and never
- * between blows.
+ * between blows. A target that is no fighter also yields to an enemy fighter ({@link fighterToTurnTo}).
  */
 function heldOrPicked(
   world: World,
@@ -524,6 +629,11 @@ function heldOrPicked(
         mine: { goal: world.tryGet(self, MoveGoal)?.cell, standingOn: here },
       }
     : null;
+  if (held !== null && heldTarget !== undefined && !isFighterTarget(world, ctx, heldTarget)) {
+    const striking = !isTravelling(world, self) && withinBand(hold.band, held.dist);
+    const fighter = fighterToTurnTo(world, ctx, terrain, pass, self, here, spec, hold, asker, striking);
+    if (fighter !== null) return fighter;
+  }
   if (held !== null && heldTarget !== undefined && !rescanDue(world, ctx, self, held.dist, hold.band)) {
     if (asker === null || moving || !withinBand(hold.band, held.dist)) return held;
     return lessCrowdedInReach(world, ctx, terrain, pass, spec, asker, heldTarget) ?? held;
@@ -653,7 +763,7 @@ function lessCrowdedInReach(
   if (heldCrowd === 0) return null;
   const { index } = pass;
   const heldRank = tierRank(world, ctx, index, heldTarget);
-  const reach = { minRange: asker.band.minRange, maxRange: asker.band.maxRange + 1 };
+  const reach = stepPastReach(asker.band);
   const x = terrain.xOf(asker.here);
   const y = terrain.yOf(asker.here);
   const near = index.nearestFew(
@@ -694,8 +804,9 @@ function pickByTier(
   asker: Asker | null,
   x: number,
   y: number,
+  tiers: readonly PickTier[] = PICK_TIERS,
 ): { entity: Entity; distance: number } | null {
-  for (const tier of PICK_TIERS) {
+  for (const tier of tiers) {
     const found = pass.index.nearestFew(
       x,
       y,

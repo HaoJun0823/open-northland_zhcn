@@ -406,7 +406,7 @@ describe('mapDatToTerrain', () => {
         { tag: 'lmhe', version: 1, payload: packMapLayer(Uint8Array.from([5, 5, 5, 5])) },
       ],
       layer: 'elevation',
-      warns: /elevation lane unreadable.*expected 1/,
+      warns: /elevation lane unreadable.*expected at most 1/,
     },
     {
       lane: 'lmms',
@@ -428,7 +428,7 @@ describe('mapDatToTerrain', () => {
         { tag: 'embr', version: 1, payload: packMapLayer(Uint8Array.from([5, 5, 5, 5])) },
       ],
       layer: 'brightness',
-      warns: /brightness lane unreadable.*expected 1/,
+      warns: /brightness lane unreadable.*expected at most 1/,
     },
     {
       lane: 'emvc',
@@ -439,7 +439,7 @@ describe('mapDatToTerrain', () => {
         { tag: 'emvc', version: 1, payload: packMapLayer(Uint8Array.from([58, 58, 58, 58])) },
       ],
       layer: 'tints',
-      warns: /vertex colour lane unreadable.*expected 1/,
+      warns: /vertex colour lane unreadable.*expected at most 1/,
     },
     {
       lane: 'empa',

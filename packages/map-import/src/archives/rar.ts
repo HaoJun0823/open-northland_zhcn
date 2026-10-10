@@ -5,8 +5,10 @@ import type { ArchiveEntry } from './entries.js';
 
 /**
  * Unpacks the kept entries of a RAR4 or RAR5 archive with the unrar wasm build, whose binary the caller
- * supplies so the package never reads it from disk. A passworded kept entry, encrypted headers or an
- * archive unrar cannot read are `unsupported-archive`.
+ * supplies so the package never reads it from disk. Every kept entry's declared size is reserved from
+ * the header list before anything is extracted. A passworded kept entry, encrypted headers, an entry
+ * whose extracted size differs from its declared one or an archive unrar cannot read are
+ * `unsupported-archive`.
  */
 export async function unpackRar(
   bytes: Uint8Array,
@@ -20,7 +22,7 @@ export async function unpackRar(
     const { arcHeader, fileHeaders } = extractor.getFileList();
     if (arcHeader.flags.headerEncrypted)
       throw new MapImportError('unsupported-archive', 'rar: encrypted headers');
-    const wanted: string[] = [];
+    const declared = new Map<string, number>();
     for (const header of fileHeaders) {
       builder.list();
       if (header.flags.directory || !keep(header.name)) continue;
@@ -28,12 +30,20 @@ export async function unpackRar(
         throw new MapImportError('unsupported-archive', `rar: ${header.name} is passworded`);
       }
       builder.reserve(header.name, header.unpSize);
-      wanted.push(header.name);
+      declared.set(header.name, header.unpSize);
     }
-    if (wanted.length === 0) return [];
+    if (declared.size === 0) return [];
     const entries: ArchiveEntry[] = [];
-    for (const file of extractor.extract({ files: wanted }).files) {
-      if (file.extraction !== undefined) entries.push({ path: file.fileHeader.name, bytes: file.extraction });
+    for (const { fileHeader, extraction } of extractor.extract({ files: [...declared.keys()] }).files) {
+      if (extraction === undefined) continue;
+      const size = declared.get(fileHeader.name);
+      if (extraction.length !== size) {
+        throw new MapImportError(
+          'unsupported-archive',
+          `rar: ${fileHeader.name} declares ${size} bytes but holds ${extraction.length}`,
+        );
+      }
+      entries.push({ path: fileHeader.name, bytes: extraction });
     }
     return entries;
   } catch (err) {

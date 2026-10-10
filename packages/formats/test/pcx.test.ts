@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DecodeLimitError } from '../src/limit.js';
 import { decodePcx, encodePcx, expandToRgba } from '../src/pcx.js';
 import { rampPalette } from './fixtures/palette.js';
 import { bytesOf } from './support/bytes.js';
@@ -10,6 +11,18 @@ import { bytesOf } from './support/bytes.js';
  */
 
 describe('decodePcx', () => {
+  it('refuses a header over maxPixels before allocating the picture', () => {
+    // A bare 128-byte header declaring 65536 x 65536: 4 Gi pixels from the header fields alone.
+    const header = new Uint8Array(128);
+    const view = new DataView(header.buffer);
+    view.setUint16(8, 0xffff, true);
+    view.setUint16(10, 0xffff, true);
+    expect(() => decodePcx(header, 16 * 1024 * 1024)).toThrow(DecodeLimitError);
+    const small = encodePcx({ width: 4, height: 3, pixels: new Uint8Array(12) });
+    expect(decodePcx(small, 12).width).toBe(4);
+    expect(() => decodePcx(small, 11)).toThrow(DecodeLimitError);
+  });
+
   it('round-trips dimensions, indexed pixels, and palette', () => {
     const width = 5;
     const height = 3;

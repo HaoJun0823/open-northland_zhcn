@@ -4,12 +4,33 @@ import { encodeC2m } from '../../formats/test/fixtures/c2m.js';
 import { detectArchiveFormat, openArchive, openC2m, openRar, openZip } from '../src/archives/open.js';
 import { MapImportError, type MapImportFailure } from '../src/errors.js';
 import { DEFAULT_IMPORT_LIMITS } from '../src/limits.js';
+import { treeFromFolder } from '../src/tree.js';
 import { encodeRar4 } from './support/rar.js';
 import { unrarWasm } from './support/unrar.js';
+import { deflated, encodeZip } from './support/zip.js';
 
 const bytes = (...values: number[]): Uint8Array => Uint8Array.from(values);
 const MAP_DAT = bytes(1, 2, 3);
 const MISC = bytes(4, 5);
+const MIB = 1024 * 1024;
+/** Each crafted entry fits the default per-entry limit; enough of them overrun the unpacked budget 4x. */
+const BOMB_ENTRY_BYTES = 15 * MIB;
+const BOMB_ENTRIES = 40;
+/** Allocation a test tolerates beyond the budget: the one entry that crosses it plus bookkeeping. */
+const ALLOCATION_SLACK = 16 * MIB;
+
+/**
+ * The failure of one open, and how far ArrayBuffer memory grew across it. Measured on the first open of
+ * an archive, so no earlier open's garbage sits in the baseline. A collection during the open can only
+ * shrink the reading, never inflate it.
+ */
+async function failureWithGrowth(
+  open: () => Promise<unknown>,
+): Promise<{ kind: MapImportFailure; growth: number }> {
+  const before = process.memoryUsage().arrayBuffers;
+  const kind = await failure(open());
+  return { kind, growth: process.memoryUsage().arrayBuffers - before };
+}
 
 async function failure(promise: Promise<unknown>): Promise<MapImportFailure> {
   try {
@@ -94,6 +115,69 @@ describe('openZip', () => {
     expect(await limited({ entries: 2 })).toBe('too-large');
     expect(await limited({ depth: 1 })).toBe('too-large');
     expect((await openZip(zip, { limits: { ...DEFAULT_IMPORT_LIMITS, entries: 3 } })).files.size).toBe(2);
+  });
+});
+
+describe('unpacked budget', () => {
+  const zeros = deflated(new Uint8Array(BOMB_ENTRY_BYTES));
+  const tiny = deflated(MAP_DAT);
+  const bomb = (content: typeof zeros, declaredSize?: number) =>
+    encodeZip(
+      Array.from({ length: BOMB_ENTRIES }, (_, i) => ({
+        path: `m${i}/map.dat`,
+        content,
+        ...(declaredSize === undefined ? {} : { declaredSize }),
+      })),
+    );
+
+  it('fails a zip of 40 x 15 MiB zero entries before inflating past the budget', async () => {
+    const zip = bomb(zeros);
+    expect(zip.length).toBeLessThan(MIB);
+    const { kind, growth } = await failureWithGrowth(() => openZip(zip));
+    expect(kind).toBe('too-large');
+    expect(growth).toBeLessThan(DEFAULT_IMPORT_LIMITS.unpackedBytes + ALLOCATION_SLACK);
+  });
+
+  it('fails entries that declare 15 MiB but hold 3 bytes on the declared total, before inflating', async () => {
+    const zip = bomb(tiny, BOMB_ENTRY_BYTES);
+    const { kind, growth } = await failureWithGrowth(() => openZip(zip));
+    expect(kind).toBe('too-large');
+    expect(growth).toBeLessThan(DEFAULT_IMPORT_LIMITS.unpackedBytes + ALLOCATION_SLACK);
+  });
+
+  it('fails one entry whose inflated size differs from its declared size as unsupported', async () => {
+    const lying = encodeZip([{ path: 'Map/map.dat', content: tiny, declaredSize: BOMB_ENTRY_BYTES }]);
+    expect(await failure(openZip(lying))).toBe('unsupported-archive');
+    const honest = await openZip(encodeZip([{ path: 'Map/map.dat', content: tiny }]));
+    expect(Array.from(honest.files.get('map/map.dat') ?? [])).toEqual([1, 2, 3]);
+  });
+
+  it('fails a ZIP64 archive as unsupported, so an encrypted entry cannot slip past the directory scan', async () => {
+    const entry = { path: 'Map/map.dat', content: tiny };
+    expect(await failure(openZip(encodeZip([{ ...entry, encrypted: true }], { zip64: true })))).toBe(
+      'unsupported-archive',
+    );
+    expect(await failure(openZip(encodeZip([entry], { zip64: true })))).toBe('unsupported-archive');
+  });
+
+  it('reserves RAR entries from the header list before extracting, and refuses a lying header', async () => {
+    const entries = Array.from({ length: BOMB_ENTRIES }, (_, i) => ({
+      path: `m${i}/map.dat`,
+      bytes: MAP_DAT,
+      declaredSize: BOMB_ENTRY_BYTES,
+    }));
+    expect(await failure(openRar(encodeRar4(entries), unrarWasm()))).toBe('too-large');
+    const lying = encodeRar4([{ path: 'Map/map.dat', bytes: MAP_DAT, declaredSize: MISC.length }]);
+    expect(await failure(openRar(lying, unrarWasm()))).toBe('unsupported-archive');
+  });
+
+  it('copies a view over a larger buffer, so the tree pins only what it shows', async () => {
+    const backing = new Uint8Array(MIB);
+    backing.set(MAP_DAT);
+    const tree = await treeFromFolder(['Map/map.dat'], async () => backing.subarray(0, MAP_DAT.length));
+    const kept = tree.files.get('map/map.dat');
+    expect(kept?.buffer.byteLength).toBe(MAP_DAT.length);
+    expect(Array.from(kept ?? [])).toEqual([1, 2, 3]);
   });
 });
 

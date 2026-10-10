@@ -9,8 +9,8 @@ import { type DecodedMap, laneToArray } from './lane.js';
 function perCellLane({ map, size }: DecodedMap, tag: string, label: string): Uint8Array | undefined {
   const chunk = findChunk(map, tag);
   if (chunk === undefined) return undefined;
-  const cells = unpackMapLayer(chunk).cells;
   const expected = size.width * size.height;
+  const cells = unpackMapLayer(chunk, expected).cells;
   if (cells.length !== expected) {
     throw new Error(
       `mapdat: ${tag} ${label} lane has ${cells.length} cells, expected ${expected} (${size.width}×${size.height}, per-cell)`,

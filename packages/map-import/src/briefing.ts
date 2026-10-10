@@ -46,17 +46,18 @@ export interface ResolvedBriefing {
  * Resolves one map folder's briefing sidecar: every cutscene id in `ids` rendered per language from
  * `<folder>/text/<lang>/briefings/`, with the pictures those pages name. A language folder without
  * the file is skipped, an unreadable page warns and is skipped, and a map resolving no page at all
- * yields undefined.
+ * yields undefined. A picture over `maxPixels` throws the decoder's `DecodeLimitError`.
  */
 export async function resolveMapBriefing(
   folder: MapFolder,
   ids: readonly number[],
+  maxPixels = Number.POSITIVE_INFINITY,
 ): Promise<ResolvedBriefing | undefined> {
   if (ids.length === 0) return undefined;
   const texts: Record<string, Record<string, HypertextBlock[]>> = {};
   const pictures = new Map<string, Uint8Array>();
   for (const lang of MAP_TEXT_LANGUAGES) {
-    const pages = await renderLanguage(folder, lang, ids, pictures);
+    const pages = await renderLanguage(folder, lang, ids, pictures, maxPixels);
     if (pages !== undefined) texts[lang] = pages;
   }
   return Object.keys(texts).length === 0 ? undefined : { briefing: { texts }, pictures };
@@ -67,6 +68,7 @@ async function renderLanguage(
   lang: string,
   ids: readonly number[],
   pictures: Map<string, Uint8Array>,
+  maxPixels: number,
 ): Promise<Record<string, HypertextBlock[]> | undefined> {
   const dir = [STRING_TABLE_DIR, lang, BRIEFINGS_DIR];
   const blocksBytes = folder.read([...dir, BRIEFINGS_FILE]);
@@ -89,6 +91,7 @@ async function renderLanguage(
     texts.values(),
     include,
     (message) => folder.warn(message),
+    maxPixels,
   );
   for (const [file, png] of files) pictures.set(file, png);
   const pages: Record<string, HypertextBlock[]> = {};

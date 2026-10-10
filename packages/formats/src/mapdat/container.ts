@@ -8,6 +8,7 @@
  */
 
 import { decodeLatin1, viewOf } from '../byte-cursor.js';
+import { DecodeLimitError } from '../limit.js';
 
 /** "hoix" little-endian - the chunk marker every header opens with. */
 export const HOIX_MARKER = 0x78696f68;
@@ -123,9 +124,9 @@ export function findChunk(map: MapDat, tag: string): MapDatChunk | undefined {
 /**
  * Decodes the `lsiz` chunk's raw `[u32 width][u32 height]` grid dimensions, which match the `map.cif`
  * logic-header `mapsize` exactly on the owned maps. Throws when `lsiz` is missing or its payload is
- * not 8 bytes.
+ * not 8 bytes, and a {@link DecodeLimitError} when the grid holds more than `maxCells` cells.
  */
-export function decodeMapSize(map: MapDat): MapDatSize {
+export function decodeMapSize(map: MapDat, maxCells = Number.POSITIVE_INFINITY): MapDatSize {
   const chunk = findChunk(map, 'lsiz');
   if (chunk === undefined) {
     throw new Error('mapdat: no lsiz chunk (cannot determine grid dimensions)');
@@ -134,7 +135,12 @@ export function decodeMapSize(map: MapDat): MapDatSize {
     throw new Error(`mapdat: lsiz payload is ${chunk.length} bytes, expected 8 (u32 width+height)`);
   }
   const view = viewOf(chunk.payload);
-  return { width: view.getUint32(0, true), height: view.getUint32(4, true) };
+  const width = view.getUint32(0, true);
+  const height = view.getUint32(4, true);
+  if (width * height > maxCells) {
+    throw new DecodeLimitError(`mapdat: lsiz ${width}x${height} is more than ${maxCells} cells`);
+  }
+  return { width, height };
 }
 
 /** One chunk to serialize: its tag plus the raw payload bytes (header fields are derived/defaulted). */

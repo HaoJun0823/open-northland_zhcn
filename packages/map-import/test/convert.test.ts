@@ -1,3 +1,5 @@
+import { encodeMapDat, encodeMapSize, packMapLayer } from '@open-northland/formats/mapdat/index';
+import { encodePcx } from '@open-northland/formats/pcx';
 import { zipSync } from 'fflate';
 import { describe, expect, it, vi } from 'vitest';
 import { encodeC2m } from '../../formats/test/fixtures/c2m.js';
@@ -5,6 +7,7 @@ import { openZip } from '../src/archives/open.js';
 import { type ConvertProgress, convertMapFolder, convertMapTree } from '../src/convert.js';
 import { MapImportError, type MapImportFailure } from '../src/errors.js';
 import { mapFiles } from '../src/files.js';
+import { DEFAULT_IMPORT_LIMITS } from '../src/limits.js';
 import { treeFromFolder } from '../src/tree.js';
 import { latin1, treeOf } from './support/folder.js';
 import { mapDat, plaintextMap, under } from './support/maps.js';
@@ -90,6 +93,31 @@ describe('convertMapTree', () => {
     const all = await failure(convertMapTree(treeOf(broken), { provenance: 'catalog' }));
     expect(all.kind).toBe('decode-failed');
     expect(all.message).toMatch(/mapdat:/);
+  });
+
+  it('fails a map whose lsiz declares more cells than the limit as too-large, beside a good map', async () => {
+    const side = Math.sqrt(DEFAULT_IMPORT_LIMITS.cells) + 1;
+    const huge = encodeMapDat([
+      { tag: 'lsiz', version: 1, payload: encodeMapSize({ width: side, height: side }) },
+      { tag: 'lmlt', version: 1, payload: packMapLayer(new Uint8Array(4)) },
+    ]);
+    const tree = treeOf({ 'Huge/map.dat': huge, ...under('Good', plaintextMap('G')) });
+    const result = await failure(convertMapTree(tree, { provenance: 'catalog' }));
+    expect(result.kind).toBe('too-large');
+    expect(result.message).toMatch(/^Huge\/map\.dat: mapdat: lsiz/);
+  });
+
+  it('fails a map picture over the pixel limit as too-large, and converts it within the limit', async () => {
+    const pixels = new Uint8Array(12).fill(1);
+    const picture = encodePcx({ width: 4, height: 3, pixels, palette: new Uint8Array(768) });
+    const tree = treeOf(under('M', { ...plaintextMap('M'), 'minimap/minimap.pcx': picture }));
+    const limits = (picturePixels: number) => ({ ...DEFAULT_IMPORT_LIMITS, picturePixels });
+    const over = await failure(
+      convertMapTree(tree, { provenance: 'catalog', limits: limits(pixels.length - 1) }),
+    );
+    expect(over.kind).toBe('too-large');
+    const within = await convertMapTree(tree, { provenance: 'catalog', limits: limits(pixels.length) });
+    expect(within.maps[0]?.picture).toBeDefined();
   });
 
   it('reports every stage per map, and optional-file problems as warnings', async () => {

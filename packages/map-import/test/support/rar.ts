@@ -71,6 +71,8 @@ export interface RarEntry {
   readonly bytes: Uint8Array;
   /** Marks the entry passworded; its data stays as given, since a reader must refuse it unread. */
   readonly passworded?: boolean;
+  /** The unpacked size the header declares; the stored bytes' own length by default. */
+  readonly declaredSize?: number;
 }
 
 /** A RAR 4.x archive holding `entries` stored. */
@@ -85,7 +87,7 @@ export function encodeRar4(entries: readonly RarEntry[]): Uint8Array {
       .u16(flags)
       .u16(FILE_HEAD_FIXED_SIZE + name.length)
       .u32(entry.bytes.length)
-      .u32(entry.bytes.length)
+      .u32(entry.declaredSize ?? entry.bytes.length)
       .u8(HOST_WINDOWS)
       .u32(crc32(entry.bytes))
       .u32(DOS_EPOCH)

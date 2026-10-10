@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DecodeLimitError } from '../src/limit.js';
 import {
   CHUNK_HEADER_SIZE,
   decodeMapDat,
@@ -137,6 +138,14 @@ describe('decodeMapSize', () => {
   it('throws when lsiz is absent', () => {
     const map = decodeMapDat(encodeMapDat([{ tag: 'lmhe', version: 1, payload: Uint8Array.of(1) }]));
     expect(() => decodeMapSize(map)).toThrow(/no lsiz chunk/);
+  });
+
+  it('throws a DecodeLimitError when the grid holds more than maxCells cells', () => {
+    const map = decodeMapDat(
+      encodeMapDat([{ tag: 'lsiz', version: 1, payload: encodeMapSize({ width: 0xffff, height: 0xffff }) }]),
+    );
+    expect(() => decodeMapSize(map, 1024 * 1024)).toThrow(DecodeLimitError);
+    expect(decodeMapSize(map, 0xffff * 0xffff)).toEqual({ width: 0xffff, height: 0xffff });
   });
 
   it('throws when lsiz payload is not 8 bytes', () => {

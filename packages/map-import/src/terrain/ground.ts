@@ -18,9 +18,9 @@ export function groundFromMapDat({ map, size }: DecodedMap): GroundLayer | undef
   const eapd = findChunk(map, 'eapd');
   if (empa === undefined || empb === undefined || eapd === undefined) return undefined;
   const names = decodeStringListChunk(eapd);
-  const laneA = unpackX6elLayer(empa).cells;
-  const laneB = unpackX6elLayer(empb).cells;
   const cells = size.width * size.height;
+  const laneA = unpackX6elLayer(empa, cells).cells;
+  const laneB = unpackX6elLayer(empb, cells).cells;
   if (laneA.length !== cells || laneB.length !== cells) {
     throw new Error(`mapdat: empa/empb lanes have ${laneA.length}/${laneB.length} cells, expected ${cells}`);
   }

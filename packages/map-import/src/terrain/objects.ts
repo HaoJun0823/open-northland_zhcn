@@ -33,19 +33,19 @@ export function objectsFromMapDat({ map, size }: DecodedMap): ObjectsLayer | und
   const eald = findChunk(map, 'eald');
   if (emla === undefined || eald === undefined) return undefined;
   const names = decodeStringListChunk(eald);
-  const lane = unpackX6elLayer(emla).cells;
   const hw = size.width * 2;
   const hh = size.height * 2;
+  const lane = unpackX6elLayer(emla, hw * hh).cells;
   if (lane.length !== hw * hh) {
     throw new Error(`mapdat: emla lane has ${lane.length} half-cells, expected ${hw * hh}`);
   }
   const lmlv = findChunk(map, 'lmlv');
-  const stateLane = lmlv !== undefined ? unpackMapLayer(lmlv).cells : undefined;
+  const stateLane = lmlv !== undefined ? unpackMapLayer(lmlv, lane.length).cells : undefined;
   if (stateLane !== undefined && stateLane.length !== lane.length) {
     throw new Error(`mapdat: lmlv lane has ${stateLane.length} half-cells, expected ${lane.length}`);
   }
   const lmlp = findChunk(map, 'lmlp');
-  const ownerLane = lmlp !== undefined ? unpackMapLayer(lmlp).cells : undefined;
+  const ownerLane = lmlp !== undefined ? unpackMapLayer(lmlp, lane.length).cells : undefined;
   if (ownerLane !== undefined && ownerLane.length !== lane.length) {
     throw new Error(`mapdat: lmlp lane has ${ownerLane.length} half-cells, expected ${lane.length}`);
   }

@@ -21,6 +21,7 @@
 
 import { viewOf } from './byte-cursor.js';
 import { assertPaletteBytes, PALETTE_RGB_BYTES, paletteToRgba, type RgbaImage } from './image.js';
+import { DecodeLimitError } from './limit.js';
 
 const HEADER_BYTES = 0x80;
 const PALETTE_TRAILER_BYTES = 1 + PALETTE_RGB_BYTES; // 0x0C marker + 256 RGB triples
@@ -38,9 +39,10 @@ export interface PcxImage {
 
 /**
  * Decodes a `.pcx` into indexed pixels and its embedded palette. Throws a `pcx:`-prefixed error on a
- * structurally invalid header. Truncated pixel data is tolerated, matching the original decoder.
+ * structurally invalid header, and a {@link DecodeLimitError} when the header declares more than
+ * `maxPixels`, before allocating them. Truncated pixel data is tolerated, matching the original decoder.
  */
-export function decodePcx(bytes: Uint8Array): PcxImage {
+export function decodePcx(bytes: Uint8Array, maxPixels = Number.POSITIVE_INFINITY): PcxImage {
   if (bytes.length < HEADER_BYTES) {
     throw new Error(`pcx: buffer of ${bytes.length} bytes is too short for the 128-byte header`);
   }
@@ -57,6 +59,9 @@ export function decodePcx(bytes: Uint8Array): PcxImage {
     throw new Error(
       `pcx: invalid dimensions ${width}x${height} (xMin=${xMin} xMax=${xMax} yMin=${yMin} yMax=${yMax})`,
     );
+  }
+  if (width * height > maxPixels) {
+    throw new DecodeLimitError(`pcx: ${width}x${height} is more than ${maxPixels} pixels`);
   }
 
   const alignedRowBytes = (width + 1) & ~1;

@@ -24,7 +24,7 @@ export function transitionsFromMapDat({ map, size }: DecodedMap): TransitionsLay
   const decodeLane = (tag: string): number[] | undefined => {
     const chunk = findChunk(map, tag);
     if (chunk === undefined) return undefined;
-    const lane = unpackMapLayer(chunk).cells;
+    const lane = unpackMapLayer(chunk, cells).cells;
     if (lane.length !== cells) {
       throw new Error(`mapdat: ${tag} lane has ${lane.length} cells, expected ${cells}`);
     }

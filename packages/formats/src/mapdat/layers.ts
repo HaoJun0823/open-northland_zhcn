@@ -205,10 +205,14 @@ function readLayerHeader(chunk: MapDatChunk, expectedCodec: PckCodecId): number 
   return viewOf(payload).getUint32(0x0d, true);
 }
 
-/** Unpacks a `pck` layer chunk at one codec's element width, throwing on header or stream corruption. */
+/**
+ * Unpacks a `pck` layer chunk at one codec's element width, throwing on header or stream corruption or
+ * a declared length over `maxElements`, checked before the grid is allocated.
+ */
 function unpackLayerCells<TCells extends Uint8Array | Uint16Array>(
   chunk: MapDatChunk,
   codec: PckCodec<TCells>,
+  maxElements: number,
 ): TCells {
   const unpackedLength = readLayerHeader(chunk, codec.id);
   if (unpackedLength % codec.bytesPerElement !== 0) {
@@ -216,7 +220,13 @@ function unpackLayerCells<TCells extends Uint8Array | Uint16Array>(
       `mapdat: layer "${chunk.tag}" unpacked length ${unpackedLength} is not a whole number of ${codec.bytesPerElement}-byte elements`,
     );
   }
-  const cells = codec.allocateCells(unpackedLength / codec.bytesPerElement);
+  const elementCount = unpackedLength / codec.bytesPerElement;
+  if (elementCount > maxElements) {
+    throw new Error(
+      `mapdat: layer "${chunk.tag}" declares ${elementCount} elements, expected at most ${maxElements} for its grid`,
+    );
+  }
+  const cells = codec.allocateCells(elementCount);
   unpackRle(chunk.payload, cells, codec, chunk.tag);
   return cells;
 }
@@ -245,9 +255,12 @@ function packLayerPayload<TCells extends Uint8Array | Uint16Array>(
   return out;
 }
 
-/** Unpacks a `pck`/`X8el` grid layer chunk into its row-major byte grid. */
-export function unpackMapLayer(chunk: MapDatChunk): MapLayer {
-  return { codec: MAP_LAYER_CODEC_X8, cells: unpackLayerCells(chunk, X8EL) };
+/**
+ * Unpacks a `pck`/`X8el` grid layer chunk into its row-major byte grid. `maxElements` bounds the
+ * declared length; a caller that knows the grid passes its element count.
+ */
+export function unpackMapLayer(chunk: MapDatChunk, maxElements = Number.POSITIVE_INFINITY): MapLayer {
+  return { codec: MAP_LAYER_CODEC_X8, cells: unpackLayerCells(chunk, X8EL, maxElements) };
 }
 
 /** Inverse of {@link unpackMapLayer}. */
@@ -260,8 +273,8 @@ export function packMapLayer(cells: Uint8Array, version = 1): Uint8Array {
  * its inner header is identical to the `X8el` one and only the RLE stream differs, operating on 2-byte
  * little-endian elements.
  */
-export function unpackX6elLayer(chunk: MapDatChunk): MapLayerU16 {
-  return { codec: MAP_LAYER_CODEC_X6, cells: unpackLayerCells(chunk, X6EL) };
+export function unpackX6elLayer(chunk: MapDatChunk, maxElements = Number.POSITIVE_INFINITY): MapLayerU16 {
+  return { codec: MAP_LAYER_CODEC_X6, cells: unpackLayerCells(chunk, X6EL, maxElements) };
 }
 
 /** Inverse of {@link unpackX6elLayer}. */

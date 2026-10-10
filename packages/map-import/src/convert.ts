@@ -12,12 +12,14 @@ import {
   iniBytesToSections,
   type RuleSection,
 } from '@open-northland/formats/ini';
-import { cutsceneIdsOf, resolveMapBriefing } from './briefing.js';
+import { DecodeLimitError } from '@open-northland/formats/limit';
+import { cutsceneIdsOf, type ResolvedBriefing, resolveMapBriefing } from './briefing.js';
 import { errorMessage, MapImportError } from './errors.js';
 import { type MapFolder, mapFolderOf } from './folder.js';
 import { findMapFolders, mapIdFromFolderName } from './folders.js';
 import { mapsIndexEntry } from './index-entry.js';
 import { MAP_CIF_FILE, MAP_DAT_FILE, PICTURE_PATH, STATIC_OBJECT_FILES } from './layout.js';
+import { DEFAULT_IMPORT_LIMITS, type ImportLimits } from './limits.js';
 import { loadMapStringTables, resolveMapMeta } from './meta.js';
 import { minimapToPng } from './minimap.js';
 import { resolveMapScript } from './script.js';
@@ -59,6 +61,8 @@ export interface ConvertOptions {
   readonly onProgress?: (progress: ConvertProgress) => void;
   /** Recoverable problems: an unreadable optional file or layer, which the map then goes without. */
   readonly onWarning?: (message: string) => void;
+  /** Bounds on what the decoders build; defaults to {@link DEFAULT_IMPORT_LIMITS}. */
+  readonly limits?: Pick<ImportLimits, 'cells' | 'picturePixels'>;
 }
 
 /** One converted map: the documents and pictures the content tree serves for it. */
@@ -143,9 +147,15 @@ function readEntities(
   };
 }
 
+/** A decoder's refusal of an over-limit header as the import's `too-large`; anything else unchanged. */
+function limitFailure(err: unknown, where: string): unknown {
+  return err instanceof DecodeLimitError ? new MapImportError('too-large', `${where}: ${err.message}`) : err;
+}
+
 /**
  * Converts the map in folder `key` (lower-cased, `''` for the root) of `tree`. Throws
- * `decode-failed` when its `map.dat` does not decode; every other file is optional and only warns.
+ * `decode-failed` when its `map.dat` does not decode and `too-large` when a header declares more than
+ * `options.limits`; every other file is optional and only warns.
  */
 export async function convertMapFolder(
   tree: MapTree,
@@ -154,6 +164,7 @@ export async function convertMapFolder(
   position: MapPosition = { index: 0, total: 1 },
 ): Promise<ConvertedMap> {
   const rootName = options.rootName ?? DEFAULT_ROOT_NAME;
+  const limits = options.limits ?? DEFAULT_IMPORT_LIMITS;
   const folder = mapFolderOf(tree, key, rootName, options.onWarning ?? (() => {}));
   const report = (stage: ConvertStage): void =>
     options.onProgress?.({ folder: folder.path, index: position.index, total: position.total, stage });
@@ -164,8 +175,9 @@ export async function convertMapFolder(
   let terrain: MapDatTerrainFile;
   try {
     if (dat === undefined) throw new Error(`no ${MAP_DAT_FILE}`);
-    terrain = mapDatToTerrain(dat, (message) => folder.warn(message));
+    terrain = mapDatToTerrain(dat, (message) => folder.warn(message), limits.cells);
   } catch (err) {
+    if (err instanceof DecodeLimitError) throw limitFailure(err, folder.rel);
     throw new MapImportError('decode-failed', `${folder.rel}: ${errorMessage(err)}`);
   }
 
@@ -199,15 +211,24 @@ export async function convertMapFolder(
   }
 
   report('briefing');
-  const resolved = script === undefined ? undefined : await resolveMapBriefing(folder, cutsceneIdsOf(script));
+  let resolved: ResolvedBriefing | undefined;
+  try {
+    resolved =
+      script === undefined
+        ? undefined
+        : await resolveMapBriefing(folder, cutsceneIdsOf(script), limits.picturePixels);
+  } catch (err) {
+    throw limitFailure(err, folder.rel);
+  }
 
   report('picture');
   let picture: Uint8Array | undefined;
   const picturePcx = folder.read(PICTURE_PATH);
   if (picturePcx !== undefined) {
     try {
-      picture = await minimapToPng(picturePcx);
+      picture = await minimapToPng(picturePcx, limits.picturePixels);
     } catch (err) {
+      if (err instanceof DecodeLimitError) throw limitFailure(err, folder.rel);
       folder.warn(`minimap picture undecodable: ${errorMessage(err)}`);
     }
   }
@@ -246,7 +267,8 @@ export async function convertMapFolder(
 
 /**
  * Converts every map folder of `tree`. A folder whose `map.dat` does not decode is skipped and
- * listed; a tree without a map folder throws `no-map`, and one where no map decodes `decode-failed`.
+ * listed; a tree without a map folder throws `no-map`, one where no map decodes `decode-failed`, and
+ * one with a map over the decode limits `too-large`.
  */
 export async function convertMapTree(tree: MapTree, options: ConvertOptions): Promise<MapTreeConversion> {
   const folders = findMapFolders(tree);
@@ -257,7 +279,7 @@ export async function convertMapTree(tree: MapTree, options: ConvertOptions): Pr
     try {
       maps.push(await convertMapFolder(tree, key, options, { index, total: folders.length }));
     } catch (err) {
-      if (!(err instanceof MapImportError)) throw err;
+      if (!(err instanceof MapImportError) || err.kind === 'too-large') throw err;
       const { path } = mapFolderOf(tree, key, options.rootName ?? DEFAULT_ROOT_NAME, () => {});
       skipped.push({ folder: path, message: err.message });
     }

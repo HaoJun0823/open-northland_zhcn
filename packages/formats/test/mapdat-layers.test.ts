@@ -245,6 +245,17 @@ describe('unpackX6elLayer / pck-X6el round-trip', () => {
     return decodeMapDat(encodeMapDat([{ tag: 'empa', version: 1, payload }])).chunks[0] as never;
   };
 
+  it('refuses a declared length over the caller bound before allocating the grid', () => {
+    // A u32 length of ~4 GiB would allocate 2 Gi elements; the bound rejects it from the header alone.
+    const huge = craftX6el(0xfffffffe, [1, 0xaa, 0xbb]);
+    expect(() => unpackX6elLayer(huge, 4)).toThrow(/declares 2147483647 elements, expected at most 4/);
+    const grid = Uint8Array.from([1, 2, 3, 4]);
+    const chunk = decodeMapDat(encodeMapDat([{ tag: 'lmhe', version: 1, payload: packMapLayer(grid) }]))
+      .chunks[0] as never;
+    expect(unpackMapLayer(chunk, grid.length).cells).toEqual(grid);
+    expect(() => unpackMapLayer(chunk, grid.length - 1)).toThrow(/expected at most 3/);
+  });
+
   it('throws on an odd unpacked length (not a whole number of u16 cells)', () => {
     expect(() => unpackX6elLayer(craftX6el(3, [1, 0xaa, 0xbb]))).toThrow(/whole number of 2-byte elements/);
   });

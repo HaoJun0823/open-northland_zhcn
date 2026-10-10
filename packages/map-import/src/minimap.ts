@@ -29,10 +29,13 @@ function isColourKey(palette: Uint8Array, index: number): boolean {
  * paints the scene, so only its border-connected region is keyed: a 4-neighbour flood fill from the
  * edges. Both are named approximations of the engine's undocumented compositing. Keyed pixels are
  * transparent black, so a smooth scale cannot bleed the filler colour into the edge. Throws on a
- * malformed `.pcx` or an all-filler picture.
+ * malformed `.pcx` or an all-filler picture, and the decoder's `DecodeLimitError` over `maxPixels`.
  */
-export async function minimapToPng(bytes: Uint8Array): Promise<Uint8Array> {
-  const image = decodePcx(bytes);
+export async function minimapToPng(
+  bytes: Uint8Array,
+  maxPixels = Number.POSITIVE_INFINITY,
+): Promise<Uint8Array> {
+  const image = decodePcx(bytes, maxPixels);
   const { width, height, pixels, palette } = image;
 
   const keyed = new Uint8Array(width * height);

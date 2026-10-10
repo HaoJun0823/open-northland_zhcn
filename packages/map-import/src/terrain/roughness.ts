@@ -1,4 +1,4 @@
-import { findChunk, unpackMapLayer } from '@open-northland/formats/mapdat/index';
+import { findChunk, HALF_CELLS_PER_CELL, unpackMapLayer } from '@open-northland/formats/mapdat/index';
 import { type DecodedMap, laneToArray } from './lane.js';
 
 /**
@@ -12,8 +12,8 @@ import { type DecodedMap, laneToArray } from './lane.js';
 export function roughnessFromMapDat({ map, size }: DecodedMap): number[] | undefined {
   const chunk = findChunk(map, 'lmpr');
   if (chunk === undefined) return undefined;
-  const lane = unpackMapLayer(chunk).cells;
-  const expected = size.width * size.height * 4;
+  const expected = size.width * size.height * HALF_CELLS_PER_CELL;
+  const lane = unpackMapLayer(chunk, expected).cells;
   if (lane.length !== expected) {
     throw new Error(
       `mapdat: lmpr roughness lane has ${lane.length} half-cells, expected ${expected} (${size.width}×${size.height} × 4)`,

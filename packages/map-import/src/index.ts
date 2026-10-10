@@ -27,10 +27,12 @@ export { type MapsIndexSource, mapsIndexEntry } from './index-entry.js';
 export { HYPERTEXT_GRAPHICS_DIR, MAP_CIF_FILE, MAP_DAT_FILE } from './layout.js';
 export {
   DEFAULT_ARCHIVE_BYTES,
+  DEFAULT_CELLS,
   DEFAULT_DEPTH,
   DEFAULT_ENTRIES,
   DEFAULT_ENTRY_BYTES,
   DEFAULT_IMPORT_LIMITS,
+  DEFAULT_PICTURE_PIXELS,
   DEFAULT_UNPACKED_BYTES,
   type ImportLimits,
   NO_IMPORT_LIMITS,

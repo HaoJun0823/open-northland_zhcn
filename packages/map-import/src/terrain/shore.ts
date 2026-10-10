@@ -10,9 +10,9 @@ import type { DecodedMap } from './lane.js';
 export function shoreFromMapDat({ map, size }: DecodedMap): number[] | undefined {
   const chunk = findChunk(map, 'lmms');
   if (chunk === undefined) return undefined;
-  const lane = unpackMapLayer(chunk).cells;
   const hw = size.width * 2;
   const expected = hw * size.height * 2;
+  const lane = unpackMapLayer(chunk, expected).cells;
   if (lane.length !== expected) {
     throw new Error(
       `mapdat: lmms shore lane has ${lane.length} half-cells, expected ${expected} (${size.width}×${size.height} × 4)`,

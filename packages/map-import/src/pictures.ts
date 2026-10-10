@@ -5,6 +5,7 @@ import {
   renderHypertext,
 } from '@open-northland/formats/hypertext';
 import { assertPaletteBytes, paletteToRgba } from '@open-northland/formats/image';
+import { DecodeLimitError } from '@open-northland/formats/limit';
 import { decodePcx } from '@open-northland/formats/pcx';
 import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from './errors.js';
@@ -29,13 +30,14 @@ export interface PagePictures {
  * Converts every picture `pages` name and returns the resolver a second render looks them up through;
  * the first render collects the names through the same includes. `read` finds a picture by its
  * lower-cased file name. An absent or undecodable picture warns and is left out, so its page renders
- * without it.
+ * without it; one over `maxPixels` throws the decoder's `DecodeLimitError`.
  */
 export async function collectPagePictures(
   read: (name: string) => Promise<Uint8Array | undefined> | Uint8Array | undefined,
   pages: Iterable<string>,
   include: IncludeResolver,
   warn: (message: string) => void,
+  maxPixels = Number.POSITIVE_INFINITY,
 ): Promise<PagePictures> {
   const wanted = new Set<string>();
   const collect: PictureResolver = (name) => {
@@ -52,18 +54,22 @@ export async function collectPagePictures(
         warn(`picture ${name} not found`);
         continue;
       }
-      const { picture, png } = await convertPicture(bytes);
+      const { picture, png } = await convertPicture(bytes, maxPixels);
       pictures.set(name, picture);
       files.set(picture.file, png);
     } catch (err) {
+      if (err instanceof DecodeLimitError) throw err;
       warn(`picture ${name} undecodable: ${errorMessage(err)}`);
     }
   }
   return { picture: (name) => pictures.get(name), files };
 }
 
-async function convertPicture(bytes: Uint8Array): Promise<{ picture: HypertextPicture; png: Uint8Array }> {
-  const { width, height, pixels, palette } = decodePcx(bytes);
+async function convertPicture(
+  bytes: Uint8Array,
+  maxPixels: number,
+): Promise<{ picture: HypertextPicture; png: Uint8Array }> {
+  const { width, height, pixels, palette } = decodePcx(bytes, maxPixels);
   if (palette === undefined) throw new Error('picture has no palette');
   assertPaletteBytes(palette, 'hypertext picture');
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', Uint8Array.from(bytes)));

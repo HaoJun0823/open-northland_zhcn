@@ -1,4 +1,5 @@
 const MIB = 1024 * 1024;
+const MEGAPIXEL = 1024 * 1024;
 
 /** Upper bounds on one untrusted import, checked before and while it unpacks. */
 export interface ImportLimits {
@@ -12,6 +13,10 @@ export interface ImportLimits {
   readonly entries: number;
   /** Path segments of one kept entry, its file name and any nested archive's prefix included. */
   readonly depth: number;
+  /** Cells (`width * height`) of one map's grid, checked against its `lsiz` before a lane unpacks. */
+  readonly cells: number;
+  /** Pixels (`width * height`) of one picture, checked against its header before it decodes. */
+  readonly picturePixels: number;
 }
 
 /** Defaults sized from the culturesnation catalogue: its largest archive unpacks to 20 MB, its largest
@@ -21,6 +26,13 @@ export const DEFAULT_UNPACKED_BYTES = 128 * MIB;
 export const DEFAULT_ENTRY_BYTES = 16 * MIB;
 export const DEFAULT_ENTRIES = 5000;
 export const DEFAULT_DEPTH = 8;
+/** The largest known map is 500x500 cells. About four times its area leaves room for bigger custom
+ *  maps while the per-cell arrays a decode builds, several at four half-cells per cell, stay in the
+ *  low hundreds of megabytes. */
+export const DEFAULT_CELLS = 1024 * 1024;
+/** Map and briefing pictures are menu-sized; 16 Mpx is far above them and bounds one picture's
+ *  RGBA expansion at 64 MiB. */
+export const DEFAULT_PICTURE_PIXELS = 16 * MEGAPIXEL;
 
 export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
   archiveBytes: DEFAULT_ARCHIVE_BYTES,
@@ -28,6 +40,8 @@ export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
   entryBytes: DEFAULT_ENTRY_BYTES,
   entries: DEFAULT_ENTRIES,
   depth: DEFAULT_DEPTH,
+  cells: DEFAULT_CELLS,
+  picturePixels: DEFAULT_PICTURE_PIXELS,
 };
 
 /** No bound at all, for a trusted source such as the mod tree the pipeline converts. */
@@ -37,4 +51,6 @@ export const NO_IMPORT_LIMITS: ImportLimits = {
   entryBytes: Number.POSITIVE_INFINITY,
   entries: Number.POSITIVE_INFINITY,
   depth: Number.POSITIVE_INFINITY,
+  cells: Number.POSITIVE_INFINITY,
+  picturePixels: Number.POSITIVE_INFINITY,
 };

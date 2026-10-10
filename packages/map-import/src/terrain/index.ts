@@ -4,6 +4,7 @@ import {
   decodeMapDat,
   decodeMapSize,
   findChunk,
+  HALF_CELLS_PER_CELL,
   lmltToTerrainMap,
   type MapDatTerrainMap,
   unpackMapLayer,
@@ -65,19 +66,23 @@ function layer<K extends keyof MapDatTerrainFile, T extends NonNullable<MapDatTe
  * the `lmlt` half-cell lane collapsed per cell) plus the optional render lanes. Throws a
  * `mapdat:`-prefixed error for a non-container or a missing/corrupt `lsiz`/`lmlt`; a corrupt render
  * lane only goes to `warn` and omits its layer, so a map whose grid decodes never disappears over its
- * enrichments.
+ * enrichments. A grid over `maxCells` throws a `DecodeLimitError` before any lane is unpacked.
  */
 export function mapDatToTerrain(
   bytes: Uint8Array,
   warn: (message: string) => void = () => {},
+  maxCells = Number.POSITIVE_INFINITY,
 ): MapDatTerrainFile {
   const map = decodeMapDat(bytes);
-  const size = decodeMapSize(map);
+  const size = decodeMapSize(map, maxCells);
   const lmlt = findChunk(map, 'lmlt');
   if (lmlt === undefined) {
     throw new Error('mapdat: no lmlt landscape-type chunk (cannot build the terrain grid)');
   }
-  const terrain = lmltToTerrainMap(unpackMapLayer(lmlt), size);
+  const terrain = lmltToTerrainMap(
+    unpackMapLayer(lmlt, size.width * size.height * HALF_CELLS_PER_CELL),
+    size,
+  );
   const decoded: DecodedMap = { map, size };
   const fish = findChunk(map, 'lafm');
   const fishSwarms = fish === undefined ? undefined : decodeFishSwarms(fish);

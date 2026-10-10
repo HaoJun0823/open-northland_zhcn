@@ -1,3 +1,4 @@
+import { DecodeLimitError } from '@open-northland/formats/limit';
 import { encodePcx } from '@open-northland/formats/pcx';
 import { describe, expect, it } from 'vitest';
 import { rampPalette } from '../../formats/test/fixtures/palette.js';
@@ -104,6 +105,19 @@ describe('resolveMapBriefing', () => {
     expect(pictures).toHaveLength(1);
     expect(pol).toEqual({ kind: 'picture', file: pictures[0], width: 3, height: 2 });
     expect(eng).toEqual(pol);
+  });
+
+  it('throws the decoder limit for a picture over maxPixels instead of warning past it', async () => {
+    const dir = testFolder();
+    const block = '[blockstart:500]\nOpis\n<picture:$local$\\graphics\\Map.pcx>\n[blockend:500]\n';
+    writeBriefings(dir, 'pol', { 'briefings.txt': block, '0500.hlt': hltPage('500') });
+    const pixels = new Uint8Array(6).fill(4);
+    dir.write(
+      'text/pol/briefings/Graphics/map.pcx',
+      encodePcx({ width: 3, height: 2, pixels, palette: rampPalette() }),
+    );
+    await expect(resolveMapBriefing(dir.folder, [500], pixels.length - 1)).rejects.toThrow(DecodeLimitError);
+    expect((await resolveMapBriefing(dir.folder, [500], pixels.length))?.pictures.size).toBe(1);
   });
 
   it('yields undefined with no ids, no briefings folder, or no resolvable page', async () => {

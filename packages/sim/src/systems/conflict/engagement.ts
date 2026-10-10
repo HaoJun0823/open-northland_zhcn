@@ -563,10 +563,10 @@ function fighterInReach(
 }
 
 /**
- * The enemy fighter a combatant ordered onto `structure` fights first: the one it already turned to while
- * that stays within a step of its reach, else the nearest {@link fighterInReach} finds. Null takes the
- * structure up again, and the order stands throughout. Only a fighter that walked up is taken: a chase
- * that fails ends the order with it, so the man is never sent after one across the field.
+ * The enemy fighter a combatant ordered onto `structure` fights first: the one it already turned to, the
+ * one that struck it included, while it still holds it, else the nearest {@link fighterInReach} finds.
+ * Null takes the structure up again, and the order stands throughout: a chase the fighter escapes lets
+ * only the fighter go.
  */
 function fighterOverStructure(
   world: World,
@@ -587,8 +587,7 @@ function fighterOverStructure(
     isFighterTarget(world, ctx, engaged) &&
     hold.keep(engaged)
   ) {
-    const fought = focusedOn(world, ctx, terrain, here, engaged);
-    if (fought.dist <= stepPastReach(hold.band).maxRange) return fought;
+    return focusedOn(world, ctx, terrain, here, engaged);
   }
   return fighterInReach(world, ctx, terrain, pass, here, spec, hold.band);
 }

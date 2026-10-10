@@ -181,14 +181,18 @@ export function chase(
   const engagement = engagementFor(world, ctx, e, target.entity);
 
   const marching = world.tryGet(e, PlayerOrder)?.attackMove !== undefined;
-  const commanded = stance.ordered || marching; // a player-driven chase - it releases here, not on the bank
+  const order = world.tryGet(e, AttackOrder);
+  // A fighter an ordered man turned to on his way to a structure: giving it up hands him back to the order.
+  const aside =
+    stance.ordered && order !== undefined && order.breach === undefined && order.target !== target.entity;
+  const commanded = (stance.ordered && !aside) || marching; // player-driven: it releases here, not on the bank
+  const letGo = (): void => (aside ? dropAside(world, e) : breakOff(world, ctx, e, here, defend));
   // A failed chase route ends an explicit attack order. An attack-move march instead rests its aggression
   // and walks on: without the rest, an enemy visible across a river holds the marcher in a failing search
   // every tick and the order can never complete.
   const request = world.tryGet(e, PathRequest);
   if (request?.failed) {
     // The breach this chase walks to, whose target a further wall found on the way still leads back to.
-    const order = world.tryGet(e, AttackOrder);
     const breach = order?.target === target.entity ? order.breach : undefined;
     // A player-driven walk walled off by a palisade breaks through it: toward the ordered target, else toward
     // the march's goal.
@@ -226,6 +230,11 @@ export function chase(
     ) {
       const enemy = breach?.enemy ?? target.entity;
       const route = { start: request.start, goal: request.goal, sealed: true };
+      if (aside) {
+        noteUnreachableTarget(world, ctx, e, target.entity);
+        dropAside(world, e);
+        return true;
+      }
       if (
         defend === null &&
         worthASiege(world, enemy) &&
@@ -311,12 +320,12 @@ export function chase(
   // on. Only the walk is refused - the reach check ran before the chase, so an archer still shoots across
   // water. Giving up here is an approximation (source basis "Combat chase").
   if (!commanded && !onOurBank(dest)) {
-    breakOff(world, ctx, e, here, defend);
+    letGo();
     return true;
   }
   // Anchor leash: a target hittable only by stepping past `leash` from the anchor is left alone.
   if (defend !== null && leashDistance(terrain, defend, dest) > defend.leash) {
-    breakOff(world, ctx, e, here, defend);
+    letGo();
     return true;
   }
   if (dest === here && !travelling) {
@@ -324,7 +333,8 @@ export function chase(
     // rather than loop engaged-but-frozen. Next tick the unit re-acquires another enemy, or the economy
     // relocates it, so it never stays stuck. A travelling unit falls through instead, finishes its step and
     // swings next pass.
-    disengage(world, e);
+    if (aside) dropAside(world, e);
+    else disengage(world, e);
     return true;
   }
   redirectRoute(world, e, dest); // keep the live route - dropping it reset the gait (chase stutter)
@@ -663,6 +673,12 @@ function freeOverBand(
 /** Drop the combatant's engagement, returning it to the economy: the {@link Engagement} marker and the chase
  *  movement it drove, plus both target commitments. Only the movement of a unit that was engaged is touched,
  *  so an economy unit with no marker keeps its own. */
+/** Let go of a fighter taken up beside an attack order, the order kept: next pass takes its target up again. */
+function dropAside(world: World, e: Entity): void {
+  world.remove(e, Engagement);
+  clearNavState(world, e);
+}
+
 export function disengage(world: World, e: Entity): void {
   if (world.has(e, Engagement)) {
     world.remove(e, Engagement);

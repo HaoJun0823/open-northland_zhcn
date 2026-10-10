@@ -18,7 +18,7 @@ import {
 import type { Entity, World } from '../../../../../../ecs/world.js';
 import { frightenKin } from '../../../../../conflict/fright.js';
 import { combatTargetNode } from '../../../../../conflict/target-node.js';
-import { isFighterTarget, isValidTarget } from '../../../../../conflict/targeting.js';
+import { isFighterTarget, isStructureTarget, isValidTarget } from '../../../../../conflict/targeting.js';
 import type { SystemContext } from '../../../../../context.js';
 import { herdLeaderOf } from '../../../../../movement/herd-leader.js';
 import {
@@ -96,8 +96,9 @@ export function provokeHostility(world: World, ctx: SystemContext, attacker: Ent
 /**
  * Turn a struck fighter on its attacker. Original behavior: a soldier or hero under ATTACK or DEFEND takes
  * the one who struck it for its target, unless the enemy it already holds stands no farther off in map
- * points. Owner rule: a fighter striking it always wins over a held target of another kind, however near.
- * Only an owned fighter holds a target, and an attack order outranks the reaction. Original
+ * points. Owner rule: a fighter striking it always wins over a held target of another kind, however near,
+ * and over an attack order on a structure, which it takes up again afterwards. Only an owned fighter holds
+ * a target, and any other attack order outranks the reaction. Original
  * behavior: a walking soldier ignores a blow only for its first ten steps, then turns. Deviation: a plain
  * move order is the player's and holds for its whole walk; attack-move turns.
  */
@@ -105,7 +106,8 @@ export function turnOnAttacker(world: World, ctx: SystemContext, attacker: Entit
   const terrain = ctx.terrain;
   const settler = world.tryGet(victim, Settler);
   if (terrain === undefined || settler === undefined || !world.has(victim, Owner)) return;
-  if (world.has(victim, AttackOrder) || !isFighterJob(ctx.content, settler.jobType)) return;
+  if (!isFighterJob(ctx.content, settler.jobType)) return;
+  if (!orderYieldsTo(world, ctx, victim, attacker)) return;
   const order = world.tryGet(victim, PlayerOrder);
   if (order !== undefined && order.attackMove === undefined) return;
   const mode = stanceMode(world, ctx.content, victim, settler.jobType);
@@ -128,6 +130,18 @@ export function turnOnAttacker(world: World, ctx: SystemContext, attacker: Entit
   }
   if (engagement === undefined) world.add(victim, Engagement, { repathAt: ctx.tick, target: attacker });
   else world.mut(victim, Engagement).target = attacker;
+}
+
+/** Whether `victim`'s attack order, if any, lets it turn on `attacker`: only an order on a structure, and
+ *  only to a fighter. */
+function orderYieldsTo(world: World, ctx: SystemContext, victim: Entity, attacker: Entity): boolean {
+  const order = world.tryGet(victim, AttackOrder);
+  if (order === undefined) return true;
+  return (
+    order.breach === undefined &&
+    isStructureTarget(world, order.target) &&
+    isFighterTarget(world, ctx, attacker)
+  );
 }
 
 /** How far (map points) a blow on an animal carries to the animals of its kind and side. Original behavior. */

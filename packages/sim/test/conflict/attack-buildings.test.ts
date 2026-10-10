@@ -9,6 +9,7 @@ import {
   Health,
   MoveGoal,
   Owner,
+  Palisade,
   PathFollow,
   PathRequest,
   Position,
@@ -24,6 +25,7 @@ import {
   nodeOfPosition,
   ONE,
   positionOfNode,
+  type ScriptLandscapeType,
   type SimEvent,
   Simulation,
   type TerrainMap,
@@ -155,6 +157,22 @@ function siegeContent(opts: { meleeRange?: { min: number; max: number } } = {}):
 /** An all-grass w×h-cell terrain map, upsampled to the half-cell lattice. */
 function grass(width: number, height: number): TerrainMap {
   return halfCellMapFromCells({ width, height, typeIds: new Array(width * height).fill(GRASS) });
+}
+
+/** A single-post wall the siege tests stand up as a row. */
+const WALL: ScriptLandscapeType = {
+  typeId: 691,
+  walk: [{ dx: 0, dy: 0 }],
+  build: [{ dx: 0, dy: 0 }],
+  groups: [],
+  wall: { maxHitpoints: 100, repairPerStrike: 3, construction: [{ goodType: STONE, amount: 1 }] },
+};
+/** The half-row the wall row runs along, cutting the map's south off from its north. */
+const WALL_ROW = 5;
+
+/** A grass map that admits {@link WALL} rows. */
+function walledOffSouth(width: number, height: number): TerrainMap {
+  return { ...grass(width, height), landscapes: { types: [WALL], placements: [] } };
 }
 
 /** A grass bank at cells `x < bankWidth`, open water beyond it, and one grass islet cell: a building on the
@@ -641,6 +659,44 @@ describe('a besieger turns to an enemy fighter', () => {
     sim.world.mut(enemy, Owner).player = P1; // no longer an enemy
     for (let i = 0; i < TURN_TICKS; i++) sim.step();
     expect(sim.world.get(soldier, Engagement).target).toBe(home);
+  });
+
+  it('turns on an archer that shoots it from afar under an attack order on the building, keeping the order', () => {
+    const { sim, soldier, home, enemy } = siege(8, SIDE_ROW);
+    sim.enqueueSetup({ kind: 'attackUnit', entity: soldier, target: home });
+    sim.step();
+    resolveCombatHit(sim.world, ctxOf(sim), enemy, soldier, { damage: 1 }, [], 'projectile');
+    expect(sim.world.get(soldier, Engagement).target).toBe(enemy);
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(enemy);
+    expect(sim.world.get(soldier, AttackOrder).target).toBe(home);
+  });
+
+  it('lets an archer behind a wall go and takes the building up again, the order kept', () => {
+    const sim = new Simulation({ seed: 1, content: siegeContent(), map: walledOffSouth(10, 6) });
+    for (let hx = 0; hx < 20; hx++) {
+      sim.enqueueSetup({
+        kind: 'placePalisade',
+        gfxIndex: WALL.typeId,
+        x: hx,
+        y: WALL_ROW,
+        tribe: VIKING,
+        owner: P2,
+      });
+    }
+    const soldier = warriorAt(sim, 0, 0, P1);
+    const home = buildingAt(sim, 1, 0, HOME, P2);
+    const archer = warriorAt(sim, 4, 4, P2, ARCHER);
+    sim.world.mut(archer, Stance).mode = MILITARY_MODE.IGNORE;
+    sim.enqueueSetup({ kind: 'attackUnit', entity: soldier, target: home });
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    resolveCombatHit(sim.world, ctxOf(sim), archer, soldier, { damage: 1 }, [], 'projectile');
+    expect(sim.world.get(soldier, Engagement).target).toBe(archer);
+    const GIVE_UP_TICKS = 200;
+    for (let i = 0; i < GIVE_UP_TICKS; i++) sim.step();
+    expect(sim.world.get(soldier, AttackOrder).target).toBe(home);
+    expect(sim.world.get(soldier, Engagement).target).toBe(home);
+    expect([...sim.world.query(Palisade)].length).toBe(20); // no wall broken for the archer
   });
 
   it('turns on a fighter that strikes it, though the building it holds stands nearer', () => {

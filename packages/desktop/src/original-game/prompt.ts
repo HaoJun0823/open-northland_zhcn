@@ -10,7 +10,6 @@ const QUIT_BUTTON = 2;
 const STORE_PAGES = [
   'https://store.steampowered.com/app/351870/',
   'https://www.gog.com/game/cultures_34',
-  'https://apps.apple.com/app/id702843717',
 ];
 
 /** Blocks until the player picks a recognized folder or quits; call after `ready`. */

@@ -9,7 +9,6 @@ import { type OriginalGameGateStatus, type OriginalGameRecord, originalGameGate 
 const STORE_PAGES: readonly { readonly name: string; readonly href: string }[] = [
   { name: 'Steam', href: 'https://store.steampowered.com/app/351870/' },
   { name: 'GOG', href: 'https://www.gog.com/game/cultures_34' },
-  { name: 'Mac App Store', href: 'https://apps.apple.com/app/id702843717' },
 ];
 
 /** A picker the player closed without choosing throws this; it is no failure. */

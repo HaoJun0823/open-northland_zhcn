@@ -112,3 +112,19 @@ it('neither bloodies nor refreshes a coat from protected hits, and lets old stai
   for (let tick = 721; tick <= 2401; tick += 120) coats.ingest([{ ...hit, damage: 1 }], tick);
   expect(amount(coats.packed(2, 2401))).toBeLessThan(amount(dried) / 3);
 });
+
+it('transfers the victim pigment to the melee attacker and retains it through drying', () => {
+  const coats = new BloodCoats();
+  coats.ingest([{ ...hit, targetIdentity: { tribe: 5, jobType: 30 } }], 0);
+  const palette = (ref: number, tick: number) => Math.floor(coats.packed(ref, tick) / 4194304);
+  expect(palette(1, 0)).toBe(2);
+  expect(palette(2, 0)).toBe(2);
+  expect(palette(2, 600)).toBe(2);
+  // A minor red splash cannot recolour the stronger existing navy coat.
+  coats.ingest([{ ...hit, damage: 1 }], 1);
+  expect(palette(2, 1)).toBe(2);
+  for (const ref of [1, 2]) {
+    const packed = coats.packed(ref, 1);
+    expect(new Float32Array([packed])[0]).toBe(packed);
+  }
+});

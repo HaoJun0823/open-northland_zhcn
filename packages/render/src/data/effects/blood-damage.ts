@@ -8,7 +8,8 @@ export const isBloodHit = (event: SimEvent): event is BloodHit =>
   event.damage > 0 &&
   event.targetMaxHealth > 0;
 
-/** The protected wound as a fraction of a full health pool, never the weapon's raw damage. */
+/** Authored visual wound: cap the reference pool at 5000 HP so very durable bodies still show hits.
+ * Actual post-protection damage stays linear; a one-HP finishing scratch remains small. */
 export function bloodLoss(hit: BloodHit): number {
-  return Math.max(0, Math.min(1, hit.damage / hit.targetMaxHealth));
+  return Math.max(0, Math.min(1, hit.damage / Math.min(hit.targetMaxHealth, 5000)));
 }

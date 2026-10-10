@@ -1,5 +1,6 @@
 import { entityById, type SimEvent, type WorldSnapshot } from '@open-northland/sim';
 import { ONE, TILE_HALF_H, TILE_HALF_W, tileToScreen } from '../projection/index.js';
+import { type BloodPalette, bloodAppearance } from './blood-appearance.js';
 import { type BloodHit, bloodLoss, isBloodHit } from './blood-damage.js';
 import { frac } from './random.js';
 
@@ -11,6 +12,8 @@ export const MAX_BLOOD_PER_NODE = 4;
 
 export type BloodProfile = 'cut' | 'pierce' | 'blunt';
 export interface BloodMark {
+  readonly palette: BloodPalette;
+  readonly volume: number;
   readonly target: number;
   readonly hx: number;
   readonly hy: number;
@@ -20,7 +23,7 @@ export interface BloodMark {
   readonly heading: number;
   readonly profile: BloodProfile;
   readonly fatal: boolean;
-  /** Burst strength: a wound taking one quarter of maximum health reaches full intensity. */
+  /** Burst strength: one quarter of the capped reference HP reaches full intensity (see bloodLoss). */
   readonly amount: number;
 }
 
@@ -64,6 +67,7 @@ export function makeBloodMarks(
     const dy = from === undefined ? 0 : event.at.hy * TILE_HALF_H - from.y * 2;
     next.push({
       ...event.at,
+      ...bloodAppearance(event.targetIdentity),
       target: event.target,
       spawnTick: tick,
       amount: Math.min(1, bloodLoss(event) / 0.25),
@@ -103,7 +107,7 @@ export const GROUND_SQUASH = 0.5;
 export function bloodDrops(mark: BloodMark, bodyRise = 20): readonly BloodDrop[] {
   const strength = Math.sqrt(mark.amount);
   const maximum = (mark.profile === 'blunt' ? 4 : mark.profile === 'pierce' ? 7 : 10) + (mark.fatal ? 3 : 0);
-  const count = Math.max(1, Math.round(maximum * strength));
+  const count = Math.max(1, Math.round(maximum * strength * Math.sqrt(mark.volume)));
   return Array.from({ length: count }, (_, i) => {
     const offset = i * 8;
     const angle =
@@ -119,7 +123,7 @@ export function bloodDrops(mark: BloodMark, bodyRise = 20): readonly BloodDrop[]
       lift,
       delay: frac(mark.seed, offset + 5) * 1.2,
       flight: (lift + Math.sqrt(lift * lift + 2 * GRAVITY * rise)) / GRAVITY,
-      size: (0.85 + frac(mark.seed, offset + 6) * 0.95) * (0.35 + strength * 0.65),
+      size: (0.85 + frac(mark.seed, offset + 6) * 0.95) * (0.35 + strength * 0.65) * Math.sqrt(mark.volume),
     };
   });
 }

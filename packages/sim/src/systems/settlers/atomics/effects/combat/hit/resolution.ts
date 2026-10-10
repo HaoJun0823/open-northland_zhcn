@@ -9,6 +9,8 @@ import {
   Position,
   recordHumanKill,
   recordPlayerAttack,
+  Settler,
+  type SettlerIdentity,
 } from '../../../../../../components/index.js';
 import type { AtomicEffect } from '../../../../../../core/atomic-effect.js';
 import { eventAt } from '../../../../../../core/events.js';
@@ -114,6 +116,7 @@ function meleeTargetOutOfReach(
 export interface HitDamage {
   readonly damage: number;
   readonly targetMaxHealth: number;
+  readonly targetIdentity?: SettlerIdentity;
 }
 
 /**
@@ -145,7 +148,12 @@ export function resolveCombatHit(
   // behavior: a blow that does no damage is silent, earns nothing and is no attack on the victim's side.
   const dealtDamage = damage > 0;
   const dealt = shieldedByScript(world, target) ? 0 : Math.max(0, damage);
-  const wound = { damage: Math.min(pool.hitpoints, dealt), targetMaxHealth: pool.max };
+  const identity = world.tryGet(target, Settler);
+  const wound: HitDamage = {
+    damage: Math.min(pool.hitpoints, dealt),
+    targetMaxHealth: pool.max,
+    ...(identity === undefined ? {} : { targetIdentity: { ...identity } }),
+  };
   // Ranged hits do not emit this, because `projectileSystem` announces its own `projectileHit`.
   if (source === 'melee' && dealtDamage) {
     const at = world.tryGet(target, Position);

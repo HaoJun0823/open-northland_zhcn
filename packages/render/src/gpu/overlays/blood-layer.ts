@@ -283,12 +283,12 @@ export class BloodLayer {
   ): AirNode {
     const container = this.spriteLayer.addChild(new Container());
     container.zIndex = screenDepth(place.x, place.baseY, 'settler') + 0.125;
-    const jet = container.addChild(worldBatched(new Sprite(textures.stain(mark.seed + 3))));
+    const jet = container.addChild(worldBatched(new Sprite(textures.stain(mark.seed + 3, mark.palette))));
     jet.anchor.set(0.1, 0.5);
     jet.position.set(0, -(place.rise ?? 20));
     jet.rotation = Math.atan2(Math.sin(mark.heading) * GROUND_SQUASH, Math.cos(mark.heading));
     const drops = motions.map((motion, i) => {
-      const sprite = container.addChild(worldBatched(new Sprite(textures.drop)));
+      const sprite = container.addChild(worldBatched(new Sprite(textures.droplet(mark.palette))));
       sprite.anchor.set(0.5);
       return { motion, sprite, contact: place.contacts?.[i] };
     });
@@ -296,13 +296,13 @@ export class BloodLayer {
       container,
       jet,
       drops,
-      strength: (mark.profile === 'blunt' ? 0.5 : 0.85) * Math.sqrt(mark.amount),
+      strength: (mark.profile === 'blunt' ? 0.5 : 0.85) * Math.sqrt(mark.amount * mark.volume),
     };
   }
 
   private deposit(tick: number): void {
     if (this.pending.size === 0) return;
-    const due: { contact: SurfaceContact; tick: number }[] = [];
+    const due: { contact: SurfaceContact; tick: number; palette: BloodMark['palette'] }[] = [];
     for (const [mark, plan] of this.pending) {
       let waiting = false;
       for (let i = 0; i < plan.contacts.length; i++) {
@@ -312,7 +312,7 @@ export class BloodLayer {
           waiting = true;
           continue;
         }
-        due.push({ contact, tick: mark.spawnTick + contact.age });
+        due.push({ contact, tick: mark.spawnTick + contact.age, palette: mark.palette });
         plan.delivered |= 1 << i;
       }
       if (!waiting) this.pending.delete(mark);
@@ -320,7 +320,7 @@ export class BloodLayer {
     // A skipped frame may deliver several interleaved bursts at once. Patch growth, ageing and
     // eviction must follow impact time, not emitter or droplet enumeration order.
     due.sort((a, b) => a.tick - b.tick);
-    for (const impact of due) this.surfaces.stamp(impact.contact, impact.tick);
+    for (const impact of due) this.surfaces.stamp(impact.contact, impact.tick, impact.palette);
   }
 
   private animate(node: AirNode, age: number): void {

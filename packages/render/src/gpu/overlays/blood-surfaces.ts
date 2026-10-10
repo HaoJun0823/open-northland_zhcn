@@ -1,5 +1,6 @@
 import { type Container, Matrix, Point, Sprite } from 'pixi.js';
 import { BLOOD_LIFETIME_TICKS, type BloodDrop, bloodDroplet, smoothUnit } from '../../data/effects/blood.js';
+import type { BloodPalette } from '../../data/effects/blood-appearance.js';
 import { type BloodSurface, type BloodSurfaceSprite, bloodSurface, surfaceOf } from '../blood-surface.js';
 import { alphaMaskOf, maskSolidAt } from '../sprite-pool/alpha-mask.js';
 
@@ -32,6 +33,7 @@ export interface SurfaceContact {
   readonly age: number;
 }
 interface Spot {
+  readonly palette: BloodPalette;
   x: number;
   y: number;
   radius: number;
@@ -179,7 +181,7 @@ export class BloodSurfaces {
     return undefined;
   }
 
-  stamp(contact: SurfaceContact, tick: number): void {
+  stamp(contact: SurfaceContact, tick: number, palette: BloodPalette = 0): void {
     const { surface, x, y, radius, angle } = contact;
     const key = this.identities.get(surface) ?? surface;
     if ((surface.sprite.destroyed && typeof key !== 'number') || !surface.enabled) return;
@@ -190,7 +192,9 @@ export class BloodSurfaces {
     this.prune(stain, now);
     const { width, height } = surface;
     const nearby = stain.spots.find(
-      (spot) => Math.hypot((spot.x - x) * width, (spot.y - y) * height) < Math.max(radius, spot.radius),
+      (spot) =>
+        spot.palette === palette &&
+        Math.hypot((spot.x - x) * width, (spot.y - y) * height) < Math.max(radius, spot.radius),
     );
     if (nearby !== undefined) {
       nearby.radius = Math.min(MAX_RADIUS, Math.hypot(nearby.radius, radius * 0.6));
@@ -199,7 +203,7 @@ export class BloodSurfaces {
     } else {
       // Saturation may omit a separate new mark, but never erases a still-living patch.
       if (stain.spots.length === MAX_SPOTS) return;
-      stain.spots.push({ x, y, radius: Math.min(MAX_RADIUS, radius), angle, bornTick: tick, tick });
+      stain.spots.push({ palette, x, y, radius: Math.min(MAX_RADIUS, radius), angle, bornTick: tick, tick });
     }
     stain.tick = Math.max(stain.tick, tick);
     stain.spots.sort((a, b) => a.tick - b.tick);
@@ -263,7 +267,9 @@ export class BloodSurfaces {
             (Math.max(1, Math.min(MAX_RADIUS, Math.round(radius))) + direction * 16) * 65536;
       if (spot !== undefined) {
         const age = Math.max(0, tick - spot.tick);
-        const byte = age <= 16 ? 1 + Math.floor(age) : 17 + Math.floor((age - 16) / 5);
+        // Six age bits preserve fresh growth, then quantize drying; two retain each spot's pigment.
+        const clock = age <= 8 ? 1 + Math.floor(age) : 9 + Math.floor((age - 8) / 23);
+        const byte = clock + spot.palette * 64;
         ages += byte * 256 ** i;
       }
       if (data[i] !== packed) changed = true;

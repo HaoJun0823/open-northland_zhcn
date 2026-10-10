@@ -90,13 +90,13 @@ export class BloodGround {
     const start = this.count;
     const drops = bloodDrops(mark, bodyRise);
     const strength = mark.fatal ? 1 : mark.profile === 'blunt' ? 0.18 : mark.profile === 'pierce' ? 0.4 : 0.6;
-    const scale = strength * Math.sqrt(mark.amount) * (0.85 + frac(mark.seed, 91) * 0.45);
+    const scale = strength * Math.sqrt(mark.amount * mark.volume) * (0.85 + frac(mark.seed, 91) * 0.45);
     const angle = (frac(mark.seed, 90) - 0.5) * 0.5;
     const c = Math.cos(angle),
       s = Math.sin(angle);
     this.quad(
       mark,
-      this.textures.stain(mark.seed),
+      this.textures.stain(mark.seed, mark.palette),
       x,
       y,
       c * scale,
@@ -121,7 +121,7 @@ export class BloodGround {
         s = Math.sin(angle);
       this.quad(
         mark,
-        this.textures.stain(mark.seed + i * 7),
+        this.textures.stain(mark.seed + i * 7, mark.palette),
         x + drop.vx * drop.flight,
         y + drop.vy * drop.flight,
         c * scale * stretch,

@@ -1,4 +1,5 @@
 import { BufferImageSource, Rectangle, Texture } from 'pixi.js';
+import { BLOOD_PALETTES, type BloodPalette } from '../../data/effects/blood-appearance.js';
 import { frac } from '../../data/effects/random.js';
 
 const CELL = 48;
@@ -11,10 +12,12 @@ export class BloodTextures {
   private readonly source: BufferImageSource;
   readonly stains: readonly Texture[];
   readonly drop: Texture;
+  private readonly drops: readonly Texture[];
 
   constructor() {
     const width = CELL * COLUMNS;
-    const height = CELL * 3;
+    const paletteHeight = CELL * 3;
+    const height = paletteHeight * BLOOD_PALETTES.length;
     const pixels = new Uint8Array(width * height * 4);
     for (let variant = 0; variant < VARIANTS; variant++) {
       const seed = variant * 7919 + 17;
@@ -60,6 +63,24 @@ export class BloodTextures {
         );
       }
     }
+    const paletteBytes = width * paletteHeight * 4;
+    for (let palette = 1; palette < BLOOD_PALETTES.length; palette++) {
+      const transform = BLOOD_PALETTES[palette];
+      if (transform === undefined) continue;
+      for (let at = 0; at < paletteBytes; at += 4) {
+        for (let channel = 0; channel < 3; channel++) {
+          const sourceChannel = transform.swap ? 2 - channel : channel;
+          pixels[palette * paletteBytes + at + channel] = Math.min(
+            255,
+            Math.round(
+              (pixels[at + sourceChannel] ?? 0) * (transform.rgb[channel] ?? 1) +
+                (pixels[at] ?? 0) * transform.neutral,
+            ),
+          );
+        }
+        pixels[palette * paletteBytes + at + 3] = pixels[at + 3] ?? 0;
+      }
+    }
     this.source = new BufferImageSource({
       resource: pixels,
       width,
@@ -68,23 +89,41 @@ export class BloodTextures {
       autoGenerateMipmaps: false,
     });
     this.stains = Array.from(
-      { length: VARIANTS },
+      { length: VARIANTS * BLOOD_PALETTES.length },
       (_, i) =>
         new Texture({
           source: this.source,
-          frame: new Rectangle((i % COLUMNS) * CELL, (i >> 3) * CELL, CELL, CELL),
+          frame: new Rectangle(
+            (i % COLUMNS) * CELL,
+            ((i % VARIANTS) >> 3) * CELL + Math.floor(i / VARIANTS) * paletteHeight,
+            CELL,
+            CELL,
+          ),
         }),
     );
-    this.drop = new Texture({ source: this.source, frame: new Rectangle(0, CELL * 2, 8, 8) });
+    this.drops = BLOOD_PALETTES.map(
+      (_, palette) =>
+        new Texture({
+          source: this.source,
+          frame: new Rectangle(0, CELL * 2 + palette * paletteHeight, 8, 8),
+        }),
+    );
+    this.drop = this.droplet(0);
   }
 
-  stain(seed: number): Texture {
-    return this.stains[seed % VARIANTS] ?? this.drop;
+  stain(seed: number, palette: BloodPalette = 0): Texture {
+    return this.stains[palette * VARIANTS + (seed % VARIANTS)] ?? this.drop;
+  }
+
+  droplet(palette: BloodPalette): Texture {
+    const texture = this.drops[palette];
+    if (texture === undefined) throw new Error('Missing blood pigment');
+    return texture;
   }
 
   destroy(): void {
     for (const texture of this.stains) texture.destroy();
-    this.drop.destroy();
+    for (const texture of this.drops) texture.destroy();
     this.source.destroy();
   }
 }

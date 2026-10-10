@@ -5,6 +5,7 @@ import {
   MISSION_BEHAVIOUR,
   Owner,
   Position,
+  Settler,
   setMissionBehaviour,
 } from '../../src/components/index.js';
 import { eventAt } from '../../src/core/events.js';
@@ -145,13 +146,14 @@ describe('combatHit - a landed melee blow', () => {
     const target = sim.world.create();
     sim.world.add(target, Position, { x: fx.fromInt(3), y: fx.fromInt(8) });
     sim.world.add(target, Health, { hitpoints: 20, max: 500 });
+    sim.world.add(target, Settler, { tribe: 5, jobType: 30 });
     attack(sim, attacker, target, 100); // overkill
 
     sim.step();
 
     const evts = sim.snapshot().events;
     expect(evts.filter((ev) => ev.kind === 'combatHit')).toMatchObject([
-      { damage: 20, targetMaxHealth: 500 },
+      { damage: 20, targetMaxHealth: 500, targetIdentity: { tribe: 5, jobType: 30 } },
     ]);
     expect(evts.filter((ev) => ev.kind === 'settlerDied')).toHaveLength(1); // reaped same tick
     expect(sim.world.isAlive(target)).toBe(false);

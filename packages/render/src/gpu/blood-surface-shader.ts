@@ -6,7 +6,9 @@ vec3 surfaceSpot(vec3 colour, vec2 px, vec2 size, float packed, float clock, flo
   float shape = floor(packed / 65536.0);
   float radius = mod(shape, 16.0);
   if (radius < 1.0 || clock < 1.0) return colour;
-  float age = clock <= 17.0 ? clock - 1.0 : 16.0 + (clock - 17.0) * 5.0;
+  float palette = floor(clock / 64.0);
+  clock = mod(clock, 64.0);
+  float age = clock <= 9.0 ? clock - 1.0 : 8.0 + (clock - 9.0) * 23.0;
   float dry = smoothstep(48.0, 480.0, age);
   float opacity = 0.9 * (1.0 - smoothstep(${BLOOD_LIFETIME_TICKS * 0.6}.0, ${BLOOD_LIFETIME_TICKS}.0, age));
   vec2 centre = vec2(mod(packed, 256.0), mod(floor(packed / 256.0), 256.0)) / 255.0 * size;
@@ -31,7 +33,7 @@ vec3 surfaceSpot(vec3 colour, vec2 px, vec2 size, float packed, float clock, flo
   // A tiny wet highlight disappears as that particular patch dries.
   float glint = (1.0 - smoothstep(0.0, 0.24, length(delta - vec2(-0.2, -0.25)))) * (1.0 - dry);
   pigment += vec3(0.09, 0.035, 0.026) * glint;
-  return mix(colour, pigment, mask * opacity);
+  return mix(colour, bloodPalette(pigment, palette), mask * opacity);
 }
 vec3 splashBlood(vec3 colour, vec2 uv, vec2 size, vec4 splashes) {
   vec2 px = uv * size;

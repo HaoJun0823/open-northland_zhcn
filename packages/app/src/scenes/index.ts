@@ -27,6 +27,7 @@ import { collisionScene } from './collision.js';
 import { combatBloodScene } from './combat-blood.js';
 import { combatGesturesScene } from './combat-gestures.js';
 import { constructionScene } from './construction.js';
+import { creatureBloodScene } from './creature-blood.js';
 import { creatureFormsScene } from './creature-forms.js';
 import { creaturesScene } from './creatures.js';
 import { deathLootScene } from './death-loot.js';
@@ -118,6 +119,7 @@ export const SCENES: readonly SceneDefinition[] = [
   combatGesturesScene,
   byzantineSpearsScene,
   combatBloodScene,
+  creatureBloodScene,
   personalNamesScene,
   battleWearyScene,
   siegeScene,

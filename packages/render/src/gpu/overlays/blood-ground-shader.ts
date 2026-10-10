@@ -31,6 +31,8 @@ void main() {
   float fade = 1.0 - smoothstep(${BLOOD_LIFETIME_TICKS * 0.6}.0, ${BLOOD_LIFETIME_TICKS}.0, age);
   float dry = smoothstep(0.0, 1.0, (age - 48.0) / aShade.z);
   vec3 tint = floor(vec3(255.0) - dry * vec3(45.0, 95.0, 110.0) + 0.5);
+  // Four pigment bands share one atlas; navy uses the red pigment's drying curve on blue.
+  if (floor(aUV.y * 4.0) == 2.0) tint = tint.bgr;
   tint = floor(tint * aShade.y) / 255.0;
   float alpha = floor(clamp(spread * fade * aShade.x, 0.0, 1.0) * 255.0) / 255.0;
   vColour = vec4(tint * alpha, alpha) * uColor * uWorldColorAlpha;

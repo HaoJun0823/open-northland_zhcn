@@ -202,6 +202,10 @@ export const plContent = {
       summary:
         'Druidzi pracują przy kotłach, rybak idzie z wędką i łowi, a niemowlęta bawią się podczas postoju.',
     },
+    'creature-blood': {
+      title: 'Krew stworzeń',
+      summary: 'Od lewej: człowiek, wilkołak, wężołak i smok z 20 000 HP przyjmują ciosy mieczem.',
+    },
     'combat-blood': {
       title: 'Krew na polu bitwy',
       summary:

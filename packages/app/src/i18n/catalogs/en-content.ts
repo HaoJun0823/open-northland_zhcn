@@ -205,6 +205,10 @@ export const enContent = {
       summary:
         'Druids work at their cauldrons, a fisherman walks with his rod and catches fish, and babies fidget while idle.',
     },
+    'creature-blood': {
+      title: 'Creature blood',
+      summary: 'Left to right: human, werewolf, weresnake and a 20,000 HP dragon take sword hits.',
+    },
     'combat-blood': {
       title: 'Blood on the battlefield',
       summary:

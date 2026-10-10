@@ -1,6 +1,9 @@
+import { BLOOD_PALETTE_GLSL } from './blood-palette-shader.js';
+
 /** Authored splashes in layer-local UVs follow animation frames and use the body's existing coverage.
  * This is a surface approximation, not a wound attached to a skeletal animation. No texture taps. */
 export const BLOOD_COAT_GLSL = /* glsl */ `
+${BLOOD_PALETTE_GLSL}
 float bloodHash(vec2 p) {
   highp uvec2 cell = uvec2(ivec2(floor(p)));
   highp uint hash = cell.x * 1664525u + cell.y * 1013904223u;
@@ -20,7 +23,8 @@ float bloodNoise(vec2 p) {
 vec3 coatBlood(vec3 colour, vec2 uv, float coatData) {
   float amount = mod(coatData, 256.0) / 255.0;
   float dry = mod(floor(coatData / 256.0), 256.0) / 255.0;
-  float seed = floor(coatData / 65536.0);
+  float seed = mod(floor(coatData / 65536.0), 64.0);
+  float palette = floor(coatData / 4194304.0);
   vec2 p = uv * vec2(4.5, 6.0) + vec2(seed, seed * 0.37);
   float coarse = bloodNoise(p);
   float detail = bloodNoise(p * 2.13 + 17.0);
@@ -43,6 +47,6 @@ vec3 coatBlood(vec3 colour, vec2 uv, float coatData) {
   pigment *= 0.65 + light * 0.7;
   float glint = smoothstep(0.72, 0.86, grain) * smoothstep(0.5, 0.75, detail);
   pigment += vec3(0.2, 0.085, 0.065) * glint * (1.0 - dry);
-  return mix(colour, pigment, mask);
+  return mix(colour, bloodPalette(pigment, palette), mask);
 }
 `;

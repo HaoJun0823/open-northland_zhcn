@@ -204,6 +204,11 @@ export const deContent = {
       summary:
         'Druiden arbeiten an ihren Kesseln, ein Fischer läuft mit seiner Angel und fängt Fische, und Babys bewegen sich im Leerlauf.',
     },
+    'creature-blood': {
+      title: 'Kreaturenblut',
+      summary:
+        'Von links: Mensch, Werwolf, Werschlange und ein Drache mit 20.000 LP erleiden Schwerttreffer.',
+    },
     'combat-blood': {
       title: 'Blut auf dem Schlachtfeld',
       summary:

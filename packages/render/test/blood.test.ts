@@ -594,3 +594,32 @@ it('aligns the long axis of settled droplets with their travel on the projected 
     layer.destroy();
   }
 });
+
+it('keeps creature pigment at death and sizes 20000 HP dragon wounds without suppressing ordinary hits', () => {
+  const dragon = { tribe: 3, jobType: 32, scenario: true };
+  const [human, wolf, snake, beast, graze, fatal] = makeBloodMarks(
+    [
+      { ...shot, targetMaxHealth: 5000, targetIdentity: { tribe: 3, jobType: 32 } },
+      { ...shot, targetMaxHealth: 5000, targetIdentity: { tribe: 6, jobType: 30 } },
+      { ...shot, targetMaxHealth: 5000, targetIdentity: { tribe: 5, jobType: 30 } },
+      { ...shot, targetMaxHealth: 20000, targetIdentity: dragon },
+      { ...shot, damage: 1, targetMaxHealth: 20000, targetIdentity: dragon },
+      { ...shot, damage: 20000, targetMaxHealth: 20000, targetIdentity: dragon },
+      death,
+    ],
+    0,
+    snapshotOf([]),
+  );
+  if (!human || !wolf || !snake || !beast || !graze || !fatal) throw new Error('Missing creature wounds');
+  expect([human.palette, wolf.palette, snake.palette, beast.palette]).toEqual([0, 1, 2, 3]);
+  expect(beast.amount).toBe(human.amount);
+  expect(beast.amount).toBe(0.2);
+  expect(bloodDrops(wolf).length).toBeGreaterThan(bloodDrops(human).length);
+  expect(bloodDrops(beast).length).toBeGreaterThan(bloodDrops(wolf).length);
+  expect(bloodDrops({ ...beast, seed: human.seed })[0]?.size).toBeGreaterThan(
+    bloodDrops(human)[0]?.size ?? 0,
+  );
+  expect(graze.amount).toBeCloseTo(0.0008);
+  expect(fatal).toMatchObject({ fatal: true, palette: 3, amount: 1 });
+  expect(bloodDrops({ ...fatal, profile: 'cut' })).toHaveLength(21);
+});

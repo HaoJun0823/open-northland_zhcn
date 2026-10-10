@@ -112,7 +112,7 @@ describe('blood meeting scenery', () => {
     surfaces.stamp({ surface, x: 0.7, y: 0.5, radius: 4, angle: 0, age: 1 }, 10);
     expect(s._didViewChangeTick).toBeGreaterThan(viewTick);
     surfaces.draw(490);
-    expect(Math.floor((surface.packed[3] ?? 0) / 65536)).toBe(109);
+    expect(Math.floor((surface.packed[3] ?? 0) / 65536)).toBe(29);
     s.destroy();
     const next = sprite(root);
     surfaces.restore(next, 42, 0);
@@ -272,7 +272,7 @@ describe('blood meeting scenery', () => {
     surfaces.stamp({ ...base, x: 0.1 }, 0);
     surfaces.stamp({ ...base, x: 0.9 }, 600);
     const ages = Math.abs(surface.packed[3] ?? 0);
-    expect(ages % 256).toBeGreaterThan(100);
+    expect(ages % 256).toBe(34);
     expect(Math.floor(ages / 256)).toBe(1);
     surfaces.draw(BLOOD_LIFETIME_TICKS);
     expect((surface.packed[0] ?? 0) % 256).toBe(Math.round(0.9 * 255));
@@ -355,10 +355,32 @@ describe('blood meeting scenery', () => {
     expect(surface.packed[0]).toBe(newerShape);
     expect(surface.packed.slice(1, 3).every((value) => value === 0)).toBe(true);
     const ages = Math.abs(surface.packed[3] ?? 0);
-    expect(ages).toBeGreaterThan(100);
-    expect(ages).toBeLessThan(200);
+    expect(ages).toBe(34);
     surfaces.draw(605 + BLOOD_LIFETIME_TICKS);
     expect([...surface.packed]).toEqual(new Array(4).fill(0));
     root.destroy({ children: true });
   });
+});
+
+it('preserves separate pigments at the same contact and carries them through drying and reminting', () => {
+  const root = new Container();
+  const first = sprite(root);
+  const surfaces = new BloodSurfaces();
+  surfaces.restore(first, 12, 0);
+  const surface = bloodSurface(first, 0, { flat: true });
+  const contact = { surface, x: 0.5, y: 0.5, radius: 4, angle: 0, age: 0 };
+  surfaces.stamp(contact, 0, 0);
+  surfaces.stamp(contact, 1, 2);
+  surfaces.draw(600);
+  const ages = surface.packed[3] ?? 0;
+  expect(Math.floor((ages % 256) / 64)).toBe(0);
+  expect(Math.floor(ages / 256 / 64)).toBe(2);
+  const packed = [...surface.packed];
+  first.destroy();
+  const next = sprite(root);
+  surfaces.restore(next, 12, 0);
+  expect([...(surfaceOf(next)?.packed ?? [])]).toEqual(packed);
+  surfaces.clear();
+  expect([...(surfaceOf(next)?.packed ?? [])]).toEqual([0, 0, 0, 0]);
+  root.destroy({ children: true });
 });

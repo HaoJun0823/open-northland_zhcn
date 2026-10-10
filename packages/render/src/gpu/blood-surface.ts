@@ -8,7 +8,7 @@ export class BloodSurfaceSprite extends Sprite {
 
 export interface BloodSurface {
   sprite: BloodSurfaceSprite;
-  /** Three local splats and their packed age bytes; negative ages mean upright. */
+  /** Three local splats and packed age/pigment bytes; negative clocks mean upright. */
   readonly packed: Float32Array;
   enabled: boolean;
   /** Pre-lift ground row prevents tall, distant silhouettes intercepting a nearby burst. */

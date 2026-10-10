@@ -1,5 +1,6 @@
 import type { ChestKind } from '../components/chest.js';
 import type { Paper } from '../components/papers.js';
+import type { SettlerIdentity } from '../components/settler.js';
 import type { Entity } from '../ecs/world.js';
 import { type HalfCellNode, nodeOfPosition } from '../nav/halfcell.js';
 import type { Fixed } from './fixed.js';
@@ -227,6 +228,8 @@ export type SimEvent =
       /** Wounding hitpoints after protection, capped to the living pool before instant healing. */
       readonly damage: number;
       readonly targetMaxHealth: number;
+      /** Identity at impact survives death and subsequent transformations. */
+      readonly targetIdentity?: SettlerIdentity;
       readonly attacker: Entity;
       readonly attackerPlayer?: number;
       readonly target: Entity;
@@ -302,6 +305,8 @@ export type SimEvent =
       /** Wounding hitpoints and pool size, with the same semantics as combatHit. */
       readonly damage: number;
       readonly targetMaxHealth: number;
+      /** Identity at impact survives death and subsequent transformations. */
+      readonly targetIdentity?: SettlerIdentity;
       readonly projectile: Entity;
       readonly shooter: Entity;
       readonly shooterPlayer?: number;

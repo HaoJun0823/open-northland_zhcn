@@ -65,7 +65,7 @@ export interface GameToolPanelDeps {
   readonly camera: () => Camera;
   /** A closure, so it follows a scene restart. */
   readonly enqueue: (command: PlayerCommand) => void;
-  /** The admin channel for the debug palette's standing-wall line; absent where world edits are off. */
+  /** The admin channel for the debug tools' standing-wall line; absent where world edits are off. */
   readonly enqueueTrusted?: (command: Command) => void;
   /** Gates the placement click; a closure, so it follows a scene restart. */
   readonly canPlaceAt: (typeId: number, tribe: number, col: number, row: number, paper?: Paper) => boolean;

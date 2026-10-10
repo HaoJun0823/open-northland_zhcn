@@ -1784,7 +1784,8 @@ body.on-drag-scroll * {
   padding-right: 5px;
   border-right: 1px solid var(--bronze-lo);
 }
-.on-hud .on-bar__lead:empty {
+/* Empty, or holding only a hidden toggle (the debug tools switched off). */
+.on-hud .on-bar__lead:not(:has(> :not([hidden]))) {
   display: none;
 }
 .on-hud .on-perf {

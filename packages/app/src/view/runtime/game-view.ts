@@ -979,7 +979,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       barLead,
       initialToolsEnabled: storedSettings.debugToolsEnabled,
       allowWorldEdits: !sharedClock,
-      // The admin palette is a dev channel rather than part of the seat's HUD, so a read-only spectator
+      // The debug tools are a dev channel rather than part of the seat's HUD, so a read-only spectator
       // still pokes with it.
       enqueue: issueTrusted,
       renderer,

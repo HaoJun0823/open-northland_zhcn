@@ -249,7 +249,7 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
   };
 
   // The game menu is the ladder's last rung when Escape is its key: it opens in the bubble phase, so a
-  // DOM surface with an Escape of its own (a counter's breakdown, a pinned note, the admin palette)
+  // DOM surface with an Escape of its own (a counter's breakdown, a pinned note, the debug tools' panel)
   // takes the press first once the rungs above are clear, and only when the unit controls did not.
   const onEscapeMenu = (e: KeyboardEvent): void => {
     if (e.code !== 'Escape' || e.defaultPrevented || !isActionHotkey(e, deps.bindings, 'gameMenu')) return;

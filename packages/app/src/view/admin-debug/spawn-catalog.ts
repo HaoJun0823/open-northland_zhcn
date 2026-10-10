@@ -28,7 +28,7 @@ import {
 } from '../../game/sandbox/ids/index.js';
 
 /**
- * The tables the admin spawn palette offers. Everything is driven off the shared sandbox ids, so a new
+ * The tables the debug tools' spawn tab offers. Everything is driven off the shared sandbox ids, so a new
  * soldier class or gatherer shows up here for free.
  */
 
@@ -41,7 +41,7 @@ export interface UnitPreset {
   readonly weaponTypeId?: number;
 }
 
-/** The per-spawn knobs the palette applies to every unit it drops; a resource ignores them. */
+/** The per-spawn settings the panel applies to every unit it drops; a resource ignores them. */
 export interface UnitSpawnOptions {
   /** A slot in `[0, MAX_PLAYERS)`. */
   readonly player: number;

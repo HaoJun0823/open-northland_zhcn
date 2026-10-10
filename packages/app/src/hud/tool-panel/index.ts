@@ -156,7 +156,7 @@ export interface ToolPanelOptions {
   };
   /** Submit a seat command into the sim. */
   readonly enqueue: (command: PlayerCommand) => void;
-  /** The admin channel, for the debug palette's standing-wall line; absent where world edits are off. */
+  /** The admin channel, for the debug tools' standing-wall line; absent where world edits are off. */
   readonly enqueueTrusted?: (command: Command) => void;
   /** The assistant window's live state, commands and tooltip chip. */
   readonly assistant: AssistantSource;

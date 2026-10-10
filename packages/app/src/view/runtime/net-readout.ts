@@ -1,5 +1,5 @@
-/** The connection figures a relayed session shows: on the perf overlay, in `perf()`, and beside the
- *  player list. Null fields are not measured yet. */
+/** The connection figures a relayed session shows: in `perf()` and beside the player list. Null fields
+ *  are not measured yet. */
 export interface NetReadout {
   readonly connected: boolean;
   readonly roundTripMs: number | null;

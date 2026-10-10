@@ -1,5 +1,10 @@
-import { bcp47Tag, formatMessage, messages } from '../../../i18n/index.js';
-import { formatPlaytime, formatSavedAt } from '../../../view/runtime/save-load/list-model.js';
+import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
+import { formatPlaytime, formatSavedAgo, formatSavedAt } from '../../../view/runtime/save-load/list-model.js';
+import {
+  type Playthrough,
+  playthroughsOf,
+  type RunningWorld,
+} from '../../../view/runtime/save-load/playthroughs.js';
 import type { SaveSlotInfo } from '../../../view/runtime/save-load/store.js';
 import type { WorldNameOf } from '../../../view/runtime/save-load/world-names.js';
 import { GLYPH } from '../icons.js';
@@ -7,8 +12,11 @@ import { button, element, setTip } from '../parts/dom.js';
 import { foldedName } from '../parts/name-search.js';
 
 export interface SlotSheetOptions {
-  /** A row the running world cannot load: dimmed and tagged, still selectable for export and delete. */
+  /** A save the running world cannot load: its game is dimmed and tagged, its rows still selectable
+   *  for export and delete. */
   readonly foreign?: (slot: SaveSlotInfo) => boolean;
+  /** The game running now, whose saves come first and open. */
+  readonly running: RunningWorld | null;
   readonly emptyHint: string;
   readonly onSelect: (slot: SaveSlotInfo | null) => void;
   /** Double click or Enter on a row. */
@@ -23,14 +31,23 @@ export interface SlotSheet {
   /** The store could not be read: the list says so instead of looking empty. */
   showFailure(text: string): void;
   filter(query: string): void;
+  /** Select a row, opening its game; a row the search hides waits until the search shows it. */
   select(id: string | null): void;
   selected(): SaveSlotInfo | null;
-  /** Focus the selected row, or the first one. */
+  /** Focus the selected row, or the first entry. */
   focus(): boolean;
+}
+
+interface Group {
+  readonly playthrough: Playthrough;
+  readonly item: HTMLLIElement;
+  readonly head: HTMLButtonElement;
+  readonly rows: HTMLUListElement;
 }
 
 interface Row {
   readonly slot: SaveSlotInfo;
+  readonly group: Group;
   readonly item: HTMLLIElement;
   readonly pick: HTMLButtonElement;
   readonly del: HTMLButtonElement;
@@ -48,43 +65,62 @@ function textElement<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-/** The saves on a parchment sheet: newest first, one selected row, a bin on the row it belongs to. */
+/** The saves on a parchment sheet, one collapsible group per game: newest first, one selected row, a
+ *  bin on the row it belongs to. */
 export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
   const copy = messages().saveList;
   const el = element('div', 'on-parchment on-saves__sheet');
-  const head = element('div', 'on-saves__head');
-  for (const label of [copy.columnName, copy.columnPlaytime, copy.columnSavedAt]) {
-    head.append(textElement('span', '', label));
-  }
   const list = element('ul', 'on-saves__list');
-  list.setAttribute('aria-label', copy.columnName);
+  list.setAttribute('aria-label', copy.listLabel);
   const empty = element('div', 'on-saves__empty');
   empty.setAttribute('role', 'status');
-  el.append(head, list, empty);
+  el.append(list, empty);
 
+  let groups: Group[] = [];
   let rows: Row[] = [];
   let current: Row | null = null;
-  /** The selection a search hid, picked again once the search shows it. */
-  let filteredOut: Row | null = null;
+  /** The selection a search or a closed group hid, picked again once it shows. */
+  let parked: Row | null = null;
   let query = '';
+  /** Games the player opened, by playthrough key; kept across redraws while the window lives. */
+  const open = new Set<string>();
+  let opened = false;
+  /** Picture URLs of the drawn rows, released when the rows are replaced. */
+  let pictures: string[] = [];
 
-  const visible = (): Row[] => rows.filter((row) => !row.item.hidden);
+  const searching = (): boolean => foldedName(query) !== '';
+  const matches = (row: Row): boolean => !row.item.hidden;
+  const expanded = (group: Group): boolean => searching() || open.has(group.playthrough.key);
+  const shows = (row: Row): boolean => matches(row) && expanded(row.group);
+  /** The keyboard's walk: each shown game's head, then its shown rows. */
+  const entries = (): HTMLButtonElement[] =>
+    groups
+      .filter((group) => !group.item.hidden)
+      .flatMap((group) => [
+        group.head,
+        ...rows.filter((row) => row.group === group && shows(row)).map((row) => row.pick),
+      ]);
 
   const mark = (): void => {
-    const shown = visible();
-    // Roving tab stop: the selected row, or the first one, is the list's only stop.
-    const stop = current !== null && !current.item.hidden ? current : (shown[0] ?? null);
+    const walk = entries();
+    // Roving tab stop: the selected row, or the first entry, is the list's only stop.
+    const stop = current !== null && shows(current) ? current.pick : (walk[0] ?? null);
+    for (const group of groups) {
+      group.head.setAttribute('aria-expanded', String(expanded(group)));
+      group.rows.hidden = !expanded(group);
+      group.head.tabIndex = group.head === stop ? 0 : -1;
+    }
     for (const row of rows) {
       const on = row === current;
       row.item.classList.toggle('is-selected', on);
       row.pick.setAttribute('aria-pressed', String(on));
-      row.pick.tabIndex = row === stop ? 0 : -1;
+      row.pick.tabIndex = row.pick === stop ? 0 : -1;
       row.del.tabIndex = on ? 0 : -1;
     }
   };
 
   const choose = (row: Row | null): void => {
-    if (row !== null) filteredOut = null;
+    if (row !== null) parked = null;
     if (row === current) return;
     current = row;
     mark();
@@ -96,43 +132,91 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
     empty.hidden = false;
   };
 
-  const applyFilter = (): void => {
+  /** Settle the selection and the list after a search, a redraw or a game opening or closing. */
+  const sync = (): void => {
     const needle = foldedName(query);
     for (const row of rows) row.item.hidden = needle !== '' && !row.haystack.includes(needle);
-    if (current?.item.hidden === true) {
-      filteredOut = current;
+    for (const group of groups) group.item.hidden = !rows.some((row) => row.group === group && matches(row));
+    if (current !== null && !shows(current)) {
+      const hidden = current;
       choose(null);
-    } else if (current === null && filteredOut !== null && !filteredOut.item.hidden) choose(filteredOut);
-    const shown = visible().length;
-    head.hidden = shown === 0;
+      parked = hidden;
+    } else if (current === null && parked !== null && shows(parked)) choose(parked);
+    const shown = rows.filter(matches).length;
     if (rows.length === 0) showEmpty(copy.empty, opts.emptyHint);
     else if (shown === 0) showEmpty(formatMessage(copy.noMatch, { query: query.trim() }), '');
     else empty.hidden = true;
     mark();
   };
 
-  const rowOf = (slot: SaveSlotInfo, worldName: WorldNameOf): Row => {
-    const world = worldName(slot.mapId);
+  const toggle = (group: Group, opening: boolean): void => {
+    if (searching()) return;
+    if (opening) open.add(group.playthrough.key);
+    else open.delete(group.playthrough.key);
+    sync();
+  };
+
+  const groupOf = (playthrough: Playthrough, worldName: WorldNameOf, now: number): Group => {
+    const tag = bcp47Tag();
+    const item = element('li', 'on-saves__group');
+    const head = button('on-saves__group-head', GLYPH.down);
+    const title = element('span', 'on-saves__group-title');
+    title.append(textElement('strong', 'on-saves__group-name', worldName(playthrough.mapId) ?? '-'));
+    if (playthrough.ordinal !== null) {
+      const ordinal = formatMessage(copy.playthrough, { n: playthrough.ordinal });
+      title.append(textElement('span', 'on-saves__group-ordinal', ordinal));
+    }
+    if (playthrough.current) title.append(textElement('span', 'on-saves__tag is-current', copy.currentGame));
+    const newest = playthrough.slots[0];
+    if (newest !== undefined && opts.foreign?.(newest) === true) {
+      item.classList.add('is-foreign');
+      title.append(textElement('span', 'on-saves__tag', copy.otherWorld));
+    }
+    const count = playthrough.slots.length;
+    const summary = [
+      formatMessage(pluralForm(count, copy.saveCount, tag), { count }),
+      formatSavedAgo(newest?.savedAt ?? null, now, tag),
+    ].join(' · ');
+    head.append(title, textElement('span', 'on-saves__group-meta', summary));
+    const rowList = element('ul', 'on-saves__rows');
+    item.append(head, rowList);
+    const group: Group = { playthrough, item, head, rows: rowList };
+    head.addEventListener('click', () => toggle(group, !open.has(playthrough.key)));
+    return group;
+  };
+
+  const rowOf = (slot: SaveSlotInfo, group: Group, worldName: WorldNameOf, now: number): Row => {
+    const tag = bcp47Tag();
     const item = element('li', 'on-saves__row');
     const pick = button('on-saves__pick');
+    const thumb = element('span', 'on-saves__thumb');
+    if (slot.thumbnail !== null) {
+      const url = URL.createObjectURL(slot.thumbnail);
+      pictures.push(url);
+      const image = element('img', '');
+      image.alt = '';
+      image.decoding = 'async';
+      image.loading = 'lazy';
+      image.src = url;
+      thumb.append(image);
+    } else thumb.innerHTML = GLYPH.papers;
+    const playtime = slot.tick !== null ? formatPlaytime(slot.tick) : '-';
     const title = element('span', 'on-saves__title');
-    const map = textElement('span', 'on-saves__map', world ?? '-');
-    title.append(textElement('strong', 'on-saves__name', slot.name), map);
-    pick.append(
-      title,
-      textElement('span', 'on-saves__num', slot.tick !== null ? formatPlaytime(slot.tick) : '-'),
-      textElement('span', 'on-saves__num', formatSavedAt(slot.savedAt, bcp47Tag())),
+    title.append(
+      textElement('strong', 'on-saves__name', slot.name),
+      textElement('span', 'on-saves__sub', formatMessage(copy.playtime, { time: playtime })),
     );
-    if (opts.foreign?.(slot) === true) {
-      item.classList.add('is-foreign');
-      map.append(textElement('span', 'on-saves__tag', copy.otherWorld));
-    }
+    const when = textElement('span', 'on-saves__when', formatSavedAgo(slot.savedAt, now, tag));
+    setTip(when, formatSavedAt(slot.savedAt, tag));
+    pick.append(thumb, title, when);
     const del = button('on-saves__del', GLYPH.bin);
     const delLabel = formatMessage(copy.deleteNamed, { name: slot.name });
     del.setAttribute('aria-label', delLabel);
     setTip(del, delLabel);
     item.append(pick, del);
-    const row: Row = { slot, item, pick, del, haystack: foldedName(`${slot.name} ${world ?? ''}`) };
+    group.rows.append(item);
+    const haystack = foldedName(`${slot.name} ${worldName(slot.mapId) ?? ''}`);
+    const row: Row = { slot, group, item, pick, del, haystack };
     pick.addEventListener('click', () => choose(row));
     pick.addEventListener('dblclick', () => opts.onActivate?.(slot));
     // The confirmation names the save, so the bin leaves the selection and what it filled alone.
@@ -140,68 +224,92 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
     return row;
   };
 
+  const focusEntry = (node: HTMLButtonElement | undefined): void => {
+    if (node === undefined) return;
+    const row = rows.find((candidate) => candidate.pick === node);
+    if (row !== undefined) choose(row);
+    node.focus();
+    node.scrollIntoView({ block: 'nearest' });
+  };
+
   list.addEventListener('keydown', (event) => {
-    const shown = visible();
-    const at = current === null ? -1 : shown.indexOf(current);
-    let next: Row | undefined;
-    if (event.key === 'ArrowDown') next = shown[Math.min(at + 1, shown.length - 1)];
-    else if (event.key === 'ArrowUp') next = shown[Math.max(at - 1, 0)];
-    else if (event.key === 'Home') next = shown[0];
-    else if (event.key === 'End') next = shown.at(-1);
-    else if (event.key === 'Enter' && current !== null && event.target === current.pick) {
-      event.preventDefault();
-      opts.onActivate?.(current.slot);
-      return;
-    } else if (event.key === 'Delete' && current !== null) {
-      event.preventDefault();
-      opts.onDelete(current.slot);
-      return;
-    } else return;
+    const walk = entries();
+    const at = event.target instanceof HTMLButtonElement ? walk.indexOf(event.target) : -1;
+    const group = groups.find((candidate) => candidate.head === event.target);
+    const row = rows.find((candidate) => candidate.pick === event.target);
+    if (event.key === 'ArrowDown') focusEntry(walk[Math.min(at + 1, walk.length - 1)]);
+    else if (event.key === 'ArrowUp') focusEntry(walk[Math.max(at - 1, 0)]);
+    else if (event.key === 'Home') focusEntry(walk[0]);
+    else if (event.key === 'End') focusEntry(walk.at(-1));
+    else if (event.key === 'ArrowRight' && group !== undefined) toggle(group, true);
+    else if (event.key === 'ArrowLeft' && group !== undefined) toggle(group, false);
+    else if (event.key === 'ArrowLeft' && row !== undefined) focusEntry(row.group.head);
+    else if (event.key === 'Enter' && row !== undefined) opts.onActivate?.(row.slot);
+    else if (event.key === 'Delete' && row !== undefined) opts.onDelete(row.slot);
+    else return;
     event.preventDefault();
-    if (next === undefined) return;
-    choose(next);
-    next.pick.focus();
-    next.item.scrollIntoView({ block: 'nearest' });
   });
+
+  const release = (): void => {
+    for (const url of pictures) URL.revokeObjectURL(url);
+    pictures = [];
+  };
 
   return {
     el,
     show(slots, worldName) {
       const keep = current?.slot.id ?? null;
-      rows = slots.map((slot) => rowOf(slot, worldName));
-      list.replaceChildren(...rows.map((row) => row.item));
+      const now = Date.now();
+      release();
+      groups = playthroughsOf(slots, opts.running).map((playthrough) => groupOf(playthrough, worldName, now));
+      rows = groups.flatMap((group) =>
+        group.playthrough.slots.map((slot) => rowOf(slot, group, worldName, now)),
+      );
+      list.replaceChildren(...groups.map((group) => group.item));
+      // The first list opens the game running now, or else the newest one.
+      if (!opened && groups[0] !== undefined) {
+        opened = true;
+        open.add(groups[0].playthrough.key);
+      }
       current = rows.find((row) => row.slot.id === keep) ?? null;
-      filteredOut = null;
+      parked = null;
       if (current === null && keep !== null) opts.onSelect(null);
-      applyFilter();
+      sync();
     },
     showFailure(text) {
+      release();
+      groups = [];
       rows = [];
       list.replaceChildren();
-      head.hidden = true;
       if (current !== null) choose(null);
       showEmpty(text, '');
     },
     filter(next) {
       query = next;
-      applyFilter();
+      sync();
     },
     select(id) {
       const row = rows.find((candidate) => candidate.slot.id === id) ?? null;
-      filteredOut = null;
-      // A row the search hides waits for it, so no action ever runs on a save the player cannot see.
-      if (row?.item.hidden === true) {
+      parked = null;
+      if (row === null) {
         choose(null);
-        filteredOut = row;
+        return;
+      }
+      open.add(row.group.playthrough.key);
+      if (!matches(row)) {
+        choose(null);
+        parked = row;
+        sync();
         return;
       }
       choose(row);
-      row?.item.scrollIntoView({ block: 'nearest' });
+      sync();
+      row.item.scrollIntoView({ block: 'nearest' });
     },
     selected: () => current?.slot ?? null,
     focus() {
-      const target = current !== null && !current.item.hidden ? current : visible()[0];
-      target?.pick.focus();
+      const target = current !== null && shows(current) ? current.pick : entries()[0];
+      target?.focus();
       return target !== undefined;
     },
   };

@@ -3,6 +3,7 @@ import {
   autoSaveName,
   displayNameOf,
   formatPlaytime,
+  formatSavedAgo,
   formatSavedAt,
   MAX_SAVE_NAME_LENGTH,
   sanitizedSaveName,
@@ -26,6 +27,24 @@ describe('formatSavedAt', () => {
   it('renders a dash for an unknown timestamp and a localized stamp otherwise', () => {
     expect(formatSavedAt(null, 'pl')).toBe('-');
     expect(formatSavedAt(Date.UTC(2026, 0, 15, 12, 30), 'pl')).toMatch(/2026/);
+  });
+});
+
+describe('formatSavedAgo', () => {
+  const NOW = Date.UTC(2026, 9, 10, 12, 0);
+  const MINUTE = 60_000;
+  const HOUR = 60 * MINUTE;
+
+  it('reads recent saves as time ago and older ones as their date', () => {
+    expect(formatSavedAgo(NOW - 20_000, NOW, 'en')).toBe('now');
+    expect(formatSavedAgo(NOW - 5 * MINUTE, NOW, 'en')).toBe('5 minutes ago');
+    expect(formatSavedAgo(NOW - 3 * HOUR, NOW, 'en')).toBe('3 hours ago');
+    expect(formatSavedAgo(NOW - 25 * HOUR, NOW, 'en')).toBe(formatSavedAt(NOW - 25 * HOUR, 'en'));
+    expect(formatSavedAgo(null, NOW, 'en')).toBe('-');
+  });
+
+  it('reads a save stamped ahead of the clock as just written', () => {
+    expect(formatSavedAgo(NOW + MINUTE, NOW, 'en')).toBe('now');
   });
 });
 

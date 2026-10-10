@@ -109,7 +109,13 @@ describe('evaluateSaveFile', () => {
 
 interface StoredSlot {
   readonly bytes: SaveBytes;
-  readonly meta: { mapId: string | null; tick: number; entry: string | null };
+  readonly meta: {
+    mapId: string | null;
+    tick: number;
+    entry: string | null;
+    seed: number;
+    thumbnail: Blob | null;
+  };
 }
 
 interface Harness {
@@ -136,6 +142,7 @@ function harness(
     sessionMetadata?: () => unknown;
     onSaved?: (file: SaveFile) => Promise<void>;
     loadRelatedWorld?: (save: SaveGame, bytes: SaveBytes) => Promise<void>;
+    captureThumbnail?: () => Promise<Blob | null>;
   } = {},
 ): Harness {
   let paused = overrides.startPaused === true;
@@ -149,6 +156,7 @@ function harness(
     ...(overrides.sessionMetadata === undefined ? {} : { sessionMetadata: overrides.sessionMetadata }),
     ...(overrides.onSaved === undefined ? {} : { onSaved: overrides.onSaved }),
     ...(overrides.loadRelatedWorld === undefined ? {} : { loadRelatedWorld: overrides.loadRelatedWorld }),
+    ...(overrides.captureThumbnail === undefined ? {} : { captureThumbnail: overrides.captureThumbnail }),
     host: inlineSessionHost(sim),
     worldToken: WORLD_TOKEN,
     entrySearch: ENTRY_SEARCH,
@@ -180,6 +188,8 @@ function harness(
             tick: slot.meta.tick,
             entry: slot.meta.entry,
             savedAt: 0,
+            seed: slot.meta.seed,
+            thumbnail: slot.meta.thumbnail,
           })),
         ),
       read: (id) => Promise.resolve(store.get(id)?.bytes ?? null),
@@ -286,8 +296,21 @@ describe('saveLoadSession save flow', () => {
       tick: sim.tick,
       entry: ENTRY_SEARCH,
       savedAt: doc.header.savedAt,
+      seed: sim.seed,
+      thumbnail: null,
     });
     expect(h.paused()).toBe(false);
+  });
+
+  it('stores the picture beside the slot and still saves when taking it fails', async () => {
+    const picture = new Blob(['picture'], { type: 'image/webp' });
+    const pictured = harness(demoSim(), { captureThumbnail: () => Promise.resolve(picture) });
+    await expect(pictured.session.saveGame('With')).resolves.toEqual({ kind: 'saved' });
+    expect(pictured.store.get('With')?.meta.thumbnail).toBe(picture);
+
+    const failing = harness(demoSim(), { captureThumbnail: () => Promise.reject(new Error('context lost')) });
+    await expect(failing.session.saveGame('Without')).resolves.toEqual({ kind: 'saved' });
+    expect(failing.store.get('Without')?.meta.thumbnail).toBeNull();
   });
 
   it('keeps slot metadata at the captured tick while a shared session advances during compression', async () => {
@@ -365,7 +388,7 @@ describe('saveLoadSession slot load and export', () => {
     const save = exportSaveGame(demoSim(), { mapId: WORLD_TOKEN, entry: other });
     h.store.set('Other', {
       bytes: await compressSaveText(serializeSaveGame(save)),
-      meta: { mapId: WORLD_TOKEN, tick: 0, entry: other },
+      meta: { mapId: WORLD_TOKEN, tick: 0, entry: other, seed: 0, thumbnail: null },
     });
     await expect(h.session.loadSave('Other')).resolves.toEqual({ kind: 'loading' });
     expect([h.reloads(), relaunched]).toEqual([1, [other]]);

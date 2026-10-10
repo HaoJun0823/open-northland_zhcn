@@ -40,10 +40,16 @@ export interface SaveLoadDeps {
   readonly store: SaveStore;
   readonly sessionMetadata?: () => unknown;
   readonly onSaved?: (file: SaveFile) => Promise<void>;
+  /** The running world's seed, which names its playthrough; null when the entry does not know it. */
+  readonly worldSeed?: number | null;
+  /** A small picture of the world for the save list; absent or null, the save lists without one. */
+  readonly captureThumbnail?: () => Promise<Blob | null>;
 }
 
 export interface SaveLoadSession {
   readonly worldToken: string | null;
+  /** With `worldToken`, the running playthrough (`SaveSlotInfo.seed`). */
+  readonly worldSeed: number | null;
   listSaves(): Promise<SaveSlotInfo[]>;
   /** Write the running game into the named slot, overwriting a same-named save. */
   saveGame(name: string): Promise<SaveOutcome>;
@@ -135,19 +141,35 @@ export function saveLoadSession(deps: SaveLoadDeps): SaveLoadSession {
     return { kind: 'loading' };
   };
 
+  /** A picture is a nicety: failing to take one never fails the save. */
+  const captureThumbnail = async (): Promise<Blob | null> => {
+    if (deps.captureThumbnail === undefined) return null;
+    try {
+      return await deps.captureThumbnail();
+    } catch (err) {
+      diag.warn('save', `save thumbnail failed: ${String(err)}`);
+      return null;
+    }
+  };
+
   return {
     worldToken,
+    worldSeed: deps.worldSeed ?? null,
 
     listSaves: () => deps.store.list(),
 
     async saveGame(name: string): Promise<SaveOutcome> {
       try {
+        // The world first: a shared clock may advance while the picture is taken.
         const file = await captureRunning();
+        const thumbnail = await captureThumbnail();
         await deps.store.write(name, file.bytes, {
           mapId: worldToken,
           tick: file.header.tick,
           entry: deps.entrySearch,
           savedAt: file.header.savedAt,
+          seed: file.header.seed,
+          thumbnail,
         });
         if (deps.onSaved !== undefined) {
           try {

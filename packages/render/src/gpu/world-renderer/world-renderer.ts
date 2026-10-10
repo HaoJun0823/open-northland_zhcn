@@ -1,5 +1,5 @@
 import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
-import { type Application, Container } from 'pixi.js';
+import { type Application, Container, type ICanvas } from 'pixi.js';
 import type { LightGrade } from '../../data/lighting/types.js';
 import { cameraViewport, snapCameraToDevicePixels } from '../../data/projection/index.js';
 import {
@@ -191,6 +191,19 @@ export class WorldRenderer {
     this.setGraphicsEnhancements(opts?.enhancements ?? BASELINE_ENHANCEMENTS);
     this.setBloodEnabled(opts?.bloodEnabled ?? true);
     this.setBonesFade(opts?.bonesFade ?? true);
+  }
+
+  /** One render of the screen as the world stands, weather and light included, without the chrome or
+   *  any HUD layer on the stage: a save's picture. */
+  worldPicture(resolution: number): ICanvas {
+    const world = new Set<Container>([this.worldLayer, this.weatherSky.container, this.sceneLight.container]);
+    const covering = this.app.stage.children.filter((child) => child.visible && !world.has(child));
+    for (const child of covering) child.visible = false;
+    try {
+      return this.app.renderer.extract.canvas({ target: this.app.stage, frame: this.app.screen, resolution });
+    } finally {
+      for (const child of covering) child.visible = true;
+    }
   }
 
   setGraphicsEnhancements(next: WorldEnhancements): void {

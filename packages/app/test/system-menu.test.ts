@@ -49,6 +49,7 @@ function mount(
   let hudScale = 1;
   const saveLoad: SaveLoadSession = {
     worldToken: null,
+    worldSeed: null,
     listSaves: async () => [],
     saveGame: async () => ({ kind: 'saved' }),
     stageForReload: async () => undefined,

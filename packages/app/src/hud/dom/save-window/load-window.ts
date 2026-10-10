@@ -1,5 +1,6 @@
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { flowRunner } from '../../../view/runtime/save-load/flow-runner.js';
+import { playthroughsOf } from '../../../view/runtime/save-load/playthroughs.js';
 import type { SaveSlotInfo } from '../../../view/runtime/save-load/store.js';
 import { worldNameIndex } from '../../../view/runtime/save-load/world-names.js';
 import { GLYPH } from '../icons.js';
@@ -34,8 +35,10 @@ export function createLoadWindow(deps: SaveWindowDeps): MenuPageView {
   const hint = element('p', 'on-saves__hint is-warning');
 
   const exportButton = exportAction(deps, () => sheet.selected(), run);
+  const running = { mapId: deps.saveLoad.worldToken, seed: deps.saveLoad.worldSeed };
   const sheet = createSlotSheet({
     foreign,
+    running,
     emptyHint: copy.emptyLoadHint,
     onSelect: (slot) => {
       const away = slot !== null && foreign(slot);
@@ -66,8 +69,14 @@ export function createLoadWindow(deps: SaveWindowDeps): MenuPageView {
     if (mine !== refreshes) return;
     frame.hideTips();
     sheet.show(slots, worldName);
-    // The newest save this world can load comes up selected, so Enter continues from it.
-    if (sheet.selected() === null) sheet.select(slots.find((slot) => !foreign(slot))?.id ?? null);
+    // The newest save of the game running now, or else the newest this world can load, comes up
+    // selected, so Enter continues from it.
+    if (sheet.selected() === null) {
+      const loadable = playthroughsOf(slots, running)
+        .flatMap((playthrough) => playthrough.slots)
+        .find((slot) => !foreign(slot));
+      sheet.select(loadable?.id ?? null);
+    }
     if (!frame.window.element.contains(document.activeElement) && !sheet.focus()) load.focus();
   }
 

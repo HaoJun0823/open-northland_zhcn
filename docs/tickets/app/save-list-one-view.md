@@ -6,7 +6,7 @@ The slot list exists twice: `hud/dom/save-window/slot-sheet.ts` builds it for th
 windows, and `entries/main-menu/load-select.ts` builds a second one for the menu screen with different
 markup, its own arrow-key handling, its own selection highlight, and weaker validation before launching.
 Rules that should hold for every save row (a foreign world's row, a vanished slot, the selection keys,
-search, the row's delete) are written twice and have already drifted.
+search, the row's delete, playthrough groups and thumbnails) are written twice and have already drifted.
 
 ## Scope
 

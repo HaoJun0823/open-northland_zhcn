@@ -11,6 +11,11 @@ export interface SaveSlotInfo {
   readonly entry: string | null;
   /** Milliseconds since the epoch. */
   readonly savedAt: number | null;
+  /** The world seed: a new game draws one and every save of that game keeps it, so with `mapId` it
+   *  names the playthrough. */
+  readonly seed: number | null;
+  /** A small picture of the world as it stood, when one was taken. */
+  readonly thumbnail: Blob | null;
 }
 
 /** The save header's provenance, recorded beside the bytes so a list never inflates a save. */
@@ -19,6 +24,8 @@ export interface SaveSlotMeta {
   readonly mapId: string | null;
   readonly tick: number;
   readonly entry: string | null;
+  readonly seed: number;
+  readonly thumbnail: Blob | null;
 }
 
 /** The save list: named slots, newest first, overwritten by name. */

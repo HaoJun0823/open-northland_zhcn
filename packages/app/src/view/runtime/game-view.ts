@@ -144,6 +144,7 @@ import { createViewReadModels } from './read-models.js';
 import { roadBuiltAt } from './road-nodes.js';
 import { createSaveLoadSession, type SaveLoadSessionOptions } from './save-load/index.js';
 import { relatedWorldLoader } from './save-load/related-world.js';
+import { worldThumbnail } from './save-load/thumbnail.js';
 import { createScriptPresentation } from './script-presentation.js';
 import { mountScriptTints } from './script-tints.js';
 import { createSubMissions, type PrepareSubMission } from './sub-missions.js';
@@ -239,6 +240,8 @@ export interface GameViewDeps {
   /** The entry's world identity for save headers: the decoded map id, or `scene:<id>`. Omitted, saves
    *  carry no world token and only load back into another tokenless world. */
   readonly worldToken?: string | null;
+  /** The world seed, which with `worldToken` names the playthrough a save belongs to. */
+  readonly worldSeed?: number;
   readonly saveEntrySearch?: string;
   readonly networkSave?: Pick<SaveLoadSessionOptions, 'sessionMetadata' | 'onSaved'>;
   /** Where the mission book's pages and goals come from; omitted, the book shows nothing. */
@@ -315,6 +318,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     ...(deps.captureSaveFile !== undefined ? { captureSaveFile: deps.captureSaveFile } : {}),
     host,
     worldToken: deps.worldToken ?? null,
+    worldSeed: deps.worldSeed ?? null,
+    captureThumbnail: () => worldThumbnail(renderer, app.screen.width),
     ...(deps.saveEntrySearch !== undefined ? { entrySearch: deps.saveEntrySearch } : {}),
     // A shared clock is nobody's to hold: the save dialog and the overlays above pause nothing.
     ...(deps.validateSavedMap !== undefined

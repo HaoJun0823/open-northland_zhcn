@@ -74,5 +74,8 @@ function storedMetaOf(value: unknown): Omit<SaveSlotInfo, 'id' | 'name'> {
     tick: typeof raw.tick === 'number' && Number.isInteger(raw.tick) && raw.tick >= 0 ? raw.tick : null,
     entry: typeof raw.entry === 'string' ? raw.entry : null,
     savedAt: typeof raw.savedAt === 'number' ? raw.savedAt : null,
+    seed: typeof raw.seed === 'number' && Number.isInteger(raw.seed) ? raw.seed : null,
+    // IndexedDB hands a Blob back as a handle, so listing never reads the picture's bytes.
+    thumbnail: raw.thumbnail instanceof Blob ? raw.thumbnail : null,
   };
 }

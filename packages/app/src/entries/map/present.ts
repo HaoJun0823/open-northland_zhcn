@@ -246,6 +246,7 @@ export async function presentMapWorld(
           validateSavedMap: (save: SaveGame) => validateSavedMap(related, save),
         }),
     worldToken: mapId,
+    worldSeed: hosted.seed,
     saveEntrySearch: formatSearch(sessionSearch(session, script === null ? [] : mapLobbySlots(script))),
     introAtStart: runtime.introAtStart && host.missions === undefined,
     musicType: meta?.musicType ?? null,

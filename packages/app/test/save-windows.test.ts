@@ -36,8 +36,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function slot(name: string, savedAt: number, mapId = HERE): SaveSlotInfo {
-  return { id: name, name, mapId, tick: 600, entry: null, savedAt };
+const SEED = 7;
+
+function slot(name: string, savedAt: number, mapId = HERE, seed = SEED): SaveSlotInfo {
+  return { id: name, name, mapId, tick: 600, entry: null, savedAt, seed, thumbnail: null };
 }
 
 function mount(initial: SaveSlotInfo[]) {
@@ -45,6 +47,7 @@ function mount(initial: SaveSlotInfo[]) {
   let clock = 1000;
   const saveLoad: SaveLoadSession = {
     worldToken: HERE,
+    worldSeed: SEED,
     listSaves: async () => [...slots].sort((a, b) => (b.savedAt ?? 0) - (a.savedAt ?? 0)),
     saveGame: vi.fn(async (name: string) => {
       slots = [...slots.filter((s) => s.name !== name), slot(name, ++clock)];
@@ -89,10 +92,17 @@ const page = (modifier: string): HTMLElement => {
   if (found === null) throw new Error(`Missing ${modifier} window`);
   return found;
 };
+/** Rows the player can see: matched by the search, in an open game. */
 const rowNames = (root: HTMLElement): string[] =>
-  [...root.querySelectorAll<HTMLElement>('.on-saves__row:not([hidden]) .on-saves__name')].map(
-    (el) => el.textContent ?? '',
-  );
+  [...root.querySelectorAll<HTMLElement>('.on-saves__row')]
+    .filter((row) => row.closest('[hidden]') === null)
+    .map((row) => row.querySelector('.on-saves__name')?.textContent ?? '');
+const groupHeads = (root: HTMLElement): HTMLButtonElement[] => [
+  ...root.querySelectorAll<HTMLButtonElement>('.on-saves__group-head'),
+];
+const press = (target: Element | null | undefined, key: string): void => {
+  target?.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+};
 const selectedName = (root: HTMLElement): string | null =>
   root.querySelector('.on-saves__row.is-selected .on-saves__name')?.textContent ?? null;
 const question = (): HTMLElement => {
@@ -190,9 +200,15 @@ describe('load window', () => {
     const { menu, saveLoad } = mount([slot('Old', 1), slot('Away', 9, ELSEWHERE), slot('New', 5)]);
     menu.openPage('load');
     const load = page('load');
-    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Away', 'New', 'Old']));
+    // The running game opens first; another map's game stays closed under it.
+    await vi.waitFor(() => expect(rowNames(load)).toEqual(['New', 'Old']));
     expect(selectedName(load)).toBe('New');
+    const [mine, away] = groupHeads(load);
+    expect(mine?.textContent).toContain(copy.currentGame);
+    expect(away?.getAttribute('aria-expanded')).toBe('false');
     expect(load.querySelector('.is-foreign .on-saves__tag')?.textContent).toBe(copy.otherWorld);
+    away?.click();
+    expect(rowNames(load)).toEqual(['New', 'Old', 'Away']);
 
     load.querySelector<HTMLButtonElement>('.is-foreign .on-saves__pick')?.click();
     expect(button(copy.load, load).disabled).toBe(true);
@@ -203,14 +219,18 @@ describe('load window', () => {
       [...load.querySelectorAll<HTMLButtonElement>('.on-saves__pick')].find((pick) =>
         pick.textContent?.startsWith(name),
       );
+    // The walk passes each game's head between its rows; a head moves focus, not the selection.
     rowOf('Away')?.focus();
-    rowOf('Away')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-    expect(selectedName(load)).toBe('New');
-    expect(document.activeElement).toBe(rowOf('New'));
-    rowOf('New')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    press(rowOf('Away'), 'ArrowUp');
+    expect(document.activeElement).toBe(away);
+    expect(selectedName(load)).toBe('Away');
+    press(away, 'ArrowUp');
+    expect(selectedName(load)).toBe('Old');
+    expect(document.activeElement).toBe(rowOf('Old'));
+    press(rowOf('Old'), 'Enter');
     await vi.waitFor(() => question());
     button(copy.load, question()).click();
-    await vi.waitFor(() => expect(saveLoad.loadSave).toHaveBeenCalledWith('New'));
+    await vi.waitFor(() => expect(saveLoad.loadSave).toHaveBeenCalledWith('Old'));
   });
 
   it('filters by name or map and deletes a row through its bin after asking', async () => {
@@ -218,7 +238,7 @@ describe('load window', () => {
     const { menu, saveLoad } = mount([slot('Harbour', 1), slot('Fjord', 2), slot('Away', 3, ELSEWHERE)]);
     menu.openPage('load');
     const load = page('load');
-    await vi.waitFor(() => expect(rowNames(load)).toHaveLength(3));
+    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Fjord', 'Harbour']));
     const search = load.querySelector<HTMLInputElement>('input[type="search"]');
     if (search === null) throw new Error('Missing search');
     search.value = 'elsew';
@@ -238,7 +258,7 @@ describe('load window', () => {
     button(formatMessage(copy.deleteNamed, { name: 'Harbour' }), load).click();
     await vi.waitFor(() => question());
     button(copy.del, question()).click();
-    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Away', 'Fjord']));
+    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Fjord']));
     expect(saveLoad.deleteSave).toHaveBeenCalledWith('Harbour');
     expect(load.querySelector('.on-saves__status')?.textContent).toBe(copy.deleted);
   });
@@ -248,7 +268,7 @@ describe('load window', () => {
     const { menu } = mount([slot('Harbour', 1), slot('Fjord', 2), slot('Away', 3, ELSEWHERE)]);
     menu.openPage('load');
     const load = page('load');
-    await vi.waitFor(() => expect(rowNames(load)).toHaveLength(3));
+    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Fjord', 'Harbour']));
     const search = load.querySelector<HTMLInputElement>('input[type="search"]');
     if (search === null) throw new Error('Missing search');
     search.value = 'harb';
@@ -263,6 +283,34 @@ describe('load window', () => {
     search.dispatchEvent(new Event('input'));
     expect(selectedName(load)).toBe('Fjord');
     expect(button(copy.load, load).disabled).toBe(false);
+  });
+
+  it('groups each game on a map, numbers them, and opens and closes them from the keyboard', async () => {
+    const copy = messages().saveList;
+    const OTHER_SEED = 9;
+    const { menu } = mount([
+      slot('Early', 1, HERE, OTHER_SEED),
+      slot('Later', 4, HERE, OTHER_SEED),
+      slot('Mine', 3),
+    ]);
+    menu.openPage('load');
+    const load = page('load');
+    await vi.waitFor(() => expect(rowNames(load)).toEqual(['Mine']));
+    const [mine, earlier] = groupHeads(load);
+    expect(mine?.textContent).toContain(formatMessage(copy.playthrough, { n: 2 }));
+    expect(earlier?.textContent).toContain(formatMessage(copy.playthrough, { n: 1 }));
+    expect(earlier?.textContent).toContain(formatMessage(copy.saveCount.many, { count: 2 }));
+
+    earlier?.focus();
+    press(earlier, 'ArrowRight');
+    expect(rowNames(load)).toEqual(['Mine', 'Later', 'Early']);
+    press(mine, 'ArrowLeft');
+    expect(rowNames(load)).toEqual(['Later', 'Early']);
+    // The selection it closed over waits in the closed game and comes back when it opens.
+    expect(selectedName(load)).toBeNull();
+    expect(button(copy.load, load).disabled).toBe(true);
+    mine?.click();
+    expect(selectedName(load)).toBe('Mine');
   });
 
   it('says the list is empty and how to fill it', async () => {

@@ -25,6 +25,22 @@ export function formatSavedAt(savedAt: number | null, localeTag: string): string
   );
 }
 
+const MS_PER_SECOND = 1000;
+const SECONDS_PER_MINUTE_MS = SECONDS_PER_MINUTE * MS_PER_SECOND;
+const HOURS_PER_DAY = 24;
+
+/** How long ago a save was written, for the newest saves; older ones read as their date. */
+export function formatSavedAgo(savedAt: number | null, now: number, localeTag: string): string {
+  if (savedAt === null) return '-';
+  const minutes = Math.floor(Math.max(0, now - savedAt) / SECONDS_PER_MINUTE_MS);
+  const ago = new Intl.RelativeTimeFormat(localeTag, { numeric: 'auto', style: 'long' });
+  if (minutes < 1) return ago.format(0, 'second');
+  if (minutes < MINUTES_PER_HOUR) return ago.format(-minutes, 'minute');
+  const hours = Math.floor(minutes / MINUTES_PER_HOUR);
+  if (hours < HOURS_PER_DAY) return ago.format(-hours, 'hour');
+  return formatSavedAt(savedAt, localeTag);
+}
+
 /** A sanitized title doubles as the exported download's file name, so it has to be valid on every OS. */
 const INVALID_SAVE_NAME_CHARS = /[\\/:*?"<>|]/g;
 const CONTROL_CHAR_CEILING = 0x20;

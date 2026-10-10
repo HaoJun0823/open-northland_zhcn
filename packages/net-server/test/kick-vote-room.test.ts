@@ -38,6 +38,7 @@ function roomOf(count: number) {
     seats: peers.map((_, player) => ({
       player,
       mode: 'idle',
+      claimable: true,
       offers: ['idle', 'ai', 'absent'],
       color: player,
     })),

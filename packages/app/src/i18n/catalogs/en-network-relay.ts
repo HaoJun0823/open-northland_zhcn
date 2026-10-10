@@ -33,6 +33,7 @@ export const enNetworkRelay = {
     savedRulesFixed: 'a saved game keeps its seed and rules',
     savedSeatsFixed: 'a saved game keeps its seats, colours and tribes',
     noSeat: 'there is no seat {seat}',
+    seatNotClaimable: 'seat {seat} is reserved by the scenario',
     seatTaken: 'seat {seat} is taken by {nick}',
     seatModeUnavailable: 'seat {seat} cannot be set to {mode}',
     seatTribeUnavailable: 'seat {seat} has no tribe to choose',

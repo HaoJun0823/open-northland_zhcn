@@ -33,7 +33,15 @@ function room(id = 'room'): RoomView {
       initialSave: IDENTITY,
     },
     seats: [
-      { player: 0, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 0, nick: 'Ania', ready: false },
+      {
+        player: 0,
+        mode: 'human',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 0,
+        nick: 'Ania',
+        ready: false,
+      },
     ],
     members: [
       {
@@ -151,6 +159,7 @@ describe('room assets coordinator', () => {
         {
           player: 0,
           mode: 'human',
+          claimable: true,
           offers: ['idle', 'ai', 'absent'],
           color: 1,
           nick: 'Bartek',

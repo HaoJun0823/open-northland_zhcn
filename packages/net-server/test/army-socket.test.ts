@@ -89,7 +89,13 @@ it('carries a 1000-soldier move, paused redirects and a reconnect through real W
         rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
         speed: 2,
       },
-      clients.map((_, player) => ({ player, mode: 'idle', offers: ['idle', 'ai'], color: player })),
+      clients.map((_, player) => ({
+        player,
+        mode: 'idle',
+        claimable: true,
+        offers: ['idle', 'ai'],
+        color: player,
+      })),
     );
     await until('room', () => a.room !== null);
     b.joinRoom(a.room?.id ?? '');

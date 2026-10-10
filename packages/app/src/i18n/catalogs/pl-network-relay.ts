@@ -33,6 +33,7 @@ export const plNetworkRelay = {
     savedRulesFixed: 'zapisana gra zachowuje swoje ziarno i zasady',
     savedSeatsFixed: 'zapisana gra zachowuje swoje miejsca, kolory i plemiona',
     noSeat: 'nie ma miejsca {seat}',
+    seatNotClaimable: 'miejsce {seat} jest zarezerwowane przez scenariusz',
     seatTaken: 'miejsce {seat} zajmuje {nick}',
     seatModeUnavailable: 'miejsca {seat} nie można ustawić na: {mode}',
     seatTribeUnavailable: 'miejsce {seat} nie ma plemienia do wyboru',

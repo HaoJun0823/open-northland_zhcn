@@ -33,7 +33,17 @@ function lobby(): RoomView {
       speed: 1,
       kickedSeatMode: 'idle',
     },
-    seats: [{ player: 0, mode: 'idle', offers: ['idle', 'ai'], color: 0, nick: null, ready: false }],
+    seats: [
+      {
+        player: 0,
+        mode: 'idle',
+        claimable: true,
+        offers: ['idle', 'ai'],
+        color: 0,
+        nick: null,
+        ready: false,
+      },
+    ],
     members: [
       {
         nick: 'Astrid',
@@ -84,6 +94,25 @@ function mount(mapPreview: NetworkRoomDeps['mapPreview'] = () => null) {
 }
 
 describe('multiplayer entry', () => {
+  it('hides claims for scenario seats while allowing a claimable computer seat', () => {
+    const { room, client, button } = mount();
+    const view = lobby();
+    room.update(
+      { ...view, seats: view.seats.map((seat) => ({ ...seat, mode: 'ai', claimable: false })) },
+      true,
+    );
+    const take = button(messages().networkRoom.takeSeat);
+    expect(take.hidden).toBe(true);
+    expect(take.disabled).toBe(true);
+    take.click();
+    expect(client.claimSeat).not.toHaveBeenCalled();
+    room.update({ ...view, seats: view.seats.map((seat) => ({ ...seat, mode: 'ai' })) }, true);
+    expect(take.hidden).toBe(false);
+    expect(take.disabled).toBe(false);
+    take.click();
+    expect(client.claimSeat).toHaveBeenCalledWith(0);
+  });
+
   it('remembers a valid custom address, preserves it after invalid input, and accepts a URL override', () => {
     const view = connectionForm(null, vi.fn());
     view.address.value = '  ws://localhost:8768  ';

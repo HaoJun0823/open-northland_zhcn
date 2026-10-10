@@ -36,6 +36,7 @@ it('captures the current public roster and does not upload an old world after re
       {
         player: 0,
         mode: 'human',
+        claimable: true,
         offers: ['idle', 'ai', 'absent'],
         color: 3,
         nick: 'Ania',
@@ -45,6 +46,7 @@ it('captures the current public roster and does not upload an old world after re
       {
         player: 1,
         mode: 'ai',
+        claimable: true,
         offers: ['idle', 'ai', 'absent'],
         color: 4,
         nick: null,
@@ -54,6 +56,7 @@ it('captures the current public roster and does not upload an old world after re
       {
         player: 2,
         mode: 'idle',
+        claimable: true,
         offers: ['idle', 'ai', 'absent'],
         color: 5,
         nick: null,
@@ -63,6 +66,7 @@ it('captures the current public roster and does not upload an old world after re
       {
         player: 3,
         mode: 'absent',
+        claimable: true,
         offers: ['idle', 'ai', 'absent'],
         color: 6,
         nick: null,

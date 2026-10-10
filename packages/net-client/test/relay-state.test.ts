@@ -22,7 +22,9 @@ const ROOM: RoomView = {
   state: 'running',
   creator: 'Ania',
   settings: { name: 'Game', world: SESSION.world, seed: 3, speed: 1, rules: SESSION.rules },
-  seats: [{ player: 0, mode: 'human', offers: ['idle'], color: 0, nick: 'Ania', ready: true }],
+  seats: [
+    { player: 0, mode: 'human', claimable: true, offers: ['idle'], color: 0, nick: 'Ania', ready: true },
+  ],
   members: [
     {
       nick: 'Ania',

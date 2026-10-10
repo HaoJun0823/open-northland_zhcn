@@ -135,6 +135,7 @@ export function parseSeatSetups(value: unknown, at: string): readonly RoomSeatSe
       player,
       mode,
       offers,
+      claimable: asBoolean(raw.claimable, `${at}[${i}].claimable`),
       color: asCount(raw.color, `${at}[${i}].color`),
       ...parseSeatTribes(raw, `${at}[${i}]`, false),
       ...parseSeatDifficulty(raw, `${at}[${i}]`),
@@ -197,6 +198,7 @@ function parseRoomSeatView(value: unknown, at: string): RoomSeatView {
   return {
     player: parseSeatIndex(raw.player, `${at}.player`),
     mode: asOneOf(raw.mode, SEAT_MODES, `${at}.mode`),
+    claimable: asBoolean(raw.claimable, `${at}.claimable`),
     offers: parseSeatOffers(raw.offers, `${at}.offers`),
     color: asCount(raw.color, `${at}.color`),
     ...parseSeatTribes(raw, at, true),

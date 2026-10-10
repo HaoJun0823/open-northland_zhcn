@@ -37,6 +37,7 @@ export function restoreSavedSeats(save: SaveGame, authored: readonly RoomSeatSet
       player,
       color,
       mode: vacant,
+      claimable: map?.claimable === true,
       // A seat the save left off the map keeps saying so; the room refuses a new `absent` either way.
       offers: offered.includes(vacant) ? offered : [...offered, vacant],
       // The saved world already plays its tribes, so the room starts from them and keeps them.

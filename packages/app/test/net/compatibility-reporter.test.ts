@@ -22,7 +22,15 @@ function room(id: string, compatibility: LobbyCompatibility | null = null): Room
       speed: 1,
     },
     seats: [
-      { player: 0, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 0, nick: 'Ania', ready: false },
+      {
+        player: 0,
+        mode: 'human',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 0,
+        nick: 'Ania',
+        ready: false,
+      },
     ],
     members: [
       {

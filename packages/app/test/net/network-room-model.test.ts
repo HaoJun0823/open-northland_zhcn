@@ -34,9 +34,33 @@ function room(): RoomView {
       speed: 1,
     },
     seats: [
-      { player: 0, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 0, nick: 'Ania', ready: true },
-      { player: 1, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 1, nick: 'Bartek', ready: true },
-      { player: 2, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 2, nick: null, ready: false },
+      {
+        player: 0,
+        mode: 'human',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 0,
+        nick: 'Ania',
+        ready: true,
+      },
+      {
+        player: 1,
+        mode: 'human',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 1,
+        nick: 'Bartek',
+        ready: true,
+      },
+      {
+        player: 2,
+        mode: 'ai',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 2,
+        nick: null,
+        ready: false,
+      },
     ],
     members: [
       {

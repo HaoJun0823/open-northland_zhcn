@@ -20,7 +20,7 @@ export function devLobbyAction(room: RoomView, selfNick: string, plan: DevLobbyP
   const self = room.members.find((member) => member.nick === selfNick);
   if (self === undefined) return null;
   if (self.seat === null) {
-    const open = room.seats.find((seat) => seat.nick === null && seat.mode === 'idle');
+    const open = room.seats.find((seat) => seat.claimable && seat.nick === null && seat.mode === 'idle');
     return open === undefined ? null : { kind: 'claimSeat', player: open.player };
   }
   if (compatibilityIssues(room.members, room.creator).length > 0) return null;

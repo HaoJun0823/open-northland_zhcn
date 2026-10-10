@@ -39,6 +39,7 @@ const ROOM: RoomView = {
     {
       player: 0,
       mode: 'human',
+      claimable: true,
       offers: ['idle', 'ai', 'absent'],
       color: 0,
       nick: 'Ania',

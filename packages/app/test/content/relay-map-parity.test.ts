@@ -85,6 +85,7 @@ function seatsFromScript(mapId: string): readonly RoomSeatSetup[] {
     player: slot.player,
     mode: authoredVacantMode(slot),
     offers: vacantOffers(slot),
+    claimable: slot.claimable && !slot.hidden,
     color: slot.colorId,
   }));
 }

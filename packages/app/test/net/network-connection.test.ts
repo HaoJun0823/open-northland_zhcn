@@ -19,7 +19,15 @@ const ROOM: RoomView = {
     speed: 1,
   },
   seats: [
-    { player: 0, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 0, nick: 'Ania', ready: true },
+    {
+      player: 0,
+      mode: 'human',
+      claimable: true,
+      offers: ['idle', 'ai', 'absent'],
+      color: 0,
+      nick: 'Ania',
+      ready: true,
+    },
   ],
   members: [
     {

@@ -21,8 +21,8 @@ const descriptor: GameSession = {
   ],
 };
 const authored: RoomSeatSetup[] = [
-  { player: 0, mode: 'idle', offers: ['ai', 'idle', 'absent'], color: 0, authoredTribe: 1 },
-  { player: 1, mode: 'idle', offers: ['idle'], color: 1, authoredTribe: 2 },
+  { player: 0, mode: 'idle', claimable: true, offers: ['ai', 'idle', 'absent'], color: 0, authoredTribe: 1 },
+  { player: 1, mode: 'idle', claimable: false, offers: ['idle'], color: 1, authoredTribe: 2 },
 ];
 const metadata = createSavedSessionMetadata(descriptor, [
   { player: 0, nick: 'Ania' },
@@ -36,13 +36,14 @@ describe('saved multiplayer roster', () => {
       {
         player: 0,
         mode: 'idle',
+        claimable: true,
         offers: ['ai', 'idle', 'absent'],
         color: 3,
         authoredTribe: 1,
         tribe: 7,
       },
       // The saved mode stays valid even where the map no longer offers it.
-      { player: 1, mode: 'ai', offers: ['idle', 'ai'], color: 4, authoredTribe: 2 },
+      { player: 1, mode: 'ai', claimable: false, offers: ['idle', 'ai'], color: 4, authoredTribe: 2 },
     ]);
     expect(savedRoster(save)?.roster[0]?.nick).toBe('Ania');
   });

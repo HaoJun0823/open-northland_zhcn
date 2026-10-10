@@ -68,6 +68,7 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
       color: saved?.color ?? slot.colorId,
       mode: vacantMode(slot),
       offers: offers(slot),
+      claimable: listed?.claimable === true && !listed.hidden,
       authoredTribe: slot.tribeId,
       ...(saved?.tribe === undefined ? {} : { tribe: saved.tribe }),
       ...(listed === undefined || !offersDifficulty(listed) ? {} : { difficulty: startLevel(saved, listed) }),

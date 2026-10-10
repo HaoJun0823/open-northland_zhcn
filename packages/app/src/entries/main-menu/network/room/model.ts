@@ -31,7 +31,7 @@ export function roomPermissions(room: RoomView, nick: string, connected: boolean
 }
 
 export function canClaimSeat(room: RoomView, seat: RoomSeatView, nick: string, connected: boolean): boolean {
-  return roomPermissions(room, nick, connected).interactive && seat.nick === null;
+  return roomPermissions(room, nick, connected).interactive && seat.claimable && seat.nick === null;
 }
 
 /** The map's civilization for a seat that may play another; null for a seat without one, such as a

@@ -82,16 +82,24 @@ const CLIENT_MESSAGES: readonly ClientMessage[] = [
     kind: 'createRoom',
     settings,
     seats: [
-      { player: 0, mode: 'idle', offers: ['idle', 'ai', 'absent'], color: 0 },
-      { player: 3, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 9 },
+      { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
+      { player: 3, mode: 'ai', claimable: false, offers: ['idle', 'ai', 'absent'], color: 9 },
     ],
   },
   {
     kind: 'createRoom',
     settings,
     seats: [
-      { player: 0, mode: 'idle', offers: ['idle', 'ai'], color: 0, authoredTribe: 1 },
-      { player: 1, mode: 'ai', offers: ['idle', 'ai'], color: 1, authoredTribe: 2, tribe: 7 },
+      { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai'], color: 0, authoredTribe: 1 },
+      {
+        player: 1,
+        mode: 'ai',
+        claimable: true,
+        offers: ['idle', 'ai'],
+        color: 1,
+        authoredTribe: 2,
+        tribe: 7,
+      },
     ],
   },
   { kind: 'joinRoom', roomId: 'a1b2c3d4' },
@@ -178,8 +186,8 @@ describe('client messages', () => {
         kind: 'createRoom',
         settings,
         seats: [
-          { player: 2, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 0 },
-          { player: 1, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 0 },
+          { player: 2, mode: 'ai', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
+          { player: 1, mode: 'ai', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
         ],
       },
       /ascending/,
@@ -189,7 +197,7 @@ describe('client messages', () => {
       {
         kind: 'createRoom',
         settings,
-        seats: [{ player: 0, mode: 'absent', offers: ['idle', 'ai'], color: 0 }],
+        seats: [{ player: 0, mode: 'absent', claimable: true, offers: ['idle', 'ai'], color: 0 }],
       },
       /does not offer absent/,
     ],
@@ -243,7 +251,7 @@ describe('client messages', () => {
       {
         kind: 'createRoom',
         settings,
-        seats: [{ player: 0, mode: 'ai', offers: ['ai'], color: 0, tribe: 2 }],
+        seats: [{ player: 0, mode: 'ai', claimable: true, offers: ['ai'], color: 0, tribe: 2 }],
       },
       /without an authored tribe/,
     ],
@@ -252,7 +260,7 @@ describe('client messages', () => {
       {
         kind: 'createRoom',
         settings,
-        seats: [{ player: 0, mode: 'ai', offers: ['ai'], color: 0, authoredTribe: 0 }],
+        seats: [{ player: 0, mode: 'ai', claimable: true, offers: ['ai'], color: 0, authoredTribe: 0 }],
       },
       /authoredTribe/,
     ],
@@ -373,11 +381,28 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
       creator: 'Ania',
       settings,
       seats: [
-        { player: 0, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 0, nick: 'Ania', ready: true },
-        { player: 1, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 4, nick: null, ready: false },
+        {
+          player: 0,
+          mode: 'human',
+          claimable: true,
+          offers: ['idle', 'ai', 'absent'],
+          color: 0,
+          nick: 'Ania',
+          ready: true,
+        },
+        {
+          player: 1,
+          mode: 'ai',
+          claimable: false,
+          offers: ['idle', 'ai', 'absent'],
+          color: 4,
+          nick: null,
+          ready: false,
+        },
         {
           player: 2,
           mode: 'idle',
+          claimable: true,
           offers: ['idle'],
           color: 5,
           authoredTribe: 1,
@@ -479,6 +504,7 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
   { kind: 'chatHistory', lines: [] },
   { kind: 'ping', t: 99, roundTripMs: 42.5 },
   { kind: 'rejected', of: 'command', reason: { code: 'seatRequired' } },
+  { kind: 'rejected', of: 'claimSeat', reason: { code: 'seatNotClaimable', player: 2 } },
   { kind: 'rejected', of: 'claimSeat', reason: { code: 'seatTaken', player: 2, nick: 'Bartek' } },
   {
     kind: 'rejected',
@@ -541,7 +567,18 @@ describe('server messages', () => {
         state: 'lobby',
         creator: 'Ania',
         settings,
-        seats: [{ player: 0, mode: 'idle', offers: ['idle'], color: 0, nick: null, ready: false, ...seat }],
+        seats: [
+          {
+            player: 0,
+            mode: 'idle',
+            claimable: true,
+            offers: ['idle'],
+            color: 0,
+            nick: null,
+            ready: false,
+            ...seat,
+          },
+        ],
         members: [],
       },
     });
@@ -719,4 +756,14 @@ describe('responsiveness wire bounds', () => {
       parseServerMessage({ kind: 'responsiveness', mode: 'auto', bufferTicks: 2, by: 'a\nb' }, () => session),
     ).toThrow(/responsiveness.by/);
   });
+});
+
+it.each([undefined, null, 0, 'true'])('rejects a non-boolean claimability flag: %s', (claimable) => {
+  expect(() =>
+    parseClientMessage({
+      kind: 'createRoom',
+      settings,
+      seats: [{ player: 0, mode: 'ai', offers: ['ai'], color: 0, claimable }],
+    }),
+  ).toThrow();
 });

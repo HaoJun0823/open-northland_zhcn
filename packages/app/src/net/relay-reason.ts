@@ -24,6 +24,7 @@ export function relayReasonText(reason: RelayReason, copy: Messages = messages()
         mode: copy.networkRoom[reason.mode],
       });
     case 'noSeat':
+    case 'seatNotClaimable':
     case 'seatEmpty':
     case 'seatTribeUnavailable':
     case 'seatDifficultyUnavailable':

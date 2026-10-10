@@ -37,6 +37,7 @@ export async function validateNetworkSave(save: SaveGame, handle: VerifiedMapDoc
       color: seat.colorId,
       mode: authoredVacantMode(seat),
       offers: vacantOffers(seat),
+      claimable: seat.claimable && !seat.hidden,
     })),
   );
   const { sim } = restoreMapWorld(

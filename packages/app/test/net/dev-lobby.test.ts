@@ -24,9 +24,33 @@ function room(overrides: Partial<RoomView>): RoomView {
     creator: 'Ania',
     settings: SETTINGS,
     seats: [
-      { player: 0, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 0, nick: null, ready: false },
-      { player: 1, mode: 'idle', offers: ['idle', 'ai', 'absent'], color: 1, nick: null, ready: false },
-      { player: 2, mode: 'idle', offers: ['idle', 'ai', 'absent'], color: 2, nick: null, ready: false },
+      {
+        player: 0,
+        mode: 'ai',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 0,
+        nick: null,
+        ready: false,
+      },
+      {
+        player: 1,
+        mode: 'idle',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 1,
+        nick: null,
+        ready: false,
+      },
+      {
+        player: 2,
+        mode: 'idle',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 2,
+        nick: null,
+        ready: false,
+      },
     ],
     members: [
       {
@@ -53,8 +77,24 @@ describe('devLobbyAction', () => {
   it('gets ready once seated', () => {
     const seated = room({
       seats: [
-        { player: 0, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 0, nick: null, ready: false },
-        { player: 1, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 1, nick: 'Ania', ready: false },
+        {
+          player: 0,
+          mode: 'ai',
+          claimable: true,
+          offers: ['idle', 'ai', 'absent'],
+          color: 0,
+          nick: null,
+          ready: false,
+        },
+        {
+          player: 1,
+          mode: 'human',
+          claimable: true,
+          offers: ['idle', 'ai', 'absent'],
+          color: 1,
+          nick: 'Ania',
+          ready: false,
+        },
       ],
       members: [
         {
@@ -76,7 +116,15 @@ describe('devLobbyAction', () => {
   it('starts as the creator only once the planned people are seated and ready', () => {
     const one = room({
       seats: [
-        { player: 1, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 1, nick: 'Ania', ready: true },
+        {
+          player: 1,
+          mode: 'human',
+          claimable: true,
+          offers: ['idle', 'ai', 'absent'],
+          color: 1,
+          nick: 'Ania',
+          ready: true,
+        },
       ],
       members: [
         {
@@ -95,10 +143,19 @@ describe('devLobbyAction', () => {
     expect(devLobbyAction(one, 'Ania', { players: 2 })).toBeNull();
     const two = room({
       seats: [
-        { player: 1, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 1, nick: 'Ania', ready: true },
+        {
+          player: 1,
+          mode: 'human',
+          claimable: true,
+          offers: ['idle', 'ai', 'absent'],
+          color: 1,
+          nick: 'Ania',
+          ready: true,
+        },
         {
           player: 2,
           mode: 'human',
+          claimable: true,
           offers: ['idle', 'ai', 'absent'],
           color: 2,
           nick: 'Bartek',
@@ -133,8 +190,24 @@ describe('devLobbyAction', () => {
     expect(devLobbyAction(two, 'Ania', { players: 2 })).toBeNull();
     const ready = room({
       seats: [
-        { player: 1, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 1, nick: 'Ania', ready: true },
-        { player: 2, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 2, nick: 'Bartek', ready: true },
+        {
+          player: 1,
+          mode: 'human',
+          claimable: true,
+          offers: ['idle', 'ai', 'absent'],
+          color: 1,
+          nick: 'Ania',
+          ready: true,
+        },
+        {
+          player: 2,
+          mode: 'human',
+          claimable: true,
+          offers: ['idle', 'ai', 'absent'],
+          color: 2,
+          nick: 'Bartek',
+          ready: true,
+        },
       ],
       members: two.members,
     });
@@ -145,7 +218,15 @@ describe('devLobbyAction', () => {
   it('does nothing without an open seat or once the room has started', () => {
     const full = room({
       seats: [
-        { player: 0, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 0, nick: 'Bartek', ready: true },
+        {
+          player: 0,
+          mode: 'human',
+          claimable: true,
+          offers: ['idle', 'ai', 'absent'],
+          color: 0,
+          nick: 'Bartek',
+          ready: true,
+        },
       ],
       members: [
         {
@@ -174,5 +255,14 @@ describe('devLobbyAction', () => {
     });
     expect(devLobbyAction(full, 'Ania', { players: 2 })).toBeNull();
     expect(devLobbyAction(room({ state: 'running' }), 'Ania', { players: 2 })).toBeNull();
+  });
+});
+
+it('skips a script-only idle seat when automatically choosing a player', () => {
+  const view = room({});
+  const seats = view.seats.map((seat) => ({ ...seat, claimable: seat.player === 2 }));
+  expect(devLobbyAction({ ...view, seats }, 'Ania', { players: 1 })).toEqual({
+    kind: 'claimSeat',
+    player: 2,
   });
 });

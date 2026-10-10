@@ -66,7 +66,13 @@ describe('relay command responsiveness', () => {
           rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
           speed: scenario.speed,
         },
-        seats: clients.map((_, player) => ({ player, mode: 'idle', offers: ['idle', 'ai'], color: player })),
+        seats: clients.map((_, player) => ({
+          player,
+          mode: 'idle',
+          claimable: true,
+          offers: ['idle', 'ai'],
+          color: player,
+        })),
         seatOf: (seat) => seat,
         settleMs: 1000,
       });

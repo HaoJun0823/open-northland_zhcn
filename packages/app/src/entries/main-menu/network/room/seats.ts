@@ -215,7 +215,7 @@ export function roomSeats(deps: NetworkRoomDeps) {
         if (seat.difficulty !== undefined)
           difficulty.update(seat.difficulty, !canSetSeatDifficulty(room, client.nick, connected));
         take.disabled = !canClaimSeat(room, seat, client.nick, connected);
-        take.hidden = seat.nick !== null;
+        take.hidden = !seat.claimable || seat.nick !== null;
       },
     };
   }

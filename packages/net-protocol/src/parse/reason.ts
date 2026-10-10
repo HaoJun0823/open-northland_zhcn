@@ -51,6 +51,7 @@ const REASON_PARAMS: { readonly [C in RelayReasonCode]: ParamsOf<Extract<RelayRe
   savedRulesFixed: {},
   savedSeatsFixed: {},
   noSeat: { player: 'seat' },
+  seatNotClaimable: { player: 'seat' },
   seatTaken: { player: 'seat', nick: 'nick' },
   seatModeUnavailable: { player: 'seat', mode: 'seatMode' },
   seatTribeUnavailable: { player: 'seat' },

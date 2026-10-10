@@ -115,7 +115,7 @@ describe('relay rooms', () => {
     a.send({
       kind: 'createRoom',
       settings: { ...SETTINGS, kickedSeatMode: 'idle' },
-      seats: SEATS.map((seat) => (seat.player === 2 ? { ...seat, offers: ['ai'] } : seat)),
+      seats: SEATS.map((seat) => (seat.player === 2 ? { ...seat, claimable: true, offers: ['ai'] } : seat)),
     });
     b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });
     a.send({ kind: 'claimSeat', player: 0 });
@@ -258,9 +258,33 @@ describe('relay rooms', () => {
     a.send({ kind: 'setSeat', player: 1, mode: 'ai' });
     expect(a.last('rejected')?.reason).toMatchObject({ code: 'seatTaken', nick: 'Bartek' });
     expect(a.last('room')?.room.seats).toEqual([
-      { player: 0, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 5, nick: null, ready: false },
-      { player: 1, mode: 'human', offers: ['idle', 'ai', 'absent'], color: 1, nick: 'Bartek', ready: false },
-      { player: 2, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 2, nick: null, ready: false },
+      {
+        player: 0,
+        mode: 'ai',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 5,
+        nick: null,
+        ready: false,
+      },
+      {
+        player: 1,
+        mode: 'human',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 1,
+        nick: 'Bartek',
+        ready: false,
+      },
+      {
+        player: 2,
+        mode: 'ai',
+        claimable: true,
+        offers: ['idle', 'ai', 'absent'],
+        color: 2,
+        nick: null,
+        ready: false,
+      },
     ]);
   });
 
@@ -312,8 +336,8 @@ describe('relay rooms', () => {
       kind: 'createRoom',
       settings: { ...SETTINGS, kickedSeatMode: 'ai' },
       seats: [
-        { player: 0, mode: 'idle', offers: ['idle', 'ai', 'absent'], color: 0 },
-        { player: 1, mode: 'idle', offers: ['idle'], color: 1 },
+        { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
+        { player: 1, mode: 'idle', claimable: true, offers: ['idle'], color: 1 },
       ],
     });
     b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });

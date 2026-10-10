@@ -95,7 +95,13 @@ describe('catch-up retention budgets', () => {
     host.send({
       kind: 'createRoom',
       settings: SETTINGS,
-      seats: peers.map((_, player) => ({ player, color: player, mode: 'idle', offers: ['idle', 'ai'] })),
+      seats: peers.map((_, player) => ({
+        player,
+        color: player,
+        mode: 'idle',
+        claimable: true,
+        offers: ['idle', 'ai'],
+      })),
     });
     const roomId = host.last('room')?.room.id;
     for (const [player, peer] of peers.entries()) {

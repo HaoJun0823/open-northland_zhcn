@@ -96,7 +96,13 @@ it('recovers when a stalled upload releases a valid catch-up acknowledgement bur
         rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
         speed: 8,
       },
-      clients.map((_, player) => ({ player, mode: 'idle', offers: ['idle', 'ai'], color: player })),
+      clients.map((_, player) => ({
+        player,
+        mode: 'idle',
+        claimable: true,
+        offers: ['idle', 'ai'],
+        color: player,
+      })),
     );
     await until(() => a.room !== null);
     b.joinRoom(a.room?.id ?? '');

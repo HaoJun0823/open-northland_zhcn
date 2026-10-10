@@ -48,9 +48,9 @@ const SETTINGS: RoomSettings = {
   speed: 1,
 };
 const SEATS = [
-  { player: 0, mode: 'idle', offers: ['idle', 'ai', 'absent'], color: 0 },
-  { player: 1, mode: 'idle', offers: ['idle', 'ai', 'absent'], color: 1 },
-  { player: 2, mode: 'ai', offers: ['idle', 'ai', 'absent'], color: 2 },
+  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
+  { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 1 },
+  { player: 2, mode: 'ai', claimable: true, offers: ['idle', 'ai', 'absent'], color: 2 },
 ] as const;
 const RUN_TICKS = 200;
 const VIKINGS = 1;
@@ -517,7 +517,13 @@ describe('a relayed session under faults', () => {
     );
     await assembleRoom(stage, clients, {
       settings: { ...SETTINGS, speed: 4 },
-      seats: clients.map((_, player) => ({ player, mode: 'idle', offers: ['idle', 'ai'], color: player })),
+      seats: clients.map((_, player) => ({
+        player,
+        mode: 'idle',
+        claimable: true,
+        offers: ['idle', 'ai'],
+        color: player,
+      })),
       seatOf: (i) => i,
       settleMs: 1400,
     });

@@ -31,7 +31,13 @@ it('changes shared pacing repeatedly while eight clients apply every command and
       rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
       speed: 1,
     },
-    seats: clients.map((_, player) => ({ player, mode: 'idle', offers: ['idle'], color: player })),
+    seats: clients.map((_, player) => ({
+      player,
+      mode: 'idle',
+      claimable: true,
+      offers: ['idle'],
+      color: player,
+    })),
     seatOf: (index) => index,
     settleMs: 500,
   });

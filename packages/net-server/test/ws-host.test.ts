@@ -111,7 +111,13 @@ describe('websocket host', () => {
         await until(() => clients.every((client) => client.welcomed), 'welcome');
         creator.createRoom(
           SETTINGS,
-          clients.map((_, player) => ({ player, mode: 'idle', offers: ['idle', 'ai'], color: player })),
+          clients.map((_, player) => ({
+            player,
+            mode: 'idle',
+            claimable: true,
+            offers: ['idle', 'ai'],
+            color: player,
+          })),
         );
         await until(() => creator.room !== null, 'the room');
         const roomId = creator.room?.id ?? '';

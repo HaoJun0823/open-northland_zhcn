@@ -39,6 +39,8 @@ export type DepartureCause = 'vote' | 'left';
 export interface RoomSeatSetup {
   readonly player: number;
   readonly mode: VacantSeatMode;
+  /** Whether a person may occupy this seat, independently of its vacant mode. */
+  readonly claimable: boolean;
   /** The vacant modes the map offers this seat, `mode` among them. */
   readonly offers: readonly VacantSeatMode[];
   readonly color: number;
@@ -54,6 +56,7 @@ export interface RoomSeatSetup {
 export interface RoomSeatView {
   readonly player: number;
   readonly mode: SeatMode;
+  readonly claimable: boolean;
   readonly offers: readonly VacantSeatMode[];
   readonly color: number;
   /** Present together: the map's tribe for the seat and the one it plays. */

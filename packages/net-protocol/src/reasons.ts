@@ -29,6 +29,7 @@ export type RelayReason =
   | { readonly code: 'savedRulesFixed' }
   | { readonly code: 'savedSeatsFixed' }
   | { readonly code: 'noSeat'; readonly player: number }
+  | { readonly code: 'seatNotClaimable'; readonly player: number }
   | { readonly code: 'seatTaken'; readonly player: number; readonly nick: string }
   | { readonly code: 'seatModeUnavailable'; readonly player: number; readonly mode: VacantSeatMode }
   | { readonly code: 'seatTribeUnavailable'; readonly player: number }

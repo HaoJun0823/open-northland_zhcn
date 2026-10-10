@@ -34,6 +34,7 @@ export async function roomCreation(params: URLSearchParams, mapId: string): Prom
       player: slot.player,
       mode: authoredVacantMode(slot),
       offers: vacantOffers(slot),
+      claimable: slot.claimable && !slot.hidden,
       color: slot.colorId,
       authoredTribe: slot.tribeId,
       ...(offersDifficulty(slot) ? { difficulty: startingDifficulty(slot) } : {}),

@@ -68,8 +68,9 @@ immediately. The host closes a connection that has sent nothing, a pong included
 the world is fixed for the room's life. Alliances come from the map's diplomacy and in-game
 diplomacy; while the rules' `alliedVision` is on, the sim joins mutual friends into one fog mask and
 follows later stance changes, so allies explore, see and meet as one in every fog mode. `seats` lists
-the world's seats in ascending order as `{ player, mode, offers, color, authoredTribe?, tribe?, difficulty? }` with `mode` `ai`, `idle` or `absent`;
-`human` is never chosen, it is what a claimed seat becomes. `offers` lists the vacant modes the map's
+the world's seats in ascending order as `{ player, mode, claimable, offers, color, authoredTribe?, tribe?, difficulty? }` with `mode` `ai`, `idle` or `absent`;
+`human` is never chosen, it is what a claimed seat becomes. The required boolean `claimable`
+is false for scenario-only or hidden seats; the relay rejects claims with `seatNotClaimable`. `offers` lists the vacant modes the map's
 `playeroption` row allows the seat, `mode` among them. `authoredTribe` is the tribe the map's roster
 names for the seat, and `tribe` the one it starts as when that differs (a saved world's choice); a seat
 without `authoredTribe` offers no tribe choice, and `tribe` needs it. Tribe ids are integers from 1
@@ -84,7 +85,7 @@ duplicate nick within a room gets a numeric suffix (`Ania`, `Ania2`). At most `M
 people share a room.
 
 Every change to a room is broadcast to its members as `room { room }`, the whole view:
-`{ id, state, creator, settings, seats: [{ player, mode, offers, color, authoredTribe?, tribe?, difficulty?, nick, ready }], members: [{ nick, seat, connected, compatibility, load, loading, roundTripMs, delayTicks, behindTicks }] }`,
+`{ id, state, creator, settings, seats: [{ player, mode, claimable, offers, color, authoredTribe?, tribe?, difficulty?, nick, ready }], members: [{ nick, seat, connected, compatibility, load, loading, roundTripMs, delayTicks, behindTicks }] }`,
 where a seat carries `authoredTribe` and its current `tribe` together or neither.
 A member's `load` is the one its last acknowledgement reported (below), null before its first. Its
 `loading` is the boot progress in whole percent it last reported before its world loaded (below),

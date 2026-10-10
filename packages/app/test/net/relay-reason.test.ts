@@ -27,6 +27,7 @@ const SAMPLES: { readonly [C in RelayReasonCode]: Extract<RelayReason, { code: C
   noCreator: { code: 'noCreator' },
   savedRulesFixed: { code: 'savedRulesFixed' },
   savedSeatsFixed: { code: 'savedSeatsFixed' },
+  seatNotClaimable: { code: 'seatNotClaimable', player: 2 },
   noSeat: { code: 'noSeat', player: 4 },
   seatTaken: { code: 'seatTaken', player: 2, nick: 'Bartek' },
   seatModeUnavailable: { code: 'seatModeUnavailable', player: 1, mode: 'ai' },

@@ -13,7 +13,10 @@ describe('batched digest settlement', () => {
     a.send({
       kind: 'createRoom',
       settings: SETTINGS,
-      seats: [...SEATS, { player: 3, mode: 'idle', offers: ['idle', 'ai', 'absent'], color: 3 }],
+      seats: [
+        ...SEATS,
+        { player: 3, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 3 },
+      ],
     });
     const roomId = a.last('room')?.room.id;
     for (const peer of [b, c, slow]) peer.send({ kind: 'joinRoom', roomId });

@@ -11,6 +11,7 @@ interface Seat {
   readonly player: number;
   /** What the seat is while nobody sits in it. */
   vacantMode: VacantSeatMode;
+  readonly claimable: boolean;
   readonly offers: readonly VacantSeatMode[];
   color: number;
   /** The map's tribe for the seat and the one it plays; absent on a seat that offers no choice. */
@@ -36,6 +37,7 @@ export class SeatTable {
       player: seat.player,
       vacantMode: seat.mode,
       offers: seat.offers,
+      claimable: seat.claimable,
       color: seat.color,
       ...(seat.authoredTribe === undefined
         ? {}
@@ -66,6 +68,7 @@ export class SeatTable {
   claim(member: Member, player: number): Refusal {
     const seat = this.at(player);
     if (seat === null) return { code: 'noSeat', player };
+    if (!seat.claimable) return { code: 'seatNotClaimable', player };
     if (seat.member !== null && seat.member !== member)
       return { code: 'seatTaken', player, nick: seat.member.nick };
     this.standUp(member);
@@ -111,6 +114,7 @@ export class SeatTable {
     return this.seats.map((seat) => ({
       ...this.sessionSeat(seat),
       offers: seat.offers,
+      claimable: seat.claimable,
       ...(seat.tribes === undefined
         ? {}
         : { authoredTribe: seat.tribes.authored, tribe: seat.tribes.current }),

@@ -33,6 +33,7 @@ export const deNetworkRelay = {
     savedRulesFixed: 'ein Spielstand behält seinen Zufallsstartwert und seine Regeln',
     savedSeatsFixed: 'ein Spielstand behält seine Plätze, Farben und Stämme',
     noSeat: 'Platz {seat} existiert nicht',
+    seatNotClaimable: 'Platz {seat} ist vom Szenario reserviert',
     seatTaken: 'Platz {seat} ist belegt: {nick}',
     seatModeUnavailable: 'Platz {seat} kann nicht auf {mode} gesetzt werden',
     seatTribeUnavailable: 'für Platz {seat} lässt sich kein Stamm auswählen',

@@ -32,6 +32,7 @@ export const ruNetworkRelay = {
     savedRulesFixed: 'в сохранении сохраняются исходное значение генератора случайных чисел и правила',
     savedSeatsFixed: 'в сохранении сохраняются места, цвета и цивилизации',
     noSeat: 'места {seat} не существует',
+    seatNotClaimable: 'место {seat} зарезервировано сценарием',
     seatTaken: 'место {seat} занято: {nick}',
     seatModeUnavailable: 'для места {seat} нельзя установить режим: {mode}',
     seatTribeUnavailable: 'для места {seat} выбор цивилизации недоступен',

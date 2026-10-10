@@ -12,10 +12,10 @@ const WEREWOLF = 6;
 
 /** Two civilization seats, a monster seat and a seat of a world without a roster. */
 const TRIBE_SEATS: readonly RoomSeatSetup[] = [
-  { player: 0, mode: 'idle', offers: ['idle', 'ai'], color: 0, authoredTribe: VIKING },
-  { player: 1, mode: 'idle', offers: ['idle', 'ai'], color: 1, authoredTribe: FRANK },
-  { player: 2, mode: 'ai', offers: ['ai'], color: 2, authoredTribe: WEREWOLF },
-  { player: 3, mode: 'ai', offers: ['ai'], color: 3 },
+  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai'], color: 0, authoredTribe: VIKING },
+  { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'ai'], color: 1, authoredTribe: FRANK },
+  { player: 2, mode: 'ai', claimable: true, offers: ['ai'], color: 2, authoredTribe: WEREWOLF },
+  { player: 3, mode: 'ai', claimable: true, offers: ['ai'], color: 3 },
 ];
 
 function lobby(seats: readonly RoomSeatSetup[] = TRIBE_SEATS, settings = SETTINGS) {
@@ -100,8 +100,16 @@ describe('seat tribes in a room resumed from a save', () => {
   const bytes = Buffer.from('opaque save').toString('base64');
   const identity = { fingerprint: createHash('sha256').update(bytes).digest('hex'), tick: 73 };
   const savedSeats: readonly RoomSeatSetup[] = [
-    { player: 0, mode: 'idle', offers: ['idle', 'ai'], color: 0, authoredTribe: VIKING, tribe: EGYPT },
-    { player: 1, mode: 'idle', offers: ['idle', 'ai'], color: 1, authoredTribe: FRANK },
+    {
+      player: 0,
+      mode: 'idle',
+      claimable: true,
+      offers: ['idle', 'ai'],
+      color: 0,
+      authoredTribe: VIKING,
+      tribe: EGYPT,
+    },
+    { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'ai'], color: 1, authoredTribe: FRANK },
   ];
 
   it('keeps the saved tribes: none may change, and the start carries them', () => {

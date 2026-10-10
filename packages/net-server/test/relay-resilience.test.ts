@@ -655,6 +655,7 @@ describe('kick votes', () => {
       seats: [0, 1, 2, 3].map((player) => ({
         player,
         mode: 'idle',
+        claimable: true,
         offers: ['idle', 'ai', 'absent'],
         color: player,
       })),

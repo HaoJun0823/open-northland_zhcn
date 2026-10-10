@@ -52,6 +52,7 @@ import { REGENERATION_HITPOINTS_PER_TICK } from '../../src/systems/lifecycle/nee
 import { vehiclesGone } from '../../src/systems/missions/goals/casualties.js';
 import { FIGHT_EXPERIENCE_TYPE } from '../../src/systems/progression/index.js';
 import { ARMOR_MATERIAL, MILITARY_MODE } from '../../src/systems/readviews/index.js';
+import { resolveCombatHit } from '../../src/systems/settlers/atomics/effects/combat/hit/resolution.js';
 import { boardRider, createVehicle } from '../../src/systems/vehicles/index.js';
 import { FogState, SIEGE_SHOT_SIGHT_NODES } from '../../src/systems/vision/index.js';
 import { TEST_MANIFEST } from '../fixtures/content.js';
@@ -1148,5 +1149,17 @@ describe('vehicles as targets', () => {
     fighterAt(s, 4, 4, P1, ARCHER);
     s.run(200);
     expect(vehiclesGone(s.world, MISSION_ID)).toBe(true);
+  });
+});
+
+describe('a besieger the catapult strikes', () => {
+  it('turns from the nearer house it holds on the catapult, which outranks it as a shooter', () => {
+    const s = sim(grass(30, 4));
+    const house = houseAt(s, 2, 0, P2);
+    const besieger = fighterAt(s, 4, 0, P1);
+    const catapult = catapultAt(s, 40, 0, P2);
+    s.world.add(besieger, Engagement, { repathAt: s.tick, target: house });
+    resolveCombatHit(s.world, ctxOf(s), catapult, besieger, { damage: 1 }, [], 'projectile');
+    expect(s.world.get(besieger, Engagement).target).toBe(catapult);
   });
 });

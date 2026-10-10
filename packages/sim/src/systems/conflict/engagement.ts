@@ -40,10 +40,10 @@ import {
   ANIMAL_AGGRO_RADIUS_NODES,
   ANIMAL_LEASH_NODES,
   isFighterTarget,
-  isStructureTarget,
   isValidTarget,
   SIGHT_RADIUS_NODES,
   strikeRank,
+  turnsAsideUnder,
   wildPursuit,
 } from './targeting.js';
 import { givenUpTargetVeto } from './unreachable-targets.js';
@@ -172,9 +172,18 @@ export class EngagementSpecs {
         lowPriority: (t: Entity) => boolean;
         lock: null;
         defend: { anchorCell: NodeId; leash: number; hold: boolean } | null;
-        hold: { keep: (t: Entity) => boolean; band: ArmedWith; contact: boolean };
+        hold: {
+          keep: (t: Entity) => boolean;
+          band: ArmedWith;
+          contact: boolean;
+          look: WeaponBand;
+          fighter: (t: Entity) => boolean;
+        };
       }
     | undefined;
+  private readonly look = { minRange: 0, maxRange: 0 };
+  private readonly fighter = (t: Entity): boolean =>
+    isFighterTarget(this.world, this.ctx, t) && this.accept(t);
   private leash: NonNullable<NonNullable<EngagementSpecs['spec']>['defend']> | undefined;
 
   constructor(
@@ -254,7 +263,7 @@ export class EngagementSpecs {
         lowPriority: this.lowPriority,
         lock: null,
         defend: null,
-        hold: { keep: this.keep, band: weapon, contact: false },
+        hold: { keep: this.keep, band: weapon, contact: false, look: this.look, fighter: this.fighter },
       };
       const spec = this.spec;
       if (kind === 'defend' || kind === 'ignore') {
@@ -273,6 +282,9 @@ export class EngagementSpecs {
             : SIGHT_RADIUS_NODES;
       spec.player = isHunterJob(ctx.content, attacker.jobType) ? null : (viewer ?? null);
       spec.hold.band = weapon;
+      // A step past the band takes the enemy about to step into it; a garrison never steps.
+      this.look.minRange = weapon.minRange;
+      this.look.maxRange = kind === 'post' ? weapon.maxRange : weapon.maxRange + 1;
       spec.hold.contact = stance.post === null && !isRangedWeapon(weapon.weapon);
       return spec;
     }
@@ -387,14 +399,19 @@ export interface EngageSpec {
      *  to a less crowded enemy after a blow and steps along a full front. False for a bow or a garrison,
      *  which keep the original's plain nearest pick and random draw. */
     readonly contact: boolean;
+    /** Where a look for an enemy fighter to turn to reaches ({@link fighterInLook}): the band and the step
+     *  past it that brings an enemy into it, the band alone for a garrison. */
+    readonly look: WeaponBand;
+    /** `accept` narrowed to enemy fighters. */
+    readonly fighter: (t: Entity) => boolean;
   };
 }
 
 /**
  * The enemy this combatant fights this tick with its reach from `here` in map points, or null. An
  * {@link AttackOrder} focus and a live `spec.lock` resolve ahead of the nearest search; a fighter's own
- * breach yields to a primary-tier target inside `weapon`'s band, and an order on a structure to an enemy
- * fighter that walked up ({@link fighterOverStructure}). Otherwise the nearest target `spec.accept`
+ * breach yields to a primary-tier target inside `weapon`'s band, and any other order that lets its fighter
+ * turn aside to a higher-ranked enemy ({@link asideFromOrder}). Otherwise the nearest target `spec.accept`
  * admits within `[spec.minDist, spec.searchRadius]`, with the `spec.lowPriority` tier searched only when the
  * primary tier finds nothing in sight. `moving` is the swing gate's own reading of whether the unit still
  * walks, so the held enemy is weighed against its neighbours on exactly the ticks a swing could start.
@@ -431,8 +448,8 @@ export function resolveTarget(
             SEARCH_METRIC,
           );
     if (rival !== null) return { target: rival.entity, dist: rival.distance };
-    if (spec.hold !== undefined && isStructureTarget(world, order.target)) {
-      const fighter = fighterOverStructure(
+    if (spec.hold !== undefined && turnsAsideUnder(world, ctx, order)) {
+      const aside = asideFromOrder(
         world,
         ctx,
         terrain,
@@ -442,8 +459,9 @@ export function resolveTarget(
         spec,
         spec.hold,
         order.target,
+        moving,
       );
-      if (fighter !== null) return fighter;
+      if (aside !== null) return aside;
     }
     return focusedOn(world, ctx, terrain, here, order.target);
   }
@@ -515,10 +533,10 @@ const FIGHTER_TIER: readonly PickTier[] = PICK_TIERS.slice(0, 1);
 
 /**
  * An enemy fighter that takes a combatant off a target of another kind: a building, a civilian or an
- * animal. Standing `striking` that target it looks between blows, within its reach and a step past it
- * ({@link stepPastReach}); otherwise across its sight every {@link REPATH_CADENCE} ticks, staggered by
- * entity id. Owner rule: the original keeps such a target until it falls, so raiders kept battering a
- * house while the soldiers who walked up cut them down.
+ * animal. Standing `striking` that target it looks between blows within its {@link EngageSpec.hold} look;
+ * otherwise across its sight every {@link REPATH_CADENCE} ticks, staggered by entity id. Owner rule: the
+ * original keeps such a target until it falls, so raiders kept battering a house while the soldiers who
+ * walked up cut them down.
  */
 function fighterToTurnTo(
   world: World,
@@ -532,7 +550,7 @@ function fighterToTurnTo(
   asker: Asker | null,
   striking: boolean,
 ): { target: Entity; dist: number } | null {
-  if (striking) return fighterInReach(world, ctx, terrain, pass, here, spec, hold.band);
+  if (striking) return fighterInLook(world, ctx, terrain, pass, here, spec, hold);
   if (!onStride(ctx.tick, self, REPATH_CADENCE)) return null;
   const x = terrain.xOf(here);
   const y = terrain.yOf(here);
@@ -540,23 +558,22 @@ function fighterToTurnTo(
   return found === null ? null : focusedOn(world, ctx, terrain, here, found.entity);
 }
 
-/** The nearest enemy fighter `spec` admits within {@link stepPastReach} of `here`: one small band scan. */
-function fighterInReach(
+/** The nearest enemy fighter `spec` admits within `hold.look` of `here`: one small band scan. */
+function fighterInLook(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
   pass: CombatPass,
   here: NodeId,
   spec: EngageSpec,
-  band: WeaponBand,
+  hold: NonNullable<EngageSpec['hold']>,
 ): { target: Entity; dist: number } | null {
-  const reach = stepPastReach(band);
   const found = pass.index.nearest(
     terrain.xOf(here),
     terrain.yOf(here),
-    reach.minRange,
-    reach.maxRange,
-    (t) => isFighterTarget(world, ctx, t) && spec.accept(t),
+    hold.look.minRange,
+    hold.look.maxRange,
+    hold.fighter,
     spec.player,
     SEARCH_METRIC,
   );
@@ -564,13 +581,14 @@ function fighterInReach(
 }
 
 /**
- * The enemy a combatant ordered onto `structure` fights first: the one it already turned to while that
- * still outranks the structure ({@link strikeRank}: a fighter, or a building shooting where the structure
- * does not), the striker it turned on included, else the nearest fighter {@link fighterInReach} finds.
- * Null takes the structure up again, and the order stands throughout: a chase the enemy escapes lets
- * only that enemy go.
+ * The enemy a combatant fights ahead of its order's `target` when the order lets it turn aside
+ * ({@link turnsAsideUnder}): the one it already turned to while that still outranks the target
+ * ({@link strikeRank}), the striker it turned on included, else an enemy fighter in its look
+ * ({@link fighterInLook}), between blows or every {@link REPATH_CADENCE} ticks of a walk. Null takes the
+ * target up again. The order stands throughout: a chase the enemy escapes lets only that enemy go
+ * (`chase.ts`).
  */
-function fighterOverStructure(
+function asideFromOrder(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
@@ -579,20 +597,27 @@ function fighterOverStructure(
   here: NodeId,
   spec: EngageSpec,
   hold: NonNullable<EngageSpec['hold']>,
-  structure: Entity,
+  target: Entity,
+  moving: boolean,
 ): { target: Entity; dist: number } | null {
   const engaged = world.tryGet(self, Engagement)?.target;
-  const fires = (building: Entity): boolean => pass.index.firing.has(building);
   if (
     engaged !== undefined &&
-    engaged !== structure &&
+    engaged !== target &&
     world.isAlive(engaged) &&
-    strikeRank(world, ctx, engaged, fires) < strikeRank(world, ctx, structure, fires) &&
-    hold.keep(engaged)
+    hold.keep(engaged) &&
+    ranksAbove(world, ctx, pass, engaged, target)
   ) {
     return focusedOn(world, ctx, terrain, here, engaged);
   }
-  return fighterInReach(world, ctx, terrain, pass, here, spec, hold.band);
+  if (moving && !onStride(ctx.tick, self, REPATH_CADENCE)) return null;
+  return fighterInLook(world, ctx, terrain, pass, here, spec, hold);
+}
+
+/** Whether `a` holds a higher rank than `b` ({@link strikeRank}). */
+function ranksAbove(world: World, ctx: SystemContext, pass: CombatPass, a: Entity, b: Entity): boolean {
+  const firing = pass.index.firingNow;
+  return strikeRank(world, ctx, a, firing) < strikeRank(world, ctx, b, firing);
 }
 
 /** `band` widened by one step past its far reach: the enemy about to step into it counts as in reach. */
@@ -655,6 +680,8 @@ function heldOrPicked(
   // nearest wall of all.
   const pickedAt = focusedOn(world, ctx, terrain, here, picked.entity);
   if (held === null || heldTarget === undefined) return pickedAt;
+  // Owner rule: a rescan never trades the held enemy for one of a lower rank, however nearer.
+  if (ranksAbove(world, ctx, pass, heldTarget, picked.entity)) return held;
   if (asker === null) return pickedAt.dist >= held.dist ? held : pickedAt;
   const heldScore = crowdedScore(world, ctx, terrain, pass, asker, heldTarget, held.dist);
   const pickedScore = crowdedScore(world, ctx, terrain, pass, asker, picked.entity, pickedAt.dist);
@@ -765,6 +792,7 @@ function lessCrowdedInReach(
   if (heldCrowd === 0) return null;
   const { index } = pass;
   const heldRank = tierRank(world, ctx, index, heldTarget);
+  const heldStrike = strikeRank(world, ctx, heldTarget, index.firingNow);
   const reach = stepPastReach(asker.band);
   const x = terrain.xOf(asker.here);
   const y = terrain.yOf(asker.here);
@@ -773,7 +801,11 @@ function lessCrowdedInReach(
     y,
     reach.minRange,
     reach.maxRange,
-    (t) => t !== heldTarget && tierRank(world, ctx, index, t) <= heldRank && spec.accept(t),
+    (t) =>
+      t !== heldTarget &&
+      tierRank(world, ctx, index, t) <= heldRank &&
+      strikeRank(world, ctx, t, index.firingNow) <= heldStrike &&
+      spec.accept(t),
     bandNodeCount(reach), // the most distinct units the band can hold
     spec.player,
     reach.maxRange,

@@ -44,6 +44,8 @@ const VIKING = 1;
 const WOODCUTTER = 1;
 /** The fixture's bow-armed job: a shooter's near reach keeps it off the wall. */
 const HUNTER = 15;
+/** `soldier_unarmed`: an enemy fighter that never strikes back. */
+const UNARMED_SOLDIER = 31;
 /** The fixture's aggressive wild animal. */
 const BEAR = 10;
 const P0 = 0;
@@ -815,6 +817,26 @@ describe('a breach the player ordered', () => {
     const { sim, soldier } = orderedAtWalledInEnemy(testContent());
     sim.run(20);
     expect(sim.world.has(soldier, AttackOrder)).toBe(false);
+  });
+
+  it('stays on the wall while another enemy fighter stands just behind it', () => {
+    const { sim, enemy, soldier } = orderedAtWalledInEnemy();
+    const order = breachOf(sim, soldier);
+    if (order?.breach === undefined) throw new Error('expected the soldier to go for the wall');
+    for (let tick = 0; tick < 40 && sim.world.tryGet(soldier, Engagement)?.target !== order.target; tick++)
+      sim.step();
+    const at = nodeRow(sim, soldier);
+    const behind = fighterAt(sim, 0, 0, VIKING, UNARMED_SOLDIER, { owner: P1 });
+    sim.world.add(behind, Position, positionOfNode(at.hx, WALL_ROW + 1));
+    const wall = order.target;
+    const before = sim.world.get(wall, Health).hitpoints;
+    for (let tick = 0; tick < 120; tick++) {
+      sim.step();
+      expect(sim.world.get(soldier, Engagement).target).toBe(wall);
+    }
+    expect(sim.world.get(wall, Health).hitpoints).toBeLessThan(before);
+    expect(sim.world.get(soldier, AttackOrder).breach?.resume).toBe(enemy);
+    expect(sim.world.get(behind, Health).hitpoints).toBe(sim.world.get(behind, Health).max);
   });
 
   it('keeps the ordered target when another wall bars the walk to the first', () => {

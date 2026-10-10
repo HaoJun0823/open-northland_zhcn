@@ -688,6 +688,15 @@ describe('the tower garrison - a besieger it shoots', () => {
   /** A house two cells past the tower, and its besieger a cell further, inside the garrison's reach. */
   const HOUSE_X = TOWER_X + 2;
   const BESIEGER_X = HOUSE_X + 1;
+  /** An enemy fighter of the tower's side, farther from the besieger than the tower. */
+  const FAR_FIGHTER_X = BESIEGER_X + 8;
+  /** One step past the garrison's boosted band: 10 nodes, 5 cells along a row. */
+  const STEP_PAST_REACH_X = TOWER_X + (GARRISON_BOW_RANGE + TOWER_RANGE_BONUS_NODES + 1) / 2;
+  /** A besieger inside the garrison's reach but a walk from the tower, with an unmanned headquarters of the
+   *  tower's side a cell behind it: the original rescan of a walk finds the headquarters nearer. */
+  const WALKER_X = TOWER_X + 4;
+  const BEHIND_HQ_X = WALKER_X + 1;
+  const SIEGE_TICKS = 200;
 
   function siegeUnderTower(): {
     sim: Simulation;
@@ -711,6 +720,51 @@ describe('the tower garrison - a besieger it shoots', () => {
     sim.world.add(besieger, Engagement, { repathAt: sim.tick, target: house });
     resolveCombatHit(sim.world, ctxOf(sim), garrison, besieger, { damage: 1 }, [], 'projectile');
     expect(sim.world.get(besieger, Engagement).target).toBe(tower);
+  });
+
+  it('keeps a held enemy fighter farther off than the tower that shoots it', () => {
+    const { sim, besieger, garrison } = siegeUnderTower();
+    const fighter = settlerAt(sim, SOLDIER_JOB, FAR_FIGHTER_X, ROW, HUMAN, TOUGH);
+    sim.world.add(besieger, Engagement, { repathAt: sim.tick, target: fighter });
+    resolveCombatHit(sim.world, ctxOf(sim), garrison, besieger, { damage: 1 }, [], 'projectile');
+    expect(sim.world.get(besieger, Engagement).target).toBe(fighter);
+  });
+
+  it('keeps going for the shooting tower over a nearer headquarters that does not shoot', () => {
+    const sim = simWithTower();
+    const tower = towerAt(sim, TOWER_X, ROW);
+    const garrison = settlerAt(sim, SOLDIER_JOB, 2, ROW);
+    manTheTower(sim, garrison, tower);
+    const headquarters = larderAt(sim, BEHIND_HQ_X, ROW);
+    sim.world.add(headquarters, Health, { hitpoints: TOWER_HITPOINTS, max: TOWER_HITPOINTS });
+    const besieger = settlerAt(sim, SOLDIER_JOB, WALKER_X, ROW, ENEMY, TOUGH);
+    let turnedToTower = false;
+    let backToHeadquarters = 0;
+    for (let i = 0; i < SIEGE_TICKS; i++) {
+      sim.step();
+      const held = sim.world.tryGet(besieger, Engagement)?.target;
+      if (held === tower) turnedToTower = true;
+      else if (turnedToTower && held === headquarters) backToHeadquarters++;
+    }
+    expect(turnedToTower).toBe(true);
+    expect(backToHeadquarters).toBe(0);
+  });
+
+  it('keeps its own attack order and its fire on a house while an enemy fighter stands a step past its reach', () => {
+    const sim = simWithTower();
+    const tower = towerAt(sim, TOWER_X, ROW);
+    const garrison = settlerAt(sim, SOLDIER_JOB, 2, ROW);
+    manTheTower(sim, garrison, tower);
+    const house = larderAt(sim, HOUSE_X, ROW);
+    sim.world.mut(house, Owner).player = ENEMY;
+    sim.world.add(house, Health, { hitpoints: TOWER_HITPOINTS, max: TOWER_HITPOINTS });
+    const fighter = settlerAt(sim, SOLDIER_JOB, STEP_PAST_REACH_X, ROW, ENEMY, TOUGH);
+    sim.world.mut(fighter, Stance).mode = MILITARY_MODE.IGNORE;
+    sim.enqueueSetup({ kind: 'attackUnit', entity: garrison, target: house });
+    run(sim, SIEGE_TICKS);
+    expect(sim.world.get(garrison, AttackOrder).target).toBe(house);
+    expect(sim.world.get(house, Health).hitpoints).toBeLessThan(TOWER_HITPOINTS);
+    expect(sim.world.get(fighter, Health).hitpoints).toBe(TOUGH);
   });
 
   it('batters the shooting tower under an attack order on the house, the order kept', () => {

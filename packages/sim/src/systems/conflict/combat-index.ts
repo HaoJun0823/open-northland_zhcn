@@ -84,6 +84,8 @@ export class CombatIndex {
   private readonly hostileMasks: readonly number[];
   /** The buildings able to shoot this build, the only ones a fleer runs from. */
   readonly firing: ReadonlySet<Entity>;
+  /** {@link firing} as the getter `strikeRank` reads. */
+  readonly firingNow = (): ReadonlySet<Entity> => this.firing;
   /** How many queries are iterating their band: an `accept` that re-enters a query scans on the next
    *  depth's buffer, leaving the outer band intact. */
   private depth = 0;

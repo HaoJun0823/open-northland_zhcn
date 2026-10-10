@@ -20,6 +20,7 @@ import {
   RESCAN_PERIOD_TICKS,
   RESCAN_WALK_STEPS,
 } from '../../src/systems/conflict/engagement.js';
+import { noteUnreachableTarget } from '../../src/systems/conflict/unreachable-targets.js';
 import { attackerWeapon } from '../../src/systems/conflict/weapons.js';
 import {
   combatSystem,
@@ -353,7 +354,7 @@ describe('engagement - which enemy it picks', () => {
 describe('engagement - a struck fighter turns on its attacker', () => {
   const blow = { damage: 10 };
 
-  it('only under ATTACK or DEFEND, and never against its attack order', () => {
+  it('only under ATTACK or DEFEND, and never against its attack order on a fighter', () => {
     for (const [mode, turns] of [
       [MILITARY_MODE.ATTACK, true],
       [MILITARY_MODE.DEFEND, true],
@@ -368,12 +369,48 @@ describe('engagement - a struck fighter turns on its attacker', () => {
     }
     const s = sim();
     const soldier = unit(s, 0, P0, MILITARY_MODE.ATTACK);
-    const ordered = unit(s, 12, P1, MILITARY_MODE.IGNORE, WOMAN);
+    const ordered = unit(s, 12, P1, MILITARY_MODE.IGNORE);
     const attacker = unit(s, 2, P1, MILITARY_MODE.IGNORE);
     s.world.add(soldier, AttackOrder, { target: ordered });
     resolveCombatHit(s.world, ctxOf(s), attacker, soldier, blow, [], 'melee');
     expect(held(s, soldier)).toBeUndefined();
     expect(s.world.get(soldier, AttackOrder).target).toBe(ordered);
+  });
+
+  it('turns aside from its attack order on a civilian to a fighter striking it, the order kept', () => {
+    const s = sim();
+    const soldier = unit(s, 0, P0, MILITARY_MODE.ATTACK);
+    const ordered = unit(s, 12, P1, MILITARY_MODE.IGNORE, WOMAN);
+    const attacker = unit(s, 2, P1, MILITARY_MODE.IGNORE);
+    s.world.add(soldier, AttackOrder, { target: ordered });
+    resolveCombatHit(s.world, ctxOf(s), attacker, soldier, blow, [], 'melee');
+    expect(held(s, soldier)).toBe(attacker);
+    expect(s.world.get(soldier, AttackOrder).target).toBe(ordered);
+  });
+
+  it('answers a striker in its reach though it gave that enemy up, and none out of it', () => {
+    const s = sim();
+    const soldier = unit(s, 0, P0, MILITARY_MODE.ATTACK);
+    const far = unit(s, 12, P1, MILITARY_MODE.IGNORE);
+    const near = unit(s, 1, P1, MILITARY_MODE.IGNORE);
+    const away = unit(s, 8, P1, MILITARY_MODE.IGNORE);
+    s.world.add(soldier, Engagement, { repathAt: 0, target: far });
+    noteUnreachableTarget(s.world, ctxOf(s), soldier, near);
+    noteUnreachableTarget(s.world, ctxOf(s), soldier, away);
+    resolveCombatHit(s.world, ctxOf(s), away, soldier, blow, [], 'projectile');
+    expect(held(s, soldier)).toBe(far);
+    resolveCombatHit(s.world, ctxOf(s), near, soldier, blow, [], 'melee');
+    expect(held(s, soldier)).toBe(near);
+  });
+
+  it('is not turned off a held fighter by a striker of a lower rank, however nearer', () => {
+    const s = sim();
+    const soldier = unit(s, 0, P0, MILITARY_MODE.ATTACK);
+    const fighter = unit(s, 12, P1, MILITARY_MODE.IGNORE);
+    const civilian = unit(s, 2, P1, MILITARY_MODE.ATTACK, WOMAN);
+    s.world.add(soldier, Engagement, { repathAt: 0, target: fighter });
+    resolveCombatHit(s.world, ctxOf(s), civilian, soldier, blow, [], 'melee');
+    expect(held(s, soldier)).toBe(fighter);
   });
 
   it('not while it walks under a move order, though an attack-move march turns', () => {

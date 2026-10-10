@@ -48,7 +48,15 @@ import {
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 import { hexNodeDistance } from '../spatial/metric.js';
 import { entityNode } from '../spatial/nodes.js';
-import { type ApproachBand, breakOff, type ChaseTarget, chase, disengage, REPATH_CADENCE } from './chase.js';
+import {
+  type ApproachBand,
+  breakOff,
+  type ChaseTarget,
+  chase,
+  disengage,
+  holdEnemy,
+  REPATH_CADENCE,
+} from './chase.js';
 import type { CombatIndex } from './combat-index.js';
 import { type CombatantStance, EngagementSpecs, resolveTarget, stanceMode } from './engagement.js';
 import { fleeDrive, runsFromBlows, startBlowRun } from './flee.js';
@@ -194,7 +202,7 @@ export function engageCombatant(
   }
 
   const { target, dist } = found;
-  if (spec.hold !== undefined || spec.animalSeeker === true) holdTarget(world, ctx, e, target);
+  if (spec.hold !== undefined || spec.animalSeeker === true) holdEnemy(world, ctx, e, target);
   // Woken: the rest already slept keeps, the clip is cut where it stands.
   if (dozing) removeCurrentAtomic(world, e);
   holdPrey(world, e, spec, target);
@@ -513,13 +521,6 @@ function approachBand(weapon: ArmedWith): ApproachBand {
   if (!isRangedWeapon(weapon.weapon)) return { minRange, maxRange, contact: true };
   if (minRange >= maxRange) return { minRange, maxRange, contact: false };
   return { minRange, maxRange: (2 * maxRange - minRange) >> 1, contact: false };
-}
-
-/** Remember `target` as the enemy `e` holds, written only when it changes. */
-function holdTarget(world: World, ctx: SystemContext, e: Entity, target: Entity): void {
-  const engagement = world.tryGet(e, Engagement);
-  if (engagement === undefined) world.add(e, Engagement, { repathAt: ctx.tick, target });
-  else if (engagement.target !== target) world.mut(e, Engagement).target = target;
 }
 
 /** Who never walks toward a target out of reach: a garrison shooting from its tower, and an unowned

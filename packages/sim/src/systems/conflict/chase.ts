@@ -28,7 +28,8 @@ import { MILITARY_MODE, stanceMode } from '../readviews/index.js';
 import { anyNeedPressing } from '../settlers/drives/needs.js';
 import { markLostWay } from '../settlers/lost-way.js';
 import { closer, hexNodeDistance, nearestHexCell } from '../spatial/metric.js';
-import { type CombatantStance, type EngageSpec, enemyInReachFrom } from './engagement.js';
+import { entityNode } from '../spatial/nodes.js';
+import { type CombatantStance, DEFEND_LEASH_NODES, type EngageSpec, enemyInReachFrom } from './engagement.js';
 import type { MeleeSlots, OwnClaims } from './melee-slots.js';
 import type { CombatPass } from './pass.js';
 import { noteUnreachableTarget } from './unreachable-targets.js';
@@ -182,11 +183,15 @@ export function chase(
 
   const marching = world.tryGet(e, PlayerOrder)?.attackMove !== undefined;
   const order = world.tryGet(e, AttackOrder);
-  // A fighter an ordered man turned to on his way to a structure: giving it up hands him back to the order.
-  const aside =
-    stance.ordered && order !== undefined && order.breach === undefined && order.target !== target.entity;
+  // The enemy an ordered man turned aside to from his order's target: giving it up hands him back to it.
+  const asideFrom =
+    stance.ordered && order !== undefined && order.breach === undefined && order.target !== target.entity
+      ? order.target
+      : null;
+  const aside = asideFrom !== null;
   const commanded = (stance.ordered && !aside) || marching; // player-driven: it releases here, not on the bank
-  const letGo = (): void => (aside ? dropAside(world, e) : breakOff(world, ctx, e, here, defend));
+  const letGo = (): void =>
+    aside ? dropAside(world, ctx, e, target.entity) : breakOff(world, ctx, e, here, defend);
   // A failed chase route ends an explicit attack order. An attack-move march instead rests its aggression
   // and walks on: without the rest, an enemy visible across a river holds the marcher in a failing search
   // every tick and the order can never complete.
@@ -231,8 +236,7 @@ export function chase(
       const enemy = breach?.enemy ?? target.entity;
       const route = { start: request.start, goal: request.goal, sealed: true };
       if (aside) {
-        noteUnreachableTarget(world, ctx, e, target.entity);
-        dropAside(world, e);
+        dropAside(world, ctx, e, target.entity);
         return true;
       }
       if (
@@ -328,12 +332,22 @@ export function chase(
     letGo();
     return true;
   }
+  // Owner rule: a man turned aside fights within a DEFEND leash of his order's target. An enemy past it is
+  // let go unremembered, so it is answered again once it comes back within.
+  if (
+    asideFrom !== null &&
+    hexNodeDistance(terrain, entityNode(world, terrain, asideFrom), dest) >
+      DEFEND_LEASH_NODES + weapon.maxRange
+  ) {
+    releaseAside(world, e);
+    return true;
+  }
   if (dest === here && !travelling) {
     // Standing on its own best approach cell yet out of range: the target cannot be closed on, so give up
     // rather than loop engaged-but-frozen. Next tick the unit re-acquires another enemy, or the economy
     // relocates it, so it never stays stuck. A travelling unit falls through instead, finishes its step and
     // swings next pass.
-    if (aside) dropAside(world, e);
+    if (aside) dropAside(world, ctx, e, target.entity);
     else disengage(world, e);
     return true;
   }
@@ -670,15 +684,38 @@ function freeOverBand(
   return { free: best, anyOpen };
 }
 
-/** Drop the combatant's engagement, returning it to the economy: the {@link Engagement} marker and the chase
- *  movement it drove, plus both target commitments. Only the movement of a unit that was engaged is touched,
- *  so an economy unit with no marker keeps its own. */
-/** Let go of a fighter taken up beside an attack order, the order kept: next pass takes its target up again. */
-function dropAside(world: World, e: Entity): void {
+/** Make `target` the enemy `e` holds, written only when it changes. A change re-aims the chase this pass and
+ *  drops the route request asked for the enemy held before: its refusal, read against the new one, would end
+ *  an attack order whose man had only turned aside, or count a refusal the new enemy never got. */
+export function holdEnemy(world: World, ctx: SystemContext, e: Entity, target: Entity): void {
+  const engagement = world.tryGet(e, Engagement);
+  if (engagement === undefined) {
+    world.add(e, Engagement, { repathAt: ctx.tick, target });
+    return;
+  }
+  if (engagement.target === target) return;
+  const held = world.mut(e, Engagement);
+  held.target = target;
+  held.repathAt = ctx.tick;
+  world.remove(e, PathRequest);
+}
+
+/** Let go of `enemy`, taken up beside an attack order, as one it cannot get at: the enemy is neither picked
+ *  nor turned on again from outside the fighter's reach while it remembers it ({@link releaseAside}). */
+function dropAside(world: World, ctx: SystemContext, e: Entity, enemy: Entity): void {
+  noteUnreachableTarget(world, ctx, e, enemy);
+  releaseAside(world, e);
+}
+
+/** Let go of the enemy a fighter turned aside to from its attack order, which it takes up again next pass. */
+function releaseAside(world: World, e: Entity): void {
   world.remove(e, Engagement);
   clearNavState(world, e);
 }
 
+/** Drop the combatant's engagement, returning it to the economy: the {@link Engagement} marker and the chase
+ *  movement it drove, plus both target commitments. Only the movement of a unit that was engaged is touched,
+ *  so an economy unit with no marker keeps its own. */
 export function disengage(world: World, e: Entity): void {
   if (world.has(e, Engagement)) {
     world.remove(e, Engagement);

@@ -101,20 +101,38 @@ export function isFighterTarget(world: World, ctx: SystemContext, t: Entity): bo
   return world.has(t, Person) && isFighterJob(ctx.content, world.get(t, Settler).jobType);
 }
 
-/** How a fighter ranks an enemy that strikes it against the target it holds, first rank first: an enemy
- *  fighter, then a building shooting at it, then anything else. */
-export const STRIKE_RANK = { FIGHTER: 0, FIRING_BUILDING: 1, OTHER: 2 } as const;
+/** Whether a fighter under `order` may turn aside to an enemy of a higher {@link STRIKE_RANK} than its
+ *  target and take the target up again afterwards: an order on anything but a fighter, unless it is a
+ *  breach, whose breaker stays on its wall (`palisades/breach.ts`). Owner rule. */
+export function turnsAsideUnder(
+  world: World,
+  ctx: SystemContext,
+  order: { readonly target: Entity; readonly breach?: unknown },
+): boolean {
+  return order.breach === undefined && !isFighterTarget(world, ctx, order.target);
+}
+
+/** How a fighter ranks the enemies it may turn between, first rank first: an enemy fighter, then a shooting
+ *  structure, then anything else. Owner rule: no retarget takes a fighter off a target for one of a lower
+ *  rank. */
+export const STRIKE_RANK = { FIGHTER: 0, SHOOTER: 1, OTHER: 2 } as const;
 export type StrikeRank = (typeof STRIKE_RANK)[keyof typeof STRIKE_RANK];
 
-/** The {@link STRIKE_RANK} of `t`; `fires` says whether a building shoots this tick. */
+/** The {@link STRIKE_RANK} of `t`. A shooter is a building among `firing()`, the ones shooting this tick
+ *  ({@link firingBuildings}), or an armed vehicle, crewed or not, as a fleer runs from one
+ *  ({@link isFleeThreat}); `firing` is read only for a building. */
 export function strikeRank(
   world: World,
   ctx: SystemContext,
   t: Entity,
-  fires: (building: Entity) => boolean,
+  firing: () => ReadonlySet<Entity>,
 ): StrikeRank {
   if (isFighterTarget(world, ctx, t)) return STRIKE_RANK.FIGHTER;
-  return world.has(t, Building) && fires(t) ? STRIKE_RANK.FIRING_BUILDING : STRIKE_RANK.OTHER;
+  if (world.has(t, Building)) return firing().has(t) ? STRIKE_RANK.SHOOTER : STRIKE_RANK.OTHER;
+  const vehicle = world.tryGet(t, Vehicle);
+  return vehicle !== undefined && vehicleWeapon(ctx, vehicle) !== null
+    ? STRIKE_RANK.SHOOTER
+    : STRIKE_RANK.OTHER;
 }
 
 /** Whether `t` is a live target this attacker may swing at - a positioned, `Health`-bearing enemy settler,

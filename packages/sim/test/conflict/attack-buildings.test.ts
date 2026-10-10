@@ -24,6 +24,7 @@ import {
   hexDistanceBetween,
   nodeOfPosition,
   ONE,
+  playerCommand,
   positionOfNode,
   type ScriptLandscapeType,
   type SimEvent,
@@ -611,6 +612,22 @@ describe('a besieger turns to an enemy fighter', () => {
   const IDLE = 0;
   /** The second row, where an enemy stands beside the besieger without blocking the home. */
   const SIDE_ROW = 1;
+  /** A siege window: longer than giving an enemy up takes, shorter than a given-up enemy is remembered. */
+  const SIEGE_TICKS = 120;
+  /** How often an archer behind a wall looses an arrow at the besieger. */
+  const ARROW_TICKS = 20;
+  /** A home no siege window brings down. */
+  const STURDY_HP = 1_000_000;
+  /** Where an enemy walks off to, well past the leash a fighter turned aside keeps around its ordered
+   *  building: DEFEND_LEASH_NODES and the weapon's reach, 42 map points, 21 cells along a row. */
+  const FAR_X = 40;
+  const ASIDE_LEASH_CELLS = 1 + 21;
+  /** Well into the chase, so the leash is what stops it. */
+  const SIDE_CHASE_CELLS = 12;
+  /** Within the leash again, yet out of the soldier's reach. */
+  const RETURN_X = 6;
+  /** Ample ticks a walker takes for one cell. */
+  const WALK_TICKS_PER_CELL = 20;
 
   /** A warrior battering a home beside it, and an enemy fighter that never walks up by itself at cell
    *  (x, y). */
@@ -690,13 +707,98 @@ describe('a besieger turns to an enemy fighter', () => {
     sim.world.mut(archer, Stance).mode = MILITARY_MODE.IGNORE;
     sim.enqueueSetup({ kind: 'attackUnit', entity: soldier, target: home });
     for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    sim.world.add(home, Health, { hitpoints: STURDY_HP, max: STURDY_HP });
     resolveCombatHit(sim.world, ctxOf(sim), archer, soldier, { damage: 1 }, [], 'projectile');
     expect(sim.world.get(soldier, Engagement).target).toBe(archer);
-    const GIVE_UP_TICKS = 200;
-    for (let i = 0; i < GIVE_UP_TICKS; i++) sim.step();
+    const underArrows = (i: number): void => {
+      sim.step();
+      if (i % ARROW_TICKS === 0)
+        resolveCombatHit(sim.world, ctxOf(sim), archer, soldier, { damage: 1 }, [], 'projectile');
+    };
+    for (let i = 0; i < SIEGE_TICKS; i++) underArrows(i); // the walled-off archer is given up
+    let onHome = 0;
+    for (let i = 0; i < SIEGE_TICKS; i++) {
+      underArrows(i); // and its arrows turn the soldier no more
+      if (sim.world.tryGet(soldier, Engagement)?.target === home) onHome++;
+    }
+    expect(onHome).toBe(SIEGE_TICKS);
+    expect(sim.world.get(soldier, AttackOrder).target).toBe(home);
+    expect([...sim.world.query(Palisade)].length).toBe(20); // no wall broken for the archer
+  });
+
+  it('lets a fighter it turned aside to go past a leash around the ordered building, and takes the building up again', () => {
+    const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(FAR_X + 2, 2) });
+    const soldier = warriorAt(sim, 0, 0, P1);
+    const home = buildingAt(sim, 1, 0, HOME, P2);
+    sim.world.add(home, Health, { hitpoints: STURDY_HP, max: STURDY_HP });
+    sim.enqueueSetup({ kind: 'attackUnit', entity: soldier, target: home });
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    const enemy = warriorAt(sim, 0, SIDE_ROW, P2);
+    sim.world.mut(enemy, Stance).mode = MILITARY_MODE.IGNORE;
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(enemy);
+
+    // The enemy walks off, never to be caught, and the soldier follows only so far.
+    const far = nodeOfPosition(fx.fromInt(FAR_X), fx.fromInt(SIDE_ROW));
+    sim.enqueue(playerCommand(P2, { kind: 'moveUnit', entity: enemy, x: far.hx, y: far.hy }));
+    let farthest = 0;
+    for (let i = 0; i < FAR_X * WALK_TICKS_PER_CELL; i++) {
+      sim.step();
+      farthest = Math.max(farthest, fx.toInt(sim.world.get(soldier, Position).x));
+    }
+    expect(farthest).toBeGreaterThan(SIDE_CHASE_CELLS);
+    expect(farthest).toBeLessThanOrEqual(ASIDE_LEASH_CELLS);
+    expect(sim.world.get(soldier, Engagement).target).toBe(home);
+    expect(sim.world.get(soldier, AttackOrder).target).toBe(home);
+
+    // Back within the leash, the enemy that strikes it is answered again.
+    sim.world.add(enemy, Position, { x: fx.fromInt(RETURN_X), y: fx.fromInt(SIDE_ROW) });
+    resolveCombatHit(sim.world, ctxOf(sim), enemy, soldier, { damage: 1 }, [], 'projectile');
+    expect(sim.world.get(soldier, Engagement).target).toBe(enemy);
+  });
+
+  it('keeps its order when the enemy it turned aside to falls while its route there is still asked', () => {
+    const sim = new Simulation({ seed: 1, content: siegeContent(), map: walledOffSouth(10, 6) });
+    for (let hx = 0; hx < 20; hx++) {
+      sim.enqueueSetup({
+        kind: 'placePalisade',
+        gfxIndex: WALL.typeId,
+        x: hx,
+        y: WALL_ROW,
+        tribe: VIKING,
+        owner: P2,
+      });
+    }
+    const soldier = warriorAt(sim, 0, 0, P1);
+    const home = buildingAt(sim, 1, 0, HOME, P2);
+    sim.world.add(home, Health, { hitpoints: STURDY_HP, max: STURDY_HP });
+    const archer = warriorAt(sim, 4, 4, P2, ARCHER);
+    sim.world.mut(archer, Stance).mode = MILITARY_MODE.IGNORE;
+    sim.enqueueSetup({ kind: 'attackUnit', entity: soldier, target: home });
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    resolveCombatHit(sim.world, ctxOf(sim), archer, soldier, { damage: 1 }, [], 'projectile');
+    // The chase re-aims at the walled-off archer; the archer falls before the refused route is read.
+    const chasing = (): boolean => sim.world.has(soldier, MoveGoal);
+    for (let i = 0; i < TURN_TICKS && !chasing(); i++) sim.step();
+    expect(chasing()).toBe(true);
+    expect(sim.world.get(soldier, Engagement).target).toBe(archer);
+    sim.world.mut(archer, Owner).player = P1;
+    for (let i = 0; i < TURN_TICKS; i++) sim.step();
     expect(sim.world.get(soldier, AttackOrder).target).toBe(home);
     expect(sim.world.get(soldier, Engagement).target).toBe(home);
-    expect([...sim.world.query(Palisade)].length).toBe(20); // no wall broken for the archer
+  });
+
+  it('answers a blow on a comrade near it under an attack order on the building, the order kept', () => {
+    const { sim, soldier, home, enemy } = siege(4, SIDE_ROW);
+    sim.enqueueSetup({ kind: 'attackUnit', entity: soldier, target: home });
+    const comrade = warriorAt(sim, 3, SIDE_ROW, P1);
+    sim.world.mut(comrade, Stance).mode = MILITARY_MODE.IGNORE;
+    sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(home);
+    resolveCombatHit(sim.world, ctxOf(sim), enemy, comrade, { damage: 1 }, [], 'melee');
+    sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(enemy);
+    expect(sim.world.get(soldier, AttackOrder).target).toBe(home);
   });
 
   it('turns on a fighter that strikes it, though the building it holds stands nearer', () => {

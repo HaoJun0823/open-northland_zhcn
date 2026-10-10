@@ -28,8 +28,10 @@ export function webglAvailable(): boolean {
   try {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    // A context lost from the start (a wedged or blocked GPU process) draws nothing either.
+    const usable = gl !== null && !gl.isContextLost();
     gl?.getExtension('WEBGL_lose_context')?.loseContext();
-    return gl !== null;
+    return usable;
   } catch {
     return true;
   }

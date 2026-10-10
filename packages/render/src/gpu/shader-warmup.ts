@@ -71,6 +71,7 @@ export type LinkingContext = Pick<
   | 'getProgramParameter'
   | 'deleteShader'
   | 'deleteProgram'
+  | 'isContextLost'
 >;
 
 export function startShaderWarmup(
@@ -82,8 +83,9 @@ export function startShaderWarmup(
     typeof document === 'undefined'
       ? null
       : document.createElement('canvas').getContext('webgl2', { antialias: false, depth: false });
-  // No WebGL 2 here: the renderer will say so itself.
-  if (gl === null) return { done: Promise.resolve([]) };
+  // No usable WebGL 2 here: the renderer will say so itself. On a lost context every compile reports
+  // failure, so Pixi's if-limit probe below would halve its limit to 0 and never return.
+  if (gl === null || gl.isContextLost()) return { done: Promise.resolve([]) };
   // The limit the renderer will find for its own context: WebGL 2 guarantees the if-chain at 16, and
   // Pixi halves the limit where a larger chain fails to compile.
   const limit = checkMaxIfStatementsInShader(gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS), gl);
@@ -115,13 +117,20 @@ async function linkInParallel(
   programs: readonly GlslProgramSource[],
   onProgress: (linked: number, total: number) => void,
 ): Promise<readonly WarmedProgram[]> {
-  let pending = programs.map((source) => requestLink(gl, source));
   const warmed: WarmedProgram[] = [];
+  let pending: PendingLink[] = [];
+  for (const source of programs) {
+    const link = requestLink(gl, source);
+    if (link === null) warmed.push(unlinked(source));
+    else pending.push(link);
+  }
   while (pending.length > 0) {
     await new Promise((resolve) => setTimeout(resolve, COMPLETION_POLL_MS));
+    // A lost context links nothing more, so its pending links are failures already.
+    const lost = gl.isContextLost();
     const still: PendingLink[] = [];
     for (const link of pending) {
-      if (gl.getProgramParameter(link.program, COMPLETION_STATUS_KHR) === true)
+      if (lost || gl.getProgramParameter(link.program, COMPLETION_STATUS_KHR) === true)
         warmed.push(finishLink(gl, link));
       else still.push(link);
     }
@@ -140,29 +149,48 @@ async function linkOneByOne(
   const warmed: WarmedProgram[] = [];
   for (const source of programs) {
     await new Promise((resolve) => setTimeout(resolve, 0));
-    warmed.push(finishLink(gl, requestLink(gl, source)));
+    const link = requestLink(gl, source);
+    warmed.push(link === null ? unlinked(source) : finishLink(gl, link));
     onProgress(warmed.length, programs.length);
   }
   return warmed;
 }
 
-/** Compiles and links the text Pixi will hand the renderer for `source`; the driver may defer both. */
-function requestLink(gl: LinkingContext, source: GlslProgramSource): PendingLink {
+/**
+ * Compiles and links the text Pixi will hand the renderer for `source`; the driver may defer both.
+ * Null once the context is lost, which creates no objects and links nothing.
+ */
+function requestLink(gl: LinkingContext, source: GlslProgramSource): PendingLink | null {
   const { vertex, fragment } = glProgramFor(source);
   if (vertex === undefined || fragment === undefined) throw new Error(`Pixi dropped ${source.name}'s source`);
-  const program = gl.createProgram();
-  if (program === null) throw new Error(`createProgram failed for ${source.name}`);
-  const compile = (type: GLenum, text: string): WebGLShader => {
-    const shader = gl.createShader(type);
-    if (shader === null) throw new Error(`createShader failed for ${source.name}`);
+  const created = <T>(object: T | null, call: string): T | null => {
+    if (object !== null || gl.isContextLost()) return object;
+    throw new Error(`${call} failed for ${source.name}`);
+  };
+  const program = created(gl.createProgram(), 'createProgram');
+  if (program === null) return null;
+  const compile = (type: GLenum, text: string): WebGLShader | null => {
+    const shader = created(gl.createShader(type), 'createShader');
+    if (shader === null) return null;
     gl.shaderSource(shader, text);
     gl.compileShader(shader);
     gl.attachShader(program, shader);
     return shader;
   };
-  const shaders = [compile(gl.VERTEX_SHADER, vertex), compile(gl.FRAGMENT_SHADER, fragment)];
+  const vertexShader = compile(gl.VERTEX_SHADER, vertex);
+  const fragmentShader = vertexShader === null ? null : compile(gl.FRAGMENT_SHADER, fragment);
+  if (vertexShader === null || fragmentShader === null) return null;
   gl.linkProgram(program);
-  return { name: source.name, program, shaders, startedAt: performance.now() };
+  return {
+    name: source.name,
+    program,
+    shaders: [vertexShader, fragmentShader],
+    startedAt: performance.now(),
+  };
+}
+
+function unlinked(source: GlslProgramSource): WarmedProgram {
+  return { name: source.name, linked: false, ms: 0 };
 }
 
 /** Reads the link's outcome, which waits for a deferred link, and frees the objects. */

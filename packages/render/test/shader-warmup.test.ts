@@ -10,13 +10,15 @@ const COMPLETION_STATUS_KHR = 0x91b1;
 function fakeContext(failing: ReadonlySet<string> = new Set()) {
   const sources = new Map<WebGLProgram, string>();
   let completed = false;
+  let lost = false;
   const calls = { links: 0, deletedPrograms: 0, deletedShaders: 0, statusReadsBeforeCompletion: 0 };
   const gl: LinkingContext = {
     VERTEX_SHADER: 0x8b31,
     FRAGMENT_SHADER: 0x8b30,
     LINK_STATUS: 0x8b82,
-    createProgram: () => ({}) as WebGLProgram,
-    createShader: () => ({}) as WebGLShader,
+    // WebGL answers null on a lost context, which the DOM types omit.
+    createProgram: () => (lost ? null : {}) as WebGLProgram,
+    createShader: () => (lost ? null : {}) as WebGLShader,
     shaderSource: () => undefined,
     compileShader: () => undefined,
     attachShader: () => undefined,
@@ -25,6 +27,8 @@ function fakeContext(failing: ReadonlySet<string> = new Set()) {
       sources.set(program, '');
     },
     getProgramParameter: (program, name) => {
+      // As WebGL answers every query on a lost context.
+      if (lost) return null;
       if (name === COMPLETION_STATUS_KHR) {
         if (!completed) calls.statusReadsBeforeCompletion++;
         return completed;
@@ -38,6 +42,7 @@ function fakeContext(failing: ReadonlySet<string> = new Set()) {
     deleteProgram: () => {
       calls.deletedPrograms++;
     },
+    isContextLost: () => lost,
   };
   const names = new Map<WebGLProgram, string>();
   const nameOf = (program: WebGLProgram): string => names.get(program) ?? '';
@@ -53,7 +58,10 @@ function fakeContext(failing: ReadonlySet<string> = new Set()) {
   const complete = (): void => {
     completed = true;
   };
-  return { gl, calls, complete };
+  const lose = (): void => {
+    lost = true;
+  };
+  return { gl, calls, complete, lose };
 }
 
 describe('world shader settings', () => {
@@ -114,6 +122,39 @@ describe('linkPrograms', () => {
     expect(calls.deletedPrograms).toBe(programs.length);
     expect(calls.deletedShaders).toBe(2 * programs.length);
     expect(progress.at(-1)).toBe(programs.length);
+  });
+
+  it('settles with every pending link failed once the context is lost', async () => {
+    const { gl, lose } = fakeContext();
+    const done = linkPrograms(gl, programs, true);
+    lose();
+    const warmed = await done;
+    expect(warmed).toHaveLength(programs.length);
+    expect(warmed.some((program) => program.linked)).toBe(false);
+  });
+
+  it('settles when the context is lost among the parallel requests', async () => {
+    const { gl, calls, lose } = fakeContext();
+    const lostAfter = 3;
+    const link = gl.linkProgram;
+    gl.linkProgram = (program) => {
+      link(program);
+      if (calls.links === lostAfter) lose();
+    };
+    const warmed = await linkPrograms(gl, programs, true);
+    expect(calls.links).toBe(lostAfter);
+    expect(warmed).toHaveLength(programs.length);
+    expect(warmed.some((program) => program.linked)).toBe(false);
+  });
+
+  it('requests no further link one by one once the context is lost', async () => {
+    const { gl, calls, lose } = fakeContext();
+    const lostAfter = 2;
+    const warmed = await linkPrograms(gl, programs, false, (linked) => {
+      if (linked === lostAfter) lose();
+    });
+    expect(calls.links).toBe(lostAfter);
+    expect(warmed.map((program) => program.linked)).toEqual(programs.map((_, index) => index < lostAfter));
   });
 
   it('links one program per turn without the parallel extension', async () => {

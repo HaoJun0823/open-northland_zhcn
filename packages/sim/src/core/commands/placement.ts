@@ -49,6 +49,8 @@ export interface PlacePalisadeCommand {
   readonly underConstruction?: boolean;
   /** Trusted authored-map durability/valency; ignored for a construction site. */
   readonly valency?: number;
+  /** Trusted: the authored map placement this wall stands for, so a script removing it razes the wall. */
+  readonly landscapeId?: number;
   readonly force?: boolean;
   /** Stand where a building only keeps room for its upgrade; that upgrade razes the segment. */
   readonly overUpgradeGround?: boolean;

@@ -44,11 +44,11 @@ describe('script landscape state and blockers', () => {
     expect(setLandscape(sim.world, ctx, { hx: 7, hy: 8 }, 1, 0)).toBe(true);
     const doubled = landscapeBlocks(sim.world, terrain);
     expect(doubled.walk.has(shared)).toBe(true);
-    removeLandscapes(sim.world, terrain, POINT, 0);
+    removeLandscapes(sim.world, ctxOf(sim), terrain, POINT, 0);
     const halved = landscapeBlocks(sim.world, terrain);
     expect(halved.walk.has(shared)).toBe(true);
     expect(halved.walk.has(terrain.nodeAt(9, 8))).toBe(false);
-    removeLandscapes(sim.world, terrain, { hx: 7, hy: 8 }, 0);
+    removeLandscapes(sim.world, ctxOf(sim), terrain, { hx: 7, hy: 8 }, 0);
     const cleared = landscapeBlocks(sim.world, terrain);
     expect(cleared.walk.has(shared)).toBe(false);
     // Each edit mints a view naming only the cells whose blocking changed, chained from the one before.
@@ -74,7 +74,7 @@ describe('script landscape state and blockers', () => {
     const probe = () => placementProbe(sim.world, sim.content, terrain, HUT, undefined, []);
     expect(probe().canPlace(10, 8)).toBe(false);
     // Three edits with no read of the layer between them: one catch-up carries all of them.
-    removeLandscapes(sim.world, terrain, POINT, 0);
+    removeLandscapes(sim.world, ctxOf(sim), terrain, POINT, 0);
     expect(setLandscape(sim.world, ctx, { hx: 3, hy: 3 }, 1, 0)).toBe(true);
     expect(setLandscape(sim.world, ctx, { hx: 12, hy: 12 }, 1, 0)).toBe(true);
     expect(probe().canPlace(10, 8)).toBe(true);
@@ -83,7 +83,7 @@ describe('script landscape state and blockers', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
     // Far more edits than the layer keeps linked: the grid's chain breaks and it re-reads the layer.
     for (let i = 0; i < 300; i++) {
-      removeLandscapes(sim.world, terrain, { hx: 12, hy: 12 }, 0);
+      removeLandscapes(sim.world, ctxOf(sim), terrain, { hx: 12, hy: 12 }, 0);
       expect(setLandscape(sim.world, ctx, { hx: 12, hy: 12 }, 1, 0)).toBe(true);
       landscapeBlocks(sim.world, terrain);
     }
@@ -100,7 +100,7 @@ describe('script landscape state and blockers', () => {
     expect(landscapesWithin(sim.world, terrain, { hx: 5, hy: 5 }, 2).map((p) => p.id)).toEqual([1]);
     expect(setLandscape(sim.world, ctxOf(sim), { hx: 6, hy: 6 }, 2, 0)).toBe(true);
     expect(landscapesWithin(sim.world, terrain, POINT, 100).map((p) => p.id)).toEqual([0, 1, 2]);
-    removeLandscapes(sim.world, terrain, { hx: 5, hy: 5 }, 0);
+    removeLandscapes(sim.world, ctxOf(sim), terrain, { hx: 5, hy: 5 }, 0);
     expect(landscapesWithin(sim.world, terrain, POINT, 100).map((p) => p.id)).toEqual([0, 2]);
     expect(landscapesWithin(sim.world, terrain, POINT, -1)).toEqual([]);
   });
@@ -124,7 +124,7 @@ describe('script landscape state and blockers', () => {
     const node = terrain.nodeAt(9, 8);
     expect(dynamicBlockOverlay(sim.world, ctx, terrain).has(node)).toBe(true);
     expect(placementProbe(sim.world, sim.content, terrain, HUT, undefined, []).canPlace(10, 8)).toBe(false);
-    removeLandscapes(sim.world, terrain, POINT, 0);
+    removeLandscapes(sim.world, ctxOf(sim), terrain, POINT, 0);
     expect(dynamicBlockOverlay(sim.world, ctx, terrain).has(node)).toBe(false);
     expect(placementProbe(sim.world, sim.content, terrain, HUT, undefined, []).canPlace(10, 8)).toBe(true);
     expect(sim.landscapeEdits().removed).toEqual([0]);
@@ -146,7 +146,7 @@ describe('script landscape state and blockers', () => {
     const regions = routeRegions(sim.world, ctx, terrain);
     expect(regions.unroutable(from, to)).toBe(true);
     expect(findPath(terrain, from, to, dynamicBlockOverlay(sim.world, ctx, terrain))).toBeNull();
-    removeLandscapes(sim.world, terrain, { hx: 8, hy: 4 }, 0);
+    removeLandscapes(sim.world, ctx, terrain, { hx: 8, hy: 4 }, 0);
     expect(regions.unroutable(from, to)).toBe(false);
     expect(findPath(terrain, from, to, dynamicBlockOverlay(sim.world, ctx, terrain))).not.toBeNull();
   });
@@ -154,7 +154,7 @@ describe('script landscape state and blockers', () => {
   it('replaces all objects at an anchor and filters removals by the catalog group', () => {
     const sim = fresh();
     const terrain = terrainOf(sim);
-    removeLandscapes(sim.world, terrain, POINT, 100, 'smoke');
+    removeLandscapes(sim.world, ctxOf(sim), terrain, POINT, 100, 'smoke');
     expect(sim.landscapeEdits().removed).toEqual([1]);
     expect(setLandscape(sim.world, ctxOf(sim), POINT, 2, 3)).toBe(true);
     expect(sim.landscapeEdits().removed).toEqual([0, 1]);
@@ -431,7 +431,9 @@ describe('script landscape state and blockers', () => {
     if (resource === undefined) throw new Error('mine spawned');
     expect(sim.world.get(resource, Resource).remaining).toBe(3);
     const removed: number[] = [];
-    removeLandscapes(sim.world, terrainOf(sim), POINT, 0, undefined, (entity) => removed.push(entity));
+    removeLandscapes(sim.world, ctxOf(sim), terrainOf(sim), POINT, 0, undefined, (entity) =>
+      removed.push(entity),
+    );
     expect(removed).toEqual([resource]);
     expect(sim.world.isAlive(resource)).toBe(false);
     expect(sim.landscapeEdits().added).toEqual([]);

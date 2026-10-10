@@ -103,6 +103,7 @@ export function editScriptedLandscape(pass: MissionPass, mission: number, op: La
   const freed = freedThisPass(pass);
   const opened = removeLandscapes(
     pass.world,
+    pass.ctx,
     terrain,
     op.point,
     removalRange(op),

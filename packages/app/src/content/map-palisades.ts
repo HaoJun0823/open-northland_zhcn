@@ -70,6 +70,7 @@ export function spawnMapPalisades(
       tribe: tribeForOwner(spawn.owner),
       ...(spawn.owner !== undefined ? { owner: spawn.owner } : {}),
       ...(spawn.valency !== undefined ? { valency: spawn.valency } : {}),
+      landscapeId: spawn.placement,
       underConstruction: false,
       force: true,
     };

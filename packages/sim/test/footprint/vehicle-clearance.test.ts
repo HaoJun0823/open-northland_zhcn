@@ -108,7 +108,7 @@ it('keeps the clearance field through landscape changes after sparse reads', () 
   const field = vehicleClearance(sim.world, ctxOf(sim), terrain);
   const node = terrain.nodeAt(10, 6);
   expect(field.classOf(node)).toBe(0);
-  removeLandscapes(sim.world, terrain, { hx: 10, hy: 6 }, 0);
+  removeLandscapes(sim.world, ctxOf(sim), terrain, { hx: 10, hy: 6 }, 0);
   expect(vehicleClearance(sim.world, ctxOf(sim), terrain)).toBe(field);
   expect(field.classOf(node)).toBeGreaterThan(0);
   expect(sim.world.verifyCaches()).toEqual([]);

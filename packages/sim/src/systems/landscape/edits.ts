@@ -1,5 +1,5 @@
 import type { ContentSet, FootprintCell } from '@open-northland/data';
-import { Position, ResourceFootprint } from '../../components/index.js';
+import { Palisade, Position, ResourceFootprint } from '../../components/index.js';
 import { landscapeEditState, writeLandscapeEdits } from '../../components/landscape.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
@@ -25,18 +25,21 @@ import type { SystemContext } from '../context.js';
 import { createBerryBush } from '../economy/berries.js';
 import { createGroundGoods } from '../economy/ground-goods.js';
 import { translatedCells } from '../footprint/geometry.js';
+import { palisadeBodyCells } from '../footprint/placement/blockers.js';
 import {
   createResourceNode,
   stampResourceFootprintData,
   unstampResourceFootprint,
 } from '../footprint/resources.js';
+import { removePalisade } from '../palisades/index.js';
 import { placementBlockCells } from './footprint.js';
 import { authoredLandscapes, landscapeResources, landscapesWithin, landscapeTypes } from './view.js';
 
-/** Remove every standing placement within `range` of `point`, with their backing resources. Returns
- *  the walk cells they blocked, for a caller judging whether a later placement closes anything new. */
+/** Remove every standing placement within `range` of `point`, with their backing resources and walls.
+ *  Returns the walk cells they blocked, for a caller judging whether a later placement closes anything new. */
 export function removeLandscapes(
   world: World,
+  ctx: SystemContext,
   terrain: TerrainGraph,
   point: HalfCellNode,
   range: number,
@@ -53,6 +56,14 @@ export function removeLandscapes(
   const resources = landscapeResources(world);
   for (const placement of matches) {
     for (const entity of resources.get(placement.id) ?? []) {
+      if (world.has(entity, Palisade)) {
+        palisadeBodyCells(world, entity, (hx, hy) => {
+          if (terrain.inBounds(hx, hy)) freed.push(terrain.nodeAt(hx, hy));
+        });
+        removePalisade(world, ctx, entity);
+        onResourceRemoved?.(entity);
+        continue;
+      }
       const footprint = world.tryGet(entity, ResourceFootprint);
       const at = world.tryGet(entity, Position);
       if (footprint !== undefined && at !== undefined) {
@@ -180,7 +191,7 @@ export function setLandscape(
   const id = Math.max(state.nextId, authoredLandscapes(terrain).nextId);
   const resource = createPlacementBacking(world, ctx, type, point, level, id);
   if (resource === null) return false;
-  removeLandscapes(world, terrain, point, 0, undefined, (entity) =>
+  removeLandscapes(world, ctx, terrain, point, 0, undefined, (entity) =>
     ctx.events.emit({ kind: 'missionLandscapeResourceRemoved', entity }),
   );
   if (type.bushGfxIndex !== undefined)

@@ -402,6 +402,7 @@ describe('CommandSystem - command authority', () => {
       const cheats = [
         { ...place, force: true },
         { ...place, valency: 40 },
+        { ...place, landscapeId: 0 },
         { ...place, underConstruction: false },
       ];
       for (const command of cheats) {

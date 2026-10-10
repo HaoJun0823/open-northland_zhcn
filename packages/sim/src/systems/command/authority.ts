@@ -151,7 +151,10 @@ function hasAuthoredOptions(
 ): boolean {
   if (command.kind === 'placePalisade')
     return (
-      command.underConstruction === false || command.valency !== undefined || command.force !== undefined
+      command.underConstruction === false ||
+      command.valency !== undefined ||
+      command.landscapeId !== undefined ||
+      command.force !== undefined
     );
   return (
     command.underConstruction === false ||

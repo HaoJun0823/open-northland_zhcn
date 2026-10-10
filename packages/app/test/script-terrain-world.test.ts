@@ -69,3 +69,67 @@ it('fresh and restored map worlds share editable landscape input and saved terra
   restored.run(systems.MISSION_EVALUATION_TICKS);
   expect(restored.hashState()).toBe(sim.hashState());
 });
+
+it('razes an authored wall a script removes from the landscape', () => {
+  const map: TerrainMapFile = {
+    width: 12,
+    height: 12,
+    typeIds: new Array<number>(144).fill(0),
+    objects: { types: ['wall_01'], placements: [12, 12, 0], levels: [100] },
+  };
+  const wallLogicType = 82;
+  const ir: ContentIr = {
+    landscape: [
+      {
+        typeId: wallLogicType,
+        id: 'wall',
+        maxValency: 100,
+        playerIdAllowed: true,
+        transitions: [
+          [9, wallLogicType, 2, 3, 0],
+          [10, wallLogicType, 2, -1, 0],
+        ],
+      },
+    ],
+    landscapeGfx: [
+      {
+        index: 691,
+        logicType: wallLogicType,
+        editName: 'wall_01',
+        walkBlockAreas: [[1, 0, 0, 1]],
+        buildBlockAreas: [[1, 0, 0, 1]],
+      },
+    ],
+  };
+  const removal: MissionScript = {
+    missions: [
+      {
+        active: true,
+        visible: false,
+        successfullIf: SUCCESSFUL_IF.all,
+        goals: [],
+        results: [{ opcode: 'RemoveLandscape', point: { hx: 12, hy: 12 } }],
+      },
+    ],
+  };
+  const { sim } = buildMapWorld({
+    seed: 7,
+    map,
+    ir,
+    content: {},
+    aiSeats: [],
+    assistantSeats: [],
+    fog: null,
+    progression: null,
+    needs: null,
+    alliedVision: null,
+    missions: true,
+    script: { missions: removal },
+  });
+  const walls = (): number =>
+    sim.snapshot().entities.filter((e) => e.components.Palisade !== undefined).length;
+  expect(walls()).toBe(1);
+  sim.run(systems.MISSION_EVALUATION_TICKS);
+  expect(walls()).toBe(0);
+  expect(sim.landscapeEdits().removed).toEqual([0]);
+});

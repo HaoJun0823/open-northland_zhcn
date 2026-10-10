@@ -128,7 +128,7 @@ describe('porter dormancy', () => {
     };
     markPorterDormant(plan);
     expect(porterDormant(plan)).toBe(true);
-    removeLandscapes(sim.world, sim.terrain, { hx: 4, hy: 0 }, 0);
+    removeLandscapes(sim.world, ctx, sim.terrain, { hx: 4, hy: 0 }, 0);
     expect(porterDormant(plan)).toBe(false);
   });
 

@@ -36,7 +36,7 @@ describe('map palisade promotion', () => {
     ]);
   });
 
-  it('uses each owner roster tribe and passes authored durability to trusted placement', () => {
+  it('uses each owner roster tribe and passes authored durability and placement to trusted placement', () => {
     const commands: Command[] = [];
     const sim = {
       enqueueSetup: (command: Command): void => {
@@ -61,6 +61,7 @@ describe('map palisade promotion', () => {
         tribe: 1,
         owner: 0,
         valency: 100,
+        landscapeId: 0,
         underConstruction: false,
         force: true,
       },
@@ -72,6 +73,7 @@ describe('map palisade promotion', () => {
         tribe: 7,
         owner: 12,
         valency: 40,
+        landscapeId: 1,
         underConstruction: false,
         force: true,
       },

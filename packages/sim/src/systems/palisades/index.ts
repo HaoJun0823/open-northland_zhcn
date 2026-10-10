@@ -3,6 +3,7 @@ import {
   Damaged,
   GateControl,
   Health,
+  LandscapeResource,
   Owner,
   ownerOf,
   Palisade,
@@ -126,6 +127,7 @@ export function createPalisade(
     readonly underConstruction: boolean;
     readonly valency?: number;
     readonly placementWalk?: readonly FootprintCell[];
+    readonly landscapeId?: number;
   },
 ): Entity | null {
   const wall = type.wall;
@@ -153,6 +155,7 @@ export function createPalisade(
   world.add(e, Stockpile, { amounts: new Map<number, number>() });
   if (spec.underConstruction) world.add(e, UnderConstruction, { labor: fx.fromInt(0) });
   else world.add(e, PalisadeBlocking, {});
+  if (spec.landscapeId !== undefined) world.add(e, LandscapeResource, { id: spec.landscapeId });
   stampOwner(world, e, spec.owner);
   return e;
 }
@@ -610,6 +613,7 @@ export function placePalisade(
     ...(command.owner !== undefined ? { owner: command.owner } : {}),
     underConstruction: command.underConstruction === true,
     ...(command.valency !== undefined ? { valency: command.valency } : {}),
+    ...(command.landscapeId !== undefined ? { landscapeId: command.landscapeId } : {}),
     placementWalk: placementWalkOf(terrain, type),
   });
   if (entity === null) return;

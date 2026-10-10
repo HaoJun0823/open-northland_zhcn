@@ -1,3 +1,4 @@
+import { TICKS_PER_SECOND } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { playthroughsOf } from '../src/view/runtime/save-load/playthroughs.js';
 import { newestFirst, type SaveSlotInfo } from '../src/view/runtime/save-load/store.js';
@@ -5,8 +6,16 @@ import { newestFirst, type SaveSlotInfo } from '../src/view/runtime/save-load/st
 const FOREST = 'forest';
 const COAST = 'coast';
 
-function slot(name: string, savedAt: number, mapId: string | null, seed: number | null): SaveSlotInfo {
-  return { id: name, name, mapId, tick: 0, entry: null, savedAt, seed, thumbnail: null };
+const SECOND = 1000;
+
+function slot(
+  name: string,
+  savedAt: number,
+  mapId: string | null,
+  seed: number | null,
+  tick = 0,
+): SaveSlotInfo {
+  return { id: name, name, mapId, tick, entry: null, savedAt, seed, thumbnail: null };
 }
 
 const names = (slots: readonly SaveSlotInfo[]): string[] => slots.map((s) => s.name);
@@ -20,7 +29,7 @@ describe('playthroughsOf', () => {
     slot('forest-old', 5, FOREST, null),
   ]);
 
-  it('groups a map by seed, numbers its games oldest first and orders them by their newest save', () => {
+  it('groups a map by seed, numbers its games by start and orders them by their newest save', () => {
     const groups = playthroughsOf(slots, null);
     expect(groups.map((g) => names(g.slots))).toEqual([
       ['forest-old'],
@@ -28,8 +37,19 @@ describe('playthroughsOf', () => {
       ['coast-1'],
       ['forest-b1'],
     ]);
-    expect(groups.map((g) => g.ordinal)).toEqual([3, 1, null, 2]);
+    // The seedless saves may hold several games, so they go unnumbered.
+    expect(groups.map((g) => g.ordinal)).toEqual([null, 1, null, 2]);
     expect(groups.some((g) => g.current)).toBe(false);
+  });
+
+  it("keeps a game's number when its only save is overwritten later in play", () => {
+    const ordinals = (list: SaveSlotInfo[]) =>
+      Object.fromEntries(playthroughsOf(newestFirst(list), null).map((g) => [g.key, g.ordinal]));
+    const b = slot('B1', 20 * SECOND, FOREST, 22, 3 * TICKS_PER_SECOND);
+    const before = ordinals([slot('Quick', 10 * SECOND, FOREST, 11, 5 * TICKS_PER_SECOND), b]);
+    const after = ordinals([slot('Quick', 30 * SECOND, FOREST, 11, 25 * TICKS_PER_SECOND), b]);
+    expect(after).toEqual(before);
+    expect(Object.values(before)).toEqual([2, 1]);
   });
 
   it('puts the running game first', () => {

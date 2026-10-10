@@ -313,6 +313,42 @@ describe('load window', () => {
     expect(selectedName(load)).toBe('Mine');
   });
 
+  it("walks and deletes from a row's bin as from its row", async () => {
+    const copy = messages().saveList;
+    const { menu, saveLoad } = mount([slot('A', 3), slot('B', 2), slot('C', 1)]);
+    menu.openPage('load');
+    const load = page('load');
+    await vi.waitFor(() => expect(selectedName(load)).toBe('A'));
+    load.querySelectorAll<HTMLButtonElement>('.on-saves__pick')[1]?.click();
+    const bin = button(formatMessage(copy.deleteNamed, { name: 'B' }), load);
+    press(bin, 'ArrowDown');
+    expect(selectedName(load)).toBe('C');
+    const binC = button(formatMessage(copy.deleteNamed, { name: 'C' }), load);
+    press(binC, 'Delete');
+    await vi.waitFor(() => question());
+    button(copy.del, question()).click();
+    await vi.waitFor(() => expect(saveLoad.deleteSave).toHaveBeenCalledWith('C'));
+  });
+
+  it('keeps a game the player closed closed when the list redraws', async () => {
+    const copy = messages().saveList;
+    const { menu } = mount([slot('Mine', 3), slot('Away', 2, ELSEWHERE)]);
+    menu.openPage('load');
+    const load = page('load');
+    await vi.waitFor(() => expect(selectedName(load)).toBe('Mine'));
+    const [mine, away] = groupHeads(load);
+    mine?.click();
+    away?.click();
+    expect(rowNames(load)).toEqual(['Away']);
+    button(formatMessage(copy.deleteNamed, { name: 'Away' }), load).click();
+    await vi.waitFor(() => question());
+    button(copy.del, question()).click();
+    await vi.waitFor(() => expect(groupHeads(load)).toHaveLength(1));
+    expect(rowNames(load)).toEqual([]);
+    groupHeads(load)[0]?.click();
+    expect(selectedName(load)).toBe('Mine');
+  });
+
   it('says the list is empty and how to fill it', async () => {
     const copy = messages().saveList;
     const { menu } = mount([]);

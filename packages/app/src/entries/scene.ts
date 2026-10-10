@@ -231,6 +231,7 @@ export async function renderSceneMode(canvas: HTMLCanvasElement, params: URLSear
     ...terrainColourOption(terrain),
     mapSize: { width: scene.terrain.width, height: scene.terrain.height },
     worldToken,
+    worldSeed: sim.seed,
     missionBriefSource: sceneBriefSource(scene),
     ...(netPanel === null ? {} : { netPanel }),
   });

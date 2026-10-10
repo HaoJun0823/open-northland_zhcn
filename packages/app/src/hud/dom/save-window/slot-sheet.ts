@@ -22,6 +22,8 @@ export interface SlotSheetOptions {
   /** Double click or Enter on a row. */
   readonly onActivate?: (slot: SaveSlotInfo) => void;
   readonly onDelete: (slot: SaveSlotInfo) => void;
+  /** The sheet's lifetime: its pictures are released when it ends. */
+  readonly signal: AbortSignal;
 }
 
 export interface SlotSheet {
@@ -34,6 +36,8 @@ export interface SlotSheet {
   /** Select a row, opening its game; a row the search hides waits until the search shows it. */
   select(id: string | null): void;
   selected(): SaveSlotInfo | null;
+  /** A selection is held, shown or waiting behind a search or a closed game. */
+  holdsSelection(): boolean;
   /** Focus the selected row, or the first entry. */
   focus(): boolean;
 }
@@ -234,9 +238,11 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
 
   list.addEventListener('keydown', (event) => {
     const walk = entries();
-    const at = event.target instanceof HTMLButtonElement ? walk.indexOf(event.target) : -1;
     const group = groups.find((candidate) => candidate.head === event.target);
-    const row = rows.find((candidate) => candidate.pick === event.target);
+    // A row's bin walks and deletes as its row does.
+    const row = rows.find((candidate) => candidate.pick === event.target || candidate.del === event.target);
+    const from = row?.pick ?? group?.head;
+    const at = from === undefined ? -1 : walk.indexOf(from);
     if (event.key === 'ArrowDown') focusEntry(walk[Math.min(at + 1, walk.length - 1)]);
     else if (event.key === 'ArrowUp') focusEntry(walk[Math.max(at - 1, 0)]);
     else if (event.key === 'Home') focusEntry(walk[0]);
@@ -244,7 +250,8 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
     else if (event.key === 'ArrowRight' && group !== undefined) toggle(group, true);
     else if (event.key === 'ArrowLeft' && group !== undefined) toggle(group, false);
     else if (event.key === 'ArrowLeft' && row !== undefined) focusEntry(row.group.head);
-    else if (event.key === 'Enter' && row !== undefined) opts.onActivate?.(row.slot);
+    else if (event.key === 'Enter' && row !== undefined && event.target === row.pick)
+      opts.onActivate?.(row.slot);
     else if (event.key === 'Delete' && row !== undefined) opts.onDelete(row.slot);
     else return;
     event.preventDefault();
@@ -255,10 +262,13 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
     pictures = [];
   };
 
+  opts.signal.addEventListener('abort', release, { once: true });
+
   return {
     el,
     show(slots, worldName) {
-      const keep = current?.slot.id ?? null;
+      const before = current;
+      const keep = (current ?? parked)?.slot.id ?? null;
       const now = Date.now();
       release();
       groups = playthroughsOf(slots, opts.running).map((playthrough) => groupOf(playthrough, worldName, now));
@@ -271,10 +281,11 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
         opened = true;
         open.add(groups[0].playthrough.key);
       }
-      current = rows.find((row) => row.slot.id === keep) ?? null;
-      parked = null;
-      if (current === null && keep !== null) opts.onSelect(null);
+      // The kept row waits as parked; the settle picks it again only if the player can see it.
+      current = null;
+      parked = rows.find((row) => row.slot.id === keep) ?? null;
       sync();
+      if (before !== null && current === null) opts.onSelect(null);
     },
     showFailure(text) {
       release();
@@ -307,6 +318,7 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
       row.item.scrollIntoView({ block: 'nearest' });
     },
     selected: () => current?.slot ?? null,
+    holdsSelection: () => current !== null || parked !== null,
     focus() {
       const target = current !== null && shows(current) ? current.pick : entries()[0];
       target?.focus();

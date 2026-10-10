@@ -39,6 +39,7 @@ export function createLoadWindow(deps: SaveWindowDeps): MenuPageView {
   const sheet = createSlotSheet({
     foreign,
     running,
+    signal: deps.signal,
     emptyHint: copy.emptyLoadHint,
     onSelect: (slot) => {
       const away = slot !== null && foreign(slot);
@@ -71,7 +72,7 @@ export function createLoadWindow(deps: SaveWindowDeps): MenuPageView {
     sheet.show(slots, worldName);
     // The newest save of the game running now, or else the newest this world can load, comes up
     // selected, so Enter continues from it.
-    if (sheet.selected() === null) {
+    if (!sheet.holdsSelection()) {
       const loadable = playthroughsOf(slots, running)
         .flatMap((playthrough) => playthrough.slots)
         .find((slot) => !foreign(slot));

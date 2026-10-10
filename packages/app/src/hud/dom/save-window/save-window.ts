@@ -57,6 +57,7 @@ export function createSaveWindow(deps: SaveWindowDeps): MenuPageView {
   const exportButton = exportAction(deps, () => sheet.selected(), run);
   const sheet = createSlotSheet({
     running: { mapId: deps.saveLoad.worldToken, seed: deps.saveLoad.worldSeed },
+    signal: deps.signal,
     emptyHint: copy.emptySaveHint,
     onSelect: (slot: SaveSlotInfo | null) => {
       exportButton.disabled = slot === null;

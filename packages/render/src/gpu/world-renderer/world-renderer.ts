@@ -200,7 +200,13 @@ export class WorldRenderer {
     const covering = this.app.stage.children.filter((child) => child.visible && !world.has(child));
     for (const child of covering) child.visible = false;
     try {
-      return this.app.renderer.extract.canvas({ target: this.app.stage, frame: this.app.screen, resolution });
+      return this.app.renderer.extract.canvas({
+        target: this.app.stage,
+        frame: this.app.screen,
+        resolution,
+        // The screen's own clear, so off-map margins read as they look rather than transparent.
+        clearColor: this.app.renderer.background.color,
+      });
     } finally {
       for (const child of covering) child.visible = true;
     }

@@ -1,0 +1,11 @@
+{
+  "reason": "W wersji niemieckiej brakuje znacznika końca bloku 501 (NOWI ZWIADOWCY). Blok 501 wciąga cały blok 502 (ATAK!), więc w odprawie 501 pojawia się dosłowny tekst [blockstart:502], a strona 502 nie ma tekstu po niemiecku i spada na inny język. Dopisujemy brakujący znacznik za ikoną, jak w pozostałych wersjach.",
+  "file": "CnModMaps/WICHRY_ZIMY/text/ger/briefings/briefings.txt",
+  "sha256": "a1711d725091f78228c179f9236993ea31a9f64b4d79955140aa4dd9d4d30eb2",
+  "lines": [
+    {
+      "from": "<usericon:1,144,117>",
+      "to": ["<usericon:1,144,117>", "", "[blockend:501]"]
+    }
+  ]
+}

@@ -69,6 +69,19 @@ describe('source corrections', () => {
     expect(() => corrections.assertApplied()).toThrow(/swap \(.*ai\.inc\): the file changed/);
   });
 
+  it('expands a line into the listed lines, keeping its line end on each', async () => {
+    const path = await writeMod(AI_INC, SHIPPED_AI);
+    const lines = [{ from: 'AI_UnitLimit 1 30', to: ['AI_UnitLimit 1 30', 'AI_UnitLimit 2 30'] }];
+    await writeCorrection('insert', { reason: 'test', file: AI_INC, sha256: sha256(SHIPPED_AI), lines });
+    const corrections = await loadSourceCorrections(dir, mod);
+
+    expect(Buffer.from(await corrections.read(path)).toString('latin1')).toBe(
+      '[aidata]\r\nAI_SoldiersDefaultPosition 1 40 2 50\r\nAI_UnitLimit 1 30\r\nAI_UnitLimit 2 30\r\n' +
+        'AI_SoldiersDefaultPosition 2 10 90 55\r\n',
+    );
+    expect(() => corrections.assertApplied()).not.toThrow();
+  });
+
   it('fails the run for a correction no stage read', async () => {
     await writeCorrection('swap', { reason: 'test', file: AI_INC, sha256: sha256(SHIPPED_AI), lines: SWAP });
     const corrections = await loadSourceCorrections(dir, mod);
@@ -139,6 +152,8 @@ describe('source corrections', () => {
       [{ ...valid, sha256: 'ABC' }, /sha256/],
       [{ ...valid, lines: [] }, /at least one edit/],
       [{ ...valid, lines: [{ from: 'ż', to: 'z' }] }, /printable-ASCII/],
+      [{ ...valid, lines: [{ from: 'a', to: [] }] }, /printable-ASCII/],
+      [{ ...valid, lines: [{ from: 'a', to: ['z', 'ż'] }] }, /printable-ASCII/],
       [{ ...valid, lines: [{ from: 'a', to: 'z', every: false }] }, /"every"/],
       [{ ...valid, lines: [{ from: 'a', to: 'z', section: '' }] }, /"section"/],
       [{ ...valid, note: 'x' }, /unknown key "note"/],

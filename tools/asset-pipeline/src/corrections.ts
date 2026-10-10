@@ -7,13 +7,13 @@ import { fileURLToPath } from 'node:url';
 export const CORRECTIONS_DIR = fileURLToPath(new URL('../corrections/', import.meta.url));
 
 /**
- * One whole line of the file swapped for another; with `every`, each line spelled like `from`. With
- * `section`, only lines inside the `[...]` block holding the one line spelled `section` count, for a
- * line that repeats verbatim across records.
+ * One whole line of the file swapped for another, or for several when `to` lists them; with `every`,
+ * each line spelled like `from`. With `section`, only lines inside the `[...]` block holding the one
+ * line spelled `section` count, for a line that repeats verbatim across records.
  */
 interface LineEdit {
   readonly from: string;
-  readonly to: string;
+  readonly to: string | readonly string[];
   readonly every: boolean;
   readonly section?: string;
 }
@@ -127,7 +127,10 @@ function applyCorrection(correction: SourceCorrection, bytes: Uint8Array): Uint8
     }
   }
   for (const [index, edit] of edits) {
-    lines[index] = `${edit.to}${lines[index]?.endsWith('\r') ? '\r' : ''}`;
+    const eol = lines[index]?.endsWith('\r') ? '\r' : '';
+    lines[index] = (typeof edit.to === 'string' ? [edit.to] : edit.to)
+      .map((line) => `${line}${eol}`)
+      .join('\n');
   }
   return Buffer.from(lines.join('\n'), 'latin1');
 }
@@ -164,13 +167,16 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
   const edits = lines.map((line: unknown): LineEdit => {
     if (typeof line !== 'object' || line === null) return fail('each line edit is an object');
     const { from, to, every, section } = line as Record<string, unknown>;
-    if (
-      typeof from !== 'string' ||
-      typeof to !== 'string' ||
-      !SCRIPT_LINE.test(from) ||
-      !SCRIPT_LINE.test(to)
-    ) {
-      return fail('each line edit has printable-ASCII "from" and "to" lines');
+    const isLine = (value: unknown): value is string => typeof value === 'string' && SCRIPT_LINE.test(value);
+    const target: string | readonly string[] | undefined = isLine(to)
+      ? to
+      : Array.isArray(to) && to.length > 0 && to.every(isLine)
+        ? to
+        : undefined;
+    if (!isLine(from) || target === undefined) {
+      return fail(
+        'each line edit has a printable-ASCII "from" line and a "to" line or non-empty list of lines',
+      );
     }
     if (every !== undefined && every !== true) return fail('"every" is true or absent');
     if (
@@ -180,8 +186,8 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
       return fail('"section" is a printable-ASCII line or absent');
     }
     return section === undefined
-      ? { from, to, every: every === true }
-      : { from, to, every: every === true, section };
+      ? { from, to: target, every: every === true }
+      : { from, to: target, every: every === true, section };
   });
   return { id, reason, file, sha256, lines: edits };
 }

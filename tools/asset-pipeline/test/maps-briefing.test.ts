@@ -46,6 +46,22 @@ describe('cutsceneIdsOf', () => {
     });
     expect(ids).toEqual([0, 501]);
   });
+
+  it('matches the verb in any case, as the sim plays it', () => {
+    const ids = cutsceneIdsOf({
+      missions: [
+        {
+          goals: [],
+          other: [],
+          results: [
+            { key: 'result', values: ['PlayCutScene', '508', '1'] },
+            { key: 'result', values: ['Playcutscene', '530', '1'] },
+          ],
+        },
+      ],
+    });
+    expect(ids).toEqual([508, 530]);
+  });
 });
 
 describe('resolveMapBriefing', () => {

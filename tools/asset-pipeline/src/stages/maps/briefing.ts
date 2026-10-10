@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import {
+  decodeMissionResult,
   type HypertextBlock,
   MAP_TEXT_LANGUAGES,
   type MapBriefing,
@@ -18,18 +19,17 @@ const BRIEFINGS_FILE = 'briefings.txt';
 /** The window opens cutscene `id` as the page `%4.4d.hlt`,
  *  which includes its text from `briefings.txt`. */
 const HLT_PAGE_DIGITS = 4;
-const PLAY_CUTSCENE = 'PlayCutscene';
 
 type ReadSource = (path: string) => Promise<Uint8Array>;
 
-/** The cutscene ids the map's mission results play, ascending and deduplicated. */
+/** The cutscene ids the map's mission results play, ascending and deduplicated. Results decode as the
+ *  sim decodes them, so every page it can open has a sidecar entry. */
 export function cutsceneIdsOf(script: Pick<MapScript, 'missions'>): number[] {
   const ids = new Set<number>();
   for (const mission of script.missions) {
     for (const line of mission.results) {
-      if (line.values[0] !== PLAY_CUTSCENE) continue;
-      const id = Number.parseInt(line.values[1] ?? '', 10);
-      if (Number.isInteger(id) && id >= 0) ids.add(id);
+      const result = decodeMissionResult(line);
+      if (result.opcode === 'PlayCutscene' && result.cutscene >= 0) ids.add(result.cutscene);
     }
   }
   return [...ids].sort((a, b) => a - b);

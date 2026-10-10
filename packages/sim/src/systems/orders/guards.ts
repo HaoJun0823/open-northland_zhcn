@@ -1,3 +1,4 @@
+import type { ContentSet } from '@open-northland/data';
 import {
   Age,
   BuildMode,
@@ -17,7 +18,9 @@ import {
 import type { Entity, World } from '../../ecs/world.js';
 import type { SystemContext } from '../context.js';
 import { releaseSiteClaim } from '../economy/site-claim.js';
+import { isAdultSettler } from '../family/eligibility.js';
 import { atomicClipName, isInterruptibleAtomic } from '../readviews/animations.js';
+import { isHeroJob } from '../readviews/jobs.js';
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 
 /** Whether `e` is a living, owned settler the player may issue a command to. A dead, non-settler, or
@@ -30,15 +33,30 @@ export function isOrderableSettler(world: World, e: Entity): boolean {
 /** Whether the player may set `e`'s trade or post it to a workplace. Beyond {@link isOrderableSettler}: a
  *  still-growing child ({@link Age}) is the GrowthSystem's to class, not the player's, and a woman keeps
  *  the woman role for life. Authored, faithful to the original's male-only trade model; a woman's work is
- *  the household, hoarding food home and bearing children. */
-export function isTradeAssignable(world: World, e: Entity): boolean {
-  return isOrderableSettler(world, e) && !world.has(e, Age) && !world.has(e, Female);
+ *  the household, hoarding food home and bearing children. A hero keeps his class for life too, and
+ *  `jobtypes.ini` lets no hero class hold a workplace (`canHaveWorkHouseFlag 0`). */
+export function isTradeAssignable(world: World, content: ContentSet, e: Entity): boolean {
+  return (
+    isOrderableSettler(world, e) &&
+    !world.has(e, Age) &&
+    !world.has(e, Female) &&
+    !isHeroJob(content, world.get(e, Settler).jobType)
+  );
 }
 
 /** {@link isTradeAssignable} for an order that would change the trade itself: a script may fix a
  *  unit's trade (`MISSIONS.md`, behaviour bit 6), which refuses the order before it cancels anything. */
-export function mayChangeTrade(world: World, e: Entity): boolean {
-  return isTradeAssignable(world, e) && !hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.JOB_LOCKED);
+export function mayChangeTrade(world: World, content: ContentSet, e: Entity): boolean {
+  return isTradeAssignable(world, content, e) && !hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.JOB_LOCKED);
+}
+
+/** Whether `e` may be moved into a home: an owned grown settler other than a hero, who takes no building. */
+export function mayTakeHome(world: World, content: ContentSet, e: Entity): boolean {
+  return (
+    isOrderableSettler(world, e) &&
+    isAdultSettler(world, e) &&
+    !isHeroJob(content, world.get(e, Settler).jobType)
+  );
 }
 
 /**

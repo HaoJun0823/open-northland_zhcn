@@ -32,6 +32,7 @@ import { builderCrewSize, needsRepair, repairCrewLimit } from '../../economy/rep
 import { releaseSiteClaim } from '../../economy/site-claim.js';
 import { clearNavState } from '../../movement/nav-state.js';
 import { canChooseJob, needSubjectOf } from '../../progression/index.js';
+import { isHeroJob } from '../../readviews/index.js';
 import { jobCanBuild, startDrop } from '../../settlers/atomics/start.js';
 import { markIfPostedOutOfReach } from '../../settlers/drives/cut-off.js';
 import { releaseTowerPost } from '../../settlers/drives/tower-post.js';
@@ -61,8 +62,9 @@ export function setJob(
   command: Extract<Command, { kind: 'setJob' }>,
 ): void {
   const e = command.entity;
-  if (!mayChangeTrade(world, e)) return;
+  if (!mayChangeTrade(world, ctx.content, e)) return;
   if (!contentIndex(ctx.content).commandJobs.has(command.jobType)) return; // unknown job - skip
+  if (isHeroJob(ctx.content, command.jobType)) return; // a hero is only ever spawned as one
   if (!canChooseJob(world, ctx, needSubjectOf(world, e), command.jobType)) return; // unearned trade
   if (deferOrderDuringAtomic(world, ctx, e, command)) return;
 
@@ -98,7 +100,7 @@ export function assignWorker(
   command: Extract<Command, { kind: 'assignWorker' }>,
 ): void {
   const e = command.entity;
-  if (!isTradeAssignable(world, e)) return;
+  if (!isTradeAssignable(world, ctx.content, e)) return;
   const b = command.building;
   if (!world.isAlive(b) || !world.has(b, Building)) return;
   const settler = world.get(e, Settler);
@@ -155,7 +157,7 @@ export function unassignWorker(
   command: Extract<Command, { kind: 'unassignWorker' }>,
 ): void {
   const e = command.entity;
-  if (!isTradeAssignable(world, e)) return;
+  if (!isTradeAssignable(world, ctx.content, e)) return;
   if (!world.has(e, JobAssignment)) return; // already unposted
   releaseTowerPost(world, ctx, e); // steps him off the tower while the binding it reads is still there
   releaseEmployment(world, ctx, e);

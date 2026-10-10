@@ -381,6 +381,31 @@ describe('a right-click that orders nobody', () => {
     expect(await pressRightClick(sim, [woman], site)).toEqual({ issued: [], ordered: false });
   });
 
+  it('takes no hero into a home, a workplace or a barracks, and still posts the man beside him', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    // The sandbox catalog holds no hero trade; the served content names every one of them `hero*`.
+    const heroContent = {
+      ...sim.content,
+      jobs: sim.content.jobs.map((job) => (job.typeId === JOB_JOINER ? { ...job, id: 'hero_test' } : job)),
+    };
+    const hero = settlerAt(sim, JOB_JOINER);
+    const idle = settlerAt(sim, null);
+    const standing = buildingAt(sim, bakery(sim).typeId, ONE);
+
+    for (const building of [
+      buildingAt(sim, BUILDING_HOME_00, ONE),
+      standing,
+      buildingAt(sim, BUILDING_BARRACKS, ONE),
+    ]) {
+      expect(await pressRightClick(sim, [hero], building, heroContent)).toEqual({
+        issued: [],
+        ordered: false,
+      });
+    }
+    const posted = postedWorkers(await rightClick(sim, [hero, idle], standing, heroContent), standing);
+    expect(posted.map((w) => w.entity)).toEqual([idle]);
+  });
+
   it('reports the order a building did take', async () => {
     const sim = new Simulation({ seed: 1, content: sandboxContent() });
     const home = buildingAt(sim, BUILDING_HOME_00, ONE);

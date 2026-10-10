@@ -32,7 +32,7 @@ export function learn(world: World, ctx: SystemContext, command: Extract<Command
   const { entity, house, target, typeId } = command;
   if (target === 'job' && isFighterJob(ctx.content, typeId)) return;
   if (
-    !mayChangeTrade(world, entity) ||
+    !mayChangeTrade(world, ctx.content, entity) ||
     !isSchoolOrFoundation(world, ctx, house) ||
     !sameSide(world, entity, house)
   )

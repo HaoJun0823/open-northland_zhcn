@@ -41,7 +41,7 @@ export function trainSoldier(
  * an auto-issued drill obeys exactly the player order's gates.
  */
 export function mayDrillAt(world: World, ctx: SystemContext, e: Entity, house: Entity): boolean {
-  if (!mayChangeTrade(world, e)) return false;
+  if (!mayChangeTrade(world, ctx.content, e)) return false;
   if (!isBarracksOrFoundation(world, ctx, house)) return false;
   if (!sameSide(world, e, house)) return false;
   if (world.tryGet(e, TrainingOrder)?.house === house) return false; // already drilling here

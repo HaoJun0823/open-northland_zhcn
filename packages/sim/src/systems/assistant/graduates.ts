@@ -33,7 +33,7 @@ export function postGraduate(
   const owner = ownerOf(world, e);
   if (owner === undefined || assistantPostsGraduatesEntity(world, owner) === null) return false;
   if (jobUsesWorkFlag(ctx, jobType) || isFighterJob(ctx.content, jobType)) return false;
-  if (!isTradeAssignable(world, e)) return false;
+  if (!isTradeAssignable(world, ctx.content, e)) return false;
   const settler = world.get(e, Settler);
   const progress = world.get(e, SettlerProgress);
   const query = {

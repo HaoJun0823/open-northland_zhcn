@@ -501,7 +501,12 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         pending.push({ kind: 'assignBuilder', entity: target.ref as Entity, site: building as Entity });
       }
     }
-    const rest = commanded.filter((target) => !crew.has(target.ref));
+    // A hero takes no building: no home, post, drill or lesson.
+    const takesBuilding = (ref: number): boolean => {
+      const self = entityById(snapshot, ref);
+      return self === undefined || !systems.isHeroJob(deps.content, settlerJobType(self) ?? null);
+    };
+    const rest = commanded.filter((target) => !crew.has(target.ref) && takesBuilding(target.ref));
     if (def !== undefined && systems.isSchoolType(def)) {
       const ordered = enqueueUnitSelection(pending, deps.enqueue, onOrderLimit);
       if (rest.length === 0) return ordered;

@@ -61,14 +61,14 @@ export function orderRecipients(
   return settlers.filter((e) => allows(content, snapshot, e, id, several)).map((e) => e.id);
 }
 
-/** A settler the player may re-trade or post: the simulation refuses both for a child and for a woman. */
-function tradeAssignable(e: SnapshotEntity): boolean {
-  return isAdult(e) && !isFemale(e);
+/** A settler the player may re-trade or post: the simulation refuses both for a child, a woman and a hero. */
+function tradeAssignable(content: ContentSet, e: SnapshotEntity, job: number | null): boolean {
+  return isAdult(e) && !isFemale(e) && !systems.isHeroJob(content, job);
 }
 
 /** A settler whose trade an order may change: a script can fix a trade the player could otherwise set. */
-function tradeChangeable(e: SnapshotEntity): boolean {
-  return tradeAssignable(e) && !isJobLocked(e);
+function tradeChangeable(content: ContentSet, e: SnapshotEntity, job: number | null): boolean {
+  return tradeAssignable(content, e, job) && !isJobLocked(e);
 }
 
 /** A married woman may order a child while her husband lives and no child of hers is still growing. */
@@ -104,7 +104,7 @@ function worksAnArea(
   e: SnapshotEntity,
   job: number | null,
 ): boolean {
-  if (!tradeAssignable(e) || job === null) return false;
+  if (!tradeAssignable(content, e, job) || job === null) return false;
   if (workplaceOf(e) !== undefined) return holdsHaulFlagPost(content, snapshot, e);
   return systems.jobUsesWorkFlag({ content }, job);
 }
@@ -151,7 +151,7 @@ function allows(
     case 'haveGirl':
       return canOrderChild(snapshot, e);
     case 'changeProfession':
-      return tradeChangeable(e);
+      return tradeChangeable(content, e, job);
     case 'changeEquipment':
       // The sim's `mayChangeEquipment`: a grown man who is no hero.
       return isAdult(e) && !isFemale(e) && !systems.isHeroJob(content, job);
@@ -167,26 +167,26 @@ function allows(
       return systems.isScoutJob(content, job);
     case 'removeBuildingSite':
       return (
-        tradeAssignable(e) &&
+        tradeAssignable(content, e, job) &&
         job !== null &&
         systems.jobCanBuild(content, job) &&
         pinnedSiteOf(e) !== undefined
       );
     case 'assignBuildingSite':
-      return tradeAssignable(e) && job !== null && systems.jobCanBuild(content, job);
+      return tradeAssignable(content, e, job) && job !== null && systems.jobCanBuild(content, job);
     case 'removeLearningPlace':
       return trainingHouseOf(e) !== undefined;
     case 'assignLearningPlace':
-      return tradeChangeable(e);
+      return tradeChangeable(content, e, job);
     case 'removeWorkPlace':
-      return tradeAssignable(e) && workplaceOf(e) !== undefined;
+      return tradeAssignable(content, e, job) && workplaceOf(e) !== undefined;
     case 'assignWorkPlace':
       // A settler with no trade has nothing to place; the trade itself is what a workplace employs.
-      return tradeAssignable(e) && job !== null && job !== JOB_IDLE;
+      return tradeAssignable(content, e, job) && job !== null && job !== JOB_IDLE;
     case 'removeHome':
       return isAdult(e) && residenceHomeOf(e) !== undefined;
     case 'assignHome':
-      return isAdult(e);
+      return isAdult(e) && !systems.isHeroJob(content, job);
     case 'attackInhabitants':
       // Any adult can receive this order; civilian trades fight with bare hands.
       return isAdult(e);

@@ -14,7 +14,7 @@ import {
 import { markIfPostedOutOfReach } from '../settlers/drives/cut-off.js';
 import { navigationLimitFor } from '../signposts/index.js';
 import { groupPlacementOrder } from './group-placement.js';
-import { dropOrderQueue, isOrderableSettler } from './guards.js';
+import { dropOrderQueue, isOrderableSettler, mayTakeHome } from './guards.js';
 
 /**
  * Match the issuer with the nearest eligible partner and start their wedding - see the command doc. The
@@ -46,7 +46,7 @@ export function assignHouse(
   command: Extract<Command, { kind: 'assignHouse' }>,
 ): void {
   const e = command.entity;
-  if (!isOrderableSettler(world, e) || !isAdultSettler(world, e)) return;
+  if (!mayTakeHome(world, ctx.content, e)) return;
   const house = command.house;
   moveFamilyInto(world, ctx, e, house);
   if (world.tryGet(e, Residence)?.home === house) markIfPostedOutOfReach(world, ctx, e);

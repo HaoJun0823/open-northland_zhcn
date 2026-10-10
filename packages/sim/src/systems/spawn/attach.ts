@@ -4,9 +4,9 @@ import type { Entity, World } from '../../ecs/world.js';
 import { nodeOfPosition } from '../../nav/halfcell.js';
 import type { SystemContext } from '../context.js';
 import { bindEmployment, openWorkerJobFromList } from '../economy/jobs/index.js';
-import { isAdultSettler, moveFamilyInto } from '../family/index.js';
+import { moveFamilyInto } from '../family/index.js';
 import { vehicleAnchor } from '../footprint/index.js';
-import { isOrderableSettler, isTradeAssignable } from '../orders/guards.js';
+import { isTradeAssignable, mayTakeHome } from '../orders/guards.js';
 import { attachToVehicle, boardRider } from '../vehicles/crew.js';
 import { vehicleIndex } from '../vehicles/registry.js';
 
@@ -30,7 +30,7 @@ export function attachAuthoredBuildings(
 ): void {
   // Loose `!= null` because a command is the replay wire format, where an explicit `null` also means
   // "no attachment".
-  if (command.home != null && isOrderableSettler(world, e) && isAdultSettler(world, e)) {
+  if (command.home != null && mayTakeHome(world, ctx.content, e)) {
     const house = buildingAtAnchor(world, command.home.x, command.home.y);
     if (house !== null) moveFamilyInto(world, ctx, e, house);
   }
@@ -42,7 +42,7 @@ export function attachAuthoredBuildings(
 
 /** Employ `e` at `building` in its own trade - see the `workplace` payload doc for why only that trade. */
 function postToWorkplace(world: World, ctx: SystemContext, e: Entity, building: Entity): void {
-  if (!isTradeAssignable(world, e)) return;
+  if (!isTradeAssignable(world, ctx.content, e)) return;
   const settler = world.get(e, Settler);
   if (settler.jobType === null) return; // an idle spawn holds no trade to be posted in
   const progress = world.get(e, SettlerProgress);

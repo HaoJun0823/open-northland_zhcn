@@ -183,6 +183,27 @@ describe('allowedActions - one settler', () => {
     );
   });
 
+  it('offers a hero no building, trade or equipment order, alone or beside a man who takes them', () => {
+    // The sandbox catalog holds no hero trade; the served content names every one of them `hero*`.
+    const heroContent = {
+      ...content,
+      jobs: content.jobs.map((job) => (job.typeId === JOB_SOLDIER ? { ...job, id: 'hero_test' } : job)),
+    };
+    const snapshot = snapshotOf([settler(1, JOB_SOLDIER), settler(2, JOB_COLLECTOR)]);
+    const hero = allowedActions(heroContent, snapshot, [1]);
+    for (const id of [
+      'assignHome',
+      'assignLearningPlace',
+      'assignWorkPlace',
+      'changeEquipment',
+      'changeProfession',
+    ] as const) {
+      expect(hero.has(id), id).toBe(false);
+    }
+    expect(orderRecipients(heroContent, snapshot, [1, 2], 'assignWorkPlace')).toEqual([2]);
+    expect(orderRecipients(heroContent, snapshot, [1, 2], 'assignHome')).toEqual([2]);
+  });
+
   it('gives a growing child the walk and the needs alone', () => {
     const snapshot = snapshotOf([settler(1, JOB_CHILD_MALE, { child: true })]);
     expect(allowed(snapshot, [1])).toEqual(['eat', 'goTo', 'sleep']);

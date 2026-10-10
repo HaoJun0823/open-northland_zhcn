@@ -247,6 +247,7 @@ export type {
   InfoLineView,
   MissionDefinition,
   MissionGoalOp,
+  MissionGroupKind,
   MissionHouseRef,
   MissionResultOp,
   MissionScript,

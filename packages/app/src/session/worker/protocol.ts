@@ -71,6 +71,7 @@ export const HOST_REQUESTS = [
   'missionBriefingHistory',
   'missionBriefingPage',
   'missionHuman',
+  'missionCentre',
   'missionPresentation',
   'infoLines',
   'landscapeEdits',

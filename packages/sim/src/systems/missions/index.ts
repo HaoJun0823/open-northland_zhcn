@@ -12,4 +12,5 @@ export { MISSION_HOUSE_NAME_FIELD, MISSION_LANDSCAPE_NAME_FIELD, SUCCESSFUL_IF }
 export { type MissionStatus, missionStatus } from './status.js';
 export { SUPPORTED_GOALS, SUPPORTED_RESULTS } from './supported.js';
 export { MISSION_EVALUATION_TICKS, missionSystem } from './system.js';
+export { type MissionGroupKind, missionCentre } from './targets.js';
 export { type OpenTribute, openTributes } from './tributes.js';

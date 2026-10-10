@@ -59,12 +59,21 @@ export const HypertextIconRow = z.strictObject({
 });
 export type HypertextIconRow = z.infer<typeof HypertextIconRow>;
 
+/** One `<onscreencallback:kind,a,b>` tag, before the line that holds it: the three integers the
+ *  hosting window acts on once that line is drawn. */
+export const HypertextCallback = z.strictObject({
+  kind: z.literal('callback'),
+  args: z.tuple([z.number().int(), z.number().int(), z.number().int()]),
+});
+export type HypertextCallback = z.infer<typeof HypertextCallback>;
+
 /** One block of a rendered page, stacked top-down in page order. */
 export const HypertextBlock = z.discriminatedUnion('kind', [
   HypertextParagraph,
   HypertextBlank,
   HypertextPicture,
   HypertextIconRow,
+  HypertextCallback,
 ]);
 export type HypertextBlock = z.infer<typeof HypertextBlock>;
 

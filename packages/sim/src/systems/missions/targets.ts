@@ -6,10 +6,12 @@ import {
   ownerOf,
   Person,
   Position,
+  Rider,
   Vehicle,
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../nav/halfcell.js';
+import { vehicleStandNode } from '../footprint/index.js';
 import { missionObjects } from './object-index.js';
 
 /** The map point an entity stands on; an entity with no position is nowhere. */
@@ -51,6 +53,52 @@ export function missionAnimals(world: World, id: number): Entity[] {
 
 export function missionVehicles(world: World, id: number): Entity[] {
   return missionObjects(world, id).filter((e) => isMissionVehicle(world, e));
+}
+
+/** The kinds of stamped entity a briefing's on-screen callback centres the view on. */
+export type MissionGroupKind = 'human' | 'vehicle' | 'house';
+
+const GROUP_MEMBERS: Readonly<Record<MissionGroupKind, (world: World, id: number) => Entity[]>> = {
+  human: missionHumans,
+  vehicle: missionVehicles,
+  house: missionHouses,
+};
+
+/** The mean map point of the `kind` entities stamped with mission object `id`, each coordinate rounded
+ *  toward zero as the original divides; undefined when none stands on the map. The original sums in 16
+ *  bits, which wraps for a large group far across a big map; this keeps the true mean (deviation). */
+export function missionCentre(world: World, kind: MissionGroupKind, id: number): HalfCellNode | undefined {
+  let hx = 0;
+  let hy = 0;
+  let count = 0;
+  for (const e of GROUP_MEMBERS[kind](world, id)) {
+    const at = carriedPoint(world, e);
+    if (at === undefined) continue;
+    hx += at.hx;
+    hy += at.hy;
+    count++;
+  }
+  return count === 0 ? undefined : { hx: Math.trunc(hx / count), hy: Math.trunc(hy / count) };
+}
+
+/** A rider aboard a vehicle, then a vehicle aboard a ship: the most hops between an entity and the map. */
+const MAX_CARRIERS = 2;
+
+/** Where `e` is on the map, as the original reads one carried: a rider aboard stands where its vehicle
+ *  stands, a vehicle inside a ship where the ship does. Read here only, so movement, combat and goals
+ *  still see what is aboard off the map. */
+function carriedPoint(world: World, e: Entity): HalfCellNode | undefined {
+  const own = entityPoint(world, e);
+  if (own !== undefined) return own;
+  let at = e;
+  for (let hop = 0; hop < MAX_CARRIERS; hop++) {
+    const carrier = world.tryGet(at, Rider)?.vehicle ?? world.tryGet(at, Vehicle)?.carrier ?? null;
+    if (carrier === null || !world.has(carrier, Vehicle)) return undefined;
+    const point = vehicleStandNode(world, carrier);
+    if (point !== null) return point;
+    at = carrier;
+  }
+  return undefined;
 }
 
 /** Everything `player` owns within `range` map points of `point`, ascending by entity id. */

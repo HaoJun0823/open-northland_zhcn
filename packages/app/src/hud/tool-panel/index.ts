@@ -41,6 +41,7 @@ import { ACTION_ART_PX, paintedIcon, RESIDENTS_TOKEN } from '../dom/icons.js';
 import { minimapReserve } from '../dom/minimap-reserve.js';
 import {
   type BookView,
+  type BriefingViewTarget,
   createMissionBook,
   type MissionHumanLookup,
   NO_MISSION,
@@ -230,6 +231,8 @@ export interface ToolPanelOptions {
   readonly pauseStopsClock?: boolean;
   /** A world view's "show on map" was pressed. */
   readonly onShowOnMap?: (target: MapViewTarget) => void;
+  /** A briefing callback centres the main view. */
+  readonly onCentreView?: (target: BriefingViewTarget) => void;
   /** The map's sprite sheet, which draws a settler on its notice card and a building on its
    *  construction card; absent leaves the thumbnails bare. */
   readonly sheet?: SpriteSheet;
@@ -546,6 +549,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
           pauseStopsClock: opts.pauseStopsClock ?? false,
           onHold: (held) => opts.onMissionHold?.(held),
           onShowOnMap: (target) => opts.onShowOnMap?.(target),
+          onCentreView: (target) => opts.onCentreView?.(target),
           onSlipOpen: () => openGoals?.(),
           bookKey: () => {
             const binding = opts.bindings.mission;

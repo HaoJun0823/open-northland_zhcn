@@ -12,7 +12,7 @@ import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { type HalfCellNode, positionOfNode } from '../../../nav/halfcell.js';
 import type { SystemContext } from '../../context.js';
-import { vehicleAnchor, vehicleDoorNode } from '../../footprint/index.js';
+import { vehicleAnchor, vehicleDoorNode, vehicleStandNode } from '../../footprint/index.js';
 import { removeSettlerSilently } from '../../lifecycle/death.js';
 import { clearNavState } from '../../movement/nav-state.js';
 import { spawnSettler } from '../../spawn/index.js';
@@ -193,16 +193,10 @@ export function stampVehiclesOnContinent(
   const continent = terrain.componentOf(terrain.nodeAt(point.hx, point.hy));
   if (continent < 0) return;
   stampVehicles(pass, player, id, (e) => {
-    const at = standingNode(pass.world, e);
+    const at = vehicleStandNode(pass.world, e);
     if (at === null || !terrain.inBounds(at.hx, at.hy)) return false;
     return terrain.componentOf(terrain.nodeAt(at.hx, at.hy)) === continent;
   });
-}
-
-function standingNode(world: World, e: Entity): HalfCellNode | null {
-  const state = world.get(e, Vehicle);
-  if (state.moored && state.mooring !== null) return state.mooring;
-  return vehicleAnchor(world, e);
 }
 
 function stampVehicles(pass: MissionPass, player: number, id: number, keep: (e: Entity) => boolean): void {

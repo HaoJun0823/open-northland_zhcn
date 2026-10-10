@@ -17,6 +17,7 @@ import type {
   LandscapeEditView,
   LoggedCommand,
   MatchOutcome,
+  MissionGroupKind,
   MissionPresentationView,
   MissionScript,
   MissionStatus,
@@ -221,6 +222,7 @@ export interface SessionHost {
   missionBriefingHistory(): Promise<readonly number[]>;
   missionBriefingPage(): Promise<number | null>;
   missionHuman(id: number): Promise<Entity | null>;
+  missionCentre(kind: MissionGroupKind, id: number): Promise<HalfCellNode | null>;
   missionPresentation(): Promise<MissionPresentationView>;
   infoLines(player: number): Promise<readonly InfoLineView[]>;
   landscapeEdits(): Promise<LandscapeEditView>;

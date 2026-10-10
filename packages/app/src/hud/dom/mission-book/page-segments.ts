@@ -1,5 +1,6 @@
 import type {
   HypertextBlock,
+  HypertextCallback,
   HypertextParagraph,
   HypertextPicture,
   HypertextUserIcon,
@@ -42,10 +43,18 @@ export type BookSegment = (
   | { readonly kind: 'signature'; readonly text: string }
 ) & { readonly space?: SegmentSpace };
 
+/** An `<onscreencallback>` of the page, standing before segment `before` (after the last when it equals
+ *  their count). */
+export interface BookCallback {
+  readonly before: number;
+  readonly args: HypertextCallback['args'];
+}
+
 export interface BookPage {
   /** The page's first title line; null for a page the author left untitled, which gets none. */
   readonly title: string | null;
   readonly segments: readonly BookSegment[];
+  readonly callbacks: readonly BookCallback[];
 }
 
 /** A tilde-framed line or a "by …" credit closes a map's page as its author's signature. */
@@ -79,11 +88,17 @@ function centresProse(blocks: readonly HypertextBlock[]): boolean {
 
 export function pageSegments(blocks: readonly HypertextBlock[]): BookPage {
   const segments: BookSegment[] = [];
+  const callbacks: BookCallback[] = [];
   const centredPage = centresProse(blocks);
   let title: string | null = null;
   /** Empty lines since the last block; none counted before the first. */
   let blanks: number | null = null;
   for (const b of blocks) {
+    // A callback takes no room, so the author's empty lines around it still count as one gap.
+    if (b.kind === 'callback') {
+      callbacks.push({ before: segments.length, args: b.args });
+      continue;
+    }
     const before = blanks;
     blanks = b.kind === 'blank' ? (blanks ?? 0) + b.lines : 0;
     switch (b.kind) {
@@ -105,7 +120,7 @@ export function pageSegments(blocks: readonly HypertextBlock[]): BookPage {
         break;
     }
   }
-  return { title, segments };
+  return { title, segments, callbacks };
 }
 
 const WIDE_BLANKS = 2;

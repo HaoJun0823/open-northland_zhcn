@@ -538,6 +538,7 @@ class WorkerClient<E> {
       missionBriefingHistory: (...args) => this.ask('missionBriefingHistory', args),
       missionBriefingPage: (...args) => this.ask('missionBriefingPage', args),
       missionHuman: (...args) => this.ask('missionHuman', args),
+      missionCentre: (...args) => this.ask('missionCentre', args),
       missionPresentation: (...args) => this.ask('missionPresentation', args),
       infoLines: (...args) => this.ask('infoLines', args),
       landscapeEdits: (...args) => this.ask('landscapeEdits', args),

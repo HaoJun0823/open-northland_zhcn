@@ -659,6 +659,17 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
             : entityAnchor(host.snapshot(), target.ref, deps.elevation);
         if (at !== null) jumpToWorld(at.x, at.y);
       },
+      onCentreView: (target) => {
+        const centreOn = (hx: number, hy: number): void => {
+          const at = projectNode(deps.elevation, hx, hy);
+          jumpToWorld(at.x, at.y);
+        };
+        if (target.kind === 'node') centreOn(target.hx, target.hy);
+        else
+          void host.missionCentre(target.group, target.id).then((node) => {
+            if (node !== null) centreOn(node.hx, node.hy);
+          });
+      },
       ...(deps.sheet !== undefined ? { sheet: deps.sheet } : {}),
       ...(deps.playerColourOf !== undefined ? { playerColourOf: deps.playerColourOf } : {}),
       onSelectMessageTarget: (target) => {

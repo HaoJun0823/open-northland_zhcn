@@ -66,4 +66,5 @@ export {
   vehicleDoorNode,
   vehicleDoorPoint,
   vehicleFootprintNodes,
+  vehicleStandNode,
 } from './vehicle-footprint.js';

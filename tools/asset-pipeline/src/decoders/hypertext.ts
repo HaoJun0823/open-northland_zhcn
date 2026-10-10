@@ -1,6 +1,7 @@
 import type {
   HypertextAlign,
   HypertextBlock,
+  HypertextCallback,
   HypertextColor,
   HypertextParagraph,
   HypertextPicture,
@@ -13,10 +14,11 @@ import type {
  * words after them draw in. The original lays words out on lines:
  * a line ends at a `\n` marker, and inside an include whose third argument is non-zero also at every
  * line end of the block; elsewhere a line end is plain whitespace. A line end on a line that holds
- * nothing yet leaves an empty line. A `<globaljump:…>` links the one word after it. Anchor and callback
- * tags are dropped. Approximations: a line whose words change style, colour or link breaks there, words
- * and icons sharing a line stack as rows of their own, and an underscore reads as a space (the corpus
- * joins linked headlines with underscores into one word).
+ * nothing yet leaves an empty line. A `<globaljump:…>` links the one word after it. An
+ * `<onscreencallback:…>` stands before the line that holds it; anchor tags are dropped.
+ * Approximations: a line whose words change style, colour or link breaks there, as does one holding a
+ * callback among words, words and icons sharing a line stack as rows of their own, and an underscore
+ * reads as a space (the corpus joins linked headlines with underscores into one word).
  */
 
 const BLOCK_START = /^\[blockstart:([^\]]+)\]\s*$/;
@@ -50,6 +52,8 @@ const COLOR_CARRIERS: Readonly<Record<string, HypertextColor>> = {
 };
 /** The integers a `<usericon:…>` hands the window's bitmap callback. */
 const USER_ICON_ARGS = 4;
+/** The integers an `<onscreencallback:…>` hands the window. */
+const CALLBACK_ARGS = 3;
 /** An include that includes itself would otherwise recurse forever. */
 const MAX_INCLUDE_DEPTH = 8;
 
@@ -102,7 +106,6 @@ function pcxName(args: string): string | null {
   return match?.[1] === undefined ? null : match[1].toLowerCase();
 }
 
-/** A `<usericon:…>` argument list: comma-separated integers, zero from the first missing one on. */
 function userIcon(args: string): HypertextUserIcon {
   const values: number[] = [];
   for (const part of args.split(',').slice(0, USER_ICON_ARGS)) {
@@ -112,6 +115,23 @@ function userIcon(args: string): HypertextUserIcon {
   while (values.length < USER_ICON_ARGS) values.push(0);
   const [kind = 0, a = 0, b = 0, c = 0] = values;
   return [kind, a, b, c];
+}
+
+/** The integer a callback argument starts with, read as the original reads each one on its own:
+ *  leading spaces and a sign allowed, 0 when no digit follows. */
+const LEADING_INT = /^\s*([+-]?\d+)/;
+
+/** A callback's three arguments. One the tag lacks reads 0 here, where the original faults; every corpus
+ *  tag carries all three. */
+function callback(args: string): HypertextCallback {
+  const [kind = 0, a = 0, b = 0] = args
+    .split(',')
+    .slice(0, CALLBACK_ARGS)
+    .map((part) => {
+      const digits = LEADING_INT.exec(part)?.[1];
+      return digits === undefined ? 0 : Number.parseInt(digits, 10);
+    });
+  return { kind: 'callback', args: [kind, a, b] };
 }
 
 interface RunAttrs {
@@ -136,6 +156,8 @@ export function renderHypertext(text: string, sources: HypertextSources): Hypert
   /** The target of the last `<globaljump:…>`, until the next word or icon takes it. */
   let jump: string | null = null;
   let line: LinePiece[] = [];
+  /** The callbacks of the current line, which take no room on it. */
+  let lineCallbacks: HypertextCallback[] = [];
   let run: { attrs: RunAttrs; align: HypertextAlign | undefined; lines: string[] } | null = null;
 
   const flushRun = (): void => {
@@ -163,8 +185,18 @@ export function renderHypertext(text: string, sources: HypertextSources): Hypert
     flushRun();
     out.push({ kind: 'icons', icons, ...(align !== undefined ? { align } : {}) });
   };
-  /** Ends the current line: its words join the open run, its icons form a row. */
+  const lineHolds = (): boolean => line.length > 0 || lineCallbacks.length > 0;
+  /** The current line's callbacks, placed before what the line becomes. */
+  const placeCallbacks = (): void => {
+    if (lineCallbacks.length === 0) return;
+    flushRun();
+    out.push(...lineCallbacks);
+    lineCallbacks = [];
+  };
+  /** Ends the current line: its callbacks stand before it, its words join the open run, its icons form
+   *  a row. */
   const endLine = (): void => {
+    placeCallbacks();
     let icons: HypertextUserIcon[] = [];
     for (const piece of line) {
       if (piece.kind === 'icon') {
@@ -183,6 +215,8 @@ export function renderHypertext(text: string, sources: HypertextSources): Hypert
       endLine();
       return;
     }
+    // A line holding nothing but callbacks still ends as an empty one.
+    placeCallbacks();
     flushRun();
     const last = out.at(-1);
     if (last?.kind === 'blank') out[out.length - 1] = { kind: 'blank', lines: last.lines + 1 };
@@ -209,12 +243,14 @@ export function renderHypertext(text: string, sources: HypertextSources): Hypert
       const picture = carrier === null ? undefined : sources.picture?.(carrier);
       if (picture === undefined) return;
       // The engine centres a picture on a line of its own, whatever the block alignment.
-      if (line.length > 0) endLine();
+      if (lineHolds()) endLine();
       flushRun();
       out.push(picture);
     } else if (name === 'usericon') {
       jump = null;
       line.push({ kind: 'icon', icon: userIcon(args) });
+    } else if (name === 'onscreencallback') {
+      lineCallbacks.push(callback(args));
     } else if (name === 'globaljump') {
       jump = jumpTarget(args);
     } else if (name === 'include' && depth < MAX_INCLUDE_DEPTH) {
@@ -241,7 +277,7 @@ export function renderHypertext(text: string, sources: HypertextSources): Hypert
     }
   };
   walk(text, 0);
-  if (line.length > 0) endLine();
+  if (lineHolds()) endLine();
   flushRun();
   while (out.at(-1)?.kind === 'blank') out.pop();
   return out;

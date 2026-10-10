@@ -111,6 +111,7 @@ export function inlineSessionHost(sim: Simulation, options: InlineSessionHostOpt
     missionBriefingHistory: () => Promise.resolve(sim.missionBriefingHistory()),
     missionBriefingPage: () => Promise.resolve(sim.missionBriefingPage()),
     missionHuman: (id) => Promise.resolve(sim.missionHuman(id)),
+    missionCentre: (kind, id) => Promise.resolve(sim.missionCentre(kind, id)),
     missionPresentation: () => Promise.resolve(sim.missionPresentation()),
     infoLines: (player) => Promise.resolve(sim.infoLines(player)),
     landscapeEdits: () => Promise.resolve(sim.landscapeEdits()),

@@ -10,12 +10,14 @@ import {
   type BookWindowDeps,
   createBookWindow,
 } from './book-window.js';
+import { type BriefingViewTarget, callbackView } from './callbacks.js';
 import { GoalMarks, type GoalMarksState } from './goal-marks.js';
 import { createGoalSlip, type GoalSlip, type GoalSlipDeps } from './goal-slip.js';
 import { ShownPages, type ShownPagesState } from './shown-pages.js';
 import type { MissionHumanLookup } from './user-icons.js';
 
 export type { BookView } from './book-window.js';
+export type { BriefingViewTarget } from './callbacks.js';
 export type { MissionHumanLookup } from './user-icons.js';
 
 /** The chapters shown so far, where an open book's reader stands and the slip's fold, carried across
@@ -27,6 +29,8 @@ export interface MissionWindowState extends ShownPagesState {
   readonly slipFolded: boolean;
   /** Unread goal changes, so the seals survive a remount. */
   readonly goalMarks: GoalMarksState;
+  /** A briefing callback has centred the main view since the book opened. */
+  readonly viewCentred: boolean;
 }
 
 /** What a world without a mission reader shows: the book's empty page and no goals. */
@@ -54,6 +58,8 @@ export interface MissionBookDeps {
   /** The open book holds the game, as the original stops game time behind its large windows. */
   readonly onHold: (held: boolean) => void;
   readonly onShowOnMap: (target: MapViewTarget) => void;
+  /** A briefing callback centres the main view; the book stays open. */
+  readonly onCentreView: (target: BriefingViewTarget) => void;
   /** The slip's "open the book" was pressed; the owner opens it as the beam entry does (one central
    *  window, a held placement dropped) through {@link MissionBook.openGoals}. */
   readonly onSlipOpen: () => void;
@@ -86,6 +92,13 @@ export interface MissionBook extends ToolWindow {
 
 const FIRST: BookReading = { tab: 'brief', chapter: 0, spread: 0, table: null, pick: 0 };
 
+/** How the book opens: `delivered` while it shows a page a script played, `resumed` when it reopens
+ *  after a remount closed it, which is the same opening. */
+interface MissionOpening {
+  readonly delivered: boolean;
+  readonly resumed?: boolean;
+}
+
 /** The book's two DOM parts; a test hands in stubs to drive the book's state without a document. */
 export interface MissionBookParts {
   readonly book: (deps: BookWindowDeps) => BookWindow;
@@ -100,6 +113,9 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
   const listeners: (() => void)[] = [];
   let held = false;
   let arrival = false;
+  /** The original's one-shot flag: one callback centres the view per opening of the window, a page
+   *  delivered to the open window included; one that finds nobody stamped spends it too. */
+  let viewCentred = false;
   /** A restored reading the next opening resumes, and whether a script delivered it. */
   let resume: { readonly reading: BookReading; readonly arrival: boolean } | null = null;
   let answersKey = deps.answersVersion();
@@ -146,6 +162,12 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
       marks.read();
       return unseen;
     },
+    onCallback: (args) => {
+      const target = callbackView(args);
+      if (target === null || viewCentred) return;
+      viewCentred = true;
+      deps.onCentreView(target);
+    },
     onDismiss: () => {
       close();
       for (const listener of listeners) listener();
@@ -153,7 +175,8 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     cue: deps.cue,
   });
 
-  const open = (reading: BookReading, delivered: boolean): void => {
+  const open = (reading: BookReading, { delivered, resumed = false }: MissionOpening): void => {
+    if (!book.isOpen() && !resumed) viewCentred = false;
     marks.observe(deps.reader.goals());
     arrival = delivered;
     hold();
@@ -166,10 +189,10 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     shown.fold(deps.briefingHistory());
     const resumed = resume;
     resume = null;
-    open(
-      resumed?.reading ?? { ...FIRST, chapter: chapterOf(deps.replayPage() ?? shown.page) },
-      resumed?.arrival === true,
-    );
+    open(resumed?.reading ?? { ...FIRST, chapter: chapterOf(deps.replayPage() ?? shown.page) }, {
+      delivered: resumed?.arrival === true,
+      resumed: resumed !== null,
+    });
   };
 
   const slip = parts.slip({
@@ -190,12 +213,12 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
       resume = null;
       shown.fold(deps.briefingHistory());
       shown.show(page);
-      open({ ...FIRST, chapter: chapterOf(page), pick: chapterOf(page) }, true);
+      open({ ...FIRST, chapter: chapterOf(page), pick: chapterOf(page) }, { delivered: true });
     },
     openGoals(): void {
       shown.fold(deps.briefingHistory());
       resume = null;
-      open({ ...FIRST, tab: 'goals', chapter: chapterOf(shown.page) }, arrival);
+      open({ ...FIRST, tab: 'goals', chapter: chapterOf(shown.page) }, { delivered: arrival });
     },
     state: () => ({
       ...shown.state(),
@@ -203,12 +226,14 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
       arrival,
       slipFolded: slip.isFolded(),
       goalMarks: marks.state(),
+      viewCentred,
     }),
     restore(state): void {
       shown.restore(state);
       resume = state.reading === null ? null : { reading: state.reading, arrival: state.arrival };
       slip.setFolded(state.slipFolded);
       marks.restore(state.goalMarks);
+      viewCentred = state.viewCentred;
     },
     refresh(): void {
       const version = deps.answersVersion();

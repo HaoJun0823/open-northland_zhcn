@@ -127,6 +127,26 @@ describe('pageSegments', () => {
     expect(alignments([para('Wstęp.', 'center'), link])).toEqual(['left', 'center']);
   });
 
+  it('keeps each callback before the segment that follows it, taking no room between empty lines', () => {
+    const page = pageSegments([
+      { kind: 'callback', args: [1001, 5, 0] },
+      { kind: 'text', style: 'title', text: 'NAPAD' },
+      { kind: 'text', style: 'body', text: 'Pierwszy.' },
+      { kind: 'blank', lines: 1 },
+      { kind: 'callback', args: [1000, 7, 8] },
+      { kind: 'blank', lines: 1 },
+      { kind: 'text', style: 'body', text: 'Drugi.' },
+      { kind: 'callback', args: [2000, 3, 0] },
+    ]);
+    expect(page.title).toBe('NAPAD');
+    expect(page.segments.map((s) => ('space' in s ? s.space : undefined))).toEqual([undefined, 'wide']);
+    expect(page.callbacks).toEqual([
+      { before: 0, args: [1001, 5, 0] },
+      { before: 1, args: [1000, 7, 8] },
+      { before: 2, args: [2000, 3, 0] },
+    ]);
+  });
+
   it('names an untitled page in the contents by its opening words', () => {
     const page = pageSegments([
       { kind: 'text', style: 'body', text: 'Wreszcie dotarliśmy do brzegu, wodzu. Dalej!' },
@@ -267,6 +287,22 @@ describe('flowMarkup', () => {
       showOnMap: 'Show on map',
       views: [],
     });
+
+  it('marks each callback where it stands in the flow, by its index on the page', () => {
+    const markup = flowMarkup(
+      pageSegments([
+        { kind: 'callback', args: [1001, 5, 0] },
+        { kind: 'text', style: 'body', text: 'Tekst.' },
+        { kind: 'callback', args: [1000, 7, 8] },
+      ]),
+      { pictureUrl: (file) => file, iconBox: () => null, showOnMap: 'Show on map', views: [] },
+    );
+    expect(markup.match(/data-callback="\d"|on-book__p\b/g)).toEqual([
+      'data-callback="0"',
+      'on-book__p',
+      'data-callback="1"',
+    ]);
+  });
 
   it('opens only a paragraph long enough to wrap with the drop capital', () => {
     const opening = (text: string): string =>

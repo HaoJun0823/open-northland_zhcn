@@ -34,6 +34,14 @@ export function vehicleAnchor(world: World, e: Entity): HalfCellNode | null {
   return p === undefined ? null : nodeOfPosition(p.x, p.y);
 }
 
+/** Where a vehicle stands for what it carries: a moored ship at its mooring, the shore point its crew
+ *  steps off at, any other at its anchor. */
+export function vehicleStandNode(world: World, e: Entity): HalfCellNode | null {
+  const state = world.get(e, Vehicle);
+  if (state.moored && state.mooring !== null) return state.mooring;
+  return vehicleAnchor(world, e);
+}
+
 /** The disc a standing vehicle covers, clamped to the map; empty for a positionless one. */
 export function vehicleFootprintNodes(
   world: World,

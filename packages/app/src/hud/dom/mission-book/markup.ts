@@ -123,11 +123,21 @@ function speech(s: Extract<BookSegment, { kind: 'speech' }>, ctx: FlowContext): 
   return `<div class="${classes.join(' ')}${spaceClass(s)}">${face}<p>${who}${escapeHtml(s.text)}</p></div>`;
 }
 
+/** A callback's marker: an empty line-wide box where its callback stands, `data-callback` its index on the page. */
+const callbackMarker = (index: number): string =>
+  `<span class="on-book__callback" data-callback="${index}" aria-hidden="true"></span>`;
+
 /** The segments as one flowing column; the first narration opens with a drop capital. */
 export function flowMarkup(page: BookPage, ctx: FlowContext): string {
   const out: string[] = [];
   let first = true;
-  for (const s of page.segments) {
+  const callbacksBefore = (at: number): void => {
+    page.callbacks.forEach((callback, index) => {
+      if (callback.before === at) out.push(callbackMarker(index));
+    });
+  };
+  for (const [at, s] of page.segments.entries()) {
+    callbacksBefore(at);
     switch (s.kind) {
       case 'heading':
         out.push(`<h4 class="on-book__sub${spaceClass(s)}">${escapeHtml(s.text)}</h4>`);
@@ -151,6 +161,7 @@ export function flowMarkup(page: BookPage, ctx: FlowContext): string {
         break;
     }
   }
+  callbacksBefore(page.segments.length);
   return out.join('');
 }
 

@@ -10,8 +10,8 @@ import {
  * The hypertext decoder: block splitting and the page renderer's line model (a line ends at a `\n`
  * marker, and at every block line end inside an include flagged `1`; an empty line becomes a blank row)
  * and its tag handling (font switches style, block sets the alignment, color the text colour, include
- * splices a block, picture emits a centred picture, usericon an icon row, globaljump links the next
- * word, everything else is dropped).
+ * splices a block, picture emits a centred picture, usericon an icon row, onscreencallback a callback
+ * before its line, globaljump links the next word, everything else is dropped).
  */
 
 const BLOCKS = [
@@ -130,7 +130,7 @@ describe('renderHypertext', () => {
       '<font:$local$\\fonts\\font12.fnt>',
       '<include:$local$\\briefings.txt,missing,1>',
       '<include:$local$\\other.txt,00_title,1>',
-      'Body <onscreencallback:1001,200,0>text  here',
+      'Body <anchor:1>text  here',
     ].join('\n');
     expect(renderHypertext(page, { include })).toEqual([
       { kind: 'blank', lines: 1 },
@@ -190,6 +190,21 @@ describe('renderHypertext', () => {
       { kind: 'text', style: 'body', text: 'Caption', align: 'center' },
       { kind: 'icons', icons: [[5, 0, 0, 0]], align: 'center' },
       { kind: 'text', style: 'body', text: 'after', align: 'center' },
+    ]);
+  });
+
+  it('keeps an on-screen callback before the line that holds it, reading each argument on its own', () => {
+    const page = [
+      briefingPage('00_title'),
+      '<onscreencallback:1001,5>\\n',
+      'Text <onscreencallback:1000,x, -7>more',
+    ].join('\r\n');
+    expect(renderHypertext(page, { include })).toEqual([
+      { kind: 'text', style: 'body', text: 'PROLOGUE', align: 'center' },
+      { kind: 'callback', args: [1001, 5, 0] },
+      { kind: 'blank', lines: 1 }, // a line holding only the callback is still an empty one
+      { kind: 'callback', args: [1000, 0, -7] },
+      { kind: 'text', style: 'body', text: 'Text more', align: 'center' },
     ]);
   });
 

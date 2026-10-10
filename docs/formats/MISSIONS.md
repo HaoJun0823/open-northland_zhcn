@@ -898,6 +898,22 @@ views and sets them as flowing text across two pages in the HUD's own face; a vi
 map at the HUD's scale in the column's width, and a mat stands in for the frame the original draws
 around the bitmap.
 
+`<onscreencallback:kind,a,b>` draws nothing. Each argument is read on its own as the integer it starts
+with. The first time the callback's line is drawn in the visible part of the text, it hands the window
+its three integers, once per laid-out text (reading). The window keeps one pending callback, which each
+one drawn overwrites, so of those drawn in one frame only the last counts, and it acts on that only on
+the briefing tab. Kind 1000 centres the main display on half-cell node (a, b). Kinds 1001, 1002 and
+1003 centre it on the mean position of the humans, vehicles or houses stamped with mission id `a`, of
+every player: each coordinate's sum, kept in a signed 16-bit value, divided by the count and rounded
+toward zero. A human inside a vehicle stands where the vehicle stands and a vehicle inside a ship
+where the ship stands, except that what a moored ship carries stands at its mooring point; the moored
+ship itself stands where it lies. Only the first of these acts per window.
+A one-shot flag is cleared when the window is built and kept when a script plays a briefing into the
+open window. A 1001 to 1003 that finds nobody spends the flag and moves nothing. Kind 2000 ignores the
+flag, stops the window's sample and plays `<map>\SFX\<lang>\<a as 4 digits>.wav`, which no corpus map
+ships (reading). The corpus opens a page with each callback of kind 1000 or 1001 (13,577 of kind 1001,
+172 of kind 1000) and puts its 44 of kind 2000 after the page's header.
+
 The goals tab lists every mission whose `visible` flag is set and whose `description` is not `-1`,
 in script order, printing the string from the map's own table under the heading: with an `X` when
 the mission's last check satisfied its `successfullif` rule, with an `o` when it is active, and with

@@ -1,5 +1,5 @@
 import type { UiCue } from '@open-northland/audio';
-import type { HypertextBook, HypertextUserIcon } from '@open-northland/data';
+import type { HypertextBook, HypertextCallback, HypertextUserIcon } from '@open-northland/data';
 import type { MapViewTarget } from '@open-northland/render';
 import type { MissionGoal, MissionPage } from '../../../game/mission-brief.js';
 import { bcp47Tag, formatMessage, messages } from '../../../i18n/index.js';
@@ -9,12 +9,13 @@ import { GLYPH } from '../icons.js';
 import { escapeHtml, setClass, setHidden } from '../parts/dom.js';
 import type { ClientRect } from '../portrait-hole.js';
 import { WINDOW_KNOT } from '../symbols.js';
+import { shownCallbacks } from './callbacks.js';
 import { chronicleSpread } from './chronicle.js';
 import type { GoalMark } from './goal-marks.js';
 import { openGoalCount } from './goal-marks.js';
 import { goalsSpread } from './goal-markup.js';
 import { FLOURISH, type FlowContext, flowMarkup, roman, type ViewSlot } from './markup.js';
-import { type BookPage, displayTitle, pageSegments } from './page-segments.js';
+import { type BookCallback, type BookPage, displayTitle, pageSegments } from './page-segments.js';
 import { type BookPosition, columnCount, spreadCount, turnPage } from './paging.js';
 import { type MissionHumanLookup, type UserIconBox, userIconBox } from './user-icons.js';
 import { type BookView, maskHoles, measureViews as viewsOn } from './view-holes.js';
@@ -67,6 +68,8 @@ export interface BookWindowDeps {
   readonly missionHuman: MissionHumanLookup;
   readonly pictureUrl: (file: string) => string;
   readonly onShowOnMap: (target: MapViewTarget) => void;
+  /** A briefing chapter's on-screen callback shows on the spread a layout settled on. */
+  readonly onCallback: (args: HypertextCallback['args']) => void;
   /** The goal changes the player has not seen yet, which count as seen once the goal page shows them. */
   readonly takeGoalMarks: () => ReadonlyMap<string, GoalMark>;
   /** The close medallion closed the book. */
@@ -184,6 +187,9 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
   let goalsKey = '';
   let placed = '';
   let lastWheel = Number.NEGATIVE_INFINITY;
+  /** The shown briefing chapter's callbacks; a layout reports the last one it shows to the owner, which
+   *  acts once per opening. */
+  let callbacks: readonly BookCallback[] = [];
 
   const chapters = (): readonly (number | null)[] => {
     const list = deps.chapters();
@@ -228,6 +234,7 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
     const count = chapters().length;
     const index = Math.min(reading.chapter, count - 1);
     const { page, title, lang } = chapterPage(index);
+    callbacks = page.callbacks;
     const fresh =
       arrival && index === count - 1
         ? `<span class="on-book__new">${escapeHtml(copy.newChapter)}</span>`
@@ -299,6 +306,16 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
     shownViews = viewsOn(spreadEl, slots, k);
     cutHoles(shownViews.map((v) => v.clip));
     if (shownViews.some((v) => !painted.has(v.slot))) stillsDue = true;
+  };
+
+  /** The original holds one pending callback that each drawn line overwrites, so of those shown at once
+   *  only the last in reading order is acted on. The spread stands in for the original window's first
+   *  frame, which may show fewer lines (approximation). */
+  const fireCallbacks = (): void => {
+    if (scene.hidden || reading.tab !== 'brief') return;
+    const last = shownCallbacks(spreadEl).at(-1);
+    const callback = last === undefined ? undefined : callbacks[last];
+    if (callback !== undefined) deps.onCallback(callback.args);
   };
 
   /** Show `slot`'s still in a copied page's lens; false while the view has none. */
@@ -376,6 +393,7 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
     corner(-1, prev);
     corner(1, next);
     measureViews();
+    fireCallbacks();
   };
 
   const render = (): void => {
@@ -391,6 +409,7 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
     goalsKey = goalsKeyOf(goals);
     syncTabs(goals);
     spreadEl.className = 'on-book__spread';
+    callbacks = [];
     if (reading.tab === 'goals') {
       for (const [key, mark] of deps.takeGoalMarks()) marks.set(key, mark);
       spreadEl.innerHTML = goalsSpread(goals, marks, displayTitle(deps.missionName, locale));

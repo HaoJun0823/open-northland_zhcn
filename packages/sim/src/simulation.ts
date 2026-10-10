@@ -94,8 +94,10 @@ import { type LandscapeEditView, landscapeEdits } from './systems/landscape/view
 import {
   type InfoLineView,
   infoLines,
+  type MissionGroupKind,
   type MissionScript,
   type MissionStatus,
+  missionCentre,
   missionObjects,
   missionStatus,
   type OpenTribute,
@@ -781,6 +783,12 @@ export class Simulation {
    *  a briefing picture of that id shows. */
   missionHuman(id: number): Entity | null {
     return missionObjects(this.world, id).find((e) => this.world.has(e, Settler)) ?? null;
+  }
+
+  /** The mean map point of the `kind` entities stamped with mission object `id`, or null when none
+   *  stands on the map: where a briefing's on-screen callback centres the view. */
+  missionCentre(kind: MissionGroupKind, id: number): HalfCellNode | null {
+    return missionCentre(this.world, kind, id) ?? null;
   }
 
   /** The player's set on-screen info lines with their live tallies, ascending by line. */

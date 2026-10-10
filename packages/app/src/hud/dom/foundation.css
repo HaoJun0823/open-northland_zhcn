@@ -5195,6 +5195,10 @@ body.on-drag-scroll * {
 .on-hud .on-book__window--blank .on-book__flow {
   visibility: hidden;
 }
+.on-hud .on-book__callback {
+  display: block;
+  height: 0;
+}
 .on-hud .on-book__kicker {
   display: flex;
   align-items: center;
@@ -5266,10 +5270,14 @@ body.on-drag-scroll * {
 .on-hud .on-book__p--dimmed {
   color: var(--ink-muted);
 }
-/* The author's empty lines: none keeps the next line close under the last, two or more open a section. */
+/* The author's empty lines: none keeps the next line close under the last, two or more open a section.
+   A callback marker between the two takes no room, so it does not part them. */
 .on-hud
   .on-book__flow
-  > :is(.on-book__p, .on-book__speech, .on-book__sub, .on-book__sign):has(+ .on-book__space--tight) {
+  > :is(.on-book__p, .on-book__speech, .on-book__sub, .on-book__sign):has(
+    + .on-book__space--tight,
+    + .on-book__callback + .on-book__space--tight
+  ) {
   margin-bottom: 0;
 }
 .on-hud .on-book__flow > .on-book__space--wide {

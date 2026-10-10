@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { MissionBehaviour, MissionObjectId, Settler } from '../../src/components/index.js';
+import {
+  MissionBehaviour,
+  MissionObjectId,
+  Position,
+  Settler,
+  seatPassenger,
+  Vehicle,
+} from '../../src/components/index.js';
 import { cellAnchorNode, Simulation } from '../../src/index.js';
 import { missionObjectIds, missionObjects } from '../../src/systems/missions/index.js';
+import { entityPoint } from '../../src/systems/missions/targets.js';
+import { boardRider, createVehicle } from '../../src/systems/vehicles/index.js';
 import { testContent } from '../fixtures/content.js';
+import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 
 /**
@@ -14,6 +24,9 @@ const VIKING = 1;
 const BEAR = 10;
 const WOODCUTTER = 1;
 const HEADQUARTERS = 1;
+const HANDCART = 1;
+const SHIP_SMALL = 3;
+const CATAPULT = 5;
 const SQUAD_ID = 200;
 const CAMP_ID = 1000;
 
@@ -75,6 +88,95 @@ describe('mission object ids on placed entities', () => {
     expect(sim.missionHuman(SQUAD_ID)).toBe(Math.min(...humans));
     expect(sim.missionHuman(CAMP_ID)).toBeNull(); // only the house carries it
     expect(sim.missionHuman(4242)).toBeNull();
+  });
+
+  it('centres a group on the mean point of its humans or houses alone, rounded toward zero', () => {
+    const sim = placed();
+    const points = missionObjects(sim.world, SQUAD_ID)
+      .filter((e) => sim.world.has(e, Settler))
+      .map((e) => entityPoint(sim.world, e));
+    const [a, b] = points;
+    if (a === undefined || b === undefined) throw new Error('the placed squad has no two humans on the map');
+    expect(sim.missionCentre('human', SQUAD_ID)).toEqual({
+      hx: Math.trunc((a.hx + b.hx) / 2),
+      hy: Math.trunc((a.hy + b.hy) / 2),
+    });
+    const [camp] = missionObjects(sim.world, CAMP_ID);
+    if (camp === undefined) throw new Error('the placed camp carries no entity');
+    expect(sim.missionCentre('house', CAMP_ID)).toEqual(entityPoint(sim.world, camp));
+    expect(sim.missionCentre('house', SQUAD_ID)).toBeNull(); // the bear is no house
+    expect(sim.missionCentre('vehicle', SQUAD_ID)).toBeNull();
+    expect(sim.missionCentre('human', 4242)).toBeNull();
+  });
+
+  it('centres a vehicle group on the mean point of its vehicles', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(20, 20) });
+    for (const [x, y] of [
+      [4, 4],
+      [9, 7],
+    ] as const) {
+      const n = cellAnchorNode(x, y);
+      sim.enqueueSetup({
+        kind: 'createVehicle',
+        vehicleType: HANDCART,
+        tribe: VIKING,
+        missionId: SQUAD_ID,
+        x: n.hx,
+        y: n.hy,
+      });
+    }
+    sim.step();
+    const [a, b] = missionObjects(sim.world, SQUAD_ID).map((e) => entityPoint(sim.world, e));
+    if (a === undefined || b === undefined) throw new Error('the two carts stand nowhere');
+    expect(sim.missionCentre('vehicle', SQUAD_ID)).toEqual({
+      hx: Math.trunc((a.hx + b.hx) / 2),
+      hy: Math.trunc((a.hy + b.hy) / 2),
+    });
+    expect(sim.missionCentre('human', SQUAD_ID)).toBeNull();
+  });
+
+  it('counts a rider aboard where its vehicle stands, and a vehicle inside a ship where the ship does', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(20, 20) });
+    const catapultAt = cellAnchorNode(6, 6);
+    const shipAt = cellAnchorNode(12, 10);
+    const catapult = createVehicle(sim.world, ctxOf(sim), {
+      vehicleType: CATAPULT,
+      tribe: VIKING,
+      x: catapultAt.hx,
+      y: catapultAt.hy,
+    });
+    const ship = createVehicle(sim.world, ctxOf(sim), {
+      vehicleType: SHIP_SMALL,
+      tribe: VIKING,
+      x: shipAt.hx,
+      y: shipAt.hy,
+    });
+    if (catapult === null || ship === null) throw new Error('the fixture lacks the catapult or the ship');
+    sim.enqueueSetup({
+      kind: 'spawnSettler',
+      jobType: WOODCUTTER,
+      tribe: VIKING,
+      missionId: SQUAD_ID,
+      x: catapultAt.hx,
+      y: catapultAt.hy,
+    });
+    sim.step();
+    const [rider] = missionObjects(sim.world, SQUAD_ID);
+    if (rider === undefined || !seatPassenger(sim.world, catapult, rider))
+      throw new Error('no seat for the rider');
+    boardRider(sim.world, rider, catapult);
+    expect(entityPoint(sim.world, rider)).toBeUndefined(); // still off the map for everything else
+    expect(sim.missionCentre('human', SQUAD_ID)).toEqual(catapultAt);
+
+    sim.world.mut(catapult, Vehicle).carrier = ship;
+    sim.world.remove(catapult, Position); // as a vehicle that drove into the ship
+    expect(sim.missionCentre('human', SQUAD_ID)).toEqual(shipAt);
+
+    const shore = cellAnchorNode(12, 12);
+    const moored = sim.world.mut(ship, Vehicle);
+    moored.moored = true; // as a ship lying at a shore
+    moored.mooring = shore;
+    expect(sim.missionCentre('human', SQUAD_ID)).toEqual(shore);
   });
 
   it('drops a removed entity from its group on the next lookup', () => {

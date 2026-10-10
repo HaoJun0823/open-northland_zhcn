@@ -67,10 +67,10 @@ export function moveAnchor(world: World, content: ContentSet, e: Entity, cell: N
 }
 
 /**
- * Set one owned unit's military stance - see the command doc. `DEFEND` and `IGNORE` capture the unit's
- * current tile as the anchor it returns to. `ATTACK` keeps a fighter's anchor, as the original's mode
- * change leaves the work centre alone, and captures the tile only where it had none. Every other mode
- * clears it.
+ * Set one owned unit's military stance - see the command doc. `ATTACK` keeps a fighter's anchor, as the
+ * original's mode change leaves the work centre alone, and captures the tile only where it had none.
+ * `DEFEND` and `IGNORE` capture the unit's current tile, a deliberate deviation: the AI march holds its men
+ * on their places by setting the stance there. Every other mode clears it.
  *
  * The CombatSystem re-decides the unit's behavior from the new mode on its next pass, so this handler does
  * not cancel a running swing or an explicit {@link AttackOrder}.

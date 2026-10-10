@@ -5,6 +5,7 @@ import {
   EquipOrder,
   Garrison,
   HuntFocus,
+  JobAssignment,
   MoveGoal,
   Owner,
   PathFollow,
@@ -108,20 +109,21 @@ export function breakOff(
 
 /**
  * ATTACK stance - how far (map points) a fighter may stand from its anchor before, with nothing to fight, it
- * walks back to it. Original behavior. Approximation: the original asks each time an idle soldier turns to
- * its duty; this build asks only when the combat pass breaks it off, so a soldier that wandered off for a
- * meal with no one near stays where it ate.
+ * walks back to it. Original behavior. Approximation: the original asks each time an idle soldier with no
+ * enemy near turns to its duty; this build asks when the combat pass breaks it off, which also follows a
+ * chase given up on a target across water or behind walls, and a soldier that wandered off for a meal with
+ * no one near stays where it ate.
  */
 export const ATTACK_RETURN_SLACK_NODES = 18;
 
 /** The anchor an owned ATTACK fighter breaking off should walk back to, or null: none is kept, it stands
- *  within {@link ATTACK_RETURN_SLACK_NODES}, a player's order or march owns its walk, or a tower or a
- *  vehicle holds it. */
+ *  within {@link ATTACK_RETURN_SLACK_NODES}, a player's order or march owns its walk, or a workplace (a
+ *  tower post included, while he is down for a meal) or a vehicle holds it. */
 function strayedFrom(world: World, ctx: SystemContext, e: Entity, here: NodeId): NodeId | null {
   const anchor = world.tryGet(e, Stance)?.anchorCell ?? null;
   if (anchor === null || ctx.terrain === undefined) return null;
   if (world.has(e, AttackOrder) || world.has(e, PlayerOrder)) return null;
-  if (world.has(e, Garrison) || world.has(e, Rider)) return null;
+  if (world.has(e, JobAssignment) || world.has(e, Garrison) || world.has(e, Rider)) return null;
   const { jobType } = world.get(e, Settler);
   if (stanceMode(world, ctx.content, e, jobType) !== MILITARY_MODE.ATTACK) return null;
   // An anchor across water is no walk home: the route would be refused and leave the soldier lost.

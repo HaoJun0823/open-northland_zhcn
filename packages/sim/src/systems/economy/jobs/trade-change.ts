@@ -102,7 +102,8 @@ export function applyTradeChange(world: World, ctx: SystemContext, e: Entity, jo
   if (world.has(e, Owner)) {
     stampDefaultStance(world, ctx.content, e, jobType);
     // A fighter taking up another class's weapon at a store keeps its place; a new fighter takes this one.
-    if (fighterAnchor !== null) moveAnchor(world, ctx.content, e, fighterAnchor);
+    if (fighterAnchor !== null && isFighterJob(ctx.content, jobType))
+      moveAnchor(world, ctx.content, e, fighterAnchor);
     else anchorAtFeet(world, ctx, e);
   }
   // Leaving the fighter trades disarms both the Equipment display slots and the combat Weapon/Armor, since

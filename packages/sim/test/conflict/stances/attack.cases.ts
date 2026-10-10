@@ -3,9 +3,11 @@ import {
   Building,
   Engagement,
   Health,
+  JobAssignment,
   LostWay,
   MoveGoal,
   Owner,
+  PlayerOrder,
   Position,
   Settler,
   Stance,
@@ -15,12 +17,14 @@ import { fx, ONE } from '../../../src/core/fixed.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { hexDistanceBetween, nodeOfPosition, Simulation } from '../../../src/index.js';
 import { ATTACK_RETURN_SLACK_NODES } from '../../../src/systems/conflict/chase.js';
-import { combatSystem } from '../../../src/systems/index.js';
+import { combatSystem, NEED_DRIVE_THRESHOLD } from '../../../src/systems/index.js';
 import { attackUnit, moveUnit, setJob, setStance } from '../../../src/systems/orders/index.js';
 import { MILITARY_MODE } from '../../../src/systems/readviews/index.js';
 import { spawnSettler } from '../../../src/systems/spawn/index.js';
 import { landRider } from '../../../src/systems/vehicles/crew.js';
 import { testContent } from '../../fixtures/content.js';
+import { setNeeds } from '../../fixtures/settler.js';
+import { waterColumnMap } from '../../fixtures/terrain.js';
 import { cell, combatant, ctxOf, grassMap, P0, P1, VIKING, WOODCUTTER } from './support.js';
 
 const SOLDIER = 31; // soldier_unarmed
@@ -168,5 +172,64 @@ describe('ATTACK - a fighter walks back to its own place once the fight is over'
     expect(farthest).toBeGreaterThan(ATTACK_RETURN_SLACK_NODES); // the chase took it well off its post
     expect(distanceHome()).toBeLessThanOrEqual(ATTACK_RETURN_SLACK_NODES);
     expect(sim.world.has(soldier, LostWay)).toBe(false);
+  });
+
+  it('moves a DEFEND guard’s post to where the unit it is ordered onto stood', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(20, 1) });
+    const guard = soldierAt(sim, 2);
+    sim.world.mut(guard, Stance).mode = MILITARY_MODE.DEFEND;
+    sim.world.mut(guard, Stance).anchorCell = cell(sim, 2, 0);
+    const enemy = combatant(sim, 12, 0, P1, MILITARY_MODE.IGNORE);
+    attackUnit(sim.world, ctxOf(sim), { kind: 'attackUnit', entity: guard, target: enemy });
+    expect(anchorOf(sim, guard)).toBe(cell(sim, 12, 0));
+  });
+
+  it('does not walk home across water, nor get lost trying', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: waterColumnMap(40, 1, 20) });
+    const soldier = soldierAt(sim, 30);
+    sim.world.mut(soldier, Stance).anchorCell = cell(sim, 10, 0); // on the far bank
+    sim.world.add(soldier, Engagement, { repathAt: 0 });
+
+    combatSystem(sim.world, ctxOf(sim));
+    expect(sim.world.has(soldier, MoveGoal)).toBe(false);
+    expect(sim.world.has(soldier, LostWay)).toBe(false);
+  });
+
+  it('keeps marching on an attack-move instead of turning home', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const soldier = soldierAt(sim, 30);
+    const anchor = cell(sim, 10, 0);
+    sim.world.mut(soldier, Stance).anchorCell = anchor;
+    sim.world.add(soldier, PlayerOrder, {
+      attackMove: { goal: cell(sim, 38, 0), resume: false, blockedUntil: 0 },
+    });
+    sim.world.add(soldier, Engagement, { repathAt: 0 });
+
+    combatSystem(sim.world, ctxOf(sim));
+    expect(sim.world.has(soldier, PlayerOrder)).toBe(true);
+    expect(sim.world.tryGet(soldier, MoveGoal)?.cell).not.toBe(anchor);
+  });
+
+  it('leaves a soldier posted to a workplace to that post, down from his tower or not', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const soldier = soldierAt(sim, 30);
+    sim.world.mut(soldier, Stance).anchorCell = cell(sim, 10, 0);
+    sim.world.add(soldier, JobAssignment, { workplace: sim.world.create() });
+    sim.world.add(soldier, Engagement, { repathAt: 0 });
+
+    combatSystem(sim.world, ctxOf(sim));
+    expect(sim.world.has(soldier, MoveGoal)).toBe(false);
+  });
+
+  it('answers a pressing need before walking home', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
+    const soldier = soldierAt(sim, 30);
+    sim.world.mut(soldier, Stance).anchorCell = cell(sim, 10, 0);
+    setNeeds(sim, soldier, { hunger: fx.add(NEED_DRIVE_THRESHOLD, fx.div(ONE, fx.fromInt(100))) });
+    sim.world.add(soldier, Engagement, { repathAt: 0 });
+
+    combatSystem(sim.world, ctxOf(sim));
+    expect(sim.world.has(soldier, Engagement)).toBe(false);
+    expect(sim.world.has(soldier, MoveGoal)).toBe(false);
   });
 });

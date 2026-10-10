@@ -55,7 +55,7 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
   // `mapLobbySlots` lists every script seat, so only an out-of-date index row falls back to every mode.
   const offers = (slot: (typeof script.players)[number]) => {
     const metadata = roster.get(slot.player);
-    return metadata === undefined ? (['script', 'ai', 'idle'] as const) : vacantOffers(metadata);
+    return metadata === undefined ? (['script', 'ai', 'idle', 'absent'] as const) : vacantOffers(metadata);
   };
   // A single-player save names its seats in its entry search; its world already plays their tribes.
   const savedSeats = new Map(

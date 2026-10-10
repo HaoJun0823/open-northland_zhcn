@@ -81,7 +81,7 @@ export const enSurfaces = {
       vacantIdle: 'Idle',
       vacantAbsent: 'None',
       vacantToggleTitle:
-        'Map AI follows the map author’s settings; Computer enables every available AI module; Idle leaves the seat without AI control.',
+        'Map AI follows the map author’s settings; Computer enables every available AI module; Idle leaves the seat without AI control. None omits the player’s starting units and buildings.',
       sit: 'Sit here',
       footnote:
         'The map defines the slots - none can be added or removed. You can move by sitting in an open slot.',

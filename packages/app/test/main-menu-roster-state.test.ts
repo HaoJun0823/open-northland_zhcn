@@ -159,7 +159,13 @@ describe('roster state', () => {
       hidden: false,
       strategicAi: true,
     } as const;
-    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: true })).toEqual(['script', 'ai', 'idle']);
+    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: true })).toEqual([
+      'script',
+      'ai',
+      'idle',
+      'absent',
+    ]);
+    expect(vacantOffers({ ...seat, aiAllowed: false, noneAllowed: true })).toEqual(['idle', 'absent']);
     expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: false })).toEqual(['script', 'ai', 'idle']);
     expect(vacantOffers({ ...seat, aiAllowed: false, noneAllowed: false })).toEqual(['idle']);
     const computer = { ...seat, type: 'ai', claimable: false, aiAllowed: true, noneAllowed: true } as const;

@@ -76,7 +76,7 @@ export function localSeatElements(
     };
     const choices = vacantOffers(row.slot).map((id) => ({ id, label: labels[id] }));
     if (choices.length === 1) {
-      // The map's `playeroption` row forbids AI: a vacant seat stays idle.
+      // The map permits neither AI nor absence: a vacant seat stays idle.
       const cell = document.createElement('div');
       cell.className = 'main-menu__lobby-locked';
       cell.textContent = lobby.vacantIdle;

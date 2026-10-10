@@ -331,6 +331,13 @@
   color: rgba(143, 184, 173, 0.6);
 }
 
+.main-menu__lobby-vacant:has(> :nth-child(4)) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  box-sizing: border-box;
+  width: 100%;
+}
+
 .main-menu__lobby-vacant .main-menu__seg-btn {
   text-align: center;
   padding: calc(var(--u) * 12) calc(var(--u) * 18);

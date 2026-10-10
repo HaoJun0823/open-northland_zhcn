@@ -11,7 +11,7 @@ import { isMapComputerSeat } from '../../../game/session-url.js';
 export type MapPlayerSlot = MapsIndexPlayerSlot;
 
 /** Script follows the map’s AI toggles, AI enables every available module, and Idle keeps the
- *  entities without AI control. Absent belongs only to an authored closed seat. */
+ *  entities without AI control. Absent omits the seat’s starting entities. */
 export type VacantMode = 'script' | 'idle' | 'ai' | 'absent';
 
 export { OBSERVER_SEAT, OVERSEER_SEAT } from '@open-northland/lockstep';
@@ -44,7 +44,11 @@ export function authoredVacantMode(slot: MapPlayerSlot): VacantMode {
  *  always there: it is a person's seat nobody took. The map's own computer seat keeps its mode. */
 export function vacantOffers(slot: MapPlayerSlot): VacantMode[] {
   if (!slot.claimable) return [authoredVacantMode(slot)];
-  return [...(slot.aiAllowed ? ['script' as const, 'ai' as const] : []), 'idle'];
+  return [
+    ...(slot.aiAllowed ? ['script' as const, 'ai' as const] : []),
+    'idle',
+    ...(slot.noneAllowed ? ['absent' as const] : []),
+  ];
 }
 
 /** A seat the map gives a civilization may be played as any other; a monster seat keeps its tribe. */
@@ -156,6 +160,13 @@ export function scriptSeats(state: RosterState, players: readonly MapPlayerSlot[
 
 export function idleSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
   return vacantSeatsIn(state, players, 'idle').map((p) => p.player);
+}
+
+/** Offered seats omitted from the fresh world's placements. */
+export function absentSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
+  return vacantSeatsIn(state, players, 'absent')
+    .filter((slot) => slot.noneAllowed)
+    .map((slot) => slot.player);
 }
 
 function vacantSeatsIn(

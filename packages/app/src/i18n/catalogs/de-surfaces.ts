@@ -102,7 +102,7 @@ export const deSurfaces = {
       vacantIdle: 'Untätig',
       vacantAbsent: 'Keiner',
       vacantToggleTitle:
-        'Karten-KI folgt den Einstellungen des Kartenautors; Computer aktiviert alle verfügbaren KI-Module; Untätig lässt den Platz ohne KI-Steuerung.',
+        'Karten-KI folgt den Einstellungen des Kartenautors; Computer aktiviert alle verfügbaren KI-Module; Untätig lässt den Platz ohne KI-Steuerung. Keiner lässt die anfänglichen Einheiten und Gebäude des Spielers weg.',
       sit: 'Platz nehmen',
       footnote:
         'Die Karte legt die Spielerplätze fest. Es können keine hinzugefügt oder entfernt werden. Du kannst wechseln, indem du einen freien Platz einnimmst.',

@@ -73,7 +73,8 @@ the world's seats in ascending order as `{ player, mode, claimable, offers, colo
 is false for scenario-only or hidden seats; the relay rejects claims with `seatNotClaimable`. `offers` lists the vacant modes the map's
 `playeroption` row allows the seat, `mode` among them. Where a computer is allowed, the lobby offers
 Map AI (`script`, the map’s `[AIData]` configuration), AI (every module supported by the tribe), and Idle
-(entities remain without AI control). Authored computer seats default to Map AI; map-only computer
+(entities remain without AI control). Where `playeroption` allows None, the lobby also offers
+None (`absent`), which omits that seat’s starting entities. Authored computer seats default to Map AI; map-only computer
 seats offer Map AI alone. Authored `PLAYER_TYPE_NONE` seats are absent and cannot be claimed. `authoredTribe` is the tribe the map's roster
 names for the seat, and `tribe` the one it starts as when that differs (a saved world's choice); a seat
 without `authoredTribe` offers no tribe choice, and `tribe` needs it. Tribe ids are integers from 1

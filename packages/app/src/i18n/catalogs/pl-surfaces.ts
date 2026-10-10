@@ -80,7 +80,7 @@ export const plSurfaces = {
       vacantIdle: 'Bezczynny',
       vacantAbsent: 'Brak',
       vacantToggleTitle:
-        'AI mapy stosuje ustawienia autora mapy; Komputer włącza wszystkie dostępne moduły AI; Bezczynny pozostawia gracza bez sterowania AI.',
+        'AI mapy stosuje ustawienia autora mapy; Komputer włącza wszystkie dostępne moduły AI; Bezczynny pozostawia gracza bez sterowania AI. Brak pomija początkowe jednostki i budynki gracza.',
       sit: 'Usiądź tutaj',
       footnote:
         'Sloty definiuje mapa - nie da się ich dodać ani usunąć. Możesz zmienić miejsce, siadając w wolnym slocie.',

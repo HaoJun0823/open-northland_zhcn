@@ -195,6 +195,23 @@ describe('lobbySession', () => {
     expect(aiSeatsOfLobby(state, lobby)).toEqual([]);
   });
 
+  it('round-trips an offered None choice without removing locked or forbidden seats', () => {
+    const lobby = [
+      slot(0, { claimable: true, type: 'human' }),
+      slot(1, { claimable: true, noneAllowed: true }),
+      slot(2, { claimable: true, noneAllowed: false }),
+      slot(3, { claimable: false, noneAllowed: true }),
+    ];
+    let state = claimSeat(initialRosterState(lobby), 0);
+    for (const player of [1, 2, 3]) state = setVacantMode(state, player, 'absent');
+    const session = lobbySession('zatoka', state, lobby, OPTIONS, SEED);
+    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', 'absent', 'script', 'script']);
+    const entry = new URLSearchParams(lobbyStartEntry('zatoka', state, lobby, OPTIONS, SEED));
+    expect(entry.get('absent')).toBe('1');
+    expect(mapSession(entry, lobby)).toEqual(session);
+    expect(lobbySession('zatoka', claimSeat(state, 1), lobby, OPTIONS, SEED).seats[1]?.mode).toBe('human');
+  });
+
   it('leaves authored closed seats absent even if a stale selection names them', () => {
     const lobby = [...players, slot(3, { type: 'none' })];
     const state = claimSeat(initialRosterState(lobby), 0);

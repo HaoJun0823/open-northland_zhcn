@@ -17,6 +17,7 @@ import {
 } from '../../../game/session-url.js';
 import { formatSearch } from '../../../view/params.js';
 import {
+  absentSeats,
   aiSeats,
   authoredVacantMode,
   claimSeat,
@@ -134,7 +135,7 @@ export function lobbySession(
         ? players.filter((slot) => slot.claimable).map((slot) => slot.player)
         : idleSeats(state, players),
     ),
-    absent: new Set<number>(),
+    absent: new Set(state.seat === null ? [] : absentSeats(state, players)),
   };
   const localSeat = state.seat ?? DEFAULT_LOCAL_PLAYER;
   const seats: SessionSeat[] = players.map((slot) => {

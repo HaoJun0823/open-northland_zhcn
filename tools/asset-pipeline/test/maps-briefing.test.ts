@@ -1,6 +1,8 @@
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { loadSourceCorrections } from '../src/corrections.js';
 import { encodePcx } from '../src/decoders/pcx.js';
 import { HYPERTEXT_PICTURES_DIR } from '../src/stages/gui/paths.js';
 import { cutsceneIdsOf, resolveMapBriefing } from '../src/stages/maps/briefing.js';
@@ -94,6 +96,37 @@ describe('resolveMapBriefing', () => {
     expect(pictures).toHaveLength(1);
     expect(pol).toEqual({ kind: 'picture', file: pictures[0], width: 3, height: 2 });
     expect(eng).toEqual(pol);
+  });
+
+  it('reads its text through the corrections, so a fixed block end splits the blocks again', async () => {
+    const { path: mod } = await makeTempDir('map-briefing-corrected');
+    const { path: fixes } = await makeTempDir('map-briefing-corrections');
+    const { path: out } = await makeTempDir('map-briefing-corrected-out');
+    const dir = join(mod, 'Maps', 'x');
+    await writeBriefings(dir, 'pol', {
+      'briefings.txt':
+        '[blockstart:501]\r\nA\r\n[blockend:501]"\r\n\r\n[blockstart:502]\r\nB\r\n[blockend:502]\r\n',
+      '0501.hlt': hltPage('501'),
+      '0502.hlt': hltPage('502'),
+    });
+    const shipped = await readFile(join(dir, 'text', 'pol', 'briefings', 'briefings.txt'));
+    await writeFile(
+      join(fixes, 'stray-quote.json'),
+      JSON.stringify({
+        reason: 'test',
+        file: 'Maps/x/text/pol/briefings/briefings.txt',
+        sha256: createHash('sha256').update(shipped).digest('hex'),
+        lines: [{ from: '[blockend:501]"', to: '[blockend:501]' }],
+      }),
+    );
+    const corrections = await loadSourceCorrections(fixes, mod);
+
+    const shippedPages = (await resolveMapBriefing(dir, out, 'x/map.dat', [501, 502]))?.texts.pol;
+    expect(Object.keys(shippedPages ?? {})).toEqual(['501']);
+    const pages = (await resolveMapBriefing(dir, out, 'x/map.dat', [501, 502], corrections.read))?.texts.pol;
+    corrections.assertApplied();
+    expect(pages?.['501']?.at(-1)).toMatchObject({ kind: 'text', text: 'A' });
+    expect(pages?.['502']?.at(-1)).toMatchObject({ kind: 'text', text: 'B' });
   });
 
   it('yields undefined with no ids, no briefings folder, or no resolvable page', async () => {

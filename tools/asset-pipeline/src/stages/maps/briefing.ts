@@ -20,6 +20,8 @@ const BRIEFINGS_FILE = 'briefings.txt';
 const HLT_PAGE_DIGITS = 4;
 const PLAY_CUTSCENE = 'PlayCutscene';
 
+type ReadSource = (path: string) => Promise<Uint8Array>;
+
 /** The cutscene ids the map's mission results play, ascending and deduplicated. */
 export function cutsceneIdsOf(script: Pick<MapScript, 'missions'>): number[] {
   const ids = new Set<number>();
@@ -44,11 +46,12 @@ export async function resolveMapBriefing(
   outDir: string,
   rel: string,
   ids: readonly number[],
+  readSource: ReadSource = readFile,
 ): Promise<MapBriefing | undefined> {
   if (ids.length === 0) return undefined;
   const texts: Record<string, Record<string, HypertextBlock[]>> = {};
   for (const lang of MAP_TEXT_LANGUAGES) {
-    const pages = await renderLanguage(mapDir, outDir, rel, lang, ids);
+    const pages = await renderLanguage(mapDir, outDir, rel, lang, ids, readSource);
     if (pages !== undefined) texts[lang] = pages;
   }
   return Object.keys(texts).length === 0 ? undefined : { texts };
@@ -60,13 +63,14 @@ async function renderLanguage(
   rel: string,
   lang: string,
   ids: readonly number[],
+  readSource: ReadSource,
 ): Promise<Record<string, HypertextBlock[]> | undefined> {
   const dir = [STRING_TABLE_DIR, lang, BRIEFINGS_DIR];
   const blocksPath = await findPathCaseInsensitive(mapDir, [...dir, BRIEFINGS_FILE]);
   if (blocksPath === undefined) return undefined;
   let blocks: Map<string, string>;
   try {
-    blocks = parseBriefingBlocks(decodeIni(await readFile(blocksPath), textEncoding(lang)));
+    blocks = parseBriefingBlocks(decodeIni(await readSource(blocksPath), textEncoding(lang)));
   } catch (err) {
     console.warn(
       `[pipeline] map ${rel}: text/${lang}/${BRIEFINGS_DIR}/${BRIEFINGS_FILE} unreadable: ${errorMessage(err)}`,
@@ -76,7 +80,7 @@ async function renderLanguage(
   const include: IncludeResolver = (_file, label) => blocks.get(label);
   const texts = new Map<number, string>();
   for (const id of ids) {
-    const page = await readPage(mapDir, rel, lang, id);
+    const page = await readPage(mapDir, rel, lang, id, readSource);
     if (page !== undefined) texts.set(id, page);
   }
   const picture = await resolvePagePictures(
@@ -95,12 +99,18 @@ async function renderLanguage(
 }
 
 /** One `NNNN.hlt` page's text, or undefined when it is absent or unreadable. */
-async function readPage(mapDir: string, rel: string, lang: string, id: number): Promise<string | undefined> {
+async function readPage(
+  mapDir: string,
+  rel: string,
+  lang: string,
+  id: number,
+  readSource: ReadSource,
+): Promise<string | undefined> {
   const file = `${String(id).padStart(HLT_PAGE_DIGITS, '0')}.hlt`;
   const path = await findPathCaseInsensitive(mapDir, [STRING_TABLE_DIR, lang, BRIEFINGS_DIR, file]);
   if (path === undefined) return undefined;
   try {
-    return decodeIni(await readFile(path), textEncoding(lang));
+    return decodeIni(await readSource(path), textEncoding(lang));
   } catch (err) {
     console.warn(
       `[pipeline] map ${rel}: text/${lang}/${BRIEFINGS_DIR}/${file} unreadable: ${errorMessage(err)}`,

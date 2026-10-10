@@ -18,8 +18,8 @@ import { edibleClassOf, edibleGoodFormOf } from '../readviews/food.js';
 import { countsAsOwnStock, stockOf, takeStock } from './stock.js';
 
 /** One open, unpaid tribute as the diplomacy window lists it: each demand with what the payer's
- *  stores hold toward it between them, and whether every demand is covered so, each counted on its
- *  own, which a payment can still fall short of. */
+ *  stores hold toward it between them, and whether the stores cover each demand counted on its own;
+ *  a payment can still fall short. */
 export interface OpenTribute {
   readonly slot: number;
   readonly receiver: number;

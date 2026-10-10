@@ -678,7 +678,8 @@ export class Simulation {
   }
 
   /** The open, unpaid tributes the map's script has `payer` owing, ascending by slot, each with what
-   *  the payer's stores hold toward it and whether the `payTribute` command would take it now. */
+   *  the payer's stores hold toward it and whether the `payTribute` command would act on it now:
+   *  each demand covered on its own, so a payment can still fall short. */
   openTributes(payer: number): readonly OpenTribute[] {
     return openTributes(this.world, { content: this.content }, payer);
   }

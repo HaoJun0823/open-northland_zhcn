@@ -198,6 +198,37 @@ describe('AddTributeGoods', () => {
   });
 });
 
+describe('a sixth demanded good on a paid slot', () => {
+  it('is dropped and leaves the slot paid', () => {
+    const kinds = [WOOD, PLANK, FOOD, STONE, MUSHROOM];
+    const opening: MissionDefinition = {
+      successfullIf: SUCCESSFUL_IF.all,
+      active: true,
+      visible: false,
+      goals: [],
+      results: [create(), ...kinds.map((good) => demand(good, 1))],
+    };
+    // Waits out the payment, then asks for a sixth kind on the next cadence pass.
+    const later: MissionDefinition = {
+      successfullIf: SUCCESSFUL_IF.all,
+      active: true,
+      visible: false,
+      goals: [{ opcode: 'TimeGone', seconds: 1 }],
+      results: [demand(WHEAT, 1)],
+    };
+    const sim = missionSim([opening, later]);
+    place(sim, { type: WAREHOUSE, goods: kinds.map((good) => ({ good, amount: 1 })) });
+    sim.run(LOAD_PASS);
+    pay(sim);
+    expect(tributeSlot(sim.world, SLOT)?.paid).toBe(true);
+    expect(failedResultsUntil(sim, PASS_TICKS)).toEqual(['AddTributeGoods']);
+    expect(tributeSlot(sim.world, SLOT)).toMatchObject({
+      paid: true,
+      demands: kinds.map((good) => ({ good, amount: 1 })),
+    });
+  });
+});
+
 describe('ClearTribute', () => {
   it('closes the slot: the goal stops holding and the window lists nothing, the data stays', () => {
     const sim = tributeSim([create(), demand(WOOD, 5), clear()]);
@@ -312,10 +343,19 @@ describe('the open tributes a payer owes', () => {
 
 describe('tribute notices', () => {
   it('announces nothing when a slot opens, grows, is paid or closes', () => {
+    const kinds = (world: Simulation): string[] =>
+      world.events
+        .current()
+        .map((e) => e.kind)
+        .sort();
     const sim = tributeSim([create(), demand(WOOD, 5), create(OTHER_SLOT), clear(OTHER_SLOT)]);
-    place(sim, { type: HEADQUARTERS });
-    sim.run(LOAD_PASS);
-    expect(sim.events.current().filter((e) => e.kind.startsWith('mission'))).toEqual([]);
+    const baseline = tributeSim([]);
+    for (const world of [sim, baseline]) {
+      place(world, { type: HEADQUARTERS });
+      world.run(LOAD_PASS);
+    }
+    // The same world without the tribute lines raises exactly the same events on the pass.
+    expect(kinds(sim)).toEqual(kinds(baseline));
     pay(sim);
     expect(tributeSlot(sim.world, SLOT)?.paid).toBe(true);
     expect(sim.events.current()).toEqual([]);

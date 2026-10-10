@@ -201,7 +201,7 @@ describe('the successfullif rules', () => {
 });
 
 describe('activation', () => {
-  it('records the tick only on the inactive-to-active transition', () => {
+  it('records the clock only on the inactive-to-active transition', () => {
     // Mission 0 re-activates mission 1 on every pass; mission 1 waits out a long timer.
     const sim = missionSim([
       mission({ goals: [TRUE_GOAL], results: [{ opcode: 'ActivateMission', missionIndex: 1 }] }),

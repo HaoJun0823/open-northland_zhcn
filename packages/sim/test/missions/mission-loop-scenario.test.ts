@@ -47,7 +47,8 @@ const LOOP: MissionScript = {
   ],
 };
 
-/** The ticks the looping mission fired on, read off its activation clock as the run advances. */
+/** The clocks the looping mission fired on, read off its activation clock as the run advances; the
+ *  script loads on tick 1, so they are its ticks too. */
 function fireTicks(seed: number, ticks: number): { fired: number[]; hash: string } {
   const run = scenario(testContent(), { seed, missions: LOOP })
     .command({ kind: 'setMissionsEnabled', enabled: true })

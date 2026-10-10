@@ -390,7 +390,19 @@ export function createSettingsPage(opts: {
       if (opts.confirmRestore !== undefined && !(await opts.confirmRestore())) return;
       if (scope.signal.aborted) return;
       const displayReset = displayMode.reserve(defaultDisplayMode());
-      const { displayMode: _displayMode, ...defaults } = recommendedSettings();
+      const before = opts.settings.current();
+      const beforeUiScaleCommit = uiScaleCommit;
+      restore.disabled = true;
+      const { displayMode: _displayMode, ...defaults } = await recommendedSettings();
+      restore.disabled = false;
+      if (
+        scope.signal.aborted ||
+        opts.settings.current() !== before ||
+        uiScaleCommit !== beforeUiScaleCommit
+      ) {
+        displayReset.cancel();
+        return;
+      }
       void opts.settings.update(defaults).then((applied) => {
         if (!applied) {
           displayReset.cancel();

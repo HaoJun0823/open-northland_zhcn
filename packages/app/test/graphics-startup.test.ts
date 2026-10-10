@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { initializeGraphicsSettings, recommendedSettings } from '../src/view/graphics-startup.js';
+import * as graphicsTier from '../src/view/graphics-tier.js';
 import {
   defaultSettings,
   initializeStoredSettings,
@@ -7,8 +8,8 @@ import {
   readStoredSettings,
 } from '../src/view/settings-store.js';
 
-const STRONG_GPU = 'ANGLE (NVIDIA, NVIDIA GeForce RTX 4090, OpenGL)';
-const WEAK_GPU = 'ANGLE (Intel, Intel UHD Graphics 620, OpenGL)';
+const QUALITY_TIER = 3;
+const PERFORMANCE_TIER = 1;
 
 function storage(raw: string | null = null) {
   let current = raw;
@@ -21,42 +22,44 @@ function storage(raw: string | null = null) {
   };
 }
 
-function boot(renderer: string, localStorage: ReturnType<typeof storage>) {
-  const loseContext = vi.fn();
-  const getContext = vi.fn(() => ({
-    RENDERER: 0x1f01,
-    getParameter: () => renderer,
-    getExtension: (name: string) =>
-      name === 'WEBGL_debug_renderer_info'
-        ? { UNMASKED_RENDERER_WEBGL: 0x9246 }
-        : name === 'WEBGL_lose_context'
-          ? { loseContext }
-          : null,
-  }));
-  vi.stubGlobal('navigator', { languages: ['en-US'] });
-  vi.stubGlobal('window', {
-    localStorage,
-    innerWidth: 1280,
-    innerHeight: 720,
-    screen: { width: 1920, height: 1080 },
-    devicePixelRatio: 1,
-  });
-  vi.stubGlobal('document', { createElement: () => ({ getContext }) });
-  return { getContext, loseContext };
+function detection(tier: number): graphicsTier.GraphicsDetection {
+  return {
+    renderer: `Test GPU tier ${tier}`,
+    physicalPixels: 1920 * 1080,
+    result: { tier, type: 'BENCHMARK' },
+  };
 }
 
-afterEach(() => vi.unstubAllGlobals());
+function boot(tier: number, localStorage: ReturnType<typeof storage>) {
+  vi.restoreAllMocks();
+  vi.stubGlobal('navigator', { languages: ['en-US'] });
+  vi.stubGlobal('window', { localStorage });
+  return vi.spyOn(graphicsTier, 'detectGraphicsTier').mockResolvedValue(detection(tier));
+}
+
+function holdDetection(probe: ReturnType<typeof boot>, tier: number) {
+  let release = (): void => undefined;
+  const pending = new Promise<graphicsTier.GraphicsDetection>((resolve) => {
+    release = () => resolve(detection(tier));
+  });
+  probe.mockReturnValue(pending);
+  return () => release();
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('first-start graphics settings', () => {
-  it('persists the hardware defaults once before later settings readers', () => {
+  it('persists the hardware defaults once before later settings readers', async () => {
     const saved = storage();
-    const probe = boot(STRONG_GPU, saved);
-    initializeGraphicsSettings();
-    initializeGraphicsSettings();
+    const probe = boot(QUALITY_TIER, saved);
+    await initializeGraphicsSettings();
+    await initializeGraphicsSettings();
 
     expect(saved.setItem).toHaveBeenCalledTimes(1);
-    expect(probe.getContext).toHaveBeenCalledTimes(1);
-    expect(probe.loseContext).toHaveBeenCalledTimes(1);
+    expect(probe).toHaveBeenCalledTimes(1);
     expect(readStoredSettings()).toMatchObject({
       enhancedSampling: true,
       pixelArtScaler: 'xbr',
@@ -73,59 +76,59 @@ describe('first-start graphics settings', () => {
 
   it.each(['{}', 'not json', 'null', '42', '{"weather":false,"pixelArtScaler":"sharp"}'])(
     'leaves an existing blob untouched without probing the GPU: %s',
-    (raw) => {
+    async (raw) => {
       const saved = storage(raw);
-      const probe = boot(WEAK_GPU, saved);
-      initializeGraphicsSettings();
+      const probe = boot(PERFORMANCE_TIER, saved);
+      await initializeGraphicsSettings();
 
       expect(saved.raw()).toBe(raw);
       expect(saved.setItem).not.toHaveBeenCalled();
-      expect(probe.getContext).not.toHaveBeenCalled();
+      expect(probe).not.toHaveBeenCalled();
     },
   );
 
-  it('never recomputes first-start defaults after a player changes a setting', () => {
+  it('never recomputes first-start defaults after a player changes a setting', async () => {
     const saved = storage();
-    boot(WEAK_GPU, saved);
+    boot(PERFORMANCE_TIER, saved);
     const factory = vi.fn(defaultSettings);
-    initializeStoredSettings(factory);
+    await initializeStoredSettings(factory);
     patchStoredSettings({ weather: false, pixelArtScaler: 'bilinear' });
-    initializeStoredSettings(factory);
+    await initializeStoredSettings(factory);
 
     expect(factory).toHaveBeenCalledTimes(1);
     expect(readStoredSettings()).toMatchObject({ weather: false, pixelArtScaler: 'bilinear' });
   });
 
-  it('keeps document defaults without writing when a storage read is denied', () => {
+  it('keeps document defaults without writing when a storage read is denied', async () => {
     const saved = storage('{"weather":true,"pixelArtScaler":"sharp"}');
     saved.getItem.mockImplementation(() => {
       throw new Error('read denied');
     });
-    const probe = boot(WEAK_GPU, saved);
-    initializeGraphicsSettings();
-    initializeGraphicsSettings();
+    const probe = boot(PERFORMANCE_TIER, saved);
+    await initializeGraphicsSettings();
+    await initializeGraphicsSettings();
 
     expect(saved.setItem).not.toHaveBeenCalled();
     expect(saved.raw()).toBe('{"weather":true,"pixelArtScaler":"sharp"}');
-    expect(probe.getContext).toHaveBeenCalledTimes(1);
+    expect(probe).toHaveBeenCalledTimes(1);
     expect(readStoredSettings()).toMatchObject({ enhancedSampling: false, weather: false });
   });
 
-  it('retains defaults and sequential player patches when storage writes are denied', () => {
+  it('retains defaults and sequential player patches when storage writes are denied', async () => {
     const saved = storage();
     saved.setItem.mockImplementation(() => {
       throw new Error('write denied');
     });
-    const probe = boot(WEAK_GPU, saved);
-    initializeGraphicsSettings();
+    const probe = boot(PERFORMANCE_TIER, saved);
+    await initializeGraphicsSettings();
     expect(readStoredSettings()).toMatchObject({ enhancedSampling: false, weather: false });
 
     patchStoredSettings({ enhancedSampling: true, pixelArtScaler: 'sharp', weather: true });
     patchStoredSettings({ soundEnabled: false });
-    initializeGraphicsSettings();
+    await initializeGraphicsSettings();
 
     expect(saved.raw()).toBeNull();
-    expect(probe.getContext).toHaveBeenCalledTimes(1);
+    expect(probe).toHaveBeenCalledTimes(1);
     expect(readStoredSettings()).toMatchObject({
       enhancedSampling: true,
       pixelArtScaler: 'sharp',
@@ -136,12 +139,12 @@ describe('first-start graphics settings', () => {
   });
 
   it.each([
-    { first: STRONG_GPU, next: WEAK_GPU, enabled: true, pixelArtScaler: 'bilinear' as const },
-    { first: WEAK_GPU, next: STRONG_GPU, enabled: false, pixelArtScaler: 'sharp' as const },
-  ])('preserves manual choices on a new document from $first to $next', (scenario) => {
+    { first: QUALITY_TIER, next: PERFORMANCE_TIER, enabled: true, pixelArtScaler: 'bilinear' as const },
+    { first: PERFORMANCE_TIER, next: QUALITY_TIER, enabled: false, pixelArtScaler: 'sharp' as const },
+  ])('preserves manual choices on a new document from tier $first to $next', async (scenario) => {
     const saved = storage();
     boot(scenario.first, saved);
-    initializeGraphicsSettings();
+    await initializeGraphicsSettings();
     const chosen = patchStoredSettings({
       enhancedSampling: scenario.enabled,
       pixelArtScaler: scenario.pixelArtScaler,
@@ -160,21 +163,21 @@ describe('first-start graphics settings', () => {
     const writes = saved.setItem.mock.calls.length;
 
     const probe = boot(scenario.next, saved);
-    initializeGraphicsSettings();
+    await initializeGraphicsSettings();
 
     expect(readStoredSettings()).toEqual(chosen);
     expect(saved.raw()).toBe(previous);
     expect(saved.setItem).toHaveBeenCalledTimes(writes);
-    expect(probe.getContext).not.toHaveBeenCalled();
+    expect(probe).not.toHaveBeenCalled();
   });
 
-  it('uses hardware recommendations again when the player explicitly restores defaults', () => {
+  it('uses hardware recommendations again when the player explicitly restores defaults', async () => {
     const saved = storage();
-    const probe = boot(WEAK_GPU, saved);
-    initializeGraphicsSettings();
+    const probe = boot(PERFORMANCE_TIER, saved);
+    await initializeGraphicsSettings();
     patchStoredSettings({ enhancedSampling: true, weather: true, soundEnabled: false, renderScale: 2 });
 
-    const defaults = recommendedSettings();
+    const defaults = await recommendedSettings();
     expect(readStoredSettings()).toMatchObject({ enhancedSampling: true, weather: true });
     patchStoredSettings(defaults);
 
@@ -188,6 +191,99 @@ describe('first-start graphics settings', () => {
       soundEnabled: true,
       renderScale: 1,
     });
-    expect(probe.getContext).toHaveBeenCalledTimes(1);
+    expect(probe).toHaveBeenCalledTimes(2);
   });
+
+  it('preserves a persistent player edit made while tier detection is pending', async () => {
+    const saved = storage();
+    const probe = boot(PERFORMANCE_TIER, saved);
+    const release = holdDetection(probe, PERFORMANCE_TIER);
+    const initializing = initializeGraphicsSettings();
+    expect(saved.setItem).not.toHaveBeenCalled();
+
+    const chosen = patchStoredSettings({ enhancedSampling: true, pixelArtScaler: 'sharp', weather: true });
+    const raw = saved.raw();
+    release();
+    await initializing;
+
+    expect(readStoredSettings()).toEqual(chosen);
+    expect(saved.raw()).toBe(raw);
+    expect(saved.setItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves volatile player edits made while tier detection is pending', async () => {
+    const saved = storage();
+    saved.setItem.mockImplementation(() => {
+      throw new Error('write denied');
+    });
+    const probe = boot(PERFORMANCE_TIER, saved);
+    const release = holdDetection(probe, PERFORMANCE_TIER);
+    const initializing = initializeGraphicsSettings();
+    patchStoredSettings({ enhancedSampling: true, pixelArtScaler: 'bilinear', weather: true });
+    const chosen = patchStoredSettings({ soundEnabled: false });
+    release();
+    await initializing;
+
+    expect(readStoredSettings()).toEqual(chosen);
+    expect(saved.raw()).toBeNull();
+    expect(saved.setItem).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves choices saved by another tab while tier detection is pending', async () => {
+    const saved = storage();
+    const probe = boot(QUALITY_TIER, saved);
+    const release = holdDetection(probe, QUALITY_TIER);
+    const initializing = initializeGraphicsSettings();
+    const raw = '{"enhancedSampling":false,"pixelArtScaler":"sharp","weather":false,"renderScale":0.75}';
+    saved.setItem('open-northland.settings', raw);
+    release();
+    await initializing;
+
+    expect(saved.raw()).toBe(raw);
+    expect(saved.setItem).toHaveBeenCalledTimes(1);
+    expect(readStoredSettings()).toMatchObject({
+      enhancedSampling: false,
+      pixelArtScaler: 'sharp',
+      weather: false,
+      renderScale: 0.75,
+    });
+  });
+
+  it('coalesces concurrent first-start initialization into one detection and write', async () => {
+    const saved = storage();
+    const probe = boot(QUALITY_TIER, saved);
+    const release = holdDetection(probe, QUALITY_TIER);
+    const first = initializeGraphicsSettings();
+    const second = initializeGraphicsSettings();
+    expect(second).toBe(first);
+    expect(probe).toHaveBeenCalledTimes(1);
+    expect(saved.setItem).not.toHaveBeenCalled();
+    release();
+    await Promise.all([first, second]);
+
+    expect(saved.setItem).toHaveBeenCalledTimes(1);
+    expect(readStoredSettings()).toMatchObject({ enhancedSampling: true, weather: true });
+  });
+
+  it.each(['before', 'after'] as const)(
+    'does not write if storage reads are denied %s tier detection',
+    async (deniedWhen) => {
+      const saved = storage();
+      const deny = () =>
+        saved.getItem.mockImplementation(() => {
+          throw new Error('read denied');
+        });
+      const probe = boot(PERFORMANCE_TIER, saved);
+      const release = holdDetection(probe, PERFORMANCE_TIER);
+      if (deniedWhen === 'before') deny();
+      const initializing = initializeGraphicsSettings();
+      if (deniedWhen === 'before') saved.getItem.mockImplementation(() => null);
+      else deny();
+      release();
+      await initializing;
+
+      expect(saved.setItem).not.toHaveBeenCalled();
+      expect(readStoredSettings()).toMatchObject({ enhancedSampling: false, weather: false });
+    },
+  );
 });

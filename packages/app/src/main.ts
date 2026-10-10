@@ -10,7 +10,6 @@ import { installNavigationGuard } from './view/navigation-guard.js';
  * touch-only device has passed its notice. All sim and render wiring lives in the entries; this file
  * only opens the first one.
  */
-initializeGraphicsSettings();
 logBootHeader();
 installCrashCapture();
 installUpdateWatcher();
@@ -20,4 +19,6 @@ installNavigationGuard();
 window.addEventListener('contextmenu', (e) => e.preventDefault(), { capture: true });
 const params = new URLSearchParams(window.location.search);
 // Unhandled by design: installCrashCapture's unhandledrejection hook owns the reporting.
-void deviceNoticeCleared(params).then(() => runEntry(params));
+void initializeGraphicsSettings()
+  .then(() => deviceNoticeCleared(params))
+  .then(() => runEntry(params));

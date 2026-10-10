@@ -5,6 +5,7 @@ import { defaultClientConditions, defineConfig, type Plugin, runnerImport } from
 import { clientBuildIdentity, refreshClientBuild } from './build/client-version.js';
 import { emitVersionFile, gameVersion, restoreIdentity } from './build/game-version.js';
 import { devCheckout } from './vite/dev-checkout.js';
+import { gpuBenchmarks } from './vite/gpu-benchmarks.js';
 import { serveContent } from './vite/serve-content.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -37,6 +38,7 @@ export default defineConfig(async ({ command }) => ({
   plugins: [
     devCheckout(resolve(here, '../..'), contentRoot),
     serveContent(contentRoot),
+    gpuBenchmarks(),
     refreshClientBuild(resolve(here, '../..')),
     emitVersionFile({ version, restore }),
     ...(await checkoutPlugins(command)),

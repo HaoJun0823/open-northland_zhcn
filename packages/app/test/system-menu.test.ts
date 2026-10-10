@@ -3,9 +3,10 @@ import { type SoundBus, VOLUME_CHANNELS } from '@open-northland/audio';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSystemMenu, type SystemMenu } from '../src/hud/dom/system-menu.js';
 import { currentLocale, messages, setActiveLocale } from '../src/i18n/index.js';
+import * as graphicsStartup from '../src/view/graphics-startup.js';
 import type { GameSettingsRuntime } from '../src/view/runtime/game-settings.js';
 import type { SaveLoadSession } from '../src/view/runtime/save-load/index.js';
-import { defaultSettings } from '../src/view/settings-store.js';
+import { defaultSettings, type MenuSettings } from '../src/view/settings-store.js';
 
 let menu: SystemMenu | null = null;
 let notifyHudResize = (): void => undefined;
@@ -29,6 +30,7 @@ afterEach(() => {
   menu = null;
   document.body.replaceChildren();
   setActiveLocale(locale);
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -225,6 +227,48 @@ describe('system menu navigation', () => {
     if (question === null) throw new Error('Missing confirmation');
     button(messages().mainMenu.settings.restoreDefaults, question).click();
     await vi.waitFor(() => expect(settings.current().volumes).toEqual(defaultSettings().volumes));
+  });
+
+  it('cancels a pending reset when a later UI scale choice is still rebuilding', async () => {
+    let finishRecommendation: (settings: MenuSettings) => void = () => undefined;
+    const recommendation = new Promise<MenuSettings>((resolve) => {
+      finishRecommendation = resolve;
+    });
+    const recommend = vi.spyOn(graphicsStartup, 'recommendedSettings').mockReturnValue(recommendation);
+    const { menu, settings } = mount();
+    await settings.update({ soundEnabled: false });
+    const before = settings.current();
+    const commitSettings = settings.update;
+    let finishRebuild = (): void => undefined;
+    const rebuild = new Promise<void>((resolve) => {
+      finishRebuild = resolve;
+    });
+    const update = vi.spyOn(settings, 'update').mockImplementation(async (patch) => {
+      await rebuild;
+      return commitSettings(patch);
+    });
+    menu.toggle();
+    openSettings();
+    const restore = button(messages().mainMenu.settings.restoreDefaults);
+    restore.click();
+    const question = document.querySelector('[role="alertdialog"]');
+    if (question === null) throw new Error('Missing confirmation');
+    button(messages().mainMenu.settings.restoreDefaults, question).click();
+    await vi.waitFor(() => expect(recommend).toHaveBeenCalledOnce());
+
+    const scale = document.querySelector<HTMLInputElement>('[data-settings-focus="ui-scale"]');
+    if (scale === null) throw new Error('Missing UI scale slider');
+    scale.value = '1.5';
+    scale.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(settings.current()).toBe(before);
+    finishRecommendation(defaultSettings());
+    await vi.waitFor(() => expect(restore.disabled).toBe(false));
+
+    expect(update).toHaveBeenCalledExactlyOnceWith({ uiScaleFactor: 1.5 });
+    finishRebuild();
+    await vi.waitFor(() =>
+      expect(settings.current()).toMatchObject({ uiScaleFactor: 1.5, soundEnabled: false }),
+    );
   });
 
   it('plays a bus preview beside each slider that has one, and sets the jingles and responses', async () => {

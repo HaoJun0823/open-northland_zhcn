@@ -165,18 +165,37 @@ export function defaultSettings(): MenuSettings {
 
 const STORAGE_KEY = 'open-northland.settings';
 const volatileSettings = new WeakMap<object, MenuSettings>();
+const initializations = new WeakMap<Window, Promise<void>>();
+
+function settingsPresence(): 'present' | 'absent' | 'denied' {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === null ? 'absent' : 'present';
+  } catch {
+    return 'denied';
+  }
+}
 
 /** Seed a fresh installation once, before any entry reads settings. Any existing blob belongs to the
  * player. A denied read is not evidence of absence, so it must never cause a persistent write. */
-export function initializeStoredSettings(defaults: () => MenuSettings): void {
-  if (volatileSettings.has(window)) return;
-  try {
-    if (window.localStorage.getItem(STORAGE_KEY) !== null) return;
-  } catch {
-    volatileSettings.set(window, defaults());
-    return;
-  }
-  persistSettings(defaults());
+export function initializeStoredSettings(
+  defaults: () => MenuSettings | Promise<MenuSettings>,
+): Promise<void> {
+  const pending = initializations.get(window);
+  if (pending !== undefined) return pending;
+  const owner = window;
+  const initialize = async (): Promise<void> => {
+    const before = settingsPresence();
+    if (volatileSettings.has(owner) || before === 'present') return;
+    const settings = await defaults();
+    // A user edit or another tab may have written preferences while the database was loading.
+    const after = settingsPresence();
+    if (volatileSettings.has(owner) || after === 'present') return;
+    if (before === 'denied' || after === 'denied') volatileSettings.set(owner, settings);
+    else persistSettings(settings);
+  };
+  const result = initialize().finally(() => initializations.delete(owner));
+  initializations.set(owner, result);
+  return result;
 }
 
 function clampFactor(value: unknown): number {

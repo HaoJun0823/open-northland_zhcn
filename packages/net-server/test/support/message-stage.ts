@@ -6,7 +6,7 @@ import {
   type ServerMessage,
   type WireDigest,
 } from '@open-northland/net-protocol';
-import { type ClientHandle, Relay } from '@open-northland/net-server';
+import { type ClientHandle, Relay, type RelayLog } from '@open-northland/net-server';
 import { TEST_COMPATIBILITY } from './compatibility.js';
 
 /** The relay driven message by message with no sim behind it, on a clock the test moves. */
@@ -48,9 +48,13 @@ export interface MessageStage {
 /** The stage's wall clock at its start, in Unix epoch ms; it runs with the stage's own clock. */
 export const STAGE_EPOCH_MS = Date.UTC(2026, 0, 1, 20, 0);
 
-export function stage(autoCompatibility = true): MessageStage {
+export function stage(autoCompatibility = true, log?: RelayLog): MessageStage {
   const time = { ms: 0 };
-  const relay = new Relay({ now: () => time.ms, wallClock: () => STAGE_EPOCH_MS + time.ms });
+  const relay = new Relay({
+    now: () => time.ms,
+    wallClock: () => STAGE_EPOCH_MS + time.ms,
+    ...(log === undefined ? {} : { log }),
+  });
   const advance = (ms: number): void => {
     time.ms += ms;
     relay.advance();

@@ -24,9 +24,10 @@ export {
   DEFAULT_MAX_ROOMS,
   HELLO_TIMEOUT_MS,
   Relay,
-  type RelayLog,
   type RelayOptions,
+  STATUS_LOG_INTERVAL_MS,
 } from './relay/relay.js';
+export type { RelayLog } from './relay/relay-log.js';
 export { SNAPSHOT_REFRESH_MS, SNAPSHOT_RETRY_MS } from './relay/resync.js';
 export { LOAD_VIEW_INTERVAL_MS, LOADING_STALL_MS } from './relay/room.js';
 export { KICK_COUNTDOWN_MS } from './relay/waiting.js';

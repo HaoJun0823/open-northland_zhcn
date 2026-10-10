@@ -14,6 +14,7 @@ import {
 } from '@open-northland/net-protocol';
 import { LatencyProbe } from './input-delay.js';
 import { createMember, type Member, type Refusal } from './member.js';
+import { type RelayLog, wholeSeconds } from './relay-log.js';
 import { Room } from './room.js';
 import { dispatchRoomMessage } from './room-dispatch.js';
 import { retireRoomMembers } from './room-retirement.js';
@@ -24,8 +25,6 @@ export interface Connection {
   /** Close the transport after `error` has been sent. */
   close(reason: ClosingCode): void;
 }
-
-export type RelayLog = (event: string, fields?: Record<string, unknown>) => void;
 
 export interface RelayOptions {
   /** Monotonic milliseconds; the host's clock, or a test's. */
@@ -44,6 +43,8 @@ const EMPTY_ROOM_TTL_MS = 10 * 60 * 1000;
 export const DEFAULT_MAX_ROOMS = 64;
 /** A connection that has not introduced itself by then is closed, so an idle socket holds nothing. */
 export const HELLO_TIMEOUT_MS = 10_000;
+/** How often the relay logs a census of its clients and rooms while it holds any. */
+export const STATUS_LOG_INTERVAL_MS = 5 * 60 * 1000;
 const ROOM_ID_BYTES = 4;
 
 /** One connection as the relay sees it. Identity arrives with `hello`; before it, nothing else may. */
@@ -79,6 +80,7 @@ export class Relay {
   private readonly maxRooms: number;
   private readonly build: { readonly build?: string };
   private lastAdvanceAt: number;
+  private nextStatusAt: number;
 
   constructor(options: RelayOptions = {}) {
     this.now = options.now ?? (() => performance.now());
@@ -88,6 +90,7 @@ export class Relay {
     const build = options.build ?? null;
     this.build = build === null ? {} : { build: parseRelayBuild(build, 'build') };
     this.lastAdvanceAt = this.now();
+    this.nextStatusAt = this.lastAdvanceAt + STATUS_LOG_INTERVAL_MS;
   }
 
   get roomCount(): number {
@@ -108,12 +111,17 @@ export class Relay {
   disconnect(client: ClientHandle): void {
     if (!this.clients.delete(client)) return;
     if (client.token !== null && this.byToken.get(client.token) === client) this.byToken.delete(client.token);
-    if (client.room !== null && client.member !== null) {
-      const room = client.room;
+    const room = client.room;
+    if (room !== null && client.member !== null) {
       room.disconnect(client.member, this.now());
       this.dropIfEmpty(room);
     }
-    this.log('disconnect', { nick: client.nick, clients: this.clients.size });
+    this.log('disconnect', {
+      nick: client.nick,
+      ...(room === null ? {} : { room: room.id }),
+      connectedSeconds: wholeSeconds(this.now() - client.connectedAt),
+      clients: this.clients.size,
+    });
   }
 
   /** `bytes` is the message's size on the wire, when the transport knows it. */
@@ -156,6 +164,22 @@ export class Relay {
     }
     this.pollClients(now);
     this.expireEmptyRooms(now);
+    if (now >= this.nextStatusAt) {
+      this.nextStatusAt = now + STATUS_LOG_INTERVAL_MS;
+      this.logStatus();
+    }
+  }
+
+  /** Who is connected and what the rooms are doing; nothing while the relay is idle. */
+  private logStatus(): void {
+    if (this.clients.size === 0 && this.rooms.size === 0) return;
+    const rooms = { lobby: 0, running: 0, ended: 0 };
+    let playing = 0;
+    for (const room of this.rooms.values()) {
+      rooms[room.state]++;
+      if (room.state === 'running') playing += room.connectedCount;
+    }
+    this.log('status', { clients: this.clients.size, rooms, playing });
   }
 
   /** A fault in one room's clock ends that room; it would otherwise recur on every poll and stall
@@ -227,7 +251,11 @@ export class Relay {
       room.reconnect(member, this.now());
       this.emptySince.delete(room);
     }
-    this.log('hello', { nick: message.nick, rejoined: member !== null });
+    this.log('hello', {
+      nick: message.nick,
+      rejoined: member !== null,
+      ...(room === undefined || member === null ? {} : { room: room.id }),
+    });
   }
 
   private welcome(client: Client): void {
@@ -248,11 +276,17 @@ export class Relay {
         if (client.room !== null) return { code: 'alreadyInRoom' };
         if (this.rooms.size >= this.maxRooms) return { code: 'relayFull', rooms: this.maxRooms };
         const member = this.newMember(client, client.nick);
-        const room = new Room(this.newRoomId(), member, message.settings, message.seats, this.hooks);
+        const room = new Room(
+          this.newRoomId(),
+          member,
+          message.settings,
+          message.seats,
+          this.hooks,
+          this.now(),
+        );
         this.rooms.set(room.id, room);
         this.enter(client, room, member);
         room.welcome(member);
-        this.log('room created', { room: room.id, by: client.nick });
         return null;
       }
       case 'joinRoom': {
@@ -299,9 +333,7 @@ export class Relay {
       default: {
         const { room, member } = client;
         if (room === null || member === null) return { code: 'notInRoom' };
-        const refusal = dispatchRoomMessage(room, member, message, this.now());
-        if (message.kind === 'start' && refusal === null) this.log('room started', { room: room.id });
-        return refusal;
+        return dispatchRoomMessage(room, member, message, this.now());
       }
     }
   }
@@ -318,6 +350,7 @@ export class Relay {
       }
     },
     wallClock: (): number => this.wallClock(),
+    log: (event: string, fields?: Record<string, unknown>): void => this.log(event, fields),
   };
 
   /** The token no longer belongs to `room`, nor does the connection holding it. */
@@ -359,10 +392,17 @@ export class Relay {
   }
 
   private dropRoom(room: Room, reason?: RelayReason): void {
+    const now = this.now();
+    room.noteMilestones(now);
     this.rooms.delete(room.id);
     this.emptySince.delete(room);
     retireRoomMembers(room, (token) => this.detach(token, room), this.hooks.deliver, reason);
-    this.log('room dropped', { room: room.id, ...(reason === undefined ? {} : { reason }) });
+    this.log('room dropped', {
+      room: room.id,
+      name: room.name,
+      ...room.lifeFields(now),
+      ...(reason === undefined ? {} : { reason }),
+    });
   }
 
   private reject(client: Client, of: ClientMessage['kind'], reason: RelayReason, raw?: unknown): void {

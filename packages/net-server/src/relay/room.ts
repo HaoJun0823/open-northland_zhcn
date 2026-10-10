@@ -1,6 +1,7 @@
 import type { GameSession } from '@open-northland/lockstep';
 import {
   type ClientMessage,
+  type DepartedSeatMode,
   type DepartureCause,
   type LobbyCompatibility,
   type LobbySettings,
@@ -21,6 +22,7 @@ import { Game } from './game.js';
 import { Lobby } from './lobby.js';
 import { LobbyTransfers } from './lobby-transfers.js';
 import { broadcast, type Deliver, type Member, type Refusal } from './member.js';
+import { type RelayLog, wholeSeconds } from './relay-log.js';
 import { Responsiveness } from './responsiveness.js';
 import { roomView, sessionForMember } from './room-view.js';
 import { type SeatChange, SeatTable } from './seats.js';
@@ -39,7 +41,11 @@ export interface RoomHooks {
   readonly removed: (member: Member) => void;
   /** Unix epoch milliseconds. */
   readonly wallClock: () => number;
+  readonly log: RelayLog;
 }
+
+/** Why a member's token stopped belonging to the room: a lobby socket loss counts as a departure. */
+type RemovalCause = DepartureCause | 'disconnected';
 
 /**
  * One room: its seats, the people in it, and once started its game. Settings belong to the creator
@@ -67,6 +73,11 @@ export class Room {
   private readonly announcedBehind = new Map<string, number>();
   private readonly chatLog = new ChatLog();
   private readonly responsiveness = new Responsiveness();
+  /** Monotonic milliseconds of the room's milestones, for the durations its log lines carry. */
+  private readonly createdAt: number;
+  private startedAt: number | null = null;
+  private runningAt: number | null = null;
+  private endedAt: number | null = null;
 
   constructor(
     id: string,
@@ -74,8 +85,10 @@ export class Room {
     settings: RoomSettings,
     seats: readonly RoomSeatSetup[],
     hooks: RoomHooks,
+    now: number,
   ) {
     this.id = id;
+    this.createdAt = now;
     this.seats = new SeatTable(seats);
     this.creatorToken = creator.token;
     this.hooks = hooks;
@@ -93,6 +106,7 @@ export class Room {
       hooks.deliver,
     );
     this.admit(creator);
+    this.log('room created', { by: creator.nick, world: worldName(settings), seats: this.seats.count });
   }
 
   get state(): RoomState {
@@ -143,6 +157,7 @@ export class Room {
     if (this.game !== null) return { code: 'gameStarted' };
     if (this.members.size >= MAX_MEMBERS) return { code: 'roomFull', members: MAX_MEMBERS };
     this.admit(member);
+    this.log('room joined', { nick: member.nick, members: this.members.size });
     return null;
   }
 
@@ -157,6 +172,7 @@ export class Room {
     } else {
       member.progressAt = now;
       this.game.dropWorld(member, now);
+      this.log('player returned', { nick: member.nick, connected: this.connectedCount });
     }
     this.welcome(member);
     if (this.game !== null) {
@@ -177,13 +193,13 @@ export class Room {
   leave(member: Member, now: number): Refusal {
     if (this.game !== null && !this.game.running && member.seat !== null) {
       this.leftBeforeStart ??= member.nick;
-      this.remove(member);
+      this.remove(member, 'left');
       return null;
     }
     if (this.game !== null && this.game.endedTick === null && member.seat !== null) {
       this.kickOut(member, member.seat, now, 'left');
     } else {
-      this.remove(member);
+      this.remove(member, 'left');
     }
     this.carryOutKickVotes(now);
     return null;
@@ -192,11 +208,12 @@ export class Room {
   /** A dropped connection keeps its seat once the game runs; in the lobby it is a leave. */
   disconnect(member: Member, now: number): void {
     if (this.game === null) {
-      this.remove(member);
+      this.remove(member, 'disconnected');
       return;
     }
     member.connected = false;
     member.progressAt = now;
+    this.log('player dropped', { nick: member.nick, connected: this.connectedCount });
     this.broadcastView();
     this.game.dropWorld(member, now);
     this.carryOutKickVotes(now);
@@ -242,9 +259,15 @@ export class Room {
       now,
       this.transfers.initialSave,
       () => this.broadcastView(),
+      (event, fields) => this.log(event, fields),
     );
     this.transfers.release();
     this.startedSeats = this.seats.sessionSeats();
+    this.startedAt = now;
+    this.log('game starting', {
+      players: [...this.members.values()].map((other) => other.nick),
+      lobbySeconds: wholeSeconds(now - this.createdAt),
+    });
     for (const other of this.members.values()) other.progressAt = now;
     this.broadcastView();
     for (const other of this.members.values()) {
@@ -378,6 +401,7 @@ export class Room {
       if (stalled !== null) return stalled;
     }
     const refusal = this.game?.advance(elapsedMs, now) ?? null;
+    this.noteMilestones(now);
     if (this.responsiveness.observe(this.members.values(), this.game?.bufferSpeed ?? null, now)) {
       this.broadcast(this.responsiveness.message());
     }
@@ -410,6 +434,39 @@ export class Room {
     };
   }
 
+  /** What a log line about the room's end says about its life. */
+  lifeFields(now: number): Record<string, unknown> {
+    return {
+      state: this.state,
+      members: this.members.size,
+      ageSeconds: wholeSeconds(now - this.createdAt),
+      ...(this.runningAt === null
+        ? {}
+        : { playedSeconds: wholeSeconds((this.endedAt ?? now) - this.runningAt) }),
+    };
+  }
+
+  /** The clock's start and the match's end happen inside the game; each is logged once, on the first
+   *  poll after it or when the room is dropped. */
+  noteMilestones(now: number): void {
+    if (this.game === null) return;
+    if (this.runningAt === null && this.game.running) {
+      this.runningAt = now;
+      this.log('game running', { loadSeconds: wholeSeconds(now - (this.startedAt ?? now)) });
+    }
+    if (this.endedAt === null && this.game.endedTick !== null) {
+      this.endedAt = now;
+      this.log('game ended', {
+        tick: this.game.endedTick,
+        playedSeconds: wholeSeconds(now - (this.runningAt ?? now)),
+      });
+    }
+  }
+
+  private log(event: string, fields: Record<string, unknown> = {}): void {
+    this.hooks.log(event, { room: this.id, name: this.name, ...fields });
+  }
+
   /** Before the clock runs, a member whose boot stood still for `LOADING_STALL_MS` ends the room: a
    *  game never starts without one of its players, so the others host again. */
   private stalledLoad(now: number): Refusal {
@@ -429,7 +486,7 @@ export class Room {
     }
     this.seats.standUp(target);
     if (mode !== null) this.seats.vacate(player, mode);
-    this.remove(target);
+    this.remove(target, cause, mode);
     this.game?.removed(now);
   }
 
@@ -448,7 +505,8 @@ export class Room {
     this.lobby.invalidateReady();
   }
 
-  private remove(member: Member): void {
+  /** `seatTo` is what a departed player's seat became in the running game. */
+  private remove(member: Member, cause: RemovalCause, seatTo: DepartedSeatMode | null = null): void {
     this.game?.forget(member);
     this.seats.standUp(member);
     this.members.delete(member.token);
@@ -457,6 +515,13 @@ export class Room {
       const next = this.members.keys().next();
       if (!next.done) this.creatorToken = next.value;
     }
+    this.log('room left', {
+      nick: member.nick,
+      cause,
+      state: this.state,
+      members: this.members.size,
+      ...(seatTo === null ? {} : { seatTo }),
+    });
     this.hooks.removed(member);
     this.deliver(member, { kind: 'left' });
     if (this.members.size > 0) this.broadcastView();
@@ -492,4 +557,8 @@ export class Room {
   private broadcast(message: ServerMessage): void {
     broadcast(this.members.values(), this.hooks.deliver, message);
   }
+}
+
+function worldName(settings: RoomSettings): string {
+  return settings.world.kind === 'map' ? settings.world.mapId : settings.world.sceneId;
 }

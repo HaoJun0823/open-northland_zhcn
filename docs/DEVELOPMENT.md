@@ -654,7 +654,13 @@ carries neither the simulation nor a content directory. It starts on environment
 | `RELAY_BUILD` | unset | Build identifier reported by `/healthz` and `welcome` (a printable line, at most 128 characters); set by the `RELAY_BUILD` build argument |
 
 Rooms live in memory; restarting the process ends every match. The relay writes one JSON record
-per log line. TLS termination and deployment configuration belong to the operator.
+per log line, with `time` and `event`. Room events carry the room id and name: `room created`,
+`room joined`, `room left` (with `cause` and, in a running game, `seatTo`), `game starting`,
+`game running` (`loadSeconds`), `player dropped`, `player returned`, `desync`, `game ended`
+(`playedSeconds`) and `room dropped` (`ageSeconds`, `playedSeconds`, `reason`). While anyone is
+connected, a `status` line every five minutes counts clients, rooms by state and connected players
+in running games. Follow it with `docker logs -f <container>`. TLS termination and deployment
+configuration belong to the operator.
 
 Size the machine from the limits, not the defaults: a room can retain about 22 MiB of base64
 snapshot text plus 16 MiB of serialized replay history, and JavaScript objects, input parsing and

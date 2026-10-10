@@ -11,7 +11,8 @@ import {
   type ServerMessage,
 } from '@open-northland/net-protocol';
 import { type RawData, type WebSocket, WebSocketServer } from 'ws';
-import { type Connection, DEFAULT_MAX_ROOMS, Relay, type RelayLog } from '../relay/relay.js';
+import { type Connection, DEFAULT_MAX_ROOMS, Relay } from '../relay/relay.js';
+import type { RelayLog } from '../relay/relay-log.js';
 import {
   ControlPings,
   DEFAULT_MAX_CONNECTIONS,

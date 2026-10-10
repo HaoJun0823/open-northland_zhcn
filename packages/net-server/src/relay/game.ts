@@ -18,6 +18,7 @@ import { type KickOutcome, KickVotes, type PassedKick } from './kick-vote.js';
 import { MatchEnd } from './match-end.js';
 import { broadcast, type Deliver, isSynced, type Member, type Refusal } from './member.js';
 import { Pacing } from './pacing.js';
+import type { RelayLog } from './relay-log.js';
 import { Resync } from './resync.js';
 import { RoomClock } from './room-clock.js';
 import { SaveOrders } from './save-orders.js';
@@ -55,6 +56,7 @@ export class Game {
     now: number,
     initialSave: CachedSnapshot | null = null,
     onEnded: () => void = () => {},
+    private readonly log: RelayLog = () => undefined,
   ) {
     this.initialSaveTick = initialSave?.tick ?? null;
     this.clock = new RoomClock(speed);
@@ -423,6 +425,14 @@ export class Game {
       this.resync.queue(member, now);
       diverged.push(member.nick);
       for (const domain of domains) disputedDomains.add(domain);
+    }
+    if (diverged.length > 0) {
+      this.log('desync', {
+        tick: verdict.tick,
+        diverged,
+        reference: verdict.reference.nick,
+        domains: SYNC_DOMAINS.filter((domain) => disputedDomains.has(domain)),
+      });
     }
     const reference = this.members.get(verdict.reference.token);
     if (diverged.length === 0 || reference === undefined || !reference.connected) return;

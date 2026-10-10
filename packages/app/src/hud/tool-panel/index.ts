@@ -326,6 +326,8 @@ export interface ToolPanelController {
   networkOpen(): boolean;
   /** Hang `node` just left of the top-right bar; null takes it down. */
   hangBesideBar(node: HTMLElement | null): void;
+  /** Stand `node` first in the top-right bar's row; null takes it down. */
+  showInBar(node: HTMLElement | null): void;
   dispose(): void;
 }
 
@@ -968,6 +970,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       closeNetwork: () => windows.byId.network.close(),
       networkOpen: () => windows.byId.network.isOpen(),
       hangBesideBar: (node) => systemBar.setAside(node),
+      showInBar: (node) => systemBar.setLead(node),
       restore(state): void {
         speed.restore(state.speed);
         windows.restore(state.windows);

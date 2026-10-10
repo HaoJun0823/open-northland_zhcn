@@ -12,7 +12,14 @@ import { segControl, settingRow, settingsHeading, sliderControl, togglePill } fr
 import { cursorSettingsRows } from './settings-cursor-rows.js';
 import type { DisplayMode } from './settings-display-mode.js';
 import type { SettingsPageStore } from './settings-page.js';
-import { type FpsLimit, type MenuSettings, RENDER_SCALE_MAX, RENDER_SCALE_MIN } from './settings-store.js';
+import {
+  type FpsLimit,
+  type MenuSettings,
+  PERF_READOUT_MODES,
+  type PerfReadoutMode,
+  RENDER_SCALE_MAX,
+  RENDER_SCALE_MIN,
+} from './settings-store.js';
 
 type FpsChoice = 'fps30' | 'fps60' | 'screen';
 const RENDER_SCALE_STEP = 0.25;
@@ -155,6 +162,15 @@ export function graphicsSettingsRows(
   });
   groupNumbers.setAttribute('aria-label', text.groupNumbers);
   groupNumbers.dataset.settingsFocus = 'groupNumbers';
+  const perfReadout = segControl<PerfReadoutMode>(
+    PERF_READOUT_MODES.map((id) => ({ id, label: text.perfReadoutModes[id] })),
+    settings.perfReadout,
+    (mode) => {
+      void store.update({ perfReadout: mode });
+      perfReadout.setActive(mode);
+    },
+  );
+  markSegment(perfReadout.root, 'perf-readout');
   const enhancementToggles = (
     [
       'softShadows',
@@ -187,6 +203,7 @@ export function graphicsSettingsRows(
     settingRow(text.selectionStyle, selectionStyle.root, { tip: text.selectionStyleTip }),
     settingRow(text.groupNumbers, groupNumbers, { tip: liveTip(text.groupNumbersTip) }),
     settingRow(text.minimapFrame, minimapFrame.root, { tip: text.minimapFrameTip }),
+    settingRow(text.perfReadout, perfReadout.root, { tip: liveTip(text.perfReadoutTip) }),
     settingsHeading(text.worldHeading),
     settingRow(text.pixelArtFilter, filter.root, { tip: liveTip(text.pixelArtFilterTip) }),
     ...enhancementToggles,

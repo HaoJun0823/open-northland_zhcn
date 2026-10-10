@@ -1760,6 +1760,159 @@ body.on-drag-scroll * {
   translate: 0 -50%;
   pointer-events: none;
 }
+/* The performance readout standing first in the bar: the frame rate, and in detail a card hung under
+   it, left-aligned to the bar so it stays clear of the goal slip at the right edge. Read-only, so it
+   never takes a press from the world below. */
+.on-hud .on-bar__lead {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+.on-hud .on-bar__lead[hidden] {
+  display: none;
+}
+.on-hud .on-perf {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  pointer-events: none;
+}
+.on-hud .on-perf__fps {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 52px;
+  padding: 0 8px 0 6px;
+  border-right: 1px solid var(--bronze-lo);
+  text-shadow: 0 1px 2px #000;
+}
+.on-hud .on-perf__fps b {
+  min-width: 22px;
+  text-align: right;
+  font: 700 14px / 1 var(--font-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--ok);
+}
+.on-hud .on-perf__fps[data-health="warn"] b {
+  color: var(--warning);
+}
+.on-hud .on-perf__fps[data-health="bad"] b {
+  color: var(--danger);
+}
+.on-hud .on-perf__fps small {
+  font: 600 10px / 1 var(--font-body);
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.on-hud .on-perf__card {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: -6px;
+  width: 248px;
+  padding: 8px 10px 7px;
+  border: 1px solid #17140f;
+  border-left: 3px solid var(--wax-ok);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--deep) 90%, transparent);
+  box-shadow:
+    inset 0 0 0 1px var(--bronze-lo),
+    0 6px 14px #0007;
+  font: 13px / 1.3 var(--font-body);
+  color: var(--text);
+}
+.on-hud .on-perf:not([data-look="details"]) .on-perf__card {
+  display: none;
+}
+.on-hud .on-perf__card[data-health="warn"] {
+  border-left-color: var(--wax-warn);
+}
+.on-hud .on-perf__card[data-health="bad"] {
+  border-left-color: var(--wax-danger);
+}
+.on-hud .on-perf__verdict {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: var(--ok);
+}
+.on-hud .on-perf__card[data-health="warn"] .on-perf__verdict {
+  color: var(--warning);
+}
+.on-hud .on-perf__card[data-health="bad"] .on-perf__verdict {
+  color: var(--danger);
+}
+.on-hud .on-perf__row {
+  display: grid;
+  grid-template-columns: 86px 1fr 66px;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0;
+}
+.on-hud .on-perf__row span {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.on-hud .on-perf__row b {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi);
+  white-space: nowrap;
+}
+.on-hud .on-perf__row[data-health="none"] b {
+  font-weight: 400;
+  color: var(--muted);
+}
+.on-hud .on-perf__meter {
+  display: block;
+  height: 7px;
+  border-radius: 2px;
+  background: #0006;
+  box-shadow: inset 0 0 0 1px #0008;
+  overflow: hidden;
+}
+.on-hud .on-perf__meter i {
+  display: block;
+  height: 100%;
+  background: var(--wax-ok);
+}
+.on-hud .on-perf__row[data-health="warn"] .on-perf__meter i {
+  background: var(--wax-warn);
+}
+.on-hud .on-perf__row[data-health="bad"] .on-perf__meter i {
+  background: var(--wax-danger);
+}
+.on-hud .on-perf__graph {
+  display: block;
+  width: 100%;
+  height: 34px;
+  margin: 7px 0 4px;
+  background: #0005;
+  border-radius: 2px;
+}
+.on-hud .on-perf__within {
+  fill: var(--wax-ok);
+}
+.on-hud .on-perf__over {
+  fill: var(--wax-danger);
+}
+.on-hud .on-perf__budget {
+  stroke: var(--bronze);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+.on-hud .on-perf__foot {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.on-hud .on-perf__speed {
+  color: var(--warning);
+}
 .on-hud .on-summary {
   display: flex;
   align-items: center;

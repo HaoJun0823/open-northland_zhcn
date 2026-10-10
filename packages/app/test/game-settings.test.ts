@@ -70,6 +70,16 @@ it('fades bones by default and keeps them for good once switched off', async () 
   expect(h.persist).toHaveBeenCalledWith({ bonesFade: false });
 });
 
+it('shows the performance readout live, hidden until the player picks a mode', async () => {
+  expect(defaultSettings().perfReadout).toBe('off');
+  expect(parseStoredSettings('{"perfReadout":"verbose"}').perfReadout).toBe('off');
+  expect(parseStoredSettings('{"perfReadout":"details"}').perfReadout).toBe('details');
+  const h = harness();
+  await h.settings.update({ perfReadout: 'fps' });
+  expect(h.setPerfReadout).toHaveBeenCalledWith('fps');
+  expect(h.persist).toHaveBeenCalledWith({ perfReadout: 'fps' });
+});
+
 it('applies the background and mono sound choices live', async () => {
   const h = harness();
   await h.settings.update({ soundInBackground: true });
@@ -115,6 +125,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
   const setWeatherEnabled = vi.fn();
   const setBloodEnabled = vi.fn();
   const setBonesFade = vi.fn();
+  const setPerfReadout = vi.fn();
   const settings = createGameSettingsRuntime({
     initial: {
       ...defaultSettings(),
@@ -141,6 +152,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
     setWeatherEnabled,
     setBloodEnabled,
     setBonesFade,
+    setPerfReadout,
     ...overrides,
   });
   return {
@@ -164,6 +176,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
     setWeatherEnabled,
     setBloodEnabled,
     setBonesFade,
+    setPerfReadout,
   };
 }
 

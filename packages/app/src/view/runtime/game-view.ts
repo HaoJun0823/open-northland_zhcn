@@ -136,6 +136,7 @@ import type { NetReadout } from './net-readout.js';
 import { orderAnswerOf } from './order-answer.js';
 import { ownRoadSiteAt } from './own-road-sites.js';
 import { createPauseHolds } from './pause-holds.js';
+import { mountPerfReadout } from './perf-readout.js';
 import { createPlacementGates } from './placement-gates.js';
 import { trackCanvasPointer } from './pointer-tracker.js';
 import type { RafLoop } from './raf-loop.js';
@@ -677,6 +678,17 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     });
 
     cleanup.push(() => toolPanel.dispose());
+    const perfReadout = mountPerfReadout({
+      app,
+      context: {
+        capFps: storedSettings.fpsLimit,
+        simOnMainThread: deps.offThreadTickCost === undefined,
+        sharedClock,
+      },
+      initialMode: storedSettings.perfReadout,
+      controller: () => toolPanel.controller,
+    });
+    cleanup.push(() => perfReadout.dispose());
 
     // The verdict panel rides the same event stream the entry's own hook does; a spectator seat has no
     // verdict to hear.
@@ -1047,6 +1059,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       setGraphicsEnhancements: applyEnhancementsWarmed((next) => renderer.setGraphicsEnhancements(next)),
       setBloodEnabled: (enabled) => renderer.setBloodEnabled(enabled),
       setBonesFade: (fades) => renderer.setBonesFade(fades),
+      setPerfReadout: perfReadout.setMode,
       setWeatherEnabled: (enabled) => {
         renderer.setWeatherEnabled(enabled);
         soundDriver?.setWeatherEnabled(enabled);
@@ -1160,6 +1173,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       soundDriver,
       presentation,
       perf,
+      perfReadout,
       netReadout,
       ...(netOverlays === null ? {} : { clockHeld: () => netOverlays.clockHeld() }),
       // A relayed room's pace reaches the bar through the network panel's model instead.

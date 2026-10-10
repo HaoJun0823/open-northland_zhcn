@@ -66,6 +66,7 @@ export interface LiveGameSettingsDeps {
   readonly setWeatherEnabled: (enabled: boolean) => void;
   readonly setBloodEnabled: (enabled: boolean) => void;
   readonly setBonesFade: (fades: boolean) => void;
+  readonly setPerfReadout: (mode: MenuSettings['perfReadout']) => void;
 }
 
 export interface LiveGameSettings {
@@ -147,6 +148,7 @@ export function createLiveGameSettings(deps: LiveGameSettingsDeps): LiveGameSett
     setWeatherEnabled: deps.setWeatherEnabled,
     setBloodEnabled: deps.setBloodEnabled,
     setBonesFade: deps.setBonesFade,
+    setPerfReadout: deps.setPerfReadout,
     ...(sound !== null ? { previewBus: (bus) => sound.previewBus(bus) } : {}),
   });
 

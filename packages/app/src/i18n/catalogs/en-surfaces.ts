@@ -195,6 +195,10 @@ export const enSurfaces = {
       groupNumbers: 'Group numbers',
       groupNumbersTip:
         'A tiny group number by each unit bound to a group. A unit in several groups shows up to three, such as 1,2,3.',
+      perfReadout: 'Performance readout',
+      perfReadoutTip:
+        'The frame rate on the top bar. Details adds what holds the game back: the simulation, the processor drawing the frame, or the graphics card.',
+      perfReadoutModes: { off: 'Off', fps: 'FPS', details: 'Details' },
       minimapFrameTip: 'The look of the frame around the minimap. Changes in game immediately.',
       minimapFrames: {
         zelazo: 'Iron',
@@ -551,6 +555,26 @@ export const enSurfaces = {
     clickToApply: 'click→apply',
     buffer: 'buffer',
     reconnecting: 'reconnecting',
+    readout: {
+      fps: 'FPS',
+      verdicts: {
+        display: 'Smooth, display {hz} Hz',
+        cap: 'Smooth, limit {fps} FPS',
+        paused: 'Paused',
+        sim: 'Held back by the simulation',
+        cpu: 'Held back by the processor',
+        gpu: 'Held back by the graphics card',
+        room: 'The room runs slower: another player or the link',
+        other: 'Held back by the browser or the system',
+      },
+      sim: 'Simulation',
+      cpu: 'Processor',
+      gpu: 'Graphics card',
+      ms: '{value} ms',
+      notMeasured: 'not measured',
+      frame: 'Frame {ms} ms · worst {worst} ms',
+      speed: 'Speed ×{requested} → ×{delivered}',
+    },
   },
   animation: {
     title: 'Character animation',

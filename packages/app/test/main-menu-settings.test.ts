@@ -55,6 +55,7 @@ describe('parseStoredSettings', () => {
       blood: false,
       bonesFade: false,
       fpsLimit: 30,
+      perfReadout: 'details',
       cursorTheme: 'amber',
       cursorSize: 24,
       selectionStyle: 'outline',

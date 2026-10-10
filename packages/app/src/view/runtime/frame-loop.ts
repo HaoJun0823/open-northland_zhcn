@@ -16,7 +16,12 @@ import {
   type WorldSnapshot,
 } from '@open-northland/sim';
 import type { createSoundDriver } from '../../content/audio.js';
-import { type FrameStats, framePhaseEmitter, recordTickDiagnostics } from '../../diag/index.js';
+import {
+  type FrameSample,
+  type FrameStats,
+  framePhaseEmitter,
+  recordTickDiagnostics,
+} from '../../diag/index.js';
 import { HUMAN_PLAYER } from '../../game/rules.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
 import type { MinimapHandle } from '../../hud/minimap/index.js';
@@ -50,6 +55,7 @@ import type { WorldHover } from '../world-hover.js';
 import { presentCombatEffects, type TickEffects } from './combat-effects.js';
 import type { GameViewDeps } from './game-view.js';
 import type { NetReadout } from './net-readout.js';
+import type { PerfReadout } from './perf-readout.js';
 import { placementCursor } from './placement-cursor.js';
 import { type RafLoop, startRafLoop } from './raf-loop.js';
 import type { ScriptPresentation } from './script-presentation.js';
@@ -105,6 +111,7 @@ export interface FrameLoopDeps {
   /** The map script's display: its camera jitter for the frame, and its overlays after the draw. */
   readonly presentation: Pick<ScriptPresentation, 'jitter' | 'frame'> | null;
   readonly perf: PerfOverlayHandle;
+  readonly perfReadout: PerfReadout;
   /** A relayed session's connection figures for the overlay; null in a local session. */
   readonly netReadout: () => NetReadout | null;
   /** True while a relay holds the clock for a member, which washes the world as a pause does; omitted
@@ -158,6 +165,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     soundDriver,
     presentation,
     perf,
+    perfReadout,
     netReadout,
     pointer: pointerAt,
     syncViewport,
@@ -350,6 +358,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     const doorBadges = doorBadgesFor(snap, markViewport);
     const lifeHearts = lifeHeartsFor(snap, markViewport);
     const world0 = performance.now();
+    perfReadout.beginGpu();
     renderer.update({
       snapshot: snap,
       camera: drawnCamera,
@@ -369,6 +378,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       lostGoals,
       lostGoalPulse: lostGoalPulse(nowMs),
     });
+    perfReadout.endGpu();
     const worldMs = performance.now() - world0;
     loop.mapOverlay?.update(snap, drawnCamera, app.screen, loop.viewer.seat(), fogView);
     controls.refreshCursor(snap);
@@ -415,7 +425,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       emitPhase('frame/snapshot', snap0, snap0 + snapMs);
       emitPhase('frame/draw', snap0 + snapMs, cpu0 + cpuMs);
     }
-    frameStats.record({
+    const sample: FrameSample = {
       elapsedMs: elapsed,
       tick: snap.tick,
       steps,
@@ -433,9 +443,12 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       drawMs,
       worldMs,
       ...renderer.stats(),
-    });
+    };
+    frameStats.record(sample);
     perf.update(frameReport, netReadout);
-    loop.onSpeedShortfall?.(frameStats.sustainedShortfallSpeed(), driver.speed);
+    const shortfallSpeed = frameStats.sustainedShortfallSpeed();
+    perfReadout.record(sample, shortfallSpeed);
+    loop.onSpeedShortfall?.(shortfallSpeed, driver.speed);
   }
   return startRafLoop(frame, {
     fpsLimit: loop.fpsLimit,

@@ -156,6 +156,7 @@ export {
   type GalleryDirection,
   type GalleryPalette,
 } from './gpu/gallery/index.js';
+export { createGpuFrameTimer, type GpuFrameTimer } from './gpu/gpu-frame-timer.js';
 export type { GroundWave } from './gpu/ground-waves/index.js';
 export { type HumanArmorPalettes, HumanPaletteLut } from './gpu/human-palette-lut.js';
 export {

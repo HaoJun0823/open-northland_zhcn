@@ -231,6 +231,10 @@ export const deSurfaces = {
       groupNumbers: 'Gruppennummern',
       groupNumbersTip:
         'Eine winzige Gruppennummer an jeder Einheit in einer Gruppe. Eine Einheit in mehreren Gruppen zeigt bis zu drei, etwa 1,2,3.',
+      perfReadout: 'Leistungsanzeige',
+      perfReadoutTip:
+        'Die Bildrate in der oberen Leiste. Details zeigen zusätzlich, was das Spiel bremst: die Simulation, der Prozessor beim Zeichnen oder die Grafikkarte.',
+      perfReadoutModes: { off: 'Aus', fps: 'FPS', details: 'Details' },
       minimapFrameTip: 'Aussehen des Rahmens um die Minikarte. Änderungen werden im Spiel sofort sichtbar.',
       minimapFrames: {
         zelazo: 'Eisen',
@@ -598,6 +602,26 @@ export const deSurfaces = {
     clickToApply: 'Klick→Ausführung',
     buffer: 'Puffer',
     reconnecting: 'Verbindung wird wiederhergestellt',
+    readout: {
+      fps: 'FPS',
+      verdicts: {
+        display: 'Flüssig, Bildschirm {hz} Hz',
+        cap: 'Flüssig, Limit {fps} FPS',
+        paused: 'Pause',
+        sim: 'Gebremst durch die Simulation',
+        cpu: 'Gebremst durch den Prozessor',
+        gpu: 'Gebremst durch die Grafikkarte',
+        room: 'Der Raum läuft langsamer: ein anderer Spieler oder die Verbindung',
+        other: 'Gebremst durch Browser oder System',
+      },
+      sim: 'Simulation',
+      cpu: 'Prozessor',
+      gpu: 'Grafikkarte',
+      ms: '{value} ms',
+      notMeasured: 'nicht gemessen',
+      frame: 'Bild {ms} ms · langsamstes {worst} ms',
+      speed: 'Tempo ×{requested} → ×{delivered}',
+    },
   },
   animation: {
     title: 'Figurenanimation',

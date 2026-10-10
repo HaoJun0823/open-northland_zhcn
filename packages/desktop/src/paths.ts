@@ -4,6 +4,9 @@ import { join, resolve } from 'node:path';
 const APP_RESOURCE_DIR = 'app';
 const CONTENT_RESOURCE_DIR = 'content';
 
+/** The folder under Electron's `userData` that holds the maps a player installed from the catalogue. */
+const INSTALLED_MAPS_DIR = 'maps';
+
 /** The env override Vite honours too: an absolute path or one relative to the repo root. */
 export const CONTENT_DIR_ENV = 'ON_CONTENT_DIR';
 
@@ -34,4 +37,10 @@ export function resolveShellRoots(inputs: ShellRootInputs): ShellRoots {
     appRoot: resolve(inputs.repoRoot, 'packages/app/dist'),
     contentRoot: resolve(inputs.repoRoot, inputs.contentDirOverride ?? 'content'),
   };
+}
+
+/** Where installed catalogue maps live: `<userData>/maps/<mapId>/<mapId><suffix>`, written by the shell
+ *  and served under `/maps/` after the app and content roots. */
+export function installedMapsRoot(userDataPath: string): string {
+  return join(userDataPath, INSTALLED_MAPS_DIR);
 }

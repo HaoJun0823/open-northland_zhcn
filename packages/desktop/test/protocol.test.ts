@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAppUrl, routePathOf } from '../src/protocol-routing.js';
+import { externalPageUrl, initialGameUrl, isAppUrl, routePathOf } from '../src/protocol-routing.js';
 
 /**
  * Pixi workers mis-join root-relative asset URLs on a custom scheme, so `/bobs/x.png` arrives as
@@ -41,5 +41,27 @@ describe('isAppUrl', () => {
   it('requires the full scheme separator, not the scheme spelling alone', () => {
     expect(isAppUrl('app:/game')).toBe(false);
     expect(isAppUrl('application://game/index.html')).toBe(false);
+  });
+});
+
+describe('links the game opens', () => {
+  it('hands web pages to the system browser and nothing else', () => {
+    expect(externalPageUrl('https://culturesnation.pl/mapy/zatoka')).toBe(
+      'https://culturesnation.pl/mapy/zatoka',
+    );
+    expect(externalPageUrl('http://example.org/a')).toBe('http://example.org/a');
+    expect(externalPageUrl('file:///etc/passwd')).toBeNull();
+    expect(externalPageUrl('app://game/index.html')).toBeNull();
+    expect(externalPageUrl('javascript:alert(1)')).toBeNull();
+    expect(externalPageUrl('not a url')).toBeNull();
+  });
+
+  it('passes a catalogue server override to the first page as ?api=', () => {
+    const game = 'app://game/index.html';
+    expect(initialGameUrl(game, undefined)).toBe(game);
+    expect(initialGameUrl(game, 'file:///x')).toBe(game);
+    expect(initialGameUrl(game, 'http://127.0.0.1:8790')).toBe(
+      'app://game/index.html?api=http%3A%2F%2F127.0.0.1%3A8790%2F',
+    );
   });
 });

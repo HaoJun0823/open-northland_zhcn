@@ -1,8 +1,8 @@
-import { type MapsIndexEntry, mapLobbySlots } from '@open-northland/data';
+import { mapLobbySlots } from '@open-northland/data';
 import type { ComputerDifficulty, SessionSeat } from '@open-northland/lockstep';
 import { prepareInitialSave } from '@open-northland/net-client';
 import type { RoomSeatSetup, RoomSettings } from '@open-northland/net-protocol';
-import { loadMapList } from '../../../content/maps-index.js';
+import { findMapSource } from '../../../content/map-source/index.js';
 import {
   loadPersistedMap,
   loadVerifiedMapDocuments,
@@ -31,13 +31,15 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
   const save = choice.kind === 'save' ? await readNetworkSave(choice.bytes) : null;
   const mapId = choice.kind === 'map' ? choice.mapId : save?.header.mapId;
   if (!mapId) throw new Error('Missing map');
-  const local = await loadVerifiedMapDocuments(mapId);
+  const source = await findMapSource(mapId);
+  const playable = source !== null && !source.stale ? source : null;
+  const local = await loadVerifiedMapDocuments(mapId, playable?.fetch);
   const cached = local === null ? await loadPersistedMap(mapId) : null;
   const handle = local ?? cached?.handle ?? null;
   if (handle === null) throw new Error('Missing map');
   const { script } = readVerifiedMapDocuments(handle);
   assertMultiplayerMap(script);
-  const metadata: MapsIndexEntry | undefined = (await loadMapList()).find((item) => item.id === mapId);
+  const metadata = playable?.entry;
   const players = script === null ? [] : mapLobbySlots(script);
   if (!players?.some((slot) => slot.claimable && !slot.hidden) || !script?.players.length)
     throw new Error('This map has no playable seats');
@@ -85,6 +87,7 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
       : await validateNetworkSave(save, handle);
   const initial: PreparedNetworkSave | null = save === null ? null : await prepareInitialSave(save);
   const origin = metadata?.provenance?.kind ?? cached?.origin;
+  const catalog = playable?.catalog;
   const settings: RoomSettings = {
     name: choice.name,
     world: { kind: 'map', mapId },
@@ -92,7 +95,21 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
     rules,
     speed: savedSession?.descriptor.speed ?? DEFAULT_SESSION_SPEED,
     kickedSeatMode: 'idle',
-    ...(origin === 'mod' || origin === 'user' ? { mapOrigin: origin } : {}),
+    // An installed catalogue map is announced by reference, so members fetch it from the catalogue.
+    ...(catalog !== undefined && local !== null
+      ? {
+          mapOrigin: 'catalog' as const,
+          catalogMap: {
+            entryId: catalog.entryId,
+            mapId,
+            fingerprint: local.fingerprint,
+            irVersion: catalog.irVersion,
+          },
+        }
+      : // A catalogue map known only from a relay delivery has no entry to announce.
+        origin === 'mod' || origin === 'user'
+        ? { mapOrigin: origin }
+        : {}),
     ...(initial === null ? {} : { initialSave: initial.identity }),
   };
   return { settings, seats, initial, handle };

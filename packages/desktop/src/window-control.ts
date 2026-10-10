@@ -73,15 +73,3 @@ export function maximizedAfter(
   if (event === 'maximize') return true;
   return fullscreen ? maximized : false;
 }
-
-const EXTERNAL_PROTOCOL = 'https:';
-
-/** A page link the system browser opens, such as a store or the repository; the shell never opens a
- *  second window of its own. */
-export function opensInSystemBrowser(url: string): boolean {
-  try {
-    return new URL(url).protocol === EXTERNAL_PROTOCOL;
-  } catch {
-    return false;
-  }
-}

@@ -14,7 +14,14 @@ import {
   IS_FULLSCREEN_CHANNEL,
   SET_FULLSCREEN_CHANNEL,
 } from './fullscreen-channels.js';
+import {
+  parseInstalledMapFileWrite,
+  parseInstalledMapId,
+  removeInstalledMap,
+  writeInstalledMapFile,
+} from './installed-maps.js';
 import { leavePromptFor } from './leave-prompt.js';
+import { REMOVE_MAP_CHANNEL, WRITE_MAP_FILE_CHANNEL } from './map-channels.js';
 import {
   folderPickProperties,
   type OriginalGamePick,
@@ -23,15 +30,8 @@ import {
   pickOriginalGame,
 } from './original-game/gate.js';
 import { ORIGINAL_GAME_STATUS_CHANNEL, PICK_ORIGINAL_GAME_CHANNEL } from './original-game-channels.js';
-import { GAME_URL } from './protocol.js';
-import { isAppUrl } from './protocol-routing.js';
-import {
-  isFullscreenChord,
-  isGameSender,
-  maximizedAfter,
-  opensInSystemBrowser,
-  setFullScreen,
-} from './window-control.js';
+import { externalPageUrl, isAppUrl } from './protocol-routing.js';
+import { isFullscreenChord, isGameSender, maximizedAfter, setFullScreen } from './window-control.js';
 import {
   placeWindow,
   readWindowState,
@@ -44,7 +44,16 @@ import {
 const LEAVE_BUTTON = 0;
 const STAY_BUTTON = 1;
 
-export function createWindow(statePath: string, originalGame: OriginalGameRecord): BrowserWindow {
+export interface WindowSetup {
+  readonly statePath: string;
+  /** `installedMapsRoot` of the profile. */
+  readonly mapsRoot: string;
+  /** The first page, the game URL with any override the environment set. */
+  readonly startUrl: string;
+  readonly originalGame: OriginalGameRecord;
+}
+
+export function createWindow({ statePath, mapsRoot, startUrl, originalGame }: WindowSetup): BrowserWindow {
   const state = startupWindowState(
     readWindowState(statePath),
     app.isPackaged || process.env.ON_DESKTOP_RESTORE_WINDOW === '1',
@@ -122,6 +131,14 @@ export function createWindow(statePath: string, originalGame: OriginalGameRecord
     });
     return picking;
   });
+  ipcMain.handle(WRITE_MAP_FILE_CHANNEL, async (event, mapId: unknown, suffix: unknown, bytes: unknown) => {
+    if (!fromGame(event)) throw new Error('Refused');
+    await writeInstalledMapFile(mapsRoot, parseInstalledMapFileWrite(mapId, suffix, bytes));
+  });
+  ipcMain.handle(REMOVE_MAP_CHANNEL, async (event, mapId: unknown) => {
+    if (!fromGame(event)) throw new Error('Refused');
+    await removeInstalledMap(mapsRoot, parseInstalledMapId(mapId));
+  });
   win.on('enter-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, true));
   win.on('leave-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, false));
   win.webContents.on('before-input-event', (event, input) => {
@@ -145,13 +162,15 @@ export function createWindow(statePath: string, originalGame: OriginalGameRecord
     if (choice === LEAVE_BUTTON) event.preventDefault();
   });
 
+  // A catalogue page link opens in the system browser; the game window never opens another one.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (opensInSystemBrowser(url)) void shell.openExternal(url);
+    const page = externalPageUrl(url);
+    if (page !== null) void shell.openExternal(page);
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (event, target) => {
     if (!isAppUrl(target)) event.preventDefault();
   });
-  void win.loadURL(GAME_URL);
+  void win.loadURL(startUrl);
   return win;
 }

@@ -32,6 +32,8 @@ export default defineConfig(async ({ command }) => ({
     __CLIENT_BUILD__: JSON.stringify(clientBuild),
     __GAME_VERSION__: JSON.stringify(version),
     __RESTORE_IDENTITY__: JSON.stringify(restore),
+    // The map catalogue server; unset builds talk to the production one (`content/map-source/api.ts`).
+    __API_URL__: JSON.stringify(process.env.ON_API_URL ?? null),
     // The sim's fixed-point overflow asserts run in the dev server and are compiled out of builds.
     __SIM_ASSERTS__: JSON.stringify(command === 'serve'),
   },

@@ -1,4 +1,4 @@
-import { loadMapList } from '../../content/maps-index.js';
+import { apiBaseUrl, playableMapSources } from '../../content/map-source/index.js';
 import { quietTextField } from '../../hud/dom/parts/text-field.js';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../i18n/index.js';
 import { MAP_SCENES, SCENES } from '../../scenes/index.js';
@@ -11,7 +11,7 @@ import {
   type MapListing,
   type MapSelectItem,
   type MapSelectMemory,
-  mapItem,
+  mapSourceItem,
   sceneItem,
 } from './map-select-model.js';
 
@@ -35,6 +35,8 @@ export interface MapPicker {
   readonly body: HTMLElement;
   /** Highlights the row with this id when the current rows hold it. */
   select(id: string): void;
+  /** Reads the map sources again, after the catalogue installed or removed a map. */
+  reload(): void;
 }
 
 function sceneRows(): readonly MapSelectItem[] {
@@ -126,7 +128,8 @@ export function mapPicker(options: MapPickerOptions): MapPicker {
   body.append(listCol, previewCol);
 
   // Scenes are available immediately; decoded maps join when maps-index.json answers.
-  let items: readonly MapSelectItem[] = segButtons.has('scenes') ? sceneRows() : [];
+  const scenes: readonly MapSelectItem[] = segButtons.has('scenes') ? sceneRows() : [];
+  let items: readonly MapSelectItem[] = scenes;
   let selected: MapSelectItem | null = null;
   let mapsLoaded = false;
   const rowButtons = new Map<MapSelectItem, HTMLButtonElement>();
@@ -238,15 +241,23 @@ export function mapPicker(options: MapPickerOptions): MapPicker {
   });
   paintTabs();
   renderList();
-  void loadMapList().then((entries) => {
-    // A navigation away detaches the list; a late response must not build rows for it.
-    if (!body.isConnected) return;
-    mapsLoaded = true;
-    const maps = entries.map((entry) => mapItem(entry)).filter((item) => options.include?.(item) ?? true);
-    items = [...maps, ...items];
-    renderList();
-    options.onMaps?.(maps.filter((item) => listedIn(item, options.listing)));
-  });
+  let loads = 0;
+  const loadMaps = (): void => {
+    const load = ++loads;
+    const api = apiBaseUrl();
+    void playableMapSources().then((sources) => {
+      // A navigation away detaches the list, and a newer load supersedes this one.
+      if (!body.isConnected || load !== loads) return;
+      mapsLoaded = true;
+      const maps = sources
+        .map((source) => mapSourceItem(source, api))
+        .filter((item) => options.include?.(item) ?? true);
+      items = [...maps, ...scenes];
+      renderList();
+      options.onMaps?.(maps.filter((item) => listedIn(item, options.listing)));
+    });
+  };
+  loadMaps();
 
   primary.addEventListener('click', () => {
     if (selected !== null) options.onPrimary(selected);
@@ -258,5 +269,6 @@ export function mapPicker(options: MapPickerOptions): MapPicker {
     select(id) {
       for (const item of rowButtons.keys()) if (item.id === id) selectItem(item);
     },
+    reload: loadMaps,
   };
 }

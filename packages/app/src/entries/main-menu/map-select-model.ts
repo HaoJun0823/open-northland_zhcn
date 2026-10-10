@@ -1,5 +1,6 @@
 import type { MapsIndexEntry, MapsIndexPlayerSlot, MapTextLanguage } from '@open-northland/data';
 import { isMultiplayerMapType, MAP_TYPE } from '@open-northland/data';
+import { catalogEntryThumbnailUrl, type MapSource } from '../../content/map-source/index.js';
 import { localizedMapText } from '../../game/map-strings.js';
 import { compareLabels, currentLocale } from '../../i18n/index.js';
 
@@ -59,8 +60,11 @@ export interface MapSelectItem {
   /** Mission number inside the authored tutorial campaign; absent for every other map and scene. */
   readonly tutorialStep?: number;
   readonly description?: string;
-  /** The authored illustration `/maps/<id>.png` exists. */
+  /** The authored illustration `/maps/<id>.png` exists, or `pictureUrl` names another picture. */
   readonly picture: boolean;
+  /** Where the picture shows from when not `/maps/<id>.png`: an installed map's own store, or the
+   *  catalogue's screenshot for a catalogue map without an authored picture. */
+  readonly pictureUrl?: string;
   /** The terrain minimap `/maps/<id>.map.png` exists. */
   readonly minimap: boolean;
 }
@@ -86,6 +90,21 @@ export function mapItem(entry: MapsIndexEntry, lang: MapTextLanguage = currentLo
     picture: entry.picture,
     minimap: entry.minimap,
   };
+}
+
+/**
+ * The row of a map from the source layer. A catalogue map shows its authored picture from wherever
+ * it is installed, else the catalogue server's screenshot of its entry; it has no terrain minimap.
+ */
+export function mapSourceItem(
+  source: MapSource,
+  api: string,
+  lang: MapTextLanguage = currentLocale(),
+): MapSelectItem {
+  const item = mapItem(source.entry, lang);
+  if (source.catalog === undefined) return item;
+  const pictureUrl = source.pictureUrl ?? catalogEntryThumbnailUrl(api, source.catalog.entryId);
+  return { ...item, picture: true, pictureUrl, minimap: false };
 }
 
 export function sceneItem(id: string, title: string, summary: string): MapSelectItem {
@@ -120,8 +139,9 @@ export function defaultMapPreview(item: MapSelectItem): MapPreviewView | null {
   return mapPreviewViews(item)[0] ?? null;
 }
 
-export function mapPreviewUrl(mapId: string, view: MapPreviewView): string {
-  const stem = `/maps/${encodeURIComponent(mapId)}`;
+export function mapPreviewUrl(item: Pick<MapSelectItem, 'id' | 'pictureUrl'>, view: MapPreviewView): string {
+  if (view === 'picture' && item.pictureUrl !== undefined) return item.pictureUrl;
+  const stem = `/maps/${encodeURIComponent(item.id)}`;
   return view === 'picture' ? `${stem}.png` : `${stem}.map.png`;
 }
 

@@ -2,7 +2,7 @@ import { mapLobbySlots } from '@open-northland/data';
 import { localPlayerOf } from '@open-northland/lockstep';
 import { exportSaveGame, type SaveGame, type SimEvent } from '@open-northland/sim';
 import { loadMapScript, loadTerrainMap } from '../../content/map-loader.js';
-import { loadMapList } from '../../content/maps-index.js';
+import { loadMapSources, type MapSource, mapFetch } from '../../content/map-source/index.js';
 import { sessionMapScript } from '../../game/seat-tribes.js';
 import { onOffParam } from '../../game/session-rules.js';
 import { mapSession } from '../../game/session-url.js';
@@ -14,10 +14,26 @@ import { buildMapWorld, type MapWorldOptions, restoreMapWorld } from './world.js
 type Transition = Extract<SimEvent, { kind: 'missionSubMission' }>['transition'];
 type Inputs = Pick<MapWorldOptions, 'ir' | 'content'> & { readonly params: URLSearchParams };
 
+/**
+ * The maps a sub-mission of `currentMapId` may start: the other maps of its catalogue entry when it is
+ * an installed catalogue map, the shipped maps otherwise, so two packs' campaign ids never collide.
+ */
+export function subMissionPool(
+  sources: readonly MapSource[],
+  currentMapId: string | null,
+): readonly MapSource[] {
+  const key = currentMapId?.toLowerCase();
+  const entryId = sources.find((source) => source.entry.id.toLowerCase() === key)?.catalog?.entryId;
+  return entryId === undefined
+    ? sources.filter((source) => source.catalog === undefined)
+    : sources.filter((source) => source.catalog?.entryId === entryId && !source.stale);
+}
+
 export async function validateSavedMap(inputs: Inputs, save: SaveGame): Promise<void> {
   const target = save.header.mapId;
   if (target === null) throw new Error('Saved mission has no map identity');
-  const [map, source] = await Promise.all([loadTerrainMap(target), loadMapScript(target)]);
+  const files = await mapFetch(target);
+  const [map, source] = await Promise.all([loadTerrainMap(target, files), loadMapScript(target, files)]);
   if (map === null || source === null || inputs.ir === null)
     throw new Error('Saved map content is unavailable');
   restoreMapWorld(
@@ -40,8 +56,8 @@ export function mapSubMissionLoader(
         throw new Error('No parent mission to return to');
       target = parent.header.mapId;
     } else {
-      const matches = (await loadMapList()).filter(
-        ({ campaign }) =>
+      const matches = subMissionPool(await loadMapSources(), current.header.mapId).filter(
+        ({ entry: { campaign } }) =>
           campaign?.campaignId === transition.campaignId && campaign.missionId === transition.mapId,
       );
       if (matches.length !== 1)
@@ -50,9 +66,10 @@ export function mapSubMissionLoader(
         );
       const match = matches[0];
       if (match === undefined) throw new Error('Sub-mission map is unavailable');
-      target = match.id;
+      target = match.entry.id;
     }
-    const [map, source] = await Promise.all([loadTerrainMap(target), loadMapScript(target)]);
+    const files = await mapFetch(target);
+    const [map, source] = await Promise.all([loadTerrainMap(target, files), loadMapScript(target, files)]);
     if (map === null || source === null)
       throw new Error(`Sub-mission ${target}: map or script is unavailable`);
     if (parent !== undefined) {

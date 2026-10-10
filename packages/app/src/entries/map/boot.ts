@@ -26,6 +26,7 @@ import {
   loadMapStrings,
   loadTerrainMap,
 } from '../../content/map-loader.js';
+import { mapFetch } from '../../content/map-source/index.js';
 import { loadMapObjects } from '../../content/objects.js';
 import { resolveSpriteSheet } from '../../content/sprite-sheet/index.js';
 import { loadRealTerrain, MissingTerrainError } from '../../content/terrain.js';
@@ -231,13 +232,15 @@ export async function assembleMapWorld<H extends HostedMapWorld>(
   let early: EarlyHosting<H> | null = null;
   try {
     await boot.begin('map');
-    const loaded = verified?.map ?? (mapId !== null ? await loadTerrainMap(mapId) : null);
+    // An installed catalogue map loads from its own store; every other map from the page's `/maps/`.
+    const files = mapId !== null ? await mapFetch(mapId) : fetch;
+    const loaded = verified?.map ?? (mapId !== null ? await loadTerrainMap(mapId, files) : null);
     // A roster-less map keeps the defaults: seat 0, and colour = slot id.
     const [script, meta, briefing, strings] = await Promise.all([
-      verified !== undefined ? verified.script : mapId !== null ? loadMapScript(mapId) : null,
-      mapId !== null ? loadMapMeta(mapId) : null,
-      mapId !== null ? loadMapBriefing(mapId) : null,
-      mapId !== null ? loadMapStrings(mapId) : null,
+      verified !== undefined ? verified.script : mapId !== null ? loadMapScript(mapId, files) : null,
+      mapId !== null ? loadMapMeta(mapId, files) : null,
+      mapId !== null ? loadMapBriefing(mapId, files) : null,
+      mapId !== null ? loadMapStrings(mapId, files) : null,
     ]);
     if (plan.multiplayer) assertMultiplayerMap(script);
     const session = plan.sessionFor(script === null ? [] : mapLobbySlots(script));

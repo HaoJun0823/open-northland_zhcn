@@ -1,6 +1,7 @@
 import { mapLobbySlots } from '@open-northland/data';
 import { MAX_ROOM_NAME_LENGTH, type RoomSeatSetup, type RoomSettings } from '@open-northland/net-protocol';
 import { loadMapScript } from '../../content/map-loader.js';
+import { mapFetch } from '../../content/map-source/index.js';
 import { assertMultiplayerMap } from '../../game/multiplayer-map.js';
 import { sessionRuleOverrides } from '../../game/session-rules.js';
 import { DEFAULT_SESSION_SPEED, drawSessionSeed, seedParam } from '../../game/session-url.js';
@@ -20,7 +21,7 @@ interface RoomCreation {
 /** The room a creator opens for a map: its script's roster, with the authored AI seats kept as AI where
  *  the map allows it and every other seat open, and the search's seed, rules and tempo. */
 export async function roomCreation(params: URLSearchParams, mapId: string): Promise<RoomCreation> {
-  const script = await loadMapScript(mapId);
+  const script = await loadMapScript(mapId, await mapFetch(mapId));
   assertMultiplayerMap(script);
   return {
     settings: {

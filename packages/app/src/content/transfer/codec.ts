@@ -7,9 +7,17 @@ import {
   verifyMapDocuments,
 } from './documents.js';
 
-export type DeliverableMapOrigin = 'mod' | 'user';
+export type DeliverableMapOrigin = 'mod' | 'user' | 'catalog';
+const DELIVERABLE_ORIGINS: readonly DeliverableMapOrigin[] = ['mod', 'user', 'catalog'];
+
+export function isDeliverableMapOrigin(kind: unknown): kind is DeliverableMapOrigin {
+  return DELIVERABLE_ORIGINS.some((origin) => origin === kind);
+}
+
+/** Base-game and unknown maps never travel between players; the mod's, a player's own and catalogue
+ *  maps may. */
 export function mapDeliveryAllowed(provenance: Pick<MapProvenance, 'kind'> | null | undefined): boolean {
-  return provenance?.kind === 'mod' || provenance?.kind === 'user';
+  return isDeliverableMapOrigin(provenance?.kind);
 }
 
 export function encodeMapTransfer(

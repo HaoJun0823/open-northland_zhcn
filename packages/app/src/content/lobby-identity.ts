@@ -1,5 +1,6 @@
 import { contentFingerprint, jsonFingerprint } from '@open-northland/data';
 import { type LobbyCompatibility, PROTOCOL_VERSION } from '@open-northland/net-protocol';
+import { mapFetch } from './map-source/sources.js';
 import { loadRealContent, mergeRealContent } from './real-content.js';
 import {
   loadVerifiedMapDocuments,
@@ -19,7 +20,9 @@ export async function loadLobbyCompatibility(
   validMapId(mapId);
   const [content, documents] = await Promise.all([
     loadRealContent(fetchImpl),
-    supplied === undefined ? loadVerifiedMapDocuments(mapId, fetchImpl) : supplied,
+    supplied === undefined
+      ? mapFetch(mapId, fetchImpl).then((files) => loadVerifiedMapDocuments(mapId, files))
+      : supplied,
   ]);
   if (content === null) throw new Error('Missing game content');
   if (documents !== null) readVerifiedMapDocuments(documents, mapId);

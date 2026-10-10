@@ -36,6 +36,7 @@ export const deSurfaces = {
     screenTitles: {
       multiplayer: 'Mehrspieler',
       newGame: 'Neues Spiel',
+      catalogue: 'Kartenkatalog',
       lobby: 'Lobby',
       load: 'Spiel laden',
       settings: 'Einstellungen',

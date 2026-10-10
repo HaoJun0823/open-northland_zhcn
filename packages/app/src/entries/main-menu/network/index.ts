@@ -1,6 +1,6 @@
 import type { MapText } from '@open-northland/data';
 import { MAX_NICK_LENGTH } from '@open-northland/net-protocol';
-import { loadMapList } from '../../../content/maps-index.js';
+import { apiBaseUrl, loadMapSources } from '../../../content/map-source/index.js';
 import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
@@ -8,7 +8,7 @@ import { type ConnectionEvent, NetworkConnection } from '../../../net/connection
 import { relayCloseText, relayReasonText } from '../../../net/relay-reason.js';
 import { relayIdentity } from '../../relay/identity.js';
 import { node } from '../dom.js';
-import { type MapSelectItem, mapItem } from '../map-select-model.js';
+import { type MapSelectItem, mapSourceItem } from '../map-select-model.js';
 import type { MenuScreen } from '../model.js';
 import type { MenuSound } from '../music.js';
 import { screenHead } from '../screen-head.js';
@@ -59,13 +59,17 @@ export function networkScreen(
   /** Map names for the room header; a room shown before the listing answers names its map by id. */
   let mapNames: ReadonlyMap<string, MapText | undefined> = new Map();
   let mapPreviews: ReadonlyMap<string, MapSelectItem> = new Map();
-  void loadMapList().then((entries) => {
-    mapNames = new Map(entries.map((entry) => [entry.id, entry.name]));
-    mapPreviews = new Map(entries.map((entry) => [entry.id, mapItem(entry)]));
-    const current = connection;
-    if (!disposed && room !== null && current?.client.room)
-      room.update(current.client.room, current.connected);
-  });
+  const loadMapNames = (): void => {
+    const api = apiBaseUrl();
+    void loadMapSources().then((sources) => {
+      mapNames = new Map(sources.map((source) => [source.entry.id, source.entry.name]));
+      mapPreviews = new Map(sources.map((source) => [source.entry.id, mapSourceItem(source, api)]));
+      const current = connection;
+      if (!disposed && room !== null && current?.client.room)
+        room.update(current.client.room, current.connected);
+    });
+  };
+  loadMapNames();
 
   const notice = (text: string): void => {
     status.textContent = text;
@@ -90,7 +94,7 @@ export function networkScreen(
     assets = null;
     connection?.dispose();
     connection = null;
-    create.closeMapList();
+    create.resetMapList();
     resetRoom();
     notice(text);
     sync();
@@ -355,10 +359,16 @@ export function networkScreen(
     try {
       rememberAddress();
       connection = new NetworkConnection(url, relayIdentity(url, nick.value.trim()));
-      assets = roomAssets(connection.client, failure, {}, () => {
-        const current = connection;
-        if (room && current?.client.room) room.update(current.client.room, current.connected);
-      });
+      assets = roomAssets(
+        connection.client,
+        failure,
+        {},
+        () => {
+          const current = connection;
+          if (room && current?.client.room) room.update(current.client.room, current.connected);
+        },
+        loadMapNames,
+      );
       unsubscribe = connection.subscribe(observe);
       notice(copy.connecting);
       sync();

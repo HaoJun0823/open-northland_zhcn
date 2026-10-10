@@ -19,3 +19,28 @@ export function isAppUrl(url: string | undefined): boolean {
 export function routePathOf(host: string, rawPathname: string): string {
   return host === GAME_HOST ? rawPathname : `/${host}${rawPathname}`;
 }
+
+/** The schemes a page a player opens from the game may use; it opens in the system browser. */
+const EXTERNAL_PROTOCOLS: readonly string[] = ['https:', 'http:'];
+
+/** The URL to hand the system browser for a link the game opens, or null for anything else. */
+export function externalPageUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return EXTERNAL_PROTOCOLS.includes(parsed.protocol) ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The environment variable that points the game at another map catalogue server. */
+export const API_URL_ENV = 'ON_API_URL';
+
+/** The first page with the catalogue server override as the app's `?api=` parameter, when one is set. */
+export function initialGameUrl(gameUrl: string, apiOverride: string | undefined): string {
+  const api = apiOverride === undefined ? null : externalPageUrl(apiOverride);
+  if (api === null) return gameUrl;
+  const url = new URL(gameUrl);
+  url.searchParams.set('api', api);
+  return url.toString();
+}

@@ -8,6 +8,7 @@ import {
 } from '@open-northland/render';
 import { halfCellMapFromCells } from '@open-northland/sim';
 import { loadTerrainMap } from '../content/map-loader.js';
+import { mapFetch } from '../content/map-source/index.js';
 import { loadHumanSpriteSheet, syntheticSpriteSheet } from '../content/sprite-sheet/index.js';
 import { loadRealTerrain } from '../content/terrain.js';
 import { HUMAN_PLAYER } from '../game/rules.js';
@@ -43,7 +44,7 @@ export async function renderShot(canvas: HTMLCanvasElement): Promise<void> {
   // `?map=<id>` runs and draws a decoded map. Absent or unloadable, both fall back to the synthetic
   // grass strip, so the default `npm run shot` stays reproducible without the gitignored maps.
   const mapId = params.get('map');
-  const loaded = mapId !== null ? await loadTerrainMap(mapId) : null;
+  const loaded = mapId !== null ? await loadTerrainMap(mapId, await mapFetch(mapId)) : null;
 
   // Owned rather than neutral, so the HUD panel below has a seat to aggregate.
   const sim = runDemoWorld(seed, ticks, loaded !== null ? halfCellMapFromCells(loaded) : undefined, {

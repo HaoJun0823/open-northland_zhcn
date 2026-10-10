@@ -1,6 +1,14 @@
 import { GAME_VERSION } from '../../build-version.js';
 
-export type MenuScreen = 'main' | 'multiplayer' | 'newGame' | 'lobby' | 'load' | 'settings' | 'credits';
+export type MenuScreen =
+  | 'main'
+  | 'multiplayer'
+  | 'newGame'
+  | 'catalogue'
+  | 'lobby'
+  | 'load'
+  | 'settings'
+  | 'credits';
 
 /** A screen and its teardown, which the shell runs when the screen leaves, for handlers bound outside
  *  its element. */
@@ -35,7 +43,7 @@ export function mainNavFor(browser: boolean): readonly MainNavItem[] {
 /** Where Esc and the back link lead; `null` on the main screen. */
 export function backTarget(screen: MenuScreen): MenuScreen | null {
   if (screen === 'main') return null;
-  if (screen === 'lobby') return 'newGame';
+  if (screen === 'lobby' || screen === 'catalogue') return 'newGame';
   return 'main';
 }
 

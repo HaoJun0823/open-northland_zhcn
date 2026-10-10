@@ -1,5 +1,5 @@
 import type { MapsIndexEntry, MapTextLanguage } from '@open-northland/data';
-import { loadMapList } from '../../../content/maps-index.js';
+import { loadMapSources } from '../../../content/map-source/index.js';
 import { localizedMapText } from '../../../game/map-strings.js';
 import { currentLocale, sceneCopy } from '../../../i18n/index.js';
 
@@ -32,12 +32,12 @@ export function worldNamesOf(
   };
 }
 
-/** The served maps index, fetched once per document: the roster cannot change under a session, and
- *  every panel open would otherwise re-download it. */
+/** The known maps, read once per document: the roster cannot change under a session, and every panel
+ *  open would otherwise re-download the index. */
 let mapList: Promise<readonly MapsIndexEntry[]> | null = null;
 
-/** The join over the served maps index; contentless checkouts degrade to token pass-through. */
+/** The join over the shipped and installed maps; contentless checkouts degrade to token pass-through. */
 export async function worldNameIndex(): Promise<WorldNameOf> {
-  mapList ??= loadMapList();
+  mapList ??= loadMapSources().then((sources) => sources.map((source) => source.entry));
   return worldNamesOf(await mapList);
 }

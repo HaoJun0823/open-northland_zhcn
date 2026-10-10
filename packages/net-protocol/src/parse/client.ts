@@ -92,11 +92,11 @@ export function parseClientMessage(value: unknown): ClientMessage {
       };
     case 'setSettings':
       if (
-        ['world', 'initialSave', 'mapOrigin'].some(
+        ['world', 'initialSave', 'mapOrigin', 'catalogMap'].some(
           (key) => asRecord(raw.settings, 'setSettings.settings')[key] !== undefined,
         )
       )
-        throw new Error('setSettings: the room world, initialSave and mapOrigin are immutable');
+        throw new Error('setSettings: the room world, initialSave, mapOrigin and catalogMap are immutable');
       return { kind, settings: parseLobbySettings(raw.settings, 'setSettings.settings') };
     case 'setCompatibility':
       return { kind, compatibility: parseCompatibility(raw.compatibility, 'setCompatibility.compatibility') };

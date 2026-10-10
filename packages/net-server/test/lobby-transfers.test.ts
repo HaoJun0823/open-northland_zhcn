@@ -86,3 +86,19 @@ describe('immutable lobby files', () => {
     expect(b.last('rejected')?.reason).toEqual({ code: 'creatorOnly' });
   });
 });
+describe('catalogue maps', () => {
+  const catalogMap = { entryId: 'cn-zatoka', mapId: 'zatoka', fingerprint: 'd'.repeat(64), irVersion: 3 };
+  it('keeps the announcement through a settings change and relays the creator map as a fallback', () => {
+    const s = stage();
+    const a = s.introduce(TOKEN_A, 'Ania');
+    const b = s.introduce(TOKEN_B, 'Bartek');
+    a.send({ kind: 'createRoom', settings: { ...SETTINGS, mapOrigin: 'catalog', catalogMap }, seats: SEATS });
+    b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });
+    a.send({ kind: 'setSettings', settings: { ...SETTINGS, seed: 9, world: undefined } });
+    expect(b.last('room')?.room.settings).toMatchObject({ seed: 9, mapOrigin: 'catalog', catalogMap });
+    b.send({ kind: 'requestMap' });
+    expect(a.last('mapRequest')).toEqual({ kind: 'mapRequest', from: 'Bartek' });
+    a.send({ kind: 'blob', type: 'map', tick: null, to: 'Bartek', bytes });
+    expect(b.last('blob')).toMatchObject({ type: 'map', from: 'Ania', bytes });
+  });
+});

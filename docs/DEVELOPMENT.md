@@ -623,6 +623,11 @@ is retried with the next catalogue; every other verdict stays until the entry ch
 served as `<entry id>-<folder slug>`, a repeated slug inside one entry as `-2`, `-3`. A finished
 batch publishes the catalogue again with the `conversion` fields, so its `ETag` changes.
 
+The app reaches the API at `ON_API_URL` (default `https://api.opennorthland.org`), stamped into the
+build by Vite and passed on by the desktop shell; a `?api=http://127.0.0.1:8790` URL parameter
+overrides it for one session, the way `?relay=` does for the relay. The catalogue screen sits under
+New Game and in a multiplayer room's map picker.
+
 `ON_API_DATA_DIR` (default `.api-data` in the directory the server starts in, the checkout root for
 `npm run api`, ignored by Git) holds:
 

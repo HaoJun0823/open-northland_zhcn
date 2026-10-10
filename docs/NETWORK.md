@@ -64,7 +64,7 @@ immediately. The host closes a connection that has sent nothing, a pong included
 `listRooms` returns `rooms { rooms: [{ id, name, state, members, seats }] }`.
 
 `createRoom { settings, seats }` makes a room and puts the sender in it. `settings` is
-`{ name, world, seed, rules, speed, kickedSeatMode?, initialSave?, mapOrigin? }`, where `world` and `rules` are the session descriptor's, and
+`{ name, world, seed, rules, speed, kickedSeatMode?, initialSave?, mapOrigin?, catalogMap? }`, where `world` and `rules` are the session descriptor's, and
 the world is fixed for the room's life. Alliances come from the map's diplomacy and in-game
 diplomacy; while the rules' `alliedVision` is on, the sim joins mutual friends into one fog mask and
 follows later stance changes, so allies explore, see and meet as one in every fog mode. `seats` lists
@@ -126,7 +126,7 @@ refused with `gameNotStarted`. Any other change carries the current figures with
   `difficulty` needs a seat that has one (else `seatDifficultyUnavailable`), and reaches the start
   descriptor's seat only while the computer plays it; a computer seat without one plays `hard`.
 - `setSettings { settings }` is the creator's. It replaces `{ name, seed, rules, speed, kickedSeatMode? }`
-  in full; including `world`, `initialSave` or `mapOrigin` is refused because these are immutable,
+  in full; including `world`, `initialSave`, `mapOrigin` or `catalogMap` is refused because these are immutable,
   and a replacement that changes nothing produces no room update. A saved room also fixes its seed,
   rules, seat colors, tribes and levels; claims and creator-selected vacant AI/idle modes remain
   editable.
@@ -457,7 +457,12 @@ acknowledgement. An upload from another generation is stale and ignored, even if
 than the corrected cache; compression and delivery may have started before the donor's resync.
 
 A `map` is accepted only from the current creator in the lobby, with a null tick and an explicit
-immutable `mapOrigin: "mod" | "user"`. It is relayed as addressed. `requestMap` sends the connected
+immutable `mapOrigin: "mod" | "user" | "catalog"`. It is relayed as addressed. A `catalog` origin
+comes with `catalogMap: { entryId, mapId, fingerprint, irVersion }`, naming the room's map, its map
+catalogue entry, its terrain-and-script fingerprint and the content version it was converted for;
+neither field is allowed without the other. A member without the map fetches that conversion from
+the catalogue's server when its own content version matches, verifies the fingerprint, and asks the
+creator through the relay only when the server cannot deliver it. `requestMap` sends the connected
 creator `mapRequest { from }` so a member can retry delivery. Map and initial-save requests each
 have a two-second per-member cooldown to bound small-request/large-response amplification. The origin is advisory: clients must
 validate source provenance, sender identity, payload schema and the expected map fingerprint.
@@ -501,7 +506,8 @@ ticks and order.
 
 A client keeps the custom maps it verified in browser storage, capped at four maps and 64 MiB of
 encoded transfer text, and validates a copy again against its fingerprint and permitted origin before
-playing it; base and unknown origins are never served from that store. A reload rejoins on the token,
+playing it; base and unknown origins are never served from that store. A catalogue map fetched from
+the catalogue's server joins the player's installed catalogue maps instead. A reload rejoins on the token,
 checks compatibility, and rebuilds over the retained map from the relay's cached snapshot, or from the
 descriptor while the relay still holds every frame.
 

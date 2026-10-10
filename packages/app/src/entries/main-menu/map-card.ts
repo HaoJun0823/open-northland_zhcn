@@ -31,7 +31,7 @@ export function paintMapThumb(thumb: HTMLElement, item: MapSelectItem): void {
     return;
   }
   const img = document.createElement('img');
-  img.src = mapPreviewUrl(item.id, view);
+  img.src = mapPreviewUrl(item, view);
   img.alt = '';
   img.loading = 'lazy';
   img.dataset.view = view;
@@ -125,7 +125,7 @@ export function createMapDetailsCard(): MapDetailsCard {
       return;
     }
     previewImg.dataset.view = view;
-    previewImg.src = mapPreviewUrl(item.id, view);
+    previewImg.src = mapPreviewUrl(item, view);
     previewImg.hidden = false;
   };
 

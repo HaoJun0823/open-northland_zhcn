@@ -84,6 +84,10 @@ not as a shortcut around normal UI.
 `src/content/` adapts decoded files to sim, render, and audio. Keep network loading separate from pure
 joins so the join can be tested headlessly.
 
+A map is resolved through `src/content/map-source/`, which joins the shipped `maps-index.json` with
+the installed catalogue maps and gives each map the `fetch` its files load through. Never assume
+`/maps/<id>` is served by the page: an installed web map lives in IndexedDB.
+
 `src/catalog/` is committed fallback data. `src/game/sandbox/` assembles the shared fallback
 `ContentSet`. Scenes consume that shared content and define setup only; they do not copy jobs, goods,
 buildings, or animation rules.

@@ -8,6 +8,8 @@ import { clearPendingLoad } from '../../view/runtime/save-load/pending-store.js'
 import { initialSettingsMemory } from '../../view/settings-page.js';
 import { warmGraphicsInBackground } from '../../view/shader-warmup.js';
 import { startBackdropRotation } from './backdrops.js';
+import { initialCatalogueMemory } from './catalogue/model.js';
+import { catalogueScreen } from './catalogue/screen.js';
 import { creditsScreen } from './credits.js';
 import { mountFullscreenPrompt } from './fullscreen-prompt.js';
 import { loadSelectScreen } from './load-select.js';
@@ -154,6 +156,7 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
   let screen: MenuScreen = 'main';
   // Screen state that outlives the screens themselves, so a round trip keeps the filter and seats.
   const mapSelectMemory = initialMapSelectMemory('free');
+  const catalogueMemory = initialCatalogueMemory();
   const settingsMemory = initialSettingsMemory();
   const rosters = new Map<string, RosterState>();
   let lobbyMap: MapSelectItem | null = null;
@@ -167,6 +170,8 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
         return { element: mainScreen(show) };
       case 'newGame':
         return { element: mapSelectScreen(show, mapSelectMemory, openLobby, launch) };
+      case 'catalogue':
+        return catalogueScreen(show, catalogueMemory, openLobby);
       case 'multiplayer':
         return networkScreen(show, launch, params, sound);
       case 'load':

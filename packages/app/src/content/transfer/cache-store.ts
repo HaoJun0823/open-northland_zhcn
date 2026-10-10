@@ -1,4 +1,5 @@
 import { completed, openDb } from '../../view/runtime/save-load/idb.js';
+import { type DeliverableMapOrigin, isDeliverableMapOrigin } from './codec.js';
 import { isMapId } from './documents.js';
 
 export const MAX_CACHED_MAPS = 4;
@@ -7,7 +8,7 @@ export interface CachedMapMeta {
   readonly key: string;
   readonly mapId: string;
   readonly fingerprint: string;
-  readonly origin: 'mod' | 'user';
+  readonly origin: DeliverableMapOrigin;
   readonly storedAt: number;
   readonly size: number;
 }
@@ -24,7 +25,7 @@ export function cacheMeta(raw: unknown): CachedMapMeta | null {
     !isMapId(r.mapId) ||
     typeof r.fingerprint !== 'string' ||
     !/^[a-f0-9]{64}$/.test(r.fingerprint) ||
-    (r.origin !== 'mod' && r.origin !== 'user') ||
+    !isDeliverableMapOrigin(r.origin) ||
     r.key !== `${r.mapId}:${r.fingerprint}:${r.origin}` ||
     typeof r.size !== 'number' ||
     !Number.isSafeInteger(r.size) ||

@@ -34,6 +34,7 @@ export const plSurfaces = {
     screenTitles: {
       multiplayer: 'Gra wieloosobowa',
       newGame: 'Nowa gra',
+      catalogue: 'Katalog map',
       lobby: 'Lobby',
       load: 'Wczytaj grę',
       settings: 'Ustawienia',

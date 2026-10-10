@@ -27,6 +27,8 @@ export function roomAssets(
   onError: (error: unknown) => void,
   services: Partial<AssetServices> = {},
   onChanged: () => void = () => undefined,
+  /** The room's map was verified; one fetched for the room may be new to this client's map lists. */
+  onMap: () => void = () => undefined,
 ) {
   const loadCompatibility =
     services.compatibility ?? ((mapId, map) => loadLobbyCompatibility(mapId, fetch, undefined, map));
@@ -60,6 +62,7 @@ export function roomAssets(
       if (mapSlots !== previousSlots) onChanged();
       invalidateValidation();
       void refresh();
+      if (handle !== null) onMap();
     },
   });
 

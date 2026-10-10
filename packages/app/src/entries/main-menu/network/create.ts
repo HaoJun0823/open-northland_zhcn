@@ -40,11 +40,19 @@ export function createPanel(options: CreatePanelOptions) {
     card: card.element,
     mapList: mapList.element,
     enable: card.enable,
-    dispose: card.dispose,
-    /** True when the map list was open and is now closed. */
+    dispose(): void {
+      card.dispose();
+      mapList.dispose();
+    },
+    /** Closes the catalogue and the map list under it. */
+    resetMapList(): void {
+      mapList.closeCatalogue();
+      if (!mapList.element.hidden) showMapList(false);
+    },
+    /** True when the map list (or the catalogue over it) was open and a step closed. */
     closeMapList(): boolean {
       if (mapList.element.hidden) return false;
-      showMapList(false);
+      if (!mapList.closeCatalogue()) showMapList(false);
       return true;
     },
   };

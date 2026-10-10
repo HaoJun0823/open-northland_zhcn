@@ -1,0 +1,88 @@
+/* The map catalogue. It reuses the map select's list column and details card (map-select.css); this
+   sheet adds the status badges, the byline and the action row's links. */
+
+/* The shared list body is a flex row, which outweighs the UA's `[hidden]` while the catalogue shows
+   in a room's map pick. */
+.main-menu__map-body[hidden] {
+  display: none;
+}
+
+/* Screenshots are photographs of the game, not pixel art; they scale smoothly. */
+.catalogue .main-menu__map-thumb img,
+.catalogue .main-menu__map-preview img {
+  image-rendering: auto;
+}
+
+.catalogue__badge {
+  color: var(--text-muted);
+}
+
+.catalogue__badge.is-installed,
+.catalogue__badge.is-updatable {
+  color: var(--accent-bright);
+}
+
+.catalogue__badge.is-failed,
+.catalogue__badge.is-gameTooOld,
+.catalogue__badge.is-serverTooOld,
+.catalogue__badge.is-redownload {
+  color: var(--danger-text);
+}
+
+.catalogue__byline,
+.catalogue__facts {
+  font:
+    400 calc(var(--u) * 20) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-label);
+}
+
+.catalogue__facts[hidden] {
+  display: none;
+}
+
+.catalogue__status {
+  font:
+    500 calc(var(--u) * 20) / 1.3 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-body);
+}
+
+.catalogue__status.is-failed,
+.catalogue__status.is-gameTooOld,
+.catalogue__status.is-serverTooOld,
+.catalogue__status.is-redownload {
+  color: var(--danger-text);
+}
+
+.catalogue__desc {
+  -webkit-line-clamp: 6;
+  white-space: pre-line;
+}
+
+.catalogue__actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--u) * 14);
+}
+
+.catalogue__actions .main-menu__ghost {
+  padding: calc(var(--u) * 14) calc(var(--u) * 26);
+  font-size: calc(var(--u) * 21);
+}
+
+.catalogue__actions .main-menu__ghost:disabled {
+  cursor: var(--cursor-default, default);
+  opacity: 0.5;
+}
+
+.catalogue__open {
+  padding: calc(var(--u) * 12) calc(var(--u) * 22);
+  font-size: calc(var(--u) * 21);
+}
+
+.catalogue__open[hidden] {
+  display: none;
+}

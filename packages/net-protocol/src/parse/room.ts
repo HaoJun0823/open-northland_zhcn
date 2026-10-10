@@ -19,10 +19,12 @@ import {
   MAX_WORLD_ID_LENGTH,
 } from '../limits.js';
 import type {
+  CatalogMapAnnouncement,
   ClientLoad,
   DepartedSeatMode,
   DepartureCause,
   LobbySettings,
+  RoomMapOrigin,
   RoomMemberView,
   RoomSeatSetup,
   RoomSeatView,
@@ -74,10 +76,45 @@ export function parseRoomSettings(value: unknown, at: string): RoomSettings {
     ...(raw.initialSave === undefined
       ? {}
       : { initialSave: parseInitialSave(raw.initialSave, `${at}.initialSave`) }),
-    ...(raw.mapOrigin === undefined
-      ? {}
-      : { mapOrigin: asOneOf(raw.mapOrigin, ['mod', 'user'], `${at}.mapOrigin`) }),
+    ...parseMapDelivery(raw, at),
   };
+}
+
+const MAP_ORIGINS = keysOf<RoomMapOrigin>({ mod: true, user: true, catalog: true });
+/** A catalogue entry or map id: one plain ASCII token, the same rule the clients name map files by. */
+const CATALOG_ID = /^[a-z0-9_-]{1,128}$/i;
+
+function catalogId(value: unknown, at: string): string {
+  if (typeof value !== 'string' || !CATALOG_ID.test(value)) throw new Error(`${at}: expected a catalogue id`);
+  return value;
+}
+
+/** `mapOrigin` and `catalogMap` together: a catalogue origin names its map, and only it does. */
+function parseMapDelivery(
+  raw: Record<string, unknown>,
+  at: string,
+): Pick<RoomSettings, 'mapOrigin' | 'catalogMap'> {
+  if (raw.mapOrigin === undefined) {
+    if (raw.catalogMap !== undefined) throw new Error(`${at}.catalogMap: requires mapOrigin catalog`);
+    return {};
+  }
+  const mapOrigin = asOneOf(raw.mapOrigin, MAP_ORIGINS, `${at}.mapOrigin`);
+  if (mapOrigin !== 'catalog') {
+    if (raw.catalogMap !== undefined) throw new Error(`${at}.catalogMap: requires mapOrigin catalog`);
+    return { mapOrigin };
+  }
+  const map = asRecord(raw.catalogMap, `${at}.catalogMap`);
+  const catalogMap: CatalogMapAnnouncement = {
+    entryId: catalogId(map.entryId, `${at}.catalogMap.entryId`),
+    mapId: catalogId(map.mapId, `${at}.catalogMap.mapId`),
+    fingerprint: fingerprint(map.fingerprint, `${at}.catalogMap.fingerprint`),
+    irVersion: asCount(map.irVersion, `${at}.catalogMap.irVersion`),
+  };
+  if (catalogMap.irVersion < 1) throw new Error(`${at}.catalogMap.irVersion: expected a positive version`);
+  const world = asRecord(raw.world, `${at}.world`);
+  if (world.kind !== 'map' || world.mapId !== catalogMap.mapId)
+    throw new Error(`${at}.catalogMap.mapId: does not name the room's map`);
+  return { mapOrigin, catalogMap };
 }
 
 export function parseLobbySettings(value: unknown, at: string): LobbySettings {

@@ -35,6 +35,7 @@ export const enSurfaces = {
     screenTitles: {
       multiplayer: 'Multiplayer',
       newGame: 'New game',
+      catalogue: 'Map catalogue',
       lobby: 'Lobby',
       load: 'Load game',
       settings: 'Settings',

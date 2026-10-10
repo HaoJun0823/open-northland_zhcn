@@ -36,6 +36,7 @@ export const ruSurfaces = {
     screenTitles: {
       multiplayer: 'Сетевая игра',
       newGame: 'Новая игра',
+      catalogue: 'Каталог карт',
       lobby: 'Лобби',
       load: 'Загрузить игру',
       settings: 'Настройки',

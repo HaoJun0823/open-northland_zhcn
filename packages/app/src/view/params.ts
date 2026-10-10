@@ -15,6 +15,7 @@ export const CARRIED_PARAMS = [
   'weathermode',
   'sound',
   'debug',
+  'api',
 ] as const;
 export type CarriedParam = (typeof CARRIED_PARAMS)[number];
 

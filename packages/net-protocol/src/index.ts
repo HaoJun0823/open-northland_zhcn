@@ -9,6 +9,7 @@ export * from './limits.js';
 export type {
   BlobType,
   BlobUpload,
+  CatalogMapAnnouncement,
   ChatLine,
   ClientLoad,
   ClientMessage,
@@ -22,6 +23,7 @@ export type {
   RelayWireEnvelope,
   ResponsivenessMode,
   ResponsivenessState,
+  RoomMapOrigin,
   RoomMemberView,
   RoomSeatSetup,
   RoomSeatView,

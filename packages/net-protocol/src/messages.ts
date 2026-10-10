@@ -12,10 +12,26 @@ import type { RelayReason } from './reasons.js';
 
 export type RoomState = 'lobby' | 'running' | 'ended';
 
+/** Where the creator's map came from, when the room lets members fetch it; absent turns map delivery off. */
+export type RoomMapOrigin = 'mod' | 'user' | 'catalog';
+
+/** A map the creator installed from the map catalogue, so a member without it can fetch the same
+ *  conversion from the catalogue's server before asking the creator for it. */
+export interface CatalogMapAnnouncement {
+  readonly entryId: string;
+  readonly mapId: string;
+  /** The `jsonFingerprint` of the map's terrain and script documents. */
+  readonly fingerprint: string;
+  /** The content version the map was converted for. */
+  readonly irVersion: number;
+}
+
 /** What the creator decides for the whole room. The world is fixed at creation. */
 export interface RoomSettings {
   readonly initialSave?: InitialSaveIdentity;
-  readonly mapOrigin?: 'mod' | 'user';
+  readonly mapOrigin?: RoomMapOrigin;
+  /** Present exactly when `mapOrigin` is `catalog`, naming the room's map. */
+  readonly catalogMap?: CatalogMapAnnouncement;
   readonly kickedSeatMode?: DepartedSeatMode;
   readonly name: string;
   readonly world: SessionWorld;
@@ -24,7 +40,7 @@ export interface RoomSettings {
   readonly speed: number;
 }
 
-export type LobbySettings = Omit<RoomSettings, 'world' | 'initialSave' | 'mapOrigin'>;
+export type LobbySettings = Omit<RoomSettings, 'world' | 'initialSave' | 'mapOrigin' | 'catalogMap'>;
 
 /** What an unclaimed seat does; `human` is never chosen, it is what a claimed seat becomes. */
 export type VacantSeatMode = Exclude<SeatMode, 'human'>;

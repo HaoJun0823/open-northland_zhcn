@@ -197,9 +197,14 @@ describe('map preview views', () => {
   });
 
   it('names the illustration and the minimap files apart', () => {
-    expect(mapPreviewUrl('szeol', 'picture')).toBe('/maps/szeol.png');
-    expect(mapPreviewUrl('szeol', 'map')).toBe('/maps/szeol.map.png');
-    expect(mapPreviewUrl('a b', 'map')).toBe('/maps/a%20b.map.png');
+    expect(mapPreviewUrl({ id: 'szeol' }, 'picture')).toBe('/maps/szeol.png');
+    expect(mapPreviewUrl({ id: 'szeol' }, 'map')).toBe('/maps/szeol.map.png');
+    expect(mapPreviewUrl({ id: 'a b' }, 'map')).toBe('/maps/a%20b.map.png');
+  });
+
+  it("shows a catalogue map's picture from wherever it lives", () => {
+    expect(mapPreviewUrl({ id: 'cn-a', pictureUrl: 'blob:x' }, 'picture')).toBe('blob:x');
+    expect(mapPreviewUrl({ id: 'cn-a', pictureUrl: 'blob:x' }, 'map')).toBe('/maps/cn-a.map.png');
   });
 
   it('stores no preview choice', () => {

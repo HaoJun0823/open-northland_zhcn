@@ -842,3 +842,47 @@ describe('reserved map AI control', () => {
     ).toThrow(/reserved seat cannot be human/);
   });
 });
+
+describe('catalogue map announcements', () => {
+  const catalogMap = { entryId: 'cn-zatoka', mapId: 'zatoka', fingerprint: 'd'.repeat(64), irVersion: 3 };
+  const create = (extra: Record<string, unknown>) => ({
+    kind: 'createRoom',
+    settings: { ...settings, ...extra },
+    seats: [],
+  });
+
+  it('carries a catalogue origin with the map it names through a JSON round trip', () => {
+    const message = create({ mapOrigin: 'catalog', catalogMap });
+    expect(parseClientMessage(JSON.parse(JSON.stringify(message)))).toEqual(message);
+  });
+
+  it.each([
+    ['a catalogue origin without its map', { mapOrigin: 'catalog' }, /catalogMap/],
+    ['a map without the catalogue origin', { mapOrigin: 'user', catalogMap }, /requires mapOrigin catalog/],
+    ['a map without any origin', { catalogMap }, /requires mapOrigin catalog/],
+    [
+      'a map other than the room world',
+      { mapOrigin: 'catalog', catalogMap: { ...catalogMap, mapId: 'other' } },
+      /does not name the room's map/,
+    ],
+    [
+      'an entry id that names a path',
+      { mapOrigin: 'catalog', catalogMap: { ...catalogMap, entryId: '../x' } },
+      /entryId/,
+    ],
+    [
+      'a fingerprint that is not a digest',
+      { mapOrigin: 'catalog', catalogMap: { ...catalogMap, fingerprint: 'x' } },
+      /fingerprint/,
+    ],
+    ['content version 0', { mapOrigin: 'catalog', catalogMap: { ...catalogMap, irVersion: 0 } }, /irVersion/],
+  ])('refuses %s', (_name, extra, error) => {
+    expect(() => parseClientMessage(create(extra))).toThrow(error);
+  });
+
+  it('keeps the announcement immutable in setSettings', () => {
+    expect(() =>
+      parseClientMessage({ kind: 'setSettings', settings: { ...settings, world: undefined, catalogMap } }),
+    ).toThrow(/immutable/);
+  });
+});

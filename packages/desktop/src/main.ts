@@ -16,8 +16,9 @@ import {
   readOriginalGameState,
   writeOriginalGameState,
 } from './original-game/state.js';
-import { CONTENT_DIR_ENV, resolveShellRoots } from './paths.js';
-import { handleAppProtocol, registerAppScheme } from './protocol.js';
+import { CONTENT_DIR_ENV, installedMapsRoot, resolveShellRoots } from './paths.js';
+import { GAME_URL, handleAppProtocol, registerAppScheme } from './protocol.js';
+import { API_URL_ENV, initialGameUrl } from './protocol-routing.js';
 import { createWindow } from './window.js';
 import { WINDOW_STATE_FILE } from './window-state.js';
 
@@ -49,8 +50,10 @@ if (app.requestSingleInstanceLock()) {
   void app.whenReady().then(async () => {
     const menu = applicationMenuTemplate(process.platform, app.isPackaged);
     Menu.setApplicationMenu(menu === null ? null : Menu.buildFromTemplate([...menu]));
-    handleAppProtocol(roots);
-    const originalGamePath = join(app.getPath('userData'), ORIGINAL_GAME_STATE_FILE);
+    const userData = app.getPath('userData');
+    const mapsRoot = installedMapsRoot(userData);
+    handleAppProtocol(roots, mapsRoot);
+    const originalGamePath = join(userData, ORIGINAL_GAME_STATE_FILE);
     const originalGame: OriginalGameRecord = {
       required: originalGameCheckWanted(app.isPackaged, process.env),
       readState: () => readOriginalGameState(originalGamePath),
@@ -60,7 +63,12 @@ if (app.requestSingleInstanceLock()) {
     await rememberDetectedInstall(originalGame, () =>
       detectInstall(process.env[ORIGINAL_GAME_DIR_ENV], () => installCandidates(hostCandidateEnvironment())),
     );
-    mainWindow = createWindow(join(app.getPath('userData'), WINDOW_STATE_FILE), originalGame);
+    mainWindow = createWindow({
+      statePath: join(userData, WINDOW_STATE_FILE),
+      mapsRoot,
+      startUrl: initialGameUrl(GAME_URL, process.env[API_URL_ENV]),
+      originalGame,
+    });
     app.getGPUInfo('basic').then(
       (info) => console.info(describeGpuInfo(info)),
       () => console.info(describeGpuInfo(null)),

@@ -46,6 +46,7 @@ export class Lobby {
       world: before.world,
       ...(before.initialSave === undefined ? {} : { initialSave: before.initialSave }),
       ...(before.mapOrigin === undefined ? {} : { mapOrigin: before.mapOrigin }),
+      ...(before.catalogMap === undefined ? {} : { catalogMap: before.catalogMap }),
     };
     this.invalidateReady();
     this.changed();

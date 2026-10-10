@@ -1,8 +1,11 @@
 import type { MapProvenance } from '@open-northland/data';
 import type { ClientMessage, RoomView, ServerMessage } from '@open-northland/net-protocol';
+import { diag } from '../../diag/log.js';
+import { installAnnouncedCatalogMap } from '../map-source/install.js';
+import { findMapSource, mapFetch } from '../map-source/sources.js';
 import { MAPS_INDEX_URL, parseMapsIndex } from '../maps-index.js';
 import { loadPersistedMap, persistedMapOrigin, persistVerifiedMap } from './cache.js';
-import { decodeMapTransfer, encodeMapTransfer, mapDeliveryAllowed } from './codec.js';
+import { decodeMapTransfer, encodeMapTransfer, isDeliverableMapOrigin, mapDeliveryAllowed } from './codec.js';
 import {
   loadVerifiedMapDocuments,
   readVerifiedMapDocuments,
@@ -17,6 +20,11 @@ export interface RoomMapTransferOptions {
   readonly fetchImpl?: typeof fetch;
   readonly cacheRead?: typeof loadPersistedMap;
   readonly cacheWrite?: typeof persistVerifiedMap;
+  /** Where a map's files load from: an installed catalogue map's store, else the given transport. */
+  readonly mapFetch?: typeof mapFetch;
+  readonly findSource?: typeof findMapSource;
+  /** Fetches the room's announced catalogue map from the catalogue server. */
+  readonly catalogInstall?: typeof installAnnouncedCatalogMap;
 }
 
 /** Retains one room's validated documents until handover; asynchronous loads cannot outlive that room. */
@@ -76,7 +84,7 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
     const deliveryOrigin = origin?.kind ?? persistedMapOrigin(documents);
     if (
       (locallyListed && !mapDeliveryAllowed(origin)) ||
-      (deliveryOrigin !== 'mod' && deliveryOrigin !== 'user') ||
+      !isDeliverableMapOrigin(deliveryOrigin) ||
       deliveryOrigin !== room.settings.mapOrigin
     ) {
       reportError(new Error('Local map origin does not permit delivery'));
@@ -112,8 +120,9 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
     loading = true;
     const transport: typeof fetch = (input, init) => fetchImpl(input, { ...init, signal });
     try {
+      const files = await (options.mapFetch ?? mapFetch)(mapId, transport);
       const [handle, response] = await Promise.all([
-        roomPrepared?.mapId === mapId ? roomPrepared : loadVerifiedMapDocuments(mapId, transport),
+        roomPrepared?.mapId === mapId ? roomPrepared : loadVerifiedMapDocuments(mapId, files),
         transport(MAPS_INDEX_URL),
       ]);
       if (!response.ok && response.status !== 404)
@@ -124,6 +133,14 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
       const entry = matches.find((item) => !mapDeliveryAllowed(item.provenance)) ?? matches[0];
       origin = entry?.provenance;
       locallyListed = entry !== undefined;
+      if (!locallyListed) {
+        const installed = await (options.findSource ?? findMapSource)(mapId);
+        if (disposed || generation !== active) return;
+        if (installed?.catalog !== undefined && !installed.stale) {
+          origin = installed.entry.provenance;
+          locallyListed = true;
+        }
+      }
       let resolved = handle;
       const fingerprint = expectedFingerprint();
       const allowedOrigin = room?.settings.mapOrigin;
@@ -147,6 +164,16 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
           return;
         }
         resolved = cached?.handle ?? null;
+      }
+      const announced = room?.settings.catalogMap;
+      if (resolved === null && !creator && announced?.mapId === mapId) {
+        try {
+          resolved = await (options.catalogInstall ?? installAnnouncedCatalogMap)(announced);
+        } catch (error) {
+          // The relay delivery below stays the fallback when the catalogue server cannot help.
+          diag.warn('content', 'catalogue server could not deliver the room map', { error: String(error) });
+        }
+        if (disposed || generation !== active) return;
       }
       documents = resolved;
       loaded = true;

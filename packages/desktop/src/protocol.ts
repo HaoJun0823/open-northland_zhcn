@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { net, protocol } from 'electron';
 import type { ShellRoots } from './paths.js';
 import { APP_ORIGIN_PREFIX, APP_SCHEME, GAME_HOST, routePathOf } from './protocol-routing.js';
-import { fileUnderRoot } from './static-files.js';
+import { servedFile } from './static-files.js';
 
 /** The `app://` scheme the shell serves the game from: the packaged stand-in for the Vite dev server. */
 export const GAME_URL = `${APP_ORIGIN_PREFIX}${GAME_HOST}/index.html`;
@@ -55,15 +55,14 @@ async function serveFile(file: string, contentType: string, method: string): Pro
 
 const DIRECTORY_INDEX = 'index.html';
 
-/** Install the `app://` handler; call once in `app.whenReady`. The built app and the content tree
- *  share one URL space, so a path is looked up under the app root first, then the content root. */
-export function handleAppProtocol(roots: ShellRoots): void {
+/** Install the `app://` handler; call once in `app.whenReady`. The built app, the content tree and the
+ *  installed maps share one URL space in `servedFile`'s order. */
+export function handleAppProtocol(roots: ShellRoots, mapsRoot: string): void {
   protocol.handle(APP_SCHEME, async (request) => {
     const url = new URL(request.url);
     const routePath = routePathOf(url.host, url.pathname);
     const pathname = routePath === '/' ? `/${DIRECTORY_INDEX}` : routePath;
-    const file =
-      (await fileUnderRoot(roots.appRoot, pathname)) ?? (await fileUnderRoot(roots.contentRoot, pathname));
+    const file = await servedFile(roots, mapsRoot, pathname);
     if (file === undefined) return notFound();
     const contentType = CONTENT_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
     return serveFile(file, contentType, request.method);

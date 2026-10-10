@@ -609,7 +609,19 @@ culturesnation.pl catalogue at `ON_API_UPSTREAM` (default `https://api.culturesn
 accepted map and campaign records, and writes them normalized to its data dir. The interval is whole
 seconds or a number with one unit `s`, `m`, `h` or `d`, from one minute to seven days (default `6h`).
 `HOST` binds one address and `API_BUILD` is the build the health check reports. The log is one JSON
-record per line; a skipped upstream record names its reason.
+record per line; a skipped upstream record names its reason, a record the `CatalogEntry` schema
+refuses included. An upstream that lists no map while a non-empty catalogue is stored counts as a
+failed sync and changes nothing.
+
+After each sync, and at start from the stored catalogue, a queue downloads every `archive` or `c2m`
+entry whose file is new or whose `updatedAt` changed, opens it with `packages/map-import` under its
+default limits (64 MB archive) and writes the sidecars. `API_CONVERT_CONCURRENCY` (1 to 8, default 1)
+sets how many entries download and convert at once; conversion itself is CPU work on the server's one
+thread. An entry is `pending` while queued, then `ok` with its maps or `failed` with a `reason`
+(`no-map`, `too-large`, `unsupported-archive`, `decode-failed`, `download-failed`). A failed download
+is retried with the next catalogue; every other verdict stays until the entry changes. Each map is
+served as `<entry id>-<folder slug>`, a repeated slug inside one entry as `-2`, `-3`. A finished
+batch publishes the catalogue again with the `conversion` fields, so its `ETag` changes.
 
 `ON_API_DATA_DIR` (default `.api-data` in the directory the server starts in, the checkout root for
 `npm run api`, ignored by Git) holds:
@@ -618,20 +630,31 @@ record per line; a skipped upstream record names its reason.
 | --- | --- |
 | `catalog.json` | The last good normalized catalogue; an upstream failure leaves it in place |
 | `raw/<page>.json` | The upstream pages that catalogue came from |
-| `thumbnails/<id>`, `thumbnails/<id>.json` | Each map's screenshot and its content type and `updatedAt`; fetched again only when `updatedAt` changes |
+| `thumbnails/<id>`, `thumbnails/<id>.json` | Each map's screenshot and its content type, `updatedAt` and SHA-256; fetched again only when `updatedAt` changes |
+| `archives/<id>/<sha256>.<ext>`, `archives/<id>/source.json` | The downloaded catalogue file, kept as the source of every re-conversion, and the URL and `updatedAt` it was fetched for |
+| `converted/<irVersion>/<id>/conversion.json` | The entry's verdict with the archive SHA-256, the `updatedAt` it was made from and each sidecar's SHA-256 |
+| `converted/<irVersion>/<id>/<mapId><suffix>`, `<mapId><suffix>.gz` | The sidecars, named as under `content/maps/`, each JSON one with a gzip copy made at conversion time |
 
-Endpoints, `GET` and `HEAD` only:
+A start with another `IR_VERSION` deletes every other `converted/<version>` and converts again from
+the kept archives without downloading them. Entries that leave the catalogue lose their archive and
+conversion after the next batch.
+
+Endpoints, `GET` and `HEAD` (plus the `OPTIONS` preflight below):
 
 | Path | Answer |
 | --- | --- |
-| `/healthz` | Build, `lastSyncAt`, `staleSeconds` and `entryCount`; 503 until a catalogue is loaded |
+| `/healthz` | Build, `lastSyncAt`, `staleSeconds`, `entryCount` and the `converted`, `pending` and `failed` entry counts; 503 until a catalogue is loaded |
 | `/v1/catalog` | Every entry, sorted by id, as the `Catalog` schema in `packages/data` |
 | `/v1/maps/<id>` | One `CatalogEntry` |
-| `/v1/maps/<id>/thumbnail` | The stored screenshot with its content type, or 404 |
+| `/v1/maps/<id>/thumbnail` | The stored screenshot with its content type, or 404; the catalogue links it with `?v=<sha256>`, which the route ignores |
+| `/v1/content/<irVersion>/maps/<mapId><suffix>` | One sidecar: `.json`, `.meta.json`, `.strings.json`, `.script.json`, `.briefing.json` or `.png`; another `irVersion` is a 404 whose body names the served one |
 
-Every `/v1` answer carries `Access-Control-Allow-Origin: *`, a SHA-256 `ETag` that `If-None-Match`
-turns into a 304, and a short `Cache-Control`; errors are `{ "error": "..." }`. The tests under
-`packages/api/test` run against an invented upstream:
+`OPTIONS` on a `/v1` path answers a CORS preflight with 204, allowing `GET`, `HEAD` and the
+`If-None-Match` header. Every `/v1` answer carries `Access-Control-Allow-Origin: *`, a SHA-256 `ETag` that `If-None-Match`
+turns into a 304, and a short `Cache-Control`; errors are `{ "error": "..." }`. A content file's
+`ETag` is its SHA-256, it is cached for an hour, and a request that accepts gzip gets the stored gzip
+copy. The tests under
+`packages/api/test` run against an invented upstream and archives built in the test:
 
 ```bash
 npx vitest run --project core packages/api
@@ -766,3 +789,21 @@ node packages/net-server/scripts/smoke-image.mjs open-northland-relay
 The smoke check runs the image with a public address and a room cap, reads them back from
 `/healthz`, has the relay refuse another protocol version by name and welcome its own, and lists
 the image's packages to prove the boundary.
+
+## API image
+
+The API image builds for `linux/amd64` and `linux/arm64` from `packages/api/Dockerfile`
+(`npm run api:image` builds and loads it locally as `open-northland-api`): the api, map-import,
+formats, data, render and sim packages compiled once, then only their `dist` trees and the four
+runtime dependencies (`fflate`, `node-unrar-js`, `zod`, `@noble/hashes`) in a Node image. It carries
+neither Pixi nor a content directory; the catalogue archives and the converted maps live on the
+`/data` volume (`ON_API_DATA_DIR`). The container starts on the "API server" variables above with
+`PORT` `8790` and `ON_API_DATA_DIR` `/data` preset, plus `API_BUILD` from the build argument of the
+same name. The health check passes once the first sync has completed, which takes a few seconds, and
+the first full conversion of the catalogue runs in the background for about six minutes after that.
+
+```bash
+npm run api:image
+docker run --rm -p 127.0.0.1:8790:8790 -v on-api-data:/data open-northland-api
+curl -s http://127.0.0.1:8790/healthz
+```

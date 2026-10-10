@@ -1,5 +1,6 @@
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { sha256Hex } from './catalog/snapshot.js';
 
 const CATALOG_FILE = 'catalog.json';
 const RAW_DIR = 'raw';
@@ -17,6 +18,8 @@ export interface StoredThumbnail {
 export interface ThumbnailMeta {
   readonly contentType: string;
   readonly updatedAt: string;
+  /** The SHA-256 of the bytes this meta describes, so a reader never pairs it with other bytes. */
+  readonly sha256: string;
 }
 
 /** The data dir: `catalog.json` (the last good normalized catalogue), `raw/<page>.json` (the upstream
@@ -45,6 +48,23 @@ export class DataStore {
     return writeAtomic(join(this.dir, CATALOG_FILE), text);
   }
 
+  /** The records of every stored raw page, in page order; empty before the first good sync. */
+  async readRawRecords(): Promise<unknown[]> {
+    const dir = join(this.dir, RAW_DIR);
+    const pages = (await readdir(dir))
+      .map((name) => RAW_PAGE.exec(name)?.[1])
+      .filter((page) => page !== undefined)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const records: unknown[] = [];
+    for (const page of pages) {
+      const body: unknown = JSON.parse(await readFile(join(dir, `${page}.json`), 'utf8'));
+      const data = typeof body === 'object' && body !== null ? (body as { data?: unknown }).data : undefined;
+      if (Array.isArray(data)) records.push(...data);
+    }
+    return records;
+  }
+
   /** Replaces the raw pages with this download's, dropping pages past its last. */
   async writeRawPages(pages: readonly { readonly page: number; readonly body: unknown }[]): Promise<void> {
     const dir = join(this.dir, RAW_DIR);
@@ -60,9 +80,9 @@ export class DataStore {
     try {
       const raw: unknown = JSON.parse(await readFile(this.thumbnailPath(id) + THUMBNAIL_META_SUFFIX, 'utf8'));
       if (typeof raw !== 'object' || raw === null) return null;
-      const { contentType, updatedAt } = raw as Record<string, unknown>;
-      return typeof contentType === 'string' && typeof updatedAt === 'string'
-        ? { contentType, updatedAt }
+      const { contentType, updatedAt, sha256 } = raw as Record<string, unknown>;
+      return typeof contentType === 'string' && typeof updatedAt === 'string' && typeof sha256 === 'string'
+        ? { contentType, updatedAt, sha256 }
         : null;
     } catch (error) {
       if (isMissing(error) || error instanceof SyntaxError) return null;
@@ -70,21 +90,29 @@ export class DataStore {
     }
   }
 
+  /** Null while a rewrite has replaced the bytes but not yet the meta, as well as when none is stored. */
   async readThumbnail(id: string): Promise<StoredThumbnail | null> {
     const meta = await this.readThumbnailMeta(id);
     if (meta === null) return null;
     try {
-      return { bytes: await readFile(this.thumbnailPath(id)), contentType: meta.contentType };
+      const bytes = await readFile(this.thumbnailPath(id));
+      return sha256Hex(bytes) === meta.sha256 ? { bytes, contentType: meta.contentType } : null;
     } catch (error) {
       if (isMissing(error)) return null;
       throw error;
     }
   }
 
-  /** The bytes land before the meta, so a meta always describes complete bytes. */
-  async writeThumbnail(id: string, bytes: Uint8Array, meta: ThumbnailMeta): Promise<void> {
+  /** The bytes land before the meta; the meta's hash lets a reader refuse a pair from two writes. */
+  async writeThumbnail(
+    id: string,
+    bytes: Uint8Array,
+    fetched: Omit<ThumbnailMeta, 'sha256'>,
+  ): Promise<ThumbnailMeta> {
+    const meta: ThumbnailMeta = { ...fetched, sha256: sha256Hex(bytes) };
     await writeAtomic(this.thumbnailPath(id), bytes);
     await writeAtomic(this.thumbnailPath(id) + THUMBNAIL_META_SUFFIX, JSON.stringify(meta));
+    return meta;
   }
 
   /** Removes the thumbnails of maps no longer in the catalogue. */
@@ -102,14 +130,14 @@ export class DataStore {
   }
 }
 
-function isMissing(error: unknown): boolean {
+export function isMissing(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
 let writeSequence = 0;
 
 /** Writes beside the target and renames over it, so a reader sees the old file or the new one. */
-async function writeAtomic(path: string, data: string | Uint8Array): Promise<void> {
+export async function writeAtomic(path: string, data: string | Uint8Array): Promise<void> {
   writeSequence += 1;
   const temporary = `${path}.${process.pid}.${writeSequence}.tmp`;
   try {

@@ -1,47 +1,27 @@
-# Convert catalogue archives on the server and serve the sidecars
+# Serve briefing pictures and keep conversions off the request thread
 
 **Area:** api · **Priority:** P2
 
-A catalogue entry is a `.zip`, `.rar` (RAR5 seen) or `.c2m` file, not a playable map. The app loads
-maps only as the sidecars the pipeline writes under `/maps/<id>.*`. The owner's ruling is that
-untrusted archives are unpacked on the server, not on players' machines, so the server must produce
-those sidecars and prove they are safe before serving them.
+The API converts every catalogue archive and serves the map sidecars under
+`/v1/content/<IR_VERSION>/maps/<mapId>.*`, but two pieces of the conversion ticket remain.
+
+The briefing pictures a map's hypertext pages reference (`ConvertedMap.pictures`, which the pipeline
+writes under `gui/hypertext/`) are neither stored nor served, so a catalogue map's mission book shows
+its text without the authored pictures.
+
+Conversion runs on the server's main thread. In the full catalogue run the slowest archive took 7 s,
+during which every request waited.
 
 ## Scope
 
-- Per catalogue entry with `file.kind !== 'external'`: download the archive into
-  `ON_API_DATA_DIR/archives/<id>/<sha256>.<ext>` (kept; it is the source of every re-conversion),
-  open it with `@open-northland/map-import` (zip, rar, c2m), convert, and write the sidecars to
-  `ON_API_DATA_DIR/converted/<IR_VERSION>/<id>/`. The fingerprint of the result is the one
-  `verifyMapDocuments` would compute in the app, so lobby peers can compare.
-- Hard limits as named constants in one module, sized from the catalogue (largest archive unpacks to
-  20 MB, largest entry 6 MB, most entries 2367, deepest map folder 3): archive 64 MB, unpacked 128 MB,
-  entry 16 MB, 5000 entries, depth 8. Entries with `..`, absolute paths, drive letters or symlink
-  flags fail the archive. The process runs as `node`, writes only under the data dir, and never executes anything
-  from an archive. One conversion at a time by default (`API_CONVERT_CONCURRENCY`); the queue runs
-  after each sync and on demand for an entry requested before its conversion exists.
-- A catalogue entry converts to one or more maps (campaign packs hold a main map and its sub-mission
-  folders; see the import-package ticket). Each entry records a verdict beside its sidecars: `ok`,
-  `no-map`, `too-large`, `unsupported-archive` (two catalogue files: one passworded, one with an
-  unreadable compression method), `decode-failed` with the decoder's message. `/v1/maps/:id` exposes
-  `conversion: { verdict, irVersion, maps: [{ mapId, fingerprint, campaign?, languages, players? }] }`
-  so the client can install the whole set, hide an entry or explain it. Sub maps are served under
-  their own map ids like any other.
-- Endpoints under the version the build carries, `GET /v1/content/<IR_VERSION>/maps/:id.json`,
-  `.meta.json`, `.script.json`, `.strings.json`, `.briefing.json`, `.map.png`, `.png`: the same file
-  names as `content/maps/`, so `loadTerrainMap` and its siblings work with a different base URL. A
-  request for another version answers 404 with a JSON body naming the served version. Responses carry
-  `ETag` (the fingerprint), `Content-Encoding: gzip` when accepted, long `Cache-Control`.
-- A start with a changed `IR_VERSION` converts from the kept archives and deletes the other version's
-  directory. Nothing reads an older version's output.
+- Store a converted entry's `pictures` beside its sidecars and serve them at
+  `/v1/content/<IR_VERSION>/gui/hypertext/<file>` with the same headers and validation as the map
+  sidecars; the client's briefing loader fetches them from the map's base URL.
+- Run `convertArchive` in a `node:worker_threads` worker (one per `API_CONVERT_CONCURRENCY` slot) so
+  the HTTP server keeps answering; failures still map to the same verdicts.
 
 ## Verify
 
-- Unit tests with synthetic archives authored for the repository (a zip and a c2m built in the test;
-  a rar fixture crafted once, under 10 KB): limits, path rules, verdicts, output equals a direct
-  `map-import` run byte for byte.
-- A test that the served sidecars parse with `parseTerrainMap`, `MapScript`, `MapStrings`, `MapMeta`
-  and reproduce the fingerprint.
-- Against the real catalogue on this machine: report the verdict distribution, total CPU time and
-  peak RSS of a full conversion; the numbers go in the completing commit message.
-- `npm run check`, `npm run build`, `npm test`.
+- Tests: a synthetic map whose briefing references a picture is served at the new route; a conversion
+  that blocks for a second does not delay a concurrent `/healthz`.
+- The full catalogue run keeps its verdict distribution; `npm run check`, `npm run build`, `npm test`.

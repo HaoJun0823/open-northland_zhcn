@@ -12,8 +12,10 @@ const FETCH_CONCURRENCY = 4;
 
 export type Log = (event: string, fields?: Record<string, unknown>) => void;
 
-export function thumbnailPath(id: string): string {
-  return `/v1/maps/${id}/thumbnail`;
+/** The URL the catalogue hands out, versioned by the stored bytes' hash so a replaced screenshot
+ *  gets a new URL; the route ignores the query. */
+export function thumbnailPath(id: string, sha256: string): string {
+  return `/v1/maps/${id}/thumbnail?v=${sha256}`;
 }
 
 async function fetchThumbnail(
@@ -31,25 +33,24 @@ async function fetchThumbnail(
   return { bytes, contentType };
 }
 
-/** Whether `record` ends up with a stored thumbnail: kept when fetched for the same `updatedAt`,
- *  fetched otherwise. A failed fetch keeps an older stored one. */
+/** The hash of the thumbnail `record` ends up with, or null for none: kept when fetched for the same
+ *  `updatedAt`, fetched otherwise. A failed fetch keeps an older stored one. */
 async function syncThumbnail(
   fetchFn: Fetch,
   store: DataStore,
   record: NormalizedRecord,
   log: Log,
-): Promise<boolean> {
+): Promise<string | null> {
   const { id, updatedAt } = record.entry;
   const meta = await store.readThumbnailMeta(id);
-  if (record.screenshotUrl === null) return false;
-  if (meta?.updatedAt === updatedAt) return true;
+  if (record.screenshotUrl === null) return null;
+  if (meta?.updatedAt === updatedAt) return meta.sha256;
   try {
     const { bytes, contentType } = await fetchThumbnail(fetchFn, record.screenshotUrl);
-    await store.writeThumbnail(id, bytes, { contentType, updatedAt });
-    return true;
+    return (await store.writeThumbnail(id, bytes, { contentType, updatedAt })).sha256;
   } catch (error) {
     log('thumbnail failed', { id, error: error instanceof Error ? error.message : String(error) });
-    return meta !== null;
+    return meta?.sha256 ?? null;
   }
 }
 
@@ -61,7 +62,7 @@ export async function syncThumbnails(
   records: readonly NormalizedRecord[],
   log: Log,
 ): Promise<CatalogEntry[]> {
-  const stored = new Array<boolean>(records.length).fill(false);
+  const stored = new Array<string | null>(records.length).fill(null);
   let next = 0;
   const worker = async (): Promise<void> => {
     while (next < records.length) {
@@ -72,9 +73,10 @@ export async function syncThumbnails(
   };
   await Promise.all(Array.from({ length: FETCH_CONCURRENCY }, worker));
   await store.pruneThumbnails(
-    new Set(records.filter((_, index) => stored[index]).map(({ entry }) => entry.id)),
+    new Set(records.filter((_, index) => stored[index] != null).map(({ entry }) => entry.id)),
   );
-  return records.map(({ entry }, index) =>
-    stored[index] ? { ...entry, thumbnail: thumbnailPath(entry.id) } : entry,
-  );
+  return records.map(({ entry }, index) => {
+    const sha256 = stored[index];
+    return sha256 == null ? entry : { ...entry, thumbnail: thumbnailPath(entry.id, sha256) };
+  });
 }

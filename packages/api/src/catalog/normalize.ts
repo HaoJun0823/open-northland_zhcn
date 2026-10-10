@@ -1,9 +1,4 @@
-import {
-  CATALOG_MAP_ID,
-  type CatalogCategory,
-  type CatalogEntry,
-  type CatalogFile,
-} from '@open-northland/data';
+import { CATALOG_MAP_ID, type CatalogCategory, CatalogEntry, type CatalogFile } from '@open-northland/data';
 
 /** The status the catalogue's moderators give a published download. */
 const ACCEPTED_STATUS = 'zaakceptowany';
@@ -28,11 +23,14 @@ export interface SkippedRecord {
   readonly reason: string;
 }
 
-/** A normalized entry with what the thumbnail job needs and the catalogue does not expose. */
+/** A normalized entry with what the thumbnail and conversion jobs need and the catalogue does not
+ *  expose. */
 export interface NormalizedRecord {
   readonly entry: CatalogEntry;
   /** Absolute screenshot URL on the upstream, or null when the record has none. */
   readonly screenshotUrl: string | null;
+  /** The download on the catalogue's own host; null for an `external` file, which is never fetched. */
+  readonly fileUrl: string | null;
 }
 
 export interface Normalized {
@@ -111,29 +109,37 @@ function normalizeRecord(record: unknown, upstream: string): NormalizedRecord | 
   if (id === null) return skip(`documentId ${String(record.documentId)}`);
   const category = CATEGORIES.get(text(record.category));
   if (category === undefined) return skip(`unknown category ${JSON.stringify(record.category)}`);
-  const file = classifyFile(text(record.fileUrl));
+  const fileUrl = text(record.fileUrl);
+  const file = classifyFile(fileUrl);
   if (file === null) return skip(`fileUrl ${String(record.fileUrl)}`);
   const publishedAt = isoDate(record.publishedAt);
   const updatedAt = isoDate(record.updatedAt);
   if (publishedAt === null || updatedAt === null) return skip('no publishedAt or updatedAt');
   const version = versionText(record);
+  // The schema is the served contract: an entry it refuses would fail every later catalogue write.
+  const checked = CatalogEntry.safeParse({
+    id,
+    source: { documentId: text(record.documentId), id: upstreamId, page: CATALOG_PAGE },
+    title: text(record.title),
+    shortDescription: text(record.shortDescription),
+    fullDescription: text(record.fullDescription),
+    author: isRecord(record.author) ? text(record.author.username) : '',
+    category,
+    publishedAt,
+    updatedAt,
+    downloadCount: count(record.downloadCount),
+    likeCount: count(record.likeCount),
+    ...(version === undefined ? {} : { versionText: version }),
+    file,
+  });
+  if (!checked.success) {
+    const issue = checked.error.issues[0];
+    return skip(`schema: ${issue === undefined ? 'invalid' : `${issue.path.join('.')} ${issue.message}`}`);
+  }
   return {
-    entry: {
-      id,
-      source: { documentId: text(record.documentId), id: upstreamId, page: CATALOG_PAGE },
-      title: text(record.title),
-      shortDescription: text(record.shortDescription),
-      fullDescription: text(record.fullDescription),
-      author: isRecord(record.author) ? text(record.author.username) : '',
-      category,
-      publishedAt,
-      updatedAt,
-      downloadCount: count(record.downloadCount),
-      likeCount: count(record.likeCount),
-      ...(version === undefined ? {} : { versionText: version }),
-      file,
-    },
+    entry: checked.data,
     screenshotUrl: screenshotUrl(record, upstream),
+    fileUrl: file.kind === 'external' ? null : new URL(fileUrl).toString(),
   };
 }
 

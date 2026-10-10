@@ -17,6 +17,7 @@ describe('apiConfigFromEnvironment', () => {
       dataDir: '/checkout/.api-data',
       upstream: DEFAULT_UPSTREAM,
       syncIntervalMs: SIX_HOURS * MS_PER_HOUR,
+      convertConcurrency: 1,
       build: null,
     });
   });
@@ -29,6 +30,7 @@ describe('apiConfigFromEnvironment', () => {
         ON_API_DATA_DIR: '/data',
         ON_API_UPSTREAM: 'http://localhost:1337/',
         API_BUILD: 'abc',
+        API_CONVERT_CONCURRENCY: '3',
       },
       '/checkout',
     );
@@ -38,8 +40,12 @@ describe('apiConfigFromEnvironment', () => {
       dataDir: '/data',
       upstream: 'http://localhost:1337',
       build: 'abc',
+      convertConcurrency: 3,
     });
     expect(() => apiConfigFromEnvironment({ PORT: '70000' }, '/')).toThrow(/PORT/);
+    expect(() => apiConfigFromEnvironment({ API_CONVERT_CONCURRENCY: '0' }, '/')).toThrow(
+      /API_CONVERT_CONCURRENCY/,
+    );
     expect(() => apiConfigFromEnvironment({ ON_API_UPSTREAM: 'ftp://x' }, '/')).toThrow(/ON_API_UPSTREAM/);
   });
 });

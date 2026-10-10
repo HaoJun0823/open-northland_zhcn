@@ -14,3 +14,4 @@ packages/desktop/release
 **/*.log
 .env
 .env.*
+.api-data

@@ -14,6 +14,9 @@ const MIN_SYNC_INTERVAL_SECONDS = SECONDS_PER_UNIT.m;
 /** Below the 2^31 ms a Node timer accepts. */
 const MAX_SYNC_INTERVAL_SECONDS = 7 * SECONDS_PER_UNIT.d;
 const MS_PER_SECOND = 1000;
+const DEFAULT_CONVERT_CONCURRENCY = 1;
+/** Conversion is CPU work on the server's one thread; more only overlaps downloads. */
+const MAX_CONVERT_CONCURRENCY = 8;
 
 export type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -28,6 +31,8 @@ export interface ApiConfig {
   /** Origin of the culturesnation.pl Strapi API, without a trailing slash. */
   readonly upstream: string;
   readonly syncIntervalMs: number;
+  /** Catalogue files downloaded and converted at once. */
+  readonly convertConcurrency: number;
   /** The build this image came from, for the health endpoint. */
   readonly build: string | null;
 }
@@ -61,6 +66,18 @@ function upstreamSetting(env: Environment): string {
   return url.origin;
 }
 
+function convertConcurrencySetting(env: Environment): number {
+  const raw = setting(env, 'API_CONVERT_CONCURRENCY');
+  if (raw === null) return DEFAULT_CONVERT_CONCURRENCY;
+  const value = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+  if (!Number.isInteger(value) || value < 1 || value > MAX_CONVERT_CONCURRENCY) {
+    throw new Error(
+      `API_CONVERT_CONCURRENCY must be an integer from 1 to ${MAX_CONVERT_CONCURRENCY}, got ${raw}`,
+    );
+  }
+  return value;
+}
+
 /** `API_SYNC_INTERVAL`: whole seconds (`21600`) or a number with one unit `s`, `m`, `h` or `d` (`6h`). */
 export function parseSyncInterval(raw: string): number {
   const match = /^(\d+)\s*([smhd]?)$/i.exec(raw);
@@ -87,6 +104,7 @@ export function apiConfigFromEnvironment(env: Environment, cwd: string): ApiConf
     upstream: upstreamSetting(env),
     syncIntervalMs:
       interval === null ? DEFAULT_SYNC_INTERVAL_SECONDS * MS_PER_SECOND : parseSyncInterval(interval),
+    convertConcurrency: convertConcurrencySetting(env),
     build: setting(env, 'API_BUILD'),
   };
 }

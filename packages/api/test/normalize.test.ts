@@ -79,6 +79,20 @@ describe('normalizeRecords', () => {
     expect(entry('The Long Road').screenshotUrl).toBeNull();
   });
 
+  it('keeps the download URL of a file on the catalogue host and none for an external one', () => {
+    expect(entry('Frozen Fjord').fileUrl).toBe('https://culturesnation.pl/downloads/frozen_fjord.rar');
+    expect(entry('Two Rivers').fileUrl).toBe('https://www.culturesnation.pl/downloads/two_rivers.C2M');
+    expect(entry('The Long Road').fileUrl).toBeNull();
+    expect(Object.keys(entry('Frozen Fjord').entry)).not.toContain('fileUrl');
+  });
+
+  it('skips a record the catalogue schema refuses instead of failing the whole catalogue', () => {
+    const farFuture = { ...ACCEPTED_RECORDS[0], updatedAt: '+010000-01-01T00:00:00.000Z' };
+    const result = normalizeRecords([farFuture], UPSTREAM);
+    expect(result.records).toEqual([]);
+    expect(result.skipped).toEqual([{ upstreamId: 11, reason: expect.stringMatching(/^schema: updatedAt/) }]);
+  });
+
   it('skips a second record that maps to an id already taken', () => {
     const twin = { ...ACCEPTED_RECORDS[0], id: 99, documentId: 'abcdef0123456789GHIJKLMN' };
     const result = normalizeRecords([ACCEPTED_RECORDS[0], twin], UPSTREAM);

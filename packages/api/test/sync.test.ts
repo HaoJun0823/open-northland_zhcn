@@ -1,4 +1,5 @@
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Catalog } from '@open-northland/data';
@@ -15,6 +16,8 @@ import {
 } from './support/strapi-fixture.js';
 
 const HOUR_MS = 3_600_000;
+/** The bytes and the meta beside them. */
+const FILES_PER_THUMBNAIL = 2;
 
 describe('syncCatalog', () => {
   let dir: string;
@@ -40,16 +43,20 @@ describe('syncCatalog', () => {
       [...ACCEPTED_RECORDS.slice(0, 3), ...REFUSED_RECORDS],
       ACCEPTED_RECORDS.slice(3),
     ]);
-    const snapshot = await syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log });
+    const synced = await syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log });
     const catalog = await readCatalog();
     expect(catalog).toHaveLength(ACCEPTED_RECORDS.length);
-    expect(snapshot.entries.size).toBe(ACCEPTED_RECORDS.length);
+    expect(synced.catalog).toEqual(catalog);
+    expect([...synced.downloads.keys()]).toEqual(
+      catalog.filter((entry) => entry.file.kind !== 'external').map((entry) => entry.id),
+    );
     expect((await readdir(join(dir, 'raw'))).sort()).toEqual(['1.json', '2.json']);
     expect(events.filter((event) => event === 'record skipped')).toHaveLength(REFUSED_RECORDS.length);
     const withThumbnail = catalog.filter((entry) => entry.thumbnail !== undefined);
     expect(withThumbnail).toHaveLength(ACCEPTED_RECORDS.length - 1);
     const first = withThumbnail[0];
-    expect(first?.thumbnail).toBe(`/v1/maps/${first?.id}/thumbnail`);
+    const pngHash = createHash('sha256').update(PNG_BYTES).digest('hex');
+    expect(first?.thumbnail).toBe(`/v1/maps/${first?.id}/thumbnail?v=${pngHash}`);
     expect(await store.readThumbnail(first?.id ?? '')).toEqual({
       bytes: PNG_BYTES,
       contentType: 'image/png',
@@ -61,8 +68,8 @@ describe('syncCatalog', () => {
     const upstream = new FakeUpstream([ACCEPTED_RECORDS]);
     const first = await syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log });
     const second = await syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log });
-    expect([...second.entries.keys()]).toEqual([...first.entries.keys()]);
-    expect(second.catalog.etag).toBe(first.catalog.etag);
+    expect(second.catalog.map(({ id }) => id)).toEqual(first.catalog.map(({ id }) => id));
+    expect(JSON.stringify(second.catalog)).toBe(JSON.stringify(first.catalog));
   });
 
   it('fetches a thumbnail once and again only when updatedAt changes', async () => {
@@ -94,6 +101,28 @@ describe('syncCatalog', () => {
     expect(await readdir(join(dir, 'thumbnails'))).toHaveLength(2);
   });
 
+  it('refuses a thumbnail whose bytes another write replaced after its meta', async () => {
+    const upstream = new FakeUpstream([ACCEPTED_RECORDS]);
+    const { catalog } = await syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log });
+    const id = catalog.find((entry) => entry.thumbnail !== undefined)?.id ?? '';
+    await writeFile(join(dir, 'thumbnails', id), Buffer.from('newer bytes'));
+    expect(await store.readThumbnail(id)).toBeNull();
+  });
+
+  it('keeps a non-empty catalogue when the upstream suddenly lists nothing', async () => {
+    const upstream = new FakeUpstream([ACCEPTED_RECORDS]);
+    await syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log });
+    const before = await readFile(join(dir, 'catalog.json'), 'utf8');
+    upstream.pages = [];
+    await expect(syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log })).rejects.toThrow(
+      /lists no map/,
+    );
+    expect(await readFile(join(dir, 'catalog.json'), 'utf8')).toBe(before);
+    expect(await readdir(join(dir, 'thumbnails'))).toHaveLength(
+      FILES_PER_THUMBNAIL * (ACCEPTED_RECORDS.length - 1),
+    );
+  });
+
   it('keeps the last good catalogue when the upstream fails', async () => {
     const upstream = new FakeUpstream([ACCEPTED_RECORDS]);
     await syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log });
@@ -119,12 +148,12 @@ describe('CatalogSync', () => {
       store,
       log: (event: string) => events.push(event),
     };
-    const good = new CatalogSync(options, HOUR_MS, (snapshot) => published.push(snapshot.entries.size));
+    const good = new CatalogSync(options, HOUR_MS, (synced) => published.push(synced.catalog.length));
     good.start();
     await good.stop();
     expect(published).toEqual([ACCEPTED_RECORDS.length]);
     upstream.failing = true;
-    const bad = new CatalogSync(options, HOUR_MS, (snapshot) => published.push(snapshot.entries.size));
+    const bad = new CatalogSync(options, HOUR_MS, (synced) => published.push(synced.catalog.length));
     bad.start();
     await bad.stop();
     expect(published).toHaveLength(1);

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Catalog, CatalogEntry } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { catalogSnapshot } from '../src/catalog/snapshot.js';
 import { syncCatalog } from '../src/catalog/sync.js';
 import { type ApiServer, startApiServer } from '../src/server.js';
 import { DataStore } from '../src/store.js';
@@ -39,12 +40,11 @@ describe('api server', () => {
 
   const sync = async () => {
     const upstream = new FakeUpstream([ACCEPTED_RECORDS]);
-    server.publish(
-      await syncCatalog(
-        { fetch: upstream.fetch, upstream: UPSTREAM, store, log: () => undefined },
-        () => SYNCED_AT,
-      ),
+    const synced = await syncCatalog(
+      { fetch: upstream.fetch, upstream: UPSTREAM, store, log: () => undefined },
+      () => SYNCED_AT,
     );
+    server.publish(catalogSnapshot(synced.catalog, synced.syncedAt));
   };
 
   it('fails the health check until the first sync, then reports it', async () => {
@@ -56,6 +56,9 @@ describe('api server', () => {
       lastSyncAt: null,
       staleSeconds: null,
       entryCount: 0,
+      converted: 0,
+      pending: 0,
+      failed: 0,
     });
     expect((await fetch(`${base}/v1/catalog`)).status).toBe(503);
     await sync();
@@ -67,6 +70,9 @@ describe('api server', () => {
       lastSyncAt: SYNCED_AT.toISOString(),
       staleSeconds: LATER_SECONDS,
       entryCount: ACCEPTED_RECORDS.length,
+      converted: 0,
+      pending: 0,
+      failed: 0,
     });
   });
 
@@ -128,6 +134,19 @@ describe('api server', () => {
     expect(await unknown.json()).toEqual({ error: 'no such map' });
     expect((await fetch(`${base}/v1/maps/..%2Fcatalog.json/thumbnail`)).status).toBe(404);
     expect((await fetch(`${base}/elsewhere`)).status).toBe(404);
+  });
+
+  it('answers a CORS preflight on /v1 so a browser may send If-None-Match', async () => {
+    const preflight = await fetch(`${base}/v1/catalog`, {
+      method: 'OPTIONS',
+      headers: { origin: 'app://open-northland', 'access-control-request-headers': 'if-none-match' },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get('access-control-allow-origin')).toBe('*');
+    expect(preflight.headers.get('access-control-allow-methods')).toBe('GET, HEAD');
+    expect(preflight.headers.get('access-control-allow-headers')).toBe('If-None-Match');
+    expect(Number(preflight.headers.get('access-control-max-age'))).toBeGreaterThan(0);
+    expect((await fetch(`${base}/healthz`, { method: 'OPTIONS' })).status).toBe(405);
   });
 
   it('answers a raw path traversal attempt with a miss', async () => {

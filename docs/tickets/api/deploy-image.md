@@ -1,26 +1,20 @@
-# Ship the API as its own image
+# Run the API on the VPS
 
 **Area:** api, tooling · **Priority:** P2
 
-Without an image and a documented runtime the API exists only on a developer's machine, and the
-client tickets have no `ON_API_URL` to point at.
+`packages/api/Dockerfile` builds and starts (documented under "API image" in `docs/DEVELOPMENT.md`),
+but nothing runs it: the client's default `ON_API_URL` points at `https://api.opennorthland.org`, which
+does not exist yet.
 
 ## Scope
 
-- `packages/api/Dockerfile` in the shape of `packages/net-server/Dockerfile`: build on the builder's
-  platform, copy only the compiled workspace packages the API imports (`api`, `map-import`, `data`,
-  the pipeline decoders it reaches through `map-import`) and their runtime dependencies, run as
-  `node`, `HEALTHCHECK` on `/healthz`, labels and license as the relay. The image holds no content
-  tree and no mod file; the data dir is a volume.
-- Document in `docs/DEVELOPMENT.md` next to the relay section: the `api` and `api:image` root scripts (as `relay` and `relay:image`), the environment
-  variables, the volume layout, and how the image is built and pushed the way the relay's is today.
-- Compose or run notes for the VPS: memory limit sized from the conversion ticket's peak RSS, the
-  volume, `api.opennorthland.org` behind the existing TLS termination, and a request rate limit on
-  `/v1` at the edge.
+- Compose or run notes for the VPS beside the relay's: the `/data` volume, a memory limit sized from
+  the measured full conversion (peak RSS 1.06 GB, 1.8 GB of data for the whole catalogue),
+  `api.opennorthland.org` behind the existing TLS termination, a request rate limit on `/v1` at the
+  edge, and the image published the way the relay's is.
+- `API_BUILD` set from the build at publish time.
 
 ## Verify
 
-- The image builds for `linux/amd64` and `linux/arm64`, starts with an empty volume, syncs, converts
-  one entry and answers `/v1/catalog` from a browser page on another origin (CORS).
-- `/healthz` fails while the first sync has not completed and passes after.
-- `npm run check:docs`.
+- `https://api.opennorthland.org/healthz` reports the build and a fresh sync; `/v1/catalog` answers a
+  browser page on another origin; a converted map's terrain document arrives gzipped.

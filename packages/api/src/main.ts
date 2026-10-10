@@ -1,7 +1,12 @@
-import { catalogSnapshot } from './catalog/snapshot.js';
-import { CatalogSync } from './catalog/sync.js';
+import { IR_VERSION } from '@open-northland/data/ir-version';
+import { normalizeRecords } from './catalog/normalize.js';
+import { parseCatalog } from './catalog/snapshot.js';
+import { CatalogSync, downloadsOf } from './catalog/sync.js';
 import { apiConfigFromEnvironment } from './config.js';
-import { startApiServer } from './server.js';
+import { loadUnrarWasm } from './conversion/convert.js';
+import { ConversionService } from './conversion/service.js';
+import { ConversionStore } from './conversion/store.js';
+import { type ApiServer, startApiServer } from './server.js';
 import { DataStore } from './store.js';
 
 /** One JSON line per event, for a log collector to read as a record. */
@@ -9,38 +14,62 @@ function logLine(event: string, fields?: Record<string, unknown>): void {
   console.log(JSON.stringify({ time: new Date().toISOString(), event, ...fields }));
 }
 
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 let stopAll: () => Promise<void>;
 try {
   const config = apiConfigFromEnvironment(process.env, process.cwd());
   const store = new DataStore(config.dataDir);
   await store.init();
-  const server = await startApiServer({ ...config, store, log: logLine });
-  // The last good catalogue serves at once; the first sync replaces it when it completes.
+  let server: ApiServer | null = null;
+  const conversions = new ConversionService({
+    store: new ConversionStore(config.dataDir, IR_VERSION),
+    fetch,
+    unrarWasm: loadUnrarWasm(),
+    concurrency: config.convertConcurrency,
+    publish: (snapshot) => server?.publish(snapshot),
+    log: logLine,
+  });
+  await conversions.init();
+  server = await startApiServer({ ...config, store, content: conversions, log: logLine });
+  // The last good catalogue serves at once and converts from the kept archives; the first sync
+  // replaces it when it completes. Its download URLs come from the raw pages it was made from.
   const stored = await store.readCatalog();
   if (stored !== null) {
     try {
-      server.publish(catalogSnapshot(stored.text, stored.writtenAt));
+      const catalog = parseCatalog(stored.text);
+      const updatedAt = new Map(catalog.map((entry) => [entry.id, entry.updatedAt]));
+      const records = normalizeRecords(await store.readRawRecords(), config.upstream).records.filter(
+        ({ entry }) => updatedAt.get(entry.id) === entry.updatedAt,
+      );
+      conversions.setCatalog({ catalog, downloads: downloadsOf(records), syncedAt: stored.writtenAt });
     } catch (error) {
-      logLine('stored catalogue refused', { error: error instanceof Error ? error.message : String(error) });
+      logLine('stored catalogue refused', { error: messageOf(error) });
     }
   }
   const sync = new CatalogSync(
     { fetch, upstream: config.upstream, store, log: logLine },
     config.syncIntervalMs,
-    (snapshot) => server.publish(snapshot),
+    (synced) => conversions.setCatalog(synced),
   );
   sync.start();
   logLine('started', {
     dataDir: config.dataDir,
     upstream: config.upstream,
     syncIntervalMs: config.syncIntervalMs,
+    convertConcurrency: config.convertConcurrency,
+    irVersion: IR_VERSION,
   });
+  const running = server;
   stopAll = async () => {
-    await server.close();
+    await running.close();
     await sync.stop();
+    await conversions.stop();
   };
 } catch (error) {
-  logLine('start failed', { error: error instanceof Error ? error.message : String(error) });
+  logLine('start failed', { error: messageOf(error) });
   process.exit(1);
 }
 
@@ -48,7 +77,10 @@ const stop = (signal: string): void => {
   logLine('stopping', { signal });
   stopAll().then(
     () => process.exit(0),
-    () => process.exit(1),
+    (error: unknown) => {
+      logLine('stop failed', { error: messageOf(error) });
+      process.exit(1);
+    },
   );
 };
 process.on('SIGINT', () => stop('SIGINT'));

@@ -5,7 +5,9 @@ import {
   diplomacyStance,
   Engagement,
   Health,
+  hasMissionBehaviour,
   MAX_PLAYERS,
+  MISSION_BEHAVIOUR,
   Owner,
   Person,
   Position,
@@ -46,6 +48,8 @@ export interface WeaponMix {
  * A man holding a tower post leaves the army too. {@link towerPostFor}'s entitlement is the test rather
  * than the garrison marker, so an archer still walking to his tower is already gone from the muster. A
  * man attached to a vehicle belongs to it: a walk order to a driver would drive his catapult instead.
+ * A man the map put beyond control (behaviour bit 5) is no soldier of the seat's: the original's scripted
+ * handler never lists him, so a script-placed guard or envoy stays where the map stands him.
  */
 export function takeCensus(world: World, ctx: SystemContext, player: number): ArmyCensus {
   const ready: Entity[] = [];
@@ -57,6 +61,7 @@ export function takeCensus(world: World, ctx: SystemContext, player: number): Ar
     if (towerPostFor(world, ctx, e, jobType) !== null) continue;
     if (world.has(e, AttackOrder) || world.has(e, Engagement)) continue;
     if (!world.has(e, Position) || world.has(e, Rider)) continue;
+    if (hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.NOT_CONTROLLABLE)) continue;
     const bare = fightingWeapon(world, ctx, e, settler) === null;
     (bare && world.has(e, AssistantRecruit) ? awaitingWeapon : ready).push(e);
   }

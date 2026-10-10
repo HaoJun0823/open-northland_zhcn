@@ -531,6 +531,21 @@ describe('ai defence - the sortie', () => {
     expect(ordered).toEqual(band.filter((e) => !garrison.includes(e)));
   });
 
+  it('never sends a fighter the map put beyond the player’s control, with or without the module', () => {
+    const sim = aiSim();
+    place(sim, BARRACKS_TYPE, BARRACKS);
+    const hq = place(sim, HQ_TYPE, SEAT_HQ);
+    const [free, guard] = spawn(sim, 2, { x: BARRACKS.x, y: BARRACKS.y + 6 }, SPEARMAN);
+    if (free === undefined || guard === undefined) throw new Error('setup: the band spawn was refused');
+    stampMissionBehaviour(sim.world, guard, MISSION_BEHAVIOUR.NOT_CONTROLLABLE);
+    standOff(sim, hq, watchOf(sim), SPEARMAN);
+
+    const decide = militaryModule.whileDisabled;
+    if (decide === undefined) throw new Error('the military module has no scripted half');
+    expect(attackMoves(run(sim)).map((m) => m.entity)).toEqual([free]);
+    expect(attackMoves([...decide(sim.world, ctxOf(sim), SEAT)]).map((m) => m.entity)).toEqual([free]);
+  });
+
   it('stays quiet while the nearest enemy fighter is outside every watch band', () => {
     const sim = aiSim();
     place(sim, BARRACKS_TYPE, BARRACKS);

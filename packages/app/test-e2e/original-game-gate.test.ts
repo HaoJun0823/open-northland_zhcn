@@ -6,13 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { type Browser, chromium, type Page } from 'playwright';
 import type { ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { libraryHead } from '../../original-check/test/memory-reader.js';
+import { libraryHead } from '../../ownership/test/memory-reader.js';
 
 /** The browser build's original-game gate, in Chromium over the app's dev server. */
 
 const APP_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SETTINGS_KEY = 'open-northland.settings';
-const MENU_QUERY = '?lang=eng&sound=off&fullscreen=off';
+/** The dev server checks only when the URL asks; a release build always does. */
+const MENU_QUERY = '?lang=eng&sound=off&fullscreen=off&originalGameCheck';
 /** A cold dev server transforms the whole menu on the first load. */
 const SCREEN_TIMEOUT_MS = 90_000;
 
@@ -109,9 +110,12 @@ describe('original-game gate', () => {
 
   it('sends an unverified game link to the menu gate', async () => {
     const page = await freshPage(false);
-    await page.goto(`${origin}/?map=magiczny_las&player=0&lang=eng&sound=off&fullscreen=off`, {
-      waitUntil: 'commit',
-    });
+    await page.goto(
+      `${origin}/?map=magiczny_las&player=0&lang=eng&sound=off&fullscreen=off&originalGameCheck`,
+      {
+        waitUntil: 'commit',
+      },
+    );
     await page.locator('.main-menu__gate').waitFor({ timeout: SCREEN_TIMEOUT_MS });
     expect(new URL(page.url()).searchParams.has('map')).toBe(false);
     await page.context().close();

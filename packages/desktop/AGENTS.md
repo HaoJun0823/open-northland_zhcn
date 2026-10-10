@@ -15,9 +15,9 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   content root, both laid out exactly as the app fetches them. Content and app are read-only
   resources. The shell's own code writes only the window state file and `original-game.json` in
   Electron's profile, beside the page's IndexedDB that holds the saves.
-- Before the window opens, `src/original-game/` requires an installed original game: the profile's
-  `original-game.json`, else detection (or only the folder `ON_ORIGINAL_GAME_DIR` names), else a
-  blocking dialog. Its detection, state and gate modules import nothing from `electron`; only
+- Before the window opens, a packaged build (or a run with `ON_ORIGINAL_GAME_CHECK=1`) requires an
+  installed original game through `src/original-game/`: the profile's `original-game.json`, else
+  detection (or only the folder `ON_ORIGINAL_GAME_DIR` names), else a blocking dialog. Its detection, state and gate modules import nothing from `electron`; only
   `prompt.ts` does.
 - `src/paths.ts` owns where the two trees are: the packaged app's `resources/app` and
   `resources/content` (the `extraResources` of `electron-builder.yml`), else the checkout's

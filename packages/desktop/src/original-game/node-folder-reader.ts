@@ -1,6 +1,6 @@
 import { open, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { FolderEntry, FolderPath, FolderReader } from '@open-northland/original-check';
+import type { FolderEntry, FolderPath, FolderReader } from '@open-northland/ownership';
 
 async function entryAt(path: string, name: string): Promise<FolderEntry | undefined> {
   try {

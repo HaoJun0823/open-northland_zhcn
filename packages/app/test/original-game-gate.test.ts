@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { libraryHead } from '../../original-check/test/memory-reader.js';
+import { libraryHead } from '../../ownership/test/memory-reader.js';
 import { fileListReader } from '../src/entries/main-menu/original-game/browser-folder-reader.js';
 import {
   installLabel,
   type OriginalGameRecord,
   originalGameGate,
 } from '../src/entries/main-menu/original-game/gate.js';
-import { originalGameCheckOwed, originalGameRedirect } from '../src/view/original-game-check.js';
+import {
+  originalGameCheckEnabled,
+  originalGameCheckOwed,
+  originalGameRedirect,
+} from '../src/view/original-game-check.js';
 
 function pickedFile(relativePath: string, bytes: Uint8Array): File {
   const file = new File([new Uint8Array(bytes)], relativePath.split('/').at(-1) ?? relativePath);
@@ -52,6 +56,8 @@ describe('originalGameRedirect', () => {
   it('sends an unverified visitor of a game link to the menu, keeping language and sound', () => {
     const params = new URLSearchParams('map=magiczny_las&player=0&lang=eng&sound=off');
     expect(originalGameRedirect('map', params, () => true)).toBe('?lang=eng&sound=off');
+    const forced = new URLSearchParams('map=magiczny_las&originalGameCheck');
+    expect(originalGameRedirect('map', forced, () => true)).toBe('?originalGameCheck=');
     expect(originalGameRedirect('relay', new URLSearchParams('relay=ws://x'), () => true)).toBe('?');
   });
 
@@ -65,9 +71,16 @@ describe('originalGameRedirect', () => {
 
   it('owes the check only to a browser-served page without the flag', () => {
     vi.stubGlobal('window', { location: { protocol: 'https:' } });
-    expect(originalGameCheckOwed({ originalGameVerified: false })).toBe(true);
-    expect(originalGameCheckOwed({ originalGameVerified: true })).toBe(false);
+    expect(originalGameCheckOwed({ originalGameVerified: false }, true)).toBe(true);
+    expect(originalGameCheckOwed({ originalGameVerified: true }, true)).toBe(false);
+    expect(originalGameCheckOwed({ originalGameVerified: false }, false)).toBe(false);
     vi.stubGlobal('window', { location: { protocol: 'app:' } });
-    expect(originalGameCheckOwed({ originalGameVerified: false })).toBe(false);
+    expect(originalGameCheckOwed({ originalGameVerified: false }, true)).toBe(false);
+  });
+
+  it('checks every production page, and a dev page only when the URL asks for it', () => {
+    expect(originalGameCheckEnabled('?lang=pl', true)).toBe(true);
+    expect(originalGameCheckEnabled('?lang=pl', false)).toBe(false);
+    expect(originalGameCheckEnabled('?lang=pl&originalGameCheck', false)).toBe(true);
   });
 });

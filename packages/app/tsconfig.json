@@ -13,7 +13,7 @@
     { "path": "../lockstep" },
     { "path": "../net-protocol" },
     { "path": "../net-client" },
-    { "path": "../original-check" },
+    { "path": "../ownership" },
     { "path": "../render" },
     { "path": "../audio" },
     { "path": "../art-contracts" }

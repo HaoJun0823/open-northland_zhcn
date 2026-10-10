@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron, type ElectronApplication, type Page } from 'playwright';
 import { test } from 'vitest';
-import { ORIGINAL_GAME_DIR_ENV } from '../src/original-game/detect.js';
+import { ORIGINAL_GAME_CHECK_ENV, ORIGINAL_GAME_DIR_ENV } from '../src/original-game/detect.js';
 import { ORIGINAL_GAME_STATE_FILE } from '../src/original-game/state.js';
 import { resolveShellRoots } from '../src/paths.js';
 import { libraryHead } from '../test/original-game/fixture.js';
@@ -37,7 +37,10 @@ test('boots app://, lists map previews, and restores a save and the window mode 
   const originalGame = join(profile, 'original-game');
   await mkdir(join(originalGame, 'DataX', 'Libs'), { recursive: true });
   await writeFile(join(originalGame, 'DataX', 'Libs', 'data0001.lib'), libraryHead());
-  const launchEnv: Record<string, string> = { [ORIGINAL_GAME_DIR_ENV]: originalGame };
+  const launchEnv: Record<string, string> = {
+    [ORIGINAL_GAME_CHECK_ENV]: '1',
+    [ORIGINAL_GAME_DIR_ENV]: originalGame,
+  };
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined && launchEnv[key] === undefined) launchEnv[key] = value;
   }

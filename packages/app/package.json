@@ -18,7 +18,7 @@
     "@open-northland/lockstep": "*",
     "@open-northland/net-client": "*",
     "@open-northland/net-protocol": "*",
-    "@open-northland/original-check": "*",
+    "@open-northland/ownership": "*",
     "@open-northland/render": "*",
     "@open-northland/sim": "*",
     "@pmndrs/detect-gpu": "6.0.25"

@@ -1,4 +1,4 @@
-import type { FolderReader } from '@open-northland/original-check';
+import type { FolderReader } from '@open-northland/ownership';
 import { diag } from '../../../diag/index.js';
 import { messages } from '../../../i18n/index.js';
 import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../../view/brand-art.js';

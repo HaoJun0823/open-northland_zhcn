@@ -1,6 +1,6 @@
-import { findInstall } from '@open-northland/original-check';
+import { findInstall } from '@open-northland/ownership';
 import { describe, expect, it } from 'vitest';
-import { libraryHead } from '../../original-check/test/memory-reader.js';
+import { libraryHead } from '../../ownership/test/memory-reader.js';
 import {
   directoryHandleReader,
   fileListReader,

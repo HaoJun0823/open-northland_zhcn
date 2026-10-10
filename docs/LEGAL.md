@@ -33,13 +33,11 @@ pack, and the underlying artwork remains the property of its rights holders.
 The artwork, sounds, maps, and rules the engine currently plays come from the original game files.
 They remain the property of their rights holders whichever archive carries them.
 
-Open Northland is for players who own the original game. The builds require an installed copy of
-*Cultures 2: The Gates of Asgard*, *Cultures: Northland* or *Cultures - 8th Wonder of the World*
-(disc, Steam, GOG or the Mac App Store) and check for one before the first start: the desktop
-build looks in the usual Steam, GOG and Mac App Store locations and otherwise asks for the game
-folder; the web build asks for the folder. The check reads a few bytes of file headers on the
-player's machine, sends nothing anywhere, and is remembered once passed. It is not copy protection;
-it states the condition under which the project distributes converted data.
+Open Northland assumes that you own the original game: an installed copy of any of *Cultures 2:
+The Gates of Asgard*, *Cultures: Northland* or *Cultures - 8th Wonder of the World*, from disc,
+Steam, GOG or the Mac App Store. The game checks for one before it first starts. Using Open
+Northland without owning the original is your responsibility, not the project's; the project
+accepts no liability for it.
 
 ## Independent implementation
 

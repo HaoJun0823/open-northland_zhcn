@@ -1,5 +1,5 @@
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { GAME_TITLES, type InstallLayout, type OriginalGameId } from '@open-northland/original-check';
+import { GAME_TITLES, type InstallLayout, type OriginalGameId } from '@open-northland/ownership';
 
 /** The install a profile passed the check with; its presence skips the check on later launches. */
 export const ORIGINAL_GAME_STATE_FILE = 'original-game.json';

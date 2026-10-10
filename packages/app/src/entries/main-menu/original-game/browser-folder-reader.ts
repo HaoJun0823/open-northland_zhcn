@@ -1,4 +1,4 @@
-import type { FolderEntry, FolderPath, FolderReader } from '@open-northland/original-check';
+import type { FolderEntry, FolderPath, FolderReader } from '@open-northland/ownership';
 
 /**
  * Two ways a browser hands over a folder, behind one `FolderReader`. Chromium's directory picker gives

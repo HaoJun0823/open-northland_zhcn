@@ -1,6 +1,6 @@
-# Original-check package contract
+# Ownership package contract
 
-`packages/original-check` decides whether a folder is an installed original game (*Cultures 2*,
+`packages/ownership` decides whether a folder is an installed original game (*Cultures 2*,
 *Cultures: Northland*, *Cultures - 8th Wonder of the World*). The desktop shell runs it on
 detected and picked folders, the web build on a folder the player picks.
 The root [`AGENTS.md`](../../AGENTS.md) applies.

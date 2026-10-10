@@ -1,13 +1,21 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { findInstall, type OriginalInstall } from '@open-northland/original-check';
+import { findInstall, type OriginalInstall } from '@open-northland/ownership';
 import type { CandidateEnvironment, InstallCandidate } from './candidates.js';
 import { nodeFolderReader } from './node-folder-reader.js';
 import { queryWindowsRegistry } from './windows-registry.js';
 
 /** A folder to recognize instead of searching, for the e2e suite and development; the rule still applies. */
 export const ORIGINAL_GAME_DIR_ENV = 'ON_ORIGINAL_GAME_DIR';
+/** `1` makes an unpackaged run check too; a packaged build always does. */
+export const ORIGINAL_GAME_CHECK_ENV = 'ON_ORIGINAL_GAME_CHECK';
+const CHECK_ENABLED = '1';
+
+/** A developer's checkout runs skip the check so a preview opens at once; a release never skips it. */
+export function originalGameCheckWanted(packaged: boolean, env: NodeJS.ProcessEnv): boolean {
+  return packaged || env[ORIGINAL_GAME_CHECK_ENV] === CHECK_ENABLED;
+}
 
 export interface DetectedInstall {
   /** The recognized install folder: the given one, or the subdirectory the rule found in it. */

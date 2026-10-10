@@ -2,7 +2,12 @@ import { join, resolve } from 'node:path';
 import { app, type BrowserWindow, Menu } from 'electron';
 import { applicationMenuTemplate } from './application-menu.js';
 import { installCandidates } from './original-game/candidates.js';
-import { detectInstall, hostCandidateEnvironment, ORIGINAL_GAME_DIR_ENV } from './original-game/detect.js';
+import {
+  detectInstall,
+  hostCandidateEnvironment,
+  ORIGINAL_GAME_DIR_ENV,
+  originalGameCheckWanted,
+} from './original-game/detect.js';
 import { passOriginalGameGate } from './original-game/gate.js';
 import { promptForInstall } from './original-game/prompt.js';
 import {
@@ -40,15 +45,17 @@ if (app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(menu === null ? null : Menu.buildFromTemplate([...menu]));
     handleAppProtocol(roots);
     const originalGamePath = join(app.getPath('userData'), ORIGINAL_GAME_STATE_FILE);
-    const passed = await passOriginalGameGate({
-      readState: () => readOriginalGameState(originalGamePath),
-      detect: () =>
-        detectInstall(process.env[ORIGINAL_GAME_DIR_ENV], () =>
-          installCandidates(hostCandidateEnvironment()),
-        ),
-      prompt: promptForInstall,
-      writeState: (state) => writeOriginalGameState(originalGamePath, state),
-    });
+    const passed =
+      !originalGameCheckWanted(app.isPackaged, process.env) ||
+      (await passOriginalGameGate({
+        readState: () => readOriginalGameState(originalGamePath),
+        detect: () =>
+          detectInstall(process.env[ORIGINAL_GAME_DIR_ENV], () =>
+            installCandidates(hostCandidateEnvironment()),
+          ),
+        prompt: promptForInstall,
+        writeState: (state) => writeOriginalGameState(originalGamePath, state),
+      }));
     if (!passed) {
       app.quit();
       return;

@@ -258,8 +258,9 @@ state match the inline client's on `magiczny_las`.
 
 ## Web original-game gate
 
-`npm run test:gate` serves the app from its Vite dev server and drives
-headless Chromium through the browser build's original-game folder check: a fresh profile sees the
+`npm run test:gate` serves the app from its Vite dev server, which checks only when the URL carries
+`originalGameCheck`, and drives headless Chromium through the browser build's original-game folder
+check: a fresh profile sees the
 gate, an unrecognized folder shows the failure line, a synthetic install opens the menu, an unverified
 `?map=` link lands on the gate, and a seeded flag skips it. It needs no content, only
 `npx playwright install chromium`. Run it after a change to the gate, the settings store or the entry

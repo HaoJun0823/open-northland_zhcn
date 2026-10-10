@@ -53,17 +53,17 @@ if (
   !header?.mapId ||
   !Number.isInteger(header.tick) ||
   !Number.isInteger(header.seed) ||
-  !Array.isArray(stamp?.aiSeats) ||
-  !stamp.aiSeats.every((seat) => Number.isInteger(seat) && seat >= 0 && seat < 16) ||
+  !Array.isArray(stamp?.machineSeats) ||
+  !stamp.machineSeats.every((seat) => Number.isInteger(seat) && seat >= 0 && seat < 16) ||
   typeof stamp.stateHash !== 'string'
 )
   throw new Error('Input must be a bench:map checkpoint carrying map, seed, AI seats and stateHash');
 const ai =
-  stamp.aiSeats.length === 0
+  stamp.machineSeats.length === 0
     ? ''
-    : stamp.aiSeats.length === 1
-      ? `${stamp.aiSeats[0]},`
-      : stamp.aiSeats.join(',');
+    : stamp.machineSeats.length === 1
+      ? `${stamp.machineSeats[0]},`
+      : stamp.machineSeats.join(',');
 const params = new URLSearchParams({
   map: header.mapId,
   player: 'observer',

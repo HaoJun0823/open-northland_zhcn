@@ -1828,11 +1828,11 @@ export const plGame = {
     roomNoSeats: 'Ta mapa nie ma miejsc do zajęcia',
     departed: {
       vote: {
-        ai: 'Gracz {nick} został wyrzucony, miejsce przejmuje SI',
+        computer: 'Gracz {nick} został wyrzucony, miejsce przejmuje gracz komputerowy',
         idle: 'Gracz {nick} został wyrzucony',
       },
       left: {
-        ai: 'Gracz {nick} opuścił grę, miejsce przejmuje SI',
+        computer: 'Gracz {nick} opuścił grę, miejsce przejmuje gracz komputerowy',
         idle: 'Gracz {nick} opuścił grę',
       },
     },

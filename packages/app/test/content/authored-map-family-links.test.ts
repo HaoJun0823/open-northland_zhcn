@@ -50,7 +50,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
     it(
       `${INVASION_MAP}: seat ${INVASION_SEAT} starts with its two couples married in their home`,
       async () => {
-        const { sim, content } = await realMapWorld({ mapId: INVASION_MAP, aiSeats: [] });
+        const { sim, content } = await realMapWorld({ mapId: INVASION_MAP, machineSeats: [] });
         const wives = wivesOf(sim, INVASION_SEAT);
         expect(wives).toHaveLength(2);
         for (const wife of wives) {
@@ -68,7 +68,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
     it(
       `${TUTORIAL_MAP}: the placed baby starts as the child of the couple the map weds`,
       async () => {
-        const { sim, content } = await realMapWorld({ mapId: TUTORIAL_MAP, aiSeats: [] });
+        const { sim, content } = await realMapWorld({ mapId: TUTORIAL_MAP, machineSeats: [] });
         const mother = wivesOf(sim).find((e) => sim.world.get(e, Marriage).child !== null);
         expect(mother).toBeDefined();
         if (mother === undefined) return;
@@ -87,7 +87,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
     it(
       `${MAN_FIRST_MAP}: a line naming the man first weds no one`,
       async () => {
-        const { sim } = await realMapWorld({ mapId: MAN_FIRST_MAP, aiSeats: [] });
+        const { sim } = await realMapWorld({ mapId: MAN_FIRST_MAP, machineSeats: [] });
         expect(wivesOf(sim)).toEqual([]);
       },
       REAL_MAP_TIMEOUT_MS,

@@ -17,11 +17,18 @@ const descriptor: GameSession = {
   rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
   seats: [
     { player: 0, mode: 'human', color: 3, tribe: 7 },
-    { player: 1, mode: 'ai', color: 4 },
+    { player: 1, mode: 'computer', color: 4 },
   ],
 };
 const authored: RoomSeatSetup[] = [
-  { player: 0, mode: 'idle', claimable: true, offers: ['ai', 'idle', 'absent'], color: 0, authoredTribe: 1 },
+  {
+    player: 0,
+    mode: 'idle',
+    claimable: true,
+    offers: ['computer', 'idle', 'absent'],
+    color: 0,
+    authoredTribe: 1,
+  },
   { player: 1, mode: 'idle', claimable: false, offers: ['idle'], color: 1, authoredTribe: 2 },
 ];
 const metadata = createSavedSessionMetadata(descriptor, [
@@ -37,13 +44,20 @@ describe('saved multiplayer roster', () => {
         player: 0,
         mode: 'idle',
         claimable: true,
-        offers: ['ai', 'idle', 'absent'],
+        offers: ['computer', 'idle', 'absent'],
         color: 3,
         authoredTribe: 1,
         tribe: 7,
       },
       // The saved mode stays valid even where the map no longer offers it.
-      { player: 1, mode: 'ai', claimable: false, offers: ['idle', 'ai'], color: 4, authoredTribe: 2 },
+      {
+        player: 1,
+        mode: 'computer',
+        claimable: false,
+        offers: ['idle', 'computer'],
+        color: 4,
+        authoredTribe: 2,
+      },
     ]);
     expect(savedRoster(save)?.roster[0]?.nick).toBe('Ania');
   });
@@ -51,22 +65,22 @@ describe('saved multiplayer roster', () => {
     const single = { ...save, header: { ...save.header, session: null } };
     const seats = [
       { player: 0, mode: 'idle' as const, color: 0 },
-      { player: 1, mode: 'script' as const, color: 1 },
-      { player: 2, mode: 'ai' as const, color: 2 },
+      { player: 1, mode: 'map-ai' as const, color: 1 },
+      { player: 2, mode: 'computer' as const, color: 2 },
     ];
     const map = [
       ...authored,
       {
         player: 2,
-        mode: 'script' as const,
+        mode: 'map-ai' as const,
         claimable: true,
-        offers: ['script' as const, 'idle' as const],
+        offers: ['map-ai' as const, 'idle' as const],
         color: 2,
       },
     ];
     const restored = restoreSavedSeats(single, map, seats);
-    expect(restored.map((seat) => seat.mode)).toEqual(['idle', 'script', 'ai']);
-    expect(restored[2]?.offers).toContain('ai');
+    expect(restored.map((seat) => seat.mode)).toEqual(['idle', 'map-ai', 'computer']);
+    expect(restored[2]?.offers).toContain('computer');
   });
   it('keeps a saved computer seat’s level, and hard where the save names none', () => {
     const levelled = authored.map((seat) => ({ ...seat, difficulty: 'medium' as const }));
@@ -74,8 +88,8 @@ describe('saved multiplayer roster', () => {
       {
         ...descriptor,
         seats: [
-          { player: 0, mode: 'ai', color: 3, difficulty: 'easy' },
-          { player: 1, mode: 'ai', color: 4 },
+          { player: 0, mode: 'computer', color: 3, difficulty: 'easy' },
+          { player: 1, mode: 'computer', color: 4 },
         ],
       },
       [

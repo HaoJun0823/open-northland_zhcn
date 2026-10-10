@@ -1,3 +1,4 @@
+import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   type AttackMoveMarch,
   AttackOrder,
@@ -42,6 +43,7 @@ import { releaseTowerPost } from '../settlers/drives/tower-post.js';
 import { heldIndoors, stepOut } from '../settlers/indoors.js';
 import { announceLostWay, liftLostWalk, markLostWay } from '../settlers/lost-way.js';
 import { navigationLimitFor } from '../signposts/index.js';
+import { recordAiOrder } from './ai-lifecycle.js';
 import { moveAnchor } from './combat.js';
 import { deferOrderDuringAtomic, supersedeStandingOrders } from './guards.js';
 import { breaksForMeal, suspendWalkForMeal } from './meal-break.js';
@@ -83,8 +85,11 @@ export function moveUnit(
   world: World,
   ctx: SystemContext,
   command: Extract<Command, { kind: 'moveUnit' }>,
+  origin?: AiOrderOrigin,
 ): boolean {
-  return startPlayerWalk(world, ctx, command);
+  const accepted = startPlayerWalk(world, ctx, command);
+  if (accepted) recordAiOrder(world, command.entity, origin);
+  return accepted;
 }
 
 /** A map script's walk order: the player's walk without the signpost confinement, which the original
@@ -99,7 +104,9 @@ export function sendUnit(
   { attackMove = false }: { readonly attackMove?: boolean } = {},
 ): boolean {
   const kind = attackMove ? 'attackMoveUnit' : 'moveUnit';
-  return startPlayerWalk(world, ctx, { kind, entity: e, x, y }, { confined: false });
+  const accepted = startPlayerWalk(world, ctx, { kind, entity: e, x, y }, { confined: false });
+  if (accepted) recordAiOrder(world, e);
+  return accepted;
 }
 
 /** {@link moveUnit}'s walk stamped with an {@link AttackMoveMarch} - the "Attack Position" order. */
@@ -107,8 +114,11 @@ export function attackMoveUnit(
   world: World,
   ctx: SystemContext,
   command: Extract<Command, { kind: 'attackMoveUnit' }>,
+  origin?: AiOrderOrigin,
 ): boolean {
-  return startPlayerWalk(world, ctx, command);
+  const accepted = startPlayerWalk(world, ctx, command);
+  if (accepted) recordAiOrder(world, command.entity, origin);
+  return accepted;
 }
 
 /** Issue either flavour of the player's walk order; the command's `kind` decides which. */

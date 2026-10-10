@@ -39,7 +39,7 @@ function roomOf(count: number) {
       player,
       mode: 'idle',
       claimable: true,
-      offers: ['idle', 'ai', 'absent'],
+      offers: ['idle', 'computer', 'absent'],
       color: player,
     })),
   });

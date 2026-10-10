@@ -306,7 +306,7 @@ const ALLY_SPLIT_TICK = 120;
 const FUZZ_SEAT = 0;
 /** The first tick the harness raises its scripted alarms on, and how often it puts them back up. Raising
  *  once is not enough: the stream's own alarm flips (case 43) and a seat handed to the strategic AI - which
- *  stands its town back up when it sees no enemy (`ai-player/military/defence/alarm.ts`) - both take a
+ *  stands its town back up when it sees no enemy (`computer-player/military/defence/alarm.ts`) - both take a
  *  raised alarm off again, and a seed that lost it before any civilian claimed would quietly turn the whole
  *  defence half of the stream into a skip path. A raise on an already-alarmed building is a no-op, so the
  *  cadence perturbs nothing on its own. */
@@ -453,12 +453,12 @@ function nextCommand(rng: Rng): Command {
   const roll = rng.int(75);
   switch (roll) {
     case 31:
-      // An AI-seat flip: valid players (the AiPlayer carrier created/updated/destroyed - the
-      // AiPlayerSystem then runs its cadence over the seat) + an out-of-range one (skipped, still
+      // An AI-seat flip: valid players (the AiControl carrier created/updated/destroyed - the
+      // computerPlayerSystem then runs its cadence over the seat) + an out-of-range one (skipped, still
       // logged). Sometimes with a partial module override - the full-record fill must hash and
       // replay identically.
       return {
-        kind: 'setPlayerAi',
+        kind: 'setAiControl',
         player: pick(rng, OWNERS),
         enabled: rng.int(2) === 0,
         ...(rng.int(3) === 0

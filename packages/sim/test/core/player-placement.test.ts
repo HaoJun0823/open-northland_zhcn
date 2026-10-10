@@ -79,7 +79,7 @@ describe('roster-authorized placement tribes', () => {
   it('does not let a seat declare its own permissions', () => {
     expect(() =>
       parseCommandEnvelope({
-        v: 1,
+        v: 2,
         origin: 'player',
         player: 0,
         command: { kind: 'setPlayerPlacementTribes', player: 0, tribes: [1] },

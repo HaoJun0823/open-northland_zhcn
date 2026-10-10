@@ -11,7 +11,7 @@ import {
 const STALL_BURST_FRAMES = 12;
 
 function envelope(kind: string): PlayerWireEnvelope {
-  return { v: 1, origin: 'player', player: 0, command: { kind } };
+  return { v: 2, origin: 'player', player: 0, command: { kind } };
 }
 
 function startedAt(tick: number): RoomClock {
@@ -164,9 +164,9 @@ describe('room clock', () => {
     clock.setPaused(false);
     expect(clock.advance(TICK_MS)[0]?.commands).toEqual([{ envelope: first, sequence: 0 }]);
     clock.scheduleTrusted({
-      v: 1,
+      v: 2,
       origin: 'admin',
-      command: { kind: 'setPlayerAi', player: 1, enabled: true },
+      command: { kind: 'setAiControl', player: 1, enabled: true, computerEnabled: true, mapAiEnabled: true },
     });
     expect(clock.schedule('b', first, 2, 2, historySpace)).toEqual({ refused: 'budget' });
     clock.finishAt(2);
@@ -207,9 +207,9 @@ describe('room clock', () => {
     expect(clock.advance(TICK_MS * 4)).toEqual([]);
     for (let i = 0; i < MAX_COMMANDS_PER_TICK; i++) clock.schedule('a', envelope(`a${i}`), 3, 1);
     const trusted = {
-      v: 1,
+      v: 2,
       origin: 'admin',
-      command: { kind: 'setPlayerAi', player: 2, enabled: true },
+      command: { kind: 'setAiControl', player: 2, enabled: true, computerEnabled: true, mapAiEnabled: true },
     } as const;
     expect(clock.scheduleTrusted(trusted)).toBe(4);
     clock.hold(false);

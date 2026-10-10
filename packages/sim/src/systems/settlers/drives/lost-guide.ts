@@ -1,4 +1,4 @@
-import { isAiPlayer, LostWay, MoveGoal, ownerOf, Position } from '../../../components/index.js';
+import { isMachinePlayer, LostWay, MoveGoal, ownerOf, Position } from '../../../components/index.js';
 import { TICKS_PER_SECOND } from '../../../core/loop.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { nodeOfPosition } from '../../../nav/halfcell.js';
@@ -28,7 +28,7 @@ export function guideLostSettler(pass: PlannerPass, e: Entity, limit: Navigation
   const lost = world.tryGet(e, LostWay);
   if (lost === undefined || ctx.tick - lost.since < LOST_GUIDE_DELAY_TICKS) return false;
   const owner = ownerOf(world, e);
-  if (owner === undefined || !isAiPlayer(world, owner)) return false;
+  if (owner === undefined || !isMachinePlayer(world, owner)) return false;
   const p = world.get(e, Position);
   const { hx, hy } = nodeOfPosition(p.x, p.y);
   const here = terrain.nodeAtClamped(hx, hy);

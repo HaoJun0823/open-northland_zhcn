@@ -21,7 +21,7 @@ const VERDICT_CHECK =
 
 describe.runIf(hasRealIr())('map victory through session setup', () => {
   it('awards the forest allies victory and completes the objective after the enemy seats die', async () => {
-    const sim = await realMapSessionWorld('map=magiczny_las&ai=1,2,3,4,5');
+    const sim = await realMapSessionWorld('map=magiczny_las&computer=1,2,3,4,5');
     sim.step();
     expect(sim.matchRules()).toEqual({
       participants: [0, 1, 2, 3, 4, 5],

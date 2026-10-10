@@ -39,7 +39,7 @@ describe.runIf(hasRealIr())('verified map transfer with owned content', () => {
         script: mapScriptWorld(script, rawIrUnderTest() as ContentIr),
         diplomacy: script?.diplomacy ?? [],
         seed: 7,
-        aiSeats: [],
+        machineSeats: [],
         assistantSeats: [],
         fog: 1 as const,
         progression: false,

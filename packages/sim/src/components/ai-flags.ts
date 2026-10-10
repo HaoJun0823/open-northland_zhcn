@@ -13,7 +13,7 @@ const aiExternalFlags = defineWorldSingleton<{
  * The condition flags a map script sets on a player's AI (`SetExternalFlag`), the `OnExternal`
  * conditions of its `[AIData]`. The original stores them on the seat's AI handler and drops the write
  * when the seat has none; this build keeps them for any valid slot, and the scripted handler's
- * condition pass reads them (`systems/ai-program`).
+ * condition pass reads them (`systems/map-ai`).
  */
 export const AiExternalFlags = aiExternalFlags.component;
 

@@ -203,7 +203,7 @@ describe('waiting for a member', () => {
     expect(a.of('clock')).toEqual([]);
     expect(a.last('waiting')?.for).toEqual([{ nick: 'Bartek', reason: 'loading', voteAfterMs: 0 }]);
     a.send({ kind: 'kick', player: 2, yes: true });
-    expect(a.last('kicked')).toMatchObject({ nick: 'Bartek', mode: 'ai', tick: 2 });
+    expect(a.last('kicked')).toMatchObject({ nick: 'Bartek', mode: 'computer', tick: 2 });
     expect(a.last('clock')).toMatchObject({ tick: 2 });
     tick(s, [a], TICK_MS * 2);
     expect(a.of('frame')[0]?.commands[0]?.envelope).toMatchObject({ origin: 'admin' });
@@ -570,14 +570,25 @@ describe('pacing the clock for a slow member', () => {
 
 describe('kick votes', () => {
   it('hands a voluntary departure to AI on the exact next tick without voting', () => {
-    const s = roomOfThree('ai');
+    const s = roomOfThree('computer');
     s.advance(TICK_MS * 4);
     s.b.send({ kind: 'leaveRoom' });
-    expect(s.a.last('kicked')).toMatchObject({ player: 1, mode: 'ai', cause: 'left', tick: 5 });
-    expect(s.a.last('room')?.room.seats[1]).toMatchObject({ mode: 'ai', nick: null });
+    expect(s.a.last('kicked')).toMatchObject({ player: 1, mode: 'computer', cause: 'left', tick: 5 });
+    expect(s.a.last('room')?.room.seats[1]).toMatchObject({ mode: 'computer', nick: null });
     tick(s, [s.a, s.c], TICK_MS);
     expect(s.a.of('frame').find((frame) => frame.tick === 5)?.commands).toMatchObject([
-      { envelope: { origin: 'admin', command: { kind: 'setPlayerAi', player: 1, enabled: true } } },
+      {
+        envelope: {
+          origin: 'admin',
+          command: {
+            kind: 'setAiControl',
+            player: 1,
+            enabled: true,
+            computerEnabled: true,
+            mapAiEnabled: true,
+          },
+        },
+      },
     ]);
     expect(s.a.of('kickVote')).toEqual([]);
   });
@@ -622,17 +633,27 @@ describe('kick votes', () => {
       kind: 'kicked',
       player: 2,
       nick: 'Cezary',
-      mode: 'ai',
+      mode: 'computer',
       cause: 'vote',
       tick: 5,
     });
-    expect(s.b.last('room')?.room.seats[2]).toMatchObject({ mode: 'ai', nick: null });
+    expect(s.b.last('room')?.room.seats[2]).toMatchObject({ mode: 'computer', nick: null });
     expect(s.b.last('room')?.room.members.map((member) => member.nick)).toEqual(['Ania', 'Bartek']);
     tick(s, [s.a, s.b], TICK_MS * 2);
     expect(s.a.last('waiting')?.for).toEqual([]);
     expect(s.a.of('frame').find((frame) => frame.tick === 5)?.commands).toEqual([
       {
-        envelope: { v: 1, origin: 'admin', command: { kind: 'setPlayerAi', player: 2, enabled: true } },
+        envelope: {
+          v: 2,
+          origin: 'admin',
+          command: {
+            kind: 'setAiControl',
+            player: 2,
+            enabled: true,
+            computerEnabled: true,
+            mapAiEnabled: true,
+          },
+        },
         sequence: 0,
       },
     ]);
@@ -656,7 +677,7 @@ describe('kick votes', () => {
         player,
         mode: 'idle',
         claimable: true,
-        offers: ['idle', 'ai', 'absent'],
+        offers: ['idle', 'computer', 'absent'],
         color: player,
       })),
     });

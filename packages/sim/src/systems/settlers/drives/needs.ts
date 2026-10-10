@@ -1,6 +1,6 @@
 import {
   Carrying,
-  isAiPlayer,
+  isMachinePlayer,
   type NeedKind,
   NeedOrder,
   NoRegeneration,
@@ -239,7 +239,7 @@ export function planNeeds(
     settleUnservedNeedForAi(world, ctx.tick, e, 'piety');
     const player = ownerOf(world, e);
     const marked = ordered === 'piety' || piety >= NEED_CRITICAL_THRESHOLD;
-    if (marked && player !== undefined && !isAiPlayer(world, player)) {
+    if (marked && player !== undefined && !isMachinePlayer(world, player)) {
       ctx.events.emit({ kind: 'prayerSiteMissing', entity: e });
     }
   }
@@ -339,6 +339,6 @@ function settleUnservedNeedForAi(
 ): void {
   if (needLevel(world.get(e, SettlerNeeds), need, tick) <= NEED_SATED_THRESHOLD) return;
   const player = ownerOf(world, e);
-  if (player === undefined || !isAiPlayer(world, player)) return;
+  if (player === undefined || !isMachinePlayer(world, player)) return;
   mutNeeds(world, e, tick)[need] = NEED_SATED_THRESHOLD;
 }

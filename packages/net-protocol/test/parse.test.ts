@@ -82,20 +82,20 @@ const CLIENT_MESSAGES: readonly ClientMessage[] = [
     kind: 'createRoom',
     settings,
     seats: [
-      { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
-      { player: 3, mode: 'script', claimable: false, offers: ['script'], color: 9 },
+      { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent'], color: 0 },
+      { player: 3, mode: 'map-ai', claimable: false, offers: ['map-ai'], color: 9 },
     ],
   },
   {
     kind: 'createRoom',
     settings,
     seats: [
-      { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai'], color: 0, authoredTribe: 1 },
+      { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'computer'], color: 0, authoredTribe: 1 },
       {
         player: 1,
-        mode: 'ai',
+        mode: 'computer',
         claimable: true,
-        offers: ['idle', 'ai'],
+        offers: ['idle', 'computer'],
         color: 1,
         authoredTribe: 2,
         tribe: 7,
@@ -106,7 +106,7 @@ const CLIENT_MESSAGES: readonly ClientMessage[] = [
   { kind: 'leaveRoom' },
   { kind: 'claimSeat', player: 2 },
   { kind: 'claimSeat', player: null },
-  { kind: 'setSeat', player: 1, mode: 'ai', color: 4 },
+  { kind: 'setSeat', player: 1, mode: 'computer', color: 4 },
   { kind: 'setSeat', player: 1 },
   { kind: 'setSeat', player: 1, tribe: 4 },
   { kind: 'setSeat', player: 1, tribe: MAX_TRIBE_ID },
@@ -133,7 +133,7 @@ const CLIENT_MESSAGES: readonly ClientMessage[] = [
   },
   {
     kind: 'command',
-    envelope: { v: 1, origin: 'player', player: 0, command: MOVE_ORDER },
+    envelope: { v: 2, origin: 'player', player: 0, command: MOVE_ORDER },
     fromTick: 12,
   },
   { kind: 'clock', speed: 2 },
@@ -186,8 +186,8 @@ describe('client messages', () => {
         kind: 'createRoom',
         settings,
         seats: [
-          { player: 2, mode: 'ai', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
-          { player: 1, mode: 'ai', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
+          { player: 2, mode: 'computer', claimable: true, offers: ['idle', 'computer', 'absent'], color: 0 },
+          { player: 1, mode: 'computer', claimable: true, offers: ['idle', 'computer', 'absent'], color: 0 },
         ],
       },
       /ascending/,
@@ -197,13 +197,13 @@ describe('client messages', () => {
       {
         kind: 'createRoom',
         settings,
-        seats: [{ player: 0, mode: 'absent', claimable: true, offers: ['idle', 'ai'], color: 0 }],
+        seats: [{ player: 0, mode: 'absent', claimable: true, offers: ['idle', 'computer'], color: 0 }],
       },
       /does not offer absent/,
     ],
     [
       'a seat past the last one',
-      { kind: 'createRoom', settings, seats: [{ player: 16, mode: 'ai', color: 0 }] },
+      { kind: 'createRoom', settings, seats: [{ player: 16, mode: 'computer', color: 0 }] },
       /past the last seat/,
     ],
     [
@@ -251,7 +251,7 @@ describe('client messages', () => {
       {
         kind: 'createRoom',
         settings,
-        seats: [{ player: 0, mode: 'ai', claimable: true, offers: ['ai'], color: 0, tribe: 2 }],
+        seats: [{ player: 0, mode: 'computer', claimable: true, offers: ['computer'], color: 0, tribe: 2 }],
       },
       /without an authored tribe/,
     ],
@@ -260,27 +260,29 @@ describe('client messages', () => {
       {
         kind: 'createRoom',
         settings,
-        seats: [{ player: 0, mode: 'ai', claimable: true, offers: ['ai'], color: 0, authoredTribe: 0 }],
+        seats: [
+          { player: 0, mode: 'computer', claimable: true, offers: ['computer'], color: 0, authoredTribe: 0 },
+        ],
       },
       /authoredTribe/,
     ],
     [
       'a human seat setup',
       { kind: 'createRoom', settings, seats: [{ player: 0, mode: 'human', color: 0 }] },
-      /one of script, ai, idle/,
+      /one of map-ai, computer, idle/,
     ],
     [
       'a trusted envelope',
       {
         kind: 'command',
-        envelope: { v: 1, origin: 'admin', command: { kind: 'debugKill', entity: 1 } },
+        envelope: { v: 2, origin: 'admin', command: { kind: 'debugKill', entity: 1 } },
         fromTick: 0,
       },
       /player envelopes only/,
     ],
     [
       'an envelope without a command kind',
-      { kind: 'command', envelope: { v: 1, origin: 'player', player: 0, command: {} }, fromTick: 0 },
+      { kind: 'command', envelope: { v: 2, origin: 'player', player: 0, command: {} }, fromTick: 0 },
       /command\.kind/,
     ],
     ['a clock change naming nothing', { kind: 'clock' }, /neither/],
@@ -385,16 +387,16 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
           player: 0,
           mode: 'human',
           claimable: true,
-          offers: ['idle', 'ai', 'absent'],
+          offers: ['idle', 'computer', 'absent'],
           color: 0,
           nick: 'Ania',
           ready: true,
         },
         {
           player: 1,
-          mode: 'ai',
+          mode: 'computer',
           claimable: false,
-          offers: ['idle', 'ai', 'absent'],
+          offers: ['idle', 'computer', 'absent'],
           color: 4,
           nick: null,
           ready: false,
@@ -463,8 +465,8 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
     kind: 'frame',
     tick: 41,
     commands: [
-      { envelope: { v: 1, origin: 'player', player: 0, command: STANCE_ORDER }, sequence: 0 },
-      { envelope: { v: 1, origin: 'player', player: 1, command: STANCE_ORDER }, sequence: 1 },
+      { envelope: { v: 2, origin: 'player', player: 0, command: STANCE_ORDER }, sequence: 0 },
+      { envelope: { v: 2, origin: 'player', player: 1, command: STANCE_ORDER }, sequence: 1 },
     ],
   },
   { kind: 'delay', ticks: 3 },
@@ -477,7 +479,7 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
   },
   { kind: 'waiting', for: [] },
   { kind: 'kickVote', player: 0, nick: 'Ania', yes: ['Bartek'], needed: 2 },
-  { kind: 'kicked', player: 0, nick: 'Ania', mode: 'ai', cause: 'vote', tick: 42 },
+  { kind: 'kicked', player: 0, nick: 'Ania', mode: 'computer', cause: 'vote', tick: 42 },
   { kind: 'desync', tick: 41, domains: ['rng', 'economy'], reference: 'Ania' },
   { kind: 'disputed', tick: 41, domains: ['rng', 'economy'], diverged: ['Bartek', 'Celina'] },
   { kind: 'snapshotRequest' },
@@ -487,7 +489,17 @@ const SERVER_MESSAGES: readonly ServerMessage[] = [
     tick: 42,
     commands: [
       {
-        envelope: { v: 1, origin: 'admin', command: { kind: 'setPlayerAi', player: 0, enabled: true } },
+        envelope: {
+          v: 2,
+          origin: 'admin',
+          command: {
+            kind: 'setAiControl',
+            player: 0,
+            enabled: true,
+            computerEnabled: true,
+            mapAiEnabled: true,
+          },
+        },
         sequence: 0,
       },
     ],
@@ -530,7 +542,7 @@ describe('server messages', () => {
     const frame = {
       kind: 'frame',
       tick: 1,
-      commands: [{ envelope: { v: 1, origin: 'player', player: 0, command: { kind: 'x' } }, sequence: 1 }],
+      commands: [{ envelope: { v: 2, origin: 'player', player: 0, command: { kind: 'x' } }, sequence: 1 }],
     };
     expect(() => parseServerMessage(frame, parseSession)).toThrow(/sequence 1 out of order/);
   });
@@ -539,20 +551,29 @@ describe('server messages', () => {
     const frame = (command: Record<string, unknown>) => ({
       kind: 'frame',
       tick: 1,
-      commands: [{ envelope: { v: 1, origin: 'admin', command }, sequence: 0 }],
+      commands: [{ envelope: { v: 2, origin: 'admin', command }, sequence: 0 }],
     });
     expect(() => parseServerMessage(frame({ kind: 'debugKill', entity: 1 }), parseSession)).toThrow(
-      /setPlayerAi only/,
+      /setAiControl only/,
     );
     expect(() =>
-      parseServerMessage(frame({ kind: 'setPlayerAi', player: 0, enabled: false }), parseSession),
+      parseServerMessage(frame({ kind: 'setAiControl', player: 0, enabled: false }), parseSession),
     ).toThrow(/enabled/);
+    for (const gates of [
+      {},
+      { computerEnabled: false, mapAiEnabled: true },
+      { computerEnabled: true, mapAiEnabled: false },
+    ]) {
+      expect(() =>
+        parseServerMessage(frame({ kind: 'setAiControl', player: 0, enabled: true, ...gates }), parseSession),
+      ).toThrow(/departure requires/);
+    }
     expect(() =>
       parseServerMessage(
         {
           kind: 'frame',
           tick: 1,
-          commands: [{ envelope: { v: 1, origin: 'setup', command: {} }, sequence: 0 }],
+          commands: [{ envelope: { v: 2, origin: 'setup', command: {} }, sequence: 0 }],
         },
         parseSession,
       ),
@@ -763,7 +784,7 @@ it.each([undefined, null, 0, 'true'])('rejects a non-boolean claimability flag: 
     parseClientMessage({
       kind: 'createRoom',
       settings,
-      seats: [{ player: 0, mode: 'ai', offers: ['ai'], color: 0, claimable }],
+      seats: [{ player: 0, mode: 'computer', offers: ['computer'], color: 0, claimable }],
     }),
   ).toThrow();
 });

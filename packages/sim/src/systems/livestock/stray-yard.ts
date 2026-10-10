@@ -3,7 +3,7 @@ import { contentIndex } from '../../core/content-index.js';
 import { ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
-import { ownedBuildings } from '../ai-player/seat-roster.js';
+import { ownedBuildings } from '../ai-shared/seat-roster.js';
 import type { SystemContext } from '../context.js';
 import { interactionNodeId } from '../footprint/interaction.js';
 import { HEADQUARTERS_BUILDING_ID } from '../readviews/index.js';

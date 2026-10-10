@@ -55,7 +55,8 @@ tick runs these phases:
 2. plan settler work, then route, move, and separate units;
 3. advance atomics and economy systems, including production, growth, and construction;
 4. update vision, combat, projectiles, ageing, and cleanup, then judge the skirmish match;
-5. let the strategic AI inspect the settled world and queue commands for the next tick.
+5. evaluate map AI tasks, then shared settlement defence and the computer player, queuing commands for
+   the next tick. Explicit map assignments reserve soldiers before autonomous plans use the remainder.
 
 Order is part of behavior. If a change depends on moving a system, add a focused test that explains
 the required before/after relationship.

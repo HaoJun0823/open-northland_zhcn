@@ -5,7 +5,7 @@ import { DESCRIPTOR_WORLD } from '@open-northland/net-protocol';
 import { type Entity, parseSaveGame, type SaveGame } from '@open-northland/sim';
 import { buildingFootprints } from '../../content/ir/joins.js';
 import type { ContentIr } from '../../content/ir/rows.js';
-import { mapAiControl } from '../../game/map-ai-control.js';
+import { resolveAiControlPolicy } from '../../game/ai-control-policy.js';
 import { sessionMapScript } from '../../game/seat-tribes.js';
 import { mapSession } from '../../game/session-url.js';
 import { sessionWorldOptions } from '../../game/session-world.js';
@@ -124,10 +124,15 @@ export function buildRelayedMapWorld(
       : inputs.session.seats.map((seat) => ({
           previousMode: previous.seats.find((row) => row.player === seat.player)?.mode ?? ('idle' as const),
           command: {
-            kind: 'setPlayerAi' as const,
+            kind: 'setAiControl' as const,
             player: seat.player,
-            enabled: seat.mode === 'ai' || seat.mode === 'script',
-            ...mapAiControl(seat.player, seated.script?.players ?? [], seated.world, seat.mode === 'ai'),
+            enabled: seat.mode === 'computer' || seat.mode === 'map-ai',
+            ...resolveAiControlPolicy(
+              seat.player,
+              seated.script?.players ?? [],
+              seated.world,
+              seat.mode === 'computer' ? 'computer' : 'map-ai',
+            ),
           },
         }));
   return { ...world, generation: save === null ? DESCRIPTOR_WORLD : save.header.tick, initialSeatSetups };

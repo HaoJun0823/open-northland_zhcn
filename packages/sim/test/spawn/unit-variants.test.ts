@@ -166,8 +166,8 @@ function passOf(sim: Simulation): MissionPass {
 describe('unit variants by map slot', () => {
   it('keeps a human, replacement AI and scenario AI distinct in one world, including strike events', () => {
     const sim = fresh();
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: 1, enabled: true, scripted: false });
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: SCENARIO, enabled: true, scripted: false });
+    sim.enqueueSetup({ kind: 'setAiControl', player: 1, enabled: true, mapAiEnabled: false });
+    sim.enqueueSetup({ kind: 'setAiControl', player: SCENARIO, enabled: true, mapAiEnabled: false });
     sim.step();
     const units = [spawn(sim, 0), spawn(sim, 1), spawn(sim, SCENARIO)];
     const target = units[0];
@@ -309,8 +309,8 @@ describe('unit variants by map slot', () => {
     const human = spawn(sim, 0);
     const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content });
     expect(restored.hashState()).toBe(sim.hashState());
-    restored.enqueueSetup({ kind: 'setPlayerAi', player: SCENARIO, enabled: false });
-    restored.enqueueSetup({ kind: 'setPlayerAi', player: 0, enabled: true, scripted: false });
+    restored.enqueueSetup({ kind: 'setAiControl', player: SCENARIO, enabled: false });
+    restored.enqueueSetup({ kind: 'setAiControl', player: 0, enabled: true, mapAiEnabled: false });
     restored.step();
     expect(restored.world.get(dragon, Health).max).toBe(20000);
     expect(restored.world.get(human, Health).max).toBe(5000);

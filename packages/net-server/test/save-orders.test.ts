@@ -98,7 +98,7 @@ describe('accepted order capture', () => {
     const sent: ServerMessage[] = [];
     const history = new Resync(new Map([['token', member]]), (_m, message) => sent.push(message), 0);
     const envelope = {
-      v: 1,
+      v: 2,
       origin: 'player' as const,
       player: 0,
       command: { kind: 'opaque', padding: 'x'.repeat(900) },
@@ -129,7 +129,7 @@ describe('accepted order capture', () => {
     const sent: ServerMessage[] = [];
     const history = new Resync(new Map([['token', member]]), (_m, message) => sent.push(message), 0);
     const envelope = {
-      v: 1,
+      v: 2,
       origin: 'player' as const,
       player: 0,
       command: { kind: 'opaque', padding: 'x'.repeat(900) },

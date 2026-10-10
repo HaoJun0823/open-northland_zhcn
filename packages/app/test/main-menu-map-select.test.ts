@@ -27,7 +27,7 @@ function slot(player: number, hidden = false): MapsIndexPlayerSlot {
     hidden,
     aiAllowed: true,
     noneAllowed: true,
-    strategicAi: true,
+    hasComputerControl: true,
   };
 }
 

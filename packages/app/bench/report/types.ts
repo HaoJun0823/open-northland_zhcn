@@ -2,7 +2,7 @@
 
 /** The report layout the reader accepts; a layout change bumps it, and a report of any other version is
  *  refused rather than read. */
-export const BENCH_REPORT_VERSION = 4;
+export const BENCH_REPORT_VERSION = 5;
 
 /** One system's cost across a measured segment. `sharePct` is its share of the summed per-system
  *  time - the scale-invariant number a regression check can compare across machines. */
@@ -58,8 +58,8 @@ export type BenchWorld =
       readonly kind: 'realMap';
       readonly mapId: string;
       /** Every seat the session runs under AI, ascending: the requested seats plus the map's own
-       *  computer seats, which the browser session runs whatever `?ai=` lists. */
-      readonly aiSeats: readonly number[];
+       *  computer seats, which the browser session runs whatever `?computer=` lists. */
+      readonly machineSeats: readonly number[];
       /** The session's `?progression=` / `?needs=` overrides; null keeps the map's own rule. */
       readonly progression: boolean | null;
       readonly needs: boolean | null;

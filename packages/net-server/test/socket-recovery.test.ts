@@ -100,7 +100,7 @@ it('recovers when a stalled upload releases a valid catch-up acknowledgement bur
         player,
         mode: 'idle',
         claimable: true,
-        offers: ['idle', 'ai'],
+        offers: ['idle', 'computer'],
         color: player,
       })),
     );

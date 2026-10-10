@@ -1,8 +1,8 @@
 import type { ContentSet, JobEnablesKind, Recipe, TribeType, VehicleType } from '@open-northland/data';
 import {
-  AiPlayer,
+  AiControl,
   Building,
-  isAiPlayer,
+  isMachinePlayer,
   MAX_PLAYERS,
   MapPermissions,
   mapPermission,
@@ -138,7 +138,7 @@ const TECHNOLOGY_UNLOCK_STORES: readonly Component<unknown>[] = [
   MapPermissions,
   ProgressionRules,
   TechnologyDiscoveries,
-  AiPlayer,
+  AiControl,
   PlayerPlacementRules,
   SeatTribeUnlocks,
 ];
@@ -280,7 +280,7 @@ function tribeUnlockVerdict(
   if (kind !== 'vehicle' && technologyDiscovered(world, owner, tribe, kind, targetId)) return true;
   const definition = contentIndex(ctx.content).tribes.get(tribe);
   if (definition?.technology !== undefined && kind !== 'vehicle') {
-    if (owner !== undefined && isAiPlayer(world, owner)) return true;
+    if (owner !== undefined && isMachinePlayer(world, owner)) return true;
     if (kind === 'house') {
       const requirement = definition.technology.houses.find((r) => r.house === targetId);
       return (

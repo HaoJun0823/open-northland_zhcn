@@ -1,6 +1,6 @@
 import type { HumanJobExperienceType, JobRequirement, JobRequirementTarget } from '@open-northland/data';
 import {
-  isAiPlayer,
+  isMachinePlayer,
   ownerOf,
   professionProgressionEnabled,
   Settler,
@@ -56,7 +56,7 @@ export function needSubjectOf(world: World, settler: Entity): NeedSubject {
  * seat follows `ProgressionRules`.
  */
 export function experienceGatesApply(world: World, owner: number | undefined): boolean {
-  if (owner !== undefined && isAiPlayer(world, owner)) return false;
+  if (owner !== undefined && isMachinePlayer(world, owner)) return false;
   return professionProgressionEnabled(world);
 }
 

@@ -51,7 +51,7 @@ describe.runIf(hasRealIr())('multiplayer goal tables', () => {
   });
 
   it("wins Oczy Weza through its script's verdict, read at the next goal check", async () => {
-    const sim = await realMapSessionWorld(`map=oczy_weza&ai=${RED}`);
+    const sim = await realMapSessionWorld(`map=oczy_weza&computer=${RED}`);
     sim.step();
     expect(sim.matchRules()).toMatchObject({ victory: 'goals', lastStanding: false });
     expect(sim.matchRules().participants).toEqual(expect.arrayContaining([BLUE, RED]));
@@ -64,7 +64,7 @@ describe.runIf(hasRealIr())('multiplayer goal tables', () => {
   }, 60_000);
 
   it("decides Ucieczka z Gazy's never-dying seats by their script verdict", async () => {
-    const sim = await realMapSessionWorld(`map=ucieczka_z_gazy&ai=${RED}`);
+    const sim = await realMapSessionWorld(`map=ucieczka_z_gazy&computer=${RED}`);
     sim.step();
     expect(sim.matchRules().participants).not.toContain(BLUE);
     components.raiseMissionGoal(sim.world, BLUE, 'won');

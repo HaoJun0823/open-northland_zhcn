@@ -23,7 +23,7 @@ const ROOM: RoomView = {
       player: 0,
       mode: 'human',
       claimable: true,
-      offers: ['idle', 'ai', 'absent'],
+      offers: ['idle', 'computer', 'absent'],
       color: 0,
       nick: 'Ania',
       ready: true,
@@ -154,11 +154,11 @@ describe('network connection mirror', () => {
   it('posts lobby actions and clock requests by name for the worker client to perform', () => {
     const { connection, worker } = connect();
     connection.client.joinRoom('r');
-    connection.client.setSeat(0, { mode: 'ai' });
+    connection.client.setSeat(0, { mode: 'computer' });
     connection.client.setSpeed(2);
     expect(worker.posted.slice(1)).toEqual([
       { kind: 'lobby', name: 'joinRoom', args: ['r'] },
-      { kind: 'lobby', name: 'setSeat', args: [0, { mode: 'ai' }] },
+      { kind: 'lobby', name: 'setSeat', args: [0, { mode: 'computer' }] },
       { kind: 'clock', speed: 2 },
     ]);
   });

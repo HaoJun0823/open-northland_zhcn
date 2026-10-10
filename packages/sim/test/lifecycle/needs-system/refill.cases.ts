@@ -28,7 +28,7 @@ describe('needsSystem - the computer seat refill', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
     const e = settlerWithHunger(sim, fx.fromInt(0), { jobType: SOLDIER_JOB });
     sim.world.add(e, Owner, { player: COMPUTER_SEAT });
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: COMPUTER_SEAT, enabled: true });
+    sim.enqueueSetup({ kind: 'setAiControl', player: COMPUTER_SEAT, enabled: true });
     sim.step();
     setNeeds(sim, e, {
       hunger: PAST_CRITICAL,
@@ -56,7 +56,7 @@ describe('needsSystem - the computer seat refill', () => {
     sim.world.add(computer, Owner, { player: COMPUTER_SEAT });
     const human = settlerWithHunger(sim, fx.fromInt(0), { jobType: SOLDIER_JOB });
     sim.world.add(human, Owner, { player: HUMAN_SEAT });
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: COMPUTER_SEAT, enabled: true });
+    sim.enqueueSetup({ kind: 'setAiControl', player: COMPUTER_SEAT, enabled: true });
     sim.step();
     setNeeds(sim, computer, { hunger: SHY_OF_CRITICAL });
     setNeeds(sim, human, { hunger: PAST_CRITICAL });
@@ -69,18 +69,18 @@ describe('needsSystem - the computer seat refill', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
     const civilian = settlerWithHunger(sim, fx.fromInt(0));
     sim.world.add(civilian, Owner, { player: COMPUTER_SEAT });
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: COMPUTER_SEAT, enabled: true });
+    sim.enqueueSetup({ kind: 'setAiControl', player: COMPUTER_SEAT, enabled: true });
     sim.step();
     setNeeds(sim, civilian, { hunger: PAST_CRITICAL });
     for (let i = 0; i <= REFILL_TICKS; i++) sim.step();
     expect(needsOf(sim, civilian).hunger).toBeGreaterThan(PAST_CRITICAL);
   });
 
-  it('skips a computer seat whose scripted handler the map switched off', () => {
+  it('skips a computer seat whose mapAiEnabled handler the map switched off', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
     const e = settlerWithHunger(sim, fx.fromInt(0), { jobType: SOLDIER_JOB });
     sim.world.add(e, Owner, { player: IDLE_SEAT });
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: IDLE_SEAT, enabled: true, scripted: false });
+    sim.enqueueSetup({ kind: 'setAiControl', player: IDLE_SEAT, enabled: true, mapAiEnabled: false });
     sim.step();
     setNeeds(sim, e, { hunger: PAST_CRITICAL });
     for (let i = 0; i <= REFILL_TICKS; i++) sim.step();

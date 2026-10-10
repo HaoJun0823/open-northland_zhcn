@@ -68,20 +68,25 @@ immediately. The host closes a connection that has sent nothing, a pong included
 the world is fixed for the room's life. Alliances come from the map's diplomacy and in-game
 diplomacy; while the rules' `alliedVision` is on, the sim joins mutual friends into one fog mask and
 follows later stance changes, so allies explore, see and meet as one in every fog mode. `seats` lists
-the world's seats in ascending order as `{ player, mode, claimable, offers, color, authoredTribe?, tribe?, difficulty? }` with `mode` `script`, `ai`, `idle` or `absent`;
+the world's seats in ascending order as `{ player, mode, claimable, offers, color, authoredTribe?, tribe?, difficulty? }` with `mode` `map-ai`, `computer`, `idle` or `absent`;
 `human` is never chosen, it is what a claimed seat becomes. The required boolean `claimable`
 is false for scenario-only or hidden seats; the relay rejects claims with `seatNotClaimable`. `offers` lists the vacant modes the map's
 `playeroption` row allows the seat, `mode` among them. Where a computer is allowed, the lobby offers
-Map AI (`script`, the map’s `[AIData]` configuration), AI (every module supported by the tribe), and Idle
-(entities remain without AI control). Where `playeroption` allows None, the lobby also offers
-None (`absent`), which omits that seat’s starting entities. Authored computer seats default to Map AI; map-only computer
-seats offer Map AI alone. Authored `PLAYER_TYPE_NONE` seats are absent and cannot be claimed. `authoredTribe` is the tribe the map's roster
+Map AI (`map-ai`, the map’s `[AIData]` configuration), Computer (`computer`, autonomous control),
+and Idle (entities remain without AI control). Where `playeroption` allows None, the lobby also
+offers None (`absent`), which omits that seat’s starting entities. Authored AI seats default to
+Map AI; reserved map AI seats offer that mode alone. Map AI respects `AI_Disable`, `HAI_Disable`
+and individual module switches. An explicit Computer selection enables both controllers and
+overrides those switches for the selectable seat, within its tribe's capabilities.
+The computer controller and map AI controller have separate enabled gates: disabling every known
+computer module is not a substitute for the blanket computer gate. Authored `PLAYER_TYPE_NONE`
+seats are absent and cannot be claimed. `authoredTribe` is the tribe the map's roster
 names for the seat, and `tribe` the one it starts as when that differs (a saved world's choice); a seat
 without `authoredTribe` offers no tribe choice, and `tribe` needs it. Tribe ids are integers from 1
 through `MAX_TRIBE_ID` (255); which of them name a civilization is the clients' content to say.
 `difficulty` (`easy`, `medium` or `hard`) marks a seat the computer may play at a level and is the level
-it starts at; the clients give it to a civilization seat the strategic AI plays, never to a monster seat
-or a locked scripted camp whose map script stops that AI.
+it starts at; the clients give it to a civilization seat the computer player controls, never to a monster seat
+or a reserved map AI camp with autonomous control disabled.
 An `absent` seat idles, and a fresh world places none of its authored settlers,
 buildings, walls, animals or signposts. A room resumed from a save refuses `absent`, since its world
 already stands. `joinRoom { roomId }` joins a room in the lobby; a room that has started refuses. A
@@ -235,7 +240,7 @@ validates it with `parseCommandEnvelope` before enqueueing; an envelope the sim'
 dropped on every client alike, so a bad payload cannot split the session.
 
 One envelope in a frame does not come from a seat: `{ v, origin: "admin", command: { kind:
-"setPlayerAi", player, enabled: true } }`, the relay's own, for a seat a kick vote handed to the AI.
+"setAiControl", player, enabled: true, computerEnabled: true, mapAiEnabled: true } }`, the relay's own, for a seat a kick vote handed to the AI.
 It is the only trusted command the wire carries; a client refuses a frame with any other.
 
 ## Input delay
@@ -398,10 +403,10 @@ room with nobody connected is kept when no frame is retained, whichever comes fi
 
 When the yeses reach `needed` the relay broadcasts `kicked { player, nick, mode, cause, tick }`, removes
 the member (its token is a stranger from then on), and returns the seat to `settings.kickedSeatMode`
-(`ai` or `idle`). An `idle` policy always applies; `ai` applies when the seat offers it,
+(`computer` or `idle`). An `idle` policy always applies; `computer` applies when the seat offers it,
 otherwise a lobby AI seat stays AI and every other vacant mode falls back to `idle`,
 whose settlers already stand. The room view reflects this mode. For
-`mode: "ai"` the relay lands its `setPlayerAi` envelope on `tick`, the next unemitted one, outside
+`mode: "computer"` the relay lands its `setAiControl` envelope on `tick`, the next unemitted one, outside
 every budget, so the AI takes the seat on the same tick on every client. For `mode: "idle"` the seat
 simply issues nothing more. A vote passed before any world has loaded holds its handover notice and
 AI command until the first `loaded` fixes the built tick, and then names the first resumed tick.

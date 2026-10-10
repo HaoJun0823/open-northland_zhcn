@@ -1,6 +1,6 @@
 import { isCivilizationTribe, type MapsIndexPlayerSlot } from '@open-northland/data';
-import type { AiDifficulty, LocalSeat } from '@open-northland/lockstep';
-import { isMapComputerSeat } from '../../../game/session-url.js';
+import type { ComputerDifficulty, LocalSeat } from '@open-northland/lockstep';
+import { isReservedMapAiSeat } from '../../../game/session-url.js';
 
 /**
  * Pure roster state behind the lobby screen: seats, colours, civilizations and vacant modes over the slots
@@ -10,25 +10,25 @@ import { isMapComputerSeat } from '../../../game/session-url.js';
 /** One map player slot as `maps-index.json` lists it. */
 export type MapPlayerSlot = MapsIndexPlayerSlot;
 
-/** Script follows the map’s AI toggles, AI enables every available module, and Idle keeps the
+/** Map AI follows the author's switches, Computer enables autonomous control, and Idle keeps the
  *  entities without AI control. Absent omits the seat’s starting entities. */
-export type VacantMode = 'script' | 'idle' | 'ai' | 'absent';
+export type VacantMode = 'map-ai' | 'idle' | 'computer' | 'absent';
 
 export { OBSERVER_SEAT, OVERSEER_SEAT } from '@open-northland/lockstep';
 
 /** How hard a seat the lobby hands to the computer plays until the person picks another level. */
-export const DEFAULT_LOBBY_AI_DIFFICULTY: AiDifficulty = 'medium';
+export const DEFAULT_COMPUTER_DIFFICULTY: ComputerDifficulty = 'medium';
 
-/** How hard a saved world's computer seat plays when the save names no level: `setPlayerAi`'s own. */
-export const SAVED_WORLD_AI_DIFFICULTY: AiDifficulty = 'hard';
+/** How hard a saved world's computer seat plays when the save names no level: `setAiControl`'s own. */
+export const SAVED_COMPUTER_DIFFICULTY: ComputerDifficulty = 'hard';
 
-/** How hard the map's own computer seat plays until someone picks a level: `setPlayerAi`'s own, which it
+/** How hard the map's own computer seat plays until someone picks a level: `setAiControl`'s own, which it
  *  played before the lobby offered one. */
-export const MAP_COMPUTER_AI_DIFFICULTY: AiDifficulty = 'hard';
+export const MAP_COMPUTER_DIFFICULTY: ComputerDifficulty = 'hard';
 
 /** The level `slot` starts at in a fresh lobby or room. */
-export function startingDifficulty(slot: MapPlayerSlot): AiDifficulty {
-  return isMapComputerSeat(slot) ? MAP_COMPUTER_AI_DIFFICULTY : DEFAULT_LOBBY_AI_DIFFICULTY;
+export function startingDifficulty(slot: MapPlayerSlot): ComputerDifficulty {
+  return isReservedMapAiSeat(slot) ? MAP_COMPUTER_DIFFICULTY : DEFAULT_COMPUTER_DIFFICULTY;
 }
 
 /** What the lobby lets a person claim, which is what the session then plays. */
@@ -37,7 +37,7 @@ export type SeatChoice = LocalSeat;
 /** Authored computer seats follow the script; human seats idle and closed seats stay absent. */
 export function authoredVacantMode(slot: MapPlayerSlot): VacantMode {
   if (slot.type === 'none') return 'absent';
-  return isMapComputerSeat(slot) || (slot.type === 'ai' && slot.aiAllowed) ? 'script' : 'idle';
+  return isReservedMapAiSeat(slot) || (slot.type === 'ai' && slot.aiAllowed) ? 'map-ai' : 'idle';
 }
 
 /** The vacant modes the map's `playeroption` row offers the seat, in the lobby's order. Idle is
@@ -45,7 +45,7 @@ export function authoredVacantMode(slot: MapPlayerSlot): VacantMode {
 export function vacantOffers(slot: MapPlayerSlot): VacantMode[] {
   if (!slot.claimable) return [authoredVacantMode(slot)];
   return [
-    ...(slot.aiAllowed ? ['script' as const, 'ai' as const] : []),
+    ...(slot.aiAllowed ? ['map-ai' as const, 'computer' as const] : []),
     'idle',
     ...(slot.noneAllowed ? ['absent' as const] : []),
   ];
@@ -56,14 +56,14 @@ export function offersTribeChoice(slot: MapPlayerSlot): boolean {
   return isCivilizationTribe(slot.tribeId);
 }
 
-/** Claimable civilization seats offer full AI difficulty; a locked computer needs active strategic
- *  modules. Monster tribes have no strategic difficulty. */
+/** Claimable civilization seats offer computer difficulty; a locked computer needs active autonomous
+ *  modules. Monster tribes have no computer difficulty. */
 export function offersDifficulty(slot: MapPlayerSlot): boolean {
   return (
-    (slot.claimable || isMapComputerSeat(slot)) &&
+    (slot.claimable || isReservedMapAiSeat(slot)) &&
     !slot.hidden &&
     slot.aiAllowed &&
-    (slot.claimable || slot.strategicAi) &&
+    (slot.claimable || slot.hasComputerControl) &&
     offersTribeChoice(slot)
   );
 }
@@ -84,7 +84,7 @@ export interface RosterState {
   /** Per-slot vacant mode, initialised from the authored type. */
   readonly vacantModes: ReadonlyMap<number, VacantMode>;
   /** The level picked per slot; an unpicked computer seat plays its {@link startingDifficulty}. */
-  readonly difficulties: ReadonlyMap<number, AiDifficulty>;
+  readonly difficulties: ReadonlyMap<number, ComputerDifficulty>;
 }
 
 export function initialRosterState(players: readonly MapPlayerSlot[]): RosterState {
@@ -114,14 +114,18 @@ export function setSlotTribe(state: RosterState, slot: number, tribe: number): R
   return { ...state, tribes };
 }
 
-export function setSlotDifficulty(state: RosterState, slot: number, difficulty: AiDifficulty): RosterState {
+export function setSlotDifficulty(
+  state: RosterState,
+  slot: number,
+  difficulty: ComputerDifficulty,
+): RosterState {
   const difficulties = new Map(state.difficulties);
   difficulties.set(slot, difficulty);
   return { ...state, difficulties };
 }
 
 /** How hard `slot` plays should the computer take it. */
-export function slotDifficulty(state: RosterState, slot: MapPlayerSlot): AiDifficulty {
+export function slotDifficulty(state: RosterState, slot: MapPlayerSlot): ComputerDifficulty {
   return state.difficulties.get(slot.player) ?? startingDifficulty(slot);
 }
 
@@ -142,18 +146,18 @@ export function setSlotColor(state: RosterState, slot: number, colorId: number):
   return { ...state, colors };
 }
 
-/** The offered seats the strategic AI plays, what `?ai=` carries: a slot's effective mode is the
+/** The offered seats the computer player controls, what `?computer=` carries: a slot's effective mode is the
  *  toggle's when set, else the authored default. The map's own computer seats are not the lobby's to
- *  list; see `isMapComputerSeat`. */
-export function aiSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
-  return vacantSeatsIn(state, players, 'ai')
+ *  list; see `isReservedMapAiSeat`. */
+export function computerSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
+  return vacantSeatsIn(state, players, 'computer')
     .filter((p) => p.aiAllowed)
     .map((p) => p.player);
 }
 
 /** Offered seats running the map’s AI configuration. */
-export function scriptSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
-  return vacantSeatsIn(state, players, 'script')
+export function mapAiSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
+  return vacantSeatsIn(state, players, 'map-ai')
     .filter((p) => p.aiAllowed)
     .map((p) => p.player);
 }

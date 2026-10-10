@@ -9,7 +9,7 @@ import {
 } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { fx, nodeOfPosition, positionOfNode, Simulation } from '../../../src/index.js';
-import { nearestLiveResource } from '../../../src/systems/ai-player/live-resources.js';
+import { nearestLiveResource } from '../../../src/systems/computer-player/live-resources.js';
 import { resourceAtTile } from '../../../src/systems/footprint/resource-tile-cache.js';
 import { atomicSystem } from '../../../src/systems/index.js';
 import {

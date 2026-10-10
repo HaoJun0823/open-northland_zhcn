@@ -12,7 +12,7 @@ it.runIf(hasRealIr() && existsSync(realMapPath(SAND_MAP_ID)))(
     const authored = realMapScript(SAND_MAP_ID)?.weather ?? [];
     expect(authored.length).toBeGreaterThan(0);
     expect(authored.every((region) => region.weather === 'sand')).toBe(true);
-    const { sim } = await realMapWorld({ mapId: SAND_MAP_ID, aiSeats: [] });
+    const { sim } = await realMapWorld({ mapId: SAND_MAP_ID, machineSeats: [] });
     expect(sim.missionPresentation().weather).toEqual(authored);
   },
 );

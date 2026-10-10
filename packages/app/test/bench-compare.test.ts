@@ -15,7 +15,14 @@ function window(index: number, medianMs: number): BenchWindow {
     toTick: index * 100 + 100,
     tickMs: { medianMs, p95Ms: medianMs * 2, p99Ms: medianMs * 3, maxMs: medianMs * 4 },
     systems: [
-      { name: 'ai', meanMs: medianMs, medianMs, p95Ms: medianMs * 2, maxMs: medianMs * 4, sharePct: 100 },
+      {
+        name: 'ai',
+        meanMs: medianMs,
+        medianMs,
+        p95Ms: medianMs * 2,
+        maxMs: medianMs * 4,
+        sharePct: 100,
+      },
     ],
     population: { settlers: 100, fighters: 20, buildings: 10, resourceNodes: 500 },
     rssMb: 200,
@@ -30,7 +37,7 @@ function report(overrides: Partial<BenchReport> = {}): BenchReport {
     world: {
       kind: 'realMap',
       mapId: 'magiczny_las',
-      aiSeats: [0, 1, 2, 3, 4, 5, 6],
+      machineSeats: [0, 1, 2, 3, 4, 5, 6],
       progression: null,
       needs: null,
       mapCells: { width: 240, height: 190 },
@@ -103,7 +110,7 @@ describe('compareReports refuses', () => {
 
   it('the same map under other AI seats or other rules', () => {
     const world = report().world as Extract<BenchReport['world'], { kind: 'realMap' }>;
-    const fewer = report({ world: { ...world, aiSeats: [0, 1, 6] } });
+    const fewer = report({ world: { ...world, machineSeats: [0, 1, 6] } });
     expect(() => compareReports(report(), fewer)).toThrow(/AI seats 0-6.*AI seats 0-1,6/);
     const needs = report({ world: { ...world, needs: true } });
     expect(() => compareReports(report(), needs)).toThrow(/needs on/);
@@ -191,7 +198,10 @@ describe('readReport', () => {
 
   it('names the file and the missing field rather than failing later on undefined', () => {
     expect(() =>
-      readReport({ version: BENCH_REPORT_VERSION, world: { kind: 'realMap', aiSeats: [] } }, 'stale.json'),
+      readReport(
+        { version: BENCH_REPORT_VERSION, world: { kind: 'realMap', machineSeats: [] } },
+        'stale.json',
+      ),
     ).toThrow(/stale\.json is not a benchmark report: missing world\.mapCells/);
     const noTicks = { ...report(), ticks: undefined };
     expect(() => readReport(noTicks, 'stale.json')).toThrow(/missing ticks\.measured/);

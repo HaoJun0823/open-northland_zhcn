@@ -553,7 +553,7 @@ describe('household quality goods', () => {
   it('rejects an unknown household effect at the command parse boundary', () => {
     expect(() =>
       parseCommandEnvelope({
-        v: 1,
+        v: 2,
         origin: 'player',
         player: 0,
         command: { kind: 'setHouseholdGoodUse', player: 0, effect: 'lighting', allowed: false },

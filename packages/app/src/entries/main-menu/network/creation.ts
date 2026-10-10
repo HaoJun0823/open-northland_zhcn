@@ -1,5 +1,5 @@
 import { type MapsIndexEntry, mapLobbySlots } from '@open-northland/data';
-import type { AiDifficulty, SessionSeat } from '@open-northland/lockstep';
+import type { ComputerDifficulty, SessionSeat } from '@open-northland/lockstep';
 import { prepareInitialSave } from '@open-northland/net-client';
 import type { RoomSeatSetup, RoomSettings } from '@open-northland/net-protocol';
 import { loadMapList } from '../../../content/maps-index.js';
@@ -16,7 +16,7 @@ import {
   authoredVacantMode,
   type MapPlayerSlot,
   offersDifficulty,
-  SAVED_WORLD_AI_DIFFICULTY,
+  SAVED_COMPUTER_DIFFICULTY,
   startingDifficulty,
   vacantOffers,
 } from '../lobby/roster-state.js';
@@ -48,14 +48,16 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
       ? slot.type === 'none'
         ? 'absent'
         : slot.type === 'ai'
-          ? 'script'
+          ? 'map-ai'
           : 'idle'
       : authoredVacantMode(metadata);
   };
   // `mapLobbySlots` lists every script seat, so only an out-of-date index row falls back to every mode.
   const offers = (slot: (typeof script.players)[number]) => {
     const metadata = roster.get(slot.player);
-    return metadata === undefined ? (['script', 'ai', 'idle', 'absent'] as const) : vacantOffers(metadata);
+    return metadata === undefined
+      ? (['map-ai', 'computer', 'idle', 'absent'] as const)
+      : vacantOffers(metadata);
   };
   // A single-player save names its seats in its entry search; its world already plays their tribes.
   const savedSeats = new Map(
@@ -63,9 +65,9 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
       ? []
       : mapSession(new URLSearchParams(save.header.entry), players).seats.map((seat) => [seat.player, seat]),
   );
-  // A save's computer seats play the level its entry names, and `setPlayerAi`'s hard where it names none.
-  const startLevel = (saved: SessionSeat | undefined, listed: MapPlayerSlot): AiDifficulty =>
-    saved?.difficulty ?? (save === null ? startingDifficulty(listed) : SAVED_WORLD_AI_DIFFICULTY);
+  // A save's computer seats play the level its entry names, and `setAiControl`'s hard where it names none.
+  const startLevel = (saved: SessionSeat | undefined, listed: MapPlayerSlot): ComputerDifficulty =>
+    saved?.difficulty ?? (save === null ? startingDifficulty(listed) : SAVED_COMPUTER_DIFFICULTY);
   const authoredSeats: RoomSeatSetup[] = script.players.map((slot) => {
     const saved = savedSeats.get(slot.player);
     const listed = roster.get(slot.player);

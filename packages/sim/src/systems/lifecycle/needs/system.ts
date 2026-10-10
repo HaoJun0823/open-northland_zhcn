@@ -14,7 +14,7 @@ import {
 import { type Fixed, ONE, ZERO } from '../../../core/fixed.js';
 import type { Rng } from '../../../core/rng.js';
 import type { Entity, World } from '../../../ecs/world.js';
-import { handlerTurn, scriptedSeatOnTurn } from '../../ai-player/cadence.js';
+import { handlerTurn, mapAiSeatOnTurn } from '../../ai-shared/cadence.js';
 import type { System, SystemContext } from '../../context.js';
 import { woundBearer } from '../../equipment/index.js';
 import { isFighterJob } from '../../readviews/index.js';
@@ -179,7 +179,7 @@ export const AI_NEED_REFILL_TURNS = 12;
 /** The computer seat whose refill lands on `tick`, or null on a tick that is no seat's. */
 function seatRefillingAt(world: World, tick: number): number | null {
   if (handlerTurn(tick) % AI_NEED_REFILL_TURNS !== 0) return null;
-  return scriptedSeatOnTurn(world, tick);
+  return mapAiSeatOnTurn(world, tick);
 }
 
 /** The refill itself: a fighter's hunger and fatigue only, written over whatever gate would otherwise

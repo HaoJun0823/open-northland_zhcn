@@ -22,7 +22,7 @@ function parentSave() {
     ...inputs,
     map,
     seed: 7,
-    aiSeats: [],
+    machineSeats: [],
     assistantSeats: [],
     fog: null,
     needs: null,

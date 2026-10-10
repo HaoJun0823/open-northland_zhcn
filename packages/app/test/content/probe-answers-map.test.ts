@@ -36,7 +36,7 @@ describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))('probe answers on
     // Progression off, so the seat's technology gate admits the house and the grid has ground to agree on.
     const { sim, ir } = await realMapWorld({
       mapId: MAP_ID,
-      aiSeats: [],
+      machineSeats: [],
       humanSeats: [SEAT],
       rules: { fog: null, progression: false, needs: null, weather: null, alliedVision: null },
     });

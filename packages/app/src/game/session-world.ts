@@ -2,7 +2,7 @@ import { type MapScript, mapLobbySlots } from '@open-northland/data';
 import { absentSeatsOf, type GameSession } from '@open-northland/lockstep';
 import { neverDiesSeats } from './match-participants.js';
 import { sessionRoles } from './session-roles.js';
-import { isMapComputerSeat } from './session-url.js';
+import { isReservedMapAiSeat } from './session-url.js';
 import type { MapScriptWorld } from './world/build.js';
 
 /**
@@ -19,21 +19,21 @@ export function sessionWorldOptions(session: GameSession, script: MapScript | nu
   const matchParticipants = (world.participants ?? roles.matchParticipants).filter(
     (seat) => !absent.has(seat),
   );
-  const mapComputer = new Set(
+  const reservedMapAi = new Set(
     script === null
       ? []
       : mapLobbySlots(script)
-          .filter(isMapComputerSeat)
+          .filter(isReservedMapAiSeat)
           .map((slot) => slot.player),
   );
   return {
-    aiSeats: roles.aiSeats,
+    machineSeats: roles.machineSeats,
     absentSeats: absentSeatsOf(session),
-    lobbyAiSeats: session.seats
-      .filter((seat) => seat.mode === 'ai' && !mapComputer.has(seat.player))
+    lobbyComputerSeats: session.seats
+      .filter((seat) => seat.mode === 'computer' && !reservedMapAi.has(seat.player))
       .map((seat) => seat.player),
-    autonomousAiSeats: session.seats.filter((seat) => seat.mode === 'ai').map((seat) => seat.player),
-    aiDifficulties: new Map(
+    computerSeats: session.seats.filter((seat) => seat.mode === 'computer').map((seat) => seat.player),
+    computerDifficulties: new Map(
       session.seats.flatMap((seat) =>
         seat.difficulty === undefined ? [] : [[seat.player, seat.difficulty]],
       ),

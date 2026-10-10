@@ -56,7 +56,7 @@ describe.runIf(hasRealIr())(`${MAP_ID} with lobby-chosen civilizations`, () => {
     const { merge } = await loadContentUnderTest();
     const { map, script } = readMap(MAP_ID);
     const params = new URLSearchParams(
-      `map=${MAP_ID}&player=${HUMAN_SEAT}&ai=${AI_SEAT}&tribes=0:${SARACEN},1:${EGYPT}`,
+      `map=${MAP_ID}&player=${HUMAN_SEAT}&computer=${AI_SEAT}&tribes=0:${SARACEN},1:${EGYPT}`,
     );
     const session = mapSession(params, mapLobbySlots(script));
     const { sim } = buildMapWorldFromInputs({

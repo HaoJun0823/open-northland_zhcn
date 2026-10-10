@@ -1,5 +1,5 @@
 import type { MapsIndexPlayerSlot } from './schema/maps/listing.js';
-import { MapAiModule, type MapAiSeat, type MapScript } from './schema/maps/script.js';
+import { ComputerModuleId, type MapAiSeat, type MapScript } from './schema/maps/script.js';
 
 /** The lobby seats a script authors: its roster rows read against the `[multiplayer]` table. */
 export function mapLobbySlots(script: MapScript): MapsIndexPlayerSlot[] {
@@ -12,15 +12,14 @@ export function mapLobbySlots(script: MapScript): MapsIndexPlayerSlot[] {
       hidden: table?.hiddenSlots.includes(slot.player) ?? false,
       aiAllowed: allowed === undefined || allowed.includes('ai'),
       noneAllowed: allowed === undefined || allowed.includes('none'),
-      strategicAi: strategicAiPlays(script.ai?.find((row) => row.player === slot.player)),
+      hasComputerControl: mapAllowsComputerControl(script.ai?.find((row) => row.player === slot.player)),
     };
   });
 }
 
-/** Whether a seat's `[AIData]` row leaves the strategic AI running: a seat without a row plays with
- *  every module; `AI_Disable` or a blanket `HAI_Disable` leaves only the scripted handler. */
-export function strategicAiPlays(row: MapAiSeat | undefined): boolean {
+/** Whether the authored switches permit any autonomous computer-player capability. */
+export function mapAllowsComputerControl(row: MapAiSeat | undefined): boolean {
   if (row === undefined) return true;
-  if (row.disabled) return false;
-  return !MapAiModule.options.every((id) => row.strategicOff.includes(id));
+  if (row.allDisabled || row.computerDisabled) return false;
+  return !ComputerModuleId.options.every((id) => row.disabledComputerModules.includes(id));
 }

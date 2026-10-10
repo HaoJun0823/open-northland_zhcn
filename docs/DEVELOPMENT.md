@@ -158,15 +158,15 @@ loading a save preserves its stored mission rules.
 | `?shot` | single-frame screenshot entry used by the harness |
 
 Common modifiers include `lang=<pol|eng|ger|rus>`, `fog=<off|classic|classic-fow|recon|recon-fow>` (the
-lobby's map setting, with `-fow` for fog of war; `off` reveals the map), `player=<...>`, `ai=<...>`, `sound=off`,
+lobby's map setting, with `-fow` for fog of war; `off` reveals the map), `player=<...>`, `computer=<...>`, `sound=off`,
 `intro=off` (skip all automatic briefing windows, including script chapters), `fullscreen=off`,
 `weather=<rain|snow|sand|clear>[:<percent>]` (whole-map weather in this view only, default 30; the sim's
 weather is untouched; `weather=ambient[:<percent>]` holds the game's own weather, 100 a light episode, 300 a storm), and
 `weathermode=<map|variable|winter>` (the lobby's match weather, `map` when no param names one), and
-`tint=<palette index>` (a map script's whole-map vertex tint held in this view only). `ai=<seat,...>`
-names the seats a person could have taken that the strategic AI plays instead; a map's own computer
-seats (authored `ai`, offered to nobody) follow their script without being named. `script=<seat,...>`
-selects the map’s `[AIData]` configuration for an offered seat; `idle=<seat,...>` leaves its entities
+`tint=<palette index>` (a map script's whole-map vertex tint held in this view only). `computer=<seat,...>`
+names the seats a person could have taken that the computer player controls instead; reserved map AI
+seats (authored `ai`, offered to nobody) retain the map's control settings without being named. `map-ai=<seat,...>`
+selects the map’s `[AIData]` configuration for an offered seat, including autonomous modules the author leaves enabled; `idle=<seat,...>` leaves its entities
 without AI control. Authored AI seats default to Map AI, human seats to Idle, and authored closed
 seats spawn no entities. Where the map allows it, None (`absent=<seat,...>`) also omits a claimable
 seat’s starting entities. `seed=<n>` picks
@@ -433,7 +433,7 @@ browser. `player=overseer` builds the same world whenever seat 0 is an AI seat. 
 | knob | meaning |
 | --- | --- |
 | `ON_BENCH_MAP` | decoded map id, default `magiczny_las` |
-| `ON_BENCH_SEATS` | `?ai=` seats: a count `n` names `0..n-1` (default 6), a comma list names the seats, `n,` the one seat `n` |
+| `ON_BENCH_SEATS` | `?computer=` seats: a count `n` names `0..n-1` (default 6), a comma list names the seats, `n,` the one seat `n` |
 | `ON_BENCH_TRIBES`, `ON_BENCH_SEED` | `?tribes=` as the search spells it (`0:4,1:2`; unset keeps the authored tribes) and `?seed=` (default 7) |
 | `ON_BENCH_PROGRESSION`, `ON_BENCH_NEEDS` | `on`/`off`, the `?progression=` and `?needs=` overrides; unset keeps the map's rule |
 | `ON_BENCH_TICKS`, `ON_BENCH_WARMUP`, `ON_BENCH_WINDOWS` | measured ticks (default 20k), unmeasured warm-up, report segments |

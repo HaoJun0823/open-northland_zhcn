@@ -151,7 +151,7 @@ describe('compound selection orders', () => {
   it('bounds all nested input and forbids command recursion or injected actors', () => {
     const parse = (members: unknown) =>
       parseCommandEnvelope({
-        v: 1,
+        v: 2,
         origin: 'player',
         player: 0,
         command: { kind: 'unitOrdersGroup', members },

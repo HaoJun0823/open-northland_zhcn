@@ -1,5 +1,5 @@
 import { EQUIP_CATEGORIES, HomeQualityEffect, MAP_GOAL_GOODS_MAX } from '@open-northland/data';
-import { AI_DIFFICULTIES, AI_MODULE_IDS } from '../../components/ai-player.js';
+import { COMPUTER_DIFFICULTIES, COMPUTER_MODULE_IDS } from '../../components/ai-control.js';
 import { ASSISTANT_COUNTER_KINDS } from '../../components/assistant.js';
 import { MAX_MATCH_GOALS, type MatchGoal } from '../../components/match.js';
 import { SCRIPTED_LOOK_MAX_RECIPES, SCRIPTED_LOOK_RECIPE_MAX_CHARS } from '../../components/mission.js';
@@ -94,7 +94,7 @@ const PAPER: FieldCheck = { fields: { required: { kind: { oneOf: PAPER_KINDS }, 
 
 /** Every AI module is optional and boolean, an omitted one defaulting to enabled. */
 const AI_MODULES: FieldCheck = {
-  fields: { optional: Object.fromEntries(AI_MODULE_IDS.map((id) => [id, 'boolean' as const])) },
+  fields: { optional: Object.fromEntries(COMPUTER_MODULE_IDS.map((id) => [id, 'boolean' as const])) },
 };
 
 type RequiredKey<T> = { [P in keyof T]-?: object extends Pick<T, P> ? never : P }[keyof T];
@@ -374,13 +374,14 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   setPalisadeGateMode: { required: { palisade: 'integer', mode: { oneOf: GATE_MODES } } },
   setPalisadeGate: { required: { palisade: 'integer', open: 'boolean' } },
   setPlayerPlacementTribes: { required: { player: 'integer', tribes: { arrayOf: 'integer' } } },
-  setPlayerAi: {
+  setAiControl: {
     required: { player: 'integer', enabled: 'boolean' },
     optional: {
       modules: AI_MODULES,
-      scripted: 'boolean',
+      computerEnabled: 'boolean',
+      mapAiEnabled: 'boolean',
       peaceUntil: 'integer',
-      difficulty: { oneOf: AI_DIFFICULTIES },
+      difficulty: { oneOf: COMPUTER_DIFFICULTIES },
     },
   },
   setProfessionProgression: { required: { enabled: 'boolean' } },

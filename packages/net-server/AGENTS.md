@@ -14,7 +14,7 @@ seats, identities), and session settings (speed, pause), and for nothing else. T
 - Never interprets a command payload or a blob. It reads an envelope's authority half, stamps the
   seat from the connection, and forwards the rest byte for byte; every client validates with the
   sim's parser. A blob is a type, a tick, and bytes the relay stores or forwards unread.
-- Issues one trusted command of its own, `setPlayerAi` for a kicked seat, and no other; the wire
+- Issues one trusted command of its own, `setAiControl` for a kicked seat, and no other; the wire
   parser on every client refuses any other trusted envelope in a frame.
 - `Relay` is transport-free and clock-free: the host feeds it connections, messages, and `advance`
   calls on a poll, and a test feeds it the same from a virtual clock and an in-memory network. Keep

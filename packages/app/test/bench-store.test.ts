@@ -16,7 +16,7 @@ function report(startedAt: string, overrides: Partial<BenchReport> = {}): BenchR
     world: {
       kind: 'realMap',
       mapId: 'magiczny_las',
-      aiSeats: [0, 1, 2, 3, 4, 5, 6],
+      machineSeats: [0, 1, 2, 3, 4, 5, 6],
       progression: null,
       needs: null,
       mapCells: { width: 240, height: 190 },
@@ -26,7 +26,7 @@ function report(startedAt: string, overrides: Partial<BenchReport> = {}): BenchR
     },
     ticks: { warmup: 60, measured: 600, windows: 1 },
     tickMs: { medianMs: 6, p95Ms: 12, p99Ms: 18, maxMs: 30 },
-    systems: [{ name: 'ai', meanMs: 4, medianMs: 4, p95Ms: 8, maxMs: 16, sharePct: 100 }],
+    systems: [{ name: 'computer', meanMs: 4, medianMs: 4, p95Ms: 8, maxMs: 16, sharePct: 100 }],
     slowestTicks: [],
     stutterSources: [],
     windows: [],

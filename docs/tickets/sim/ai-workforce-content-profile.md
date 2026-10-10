@@ -3,7 +3,7 @@
 **Area:** sim, data · **Priority:** P3
 **Blocked by:** [AI build-order profile](ai-build-order-content-profile.md)
 
-Every authored table under `packages/sim/src/systems/ai-player/**` outside the build order itself
+Every authored table under `packages/sim/src/systems/computer-player/**` outside the build order itself
 (the staffing, supply, collector, clearing, fisher, craft, outfit, army and coverage policies and
 the game-phase clocks) lives in sim code as one global default. Once seats select a validated AI
 profile, these policies should come from the same profile.

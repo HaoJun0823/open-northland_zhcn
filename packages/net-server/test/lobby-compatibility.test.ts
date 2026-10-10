@@ -159,7 +159,7 @@ describe('lobby compatibility gate', () => {
     expect(s.b.last('start')?.session.seats).toEqual([
       { player: 0, mode: 'human', color: 0 },
       { player: 1, mode: 'human', color: 5 },
-      { player: 2, mode: 'ai', color: 2 },
+      { player: 2, mode: 'computer', color: 2 },
     ]);
   });
 

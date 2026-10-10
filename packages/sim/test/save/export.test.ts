@@ -179,7 +179,7 @@ describe('exportSaveGame sections', () => {
     const sim = populatedSim();
     const commands = sectionOf(exportSaveGame(sim), 'commands');
     expect(commands.pending).toEqual([
-      { v: 1, origin: 'setup', command: { kind: 'setNeedsEnabled', enabled: false } },
+      { v: 2, origin: 'setup', command: { kind: 'setNeedsEnabled', enabled: false } },
     ]);
     expect(commands.nextSequence).toBeGreaterThan(0);
   });

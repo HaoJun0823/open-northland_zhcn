@@ -1,0 +1,75 @@
+import type { AiOrderOrigin } from '../../components/ai-order.js';
+import {
+  AiOrder,
+  AttackOrder,
+  DeferredOrder,
+  Engagement,
+  MusterPlan,
+  OrderQueue,
+  Owner,
+  PlayerOrder,
+  Settler,
+  WaveMarch,
+} from '../../components/index.js';
+import type { AiDecisionSource } from '../../core/commands/index.js';
+import type { Entity, World } from '../../ecs/world.js';
+import type { SystemContext } from '../context.js';
+import { stopAtNextNode } from '../movement/nav-state.js';
+import { stopVehicle } from '../vehicles/movement.js';
+import { anchorAtFeet } from './combat.js';
+
+/** Stamp an accepted replacement; a direct human or mission order releases AI ownership. */
+export function recordAiOrder(world: World, entity: Entity, origin?: AiOrderOrigin): void {
+  if (origin === undefined) world.remove(entity, AiOrder);
+  else world.add(entity, AiOrder, { ...origin });
+}
+
+/** Retire only orders still owned by a controller that just lost permission. */
+export function withdrawAiOrders(
+  world: World,
+  ctx: SystemContext,
+  player: number,
+  stopped: (source: AiDecisionSource) => boolean,
+): void {
+  for (const entity of world.query(OrderQueue)) {
+    const orders = world.get(entity, OrderQueue).orders;
+    const retained = orders.filter(
+      (order) => order.aiOrder?.player !== player || !stopped(order.aiOrder.source),
+    );
+    if (retained.length === orders.length) continue;
+    if (retained.length === 0) world.remove(entity, OrderQueue);
+    else world.mut(entity, OrderQueue).orders = retained;
+  }
+
+  for (const entity of world.query(AiOrder)) {
+    const order = world.get(entity, AiOrder);
+    if (order.player !== player || !stopped(order.source)) continue;
+    if (world.tryGet(entity, Owner)?.player !== player) {
+      world.remove(entity, AiOrder);
+      continue;
+    }
+    withdrawAiEntityOrder(world, ctx, entity);
+  }
+}
+
+/** A future re-enable starts a fresh decision rather than resuming a stale invasion. */
+export function retireComputerCampaign(world: World, player: number): void {
+  for (const entity of new Set([...world.query(MusterPlan, Owner), ...world.query(WaveMarch, Owner)])) {
+    if (world.get(entity, Owner).player !== player) continue;
+    world.remove(entity, MusterPlan);
+    world.remove(entity, WaveMarch);
+  }
+}
+
+/** Release a recorded controller order before another controller assigns this unit. */
+export function withdrawAiEntityOrder(world: World, ctx: SystemContext, entity: Entity): void {
+  if (!world.has(entity, AiOrder)) return;
+  world.remove(entity, PlayerOrder);
+  world.remove(entity, AttackOrder);
+  world.remove(entity, Engagement);
+  world.remove(entity, DeferredOrder);
+  if (ctx.terrain !== undefined) stopAtNextNode(world, ctx.terrain, entity);
+  stopVehicle(world, { kind: 'stopVehicle', vehicle: entity });
+  if (world.has(entity, Settler)) anchorAtFeet(world, ctx, entity);
+  world.remove(entity, AiOrder);
+}

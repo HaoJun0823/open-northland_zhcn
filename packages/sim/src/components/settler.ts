@@ -3,6 +3,7 @@ import type { Command } from '../core/commands/index.js';
 import { type Fixed, fx } from '../core/fixed.js';
 import { type DeepReadonly, defineComponent, type Entity, type World } from '../ecs/world.js';
 import type { NodeId } from '../nav/terrain/index.js';
+import type { AiOrderOrigin } from './ai-order.js';
 
 /** The `(tribe, job)` pair that keys a settler's content lookups. */
 export interface SettlerIdentity {
@@ -367,7 +368,8 @@ export const ORDER_QUEUE_LIMIT = 16;
  * `orderQueueSystem` starts the next. Any order that takes the settler without queueing drops them
  * (`dropOrderQueue`). Named addition: the original has no order queue.
  */
-export const OrderQueue = defineComponent<{ orders: QueueableOrderCommand[] }>('OrderQueue', 'settlers');
+export type QueuedUnitOrder = QueueableOrderCommand & { readonly aiOrder?: AiOrderOrigin };
+export const OrderQueue = defineComponent<{ orders: QueuedUnitOrder[] }>('OrderQueue', 'settlers');
 
 /**
  * Hunger took this settler off its player orders: the needs drive feeds it while its {@link OrderQueue},

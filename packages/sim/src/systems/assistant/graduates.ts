@@ -1,7 +1,7 @@
 import { assistantPostsGraduatesEntity, ownerOf, Settler, SettlerProgress } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
-import { ownedBuildings } from '../ai-player/seat-roster.js';
+import { ownedBuildings } from '../ai-shared/seat-roster.js';
 import type { SystemContext } from '../context.js';
 import { bindEmployment, craftsAnyAt, openWorkerJobFromList } from '../economy/jobs/index.js';
 import { jobUsesWorkFlag } from '../economy/work-flag.js';

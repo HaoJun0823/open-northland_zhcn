@@ -25,7 +25,7 @@ const AUTHORED_IR = AUTHORED_ROWS as ContentIr;
 const BASE_OPTIONS = {
   seed: 7,
   content: {},
-  aiSeats: [],
+  machineSeats: [],
   assistantSeats: [0],
   fog: null,
   progression: null,

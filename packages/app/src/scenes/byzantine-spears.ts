@@ -11,7 +11,7 @@ function build(sim: Simulation): void {
       if (player !== other)
         sim.enqueueSetup({ kind: 'setDiplomacy', from: player, to: other, state: 'friend' });
     }
-    if (player !== 0) sim.enqueueSetup({ kind: 'setPlayerAi', player, enabled: true, scripted: false });
+    if (player !== 0) sim.enqueueSetup({ kind: 'setAiControl', player, enabled: true, mapAiEnabled: false });
     for (const [row, jobType] of [JOB_SOLDIER_SPEAR_WOODEN, JOB_SOLDIER_SPEAR].entries()) {
       const node = cellAnchorNode(4 + player * 5, 5 + row * 5);
       sim.enqueueSetup({ kind: 'spawnSettler', tribe: 3, jobType, owner: player, x: node.hx, y: node.hy });

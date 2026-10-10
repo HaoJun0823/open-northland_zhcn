@@ -19,7 +19,7 @@ const HUMAN_SEAT = 0;
  */
 describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))('the HUD over a decoded seat', () => {
   it('counts the whole multi-tribe seat, which no single tribe id covers', async () => {
-    const { sim } = await realMapWorld({ mapId: MAP_ID, aiSeats: [] });
+    const { sim } = await realMapWorld({ mapId: MAP_ID, machineSeats: [] });
 
     let peopleOnSeat = 0;
     const tribesOnSeat = new Set<number>();

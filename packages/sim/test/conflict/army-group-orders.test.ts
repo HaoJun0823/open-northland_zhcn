@@ -190,7 +190,7 @@ describe('atomic army orders', () => {
   ])('refuses a nested action outside its exact member-local payload: $kind', (action) => {
     expect(() =>
       parseCommandEnvelope({
-        v: 1,
+        v: 2,
         origin: 'player',
         player: P0,
         command: {
@@ -253,7 +253,7 @@ describe('atomic army orders', () => {
       entity: i + 1,
       ...(walk ? { x: i, y: 0 } : {}),
     }));
-    const envelope = { v: 1, origin: 'player', player: P0, command: { ...fields, members } };
+    const envelope = { v: 2, origin: 'player', player: P0, command: { ...fields, members } };
     expect(parseCommandEnvelope(JSON.parse(JSON.stringify(envelope)))).toEqual(envelope);
     const parse = (command: unknown): unknown => parseCommandEnvelope({ ...envelope, command });
     expect(() => parse({ ...envelope.command, members: [...members, members[0]] })).toThrow(/at most 4096/);

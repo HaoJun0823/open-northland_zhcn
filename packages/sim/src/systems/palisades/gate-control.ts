@@ -2,7 +2,7 @@ import {
   diplomacyStance,
   GateControl,
   Health,
-  isAiPlayer,
+  isMachinePlayer,
   ownerOf,
   Palisade,
   Position,
@@ -74,7 +74,7 @@ export const gateControlSystem: System = (world, ctx) => {
     if (world.has(e, UnderConstruction) || !world.has(e, Position)) continue;
     const owner = ownerOf(world, e);
     let control = world.tryGet(e, GateControl);
-    if (control === undefined && owner !== undefined && isAiPlayer(world, owner)) {
+    if (control === undefined && owner !== undefined && isMachinePlayer(world, owner)) {
       world.add(e, GateControl, { mode: 'automatic' });
       control = world.get(e, GateControl);
     }

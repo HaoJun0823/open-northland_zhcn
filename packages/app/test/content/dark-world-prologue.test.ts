@@ -14,7 +14,7 @@ const PROLOGUE_BUDGET_TICKS = 5 * 60 * TICKS_PER_SECOND;
 
 describe.runIf(hasRealIr())(`${MAP_ID}: the prologue`, () => {
   it('runs every mission and hands back to the main map', async () => {
-    const { sim } = await realMapWorld({ mapId: MAP_ID, aiSeats: [] });
+    const { sim } = await realMapWorld({ mapId: MAP_ID, machineSeats: [] });
     let ended = false;
     for (let tick = 0; tick < PROLOGUE_BUDGET_TICKS && !ended; tick++) {
       sim.step();

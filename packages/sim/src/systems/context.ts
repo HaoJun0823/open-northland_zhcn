@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import type { AiProgramScript } from '../components/ai-program.js';
+import type { MapAiScript } from '../components/map-ai.js';
 import type { CommandQueue } from '../core/command-queue.js';
 import type { EventBuffer } from '../core/events.js';
 import type { PersonalNames } from '../core/personal-names.js';
@@ -19,7 +19,7 @@ export interface SystemContext {
   readonly events: EventBuffer;
   /**
    * The serializable command queue, the single mutation seam: CommandSystem drains and applies it and the
-   * AiPlayerSystem enqueues into it; no other system touches it.
+   * AI decision systems enqueue into it.
    */
   readonly commands: CommandQueue;
   /**
@@ -36,7 +36,7 @@ export interface SystemContext {
    *  wires none. */
   readonly missions?: MissionScript;
   /** The map's `[AIData]` rows, one per seat that authored any. Absent like `missions`. */
-  readonly aiScript?: AiProgramScript;
+  readonly mapAiScript?: MapAiScript;
 }
 
 /**

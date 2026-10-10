@@ -265,7 +265,7 @@ describe('a fighting unit on alert takes no rest', () => {
     larderAt(sim, 0);
     const foe = fighterAt(sim, 10 + NEAR_CELLS, 0, FRANK, WOODCUTTER, { owner: P0, hitpoints: 1_000_000 });
     sim.world.add(foe, Engagement, { repathAt: sim.tick });
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: P1, enabled: true });
+    sim.enqueueSetup({ kind: 'setAiControl', player: P1, enabled: true });
 
     plannerSystem(sim.world, ctxOf(sim));
 

@@ -39,7 +39,7 @@ describe.runIf(hasRealIr())('a seat declaring its stance on a real map', () => {
     async () => {
       const { sim } = await realMapWorld({
         mapId: MULTIPLAYER_MAP,
-        aiSeats: MULTIPLAYER_COMPUTER_SEATS,
+        machineSeats: MULTIPLAYER_COMPUTER_SEATS,
         humanSeats: [PLAYER],
       });
       expect(sim.diplomacyStance(NEIGHBOUR, PLAYER)).toBe('neutral');
@@ -57,7 +57,7 @@ describe.runIf(hasRealIr())('a seat declaring its stance on a real map', () => {
     async () => {
       const { sim } = await realMapWorld({
         mapId: STORY_MAP,
-        aiSeats: STORY_COMPUTER_SEATS,
+        machineSeats: STORY_COMPUTER_SEATS,
         humanSeats: [PLAYER],
       });
       const before = [sim.diplomacyStance(PLAYER, LOCKED), sim.diplomacyStance(PLAYER, HIDDEN)];

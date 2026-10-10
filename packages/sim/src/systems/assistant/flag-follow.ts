@@ -16,6 +16,8 @@ import { TICKS_PER_SECOND } from '../../core/loop.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, nodeHxOfPosition, nodeHyOfPosition, positionOfNode } from '../../nav/halfcell.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
+import { anchorNodeOf } from '../ai-shared/node-geometry.js';
+import { ownedBuildings } from '../ai-shared/seat-roster.js';
 import {
   type GathererReach,
   gathererReach,
@@ -23,9 +25,7 @@ import {
   reachableResourceTest,
   type WorkableTest,
   workableResourceTest,
-} from '../ai-player/live-resources.js';
-import { anchorNodeOf } from '../ai-player/node-geometry.js';
-import { ownedBuildings } from '../ai-player/seat-roster.js';
+} from '../computer-player/live-resources.js';
 import {
   claimFlagNode,
   type FlagBand,
@@ -33,7 +33,7 @@ import {
   nodeDistance,
   replantSpot,
   type TakenFlagNodes,
-} from '../ai-player/workforce/flag-spots.js';
+} from '../computer-player/workforce/flag-spots.js';
 import type { System, SystemContext } from '../context.js';
 import { jobGatherGoods, openGatherGoods } from '../economy/gather-goods.js';
 import { jobCanHarvest, liveWorkFlag, relocateWorkFlag } from '../economy/work-flag.js';

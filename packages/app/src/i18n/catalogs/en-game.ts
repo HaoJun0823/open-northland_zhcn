@@ -1858,11 +1858,11 @@ export const enGame = {
     roomNoSeats: 'This map has no seats to claim',
     departed: {
       vote: {
-        ai: '{nick} was kicked; the AI takes the seat',
+        computer: '{nick} was kicked; a computer player takes the seat',
         idle: '{nick} was kicked',
       },
       left: {
-        ai: '{nick} left the game; the AI takes the seat',
+        computer: '{nick} left the game; a computer player takes the seat',
         idle: '{nick} left the game',
       },
     },

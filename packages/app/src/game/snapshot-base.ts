@@ -85,11 +85,11 @@ function progressionRuleEnabled(snapshot: WorldSnapshot): boolean {
   return rules?.professionProgressionEnabled !== false;
 }
 
-/** The computer seats by their `AiPlayer` carriers, whatever their handlers are set to. */
+/** The computer seats by their `AiControl` carriers, whatever their handlers are set to. */
 const AI_SEATS = countedBy(
-  (e) => num((e.components.AiPlayer as { player?: unknown } | undefined)?.player),
+  (e) => num((e.components.AiControl as { player?: unknown } | undefined)?.player),
   'AI seats',
-  { values: ['AiPlayer'] },
+  { values: ['AiControl'] },
 );
 
 function isComputerSeat(snapshot: WorldSnapshot, player: number): boolean {

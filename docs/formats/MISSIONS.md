@@ -523,7 +523,7 @@ Readings unless marked otherwise.
   and a monster tribe silence it: a neutral seat turns enemy toward a player that holds it as enemy,
   and a friendly seat drops to the other's stance; an enemy seat never makes peace. It also turns a
   neutral seat enemy toward a player whose people stood in its villages on six looks in a row, which
-  this build leaves out (`systems/ai-player/diplomacy.ts`).
+  this build leaves out (`systems/computer-player/diplomacy.ts`).
 - **External flags**: up to 100 condition slots on a seat's scripted AI; a slot takes a script's flag
   only when its `ai.inc` condition is the external-activate kind (see [AI data](#ai-data)). This build
   keeps the raised slots per player (`components/ai-flags.ts`), whatever the slot's kind, and the
@@ -564,10 +564,9 @@ Readings unless marked otherwise.
 The `[AIData]` section (`ai.inc` in the plaintext skin; the corpus spells the header both `AIData`
 and `aidata`) configures the two AI layers every existing player owns. Readings unless marked otherwise:
 
-- The **scripted AI** runs the authored tasks and conditions below. It is enabled for a seat of
-  player type AI only (this build: `isMapComputerSeat`, which `?ai=` cannot switch off; that the
-  multiplayer lobby's `playeroption` choice sets the type of the seats it offers is inferred from
-  the table, unverified); `AI_Disable <player>` switches it off together with the strategic one. Each
+- **Map AI** runs authored tasks and maintains the existing settlement. It runs only for a
+  machine-controlled seat with `AiControl.mapAiEnabled`. `AI_Disable <player>` disables it and
+  the autonomous computer player, while retaining machine-player identity. Each
   seat takes a turn every 60 ticks (seat `p` on tick `3p` of the round). Every turn it lists the
   seat's soldiers that man no workhouse and carry no [behaviour bit 5](#human-behaviour-flags), and
   a soldier joining the list gets the hold stance and its regenerate-in-world flag cleared, so it
@@ -581,24 +580,40 @@ and `aidata`) configures the two AI layers every existing player owns. Readings 
   bed, no temple) writes the sated level over that need's bar, and no message the human raises
   reaches the player, so a computer seat shows no need icons. This build keeps all four: the list
   (its flag written over a posted garrison again, since this build's posting order lifts it) and the
-  refill on the scripted AI's turn (`ai-player/military/defence`, `systems/lifecycle/needs`),
-  the reset in the needs drives and the silence in the HUD, for every seat carrying the `AiPlayer`
+  refill on the scripted AI's turn (`ai-shared/military/defence`, `systems/lifecycle/needs`),
+  the reset in the needs drives and the silence in the HUD, for every seat carrying the `AiControl`
   marker, which `AI_Disable` leaves in place with both AI layers off.
-- The **strategic AI** (HAI) builds the economy and army. It is enabled for a player-type-AI
-  seat whose tribe is not one of the two monster tribes; `HAI_Disable <player>` switches it off and
-  `HAI_Disable{CollectResources,GuideBuild,HomeExpansion,HouseBuild,HouseUpgrade,Military,RoadBuild}`
-  one module each (the house build and upgrade forms take a category index below 8). This build maps
-  the blanket forms and the five un-indexed module forms onto the strategic AI's module enables
-  (`MapAiSeat` in the script sidecar), and world assembly applies the monster-tribe rule from the
-  roster row's tribe; the corpus authors only `HAI_Disable` (339 lines) and `AI_Disable` (115).
+- The **computer player** (the source format's HAI) independently plans the economy and army.
+  `HAI_Disable <player>` clears its master permission, preserved as `computerDisabled` in content;
+  it is not expanded into the current list of modules. `AI_Disable` is preserved as `allDisabled`.
+  The `HAI_Disable{CollectResources,GuideBuild,HomeExpansion,Military,RoadBuild}` directives disable
+  individual modules through `disabledComputerModules`. The indexed house build/upgrade variants
+  are not extracted. Monster tribes have no autonomous computer player.
 
-The rest of the section is the scripted AI's program, extracted as typed rows (`MapAiSeat` in
-the script sidecar) and run by `systems/ai-program` for a computer seat whose strategic military
-module is off (approximation: the original runs both AI layers side by side; this build's campaign
-and the program would order the same men against each other). Corpus counts are over the 121 mod
-maps that carry the section (91 author a program; `//` comment lines occur). Positions are map
-points; a range test holds strictly inside the range. Where a field is a player, 20 means any
-player. Readings:
+`systems/computer-player` owns autonomous strategy; `systems/map-ai` owns the map program and town
+maintenance; `systems/ai-shared` owns common roster, cadence, soldier accounting and local defence.
+`AiControl` identifies a machine-controlled player even with both decision sources disabled. Human
+and idle lobby seats have no such identity; idle is therefore not identical to `AI_Disable`.
+The lobby's Map AI choice respects authored control settings, including permission to run the
+computer player. An explicit Computer choice on an offered seat enables supported autonomous
+modules; reserved scenario seats retain the map's settings.
+
+Approximation: `HAI_DisableMilitary` stops autonomous targets, campaigns, recruitment and military
+outfit publications while civilian modules, map tasks and local defence continue. On disabling a
+controller, its pending decisions lose command authority, its recorded movement orders are released,
+and an autonomous military campaign is retired rather than resumed on re-enable. Planner commands
+carry `decisionSource` in replay and diagnostic logs: a computer module id, `map-ai`, or
+`settlement-defence`.
+
+Map conditions and one-shot tasks are evaluated even when autonomous military is enabled.
+Approximation: explicit map tasks reserve their assigned soldiers before the computer player's
+campaign and shared defence use the remainder. The implicit home guard and default position do not
+reserve soldiers against autonomous military. This prevents competing controllers from repeatedly
+redirecting the same soldier without assuming the original's exact allocation policy.
+
+Corpus counts below are over the 121 mod maps that carry the section (91 author a program;
+`//` comment lines occur). Positions are map points; a range test holds strictly inside the range.
+Where a field is a player, 20 means any player. Readings:
 
 | Line | Uses | Parameters after `<player>` |
 | --- | --- | --- |
@@ -653,10 +668,12 @@ regrouping) stands within the range of the target and fewer than that stand with
 size (twice, while regrouping) of its foremost man, and a task recheck starts every band attacking
 again; the regroup range is a third of the band. This build issues those walks as attack-moves and
 sets the guard stance on arrival (the original sets it on assignment and anchors it at the post).
-The seat's raid defence (`ai-player/military/defence`) orders the same men out at a raider and the
-program orders them back once they stand idle, so a raider sitting out of reach in the watch band
-has a posted man pace between the two until it leaves (approximation: the original runs no raid
-defence beside the program).
+Shared raid defence leaves soldiers reserved by explicit map tasks under those tasks' control.
+For a map-only settlement, responders stay within the defended camp’s radius. A per-tick leash
+ends their pursuit when the threat leaves or dies and returns them to their saved starting position
+without acquiring another chase. This local assignment survives save/load and yields to explicit
+map orders. The autonomous computer player can mobilize its available army more widely. These
+defence boundaries are approximations, not a claim of exact original tactical behavior.
 
 Every radius below is a hex distance between map points, the radius itself included.
 
@@ -669,10 +686,10 @@ it keeps, until one tower gains men, and takes only soldiers within 20 points. T
 tower each decision, one man per tower a round so a short garrison spreads over all of them, takes the
 nearest free archer it can reach for the peace posts and only one within 20 points for the extra ones,
 and reads defence mode per tower as an enemy fighter inside its watch band, the extra men leaving once
-none stands within a further margin (`ai-player/military/defence/posts.ts`).
+none stands within a further margin (`ai-shared/military/defence/posts.ts`).
 
-The scripted AI also keeps its town (this build: `systems/ai-program/town.ts`, `families.ts`,
-`rebuild.ts` and `gates.ts`, each pass only while the strategic module owning that concern is off; the
+The scripted AI also keeps its town (this build: `systems/map-ai/town.ts`, `families.ts` and
+`rebuild.ts`; gates are handled by shared gate control, each pass only while the strategic module owning that concern is off; the
 gates, which no module owns, always):
 
 - First turn: it remembers the seat's first 100 houses, and the first 50 gates of any player out from
@@ -803,7 +820,7 @@ A reading of the original's trade agreements and trader work, which the goal `Nu
   tutorial's among them, and no row pays out more than 5 a batch.
 - This build registers the rows through the `addTradeAgreement` setup command
   (`components/trade.ts`), resolves the house by its mission object id at use, refuses a house of a
-  human seat (a match participant without the `AiPlayer` marker) when a match is set up, and runs
+  human seat (a match participant without the `AiControl` marker) when a match is set up, and runs
   the trader through the planner's trade rung (`systems/trade/`), which sits above the rider rung:
   the trader moves its cart to within `TRADE_CART_HOUSE_DISTANCE` of each stop (`snapVehicleTarget`
   over `TRADE_CART_SEARCH_RADIUS`, no house door), rides inside while it drives, steps out when it

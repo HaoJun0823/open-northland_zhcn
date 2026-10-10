@@ -18,7 +18,7 @@ import { hasRealIr } from './helpers.js';
  */
 
 const MAP_ID = 'magiczny_las';
-/** The map's own computer seat, which the browser session runs beside every `?ai=` seat. */
+/** The map's own computer seat, which the browser session runs beside every `?computer=` seat. */
 const MAP_COMPUTER_SEAT = 6;
 /** Enough ticks for the placement drain and the first commands to land in the checkpoint. */
 const SKIP_TICKS = 12;
@@ -62,7 +62,7 @@ describe.runIf(hasRealIr())('benchmark map checkpoint', () => {
   it('restores the state the skipped ticks reached and keeps stepping identically', async () => {
     const built = await mapBenchWorld(options(), AFTER_TICKS);
     expect(built.source).toBe('built');
-    expect(built.aiSeats).toEqual([0, MAP_COMPUTER_SEAT]);
+    expect(built.machineSeats).toEqual([0, MAP_COMPUTER_SEAT]);
 
     const restored = await mapBenchWorld(options(), AFTER_TICKS);
     expect(restored.source).toBe('checkpoint');

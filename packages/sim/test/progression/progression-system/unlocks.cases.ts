@@ -1,6 +1,6 @@
 import type { JobRequirement } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { AiPlayer, aiModuleEnables, setProfessionProgression } from '../../../src/components/index.js';
+import { AiControl, computerModuleEnables, setProfessionProgression } from '../../../src/components/index.js';
 import { Simulation } from '../../../src/index.js';
 import {
   experienceRequirementMet,
@@ -17,12 +17,13 @@ const AI_PLAYER = 1;
  *  barracks training and never by work XP. */
 const SOLDIER_JOB = 31;
 
-/** Flag `player`'s seat AI-driven, the state the `setPlayerAi` command lands (no tick needed). */
+/** Flag `player`'s seat AI-driven, the state the `setAiControl` command lands (no tick needed). */
 function makeAiSeat(sim: Simulation, player: number): void {
-  sim.world.add(sim.world.create(), AiPlayer, {
+  sim.world.add(sim.world.create(), AiControl, {
     player,
-    modules: aiModuleEnables(),
-    scripted: true,
+    computerEnabled: true,
+    modules: computerModuleEnables(),
+    mapAiEnabled: true,
     difficulty: 'hard',
   });
 }

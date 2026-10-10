@@ -150,11 +150,8 @@ export const MapHumanPalette = z.strictObject({
 });
 export type MapHumanPalette = z.infer<typeof MapHumanPalette>;
 
-/**
- * A strategic-AI concern a map's `[AIData]` may switch off, named after the original's own
- * `HAI_Disable<Module>` keywords. The sim's AI player runs one module per name.
- */
-export const MapAiModule = z.enum([
+/** Autonomous computer-player capabilities controlled by `[AIData]` module switches. */
+export const ComputerModuleId = z.enum([
   'collectResources',
   'guideBuild',
   'homeExpansion',
@@ -163,7 +160,7 @@ export const MapAiModule = z.enum([
   'military',
   'roadBuild',
 ]);
-export type MapAiModule = z.infer<typeof MapAiModule>;
+export type ComputerModuleId = z.infer<typeof ComputerModuleId>;
 
 /** How many condition slots a seat's program may declare: the loader refuses a slot at or past this. */
 export const MAP_AI_CONDITION_SLOTS = 100;
@@ -307,18 +304,16 @@ export const MapAiTask = z.discriminatedUnion('kind', [
 ]);
 export type MapAiTask = z.infer<typeof MapAiTask>;
 
-/**
- * One player's `[AIData]` (`docs/formats/MISSIONS.md`, AI data): the seat toggles (`AI_Disable` stops
- * both of the seat's AI handlers, `HAI_Disable` only the strategic modules; the corpus authors only
- * those two blanket forms, and the indexed `HAI_DisableHouseBuild <player> <n>` and
- * `HAI_DisableHouseUpgrade <player> <n>` lines are not read) and the scripted handler's program.
- */
+/** Authored control switches and map-AI tasks for one player. Indexed house-build and
+ *  house-upgrade switches are not decoded. */
 export const MapAiSeat = z.strictObject({
   player: z.number().int().nonnegative(),
-  /** `AI_Disable`: the seat runs no AI at all. */
-  disabled: z.boolean(),
-  /** The strategic modules the map stops; every one after a blanket `HAI_Disable`. */
-  strategicOff: z.array(MapAiModule),
+  /** `AI_Disable`: disables both map AI and the autonomous computer player. */
+  allDisabled: z.boolean(),
+  /** `HAI_Disable`: disables the entire computer player, including future capabilities. */
+  computerDisabled: z.boolean(),
+  /** Individual `HAI_Disable<Module>` switches; independent of the master switches. */
+  disabledComputerModules: z.array(ComputerModuleId),
   /** `AI_UnitLimit`: the population the scripted handler breeds towards. */
   unitLimit: z.number().int().optional(),
   /** `AI_MaxUnitLimit`: the population it stops breeding at; 0 for no cap. */

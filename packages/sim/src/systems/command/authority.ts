@@ -1,3 +1,4 @@
+import { AiControl, aiControlEntity, computerModuleRuns } from '../../components/ai-control.js';
 import { hasMissionBehaviour, MISSION_BEHAVIOUR } from '../../components/behaviour.js';
 import { isPlayerDead } from '../../components/match.js';
 import { isValidPlayer, ownerOf, ownersCompatible } from '../../components/ownership.js';
@@ -13,6 +14,8 @@ import type {
 import { COMMAND_ISSUER } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
+import { mapAiSoldierClaims } from '../ai-shared/military/ownership.js';
+import { COMPUTER_PUBLISHED_COUNTERS } from '../computer-player/assistant-counters.js';
 import { palisadeType } from '../palisades/index.js';
 
 /**
@@ -28,6 +31,7 @@ export function authorizedCommand(
 ): Command | undefined {
   if (!ownerFieldsValid(envelope.command)) return undefined;
   if (envelope.origin === 'setup' || envelope.origin === 'admin') return envelope.command;
+  if (envelope.origin === 'ai' && !decisionStillAllowed(world, envelope)) return undefined;
   const command = envelope.command;
   if (!seatMayIssue(world, envelope.player, command, terrain)) return undefined;
   const commanded = (e: Entity): boolean => seatCommandsUnit(world, envelope, e);
@@ -88,6 +92,13 @@ function keepMembers<C extends { readonly members: readonly GroupMember[] }>(
  */
 function seatCommandsUnit(world: World, envelope: SeatEnvelope, e: Entity): boolean {
   if (ownerOf(world, e) !== envelope.player) return false;
+  if (
+    envelope.origin === 'ai' &&
+    (envelope.decisionSource === 'military' || envelope.decisionSource === 'settlement-defence') &&
+    envelope.command.kind !== 'setRegeneration' &&
+    mapAiSoldierClaims(world, envelope.player).has(e)
+  )
+    return false;
   return envelope.origin !== 'player' || !hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.NOT_CONTROLLABLE);
 }
 
@@ -179,4 +190,26 @@ function assetTargetOf(command: PlayerCommand): Entity | undefined {
   if ('house' in command) return command.house;
   if ('signpost' in command) return command.signpost;
   return undefined;
+}
+
+/** Queued planner decisions lose authority when their controller is disabled before application. */
+function decisionStillAllowed(world: World, envelope: Extract<SeatEnvelope, { origin: 'ai' }>): boolean {
+  const source = envelope.decisionSource;
+  if (source === undefined) return true;
+  const carrier = aiControlEntity(world, envelope.player);
+  if (carrier === null) return false;
+  const control = world.get(carrier, AiControl);
+  if (source === 'map-ai') return control.mapAiEnabled;
+  if (source === 'settlement-defence')
+    return control.mapAiEnabled || computerModuleRuns(world, envelope.player, 'military');
+  if (!computerModuleRuns(world, envelope.player, source)) return false;
+  const command = envelope.command;
+  if (command.kind === 'setAssistantCounter') {
+    const publication = COMPUTER_PUBLISHED_COUNTERS.find((entry) => entry.kinds.includes(command.counter));
+    return (
+      publication === undefined ||
+      publication.modules.every((module) => computerModuleRuns(world, envelope.player, module))
+    );
+  }
+  return true;
 }

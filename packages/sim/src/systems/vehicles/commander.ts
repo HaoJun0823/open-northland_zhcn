@@ -1,3 +1,4 @@
+import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   AttackOrder,
   Engagement,
@@ -15,6 +16,7 @@ import type { Entity, World } from '../../ecs/world.js';
 import type { SystemContext } from '../context.js';
 import { vehicleAnchor } from '../footprint/index.js';
 import { clearNavState } from '../movement/nav-state.js';
+import { recordAiOrder } from '../orders/ai-lifecycle.js';
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 import { moveVehicle } from './movement.js';
 import type { VehicleOrderRoutes } from './order-routes.js';
@@ -54,16 +56,18 @@ export function driveCommandedVehicle(
   ctx: SystemContext,
   command: Extract<Command, { kind: 'moveUnit' | 'attackMoveUnit' }>,
   orders?: VehicleOrderRoutes,
+  origin?: AiOrderOrigin,
 ): boolean {
   const e = command.entity;
   const vehicle = commandedVehicleOf(world, e);
   if (vehicle === null) return false;
   const attackMove = command.kind === 'attackMoveUnit';
   const goto = { kind: 'moveVehicle', vehicle, x: command.x, y: command.y, attackMove } as const;
-  if (!moveVehicle(world, ctx, goto, orders)) {
+  if (!moveVehicle(world, ctx, goto, orders, origin)) {
     return true;
   }
   if (world.has(e, Position) && !atomicHoldsSettler(world, e)) {
+    recordAiOrder(world, e);
     clearNavState(world, e);
     world.remove(e, PlayerOrder);
     world.remove(e, Engagement);

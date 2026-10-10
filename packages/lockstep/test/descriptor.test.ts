@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aiSeatsOf,
   type GameSession,
   humanSeatsOf,
   isReadOnlySpectator,
   isSpectator,
+  machineSeatsOf,
   orderedSeats,
   parseGameSession,
   seatColourOf,
@@ -22,7 +22,7 @@ function session(over: Partial<GameSession> = {}): GameSession {
     seed: 7,
     seats: [
       { player: 0, mode: 'human', color: 7 },
-      { player: 1, mode: 'ai', color: 4 },
+      { player: 1, mode: 'computer', color: 4 },
       { player: 2, mode: 'idle', color: 9 },
     ],
     localSeat: 0,
@@ -67,7 +67,7 @@ describe('game session descriptor', () => {
     const configured = session({
       seats: [
         { player: 0, mode: 'human', color: 0, tribe: 4 },
-        { player: 1, mode: 'ai', color: 1 },
+        { player: 1, mode: 'computer', color: 1 },
       ],
     });
     expect(roundTrip(configured)).toEqual(configured);
@@ -83,7 +83,7 @@ describe('game session descriptor', () => {
     const configured = session({
       seats: [
         { player: 0, mode: 'human', color: 0 },
-        { player: 1, mode: 'ai', color: 1, difficulty: 'easy' },
+        { player: 1, mode: 'computer', color: 1, difficulty: 'easy' },
       ],
     });
     expect(roundTrip(configured)).toEqual(configured);
@@ -91,7 +91,10 @@ describe('game session descriptor', () => {
       parseGameSession({ ...session(), seats: [{ player: 0, mode: 'human', color: 0, difficulty: 'easy' }] }),
     ).toThrow(/difficulty/);
     expect(() =>
-      parseGameSession({ ...session(), seats: [{ player: 0, mode: 'ai', color: 0, difficulty: 'brutal' }] }),
+      parseGameSession({
+        ...session(),
+        seats: [{ player: 0, mode: 'computer', color: 0, difficulty: 'brutal' }],
+      }),
     ).toThrow(/difficulty/);
   });
 
@@ -107,7 +110,7 @@ describe('game session descriptor', () => {
       parseGameSession({
         ...session(),
         seats: [
-          { player: 1, mode: 'ai', color: 0 },
+          { player: 1, mode: 'computer', color: 0 },
           { player: 1, mode: 'idle', color: 1 },
         ],
       }),
@@ -144,7 +147,7 @@ describe('game session descriptor', () => {
     expect(colourOf(1)).toBe(4);
     expect(colourOf(5)).toBe(5); // off-roster keeps its slot id
     expect(seatColourOf(session({ seats: [] }))(3)).toBe(3);
-    expect(aiSeatsOf(session())).toEqual([1]);
+    expect(machineSeatsOf(session())).toEqual([1]);
   });
 
   it('tells the two spectator seats apart', () => {
@@ -161,12 +164,12 @@ describe('roster queries', () => {
     const roster = session({
       seats: [
         { player: 0, mode: 'human', color: 0 },
-        { player: 1, mode: 'ai', color: 1 },
+        { player: 1, mode: 'computer', color: 1 },
         { player: 2, mode: 'idle', color: 2 },
         { player: 5, mode: 'human', color: 5 },
       ],
     });
     expect(humanSeatsOf(roster)).toEqual([0, 5]);
-    expect(aiSeatsOf(roster)).toEqual([1]);
+    expect(machineSeatsOf(roster)).toEqual([1]);
   });
 });

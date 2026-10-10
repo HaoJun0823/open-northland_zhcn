@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { mapLobbySlots } from '@open-northland/data';
-import { aiSeatsOf, type GameSession, humanSeatsOf } from '@open-northland/lockstep';
+import { type GameSession, humanSeatsOf, machineSeatsOf } from '@open-northland/lockstep';
 import type { RoomSeatSetup, RoomSettings } from '@open-northland/net-protocol';
 import { Relay } from '@open-northland/net-server';
 import { playerCommand, type SaveGame, type Simulation } from '@open-northland/sim';
@@ -63,7 +63,7 @@ async function buildWorld(session: GameSession): Promise<Simulation> {
   if (session.world.kind !== 'map') throw new Error(`a map session, not ${session.world.kind}`);
   const world = await realMapWorld({
     mapId: session.world.mapId,
-    aiSeats: aiSeatsOf(session),
+    machineSeats: machineSeatsOf(session),
     humanSeats: humanSeatsOf(session),
     seed: session.seed,
     rules: session.rules,

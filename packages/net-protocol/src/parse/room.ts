@@ -1,5 +1,5 @@
 import type {
-  AiDifficulty,
+  ComputerDifficulty,
   SeatMode,
   SessionRules,
   SessionWorld,
@@ -48,12 +48,23 @@ import { assertNever, parseLine, parseNick } from './text.js';
 
 const ROOM_STATES = ['lobby', 'running', 'ended'] as const satisfies readonly RoomState[];
 
-const SEAT_MODES = keysOf<SeatMode>({ human: true, script: true, ai: true, idle: true, absent: true });
+const SEAT_MODES = keysOf<SeatMode>({
+  human: true,
+  'map-ai': true,
+  computer: true,
+  idle: true,
+  absent: true,
+});
 const WEATHER_MODES = keysOf<WeatherMode>({ map: true, variable: true, winter: true });
-export const VACANT_SEAT_MODES = keysOf<VacantSeatMode>({ script: true, ai: true, idle: true, absent: true });
-export const DEPARTED_SEAT_MODES = keysOf<DepartedSeatMode>({ ai: true, idle: true });
+export const VACANT_SEAT_MODES = keysOf<VacantSeatMode>({
+  'map-ai': true,
+  computer: true,
+  idle: true,
+  absent: true,
+});
+export const DEPARTED_SEAT_MODES = keysOf<DepartedSeatMode>({ computer: true, idle: true });
 export const DEPARTURE_CAUSES = keysOf<DepartureCause>({ vote: true, left: true });
-export const AI_DIFFICULTIES = keysOf<AiDifficulty>({ easy: true, medium: true, hard: true });
+export const COMPUTER_DIFFICULTIES = keysOf<ComputerDifficulty>({ easy: true, medium: true, hard: true });
 
 export function parseRoomSettings(value: unknown, at: string): RoomSettings {
   const raw = asRecord(value, at);
@@ -180,10 +191,10 @@ export function parseRoomView(value: unknown, at: string): RoomView {
 function parseSeatDifficulty(
   raw: Record<string, unknown>,
   at: string,
-): { readonly difficulty?: AiDifficulty } {
+): { readonly difficulty?: ComputerDifficulty } {
   return raw.difficulty === undefined
     ? {}
-    : { difficulty: asOneOf(raw.difficulty, AI_DIFFICULTIES, `${at}.difficulty`) };
+    : { difficulty: asOneOf(raw.difficulty, COMPUTER_DIFFICULTIES, `${at}.difficulty`) };
 }
 
 function parseSeatOffers(value: unknown, at: string): readonly VacantSeatMode[] {

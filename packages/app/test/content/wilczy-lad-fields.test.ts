@@ -5,7 +5,7 @@ import { expect, it } from 'vitest';
 import { realMapWorld } from './real-map-world.js';
 
 it('loads the ripe fields around the starting farm as workable crops', async () => {
-  const { sim, content } = await realMapWorld({ mapId: 'wilczy_lad', aiSeats: [], humanSeats: [0] });
+  const { sim, content } = await realMapWorld({ mapId: 'wilczy_lad', machineSeats: [], humanSeats: [0] });
   const at = [...sim.world.query(components.Crop, components.Position)].filter((entity) => {
     const pos = sim.world.get(entity, components.Position);
     const node = nodeOfPosition(pos.x, pos.y);

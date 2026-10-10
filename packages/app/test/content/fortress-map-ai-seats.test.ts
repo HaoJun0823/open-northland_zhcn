@@ -1,10 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { MapScript, mapLobbySlots, TerrainMapFile } from '@open-northland/data';
-import { components, hexDistanceBetween, type Simulation, systems } from '@open-northland/sim';
+import {
+  components,
+  hexDistanceBetween,
+  nodeOfPosition,
+  type Simulation,
+  systems,
+} from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import type { ContentIr } from '../../src/content/ir/rows.js';
-import { buildMapWorld, LOBBY_AI_PEACE_TICKS, type MapWorldOptions } from '../../src/entries/map/world.js';
+import {
+  buildMapWorld,
+  LOBBY_COMPUTER_PEACE_TICKS,
+  type MapWorldOptions,
+} from '../../src/entries/map/world.js';
 import { mapSession } from '../../src/game/session-url.js';
 import { sessionWorldOptions } from '../../src/game/session-world.js';
 import { mapScriptWorld } from '../../src/game/world/mission-script.js';
@@ -44,8 +54,8 @@ async function fortressWorld(): Promise<{ sim: Simulation; script: MapScript }> 
     map,
     ir,
     content: { content: merge.content },
-    aiSeats: [...ALLY_SEATS, ...FORTRESS_SEATS],
-    lobbyAiSeats: LOBBY_SEATS,
+    machineSeats: [...ALLY_SEATS, ...FORTRESS_SEATS],
+    lobbyComputerSeats: LOBBY_SEATS,
     assistantSeats: [0],
     script: mapScriptWorld(script, ir),
     fog: null,
@@ -58,13 +68,10 @@ async function fortressWorld(): Promise<{ sim: Simulation; script: MapScript }> 
   return { sim: buildMapWorld(options).sim, script };
 }
 
-function programOf(
-  sim: Simulation,
-  seat: number,
-): { soldiers: readonly { task: number | null; onDefault: boolean }[] } {
-  const carrier = components.aiProgramEntity(sim.world, seat);
+function programOf(sim: Simulation, seat: number) {
+  const carrier = components.mapAiEntity(sim.world, seat);
   if (carrier === null) throw new Error(`seat ${seat} runs no program`);
-  return sim.world.get(carrier, components.AiProgram);
+  return sim.world.get(carrier, components.MapAiState);
 }
 
 function ownedSoldiers(sim: Simulation, seat: number): number {
@@ -82,12 +89,16 @@ describe.runIf(hasRealIr())('the fortress map’s authored AI seats', () => {
     const ir = rawIrUnderTest() as ContentIr;
     const root = resolve(contentDir(), 'maps');
     const script = MapScript.parse(JSON.parse(readFileSync(resolve(root, `${MAP_ID}.script.json`), 'utf8')));
-    const search = new URLSearchParams(`map=${MAP_ID}&player=0&ai=${LOBBY_SEATS.join(',')}`);
+    const search = new URLSearchParams(`map=${MAP_ID}&player=0&computer=${LOBBY_SEATS.join(',')}`);
     const session = mapSession(search, mapLobbySlots(script));
-    const { aiSeats, lobbyAiSeats } = sessionWorldOptions(session, script, mapScriptWorld(script, ir));
-    expect(aiSeats).toEqual([...ALLY_SEATS, ...FORTRESS_SEATS]);
+    const { machineSeats, lobbyComputerSeats } = sessionWorldOptions(
+      session,
+      script,
+      mapScriptWorld(script, ir),
+    );
+    expect(machineSeats).toEqual([...ALLY_SEATS, ...FORTRESS_SEATS]);
     // Only the seats a person set to computer keep the match's peace; the map's own run its scripts as authored.
-    expect(lobbyAiSeats).toEqual(LOBBY_SEATS);
+    expect(lobbyComputerSeats).toEqual(LOBBY_SEATS);
   });
 
   it('leaves the fortress without a strategic brain and its allies with one, and carries the program', async () => {
@@ -106,18 +117,24 @@ describe.runIf(hasRealIr())('the fortress map’s authored AI seats', () => {
     }
     sim.step();
     const peace = (seat: number): number | undefined => {
-      const carrier = components.aiPlayerEntity(sim.world, seat);
-      return carrier === null ? undefined : sim.world.tryGet(carrier, components.AiPeace)?.untilTick;
+      const carrier = components.aiControlEntity(sim.world, seat);
+      return carrier === null ? undefined : sim.world.tryGet(carrier, components.ComputerPeace)?.untilTick;
     };
     for (const seat of [...ALLY_SEATS, ...FORTRESS_SEATS]) {
-      expect(peace(seat), `seat ${seat}`).toBe(LOBBY_SEATS.includes(seat) ? LOBBY_AI_PEACE_TICKS : undefined);
+      expect(peace(seat), `seat ${seat}`).toBe(
+        LOBBY_SEATS.includes(seat) ? LOBBY_COMPUTER_PEACE_TICKS : undefined,
+      );
     }
     for (const seat of FORTRESS_SEATS) {
-      expect(components.isAiPlayer(sim.world, seat)).toBe(true);
-      expect(components.AI_MODULE_IDS.some((id) => components.aiModuleRuns(sim.world, seat, id))).toBe(false);
+      expect(components.isMachinePlayer(sim.world, seat)).toBe(true);
+      expect(
+        components.COMPUTER_MODULE_IDS.some((id) => components.computerModuleRuns(sim.world, seat, id)),
+      ).toBe(false);
     }
     for (const seat of ALLY_SEATS) {
-      expect(components.AI_MODULE_IDS.every((id) => components.aiModuleRuns(sim.world, seat, id))).toBe(true);
+      expect(
+        components.COMPUTER_MODULE_IDS.every((id) => components.computerModuleRuns(sim.world, seat, id)),
+      ).toBe(true);
     }
     // The fortress mans its towers but raises no campaign: the raid on the besiegers is the strategic
     // module the map switched off.
@@ -130,18 +147,28 @@ describe.runIf(hasRealIr())('the fortress map’s authored AI seats', () => {
   }, 60_000);
 
   it('posts the garrison on its Defend lines and keeps every walk inside the fortress', async () => {
-    const { sim } = await fortressWorld();
+    const { sim, script } = await fortressWorld();
     sim.run(3 * ROUND);
     const program = programOf(sim, FORTRESS);
-    // Six posts of ten and five of three, filled from the men the towers did not take; the rest hold
-    // the keep.
+    // Six posts of ten and five of three claim their nearest men before towers and fallback guards.
     expect(program.soldiers.filter((s) => s.task !== null)).toHaveLength(75);
     expect(program.soldiers.filter((s) => s.onDefault).length).toBeGreaterThan(0);
     const walks = sim.commands.log.filter(
       (entry) =>
         entry.origin === 'ai' && entry.player === FORTRESS && entry.command.kind === 'attackMoveUnit',
     );
-    expect(walks.length).toBeGreaterThan(0);
+    const posts = script.ai.find((row) => row.player === FORTRESS)?.tasks;
+    if (posts === undefined) throw new Error('missing fortress posts');
+    // The nearest men already stand within their posts: holding a line needs no new march.
+    for (const record of program.soldiers) {
+      if (record.task === null) continue;
+      const post = posts[record.task];
+      if (post?.kind !== 'defend') throw new Error('unexpected fortress soldier task');
+      const at = sim.world.get(record.entity, components.Position);
+      const node = nodeOfPosition(at.x, at.y);
+      expect(hexDistanceBetween(node.hx, node.hy, post.x, post.y)).toBeLessThan(post.range / 2);
+      expect(sim.world.get(record.entity, components.Stance).mode).toBe(systems.MILITARY_MODE.DEFEND);
+    }
     for (const entry of walks) {
       const { command } = entry;
       if (command.kind !== 'attackMoveUnit') continue;

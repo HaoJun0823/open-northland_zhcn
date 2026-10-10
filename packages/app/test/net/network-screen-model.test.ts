@@ -7,7 +7,7 @@ describe('escapeLeavesRoom', () => {
     const field = (tagName: string, value: string) => ({ tagName, value }) as unknown as EventTarget;
     expect(escapeLeavesRoom(field('INPUT', 'hej'))).toBe(false);
     expect(escapeLeavesRoom(field('INPUT', ''))).toBe(true);
-    expect(escapeLeavesRoom(field('SELECT', 'ai'))).toBe(true);
+    expect(escapeLeavesRoom(field('SELECT', 'computer'))).toBe(true);
     expect(escapeLeavesRoom({ tagName: 'SECTION' } as unknown as EventTarget)).toBe(true);
     expect(escapeLeavesRoom(null)).toBe(true);
   });

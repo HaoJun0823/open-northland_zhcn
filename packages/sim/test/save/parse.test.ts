@@ -218,7 +218,7 @@ describe('parseSaveGame rng, fog, and command rejection', () => {
   it('rejects a malformed pending envelope naming its position', () => {
     const doc = populatedDoc();
     const commands = sectionOf(doc, 'commands');
-    (commands.pending as unknown[]).push({ v: 1, origin: 'nobody', command: { kind: 'setNeedsEnabled' } });
+    (commands.pending as unknown[]).push({ v: 2, origin: 'nobody', command: { kind: 'setNeedsEnabled' } });
     expect(() => parseSaveGame(doc)).toThrow(/pending\[1\]: unknown origin "nobody"/);
     commands.pending = [];
     commands.nextSequence = -1;

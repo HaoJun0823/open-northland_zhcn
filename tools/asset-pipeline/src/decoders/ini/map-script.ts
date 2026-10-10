@@ -5,12 +5,12 @@
  * already resolved to numbers.
  */
 import {
+  type ComputerModuleId,
   MAP_GOAL_GOODS_MAX,
   MAP_MULTIPLAYER_GOALS_MAX,
   MAP_PLAYER_COLOR_COUNT,
   MAP_SPECIAL_ITEM_KIND_COUNT,
   MapAiCondition,
-  MapAiModule,
   type MapAiSeat,
   MapAiTask,
   type MapMultiplayerGoal,
@@ -242,8 +242,8 @@ function multiplayerGoalsSection(sec: RuleSection, out: MapMultiplayerGoal[]): v
   }
 }
 
-/** The `HAI_Disable<Module>` keywords, lower-cased, by the strategic module each one stops. */
-const HAI_MODULE_KEYWORDS: Readonly<Record<string, MapAiModule>> = {
+/** The `HAI_Disable<Module>` keywords, lower-cased, by the computer-player capability each one stops. */
+const HAI_MODULE_KEYWORDS: Readonly<Record<string, ComputerModuleId>> = {
   hai_disablecollectresources: 'collectResources',
   hai_disableguidebuild: 'guideBuild',
   hai_disablehomeexpansion: 'homeExpansion',
@@ -430,7 +430,14 @@ function aiSection(sec: RuleSection, out: MapAiSeat[]): void {
     const seat = (): MapAiSeat => {
       let row = out.find((r) => r.player === player);
       if (row === undefined) {
-        row = { player, disabled: false, strategicOff: [], conditions: [], tasks: [] };
+        row = {
+          player,
+          allDisabled: false,
+          computerDisabled: false,
+          disabledComputerModules: [],
+          conditions: [],
+          tasks: [],
+        };
         out.push(row);
       }
       return row;
@@ -439,11 +446,11 @@ function aiSection(sec: RuleSection, out: MapAiSeat[]): void {
     const module = HAI_MODULE_KEYWORDS[key];
     const condition = AI_CONDITION_LINES[key];
     const task = AI_TASK_LINES[key];
-    if (key === 'ai_disable') seat().disabled = true;
-    else if (key === 'hai_disable' || module !== undefined) {
+    if (key === 'ai_disable') seat().allDisabled = true;
+    else if (key === 'hai_disable') seat().computerDisabled = true;
+    else if (module !== undefined) {
       const row = seat();
-      const off = key === 'hai_disable' ? MapAiModule.options : [module as MapAiModule];
-      for (const id of off) if (!row.strategicOff.includes(id)) row.strategicOff.push(id);
+      if (!row.disabledComputerModules.includes(module)) row.disabledComputerModules.push(module);
     } else if (key === 'ai_unitlimit') seat().unitLimit = reader.int();
     else if (key === 'ai_maxunitlimit') seat().maxUnitLimit = reader.int();
     else if (key === 'ai_soldiersdefaultposition') {

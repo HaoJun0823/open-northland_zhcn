@@ -1,8 +1,9 @@
-import { aiDiplomacySystem, aiPlayerSystem } from './ai-player/index.js';
-import { aiProgramSystem } from './ai-program/index.js';
+import { mapDefenceLeashSystem } from './ai-shared/military/map-defence-leash.js';
+import { settlementDefenceSystem } from './ai-shared/military/settlement-defence.js';
 import { flagFollowSystem } from './assistant/flag-follow.js';
 import { assistantSystem } from './assistant/index.js';
 import { commandSystem } from './command/index.js';
+import { computerDiplomacySystem, computerPlayerSystem } from './computer-player/index.js';
 import { combatSystem } from './conflict/combat.js';
 import { animalFrightSystem } from './conflict/fright.js';
 import { projectileSystem } from './conflict/projectile.js';
@@ -26,6 +27,7 @@ import {
   livestockGrowthSystem,
   livestockSummonSystem,
 } from './livestock/index.js';
+import { mapAiSystem } from './map-ai/index.js';
 import { matchSystem } from './match/index.js';
 import { missionSystem } from './missions/index.js';
 import { animalWanderSystem } from './movement/animal-wander.js';
@@ -126,6 +128,8 @@ export const SYSTEM_ORDER: readonly ScheduledSystem[] = [
   { name: 'traderDisembark', system: traderDisembarkSystem },
   { name: 'cargoHandDisembark', system: cargoHandDisembarkSystem },
   { name: 'planner', system: plannerSystem },
+  // A local map-AI response may not carry yesterday's chase beyond its camp.
+  { name: 'mapDefenceLeash', system: mapDefenceLeashSystem },
   { name: 'pathfinding', system: pathfindingSystem },
   { name: 'movement', system: movementSystem },
   // After the settlers' step, so a shoved settler's goal routes on the next pathfinding pass with the
@@ -163,15 +167,14 @@ export const SYSTEM_ORDER: readonly ScheduledSystem[] = [
   // After cleanup, so a man reaped this tick is already gone when the death check counts, and before
   // the AI, so a seat that just died issues nothing.
   { name: 'match', system: matchSystem },
-  // Last, after cleanup, so its decisions read the settled world with no reaped-this-tick targets; its
-  // enqueued commands apply on next tick's command pass.
-  { name: 'aiPlayer', system: aiPlayerSystem },
-  // After the strategic decision, on the scripted handlers' own round: its one-shots spawn and its
-  // orders enqueue like the strategic AI's.
-  { name: 'aiProgram', system: aiProgramSystem },
+  // Map assignments reserve soldiers before defence and autonomous planning on a shared decision tick.
+  // All planners read the settled world and enqueue commands for the next tick.
+  { name: 'mapAi', system: mapAiSystem },
+  { name: 'settlementDefence', system: settlementDefenceSystem },
+  { name: 'computerPlayer', system: computerPlayerSystem },
   // On the same handler turn: the shelves a seat's trade partners pay out of.
   { name: 'tradePartnerStock', system: tradePartnerStockSystem },
   // The seat's handler turn ends on its diplomacy answer, after the program has run, as the original's
   // manager runs the scripted handler and then the strategic one.
-  { name: 'aiDiplomacy', system: aiDiplomacySystem },
+  { name: 'computerDiplomacy', system: computerDiplomacySystem },
 ];

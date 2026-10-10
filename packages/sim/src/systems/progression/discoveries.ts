@@ -1,8 +1,8 @@
 import { type ContentSet, houseDiscoveryGoods, type TribeType } from '@open-northland/data';
 import {
-  AiPlayer,
+  AiControl,
   discoverTechnology,
-  isAiPlayer,
+  isMachinePlayer,
   MapPermissions,
   Owner,
   ownerOf,
@@ -80,7 +80,7 @@ function sameInput(a: DiscoveryInput | undefined, b: DiscoveryInput): boolean {
 /** The stores whose any change re-reads every settler: the gates a discovery reads, and the seats'
  *  unlocked tribes, since a settler of a tribe its seat has not unlocked is not walked at all. */
 const PERMISSION_INPUTS: readonly Component<unknown>[] = [
-  AiPlayer,
+  AiControl,
   ScriptUnlocks,
   MapPermissions,
   PlayerPlacementRules,
@@ -264,7 +264,7 @@ export const technologySystem: System = (world, ctx) => {
         if (technologyDiscovered(world, owner, tribeId, 'house', row.house)) continue;
         if (!typeAllowed(world, ctx, owner, tribeId, 'house', row.house)) continue;
         if (
-          !(owner !== undefined && isAiPlayer(world, owner)) &&
+          !(owner !== undefined && isMachinePlayer(world, owner)) &&
           (!allJobsEnabled(world, ctx, owner, tribeId, row.jobs) ||
             !allGoodsEnabled(world, ctx, owner, tribeId, row.goods))
         )

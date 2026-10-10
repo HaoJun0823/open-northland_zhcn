@@ -1,4 +1,5 @@
-import { type DeferrableOrderCommand, DeferredOrder, Settler } from '../../components/index.js';
+import type { AiOrderOrigin } from '../../components/ai-order.js';
+import { AiOrder, type DeferrableOrderCommand, DeferredOrder, Settler } from '../../components/index.js';
 import { assertNever } from '../../core/brand.js';
 import type { World } from '../../ecs/world.js';
 import type { System, SystemContext } from '../context.js';
@@ -21,21 +22,27 @@ export const deferredOrderSystem: System = (world, ctx) => {
   // Re-dispatch follows the DeferredOrder store's insertion order - park order, mirroring command FIFO.
   for (const e of world.query(Settler, DeferredOrder)) {
     if (atomicHoldsSettler(world, e)) continue; // still acting - the order stays parked
+    const origin = world.tryGet(e, AiOrder);
     const { command, scripted } = world.get(e, DeferredOrder);
     world.remove(e, DeferredOrder);
     if (scripted === true && (command.kind === 'moveUnit' || command.kind === 'attackMoveUnit')) {
       sendUnit(world, ctx, e, command.x, command.y, { attackMove: command.kind === 'attackMoveUnit' });
-    } else applyDeferredOrder(world, ctx, command);
+    } else applyDeferredOrder(world, ctx, command, origin);
   }
 };
 
-function applyDeferredOrder(world: World, ctx: SystemContext, command: DeferrableOrderCommand): void {
+function applyDeferredOrder(
+  world: World,
+  ctx: SystemContext,
+  command: DeferrableOrderCommand,
+  origin?: AiOrderOrigin,
+): void {
   switch (command.kind) {
     case 'moveUnit':
-      moveUnit(world, ctx, command);
+      moveUnit(world, ctx, command, origin);
       return;
     case 'attackMoveUnit':
-      attackMoveUnit(world, ctx, command);
+      attackMoveUnit(world, ctx, command, origin);
       return;
     case 'setJob':
       setJob(world, ctx, command);

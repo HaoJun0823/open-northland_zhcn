@@ -1,4 +1,4 @@
-import type { AiDifficulty } from '@open-northland/lockstep';
+import type { ComputerDifficulty } from '@open-northland/lockstep';
 import { localizedMapText } from '../../../game/map-strings.js';
 import { currentLocale, formatMessage, messages, tribeName } from '../../../i18n/index.js';
 import { colorChip, colorPalette } from '../lobby-controls/color.js';
@@ -15,7 +15,7 @@ interface SeatActions {
   readonly pickColor: (player: number, color: number) => void;
   readonly setMode: (player: number, mode: VacantMode) => void;
   readonly pickTribe: (player: number, tribe: number) => void;
-  readonly pickDifficulty: (player: number, difficulty: AiDifficulty) => void;
+  readonly pickDifficulty: (player: number, difficulty: ComputerDifficulty) => void;
   readonly claim: (player: number) => void;
 }
 
@@ -69,8 +69,8 @@ export function localSeatElements(
       return cell;
     }
     const labels: Record<VacantMode, string> = {
-      script: lobby.vacantScript,
-      ai: lobby.vacantComputer,
+      'map-ai': lobby.vacantMapAi,
+      computer: lobby.vacantComputer,
       idle: lobby.vacantIdle,
       absent: lobby.vacantAbsent,
     };

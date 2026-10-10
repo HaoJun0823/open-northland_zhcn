@@ -1,31 +1,8 @@
 // Cross-package simulation surface used by app/render. Per-tick systems and implementation helpers
 // stay package-private; scenes consume authored-setup constructors, read views, and shared constants.
 
-// The AI opening plan's content bindings, exported so the real-content suite can pin every id against
-// the served IR: an unknown id silently skips its entry in the sim.
-export {
-  BASE_REPLACEMENT_ENTRY,
-  type BuildOrderEntry,
-  DEFAULT_BUILD_ORDER,
-  MAX_ACTIVE_CONSTRUCTION_SITES,
-  TOWER_CONTENT_IDS,
-} from './ai-player/build-order/index.js';
 // The scripted handlers' round, so a real-content probe can step to a seat's turn.
-export { AI_HANDLER_ROUND_TICKS } from './ai-player/cadence.js';
-// The difficulty profiles, whose craft plans and trimmed build orders the real-content suite resolves too.
-export { AI_PROFILES, profileBuildOrder } from './ai-player/difficulty.js';
-// The garrison an acceptance scene pins, and the outfit the real-content plan test resolves.
-export { SOLDIER_OUTFIT_GOOD_IDS, TOWER_GARRISON_ARCHERS } from './ai-player/military/index.js';
-export {
-  COLLECTOR_TARGET_BY_GOOD_ID,
-  COLLECTOR_WORKSHOP_BY_GOOD_ID,
-  CRAFT_PLANS_BY_BUILDING_ID,
-  CRAFT_PLANS_BY_JOINERY_ROLE,
-  DEFAULT_COLLECTOR_TARGET,
-  STAFFING_BY_BUILDING_ID,
-  SUPPLY_CARRIER_GOODS_BY_BUILDING_ID,
-  supplyLines,
-} from './ai-player/workforce/index.js';
+export { AI_HANDLER_ROUND_TICKS } from './ai-shared/cadence.js';
 // The band the assistant's flag follow keeps a gatherer's flag in.
 export { FOLLOW_FLAG_BAND } from './assistant/flag-follow.js';
 export {
@@ -36,6 +13,29 @@ export {
   jobCanOpenChest,
   resolveChestReward,
 } from './chests/index.js';
+// The AI opening plan's content bindings, exported so the real-content suite can pin every id against
+// the served IR: an unknown id silently skips its entry in the sim.
+export {
+  BASE_REPLACEMENT_ENTRY,
+  type BuildOrderEntry,
+  DEFAULT_BUILD_ORDER,
+  MAX_ACTIVE_CONSTRUCTION_SITES,
+  TOWER_CONTENT_IDS,
+} from './computer-player/build-order/index.js';
+// The difficulty profiles, whose craft plans and trimmed build orders the real-content suite resolves too.
+export { AI_PROFILES, profileBuildOrder } from './computer-player/difficulty.js';
+// The garrison an acceptance scene pins, and the outfit the real-content plan test resolves.
+export { SOLDIER_OUTFIT_GOOD_IDS, TOWER_GARRISON_ARCHERS } from './computer-player/military/index.js';
+export {
+  COLLECTOR_TARGET_BY_GOOD_ID,
+  COLLECTOR_WORKSHOP_BY_GOOD_ID,
+  CRAFT_PLANS_BY_BUILDING_ID,
+  CRAFT_PLANS_BY_JOINERY_ROLE,
+  DEFAULT_COLLECTOR_TARGET,
+  STAFFING_BY_BUILDING_ID,
+  SUPPLY_CARRIER_GOODS_BY_BUILDING_ID,
+  supplyLines,
+} from './computer-player/workforce/index.js';
 // The battle alert's rest clearance, so the details panel captions a unit standing to on the same radius
 // the drive ladder holds it at.
 export { REST_CLEARANCE_NODES } from './conflict/battle-alert.js';

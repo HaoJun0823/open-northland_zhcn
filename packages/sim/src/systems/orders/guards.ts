@@ -1,6 +1,7 @@
 import type { ContentSet } from '@open-northland/data';
 import {
   Age,
+  AiOrder,
   BuildMode,
   CurrentAtomic,
   type DeferrableOrderCommand,
@@ -65,6 +66,7 @@ export function mayTakeHome(world: World, content: ContentSet, e: Entity): boole
  * and the queued orders start once the current one ends.
  */
 export function supersedeStandingOrders(world: World, e: Entity): void {
+  world.remove(e, AiOrder);
   dropOrderQueue(world, e);
   world.remove(e, DeferredOrder);
   world.remove(e, ExploreOrder);
@@ -105,6 +107,7 @@ export function deferOrderDuringAtomic(
   if (clip !== undefined && isInterruptibleAtomic(ctx.content, clip)) return false;
   // Copied, not aliased: the caller's command object also sits in the replay log, and a shared reference
   // would let a post-enqueue mutation silently rewrite hashed component state.
+  world.remove(e, AiOrder);
   world.add(e, DeferredOrder, { command: { ...command }, ...(scripted ? { scripted: true } : {}) });
   return true;
 }

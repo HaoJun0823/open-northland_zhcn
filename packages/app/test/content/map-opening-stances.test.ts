@@ -42,7 +42,7 @@ describe.runIf(hasRealIr())('the opening of a map with unset seat pairs', () => 
     async () => {
       const { sim } = await realMapWorld({
         mapId: STORY_MAP,
-        aiSeats: STORY_COMPUTER_SEATS,
+        machineSeats: STORY_COMPUTER_SEATS,
         humanSeats: [PLAYER],
       });
       expect(sim.diplomacyStance(5, 9)).toBe('neutral');
@@ -57,7 +57,7 @@ describe.runIf(hasRealIr())('the opening of a map with unset seat pairs', () => 
     async () => {
       const { sim } = await realMapWorld({
         mapId: MULTIPLAYER_MAP,
-        aiSeats: MULTIPLAYER_COMPUTER_SEATS,
+        machineSeats: MULTIPLAYER_COMPUTER_SEATS,
         humanSeats: [PLAYER],
       });
       expect(sim.diplomacyStance(0, 1)).toBe('neutral');

@@ -76,7 +76,7 @@ function ruleLabel(name: string, value: boolean | null): string {
 /** The session a real-map run played: its AI seats and the rule overrides that change the world. */
 export function realMapSession(world: Extract<BenchWorld, { kind: 'realMap' }>): string {
   return (
-    `AI seats ${formatSeats(world.aiSeats)}` +
+    `AI seats ${formatSeats(world.machineSeats)}` +
     ruleLabel('progression', world.progression) +
     ruleLabel('needs', world.needs)
   );

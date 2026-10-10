@@ -1,9 +1,9 @@
 # Let a computer seat turn on a neutral player camping in its villages
 
-**Area:** sim · **Focus:** ai-player · **Priority:** P3
+**Area:** sim · **Focus:** computer-player · **Priority:** P3
 
 A neutral player's people can stand in a computer seat's settlement for the whole game without the
-seat ever reacting. `aiDiplomacySystem` (`packages/sim/src/systems/ai-player/diplomacy.ts`) answers
+seat ever reacting. `computerDiplomacySystem` (`packages/sim/src/systems/computer-player/diplomacy.ts`) answers
 only another player's stance: a neutral seat turns enemy toward a player that holds it as enemy, and a
 friendly seat drops to the other's stance.
 

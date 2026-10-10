@@ -22,10 +22,10 @@ export function matchIsContested(participants: readonly number[]): boolean {
 
 export function matchParticipants(input: {
   readonly controlled: readonly number[];
-  readonly aiSeats: readonly number[];
+  readonly machineSeats: readonly number[];
   readonly neverDies: readonly number[];
 }): number[] {
-  const seats = new Set<number>([...input.controlled, ...input.aiSeats]);
+  const seats = new Set<number>([...input.controlled, ...input.machineSeats]);
   for (const seat of input.neverDies) seats.delete(seat);
   return [...seats].sort((a, b) => a - b);
 }
@@ -38,7 +38,7 @@ export function matchParticipants(input: {
 export function scriptMatchParticipants(script: Pick<MapScript, 'players' | 'misc'>): number[] {
   return matchParticipants({
     controlled: script.players.filter((row) => row.type !== 'none').map((row) => row.player),
-    aiSeats: [],
+    machineSeats: [],
     neverDies: neverDiesSeats(script),
   });
 }

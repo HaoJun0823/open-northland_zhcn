@@ -47,7 +47,7 @@ describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))(
       // latency is what this measures.
       const { sim, ir } = await realMapWorld({
         mapId: MAP_ID,
-        aiSeats: [],
+        machineSeats: [],
         humanSeats: [HUMAN_SEAT],
         rules: { fog: null, progression: false, needs: null, weather: null, alliedVision: null },
       });

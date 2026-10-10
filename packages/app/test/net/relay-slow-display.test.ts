@@ -30,8 +30,8 @@ const TEST_TIMEOUT_MS = 120_000;
 const SESSION_SPEED = 4;
 const LINK = { latencyMs: 20, jitterMs: 4 };
 const SEATS: readonly RoomSeatSetup[] = [
-  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
-  { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 1 },
+  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent'], color: 0 },
+  { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent'], color: 1 },
 ];
 const OWNER_SEAT = 0;
 const SETTINGS: RoomSettings = {

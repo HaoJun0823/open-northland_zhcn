@@ -1,3 +1,4 @@
+import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   AttackOrder,
   ClaimAnimalOrder,
@@ -19,9 +20,12 @@ import {
   Settler,
   TrainingOrder,
 } from '../../components/index.js';
+import type { QueuedUnitOrder } from '../../components/settler.js';
 import { assertNever } from '../../core/brand.js';
 import type { Command } from '../../core/commands/index.js';
+import { aiCommand } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
+import { authorizedCommand } from '../command/authority.js';
 import type { System, SystemContext } from '../context.js';
 import { orderOpenChest } from './chests.js';
 import { dropOrderQueue, isOrderableSettler } from './guards.js';
@@ -73,24 +77,28 @@ function holdsCurrentOrder(world: World, e: Entity): boolean {
  * {@link ORDER_QUEUE_LIMIT}); false when the settler has nothing to wait for, or rides a vehicle whose
  * walk orders drive or leave it, so the command applies at once like an unqueued one.
  */
-export function queueBehindCurrentOrder(world: World, command: QueueableOrderCommand): boolean {
+export function queueBehindCurrentOrder(
+  world: World,
+  command: QueueableOrderCommand,
+  origin?: AiOrderOrigin,
+): boolean {
   const e = command.entity;
   if (!isOrderableSettler(world, e) || world.has(e, Rider)) return false;
   const queue = world.tryMut(e, OrderQueue);
   if (queue === undefined) {
     if (!holdsCurrentOrder(world, e)) return false;
-    world.add(e, OrderQueue, { orders: [unqueued(command)] });
+    world.add(e, OrderQueue, { orders: [unqueued(command, origin)] });
   } else if (queue.orders.length < ORDER_QUEUE_LIMIT) {
-    queue.orders.push(unqueued(command));
+    queue.orders.push(unqueued(command, origin));
   }
   return true;
 }
 
 /** A fresh copy without the queue flag: the stored command is component state, the caller's sits in the
  *  replay log. */
-function unqueued(command: QueueableOrderCommand): QueueableOrderCommand {
+function unqueued(command: QueueableOrderCommand, origin?: AiOrderOrigin): QueuedUnitOrder {
   const { queued: _queued, ...order } = command;
-  return order;
+  return { ...order, ...(origin === undefined ? {} : { aiOrder: { ...origin } }) };
 }
 
 /**
@@ -127,13 +135,19 @@ export const orderQueueSystem: System = (world, ctx) => {
   }
 };
 
-function startQueuedOrder(world: World, ctx: SystemContext, command: QueueableOrderCommand): void {
+function startQueuedOrder(world: World, ctx: SystemContext, queued: QueuedUnitOrder): void {
+  const { aiOrder: origin, ...command } = queued;
+  if (
+    origin !== undefined &&
+    authorizedCommand(world, aiCommand(origin.player, command, origin.source), ctx.terrain) === undefined
+  )
+    return;
   switch (command.kind) {
     case 'moveUnit':
-      moveUnit(world, ctx, command);
+      moveUnit(world, ctx, command, origin);
       return;
     case 'attackMoveUnit':
-      attackMoveUnit(world, ctx, command);
+      attackMoveUnit(world, ctx, command, origin);
       return;
     case 'placeSignpost':
       placeSignpost(world, ctx, command);

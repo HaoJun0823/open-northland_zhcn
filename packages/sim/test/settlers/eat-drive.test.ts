@@ -192,9 +192,9 @@ describe('eatDrive - the planner choosing to eat', () => {
     sim.world.add(computer, Owner, { player: AI_SEAT });
     sim.world.add(idle, Owner, { player: IDLE_SEAT });
     sim.world.add(human, Owner, { player: HUMAN_SEAT });
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: AI_SEAT, enabled: true });
+    sim.enqueueSetup({ kind: 'setAiControl', player: AI_SEAT, enabled: true });
     // `AI_Disable` leaves the seat a computer player, which is what the failed task reads.
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: IDLE_SEAT, enabled: true, scripted: false });
+    sim.enqueueSetup({ kind: 'setAiControl', player: IDLE_SEAT, enabled: true, mapAiEnabled: false });
     sim.step(); // the seat flags land, and the planner finds no food for anyone
 
     expect(needsOf(sim, computer).hunger).toBe(NEED_SATED_THRESHOLD);
@@ -211,7 +211,7 @@ describe('eatDrive - the planner choosing to eat', () => {
     sim.world.add(soldier, NoRegeneration, { prohibited: true });
     const store = storeAt(sim, 3, 0, 2);
     sim.world.add(store, Owner, { player: AI_SEAT });
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: AI_SEAT, enabled: true });
+    sim.enqueueSetup({ kind: 'setAiControl', player: AI_SEAT, enabled: true });
     sim.step();
 
     expect(needsOf(sim, soldier).hunger).toBeGreaterThan(HUNGRY);

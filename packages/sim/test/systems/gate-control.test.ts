@@ -1,7 +1,7 @@
 import { type ContentSet, type MapAiSeat, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
-  AI_MODULE_IDS,
+  COMPUTER_MODULE_IDS,
   GateControl,
   Health,
   Palisade,
@@ -87,8 +87,9 @@ const MAP = {
 function gateSim(scripted = true): Simulation {
   const row: MapAiSeat = {
     player: SEAT,
-    disabled: false,
-    strategicOff: [...AI_MODULE_IDS],
+    allDisabled: false,
+    computerDisabled: true,
+    disabledComputerModules: [...COMPUTER_MODULE_IDS],
     conditions: [],
     tasks: [],
   };
@@ -96,10 +97,10 @@ function gateSim(scripted = true): Simulation {
     seed: 1,
     content: CONTENT,
     map: MAP,
-    ...(scripted ? { aiScript: [row] } : {}),
+    ...(scripted ? { mapAiScript: [row] } : {}),
   });
-  const off = Object.fromEntries(AI_MODULE_IDS.map((id) => [id, false]));
-  sim.enqueueSetup({ kind: 'setPlayerAi', player: SEAT, enabled: true, modules: off });
+  const off = Object.fromEntries(COMPUTER_MODULE_IDS.map((id) => [id, false]));
+  sim.enqueueSetup({ kind: 'setAiControl', player: SEAT, enabled: true, modules: off });
   sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HQ_TYPE, ...HQ, tribe: VIKING, owner: SEAT });
   sim.step();
   return sim;

@@ -1,3 +1,4 @@
+import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   addPaper,
   setAlliedVision,
@@ -19,9 +20,9 @@ import { setHouseholdGoodUse } from '../family/home-quality.js';
 import { razePalisade } from '../lifecycle/cleanup.js';
 import { payTribute } from '../missions/tributes.js';
 // Deliberately the module, not the orders barrel: the handler reaches into
-// `ai-player/assistant-counters.js` for the published-counter map, and routing that through the
+// `computer-player/assistant-counters.js` for the published-counter map, and routing that through the
 // barrel would widen its import graph.
-import { setPlayerAi } from '../orders/ai.js';
+import { setAiControl } from '../orders/ai.js';
 import { learn } from '../orders/education.js';
 import {
   assignBuilder,
@@ -109,7 +110,11 @@ export const commandSystem: System = (world, ctx) => {
   for (const queued of ctx.commands.drain(ctx.tick)) {
     const command = authorizedCommand(world, queued, ctx.terrain);
     if (command !== undefined) {
-      applyCommand(world, ctx, command, orders);
+      const origin =
+        queued.origin === 'ai' && queued.decisionSource !== undefined
+          ? { player: queued.player, source: queued.decisionSource }
+          : undefined;
+      applyCommand(world, ctx, command, orders, origin);
       wakeAddressed(world, command);
     }
     ctx.commands.record(ctx.tick, queued);
@@ -123,14 +128,20 @@ function wakeAddressed(world: World, command: Command): void {
   if ('members' in command) for (const member of command.members) wakeIdle(world, member.entity);
 }
 
-function applyCommand(world: World, ctx: SystemContext, command: Command, orders: VehicleOrderRoutes): void {
+function applyCommand(
+  world: World,
+  ctx: SystemContext,
+  command: Command,
+  orders: VehicleOrderRoutes,
+  origin?: AiOrderOrigin,
+): void {
   // A Shift-clicked order waits behind the current one; an order that takes the settler at once drops
   // every order still waiting in its handler.
-  if (isQueuedOrder(command) && queueBehindCurrentOrder(world, command)) return;
+  if (isQueuedOrder(command) && queueBehindCurrentOrder(world, command, origin)) return;
   // A vehicle's commander hands a walk order to the vehicle. Any other settler crewing a vehicle is
   // taken off it before an order sends it elsewhere; one that may not leave (aboard a ship at sea)
   // keeps its seat and the order is dropped.
-  if (isCommanderWalkOrder(command) && driveCommandedVehicle(world, ctx, command, orders)) return;
+  if (isCommanderWalkOrder(command) && driveCommandedVehicle(world, ctx, command, orders, origin)) return;
   if (forcesDetach(command) && !detachBeforeOrder(world, ctx, command.entity)) return;
   switch (command.kind) {
     case 'setVehicleStanceGroup':
@@ -146,13 +157,20 @@ function applyCommand(world: World, ctx: SystemContext, command: Command, orders
           ctx,
           { kind: 'moveVehicle', vehicle, x, y, ...(command.attackMove ? { attackMove: true } : {}) },
           orders,
+          origin,
         );
       }
       return;
     case 'attackWithVehicleGroup':
       if (command.members.length > MAX_UNIT_ORDER_MEMBERS) return;
       for (const { entity: vehicle } of command.members)
-        applyCommand(world, ctx, { kind: 'attackWithVehicle', vehicle, target: command.target }, orders);
+        applyCommand(
+          world,
+          ctx,
+          { kind: 'attackWithVehicle', vehicle, target: command.target },
+          orders,
+          origin,
+        );
       return;
     case 'unitOrdersGroup':
       if (
@@ -161,13 +179,13 @@ function applyCommand(world: World, ctx: SystemContext, command: Command, orders
       )
         return;
       for (const { entity, actions } of command.members) {
-        for (const action of actions) applyCommand(world, ctx, { ...action, entity }, orders);
+        for (const action of actions) applyCommand(world, ctx, { ...action, entity }, orders, origin);
       }
       return;
     case 'unitActionGroup':
       if (command.members.length > MAX_UNIT_ORDER_MEMBERS) return;
       for (const { entity } of command.members) {
-        applyCommand(world, ctx, { ...command.action, entity }, orders);
+        applyCommand(world, ctx, { ...command.action, entity }, orders, origin);
       }
       return;
     case 'moveUnitGroup':
@@ -175,7 +193,13 @@ function applyCommand(world: World, ctx: SystemContext, command: Command, orders
       if (command.members.length > MAX_UNIT_ORDER_MEMBERS) return;
       const kind = command.kind === 'moveUnitGroup' ? 'moveUnit' : 'attackMoveUnit';
       for (const member of command.members) {
-        applyCommand(world, ctx, { kind, ...member, ...(command.queued ? { queued: true } : {}) }, orders);
+        applyCommand(
+          world,
+          ctx,
+          { kind, ...member, ...(command.queued ? { queued: true } : {}) },
+          orders,
+          origin,
+        );
       }
       return;
     }
@@ -190,7 +214,7 @@ function applyCommand(world: World, ctx: SystemContext, command: Command, orders
             : command.kind === 'setStanceGroup'
               ? { kind: 'setStance', entity, mode: command.mode }
               : { kind: 'setRegeneration', entity, enabled: command.enabled };
-        applyCommand(world, ctx, single, orders);
+        applyCommand(world, ctx, single, orders, origin);
       }
       return;
     case 'placeBuilding':
@@ -251,13 +275,13 @@ function applyCommand(world: World, ctx: SystemContext, command: Command, orders
       demolishSignpost(world, command);
       return;
     case 'moveUnit':
-      obeyDespiteHunger(world, ctx, command.entity, () => moveUnit(world, ctx, command));
+      obeyDespiteHunger(world, ctx, command.entity, () => moveUnit(world, ctx, command, origin));
       return;
     case 'moveVehicle':
-      moveVehicle(world, ctx, command, orders);
+      moveVehicle(world, ctx, command, orders, origin);
       return;
     case 'dockVehicle':
-      dockVehicle(world, ctx, command);
+      dockVehicle(world, ctx, command, origin);
       return;
     case 'stopVehicle':
       stopVehicle(world, command);
@@ -287,13 +311,13 @@ function applyCommand(world: World, ctx: SystemContext, command: Command, orders
       leaveCarrier(world, ctx, command);
       return;
     case 'attackMoveUnit':
-      obeyDespiteHunger(world, ctx, command.entity, () => attackMoveUnit(world, ctx, command));
+      obeyDespiteHunger(world, ctx, command.entity, () => attackMoveUnit(world, ctx, command, origin));
       return;
     case 'setJob':
       setJob(world, ctx, command);
       return;
     case 'attackUnit':
-      attackUnit(world, ctx, command);
+      attackUnit(world, ctx, command, origin);
       return;
     case 'setStance':
       setStance(world, ctx, command);
@@ -302,7 +326,7 @@ function applyCommand(world: World, ctx: SystemContext, command: Command, orders
       setVehicleStance(world, command);
       return;
     case 'attackWithVehicle':
-      attackWithVehicle(world, ctx, command);
+      attackWithVehicle(world, ctx, command, origin);
       return;
     case 'assignWorker':
       assignWorker(world, ctx, command);
@@ -456,8 +480,8 @@ function applyCommand(world: World, ctx: SystemContext, command: Command, orders
     case 'setMatchParticipants':
       setMatchParticipants(world, command.players, command.victory, command.goals, command.goalSeats);
       return;
-    case 'setPlayerAi':
-      setPlayerAi(world, ctx, command);
+    case 'setAiControl':
+      setAiControl(world, ctx, command);
       return;
     case 'debugKill':
       debugKill(world, command);

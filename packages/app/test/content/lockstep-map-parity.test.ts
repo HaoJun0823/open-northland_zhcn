@@ -26,13 +26,13 @@ describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))('loopback driver 
   it('reaches the same state as the direct loop', { timeout: 120_000 }, async () => {
     // Orders land on shared ticks, so this covers the one case the queue has to order twice over: a
     // seat's stamped order against the AI seats' own commands for the same tick.
-    const direct = (await realMapWorld({ mapId: MAP_ID, aiSeats: AI_SEATS, berryBushes: true })).sim;
+    const direct = (await realMapWorld({ mapId: MAP_ID, machineSeats: AI_SEATS, berryBushes: true })).sim;
     for (let i = 0; i < RUN_TICKS; i++) {
       if (direct.tick % ORDER_EVERY_TICKS === 0) direct.enqueue(order(direct.tick));
       direct.step();
     }
 
-    const driven = (await realMapWorld({ mapId: MAP_ID, aiSeats: AI_SEATS, berryBushes: true })).sim;
+    const driven = (await realMapWorld({ mapId: MAP_ID, machineSeats: AI_SEATS, berryBushes: true })).sim;
     const driver = new LockstepDriver({ sim: driven, transport: new LoopbackTransport() });
     for (let i = 0; i < RUN_TICKS; i++) {
       if (driven.tick % ORDER_EVERY_TICKS === 0) driver.submit(order(driven.tick));

@@ -33,11 +33,11 @@ export class Departures {
   }
 
   private land({ player, mode }: Departure): number {
-    if (mode !== 'ai') return this.clock.nextTick;
+    if (mode !== 'computer') return this.clock.nextTick;
     return this.clock.scheduleTrusted({
       v: ENVELOPE_VERSION,
       origin: 'admin',
-      command: { kind: 'setPlayerAi', player, enabled: true },
+      command: { kind: 'setAiControl', player, enabled: true, computerEnabled: true, mapAiEnabled: true },
     });
   }
 }

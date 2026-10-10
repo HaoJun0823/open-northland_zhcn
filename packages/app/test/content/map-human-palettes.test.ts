@@ -43,7 +43,7 @@ describe.runIf(hasRealIr())("a map's [misc_humangraphics] looks", () => {
       expect(bjarniRecipes.length).toBeGreaterThan(0);
       expect(authored.some((r) => r.humanId === UNPLACED_ID)).toBe(true);
 
-      const { sim, ir } = await realMapWorld({ mapId: INVASION_MAP_ID, aiSeats: [] });
+      const { sim, ir } = await realMapWorld({ mapId: INVASION_MAP_ID, machineSeats: [] });
       const dressed = [...sim.world.query(components.ScriptedLook)];
       expect(dressed.length).toBeGreaterThan(0);
       for (const e of dressed) {

@@ -115,7 +115,9 @@ describe('relay rooms', () => {
     a.send({
       kind: 'createRoom',
       settings: { ...SETTINGS, kickedSeatMode: 'idle' },
-      seats: SEATS.map((seat) => (seat.player === 2 ? { ...seat, claimable: true, offers: ['ai'] } : seat)),
+      seats: SEATS.map((seat) =>
+        seat.player === 2 ? { ...seat, claimable: true, offers: ['computer'] } : seat,
+      ),
     });
     b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });
     a.send({ kind: 'claimSeat', player: 0 });
@@ -136,7 +138,7 @@ describe('relay rooms', () => {
     const s = stage();
     const a = s.introduce(TOKEN_A, 'Ania'),
       b = s.introduce(TOKEN_B, 'Bartek');
-    a.send({ kind: 'createRoom', settings: { ...SETTINGS, kickedSeatMode: 'ai' }, seats: SEATS });
+    a.send({ kind: 'createRoom', settings: { ...SETTINGS, kickedSeatMode: 'computer' }, seats: SEATS });
     b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });
     a.send({ kind: 'claimSeat', player: 0 });
     b.send({ kind: 'claimSeat', player: 1 });
@@ -152,11 +154,11 @@ describe('relay rooms', () => {
     const ping = a.last('ping');
     if (ping !== undefined) a.send({ kind: 'pong', t: ping.t });
     a.send({ kind: 'loaded', tick: 1, world: 0 });
-    expect(a.last('kicked')).toMatchObject({ player: 1, tick: 2, mode: 'ai' });
+    expect(a.last('kicked')).toMatchObject({ player: 1, tick: 2, mode: 'computer' });
     s.advance(TICK_MS);
     expect(a.last('frame')).toMatchObject({
       tick: 2,
-      commands: [{ envelope: { command: { kind: 'setPlayerAi', player: 1 } } }],
+      commands: [{ envelope: { command: { kind: 'setAiControl', player: 1 } } }],
     });
   });
 
@@ -252,17 +254,17 @@ describe('relay rooms', () => {
     b.send({ kind: 'claimSeat', player: 1 });
     a.send({ kind: 'claimSeat', player: 1 });
     expect(a.last('rejected')?.reason).toMatchObject({ code: 'seatTaken', nick: 'Bartek' });
-    b.send({ kind: 'setSeat', player: 0, mode: 'ai' });
+    b.send({ kind: 'setSeat', player: 0, mode: 'computer' });
     expect(b.last('rejected')?.reason).toEqual({ code: 'creatorOnly' });
-    a.send({ kind: 'setSeat', player: 0, mode: 'ai', color: 5 });
-    a.send({ kind: 'setSeat', player: 1, mode: 'ai' });
+    a.send({ kind: 'setSeat', player: 0, mode: 'computer', color: 5 });
+    a.send({ kind: 'setSeat', player: 1, mode: 'computer' });
     expect(a.last('rejected')?.reason).toMatchObject({ code: 'seatTaken', nick: 'Bartek' });
     expect(a.last('room')?.room.seats).toEqual([
       {
         player: 0,
-        mode: 'ai',
+        mode: 'computer',
         claimable: true,
-        offers: ['idle', 'ai', 'absent'],
+        offers: ['idle', 'computer', 'absent'],
         color: 5,
         nick: null,
         ready: false,
@@ -271,16 +273,16 @@ describe('relay rooms', () => {
         player: 1,
         mode: 'human',
         claimable: true,
-        offers: ['idle', 'ai', 'absent'],
+        offers: ['idle', 'computer', 'absent'],
         color: 1,
         nick: 'Bartek',
         ready: false,
       },
       {
         player: 2,
-        mode: 'ai',
+        mode: 'computer',
         claimable: true,
-        offers: ['idle', 'ai', 'absent'],
+        offers: ['idle', 'computer', 'absent'],
         color: 2,
         nick: null,
         ready: false,
@@ -296,7 +298,7 @@ describe('relay rooms', () => {
     b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });
     a.send({ kind: 'leaveRoom' });
     expect(b.last('room')?.room.creator).toBe('Bartek');
-    b.send({ kind: 'setSeat', player: 0, mode: 'ai' });
+    b.send({ kind: 'setSeat', player: 0, mode: 'computer' });
     expect(b.of('rejected')).toEqual([]);
     expect(s.relay.roomCount).toBe(1);
   });
@@ -334,17 +336,17 @@ describe('relay rooms', () => {
     const b = s.introduce(TOKEN_B, 'Bartek');
     a.send({
       kind: 'createRoom',
-      settings: { ...SETTINGS, kickedSeatMode: 'ai' },
+      settings: { ...SETTINGS, kickedSeatMode: 'computer' },
       seats: [
-        { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
+        { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent'], color: 0 },
         { player: 1, mode: 'idle', claimable: true, offers: ['idle'], color: 1 },
       ],
     });
     b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });
     a.send({ kind: 'setSeat', player: 1, mode: 'absent' });
     expect(a.last('rejected')?.reason).toMatchObject({ code: 'seatModeUnavailable', mode: 'absent' });
-    a.send({ kind: 'setSeat', player: 1, mode: 'ai' });
-    expect(a.last('rejected')?.reason).toMatchObject({ code: 'seatModeUnavailable', mode: 'ai' });
+    a.send({ kind: 'setSeat', player: 1, mode: 'computer' });
+    expect(a.last('rejected')?.reason).toMatchObject({ code: 'seatModeUnavailable', mode: 'computer' });
     a.send({ kind: 'claimSeat', player: 0 });
     b.send({ kind: 'claimSeat', player: 1 });
     a.send({ kind: 'setReady', ready: true });
@@ -396,7 +398,7 @@ describe('relay rooms', () => {
     const seats = [
       { player: 0, mode: 'human', color: 0 },
       { player: 1, mode: 'human', color: 1 },
-      { player: 2, mode: 'ai', color: 2 },
+      { player: 2, mode: 'computer', color: 2 },
     ];
     expect(a.last('start')).toEqual({
       kind: 'start',
@@ -492,7 +494,7 @@ describe('relay clock', () => {
     const s = startedRoom();
     s.b.send({
       kind: 'command',
-      envelope: { v: 1, origin: 'admin', command: { kind: 'debugKill' } },
+      envelope: { v: 2, origin: 'admin', command: { kind: 'debugKill' } },
       fromTick: 0,
     });
     expect(s.b.last('rejected')).toEqual({
@@ -503,7 +505,7 @@ describe('relay clock', () => {
     s.b.send({
       kind: 'command',
       envelope: {
-        v: 1,
+        v: 2,
         origin: 'player',
         player: 1,
         command: { kind: 'x', pad: 'p'.repeat(MAX_ENVELOPE_BYTES) },

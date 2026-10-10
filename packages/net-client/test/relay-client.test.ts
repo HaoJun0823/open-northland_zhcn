@@ -347,11 +347,11 @@ describe('RelayClient under a failing or interrupted world port', () => {
       connected: () => connected,
     });
     client.attach((message) => sent.push(message));
-    client.submit({ v: 1, origin: 'player', player: 0, command: { kind: 'noop' } } as never);
+    client.submit({ v: 2, origin: 'player', player: 0, command: { kind: 'noop' } } as never);
     expect(failures).toEqual(['command']);
     expect(sent).toEqual([]);
     connected = false;
-    client.submit({ v: 1, origin: 'player', player: 0, command: { kind: 'noop' } } as never);
+    client.submit({ v: 2, origin: 'player', player: 0, command: { kind: 'noop' } } as never);
     expect(failures).toEqual(['command', 'command']);
   });
 });

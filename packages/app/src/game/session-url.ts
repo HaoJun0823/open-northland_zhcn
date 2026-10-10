@@ -1,6 +1,6 @@
 import { MAP_PLAYER_COLOR_COUNT, type MapsIndexPlayerSlot } from '@open-northland/data';
 import {
-  type AiDifficulty,
+  type ComputerDifficulty,
   DEFAULT_LOCAL_PLAYER,
   type GameSession,
   type LocalSeat,
@@ -48,7 +48,7 @@ export type SessionRosterSlot = Pick<
   Partial<Pick<MapsIndexPlayerSlot, 'aiAllowed'>>;
 
 /** An authored computer seat the map never offers to a person; lobby mode choices cannot retype it. */
-export function isMapComputerSeat(slot: Pick<SessionRosterSlot, 'type' | 'claimable'>): boolean {
+export function isReservedMapAiSeat(slot: Pick<SessionRosterSlot, 'type' | 'claimable'>): boolean {
   return slot.type === 'ai' && !slot.claimable;
 }
 
@@ -117,18 +117,18 @@ export function sessionSearch(
       seat.difficulty === undefined ? [] : [`${seat.player}:${seat.difficulty}`],
     );
     if (levels.length > 0) params.set('difficulty', levels.join(','));
-    // The map's own computer seats play without being named, so `?ai=` lists the person's choices only.
-    const mapComputer = new Set(roster.filter(isMapComputerSeat).map((slot) => slot.player));
-    const ai = session.seats
-      .filter((seat) => seat.mode === 'ai' && !mapComputer.has(seat.player))
+    // The map's own computer seats play without being named, so `?computer=` lists the person's choices only.
+    const reservedMapAi = new Set(roster.filter(isReservedMapAiSeat).map((slot) => slot.player));
+    const computer = session.seats
+      .filter((seat) => seat.mode === 'computer' && !reservedMapAi.has(seat.player))
       .map((seat) => seat.player);
-    if (ai.length > 0) params.set('ai', ai.join(','));
-    for (const mode of ['script', 'idle'] as const) {
+    if (computer.length > 0) params.set('computer', computer.join(','));
+    for (const mode of ['map-ai', 'idle'] as const) {
       const seats = session.seats
         .filter((seat) => {
           const slot = roster.find((slot) => slot.player === seat.player);
-          const defaultMode = slot?.type === 'ai' && slot.aiAllowed !== false ? 'script' : 'idle';
-          return seat.mode === mode && mode !== defaultMode && !mapComputer.has(seat.player);
+          const defaultMode = slot?.type === 'ai' && slot.aiAllowed !== false ? 'map-ai' : 'idle';
+          return seat.mode === mode && mode !== defaultMode && !reservedMapAi.has(seat.player);
         })
         .map((seat) => seat.player);
       if (seats.length > 0) params.set(mode, seats.join(','));
@@ -162,7 +162,7 @@ function localSeatParam(params: URLSearchParams): LocalSeat {
 
 /**
  * Every seat the search puts in play: the map's roster rows, plus any seat the search names on its own.
- * A map that ships no roster still runs the `?ai=` seats it was asked for, which the roster rows alone
+ * A map that ships no roster still runs the `?computer=` seats it was asked for, which the roster rows alone
  * would drop.
  */
 function rosterSeats(
@@ -174,16 +174,16 @@ function rosterSeats(
   const tribes = seatPairsParam(params, 'tribes', (tribe) => tribe > 0);
   const difficulties = seatDifficultiesParam(params);
   const lists: SeatLists = {
-    ai: new Set(seatListParam(params, 'ai').filter(isValidPlayer)),
-    script: new Set(seatListParam(params, 'script').filter(isValidPlayer)),
+    computer: new Set(seatListParam(params, 'computer').filter(isValidPlayer)),
+    mapAi: new Set(seatListParam(params, 'map-ai').filter(isValidPlayer)),
     idle: new Set(seatListParam(params, 'idle').filter(isValidPlayer)),
     absent: new Set(seatListParam(params, 'absent').filter(isValidPlayer)),
   };
   const authored = new Map(roster.map((slot) => [slot.player, slot]));
   const players = new Set([
     ...authored.keys(),
-    ...lists.ai,
-    ...lists.script,
+    ...lists.computer,
+    ...lists.mapAi,
     ...lists.idle,
     ...overrides.keys(),
   ]);
@@ -195,7 +195,7 @@ function rosterSeats(
       const tribe = tribes.get(player);
       const mode = seatMode(slot, localSeat, lists);
       // Only a computer seat plays at a difficulty; a stale pair for another seat is dropped.
-      const difficulty = mode === 'ai' || mode === 'script' ? difficulties.get(player) : undefined;
+      const difficulty = mode === 'computer' || mode === 'map-ai' ? difficulties.get(player) : undefined;
       return {
         player,
         mode,
@@ -209,14 +209,14 @@ function rosterSeats(
 
 /** Explicit seat-control overrides carried by the launch URL. */
 export interface SeatLists {
-  readonly ai: ReadonlySet<number>;
-  readonly script: ReadonlySet<number>;
+  readonly computer: ReadonlySet<number>;
+  readonly mapAi: ReadonlySet<number>;
   readonly idle: ReadonlySet<number>;
   readonly absent: ReadonlySet<number>;
 }
 
 /** Closed authored seats never participate. A human claim wins over mode lists; locked computer
- *  seats follow the map. An unclaimed authored computer defaults to Script when the map allows it. */
+ *  seats follow the map. An unclaimed authored computer defaults to Map AI when the map allows it. */
 export function seatMode(
   slot: Pick<SessionRosterSlot, 'player' | 'type' | 'claimable' | 'aiAllowed'>,
   localSeat: LocalSeat,
@@ -224,13 +224,11 @@ export function seatMode(
 ): SeatMode {
   if (slot.type === 'none') return 'absent';
   if (slot.player === localSeat) return 'human';
-  if (isMapComputerSeat(slot)) return 'script';
-  if (lists.ai.has(slot.player)) return 'ai';
+  if (isReservedMapAiSeat(slot)) return 'map-ai';
+  if (lists.computer.has(slot.player)) return 'computer';
   if (lists.idle.has(slot.player)) return 'idle';
   if (lists.absent.has(slot.player)) return 'absent';
-  return lists.script.has(slot.player) || (slot.type === 'ai' && slot.aiAllowed !== false)
-    ? 'script'
-    : 'idle';
+  return lists.mapAi.has(slot.player) || (slot.type === 'ai' && slot.aiAllowed !== false) ? 'map-ai' : 'idle';
 }
 
 /** `?colors=<slot>:<colorId>,…`. Colours are bounded to the roster's id space, because an
@@ -240,12 +238,12 @@ function colorOverridesParam(params: URLSearchParams): ReadonlyMap<number, numbe
 }
 
 /** `?difficulty=slot:level,...`: how hard each named computer seat plays. */
-function seatDifficultiesParam(params: URLSearchParams): ReadonlyMap<number, AiDifficulty> {
-  const out = new Map<number, AiDifficulty>();
+function seatDifficultiesParam(params: URLSearchParams): ReadonlyMap<number, ComputerDifficulty> {
+  const out = new Map<number, ComputerDifficulty>();
   for (const pair of (params.get('difficulty') ?? '').split(',')) {
     const [slotRaw, level] = pair.split(':');
     const slot = Number.parseInt(slotRaw ?? '', 10);
-    const difficulty = components.AI_DIFFICULTIES.find((known) => known === level);
+    const difficulty = components.COMPUTER_DIFFICULTIES.find((known) => known === level);
     if (isValidPlayer(slot) && difficulty !== undefined) out.set(slot, difficulty);
   }
   return out;

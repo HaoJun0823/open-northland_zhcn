@@ -164,8 +164,20 @@ describe('a session with a changed seat', () => {
     const script = MapScript.parse({
       ...roster,
       ai: [
-        { player: 0, disabled: false, strategicOff: [], tasks: [{ ...createCreatures, tribe: VIKING }] },
-        { player: 1, disabled: false, strategicOff: [], tasks: [{ ...createCreatures, tribe: WERESNAKE }] },
+        {
+          player: 0,
+          allDisabled: false,
+          computerDisabled: false,
+          disabledComputerModules: [],
+          tasks: [{ ...createCreatures, tribe: VIKING }],
+        },
+        {
+          player: 1,
+          allDisabled: false,
+          computerDisabled: false,
+          disabledComputerModules: [],
+          tasks: [{ ...createCreatures, tribe: WERESNAKE }],
+        },
       ],
     });
     const seated = sessionMapScript(session([seat(0, SARACEN), seat(1, VIKING)]), script, rows);

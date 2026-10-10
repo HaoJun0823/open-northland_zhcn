@@ -1,0 +1,408 @@
+import { JobAssignment, Settler } from '../../../../components/index.js';
+import type { PlayerCommand } from '../../../../core/commands/index.js';
+import type { Entity, World } from '../../../../ecs/world.js';
+import type { HalfCellNode } from '../../../../nav/halfcell.js';
+import { goodTypeByContentId } from '../../../ai-shared/content-lookup.js';
+import { anchorNodeOf } from '../../../ai-shared/node-geometry.js';
+import { ownedSettlers } from '../../../ai-shared/seat-roster.js';
+import { experienceRank } from '../../../ai-shared/workforce/experience.js';
+import type { SpareForce } from '../../../ai-shared/workforce/pool.js';
+import type { SystemContext } from '../../../context.js';
+import { jobCanHarvestGood, liveWorkFlag } from '../../../economy/work-flag.js';
+import { BUILD_SEARCH_MAX_RADIUS_NODES } from '../../build-order/index.js';
+import { gathererReach, nearestLiveResource, type WorkableTest } from '../../live-resources.js';
+import {
+  claimFlagNode,
+  collectorSpot,
+  FLAG_MAX_DISTANCE_NODES,
+  type FlagGround,
+  flagSpotNear,
+  nodeDistance,
+  replantSpot,
+  type TakenFlagNodes,
+} from '../flag-spots.js';
+import { type CollectorAnchors, type SeatedHolders, seatHolders } from './anchor.js';
+import {
+  everyResource,
+  flagRelocateDue,
+  hopelessPost,
+  patchWorked,
+  retireToBuilder,
+  upkeepHolders,
+} from './upkeep.js';
+import { genericCollectorJob, meetsNeed, needsVeteran, type WantedGood } from './wanted-goods.js';
+
+/** Post `spare` as a flag gatherer of `w` at `spot`, recorded into the decision's `holders` list and
+ *  `taken` nodes so later phases count the hire and keep off its spot before its commands apply. */
+function postCollector(
+  spare: Entity,
+  w: WantedGood,
+  spot: HalfCellNode,
+  holders: Entity[],
+  collectorsByGood: Map<number, Entity[]>,
+  taken: TakenFlagNodes,
+  commands: PlayerCommand[],
+): void {
+  commands.push({ kind: 'setJob', entity: spare, jobType: w.job });
+  commands.push({ kind: 'setWorkFlag', entity: spare, x: spot.hx, y: spot.hy });
+  commands.push({ kind: 'setGatherGood', entity: spare, goodType: w.good.typeId });
+  holders.push(spare);
+  collectorsByGood.set(w.good.typeId, holders);
+  claimFlagNode(taken, spot);
+}
+
+interface VeteranSteal {
+  readonly veteran: Entity;
+  readonly vacatedGood: WantedGood;
+}
+
+/**
+ * The veteran to move onto `w`'s empty post when no spare qualifies, or null. Only a gated good may
+ * steal, and only from an ungated one: otherwise a dry pool would have two goods trading the same man
+ * every decision, each swap dropping his load and cancelling the dig.
+ */
+function veteranToSteal(
+  world: World,
+  ctx: SystemContext,
+  w: WantedGood,
+  wanted: readonly WantedGood[],
+  collectorsByGood: ReadonlyMap<number, Entity[]>,
+): VeteranSteal | null {
+  for (const other of wanted) {
+    if (other === w) continue;
+    const otherHolders = collectorsByGood.get(other.good.typeId) ?? [];
+    const tribe = otherHolders[0] === undefined ? undefined : world.get(otherHolders[0], Settler).tribe;
+    if (tribe === undefined || !needsVeteran(ctx, tribe, w.good.typeId)) continue;
+    if (needsVeteran(ctx, tribe, other.good.typeId)) continue;
+    // Holders stand most experienced first, so the last who qualifies costs the other good the least.
+    let veteran: Entity | undefined;
+    for (let i = otherHolders.length - 1; i >= 0 && veteran === undefined; i--) {
+      const holder = otherHolders[i];
+      if (holder !== undefined && meetsNeed(world, ctx, holder, w.good.typeId)) veteran = holder;
+    }
+    if (veteran !== undefined) return { veteran, vacatedGood: other };
+  }
+  return null;
+}
+
+/** Move the stolen veteran onto `w`'s post at `spot`, off the good he leaves. */
+function postVeteran(
+  world: World,
+  steal: VeteranSteal,
+  w: WantedGood,
+  spot: HalfCellNode,
+  holders: Entity[],
+  collectorsByGood: Map<number, Entity[]>,
+  taken: TakenFlagNodes,
+  commands: PlayerCommand[],
+): void {
+  const { veteran } = steal;
+  if (world.get(veteran, Settler).jobType !== w.job)
+    commands.push({ kind: 'setJob', entity: veteran, jobType: w.job });
+  commands.push({ kind: 'setWorkFlag', entity: veteran, x: spot.hx, y: spot.hy });
+  commands.push({ kind: 'setGatherGood', entity: veteran, goodType: w.good.typeId });
+  claimFlagNode(taken, spot);
+  const vacated = collectorsByGood.get(steal.vacatedGood.good.typeId);
+  vacated?.splice(vacated.indexOf(veteran), 1);
+  holders.push(veteran);
+  collectorsByGood.set(w.good.typeId, holders);
+}
+
+/** Where one decision's flag gatherers stand: each good's anchors, the ground the flags go on, and which
+ *  resources can still be worked. */
+export interface CollectorGround {
+  readonly anchors: CollectorAnchors;
+  readonly baseNode: HalfCellNode;
+  readonly flags: FlagGround;
+  readonly workable: WorkableTest;
+}
+
+/** `w`'s holders seated on its anchors ({@link seatHolders}), with a free anchor for each post up to its
+ *  target. */
+function seatGood(
+  world: World,
+  ground: CollectorGround,
+  w: WantedGood,
+  holders: readonly Entity[],
+): SeatedHolders {
+  const slots = ground.anchors.slotsOf(w.good.id, Math.max(w.target, holders.length, 1));
+  return seatHolders(world, holders, slots, ground.baseNode);
+}
+
+/** The fewest builders a good's shortage post beyond its first may leave the seat (authored), counting
+ *  spare men of the builder trade and those bound to a site: gatherers with nobody to raise the sites
+ *  bring nothing. At the floor such a post takes only a man of another trade. */
+export const SHORTAGE_BUILDER_FLOOR = 4;
+
+/** The seat's builders this decision: the builder-trade men `force` still holds and those bound to a site. */
+function seatBuilders(world: World, player: number, force: SpareForce, builderJob: number): number {
+  let builders = 0;
+  for (const e of force.remaining()) if (world.get(e, Settler).jobType === builderJob) builders++;
+  for (const e of ownedSettlers(world, player)) {
+    if (world.has(e, JobAssignment) && world.get(e, Settler).jobType === builderJob) builders++;
+  }
+  return builders;
+}
+
+/**
+ * First posts: keep at least one flag-bound gatherer per wanted good, and a short good's extra ones up to
+ * `min`, each flag standing 2-3 tiles from a workable resource nearest its anchor (authored), over the
+ * upkeep of every current holder ({@link upkeepHolders}). One post per good per decision, and none beyond
+ * a good's first that would break the {@link SHORTAGE_BUILDER_FLOOR}. A post beyond the first takes a
+ * collect-anything gatherer before any spare man, dropping him from `genericCollectors` so the generic
+ * upkeep leaves his flag to the post: the seat's least pointed man goes before a builder. Every other
+ * post, here as in the top-ups and the generic posts, goes to the spare man most experienced on the
+ * track it trains. No-op on a mapless sim, which has no cells to place flags over.
+ */
+export function allocateCollectors(
+  world: World,
+  ctx: SystemContext,
+  player: number,
+  ground: CollectorGround,
+  wanted: readonly WantedGood[],
+  collectorsByGood: Map<number, Entity[]>,
+  genericCollectors: Entity[],
+  force: SpareForce,
+  taken: TakenFlagNodes,
+  builderJob: number | null,
+): PlayerCommand[] {
+  const commands: PlayerCommand[] = [];
+  const { workable } = ground;
+  const isBuilder = (e: Entity): boolean => world.get(e, Settler).jobType === builderJob;
+  let builders: number | undefined; // counted once a post beyond a good's first needs a man
+  for (const w of wanted) {
+    const holders = collectorsByGood.get(w.good.typeId) ?? [];
+    const seated = seatGood(world, ground, w, holders);
+    upkeepHolders(world, ctx, ground, w, holders, seated.anchors, taken, builderJob, commands);
+    const anchor = seated.free[0];
+    if (holders.length >= w.min || anchor === undefined) continue;
+    // The spot search floods from the anchor and the deposit, so it runs only once someone can take it.
+    const qualifies = (e: Entity): boolean => meetsNeed(world, ctx, e, w.good.typeId);
+    const menQualify = (holders.length > 0 && genericCollectors.some(qualifies)) || force.any(qualifies);
+    let steal = menQualify ? null : veteranToSteal(world, ctx, w, wanted, collectorsByGood);
+    if (!menQualify && steal === null) continue;
+    const spot = collectorSpot(world, ground.flags, anchor, w.good.typeId, taken, workable);
+    if (spot === null) continue; // no reachable free spot beside a live node of this good
+    if (holders.length > 0 && builderJob !== null)
+      builders ??= seatBuilders(world, player, force, builderJob);
+    const keepBuilders = holders.length > 0 && builders !== undefined && builders <= SHORTAGE_BUILDER_FLOOR;
+    const spare =
+      (holders.length > 0 ? takeGenericCollector(world, ctx, genericCollectors, w) : null) ??
+      force.take(
+        (e) => qualifies(e) && !(keepBuilders && isBuilder(e)),
+        experienceRank(world, ctx, w.job, w.good.typeId),
+      );
+    if (spare !== null) {
+      if (builders !== undefined && isBuilder(spare)) builders--;
+      postCollector(spare, w, spot, holders, collectorsByGood, taken, commands);
+      continue;
+    }
+    steal ??= veteranToSteal(world, ctx, w, wanted, collectorsByGood);
+    if (steal !== null) postVeteran(world, steal, w, spot, holders, collectorsByGood, taken, commands);
+  }
+  return commands;
+}
+
+/** The collect-anything gatherer most experienced on `w`'s track who meets the good's need, removed from
+ *  `genericCollectors`, or null when none qualifies. */
+function takeGenericCollector(
+  world: World,
+  ctx: SystemContext,
+  genericCollectors: Entity[],
+  w: WantedGood,
+): Entity | null {
+  const rank = experienceRank(world, ctx, w.job, w.good.typeId);
+  let best: Entity | null = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+  let at = -1;
+  for (const [i, e] of genericCollectors.entries()) {
+    if (!meetsNeed(world, ctx, e, w.good.typeId)) continue;
+    const score = rank(e);
+    if (score > bestScore) {
+      best = e;
+      bestScore = score;
+      at = i;
+    }
+  }
+  if (at >= 0) genericCollectors.splice(at, 1);
+  return best;
+}
+
+/**
+ * Best-effort top-ups to each good's target, run after minimum staffing and the builder reserve because
+ * minimums everywhere beat second workers anywhere (authored). Only goods that already hold their first
+ * post are topped up, and only from the spare pool: moving a man off another good's post would leave
+ * that one short instead.
+ */
+export function topUpCollectors(
+  world: World,
+  ctx: SystemContext,
+  ground: CollectorGround,
+  wanted: readonly WantedGood[],
+  collectorsByGood: Map<number, Entity[]>,
+  force: SpareForce,
+  taken: TakenFlagNodes,
+): PlayerCommand[] {
+  const commands: PlayerCommand[] = [];
+  for (const w of wanted) {
+    const holders = collectorsByGood.get(w.good.typeId) ?? [];
+    if (holders.length === 0) continue;
+    const { free } = seatGood(world, ground, w, holders);
+    const veteranFirst = experienceRank(world, ctx, w.job, w.good.typeId);
+    const qualifies = (e: Entity): boolean => meetsNeed(world, ctx, e, w.good.typeId);
+    while (holders.length < w.target) {
+      const anchor = free.shift();
+      if (anchor === undefined || !force.any(qualifies)) break;
+      const spot = collectorSpot(world, ground.flags, anchor, w.good.typeId, taken, ground.workable);
+      if (spot === null) break;
+      const spare = force.take(qualifies, veteranFirst);
+      if (spare === null) break;
+      postCollector(spare, w, spot, holders, collectorsByGood, taken, commands);
+    }
+  }
+  return commands;
+}
+
+/**
+ * Generic gatherers: up to `target` collect-anything posts, a flag with no good filter, so the holder
+ * picks up whatever its trade may harvest inside the circle. Each is hired beside a {@link clearingResource}
+ * of its own, so extra posts clear the ground a stalled placement needs, in as many directions as there
+ * are posts. On the periodic upkeep, once the clearing resource stands more than the band nearer than a
+ * working holder's flag, or the flag stands within {@link CLEARING_SPREAD_NODES} of another post's, the
+ * flag moves beside a clearing resource of its own. A worked-out flag is the flag follow's to move; its
+ * holder retires to builder when no clearing good is left or the follow's re-plants keep finding nothing
+ * (authored).
+ */
+export function allocateGenericCollectors(
+  world: World,
+  ctx: SystemContext,
+  ground: CollectorGround,
+  genericCollectors: readonly Entity[],
+  force: SpareForce,
+  taken: TakenFlagNodes,
+  builderJob: number | null,
+  target: number,
+): PlayerCommand[] {
+  const commands: PlayerCommand[] = [];
+  const { baseNode, workable } = ground;
+  const reach = gathererReach(world, ctx, ground.flags.terrain);
+  // Each post's flag by holder: a re-plant or a hire keeps its resource clear of the others', so the
+  // posts fan out.
+  const flags = new Map<Entity, HalfCellNode>();
+  for (const g of genericCollectors) {
+    const flag = liveWorkFlag(world, g);
+    const flagNode = flag === undefined ? null : anchorNodeOf(world, flag.flag);
+    if (flagNode !== null) flags.set(g, flagNode);
+  }
+  for (const g of genericCollectors) {
+    const flag = liveWorkFlag(world, g);
+    const flagNode = flag === undefined ? null : anchorNodeOf(world, flag.flag);
+    if (flag === undefined || flagNode === null) continue;
+    const job = world.get(g, Settler).jobType;
+    if (job === null) continue;
+    const harvests = (goodType: number): boolean => jobCanHarvestGood(ctx, job, goodType);
+    const others = [...flags].flatMap(([holder, f]) => (holder === g ? [] : [f]));
+    const nearest = (open: WorkableTest): Entity | null =>
+      clearingResource(world, ctx, baseNode, (e) => workable(e) && open(e) && clearOfFlags(world, e, others));
+    if (!patchWorked(world, reach, g, flagNode, flag.radius, harvests)) {
+      // The flag follow moves a worked-out flag; the upkeep only retires a hopeless post.
+      if (builderJob !== null && hopelessPost(world, g, flagNode, nearest))
+        retireToBuilder(world, g, builderJob, commands);
+      continue;
+    }
+    if (!flagRelocateDue(ctx, g)) continue;
+    // The flag follow aims at whatever stands nearest, so posts may bunch up on one grove: a crowded post
+    // re-aims at a clearing resource of its own, as a far one does at the nearer one.
+    const crowded = others.some((f) => nodeDistance(f, flagNode) < CLEARING_SPREAD_NODES);
+    if (!crowded && !farFromNearest(world, baseNode, flagNode, nearest(everyResource))) continue;
+    const replant = replantSpot(world, ground.flags, g, flag.radius, nearest, baseNode, reach, taken);
+    if (replant === 'dry' || replant === null) continue;
+    const { target: resource, spot } = replant;
+    if (spot.hx === flagNode.hx && spot.hy === flagNode.hy) continue;
+    if (nodeDistance(spot, resource) >= nodeDistance(flagNode, resource)) continue; // no nearer spot
+    commands.push({ kind: 'setWorkFlag', entity: g, x: spot.hx, y: spot.hy });
+    claimFlagNode(taken, spot);
+    flags.set(g, spot);
+  }
+  const job = genericCollectorJob(ctx);
+  if (job === null) return commands;
+  const veteranFirst = experienceRank(world, ctx, job);
+  for (let hired = genericCollectors.length; hired < target; hired++) {
+    if (!force.any()) break;
+    const resource =
+      clearingResource(world, ctx, baseNode, (e) => workable(e) && clearOfFlags(world, e, flags.values())) ??
+      clearingResource(world, ctx, baseNode, workable); // every clearing good stands by a post: double up
+    if (resource === null) break; // no clearing good stands anywhere - no generic post
+    const spot = flagSpotNear(world, ground.flags, resource, baseNode, taken);
+    if (spot === null) break;
+    const spare = force.take(undefined, veteranFirst);
+    if (spare === null) break;
+    commands.push({ kind: 'setJob', entity: spare, jobType: job });
+    commands.push({ kind: 'setWorkFlag', entity: spare, x: spot.hx, y: spot.hy });
+    commands.push({ kind: 'setGatherGood', entity: spare, goodType: null });
+    claimFlagNode(taken, spot);
+    flags.set(spare, spot);
+  }
+  return commands;
+}
+
+/** Whether the clearing resource nearest the base stands more than the band nearer to it than the holder's
+ *  flag does. */
+function farFromNearest(
+  world: World,
+  baseNode: HalfCellNode,
+  flagNode: HalfCellNode,
+  nearest: Entity | null,
+): boolean {
+  const node = nearest === null ? null : anchorNodeOf(world, nearest);
+  if (node === null) return false;
+  return nodeDistance(baseNode, flagNode) - nodeDistance(baseNode, node) > FLAG_MAX_DISTANCE_NODES;
+}
+
+/** The goods whose standing resource takes ground a building could use, by stable content id, the one
+ *  the generic posts go for first ahead (authored): a tree blocks the walk and the build, a rock the
+ *  build; clay and mushrooms block nothing and the ore lies up in the mountains. */
+export const CLEARING_GOOD_IDS: readonly string[] = ['wood', 'stone'];
+
+/** How much farther than the nearest rock the nearest tree may stand and still be the pick, in lattice
+ *  Manhattan nodes (authored): the wood is what walls a base in, so a post goes for it unless the rock
+ *  is much nearer. The build search's reach radius. */
+export const WOOD_OVER_STONE_NODES = BUILD_SEARCH_MAX_RADIUS_NODES;
+
+/** How near another generic post's flag a clearing resource may stand, in lattice Manhattan nodes
+ *  (authored): farther, so a stall's extra posts open ground on different sides of the base instead
+ *  of felling one grove together. */
+export const CLEARING_SPREAD_NODES = 12;
+
+/**
+ * The workable live {@link CLEARING_GOOD_IDS} resource a generic post clears next: the nearest of the first
+ * good unless one of a later good stands {@link WOOD_OVER_STONE_NODES} nearer the base, judged good by good
+ * in that order. Null when none stands.
+ */
+function clearingResource(
+  world: World,
+  ctx: SystemContext,
+  baseNode: HalfCellNode,
+  workable: WorkableTest,
+): Entity | null {
+  let best: { resource: Entity; dist: number } | null = null;
+  for (const goodId of CLEARING_GOOD_IDS) {
+    const good = goodTypeByContentId(ctx.content, goodId);
+    if (good === undefined) continue;
+    const resource = nearestLiveResource(world, good.typeId, baseNode, workable);
+    if (resource === null) continue;
+    const node = anchorNodeOf(world, resource);
+    if (node === null) continue;
+    const dist = nodeDistance(node, baseNode);
+    if (best === null || dist + WOOD_OVER_STONE_NODES < best.dist) best = { resource, dist };
+  }
+  return best?.resource ?? null;
+}
+
+/** Whether `resource` stands at least {@link CLEARING_SPREAD_NODES} from every flag in `flags`. */
+function clearOfFlags(world: World, resource: Entity, flags: Iterable<HalfCellNode>): boolean {
+  const node = anchorNodeOf(world, resource);
+  if (node === null) return false;
+  for (const f of flags) if (nodeDistance(node, f) < CLEARING_SPREAD_NODES) return false;
+  return true;
+}

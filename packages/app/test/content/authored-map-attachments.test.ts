@@ -180,7 +180,7 @@ const CORPUS_MAP = 'tutorial_006';
  */
 describe.runIf(hasRealIr() && existsSync(realMapPath(CORPUS_MAP)))('a real decoded map, end to end', () => {
   it('lands its authored attachments at tick 0', { timeout: 120_000 }, async () => {
-    const { sim } = await realMapWorld({ mapId: CORPUS_MAP, aiSeats: [] });
+    const { sim } = await realMapWorld({ mapId: CORPUS_MAP, machineSeats: [] });
     const housed = [...sim.world.query(Residence)].length;
     const posted = [...sim.world.query(JobAssignment)].length;
     // Measured against CnMod 1.3.2; both move only on an intentional content or gate change. Half the

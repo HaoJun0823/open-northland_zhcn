@@ -48,9 +48,9 @@ const SETTINGS: RoomSettings = {
   speed: 1,
 };
 const SEATS = [
-  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
-  { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 1 },
-  { player: 2, mode: 'ai', claimable: true, offers: ['idle', 'ai', 'absent'], color: 2 },
+  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent'], color: 0 },
+  { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent'], color: 1 },
+  { player: 2, mode: 'computer', claimable: true, offers: ['idle', 'computer', 'absent'], color: 2 },
 ] as const;
 const RUN_TICKS = 200;
 const VIKINGS = 1;
@@ -423,8 +423,8 @@ describe('a relayed session under faults', () => {
     bartek.kick(2, true);
     await runFor(stage, [ania, bartek], SETTLE_MS);
     const kicked = bartek.kicks[0];
-    expect(kicked).toMatchObject({ player: 2, nick: 'Cezary', mode: 'ai' });
-    expect(bartek.room?.seats[2]).toMatchObject({ mode: 'ai', nick: null });
+    expect(kicked).toMatchObject({ player: 2, nick: 'Cezary', mode: 'computer' });
+    expect(bartek.room?.seats[2]).toMatchObject({ mode: 'computer', nick: null });
 
     const captures = await runUntil(stage, [ania, bartek], RUN_TICKS, {
       onTick: orderAt,
@@ -434,10 +434,13 @@ describe('a relayed session under faults', () => {
     for (const each of [ania, bartek]) {
       const handover = captures
         .get(each)
-        ?.log.filter(([, , command]) => command.kind === 'setPlayerAi')
+        ?.log.filter(([, , command]) => command.kind === 'setAiControl')
         .map(([applyTick, , command]) => [applyTick, command]);
       expect(handover, each.nick).toEqual([
-        [kicked?.tick, { kind: 'setPlayerAi', player: 2, enabled: true }],
+        [
+          kicked?.tick,
+          { kind: 'setAiControl', player: 2, enabled: true, computerEnabled: true, mapAiEnabled: true },
+        ],
       ]);
     }
   });
@@ -499,9 +502,19 @@ describe('a relayed session under faults', () => {
     expect(
       captures
         .get(ania)
-        ?.log.filter(([, , command]) => command.kind === 'setPlayerAi')
+        ?.log.filter(([, , command]) => command.kind === 'setAiControl')
         .map(([, , c]) => c),
-    ).toEqual([{ kind: 'setPlayerAi', player: 2, enabled: true }]);
+    ).toEqual([{ kind: 'setAiControl', player: 2, enabled: true }]);
+    for (const participant of [ania, bartek]) {
+      const world = participant.sim?.world;
+      if (world === undefined) throw new Error('missing restored world');
+      const carrier = components.aiControlEntity(world, 2);
+      if (carrier === null) throw new Error('missing computer seat');
+      expect(world.get(carrier, components.AiControl)).toMatchObject({
+        computerEnabled: true,
+        mapAiEnabled: true,
+      });
+    }
   });
 
   it('keeps eight clients in agreement through repeated resyncs, a silent link and paused orders', async () => {
@@ -521,7 +534,7 @@ describe('a relayed session under faults', () => {
         player,
         mode: 'idle',
         claimable: true,
-        offers: ['idle', 'ai'],
+        offers: ['idle', 'computer'],
         color: player,
       })),
       seatOf: (i) => i,

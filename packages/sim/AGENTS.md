@@ -107,3 +107,14 @@ The hygiene suite enforces the import and nondeterminism boundary. Normal change
 - `harness/`: scenarios, population helpers, and invariants
 
 Prefer the tree itself over expanding this into a file-by-file inventory.
+
+## AI ownership
+
+`systems/computer-player` owns autonomous strategy. `systems/map-ai` owns authored tasks and
+maintenance of the existing settlement. `systems/ai-shared` holds behavior used by both, without
+starting autonomous expansion or campaigns. `AiControl` is machine-player identity, not proof that
+either controller may run. The computer master permission gates every autonomous module, including
+new ones; module permissions cannot override it. Map task soldiers have one active assignment.
+Planner commands name their decision source so disabling a controller and diagnosing an order do
+not depend on guessing its origin from command kind. Map AI, computer player, and common unit rules
+must remain distinct in names, state, tests and debug output.

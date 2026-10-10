@@ -13,11 +13,11 @@ seats around tick 86000 (the yard no longer holds a build-order site slot).
 ## Scope
 
 - Keep the seat's craft selection across an upgrade, or narrow it on the tier change before the
-  first cycle runs (`packages/sim/src/systems/ai-player/workforce/craft.ts`).
+  first cycle runs (`packages/sim/src/systems/computer-player/workforce/craft.ts`).
 - Let the AI demolish a yard site whose good no craft plan of its owner selects.
 
 ## Verify
 
-A case in `packages/sim/test/systems/ai-player/garrison-and-craft.cases.ts`: a joinery upgraded to
+A case in `packages/sim/test/systems/computer-player/garrison-and-craft.cases.ts`: a joinery upgraded to
 the tier that offers a vehicle never opens a yard under the AI's selection, and an orphan yard is
 torn down at the next craft decision.

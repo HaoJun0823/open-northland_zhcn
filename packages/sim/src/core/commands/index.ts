@@ -1,5 +1,5 @@
 import type { DebugCommand, RulesCommand } from './administration.js';
-import type { AiPlayerCommand } from './ai-player.js';
+import type { AiControlCommand } from './ai-control.js';
 import type { AssistantCommand } from './assistant.js';
 import type { DiplomacyCommand } from './diplomacy.js';
 import type { PlacementCommand } from './placement.js';
@@ -9,6 +9,7 @@ import type { TributeCommand } from './tribute.js';
 import type { UnitOrderCommand } from './unit-orders.js';
 
 export {
+  type AiDecisionSource,
   adminCommand,
   aiCommand,
   COMMAND_ENVELOPE_VERSION,
@@ -47,7 +48,7 @@ export type Command =
   | SpawnCommand
   | UnitOrderCommand
   | RulesCommand
-  | AiPlayerCommand
+  | AiControlCommand
   | AssistantCommand
   | TributeCommand
   | DiplomacyCommand

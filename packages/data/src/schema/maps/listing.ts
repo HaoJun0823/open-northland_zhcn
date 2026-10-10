@@ -16,10 +16,8 @@ export const MapsIndexPlayerSlot = MapPlayerSlot.extend({
   /** The seat may sit out off the map: its `playeroption` row offers `none`, or the map ships no row
    *  for it. A map without a `[multiplayer]` table allowing it is an approximation. */
   noneAllowed: z.boolean(),
-  /** The strategic AI plays the seat whenever the computer holds it. False when the map's `[AIData]`
-   *  stops the seat's AI (`AI_Disable`) or every strategic module (`HAI_Disable`): a scripted camp
-   *  plays at no level. */
-  strategicAi: z.boolean(),
+  /** The authored control switches allow at least one autonomous computer-player capability. */
+  hasComputerControl: z.boolean(),
 });
 export type MapsIndexPlayerSlot = z.infer<typeof MapsIndexPlayerSlot>;
 

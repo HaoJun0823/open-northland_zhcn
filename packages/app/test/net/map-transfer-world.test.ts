@@ -30,7 +30,7 @@ it('boots transferred authored map and roster with the same initial and future w
       ir: AUTHORED_ROWS as ContentIr,
       content: {},
       seed: 7,
-      aiSeats: [],
+      machineSeats: [],
       assistantSeats: [],
       playerRoster: script?.players ?? [],
       diplomacy: script?.diplomacy ?? [],

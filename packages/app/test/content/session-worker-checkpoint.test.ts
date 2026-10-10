@@ -31,7 +31,7 @@ const { Owner, Position, Settler } = components;
 
 const MAP_ID = 'magiczny_las';
 /** The benchmark session the checkpoint was taken under. */
-const SEARCH = `map=${MAP_ID}&player=observer&ai=0,1,2,3,4,5&fog=classic`;
+const SEARCH = `map=${MAP_ID}&player=observer&computer=0,1,2,3,4,5&fog=classic`;
 // The default local artifact may be absent; an explicitly requested checkpoint must be usable.
 const requestedCheckpoint = process.env.ON_WORKER_CHECKPOINT;
 const CHECKPOINT = requestedCheckpoint

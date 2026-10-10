@@ -1,8 +1,8 @@
 import {
   Building,
   diplomacyStance,
-  isAiPlayer,
   isForeignHouse,
+  isMachinePlayer,
   isMatchParticipant,
   MissionObjectId,
   matchParticipantBits,
@@ -34,7 +34,7 @@ export function isTradingHouse(world: World, house: Entity): boolean {
   if (building === undefined || building.built !== ONE) return false;
   const owner = ownerOf(world, house);
   if (matchParticipantBits(world) === 0 || owner === undefined) return true;
-  return !isMatchParticipant(world, owner) || isAiPlayer(world, owner);
+  return !isMatchParticipant(world, owner) || isMachinePlayer(world, owner);
 }
 
 /** The agreements `house` offers, in table order; empty for a house that trades on none. */

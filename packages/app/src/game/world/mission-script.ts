@@ -13,7 +13,7 @@ import type { MissionHouseRef, MissionScript, ResolvedOp } from '@open-northland
 import { MISSION_HOUSE_NAME_FIELD, MISSION_LANDSCAPE_NAME_FIELD } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
 import { multiplayerMatchGoals, neverDiesSeats, scriptMatchParticipants } from '../match-participants.js';
-import { isMapComputerSeat } from '../session-url.js';
+import { isReservedMapAiSeat } from '../session-url.js';
 import type { MapScriptWorld } from './build.js';
 import type { AuthoredJoinRows, ContentJoins } from './content-joins.js';
 import { contentJoins } from './content-joins.js';
@@ -165,7 +165,7 @@ export function mapScriptWorld(script: MapScript | null, rows: AuthoredJoinRows 
     script === null
       ? []
       : mapLobbySlots(script)
-          .filter(isMapComputerSeat)
+          .filter(isReservedMapAiSeat)
           .map((slot) => slot.player);
   const permissions = script?.permissions;
   const permissionRows = permissions !== undefined ? { permissions } : {};

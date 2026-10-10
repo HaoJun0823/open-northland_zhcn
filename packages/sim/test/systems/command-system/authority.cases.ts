@@ -212,7 +212,7 @@ describe('CommandSystem - command authority', () => {
       },
     ];
     for (const command of cheats) {
-      sim.enqueue({ v: 1, origin: 'player', player: MINE, command } as unknown as CommandEnvelope);
+      sim.enqueue({ v: 2, origin: 'player', player: MINE, command } as unknown as CommandEnvelope);
     }
     sim.step();
 
@@ -259,7 +259,7 @@ describe('CommandSystem - command authority', () => {
       owner: MINE,
       missionId: 42,
     };
-    sim.enqueue(parseCommandEnvelope({ v: 1, origin, player: MINE, command }));
+    sim.enqueue(parseCommandEnvelope({ v: 2, origin, player: MINE, command }));
     sim.step();
     expect([...sim.world.query(Building)]).toEqual([]);
     expect(sim.commands.log).toHaveLength(1);
@@ -406,7 +406,7 @@ describe('CommandSystem - command authority', () => {
         { ...place, underConstruction: false },
       ];
       for (const command of cheats) {
-        sim.enqueue(parseCommandEnvelope({ v: 1, origin: 'player', player: MINE, command }));
+        sim.enqueue(parseCommandEnvelope({ v: 2, origin: 'player', player: MINE, command }));
       }
       sim.step();
       expect([...sim.world.query(Palisade)]).toEqual([]);

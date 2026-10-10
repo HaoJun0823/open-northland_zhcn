@@ -1,6 +1,6 @@
 import { BUILDING_KIND } from '@open-northland/data';
 import {
-  aiPlayerEntity,
+  aiControlEntity,
   Building,
   MissionObjectId,
   ownerOf,
@@ -10,7 +10,7 @@ import {
 import { contentIndex } from '../../core/content-index.js';
 import { ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { computerSeatOnTurn, handlerTurn } from '../ai-player/cadence.js';
+import { handlerTurn, machineSeatOnTurn } from '../ai-shared/cadence.js';
 import type { ContentContext, System, SystemContext } from '../context.js';
 import { stockOf } from '../missions/stock.js';
 import { bankedSlot } from '../stores/index.js';
@@ -29,11 +29,11 @@ export const AI_STOCK_REFILL_LEVEL = 5;
  * On a computer seat's refill turn, top its warehouses' shelves up to the refill level for the goods a
  * map agreement pays out there, `AI_Disable`d seats included. The refill is kept to the traded goods, so
  * a seat with a strategic economy runs on what it produces; a seat whose economy the map switched off
- * has every slot of every warehouse levelled instead (`ai-program/town.ts`).
+ * has every slot of every warehouse levelled instead (`map-ai/town.ts`).
  */
 export const tradePartnerStockSystem: System = (world, ctx) => {
   if (handlerTurn(ctx.tick) % AI_STOCK_REFILL_TURNS !== 0) return;
-  const seat = computerSeatOnTurn(world, ctx.tick);
+  const seat = machineSeatOnTurn(world, ctx.tick);
   if (seat === null) return;
   const agreements = tradeAgreements(world);
   if (agreements.length === 0) return;
@@ -68,7 +68,7 @@ export function refillRestores(
   amount: number,
 ): boolean {
   const owner = ownerOf(world, house);
-  if (owner === undefined || aiPlayerEntity(world, owner) === null || !isRefilledHouse(world, ctx, house)) {
+  if (owner === undefined || aiControlEntity(world, owner) === null || !isRefilledHouse(world, ctx, house)) {
     return false;
   }
   return Math.min(AI_STOCK_REFILL_LEVEL, bankedSlot(world, ctx, house, good).capacity) >= amount;

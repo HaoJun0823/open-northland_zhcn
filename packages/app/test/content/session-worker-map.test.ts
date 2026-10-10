@@ -25,7 +25,7 @@ import { realMapPath, realMapScript } from './real-map-world.js';
  */
 
 const MAP_ID = 'magiczny_las';
-const SEARCH = `map=${MAP_ID}&player=observer&ai=0,1,2,3,4,5&fog=classic`;
+const SEARCH = `map=${MAP_ID}&player=observer&computer=0,1,2,3,4,5&fog=classic`;
 const RUN_TICKS = 200;
 const FAST_SPEED = 16;
 /** Frames between the runtime's orders, so they land beside the AI seats' own commands. */

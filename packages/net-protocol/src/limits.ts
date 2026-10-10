@@ -9,7 +9,7 @@ export const MAX_MEMBERS = 12;
 
 /** The envelope version the wire carries; equal to the sim's `COMMAND_ENVELOPE_VERSION`, which a test
  *  pins. */
-export const ENVELOPE_VERSION = 1;
+export const ENVELOPE_VERSION = 2;
 /** Atomic player gestures one member may land on one tick, independent of the number of units. */
 export const MAX_COMMANDS_PER_TICK = 20;
 /** Bytes of one envelope as JSON, including a bounded army's individual formation destinations. */

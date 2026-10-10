@@ -229,25 +229,56 @@ playerfixcolors 1
     expect(script?.ai).toEqual([
       {
         player: 6,
-        disabled: false,
-        strategicOff: [
-          'collectResources',
-          'guideBuild',
-          'homeExpansion',
-          'houseBuild',
-          'houseUpgrade',
-          'military',
-          'roadBuild',
-        ],
+        allDisabled: false,
+        computerDisabled: true,
+        disabledComputerModules: [],
         conditions: [],
         tasks: [
           { kind: 'defend', priority: 10, condition: 100000, x: 215, y: 270, range: 40, min: 5, max: 10 },
         ],
       },
-      { player: 2, disabled: true, strategicOff: [], conditions: [], tasks: [] },
-      { player: 3, disabled: false, strategicOff: ['military', 'roadBuild'], conditions: [], tasks: [] },
+      {
+        player: 2,
+        allDisabled: true,
+        computerDisabled: false,
+        disabledComputerModules: [],
+        conditions: [],
+        tasks: [],
+      },
+      {
+        player: 3,
+        allDisabled: false,
+        computerDisabled: false,
+        disabledComputerModules: ['military', 'roadBuild'],
+        conditions: [],
+        tasks: [],
+      },
     ]);
     expect(script?.misc).toEqual([]);
+  });
+
+  it('keeps the computer master switch independent of individual capability switches', () => {
+    const script = extractMapScript(
+      cifLinesToSections([
+        { level: 1, text: 'AIData' },
+        { level: 2, text: 'HAI_DisableMilitary 1' },
+        { level: 2, text: 'HAI_Disable 1' },
+        { level: 2, text: 'HAI_DisableMilitary 1' },
+        { level: 2, text: 'HAI_Disable 2' },
+        { level: 2, text: 'HAI_DisableMilitary 2' },
+      ]),
+      { file: 'x/map.cif' },
+    );
+    expect(script?.ai).toEqual(
+      [1, 2].map((player) => ({
+        player,
+        allDisabled: false,
+        computerDisabled: true,
+        disabledComputerModules: ['military'],
+        conditions: [],
+        tasks: [],
+      })),
+    );
   });
 
   it('types the scripted handler’s program the way the loader reads each line', () => {
@@ -283,8 +314,9 @@ playerfixcolors 1
     expect(script?.ai).toEqual([
       {
         player: 6,
-        disabled: false,
-        strategicOff: [],
+        allDisabled: false,
+        computerDisabled: false,
+        disabledComputerModules: [],
         unitLimit: 10,
         maxUnitLimit: 0,
         defaultPosition: { x: 245, y: 247, range: 70 },
@@ -338,8 +370,9 @@ playerfixcolors 1
       },
       {
         player: 7,
-        disabled: false,
-        strategicOff: [],
+        allDisabled: false,
+        computerDisabled: false,
+        disabledComputerModules: [],
         conditions: [
           {
             kind: 'onCreatureInRange',
@@ -371,8 +404,9 @@ playerfixcolors 1
       },
       {
         player: 1,
-        disabled: false,
-        strategicOff: [],
+        allDisabled: false,
+        computerDisabled: false,
+        disabledComputerModules: [],
         conditions: [],
         tasks: [
           {

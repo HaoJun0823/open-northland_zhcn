@@ -47,13 +47,13 @@ describe('parseCommandEnvelope', () => {
     expect(() => parseCommandEnvelope({ v: 99, origin: 'setup', command: { kind: 'marry' } })).toThrow(
       /unsupported version 99/,
     );
-    expect(() => parseCommandEnvelope({ v: 1, origin: 'setup', command: { kind: 'nope' } })).toThrow(
+    expect(() => parseCommandEnvelope({ v: 2, origin: 'setup', command: { kind: 'nope' } })).toThrow(
       /unknown kind "nope"/,
     );
-    expect(() => parseCommandEnvelope({ v: 1, origin: 'root', command: { kind: 'marry' } })).toThrow(
+    expect(() => parseCommandEnvelope({ v: 2, origin: 'root', command: { kind: 'marry' } })).toThrow(
       /unknown origin "root"/,
     );
-    expect(() => parseCommandEnvelope({ v: 1, origin: 'player', command: { kind: 'marry' } })).toThrow(
+    expect(() => parseCommandEnvelope({ v: 2, origin: 'player', command: { kind: 'marry' } })).toThrow(
       /needs a player slot/,
     );
   });
@@ -62,14 +62,14 @@ describe('parseCommandEnvelope', () => {
     // `kind in COMMAND_ISSUER` would accept every Object.prototype member and hand the dispatcher a
     // variant it has no case for, throwing mid-tick instead of at the import boundary.
     for (const kind of ['toString', 'constructor', 'hasOwnProperty']) {
-      expect(() => parseCommandEnvelope({ v: 1, origin: 'setup', command: { kind } })).toThrow(
+      expect(() => parseCommandEnvelope({ v: 2, origin: 'setup', command: { kind } })).toThrow(
         `unknown kind "${kind}"`,
       );
     }
   });
 
   it('refuses a seat envelope carrying a command only a trusted origin may issue', () => {
-    const forged = { v: 1, origin: 'player', player: SEAT, command: { kind: 'setFogMode', mode: 0 } };
+    const forged = { v: 2, origin: 'player', player: SEAT, command: { kind: 'setFogMode', mode: 0 } };
     expect(() => parseCommandEnvelope(forged)).toThrow(/may not issue 'setFogMode'/);
   });
 });

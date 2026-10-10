@@ -1,3 +1,4 @@
+import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   Building,
   Health,
@@ -13,6 +14,7 @@ import { orderedAttack } from '../conflict/engage-vehicle.js';
 import { vehicleWeapon } from '../conflict/weapons.js';
 import type { SystemContext } from '../context.js';
 import { vehicleAnchor } from '../footprint/index.js';
+import { recordAiOrder } from '../orders/ai-lifecycle.js';
 import { crewInside, dropHeldGoal, endMarch, refuseMove } from './movement.js';
 
 // The player's siege orders on a vehicle: its stance and what it fires at. The combat pass acts on
@@ -48,6 +50,7 @@ export function attackWithVehicle(
   world: World,
   ctx: SystemContext,
   command: Extract<Command, { kind: 'attackWithVehicle' }>,
+  origin?: AiOrderOrigin,
 ): void {
   const terrain = ctx.terrain;
   if (terrain === undefined) return;
@@ -70,6 +73,7 @@ export function attackWithVehicle(
     const body = world.has(t, Building) || world.has(t, Palisade) || world.has(t, Vehicle);
     if (!body && !world.has(t, Settler)) return;
   }
+  recordAiOrder(world, e, origin);
   endMarch(world, e); // the player's own target ends an attack-move
   const live = world.mut(e, Vehicle);
   live.attack = orderedAttack(target);

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { hasRealIr } from './helpers.js';
 import { realMapPath, realMapWorld } from './real-map-world.js';
 
-const { Building, JobAssignment, Owner, Position, Settler, UnderConstruction, WorkFlag, isAiPlayer } =
+const { Building, JobAssignment, Owner, Position, Settler, UnderConstruction, WorkFlag, isMachinePlayer } =
   components;
 const {
   COLLECTOR_TARGET_BY_GOOD_ID,
@@ -23,7 +23,7 @@ const AI_SEAT = 2;
 const RUN_TICKS = 120;
 
 /**
- * The strategic AI player against a REAL decoded map (the `?map=...&ai=<seat>` flow): the flagged
+ * The strategic AI player against a REAL decoded map (the `?map=...&computer=<seat>` flow): the flagged
  * seat must act on its authored headquarters through the same merged content the browser runs -
  * this is the headless twin of watching the AI play on a real map, and it guards the id joins the
  * synthetic sim fixtures cannot (real building/good ids, authored owners, real footprints).
@@ -33,7 +33,7 @@ describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))('strategic AI on 
   it('an AI-flagged seat opens its build order from the authored headquarters', {
     timeout: 60_000,
   }, async () => {
-    const { sim, ir, content } = await realMapWorld({ mapId: MAP_ID, aiSeats: [AI_SEAT] });
+    const { sim, ir, content } = await realMapWorld({ mapId: MAP_ID, machineSeats: [AI_SEAT] });
     // Resolve the headquarters typeId from the served IR by its stable id (the same 'headquarters'
     // join the sim keys on) rather than inlining the decoded number, so the assertion still checks
     // the HQ if the decoded typeId ever shifts.
@@ -41,7 +41,7 @@ describe.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))('strategic AI on 
     expect(hqType).toBeDefined();
     sim.run(RUN_TICKS);
 
-    expect(isAiPlayer(sim.world, AI_SEAT)).toBe(true);
+    expect(isMachinePlayer(sim.world, AI_SEAT)).toBe(true);
     // The opening build order is running: the seat opened at least one construction site of its own.
     let sites = 0;
     let hq: number | null = null;

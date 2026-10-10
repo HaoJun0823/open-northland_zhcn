@@ -1,4 +1,5 @@
 import type { VehicleType } from '@open-northland/data';
+import type { AiOrderOrigin } from '../../components/ai-order.js';
 import { Vehicle, vehicleCommander } from '../../components/index.js';
 import type { Command } from '../../core/commands/index.js';
 import { contentIndex } from '../../core/content-index.js';
@@ -10,6 +11,7 @@ import { type NodeId, StepBuffer, type TerrainGraph } from '../../nav/terrain/in
 import type { ContentContext, SystemContext } from '../context.js';
 import { vehicleAnchor } from '../footprint/index.js';
 import { vehicleClearance } from '../footprint/vehicle-clearance.js';
+import { recordAiOrder } from '../orders/ai-lifecycle.js';
 import { isShipVehicle } from '../readviews/vehicles.js';
 import {
   crewInside,
@@ -131,6 +133,7 @@ export function dockVehicle(
   world: World,
   ctx: SystemContext,
   command: Extract<Command, { kind: 'dockVehicle' }>,
+  origin?: AiOrderOrigin,
 ): boolean {
   const terrain = ctx.terrain;
   if (terrain === undefined) return false;
@@ -149,9 +152,12 @@ export function dockVehicle(
     const live = world.mut(e, Vehicle);
     live.heldGoal = point;
     live.task = 'docks';
+    recordAiOrder(world, e, origin);
     return true;
   }
-  return startDock(world, ctx, terrain, e, point);
+  const accepted = startDock(world, ctx, terrain, e, point);
+  if (accepted) recordAiOrder(world, e, origin);
+  return accepted;
 }
 
 /**

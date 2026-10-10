@@ -11,9 +11,9 @@ from the experience tree on civilian targets, so `settlerMeetsNeed(..., 'good', 
 exemption (`tribeUnlockEnabled` in `availability.ts` and the house loop of `discoveries.ts`), which
 the original's behavior corroborates for its AI seats. That makes two gates no-ops:
 
-- `meetsNeed` in `ai-player/workforce/collectors/wanted-goods.ts` at both its call sites: the first
+- `meetsNeed` in `computer-player/workforce/collectors/wanted-goods.ts` at both its call sites: the first
   post and the veteran repost accept any spare man, iron included.
-- the `settlerMeetsNeed` term of `gathererReach(...).takes` in `ai-player/live-resources.ts`, which
+- the `settlerMeetsNeed` term of `gathererReach(...).takes` in `computer-player/live-resources.ts`, which
   never turns a resource down.
 
 The surrounding machinery still runs. `needsVeteran` reads the tribe's requirement rows directly, so
@@ -21,8 +21,8 @@ the veteran repost still fires for iron when the spare pool is dry, moving an un
 collector onto it - currently harmless but pointless, since the same fresh man `meetsNeed` accepts
 could have taken the iron post directly.
 
-Three cases in `packages/sim/test/systems/ai-player/workforce-allocation.cases.ts` pin the gated
-behaviour against a fixture seat that carries no `AiPlayer` entity, so they pass while describing
+Three cases in `packages/sim/test/systems/computer-player/workforce-allocation.cases.ts` pin the gated
+behaviour against a fixture seat that carries no `AiControl` entity, so they pass while describing
 behaviour a real seat cannot reach: "hires the iron collector only once the build order reaches its
 gated entry", "gates the iron post on accrued XP" and "moves a generic flag whose circle holds only
 a good the holder lacks the experience for".

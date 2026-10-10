@@ -52,7 +52,7 @@ function spawnedVehicle(sim: Simulation): Entity {
 
 describe.runIf(hasRealIr())(`${MAP_ID}: the scripted raids`, () => {
   it('moor every raiding ship where it spawns and land its whole crew on the defended coast', async () => {
-    const { sim } = await realMapWorld({ mapId: MAP_ID, aiSeats: [], missions: false });
+    const { sim } = await realMapWorld({ mapId: MAP_ID, machineSeats: [], missions: false });
     const waves = scriptedWaves(sim);
     expect(waves.length).toBeGreaterThan(0);
     for (const { mission, ship, men, dock } of waves) {

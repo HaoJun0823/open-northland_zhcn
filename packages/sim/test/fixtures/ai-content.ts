@@ -382,7 +382,7 @@ export function aiContent(): ContentSet {
           { requirement: 'need', target: 'good', targetId: 5, amount: 10, experienceTypes: [4, 5] },
         ],
       },
-      // The claimable cow's tribe (`COW_TRIBE` in the ai-player cases), so its `animaltypes` record
+      // The claimable cow's tribe (`COW_TRIBE` in the computer-player cases), so its `animaltypes` record
       // below has a tribe to reference.
       { typeId: 13, id: 'cattle' },
     ],

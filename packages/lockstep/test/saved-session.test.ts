@@ -10,7 +10,7 @@ const descriptor: GameSession = {
   kickedSeatMode: 'idle',
   seats: [
     { player: 0, mode: 'human', color: 2 },
-    { player: 1, mode: 'ai', color: 1 },
+    { player: 1, mode: 'computer', color: 1 },
   ],
 };
 const roster = [
@@ -27,7 +27,7 @@ describe('persisted session metadata', () => {
       { ...descriptor, initialSave: { tick: 10, fingerprint: 'a'.repeat(64) } },
       roster,
     );
-    expect(metadata).toEqual({ version: 5, descriptor, roster });
+    expect(metadata).toEqual({ version: 6, descriptor, roster });
     const parsed = parseSavedSessionMetadata({
       ...metadata,
       token: 'secret',

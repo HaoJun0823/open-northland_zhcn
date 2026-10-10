@@ -6,9 +6,8 @@ export {
 } from './driver.js';
 export { LOOPBACK_DELAY_TICKS, LoopbackTransport } from './loopback.js';
 export {
-  type AiDifficulty,
   absentSeatsOf,
-  aiSeatsOf,
+  type ComputerDifficulty,
   DEFAULT_LOCAL_PLAYER,
   DEFAULT_WEATHER_MODE,
   type GameSession,
@@ -17,6 +16,7 @@ export {
   isSpectator,
   type LocalSeat,
   localPlayerOf,
+  machineSeatsOf,
   OBSERVER_SEAT,
   OVERSEER_SEAT,
   orderedSeats,

@@ -32,7 +32,7 @@ describe('lobby settings replacement queue', () => {
     queue.change({ rules: { fog: 0 } });
     queue.change({ rules: { needs: false } });
     queue.change({ speed: 2 });
-    queue.change({ kickedSeatMode: 'ai' });
+    queue.change({ kickedSeatMode: 'computer' });
     queue.change({ rules: { progression: true } });
     expect(send).toHaveBeenCalledOnce();
     expect(original.rules.fog).toBe(null);
@@ -43,7 +43,7 @@ describe('lobby settings replacement queue', () => {
     expect(sent[1]).toEqual({
       ...original,
       speed: 2,
-      kickedSeatMode: 'ai',
+      kickedSeatMode: 'computer',
       rules: { fog: 0, needs: false, progression: true, weather: null, alliedVision: null },
     });
     expect(sent[1]).not.toHaveProperty('world');
@@ -130,7 +130,7 @@ describe('lobby settings replacement queue', () => {
     queue.change({ speed: 1 });
     queue.change({ kickedSeatMode: null });
     expect(send).not.toHaveBeenCalled();
-    queue.update(view({ ...original, kickedSeatMode: 'ai' }), true);
+    queue.update(view({ ...original, kickedSeatMode: 'computer' }), true);
     queue.change({ kickedSeatMode: null });
     expect(sent[0]).not.toHaveProperty('kickedSeatMode');
     queue.update(view(sent[0]), true);

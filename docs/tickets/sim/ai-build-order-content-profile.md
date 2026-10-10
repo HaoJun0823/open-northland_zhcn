@@ -2,7 +2,7 @@
 
 **Area:** sim, data · **Priority:** P3
 
-`DEFAULT_BUILD_ORDER` (`packages/sim/src/systems/ai-player/build-order/entries.ts`) is a const
+`DEFAULT_BUILD_ORDER` (`packages/sim/src/systems/computer-player/build-order/entries.ts`) is a const
 table of stable content ids inside the sim - data in shape, but not authorable per scenario. A
 validated IR profile would allow map and difficulty variants. No extraction source exists for the
 original strategic AI's internals, so this is authored content, not pipeline output.
@@ -14,7 +14,7 @@ affinities, ground rule, resource gate and `unlessWithin` skip, `upgrade`, `coll
 `towerCoverage` and `storeCoverage`, with the list's site pace and lane rules. Move the current
 authored table into the committed fallback catalog, resolve the selected profile once per AI seat,
 and leave no content-id table in sim source. The difficulty profiles' building caps and dropped entries
-(`ai-player/difficulty.ts`) trim the resolved list and move with it. Workforce policy remains separate in
+(`computer-player/difficulty.ts`) trim the resolved list and move with it. Workforce policy remains separate in
 [ai-workforce-content-profile](ai-workforce-content-profile.md).
 
 ## Verify

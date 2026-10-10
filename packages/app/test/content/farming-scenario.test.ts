@@ -198,7 +198,7 @@ describe.runIf(hasRealIr())('field-farming cycle over merged real content', () =
   });
 
   it('loads the herb fields and assigned herbalist from a starting map', async () => {
-    const { sim, content } = await realMapWorld({ mapId: 'tutorial_006', aiSeats: [], humanSeats: [0] });
+    const { sim, content } = await realMapWorld({ mapId: 'tutorial_006', machineSeats: [], humanSeats: [0] });
     const { crop, workplace } = resolveActors(content, 'herb');
     const fields = [...sim.world.query(Crop)].filter(
       (entity) =>

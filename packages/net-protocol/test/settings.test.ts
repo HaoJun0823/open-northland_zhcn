@@ -14,7 +14,7 @@ describe('lobby settings comparison', () => {
       { ...BASE, name: 'Fjord' },
       { ...BASE, seed: 8 },
       { ...BASE, speed: 2 },
-      { ...BASE, kickedSeatMode: 'ai' },
+      { ...BASE, kickedSeatMode: 'computer' },
       { ...BASE, rules: { ...BASE.rules, fog: 1 } },
       { ...BASE, rules: { ...BASE.rules, progression: false } },
       { ...BASE, rules: { ...BASE.rules, needs: true } },

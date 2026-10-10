@@ -39,11 +39,11 @@ describe('observerSeats', () => {
   it('lists the seats a person may take, ascending, named where the map names them', () => {
     const seats = observerSeats(
       session([
-        { player: 2, mode: 'ai', color: 2 },
+        { player: 2, mode: 'computer', color: 2 },
         { player: 0, mode: 'human', color: 0 },
-        { player: 4, mode: 'ai', color: 4 },
+        { player: 4, mode: 'computer', color: 4 },
         { player: 1, mode: 'human', color: 1 },
-        { player: 3, mode: 'ai', color: 3 },
+        { player: 3, mode: 'computer', color: 3 },
       ]),
       SCRIPT,
       'eng',
@@ -57,8 +57,8 @@ describe('observerSeats', () => {
         { player: 0, mode: 'human', color: 0 },
         { player: 1, mode: 'idle', color: 1 },
         { player: 2, mode: 'absent', color: 2 },
-        { player: 3, mode: 'ai', color: 3 },
-        { player: 4, mode: 'ai', color: 4 },
+        { player: 3, mode: 'computer', color: 3 },
+        { player: 4, mode: 'computer', color: 4 },
       ]),
       SCRIPT,
       'pol',
@@ -70,7 +70,7 @@ describe('observerSeats', () => {
     const seats = observerSeats(
       session([
         { player: 0, mode: 'human', color: 0 },
-        { player: 5, mode: 'ai', color: 5 },
+        { player: 5, mode: 'computer', color: 5 },
       ]),
       null,
       'pol',

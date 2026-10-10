@@ -15,7 +15,7 @@ const SESSION: GameSession = {
   seats: [
     { player: 0, mode: 'human', color: 0 },
     { player: 1, mode: 'human', color: 1 },
-    { player: 2, mode: 'ai', color: 2 },
+    { player: 2, mode: 'computer', color: 2 },
     { player: 3, mode: 'idle', color: 3 },
   ],
 };
@@ -50,7 +50,7 @@ describe('session world options', () => {
       ir: null,
       seed: 7,
       content: {},
-      aiSeats: [1, 2],
+      machineSeats: [1, 2],
       assistantSeats: [],
       script: world,
       ...SESSION.rules,
@@ -91,7 +91,7 @@ describe('session world options', () => {
       ir: null,
       seed: SESSION.seed,
       content: {},
-      aiSeats: [],
+      machineSeats: [],
       assistantSeats: [],
       ...SESSION.rules,
       diplomacy: AUTHORED,

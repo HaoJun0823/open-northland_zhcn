@@ -30,7 +30,7 @@ import {
   serializeSaveGame,
 } from '../../src/index.js';
 import { hexDistance } from '../../src/nav/halfcell.js';
-import { AI_HANDLER_ROUND_TICKS } from '../../src/systems/ai-player/cadence.js';
+import { AI_HANDLER_ROUND_TICKS } from '../../src/systems/ai-shared/cadence.js';
 import { interactionNode, vehicleAnchor } from '../../src/systems/footprint/index.js';
 import {
   AI_STOCK_REFILL_LEVEL,
@@ -858,7 +858,7 @@ describe('the houses a map agreement applies to', () => {
     const sim = newSim();
     const post = houseAt(sim, FAR_X, owner, [], TRADING_POST_ID);
     sim.enqueueSetup({ kind: 'setMatchParticipants', players: match });
-    for (const player of aiSeats) sim.enqueueSetup({ kind: 'setPlayerAi', player, enabled: true });
+    for (const player of aiSeats) sim.enqueueSetup({ kind: 'setAiControl', player, enabled: true });
     sim.enqueueSetup({
       kind: 'addTradeAgreement',
       missionId: TRADING_POST_ID,
@@ -915,7 +915,7 @@ describe("a computer seat's trade house", () => {
   const tickOfTurn = (turn: number): number => turn * AI_HANDLER_ROUND_TICKS + NEIGHBOUR_TURN_OFFSET;
 
   function partnerWorld(
-    ai: { scripted: boolean } | null,
+    ai: { mapAiEnabled: boolean } | null,
     stock: Array<[number, number]> = [],
     buildingType = HEADQUARTERS,
   ): { sim: Simulation; post: Entity } {
@@ -923,7 +923,12 @@ describe("a computer seat's trade house", () => {
     const post = houseAt(sim, FAR_X, NEIGHBOUR, stock, TRADING_POST_ID);
     sim.world.mut(post, Building).buildingType = buildingType;
     if (ai !== null) {
-      sim.enqueueSetup({ kind: 'setPlayerAi', player: NEIGHBOUR, enabled: true, scripted: ai.scripted });
+      sim.enqueueSetup({
+        kind: 'setAiControl',
+        player: NEIGHBOUR,
+        enabled: true,
+        mapAiEnabled: ai.mapAiEnabled,
+      });
     }
     sim.enqueueSetup({
       kind: 'addTradeAgreement',
@@ -937,7 +942,7 @@ describe("a computer seat's trade house", () => {
   }
 
   it('has the good it pays out refilled on every sixth handler turn, from the first', () => {
-    const { sim, post } = partnerWorld({ scripted: true });
+    const { sim, post } = partnerWorld({ mapAiEnabled: true });
 
     sim.run(tickOfTurn(0) + 1);
     expect(stockOf(sim, post, PLANK)).toBe(AI_STOCK_REFILL_LEVEL);
@@ -951,7 +956,7 @@ describe("a computer seat's trade house", () => {
   });
 
   it('leaves a fuller shelf and every other good as they are', () => {
-    const { sim, post } = partnerWorld({ scripted: true }, [
+    const { sim, post } = partnerWorld({ mapAiEnabled: true }, [
       [PLANK, 9],
       [WOOD, 2],
     ]);
@@ -963,7 +968,7 @@ describe("a computer seat's trade house", () => {
   });
 
   it('is refilled on a seat the map switched off too', () => {
-    const { sim, post } = partnerWorld({ scripted: false });
+    const { sim, post } = partnerWorld({ mapAiEnabled: false });
 
     sim.run(tickOfTurn(0) + 1);
 
@@ -971,7 +976,7 @@ describe("a computer seat's trade house", () => {
   });
 
   it('stays empty for a human seat and for a house that is no warehouse', () => {
-    const worlds = [partnerWorld(null), partnerWorld({ scripted: true }, [], SAWMILL)];
+    const worlds = [partnerWorld(null), partnerWorld({ mapAiEnabled: true }, [], SAWMILL)];
     for (const { sim, post } of worlds) {
       sim.run(tickOfTurn(0) + 1);
 
@@ -980,7 +985,7 @@ describe("a computer seat's trade house", () => {
   });
 
   it('keeps a trader at the house through the refills until its whole load is sold', () => {
-    const { sim, post } = partnerWorld({ scripted: true });
+    const { sim, post } = partnerWorld({ mapAiEnabled: true });
     const home = houseAt(sim, NEAR_X, HUMAN, [[WOOD, PLENTY_OF_WOOD]]);
     const trader = traderAt(sim, NEAR_X);
     sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });
@@ -1001,8 +1006,8 @@ describe("a computer seat's trade house", () => {
   });
 
   it('pays a trader out of a house the map authored empty, on a switched-off seat as well', () => {
-    for (const scripted of [true, false]) {
-      const { sim, post } = partnerWorld({ scripted });
+    for (const mapAiEnabled of [true, false]) {
+      const { sim, post } = partnerWorld({ mapAiEnabled });
       const home = houseAt(sim, NEAR_X, HUMAN, [[WOOD, 6]]);
       const trader = traderAt(sim, NEAR_X);
       sim.enqueueSetup({ kind: 'setDiplomacy', from: HUMAN, to: NEIGHBOUR, state: 'friend' });

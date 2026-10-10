@@ -13,7 +13,7 @@ import { authoredMapFile } from './support/world-maps.js';
 const NO_SESSION_FLAGS = {
   seed: 7,
   content: {},
-  aiSeats: [],
+  machineSeats: [],
   assistantSeats: [],
   fog: null,
   progression: null,
@@ -180,15 +180,15 @@ describe('buildMapWorld', () => {
       ...NO_SESSION_FLAGS,
       map: authoredMapFile(AUTHORED_ENTITIES),
       ir: AUTHORED_IR,
-      aiSeats: [2],
+      machineSeats: [2],
       assistantSeats: [0, 2],
       fog: FOG_MODE.RECON_FOG_OF_WAR,
       progression: false,
     });
     expect(sim.fogMode()).toBe(FOG_MODE.RECON_FOG_OF_WAR);
     expect(sim.professionProgressionEnabled()).toBe(false);
-    expect(components.isAiPlayer(sim.world, 2)).toBe(true);
-    expect(components.isAiPlayer(sim.world, 1)).toBe(false);
+    expect(components.isMachinePlayer(sim.world, 2)).toBe(true);
+    expect(components.isMachinePlayer(sim.world, 1)).toBe(false);
     expect(sim.assistantGrants(0)).not.toEqual([]);
     expect(sim.assistantGrants(1)).toEqual([]);
   });
@@ -296,7 +296,7 @@ it('omits a closed authored seat’s entities, AI and match participation', () =
     map: authoredMapFile(AUTHORED_ENTITIES),
     ir: AUTHORED_IR,
     playerRoster: [{ player: 0, type: 'none', tribeId: 1, colorId: 0 }],
-    aiSeats: [0],
+    machineSeats: [0],
     assistantSeats: [0],
     matchParticipants: [0, 1],
   });
@@ -306,6 +306,6 @@ it('omits a closed authored seat’s entities, AI and match participation', () =
     ),
   ).toEqual([]);
   expect([...sim.world.query(components.Building)]).toHaveLength(1);
-  expect(components.isAiPlayer(sim.world, 0)).toBe(false);
+  expect(components.isMachinePlayer(sim.world, 0)).toBe(false);
   expect(sim.matchRules().participants).toEqual([1]);
 });

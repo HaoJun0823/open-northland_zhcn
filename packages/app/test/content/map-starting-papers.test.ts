@@ -57,7 +57,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
       async () => {
         const { sim } = await realMapWorld({
           mapId: THREE_PAPERS_MAP,
-          aiSeats: [],
+          machineSeats: [],
           humanSeats: [HUMAN_SEAT],
         });
         expect(sim.papers(HUMAN_SEAT)).toEqual(

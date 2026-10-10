@@ -107,7 +107,12 @@ describe('computeSettlerBubbles', () => {
     const COMPUTER_SEAT = 3;
     const starving = { hunger: ONE, fatigue: ONE, piety: 0, enjoyment: 0, asOf: 0, drain: 'none' };
     const snap = snapshotOf([
-      { id: 1, components: { AiPlayer: { player: COMPUTER_SEAT, modules: {}, scripted: true } } },
+      {
+        id: 1,
+        components: {
+          AiControl: { player: COMPUTER_SEAT, computerEnabled: true, modules: {}, mapAiEnabled: true },
+        },
+      },
       settlerAt(2, MAN, 1, 1, { SettlerNeeds: starving, Owner: { player: COMPUTER_SEAT } }),
       settlerAt(3, MAN, 2, 1, { SettlerNeeds: starving, Owner: { player: 0 } }),
     ]);
@@ -118,7 +123,12 @@ describe('computeSettlerBubbles', () => {
   it('floats the family bubbles over a computer seat’s settlers like everyone’s', () => {
     const COMPUTER_SEAT = 3;
     const snap = snapshotOf([
-      { id: 1, components: { AiPlayer: { player: COMPUTER_SEAT, modules: {}, scripted: true } } },
+      {
+        id: 1,
+        components: {
+          AiControl: { player: COMPUTER_SEAT, computerEnabled: true, modules: {}, mapAiEnabled: true },
+        },
+      },
       settlerAt(2, WOMAN, 1, 1, { Wedding: { partner: 3, kissing: true }, Owner: { player: COMPUTER_SEAT } }),
       settlerAt(3, MAN, 2, 1, { Wedding: { partner: 2, kissing: true }, Owner: { player: COMPUTER_SEAT } }),
       settlerAt(4, WOMAN, 3, 1, { ChildOrder: { child: 'male' }, Owner: { player: COMPUTER_SEAT } }),

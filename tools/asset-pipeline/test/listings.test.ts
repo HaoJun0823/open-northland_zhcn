@@ -87,7 +87,7 @@ describe('mapsIndexEntries', () => {
             hidden: false,
             aiAllowed: true,
             noneAllowed: true,
-            strategicAi: true,
+            hasComputerControl: true,
           },
           {
             player: 1,
@@ -98,7 +98,7 @@ describe('mapsIndexEntries', () => {
             hidden: false,
             aiAllowed: true,
             noneAllowed: false,
-            strategicAi: true,
+            hasComputerControl: true,
           },
         ],
         fixedColors: true,

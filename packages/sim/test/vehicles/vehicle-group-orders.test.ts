@@ -196,7 +196,7 @@ describe('atomic vehicle selection orders', () => {
         kind === 'moveVehicleGroup' ? { attackMove: true } : { target: { kind: 'ground', hx: 2, hy: 4 } };
       const member = { entity: 1, ...(kind === 'moveVehicleGroup' ? { x: 4, y: 6 } : {}) };
       const parse = (members: unknown) =>
-        parseCommandEnvelope({ v: 1, origin: 'player', player: 0, command: { kind, ...fields, members } });
+        parseCommandEnvelope({ v: 2, origin: 'player', player: 0, command: { kind, ...fields, members } });
       expect(parse([member])).toBeDefined();
       expect(() => parse([member, member])).toThrow(/duplicate entity/);
       expect(() => parse([{ ...member, owner: 1 }])).toThrow(/unknown field/);

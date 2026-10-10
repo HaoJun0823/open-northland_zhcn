@@ -1,13 +1,13 @@
 import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
-  AI_MODULE_IDS,
-  type AiModuleId,
-  AiPlayer,
+  AiControl,
   addPerson,
   Building,
   CARRIER_WALK_RANGE_NODES,
   Chat,
+  COMPUTER_MODULE_IDS,
+  type ComputerModuleId,
   CurrentAtomic,
   LostWay,
   MoveGoal,
@@ -427,8 +427,8 @@ describe('the cut-off mark', () => {
 });
 
 describe('a computer seat leads its lost settlers back', () => {
-  const NO_MODULES = Object.fromEntries(AI_MODULE_IDS.map((id) => [id, false])) as Record<
-    AiModuleId,
+  const NO_MODULES = Object.fromEntries(COMPUTER_MODULE_IDS.map((id) => [id, false])) as Record<
+    ComputerModuleId,
     boolean
   >;
   const LEAD_TICKS = LOST_GUIDE_DELAY_TICKS + 2 * CUT_OFF_CHECK_TICKS;
@@ -442,10 +442,11 @@ describe('a computer seat leads its lost settlers back', () => {
   }
 
   function computerSeat(sim: Simulation): void {
-    sim.world.add(sim.world.create(), AiPlayer, {
+    sim.world.add(sim.world.create(), AiControl, {
       player: P0,
       modules: NO_MODULES,
-      scripted: false,
+      computerEnabled: true,
+      mapAiEnabled: false,
       difficulty: 'hard',
     });
   }

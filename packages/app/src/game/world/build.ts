@@ -89,7 +89,7 @@ export function newWorldSim(
     content,
     map,
     ...(script.missions !== undefined ? { missions: script.missions } : {}),
-    ...(script.ai !== undefined && script.ai.length > 0 ? { aiScript: script.ai } : {}),
+    ...(script.ai !== undefined && script.ai.length > 0 ? { mapAiScript: script.ai } : {}),
   });
   if (map.fishSwarms !== undefined && sim.terrain !== undefined) {
     systems.addFishSwarms(sim.world, sim.terrain, map.fishSwarms);

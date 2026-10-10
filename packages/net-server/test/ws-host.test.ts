@@ -115,7 +115,7 @@ describe('websocket host', () => {
             player,
             mode: 'idle',
             claimable: true,
-            offers: ['idle', 'ai'],
+            offers: ['idle', 'computer'],
             color: player,
           })),
         );

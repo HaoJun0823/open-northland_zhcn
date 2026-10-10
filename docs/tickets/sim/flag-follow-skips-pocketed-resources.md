@@ -3,7 +3,7 @@
 **Area:** sim · **Focus:** assistant/flag-follow · **Priority:** P3
 
 The AI's own collector searches drop a resource whose every stance cell lies sealed in a pocket the
-base's walk cannot enter (`unsealedResourceTest`, `ai-player/workforce/flag-spots.ts`). The assistant's
+base's walk cannot enter (`unsealedResourceTest`, `computer-player/workforce/flag-spots.ts`). The assistant's
 flag follow (`assistant/flag-follow.ts`) does not: its nearest-resource test is `reachableResourceTest`
 alone, so a re-plant still spends one of its `REPLANT_ATTEMPTS` spot searches on a sealed deposit that
 `GathererReach.canWork` then rejects. On `magiczny_las` with 6 AI seats these misses still occur late

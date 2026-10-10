@@ -37,7 +37,7 @@ const options = {
   map,
   ir: {} as ContentIr,
   content: {},
-  aiSeats: [],
+  machineSeats: [],
   assistantSeats: [],
   fog: null,
   progression: null,

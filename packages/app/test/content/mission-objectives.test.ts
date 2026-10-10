@@ -8,7 +8,7 @@ describe.runIf(hasRealIr())('real map objective presentation', () => {
   it.each(['magiczny_las', 'diamentowa_dolina', 'nowa_nadzieja'])(
     '%s keeps its overall goal open after the opening briefing fires',
     async (mapId) => {
-      const { sim } = await realMapWorld({ mapId, aiSeats: [], humanSeats: [0] });
+      const { sim } = await realMapWorld({ mapId, machineSeats: [], humanSeats: [0] });
       const matchObjectives = briefingMatchObjectives(sim.missions);
       expect([...matchObjectives]).toEqual(['0']);
       sim.run(systems.MISSION_EVALUATION_TICKS * 2);
@@ -26,7 +26,7 @@ describe.runIf(hasRealIr())('real map objective presentation', () => {
   );
 
   it('keeps a story map`s conditional goal states as reported by the simulation', async () => {
-    const { sim } = await realMapWorld({ mapId: 'wielkie_sprzatanie', aiSeats: [], humanSeats: [0] });
+    const { sim } = await realMapWorld({ mapId: 'wielkie_sprzatanie', machineSeats: [], humanSeats: [0] });
     const matchObjectives = briefingMatchObjectives(sim.missions);
     expect(matchObjectives.size).toBe(0);
     sim.run(systems.MISSION_EVALUATION_TICKS * 3);

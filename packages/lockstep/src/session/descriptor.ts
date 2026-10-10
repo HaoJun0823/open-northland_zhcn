@@ -1,18 +1,24 @@
 import { components } from '@open-northland/sim';
 import { type InitialSaveIdentity, parseInitialSaveIdentity } from './initial-save.js';
 
-const { AI_DIFFICULTIES, isValidPlayer, isFogMode } = components;
+const { COMPUTER_DIFFICULTIES, isValidPlayer, isFogMode } = components;
 
 /** How hard a computer seat plays; the sim's own difficulty ids. */
-export type AiDifficulty = (typeof AI_DIFFICULTIES)[number];
+export type ComputerDifficulty = (typeof COMPUTER_DIFFICULTIES)[number];
 
-/** What a roster seat does for a whole session: `human` is played by a person, `ai` by the strategic AI
- *  player, `script` follows the map’s AI configuration, and `idle` sits out. `absent` also sits out;
+/** What a roster seat does for a whole session: `human` is played by a person, `computer` by the autonomous computer
+ *  player, `map-ai` follows the map’s AI configuration, and `idle` sits out. `absent` also sits out;
  *  a fresh world places none of the seat's
  *  authored settlers, buildings, walls, animals or signposts, and the match does not count it. */
-export type SeatMode = 'human' | 'script' | 'ai' | 'idle' | 'absent';
+export type SeatMode = 'human' | 'map-ai' | 'computer' | 'idle' | 'absent';
 
-export const SEAT_MODES = ['human', 'script', 'ai', 'idle', 'absent'] as const satisfies readonly SeatMode[];
+export const SEAT_MODES = [
+  'human',
+  'map-ai',
+  'computer',
+  'idle',
+  'absent',
+] as const satisfies readonly SeatMode[];
 
 /** One roster seat as the session runs it. */
 export interface SessionSeat {
@@ -22,8 +28,8 @@ export interface SessionSeat {
   readonly color: number;
   /** The civilization the lobby chose for the seat; absent keeps the map's roster tribe. */
   readonly tribe?: number;
-  /** How hard an `ai` seat plays; absent plays the full strategy, `hard`. */
-  readonly difficulty?: AiDifficulty;
+  /** How hard a computer-controlled seat plays; absent plays the full strategy, `hard`. */
+  readonly difficulty?: ComputerDifficulty;
 }
 
 /** The two spectator choices watch the whole map: `observer` issues no command, `overseer` commands
@@ -70,7 +76,7 @@ export interface SessionRules {
  */
 export interface GameSession {
   readonly initialSave?: InitialSaveIdentity;
-  readonly kickedSeatMode?: 'ai' | 'idle';
+  readonly kickedSeatMode?: 'computer' | 'idle';
   readonly world: SessionWorld;
   readonly seed: number;
   /** See {@link orderedSeats}. Empty for a world that raises no seats of its own. */
@@ -99,9 +105,9 @@ export function isReadOnlySpectator(session: GameSession): boolean {
   return session.localSeat === OBSERVER_SEAT;
 }
 
-export function aiSeatsOf(session: GameSession): number[] {
+export function machineSeatsOf(session: GameSession): number[] {
   return session.seats
-    .filter((seat) => seat.mode === 'ai' || seat.mode === 'script')
+    .filter((seat) => seat.mode === 'computer' || seat.mode === 'map-ai')
     .map((seat) => seat.player);
 }
 
@@ -194,7 +200,7 @@ function parseSeats(value: unknown): readonly SessionSeat[] {
     if (tribe !== undefined && tribe <= 0) throw new Error(`session seat ${player} has tribe ${tribe}`);
     const mode = parseSeatMode(raw.mode);
     const difficulty = raw.difficulty === undefined ? undefined : parseDifficulty(raw.difficulty);
-    if (difficulty !== undefined && mode !== 'ai' && mode !== 'script')
+    if (difficulty !== undefined && mode !== 'computer' && mode !== 'map-ai')
       throw new Error(`session seat ${player} has a difficulty but no computer player`);
     seats.push({
       player,
@@ -213,9 +219,9 @@ function parseSeatMode(value: unknown): SeatMode {
   return mode;
 }
 
-function parseDifficulty(value: unknown): AiDifficulty {
-  const difficulty = AI_DIFFICULTIES.find((known) => known === value);
-  if (difficulty === undefined) throw new Error(`unknown AI difficulty ${JSON.stringify(value)}`);
+function parseDifficulty(value: unknown): ComputerDifficulty {
+  const difficulty = COMPUTER_DIFFICULTIES.find((known) => known === value);
+  if (difficulty === undefined) throw new Error(`unknown computer difficulty ${JSON.stringify(value)}`);
   return difficulty;
 }
 
@@ -285,7 +291,7 @@ function nullableBoolean(value: unknown, at: string): boolean | null {
   throw new Error(`${at} must be a boolean or null`);
 }
 
-function parseKickedSeatMode(value: unknown): 'ai' | 'idle' {
-  if (value !== 'ai' && value !== 'idle') throw new Error('kickedSeatMode must be ai or idle');
+function parseKickedSeatMode(value: unknown): 'computer' | 'idle' {
+  if (value !== 'computer' && value !== 'idle') throw new Error('kickedSeatMode must be computer or idle');
   return value;
 }

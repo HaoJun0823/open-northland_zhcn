@@ -144,7 +144,7 @@ function buildWith({ reserve, blueField, band }: SiegeSetup): (sim: Simulation) 
 
     // Only the military module, and no peace: the wave launches as soon as it has formed up.
     sim.enqueueSetup({
-      kind: 'setPlayerAi',
+      kind: 'setAiControl',
       player: ENEMY_PLAYER,
       enabled: true,
       modules: {

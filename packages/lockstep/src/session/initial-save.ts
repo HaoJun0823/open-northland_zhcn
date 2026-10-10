@@ -22,7 +22,7 @@ export function parseInitialSaveIdentity(value: unknown): InitialSaveIdentity {
 /** The saved mode and map-specific setup for a seat whose control changes at resume. */
 export interface InitialSaveSeatSetup {
   readonly previousMode: SeatMode;
-  readonly command: Extract<Command, { kind: 'setPlayerAi' }>;
+  readonly command: Extract<Command, { kind: 'setAiControl' }>;
 }
 
 /** Preserve saved dynamic AI switches unless the room changes the seat's control mode. */
@@ -35,17 +35,17 @@ export function applyInitialSaveSeats(
     throw new Error('initial save seat setup requires the declared saved tick');
   }
   sim.commands.discardContinuation(
-    (envelope) => envelope.origin === 'admin' && envelope.command.kind === 'setPlayerAi',
+    (envelope) => envelope.origin === 'admin' && envelope.command.kind === 'setAiControl',
   );
   for (const seat of session.seats) {
-    const enabled = seat.mode === 'ai' || seat.mode === 'script';
+    const enabled = seat.mode === 'computer' || seat.mode === 'map-ai';
     const setup = setups.find((row) => row.command.player === seat.player);
     const modeChanged = setup !== undefined && setup.previousMode !== seat.mode;
-    if (!modeChanged && components.isAiPlayer(sim.world, seat.player) === enabled) continue;
+    if (!modeChanged && components.isMachinePlayer(sim.world, seat.player) === enabled) continue;
     const { difficulty } = seat;
     sim.enqueueSetup({
       ...setup?.command,
-      kind: 'setPlayerAi',
+      kind: 'setAiControl',
       player: seat.player,
       enabled,
       ...(difficulty === undefined ? {} : { difficulty }),

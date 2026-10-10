@@ -40,7 +40,7 @@ const ROOM: RoomView = {
       player: 0,
       mode: 'human',
       claimable: true,
-      offers: ['idle', 'ai', 'absent'],
+      offers: ['idle', 'computer', 'absent'],
       color: 0,
       nick: 'Ania',
       ready: false,

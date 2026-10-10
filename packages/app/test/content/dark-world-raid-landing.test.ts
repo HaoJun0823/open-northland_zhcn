@@ -96,7 +96,7 @@ function runUntil(sim: Simulation, budget: number, done: (events: readonly SimEv
 
 describe.runIf(hasRealIr())(`${MAP_ID}: the first scripted raid`, () => {
   it('lands its crew the moment the ship moors, although the script ordered them off at sea', async () => {
-    const { sim } = await realMapWorld({ mapId: MAP_ID, aiSeats: [] });
+    const { sim } = await realMapWorld({ mapId: MAP_ID, machineSeats: [] });
     const wave = firstWave(sim);
     const trigger = raidTrigger(sim, wave);
     sim.enqueueSetup({

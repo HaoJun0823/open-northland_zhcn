@@ -3,12 +3,12 @@
 **Area:** sim · **Priority:** P2
 
 Every standing tower the AI seat owns takes `TOWER_GARRISON_ARCHERS = 3` archers permanently out of
-its field army (`packages/sim/src/systems/ai-player/military/defence/posts.ts`; `takeCensus` drops a
+its field army (`packages/sim/src/systems/computer-player/military/defence/posts.ts`; `takeCensus` drops a
 posted man, so he never rejoins a wave). Nothing ever releases a garrison: no rung lowers a post, and
 the men are spent for the rest of the game.
 
 The build order's tower entry is perpetual (`{ kind: 'towerCoverage' }` in
-`packages/sim/src/systems/ai-player/build-order/entries.ts`), placing a tower per uncovered stretch of
+`packages/sim/src/systems/computer-player/build-order/entries.ts`), placing a tower per uncovered stretch of
 settlement inside `TOWER_DEFENCE_RADIUS_NODES = 19`, and the late tail repeats it at the denser
 `DENSE_TOWER_RADIUS_NODES = 14`. A sprawling seat therefore keeps raising towers and keeps paying three
 archers each. The draft (`workforce/garrison.ts`) leaves posted archers out of its field count, so it

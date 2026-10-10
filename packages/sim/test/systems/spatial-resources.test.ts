@@ -3,7 +3,7 @@ import * as components from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { Rng, Simulation } from '../../src/index.js';
 import { positionOfNode } from '../../src/nav/halfcell.js';
-import { anyLiveResource, nearestLiveResource } from '../../src/systems/ai-player/live-resources.js';
+import { anyLiveResource, nearestLiveResource } from '../../src/systems/computer-player/live-resources.js';
 import { anchorOnlyFootprint, stampResourceFootprintData } from '../../src/systems/index.js';
 import {
   anyResourceNear,

@@ -53,17 +53,21 @@ function parseFrameEnvelope(value: unknown, at: string): WireEnvelope {
   const raw = asRecord(value, at);
   if (raw.origin !== 'admin') return parseWireEnvelope(raw, at);
   const command = asRecord(raw.command, `${at}.command`);
-  if (command.kind !== 'setPlayerAi') {
-    throw new Error(`${at}: the relay may issue setPlayerAi only, got ${preview(command.kind)}`);
+  if (command.kind !== 'setAiControl') {
+    throw new Error(`${at}: the relay may issue setAiControl only, got ${preview(command.kind)}`);
   }
   if (command.enabled !== true) throw new Error(`${at}.command.enabled: expected true`);
+  if (command.computerEnabled !== true || command.mapAiEnabled !== true)
+    throw new Error(`${at}.command: departure requires computer and map AI enabled`);
   const relayed: RelayWireEnvelope = {
     v: asCount(raw.v, `${at}.v`),
     origin: 'admin',
     command: {
-      kind: 'setPlayerAi',
+      kind: 'setAiControl',
       player: parseSeatIndex(command.player, `${at}.command.player`),
       enabled: true,
+      computerEnabled: true,
+      mapAiEnabled: true,
     },
   };
   return relayed;

@@ -3,7 +3,7 @@ import {
   ErectSignpostOrder,
   ExploreOrder,
   hasMissionBehaviour,
-  isAiPlayer,
+  isMachinePlayer,
   MealBreak,
   MealBreakRetry,
   MISSION_BEHAVIOUR,
@@ -62,7 +62,7 @@ export function breaksForMeal(world: World, ctx: SystemContext, e: Entity): bool
   if (hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.NOT_CONTROLLABLE)) return false;
   if (!carriesNeeds(world, ctx.content, e)) return false;
   const owner = ownerOf(world, e);
-  return !(owner !== undefined && isAiPlayer(world, owner) && isFighterJob(ctx.content, jobType));
+  return !(owner !== undefined && isMachinePlayer(world, owner) && isFighterJob(ctx.content, jobType));
 }
 
 /**

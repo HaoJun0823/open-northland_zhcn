@@ -1,7 +1,9 @@
+import { COMPUTER_MODULE_IDS } from '../../components/ai-control.js';
 import { isValidPlayer } from '../../components/ownership.js';
 import type { LoggedCommand } from '../command-queue.js';
 import { asCount, asRecord, typeName } from '../untrusted.js';
 import {
+  type AiDecisionSource,
   COMMAND_ENVELOPE_VERSION,
   COMMAND_ISSUER,
   type CommandEnvelope,
@@ -55,11 +57,21 @@ function parseAuthority(
   if (COMMAND_ISSUER[kind] !== 'seat') {
     throw new Error(`${at}: a ${origin} envelope may not issue '${kind}'`);
   }
+  const source = raw.decisionSource;
+  if (
+    source !== undefined &&
+    (origin !== 'ai' ||
+      typeof source !== 'string' ||
+      ![...COMPUTER_MODULE_IDS, 'map-ai', 'settlement-defence'].includes(source))
+  ) {
+    throw new Error(`${at}: invalid AI decision source ${JSON.stringify(source)}`);
+  }
   return {
     v: COMMAND_ENVELOPE_VERSION,
     origin,
     player,
     command: command as unknown as PlayerCommand,
+    ...(source === undefined ? {} : { decisionSource: source as AiDecisionSource }),
   };
 }
 

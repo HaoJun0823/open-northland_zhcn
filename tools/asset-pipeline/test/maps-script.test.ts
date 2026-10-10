@@ -48,9 +48,14 @@ describe('resolveMapScript', () => {
     expect(script?.missions).toHaveLength(3);
     // `-1` and an id the table lacks stay textless; a resolvable id carries its goal text.
     expect(script?.missions.map((m) => m.description)).toEqual([undefined, 'Pokonaj Frankow', undefined]);
-    expect(script?.ai.map((row) => [row.player, row.disabled, row.strategicOff.length])).toEqual([
-      [1, false, 7],
-    ]);
+    expect(
+      script?.ai.map((row) => [
+        row.player,
+        row.allDisabled,
+        row.computerDisabled,
+        row.disabledComputerModules.length,
+      ]),
+    ).toEqual([[1, false, true, 0]]);
     expect(script?.source?.file).toBe('x/player.inc+mission.inc+ai.inc');
   });
 

@@ -1,3 +1,4 @@
+import type { ComputerModuleId } from '../../components/ai-control.js';
 import { assertNever } from '../brand.js';
 import { isPlainRecord, valueShapeName } from '../plain-value.js';
 import type { AssistantCommand } from './assistant.js';
@@ -9,7 +10,7 @@ import type { TributeCommand } from './tribute.js';
 import type { UnitOrderCommand } from './unit-orders.js';
 
 /** Wire version of {@link CommandEnvelope}. An imported log carrying another version is rejected. */
-export const COMMAND_ENVELOPE_VERSION = 1;
+export const COMMAND_ENVELOPE_VERSION = 2;
 
 /** The commands a seat may issue for itself; {@link COMMAND_ISSUER} is the full split. */
 export type PlayerCommand =
@@ -27,6 +28,8 @@ export type CommandEnvelope = SeatEnvelope | TrustedEnvelope;
  * An envelope acting for one player: `player` is a human seat and `ai` a machine seat, and both reach
  * only that player's assets.
  */
+export type AiDecisionSource = ComputerModuleId | 'map-ai' | 'settlement-defence';
+
 export type SeatEnvelope =
   | {
       readonly v: Version;
@@ -34,7 +37,14 @@ export type SeatEnvelope =
       readonly player: number;
       readonly command: PlayerCommand;
     }
-  | { readonly v: Version; readonly origin: 'ai'; readonly player: number; readonly command: PlayerCommand };
+  | {
+      readonly v: Version;
+      readonly origin: 'ai';
+      readonly player: number;
+      readonly command: PlayerCommand;
+      /** Present for planner decisions; generic AI-authority inputs need no planner. */
+      readonly decisionSource?: AiDecisionSource;
+    };
 
 /**
  * An envelope from a producer the sim trusts with any command: `setup` is authored pre-run assembly
@@ -50,8 +60,18 @@ export function playerCommand(player: number, command: PlayerCommand): CommandEn
   return { v: COMMAND_ENVELOPE_VERSION, origin: 'player', player, command };
 }
 
-export function aiCommand(player: number, command: PlayerCommand): CommandEnvelope {
-  return { v: COMMAND_ENVELOPE_VERSION, origin: 'ai', player, command };
+export function aiCommand(
+  player: number,
+  command: PlayerCommand,
+  decisionSource?: AiDecisionSource,
+): CommandEnvelope {
+  return {
+    v: COMMAND_ENVELOPE_VERSION,
+    origin: 'ai',
+    player,
+    command,
+    ...(decisionSource === undefined ? {} : { decisionSource }),
+  };
 }
 
 export function setupCommand(command: Command): CommandEnvelope {
@@ -147,7 +167,7 @@ export const COMMAND_ISSUER: {
   setMatchParticipants: 'trusted',
   setMissionsEnabled: 'trusted',
   setNeedsEnabled: 'trusted',
-  setPlayerAi: 'trusted',
+  setAiControl: 'trusted',
   setPlayerPlacementTribes: 'trusted',
   setProfessionProgression: 'trusted',
   setRegeneration: 'seat',
@@ -193,7 +213,11 @@ export function ownedEnvelope(envelope: CommandEnvelope): CommandEnvelope {
     case 'player':
       return playerCommand(envelope.player, seatOwned(envelope.command, envelope.player));
     case 'ai':
-      return aiCommand(envelope.player, seatOwned(envelope.command, envelope.player));
+      return aiCommand(
+        envelope.player,
+        seatOwned(envelope.command, envelope.player),
+        envelope.decisionSource,
+      );
     default:
       return assertNever(envelope);
   }

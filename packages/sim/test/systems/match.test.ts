@@ -75,7 +75,9 @@ describe('matchSystem - schedule relationships', () => {
 
   it('is declared after cleanup and before the AI player', () => {
     expect(names.indexOf('cleanup')).toBeLessThan(names.indexOf('match'));
-    expect(names.indexOf('match')).toBeLessThan(names.indexOf('aiPlayer'));
+    expect(names.indexOf('match')).toBeLessThan(names.indexOf('mapAi'));
+    expect(names.indexOf('mapAi')).toBeLessThan(names.indexOf('settlementDefence'));
+    expect(names.indexOf('settlementDefence')).toBeLessThan(names.indexOf('computerPlayer'));
   });
 
   it('counts a man reaped on the check tick itself as already gone', () => {

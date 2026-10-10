@@ -69,7 +69,7 @@ describe('relay transport', () => {
       tick: 3,
       commands: [
         {
-          envelope: { v: 1, origin: 'player', player: 0, command: { kind: 'setAssistantCounter' } },
+          envelope: { v: 2, origin: 'player', player: 0, command: { kind: 'setAssistantCounter' } },
           sequence: 0,
         },
         { envelope: order(1, 9), sequence: 1 },

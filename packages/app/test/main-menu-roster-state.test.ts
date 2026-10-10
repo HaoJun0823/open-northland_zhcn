@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  aiSeats,
   claimSeat,
+  computerSeats,
   hasClaimableSeat,
   initialRosterState,
+  mapAiSeats,
   OBSERVER_SEAT,
-  scriptSeats,
   setSlotColor,
   setVacantMode,
   vacantOffers,
@@ -23,7 +23,7 @@ describe('roster state', () => {
       hidden: false,
       aiAllowed: true,
       noneAllowed: true,
-      strategicAi: true,
+      hasComputerControl: true,
     },
     {
       player: 1,
@@ -34,7 +34,7 @@ describe('roster state', () => {
       hidden: false,
       aiAllowed: true,
       noneAllowed: true,
-      strategicAi: true,
+      hasComputerControl: true,
     },
     {
       player: 2,
@@ -45,22 +45,22 @@ describe('roster state', () => {
       hidden: false,
       aiAllowed: true,
       noneAllowed: true,
-      strategicAi: true,
+      hasComputerControl: true,
     },
   ] as const;
 
   it('lists no AI seat until a slot is toggled to it', () => {
     let state = claimSeat(initialRosterState(players), 0);
-    expect(aiSeats(state, players)).toEqual([]);
-    state = setVacantMode(state, 1, 'ai');
-    expect(aiSeats(state, players)).toEqual([1]);
+    expect(computerSeats(state, players)).toEqual([]);
+    state = setVacantMode(state, 1, 'computer');
+    expect(computerSeats(state, players)).toEqual([1]);
   });
 
   it('keeps every slot eligible for the AI toggle behind a spectator seat', () => {
     let state = claimSeat(initialRosterState(players), OBSERVER_SEAT);
-    state = setVacantMode(state, 0, 'ai'); // no seat is the observer's own - slot 0 still counts
-    state = setVacantMode(state, 1, 'ai'); // the all-AI watch rig: every seat toggled to AI
-    expect(aiSeats(state, players)).toEqual([0, 1]);
+    state = setVacantMode(state, 0, 'computer'); // no seat is the observer's own - slot 0 still counts
+    state = setVacantMode(state, 1, 'computer'); // the all-AI watch rig: every seat toggled to AI
+    expect(computerSeats(state, players)).toEqual([0, 1]);
   });
 
   it('rejects a colour another slot wears and accepts re-picking your own', () => {
@@ -70,8 +70,8 @@ describe('roster state', () => {
   });
 
   it('does not list the claimed seat as AI', () => {
-    const state = claimSeat(setVacantMode(initialRosterState(players), 1, 'ai'), 1);
-    expect(aiSeats(state, players)).toEqual([]);
+    const state = claimSeat(setVacantMode(initialRosterState(players), 1, 'computer'), 1);
+    expect(computerSeats(state, players)).toEqual([]);
   });
 
   it('defaults a claimable authored-ai slot to Script and drops it when toggled to idle', () => {
@@ -87,7 +87,7 @@ describe('roster state', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
       {
         player: 1,
@@ -98,7 +98,7 @@ describe('roster state', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
       {
         player: 2,
@@ -109,12 +109,12 @@ describe('roster state', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
     ] as const;
     const state = claimSeat(initialRosterState(lobby), 0);
-    expect(scriptSeats(state, lobby)).toEqual([1]);
-    expect(scriptSeats(setVacantMode(state, 1, 'idle'), lobby)).toEqual([]);
+    expect(mapAiSeats(state, lobby)).toEqual([1]);
+    expect(mapAiSeats(setVacantMode(state, 1, 'idle'), lobby)).toEqual([]);
   });
 
   it('never lists a Human/Closed-only seat as AI', () => {
@@ -130,7 +130,7 @@ describe('roster state', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
       {
         player: 1,
@@ -141,12 +141,12 @@ describe('roster state', () => {
         hidden: false,
         aiAllowed: false,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
     ] as const;
     const state = claimSeat(initialRosterState(lobby), 0);
-    expect(aiSeats(state, lobby)).toEqual([]);
-    expect(aiSeats(setVacantMode(state, 1, 'ai'), lobby)).toEqual([]);
+    expect(computerSeats(state, lobby)).toEqual([]);
+    expect(computerSeats(setVacantMode(state, 1, 'computer'), lobby)).toEqual([]);
   });
 
   it('offers only the vacant modes the map allows, and locks the map computer seat', () => {
@@ -157,26 +157,30 @@ describe('roster state', () => {
       colorId: 1,
       claimable: true,
       hidden: false,
-      strategicAi: true,
+      hasComputerControl: true,
     } as const;
     expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: true })).toEqual([
-      'script',
-      'ai',
+      'map-ai',
+      'computer',
       'idle',
       'absent',
     ]);
     expect(vacantOffers({ ...seat, aiAllowed: false, noneAllowed: true })).toEqual(['idle', 'absent']);
-    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: false })).toEqual(['script', 'ai', 'idle']);
+    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: false })).toEqual([
+      'map-ai',
+      'computer',
+      'idle',
+    ]);
     expect(vacantOffers({ ...seat, aiAllowed: false, noneAllowed: false })).toEqual(['idle']);
     const computer = { ...seat, type: 'ai', claimable: false, aiAllowed: true, noneAllowed: true } as const;
-    expect(vacantOffers(computer)).toEqual(['script']);
+    expect(vacantOffers(computer)).toEqual(['map-ai']);
   });
 
   it('keeps closed authored seats out of the selectable modes', () => {
     const closed = { ...players[2], type: 'none' as const };
     expect(vacantOffers(closed)).toEqual(['absent']);
     expect(initialRosterState([closed]).vacantModes.get(2)).toBe('absent');
-    expect(scriptSeats(initialRosterState([closed]), [closed])).toEqual([]);
+    expect(mapAiSeats(initialRosterState([closed]), [closed])).toEqual([]);
   });
 
   it('keeps authored duplicate colours pickable for their own slot and blocks new duplicates', () => {
@@ -192,7 +196,7 @@ describe('roster state', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
       {
         player: 1,
@@ -203,7 +207,7 @@ describe('roster state', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
       {
         player: 2,
@@ -214,7 +218,7 @@ describe('roster state', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
     ] as const;
     const state = initialRosterState(dupes);
@@ -235,7 +239,7 @@ describe('roster state', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
     ] as const;
     expect(hasClaimableSeat(allAi)).toBe(false);

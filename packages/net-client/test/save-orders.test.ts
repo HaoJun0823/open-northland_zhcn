@@ -6,7 +6,7 @@ import { RelayRefusal } from '../src/relay-refusal.js';
 import { SaveOrders } from '../src/save-orders.js';
 
 const order = {
-  v: 1,
+  v: 2,
   origin: 'player',
   player: 0,
   command: {

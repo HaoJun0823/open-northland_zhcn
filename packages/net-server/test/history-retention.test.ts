@@ -49,7 +49,7 @@ describe('catch-up retention budgets', () => {
     const command = { kind: 'opaque', payload: 'ą'.repeat(400) };
     const commands = Array.from({ length: 240 }, (_, sequence) => ({
       sequence,
-      envelope: { v: 1, origin: 'player' as const, player: 0, command },
+      envelope: { v: 2, origin: 'player' as const, player: 0, command },
     }));
     let tick = 1;
     let last: WireFrame = { tick, commands };
@@ -100,7 +100,7 @@ describe('catch-up retention budgets', () => {
         color: player,
         mode: 'idle',
         claimable: true,
-        offers: ['idle', 'ai'],
+        offers: ['idle', 'computer'],
       })),
     });
     const roomId = host.last('room')?.room.id;
@@ -112,7 +112,7 @@ describe('catch-up retention budgets', () => {
     host.send({ kind: 'start' });
     for (const peer of peers) peer.send({ kind: 'loaded', tick: 0, world: 0 });
     const envelope = {
-      v: 1,
+      v: 2,
       origin: 'player',
       player: 0,
       command: {

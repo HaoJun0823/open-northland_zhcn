@@ -2,7 +2,7 @@ import { parseSavedSessionMetadata, type SessionSeat, type WeatherMode } from '@
 import type { RoomSeatSetup } from '@open-northland/net-protocol';
 import type { SaveGame } from '@open-northland/sim';
 import { weatherModeParam } from '../../../game/session-rules.js';
-import { SAVED_WORLD_AI_DIFFICULTY } from '../lobby/roster-state.js';
+import { SAVED_COMPUTER_DIFFICULTY } from '../lobby/roster-state.js';
 
 export function savedRoster(save: SaveGame) {
   const saved = parseSavedSessionMetadata(save.header.session);
@@ -47,7 +47,7 @@ export function restoreSavedSeats(
       // The saved world already plays its tribes, so the room starts from them and keeps them.
       ...(map?.authoredTribe === undefined ? {} : { authoredTribe: map.authoredTribe }),
       ...(map?.authoredTribe === undefined || tribe === undefined ? {} : { tribe }),
-      ...(map?.difficulty === undefined ? {} : { difficulty: difficulty ?? SAVED_WORLD_AI_DIFFICULTY }),
+      ...(map?.difficulty === undefined ? {} : { difficulty: difficulty ?? SAVED_COMPUTER_DIFFICULTY }),
     };
   });
 }

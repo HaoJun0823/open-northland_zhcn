@@ -1,4 +1,5 @@
 import type { VehicleType } from '@open-northland/data';
+import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   Chat,
   NODE_PROGRESS_FULL,
@@ -32,6 +33,7 @@ import {
 import { landVehicleFits, vehicleStandable } from '../footprint/vehicle-clearance.js';
 import { isTravelling, redirectRoute } from '../movement/nav-state.js';
 import { walkTurnSteps } from '../movement/turning.js';
+import { recordAiOrder } from '../orders/ai-lifecycle.js';
 import {
   awaitsDraughtAnimal,
   isShipVehicle,
@@ -491,6 +493,7 @@ export function moveVehicle(
   ctx: SystemContext,
   command: Extract<Command, { kind: 'moveVehicle' }>,
   orders?: VehicleOrderRoutes,
+  origin?: AiOrderOrigin,
 ): boolean {
   const terrain = ctx.terrain;
   if (terrain === undefined) return false; // mapless sim: nothing to drive over
@@ -517,6 +520,7 @@ export function moveVehicle(
   if (command.attackMove === true && type !== undefined && isSiegeVehicle(type)) {
     world.mut(e, Vehicle).march = { goal: nodeOf(terrain, goal), restUntil: 0 };
   }
+  recordAiOrder(world, e, origin);
   return true;
 }
 
@@ -613,6 +617,7 @@ export function stopVehicle(world: World, command: Extract<Command, { kind: 'sto
   const e = command.vehicle;
   const state = world.tryGet(e, Vehicle);
   if (state === undefined) return;
+  recordAiOrder(world, e);
   const held = state.heldGoal !== null || state.task === 'waitsForHuman';
   dropAttack(world, e);
   const drive = world.tryGet(e, VehicleDrive);

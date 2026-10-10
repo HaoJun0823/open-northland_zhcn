@@ -56,7 +56,7 @@ describe('scripted worlds over lockstep', () => {
     const driver = new LockstepDriver({ sim, transport: new LoopbackTransport() });
     driver.submit(
       parseCommandEnvelope({
-        v: 1,
+        v: 2,
         origin: 'player',
         player: 1,
         command: { kind: 'payTribute', player: 0, slot: TIMBER_TRIBUTE },

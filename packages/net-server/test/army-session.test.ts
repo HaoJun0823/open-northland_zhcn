@@ -46,7 +46,7 @@ describe('army orders over the relay', () => {
           player,
           mode: 'idle',
           claimable: true,
-          offers: ['idle', 'ai'],
+          offers: ['idle', 'computer'],
           color: player,
         })),
         seatOf: (seat) => seat,

@@ -2,7 +2,7 @@ import { type LobbySettings, type RoomView, sameLobbySettings } from '@open-nort
 
 export type SettingsPatch = Partial<Omit<LobbySettings, 'rules' | 'kickedSeatMode'>> & {
   readonly rules?: Partial<LobbySettings['rules']>;
-  readonly kickedSeatMode?: 'ai' | 'idle' | null;
+  readonly kickedSeatMode?: 'computer' | 'idle' | null;
 };
 
 function mergePatch(before: SettingsPatch, next: SettingsPatch): SettingsPatch {

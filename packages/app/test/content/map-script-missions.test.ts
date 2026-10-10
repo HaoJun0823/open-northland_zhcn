@@ -95,7 +95,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
       ['DockVehicle', 'mroczny_swiat'],
       ['MissionFailed', 'blekiny_nurt'],
     ] as const)('executes %s on %s and preserves the resulting save', async (opcode, mapId) => {
-      const { sim } = await realMapWorld({ mapId, aiSeats: [] });
+      const { sim } = await realMapWorld({ mapId, machineSeats: [] });
       sim.step();
       const index =
         sim.missions?.missions.findIndex(
@@ -180,7 +180,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
     it(
       'runs a real campaign map with its script on, exactly as `?missions=on` builds it',
       async () => {
-        const { sim } = await realMapWorld({ mapId: CAMPAIGN_MAP, aiSeats: [], missions: true });
+        const { sim } = await realMapWorld({ mapId: CAMPAIGN_MAP, machineSeats: [], missions: true });
         // Events live for one tick, so the briefing is caught as the run goes.
         const briefings: number[] = [];
         for (let tick = 0; tick < systems.MISSION_EVALUATION_TICKS * SCRIPT_RUN_PASSES; tick++) {
@@ -203,7 +203,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
     it(
       'spawns a real campaign map`s opening wave when its timer runs out',
       async () => {
-        const { sim } = await realMapWorld({ mapId: WAVE_MAP, aiSeats: [], missions: true });
+        const { sim } = await realMapWorld({ mapId: WAVE_MAP, machineSeats: [], missions: true });
         const before = humansOf(sim, WAVE_PLAYER);
         // One pass past the goal's span, since a mission is only checked on the cadence.
         sim.run(WAVE_SECONDS * TICKS_PER_SECOND + systems.MISSION_EVALUATION_TICKS);

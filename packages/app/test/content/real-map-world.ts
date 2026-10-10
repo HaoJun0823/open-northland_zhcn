@@ -13,7 +13,7 @@ import { type AuthoredJoinRows, mapScriptWorld } from '../../src/game/world/inde
 import { contentDir, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
 
 /**
- * The one headless build of a REAL decoded map - the `?map=<id>&ai=<seats>&fog=<mode>` world through the
+ * The one headless build of a REAL decoded map - the `?map=<id>&computer=<seats>&fog=<mode>` world through the
  * entry's own {@link buildMapWorld}, so a scenario run and the browser boot cannot drift. Only the render
  * half is skipped, and `?speed=` with it - speed multiplies the RAF loop, not the sim.
  */
@@ -25,7 +25,7 @@ export interface RealMapWorldOptions {
   /** Decoded map id under `content/maps/<id>.json`. */
   readonly mapId: string;
   /** Seats to flag as AI players. */
-  readonly aiSeats: readonly number[];
+  readonly machineSeats: readonly number[];
   /** Seats people play, on this client or another: the assistant grants a relayed session declares on
    *  every client alike, and the match participants only on a map without a roster. Omitted runs the
    *  observer's world. */
@@ -84,14 +84,14 @@ export async function realMapWorld(options: RealMapWorldOptions): Promise<RealMa
     // Only `content` matters here: the real-content override replaces the sandbox build whole, so a
     // footprint overlay would be ignored (see resolveWorldContent).
     content: { content: merge.content },
-    aiSeats: options.aiSeats,
+    machineSeats: options.machineSeats,
     absentSeats: options.absentSeats ?? [],
     playerRoster: script?.players ?? [],
     script: missionWorld,
     missions: options.missions ?? null,
     // Each played seat's assistant and each AI seat's, so a headless run measures an economy that
     // dresses itself like the browser's.
-    assistantSeats: [...humanSeats, ...options.aiSeats],
+    assistantSeats: [...humanSeats, ...options.machineSeats],
     diplomacy: script?.diplomacy ?? [],
     specialItems: script?.specialItems ?? [],
     // The entry declares the match from the same three inputs. Left out, the headless world would run
@@ -100,7 +100,7 @@ export async function realMapWorld(options: RealMapWorldOptions): Promise<RealMa
       missionWorld.participants ??
       matchParticipants({
         controlled: humanSeats,
-        aiSeats: options.aiSeats,
+        machineSeats: options.machineSeats,
         neverDies: script === null ? [] : neverDiesSeats(script),
       })
     ).filter((seat) => !options.absentSeats?.includes(seat)),

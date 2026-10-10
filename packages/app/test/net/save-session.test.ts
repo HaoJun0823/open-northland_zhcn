@@ -37,7 +37,7 @@ it('captures the current public roster and does not upload an old world after re
         player: 0,
         mode: 'human',
         claimable: true,
-        offers: ['idle', 'ai', 'absent'],
+        offers: ['idle', 'computer', 'absent'],
         color: 3,
         nick: 'Ania',
         ready: false,
@@ -45,9 +45,9 @@ it('captures the current public roster and does not upload an old world after re
       },
       {
         player: 1,
-        mode: 'ai',
+        mode: 'computer',
         claimable: true,
-        offers: ['idle', 'ai', 'absent'],
+        offers: ['idle', 'computer', 'absent'],
         color: 4,
         nick: null,
         ready: false,
@@ -57,7 +57,7 @@ it('captures the current public roster and does not upload an old world after re
         player: 2,
         mode: 'idle',
         claimable: true,
-        offers: ['idle', 'ai', 'absent'],
+        offers: ['idle', 'computer', 'absent'],
         color: 5,
         nick: null,
         ready: false,
@@ -67,7 +67,7 @@ it('captures the current public roster and does not upload an old world after re
         player: 3,
         mode: 'absent',
         claimable: true,
-        offers: ['idle', 'ai', 'absent'],
+        offers: ['idle', 'computer', 'absent'],
         color: 6,
         nick: null,
         ready: false,
@@ -93,7 +93,7 @@ it('captures the current public roster and does not upload an old world after re
   if (worldId === null) throw new Error('the client adopted no world');
   const hooks = networkSaveSession(client, worldId);
   const metadata = parseSavedSessionMetadata(hooks.sessionMetadata?.());
-  expect(metadata?.descriptor.seats[1]?.mode).toBe('ai');
+  expect(metadata?.descriptor.seats[1]?.mode).toBe('computer');
   expect(metadata?.descriptor.seats.map(({ difficulty }) => difficulty)).toEqual([
     undefined,
     'easy',

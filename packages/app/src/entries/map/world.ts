@@ -19,7 +19,7 @@ import {
 import type { ContentIr } from '../../content/ir/rows.js';
 import { spawnMapPalisades } from '../../content/map-palisades.js';
 import { buildScriptLandscapeTerrain } from '../../content/script-landscape.js';
-import { mapAiControl } from '../../game/map-ai-control.js';
+import { resolveAiControlPolicy } from '../../game/ai-control-policy.js';
 import { playerTribe } from '../../game/map-roster.js';
 import { PRIMARY_TRIBE } from '../../game/rules.js';
 import {
@@ -64,20 +64,20 @@ export interface MapWorldOptions extends SimSessionRules {
    *  it halts on the missing terrain set first. */
   readonly ir: ContentIr | null;
   readonly content: WorldContentOptions;
-  readonly aiSeats: readonly number[];
+  readonly machineSeats: readonly number[];
   /** Seats whose authored placements and walls the world leaves out. */
   readonly absentSeats?: readonly number[];
   /** The AI seats a person set to computer in the lobby, as against the map's own computer players, which
-   *  its scripts drive; only these keep {@link LOBBY_AI_PEACE_TICKS}. */
-  readonly lobbyAiSeats?: readonly number[];
+   *  its scripts drive; only these keep {@link LOBBY_COMPUTER_PEACE_TICKS}. */
+  readonly lobbyComputerSeats?: readonly number[];
   /** Computer seats that enable all modules their tribe supports instead of the map’s toggles. */
-  readonly autonomousAiSeats?: readonly number[];
+  readonly computerSeats?: readonly number[];
   /** How hard each computer seat the session names plays; an unnamed one plays hard. */
-  readonly aiDifficulties?: ReadonlyMap<number, components.AiDifficulty>;
+  readonly computerDifficulties?: ReadonlyMap<number, components.ComputerDifficulty>;
   readonly playerRoster?: MapScript['players'];
   /** The tribes a changed seat's authored placements take; the map's own when omitted. */
   readonly seatTribes?: SeatTribeRemap;
-  /** Seats whose assistant grants start on, less the AI seats running no strategic module. */
+  /** Seats whose assistant grants start on, excluding machine seats without autonomous control. */
   readonly assistantSeats: readonly number[];
   /** Override the authored participant roster; an empty list runs no match. */
   readonly matchParticipants?: readonly number[];
@@ -109,9 +109,10 @@ const PLACEMENT_DRAIN_TICKS = 1;
 
 const SECONDS_PER_MINUTE = 60;
 /** How long a lobby computer seat's waves stay at home: the usual multiplayer peace time (authored). */
-const LOBBY_AI_PEACE_MINUTES = 60;
+const LOBBY_COMPUTER_PEACE_MINUTES = 60;
 
-export const LOBBY_AI_PEACE_TICKS = LOBBY_AI_PEACE_MINUTES * SECONDS_PER_MINUTE * TICKS_PER_SECOND;
+export const LOBBY_COMPUTER_PEACE_TICKS =
+  LOBBY_COMPUTER_PEACE_MINUTES * SECONDS_PER_MINUTE * TICKS_PER_SECOND;
 
 /** Session rules and visibility are applied before the briefing can pause the world. */
 export function buildMapWorld(options: MapWorldOptions): MapWorld {
@@ -122,7 +123,7 @@ export function buildMapWorld(options: MapWorldOptions): MapWorld {
   options = {
     ...options,
     absentSeats: [...absent],
-    aiSeats: options.aiSeats.filter((seat) => !absent.has(seat)),
+    machineSeats: options.machineSeats.filter((seat) => !absent.has(seat)),
     assistantSeats: options.assistantSeats.filter((seat) => !absent.has(seat)),
   };
   const terrain = collisionTerrain(options.map, options.ir);
@@ -196,32 +197,36 @@ function applySessionRules(sim: Simulation, options: MapWorldOptions): void {
     needs: options.needs,
     alliedVision: options.alliedVision,
   });
-  const scriptedOnly = new Set<number>();
-  for (const seat of options.aiSeats) {
-    const control = mapAiControl(
+  const computerDisabled = new Set<number>();
+  for (const seat of options.machineSeats) {
+    const control = resolveAiControlPolicy(
       seat,
       options.playerRoster ?? [],
       options.script,
-      options.autonomousAiSeats?.includes(seat) === true,
+      options.computerSeats?.includes(seat) === true ? 'computer' : 'map-ai',
     );
-    if (components.AI_MODULE_IDS.every((id) => control.modules?.[id] === false)) scriptedOnly.add(seat);
-    const difficulty = options.aiDifficulties?.get(seat);
+    if (
+      control.computerEnabled === false ||
+      components.COMPUTER_MODULE_IDS.every((id) => control.modules?.[id] === false)
+    )
+      computerDisabled.add(seat);
+    const difficulty = options.computerDifficulties?.get(seat);
     sim.enqueueSetup({
-      kind: 'setPlayerAi',
+      kind: 'setAiControl',
       player: seat,
       enabled: true,
       ...control,
-      ...(options.lobbyAiSeats?.includes(seat) ? { peaceUntil: LOBBY_AI_PEACE_TICKS } : {}),
+      ...(options.lobbyComputerSeats?.includes(seat) ? { peaceUntil: LOBBY_COMPUTER_PEACE_TICKS } : {}),
       ...(difficulty === undefined ? {} : { difficulty }),
     });
   }
   // Original behavior: the assistant's switches start off for every player and only a chest-window
   // command turns them on, so no computer seat ever sends its people for gear. This build starts them
-  // on for the seats a person or the strategic AI plays; a scripted camp keeps them off.
+  // on for the seats a person or the computer player controls; a map AI camp keeps them off.
   grantAssistantDefaults(
     sim,
     sim.content,
-    options.assistantSeats.filter((seat) => !scriptedOnly.has(seat)),
+    options.assistantSeats.filter((seat) => !computerDisabled.has(seat)),
   );
   grantStartingPapers(sim, options.specialItems ?? []);
   const participants = (
@@ -281,7 +286,7 @@ export function restoreMapWorld(options: RestoreWorldOptions, save: SaveGame): R
     content: authored ?? resolveWorldContent(terrain, options.content),
     map: terrain,
     ...(options.script?.missions !== undefined ? { missions: options.script.missions } : {}),
-    ...(ai !== undefined && ai.length > 0 ? { aiScript: ai } : {}),
+    ...(ai !== undefined && ai.length > 0 ? { mapAiScript: ai } : {}),
   });
   return { sim, kind: authored !== null ? 'authored' : 'bare' };
 }

@@ -26,7 +26,8 @@ function isBenchReport(value: unknown, bad: (why: string) => never): value is Be
   if (!isRecord(world) || (world.kind !== 'synthetic' && world.kind !== 'realMap')) {
     return bad("world.kind must be 'synthetic' or 'realMap'");
   }
-  if (world.kind === 'realMap' && !Array.isArray(world.aiSeats)) return bad('missing world.aiSeats[]');
+  if (world.kind === 'realMap' && !Array.isArray(world.machineSeats))
+    return bad('missing world.machineSeats[]');
   if (!isRecord(world.mapCells) || typeof world.mapCells.width !== 'number') {
     return bad('missing world.mapCells');
   }

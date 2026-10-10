@@ -262,7 +262,7 @@ describe('a halt after the start', () => {
       kind: 'kicked',
       player: LOCAL_SEAT,
       nick: 'Ania',
-      mode: 'ai',
+      mode: 'computer',
       cause: 'vote',
       tick: 2,
     });

@@ -31,7 +31,7 @@ async function capture(checkpoint, origin, outDir) {
   const params = new URLSearchParams({
     map: header.mapId,
     player: 'observer',
-    ai: stamp.aiSeats.length === 1 ? `${stamp.aiSeats[0]},` : stamp.aiSeats.join(','),
+    computer: stamp.machineSeats.length === 1 ? `${stamp.machineSeats[0]},` : stamp.machineSeats.join(','),
     seed: String(header.seed),
     fog: 'classic',
     zoom: '1',

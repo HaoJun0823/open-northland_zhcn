@@ -10,7 +10,7 @@ const BASE_OPTIONS = {
   map: null,
   ir: null,
   demoOwner: 0,
-  aiSeats: [],
+  machineSeats: [],
   assistantSeats: [],
   fog: null,
   progression: null,

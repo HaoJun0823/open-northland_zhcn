@@ -26,7 +26,7 @@ function worldSlug(world: BenchWorld): string {
     case 'synthetic':
       return 'sim';
     case 'realMap':
-      return `map-${world.mapId}-ai${formatSeats(world.aiSeats, '_')}`;
+      return `map-${world.mapId}-ai${formatSeats(world.machineSeats, '_')}`;
   }
 }
 

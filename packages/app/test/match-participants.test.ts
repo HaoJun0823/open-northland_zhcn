@@ -37,13 +37,13 @@ describe('neverDiesSeats and matchParticipants', () => {
       ],
     });
     expect(neverDiesSeats(s)).toEqual([2, 7]);
-    expect(matchParticipants({ controlled: [0], aiSeats: [2, 3, 0], neverDies: neverDiesSeats(s) })).toEqual([
-      0, 3,
-    ]);
+    expect(
+      matchParticipants({ controlled: [0], machineSeats: [2, 3, 0], neverDies: neverDiesSeats(s) }),
+    ).toEqual([0, 3]);
   });
 
   it('a read-only observer controls no seat, so only the AI plays', () => {
-    expect(matchParticipants({ controlled: [], aiSeats: [1, 2], neverDies: [] })).toEqual([1, 2]);
+    expect(matchParticipants({ controlled: [], machineSeats: [1, 2], neverDies: [] })).toEqual([1, 2]);
   });
 });
 

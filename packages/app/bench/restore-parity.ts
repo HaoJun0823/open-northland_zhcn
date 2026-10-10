@@ -177,7 +177,7 @@ async function main(): Promise<void> {
   const extra = new Set<number>();
   const recorded = stepRecording(world.sim, ticks, points, (tick, systems) => {
     if (tick < half) return;
-    for (const name of ['signpostLinks', 'aiPlayer', 'planner']) {
+    for (const name of ['signpostLinks', 'computerPlayer', 'planner']) {
       if (wanted.has(name) || (systems.get(name) ?? 0) < HEAVY_SYSTEM_MS) continue;
       wanted.set(name, tick);
       // This tick's save is taken below once it is added; the next restores after the heavy tick.

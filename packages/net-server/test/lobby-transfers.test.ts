@@ -61,10 +61,10 @@ describe('immutable lobby files', () => {
     const { a, b } = lobby();
     a.send({ kind: 'setSeat', player: 2, mode: 'idle' });
     expect(a.last('room')?.room.seats.find((seat) => seat.player === 2)?.mode).toBe('idle');
-    b.send({ kind: 'setSeat', player: 2, mode: 'ai' });
+    b.send({ kind: 'setSeat', player: 2, mode: 'computer' });
     expect(b.last('rejected')?.reason).toEqual({ code: 'creatorOnly' });
-    a.send({ kind: 'setSeat', player: 2, mode: 'ai' });
-    expect(a.last('room')?.room.seats.find((seat) => seat.player === 2)?.mode).toBe('ai');
+    a.send({ kind: 'setSeat', player: 2, mode: 'computer' });
+    expect(a.last('room')?.room.seats.find((seat) => seat.player === 2)?.mode).toBe('computer');
     a.send({ kind: 'setSeat', player: 2, mode: 'absent' });
     expect(a.last('rejected')?.reason).toEqual({ code: 'savedSeatsFixed' });
   });

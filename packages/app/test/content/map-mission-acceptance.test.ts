@@ -43,7 +43,7 @@ describe.runIf(hasRealIr())('scripted story-map acceptance', () => {
       map,
       ir,
       content: { content: merge.content },
-      aiSeats: [],
+      machineSeats: [],
       assistantSeats: [0],
       script: mapScriptWorld(script, ir),
       fog: null,

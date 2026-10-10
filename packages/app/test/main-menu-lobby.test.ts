@@ -35,7 +35,7 @@ function slot(player: number, over: Partial<MapsIndexPlayerSlot> = {}): MapsInde
     hidden: false,
     aiAllowed: true,
     noneAllowed: true,
-    strategicAi: true,
+    hasComputerControl: true,
     ...over,
   };
 }
@@ -130,11 +130,11 @@ const OPTIONS = {
   alliedVision: true,
 } as const;
 
-/** The offered seats the launched session declares as AI, which is what `?ai=` carries. */
-function aiSeatsOfLobby(state: RosterState, players: readonly MapsIndexPlayerSlot[]): number[] {
+/** The offered seats the launched session declares as AI, which is what `?computer=` carries. */
+function computerSeatsOfLobby(state: RosterState, players: readonly MapsIndexPlayerSlot[]): number[] {
   return lobbySession('zatoka', state, players, OPTIONS, SEED)
     .seats.filter(
-      (seat) => seat.mode === 'ai' && players.some((p) => p.player === seat.player && p.claimable),
+      (seat) => seat.mode === 'computer' && players.some((p) => p.player === seat.player && p.claimable),
     )
     .map((seat) => seat.player);
 }
@@ -153,25 +153,25 @@ describe('lobbySession', () => {
     const state = initialRosterState(players);
     const session = lobbySession('zatoka', state, players, OPTIONS, SEED);
     expect(session.localSeat).toBe(0);
-    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', 'idle', 'script']);
-    expect(aiSeatsOfLobby(state, players)).toEqual([]);
+    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', 'idle', 'map-ai']);
+    expect(computerSeatsOfLobby(state, players)).toEqual([]);
   });
 
   it('plays the claimed seat as the person and never lists it as AI', () => {
-    let state = setVacantMode(initialRosterState(players), 1, 'ai');
+    let state = setVacantMode(initialRosterState(players), 1, 'computer');
     state = setVacantMode(state, 1, 'idle'); // back to the authored idle default
     state = claimSeat(state, 1);
     const session = lobbySession('zatoka', state, players, OPTIONS, SEED);
     expect(session.localSeat).toBe(1);
-    expect(session.seats.map((seat) => seat.mode)).toEqual(['idle', 'human', 'script']);
+    expect(session.seats.map((seat) => seat.mode)).toEqual(['idle', 'human', 'map-ai']);
   });
 
   it('keeps every slot eligible for AI behind a spectator seat', () => {
     let state = claimSeat(initialRosterState(players), OBSERVER_SEAT);
-    state = setVacantMode(state, 0, 'ai');
-    state = setVacantMode(state, 1, 'ai');
+    state = setVacantMode(state, 0, 'computer');
+    state = setVacantMode(state, 1, 'computer');
     expect(lobbySession('zatoka', state, players, OPTIONS, SEED).localSeat).toBe(OBSERVER_SEAT);
-    expect(aiSeatsOfLobby(state, players)).toEqual([0, 1]);
+    expect(computerSeatsOfLobby(state, players)).toEqual([0, 1]);
     const overseer = claimSeat(initialRosterState(players), OVERSEER_SEAT);
     expect(lobbySession('zatoka', overseer, players, OPTIONS, SEED).localSeat).toBe(OVERSEER_SEAT);
   });
@@ -179,9 +179,9 @@ describe('lobbySession', () => {
   it('lets a claimable authored-ai slot auto-play until it is toggled to idle', () => {
     const lobby = [slot(0, { claimable: true, type: 'human' }), slot(1, { claimable: true })];
     let state = claimSeat(initialRosterState(lobby), 0);
-    expect(lobbySession('zatoka', state, lobby, OPTIONS, SEED).seats[1]?.mode).toBe('script');
+    expect(lobbySession('zatoka', state, lobby, OPTIONS, SEED).seats[1]?.mode).toBe('map-ai');
     state = setVacantMode(state, 1, 'idle');
-    expect(aiSeatsOfLobby(state, lobby)).toEqual([]);
+    expect(computerSeatsOfLobby(state, lobby)).toEqual([]);
   });
 
   it('never plays a seat the map offers no AI for', () => {
@@ -191,8 +191,8 @@ describe('lobbySession', () => {
       slot(0, { claimable: true, type: 'human' }),
       slot(1, { claimable: true, aiAllowed: false, noneAllowed: true }),
     ];
-    const state = setVacantMode(claimSeat(initialRosterState(lobby), 0), 1, 'ai');
-    expect(aiSeatsOfLobby(state, lobby)).toEqual([]);
+    const state = setVacantMode(claimSeat(initialRosterState(lobby), 0), 1, 'computer');
+    expect(computerSeatsOfLobby(state, lobby)).toEqual([]);
   });
 
   it('round-trips an offered None choice without removing locked or forbidden seats', () => {
@@ -205,7 +205,7 @@ describe('lobbySession', () => {
     let state = claimSeat(initialRosterState(lobby), 0);
     for (const player of [1, 2, 3]) state = setVacantMode(state, player, 'absent');
     const session = lobbySession('zatoka', state, lobby, OPTIONS, SEED);
-    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', 'absent', 'script', 'script']);
+    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', 'absent', 'map-ai', 'map-ai']);
     const entry = new URLSearchParams(lobbyStartEntry('zatoka', state, lobby, OPTIONS, SEED));
     expect(entry.get('absent')).toBe('1');
     expect(mapSession(entry, lobby)).toEqual(session);
@@ -216,7 +216,7 @@ describe('lobbySession', () => {
     const lobby = [...players, slot(3, { type: 'none' })];
     const state = claimSeat(initialRosterState(lobby), 0);
     const session = lobbySession('zatoka', state, lobby, OPTIONS, SEED);
-    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', 'idle', 'script', 'absent']);
+    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', 'idle', 'map-ai', 'absent']);
     const entry = new URLSearchParams(lobbyStartEntry('zatoka', state, lobby, OPTIONS, SEED));
     expect(mapSession(entry, lobby)).toEqual(session);
     expect(lobbySession('zatoka', claimSeat(state, 3), lobby, OPTIONS, SEED).seats[3]?.mode).toBe('absent');
@@ -273,8 +273,8 @@ describe('lobby computer levels', () => {
     slot(1, { claimable: true }),
     slot(2, { claimable: true, tribeId: WEREWOLF_TRIBE }),
     slot(3),
-    slot(4, { strategicAi: false }),
-    slot(5, { claimable: true, strategicAi: false }),
+    slot(4, { hasComputerControl: false }),
+    slot(5, { claimable: true, hasComputerControl: false }),
   ];
 
   it("offers a level on a free seat handed to the computer, medium until picked, and on the map's own computer seat, hard until picked, never on a scripted camp", () => {
@@ -330,19 +330,19 @@ describe('lobbyStartEntry', () => {
     );
     expect(params.get('map')).toBe('zatoka');
     expect(params.get('player')).toBe('0');
-    expect(params.get('ai')).toBeNull(); // authored-ai seats retain Script by default
-    // The map's own computer seats need no naming: a Forteca-style roster launches with `?ai=` of the
+    expect(params.get('computer')).toBeNull(); // authored-ai seats retain Script by default
+    // The map's own computer seats need no naming: a Forteca-style roster launches with `?computer=` of the
     // offered seats alone, and the session still plays them.
     const forteca = [...players, slot(2), slot(6, { hidden: true })];
     const entry = new URLSearchParams(
       lobbyStartEntry('forteca', initialLobbyState(forteca), forteca, OPTIONS, SEED),
     );
-    expect(entry.get('ai')).toBeNull();
+    expect(entry.get('computer')).toBeNull();
     expect(
       lobbySession('forteca', initialLobbyState(forteca), forteca, OPTIONS, SEED).seats.map(
         (seat) => seat.mode,
       ),
-    ).toEqual(['human', 'script', 'script', 'script']);
+    ).toEqual(['human', 'map-ai', 'map-ai', 'map-ai']);
     expect(params.get('fog')).toBe('recon-fow');
     expect(params.get('progression')).toBe('off');
     expect(params.get('needs')).toBe('off');
@@ -360,10 +360,10 @@ describe('lobbyStartEntry', () => {
 
 it('round-trips each offered control mode without changing the human or locked computer', () => {
   const players = [slot(0, { type: 'human', claimable: true }), slot(1, { claimable: true }), slot(2)];
-  for (const mode of ['script', 'ai', 'idle'] as const) {
+  for (const mode of ['map-ai', 'computer', 'idle'] as const) {
     const state = setVacantMode(initialLobbyState(players), 1, mode);
     const session = lobbySession('synthetic', state, players, OPTIONS, SEED);
-    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', mode, 'script']);
+    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', mode, 'map-ai']);
     expect(
       mapSession(new URLSearchParams(lobbyStartEntry('synthetic', state, players, OPTIONS, SEED)), players),
     ).toEqual(session);

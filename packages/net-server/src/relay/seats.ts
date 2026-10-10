@@ -1,4 +1,4 @@
-import type { AiDifficulty, SessionSeat } from '@open-northland/lockstep';
+import type { ComputerDifficulty, SessionSeat } from '@open-northland/lockstep';
 import type {
   DepartedSeatMode,
   RoomSeatSetup,
@@ -17,7 +17,7 @@ interface Seat {
   /** The map's tribe for the seat and the one it plays; absent on a seat that offers no choice. */
   readonly tribes?: { readonly authored: number; current: number };
   /** How hard the computer plays the seat; absent on a seat that takes no level. */
-  difficulty?: AiDifficulty;
+  difficulty?: ComputerDifficulty;
   member: Member | null;
 }
 
@@ -25,7 +25,7 @@ export interface SeatChange {
   readonly mode?: VacantSeatMode;
   readonly color?: number;
   readonly tribe?: number;
-  readonly difficulty?: AiDifficulty;
+  readonly difficulty?: ComputerDifficulty;
 }
 
 /** The room's seats: who sits where, and what a vacant seat does. */
@@ -56,7 +56,7 @@ export class SeatTable {
     const seat = this.at(player);
     if (seat === null) return null;
     if (fallout === 'idle' || (fallout !== undefined && seat.offers.includes(fallout))) return fallout;
-    return seat.vacantMode === 'ai' ? 'ai' : 'idle';
+    return seat.vacantMode === 'computer' ? 'computer' : 'idle';
   }
 
   /** A departure's handover, which stands whatever the lobby offered. */
@@ -138,7 +138,7 @@ export class SeatTable {
       mode,
       color: seat.color,
       ...(tribes === undefined || tribes.current === tribes.authored ? {} : { tribe: tribes.current }),
-      ...((mode !== 'ai' && mode !== 'script') || seat.difficulty === undefined
+      ...((mode !== 'computer' && mode !== 'map-ai') || seat.difficulty === undefined
         ? {}
         : { difficulty: seat.difficulty }),
     };

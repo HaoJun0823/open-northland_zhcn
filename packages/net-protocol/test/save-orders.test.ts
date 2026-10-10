@@ -8,7 +8,7 @@ import {
 
 const command = {
   sequence: 0,
-  envelope: { v: 1, origin: 'player', player: 0, command: { kind: 'moveUnit', entity: 1, x: 2, y: 3 } },
+  envelope: { v: 2, origin: 'player', player: 0, command: { kind: 'moveUnit', entity: 1, x: 2, y: 3 } },
 };
 const response = {
   kind: 'saveOrders',

@@ -16,7 +16,7 @@ import { type Fixed, fx, ONE, ULP } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { DEFAULT_NODE_ROUGHNESS, type NodeId, type TerrainGraph } from '../../nav/terrain/index.js';
 import { HALF_COLUMN, HALF_ROW, worldDistance } from '../../nav/world-metric.js';
-import { trafficCounter } from '../ai-player/traffic.js';
+import { trafficCounter } from '../computer-player/traffic.js';
 import type { System, SystemContext } from '../context.js';
 import { wearWornBoots } from '../equipment/index.js';
 import { chargeBarefootStep, drinkPressingDraughts } from '../lifecycle/needs/index.js';

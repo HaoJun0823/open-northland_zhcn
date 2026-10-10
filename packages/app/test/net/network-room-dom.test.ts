@@ -38,7 +38,7 @@ function lobby(): RoomView {
         player: 0,
         mode: 'idle',
         claimable: true,
-        offers: ['idle', 'ai'],
+        offers: ['idle', 'computer'],
         color: 0,
         nick: null,
         ready: false,
@@ -98,7 +98,7 @@ describe('multiplayer entry', () => {
     const { room, client, button } = mount();
     const view = lobby();
     room.update(
-      { ...view, seats: view.seats.map((seat) => ({ ...seat, mode: 'ai', claimable: false })) },
+      { ...view, seats: view.seats.map((seat) => ({ ...seat, mode: 'computer', claimable: false })) },
       true,
     );
     const take = button(messages().networkRoom.takeSeat);
@@ -106,7 +106,7 @@ describe('multiplayer entry', () => {
     expect(take.disabled).toBe(true);
     take.click();
     expect(client.claimSeat).not.toHaveBeenCalled();
-    room.update({ ...view, seats: view.seats.map((seat) => ({ ...seat, mode: 'ai' })) }, true);
+    room.update({ ...view, seats: view.seats.map((seat) => ({ ...seat, mode: 'computer' })) }, true);
     expect(take.hidden).toBe(false);
     expect(take.disabled).toBe(false);
     take.click();
@@ -157,7 +157,7 @@ describe('room guidance and chat', () => {
           hidden: false,
           aiAllowed: true,
           noneAllowed: true,
-          strategicAi: true,
+          hasComputerControl: true,
         },
       ],
     });
@@ -223,7 +223,7 @@ describe('room guidance and chat', () => {
         ...view,
         seats: [
           { ...base, nick: 'Astrid', mode: 'human' },
-          { ...base, player: 1, mode: 'ai' },
+          { ...base, player: 1, mode: 'computer' },
           { ...base, player: 2, mode: 'idle' },
         ],
         members: view.members.map((member) => ({ ...member, seat: 0 })),
@@ -236,7 +236,7 @@ describe('room guidance and chat', () => {
     expect(own?.querySelector<HTMLElement>('.network-room__badge--you')?.hidden).toBe(false);
     expect(own?.textContent).toContain(copy.host);
     const names = [...room.element.querySelectorAll('.network-room__seat-name')].map((el) => el.textContent);
-    expect(names).toEqual(['Astrid', copy.ai, copy.empty]);
+    expect(names).toEqual(['Astrid', copy.computer, copy.empty]);
     expect(room.element.querySelector('.network-room__guidance strong')?.textContent).toContain('1');
   });
 
@@ -271,7 +271,7 @@ describe('room guidance and chat', () => {
   it('keeps departed seats idle when hosting an existing room with AI takeover', () => {
     const { room, client } = mount();
     const view = lobby();
-    room.update({ ...view, settings: { ...view.settings, kickedSeatMode: 'ai' } }, true);
+    room.update({ ...view, settings: { ...view.settings, kickedSeatMode: 'computer' } }, true);
     expect(client.setSettings).toHaveBeenCalledWith(expect.objectContaining({ kickedSeatMode: 'idle' }));
   });
   it('guides the host from seat selection through readiness, then handles a lost link', () => {

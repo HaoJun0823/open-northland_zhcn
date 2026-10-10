@@ -56,7 +56,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
     it(
       `${SHIP_MAP}: the five heroes ride the small ship, the first as commander, all aboard before tick one`,
       async () => {
-        const { sim, content } = await realMapWorld({ mapId: SHIP_MAP, aiSeats: [] });
+        const { sim, content } = await realMapWorld({ mapId: SHIP_MAP, machineSeats: [] });
         const ship = vehicleAt(sim, SHIP_AT);
         const type = content.vehicles.find((v) => v.typeId === sim.world.get(ship, Vehicle).vehicleType);
         expect(type?.id).toBe(SHIP_SMALL);
@@ -86,7 +86,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
     it(
       `${CART_MAP}: the carts carry their authored cargo, asked for as stowed, with a carrier seated on each`,
       async () => {
-        const { sim, content } = await realMapWorld({ mapId: CART_MAP, aiSeats: [] });
+        const { sim, content } = await realMapWorld({ mapId: CART_MAP, machineSeats: [] });
         const goodByName = new Map(content.goods.map((g) => [g.id, g.typeId]));
         const carrierJob = content.jobs.find((j) => j.id === CARRIER)?.typeId;
         for (const spec of CARTS) {

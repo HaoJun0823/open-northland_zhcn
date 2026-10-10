@@ -13,7 +13,7 @@ it.runIf(hasRealIr() && existsSync(realMapPath(MAP_ID)))(
     const map = TerrainMapFile.parse(JSON.parse(readFileSync(realMapPath(MAP_ID), 'utf8')));
     const guides = map.entities?.guides ?? [];
     expect(guides.length).toBeGreaterThan(0);
-    const { sim } = await realMapWorld({ mapId: MAP_ID, aiSeats: [] });
+    const { sim } = await realMapWorld({ mapId: MAP_ID, machineSeats: [] });
     const actual = [...sim.world.query(components.Signpost, components.Position, components.Owner)].map(
       (e) => {
         const position = sim.world.get(e, components.Position);

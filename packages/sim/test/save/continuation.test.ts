@@ -101,7 +101,7 @@ describe('saved accepted command continuation', () => {
     [input(1.5, true)],
     [input(Number.MAX_SAFE_INTEGER + 1, true)],
     [{ ...input(1, true), sequence: 0 }],
-    [{ applyTick: 1, envelope: { v: 1, origin: 'invalid' } }],
+    [{ applyTick: 1, envelope: { v: 2, origin: 'invalid' } }],
   ])('rejects malformed continuation %j', (continuation) => {
     const save = exportSaveGame(create());
     const invalid = {

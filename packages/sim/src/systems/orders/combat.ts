@@ -1,4 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
+import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   Age,
   AttackOrder,
@@ -34,6 +35,7 @@ import {
   keepsAnchor,
   MILITARY_MODE,
 } from '../readviews/index.js';
+import { recordAiOrder } from './ai-lifecycle.js';
 import { isOrderableSettler, supersedeStandingOrders } from './guards.js';
 
 /**
@@ -112,6 +114,7 @@ export function attackUnit(
   world: World,
   ctx: SystemContext,
   command: Extract<Command, { kind: 'attackUnit' }>,
+  origin?: AiOrderOrigin,
 ): void {
   if (ctx.terrain === undefined) return; // mapless sim: no cells to fight over
   const e = command.entity;
@@ -155,4 +158,5 @@ export function attackUnit(
   // Stamped up front so plannerSystem skips economy for this unit on the tick the order lands rather than
   // leaking one tick; `repathAt = tick` makes the CombatSystem re-path the chase on its first pass.
   world.add(e, Engagement, { repathAt: ctx.tick });
+  recordAiOrder(world, e, origin);
 }

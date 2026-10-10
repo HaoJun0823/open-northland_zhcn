@@ -3,13 +3,14 @@
  * regrouping these modules is hash-neutral.
  */
 
+export * from './ai-control.js';
 export * from './ai-flags.js';
-export * from './ai-player.js';
-export * from './ai-program.js';
+export * from './ai-order.js';
 export * from './assistant.js';
 export * from './behaviour.js';
 export * from './chest.js';
 export * from './combat.js';
+export * from './computer-player.js';
 export * from './defence.js';
 export * from './economy/index.js';
 export * from './equipment.js';
@@ -17,6 +18,8 @@ export * from './family.js';
 export * from './info-lines.js';
 export * from './landscape.js';
 export * from './livestock.js';
+export * from './map-ai.js';
+export * from './map-ai-defence.js';
 export * from './match.js';
 export * from './mission.js';
 export * from './mission-presentation.js';

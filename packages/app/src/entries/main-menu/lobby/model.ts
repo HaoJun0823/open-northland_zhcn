@@ -1,5 +1,5 @@
 import {
-  type AiDifficulty,
+  type ComputerDifficulty,
   DEFAULT_LOCAL_PLAYER,
   DEFAULT_WEATHER_MODE,
   type GameSession,
@@ -11,23 +11,23 @@ import { FOG_MODE_BY_NAME, type FogModeName } from '../../../game/fog.js';
 import { onOffParam, weatherModeParam } from '../../../game/session-rules.js';
 import {
   DEFAULT_SESSION_SPEED,
-  isMapComputerSeat,
+  isReservedMapAiSeat,
   seatMode,
   sessionSearch,
 } from '../../../game/session-url.js';
 import { formatSearch } from '../../../view/params.js';
 import {
   absentSeats,
-  aiSeats,
   authoredVacantMode,
   claimSeat,
+  computerSeats,
   idleSeats,
   initialRosterState,
   type MapPlayerSlot,
+  mapAiSeats,
   offersDifficulty,
   offersTribeChoice,
   type RosterState,
-  scriptSeats,
   slotDifficulty,
   type VacantMode,
 } from './roster-state.js';
@@ -83,7 +83,7 @@ export interface LobbySlotRow {
   readonly offersTribe: boolean;
   /** How hard the seat plays; null while no computer plays it, or while no strategic AI runs it: a
    *  monster seat, or a scripted camp. */
-  readonly difficulty: AiDifficulty | null;
+  readonly difficulty: ComputerDifficulty | null;
 }
 
 /** The listed slot rows in authored order; hidden slots never render. */
@@ -109,9 +109,10 @@ export function lobbySlotRows(
 function playsAtDifficulty(slot: MapPlayerSlot, state: RosterState): boolean {
   if (!offersDifficulty(slot)) return false;
   return (
-    (isMapComputerSeat(slot) && slot.strategicAi) ||
+    (isReservedMapAiSeat(slot) && slot.hasComputerControl) ||
     (state.seat !== null &&
-      (aiSeats(state, [slot]).length > 0 || (slot.strategicAi && scriptSeats(state, [slot]).length > 0)))
+      (computerSeats(state, [slot]).length > 0 ||
+        (slot.hasComputerControl && mapAiSeats(state, [slot]).length > 0)))
   );
 }
 
@@ -128,8 +129,8 @@ export function lobbySession(
   seed: number,
 ): GameSession {
   const lists = {
-    ai: new Set(state.seat === null ? [] : aiSeats(state, players)),
-    script: new Set(state.seat === null ? [] : scriptSeats(state, players)),
+    computer: new Set(state.seat === null ? [] : computerSeats(state, players)),
+    mapAi: new Set(state.seat === null ? [] : mapAiSeats(state, players)),
     idle: new Set(
       state.seat === null
         ? players.filter((slot) => slot.claimable).map((slot) => slot.player)
@@ -143,7 +144,7 @@ export function lobbySession(
     const retribed = tribe !== undefined && tribe !== slot.tribeId && offersTribeChoice(slot);
     const mode = seatMode(slot, localSeat, lists);
     const difficulty =
-      (mode === 'ai' || (mode === 'script' && slot.strategicAi)) && offersDifficulty(slot)
+      (mode === 'computer' || (mode === 'map-ai' && slot.hasComputerControl)) && offersDifficulty(slot)
         ? slotDifficulty(state, slot)
         : undefined;
     return {

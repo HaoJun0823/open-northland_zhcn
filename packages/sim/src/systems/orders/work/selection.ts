@@ -2,7 +2,7 @@ import {
   Building,
   CurrentAtomic,
   HarvestFocus,
-  isAiPlayer,
+  isMachinePlayer,
   JobAssignment,
   ownerOf,
   PRODUCTION_UNLIMITED,
@@ -77,7 +77,7 @@ export function setWorkFlag(
   const live = hauls ? liveHaulFlag(world, e) : liveWorkFlag(world, e);
   const owner = ownerOf(world, e);
   const limit =
-    owner !== undefined && isAiPlayer(world, owner)
+    owner !== undefined && isMachinePlayer(world, owner)
       ? navigationLimitFor(world, ctx.content, terrain, e)
       : null;
   // The clicked node is the search's own first candidate, so an unblocked click resolves to itself.

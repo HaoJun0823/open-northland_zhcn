@@ -98,7 +98,7 @@ async function main(): Promise<void> {
     world: {
       kind: 'realMap',
       mapId: knobs.mapId,
-      aiSeats: world.aiSeats,
+      machineSeats: world.machineSeats,
       progression: knobs.progression,
       needs: knobs.needs,
       mapCells: world.mapCells,

@@ -12,10 +12,10 @@ const WEREWOLF = 6;
 
 /** Two civilization seats, a monster seat and a seat of a world without a roster. */
 const TRIBE_SEATS: readonly RoomSeatSetup[] = [
-  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai'], color: 0, authoredTribe: VIKING },
-  { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'ai'], color: 1, authoredTribe: FRANK },
-  { player: 2, mode: 'ai', claimable: true, offers: ['ai'], color: 2, authoredTribe: WEREWOLF },
-  { player: 3, mode: 'ai', claimable: true, offers: ['ai'], color: 3 },
+  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'computer'], color: 0, authoredTribe: VIKING },
+  { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'computer'], color: 1, authoredTribe: FRANK },
+  { player: 2, mode: 'computer', claimable: true, offers: ['computer'], color: 2, authoredTribe: WEREWOLF },
+  { player: 3, mode: 'computer', claimable: true, offers: ['computer'], color: 3 },
 ];
 
 function lobby(seats: readonly RoomSeatSetup[] = TRIBE_SEATS, settings = SETTINGS) {
@@ -89,7 +89,7 @@ describe('seat tribes in the lobby', () => {
       { player: 0, mode: 'human', color: 0, tribe: FRANK },
       { player: 1, mode: 'human', color: 1 },
       { player: 2, mode: 'human', color: 2 },
-      { player: 3, mode: 'ai', color: 3 },
+      { player: 3, mode: 'computer', color: 3 },
     ]);
     b.send({ kind: 'setSeat', player: 1, tribe: VIKING });
     expect(b.last('rejected')?.reason).toEqual({ code: 'gameStarted' });
@@ -104,12 +104,19 @@ describe('seat tribes in a room resumed from a save', () => {
       player: 0,
       mode: 'idle',
       claimable: true,
-      offers: ['idle', 'ai'],
+      offers: ['idle', 'computer'],
       color: 0,
       authoredTribe: VIKING,
       tribe: EGYPT,
     },
-    { player: 1, mode: 'idle', claimable: true, offers: ['idle', 'ai'], color: 1, authoredTribe: FRANK },
+    {
+      player: 1,
+      mode: 'idle',
+      claimable: true,
+      offers: ['idle', 'computer'],
+      color: 1,
+      authoredTribe: FRANK,
+    },
   ];
 
   it('keeps the saved tribes: none may change, and the start carries them', () => {

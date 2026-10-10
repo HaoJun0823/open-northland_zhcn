@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { MapAiModule, MapScript, mapLobbySlots } from '../src/index.js';
+import {
+  ComputerModuleId,
+  MapAiSeat,
+  MapScript,
+  mapAllowsComputerControl,
+  mapLobbySlots,
+} from '../src/index.js';
 
 const roster = [
   { player: 0, type: 'human', tribeId: 1, colorId: 0, name: { pol: 'Ragnar' } },
@@ -21,7 +27,7 @@ describe('mapLobbySlots', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
       {
         player: 1,
@@ -32,7 +38,7 @@ describe('mapLobbySlots', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
       {
         player: 2,
@@ -43,7 +49,7 @@ describe('mapLobbySlots', () => {
         hidden: false,
         aiAllowed: true,
         noneAllowed: true,
-        strategicAi: true,
+        hasComputerControl: true,
       },
     ]);
   });
@@ -74,16 +80,18 @@ describe('mapLobbySlots', () => {
     ]);
   });
 
-  it('marks the seats whose [AIData] row stops the strategic AI, blanket or whole, as scripted camps', () => {
+  it('respects master and individual computer-player switches', () => {
     const script = MapScript.parse({
       players: [...roster, { player: 3, type: 'ai', tribeId: 3, colorId: 2 }],
       ai: [
-        { player: 1, disabled: false, strategicOff: MapAiModule.options },
-        { player: 2, disabled: true, strategicOff: [] },
-        { player: 3, disabled: false, strategicOff: ['military'] },
+        { player: 1, allDisabled: false, computerDisabled: true, disabledComputerModules: [] },
+        { player: 2, allDisabled: true, computerDisabled: false, disabledComputerModules: [] },
+        { player: 3, allDisabled: false, computerDisabled: false, disabledComputerModules: ['military'] },
       ],
     });
-    expect(mapLobbySlots(script).map(({ player, strategicAi }) => [player, strategicAi])).toEqual([
+    expect(
+      mapLobbySlots(script).map(({ player, hasComputerControl }) => [player, hasComputerControl]),
+    ).toEqual([
       [0, true],
       [1, false],
       [2, false],
@@ -98,4 +106,25 @@ it('never offers an authored closed seat even when multiplayer options name huma
     multiplayer: { slotOptions: [{ player: 2, allowed: ['human', 'ai', 'none'] }] },
   });
   expect(mapLobbySlots(script)[0]?.claimable).toBe(false);
+});
+
+it('treats disabling every known capability as no computer control without confusing it with the master switch', () => {
+  const row = MapAiSeat.parse({
+    player: 1,
+    allDisabled: false,
+    computerDisabled: false,
+    disabledComputerModules: ComputerModuleId.options,
+  });
+  expect(mapAllowsComputerControl(row)).toBe(false);
+  expect(row.computerDisabled).toBe(false);
+});
+
+it('requires an explicit computer master switch in generated map AI rows', () => {
+  expect(
+    MapAiSeat.safeParse({
+      player: 1,
+      allDisabled: false,
+      disabledComputerModules: [],
+    }).success,
+  ).toBe(false);
 });

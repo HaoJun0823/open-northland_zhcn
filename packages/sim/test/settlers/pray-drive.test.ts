@@ -419,7 +419,7 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
     sim.world.add(human, Owner, { player: PLAYER });
     const computer = settlerAt(sim, 4, 0, DEVOUT);
     sim.world.add(computer, Owner, { player: RIVAL });
-    sim.enqueueSetup({ kind: 'setPlayerAi', player: RIVAL, enabled: true });
+    sim.enqueueSetup({ kind: 'setAiControl', player: RIVAL, enabled: true });
 
     sim.step();
 

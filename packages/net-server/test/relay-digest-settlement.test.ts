@@ -15,7 +15,7 @@ describe('batched digest settlement', () => {
       settings: SETTINGS,
       seats: [
         ...SEATS,
-        { player: 3, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 3 },
+        { player: 3, mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent'], color: 3 },
       ],
     });
     const roomId = a.last('room')?.room.id;

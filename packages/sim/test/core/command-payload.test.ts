@@ -13,7 +13,7 @@ const UNIT = 7;
 
 /** One trusted envelope around `command`, the shape an imported log carries. */
 function imported(command: Record<string, unknown>): unknown {
-  return { v: 1, origin: 'setup', command };
+  return { v: 2, origin: 'setup', command };
 }
 
 function parse(command: Record<string, unknown>): unknown {
@@ -23,7 +23,7 @@ function parse(command: Record<string, unknown>): unknown {
 describe('command payload contracts', () => {
   it('accepts an admin health percentage and rejects malformed values or player authority', () => {
     const command = { kind: 'debugSetHealth', target: UNIT, percent: 1 };
-    const envelope = { v: 1, origin: 'admin', command };
+    const envelope = { v: 2, origin: 'admin', command };
     expect(parseCommandEnvelope(JSON.parse(JSON.stringify(envelope)))).toEqual(envelope);
     for (const percent of [1.5, NaN, Infinity, '1']) {
       expect(() => parse({ ...command, percent })).toThrow(/command.percent/);
@@ -62,7 +62,7 @@ describe('command payload contracts', () => {
     { kind: 'setRegeneration', entity: UNIT, enabled: false },
     { kind: 'unassignBuilder', entity: UNIT },
   ])('round-trips a player $kind order and rejects its malformed entity', (command) => {
-    const envelope = { v: 1, origin: 'player', player: SEAT, command };
+    const envelope = { v: 2, origin: 'player', player: SEAT, command };
     expect(parseCommandEnvelope(JSON.parse(JSON.stringify(envelope)))).toEqual(envelope);
     expect(() => parseCommandEnvelope({ ...envelope, command: { ...command, entity: 1.5 } })).toThrow(
       /command.entity/,
@@ -80,7 +80,7 @@ describe('command payload contracts', () => {
       building: UNIT + 2,
     },
   ])('round-trips a player $kind order and rejects a malformed member', (command) => {
-    const envelope = { v: 1, origin: 'player', player: SEAT, command };
+    const envelope = { v: 2, origin: 'player', player: SEAT, command };
     expect(parseCommandEnvelope(JSON.parse(JSON.stringify(envelope)))).toEqual(envelope);
     const [first, ...rest] = command.members;
     const malformed = (member: Record<string, unknown>): unknown => ({
@@ -140,7 +140,7 @@ describe('command payload contracts', () => {
       workplace: { x: 10, y: 10 },
       paletteRecipes: ['golden weapons', 'red hero shirt'],
     };
-    expect(parse(spawn)).toEqual({ v: 1, origin: 'setup', command: spawn });
+    expect(parse(spawn)).toEqual({ v: 2, origin: 'setup', command: spawn });
   });
 
   it("holds a spawn's palette recipes to a bounded list of bounded names", () => {

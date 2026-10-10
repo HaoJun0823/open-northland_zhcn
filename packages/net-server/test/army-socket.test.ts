@@ -93,7 +93,7 @@ it('carries a 1000-soldier move, paused redirects and a reconnect through real W
         player,
         mode: 'idle',
         claimable: true,
-        offers: ['idle', 'ai'],
+        offers: ['idle', 'computer'],
         color: player,
       })),
     );

@@ -2015,11 +2015,11 @@ export const deGame = {
     roomNoSeats: 'Diese Karte hat keine verfügbaren Spielerplätze',
     departed: {
       vote: {
-        ai: '{nick} wurde entfernt; die KI übernimmt den Spielerplatz',
+        computer: '{nick} wurde entfernt; ein Computerspieler übernimmt den Spielerplatz',
         idle: '{nick} wurde entfernt',
       },
       left: {
-        ai: '{nick} hat das Spiel verlassen; die KI übernimmt den Spielerplatz',
+        computer: '{nick} hat das Spiel verlassen; ein Computerspieler übernimmt den Spielerplatz',
         idle: '{nick} hat das Spiel verlassen',
       },
     },

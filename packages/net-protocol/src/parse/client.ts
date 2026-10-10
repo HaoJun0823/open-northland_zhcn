@@ -4,7 +4,7 @@ import { asBoolean, asCount, asOneOf, asPositiveNumber, asRecord, asString, keys
 import { parseCompatibility } from './compatibility.js';
 import { parseResponsivenessMode } from './responsiveness.js';
 import {
-  AI_DIFFICULTIES,
+  COMPUTER_DIFFICULTIES,
   parseClientLoad,
   parseLoadingProgress,
   parseLobbySettings,
@@ -87,7 +87,7 @@ export function parseClientMessage(value: unknown): ClientMessage {
         ...(raw.color !== undefined ? { color: asCount(raw.color, 'setSeat.color') } : {}),
         ...(raw.tribe !== undefined ? { tribe: parseTribe(raw.tribe, 'setSeat.tribe') } : {}),
         ...(raw.difficulty !== undefined
-          ? { difficulty: asOneOf(raw.difficulty, AI_DIFFICULTIES, 'setSeat.difficulty') }
+          ? { difficulty: asOneOf(raw.difficulty, COMPUTER_DIFFICULTIES, 'setSeat.difficulty') }
           : {}),
       };
     case 'setSettings':

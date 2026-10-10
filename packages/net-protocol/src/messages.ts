@@ -1,5 +1,5 @@
 import type {
-  AiDifficulty,
+  ComputerDifficulty,
   GameSession,
   InitialSaveIdentity,
   SeatMode,
@@ -31,7 +31,7 @@ export type VacantSeatMode = Exclude<SeatMode, 'human'>;
 
 /** Departure can hand control to full AI or leave it idle; map-script setup and entity removal
  *  belong to the lobby, before the world starts. */
-export type DepartedSeatMode = Exclude<VacantSeatMode, 'absent' | 'script'>;
+export type DepartedSeatMode = Exclude<VacantSeatMode, 'absent' | 'map-ai'>;
 
 /** Why a member left a started game's seat: a passed kick vote or its own leave. */
 export type DepartureCause = 'vote' | 'left';
@@ -50,7 +50,7 @@ export interface RoomSeatSetup {
   /** The tribe the seat starts as when it is not `authoredTribe`: a saved world's choice. */
   readonly tribe?: number;
   /** Present on a seat the lobby may hand to the computer at a level: the level it starts at. */
-  readonly difficulty?: AiDifficulty;
+  readonly difficulty?: ComputerDifficulty;
 }
 
 export interface RoomSeatView {
@@ -63,7 +63,7 @@ export interface RoomSeatView {
   readonly authoredTribe?: number;
   readonly tribe?: number;
   /** Present on a seat that takes a level: how hard it plays while the computer has it. */
-  readonly difficulty?: AiDifficulty;
+  readonly difficulty?: ComputerDifficulty;
   readonly nick: string | null;
   readonly ready: boolean;
 }
@@ -118,7 +118,13 @@ export interface PlayerWireEnvelope {
 export interface RelayWireEnvelope {
   readonly v: number;
   readonly origin: 'admin';
-  readonly command: { readonly kind: 'setPlayerAi'; readonly player: number; readonly enabled: true };
+  readonly command: {
+    readonly kind: 'setAiControl';
+    readonly player: number;
+    readonly enabled: true;
+    readonly computerEnabled: true;
+    readonly mapAiEnabled: true;
+  };
 }
 
 export type WireEnvelope = PlayerWireEnvelope | RelayWireEnvelope;
@@ -217,7 +223,7 @@ export type ClientMessage =
       readonly mode?: VacantSeatMode;
       readonly color?: number;
       readonly tribe?: number;
-      readonly difficulty?: AiDifficulty;
+      readonly difficulty?: ComputerDifficulty;
     }
   | { readonly kind: 'setReady'; readonly ready: boolean }
   | { readonly kind: 'setCompatibility'; readonly compatibility: LobbyCompatibility | null }

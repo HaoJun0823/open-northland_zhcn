@@ -410,7 +410,7 @@ export const plGame = {
     health: 'Zdrowie',
     hunger: 'Energia',
     sleep: 'Wytrzymałość',
-    company: 'Motywacja Społeczna',
+    company: 'Towarzystwo',
     religion: 'Religia',
     attack: 'Atak',
     defend: 'Obrona',

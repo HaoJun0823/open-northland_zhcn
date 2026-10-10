@@ -769,7 +769,7 @@ describe('selection details panel model', () => {
       'Zdrowie',
       'Energia',
       'Wytrzymałość',
-      'Motywacja Społeczna',
+      'Towarzystwo',
       'Religia',
     ]);
     // Health: gauge = hp/max percent, hover = the raw points.
@@ -785,7 +785,7 @@ describe('selection details panel model', () => {
     expect(bare.bars.map((b) => b.label)).toEqual([
       'Energia',
       'Wytrzymałość',
-      'Motywacja Społeczna',
+      'Towarzystwo',
       'Religia',
     ]);
   });
@@ -822,7 +822,7 @@ describe('selection details panel model', () => {
       'Zdrowie',
       'Energia',
       'Wytrzymałość',
-      'Motywacja Społeczna',
+      'Towarzystwo',
       'Religia',
     ]);
   });

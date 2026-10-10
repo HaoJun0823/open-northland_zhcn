@@ -44,12 +44,18 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
   const roster = new Map(players.map((slot) => [slot.player, slot]));
   const vacantMode = (slot: (typeof script.players)[number]) => {
     const metadata = roster.get(slot.player);
-    return metadata === undefined ? (slot.type === 'ai' ? 'ai' : 'idle') : authoredVacantMode(metadata);
+    return metadata === undefined
+      ? slot.type === 'none'
+        ? 'absent'
+        : slot.type === 'ai'
+          ? 'script'
+          : 'idle'
+      : authoredVacantMode(metadata);
   };
   // `mapLobbySlots` lists every script seat, so only an out-of-date index row falls back to every mode.
   const offers = (slot: (typeof script.players)[number]) => {
     const metadata = roster.get(slot.player);
-    return metadata === undefined ? (['ai', 'idle', 'absent'] as const) : vacantOffers(metadata);
+    return metadata === undefined ? (['script', 'ai', 'idle'] as const) : vacantOffers(metadata);
   };
   // A single-player save names its seats in its entry search; its world already plays their tribes.
   const savedSeats = new Map(
@@ -74,7 +80,14 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
       ...(listed === undefined || !offersDifficulty(listed) ? {} : { difficulty: startLevel(saved, listed) }),
     };
   });
-  const seats = save === null ? authoredSeats : restoreSavedSeats(save, authoredSeats);
+  const seats =
+    save === null
+      ? authoredSeats
+      : restoreSavedSeats(
+          save,
+          authoredSeats,
+          save.header.entry === null ? undefined : [...savedSeats.values()],
+        );
   const savedSession = save === null ? null : savedRoster(save);
   const options = initialLobbyOptions(params, ROOM_ALLIED_VISION);
   const rules =

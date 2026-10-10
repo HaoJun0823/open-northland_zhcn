@@ -75,11 +75,12 @@ export const plSurfaces = {
       freeSlot: 'Wolny slot',
       human: 'Człowiek',
       scenarioControl: 'SI - zablokowany',
+      vacantScript: 'Skrypt',
       vacantComputer: 'Komputer',
       vacantIdle: 'Bezczynny',
       vacantAbsent: 'Brak',
       vacantToggleTitle:
-        'Co robi wolne miejsce po starcie gry: Bezczynny nic nie robi, Komputer zagra automatycznie, Brak usuwa jego osadników i budynki z mapy.',
+        'Skrypt stosuje ustawienia AI mapy; AI włącza wszystkie dostępne moduły; Bezczynny pozostawia gracza bez sterowania AI.',
       sit: 'Usiądź tutaj',
       footnote:
         'Sloty definiuje mapa - nie da się ich dodać ani usunąć. Możesz zmienić miejsce, siadając w wolnym slocie.',

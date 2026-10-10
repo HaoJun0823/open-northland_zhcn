@@ -44,15 +44,10 @@ export const DEFAULT_SESSION_SPEED = 1;
 export type SessionRosterSlot = Pick<
   MapsIndexPlayerSlot,
   'player' | 'colorId' | 'tribeId' | 'type' | 'claimable'
->;
+> &
+  Partial<Pick<MapsIndexPlayerSlot, 'aiAllowed'>>;
 
-/**
- * An authored-`ai` seat no person may take: the map's own computer player, which no lobby choice and
- * no `?ai=` list re-types (original: every `PLAYER_TYPE_AI` seat runs the AI handlers; that the
- * multiplayer table re-types only the seats it offers a person is inferred from the table). A
- * `playeroption` row offering nothing at all still leaves the seat a computer player here, where a
- * network room would close it (`authoredVacantMode`); no corpus map authors such a row.
- */
+/** An authored computer seat the map never offers to a person; lobby mode choices cannot retype it. */
 export function isMapComputerSeat(slot: Pick<SessionRosterSlot, 'type' | 'claimable'>): boolean {
   return slot.type === 'ai' && !slot.claimable;
 }
@@ -128,6 +123,16 @@ export function sessionSearch(
       .filter((seat) => seat.mode === 'ai' && !mapComputer.has(seat.player))
       .map((seat) => seat.player);
     if (ai.length > 0) params.set('ai', ai.join(','));
+    for (const mode of ['script', 'idle'] as const) {
+      const seats = session.seats
+        .filter((seat) => {
+          const slot = roster.find((slot) => slot.player === seat.player);
+          const defaultMode = slot?.type === 'ai' && slot.aiAllowed !== false ? 'script' : 'idle';
+          return seat.mode === mode && mode !== defaultMode && !mapComputer.has(seat.player);
+        })
+        .map((seat) => seat.player);
+      if (seats.length > 0) params.set(mode, seats.join(','));
+    }
     const absent = session.seats.filter((seat) => seat.mode === 'absent').map((seat) => seat.player);
     if (absent.length > 0) params.set('absent', absent.join(','));
     // Only a map takes its seed from the search; a scene's is its own, so writing one would lie.
@@ -170,10 +175,18 @@ function rosterSeats(
   const difficulties = seatDifficultiesParam(params);
   const lists: SeatLists = {
     ai: new Set(seatListParam(params, 'ai').filter(isValidPlayer)),
+    script: new Set(seatListParam(params, 'script').filter(isValidPlayer)),
+    idle: new Set(seatListParam(params, 'idle').filter(isValidPlayer)),
     absent: new Set(seatListParam(params, 'absent').filter(isValidPlayer)),
   };
   const authored = new Map(roster.map((slot) => [slot.player, slot]));
-  const players = new Set([...authored.keys(), ...lists.ai, ...overrides.keys()]);
+  const players = new Set([
+    ...authored.keys(),
+    ...lists.ai,
+    ...lists.script,
+    ...lists.idle,
+    ...overrides.keys(),
+  ]);
   if (typeof localSeat === 'number') players.add(localSeat);
   return orderedSeats(
     [...players].map((player) => {
@@ -182,7 +195,7 @@ function rosterSeats(
       const tribe = tribes.get(player);
       const mode = seatMode(slot, localSeat, lists);
       // Only a computer seat plays at a difficulty; a stale pair for another seat is dropped.
-      const difficulty = mode === 'ai' ? difficulties.get(player) : undefined;
+      const difficulty = mode === 'ai' || mode === 'script' ? difficulties.get(player) : undefined;
       return {
         player,
         mode,
@@ -194,23 +207,30 @@ function rosterSeats(
   );
 }
 
-/** The offered seats the lobby handed to the AI (`?ai=`) or left off the map (`?absent=`). */
+/** Explicit seat-control overrides carried by the launch URL. */
 export interface SeatLists {
   readonly ai: ReadonlySet<number>;
+  readonly script: ReadonlySet<number>;
+  readonly idle: ReadonlySet<number>;
   readonly absent: ReadonlySet<number>;
 }
 
-/** The claimed seat is played by the person even when a list also names it: one seat cannot be both.
- *  Otherwise `?ai=` and the map's own computer seats play as AI, `?absent=` seats are left off the map,
- *  and the rest sit out. */
+/** Closed authored seats never participate. A human claim wins over mode lists; locked computer
+ *  seats follow the map. An unclaimed authored computer defaults to Script when the map allows it. */
 export function seatMode(
-  slot: Pick<SessionRosterSlot, 'player' | 'type' | 'claimable'>,
+  slot: Pick<SessionRosterSlot, 'player' | 'type' | 'claimable' | 'aiAllowed'>,
   localSeat: LocalSeat,
   lists: SeatLists,
 ): SeatMode {
+  if (slot.type === 'none') return 'absent';
   if (slot.player === localSeat) return 'human';
-  if (lists.ai.has(slot.player) || isMapComputerSeat(slot)) return 'ai';
-  return lists.absent.has(slot.player) ? 'absent' : 'idle';
+  if (isMapComputerSeat(slot)) return 'script';
+  if (lists.ai.has(slot.player)) return 'ai';
+  if (lists.idle.has(slot.player)) return 'idle';
+  if (lists.absent.has(slot.player)) return 'absent';
+  return lists.script.has(slot.player) || (slot.type === 'ai' && slot.aiAllowed !== false)
+    ? 'script'
+    : 'idle';
 }
 
 /** `?colors=<slot>:<colorId>,…`. Colours are bounded to the roster's id space, because an

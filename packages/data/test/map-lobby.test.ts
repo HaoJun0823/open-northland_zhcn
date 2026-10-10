@@ -91,3 +91,11 @@ describe('mapLobbySlots', () => {
     ]);
   });
 });
+
+it('never offers an authored closed seat even when multiplayer options name human', () => {
+  const script = MapScript.parse({
+    players: [{ player: 2, type: 'none', tribeId: 1, colorId: 0 }],
+    multiplayer: { slotOptions: [{ player: 2, allowed: ['human', 'ai', 'none'] }] },
+  });
+  expect(mapLobbySlots(script)[0]?.claimable).toBe(false);
+});

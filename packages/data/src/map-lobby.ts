@@ -8,7 +8,7 @@ export function mapLobbySlots(script: MapScript): MapsIndexPlayerSlot[] {
     const allowed = table?.slotOptions.find((row) => row.player === slot.player)?.allowed;
     return {
       ...slot,
-      claimable: slot.type === 'human' || allowed?.includes('human') === true,
+      claimable: slot.type !== 'none' && (slot.type === 'human' || allowed?.includes('human') === true),
       hidden: table?.hiddenSlots.includes(slot.player) ?? false,
       aiAllowed: allowed === undefined || allowed.includes('ai'),
       noneAllowed: allowed === undefined || allowed.includes('none'),

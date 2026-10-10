@@ -15,7 +15,7 @@ export function networkSaveSession(
       // Room seats retain their lobby AI preference even while a human occupies the seat.
       const seats = room.seats.map(({ difficulty, ...seat }) => ({
         ...seat,
-        ...(seat.mode === 'ai' && difficulty !== undefined ? { difficulty } : {}),
+        ...((seat.mode === 'ai' || seat.mode === 'script') && difficulty !== undefined ? { difficulty } : {}),
       }));
       return createSavedSessionMetadata(
         { ...session, speed: client.speed, seats },

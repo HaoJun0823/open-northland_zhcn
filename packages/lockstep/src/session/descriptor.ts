@@ -7,11 +7,12 @@ const { AI_DIFFICULTIES, isValidPlayer, isFogMode } = components;
 export type AiDifficulty = (typeof AI_DIFFICULTIES)[number];
 
 /** What a roster seat does for a whole session: `human` is played by a person, `ai` by the strategic AI
- *  player, and `idle` sits out. `absent` also sits out, and a fresh world places none of the seat's
+ *  player, `script` follows the map’s AI configuration, and `idle` sits out. `absent` also sits out;
+ *  a fresh world places none of the seat's
  *  authored settlers, buildings, walls, animals or signposts, and the match does not count it. */
-export type SeatMode = 'human' | 'ai' | 'idle' | 'absent';
+export type SeatMode = 'human' | 'script' | 'ai' | 'idle' | 'absent';
 
-export const SEAT_MODES = ['human', 'ai', 'idle', 'absent'] as const satisfies readonly SeatMode[];
+export const SEAT_MODES = ['human', 'script', 'ai', 'idle', 'absent'] as const satisfies readonly SeatMode[];
 
 /** One roster seat as the session runs it. */
 export interface SessionSeat {
@@ -99,7 +100,9 @@ export function isReadOnlySpectator(session: GameSession): boolean {
 }
 
 export function aiSeatsOf(session: GameSession): number[] {
-  return seatsInMode(session, 'ai');
+  return session.seats
+    .filter((seat) => seat.mode === 'ai' || seat.mode === 'script')
+    .map((seat) => seat.player);
 }
 
 /** Every seat a person plays, on whichever client. */
@@ -191,7 +194,7 @@ function parseSeats(value: unknown): readonly SessionSeat[] {
     if (tribe !== undefined && tribe <= 0) throw new Error(`session seat ${player} has tribe ${tribe}`);
     const mode = parseSeatMode(raw.mode);
     const difficulty = raw.difficulty === undefined ? undefined : parseDifficulty(raw.difficulty);
-    if (difficulty !== undefined && mode !== 'ai')
+    if (difficulty !== undefined && mode !== 'ai' && mode !== 'script')
       throw new Error(`session seat ${player} has a difficulty but no computer player`);
     seats.push({
       player,

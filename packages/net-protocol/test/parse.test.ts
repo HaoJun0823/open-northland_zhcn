@@ -83,7 +83,7 @@ const CLIENT_MESSAGES: readonly ClientMessage[] = [
     settings,
     seats: [
       { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai', 'absent'], color: 0 },
-      { player: 3, mode: 'ai', claimable: false, offers: ['idle', 'ai', 'absent'], color: 9 },
+      { player: 3, mode: 'script', claimable: false, offers: ['script'], color: 9 },
     ],
   },
   {
@@ -267,7 +267,7 @@ describe('client messages', () => {
     [
       'a human seat setup',
       { kind: 'createRoom', settings, seats: [{ player: 0, mode: 'human', color: 0 }] },
-      /one of ai, idle/,
+      /one of script, ai, idle/,
     ],
     [
       'a trusted envelope',

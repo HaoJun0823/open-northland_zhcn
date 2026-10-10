@@ -29,9 +29,9 @@ export type LobbySettings = Omit<RoomSettings, 'world' | 'initialSave' | 'mapOri
 /** What an unclaimed seat does; `human` is never chosen, it is what a claimed seat becomes. */
 export type VacantSeatMode = Exclude<SeatMode, 'human'>;
 
-/** What a seat becomes when its member departs a running game; its settlers already stand, so it
- *  cannot turn `absent`. */
-export type DepartedSeatMode = Exclude<VacantSeatMode, 'absent'>;
+/** Departure can hand control to full AI or leave it idle; map-script setup and entity removal
+ *  belong to the lobby, before the world starts. */
+export type DepartedSeatMode = Exclude<VacantSeatMode, 'absent' | 'script'>;
 
 /** Why a member left a started game's seat: a passed kick vote or its own leave. */
 export type DepartureCause = 'vote' | 'left';

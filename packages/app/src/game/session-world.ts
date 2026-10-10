@@ -29,7 +29,10 @@ export function sessionWorldOptions(session: GameSession, script: MapScript | nu
   return {
     aiSeats: roles.aiSeats,
     absentSeats: absentSeatsOf(session),
-    lobbyAiSeats: roles.aiSeats.filter((seat) => !mapComputer.has(seat)),
+    lobbyAiSeats: session.seats
+      .filter((seat) => seat.mode === 'ai' && !mapComputer.has(seat.player))
+      .map((seat) => seat.player),
+    autonomousAiSeats: session.seats.filter((seat) => seat.mode === 'ai').map((seat) => seat.player),
     aiDifficulties: new Map(
       session.seats.flatMap((seat) =>
         seat.difficulty === undefined ? [] : [[seat.player, seat.difficulty]],

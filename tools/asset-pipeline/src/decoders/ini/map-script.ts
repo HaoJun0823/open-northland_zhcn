@@ -125,8 +125,13 @@ function playerRow(p: RuleProp): MapScript['players'][number] | undefined {
   const colorId = code(colorRaw);
   if (player === undefined || player < 0 || tribeId === undefined || tribeId < 1) return undefined;
   if (colorId === undefined || colorId < 0 || colorId >= MAP_PLAYER_COLOR_COUNT) return undefined;
-  if (type !== PLAYER_TYPE_HUMAN && type !== PLAYER_TYPE_AI) return undefined;
-  return { player, type: type === PLAYER_TYPE_HUMAN ? 'human' : 'ai', tribeId, colorId };
+  if (type !== PLAYER_TYPE_NONE && type !== PLAYER_TYPE_HUMAN && type !== PLAYER_TYPE_AI) return undefined;
+  return {
+    player,
+    type: type === PLAYER_TYPE_NONE ? 'none' : type === PLAYER_TYPE_HUMAN ? 'human' : 'ai',
+    tribeId,
+    colorId,
+  };
 }
 
 /** `add <player> <kind> [<houseType>]` to a starting paper, or undefined when malformed. */

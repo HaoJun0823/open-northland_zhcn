@@ -10,9 +10,9 @@ import { isMapComputerSeat } from '../../../game/session-url.js';
 /** One map player slot as `maps-index.json` lists it. */
 export type MapPlayerSlot = MapsIndexPlayerSlot;
 
-/** What a free claimable seat does once the game starts: nothing, the strategic AI plays it, or it
- *  is left off the map. */
-export type VacantMode = 'idle' | 'ai' | 'absent';
+/** Script follows the map’s AI toggles, AI enables every available module, and Idle keeps the
+ *  entities without AI control. Absent belongs only to an authored closed seat. */
+export type VacantMode = 'script' | 'idle' | 'ai' | 'absent';
 
 export { OBSERVER_SEAT, OVERSEER_SEAT } from '@open-northland/lockstep';
 
@@ -34,20 +34,17 @@ export function startingDifficulty(slot: MapPlayerSlot): AiDifficulty {
 /** What the lobby lets a person claim, which is what the session then plays. */
 export type SeatChoice = LocalSeat;
 
-/** An `ai` slot auto-plays when the lobby allows AI at all; a `human` one idles. */
+/** Authored computer seats follow the script; human seats idle and closed seats stay absent. */
 export function authoredVacantMode(slot: MapPlayerSlot): VacantMode {
-  return slot.type === 'ai' && slot.aiAllowed ? 'ai' : 'idle';
+  if (slot.type === 'none') return 'absent';
+  return isMapComputerSeat(slot) || (slot.type === 'ai' && slot.aiAllowed) ? 'script' : 'idle';
 }
 
 /** The vacant modes the map's `playeroption` row offers the seat, in the lobby's order. Idle is
  *  always there: it is a person's seat nobody took. The map's own computer seat keeps its mode. */
 export function vacantOffers(slot: MapPlayerSlot): VacantMode[] {
   if (!slot.claimable) return [authoredVacantMode(slot)];
-  return [
-    ...(slot.aiAllowed ? ['ai' as const] : []),
-    'idle',
-    ...(slot.noneAllowed ? ['absent' as const] : []),
-  ];
+  return [...(slot.aiAllowed ? ['script' as const, 'ai' as const] : []), 'idle'];
 }
 
 /** A seat the map gives a civilization may be played as any other; a monster seat keeps its tribe. */
@@ -55,15 +52,14 @@ export function offersTribeChoice(slot: MapPlayerSlot): boolean {
   return isCivilizationTribe(slot.tribeId);
 }
 
-/** A seat the strategic AI plays at a level once the computer holds it: a free seat of a civilization, or
- *  the map's own computer seat of one. A monster seat runs no strategic AI, and neither does a seat
- *  whose map script stops it, a scripted camp. */
+/** Claimable civilization seats offer full AI difficulty; a locked computer needs active strategic
+ *  modules. Monster tribes have no strategic difficulty. */
 export function offersDifficulty(slot: MapPlayerSlot): boolean {
   return (
     (slot.claimable || isMapComputerSeat(slot)) &&
     !slot.hidden &&
     slot.aiAllowed &&
-    slot.strategicAi &&
+    (slot.claimable || slot.strategicAi) &&
     offersTribeChoice(slot)
   );
 }
@@ -151,11 +147,15 @@ export function aiSeats(state: RosterState, players: readonly MapPlayerSlot[]): 
     .map((p) => p.player);
 }
 
-/** The offered seats left off the map, what `?absent=` carries. */
-export function absentSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
-  return vacantSeatsIn(state, players, 'absent')
-    .filter((p) => p.noneAllowed)
+/** Offered seats running the map’s AI configuration. */
+export function scriptSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
+  return vacantSeatsIn(state, players, 'script')
+    .filter((p) => p.aiAllowed)
     .map((p) => p.player);
+}
+
+export function idleSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
+  return vacantSeatsIn(state, players, 'idle').map((p) => p.player);
 }
 
 function vacantSeatsIn(

@@ -84,14 +84,14 @@ describe('mapSession', () => {
       [0, 'human'],
       [1, 'ai'],
       [2, 'ai'],
-      [3, 'ai'],
-      [6, 'ai'],
+      [3, 'script'],
+      [6, 'script'],
     ]);
     expect(modes('map=forteca&player=6')).toEqual([
       [0, 'idle'],
       [1, 'idle'],
-      [2, 'idle'],
-      [3, 'ai'],
+      [2, 'script'],
+      [3, 'script'],
       [6, 'human'],
     ]);
   });
@@ -171,7 +171,7 @@ describe('sessionSearch', () => {
 
   it('leaves the map’s own computer seats out of `?ai=`, which lists the person’s choices', () => {
     const parsed = mapSession(new URLSearchParams('map=forteca&player=0&ai=2&seed=9'), SCENARIO_ROSTER);
-    expect(parsed.seats.filter((seat) => seat.mode === 'ai').map((seat) => seat.player)).toEqual([2, 3, 6]);
+    expect(parsed.seats.filter((seat) => seat.mode === 'ai').map((seat) => seat.player)).toEqual([2]);
     const search = sessionSearch(parsed, SCENARIO_ROSTER);
     expect(search.toString()).toBe('map=forteca&player=0&ai=2&seed=9');
     expect(mapSession(search, SCENARIO_ROSTER)).toEqual(parsed);

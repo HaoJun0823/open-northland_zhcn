@@ -52,5 +52,5 @@ export function applyInitialSeatControl(
   session: GameSession,
   tick: number | null,
 ): void {
-  if (isInitial(session, tick)) applyInitialSaveSeats(opened.sim, session);
+  if (isInitial(session, tick)) applyInitialSaveSeats(opened.sim, session, opened.initialSeatSetups);
 }

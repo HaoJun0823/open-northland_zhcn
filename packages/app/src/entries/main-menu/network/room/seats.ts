@@ -20,7 +20,7 @@ import type { NetworkRoomDeps } from './types.js';
 
 const { AI_DIFFICULTIES } = components;
 
-const ROOM_VACANT_ORDER: readonly VacantSeatMode[] = ['idle', 'ai', 'absent'];
+const ROOM_VACANT_ORDER: readonly VacantSeatMode[] = ['script', 'ai', 'idle', 'absent'];
 
 export function roomSeats(deps: NetworkRoomDeps) {
   const { client, copy } = deps;
@@ -185,7 +185,14 @@ export function roomSeats(deps: NetworkRoomDeps) {
         }
         const mine = seat.nick === client.nick;
         name.textContent =
-          seat.nick ?? (seat.mode === 'ai' ? copy.ai : seat.mode === 'absent' ? copy.absentSeat : copy.empty);
+          seat.nick ??
+          (seat.mode === 'script'
+            ? copy.script
+            : seat.mode === 'ai'
+              ? copy.ai
+              : seat.mode === 'absent'
+                ? copy.absentSeat
+                : copy.empty);
         const slot = deps.mapPreview?.(room.settings.world)?.players.find((slot) => slot.player === player);
         faction.textContent =
           localizedMapText(slot?.name, currentLocale()) ??
@@ -211,7 +218,10 @@ export function roomSeats(deps: NetworkRoomDeps) {
         mode.update(seat.mode, !permissions.creator || seat.nick !== null);
         tribe?.update(seat, !canSetSeatTribe(room, seat, client.nick, connected));
         // Only a seat the computer plays takes a level.
-        difficulty.root.classList.toggle('is-unused', seat.difficulty === undefined || seat.mode !== 'ai');
+        difficulty.root.classList.toggle(
+          'is-unused',
+          seat.difficulty === undefined || (seat.mode !== 'ai' && seat.mode !== 'script'),
+        );
         if (seat.difficulty !== undefined)
           difficulty.update(seat.difficulty, !canSetSeatDifficulty(room, client.nick, connected));
         take.disabled = !canClaimSeat(room, seat, client.nick, connected);
@@ -229,7 +239,9 @@ export function roomSeats(deps: NetworkRoomDeps) {
     },
     update(room: RoomView, connected: boolean): void {
       shown = { room, connected };
-      const hasDifficulty = room.seats.some((seat) => seat.mode === 'ai' && seat.difficulty !== undefined);
+      const hasDifficulty = room.seats.some(
+        (seat) => (seat.mode === 'ai' || seat.mode === 'script') && seat.difficulty !== undefined,
+      );
       root.classList.toggle('has-difficulty', hasDifficulty);
       if (difficultyHeading instanceof HTMLElement) difficultyHeading.hidden = !hasDifficulty;
       const present = new Set(room.seats.map((seat) => seat.player));

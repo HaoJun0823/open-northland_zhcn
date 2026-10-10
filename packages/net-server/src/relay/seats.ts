@@ -56,7 +56,7 @@ export class SeatTable {
     const seat = this.at(player);
     if (seat === null) return null;
     if (fallout === 'idle' || (fallout !== undefined && seat.offers.includes(fallout))) return fallout;
-    return seat.vacantMode === 'absent' ? 'idle' : seat.vacantMode;
+    return seat.vacantMode === 'ai' ? 'ai' : 'idle';
   }
 
   /** A departure's handover, which stands whatever the lobby offered. */
@@ -138,7 +138,9 @@ export class SeatTable {
       mode,
       color: seat.color,
       ...(tribes === undefined || tribes.current === tribes.authored ? {} : { tribe: tribes.current }),
-      ...(mode !== 'ai' || seat.difficulty === undefined ? {} : { difficulty: seat.difficulty }),
+      ...((mode !== 'ai' && mode !== 'script') || seat.difficulty === undefined
+        ? {}
+        : { difficulty: seat.difficulty }),
     };
   }
 }

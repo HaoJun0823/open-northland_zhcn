@@ -289,3 +289,23 @@ describe('buildMapWorld', () => {
     expect(sim.papers(2)).toEqual([]);
   });
 });
+
+it('omits a closed authored seat’s entities, AI and match participation', () => {
+  const { sim } = buildMapWorld({
+    ...NO_SESSION_FLAGS,
+    map: authoredMapFile(AUTHORED_ENTITIES),
+    ir: AUTHORED_IR,
+    playerRoster: [{ player: 0, type: 'none', tribeId: 1, colorId: 0 }],
+    aiSeats: [0],
+    assistantSeats: [0],
+    matchParticipants: [0, 1],
+  });
+  expect(
+    [...sim.world.query(components.Owner)].filter(
+      (entity) => sim.world.get(entity, components.Owner).player === 0,
+    ),
+  ).toEqual([]);
+  expect([...sim.world.query(components.Building)]).toHaveLength(1);
+  expect(components.isAiPlayer(sim.world, 0)).toBe(false);
+  expect(sim.matchRules().participants).toEqual([1]);
+});

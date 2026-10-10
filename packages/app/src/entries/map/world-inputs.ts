@@ -1,10 +1,13 @@
 import type { ContentSet, MapScript, TerrainMapFile } from '@open-northland/data';
-import { type GameSession, localPlayerOf } from '@open-northland/lockstep';
+import { mapLobbySlots } from '@open-northland/data';
+import { type GameSession, localPlayerOf, parseSavedSessionMetadata } from '@open-northland/lockstep';
 import { DESCRIPTOR_WORLD } from '@open-northland/net-protocol';
 import { type Entity, parseSaveGame, type SaveGame } from '@open-northland/sim';
 import { buildingFootprints } from '../../content/ir/joins.js';
 import type { ContentIr } from '../../content/ir/rows.js';
+import { mapAiControl } from '../../game/map-ai-control.js';
 import { sessionMapScript } from '../../game/seat-tribes.js';
+import { mapSession } from '../../game/session-url.js';
 import { sessionWorldOptions } from '../../game/session-world.js';
 import { servedOverLoopback } from '../../session/worker/loopback.js';
 import type { RelayedBuild } from '../../session/worker/net-world-port.js';
@@ -106,5 +109,26 @@ export function buildRelayedMapWorld(
   const { saveText, ...inputs } = boot;
   const save = snapshot ?? (saveText === null ? null : parseSaveGame(saveDocumentOf(saveText)));
   const world = buildMapWorldFromInputs({ ...inputs, save });
-  return { ...world, generation: save === null ? DESCRIPTOR_WORLD : save.header.tick };
+  const previous =
+    save === null
+      ? null
+      : (parseSavedSessionMetadata(save.header.session)?.descriptor ??
+        mapSession(
+          new URLSearchParams(save.header.entry ?? ''),
+          inputs.script === null ? [] : mapLobbySlots(inputs.script),
+        ));
+  const seated = sessionMapScript(inputs.session, inputs.script, inputs.ir);
+  const initialSeatSetups =
+    previous === null
+      ? []
+      : inputs.session.seats.map((seat) => ({
+          previousMode: previous.seats.find((row) => row.player === seat.player)?.mode ?? ('idle' as const),
+          command: {
+            kind: 'setPlayerAi' as const,
+            player: seat.player,
+            enabled: seat.mode === 'ai' || seat.mode === 'script',
+            ...mapAiControl(seat.player, seated.script?.players ?? [], seated.world, seat.mode === 'ai'),
+          },
+        }));
+  return { ...world, generation: save === null ? DESCRIPTOR_WORLD : save.header.tick, initialSeatSetups };
 }

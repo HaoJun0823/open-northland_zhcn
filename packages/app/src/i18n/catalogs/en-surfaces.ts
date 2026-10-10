@@ -76,11 +76,12 @@ export const enSurfaces = {
       freeSlot: 'Open slot',
       human: 'Human',
       scenarioControl: 'AI - locked',
+      vacantScript: 'Script',
       vacantComputer: 'Computer',
       vacantIdle: 'Idle',
       vacantAbsent: 'None',
       vacantToggleTitle:
-        'What a free seat does once the game starts: Idle does nothing, Computer will play automatically, None removes its settlers and buildings from the map.',
+        'Script follows the map’s AI settings; AI enables every available module; Idle leaves the seat without AI control.',
       sit: 'Sit here',
       footnote:
         'The map defines the slots - none can be added or removed. You can move by sitting in an open slot.',

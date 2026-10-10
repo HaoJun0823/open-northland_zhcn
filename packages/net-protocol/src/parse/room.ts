@@ -48,9 +48,9 @@ import { assertNever, parseLine, parseNick } from './text.js';
 
 const ROOM_STATES = ['lobby', 'running', 'ended'] as const satisfies readonly RoomState[];
 
-const SEAT_MODES = keysOf<SeatMode>({ human: true, ai: true, idle: true, absent: true });
+const SEAT_MODES = keysOf<SeatMode>({ human: true, script: true, ai: true, idle: true, absent: true });
 const WEATHER_MODES = keysOf<WeatherMode>({ map: true, variable: true, winter: true });
-export const VACANT_SEAT_MODES = keysOf<VacantSeatMode>({ ai: true, idle: true, absent: true });
+export const VACANT_SEAT_MODES = keysOf<VacantSeatMode>({ script: true, ai: true, idle: true, absent: true });
 export const DEPARTED_SEAT_MODES = keysOf<DepartedSeatMode>({ ai: true, idle: true });
 export const DEPARTURE_CAUSES = keysOf<DepartureCause>({ vote: true, left: true });
 export const AI_DIFFICULTIES = keysOf<AiDifficulty>({ easy: true, medium: true, hard: true });

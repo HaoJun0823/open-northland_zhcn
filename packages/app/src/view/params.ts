@@ -39,7 +39,19 @@ export function menuSearch(current = new URLSearchParams(window.location.search)
 
 /** The world and seat selection a save records so a menu load can relaunch the session; carried
  *  settings and diagnostic pins stay out, so a relaunch takes those from the player's own session. */
-const ENTRY_PARAMS = ['map', 'scene', 'player', 'colors', 'tribes', 'ai', 'seed'] as const;
+const ENTRY_PARAMS = [
+  'map',
+  'scene',
+  'player',
+  'colors',
+  'tribes',
+  'ai',
+  'script',
+  'idle',
+  'absent',
+  'difficulty',
+  'seed',
+] as const;
 
 export function entrySearch(current = new URLSearchParams(window.location.search)): string | null {
   const target = new URLSearchParams();
@@ -77,7 +89,7 @@ export function postFxParam(params: URLSearchParams): boolean | null {
  * Parse a `?<name>=<seat>[,<seat>...]` seat list, such as `?ai=`, the seats handed to the strategic AI
  * player when a map starts. Malformed entries are dropped.
  */
-export function seatListParam(params: URLSearchParams, name: 'ai' | 'absent'): number[] {
+export function seatListParam(params: URLSearchParams, name: 'ai' | 'script' | 'idle' | 'absent'): number[] {
   const raw = params.get(name);
   if (raw === null) return [];
   const seats: number[] = [];

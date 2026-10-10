@@ -65,17 +65,18 @@ export function localSeatElements(
     if (row.kind === 'scenario') {
       const cell = document.createElement('div');
       cell.className = 'main-menu__lobby-locked';
-      cell.textContent = lobby.scenarioControl;
+      cell.textContent = row.slot.type === 'none' ? lobby.vacantAbsent : lobby.scenarioControl;
       return cell;
     }
     const labels: Record<VacantMode, string> = {
+      script: lobby.vacantScript,
       ai: lobby.vacantComputer,
       idle: lobby.vacantIdle,
       absent: lobby.vacantAbsent,
     };
     const choices = vacantOffers(row.slot).map((id) => ({ id, label: labels[id] }));
     if (choices.length === 1) {
-      // The map's `playeroption` row offers neither AI nor None: vacant means idle, no choice.
+      // The map's `playeroption` row forbids AI: a vacant seat stays idle.
       const cell = document.createElement('div');
       cell.className = 'main-menu__lobby-locked';
       cell.textContent = lobby.vacantIdle;

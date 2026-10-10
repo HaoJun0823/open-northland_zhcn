@@ -1,4 +1,4 @@
-import { parseSavedSessionMetadata, type WeatherMode } from '@open-northland/lockstep';
+import { parseSavedSessionMetadata, type SessionSeat, type WeatherMode } from '@open-northland/lockstep';
 import type { RoomSeatSetup } from '@open-northland/net-protocol';
 import type { SaveGame } from '@open-northland/sim';
 import { weatherModeParam } from '../../../game/session-rules.js';
@@ -21,10 +21,14 @@ export function savedWeatherMode(save: SaveGame): WeatherMode | null {
   return save.header.entry === null ? null : weatherModeParam(new URLSearchParams(save.header.entry));
 }
 
-export function restoreSavedSeats(save: SaveGame, authored: readonly RoomSeatSetup[]): RoomSeatSetup[] {
+export function restoreSavedSeats(
+  save: SaveGame,
+  authored: readonly RoomSeatSetup[],
+  singlePlayerSeats?: readonly SessionSeat[],
+): RoomSeatSetup[] {
   const saved = savedRoster(save);
-  if (saved === null) return [...authored];
-  const seats = saved.descriptor.seats;
+  const seats = saved?.descriptor.seats ?? singlePlayerSeats;
+  if (seats === undefined) return [...authored];
   const players = new Set(authored.map((seat) => seat.player));
   if (seats.length !== players.size || seats.some((seat) => !players.has(seat.player)))
     throw new Error('Saved roster does not match its map');

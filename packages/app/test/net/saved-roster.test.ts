@@ -47,6 +47,27 @@ describe('saved multiplayer roster', () => {
     ]);
     expect(savedRoster(save)?.roster[0]?.nick).toBe('Ania');
   });
+  it('retains single-player Script, AI and Idle modes instead of resetting them to the map defaults', () => {
+    const single = { ...save, header: { ...save.header, session: null } };
+    const seats = [
+      { player: 0, mode: 'idle' as const, color: 0 },
+      { player: 1, mode: 'script' as const, color: 1 },
+      { player: 2, mode: 'ai' as const, color: 2 },
+    ];
+    const map = [
+      ...authored,
+      {
+        player: 2,
+        mode: 'script' as const,
+        claimable: true,
+        offers: ['script' as const, 'idle' as const],
+        color: 2,
+      },
+    ];
+    const restored = restoreSavedSeats(single, map, seats);
+    expect(restored.map((seat) => seat.mode)).toEqual(['idle', 'script', 'ai']);
+    expect(restored[2]?.offers).toContain('ai');
+  });
   it('keeps a saved computer seat’s level, and hard where the save names none', () => {
     const levelled = authored.map((seat) => ({ ...seat, difficulty: 'medium' as const }));
     const withLevel = createSavedSessionMetadata(

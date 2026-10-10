@@ -33,6 +33,7 @@ export {
 export {
   applyInitialSaveSeats,
   type InitialSaveIdentity,
+  type InitialSaveSeatSetup,
   parseInitialSaveIdentity,
 } from './session/initial-save.js';
 export {

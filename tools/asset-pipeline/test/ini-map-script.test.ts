@@ -157,14 +157,14 @@ esult "AddTributeGoods" 15 "coin" 40
 player 0 #PLAYER_TYPE_HUMAN #TRIBE_TYPE_HUMAN_VIKING #PLAYER_COLOR_ID_BLUE
 player 0 #PLAYER_TYPE_AI #TRIBE_TYPE_HUMAN_FRANK #PLAYER_COLOR_ID_RED
 player X #PLAYER_TYPE_AI #TRIBE_TYPE_HUMAN_FRANK #PLAYER_COLOR_ID_RED
-player 3 #PLAYER_TYPE_NONE #TRIBE_TYPE_HUMAN_FRANK #PLAYER_COLOR_ID_RED
+player 3 99 #TRIBE_TYPE_HUMAN_FRANK #PLAYER_COLOR_ID_RED
 player 4 #PLAYER_TYPE_AI 0 #PLAYER_COLOR_ID_RED
 player 5 #PLAYER_TYPE_AI #TRIBE_TYPE_HUMAN_FRANK 99
 ......................................................................
 `;
     const script = extractMapScript(parseIniSections(text), SRC);
     expect(script?.players).toEqual([{ player: 0, type: 'human', tribeId: 1, colorId: 0 }]);
-    // The duplicate, the unparsable row, the PLAYER_TYPE_NONE row, the out-of-range tribe/colour
+    // The duplicate, the unparsable row, the unknown type row, the out-of-range tribe/colour
     // rows (which would otherwise fail the whole map at the final schema parse) and the decoration
     // line all stay lossless in misc instead of vanishing.
     expect(script?.misc.map((l) => l.key)).toEqual([
@@ -575,4 +575,10 @@ goalwonbydance 4
       { kind: 'wonByMission' },
     ]);
   });
+});
+
+it.each(['#PLAYER_TYPE_NONE', '0'])('preserves a closed authored player (%s)', (type) => {
+  const script = extractMapScript(parseIniSections(`[playerdata]\nplayer 2 ${type} 1 4\n`), SRC);
+  expect(script?.players).toEqual([{ player: 2, type: 'none', tribeId: 1, colorId: 4 }]);
+  expect(script?.misc).toEqual([]);
 });

@@ -97,11 +97,12 @@ export const deSurfaces = {
       freeSlot: 'Freier Platz',
       human: 'Mensch',
       scenarioControl: 'KI – gesperrt',
+      vacantScript: 'Skript',
       vacantComputer: 'Computer',
       vacantIdle: 'Untätig',
       vacantAbsent: 'Keiner',
       vacantToggleTitle:
-        'Was ein freier Spielerplatz nach Spielbeginn tut: „Untätig“ unternimmt nichts, „Computer“ spielt automatisch, „Keiner“ entfernt seine Siedler und Gebäude von der Karte.',
+        'Skript folgt den KI-Einstellungen der Karte; KI aktiviert alle verfügbaren Module; Inaktiv lässt den Platz ohne KI-Steuerung.',
       sit: 'Platz nehmen',
       footnote:
         'Die Karte legt die Spielerplätze fest. Es können keine hinzugefügt oder entfernt werden. Du kannst wechseln, indem du einen freien Platz einnimmst.',

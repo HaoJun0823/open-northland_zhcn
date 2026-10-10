@@ -4,8 +4,22 @@ import { SETTINGS, stage, TOKEN_A, TOKEN_B } from './support/message-stage.js';
 
 /** A seat a person may take, a free seat the computer plays at a level, and the map's own camp. */
 const LEVEL_SEATS: readonly RoomSeatSetup[] = [
-  { player: 0, mode: 'idle', claimable: true, offers: ['idle', 'ai'], color: 0, difficulty: 'medium' },
-  { player: 1, mode: 'ai', claimable: true, offers: ['idle', 'ai'], color: 1, difficulty: 'medium' },
+  {
+    player: 0,
+    mode: 'idle',
+    claimable: true,
+    offers: ['script', 'idle', 'ai'],
+    color: 0,
+    difficulty: 'medium',
+  },
+  {
+    player: 1,
+    mode: 'ai',
+    claimable: true,
+    offers: ['script', 'idle', 'ai'],
+    color: 1,
+    difficulty: 'medium',
+  },
   { player: 2, mode: 'ai', claimable: false, offers: ['ai'], color: 2 },
 ];
 
@@ -66,5 +80,23 @@ describe('computer seat levels in the lobby', () => {
     const { a } = lobby({ ...SETTINGS, initialSave: { fingerprint: 'a'.repeat(64), tick: 73 } });
     a.send({ kind: 'setSeat', player: 1, difficulty: 'easy' });
     expect(a.last('rejected')?.reason).toEqual({ code: 'savedSeatsFixed' });
+  });
+});
+
+it('keeps Script as the vacant mode and carries it into the shared session', () => {
+  const { a, b, seat } = lobby();
+  a.send({ kind: 'setSeat', player: 1, mode: 'script' });
+  expect(seat(1)).toMatchObject({ mode: 'script', difficulty: 'medium' });
+  b.send({ kind: 'claimSeat', player: 1 });
+  expect(seat(1)?.mode).toBe('human');
+  b.send({ kind: 'leaveRoom' });
+  expect(a.last('room')?.room.seats.find((seat) => seat.player === 1)?.mode).toBe('script');
+  a.send({ kind: 'setReady', ready: true });
+  a.send({ kind: 'start' });
+  expect(a.last('start')?.session.seats).toContainEqual({
+    player: 1,
+    mode: 'script',
+    color: 1,
+    difficulty: 'medium',
   });
 });

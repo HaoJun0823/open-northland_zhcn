@@ -1,5 +1,6 @@
 import {
   type GameSession,
+  type InitialSaveSeatSetup,
   LockstepDriver,
   parseGameSession,
   type SessionDriver,
@@ -45,6 +46,7 @@ export interface OpenedWorld {
   readonly sim: Simulation;
   readonly generation: number;
   readonly initialSaveFingerprint?: string;
+  readonly initialSeatSetups?: readonly InitialSaveSeatSetup[];
 }
 
 /** A world the client adopted, numbered so a host can tell it from the worlds before and after it. */

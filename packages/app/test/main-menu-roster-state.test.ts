@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  absentSeats,
   aiSeats,
   claimSeat,
   hasClaimableSeat,
   initialRosterState,
   OBSERVER_SEAT,
+  scriptSeats,
   setSlotColor,
   setVacantMode,
   vacantOffers,
@@ -74,7 +74,7 @@ describe('roster state', () => {
     expect(aiSeats(state, players)).toEqual([]);
   });
 
-  it('defaults a claimable authored-ai slot to AI and drops it when toggled to idle', () => {
+  it('defaults a claimable authored-ai slot to Script and drops it when toggled to idle', () => {
     // A lobby-opened seat (Forteca/Mosty style): authored ai, playeroption offers human. The
     // non-claimable slot 2 is the map's own computer seat, which is not the lobby's to list.
     const lobby = [
@@ -113,8 +113,8 @@ describe('roster state', () => {
       },
     ] as const;
     const state = claimSeat(initialRosterState(lobby), 0);
-    expect(aiSeats(state, lobby)).toEqual([1]);
-    expect(aiSeats(setVacantMode(state, 1, 'idle'), lobby)).toEqual([]);
+    expect(scriptSeats(state, lobby)).toEqual([1]);
+    expect(scriptSeats(setVacantMode(state, 1, 'idle'), lobby)).toEqual([]);
   });
 
   it('never lists a Human/Closed-only seat as AI', () => {
@@ -159,48 +159,18 @@ describe('roster state', () => {
       hidden: false,
       strategicAi: true,
     } as const;
-    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: true })).toEqual(['ai', 'idle', 'absent']);
-    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: false })).toEqual(['ai', 'idle']);
+    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: true })).toEqual(['script', 'ai', 'idle']);
+    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: false })).toEqual(['script', 'ai', 'idle']);
     expect(vacantOffers({ ...seat, aiAllowed: false, noneAllowed: false })).toEqual(['idle']);
     const computer = { ...seat, type: 'ai', claimable: false, aiAllowed: true, noneAllowed: true } as const;
-    expect(vacantOffers(computer)).toEqual(['ai']);
+    expect(vacantOffers(computer)).toEqual(['script']);
   });
 
-  it('never lists a seat the map offers no None as absent', () => {
-    const lobby = [
-      {
-        player: 0,
-        type: 'human',
-        tribeId: 1,
-        colorId: 0,
-        claimable: true,
-        hidden: false,
-        aiAllowed: true,
-        noneAllowed: true,
-        strategicAi: true,
-      },
-      {
-        player: 1,
-        type: 'human',
-        tribeId: 1,
-        colorId: 1,
-        claimable: true,
-        hidden: false,
-        aiAllowed: true,
-        noneAllowed: false,
-        strategicAi: true,
-      },
-    ] as const;
-    const state = setVacantMode(claimSeat(initialRosterState(lobby), 0), 1, 'absent');
-    expect(absentSeats(state, lobby)).toEqual([]);
-  });
-
-  it('lists an absent seat until someone sits in it, and never as AI', () => {
-    let state = claimSeat(initialRosterState(players), 0);
-    state = setVacantMode(state, 1, 'absent');
-    expect(absentSeats(state, players)).toEqual([1]);
-    expect(aiSeats(state, players)).toEqual([]);
-    expect(absentSeats(claimSeat(state, 1), players)).toEqual([]);
+  it('keeps closed authored seats out of the selectable modes', () => {
+    const closed = { ...players[2], type: 'none' as const };
+    expect(vacantOffers(closed)).toEqual(['absent']);
+    expect(initialRosterState([closed]).vacantModes.get(2)).toBe('absent');
+    expect(scriptSeats(initialRosterState([closed]), [closed])).toEqual([]);
   });
 
   it('keeps authored duplicate colours pickable for their own slot and blocks new duplicates', () => {

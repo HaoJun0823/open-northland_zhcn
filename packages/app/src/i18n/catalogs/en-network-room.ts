@@ -22,6 +22,7 @@ export const enNetworkRoom = {
   empty: 'Open seat',
   human: 'Player',
   seatMode: 'Seat mode',
+  script: 'Script',
   ai: 'Computer',
   idle: 'Idle',
   absent: 'None',

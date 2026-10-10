@@ -1,4 +1,4 @@
-import type { GameSession } from '@open-northland/lockstep';
+import type { GameSession, InitialSaveSeatSetup } from '@open-northland/lockstep';
 import { decodeSnapshot, type OpenedWorld, type WorldPort } from '@open-northland/net-client';
 import type { SaveGame, Simulation } from '@open-northland/sim';
 import type { FromNetWorker, RelayedWorldAnswer } from './net-protocol.js';
@@ -8,6 +8,7 @@ import type { BuiltWorld } from './serve.js';
 /** A relayed world as built, with the generation its acknowledgements carry. */
 export interface RelayedBuild<E> extends BuiltWorld<E> {
   readonly generation: number;
+  readonly initialSeatSetups?: readonly InitialSaveSeatSetup[];
 }
 
 /** Builds a relayed world from the runtime's inputs, or restores it from a snapshot the relay served. */
@@ -86,6 +87,7 @@ export class RelayedWorldPort<B, E> implements WorldPort {
     request.resolve({
       sim,
       generation: built.generation,
+      ...(built.initialSeatSetups === undefined ? {} : { initialSeatSetups: built.initialSeatSetups }),
       ...(answer.initialSaveFingerprint === undefined
         ? {}
         : { initialSaveFingerprint: answer.initialSaveFingerprint }),

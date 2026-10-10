@@ -27,13 +27,13 @@ export function isCivilizationTribe(tribe: number): boolean {
 
 /**
  * One `player <slot> <type> <tribe> <colorId>` roster row. `type` is `PLAYER_TYPE_HUMAN 1` (a seat a
- * person may take) or `PLAYER_TYPE_AI 2` (script-driven); `tribeId` is the `TRIBE_TYPE_HUMAN_*` code
+ * person may take), `PLAYER_TYPE_AI 2` (script-driven), or `PLAYER_TYPE_NONE 0` (closed); `tribeId` is the `TRIBE_TYPE_HUMAN_*` code
  * (1 viking … 7 egypt) and `colorId` the `PLAYER_COLOR_ID_*` code (0 blue … 9 black).
  */
 export const MapPlayerSlot = z.strictObject({
   /** 0-based player slot id - the same key `StaticObjects` placements and diplomacy rows use. */
   player: z.number().int().nonnegative(),
-  type: z.enum(['human', 'ai']),
+  type: z.enum(['none', 'human', 'ai']),
   tribeId: z.number().int().positive(),
   colorId: z
     .number()

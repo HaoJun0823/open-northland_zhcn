@@ -37,7 +37,7 @@ export function matchParticipants(input: {
  */
 export function scriptMatchParticipants(script: Pick<MapScript, 'players' | 'misc'>): number[] {
   return matchParticipants({
-    controlled: script.players.map((row) => row.player),
+    controlled: script.players.filter((row) => row.type !== 'none').map((row) => row.player),
     aiSeats: [],
     neverDies: neverDiesSeats(script),
   });

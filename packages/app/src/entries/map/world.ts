@@ -1,11 +1,9 @@
-import {
-  type ContentSet,
-  type MapDiplomacy,
-  type MapScript,
-  type MapSpecialItem,
-  type TerrainMapFile,
-  WERESNAKE_TRIBE,
-  WEREWOLF_TRIBE,
+import type {
+  ContentSet,
+  MapDiplomacy,
+  MapScript,
+  MapSpecialItem,
+  TerrainMapFile,
 } from '@open-northland/data';
 import {
   components,
@@ -21,6 +19,7 @@ import {
 import type { ContentIr } from '../../content/ir/rows.js';
 import { spawnMapPalisades } from '../../content/map-palisades.js';
 import { buildScriptLandscapeTerrain } from '../../content/script-landscape.js';
+import { mapAiControl } from '../../game/map-ai-control.js';
 import { playerTribe } from '../../game/map-roster.js';
 import { PRIMARY_TRIBE } from '../../game/rules.js';
 import {
@@ -71,6 +70,8 @@ export interface MapWorldOptions extends SimSessionRules {
   /** The AI seats a person set to computer in the lobby, as against the map's own computer players, which
    *  its scripts drive; only these keep {@link LOBBY_AI_PEACE_TICKS}. */
   readonly lobbyAiSeats?: readonly number[];
+  /** Computer seats that enable all modules their tribe supports instead of the map’s toggles. */
+  readonly autonomousAiSeats?: readonly number[];
   /** How hard each computer seat the session names plays; an unnamed one plays hard. */
   readonly aiDifficulties?: ReadonlyMap<number, components.AiDifficulty>;
   readonly playerRoster?: MapScript['players'];
@@ -112,12 +113,18 @@ const LOBBY_AI_PEACE_MINUTES = 60;
 
 export const LOBBY_AI_PEACE_TICKS = LOBBY_AI_PEACE_MINUTES * SECONDS_PER_MINUTE * TICKS_PER_SECOND;
 
-/** The tribes whose computer seats get the scripted handler alone: the original
- *  withholds the strategic handler from a `PLAYER_TYPE_AI` seat of either. */
-const TRIBES_WITHOUT_STRATEGIC_AI: ReadonlySet<number> = new Set([WERESNAKE_TRIBE, WEREWOLF_TRIBE]);
-
 /** Session rules and visibility are applied before the briefing can pause the world. */
 export function buildMapWorld(options: MapWorldOptions): MapWorld {
+  const absent = new Set([
+    ...(options.absentSeats ?? []),
+    ...(options.playerRoster ?? []).filter((slot) => slot.type === 'none').map((slot) => slot.player),
+  ]);
+  options = {
+    ...options,
+    absentSeats: [...absent],
+    aiSeats: options.aiSeats.filter((seat) => !absent.has(seat)),
+    assistantSeats: options.assistantSeats.filter((seat) => !absent.has(seat)),
+  };
   const terrain = collisionTerrain(options.map, options.ir);
   const { sim, kind } = runWorld(options, terrain);
   setupPlacementTribes(sim, options.playerRoster);
@@ -189,22 +196,21 @@ function applySessionRules(sim: Simulation, options: MapWorldOptions): void {
     needs: options.needs,
     alliedVision: options.alliedVision,
   });
-  const roster = options.playerRoster === undefined ? null : { players: options.playerRoster };
   const scriptedOnly = new Set<number>();
   for (const seat of options.aiSeats) {
-    const authored = options.script?.ai?.find((row) => row.player === seat);
-    // `AI_Disable` stops both handlers yet leaves the seat a computer player; `HAI_Disable*` stops
-    // the named strategic modules alone, as does a monster tribe.
-    const strategicOff = authored?.disabled || TRIBES_WITHOUT_STRATEGIC_AI.has(playerTribe(roster, seat));
-    const off = strategicOff ? components.AI_MODULE_IDS : (authored?.strategicOff ?? []);
-    if (components.AI_MODULE_IDS.every((id) => off.includes(id))) scriptedOnly.add(seat);
+    const control = mapAiControl(
+      seat,
+      options.playerRoster ?? [],
+      options.script,
+      options.autonomousAiSeats?.includes(seat) === true,
+    );
+    if (components.AI_MODULE_IDS.every((id) => control.modules?.[id] === false)) scriptedOnly.add(seat);
     const difficulty = options.aiDifficulties?.get(seat);
     sim.enqueueSetup({
       kind: 'setPlayerAi',
       player: seat,
       enabled: true,
-      ...(off.length > 0 ? { modules: Object.fromEntries(off.map((id) => [id, false])) } : {}),
-      ...(authored?.disabled ? { scripted: false } : {}),
+      ...control,
       ...(options.lobbyAiSeats?.includes(seat) ? { peaceUntil: LOBBY_AI_PEACE_TICKS } : {}),
       ...(difficulty === undefined ? {} : { difficulty }),
     });
@@ -218,7 +224,9 @@ function applySessionRules(sim: Simulation, options: MapWorldOptions): void {
     options.assistantSeats.filter((seat) => !scriptedOnly.has(seat)),
   );
   grantStartingPapers(sim, options.specialItems ?? []);
-  const participants = options.matchParticipants ?? (scripted ? options.script?.participants : undefined);
+  const participants = (
+    options.matchParticipants ?? (scripted ? options.script?.participants : undefined)
+  )?.filter((seat) => !options.absentSeats?.includes(seat));
   if (participants !== undefined) {
     const script = options.script;
     const goals =

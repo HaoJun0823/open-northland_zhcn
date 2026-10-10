@@ -1,5 +1,5 @@
-import { components, type Simulation } from '@open-northland/sim';
-import type { GameSession } from './descriptor.js';
+import { type Command, components, type Simulation } from '@open-northland/sim';
+import type { GameSession, SeatMode } from './descriptor.js';
 
 export interface InitialSaveIdentity {
   /** SHA-256 of the exact base64 snapshot text carried by the relay. */
@@ -19,13 +19,18 @@ export function parseInitialSaveIdentity(value: unknown): InitialSaveIdentity {
   return { fingerprint: raw.fingerprint, tick: raw.tick };
 }
 
-/**
- * A saved room changes seat control on its first resumed tick; saved rules and diplomacy stay intact.
- * Only a seat changing hands is re-seated: a seat the save already runs as the room seats it keeps its
- * saved handlers and module toggles (the map's `[AIData]` rows), which a bare `setPlayerAi` would reset
- * to a full computer player.
- */
-export function applyInitialSaveSeats(sim: Simulation, session: GameSession): void {
+/** The saved mode and map-specific setup for a seat whose control changes at resume. */
+export interface InitialSaveSeatSetup {
+  readonly previousMode: SeatMode;
+  readonly command: Extract<Command, { kind: 'setPlayerAi' }>;
+}
+
+/** Preserve saved dynamic AI switches unless the room changes the seat's control mode. */
+export function applyInitialSaveSeats(
+  sim: Simulation,
+  session: GameSession,
+  setups: readonly InitialSaveSeatSetup[] = [],
+): void {
   if (session.initialSave === undefined || sim.tick !== session.initialSave.tick) {
     throw new Error('initial save seat setup requires the declared saved tick');
   }
@@ -33,10 +38,13 @@ export function applyInitialSaveSeats(sim: Simulation, session: GameSession): vo
     (envelope) => envelope.origin === 'admin' && envelope.command.kind === 'setPlayerAi',
   );
   for (const seat of session.seats) {
-    const enabled = seat.mode === 'ai';
-    if (components.isAiPlayer(sim.world, seat.player) === enabled) continue;
+    const enabled = seat.mode === 'ai' || seat.mode === 'script';
+    const setup = setups.find((row) => row.command.player === seat.player);
+    const modeChanged = setup !== undefined && setup.previousMode !== seat.mode;
+    if (!modeChanged && components.isAiPlayer(sim.world, seat.player) === enabled) continue;
     const { difficulty } = seat;
     sim.enqueueSetup({
+      ...setup?.command,
       kind: 'setPlayerAi',
       player: seat.player,
       enabled,

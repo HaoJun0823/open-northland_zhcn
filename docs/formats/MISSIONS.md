@@ -312,7 +312,7 @@ reports `missionUnsupported` once; the same tickets carry them.
 | 1 | `SetHuman` | 1, 3, 4, 16, 17, 10, 29 | spawn one human at the point with the id and behaviour flags | sim | 2067 |
 | 2 | `SetVehicle` | 1, 3, 5, 16, 17, 12, 30 | spawn a vehicle with the id; with the captain flag also spawn its commander of the type's `logiccommander` trade at the door, carrying the vehicle's id, attach and board it, and take the human back when either is refused ([VEHICLES.md](VEHICLES.md#map-scripts)) | sim | 154 |
 | 3 | `SetHouse` | 1, 19, 8, 20, 16, 17, 14 | place a house of the named type at the nearest buildable spot within 12 points, finished when the built flag is set and as a construction site when it is 0, with the id; warns when no spot exists | sim | 30 |
-| 4 | `SetLandscape` | 16, 17, 18, 8, 32 | replace the landscape at the point using the named graphic; size and final-flag limitations below | both | 760 |
+| 4 | `SetLandscape` | 16, 17, 18, 8, 32 | lay the named graphic at the point at the given size, replacing what is anchored there; size 0 clears the point, and the force flag skips the free-ground check (rules below) | both | 760 |
 | 5 | `RemoveHumans` | 10 | remove every human with the id, silently (no death statistics, no cadaver) | sim | 96 |
 | 6 | `RemoveVehicles` | 12 | remove every vehicle with the id, no wreck and no spill; a crew steps onto a door on land | sim | 16 |
 | 7 | `RemoveHouses` | 14 | remove every house with the id | sim | 3 |
@@ -354,7 +354,7 @@ reports `missionUnsupported` once; the same tickets carry them.
 | 43 | `EnableGood` | 1, 3, 6 | mark the good produceable for the player's tribe; the producing job is untouched (only a chest reward enables it) | sim | 101 |
 | 44 | `ChangePlayerIdInArea` | 1, 2, 16, 17, 9 | hand everything of the first player within `range` to the second; its humans are detached from houses as under `ChangeHumanPlayerId` | sim | 134 |
 | 45 | `SetDiplomacyNotChangeableFlag` | 1, 2, 32 | set or clear the pair's not-changeable flag in both directions (original behavior), which takes the diplomacy window's stance buttons away; this build's lock refuses a seat's `declareDiplomacy` | sim | 189 |
-| 46 | `RemoveFXWaveLandscapeInArea` | 16, 17, 9 | remove the explicit wave-group graphics within `range` | both | 0 |
+| 46 | `RemoveFXWaveLandscapeInArea` | 16, 17, 9 | remove the wave-group graphics within `range` (membership below) | both | 0 |
 | 47 | `1 Open/0 CloseWallGate` | 1, 16, 17, 32 | open or close the player's completed wall gate at the point. Here: the point may be the gate's anchor or any node its closed body blocks, and the swap takes the same transition a seat's own gate command does, so a close onto an occupied passage is refused and reported, where the original swaps the gate unconditionally (adaptation) | sim | 14 |
 | 48 | `Mission quit and play video` | 7 | request the FMV `Seq_NNNN` at exit (out of scope: game video) | app | 0 |
 | 49 | `SetPlayerBehaviourFlag` | 1, 7, 32 | OR or clear the mask on every current human of the player | sim | 240 |
@@ -376,7 +376,7 @@ reports `missionUnsupported` once; the same tickets carry them.
 | 65 | `RemoveGoodsFromMapArea` | 6, 7, 16, 17, 9, 32, 1 | pick goods up the same way; with the flag, out of the player's houses' own stock first | sim | 31 |
 | 66 | `ChangeMissionIdOfHumanInRange` | 1, 10, 16, 17, 9 | give the player's humans within `range` the id | sim | 39 |
 | 67 | `ChangeMissionIdOfPlayer` | 1, 10 | give every human of the player the id | sim | 1 |
-| 68 | `SetVertexColor` | 16, 17, 9, 7 | save a palette index on terrain nodes within `range` and update the display | both | 413 |
+| 68 | `SetVertexColor` | 16, 17, 9, 7 | save a palette index on the map cells within `range` and update the display (rules below) | both | 413 |
 | 69 | `RemoveLandscapesInArea` | 16, 17, 9 | remove live landscape placements and their sprites strictly closer than `range` to the point (a range of 0 or 1 clears the point alone); the group removals below include the ring at `range` | both | 11 |
 | 70 | `MoveUnitsInArea` | 1, 16, 17, 9, 36, 37 | teleport up to 20 free humans and up to 20 vehicles of the player from within `range` of the first point to near the second, when the second lies farther than `range`; a vehicle riding a carrier stays. Here: vehicles are placed on the destination even when occupied, then each receives the ordinary move order; a missing commander can refuse that order without undoing the teleport. Not yet verified against the running original | sim | 346 |
 | 71 | `SetHouseExtensionLevel` | 14, 7 | rebuild up to 10 houses with the id at the new level in place | sim | 1 |
@@ -387,12 +387,12 @@ reports `missionUnsupported` once; the same tickets carry them.
 | 76 | `InfoCountHumenInArea` | 1, 36, 27, 16, 17, 9, 37 | live count of the player's humans within `range`, civilians and soldiers | sim | 0 |
 | 77 | `InfoCountSoldiersInArea` | 1, 36, 27, 16, 17, 9, 37 | live count of the player's soldiers within `range` | sim | 0 |
 | 78 | `InfoCountAnimalsInArea` | 1, 36, 27, 3, 16, 17, 9, 37 | live count of the player's animals of the species within `range` | sim | 8 |
-| 79 | `RemoveFXSmokeLandscapeInArea` | 16, 17, 9 | remove the explicit smoke-group graphics within `range` (membership below) | both | 1 |
+| 79 | `RemoveFXSmokeLandscapeInArea` | 16, 17, 9 | remove the smoke-group graphics within `range` (membership below) | both | 1 |
 | 80 | `ChangeAnimalPlayerIdInArea` | 1, 3, 16, 17, 9, 7, 2 | hand up to `amount` (0: all, cap 50) animals of the species within `range` to the second player | sim | 6 |
 | 81 | `RemoveHPsOfHousesInArea` | 1, 16, 17, 9, 7 | take `hp` from up to 100 houses of the player within `range` unless the house is indestructible; floor at zero | sim | 99 |
 | 82 | `RemoveBlockerLandscapeInArea` | 16, 17, 9 | remove `block` landscapes and their collision within `range` | both | 1 |
-| 83 | `RemoveFX1LandscapeInArea` | 16, 17, 9 | remove small fire, smoke, fog, and waterfall graphics within `range` (membership below) | both | 1 |
-| 84 | `RemoveFX2LandscapeInArea` | 16, 17, 9 | remove the explicit fire/smoke graphics within `range` (membership below) | both | 1 |
+| 83 | `RemoveFX1LandscapeInArea` | 16, 17, 9 | remove the fog and waterfall graphics within `range` (membership below) | both | 1 |
+| 84 | `RemoveFX2LandscapeInArea` | 16, 17, 9 | remove the fire and smoke graphics within `range` (membership below) | both | 1 |
 | 85 | `SetCameraPosition` | 16, 17 | end any follow mode and set the display's wanted position to the point (reading). Here: the `missionCamera` event and a jump | app | 197 |
 | 86 | `SetHumanX` | 1, 3, 4, 16, 17, 10, 29, 7 | `SetHuman` repeated `count` times | sim | 1371 |
 | 87 | `RemoveHPsOfHousesInAreaX` | 1, 16, 17, 9, 7, 14 | as 81, skipping houses with the id | sim | 0 |
@@ -405,7 +405,7 @@ reports `missionUnsupported` once; the same tickets carry them.
 | 94 | `ChangeMissionIdOfVehiclesInRange` | 1, 12, 16, 17, 9 | give the player's vehicles within `range` the id | sim | 0 |
 | 95 | `RemoveVehiclesWithMissionId` | 12, 32 | remove up to 50 vehicles with the id, and their crews first when the flag is set; the presentation callback the original stages around each is not mirrored (open) | sim | 0 |
 | 96 | `SetImportLandscapeMarker` | 16, 17, 32 | place a kind-2 marker entity on the point, or with the flag clear free every kind-2 marker there (reading). Here: the `missionImportMarker` event and the marker overlay, which borrows the GUI marker's first bob for want of the entity's own art (approximation) | both | 0 |
-| 97 | `SetVertexColorOnLand` | 16, 17, 9, 7 | save a palette index on land nodes within `range` (nodes whose cell is not painted water on both triangles, the same mask ships sail by) and update the display | both | 17 |
+| 97 | `SetVertexColorOnLand` | 16, 17, 9, 7 | `SetVertexColor` limited to land cells (rules below) | both | 17 |
 | 98 | `ChangeMissionIdOfPlayersVehiclesOnContinent` | 1, 16, 17, 12 | give the player's vehicles standing on the continent of the point the id, a moored ship judged by its mooring point | sim | 0 |
 | 99 | `ChangeMissionIdOfVehicles` | 12, 36 | renumber vehicles from one id to another | sim | 12 |
 | 100 | `SetRandomChestOnPosition` | 7, 16, 17 | choose a reward from the category mask and drop a wooden chest at the nearest free point on the same landmass, searching through radius 9 | sim | 41 |
@@ -945,40 +945,52 @@ sim. All 109 distinct authored names resolve in the baseline corpus. The source 
 footprints and indices. `Data/logic/landscapetypes.ini` provides logic classification. Effects and
 `block` all have logic type 1 (`void`), so that classification cannot distinguish removal groups.
 
-The shipped `Tools/result list EN.pdf` supplies these memberships, interpreted against actual
-`EditName` spellings. Its `fx fire2`, `fx fire house0` and `fx fx waterfall` spellings are normalized
-to the corresponding source names below. This interpretation remains unconfirmed in the running game.
-A reading of the original's behavior disagrees: FX1 excludes small fire/smoke, while Smoke additionally
-includes small fire and land waves. The implementation follows the readable reference pending an
-owned-game observation that resolves this conflict.
+Each group removal matches the anchored placements of these exact names on every point within
+`range` (original behavior). The shipped `Tools/result list EN.pdf` disagrees for two groups: it lists
+FX1 with small fire and smoke, and Smoke without small fire or land waves.
 
 | Removal group | Exact graphic names |
 | --- | --- |
 | Blocker | `block` |
 | Wave | `fx wave`, `fx wave land` |
-| FX1 | `fx fire small`, `fx smoke`, `fx fog`, `fx fog waterfall`, `fx fog waterfall00`, `fx waterfall` |
+| FX1 | `fx fog`, `fx fog waterfall`, `fx fog waterfall00`, `fx waterfall` |
 | FX2 | `fx fire`, `fx fire 2`, `fx fire house 0`, `fx fire house 1`, `fx fire house 2`, `fx fire small`, `fx smoke` |
-| Smoke | `fx smoke`, `fx fire`, `fx fire 2`, `fx fire incense`, `fx fog`, `fx fog waterfall`, `fx fog waterfall00`, `fx waterfall` |
+| Smoke | `fx smoke`, `fx fire`, `fx fire 2`, `fx fire small`, `fx wave land`, `fx fire incense`, `fx fog`, `fx fog waterfall`, `fx fog waterfall00`, `fx waterfall` |
 
 Placement removals/additions, construction exclusions and vertex palette indices persist in the
 simulation save. Live resources own the lifetime of their associated landscape placement, so depletion
 cannot restore a removed tree or mineral deposit. Changing a landscape updates collision and its
 sprite; ordinary maps keep the existing collision path.
 
-The result reference calls `SetLandscape`'s fourth value **Size** and gives only `1` for the final
-flag. The implementation preserves size as the placement level and replaces the object at its anchor;
-the final flag has no modeled effect. These are approximations. Chest sizes reach 96 although their
-graphics have one frame state: the value cannot generally mean a frame number.
+`SetLandscape point name size force` follows these rules (original behavior):
 
-The vertex color argument is a palette index, corroborated by the result reference and the owned
+- An unknown name, or a point a house or one of two other, unidentified occupant kinds holds, lays
+  nothing.
+- Size 0 clears the landscape anchored on the point.
+- The logic type's `allowedoneverything`, `allowedonland` and `allowedonwater` must admit the
+  point's ground and the ground under every node of the graphic's build area. A node is land when a
+  triangle touching it can be walked, water when every triangle touching it is water, and neither
+  otherwise; only `allowedoneverything` admits the latter.
+- The size is read unsigned and capped at the lower of the graphic's `LogicMaximumValency` and the
+  logic type's `maximumValency`, so a negative size lays the maximum.
+- The same graphic at the same size already anchored on the point is left as it is.
+- A graphic with a walk area at that size needs, without the force flag, a walk area that no build
+  area covers, the build area of the placement being replaced included; it then clears every
+  landscape anchored on its walk area. With the flag it skips both. A graphic without a walk area
+  needs a point no walk area blocks, flag or not.
+
+The shipped scripts set the force flag on most lines. Chest sizes reach 96 although their
+graphics have one frame state: the size cannot generally mean a frame number.
+
+`SetVertexColor point range index` stores one palette index per map cell. The point's cell takes it,
+and so do `range >> 1` less one rings of cells around it, clipped to the map; the index is the low
+byte of the value. `SetVertexColorOnLand` skips a cell in the two-cell map border and a cell whose
+own node is not land (original behavior). The index points into the owned
 `Data/engine2d/bin/palettes/misc/vertexcolors.pcx`, whose colour table the pipeline writes to
-`terrain-palettes/vertexcolors.json`. The display applies RGB/128 as an approximated multiplier,
-pending comparison with the original; [SCRIPT-TINTS.md](SCRIPT-TINTS.md) covers how the shipped maps
-use it and how the scene draws it. Values outside 0 to 255 are
-clamped, an approximation for malformed input. Land-only edits conservatively require both
-source cell triangles to have known `isWater=false`, then mark their four half-cell nodes. Shoreline
-membership and this cell-to-node projection remain approximations; missing ground metadata does not
-invent a land mask.
+`terrain-palettes/vertexcolors.json`. The ground multiplies its lit colour by each channel / 128,
+clamped to 255, and shades each triangle between the colours of its three corner cells (original
+behavior). [SCRIPT-TINTS.md](SCRIPT-TINTS.md) covers how the shipped maps use it and how the scene
+draws it.
 
 ## Sub-missions
 

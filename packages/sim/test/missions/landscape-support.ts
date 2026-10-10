@@ -1,3 +1,4 @@
+import { GROUND_LAND, GROUND_WATER } from '@open-northland/data';
 import { Simulation, type TerrainMap } from '../../src/index.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 import { houseContent } from './support.js';
@@ -15,7 +16,7 @@ export const WALL = {
 export function map(): TerrainMap {
   return {
     ...grassNodeMap(16, 16),
-    landVertices: Array.from({ length: 256 }, (_, n) => n % 16 < 8),
+    groundKinds: Array.from({ length: 256 }, (_, n) => (n % 16 < 8 ? GROUND_LAND : GROUND_WATER)),
     landscapes: {
       types: [WALL, { typeId: 2, walk: [], build: [], groups: ['smoke'] }],
       placements: [

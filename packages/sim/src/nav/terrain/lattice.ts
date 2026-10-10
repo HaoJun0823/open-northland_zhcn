@@ -9,7 +9,13 @@
  * rectangular lattice with one parity-independent neighbour table. The ground edges a step needs follow
  * the original's row parity (`edges.ts`).
  */
-import { HEX_EDGE_COUNT, hexEdgeNeighbourX, hexEdgeNeighbourY, oppositeHexEdge } from '@open-northland/data';
+import {
+  GROUND_WATER,
+  HEX_EDGE_COUNT,
+  hexEdgeNeighbourX,
+  hexEdgeNeighbourY,
+  oppositeHexEdge,
+} from '@open-northland/data';
 import { type LandscapeProps, UNKNOWN_LANDSCAPE_PROPS } from './landscape-props.js';
 import type { NodeId } from './node-id.js';
 
@@ -59,14 +65,16 @@ export abstract class TerrainLattice {
    *  two neighbouring nodes a mover may stand on are joined. An edge is open from both its nodes or from
    *  neither, which the route search's goal-side half and the component labels rely on. */
   protected readonly groundEdges: Uint8Array | undefined;
+  /** Each node's `GroundKind`, the original's continent type; absent, every unwalkable node reads as
+   *  water. */
+  readonly groundKinds: Uint8Array | undefined;
 
   constructor(
     width: number,
     height: number,
     typeIds: Int32Array,
     props: ReadonlyMap<number, LandscapeProps>,
-    /** Ground vertex land mask, row-major; absent, every unwalkable node reads as water. */
-    readonly landVertices?: readonly boolean[],
+    groundKinds?: readonly number[],
     groundEdges?: ArrayLike<number>,
   ) {
     if (width <= 0 || height <= 0) throw new Error(`terrain dimensions must be positive: ${width}x${height}`);
@@ -75,9 +83,10 @@ export abstract class TerrainLattice {
         `terrain grid has ${typeIds.length} nodes, expected ${width * height} (${width}x${height})`,
       );
     }
-    if (landVertices !== undefined && landVertices.length !== width * height) {
-      throw new Error(`land vertex mask has ${landVertices.length} nodes, expected ${width * height}`);
+    if (groundKinds !== undefined && groundKinds.length !== width * height) {
+      throw new Error(`ground kind lane has ${groundKinds.length} nodes, expected ${width * height}`);
     }
+    this.groundKinds = groundKinds === undefined ? undefined : Uint8Array.from(groundKinds);
     if (groundEdges !== undefined && groundEdges.length !== width * height) {
       throw new Error(`ground edge lane has ${groundEdges.length} nodes, expected ${width * height}`);
     }
@@ -158,10 +167,10 @@ export abstract class TerrainLattice {
     return (this.checkedSlot(this.flags, node) & WALKABLE) !== 0;
   }
 
-  /** Open water: ground no unit walks and no land vertex claims, so a rock face or a tree trunk on land
+  /** Open water: ground no unit walks whose kind is water, so a rock face or a tree trunk on land
    *  stays land. A ship sails where this holds. */
   isWater(node: NodeId): boolean {
-    return !this.isWalkable(node) && this.landVertices?.[node] !== true;
+    return !this.isWalkable(node) && (this.groundKinds?.[node] ?? GROUND_WATER) === GROUND_WATER;
   }
 
   /** Whether a mover of `traversal` may stand on this node: {@link isWalkable} on land, {@link isWater}

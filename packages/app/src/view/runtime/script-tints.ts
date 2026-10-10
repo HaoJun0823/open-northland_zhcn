@@ -4,9 +4,9 @@ import type { SimEvent } from '@open-northland/sim';
 import { loadVertexPalette } from '../../content/vertex-palette.js';
 import type { SessionHost } from '../../session/index.js';
 
-/** Share of the map's nodes one palette index must cover to be the scene's tint rather than a local one. */
+/** Share of the map's cells one palette index must cover to be the scene's tint rather than a local one. */
 export const WHOLE_MAP_SHARE = 0.6;
-/** The palette entry a node never tinted holds: neutral grey. */
+/** The palette entry a cell never tinted holds: neutral grey. */
 const NEUTRAL_INDEX = 0;
 /** vertexcolors.pcx channels use 128 as neutral and multiply the lit colour. */
 const NEUTRAL_CHANNEL = 128;
@@ -18,8 +18,8 @@ const RGB = 3;
 export interface ScriptTintSplit {
   /** The palette colour the whole-map tint asks for; null for daylight or no whole-map tint. */
   readonly scene: LightGrade | null;
-  /** RGB terrain multipliers per node id over the scene's multiply, which is {@link scene} clamped
-   *  to 1; a node of the whole-map tint is 1, so the ground brightens only as the scene pass does. */
+  /** RGB terrain multipliers per map cell over the scene's multiply, which is {@link scene} clamped
+   *  to 1; a cell of the whole-map tint is 1, so the ground brightens only as the scene pass does. */
   readonly colors: Float32Array;
 }
 
@@ -68,14 +68,40 @@ export function splitScriptTints(
         local === null ? 1 : (local[c] ?? 1) / Math.max(MIN_SCENE_CHANNEL, Math.min(1, channel));
     }
   }
-  for (let node = 0; node < tints.length; node++) {
-    const from = (tints[node] ?? NEUTRAL_INDEX) * RGB;
-    const to = node * RGB;
+  for (let cell = 0; cell < tints.length; cell++) {
+    const from = (tints[cell] ?? NEUTRAL_INDEX) * RGB;
+    const to = cell * RGB;
     colors[to] = byIndex[from] ?? 1;
     colors[to + 1] = byIndex[from + 1] ?? 1;
     colors[to + 2] = byIndex[from + 2] ?? 1;
   }
   return { scene, colors };
+}
+
+/**
+ * Per-node RGB multipliers from per-cell ones on a map `columns` cells wide: each cell's colour on its
+ * corner node `(2c + (r & 1), 2r)`, every other node neutral. The ground mesh's vertices are those
+ * corners, so the GPU shades each triangle between its three corner colours as the original does.
+ */
+export function cellColorsToCorners(
+  cellColors: Float32Array,
+  columns: number,
+  out?: Float32Array,
+): Float32Array {
+  const rows = columns === 0 ? 0 : cellColors.length / RGB / columns;
+  const nodesX = 2 * columns;
+  const size = nodesX * 2 * rows * RGB;
+  const colors = out?.length === size ? out : new Float32Array(size);
+  colors.fill(1);
+  for (let cy = 0; cy < rows; cy++) {
+    const hy = 2 * cy;
+    for (let cx = 0; cx < columns; cx++) {
+      const from = (cy * columns + cx) * RGB;
+      const to = (hy * nodesX + 2 * cx + (cy & 1)) * RGB;
+      for (let c = 0; c < RGB; c++) colors[to + c] = cellColors[from + c] ?? 1;
+    }
+  }
+  return colors;
 }
 
 interface ScriptTintSurface {
@@ -105,7 +131,7 @@ export async function mountScriptTints(
     host.missions?.missions.some((mission) =>
       mission.results.some((op) => op.opcode === 'SetVertexColor' || op.opcode === 'SetVertexColorOnLand'),
     ) === true;
-  // The palette is fetched once, and only for a map whose author or script tints a node.
+  // The palette is fetched once, and only for a map whose author or script tints a cell.
   let paletteLoad: Promise<VertexPalette | null> | null = null;
   const paletteFor = (tints: Uint8Array): Promise<VertexPalette | null> => {
     if (paletteLoad === null) {
@@ -114,7 +140,8 @@ export async function mountScriptTints(
     }
     return paletteLoad;
   };
-  let colors: Float32Array = new Float32Array(0);
+  let cellColors: Float32Array = new Float32Array(0);
+  let nodeColors: Float32Array = new Float32Array(0);
   // Each answer is the whole tint state, so only the latest asked is applied, and none once disposed
   // or once the map proved to have no tint to show.
   let asked = 0;
@@ -130,11 +157,12 @@ export async function mountScriptTints(
       const palette = await paletteFor(edits.tints);
       untinted = palette === null;
       if (palette === null || request !== asked || disposed) return;
-      const split = splitScriptTints(edits.tints, palette, colors, pinnedIndex);
-      colors = split.colors;
+      const split = splitScriptTints(edits.tints, palette, cellColors, pinnedIndex);
+      cellColors = split.colors;
+      nodeColors = cellColorsToCorners(cellColors, edits.tintColumns, nodeColors);
       surface.setSceneLight(split.scene, !applied);
       applied = true;
-      surface.applyTerrainVertexColors(colors);
+      surface.applyTerrainVertexColors(nodeColors);
     });
   };
   sync();

@@ -376,27 +376,35 @@ export interface LandscapeEditView {
   /** Authored ids no longer standing, ascending: removed by a script or reaped as a resource. */
   readonly removed: readonly number[];
   readonly added: readonly ScriptLandscapePlacement[];
-  /** The vertex colour palette index per node id: the script's write, else the map author's; a node
-   *  neither tinted holds 0, the neutral entry. */
+  /** The vertex colour palette index per map cell, row-major over {@link tintColumns}: the script's
+   *  write, else the map author's; a cell neither tinted holds 0, the neutral entry. */
   readonly tints: Uint8Array;
+  readonly tintColumns: number;
 }
 
 export function landscapeEdits(world: World, terrain: TerrainGraph | undefined): LandscapeEditView {
   const state = landscapeEditState(world);
   if (terrain === undefined)
-    return { revision: landscapeRevision(world), removed: [], added: [], tints: new Uint8Array(0) };
+    return {
+      revision: landscapeRevision(world),
+      removed: [],
+      added: [],
+      tints: new Uint8Array(0),
+      tintColumns: 0,
+    };
   const resources = landscapeResources(world);
   const removed = new Set(state.removed);
   for (const placement of authoredLandscapes(terrain).resourceBacked) {
     if (!resources.has(placement.id)) removed.add(placement.id);
   }
-  const tints = new Uint8Array(terrain.nodeCount);
+  const tints = new Uint8Array(terrain.cellColumns * terrain.cellRows);
   terrain.copyAuthoredTints(tints);
-  for (const [node, value] of state.tints) tints[node] = value;
+  for (const [cell, value] of state.tints) tints[cell] = value;
   return {
     revision: landscapeRevision(world),
     removed: [...removed].sort((a, b) => a - b),
     added: state.added.filter((p) => p.resourceBacked !== true || resources.has(p.id)).map((p) => ({ ...p })),
     tints,
+    tintColumns: terrain.cellColumns,
   };
 }

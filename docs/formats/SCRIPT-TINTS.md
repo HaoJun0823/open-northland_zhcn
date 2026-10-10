@@ -2,7 +2,7 @@
 
 How a map's vertex colours reach the screen: the author's own `emvc` lane and a script's
 `SetVertexColor point range index` / `SetVertexColorOnLand` writes over it. Presentation only; the
-sim stores one palette index per half-cell node and never reads the look.
+sim stores one palette index per map cell, as the original does, and never reads the look.
 
 ## What the op does
 
@@ -10,8 +10,9 @@ Original behavior (`packages/sim/src/systems/landscape/edits.ts`, `setVertexColo
 cell takes the index, and so do `range >> 1` less one rings of cells around it, so a range under 4
 paints one cell, 6 paints 19 cells and 900 the whole map. The disc is clamped to the map, so a point
 off the map still paints what lies on it (piracka_utopia's chain, copied from a 500x500 map). The
-`OnLand` variant skips water. The original keeps one index per cell; the sim keeps one per node and
-gives every node a painted cell owns the index.
+`OnLand` variant paints only land cells off the map border ([MISSIONS.md](MISSIONS.md#mutable-landscape-and-terrain)).
+A cell's colour sits on its corner node and the ground shades each triangle between its three corners
+(`cellColorsToCorners`, `packages/app/src/view/runtime/script-tints.ts`).
 
 ## What the shipped scripts do
 
@@ -38,7 +39,7 @@ No whole-map write is shorter than 15 s.
 The `emvc` lane (`docs/formats/MAPDAT.md`) is the same palette per cell, written in the editor. 38 of
 the shipped maps tint a cell with it (39 `map.dat` files, one a duplicate the pipeline skips): whole
 caves and cursed lands (czarnoksieznik_z_szeolu 98%, straznicypolnocy_sub1 78%, mroczny_swiat 34%),
-local decor on the rest. A node starts from its cell's entry and a script write replaces it, so the
+local decor on the rest. A cell starts from its authored entry and a script write replaces it, so the
 victory resets of czarnoksieznik_z_szeolu and mroczny_swiat (a whole-map `0`, six discs of `0`) lift
 an authored darkness, which is what the resets read as (observation from the scripts, unconfirmed
 against the running original). A whole-map authored tint is a scene grade like a scripted one;
@@ -49,10 +50,10 @@ czarnoksieznik_z_szeolu's four darks of 12..33% each stay on the ground.
 The original engine could tint only the ground mesh, so a scripted "night" left every building and
 settler in daylight. We read the author's intent instead:
 
-- The index covering at least 60% of the map's nodes (`WHOLE_MAP_SHARE`,
+- The index covering at least 60% of the map's cells (`WHOLE_MAP_SHARE`,
   `packages/app/src/view/runtime/script-tints.ts`) is the scene grade: its palette colour multiplied
   over everything the stage draws below the HUD (`packages/render/src/gpu/lighting/scene-light.ts`).
-  Nodes the author's disc missed (the corners of wielka_kolonizacja and krwawa_rzeka) take the grade
+  Cells the author's disc missed (the corners of wielka_kolonizacja and krwawa_rzeka) take the grade
   too, as their paired rain square does. An `OnLand` write that reaches the share grades the water
   with the land: the author dimmed the map, and the original's water simply could not take a tint.
 - Channels above 1 ("sunlight" 123..126, "clearing" 52) cannot multiply a sprite past its colour.
@@ -67,7 +68,5 @@ settler in daylight. We read the author's intent instead:
   map's nodes.
 - `?tint=<index>` holds an index as the whole-map tint for review (`docs/DEVELOPMENT.md`).
 
-The tint state crosses the sim worker as one `Uint8Array` over node ids and the renderer rewrites only
-the nodes that changed. Measured on magiczny_las at its first whole-map step (`SetVertexColor 180 260
-900 55`, 182400 nodes) with the browser frame probe (`docs/DEVELOPMENT.md`, `debug=perf`): the step's
-frame fell from 405 ms to 28-35 ms, the worker answer from 4.7 MB of node objects to 182 KB.
+The tint state crosses the sim worker as one `Uint8Array` over map cells; the app spreads it over the
+mesh nodes and the renderer rewrites only the nodes whose colour changed.

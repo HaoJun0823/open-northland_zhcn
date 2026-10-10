@@ -13,7 +13,8 @@ export interface LandscapeEditState {
   forbiddenRevision: number;
   /** The nodes a script closed to building: a set, kept as a Map because the save encodes Maps. */
   forbidden: Map<NodeId, boolean>;
-  tints: Map<NodeId, number>;
+  /** A script's vertex colour palette index per map cell, keyed `cy * cellColumns + cx`. */
+  tints: Map<number, number>;
 }
 
 const edits = defineWorldSingleton<LandscapeEditState>('LandscapeEdits', 'movement', () => ({

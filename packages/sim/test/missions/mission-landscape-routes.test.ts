@@ -142,9 +142,9 @@ describe('script landscape route invalidation', () => {
     sim.world.add(e, PathFollow, { index: 1, legElapsed: 0, legCost: 0 });
     editScriptedLandscape(passOf(sim), 0, {
       opcode: 'SetLandscape',
-      point: { hx: 3, hy: 3 },
+      point: { hx: 6, hy: 5 },
       landscape: 2,
-      level: 0,
+      level: 1,
       flag: false,
     });
     expect(sim.world.has(e, PathFollow)).toBe(true);
@@ -154,7 +154,7 @@ describe('script landscape route invalidation', () => {
       opcode: 'SetLandscape',
       point: { hx: 4, hy: 5 },
       landscape: 1,
-      level: 0,
+      level: 1,
       flag: false,
     });
     expect(sim.world.get(e, PathRoute).waypoints.at(-1)?.node).toBe(terrainOf(sim).nodeAt(4, 4));
@@ -183,18 +183,19 @@ describe('script landscape route invalidation', () => {
       opcode: 'SetLandscape',
       point: POINT,
       landscape: 1,
-      level: 0,
+      level: 1,
       flag: false,
     });
     expect(sim.world.has(e, PathFollow)).toBe(true);
     expect(dynamicBlockOverlay(sim.world, ctxOf(sim), terrain).has(terrain.nodeAt(9, 8))).toBe(true);
-    // The next pass starts afresh: laying the wall one point over closes (10,8), which was open.
+    // The next pass starts afresh: laying the wall one point over closes (10,8), which was open. It
+    // is forced, as the standing wall's build area covers that cell.
     editScriptedLandscape(passOf(sim), 0, {
       opcode: 'SetLandscape',
       point: { hx: 9, hy: 8 },
       landscape: 1,
-      level: 0,
-      flag: false,
+      level: 1,
+      flag: true,
     });
     expect(sim.world.has(e, PathFollow)).toBe(true);
     expect(sim.world.has(e, PathRequest)).toBe(false);
@@ -294,7 +295,7 @@ describe('script landscape route invalidation', () => {
       opcode: 'SetLandscape',
       point: POINT,
       landscape: 1,
-      level: 0,
+      level: 1,
       flag: false,
     });
     settleLandscapePass(plate);

@@ -432,6 +432,16 @@ export function buildingBlockedCells(
   return buildingBlockedLayer(world, ctx, terrain).cells;
 }
 
+/** The nodes a building's body covers, its doors and walls left out. The shared cached set:
+ *  membership reads only. */
+export function buildingBodyCells(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+): ReadonlySet<NodeId> {
+  return buildingCells(world, ctx.content, terrain).blocked;
+}
+
 /** {@link buildingBlockedCells} with its per-node counts, for the dynamic overlay. */
 export function buildingBlockedLayer(world: World, ctx: ContentContext, terrain: TerrainGraph): CountedCells {
   const buildings = buildingCells(world, ctx.content, terrain);

@@ -27,24 +27,8 @@ export const DEFAULT_WATER_ROUGHNESS = 1;
 /** The {@link TerrainGraph.componentOf} label of a node no mover class enters. */
 export const NO_COMPONENT = -1;
 
-/** The `vertexcolors` palette entry of a node no author or script ever tinted. */
+/** The `vertexcolors` palette entry of a cell no author or script ever tinted. */
 const NEUTRAL_TINT = 0;
-
-/** The per-cell `emvc` lane spread over the nodes each cell owns, the cells {@link cellOfNode} names.
- *  An edge node whose nudge lands off the map takes the cell on its side of the edge; a script disc
- *  measures from the off-map cell instead, so only a whole-map write is sure to repaint such a node. */
-function authoredTintsByNode(tints: readonly number[], width: number, height: number): Uint8Array {
-  const cellColumns = Math.ceil(width / 2);
-  const byNode = new Uint8Array(width * height);
-  for (let hy = 0; hy < height; hy++) {
-    for (let hx = 0; hx < width; hx++) {
-      const cell = cellOfNode(hx, hy);
-      const cx = Math.min(cellColumns - 1, Math.max(0, cell.cx));
-      byNode[hy * width + hx] = tints[cell.cy * cellColumns + cx] ?? NEUTRAL_TINT;
-    }
-  }
-  return byNode;
-}
 
 /**
  * The walking resistance of a road node, whatever ground lies under it. Original behavior: a road
@@ -82,8 +66,12 @@ export class TerrainGraph extends TerrainEdges {
   private componentBoxes: readonly ComponentBox[] | null = null;
   /** Per-node `lmpr` roughness, or undefined for the uniform default. */
   private readonly roughness: Uint8Array | undefined;
-  /** The map author's vertex colour palette index per node; absent, every node reads neutral. */
+  /** The map author's vertex colour palette index per cell, row-major over {@link cellColumns};
+   *  absent, every cell reads neutral. */
   private readonly authoredTints: Uint8Array | undefined;
+  /** Cells per map row: the vertex colour lanes' row stride. */
+  readonly cellColumns: number;
+  readonly cellRows: number;
   /** Per-node road flag, the world's road network mirrored by {@link syncRoads}. */
   private readonly roads: Uint8Array;
   private roadNodes: NodeId[] = [];
@@ -108,7 +96,7 @@ export class TerrainGraph extends TerrainEdges {
     typeIds: Int32Array,
     props: ReadonlyMap<number, LandscapeProps>,
     readonly landscapes?: LandscapeMapInput,
-    landVertices?: readonly boolean[],
+    groundKinds?: readonly number[],
     /** The original `lmco` continent id per node, the authored key fish swarms are matched on; the
      *  movers compare {@link componentOf} instead. */
     readonly waterContinents?: readonly number[],
@@ -117,7 +105,7 @@ export class TerrainGraph extends TerrainEdges {
     tints?: readonly number[],
     groundEdges?: ArrayLike<number>,
   ) {
-    super(width, height, typeIds, props, landVertices, groundEdges);
+    super(width, height, typeIds, props, groundKinds, groundEdges);
     if (waterContinents !== undefined && waterContinents.length !== this.nodeCount) {
       throw new Error(`water continent lane has ${waterContinents.length} nodes, expected ${this.nodeCount}`);
     }
@@ -134,23 +122,25 @@ export class TerrainGraph extends TerrainEdges {
       this.routeWeights[node] = routeWeightOf(this.roughnessAt(node));
       this.entryResistances[node] = this.isWalkable(node) ? this.roughnessAt(node) : 0;
     }
-    const cellCount = Math.ceil(width / 2) * Math.ceil(height / 2);
+    this.cellColumns = Math.ceil(width / 2);
+    this.cellRows = Math.ceil(height / 2);
+    const cellCount = this.cellColumns * this.cellRows;
     if (elevation !== undefined && elevation.length !== cellCount) {
       throw new Error(`elevation lane has ${elevation.length} cells, expected ${cellCount}`);
     }
     if (tints !== undefined && tints.length !== cellCount) {
       throw new Error(`vertex colour lane has ${tints.length} cells, expected ${cellCount}`);
     }
-    this.authoredTints = tints === undefined ? undefined : authoredTintsByNode(tints, width, height);
+    this.authoredTints = tints === undefined ? undefined : Uint8Array.from(tints);
     this.components = this.computeComponents();
   }
 
-  /** The author's vertex colour palette index at `node`, 0 for a cell the map never tinted. */
-  authoredTintAt(node: NodeId): number {
-    return this.authoredTints?.[node] ?? NEUTRAL_TINT;
+  /** The author's vertex colour palette index of cell `cy * cellColumns + cx`, 0 for one never tinted. */
+  authoredTintOfCell(cell: number): number {
+    return this.authoredTints?.[cell] ?? NEUTRAL_TINT;
   }
 
-  /** Writes every node's authored tint into `out` (one byte per node), neutral without a lane. */
+  /** Writes every cell's authored tint into `out` (one byte per cell), neutral without a lane. */
   copyAuthoredTints(out: Uint8Array): void {
     if (this.authoredTints !== undefined) out.set(this.authoredTints);
     else out.fill(NEUTRAL_TINT);

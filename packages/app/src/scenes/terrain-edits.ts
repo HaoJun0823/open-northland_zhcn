@@ -1,4 +1,5 @@
-import { SUCCESSFUL_IF, systems } from '@open-northland/sim';
+import { GROUND_LAND } from '@open-northland/data';
+import { cellOfNode, type Simulation, SUCCESSFUL_IF, systems } from '@open-northland/sim';
 import { grassTerrain } from '../catalog/buildings.js';
 import { JOB_SOLDIER_SWORD } from '../catalog/jobs.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../game/rules.js';
@@ -17,6 +18,12 @@ const AUTHORED_ROWS = 4;
 /** A node of an authored cell outside both scripted discs. */
 const AUTHORED = { hx: 2, hy: 2 };
 
+function tintOf(sim: Simulation, node: { readonly hx: number; readonly hy: number }): number | undefined {
+  const edits = sim.landscapeEdits();
+  const { cx, cy } = cellOfNode(node.hx, node.hy);
+  return edits.tints[cy * edits.tintColumns + cx];
+}
+
 function authoredTints(): number[] {
   return Array.from({ length: WIDTH * HEIGHT }, (_, cell) =>
     Math.floor(cell / WIDTH) < AUTHORED_ROWS ? AUTHORED_PALETTE_INDEX : 0,
@@ -27,7 +34,7 @@ export const terrainEditsScene: SceneDefinition = {
   id: 'terrain-edits',
   seed: 61,
   terrain: { ...grassTerrain(WIDTH, HEIGHT), tints: authoredTints() },
-  landVertices: new Array<boolean>(WIDTH * HEIGHT * 4).fill(true),
+  groundKinds: new Array<number>(WIDTH * HEIGHT * 4).fill(GROUND_LAND),
   build: (sim) =>
     sim.enqueueSetup({
       kind: 'spawnSettler',
@@ -58,25 +65,12 @@ export const terrainEditsScene: SceneDefinition = {
   checks: [
     {
       label: 'both terrain regions retain their scripted palette entries',
-      predicate: (sim) => {
-        const { terrain } = sim;
-        const tints = sim.landscapeEdits().tints;
-        return (
-          terrain !== undefined &&
-          tints[terrain.nodeAt(WEST.hx, WEST.hy)] === BROWN_PALETTE_INDEX &&
-          tints[terrain.nodeAt(EAST.hx, EAST.hy)] === GREEN_PALETTE_INDEX
-        );
-      },
+      predicate: (sim) =>
+        tintOf(sim, WEST) === BROWN_PALETTE_INDEX && tintOf(sim, EAST) === GREEN_PALETTE_INDEX,
     },
     {
       label: "the author's tint stays where no script wrote",
-      predicate: (sim) => {
-        const { terrain } = sim;
-        return (
-          terrain !== undefined &&
-          sim.landscapeEdits().tints[terrain.nodeAt(AUTHORED.hx, AUTHORED.hy)] === AUTHORED_PALETTE_INDEX
-        );
-      },
+      predicate: (sim) => tintOf(sim, AUTHORED) === AUTHORED_PALETTE_INDEX,
     },
   ],
 };

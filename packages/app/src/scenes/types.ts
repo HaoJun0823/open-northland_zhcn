@@ -19,9 +19,9 @@ export interface SceneWorld {
   readonly seed: number;
   /** Authored in cells; `createSceneSim` upsamples it to the sim's half-cell lattice. */
   readonly terrain: CellTerrainMap;
-  /** Optional dry-land mask on the half-cell grid: unwalkable ground off it is water a ship sails and
-   *  land-only terrain color edits skip. Omitted, every unwalkable node is water. */
-  readonly landVertices?: readonly boolean[];
+  /** Optional `GroundKind` per half-cell node: an unwalkable water node is water a ship sails, and
+   *  land-only terrain colour edits paint only land. Omitted, every unwalkable node is water. */
+  readonly groundKinds?: readonly number[];
   /** Runs once before any tick. */
   readonly build: (sim: Simulation) => void;
   /** Opts back into the needs mechanic; a scene world otherwise runs with needs off. */

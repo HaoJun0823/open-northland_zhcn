@@ -31,10 +31,10 @@ import { forEachPlacement } from './map-placements.js';
  * The raw per-cell `typeIds` lane is not consulted: it is the object lane collapsed per cell (its dominant
  * value, 1 = "void", is plain ground), so the object join is the authoritative, area-accurate source.
  *
- * The ground also yields the land vertex mask: a node every touching triangle of which is an `isWater`
- * row is sea, everything else is land, so an impassable rock face or the border stays land and only the
- * sea is water to a ship (`TerrainGraph.isWater`) and to a land-only vertex tint. It yields the edges a
- * walker or a ship may step along as well, the original's `lmtw` lane replayed.
+ * The ground also yields each node's kind (`groundLattice`): land where a touching triangle is walkable,
+ * water where every touching triangle is an `isWater` row, void otherwise. Ships sail the water kind
+ * (`TerrainGraph.isWater`); land-only vertex tints and landscape ground rules read the land kind. It
+ * yields the edges a walker or a ship may step along as well, the original's `lmtw` lane replayed.
  *
  * Missing lanes degrade, so a map with neither ground nor objects comes back all-open.
  */
@@ -214,8 +214,6 @@ export function buildCollisionTerrain(map: TerrainMapFile, ir: CollisionIrView):
     });
   }
 
-  const landVertices =
-    lattice === undefined ? undefined : Array.from(lattice.kinds, (k) => k !== GROUND_WATER);
   return {
     resolution: 'half-cell',
     width: nodeW,
@@ -223,7 +221,7 @@ export function buildCollisionTerrain(map: TerrainMapFile, ir: CollisionIrView):
     typeIds,
     ...(map.elevation !== undefined ? { elevation: map.elevation } : {}),
     ...(map.tints !== undefined ? { tints: map.tints } : {}),
-    ...(landVertices === undefined ? {} : { landVertices }),
+    ...(lattice === undefined ? {} : { groundKinds: Array.from(lattice.kinds) }),
     ...(lattice === undefined ? {} : { groundEdges: lattice.edges }),
     ...(map.continents !== undefined ? { waterContinents: map.continents } : {}),
     ...(map.roughness !== undefined ? { roughness: map.roughness } : {}),

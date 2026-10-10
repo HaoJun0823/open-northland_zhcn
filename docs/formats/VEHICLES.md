@@ -252,8 +252,8 @@ the only vehicle with the doubling; a turn costs 2 ticks per hexagon direction. 
 "interrupted") and returns to the current node.
 
 Open Northland: one `TerrainGraph` carries both mover classes (`Traversal`, `nav/terrain`): a
-settler, cart or catapult walks the land nodes, a ship sails the water nodes (unwalkable ground no
-land vertex claims), and the static component labels land and water bodies in one key space, land
+settler, cart or catapult walks the land nodes, a ship sails the water nodes (unwalkable ground of
+the water kind), and the static component labels land and water bodies in one key space, land
 first, so the goto's continent test and the dock ring search compare the same key on either side.
 The free-size class is the largest hex-disc radius of open same-continent nodes around the node,
 capped at 7, one field for land and water (`nav/clearance.ts`). Deviation (owner's choice): a land

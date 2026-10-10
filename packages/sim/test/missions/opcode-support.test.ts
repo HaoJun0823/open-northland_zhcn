@@ -143,7 +143,7 @@ const RESULT_SAMPLES: { [K in SupportedResult]: Extract<MissionResultOp, { opcod
   '1 Open/0 CloseWallGate': { opcode: '1 Open/0 CloseWallGate', player: 0, point: POINT, flag: true },
   StartSubMission: { opcode: 'StartSubMission', campaignId: 0, mapId: 1 },
   EndSubMission: { opcode: 'EndSubMission' },
-  SetLandscape: { opcode: 'SetLandscape', point: POINT, landscape: 1, level: 0, flag: false },
+  SetLandscape: { opcode: 'SetLandscape', point: POINT, landscape: 1, level: 1, flag: false },
   RemoveLandscape: { opcode: 'RemoveLandscape', point: POINT },
   RemoveLandscapesInArea: { opcode: 'RemoveLandscapesInArea', point: POINT, range: 1 },
   RemoveFXWaveLandscapeInArea: { opcode: 'RemoveFXWaveLandscapeInArea', point: POINT, range: 1 },

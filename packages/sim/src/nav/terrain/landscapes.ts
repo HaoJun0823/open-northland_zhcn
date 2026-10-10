@@ -2,6 +2,14 @@ import type { FootprintCell, LandscapeBlockArea } from '@open-northland/data';
 
 export type LandscapeRemovalGroup = 'blocker' | 'fx1' | 'fx2' | 'smoke' | 'wave';
 
+/** The ground a type may be laid on (`landscapetypes.ini` `allowedoneverything`, `allowedonland`,
+ *  `allowedonwater`): anywhere, or land and water by node kind. Void ground takes only `anywhere`. */
+export interface LandscapeGround {
+  readonly anywhere: boolean;
+  readonly land: boolean;
+  readonly water: boolean;
+}
+
 /** The resource a landscape type stands for, resolved by the caller: the felling and deposit balance
  *  constants live in the app catalog. A placed node adds its position and landscape id. */
 export interface ResourceSpec {
@@ -34,6 +42,11 @@ export interface ScriptLandscapeType {
     readonly build: readonly Readonly<LandscapeBlockArea>[];
   };
   readonly groups: readonly LandscapeRemovalGroup[];
+  /** The largest level a script may lay: the lower of the record's and its logic type's maximum
+   *  valency. Absent, a script level is laid as written. */
+  readonly maxLevel?: number;
+  /** Absent, the type may be laid anywhere. */
+  readonly ground?: LandscapeGround;
   readonly resource?: ResourceSpec;
   readonly bushGfxIndex?: number;
   /** A placed record backed by the interactive chest entity rather than the static landscape layer. */

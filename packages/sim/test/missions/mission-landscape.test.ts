@@ -1,3 +1,4 @@
+import { GROUND_VOID, GROUND_WATER } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { LandscapeResource, Resource, ResourceFootprint, Stockpile } from '../../src/components/index.js';
 import { landscapeEditState } from '../../src/components/landscape.js';
@@ -18,6 +19,9 @@ import { aiContent } from '../fixtures/ai-content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { fresh, map, POINT, terrainOf, WALL } from './landscape-support.js';
 import { HUT, houseContent, LOAD_PASS, missionSim } from './support.js';
+
+/** The 16x16 node fixture's cells per side. */
+const CELLS = 8;
 
 describe('script landscape state and blockers', () => {
   it('does not invalidate collision views for tints or mutate repeated identical writes', () => {
@@ -173,30 +177,46 @@ describe('script landscape state and blockers', () => {
     expect(placementProbe(sim.world, sim.content, terrain, HUT, undefined, []).canPlace(3, 3)).toBe(true);
     setVertexColors(sim.world, terrain, POINT, 1_000_000_000, 100, false);
     setVertexColors(sim.world, terrain, POINT, 1_000_000_000, 200, true);
-    const expected = new Uint8Array(terrain.nodeCount);
-    for (let hy = 0; hy < terrain.height; hy++) {
-      for (let hx = 0; hx < terrain.width; hx++) expected[terrain.nodeAt(hx, hy)] = hx < 8 ? 200 : 100;
+    // The fixture's west half is land; an OnLand write skips the two-cell map border and any cell
+    // whose anchor node is water.
+    const expected = new Uint8Array(CELLS * CELLS);
+    for (let cy = 0; cy < CELLS; cy++) {
+      for (let cx = 0; cx < CELLS; cx++) {
+        const border = cx < 2 || cy < 2 || cx >= CELLS - 2 || cy >= CELLS - 2;
+        expected[cy * CELLS + cx] = !border && 2 * cx + (cy & 1) < 8 ? 200 : 100;
+      }
     }
-    expect(expected).toHaveLength(256);
     expect(sim.landscapeEdits().tints).toEqual(expected);
+  });
+
+  it('paints only land with an OnLand write, not void ground, and keeps the low byte of the index', () => {
+    const kinds = map().groundKinds;
+    if (kinds === undefined) throw new Error('fixture carries ground kinds');
+    const groundKinds = kinds.map((kind) => (kind === GROUND_WATER ? GROUND_VOID : kind));
+    const sim = new Simulation({ seed: 1, content: houseContent(), map: { ...map(), groundKinds } });
+    const terrain = terrainOf(sim);
+    setVertexColors(sim.world, terrain, POINT, 1_000_000_000, 300, true);
+    const tints = sim.landscapeEdits().tints;
+    expect(tints[2 * CELLS + 2]).toBe(300 & 0xff);
+    expect(tints[2 * CELLS + 5]).toBe(0);
   });
 
   it("paints a tint as cells: the point's cell plus range/2 less one rings, clamped to the map", () => {
     const sim = fresh();
     const terrain = terrainOf(sim);
     const tinted = () => sim.landscapeEdits().tints.filter((value) => value !== 0).length;
-    // Every range under 4 is the centre cell alone, four nodes of the lattice.
+    // Every range under 4 is the centre cell alone.
     setVertexColors(sim.world, terrain, POINT, 3, 100, false);
-    expect(tinted()).toBe(4);
+    expect(tinted()).toBe(1);
     // Range 6: two rings, 1 + 6 + 12 cells.
     setVertexColors(sim.world, terrain, POINT, 6, 100, false);
-    expect(tinted()).toBe(4 * 19);
+    expect(tinted()).toBe(19);
     // A point off the map paints the part of its disc that lies on the map, here all of it.
     setVertexColors(sim.world, terrain, { hx: -40, hy: 8 }, 900, 100, false);
-    expect(tinted()).toBe(terrain.nodeCount);
+    expect(tinted()).toBe(CELLS * CELLS);
   });
 
-  it('paints every node of every cell within the radius, at the edges and on odd cell rows alike', () => {
+  it('paints every cell within the radius, at the edges and on odd cell rows alike', () => {
     for (const [point, range] of [
       [{ hx: 15, hy: 15 }, 8],
       [{ hx: 0, hy: 0 }, 6],
@@ -208,59 +228,38 @@ describe('script landscape state and blockers', () => {
       setVertexColors(sim.world, terrain, point, range, 100, false);
       const centre = cellOfNode(point.hx, point.hy);
       const radius = (range >> 1) - 1;
-      const expected = new Uint8Array(terrain.nodeCount);
-      for (let hy = 0; hy < terrain.height; hy++) {
-        for (let hx = 0; hx < terrain.width; hx++) {
-          const cell = cellOfNode(hx, hy);
-          if (hexDistanceBetween(cell.cx, cell.cy, centre.cx, centre.cy) <= radius)
-            expected[terrain.nodeAt(hx, hy)] = 100;
+      const expected = new Uint8Array(CELLS * CELLS);
+      for (let cy = 0; cy < CELLS; cy++) {
+        for (let cx = 0; cx < CELLS; cx++) {
+          if (hexDistanceBetween(cx, cy, centre.cx, centre.cy) <= radius) expected[cy * CELLS + cx] = 100;
         }
       }
       expect(sim.landscapeEdits().tints).toEqual(expected);
     }
   });
 
-  it("starts every node from the author's cell tint, which a script write replaces and a save keeps", () => {
+  it("starts every cell from the author's tint, which a script write replaces and a save keeps", () => {
     // An 8x8 cell lane under the 16x16 node fixture: the top cell rows dark, the rest neutral.
     const DARK = 58;
-    const tints = Array.from({ length: 64 }, (_, cell) => (cell < 16 ? DARK : 0));
+    const tints = Array.from({ length: CELLS * CELLS }, (_, cell) => (cell < 2 * CELLS ? DARK : 0));
     const sim = new Simulation({ seed: 1, content: houseContent(), map: { ...map(), tints } });
     const terrain = terrainOf(sim);
-    const expected = new Uint8Array(terrain.nodeCount);
-    for (let hy = 0; hy < terrain.height; hy++) {
-      for (let hx = 0; hx < terrain.width; hx++) {
-        const cell = cellOfNode(hx, hy);
-        expected[terrain.nodeAt(hx, hy)] = cell.cy < 2 ? DARK : 0;
-      }
-    }
-    expect(sim.landscapeEdits().tints).toEqual(expected);
+    expect(sim.landscapeEdits().tints).toEqual(Uint8Array.from(tints));
+    expect(sim.landscapeEdits().tintColumns).toBe(CELLS);
     expect(landscapeEditState(sim.world).tints.size).toBe(0);
     // Writing the author's own index changes nothing; a reset over it is a real write.
     const version = sim.world.mutationVersion;
     setVertexColors(sim.world, terrain, { hx: 2, hy: 2 }, 3, DARK, false);
     expect(sim.world.mutationVersion).toBe(version);
     setVertexColors(sim.world, terrain, { hx: 2, hy: 2 }, 3, 0, false);
-    expect(landscapeEditState(sim.world).tints.size).toBe(4);
-    expect(sim.landscapeEdits().tints[terrain.nodeAt(2, 2)]).toBe(0);
-    expect(sim.landscapeEdits().tints[terrain.nodeAt(2, 0)]).toBe(DARK);
+    expect(landscapeEditState(sim.world).tints.size).toBe(1);
+    const written = cellOfNode(2, 2);
+    expect(sim.landscapeEdits().tints[written.cy * CELLS + written.cx]).toBe(0);
+    expect(sim.landscapeEdits().tints[1]).toBe(DARK);
     const saved = parseSaveGame(JSON.parse(JSON.stringify(exportSaveGame(sim))));
     const restored = restoreSimulation(saved, { content: sim.content, map: { ...map(), tints } });
     expect(restored.landscapeEdits().tints).toEqual(sim.landscapeEdits().tints);
     expect(() => restoreSimulation(saved, { content: sim.content, map: map() })).toThrow(/mapFingerprint/);
-  });
-
-  it('gives an edge node whose cell nudge lands off the map the cell on its side', () => {
-    // Column 0 and column 7 of the 8x8 cell lane carry their own indices.
-    const tints = Array.from({ length: 64 }, (_, cell) => (cell % 8 === 0 ? 10 : cell % 8 === 7 ? 20 : 0));
-    const sim = new Simulation({ seed: 1, content: houseContent(), map: { ...map(), tints } });
-    const terrain = terrainOf(sim);
-    const view = sim.landscapeEdits().tints;
-    for (let hy = 0; hy < terrain.height; hy++) {
-      expect(view[terrain.nodeAt(0, hy)]).toBe(10);
-      expect(view[terrain.nodeAt(15, hy)]).toBe(20);
-    }
-    expect(view.filter((value) => value === 10)).toHaveLength(32);
-    expect(view.filter((value) => value === 20)).toHaveLength(32);
   });
 
   it('applies a scripted tint whose point lies off the map', () => {

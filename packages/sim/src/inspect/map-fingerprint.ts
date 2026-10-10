@@ -6,7 +6,7 @@ export function mapFingerprint(map: TerrainMap): string {
   const ground = terrainGridFingerprint(map);
   if (
     map.landscapes === undefined &&
-    map.landVertices === undefined &&
+    map.groundKinds === undefined &&
     map.groundEdges === undefined &&
     map.waterContinents === undefined &&
     map.fishSwarms === undefined &&
@@ -17,7 +17,7 @@ export function mapFingerprint(map: TerrainMap): string {
     {
       ground,
       landscapes: map.landscapes,
-      landVertices: map.landVertices,
+      groundKinds: map.groundKinds,
       waterContinents: map.waterContinents,
       fishSwarms: map.fishSwarms,
       tints: map.tints,

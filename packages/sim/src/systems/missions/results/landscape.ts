@@ -6,8 +6,10 @@ import { dynamicBlockOverlay } from '../../footprint/index.js';
 import {
   placementWalkCells,
   removeLandscapes,
+  scriptLandscapeLevel,
   setBuildForbidden,
   setLandscape,
+  setScriptedLandscape,
   setVertexColors,
 } from '../../landscape/edits.js';
 import { forgetRouteFailures, invalidateLandscapeRoutes } from '../../landscape/routes.js';
@@ -95,8 +97,14 @@ export function editScriptedLandscape(pass: MissionPass, mission: number, op: La
     return;
   }
   if (op.opcode === 'SetLandscape') {
-    if (!layScriptedLandscape(pass, terrain, op.point, op.landscape, op.level))
-      pass.reportFailed(mission, op.opcode);
+    const type = landscapeTypes(terrain).get(op.landscape);
+    const level = type === undefined ? op.level : scriptLandscapeLevel(type, op.level);
+    const laid = layWith(pass, terrain, op.point, op.landscape, level, () =>
+      setScriptedLandscape(pass.world, pass.ctx, op.point, op.landscape, op.level, op.flag, (entity) =>
+        pass.ctx.events.emit({ kind: 'missionLandscapeResourceRemoved', entity }),
+      ),
+    );
+    if (!laid) pass.reportFailed(mission, op.opcode);
     return;
   }
   const revision = landscapeTopologyRevision(pass.world);
@@ -127,10 +135,27 @@ export function layScriptedLandscape(
   typeId: number,
   level: number,
 ): boolean {
+  return layWith(pass, terrain, point, typeId, level, () =>
+    setLandscape(pass.world, pass.ctx, point, typeId, level) ? [] : null,
+  );
+}
+
+/** {@link layScriptedLandscape} through `lay`, which returns null when refused or the walk nodes its
+ *  removals of other placements freed. */
+function layWith(
+  pass: MissionPass,
+  terrain: TerrainGraph,
+  point: HalfCellNode,
+  typeId: number,
+  level: number,
+  lay: () => readonly NodeId[] | null,
+): boolean {
   const freed = freedThisPass(pass);
   const openBefore = openCellsOf(pass, point, typeId, level).filter((node) => !freed.has(node));
   const revision = landscapeTopologyRevision(pass.world);
-  if (!setLandscape(pass.world, pass.ctx, point, typeId, level)) return false;
+  const opened = lay();
+  if (opened === null) return false;
+  for (const node of opened) freed.add(node);
   announceLandscapeChange(pass, terrain, revision, openBefore);
   return true;
 }

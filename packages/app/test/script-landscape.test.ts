@@ -1,4 +1,11 @@
-import { GfxPattern, TerrainMapFile, TrianglePatternType } from '@open-northland/data';
+import {
+  GfxPattern,
+  GROUND_LAND,
+  GROUND_VOID,
+  GROUND_WATER,
+  TerrainMapFile,
+  TrianglePatternType,
+} from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { TERRAIN_OPEN } from '../src/catalog/terrain.js';
 import type { ContentIr } from '../src/content/ir/rows.js';
@@ -34,8 +41,8 @@ describe('script landscape content', () => {
     const types = scriptLandscapeTypes(IR);
     expect(types.map((t) => [t.typeId, t.groups])).toEqual([
       [12, ['blocker']],
-      [13, ['fx1', 'fx2', 'smoke']],
-      [14, ['fx1', 'fx2']],
+      [13, ['fx2', 'smoke']],
+      [14, ['fx2', 'smoke']],
       [15, ['wave']],
       [16, []],
       [17, []],
@@ -58,6 +65,28 @@ describe('script landscape content', () => {
     expect(types[6]?.bushGfxIndex).toBe(18);
     expect(types[7]?.chest).toEqual({ kind: 'wooden', gfxIndex: 19 });
     expect(types[8]?.chest).toEqual({ kind: 'magical', gfxIndex: 20 });
+  });
+
+  it("caps a type's level at the lower maximum valency and takes its ground from its logic type", () => {
+    const types = scriptLandscapeTypes({
+      landscape: [
+        { typeId: 40, id: 'pile', maxValency: 6, allowedOnLand: true },
+        { typeId: 41, id: 'buoy', maxValency: 2, allowedOnWater: true },
+        { typeId: 42, id: 'anything', maxValency: 100, allowedOnEverything: true },
+      ],
+      landscapeGfx: [
+        { index: 0, editName: 'small pile', logicType: 40, maxValency: 5 },
+        { index: 1, editName: 'buoy', logicType: 41, maxValency: 9 },
+        { index: 2, editName: 'marker', logicType: 42, maxValency: 1 },
+        { index: 3, editName: 'unbound', logicType: 43, maxValency: 4 },
+      ],
+    });
+    expect(types.map((t) => [t.typeId, t.maxLevel, t.ground])).toEqual([
+      [0, 5, { anywhere: false, land: true, water: false }],
+      [1, 2, { anywhere: false, land: false, water: true }],
+      [2, 1, { anywhere: true, land: false, water: false }],
+      [3, undefined, undefined],
+    ]);
   });
 
   it('keeps ground unblocked and preserves placement ids, levels and resource ownership', () => {
@@ -83,7 +112,7 @@ describe('script landscape content', () => {
     expect(JSON.stringify(map)).toBe(before);
   });
 
-  it('marks every node but one all of whose triangles are water as land, for ships and land-only vertex colors', () => {
+  it('gives each node its ground kind, water only where every triangle touching it is water', () => {
     const map = TerrainMapFile.parse({
       width: 3,
       height: 1,
@@ -105,11 +134,12 @@ describe('script landscape content', () => {
         TrianglePatternType.parse({ type: 1, isWater: true }),
       ],
     };
-    // Only node (3,0) is touched by the half-wet cell's wet triangle alone; the dry and unknown
-    // triangles claim every other node.
-    const halfWet = new Array<boolean>(12).fill(true);
-    halfWet[3] = false;
-    expect(buildScriptLandscapeTerrain(map, ir).landVertices).toEqual(halfWet);
+    // Only node (3,0) is touched by the half-wet cell's wet triangle alone. The unknown pattern counts
+    // as walkable land; the dry one, which no one walks, as void.
+    const V = GROUND_VOID;
+    const W = GROUND_WATER;
+    const L = GROUND_LAND;
+    expect(buildScriptLandscapeTerrain(map, ir).groundKinds).toEqual([V, V, V, W, L, L, V, V, V, L, L, L]);
     const sea = TerrainMapFile.parse({
       width: 2,
       height: 1,
@@ -117,16 +147,7 @@ describe('script landscape content', () => {
       ground: { patterns: ['dry', 'wet'], a: [0, 1], b: [1, 1] },
     });
     // The dry triangle claims its apex (0,0) and its west edge's midpoint (0,1); the rest is sea.
-    expect(buildScriptLandscapeTerrain(sea, ir).landVertices).toEqual([
-      true,
-      false,
-      false,
-      false,
-      true,
-      false,
-      false,
-      false,
-    ]);
+    expect(buildScriptLandscapeTerrain(sea, ir).groundKinds).toEqual([V, W, W, W, V, W, W, W]);
   });
 });
 

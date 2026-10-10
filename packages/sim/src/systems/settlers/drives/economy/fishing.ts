@@ -49,7 +49,7 @@ export function planFisher(plan: PlannerContext): boolean {
   for (const candidate of candidates) {
     if (best === null || closer(candidate.dist, candidate.shore, best.dist, best.shore)) best = candidate;
   }
-  if (best === null && terrain.waterContinents === undefined && terrain.landVertices === undefined) {
+  if (best === null && terrain.waterContinents === undefined && terrain.groundKinds === undefined) {
     best = syntheticFishingTarget(plan, gates, regions);
   }
   if (best === null) return false;

@@ -4,7 +4,7 @@ import type { LandscapeEditView } from '@open-northland/sim';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as vertexPalette from '../src/content/vertex-palette.js';
 import type { SessionHost } from '../src/session/index.js';
-import { mountScriptTints, splitScriptTints } from '../src/view/runtime/script-tints.js';
+import { cellColorsToCorners, mountScriptTints, splitScriptTints } from '../src/view/runtime/script-tints.js';
 
 const NEUTRAL = 0;
 const DARK = 5;
@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-/** Seven dark nodes (70%, a whole-map tint), one never tinted, two under a torch. */
+/** Seven dark cells (70%, a whole-map tint), one never tinted, two under a torch. */
 const tints = Uint8Array.from([DARK, DARK, DARK, DARK, DARK, DARK, DARK, NEUTRAL, TORCH, TORCH]);
 
 const rgbAt = (colors: Float32Array, node: number): number[] =>
@@ -69,6 +69,33 @@ describe('splitScriptTints', () => {
   });
 });
 
+describe('cellColorsToCorners', () => {
+  // A 2x3 cell map whose cells carry 1..6 in red. Nodes are 4x6.
+  const cells = Float32Array.from(Array.from({ length: 6 }, (_, cell) => [cell + 1, 1, 1]).flat());
+  const red = (colors: Float32Array, hx: number, hy: number) => colors[(hy * 4 + hx) * 3];
+
+  it("puts each cell's colour on its corner node, odd cell rows half a cell east, and others neutral", () => {
+    const colors = cellColorsToCorners(cells, 2);
+    expect(colors).toHaveLength(4 * 6 * 3);
+    expect([red(colors, 0, 0), red(colors, 2, 0)]).toEqual([1, 2]);
+    expect([red(colors, 1, 2), red(colors, 3, 2)]).toEqual([3, 4]);
+    expect([red(colors, 0, 4), red(colors, 2, 4)]).toEqual([5, 6]);
+    for (const [hx, hy] of [
+      [1, 0],
+      [0, 1],
+      [2, 2],
+      [3, 3],
+    ] as const)
+      expect(red(colors, hx, hy)).toBe(1);
+  });
+
+  it('reuses a fitting buffer', () => {
+    const out = new Float32Array(4 * 6 * 3).fill(9);
+    expect(cellColorsToCorners(cells, 2, out)).toBe(out);
+    expect(out[(1 * 4 + 0) * 3]).toBe(1);
+  });
+});
+
 function tintingHost(answers: LandscapeEditView[]): Pick<SessionHost, 'missions' | 'landscapeEdits'> {
   return {
     missions: {
@@ -83,11 +110,13 @@ function tintingHost(answers: LandscapeEditView[]): Pick<SessionHost, 'missions'
   };
 }
 
+/** The tints as one row of cells. */
 const edits = (values: Uint8Array): LandscapeEditView => ({
   revision: 1,
   removed: [],
   added: [],
   tints: values,
+  tintColumns: values.length,
 });
 const landed = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 

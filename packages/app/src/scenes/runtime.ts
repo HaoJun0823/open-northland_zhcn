@@ -20,7 +20,7 @@ function sceneTerrain(scene: SceneWorld, content: ContentSet) {
   return {
     ...halfCellMapFromCells(scene.terrain),
     landscapes: { types: [...sandboxPalisadeTypes(), ...animalRemainsTypes(content)], placements: [] },
-    ...(scene.landVertices !== undefined ? { landVertices: scene.landVertices } : {}),
+    ...(scene.groundKinds !== undefined ? { groundKinds: scene.groundKinds } : {}),
   };
 }
 

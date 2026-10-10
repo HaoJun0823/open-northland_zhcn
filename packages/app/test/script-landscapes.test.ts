@@ -17,6 +17,7 @@ it('hydrates saved replacements and reconciles later removals without rebuilding
     removed: [0],
     added: [{ id: 10, typeId: 7, hx: 2, hy: 2, level: 1 }],
     tints: new Uint8Array(0),
+    tintColumns: 0,
   };
   const initial = sprite();
   const replacement = sprite();
@@ -54,8 +55,8 @@ it('applies only the latest of two asks when they land out of order', async () =
     new Map(),
   );
   landscapes.onEvents([{ kind: 'missionLandscapeChanged' }]);
-  answers[1]?.({ revision: 2, removed: [], added: [], tints: new Uint8Array(0) });
-  answers[0]?.({ revision: 1, removed: [1], added: [], tints: new Uint8Array(0) });
+  answers[1]?.({ revision: 2, removed: [], added: [], tints: new Uint8Array(0), tintColumns: 0 });
+  answers[0]?.({ revision: 1, removed: [1], added: [], tints: new Uint8Array(0), tintColumns: 0 });
   await landed();
   expect(surface.removeMapObject).not.toHaveBeenCalled();
 });
@@ -70,6 +71,7 @@ it('leaves scripted harvestables to the live entity renderer', async () => {
           revision: 1,
           removed: [],
           tints: new Uint8Array(0),
+          tintColumns: 0,
           added: [{ id: 10, typeId: 7, hx: 2, hy: 2, level: 1, resourceBacked: true }],
         }),
     },
@@ -89,7 +91,7 @@ it("takes a removed placement's shore wave off the ground", async () => {
   bindScriptLandscapes(
     {
       landscapeEdits: () =>
-        Promise.resolve({ revision: 1, removed: [3], added: [], tints: new Uint8Array(0) }),
+        Promise.resolve({ revision: 1, removed: [3], added: [], tints: new Uint8Array(0), tintColumns: 0 }),
     },
     surface,
     new Map(),
@@ -106,7 +108,7 @@ it('applies nothing that lands after disposal', async () => {
   const landscapes = bindScriptLandscapes(
     {
       landscapeEdits: () =>
-        Promise.resolve({ revision: 1, removed: [1], added: [], tints: new Uint8Array(0) }),
+        Promise.resolve({ revision: 1, removed: [1], added: [], tints: new Uint8Array(0), tintColumns: 0 }),
     },
     surface,
     new Map([[1, sprite()]]),

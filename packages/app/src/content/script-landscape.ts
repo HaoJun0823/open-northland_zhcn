@@ -14,11 +14,13 @@ import {
 } from './map-resources.js';
 import { CLOSED_GATE_LOGIC_ID, OPEN_GATE_LOGIC_ID, playerWallRows } from './palisade-rows.js';
 
-// Shipped result reference memberships, with its spacing typos resolved to actual GfxLandscape EditNames.
+// Original behavior: each group removal matches these exact GfxLandscape EditNames. The shipped result
+// reference lists FX1 with small fire and smoke and Smoke without small fire or land waves; the original
+// does not.
 const REMOVAL_NAMES: Readonly<Record<LandscapeRemovalGroup, readonly string[]>> = {
   blocker: ['block'],
   wave: ['fx wave', 'fx wave land'],
-  fx1: ['fx fire small', 'fx smoke', 'fx fog', 'fx fog waterfall', 'fx fog waterfall00', 'fx waterfall'],
+  fx1: ['fx fog', 'fx fog waterfall', 'fx fog waterfall00', 'fx waterfall'],
   fx2: [
     'fx fire',
     'fx fire 2',
@@ -32,6 +34,8 @@ const REMOVAL_NAMES: Readonly<Record<LandscapeRemovalGroup, readonly string[]>> 
     'fx smoke',
     'fx fire',
     'fx fire 2',
+    'fx fire small',
+    'fx wave land',
     'fx fire incense',
     'fx fog',
     'fx fog waterfall',
@@ -52,7 +56,9 @@ export function scriptLandscapeTypes(ir: ContentIr): ScriptLandscapeType[] {
     ),
   );
   const gatherers = new Map(GATHERERS.map((g) => [g.id, g]));
+  const logicTypes = new Map((ir.landscape ?? []).map((t) => [t.typeId, t]));
   return (ir.landscapeGfx ?? []).map((g) => {
+    const logic = logicTypes.get(g.logicType);
     const name = g.editName?.trim().toLowerCase() ?? '';
     const groups = (Object.keys(REMOVAL_NAMES) as LandscapeRemovalGroup[]).filter((group) =>
       REMOVAL_NAMES[group].includes(name),
@@ -92,6 +98,18 @@ export function scriptLandscapeTypes(ir: ContentIr): ScriptLandscapeType[] {
         ? { blockAreas: { walk: g.walkBlockAreas ?? [], build: g.buildBlockAreas ?? [] } }
         : {}),
       groups,
+      ...(logic?.maxValency === undefined
+        ? {}
+        : { maxLevel: Math.min(g.maxValency ?? logic.maxValency, logic.maxValency) }),
+      ...(logic === undefined
+        ? {}
+        : {
+            ground: {
+              anywhere: logic.allowedOnEverything === true,
+              land: logic.allowedOnLand === true,
+              water: logic.allowedOnWater === true,
+            },
+          }),
       ...(resource === undefined ? {} : { resource }),
       ...(g.logicType === BUSH_WITH_FRUITS_LOGIC_TYPE ? { bushGfxIndex: g.index } : {}),
       ...(chestKind === undefined ? {} : { chest: { kind: chestKind, gfxIndex: g.index } }),

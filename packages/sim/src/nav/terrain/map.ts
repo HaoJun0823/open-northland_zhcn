@@ -11,9 +11,10 @@ import type { LandscapeMapInput } from './landscapes.js';
 export interface TerrainMap {
   readonly resolution: 'half-cell';
   readonly landscapes?: LandscapeMapInput;
-  /** Ground vertex land mask, row-major on the half-cell grid; unwalkable nodes off it are the water
-   *  ships sail. Omitted, every unwalkable node is water. */
-  readonly landVertices?: readonly boolean[];
+  /** Each half-cell node's `GroundKind` (`@open-northland/data` `groundLattice`: water, void or land),
+   *  row-major; an unwalkable water node is the water ships sail. Omitted, every unwalkable node is
+   *  water. */
+  readonly groundKinds?: readonly number[];
   /** Each half-cell node's open `HEX_EDGE` bits (`@open-northland/data` `groundLattice`), the edges a
    *  step may follow; omitted, every pair of neighbouring standable nodes is joined. */
   readonly groundEdges?: ArrayLike<number>;
@@ -126,7 +127,7 @@ export function buildTerrainGraph(content: ContentSet, map: TerrainMap): Terrain
     typeIds,
     props,
     map.landscapes,
-    map.landVertices,
+    map.groundKinds,
     map.waterContinents,
     map.roughness,
     map.elevation,

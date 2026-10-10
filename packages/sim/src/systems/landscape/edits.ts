@@ -1,18 +1,18 @@
-import type { ContentSet, FootprintCell } from '@open-northland/data';
+import { type ContentSet, type FootprintCell, GROUND_LAND, GROUND_WATER } from '@open-northland/data';
 import { Palisade, Position, ResourceFootprint } from '../../components/index.js';
 import { landscapeEditState, writeLandscapeEdits } from '../../components/landscape.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import {
+  cellAnchorNode,
   cellOfNode,
-  cellXOfNode,
-  cellYOfNode,
   type HalfCellNode,
   hexDistance,
   hexDistanceBetween,
   nodeOfPosition,
 } from '../../nav/halfcell.js';
 import type {
+  LandscapeGround,
   LandscapeRemovalGroup,
   NodeId,
   ResourceSpec,
@@ -24,7 +24,10 @@ import { createChest } from '../chests/index.js';
 import type { SystemContext } from '../context.js';
 import { createBerryBush } from '../economy/berries.js';
 import { createGroundGoods } from '../economy/ground-goods.js';
+import { dynamicBlockOverlay } from '../footprint/blocked.js';
+import { buildingBodyCells } from '../footprint/building-blocked-cache.js';
 import { translatedCells } from '../footprint/geometry.js';
+import { placementBlockerGrid } from '../footprint/placement/blocker-grid.js';
 import { palisadeBodyCells } from '../footprint/placement/blockers.js';
 import {
   createResourceNode,
@@ -213,6 +216,84 @@ export function setLandscape(
   return true;
 }
 
+/** Original behavior: a script level is read unsigned and capped at the type's maximum, so a negative
+ *  one lays the maximum. */
+export function scriptLandscapeLevel(type: ScriptLandscapeType, level: number): number {
+  const cap = type.maxLevel;
+  if (cap === undefined) return level;
+  return level < 0 ? cap : Math.min(level, cap);
+}
+
+function groundTakes(terrain: TerrainGraph, ground: LandscapeGround | undefined, node: NodeId): boolean {
+  if (ground === undefined || ground.anywhere) return true;
+  const kind = terrain.groundKinds?.[node];
+  // A map without the ground lane has nothing to refuse on.
+  if (kind === undefined) return true;
+  return (ground.land && kind === GROUND_LAND) || (ground.water && kind === GROUND_WATER);
+}
+
+/**
+ * A script's `SetLandscape`, by the rules in docs/formats/MISSIONS.md: nothing on a building or on
+ * ground the type may not stand on; level 0 clears the anchor; the level is capped
+ * ({@link scriptLandscapeLevel}); the same type at the same level stays. Unless `force`, a walk area
+ * must be clear of every build area and clears what stands anchored on it; a type without one needs an
+ * unblocked anchor. Approximations: a building's body stands for the original's house points, the
+ * placement grid's exclusion and building zones for its build-blocked points, and the dynamic walk
+ * overlay for its walk-blocked ones. Returns null when refused, else the walk nodes the cleared
+ * placements freed.
+ */
+export function setScriptedLandscape(
+  world: World,
+  ctx: SystemContext,
+  point: HalfCellNode,
+  typeId: number,
+  level: number,
+  force: boolean,
+  onResourceRemoved?: (entity: Entity) => void,
+): NodeId[] | null {
+  const terrain = ctx.terrain;
+  if (terrain?.landscapes === undefined || !terrain.inBounds(point.hx, point.hy)) return null;
+  const type = landscapeTypes(terrain).get(typeId);
+  if (type === undefined) return null;
+  const anchor = terrain.nodeAt(point.hx, point.hy);
+  if (buildingBodyCells(world, ctx, terrain).has(anchor)) return null;
+  if (level === 0) return removeLandscapes(world, ctx, terrain, point, 0, undefined, onResourceRemoved);
+  if (!groundTakes(terrain, type.ground, anchor)) return null;
+  const size = scriptLandscapeLevel(type, level);
+  if (size === 0) return removeLandscapes(world, ctx, terrain, point, 0, undefined, onResourceRemoved);
+  if (landscapesWithin(world, terrain, point, 0).some((p) => p.typeId === typeId && p.level === size))
+    return [];
+  const blocks = placementBlockCells(type, size);
+  const walk = translatedCells(terrain, blocks.walk, point.hx, point.hy);
+  if (walk.length === 0) {
+    if (dynamicBlockOverlay(world, ctx, terrain).has(anchor)) return null;
+  } else if (!force) {
+    const grid = placementBlockerGrid(world, ctx.content, terrain);
+    if (walk.some((node) => (grid.exclusion[node] ?? 0) > 0 || (grid.buildingZone[node] ?? 0) > 0))
+      return null;
+  }
+  const build = translatedCells(terrain, blocks.build, point.hx, point.hy);
+  if (!build.every((node) => groundTakes(terrain, type.ground, node))) return null;
+  if (!setLandscape(world, ctx, point, typeId, size)) return null;
+  const freed: NodeId[] = [];
+  if (force) return freed;
+  for (const node of walk) {
+    if (node === anchor) continue;
+    freed.push(
+      ...removeLandscapes(
+        world,
+        ctx,
+        terrain,
+        { hx: terrain.xOf(node), hy: terrain.yOf(node) },
+        0,
+        undefined,
+        onResourceRemoved,
+      ),
+    );
+  }
+  return freed;
+}
+
 export function forNodesInArea(
   terrain: TerrainGraph,
   point: HalfCellNode,
@@ -248,34 +329,29 @@ export function setBuildForbidden(
   });
 }
 
-/**
- * Visit every node of the cells within `radius` cell steps of `centre`. The cell grid is the same
- * odd-rows-right hexagon lattice as the nodes, so {@link hexDistanceBetween} applies to cell coordinates
- * as it does to node coordinates. A cell owns the nodes {@link cellOfNode} maps onto it: rows `2cy` and
- * `2cy + 1`, columns `2cx - 1` to `2cx + 2` after the four-row nudge, all inside the box walked here.
- */
-function forNodesOfCellDisc(
-  terrain: TerrainGraph,
-  centre: { readonly cx: number; readonly cy: number },
-  radius: number,
-  apply: (node: NodeId) => void,
-): void {
-  const lastHy = Math.min(terrain.height - 1, 2 * (centre.cy + radius) + 1);
-  const lastHx = Math.min(terrain.width - 1, 2 * (centre.cx + radius) + 2);
-  for (let hy = Math.max(0, 2 * (centre.cy - radius)); hy <= lastHy; hy++) {
-    for (let hx = Math.max(0, 2 * (centre.cx - radius) - 1); hx <= lastHx; hx++) {
-      const distance = hexDistanceBetween(cellXOfNode(hx, hy), cellYOfNode(hy), centre.cx, centre.cy);
-      if (distance <= radius) apply(terrain.nodeAt(hx, hy));
-    }
-  }
+/** A script's palette index is stored in one byte: the original keeps the value's low byte. */
+const PALETTE_INDEX_MASK = 0xff;
+/** Cells this close to a map edge are the original's map border, which an `OnLand` write skips. */
+const BORDER_CELLS = 2;
+
+/** Original behavior: an `OnLand` write paints a cell off the map border whose anchor node is land. */
+function isLandCell(terrain: TerrainGraph, cx: number, cy: number): boolean {
+  if (
+    cx < BORDER_CELLS ||
+    cy < BORDER_CELLS ||
+    cx >= terrain.cellColumns - BORDER_CELLS ||
+    cy >= terrain.cellRows - BORDER_CELLS
+  )
+    return false;
+  const anchor = cellAnchorNode(cx, cy);
+  return terrain.groundKinds?.[terrain.nodeAt(anchor.hx, anchor.hy)] === GROUND_LAND;
 }
 
 /**
  * Original behavior: the point's cell takes the index, and so do `range >> 1` less one rings of cells
  * around it, so a range under 4 paints one cell and 900 the whole map; a point off the map still paints
- * the cells of its disc that lie on it. A write replaces the map author's own tint, which a node reads
- * until a script writes it. Approximation: the original keeps one index per cell, while this lattice
- * keeps one per node, so every node a painted cell owns takes the index.
+ * the cells of its disc that lie on it. A write replaces the map author's own tint, which a cell reads
+ * until a script writes it.
  */
 export function setVertexColors(
   world: World,
@@ -285,22 +361,27 @@ export function setVertexColors(
   amount: number,
   onLand: boolean,
 ): boolean {
-  if (onLand && terrain.landVertices === undefined) return false;
-  const value = Math.max(0, Math.min(255, amount));
+  if (onLand && terrain.groundKinds === undefined) return false;
+  const value = amount & PALETTE_INDEX_MASK;
   const current = landscapeEditState(world);
-  const changed: NodeId[] = [];
-  forNodesOfCellDisc(terrain, cellOfNode(point.hx, point.hy), Math.max(0, (range >> 1) - 1), (node) => {
-    if (
-      (!onLand || terrain.landVertices?.[node] === true) &&
-      (current.tints.get(node) ?? terrain.authoredTintAt(node)) !== value
-    )
-      changed.push(node);
-  });
+  const centre = cellOfNode(point.hx, point.hy);
+  const radius = Math.max(0, (range >> 1) - 1);
+  const changed: number[] = [];
+  const lastCy = Math.min(terrain.cellRows - 1, centre.cy + radius);
+  const lastCx = Math.min(terrain.cellColumns - 1, centre.cx + radius);
+  for (let cy = Math.max(0, centre.cy - radius); cy <= lastCy; cy++) {
+    for (let cx = Math.max(0, centre.cx - radius); cx <= lastCx; cx++) {
+      if (hexDistanceBetween(cx, cy, centre.cx, centre.cy) > radius) continue;
+      if (onLand && !isLandCell(terrain, cx, cy)) continue;
+      const cell = cy * terrain.cellColumns + cx;
+      if ((current.tints.get(cell) ?? terrain.authoredTintOfCell(cell)) !== value) changed.push(cell);
+    }
+  }
   if (changed.length === 0) return true;
   writeLandscapeEdits(world, (state) => {
     // Indexed: this closure runs once per write, too rarely to be optimized, so a for-of here would hand
-    // out an iterator result per node.
-    for (let i = 0; i < changed.length; i++) state.tints.set(changed[i] as NodeId, value);
+    // out an iterator result per cell.
+    for (let i = 0; i < changed.length; i++) state.tints.set(changed[i] as number, value);
   });
   return true;
 }

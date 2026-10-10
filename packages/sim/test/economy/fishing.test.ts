@@ -1,4 +1,4 @@
-import type { ContentSet } from '@open-northland/data';
+import { type ContentSet, GROUND_LAND, GROUND_WATER } from '@open-northland/data';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   addPerson,
@@ -401,7 +401,10 @@ describe('fishing', () => {
 
   it("chooses a reachable nearby bank instead of the swarm's single spawn-time shore", () => {
     const waterMap = waterColumnMap(8, 4, 3);
-    const map = { ...waterMap, landVertices: waterMap.typeIds.map((typeId) => typeId !== 1) };
+    const map = {
+      ...waterMap,
+      groundKinds: waterMap.typeIds.map((typeId) => (typeId !== 1 ? GROUND_LAND : GROUND_WATER)),
+    };
     const sim = new Simulation({ seed: 4, content: fishingContent(), map });
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('test needs terrain');
@@ -422,17 +425,17 @@ describe('fishing', () => {
     const width = 30;
     const height = 6;
     const typeIds = new Array<number>(width * height).fill(0);
-    const landVertices = new Array<boolean>(width * height).fill(true);
+    const groundKinds = new Array<number>(width * height).fill(GROUND_LAND);
     const waterContinents = new Array<number>(width * height).fill(1);
     for (let y = 0; y < height; y++) {
       for (let x = 2; x < width; x++) {
         const node = y * width + x;
         typeIds[node] = 1;
-        landVertices[node] = false;
+        groundKinds[node] = GROUND_WATER;
         waterContinents[node] = 7;
       }
     }
-    const map = { resolution: 'half-cell' as const, width, height, typeIds, landVertices, waterContinents };
+    const map = { resolution: 'half-cell' as const, width, height, typeIds, groundKinds, waterContinents };
 
     const atBoundary = new Simulation({ seed: 4, content: fishingContent(), map });
     const terrain = atBoundary.terrain;
@@ -461,7 +464,7 @@ describe('fishing', () => {
 
   it('does not fall back to an arbitrary land point when a real map has no valid water edge', () => {
     const waterMap = waterColumnMap(8, 4, 3);
-    const map = { ...waterMap, landVertices: waterMap.typeIds.map(() => true) };
+    const map = { ...waterMap, groundKinds: waterMap.typeIds.map(() => GROUND_LAND) };
     const sim = new Simulation({ seed: 4, content: fishingContent(), map });
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('test needs terrain');

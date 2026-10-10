@@ -1,7 +1,6 @@
 # Ship the API as its own image
 
 **Area:** api, tooling · **Priority:** P2
-**Blocked by:** [Serve the catalogue](catalogue-service.md)
 
 Without an image and a documented runtime the API exists only on a developer's machine, and the
 client tickets have no `ON_API_URL` to point at.

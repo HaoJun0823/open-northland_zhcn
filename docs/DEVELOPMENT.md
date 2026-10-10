@@ -596,6 +596,47 @@ delay, the click-to-apply time and the jitter buffer's depth. The runtime has no
 world, so a forced divergence for a resync check runs in the headless multi-client harness under
 `packages/net-server/test/support/`, not from a browser console.
 
+## API server
+
+```bash
+npm run api
+PORT=9000 API_SYNC_INTERVAL=30m npm run api
+```
+
+Builds the workspace and serves the map catalogue API (`packages/api`) on `PORT` (default `8790`).
+It loads no content and runs no simulation. At start and every `API_SYNC_INTERVAL` it pages through the
+culturesnation.pl catalogue at `ON_API_UPSTREAM` (default `https://api.culturesnation.pl`), keeps the
+accepted map and campaign records, and writes them normalized to its data dir. The interval is whole
+seconds or a number with one unit `s`, `m`, `h` or `d`, from one minute to seven days (default `6h`).
+`HOST` binds one address and `API_BUILD` is the build the health check reports. The log is one JSON
+record per line; a skipped upstream record names its reason.
+
+`ON_API_DATA_DIR` (default `.api-data` in the directory the server starts in, the checkout root for
+`npm run api`, ignored by Git) holds:
+
+| Path | Content |
+| --- | --- |
+| `catalog.json` | The last good normalized catalogue; an upstream failure leaves it in place |
+| `raw/<page>.json` | The upstream pages that catalogue came from |
+| `thumbnails/<id>`, `thumbnails/<id>.json` | Each map's screenshot and its content type and `updatedAt`; fetched again only when `updatedAt` changes |
+
+Endpoints, `GET` and `HEAD` only:
+
+| Path | Answer |
+| --- | --- |
+| `/healthz` | Build, `lastSyncAt`, `staleSeconds` and `entryCount`; 503 until a catalogue is loaded |
+| `/v1/catalog` | Every entry, sorted by id, as the `Catalog` schema in `packages/data` |
+| `/v1/maps/<id>` | One `CatalogEntry` |
+| `/v1/maps/<id>/thumbnail` | The stored screenshot with its content type, or 404 |
+
+Every `/v1` answer carries `Access-Control-Allow-Origin: *`, a SHA-256 `ETag` that `If-None-Match`
+turns into a 304, and a short `Cache-Control`; errors are `{ "error": "..." }`. The tests under
+`packages/api/test` run against an invented upstream:
+
+```bash
+npx vitest run --project core packages/api
+```
+
 ## Build version
 
 `ON_VERSION=1.2.3 npm run build` stamps a semantic version into the main menu's version line and

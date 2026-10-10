@@ -9,7 +9,7 @@ sidecars the app already loads from `/maps/<id>.*`. The client converts only loc
 Order and dependencies:
 
 1. [Share the map conversion between pipeline, API and app](../features/map-catalogue-import-package.md)
-2. [Serve the culturesnation catalogue from our own API](catalogue-service.md)
+2. Serve the culturesnation catalogue from our own API (done: `packages/api`, `/v1/catalog`)
 3. [Convert catalogue archives on the server and serve the sidecars](archive-conversion-service.md)
 4. [Ship the API as its own image](deploy-image.md) (parallel to 2 and 3)
 5. [Browse, download and play catalogue maps in the client](../features/map-catalogue-client.md)

@@ -4,7 +4,7 @@
 
 **Blocked by:** [group-details](ingame-ui-group-details.md),
 [statistics-window](ingame-ui-statistics-window.md),
-[knowledge-dependencies](ingame-ui-knowledge-dependencies.md), [system-menu](ingame-ui-system-menu.md),
+[knowledge-dependencies](ingame-ui-knowledge-dependencies.md),
 [map-overview](ingame-ui-map-overview.md)
 
 Panels landed one at a time; one end-to-end pass has to catch inconsistent styles, remaining functional

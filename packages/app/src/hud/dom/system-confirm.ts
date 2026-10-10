@@ -1,12 +1,21 @@
 import { createHudWindow } from './window.js';
 
+export interface SystemConfirmCopy {
+  readonly title: string;
+  readonly message: string;
+  readonly cancel: string;
+  readonly confirm: string;
+  /** Focus the confirm button: the player asked for the action, the question only stands before it. */
+  readonly focusConfirm?: boolean;
+}
+
 /** A question above the current menu page. Cancelling restores that page and its focused control. */
 export function createSystemConfirm(plane: HTMLElement) {
   let cancel: (() => void) | null = null;
   return {
     isOpen: (): boolean => cancel !== null,
     cancel: (): void => cancel?.(),
-    open(copy: { title: string; message: string; cancel: string; confirm: string }): Promise<boolean> {
+    open(copy: SystemConfirmCopy): Promise<boolean> {
       cancel?.();
       const prior = document.activeElement;
       const shade = document.createElement('div');
@@ -60,7 +69,9 @@ export function createSystemConfirm(plane: HTMLElement) {
         }
         frame.body.append(actions);
         frame.open();
-        actions.querySelector('button')?.focus();
+        actions
+          .querySelector<HTMLButtonElement>(copy.focusConfirm === true ? 'button:last-child' : 'button')
+          ?.focus();
       });
     },
   };

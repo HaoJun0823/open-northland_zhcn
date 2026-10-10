@@ -38,6 +38,10 @@ export const GLYPH = {
   papers:
     '<svg aria-hidden="true" class="on-glyph" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6zM15 3v4h4M9 12h6M9 16h6"/></svg>',
   grid: '<svg aria-hidden="true" class="on-glyph" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>',
+  download:
+    '<svg aria-hidden="true" class="on-glyph" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+  upload:
+    '<svg aria-hidden="true" class="on-glyph" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></svg>',
   back: '<svg aria-hidden="true" class="on-glyph" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></svg>',
   list: '<svg aria-hidden="true" class="on-glyph" viewBox="0 0 24 24"><path d="M4 6h3M10 6h10M4 12h3M10 12h10M4 18h3M10 18h10"/></svg>',
   search:

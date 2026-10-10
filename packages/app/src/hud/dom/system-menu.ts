@@ -2,10 +2,11 @@ import { downloadDiagnosticsBundle, downloadTraceFile, isTraceRecording } from '
 import { messages } from '../../i18n/index.js';
 import type { GameSettingsRuntime } from '../../view/runtime/game-settings.js';
 import type { SaveLoadSession } from '../../view/runtime/save-load/index.js';
-import { buildLoadPanel, buildSavePanel, type SavePanelView } from '../../view/save-panels/index.js';
-import { SAVE_BUTTON_STYLE, SAVE_PANEL_STYLE } from '../../view/save-panels/parts.js';
 import { GLYPH } from './icons.js';
 import { createHudPlane, type HudPlane } from './root.js';
+import type { MenuPageView } from './save-window/frame.js';
+import { createLoadWindow } from './save-window/load-window.js';
+import { createSaveWindow } from './save-window/save-window.js';
 import { createSystemConfirm } from './system-confirm.js';
 import { createSystemSettings } from './system-settings.js';
 import { createHudWindow } from './window.js';
@@ -29,7 +30,7 @@ export interface SystemMenuDeps {
   readonly onNetwork?: () => void;
 }
 
-/** Owns the menu's pause and keyboard across root, settings and the existing save/load pages. */
+/** Owns the menu's pause and keyboard across its root and its settings, save and load pages. */
 export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
   const scope = new AbortController();
   const copy = messages().hud;
@@ -57,10 +58,9 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
   let returnFocus: HTMLButtonElement | null = null;
   let activePanel: HTMLElement = frame.element;
   const inert = new Map<HTMLElement, boolean>();
-  const panels: SavePanelView[] = [];
+  const pages: MenuPageView[] = [];
   const hidePanels = (): void => {
-    for (const view of panels) view.el.style.display = 'none';
-    settingsPanel.close();
+    for (const page of pages) page.close();
   };
   const showMenu = (): void => {
     hidePanels();
@@ -79,15 +79,16 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
     inert.clear();
     if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
   };
-  const panelDeps = {
+  const pageDeps = {
+    plane: plane.element,
     saveLoad: deps.saveLoad,
-    showMenu,
-    panelStyle: SAVE_PANEL_STYLE,
-    buttonStyle: SAVE_BUTTON_STYLE,
+    confirm: confirm.open,
+    signal: scope.signal,
+    onBack: showMenu,
+    onClose: hide,
   };
-  const savePanel = buildSavePanel(panelDeps);
-  const loadPanel = buildLoadPanel(panelDeps);
-  panels.push(savePanel, loadPanel);
+  const savePanel = createSaveWindow(pageDeps);
+  const loadPanel = createLoadWindow(pageDeps);
   const syncScale = (): void => {
     void plane.setUiScale(scale());
   };
@@ -107,14 +108,13 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
       });
     },
   });
-  const showPanel = (view: SavePanelView, trigger: HTMLButtonElement): void => {
+  pages.push(savePanel, loadPanel, settingsPanel);
+  const showPanel = (page: MenuPageView, trigger: HTMLButtonElement): void => {
     returnFocus = trigger;
     frame.close();
     hidePanels();
-    activePanel = view.el;
-    view.el.style.display = 'flex';
-    view.open();
-    if (!view.el.contains(document.activeElement)) view.el.querySelector<HTMLElement>('button')?.focus();
+    activePanel = page.el;
+    page.open();
   };
   const button = (label: string, glyph: string, action: () => void): HTMLButtonElement => {
     const button = document.createElement('button');
@@ -128,19 +128,15 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
     return button;
   };
   const resume = button(text.resume, GLYPH.next, hide);
-  resume.classList.add('on-system-menu__resume');
+  resume.classList.add('on-button--primary', 'on-system-menu__resume');
   const esc = document.createElement('kbd');
   esc.textContent = 'Esc';
   resume.append(esc);
   const save = button(copy.saveGame, GLYPH.papers, () => showPanel(savePanel, save));
   const load = button(copy.loadGame, GLYPH.book, () => showPanel(loadPanel, load));
-  const settings = button(messages().mainMenu.items.settings, GLYPH.wheel, () => {
-    returnFocus = settings;
-    frame.close();
-    hidePanels();
-    activePanel = settingsPanel.el;
-    settingsPanel.open();
-  });
+  const settings = button(messages().mainMenu.items.settings, GLYPH.wheel, () =>
+    showPanel(settingsPanel, settings),
+  );
   const quit = button(text.leaveGame, GLYPH.exit, () => {
     void confirm
       .open({
@@ -177,7 +173,6 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
       }),
     );
   frame.body.append(quit, support);
-  backdrop.append(savePanel.el, loadPanel.el);
   document.body.append(backdrop);
   hidePanels();
   backdrop.addEventListener('click', (event) => {
@@ -195,7 +190,7 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
       const panel = plane.element.querySelector('[role="alertdialog"]') ?? activePanel;
       const focusable = [
         ...panel.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), summary, [tabindex="0"]',
+          'button:not(:disabled):not([tabindex="-1"]), input:not(:disabled), summary, [tabindex="0"]',
         ),
       ].filter((el) => el.closest('details:not([open])') === null || el.tagName === 'SUMMARY');
       const first = focusable[0];

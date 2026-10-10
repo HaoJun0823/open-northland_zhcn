@@ -154,6 +154,20 @@ body.on-drag-scroll * {
 .on-hud .on-button--accent {
   color: var(--bronze-hi);
 }
+/* The one action a dialog exists for: lit bronze, dark ink. */
+.on-hud .on-button--primary {
+  background: linear-gradient(#ccb079, #a88850);
+  color: var(--ink);
+  font-weight: 700;
+  text-shadow: 0 1px #fff3;
+}
+.on-hud .on-button--primary:hover {
+  background: linear-gradient(var(--bronze-hi), var(--bronze));
+  color: var(--ink);
+}
+.on-hud .on-button--primary .on-glyph {
+  color: inherit;
+}
 .on-hud .on-button--rounded {
   border-radius: 3px;
   min-height: 34px;
@@ -7541,6 +7555,17 @@ body.on-drag-scroll * {
   padding: 0 10px;
   font: 500 13px / 1.2 var(--font-body);
 }
+.on-hud .on-system-dialog .on-button:disabled {
+  cursor: var(--cursor-not-allowed, not-allowed);
+  color: #b7ab92;
+  background: linear-gradient(#5a4631, #3e3022);
+  border-color: #2e2418;
+  box-shadow: inset 0 1px #fff1;
+  text-shadow: none;
+}
+.on-hud .on-system-dialog .on-button:disabled .on-glyph {
+  opacity: 0.5;
+}
 .on-hud .on-system-menu .on-window__body {
   display: flex;
   flex-direction: column;
@@ -7551,22 +7576,9 @@ body.on-drag-scroll * {
   justify-content: flex-start;
   gap: 8px;
 }
-.on-hud .on-system-menu__resume {
-  background: linear-gradient(#ccb079, #a88850);
-  color: var(--ink);
-  font-weight: 700;
-  text-shadow: 0 1px #fff3;
-}
-.on-hud .on-system-menu__resume:hover {
-  background: linear-gradient(var(--bronze-hi), var(--bronze));
-  color: var(--ink);
-}
 .on-hud .on-system-menu__action .on-glyph {
   width: 18px;
   height: 18px;
-}
-.on-hud .on-system-menu__resume .on-glyph {
-  color: inherit;
 }
 .on-hud .on-system-menu__resume kbd {
   margin-left: auto;
@@ -7628,6 +7640,288 @@ body.on-drag-scroll * {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+/* Save and load: a name field over the parchment list of saves, a footer with Back, a live status
+   and the window's actions, the primary last. A row's bin shows on hover, focus and selection. */
+.on-hud .on-saves {
+  width: min(88%, 760px);
+  height: min(86%, 640px);
+}
+.on-hud .on-saves > .on-window__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 14px 14px 0;
+}
+.on-hud .on-saves .on-button .on-glyph {
+  width: 17px;
+  height: 17px;
+}
+.on-hud .on-saves__label {
+  margin: 0 2px 6px;
+  font: 700 10.5px var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bronze);
+}
+.on-hud .on-saves__name-row {
+  display: flex;
+  gap: 8px;
+}
+.on-hud .on-saves__field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--wood-lo);
+  background: linear-gradient(#1b2823, #22322c);
+  box-shadow:
+    inset 0 2px 4px #0008,
+    0 1px #fff1;
+}
+.on-hud .on-saves__field:focus-within {
+  border-color: var(--bronze);
+}
+.on-hud .on-saves__field .on-glyph {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--bronze);
+}
+.on-hud .on-saves__field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text-hi);
+  font: 600 15px var(--font-body);
+  outline: none;
+}
+.on-hud .on-saves__field input::placeholder {
+  color: #9aa392;
+  font-weight: 400;
+}
+.on-hud .on-saves__search {
+  flex: none;
+  height: 34px;
+  margin-bottom: 10px;
+}
+.on-hud .on-saves__search input {
+  font-size: 14px;
+}
+.on-hud .on-saves .on-saves__save {
+  min-width: 128px;
+  height: 38px;
+}
+.on-hud .on-saves__hint {
+  flex-shrink: 0;
+  min-height: 17px;
+  margin: 5px 2px 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.on-hud .on-saves--load .on-saves__hint {
+  margin: 7px 2px 0;
+}
+.on-hud .on-saves__hint.is-warning {
+  color: var(--warning);
+}
+.on-hud .on-saves__sheet {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin: 0;
+  padding: 10px 8px 6px;
+  overflow: hidden;
+}
+.on-hud .on-saves__head,
+.on-hud .on-saves__pick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px 132px;
+  align-items: center;
+  column-gap: 12px;
+}
+.on-hud .on-saves__head {
+  flex-shrink: 0;
+  padding: 0 44px 4px 11px;
+  border-bottom: 1px solid #8d7549aa;
+  font: 700 10.5px var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.on-hud .on-saves__head > :not(:first-child),
+.on-hud .on-saves__num {
+  text-align: right;
+}
+.on-hud .on-saves__list {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bronze-lo) transparent;
+}
+.on-hud .on-saves__list:empty {
+  display: none;
+}
+.on-hud .on-saves__row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #8d754944;
+  border-left: 3px solid transparent;
+}
+.on-hud .on-saves__row[hidden] {
+  display: none;
+}
+.on-hud .on-saves__row:hover {
+  background: #fff5;
+}
+.on-hud .on-saves__row.is-selected {
+  border-left-color: var(--bronze-lo);
+  background: linear-gradient(90deg, #c9a26270, #c9a2621a);
+}
+.on-hud .on-saves__pick {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 6px 8px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+}
+.on-hud .on-saves__pick:focus-visible {
+  outline: 2px solid var(--bronze-lo);
+  outline-offset: -2px;
+}
+.on-hud .on-saves__title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.on-hud .on-saves__name,
+.on-hud .on-saves__map {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.on-hud .on-saves__name {
+  font: 700 14.5px / 1.25 var(--font-body);
+}
+.on-hud .on-saves__map {
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+.on-hud .on-saves__num {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.on-hud .on-saves__row.is-foreign .on-saves__pick {
+  opacity: 0.62;
+}
+.on-hud .on-saves__tag {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid #8d7549;
+  border-radius: 8px;
+  color: var(--paper-warn);
+  font: 700 10px / 1.5 var(--font-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.on-hud .on-saves__del {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: 4px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink-muted);
+  opacity: 0;
+}
+.on-hud .on-saves__row:is(:hover, :focus-within, .is-selected) .on-saves__del {
+  opacity: 1;
+}
+.on-hud .on-saves__del:is(:hover, :focus-visible) {
+  border-color: #8d7549;
+  background: #fff6;
+  color: var(--paper-error);
+}
+.on-hud .on-saves__del .on-glyph {
+  width: 17px;
+  height: 17px;
+}
+@media (hover: none) {
+  .on-hud .on-saves__del {
+    opacity: 1;
+  }
+}
+.on-hud .on-saves__empty {
+  display: grid;
+  flex: 1;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--ink-muted);
+}
+.on-hud .on-saves__empty strong {
+  font: 700 16px var(--font-body);
+  color: var(--ink);
+}
+.on-hud .on-saves__foot {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 14px;
+}
+.on-hud .on-saves__leading,
+.on-hud .on-saves__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+.on-hud .on-saves__status {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  text-align: center;
+}
+@container (max-width: 640px) {
+  .on-hud .on-saves__foot {
+    flex-wrap: wrap;
+  }
+  .on-hud .on-saves__status {
+    order: -1;
+    flex-basis: 100%;
+  }
+  .on-hud .on-saves__actions {
+    margin-left: auto;
+  }
+  .on-hud .on-saves__head,
+  .on-hud .on-saves__pick {
+    grid-template-columns: minmax(0, 1fr) 72px;
+  }
+  .on-hud :is(.on-saves__head, .on-saves__pick) > :nth-child(3) {
+    display: none;
+  }
 }
 /* The lost-connection screen: the same wash and sheet as the game menu, one message, the room's
    countdown large enough to read from across the room, and the one button left to press. */

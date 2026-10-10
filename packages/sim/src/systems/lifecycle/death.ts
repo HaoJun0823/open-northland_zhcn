@@ -53,7 +53,7 @@ export function reap(world: World, ctx: SystemContext, e: Entity): void {
   if (!animal && pos !== undefined) layBonePile(world, ctx.tick, eventAt(pos.x, pos.y));
   if (animal && pos !== undefined && settler !== undefined)
     layAnimalRemains(world, ctx, e, settler.tribe, pos);
-  const loot = droppedEquipmentOf(world, e);
+  const loot = droppedEquipmentOf(world, ctx.content, e);
   removeSettlerSilently(world, e);
   scatterSpilledStock(world, ctx, loot);
 }

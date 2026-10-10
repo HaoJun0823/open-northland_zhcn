@@ -9,6 +9,7 @@ import {
   Health,
   isScenarioPlayer,
   MISC_EQUIP_SLOTS,
+  MISSION_BEHAVIOUR,
   MoveSpeed,
   nameHuman,
   Owner,
@@ -56,6 +57,13 @@ import { unitHitpoints } from '../lifecycle/unit-health.js';
 /** The idle/unemployed job sentinel: the command wire form of `jobType: null`, since a command field cannot
  *  carry null. Valid on any content, including one whose job table starts at typeId 1. */
 const IDLE_JOB_TYPE = 0;
+
+/** Original behavior: every hero is created wearing new shoes that never wear out, so it walks at the
+ *  shod pace from its first step. */
+const HERO_SHOES_GOOD = 'shoes';
+/** Original behavior: every hero is created with these behaviour bits beside its spawn's own mask, so its
+ *  shoes never wear and its fighting never improves; a script may clear them. */
+const HERO_BEHAVIOUR = MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR | MISSION_BEHAVIOUR.NO_JOB_EXPERIENCE;
 
 /**
  * Assemble a settler entity from a {@link SettlerSpec}, or return null for an unknown job id or an animal
@@ -131,21 +139,27 @@ export function createSettler(
   if (spec.weaponTypeId !== undefined && spec.weaponTypeId > 0) {
     world.add(e, Weapon, { weaponTypeId: spec.weaponTypeId });
   }
-  // A hero's weapon and armor are part of the authored class, not player-controlled inventory. Resolve
-  // the weapon from the same (tribe, job) record combat uses and the armor good from the fixed armor type,
-  // so map placement, mission `sethuman` and admin spawning all produce the same permanent loadout.
+  // A hero's weapon, armor and shoes are part of the authored class, not player-controlled inventory.
+  // Resolve the weapon from the same (tribe, job) record combat uses and the armor good from the fixed
+  // armor type, so map placement, mission `sethuman` and admin spawning all produce the same loadout.
+  const index = contentIndex(content);
   const fixedHeroWeapon = heroJob
-    ? contentIndex(content).weaponsByTribeAndJob.get(spec.tribe)?.get(spec.jobType)?.goodType
+    ? index.weaponsByTribeAndJob.get(spec.tribe)?.get(spec.jobType)?.goodType
     : undefined;
   const fixedHeroArmorGood =
-    fixedHeroArmor === undefined ? undefined : contentIndex(content).armor.get(fixedHeroArmor)?.goodType;
-  if (heroJob && (fixedHeroWeapon !== undefined || fixedHeroArmorGood !== undefined)) {
+    fixedHeroArmor === undefined ? undefined : index.armor.get(fixedHeroArmor)?.goodType;
+  const heroShoes = heroJob ? index.goodTypeBySlug.get(HERO_SHOES_GOOD) : undefined;
+  if (
+    heroJob &&
+    (fixedHeroWeapon !== undefined || fixedHeroArmorGood !== undefined || heroShoes !== undefined)
+  ) {
     world.add(
       e,
       Equipment,
       equipmentFromCommand({
         ...(fixedHeroWeapon !== undefined ? { weapon: { goodType: fixedHeroWeapon } } : {}),
         ...(fixedHeroArmorGood !== undefined ? { armor: { goodType: fixedHeroArmorGood } } : {}),
+        ...(heroShoes !== undefined ? { boots: { goodType: heroShoes } } : {}),
       }),
     );
   } else if (mayChangeEquipment(world, content, e)) {
@@ -158,7 +172,7 @@ export function createSettler(
   }
   stampOwner(world, e, spec.owner);
   stampMissionId(world, e, spec.missionId);
-  stampMissionBehaviour(world, e, spec.behaviourFlags);
+  stampMissionBehaviour(world, e, (spec.behaviourFlags ?? 0) | (heroJob ? HERO_BEHAVIOUR : 0));
   if (spec.nameStringId !== undefined) nameHuman(world, e, spec.nameStringId);
   if (spec.paletteRecipes !== undefined && spec.paletteRecipes.length > 0) {
     world.add(e, ScriptedLook, { recipes: [...spec.paletteRecipes] });

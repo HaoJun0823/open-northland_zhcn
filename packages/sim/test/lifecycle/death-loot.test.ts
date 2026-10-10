@@ -31,6 +31,9 @@ const MAIL = 18;
 const SHOES = 8;
 const TOOL = 11;
 const DRAUGHT = 13;
+const SOLDIER = 31;
+const HERO = 45;
+const CIVILIST = 6;
 
 const DEATH_TILE = { x: fx.fromInt(6), y: fx.fromInt(6) };
 const HALF_USED = fx.div(ONE, fx.fromInt(2));
@@ -54,9 +57,9 @@ function mappedSim(): Simulation {
   return new Simulation({ seed: 1, content: testContent(), map: grassCellMap(16, 16) });
 }
 
-/** A settler at {@link DEATH_TILE} wearing `gear`, already drained to 0 hitpoints. */
-function doomedWearing(sim: Simulation, gear: Gear): Entity {
-  const e = settlerAt(sim, { jobType: null, position: DEATH_TILE });
+/** A settler of `jobType` at {@link DEATH_TILE} wearing `gear`, already drained to 0 hitpoints. */
+function doomedWearing(sim: Simulation, gear: Gear, jobType = SOLDIER): Entity {
+  const e = settlerAt(sim, { jobType, position: DEATH_TILE });
   sim.world.add(e, Equipment, {
     weapon: gear.weapon ?? null,
     armor: gear.armor ?? null,
@@ -111,6 +114,22 @@ describe('a fallen character drops its gear beside the bones', () => {
         [MAIL, 1],
       ]),
     );
+  });
+
+  it('leaves a hero or civilian weapon with the bones, still dropping the rest of the gear', () => {
+    for (const jobType of [HERO, CIVILIST]) {
+      const sim = mappedSim();
+      doomedWearing(sim, { weapon: worn(SWORD), armor: worn(MAIL), boots: worn(SHOES) }, jobType);
+
+      cleanupSystem(sim.world, ctxOf(sim));
+
+      expect(droppedUnits(sim)).toEqual(
+        new Map([
+          [SHOES, 1],
+          [MAIL, 1],
+        ]),
+      );
+    }
   });
 
   it('drops the loot at the death tile, the way a razed store spills onto its own plot', () => {

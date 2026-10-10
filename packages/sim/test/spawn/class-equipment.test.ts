@@ -1,6 +1,6 @@
 import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { Armor, Equipment } from '../../src/components/index.js';
+import { Armor, Equipment, hasMissionBehaviour, MISSION_BEHAVIOUR } from '../../src/components/index.js';
 import type { SettlerEquipment } from '../../src/core/commands/index.js';
 import { PersonalNames } from '../../src/core/personal-names.js';
 import { Rng } from '../../src/core/rng.js';
@@ -76,6 +76,23 @@ describe('createSettler hero equipment', () => {
       armor: { goodType: HERO_ARMOR_GOOD, degreeOfUse: 0 },
     });
     expect(world.get(hero, Armor)).toEqual({ armorClass: HERO_ARMOR });
+  });
+
+  it('puts every hero in new shoes that never wear, beside the spawn mask', () => {
+    const world = new World();
+    const PASSIVE = MISSION_BEHAVIOUR.PASSIVE;
+    const hero = createSettler(
+      world,
+      testContent(),
+      new Rng(1),
+      { x: 0, y: 0, tribe: VIKING, jobType: HERO_SABER, behaviourFlags: PASSIVE },
+      new PersonalNames(1, []),
+    );
+    if (hero === null) throw new Error('hero spawn failed');
+
+    expect(world.get(hero, Equipment).boots).toEqual({ goodType: SHOES_GOOD, degreeOfUse: 0 });
+    expect(hasMissionBehaviour(world, hero, MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR)).toBe(true);
+    expect(hasMissionBehaviour(world, hero, PASSIVE)).toBe(true);
   });
 });
 

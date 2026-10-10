@@ -211,9 +211,11 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
           expect(`${id}: ${systems.missionObjects(sim.world, id).length}`).toBe(`${id}: 1`);
         }
         // And every one of them arrives under the mask its line wrote, which this map uses to put the
-        // wave beyond the player's orders and off the needs ladder.
+        // wave beyond the player's orders and off the needs ladder. A hero adds its own bits to it.
         const masked = humansEntitiesOf(sim, WAVE_PLAYER).filter(
-          (e) => sim.world.tryGet(e, components.MissionBehaviour)?.flags === WAVE_BEHAVIOUR,
+          (e) =>
+            ((sim.world.tryGet(e, components.MissionBehaviour)?.flags ?? 0) & WAVE_BEHAVIOUR) ===
+            WAVE_BEHAVIOUR,
         );
         expect(masked.length).toBe(WAVE_SIZE);
       },

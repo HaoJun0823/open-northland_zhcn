@@ -1,7 +1,9 @@
+import type { ContentSet } from '@open-northland/data';
 import {
   Equipment,
   type GoodsLine,
   Position,
+  Settler,
   Stockpile,
   stockpileEntries,
   Upgrading,
@@ -15,6 +17,7 @@ import { ringSearch } from '../../nav/ring-search.js';
 import type { NodeId } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
+import { isSoldierJob } from '../readviews/index.js';
 import { isUsed, spillOverRings } from '../settlers/atomics/effects/goods/index.js';
 
 // What a destroy leaves behind, in two steps around it: read what the entity holds while it still stands,
@@ -67,18 +70,25 @@ export function spilledStockOf(
 
 /**
  * The gear a fallen character leaves beside its bones: one unit per equipment slot holding an unused good,
- * since a part-used unit drops nothing. Call it before the destroy.
+ * since a part-used unit drops nothing. Original behavior: only a soldier drops his weapon, so a hero's
+ * class weapon dies with him. Call it before the destroy.
  *
  * Approximation: `misc.ini` `[tribelandscapeLinkData]` leaves a human death only the `skeleton` decal
  * and keeps the goods-bearing cadaver for the animal tribes. A carried load is not part of the rule.
  */
-export function droppedEquipmentOf(world: World, character: Entity): SpilledStock | null {
+export function droppedEquipmentOf(
+  world: World,
+  content: ContentSet,
+  character: Entity,
+): SpilledStock | null {
   const pos = world.tryGet(character, Position);
   const equipment = world.tryGet(character, Equipment);
   if (pos === undefined || equipment === undefined) return null;
   const held = new Map<number, number>();
   const boots = wornSlot(world, character, 'boots', 0);
-  const slots = [equipment.weapon, equipment.armor, boots, equipment.tool, ...equipment.misc];
+  const soldier = isSoldierJob(content, world.tryGet(character, Settler)?.jobType ?? null);
+  const weapon = soldier ? equipment.weapon : null;
+  const slots = [weapon, equipment.armor, boots, equipment.tool, ...equipment.misc];
   for (const slot of slots) {
     if (slot === null || isUsed(slot)) continue;
     held.set(slot.goodType, (held.get(slot.goodType) ?? 0) + 1);

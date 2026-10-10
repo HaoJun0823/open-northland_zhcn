@@ -79,7 +79,7 @@ describe('opening briefing objectives', () => {
     const content = sandboxContent();
     const original = new Simulation({ seed: 1, content, missions: script });
     original.enqueueSetup({ kind: 'setMissionsEnabled', enabled: true });
-    original.run(systems.MISSION_EVALUATION_TICKS);
+    original.step();
     expect(original.missionStatus()[0]).toMatchObject({ done: true, fireCount: 1 });
     const restored = restoreSimulation(exportSaveGame(original), { content, missions: script });
     for (const sim of [original, restored]) {

@@ -8,15 +8,15 @@ import { allyVision } from '../fixtures/allies.js';
 import { testContent } from '../fixtures/content.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 import {
-  FIRST_PASS,
   failedResultsNow,
   firingMission,
   firingSim,
-  firstPassAfter,
   goalMission,
   goalSim,
   HEADQUARTERS,
   holds,
+  LOAD_PASS,
+  loadPassAfter,
   MAP_NODES,
   PASS_TICKS,
   POINT,
@@ -55,7 +55,7 @@ function explore(player: number, point: HalfCellNode, range: number): MissionRes
   return { opcode: 'ExploreArea', player, point, range };
 }
 
-/** A scripted world under `mode` whose first pass has run, enabled once the fog was stamped, as a map's is;
+/** A scripted world under `mode` whose load pass has run once the fog was stamped, as a map's does;
  *  `setup` enqueues the fixture that stands before it. */
 function underFog(
   missions: readonly MissionDefinition[],
@@ -65,7 +65,7 @@ function underFog(
   const sim = scriptedSim(missions);
   sim.enqueueSetup({ kind: 'setFogMode', mode });
   setup?.(sim);
-  firstPassAfter(sim, FOG_SETTLED);
+  loadPassAfter(sim, FOG_SETTLED);
   return sim;
 }
 
@@ -157,7 +157,7 @@ describe('ExploreArea', () => {
 
   it('writes nothing with fog off, where everything shows already', () => {
     const sim = firingSim([explore(OWNER, POINT, RANGE)]);
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(sim.fog?.tryMaskFor(OWNER)).toBeUndefined();
   });
 
@@ -186,7 +186,7 @@ describe('FindPos', () => {
 
   it('holds with fog off', () => {
     const sim = goalSim(at(OWNER, FAR_EAST));
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(holds(sim)).toBe(true);
   });
 
@@ -268,7 +268,7 @@ describe('FindHumans, FindHouses and FindAnimals', () => {
 
   it('hold nowhere when nothing carries the id, even for such a slot', () => {
     const sim = goalSim({ opcode: 'FindHumans', player: BEYOND_SLOTS, humanId: MARK });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(holds(sim)).toBe(false);
   });
 });

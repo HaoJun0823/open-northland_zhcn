@@ -21,21 +21,19 @@ import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../src/nav/ha
 import { REGENERATION_HITPOINTS_PER_TICK } from '../../src/systems/index.js';
 import { type MissionResultOp, SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
 import {
-  enableMissions,
-  FIRST_PASS,
   firingMission,
   firingSim,
   HUT_LARGE,
   houseContent,
+  LOAD_PASS,
   MAP_NODES,
   missionSim,
   PASS_TICKS,
   POINT,
-  runFirstPass,
+  runLoadPass,
   SOLDIER,
   scriptedSim,
   spawn,
-  untilFirstPass,
   VIKING,
 } from './support.js';
 
@@ -90,7 +88,7 @@ describe('SendHuman', () => {
     spawn(sim, { player: OWNER, missionId: GROUP });
     spawn(sim, { player: OWNER, missionId: GROUP });
     spawn(sim, { player: OWNER });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(humansOf(sim, OWNER).filter((e) => sim.world.has(e, PlayerOrder))).toHaveLength(2);
   });
 
@@ -107,7 +105,7 @@ describe('SendHuman', () => {
     const [scripted, ordered] = humansOf(sim, OWNER);
     if (scripted === undefined || ordered === undefined) throw new Error('two settlers expected');
     sim.enqueue(playerCommand(OWNER, { kind: 'moveUnit', entity: ordered, x: beyond.hx, y: beyond.hy }));
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(sim.world.has(scripted, PlayerOrder)).toBe(true);
     expect(sim.world.has(ordered, PlayerOrder)).toBe(false);
   });
@@ -116,7 +114,7 @@ describe('SendHuman', () => {
     const sim = firingSim([{ opcode: 'SendHuman', humanId: GROUP, point: FAR }]);
     spawn(sim, { player: OWNER, missionId: GROUP, job: SOLDIER });
     spawn(sim, { player: OWNER, missionId: GROUP });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const [soldier, civilian] = humansOf(sim, OWNER);
     if (soldier === undefined || civilian === undefined) throw new Error('two settlers expected');
     expect(sim.world.get(soldier, PlayerOrder)).toMatchObject({
@@ -129,7 +127,7 @@ describe('SendHuman', () => {
   it('gives a stacked band a place each around the point', () => {
     const sim = firingSim([{ opcode: 'SendHuman', humanId: GROUP, point: FAR }]);
     for (let i = 0; i < BAND; i++) spawn(sim, { player: OWNER, missionId: GROUP, job: SOLDIER });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const goals = humansOf(sim, OWNER).map((e) => sim.world.get(e, PlayerOrder).attackMove?.goal);
     expect(new Set(goals).size).toBe(BAND);
     for (const goal of goals) {
@@ -146,7 +144,7 @@ describe('SendHuman', () => {
       { opcode: 'ActivateMission', missionIndex: 0 },
     ]);
     spawn(sim, { player: OWNER, missionId: GROUP, job: SOLDIER });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const [soldier] = humansOf(sim, OWNER);
     if (soldier === undefined) throw new Error('no settler');
     const march = sim.world.get(soldier, PlayerOrder).attackMove;
@@ -162,7 +160,7 @@ describe('SendHuman', () => {
       { opcode: 'ActivateMission', missionIndex: 0 },
     ]);
     for (let i = 0; i < THINNED_BAND; i++) spawn(sim, { player: OWNER, missionId: GROUP, job: SOLDIER });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('map expected');
     const reachOf = (e: Entity): number => {
@@ -186,7 +184,7 @@ describe('SendHuman', () => {
       { opcode: 'ActivateMission', missionIndex: 0 },
     ]);
     for (let i = 0; i < WIDE_BAND; i++) spawn(sim, { player: OWNER, missionId: GROUP, job: SOLDIER });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const band = humansOf(sim, OWNER);
     const marches = band.map((e) => sim.world.get(e, PlayerOrder).attackMove);
     sim.run(PASS_TICKS);
@@ -201,7 +199,7 @@ describe('SendHuman', () => {
       { opcode: 'ActivateMission', missionIndex: 0 },
     ]);
     for (let i = 0; i < BAND; i++) spawn(sim, { player: OWNER, missionId: GROUP, job: SOLDIER });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const band = humansOf(sim, OWNER);
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('map expected');
@@ -234,7 +232,7 @@ describe('SendHuman', () => {
       },
     ]);
     spawn(sim, { player: OWNER, missionId: GROUP, job: SOLDIER, at: OUTSIDE });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const [soldier] = humansOf(sim, OWNER);
     if (soldier === undefined) throw new Error('no settler');
     const terrain = sim.terrain;
@@ -254,7 +252,7 @@ describe('SendHuman', () => {
       { opcode: 'ActivateMission', missionIndex: 0 },
     ]);
     for (let i = 0; i < BAND; i++) spawn(sim, { player: OWNER, missionId: GROUP, job: SOLDIER });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     for (let i = 0; i < BAND; i++) spawn(sim, { player: OWNER, missionId: GROUP, job: SOLDIER });
     sim.run(PASS_TICKS);
     const goals = humansOf(sim, OWNER).map((e) => sim.world.tryGet(e, PlayerOrder)?.attackMove?.goal);
@@ -268,7 +266,7 @@ describe('SendHuman', () => {
       { opcode: 'ActivateMission', missionIndex: 0 },
     ]);
     for (let i = 0; i < BAND; i++) spawn(sim, { player: OWNER, missionId: GROUP });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const band = humansOf(sim, OWNER);
     const orders = band.map((e) => sim.world.get(e, PlayerOrder));
     sim.run(PASS_TICKS);
@@ -283,7 +281,7 @@ describe('SendHuman', () => {
     const [stranger] = humansOf(sim, STRANGER);
     if (stranger === undefined) throw new Error('no stranger');
     expect(nodeOf(sim, stranger)).toEqual(FAR);
-    runFirstPass(sim);
+    runLoadPass(sim);
     const [soldier] = humansOf(sim, OWNER);
     if (soldier === undefined) throw new Error('no settler');
     const goal = sim.world.get(soldier, PlayerOrder).attackMove?.goal;
@@ -295,7 +293,7 @@ describe('SendHuman', () => {
     const lines = [GROUP, GROUP + 1, GROUP + 2];
     const sim = firingSim(lines.map((humanId) => ({ opcode: 'SendHuman', humanId, point: FAR })));
     for (const missionId of lines) spawn(sim, { player: OWNER, missionId, job: SOLDIER });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('the shared lattice is missing');
     const goals = humansOf(sim, OWNER).map((e) => {
@@ -313,7 +311,7 @@ describe('SendHuman', () => {
   it('walks the ordered group toward the point', () => {
     const sim = firingSim([{ opcode: 'SendHuman', humanId: GROUP, point: FAR }]);
     spawn(sim, { player: OWNER, missionId: GROUP });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     const [walker] = humansOf(sim, OWNER);
     if (walker === undefined) throw new Error('no settler');
     const before = hexDistance(nodeOf(sim, walker), FAR);
@@ -327,14 +325,14 @@ describe('MoveHuman', () => {
     const sim = firingSim([{ opcode: 'MoveHuman', humanId: GROUP, point: FAR }]);
     spawn(sim, { player: OWNER, missionId: GROUP });
     spawn(sim, { player: OWNER, missionId: GROUP });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(crowdNear(sim, OWNER, FAR, LANDING_SPREAD)).toBe(2);
   });
 
   it('carries at most twenty of them', () => {
     const sim = firingSim([{ opcode: 'MoveHuman', humanId: GROUP, point: FAR }]);
     for (let i = 0; i < 25; i++) spawn(sim, { player: OWNER, missionId: GROUP });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(crowdNear(sim, OWNER, FAR, LANDING_SPREAD)).toBe(20);
   });
 });
@@ -354,7 +352,7 @@ describe('MoveUnitsInArea', () => {
     spawn(sim, { player: OWNER });
     spawn(sim, { player: OWNER });
     spawn(sim, { player: OWNER + 1 }); // another player's: not this line's to move
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(crowdNear(sim, OWNER, FAR, LANDING_SPREAD)).toBe(2);
     expect(crowdNear(sim, OWNER + 1, FAR, LANDING_SPREAD)).toBe(0);
   });
@@ -362,7 +360,7 @@ describe('MoveUnitsInArea', () => {
   it('carries at most twenty of them', () => {
     const sim = firingSim([move]);
     for (let i = 0; i < 25; i++) spawn(sim, { player: OWNER });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(crowdNear(sim, OWNER, FAR, LANDING_SPREAD)).toBe(20);
   });
 
@@ -373,7 +371,7 @@ describe('MoveUnitsInArea', () => {
     const [stayer] = humansOf(sim, OWNER);
     if (stayer === undefined) throw new Error('no settler');
     const before = nodeOf(sim, stayer);
-    runFirstPass(sim);
+    runLoadPass(sim);
     expect(hexDistance(nodeOf(sim, stayer), before)).toBeLessThanOrEqual(1);
   });
 
@@ -381,12 +379,11 @@ describe('MoveUnitsInArea', () => {
     const sim = scriptedSim([firingMission([move])]);
     spawn(sim, { player: OWNER });
     sim.run(IDLE_TICKS);
-    untilFirstPass(sim);
     const [indoors] = humansOf(sim, OWNER);
     if (indoors === undefined) throw new Error('no settler');
     sim.world.add(indoors, Resting, { at: indoors });
     const before = nodeOf(sim, indoors);
-    sim.step();
+    runLoadPass(sim);
     expect(hexDistance(nodeOf(sim, indoors), before)).toBeLessThanOrEqual(1);
   });
 });
@@ -396,12 +393,11 @@ describe('StopHumanByPlayerId', () => {
     const sim = scriptedSim([firingMission([{ opcode: 'StopHumanByPlayerId', player: OWNER }])]);
     spawn(sim, { player: OWNER });
     sim.run(PLACED);
-    enableMissions(sim);
-    sim.run(FIRST_PASS - WALKING_TICKS);
     const [walker] = humansOf(sim, OWNER);
     if (walker === undefined) throw new Error('no settler');
     sim.enqueueSetup({ kind: 'moveUnit', entity: walker, x: FAR.hx, y: FAR.hy });
     sim.run(WALKING_TICKS);
+    runLoadPass(sim);
     const halted = nodeOf(sim, walker);
     sim.run(60);
     expect(hexDistance(nodeOf(sim, walker), halted)).toBeLessThanOrEqual(3);
@@ -414,7 +410,7 @@ describe('RemoveHumansNearPos', () => {
     spawn(sim, { player: OWNER });
     spawn(sim, { player: OWNER + 1 });
     spawn(sim, { player: OWNER, at: OUTSIDE });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect([...sim.world.query(Person)]).toHaveLength(1);
   });
 });
@@ -425,10 +421,9 @@ describe('HealHumansInArea', () => {
     spawn(sim, { player: OWNER });
     spawn(sim, { player: OWNER, at: OUTSIDE });
     sim.run(IDLE_TICKS);
-    untilFirstPass(sim);
     const wounded = humansOf(sim, OWNER);
     for (const e of wounded) sim.world.mut(e, Health).hitpoints = 1;
-    sim.step();
+    runLoadPass(sim);
     const pools = wounded.map((e) => sim.world.get(e, Health));
     expect(pools.filter((h) => h.hitpoints === h.max)).toHaveLength(1);
     // The one outside has only its own point-a-tick regeneration over the pass's one tick.
@@ -443,7 +438,7 @@ describe('HealHumansInArea', () => {
     if (blessed === undefined) throw new Error('no human spawned');
     const over = sim.world.get(blessed, Health).max + 1;
     sim.world.mut(blessed, Health).hitpoints = over;
-    runFirstPass(sim);
+    runLoadPass(sim);
     expect(sim.world.get(blessed, Health).hitpoints).toBe(sim.world.get(blessed, Health).max);
   });
 });
@@ -482,7 +477,7 @@ describe('the house damage results', () => {
   it('takes hit points off the player’s houses in the area', () => {
     const sim = houseSim(damage);
     const before = sim.world.get(theHouse(sim), Health).hitpoints;
-    runFirstPass(sim);
+    runLoadPass(sim);
     expect(sim.world.get(theHouse(sim), Health).hitpoints).toBe(before - damage.amount);
     expect(sim.world.get(theHouse(sim), Damaged).lastHitTick).not.toBeNull(); // a blow, not a short pool
   });
@@ -492,7 +487,7 @@ describe('the house damage results', () => {
     const house = theHouse(sim);
     setHouseBehaviour(sim.world, house, HOUSE_BEHAVIOUR.INDESTRUCTIBLE, true);
     const before = sim.world.get(house, Health).hitpoints;
-    runFirstPass(sim);
+    runLoadPass(sim);
     expect(sim.world.get(house, Health).hitpoints).toBe(before);
   });
 
@@ -501,20 +496,20 @@ describe('the house damage results', () => {
     const house = theHouse(sim);
     sim.world.add(house, MissionObjectId, { id: GROUP });
     const before = sim.world.get(house, Health).hitpoints;
-    runFirstPass(sim);
+    runLoadPass(sim);
     expect(sim.world.get(house, Health).hitpoints).toBe(before);
   });
 
   it('leaves another player’s house alone', () => {
     const sim = houseSim(damage, OWNER + 1);
     const before = sim.world.get(theHouse(sim), Health).hitpoints;
-    runFirstPass(sim);
+    runLoadPass(sim);
     expect(sim.world.get(theHouse(sim), Health).hitpoints).toBe(before);
   });
 
   it('razes a house it drains, through the ordinary reaper', () => {
     const sim = houseSim({ ...damage, amount: 100_000 });
-    runFirstPass(sim);
+    runLoadPass(sim);
     sim.step();
     expect([...sim.world.query(Building)].filter((e) => sim.world.has(e, Owner))).toHaveLength(0);
   });

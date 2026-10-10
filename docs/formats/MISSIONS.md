@@ -178,6 +178,9 @@ All of this section is a reading unless marked otherwise.
   pass and a 3-second one on the second. Here: the script clock
   starts at 1 on the tick the script is enabled, the map's first live tick, and the pass runs before
   that tick's world systems, so a pass on clock `c` has seen `c - 1` ticks, as the original's has.
+  A load pass also runs on clock 1, so the opening briefing shows as the map opens instead of three
+  seconds in (a deliberate deviation); a mission it activates records clock 1 as well, and the cadence
+  passes are unchanged.
 - A pass clears the pending sub-mission flags, then visits missions in index order, skipping inactive
   ones. A result can raise a stop flag (`PlayCutscene` does); the pass ends after that mission. After
   the loop the pending `EndSubMission` returns to the parent map, else a pending `StartSubMission`

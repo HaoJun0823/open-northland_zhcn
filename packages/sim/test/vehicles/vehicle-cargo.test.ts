@@ -34,7 +34,7 @@ import {
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap, waterColumnMap } from '../fixtures/terrain.js';
-import { FIRST_PASS } from '../missions/support.js';
+import { LOAD_PASS } from '../missions/support.js';
 
 /**
  * The cargo of docs/formats/VEHICLES.md "Cargo": the wanted-amount orders and their clamps, the attached
@@ -643,7 +643,7 @@ describe('the script paths', () => {
       goods: [{ good: WOOD, amount: 2 }],
     });
     const other = spawnCart(s, { hx: 40, hy: 40 });
-    s.run(FIRST_PASS);
+    s.run(LOAD_PASS);
     if (stamped === null) throw new Error('handcart not in the fixture');
     // No carrier attached: the stow sets wanted to the new actual amount before the request is raised.
     expect(line(s, stamped, WOOD)).toEqual({ current: 6, wanted: 10, reserved: 6 });

@@ -3,7 +3,7 @@ import { Owner, Position, Signpost } from '../../src/components/index.js';
 import type { Simulation } from '../../src/index.js';
 import { type HalfCellNode, positionOfNode } from '../../src/nav/halfcell.js';
 import { guideNearPoint } from '../../src/systems/missions/goals/proximity.js';
-import { FIRST_PASS, goalSim, holds, PASS_TICKS, POINT, roundTrip, spawn, stamped } from './support.js';
+import { goalSim, holds, LOAD_PASS, PASS_TICKS, POINT, roundTrip, spawn, stamped } from './support.js';
 
 const PLAYER = 0;
 const OTHER_PLAYER = 1;
@@ -29,7 +29,7 @@ describe('DetectGuide', () => {
   ])('checks inclusive map-point distance: $point, range $range', ({ point, range, expected }) => {
     const sim = goalSim({ ...GOAL, range });
     post(sim, point);
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(holds(sim)).toBe(expected);
   });
 
@@ -40,7 +40,7 @@ describe('DetectGuide', () => {
     sim.world.add(decoration, Position, positionOfNode(POINT.hx, POINT.hy));
     sim.world.add(decoration, Owner, { player: PLAYER });
     spawn(sim, { player: PLAYER, job: SCOUT });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(holds(sim)).toBe(false);
   });
 
@@ -51,14 +51,14 @@ describe('DetectGuide', () => {
     sim.world.mut(e, Owner).player = PLAYER;
     expect(guideNearPoint(sim.world, GOAL)).toBe(true);
     sim.enqueueSetup({ kind: 'demolishSignpost', signpost: e });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(holds(sim)).toBe(false);
   });
 
   it('satisfies a pending mission after a scout erects the post, including after restore', () => {
     const sim = goalSim(GOAL);
     spawn(sim, { player: PLAYER, job: SCOUT, missionId: SCOUT_ID });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(holds(sim)).toBe(false);
     sim.enqueueSetup({ kind: 'placeSignpost', entity: stamped(sim, SCOUT_ID), x: POINT.hx, y: POINT.hy });
     sim.step();

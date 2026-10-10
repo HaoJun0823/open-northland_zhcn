@@ -16,7 +16,7 @@ import {
   missionSim,
   PASS_TICKS,
   POINT,
-  runFirstPass,
+  runLoadPass,
   SOLDIER,
   scriptedSim,
   spawn,
@@ -307,7 +307,7 @@ describe('the counting goals that tag what they counted', () => {
     spawn(sim, { player: 2, job: CARPENTER, missionId: 7 });
     sim.run(SPAWNED);
     expect(missionObjects(sim.world, 7)).toHaveLength(1);
-    runFirstPass(sim);
+    runLoadPass(sim);
     expect(holds(sim)).toBe(true);
     expect(missionObjects(sim.world, 7)).toHaveLength(0);
   });

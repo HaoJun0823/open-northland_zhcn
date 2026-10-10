@@ -17,7 +17,7 @@ import type { MissionScript } from './script.js';
 
 /**
  * The script clock period between two evaluation passes, 3 seconds at 12 ticks per second. Original
- * behavior (byte-level): a pass runs when the game-time counter is a multiple of 36, and never on load.
+ * behavior (byte-level): a pass runs when the game-time counter is a multiple of 36.
  */
 export const MISSION_EVALUATION_TICKS = 36;
 
@@ -29,18 +29,22 @@ export const MISSION_EVALUATION_TICKS = 36;
 const reported = new WeakMap<World, Set<string>>();
 
 /**
- * Runs the map's `[MissionData]` script: it loads the records on the first tick the script is enabled,
- * then whenever the {@link missionClock} reaches a multiple of {@link MISSION_EVALUATION_TICKS} it visits
- * the active missions in index order and fires the results of each whose goals satisfy its
- * `successfullif` rule. Inert without a script or with `MissionRules` off, which is every world that
- * does not opt in.
+ * Runs the map's `[MissionData]` script: it loads the records on the first tick the script is enabled
+ * and passes over them at once, then whenever the {@link missionClock} reaches a multiple of
+ * {@link MISSION_EVALUATION_TICKS}. A pass visits the active missions in index order and fires the
+ * results of each whose goals satisfy its `successfullif` rule. Inert without a script or with
+ * `MissionRules` off, which is every world that does not opt in.
+ *
+ * The load pass is a deliberate deviation: the original's first pass comes 35 ticks after load, so its
+ * opening briefing appears three seconds into the map. Here the map opens on it.
  */
 export const missionSystem: System = (world, ctx) => {
   const script = ctx.missions;
   if (script === undefined || script.missions.length === 0 || !missionsEnabled(world)) return;
-  if (!missionStateExists(world)) loadMissionState(world, script, ctx.tick);
+  const loadPass = !missionStateExists(world);
+  if (loadPass) loadMissionState(world, script, ctx.tick);
   const clock = missionClock(world, ctx.tick);
-  if (clock % MISSION_EVALUATION_TICKS !== 0) return;
+  if (!loadPass && clock % MISSION_EVALUATION_TICKS !== 0) return;
   // A script with nothing active has no pass to run, and taking the write seam anyway would dirty the
   // world - and every cache derived from it - every three seconds for the rest of a finished map.
   if (!missionRecords(world).some((record) => record.active)) return;

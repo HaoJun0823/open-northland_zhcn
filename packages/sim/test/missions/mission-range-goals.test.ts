@@ -5,12 +5,12 @@ import { positionOfNode } from '../../src/nav/halfcell.js';
 import type { MissionGoalOp } from '../../src/systems/missions/index.js';
 import { SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
 import {
-  FIRST_PASS,
   goalSim,
   HUT,
   HUT_LARGE,
   holds,
   houseContent,
+  LOAD_PASS,
   missionSim,
   PASS_TICKS,
   POINT,
@@ -24,7 +24,7 @@ import {
 
 /**
  * The goals that measure map-point distance. Each pair is one world where the goal holds and one
- * where it does not, judged on the script's first pass.
+ * where it does not, judged on the load pass, where every setup placement stands where its line put it.
  */
 
 const OWNER = 2;
@@ -34,7 +34,7 @@ const AREA = 10;
 const FAR = { hx: POINT.hx + 22, hy: POINT.hy };
 
 function judged(sim: Simulation): boolean {
-  sim.run(FIRST_PASS);
+  sim.run(LOAD_PASS);
   return holds(sim);
 }
 
@@ -100,7 +100,7 @@ describe('the goal flag a range test writes', () => {
       },
     ]);
     spawn(sim, { player: OWNER, missionId: HERE });
-    sim.run(FIRST_PASS);
+    sim.run(LOAD_PASS);
     expect(missionRecords(sim.world)[0]?.goalsHeld[0]).toBe(true);
 
     // Set down outside rather than walked out: the goal reads where the unit stands, and a walk order

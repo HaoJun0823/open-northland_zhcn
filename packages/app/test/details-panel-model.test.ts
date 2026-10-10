@@ -782,12 +782,7 @@ describe('selection details panel model', () => {
 
     const bare = buildUnitPanelModel(snapshot, new Set([2]), sandboxCtx());
     if (bare.kind !== 'settler') throw new Error('expected a settler model');
-    expect(bare.bars.map((b) => b.label)).toEqual([
-      'Energia',
-      'Wytrzymałość',
-      'Towarzystwo',
-      'Religia',
-    ]);
+    expect(bare.bars.map((b) => b.label)).toEqual(['Energia', 'Wytrzymałość', 'Towarzystwo', 'Religia']);
   });
 
   it('drops every need bar while the needs rule is off, leaving only Zdrowie', () => {

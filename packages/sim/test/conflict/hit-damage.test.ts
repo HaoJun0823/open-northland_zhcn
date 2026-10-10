@@ -189,7 +189,7 @@ describe('resolveCombatHit - a blow that does no damage', () => {
 
     expect(
       resolveCombatHit(sim.world, ctxOf(sim), striker, victim, swing(ARMOR_BLOCKING + 1), [], 'melee'),
-    ).toEqual({ damage: 1, targetMaxHealth: BASE });
+    ).toEqual({ damage: 1, targetMaxHealth: BASE, targetIdentity: { tribe: OTHER, jobType: null } });
     expect(sim.events.current().filter((ev) => ev.kind === 'combatHit')).toMatchObject([
       { damage: 1, targetMaxHealth: BASE },
     ]);

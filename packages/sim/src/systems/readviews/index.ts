@@ -97,6 +97,7 @@ export {
 export {
   defaultStanceForJob,
   isMilitaryMode,
+  keepsAnchor,
   MILITARY_MODE,
   type MilitaryMode,
   stanceFights,

@@ -8,7 +8,7 @@ import {
   vehicleCommander,
 } from '../../components/index.js';
 import type { System } from '../context.js';
-import { landingOf, setDownRider } from '../vehicles/crew.js';
+import { landingOf, landRider } from '../vehicles/crew.js';
 
 /**
  * A trader riding inside the cart it commands steps out onto the door once the cart stands still with
@@ -27,6 +27,6 @@ export const traderDisembarkSystem: System = (world, ctx) => {
     if (state === undefined || vehicleCommander(state) !== e || state.carrier !== null) continue;
     if (world.has(vehicle, VehicleDrive) || state.heldGoal !== null) continue;
     const landing = landingOf(world, ctx, vehicle);
-    if (landing !== null) setDownRider(world, e, landing);
+    if (landing !== null) landRider(world, ctx, e, landing);
   }
 };

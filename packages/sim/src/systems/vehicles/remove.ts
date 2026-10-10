@@ -16,7 +16,7 @@ import { vehicleAnchor, vehicleFootprintNodes } from '../footprint/index.js';
 import { reap } from '../lifecycle/death.js';
 import { isShipVehicle } from '../readviews/vehicles.js';
 import { releaseCarried } from './boarding.js';
-import { landingOf, placeOnNode, releaseRider, setDownRider } from './crew.js';
+import { landingOf, landRider, placeOnNode, releaseRider } from './crew.js';
 import { vehicleIndex } from './registry.js';
 
 /** How far a wrecked cart's or catapult's cargo scatters, in spill rings (original behavior: radius 10;
@@ -61,7 +61,7 @@ export function removeVehicle(world: World, ctx: SystemContext, e: Entity, cause
     if (!world.isAlive(seat.entity)) continue;
     if (seat.inside && landing === null) reap(world, ctx, seat.entity);
     else {
-      if (seat.inside && landing !== null) setDownRider(world, seat.entity, landing);
+      if (seat.inside && landing !== null) landRider(world, ctx, seat.entity, landing);
       releaseRider(world, seat.entity, e);
     }
   }

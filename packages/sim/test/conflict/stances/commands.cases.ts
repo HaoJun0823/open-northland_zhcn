@@ -58,7 +58,7 @@ describe('setStance command', () => {
     expect(s.anchorCell).toBe(cell(sim, 3, 2)); // anchored where it stood
   });
 
-  it('clears the anchor when the mode is not DEFEND', () => {
+  it('clears the anchor of a civilian set to a mode that keeps none', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 4) });
     const e = combatant(sim, 3, 2, P0, MILITARY_MODE.DEFEND);
     sim.world.mut(e, Stance).anchorCell = cell(sim, 3, 2);

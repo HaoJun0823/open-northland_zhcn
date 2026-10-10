@@ -35,7 +35,7 @@ import { isFemaleJobId } from '../family/eligibility.js';
 import { spawnAgeTicks } from '../lifecycle/ageclass.js';
 import { rollInitialNeed } from '../lifecycle/needs/index.js';
 import { evictSettlerFromBlockedSpawn } from '../movement/evict.js';
-import { stampDefaultStance } from '../orders/index.js';
+import { anchorAtFeet, stampDefaultStance } from '../orders/index.js';
 import { isAnimalTribe, isHeroJob, isSoldierJob, mayChangeEquipment } from '../readviews/index.js';
 import { attachAuthoredBuildings, attachAuthoredVehicle } from './attach.js';
 
@@ -196,6 +196,7 @@ export function spawnSettler(
   // A commanded spawn takes its (x,y) on trust and authored maps routinely name a cell inside a house body,
   // so the eviction must run before anything reads the position, including the work flag planted below.
   evictSettlerFromBlockedSpawn(world, ctx, e);
+  anchorAtFeet(world, ctx, e);
   // Before the flag: a settler its map posts to a workplace is not a flag gatherer, and planting one first
   // would only destroy it again.
   attachAuthoredBuildings(world, ctx, e, command);

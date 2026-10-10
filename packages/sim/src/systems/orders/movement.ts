@@ -24,7 +24,6 @@ import {
   Position,
   removeCurrentAtomic,
   Settler,
-  Stance,
   Stranded,
   SupplyRun,
   TrainingOrder,
@@ -37,13 +36,13 @@ import type { System, SystemContext } from '../context.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
 import { isTravelling, onNodeCentre, stopAtNextNode } from '../movement/nav-state.js';
 import { breakThroughWall } from '../palisades/breach.js';
-import { MILITARY_MODE } from '../readviews/index.js';
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
 import { startDrop } from '../settlers/atomics/start.js';
 import { releaseTowerPost } from '../settlers/drives/tower-post.js';
 import { heldIndoors, stepOut } from '../settlers/indoors.js';
 import { announceLostWay, liftLostWalk, markLostWay } from '../settlers/lost-way.js';
 import { navigationLimitFor } from '../signposts/index.js';
+import { moveAnchor } from './combat.js';
 import { deferOrderDuringAtomic, supersedeStandingOrders } from './guards.js';
 import { breaksForMeal, suspendWalkForMeal } from './meal-break.js';
 
@@ -192,10 +191,9 @@ function startPlayerWalk(
   liftLostWalk(world, e); // an obeyed order is the way found; a cut-off mark waits for its own check
   // Likewise a tower posting; no other kind of worker is unemployed by a walk order.
   releaseTowerPost(world, ctx, e);
-  // A move order relocates a DEFEND or IGNORE unit's anchor, or the arrived-hold combat pass would march it
-  // back to its old one the moment it found no enemy there.
-  const mode = world.tryGet(e, Stance)?.mode;
-  if (mode === MILITARY_MODE.DEFEND || mode === MILITARY_MODE.IGNORE) world.mut(e, Stance).anchorCell = goal;
+  // A move order relocates the unit's anchor, or the combat pass would march it back to its old one the
+  // moment it found no enemy there.
+  moveAnchor(world, ctx.content, e, goal);
 
   // An attack-move walk carries its destination on the order itself: a fight overwrites the MoveGoal with
   // chase destinations, so the march would otherwise have nothing left to resume toward.

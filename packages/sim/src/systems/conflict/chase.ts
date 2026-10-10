@@ -3,6 +3,7 @@ import {
   Building,
   Engagement,
   EquipOrder,
+  Garrison,
   HuntFocus,
   MoveGoal,
   Owner,
@@ -10,7 +11,9 @@ import {
   PathRequest,
   PlayerOrder,
   Position,
+  Rider,
   Settler,
+  Stance,
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { forEachRingNode, hexDistanceBetween, positionOfNode } from '../../nav/halfcell.js';
@@ -20,6 +23,7 @@ import type { SystemContext } from '../context.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
 import { clearNavState, isTravelling, redirectRoute } from '../movement/nav-state.js';
 import { breakThroughWall } from '../palisades/breach.js';
+import { MILITARY_MODE, stanceMode } from '../readviews/index.js';
 import { anyNeedPressing } from '../settlers/drives/needs.js';
 import { markLostWay } from '../settlers/lost-way.js';
 import { closer, hexNodeDistance, nearestHexCell } from '../spatial/metric.js';
@@ -69,11 +73,11 @@ export const REPATH_CADENCE = 8;
  */
 export const SEALED_TARGET_ROUTE_FAILURES = 3;
 
-/** Send a DEFEND unit back to its anchor when no enemy is in its defend radius. The {@link Engagement} always
- *  drops here, or the planner's Engagement gate would bench the guard for good; the walk home defers to a live
- *  equip errand, whose end re-holds the unchanged anchor, and to a pressing need, which the planner answers
- *  above the DEFEND hold. Without that, a guard facing an enemy it cannot reach is turned back from every
- *  meal and starves beside the store. */
+/** Send a DEFEND guard, or an ATTACK fighter that strayed, back to its anchor when nothing is left to
+ *  fight. The {@link Engagement} always drops here, or the planner's Engagement gate would bench the unit for
+ *  good; the walk home defers to a live equip errand, whose end re-holds the unchanged anchor, and to a
+ *  pressing need, which the planner answers above the DEFEND hold. Without that, a guard facing an enemy it
+ *  cannot reach is turned back from every meal and starves beside the store. */
 function returnToAnchor(world: World, ctx: SystemContext, e: Entity, here: NodeId, anchorCell: NodeId): void {
   world.remove(e, Engagement);
   world.remove(e, HuntFocus); // a post-holder holds no prey
@@ -83,8 +87,9 @@ function returnToAnchor(world: World, ctx: SystemContext, e: Entity, here: NodeI
 }
 
 /** Hand a combatant that will not advance this tick back to its idle duty: a post-holder walks back to its
- *  anchor, everyone else disengages. A hunter's leash carries `hold: false` because its between-hunts time
- *  belongs to the flag-gatherer drive, which a combat walk-back would fight for the unit. */
+ *  anchor, and so does an ATTACK fighter that has strayed from its own; everyone else disengages. A
+ *  hunter's leash carries `hold: false` because its between-hunts time belongs to the flag-gatherer drive,
+ *  which a combat walk-back would fight for the unit. */
 export function breakOff(
   world: World,
   ctx: SystemContext,
@@ -92,8 +97,36 @@ export function breakOff(
   here: NodeId,
   defend: DefendPost,
 ): void {
-  if (defend?.hold === true) returnToAnchor(world, ctx, e, here, defend.anchorCell);
+  if (defend?.hold === true) {
+    returnToAnchor(world, ctx, e, here, defend.anchorCell);
+    return;
+  }
+  const home = defend === null ? strayedFrom(world, ctx, e, here) : null;
+  if (home !== null) returnToAnchor(world, ctx, e, here, home);
   else disengage(world, e);
+}
+
+/**
+ * ATTACK stance - how far (map points) a fighter may stand from its anchor before, with nothing to fight, it
+ * walks back to it. Original behavior. Approximation: the original asks each time an idle soldier turns to
+ * its duty; this build asks only when the combat pass breaks it off, so a soldier that wandered off for a
+ * meal with no one near stays where it ate.
+ */
+export const ATTACK_RETURN_SLACK_NODES = 18;
+
+/** The anchor an owned ATTACK fighter breaking off should walk back to, or null: none is kept, it stands
+ *  within {@link ATTACK_RETURN_SLACK_NODES}, a player's order or march owns its walk, or a tower or a
+ *  vehicle holds it. */
+function strayedFrom(world: World, ctx: SystemContext, e: Entity, here: NodeId): NodeId | null {
+  const anchor = world.tryGet(e, Stance)?.anchorCell ?? null;
+  if (anchor === null || ctx.terrain === undefined) return null;
+  if (world.has(e, AttackOrder) || world.has(e, PlayerOrder)) return null;
+  if (world.has(e, Garrison) || world.has(e, Rider)) return null;
+  const { jobType } = world.get(e, Settler);
+  if (stanceMode(world, ctx.content, e, jobType) !== MILITARY_MODE.ATTACK) return null;
+  // An anchor across water is no walk home: the route would be refused and leave the soldier lost.
+  if (ctx.terrain.componentOf(anchor) !== ctx.terrain.componentOf(here)) return null;
+  return hexNodeDistance(ctx.terrain, anchor, here) > ATTACK_RETURN_SLACK_NODES ? anchor : null;
 }
 
 /** Whether routing delivered `e`'s last route: the request is gone and its goal or path stands. A refused

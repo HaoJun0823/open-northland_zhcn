@@ -84,8 +84,9 @@ export const UnreachableTargets = defineComponent<{ entries: readonly Unreachabl
 
 /**
  * A combatant's military stance - the {@link MilitaryMode} the CombatSystem reads to decide
- * auto-engagement, stamped owned-only. `anchorCell` is the DEFEND or IGNORE leash anchor captured by
- * `setStance`, null in every other mode.
+ * auto-engagement, stamped owned-only. `anchorCell` is the place the unit returns to: the DEFEND or IGNORE
+ * leash anchor, or where an ATTACK fighter walks back after a fight (`keepsAnchor`). Null in every other
+ * mode, and until a spawn, trade change or order sets one.
  */
 export const Stance = defineComponent<{ mode: MilitaryMode; anchorCell: NodeId | null }>('Stance', 'combat');
 

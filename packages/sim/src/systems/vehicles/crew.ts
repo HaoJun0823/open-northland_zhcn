@@ -23,6 +23,7 @@ import type { ContentContext, MapContext, SystemContext } from '../context.js';
 import { releaseEmployment } from '../economy/jobs/binding.js';
 import { dynamicBlockOverlay, vehicleAnchor, vehicleDoorNode } from '../footprint/index.js';
 import { clearNavState } from '../movement/nav-state.js';
+import { anchorAtFeet } from '../orders/combat.js';
 import { isOrderableSettler } from '../orders/guards.js';
 import { sendUnit } from '../orders/movement.js';
 import { isShipVehicle } from '../readviews/vehicles.js';
@@ -179,7 +180,7 @@ export function detachFromVehicle(
       refuseRider(world, ctx, e, 'cannotLeave');
       return false;
     }
-    setDownRider(world, e, landing);
+    landRider(world, ctx, e, landing);
   }
   releaseRider(world, e, vehicle);
   return true;
@@ -238,6 +239,12 @@ export function placeOnNode(world: World, e: Entity, point: HalfCellNode): void 
     pos.x = at.x;
     pos.y = at.y;
   }
+}
+
+/** {@link setDownRider}, anchoring a fighter where it lands so it does not walk back to where it boarded. */
+export function landRider(world: World, ctx: SystemContext, rider: Entity, point: HalfCellNode): void {
+  setDownRider(world, rider, point);
+  anchorAtFeet(world, ctx, rider);
 }
 
 /** Put a rider back on the map at `point`, its seat now outside. */
@@ -303,7 +310,7 @@ export function unloadPeople(
   if (landing === null) return;
   for (const seat of vehiclePassengers(state)) {
     if (!world.isAlive(seat.entity)) continue;
-    if (seat.inside) setDownRider(world, seat.entity, landing);
+    if (seat.inside) landRider(world, ctx, seat.entity, landing);
     releaseRider(world, seat.entity, vehicle);
   }
   dropHeldGoal(world, vehicle);

@@ -26,6 +26,7 @@ import {
   Settler,
   SettlerProgress,
   SiteAssignment,
+  Stance,
   SupplyRun,
   setSettlerJob,
   TrainingOrder,
@@ -38,7 +39,7 @@ import type { SystemContext } from '../../context.js';
 import { resizeUnitHealth, unitHitpoints } from '../../lifecycle/unit-health.js';
 // Deliberately the module, not `orders/index.js`: that barrel re-exports `orders/work/employment.js`, which
 // imports this package's barrel, so a barrel import would close an import cycle.
-import { stampDefaultStance } from '../../orders/combat.js';
+import { anchorAtFeet, moveAnchor, stampDefaultStance } from '../../orders/combat.js';
 import { isFighterJob, isSoldierJob } from '../../readviews/index.js';
 // Deliberately the leaves, not the goods barrel: that barrel re-exports the equip effect, which applies the
 // good-to-class transform through this module, so a barrel import would close a cycle.
@@ -70,6 +71,9 @@ export function applyTradeChange(world: World, ctx: SystemContext, e: Entity, jo
     else world.add(e, Weapon, { weaponTypeId: armedClass.typeId });
   }
   const previousHitpoints = unitHitpoints(ctx.content, world.get(e, Settler));
+  const fighterAnchor = isFighterJob(ctx.content, world.get(e, Settler).jobType)
+    ? (world.tryGet(e, Stance)?.anchorCell ?? null)
+    : null;
   const tradeChanged = world.get(e, Settler).jobType !== jobType;
   rememberCurrentJob(world, e, jobType);
   setSettlerJob(world, e, jobType);
@@ -95,7 +99,12 @@ export function applyTradeChange(world: World, ctx: SystemContext, e: Entity, jo
   world.remove(e, HarvestFocus); // the node being taken up belongs to the old trade's search
   // Owned-only, like the spawn stamp: an unowned settler keeps its content-relation combat behavior and
   // carries no Stance at all, so a neutral settler must not gain one here.
-  if (world.has(e, Owner)) stampDefaultStance(world, ctx.content, e, jobType);
+  if (world.has(e, Owner)) {
+    stampDefaultStance(world, ctx.content, e, jobType);
+    // A fighter taking up another class's weapon at a store keeps its place; a new fighter takes this one.
+    if (fighterAnchor !== null) moveAnchor(world, ctx.content, e, fighterAnchor);
+    else anchorAtFeet(world, ctx, e);
+  }
   // Leaving the fighter trades disarms both the Equipment display slots and the combat Weapon/Armor, since
   // the render draws the armed look from the equipped weapon good over the job.
   if (!isFighterJob(ctx.content, jobType)) {

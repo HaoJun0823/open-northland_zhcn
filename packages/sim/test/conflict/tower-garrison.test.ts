@@ -533,6 +533,22 @@ describe('the tower garrison - shooting from cover', () => {
     expect(sim.world.has(soldier, Garrison)).toBe(true);
   });
 
+  it('stays on the tower when a fight ends far from the anchor it had before the posting', () => {
+    const sim = simWithTower();
+    const tower = towerAt(sim, TOWER_X, ROW);
+    const soldier = settlerAt(sim, SOLDIER_JOB, 2, ROW);
+    manTheTower(sim, soldier, tower);
+    const post = tileOf(sim, soldier);
+    const farCell = 23; // 34 map points east of the tower, past an ATTACK fighter's return slack
+    sim.world.mut(soldier, Stance).anchorCell = terrainNodeAt(sim, farCell, ROW);
+    sim.world.add(soldier, Engagement, { repathAt: sim.tick }); // a fight with nothing left to shoot
+
+    run(sim, 20);
+
+    expect(tileOf(sim, soldier)).toEqual(post);
+    expect(sim.world.has(soldier, Garrison)).toBe(true);
+  });
+
   it('shoots under a passive stance too - the post overrides IGNORE and FLEE', () => {
     // Manning a tower IS the order to hold and shoot, so the two stances that would otherwise stand the
     // soldier down (IGNORE) or run him off (FLEE) do not apply while he is up there.

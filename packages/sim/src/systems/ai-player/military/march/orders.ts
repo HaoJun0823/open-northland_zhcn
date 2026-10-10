@@ -73,9 +73,9 @@ export interface Fire {
  * on it or is headed there already. Behind catapults (`fire` not null) a man standing on his place takes
  * the `hold` stance anchored there (`conflict/engagement.ts`): DEFEND answers what comes near without
  * chasing it out past the catapult line, IGNORE only what reaches him. The march itself goes out on ATTACK,
- * since a stale anchor would walk him back. Neither stance answers a tower garrison, whom no fighter may
- * target, nor IGNORE an archer's shot, so a melee man standing in `fire` goes at the shooter's tower or
- * at the archer himself rather than stand and take the arrows.
+ * and the attack-move carries his anchor to his place. Neither stance answers a tower garrison, whom no
+ * fighter may target, nor IGNORE an archer's shot, so a melee man standing in `fire` goes at the shooter's
+ * tower or at the archer himself rather than stand and take the arrows.
  */
 export function placeOrders(
   world: World,

@@ -67,6 +67,19 @@ export function stanceMode(
   return mode === MILITARY_MODE.NONE ? MILITARY_MODE.IGNORE : mode;
 }
 
+/**
+ * Whether a unit under `mode` keeps an anchor in its {@link Stance}: the DEFEND or IGNORE leash anchor, or
+ * the place an ATTACK fighter walks back to once nothing is left to fight. Original behavior: one point,
+ * the soldier's work centre, serves all three, and a move order or an attack order moves it.
+ */
+export function keepsAnchor(content: ContentSet, mode: MilitaryMode, jobType: number | null): boolean {
+  return (
+    mode === MILITARY_MODE.DEFEND ||
+    mode === MILITARY_MODE.IGNORE ||
+    (mode === MILITARY_MODE.ATTACK && isFighterJob(content, jobType))
+  );
+}
+
 /** Whether a unit under `mode` goes looking for a fight: ATTACK and DEFEND do. IGNORE at most strikes what
  *  comes into a fighter's reach, and FLEE never fights. */
 export function stanceFights(mode: MilitaryMode): boolean {

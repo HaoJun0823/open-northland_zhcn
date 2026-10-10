@@ -25,7 +25,9 @@ export interface HouseAgreement {
  * player. Reading: the original registers an agreement for every house but one of a player of the
  * `human player` type (its player-type names are `none`, `human player`, `ai player`), and the corpus
  * bears it out: most trade houses belong to ordinary computer seats. A seat outside the match is no
- * human player either, and a world with no match set up gates nothing.
+ * human player either, and a world with no match set up gates nothing. Approximation: an idle seat the
+ * lobby left on the map is a participant without the marker, so it reads as human; no corpus trade
+ * house stands on one.
  */
 export function isTradingHouse(world: World, house: Entity): boolean {
   const building = world.tryGet(house, Building);

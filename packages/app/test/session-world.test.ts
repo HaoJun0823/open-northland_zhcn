@@ -62,28 +62,23 @@ describe('session world options', () => {
       true,
     ]);
   });
-  it('leaves an absent seat out of the match, even where the script names the participants', () => {
+  it('counts every roster seat the lobby left on the map, idle ones included, whatever decides', () => {
     const absent: GameSession = {
       ...SESSION,
       seats: [...SESSION.seats, { player: 4, mode: 'absent', color: 4 }],
     };
     expect(sessionWorldOptions(absent, null, {}).absentSeats).toEqual([4]);
-    const scripted = sessionWorldOptions(absent, null, { victory: 'script', participants: [0, 1, 2, 3, 4] });
-    expect(scripted.matchParticipants).toEqual([0, 1, 2, 3]);
-    const goals = sessionWorldOptions(absent, null, {
-      victory: 'goals',
-      goals: [{ kind: 'wonByMission' }],
-      scriptVerdicts: true,
-      participants: [0, 1, 2, 3, 4, 5],
-    });
-    expect(goals.matchParticipants).toEqual([0, 1, 2, 3, 5]);
+    // Without a roster the session's played seats stand in: the humans and the AI, not the idle seat.
+    expect(sessionWorldOptions(absent, null, {}).matchParticipants).toEqual([0, 1, 2]);
+    const roster = [0, 1, 2, 3, 4, 5];
+    const scripted = sessionWorldOptions(absent, null, { victory: 'script', participants: roster });
+    expect(scripted.matchParticipants).toEqual([0, 1, 2, 3, 5]);
     const survivors = sessionWorldOptions(absent, null, {
       victory: 'goals',
-      goals: [{ kind: 'wonByMission' }, { kind: 'lastStanding' }],
-      scriptVerdicts: false,
-      participants: [0, 1, 2, 3, 4, 5],
+      goals: [{ kind: 'lastStanding' }],
+      participants: roster,
     });
-    expect(survivors.matchParticipants).toEqual(sessionWorldOptions(absent, null, {}).matchParticipants);
+    expect(survivors.matchParticipants).toEqual([0, 1, 2, 3, 5]);
   });
 
   it('hands the world the rules, allied vision among them', () => {

@@ -30,8 +30,6 @@ export interface MapScriptWorld {
   readonly goals?: readonly MatchGoal[];
   /** The same table for a run with missions off, where no script verdict can raise a row. */
   readonly scriptlessGoals?: readonly MatchGoal[];
-  /** Whether the script names a `MissionWon` or `MissionFailed` result. */
-  readonly scriptVerdicts?: boolean;
   /** The `playerneverdies` seats, which the goal table checks though they are no participants. */
   readonly neverDies?: readonly number[];
   readonly permissions?: MapScript['permissions'];
@@ -49,6 +47,7 @@ export interface MapScriptWorld {
   /** The map's `[misc_weather]` rectangles, laid down before the first tick and any script write. */
   readonly weather?: readonly MapWeatherRectangle[];
   readonly missions?: MissionScript;
+  /** The seats the match counts, from the roster: every seat in use except the `playerneverdies` ones. */
   readonly participants?: readonly number[];
 }
 

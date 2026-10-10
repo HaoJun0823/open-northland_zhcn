@@ -6,7 +6,7 @@ import type { SaveGame, Simulation } from '@open-northland/sim';
 import type { ContentIr } from '../../src/content/ir/rows.js';
 import { buildMapWorld, restoreMapWorld } from '../../src/entries/map/world.js';
 import { buildMapWorldFromInputs } from '../../src/entries/map/world-inputs.js';
-import { matchParticipants, neverDiesSeats, scriptDecidesRoster } from '../../src/game/match-participants.js';
+import { matchParticipants, neverDiesSeats } from '../../src/game/match-participants.js';
 import { onOffParam } from '../../src/game/session-rules.js';
 import { mapIdParam, mapSession } from '../../src/game/session-url.js';
 import { type AuthoredJoinRows, mapScriptWorld } from '../../src/game/world/index.js';
@@ -26,8 +26,9 @@ export interface RealMapWorldOptions {
   readonly mapId: string;
   /** Seats to flag as AI players. */
   readonly aiSeats: readonly number[];
-  /** Seats people play, on this client or another: the match participants and assistant grants a
-   *  relayed session declares on every client alike. Omitted runs the observer's world. */
+  /** Seats people play, on this client or another: the assistant grants a relayed session declares on
+   *  every client alike, and the match participants only on a map without a roster. Omitted runs the
+   *  observer's world. */
   readonly humanSeats?: readonly number[];
   /** Defaults to 7 for this fixture builder. */
   readonly seed?: number;
@@ -95,13 +96,14 @@ export async function realMapWorld(options: RealMapWorldOptions): Promise<RealMa
     specialItems: script?.specialItems ?? [],
     // The entry declares the match from the same three inputs. Left out, the headless world would run
     // without the match rules the browser plays under.
-    matchParticipants:
-      (scriptDecidesRoster(missionWorld) ? missionWorld.participants : undefined) ??
+    matchParticipants: (
+      missionWorld.participants ??
       matchParticipants({
         controlled: humanSeats,
         aiSeats: options.aiSeats,
         neverDies: script === null ? [] : neverDiesSeats(script),
-      }),
+      })
+    ).filter((seat) => !options.absentSeats?.includes(seat)),
     fog: options.rules?.fog ?? null,
     progression: options.rules?.progression ?? null,
     needs: options.rules?.needs ?? null,

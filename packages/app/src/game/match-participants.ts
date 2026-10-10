@@ -1,6 +1,5 @@
 import type { MapMultiplayerGoal, MapScript } from '@open-northland/data';
 import type { MatchGoal, MatchRulesView } from '@open-northland/sim';
-import type { MapScriptWorld } from './world/build.js';
 
 const NEVER_DIES_KEY = 'playerneverdies';
 
@@ -31,22 +30,17 @@ export function matchParticipants(input: {
   return [...seats].sort((a, b) => a - b);
 }
 
+/**
+ * Every seat the map puts in use, idle claimable seats included, minus the `playerneverdies` ones.
+ * Original behavior: the death check (checked against the owned copy) and the goal table (a reading)
+ * loop every slot in use; whether the lobby offered or filled a seat is not part of it.
+ */
 export function scriptMatchParticipants(script: Pick<MapScript, 'players' | 'misc'>): number[] {
   return matchParticipants({
     controlled: script.players.map((row) => row.player),
     aiSeats: [],
     neverDies: neverDiesSeats(script),
   });
-}
-
-/**
- * Whether the match counts the script's roster rather than the session's seats: where a script verdict
- * decides, the script names whom it decides for. Original behavior: a goal table checks every seat on
- * the map. A lobby session drives every such seat, so its seats are that set; approximation: a local
- * run leaves the seats it does not drive out of the table.
- */
-export function scriptDecidesRoster(world: Pick<MapScriptWorld, 'victory' | 'scriptVerdicts'>): boolean {
-  return world.victory === 'script' || (world.victory === 'goals' && world.scriptVerdicts === true);
 }
 
 export function hasEliminationGoal(rules: MatchRulesView, player: number): boolean {

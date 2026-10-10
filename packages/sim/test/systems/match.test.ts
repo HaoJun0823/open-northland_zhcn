@@ -268,6 +268,23 @@ describe('matchSystem - death and victory over the declared participants', () =>
     expect(authorizedCommand(sim.world, liveOrder)).toBe(liveOrder.command);
   });
 
+  it('waits for a third seat that still holds a man, then defeats it and lets the friends win', () => {
+    const sim = fresh();
+    declare(sim, [P0, P1, P2]);
+    personOf(sim, P0);
+    personOf(sim, P1);
+    const holdout = personOf(sim, P2);
+    sim.enqueueSetup({ kind: 'setDiplomacy', from: P0, to: P1, state: 'friend' });
+    sim.enqueueSetup({ kind: 'setDiplomacy', from: P1, to: P0, state: 'friend' });
+    expect(runTo(sim, FIRST_CHECK_TICK)).toEqual([]);
+    sim.enqueue(adminCommand({ kind: 'debugKill', target: holdout }));
+    expect(runTo(sim, FIRST_CHECK_TICK + MATCH_DEATH_CHECK_INTERVAL_TICKS).map((e) => e.event)).toEqual([
+      { kind: 'playerDefeated', player: P2 },
+      { kind: 'playerWon', player: P0 },
+      { kind: 'playerWon', player: P1 },
+    ]);
+  });
+
   it('carries a decided match through the save round trip', () => {
     const sim = fresh();
     declare(sim, [P0, P1]);

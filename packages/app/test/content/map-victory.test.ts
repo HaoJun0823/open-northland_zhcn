@@ -48,12 +48,19 @@ describe.runIf(hasRealIr())('map victory through session setup', () => {
     expect(goals.find((goal) => goal.key === '0')?.state).toBe('done');
   }, 30_000);
 
-  it('does not run elimination with only the local seat participating', async () => {
+  it('counts the idle seats of a local run, so the allies win only once the idle enemies are gone', async () => {
     const sim = await realMapSessionWorld('map=magiczny_las');
     sim.step();
-    expect(sim.matchRules()).toEqual({ participants: [0], victory: 'goals', lastStanding: true });
-    defeatOpponents(sim);
+    expect(sim.matchRules()).toEqual({
+      participants: [0, 1, 2, 3, 4, 5],
+      victory: 'goals',
+      lastStanding: true,
+    });
+    // The enemy seats a local run leaves idle still stand, so nobody has won yet.
     sim.run(VERDICT_CHECK - sim.tick + systems.MATCH_GOAL_CHECK_TICKS);
     expect(sim.matchOutcome(0)).toBe('undecided');
+    defeatOpponents(sim);
+    sim.run(systems.MATCH_DEATH_CHECK_INTERVAL_TICKS + systems.MATCH_GOAL_CHECK_TICKS);
+    expect([0, 1, 2].map((seat) => sim.matchOutcome(seat))).toEqual(['victory', 'victory', 'victory']);
   }, 30_000);
 });

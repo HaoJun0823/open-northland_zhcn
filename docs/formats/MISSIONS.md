@@ -492,7 +492,8 @@ Readings unless marked otherwise.
   build keeps the row in `components/relations.ts`, written by the hit resolution.
 - **Player dead**: every 125 ticks after tick 720, a player with no living adult male human is marked
   dead (with a message) unless `playerneverdies` is set in `[playermisc]`. The
-  flag is permanent. `MissionFailed` does not set it. This build reads the match rule's dead flag.
+  flag is permanent and turns off both of the player's AI handlers (unconfirmed against the owned
+  build). `MissionFailed` does not set it. This build reads the match rule's dead flag.
 - **Won, lost**: `MissionWon` and `MissionFailed` set one won and one lost flag for the whole map,
   not per player, and hand the player to the notification. This build records the verdict per player
   (`components/match.ts`), which the match outcome and the end-of-match panel read.
@@ -913,11 +914,14 @@ Mission records also retain the first and last execution ticks and an execution 
 `?debug=missions` inspector lists the latest 100 executed missions; this records execution attempts,
 not proof that every result succeeded. A record without these fields has not executed yet.
 
-Fresh maps with scripts run them automatically and default to classic fog (black start, no fog of war) and declare every authored player seat
-except `playerneverdies` exemptions. An explicit fog override wins. A separate lazy `ScriptMatchRules`
-policy allows death checks even with one participant and leaves victory to the script, avoiding an
-early skirmish victory while story objectives remain. Restores preserve the saved rules. Changing
-the mission toggle during a running session does not reset its fog or match rules. `?missions=off` disables scripts for diagnostics on a fresh map.
+Fresh maps with scripts run them automatically and default to classic fog (black start, no fog of
+war); an explicit fog override wins. A map with a roster declares every authored seat the lobby left
+on the map as a match participant, idle claimable seats included, except `playerneverdies`
+exemptions. It does so whatever decides the match, as the original's checks loop every slot in use.
+A separate lazy `ScriptMatchRules` policy allows death checks even with one participant and leaves
+victory to the script, avoiding an early skirmish victory while story objectives remain. Restores
+preserve the saved rules. Changing the mission toggle during a running session does not reset its fog
+or match rules. `?missions=off` disables scripts for diagnostics on a fresh map.
 Campaign completion remains unaccepted; enabling scripts does not imply full opcode fidelity.
 
 Scripted briefing history retains up to fifty distinct emitted pages in first-shown order, including
@@ -1092,7 +1096,7 @@ behavior (a reading, the same in the owned 2001 copy; not timed against the runn
 
 - Behaviour bits 8, 10, 18 and the animal behaviour value.
 - Readings above may not match the owned 2001 build; it has not been checked for the check period,
-  the tick reset, `SelectHuman`'s flag or the load-time job seeding.
+  the tick reset, `SelectHuman`'s flag, the load-time job seeding or a death turning off the AI.
 
 ## Multiplayer integration
 

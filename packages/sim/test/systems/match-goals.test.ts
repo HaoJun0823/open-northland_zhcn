@@ -196,6 +196,28 @@ describe('multiplayer goal table', () => {
     expect(sim.matchRules()).toEqual({ participants: [0, 1, 2], victory: 'goals', lastStanding: true });
   });
 
+  it('keeps the last-standing row waiting while a rival still holds a man', () => {
+    const sim = goalsSim([0, 1, 2], [{ kind: 'lastStanding' }]);
+    for (const [a, b] of [
+      [0, 1],
+      [1, 0],
+    ] as const) {
+      sim.enqueueSetup({ kind: 'setDiplomacy', from: a, to: b, state: 'friend' });
+    }
+    sim.step();
+    man(sim, 0);
+    man(sim, 1);
+    const holdout = man(sim, 2);
+    const bothChecks = lcm(MATCH_DEATH_CHECK_INTERVAL_TICKS, MATCH_GOAL_CHECK_TICKS);
+    expect(verdicts(check(sim, bothChecks))).toEqual([]);
+    sim.world.destroy(holdout);
+    expect(verdicts(check(sim, 2 * bothChecks))).toEqual([
+      { kind: 'playerWon', player: 0 },
+      { kind: 'playerWon', player: 1 },
+      { kind: 'playerDefeated', player: 2 },
+    ]);
+  });
+
   it.each(['MissionWon', 'MissionFailed'] as const)(
     'announces %s immediately without repeating it at the goal check',
     (opcode) => {

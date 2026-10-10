@@ -36,10 +36,9 @@ import { holdTownGoods, townStaffingOrders } from './town.js';
  *
  * Approximation: the program runs only for a seat whose strategic military module is off, since
  * this build's campaign and the program would otherwise order the same men against each other; the
- * original runs both handlers side by side. Approximation: a seat the match marked dead skips its
- * turn, as the strategic AI does, because the authority gate refuses its orders anyway; the original's
- * handler keeps working for a dead seat (it tests only the handler's enabled flag), which matters for the seats a script hands a town after the first
- * death check (`docs/tickets/features/match-participants-from-in-use-seats.md`).
+ * original runs both handlers side by side. Original behavior: a player's death turns both of its
+ * handlers off, so a seat the match marked dead skips its turn (a reading, unconfirmed against the
+ * running original).
  */
 export const aiProgramSystem: System = (world, ctx) => {
   const terrain = ctx.terrain;

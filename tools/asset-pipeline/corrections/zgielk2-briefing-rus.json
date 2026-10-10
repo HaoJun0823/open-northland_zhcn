@@ -1,0 +1,12 @@
+{
+  "reason": "W wersji rosyjskiej znacznik [blockstart:header] stoi dwa razy pod rząd i drugi pokazuje się w odprawie jako tekst. Usuwamy powtórzony znacznik.",
+  "file": "CnModMaps/Zgielk2/text/rus/briefings/briefings.txt",
+  "sha256": "ae6d6d30c27b40f1958c4f41220990355861d326925505ce880645c8fa729a04",
+  "lines": [
+    {
+      "line": 2,
+      "from": "[blockstart:header]",
+      "to": []
+    }
+  ]
+}

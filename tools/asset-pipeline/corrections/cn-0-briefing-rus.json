@@ -1,0 +1,88 @@
+{
+  "reason": "W wersji rosyjskiej tłumacz rozciął bloki 503, 514 i 533 na dwa bloki o tej samej etykiecie; odprawa czyta tylko pierwszy, więc druga połowa tekstu ginie. W bloku 549 drugi raz stoi [blockstart:549], który pokazuje się jako tekst. Usuwamy znaczniki w miejscach cięcia, powtórzony znacznik i powtórzone tytuły drugich połówek, żeby każdy blok miał cały tekst jak w wersji polskiej; tytuły 533 i 549 dostają czcionkę nagłówka jak w wersji polskiej.",
+  "file": "CnModMaps/cn_0/text/rus/briefings/briefings.txt",
+  "sha256": "845f16dad2967c36bd4c3a9d41dd1de310d473f9106525b863bf407d3053db0e",
+  "encoding": "windows-1251",
+  "lines": [
+    {
+      "line": 135,
+      "from": "[blockend:503]",
+      "to": []
+    },
+    {
+      "line": 138,
+      "from": "[blockstart:503]",
+      "to": []
+    },
+    {
+      "line": 139,
+      "from": "<font:$local$\\fonts\\fonthead16bld.fnt>",
+      "to": []
+    },
+    {
+      "line": 140,
+      "from": "РУМУ",
+      "to": []
+    },
+    {
+      "line": 141,
+      "from": "<font:$local$\\fonts\\font12.fnt>",
+      "to": []
+    },
+    {
+      "line": 440,
+      "from": "[blockend:514]",
+      "to": []
+    },
+    {
+      "line": 442,
+      "from": "[blockstart:514]",
+      "to": []
+    },
+    {
+      "line": 836,
+      "from": "[blockstart:533]",
+      "to": ["[blockstart:533]", "<font:$local$\\fonts\\fonthead16bld.fnt>"]
+    },
+    {
+      "line": 865,
+      "from": "[blockend:533]",
+      "to": []
+    },
+    {
+      "line": 867,
+      "from": "[blockstart:533]",
+      "to": []
+    },
+    {
+      "line": 868,
+      "from": "БЬЯРНИ",
+      "to": []
+    },
+    {
+      "line": 869,
+      "from": "<font:$local$\\fonts\\font12.fnt>",
+      "to": []
+    },
+    {
+      "line": 1239,
+      "from": "[blockstart:549]",
+      "to": ["[blockstart:549]", "<font:$local$\\fonts\\fonthead16bld.fnt>"]
+    },
+    {
+      "line": 1282,
+      "from": "[blockstart:549]",
+      "to": []
+    },
+    {
+      "line": 1283,
+      "from": "ЗОХАНОВАТЫЙ",
+      "to": []
+    },
+    {
+      "line": 1284,
+      "from": "<font:$local$\\fonts\\font12.fnt>",
+      "to": []
+    }
+  ]
+}

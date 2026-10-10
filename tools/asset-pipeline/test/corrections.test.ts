@@ -82,6 +82,38 @@ describe('source corrections', () => {
     expect(() => corrections.assertApplied()).not.toThrow();
   });
 
+  it('edits one numbered line among identical ones, deletes for an empty list, and reads an encoding', async () => {
+    const shipped = '[a]\r\n[a]\r\nx\r\n\xe1\r\n\xe1\xe2\r\n[end]\r\n';
+    const path = await writeMod(AI_INC, shipped);
+    const lines = [
+      { from: '[a]', to: [], line: 2 },
+      { from: '\u0431', to: 'b', line: 4 },
+    ];
+    await writeCorrection('numbered', {
+      reason: 'test',
+      file: AI_INC,
+      sha256: sha256(shipped),
+      encoding: 'windows-1251',
+      lines,
+    });
+    const corrections = await loadSourceCorrections(dir, mod);
+
+    expect(Buffer.from(await corrections.read(path)).toString('latin1')).toBe(
+      '[a]\r\nx\r\nb\r\n\xe1\xe2\r\n[end]\r\n',
+    );
+    expect(() => corrections.assertApplied()).not.toThrow();
+  });
+
+  it('fails the run for a numbered line that no longer reads its "from"', async () => {
+    const path = await writeMod(AI_INC, SHIPPED_AI);
+    const lines = [{ from: 'AI_UnitLimit 1 30', to: 'x', line: 1 }];
+    await writeCorrection('numbered', { reason: 'test', file: AI_INC, sha256: sha256(SHIPPED_AI), lines });
+    const corrections = await loadSourceCorrections(dir, mod);
+
+    await corrections.read(path);
+    expect(() => corrections.assertApplied()).toThrow(/line 1 does not read/);
+  });
+
   it('fails the run for a correction no stage read', async () => {
     await writeCorrection('swap', { reason: 'test', file: AI_INC, sha256: sha256(SHIPPED_AI), lines: SWAP });
     const corrections = await loadSourceCorrections(dir, mod);
@@ -152,7 +184,10 @@ describe('source corrections', () => {
       [{ ...valid, sha256: 'ABC' }, /sha256/],
       [{ ...valid, lines: [] }, /at least one edit/],
       [{ ...valid, lines: [{ from: 'ż', to: 'z' }] }, /printable-ASCII/],
-      [{ ...valid, lines: [{ from: 'a', to: [] }] }, /printable-ASCII/],
+      [{ ...valid, lines: [{ from: 'a', to: 'z', line: 0 }] }, /"line"/],
+      [{ ...valid, lines: [{ from: 'a', to: 'z', line: 2, every: true }] }, /"line"/],
+      [{ ...valid, encoding: 'no-such-codepage' }, /"encoding"/],
+      [{ ...valid, encoding: 'utf-16le' }, /"encoding"/],
       [{ ...valid, lines: [{ from: 'a', to: ['z', 'ż'] }] }, /printable-ASCII/],
       [{ ...valid, lines: [{ from: 'a', to: 'z', every: false }] }, /"every"/],
       [{ ...valid, lines: [{ from: 'a', to: 'z', section: '' }] }, /"section"/],

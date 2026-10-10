@@ -1,0 +1,12 @@
+{
+  "reason": "W wersji rosyjskiej blok 525 zamyka się w połowie tekstu, a drugi [blockend:525] stoi na właściwym końcu; druga połowa strony ginie. Usuwamy przedwczesny znacznik końca.",
+  "file": "CnModMaps/SARACEN_3/text/rus/briefings/briefings.txt",
+  "sha256": "496caa138e19ea8c029c3713701ad6677e073254435a18c02536958ec78dbb6d",
+  "lines": [
+    {
+      "line": 438,
+      "from": "[blockend:525]",
+      "to": []
+    }
+  ]
+}

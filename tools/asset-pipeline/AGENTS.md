@@ -28,10 +28,13 @@ decoder and its tests.
 `corrections/<id>.json` fixes an authoring error in one mod file that no data rule can express, such
 as a map script that swaps two seats' gathering points. The file names the mod-relative path, the
 SHA-256 of the shipped file, and whole-line `from`/`to` swaps (a list in `to` replaces the line with
-several, to insert a missing one; `"every": true` when the line repeats and each copy takes the same
+several, an empty list deletes it; `"every": true` when the line repeats and each copy takes the same
 fix; `"section"` naming a unique line to confine the swap to its `[...]` block when the line repeats
-across records), with a `reason` in Polish for the owner reviewing the list. The stage reading the file goes through `readSourceFile`, which applies the
-swaps only while the hash still matches.
+across records; `"line"` naming the one line by number when identical lines need different fixes),
+with a `reason` in Polish for the owner reviewing the list. `"encoding"` (an ASCII-compatible
+`TextDecoder` label) lets `from` match a line outside ASCII; `to` stays printable ASCII. The stage
+reading the file goes through `readSourceFile`, which applies the swaps only while the hash still
+matches.
 
 A correction the run did not apply fails the pipeline, including after a mod release changes the
 file: check whether the mod now fixes it, then delete the file or re-pin its hash. Deleting the file

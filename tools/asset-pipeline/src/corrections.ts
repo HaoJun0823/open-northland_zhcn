@@ -7,15 +7,17 @@ import { fileURLToPath } from 'node:url';
 export const CORRECTIONS_DIR = fileURLToPath(new URL('../corrections/', import.meta.url));
 
 /**
- * One whole line of the file swapped for another, or for several when `to` lists them; with `every`,
- * each line spelled like `from`. With `section`, only lines inside the `[...]` block holding the one
- * line spelled `section` count, for a line that repeats verbatim across records.
+ * One whole line of the file replaced by the `to` lines, none deleting it; with `every`, each line
+ * spelled like `from`. With `section`, only lines inside the `[...]` block holding the one line spelled
+ * `section` count, for a line that repeats verbatim across records. `line` (1-based) names the one
+ * line instead, which must read `from`; the pinned hash keeps the number stable.
  */
 interface LineEdit {
   readonly from: string;
-  readonly to: string | readonly string[];
+  readonly to: readonly string[];
   readonly every: boolean;
   readonly section?: string;
+  readonly line?: number;
 }
 
 /** A fix to the mod file `file`, applied only while its bytes still hash to `sha256`. */
@@ -26,6 +28,8 @@ export interface SourceCorrection {
   /** Mod-root-relative and `/`-separated, matched case-insensitively like every mod path. */
   readonly file: string;
   readonly sha256: string;
+  /** The `TextDecoder` label `from` lines are read in; without one they are printable ASCII. */
+  readonly encoding?: string;
   readonly lines: readonly LineEdit[];
 }
 
@@ -38,10 +42,12 @@ export interface SourceCorrections {
   assertApplied(): void;
 }
 
-const CORRECTION_KEYS = ['reason', 'file', 'sha256', 'lines'] as const;
+const CORRECTION_KEYS = ['reason', 'file', 'sha256', 'encoding', 'lines'] as const;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 /** Script lines are printable ASCII, which the latin1 round trip keeps byte for byte. */
 const SCRIPT_LINE = /^[\x20-\x7e]*$/;
+/** A `from` line read through an encoding: anything but a line break. */
+const DECODED_LINE = /^[^\r\n]*$/;
 
 /**
  * Loads every `<id>.json` under `dir` against the mod at `modRoot`. A missing directory holds no
@@ -110,8 +116,19 @@ function applyCorrection(correction: SourceCorrection, bytes: Uint8Array): Uint8
   // latin1 maps each byte to one code unit, so every untouched line keeps its exact bytes.
   const lines = Buffer.from(bytes).toString('latin1').split('\n');
   const edits = new Map<number, LineEdit>();
-  const text = lines.map((line) => line.replace(/\r$/, ''));
+  const decoder = correction.encoding === undefined ? undefined : new TextDecoder(correction.encoding);
+  const text = lines.map((line) => {
+    const bare = line.replace(/\r$/, '');
+    return decoder === undefined ? bare : decoder.decode(Buffer.from(bare, 'latin1'));
+  });
   for (const edit of correction.lines) {
+    if (edit.line !== undefined) {
+      const index = edit.line - 1;
+      if (text[index] !== edit.from) return `line ${edit.line} does not read "${edit.from}"`;
+      if (edits.has(index)) return `two edits replace the line "${edit.from}"`;
+      edits.set(index, edit);
+      continue;
+    }
     const range =
       edit.section === undefined ? { start: 0, end: text.length } : sectionAround(text, edit.section);
     if (typeof range === 'string') return range;
@@ -126,13 +143,13 @@ function applyCorrection(correction: SourceCorrection, bytes: Uint8Array): Uint8
       edits.set(index, edit);
     }
   }
-  for (const [index, edit] of edits) {
-    const eol = lines[index]?.endsWith('\r') ? '\r' : '';
-    lines[index] = (typeof edit.to === 'string' ? [edit.to] : edit.to)
-      .map((line) => `${line}${eol}`)
-      .join('\n');
-  }
-  return Buffer.from(lines.join('\n'), 'latin1');
+  const corrected = lines.flatMap((line, index) => {
+    const edit = edits.get(index);
+    if (edit === undefined) return [line];
+    const eol = line.endsWith('\r') ? '\r' : '';
+    return edit.to.map((replacement) => `${replacement}${eol}`);
+  });
+  return Buffer.from(corrected.join('\n'), 'latin1');
 }
 
 /** The line range of the `[...]` block holding the one line spelled `anchor`, or why there is none. */
@@ -157,26 +174,25 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
   const record = raw as Record<string, unknown>;
   const unknownKey = Object.keys(record).find((key) => !(CORRECTION_KEYS as readonly string[]).includes(key));
   if (unknownKey !== undefined) fail(`unknown key "${unknownKey}"`);
-  const { reason, file, sha256, lines } = record;
+  const { reason, file, sha256, encoding, lines } = record;
   if (typeof reason !== 'string' || reason.trim() === '') return fail('reason must say why the fix exists');
   if (typeof file !== 'string' || file === '') return fail('file must name a mod file');
   if (typeof sha256 !== 'string' || !SHA256_HEX.test(sha256)) {
     return fail('sha256 must be the lower-case hex digest of the shipped file');
   }
+  if (encoding !== undefined && (typeof encoding !== 'string' || !keepsAsciiBytes(encoding))) {
+    return fail('"encoding" is a TextDecoder label that reads ASCII bytes as ASCII, or absent');
+  }
   if (!Array.isArray(lines) || lines.length === 0) return fail('lines must list at least one edit');
-  const edits = lines.map((line: unknown): LineEdit => {
-    if (typeof line !== 'object' || line === null) return fail('each line edit is an object');
-    const { from, to, every, section } = line as Record<string, unknown>;
-    const isLine = (value: unknown): value is string => typeof value === 'string' && SCRIPT_LINE.test(value);
-    const target: string | readonly string[] | undefined = isLine(to)
-      ? to
-      : Array.isArray(to) && to.length > 0 && to.every(isLine)
-        ? to
-        : undefined;
-    if (!isLine(from) || target === undefined) {
-      return fail(
-        'each line edit has a printable-ASCII "from" line and a "to" line or non-empty list of lines',
-      );
+  const isLine = (value: unknown): value is string => typeof value === 'string' && SCRIPT_LINE.test(value);
+  const isFrom = (value: unknown): value is string =>
+    encoding === undefined ? isLine(value) : typeof value === 'string' && DECODED_LINE.test(value);
+  const edits = lines.map((edit: unknown): LineEdit => {
+    if (typeof edit !== 'object' || edit === null) return fail('each line edit is an object');
+    const { from, to, every, section, line } = edit as Record<string, unknown>;
+    const target = isLine(to) ? [to] : Array.isArray(to) && to.every(isLine) ? to : undefined;
+    if (!isFrom(from) || target === undefined) {
+      return fail('each line edit has a "from" line and a printable-ASCII "to" line or list of lines');
     }
     if (every !== undefined && every !== true) return fail('"every" is true or absent');
     if (
@@ -185,9 +201,27 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
     ) {
       return fail('"section" is a printable-ASCII line or absent');
     }
-    return section === undefined
-      ? { from, to: target, every: every === true }
-      : { from, to: target, every: every === true, section };
+    const lineNumber = typeof line === 'number' && Number.isInteger(line) && line >= 1 ? line : undefined;
+    if (line !== undefined && (lineNumber === undefined || every !== undefined || section !== undefined)) {
+      return fail('"line" is a 1-based line number, without "every" or "section"');
+    }
+    return {
+      from,
+      to: target,
+      every: every === true,
+      ...(section === undefined ? {} : { section }),
+      ...(lineNumber === undefined ? {} : { line: lineNumber }),
+    };
   });
-  return { id, reason, file, sha256, lines: edits };
+  return { id, reason, file, sha256, ...(encoding === undefined ? {} : { encoding }), lines: edits };
+}
+
+/** Lines split at byte 0x0A and ASCII `to` lines written as single bytes need an ASCII-compatible code page. */
+function keepsAsciiBytes(label: string): boolean {
+  const ascii = Uint8Array.from({ length: 0x80 }, (_, byte) => byte);
+  try {
+    return new TextDecoder(label).decode(ascii) === String.fromCharCode(...ascii);
+  } catch {
+    return false;
+  }
 }

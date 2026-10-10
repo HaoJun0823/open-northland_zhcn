@@ -1,0 +1,11 @@
+{
+  "reason": "W wersji rosyjskiej strona 500 ma obrazek bitwa.pcx przeniesiony z mapy Gringo; mapa go nie ma i żadna inna wersja językowa go nie pokazuje. Usuwamy tę linię.",
+  "file": "CnModMaps/WYBRZEZE_CZAROW/text/rus/briefings/briefings.txt",
+  "sha256": "37a57a07556389a04b45a1c71c52fe1dbd0dbbb90808dda33825abe62ff27e9a",
+  "lines": [
+    {
+      "from": "<picture:$local$\\graphics\\bitwa.pcx>",
+      "to": []
+    }
+  ]
+}

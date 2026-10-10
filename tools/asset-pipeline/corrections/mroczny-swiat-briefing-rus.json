@@ -1,0 +1,22 @@
+{
+  "reason": "Wersja rosyjska ma dwa tłumaczenia bloków 523-525. Odprawa czyta tylko pierwsze, a w nich brakuje zmiany czcionki na nagłówek i tytułu strony 525 (BAIN). Usuwamy początki pierwszych kopii, żeby wygrały pełniejsze drugie.",
+  "file": "CnModMaps/Mroczny_Swiat/text/rus/briefings/briefings.txt",
+  "sha256": "b9849cea530cfd235462fe4be85cf8d3aa0f9263bb1698ea0a635a1fd54a5653",
+  "lines": [
+    {
+      "line": 312,
+      "from": "[blockstart:523]",
+      "to": []
+    },
+    {
+      "line": 324,
+      "from": "[blockstart:524]",
+      "to": []
+    },
+    {
+      "line": 355,
+      "from": "[blockstart:525]",
+      "to": []
+    }
+  ]
+}

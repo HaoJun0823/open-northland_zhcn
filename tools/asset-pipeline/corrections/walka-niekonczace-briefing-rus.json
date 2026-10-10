@@ -1,0 +1,12 @@
+{
+  "reason": "W wersji rosyjskiej znacznik [blockstart:header] stoi dwa razy i drugi pokazuje się w odprawie jako tekst. Usuwamy powtórzony znacznik.",
+  "file": "CnModMaps/WALKA- NIEKONCZACE/text/rus/briefings/briefings.txt",
+  "sha256": "1a7650c0d4cea5e52703c330cb1baedf4fd4ce7d6ce99529c98cf678987ed258",
+  "lines": [
+    {
+      "line": 3,
+      "from": "[blockstart:header]",
+      "to": []
+    }
+  ]
+}

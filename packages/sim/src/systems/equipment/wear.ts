@@ -1,7 +1,8 @@
-import type { EquipCategory } from '@open-northland/data';
+import type { ContentSet, EquipCategory } from '@open-northland/data';
 import {
   bootsDegreeOfUse,
   Equipment,
+  type EquipmentSlot,
   hasMissionBehaviour,
   MISSION_BEHAVIOUR,
   PathFollow,
@@ -30,6 +31,17 @@ export function wearStepOf(ctx: SystemContext, goodType: number): Fixed {
 function degreeToUses(degreeOfUse: Fixed, uses: number): number {
   const half = fx.div(ONE, fx.fromInt(2));
   return fx.toInt(fx.add(fx.mulDiv(degreeOfUse, fx.fromInt(uses), ONE), half));
+}
+
+/** Whether a worn unit has spent at most `1/divisor` of its rated uses. Counted in whole uses, since the
+ *  rounded-up steps of {@link wearStepOf} put an exact fraction of uses just past the same fraction of
+ *  ONE; a rating past the lossless range compares the degree itself. */
+export function isWornAtMost(content: ContentSet, slot: EquipmentSlot, divisor: number): boolean {
+  const equip = contentIndex(content).goods.get(slot.goodType)?.equip;
+  if (equip === undefined || !equip.wears || equip.uses === undefined || equip.uses > ONE / 2) {
+    return slot.degreeOfUse <= fx.div(ONE, fx.fromInt(divisor));
+  }
+  return degreeToUses(slot.degreeOfUse, equip.uses) * divisor <= equip.uses;
 }
 
 /** The `degreeOfUse` of `spent` of `uses` rated uses. */

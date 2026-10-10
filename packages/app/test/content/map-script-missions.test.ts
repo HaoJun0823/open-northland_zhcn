@@ -49,6 +49,8 @@ const WAVE_SIZE = 13;
 const WAVE_HERO_IDS = [133, 134];
 /** The mask every line of the wave carries: needs frozen (bit 0) and not player-controllable (5). */
 const WAVE_BEHAVIOUR = 33;
+const HERO_BEHAVIOUR =
+  components.MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR | components.MISSION_BEHAVIOUR.NO_JOB_EXPERIENCE;
 
 function mapsDir(): string {
   return resolve(contentDir(), 'maps');
@@ -211,12 +213,12 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
           expect(`${id}: ${systems.missionObjects(sim.world, id).length}`).toBe(`${id}: 1`);
         }
         // And every one of them arrives under the mask its line wrote, which this map uses to put the
-        // wave beyond the player's orders and off the needs ladder. A hero adds its own bits to it.
-        const masked = humansEntitiesOf(sim, WAVE_PLAYER).filter(
-          (e) =>
-            ((sim.world.tryGet(e, components.MissionBehaviour)?.flags ?? 0) & WAVE_BEHAVIOUR) ===
-            WAVE_BEHAVIOUR,
-        );
+        // wave beyond the player's orders and off the needs ladder; a hero adds its own bits to it.
+        const masked = humansEntitiesOf(sim, WAVE_PLAYER).filter((e) => {
+          const hero = systems.isHeroJob(sim.content, sim.world.get(e, components.Settler).jobType);
+          const expected = WAVE_BEHAVIOUR | (hero ? HERO_BEHAVIOUR : 0);
+          return sim.world.tryGet(e, components.MissionBehaviour)?.flags === expected;
+        });
         expect(masked.length).toBe(WAVE_SIZE);
       },
       REAL_MAP_TIMEOUT_MS,

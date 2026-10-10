@@ -15,4 +15,4 @@ export {
   toolProductionBonusPct,
   toolWorkFactorPct,
 } from './effects.js';
-export { applyEquipWear, wearStepOf, wearWornBoots, wearWornTool } from './wear.js';
+export { applyEquipWear, isWornAtMost, wearStepOf, wearWornBoots, wearWornTool } from './wear.js';

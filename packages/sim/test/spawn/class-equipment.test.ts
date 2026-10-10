@@ -1,6 +1,6 @@
 import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { Armor, Equipment, hasMissionBehaviour, MISSION_BEHAVIOUR } from '../../src/components/index.js';
+import { Armor, Equipment, MISSION_BEHAVIOUR, MissionBehaviour } from '../../src/components/index.js';
 import type { SettlerEquipment } from '../../src/core/commands/index.js';
 import { PersonalNames } from '../../src/core/personal-names.js';
 import { Rng } from '../../src/core/rng.js';
@@ -15,6 +15,7 @@ const HERO_SABER_GOOD = 17;
 const HERO_ARMOR = 3;
 const HERO_ARMOR_GOOD = 18;
 const SHOES_GOOD = 8;
+const SOLDIER_UNARMED = 31;
 
 describe('createSettler hero equipment', () => {
   it('derives the permanent weapon from the hero class for mission/map spawns', () => {
@@ -91,13 +92,24 @@ describe('createSettler hero equipment', () => {
     if (hero === null) throw new Error('hero spawn failed');
 
     expect(world.get(hero, Equipment).boots).toEqual({ goodType: SHOES_GOOD, degreeOfUse: 0 });
-    expect(hasMissionBehaviour(world, hero, MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR)).toBe(true);
-    expect(hasMissionBehaviour(world, hero, PASSIVE)).toBe(true);
+    expect(world.get(hero, MissionBehaviour).flags).toBe(
+      PASSIVE | MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR | MISSION_BEHAVIOUR.NO_JOB_EXPERIENCE,
+    );
+
+    const soldier = createSettler(
+      world,
+      testContent(),
+      new Rng(1),
+      { x: 0, y: 0, tribe: VIKING, jobType: SOLDIER_UNARMED, behaviourFlags: PASSIVE },
+      new PersonalNames(1, []),
+    );
+    if (soldier === null) throw new Error('soldier spawn failed');
+    expect(world.tryGet(soldier, Equipment)?.boots ?? null).toBeNull();
+    expect(world.get(soldier, MissionBehaviour).flags).toBe(PASSIVE);
   });
 });
 
 describe('createSettler soldier class weapon', () => {
-  const SOLDIER_UNARMED = 31;
   const SWORDSMAN_LONG = 35;
   const LONG_SWORD_GOOD = 17; // fixture good `long_sword`
   const LEATHER_GOOD = 1;

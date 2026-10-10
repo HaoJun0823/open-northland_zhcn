@@ -10,13 +10,14 @@ import {
   Upgrading,
   wornSlot,
 } from '../../components/index.js';
-import { type Fixed, fx, ONE } from '../../core/fixed.js';
+import type { Fixed } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeOfPosition } from '../../nav/halfcell.js';
 import { NEAREST_NODE_SEARCH_CAP } from '../../nav/nearest.js';
 import { ringSearch } from '../../nav/ring-search.js';
 import type { NodeId } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
+import { isWornAtMost } from '../equipment/index.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
 import { isSoldierJob } from '../readviews/index.js';
 import { isUsed, spillOverRings } from '../settlers/atomics/effects/goods/index.js';
@@ -90,7 +91,7 @@ export function droppedOnDeathOf(world: World, content: ContentSet, character: E
   if (equipment !== undefined) {
     const boots = wornSlot(world, character, 'boots', 0);
     for (const slot of [boots, equipment.tool]) {
-      if (slot !== null && slot.degreeOfUse <= DROPS_AS_NEW_WEAR) add(slot.goodType, 1);
+      if (slot !== null && isWornAtMost(content, slot, DROPS_AS_NEW_WEAR_DIVISOR)) add(slot.goodType, 1);
     }
     const soldier = isSoldierJob(content, world.tryGet(character, Settler)?.jobType ?? null);
     for (const slot of [soldier ? equipment.weapon : null, equipment.armor, ...equipment.misc]) {
@@ -101,7 +102,7 @@ export function droppedOnDeathOf(world: World, content: ContentSet, character: E
 }
 
 /** Original behavior: shoes or a tool worn by at most a tenth of its condition drops as a new good. */
-const DROPS_AS_NEW_WEAR = fx.div(ONE, fx.fromInt(10));
+const DROPS_AS_NEW_WEAR_DIVISOR = 10;
 
 /**
  * Heap a spill on the ground where it fell, each good scattered outward from its tile in canonical

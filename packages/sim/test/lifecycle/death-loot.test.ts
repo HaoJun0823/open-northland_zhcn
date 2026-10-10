@@ -11,7 +11,7 @@ import {
   Vehicle,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { fx, ONE, Simulation } from '../../src/index.js';
+import { type Fixed, fx, ONE, Simulation } from '../../src/index.js';
 import { nodeOfPosition } from '../../src/nav/halfcell.js';
 import type { NodeId } from '../../src/nav/terrain/index.js';
 import { cleanupSystem } from '../../src/systems/index.js';
@@ -21,9 +21,8 @@ import { settlerAt } from '../fixtures/settler.js';
 import { grassCellMap } from '../fixtures/terrain.js';
 
 /**
- * A dying character leaves its worn gear on the ground, through the same spill seam a razed store's
- * stock takes (`test/economy/raze-spill.test.ts`). Only unused units survive the fall - the take-off
- * rule, pinned in `settlers/atomics/effects/goods/equip.ts`.
+ * A dying character leaves its load and gear on the ground, through the same spill seam a razed store's
+ * stock takes (`test/economy/raze-spill.test.ts`); `droppedOnDeathOf` owns the rule.
  */
 
 /** The fixture's equippables (`test/fixtures/content/economy.ts`). */
@@ -39,8 +38,12 @@ const CIVILIST = 6;
 
 const DEATH_TILE = { x: fx.fromInt(6), y: fx.fromInt(6) };
 const HALF_USED = fx.div(ONE, fx.fromInt(2));
-const TENTH_USED = fx.div(ONE, fx.fromInt(10));
-const FIFTH_USED = fx.div(ONE, fx.fromInt(5));
+/** The fixture's ratings: shoes walk 10000 points, a tool lasts 100 uses. */
+const SHOE_POINTS = 10_000;
+const TOOL_USES = 100;
+/** `uses` steps of a `rating`-use good's rounded-up wear step, as wearing it writes them. */
+const usedSteps = (uses: number, rating: number): Fixed =>
+  fx.mul(fx.fromInt(uses), fx.divCeil(ONE, fx.fromInt(rating)));
 
 /** A worn slot at `degreeOfUse` (ZERO = fresh, ONE = spent). */
 const worn = (goodType: number, degreeOfUse = fx.fromInt(0)): EquipmentSlot => ({ goodType, degreeOfUse });
@@ -171,12 +174,23 @@ describe('a fallen character drops its gear beside the bones', () => {
   });
 
   it('drops shoes and a tool worn by at most a tenth as new goods', () => {
-    const sim = mappedSim();
-    doomedWearing(sim, { boots: worn(SHOES, TENTH_USED), tool: worn(TOOL, FIFTH_USED) });
+    const atMost = mappedSim();
+    doomedWearing(atMost, {
+      boots: worn(SHOES, fx.div(fx.fromInt(SHOE_POINTS / 10), fx.fromInt(SHOE_POINTS))),
+      tool: worn(TOOL, usedSteps(TOOL_USES / 10, TOOL_USES)),
+    });
+    cleanupSystem(atMost.world, ctxOf(atMost));
+    expect(droppedUnits(atMost)).toEqual(
+      new Map([
+        [SHOES, 1],
+        [TOOL, 1],
+      ]),
+    );
 
-    cleanupSystem(sim.world, ctxOf(sim));
-
-    expect(droppedUnits(sim)).toEqual(new Map([[SHOES, 1]]));
+    const past = mappedSim();
+    doomedWearing(past, { tool: worn(TOOL, usedSteps(TOOL_USES / 10 + 1, TOOL_USES)) });
+    cleanupSystem(past.world, ctxOf(past));
+    expect(droppedUnits(past)).toEqual(new Map());
   });
 
   it('drops the load it was carrying beside its gear', () => {

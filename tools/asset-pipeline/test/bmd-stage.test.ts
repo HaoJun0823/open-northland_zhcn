@@ -1,15 +1,15 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { type Bmd, BOB_TYPE_1BIT, BOB_TYPE_DOUBLE8BIT, encodeBmd } from '@open-northland/formats/bmd/index';
+import type { BmdPaletteBinding, PaletteAlias } from '@open-northland/formats/ini';
+import { decodePng, encodePng } from '@open-northland/formats/png';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type Bmd, BOB_TYPE_1BIT, BOB_TYPE_DOUBLE8BIT, encodeBmd } from '../src/decoders/bmd/index.js';
-import type { BmdPaletteBinding, PaletteAlias } from '../src/decoders/ini.js';
-import { decodePng, encodePng } from '../src/decoders/png.js';
+import { packLineControl, sampleBmdBytes } from '../../../packages/formats/test/fixtures/bmd.js';
+import { rampPalette, solidPalette } from '../../../packages/formats/test/fixtures/palette.js';
+import { samplePcx } from '../../../packages/formats/test/fixtures/pcx.js';
 import { bmdToAtlas, convertBmdTree, convertShadowBmdTree } from '../src/stages/bmd/index.js';
 import { BOBS_DIR } from '../src/stages/content-tree.js';
 import { indexSourceAssets } from '../src/stages/source-files.js';
-import { packLineControl, sampleBmdBytes } from './fixtures/bmd.js';
-import { rampPalette, solidPalette } from './fixtures/palette.js';
-import { samplePcx } from './fixtures/pcx.js';
 import { makeTempDir } from './support/game-tree.js';
 
 describe('bmdToAtlas', () => {

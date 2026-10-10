@@ -1,7 +1,6 @@
 # Convert catalogue archives on the server and serve the sidecars
 
 **Area:** api · **Priority:** P2
-**Blocked by:** [Share the map conversion](../features/map-catalogue-import-package.md)
 
 A catalogue entry is a `.zip`, `.rar` (RAR5 seen) or `.c2m` file, not a playable map. The app loads
 maps only as the sidecars the pipeline writes under `/maps/<id>.*`. The owner's ruling is that

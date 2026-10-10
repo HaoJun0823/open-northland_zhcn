@@ -6,17 +6,17 @@ import {
   type PlayerPaletteRecipes,
   type RandomPaletteRecipe,
 } from '@open-northland/data';
-import { assertPaletteBytes } from '../../decoders/image.js';
+import { assertPaletteBytes } from '@open-northland/formats/image';
 import {
   extractPaletteIndex,
   iniBytesToSections,
   paletteAliasMap,
   type RuleSection,
   rampAliasMap,
-} from '../../decoders/ini.js';
-import { decodePcx } from '../../decoders/pcx.js';
-import { hueRotateRamp, PLAYER_COLORS, type PlayerColorDef } from '../../decoders/player-palette.js';
-import { cutRamp, extractRandomPalettes } from '../../decoders/random-palette.js';
+} from '@open-northland/formats/ini';
+import { decodePcx } from '@open-northland/formats/pcx';
+import { hueRotateRamp, PLAYER_COLORS, type PlayerColorDef } from '@open-northland/formats/player-palette';
+import { cutRamp, extractRandomPalettes } from '@open-northland/formats/random-palette';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 import { readSourceFile } from '../source-files.js';
 import type { JobChangeRecipes } from './job-graphics.js';

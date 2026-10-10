@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
 import { convertGuiStrings } from '../src/stages/gui/strings.js';
 import {
   loadStringCorrections,
@@ -8,7 +9,6 @@ import {
   type StringCorrection,
   type StringCorrections,
 } from '../src/string-corrections.js';
-import { buildStringCif } from './fixtures/cif.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
 
 // Raw CP1251 bytes standing for 'Ёж', so the correction matches decoded text, not source bytes.

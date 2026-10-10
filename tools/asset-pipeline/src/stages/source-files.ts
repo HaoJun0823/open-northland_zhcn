@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { normalizeAssetPath } from '../decoders/ini.js';
+import { normalizeAssetPath } from '@open-northland/formats/ini';
 import { collectSourceFiles, resolveSourceFile, type SourceFile, type SourceRoots } from '../roots.js';
 
 /**

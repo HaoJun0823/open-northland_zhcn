@@ -1,14 +1,14 @@
 import type { JobGraphics, RandomPaletteRecipe } from '@open-northland/data';
+import { parseIniSections } from '@open-northland/formats/ini';
+import { PLAYER_COLORS } from '@open-northland/formats/player-palette';
+import { extractRandomPalettes } from '@open-northland/formats/random-palette';
 import { describe, expect, it } from 'vitest';
-import { parseIniSections } from '../src/decoders/ini.js';
-import { PLAYER_COLORS } from '../src/decoders/player-palette.js';
-import { extractRandomPalettes } from '../src/decoders/random-palette.js';
+import { solidPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import {
   buildHumanPalettes,
   goodPaletteRecipes,
   type HumanPaletteSources,
 } from '../src/stages/ir/human-palettes.js';
-import { solidPalette } from './fixtures/palette.js';
 
 /** The ten shipped player colours with `player_NN` / `woman_NN` recipes. */
 const SHIPPED_COLORS = 10;

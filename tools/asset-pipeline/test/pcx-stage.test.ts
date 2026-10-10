@@ -1,13 +1,13 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { decodePcx, encodePcx, expandToRgba } from '@open-northland/formats/pcx';
+import { decodePng } from '@open-northland/formats/png';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { decodePcx, encodePcx, expandToRgba } from '../src/decoders/pcx.js';
-import { decodePng } from '../src/decoders/png.js';
+import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
+import { samplePcx } from '../../../packages/formats/test/fixtures/pcx.js';
 import { MOD_GUI_BITMAPS_DIR, MOD_TEXTURES_DIR } from '../src/roots.js';
 import { GUI_BITMAPS_DIR, TEXTURES_DIR } from '../src/stages/content-tree.js';
 import { composeMaskedTransitionPages, convertPcxTree, pcxToPng } from '../src/stages/pcx.js';
-import { rampPalette } from './fixtures/palette.js';
-import { samplePcx } from './fixtures/pcx.js';
 import { makeTempDir } from './support/game-tree.js';
 
 describe('pcxToPng', () => {

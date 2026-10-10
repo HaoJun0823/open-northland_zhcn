@@ -1,10 +1,10 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { VertexPalette } from '@open-northland/data';
+import { encodePcx } from '@open-northland/formats/pcx';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { encodePcx } from '../src/decoders/pcx.js';
+import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { convertVertexPalette, VERTEX_PALETTE_FILE } from '../src/stages/vertex-palette.js';
-import { rampPalette } from './fixtures/palette.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
 
 describe('convertVertexPalette', () => {

@@ -1,11 +1,20 @@
 /** Synthetic DirectMusic segment builders on top of the RIFF byte helpers. */
+
+import {
+  chunk,
+  f64,
+  list,
+  riffChunk,
+  u16,
+  u32,
+  utf16z,
+} from '../../../packages/formats/test/fixtures/riff.js';
 import {
   DMUS_PLAYMODE_CHORD_INTERVALS,
   DMUS_PLAYMODE_CHORD_ROOT,
   DMUS_PLAYMODE_NONE,
   DMUS_PLAYMODE_SCALE_INTERVALS,
 } from '../src/stages/music/music-value.js';
-import { chunk, f64, list, riffChunk, u16, u32, utf16z } from './riff-fixture.js';
 
 /** The part play mode the corpus authors: chord-root walks over chord and scale intervals. */
 export const CHORD_SCALE_MODE =

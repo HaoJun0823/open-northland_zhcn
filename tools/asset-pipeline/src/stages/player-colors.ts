@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
-import { packBobAtlas, packIndexedBobAtlas } from '../decoders/atlas/index.js';
-import { decodeBmd } from '../decoders/bmd/index.js';
-import { type BmdPaletteBinding, normalizeAssetPath } from '../decoders/ini.js';
-import { decodePcx } from '../decoders/pcx.js';
-import { PLAYER_COLORS, synthesizePlayerSource } from '../decoders/player-palette.js';
+import { packBobAtlas, packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
+import { decodeBmd } from '@open-northland/formats/bmd/index';
+import { type BmdPaletteBinding, normalizeAssetPath } from '@open-northland/formats/ini';
+import { decodePcx } from '@open-northland/formats/pcx';
+import { PLAYER_COLORS, synthesizePlayerSource } from '@open-northland/formats/player-palette';
 import { errorMessage } from '../errors.js';
 import { INDEXED_ATLAS_SUFFIX, writeSourceBobAtlas } from './content-tree.js';
 import type { SourceAssetIndex } from './source-files.js';

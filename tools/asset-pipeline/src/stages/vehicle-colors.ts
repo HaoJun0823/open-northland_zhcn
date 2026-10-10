@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { packIndexedBobAtlas } from '../decoders/atlas/index.js';
-import { decodeBmd } from '../decoders/bmd/index.js';
-import { buildPaletteLutImage } from '../decoders/image.js';
-import { type PaletteAlias, paletteAliasMap, type VehicleGraphicsBinding } from '../decoders/ini.js';
-import { decodePcx } from '../decoders/pcx.js';
-import { encodePng } from '../decoders/png.js';
+import { packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
+import { decodeBmd } from '@open-northland/formats/bmd/index';
+import { buildPaletteLutImage } from '@open-northland/formats/image';
+import { type PaletteAlias, paletteAliasMap, type VehicleGraphicsBinding } from '@open-northland/formats/ini';
+import { decodePcx } from '@open-northland/formats/pcx';
+import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from '../errors.js';
 import { writeFileWithParents } from '../files.js';
 import { BOBS_DIR, writeSourceBobAtlas } from './content-tree.js';

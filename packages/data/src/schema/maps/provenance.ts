@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
-/** Where a map's files sit under the mod root: a source-location classification, not a
- *  redistribution licence. */
+/** Where a map's files came from: the mod, a player's own folder, the culturesnation catalogue, or a
+ *  loose game folder. A source-location classification, not a redistribution licence. */
 export const MapProvenance = z.strictObject({
-  kind: z.enum(['mod', 'user', 'unknown']),
-  /** Source-root-relative folder, never a machine-specific installation path. */
+  kind: z.enum(['mod', 'user', 'catalog', 'unknown']),
+  /** The folder relative to its source root (the mod tree or the archive), never a machine path. */
   folder: z
     .string()
     .min(1)

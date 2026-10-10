@@ -1,7 +1,7 @@
 import { basename, join } from 'node:path';
-import { type BobAtlas, packBobAtlas, packIndexedBobAtlas } from '../decoders/atlas/index.js';
-import type { Bmd } from '../decoders/bmd/index.js';
-import { encodePng } from '../decoders/png.js';
+import { type BobAtlas, packBobAtlas, packIndexedBobAtlas } from '@open-northland/formats/atlas/index';
+import type { Bmd } from '@open-northland/formats/bmd/index';
+import { encodePng } from '@open-northland/formats/png';
 import { writeFileWithParents } from '../files.js';
 
 // The output tree is served as static files, so each directory's name is the URL root the app fetches

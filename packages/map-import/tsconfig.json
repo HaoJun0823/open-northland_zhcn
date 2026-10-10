@@ -6,5 +6,5 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable", "DOM.AsyncIterable"]
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../data" }, { "path": "../formats" }]
+  "references": [{ "path": "../data" }, { "path": "../formats" }, { "path": "../render" }]
 }

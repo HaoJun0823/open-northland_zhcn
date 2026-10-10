@@ -1,36 +1,25 @@
-import { readFile, rm } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { type MapMeta, type MapScript, MapStrings } from '@open-northland/data';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import type { MapMeta, MapScript } from '@open-northland/data';
 import {
-  cifBytesToSections,
-  extractStaticObjects,
-  iniBytesToSections,
-  type RuleSection,
-} from '../../decoders/ini.js';
-import { errorMessage } from '../../errors.js';
+  type ConvertedMap,
+  convertMapFolder,
+  findMapFolders,
+  isMapTreePath,
+  type MapDatTerrainFile,
+  MapImportError,
+  mapFileNames,
+  mapFiles,
+  NO_IMPORT_LIMITS,
+  treeFromFolder,
+} from '@open-northland/map-import';
 import { writeFileWithParents } from '../../files.js';
-import {
-  collectSourceFilesNamed,
-  findPathCaseInsensitive,
-  readSourceFile,
-  type SourceRoots,
-} from '../../roots.js';
+import { collectSourceFiles, readSourceFile, type SourceRoots } from '../../roots.js';
 import { MAPS_DIR } from '../content-tree.js';
-import { cutsceneIdsOf, resolveMapBriefing } from './briefing.js';
-import { excludeStringTableCopies, mapIdFromPath } from './info.js';
-import { loadMapStringTables, resolveMapMeta } from './meta.js';
-import { minimapToPng } from './minimap.js';
-import { mapProvenance } from './provenance.js';
-import { resolveMapScript } from './script.js';
-import { type MapDatTerrainFile, mapDatToTerrain } from './terrain/index.js';
+import { writePagePictures } from '../hypertext-pictures.js';
+import { mapProvenanceKind } from './provenance.js';
 
-/**
- * Where an unpacked map (no `map.cif`) keeps its `[StaticObjects]` placements, in lookup order: the
- * `staticobjects.inc` its `map.ini` includes, or, in a few flattened folders, `map.ini` itself.
- */
-const PLAINTEXT_STATIC_OBJECT_FILES = ['staticobjects.inc', 'map.ini'] as const;
-
-/** One emitted map terrain artifact. */
+/** One emitted map, summarized for the run log, the listings and the verb check. */
 export interface MapDatConversion {
   /** The map's slug id, the same key as its `map.cif` `MapInfo`. */
   readonly id: string;
@@ -65,12 +54,27 @@ export function assertStaticVerbsKnown(maps: readonly MapDatConversion[]): void 
   throw new Error(`[StaticObjects] verbs the decoder does not know: ${list}`);
 }
 
+function summarize(map: ConvertedMap): MapDatConversion {
+  return {
+    id: map.id,
+    width: map.terrain.width,
+    height: map.terrain.height,
+    output: `${MAPS_DIR}/${map.id}.json`,
+    picture: map.picture !== undefined,
+    minimap: map.minimap !== undefined,
+    meta: map.meta,
+    ...(map.script === undefined ? {} : { script: map.script }),
+    briefing: map.briefing !== undefined,
+    strings: map.strings !== undefined,
+    unknownStaticVerbs: map.unknownStaticVerbs,
+  };
+}
+
 /**
- * Decodes every `map.dat` under the mod root into `<outDir>/maps/<id>.json` plus its optional
- * meta, picture, minimap and script sidecars, in path-sorted order so a re-run is reproducible. The
- * id is the containing folder's slug, the same collapse `decodeMapTree` applies to `map.cif`, so the
- * artifact and its `MapInfo` stay joinable and two folders with one slug write one file, last write
- * wins. A `map.dat` that fails to read or decode is logged and skipped; a write failure and a missing
+ * Converts every map folder under the mod root into `<outDir>/maps/<id>.*` and its briefing pictures
+ * into `gui/hypertext/`, in path-sorted order so a re-run is reproducible. The map files are read
+ * through the corrections. Two folders with one slug write one id, last write wins, sidecars
+ * included. A `map.dat` that fails to decode is logged and skipped; a write failure and a missing
  * mod root propagate.
  */
 export async function convertMapDatTree(
@@ -78,136 +82,40 @@ export async function convertMapDatTree(
   outDir: string,
   synthesizeMinimap?: (terrain: MapDatTerrainFile) => Promise<Uint8Array | undefined>,
 ): Promise<MapDatConversion[]> {
-  const found = excludeStringTableCopies(await collectSourceFilesNamed(roots, 'map.dat'));
+  const found = await collectSourceFiles(roots, isMapTreePath);
+  const pathByRel = new Map(found.map(({ rel, path }) => [rel, path]));
+  const tree = await treeFromFolder(
+    found.map(({ rel }) => rel),
+    (rel) => readSourceFile(roots, pathByRel.get(rel) ?? join(roots.mod, rel)),
+    NO_IMPORT_LIMITS,
+  );
   // This stage is the only writer under <outDir>/maps, so a wholesale reset is safe.
   await rm(join(outDir, MAPS_DIR), { recursive: true, force: true });
+  const folders = findMapFolders(tree);
   const done: MapDatConversion[] = [];
-  for (const { rel, path } of found) {
-    const id = mapIdFromPath(rel);
-    let terrain: MapDatTerrainFile;
+  for (const [index, key] of folders.entries()) {
+    let map: ConvertedMap;
     try {
-      terrain = mapDatToTerrain(await readFile(path));
+      map = await convertMapFolder(
+        tree,
+        key,
+        {
+          provenance: mapProvenanceKind,
+          ...(synthesizeMinimap === undefined ? {} : { minimap: synthesizeMinimap }),
+          onWarning: (message) => console.warn(`[pipeline] ${message}`),
+        },
+        { index, total: folders.length },
+      );
     } catch (err) {
-      console.warn(`[pipeline] skipped map.dat ${rel}: ${errorMessage(err)}`);
+      if (!(err instanceof MapImportError)) throw err;
+      console.warn(`[pipeline] skipped map.dat ${err.message}`);
       continue;
     }
-    // Authored entity placements live in the sibling `map.cif`'s `StaticObjects` section, and the same
-    // decoded sections feed the meta sidecar's `[misc_mapname]` fallback, so the cif is decoded at most
-    // once per map. The map folders mix casing freely, which a case-sensitive filesystem would
-    // otherwise turn into a silently missing entity layer.
-    const mapDir = join(roots.mod, dirname(rel));
-    let cifSections: readonly RuleSection[] | undefined;
-    const unknownVerbs = new Set<string>();
-    const onUnknownVerb = (verb: string): void => {
-      unknownVerbs.add(verb);
-    };
-    const cifPath = await findPathCaseInsensitive(mapDir, ['map.cif']);
-    if (cifPath !== undefined) {
-      try {
-        cifSections = cifBytesToSections(await readFile(cifPath));
-        const entities = extractStaticObjects(cifSections, onUnknownVerb);
-        if (entities !== undefined) terrain = { ...terrain, entities };
-      } catch {
-        // Undecodable: the entity layer is skipped.
-      }
-    }
-    for (const file of PLAINTEXT_STATIC_OBJECT_FILES) {
-      if (terrain.entities !== undefined) break;
-      const path = await findPathCaseInsensitive(mapDir, [file]);
-      if (path === undefined) continue;
-      try {
-        const entities = extractStaticObjects(iniBytesToSections(await readFile(path)), onUnknownVerb);
-        if (entities !== undefined) terrain = { ...terrain, entities };
-      } catch (err) {
-        console.warn(`[pipeline] map ${rel}: ${file} undecodable: ${errorMessage(err)}`);
-      }
-    }
-    const unknownStaticVerbs = [...unknownVerbs].sort();
-    if (unknownStaticVerbs.length > 0) {
-      console.warn(
-        `[pipeline] map ${rel}: unknown [StaticObjects] verb(s) skipped: ${unknownStaticVerbs.join(', ')}`,
-      );
-    }
-    const output = `${MAPS_DIR}/${id}.json`;
-    // Compact JSON: the lanes are hundreds of thousands of numbers, and one per line costs ~8x size.
-    await writeFileWithParents(join(outDir, output), `${JSON.stringify(terrain)}\n`);
-
-    // A same-id twin converted earlier this run may have emitted sidecars; clear them so
-    // last-write-wins covers the sidecars, not just the grid.
-    const metaPath = join(outDir, MAPS_DIR, `${id}.meta.json`);
-    const picturePath = join(outDir, MAPS_DIR, `${id}.png`);
-    const minimapPath = join(outDir, MAPS_DIR, `${id}.map.png`);
-    const scriptPath = join(outDir, MAPS_DIR, `${id}.script.json`);
-    const briefingPath = join(outDir, MAPS_DIR, `${id}.briefing.json`);
-    const stringsPath = join(outDir, MAPS_DIR, `${id}.strings.json`);
-    for (const sidecar of [metaPath, picturePath, minimapPath, scriptPath, briefingPath, stringsPath]) {
-      await rm(sidecar, { force: true });
-    }
-    const stringTables = await loadMapStringTables(mapDir, rel);
-    if (Object.keys(stringTables).length > 0) {
-      await writeFileWithParents(stringsPath, `${JSON.stringify(MapStrings.parse(stringTables))}\n`);
-    }
-    const metadata = await resolveMapMeta(mapDir, rel, cifSections, stringTables);
-    const metaFile: MapMeta = { ...metadata, provenance: mapProvenance(rel) };
-    await writeFileWithParents(metaPath, `${JSON.stringify(metaFile)}\n`);
-    let scriptFile: MapScript | undefined;
-    try {
-      scriptFile = await resolveMapScript(mapDir, rel, cifSections, stringTables, (path) =>
-        readSourceFile(roots, path),
-      );
-    } catch (err) {
-      // A schema-invalid script degrades that map to no roster rather than aborting the batch.
-      console.warn(`[pipeline] map ${rel}: script undecodable: ${errorMessage(err)}`);
-    }
-    if (scriptFile !== undefined) {
-      await writeFileWithParents(scriptPath, `${JSON.stringify(scriptFile)}\n`);
-    }
-    let briefing = false;
-    if (scriptFile !== undefined) {
-      const briefingFile = await resolveMapBriefing(mapDir, outDir, rel, cutsceneIdsOf(scriptFile), (path) =>
-        readSourceFile(roots, path),
-      );
-      if (briefingFile !== undefined) {
-        await writeFileWithParents(briefingPath, `${JSON.stringify(briefingFile)}\n`);
-        briefing = true;
-      }
-    }
-    let picture = false;
-    const picturePcx = await findPathCaseInsensitive(mapDir, ['minimap', 'minimap.pcx']);
-    if (picturePcx !== undefined) {
-      try {
-        await writeFileWithParents(picturePath, await minimapToPng(await readFile(picturePcx)));
-        picture = true;
-      } catch (err) {
-        console.warn(`[pipeline] map ${rel}: minimap picture undecodable: ${errorMessage(err)}`);
-      }
-    }
-    // Rasterized for every map, so the menu never has to pull the multi-MB terrain JSON to draw it.
-    let minimap = false;
-    if (synthesizeMinimap !== undefined) {
-      try {
-        const png = await synthesizeMinimap(terrain);
-        if (png !== undefined) {
-          await writeFileWithParents(minimapPath, png);
-          minimap = true;
-        }
-      } catch (err) {
-        console.warn(`[pipeline] map ${rel}: minimap synthesis failed: ${errorMessage(err)}`);
-      }
-    }
-    done.push({
-      id,
-      width: terrain.width,
-      height: terrain.height,
-      output,
-      picture,
-      minimap,
-      meta: metaFile,
-      ...(scriptFile !== undefined ? { script: scriptFile } : {}),
-      briefing,
-      strings: Object.keys(stringTables).length > 0,
-      unknownStaticVerbs,
-    });
+    // A same-id twin converted earlier this run may have emitted files this one lacks.
+    for (const name of mapFileNames(map.id)) await rm(join(outDir, MAPS_DIR, name), { force: true });
+    for (const [name, data] of mapFiles(map)) await writeFileWithParents(join(outDir, MAPS_DIR, name), data);
+    await writePagePictures(outDir, map.pictures);
+    done.push(summarize(map));
   }
   return done;
 }

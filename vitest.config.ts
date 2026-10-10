@@ -37,7 +37,7 @@ const SLOW_CORE_TESTS = [
   'packages/net-server/test/ws-host.test.ts',
   'packages/net-server/test/relay-resilience-session.test.ts',
   'packages/net-server/test/relay-responsiveness.test.ts',
-  'tools/asset-pipeline/test/maps-synth-minimap.test.ts',
+  'packages/map-import/test/synth-minimap.test.ts',
 ];
 // A renamed or deleted file would otherwise drop out of both tiers silently.
 for (const file of [...SLOW_APP_TESTS, ...SLOW_CORE_TESTS]) {

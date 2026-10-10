@@ -1,4 +1,4 @@
-import { decodeBmd } from '../../decoders/bmd/index.js';
+import { decodeBmd } from '@open-northland/formats/bmd/index';
 import { errorMessage } from '../../errors.js';
 import { MOD_BOBS_DIR, type SourceRoots } from '../../roots.js';
 import { emitIndexedAndPreviewAtlas, writeJsonFile } from '../content-tree.js';

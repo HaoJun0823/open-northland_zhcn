@@ -16,7 +16,7 @@ import {
   extractPatternTransitions,
   extractSounds,
   extractTrianglePatternTypes,
-} from '../../decoders/ini.js';
+} from '@open-northland/formats/ini';
 import type { SourceRoots } from '../../roots.js';
 import { writeJsonFile } from '../content-tree.js';
 import { decodeMapTree } from '../maps/index.js';

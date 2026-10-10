@@ -1,13 +1,18 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { HypertextBlock, HypertextBook } from '@open-northland/data';
-import { type IncludeResolver, parseBriefingBlocks, renderHypertext } from '../../decoders/hypertext.js';
-import { decodeIni } from '../../decoders/ini/grammar.js';
-import { textEncoding } from '../../decoders/text-encoding.js';
+import {
+  type IncludeResolver,
+  parseBriefingBlocks,
+  renderHypertext,
+} from '@open-northland/formats/hypertext';
+import { decodeIni } from '@open-northland/formats/ini/grammar';
+import { textEncoding } from '@open-northland/formats/text-encoding';
+import { HYPERTEXT_GRAPHICS_DIR } from '@open-northland/map-import';
 import { errorMessage } from '../../errors.js';
 import { findPathCaseInsensitive, type SourceRoots } from '../../roots.js';
 import { writeJsonFile } from '../content-tree.js';
-import { HYPERTEXT_GRAPHICS_DIR, resolvePagePictures } from '../hypertext-pictures.js';
+import { resolvePagePictures } from '../hypertext-pictures.js';
 import { GUI_CONTENT_DIR, GUI_LANGS } from './paths.js';
 
 /** The mod ships the mission window's history book here, opened on `index.hlt`. */

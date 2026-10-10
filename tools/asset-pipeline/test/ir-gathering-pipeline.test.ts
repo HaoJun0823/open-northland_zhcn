@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import type { CifLine } from '../src/decoders/cif.js';
+import type { CifLine } from '@open-northland/formats/cif';
 import {
   cifLinesToSections,
   extractGoods,
   extractLandscapeGfx,
   parseIniSections,
-} from '../src/decoders/ini.js';
+} from '@open-northland/formats/ini';
+import { describe, expect, it } from 'vitest';
 import { buildGatheringPipeline } from '../src/stages/ir/gathering-pipeline.js';
 
 describe('buildGatheringPipeline', () => {

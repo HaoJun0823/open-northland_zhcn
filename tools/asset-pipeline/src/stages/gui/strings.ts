@@ -6,8 +6,8 @@ import {
   extractStringnNames,
   parseIniSections,
   type RuleSection,
-} from '../../decoders/ini.js';
-import { textEncoding } from '../../decoders/text-encoding.js';
+} from '@open-northland/formats/ini';
+import { textEncoding } from '@open-northland/formats/text-encoding';
 import { errorMessage } from '../../errors.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 import { writeJsonFile } from '../content-tree.js';

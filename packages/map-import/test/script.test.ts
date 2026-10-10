@@ -1,0 +1,95 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { resolveMapScript } from '../src/script.js';
+import { testFolder } from './support/folder.js';
+
+/**
+ * The per-folder script resolution (`script.ts`): plaintext `player.inc`/`mission.inc` → one
+ * MapScript, with roster names resolved through the map's string table. Fixtures are plain ASCII
+ * (windows-1250 decodes ASCII 1:1); the reducer grammar itself is pinned in the formats package's
+ * `ini-map-script.test.ts`.
+ */
+describe('resolveMapScript', () => {
+  let dir = testFolder();
+
+  beforeEach(() => {
+    dir = testFolder();
+  });
+
+  it('merges player.inc + mission.inc and resolves nametribe slot names', () => {
+    dir.write(
+      'player.inc',
+      '[playerdata]\nplayer 0 #PLAYER_TYPE_HUMAN #TRIBE_TYPE_HUMAN_VIKING #PLAYER_COLOR_ID_BLUE\n' +
+        'player 1 #PLAYER_TYPE_AI #TRIBE_TYPE_HUMAN_FRANK #PLAYER_COLOR_ID_RED\n' +
+        '[playermisc]\nnametribe 0 50\nnametribe 1 51\n',
+    );
+    dir.write(
+      'mission.inc',
+      '[MissionData]\ndebuginfo "Start"\ndescription -1\nactive 1\ngoal "True"\nresult "Exit"\n' +
+        '[MissionData]\ndebuginfo "Win"\ndescription 30\ngoal "PlayerDied" 1\nresult "MissionWon" 0\n' +
+        '[MissionData]\ndebuginfo "Untexted"\ndescription 31\ngoal "True"\n',
+    );
+    // The loose maps keep their seat toggles in ai.inc (cn_1's include order: mission, ai, player, misc).
+    dir.write('ai.inc', '[aidata]\nHAI_Disable 1\n');
+    const script = resolveMapScript(dir.folder, undefined, {
+      pol: { 30: 'Pokonaj Frankow', 50: 'Ragnar', 51: 'Rurik' },
+      eng: { 30: 'Defeat the Franks', 51: 'Rurik the Bold' },
+    });
+    // A seat name carries every language that ships it; the app picks the reader's.
+    expect(script?.players).toEqual([
+      { player: 0, type: 'human', tribeId: 1, colorId: 0, name: { pol: 'Ragnar' } },
+      { player: 1, type: 'ai', tribeId: 2, colorId: 1, name: { pol: 'Rurik', eng: 'Rurik the Bold' } },
+    ]);
+    expect(script?.missions).toHaveLength(3);
+    // `-1` and an id the table lacks stay textless; a resolvable id carries its goal text.
+    expect(script?.missions.map((m) => m.description)).toEqual([undefined, 'Pokonaj Frankow', undefined]);
+    expect(
+      script?.ai.map((row) => [
+        row.player,
+        row.allDisabled,
+        row.computerDisabled,
+        row.disabledComputerModules.length,
+      ]),
+    ).toEqual([[1, false, true, 0]]);
+    expect(script?.source?.file).toBe('x/player.inc+mission.inc+ai.inc');
+  });
+
+  it('keeps the roster nameless without a string table and yields undefined with no sources', () => {
+    dir.write(
+      'player.inc',
+      '[playerdata]\nplayer 0 #PLAYER_TYPE_HUMAN #TRIBE_TYPE_HUMAN_VIKING #PLAYER_COLOR_ID_BLUE\n',
+    );
+    const script = resolveMapScript(dir.folder, undefined, {});
+    expect(script?.players).toEqual([{ player: 0, type: 'human', tribeId: 1, colorId: 0 }]);
+    expect(resolveMapScript(testFolder().folder, undefined, {})).toBeUndefined();
+  });
+
+  it('reads player sections authored in misc.inc or inline in map.ini (9 + 1 corpus maps)', () => {
+    dir.write(
+      'misc.inc',
+      '[playerdata]\nplayer 0 #PLAYER_TYPE_HUMAN #TRIBE_TYPE_HUMAN_VIKING #PLAYER_COLOR_ID_BLUE\n' +
+        '[multiplayer]\nplayeroption 0 #PLAYER_TYPE_HUMAN #PLAYER_TYPE_NONE\n',
+    );
+    dir.write('map.ini', '[MissionData]\ndebuginfo "Inline"\ngoal "True"\n');
+    const script = resolveMapScript(dir.folder, undefined, {});
+    expect(script?.players).toEqual([{ player: 0, type: 'human', tribeId: 1, colorId: 0 }]);
+    expect(script?.multiplayer?.slotOptions).toEqual([{ player: 0, allowed: ['human', 'none'] }]);
+    expect(script?.missions).toHaveLength(1);
+    expect(script?.source?.file).toBe('x/misc.inc+map.ini');
+  });
+
+  it('prefers already-decoded map.cif sections over the plaintext twins', () => {
+    dir.write(
+      'player.inc',
+      '[playerdata]\nplayer 0 #PLAYER_TYPE_HUMAN #TRIBE_TYPE_HUMAN_VIKING #PLAYER_COLOR_ID_BLUE\n',
+    );
+    const cifSections = [
+      {
+        name: 'playerdata',
+        props: [{ key: 'player', values: ['0', '1', '4', '7'] }],
+      },
+    ];
+    const script = resolveMapScript(dir.folder, cifSections, {});
+    expect(script?.players).toEqual([{ player: 0, type: 'human', tribeId: 4, colorId: 7 }]);
+    expect(script?.source?.file).toBe('x/map.cif');
+  });
+});

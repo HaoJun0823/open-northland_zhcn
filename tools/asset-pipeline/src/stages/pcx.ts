@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import { decodePcx, expandToRgba } from '../decoders/pcx.js';
-import { encodePng } from '../decoders/png.js';
+import { decodePcx, expandToRgba } from '@open-northland/formats/pcx';
+import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from '../errors.js';
 import { writeFileWithParents } from '../files.js';
 import { collectSourceFiles, MOD_GUI_BITMAPS_DIR, MOD_TEXTURES_DIR, type SourceRoots } from '../roots.js';

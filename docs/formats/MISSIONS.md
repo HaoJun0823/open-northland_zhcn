@@ -989,7 +989,7 @@ Scripted maps load a ground-only collision grid and a separate numeric landscape
 joins `SetLandscape` text against `GfxLandscape.EditName` once, passing its positional `index` to the
 sim. All 109 distinct authored names resolve in the baseline corpus. The source is the owned
 `Data/engine2d/inis/landscapes/landscapes.cif`, decoded by
-`tools/asset-pipeline/src/decoders/ini/types/landscape.ts`; generated `landscapeGfx` carries the names,
+`packages/formats/src/ini/types/landscape.ts`; generated `landscapeGfx` carries the names,
 footprints and indices. `Data/logic/landscapetypes.ini` provides logic classification. Effects and
 `block` all have logic type 1 (`void`), so that classification cannot distinguish removal groups.
 

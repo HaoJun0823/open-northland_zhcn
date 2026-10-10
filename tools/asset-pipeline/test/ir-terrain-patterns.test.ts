@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
 import {
   cifLinesToSections,
   extractLandscape,
   extractPatterns,
   extractTrianglePatternTypes,
   parseIniSections,
-} from '../src/decoders/ini.js';
+} from '@open-northland/formats/ini';
+import { describe, expect, it } from 'vitest';
 import { buildTerrainPatterns } from '../src/stages/ir/terrain-patterns.js';
 
 describe('buildTerrainPatterns (approximated typeId→ground-pattern map)', () => {

@@ -17,7 +17,7 @@ import {
   type RawFrameGait,
   type SourceRef,
   type VehicleGraphicsBinding,
-} from '../../decoders/ini.js';
+} from '@open-northland/formats/ini';
 import { CULTURESNATION_MOD } from '../../mod-root.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 

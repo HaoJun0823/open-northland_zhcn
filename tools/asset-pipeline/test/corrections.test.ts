@@ -2,11 +2,11 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
 import { CORRECTIONS_DIR, loadSourceCorrections } from '../src/corrections.js';
 import { readSourceFile } from '../src/roots.js';
 import { extractIniTables } from '../src/stages/ir/tables.js';
 import { convertMapDatTree } from '../src/stages/maps/index.js';
-import { buildMapDat } from './fixtures/mapdat.js';
 import { makeTempDir, type TempDir } from './support/game-tree.js';
 
 const MAP_FOLDER = 'CnModMaps/Swapped Camps';

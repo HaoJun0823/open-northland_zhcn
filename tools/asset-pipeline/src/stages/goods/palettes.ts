@@ -1,5 +1,5 @@
-import { extractPaletteIndex, iniBytesToSections, paletteAliasMap } from '../../decoders/ini.js';
-import { decodePcx } from '../../decoders/pcx.js';
+import { extractPaletteIndex, iniBytesToSections, paletteAliasMap } from '@open-northland/formats/ini';
+import { decodePcx } from '@open-northland/formats/pcx';
 import { errorMessage } from '../../errors.js';
 import type { SourceRoots } from '../../roots.js';
 import { readSourceFile } from '../source-files.js';

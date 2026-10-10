@@ -4,7 +4,7 @@ import type {
   BuildingType,
   GoodQuantity,
 } from '@open-northland/data';
-import type { ByTribe } from '../../decoders/ini.js';
+import type { ByTribe } from '@open-northland/formats/ini';
 
 /**
  * The `[GfxHouse]` graphics-table fields keyed by building `typeId`. The logic house table carries none

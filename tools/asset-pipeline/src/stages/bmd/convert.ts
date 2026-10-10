@@ -6,10 +6,10 @@ import {
   packBobAtlas,
   packIndexedBobAtlas,
   packShadowBobAtlas,
-} from '../../decoders/atlas/index.js';
-import { decodeBmd } from '../../decoders/bmd/index.js';
-import { paletteAliasMap } from '../../decoders/ini.js';
-import { decodePcx } from '../../decoders/pcx.js';
+} from '@open-northland/formats/atlas/index';
+import { decodeBmd } from '@open-northland/formats/bmd/index';
+import { paletteAliasMap } from '@open-northland/formats/ini';
+import { decodePcx } from '@open-northland/formats/pcx';
 import { errorMessage } from '../../errors.js';
 import { assertDistinctBobBasenames, INDEXED_ATLAS_SUFFIX, writeSourceBobAtlas } from '../content-tree.js';
 import type { SourceAssetIndex } from '../source-files.js';

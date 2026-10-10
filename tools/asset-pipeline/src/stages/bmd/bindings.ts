@@ -12,7 +12,7 @@ import {
   type JobBaseGraphicsBinding,
   type PaletteAlias,
   type RuleSection,
-} from '../../decoders/ini.js';
+} from '@open-northland/formats/ini';
 import { CULTURESNATION_MOD } from '../../mod-root.js';
 import { readSourceFile, resolveSourceFile, type SourceRoots } from '../../roots.js';
 

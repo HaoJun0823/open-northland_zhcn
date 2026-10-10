@@ -6,7 +6,7 @@ import {
   hasFieldFarmAtomics,
   type TribeType,
 } from '@open-northland/data';
-import { vehicleHouseByGood } from '../../decoders/ini.js';
+import { vehicleHouseByGood } from '@open-northland/formats/ini';
 
 /**
  * Stamps `vehicleHouse` onto each good whose `logicdefines.inc` partner is a `vehicle`-kind house in

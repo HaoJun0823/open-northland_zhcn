@@ -7,7 +7,7 @@ import {
   type JobBaseGraphicsBinding,
   makeSource,
   type SourceRef,
-} from '../../decoders/ini.js';
+} from '@open-northland/formats/ini';
 import { CULTURESNATION_MOD } from '../../mod-root.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 import { loadCifTable } from './cif-tables.js';

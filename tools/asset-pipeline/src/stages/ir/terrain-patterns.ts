@@ -1,6 +1,6 @@
 import type { GfxPattern, LandscapeType, TrianglePatternType } from '@open-northland/data';
 import { TerrainPattern } from '@open-northland/data';
-import { makeSource, type SourceRef } from '../../decoders/ini.js';
+import { makeSource, type SourceRef } from '@open-northland/formats/ini';
 
 /** The ground families a landscape typeId is approximated into, each pinned to a `trianglepatterntypes`
  *  logic type and the `editName` prefix its representative pattern is seeded from. */

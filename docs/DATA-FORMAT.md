@@ -40,12 +40,13 @@ English-locale conversion of CnMod 1.3.2; state a different input beside any cla
 | `.ini` | readable rules and graphics bindings | this document |
 | `.cif` | compiled string tables, type tables, map logic, UI strings | [`formats/CIF.md`](formats/CIF.md) |
 | `map.dat` | terrain, map dictionaries, placed landscape objects | [`formats/MAPDAT.md`](formats/MAPDAT.md) |
+| `.c2m` | the map editor's single-file export of one user map | `packages/formats/src/c2m.ts` and its tests |
 | `.bmd` | palette-indexed sprite frames and animations | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
 | `.pcx` | palette-indexed pictures and palette carriers | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
 | `.fnt` | bitmap-font wrapper around a bob container | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
-| `.cur` | Windows cursor resource | `decoders/cur.ts` and its tests |
+| `.cur` | Windows cursor resource | `packages/formats/src/cur.ts` and its tests |
 | `.wav` | sound effects and voices | browser-native playback |
-| `.sgt` / `.dls` | DirectMusic soundtrack | `decoders/sgt.ts`, `decoders/dls.ts`, performed by `stages/music/interpret.ts` |
+| `.sgt` / `.dls` | DirectMusic soundtrack | `packages/formats/src/sgt.ts`, `dls.ts`, performed by the pipeline's `stages/music/interpret.ts` |
 
 The music interpreter follows the MIT [libdmusic](https://github.com/frabert/libdmusic) player, with
 music-value resolution as documented by the MIT [GothicKit dmusic](https://github.com/GothicKit/dmusic)

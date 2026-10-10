@@ -30,7 +30,7 @@ import {
   extractWeapons,
   iniBytesToSections,
   type SourceRef,
-} from '../../decoders/ini.js';
+} from '@open-northland/formats/ini';
 import { readSourceFile, type SourceRoots } from '../../roots.js';
 import type { BuildingGraphicsOverlays } from './building-overlays.js';
 import type { IniSource } from './sources.js';

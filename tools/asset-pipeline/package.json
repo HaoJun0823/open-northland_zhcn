@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@open-northland/data": "*",
+    "@open-northland/formats": "*",
+    "@open-northland/map-import": "*",
     "@open-northland/render": "*",
     "spessasynth_core": "4.3.22",
     "wasm-media-encoders": "0.7.0"

@@ -1,12 +1,13 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { encodePcx } from '@open-northland/formats/pcx';
+import { decodePng } from '@open-northland/formats/png';
+import { mapIdFromPath } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { encodePcx } from '../src/decoders/pcx.js';
-import { decodePng } from '../src/decoders/png.js';
-import { assertStaticVerbsKnown, convertMapDatTree, mapIdFromPath } from '../src/stages/maps/index.js';
-import { buildStringCif } from './fixtures/cif.js';
-import { buildMapDat } from './fixtures/mapdat.js';
-import { rampPalette } from './fixtures/palette.js';
+import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
+import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
+import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
+import { assertStaticVerbsKnown, convertMapDatTree } from '../src/stages/maps/index.js';
 import { makeTempDir } from './support/game-tree.js';
 
 describe('convertMapDatTree', () => {

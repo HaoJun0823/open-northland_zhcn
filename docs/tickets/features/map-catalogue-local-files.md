@@ -1,8 +1,7 @@
 # Load a map from the player's own file
 
 **Area:** app, desktop · **Priority:** P2
-**Blocked by:** [Share the map conversion](map-catalogue-import-package.md),
-[Browse, download and play catalogue maps](map-catalogue-client.md)
+**Blocked by:** [Browse, download and play catalogue maps](map-catalogue-client.md)
 
 A player with a map folder, a `.zip`/`.rar` from elsewhere or a `.c2m` editor export cannot play it:
 nothing in the app reads a file the user picks. `MapProvenance.kind` already has `user` and the lobby

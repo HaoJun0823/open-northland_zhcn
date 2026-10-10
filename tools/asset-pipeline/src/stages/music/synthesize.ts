@@ -6,13 +6,17 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  type DlsInstrumentRejects,
+  type DlsKeyRange,
+  decodeRejectedRegions,
+} from '@open-northland/formats/dls';
+import {
   type BasicPreset,
   type BasicSoundBank,
   type MIDIController,
   SoundBankLoader,
   SpessaSynthProcessor,
 } from 'spessasynth_core';
-import { type DlsInstrumentRejects, type DlsKeyRange, decodeRejectedRegions } from '../../decoders/dls.js';
 import type { SegmentEvents } from './events.js';
 
 export interface DlsBank {

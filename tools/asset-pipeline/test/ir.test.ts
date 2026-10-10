@@ -1,8 +1,8 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildStringCif, sampleMapLines } from '../../../packages/formats/test/fixtures/cif.js';
 import { buildIr, resolveIniSources } from '../src/stages/ir/index.js';
-import { buildStringCif, sampleMapLines } from './fixtures/cif.js';
 import { makeTempDir } from './support/game-tree.js';
 
 describe('buildIr / resolveIniSources', () => {

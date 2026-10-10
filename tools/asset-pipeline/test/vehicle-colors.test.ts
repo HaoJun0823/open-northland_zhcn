@@ -1,14 +1,14 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import type { PaletteAlias } from '@open-northland/formats/ini';
+import { decodePng } from '@open-northland/formats/png';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { PaletteAlias } from '../src/decoders/ini.js';
-import { decodePng } from '../src/decoders/png.js';
+import { sampleBmdBytes } from '../../../packages/formats/test/fixtures/bmd.js';
+import { solidPalette } from '../../../packages/formats/test/fixtures/palette.js';
+import { samplePcx } from '../../../packages/formats/test/fixtures/pcx.js';
 import { BOBS_DIR } from '../src/stages/content-tree.js';
 import { indexSourceAssets } from '../src/stages/source-files.js';
 import { convertVehiclePaletteFamilies, paletteFamilyLutFile } from '../src/stages/vehicle-colors.js';
-import { sampleBmdBytes } from './fixtures/bmd.js';
-import { solidPalette } from './fixtures/palette.js';
-import { samplePcx } from './fixtures/pcx.js';
 import { makeTempDir } from './support/game-tree.js';
 
 const SHIP_BMD = 'data/bobs/ship.bmd';

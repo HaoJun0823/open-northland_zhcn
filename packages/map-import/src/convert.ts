@@ -1,0 +1,269 @@
+import {
+  type MapBriefing,
+  type MapMeta,
+  type MapProvenance,
+  type MapScript,
+  MapStrings,
+  type MapsIndexEntry,
+} from '@open-northland/data';
+import {
+  cifBytesToSections,
+  extractStaticObjects,
+  iniBytesToSections,
+  type RuleSection,
+} from '@open-northland/formats/ini';
+import { cutsceneIdsOf, resolveMapBriefing } from './briefing.js';
+import { errorMessage, MapImportError } from './errors.js';
+import { type MapFolder, mapFolderOf } from './folder.js';
+import { findMapFolders, mapIdFromFolderName } from './folders.js';
+import { mapsIndexEntry } from './index-entry.js';
+import { MAP_CIF_FILE, MAP_DAT_FILE, PICTURE_PATH, STATIC_OBJECT_FILES } from './layout.js';
+import { loadMapStringTables, resolveMapMeta } from './meta.js';
+import { minimapToPng } from './minimap.js';
+import { resolveMapScript } from './script.js';
+import { type MapDatTerrainFile, mapDatToTerrain } from './terrain/index.js';
+import type { MapTree } from './tree.js';
+
+export type MapProvenanceKind = MapProvenance['kind'];
+
+/** Stands in for the folder name of a map at the tree root when the caller names none. */
+export const DEFAULT_ROOT_NAME = 'map';
+
+/** The steps one map goes through, reported in this order. */
+export type ConvertStage =
+  | 'terrain'
+  | 'entities'
+  | 'strings'
+  | 'meta'
+  | 'script'
+  | 'briefing'
+  | 'picture'
+  | 'minimap';
+
+export interface ConvertProgress {
+  /** The spelled folder path of the map being converted. */
+  readonly folder: string;
+  /** The map's position among the tree's map folders, from 0. */
+  readonly index: number;
+  readonly total: number;
+  readonly stage: ConvertStage;
+}
+
+export interface ConvertOptions {
+  /** Classifies each map by its spelled folder path; a plain kind applies to every map. */
+  readonly provenance: MapProvenanceKind | ((folder: string) => MapProvenanceKind);
+  /** The folder name a map at the tree root goes by, such as the archive's name. */
+  readonly rootName?: string;
+  /** Rasterizes the menu minimap from the decoded terrain; without it no minimap is produced. */
+  readonly minimap?: (terrain: MapDatTerrainFile) => Promise<Uint8Array | undefined>;
+  readonly onProgress?: (progress: ConvertProgress) => void;
+  /** Recoverable problems: an unreadable optional file or layer, which the map then goes without. */
+  readonly onWarning?: (message: string) => void;
+}
+
+/** One converted map: the documents and pictures the content tree serves for it. */
+export interface ConvertedMap {
+  /** The folder's slug, the key of every file below. */
+  readonly id: string;
+  /** The spelled folder path inside the tree. */
+  readonly folder: string;
+  /** `maps/<id>.json`. */
+  readonly terrain: MapDatTerrainFile;
+  /** `maps/<id>.meta.json`. */
+  readonly meta: MapMeta;
+  /** `maps/<id>.strings.json`, when the folder ships a string table. */
+  readonly strings?: MapStrings;
+  /** `maps/<id>.script.json`, when the map ships a decodable script. */
+  readonly script?: MapScript;
+  /** `maps/<id>.briefing.json`, when a mission result opens a page the folder ships. */
+  readonly briefing?: MapBriefing;
+  /** `maps/<id>.png`, the authored menu picture. */
+  readonly picture?: Uint8Array;
+  /** `maps/<id>.map.png`, the minimap rasterized from the terrain. */
+  readonly minimap?: Uint8Array;
+  /** The briefing pages' pictures by file name, served from `gui/hypertext/`. */
+  readonly pictures: ReadonlyMap<string, Uint8Array>;
+  /** The map's `maps-index.json` row. */
+  readonly index: MapsIndexEntry;
+  /** The `[StaticObjects]` verbs the decoder skipped because it does not know them, sorted. */
+  readonly unknownStaticVerbs: readonly string[];
+}
+
+/** A map folder whose `map.dat` did not decode, and why. */
+export interface SkippedMap {
+  readonly folder: string;
+  readonly message: string;
+}
+
+export interface MapTreeConversion {
+  /** In spelled-path order; two folders with one slug both appear, the later one meant to win. */
+  readonly maps: readonly ConvertedMap[];
+  readonly skipped: readonly SkippedMap[];
+}
+
+/** Where a map sits among the tree's map folders, for progress reports. */
+export interface MapPosition {
+  readonly index: number;
+  readonly total: number;
+}
+
+/**
+ * The authored entity placements: the `map.cif`'s `StaticObjects` section, else the first plaintext
+ * file that carries one. The cif's sections are returned too, since the meta and script readers fall
+ * back on them.
+ */
+function readEntities(
+  folder: MapFolder,
+  onUnknownVerb: (verb: string) => void,
+): { cifSections?: readonly RuleSection[]; entities?: MapDatTerrainFile['entities'] } {
+  let cifSections: readonly RuleSection[] | undefined;
+  let entities: MapDatTerrainFile['entities'];
+  const cif = folder.read([MAP_CIF_FILE]);
+  if (cif !== undefined) {
+    try {
+      cifSections = cifBytesToSections(cif);
+      entities = extractStaticObjects(cifSections, onUnknownVerb);
+    } catch {
+      // Undecodable: the entity layer is skipped.
+    }
+  }
+  for (const file of STATIC_OBJECT_FILES) {
+    if (entities !== undefined) break;
+    const bytes = folder.read([file]);
+    if (bytes === undefined) continue;
+    try {
+      entities = extractStaticObjects(iniBytesToSections(bytes), onUnknownVerb);
+    } catch (err) {
+      folder.warn(`${file} undecodable: ${errorMessage(err)}`);
+    }
+  }
+  return {
+    ...(cifSections === undefined ? {} : { cifSections }),
+    ...(entities === undefined ? {} : { entities }),
+  };
+}
+
+/**
+ * Converts the map in folder `key` (lower-cased, `''` for the root) of `tree`. Throws
+ * `decode-failed` when its `map.dat` does not decode; every other file is optional and only warns.
+ */
+export async function convertMapFolder(
+  tree: MapTree,
+  key: string,
+  options: ConvertOptions,
+  position: MapPosition = { index: 0, total: 1 },
+): Promise<ConvertedMap> {
+  const rootName = options.rootName ?? DEFAULT_ROOT_NAME;
+  const folder = mapFolderOf(tree, key, rootName, options.onWarning ?? (() => {}));
+  const report = (stage: ConvertStage): void =>
+    options.onProgress?.({ folder: folder.path, index: position.index, total: position.total, stage });
+  const id = mapIdFromFolderName(folder.path.slice(folder.path.lastIndexOf('/') + 1));
+
+  report('terrain');
+  const dat = folder.read([MAP_DAT_FILE]);
+  let terrain: MapDatTerrainFile;
+  try {
+    if (dat === undefined) throw new Error(`no ${MAP_DAT_FILE}`);
+    terrain = mapDatToTerrain(dat, (message) => folder.warn(message));
+  } catch (err) {
+    throw new MapImportError('decode-failed', `${folder.rel}: ${errorMessage(err)}`);
+  }
+
+  report('entities');
+  const unknownVerbs = new Set<string>();
+  const { cifSections, entities } = readEntities(folder, (verb) => unknownVerbs.add(verb));
+  if (entities !== undefined) terrain = { ...terrain, entities };
+  const unknownStaticVerbs = [...unknownVerbs].sort();
+  if (unknownStaticVerbs.length > 0) {
+    folder.warn(`unknown [StaticObjects] verb(s) skipped: ${unknownStaticVerbs.join(', ')}`);
+  }
+
+  report('strings');
+  const stringTables = loadMapStringTables(folder);
+  const strings = Object.keys(stringTables).length > 0 ? MapStrings.parse(stringTables) : undefined;
+
+  report('meta');
+  const provenance: MapProvenance = {
+    kind: typeof options.provenance === 'function' ? options.provenance(folder.path) : options.provenance,
+    folder: folder.path,
+  };
+  const meta: MapMeta = { ...resolveMapMeta(folder, cifSections, stringTables), provenance };
+
+  report('script');
+  let script: MapScript | undefined;
+  try {
+    script = resolveMapScript(folder, cifSections, stringTables);
+  } catch (err) {
+    // A schema-invalid script degrades that map to no roster rather than aborting the batch.
+    folder.warn(`script undecodable: ${errorMessage(err)}`);
+  }
+
+  report('briefing');
+  const resolved = script === undefined ? undefined : await resolveMapBriefing(folder, cutsceneIdsOf(script));
+
+  report('picture');
+  let picture: Uint8Array | undefined;
+  const picturePcx = folder.read(PICTURE_PATH);
+  if (picturePcx !== undefined) {
+    try {
+      picture = await minimapToPng(picturePcx);
+    } catch (err) {
+      folder.warn(`minimap picture undecodable: ${errorMessage(err)}`);
+    }
+  }
+
+  report('minimap');
+  let minimap: Uint8Array | undefined;
+  if (options.minimap !== undefined) {
+    try {
+      minimap = await options.minimap(terrain);
+    } catch (err) {
+      folder.warn(`minimap synthesis failed: ${errorMessage(err)}`);
+    }
+  }
+
+  return {
+    id,
+    folder: folder.path,
+    terrain,
+    meta,
+    ...(strings === undefined ? {} : { strings }),
+    ...(script === undefined ? {} : { script }),
+    ...(resolved === undefined ? {} : { briefing: resolved.briefing }),
+    ...(picture === undefined ? {} : { picture }),
+    ...(minimap === undefined ? {} : { minimap }),
+    pictures: resolved?.pictures ?? new Map(),
+    index: mapsIndexEntry({
+      id,
+      meta,
+      ...(script === undefined ? {} : { script }),
+      picture: picture !== undefined,
+      minimap: minimap !== undefined,
+    }),
+    unknownStaticVerbs,
+  };
+}
+
+/**
+ * Converts every map folder of `tree`. A folder whose `map.dat` does not decode is skipped and
+ * listed; a tree without a map folder throws `no-map`, and one where no map decodes `decode-failed`.
+ */
+export async function convertMapTree(tree: MapTree, options: ConvertOptions): Promise<MapTreeConversion> {
+  const folders = findMapFolders(tree);
+  if (folders.length === 0) throw new MapImportError('no-map', `no folder holds a ${MAP_DAT_FILE}`);
+  const maps: ConvertedMap[] = [];
+  const skipped: SkippedMap[] = [];
+  for (const [index, key] of folders.entries()) {
+    try {
+      maps.push(await convertMapFolder(tree, key, options, { index, total: folders.length }));
+    } catch (err) {
+      if (!(err instanceof MapImportError)) throw err;
+      const { path } = mapFolderOf(tree, key, options.rootName ?? DEFAULT_ROOT_NAME, () => {});
+      skipped.push({ folder: path, message: err.message });
+    }
+  }
+  if (maps.length === 0) {
+    throw new MapImportError('decode-failed', skipped.map((s) => s.message).join('; '));
+  }
+  return { maps, skipped };
+}

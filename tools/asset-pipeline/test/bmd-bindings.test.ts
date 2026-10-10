@@ -1,8 +1,8 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
 import { jobBaseGraphicsToBindings, resolveGraphicsBindings } from '../src/stages/bmd/index.js';
-import { buildStringCif } from './fixtures/cif.js';
 import { makeTempDir } from './support/game-tree.js';
 
 /** Engine-owned bindings appended on every resolve; no ordinary graphics record names these pairs. */

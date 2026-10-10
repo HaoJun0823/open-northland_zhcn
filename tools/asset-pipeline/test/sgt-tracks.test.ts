@@ -1,7 +1,7 @@
+import { decodeSegmentTracks } from '@open-northland/formats/sgt-tracks';
 import { describe, expect, it } from 'vitest';
-import { decodeSegmentTracks } from '../src/decoders/sgt-tracks.js';
+import { chunk, u32 } from '../../../packages/formats/test/fixtures/riff.js';
 import { DMUS_PLAYMODE_NONE } from '../src/stages/music/music-value.js';
-import { chunk, u32 } from './riff-fixture.js';
 import {
   bandTrack,
   CHORD_SCALE_MODE,

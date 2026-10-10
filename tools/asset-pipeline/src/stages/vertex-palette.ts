@@ -1,6 +1,6 @@
 import { VERTEX_PALETTE_ENTRIES, type VertexPalette } from '@open-northland/data';
-import { assertPaletteBytes } from '../decoders/image.js';
-import { decodePcx } from '../decoders/pcx.js';
+import { assertPaletteBytes } from '@open-northland/formats/image';
+import { decodePcx } from '@open-northland/formats/pcx';
 import type { SourceRoots } from '../roots.js';
 import { writeJsonFile } from './content-tree.js';
 import { readSourceFile } from './source-files.js';

@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { type BobsIndexEntry, type MapsIndexEntry, mapLobbySlots } from '@open-northland/data';
+import type { BobsIndexEntry, MapsIndexEntry } from '@open-northland/data';
+import { mapsIndexEntry } from '@open-northland/map-import';
 import { statIfExists } from '../files.js';
 import { BOBS_DIR, writeJsonFile } from './content-tree.js';
 import type { MapDatConversion } from './maps/index.js';
@@ -18,24 +19,6 @@ export function mapsIndexEntries(maps: readonly MapDatConversion[]): MapsIndexEn
   const byId = new Map<string, MapsIndexEntry>();
   for (const map of maps) byId.set(map.id, mapsIndexEntry(map));
   return [...byId.values()].sort((a, b) => byCodeUnit(a.id, b.id));
-}
-
-function mapsIndexEntry(map: MapDatConversion): MapsIndexEntry {
-  const { provenance, campaign, name, description, mapTypes, multiplayerOnly } = map.meta;
-  const players = map.script === undefined ? [] : mapLobbySlots(map.script);
-  return {
-    id: map.id,
-    ...(provenance === undefined ? {} : { provenance }),
-    ...(campaign === undefined ? {} : { campaign }),
-    ...(name === undefined ? {} : { name }),
-    ...(description === undefined ? {} : { description }),
-    picture: map.picture,
-    minimap: map.minimap,
-    ...(players.length > 0 ? { players } : {}),
-    ...(map.script?.multiplayer?.fixedColors === true ? { fixedColors: true } : {}),
-    ...(mapTypes === undefined ? {} : { mapTypes }),
-    ...(multiplayerOnly === true ? { multiplayerOnly: true } : {}),
-  };
 }
 
 /** Every viewable atlas under `bobs/`: a `<stem>.png` + `<stem>.atlas.json` pair, sorted by (base, variant). */

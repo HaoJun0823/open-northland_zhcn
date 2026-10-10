@@ -1,11 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
 import { convertGuiHistory } from '../src/stages/gui/history.js';
 import { convertGuiStrings, STRING_TABLES } from '../src/stages/gui/strings.js';
-import { resolveMapBriefing } from '../src/stages/maps/briefing.js';
-import { loadMapStringTables } from '../src/stages/maps/meta.js';
-import { buildStringCif } from './fixtures/cif.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
 
 // Authored display text, represented as source bytes rather than UTF-8 fixtures. German 0x9C is œ in
@@ -85,27 +83,14 @@ describe('localized pipeline text', () => {
     }
   });
 
-  it.each(TEXTS)(
-    'decodes $lang map tables, briefing includes and history pages',
-    async ({ lang, bytes: raw, text }) => {
-      await temp.write(`text/${lang}/strings.ini`, bytes(`[text]\nstringn 1 "${raw}"`));
-      expect((await loadMapStringTables(temp.game, 'fixture'))[lang]?.[1]).toBe(text);
-
-      const blocks = `[blockstart:${raw}]\n${raw}\n[blockend:${raw}]`;
-      const page = `<include:$local$\\briefings.txt,${raw},1>\n${raw}`;
-      await temp.write(`text/${lang}/briefings/briefings.txt`, bytes(blocks));
-      await temp.write(`text/${lang}/briefings/0500.hlt`, bytes(page));
-      const briefing = await resolveMapBriefing(temp.game, temp.out, 'fixture', [500]);
-      expect(briefing?.texts[lang]?.['500']).toEqual([
-        { kind: 'text', style: 'body', text: `${text}\n${text}` },
-      ]);
-
-      await temp.write(`Data/text/${lang}/hypertext/history/briefings.txt`, bytes(blocks));
-      await temp.write(`Data/text/${lang}/hypertext/history/index.hlt`, bytes(page));
-      const result = await convertGuiHistory({ mod: temp.game }, temp.out);
-      expect(result.map((r) => r.lang)).toEqual([lang]);
-      const book = JSON.parse(await readFile(join(temp.out, `gui/history/${lang}.json`), 'utf8'));
-      expect(book.pages.index).toEqual([{ kind: 'text', style: 'body', text: `${text}\n${text}` }]);
-    },
-  );
+  it.each(TEXTS)('decodes $lang history pages', async ({ lang, bytes: raw, text }) => {
+    const blocks = `[blockstart:${raw}]\n${raw}\n[blockend:${raw}]`;
+    const page = `<include:$local$\\briefings.txt,${raw},1>\n${raw}`;
+    await temp.write(`Data/text/${lang}/hypertext/history/briefings.txt`, bytes(blocks));
+    await temp.write(`Data/text/${lang}/hypertext/history/index.hlt`, bytes(page));
+    const result = await convertGuiHistory({ mod: temp.game }, temp.out);
+    expect(result.map((r) => r.lang)).toEqual([lang]);
+    const book = JSON.parse(await readFile(join(temp.out, `gui/history/${lang}.json`), 'utf8'));
+    expect(book.pages.index).toEqual([{ kind: 'text', style: 'body', text: `${text}\n${text}` }]);
+  });
 });

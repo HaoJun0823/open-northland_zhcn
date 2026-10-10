@@ -1,8 +1,9 @@
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { decodePng } from '@open-northland/formats/png';
+import { createMinimapSynthesizer } from '@open-northland/map-import';
 import type { Args } from './args.js';
 import { CORRECTIONS_DIR, loadSourceCorrections } from './corrections.js';
-import { decodePng } from './decoders/png.js';
 import { errorMessage } from './errors.js';
 import { resolveModRoot, type SourceRoots } from './roots.js';
 import {
@@ -19,7 +20,7 @@ import { HYPERTEXT_PICTURES_DIR } from './stages/gui/paths.js';
 import { writeIr } from './stages/ir/index.js';
 import { loadVehicleGraphicsBindings } from './stages/ir/vehicle-graphics.js';
 import { BOBS_INDEX_FILE, MAPS_INDEX_FILE, writeListings } from './stages/listings.js';
-import { assertStaticVerbsKnown, convertMapDatTree, createMinimapSynthesizer } from './stages/maps/index.js';
+import { assertStaticVerbsKnown, convertMapDatTree } from './stages/maps/index.js';
 import { renderMusicStage } from './stages/music/index.js';
 import { composeMaskedTransitionPages, convertPcxTree } from './stages/pcx.js';
 import { convertGuidepostPlayerAtlases, convertIndexedCharacterAtlases } from './stages/player-colors.js';

@@ -1,9 +1,13 @@
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { encodeBmd } from '@open-northland/formats/bmd/index';
+import { encodeCursor } from '@open-northland/formats/cur';
+import { decodePng } from '@open-northland/formats/png';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { encodeBmd } from '../src/decoders/bmd/index.js';
-import { encodeCursor } from '../src/decoders/cur.js';
-import { decodePng } from '../src/decoders/png.js';
+import { sampleGlyphBmd } from '../../../packages/formats/test/fixtures/bmd.js';
+import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
+import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
+import { paletteCarrier } from '../../../packages/formats/test/fixtures/pcx.js';
 import { MOD_BOBS_DIR } from '../src/roots.js';
 import { BOBS_DIR } from '../src/stages/content-tree.js';
 import {
@@ -16,10 +20,6 @@ import {
   liftPaletteShadows,
 } from '../src/stages/gui/index.js';
 import { EXPORTED_TABLES, GAME_OBJECT_TABLES, STRING_TABLES } from '../src/stages/gui/strings.js';
-import { sampleGlyphBmd } from './fixtures/bmd.js';
-import { buildStringCif } from './fixtures/cif.js';
-import { rampPalette } from './fixtures/palette.js';
-import { paletteCarrier } from './fixtures/pcx.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
 
 /**

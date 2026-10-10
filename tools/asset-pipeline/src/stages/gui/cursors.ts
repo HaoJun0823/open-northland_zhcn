@@ -1,6 +1,6 @@
 import { join } from 'node:path';
-import { type DecodedCursor, decodeCursor } from '../../decoders/cur.js';
-import { encodePng } from '../../decoders/png.js';
+import { type DecodedCursor, decodeCursor } from '@open-northland/formats/cur';
+import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from '../../errors.js';
 import { writeFileWithParents } from '../../files.js';
 import type { SourceRoots } from '../../roots.js';

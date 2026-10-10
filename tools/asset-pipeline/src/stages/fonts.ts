@@ -1,5 +1,5 @@
-import { decodeFnt } from '../decoders/fnt/codec.js';
-import { type FontMetrics, fontMetrics } from '../decoders/fnt/metrics.js';
+import { decodeFnt } from '@open-northland/formats/fnt/codec';
+import { type FontMetrics, fontMetrics } from '@open-northland/formats/fnt/metrics';
 import { errorMessage } from '../errors.js';
 import type { SourceRoots } from '../roots.js';
 import { emitIndexedAndPreviewAtlas, writeJsonFile } from './content-tree.js';

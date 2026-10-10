@@ -1,10 +1,10 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { encodePcx } from '@open-northland/formats/pcx';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { encodePcx } from '../src/decoders/pcx.js';
+import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { convertGuiHistory } from '../src/stages/gui/history.js';
 import { HYPERTEXT_PICTURES_DIR } from '../src/stages/gui/paths.js';
-import { rampPalette } from './fixtures/palette.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
 
 /**

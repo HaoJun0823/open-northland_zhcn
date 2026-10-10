@@ -1,12 +1,12 @@
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { encodeFnt, type Font } from '@open-northland/formats/fnt/codec';
+import { decodePng } from '@open-northland/formats/png';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { encodeFnt, type Font } from '../src/decoders/fnt/codec.js';
-import { decodePng } from '../src/decoders/png.js';
+import { sampleGlyphBmd } from '../../../packages/formats/test/fixtures/bmd.js';
+import { paletteCarrier } from '../../../packages/formats/test/fixtures/pcx.js';
 import { BOBS_DIR } from '../src/stages/content-tree.js';
 import { convertFontColorLut, convertFontStage, convertFonts } from '../src/stages/fonts.js';
-import { sampleGlyphBmd } from './fixtures/bmd.js';
-import { paletteCarrier } from './fixtures/pcx.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
 
 /**

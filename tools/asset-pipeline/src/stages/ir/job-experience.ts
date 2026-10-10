@@ -1,5 +1,5 @@
 import type { HumanJobExperienceType, TribeType } from '@open-northland/data';
-import { slug } from '../../decoders/ini.js';
+import { slug } from '@open-northland/formats/ini';
 
 /** Professions and goods the corrections below name, from `jobtypes.ini` and `goodtypes.ini`. */
 const JOB = { CARPENTER: 9, ARMORER: 10, SMITH: 13, HERBALIST: 29 } as const;

@@ -1,8 +1,8 @@
 import { BuildingType, DEFAULT_RECIPE_TICKS, GoodType, TribeType } from '@open-northland/data';
+import { extractGoods, parseIniSections } from '@open-northland/formats/ini';
 import { describe, expect, it } from 'vitest';
-import { extractGoods, parseIniSections } from '../src/decoders/ini.js';
+import { GOODTYPES_INI } from '../../../packages/formats/test/fixtures/ini-sources.js';
 import { fillBuildingRecipes, pairVehicleGoods } from '../src/stages/ir/building-recipes.js';
-import { GOODTYPES_INI } from './fixtures/ini-sources.js';
 
 describe('fillBuildingRecipes', () => {
   // The goods table carries the input side: guildmark (27) <- productionInputGoods 22 24; dusktonic (31)

@@ -1,5 +1,9 @@
+import {
+  extractJobBaseGraphics,
+  extractJobChangeGraphics,
+  parseIniSections,
+} from '@open-northland/formats/ini';
 import { describe, expect, it } from 'vitest';
-import { extractJobBaseGraphics, extractJobChangeGraphics, parseIniSections } from '../src/decoders/ini.js';
 import { jobChangeRows, jobGraphicsRows, mergeJobGraphics } from '../src/stages/ir/job-graphics.js';
 
 // The mod's `types/humanstype/jobgraphics.ini` grammar: a viking civilist with four head looks, a

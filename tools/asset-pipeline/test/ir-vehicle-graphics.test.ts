@@ -1,5 +1,4 @@
 import { VehicleType } from '@open-northland/data';
-import { describe, expect, it, vi } from 'vitest';
 import {
   extractBobSequences,
   extractGfxAnimAtomics,
@@ -9,7 +8,8 @@ import {
   extractRawFrameGaits,
   extractVehicleGraphicsBindings,
   parseIniSections,
-} from '../src/decoders/ini.js';
+} from '@open-northland/formats/ini';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildVehicleGraphics,
   mergeVehicleBindings,

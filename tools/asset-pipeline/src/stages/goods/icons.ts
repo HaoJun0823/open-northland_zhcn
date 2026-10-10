@@ -3,7 +3,7 @@ import {
   extractGoods,
   extractLandscapeGfx,
   iniBytesToSections,
-} from '../../decoders/ini.js';
+} from '@open-northland/formats/ini';
 import type { SourceRoots } from '../../roots.js';
 import { readSourceFile } from '../source-files.js';
 

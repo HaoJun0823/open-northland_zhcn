@@ -1,6 +1,10 @@
 import { BuildingType, buildingFootprintFor, buildingHitpointsFor } from '@open-northland/data';
+import {
+  extractBuildingFootprints,
+  extractHouseHitpoints,
+  parseIniSections,
+} from '@open-northland/formats/ini';
 import { describe, expect, it } from 'vitest';
-import { extractBuildingFootprints, extractHouseHitpoints, parseIniSections } from '../src/decoders/ini.js';
 import { applyBuildingGraphicsOverlays } from '../src/stages/ir/building-overlays.js';
 
 const VIKING = 1;

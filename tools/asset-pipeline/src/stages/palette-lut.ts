@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { buildPaletteLutImage, PALETTE_ENTRIES, PALETTE_RGB_BYTES } from '../decoders/image.js';
-import { decodePcx } from '../decoders/pcx.js';
-import { encodePng } from '../decoders/png.js';
+import { buildPaletteLutImage, PALETTE_ENTRIES, PALETTE_RGB_BYTES } from '@open-northland/formats/image';
+import { decodePcx } from '@open-northland/formats/pcx';
+import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from '../errors.js';
 import { writeFileWithParents } from '../files.js';
 import type { SourceRoots } from '../roots.js';

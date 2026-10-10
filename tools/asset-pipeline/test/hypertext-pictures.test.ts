@@ -1,14 +1,14 @@
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { IncludeResolver } from '@open-northland/formats/hypertext';
+import { encodePcx } from '@open-northland/formats/pcx';
+import { decodePng } from '@open-northland/formats/png';
 import { describe, expect, it } from 'vitest';
-import type { IncludeResolver } from '../src/decoders/hypertext.js';
-import { encodePcx } from '../src/decoders/pcx.js';
-import { decodePng } from '../src/decoders/png.js';
+import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { writeFileWithParents } from '../src/files.js';
 import { HYPERTEXT_PICTURES_DIR } from '../src/stages/gui/paths.js';
 import { resolvePagePictures } from '../src/stages/hypertext-pictures.js';
-import { rampPalette } from './fixtures/palette.js';
 import { makeTempDir } from './support/game-tree.js';
 
 /**

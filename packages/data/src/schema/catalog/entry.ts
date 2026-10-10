@@ -1,7 +1,6 @@
 import { z } from 'zod';
-
-/** Our id for a catalogue map; the same pattern names a map the pipeline ships. */
-export const CATALOG_MAP_ID = /^[a-z0-9_-]{1,128}$/i;
+import { CatalogConversion } from './conversion.js';
+import { CATALOG_MAP_ID } from './id.js';
 
 /** How the upstream catalogue groups maps, as `/v1/catalog` names the groups. */
 export const CatalogCategory = z.enum(['single', 'multi', 'campaign', 'series-single', 'series-multi']);
@@ -46,6 +45,9 @@ export const CatalogEntry = z.strictObject({
    *  screenshot or it could not be fetched. */
   thumbnail: z.string().startsWith('/v1/maps/').optional(),
   file: CatalogFile,
+  /** The server-side conversion of `file`; absent until the API has looked at the file, and on an
+   *  `external` entry. */
+  conversion: CatalogConversion.optional(),
 });
 export type CatalogEntry = z.infer<typeof CatalogEntry>;
 

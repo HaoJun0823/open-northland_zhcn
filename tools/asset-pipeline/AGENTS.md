@@ -49,6 +49,11 @@ so a mod release that fixes the text forces its removal.
 
 ## Decoder work
 
+The decoders live in `packages/formats` and map conversion in `packages/map-import`. Both run in a
+browser too, so they take bytes and never import `node:` modules; the maps stage only walks the mod,
+reads the map files through `readSourceFile` and writes what the package returns. These rules apply
+to both packages.
+
 Binary claims need byte-level evidence from the owned copy and synthetic fixtures. Test valid input,
 truncation, invalid lengths, and useful round trips. Visual formats also need a human comparison of
 locally rendered output with the running original.

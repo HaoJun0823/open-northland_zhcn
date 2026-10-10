@@ -4,7 +4,7 @@ import {
   iniBytesToSections,
   type RuleSection,
   type SourceRef,
-} from '../../decoders/ini.js';
+} from '@open-northland/formats/ini';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 
 /**

@@ -27,7 +27,9 @@ Epic: [`docs/tickets/api/README.md`](../api/README.md).
 - Lobby: a catalogue map is announced as `{ catalogId, fingerprint, irVersion }`; a peer without it
   downloads from the API and verifies the fingerprint with `verifyMapDocuments`; the relay transfer
   stays the fallback when the API is unreachable. `mapDeliveryAllowed` accepts the `catalog` kind.
-- Saves of catalogue maps restore through the same source layer.
+- Saves of catalogue maps restore through the same source layer, and the sub-mission join in
+  `entries/map/sub-missions.ts` searches installed catalogue maps too, since a campaign pack installs
+  its main map together with its sub maps.
 
 ## Verify
 

@@ -16,15 +16,19 @@ those sidecars and prove they are safe before serving them.
   open it with `@open-northland/map-import` (zip, rar, c2m), convert, and write the sidecars to
   `ON_API_DATA_DIR/converted/<IR_VERSION>/<id>/`. The fingerprint of the result is the one
   `verifyMapDocuments` would compute in the app, so lobby peers can compare.
-- Hard limits as named constants in one module: archive bytes, entry count, unpacked bytes, single
-  entry bytes, path depth; entries with `..`, absolute paths, drive letters or symlink flags fail the
-  archive. The process runs as `node`, writes only under the data dir, and never executes anything
+- Hard limits as named constants in one module, sized from the catalogue (largest archive unpacks to
+  20 MB, largest entry 6 MB, most entries 2367, deepest map folder 3): archive 64 MB, unpacked 128 MB,
+  entry 16 MB, 5000 entries, depth 8. Entries with `..`, absolute paths, drive letters or symlink
+  flags fail the archive. The process runs as `node`, writes only under the data dir, and never executes anything
   from an archive. One conversion at a time by default (`API_CONVERT_CONCURRENCY`); the queue runs
   after each sync and on demand for an entry requested before its conversion exists.
-- Each entry records a verdict beside its sidecars: `ok`, `no-map-dat`, `multiple-maps` (campaign
-  archives; see the probe result in the import-package ticket), `too-large`, `unsupported-archive`,
-  `decode-failed` with the decoder's message. `/v1/maps/:id` exposes `conversion: { verdict,
-  irVersion, fingerprint?, languages?, players? }` so the client can hide or explain an entry.
+- A catalogue entry converts to one or more maps (campaign packs hold a main map and its sub-mission
+  folders; see the import-package ticket). Each entry records a verdict beside its sidecars: `ok`,
+  `no-map`, `too-large`, `unsupported-archive` (two catalogue files: one passworded, one with an
+  unreadable compression method), `decode-failed` with the decoder's message. `/v1/maps/:id` exposes
+  `conversion: { verdict, irVersion, maps: [{ mapId, fingerprint, campaign?, languages, players? }] }`
+  so the client can install the whole set, hide an entry or explain it. Sub maps are served under
+  their own map ids like any other.
 - Endpoints under the version the build carries, `GET /v1/content/<IR_VERSION>/maps/:id.json`,
   `.meta.json`, `.script.json`, `.strings.json`, `.briefing.json`, `.map.png`, `.png`: the same file
   names as `content/maps/`, so `loadTerrainMap` and its siblings work with a different base URL. A

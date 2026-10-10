@@ -36,6 +36,7 @@ export {
   buildingProduces,
   buildingWorkerJobs,
   isCarrierJob,
+  isStorageBuildingType,
   isWorkplaceOutput,
   mayFetchGoodFrom,
   mergedRecipeOf,

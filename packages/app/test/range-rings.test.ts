@@ -18,12 +18,17 @@ const jobOf = (slug: string): number => {
 const COLLECTOR = jobOf('collector');
 const HUNTER = jobOf('hunter');
 const FISHER = jobOf('fisher');
+const CARRIER = jobOf('carrier');
 const shelter = content.buildings.find((b) => (b.shelterCapacity ?? 0) > 0);
 if (shelter === undefined) throw new Error('no defence-capable building in the sandbox content');
 const noShelter = content.buildings.find((b) => (b.shelterCapacity ?? 0) === 0);
 const doored = content.buildings.find((b) => buildingFootprintFor(b, PRIMARY_TRIBE)?.door !== undefined);
 if (doored === undefined) throw new Error('no building with a door in the sandbox content');
 if (noShelter === undefined) throw new Error('no building without defence mode in the sandbox content');
+const store = content.buildings.find((b) => b.kind === 'storage' && (b.shelterCapacity ?? 0) === 0);
+if (store === undefined) throw new Error('no store without defence mode in the sandbox content');
+const workshop = content.buildings.find((b) => b.recipes.length > 0 && (b.shelterCapacity ?? 0) === 0);
+if (workshop === undefined) throw new Error('no crafting workshop in the sandbox content');
 
 const FLAG_RADIUS = 24;
 const LODGE = 50;
@@ -100,6 +105,30 @@ describe('rangeRingsOf', () => {
       rangeRingsOf(content, snapshotOf([building(shelter.typeId, { DefenceMode: {} })]), [TOWER]),
     ).toEqual(ring);
     expect(rangeRingsOf(content, snapshotOf([building(noShelter.typeId)]), [TOWER])).toEqual([]);
+  });
+
+  it("draws a porter's pickup area around its store, from the porter or the store, while one holds no flag", () => {
+    const area = [
+      { entity: TOWER, radiusNodes: systems.WORKPLACE_COLLECT_RADIUS, metric: 'manhattan', kind: 'work' },
+    ];
+    const porter = settler(1, CARRIER, { JobAssignment: { workplace: TOWER } });
+    const staffed = snapshotOf([porter, building(store.typeId)]);
+    expect(rangeRingsOf(content, staffed, [1])).toEqual(area);
+    expect(rangeRingsOf(content, staffed, [TOWER])).toEqual(area);
+    expect(rangeRingsOf(content, snapshotOf([building(store.typeId)]), [TOWER])).toEqual([]);
+    const flagged = settler(1, CARRIER, {
+      JobAssignment: { workplace: TOWER },
+      HaulFlag: { flag: FLAG, radius: FLAG_RADIUS },
+    });
+    expect(rangeRingsOf(content, snapshotOf([flagged, building(store.typeId)]), [TOWER])).toEqual([]);
+  });
+
+  it("draws no pickup area for a workshop's carrier", () => {
+    const world = snapshotOf([
+      settler(1, CARRIER, { JobAssignment: { workplace: TOWER } }),
+      building(workshop.typeId),
+    ]);
+    expect(rangeRingsOf(content, world, [1, TOWER])).toEqual([]);
   });
 
   it('costs the ids, not the map', () => {

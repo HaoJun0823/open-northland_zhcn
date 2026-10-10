@@ -1,4 +1,4 @@
-import type { GoodQuantity, Recipe } from '@open-northland/data';
+import type { ContentSet, GoodQuantity, Recipe } from '@open-northland/data';
 import { Building, UnderConstruction, Upgrading } from '../../components/index.js';
 import { isCarrierJobId } from '../../core/content-index/jobs.js';
 import { contentIndex } from '../../core/content-index.js';
@@ -87,6 +87,16 @@ export function isWorkplaceOutput(
   if (livestockTribeOfGood(ctx.content, goodType) !== null) return false;
   if (buildingProduces(world, ctx, building).includes(goodType)) return true;
   return mergedRecipeOf(world, ctx, building)?.outputs.some((o) => o.goodType === goodType) === true;
+}
+
+/** Whether a building type takes general deliveries into store: it runs no recipe and fills no stock of
+ *  its own. */
+export function isStorageBuildingType(content: ContentSet, buildingType: number): boolean {
+  const index = contentIndex(content);
+  return (
+    !index.mergedRecipeByBuilding.has(buildingType) &&
+    index.buildings.get(buildingType)?.refillsOwnStock !== true
+  );
 }
 
 /** Whether `building` tops its own produced goods up with no worker: the well and the hive. It carries no

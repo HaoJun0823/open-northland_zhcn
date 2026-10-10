@@ -1,7 +1,8 @@
 import type { Entity } from '../../../../ecs/world.js';
 import type { SpatialGate } from '../../../../nav/node-circle.js';
-import type { NodeId } from '../../../../nav/terrain/index.js';
+import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import { liveHaulFlag } from '../../../economy/work-flag.js';
+import type { NavigationLimit } from '../../../signposts/index.js';
 import { entityNode } from '../../../spatial/nodes.js';
 import { atOrWalk } from '../../atomics/start.js';
 import type { PlannerContext } from '../../planner/context.js';
@@ -21,18 +22,24 @@ export function haulFlagArea(plan: PlannerContext): HaulFlagArea | null {
   const live = liveHaulFlag(world, plan.entity);
   if (live === undefined) return null;
   const center = entityNode(world, terrain, live.flag);
+  return { flag: live.flag, center, gate: workAreaGate(terrain, center, live.radius, limit) };
+}
+
+/** The nodes within Manhattan `radius` of `center`, as a gatherer's work area spans, and inside the
+ *  carrier's signpost confinement. */
+export function workAreaGate(
+  terrain: TerrainGraph,
+  center: NodeId,
+  radius: number,
+  limit: NavigationLimit | null,
+): SpatialGate {
   const cx = terrain.xOf(center);
   const cy = terrain.yOf(center);
-  const r = live.radius;
   return {
-    flag: live.flag,
-    center,
-    gate: {
-      bounds: { minX: cx - r, maxX: cx + r, minY: cy - r, maxY: cy + r },
-      allowsNode: (node) =>
-        Math.abs(terrain.xOf(node) - cx) + Math.abs(terrain.yOf(node) - cy) <= r &&
-        (limit === null || limit.allowsNode(node)),
-    },
+    bounds: { minX: cx - radius, maxX: cx + radius, minY: cy - radius, maxY: cy + radius },
+    allowsNode: (node) =>
+      Math.abs(terrain.xOf(node) - cx) + Math.abs(terrain.yOf(node) - cy) <= radius &&
+      (limit === null || limit.allowsNode(node)),
   };
 }
 

@@ -1,9 +1,10 @@
 import { BUILDING_KIND, type ContentSet } from '@open-northland/data';
-import { Building, JobAssignment, Settler } from '../../components/index.js';
+import { Building, DEFAULT_WORK_FLAG_RADIUS, JobAssignment, Settler } from '../../components/index.js';
 import { isCarrierJobId } from '../../core/content-index/jobs.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { ContentContext } from '../context.js';
+import { isStorageBuildingType } from '../stores/index.js';
 
 /**
  * Whether a `jobType` worker posted at `buildingType` may be given a pickup flag: a carrier at a warehouse
@@ -34,4 +35,21 @@ export function holdsHaulFlagPost(world: World, ctx: ContentContext, e: Entity):
     buildingType !== undefined &&
     postTakesHaulFlag(ctx.content, jobType, buildingType)
   );
+}
+
+/** How far (Manhattan half-cell nodes) from its workplace a porter without a flag lifts ground piles: the
+ *  reach of a newly placed flag standing at the building's centre (owner's choice). Original behavior, for
+ *  comparison: a store carrier searches 20 map points around its work point, a farm carrier 10. */
+export const WORKPLACE_COLLECT_RADIUS = DEFAULT_WORK_FLAG_RADIUS;
+
+/** Whether a `jobType` worker posted at `buildingType` is a porter, which without a flag lifts ground piles
+ *  within {@link WORKPLACE_COLLECT_RADIUS} of its workplace: a carrier at a building that stores rather than
+ *  crafts. */
+export function postCollectsAroundWorkplace(
+  content: ContentSet,
+  jobType: number,
+  buildingType: number,
+): boolean {
+  const job = contentIndex(content).jobs.get(jobType);
+  return job !== undefined && isCarrierJobId(job.id) && isStorageBuildingType(content, buildingType);
 }

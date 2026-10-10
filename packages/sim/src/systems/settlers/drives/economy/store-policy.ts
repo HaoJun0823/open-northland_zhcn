@@ -1,8 +1,8 @@
-import { JobAssignment, Position, Stockpile } from '../../../../components/index.js';
+import { Building, JobAssignment, Position, Stockpile } from '../../../../components/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { SystemContext } from '../../../context.js';
 import { farmWorkGood } from '../../../economy/fields.js';
-import { bankedSlot, mergedRecipeOf, refillsOwnStock } from '../../../stores/index.js';
+import { bankedSlot, isStorageBuildingType } from '../../../stores/index.js';
 import { jobAtomics } from '../../targets/index.js';
 
 /** Whether a job is the field worker, rather than the carrier, of a farm building. */
@@ -34,12 +34,9 @@ export function isBoundToStorageSink(world: World, ctx: SystemContext, settler: 
 
 /** A positioned stockpile that accepts general deliveries rather than running a recipe or filling itself. */
 export function isStorageSink(world: World, ctx: SystemContext, store: Entity): boolean {
-  return (
-    world.has(store, Stockpile) &&
-    world.has(store, Position) &&
-    mergedRecipeOf(world, ctx, store) === undefined &&
-    !refillsOwnStock(world, ctx, store)
-  );
+  if (!world.has(store, Stockpile) || !world.has(store, Position)) return false;
+  const building = world.tryGet(store, Building);
+  return building === undefined || isStorageBuildingType(ctx.content, building.buildingType);
 }
 
 /** Whether a store has capacity for another unit of the requested good, judged on the banked slot the

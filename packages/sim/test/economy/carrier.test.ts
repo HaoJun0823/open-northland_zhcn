@@ -21,8 +21,8 @@ import {
   type ScriptLandscapeType,
   Simulation,
 } from '../../src/index.js';
+import { WORKPLACE_COLLECT_RADIUS } from '../../src/systems/economy/haul-flag.js';
 import { createPalisade, plannerSystem } from '../../src/systems/index.js';
-import { PORTER_COLLECT_RADIUS_NODES } from '../../src/systems/settlers/drives/economy/haul-targets.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassCellMap as grassMap } from '../fixtures/terrain.js';
@@ -238,9 +238,9 @@ describe('carrier - choosing what to haul', () => {
     // The near pile lies beside the porter but past the radius from its store; the far one lies inside it.
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(32, 1) });
     const hq = hqAt(sim, 0, 0);
-    const outside = Math.ceil(PORTER_COLLECT_RADIUS_NODES / 2) + 2;
+    const outside = Math.ceil(WORKPLACE_COLLECT_RADIUS / 2) + 2;
     const carrier = carrierAt(sim, outside + 1, 0, hq);
-    for (const cell of [outside, Math.floor(PORTER_COLLECT_RADIUS_NODES / 2) - 1]) {
+    for (const cell of [outside, Math.floor(WORKPLACE_COLLECT_RADIUS / 2) - 1]) {
       const pile = sim.world.create();
       sim.world.add(pile, Position, { x: fx.fromInt(cell), y: fx.fromInt(0) });
       sim.world.add(pile, Stockpile, { amounts: new Map([[WOOD, 1]]) });
@@ -248,7 +248,7 @@ describe('carrier - choosing what to haul', () => {
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    const inside = cellAnchorNode(Math.floor(PORTER_COLLECT_RADIUS_NODES / 2) - 1, 0);
+    const inside = cellAnchorNode(Math.floor(WORKPLACE_COLLECT_RADIUS / 2) - 1, 0);
     expect(sim.world.tryGet(carrier, MoveGoal)?.cell).toBe(sim.terrain?.nodeAt(inside.hx, inside.hy));
   });
 

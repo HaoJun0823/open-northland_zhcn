@@ -8,22 +8,24 @@ import {
   positionOf,
   type SnapshotEntity,
   settlerJobType,
+  staffOf,
   workAreaOf,
   workplaceOf,
 } from '../../game/snapshot.js';
 
 /**
  * The range circle `e` shows: the ground a worker looks for work in, or the ground a building would shoot
- * over in defence mode, raised or not. Undefined for everything else, an employed gatherer included: it
- * roams for the nearest node anywhere. A fisher's circle is where he looks for a shore; he still casts at
- * fish further out in the water.
+ * over in defence mode, raised or not. A building without a defence circle shows its porters' pickup area
+ * while one works there. Undefined for everything else, an employed gatherer included: it roams for the
+ * nearest node anywhere. A fisher's circle is where he looks for a shore; he still casts at fish further
+ * out in the water.
  */
 export function rangeRingOf(
   content: ContentSet,
   snapshot: WorldSnapshot,
   e: SnapshotEntity,
 ): RangeRing | undefined {
-  if (isBuilding(e)) return defenceRing(content, e);
+  if (isBuilding(e)) return defenceRing(content, e) ?? porterRing(content, snapshot, e);
   const job = settlerJobType(e);
   if (job === undefined) return undefined;
   const fisher = systems.isFisherJob(content, job);
@@ -40,7 +42,41 @@ export function rangeRingOf(
   if (metric === 'hex') {
     return { entity: workplace, radiusNodes: components.HUNTER_WORK_FLAG_RADIUS, metric, kind: 'work' };
   }
-  return fisher ? employedFisherRing(content, snapshot, workplace) : undefined;
+  if (fisher) return employedFisherRing(content, snapshot, workplace);
+  const building = entityById(snapshot, workplace);
+  return building !== undefined && collectsAround(content, e, building) ? porterArea(workplace) : undefined;
+}
+
+/** The pickup area around `building` while a porter without a flag works there. */
+function porterRing(
+  content: ContentSet,
+  snapshot: WorldSnapshot,
+  building: SnapshotEntity,
+): RangeRing | undefined {
+  return staffOf(snapshot, building.id).some((s) => collectsAround(content, s, building))
+    ? porterArea(building.id)
+    : undefined;
+}
+
+/** Whether `settler` is a porter at `building` that lifts ground piles around it, holding no flag. */
+function collectsAround(content: ContentSet, settler: SnapshotEntity, building: SnapshotEntity): boolean {
+  const job = settlerJobType(settler);
+  const type = buildingTypeOf(building);
+  return (
+    job !== undefined &&
+    type !== undefined &&
+    workAreaOf(settler) === undefined &&
+    systems.postCollectsAroundWorkplace(content, job, type)
+  );
+}
+
+function porterArea(building: number): RangeRing {
+  return {
+    entity: building,
+    radiusNodes: systems.WORKPLACE_COLLECT_RADIUS,
+    metric: 'manhattan',
+    kind: 'work',
+  };
 }
 
 /** An employed fisher searches from where he banked his last catch, the door of his workplace. */

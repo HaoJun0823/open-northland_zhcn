@@ -292,7 +292,6 @@ export const ruGame = {
     closeMenu: 'Закрыть',
     saveGame: 'Сохранить игру',
     loadGame: 'Загрузить игру',
-    gameSaved: 'Игра сохранена.',
     saveFailed: 'Не удалось сохранить игру.',
     loadErrors: {
       corrupt: 'Этот файл не является читаемым сохранением Open Northland.',

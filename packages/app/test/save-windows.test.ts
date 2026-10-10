@@ -147,11 +147,40 @@ describe('save window', () => {
     input.dispatchEvent(new Event('input'));
     expect(selectedName(save)).toBe('Keep');
 
-    button(copy.save, save).click();
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    input.dispatchEvent(enter);
+    // Unhandled, the browser's keypress would click the overwrite button the question just focused.
+    expect(enter.defaultPrevented).toBe(true);
     await vi.waitFor(() => expect(document.activeElement).toBe(button(copy.overwrite, question())));
     button(copy.cancel, question()).click();
     await vi.waitFor(() => expect(save.querySelector('.on-saves__status')?.textContent).toBe(copy.notSaved));
     expect(saveLoad.saveGame).not.toHaveBeenCalled();
+  });
+
+  it('deletes through a bin without taking over the name field, then offers a fresh name', async () => {
+    const copy = messages().saveList;
+    const { menu } = mount([slot('Keep', 5), slot('Drop', 6)]);
+    menu.openPage('save');
+    const save = page('save');
+    const input = save.querySelector('input');
+    if (input === null) throw new Error('Missing name field');
+    await vi.waitFor(() => expect(rowNames(save)).toEqual(['Drop', 'Keep']));
+    input.value = 'Mine';
+    input.dispatchEvent(new Event('input'));
+    button(formatMessage(copy.deleteNamed, { name: 'Keep' }), save).click();
+    await vi.waitFor(() => question());
+    expect(input.value).toBe('Mine');
+    button(copy.del, question()).click();
+    await vi.waitFor(() => expect(rowNames(save)).toEqual(['Drop']));
+    expect(input.value).toBe('Mine');
+
+    input.value = 'Drop';
+    input.dispatchEvent(new Event('input'));
+    button(formatMessage(copy.deleteNamed, { name: 'Drop' }), save).click();
+    await vi.waitFor(() => question());
+    button(copy.del, question()).click();
+    await vi.waitFor(() => expect(rowNames(save)).toEqual([]));
+    expect(input.value).toBe('World here - Save 1');
   });
 });
 
@@ -212,6 +241,28 @@ describe('load window', () => {
     await vi.waitFor(() => expect(rowNames(load)).toEqual(['Away', 'Fjord']));
     expect(saveLoad.deleteSave).toHaveBeenCalledWith('Harbour');
     expect(load.querySelector('.on-saves__status')?.textContent).toBe(copy.deleted);
+  });
+
+  it('never selects a row the search hides, even after a delete under the search', async () => {
+    const copy = messages().saveList;
+    const { menu } = mount([slot('Harbour', 1), slot('Fjord', 2), slot('Away', 3, ELSEWHERE)]);
+    menu.openPage('load');
+    const load = page('load');
+    await vi.waitFor(() => expect(rowNames(load)).toHaveLength(3));
+    const search = load.querySelector<HTMLInputElement>('input[type="search"]');
+    if (search === null) throw new Error('Missing search');
+    search.value = 'harb';
+    search.dispatchEvent(new Event('input'));
+    button(formatMessage(copy.deleteNamed, { name: 'Harbour' }), load).click();
+    await vi.waitFor(() => question());
+    button(copy.del, question()).click();
+    await vi.waitFor(() => expect(rowNames(load)).toEqual([]));
+    expect(selectedName(load)).toBeNull();
+    expect(button(copy.load, load).disabled).toBe(true);
+    search.value = '';
+    search.dispatchEvent(new Event('input'));
+    expect(selectedName(load)).toBe('Fjord');
+    expect(button(copy.load, load).disabled).toBe(false);
   });
 
   it('says the list is empty and how to fill it', async () => {

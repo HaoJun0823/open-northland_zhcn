@@ -135,10 +135,8 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
     const row: Row = { slot, item, pick, del, haystack: foldedName(`${slot.name} ${world ?? ''}`) };
     pick.addEventListener('click', () => choose(row));
     pick.addEventListener('dblclick', () => opts.onActivate?.(slot));
-    del.addEventListener('click', () => {
-      choose(row);
-      opts.onDelete(slot);
-    });
+    // The confirmation names the save, so the bin leaves the selection and what it filled alone.
+    del.addEventListener('click', () => opts.onDelete(slot));
     return row;
   };
 
@@ -191,6 +189,12 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
     select(id) {
       const row = rows.find((candidate) => candidate.slot.id === id) ?? null;
       filteredOut = null;
+      // A row the search hides waits for it, so no action ever runs on a save the player cannot see.
+      if (row?.item.hidden === true) {
+        choose(null);
+        filteredOut = row;
+        return;
+      }
       choose(row);
       row?.item.scrollIntoView({ block: 'nearest' });
     },

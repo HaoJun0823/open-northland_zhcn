@@ -506,7 +506,6 @@ export const plSurfaces = {
     autoName: 'Zapis {n}',
     autoNameMap: '{map} - Zapis {n}',
     columnName: 'Nazwa',
-    columnMap: 'Mapa',
     columnPlaytime: 'Czas gry',
     columnSavedAt: 'Zapisano',
     empty: 'Brak zapisów.',

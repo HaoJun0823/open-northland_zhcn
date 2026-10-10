@@ -507,7 +507,6 @@ export const enSurfaces = {
     autoName: 'Save {n}',
     autoNameMap: '{map} - Save {n}',
     columnName: 'Name',
-    columnMap: 'Map',
     columnPlaytime: 'Game time',
     columnSavedAt: 'Saved',
     empty: 'No saves yet.',

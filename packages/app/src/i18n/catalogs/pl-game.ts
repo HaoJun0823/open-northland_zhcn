@@ -267,7 +267,6 @@ export const plGame = {
     closeMenu: 'Zamknij',
     saveGame: 'Zapisz grę',
     loadGame: 'Wczytaj grę',
-    gameSaved: 'Gra zapisana.',
     saveFailed: 'Zapis gry nie powiódł się.',
     loadErrors: {
       corrupt: 'Ten plik nie jest poprawnym zapisem Open Northland.',

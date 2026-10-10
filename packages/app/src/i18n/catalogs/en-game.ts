@@ -267,7 +267,6 @@ export const enGame = {
     closeMenu: 'Close',
     saveGame: 'Save game',
     loadGame: 'Load game',
-    gameSaved: 'Game saved.',
     saveFailed: 'Saving the game failed.',
     loadErrors: {
       corrupt: 'This file is not a readable Open Northland save.',

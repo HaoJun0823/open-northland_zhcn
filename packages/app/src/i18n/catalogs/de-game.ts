@@ -297,7 +297,6 @@ export const deGame = {
     closeMenu: 'Schließen',
     saveGame: 'Spiel speichern',
     loadGame: 'Spiel laden',
-    gameSaved: 'Spiel gespeichert.',
     saveFailed: 'Das Spiel konnte nicht gespeichert werden.',
     loadErrors: {
       corrupt: 'Diese Datei ist kein lesbarer Open-Northland-Spielstand.',

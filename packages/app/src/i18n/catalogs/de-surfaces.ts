@@ -554,7 +554,6 @@ export const deSurfaces = {
     autoName: 'Spielstand {n}',
     autoNameMap: '{map} – Spielstand {n}',
     columnName: 'Name',
-    columnMap: 'Karte',
     columnPlaytime: 'Spielzeit',
     columnSavedAt: 'Gespeichert',
     empty: 'Noch keine Spielstände.',

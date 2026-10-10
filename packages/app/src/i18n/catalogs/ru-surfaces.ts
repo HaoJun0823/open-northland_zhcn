@@ -544,7 +544,6 @@ export const ruSurfaces = {
     autoName: 'Сохранение {n}',
     autoNameMap: '{map} — Сохранение {n}',
     columnName: 'Название',
-    columnMap: 'Карта',
     columnPlaytime: 'Время игры',
     columnSavedAt: 'Дата сохранения',
     empty: 'Сохранений пока нет.',

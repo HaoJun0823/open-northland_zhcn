@@ -63,7 +63,12 @@ export function createSaveWindow(deps: SaveWindowDeps): MenuPageView {
       if (sanitizedSaveName(input.value) !== slot.name) input.value = slot.name;
       showHint();
     },
-    onDelete: (slot) => removeSlot(deps, slot, run, refresh),
+    onDelete: (slot) =>
+      removeSlot(deps, slot, run, async () => {
+        // A field still naming the deleted save would quietly write it back; offer a fresh name.
+        if (sanitizedSaveName(input.value) === slot.name) input.value = '';
+        await refresh();
+      }),
   });
   const note = element('p', 'on-parchment__note');
   note.textContent = copy.existing;
@@ -141,7 +146,10 @@ export function createSaveWindow(deps: SaveWindowDeps): MenuPageView {
     showHint();
   });
   input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') saveNow();
+    if (event.key !== 'Enter') return;
+    // Without this the Enter press goes on to click the overwrite question's focused button.
+    event.preventDefault();
+    saveNow();
   });
 
   return {

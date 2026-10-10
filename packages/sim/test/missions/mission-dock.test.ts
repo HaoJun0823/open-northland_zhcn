@@ -53,7 +53,7 @@ function dockWithOpening(distance: number) {
       ctx,
       script: { missions: [] },
       records: [],
-      tick: 0,
+      clock: 0,
       report: () => {},
       reportFailed: () => {},
       checking: new Set(),

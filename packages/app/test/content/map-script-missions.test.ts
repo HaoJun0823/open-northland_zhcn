@@ -110,7 +110,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))(
           const record = records[i];
           if (record === undefined) continue;
           record.active = i === index;
-          if (i === index) record.activationTick = sim.tick;
+          if (i === index) record.activationClock = components.missionClock(sim.world, sim.tick);
         }
       });
       const before = components.missionRecords(sim.world)[index]?.fireCount ?? 0;

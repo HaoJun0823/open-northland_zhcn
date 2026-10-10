@@ -15,11 +15,12 @@ import {
   leaveFullscreen,
   onFullscreenChange,
 } from './fullscreen.js';
+import { recommendedSettings } from './graphics-startup.js';
 import { segControl, settingRow, settingsHeading, sliderControl, togglePill } from './settings-controls.js';
 import { createControlsTab } from './settings-controls-tab.js';
 import { createSettingsDisplayMode, type DisplayMode } from './settings-display-mode.js';
 import { graphicsSettingsRows } from './settings-graphics-tab.js';
-import { defaultSettings, type MenuSettings, SCROLL_SPEED_MAX, SCROLL_SPEED_MIN } from './settings-store.js';
+import { type MenuSettings, SCROLL_SPEED_MAX, SCROLL_SPEED_MIN } from './settings-store.js';
 
 export type SettingsTab = 'graphics' | 'audio' | 'gameplay' | 'controls';
 
@@ -389,7 +390,7 @@ export function createSettingsPage(opts: {
       if (opts.confirmRestore !== undefined && !(await opts.confirmRestore())) return;
       if (scope.signal.aborted) return;
       const displayReset = displayMode.reserve(defaultDisplayMode());
-      const { displayMode: _displayMode, ...defaults } = defaultSettings();
+      const { displayMode: _displayMode, ...defaults } = recommendedSettings();
       void opts.settings.update(defaults).then((applied) => {
         if (!applied) {
           displayReset.cancel();

@@ -166,6 +166,19 @@ export function defaultSettings(): MenuSettings {
 const STORAGE_KEY = 'open-northland.settings';
 const volatileSettings = new WeakMap<object, MenuSettings>();
 
+/** Seed a fresh installation once, before any entry reads settings. Any existing blob belongs to the
+ * player. A denied read is not evidence of absence, so it must never cause a persistent write. */
+export function initializeStoredSettings(defaults: () => MenuSettings): void {
+  if (volatileSettings.has(window)) return;
+  try {
+    if (window.localStorage.getItem(STORAGE_KEY) !== null) return;
+  } catch {
+    volatileSettings.set(window, defaults());
+    return;
+  }
+  persistSettings(defaults());
+}
+
 function clampFactor(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_UI_SCALE_FACTOR;
   return clampUiScaleFactor(value);

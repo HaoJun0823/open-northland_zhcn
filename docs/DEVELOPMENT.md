@@ -188,8 +188,9 @@ without `ai=`, the other selectable seats are idle and do not count toward elimi
 their settlements remain on the map. Mission scripts still run in both cases, and recorded chapters
 remain available from the mission book. Omit `intro=off` when testing the briefing itself.
 
-The Graphics tab also owns five enhancements of the world view. They are stored settings, default on,
-and apply to a running game without a restart. With all five off the world matches the previous
+The Graphics tab also owns the enhancements of the world view. Their initial values follow the
+[first-launch hardware policy](GRAPHICS.md); subsequent player choices are preserved. They are stored
+settings and apply to a running game without a restart. With the enhancements off the world matches the previous
 renderer except for two silhouettes that now draw either way: flat decor casts its authored shadow,
 and settlers and animals draw the authored `_s` twin the original ships. For a before/after review
 keep the map, camera and zoom fixed, and include x2 and a zoomed-out pan.

@@ -18,6 +18,7 @@ Other references:
 
 - [`SCENES.md`](SCENES.md): acceptance scenes for tests and human review
 - [`NETWORK.md`](NETWORK.md): multiplayer protocol, lockstep and server
+- [`GRAPHICS.md`](GRAPHICS.md): first-launch hardware defaults, effect costs and calibration limits
 - [`LEGAL.md`](LEGAL.md): game-data, licensing, trademark rules, and acceptable evidence
 - [`GLOSSARY.md`](GLOSSARY.md): project and format terms
 - [`formats/`](formats/): notes about decoded file formats

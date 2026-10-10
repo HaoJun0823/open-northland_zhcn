@@ -2,6 +2,7 @@ import { installCrashCapture, logBootHeader } from './diag/index.js';
 import { runEntry } from './launch.js';
 import { installUpdateWatcher } from './update/watcher.js';
 import { deviceNoticeCleared } from './view/device-notice.js';
+import { initializeGraphicsSettings } from './view/graphics-startup.js';
 import { installNavigationGuard } from './view/navigation-guard.js';
 
 /**
@@ -9,6 +10,7 @@ import { installNavigationGuard } from './view/navigation-guard.js';
  * touch-only device has passed its notice. All sim and render wiring lives in the entries; this file
  * only opens the first one.
  */
+initializeGraphicsSettings();
 logBootHeader();
 installCrashCapture();
 installUpdateWatcher();

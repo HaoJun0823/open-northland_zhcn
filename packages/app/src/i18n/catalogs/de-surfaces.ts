@@ -564,7 +564,7 @@ export const deSurfaces = {
     overwrite: 'Überschreiben',
     invalidName: 'Gib einen Namen für den Spielstand ein.',
     load: 'Laden',
-    loadConfirm: 'Spielstand „{name}“ laden? Nicht gespeicherter Fortschritt geht verloren.',
+    loadConfirm: 'Spielstand „{name}“ laden?\nNicht gespeicherter Fortschritt geht verloren.',
     del: 'Löschen',
     deleteConfirm: 'Spielstand „{name}“ löschen?',
     cancel: 'Abbrechen',

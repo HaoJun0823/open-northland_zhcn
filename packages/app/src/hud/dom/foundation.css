@@ -1416,6 +1416,7 @@ body.on-drag-scroll * {
   font-size: 12px;
   line-height: 1.35;
   white-space: pre-line;
+  overflow-wrap: anywhere;
   box-shadow: 0 6px 18px #000b;
 }
 .on-hud .on-notices__full::before {
@@ -7634,6 +7635,7 @@ body.on-drag-scroll * {
 .on-hud .on-system-confirm__message {
   margin: 4px 0 24px;
   font-size: 16px;
+  white-space: pre-line;
 }
 .on-hud .on-system-confirm__actions {
   display: flex;

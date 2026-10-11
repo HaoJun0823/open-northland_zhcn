@@ -517,7 +517,7 @@ export const enSurfaces = {
     overwrite: 'Overwrite',
     invalidName: 'Enter a save name.',
     load: 'Load',
-    loadConfirm: 'Load save "{name}"? Unsaved progress will be lost.',
+    loadConfirm: 'Load save "{name}"?\nUnsaved progress will be lost.',
     del: 'Delete',
     deleteConfirm: 'Delete save "{name}"?',
     cancel: 'Cancel',

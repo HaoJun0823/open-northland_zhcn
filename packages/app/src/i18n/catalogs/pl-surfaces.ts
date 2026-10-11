@@ -516,7 +516,7 @@ export const plSurfaces = {
     overwrite: 'Nadpisz',
     invalidName: 'Podaj nazwę zapisu.',
     load: 'Wczytaj',
-    loadConfirm: 'Wczytać zapis „{name}”? Niezapisany postęp zostanie utracony.',
+    loadConfirm: 'Wczytać zapis „{name}”?\nNiezapisany postęp zostanie utracony.',
     del: 'Usuń',
     deleteConfirm: 'Usunąć zapis „{name}”?',
     cancel: 'Anuluj',

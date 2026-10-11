@@ -707,6 +707,7 @@ describe('a besieger turns to an enemy fighter', () => {
     sim.world.mut(archer, Stance).mode = MILITARY_MODE.IGNORE;
     sim.enqueueSetup({ kind: 'attackUnit', entity: soldier, target: home });
     for (let i = 0; i < TURN_TICKS; i++) sim.step();
+    const wallsBeforeArrows = [...sim.world.query(Palisade)];
     sim.world.add(home, Health, { hitpoints: STURDY_HP, max: STURDY_HP });
     resolveCombatHit(sim.world, ctxOf(sim), archer, soldier, { damage: 1 }, [], 'projectile');
     expect(sim.world.get(soldier, Engagement).target).toBe(archer);
@@ -723,7 +724,7 @@ describe('a besieger turns to an enemy fighter', () => {
     }
     expect(onHome).toBe(SIEGE_TICKS);
     expect(sim.world.get(soldier, AttackOrder).target).toBe(home);
-    expect([...sim.world.query(Palisade)].length).toBe(20); // no wall broken for the archer
+    expect([...sim.world.query(Palisade)]).toEqual(wallsBeforeArrows); // no wall broken for the archer
   });
 
   it('lets a fighter it turned aside to go past a leash around the ordered building, and takes the building up again', () => {

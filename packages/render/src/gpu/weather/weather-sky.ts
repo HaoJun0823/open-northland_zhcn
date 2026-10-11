@@ -1,4 +1,4 @@
-import { Container } from 'pixi.js';
+import { Container, type Renderer } from 'pixi.js';
 import type { Camera } from '../../data/projection/iso.js';
 import type { Viewport } from '../../data/projection/viewport.js';
 import { WEATHER_SNAP_SECONDS } from '../../data/weather/climate.js';
@@ -82,9 +82,10 @@ export class WeatherSky {
   private anchorWorldX = 0;
   private anchorWorldY = 0;
 
-  constructor() {
+  /** `renderer` bakes the atmosphere's noise on the first frame that shows the air. */
+  constructor(renderer: Renderer) {
     this.container.label = 'weather-sky';
-    this.atmosphere = new WeatherAtmosphere(this.container, this.reach);
+    this.atmosphere = new WeatherAtmosphere(this.container, this.reach, renderer);
     const layers = {
       rain: new PrecipitationLayer('rain', this.field, this.reach),
       snow: new PrecipitationLayer('snow', this.field, this.reach),

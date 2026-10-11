@@ -13,6 +13,7 @@ import {
 } from '../src/gpu/shader-warmup.js';
 import { DEFAULT_SHADOW_STYLE } from '../src/gpu/shadow-style.js';
 import { WEATHER_GRADE_SOURCE, WEATHER_VEIL_SOURCE } from '../src/gpu/weather/atmosphere.js';
+import { ATMOSPHERE_NOISE_BAKE_SOURCE } from '../src/gpu/weather/atmosphere-noise.js';
 import { GROUND_REACTIONS_SOURCE } from '../src/gpu/weather/ground-reactions.js';
 import { precipitationSource } from '../src/gpu/weather/precipitation-shader.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
@@ -141,6 +142,7 @@ describe('boot shader programs', () => {
       namesOf([
         BLOOD_GROUND_SOURCE,
         GROUND_WAVE_FILTER_SOURCE,
+        ATMOSPHERE_NOISE_BAKE_SOURCE,
         WEATHER_GRADE_SOURCE,
         WEATHER_VEIL_SOURCE,
         GROUND_REACTIONS_SOURCE,

@@ -1,7 +1,17 @@
-import { type Container, Geometry, Mesh, Shader, UniformGroup } from 'pixi.js';
+import {
+  type Container,
+  Geometry,
+  Mesh,
+  type Renderer,
+  Shader,
+  Texture,
+  type TextureSource,
+  UniformGroup,
+} from 'pixi.js';
 import type { PrecipitationTravel } from '../../data/weather/precipitation.js';
 import { type GlslProgramSource, glProgramFor } from '../program-source.js';
 import type { AtmosphereLook } from './atmosphere-look.js';
+import { ATMOSPHERE_NOISE_PERIOD, bakeAtmosphereNoise } from './atmosphere-noise.js';
 import { WEATHER_REACH_GLSL, type WeatherReach } from './weather-reach.js';
 
 /**
@@ -25,8 +35,6 @@ const VERTEX = `#version 300 es
   }
 `;
 
-/** The noise tiles every this many lattice cells, so the wrapped drift offset is seamless. */
-export const ATMOSPHERE_NOISE_PERIOD = 256;
 /** World px per noise lattice cell for the cloud shadows and the mist. */
 export const CLOUD_SCALE_PX = 520;
 export const MIST_SCALE_PX = 230;
@@ -41,15 +49,14 @@ const FLASH_REACH_SHARE = 0.6;
 
 const NOISE = `
   const float PERIOD = ${ATMOSPHERE_NOISE_PERIOD}.0;
-  float hash(vec2 cell) {
-    cell = mod(cell, PERIOD);
-    return fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-  }
+  // The lattice: texel (x, y) holds cells (x, y), (x + 1, y), (x, y + 1) and (x + 1, y + 1).
+  uniform sampler2D uNoise;
   float noise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
     vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    vec4 c = texelFetch(uNoise, ivec2(mod(i, PERIOD)), 0);
+    return mix(mix(c.x, c.y, u.x), mix(c.z, c.w, u.x), u.y);
   }
   // Octaves double the frequency, which keeps the period whole.
   float fbm(vec2 p) {
@@ -223,11 +230,15 @@ export class WeatherAtmosphere {
   readonly veil: Mesh<Geometry, Shader>;
   private readonly gradeUniforms: GradeUniforms;
   private readonly veilUniforms: VeilUniforms;
+  private readonly gradeShader: Shader;
   private readonly veilShader: Shader;
+  /** Baked on the first frame that shows the air, so a dry map never pays for it. */
+  private noise: TextureSource | null = null;
 
   constructor(
     parent: Container,
     private readonly reach: WeatherReach,
+    private readonly renderer: Renderer,
   ) {
     this.gradeUniforms = new UniformGroup({
       uScreen: { value: new Float32Array(2), type: 'vec2<f32>' },
@@ -245,17 +256,20 @@ export class WeatherAtmosphere {
       uFlash: { value: new Float32Array(3), type: 'vec3<f32>' },
       uFlashAt: { value: new Float32Array([0, 0, 1]), type: 'vec3<f32>' },
     }) as VeilUniforms;
-    this.grade = new Mesh({
-      geometry: screenQuad(),
-      shader: new Shader({
-        glProgram: glProgramFor(WEATHER_GRADE_SOURCE),
-        resources: { weatherGrade: this.gradeUniforms },
-      }),
+    this.gradeShader = new Shader({
+      glProgram: glProgramFor(WEATHER_GRADE_SOURCE),
+      resources: { weatherGrade: this.gradeUniforms, uNoise: Texture.WHITE.source },
     });
+    this.grade = new Mesh({ geometry: screenQuad(), shader: this.gradeShader });
     this.grade.blendMode = 'multiply';
     this.veilShader = new Shader({
       glProgram: glProgramFor(WEATHER_VEIL_SOURCE),
-      resources: { weatherVeil: this.veilUniforms, weatherReach: reach.uniforms, uReachFog: reach.fogSource },
+      resources: {
+        weatherVeil: this.veilUniforms,
+        weatherReach: reach.uniforms,
+        uReachFog: reach.fogSource,
+        uNoise: Texture.WHITE.source,
+      },
     });
     this.veil = new Mesh({ geometry: screenQuad(), shader: this.veilShader });
     parent.addChild(this.grade, this.veil);
@@ -265,6 +279,11 @@ export class WeatherAtmosphere {
     if (!look.visible) {
       this.hide();
       return;
+    }
+    if (this.noise === null) {
+      this.noise = bakeAtmosphereNoise(this.renderer);
+      this.gradeShader.resources.uNoise = this.noise;
+      this.veilShader.resources.uNoise = this.noise;
     }
     const { screenW, screenH, travel } = frame;
     const g = this.gradeUniforms.uniforms;
@@ -315,5 +334,6 @@ export class WeatherAtmosphere {
       mesh.shader?.destroy();
       mesh.destroy();
     }
+    this.noise?.destroy();
   }
 }

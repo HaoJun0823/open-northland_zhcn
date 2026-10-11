@@ -13,6 +13,7 @@ import type { GlslProgramSource } from './program-source.js';
 import { SHADED_DECOR_SOURCE, SHADED_TERRAIN_SOURCE, TINTED_TERRAIN_SOURCE } from './shading.js';
 import { DEFAULT_SHADOW_STYLE, type ShadowStyle } from './shadow-style.js';
 import { WEATHER_GRADE_SOURCE, WEATHER_VEIL_SOURCE } from './weather/atmosphere.js';
+import { ATMOSPHERE_NOISE_BAKE_SOURCE } from './weather/atmosphere-noise.js';
 import { GROUND_REACTIONS_SOURCE } from './weather/ground-reactions.js';
 import { precipitationSource } from './weather/precipitation-shader.js';
 import { WORLD_BATCH_MAX_TEXTURES, worldBatchProgramSource } from './world-batch-shader.js';
@@ -36,9 +37,11 @@ function unconditionalPrograms(): readonly GlslProgramSource[] {
   ];
 }
 
-/** The sky grade, veil, ground reactions and precipitation the weather setting turns off. */
+/** The sky grade, veil and their noise bake, ground reactions and precipitation the weather setting
+ *  turns off. */
 function weatherPrograms(): readonly GlslProgramSource[] {
   return [
+    ATMOSPHERE_NOISE_BAKE_SOURCE,
     WEATHER_GRADE_SOURCE,
     WEATHER_VEIL_SOURCE,
     GROUND_REACTIONS_SOURCE,

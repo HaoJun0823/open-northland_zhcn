@@ -83,7 +83,7 @@ export class WorldRenderer {
   private readonly spriteLayer = new DepthSortedLayer();
   private readonly textureCache = new TextureCache();
   private readonly terrain = new TerrainLayer();
-  private readonly weatherSky = new WeatherSky();
+  private readonly weatherSky: WeatherSky;
   private readonly sceneLight = new SceneLight();
   private climate = new WeatherClimate();
   private weatherField: WeatherField | null = null;
@@ -124,6 +124,7 @@ export class WorldRenderer {
     installWorldBatcher(); // before the sprite layer's render group builds its first batch
     routeWorldBatches(app.renderer);
     this.app = app;
+    this.weatherSky = new WeatherSky(app.renderer);
     const gl = 'gl' in app.renderer ? app.renderer.gl : undefined;
     if (gl !== undefined) opts?.sheet?.palette?.fitTo(gl.getParameter(gl.MAX_TEXTURE_SIZE) as number);
     this.viewSmoothing = opts?.viewSmoothing === true;

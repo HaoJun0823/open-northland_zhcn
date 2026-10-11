@@ -55,16 +55,21 @@ function groupRow(group: InstalledGroup, ctx: CatalogueContext): HTMLElement {
 
 /** What is on disk: space used, updates waiting, and each installed entry with its actions. */
 export function installedPane(ctx: CatalogueContext) {
-  const text = messages().mapCatalogue.installedView;
-  const root = node('div', 'catalogue-installed');
-  const summary = node('div', 'catalogue-installed__summary');
+  const catalogue = messages().mapCatalogue;
+  const text = catalogue.installedView;
+  const root = node('section', 'catalogue-installed');
+  const head = node('div', 'catalogue-installed__head');
+  const heading = node('h2');
+  const summary = node('p', 'catalogue-installed__summary');
+  head.append(heading, summary);
   const scroll = node('div', 'main-menu__map-scroll catalogue-installed__scroll');
   const list = node('div', 'catalogue-installed__list');
   scroll.append(list);
-  root.append(summary, scroll);
+  root.append(head, scroll);
   return {
     root,
     paint(groups: readonly InstalledGroup[], selectedId: string | null): void {
+      heading.textContent = formatMessage(catalogue.tabs.installed, { count: groups.length });
       const bytes = groups.reduce((sum, group) => sum + group.bytes, 0);
       const updates = groups.filter(
         (group) => group.row?.status === 'updatable' || group.row?.status === 'redownload',
@@ -76,7 +81,7 @@ export function installedPane(ctx: CatalogueContext) {
           : []),
       ].join(' · ');
       if (groups.length === 0) {
-        list.replaceChildren(node('p', 'main-menu__map-empty', text.none));
+        list.replaceChildren(node('p', 'catalogue__empty', text.none));
         return;
       }
       list.replaceChildren(

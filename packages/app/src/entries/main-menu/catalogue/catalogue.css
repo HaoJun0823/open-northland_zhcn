@@ -1,5 +1,5 @@
-/* The map catalogue view. Tokens and shared controls live in menu.css; the search field and the
-   scroll rail come from map-select.css. */
+/* The map catalogue in the reworked look the multiplayer screens use (network.css). Inside a room it
+   takes the multiplayer screen's scale and controls; as a main-menu screen it sets them itself. */
 
 /* The room's map list is a flex row, which outweighs the UA's `[hidden]` while the catalogue shows
    in its place. */
@@ -7,37 +7,213 @@
   display: none;
 }
 
-.catalogue__open {
-  padding: calc(var(--u) * 12) calc(var(--u) * 22);
-  font-size: calc(var(--u) * 21);
+/* ---- The main-menu screen: the multiplayer screen's scale, tokens and controls ---- */
+
+.main-menu__screen.catalogue-screen {
+  --u: clamp(1px, calc(100vh / 1440), 1.3px);
+  --accent: var(--bronze);
+  --accent-bright: var(--bronze-hi);
+  --accent-rgb: 201 162 98;
+  --text-primary: var(--text-hi);
+  --text-body: var(--text);
+  --text-muted: var(--muted);
+  --text-label: var(--muted);
+  width: min(100%, calc(var(--u) * 2400));
+  margin-inline: auto;
+  padding: calc(var(--u) * 32);
+  gap: calc(var(--u) * 20);
+  color: var(--text);
+  font: calc(var(--u) * 17) / 1.4 var(--font-body);
 }
 
-.catalogue__open[hidden],
-.catalogue__browse[hidden],
-.catalogue-installed[hidden],
-.catalogue-detail[hidden],
-.catalogue-detail [hidden],
-.catalogue-sidebar__reset[hidden],
-.catalogue-author__list[hidden] {
-  display: none;
+.catalogue-screen *,
+.catalogue-screen *::before,
+.catalogue-screen *::after {
+  box-sizing: border-box;
+}
+
+.catalogue-screen .main-menu__screen-head {
+  flex-wrap: wrap;
+  margin: 0;
+  gap: calc(var(--u) * 24);
+}
+
+.catalogue-screen .main-menu__screen-title {
+  font-size: calc(var(--u) * 30);
+  line-height: 1.2;
+}
+
+.catalogue-screen .main-menu__back {
+  font: inherit;
+  color: var(--muted);
+  padding-block: calc(var(--u) * 10);
+}
+
+.catalogue-screen input,
+.catalogue-screen .main-menu__dropdown-btn {
+  width: 100%;
+  min-width: 0;
+  min-height: calc(var(--u) * 40);
+  padding: calc(var(--u) * 8) calc(var(--u) * 12);
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--deep);
+  color: var(--text);
+  font: inherit;
+}
+
+.catalogue-screen .main-menu__dropdown-btn {
+  padding-right: calc(var(--u) * 28);
+}
+
+.catalogue-screen .main-menu__dropdown-btn::after {
+  right: calc(var(--u) * 10);
+}
+
+.catalogue-screen .main-menu__dropdown-option {
+  font: inherit;
+}
+
+.catalogue-screen :is(.main-menu__primary, .main-menu__ghost) {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(var(--u) * 40);
+  padding: calc(var(--u) * 8) calc(var(--u) * 16);
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--fill);
+  color: var(--text);
+  box-shadow: none;
+  font: 500 calc(var(--u) * 16) / 1.25 var(--font-body);
+  letter-spacing: 0;
+  cursor: var(--cursor-pointer, pointer);
+  text-align: center;
+  text-decoration: none;
+  transform: none;
+}
+
+.catalogue-screen .main-menu__primary {
+  color: var(--ink);
+  border-color: var(--bronze-hi);
+  background: linear-gradient(var(--bronze-hi), var(--bronze));
+  font-weight: 700;
+}
+
+.catalogue-screen :is(button, a):hover:not(:disabled) {
+  border-color: var(--bronze-hi);
+  filter: brightness(1.1);
+  transform: none;
+  box-shadow: none;
+}
+
+.catalogue-screen button:disabled {
+  opacity: 0.45;
+  cursor: var(--cursor-default, default);
+}
+
+/* ---- Shared by both hosts ---- */
+
+/* The head's Browse / Installed switch and the filter column's state strip, as the room's source
+   choice draws them. */
+.catalogue__tabs,
+.catalogue .main-menu__seg {
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--deep);
+}
+
+:is(.catalogue__tabs, .catalogue) .main-menu__seg-btn {
+  padding: calc(var(--u) * 9) calc(var(--u) * 16);
+  font: 500 calc(var(--u) * 16) / 1.25 var(--font-body);
+  color: var(--muted);
+  text-align: center;
+}
+
+:is(.catalogue__tabs, .catalogue) .main-menu__seg-btn.is-active {
+  background: var(--bronze);
+  color: var(--ink);
+}
+
+.catalogue__open {
+  min-height: calc(var(--u) * 40);
 }
 
 .catalogue {
   flex: 1;
   display: flex;
-  gap: calc(var(--u) * 36);
+  flex-direction: column;
+  gap: calc(var(--u) * 20);
   min-height: 0;
+  color: var(--text);
+  font: calc(var(--u) * 17) / 1.4 var(--font-body);
 }
 
-/* The multiplayer screen sizes for its room cards; the grid keeps the menu sub-screens' density. */
-.network-menu__pick .catalogue {
-  --u: calc(var(--u-base) * 0.8);
+.catalogue h2,
+.catalogue h3,
+.catalogue p {
+  margin: 0;
+}
+
+.catalogue h2 {
+  color: var(--text-hi);
+  font: 700 calc(var(--u) * 22) / 1.25 var(--font-title);
+}
+
+/* A panel as the room's cards frame one: deep green, a bronze line and an inset rule. */
+.catalogue-sidebar,
+.catalogue-detail,
+.catalogue-installed {
+  border: 1px solid var(--bronze-lo);
+  border-radius: 4px;
+  background: linear-gradient(135deg, #273832f5, #182521fa);
+  box-shadow:
+    0 12px 36px #0005,
+    inset 0 0 0 3px #182521,
+    inset 0 0 0 4px #7a5f4040;
+}
+
+.catalogue__empty {
+  padding: calc(var(--u) * 48) calc(var(--u) * 16);
+  border-block: 1px solid #7a5f4050;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ---- Status strip ---- */
+
+.catalogue__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 16);
+  min-height: calc(var(--u) * 64);
+  padding: calc(var(--u) * 12) calc(var(--u) * 20);
+  border-block: 1px solid var(--wood-hi);
+  background: #182521e8;
+}
+
+.catalogue__status-line {
+  color: var(--ok);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.catalogue__status.is-failed .catalogue__status-line {
+  color: var(--warning);
+}
+
+.catalogue__main {
+  flex: 1;
+  display: flex;
+  gap: calc(var(--u) * 20);
+  min-height: 0;
 }
 
 .catalogue__browse {
   flex: 1;
   display: flex;
-  gap: calc(var(--u) * 36);
+  gap: calc(var(--u) * 20);
   min-width: 0;
   min-height: 0;
 }
@@ -45,57 +221,49 @@
 /* ---- Filter column ---- */
 
 .catalogue-sidebar {
-  width: calc(var(--u) * 330);
+  width: calc(var(--u) * 250);
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 20);
+  gap: calc(var(--u) * 16);
   min-height: 0;
+  padding: calc(var(--u) * 20);
   overflow-y: auto;
-  padding-right: calc(var(--u) * 8);
-  scrollbar-color: rgb(var(--accent-rgb) / 0.65) transparent;
+  scrollbar-color: var(--wood-hi) transparent;
   scrollbar-width: thin;
 }
 
 .catalogue-sidebar__fields {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 18);
+  gap: calc(var(--u) * 14);
 }
 
 .catalogue-filter {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 8);
+  gap: calc(var(--u) * 6);
+  min-width: 0;
 }
 
 .catalogue-filter__label {
-  font:
-    700 calc(var(--u) * 15) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-label);
-}
-
-.catalogue-filter .main-menu__dropdown-btn {
-  width: 100%;
-  min-width: 0;
-  padding: calc(var(--u) * 11) calc(var(--u) * 44) calc(var(--u) * 11) calc(var(--u) * 14);
-  font-size: calc(var(--u) * 20);
+  color: var(--muted);
+  font-size: calc(var(--u) * 15);
 }
 
 /* Four states do not fit side by side in the column; two rows of two do. */
-.catalogue-filter__seg {
+.catalogue .catalogue-filter__seg {
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
 
-.catalogue-filter__seg .main-menu__seg-btn {
-  padding: calc(var(--u) * 10) calc(var(--u) * 8);
-  font-size: calc(var(--u) * 18);
-  text-align: center;
+.catalogue .catalogue-filter__seg .main-menu__seg-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--u) * 7) calc(var(--u) * 6);
+  font-size: calc(var(--u) * 15);
+  white-space: normal;
 }
 
 .catalogue-filter__toggle {
@@ -103,28 +271,44 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: calc(var(--u) * 14);
-  font:
-    400 calc(var(--u) * 20) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-body);
+  gap: calc(var(--u) * 12);
+  font-size: calc(var(--u) * 16);
+  line-height: 1.25;
+}
+
+/* The room's pill: a dark track that lights bronze when on. */
+.catalogue .main-menu__toggle {
+  width: calc(var(--u) * 40);
+  height: calc(var(--u) * 22);
+  border: 1px solid var(--wood-hi);
+  border-radius: calc(var(--u) * 11);
+  background: var(--deep);
+}
+
+.catalogue .main-menu__toggle::after {
+  left: calc(var(--u) * 2);
+  top: calc(var(--u) * 2);
+  width: calc(var(--u) * 16);
+  height: calc(var(--u) * 16);
+  background: var(--wood-hi);
+}
+
+.catalogue .main-menu__toggle.is-on {
+  border-color: var(--bronze-hi);
+  background: linear-gradient(var(--bronze-hi), var(--bronze));
+}
+
+.catalogue .main-menu__toggle.is-on::after {
+  left: calc(var(--u) * 20);
+  background: var(--ink);
 }
 
 .catalogue-sidebar__reset {
-  align-self: flex-start;
-  padding: calc(var(--u) * 10) calc(var(--u) * 20);
-  font-size: calc(var(--u) * 19);
+  align-self: stretch;
 }
 
 .catalogue-author {
   position: relative;
-}
-
-.catalogue-author__input {
-  margin-bottom: 0;
-  padding: calc(var(--u) * 10) calc(var(--u) * 14);
-  font-size: calc(var(--u) * 20);
 }
 
 .catalogue-author__list {
@@ -135,25 +319,21 @@
   right: 0;
   display: flex;
   flex-direction: column;
-  max-height: calc(var(--u) * 320);
+  max-height: calc(var(--u) * 260);
   padding: 4px;
   overflow-y: auto;
-  border: 2px solid rgb(var(--accent-rgb) / 0.5);
-  border-radius: 6px;
-  background: var(--bg-base);
+  border: 1px solid var(--bronze-lo);
+  border-radius: 3px;
+  background: var(--deep);
   box-shadow: 0 8px 18px #000a;
 }
 
 .catalogue-author__option {
   all: unset;
   cursor: var(--cursor-pointer, pointer);
-  padding: calc(var(--u) * 7) calc(var(--u) * 10);
-  border-radius: 4px;
-  font:
-    500 calc(var(--u) * 19) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-body);
+  padding: calc(var(--u) * 6) calc(var(--u) * 10);
+  border-radius: 2px;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -161,8 +341,8 @@
 
 .catalogue-author__option:hover,
 .catalogue-author__option:focus-visible {
-  color: var(--accent-bright);
-  background: rgb(var(--accent-rgb) / 0.12);
+  color: var(--bronze-hi);
+  background: #c9a2621f;
 }
 
 /* ---- Results ---- */
@@ -171,48 +351,47 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: calc(var(--u) * 16);
   min-width: 0;
   min-height: 0;
 }
 
-.catalogue__results-head {
+.catalogue-toolbar {
   display: flex;
   align-items: flex-end;
-  gap: calc(var(--u) * 24);
-  margin-bottom: calc(var(--u) * 20);
+  gap: calc(var(--u) * 16);
+  min-width: 0;
 }
 
-.catalogue-toolbar {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-  gap: calc(var(--u) * 20);
-  min-width: 0;
+/* The fields borrow the map list's search class, which spaces it from the list below. */
+.catalogue-toolbar__search,
+.catalogue-author__input {
+  margin-bottom: 0;
 }
 
 .catalogue-toolbar__search {
   flex: 1;
-  min-width: 0;
-  margin-bottom: 0;
 }
 
-.catalogue__count {
-  padding: 0 0 calc(var(--u) * 14);
-  white-space: nowrap;
+.catalogue-toolbar > .catalogue-filter {
+  width: calc(var(--u) * 230);
+  flex: none;
+}
+
+.catalogue__scroll {
+  padding-right: calc(var(--u) * 10);
 }
 
 .catalogue__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 320), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 220), 1fr));
   align-content: start;
-  gap: calc(var(--u) * 22);
+  gap: calc(var(--u) * 16);
   padding-bottom: calc(var(--u) * 8);
 }
 
-.catalogue__grid > .main-menu__map-empty,
-.catalogue__grid > .main-menu__ghost {
+.catalogue__grid > .catalogue__empty {
   grid-column: 1 / -1;
-  justify-self: start;
 }
 
 .catalogue-card {
@@ -220,25 +399,22 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: 2px solid rgb(var(--accent-rgb) / 0.2);
-  border-radius: 8px;
-  background: rgba(16, 29, 44, 0.6);
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--deep);
   overflow: hidden;
   outline: none;
-  transition:
-    border-color 150ms ease-out,
-    box-shadow 150ms ease-out;
+  transition: border-color 150ms ease-out;
 }
 
 .catalogue-card:hover,
 .catalogue-card:focus-visible {
-  border-color: rgb(var(--accent-rgb) / 0.55);
-  box-shadow: 0 0 24px rgb(var(--accent-rgb) / 0.15);
+  border-color: var(--bronze);
 }
 
 .catalogue-card.is-selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 30px rgb(var(--accent-rgb) / 0.3);
+  border-color: var(--bronze-hi);
+  box-shadow: inset 0 0 0 1px var(--bronze-hi);
 }
 
 .catalogue-card__picture,
@@ -247,11 +423,12 @@
   position: relative;
   flex: none;
   overflow: hidden;
-  background: linear-gradient(160deg, #37424f, #232c36);
+  background: linear-gradient(160deg, #273832, #121b18);
 }
 
 .catalogue-card__picture {
   aspect-ratio: 16 / 10;
+  border-bottom: 1px solid var(--bronze-lo);
 }
 
 /* Screenshots are photographs of the game, not pixel art; they scale smoothly. */
@@ -265,50 +442,48 @@
 
 .catalogue-badge {
   display: inline-block;
-  padding: calc(var(--u) * 4) calc(var(--u) * 12);
-  border: 1px solid rgba(219, 232, 227, 0.25);
-  border-radius: 999px;
-  background: rgba(12, 20, 32, 0.85);
-  font:
-    700 calc(var(--u) * 14) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  letter-spacing: 0.06em;
+  padding: calc(var(--u) * 2) calc(var(--u) * 8);
+  border: 1px solid var(--bronze-lo);
+  border-radius: 2px;
+  background: var(--deep);
+  color: var(--parchment);
+  font: 700 calc(var(--u) * 12) / 1.3 var(--font-body);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .catalogue-card__picture .catalogue-badge {
   position: absolute;
-  top: calc(var(--u) * 10);
-  left: calc(var(--u) * 10);
+  top: calc(var(--u) * 8);
+  left: calc(var(--u) * 8);
 }
 
 .catalogue-badge.is-installed {
-  border-color: transparent;
-  background: var(--accent-bright);
-  color: var(--bg-base);
+  border-color: var(--bronze-hi);
+  background: linear-gradient(var(--bronze-hi), var(--bronze));
+  color: var(--ink);
 }
 
 .catalogue-badge.is-updatable,
 .catalogue-badge.is-redownload {
-  border-color: rgb(var(--accent-rgb) / 0.8);
-  color: var(--accent-bright);
+  border-color: var(--bronze);
+  color: var(--bronze-hi);
 }
 
 .catalogue-badge.is-failed,
 .catalogue-badge.is-gameTooOld,
 .catalogue-badge.is-serverTooOld {
-  border-color: var(--danger-border);
-  color: var(--danger-text);
+  border-color: var(--wax-danger);
+  color: var(--danger);
 }
 
 .catalogue-card__body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 8);
-  padding: calc(var(--u) * 14) calc(var(--u) * 18) calc(var(--u) * 16);
+  gap: calc(var(--u) * 6);
+  padding: calc(var(--u) * 12) calc(var(--u) * 14) calc(var(--u) * 14);
 }
 
 .catalogue-card__title {
@@ -316,23 +491,17 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font:
-    700 calc(var(--u) * 23) / 1.15 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-primary);
+  color: var(--text-hi);
+  font: 700 calc(var(--u) * 17) / 1.25 var(--font-title);
 }
 
 .catalogue-card.is-selected .catalogue-card__title {
-  color: var(--accent-bright);
+  color: var(--bronze-hi);
 }
 
 .catalogue-card__author {
-  font:
-    400 calc(var(--u) * 18) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-label);
+  color: var(--muted);
+  font-size: calc(var(--u) * 15);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -341,18 +510,17 @@
 .catalogue-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: calc(var(--u) * 6);
+  gap: calc(var(--u) * 5);
 }
 
 .catalogue-chip {
-  padding: calc(var(--u) * 3) calc(var(--u) * 10);
-  border: 1px solid rgb(var(--accent-rgb) / 0.28);
-  border-radius: 999px;
-  font:
-    400 calc(var(--u) * 15) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: rgba(180, 205, 200, 0.85);
+  padding: calc(var(--u) * 1) calc(var(--u) * 7);
+  border: 1px solid var(--bronze-lo);
+  border-radius: 2px;
+  background: var(--deep);
+  color: var(--parchment);
+  font-size: calc(var(--u) * 13);
+  line-height: 1.4;
 }
 
 .catalogue-card__foot {
@@ -361,25 +529,23 @@
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--u) * 10);
-  padding-top: calc(var(--u) * 6);
+  padding-top: calc(var(--u) * 10);
+  border-top: 1px solid #7a5f4038;
 }
 
 .catalogue-card__stats {
   display: flex;
   flex-wrap: wrap;
-  gap: calc(var(--u) * 4) calc(var(--u) * 12);
+  gap: calc(var(--u) * 2) calc(var(--u) * 10);
   min-width: 0;
-  font:
-    400 calc(var(--u) * 16) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-muted);
+  color: var(--muted);
+  font-size: calc(var(--u) * 14);
 }
 
 .catalogue-stat.is-likes::before,
 .catalogue-stat.is-downloads::before {
-  margin-right: calc(var(--u) * 4);
-  color: var(--accent);
+  margin-right: calc(var(--u) * 3);
+  color: var(--bronze);
 }
 
 .catalogue-stat.is-likes::before {
@@ -394,86 +560,72 @@
   flex: none;
 }
 
-.catalogue-card__action .main-menu__primary,
-.catalogue-installed__actions .main-menu__primary {
-  padding: calc(var(--u) * 10) calc(var(--u) * 22);
-  font-size: calc(var(--u) * 19);
-  letter-spacing: 0.04em;
-  box-shadow: 0 0 18px rgb(var(--accent-rgb) / 0.3);
-}
-
-.catalogue-card__action .main-menu__ghost,
-.catalogue-installed__actions .main-menu__ghost {
-  display: inline-block;
-  padding: calc(var(--u) * 9) calc(var(--u) * 18);
-  font-size: calc(var(--u) * 18);
-}
-
-.catalogue .main-menu__ghost:disabled {
-  cursor: var(--cursor-default, default);
-  opacity: 0.55;
+/* Download and Update: outlined like Change map, in bronze so the next step reads first. */
+.catalogue .main-menu__ghost.is-accent {
+  border-color: var(--bronze);
+  color: var(--bronze-hi);
 }
 
 /* ---- Detail panel ---- */
 
 .catalogue-detail {
   position: relative;
-  width: calc(var(--u) * 660);
+  width: calc(var(--u) * 400);
   flex: none;
   display: flex;
   flex-direction: column;
+  gap: calc(var(--u) * 12);
   min-height: 0;
-  border: 2px solid rgb(var(--accent-rgb) / 0.35);
-  border-radius: 8px;
-  background: rgba(16, 29, 44, 0.8);
-  box-shadow: 0 0 34px rgb(var(--accent-rgb) / 0.15);
-  overflow: hidden;
+  padding: calc(var(--u) * 20);
 }
 
 .catalogue-detail__close {
-  all: unset;
-  cursor: var(--cursor-pointer, pointer);
   position: absolute;
   z-index: 1;
-  top: calc(var(--u) * 12);
-  right: calc(var(--u) * 12);
-  width: calc(var(--u) * 44);
-  height: calc(var(--u) * 44);
+  top: calc(var(--u) * 28);
+  right: calc(var(--u) * 28);
+  width: calc(var(--u) * 36);
+  height: calc(var(--u) * 36);
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: rgba(12, 20, 32, 0.85);
-  font:
-    400 calc(var(--u) * 32) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-body);
+  padding: 0;
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--deep);
+  color: var(--text);
+  font: 400 calc(var(--u) * 24) / 1 var(--font-body);
+  cursor: var(--cursor-pointer, pointer);
 }
 
 .catalogue-detail__close:hover,
 .catalogue-detail__close:focus-visible {
-  color: var(--accent-bright);
+  border-color: var(--bronze-hi);
+  color: var(--bronze-hi);
 }
 
 .catalogue-detail__scroll {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 14);
+  gap: calc(var(--u) * 10);
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: calc(var(--u) * 22);
-  scrollbar-color: rgb(var(--accent-rgb) / 0.65) transparent;
+  padding-right: calc(var(--u) * 6);
+  scrollbar-color: var(--wood-hi) transparent;
   scrollbar-width: thin;
 }
 
-.catalogue-detail__scroll > :not(.catalogue-detail__picture) {
-  margin-inline: calc(var(--u) * 28);
+/* The parts keep their height; the column scrolls instead. */
+.catalogue-detail__scroll > * {
+  flex: none;
 }
 
 .catalogue-detail__picture {
   aspect-ratio: 16 / 10;
-  border-bottom: 1px solid rgb(var(--accent-rgb) / 0.25);
+  /* Short windows keep room for the facts under the picture. */
+  max-height: 30vh;
+  border: 1px solid var(--bronze-lo);
+  border-radius: 3px;
 }
 
 .catalogue-detail__picture img {
@@ -481,99 +633,87 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: rgba(10, 18, 30, 0.55);
+  background: var(--deep);
 }
 
 .catalogue-detail__title {
   margin-top: calc(var(--u) * 6);
-  margin-bottom: 0;
-  font:
-    700 calc(var(--u) * 34) / 1.1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-primary);
   overflow-wrap: anywhere;
 }
 
 .catalogue-detail__byline {
-  font:
-    400 calc(var(--u) * 20) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-label);
+  color: var(--muted);
+  font-size: calc(var(--u) * 15);
 }
 
 .catalogue-detail__status {
-  font:
-    500 calc(var(--u) * 19) / 1.3 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-body);
+  padding: calc(var(--u) * 8) calc(var(--u) * 12);
+  border-left: 3px solid var(--ok);
+  background: var(--deep);
+  color: var(--text);
+  font-size: calc(var(--u) * 15);
   overflow-wrap: anywhere;
+}
+
+.catalogue-detail__status.is-installed,
+.catalogue-detail__status.is-updatable {
+  border-left-color: var(--bronze);
 }
 
 .catalogue-detail__status.is-failed,
 .catalogue-detail__status.is-gameTooOld,
 .catalogue-detail__status.is-serverTooOld,
 .catalogue-detail__status.is-redownload {
-  color: var(--danger-text);
+  border-left-color: var(--warning);
+  color: var(--warning);
 }
 
 .catalogue-detail__facts {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: calc(var(--u) * 6) calc(var(--u) * 20);
-  margin-block: 0;
-  font:
-    400 calc(var(--u) * 18) / 1.3 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  gap: calc(var(--u) * 4) calc(var(--u) * 16);
+  margin-block: calc(var(--u) * 4) 0;
+  font-size: calc(var(--u) * 15);
 }
 
 .catalogue-detail__facts dt {
-  color: var(--text-label);
+  color: var(--muted);
 }
 
 .catalogue-detail__facts dd {
   margin: 0;
-  color: var(--text-body);
   overflow-wrap: anywhere;
 }
 
+/* A section label, as the connection card's eyebrow. */
 .catalogue-detail__heading {
-  margin-top: calc(var(--u) * 6);
-  margin-bottom: 0;
-  font:
-    700 calc(var(--u) * 15) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  margin: calc(var(--u) * 8) 0 0;
+  padding-top: calc(var(--u) * 10);
+  border-top: 1px solid #7a5f4050;
+  color: var(--bronze-hi);
+  font: 400 calc(var(--u) * 13) / 1.2 var(--font-body);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-label);
 }
 
 .catalogue-detail__maps {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 6);
+  gap: calc(var(--u) * 4);
   margin-block: 0;
   padding: 0;
   list-style: none;
+  font-size: calc(var(--u) * 15);
 }
 
 .catalogue-detail__maps li {
   display: flex;
   justify-content: space-between;
-  gap: calc(var(--u) * 14);
-  font:
-    400 calc(var(--u) * 18) / 1.3 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  gap: calc(var(--u) * 12);
 }
 
 .catalogue-detail__map-name {
   min-width: 0;
-  color: var(--text-body);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -581,44 +721,33 @@
 
 .catalogue-detail__map-meta {
   flex: none;
-  color: var(--text-muted);
+  color: var(--muted);
 }
 
 /* The author's text as written: their line breaks stay. */
 .catalogue-detail__description {
-  margin-block: 0;
   white-space: pre-line;
   overflow-wrap: anywhere;
-  font:
-    400 calc(var(--u) * 19) / 1.45 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-muted);
+  color: var(--muted);
+  font-size: calc(var(--u) * 16);
+  line-height: 1.45;
 }
 
 .catalogue-detail__description.is-empty {
   font-style: italic;
 }
 
+/* The room's sticky action bar. */
 .catalogue-detail__actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: calc(var(--u) * 12);
-  padding: calc(var(--u) * 16) calc(var(--u) * 24);
-  border-top: 1px solid rgb(var(--accent-rgb) / 0.25);
-  background: rgba(10, 18, 30, 0.55);
-}
-
-.catalogue-detail__actions .main-menu__ghost {
-  padding: calc(var(--u) * 12) calc(var(--u) * 22);
-  font-size: calc(var(--u) * 20);
-}
-
-.catalogue-detail__actions .main-menu__primary {
-  padding: calc(var(--u) * 14) calc(var(--u) * 34);
-  font-size: calc(var(--u) * 22);
+  gap: calc(var(--u) * 10);
+  padding: calc(var(--u) * 10) calc(var(--u) * 12);
+  border: 1px solid var(--bronze-lo);
+  border-radius: calc(var(--u) * 6);
+  background: var(--deep);
 }
 
 /* ---- Installed tab ---- */
@@ -627,17 +756,23 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 18);
+  gap: calc(var(--u) * 16);
   min-width: 0;
   min-height: 0;
+  padding: calc(var(--u) * 26);
+}
+
+.catalogue-installed__head {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 4);
+  padding-bottom: calc(var(--u) * 16);
+  border-bottom: 1px solid #7a5f4050;
 }
 
 .catalogue-installed__summary {
-  font:
-    500 calc(var(--u) * 22) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-body);
+  color: var(--muted);
+  font-size: calc(var(--u) * 15);
 }
 
 .catalogue-installed__list {
@@ -649,12 +784,11 @@
 .catalogue-installed__row {
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 20);
-  padding: calc(var(--u) * 14) calc(var(--u) * 20);
-  border-left: 4px solid transparent;
-  border-radius: 6px;
-  background: rgba(16, 29, 44, 0.45);
-  transition: background-color 150ms ease-out;
+  gap: calc(var(--u) * 14);
+  padding: calc(var(--u) * 12);
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--deep);
 }
 
 .catalogue-installed__row.is-listed {
@@ -662,18 +796,18 @@
 }
 
 .catalogue-installed__row.is-listed:hover {
-  background: rgb(var(--accent-rgb) / 0.08);
+  border-color: var(--bronze);
 }
 
 .catalogue-installed__row.is-selected {
-  border-left-color: var(--accent);
-  background: rgb(var(--accent-rgb) / 0.12);
+  border-color: var(--bronze-hi);
+  box-shadow: inset 3px 0 var(--bronze);
 }
 
 .catalogue-installed__thumb {
-  width: calc(var(--u) * 128);
-  height: calc(var(--u) * 80);
-  border-radius: 4px;
+  width: calc(var(--u) * 96);
+  height: calc(var(--u) * 64);
+  border-radius: 2px;
 }
 
 .catalogue-installed__info {
@@ -681,36 +815,36 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 6);
+  gap: calc(var(--u) * 2);
 }
 
 .catalogue-installed__title {
-  font:
-    500 calc(var(--u) * 24) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-body);
+  color: var(--text-hi);
+  font: 700 calc(var(--u) * 17) / 1.3 var(--font-title);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .catalogue-installed__title .catalogue-badge {
-  margin-left: calc(var(--u) * 12);
+  margin-left: calc(var(--u) * 10);
   vertical-align: 0.15em;
 }
 
 .catalogue-installed__meta {
-  font:
-    400 calc(var(--u) * 18) / 1.3 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-muted);
+  color: var(--muted);
+  font-size: calc(var(--u) * 14);
 }
 
 .catalogue-installed__actions {
   flex: none;
   display: flex;
   align-items: center;
-  gap: calc(var(--u) * 12);
+  gap: calc(var(--u) * 10);
+}
+
+/* Last, so no control's display rule shows a hidden part. */
+.catalogue [hidden],
+.catalogue__open[hidden] {
+  display: none;
 }

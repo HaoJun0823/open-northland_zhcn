@@ -84,7 +84,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     open: (entryId) => openDetail(entryId),
   };
 
-  const tabs = node('div', 'main-menu__seg');
+  const tabs = node('div', 'main-menu__seg catalogue__tabs');
   const tabButtons = new Map<CatalogueTab, HTMLButtonElement>();
   for (const tab of CATALOGUE_TABS) {
     const button = node('button', 'main-menu__seg-btn');
@@ -98,23 +98,31 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   }
 
   const body = node('div', 'catalogue');
+  // The catalogue's own state line: how many maps show, or why none do.
+  const status = node('div', 'catalogue__status');
+  const statusLine = node('p', 'catalogue__status-line');
+  statusLine.setAttribute('role', 'status');
+  const retry = node('button', 'main-menu__ghost', text.retry);
+  retry.type = 'button';
+  retry.hidden = true;
+  retry.addEventListener('click', () => void loadCatalogue());
+  status.append(statusLine, retry);
+  const main = node('div', 'catalogue__main');
   const browse = node('div', 'catalogue__browse');
   const filters = catalogueFilters(memory.query, (query) => {
     memory.query = query;
     renderGrid();
   });
   const results = node('div', 'catalogue__results');
-  const head = node('div', 'catalogue__results-head');
-  const count = node('div', 'main-menu__map-count catalogue__count');
-  head.append(filters.toolbar, count);
   const scroll = node('div', 'main-menu__map-scroll catalogue__scroll');
   const grid = node('div', 'catalogue__grid');
   scroll.append(grid);
-  results.append(head, scroll);
+  results.append(filters.toolbar, scroll);
   browse.append(filters.sidebar, results);
   const installedView = installedPane(ctx);
   const detail = catalogueDetail(ctx, api, () => closeDetail());
-  body.append(browse, installedView.root, detail.root);
+  main.append(browse, installedView.root, detail.root);
+  body.append(status, main);
 
   function paintTabs(): void {
     const labels = {
@@ -135,7 +143,6 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     const row = memory.selectedId === null ? undefined : rowOf(memory.selectedId);
     if (row === undefined) detail.close();
     else detail.show(row, isInstalled(row.entry.id));
-    body.classList.toggle('has-detail', row !== undefined);
     for (const [id, card] of cards) card.element.classList.toggle('is-selected', id === memory.selectedId);
   }
 
@@ -154,29 +161,27 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     if (was !== null) cards.get(was)?.element.focus({ preventScroll: true });
   }
 
-  const notice = (message: string, retry: boolean): void => {
-    const paragraph = node('p', 'main-menu__map-empty', message);
-    grid.replaceChildren(paragraph);
-    if (retry) {
-      const again = node('button', 'main-menu__ghost', text.retry);
-      again.type = 'button';
-      again.addEventListener('click', () => void loadCatalogue());
-      grid.append(again);
-    }
-    count.textContent = '';
+  const paintStatus = (line: string, failed: boolean): void => {
+    statusLine.textContent = line;
+    status.classList.toggle('is-failed', failed);
+    retry.hidden = !failed;
   };
 
   function renderGrid(): void {
     if (failure !== null || entries === null) {
-      notice(failure !== null ? text.unreachable : text.loading, failure !== null);
+      paintStatus(failure !== null ? text.unreachable : text.loading, failure !== null);
+      grid.replaceChildren();
       return;
     }
     const shown = queryRows(rows, memory.query, compareLabels());
-    count.textContent = formatMessage(text.countLine, {
-      maps: formatMessage(pluralForm(shown.length, text.entries, bcp47Tag()), { count: shown.length }),
-    });
+    paintStatus(
+      formatMessage(text.countLine, {
+        maps: formatMessage(pluralForm(shown.length, text.entries, bcp47Tag()), { count: shown.length }),
+      }),
+      false,
+    );
     if (shown.length === 0) {
-      notice(rows.length === 0 ? text.empty : text.noMatch, false);
+      grid.replaceChildren(node('p', 'catalogue__empty', rows.length === 0 ? text.empty : text.noMatch));
       return;
     }
     const dateOf: CardDate = memory.query.sort === 'updated' ? 'updated' : 'published';

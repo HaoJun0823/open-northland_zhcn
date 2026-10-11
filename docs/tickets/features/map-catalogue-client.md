@@ -10,7 +10,8 @@ Epic: [`docs/tickets/api/README.md`](../api/README.md).
 
 ## Scope
 
-- Visual acceptance of the view at 1280x720 and at 4K, in the main menu and in a multiplayer room.
+- Visual acceptance of the view at 1280x720 and at 4K, in the main menu and in a multiplayer room. It
+  uses the multiplayer screens' look (`network.css`), which the rest of the main menu has not adopted yet.
 - The view against the real local API (`npm run api`, then `npm run dev` with `ON_API_URL` unset)
   with the full catalogue: load time and scroll with every card, real descriptions and categories.
 - Desktop: install a catalogue map, quit, relaunch, play it; `npm run test:desktop`.

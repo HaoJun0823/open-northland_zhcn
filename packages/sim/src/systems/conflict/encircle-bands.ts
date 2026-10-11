@@ -77,14 +77,13 @@ export function encircleBands(world: World, terrain: TerrainGraph): EncircleBand
   return created;
 }
 
-/** {@link EncircleBands.cellsOf} derived fresh: O(body × disc) ring visits and O(cells × body) distances. */
+/** {@link EncircleBands.cellsOf} derived fresh: O(body × band) ring visits and O(cells × body) distances. */
 function bandGeometry(terrain: TerrainGraph, body: readonly NodeId[], band: WeaponBand): readonly NodeId[] {
   const visited = new Set<NodeId>();
   const cells: NodeId[] = [];
-  const disc = { minRange: 0, maxRange: band.maxRange };
   for (const wall of body) {
-    forEachNodeInBand(terrain, wall, disc, (cell) => {
-      if (visited.has(cell)) return true; // adjacent walls' discs overlap - evaluate each cell once
+    forEachNodeInBand(terrain, wall, band, (cell) => {
+      if (visited.has(cell)) return true; // adjacent walls' bands overlap - evaluate each cell once
       visited.add(cell);
       if (!terrain.isWalkable(cell)) return true;
       const reach = distanceToBody(terrain, cell, body); // to the NEAREST wall, as the reach check measures

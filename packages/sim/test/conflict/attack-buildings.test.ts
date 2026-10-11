@@ -1,5 +1,5 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   AttackOrder,
   addPerson,
@@ -19,6 +19,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import {
+  exportSaveGame,
   fx,
   halfCellMapFromCells,
   hexDistanceBetween,
@@ -26,6 +27,7 @@ import {
   ONE,
   playerCommand,
   positionOfNode,
+  restoreSimulation,
   type ScriptLandscapeType,
   type SimEvent,
   Simulation,
@@ -542,6 +544,64 @@ describe('warriors attack enemy buildings', () => {
       expect(sim.world.has(s, PathFollow)).toBe(false);
       expect(sim.world.has(s, PathRequest)).toBe(false);
     }
+  });
+
+  it('does not flood the map for a siege whose front still has space', () => {
+    const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(40, 40) });
+    const soldier = warriorAt(sim, 0, 0, P1);
+    buildingAt(sim, 7, 0, FORT, P2, 1_000_000);
+    if (sim.terrain === undefined) throw new Error('expected terrain');
+    const steps = vi.spyOn(sim.terrain, 'stepsInto');
+    try {
+      combatSystem(sim.world, ctxOf(sim));
+      expect(sim.world.has(soldier, MoveGoal)).toBe(true);
+      expect(steps.mock.calls.length).toBeLessThan(100);
+    } finally {
+      steps.mockRestore();
+    }
+  });
+
+  it('brings a large siege into successive waiting ranks and advances when the front leaves', () => {
+    const sim = new Simulation({
+      seed: 1,
+      content: siegeContent({ meleeRange: { min: 1, max: 1 } }),
+      map: grass(24, 14),
+    });
+    const fort = buildingAt(sim, 3, 3, FORT, P2, 1_000_000);
+    const soldiers = Array.from({ length: 80 }, (_, i) =>
+      warriorAt(sim, 12 + (i % 8), Math.floor(i / 8), P1),
+    );
+    for (const entity of soldiers)
+      sim.enqueue(playerCommand(P1, { kind: 'attackUnit', entity, target: fort }));
+    for (let i = 0; i < 1000; i++) sim.step();
+
+    expect(Math.max(...soldiers.map((s) => distToFort(sim, s)))).toBeLessThanOrEqual(6);
+    const positions = soldiers.map((s) => JSON.stringify(sim.world.get(s, Position)));
+    expect(new Set(positions).size).toBe(soldiers.length);
+    const waiting = soldiers.filter((s) => distToFort(sim, s) > 1);
+    expect(waiting.length).toBeGreaterThan(50);
+    expect(waiting.every((s) => sim.world.get(s, Engagement).waiting === true)).toBe(true);
+    expect(waiting.every((s) => !sim.world.has(s, MoveGoal) && !sim.world.has(s, PathFollow))).toBe(true);
+
+    const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content, map: grass(24, 14) });
+    const front = soldiers.filter((s) => distToFort(sim, s) === 1);
+    for (const [i, entity] of front.entries()) {
+      const command = playerCommand(P1, {
+        kind: 'moveUnit',
+        entity,
+        x: 40 + (i % 5),
+        y: 22 + Math.floor(i / 5),
+      });
+      sim.enqueue(command);
+      restored.enqueue(command);
+    }
+    for (let i = 0; i < 250; i++) {
+      sim.step();
+      restored.step();
+    }
+    expect(waiting.some((s) => distToFort(sim, s) === 1)).toBe(true);
+    expect(restored.hashState()).toBe(sim.hashState());
+    expect(sim.world.verifyCaches()).toEqual([]);
   });
 
   it('hands back from a building across water: an empty slot deal is not a manned front', () => {

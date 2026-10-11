@@ -7,6 +7,26 @@ import { GroupReachability } from './group-reachability.js';
 
 const regions = new WeakMap<World, { terrain: TerrainGraph; reachability: GroupReachability }>();
 
+function regionsOf(world: World, terrain: TerrainGraph): GroupReachability {
+  let held = regions.get(world);
+  if (held === undefined || held.terrain !== terrain) {
+    held = { terrain, reachability: new GroupReachability(terrain) };
+    regions.set(world, held);
+  }
+  return held.reachability;
+}
+
+/** The connected ground a combat queue may occupy, including closed gates and other structural blocks. */
+export function structureRegionOf(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  node: NodeId,
+): number | null {
+  const mask = walkBlockMask(world, ctx, terrain);
+  return regionsOf(world, terrain).regionOf(mask, mask.levelled(), node);
+}
+
 /** Exact structural refusals shared by chasers and wall breakers. A closed gate's region is exhausted
  * once for the army, and forgotten as soon as any walk block changes. Unit bodies are not part of it. */
 export function structureRouteSealed(
@@ -16,15 +36,11 @@ export function structureRouteSealed(
   start: NodeId,
   goal: NodeId,
 ): boolean {
-  let held = regions.get(world);
-  if (held === undefined || held.terrain !== terrain) {
-    held = { terrain, reachability: new GroupReachability(terrain) };
-    regions.set(world, held);
-  }
+  const reachability = regionsOf(world, terrain);
   const mask = walkBlockMask(world, ctx, terrain);
   const blocked = mask.levelled();
-  if (held.reachability.unreachable(mask, blocked, start, goal)) return true;
+  if (reachability.unreachable(mask, blocked, start, goal)) return true;
   if (findPath(terrain, start, goal, blocked) !== null) return false;
-  held.reachability.rememberFailure(mask, blocked, start, goal);
+  reachability.rememberFailure(mask, blocked, start, goal);
   return true;
 }

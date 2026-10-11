@@ -5,6 +5,8 @@ import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
 import { standingFighterPosts } from '../movement/collision/index.js';
+import { structureRegionOf } from '../movement/structure-route.js';
+import { hexNodeDistance } from '../spatial/metric.js';
 import { encircleBands } from './encircle-bands.js';
 import { forEachNodeInBand, type WeaponBand } from './weapon-band.js';
 
@@ -27,6 +29,11 @@ export interface Crowding {
 /** A side that claims a cell: a player, or null for an unowned combatant such as a hostile animal. */
 export type Side = number | null;
 
+interface WaitingRanks {
+  readonly rows: Map<number, NodeId[]>;
+  readonly firstOpenByBank: Map<number, number>;
+}
+
 /**
  * One combat tick's melee-slot bookkeeping: which contact cells are spoken for, and the derived views that
  * answer it. Chasers are served in the canonical combatant order, so the deal is deterministic; every view
@@ -45,6 +52,7 @@ export class MeleeSlots {
   /** The tick's open encircle candidates per target and weapon band, so every chaser only filters taken
    *  slots over them. */
   private readonly bands = new Map<string, readonly NodeId[]>();
+  private readonly waiting = new Map<string, WaitingRanks>();
 
   constructor(
     private readonly world: World,
@@ -113,6 +121,88 @@ export class MeleeSlots {
   /** Deal `cell` to the asking chaser of `side` - the tick's later chasers aim at the next free one. */
   claim(cell: NodeId, side: Side): void {
     this.claimed.set(cell, side);
+  }
+
+  /** Connected ground under structures; bodies only reserve individual slots. */
+  bankOf(cell: NodeId): number | null {
+    return structureRegionOf(this.world, this.ctx, this.terrain, cell);
+  }
+
+  /** Owner rule: fill successive ranks behind a full front. Full rows are skipped collectively for
+   * this pass; each asker's own standing cell and reserved goal remain eligible even in a full row. */
+  waitingCell(
+    here: NodeId,
+    target: { readonly entity: Entity; readonly node: NodeId; readonly body: readonly NodeId[] | null },
+    weapon: WeaponBand,
+    mine: OwnClaims,
+  ): NodeId {
+    const key = `${target.entity}:${weapon.maxRange}`;
+    let ranks = this.waiting.get(key);
+    if (ranks === undefined) {
+      ranks = { rows: new Map(), firstOpenByBank: new Map() };
+      this.waiting.set(key, ranks);
+    }
+    const terrain = this.terrain;
+    const body = target.body !== null && target.body.length > 0 ? target.body : [target.node];
+    const reach = (cell: NodeId): number => {
+      let distance = Number.POSITIVE_INFINITY;
+      for (const wall of body) distance = Math.min(distance, hexNodeDistance(terrain, cell, wall));
+      return distance;
+    };
+    const distance = reach(here);
+    const bank = this.bankOf(here) ?? -1;
+    const onBank = (cell: NodeId): boolean => bank < 0 || this.bankOf(cell) === bank;
+    const own = [mine.goal, mine.standingOn].filter((cell): cell is NodeId => cell !== undefined);
+    const ownRanks = own.map(reach);
+    let firstOpen = ranks.firstOpenByBank.get(bank) ?? weapon.maxRange + 1;
+    const nextRank = (start: number): number => {
+      let next = Math.max(start, firstOpen);
+      for (const rank of ownRanks) if (rank >= start) next = Math.min(next, rank);
+      return next;
+    };
+    for (let radius = nextRank(weapon.maxRange + 1); radius <= distance; radius = nextRank(radius + 1)) {
+      let row = ranks.rows.get(radius);
+      if (row === undefined) {
+        row = [...this.encircleCandidates(target.entity, body, { minRange: radius, maxRange: radius })];
+        ranks.rows.set(radius, row);
+      }
+      let best: NodeId | undefined;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      const consider = (cell: NodeId): void => {
+        const dist = hexNodeDistance(terrain, here, cell);
+        if (dist < bestDistance || (dist === bestDistance && (best === undefined || cell < best))) {
+          best = cell;
+          bestDistance = dist;
+        }
+      };
+      // Claims only grow during a pass. Prune once for all later askers, preserving the two own-cell
+      // exceptions separately rather than leaving every occupied cell in every soldier's search.
+      let kept = 0;
+      let openOnBank = false;
+      for (const cell of row) {
+        if (this.isTaken(cell, undefined)) continue;
+        row[kept++] = cell;
+        if (!onBank(cell)) continue;
+        openOnBank = true;
+        consider(cell);
+      }
+      row.length = kept;
+      if (!openOnBank && radius >= firstOpen) {
+        firstOpen = radius + 1;
+        ranks.firstOpenByBank.set(bank, firstOpen);
+      }
+      for (const [i, cell] of own.entries()) {
+        if (
+          ownRanks[i] === radius &&
+          onBank(cell) &&
+          this.isOpen(cell) &&
+          !this.isTaken(cell, mine.goal, mine.standingOn)
+        )
+          consider(cell);
+      }
+      if (best !== undefined) return best;
+    }
+    return here;
   }
 
   /**

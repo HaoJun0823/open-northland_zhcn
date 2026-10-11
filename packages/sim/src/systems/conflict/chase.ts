@@ -247,16 +247,19 @@ export function chase(
   if (ctx.tick < engagement.repathAt && (travelling || engagement.stall !== undefined)) return false;
 
   const ownGoal = world.tryGet(e, MoveGoal)?.cell;
-  // Only a cell in the chaser's own static walk component can be walked to, so the far bank is never asked
-  // for. Bridges and boats are not yet walkable, so two banks really are separate; a chaser on an unwalkable
-  // node (truncated onto it mid-stride) has no bank and admits every cell. Water nodes carry a label of
-  // their own since ships sail them, so the walkability test is what says "no bank", not the label.
-  const bank = terrain.isWalkable(here) ? terrain.componentOf(here) : -1;
-  const onOurBank = (cell: NodeId): boolean => bank < 0 || terrain.componentOf(cell) === bank;
+  // A close-range breaker without a breach slot must exclude the wall's inaccessible far side.
+  // Ordinary approaches use terrain alone; a full waiting queue asks for structural regions lazily.
+  const crowdedBreach =
+    weapon.minRange <= 1 && order?.target === target.entity && order.breach?.stand === null;
+  const terrainBank = terrain.isWalkable(here) ? terrain.componentOf(here) : null;
+  const bank = crowdedBreach ? slots.bankOf(here) : terrainBank;
+  const onOurBank = (cell: NodeId): boolean =>
+    bank === null || (crowdedBreach ? slots.bankOf(cell) === bank : terrain.componentOf(cell) === bank);
 
   // Its own body does not take the node it stands on from itself. A walker crossing a node its own side
   // stands on holds no claim there: routes pass friends, but no two bodies come to rest on one node.
-  const crossingFriend = world.has(e, PathFollow) && slots.isOccupied(here);
+  const crossingFriend =
+    (world.has(e, PathFollow) && slots.isOccupied(here)) || slots.isTaken(here, ownGoal, here);
   const mine: OwnClaims = {
     goal: ownGoal,
     standingOn: onNodeCentre(world, terrain, e, here) && !crossingFriend ? here : undefined,
@@ -271,7 +274,7 @@ export function chase(
       ? { cell: stand, waiting: false }
       : target.body !== null && target.body.length > 0
         ? faceApproach(terrain, slots, here, target, weapon, mine, onOurBank)
-        : approachCell(ctx, terrain, here, target.node, weapon, slots, mine, onOurBank, drawSlot);
+        : approachCell(ctx, terrain, here, target, weapon, slots, mine, onOurBank, drawSlot);
   // The enemy a step along the front brings into reach, taken up in place of the held one.
   let alongFront: Entity | null = null;
   if (approach.waiting && approach.cell === here && mine.standingOn !== undefined) {
@@ -284,6 +287,7 @@ export function chase(
       // keeps its target and re-asks each tick, which puts it in the moment a front-liner falls or steps
       // off. Routing was not asked, so no refusal stands against the target.
       clearNavState(world, e);
+      slots.claim(here, world.tryGet(e, Owner)?.player ?? null);
       if (engagement.stall !== undefined || engagement.waiting !== true) {
         const held = world.mut(e, Engagement);
         held.stall = undefined;
@@ -308,7 +312,7 @@ export function chase(
   // `dest` fell back to the target itself: no cell that would bring it into reach is one this unit can stand
   // on. Only the walk is refused - the reach check ran before the chase, so an archer still shoots across
   // water. Giving up here is an approximation (source basis "Combat chase").
-  if (!commanded && !onOurBank(dest)) {
+  if (!commanded && terrainBank !== null && terrain.componentOf(dest) !== terrainBank) {
     letGo();
     return true;
   }
@@ -459,16 +463,11 @@ function onNodeCentre(world: World, terrain: TerrainGraph, e: Entity, node: Node
   return p.x === centre.x && p.y === centre.y;
 }
 
-/** Where a chaser heads: a cell that brings its target into reach, or with every such cell taken a cell a
- *  step outside them to wait on (`waiting`). */
+/** Where a chaser heads: a cell that brings its target into reach, or with every such cell taken a cell
+ *  behind the occupied ranks to wait on (`waiting`). */
 interface Approach {
   readonly cell: NodeId;
   readonly waiting: boolean;
-}
-
-/** One map point farther than the weapon's far reach: where an overflow waits behind the front. */
-function secondRank(weapon: WeaponBand): WeaponBand {
-  return { minRange: weapon.maxRange + 1, maxRange: weapon.maxRange + 1 };
 }
 
 /**
@@ -482,20 +481,20 @@ function secondRank(weapon: WeaponBand): WeaponBand {
  * Original behavior: with every side taken the attacker keeps its target, walks up and fights from a taken
  * node, so no cap limits how many strike one enemy. Intentional deviation: a standing fighter's body blocks
  * its node here (authored body collision, `movement/collision`), so the overflow waits on the nearest free
- * cell a step outside the band, or where it stands when that ring is full too, and steps in once a side
- * frees.
+ * cell in successive ranks outside the band and steps forward once a nearer rank frees.
  */
 function approachCell(
   ctx: SystemContext,
   terrain: TerrainGraph,
   from: NodeId,
-  targetCell: NodeId,
+  target: ChaseTarget,
   weapon: ApproachBand,
   slots: MeleeSlots,
   mine: OwnClaims,
   reachable: (cell: NodeId) => boolean,
   drawSlot: boolean,
 ): Approach {
+  const targetCell = target.node;
   const slot =
     weapon.contact && drawSlot
       ? contactSlot(ctx, terrain, from, targetCell, weapon, slots, mine, reachable)
@@ -504,12 +503,11 @@ function approachCell(
   const front = nearestFreeInBand(terrain, from, targetCell, weapon, slots, mine, reachable);
   if (front.free !== null) return { cell: front.free, waiting: false };
   if (!front.anyOpen) return { cell: targetCell, waiting: false };
-  const rank = nearestFreeInBand(terrain, from, targetCell, secondRank(weapon), slots, mine, reachable);
-  return { cell: rank.free ?? from, waiting: true };
+  return { cell: slots.waitingCell(from, target, weapon, mine), waiting: true };
 }
 
-/** {@link approachCell} around a building's walls: its free contact cells on our bank, else the second
- *  rank around them. With no face on our bank there is no front at all: aim at the body, which the chase's
+/** {@link approachCell} around a building's walls: its free contact cells on our bank, else successive
+ *  waiting ranks around them. With no face on our bank there is no front at all: aim at the body, which the chase's
  *  bank check refuses. */
 function faceApproach(
   terrain: TerrainGraph,
@@ -525,8 +523,7 @@ function faceApproach(
   const face = nearestHexCell(terrain, faces, here, free);
   if (face !== null) return { cell: face, waiting: false };
   if (!faces.some(onOurBank)) return { cell: target.node, waiting: false };
-  const rank = slots.encircleCandidates(target.entity, target.body, secondRank(weapon));
-  return { cell: nearestHexCell(terrain, rank, here, free) ?? here, waiting: true };
+  return { cell: slots.waitingCell(here, target, weapon, mine), waiting: true };
 }
 
 /**

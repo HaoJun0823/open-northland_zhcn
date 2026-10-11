@@ -2,7 +2,7 @@ import type { BlockOverlay } from '../../nav/block-overlay.js';
 import { type NodeId, StepBuffer, type TerrainGraph } from '../../nav/terrain/index.js';
 import type { WalkBlockMask } from '../footprint/walk-block-mask.js';
 
-/** Exact regions, paid for only after a player route fails. Routing holds its standing-body index for
+/** Exact regions, computed lazily for failed routes and crowded combat fronts. Routing holds its body index for
  * the whole pass; each owner's overlay needs separate labels because a post blocks only its enemies. */
 export class GroupReachability {
   private readonly regions = new Map<BlockOverlay, Int32Array>();
@@ -13,6 +13,37 @@ export class GroupReachability {
   private readonly steps = new StepBuffer();
 
   constructor(private readonly terrain: TerrainGraph) {}
+
+  /** Exact structural component for a standable node. Complete labels can also serve route refusals.
+   * Flood each requested component once per overlay version; label numbers carry no ordering meaning. */
+  regionOf(mask: WalkBlockMask, blocked: BlockOverlay, node: NodeId): number | null {
+    this.refresh(mask);
+    if (!this.terrain.isWalkable(node) || blocked.has(node)) return null;
+    let labels = this.regions.get(blocked);
+    if (labels === undefined) {
+      labels = new Int32Array(this.terrain.nodeCount);
+      this.regions.set(blocked, labels);
+    }
+    const held = labels[node] ?? 0;
+    if (held > 0) return held;
+    const label = this.nextLabel++;
+    const queue = this.fromStart;
+    queue.length = 0;
+    queue.push(node);
+    labels[node] = label;
+    for (let cursor = 0; cursor < queue.length; cursor++) {
+      const at = queue[cursor];
+      if (at === undefined) throw new Error('structure region queue missing a node');
+      this.terrain.stepsInto(at, blocked, this.steps);
+      for (let i = 0; i < this.steps.length; i++) {
+        const next = this.steps.nodeAt(i);
+        if (labels[next] !== 0) continue;
+        labels[next] = label;
+        queue.push(next);
+      }
+    }
+    return label;
+  }
 
   unreachable(mask: WalkBlockMask, blocked: BlockOverlay, start: NodeId, goal: NodeId): boolean {
     this.refresh(mask);

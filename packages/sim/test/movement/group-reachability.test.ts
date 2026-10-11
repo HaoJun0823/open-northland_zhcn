@@ -3,10 +3,11 @@ import { Position } from '../../src/components/index.js';
 import { exportSaveGame, positionOfNode, restoreSimulation, Simulation } from '../../src/index.js';
 import { LayeredBlocks } from '../../src/nav/block-overlay.js';
 import { findPath } from '../../src/nav/pathfinding/index.js';
+import type { NodeId } from '../../src/nav/terrain/index.js';
 import { stampResourceFootprintData, unstampResourceFootprint } from '../../src/systems/footprint/index.js';
 import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
 import { GroupReachability } from '../../src/systems/movement/group-reachability.js';
-import { structureRouteSealed } from '../../src/systems/movement/structure-route.js';
+import { structureRegionOf, structureRouteSealed } from '../../src/systems/movement/structure-route.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
@@ -126,6 +127,51 @@ describe('group failure reachability', () => {
 });
 
 describe('structural chase refusals', () => {
+  it('shares complete queue regions, joins them after a gap opens, and rebuilds them after closing', () => {
+    const { sim, terrain, wall, mask, reachability } = fixture();
+    const ctx = ctxOf(sim);
+    const left = terrain.nodeAt(8, 8);
+    const right = terrain.nodeAt(80, 8);
+    reachability.rememberFailure(mask, mask.levelled(), left, right);
+    expect(reachability.regionOf(mask, mask.levelled(), left)).not.toBe(
+      reachability.regionOf(mask, mask.levelled(), right),
+    );
+    const region = (node: NodeId) => structureRegionOf(sim.world, ctx, terrain, node);
+    const leftRegion = region(left);
+    const rightRegion = region(right);
+    expect(leftRegion).not.toBeNull();
+    expect(rightRegion).not.toBeNull();
+    expect(leftRegion).not.toBe(rightRegion);
+    const steps = vi.spyOn(terrain, 'stepsInto');
+    try {
+      for (let y = 1; y < 35; y++) {
+        expect(region(terrain.nodeAt(6, y))).toBe(leftRegion);
+        expect(region(terrain.nodeAt(85, y))).toBe(rightRegion);
+      }
+      expect(steps).not.toHaveBeenCalled();
+    } finally {
+      steps.mockRestore();
+    }
+    unstampResourceFootprint(sim.world, wall);
+    expect(region(left)).toBe(region(right));
+    stampResourceFootprintData(sim.world, wall, {
+      walk: Array.from({ length: 40 }, (_, dy) => ({ dx: 0, dy })),
+      build: [],
+      work: [],
+    });
+    expect(region(left)).not.toBe(region(right));
+    expect(region(terrain.nodeAt(50, 8))).toBeNull();
+    const restored = restoreSimulation(exportSaveGame(sim), {
+      content: sim.content,
+      map: grassNodeMap(100, 40),
+    });
+    const coldTerrain = restored.terrain;
+    if (coldTerrain === undefined) throw new Error('missing restored terrain');
+    expect(structureRegionOf(restored.world, ctxOf(restored), coldTerrain, left)).not.toBe(
+      structureRegionOf(restored.world, ctxOf(restored), coldTerrain, right),
+    );
+  });
+
   it('recomputes the same refusals with a cold cache after restoring', () => {
     const { sim, terrain } = fixture();
     const left = terrain.nodeAt(8, 8);

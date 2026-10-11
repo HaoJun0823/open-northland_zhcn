@@ -12,7 +12,7 @@ import {
   Weapon,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { Simulation } from '../../src/index.js';
+import { hexDistanceBetween, playerCommand, Simulation } from '../../src/index.js';
 import { hexNeighboursOf, nodeOfPosition } from '../../src/nav/halfcell.js';
 import { CombatIndex } from '../../src/systems/conflict/combat-index.js';
 import {
@@ -541,6 +541,28 @@ describe('engagement - a crowd on one enemy', () => {
   it('an overflow keeps its target and waits beside the front instead of letting it go', () => {
     const CROWD = HEX_SIDES + 2;
     expect(crowdOn(CROWD, SOLDIER_SWORD_SHORT)).toEqual({ swung: HEX_SIDES, flips: 0, holding: CROWD });
+  });
+
+  it('brings a large crowd near its unit target instead of stopping after the second rank fills', () => {
+    const s = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(MAP_CELLS, 20) });
+    const target = fighterAtNode(s, 12, 12, OTHER, WOMAN, { hitpoints: 100_000_000 });
+    s.world.add(target, Owner, { player: P1 });
+    s.world.add(target, Stance, { mode: MILITARY_MODE.DEFEND, anchorCell: null });
+    const attackers = Array.from({ length: 64 }, (_, i) => {
+      const e = fighterAtNode(s, 40 + (i % 8), 2 + Math.floor(i / 8) * 2, VIKING, SOLDIER_SWORD_SHORT);
+      s.world.add(e, Owner, { player: P0 });
+      s.world.add(e, Stance, { mode: MILITARY_MODE.ATTACK, anchorCell: null });
+      return e;
+    });
+    for (const entity of attackers) s.enqueue(playerCommand(P0, { kind: 'attackUnit', entity, target }));
+    for (let i = 0; i < 1000; i++) s.step();
+    const nodes = attackers.map((e) => {
+      const p = s.world.get(e, Position);
+      return nodeOfPosition(p.x, p.y);
+    });
+    expect(Math.max(...nodes.map((p) => hexDistanceBetween(p.hx, p.hy, 12, 12)))).toBeLessThanOrEqual(5);
+    expect(new Set(nodes.map((p) => `${p.hx},${p.hy}`)).size).toBe(attackers.length);
+    expect(attackers.every((e) => held(s, e) === target)).toBe(true);
   });
 
   it('an overflow steps in and strikes once a side frees', () => {

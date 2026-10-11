@@ -257,6 +257,50 @@ describe('walls that start blocking a route', () => {
     },
   );
 
+  it('packs a large attack-move army behind a closed gate while the wall survives', () => {
+    const base = wallBreakingContent();
+    const content = parseContentSet({
+      ...base,
+      weapons: base.weapons.map((weapon) =>
+        weapon.id === 'test_axe' ? { ...weapon, jobType: UNARMED_SOLDIER } : weapon,
+      ),
+    });
+    const sim = new Simulation({
+      seed: 1,
+      content,
+      map: {
+        ...grassNodeMap(WIDTH, 48),
+        landscapes: {
+          types: [WALL, CLOSED_GATE, OPEN_GATE].map((type) => {
+            if (type.wall === undefined) throw new Error('expected a wall type');
+            return { ...type, wall: { ...type.wall, maxHitpoints: 1_000_000 } };
+          }),
+          placements: [],
+        },
+      },
+    });
+    const gate = wallRow(sim, P1);
+    const squad = Array.from({ length: 100 }, (_, i) => {
+      const e = fighterAt(sim, 0, 0, VIKING, UNARMED_SOLDIER, { owner: P0 });
+      sim.world.add(e, Position, positionOfNode(2 + (i % 10) * 2, 25 + Math.floor(i / 10) * 2));
+      return e;
+    });
+    sim.enqueueSetup({ kind: 'setPalisadeGateMode', palisade: gate, mode: 'automatic' });
+    for (const entity of squad)
+      sim.enqueueSetup({ kind: 'attackMoveUnit', entity, x: NORTH.hx, y: NORTH.hy });
+    for (let tick = 0; tick < 1600; tick++) sim.step();
+    expect(sim.world.get(gate, Palisade).gate?.open).toBe(false);
+    const positions = squad.map((e) => nodeRow(sim, e));
+    expect(Math.max(...positions.map((p) => p.hy))).toBeLessThanOrEqual(WALL_ROW + 10);
+    expect(positions.every((p) => p.hy > WALL_ROW)).toBe(true);
+    const waiting = squad.filter((e) => sim.world.tryGet(e, Engagement)?.waiting === true);
+    expect(waiting.length).toBeGreaterThan(40);
+    const ranks = waiting.map((e) => nodeRow(sim, e));
+    expect(new Set(ranks.map((p) => `${p.hx},${p.hy}`)).size).toBe(waiting.length);
+    expect(new Set(squad.map((e) => JSON.stringify(sim.world.get(e, Position)))).size).toBe(squad.length);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
   it('stops a walker a gate shuts in front of, instead of letting it through', () => {
     const sim = fresh();
     const gate = wallRow(sim, P0);

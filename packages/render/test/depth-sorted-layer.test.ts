@@ -2,7 +2,7 @@ import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { drawPassDepth } from '../src/data/scene/index.js';
 import { DepthSortedLayer } from '../src/gpu/depth-sorted-layer.js';
-import { restoreStash, type StashedVisibility, stashHidden } from '../src/gpu/visibility.js';
+import { restoreStash, stashHidden } from '../src/gpu/visibility.js';
 
 /** Depths this far apart always file into different bands; closer ones may share one. */
 const FAR = 10_000;
@@ -215,13 +215,14 @@ describe('depth sorted layer', () => {
     const [near, far, nearFish, farGround, pinned] = children;
     if (!near || !far || !nearFish || !farGround || !pinned) throw new Error('missing children');
     settle(layer);
-    const stash: StashedVisibility[] = [];
-    layer.hideBandsOutside(0, 200, stash);
+    const hidden: Container[] = [];
+    layer.hideBandsOutside(0, 200, hidden);
     expect([near, nearFish, pinned].map((child) => bandOf(child).visible)).toEqual([true, true, true]);
     expect([far, farGround].map((child) => bandOf(child).visible)).toEqual([false, false]);
     // The bands' own instructions stand; only the layer's list of bands changes.
     expect(layer.children.some((band) => band.renderGroup.structureDidChange)).toBe(false);
-    restoreStash(stash);
+    layer.showBands(hidden);
     expect(layer.children.every((band) => band.visible)).toBe(true);
+    expect(hidden).toEqual([]);
   });
 });

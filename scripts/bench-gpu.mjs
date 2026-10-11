@@ -80,14 +80,16 @@ const progress = (message) => {
   metadata.lastProgress = { at: new Date().toISOString(), message };
   console.log(`bench:gpu ${message}`);
 };
-const startLoad = metadata.os.loadAtStart[0] / metadata.os.cpus.length;
+// Windows reports no load average, so the gate cannot void a scenario there; the report says so.
+const startLoad = machineLoad();
+const startLoadText = startLoad.available ? startLoad.loadPerCpu.toFixed(1) : 'unavailable';
 const writeReport = async () => {
   await writeFile(resolve(output, 'report.json'), JSON.stringify(metadata, null, 2));
   const head = [
     `# bench:gpu ${header.mapId} tick ${header.tick}`,
     '',
     `Adapter: ${metadata.adapter ?? 'unknown'}; GPU timer ${metadata.gpuTimer ? 'available' : 'unavailable'}.`,
-    `${VIEWPORT.width}x${VIEWPORT.height}, ${repeats} x ${seconds} s per scenario; one-minute load per CPU at start ${startLoad.toFixed(1)}, gate ${MAX_LOAD_PER_CPU}.`,
+    `${VIEWPORT.width}x${VIEWPORT.height}, ${repeats} x ${seconds} s per scenario; one-minute load per CPU at start ${startLoadText}, gate ${MAX_LOAD_PER_CPU}.`,
     '',
     markdownTable(metadata.scenarios),
     '',

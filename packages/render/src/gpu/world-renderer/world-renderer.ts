@@ -49,7 +49,6 @@ import { StillSpriteMesh } from '../still-mesh/still-mesh.js';
 import { TerrainLayer } from '../terrain/index.js';
 import type { TerrainTextureSet } from '../terrain-textures.js';
 import { TextureCache } from '../texture-cache.js';
-import { restoreStash, type StashedVisibility } from '../visibility.js';
 import { WeatherGround } from '../weather/ground-weather.js';
 import { WeatherSky } from '../weather/weather-sky.js';
 import { installWorldBatcher, routeWorldBatches } from '../world-batcher.js';
@@ -112,7 +111,7 @@ export class WorldRenderer {
   private elevation: ElevationField = makeElevationField(undefined, 0, 0);
   private readonly portrait: PortraitInsetLayer;
   /** The depth bands one portrait inset hid, reused across insets and frames. */
-  private readonly insetBands: StashedVisibility[] = [];
+  private readonly insetBands: Container[] = [];
   private readonly mapViews: MapViewLayer;
 
   private readonly viewSmoothing: boolean;
@@ -536,8 +535,7 @@ export class WorldRenderer {
       },
       restore: () => {
         this.terrain.cull(vp);
-        restoreStash(this.insetBands);
-        this.insetBands.length = 0;
+        this.spriteLayer.showBands(this.insetBands);
       },
       backdrop: this.terrain.groundColour(),
     });

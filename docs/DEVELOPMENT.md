@@ -440,7 +440,8 @@ settlers box-selected, paused; `?weather=rain` against `?weather=clear` at x3; z
 x3. `ON_BENCH_GPU_SCENARIOS=panel-x3,on-x3` runs only those. Selections use the player's own clicks
 and box drags before input is blocked. `report.md` holds the table and `report.json` every repeat.
 The load gate, hidden windows, camera drift, a missing reading or a short selection void a scenario
-and make the command exit nonzero. Read milliseconds only from an idle machine; the call counts hold
+and make the command exit nonzero; Windows has no load average, so the report marks the gate
+unavailable there and the reader judges idleness. Read milliseconds only from an idle machine; the call counts hold
 regardless.
 
 The benchmarks run as plain Node programs over the compiled `dist/` of the workspace packages, with

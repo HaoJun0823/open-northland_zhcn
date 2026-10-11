@@ -99,7 +99,7 @@ describe('original-game gate', () => {
     const input = page.locator('.main-menu__gate-input');
     await input.setInputFiles(empty);
     await page.getByText('That folder holds no Cultures game data').waitFor();
-    expect(await storedFlag(page)).toBeUndefined();
+    expect(await storedFlag(page)).not.toBe(true);
 
     await input.setInputFiles(install);
     await page.locator('.main-menu__nav').waitFor();

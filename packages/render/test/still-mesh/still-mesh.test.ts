@@ -488,8 +488,12 @@ describe('StillSpriteMesh', () => {
       h.frame();
     }
     expect(h.meshDraws()).toBe(1);
+    const state = (h.mesh as unknown as MeshInternals).bands.get(band);
+    if (state === undefined) throw new Error('expected the band’s mesh state');
+    const meshedBuilds = state.build;
     // Quiet from here: the 16-quad run pays only while the band rebuilds at least every 16 frames,
-    // so within that estimate's reach the band rebuilds once more and draws through Pixi alone.
+    // so within that estimate's reach the band rebuilds once more and draws through Pixi alone. The
+    // run divides by its payoff, so that one rebuild must land past the estimate it still pays at.
     let frames = 0;
     while (h.meshDraws() > 0 && frames < 100) {
       expect(h.frame()).toEqual(painterOrder(h.layer));
@@ -498,9 +502,8 @@ describe('StillSpriteMesh', () => {
     expect(h.meshDraws()).toBe(0);
     expect(frames).toBeGreaterThan(16);
     expect(h.mesh.quadCount).toBe(0);
+    expect(state.build).toBe(meshedBuilds + 1);
     // Handed back, the band stays quiet: no further rebuild and no mesh draw.
-    const state = (h.mesh as unknown as MeshInternals).bands.get(band);
-    if (state === undefined) throw new Error('expected the band’s mesh state');
     const builds = state.build;
     for (let i = 0; i < QUIET_FRAMES; i++) {
       expect(h.frame()).toEqual(painterOrder(h.layer));

@@ -28,14 +28,9 @@ import {
 import { createControlsTab } from './settings-controls-tab.js';
 import { createSettingsDisplayMode, type DisplayMode } from './settings-display-mode.js';
 import { graphicsSettingsRows } from './settings-graphics-tab.js';
-import {
-  type AutosaveMinutes,
-  type MenuSettings,
-  SCROLL_SPEED_MAX,
-  SCROLL_SPEED_MIN,
-} from './settings-store.js';
+import { type MenuSettings, SCROLL_SPEED_MAX, SCROLL_SPEED_MIN } from './settings-store.js';
 
-export type SettingsTab = 'graphics' | 'audio' | 'gameplay' | 'controls' | 'saving';
+export type SettingsTab = 'graphics' | 'audio' | 'gameplay' | 'controls';
 
 export interface SettingsMemory {
   tab: SettingsTab;
@@ -59,7 +54,7 @@ export interface SettingsPageHandle {
   dispose(): void;
 }
 
-const SETTINGS_TABS: readonly SettingsTab[] = ['graphics', 'audio', 'gameplay', 'controls', 'saving'];
+const SETTINGS_TABS: readonly SettingsTab[] = ['graphics', 'audio', 'gameplay', 'controls'];
 const LANGUAGE_CHOICES: readonly Locale[] = LOCALE_CODES;
 const SCROLL_SPEED_STEP = 0.05;
 const VOLUME_MIN = 0;
@@ -380,27 +375,6 @@ export function createSettingsPage(opts: {
       },
     });
     const rowsFor: Record<SettingsTab, () => HTMLElement[]> = {
-      saving: () => {
-        const choices: readonly AutosaveMinutes[] = [0, 5, 10, 15, 30];
-        const control = segControl(
-          choices.map((minutes) => ({
-            id: String(minutes),
-            label: minutes === 0 ? text.autosaveOff : text.autosaveEvery.replace('{n}', String(minutes)),
-          })),
-          String(opts.settings.current().autosaveMinutes),
-          (id) => {
-            const minutes = choices.find((value) => String(value) === id);
-            if (minutes === undefined) return;
-            void opts.settings.update({ autosaveMinutes: minutes }).then(() => {
-              control.setActive(String(opts.settings.current().autosaveMinutes));
-            });
-          },
-        );
-        markSegment(control.root, 'autosave');
-        const hint = document.createElement('p');
-        hint.textContent = text.autosaveHint;
-        return [settingRow(text.autosave, control.root), hint];
-      },
       graphics: graphicsRows,
       audio: audioRows,
       gameplay: gameplayRows,

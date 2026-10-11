@@ -5,7 +5,7 @@ import { currentLocale, formatMessage, messages, setActiveLocale } from '../src/
 import type { GameSettingsRuntime } from '../src/view/runtime/game-settings.js';
 import type { SaveLoadSession } from '../src/view/runtime/save-load/index.js';
 import type { SaveSlotInfo } from '../src/view/runtime/save-load/store.js';
-import { defaultSettings } from '../src/view/settings-store.js';
+import { defaultSettings, patchStoredSettings, readStoredSettings } from '../src/view/settings-store.js';
 
 vi.mock('../src/view/runtime/save-load/world-names.js', () => ({
   worldNameIndex: async () => (token: string | null) => (token === null ? null : `World ${token}`),
@@ -32,6 +32,7 @@ afterEach(() => {
   menu?.dispose();
   menu = null;
   document.body.replaceChildren();
+  localStorage.clear();
   setActiveLocale(locale);
   vi.unstubAllGlobals();
 });
@@ -42,7 +43,7 @@ function slot(name: string, savedAt: number, mapId = HERE, seed = SEED): SaveSlo
   return { id: name, name, mapId, tick: 600, entry: null, savedAt, seed, thumbnail: null };
 }
 
-function mount(initial: SaveSlotInfo[]) {
+function mount(initial: SaveSlotInfo[], settingsOverride?: GameSettingsRuntime) {
   let slots = [...initial];
   let clock = 1000;
   const saveLoad: SaveLoadSession = {
@@ -72,7 +73,7 @@ function mount(initial: SaveSlotInfo[]) {
   };
   menu = createSystemMenu({
     saveLoad,
-    settings,
+    settings: settingsOverride ?? settings,
     hud: { element: document.createElement('div'), currentScale: () => 1 },
     onQuit: () => undefined,
     setCameraSuspended: () => undefined,
@@ -112,6 +113,44 @@ const question = (): HTMLElement => {
 };
 
 describe('save window', () => {
+  it('edits the global autosave interval in Save Game and remembers it when reopened', async () => {
+    const settings: GameSettingsRuntime = {
+      current: readStoredSettings,
+      update: async (patch) => {
+        patchStoredSettings(patch);
+        return true;
+      },
+      pinnedUiScale: null,
+      bootOwnedChangesDeferred: true,
+      effectiveUiScaleFor: (factor) => factor,
+    };
+    const first = mount([], settings);
+    first.menu.openPage('save');
+    const save = page('save');
+    const options = [...save.querySelectorAll<HTMLButtonElement>('.on-saves__auto-options button')];
+    expect(options).toHaveLength(5);
+    expect(options[0]?.getAttribute('aria-pressed')).toBe('true');
+    options[3]?.focus();
+    options[3]?.click();
+    await Promise.resolve();
+    expect(readStoredSettings().autosaveMinutes).toBe(15);
+    expect(options[3]?.getAttribute('aria-pressed')).toBe('true');
+    expect(document.activeElement).toBe(options[3]);
+    first.menu.dispose();
+    const next = mount([], settings);
+    next.menu.openPage('save');
+    expect(page('save').querySelector('.on-saves__auto-options [aria-pressed="true"]')?.textContent).toBe(
+      formatMessage(messages().saveList.autosaveEvery, { n: 15 }),
+    );
+    next.menu.close();
+    next.menu.toggle();
+    button(messages().mainMenu.items.settings).click();
+    expect([...document.querySelectorAll('.main-menu__settings-tab')].map((tab) => tab.textContent)).toEqual(
+      Object.values(messages().mainMenu.settings.tabs),
+    );
+    expect(document.querySelector('.on-settings .on-saves__auto-options')).toBeNull();
+  });
+
   it('offers a free name, saves it, and exports the written slot from the same window', async () => {
     const copy = messages().saveList;
     const { menu, saveLoad } = mount([slot('World here - Save 2', 5)]);

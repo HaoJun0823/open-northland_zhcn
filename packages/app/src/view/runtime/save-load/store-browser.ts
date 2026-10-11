@@ -43,7 +43,7 @@ export function browserSaveStore(): SaveStore {
       keys.result.forEach((key, i) => {
         if (typeof key !== 'string') return;
         const auto = autosaveNumber(key);
-        const name = auto === null ? key : `${messages().mainMenu.settings.autosave} ${auto}`;
+        const name = auto === null ? key : `${messages().saveList.autosave} ${auto}`;
         slots.push({ id: key, name, ...storedMetaOf(values.result[i]) });
       });
       return newestFirst(slots);

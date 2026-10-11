@@ -155,13 +155,7 @@ export const enSurfaces = {
       startNeedsSeat: 'Take a seat first',
     },
     settings: {
-      autosave: 'Autosave',
-      autosaveOff: 'Off',
-      autosaveEvery: 'Every {n} min',
-      autosaveHint:
-        'Game time; pausing stops the countdown. Keeps the last three autosaves for each map. Remembered for future games, including multiplayer.',
       tabs: {
-        saving: 'Saving',
         graphics: 'Graphics',
         audio: 'Sound',
         gameplay: 'Gameplay',
@@ -520,6 +514,11 @@ export const enSurfaces = {
   },
   // Shared by the in-game save panels and the main menu's load screen.
   saveList: {
+    autosave: 'Autosave',
+    autosaveOff: 'Off',
+    autosaveEvery: 'Every {n} min',
+    autosaveHint:
+      'Game time; pausing stops the countdown. Keeps the last three autosaves for each map. Remembered for future games, including multiplayer.',
     saveTitle: 'Save game',
     loadTitle: 'Load game',
     nameLabel: 'Name',

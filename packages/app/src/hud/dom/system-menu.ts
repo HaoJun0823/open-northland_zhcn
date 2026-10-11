@@ -87,7 +87,7 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
     onBack: showMenu,
     onClose: hide,
   };
-  const savePanel = createSaveWindow(pageDeps);
+  const savePanel = createSaveWindow({ ...pageDeps, settings: deps.settings });
   const loadPanel = createLoadWindow(pageDeps);
   const syncScale = (): void => {
     void plane.setUiScale(scale());

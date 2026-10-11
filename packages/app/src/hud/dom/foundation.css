@@ -7770,6 +7770,19 @@ body.on-drag-scroll * {
 .on-hud .on-saves__hint.is-warning {
   color: var(--warning);
 }
+.on-hud .on-saves__autosave {
+  flex-shrink: 0;
+  min-width: 0;
+  margin: 0 0 8px;
+  padding: 8px 0 0;
+  border: 0;
+  border-top: 1px solid var(--bronze-lo);
+}
+.on-hud .on-saves__auto-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .on-hud .on-saves__sheet {
   display: flex;
   flex: 1;

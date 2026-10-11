@@ -154,13 +154,7 @@ export const plSurfaces = {
       startNeedsSeat: 'Najpierw zajmij miejsce',
     },
     settings: {
-      autosave: 'Autozapis',
-      autosaveOff: 'Wyłączony',
-      autosaveEvery: 'Co {n} min',
-      autosaveHint:
-        'Czas gry; pauza zatrzymuje odliczanie. Zachowuje trzy ostatnie autozapisy na każdej mapie. Ustawienie jest pamiętane dla kolejnych gier, także multiplayer.',
       tabs: {
-        saving: 'Zapis',
         graphics: 'Grafika',
         audio: 'Dźwięk',
         gameplay: 'Rozgrywka',
@@ -519,6 +513,11 @@ export const plSurfaces = {
   },
   // Shared by the in-game save panels and the main menu's load screen.
   saveList: {
+    autosave: 'Autozapis',
+    autosaveOff: 'Wyłączony',
+    autosaveEvery: 'Co {n} min',
+    autosaveHint:
+      'Czas gry; pauza zatrzymuje odliczanie. Zachowuje trzy ostatnie autozapisy na każdej mapie. Ustawienie jest pamiętane dla kolejnych gier, także multiplayer.',
     saveTitle: 'Zapisz grę',
     loadTitle: 'Wczytaj grę',
     nameLabel: 'Nazwa',

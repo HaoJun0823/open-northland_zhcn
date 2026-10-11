@@ -42,25 +42,25 @@ describe('installCandidates on Windows', () => {
           'Cultures 8th Wonder',
           2,
         ),
+        'C:\\Users\\viking\\AppData\\Roaming\\heroic\\gog_store\\installed.json': JSON.stringify({
+          installed: [{ appName: '1207663813', install_path: 'F:\\Heroic\\Cultures 2' }],
+        }),
       },
       {
         registry: {
           'HKCU\\Software\\Valve\\Steam|SteamPath': 'c:/program files (x86)/steam',
           'HKLM\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1207663853|path': 'E:\\GOG\\8th Wonder of the World',
           'HKLM\\SOFTWARE\\WOW6432Node\\Funatics\\Das Herz des Odin|FolderPath': 'C:\\Spiele\\Odin',
-          'HKLM\\SOFTWARE\\TopWare Poland\\WnP|Directory': 'C:\\GOG Games\\Northland',
+          'HKLM\\SOFTWARE\\TopWare Poland\\WnP|Directory': 'E:\\GOG\\8th Wonder of the World',
         },
       },
     );
     expect(await installCandidates(env)).toEqual([
       { path: 'D:\\SteamLibrary\\steamapps\\common\\Cultures Northland', source: 'steam' },
       { path: 'E:\\GOG\\8th Wonder of the World', source: 'gog' },
-      { path: 'C:\\GOG Games\\Cultures 2', source: 'gog' },
-      { path: 'C:\\GOG Games\\Northland', source: 'gog' },
-      { path: 'C:\\GOG Games\\8th Wonder of the World', source: 'gog' },
-      { path: 'C:\\Program Files (x86)\\GOG Galaxy\\Games\\Cultures 2', source: 'gog' },
-      { path: 'C:\\Program Files (x86)\\GOG Galaxy\\Games\\Northland', source: 'gog' },
-      { path: 'C:\\Program Files (x86)\\GOG Galaxy\\Games\\8th Wonder of the World', source: 'gog' },
+      { path: 'C:\\GOG Games', source: 'gog' },
+      { path: 'C:\\Program Files (x86)\\GOG Galaxy\\Games', source: 'gog' },
+      { path: 'F:\\Heroic\\Cultures 2', source: 'gog' },
       { path: 'C:\\Spiele\\Odin', source: 'retail' },
     ]);
   });

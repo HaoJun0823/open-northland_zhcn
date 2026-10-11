@@ -40,24 +40,20 @@ const MAC_STEAM_ROOT = ['Library', 'Application Support', 'Steam'];
 const LINUX_STEAM_ROOTS = [
   ['.local', 'share', 'Steam'],
   ['.steam', 'steam'],
+  ['.steam', 'root'],
   ['.steam', 'debian-installation'],
   ['.var', 'app', 'com.valvesoftware.Steam', '.local', 'share', 'Steam'],
   ['snap', 'steam', 'common', '.local', 'share', 'Steam'],
 ];
 
-interface GogProduct {
-  readonly id: string;
-  readonly installDir: string;
-}
+/** GOG's per-game product ids; the store sells them in two packs, Galaxy registers each game alone. */
+const GOG_PRODUCT_IDS = ['1207663813', '1207663833', '1207663853'];
 
-const GOG_PRODUCTS: readonly GogProduct[] = [
-  { id: '1207663813', installDir: 'Cultures 2' },
-  { id: '1207663833', installDir: 'Northland' },
-  { id: '1207663853', installDir: '8th Wonder of the World' },
-];
-
+/** Searched as a whole: the recognizer looks one level down, so the offline installers' own folder
+ *  names (one of them unpacks both games of a pack into a single folder) need no listing here. */
 const WINDOWS_GOG_DEFAULT_ROOTS = ['C:\\GOG Games', 'C:\\Program Files (x86)\\GOG Galaxy\\Games'];
 const HEROIC_INSTALLED_FILE = ['gog_store', 'installed.json'];
+const WINDOWS_HEROIC_ROOTS = [['AppData', 'Roaming', 'heroic']];
 const MAC_HEROIC_ROOTS = [['Library', 'Application Support', 'heroic']];
 const LINUX_HEROIC_ROOTS = [
   ['.config', 'heroic'],
@@ -156,7 +152,7 @@ export function heroicGogInstallPaths(jsonText: string): string[] {
   if (typeof parsed !== 'object' || parsed === null) return [];
   const installed = (parsed as Record<string, unknown>).installed;
   if (!Array.isArray(installed)) return [];
-  const ids = new Set(GOG_PRODUCTS.map((product) => product.id));
+  const ids = new Set(GOG_PRODUCT_IDS);
   const paths: string[] = [];
   for (const entry of installed as unknown[]) {
     if (typeof entry !== 'object' || entry === null) continue;
@@ -173,24 +169,24 @@ export function heroicGogInstallPaths(jsonText: string): string[] {
   return paths;
 }
 
+function heroicRootsFor(platform: string): readonly (readonly string[])[] {
+  if (platform === WINDOWS) return WINDOWS_HEROIC_ROOTS;
+  return platform === MAC ? MAC_HEROIC_ROOTS : LINUX_HEROIC_ROOTS;
+}
+
 async function gogCandidates(env: CandidateEnvironment): Promise<string[]> {
   const path = pathsFor(env.platform);
+  const found: string[] = [];
   if (env.platform === WINDOWS) {
-    const found: string[] = [];
-    for (const product of GOG_PRODUCTS) {
+    for (const id of GOG_PRODUCT_IDS) {
       for (const software of SOFTWARE_KEYS) {
-        const value = await env.readRegistry('HKLM', `${software}\\GOG.com\\Games\\${product.id}`, 'path');
+        const value = await env.readRegistry('HKLM', `${software}\\GOG.com\\Games\\${id}`, 'path');
         if (value !== undefined) found.push(path.normalize(value));
       }
     }
-    for (const root of WINDOWS_GOG_DEFAULT_ROOTS) {
-      for (const product of GOG_PRODUCTS) found.push(path.join(root, product.installDir));
-    }
-    return found;
+    found.push(...WINDOWS_GOG_DEFAULT_ROOTS);
   }
-  const heroicRoots = env.platform === MAC ? MAC_HEROIC_ROOTS : LINUX_HEROIC_ROOTS;
-  const found: string[] = [];
-  for (const root of heroicRoots) {
+  for (const root of heroicRootsFor(env.platform)) {
     const text = await env.readText(path.join(env.home, ...root, ...HEROIC_INSTALLED_FILE));
     if (text !== undefined) found.push(...heroicGogInstallPaths(text));
   }

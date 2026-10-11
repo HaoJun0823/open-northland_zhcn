@@ -84,8 +84,10 @@ describe('palisades at map edges', () => {
       expect(dynamicBlockOverlay(sim.world, ctxOf(sim), terrain).has(terrain.nodeAt(10, 4))).toBe(true);
       const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content, map });
       expect(route(restored)).toBeNull();
-      sim.step(4);
-      restored.step(4);
+      for (let tick = 0; tick < 4; tick++) {
+        sim.step();
+        restored.step();
+      }
       expect(restored.hashState()).toBe(sim.hashState());
       removePalisade(sim.world, ctxOf(sim), end);
       expect(route(sim)).not.toBeNull();

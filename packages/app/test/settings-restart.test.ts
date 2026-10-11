@@ -34,7 +34,7 @@ describe('settings needing a map restart', () => {
 
   it('names the changed settings by their labels and stays quiet for a change undone', () => {
     const note = vi.fn();
-    const leave = noteRestartOnLeave(note);
+    const leave = noteRestartOnLeave(opened, note);
     leave(opened, {
       ...opened,
       postFxEnabled: !opened.postFxEnabled,
@@ -44,5 +44,18 @@ describe('settings needing a map restart', () => {
     note.mockClear();
     leave(opened, { ...opened });
     expect(note).not.toHaveBeenCalled();
+  });
+
+  it('measures each visit against the settings the map started on', () => {
+    const note = vi.fn();
+    const leave = noteRestartOnLeave(opened, note);
+    const halfScale = { ...opened, renderScale: opened.renderScale / 2 };
+    leave(opened, halfScale);
+    // A later visit's change keeps naming the earlier one still waiting.
+    const noFx = { ...halfScale, postFxEnabled: !opened.postFxEnabled };
+    leave(halfScale, noFx);
+    // Undoing both withdraws the note, since the running map already shows them.
+    leave(noFx, opened);
+    expect(note.mock.calls).toEqual([[['Render scale']], [['Render scale', 'Post-processing']], [[]]]);
   });
 });

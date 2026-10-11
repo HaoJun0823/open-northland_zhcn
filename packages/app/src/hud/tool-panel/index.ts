@@ -331,7 +331,7 @@ export interface ToolPanelController {
    *  fraction. */
   presentFigures(snapshot: WorldSnapshot, alpha: number): void;
   /** Tell the player, in the notification column, that the settings named by `labels` take effect when
-   *  the map starts again. */
+   *  the map starts again; no labels withdraws that note. */
   noteSettingsRestart(labels: readonly string[]): void;
   state(): ToolPanelState;
   restore(state: ToolPanelState): void;

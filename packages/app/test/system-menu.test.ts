@@ -341,7 +341,7 @@ describe('system menu navigation', () => {
 
   it('raises one restart note per settings visit that leaves a restart-bound setting changed', async () => {
     const note = vi.fn();
-    const state = mount({ onSettingsLeft: noteRestartOnLeave(note) });
+    const state = mount({ onSettingsLeft: noteRestartOnLeave(defaultSettings(), note) });
     state.menu.toggle();
     expect(note).not.toHaveBeenCalled();
 
@@ -359,13 +359,14 @@ describe('system menu navigation', () => {
     state.menu.close();
     expect(note).not.toHaveBeenCalled();
 
-    // The menu closing over the page, as a lost link closes it.
+    // The menu closing over the page, as a lost link closes it; the earlier change still waits.
     state.menu.toggle();
     openSettings();
     await state.settings.update({ spriteSmoothing: !state.settings.current().spriteSmoothing });
     state.menu.close();
     state.menu.close();
-    expect(note).toHaveBeenCalledExactlyOnceWith([messages().mainMenu.settings.spriteSmoothing]);
+    const labels = messages().mainMenu.settings;
+    expect(note).toHaveBeenCalledExactlyOnceWith([labels.renderScale, labels.spriteSmoothing]);
   });
 
   it('disposal releases an open menu and restores inert siblings', () => {

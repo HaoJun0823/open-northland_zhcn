@@ -1142,7 +1142,9 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       canLoad: !sharedClock,
       pauseStopsClock: !sharedClock,
       ...(deps.netPanel !== undefined ? { onNetwork: () => toolPanel.controller.openNetwork() } : {}),
-      onSettingsLeft: noteRestartOnLeave((labels) => toolPanel.controller.noteSettingsRestart(labels)),
+      onSettingsLeft: noteRestartOnLeave(liveSettings.settings.current(), (labels) =>
+        toolPanel.controller.noteSettingsRestart(labels),
+      ),
     });
 
     const netOverlays =

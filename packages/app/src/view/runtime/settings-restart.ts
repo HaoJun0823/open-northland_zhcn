@@ -33,13 +33,15 @@ function restartSettingLabels(settings: readonly RestartSetting[]): string[] {
   return settings.map((key) => copy[LABEL_KEYS[key]]);
 }
 
-/** What the in-game settings page does as it closes: `note` hears the labels of the restart-bound
- *  settings it left changed, and nothing when every one is back at its opening value. */
+/** What the in-game settings page does as it closes after changing a restart-bound setting: `note`
+ *  hears the labels of every one that now differs from the value the map started on (`started`), none
+ *  when all are back at it. A visit that changed none of them says nothing. */
 export function noteRestartOnLeave(
+  started: MenuSettings,
   note: (labels: readonly string[]) => void,
 ): (opened: MenuSettings, closed: MenuSettings) => void {
   return (opened, closed) => {
-    const changed = settingsAwaitingRestart(opened, closed);
-    if (changed.length > 0) note(restartSettingLabels(changed));
+    if (settingsAwaitingRestart(opened, closed).length === 0) return;
+    note(restartSettingLabels(settingsAwaitingRestart(started, closed)));
   };
 }

@@ -128,7 +128,8 @@ export interface MessageCenter {
     alpha: number,
   ): void;
   /** Raise, on the next presented frame, the note that the settings named by `labels` take effect when
-   *  the map starts again. It takes the place of an earlier such note, shown or dismissed. */
+   *  the map starts again. It takes the place of an earlier such note, shown or dismissed; no labels
+   *  only drops that note. */
   noteSettingsRestart(labels: readonly string[]): void;
   state(): MessageFeedState;
   /** Adopt another mount's feed, so a HUD rescale keeps the notes and the level. */
@@ -368,7 +369,7 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
   let restartLabels: readonly string[] | null = null;
   const raiseSettingsRestart = (labels: readonly string[], tick: number): void => {
     clearSettingsRestart(feeds.current, tick);
-    take(settingsRestartNote(labels, naming), tick);
+    if (labels.length > 0) take(settingsRestartNote(labels, naming), tick);
   };
   let lastGalleryTick: number | null = null;
   const galleryDue = (tick: number): boolean => {

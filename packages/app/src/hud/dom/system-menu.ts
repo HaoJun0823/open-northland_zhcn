@@ -2,6 +2,7 @@ import { downloadDiagnosticsBundle, downloadTraceFile, isTraceRecording } from '
 import { messages } from '../../i18n/index.js';
 import type { GameSettingsRuntime } from '../../view/runtime/game-settings.js';
 import type { SaveLoadSession } from '../../view/runtime/save-load/index.js';
+import type { MenuSettings } from '../../view/settings-store.js';
 import { GLYPH } from './icons.js';
 import { createHudPlane, type HudPlane } from './root.js';
 import type { MenuPageView } from './save-window/frame.js';
@@ -28,6 +29,8 @@ export interface SystemMenuDeps {
   readonly canLoad?: boolean;
   readonly pauseStopsClock?: boolean;
   readonly onNetwork?: () => void;
+  /** The settings page closed, with the settings it opened on and the ones it leaves. */
+  readonly onSettingsLeft?: (opened: MenuSettings, closed: MenuSettings) => void;
 }
 
 /** Owns the menu's pause and keyboard across its root and its settings, save and load pages. */
@@ -107,6 +110,7 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
         confirm: copy.mainMenu.settings.restoreDefaults,
       });
     },
+    ...(deps.onSettingsLeft !== undefined ? { onLeave: deps.onSettingsLeft } : {}),
   });
   pages.push(savePanel, loadPanel, settingsPanel);
   const showPanel = (page: MenuPageView, trigger: HTMLButtonElement): void => {

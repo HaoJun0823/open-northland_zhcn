@@ -38,6 +38,7 @@ function partsFor(name: UserMessageTypeName, female: boolean): MessageTextParts 
     goodName: 'Chleb',
     stanceName: 'wrogi',
     detail: 'Prolongata',
+    settings: ['Skala renderowania', 'Język'],
     technologySections: { jobs: ['Młynarz'], goods: [], houses: [], vehicles: [] },
     training: { course: 'school', profession: 'Młynarz' },
     stall: 'noInputSource',

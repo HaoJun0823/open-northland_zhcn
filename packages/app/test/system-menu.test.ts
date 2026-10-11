@@ -6,6 +6,7 @@ import { currentLocale, messages, setActiveLocale } from '../src/i18n/index.js';
 import * as graphicsStartup from '../src/view/graphics-startup.js';
 import type { GameSettingsRuntime } from '../src/view/runtime/game-settings.js';
 import type { SaveLoadSession } from '../src/view/runtime/save-load/index.js';
+import { noteRestartOnLeave } from '../src/view/runtime/settings-restart.js';
 import { defaultSettings, type MenuSettings } from '../src/view/settings-store.js';
 
 let menu: SystemMenu | null = null;
@@ -40,6 +41,7 @@ function mount(
     paused?: boolean;
     onNetwork?: () => void;
     previewBus?: (bus: SoundBus) => void;
+    onSettingsLeft?: (opened: MenuSettings, closed: MenuSettings) => void;
   } = {},
 ) {
   const { previewBus, ...menuOpts } = opts;
@@ -335,6 +337,35 @@ describe('system menu navigation', () => {
     expect(state.saveLoad.releaseForcedPause).toHaveBeenCalledOnce();
     state.menu.close();
     expect(state.saveLoad.releaseForcedPause).toHaveBeenCalledOnce();
+  });
+
+  it('raises one restart note per settings visit that leaves a restart-bound setting changed', async () => {
+    const note = vi.fn();
+    const state = mount({ onSettingsLeft: noteRestartOnLeave(note) });
+    state.menu.toggle();
+    expect(note).not.toHaveBeenCalled();
+
+    // Backing out with Escape, a change kept.
+    openSettings();
+    await state.settings.update({ renderScale: 0.5, fpsLimit: 30 });
+    key('Escape');
+    expect(note).toHaveBeenCalledExactlyOnceWith([messages().mainMenu.settings.renderScale]);
+
+    // Resuming from the page, a change undone before it closed.
+    note.mockClear();
+    openSettings();
+    await state.settings.update({ postFxEnabled: !state.settings.current().postFxEnabled });
+    await state.settings.update({ postFxEnabled: !state.settings.current().postFxEnabled });
+    state.menu.close();
+    expect(note).not.toHaveBeenCalled();
+
+    // The menu closing over the page, as a lost link closes it.
+    state.menu.toggle();
+    openSettings();
+    await state.settings.update({ spriteSmoothing: !state.settings.current().spriteSmoothing });
+    state.menu.close();
+    state.menu.close();
+    expect(note).toHaveBeenCalledExactlyOnceWith([messages().mainMenu.settings.spriteSmoothing]);
   });
 
   it('disposal releases an open menu and restores inert siblings', () => {

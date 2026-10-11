@@ -53,6 +53,7 @@ const LIFECYCLE: Readonly<Record<UserMessageTypeName, NoticeLifecycle>> = {
   productionStalled: 'state',
   constructionStarved: 'state',
   explorationFinished: 'event',
+  settingsNeedRestart: 'event',
 };
 
 const LIFECYCLE_BY_TYPE: ReadonlyMap<UserMessageType, NoticeLifecycle> = new Map(

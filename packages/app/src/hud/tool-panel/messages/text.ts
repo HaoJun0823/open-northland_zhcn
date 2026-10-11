@@ -50,6 +50,8 @@ export interface MessageTextParts {
   };
   /** The found paper's name. */
   readonly detail?: string;
+  /** The settings a `settingsNeedRestart` note names, by their labels. */
+  readonly settings?: readonly string[];
   /** The course a `canDoNewJob` note reports, and the trade it taught. */
   readonly training?: { readonly course: 'barracks' | 'school'; readonly profession: string };
   /** Why a `productionStalled` note's workshop stands still; `goodName` names the good it is about. */
@@ -180,6 +182,7 @@ export function composeMessageText(
     stance: parts.stanceName ?? '',
     item: parts.detail ?? '',
     profession: parts.training?.profession ?? '',
+    settings: parts.settings?.join(', ') ?? '',
     ...(parts.fight === undefined ? {} : fightValues(parts.fight, copy, localeTag)),
   };
   if (name === 'familyBlocked') {

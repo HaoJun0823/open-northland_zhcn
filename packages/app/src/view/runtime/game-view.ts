@@ -149,6 +149,7 @@ import { relatedWorldLoader } from './save-load/related-world.js';
 import { worldThumbnail } from './save-load/thumbnail.js';
 import { createScriptPresentation } from './script-presentation.js';
 import { mountScriptTints } from './script-tints.js';
+import { noteRestartOnLeave } from './settings-restart.js';
 import { createSubMissions, type PrepareSubMission } from './sub-missions.js';
 import { createWorldEventHandler } from './world-events.js';
 import { createWorldTeardown } from './world-teardown.js';
@@ -1141,6 +1142,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       canLoad: !sharedClock,
       pauseStopsClock: !sharedClock,
       ...(deps.netPanel !== undefined ? { onNetwork: () => toolPanel.controller.openNetwork() } : {}),
+      onSettingsLeft: noteRestartOnLeave((labels) => toolPanel.controller.noteSettingsRestart(labels)),
     });
 
     const netOverlays =

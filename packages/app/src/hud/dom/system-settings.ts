@@ -1,6 +1,7 @@
 import { messages } from '../../i18n/index.js';
 import type { GameSettingsRuntime } from '../../view/runtime/game-settings.js';
 import { createSettingsPage, initialSettingsMemory } from '../../view/settings-page.js';
+import type { MenuSettings } from '../../view/settings-store.js';
 import { createTooltip } from '../../view/tooltip.js';
 import { GLYPH } from './icons.js';
 import { attachTipLayer } from './parts/tip-layer.js';
@@ -13,6 +14,8 @@ export function createSystemSettings(opts: {
   readonly onBack: () => void;
   readonly onClose: () => void;
   readonly confirmRestore: () => Promise<boolean>;
+  /** The page closed, whichever way, with the settings it opened on and the ones it leaves. */
+  readonly onLeave?: (opened: MenuSettings, closed: MenuSettings) => void;
 }) {
   const copy = messages();
   const frame = createHudWindow(opts.plane, {
@@ -27,6 +30,7 @@ export function createSystemSettings(opts: {
   frame.element.setAttribute('aria-modal', 'true');
   frame.onDismiss(opts.onClose);
   const memory = initialSettingsMemory();
+  let openedOn: MenuSettings | null = null;
   const page = createSettingsPage({
     settings: opts.settings,
     memory,
@@ -60,6 +64,7 @@ export function createSystemSettings(opts: {
     el: frame.element,
     open(): void {
       tips.hide();
+      openedOn = opts.settings.current();
       page.render();
       frame.open();
       page.el.querySelector<HTMLElement>('.is-active')?.focus();
@@ -74,6 +79,10 @@ export function createSystemSettings(opts: {
       tips.hide();
       page.suspend();
       frame.close();
+      if (openedOn === null) return;
+      const opened = openedOn;
+      openedOn = null;
+      opts.onLeave?.(opened, opts.settings.current());
     },
   };
 }

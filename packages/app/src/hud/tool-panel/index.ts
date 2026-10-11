@@ -330,6 +330,9 @@ export interface ToolPanelController {
   /** Per-frame hook for the residents window's row figures; `alpha` is the frame's inter-tick
    *  fraction. */
   presentFigures(snapshot: WorldSnapshot, alpha: number): void;
+  /** Tell the player, in the notification column, that the settings named by `labels` take effect when
+   *  the map starts again. */
+  noteSettingsRestart(labels: readonly string[]): void;
   state(): ToolPanelState;
   restore(state: ToolPanelState): void;
   /** Show the session's clock as it stands, without pushing to the loop: a change made elsewhere. */
@@ -987,6 +990,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       mapViews: () => bookFrames(windows.mission.views()),
       presentMessages: (snapshot, events, departed, alpha) =>
         messageCenter.present(snapshot, events, departed, alpha),
+      noteSettingsRestart: (labels) => messageCenter.noteSettingsRestart(labels),
       presentFigures: (snapshot, alpha): void => {
         residentFigures.paint(snapshot, windows.byId.residents.figureSlots(), snapshot.tick, alpha);
       },

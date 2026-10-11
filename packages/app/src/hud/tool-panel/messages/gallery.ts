@@ -10,9 +10,11 @@ import {
   type SnapshotEntity,
   settlerJobType,
 } from '../../../game/snapshot.js';
+import { messages } from '../../../i18n/index.js';
 import type { MetSeat } from './from-diplomacy.js';
 import { type BuildingTrades, raiseFight, raiseUnlocks } from './from-events.js';
 import { type MessageNaming, MessageRaiser, nodeOf, type RaisedMessage } from './raise.js';
+import { settingsRestartNote } from './settings-restart.js';
 import { raiseShortage } from './site-shortages.js';
 import {
   type MessageTechnology,
@@ -176,6 +178,11 @@ export function galleryMessages(
     }
     if (name === 'specialItemFound') {
       raisePaper();
+      continue;
+    }
+    if (name === 'settingsNeedRestart') {
+      const note = settingsRestartNote([messages().mainMenu.settings.renderScale], naming);
+      raiser.raise(`${type}|settings`, note.pending, note.compose);
       continue;
     }
     if (HOUSE_ROWS.has(name)) {

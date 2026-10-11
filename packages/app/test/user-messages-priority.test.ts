@@ -13,12 +13,13 @@ import {
 } from '../src/hud/tool-panel/messages/types.js';
 
 /** The original's types and the attack notes; this game's own `familyBlocked`, `productionStalled`,
- *  `constructionStarved` and `explorationFinished` are pinned on their own. */
+ *  `constructionStarved`, `explorationFinished` and `settingsNeedRestart` are pinned on their own. */
 const OWN_TYPES: readonly UserMessageType[] = [
   USER_MESSAGE_TYPE.familyBlocked,
   USER_MESSAGE_TYPE.productionStalled,
   USER_MESSAGE_TYPE.constructionStarved,
   USER_MESSAGE_TYPE.explorationFinished,
+  USER_MESSAGE_TYPE.settingsNeedRestart,
 ];
 const ALL_TYPES = (Object.values(USER_MESSAGE_TYPE) as UserMessageType[]).filter(
   (type) => !OWN_TYPES.includes(type),
@@ -71,6 +72,10 @@ describe('user message priority (original behavior)', () => {
     expect(messagePriority(USER_MESSAGE_TYPE.productionStalled)).toBe(1);
     expect(messagePriority(USER_MESSAGE_TYPE.explorationFinished)).toBe(1);
     expect(messagePriority(USER_MESSAGE_TYPE.constructionStarved)).toBe(2);
+  });
+
+  it('ranks the settings restart note important, so no filter level hides it', () => {
+    expect(messagePriority(USER_MESSAGE_TYPE.settingsNeedRestart)).toBe(2);
   });
 
   it('shows a message when its priority reaches the filter level', () => {

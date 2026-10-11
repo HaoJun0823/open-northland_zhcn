@@ -41,6 +41,7 @@ import {
 import type { MessageNaming, RaisedMessage } from './raise.js';
 import { isSubjectGone, NoteRetirement } from './retire.js';
 import { createSeatFeeds } from './seat-feeds.js';
+import { clearSettingsRestart, settingsRestartNote } from './settings-restart.js';
 import type { SiteSeam } from './site-shortages.js';
 import { composeMessageText, fightSummary } from './text.js';
 import type { PendingMessage, UserMessage } from './types.js';
@@ -126,6 +127,9 @@ export interface MessageCenter {
     departed: readonly EntitySnapshot[],
     alpha: number,
   ): void;
+  /** Raise, on the next presented frame, the note that the settings named by `labels` take effect when
+   *  the map starts again. It takes the place of an earlier such note, shown or dismissed. */
+  noteSettingsRestart(labels: readonly string[]): void;
   state(): MessageFeedState;
   /** Adopt another mount's feed, so a HUD rescale keeps the notes and the level. */
   restore(state: MessageFeedState): void;
@@ -359,6 +363,13 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
     if (shown !== null) deps.onNoteShown(shown);
   };
   const dismissed = (pending: PendingMessage): boolean => feeds.current.dismissed(pending);
+  // Raised by the next frame, stamped with its presented tick, whether or not a tick ran since: the
+  // settings are usually closed over a paused game.
+  let restartLabels: readonly string[] | null = null;
+  const raiseSettingsRestart = (labels: readonly string[], tick: number): void => {
+    clearSettingsRestart(feeds.current, tick);
+    take(settingsRestartNote(labels, naming), tick);
+  };
   let lastGalleryTick: number | null = null;
   const galleryDue = (tick: number): boolean => {
     if (lastGalleryTick !== null && tick - lastGalleryTick < SNAPSHOT_SWEEP_INTERVAL_TICKS) return false;
@@ -416,6 +427,10 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
         } else feeds.current.expire(snapshot.tick, (m) => isSubjectGone(m, snapshot), true);
         previous = snapshot;
       }
+      if (restartLabels !== null) {
+        raiseSettingsRestart(restartLabels, snapshot.tick);
+        restartLabels = null;
+      }
       if (
         feeds.current.version() !== renderedVersion ||
         (openKey !== null && snapshot.tick >= ageChangeTick)
@@ -436,6 +451,9 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
       // stay part of the card. A paused sim holds the tick, so they hold their frame with it.
       const { slots, box } = column.figures();
       figures.render(snapshot, slots, box, snapshot.tick, alpha, unpictured);
+    },
+    noteSettingsRestart: (labels): void => {
+      restartLabels = labels;
     },
     state: () => feeds.current.state(),
     restore: (state): void => {

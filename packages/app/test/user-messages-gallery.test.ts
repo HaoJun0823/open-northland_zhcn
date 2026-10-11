@@ -138,6 +138,7 @@ describe('notice gallery', () => {
       USER_MESSAGE_TYPE.diplomacyChanged,
       USER_MESSAGE_TYPE.playerDied,
       USER_MESSAGE_TYPE.specialItemFound,
+      USER_MESSAGE_TYPE.settingsNeedRestart,
     ]);
   });
 });

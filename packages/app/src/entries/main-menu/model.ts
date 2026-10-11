@@ -21,7 +21,10 @@ export const VERSION_LINE = `alpha ${GAME_VERSION} · AGPL-3.0`;
 
 export type MainNavItem =
   | {
-      readonly id: Extract<MenuScreen, 'newGame' | 'load' | 'multiplayer' | 'settings' | 'credits'>;
+      readonly id: Extract<
+        MenuScreen,
+        'newGame' | 'load' | 'multiplayer' | 'catalogue' | 'settings' | 'credits'
+      >;
       readonly kind: 'open';
     }
   | { readonly id: 'exit'; readonly kind: 'exit' };
@@ -31,6 +34,7 @@ export const MAIN_NAV: readonly MainNavItem[] = [
   { id: 'newGame', kind: 'open' },
   { id: 'load', kind: 'open' },
   { id: 'multiplayer', kind: 'open' },
+  { id: 'catalogue', kind: 'open' },
   { id: 'settings', kind: 'open' },
   { id: 'exit', kind: 'exit' },
 ];
@@ -43,7 +47,7 @@ export function mainNavFor(browser: boolean): readonly MainNavItem[] {
 /** Where Esc and the back link lead; `null` on the main screen. */
 export function backTarget(screen: MenuScreen): MenuScreen | null {
   if (screen === 'main') return null;
-  if (screen === 'lobby' || screen === 'catalogue') return 'newGame';
+  if (screen === 'lobby') return 'newGame';
   return 'main';
 }
 

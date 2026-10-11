@@ -49,10 +49,11 @@ export function createPanel(options: CreatePanelOptions) {
       mapList.closeCatalogue();
       if (!mapList.element.hidden) showMapList(false);
     },
-    /** True when the map list (or the catalogue over it) was open and a step closed. */
+    /** True when the map list (or the catalogue over it) was open and is now closed. */
     closeMapList(): boolean {
       if (mapList.element.hidden) return false;
-      if (!mapList.closeCatalogue()) showMapList(false);
+      mapList.closeCatalogue();
+      showMapList(false);
       return true;
     },
   };

@@ -8,8 +8,8 @@ import { clearPendingLoad } from '../../view/runtime/save-load/pending-store.js'
 import { initialSettingsMemory } from '../../view/settings-page.js';
 import { warmGraphicsInBackground } from '../../view/shader-warmup.js';
 import { startBackdropRotation } from './backdrops.js';
-import { initialCatalogueMemory } from './catalogue/model.js';
 import { catalogueScreen } from './catalogue/screen.js';
+import { initialCatalogueMemory } from './catalogue/view.js';
 import { creditsScreen } from './credits.js';
 import { mountFullscreenPrompt } from './fullscreen-prompt.js';
 import { loadSelectScreen } from './load-select.js';

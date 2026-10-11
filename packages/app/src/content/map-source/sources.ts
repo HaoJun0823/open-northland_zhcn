@@ -93,8 +93,8 @@ export function createMapSourceRegistry(deps: MapSourceDeps): MapSourceRegistry 
     }
   };
   const sources = async (shippedFetch: typeof fetch = fetch) => {
-    const [shipped, local] = await Promise.all([deps.shipped(), installed()]);
-    return mergeMapSources(shipped, local, deps.irVersion, shippedFetch);
+    const [listed, local] = await Promise.all([deps.shipped(), installed()]);
+    return mergeMapSources(listed, local, deps.irVersion, shippedFetch);
   };
   return {
     sources: () => sources(),

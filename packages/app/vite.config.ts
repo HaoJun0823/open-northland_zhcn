@@ -21,6 +21,9 @@ async function checkoutPlugins(command: 'serve' | 'build'): Promise<Plugin[]> {
   return plugins.checkoutPlugins(resolve(here, '../..'), command);
 }
 
+/** Where `npm run api` listens with its default port. */
+const LOCAL_API_URL = 'http://127.0.0.1:8790';
+
 const version = gameVersion();
 const clientBuild = clientBuildIdentity(resolve(here, '../..'));
 const restore = restoreIdentity(clientBuild, contentRoot);
@@ -32,8 +35,9 @@ export default defineConfig(async ({ command }) => ({
     __CLIENT_BUILD__: JSON.stringify(clientBuild),
     __GAME_VERSION__: JSON.stringify(version),
     __RESTORE_IDENTITY__: JSON.stringify(restore),
-    // The map catalogue server; unset builds talk to the production one (`content/map-source/api.ts`).
-    __API_URL__: JSON.stringify(process.env.ON_API_URL ?? null),
+    // The map catalogue server: `ON_API_URL`, else the local `npm run api` for the dev server, else
+    // the production one for a build (`content/map-source/api.ts`).
+    __API_URL__: JSON.stringify(process.env.ON_API_URL ?? (command === 'serve' ? LOCAL_API_URL : null)),
     // The sim's fixed-point overflow asserts run in the dev server and are compiled out of builds.
     __SIM_ASSERTS__: JSON.stringify(command === 'serve'),
   },

@@ -12,18 +12,32 @@ describe('backTarget', () => {
     expect(backTarget('load')).toBe('main');
     expect(backTarget('settings')).toBe('main');
     expect(backTarget('credits')).toBe('main');
+    expect(backTarget('catalogue')).toBe('main');
   });
 });
 
 describe('MAIN_NAV', () => {
   it('lists the menu order with multiplayer available and credits hidden', () => {
-    expect(MAIN_NAV.map((item) => item.id)).toEqual(['newGame', 'load', 'multiplayer', 'settings', 'exit']);
+    expect(MAIN_NAV.map((item) => item.id)).toEqual([
+      'newGame',
+      'load',
+      'multiplayer',
+      'catalogue',
+      'settings',
+      'exit',
+    ]);
     expect(MAIN_NAV.find((item) => item.id === 'multiplayer')?.kind).toBe('open');
   });
 
   it('offers the exit only in the desktop shell, since a page cannot close its browser tab', () => {
     expect(mainNavFor(false).map((item) => item.id)).toContain('exit');
-    expect(mainNavFor(true).map((item) => item.id)).toEqual(['newGame', 'load', 'multiplayer', 'settings']);
+    expect(mainNavFor(true).map((item) => item.id)).toEqual([
+      'newGame',
+      'load',
+      'multiplayer',
+      'catalogue',
+      'settings',
+    ]);
   });
 });
 

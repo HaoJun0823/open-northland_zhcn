@@ -1,81 +1,10 @@
-/* The map catalogue. It reuses the map select's list column and details card (map-select.css); this
-   sheet adds the status badges, the byline and the action row's links. */
+/* The map catalogue view. Tokens and shared controls live in menu.css; the search field and the
+   scroll rail come from map-select.css. */
 
-/* The shared list body is a flex row, which outweighs the UA's `[hidden]` while the catalogue shows
-   in a room's map pick. */
+/* The room's map list is a flex row, which outweighs the UA's `[hidden]` while the catalogue shows
+   in its place. */
 .main-menu__map-body[hidden] {
   display: none;
-}
-
-/* Screenshots are photographs of the game, not pixel art; they scale smoothly. */
-.catalogue .main-menu__map-thumb img,
-.catalogue .main-menu__map-preview img {
-  image-rendering: auto;
-}
-
-.catalogue__badge {
-  color: var(--text-muted);
-}
-
-.catalogue__badge.is-installed,
-.catalogue__badge.is-updatable {
-  color: var(--accent-bright);
-}
-
-.catalogue__badge.is-failed,
-.catalogue__badge.is-gameTooOld,
-.catalogue__badge.is-serverTooOld,
-.catalogue__badge.is-redownload {
-  color: var(--danger-text);
-}
-
-.catalogue__byline,
-.catalogue__facts {
-  font:
-    400 calc(var(--u) * 20) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-label);
-}
-
-.catalogue__facts[hidden] {
-  display: none;
-}
-
-.catalogue__status {
-  font:
-    500 calc(var(--u) * 20) / 1.3 "Alegreya Sans",
-    system-ui,
-    sans-serif;
-  color: var(--text-body);
-}
-
-.catalogue__status.is-failed,
-.catalogue__status.is-gameTooOld,
-.catalogue__status.is-serverTooOld,
-.catalogue__status.is-redownload {
-  color: var(--danger-text);
-}
-
-.catalogue__desc {
-  -webkit-line-clamp: 6;
-  white-space: pre-line;
-}
-
-.catalogue__actions {
-  flex-wrap: wrap;
-  align-items: center;
-  gap: calc(var(--u) * 14);
-}
-
-.catalogue__actions .main-menu__ghost {
-  padding: calc(var(--u) * 14) calc(var(--u) * 26);
-  font-size: calc(var(--u) * 21);
-}
-
-.catalogue__actions .main-menu__ghost:disabled {
-  cursor: var(--cursor-default, default);
-  opacity: 0.5;
 }
 
 .catalogue__open {
@@ -83,6 +12,705 @@
   font-size: calc(var(--u) * 21);
 }
 
-.catalogue__open[hidden] {
+.catalogue__open[hidden],
+.catalogue__browse[hidden],
+.catalogue-installed[hidden],
+.catalogue-detail[hidden],
+.catalogue-detail [hidden],
+.catalogue-sidebar__reset[hidden],
+.catalogue-author__list[hidden] {
   display: none;
+}
+
+.catalogue {
+  flex: 1;
+  display: flex;
+  gap: calc(var(--u) * 36);
+  min-height: 0;
+}
+
+/* The multiplayer screen sizes for its room cards; the grid keeps the menu sub-screens' density. */
+.network-menu__pick .catalogue {
+  --u: calc(var(--u-base) * 0.8);
+}
+
+.catalogue__browse {
+  flex: 1;
+  display: flex;
+  gap: calc(var(--u) * 36);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---- Filter column ---- */
+
+.catalogue-sidebar {
+  width: calc(var(--u) * 330);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 20);
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: calc(var(--u) * 8);
+  scrollbar-color: rgb(var(--accent-rgb) / 0.65) transparent;
+  scrollbar-width: thin;
+}
+
+.catalogue-sidebar__fields {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 18);
+}
+
+.catalogue-filter {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 8);
+}
+
+.catalogue-filter__label {
+  font:
+    700 calc(var(--u) * 15) / 1 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+.catalogue-filter .main-menu__dropdown-btn {
+  width: 100%;
+  min-width: 0;
+  padding: calc(var(--u) * 11) calc(var(--u) * 44) calc(var(--u) * 11) calc(var(--u) * 14);
+  font-size: calc(var(--u) * 20);
+}
+
+/* Four states do not fit side by side in the column; two rows of two do. */
+.catalogue-filter__seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.catalogue-filter__seg .main-menu__seg-btn {
+  padding: calc(var(--u) * 10) calc(var(--u) * 8);
+  font-size: calc(var(--u) * 18);
+  text-align: center;
+}
+
+.catalogue-filter__toggle {
+  cursor: var(--cursor-pointer, pointer);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 14);
+  font:
+    400 calc(var(--u) * 20) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-body);
+}
+
+.catalogue-sidebar__reset {
+  align-self: flex-start;
+  padding: calc(var(--u) * 10) calc(var(--u) * 20);
+  font-size: calc(var(--u) * 19);
+}
+
+.catalogue-author {
+  position: relative;
+}
+
+.catalogue-author__input {
+  margin-bottom: 0;
+  padding: calc(var(--u) * 10) calc(var(--u) * 14);
+  font-size: calc(var(--u) * 20);
+}
+
+.catalogue-author__list {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(var(--u) * 320);
+  padding: 4px;
+  overflow-y: auto;
+  border: 2px solid rgb(var(--accent-rgb) / 0.5);
+  border-radius: 6px;
+  background: var(--bg-base);
+  box-shadow: 0 8px 18px #000a;
+}
+
+.catalogue-author__option {
+  all: unset;
+  cursor: var(--cursor-pointer, pointer);
+  padding: calc(var(--u) * 7) calc(var(--u) * 10);
+  border-radius: 4px;
+  font:
+    500 calc(var(--u) * 19) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalogue-author__option:hover,
+.catalogue-author__option:focus-visible {
+  color: var(--accent-bright);
+  background: rgb(var(--accent-rgb) / 0.12);
+}
+
+/* ---- Results ---- */
+
+.catalogue__results {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.catalogue__results-head {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--u) * 24);
+  margin-bottom: calc(var(--u) * 20);
+}
+
+.catalogue-toolbar {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--u) * 20);
+  min-width: 0;
+}
+
+.catalogue-toolbar__search {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.catalogue__count {
+  padding: 0 0 calc(var(--u) * 14);
+  white-space: nowrap;
+}
+
+.catalogue__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 320), 1fr));
+  align-content: start;
+  gap: calc(var(--u) * 22);
+  padding-bottom: calc(var(--u) * 8);
+}
+
+.catalogue__grid > .main-menu__map-empty,
+.catalogue__grid > .main-menu__ghost {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.catalogue-card {
+  cursor: var(--cursor-pointer, pointer);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 2px solid rgb(var(--accent-rgb) / 0.2);
+  border-radius: 8px;
+  background: rgba(16, 29, 44, 0.6);
+  overflow: hidden;
+  outline: none;
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+
+.catalogue-card:hover,
+.catalogue-card:focus-visible {
+  border-color: rgb(var(--accent-rgb) / 0.55);
+  box-shadow: 0 0 24px rgb(var(--accent-rgb) / 0.15);
+}
+
+.catalogue-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 30px rgb(var(--accent-rgb) / 0.3);
+}
+
+.catalogue-card__picture,
+.catalogue-detail__picture,
+.catalogue-installed__thumb {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  background: linear-gradient(160deg, #37424f, #232c36);
+}
+
+.catalogue-card__picture {
+  aspect-ratio: 16 / 10;
+}
+
+/* Screenshots are photographs of the game, not pixel art; they scale smoothly. */
+.catalogue-card__picture img,
+.catalogue-installed__thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.catalogue-badge {
+  display: inline-block;
+  padding: calc(var(--u) * 4) calc(var(--u) * 12);
+  border: 1px solid rgba(219, 232, 227, 0.25);
+  border-radius: 999px;
+  background: rgba(12, 20, 32, 0.85);
+  font:
+    700 calc(var(--u) * 14) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.catalogue-card__picture .catalogue-badge {
+  position: absolute;
+  top: calc(var(--u) * 10);
+  left: calc(var(--u) * 10);
+}
+
+.catalogue-badge.is-installed {
+  border-color: transparent;
+  background: var(--accent-bright);
+  color: var(--bg-base);
+}
+
+.catalogue-badge.is-updatable,
+.catalogue-badge.is-redownload {
+  border-color: rgb(var(--accent-rgb) / 0.8);
+  color: var(--accent-bright);
+}
+
+.catalogue-badge.is-failed,
+.catalogue-badge.is-gameTooOld,
+.catalogue-badge.is-serverTooOld {
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.catalogue-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 8);
+  padding: calc(var(--u) * 14) calc(var(--u) * 18) calc(var(--u) * 16);
+}
+
+.catalogue-card__title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font:
+    700 calc(var(--u) * 23) / 1.15 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-primary);
+}
+
+.catalogue-card.is-selected .catalogue-card__title {
+  color: var(--accent-bright);
+}
+
+.catalogue-card__author {
+  font:
+    400 calc(var(--u) * 18) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalogue-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 6);
+}
+
+.catalogue-chip {
+  padding: calc(var(--u) * 3) calc(var(--u) * 10);
+  border: 1px solid rgb(var(--accent-rgb) / 0.28);
+  border-radius: 999px;
+  font:
+    400 calc(var(--u) * 15) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: rgba(180, 205, 200, 0.85);
+}
+
+.catalogue-card__foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 10);
+  padding-top: calc(var(--u) * 6);
+}
+
+.catalogue-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 4) calc(var(--u) * 12);
+  min-width: 0;
+  font:
+    400 calc(var(--u) * 16) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-muted);
+}
+
+.catalogue-stat.is-likes::before,
+.catalogue-stat.is-downloads::before {
+  margin-right: calc(var(--u) * 4);
+  color: var(--accent);
+}
+
+.catalogue-stat.is-likes::before {
+  content: "♥";
+}
+
+.catalogue-stat.is-downloads::before {
+  content: "↓";
+}
+
+.catalogue-card__action {
+  flex: none;
+}
+
+.catalogue-card__action .main-menu__primary,
+.catalogue-installed__actions .main-menu__primary {
+  padding: calc(var(--u) * 10) calc(var(--u) * 22);
+  font-size: calc(var(--u) * 19);
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 18px rgb(var(--accent-rgb) / 0.3);
+}
+
+.catalogue-card__action .main-menu__ghost,
+.catalogue-installed__actions .main-menu__ghost {
+  display: inline-block;
+  padding: calc(var(--u) * 9) calc(var(--u) * 18);
+  font-size: calc(var(--u) * 18);
+}
+
+.catalogue .main-menu__ghost:disabled {
+  cursor: var(--cursor-default, default);
+  opacity: 0.55;
+}
+
+/* ---- Detail panel ---- */
+
+.catalogue-detail {
+  position: relative;
+  width: calc(var(--u) * 660);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 2px solid rgb(var(--accent-rgb) / 0.35);
+  border-radius: 8px;
+  background: rgba(16, 29, 44, 0.8);
+  box-shadow: 0 0 34px rgb(var(--accent-rgb) / 0.15);
+  overflow: hidden;
+}
+
+.catalogue-detail__close {
+  all: unset;
+  cursor: var(--cursor-pointer, pointer);
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--u) * 12);
+  right: calc(var(--u) * 12);
+  width: calc(var(--u) * 44);
+  height: calc(var(--u) * 44);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(12, 20, 32, 0.85);
+  font:
+    400 calc(var(--u) * 32) / 1 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-body);
+}
+
+.catalogue-detail__close:hover,
+.catalogue-detail__close:focus-visible {
+  color: var(--accent-bright);
+}
+
+.catalogue-detail__scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 14);
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: calc(var(--u) * 22);
+  scrollbar-color: rgb(var(--accent-rgb) / 0.65) transparent;
+  scrollbar-width: thin;
+}
+
+.catalogue-detail__scroll > :not(.catalogue-detail__picture) {
+  margin-inline: calc(var(--u) * 28);
+}
+
+.catalogue-detail__picture {
+  aspect-ratio: 16 / 10;
+  border-bottom: 1px solid rgb(var(--accent-rgb) / 0.25);
+}
+
+.catalogue-detail__picture img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: rgba(10, 18, 30, 0.55);
+}
+
+.catalogue-detail__title {
+  margin-top: calc(var(--u) * 6);
+  margin-bottom: 0;
+  font:
+    700 calc(var(--u) * 34) / 1.1 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.catalogue-detail__byline {
+  font:
+    400 calc(var(--u) * 20) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-label);
+}
+
+.catalogue-detail__status {
+  font:
+    500 calc(var(--u) * 19) / 1.3 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.catalogue-detail__status.is-failed,
+.catalogue-detail__status.is-gameTooOld,
+.catalogue-detail__status.is-serverTooOld,
+.catalogue-detail__status.is-redownload {
+  color: var(--danger-text);
+}
+
+.catalogue-detail__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: calc(var(--u) * 6) calc(var(--u) * 20);
+  margin-block: 0;
+  font:
+    400 calc(var(--u) * 18) / 1.3 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+}
+
+.catalogue-detail__facts dt {
+  color: var(--text-label);
+}
+
+.catalogue-detail__facts dd {
+  margin: 0;
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.catalogue-detail__heading {
+  margin-top: calc(var(--u) * 6);
+  margin-bottom: 0;
+  font:
+    700 calc(var(--u) * 15) / 1 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+.catalogue-detail__maps {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 6);
+  margin-block: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.catalogue-detail__maps li {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(var(--u) * 14);
+  font:
+    400 calc(var(--u) * 18) / 1.3 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+}
+
+.catalogue-detail__map-name {
+  min-width: 0;
+  color: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalogue-detail__map-meta {
+  flex: none;
+  color: var(--text-muted);
+}
+
+/* The author's text as written: their line breaks stay. */
+.catalogue-detail__description {
+  margin-block: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  font:
+    400 calc(var(--u) * 19) / 1.45 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-muted);
+}
+
+.catalogue-detail__description.is-empty {
+  font-style: italic;
+}
+
+.catalogue-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: calc(var(--u) * 12);
+  padding: calc(var(--u) * 16) calc(var(--u) * 24);
+  border-top: 1px solid rgb(var(--accent-rgb) / 0.25);
+  background: rgba(10, 18, 30, 0.55);
+}
+
+.catalogue-detail__actions .main-menu__ghost {
+  padding: calc(var(--u) * 12) calc(var(--u) * 22);
+  font-size: calc(var(--u) * 20);
+}
+
+.catalogue-detail__actions .main-menu__primary {
+  padding: calc(var(--u) * 14) calc(var(--u) * 34);
+  font-size: calc(var(--u) * 22);
+}
+
+/* ---- Installed tab ---- */
+
+.catalogue-installed {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 18);
+  min-width: 0;
+  min-height: 0;
+}
+
+.catalogue-installed__summary {
+  font:
+    500 calc(var(--u) * 22) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-body);
+}
+
+.catalogue-installed__list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 10);
+}
+
+.catalogue-installed__row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 20);
+  padding: calc(var(--u) * 14) calc(var(--u) * 20);
+  border-left: 4px solid transparent;
+  border-radius: 6px;
+  background: rgba(16, 29, 44, 0.45);
+  transition: background-color 150ms ease-out;
+}
+
+.catalogue-installed__row.is-listed {
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.catalogue-installed__row.is-listed:hover {
+  background: rgb(var(--accent-rgb) / 0.08);
+}
+
+.catalogue-installed__row.is-selected {
+  border-left-color: var(--accent);
+  background: rgb(var(--accent-rgb) / 0.12);
+}
+
+.catalogue-installed__thumb {
+  width: calc(var(--u) * 128);
+  height: calc(var(--u) * 80);
+  border-radius: 4px;
+}
+
+.catalogue-installed__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 6);
+}
+
+.catalogue-installed__title {
+  font:
+    500 calc(var(--u) * 24) / 1.2 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalogue-installed__title .catalogue-badge {
+  margin-left: calc(var(--u) * 12);
+  vertical-align: 0.15em;
+}
+
+.catalogue-installed__meta {
+  font:
+    400 calc(var(--u) * 18) / 1.3 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: var(--text-muted);
+}
+
+.catalogue-installed__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 12);
 }

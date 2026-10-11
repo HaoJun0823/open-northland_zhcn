@@ -87,6 +87,9 @@ joins so the join can be tested headlessly.
 A map is resolved through `src/content/map-source/`, which joins the shipped `maps-index.json` with
 the installed catalogue maps and gives each map the `fetch` its files load through. Never assume
 `/maps/<id>` is served by the page: an installed web map lives in IndexedDB.
+The catalogue API is `?api=`, else `ON_API_URL`, else the local `npm run api` server
+(`http://127.0.0.1:8790`) under the Vite dev server and `DEFAULT_API_URL` in a build.
+`test/support/mock-catalogue-api.ts` serves a synthetic catalogue for browser checks.
 
 `src/catalog/` is committed fallback data. `src/game/sandbox/` assembles the shared fallback
 `ContentSet`. Scenes consume that shared content and define setup only; they do not copy jobs, goods,

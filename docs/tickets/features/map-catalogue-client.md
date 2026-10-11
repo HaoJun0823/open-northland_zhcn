@@ -1,44 +1,22 @@
-# Rework the catalogue into a browsing view of its own
+# Accept the catalogue browsing view
 
 **Area:** app, desktop · **Priority:** P1
-**Needs user:** visual acceptance of the view; a manual check that an installed catalogue map
-survives a desktop relaunch
+**Needs user:** visual acceptance of the view; the checks below against the real API and the desktop
 
-The first catalogue screen lists the upstream entries one to one inside New Game and the room map
-picker. The owner wants a catalogue in the reworked menu style that is good to browse: sort by what
-players liked and downloaded, filter by what matters for a match, read the description, pick what to
-install. Download, install store, lobby announcement and the API install path stay as they are.
+The catalogue view (`packages/app/src/entries/main-menu/catalogue/`) is built: a main-menu screen and
+the room's catalogue button open it, with sorting, filters, search, a card grid, a detail panel and an
+Installed tab. The browser pass ran against `packages/app/test/support/mock-catalogue-api.ts`.
 Epic: [`docs/tickets/api/README.md`](../api/README.md).
 
 ## Scope
 
-- One full-screen view reached from the main menu ("Katalog map"). New Game and the lobby list only
-  local maps (shipped and installed); the lobby keeps its catalogue button, which opens the same view
-  and returns to the room with the chosen map.
-- Sorting: most liked (default), most downloaded, newest, recently updated, title, author.
-- Filters: kind (single, multiplayer, campaign, series), player count, languages, map size (from the
-  entry's cell dimensions), author with suggestions, state (all, installed, update available, not
-  installed), "ready to play" on by default (conversion `ok`), external links hidden by default.
-- Search over title, author and description.
-- Cards in a grid: picture, title, author, kind/players/languages chips, likes, downloads, date,
-  state badge, one action button.
-- Detail panel: picture (the installed map's minimap once local), full description as written,
-  statistics, version, file size, the maps of a pack with their players and size, catalogue page
-  link, download / play / remove.
-- An "Installed" tab: what is on disk, space used, updates, removal.
-- Categories are shown from the entry's `kind` and `categoryLabel` (see
-  [API server](../../DEVELOPMENT.md#api-server)); no upstream string in the client.
-- Dev default: with `ON_API_URL` unset, the Vite dev server talks to `http://127.0.0.1:8790` (the
-  `api` root script syncing from culturesnation) and production builds to `DEFAULT_API_URL`. The mock
-  catalogue server used by the browser tests moves into `packages/app/test/support/` with synthetic
-  content; it is a test tool, not a dev dependency.
-- Carried over: the world-name lookup caches per document, so a map installed while the load screen
-  is open shows its id there; read names through the map source layer. `npm run test:desktop` on the
-  installed-maps bridge and the manual relaunch check.
+- Visual acceptance of the view at 1280x720 and at 4K, in the main menu and in a multiplayer room.
+- The view against the real local API (`npm run api`, then `npm run dev` with `ON_API_URL` unset)
+  with the full catalogue: load time and scroll with every card, real descriptions and categories.
+- Desktop: install a catalogue map, quit, relaunch, play it; `npm run test:desktop`.
+- Decide whether an installed catalogue map gets a terrain minimap. The detail panel shows the
+  installed map's authored picture, else the catalogue thumbnail; catalogue maps ship no `.map.png`.
 
 ## Verify
 
-- Browser pass against the mock: sorting and each filter change the list; detail panel, install,
-  update, remove and the lobby round trip work; strings in all four languages.
-- Manual: the view against the real local API with the full catalogue; desktop relaunch check.
-- `npm run check`, `npm run check:docs`, `npm run build`, `npm test`, `npm run test:desktop`.
+- The checks above; `npm run test:desktop`.

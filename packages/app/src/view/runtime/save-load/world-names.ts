@@ -32,12 +32,8 @@ export function worldNamesOf(
   };
 }
 
-/** The known maps, read once per document: the roster cannot change under a session, and every panel
- *  open would otherwise re-download the index. */
-let mapList: Promise<readonly MapsIndexEntry[]> | null = null;
-
-/** The join over the shipped and installed maps; contentless checkouts degrade to token pass-through. */
+/** The join over the shipped and installed maps, read through the map source layer on every call so a
+ *  map installed since shows its name; contentless checkouts degrade to token pass-through. */
 export async function worldNameIndex(): Promise<WorldNameOf> {
-  mapList ??= loadMapSources().then((sources) => sources.map((source) => source.entry));
-  return worldNamesOf(await mapList);
+  return worldNamesOf((await loadMapSources()).map((source) => source.entry));
 }

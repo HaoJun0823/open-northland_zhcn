@@ -15,6 +15,7 @@ export const enSurfaces = {
       newGame: 'New game',
       load: 'Load game',
       multiplayer: 'Multiplayer',
+      catalogue: 'Map catalogue',
       settings: 'Settings',
       credits: 'Credits',
       exit: 'Exit',

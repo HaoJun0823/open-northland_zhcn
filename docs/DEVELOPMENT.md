@@ -627,10 +627,11 @@ out of the upstream category text by keyword (`singleplayer`, `multiplayer`, `ka
 which `categoryLabel` keeps as written; a category no keyword places is listed as `other`. A
 downloaded file's size is its `file.bytes`, and each converted map names its grid as `cells`.
 
-The app reaches the API at `ON_API_URL` (default `https://api.opennorthland.org`), stamped into the
-build by Vite and passed on by the desktop shell; a `?api=http://127.0.0.1:8790` URL parameter
-overrides it for one session, the way `?relay=` does for the relay. The catalogue screen sits under
-New Game and in a multiplayer room's map picker.
+The app reaches the API at `ON_API_URL`, stamped into the build by Vite and passed on by the desktop
+shell: a build defaults to `https://api.opennorthland.org`, the Vite dev server to
+`http://127.0.0.1:8790` (the local `api` script); a `?api=http://127.0.0.1:8790` URL parameter
+overrides it for one session, the way `?relay=` does for the relay. The catalogue is its own screen
+in the main menu; a multiplayer room's map picker opens the same screen and returns with the choice.
 
 `ON_API_DATA_DIR` (default `.api-data` in the directory the server starts in, the checkout root for
 `npm run api`, ignored by Git) holds:

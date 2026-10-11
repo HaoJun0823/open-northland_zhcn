@@ -20,7 +20,9 @@ export function catalogEntry(
     shortDescription: '',
     fullDescription: '',
     author: 'Ania',
-    category: 'multi',
+    kind: 'multi',
+    series: false,
+    categoryLabel: 'Mapy multiplayer',
     publishedAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     downloadCount: 0,
@@ -33,6 +35,7 @@ export function catalogEntry(
         mapId,
         fingerprint: TINY_FINGERPRINT,
         languages: ['pol'],
+        cells: { width: TINY_MAP.width, height: TINY_MAP.height },
         index: {
           id: mapId,
           picture: false,

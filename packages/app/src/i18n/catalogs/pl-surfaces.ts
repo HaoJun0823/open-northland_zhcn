@@ -15,6 +15,7 @@ export const plSurfaces = {
       newGame: 'Nowa gra',
       load: 'Wczytaj grę',
       multiplayer: 'Multiplayer',
+      catalogue: 'Katalog map',
       settings: 'Ustawienia',
       credits: 'Twórcy',
       exit: 'Wyjście',

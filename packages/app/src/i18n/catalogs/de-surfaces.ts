@@ -14,6 +14,7 @@ export const deSurfaces = {
       newGame: 'Neues Spiel starten',
       load: 'Spiel laden',
       multiplayer: 'Mehrspieler',
+      catalogue: 'Kartenkatalog',
       settings: 'Einstellungen',
       credits: 'Mitwirkende',
       exit: 'Beenden',

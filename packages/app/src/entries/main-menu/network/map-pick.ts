@@ -1,6 +1,5 @@
 import { messages } from '../../../i18n/index.js';
-import { type CatalogueBrowser, catalogueBrowser } from '../catalogue/browser.js';
-import { initialCatalogueMemory } from '../catalogue/model.js';
+import { type CatalogueView, catalogueView, initialCatalogueMemory } from '../catalogue/view.js';
 import { node } from '../dom.js';
 import { hasClaimableSeat } from '../lobby/roster-state.js';
 import { mapPicker } from '../map-picker.js';
@@ -13,8 +12,9 @@ interface MapPickOptions {
   readonly onMaps: (maps: readonly MapSelectItem[]) => void;
 }
 
-/** The New Game map list under the room listing, with a way back to the create card and the map
- *  catalogue in its place, since leaving the screen would drop the relay connection. */
+/** The New Game map list under the room listing, with a way back to the create card, and the map
+ *  catalogue in its place, since leaving the screen would drop the relay connection. Both lead back to
+ *  the create card: with the chosen map, or without a change on back. */
 export function roomMapPick(options: MapPickOptions) {
   const copy = messages();
   const element = node('div', 'network-menu__pick');
@@ -34,28 +34,27 @@ export function roomMapPick(options: MapPickOptions) {
     onPrimary: options.onChoose,
     onMaps: options.onMaps,
   });
-  const catalogueMemory = initialCatalogueMemory('multi');
-  let catalogue: CatalogueBrowser | null = null;
+  const catalogueMemory = initialCatalogueMemory();
+  catalogueMemory.query = { ...catalogueMemory.query, kind: 'multi' };
+  let catalogue: CatalogueView | null = null;
   const openButton = node('button', 'main-menu__ghost catalogue__open', copy.mapCatalogue.open);
   openButton.type = 'button';
 
-  function closeCatalogue(): boolean {
-    if (catalogue === null) return false;
+  function closeCatalogue(): void {
+    if (catalogue === null) return;
     catalogue.dispose();
     catalogue.tabs.remove();
     catalogue.body.remove();
     catalogue = null;
     title.textContent = copy.network.chooseMap;
-    back.textContent = `← ${copy.mainMenu.screenTitles.multiplayer}`;
     openButton.hidden = false;
     picker.body.hidden = false;
     picker.tabs.hidden = ROOM_TABS.length === 0;
     back.focus();
-    return true;
   }
   function openCatalogue(): void {
     if (catalogue !== null) return;
-    catalogue = catalogueBrowser({
+    catalogue = catalogueView({
       memory: catalogueMemory,
       purpose: 'choose',
       onPick(item) {
@@ -65,7 +64,6 @@ export function roomMapPick(options: MapPickOptions) {
       onInstalledChanged: picker.reload,
     });
     title.textContent = copy.mapCatalogue.open;
-    back.textContent = `← ${copy.network.chooseMap}`;
     openButton.hidden = true;
     picker.body.hidden = true;
     picker.tabs.hidden = true;
@@ -74,7 +72,8 @@ export function roomMapPick(options: MapPickOptions) {
     back.focus();
   }
   back.addEventListener('click', () => {
-    if (!closeCatalogue()) options.onBack();
+    closeCatalogue();
+    options.onBack();
   });
   openButton.addEventListener('click', openCatalogue);
   tools.append(openButton, picker.tabs);
@@ -83,7 +82,6 @@ export function roomMapPick(options: MapPickOptions) {
   return {
     element,
     select: picker.select,
-    /** True when the catalogue was open and is now closed, back on the map list. */
     closeCatalogue,
     dispose(): void {
       catalogue?.dispose();

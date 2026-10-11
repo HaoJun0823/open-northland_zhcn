@@ -120,6 +120,24 @@ describe('the map source layer', () => {
     }
   });
 
+  it('reads the installed maps on every call', async () => {
+    const store = await storeWith([]);
+    const registry = createMapSourceRegistry({
+      shipped: async () => shipped,
+      store: () => store,
+      irVersion: IR,
+    });
+    expect(await registry.find('cn-new')).toBeNull();
+    // Installed while a screen that names maps is open, such as the load list.
+    await store.install('cn-new', [
+      {
+        record: record('cn-new', 'cn-new'),
+        files: new Map([['.json', new TextEncoder().encode(JSON.stringify(TINY_MAP))]]),
+      },
+    ]);
+    expect((await registry.find('cn-new'))?.catalog?.entryId).toBe('cn-new');
+  });
+
   it('answers only its own map paths from stored bytes', async () => {
     const files = storedMapFetch('cn-a', async (suffix) =>
       suffix === '.json' ? new Uint8Array([123, 125]) : null,

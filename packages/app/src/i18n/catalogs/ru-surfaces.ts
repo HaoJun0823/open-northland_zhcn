@@ -14,6 +14,7 @@ export const ruSurfaces = {
       newGame: 'Начать новую игру',
       load: 'Загрузить игру',
       multiplayer: 'Сетевая игра',
+      catalogue: 'Каталог карт',
       settings: 'Настройки',
       credits: 'Авторы',
       exit: 'Выйти',

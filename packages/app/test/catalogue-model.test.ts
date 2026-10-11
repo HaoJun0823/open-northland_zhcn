@@ -1,16 +1,32 @@
-import type { CatalogEntry } from '@open-northland/data';
+import type { CatalogConvertedMap, CatalogEntry, MapsIndexPlayerSlot } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { INSTALLED_MAP_RECORD_VERSION, type InstalledMapRecord } from '../src/content/map-source/index.js';
+import { languageCodes } from '../src/entries/main-menu/catalogue/card.js';
 import {
+  type CatalogueRow,
   canDownload,
   catalogueRow,
-  filterCatalogueRows,
-  languageCodes,
+  installedGroups,
+  isReady,
+  MEDIUM_MAP_MAX_CELLS,
   mainCatalogMap,
+  mapSize,
+  SMALL_MAP_MAX_CELLS,
 } from '../src/entries/main-menu/catalogue/model.js';
+import {
+  authorSuggestions,
+  type CatalogueQuery,
+  DEFAULT_CATALOGUE_QUERY,
+  foldText,
+  formatBytes,
+  hasActiveFilters,
+  queryRows,
+} from '../src/entries/main-menu/catalogue/query.js';
 import { catalogEntry, TINY_FINGERPRINT } from './support/catalog-maps.js';
 
 const IR = 9;
+const KIB = 1024;
+const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 function converted(id: string, mapIds: readonly string[] = [id], irVersion = IR): CatalogEntry {
   const entry = catalogEntry(id, mapIds);
@@ -32,10 +48,48 @@ function installed(
     irVersion,
     index: { id: mapId, picture: false, minimap: false, provenance: { kind: 'catalog', folder: entryId } },
     installedAt: 1,
-    size: 1,
+    size: KIB,
     suffixes: ['.json'],
   };
 }
+
+function seats(count: number): MapsIndexPlayerSlot[] {
+  return Array.from({ length: count }, (_, player) => ({
+    player,
+    type: 'human',
+    tribeId: 1,
+    colorId: player,
+    claimable: true,
+    hidden: false,
+    aiAllowed: true,
+    noneAllowed: true,
+    hasComputerControl: true,
+  }));
+}
+
+/** A converted single-map entry with the map's seats, languages and size set. */
+function mapEntry(
+  id: string,
+  overrides: Partial<CatalogEntry> = {},
+  map: { players?: number; languages?: CatalogConvertedMap['languages']; side?: number } = {},
+): CatalogEntry {
+  const entry = converted(id);
+  if (entry.conversion?.verdict !== 'ok') throw new Error('fixture');
+  const [first] = entry.conversion.maps;
+  if (first === undefined) throw new Error('fixture');
+  const side = map.side ?? 1;
+  const only: CatalogConvertedMap = {
+    ...first,
+    languages: map.languages ?? first.languages,
+    cells: { width: side, height: side },
+    index: { ...first.index, ...(map.players === undefined ? {} : { players: seats(map.players) }) },
+  };
+  return { ...entry, conversion: { ...entry.conversion, maps: [only] }, ...overrides };
+}
+
+const ids = (rows: readonly CatalogueRow[]): string[] => rows.map((row) => row.entry.id);
+const rowsOf = (entries: readonly CatalogEntry[], records: readonly InstalledMapRecord[] = []) =>
+  entries.map((entry) => catalogueRow(entry, records, IR));
 
 describe('catalogue rows', () => {
   it("reads each entry's state from the server and the installed maps", () => {
@@ -64,29 +118,197 @@ describe('catalogue rows', () => {
     expect(canDownload('redownload') && canDownload('updatable') && !canDownload('pending')).toBe(true);
   });
 
-  it('shows a campaign by its main map and counts the sub maps', () => {
-    const row = catalogueRow(converted('cn-pack', ['cn-pack-2', 'cn-pack', 'cn-pack-3']), [], IR);
-    expect(row.main?.mapId).toBe('cn-pack-2');
-    expect(row.subMapCount).toBe(2);
-    const entry = converted('cn-pack', ['a', 'b']);
+  it('shows a pack by its main map, counts the rest and joins their seats and languages', () => {
+    const entry = converted('cn-pack', ['cn-pack-2', 'cn-pack', 'cn-pack-3']);
     if (entry.conversion?.verdict !== 'ok') throw new Error('fixture');
+    const [a, b, c] = entry.conversion.maps;
+    if (a === undefined || b === undefined || c === undefined) throw new Error('fixture');
+    const pack: CatalogEntry = {
+      ...entry,
+      conversion: {
+        ...entry.conversion,
+        maps: [
+          {
+            ...a,
+            languages: ['ger'],
+            cells: { width: 250, height: 250 },
+            index: { ...a.index, players: seats(4) },
+          },
+          { ...b, languages: ['pol', 'eng'], index: { ...b.index, players: seats(2) } },
+          { ...c, index: { ...c.index, players: seats(4) } },
+        ],
+      },
+    };
+    const row = catalogueRow(pack, [], IR);
+    expect(row.mainIndex?.id).toBe('cn-pack-2');
+    expect(row.subMapCount).toBe(2);
+    expect(row.playerCounts).toEqual([2, 4]);
+    expect(row.languages).toEqual(['pol', 'eng', 'ger']);
+    expect(row.size).toBe('large');
     const allSub = entry.conversion.maps.map((map) => ({
       ...map,
       index: { ...map.index, campaign: { campaignId: 1, missionId: 1 } },
     }));
-    expect(mainCatalogMap(allSub)?.mapId).toBe('a');
-    const played = catalogueRow(entry, [installed('a', 'cn-pack'), installed('b', 'cn-pack')], IR);
+    expect(mainCatalogMap(allSub)?.mapId).toBe('cn-pack-2');
+    const played = catalogueRow(
+      converted('two', ['a', 'b']),
+      [installed('a', 'two'), installed('b', 'two')],
+      IR,
+    );
     expect(played.playableMapId).toBe('a');
   });
 
-  it('filters by category tab and searches title and author', () => {
-    const rows = [
-      catalogueRow({ ...converted('b'), title: 'Bitwa', category: 'series-multi' }, [], IR),
-      catalogueRow({ ...converted('a'), title: 'Atak', author: 'Zenon', category: 'single' }, [], IR),
+  it('sizes a map by its cell area', () => {
+    const side = (area: number) => Math.sqrt(area);
+    expect(mapSize({ width: side(SMALL_MAP_MAX_CELLS), height: side(SMALL_MAP_MAX_CELLS) })).toBe('small');
+    expect(mapSize({ width: side(SMALL_MAP_MAX_CELLS) + 1, height: side(SMALL_MAP_MAX_CELLS) })).toBe(
+      'medium',
+    );
+    expect(mapSize({ width: side(MEDIUM_MAP_MAX_CELLS), height: side(MEDIUM_MAP_MAX_CELLS) })).toBe('medium');
+    expect(mapSize({ width: side(MEDIUM_MAP_MAX_CELLS) + 1, height: side(MEDIUM_MAP_MAX_CELLS) })).toBe(
+      'large',
+    );
+  });
+
+  it('groups installed maps by entry, the newest install first, with the catalogue row when listed', () => {
+    const records = [
+      { ...installed('a', 'pack'), installedAt: 5 },
+      { ...installed('b', 'pack'), installedAt: 6 },
+      { ...installed('gone', 'gone'), installedAt: 9 },
     ];
-    expect(filterCatalogueRows(rows, 'all', '').map((row) => row.entry.id)).toEqual(['a', 'b']);
-    expect(filterCatalogueRows(rows, 'series', '').map((row) => row.entry.id)).toEqual(['b']);
-    expect(filterCatalogueRows(rows, 'all', 'zen').map((row) => row.entry.id)).toEqual(['a']);
-    expect(languageCodes(['pol', 'eng'])).toBe('PL, EN');
+    const groups = installedGroups(records, rowsOf([converted('pack', ['a', 'b'])], records));
+    expect(groups.map((group) => [group.entryId, group.bytes, group.row?.status ?? null])).toEqual([
+      ['gone', KIB, null],
+      ['pack', 2 * KIB, 'installed'],
+    ]);
+  });
+});
+
+describe('catalogue query', () => {
+  const entries = [
+    mapEntry(
+      'cn-burza',
+      {
+        title: 'Burza piaskowa',
+        author: 'Żółw',
+        kind: 'multi',
+        likeCount: 30,
+        downloadCount: 100,
+        publishedAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2026-05-01T00:00:00.000Z',
+        fullDescription: 'Pustynia\nz oazami',
+      },
+      { players: 4, languages: ['pol', 'eng'], side: 250 },
+    ),
+    mapEntry(
+      'cn-dolina',
+      {
+        title: 'Dolina',
+        author: 'Ania',
+        kind: 'single',
+        series: true,
+        likeCount: 30,
+        downloadCount: 500,
+        publishedAt: '2025-06-01T00:00:00.000Z',
+        updatedAt: '2025-06-01T00:00:00.000Z',
+      },
+      { players: 1, languages: ['ger'], side: 100 },
+    ),
+    mapEntry(
+      'cn-atak',
+      {
+        title: 'Atak',
+        author: 'Bartek',
+        kind: 'campaign',
+        likeCount: 5,
+        downloadCount: 900,
+        publishedAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        shortDescription: 'Obrona twierdzy',
+      },
+      { players: 2, languages: ['pol'], side: 180 },
+    ),
+    catalogEntry('cn-link', [], {
+      title: 'Link',
+      author: 'Ania',
+      kind: 'other',
+      categoryLabel: 'Narzędzia',
+      file: { kind: 'external', url: 'https://example.test/map' },
+      conversion: undefined,
+    }),
+    catalogEntry('cn-zepsuta', [], {
+      title: 'Zepsuta',
+      conversion: { verdict: 'failed', reason: 'decode-failed', message: 'm' },
+    }),
+  ];
+  const rows = rowsOf(entries, [
+    installed('cn-dolina', 'cn-dolina'),
+    installed('cn-atak', 'cn-atak', IR, 'e'.repeat(64)),
+  ]);
+  const run = (patch: Partial<CatalogueQuery>) =>
+    ids(queryRows(rows, { ...DEFAULT_CATALOGUE_QUERY, ...patch }, compare));
+
+  it('orders by each sort, the most liked first by default', () => {
+    expect(run({})).toEqual(['cn-dolina', 'cn-burza', 'cn-atak']);
+    expect(run({ sort: 'downloaded' })).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
+    expect(run({ sort: 'newest' })).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
+    expect(run({ sort: 'updated' })).toEqual(['cn-burza', 'cn-atak', 'cn-dolina']);
+    expect(run({ sort: 'title' })).toEqual(['cn-atak', 'cn-burza', 'cn-dolina']);
+    expect(run({ sort: 'author' })).toEqual(['cn-dolina', 'cn-atak', 'cn-burza']);
+  });
+
+  it('hides external links and entries this build cannot have until asked', () => {
+    expect(run({ readyOnly: false })).toEqual(['cn-dolina', 'cn-burza', 'cn-atak', 'cn-zepsuta']);
+    expect(run({ readyOnly: false, showExternal: true })).toContain('cn-link');
+    expect(run({ showExternal: true })).toEqual(['cn-dolina', 'cn-burza', 'cn-atak', 'cn-link']);
+    expect(isReady(rows[4] as CatalogueRow)).toBe(false);
+  });
+
+  it('narrows by kind, series, seats, language, size, author and state', () => {
+    expect(run({ kind: 'campaign' })).toEqual(['cn-atak']);
+    expect(run({ kind: 'other', readyOnly: false, showExternal: true })).toEqual(['cn-link']);
+    expect(run({ seriesOnly: true })).toEqual(['cn-dolina']);
+    expect(run({ players: 4 })).toEqual(['cn-burza']);
+    expect(run({ language: 'pol' })).toEqual(['cn-burza', 'cn-atak']);
+    expect(run({ size: 'small' })).toEqual(['cn-dolina']);
+    expect(run({ size: 'medium' })).toEqual(['cn-atak']);
+    expect(run({ size: 'large' })).toEqual(['cn-burza']);
+    expect(run({ author: 'zolw' })).toEqual(['cn-burza']);
+    expect(run({ state: 'installed' })).toEqual(['cn-dolina', 'cn-atak']);
+    expect(run({ state: 'update' })).toEqual(['cn-atak']);
+    expect(run({ state: 'notInstalled' })).toEqual(['cn-burza']);
+  });
+
+  it('searches every word in title, author and both descriptions, without diacritics', () => {
+    expect(run({ text: 'burza' })).toEqual(['cn-burza']);
+    expect(run({ text: 'ZÓŁW' })).toEqual(['cn-burza']);
+    expect(run({ text: 'oazami pustynia' })).toEqual(['cn-burza']);
+    expect(run({ text: 'twierdzy' })).toEqual(['cn-atak']);
+    expect(run({ text: 'twierdzy burza' })).toEqual([]);
+    expect(foldText('Łódź Żółw')).toBe('lodz zolw');
+  });
+
+  it('counts only filters as active, not the search or the sort', () => {
+    expect(hasActiveFilters(DEFAULT_CATALOGUE_QUERY)).toBe(false);
+    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, text: 'x', sort: 'title' })).toBe(false);
+    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, readyOnly: false })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, players: 2 })).toBe(true);
+  });
+
+  it('suggests matching authors, the most prolific first, until one is named exactly', () => {
+    expect(authorSuggestions(rows, 'a')).toEqual(['Ania', 'Bartek']);
+    expect(authorSuggestions(rows, 'an', 1)).toEqual(['Ania']);
+    expect(authorSuggestions(rows, 'ania')).toEqual([]);
+    expect(authorSuggestions(rows, ' ')).toEqual([]);
+  });
+});
+
+describe('catalogue formatting', () => {
+  it('names a byte count in the largest whole unit', () => {
+    expect(formatBytes(512, 'en')).toBe('512 byte');
+    expect(formatBytes(3 * KIB + KIB / 2, 'en')).toBe('3.5 kB');
+    expect(formatBytes(5 * KIB * KIB, 'en')).toBe('5 MB');
+    expect(formatBytes(5 * KIB * KIB, 'pl')).toBe('5 MB');
+    expect(languageCodes(['pol', 'eng'])).toBe('PL EN');
   });
 });

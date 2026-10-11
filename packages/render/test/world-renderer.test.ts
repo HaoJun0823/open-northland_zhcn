@@ -30,13 +30,19 @@ afterEach(() => {
   setWorldShadowStyle(null);
 });
 
-/** An {@link Application} stub. Constructing the renderer wires Pixi containers and touches no GL, so
- *  the retained graph is readable here; a field the stub lacks would throw rather than pass. */
+/** An {@link Application} stub. Constructing the renderer wires Pixi containers and bakes one noise
+ *  texture, read back here as empty, so the retained graph is readable; a field the stub lacks would
+ *  throw rather than pass. */
 function stubApp(): Application {
   return {
     stage: new Container(),
     screen: { width: 800, height: 600 },
-    renderer: { resolution: 1, renderPipes: { batch: { addToBatch: () => undefined } } },
+    renderer: {
+      resolution: 1,
+      renderPipes: { batch: { addToBatch: () => undefined } },
+      render: () => undefined,
+      extract: { pixels: () => ({ pixels: new Uint8Array(0) }) },
+    },
     render: () => undefined,
   } as unknown as Application;
 }

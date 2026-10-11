@@ -76,7 +76,12 @@ describe('SceneLight', () => {
 describe('WorldRenderer scene light', () => {
   it('mounts over the world and the weather, under the chrome and the HUD', () => {
     const stage = new Container();
-    const gpu = { resolution: 1, renderPipes: { batch: { addToBatch: () => undefined } } };
+    const gpu = {
+      resolution: 1,
+      renderPipes: { batch: { addToBatch: () => undefined } },
+      render: () => undefined,
+      extract: { pixels: () => ({ pixels: new Uint8Array(0) }) },
+    };
     const app = { stage, screen: SCREEN, renderer: gpu, render: () => undefined };
     const renderer = new WorldRenderer(app as unknown as Application);
     const labels = stage.children.map((child) => child.label);

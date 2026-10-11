@@ -4,7 +4,6 @@ import {
   Mesh,
   type Renderer,
   Shader,
-  Texture,
   type TextureSource,
   UniformGroup,
 } from 'pixi.js';
@@ -232,13 +231,13 @@ export class WeatherAtmosphere {
   private readonly veilUniforms: VeilUniforms;
   private readonly gradeShader: Shader;
   private readonly veilShader: Shader;
-  /** Baked on the first frame that shows the air, so a dry map never pays for it. */
-  private noise: TextureSource | null = null;
+  /** Baked as the map loads: the readback stalls the GPU, which a live frame would show as a hitch. */
+  private readonly noise: TextureSource;
 
   constructor(
     parent: Container,
     private readonly reach: WeatherReach,
-    private readonly renderer: Renderer,
+    renderer: Renderer,
   ) {
     this.gradeUniforms = new UniformGroup({
       uScreen: { value: new Float32Array(2), type: 'vec2<f32>' },
@@ -256,9 +255,10 @@ export class WeatherAtmosphere {
       uFlash: { value: new Float32Array(3), type: 'vec3<f32>' },
       uFlashAt: { value: new Float32Array([0, 0, 1]), type: 'vec3<f32>' },
     }) as VeilUniforms;
+    this.noise = bakeAtmosphereNoise(renderer);
     this.gradeShader = new Shader({
       glProgram: glProgramFor(WEATHER_GRADE_SOURCE),
-      resources: { weatherGrade: this.gradeUniforms, uNoise: Texture.WHITE.source },
+      resources: { weatherGrade: this.gradeUniforms, uNoise: this.noise },
     });
     this.grade = new Mesh({ geometry: screenQuad(), shader: this.gradeShader });
     this.grade.blendMode = 'multiply';
@@ -268,7 +268,7 @@ export class WeatherAtmosphere {
         weatherVeil: this.veilUniforms,
         weatherReach: reach.uniforms,
         uReachFog: reach.fogSource,
-        uNoise: Texture.WHITE.source,
+        uNoise: this.noise,
       },
     });
     this.veil = new Mesh({ geometry: screenQuad(), shader: this.veilShader });
@@ -279,11 +279,6 @@ export class WeatherAtmosphere {
     if (!look.visible) {
       this.hide();
       return;
-    }
-    if (this.noise === null) {
-      this.noise = bakeAtmosphereNoise(this.renderer);
-      this.gradeShader.resources.uNoise = this.noise;
-      this.veilShader.resources.uNoise = this.noise;
     }
     const { screenW, screenH, travel } = frame;
     const g = this.gradeUniforms.uniforms;
@@ -334,6 +329,6 @@ export class WeatherAtmosphere {
       mesh.shader?.destroy();
       mesh.destroy();
     }
-    this.noise?.destroy();
+    this.noise.destroy();
   }
 }

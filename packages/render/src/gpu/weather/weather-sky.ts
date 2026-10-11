@@ -82,7 +82,7 @@ export class WeatherSky {
   private anchorWorldX = 0;
   private anchorWorldY = 0;
 
-  /** `renderer` bakes the atmosphere's noise on the first frame that shows the air. */
+  /** `renderer` bakes the atmosphere's noise here, as the map loads. */
   constructor(renderer: Renderer) {
     this.container.label = 'weather-sky';
     this.atmosphere = new WeatherAtmosphere(this.container, this.reach, renderer);

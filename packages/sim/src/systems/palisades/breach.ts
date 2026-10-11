@@ -20,6 +20,7 @@ import type { SystemContext } from '../context.js';
 import { translatedCells } from '../footprint/geometry.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
 import { clearNavState } from '../movement/nav-state.js';
+import { structureRouteSealed } from '../movement/structure-route.js';
 import { ARMOR_MATERIAL, weaponDamageVsMaterial } from '../readviews/index.js';
 import { manhattan } from '../spatial/metric.js';
 import { canonicalById } from '../spatial/nodes.js';
@@ -152,7 +153,8 @@ export function palisadeBarring(
   if (wallAt.size === 0) return null;
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
   // A route refused over a crowd or a far-off chase target is not a wall's doing.
-  if (route.sealed !== true && findPath(terrain, route.start, route.goal, blocked) !== null) return null;
+  if (route.sealed !== true && !structureRouteSealed(world, ctx, terrain, route.start, route.goal))
+    return null;
   const breachable: BlockOverlay = {
     has: (node) => !wallAt.has(node) && blocked.has(node),
     get size() {

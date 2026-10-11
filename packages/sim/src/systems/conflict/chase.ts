@@ -18,11 +18,10 @@ import {
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { forEachRingNode, hexDistanceBetween, positionOfNode } from '../../nav/halfcell.js';
-import { findPath } from '../../nav/pathfinding/index.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
-import { dynamicBlockOverlay } from '../footprint/index.js';
 import { clearNavState, isTravelling, redirectRoute } from '../movement/nav-state.js';
+import { structureRouteSealed } from '../movement/structure-route.js';
 import { breakThroughWall } from '../palisades/breach.js';
 import { MILITARY_MODE, stanceMode } from '../readviews/index.js';
 import { anyNeedPressing } from '../settlers/drives/needs.js';
@@ -138,20 +137,6 @@ function routeDelivered(world: World, e: Entity): boolean {
   return !world.has(e, PathRequest) && isTravelling(world, e);
 }
 
-/** Whether buildings and resources alone refuse every route from `from` to `goal`: the seal no standing body
- *  can lift. `from` is the request's own start, the walkable bracket node routing used; a mid-stride unit's
- *  truncated node may not be walkable at all. One search, so the chase asks only from the release threshold
- *  on. */
-function sealedByStructures(
-  world: World,
-  ctx: SystemContext,
-  terrain: TerrainGraph,
-  from: NodeId,
-  goal: NodeId,
-): boolean {
-  return findPath(terrain, from, goal, dynamicBlockOverlay(world, ctx, terrain)) === null;
-}
-
 /**
  * Advance an owned combatant on `target` it can't yet reach. It keeps an {@link Engagement} marker so the
  * PlannerSystem leaves the unit to combat, and re-issues a {@link MoveGoal} toward an {@link approachCell} at
@@ -231,7 +216,7 @@ export function chase(
     const routes = (engagement.stall?.routes ?? 0) + 1;
     if (
       routes >= SEALED_TARGET_ROUTE_FAILURES &&
-      sealedByStructures(world, ctx, terrain, request.start, request.goal)
+      structureRouteSealed(world, ctx, terrain, request.start, request.goal)
     ) {
       const enemy = breach?.enemy ?? target.entity;
       const route = { start: request.start, goal: request.goal, sealed: true };

@@ -1,11 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Position } from '../../src/components/index.js';
-import { positionOfNode, Simulation } from '../../src/index.js';
+import { exportSaveGame, positionOfNode, restoreSimulation, Simulation } from '../../src/index.js';
 import { LayeredBlocks } from '../../src/nav/block-overlay.js';
 import { findPath } from '../../src/nav/pathfinding/index.js';
 import { stampResourceFootprintData, unstampResourceFootprint } from '../../src/systems/footprint/index.js';
 import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
 import { GroupReachability } from '../../src/systems/movement/group-reachability.js';
+import { structureRouteSealed } from '../../src/systems/movement/structure-route.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
@@ -121,5 +122,62 @@ describe('group failure reachability', () => {
     expect(reachability.unreachable(mask, mask.levelled(), a, b)).toBe(false);
     reachability.rememberFailure(mask, mask.levelled(), a, b);
     expect(reachability.unreachable(mask, mask.levelled(), a, b)).toBe(false);
+  });
+});
+
+describe('structural chase refusals', () => {
+  it('recomputes the same refusals with a cold cache after restoring', () => {
+    const { sim, terrain } = fixture();
+    const left = terrain.nodeAt(8, 8);
+    const right = terrain.nodeAt(80, 8);
+    expect(structureRouteSealed(sim.world, ctxOf(sim), terrain, left, right)).toBe(true);
+    const restored = restoreSimulation(exportSaveGame(sim), {
+      content: sim.content,
+      map: grassNodeMap(100, 40),
+    });
+    const graph = restored.terrain;
+    if (graph === undefined) throw new Error('missing restored terrain');
+    expect(structureRouteSealed(restored.world, ctxOf(restored), graph, left, right)).toBe(true);
+    expect(structureRouteSealed(restored.world, ctxOf(restored), graph, left, graph.nodeAt(10, 8))).toBe(
+      false,
+    );
+    expect(structureRouteSealed(restored.world, ctxOf(restored), graph, graph.nodeAt(50, 8), right)).toBe(
+      false,
+    );
+    expect(restored.hashState()).toBe(sim.hashState());
+  });
+
+  it('shares the sealed region across the army and retries after a breach', () => {
+    const { sim, terrain, wall } = fixture();
+    const ctx = ctxOf(sim);
+    expect(structureRouteSealed(sim.world, ctx, terrain, terrain.nodeAt(4, 4), terrain.nodeAt(70, 4))).toBe(
+      true,
+    );
+    const steps = vi.spyOn(terrain, 'stepsInto');
+    try {
+      for (let y = 5; y < 35; y++)
+        expect(
+          structureRouteSealed(sim.world, ctx, terrain, terrain.nodeAt(8, y), terrain.nodeAt(80, y)),
+        ).toBe(true);
+      expect(steps).not.toHaveBeenCalled();
+      unstampResourceFootprint(sim.world, wall);
+      expect(structureRouteSealed(sim.world, ctx, terrain, terrain.nodeAt(8, 8), terrain.nodeAt(80, 8))).toBe(
+        false,
+      );
+      expect(steps).toHaveBeenCalled();
+      stampResourceFootprintData(sim.world, wall, {
+        walk: Array.from({ length: 40 }, (_, dy) => ({ dx: 0, dy })),
+        build: [],
+        work: [],
+      });
+      expect(structureRouteSealed(sim.world, ctx, terrain, terrain.nodeAt(8, 8), terrain.nodeAt(80, 8))).toBe(
+        true,
+      );
+      expect(
+        structureRouteSealed(sim.world, ctx, terrain, terrain.nodeAt(50, 8), terrain.nodeAt(80, 8)),
+      ).toBe(false);
+    } finally {
+      steps.mockRestore();
+    }
   });
 });

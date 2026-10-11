@@ -216,7 +216,7 @@ function barring(sim: Simulation, e: Entity, goal: { hx: number; hy: number }): 
 }
 
 describe('walls that start blocking a route', () => {
-  it.each([1, 4])(
+  it.each([1, 4, 100])(
     'lets %s attack-move attackers breach an automatic gate that closes during their march',
     (count) => {
       const sim = new Simulation({
@@ -230,7 +230,9 @@ describe('walls that start blocking a route', () => {
       const gate = wallRow(sim, P1);
       // Three landed blows per segment keep this route regression short while exercising real damage.
       for (const wall of sim.world.query(Palisade, Health)) sim.world.mut(wall, Health).hitpoints = 3;
-      const squad = Array.from({ length: count }, (_, i) => fighter(sim, { hx: GATE_X + i * 2, hy: 40 }, P0));
+      const squad = Array.from({ length: count }, (_, i) =>
+        fighter(sim, { hx: 2 + (i % 10) * 2, hy: 25 + Math.floor(i / 10) * 2 }, P0),
+      );
       sim.enqueueSetup({ kind: 'setPalisadeGateMode', palisade: gate, mode: 'automatic' });
       for (const entity of squad)
         sim.enqueueSetup({ kind: 'attackMoveUnit', entity, x: NORTH.hx, y: NORTH.hy });

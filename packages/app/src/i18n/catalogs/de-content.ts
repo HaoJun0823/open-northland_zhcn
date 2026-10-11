@@ -237,6 +237,10 @@ export const deContent = {
       summary:
         'Zivilisten, unbewaffnete Soldaten und Bogenschützen duellieren sich neben ruhenden, essenden und schlafenden Bogenschützen.',
     },
+    'flag-yard-layout': {
+      title: 'Warenhaufen an der Fahne',
+      summary: 'Steinsammler füllen einen leeren Lagerplatz, eine volle Mitte und einen vollen ersten Ring.',
+    },
     'clay-gatherers': {
       title: 'Lehmabbau',
       summary: 'Zwei Abbauer jedes Stammes graben Lehm und tragen ihn zu ihrer Flagge.',

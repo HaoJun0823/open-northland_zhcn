@@ -236,6 +236,10 @@ export const enContent = {
       title: 'Strikes and gestures',
       summary: 'Civilian, unarmed and archer duels beside resting, eating and sleeping bowmen.',
     },
+    'flag-yard-layout': {
+      title: 'Flag yard piles',
+      summary: 'Stone gatherers fill an empty yard, a full centre and a full first ring.',
+    },
     'clay-gatherers': {
       title: 'Clay extractors',
       summary: 'Two extractors from each tribe dig clay and carry it to their flag.',

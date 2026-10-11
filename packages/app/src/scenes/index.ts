@@ -40,6 +40,7 @@ import { familyScene } from './family.js';
 import { familyAwayScene } from './family-away.js';
 import { farPostScene } from './far-post.js';
 import { farmConstructionScene } from './farm-construction.js';
+import { flagYardLayoutScene } from './flag-yard-layout.js';
 import { frankConstructionScene } from './frank-construction.js';
 import { gathererFlagFollowScene } from './gatherer-flag-follow.js';
 import { gathererGoodsScene } from './gatherer-goods.js';
@@ -202,6 +203,7 @@ export const SCENES: readonly SceneDefinition[] = [
   gathererFlagFollowScene,
   porterFlagScene,
   gathererGoodsScene,
+  flagYardLayoutScene,
   vehiclesScene,
   cartDriversScene,
   vehicleYardScene,

@@ -14,7 +14,6 @@ import type { SpatialGate } from '../../../../nav/node-circle.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import type { ContentContext, SystemContext } from '../../../context.js';
 import { anchoredStanceCells, positionedStanceCells } from '../../../footprint/index.js';
-import { ringOffsetCount, ringOffsetDx, ringOffsetDy } from '../../../spatial/metric.js';
 import {
   accessibleStockAmounts,
   bankedSlot,
@@ -29,6 +28,7 @@ import {
 import type { TargetBands } from '../bands.js';
 import type { YardTargets } from '../candidates.js';
 import { ACCEPT_ALL, QUALIFIES } from '../cell-index.js';
+import { yardOffsets } from './yard-layout.js';
 
 /**
  * The nearest store that can stock `goodType`, by Manhattan distance from `here` with the shared
@@ -114,17 +114,11 @@ export function acceptsGood(
 }
 
 /**
- * Greatest Manhattan ring radius (half-cell nodes) {@link nearestFreeYardNode} searches out from a flag
- * before giving up, about 16 visual tiles across. Approximation: the original's goods-yard extent is not
- * decoded, and the bound only stops a pathological unbounded search.
- */
-const GOODS_YARD_MAX_RADIUS = 32;
-
-/**
  * The nearest half-cell node around a gatherer's `flag` with room for another unit of `good`, so a
  * delivered load lands where the gatherer's feet are and heaps pack tile to tile. A tile has room when
  * it holds no heap or a heap of `good` below {@link MAX_GROUND_STACK}, and it must be walkable, outside
- * dynamic blocks, and in the gatherer's static component. Candidates are ordered by `(ring, node id)`.
+ * dynamic blocks, and in the gatherer's static component. The flag fills first, then the
+ * six-neighbour yard order expands outwards.
  * `after` resumes strictly after a failed route, so an enclosed candidate is rejected one at a time
  * through the budgeted pathfinder rather than by an unbudgeted search here.
  */
@@ -153,20 +147,17 @@ export function nearestFreeYardNode(
     (gate === undefined || gate.allowsNode(node)) &&
     hasRoom(node);
   const { x: cx, y: cy } = terrain.coordsOf(flagNode);
-  const afterRank = after === undefined ? null : terrain.coordsOf(after);
-  const afterRadius = afterRank === null ? -1 : Math.abs(afterRank.x - cx) + Math.abs(afterRank.y - cy);
-  for (let r = 0; r <= GOODS_YARD_MAX_RADIUS; r++) {
-    let best: NodeId | null = null;
-    const offsets = ringOffsetCount(r);
-    for (let i = 0; i < offsets; i++) {
-      const x = cx + ringOffsetDx(r, i);
-      const y = cy + ringOffsetDy(r, i);
-      if (!terrain.inBounds(x, y)) continue;
-      const node = terrain.nodeAt(x, y);
-      if (r < afterRadius || (r === afterRadius && after !== undefined && node <= after)) continue;
-      if (usable(node) && (best === null || node < best)) best = node;
+  let pastFailure = after === undefined;
+  for (const offset of yardOffsets(cy)) {
+    const x = cx + offset.hx;
+    const y = cy + offset.hy;
+    if (!terrain.inBounds(x, y)) continue;
+    const node = terrain.nodeAt(x, y);
+    if (!pastFailure) {
+      if (node === after) pastFailure = true;
+      continue;
     }
-    if (best !== null) return best;
+    if (usable(node)) return node;
   }
   return usable(here) ? here : null;
 }

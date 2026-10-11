@@ -233,6 +233,10 @@ export const plContent = {
       title: 'Ciosy i gesty',
       summary: 'Pojedynki cywila, wojownika i łuczników; obok odpoczynek, posiłek i sen z łukiem.',
     },
+    'flag-yard-layout': {
+      title: 'Sterty przy fladze',
+      summary: 'Zbieracze kamienia uzupełniają pusty plac, pełny środek i pełny pierwszy krąg.',
+    },
     'clay-gatherers': {
       title: 'Zbieracze gliny',
       summary: 'Dwaj zbieracze każdego plemienia kopią glinę i odnoszą ją do swojej flagi.',

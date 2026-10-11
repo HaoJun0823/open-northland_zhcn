@@ -77,20 +77,14 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
     };
     const rule = line('div', 'on-result__rule', '');
     rule.setAttribute('aria-hidden', 'true');
-    const detail = line(
-      'p',
-      'on-result__detail',
-      terminal ? copy.matchFinishedDetail : won ? copy.matchWonDetail : copy.matchLostDetail,
-    );
-    const hint = line('p', 'on-result__hint', watching ? copy.matchWatchHint : copy.matchContinueHint);
     frame.body.append(
       crest,
       line('p', 'on-result__kicker', copy.matchKicker),
       line('h2', 'on-result__title', title),
       rule,
-      detail,
-      hint,
     );
+    if (terminal) frame.body.append(line('p', 'on-result__detail', copy.matchFinishedDetail));
+    if (watching) frame.body.append(line('p', 'on-result__hint', copy.matchWatchHint));
     const confirm = createSystemConfirm(plane.element);
     const button = (label: string, glyph: string, click: () => void): HTMLButtonElement => {
       const el = document.createElement('button');

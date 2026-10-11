@@ -1,6 +1,7 @@
 import { join, resolve } from 'node:path';
 import { app, type BrowserWindow, Menu } from 'electron';
 import { applicationMenuTemplate } from './application-menu.js';
+import { describeGpuInfo } from './gpu-info.js';
 import { installCandidates } from './original-game/candidates.js';
 import {
   detectInstall,
@@ -29,6 +30,11 @@ const roots = resolveShellRoots({
   contentDirOverride: process.env[CONTENT_DIR_ENV],
 });
 
+// A dual-GPU laptop otherwise runs the GPU process on the adapter Windows assigns, usually the
+// integrated one. This only asks: the player's per-app choice in Windows graphics settings wins, and
+// the startup GPU line says which adapter the game got.
+app.commandLine.appendSwitch('force_high_performance_gpu');
+
 // One window per profile: a second instance would share the IndexedDB the saves live in.
 if (app.requestSingleInstanceLock()) {
   registerAppScheme();
@@ -55,6 +61,10 @@ if (app.requestSingleInstanceLock()) {
       detectInstall(process.env[ORIGINAL_GAME_DIR_ENV], () => installCandidates(hostCandidateEnvironment())),
     );
     mainWindow = createWindow(join(app.getPath('userData'), WINDOW_STATE_FILE), originalGame);
+    app.getGPUInfo('basic').then(
+      (info) => console.info(describeGpuInfo(info)),
+      () => console.info(describeGpuInfo(null)),
+    );
   });
 } else {
   app.quit();

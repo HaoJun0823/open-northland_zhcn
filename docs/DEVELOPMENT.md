@@ -618,6 +618,11 @@ npm run test:desktop    # app:// boot and save/load across a relaunch; requires 
 installers under `packages/desktop/release/`, so the packaged game plays without any content on the
 player's machine.
 
+The shell asks Chromium for the discrete GPU and logs a `GPU:` line at start naming each adapter and
+the active one. On a Windows dual-GPU
+laptop that still draws on the integrated GPU, set the game's executable to "High performance" under
+Settings > System > Display > Graphics.
+
 ## Brand assets
 
 ```bash

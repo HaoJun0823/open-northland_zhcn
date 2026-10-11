@@ -15,6 +15,8 @@ const APP_OPTIONS = {
   // edge diamonds as a sawtooth silhouette.
   background: 0x000000,
   antialias: false,
+  // A request for a dual-GPU machine's discrete adapter; Chrome on Windows decides by its own rules.
+  powerPreference: 'high-performance',
   preference: 'webgl',
   autoDensity: false,
   resolution: 1,

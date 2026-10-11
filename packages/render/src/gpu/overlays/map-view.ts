@@ -4,7 +4,7 @@ import { type Camera, cameraViewport, ONE, type Viewport } from '../../data/proj
 import { readPosition } from '../../data/snapshot/index.js';
 import { type ElevationField, projectNode, projectTile } from '../../data/terrain/index.js';
 import type { SpritePool } from '../sprite-pool/index.js';
-import { renderFramedWorld } from './framed-world-render.js';
+import { renderFloor, renderFramedWorld } from './framed-world-render.js';
 
 /** What a map view looks at: a half-cell node, or an entity's feet. */
 export type MapViewTarget =
@@ -65,7 +65,7 @@ export interface MapViewScene {
  */
 export class MapViewLayer {
   private views: readonly MapViewFrame[] = [];
-  /** The fill quad under the world, parented into it only for a pass. */
+  /** The fill quad under the world, drawn by a render of its own. */
   private readonly floor = new Sprite(Texture.WHITE);
 
   constructor(
@@ -92,12 +92,7 @@ export class MapViewLayer {
     const point = targetPoint(view.target, scene.snapshot, scene.elevation);
     if (point === null) {
       // The window still shows its hole: floor it alone rather than leave the main frame there.
-      renderFramedWorld(this.app, this.worldLayer, this.floor, {
-        camera: { offsetX: 0, offsetY: 0, scale: 1 },
-        frame: new Rectangle(x, y, w, h),
-        fill: view.soloFill ?? world.backdrop,
-        keep: this.floor,
-      });
+      renderFloor(this.app, this.floor, new Rectangle(x, y, w, h), view.soloFill ?? world.backdrop);
       if (view.still !== undefined) this.copyStill(view.still, x, y, w, h);
       return;
     }

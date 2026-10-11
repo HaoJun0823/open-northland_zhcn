@@ -38,15 +38,16 @@ function harness(fail = false) {
     canvas,
     renderer: {
       resolution: RESOLUTION,
-      render: (opts: { frame: Rectangle }) => {
+      render: (opts: { container: Container; frame: Rectangle }) => {
+        const drawsWorld = opts.container === world;
         passes.push({
           frame: opts.frame,
           x: world.position.x,
           y: world.position.y,
           scale: world.scale.x,
-          world: sprites.visible,
+          world: drawsWorld && sprites.visible,
         });
-        if (fail) throw new Error('render died');
+        if (fail && drawsWorld) throw new Error('render died');
       },
     },
   } as unknown as Application;
@@ -85,8 +86,9 @@ describe('MapViewLayer', () => {
     layer.set([VIEW]);
     layer.draw(scene, worldCull);
     const point = halfCellToScreen(10, 20);
-    expect(passes).toHaveLength(1);
-    const [pass] = passes;
+    // The fill on its own, then the world over it.
+    expect(passes.map((p) => p.world)).toEqual([false, true]);
+    const pass = passes[1];
     expect(pass?.frame).toMatchObject({ x: 104, y: 90, width: 552, height: 396 });
     // Frame-local: the focus sits at box + focus - clip, which the camera maps the target point onto.
     expect(pass?.x).toBeCloseTo(100 + 280 - 104 - point.x * 2);
@@ -162,7 +164,8 @@ describe('MapViewLayer', () => {
     const { world, passes, layer, culls, worldCull, scene } = harness(true);
     layer.set([{ ...VIEW, target: { kind: 'entity', ref: 7 }, soloFill: 0xc4c09f }]);
     expect(() => layer.draw(scene, worldCull)).toThrow('render died');
-    expect(passes).toHaveLength(1);
+    // The fill, then the world pass that died.
+    expect(passes.map((pass) => pass.world)).toEqual([false, true]);
     expect(culls).toEqual([]);
     expect(world.children.every((c) => c.visible)).toBe(true);
     expect(world.children).toHaveLength(1);

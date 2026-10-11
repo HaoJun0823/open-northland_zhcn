@@ -1,7 +1,7 @@
 import { type Application, type Container, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { Camera } from '../../data/projection/index.js';
 import type { SpritePool } from '../sprite-pool/index.js';
-import { renderFramedWorld } from './framed-world-render.js';
+import { renderFloor, renderFramedWorld } from './framed-world-render.js';
 
 /**
  * One portrait window: a live cutout of the world centred on an entity, drawn into a HUD box each frame
@@ -94,7 +94,7 @@ function fitFraming(
 export class PortraitInsetLayer {
   private frames: readonly PortraitInsetFrame[] = [];
   private subjectsNow: PortraitSubjects = { ref: null, house: null, others: [] };
-  /** The ground-coloured floor quad, parented into the world only for a pass. */
+  /** The ground-coloured floor quad, drawn under each cutout by a render of its own. */
   private readonly backdrop = new Sprite(Texture.WHITE);
   /** Each framed vehicle's drawn box around its feet anchor over every frame it has drawn, so its cutout
    *  holds one zoom while it turns or its driver walks. */
@@ -199,7 +199,7 @@ export class PortraitInsetLayer {
    * Paint every inset: re-aim `worldLayer` onto each subject and render it into its box's screen
    * viewport (`frame` is in logical px, which the render target scales by its resolution).
    * `SpritePool.portraitPass` scopes the pool's half of the borrow; the callback restores its own -
-   * world transform, solo stash, backdrop quad and terrain cull - even if the render throws. Must run
+   * world transform, solo stash and terrain cull - even if the render throws. Must run
    * after the pool reconcile and after the main stage render.
    */
   draw(mainCamera: Camera, terrain?: InsetTerrainCull): void {
@@ -215,7 +215,7 @@ export class PortraitInsetLayer {
     if (framing === null) {
       // Nothing to frame (a subject not drawn this frame): the box still gets its floor, or the map the
       // main render drew under the HUD box would show through and scroll with the camera.
-      if (terrain !== undefined) this.fillOnly(frame, terrain.backdrop);
+      if (terrain !== undefined) renderFloor(this.app, this.backdrop, frame, terrain.backdrop);
       return;
     }
     const { cx, cy, scale } = framing;
@@ -245,16 +245,6 @@ export class PortraitInsetLayer {
       } finally {
         terrain?.restore();
       }
-    });
-  }
-
-  /** The floor alone: a render that keeps only the floor quad, parked where no world layer draws. */
-  private fillOnly(frame: Rectangle, fill: number): void {
-    renderFramedWorld(this.app, this.worldLayer, this.backdrop, {
-      camera: { offsetX: 0, offsetY: 0, scale: 1 },
-      frame,
-      fill,
-      keep: this.backdrop,
     });
   }
 }

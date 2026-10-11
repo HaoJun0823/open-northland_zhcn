@@ -25,6 +25,9 @@ const SHIP = 4;
 
 interface Pass {
   readonly frame: Rectangle;
+  /** Whether the pass rendered the floor quad on its own rather than the world. */
+  readonly floor: boolean;
+  readonly worldChildren: number;
   readonly x: number;
   readonly visibleChildren: number;
   readonly visibleSprites: number;
@@ -38,9 +41,11 @@ function harness(portraitRef?: number) {
   const app = {
     screen: { width: 800, height: 600 },
     renderer: {
-      render: (opts: { frame: Rectangle }) =>
+      render: (opts: { container: Container; frame: Rectangle }) =>
         passes.push({
           frame: opts.frame,
+          floor: opts.container !== world,
+          worldChildren: world.children.length,
           x: world.position.x,
           visibleChildren: world.children.filter((c) => c.visible).length,
           visibleSprites: sprites.children.filter((c) => c.visible).length,
@@ -119,7 +124,8 @@ describe('PortraitInsetLayer', () => {
     layer.draw(CAMERA, terrain);
     expect(passes).toHaveLength(1);
     expect(passes[0]?.frame).toMatchObject({ x: BOX.x, y: BOX.y, width: BOX.w, height: BOX.h });
-    // Only the floor quad draws: every world layer is hidden for the pass.
+    // Only the floor quad draws, on its own: the world is neither rendered nor touched.
+    expect(passes[0]?.floor).toBe(true);
     expect(passes[0]?.visibleChildren).toBe(1);
   });
 
@@ -132,10 +138,15 @@ describe('PortraitInsetLayer', () => {
     ];
     layer.set(frames);
     layer.draw(CAMERA, terrain);
-    expect(passes.map((pass) => pass.frame.x)).toEqual([BOX.x, 300, 500]);
+    const worldPasses = passes.filter((pass) => !pass.floor);
+    expect(worldPasses.map((pass) => pass.frame.x)).toEqual([BOX.x, 300, 500]);
+    // A floored cutout paints its floor first, in the same frame, and never parents it into the world.
+    expect(passes.filter((pass) => pass.floor).map((pass) => pass.frame.x)).toEqual([300, 500]);
+    expect(passes.every((pass) => pass.worldChildren === 1)).toBe(true);
     expect(layer.subjects()).toEqual({ ref: SETTLER, house: null, others: [HOUSE, CART, SHIP] });
+    const drawn = passes.length;
     layer.set([]);
     layer.draw(CAMERA, terrain);
-    expect(passes).toHaveLength(3);
+    expect(passes).toHaveLength(drawn);
   });
 });

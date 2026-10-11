@@ -1,8 +1,13 @@
 import { BufferImageSource } from 'pixi.js';
 import type { Viewport } from '../../data/projection/viewport.js';
 import { WEATHER_SNAP_SECONDS } from '../../data/weather/climate.js';
-import { WEATHER_SECTOR_NODES, type WeatherField, weatherFieldTexels } from '../../data/weather/field.js';
-import { WEATHER_NODES_PER_WORLD_X, WEATHER_NODES_PER_WORLD_Y } from '../../data/weather/precipitation.js';
+import {
+  type SectorSpan,
+  sectorSpanOf,
+  WEATHER_SECTOR_NODES,
+  type WeatherField,
+  weatherFieldTexels,
+} from '../../data/weather/field.js';
 import { WEATHER_KINDS, type WeatherKind } from '../../data/weather/types.js';
 
 /** A changed field (a script wrote new weather) cross-fades from the old one over this many game
@@ -40,6 +45,7 @@ export class WeatherFieldTextures {
   private fadeStart: number | null = null;
   private fadePending = false;
   private lastSeconds: number | null = null;
+  private readonly span: SectorSpan = { x0: 0, x1: 0, y0: 0, y1: 0 };
 
   /** True when either field holds any weather. */
   get any(): boolean {
@@ -97,12 +103,7 @@ export class WeatherFieldTextures {
   maxAmount(kind: WeatherKind, viewport: Viewport): number {
     const k = WEATHER_KINDS.indexOf(kind);
     const { sectorsX, sectorsY } = this.current;
-    const sector = (world: number, nodesPerWorld: number, sectors: number, edge: number): number =>
-      Math.min(sectors - 1, Math.max(0, Math.floor((world * nodesPerWorld) / WEATHER_SECTOR_NODES) + edge));
-    const x0 = sector(viewport.minX, WEATHER_NODES_PER_WORLD_X, sectorsX, -1);
-    const x1 = sector(viewport.maxX, WEATHER_NODES_PER_WORLD_X, sectorsX, 1);
-    const y0 = sector(viewport.minY, WEATHER_NODES_PER_WORLD_Y, sectorsY, -1);
-    const y1 = sector(viewport.maxY, WEATHER_NODES_PER_WORLD_Y, sectorsY, 1);
+    const { x0, x1, y0, y1 } = sectorSpanOf(viewport, sectorsX, sectorsY, this.span);
     let max = 0;
     for (let sy = y0; sy <= y1; sy++) {
       for (let sx = x0; sx <= x1; sx++) {

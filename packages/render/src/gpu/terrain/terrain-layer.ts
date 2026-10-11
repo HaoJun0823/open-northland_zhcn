@@ -11,7 +11,7 @@ import {
   NO_WATER,
   type WaterField,
 } from '../../data/terrain/index.js';
-import { WEATHER_SECTOR_NODES } from '../../data/weather/field.js';
+import { type SectorSpan, sectorSpanOf, WEATHER_SECTOR_NODES } from '../../data/weather/field.js';
 import { destroyMeshChildren } from '../mesh-teardown.js';
 import { makeWaveUniforms, WAVE_TIME_PERIOD_TICKS, type WaveUniforms } from '../shading.js';
 import type { TerrainTextureSet } from '../terrain-textures.js';
@@ -43,6 +43,9 @@ const FLAT_ELEVATION: ElevationField = makeElevationField(undefined, 0, 0);
 
 /** WebGL's default UNPACK_ALIGNMENT, in R8 texels (1 byte each). */
 const ROW_ALIGN = 4;
+/** Cover texels are RGBA bytes: wet, snow and dust, then rain falling, which shades nothing alone. */
+const COVER_TEXEL_BYTES = 4;
+const COVER_SHADING_CHANNELS = 3;
 
 export class TerrainLayer {
   readonly container = new Container();
@@ -68,6 +71,15 @@ export class TerrainLayer {
    *  {@link setWeatherCover} hands it a grid. */
   private coverUniforms: GroundCoverUniforms = makeGroundCoverUniforms();
   private coverTex: BufferImageSource = makeGroundCoverTexture(1, 1);
+  /** True while a cover grid is set; the switch is on only while one of its covered sectors can reach
+   *  the culled view, since bare cover draws the ground exactly as no cover does. */
+  private coverSet = false;
+  /** Per sector, 1 where the cover shades the ground (wet, snow or dust above zero). */
+  private coverShading = new Uint8Array(0);
+  private coverSectorsX = 0;
+  private coverSectorsY = 0;
+  private culled: Viewport | null = null;
+  private readonly coverSpan: SectorSpan = { x0: 0, x1: 0, y0: 0, y1: 0 };
 
   setEnhancedSampling(enabled: boolean): void {
     this.enhancedSampling = enabled;
@@ -172,11 +184,13 @@ export class TerrainLayer {
    */
   setWeatherCover(texels: Uint8Array | null, sectorsX: number, sectorsY: number): void {
     const uniforms = this.coverUniforms.uniforms;
-    if (texels === null || this.laneTexWidth === 0 || texels.length !== sectorsX * sectorsY * 4) {
-      if (uniforms.uCover !== 0) {
-        uniforms.uCover = 0;
-        this.coverUniforms.update();
-      }
+    if (
+      texels === null ||
+      this.laneTexWidth === 0 ||
+      texels.length !== sectorsX * sectorsY * COVER_TEXEL_BYTES
+    ) {
+      this.coverSet = false;
+      this.switchCover();
       return;
     }
     if (this.coverTex.width !== sectorsX || this.coverTex.height !== sectorsY)
@@ -194,7 +208,41 @@ export class TerrainLayer {
       -0.5 / spanX,
       -1 / spanY,
     ]);
-    uniforms.uCover = 1;
+    this.coverUniforms.update();
+    this.markShadingSectors(texels, sectorsX, sectorsY);
+    this.coverSet = true;
+    this.switchCover();
+  }
+
+  private markShadingSectors(texels: Uint8Array, sectorsX: number, sectorsY: number): void {
+    const count = sectorsX * sectorsY;
+    if (this.coverShading.length !== count) this.coverShading = new Uint8Array(count);
+    for (let i = 0; i < count; i++) {
+      let shading = 0;
+      for (let c = 0; c < COVER_SHADING_CHANNELS; c++) shading |= texels[i * COVER_TEXEL_BYTES + c] ?? 0;
+      this.coverShading[i] = shading > 0 ? 1 : 0;
+    }
+    this.coverSectorsX = sectorsX;
+    this.coverSectorsY = sectorsY;
+  }
+
+  /** Whether a shading sector's bilinear reach touches the culled view; before any cull, any sector. */
+  private coverReachesView(): boolean {
+    const vp = this.culled;
+    if (vp === null) return this.coverShading.includes(1);
+    const { x0, x1, y0, y1 } = sectorSpanOf(vp, this.coverSectorsX, this.coverSectorsY, this.coverSpan);
+    for (let sy = y0; sy <= y1; sy++) {
+      for (let sx = x0; sx <= x1; sx++)
+        if (this.coverShading[sy * this.coverSectorsX + sx] === 1) return true;
+    }
+    return false;
+  }
+
+  private switchCover(): void {
+    const uniforms = this.coverUniforms.uniforms;
+    const on = this.coverSet && this.coverReachesView() ? 1 : 0;
+    if (uniforms.uCover === on) return;
+    uniforms.uCover = on;
     this.coverUniforms.update();
   }
 
@@ -242,6 +290,8 @@ export class TerrainLayer {
       chunk.container.visible = aabbIntersects(vp, chunk);
     }
     this.roads?.meshVisible();
+    this.culled = vp;
+    this.switchCover();
   }
 
   /**
@@ -272,6 +322,7 @@ export class TerrainLayer {
     this.hasWater = false;
     this.water = NO_WATER;
     this.coverTex.destroy();
+    this.coverSet = false;
     this.terrainHeight = 0;
   }
 

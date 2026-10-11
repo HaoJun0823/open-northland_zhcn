@@ -1,3 +1,5 @@
+import type { Viewport } from '../projection/viewport.js';
+import { WEATHER_NODES_PER_WORLD_X, WEATHER_NODES_PER_WORLD_Y } from './precipitation.js';
 import { WEATHER_DENSITY_FULL, WEATHER_KINDS, type WeatherKind, type WeatherRegionInput } from './types.js';
 
 /**
@@ -47,6 +49,31 @@ export function buildWeatherField(
     }
   }
   return { sectorsX, sectorsY, amounts, any: amounts.some((amount) => amount > 0) };
+}
+
+/** An inclusive rectangle of sectors. */
+export interface SectorSpan {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+/** The sectors whose bilinear reach touches world px rectangle `viewport` (elevation ignored): those
+ *  under it and one more on every side, clamped to the grid, written into `out`. */
+export function sectorSpanOf(
+  viewport: Viewport,
+  sectorsX: number,
+  sectorsY: number,
+  out: SectorSpan,
+): SectorSpan {
+  const sector = (world: number, nodesPerWorld: number, sectors: number, edge: number): number =>
+    Math.min(sectors - 1, Math.max(0, Math.floor((world * nodesPerWorld) / WEATHER_SECTOR_NODES) + edge));
+  out.x0 = sector(viewport.minX, WEATHER_NODES_PER_WORLD_X, sectorsX, -1);
+  out.x1 = sector(viewport.maxX, WEATHER_NODES_PER_WORLD_X, sectorsX, 1);
+  out.y0 = sector(viewport.minY, WEATHER_NODES_PER_WORLD_Y, sectorsY, -1);
+  out.y1 = sector(viewport.maxY, WEATHER_NODES_PER_WORLD_Y, sectorsY, 1);
+  return out;
 }
 
 /** The bilinear amount 0..1 of `kind` at a fractional half-cell node position. */

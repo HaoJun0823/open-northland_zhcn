@@ -1,6 +1,8 @@
 import { TRANSITION_NONE, TRANSITION_PAIRS } from '@open-northland/data';
 import { BufferImageSource, Mesh, UniformGroup } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
+import { TILE_HALF_H, TILE_HALF_W } from '../src/data/projection/index.js';
+import { WEATHER_SECTOR_NODES } from '../src/data/weather/field.js';
 import { TerrainLayer } from '../src/gpu/terrain/index.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
@@ -32,6 +34,56 @@ describe('terrain shader gating', () => {
     expect(fragment).not.toMatch(/uEnhancedWater\s*[*+]/);
     // The sampling gate has to return before the derivatives, or the baseline pays for them anyway.
     expect(fragment.indexOf('uEnhancedSampling < 0.5')).toBeLessThan(fragment.indexOf('dFdx('));
+    layer.destroy();
+    source.destroy();
+  });
+});
+
+describe('terrain weather cover switch', () => {
+  it('turns the cover pass on only while a covered sector can reach the culled view', () => {
+    const cells = 30;
+    const sectors = (2 * cells) / WEATHER_SECTOR_NODES;
+    const source = new BufferImageSource({ resource: new Uint8Array(64 * 64 * 4), width: 64, height: 64 });
+    const layer = new TerrainLayer();
+    layer.set(
+      {
+        width: cells,
+        height: cells,
+        typeIds: new Array(cells * cells).fill(0),
+        brightness: new Array(cells * cells).fill(127),
+      },
+      {
+        pages: new Map([['ground', source]]),
+        cellFor: () => ({ pageKey: 'ground', rect: { x: 0, y: 0, w: 63, h: 63 } }),
+      },
+    );
+    const group = meshOf(layer).shader?.resources.coverVars;
+    if (!(group instanceof UniformGroup)) throw new Error('Missing cover uniforms');
+    // Snow in the first sector only; the rain-falling channel alone shades nothing.
+    const texels = new Uint8Array(sectors * sectors * 4);
+    texels[1] = 200;
+    texels[(sectors * sectors - 1) * 4 + 3] = 255;
+    // One sector square in world px, at sector column and row `s`.
+    const sectorW = WEATHER_SECTOR_NODES * TILE_HALF_W;
+    const sectorH = (WEATHER_SECTOR_NODES * TILE_HALF_H) / 2;
+    const over = (s: number) => ({
+      minX: s * sectorW + 1,
+      minY: s * sectorH + 1,
+      maxX: (s + 1) * sectorW - 1,
+      maxY: (s + 1) * sectorH - 1,
+    });
+    layer.cull(over(sectors - 1));
+    layer.setWeatherCover(texels, sectors, sectors);
+    expect(group.uniforms.uCover).toBe(0);
+    // The neighbour's bilinear reach touches the snowy sector.
+    layer.cull(over(1));
+    expect(group.uniforms.uCover).toBe(1);
+    layer.cull(over(2));
+    expect(group.uniforms.uCover).toBe(0);
+    layer.cull(over(0));
+    expect(group.uniforms.uCover).toBe(1);
+    layer.setWeatherCover(null, 0, 0);
+    expect(group.uniforms.uCover).toBe(0);
     layer.destroy();
     source.destroy();
   });

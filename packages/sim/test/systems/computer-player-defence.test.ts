@@ -563,10 +563,9 @@ describe('ai defence - the sortie', () => {
     stampMissionBehaviour(sim.world, guard, MISSION_BEHAVIOUR.NOT_CONTROLLABLE);
     standOff(sim, hq, watchOf(sim), SPEARMAN);
 
-    const decide = militaryModule.whileDisabled;
-    if (decide === undefined) throw new Error('the military module has no scripted half');
     expect(attackMoves(run(sim)).map((m) => m.entity)).toEqual([free]);
-    expect(attackMoves([...decide(sim.world, ctxOf(sim), SEAT)]).map((m) => m.entity)).toEqual([free]);
+    const defence = planSettlementDefence(sim.world, ctxOf(sim), terrainOf(sim), SEAT, false);
+    expect(attackMoves(defence.commands).map((m) => m.entity)).toEqual([free]);
   });
 
   it('stays quiet while the nearest enemy fighter is outside every watch band', () => {

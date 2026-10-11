@@ -10,7 +10,7 @@ import type { NavigationLimit } from '../../signposts/index.js';
 import { hexNodeDistance, manhattan } from '../../spatial/metric.js';
 import type { SupplyTally } from '../../stores/index.js';
 import { MEAL_UNITS } from '../atomics/effects/goods/index.js';
-import { PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic, startMeal } from '../atomics/start.js';
+import { atOrWalk, PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic, startMeal } from '../atomics/start.js';
 import { enterBuilding, isInside } from '../indoors.js';
 import { interactionCell, storedFoodGood } from '../targets/index.js';
 import { isUnreachableGoal, unreachableGoals } from '../unreachable-goals.js';
@@ -77,9 +77,8 @@ export function sleepAtHome(
 }
 
 /**
- * Send `e` home to pray at its holy fire. Returns `false` when it uses no home, the fire is out or
- * forbidden, the settler's pray clip pays no religion, or the door is out of reach - the caller then
- * looks for a temple.
+ * Pray outside at the home entrance (an approximation of the original outdoor stand). Falls back to
+ * a public site when the fire is out, the clip pays no religion, or the entrance cannot be reached.
  */
 export function prayAtHome(
   world: World,
@@ -95,7 +94,7 @@ export function prayAtHome(
   if (!homeClipServes(ctx, settler, PRAY_ATOMIC_ID, ATOMIC_EVENT_CHANNEL.PIETY)) return false;
   const door = homeDoorFor(world, ctx, terrain, e, home, here, limit);
   if (door === null) return false;
-  enterBuilding(world, e, home, here, door, () =>
+  atOrWalk(world, e, here, door, () =>
     startAtomic(
       world,
       e,
@@ -185,11 +184,10 @@ function homeDoorFor(
 }
 
 /**
- * Whether `e` is inside its own house mid-sleep, mid-prayer or mid-meal. Testing the house and not just the
+ * Whether `e` is inside its own house mid-sleep or mid-meal. Testing the house and not just the
  * atomic is load-bearing: the open-ground rung starts an identical `sleep` atomic, so the atomic alone
- * would also match a settler behind a stale indoors marker. A prayer must also target the home: a temple's
- * or the headquarters' door can share the node the settler stepped in by, and that prayer is said outside.
- * A meal must come off the home's own larder for the same reason.
+ * would also match a settler behind a stale indoors marker. A meal must come off the home's own larder.
+ * Prayer is always outdoors and never keeps the indoor top-up chain running.
  */
 export function isServedAtHome(world: World, e: Entity): boolean {
   const home = world.tryGet(e, Residence)?.home;
@@ -197,9 +195,5 @@ export function isServedAtHome(world: World, e: Entity): boolean {
   const atomic = world.tryGet(e, CurrentAtomic);
   if (atomic === undefined) return false;
   const { effect } = atomic;
-  return (
-    effect.kind === 'sleep' ||
-    (effect.kind === 'pray' && atomic.targetEntity === home) ||
-    (effect.kind === 'eat' && effect.from === home)
-  );
+  return effect.kind === 'sleep' || (effect.kind === 'eat' && effect.from === home);
 }

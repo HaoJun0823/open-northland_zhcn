@@ -99,6 +99,7 @@ export interface MessageCenterDeps {
   /** The vehicle build sites, which an unlock note lists as vehicles; absent, none are. */
   readonly isVehicleSite?: VehicleSiteTest | undefined;
   /** The seat's workshops and the sim's diagnosis of their workers; absent, no stall note is raised. */
+  readonly prayerNeeds?: ReadonlySet<number> | undefined;
   readonly workshops?: WorkshopSeam | undefined;
   /** The sim's read of the seat's building sites' supply; absent, no shortage note is raised. */
   readonly sites?: SiteSeam | undefined;
@@ -218,7 +219,7 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
   const feeds = createSeatFeeds(deps.viewer.seat(), deps.initial);
   const naming = makeNaming(deps);
   const snapshotSourceOf = (seat: number | null) =>
-    seat === null ? null : createSnapshotMessageSource(seat, deps.workshops, deps.sites);
+    seat === null ? null : createSnapshotMessageSource(seat, deps.workshops, deps.sites, deps.prayerNeeds);
   let snapshotSource = snapshotSourceOf(feeds.seat);
   let diplomacySource = createDiplomacyMessageSource(deps.metSeats);
   let fights = FightAreas.adopt(deps.initial);
@@ -228,6 +229,7 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
     snapshotSource?.stalls,
     snapshotSource?.shortages,
     snapshotSource?.idleReasons,
+    deps.prayerNeeds,
   );
   // The tick of the last presented snapshot, which a dismissal is stamped with.
   let presentedTick = 0;
@@ -350,6 +352,7 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
       snapshotSource?.stalls,
       snapshotSource?.shortages,
       snapshotSource?.idleReasons,
+      deps.prayerNeeds,
     );
     previous = null;
     renderedVersion = -1;
@@ -465,6 +468,7 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
         snapshotSource?.stalls,
         snapshotSource?.shortages,
         snapshotSource?.idleReasons,
+        deps.prayerNeeds,
       );
       renderedVersion = -1;
     },

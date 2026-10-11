@@ -176,6 +176,7 @@ export interface GameToolPanelDeps {
   /** Set, the notification column shows one note of every type (`?debug=notices`). */
   readonly noticeGallery?: NoticeGallery;
   /** The seat's workshops and the sim's diagnosis of their workers, for the stalled-workshop notes. */
+  readonly prayerNeeds?: ReadonlySet<number> | undefined;
   readonly workshops?: WorkshopSeam;
   /** The sim's read of the seat's building sites' supply, for the shortage notes. */
   readonly sites?: SiteSeam;
@@ -353,6 +354,7 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
       ...(deps.onAttackShown !== undefined ? { onAttackShown: deps.onAttackShown } : {}),
       ...(deps.onNoteShown !== undefined ? { onNoteShown: deps.onNoteShown } : {}),
       ...(deps.noticeGallery !== undefined ? { noticeGallery: deps.noticeGallery } : {}),
+      prayerNeeds: deps.prayerNeeds,
       ...(deps.workshops !== undefined ? { workshops: deps.workshops } : {}),
       ...(deps.sites !== undefined ? { sites: deps.sites } : {}),
       ...(deps.isVehicleSite !== undefined ? { isVehicleSite: deps.isVehicleSite } : {}),

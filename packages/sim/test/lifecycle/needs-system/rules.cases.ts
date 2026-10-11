@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as components from '../../../src/components/index.js';
-import { setNeedsEnabled } from '../../../src/components/index.js';
 import { fx, Simulation } from '../../../src/index.js';
-import { chargeMilitaryPiety, NEED_DRAIN_UNITS_PER_TICK, needBar } from '../../../src/systems/index.js';
+import { NEED_DRAIN_UNITS_PER_TICK, needBar } from '../../../src/systems/index.js';
 import { testContent } from '../../fixtures/content.js';
 import { needsOf } from '../../fixtures/settler.js';
 import { settlerWithHunger } from './support.js';
@@ -24,21 +23,6 @@ describe('needsSystem - the setNeedsEnabled world rule (the dev/admin toggle)', 
     sim.step(); // the toggle applies (commandSystem) before needsSystem the same tick
     expect(needsOf(sim, e).hunger).toBe(needBar(NEED_DRAIN_UNITS_PER_TICK));
     expect(sim.checkInvariants()).toEqual([]);
-  });
-
-  it('refuses the forge piety charge while disabled, so nothing sends a smith off to pray', () => {
-    const sim = new Simulation({ seed: 1, content: testContent() });
-    const e = settlerWithHunger(sim, fx.fromInt(0));
-
-    // The units a forge clip spends on the religion channel.
-    const FORGE_PIETY_UNITS = -1500;
-    setNeedsEnabled(sim.world, false);
-    chargeMilitaryPiety(sim.world, e, FORGE_PIETY_UNITS);
-    expect(needsOf(sim, e).piety).toBe(fx.fromInt(0));
-
-    setNeedsEnabled(sim.world, true);
-    chargeMilitaryPiety(sim.world, e, FORGE_PIETY_UNITS);
-    expect(needsOf(sim, e).piety).toBe(needBar(-FORGE_PIETY_UNITS));
   });
 
   it('reuses the one WorldRules singleton across repeated toggles', () => {

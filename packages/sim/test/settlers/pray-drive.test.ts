@@ -313,16 +313,16 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
     expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 6, 0));
   });
 
-  it('prays inside at its own door and stays in for the prayer', () => {
+  it('prays outside at its own door without entering the home', () => {
     const sim = new Simulation({ seed: 1, content: oilContent(), map: grassMap(8, 1) });
     const home = litHomeAt(sim, 4);
     const settler = devoutAt(sim, 4, home);
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, Resting).at).toBe(home);
+    expect(sim.world.has(settler, Resting)).toBe(false);
     expect(sim.world.get(settler, CurrentAtomic).effect).toEqual({ kind: 'pray' });
-    expect(isServedAtHome(sim.world, settler)).toBe(true);
+    expect(isServedAtHome(sim.world, settler)).toBe(false);
   });
 
   it('does not count a temple prayer said from its doorstep as a prayer at home', () => {
@@ -367,7 +367,7 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
     expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 3, 0));
   });
 
-  it('goes to the temple when its player forbids burning holy oil', () => {
+  it('keeps praying at its lit home when oil deliveries are forbidden', () => {
     const sim = new Simulation({ seed: 1, content: oilContent(), map: grassMap(8, 1) });
     ownedAt(sim, 3, TEMPLE_TYPE);
     const settler = devoutAt(sim, 2, litHomeAt(sim, 6));
@@ -375,7 +375,7 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 3, 0));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 6, 0));
   });
 
   it('prays at its own headquarters when it has no temple, not at a rival one', () => {

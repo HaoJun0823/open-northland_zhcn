@@ -39,6 +39,7 @@ export function satisfactionBars(
   tick: number,
   needsEnabled: boolean,
   carriesNeeds = true,
+  canPray = false,
 ): PanelBar[] {
   const hud = messages().hud;
   const comps: Comp = ent.components;
@@ -53,7 +54,8 @@ export function satisfactionBars(
   bars.push(needBar(hud.hunger, 'hunger', s?.hunger));
   bars.push(needBar(hud.sleep, 'fatigue', s?.fatigue));
   bars.push(needBar(hud.company, 'enjoyment', s?.enjoyment));
-  bars.push(needBar(hud.religion, 'piety', s?.piety));
+  const religion = needBar(hud.religion, 'piety', s?.piety);
+  bars.push(canPray ? religion : { label: religion.label, pct: religion.pct, hover: religion.hover });
   return bars;
 }
 

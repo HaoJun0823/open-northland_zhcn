@@ -40,7 +40,12 @@ export const LOST_NOTE_HOLD_TICKS = 5 * TICKS_PER_SECOND;
 /** Whether a need note's own stage has passed. The original validates these messages against the human's
  *  current need and explicitly removes them when its fulfill-needs task finishes. A heavier hunger stage
  *  taking a lighter card's place is the feed's rule, not this one. */
-function isNeedNoteOver(m: UserMessage, snapshot: WorldSnapshot, e: SnapshotEntity): boolean {
+function isNeedNoteOver(
+  m: UserMessage,
+  snapshot: WorldSnapshot,
+  e: SnapshotEntity,
+  prayerNeeds: ReadonlySet<number>,
+): boolean {
   if (!needsRuleEnabled(snapshot)) return true;
   const needs = settlerNeedsOf(e, snapshot.tick);
   if (needs === undefined) return true;
@@ -53,7 +58,10 @@ function isNeedNoteOver(m: UserMessage, snapshot: WorldSnapshot, e: SnapshotEnti
       return needs.fatigue < systems.NEED_CRITICAL_THRESHOLD;
     case USER_MESSAGE_TYPE.wantsToPray:
       // An ordered prayer searches at any bar level, so its note stands with the order.
-      return needs.piety < systems.NEED_CRITICAL_THRESHOLD && orderedNeedOf(e) !== 'piety';
+      return (
+        orderedNeedOf(e) !== 'piety' &&
+        (needs.piety < systems.NEED_CRITICAL_THRESHOLD || !prayerNeeds.has(settlerJobType(e) ?? -1))
+      );
     default:
       return false;
   }
@@ -152,6 +160,7 @@ export class NoteRetirement {
     private readonly stalls: StallReader | null = null,
     private readonly shortages: ShortageReader | null = null,
     private readonly idleReasons: IdleReasonReader | null = null,
+    private readonly prayerNeeds: ReadonlySet<number> = new Set(),
   ) {}
 
   isOver(m: UserMessage, snapshot: WorldSnapshot): boolean {
@@ -164,7 +173,7 @@ export class NoteRetirement {
       case USER_MESSAGE_TYPE.starving:
       case USER_MESSAGE_TYPE.tired:
       case USER_MESSAGE_TYPE.wantsToPray:
-        return isNeedNoteOver(m, snapshot, e);
+        return isNeedNoteOver(m, snapshot, e, this.prayerNeeds);
       case USER_MESSAGE_TYPE.willDie:
         return !isStillDying(e);
       case USER_MESSAGE_TYPE.nothingToDo:

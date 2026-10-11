@@ -782,3 +782,21 @@ describe('the settler panel’s Pojazd row', () => {
     expect(held.vehicle?.assign).toBe(messages().hud.settlerPanel.scripted);
   });
 });
+
+describe('religion bar action permission', () => {
+  it.each([JOB_CIVILIST, JOB_WOMAN, JOB_SOLDIER])('uses the job permission for job %i', (jobType) => {
+    const model = settlerModel([
+      {
+        id: SETTLER,
+        components: owned({
+          Settler: { tribe: 1, jobType },
+          Person: {},
+          SettlerNeeds: { hunger: 0, fatigue: 0, enjoyment: 0, piety: 0, asOf: 0, drain: 'none' },
+        }),
+      },
+    ]);
+    const religion = model.bars.find((bar) => bar.label === messages().hud.religion);
+    expect(religion).toBeDefined();
+    expect(religion?.need).toBe(jobType === JOB_CIVILIST ? 'piety' : undefined);
+  });
+});

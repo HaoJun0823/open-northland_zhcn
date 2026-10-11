@@ -1,5 +1,5 @@
 import type { Entity, Simulation } from '@open-northland/sim';
-import { components } from '@open-northland/sim';
+import { components, fx } from '@open-northland/sim';
 import { grassTerrain } from '../catalog/buildings.js';
 import { JOB_WOMAN } from '../catalog/jobs.js';
 import { HUMAN_PLAYER } from '../game/rules.js';
@@ -59,6 +59,13 @@ function build(sim: Simulation): void {
   spawnWorkersAtDoor(sim, potteryEntity, 2);
   spawnWorkersAtDoor(sim, joineryEntity, 2);
   spawnWorkersAtDoor(sim, druidEntity, 1);
+  const resident = [...sim.world.query(components.JobAssignment)].find(
+    (entity) => sim.world.get(entity, components.JobAssignment).workplace === joineryEntity,
+  );
+  if (resident !== undefined) {
+    sim.world.add(resident, Residence, { home: homeEntity });
+    sim.world.mut(resident, components.SettlerNeeds).piety = fx.div(fx.fromInt(95), fx.fromInt(100));
+  }
 
   const homemaker = spawnSettlerDirect(sim, JOB_WOMAN, HOME_3.x - 2, HOME_3.y + 2);
   sim.world.add(homemaker, Residence, { home: homeEntity });

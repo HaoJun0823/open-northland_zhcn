@@ -1,3 +1,4 @@
+import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   Building,
@@ -17,6 +18,7 @@ import {
 import type { Entity } from '../../src/ecs/world.js';
 import { type Fixed, fx, ONE, Simulation } from '../../src/index.js';
 import { plannerSystem } from '../../src/systems/index.js';
+import { orderNeed } from '../../src/systems/orders/needs.js';
 import { testContent } from '../fixtures/content.js';
 import { cellOf, ctxOf, grassMap, type NeedLevels, needsSettlerAt } from './needs/support.js';
 
@@ -272,5 +274,27 @@ describe('setRegeneration - the soldier that stays put', () => {
 
     expect(sim.world.has(settler, NoRegeneration)).toBe(false);
     expect(sim.world.has(settler, NeedOrder)).toBe(false);
+  });
+});
+
+describe('prayer permission before cancelling orders', () => {
+  it.each([31, 32, 5])('rejects prayer for job %i and keeps its movement order', (job) => {
+    const base = testContent();
+    const content = parseContentSet({
+      ...base,
+      jobs: [
+        ...base.jobs.filter((row) => ![31, 32, 5].includes(row.typeId)),
+        { typeId: 31, id: 'soldier_unarmed', baseJob: 6, forbiddenAtomics: [12] },
+        { typeId: 32, id: 'soldier_spear', baseJob: 31 },
+        { typeId: 5, id: 'woman' },
+      ],
+    });
+    const sim = new Simulation({ seed: 1, content, map: grassMap(8, 2) });
+    const settler = ownedSettlerAt(sim, 0, 0, { piety: ONE });
+    setSettlerJob(sim.world, settler, job);
+    sim.world.add(settler, MoveGoal, { cell: cellOf(sim, 6, 0) });
+    orderNeed(sim.world, ctxOf(sim), { kind: 'orderNeed', entity: settler, need: 'piety' });
+    expect(sim.world.has(settler, NeedOrder)).toBe(false);
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 6, 0));
   });
 });

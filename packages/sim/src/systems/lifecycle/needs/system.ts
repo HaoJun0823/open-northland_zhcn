@@ -33,20 +33,6 @@ export function rollInitialNeed(rng: Rng): Fixed {
   return needBar(rng.int(NEED_INIT_SPREAD_UNITS));
 }
 
-/** Move a settler's piety by `units` of the reserve, the sign the data writes: a forge clip's `-1500` or
- *  `-3000` spends it, a prayer's `+800` pulses serve it. */
-export function chargeMilitaryPiety(world: World, settler: Entity, units: number): void {
-  if (
-    units === 0 ||
-    !needsEnabled(world) ||
-    hasMissionBehaviour(world, settler, MISSION_BEHAVIOUR.NEEDS_FROZEN)
-  )
-    return;
-  if (!world.has(settler, Settler)) return;
-  const s = world.mut(settler, SettlerNeeds);
-  s.piety = applyNeedUnits(s.piety, units);
-}
-
 /**
  * A barefoot step's hunger, at departure or terminal arrival: without live boots, the walker's
  * food bar loses that many reserve units, twice as many while hauling a good. The shoes' other promise
@@ -89,7 +75,7 @@ export function isNearDeath(hitpoints: number, max: number): boolean {
 
 /**
  * The rise half of settler needs, plus the hitpoint step. `piety` is not touched here: it climbs only
- * through {@link chargeMilitaryPiety} and falls with a prayer or a temple's blessing.
+ * through authored production events and falls with a prayer or a temple's blessing.
  *
  * Only a grown settler of a trading tribe carries needs. Original behavior for the age gate: neither
  * the per-tick drain nor the urgent-need check applies unless the human is an adult, so the child

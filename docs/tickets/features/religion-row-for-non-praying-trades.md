@@ -16,7 +16,7 @@ carpenter from the wooden-spear clip name: that clip is bound to the religious `
 - Match it here: hide the row for a trade with no religion need, or leave it and say in the panel that an
   ordered prayer or a temple nearby is what fills it.
 - Keep this ticket about row presentation. The drain amount and action eligibility are owned by the
-  [religion fidelity plan](religion-fidelity/README.md); current production can charge the clip twice.
+  implementation tests; the remaining [fidelity checks](religion-fidelity/README.md) are separate.
 
 ## Verify
 

@@ -4,6 +4,7 @@ import {
   CurrentAtomic,
   DeferredOrder,
   HarvestFocus,
+  Resting,
   removeCurrentAtomic,
 } from '../../../components/index.js';
 import type { System } from '../../context.js';
@@ -58,7 +59,9 @@ export const atomicSystem: System = (world, ctx) => {
       if (lunge?.frames.includes(elapsed)) lungeForward(world, ctx, e, lunge.direction);
     }
 
-    applyAtomicNeedEvents(world, ctx, e, running, elapsed);
+    const workshopDisplay =
+      running.effect.kind === 'produce' && world.tryGet(e, Resting)?.at === running.targetEntity;
+    if (!workshopDisplay) applyAtomicNeedEvents(world, ctx, e, running, elapsed);
     applyAtomicStockEvents(world, ctx, e, running, elapsed);
     emitAtomicSoundCues(world, ctx, e, running, elapsed);
 

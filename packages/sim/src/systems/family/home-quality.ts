@@ -72,7 +72,7 @@ export function homeQualityActive(
   return (
     type?.kind === 'home' &&
     building.level >= policy.minimumHomeLevel &&
-    homeQualityAllowed(world, home, effect) &&
+    (effect === 'piety' || homeQualityAllowed(world, home, effect)) &&
     homeQualityValue(world, home, effect) > 0
   );
 }
@@ -85,7 +85,7 @@ export function spendHomeQuality(
   effect: HomeQualityEffect,
   amount: number,
 ): boolean {
-  if (!homeQualityAllowed(world, home, effect)) return false;
+  if (effect !== 'piety' && !homeQualityAllowed(world, home, effect)) return false;
   const quality = world.tryGet(home, HomeQuality);
   if (quality === undefined || quality[effect] < amount) return false;
   world.mut(home, HomeQuality)[effect] -= amount;
@@ -167,9 +167,8 @@ export function occupiedHome(world: World, settler: Entity): Entity | null {
 const EMPTY_GOODS: ReadonlySet<number> = new Set<number>();
 
 /**
- * Toggle one player's settlement-wide policy, including homes built later. The original per-home flag blocks
- * demand and delivery only; this player-facing control also pauses consumption and effects while preserving
- * every stored pool.
+ * Toggle one player's settlement-wide policy, including homes built later. Oil permission controls
+ * deliveries only; stored oil keeps burning and serving prayer. Other furnishings pause their uses.
  */
 export function setHouseholdGoodUse(
   world: World,

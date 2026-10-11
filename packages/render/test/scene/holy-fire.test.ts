@@ -35,7 +35,7 @@ const snapshot = (
 });
 
 describe('home holy fire projection', () => {
-  it('stages the source-bound loop only for a finished eligible home with live enabled oil', () => {
+  it('stages the source-bound loop only for a finished eligible home with delivered oil even after deliveries are forbidden', () => {
     expect(holyFireOverlays(snapshot(), HOME, components, lookup)).toEqual([
       { name: 'fx fire incense', dx: -80, dy: 24 },
     ]);
@@ -46,8 +46,10 @@ describe('home holy fire projection', () => {
         components,
         lookup,
       ),
-    ).toEqual([]);
-    expect(holyFireOverlays(snapshot(components, null), HOME, components, lookup)).toEqual([]);
+    ).toEqual([{ name: 'fx fire incense', dx: -80, dy: 24 }]);
+    expect(holyFireOverlays(snapshot(components, null), HOME, components, lookup)).toEqual([
+      { name: 'fx fire incense', dx: -80, dy: 24 },
+    ]);
     const empty = {
       ...components,
       HomeQuality: { cooking: 0, rest: 0, piety: 0 },

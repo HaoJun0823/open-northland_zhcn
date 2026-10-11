@@ -304,7 +304,7 @@ describe('household quality goods', () => {
     );
   });
 
-  it('lets a religious resident pray at home while its sacred fire has oil', () => {
+  it('does not keep a resident indoors to pray at its burning fire', () => {
     const { sim, home, carrier } = setup();
     deliver(sim, carrier, home, OIL);
     const settler = sim.world.create();
@@ -327,8 +327,8 @@ describe('household quality goods', () => {
         sim.world.get(settler, Settler),
         collectSupplyTally(sim.world),
       ),
-    ).toBe(true);
-    expect(sim.world.get(settler, CurrentAtomic).effect.kind).toBe('pray');
+    ).toBe(false);
+    expect(sim.world.has(settler, CurrentAtomic)).toBe(false);
   });
 
   it('does not let a low-tier home use a seeded oil pool', () => {
@@ -376,7 +376,7 @@ describe('household quality goods', () => {
     });
     expect(spendHomeQuality(sim.world, home, 'cooking', 5)).toBe(false);
     expect(spendHomeQuality(sim.world, home, 'rest', 5)).toBe(false);
-    expect(homeQualityActive(sim.world, ctxOf(sim), home, 'piety')).toBe(false);
+    expect(homeQualityActive(sim.world, ctxOf(sim), home, 'piety')).toBe(true);
     expect(sim.world.get(home, HomeQuality)).toEqual({ cooking: 100, rest: 100, piety: 1000 });
 
     const foodCarrier = sim.world.create();
@@ -412,6 +412,16 @@ describe('household quality goods', () => {
     toggle(sim, 'cooking', true);
     expect(deliver(sim, blocked, home, CROCKERY)).toBe(1);
     expect(sim.world.get(home, HomeQuality).cooking).toBe(200);
+  });
+
+  it('keeps burning stored oil after deliveries are forbidden', () => {
+    const { sim, home, carrier } = setup();
+    deliver(sim, carrier, home, OIL);
+    toggle(sim, 'piety', false);
+    drainHolyOil(sim.world, { ...ctxOf(sim), tick: 12 });
+    expect(sim.world.get(home, HomeQuality).piety).toBe(997);
+    expect(homeQualityActive(sim.world, ctxOf(sim), home, 'piety')).toBe(true);
+    expect(deliver(sim, sim.world.create(), home, OIL)).toBe(0);
   });
 
   it('persists one player policy across their existing and future homes while isolating other players', () => {

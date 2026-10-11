@@ -155,6 +155,20 @@ function boardOut(s: Simulation, vehicle: Entity, rider: Entity, limit = BOARD_T
 }
 
 describe('attachToVehicle', () => {
+  it('keeps a rider aboard when its trade cannot pray', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const rider = spawnSettler(s, CART_DOOR.hx, CART_DOOR.hy);
+    attach(s, rider, cart);
+    boardOut(s, cart, rider);
+    s.enqueue(playerCommand(P0, { kind: 'orderNeed', entity: rider, need: 'piety' }));
+    s.step();
+    expect(s.world.has(rider, Rider)).toBe(true);
+    expect(vehicleCommander(s.world.get(cart, Vehicle))).toBe(rider);
+    expect(seatOf(s, cart, rider)?.inside).toBe(true);
+    expect(s.world.has(rider, NeedOrder)).toBe(false);
+  });
+
   it('keeps a food-amulet commander aboard and travelling when ordered to eat', () => {
     const s = sim();
     const cart = spawn(s, HANDCART, 12, 6);

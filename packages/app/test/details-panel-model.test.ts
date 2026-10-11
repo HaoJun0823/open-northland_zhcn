@@ -578,7 +578,7 @@ describe('selection details panel model', () => {
     expect(retainedOil.homeQuality?.rows.find((row) => row.effect === 'piety')).toMatchObject({
       value: 2000,
       allowed: false,
-      holyFireActive: false,
+      holyFireActive: true,
     });
 
     const site = buildUnitPanelModel(

@@ -259,6 +259,7 @@ export interface ToolPanelOptions {
   /** Set, the notification column shows one note of every type (`?debug=notices`). */
   readonly noticeGallery?: NoticeGallery;
   /** The seat's workshops and the sim's diagnosis of their workers, for the stalled-workshop notes. */
+  readonly prayerNeeds?: ReadonlySet<number> | undefined;
   readonly workshops?: WorkshopSeam;
   /** The sim's read of the seat's building sites' supply, for the shortage notes. */
   readonly sites?: SiteSeam;
@@ -795,6 +796,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       onAttackShown: opts.onAttackShown,
       onNoteShown: opts.onNoteShown,
       gallery: opts.noticeGallery,
+      prayerNeeds: opts.prayerNeeds,
       workshops: opts.workshops,
       sites: opts.sites,
       isVehicleSite: opts.isVehicleSite,

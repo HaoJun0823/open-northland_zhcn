@@ -137,16 +137,16 @@ export const economyContent = {
   jobs: [
     { typeId: 0, id: 'idle' },
     // The woodcutter is permitted the wood harvest atomic (24) - the planner's data-driven gate.
-    { typeId: 1, id: 'woodcutter', allowedAtomics: [24] },
+    { typeId: 1, id: 'woodcutter', baseJob: 6, allowedAtomics: [24] },
     { typeId: 2, id: 'carpenter' },
     // The civilist (the original's job 6 - the no-trade adult): assignable via setJob, employed by no
     // workplace, so a settler ordered into it stays jobless (the "Civilian" picker row).
-    { typeId: 6, id: 'civilist' },
+    { typeId: 6, id: 'civilist', allowedAtomics: [12] },
     // The smith (job 13) is the fixture's `needsReligionFlag` trade - the only kind of settler
     // that leaves its work to pray.
     // It carries the wood atomic only so the pray cases can watch a praying trade fall through to
     // ordinary work; the real smith forges at a workshop the fixture does not model.
-    { typeId: 13, id: 'smith', needsReligion: true, allowedAtomics: [24] },
+    { typeId: 13, id: 'smith', baseJob: 6, needsReligion: true, allowedAtomics: [24] },
     // The miner is permitted the stone harvest atomic (25) - it chips a `MineDeposit` deposit.
     { typeId: 5, id: 'miner', allowedAtomics: [25] },
     // A two-trade collector (wood 24 + stone 25) - what the employed-gatherer store-filter tests use

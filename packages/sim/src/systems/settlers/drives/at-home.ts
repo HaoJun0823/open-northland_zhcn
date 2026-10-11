@@ -9,18 +9,17 @@ import type { AtomicEffect } from '../../../core/atomic-effect.js';
 import { ZERO } from '../../../core/fixed.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SystemContext } from '../../context.js';
-import { homeQualityActive } from '../../family/home-quality.js';
 import { homeUsedBy } from '../../family/households.js';
 import { carriesNeeds, mutNeeds, NEED_SATED_THRESHOLD, needLevel } from '../../lifecycle/needs/index.js';
 import { atomicClipName, atomicDuration, atomicEventChannelDelta } from '../../readviews/animations.js';
-import { ATOMIC_EVENT_CHANNEL, jobNeedsReligion } from '../../readviews/index.js';
+import { ATOMIC_EVENT_CHANNEL } from '../../readviews/index.js';
 import type { SupplyTally } from '../../stores/index.js';
 import { MEAL_UNITS } from '../atomics/effects/goods/index.js';
-import { mealAtomicId, PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic } from '../atomics/start.js';
+import { mealAtomicId, SLEEP_ATOMIC_ID, startAtomic } from '../atomics/start.js';
 import { heldIndoors, isInside } from '../indoors.js';
 import { storedFoodGood } from '../targets/index.js';
 
-const { REST, HUNGER, PIETY } = ATOMIC_EVENT_CHANNEL;
+const { REST, HUNGER } = ATOMIC_EVENT_CHANNEL;
 
 // The at-home top-up: a settler that came home for one need serves the rest before going back out, so it
 // leaves rested and fed rather than making a second trip for each bar. Approximation: the chain and its
@@ -35,8 +34,7 @@ interface HomeRound {
 }
 
 /**
- * The round the at-home chain serves `e` next, rest first, then a meal off the family larder, then a
- * prayer; null when `e` is not indoors in a home it uses, another system holds it there, or no bar it
+ * The round the at-home chain serves `e` next, rest first, then a meal off the family larder; null when `e` is not indoors in a home it uses, another system holds it there, or no bar it
  * can still top up. A round whose clip moves no bar is skipped, or the chain would hold the settler in its
  * house for good.
  */
@@ -61,14 +59,6 @@ function nextHomeRound(world: World, ctx: SystemContext, supply: SupplyTally, e:
       if (homeClipServes(ctx, settler, atomicId, HUNGER))
         return { atomicId, effect: { kind: 'eat', goodType, from: home }, target: home };
     }
-  }
-  if (
-    needs.piety > NEED_SATED_THRESHOLD &&
-    jobNeedsReligion(ctx.content, settler.jobType) &&
-    homeClipServes(ctx, settler, PRAY_ATOMIC_ID, PIETY) &&
-    homeQualityActive(world, ctx, home, 'piety')
-  ) {
-    return { atomicId: PRAY_ATOMIC_ID, effect: { kind: 'pray' }, target: home };
   }
   return null;
 }

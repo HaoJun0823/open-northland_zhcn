@@ -20,7 +20,6 @@ export {
 export {
   AI_NEED_REFILL_TURNS,
   chargeBarefootStep,
-  chargeMilitaryPiety,
   isNearDeath,
   NEED_INIT_SPREAD_UNITS,
   needsSystem,

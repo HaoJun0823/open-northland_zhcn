@@ -143,7 +143,7 @@ describe('atomic army orders', () => {
     }
   });
 
-  it.each(['hunger', 'fatigue', 'enjoyment', 'piety'] as const)(
+  it.each(['hunger', 'fatigue', 'enjoyment'] as const)(
     'applies the %s need action to all 1000 soldiers together',
     (need) => {
       const { sim, army } = armyWorld();
@@ -159,6 +159,21 @@ describe('atomic army orders', () => {
       expect(sim.commands.log.filter((entry) => entry.origin === 'player')).toHaveLength(1);
     },
   );
+
+  it('rejects group prayer for soldiers without cancelling their existing need orders', () => {
+    const { sim, army } = armyWorld(2);
+    for (const need of ['hunger', 'piety'] as const) {
+      sim.enqueue(
+        playerCommand(P0, {
+          kind: 'unitActionGroup',
+          members: army.map((entity) => ({ entity })),
+          action: { kind: 'orderNeed', need },
+        }),
+      );
+      sim.step();
+    }
+    for (const entity of army) expect(sim.world.get(entity, NeedOrder).need).toBe('hunger');
+  });
 
   it('cancels every selected training order together while excluding a rival', () => {
     const { sim, army } = armyWorld();

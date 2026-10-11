@@ -1,3 +1,4 @@
+import { jobCanPray } from '@open-northland/data';
 import {
   Carrying,
   isMachinePlayer,
@@ -56,7 +57,9 @@ export function anyNeedPressing(world: World, ctx: SystemContext, e: Entity): bo
     ordered !== undefined ||
     needLevel(needs, 'hunger', ctx.tick) >= NEED_DRIVE_THRESHOLD ||
     needLevel(needs, 'fatigue', ctx.tick) >= NEED_DRIVE_THRESHOLD ||
-    (needs.piety >= NEED_DRIVE_THRESHOLD && jobNeedsReligion(ctx.content, settler.jobType))
+    (needs.piety >= NEED_DRIVE_THRESHOLD &&
+      jobCanPray(ctx.content.jobs, settler.jobType) &&
+      jobNeedsReligion(ctx.content, settler.jobType))
   );
 }
 
@@ -105,6 +108,8 @@ export function answerNeedInPlace(
   settler: SettlerIdentity,
 ): boolean {
   if (!carriesNeeds(world, ctx.content, e)) return false;
+  if (orderedNeed(world, e) === 'piety' && !jobCanPray(ctx.content.jobs, settler.jobType))
+    world.remove(e, NeedOrder);
   const ordered = orderedNeed(world, e);
   const bars = barsAfterDraughts(world, ctx, e);
   if (pressing(bars.hunger, ordered, 'hunger')) {
@@ -168,6 +173,8 @@ export function planNeeds(
     return false;
   }
   const gate = limit ?? undefined;
+  if (orderedNeed(world, e) === 'piety' && !jobCanPray(ctx.content.jobs, settler.jobType))
+    world.remove(e, NeedOrder);
   const ordered = orderedNeed(world, e);
   const bars = barsAfterDraughts(world, ctx, e);
   if (
@@ -205,6 +212,7 @@ export function planNeeds(
   // A trade that does not pray has no prayer rung of its own; a player's order gives it one.
   const piety = world.get(e, SettlerNeeds).piety;
   const prays =
+    jobCanPray(ctx.content.jobs, settler.jobType) &&
     pressing(piety, ordered, 'piety') &&
     (ordered === 'piety' || jobNeedsReligion(ctx.content, settler.jobType)) &&
     maySeek(world, e, ordered, 'piety') &&

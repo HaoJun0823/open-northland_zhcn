@@ -1,4 +1,4 @@
-import { homeQualityView, householdGoodPolicyView, type WorldSnapshot } from '@open-northland/sim';
+import { homeQualityView, type WorldSnapshot } from '@open-northland/sim';
 import { ONE } from '../projection/index.js';
 import { readNumField } from '../snapshot/index.js';
 import type { InHouseOverlay } from './in-house.js';
@@ -19,7 +19,7 @@ export type HolyFireLookup = (
 ) => HolyFireBinding | undefined;
 
 /** The looping flames a visible finished home or prayer site stages this frame. A home's fire needs oil
- * its player allows it to burn; a prayer site's always burns. */
+ * already delivered; a prayer site's always burns. */
 export function holyFireOverlays(
   snapshot: WorldSnapshot,
   building: number,
@@ -46,7 +46,6 @@ export function holyFireOverlays(
   if (binding === undefined || binding.points.length === 0) return [];
   if (!binding.perpetual) {
     if ((homeQualityView(snapshot, building)?.piety ?? 0) <= 0) return [];
-    if (!householdGoodPolicyView(snapshot, player).piety) return [];
   }
   return binding.points.map((point) => ({ name: binding.name, dx: point.x, dy: point.y }));
 }

@@ -234,8 +234,14 @@ describe('user messages read off the snapshot', () => {
     expect(out).toEqual([[USER_MESSAGE_TYPE.willDie, 1]]);
   });
 
+  it('does not warn a trade that never seeks prayer on its own', () => {
+    const source = createSnapshotMessageSource(LOCAL, undefined, undefined, new Set());
+    const raised = source.sweep(snapshot(0, [{ id: 1, piety: systems.NEED_CRITICAL_THRESHOLD }]), naming);
+    expect(raised.some((row) => row.pending.type === USER_MESSAGE_TYPE.wantsToPray)).toBe(false);
+  });
+
   it('raises tired and wants-to-pray from the fatigue and piety bars', () => {
-    const source = createSnapshotMessageSource(LOCAL);
+    const source = createSnapshotMessageSource(LOCAL, undefined, undefined, new Set([WORKER_JOB]));
     const out = sweep(
       source,
       snapshot(100, [

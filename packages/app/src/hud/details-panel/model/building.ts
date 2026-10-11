@@ -230,7 +230,7 @@ function homeQuality(
           capacity: use.capacity,
           allowed: policy[use.effect],
           ...(use.effect === 'piety'
-            ? { holyFireActive: value > 0 && policy.piety }
+            ? { holyFireActive: value > 0 }
             : { uses: Math.floor(value / use.useCost) }),
         },
       ];

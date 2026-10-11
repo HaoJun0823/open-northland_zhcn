@@ -1,5 +1,5 @@
 import type { SceneryObject, SoundStatsView, UiCue, VoiceCall } from '@open-northland/audio';
-import { BUILDING_KIND, type MapRelationFlag } from '@open-northland/data';
+import { BUILDING_KIND, jobCanPray, type MapRelationFlag } from '@open-northland/data';
 import type { SessionDriver } from '@open-northland/lockstep';
 import type {
   DoorBadge,
@@ -697,6 +697,11 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       ...(hasDebugFlag(params, NOTICE_GALLERY_DEBUG_FLAG)
         ? { noticeGallery: { goodType: goodLabelByType.keys().next().value ?? null } }
         : {}),
+      prayerNeeds: new Set(
+        host.content.jobs
+          .filter((job) => job.needsReligion && jobCanPray(host.content.jobs, job.typeId))
+          .map((job) => job.typeId),
+      ),
       workshops: {
         types: host.content.buildings.filter((b) => b.recipes.length > 0).map((b) => b.typeId),
         workStatus: answers.noticeWorkStatus,

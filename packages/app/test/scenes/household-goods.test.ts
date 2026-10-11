@@ -70,3 +70,33 @@ describe('household goods wedding', () => {
     expect(sim.world.get(druid, Marriage).spouse).toBe(woman);
   });
 });
+
+describe('home prayer after oil delivery', () => {
+  it('serves the resident outside and keeps the fire after disabling further deliveries', () => {
+    const sim = createSceneSim(householdGoodsScene);
+    const { CurrentAtomic, HomeQuality, Residence, Resting, SettlerNeeds } = components;
+    let prayerSeen = false;
+    for (let i = 0; i < householdGoodsScene.runTicks; i++) {
+      sim.step();
+      for (const resident of sim.world.query(CurrentAtomic, Residence)) {
+        const atomic = sim.world.get(resident, CurrentAtomic);
+        if (atomic.effect.kind !== 'pray') continue;
+        const home = sim.world.get(resident, Residence).home;
+        expect(atomic.targetEntity).toBe(home);
+        expect(sim.world.has(resident, Resting)).toBe(false);
+        const oil = sim.world.get(home, HomeQuality).piety;
+        const before = sim.world.get(resident, SettlerNeeds).piety;
+        sim.enqueueSetup({ kind: 'setHouseholdGoodUse', player: 0, effect: 'piety', allowed: false });
+        for (let t = 0; t < atomic.duration; t++) sim.step();
+        expect(sim.world.get(home, HomeQuality).piety).toBeLessThanOrEqual(oil);
+        expect(sim.world.get(home, HomeQuality).piety).toBeGreaterThan(0);
+        expect(sim.world.get(resident, SettlerNeeds).piety).toBeLessThan(before);
+        prayerSeen = true;
+        break;
+      }
+      if (prayerSeen) break;
+    }
+    expect(prayerSeen).toBe(true);
+    expect(sim.checkInvariants()).toEqual([]);
+  });
+});

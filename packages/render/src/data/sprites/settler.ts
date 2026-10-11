@@ -278,6 +278,8 @@ export function resolveSettlerBobId(
       const specific = byAtomic[item.atomicId];
       if (specific !== undefined) return atomicFrame(specific, facing, clock, item.atomicDuration);
     }
+    // Prayer's missing artwork must not borrow a trade's generic work gesture.
+    if (item.atomicId === 12) return frameOf(binding.idle, facing, 0);
     // With no generic `acting` bound the atomic stands still, rather than borrowing the woodcut swing
     // at a wrong speed.
     const ref = engaged?.idle ?? carry?.idle ?? binding.acting ?? binding.idle;

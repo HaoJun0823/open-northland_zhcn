@@ -1,3 +1,4 @@
+import { jobCanPray } from '@open-northland/data';
 import {
   AttackOrder,
   NeedOrder,
@@ -31,6 +32,7 @@ export function orderNeed(
   // A settler whose bars do not move, a hero or a script-frozen unit, has no rung that would answer the
   // order and clear it.
   if (!carriesNeeds(world, ctx.content, e)) return;
+  if (command.need === 'piety' && !jobCanPray(ctx.content.jobs, world.get(e, Settler).jobType)) return;
   world.add(e, NeedOrder, { need: command.need });
   removeCurrentAtomic(world, e);
   supersedeStandingOrders(world, e);

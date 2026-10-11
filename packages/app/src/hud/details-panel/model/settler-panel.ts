@@ -1,3 +1,4 @@
+import { jobCanPray } from '@open-northland/data';
 import { indoorHouseOf } from '@open-northland/render';
 import type { WorldSnapshot } from '@open-northland/sim';
 import { settlerName } from '../../../game/character-names/index.js';
@@ -224,7 +225,13 @@ export function settlerPanelModel(
     carrying: carriedGood(ctx, comps),
   };
   const hero = role === 'hero';
-  const bars = satisfactionBars(ent, snapshot.tick, needsRuleEnabled(snapshot) && !foreign, !hero);
+  const bars = satisfactionBars(
+    ent,
+    snapshot.tick,
+    needsRuleEnabled(snapshot) && !foreign,
+    !hero,
+    jobCanPray(ctx.jobs, jobType ?? null),
+  );
   const base = {
     kind: 'settler' as const,
     entityId: ent.id,

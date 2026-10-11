@@ -1,8 +1,10 @@
+import { jobCanPray } from '@open-northland/data';
 import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   addPaper,
   continueMatch,
   endMatchContinuation,
+  Settler,
   setAlliedVision,
   setDiplomacyStance,
   setFogMode,
@@ -144,6 +146,13 @@ function applyCommand(
     command.kind === 'orderNeed' &&
     command.need === 'hunger' &&
     carriesFoodAmulet(world, ctx.content, command.entity)
+  )
+    return;
+  // Reject prayer before an otherwise invalid order can remove a rider from its vehicle.
+  if (
+    command.kind === 'orderNeed' &&
+    command.need === 'piety' &&
+    !jobCanPray(ctx.content.jobs, world.tryGet(command.entity, Settler)?.jobType ?? null)
   )
     return;
   // A Shift-clicked order waits behind the current one; an order that takes the settler at once drops

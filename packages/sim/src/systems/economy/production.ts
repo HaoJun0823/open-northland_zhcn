@@ -3,23 +3,20 @@ import {
   CompletedCycles,
   Production,
   type ProductionCycle,
+  Settler,
   Stockpile,
 } from '../../components/index.js';
 import { ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { System } from '../context.js';
 import { grantProductionExperience } from '../progression/index.js';
+import { productionAtomic } from '../readviews/production-atomic.js';
+import { applyAtomicNeedEvents } from '../settlers/atomics/effects/need-events.js';
 import { wakeCrewInside } from '../settlers/planner/idle-replan.js';
-import {
-  operatorCountOf,
-  presentOperatorCount,
-  presentOperators,
-  recipesByProductOf,
-} from '../stores/index.js';
+import { operatorCountOf, presentOperators, recipesByProductOf } from '../stores/index.js';
 import { type WorkshopWorkforce, workshopWorkforce } from '../stores/workshop-workforce.js';
 import { accrueBonusOutput } from './production/bonus-output.js';
 import { depositCycleOutput, startFirstStartable } from './production/cycles.js';
-import { chargeMilitaryPietyCost } from './production/piety.js';
 import { incomingRecipeReservations, recipeInputUnits } from './production/reservations.js';
 import { type CycleChoice, nextCycleFor, startCycleChoice } from './production/rotation.js';
 import { cycleStartable } from './production/start-gate.js';
@@ -66,7 +63,8 @@ export const productionSystem: System = (world, ctx) => {
   for (const e of world.query(Production, Stockpile)) {
     // The tech unlock is a start-only gate, so a committed cycle finishes even if the enabling settler
     // later dies. The worker-presence gate does pause mid-cycle.
-    const operators = presentOperatorCount(world, ctx, e);
+    const staffing = presentOperators(world, ctx, e);
+    const operators = operatorCountOf(staffing);
     if (operators <= 0) continue;
     const prod = world.mut(e, Production);
     const advanced = Math.min(operators, prod.cycles.length);
@@ -76,18 +74,34 @@ export const productionSystem: System = (world, ctx) => {
       const cycle = prod.cycles[i];
       if (cycle === undefined) break;
       cycle.elapsed += 1;
+      // The batch clock owns need events, including pauses and replacement operators. The indoor
+      // display atomic must not pay them again or replay an earlier frame after a re-plan.
+      const operator = staffing.kind === 'unstaffed' ? undefined : staffing.operators[i];
+      const settler = operator === undefined ? undefined : world.tryGet(operator, Settler);
+      const atomicId =
+        settler === undefined ? undefined : productionAtomic(ctx.content, settler, cycle.goodType);
+      if (operator !== undefined && atomicId !== undefined) {
+        applyAtomicNeedEvents(
+          world,
+          ctx,
+          operator,
+          {
+            atomicId,
+            effect: { kind: 'produce', recipeOutput: cycle.goodType },
+          },
+          cycle.elapsed,
+          false,
+        );
+      }
       if (cycle.elapsed >= cycle.duration) finished++;
     }
     if (finished === 0) continue; // the usual tick: batches grind on with nothing to deposit
-    // The crew the count above saw: only the batch timers were written since.
-    const staffing = presentOperators(world, ctx, e);
     wakeCrewInside(world, e);
     const done = prod.cycles.filter((c) => c.elapsed >= c.duration);
     prod.cycles = prod.cycles.filter((c) => c.elapsed < c.duration);
     const recipes = recipesByProductOf(world, ctx, e);
     for (const cycle of done) depositCycleOutput(world, ctx, e, cycle, recipes);
     countCompletedCycles(world, e, done);
-    chargeMilitaryPietyCost(world, ctx, done, staffing);
     grantProductionExperience(
       world,
       ctx,

@@ -33,6 +33,7 @@ export function applyAtomicNeedEvents(
   e: Entity,
   atomic: { readonly atomicId: number; readonly effect: AtomicEffect },
   elapsed: number,
+  repeatClip = true,
 ): void {
   if (!needsEnabled(world) || !carriesNeeds(world, ctx.content, e)) return;
   const settler = world.get(e, Settler);
@@ -45,7 +46,8 @@ export function applyAtomicNeedEvents(
   let company = 0;
   let piety = 0;
   let atHome: boolean | undefined;
-  const frame = clipFrameAt(elapsed, animation.length);
+  // A workshop batch never wraps: a replacement maker may bind a shorter clip.
+  const frame = repeatClip ? clipFrameAt(elapsed, animation.length) : elapsed;
   for (const event of animation.events) {
     if (event.at !== frame) continue;
     const delta = event.value ?? 0;

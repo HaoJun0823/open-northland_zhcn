@@ -103,22 +103,25 @@ describe('allowedActions - one settler', () => {
         'changeProfession',
         'eat',
         'goTo',
+        'pray',
         'sleep',
       ].sort(),
     );
   });
 
   it('offers talk and prayer to the trades whose atomics allow them', () => {
-    // The sandbox catalog binds no talk or pray atomic; the served content does, through `baseJob`.
+    // Prayer is inherited from the civilist; a trade's explicit prohibition wins over that grant.
     const talkative: ContentSet = {
       ...content,
       jobs: content.jobs.map((job) =>
         job.typeId === JOB_COLLECTOR
           ? {
               ...job,
-              allowedAtomics: [...job.allowedAtomics, components.TALK_ATOMIC_ID, systems.PRAY_ATOMIC_ID],
+              allowedAtomics: [...job.allowedAtomics, components.TALK_ATOMIC_ID],
             }
-          : job,
+          : job.typeId === JOB_HUNTER
+            ? { ...job, forbiddenAtomics: [...job.forbiddenAtomics, systems.PRAY_ATOMIC_ID] }
+            : job,
       ),
     };
     const snapshot = snapshotOf([settler(1, JOB_COLLECTOR), settler(2, JOB_HUNTER)]);

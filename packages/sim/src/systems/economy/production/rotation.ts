@@ -6,11 +6,11 @@ import {
   Settler,
   writeProductionCount,
 } from '../../../components/index.js';
-import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SystemContext } from '../../context.js';
 import { needSubjectOf, operatorRecipeEnabled, settlerMeetsNeed } from '../../progression/index.js';
 import { resolvedAtomicLength } from '../../readviews/animations.js';
+import { productionAtomic } from '../../readviews/production-atomic.js';
 import { beginCycle, canStartCycle, cycleCoveredWith, isYardBuilt, waitingForRecipeInput } from './cycles.js';
 
 /**
@@ -135,8 +135,9 @@ function craftCycleTicks(
   recipe: Recipe,
 ): number {
   const settler = world.tryGet(operator, Settler);
-  const produce = contentIndex(ctx.content).goods.get(good)?.atomics.produce;
-  if (settler === undefined || produce === undefined) return recipe.ticks;
+  if (settler === undefined) return recipe.ticks;
+  const produce = productionAtomic(ctx.content, settler, good);
+  if (produce === undefined) return recipe.ticks;
   return resolvedAtomicLength(ctx.content, settler, produce) ?? recipe.ticks;
 }
 

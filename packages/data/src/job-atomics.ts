@@ -36,3 +36,8 @@ export function resolveJobAtomics(jobs: readonly JobType[]): ReadonlyMap<number,
   CACHE.set(jobs, resolved);
   return resolved;
 }
+
+/** Prayer is atomic 12 in `jobtypes.ini`; ability is separate from `needsReligionFlag`. */
+export function jobCanPray(jobs: readonly JobType[], jobType: number | null): boolean {
+  return jobType !== null && (resolveJobAtomics(jobs).get(jobType)?.has(12) ?? false);
+}

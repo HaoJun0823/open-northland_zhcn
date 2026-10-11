@@ -34,7 +34,7 @@ const PER_MILLE = 1000;
 
 /** One fresh retirement per question: every rule but the no-path watch reads the snapshot alone. */
 function isNoteOver(m: UserMessage, snapshot: WorldSnapshot): boolean {
-  return new NoteRetirement(new FightAreas()).isOver(m, snapshot);
+  return new NoteRetirement(new FightAreas(), null, null, null, new Set([1])).isOver(m, snapshot);
 }
 
 function world(tick: number, settler: 'lost' | 'found' | 'gone'): WorldSnapshot {
@@ -506,4 +506,20 @@ describe('a field worker whose trade finds nothing to work', () => {
     sim.status = { kind: 'nothingSelected' };
     expect(sweeps(WORK_STATUS_REASK_SWEEPS)).toEqual([]);
   });
+});
+
+it('retires a prayer warning after the person changes to a nonreligious trade', () => {
+  const retirement = new NoteRetirement(new FightAreas(), null, null, null, new Set([1]));
+  const warning = note(USER_MESSAGE_TYPE.wantsToPray);
+  const before = needsWorld({ piety: ONE });
+  expect(retirement.isOver(warning, before)).toBe(false);
+  const after = {
+    ...before,
+    entities: before.entities.map((e) => ({
+      ...e,
+      components: { ...e.components, Settler: { tribe: 1, jobType: JOB_SOLDIER } },
+    })),
+  };
+  expect(retirement.isOver(warning, after)).toBe(true);
+  expect(retirement.isOver(warning, needsWorld({ piety: 0 }, true, 'piety'))).toBe(false);
 });

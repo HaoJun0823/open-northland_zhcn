@@ -491,3 +491,12 @@ describe('compatible atomic variants', () => {
     expect(resolveSettlerBobId(binding, settlerItem('idle'), 500)).toBe(1);
   });
 });
+
+describe('missing prayer artwork', () => {
+  it('stands still instead of borrowing the generic work motion', () => {
+    const binding: SettlerStateBinding = { idle: 10, acting: 20 };
+    const prayer = settlerItem('acting', { atomicId: 12, elapsed: 50 });
+    expect(resolveSettlerBobId(binding, prayer, 500)).toBe(10);
+    expect(resolveSettlerBobId({ ...binding, byAtomic: { 12: 30 } }, prayer, 500)).toBe(30);
+  });
+});

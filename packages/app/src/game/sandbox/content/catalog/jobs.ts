@@ -10,6 +10,7 @@ import {
   FISH_FAILED_ATOMIC,
   HARVEST_CADAVER_ATOMIC,
   PLANT_ATOMIC,
+  PRAY_ATOMIC,
   WHEAT_HARVEST_ATOMIC,
 } from '../../../../catalog/atomics.js';
 import { PRODUCE_ATOMIC_BY_GOOD_ID, SLAY_ATOMIC_BY_GOOD_ID } from '../../../../catalog/goods.js';
@@ -83,7 +84,7 @@ export function buildSandboxJobs(extras: SandboxContentExtras): Map<number, Sand
     { typeId: JOB_CHILD_FEMALE, id: 'child_female' },
     { typeId: JOB_CHILD_MALE, id: 'child_male' },
     { typeId: JOB_WOMAN, id: 'woman' },
-    { typeId: JOB_CIVILIST, id: 'civilist' },
+    { typeId: JOB_CIVILIST, id: 'civilist', allowedAtomics: [PRAY_ATOMIC] },
     // One trade on every harvest atomic, because the original's single collector fells, mines and picks.
     {
       typeId: JOB_COLLECTOR,
@@ -193,7 +194,7 @@ export function buildSandboxJobs(extras: SandboxContentExtras): Map<number, Sand
   }
   // The two `jobtypes.ini` flags the needs rules read, stamped last so every row above gets them.
   for (const [typeId, job] of jobs) {
-    const needsReligion = RELIGION_JOBS.has(typeId);
+    const needsReligion = RELIGION_JOBS.has(canonicalJobType(typeId));
     const ignoresHomeHouse = HOMELESS_JOBS.has(typeId);
     if (needsReligion || ignoresHomeHouse) jobs.set(typeId, { ...job, needsReligion, ignoresHomeHouse });
   }

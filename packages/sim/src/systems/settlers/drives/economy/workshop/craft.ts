@@ -1,7 +1,7 @@
-import { addCurrentAtomic, Production } from '../../../../../components/index.js';
-import { contentIndex } from '../../../../../core/content-index.js';
+import { addCurrentAtomic, Production, Settler } from '../../../../../components/index.js';
 import type { Entity, World } from '../../../../../ecs/world.js';
 import type { SystemContext } from '../../../../context.js';
+import { productionAtomic } from '../../../../readviews/production-atomic.js';
 
 /**
  * Show the `batch`-th operator standing inside the workplace working batch `batch`, whose clock the clip
@@ -21,7 +21,7 @@ export function startCraftAtomic(
 ): void {
   const cycle = world.tryGet(workplace, Production)?.cycles[batch];
   if (cycle === undefined) return;
-  const atomicId = contentIndex(ctx.content).goods.get(cycle.goodType)?.atomics.produce;
+  const atomicId = productionAtomic(ctx.content, world.get(e, Settler), cycle.goodType);
   if (atomicId === undefined) return;
   const duration = Math.max(1, cycle.duration);
   addCurrentAtomic(

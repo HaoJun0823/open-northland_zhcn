@@ -7777,16 +7777,6 @@ body.on-drag-scroll * {
   padding: 0;
   border: 0;
 }
-.on-hud .on-saves--save .on-saves__foot {
-  flex-wrap: wrap;
-}
-.on-hud .on-saves--save .on-saves__status {
-  order: 1;
-  flex-basis: 100%;
-}
-.on-hud .on-saves--save .on-saves__status:empty {
-  display: none;
-}
 .on-hud .on-saves__auto-options {
   display: flex;
   flex-wrap: wrap;
@@ -8051,6 +8041,16 @@ body.on-drag-scroll * {
   .on-hud .on-saves__group-meta {
     display: none;
   }
+}
+.on-hud .on-saves--save .on-saves__foot {
+  flex-wrap: wrap;
+}
+.on-hud .on-saves--save .on-saves__status {
+  order: 1;
+  flex-basis: 100%;
+}
+.on-hud .on-saves--save .on-saves__status:empty {
+  display: none;
 }
 /* The lost-connection screen: the same wash and sheet as the game menu, one message, the room's
    countdown large enough to read from across the room, and the one button left to press. */

@@ -110,7 +110,7 @@ describe('parseStoredSettings', () => {
     expect(parsed.displayMode).toBe('window');
     expect(parsed.renderScale).toBe(defaultSettings().renderScale);
     expect(parsed.postFxEnabled).toBe(defaultSettings().postFxEnabled);
-    expect(parsed.fpsLimit).toBeNull();
+    expect(parsed.fpsLimit).toBe(defaultSettings().fpsLimit);
     expect(parsed.soundEnabled).toBe(defaultSettings().soundEnabled);
     expect(parsed.keyBindings).toEqual(DEFAULT_KEY_BINDINGS);
   });

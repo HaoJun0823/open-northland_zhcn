@@ -43,6 +43,9 @@ export type AutosaveMinutes = 0 | 5 | 10 | 15 | 30;
 
 /** Drawn-frame cap in frames per second; `null` follows the display's own refresh rate. */
 export type FpsLimit = 30 | 60 | null;
+/** 60 by default: a 144 Hz laptop panel would otherwise draw 2.4 times the frames of a 60 Hz one for
+ *  no visible gain in an isometric game, on the web and the desktop alike. Owner ruling. */
+const DEFAULT_FPS_LIMIT: FpsLimit = 60;
 
 export const RENDER_SCALE_MIN = 0.5;
 export const RENDER_SCALE_MAX = 2;
@@ -146,7 +149,7 @@ export function defaultSettings(): MenuSettings {
     weather: true,
     blood: true,
     bonesFade: true,
-    fpsLimit: null,
+    fpsLimit: DEFAULT_FPS_LIMIT,
     fpsCounter: false,
     cursorTheme: DEFAULT_CURSOR_THEME,
     cursorSize: DEFAULT_CURSOR_SIZE,
@@ -228,7 +231,7 @@ function clampScrollSpeed(value: unknown): number {
 }
 
 function parseFpsLimit(value: unknown): FpsLimit {
-  return value === 30 || value === 60 ? value : null;
+  return value === 30 || value === 60 || value === null ? value : DEFAULT_FPS_LIMIT;
 }
 
 /** Each slider rounded into its range; a channel missing or deformed in the blob takes its default. */

@@ -240,6 +240,10 @@ export const enContent = {
       title: 'Flag yard piles',
       summary: 'Stone gatherers fill an empty yard, a full centre and a full first ring.',
     },
+    'clay-overlays': {
+      title: 'Clay under roads and homes',
+      summary: 'A road and two home tiers overlap clay deposits.',
+    },
     'clay-gatherers': {
       title: 'Clay extractors',
       summary: 'Two extractors from each tribe dig clay and carry it to their flag.',

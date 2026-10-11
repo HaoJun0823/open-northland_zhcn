@@ -31,18 +31,22 @@ export function buildResourceBinding(
       anyPresent && !(atlasFrames?.has(bob) ?? true) ? null : bobRef(node.stem, bob),
     );
   };
+  const flatByGood: Record<number, boolean> = {};
+  const flatByGfxIndex: Record<number, boolean> = {};
   const byGood: Record<number, readonly (LayeredBobRef | null)[]> = {};
   for (const [good, node] of Object.entries(refs.nodesByGood)) {
     if (node.stem !== DEFAULT_RESOURCE_STEM && !loaded.has(node.stem)) continue;
     byGood[Number(good)] = ladder(node);
+    if (node.flat === true) flatByGood[Number(good)] = true;
   }
   // An unloaded variant family leaves the node on its per-good representative.
   const byGfxIndex: Record<number, readonly (LayeredBobRef | null)[]> = {};
   for (const [idx, node] of Object.entries(refs.nodesByGfxIndex)) {
     if (node.stem !== DEFAULT_RESOURCE_STEM && !loaded.has(node.stem)) continue;
     byGfxIndex[Number(idx)] = ladder(node);
+    if (node.flat === true) flatByGfxIndex[Number(idx)] = true;
   }
-  return { byGood, byGfxIndex, default: TREE_BOB };
+  return { byGood, byGfxIndex, default: TREE_BOB, flatByGood, flatByGfxIndex };
 }
 
 /**

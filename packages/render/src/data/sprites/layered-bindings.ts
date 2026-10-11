@@ -85,6 +85,9 @@ export interface ConstructionLayerRef {
 
 /** Per-good bob binding for a `[GfxLandscape]` object family. */
 export interface ResourceTypeBinding {
+  /** Flat landscape records stay below roads and standing sprites after harvesting starts. */
+  readonly flatByGood?: Readonly<Record<number, boolean>>;
+  readonly flatByGfxIndex?: Readonly<Record<number, boolean>>;
   /** Node frames per `Resource.goodType`, ordered empty to full (`state 1` first). A `null` entry is a
    *  data-pinned invisible level: that level draws nothing, deliberately not the placeholder, which
    *  flags a missing binding instead. */

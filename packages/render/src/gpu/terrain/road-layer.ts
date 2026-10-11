@@ -82,8 +82,8 @@ function weighted(values: readonly number[], stride: number, w: Barycentric, off
 }
 
 /**
- * The finished roads painted over the ground: one mesh set per terrain block holding roads, drawn as that
- * block's last child so the block's cull hides it. A change marks the blocks its nodes touch, and a
+ * The finished roads painted over the ground: one mesh set per terrain block holding roads, drawn
+ * above flat landscape and sharing the block's cull. A change marks the blocks its nodes touch, and a
  * marked block re-meshes when a cull shows it, so a road laid off screen costs no mesh until seen.
  * Script vertex colours do not tint the road (an approximation).
  */
@@ -105,6 +105,7 @@ export class RoadLayer {
     chunks: readonly TerrainChunk[],
     /** Every road node (half-cell row-major ids), owned by the caller, which reports each change. */
     private readonly roads: ReadonlySet<number>,
+    private readonly container: Container,
   ) {
     this.nodeWidth = 2 * terrain.width;
     this.chunkColumns = Math.ceil(terrain.width / TERRAIN_CHUNK_TILES);
@@ -120,15 +121,21 @@ export class RoadLayer {
     lane: LaneShading,
     chunks: readonly TerrainChunk[],
     roads: ReadonlySet<number>,
+    container: Container,
   ): RoadLayer | null {
     const resolved = resolveRoadTextures(textures);
-    return resolved === null ? null : new RoadLayer(terrain, resolved, lift, lane, chunks, roads);
+    return resolved === null ? null : new RoadLayer(terrain, resolved, lift, lane, chunks, roads, container);
   }
 
   /** Mark the blocks of nodes laid or lifted since the last call; the road set already holds the change. */
   apply(changes: RoadChanges): void {
     for (const id of changes.removed) this.move(id, false);
     for (const id of changes.added) this.move(id, true);
+  }
+
+  cullChunk(chunk: TerrainChunk): void {
+    const mesh = this.meshes.get(this.chunkKeyOf(chunk.c0, chunk.r0));
+    if (mesh !== undefined) mesh.visible = chunk.container.visible;
   }
 
   /** Re-mesh the marked blocks the cull just showed. */
@@ -220,7 +227,8 @@ export class RoadLayer {
     for (const ref of triangles.values()) this.paintTriangle(batcher, ref);
     const container = new Container();
     for (const child of batcher.children()) container.addChild(child);
-    chunk.container.addChild(container);
+    container.visible = chunk.container.visible;
+    this.container.addChild(container);
     this.meshes.set(key, container);
   }
 

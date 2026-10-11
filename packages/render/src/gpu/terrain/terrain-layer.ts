@@ -51,6 +51,7 @@ export class TerrainLayer {
   /** Its own Pixi render group: a block shown or hidden by {@link cull}, on a pan or for each portrait
    *  inset's re-cull, rebuilds this short list of block meshes instead of the whole world's. */
   readonly container = new Container({ isRenderGroup: true });
+  readonly roadContainer = new Container({ isRenderGroup: true });
   private chunks: TerrainChunk[] = [];
   private readonly vertexColors = new TerrainVertexColors();
   /** The grass default until a map is loaded. */
@@ -166,6 +167,7 @@ export class TerrainLayer {
         lane,
         this.chunks,
         this.roadNodes,
+        this.roadContainer,
       );
     }
   }
@@ -292,6 +294,7 @@ export class TerrainLayer {
   cull(vp: Viewport): void {
     for (const chunk of this.chunks) {
       chunk.container.visible = aabbIntersects(vp, chunk);
+      this.roads?.cullChunk(chunk);
     }
     this.roads?.meshVisible();
     this.culled = vp;

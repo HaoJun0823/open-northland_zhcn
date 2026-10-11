@@ -1,7 +1,7 @@
 import type { LayeredBobRef, WaveLoop } from '@open-northland/render';
 import { TREE_ATLAS } from '../building-gfx/index.js';
 import { GENERIC_GOOD_ICON, type GoodIconMap } from '../goods-gfx.js';
-import { servedAtlasStem } from '../ir/joins.js';
+import { drawsAsFlatDecor, servedAtlasStem } from '../ir/joins.js';
 import type { ContentIr, GatheringPipelineRow, GatheringStageRow, LandscapeGfxRow } from '../ir/rows.js';
 import type { GoodRef } from '../settler-gfx/index.js';
 
@@ -30,6 +30,7 @@ export interface GatheringNodeRef {
 
 /** A standing-node draw with its per-level bobs, ordered empty→full; a non-mined node has one. */
 export interface GatheringNodeLevelsRef {
+  readonly flat?: boolean;
   readonly stem: string;
   readonly bobs: readonly number[];
 }
@@ -122,7 +123,13 @@ function loopRefFrom(record: LandscapeGfxRow): GatheringLoopRef | undefined {
 export function levelsRefFrom(record: LandscapeGfxRow): GatheringNodeLevelsRef | undefined {
   const stem = servedAtlasStem(record);
   const bobs = firstBobsByStateAscending(record);
-  return stem !== undefined && bobs !== undefined ? { stem, bobs } : undefined;
+  return stem !== undefined && bobs !== undefined
+    ? {
+        stem,
+        bobs,
+        ...(record.walkBlockAreas !== undefined && drawsAsFlatDecor(record) ? { flat: true } : {}),
+      }
+    : undefined;
 }
 
 /** Pick the representative (lowest-index) placeable gfx record of a pipeline stage, or `undefined`. */

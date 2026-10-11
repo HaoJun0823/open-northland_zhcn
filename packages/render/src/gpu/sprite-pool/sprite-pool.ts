@@ -1,5 +1,5 @@
 import type { SimEvent, WorldSnapshot } from '@open-northland/sim';
-import type { Container, Sprite } from 'pixi.js';
+import { Container, type Sprite } from 'pixi.js';
 import { BloodCoats } from '../../data/effects/blood-coats.js';
 import type { GhostSource } from '../../data/fog/index.js';
 import {
@@ -177,9 +177,23 @@ function pooledDepth(pe: PooledEntity, item: DrawItem): number {
 }
 
 export class SpritePool {
+  readonly groundContainer = new Container({ sortableChildren: true });
+
+  private readonly resourceBinding: SpriteSheet['bindings']['resource'] | undefined;
+
+  private layerFor(item: DrawItem): Container {
+    const binding = this.resourceBinding;
+    if (item.kind !== 'resource' || binding === undefined || typeof binding === 'number')
+      return this.spriteLayer;
+    const variant = item.gfxIndex !== undefined && binding.byGfxIndex?.[item.gfxIndex] !== undefined;
+    const flat = variant
+      ? binding.flatByGfxIndex?.[item.gfxIndex ?? -1]
+      : binding.flatByGood?.[item.goodType ?? -1];
+    return flat === true ? this.groundContainer : this.spriteLayer;
+  }
   private readonly pool = new Map<number, PooledEntity>();
   private readonly groundPileCover = new GroundPileCover();
-  /** The pooled entities currently attached to {@link spriteLayer}, kept in sync with each entity's
+  /** The pooled entities currently attached to either draw layer, kept in sync with each entity's
    *  `attached` flag. */
   private readonly attached = new Set<PooledEntity>();
   /** The death reap's round-robin cursor, carried across frames; `undefined` restarts a pass from the front. */
@@ -274,6 +288,7 @@ export class SpritePool {
     stakes?: PlanStakeTextures,
     roads?: PlanRoadTextures,
   ) {
+    this.resourceBinding = sheet?.bindings.resource;
     this.selectionEffects = new SelectionEffects(textures);
     this.portrait = new PortraitSubject(spriteLayer);
     this.binder = new LayerBinder(textures, sheet, stakes, roads);
@@ -340,7 +355,7 @@ export class SpritePool {
     for (const pe of this.attached) {
       if (pe.lastSeen === this.frameId || pe.held === generation) continue;
       this.selectionEffects.clear(pe);
-      this.spriteLayer.removeChild(pe.container);
+      pe.container.removeFromParent();
       pe.attached = false;
       this.attached.delete(pe);
     }
@@ -366,8 +381,8 @@ export class SpritePool {
     if (!continuous) pe.motion.tick = -1;
     if (heldAttached && pe.boundsFrame === pe.lastSeen) pe.boundsFrame = this.frameId - 1;
     const emphasis = this.presentItemAt(pe, item, frame, continuous);
-    if (!pe.attached) {
-      this.spriteLayer.addChild(pe.container);
+    if (!pe.attached || pe.container.parent !== this.layerFor(item)) {
+      this.layerFor(item).addChild(pe.container);
       pe.attached = true;
       this.attached.add(pe);
     }
@@ -596,7 +611,7 @@ export class SpritePool {
       fresh.lastSeen = pe.lastSeen;
       fresh.viewSeen = pe.viewSeen;
       if (pe.attached) {
-        this.spriteLayer.removeChild(pe.container);
+        pe.container.removeFromParent();
         this.attached.delete(pe);
       }
       this.selectionEffects.clear(pe);
@@ -791,7 +806,7 @@ export class SpritePool {
           const continuous = pe.lastSeen === this.frameId - 1 || pe.viewSeen >= this.frameId - 1;
           if (!continuous) pe.motion.tick = -1;
           borrowed.push(pe);
-          this.spriteLayer.addChild(pe.container);
+          this.layerFor(item).addChild(pe.container);
           const layers = presentEntity(pe, item, frame, this.sheet);
           this.binder.bind(pe, item, layers, frame, this.frameId);
           if (item.kind === 'settler')
@@ -805,11 +820,12 @@ export class SpritePool {
       this.selectionEffects.setVisible(false);
       this.placePaletted(view.camera, view.width, view.height);
       this.sheet?.palette?.flush();
-      if (solo !== null) stash = stashHidden(this.spriteLayer.children, solo);
-      if (view.solo === undefined || solo !== null) render(solo === null ? null : this.spriteLayer);
+      const soloLayer = solo?.parent ?? this.spriteLayer;
+      if (solo !== null) stash = stashHidden(soloLayer.children, solo);
+      if (view.solo === undefined || solo !== null) render(solo === null ? null : soloLayer);
     } finally {
       if (stash !== null) restoreStash(stash);
-      for (const pe of borrowed) this.spriteLayer.removeChild(pe.container);
+      for (const pe of borrowed) pe.container.removeFromParent();
       this.selectionEffects.setVisible(true);
       this.placePaletted(main.camera, main.width, main.height);
     }

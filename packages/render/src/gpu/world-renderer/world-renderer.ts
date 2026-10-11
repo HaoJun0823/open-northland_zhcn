@@ -177,6 +177,8 @@ export class WorldRenderer {
       terrain: this.terrain.container,
       decorShadows: this.mapObjects.decorShadowContainer,
       decor: this.mapObjects.decorContainer,
+      groundResources: this.pool.groundContainer,
+      roads: this.terrain.roadContainer,
       weatherGround: this.weatherGround.container,
       fog: this.fog.container,
       constructionPlots: this.constructionPlots.container,

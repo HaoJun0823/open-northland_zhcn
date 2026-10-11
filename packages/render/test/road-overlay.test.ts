@@ -1,4 +1,4 @@
-import { Container, Mesh, Texture } from 'pixi.js';
+import { Mesh, Texture } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import {
   cellsNearNode,
@@ -144,12 +144,10 @@ const HEIGHT = 4;
 const grid = { width: WIDTH, height: HEIGHT, typeIds: Array.from({ length: WIDTH * HEIGHT }, () => 0) };
 const NODE_WIDTH = 2 * WIDTH;
 
-/** The road meshes of each terrain block: its trailing containers, the ground being meshes. */
+/** Triangle counts of the road overlay's populated chunks. */
 function roadTriangles(layer: TerrainLayer): number[] {
-  return layer.container.children.map((chunk) =>
+  return layer.roadContainer.children.map((chunk) =>
     chunk.children
-      .filter((child): child is Container => child instanceof Container && !(child instanceof Mesh))
-      .flatMap((c) => c.children)
       .filter((child): child is Mesh => child instanceof Mesh)
       .reduce((sum, mesh) => sum + mesh.geometry.indices.length / 3, 0),
   );
@@ -176,9 +174,9 @@ describe('TerrainLayer roads', () => {
     layer.set(grid, roadTextures);
     // A cell centre is a corner of six ground triangles and so of six half triangles.
     change(layer, [4 * NODE_WIDTH + 4]);
-    expect(roadTriangles(layer)).toEqual([6, 0, 0]);
+    expect(roadTriangles(layer)).toEqual([6]);
     change(layer, [], [4 * NODE_WIDTH + 4]);
-    expect(roadTriangles(layer)).toEqual([0, 0, 0]);
+    expect(roadTriangles(layer)).toEqual([]);
     layer.destroy();
   });
 
@@ -186,11 +184,10 @@ describe('TerrainLayer roads', () => {
     const layer = new TerrainLayer();
     layer.set(grid, roadTextures);
     change(layer, [4 * NODE_WIDTH + 4]);
-    const [first] = layer.container.children;
-    const before = first?.children.at(-1);
+    const before = layer.roadContainer.children[0];
     change(layer, [4 * NODE_WIDTH + 100]);
-    expect(first?.children.at(-1)).toBe(before);
-    expect(roadTriangles(layer)).toEqual([6, 6, 0]);
+    expect(layer.roadContainer.children[0]).toBe(before);
+    expect(roadTriangles(layer)).toEqual([6, 6]);
     layer.destroy();
   });
 
@@ -198,9 +195,12 @@ describe('TerrainLayer roads', () => {
     const layer = new TerrainLayer();
     layer.set(grid, roadTextures);
     change(layer, [4 * NODE_WIDTH + 100], [], FIRST_BLOCK);
-    expect(roadTriangles(layer)).toEqual([0, 0, 0]);
+    expect(roadTriangles(layer)).toEqual([]);
     layer.cull(EVERYWHERE);
-    expect(roadTriangles(layer)).toEqual([0, 6, 0]);
+    expect(roadTriangles(layer)).toEqual([6]);
+    expect(layer.roadContainer.children[0]?.visible).toBe(true);
+    layer.cull(FIRST_BLOCK);
+    expect(layer.roadContainer.children[0]?.visible).toBe(false);
     layer.destroy();
   });
 
@@ -210,7 +210,7 @@ describe('TerrainLayer roads', () => {
     change(layer, [4 * NODE_WIDTH + 4]);
     layer.set(grid, roadTextures);
     layer.cull(EVERYWHERE);
-    expect(roadTriangles(layer)).toEqual([6, 0, 0]);
+    expect(roadTriangles(layer)).toEqual([6]);
     layer.destroy();
   });
 });

@@ -233,3 +233,25 @@ describe('gathering scene - per-good + stump binding resolution (each draws its 
     expect(buildStumpBinding(resolveStumpRef(ir), new Set())).toBeUndefined();
   });
 });
+
+describe('flat resource bindings', () => {
+  it('keeps mine stains flat while a blocking variant stays upright', () => {
+    const base = landscapeRow(1, 12, 'clay01', [{ state: 1, bobIds: [60] }]);
+    const refs = resolveGatheringRefs([{ typeId: GOOD_MUD, id: 'mud' }], {
+      landscapeGfx: [
+        { ...base, walkBlockAreas: [] },
+        { ...base, index: 2, walkBlockAreas: [[1, 0, 0, 1]] },
+      ],
+      gatheringPipeline: [
+        { goodType: 12, goodId: 'mud', harvest: { landscapeType: 12, gfxIndices: [1, 2] } },
+      ],
+    });
+    const binding = buildResourceBinding(refs, new Set(['ls_ground.clay01']));
+    expect(binding.flatByGood?.[GOOD_MUD]).toBe(true);
+    expect(binding.flatByGfxIndex?.[1]).toBe(true);
+    expect(binding.flatByGfxIndex?.[2]).toBeUndefined();
+    expect(binding.byGfxIndex?.[2]).toBeDefined();
+    const unloaded = buildResourceBinding(refs, new Set());
+    expect(unloaded.flatByGood?.[GOOD_MUD]).toBeUndefined();
+  });
+});

@@ -237,6 +237,10 @@ export const plContent = {
       title: 'Sterty przy fladze',
       summary: 'Zbieracze kamienia uzupełniają pusty plac, pełny środek i pełny pierwszy krąg.',
     },
+    'clay-overlays': {
+      title: 'Glina pod drogą i domami',
+      summary: 'Droga i dwa poziomy domu na złożach gliny.',
+    },
     'clay-gatherers': {
       title: 'Zbieracze gliny',
       summary: 'Dwaj zbieracze każdego plemienia kopią glinę i odnoszą ją do swojej flagi.',

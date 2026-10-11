@@ -200,3 +200,32 @@ describe('sowing around bodies that stand without blocking', () => {
     expect([...sim.world.query(Crop)]).toEqual([]);
   });
 });
+
+describe('road occupancy at the end of a sow swing', () => {
+  it.each([
+    ['wheat', 29],
+    ['herbs', 31],
+  ] as const)('rejects %s on planned and completed roads', (id, harvest) => {
+    const content = testContent();
+    const sim = new Simulation({
+      seed: 5,
+      content: {
+        ...content,
+        goods: content.goods.map((good) =>
+          good.typeId === WHEAT ? { ...good, id, atomics: { ...good.atomics, harvest } } : good,
+        ),
+      },
+      map: grassMap(14, 14),
+    });
+    const farm = farmAt(sim, 7, 7);
+    for (const laid of [false, true]) {
+      const x = laid ? 8 : 6;
+      sim.enqueueSetup({ kind: 'placeRoadSite', x, y: 6, tribe: VIKING, force: true, laid });
+      sim.run(1);
+      applySow(sim.world, ctxOf(sim), { farm, goodType: WHEAT, x, y: 6 });
+    }
+    expect([...sim.world.query(Crop)]).toHaveLength(0);
+    applySow(sim.world, ctxOf(sim), { farm, goodType: WHEAT, x: 10, y: 6 });
+    expect([...sim.world.query(Crop)]).toHaveLength(1);
+  });
+});

@@ -51,6 +51,8 @@ const SLOTS = [
   'terrain',
   'decorShadows',
   'decor',
+  'groundResources',
+  'roads',
   'bloodGround',
   'wakes',
   'weatherGround',

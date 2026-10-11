@@ -241,6 +241,10 @@ export const deContent = {
       title: 'Warenhaufen an der Fahne',
       summary: 'Steinsammler füllen einen leeren Lagerplatz, eine volle Mitte und einen vollen ersten Ring.',
     },
+    'clay-overlays': {
+      title: 'Lehm unter Straßen und Häusern',
+      summary: 'Eine Straße und zwei Hausstufen über Lehmvorkommen.',
+    },
     'clay-gatherers': {
       title: 'Lehmabbau',
       summary: 'Zwei Abbauer jedes Stammes graben Lehm und tragen ihn zu ihrer Flagge.',

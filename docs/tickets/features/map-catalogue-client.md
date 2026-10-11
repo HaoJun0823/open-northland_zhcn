@@ -17,8 +17,6 @@ Epic: [`docs/tickets/api/README.md`](../api/README.md).
   screens' look (`network.css`), which the rest of the main menu has not adopted yet.
 - Load time and scroll with every card of the full catalogue.
 - Desktop: install a catalogue map, quit, relaunch, play it; `npm run test:desktop`.
-- Decide whether an installed catalogue map gets a terrain minimap. The detail panel shows the
-  installed map's authored picture, else the catalogue thumbnail; catalogue maps ship no `.map.png`.
 
 ## Verify
 

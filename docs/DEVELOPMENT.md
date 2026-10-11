@@ -354,6 +354,7 @@ the rotation, and keep `scripts/check-repository-assets.mjs` in step.
 | does a world restored with cold caches step as the continuous one does? | `npm run bench:parity` |
 | what does a live session spend a frame on, sim or render? | `?debug=profile` and `window.__opennorthland.perf()` |
 | how does a developed checkpoint render at different speeds and zooms? | `npm run bench:browser` against a running development server |
+| what does the GPU spend per frame on each graphics setting, panel, selection and weather? | `npm run bench:gpu` against a running development server |
 | how much JavaScript does a URL mode download and parse before it starts? | the table `npm run build` prints |
 
 Every report judges the machine that produced it. Numbers under an untrustworthy banner are void
@@ -420,6 +421,27 @@ timed alone read about as long as the whole stage while adding well under a mill
 span. `perf().gpu.adapter` holds the WebGL renderer string. The span holds no CPU work before the
 first render, so the meter reads GPU execution of the WebGL commands, not Chrome's composite of the
 canvas and the DOM HUD.
+
+The GPU benchmark reads that meter per scenario from the same kind of checkpoint and server:
+
+```bash
+npm run bench:gpu -- bench-out/late.t100000.checkpoint http://127.0.0.1:5174 bench-out/gpu 5 3
+```
+
+The arguments are checkpoint, origin, output directory (default `bench-out/gpu`), seconds per repeat
+(default 5) and repeats (default 3). Each scenario restores the checkpoint with its graphics settings
+and the FPS counter written through the settings store, frames the densest building cluster, warms
+for three seconds and samples `perf().gpu.ms` every half second. It reports the lowest per-repeat
+median, the WebGL calls per frame, the selection size and portrait insets the renderer received, and
+the adapter. The scenarios: every enhancement off, paused and x3; every enhancement on with each
+magnifier (`off`, `bilinear`, `sharp`, `xbr`) at zoom 1 and 2, paused; everything on at x3; one settler
+selected, which always opens the settler panel and its portrait, paused and x3; 10 and 50 or more
+settlers box-selected, paused; `?weather=rain` against `?weather=clear` at x3; zoom 0.35 paused and
+x3. `ON_BENCH_GPU_SCENARIOS=panel-x3,on-x3` runs only those. Selections use the player's own clicks
+and box drags before input is blocked. `report.md` holds the table and `report.json` every repeat.
+The load gate, hidden windows, camera drift, a missing reading or a short selection void a scenario
+and make the command exit nonzero. Read milliseconds only from an idle machine; the call counts hold
+regardless.
 
 The benchmarks run as plain Node programs over the compiled `dist/` of the workspace packages, with
 no test runner in the process: a runner wraps every cross-module import, and that wrapper lands in a

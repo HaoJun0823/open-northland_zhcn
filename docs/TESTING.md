@@ -357,6 +357,10 @@ same world; two paths name them explicitly. It refuses to compare different worl
 reports a changed state hash as a behavior change rather than a speed one. A report written under
 another report layout version is refused by name; re-run the benchmark.
 
+`npm run bench:browser` and `npm run bench:gpu` measure a `bench:map` checkpoint's frames and GPU time
+in headed Chromium against a running development server; a window taken on a loaded machine is void
+and fails the command.
+
 Absolute timing is machine-dependent, so compare runs on the same machine.
 
 See [`DEVELOPMENT.md`](DEVELOPMENT.md) for benchmark controls.

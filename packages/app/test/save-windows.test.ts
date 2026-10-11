@@ -177,11 +177,15 @@ describe('save window', () => {
     await vi.waitFor(() => expect(rowNames(save)).toEqual(['Drop', 'Keep']));
     input.value = 'Mine';
     input.dispatchEvent(new Event('input'));
-    button(formatMessage(copy.deleteNamed, { name: 'Keep' }), save).click();
+    const bin = button(formatMessage(copy.deleteNamed, { name: 'Keep' }), save);
+    bin.focus();
+    bin.click();
     await vi.waitFor(() => question());
     expect(input.value).toBe('Mine');
     button(copy.del, question()).click();
     await vi.waitFor(() => expect(rowNames(save)).toEqual(['Drop']));
+    // The redraw removed the focused bin; focus stays in the window for the keyboard.
+    expect(save.contains(document.activeElement)).toBe(true);
     expect(input.value).toBe('Mine');
 
     input.value = 'Drop';

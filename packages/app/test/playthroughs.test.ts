@@ -37,8 +37,7 @@ describe('playthroughsOf', () => {
       ['coast-1'],
       ['forest-b1'],
     ]);
-    // The seedless saves may hold several games, so they go unnumbered.
-    expect(groups.map((g) => g.ordinal)).toEqual([null, 1, null, 2]);
+    expect(groups.map((g) => g.ordinal)).toEqual([3, 1, null, 2]);
     expect(groups.some((g) => g.current)).toBe(false);
   });
 

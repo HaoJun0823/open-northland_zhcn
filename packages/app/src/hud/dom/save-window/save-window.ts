@@ -98,10 +98,11 @@ export function createSaveWindow(deps: SaveWindowDeps): MenuPageView {
     if (mine !== refreshes) return;
     listed = slots;
     save.disabled = false;
-    // A text field is never focused on its own (`quietTextField`); Enter on Save takes the offered name.
-    if (!frame.window.element.contains(document.activeElement)) save.focus();
     frame.hideTips();
     sheet.show(slots, worldName);
+    // After the redraw, which drops a focused row or bin. A text field is never focused on its own
+    // (`quietTextField`); Enter on Save takes the offered name.
+    if (!frame.window.element.contains(document.activeElement)) save.focus();
     if (selectName !== null) sheet.select(slotNamed(selectName)?.id ?? null);
     if (input.value === '') {
       const world = worldName(deps.saveLoad.worldToken);
@@ -158,6 +159,9 @@ export function createSaveWindow(deps: SaveWindowDeps): MenuPageView {
     el: frame.window.element,
     open(): void {
       run.reset();
+      // The last opening's list may be stale; the overwrite guard waits for this one's.
+      listed = null;
+      save.disabled = true;
       frame.status(null);
       input.value = '';
       hint.textContent = '';

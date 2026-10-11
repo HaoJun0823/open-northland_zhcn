@@ -7,8 +7,7 @@ const MS_PER_SECOND = 1000;
 export interface Playthrough {
   readonly key: string;
   readonly mapId: string | null;
-  /** Its place among the same map's games, earliest started first from 1; null when the map has one,
-   *  and for the seedless saves, which may hold several games. */
+  /** Its place among the same map's games, earliest started first from 1; null when the map has one. */
   readonly ordinal: number | null;
   readonly slots: readonly SaveSlotInfo[];
   /** The game running now; a save list outside a game has none. */
@@ -20,7 +19,6 @@ export interface RunningWorld {
   readonly seed: number | null;
 }
 
-/** A save without a recorded seed joins its map's seedless group rather than a playthrough. */
 const playthroughKey = (mapId: string | null, seed: number | null): string => `${mapId ?? ''}|${seed ?? ''}`;
 
 const newest = (playthrough: { readonly slots: readonly SaveSlotInfo[] }): number =>
@@ -46,7 +44,6 @@ export function playthroughsOf(slots: readonly SaveSlotInfo[], running: RunningW
   }
   const perMap = new Map<string | null, { key: string; slots: SaveSlotInfo[] }[]>();
   for (const [key, group] of byKey) {
-    if (group.slots[0]?.seed === null) continue;
     const siblings = perMap.get(group.mapId) ?? [];
     siblings.push({ key, slots: group.slots });
     perMap.set(group.mapId, siblings);

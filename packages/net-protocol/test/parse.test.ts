@@ -788,3 +788,57 @@ it.each([undefined, null, 0, 'true'])('rejects a non-boolean claimability flag: 
     }),
   ).toThrow();
 });
+
+describe('reserved map AI control', () => {
+  const seatSetup = (control: Record<string, unknown>) => ({ player: 0, color: 0, ...control });
+  const roomView = (control: Record<string, unknown>) => ({
+    kind: 'room',
+    room: {
+      id: 'a1b2c3d4',
+      state: 'lobby',
+      creator: 'Ania',
+      settings,
+      seats: [{ ...seatSetup(control), nick: null, ready: false }],
+      members: [],
+    },
+  });
+
+  it.each([
+    { mode: 'map-ai', claimable: true, offers: ['map-ai'] },
+    { mode: 'idle', claimable: true, offers: ['idle', 'computer', 'absent', 'map-ai'] },
+    { mode: 'map-ai', claimable: false, offers: ['map-ai', 'computer'] },
+    { mode: 'map-ai', claimable: false, offers: ['map-ai', 'idle'] },
+    { mode: 'map-ai', claimable: false, offers: ['map-ai', 'absent'] },
+    { mode: 'computer', claimable: false, offers: ['map-ai'] },
+    { mode: 'map-ai', claimable: false, offers: ['computer'] },
+  ])('rejects invalid control in both directions: %j', (control) => {
+    expect(() => parseClientMessage({ kind: 'createRoom', settings, seats: [seatSetup(control)] })).toThrow(
+      /map-ai|does not offer/,
+    );
+    expect(() => parseServerMessage(roomView(control), () => session)).toThrow(/map-ai|does not offer/);
+  });
+
+  it.each([
+    { mode: 'map-ai', claimable: false, offers: ['map-ai'] },
+    { mode: 'computer', claimable: true, offers: ['computer', 'idle', 'absent'] },
+    { mode: 'idle', claimable: true, offers: ['computer', 'idle', 'absent'] },
+    { mode: 'absent', claimable: true, offers: ['computer', 'idle', 'absent'] },
+  ])('round trips valid control in both directions: %j', (control) => {
+    const create = { kind: 'createRoom', settings, seats: [seatSetup(control)] };
+    expect(parseClientMessage(wire(create))).toEqual(create);
+    const view = roomView(control);
+    expect(parseServerMessage(wire(view), () => session)).toEqual(view);
+  });
+
+  it('allows an idle departure in a view even when the lobby only offered computer', () => {
+    const view = roomView({ mode: 'idle', claimable: true, offers: ['computer'] });
+    view.room.state = 'running';
+    expect(parseServerMessage(wire(view), () => session)).toEqual(view);
+  });
+
+  it('rejects a human occupying a reserved seat', () => {
+    expect(() =>
+      parseServerMessage(roomView({ mode: 'human', claimable: false, offers: ['map-ai'] }), () => session),
+    ).toThrow(/reserved seat cannot be human/);
+  });
+});

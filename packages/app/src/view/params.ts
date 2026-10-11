@@ -46,7 +46,6 @@ const ENTRY_PARAMS = [
   'colors',
   'tribes',
   'computer',
-  'map-ai',
   'idle',
   'absent',
   'difficulty',
@@ -89,10 +88,7 @@ export function postFxParam(params: URLSearchParams): boolean | null {
  * Parse a `?<name>=<seat>[,<seat>...]` seat list, such as `?computer=`, the seats handed to the strategic AI
  * player when a map starts. Malformed entries are dropped.
  */
-export function seatListParam(
-  params: URLSearchParams,
-  name: 'computer' | 'map-ai' | 'idle' | 'absent',
-): number[] {
+export function seatListParam(params: URLSearchParams, name: 'computer' | 'idle' | 'absent'): number[] {
   const raw = params.get(name);
   if (raw === null) return [];
   const seats: number[] = [];

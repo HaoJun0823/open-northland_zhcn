@@ -37,6 +37,8 @@ export function restoreSavedSeats(
     const vacant = mode === 'human' ? 'idle' : mode;
     const map = byPlayer.get(player);
     const offered = map?.offers ?? [];
+    if ((vacant === 'map-ai') !== offered.includes('map-ai'))
+      throw new Error('Saved map AI seat does not match its authored reservation');
     return {
       player,
       color,

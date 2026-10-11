@@ -8,7 +8,7 @@ const LEVEL_SEATS: readonly RoomSeatSetup[] = [
     player: 0,
     mode: 'idle',
     claimable: true,
-    offers: ['map-ai', 'idle', 'computer'],
+    offers: ['idle', 'computer', 'absent'],
     color: 0,
     difficulty: 'medium',
   },
@@ -16,11 +16,11 @@ const LEVEL_SEATS: readonly RoomSeatSetup[] = [
     player: 1,
     mode: 'computer',
     claimable: true,
-    offers: ['map-ai', 'idle', 'computer'],
+    offers: ['idle', 'computer', 'absent'],
     color: 1,
     difficulty: 'medium',
   },
-  { player: 2, mode: 'computer', claimable: false, offers: ['computer'], color: 2 },
+  { player: 2, mode: 'map-ai', claimable: false, offers: ['map-ai'], color: 2 },
 ];
 
 function lobby(settings = SETTINGS) {
@@ -43,13 +43,13 @@ describe('computer seat levels in the lobby', () => {
       expect(peer.last('rejected')?.reason).toEqual({ code: 'seatNotClaimable', player: 2 });
     }
     expect(seat(0)).toMatchObject({ nick: 'Ania', ready: true });
-    expect(seat(2)).toMatchObject({ nick: null, mode: 'computer', claimable: false });
+    expect(seat(2)).toMatchObject({ nick: null, mode: 'map-ai', claimable: false });
     b.send({ kind: 'claimSeat', player: 1 });
     expect(seat(1)).toMatchObject({ nick: 'Bartek', mode: 'human', claimable: true });
     a.send({ kind: 'setReady', ready: true });
     b.send({ kind: 'setReady', ready: true });
     a.send({ kind: 'start' });
-    expect(a.last('start')?.session.seats).toContainEqual({ player: 2, mode: 'computer', color: 2 });
+    expect(a.last('start')?.session.seats).toContainEqual({ player: 2, mode: 'map-ai', color: 2 });
   });
 
   it('lets the creator set a seat’s level, and refuses it elsewhere', () => {
@@ -72,7 +72,7 @@ describe('computer seat levels in the lobby', () => {
     expect(a.last('start')?.session.seats).toEqual([
       { player: 0, mode: 'human', color: 0 },
       { player: 1, mode: 'computer', color: 1, difficulty: 'easy' },
-      { player: 2, mode: 'computer', color: 2 },
+      { player: 2, mode: 'map-ai', color: 2 },
     ]);
   });
 
@@ -83,20 +83,24 @@ describe('computer seat levels in the lobby', () => {
   });
 });
 
-it('keeps Script as the vacant mode and carries it into the shared session', () => {
+it('keeps map AI exclusive to the reserved seat through lobby changes and start', () => {
   const { a, b, seat } = lobby();
   a.send({ kind: 'setSeat', player: 1, mode: 'map-ai' });
-  expect(seat(1)).toMatchObject({ mode: 'map-ai', difficulty: 'medium' });
-  b.send({ kind: 'claimSeat', player: 1 });
-  expect(seat(1)?.mode).toBe('human');
-  b.send({ kind: 'leaveRoom' });
-  expect(a.last('room')?.room.seats.find((seat) => seat.player === 1)?.mode).toBe('map-ai');
-  a.send({ kind: 'setReady', ready: true });
-  a.send({ kind: 'start' });
-  expect(a.last('start')?.session.seats).toContainEqual({
+  expect(a.last('rejected')?.reason).toEqual({
+    code: 'seatModeUnavailable',
     player: 1,
     mode: 'map-ai',
-    color: 1,
-    difficulty: 'medium',
   });
+  expect(seat(1)?.mode).toBe('computer');
+  for (const mode of ['computer', 'idle', 'absent']) {
+    a.send({ kind: 'setSeat', player: 2, mode });
+    expect(a.last('rejected')?.reason).toEqual({ code: 'seatModeUnavailable', player: 2, mode });
+  }
+  expect(seat(2)).toMatchObject({ mode: 'map-ai', claimable: false, offers: ['map-ai'] });
+  b.send({ kind: 'claimSeat', player: 1 });
+  b.send({ kind: 'leaveRoom' });
+  expect(a.last('room')?.room.seats.find((row) => row.player === 1)?.mode).toBe('computer');
+  a.send({ kind: 'setReady', ready: true });
+  a.send({ kind: 'start' });
+  expect(a.last('start')?.session.seats).toContainEqual({ player: 2, mode: 'map-ai', color: 2 });
 });

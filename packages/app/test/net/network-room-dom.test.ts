@@ -141,6 +141,62 @@ describe('multiplayer entry', () => {
 });
 
 describe('room guidance and chat', () => {
+  it('hides authored hidden seats while keeping visible map AI reserved', () => {
+    const map = mapItem({
+      id: 'test',
+      picture: false,
+      minimap: false,
+      players: [0, 1, 2].map((player) => ({
+        player,
+        type: player === 0 ? 'human' : 'ai',
+        tribeId: 1,
+        colorId: player,
+        claimable: player === 0,
+        hidden: player === 2,
+        aiAllowed: true,
+        noneAllowed: player === 0,
+        hasComputerControl: player === 0,
+      })),
+    });
+    const { room, client } = mount(() => map);
+    const base = lobby();
+    const view: RoomView = {
+      ...base,
+      seats: [
+        ...base.seats,
+        ...[1, 2].map((player) => ({
+          player,
+          mode: 'map-ai' as const,
+          claimable: false,
+          offers: ['map-ai'] as const,
+          color: player,
+          nick: null,
+          ready: false,
+        })),
+      ],
+    };
+    room.update(view, true);
+    const rows = [...room.element.querySelectorAll<HTMLElement>('.network-room__seat')];
+    expect(rows.map((row) => row.hidden)).toEqual([false, false, true]);
+    const reserved = rows[1];
+    if (reserved === undefined) throw new Error('Missing visible map AI seat');
+    const claim = [...reserved.querySelectorAll('button')].find(
+      (button) => button.textContent === messages().networkRoom.takeSeat,
+    );
+    expect(claim?.hidden).toBe(true);
+    expect(claim?.disabled).toBe(true);
+    const modes = [
+      ...reserved.querySelectorAll<HTMLButtonElement>(
+        `[role="listbox"][aria-label="${messages().networkRoom.seatMode}"] [role="option"]`,
+      ),
+    ]
+      .filter((option) => !option.disabled)
+      .map((option) => option.textContent);
+    expect(modes).toEqual([messages().networkRoom['map-ai']]);
+    expect(view.seats).toHaveLength(3);
+    expect(client.setSeat).not.toHaveBeenCalled();
+  });
+
   it('shows the map faction without changing the seat', () => {
     const map = mapItem({
       id: 'test',

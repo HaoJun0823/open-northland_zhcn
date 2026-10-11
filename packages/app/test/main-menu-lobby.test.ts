@@ -179,7 +179,7 @@ describe('lobbySession', () => {
   it('lets a claimable authored-ai slot auto-play until it is toggled to idle', () => {
     const lobby = [slot(0, { claimable: true, type: 'human' }), slot(1, { claimable: true })];
     let state = claimSeat(initialRosterState(lobby), 0);
-    expect(lobbySession('zatoka', state, lobby, OPTIONS, SEED).seats[1]?.mode).toBe('map-ai');
+    expect(lobbySession('zatoka', state, lobby, OPTIONS, SEED).seats[1]?.mode).toBe('computer');
     state = setVacantMode(state, 1, 'idle');
     expect(computerSeatsOfLobby(state, lobby)).toEqual([]);
   });
@@ -205,7 +205,7 @@ describe('lobbySession', () => {
     let state = claimSeat(initialRosterState(lobby), 0);
     for (const player of [1, 2, 3]) state = setVacantMode(state, player, 'absent');
     const session = lobbySession('zatoka', state, lobby, OPTIONS, SEED);
-    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', 'absent', 'map-ai', 'map-ai']);
+    expect(session.seats.map((seat) => seat.mode)).toEqual(['human', 'absent', 'computer', 'map-ai']);
     const entry = new URLSearchParams(lobbyStartEntry('zatoka', state, lobby, OPTIONS, SEED));
     expect(entry.get('absent')).toBe('1');
     expect(mapSession(entry, lobby)).toEqual(session);
@@ -280,14 +280,14 @@ describe('lobby computer levels', () => {
   it("offers a level on a free seat handed to the computer, medium until picked, and on the map's own computer seat, hard until picked, never on a scripted camp", () => {
     const state = initialLobbyState(players);
     // Seat 1 plays as computer, seat 2 is a monster tribe, seat 3 is the map's own computer seat, and
-    // seats 4 and 5 are camps whose script stops the strategic AI, the map's own and a free one.
+    // Seat 4 is a reserved camp; selectable seat 5 defaults to Computer despite its authored disable.
     expect(lobbySlotRows(players, state).map((row) => row.difficulty)).toEqual([
       null,
       'medium',
       null,
       'hard',
       null,
-      null,
+      'medium',
     ]);
     expect(lobbySlotRows(players, setVacantMode(state, 1, 'idle'))[1]?.difficulty).toBeNull();
   });
@@ -301,10 +301,10 @@ describe('lobby computer levels', () => {
       undefined,
       'medium',
       undefined,
-      undefined,
+      'medium',
     ]);
     const entry = new URLSearchParams(lobbyStartEntry('zatoka', state, players, OPTIONS, SEED));
-    expect(entry.get('difficulty')).toBe('1:easy,3:medium');
+    expect(entry.get('difficulty')).toBe('1:easy,3:medium,5:medium');
     expect(mapSession(entry, players)).toEqual(session);
   });
 });
@@ -330,19 +330,19 @@ describe('lobbyStartEntry', () => {
     );
     expect(params.get('map')).toBe('zatoka');
     expect(params.get('player')).toBe('0');
-    expect(params.get('computer')).toBeNull(); // authored-ai seats retain Script by default
+    expect(params.get('computer')).toBe('1');
     // The map's own computer seats need no naming: a Forteca-style roster launches with `?computer=` of the
     // offered seats alone, and the session still plays them.
     const forteca = [...players, slot(2), slot(6, { hidden: true })];
     const entry = new URLSearchParams(
       lobbyStartEntry('forteca', initialLobbyState(forteca), forteca, OPTIONS, SEED),
     );
-    expect(entry.get('computer')).toBeNull();
+    expect(entry.get('computer')).toBe('1');
     expect(
       lobbySession('forteca', initialLobbyState(forteca), forteca, OPTIONS, SEED).seats.map(
         (seat) => seat.mode,
       ),
-    ).toEqual(['human', 'map-ai', 'map-ai', 'map-ai']);
+    ).toEqual(['human', 'computer', 'map-ai', 'map-ai']);
     expect(params.get('fog')).toBe('recon-fow');
     expect(params.get('progression')).toBe('off');
     expect(params.get('needs')).toBe('off');
@@ -360,7 +360,7 @@ describe('lobbyStartEntry', () => {
 
 it('round-trips each offered control mode without changing the human or locked computer', () => {
   const players = [slot(0, { type: 'human', claimable: true }), slot(1, { claimable: true }), slot(2)];
-  for (const mode of ['map-ai', 'computer', 'idle'] as const) {
+  for (const mode of ['computer', 'idle', 'absent'] as const) {
     const state = setVacantMode(initialLobbyState(players), 1, mode);
     const session = lobbySession('synthetic', state, players, OPTIONS, SEED);
     expect(session.seats.map((seat) => seat.mode)).toEqual(['human', mode, 'map-ai']);

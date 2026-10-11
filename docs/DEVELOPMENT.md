@@ -165,9 +165,8 @@ weather is untouched; `weather=ambient[:<percent>]` holds the game's own weather
 `weathermode=<map|variable|winter>` (the lobby's match weather, `map` when no param names one), and
 `tint=<palette index>` (a map script's whole-map vertex tint held in this view only). `computer=<seat,...>`
 names the seats a person could have taken that the computer player controls instead; reserved map AI
-seats (authored `ai`, offered to nobody) retain the map's control settings without being named. `map-ai=<seat,...>`
-selects the map’s `[AIData]` configuration for an offered seat, including autonomous modules the author leaves enabled; `idle=<seat,...>` leaves its entities
-without AI control. Authored AI seats default to Map AI, human seats to Idle, and authored closed
+seats (authored `ai`, offered to nobody) retain the map's control settings without being named. `idle=<seat,...>` keeps a selectable seat’s entities
+without AI control. Selectable authored AI seats default to Computer, human seats to Idle, and authored closed
 seats spawn no entities. Where the map allows it, None (`absent=<seat,...>`) also omits a claimable
 seat’s starting entities. `seed=<n>` picks
 the world seed a `?map=` session runs on, so two clients of one session start from the same world;

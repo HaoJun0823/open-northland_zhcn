@@ -4,7 +4,6 @@ import {
   computerSeats,
   hasClaimableSeat,
   initialRosterState,
-  mapAiSeats,
   OBSERVER_SEAT,
   setSlotColor,
   setVacantMode,
@@ -113,8 +112,8 @@ describe('roster state', () => {
       },
     ] as const;
     const state = claimSeat(initialRosterState(lobby), 0);
-    expect(mapAiSeats(state, lobby)).toEqual([1]);
-    expect(mapAiSeats(setVacantMode(state, 1, 'idle'), lobby)).toEqual([]);
+    expect(computerSeats(state, lobby)).toEqual([1]);
+    expect(computerSeats(setVacantMode(state, 1, 'idle'), lobby)).toEqual([]);
   });
 
   it('never lists a Human/Closed-only seat as AI', () => {
@@ -160,17 +159,12 @@ describe('roster state', () => {
       hasComputerControl: true,
     } as const;
     expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: true })).toEqual([
-      'map-ai',
       'computer',
       'idle',
       'absent',
     ]);
     expect(vacantOffers({ ...seat, aiAllowed: false, noneAllowed: true })).toEqual(['idle', 'absent']);
-    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: false })).toEqual([
-      'map-ai',
-      'computer',
-      'idle',
-    ]);
+    expect(vacantOffers({ ...seat, aiAllowed: true, noneAllowed: false })).toEqual(['computer', 'idle']);
     expect(vacantOffers({ ...seat, aiAllowed: false, noneAllowed: false })).toEqual(['idle']);
     const computer = { ...seat, type: 'ai', claimable: false, aiAllowed: true, noneAllowed: true } as const;
     expect(vacantOffers(computer)).toEqual(['map-ai']);
@@ -180,7 +174,7 @@ describe('roster state', () => {
     const closed = { ...players[2], type: 'none' as const };
     expect(vacantOffers(closed)).toEqual(['absent']);
     expect(initialRosterState([closed]).vacantModes.get(2)).toBe('absent');
-    expect(mapAiSeats(initialRosterState([closed]), [closed])).toEqual([]);
+    expect(computerSeats(initialRosterState([closed]), [closed])).toEqual([]);
   });
 
   it('keeps authored duplicate colours pickable for their own slot and blocks new duplicates', () => {

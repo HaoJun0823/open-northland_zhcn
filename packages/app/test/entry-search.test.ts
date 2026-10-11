@@ -9,7 +9,7 @@ describe('entrySearch', () => {
     // The seed rides along: relaunching a save into a fresh world on the default seed would build a
     // different world from the one the save was taken in.
     expect(entrySearch(current)).toBe(
-      '?map=twierdza&player=2&colors=1%3A3&computer=3&map-ai=4&idle=5&absent=6&difficulty=3%3Aeasy&seed=42',
+      '?map=twierdza&player=2&colors=1%3A3&computer=3&idle=5&absent=6&difficulty=3%3Aeasy&seed=42',
     );
   });
 

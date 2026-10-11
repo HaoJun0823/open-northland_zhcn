@@ -10,6 +10,7 @@ import {
 import { FOG_MODE_BY_NAME, type FogModeName } from '../../../game/fog.js';
 import { onOffParam, weatherModeParam } from '../../../game/session-rules.js';
 import {
+  claimableLocalSeat,
   DEFAULT_SESSION_SPEED,
   isReservedMapAiSeat,
   seatMode,
@@ -24,7 +25,6 @@ import {
   idleSeats,
   initialRosterState,
   type MapPlayerSlot,
-  mapAiSeats,
   offersDifficulty,
   offersTribeChoice,
   type RosterState,
@@ -110,9 +110,7 @@ function playsAtDifficulty(slot: MapPlayerSlot, state: RosterState): boolean {
   if (!offersDifficulty(slot)) return false;
   return (
     (isReservedMapAiSeat(slot) && slot.hasComputerControl) ||
-    (state.seat !== null &&
-      (computerSeats(state, [slot]).length > 0 ||
-        (slot.hasComputerControl && mapAiSeats(state, [slot]).length > 0)))
+    (state.seat !== null && computerSeats(state, [slot]).length > 0)
   );
 }
 
@@ -130,7 +128,6 @@ export function lobbySession(
 ): GameSession {
   const lists = {
     computer: new Set(state.seat === null ? [] : computerSeats(state, players)),
-    mapAi: new Set(state.seat === null ? [] : mapAiSeats(state, players)),
     idle: new Set(
       state.seat === null
         ? players.filter((slot) => slot.claimable).map((slot) => slot.player)
@@ -138,7 +135,7 @@ export function lobbySession(
     ),
     absent: new Set(state.seat === null ? [] : absentSeats(state, players)),
   };
-  const localSeat = state.seat ?? DEFAULT_LOCAL_PLAYER;
+  const localSeat = claimableLocalSeat(state.seat ?? DEFAULT_LOCAL_PLAYER, players);
   const seats: SessionSeat[] = players.map((slot) => {
     const tribe = state.tribes.get(slot.player);
     const retribed = tribe !== undefined && tribe !== slot.tribeId && offersTribeChoice(slot);

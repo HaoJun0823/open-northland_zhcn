@@ -61,7 +61,7 @@ describe('saved multiplayer roster', () => {
     ]);
     expect(savedRoster(save)?.roster[0]?.nick).toBe('Ania');
   });
-  it('retains single-player Script, AI and Idle modes instead of resetting them to the map defaults', () => {
+  it('retains single-player reserved Map AI, Computer and Idle modes instead of resetting them to the map defaults', () => {
     const single = { ...save, header: { ...save.header, session: null } };
     const seats = [
       { player: 0, mode: 'idle' as const, color: 0 },
@@ -69,18 +69,28 @@ describe('saved multiplayer roster', () => {
       { player: 2, mode: 'computer' as const, color: 2 },
     ];
     const map = [
-      ...authored,
+      ...authored.filter((seat) => seat.player === 0),
+      { player: 1, color: 1, claimable: false, mode: 'map-ai' as const, offers: ['map-ai' as const] },
       {
         player: 2,
-        mode: 'map-ai' as const,
+        mode: 'idle' as const,
         claimable: true,
-        offers: ['map-ai' as const, 'idle' as const],
+        offers: ['computer' as const, 'idle' as const],
         color: 2,
       },
     ];
     const restored = restoreSavedSeats(single, map, seats);
     expect(restored.map((seat) => seat.mode)).toEqual(['idle', 'map-ai', 'computer']);
     expect(restored[2]?.offers).toContain('computer');
+  });
+  it('rejects a saved map AI on a selectable seat', () => {
+    const single = { ...save, header: { ...save.header, session: null } };
+    expect(() =>
+      restoreSavedSeats(single, authored, [
+        { player: 0, mode: 'map-ai', color: 0 },
+        { player: 1, mode: 'idle', color: 1 },
+      ]),
+    ).toThrow(/authored reservation/);
   });
   it('keeps a saved computer seat’s level, and hard where the save names none', () => {
     const levelled = authored.map((seat) => ({ ...seat, difficulty: 'medium' as const }));

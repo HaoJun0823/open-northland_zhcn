@@ -45,11 +45,17 @@ export type SessionRosterSlot = Pick<
   MapsIndexPlayerSlot,
   'player' | 'colorId' | 'tribeId' | 'type' | 'claimable'
 > &
-  Partial<Pick<MapsIndexPlayerSlot, 'aiAllowed'>>;
+  Partial<Pick<MapsIndexPlayerSlot, 'aiAllowed' | 'hidden'>>;
 
 /** An authored computer seat the map never offers to a person; lobby mode choices cannot retype it. */
 export function isReservedMapAiSeat(slot: Pick<SessionRosterSlot, 'type' | 'claimable'>): boolean {
   return slot.type === 'ai' && !slot.claimable;
+}
+
+/** A reserved or hidden slot cannot grant local player authority through a launch URL or stale selection. */
+export function claimableLocalSeat(requested: LocalSeat, roster: readonly SessionRosterSlot[]): LocalSeat {
+  const slot = roster.find((slot) => slot.player === requested);
+  return slot !== undefined && (!slot.claimable || slot.hidden === true) ? OBSERVER_SEAT : requested;
 }
 
 /** `?map=<id>`; null when the search names none, which draws the fallback strip instead of a map. */
@@ -62,7 +68,7 @@ export function mapIdParam(params: URLSearchParams): string | null {
  *  `?difficulty=` how hard each computer seat plays. A search
  *  naming no seed draws one. */
 export function mapSession(params: URLSearchParams, roster: readonly SessionRosterSlot[]): GameSession {
-  const localSeat = localSeatParam(params);
+  const localSeat = claimableLocalSeat(localSeatParam(params), roster);
   return {
     world: { kind: 'map', mapId: mapIdParam(params) ?? '' },
     seed: seedParam(params) ?? drawSessionSeed(),
@@ -123,16 +129,18 @@ export function sessionSearch(
       .filter((seat) => seat.mode === 'computer' && !reservedMapAi.has(seat.player))
       .map((seat) => seat.player);
     if (computer.length > 0) params.set('computer', computer.join(','));
-    for (const mode of ['map-ai', 'idle'] as const) {
-      const seats = session.seats
-        .filter((seat) => {
-          const slot = roster.find((slot) => slot.player === seat.player);
-          const defaultMode = slot?.type === 'ai' && slot.aiAllowed !== false ? 'map-ai' : 'idle';
-          return seat.mode === mode && mode !== defaultMode && !reservedMapAi.has(seat.player);
-        })
-        .map((seat) => seat.player);
-      if (seats.length > 0) params.set(mode, seats.join(','));
-    }
+    const idle = session.seats
+      .filter((seat) => {
+        const slot = roster.find((slot) => slot.player === seat.player);
+        return (
+          seat.mode === 'idle' &&
+          slot?.type === 'ai' &&
+          slot.aiAllowed !== false &&
+          !reservedMapAi.has(seat.player)
+        );
+      })
+      .map((seat) => seat.player);
+    if (idle.length > 0) params.set('idle', idle.join(','));
     const absent = session.seats.filter((seat) => seat.mode === 'absent').map((seat) => seat.player);
     if (absent.length > 0) params.set('absent', absent.join(','));
     // Only a map takes its seed from the search; a scene's is its own, so writing one would lie.
@@ -175,18 +183,11 @@ function rosterSeats(
   const difficulties = seatDifficultiesParam(params);
   const lists: SeatLists = {
     computer: new Set(seatListParam(params, 'computer').filter(isValidPlayer)),
-    mapAi: new Set(seatListParam(params, 'map-ai').filter(isValidPlayer)),
     idle: new Set(seatListParam(params, 'idle').filter(isValidPlayer)),
     absent: new Set(seatListParam(params, 'absent').filter(isValidPlayer)),
   };
   const authored = new Map(roster.map((slot) => [slot.player, slot]));
-  const players = new Set([
-    ...authored.keys(),
-    ...lists.computer,
-    ...lists.mapAi,
-    ...lists.idle,
-    ...overrides.keys(),
-  ]);
+  const players = new Set([...authored.keys(), ...lists.computer, ...lists.idle, ...overrides.keys()]);
   if (typeof localSeat === 'number') players.add(localSeat);
   return orderedSeats(
     [...players].map((player) => {
@@ -210,25 +211,24 @@ function rosterSeats(
 /** Explicit seat-control overrides carried by the launch URL. */
 export interface SeatLists {
   readonly computer: ReadonlySet<number>;
-  readonly mapAi: ReadonlySet<number>;
   readonly idle: ReadonlySet<number>;
   readonly absent: ReadonlySet<number>;
 }
 
 /** Closed authored seats never participate. A human claim wins over mode lists; locked computer
- *  seats follow the map. An unclaimed authored computer defaults to Map AI when the map allows it. */
+ *  seats follow the map. An unclaimed selectable computer seat defaults to Computer. */
 export function seatMode(
   slot: Pick<SessionRosterSlot, 'player' | 'type' | 'claimable' | 'aiAllowed'>,
   localSeat: LocalSeat,
   lists: SeatLists,
 ): SeatMode {
   if (slot.type === 'none') return 'absent';
-  if (slot.player === localSeat) return 'human';
   if (isReservedMapAiSeat(slot)) return 'map-ai';
+  if (slot.player === localSeat) return 'human';
   if (lists.computer.has(slot.player)) return 'computer';
   if (lists.idle.has(slot.player)) return 'idle';
   if (lists.absent.has(slot.player)) return 'absent';
-  return lists.mapAi.has(slot.player) || (slot.type === 'ai' && slot.aiAllowed !== false) ? 'map-ai' : 'idle';
+  return slot.type === 'ai' && slot.aiAllowed !== false ? 'computer' : 'idle';
 }
 
 /** `?colors=<slot>:<colorId>,…`. Colours are bounded to the roster's id space, because an

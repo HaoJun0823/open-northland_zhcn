@@ -41,7 +41,8 @@ export interface RoomSeatSetup {
   readonly mode: VacantSeatMode;
   /** Whether a person may occupy this seat, independently of its vacant mode. */
   readonly claimable: boolean;
-  /** The vacant modes the map offers this seat, `mode` among them. */
+  /** The vacant modes the map offers this seat, `mode` among them. Map AI is the sole offer of
+   *  its reserved seat; claimable seats offer only computer, idle or absent. */
   readonly offers: readonly VacantSeatMode[];
   readonly color: number;
   /** The tribe the map's roster names for the seat; a seat without one, such as a scene's, offers no

@@ -175,7 +175,12 @@ it('starts the assistant grants for the seats a person or the computer player pl
 it('round-trips Map AI, Computer and Idle into distinct world control', () => {
   const script = MapScript.parse({
     players: [0, 1, 2, 3].map((player) => ({ player, type: 'ai', tribeId: 1, colorId: player })),
-    multiplayer: { slotOptions: [0, 1, 2, 3].map((player) => ({ player, allowed: ['human', 'ai'] })) },
+    multiplayer: {
+      slotOptions: [0, 1, 2, 3].map((player) => ({
+        player,
+        allowed: player === 0 || player === 2 ? ['ai'] : ['human', 'ai'],
+      })),
+    },
     ai: [
       {
         player: 0,
@@ -233,16 +238,21 @@ it('round-trips Map AI, Computer and Idle into distinct world control', () => {
   expect(components.isMachinePlayer(sim.world, 3)).toBe(false);
 });
 
-it('applies saved-room Map AI and Computer transitions while preserving unchanged dynamic switches', () => {
+it('resumes valid Computer and Idle transitions and preserves unchanged controller switches', () => {
   const script = MapScript.parse({
-    players: [0, 1, 2, 3].map((player) => ({
+    players: [0, 1, 2, 3, 4].map((player) => ({
       player,
       type: 'ai',
       tribeId: 1,
       colorId: player,
     })),
-    multiplayer: { slotOptions: [0, 1, 2, 3].map((player) => ({ player, allowed: ['human', 'ai'] })) },
-    ai: [0, 1, 2, 3].map((player) => ({
+    multiplayer: {
+      slotOptions: [0, 1, 2, 3, 4].map((player) => ({
+        player,
+        allowed: player === 2 ? ['ai'] : ['human', 'ai'],
+      })),
+    },
+    ai: [0, 1, 2, 3, 4].map((player) => ({
       player,
       allDisabled: true,
       computerDisabled: false,
@@ -252,30 +262,43 @@ it('applies saved-room Map AI and Computer transitions while preserving unchange
     })),
   });
   const roster = mapLobbySlots(script);
-  // Seat 0 becomes Computer, seat 1 becomes Map AI, seat 2 stays Map AI, seat 3 wakes from Idle.
+  // Seats 0 and 3 wake from Idle, seat 1 becomes Idle; reserved 2 and Computer 4 keep their modes.
   const previous = mapSession(
-    new URLSearchParams('map=test&seed=3&player=observer&computer=1&idle=3'),
+    new URLSearchParams('map=test&seed=3&player=observer&computer=1,4&idle=0,3'),
     roster,
   );
+  expect(previous.seats.map((seat) => seat.mode)).toEqual(['idle', 'computer', 'map-ai', 'idle', 'computer']);
   const boot = { map, ir: null, script, content: null, session: previous, missions: null, saveText: null };
   const original = buildRelayedMapWorld(boot, null).sim;
   original.step();
   original.enqueueSetup({ kind: 'setAiControl', player: 2, enabled: true });
+  original.enqueueSetup({
+    kind: 'setAiControl',
+    player: 4,
+    enabled: true,
+    computerEnabled: false,
+    mapAiEnabled: false,
+  });
   original.step();
   const save = exportSaveGame(original, { mapId: 'test', entry: `?${sessionSearch(previous, roster)}` });
   const next = {
-    ...mapSession(new URLSearchParams('map=test&seed=3&player=observer&computer=0'), roster),
+    ...mapSession(new URLSearchParams('map=test&seed=3&player=observer&computer=0,3,4&idle=1'), roster),
     initialSave: { tick: save.header.tick, fingerprint: 'a'.repeat(64) },
   };
+  expect(next.seats.map((seat) => seat.mode)).toEqual(['computer', 'idle', 'map-ai', 'computer', 'computer']);
   const restored = buildRelayedMapWorld({ ...boot, session: next }, save);
   applyInitialSaveSeats(restored.sim, next, restored.initialSeatSetups);
   restored.sim.step();
-  expect(components.computerModuleRuns(restored.sim.world, 0, 'military')).toBe(true);
-  expect(mapAiRuns(restored.sim.world, 0)).toBe(true);
-  for (const player of [1, 3]) {
-    expect(components.isMachinePlayer(restored.sim.world, player)).toBe(true);
-    expect(components.computerModuleRuns(restored.sim.world, player, 'military')).toBe(false);
-    expect(mapAiRuns(restored.sim.world, player)).toBe(false);
+  for (const player of [0, 3]) {
+    expect(components.computerModuleRuns(restored.sim.world, player, 'military')).toBe(true);
+    expect(mapAiRuns(restored.sim.world, player)).toBe(true);
   }
+  expect(components.isMachinePlayer(restored.sim.world, 1)).toBe(false);
+  // The saved map AI override survives its authored AI_Disable flag.
   expect(components.computerModuleRuns(restored.sim.world, 2, 'military')).toBe(true);
+  expect(mapAiRuns(restored.sim.world, 2)).toBe(true);
+  // Keeping Computer mode must not re-enable controllers disabled during play.
+  expect(components.isMachinePlayer(restored.sim.world, 4)).toBe(true);
+  expect(components.computerModuleRuns(restored.sim.world, 4, 'military')).toBe(false);
+  expect(mapAiRuns(restored.sim.world, 4)).toBe(false);
 });

@@ -141,12 +141,14 @@ export function parseSeatSetups(value: unknown, at: string): readonly RoomSeatSe
     previous = player;
     const mode = asOneOf(raw.mode, VACANT_SEAT_MODES, `${at}[${i}].mode`);
     const offers = parseSeatOffers(raw.offers, `${at}[${i}].offers`);
+    const claimable = asBoolean(raw.claimable, `${at}[${i}].claimable`);
+    validateSeatControl(mode, claimable, offers, `${at}[${i}]`);
     if (!offers.includes(mode)) throw new Error(`${at}[${i}]: seat ${player} does not offer ${mode}`);
     return {
       player,
       mode,
       offers,
-      claimable: asBoolean(raw.claimable, `${at}[${i}].claimable`),
+      claimable,
       color: asCount(raw.color, `${at}[${i}].color`),
       ...parseSeatTribes(raw, `${at}[${i}]`, false),
       ...parseSeatDifficulty(raw, `${at}[${i}]`),
@@ -204,13 +206,34 @@ function parseSeatOffers(value: unknown, at: string): readonly VacantSeatMode[] 
   return offers;
 }
 
+function validateSeatControl(
+  mode: RoomSeatView['mode'],
+  claimable: boolean,
+  offers: readonly VacantSeatMode[],
+  at: string,
+): void {
+  if (offers.includes('map-ai') && (claimable || offers.length !== 1)) {
+    throw new Error(`${at}: map-ai is reserved and cannot offer another mode`);
+  }
+  if (mode === 'human') {
+    if (!claimable) throw new Error(`${at}: a reserved seat cannot be human`);
+  }
+  if ((mode === 'map-ai') !== offers.includes('map-ai')) {
+    throw new Error(`${at}: map-ai control must stay on its reserved seat`);
+  }
+}
+
 function parseRoomSeatView(value: unknown, at: string): RoomSeatView {
   const raw = asRecord(value, at);
+  const mode = asOneOf(raw.mode, SEAT_MODES, `${at}.mode`);
+  const claimable = asBoolean(raw.claimable, `${at}.claimable`);
+  const offers = parseSeatOffers(raw.offers, `${at}.offers`);
+  validateSeatControl(mode, claimable, offers, at);
   return {
     player: parseSeatIndex(raw.player, `${at}.player`),
-    mode: asOneOf(raw.mode, SEAT_MODES, `${at}.mode`),
-    claimable: asBoolean(raw.claimable, `${at}.claimable`),
-    offers: parseSeatOffers(raw.offers, `${at}.offers`),
+    mode,
+    claimable,
+    offers,
     color: asCount(raw.color, `${at}.color`),
     ...parseSeatTribes(raw, at, true),
     ...parseSeatDifficulty(raw, at),

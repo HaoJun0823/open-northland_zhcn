@@ -594,9 +594,9 @@ and `aidata`) configures the two AI layers every existing player owns. Readings 
 maintenance; `systems/ai-shared` owns common roster, cadence, soldier accounting and local defence.
 `AiControl` identifies a machine-controlled player even with both decision sources disabled. Human
 and idle lobby seats have no such identity; idle is therefore not identical to `AI_Disable`.
-The lobby's Map AI choice respects authored control settings, including permission to run the
-computer player. An explicit Computer choice on an offered seat enables supported autonomous
-modules; reserved scenario seats retain the map's settings.
+Reserved scenario seats use Map AI and respect authored control settings, including permission to
+run the computer player. Map AI is not selectable on open slots. A Computer choice on an offered
+seat enables supported autonomous modules; Idle and, where allowed, None are the other choices.
 
 Approximation: `HAI_DisableMilitary` stops autonomous targets, campaigns, recruitment and military
 outfit publications while civilian modules, map tasks and local defence continue. On disabling a

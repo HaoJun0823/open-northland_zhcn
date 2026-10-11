@@ -34,10 +34,11 @@ export function startingDifficulty(slot: MapPlayerSlot): ComputerDifficulty {
 /** What the lobby lets a person claim, which is what the session then plays. */
 export type SeatChoice = LocalSeat;
 
-/** Authored computer seats follow the script; human seats idle and closed seats stay absent. */
+/** Reserved AI follows the map; selectable AI defaults to Computer, human seats to Idle. */
 export function authoredVacantMode(slot: MapPlayerSlot): VacantMode {
   if (slot.type === 'none') return 'absent';
-  return isReservedMapAiSeat(slot) || (slot.type === 'ai' && slot.aiAllowed) ? 'map-ai' : 'idle';
+  if (isReservedMapAiSeat(slot)) return 'map-ai';
+  return slot.type === 'ai' && slot.aiAllowed ? 'computer' : 'idle';
 }
 
 /** The vacant modes the map's `playeroption` row offers the seat, in the lobby's order. Idle is
@@ -45,7 +46,7 @@ export function authoredVacantMode(slot: MapPlayerSlot): VacantMode {
 export function vacantOffers(slot: MapPlayerSlot): VacantMode[] {
   if (!slot.claimable) return [authoredVacantMode(slot)];
   return [
-    ...(slot.aiAllowed ? ['map-ai' as const, 'computer' as const] : []),
+    ...(slot.aiAllowed ? ['computer' as const] : []),
     'idle',
     ...(slot.noneAllowed ? ['absent' as const] : []),
   ];
@@ -151,13 +152,6 @@ export function setSlotColor(state: RosterState, slot: number, colorId: number):
  *  list; see `isReservedMapAiSeat`. */
 export function computerSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
   return vacantSeatsIn(state, players, 'computer')
-    .filter((p) => p.aiAllowed)
-    .map((p) => p.player);
-}
-
-/** Offered seats running the map’s AI configuration. */
-export function mapAiSeats(state: RosterState, players: readonly MapPlayerSlot[]): number[] {
-  return vacantSeatsIn(state, players, 'map-ai')
     .filter((p) => p.aiAllowed)
     .map((p) => p.player);
 }

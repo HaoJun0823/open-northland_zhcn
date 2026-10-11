@@ -1,3 +1,4 @@
+import { isReadOnlySpectator } from '@open-northland/lockstep';
 import { FOG_MODE } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { mapSession, type SessionRosterSlot, sceneSession, sessionSearch } from '../src/game/session-url.js';
@@ -75,7 +76,7 @@ describe('mapSession', () => {
     ]);
   });
 
-  it('plays the map’s own computer seats whatever `?computer=` lists, the claimed one excepted', () => {
+  it('plays the map’s own computer seats whatever the URL lists, without allowing a claim on them', () => {
     // A seat nobody may take is a `PLAYER_TYPE_AI` seat in every game the original runs, so a
     // lobby-written `?computer=1,2` or a hand-typed URL that never names it still runs its handlers.
     const modes = (search: string) =>
@@ -87,13 +88,26 @@ describe('mapSession', () => {
       [3, 'map-ai'],
       [6, 'map-ai'],
     ]);
+    const reserved = mapSession(new URLSearchParams('map=forteca&player=6'), SCENARIO_ROSTER);
+    expect(reserved.localSeat).toBe('observer');
+    expect(isReadOnlySpectator(reserved)).toBe(true);
     expect(modes('map=forteca&player=6')).toEqual([
       [0, 'idle'],
       [1, 'idle'],
-      [2, 'map-ai'],
+      [2, 'computer'],
       [3, 'map-ai'],
-      [6, 'human'],
+      [6, 'map-ai'],
     ]);
+  });
+
+  it('cannot select map AI for an open slot through the URL', () => {
+    const result = session('map=zatoka&player=0&map-ai=1,12');
+    expect(result.seats.map((seat) => [seat.player, seat.mode])).toEqual([
+      [0, 'human'],
+      [1, 'idle'],
+      [2, 'computer'],
+    ]);
+    expect(sessionSearch(result, ROSTER).has('map-ai')).toBe(false);
   });
 
   it('overrides authored colours and drops a pair no consumer could render', () => {
@@ -153,7 +167,7 @@ describe('sessionSearch', () => {
 
   it('writes only what the person chose, and always the seat and the seed', () => {
     const parsed = session('map=zatoka&seed=9');
-    expect(sessionSearch(parsed, ROSTER).toString()).toBe('map=zatoka&player=0&seed=9');
+    expect(sessionSearch(parsed, ROSTER).toString()).toBe('map=zatoka&player=0&computer=2&seed=9');
   });
 
   it('names only the seats played as another civilization than the roster gives them', () => {

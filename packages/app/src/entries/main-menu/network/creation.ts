@@ -38,27 +38,9 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
   const { script } = readVerifiedMapDocuments(handle);
   assertMultiplayerMap(script);
   const metadata: MapsIndexEntry | undefined = (await loadMapList()).find((item) => item.id === mapId);
-  const players = metadata?.players ?? (script === null ? undefined : mapLobbySlots(script));
+  const players = script === null ? [] : mapLobbySlots(script);
   if (!players?.some((slot) => slot.claimable && !slot.hidden) || !script?.players.length)
     throw new Error('This map has no playable seats');
-  const roster = new Map(players.map((slot) => [slot.player, slot]));
-  const vacantMode = (slot: (typeof script.players)[number]) => {
-    const metadata = roster.get(slot.player);
-    return metadata === undefined
-      ? slot.type === 'none'
-        ? 'absent'
-        : slot.type === 'ai'
-          ? 'map-ai'
-          : 'idle'
-      : authoredVacantMode(metadata);
-  };
-  // `mapLobbySlots` lists every script seat, so only an out-of-date index row falls back to every mode.
-  const offers = (slot: (typeof script.players)[number]) => {
-    const metadata = roster.get(slot.player);
-    return metadata === undefined
-      ? (['map-ai', 'computer', 'idle', 'absent'] as const)
-      : vacantOffers(metadata);
-  };
   // A single-player save names its seats in its entry search; its world already plays their tribes.
   const savedSeats = new Map(
     save?.header.entry == null
@@ -68,18 +50,17 @@ export async function prepareRoomCreation(choice: CreateChoice, params: URLSearc
   // A save's computer seats play the level its entry names, and `setAiControl`'s hard where it names none.
   const startLevel = (saved: SessionSeat | undefined, listed: MapPlayerSlot): ComputerDifficulty =>
     saved?.difficulty ?? (save === null ? startingDifficulty(listed) : SAVED_COMPUTER_DIFFICULTY);
-  const authoredSeats: RoomSeatSetup[] = script.players.map((slot) => {
+  const authoredSeats: RoomSeatSetup[] = players.map((slot) => {
     const saved = savedSeats.get(slot.player);
-    const listed = roster.get(slot.player);
     return {
       player: slot.player,
       color: saved?.color ?? slot.colorId,
-      mode: vacantMode(slot),
-      offers: offers(slot),
-      claimable: listed?.claimable === true && !listed.hidden,
+      mode: authoredVacantMode(slot),
+      offers: vacantOffers(slot),
+      claimable: slot.claimable && !slot.hidden,
       authoredTribe: slot.tribeId,
       ...(saved?.tribe === undefined ? {} : { tribe: saved.tribe }),
-      ...(listed === undefined || !offersDifficulty(listed) ? {} : { difficulty: startLevel(saved, listed) }),
+      ...(!offersDifficulty(slot) ? {} : { difficulty: startLevel(saved, slot) }),
     };
   });
   const seats =

@@ -194,6 +194,7 @@ export function roomSeats(deps: NetworkRoomDeps) {
                 ? copy.absentSeat
                 : copy.empty);
         const slot = deps.mapPreview?.(room.settings.world)?.players.find((slot) => slot.player === player);
+        row.hidden = slot?.hidden === true;
         faction.textContent =
           localizedMapText(slot?.name, currentLocale()) ??
           (civilization === null ? '' : tribeName(seat.tribe ?? civilization));

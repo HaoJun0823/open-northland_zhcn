@@ -72,10 +72,9 @@ the world's seats in ascending order as `{ player, mode, claimable, offers, colo
 `human` is never chosen, it is what a claimed seat becomes. The required boolean `claimable`
 is false for scenario-only or hidden seats; the relay rejects claims with `seatNotClaimable`. `offers` lists the vacant modes the map's
 `playeroption` row allows the seat, `mode` among them. Where a computer is allowed, the lobby offers
-Map AI (`map-ai`, the map’s `[AIData]` configuration), Computer (`computer`, autonomous control),
-and Idle (entities remain without AI control). Where `playeroption` allows None, the lobby also
-offers None (`absent`), which omits that seat’s starting entities. Authored AI seats default to
-Map AI; reserved map AI seats offer that mode alone. Map AI respects `AI_Disable`, `HAI_Disable`
+Computer (`computer`, autonomous control) and Idle (entities remain without AI control). Where `playeroption` allows None, the lobby also
+offers None (`absent`), which omits that seat’s starting entities. Selectable authored AI seats default to Computer. Only reserved scenario seats use Map AI
+(`map-ai`, the map’s `[AIData]` configuration); they offer that mode alone and cannot be claimed. Map AI respects `AI_Disable`, `HAI_Disable`
 and individual module switches. An explicit Computer selection enables both controllers and
 overrides those switches for the selectable seat, within its tribe's capabilities.
 The computer controller and map AI controller have separate enabled gates: disabling every known

@@ -88,16 +88,18 @@ export class SelectionEffects {
               continue;
             }
             stamp.texture = this.textures.castSilhouette(source, frame);
-            stamp.scale.set(body.artScale);
-            stamp.setFromMatrix(meshFrameTransform(this.transform, body, frame));
+            meshFrameTransform(this.transform, body, frame);
           } else {
             stamp.texture = body.texture;
             body.updateLocalTransform();
-            stamp.setFromMatrix(body.localTransform);
+            this.transform.copyFrom(body.localTransform);
             stamp.anchor.copyFrom(body.anchor);
           }
-          stamp.position.x += (dx * radius) / zoom;
-          stamp.position.y += (dy * radius) / zoom;
+          // Offset before placing, so a stamp whose body held still writes the values it already has and
+          // Pixi repacks nothing.
+          this.transform.tx += (dx * radius) / zoom;
+          this.transform.ty += (dy * radius) / zoom;
+          stamp.setFromMatrix(this.transform);
           stamp.visible = true;
         }
       }
@@ -113,9 +115,10 @@ export class SelectionEffects {
           if (stamp.tint !== colour) stamp.tint = colour;
           stamp.alpha = pe.placeholder.alpha;
           pe.placeholder.updateLocalTransform();
-          stamp.setFromMatrix(pe.placeholder.localTransform);
-          stamp.position.x += (dx * radius) / zoom;
-          stamp.position.y += (dy * radius) / zoom;
+          this.transform.copyFrom(pe.placeholder.localTransform);
+          this.transform.tx += (dx * radius) / zoom;
+          this.transform.ty += (dy * radius) / zoom;
+          stamp.setFromMatrix(this.transform);
           stamp.visible = true;
         }
       }

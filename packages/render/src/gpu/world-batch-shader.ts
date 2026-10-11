@@ -273,8 +273,12 @@ void main(void) {
   }
   if (vSelection < 0.0) {
     // A selection outline stamp draws its colour over the body's coverage alone, which one plain tap
-    // gives: no palette, magnifier or minification taps.
-    float coverage = sampleTexture(vUV).a;
+    // gives: no palette, magnifier or minification taps. On a magnified (linearly filtered) page the
+    // tap stays half a texel inside the frame, as the body's gather does, so no neighbour bleeds in.
+    vec2 stampUV = WORLD_MAGNIFY > 0.5
+      ? clamp(vUV, vFrame.xy + 0.5 / texSize, vFrame.zw - 0.5 / texSize)
+      : vUV;
+    float coverage = sampleTexture(stampUV).a;
     finalColor = vec4(vColor.rgb * coverage, vColor.a * coverage);
     return;
   }

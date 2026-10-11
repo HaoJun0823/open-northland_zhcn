@@ -11,7 +11,7 @@ export function fakeShell(
 ): DesktopOriginalGame {
   const queue = [...picks];
   return {
-    status: async () => ({ ...status, label: null }),
+    status: async () => ({ ...status, label: null, path: null }),
     pickFolder: async () => {
       const next = queue.shift();
       if (next === undefined) throw new Error('no pick queued');

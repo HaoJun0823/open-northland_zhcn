@@ -284,6 +284,10 @@ export const plSurfaces = {
       edgeScroll: 'Przewijanie przy krawędzi ekranu',
       invertDragScroll: 'Odwróć przewijanie przeciąganiem',
       invertDragScrollTip: 'Po włączeniu przeciągnięcie w prawo przesuwa mapę w lewo i odwrotnie.',
+      originalGame: 'Oryginalna gra',
+      originalGameTip:
+        'Zainstalowana gra Cultures, którą znalazło sprawdzenie. Wersja w przeglądarce pamięta tylko, która to gra.',
+      originalGameUnknown: 'Jeszcze nie znaleziono',
       debugTools: 'Narzędzia debugowania',
       debugToolsTip:
         'Dodaje na górnym pasku przycisk narzędzi: tworzenie jednostek, zwierząt i towarów, akcje na wskazanym celu oraz zasady świata. Działa tylko w grze jednoosobowej.',

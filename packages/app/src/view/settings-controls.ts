@@ -136,3 +136,12 @@ export function settingRow(label: string, control: HTMLElement, options?: Settin
   }
   return row;
 }
+
+/** A value the page only shows, such as a path; selectable so it can be copied. */
+export function readOnlyValue(value: string): HTMLSpanElement {
+  const span = document.createElement('span');
+  span.className = 'main-menu__settings-text';
+  span.textContent = value;
+  span.title = value;
+  return span;
+}

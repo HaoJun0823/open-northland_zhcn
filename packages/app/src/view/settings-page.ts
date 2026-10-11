@@ -16,7 +16,15 @@ import {
   onFullscreenChange,
 } from './fullscreen.js';
 import { recommendedSettings } from './graphics-startup.js';
-import { segControl, settingRow, settingsHeading, sliderControl, togglePill } from './settings-controls.js';
+import { desktopOriginalGame } from './original-game-check.js';
+import {
+  readOnlyValue,
+  segControl,
+  settingRow,
+  settingsHeading,
+  sliderControl,
+  togglePill,
+} from './settings-controls.js';
 import { createControlsTab } from './settings-controls-tab.js';
 import { createSettingsDisplayMode, type DisplayMode } from './settings-display-mode.js';
 import { graphicsSettingsRows } from './settings-graphics-tab.js';
@@ -79,6 +87,15 @@ export function createSettingsPage(opts: {
 
   let renderPanel = (): void => undefined;
   let controls: ReturnType<typeof createControlsTab> | null = null;
+  // The shell answers asynchronously; the row shows the stored label until the path arrives.
+  let originalGamePath: string | null = null;
+  void desktopOriginalGame()
+    ?.status()
+    .then((status) => {
+      originalGamePath = status.path;
+      if (root.isConnected && opts.memory.tab === 'gameplay') renderPanel();
+    })
+    .catch(() => undefined);
   let renderVersion = 0;
   let uiScaleCommit = 0;
 
@@ -335,6 +352,11 @@ export function createSettingsPage(opts: {
         ),
         settingRow(text.invertDragScroll, invertDragScroll, { tip: text.invertDragScrollTip }),
         settingRow(text.debugTools, debugTools, { tip: text.debugToolsTip }),
+        settingRow(
+          text.originalGame,
+          readOnlyValue(originalGamePath ?? settings.originalGameLabel ?? text.originalGameUnknown),
+          { tip: text.originalGameTip },
+        ),
       ];
     };
 

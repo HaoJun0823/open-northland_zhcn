@@ -66,6 +66,7 @@ test('shows the gate in the window when detection misses, and opens the menu on 
     await page.goto(MENU);
     const pick = page.getByRole('button', { name: 'Pick the game folder', exact: true });
     await pick.waitFor();
+    await page.getByRole('button', { name: 'Exit', exact: true }).waitFor();
     assert.equal(await page.locator('[data-nav-id="newGame"]').count(), 0);
     await assert.rejects(access(join(profile, ORIGINAL_GAME_STATE_FILE)));
 

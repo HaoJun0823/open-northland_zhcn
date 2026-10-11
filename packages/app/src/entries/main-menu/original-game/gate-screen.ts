@@ -125,6 +125,12 @@ export function originalGameGateScreen(
   }
 
   body.append(logo, node('p', 'main-menu__gate-message', copy.message), pick, input, status, stores);
+  if (desktop !== null) {
+    const quit = node('button', 'main-menu__ghost main-menu__gate-quit', messages().mainMenu.items.exit);
+    quit.type = 'button';
+    quit.addEventListener('click', () => window.close());
+    body.append(quit);
+  }
   section.append(body);
   return section;
 }

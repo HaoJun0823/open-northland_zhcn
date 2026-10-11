@@ -13,6 +13,8 @@ export interface DesktopOriginalGameStatus {
   readonly required: boolean;
   readonly verified: boolean;
   readonly label: string | null;
+  /** The remembered install folder; a browser never learns one. */
+  readonly path: string | null;
 }
 
 export interface DesktopOriginalGamePick {

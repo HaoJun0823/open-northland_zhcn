@@ -7,6 +7,8 @@ export interface OriginalGameStatus {
   readonly required: boolean;
   readonly verified: boolean;
   readonly label: string | null;
+  /** The remembered install folder, for the settings page to show. */
+  readonly path: string | null;
 }
 
 /** What `window.desktop.originalGame.pickFolder()` answers; a cancelled pick changes nothing. */
@@ -59,6 +61,7 @@ export function originalGameStatus(record: OriginalGameRecord): OriginalGameStat
     required: record.required,
     verified: state !== undefined,
     label: state === undefined ? null : releaseLabel(state.game ?? undefined, state.edition ?? undefined),
+    path: state === undefined ? null : state.path,
   };
 }
 

@@ -288,6 +288,10 @@ export const enSurfaces = {
       edgeScroll: 'Edge scrolling',
       invertDragScroll: 'Invert drag scrolling',
       invertDragScrollTip: 'When enabled, dragging right moves the map left, and vice versa.',
+      originalGame: 'Original game',
+      originalGameTip:
+        'The installed Cultures game the check found. The browser version remembers only which game it was.',
+      originalGameUnknown: 'Not found yet',
       debugTools: 'Debug tools',
       debugToolsTip:
         "Adds a tools button to the top bar: spawn units, animals and goods, act on a clicked target and change the world's rules. Single-player games only.",

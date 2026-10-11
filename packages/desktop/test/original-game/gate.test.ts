@@ -46,7 +46,12 @@ describe('rememberDetectedInstall', () => {
     const { record, written } = profile();
     await rememberDetectedInstall(record, async () => FOUND);
     expect(written).toEqual([REMEMBERED]);
-    expect(originalGameStatus(record)).toEqual({ required: true, verified: true, label: NORTHLAND_LABEL });
+    expect(originalGameStatus(record)).toEqual({
+      required: true,
+      verified: true,
+      label: NORTHLAND_LABEL,
+      path: FOUND.path,
+    });
   });
 
   it('searches neither for a remembered install nor when the check is off', async () => {
@@ -65,7 +70,7 @@ describe('rememberDetectedInstall', () => {
     await rememberDetectedInstall(record, async () => undefined);
     await rememberDetectedInstall(record, () => Promise.reject(new Error('registry')));
     expect(written).toEqual([]);
-    expect(originalGameStatus(record)).toEqual({ required: true, verified: false, label: null });
+    expect(originalGameStatus(record)).toEqual({ required: true, verified: false, label: null, path: null });
   });
 });
 
@@ -77,6 +82,7 @@ describe('originalGameStatus', () => {
       required: true,
       verified: true,
       label: null,
+      path: FOUND.path,
     });
   });
 });

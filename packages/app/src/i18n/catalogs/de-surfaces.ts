@@ -329,6 +329,10 @@ export const deSurfaces = {
       edgeScroll: 'Scrollen am Bildschirmrand',
       invertDragScroll: 'Ziehen umkehren',
       invertDragScrollTip: 'Beim Ziehen nach rechts bewegt sich die Karte nach links und umgekehrt.',
+      originalGame: 'Originalspiel',
+      originalGameTip:
+        'Das installierte Cultures-Spiel, das die Prüfung gefunden hat. Die Browserversion merkt sich nur, welches Spiel es war.',
+      originalGameUnknown: 'Noch nicht gefunden',
       debugTools: 'Debug-Werkzeuge',
       debugToolsTip:
         'Fügt der oberen Leiste eine Werkzeugschaltfläche hinzu: Einheiten, Tiere und Waren erschaffen, auf ein angeklicktes Ziel einwirken und die Regeln der Welt ändern. Nur im Einzelspiel.',

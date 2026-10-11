@@ -48,4 +48,27 @@ describe('originalGameGateScreen on the desktop', () => {
     await vi.waitFor(() => expect(verified).toBe(1));
     expect(records).toEqual([{ originalGameVerified: true, originalGameLabel: 'Cultures: Northland (PL)' }]);
   });
+
+  it('offers an exit on the desktop only; a browser tab cannot close itself', () => {
+    setActiveLocale('eng');
+    const closed = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    const onDesktop = originalGameGateScreen(
+      async () => undefined,
+      () => undefined,
+      fakeShell({ required: true, verified: false }),
+    );
+    const quit = onDesktop.querySelector<HTMLButtonElement>('.main-menu__gate-quit');
+    if (quit === null) throw new Error('the desktop gate screen has no exit');
+    expect(quit.textContent).toBe(messages().mainMenu.items.exit);
+    quit.click();
+    expect(closed).toHaveBeenCalledTimes(1);
+
+    const inBrowser = originalGameGateScreen(
+      async () => undefined,
+      () => undefined,
+      null,
+    );
+    expect(inBrowser.querySelector('.main-menu__gate-quit')).toBeNull();
+    closed.mockRestore();
+  });
 });

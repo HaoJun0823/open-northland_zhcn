@@ -407,24 +407,19 @@ selected once from the greatest nearby building count, among the watched seat's 
 one is watched.
 
 Separate x3 windows write a CPU profile and allocation profile with summary tables and
-elapsed time, ticks and frame counts. CPU sampling runs with a GPU timer query around the stage
-render (`app.render()`: world, HUD and weather) when the browser exposes
-`EXT_disjoint_timer_query_webgl2`; disjoint results are discarded.
-GPU capture has its own tick/time boundaries, stops before output writes, and drains outstanding
-queries for at most twelve frames or two seconds, reporting discarded queries.
-That GPU diagnostic excludes the ground-wave lift map rendered just before the stage, the portrait
-and map-view insets after it, and compositor work. An unavailable extension is reported explicitly.
-The in-game FPS counter's GPU meter and `perf().gpu.ms` (null while the counter is off) time one span
-from that lift map through the stage render to the last inset. Separate short spans each count the
-GPU's idle time between submissions, so on Metal a portrait inset timed alone read about as long as
-the whole stage while adding well under a millisecond to the single span. `perf().gpu.adapter` holds
-the WebGL renderer string. Neither bracket holds the CPU work before the first render, so the meter
-reads GPU execution of the WebGL commands, not Chrome's composite of the canvas and the DOM HUD.
-`perf().frame.gpuMs` is the RAF interval minus measured app CPU,
-including idle time, vsync and compositor work; it is not a GPU execution measurement. Diagnostic
-timings include instrumentation overhead and must not replace baseline measurements. Failures leave
-metadata and completed windows in the output directory before the browser closes.
+elapsed time, ticks and frame counts. `perf().frame.gpuMs` is the RAF interval minus measured app
+CPU, including idle time, vsync and compositor work; it is not a GPU execution measurement.
+Diagnostic timings include instrumentation overhead and must not replace baseline measurements.
+Failures leave metadata and completed windows in the output directory before the browser closes.
 Browser errors and hidden or invalid windows make the command fail with a nonzero exit status.
+
+The in-game FPS counter's GPU meter and `perf().gpu.ms` (null while the counter is off) time one span
+from the ground-wave lift map through the stage render to the last inset, as a half-second mean.
+Separate short spans each count the GPU's idle time between submissions, so on Metal a portrait inset
+timed alone read about as long as the whole stage while adding well under a millisecond to the single
+span. `perf().gpu.adapter` holds the WebGL renderer string. The span holds no CPU work before the
+first render, so the meter reads GPU execution of the WebGL commands, not Chrome's composite of the
+canvas and the DOM HUD.
 
 The benchmarks run as plain Node programs over the compiled `dist/` of the workspace packages, with
 no test runner in the process: a runner wraps every cross-module import, and that wrapper lands in a

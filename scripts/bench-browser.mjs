@@ -80,7 +80,6 @@ const metadata = {
     'No CPU calibration or idle-machine certification; compare OS load and repeat condition before interpreting timing.',
     'perf.frame CPU/draw fields are recent EMAs; RAF quantiles cover each whole measurement window.',
     'perf.frame.gpuMs is RAF interval minus app CPU, including idle/vsync/compositor; it is not measured GPU execution.',
-    'GPU diagnostic times app.render() (world, HUD and weather) with CPU sampling active; excludes the ground-wave lift map, inset draws and compositor.',
   ],
   reports: [],
   errors: [],
@@ -286,7 +285,7 @@ try {
   if (mode !== 'baseline') {
     metadata.diagnostics = {};
     for (const cameraName of profileViews) {
-      progress(`starting separate ${cameraName} CPU/GPU and allocation diagnostics`);
+      progress(`starting separate ${cameraName} CPU and allocation diagnostics`);
       const diagnostic = {};
       metadata.diagnostics[cameraName] = diagnostic;
       await profileBrowser({ page, cameras, restore, seconds, output, metadata: diagnostic, cameraName });
@@ -295,10 +294,7 @@ try {
   const invalid =
     metadata.reports.some((report) => !report.valid) ||
     Object.values(metadata.diagnostics ?? {}).some(
-      (diagnostic) =>
-        !diagnostic.cpuDiagnostic.valid ||
-        !diagnostic.allocationDiagnostic.valid ||
-        !diagnostic.gpuDiagnostic.valid,
+      (diagnostic) => !diagnostic.cpuDiagnostic.valid || !diagnostic.allocationDiagnostic.valid,
     );
   if (metadata.errors.length || invalid)
     throw new Error(

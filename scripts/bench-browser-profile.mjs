@@ -148,12 +148,6 @@ export async function profileBrowser({ page, cameras, restore, seconds, output, 
         stop: false,
       };
       window.__diagnosticProbe = p;
-      const gpu = window.__gpuProbe;
-      if (gpu) {
-        gpu.startMs = p.startMs;
-        gpu.startTick = p.startTick;
-        gpu.active = true;
-      }
       const visibility = () => {
         p.hidden ||= document.hidden;
       };
@@ -174,20 +168,12 @@ export async function profileBrowser({ page, cameras, restore, seconds, output, 
       const p = window.__diagnosticProbe;
       p.stop = true;
       p.cleanup();
-      const endMs = performance.now();
-      const endTick = window.__opennorthland.host.tick;
-      const gpu = window.__gpuProbe;
-      if (gpu) {
-        gpu.active = false;
-        gpu.endMs = endMs;
-        gpu.endTick = endTick;
-      }
       return {
         valid: !p.hidden && !document.hidden && !window.__measurementGuard.drift,
         guard: { ...window.__measurementGuard, check: undefined },
-        elapsedMs: endMs - p.startMs,
+        elapsedMs: performance.now() - p.startMs,
         startTick: p.startTick,
-        endTick,
+        endTick: window.__opennorthland.host.tick,
         frames: p.frames,
         perf: await window.__opennorthland.perf(),
         hidden: document.hidden,
@@ -209,46 +195,6 @@ export async function profileBrowser({ page, cameras, restore, seconds, output, 
     await d.setPaused(false);
   }, cameras[cameraName]);
   await page.waitForTimeout(5000);
-  await page.evaluate(() => {
-    const app = window.__opennorthland.renderer.app;
-    const gl = app.renderer.gl;
-    const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
-    const state = { available: !!ext, active: false, samples: [], disjoint: 0, pending: [], discarded: 0 };
-    window.__gpuProbe = state;
-    if (!ext) return;
-    state.poll = () => {
-      if ((state.active || state.pending.length) && gl.getParameter(ext.GPU_DISJOINT_EXT)) {
-        state.disjoint++;
-        state.discarded += state.pending.length;
-        for (const q of state.pending) gl.deleteQuery(q);
-        state.pending.length = 0;
-      }
-      while (state.pending.length && gl.getQueryParameter(state.pending[0], gl.QUERY_RESULT_AVAILABLE)) {
-        const q = state.pending.shift();
-        state.samples.push(gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6);
-        gl.deleteQuery(q);
-      }
-    };
-    state.discard = () => {
-      state.discarded += state.pending.length;
-      for (const q of state.pending) gl.deleteQuery(q);
-      state.pending.length = 0;
-    };
-    const render = app.render;
-    app.render = function (...args) {
-      state.poll();
-      const q = state.active && state.pending.length < 16 ? gl.createQuery() : null;
-      if (q) gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
-      try {
-        return render.apply(this, args);
-      } finally {
-        if (q) {
-          gl.endQuery(ext.TIME_ELAPSED_EXT);
-          state.pending.push(q);
-        }
-      }
-    };
-  });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Profiler.enable');
   await cdp.send('Profiler.setSamplingInterval', { interval: 1000 });
@@ -258,43 +204,6 @@ export async function profileBrowser({ page, cameras, restore, seconds, output, 
   const { profile } = await cdp.send('Profiler.stop');
   metadata.cpuDiagnostic = await finishDiagnostic();
   metadata.cpuDiagnostic.profileElapsedMs = (profile.endTime - profile.startTime) / 1000;
-  const gpu = await page.evaluate(async () => {
-    const state = window.__gpuProbe;
-    const deadline = performance.now() + 2000;
-    let drainFrames = 0;
-    while (state.pending.length && drainFrames < 12 && performance.now() < deadline) {
-      await Promise.race([
-        new Promise((resolve) => requestAnimationFrame(resolve)),
-        new Promise((resolve) => setTimeout(resolve, 200)),
-      ]);
-      state.poll();
-      drainFrames++;
-    }
-    state.discard?.();
-    const { available, samples, disjoint, discarded, startMs, endMs, startTick, endTick } = state;
-    samples.sort((a, b) => a - b);
-    const at = (q) => samples[Math.min(samples.length - 1, Math.floor(samples.length * q))] ?? null;
-    return {
-      available,
-      valid: !available || (samples.length > 0 && disjoint === 0),
-      frames: samples.length,
-      disjoint,
-      discarded,
-      drainFrames,
-      startMs,
-      endMs,
-      elapsedMs: endMs - startMs,
-      startTick,
-      endTick,
-      mean: samples.length ? samples.reduce((a, b) => a + b, 0) / samples.length : null,
-      p50: at(0.5),
-      p95: at(0.95),
-      p99: at(0.99),
-      scope:
-        'app.render main-stage submission including world, HUD and weather during explicit active interval; excludes later portrait/map-view renders and compositor; CPU profiler active',
-    };
-  });
-  metadata.gpuDiagnostic = gpu;
   await writeFile(resolve(output, `${cameraName}-x3.cpuprofile`), JSON.stringify(profile));
   const cpuByNode = new Map();
   for (let i = 0; i < (profile.samples?.length ?? 0); i++) {
@@ -325,10 +234,6 @@ export async function profileBrowser({ page, cameras, restore, seconds, output, 
       null,
       2,
     ),
-  );
-  await writeFile(
-    resolve(output, `${cameraName}-gpu-diagnostic.json`),
-    JSON.stringify({ ...gpu, metadata: metadata.cpuDiagnostic }, null, 2),
   );
   await restore();
   await guardCamera(page, cameras[cameraName]);

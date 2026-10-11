@@ -163,7 +163,9 @@ lobby's map setting, with `-fow` for fog of war; `off` reveals the map), `player
 `weather=<rain|snow|sand|clear>[:<percent>]` (whole-map weather in this view only, default 30; the sim's
 weather is untouched; `weather=ambient[:<percent>]` holds the game's own weather, 100 a light episode, 300 a storm), and
 `weathermode=<map|variable|winter>` (the lobby's match weather, `map` when no param names one), and
-`tint=<palette index>` (a map script's whole-map vertex tint held in this view only). `computer=<seat,...>`
+`tint=<palette index>` (a map script's whole-map vertex tint held in this view only). `originalGameCheck`
+runs the original-game gate on a dev server, which otherwise skips it; the desktop shell's equivalents
+are `ON_ORIGINAL_GAME_CHECK=1` and `ON_ORIGINAL_GAME_DIR=<folder>` (`packages/desktop/AGENTS.md`). `computer=<seat,...>`
 names the seats a person could have taken that the computer player controls instead; reserved map AI
 seats (authored `ai`, offered to nobody) retain the map's control settings without being named. `idle=<seat,...>` keeps a selectable seat’s entities
 without AI control. Selectable authored AI seats default to Computer, human seats to Idle, and authored closed

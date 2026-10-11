@@ -42,9 +42,21 @@ function u32(bytes: Uint8Array, offset: number): number | undefined {
   return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(offset, true);
 }
 
+/** Characters per `fromCharCode` call: a plist head may run to 64 KiB, beyond a safe argument spread. */
+const DECODE_CHUNK = 4096;
+
+/** One byte per character, as the headers and plist bytes the rule reads are ASCII where it matters. */
+function latin1(bytes: Uint8Array): string {
+  let text = '';
+  for (let start = 0; start < bytes.length; start += DECODE_CHUNK) {
+    text += String.fromCharCode(...bytes.subarray(start, start + DECODE_CHUNK));
+  }
+  return text;
+}
+
 function asciiAt(bytes: Uint8Array, offset: number, length: number): string | undefined {
   if (offset + length > bytes.length) return undefined;
-  return String.fromCharCode(...bytes.subarray(offset, offset + length));
+  return latin1(bytes.subarray(offset, offset + length));
 }
 
 export function isLibraryHead(bytes: Uint8Array): boolean {
@@ -63,7 +75,7 @@ export function isCifHead(bytes: Uint8Array): boolean {
 }
 
 function bundleIdentifierIn(plist: Uint8Array): OriginalGameId | undefined {
-  const text = String.fromCharCode(...plist);
+  const text = latin1(plist);
   for (const [identifier, game] of BUNDLE_IDENTIFIERS) {
     if (text.includes(identifier)) return game;
   }

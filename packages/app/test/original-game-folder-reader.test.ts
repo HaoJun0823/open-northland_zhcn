@@ -5,8 +5,8 @@ import {
   directoryHandleReader,
   fileListReader,
   type PickedDirectoryHandle,
-  pickedFolderName,
   type PickedFileHandle,
+  pickedFolderName,
 } from '../src/entries/main-menu/original-game/browser-folder-reader.js';
 
 /** Bytes the rule reads from a library head. */

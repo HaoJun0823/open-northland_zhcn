@@ -17,6 +17,7 @@ import {
 import { leavePromptFor } from './leave-prompt.js';
 import {
   folderPickProperties,
+  type OriginalGamePick,
   type OriginalGameRecord,
   originalGameStatus,
   pickOriginalGame,
@@ -98,14 +99,19 @@ export function createWindow(statePath: string, originalGame: OriginalGameRecord
   ipcMain.handle(ORIGINAL_GAME_STATUS_CHANNEL, (event) =>
     fromGame(event) ? originalGameStatus(originalGame) : undefined,
   );
+  // One dialog at a time: a second invoke while it is open shares its answer.
+  let picking: Promise<OriginalGamePick> | null = null;
   ipcMain.handle(PICK_ORIGINAL_GAME_CHANNEL, (event) => {
     if (!fromGame(event)) return undefined;
-    return pickOriginalGame(originalGame, async () => {
+    picking ??= pickOriginalGame(originalGame, async () => {
       const picked = await dialog.showOpenDialog(win, {
         properties: folderPickProperties(process.platform),
       });
       return picked.canceled ? undefined : picked.filePaths[0];
+    }).finally(() => {
+      picking = null;
     });
+    return picking;
   });
   win.on('enter-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, true));
   win.on('leave-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, false));

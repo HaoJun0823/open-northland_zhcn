@@ -67,8 +67,9 @@ function messageOf(error: unknown): string {
 
 /**
  * Downloads and converts the catalogue's files in a queue, keeps the verdicts and serves the sidecars
- * of this build's IR version. An entry converts again when its `updatedAt` or kept archive changes. A
- * failed download is retried with the next catalogue and keeps an older good conversion serving.
+ * of this build's IR version. An entry converts again when its `updatedAt` or kept archive changes,
+ * and a stored failure once more per process. A failed download is retried with the next catalogue
+ * and keeps an older good conversion serving.
  */
 export class ConversionService implements ContentSource, KeptFileSource {
   readonly irVersion: number;
@@ -85,6 +86,8 @@ export class ConversionService implements ContentSource, KeptFileSource {
   private readonly queue: string[] = [];
   /** Queued or running. */
   private readonly waiting = new Set<string>();
+  /** Stored failures this process has already tried again. */
+  private readonly retriedFailures = new Set<string>();
   private batch: Promise<void> | null = null;
   private stopped = false;
 
@@ -153,6 +156,11 @@ export class ConversionService implements ContentSource, KeptFileSource {
     if (entry.file.kind === 'external' || this.waiting.has(entry.id)) return false;
     const stored = this.stored.get(entry.id);
     if (stored === undefined || stored.updatedAt !== entry.updatedAt) return true;
+    // A stored failure gets one more try per process: a newer build may unpack what the last could not.
+    if (stored.conversion.verdict === 'failed' && !this.retriedFailures.has(entry.id)) {
+      this.retriedFailures.add(entry.id);
+      return true;
+    }
     const source = this.sources.get(entry.id);
     return source !== undefined && stored.archiveSha256 !== null && source.sha256 !== stored.archiveSha256;
   }

@@ -114,6 +114,27 @@ describe('ConversionService', () => {
     expect(await readdir(converted())).toEqual(['conversion.json']);
   });
 
+  it('tries a stored failure once more per process from the kept archive', async () => {
+    files.serve(ENTRY, Buffer.from('not an archive at all'));
+    const first = await harness(dir, files, { irVersion: IR_VERSION });
+    first.service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await first.service.idle();
+    expect(first.served(ENTRY).conversion?.verdict).toBe('failed');
+
+    const restarted = await harness(dir, files, { irVersion: IR_VERSION });
+    const conversionsOf = (events: typeof restarted.events) =>
+      events.filter(({ event, fields }) => event === 'conversion done' && fields?.id === ENTRY).length;
+    restarted.service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await restarted.service.idle();
+    expect(conversionsOf(restarted.events)).toBe(1);
+    expect(files.requests).toEqual([fileUrl(ENTRY)]);
+    expect(restarted.served(ENTRY).conversion?.verdict).toBe('failed');
+
+    restarted.service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await restarted.service.idle();
+    expect(conversionsOf(restarted.events)).toBe(1);
+  });
+
   it('links the kept file of a converted and of a failed entry, and drops it once its bytes change', async () => {
     const corrupt = zipOf(under('Wyspa', plaintextMap('Wyspa'))).slice(0, SMALL_LIMIT);
     files.serve(ENTRY, zipOf(under('Wyspa', plaintextMap('Wyspa'))));

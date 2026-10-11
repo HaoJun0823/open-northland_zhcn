@@ -170,6 +170,7 @@ function hasAuthoredOptions(
   return (
     command.underConstruction === false ||
     command.force !== undefined ||
+    command.ignoreTechnology !== undefined ||
     command.fillStock !== undefined ||
     command.initialGoods !== undefined ||
     command.missionId !== undefined

@@ -1046,7 +1046,7 @@ describe('placement controller', () => {
         tribe: 2,
         owner: 3,
         underConstruction: false,
-        force: true,
+        ignoreTechnology: true,
       },
     ]);
     placement.enter({ typeId: 23, tribe: 2, paper: null, standing: { owner: 3 } });

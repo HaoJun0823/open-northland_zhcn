@@ -463,9 +463,14 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
     repeat: boolean,
   ): void => {
     const place = { kind: 'placeBuilding', buildingType: typeId, x: tile.col, y: tile.row, tribe } as const;
-    // Forced past the technology gate the click's probe waived; the probe already held its ground.
+    // Past the technology gate the click's probe waived; the sim still holds the ground rule.
     if (standing !== undefined) {
-      deps.enqueueTrusted?.({ ...place, owner: standing.owner, underConstruction: false, force: true });
+      deps.enqueueTrusted?.({
+        ...place,
+        owner: standing.owner,
+        underConstruction: false,
+        ignoreTechnology: true,
+      });
     } else {
       deps.enqueue({
         ...place,

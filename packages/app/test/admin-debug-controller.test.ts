@@ -156,12 +156,13 @@ describe('debug tools controller', () => {
     expect(sent[1]).toMatchObject({ jobType: JOB_CIVILIST, experience: LEARNED });
   });
 
-  it('drops a held HUD placement when a map tool is armed, not on every switch between tools', () => {
+  it('drops a held HUD placement whenever a map tool is armed, never as one is put away', () => {
     const { handle, tile, cancelPlacement } = mount();
     handle.toggle.click();
     tile(copy.soldier).click();
     tile(copy.people.man).click();
-    expect(cancelPlacement).toHaveBeenCalledTimes(1);
+    tile(copy.people.man).click();
+    expect(cancelPlacement).toHaveBeenCalledTimes(2);
   });
 
   it('hands a finished structure to the HUD placement for the chosen owner', () => {

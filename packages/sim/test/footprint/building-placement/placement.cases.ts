@@ -11,6 +11,7 @@ import {
   Stump,
 } from '../../../src/components/index.js';
 import {
+  adminCommand,
   halfCellMapFromCells,
   nodeOfPosition,
   playerCommand,
@@ -82,6 +83,16 @@ describe('canPlaceBuilding - the free-placement collision rule', () => {
     sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, x: 9, y: 5, tribe: VIKING });
     sim.step();
     expect(buildingsPlaced(sim)).toBe(2);
+  });
+
+  it('keeps a trusted placement waiving only technology to the ground rule, within one tick too', () => {
+    const sim = mappedSim();
+    const hut = { kind: 'placeBuilding', buildingType: HUT, x: 5, y: 5, tribe: VIKING, owner: SEAT } as const;
+    const finished = adminCommand({ ...hut, underConstruction: false, ignoreTechnology: true });
+    sim.enqueue(finished);
+    sim.enqueue(finished);
+    sim.step();
+    expect(buildingsPlaced(sim)).toBe(1);
   });
 
   it('reserves the family’s FULL footprint from level 0 (the max-level body blocks neighbours)', () => {

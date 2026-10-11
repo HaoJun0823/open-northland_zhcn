@@ -13,7 +13,7 @@ import {
 } from '../../src/components/index.js';
 import { ONE } from '../../src/core/fixed.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { playerCommand, Simulation } from '../../src/index.js';
+import { adminCommand, playerCommand, Simulation } from '../../src/index.js';
 import { testContent } from '../fixtures/content.js';
 import { grassCellMap } from '../fixtures/terrain.js';
 
@@ -191,5 +191,25 @@ describe('placing with a paper', () => {
     expect(buildings(sim)).toHaveLength(1);
     expect(sim.world.get(buildings(sim)[0] as Entity, Building).built).toBe(ONE);
     expect(sim.papers(P0)).toEqual([]);
+  });
+});
+
+describe('a trusted placement past the tech gate', () => {
+  const smithy = { kind: 'placeBuilding', buildingType: GATED_SMITHY, tribe: VIKING, owner: P0 } as const;
+
+  it('stands a house the tribe has not unlocked, finished', () => {
+    const sim = fresh();
+    sim.enqueue(adminCommand({ ...smithy, x: 8, y: 8 }));
+    sim.enqueue(adminCommand({ ...smithy, x: 20, y: 20, underConstruction: false, ignoreTechnology: true }));
+    sim.step();
+    expect(buildings(sim)).toHaveLength(1);
+    expect(sim.world.get(buildings(sim)[0] as Entity, Building).built).toBe(ONE);
+  });
+
+  it('is refused to a seat', () => {
+    const sim = fresh();
+    sim.enqueue(playerCommand(P0, { ...smithy, x: 8, y: 8, ignoreTechnology: true } as never));
+    sim.step();
+    expect(buildings(sim)).toEqual([]);
   });
 });

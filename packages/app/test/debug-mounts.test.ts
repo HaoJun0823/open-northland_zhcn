@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { type DebugMountsOptions, mountDebugOverlays } from '../src/view/runtime/debug-mounts.js';
 
 afterEach(() => {
@@ -10,6 +10,7 @@ function mounts(allowWorldEdits: boolean) {
   const plane = document.createElement('div');
   const barLead = document.createElement('div');
   document.body.append(plane, barLead);
+  const cancelPlacement = vi.fn();
   const opts = {
     canvas: document.createElement('canvas'),
     params: new URLSearchParams(),
@@ -36,8 +37,9 @@ function mounts(allowWorldEdits: boolean) {
     claimPointer: () => false,
     goodLabel: () => undefined,
     seatTribeOf: () => 0,
+    cancelPlacement,
   } as unknown as DebugMountsOptions;
-  return { debug: mountDebugOverlays(opts), plane, barLead };
+  return { debug: mountDebugOverlays(opts), plane, barLead, cancelPlacement };
 }
 
 it('stands the tools toggle in the bar and hides it with the HUD or the setting', () => {
@@ -67,6 +69,15 @@ it('stands the tools toggle in the bar and hides it with the HUD or the setting'
   debug.dispose();
   expect(barLead.childElementCount).toBe(0);
   expect(plane.querySelector('.on-admin')).toBeNull();
+});
+
+it('drops a finished structure held for placement as the tools are switched off', () => {
+  const { debug, cancelPlacement } = mounts(true);
+  debug.setHudHidden(true);
+  expect(cancelPlacement).not.toHaveBeenCalled();
+  debug.setToolsEnabled(false);
+  expect(cancelPlacement).toHaveBeenCalledTimes(1);
+  debug.dispose();
 });
 
 it('mounts no tools where world edits are off', () => {

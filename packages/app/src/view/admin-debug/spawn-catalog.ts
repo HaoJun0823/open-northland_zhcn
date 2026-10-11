@@ -56,10 +56,16 @@ export interface SoldierWeapon {
   readonly weaponTypeId: number;
 }
 
+/** A soldier's weapon until another is picked. */
+export const DEFAULT_SOLDIER_WEAPON: SoldierWeapon = {
+  jobType: JOB_SOLDIER_SWORD,
+  weaponTypeId: WEAPON_SWORD,
+};
+
 /** In the panel's order: bare hands, then swords, bows and spears, the lighter first. */
 export const SOLDIER_WEAPONS: readonly SoldierWeapon[] = [
   { jobType: JOB_SOLDIER_UNARMED, weaponTypeId: WEAPON_FISTS },
-  { jobType: JOB_SOLDIER_SWORD, weaponTypeId: WEAPON_SWORD },
+  DEFAULT_SOLDIER_WEAPON,
   { jobType: JOB_SOLDIER_BROADSWORD, weaponTypeId: WEAPON_BROADSWORD },
   { jobType: JOB_ARCHER, weaponTypeId: WEAPON_SHORT_BOW },
   { jobType: JOB_ARCHER_LONG, weaponTypeId: WEAPON_LONG_BOW },

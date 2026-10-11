@@ -81,6 +81,7 @@ export function placeBuilding(
     // A placing paper authorizes the chosen house whether it names one type or lets the player choose any.
     if (
       paper === undefined &&
+      command.ignoreTechnology !== true &&
       !buildingEnabled(world, ctx, command.owner, command.tribe, command.buildingType)
     ) {
       return;

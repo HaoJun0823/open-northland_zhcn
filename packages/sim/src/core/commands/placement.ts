@@ -136,6 +136,8 @@ interface AuthoredPlaceBuildingFields {
    *  `sethouse` records): the original loads a map's houses verbatim, never re-validating them against
    *  the interactive placement rule. */
   readonly force?: boolean;
+  /** Skip only the tech gate; the ground rule still decides (the admin tools' finished building). */
+  readonly ignoreTechnology?: boolean;
   /** Seed every stock slot of a fully-built placement to its capacity. Ignored for an `underConstruction`
    *  site, whose hold accumulates delivered materials instead. */
   readonly fillStock?: boolean;

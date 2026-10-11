@@ -102,6 +102,8 @@ export function mountDebugOverlays(opts: DebugMountsOptions): DebugMounts {
     toolsEnabled = enabled;
     if (!enabled) {
       admin?.setVisible(false);
+      // A finished structure held for placement is a debug tool too.
+      opts.cancelPlacement?.();
       // The grid's only switch is on the panel, so it must not outlive it.
       if (admin !== null && geometryDebug.enabled()) setGeometryEnabled(false);
       if (zoomOutUnlocked) setZoomOutUnlocked(false);
@@ -194,13 +196,14 @@ function mountAdminPanel(
   });
 }
 
-/** Every building type but a workshop's hidden vehicle site, in the language's alphabetical order. */
+/** Every building type with a body to stand but a workshop's hidden vehicle site, in the language's
+ *  alphabetical order. */
 function standingBuildings(host: SessionHost): BuildingEntry[] {
   const lang = currentLocale();
   const labels = buildingLabelsFromContent(host.content, lang);
   const compare = compareLabels(bcp47Tag(lang));
   return host.content.buildings
-    .filter((b) => b.kind !== BUILDING_KIND.vehicle)
+    .filter((b) => b.kind !== BUILDING_KIND.vehicle && b.footprint !== undefined)
     .map((b) => ({ typeId: b.typeId, label: labels.get(b.typeId) ?? b.id }))
     .sort((a, b) => compare(a.label, b.label) || a.typeId - b.typeId);
 }

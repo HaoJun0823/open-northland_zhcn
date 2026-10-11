@@ -24,6 +24,7 @@ import {
   type ArmorEntry,
   animalSpawnCommand,
   creatureSpawnCommand,
+  DEFAULT_SOLDIER_WEAPON,
   type GoodEntry,
   goodDropCommand,
   PLAYER_SWATCHES,
@@ -101,8 +102,6 @@ export interface AdminDebugHandle {
 const DEFAULT_HITPOINTS = systems.HUMAN_HITPOINTS;
 /** The action tools' health share until the field is edited. */
 const DEFAULT_HEALTH_PERCENT = 1;
-/** A soldier's weapon until one is picked: the short sword. */
-const DEFAULT_WEAPON = SOLDIER_WEAPONS[1] ?? SOLDIER_WEAPONS[0];
 /** The debug tempos beyond the HUD's ×1..×3, for watching a map script's slow chains. */
 const DEBUG_GAME_SPEEDS: readonly number[] = [5, 10, 15, 20, 30];
 
@@ -139,7 +138,7 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
   let player = HUMAN_PLAYER;
   let hitpoints = DEFAULT_HITPOINTS;
   let healthPercent = DEFAULT_HEALTH_PERCENT;
-  let weapon = DEFAULT_WEAPON;
+  let weapon = DEFAULT_SOLDIER_WEAPON;
   let armor: ArmorEntry | null = null;
   let skills: AdminSkills = 'basic';
   // The rules as last requested: a command applies next tick, so the sim's read lags a click.
@@ -169,7 +168,7 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
 
   const setArmed = (next: Armed | null): void => {
     stopHold();
-    if (next !== null && armed === null) deps.cancelPlacement?.();
+    if (next !== null) deps.cancelPlacement?.();
     armed = next;
     panel.showArmed(next === null ? null : catalogue.describe(next, player));
     canvas.style.cursor = next === null ? '' : 'var(--cursor-crosshair, crosshair)';
@@ -182,7 +181,7 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
       owner: player,
       hitpoints,
       weapons: catalogue.weapons,
-      weapon: weapon?.jobType ?? 0,
+      weapon: weapon.jobType,
       armors: catalogue.armors,
       armor: NO_ARMOR,
       skills,
@@ -289,8 +288,7 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
     }
     const person = { player, tribe: deps.seatTribeOf(player), hitpoints, x: col, y: row };
     if (armed.kind === 'soldier') {
-      if (weapon !== undefined)
-        deps.enqueue(soldierSpawnCommand({ ...person, weapon, armor, goods: spawnGoods }));
+      deps.enqueue(soldierSpawnCommand({ ...person, weapon, armor, goods: spawnGoods }));
       return;
     }
     const learned = armed.preset.learns === true && skills === 'all';

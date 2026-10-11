@@ -90,14 +90,15 @@ describe('admin spawn command mapping', () => {
       ['girl', JOB_CHILD_FEMALE],
     ]);
     const sim = createSceneSim(sandboxScene);
-    sim.enqueueSetup(personSpawnCommand(presetOf('woman'), { ...person, player: HUMAN_PLAYER }));
     const before = new Set(sim.snapshot().entities.map((e) => e.id));
+    for (const id of ['man', 'woman', 'boy', 'girl'] as const)
+      sim.enqueueSetup(personSpawnCommand(presetOf(id), { ...person, player: HUMAN_PLAYER }));
     sim.step();
     const spawned = sim
       .snapshot()
-      .entities.filter((e) => !before.has(e.id) && e.components.Settler !== undefined);
-    expect(spawned).toHaveLength(1);
-    expect(spawned[0]?.components.Female).toBeDefined();
+      .entities.filter((e) => !before.has(e.id) && e.components.Settler !== undefined)
+      .sort((a, b) => a.id - b.id);
+    expect(spawned.map((e) => e.components.Female !== undefined)).toEqual([false, true, false, true]);
   });
 
   it('offers a soldier the seven weapons in the panel order', () => {

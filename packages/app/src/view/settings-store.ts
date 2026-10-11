@@ -114,6 +114,8 @@ export interface MenuSettings {
   readonly originalGameVerified: boolean;
   /** The recognized release, such as `Cultures: Northland (PL)`; null when its library size is unlisted. */
   readonly originalGameLabel: string | null;
+  /** The name of the folder the player picked in a browser, which never learns its path. */
+  readonly originalGameFolder: string | null;
 }
 
 /** The desktop game, known by its shell's bridge, owns its window and keeps sounding behind another
@@ -166,6 +168,7 @@ export function defaultSettings(): MenuSettings {
     debugToolsEnabled: false,
     originalGameVerified: false,
     originalGameLabel: null,
+    originalGameFolder: null,
   };
 }
 
@@ -306,6 +309,7 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
       typeof record.debugToolsEnabled === 'boolean' ? record.debugToolsEnabled : defaults.debugToolsEnabled,
     originalGameVerified: record.originalGameVerified === true,
     originalGameLabel: optionalText(record.originalGameLabel),
+    originalGameFolder: optionalText(record.originalGameFolder),
   };
 }
 

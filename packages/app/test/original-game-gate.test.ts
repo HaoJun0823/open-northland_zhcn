@@ -19,14 +19,19 @@ function pickedFile(relativePath: string, bytes: Uint8Array): File {
   return file;
 }
 
-const NOT_A_GAME = readerCheck(fileListReader([pickedFile('Photos/beach.jpg', new Uint8Array(8))]));
+const NOT_A_GAME = readerCheck(fileListReader([pickedFile('Photos/beach.jpg', new Uint8Array(8))]), 'Photos');
 const AN_INSTALL = readerCheck(
   fileListReader([pickedFile('Cultures/DataX/Libs/data0001.lib', libraryHead())]),
+  'Cultures',
 );
 
 describe('originalGameGate', () => {
   it('reports an unrecognized pick, then records the pass of a recognized one', async () => {
-    let stored: OriginalGameRecord = { originalGameVerified: false, originalGameLabel: null };
+    let stored: OriginalGameRecord = {
+      originalGameVerified: false,
+      originalGameLabel: null,
+      originalGameFolder: null,
+    };
     const gate = originalGameGate(async (record) => {
       stored = { ...stored, ...record };
     });
@@ -41,8 +46,12 @@ describe('originalGameGate', () => {
     const checked = gate.check(AN_INSTALL);
     expect(gate.status).toBe('checking');
     expect(await checked).toBe('verified');
-    // The synthetic library's size is in no release table, so the pass carries no label.
-    expect(stored).toEqual({ originalGameVerified: true, originalGameLabel: null });
+    // The synthetic library's size is in no release table, so the pass carries only the folder's name.
+    expect(stored).toEqual({
+      originalGameVerified: true,
+      originalGameLabel: null,
+      originalGameFolder: 'Cultures',
+    });
   });
 });
 

@@ -93,6 +93,7 @@ describe('parseStoredSettings', () => {
       debugToolsEnabled: true,
       originalGameVerified: true,
       originalGameLabel: 'Cultures: Northland (PL)',
+      originalGameFolder: 'Cultures Northland',
     } as const;
     expect(
       parseStoredSettings(JSON.stringify({ ...settings, changedKeyBindings: { pauseToggle: 'KeyO' } })),

@@ -122,6 +122,14 @@ function withoutCommonTop(paths: readonly string[][]): readonly string[][] {
   return shared ? paths.map((segments) => segments.slice(1)) : paths;
 }
 
+/** The picked folder's name: the top every returned path shares; null when the paths carry none. */
+export function pickedFolderName(files: Iterable<File>): string | null {
+  const paths = [...files].map(relativeSegments);
+  const top = paths[0]?.[0];
+  if (top === undefined) return null;
+  return paths.every((segments) => segments.length > 1 && segments[0] === top) ? top : null;
+}
+
 /** Reads the files an `<input webkitdirectory>` returned, by their `webkitRelativePath`. */
 export function fileListReader(files: Iterable<File>): FolderReader {
   const picked = [...files];

@@ -46,7 +46,9 @@ describe('originalGameGateScreen on the desktop', () => {
 
     pick.click();
     await vi.waitFor(() => expect(verified).toBe(1));
-    expect(records).toEqual([{ originalGameVerified: true, originalGameLabel: 'Cultures: Northland (PL)' }]);
+    expect(records).toEqual([
+      { originalGameVerified: true, originalGameLabel: 'Cultures: Northland (PL)', originalGameFolder: null },
+    ]);
   });
 
   it('offers an exit on the desktop only; a browser tab cannot close itself', () => {

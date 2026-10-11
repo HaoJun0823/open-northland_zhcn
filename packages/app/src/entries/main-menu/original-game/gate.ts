@@ -3,11 +3,16 @@ import type { MenuSettings } from '../../../view/settings-store.js';
 
 export type OriginalGameGateStatus = 'asking' | 'checking' | 'notRecognized' | 'verified';
 
-export type OriginalGameRecord = Pick<MenuSettings, 'originalGameVerified' | 'originalGameLabel'>;
+export type OriginalGameRecord = Pick<
+  MenuSettings,
+  'originalGameVerified' | 'originalGameLabel' | 'originalGameFolder'
+>;
 
 /** A folder that holds an original game, with its release label when the release is listed. */
 export interface RecognizedInstall {
   readonly label: string | null;
+  /** The picked folder's name, when the picker told it; the desktop shell records a path instead. */
+  readonly folder: string | null;
 }
 
 /** Runs the shared rule on one picked folder; `undefined` when the folder holds no game. */
@@ -20,10 +25,11 @@ export interface OriginalGameGate {
 }
 
 /** The browser's check: the rule runs here, over a reader of the picked folder. */
-export function readerCheck(folder: FolderReader): InstallCheck {
+export function readerCheck(folder: FolderReader, name: string | null): InstallCheck {
   return async () => {
     const install = await findInstall(folder);
-    return install === undefined ? undefined : { label: releaseLabel(install.game, install.edition) };
+    if (install === undefined) return undefined;
+    return { label: releaseLabel(install.game, install.edition), folder: name };
   };
 }
 
@@ -44,7 +50,11 @@ export function originalGameGate(
         status = 'notRecognized';
         return status;
       }
-      await remember({ originalGameVerified: true, originalGameLabel: found.label });
+      await remember({
+        originalGameVerified: true,
+        originalGameLabel: found.label,
+        originalGameFolder: found.folder,
+      });
       status = 'verified';
       return status;
     },

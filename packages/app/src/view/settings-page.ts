@@ -354,7 +354,12 @@ export function createSettingsPage(opts: {
         settingRow(text.debugTools, debugTools, { tip: text.debugToolsTip }),
         settingRow(
           text.originalGame,
-          readOnlyValue(originalGamePath ?? settings.originalGameLabel ?? text.originalGameUnknown),
+          readOnlyValue(
+            originalGamePath ??
+              settings.originalGameFolder ??
+              settings.originalGameLabel ??
+              text.originalGameUnknown,
+          ),
           { tip: text.originalGameTip },
         ),
       ];
@@ -420,6 +425,7 @@ export function createSettingsPage(opts: {
         displayMode: _displayMode,
         originalGameVerified: _verified,
         originalGameLabel: _label,
+        originalGameFolder: _folder,
         ...defaults
       } = await recommendedSettings();
       restore.disabled = false;

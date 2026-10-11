@@ -1,10 +1,14 @@
-import type { FolderReader } from '@open-northland/ownership';
 import { diag } from '../../../diag/index.js';
 import { messages } from '../../../i18n/index.js';
 import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../../view/brand-art.js';
 import { type DesktopOriginalGame, desktopOriginalGame } from '../../../view/original-game-check.js';
 import { node } from '../dom.js';
-import { directoryHandleReader, directoryPicker, fileListReader } from './browser-folder-reader.js';
+import {
+  directoryHandleReader,
+  directoryPicker,
+  fileListReader,
+  pickedFolderName,
+} from './browser-folder-reader.js';
 import {
   type InstallCheck,
   type OriginalGameGateStatus,
@@ -21,11 +25,12 @@ const STORE_PAGES: readonly { readonly name: string; readonly href: string }[] =
 /** A picker the player closed without choosing throws this; it is no failure. */
 const PICK_CANCELLED = 'AbortError';
 
-async function pickWithPicker(): Promise<FolderReader | undefined> {
+async function pickWithPicker(): Promise<InstallCheck | undefined> {
   const picker = directoryPicker();
   if (picker === undefined) return undefined;
   try {
-    return directoryHandleReader(await picker({ mode: 'read' }));
+    const handle = await picker({ mode: 'read' });
+    return readerCheck(directoryHandleReader(handle), handle.name);
   } catch (err) {
     if (!(err instanceof DOMException && err.name === PICK_CANCELLED)) {
       diag.warn('menu', 'original-game gate: the directory picker failed', err);
@@ -38,7 +43,7 @@ async function pickWithPicker(): Promise<FolderReader | undefined> {
 async function pickWithShell(desktop: DesktopOriginalGame): Promise<InstallCheck | undefined> {
   const picked = await desktop.pickFolder();
   if (picked.cancelled) return undefined;
-  return async () => (picked.verified ? { label: picked.label } : undefined);
+  return async () => (picked.verified ? { label: picked.label, folder: null } : undefined);
 }
 
 /**
@@ -105,11 +110,15 @@ export function originalGameGateScreen(
       input.click();
       return;
     }
-    void pickWithPicker().then((folder) => check(folder === undefined ? undefined : readerCheck(folder)));
+    void pickWithPicker().then(check);
   });
   input.addEventListener('change', () => {
     const files = input.files;
-    void check(files === null || files.length === 0 ? undefined : readerCheck(fileListReader(files)));
+    void check(
+      files === null || files.length === 0
+        ? undefined
+        : readerCheck(fileListReader(files), pickedFolderName(files)),
+    );
     // A second pick of the same folder must fire `change` again.
     input.value = '';
   });

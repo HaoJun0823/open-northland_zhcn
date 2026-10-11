@@ -5,6 +5,7 @@ import {
   directoryHandleReader,
   fileListReader,
   type PickedDirectoryHandle,
+  pickedFolderName,
   type PickedFileHandle,
 } from '../src/entries/main-menu/original-game/browser-folder-reader.js';
 
@@ -93,6 +94,18 @@ describe('fileListReader', () => {
     expect(await reader.list(['nowhere'])).toBeUndefined();
     expect(await reader.readHead(['2024', 'missing.jpg'], LIBRARY_HEAD_BYTES)).toBeUndefined();
     expect(await findInstall(reader)).toBeUndefined();
+  });
+});
+
+describe('pickedFolderName', () => {
+  it('names the folder every path starts with, and nothing for bare file names', () => {
+    const picked = [
+      pickedFile('Cultures/DataX/Libs/data0001.lib', new Uint8Array(8)),
+      pickedFile('Cultures/readme.txt', new Uint8Array(8)),
+    ];
+    expect(pickedFolderName(picked)).toBe('Cultures');
+    expect(pickedFolderName([pickedFile('readme.txt', new Uint8Array(8))])).toBeNull();
+    expect(pickedFolderName([])).toBeNull();
   });
 });
 

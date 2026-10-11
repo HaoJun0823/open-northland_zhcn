@@ -159,10 +159,10 @@ bool paletted;
 int lutRow;
 
 // The texels one fragment blends, read in one pass over the sampler chain: xBR's neighbourhood of the
-// sample point's corner, or the four 2x2 windows of a paletted element's minification taps. A tap
-// outside the element's frame is transparent, and a paletted tap resolves its colour before any blend,
-// so the magnifiers blend colours, never indices. Every read of taps after the gather indexes it by a
-// constant: Direct3D keeps a runtime-indexed local array in slow scratch memory.
+// sample point's corner, one 2x2 at the sample point, or the four 2x2 windows of a paletted element's
+// minification taps. A tap outside the element's frame is transparent, and a paletted tap resolves its
+// colour before any blend, so the magnifiers blend colours, never indices. Every read of taps after the
+// gather indexes it by a constant: Direct3D keeps a runtime-indexed local array in slow scratch memory.
 const int TAP_COUNT = 16;
 const int SUB_WINDOW_TAPS = 4;
 const int WINDOW_TAPS = ${XBR_NEIGHBOURS.length};
@@ -210,8 +210,8 @@ void gatherTaps() {
 
 ${PIXEL_ART_MAGNIFY_CORE_GLSL}
 
-// The magnifiers' window: xBR's neighbourhood of p's corner in XbrNeighbours order, along the
-// magnifiers' own mirroring step.
+// xBR's window: the neighbourhood of p's corner in XbrNeighbours order, along the magnifiers' own
+// mirroring step.
 void layoutWindow(vec2 p) {
   ivec2 centre = ivec2(floor(p));
   windowStep = magnifyWindowStep(fract(p));
@@ -242,9 +242,8 @@ void layoutBilinearTaps(int first, vec2 p) {
   tapAt[first + 3] = base + ivec2(1, 1);
 }
 
-// The bilinear blend of a 2x2 window, weighted as magnifyBlend weights its taps.
-vec4 blendTaps(int first, vec2 p) {
-  vec2 f = fract(p - 0.5);
+// The blend of a 2x2 window by weights f, as magnifyBlend weights its taps; fract(p - 0.5) is bilinear.
+vec4 blendTaps(int first, vec2 f) {
   return mix(mix(taps[first], taps[first + 1], f.x),
              mix(taps[first + SUB_WINDOW_TAPS / 2], taps[first + SUB_WINDOW_TAPS / 2 + 1], f.x), f.y);
 }
@@ -276,9 +275,11 @@ void main(void) {
                      + sampleTexture(clamp(vUV + vec2(-footprint.x, footprint.y), low, high))
                      + sampleTexture(clamp(vUV + footprint, low, high)));
   } else {
-    // The magnifiers' window, or a paletted element's bilinear taps: with magnification off for its
-    // page size, one 2x2 at the sample point, else four spread over the minified footprint.
-    bool window = magnified && WORLD_MAGNIFY > 1.5;
+    // xBR's window, or one 2x2 at the sample point for sharp and for a paletted element with
+    // magnification off for its page size, else four 2x2 spread over the minified footprint. Only
+    // the taps a path blends are gathered.
+    bool xbr = magnified && WORLD_MAGNIFY > 2.5;
+    bool sharp = magnified && WORLD_MAGNIFY > 1.5 && !xbr;
     vec2 footprint = max(uvFootprint - 1.0 / texSize, vec2(0.0)) * MINIFY_TAP_OFFSET;
     bool single = max(footprint.x, footprint.y) < PALETTED_MIN_FOOTPRINT;
     vec2 p0 = (vUV - footprint) * texSize;
@@ -286,11 +287,11 @@ void main(void) {
     vec2 p2 = (vUV + vec2(-footprint.x, footprint.y)) * texSize;
     vec2 p3 = (vUV + footprint) * texSize;
     tapCount = TAP_COUNT;
-    if (window) {
+    if (xbr) {
       layoutWindow(p);
-    } else if (single) {
-      // The unused taps read the same texels, so the one chain pass stays a fixed 16 fetches.
-      for (int first = 0; first < TAP_COUNT; first += SUB_WINDOW_TAPS) layoutBilinearTaps(first, p);
+    } else if (sharp || single) {
+      tapCount = SUB_WINDOW_TAPS;
+      layoutBilinearTaps(0, p);
     } else {
       layoutBilinearTaps(0, p0);
       layoutBilinearTaps(SUB_WINDOW_TAPS, p1);
@@ -298,17 +299,18 @@ void main(void) {
       layoutBilinearTaps(3 * SUB_WINDOW_TAPS, p3);
     }
     gatherTaps();
-    if (window) {
+    if (xbr) {
       XbrNeighbours n = windowNeighbours();
-      vec4 sharp = windowSharp(n, p, texelsPerPixel);
-      outColor = WORLD_MAGNIFY > 2.5 ? magnifyXbrCorner(n, sharp, p, texelsPerPixel) : sharp;
+      outColor = magnifyXbrCorner(n, windowSharp(n, p, texelsPerPixel), p, texelsPerPixel);
+    } else if (sharp) {
+      outColor = blendTaps(0, magnifySharpWeights(p, texelsPerPixel));
     } else if (single) {
-      outColor = blendTaps(0, p);
+      outColor = blendTaps(0, fract(p - 0.5));
     } else {
-      outColor = MINIFY_TAP_WEIGHT * (blendTaps(0, p0)
-                       + blendTaps(SUB_WINDOW_TAPS, p1)
-                       + blendTaps(2 * SUB_WINDOW_TAPS, p2)
-                       + blendTaps(3 * SUB_WINDOW_TAPS, p3));
+      outColor = MINIFY_TAP_WEIGHT * (blendTaps(0, fract(p0 - 0.5))
+                       + blendTaps(SUB_WINDOW_TAPS, fract(p1 - 0.5))
+                       + blendTaps(2 * SUB_WINDOW_TAPS, fract(p2 - 0.5))
+                       + blendTaps(3 * SUB_WINDOW_TAPS, fract(p3 - 0.5)));
     }
   }
   if (paletted && hasFlag(WORLD_FLAG_GLOW)) {

@@ -43,7 +43,7 @@ in float aBlood;
 in vec4 aSplashes;
 out vec4 vColor;
 out vec2 vUV;
-out float vTextureId;
+flat out float vTextureId;
 flat out float vFlags;
 flat out vec4 vFrame;
 flat out float vSelection;
@@ -125,7 +125,7 @@ export function worldBatchFragment(maxTextures: number, mode: number, shadow: Sh
 precision highp float;
 in vec4 vColor;
 in vec2 vUV;
-in float vTextureId;
+flat in float vTextureId;
 flat in float vFlags;
 flat in vec4 vFrame;
 flat in float vSelection;
@@ -154,6 +154,9 @@ ${BLOOD_COAT_GLSL}
 ${BLOOD_SURFACE_GLSL}
 // Resolved once per fragment: the bound page's size, the element's flags and its palette row.
 vec2 texSize;
+// The sample point's screen-space uv derivatives, taken where control flow is uniform.
+vec2 uvDx;
+vec2 uvDy;
 int flags;
 bool paletted;
 int lutRow;
@@ -176,8 +179,12 @@ bool hasFlag(int bit) {
   return (flags & bit) != 0;
 }
 
+// Direct3D's compiler cannot branch around a sample with implicit derivatives and may flatten this
+// chain into a sample from every slot, so each sample names its level of detail. No page drawn in mode
+// off carries mipmaps (the mipmapped building bakes need enhanced sampling), so level 0 there; the other
+// modes pass the fragment's own uv derivatives, which texture() would take for uv = vUV.
 vec4 sampleTexture(vec2 uv) {
-${textureChain(maxTextures, 'vTextureId', (i) => `return texture(uTextures[${i}], uv);`)}
+${textureChain(maxTextures, 'vTextureId', (i) => (MODE_NAMES[mode] === 'off' ? `return textureLod(uTextures[${i}], uv, 0.0);` : `return textureGrad(uTextures[${i}], uv, uvDx, uvDy);`))}
 }
 
 ivec2 textureSizeOf() {
@@ -249,14 +256,22 @@ vec4 blendTaps(int first, vec2 f) {
 }
 
 void main(void) {
-  texSize = vec2(textureSizeOf());
   flags = int(vFlags);
   paletted = hasFlag(WORLD_FLAG_PALETTED);
   lutRow = flags >> WORLD_LUT_ROW_SHIFT;
-  // Derivatives before any branch: they are only defined in uniform control flow.
-  vec2 p = vUV * texSize;
-  float texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
-  vec2 uvFootprint = fwidth(vUV);
+  vec2 p = vec2(0.0);
+  float texelsPerPixel = 0.0;
+  vec2 uvFootprint = vec2(0.0);
+  // Mode off needs neither the page size nor derivatives, except a splash's size below. The condition
+  // is a compile-time constant, so the derivatives stay in uniform control flow, where they are defined.
+  if (WORLD_MAGNIFY > 0.5) {
+    texSize = vec2(textureSizeOf());
+    p = vUV * texSize;
+    texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
+    uvFootprint = fwidth(vUV);
+    uvDx = dFdx(vUV);
+    uvDy = dFdy(vUV);
+  }
   bool magnified = texelsPerPixel < 1.0;
   // A paletted element always resolves through its LUT; a plain one only when its page is magnified.
   bool filtered = WORLD_MAGNIFY > 0.5 && (paletted || hasFlag(WORLD_FLAG_MAGNIFY));
@@ -325,6 +340,7 @@ void main(void) {
     outColor.rgb = coatBlood(outColor.rgb / outColor.a, bodyUV, vBlood) * outColor.a;
   }
   if (vSplashes.w != 0.0 && outColor.a > 0.0) {
+    if (WORLD_MAGNIFY < 0.5) texSize = vec2(textureSizeOf());
     vec2 size = max((vFrame.zw - vFrame.xy) * texSize, vec2(1.0));
     vec2 uv = (vUV - vFrame.xy) / max(vFrame.zw - vFrame.xy, vec2(0.000001));
     // Negative coat data is a facade cutoff: crop the imprint, never shrink the entire splash.

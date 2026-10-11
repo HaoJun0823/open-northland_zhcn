@@ -15,7 +15,7 @@ import {
 import { afterEach, describe, expect, it } from 'vitest';
 import { DepthSortedLayer } from '../../src/gpu/depth-sorted-layer.js';
 import { QUAD_FLOATS, QuadStore, VERTICES_PER_QUAD } from '../../src/gpu/still-mesh/quad-store.js';
-import { INDICES_PER_QUAD, StillSpriteMesh } from '../../src/gpu/still-mesh/still-mesh.js';
+import { INDICES_PER_QUAD, quietRebuildAfter, StillSpriteMesh } from '../../src/gpu/still-mesh/still-mesh.js';
 import { installWorldBatcher, worldBatched } from '../../src/gpu/world-batcher.js';
 
 /**
@@ -32,6 +32,13 @@ const FAR = 10_000;
 /** Held children changing every frame in one band. */
 const SWAYING = 50;
 const PAGE_SIZE = 64;
+/** Frames a handed-back band is watched for further rebuilds. */
+const QUIET_FRAMES = 200;
+/** An interval estimate and run whose paid interval a rebuild after `BOUNDARY_ELAPSED` renders meets
+ *  exactly. */
+const BOUNDARY_INTERVAL = 17 / 3;
+const BOUNDARY_RUN = 6;
+const BOUNDARY_ELAPSED = 7;
 
 interface Recorded {
   readonly renderPipeId: string;
@@ -112,7 +119,10 @@ afterEach(() => {
 });
 
 interface MeshInternals {
-  readonly bands: Map<Container, { members: { quads: { slot: number; sprite: Sprite; live: boolean }[] }[] }>;
+  readonly bands: Map<
+    Container,
+    { build: number; members: { quads: { slot: number; sprite: Sprite; live: boolean }[] }[] }
+  >;
   readonly store: QuadStore | null;
 }
 
@@ -488,5 +498,20 @@ describe('StillSpriteMesh', () => {
     expect(h.meshDraws()).toBe(0);
     expect(frames).toBeGreaterThan(16);
     expect(h.mesh.quadCount).toBe(0);
+    // Handed back, the band stays quiet: no further rebuild and no mesh draw.
+    const state = (h.mesh as unknown as MeshInternals).bands.get(band);
+    if (state === undefined) throw new Error('expected the band’s mesh state');
+    const builds = state.build;
+    for (let i = 0; i < QUIET_FRAMES; i++) {
+      expect(h.frame()).toEqual(painterOrder(h.layer));
+      expect(h.meshDraws()).toBe(0);
+    }
+    expect(state.build).toBe(builds);
+  });
+
+  it('schedules the quiet rebuild on the rebuild’s own test, not the rounded closed form', () => {
+    // A 6-quad run at payoff 1 pays while the estimate stays at most 6. From 17/3, a rebuild 7 renders
+    // on lands on 6 exactly, so the run still pays; the closed form rounds to 6.999… and says 7.
+    expect(quietRebuildAfter(BOUNDARY_INTERVAL, BOUNDARY_RUN, 1)).toBe(BOUNDARY_ELAPSED + 1);
   });
 });

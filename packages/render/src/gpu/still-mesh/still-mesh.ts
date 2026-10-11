@@ -66,6 +66,29 @@ const INTERVAL_WEIGHT = 0.25;
 /** A band's estimated frames between rebuilds before it has rebuilt: it meshes nothing until its own
  *  rebuilds show it is worth it. */
 const INITIAL_INTERVAL = 64;
+
+/** A band's interval estimate after a rebuild `elapsed` renders after its last. */
+function nextInterval(interval: number, elapsed: number): number {
+  return interval + (elapsed - interval) * INTERVAL_WEIGHT;
+}
+
+/** Whether a run of `quads` draws from the mesh at a band's `interval` estimate. */
+function runPays(quads: number, interval: number, runPayoff: number): boolean {
+  return quads >= runPayoff * Math.max(1, interval);
+}
+
+/**
+ * Renders after a rebuild at which the next one would leave a run of `quads` to Pixi: the first elapsed
+ * count that lifts the estimate past `quads / runPayoff`. The closed form can land one render off either
+ * way through float rounding, so the rebuild's own test settles it.
+ */
+export function quietRebuildAfter(interval: number, quads: number, runPayoff: number): number {
+  const paidInterval = quads / runPayoff;
+  let elapsed = Math.floor(interval + (paidInterval - interval) / INTERVAL_WEIGHT) + 1;
+  while (elapsed > 1 && !runPays(quads, nextInterval(interval, elapsed - 1), runPayoff)) elapsed--;
+  while (runPays(quads, nextInterval(interval, elapsed), runPayoff)) elapsed++;
+  return elapsed;
+}
 /** A displayed child's place in a rebuild: drawn by Pixi, or a still candidate for the mesh. */
 const PIXI = 0;
 const STILL = 1;
@@ -411,18 +434,15 @@ export class StillSpriteMesh implements StillBandCollector {
     return true;
   }
 
-  /**
-   * Schedule `state`'s quiet rebuild: the first render at which a rebuild would raise its interval
-   * estimate past the one its largest meshed run pays for, `largestRun / runPayoff` renders.
-   */
+  /** Schedule `state`'s quiet rebuild: the first render at which a rebuild would leave its largest
+   *  meshed run to Pixi. */
   private watchQuiet(state: BandStills): void {
     if (state.drawCount === 0 || this.runPayoff <= 0) {
       this.meshing.delete(state);
       return;
     }
-    const paidInterval = state.largestRun / this.runPayoff;
-    const quietElapsed = state.interval + (paidInterval - state.interval) / INTERVAL_WEIGHT;
-    state.quietFrame = state.lastBuildFrame + Math.floor(quietElapsed) + 1;
+    state.quietFrame =
+      state.lastBuildFrame + quietRebuildAfter(state.interval, state.largestRun, this.runPayoff);
     this.meshing.add(state);
   }
 
@@ -506,8 +526,7 @@ export class StillSpriteMesh implements StillBandCollector {
   private classify(state: BandStills, children: readonly MemberHost[], layer: RenderLayer): void {
     const elapsed = state.lastBuildFrame < 0 ? INITIAL_INTERVAL : this.frame - state.lastBuildFrame;
     state.lastBuildFrame = this.frame;
-    state.interval += (elapsed - state.interval) * INTERVAL_WEIGHT;
-    const minQuads = this.runPayoff * Math.max(1, state.interval);
+    state.interval = nextInterval(state.interval, elapsed);
     const n = children.length;
     if (state.classes.length < n) state.classes = new Uint8Array(Math.max(n, state.classes.length * 2));
     const classes = state.classes;
@@ -527,7 +546,8 @@ export class StillSpriteMesh implements StillBandCollector {
       let quads = 0;
       for (; end < n && classes[end] !== PIXI; end++)
         if (classes[end] === STILL) quads += children[end]?.children.length ?? 0;
-      if (quads >= minQuads) state.largestRun = Math.max(state.largestRun, quads);
+      if (runPays(quads, state.interval, this.runPayoff))
+        state.largestRun = Math.max(state.largestRun, quads);
       else for (let k = i; k < end; k++) if (classes[k] === STILL) classes[k] = PIXI;
       i = end;
     }

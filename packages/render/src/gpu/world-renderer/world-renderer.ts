@@ -40,6 +40,7 @@ import {
   type SettlerBubbleGfx,
 } from '../overlays/index.js';
 import { setPixelArtMagnification, setWorldShadowStyle } from '../pixel-art-registry.js';
+import { PLOT_BOUNDS } from '../plan-road.js';
 import { DEFAULT_SELECTION_STYLE, type SelectionStyle } from '../selection-style.js';
 import { worldShaderSettings } from '../shader-warmup.js';
 import { DEFAULT_SHADOW_STYLE } from '../shadow-style.js';
@@ -48,6 +49,7 @@ import { StillSpriteMesh } from '../still-mesh/still-mesh.js';
 import { TerrainLayer } from '../terrain/index.js';
 import type { TerrainTextureSet } from '../terrain-textures.js';
 import { TextureCache } from '../texture-cache.js';
+import { restoreStash, type StashedVisibility } from '../visibility.js';
 import { WeatherGround } from '../weather/ground-weather.js';
 import { WeatherSky } from '../weather/weather-sky.js';
 import { installWorldBatcher, routeWorldBatches } from '../world-batcher.js';
@@ -109,6 +111,8 @@ export class WorldRenderer {
   /** The current map's height field; flat until `setTerrain` loads a map carrying an elevation lane. */
   private elevation: ElevationField = makeElevationField(undefined, 0, 0);
   private readonly portrait: PortraitInsetLayer;
+  /** The depth bands one portrait inset hid, reused across insets and frames. */
+  private readonly insetBands: StashedVisibility[] = [];
   private readonly mapViews: MapViewLayer;
 
   private readonly viewSmoothing: boolean;
@@ -523,8 +527,18 @@ export class WorldRenderer {
     this.app.render();
     this.groundWaves.suspend(true);
     this.portrait.draw(camera, {
-      toInset: (cam, iw, ih) => this.terrain.cull(cameraViewport(cam, iw, ih, this.elevation.maxLift)),
-      restore: () => this.terrain.cull(vp),
+      toInset: (cam, iw, ih) => {
+        this.terrain.cull(cameraViewport(cam, iw, ih, this.elevation.maxLift));
+        // The bands the main cull would keep for this view: anchors within the sprite margin, and a
+        // claimed road plot sorting back by its plot's top.
+        const rows = cameraViewport(cam, iw, ih, SPRITE_CULL_MARGIN + this.elevation.maxLift);
+        this.spriteLayer.hideBandsOutside(rows.minY + PLOT_BOUNDS.top, rows.maxY, this.insetBands);
+      },
+      restore: () => {
+        this.terrain.cull(vp);
+        restoreStash(this.insetBands);
+        this.insetBands.length = 0;
+      },
       backdrop: this.terrain.groundColour(),
     });
     this.mapViews.draw(

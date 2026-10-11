@@ -5,7 +5,9 @@ import {
   type Renderer,
   type RenderLayer,
 } from 'pixi.js';
+import { rowOfDepth } from '../data/scene/index.js';
 import type { StillBandCollector } from './still-mesh/still-mesh.js';
+import type { StashedVisibility } from './visibility.js';
 
 /** Painter-depth span one band holds, in world px of feet row (a row is 38): narrower bands rebuild
  *  fewer entries per change but each adds a render-group pass and a draw call. Chosen by measuring the
@@ -174,6 +176,21 @@ export class DepthSortedLayer extends Container {
       if (band instanceof DepthBand && band.layer === this) band.removeChild(child);
     }
     return children[0] as U[0];
+  }
+
+  /**
+   * Hide every shown band whose feet rows all lie outside `[minRow, maxRow]`, recording each in `into`
+   * for `restoreStash`. A band hidden here changes this layer's short list of bands, never a band's own
+   * instructions. A band no pass files (a key pinned above every row) stays shown.
+   */
+  hideBandsOutside(minRow: number, maxRow: number, into: StashedVisibility[]): void {
+    for (const band of this.children) {
+      if (!(band instanceof DepthBand) || !band.visible) continue;
+      const top = rowOfDepth(band.index * BAND_DEPTH);
+      if (top === null || (top + BAND_DEPTH >= minRow && top <= maxRow)) continue;
+      into.push({ child: band, wasVisible: true });
+      band.visible = false;
+    }
   }
 
   /** Every entry in painter order; allocates, for tests and tools rather than per-frame work. */

@@ -66,6 +66,15 @@ export function drawPassDepth(pass: DrawPass): number {
   return PASS_DEPTH[pass];
 }
 
+/** The pre-lift feet row a screen depth (`screenDepth`, `depthKey` plus a pass offset) sorts on within
+ *  its pass, or null for a depth no pass files, such as a key pinned above every row. */
+export function rowOfDepth(depth: number): number | null {
+  const offset = Math.round(depth / PASS_BAND) * PASS_BAND;
+  return offset === PASS_DEPTH.ground || offset === PASS_DEPTH.fish || offset === PASS_DEPTH.sorted
+    ? depth - offset
+    : null;
+}
+
 /** A depth under every pass, for the ground tiles' own band. */
 export const UNDER_EVERY_PASS = -3 * PASS_BAND;
 

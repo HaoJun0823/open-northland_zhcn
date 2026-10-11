@@ -30,11 +30,12 @@ export interface PortraitSubjects {
 }
 
 /**
- * The terrain re-cull the inset borrows: the ground is chunk-culled to the main viewport, so a re-aimed
- * cutout around a subject at the screen edge would leave transparent holes. The world renderer supplies
- * both halves, so the inset never needs the projection or pad math.
+ * The world re-cull the inset borrows: the ground is chunk-culled to the main viewport, so a re-aimed
+ * cutout around a subject at the screen edge would leave transparent holes, and the depth bands too far
+ * from the cutout to reach it skip its pass. The world renderer supplies both halves, so the inset never
+ * needs the projection or pad math.
  */
-export interface InsetTerrainCull {
+export interface InsetCull {
   toInset(camera: Camera, w: number, h: number): void;
   restore(): void;
   /** Opaque ground colour (`0xRRGGBB`) the cutout floors its off-map margin with. */
@@ -202,11 +203,11 @@ export class PortraitInsetLayer {
    * world transform, solo stash and terrain cull - even if the render throws. Must run
    * after the pool reconcile and after the main stage render.
    */
-  draw(mainCamera: Camera, terrain?: InsetTerrainCull): void {
+  draw(mainCamera: Camera, terrain?: InsetCull): void {
     for (const f of this.frames) this.drawOne(f, mainCamera, terrain);
   }
 
-  private drawOne(f: PortraitInsetFrame, mainCamera: Camera, terrain?: InsetTerrainCull): void {
+  private drawOne(f: PortraitInsetFrame, mainCamera: Camera, terrain?: InsetCull): void {
     if (f.rect.w < 1 || f.rect.h < 1) return;
     const w = Math.round(f.rect.w);
     const h = Math.round(f.rect.h);
@@ -229,7 +230,7 @@ export class PortraitInsetLayer {
     ];
     this.pool.portraitPass(subjects, inset, main, (soloKeep) => {
       try {
-        // Re-cull the ground to the inset frame, so a subject at the screen edge still has terrain around
+        // Re-cull the world to the inset frame, so a subject at the screen edge still has terrain around
         // it. Inside the try, so its `restore()` below always pairs.
         terrain?.toInset(insetCamera, w, h);
         renderFramedWorld(this.app, this.worldLayer, this.backdrop, {

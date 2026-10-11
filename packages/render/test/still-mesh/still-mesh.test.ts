@@ -465,4 +465,28 @@ describe('StillSpriteMesh', () => {
     }
     expect(h.mesh.quadCount).toBe(16);
   });
+
+  it('hands a band that stopped rebuilding back to Pixi once its runs no longer pay', () => {
+    const h = harness(1);
+    const big = Array.from({ length: 8 }, (_, i) => entity(h.layer, i));
+    for (const item of big) h.held.add(item);
+    entity(h.layer, 10);
+    const band = big[0]?.parent;
+    if (band === null || band === undefined) throw new Error('expected a band');
+    for (let i = 0; i < 12; i++) {
+      band.renderGroup.structureDidChange = true;
+      h.frame();
+    }
+    expect(h.meshDraws()).toBe(1);
+    // Quiet from here: the 16-quad run pays only while the band rebuilds at least every 16 frames,
+    // so within that estimate's reach the band rebuilds once more and draws through Pixi alone.
+    let frames = 0;
+    while (h.meshDraws() > 0 && frames < 100) {
+      expect(h.frame()).toEqual(painterOrder(h.layer));
+      frames++;
+    }
+    expect(h.meshDraws()).toBe(0);
+    expect(frames).toBeGreaterThan(16);
+    expect(h.mesh.quadCount).toBe(0);
+  });
 });

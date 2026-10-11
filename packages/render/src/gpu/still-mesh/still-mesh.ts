@@ -182,6 +182,10 @@ class BandStills extends Batcher {
   /** The render this band last rebuilt on, and its running estimate of renders between rebuilds. */
   lastBuildFrame = -1;
   interval = INITIAL_INTERVAL;
+  /** Quads of the largest run the last rebuild meshed, and the render from which the next rebuild's
+   *  estimate would leave even that run to Pixi. */
+  largestRun = 0;
+  quietFrame = Number.POSITIVE_INFINITY;
   /** Per child of the running rebuild: {@link PIXI}, {@link STILL} or {@link HIDDEN}. */
   classes = new Uint8Array(0);
   /** Bumps whenever the table starts anew, which frees every slot a quad took from it. */
@@ -305,6 +309,8 @@ export class StillSpriteMesh implements StillBandCollector {
   private packer: Batcher | null = null;
   private store: QuadStore | null = null;
   private readonly bands = new Map<Container, BandStills>();
+  /** Bands whose last rebuild drew from the mesh: each rebuilds once it goes quiet for long enough. */
+  private readonly meshing = new Set<BandStills>();
   private readonly quads = new WeakMap<BatchableElement, MeshQuad>();
   /** Whether shadow shading is compiled in, which a shadow page's packed flags depend on. */
   private shading = worldShadowStyle() !== null;
@@ -333,6 +339,14 @@ export class StillSpriteMesh implements StillBandCollector {
     this.frame++;
     // A render that drew no mesh left its packs queued; this bounds the queue to one render's.
     this.uploadPacked();
+    // A meshed run splits the batches around it every render but saves packs only when its band
+    // rebuilds. A band that stopped rebuilding (a camera at rest, a paused game) rebuilds once more, so
+    // its estimate hands those runs back to Pixi's fewer draws.
+    for (const state of this.meshing) {
+      if (this.frame < state.quietFrame) continue;
+      this.meshing.delete(state);
+      state.band.renderGroup.structureDidChange = true;
+    }
     const shading = worldShadowStyle() !== null;
     if (shading === this.shading) return;
     this.shading = shading;
@@ -393,12 +407,29 @@ export class StillSpriteMesh implements StillBandCollector {
     previous.length = 0;
     state.spareMembers = previous;
     if (state.indexCount > 0) state.bandIndices.setDataWithSize(state.indices, state.indexCount, true);
+    this.watchQuiet(state);
     return true;
+  }
+
+  /**
+   * Schedule `state`'s quiet rebuild: the first render at which a rebuild would raise its interval
+   * estimate past the one its largest meshed run pays for, `largestRun / runPayoff` renders.
+   */
+  private watchQuiet(state: BandStills): void {
+    if (state.drawCount === 0 || this.runPayoff <= 0) {
+      this.meshing.delete(state);
+      return;
+    }
+    const paidInterval = state.largestRun / this.runPayoff;
+    const quietElapsed = state.interval + (paidInterval - state.interval) / INTERVAL_WEIGHT;
+    state.quietFrame = state.lastBuildFrame + Math.floor(quietElapsed) + 1;
+    this.meshing.add(state);
   }
 
   private forgetBand(band: Container): void {
     const state = this.bands.get(band);
     if (state === undefined) return;
+    this.meshing.delete(state);
     for (const member of state.members) if (member.band === state) this.drop(member);
     state.members.length = 0;
     state.destroy();
@@ -486,6 +517,7 @@ export class StillSpriteMesh implements StillBandCollector {
         child === undefined || !displayed(child, layer) ? HIDDEN : this.still(child) ? STILL : PIXI;
     }
     // A hidden child adds nothing to the instructions, so it does not split a run.
+    state.largestRun = 0;
     for (let i = 0; i < n; ) {
       if (classes[i] !== STILL) {
         i++;
@@ -495,7 +527,8 @@ export class StillSpriteMesh implements StillBandCollector {
       let quads = 0;
       for (; end < n && classes[end] !== PIXI; end++)
         if (classes[end] === STILL) quads += children[end]?.children.length ?? 0;
-      if (quads < minQuads) for (let k = i; k < end; k++) if (classes[k] === STILL) classes[k] = PIXI;
+      if (quads >= minQuads) state.largestRun = Math.max(state.largestRun, quads);
+      else for (let k = i; k < end; k++) if (classes[k] === STILL) classes[k] = PIXI;
       i = end;
     }
   }

@@ -132,6 +132,10 @@ export class WorldRenderer {
     // Own Pixi render group over its depth bands' groups: a band appearing or retiring rebuilds only
     // this layer's short instruction list, not the whole stage's.
     this.spriteLayer.isRenderGroup = true;
+    // The world its own group under the stage, so a stage-level change (the weather sky, scene light,
+    // pause wash) rebuilds the stage's short list rather than walking the whole world's again. A framed
+    // inset render would make it one on its first pass anyway.
+    this.worldLayer.isRenderGroup = true;
     for (const art of [opts?.planStakes, opts?.planRoads]) {
       if (art !== undefined) for (const texture of Object.values(art)) this.textureCache.adopt(texture);
     }

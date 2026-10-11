@@ -102,8 +102,7 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
   const container = new Container();
   container.zIndex = 1000;
   // Its own Pixi render group: the viewport rect redraws on every camera move and the alarms animate
-  // every frame, and a redrawn Graphics rebuilds the instructions of the group it sits in. In the
-  // stage's group that rebuild walks the whole world's terrain, decor and marks.
+  // every frame, and a redrawn Graphics rebuilds the instructions of the group it sits in.
   container.isRenderGroup = true;
   const backdrop = new Graphics();
   const world = new Container();

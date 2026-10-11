@@ -1,18 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import {
-  CATALOG_MAP_ID,
-  type CatalogConvertedMap,
-  jsonFingerprint,
-  MAP_TEXT_LANGUAGES,
-} from '@open-northland/data';
-import {
-  type ConvertedMap,
-  convertMapTree,
-  MAP_FILE_SUFFIXES,
-  mapFiles,
-  openArchive,
-} from '@open-northland/map-import';
+import { CATALOG_MAP_ID, type CatalogConvertedMap, MAP_TEXT_LANGUAGES } from '@open-northland/data';
+import { type ConvertedMap, convertMapTree, mapFiles, openArchive } from '@open-northland/map-import';
 
 /** map-import declares node-unrar-js; the workspace install hoists it, so it resolves from here too. */
 const UNRAR_WASM_PATH = 'node-unrar-js/esm/js/unrar.wasm';
@@ -50,18 +39,6 @@ function utf8(file: string | Uint8Array): Uint8Array {
   return typeof file === 'string' ? Buffer.from(file, 'utf8') : file;
 }
 
-/** What the app's `verifyMapDocuments` computes for the served terrain and script documents. Parsing
- *  the sidecar text yields plain JSON, so the app's stringify-and-parse round trip is a no-op here. */
-function mapFingerprint(files: ReadonlyMap<string, string | Uint8Array>, mapId: string): string {
-  const parse = (file: string | Uint8Array | undefined): unknown =>
-    file === undefined
-      ? null
-      : JSON.parse(typeof file === 'string' ? file : Buffer.from(file).toString('utf8'));
-  const map = parse(files.get(`${mapId}${MAP_FILE_SUFFIXES.terrain}`));
-  const script = parse(files.get(`${mapId}${MAP_FILE_SUFFIXES.script}`));
-  return jsonFingerprint({ map, script });
-}
-
 function languagesOf(map: ConvertedMap): CatalogConvertedMap['languages'] {
   return MAP_TEXT_LANGUAGES.filter((language) => map.strings?.[language] !== undefined);
 }
@@ -86,7 +63,8 @@ export async function convertArchive(
     const own = mapFiles(renamed);
     maps.push({
       mapId,
-      fingerprint: mapFingerprint(own, mapId),
+      folder: map.id,
+      fingerprint: renamed.index.fingerprint,
       languages: languagesOf(renamed),
       cells: { width: renamed.terrain.width, height: renamed.terrain.height },
       index: renamed.index,

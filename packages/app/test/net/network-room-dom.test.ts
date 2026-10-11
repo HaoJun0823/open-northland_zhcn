@@ -8,6 +8,7 @@ import { DEFAULT_RELAY_URL } from '../../src/entries/main-menu/network/relay-def
 import { mountNetworkRoom, type NetworkRoomDeps } from '../../src/entries/main-menu/network/room/index.js';
 import { formatClockTime, messages } from '../../src/i18n/index.js';
 import { patchStoredSettings, readStoredSettings } from '../../src/view/settings-store.js';
+import { TINY_FINGERPRINT } from '../support/catalog-maps.js';
 
 const mounted: Array<ReturnType<typeof mountNetworkRoom>> = [];
 let storedRelay: string | null;
@@ -161,6 +162,7 @@ describe('room guidance and chat', () => {
     ];
     const stale = mapItem({
       id: 'test',
+      fingerprint: TINY_FINGERPRINT,
       picture: false,
       minimap: false,
       players: slots.map((slot) => ({ ...slot, hidden: false })),
@@ -177,6 +179,7 @@ describe('room guidance and chat', () => {
   it('hides authored hidden seats while keeping visible map AI reserved', () => {
     const map = mapItem({
       id: 'test',
+      fingerprint: TINY_FINGERPRINT,
       picture: false,
       minimap: false,
       players: [0, 1, 2].map((player) => ({
@@ -233,6 +236,7 @@ describe('room guidance and chat', () => {
   it('shows the map faction without changing the seat', () => {
     const map = mapItem({
       id: 'test',
+      fingerprint: TINY_FINGERPRINT,
       picture: false,
       minimap: false,
       players: [
@@ -285,7 +289,13 @@ describe('room guidance and chat', () => {
     room.update(view, true);
     const card = room.element.querySelector<HTMLElement>('.network-room__map-card');
     expect(card?.hidden).toBe(true);
-    item = mapItem({ id: 'test', picture: true, minimap: true, mapTypes: [MAP_TYPE.MULTI_PLAYER_FREE] });
+    item = mapItem({
+      id: 'test',
+      fingerprint: TINY_FINGERPRINT,
+      picture: true,
+      minimap: true,
+      mapTypes: [MAP_TYPE.MULTI_PLAYER_FREE],
+    });
     room.update(view, true);
     expect(card?.hidden).toBe(false);
     const image = card?.querySelector<HTMLImageElement>('img');

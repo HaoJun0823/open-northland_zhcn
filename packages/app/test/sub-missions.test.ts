@@ -8,6 +8,7 @@ import { mapSubMissionLoader, validateSavedMap } from '../src/entries/map/sub-mi
 import { buildMapWorld } from '../src/entries/map/world.js';
 import { evaluateSaveFile } from '../src/view/runtime/save-load/evaluate.js';
 import { AUTHORED_ENTITIES, AUTHORED_ROWS } from './support/authored-entities.js';
+import { TINY_FINGERPRINT } from './support/catalog-maps.js';
 import { authoredMapFile } from './support/world-maps.js';
 
 const inputs = {
@@ -36,7 +37,13 @@ function parentSave() {
 
 beforeEach(() => {
   vi.spyOn(mapsIndex, 'loadMapList').mockResolvedValue([
-    { id: 'child', picture: false, minimap: false, campaign: { campaignId: 0, missionId: 91 } },
+    {
+      id: 'child',
+      fingerprint: TINY_FINGERPRINT,
+      picture: false,
+      minimap: false,
+      campaign: { campaignId: 0, missionId: 91 },
+    },
   ]);
   vi.spyOn(mapLoader, 'loadTerrainMap').mockResolvedValue(map);
   vi.spyOn(mapLoader, 'loadMapScript').mockResolvedValue(source);
@@ -81,8 +88,8 @@ describe('map sub-mission worlds', () => {
     );
     const pair = { campaignId: 0, missionId: 91 };
     vi.mocked(mapsIndex.loadMapList).mockResolvedValue([
-      { id: 'child', picture: false, minimap: false, campaign: pair },
-      { id: 'twin', picture: false, minimap: false, campaign: pair },
+      { id: 'child', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false, campaign: pair },
+      { id: 'twin', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false, campaign: pair },
     ]);
     await expect(load({ kind: 'start', campaignId: 0, mapId: 91, mission: 0 }, parent)).rejects.toThrow(
       'found 2',

@@ -8,6 +8,7 @@ import {
   type InstalledMapRecord,
   installCatalogEntry,
   installedMapStore,
+  loadMapSources,
 } from '../../../content/map-source/index.js';
 import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, compareLabels, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
@@ -17,7 +18,7 @@ import { type CardDate, type CatalogueContext, catalogueCard } from './card.js';
 import { catalogueDetail } from './detail.js';
 import { catalogueFilters } from './filters.js';
 import { installedPane } from './installed.js';
-import { type CatalogueRow, catalogueRows, installedGroups } from './model.js';
+import { type CatalogueRow, catalogueRows, installedGroups, type ShippedMaps, shippedMaps } from './model.js';
 import { type CatalogueQuery, DEFAULT_CATALOGUE_QUERY, queryRows } from './query.js';
 
 export type CatalogueTab = 'browse' | 'installed';
@@ -62,6 +63,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   let entries: readonly CatalogEntry[] | null = null;
   let failure: unknown = null;
   let installed: readonly InstalledMapRecord[] = [];
+  let shipped: ShippedMaps = new Map();
   let rows: readonly CatalogueRow[] = [];
   /** Download progress per entry id, as a fraction. */
   const downloads = new Map<string, number>();
@@ -200,7 +202,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
 
   /** Rows and every view over them again, after the catalogue or the installed maps changed. */
   function refreshAll(): void {
-    rows = entries === null ? [] : catalogueRows(entries, installed, IR_VERSION);
+    rows = entries === null ? [] : catalogueRows(entries, installed, IR_VERSION, shipped);
     cards.clear();
     filters.setRows(rows);
     renderGrid();
@@ -279,8 +281,11 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     entries = null;
     refreshAll();
     try {
-      const [catalog] = await Promise.all([fetchCatalog(api), reloadInstalled()]);
+      const [catalog, sources] = await Promise.all([fetchCatalog(api), loadMapSources(), reloadInstalled()]);
       entries = catalog;
+      shipped = shippedMaps(
+        sources.filter((source) => source.catalog === undefined).map(({ entry }) => entry),
+      );
     } catch (error) {
       failure = error;
     }

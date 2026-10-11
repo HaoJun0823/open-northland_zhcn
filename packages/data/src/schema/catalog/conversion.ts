@@ -1,15 +1,16 @@
 import { z } from 'zod';
-import { MapsIndexEntry } from '../maps/listing.js';
+import { MAP_FINGERPRINT, MapsIndexEntry } from '../maps/listing.js';
 import { MAP_TEXT_LANGUAGES } from '../maps/strings.js';
 import { CATALOG_MAP_ID } from './id.js';
-
-/** A hex SHA-256, the `jsonFingerprint` of a map's terrain and script documents. */
-export const MAP_FINGERPRINT = /^[a-f0-9]{64}$/;
 
 /** One map the API converted out of a catalogue entry: a campaign pack yields its main map and its
  *  sub-mission maps, each served under its own `mapId` at `/v1/content/<irVersion>/maps/<mapId>.*`. */
 export const CatalogConvertedMap = z.strictObject({
   mapId: z.string().regex(CATALOG_MAP_ID),
+  /** The lower-cased archive folder slug the map came from, without the `-2`, `-3` repeat suffix the
+   *  `mapId` may carry; a shipped map's id is its mod folder slug, so the two compare directly. */
+  folder: z.string().min(1),
+  /** Equals `index.fingerprint`, kept here for the client's install check. */
   fingerprint: z.string().regex(MAP_FINGERPRINT),
   /** The languages the map's own string table carries; the client falls back along
    *  `MAP_TEXT_LANGUAGES` for the rest. */

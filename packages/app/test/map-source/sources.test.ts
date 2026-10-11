@@ -14,8 +14,14 @@ import { memoryInstalledStorage, TINY_FINGERPRINT, TINY_MAP } from '../support/c
 
 const IR = 9;
 const shipped: MapsIndexEntry[] = [
-  { id: 'wyspa', picture: true, minimap: true, provenance: { kind: 'mod', folder: 'maps/wyspa' } },
-  { id: 'cn-clash', picture: false, minimap: false },
+  {
+    id: 'wyspa',
+    fingerprint: TINY_FINGERPRINT,
+    picture: true,
+    minimap: true,
+    provenance: { kind: 'mod', folder: 'maps/wyspa' },
+  },
+  { id: 'cn-clash', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false },
 ];
 const page: typeof fetch = async () => new Response(null, { status: 404 });
 
@@ -33,6 +39,7 @@ function record(
     irVersion,
     index: {
       id: mapId,
+      fingerprint: TINY_FINGERPRINT,
       picture: false,
       minimap: false,
       provenance: { kind: 'catalog', folder: entryId },
@@ -158,7 +165,10 @@ describe('the map source layer', () => {
       record('cn-pack-b', 'cn-pack-b'),
       record('cn-pack-b-2', 'cn-pack-b', IR, campaign),
     ]);
-    const withShipped = [...shipped, { id: 'base-2', picture: false, minimap: false, ...campaign }];
+    const withShipped = [
+      ...shipped,
+      { id: 'base-2', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false, ...campaign },
+    ];
     const registry = createMapSourceRegistry({
       shipped: async () => withShipped,
       store: () => store,

@@ -125,6 +125,10 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
         : `${text.sizes[row.size]} · ${formatMessage(details.cells, main.cells)}`,
     );
     fact(facts, details.category, entry.categoryLabel === '' ? kindText(entry) : entry.categoryLabel);
+    if (row.shipped !== null) {
+      const version = row.shipped.sameVersion ? details.sameVersion : details.otherVersion;
+      fact(facts, details.inGame, `${mapItem(row.shipped.index).title} · ${version}`);
+    }
   };
 
   const paintMaps = (row: CatalogueRow): void => {

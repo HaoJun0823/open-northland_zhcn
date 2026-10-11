@@ -16,6 +16,7 @@ import {
 } from '../src/entries/main-menu/map-select-model.js';
 import { pluralForm } from '../src/i18n/index.js';
 import { parseStoredSettings } from '../src/view/settings-store.js';
+import { TINY_FINGERPRINT } from './support/catalog-maps.js';
 
 function slot(player: number, hidden = false): MapsIndexPlayerSlot {
   return {
@@ -47,6 +48,7 @@ describe('mapItem', () => {
     const free = mapItem({
       id: 'dolina',
       name: { pol: 'Dolina' },
+      fingerprint: TINY_FINGERPRINT,
       picture: false,
       minimap: false,
       mapTypes: [MAP_TYPE.SINGLE_PLAYER_FREE],
@@ -57,6 +59,7 @@ describe('mapItem', () => {
     expect(free.players).toHaveLength(2); // …but the lobby still negotiates the full roster
     const arena = mapItem({
       id: 'arena',
+      fingerprint: TINY_FINGERPRINT,
       picture: true,
       minimap: true,
       mapTypes: [MAP_TYPE.MULTI_PLAYER_FREE],
@@ -67,14 +70,16 @@ describe('mapItem', () => {
     expect(arena.picture).toBe(true);
     expect(arena.minimap).toBe(true);
     expect(arena.fixedColors).toBe(true);
-    const bare = mapItem({ id: 'arena', picture: false, minimap: false });
+    const bare = mapItem({ id: 'arena', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false });
     expect(bare.fixedColors).toBe(false);
     expect(bare.types).toEqual([]);
     expect(mapCategory(bare)).toBe('free');
   });
 
   it('falls back to the id stem when the map ships no display name', () => {
-    expect(mapItem({ id: 'bare_map', picture: false, minimap: false }).title).toBe('bare_map');
+    expect(
+      mapItem({ id: 'bare_map', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false }).title,
+    ).toBe('bare_map');
   });
 
   it('reads the title and description in the given language, else in a shipped one', () => {
@@ -82,6 +87,7 @@ describe('mapItem', () => {
       id: 'arabskie_wyspy',
       name: { pol: 'ARABSKIE WYSPY', eng: 'ARABIAN ISLANDS' },
       description: { pol: 'Opis' },
+      fingerprint: TINY_FINGERPRINT,
       picture: false,
       minimap: false,
     };
@@ -93,6 +99,7 @@ describe('mapItem', () => {
     const lesson = mapItem({
       id: 'renamed_lesson',
       name: { pol: 'Sterowanie' },
+      fingerprint: TINY_FINGERPRINT,
       picture: false,
       minimap: false,
       campaign: { campaignId: 100, missionId: 2 },
@@ -105,16 +112,23 @@ describe('mapItem', () => {
 
 describe('listedIn', () => {
   const typed = (...types: number[]) =>
-    mapItem({ id: types.join('_'), picture: false, minimap: false, mapTypes: types });
+    mapItem({
+      id: types.join('_'),
+      fingerprint: TINY_FINGERPRINT,
+      picture: false,
+      minimap: false,
+      mapTypes: types,
+    });
   const campaign = typed(MAP_TYPE.SINGLE_PLAYER_CAMPAIGN);
   const free = typed(MAP_TYPE.SINGLE_PLAYER_FREE);
   const userFree = typed(MAP_TYPE.USER_SINGLE_PLAYER_FREE);
   const multi = typed(MAP_TYPE.MULTI_PLAYER_FREE);
   const userMulti = typed(MAP_TYPE.USER_MULTI_PLAYER_FREE);
   const demo = typed(MAP_TYPE.SINGLE_PLAYER_DEMO);
-  const untyped = mapItem({ id: 'untyped', picture: false, minimap: false });
+  const untyped = mapItem({ id: 'untyped', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false });
   const multiOnly = mapItem({
     id: 'only',
+    fingerprint: TINY_FINGERPRINT,
     picture: false,
     minimap: false,
     mapTypes: [MAP_TYPE.MULTI_PLAYER_FREE],
@@ -123,6 +137,7 @@ describe('listedIn', () => {
   const scene = sceneItem('battle', 'Bitwa', 'pokaz walki wręcz');
   const tutorial = mapItem({
     id: 'lesson',
+    fingerprint: TINY_FINGERPRINT,
     picture: false,
     minimap: false,
     campaign: { campaignId: 100, missionId: 1 },
@@ -163,13 +178,13 @@ describe('listedIn', () => {
 });
 
 describe('map preview views', () => {
-  const both = { picture: true, minimap: true } as const;
+  const both = { fingerprint: TINY_FINGERPRINT, picture: true, minimap: true } as const;
   const multi = mapItem({ id: 'four_hills', ...both, mapTypes: [MAP_TYPE.MULTI_PLAYER_FREE] });
   const userMulti = mapItem({ id: 'own_arena', ...both, mapTypes: [MAP_TYPE.USER_MULTI_PLAYER_FREE] });
   const free = mapItem({ id: 'kraina', ...both, mapTypes: [MAP_TYPE.SINGLE_PLAYER_FREE] });
   const tutorial = mapItem({ id: 'lesson', ...both, campaign: { campaignId: 100, missionId: 1 } });
-  const terrainOnly = mapItem({ id: 'cn_1', picture: false, minimap: true });
-  const bare = mapItem({ id: 'bare', picture: false, minimap: false });
+  const terrainOnly = mapItem({ id: 'cn_1', fingerprint: TINY_FINGERPRINT, picture: false, minimap: true });
+  const bare = mapItem({ id: 'bare', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false });
   const scene = sceneItem('battle', 'Bitwa', 'pokaz walki wręcz');
 
   it('offers the terrain beside the picture only on a multiplayer map', () => {
@@ -216,6 +231,7 @@ describe('filterItems', () => {
   const subMission = mapItem({
     id: 'gringo_sub',
     name: { pol: 'Gringo - bitwa' },
+    fingerprint: TINY_FINGERPRINT,
     picture: false,
     minimap: false,
     mapTypes: [MAP_TYPE.SINGLE_PLAYER_CAMPAIGN],
@@ -224,6 +240,7 @@ describe('filterItems', () => {
   const free = mapItem({
     id: 'dolina',
     name: { pol: 'Dolina' },
+    fingerprint: TINY_FINGERPRINT,
     picture: false,
     minimap: false,
     mapTypes: [MAP_TYPE.SINGLE_PLAYER_FREE],
@@ -231,6 +248,7 @@ describe('filterItems', () => {
   const arena = mapItem({
     id: 'zatoka_arena',
     name: { pol: 'Zatoka Mgieł' },
+    fingerprint: TINY_FINGERPRINT,
     picture: true,
     minimap: true,
     mapTypes: [MAP_TYPE.MULTI_PLAYER_FREE],
@@ -239,6 +257,7 @@ describe('filterItems', () => {
   const secondLesson = mapItem({
     id: 'renamed_second',
     name: { pol: 'Każdy Wiking jest unikalny' },
+    fingerprint: TINY_FINGERPRINT,
     picture: false,
     minimap: false,
     campaign: { campaignId: 100, missionId: 2 },
@@ -247,6 +266,7 @@ describe('filterItems', () => {
   const firstLesson = mapItem({
     id: 'renamed_first',
     name: { pol: 'Sterowanie' },
+    fingerprint: TINY_FINGERPRINT,
     picture: false,
     minimap: false,
     campaign: { campaignId: 100, missionId: 1 },
@@ -270,6 +290,7 @@ describe('filterItems', () => {
     expect(filterItems(items, 'single', 'multiplayer', '')).toEqual([arena]);
     const both = mapItem({
       id: 'both',
+      fingerprint: TINY_FINGERPRINT,
       picture: false,
       minimap: false,
       mapTypes: [MAP_TYPE.SINGLE_PLAYER_FREE, MAP_TYPE.MULTI_PLAYER_FREE],
@@ -284,6 +305,7 @@ describe('filterItems', () => {
       mapItem({
         id,
         name: { pol: name },
+        fingerprint: TINY_FINGERPRINT,
         picture: false,
         minimap: false,
         mapTypes: [MAP_TYPE.SINGLE_PLAYER_FREE],

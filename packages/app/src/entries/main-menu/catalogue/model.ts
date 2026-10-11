@@ -15,7 +15,10 @@ import { convertedMaps, type InstalledMapRecord } from '../../../content/map-sou
  * - `pending`: the server has not converted it yet; nothing is clickable;
  * - `gameTooOld` / `serverTooOld`: converted for another content version than this build's;
  * - `available`: downloadable; `installed`: playable; `updatable`: playable, with a newer conversion;
- * - `redownload`: installed for an older content version, downloadable again.
+ * - `redownload`: installed for an older content version, downloadable again;
+ * - `inGame`: every map of the pack ships with the game, same documents; Play starts the shipped map;
+ * - `inGameChanged`: the pack's maps ship with the game in another version, or only some do; its own
+ *   copy downloads beside the shipped one.
  */
 export type CatalogueStatus =
   | 'external'
@@ -26,7 +29,9 @@ export type CatalogueStatus =
   | 'available'
   | 'installed'
   | 'updatable'
-  | 'redownload';
+  | 'redownload'
+  | 'inGame'
+  | 'inGameChanged';
 
 export type MapSize = 'small' | 'medium' | 'large';
 export const MAP_SIZES: readonly MapSize[] = ['small', 'medium', 'large'];
@@ -61,6 +66,42 @@ export interface CatalogueRow {
   readonly languages: readonly MapTextLanguage[];
   /** The main map's size; null until the server converted the entry. */
   readonly size: MapSize | null;
+  /** The shipped map the pack's main map (else its first matched map) is a copy of, on an `inGame` or
+   *  `inGameChanged` row. */
+  readonly shipped: ShippedMatch | null;
+}
+
+/** A converted catalogue map the game already ships under its archive folder name. */
+export interface ShippedMatch {
+  readonly index: MapsIndexEntry;
+  /** The two copies have the same terrain and script documents. */
+  readonly sameVersion: boolean;
+}
+
+/** The shipped listing rows by lower-cased id, the key a catalogue map's `folder` meets. */
+export type ShippedMaps = ReadonlyMap<string, MapsIndexEntry>;
+
+export function shippedMaps(entries: readonly MapsIndexEntry[]): ShippedMaps {
+  return new Map(entries.map((entry) => [entry.id.toLowerCase(), entry]));
+}
+
+function shippedMatch(map: CatalogConvertedMap, shipped: ShippedMaps): ShippedMatch | null {
+  const index = shipped.get(map.folder.toLowerCase());
+  return index === undefined ? null : { index, sameVersion: index.fingerprint === map.fingerprint };
+}
+
+/** How the pack's maps meet the shipped ones: null when none ships with the game. */
+function shippedState(
+  maps: readonly CatalogConvertedMap[],
+  main: CatalogConvertedMap | null,
+  shipped: ShippedMaps,
+): { readonly status: 'inGame' | 'inGameChanged'; readonly shipped: ShippedMatch } | null {
+  const matches = maps.map((map) => shippedMatch(map, shipped));
+  const shown =
+    (main === null ? null : matches[maps.indexOf(main)]) ?? matches.find((match) => match !== null) ?? null;
+  if (shown === null) return null;
+  const same = matches.every((match) => match?.sameVersion === true);
+  return { status: same ? 'inGame' : 'inGameChanged', shipped: shown };
 }
 
 /**
@@ -100,11 +141,13 @@ function packFacts(maps: readonly CatalogConvertedMap[]) {
   };
 }
 
-/** One row per entry, its status joined from the server's conversion and the installed maps. */
+/** One row per entry, its status joined from the server's conversion, the installed maps and the maps
+ *  the game ships. */
 export function catalogueRow(
   entry: CatalogEntry,
   installed: readonly InstalledMapRecord[],
   irVersion: number,
+  shipped: ShippedMaps = new Map(),
 ): CatalogueRow {
   const maps = convertedMaps(entry);
   const current = installed.filter((record) => record.entryId === entry.id && record.irVersion === irVersion);
@@ -118,6 +161,7 @@ export function catalogueRow(
     mainIndex: serverMain?.index ?? installedMain?.index ?? null,
     subMapCount: Math.max(0, (maps.length > 0 ? maps.length : current.length) - 1),
     size: serverMain === null ? null : mapSize(serverMain.cells),
+    shipped: null,
     ...facts,
   };
   if (installedMain !== null) {
@@ -137,21 +181,39 @@ export function catalogueRow(
     };
   }
   const installedElsewhere = installed.some((record) => record.entryId === entry.id);
-  const status = installedElsewhere && served === 'available' ? 'redownload' : served;
-  return { ...base, status, playableMapId: null, playableIndex: null };
+  if (installedElsewhere && served === 'available') {
+    return { ...base, status: 'redownload', playableMapId: null, playableIndex: null };
+  }
+  // Fingerprints compare only within one content version, which `available` guarantees.
+  const inGame = served === 'available' ? shippedState(maps, serverMain, shipped) : null;
+  if (inGame?.status === 'inGame') {
+    const { index } = inGame.shipped;
+    return { ...base, ...inGame, playableMapId: index.id, playableIndex: index };
+  }
+  if (inGame !== null) return { ...base, ...inGame, playableMapId: null, playableIndex: null };
+  return { ...base, status: served, playableMapId: null, playableIndex: null };
 }
 
 export function catalogueRows(
   entries: readonly CatalogEntry[],
   installed: readonly InstalledMapRecord[],
   irVersion: number,
+  shipped: ShippedMaps = new Map(),
 ): readonly CatalogueRow[] {
-  return entries.map((entry) => catalogueRow(entry, installed, irVersion));
+  return entries.map((entry) => catalogueRow(entry, installed, irVersion, shipped));
 }
 
-/** Whether the row offers a download: a fresh install, an update or a re-download. */
+/** Whether the row offers a download: a fresh install, an update, a re-download or the catalogue's
+ *  own version of a shipped map. */
 export function canDownload(status: CatalogueStatus): boolean {
-  return status === 'available' || status === 'updatable' || status === 'redownload';
+  return (
+    status === 'available' || status === 'updatable' || status === 'redownload' || status === 'inGameChanged'
+  );
+}
+
+/** Whether the row is a map the game ships rather than one the player downloaded. */
+export function isInGame(status: CatalogueStatus): boolean {
+  return status === 'inGame' || status === 'inGameChanged';
 }
 
 /** Whether a player can have the entry on this build: installed and playable, or downloadable. */

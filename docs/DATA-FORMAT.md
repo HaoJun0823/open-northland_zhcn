@@ -8,7 +8,7 @@ The tree is laid out exactly as the app fetches it, so every host serves it as s
 ```text
 content/
   ir.json                 validated rules and presentation bindings
-  maps-index.json         one entry per decoded map: name, provenance, lobby seats, listing header
+  maps-index.json         one entry per decoded map: name, provenance, fingerprint, lobby seats, listing header
   bobs-index.json         the viewable atlases, for the icon gallery
   maps/
     <id>.json             decoded terrain

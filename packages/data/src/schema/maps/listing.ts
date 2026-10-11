@@ -22,10 +22,15 @@ export const MapsIndexPlayerSlot = MapPlayerSlot.extend({
 });
 export type MapsIndexPlayerSlot = z.infer<typeof MapsIndexPlayerSlot>;
 
+/** A hex SHA-256, the `mapDocumentsFingerprint` of a map's terrain and script documents. */
+export const MAP_FINGERPRINT = /^[a-f0-9]{64}$/;
+
 /** One `maps-index.json` entry: a decoded map's id joined with its menu sidecars. */
 export const MapsIndexEntry = z.strictObject({
   id: z.string().min(1),
   provenance: MapProvenance.optional(),
+  /** The map's `mapDocumentsFingerprint`: equal for two copies of one map under different ids. */
+  fingerprint: z.string().regex(MAP_FINGERPRINT),
   campaign: MapMeta.shape.campaign,
   name: MapMeta.shape.name,
   description: MapMeta.shape.description,

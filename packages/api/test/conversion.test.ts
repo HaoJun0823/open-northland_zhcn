@@ -93,6 +93,8 @@ describe('ConversionService', () => {
     if (conversion?.verdict !== 'ok') throw new Error('not converted');
     const ids = conversion.maps.map(({ mapId }) => mapId);
     expect(ids).toEqual([`${ENTRY}-glowna`, `${ENTRY}-glowna_sub1`, `${ENTRY}-glowna-2`]);
+    expect(conversion.maps.map(({ folder }) => folder)).toEqual(['glowna', 'glowna_sub1', 'glowna']);
+    for (const map of conversion.maps) expect(map.fingerprint).toBe(map.index.fingerprint);
     expect(conversion.maps[1]?.index.campaign).toEqual({ campaignId: 0, missionId: 7 });
     for (const mapId of ids) {
       expect(service.file(mapId, `${mapId}${MAP_FILE_SUFFIXES.terrain}`)).not.toBeNull();

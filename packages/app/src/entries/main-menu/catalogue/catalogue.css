@@ -251,7 +251,7 @@
   font-size: calc(var(--u) * 15);
 }
 
-/* Four states do not fit side by side in the column; two rows of two do. */
+/* The states do not fit side by side in the column; rows of two do. */
 .catalogue .catalogue-filter__seg {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -459,14 +459,16 @@
   left: calc(var(--u) * 8);
 }
 
-.catalogue-badge.is-installed {
+.catalogue-badge.is-installed,
+.catalogue-badge.is-inGame {
   border-color: var(--bronze-hi);
   background: linear-gradient(var(--bronze-hi), var(--bronze));
   color: var(--ink);
 }
 
 .catalogue-badge.is-updatable,
-.catalogue-badge.is-redownload {
+.catalogue-badge.is-redownload,
+.catalogue-badge.is-inGameChanged {
   border-color: var(--bronze);
   color: var(--bronze-hi);
 }
@@ -656,7 +658,9 @@
 }
 
 .catalogue-detail__status.is-installed,
-.catalogue-detail__status.is-updatable {
+.catalogue-detail__status.is-updatable,
+.catalogue-detail__status.is-inGame,
+.catalogue-detail__status.is-inGameChanged {
   border-left-color: var(--bronze);
 }
 

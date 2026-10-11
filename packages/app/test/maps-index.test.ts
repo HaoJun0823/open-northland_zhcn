@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseMapsIndex } from '../src/content/maps-index.js';
+import { TINY_FINGERPRINT } from './support/catalog-maps.js';
 
 /**
  * The menu reads `maps-index.json` through the shared schema. The pipeline that wrote the listing is
@@ -9,6 +10,7 @@ import { parseMapsIndex } from '../src/content/maps-index.js';
 describe('parseMapsIndex', () => {
   const arena = {
     id: 'arena',
+    fingerprint: TINY_FINGERPRINT,
     provenance: { kind: 'mod', folder: 'CnModMaps/arena' },
     name: { pol: 'Arena', eng: 'Arena' },
     description: { eng: 'Two against two.' },
@@ -45,7 +47,7 @@ describe('parseMapsIndex', () => {
   };
 
   it('keeps a well-formed listing, optional fields included', () => {
-    const listing = [arena, { id: 'bare', picture: false, minimap: false }];
+    const listing = [arena, { id: 'bare', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false }];
     expect(parseMapsIndex(listing)).toEqual(listing);
   });
 
@@ -57,6 +59,7 @@ describe('parseMapsIndex', () => {
     expect(parseMapsIndex({ maps: [arena] })).toEqual([]);
     expect(parseMapsIndex([{ ...arena, provenance: { kind: 'mod', folder: '../escape' } }])).toEqual([]);
     expect(parseMapsIndex([{ ...arena, players: [{ player: 0, type: 'robot' }] }])).toEqual([]);
-    expect(parseMapsIndex([{ id: 'story', picture: false, minimap: false, mapTypes: 'yes' }])).toEqual([]);
+    expect(parseMapsIndex([{ ...arena, mapTypes: 'yes' }])).toEqual([]);
+    expect(parseMapsIndex([{ ...arena, fingerprint: 'short' }])).toEqual([]);
   });
 });

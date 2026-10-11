@@ -1,4 +1,4 @@
-import { jsonFingerprint, MapScript, parseTerrainMap } from '@open-northland/data';
+import { MapScript, mapDocumentsFingerprint, parseTerrainMap } from '@open-northland/data';
 import { MAX_BLOB_BYTES } from '@open-northland/net-protocol';
 
 export const MAX_MAP_TRANSFER_BYTES = MAX_BLOB_BYTES;
@@ -36,7 +36,7 @@ export function verifyMapDocuments(mapId: string, map: unknown, script: unknown)
   const owned: Documents = JSON.parse(text);
   parseTerrainMap(owned.map);
   if (owned.script !== null) MapScript.parse(owned.script);
-  const handle = Object.freeze({ mapId, fingerprint: jsonFingerprint(owned) });
+  const handle = Object.freeze({ mapId, fingerprint: mapDocumentsFingerprint(owned) });
   retained.set(handle, owned);
   return handle;
 }

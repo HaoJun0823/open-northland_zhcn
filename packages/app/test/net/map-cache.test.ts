@@ -10,6 +10,7 @@ import {
 } from '../../src/content/transfer/cache-store.js';
 import { verifyMapDocuments } from '../../src/content/transfer/documents.js';
 import { loadRoomMapDocuments } from '../../src/content/transfer/reload.js';
+import { TINY_FINGERPRINT } from '../support/catalog-maps.js';
 
 function storage() {
   const entries = new Map<string, { meta: CachedMapMeta; bytes: string }>();
@@ -108,7 +109,7 @@ it('running reload requires the current room fingerprint and refuses a local pro
     await loadRoomMapDocuments(room, {
       local: async () => null,
       cached,
-      list: async () => [{ id: 'ISLAND', picture: false, minimap: false }],
+      list: async () => [{ id: 'ISLAND', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false }],
     }),
   ).toBeNull();
   expect(cached).not.toHaveBeenCalled();

@@ -11,6 +11,7 @@ import { buildMapWorldFromInputs } from '../../src/entries/map/world-inputs.js';
 import { sessionSeating } from '../../src/game/seat-tribes.js';
 import { mapSession } from '../../src/game/session-url.js';
 import { worldTribes } from '../../src/game/world-tribes.js';
+import { TINY_FINGERPRINT } from '../support/catalog-maps.js';
 import { contentDir, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
 
 vi.mock('../../src/content/map-loader.js', () => ({ loadTerrainMap: vi.fn(), loadMapScript: vi.fn() }));
@@ -59,7 +60,7 @@ function seatSettlerTribes(sim: Simulation, player: number): ReadonlySet<number>
 describe.runIf(hasRealIr())(`${PARENT} played as franks through its sub-mission`, () => {
   beforeEach(() => {
     vi.mocked(loadMapList).mockResolvedValue([
-      { id: CHILD, picture: true, minimap: true, campaign: CHILD_CAMPAIGN },
+      { id: CHILD, fingerprint: TINY_FINGERPRINT, picture: true, minimap: true, campaign: CHILD_CAMPAIGN },
     ]);
     vi.mocked(loadTerrainMap).mockImplementation(async (id) => readMap(id).map);
     vi.mocked(loadMapScript).mockImplementation(async (id) => readMap(id).script);

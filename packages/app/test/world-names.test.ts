@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { worldNameIndex, worldNamesOf } from '../src/view/runtime/save-load/world-names.js';
+import { TINY_FINGERPRINT } from './support/catalog-maps.js';
 
 describe('worldNamesOf', () => {
   const worldName = worldNamesOf([
     {
       id: 'twierdza',
       name: { pol: 'Twierdza na wzgórzu', eng: 'Hilltop Fortress' },
+      fingerprint: TINY_FINGERPRINT,
       picture: false,
       minimap: false,
     },
-    { id: 'nameless', picture: false, minimap: false },
+    { id: 'nameless', fingerprint: TINY_FINGERPRINT, picture: false, minimap: false },
   ]);
 
   it('joins map ids to index display names and passes unknown or nameless ids through', () => {
@@ -21,7 +23,15 @@ describe('worldNamesOf', () => {
 
   it('names a map in the given language', () => {
     const english = worldNamesOf(
-      [{ id: 'twierdza', name: { pol: 'Twierdza', eng: 'Fortress' }, picture: false, minimap: false }],
+      [
+        {
+          id: 'twierdza',
+          name: { pol: 'Twierdza', eng: 'Fortress' },
+          fingerprint: TINY_FINGERPRINT,
+          picture: false,
+          minimap: false,
+        },
+      ],
       'eng',
     );
     expect(english('twierdza')).toBe('Fortress');

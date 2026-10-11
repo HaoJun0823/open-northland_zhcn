@@ -1,10 +1,10 @@
-import { type CatalogEntry, jsonFingerprint } from '@open-northland/data';
+import { type CatalogEntry, mapDocumentsFingerprint } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import type { InstallableMap, InstalledMapStorage } from '../../src/content/map-source/index.js';
 
 /** A one-cell map the loaders and `verifyMapDocuments` accept. */
 export const TINY_MAP = { width: 1, height: 1, typeIds: [0] };
-export const TINY_FINGERPRINT = jsonFingerprint({ map: TINY_MAP, script: null });
+export const TINY_FINGERPRINT = mapDocumentsFingerprint({ map: TINY_MAP, script: null });
 export const API = 'https://api.test';
 
 /** A converted catalogue entry over `mapIds`, each map the tiny map unless `fingerprint` says otherwise. */
@@ -33,11 +33,13 @@ export function catalogEntry(
       irVersion: IR_VERSION,
       maps: mapIds.map((mapId, i) => ({
         mapId,
+        folder: mapId,
         fingerprint: TINY_FINGERPRINT,
         languages: ['pol'],
         cells: { width: TINY_MAP.width, height: TINY_MAP.height },
         index: {
           id: mapId,
+          fingerprint: TINY_FINGERPRINT,
           picture: false,
           minimap: false,
           ...(i === 0 ? {} : { campaign: { campaignId: 7, missionId: i } }),

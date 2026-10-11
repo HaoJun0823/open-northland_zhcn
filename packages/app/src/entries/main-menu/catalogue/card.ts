@@ -106,7 +106,7 @@ export function downloadLabel(row: CatalogueRow, ctx: CatalogueContext): string 
     return formatMessage(text.downloading, { percent: Math.round(progress * PERCENT) });
   return row.status === 'updatable'
     ? text.update
-    : row.status === 'redownload'
+    : row.status === 'redownload' || row.status === 'inGameChanged'
       ? text.redownload
       : text.download;
 }

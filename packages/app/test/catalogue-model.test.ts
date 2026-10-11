@@ -12,6 +12,7 @@ import {
   mainCatalogMap,
   mapSize,
   SMALL_MAP_MAX_CELLS,
+  shippedMaps,
 } from '../src/entries/main-menu/catalogue/model.js';
 import {
   authorSuggestions,
@@ -46,7 +47,13 @@ function installed(
     entryId,
     fingerprint,
     irVersion,
-    index: { id: mapId, picture: false, minimap: false, provenance: { kind: 'catalog', folder: entryId } },
+    index: {
+      id: mapId,
+      fingerprint: TINY_FINGERPRINT,
+      picture: false,
+      minimap: false,
+      provenance: { kind: 'catalog', folder: entryId },
+    },
     installedAt: 1,
     size: KIB,
     suffixes: ['.json'],
@@ -181,6 +188,75 @@ describe('catalogue rows', () => {
       ['gone', KIB, null],
       ['pack', 2 * KIB, 'installed'],
     ]);
+  });
+});
+
+describe('catalogue rows against the shipped maps', () => {
+  const OTHER = 'e'.repeat(64);
+  const shippedRow = (id: string, fingerprint = TINY_FINGERPRINT) => ({
+    id,
+    fingerprint,
+    picture: true,
+    minimap: true,
+    name: { pol: id.toUpperCase() },
+  });
+  const shipped = shippedMaps([shippedRow('wyspa'), shippedRow('glowna'), shippedRow('zmieniona', OTHER)]);
+  /** A converted entry whose maps came from `folders`, each fingerprinted as the tiny map. */
+  const fromFolders = (id: string, folders: readonly string[]): CatalogEntry => {
+    const entry = converted(
+      id,
+      folders.map((folder) => `${id}-${folder}`),
+    );
+    if (entry.conversion?.verdict !== 'ok') throw new Error('fixture');
+    const maps = entry.conversion.maps.map((map, i) => ({ ...map, folder: folders[i] ?? map.folder }));
+    return { ...entry, conversion: { ...entry.conversion, maps } };
+  };
+  const row = (entry: CatalogEntry, records: InstalledMapRecord[] = []) =>
+    catalogueRow(entry, records, IR, shipped);
+
+  it('plays a map the game ships in the same version from the shipped copy', () => {
+    const same = row(fromFolders('cn-wyspa', ['wyspa']));
+    expect(same.status).toBe('inGame');
+    expect(same.playableMapId).toBe('wyspa');
+    expect(same.playableIndex?.id).toBe('wyspa');
+    expect(same.shipped).toMatchObject({ index: { id: 'wyspa' }, sameVersion: true });
+    expect(canDownload(same.status)).toBe(false);
+    expect(isReady(same)).toBe(true);
+  });
+
+  it('offers the catalogue copy of a shipped map in another version, or of a partly shipped pack', () => {
+    const changed = row(fromFolders('cn-zmieniona', ['zmieniona']));
+    expect(changed.status).toBe('inGameChanged');
+    expect(changed.playableMapId).toBeNull();
+    expect(changed.shipped).toMatchObject({ index: { id: 'zmieniona' }, sameVersion: false });
+    expect(canDownload(changed.status)).toBe(true);
+    const partly = row(fromFolders('cn-pack', ['glowna', 'glowna_sub1']));
+    expect(partly.status).toBe('inGameChanged');
+    expect(partly.shipped).toMatchObject({ index: { id: 'glowna' }, sameVersion: true });
+    const whole = row(fromFolders('cn-two', ['wyspa', 'glowna']));
+    expect(whole.status).toBe('inGame');
+  });
+
+  it('keeps the states of an installed copy and of a map the game does not ship', () => {
+    const entry = fromFolders('cn-wyspa', ['wyspa']);
+    expect(row(entry, [installed('cn-wyspa-wyspa', 'cn-wyspa')]).status).toBe('installed');
+    expect(row(entry, [installed('cn-wyspa-wyspa', 'cn-wyspa', IR - 1)]).status).toBe('redownload');
+    expect(row(fromFolders('cn-nowa', ['nowa'])).status).toBe('available');
+    expect(row(converted('cn-wyspa', ['cn-wyspa-wyspa'], IR - 1)).status).toBe('serverTooOld');
+  });
+
+  it('filters by the two in-game states and keeps them out of installed and not installed', () => {
+    const rows = [
+      row(fromFolders('cn-wyspa', ['wyspa'])),
+      row(fromFolders('cn-zmieniona', ['zmieniona'])),
+      row(fromFolders('cn-nowa', ['nowa'])),
+    ];
+    const run = (state: CatalogueQuery['state']) =>
+      ids(queryRows(rows, { ...DEFAULT_CATALOGUE_QUERY, sort: 'title', state }, compare));
+    expect(run('inGame')).toEqual(['cn-wyspa']);
+    expect(run('inGameChanged')).toEqual(['cn-zmieniona']);
+    expect(run('installed')).toEqual([]);
+    expect(run('notInstalled')).toEqual(['cn-nowa']);
   });
 });
 

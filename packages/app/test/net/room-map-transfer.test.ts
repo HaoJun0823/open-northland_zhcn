@@ -5,6 +5,7 @@ import {
   encodeMapTransfer,
   verifyMapDocuments,
 } from '../../src/content/transfer/index.js';
+import { TINY_FINGERPRINT } from '../support/catalog-maps.js';
 
 const MAP = { width: 1, height: 1, typeIds: [0] };
 const handle = verifyMapDocuments('island', MAP, null);
@@ -58,6 +59,7 @@ function transport(local: boolean, kind = 'user'): typeof fetch {
             ? [
                 {
                   id: 'island',
+                  fingerprint: TINY_FINGERPRINT,
                   picture: false,
                   minimap: false,
                   provenance: { kind, folder: 'UserMaps/island' },
@@ -185,6 +187,7 @@ it('vetoes delivery of a locally known unknown-origin map even when its id casin
           JSON.stringify([
             {
               id: 'ISLAND',
+              fingerprint: TINY_FINGERPRINT,
               picture: false,
               minimap: false,
               provenance: { kind: 'unknown', folder: 'Data/maps/island' },

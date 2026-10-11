@@ -1,3 +1,4 @@
+import { mapDocumentsFingerprint } from '@open-northland/data';
 import { encodeMapDat, encodeMapSize, packMapLayer } from '@open-northland/formats/mapdat/index';
 import { encodePcx } from '@open-northland/formats/pcx';
 import { zipSync } from 'fflate';
@@ -57,6 +58,24 @@ describe('convertMapTree', () => {
       minimap: false,
     });
     expect(sub?.strings).toEqual({ pol: { 0: 'Wyprawa', 1: 'Opis' } });
+  });
+
+  it('fingerprints one map the same under two folder paths, as the served documents hash', async () => {
+    const files = { ...plaintextMap('Wyspa'), 'misc.inc': '[misc_maptype]\nmaptype 2\n' };
+    const [first] = (await convertMapTree(treeOf(under('CnModMaps/Wyspa', files)), { provenance: 'mod' }))
+      .maps;
+    const [second] = (await convertMapTree(treeOf(under('Wyspa', files)), { provenance: 'catalog' })).maps;
+    if (first === undefined || second === undefined) throw new Error('no map');
+    expect(first.script?.source?.file).not.toBe(second.script?.source?.file);
+    expect(first.index.fingerprint).toBe(second.index.fingerprint);
+    const served = mapFiles(first);
+    const read = (name: string): unknown => {
+      const file = served.get(name);
+      return file === undefined ? null : JSON.parse(String(file));
+    };
+    expect(first.index.fingerprint).toBe(
+      mapDocumentsFingerprint({ map: read('wyspa.json'), script: read('wyspa.script.json') }),
+    );
   });
 
   it('names a map at the tree root after the import, and classifies provenance per folder', async () => {

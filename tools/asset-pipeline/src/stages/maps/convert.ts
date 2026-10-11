@@ -23,6 +23,8 @@ import { mapProvenanceKind } from './provenance.js';
 export interface MapDatConversion {
   /** The map's slug id, the same key as its `map.cif` `MapInfo`. */
   readonly id: string;
+  /** The terrain and script documents' `mapDocumentsFingerprint`. */
+  readonly fingerprint: string;
   readonly width: number;
   readonly height: number;
   /** The terrain JSON's path relative to `outDir`. */
@@ -57,6 +59,7 @@ export function assertStaticVerbsKnown(maps: readonly MapDatConversion[]): void 
 function summarize(map: ConvertedMap): MapDatConversion {
   return {
     id: map.id,
+    fingerprint: map.index.fingerprint,
     width: map.terrain.width,
     height: map.terrain.height,
     output: `${MAPS_DIR}/${map.id}.json`,

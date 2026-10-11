@@ -1,5 +1,5 @@
 import type { CatalogKind, MapTextLanguage } from '@open-northland/data';
-import { type CatalogueRow, isReady, type MapSize } from './model.js';
+import { type CatalogueRow, isInGame, isReady, type MapSize } from './model.js';
 
 export type CatalogueSort = 'liked' | 'downloaded' | 'newest' | 'updated' | 'title' | 'author';
 export const CATALOGUE_SORTS: readonly CatalogueSort[] = [
@@ -14,8 +14,15 @@ export const CATALOGUE_SORTS: readonly CatalogueSort[] = [
 export type KindFilter = 'all' | CatalogKind;
 export const KIND_FILTERS: readonly KindFilter[] = ['all', 'single', 'multi', 'campaign', 'other'];
 
-export type StateFilter = 'all' | 'installed' | 'update' | 'notInstalled';
-export const STATE_FILTERS: readonly StateFilter[] = ['all', 'installed', 'update', 'notInstalled'];
+export type StateFilter = 'all' | 'installed' | 'update' | 'notInstalled' | 'inGame' | 'inGameChanged';
+export const STATE_FILTERS: readonly StateFilter[] = [
+  'all',
+  'installed',
+  'update',
+  'notInstalled',
+  'inGame',
+  'inGameChanged',
+];
 
 /** What the browse tab shows: the search, the sort and every filter. */
 export interface CatalogueQuery {
@@ -75,11 +82,14 @@ function matchesState(row: CatalogueRow, state: StateFilter): boolean {
     case 'all':
       return true;
     case 'installed':
-      return row.playableMapId !== null;
+      return row.playableMapId !== null && !isInGame(row.status);
     case 'update':
       return row.status === 'updatable' || row.status === 'redownload';
     case 'notInstalled':
-      return row.playableMapId === null && row.status !== 'redownload';
+      return row.playableMapId === null && row.status !== 'redownload' && !isInGame(row.status);
+    case 'inGame':
+    case 'inGameChanged':
+      return row.status === state;
   }
 }
 

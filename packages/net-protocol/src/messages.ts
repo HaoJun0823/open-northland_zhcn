@@ -20,7 +20,7 @@ export type RoomMapOrigin = 'mod' | 'user' | 'catalog';
 export interface CatalogMapAnnouncement {
   readonly entryId: string;
   readonly mapId: string;
-  /** The `jsonFingerprint` of the map's terrain and script documents. */
+  /** The `mapDocumentsFingerprint` of the map's terrain and script documents. */
   readonly fingerprint: string;
   /** The content version the map was converted for. */
   readonly irVersion: number;

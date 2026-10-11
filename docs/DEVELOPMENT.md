@@ -625,7 +625,13 @@ batch publishes the catalogue again with the `conversion` fields, so its `ETag` 
 entry's `kind` (`single`, `multi`, `campaign` or `other`) and `series` are read case-insensitively
 out of the upstream category text by keyword (`singleplayer`, `multiplayer`, `kampanie`, `serii`),
 which `categoryLabel` keeps as written; a category no keyword places is listed as `other`. A
-downloaded file's size is its `file.bytes`, and each converted map names its grid as `cells`.
+downloaded file's size is its `file.bytes`, and each converted map names its grid as `cells`, the
+archive folder slug it came from as `folder` (without the repeat suffix) and its `fingerprint`, the
+`mapDocumentsFingerprint` of its terrain and script that `maps-index.json` also carries for every
+shipped map. The client matches `folder` against the shipped map ids: a pack whose maps all ship with
+equal fingerprints shows as in the game and plays the shipped copy; one that ships in another
+version, or only in part, shows as in the game in another version and offers its own copy as a
+download. A stored conversion that lacks either field fails the schema and is converted again.
 
 The app reaches the API at `ON_API_URL`, stamped into the build by Vite and passed on by the desktop
 shell: a build defaults to `https://api.opennorthland.org`, the Vite dev server to

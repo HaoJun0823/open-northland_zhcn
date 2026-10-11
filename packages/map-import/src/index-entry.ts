@@ -3,6 +3,8 @@ import { type MapMeta, type MapScript, type MapsIndexEntry, mapLobbySlots } from
 /** What a `maps-index.json` row is built from. */
 export interface MapsIndexSource {
   readonly id: string;
+  /** The `mapDocumentsFingerprint` of the terrain and script documents as served. */
+  readonly fingerprint: string;
   readonly meta: MapMeta;
   readonly script?: MapScript;
   /** Whether the authored picture `maps/<id>.png` exists. */
@@ -17,6 +19,7 @@ export function mapsIndexEntry(map: MapsIndexSource): MapsIndexEntry {
   const players = map.script === undefined ? [] : mapLobbySlots(map.script);
   return {
     id: map.id,
+    fingerprint: map.fingerprint,
     ...(provenance === undefined ? {} : { provenance }),
     ...(campaign === undefined ? {} : { campaign }),
     ...(name === undefined ? {} : { name }),

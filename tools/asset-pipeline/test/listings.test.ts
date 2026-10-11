@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { BobsIndex, MapScript, MapsIndex } from '@open-northland/data';
+import { BobsIndex, MapScript, MapsIndex, mapDocumentsFingerprint } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { writeFileWithParents } from '../src/files.js';
 import {
@@ -27,9 +27,13 @@ async function outputWith(files: readonly string[]): Promise<void> {
   for (const file of files) await writeFileWithParents(join(out, 'bobs', file), Uint8Array.of(1));
 }
 
+/** A fingerprint the listing copies through; its value is the map stage's business. */
+const FINGERPRINT = mapDocumentsFingerprint({ map: null, script: null });
+
 function converted(id: string, extra: Partial<MapDatConversion> = {}): MapDatConversion {
   return {
     id,
+    fingerprint: FINGERPRINT,
     width: 2,
     height: 2,
     output: `maps/${id}.json`,
@@ -71,6 +75,7 @@ describe('mapsIndexEntries', () => {
     expect(entries).toEqual([
       {
         id: 'arena',
+        fingerprint: FINGERPRINT,
         provenance: { kind: 'mod', folder: 'CnModMaps/arena' },
         name: { pol: 'Arena', eng: 'Arena' },
         description: { pol: 'Dwoch na dwoch.', eng: 'Two against two.' },
@@ -111,7 +116,7 @@ describe('mapsIndexEntries', () => {
 
   it('lists a bare map by id alone and leaves out an empty roster', () => {
     const bare = mapsIndexEntries([converted('bare', { meta: {}, script: MapScript.parse({}) })]);
-    expect(bare).toEqual([{ id: 'bare', picture: false, minimap: false }]);
+    expect(bare).toEqual([{ id: 'bare', fingerprint: FINGERPRINT, picture: false, minimap: false }]);
   });
 
   it('sorts by id and lets the last conversion of a repeated id win, like its files did', () => {

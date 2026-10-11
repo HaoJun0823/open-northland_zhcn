@@ -5,6 +5,7 @@ import {
   type MapScript,
   MapStrings,
   type MapsIndexEntry,
+  mapDocumentsFingerprint,
 } from '@open-northland/data';
 import {
   cifBytesToSections,
@@ -147,6 +148,11 @@ function readEntities(
   };
 }
 
+/** The fingerprint of the documents as `mapFiles` writes them: through JSON, which drops `undefined`. */
+function servedFingerprint(terrain: MapDatTerrainFile, script: MapScript | undefined): string {
+  return mapDocumentsFingerprint(JSON.parse(JSON.stringify({ map: terrain, script: script ?? null })));
+}
+
 /** A decoder's refusal of an over-limit header as the import's `too-large`; anything else unchanged. */
 function limitFailure(err: unknown, where: string): unknown {
   return err instanceof DecodeLimitError ? new MapImportError('too-large', `${where}: ${err.message}`) : err;
@@ -256,6 +262,7 @@ export async function convertMapFolder(
     pictures: resolved?.pictures ?? new Map(),
     index: mapsIndexEntry({
       id,
+      fingerprint: servedFingerprint(terrain, script),
       meta,
       ...(script === undefined ? {} : { script }),
       picture: picture !== undefined,

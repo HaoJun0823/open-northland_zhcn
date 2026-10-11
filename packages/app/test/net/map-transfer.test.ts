@@ -1,4 +1,4 @@
-import { jsonFingerprint } from '@open-northland/data';
+import { mapDocumentsFingerprint } from '@open-northland/data';
 import { bytesToBase64 } from '@open-northland/net-client';
 import { describe, expect, it } from 'vitest';
 import {
@@ -21,7 +21,7 @@ describe('verified map documents and bounded transfer', () => {
   it('preserves the exact map/script identity and parsed boot inputs', () => {
     const source = handle();
     const received = decodeMapTransfer(encodeMapTransfer(source, origin), expected());
-    expect(received.fingerprint).toBe(jsonFingerprint({ map: MAP, script: { players: [] } }));
+    expect(received.fingerprint).toBe(mapDocumentsFingerprint({ map: MAP, script: { players: [] } }));
     expect(readVerifiedMapDocuments(received)).toEqual(readVerifiedMapDocuments(source));
     expect(() => readVerifiedMapDocuments(received, 'different')).toThrow();
   });

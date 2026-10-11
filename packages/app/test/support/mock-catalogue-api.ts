@@ -16,10 +16,10 @@ import {
   type CatalogConvertedMap,
   type CatalogEntry,
   type CatalogKind,
-  jsonFingerprint,
   type MapsIndexEntry,
   type MapsIndexPlayerSlot,
   type MapTextLanguage,
+  mapDocumentsFingerprint,
 } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 
@@ -347,12 +347,21 @@ export function mockCatalogue(options: MockCatalogueOptions) {
     const campaign = index === 0 ? {} : { campaign: { campaignId: MOCK_CAMPAIGN_ID, missionId: index + 1 } };
     if (options.contentDir === null) {
       sources.set(mapId, { shippedId: null, revision });
+      const fingerprint = mapDocumentsFingerprint({ map: tinyTerrain(revision), script: null });
       return {
         mapId,
-        fingerprint: jsonFingerprint({ map: tinyTerrain(revision), script: null }),
+        folder: mapId,
+        fingerprint,
         languages: [...spec.languages],
         cells: { width: map.side, height: map.side },
-        index: { id: mapId, picture: false, minimap: false, players: seats(map.players), ...campaign },
+        index: {
+          id: mapId,
+          fingerprint,
+          picture: false,
+          minimap: false,
+          players: seats(map.players),
+          ...campaign,
+        },
       };
     }
     const copy = closest(shipped, map, index + revision);
@@ -363,14 +372,17 @@ export function mockCatalogue(options: MockCatalogueOptions) {
     const scriptFile = join(options.contentDir, 'maps', `${copy.row.id}.script.json`);
     const script: unknown = existsSync(scriptFile) ? JSON.parse(readFileSync(scriptFile, 'utf8')) : null;
     const { campaign: _shippedCampaign, ...row } = copy.row;
+    const fingerprint = mapDocumentsFingerprint({ map: terrain, script });
     return {
       mapId,
-      fingerprint: jsonFingerprint({ map: terrain, script }),
+      folder: mapId,
+      fingerprint,
       languages: [...spec.languages],
       cells: { width: copy.width, height: copy.height },
       index: {
         ...row,
         id: mapId,
+        fingerprint,
         minimap: false,
         provenance: { kind: 'catalog', folder: `Maps/${copy.row.id}` },
         ...campaign,

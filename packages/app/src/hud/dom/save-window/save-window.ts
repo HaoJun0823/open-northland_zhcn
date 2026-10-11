@@ -46,7 +46,9 @@ export function createSaveWindow(deps: SaveWindowDeps): MenuPageView {
   let listed: readonly SaveSlotInfo[] | null = null;
   const slotNamed = (raw: string): SaveSlotInfo | null => {
     const name = sanitizedSaveName(raw);
-    return listed?.find((slot) => slot.name === name) ?? null;
+    const selected = sheet.selected();
+    if (selected !== null && selected.name === name) return selected;
+    return listed?.find((slot) => slot.id === name) ?? null;
   };
   const showHint = (): void => {
     const overwrites = slotNamed(input.value) !== null;
@@ -134,7 +136,7 @@ export function createSaveWindow(deps: SaveWindowDeps): MenuPageView {
       // Exporting and compressing a real map's world blocks the frame, so say so before it starts.
       progress(copy.saving);
       await nextPaint();
-      const outcome = await deps.saveLoad.saveGame(name);
+      const outcome = await deps.saveLoad.saveGame(slotNamed(name)?.id ?? name);
       if (outcome.kind !== 'saved') return hud.saveFailed;
       input.value = name;
       // The written slot comes up selected, so exporting it is the next click.

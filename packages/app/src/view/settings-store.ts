@@ -38,6 +38,9 @@ import {
  * session-shaping values directly from here rather than through URL params.
  */
 
+/** Zero disables autosaving; other values count minutes of simulation time. */
+export type AutosaveMinutes = 0 | 5 | 10 | 15 | 30;
+
 /** Drawn-frame cap in frames per second; `null` follows the display's own refresh rate. */
 export type FpsLimit = 30 | 60 | null;
 
@@ -116,6 +119,7 @@ export interface MenuSettings {
   readonly originalGameLabel: string | null;
   /** The name of the folder the player picked in a browser, which never learns its path. */
   readonly originalGameFolder: string | null;
+  readonly autosaveMinutes: AutosaveMinutes;
 }
 
 /** The desktop game, known by its shell's bridge, owns its window and keeps sounding behind another
@@ -169,6 +173,7 @@ export function defaultSettings(): MenuSettings {
     originalGameVerified: false,
     originalGameLabel: null,
     originalGameFolder: null,
+    autosaveMinutes: 0,
   };
 }
 
@@ -258,6 +263,13 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
   if (typeof data !== 'object' || data === null) return defaults;
   const record = data as Record<string, unknown>;
   return {
+    autosaveMinutes:
+      record.autosaveMinutes === 5 ||
+      record.autosaveMinutes === 10 ||
+      record.autosaveMinutes === 15 ||
+      record.autosaveMinutes === 30
+        ? record.autosaveMinutes
+        : 0,
     displayMode: record.displayMode === 'fullscreen' ? 'fullscreen' : 'window',
     renderScale: clampRenderScale(record.renderScale),
     uiScaleFactor: clampFactor(record.uiScaleFactor),

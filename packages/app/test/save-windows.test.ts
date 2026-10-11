@@ -167,6 +167,20 @@ describe('save window', () => {
     expect(saveLoad.saveGame).not.toHaveBeenCalled();
   });
 
+  it('overwrites the selected autosave even when a manual save has the same display name', async () => {
+    const copy = messages().saveList;
+    const autoId = '/autosave/"here"/1';
+    const { menu, saveLoad } = mount([slot('Autosave 1', 9), { ...slot('Autosave 1', 5), id: autoId }]);
+    menu.openPage('save');
+    const save = page('save');
+    await vi.waitFor(() => expect(rowNames(save)).toEqual(['Autosave 1', 'Autosave 1']));
+    save.querySelectorAll<HTMLButtonElement>('.on-saves__pick')[1]?.click();
+    button(copy.save, save).click();
+    await vi.waitFor(() => question());
+    button(copy.overwrite, question()).click();
+    await vi.waitFor(() => expect(saveLoad.saveGame).toHaveBeenCalledWith(autoId));
+  });
+
   it('deletes through a bin without taking over the name field, then offers a fresh name', async () => {
     const copy = messages().saveList;
     const { menu } = mount([slot('Keep', 5), slot('Drop', 6)]);

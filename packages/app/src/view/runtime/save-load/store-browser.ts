@@ -1,3 +1,5 @@
+import { messages } from '../../../i18n/index.js';
+import { autosaveNumber } from './autosave-slots.js';
 import { isSaveBytes, type SaveBytes } from './codec.js';
 import { completed, openDb } from './idb.js';
 import { newestFirst, type SaveSlotInfo, type SaveSlotMeta, type SaveStore } from './store.js';
@@ -40,7 +42,9 @@ export function browserSaveStore(): SaveStore {
       const slots: SaveSlotInfo[] = [];
       keys.result.forEach((key, i) => {
         if (typeof key !== 'string') return;
-        slots.push({ id: key, name: key, ...storedMetaOf(values.result[i]) });
+        const auto = autosaveNumber(key);
+        const name = auto === null ? key : `${messages().mainMenu.settings.autosave} ${auto}`;
+        slots.push({ id: key, name, ...storedMetaOf(values.result[i]) });
       });
       return newestFirst(slots);
     },

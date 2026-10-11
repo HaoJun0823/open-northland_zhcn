@@ -137,6 +137,7 @@ import { trackCanvasPointer } from './pointer-tracker.js';
 import type { RafLoop } from './raf-loop.js';
 import { createViewReadModels } from './read-models.js';
 import { roadBuiltAt } from './road-nodes.js';
+import { createAutosave } from './save-load/autosave.js';
 import { createSaveLoadSession, type SaveLoadSessionOptions } from './save-load/index.js';
 import { relatedWorldLoader } from './save-load/related-world.js';
 import { worldThumbnail } from './save-load/thumbnail.js';
@@ -1174,6 +1175,12 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       audioStats: () => soundDriver?.stats ?? null,
     });
 
+    const autosave = createAutosave(
+      saveLoad,
+      host.tick,
+      liveSettings.settings.current().autosaveMinutes,
+      lifetime.signal,
+    );
     const shortfallLook = createShortfallLook();
     // This mount owns construction; the loop owns the pinned per-frame order.
     loop = startFrameLoop({
@@ -1181,6 +1188,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         ...deps,
         onEvents,
         onFrame: (snapshot) => {
+          autosave.update(snapshot.tick, liveSettings.settings.current().autosaveMinutes);
           netOverlays?.refresh();
           followLink?.();
           deps.onFrame?.(snapshot);

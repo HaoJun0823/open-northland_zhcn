@@ -1,4 +1,5 @@
 import { TICKS_PER_SECOND } from '@open-northland/sim';
+import { autosaveNumber } from './autosave-slots.js';
 
 /** Pure formatting and naming rules shared by the in-game save panels and the menu's load screen. */
 
@@ -69,6 +70,8 @@ const SAVE_FILE_SUFFIXES = ['.json.gz', '.json', '.gz'] as const;
 
 /** The list's display name: a file basename without its save suffix. */
 export function displayNameOf(file: string): string {
+  const auto = autosaveNumber(file);
+  if (auto !== null) return `Autosave ${auto}`;
   for (const suffix of SAVE_FILE_SUFFIXES) {
     if (file.length > suffix.length && file.endsWith(suffix)) return file.slice(0, -suffix.length);
   }

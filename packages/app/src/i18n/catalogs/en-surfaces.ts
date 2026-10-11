@@ -155,7 +155,13 @@ export const enSurfaces = {
       startNeedsSeat: 'Take a seat first',
     },
     settings: {
+      autosave: 'Autosave',
+      autosaveOff: 'Off',
+      autosaveEvery: 'Every {n} min',
+      autosaveHint:
+        'Game time; pausing stops the countdown. Keeps the last three autosaves for each map. Remembered for future games, including multiplayer.',
       tabs: {
+        saving: 'Saving',
         graphics: 'Graphics',
         audio: 'Sound',
         gameplay: 'Gameplay',

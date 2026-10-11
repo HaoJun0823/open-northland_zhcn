@@ -8,10 +8,13 @@ import {
   type SaveGame,
   type Simulation,
   serializeSaveGame,
+  TICKS_PER_SECOND,
 } from '@open-northland/sim';
 import { describe, expect, it, vi } from 'vitest';
 import { runDemoWorld } from '../src/game/world/index.js';
 import { inlineSessionHost } from '../src/session/index.js';
+import { createAutosave } from '../src/view/runtime/save-load/autosave.js';
+import { autosaveSlots } from '../src/view/runtime/save-load/autosave-slots.js';
 import { stagedSaveFrom } from '../src/view/runtime/save-load/boot.js';
 import {
   compressSaveText,
@@ -222,6 +225,24 @@ describe('stagedSaveFrom', () => {
 });
 
 describe('saveLoadSession save flow', () => {
+  it('automatically stores and shares a restorable session without pausing its shared clock', async () => {
+    const sim = demoSim();
+    const shared = vi.fn(async (_file: SaveFile) => undefined);
+    const h = harness(sim, { sessionMetadata: () => ({ roster: ['Ania', 'Jan'] }), onSaved: shared });
+    const scheduler = createAutosave(h.session, sim.tick, 5, new AbortController().signal);
+    scheduler.update(sim.tick + 5 * 60 * TICKS_PER_SECOND, 5);
+    await vi.waitFor(() => expect(shared).toHaveBeenCalledTimes(1));
+    const id = autosaveSlots(WORLD_TOKEN)[0];
+    if (id === undefined) throw new Error('Missing autosave slot');
+    const file = h.store.get(id);
+    if (file === undefined) throw new Error('Autosave not stored');
+    const restored = parseSaveGame(JSON.parse(await decodeSaveText(file.bytes)));
+    expect(restored.header.session).toEqual({ roster: ['Ania', 'Jan'] });
+    expect(shared.mock.calls[0]?.[0].bytes).toEqual(file.bytes);
+    expect(h.paused()).toBe(false);
+    expect(await h.session.loadSave(id)).toEqual({ kind: 'loading' });
+  });
+
   it('shares the exact captured save after storage, even when simulation advances during compression', async () => {
     const sim = demoSim();
     const tick = sim.tick;

@@ -502,6 +502,7 @@ export class WorldRenderer {
       lifeHearts,
       groupNumbers: this.groupNumbersShown ? groupNumbers : NO_GROUP_NUMBERS,
     });
+    this.pool.coverGroundPiles(this.marks.collapseGroundCover());
     this.chrome.resize(this.app.screen.width, this.app.screen.height);
     this.hud.draw(hud);
     this.groundWaves.update(

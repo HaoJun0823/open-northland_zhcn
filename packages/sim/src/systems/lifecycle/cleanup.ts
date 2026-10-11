@@ -41,7 +41,7 @@ export const cleanupSystem: System = (world, ctx) => {
 /**
  * The teardown seam combat razing and the player's `demolish` command share: release every bound settler,
  * announce it, remove the building, and heap whatever was inside plus its {@link razeSalvageOf} materials
- * on the ground where it stood once its collapse ends. The event is emitted before the destroy so the
+ * on the ground where it stood partway through its collapse. The event is emitted before the destroy so the
  * entity's `Owner`, `Position`, and `Building` are still readable.
  */
 export function razeBuilding(world: World, ctx: SystemContext, e: Entity): void {

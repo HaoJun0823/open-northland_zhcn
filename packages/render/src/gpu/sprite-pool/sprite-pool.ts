@@ -37,6 +37,7 @@ import type { TextureCache } from '../texture-cache.js';
 import { restoreStash, type StashedVisibility, stashHidden } from '../visibility.js';
 import { LayerBinder } from './bind-layers.js';
 import { FrameEpoch } from './bind-stamp.js';
+import { GroundPileCover } from './ground-pile-cover.js';
 import { coatBody } from './blood-coats.js';
 import { damageScaffoldLayers } from './building-layers.js';
 import { atRest } from './motion.js';
@@ -177,6 +178,7 @@ function pooledDepth(pe: PooledEntity, item: DrawItem): number {
 
 export class SpritePool {
   private readonly pool = new Map<number, PooledEntity>();
+  private readonly groundPileCover = new GroundPileCover();
   /** The pooled entities currently attached to {@link spriteLayer}, kept in sync with each entity's
    *  `attached` flag. */
   private readonly attached = new Set<PooledEntity>();
@@ -661,6 +663,11 @@ export class SpritePool {
     }
   }
 
+  /** Apply after reconciliation and collapse drawing, before the world renders. */
+  coverGroundPiles(covers: readonly Viewport[]): void {
+    this.groundPileCover.apply(this.lastItems, this.pool, covers);
+  }
+
   captureBuildingDamage(ref: number): readonly FallenBody[] | undefined {
     const pe = this.pool.get(ref);
     if (pe === undefined || pe.paletted) return undefined;
@@ -840,6 +847,7 @@ export class SpritePool {
    * the sprite layer can't reach.
    */
   destroy(): void {
+    this.groundPileCover.clear();
     this.bloodCoats.setEnabled(false);
     this.buildingDamage.destroy();
     for (const pe of this.pool.values()) {

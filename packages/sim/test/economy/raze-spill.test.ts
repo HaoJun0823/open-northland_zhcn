@@ -135,7 +135,7 @@ describe('a razed building spills its contents on the ground', () => {
     expect(new Set(spilled.map((h) => h.node)).size).toBe(spilled.length);
   });
 
-  it('holds the goods back until the collapse has sunk the building', () => {
+  it('holds the goods back until the salvage delay elapses', () => {
     const sim = mappedSim();
     const hut = stockedHut(sim, ANCHOR, [[WOOD, 4]]);
     sim.enqueueSetup({ kind: 'demolish', building: hut });

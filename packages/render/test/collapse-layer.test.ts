@@ -82,11 +82,11 @@ const razed = (
 const AT = { hx: 4, hy: 6 };
 
 describe('foldBuildingCollapses', () => {
-  it('clears the building body when the simulation releases its goods, while dust still settles', () => {
+  it('keeps the body falling when salvage lands underneath it', () => {
     const [collapse] = foldBuildingCollapses([], [razed(9)], 100);
     if (collapse === undefined) throw new Error('expected a collapse');
-    expect(collapseProgress(collapse, 100 + RUIN_COLLAPSE_TICKS - 1)).toBeLessThan(1);
-    expect(collapseProgress(collapse, 100 + RUIN_COLLAPSE_TICKS)).toBe(1);
+    expect(collapseProgress(collapse, 100 + RUIN_COLLAPSE_TICKS)).toBeGreaterThan(0);
+    expect(collapseProgress(collapse, 100 + RUIN_COLLAPSE_TICKS)).toBeLessThan(1);
     expect(foldBuildingCollapses([collapse], [], 100 + RUIN_COLLAPSE_TICKS)).toHaveLength(1);
   });
 
@@ -163,15 +163,19 @@ describe('CollapseLayer', () => {
     const buffers = [...mesh.geometry.buffers];
     const original = mesh.geometry.getBuffer('aPosition').data.slice();
     expect(mesh.alpha).toBe(0.7);
+    expect(layer.groundCover()).toHaveLength(1);
     layer.draw(FLAT, { minX: 1e6, minY: 1e6, maxX: 2e6, maxY: 2e6 }, COLLAPSE_TICKS / 2);
     expect(node.visible).toBe(false);
+    expect(layer.groundCover()).toHaveLength(0);
     expect(mesh.geometry.getBuffer('aPosition').data).toEqual(original);
     layer.draw(FLAT, VIEW_ALL, COLLAPSE_TICKS * 0.95);
     expect(node.visible).toBe(true);
+    expect(layer.groundCover()).toHaveLength(1);
     expect(mesh.geometry.getBuffer('aPosition').data).toEqual(original);
     expect(mesh.position).toMatchObject({ x: 0, y: -40 });
     expect(mesh.alpha).toBe(0.7);
     layer.draw(FLAT, VIEW_ALL, COLLAPSE_LIFETIME_TICKS);
+    expect(layer.groundCover()).toHaveLength(0);
     expect(releaseBody).toHaveBeenCalledOnce();
     expect(releaseAccessory).toHaveBeenCalledOnce();
     expect(mesh.destroyed).toBe(true);

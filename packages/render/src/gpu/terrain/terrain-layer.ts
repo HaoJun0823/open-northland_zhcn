@@ -48,7 +48,9 @@ const COVER_TEXEL_BYTES = 4;
 const COVER_SHADING_CHANNELS = 3;
 
 export class TerrainLayer {
-  readonly container = new Container();
+  /** Its own Pixi render group: a block shown or hidden by {@link cull}, on a pan or for each portrait
+   *  inset's re-cull, rebuilds this short list of block meshes instead of the whole world's. */
+  readonly container = new Container({ isRenderGroup: true });
   private chunks: TerrainChunk[] = [];
   private readonly vertexColors = new TerrainVertexColors();
   /** The grass default until a map is loaded. */

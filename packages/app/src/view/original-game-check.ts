@@ -3,9 +3,34 @@ import { servedByBrowser } from './host.js';
 import { type MenuSettings, readStoredSettings } from './settings-store.js';
 
 /**
- * The browser build asks once, before the menu, for a folder holding an original game; the menu owns
- * the screen. The desktop shell runs its own check before any window opens.
+ * Before the menu, a player without a known original game sees the gate screen, which the menu owns.
+ * A browser remembers a passed check in the settings; the desktop shell keeps it in its profile and
+ * answers through its bridge, after looking for a Steam or GOG install before the window opened.
  */
+
+export interface DesktopOriginalGameStatus {
+  /** False for a developer's unpackaged shell, which skips the check. */
+  readonly required: boolean;
+  readonly verified: boolean;
+  readonly label: string | null;
+}
+
+export interface DesktopOriginalGamePick {
+  readonly verified: boolean;
+  readonly label: string | null;
+  /** The player closed the shell's folder dialog without choosing. */
+  readonly cancelled: boolean;
+}
+
+/** `window.desktop.originalGame`: the shell's folder dialog runs the rule and records a pass itself. */
+export interface DesktopOriginalGame {
+  status(): Promise<DesktopOriginalGameStatus>;
+  pickFolder(): Promise<DesktopOriginalGamePick>;
+}
+
+export function desktopOriginalGame(): DesktopOriginalGame | null {
+  return window.desktop?.originalGame ?? null;
+}
 
 /** Entries that start a game straight from a link; scenes, galleries and `shot` stay open for tooling. */
 const CHECKED_ROUTES: readonly RouteId[] = ['map', 'relay'];
@@ -26,20 +51,25 @@ export function originalGameCheckEnabled(
   return production || new URLSearchParams(search).has(ORIGINAL_GAME_CHECK_PARAM);
 }
 
-export function originalGameCheckOwed(
+export async function originalGameCheckOwed(
   settings: Pick<MenuSettings, 'originalGameVerified'> = readStoredSettings(),
   enabled: boolean = originalGameCheckEnabled(),
-): boolean {
+  desktop: DesktopOriginalGame | null = desktopOriginalGame(),
+): Promise<boolean> {
+  if (desktop !== null) {
+    const status = await desktop.status();
+    return status.required && !status.verified;
+  }
   return servedByBrowser() && enabled && !settings.originalGameVerified;
 }
 
 /** The menu search a checked entry sends an unverified visitor to; null when the entry may open. */
-export function originalGameRedirect(
+export async function originalGameRedirect(
   route: RouteId,
   params: URLSearchParams,
-  owed: () => boolean = originalGameCheckOwed,
-): string | null {
-  if (!CHECKED_ROUTES.includes(route) || !owed()) return null;
+  owed: () => Promise<boolean> = () => originalGameCheckOwed(),
+): Promise<string | null> {
+  if (!CHECKED_ROUTES.includes(route) || !(await owed())) return null;
   const menu = new URLSearchParams();
   for (const key of [...KEPT_PARAMS, ORIGINAL_GAME_CHECK_PARAM]) {
     const value = params.get(key);

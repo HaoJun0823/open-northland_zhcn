@@ -89,6 +89,8 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
   const tribeNames = adoptStoredSettings(params);
   // The graphics programs compile while the player is in the menu, so a map opens without that wait.
   warmGraphicsInBackground();
+  // Asked before the first screen; the desktop answers over IPC.
+  const gateOwed = originalGameCheckOwed(menuSettings());
   await tribeNames;
   // Owns the handlers this module binds outside `root`, so `closeMenu` releases them in one step.
   const scope = new AbortController();
@@ -197,7 +199,7 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
     fullscreenPrompt.relabel();
   };
   const firstScreen: MenuScreen = params.get('menu') === 'multiplayer' ? 'multiplayer' : 'main';
-  if (originalGameCheckOwed(menuSettings())) {
+  if (await gateOwed) {
     // The gate stands in for the first screen and darkens like a sub-screen; passing it opens the menu.
     root.classList.add('is-sub');
     content.replaceChildren(originalGameGateScreen(updateSettings, () => show(firstScreen)));

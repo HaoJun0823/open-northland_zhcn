@@ -44,7 +44,7 @@ export async function runEntry(
   let guarded = false;
   try {
     const route = routeFor(params);
-    const redirect = originalGameRedirect(route.id, params);
+    const redirect = await originalGameRedirect(route.id, params);
     if (redirect !== null) {
       window.location.replace(redirect);
       return;

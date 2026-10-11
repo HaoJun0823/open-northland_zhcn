@@ -7,6 +7,7 @@ import {
   type IpcMainInvokeEvent,
   ipcMain,
   screen,
+  shell,
 } from 'electron';
 import {
   FULLSCREEN_CHANGED_CHANNEL,
@@ -14,16 +15,29 @@ import {
   SET_FULLSCREEN_CHANNEL,
 } from './fullscreen-channels.js';
 import { leavePromptFor } from './leave-prompt.js';
+import {
+  folderPickProperties,
+  type OriginalGameRecord,
+  originalGameStatus,
+  pickOriginalGame,
+} from './original-game/gate.js';
+import { ORIGINAL_GAME_STATUS_CHANNEL, PICK_ORIGINAL_GAME_CHANNEL } from './original-game-channels.js';
 import { GAME_URL } from './protocol.js';
 import { isAppUrl } from './protocol-routing.js';
-import { isFullscreenChord, isGameSender, maximizedAfter, setFullScreen } from './window-control.js';
+import {
+  isFullscreenChord,
+  isGameSender,
+  maximizedAfter,
+  opensInSystemBrowser,
+  setFullScreen,
+} from './window-control.js';
 import { placeWindow, readWindowState, WINDOW_STATE_VERSION, writeWindowState } from './window-state.js';
 
 /** Button order of the leave dialog; staying is the default and what Escape picks. */
 const LEAVE_BUTTON = 0;
 const STAY_BUTTON = 1;
 
-export function createWindow(statePath: string): BrowserWindow {
+export function createWindow(statePath: string, originalGame: OriginalGameRecord): BrowserWindow {
   const state = readWindowState(statePath);
   const workAreas = screen.getAllDisplays().map((display) => display.workArea);
   const win = new BrowserWindow({
@@ -81,6 +95,18 @@ export function createWindow(statePath: string): BrowserWindow {
     if (!fromGame(event) || typeof active !== 'boolean') return undefined;
     return setFullScreen(win, active);
   });
+  ipcMain.handle(ORIGINAL_GAME_STATUS_CHANNEL, (event) =>
+    fromGame(event) ? originalGameStatus(originalGame) : undefined,
+  );
+  ipcMain.handle(PICK_ORIGINAL_GAME_CHANNEL, (event) => {
+    if (!fromGame(event)) return undefined;
+    return pickOriginalGame(originalGame, async () => {
+      const picked = await dialog.showOpenDialog(win, {
+        properties: folderPickProperties(process.platform),
+      });
+      return picked.canceled ? undefined : picked.filePaths[0];
+    });
+  });
   win.on('enter-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, true));
   win.on('leave-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, false));
   win.webContents.on('before-input-event', (event, input) => {
@@ -104,7 +130,10 @@ export function createWindow(statePath: string): BrowserWindow {
     if (choice === LEAVE_BUTTON) event.preventDefault();
   });
 
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (opensInSystemBrowser(url)) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
   win.webContents.on('will-navigate', (event, target) => {
     if (!isAppUrl(target)) event.preventDefault();
   });

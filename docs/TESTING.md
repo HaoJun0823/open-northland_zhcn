@@ -272,7 +272,10 @@ redirect. Every browser harness that opens the menu or a map seeds the flag thro
 `npm run test:desktop` builds the app and shell, then launches Electron on `app://` with an isolated
 temporary profile. It checks menu map previews, both sprite URL spellings, and save → relaunch → load
 with the same tick and state hash, and that the window opens fullscreen on a fresh profile, follows the
-settings switch and Alt+Enter, ignores Escape, and reopens in the mode it closed in. It needs converted
+settings switch and Alt+Enter, ignores Escape, and reopens in the mode it closed in. A second launch
+finds no original game, so the window opens on the gate screen; it checks that a store link goes to
+the system browser and that picks answered through a stubbed folder dialog show the failure line, then
+open the menu and record the install. It needs converted
 content including `magiczny_las`, opens a real fullscreen window, and runs locally rather than in CI. `ON_CONTENT_DIR` selects the content tree.
 
 This exercises the built shell; installer resource inclusion and visual/audio quality still need

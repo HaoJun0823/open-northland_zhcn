@@ -42,3 +42,10 @@ export const GAME_TITLES: Readonly<Record<OriginalGameId, string>> = {
   northland: 'Cultures: Northland',
   wonders: 'Cultures: 8th Wonder of the World',
 };
+
+/** The player-facing name of a recognized release, such as `Cultures: Northland (PL)`; null when unlisted. */
+export function releaseLabel(game: OriginalGameId | undefined, edition: string | undefined): string | null {
+  if (game === undefined) return null;
+  const title = GAME_TITLES[game];
+  return edition === undefined ? title : `${title} (${edition})`;
+}

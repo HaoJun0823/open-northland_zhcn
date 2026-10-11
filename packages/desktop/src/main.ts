@@ -7,9 +7,9 @@ import {
   hostCandidateEnvironment,
   ORIGINAL_GAME_DIR_ENV,
   originalGameCheckWanted,
+  recognizeFolder,
 } from './original-game/detect.js';
-import { passOriginalGameGate } from './original-game/gate.js';
-import { promptForInstall } from './original-game/prompt.js';
+import { type OriginalGameRecord, rememberDetectedInstall } from './original-game/gate.js';
 import {
   ORIGINAL_GAME_STATE_FILE,
   readOriginalGameState,
@@ -45,22 +45,16 @@ if (app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(menu === null ? null : Menu.buildFromTemplate([...menu]));
     handleAppProtocol(roots);
     const originalGamePath = join(app.getPath('userData'), ORIGINAL_GAME_STATE_FILE);
-    const passed =
-      !originalGameCheckWanted(app.isPackaged, process.env) ||
-      (await passOriginalGameGate({
-        readState: () => readOriginalGameState(originalGamePath),
-        detect: () =>
-          detectInstall(process.env[ORIGINAL_GAME_DIR_ENV], () =>
-            installCandidates(hostCandidateEnvironment()),
-          ),
-        prompt: promptForInstall,
-        writeState: (state) => writeOriginalGameState(originalGamePath, state),
-      }));
-    if (!passed) {
-      app.quit();
-      return;
-    }
-    mainWindow = createWindow(join(app.getPath('userData'), WINDOW_STATE_FILE));
+    const originalGame: OriginalGameRecord = {
+      required: originalGameCheckWanted(app.isPackaged, process.env),
+      readState: () => readOriginalGameState(originalGamePath),
+      writeState: (state) => writeOriginalGameState(originalGamePath, state),
+      recognize: recognizeFolder,
+    };
+    await rememberDetectedInstall(originalGame, () =>
+      detectInstall(process.env[ORIGINAL_GAME_DIR_ENV], () => installCandidates(hostCandidateEnvironment())),
+    );
+    mainWindow = createWindow(join(app.getPath('userData'), WINDOW_STATE_FILE), originalGame);
   });
 } else {
   app.quit();

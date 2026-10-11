@@ -1,3 +1,16 @@
+import type { DesktopFullscreen } from './fullscreen.js';
+import type { DesktopOriginalGame } from './original-game-check.js';
+
+declare global {
+  interface Window {
+    /** The desktop shell's preload bridge; absent in a browser. */
+    readonly desktop?: {
+      readonly fullscreen: DesktopFullscreen;
+      readonly originalGame: DesktopOriginalGame;
+    };
+  }
+}
+
 /** The schemes a browser serves the app from; the desktop shell serves its own. */
 const BROWSER_PROTOCOLS: readonly string[] = ['http:', 'https:'];
 

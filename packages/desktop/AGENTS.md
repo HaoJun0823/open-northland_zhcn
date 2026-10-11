@@ -8,17 +8,21 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
 - The web app stays shell-agnostic and never imports desktop code. The shell owns its window: it
   opens fullscreen on a profile's first launch and reopens in the mode, bounds and display it closed
   with (`src/window-state.ts`). Its preload exposes only `window.desktop.fullscreen` (read, set,
-  subscribe), which the app feature-detects; keep that bridge that narrow, validate every IPC
-  argument and sender, and keep sandbox and context isolation on. Saves live in the page's IndexedDB
+  subscribe) and `window.desktop.originalGame` (status, pick a folder), which the app
+  feature-detects; keep that bridge that narrow, validate every IPC argument and sender, and keep
+  sandbox and context isolation on. The window opens no second window: an `https:` link goes to
+  the system browser. Saves live in the page's IndexedDB
   like in a browser.
 - Serve the app and the content through `app://` as static files: the app root first, then the
   content root, both laid out exactly as the app fetches them. Content and app are read-only
   resources. The shell's own code writes only the window state file and `original-game.json` in
   Electron's profile, beside the page's IndexedDB that holds the saves.
-- Before the window opens, a packaged build (or a run with `ON_ORIGINAL_GAME_CHECK=1`) requires an
-  installed original game through `src/original-game/`: the profile's `original-game.json`, else
-  detection (or only the folder `ON_ORIGINAL_GAME_DIR` names), else a blocking dialog. Its detection, state and gate modules import nothing from `electron`; only
-  `prompt.ts` does.
+- A packaged build (or a run with `ON_ORIGINAL_GAME_CHECK=1`) requires an installed original game
+  through `src/original-game/`. Before the window opens, a profile without `original-game.json`
+  runs detection (or checks only the folder `ON_ORIGINAL_GAME_DIR` names) and records a hit. The
+  window opens either way; while the record is missing, the app shows its gate screen, whose pick
+  button opens the shell's folder dialog. `src/original-game/` imports nothing from `electron`;
+  `window.ts` binds its handlers to IPC and the dialog.
 - `src/paths.ts` owns where the two trees are: the packaged app's `resources/app` and
   `resources/content` (the `extraResources` of `electron-builder.yml`), else the checkout's
   `packages/app/dist` and `content/` with `ON_CONTENT_DIR` honoured like Vite does. Do not duplicate

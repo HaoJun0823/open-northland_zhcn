@@ -62,11 +62,15 @@ The root [`AGENTS.md`](../../AGENTS.md) still applies.
   one relayed session must enqueue the same setup. The `?relay=` entry assembles the shared map boot
   on the main thread when the worker's client asks for a world, and posts its inputs to the network
   worker, which builds, adopts and serves it.
-- A browser-served production page shows `entries/main-menu/original-game/`'s folder check before
-  the menu until `originalGameVerified` is set in the menu settings store; `launch.ts` sends an
-  unverified `?map=` or `?relay=` visit to the menu. A dev server checks only when the URL carries
-  `originalGameCheck`, and browser harnesses seed the flag (`scripts/original-game-gate.mjs`).
-  Folder access goes through the `@open-northland/ownership` rule and reads only file heads.
+- `entries/main-menu/original-game/` is the one folder-check screen, shown before the menu while
+  the check is owed; `launch.ts` sends an owed `?map=` or `?relay=` visit to the menu. A
+  browser-served production page owes it until `originalGameVerified` is set in the menu settings
+  store; a dev server checks only when the URL carries `originalGameCheck`, and browser harnesses
+  seed the flag (`scripts/original-game-gate.mjs`). Under the desktop shell,
+  `window.desktop.originalGame` decides instead: `status()` owes the check when it is required and
+  unverified, and the pick button calls `pickFolder()`, whose native dialog checks the folder in
+  the shell. Browser folder access goes through the `@open-northland/ownership` rule and reads only
+  file heads.
 - The menu hands over to a game through `swapToEntry`, never by assigning `window.location`. A
   document navigation ends the browser's fullscreen grant, and the next document can only take it
   back on the player's next click. Entries that still navigate owe the player that flash.

@@ -2,9 +2,16 @@ import type { FolderReader } from '@open-northland/ownership';
 import { diag } from '../../../diag/index.js';
 import { messages } from '../../../i18n/index.js';
 import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../../view/brand-art.js';
+import { type DesktopOriginalGame, desktopOriginalGame } from '../../../view/original-game-check.js';
 import { node } from '../dom.js';
 import { directoryHandleReader, directoryPicker, fileListReader } from './browser-folder-reader.js';
-import { type OriginalGameGateStatus, type OriginalGameRecord, originalGameGate } from './gate.js';
+import {
+  type InstallCheck,
+  type OriginalGameGateStatus,
+  type OriginalGameRecord,
+  originalGameGate,
+  readerCheck,
+} from './gate.js';
 
 const STORE_PAGES: readonly { readonly name: string; readonly href: string }[] = [
   { name: 'Steam', href: 'https://store.steampowered.com/app/351870/' },
@@ -27,13 +34,22 @@ async function pickWithPicker(): Promise<FolderReader | undefined> {
   }
 }
 
+/** The desktop shell's dialog checks the folder itself; only its answer crosses the bridge. */
+async function pickWithShell(desktop: DesktopOriginalGame): Promise<InstallCheck | undefined> {
+  const picked = await desktop.pickFolder();
+  if (picked.cancelled) return undefined;
+  return async () => (picked.verified ? { label: picked.label } : undefined);
+}
+
 /**
- * The screen a browser visitor sees before the menu until a picked folder passes the shared rule.
- * The `webkitdirectory` input is the fallback where the directory picker is missing.
+ * The screen shown before the menu until a picked folder passes the shared rule. A browser picks
+ * through its directory picker, or the `webkitdirectory` input where that is missing; the desktop
+ * shell through its own folder dialog.
  */
 export function originalGameGateScreen(
   remember: (record: OriginalGameRecord) => Promise<unknown>,
   onVerified: () => void,
+  desktop: DesktopOriginalGame | null = desktopOriginalGame(),
 ): HTMLElement {
   const copy = messages().mainMenu.originalGame;
   const gate = originalGameGate(remember);
@@ -62,8 +78,8 @@ export function originalGameGateScreen(
     status.textContent =
       next === 'checking' ? copy.checking : next === 'notRecognized' ? copy.notRecognized : '';
   };
-  const check = async (folder: FolderReader | undefined): Promise<void> => {
-    const result = gate.check(folder);
+  const check = async (recognize: InstallCheck | undefined): Promise<void> => {
+    const result = gate.check(recognize);
     show(gate.status);
     const settled = await result;
     show(settled);
@@ -71,15 +87,29 @@ export function originalGameGateScreen(
   };
 
   pick.addEventListener('click', () => {
+    if (desktop !== null) {
+      // The dialog is modal to the window, but a second click could land before it opens.
+      pick.disabled = true;
+      void pickWithShell(desktop)
+        .catch((err: unknown) => {
+          diag.warn('menu', 'original-game gate: the folder dialog failed', err);
+          return undefined;
+        })
+        .then((recognize) => {
+          show(gate.status);
+          return check(recognize);
+        });
+      return;
+    }
     if (directoryPicker() === undefined) {
       input.click();
       return;
     }
-    void pickWithPicker().then(check);
+    void pickWithPicker().then((folder) => check(folder === undefined ? undefined : readerCheck(folder)));
   });
   input.addEventListener('change', () => {
     const files = input.files;
-    void check(files === null || files.length === 0 ? undefined : fileListReader(files));
+    void check(files === null || files.length === 0 ? undefined : readerCheck(fileListReader(files)));
     // A second pick of the same folder must fire `change` again.
     input.value = '';
   });

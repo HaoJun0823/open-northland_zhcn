@@ -1,28 +1,33 @@
-import {
-  type FolderReader,
-  findInstall,
-  GAME_TITLES,
-  type OriginalInstall,
-} from '@open-northland/ownership';
+import { type FolderReader, findInstall, releaseLabel } from '@open-northland/ownership';
 import type { MenuSettings } from '../../../view/settings-store.js';
 
 export type OriginalGameGateStatus = 'asking' | 'checking' | 'notRecognized' | 'verified';
 
 export type OriginalGameRecord = Pick<MenuSettings, 'originalGameVerified' | 'originalGameLabel'>;
 
+/** A folder that holds an original game, with its release label when the release is listed. */
+export interface RecognizedInstall {
+  readonly label: string | null;
+}
+
+/** Runs the shared rule on one picked folder; `undefined` when the folder holds no game. */
+export type InstallCheck = () => Promise<RecognizedInstall | undefined>;
+
 export interface OriginalGameGate {
   readonly status: OriginalGameGateStatus;
   /** Checks a picked folder; `undefined` is a cancelled pick and leaves the gate as it was. */
-  check(folder: FolderReader | undefined): Promise<OriginalGameGateStatus>;
+  check(recognize: InstallCheck | undefined): Promise<OriginalGameGateStatus>;
 }
 
-export function installLabel(install: OriginalInstall): string | null {
-  if (install.game === undefined) return null;
-  const title = GAME_TITLES[install.game];
-  return install.edition === undefined ? title : `${title} (${install.edition})`;
+/** The browser's check: the rule runs here, over a reader of the picked folder. */
+export function readerCheck(folder: FolderReader): InstallCheck {
+  return async () => {
+    const install = await findInstall(folder);
+    return install === undefined ? undefined : { label: releaseLabel(install.game, install.edition) };
+  };
 }
 
-/** Runs the shared recognition rule on each pick and records the first pass through `remember`. */
+/** Tracks the screen's status across picks and records the first pass through `remember`. */
 export function originalGameGate(
   remember: (record: OriginalGameRecord) => Promise<unknown>,
 ): OriginalGameGate {
@@ -31,15 +36,15 @@ export function originalGameGate(
     get status() {
       return status;
     },
-    async check(folder) {
-      if (folder === undefined || status === 'checking' || status === 'verified') return status;
+    async check(recognize) {
+      if (recognize === undefined || status === 'checking' || status === 'verified') return status;
       status = 'checking';
-      const install = await findInstall(folder).catch(() => undefined);
-      if (install === undefined) {
+      const found = await recognize().catch(() => undefined);
+      if (found === undefined) {
         status = 'notRecognized';
         return status;
       }
-      await remember({ originalGameVerified: true, originalGameLabel: installLabel(install) });
+      await remember({ originalGameVerified: true, originalGameLabel: found.label });
       status = 'verified';
       return status;
     },

@@ -15,4 +15,4 @@ The root [`AGENTS.md`](../../AGENTS.md) applies.
 - The rule keys on data file headers and bundle identifiers, never on an executable: the games
   ship different executables and patched installs replace theirs.
 - `releases.ts` labels a recognized install from its library size. A size outside the table is
-  still an install; the label only feeds the dialog.
+  still an install; the label only feeds the gate screen and the settings record.

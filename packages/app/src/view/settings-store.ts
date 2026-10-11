@@ -110,7 +110,7 @@ export interface MenuSettings {
   readonly netNick: string | null;
   readonly netRelayUrl: string | null;
   readonly debugToolsEnabled: boolean;
-  /** The browser build's one-time check found an original game in a folder the player picked. */
+  /** A folder the player picked passed the original-game check; on the desktop the shell's record decides. */
   readonly originalGameVerified: boolean;
   /** The recognized release, such as `Cultures: Northland (PL)`; null when its library size is unlisted. */
   readonly originalGameLabel: string | null;

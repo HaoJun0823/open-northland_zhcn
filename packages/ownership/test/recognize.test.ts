@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'vitest';
-import { findInstall, isLibraryHead, recognizeInstall } from '../src/index.js';
+import { findInstall, isLibraryHead, recognizeInstall, releaseLabel } from '../src/index.js';
 import { ascii, cifHead, libraryHead, memoryReader } from './memory-reader.js';
 
 const WONDERS_EN_LIBRARY_SIZE = 255_230_793;
@@ -119,5 +119,13 @@ describe('findInstall', () => {
   test('returns nothing for an unrelated folder', async () => {
     const reader = memoryReader({ docs: { 'a.txt': ascii('') }, 'b.txt': ascii('') });
     assert.equal(await findInstall(reader), undefined);
+  });
+});
+
+describe('releaseLabel', () => {
+  test('names a known release with its title and edition', () => {
+    assert.equal(releaseLabel('northland', 'PL'), 'Cultures: Northland (PL)');
+    assert.equal(releaseLabel('wonders', undefined), 'Cultures: 8th Wonder of the World');
+    assert.equal(releaseLabel(undefined, undefined), null);
   });
 });

@@ -28,7 +28,7 @@ export async function recognizeFolder(folder: string): Promise<DetectedInstall |
   return install === undefined ? undefined : { path: join(folder, ...install.path), install };
 }
 
-/** The override alone when set, so a failing one reaches the prompt; else the first recognized candidate. */
+/** The override alone when set, so a failing one reaches the gate screen; else the first recognized candidate. */
 export async function detectInstall(
   override: string | undefined,
   candidates: () => Promise<readonly InstallCandidate[]>,

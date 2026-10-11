@@ -12,17 +12,11 @@ type DisplayMode = MenuSettings['displayMode'];
  * The desktop shell's window fullscreen, exposed by its preload. The shell owns the mode and keeps it
  * across documents and launches; a browser document holds only its own.
  */
-interface DesktopFullscreen {
+export interface DesktopFullscreen {
   isActive(): boolean;
   set(active: boolean): Promise<void>;
   /** Returns the unsubscribe call. */
   subscribe(listener: () => void): () => void;
-}
-
-declare global {
-  interface Window {
-    readonly desktop?: { readonly fullscreen: DesktopFullscreen };
-  }
 }
 
 function desktopFullscreen(): DesktopFullscreen | null {

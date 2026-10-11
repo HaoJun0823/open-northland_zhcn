@@ -5,6 +5,7 @@ import {
   isGameSender,
   type KeyInput,
   maximizedAfter,
+  opensInSystemBrowser,
   setFullScreen,
 } from '../src/window-control.js';
 
@@ -120,5 +121,14 @@ describe('isGameSender', () => {
     expect(isGameSender(false, 'app://game/index.html')).toBe(false);
     expect(isGameSender(true, 'https://example.com/')).toBe(false);
     expect(isGameSender(true, undefined)).toBe(false);
+  });
+});
+
+describe('opensInSystemBrowser', () => {
+  it('hands https pages to the system browser and nothing else', () => {
+    expect(opensInSystemBrowser('https://store.steampowered.com/app/351870/')).toBe(true);
+    for (const url of ['app://game/index.html', 'http://example.com/', 'file:///etc/passwd', 'not a url']) {
+      expect(opensInSystemBrowser(url)).toBe(false);
+    }
   });
 });

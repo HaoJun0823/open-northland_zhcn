@@ -4,9 +4,17 @@ import { resolve } from 'node:path';
 import { loadConfigFromFile } from 'vite';
 import { verifyPreview } from '../packages/app/scripts/dev-verify.mjs';
 import { repoRoot } from './content-dir.mjs';
+import { skipOriginalGameGate } from './original-game-gate.mjs';
 
 /** The browser benchmarks' window, at device scale 1. */
 export const VIEWPORT = { width: 1440, height: 900 };
+
+/** A bench page at device scale 1 that skips the original-game gate, which would otherwise hold `?map=`. */
+export async function openBenchPage(browser) {
+  const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+  await skipOriginalGameGate(page);
+  return page;
+}
 /** A window whose one-minute load per CPU exceeds this at either boundary is void. */
 export const MAX_LOAD_PER_CPU = 1.5;
 /** The seat range a checkpoint stamp may name. */

@@ -9,6 +9,7 @@ import {
   densestBuildings,
   MAX_LOAD_PER_CPU,
   machineLoad,
+  openBenchPage,
   overloaded,
   restoreCheckpoint,
   VIEWPORT,
@@ -248,7 +249,7 @@ try {
   progress('verifying development server and content');
   metadata.preview = await verifyDevServer(previewUrl);
   browser = await chromium.launch({ headless: false, args: ['--mute-audio'] });
-  page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+  page = await openBenchPage(browser);
   page.on('pageerror', (e) => metadata.errors.push(e.message));
   page.on('console', (m) => {
     if (m.type() === 'error') metadata.errors.push(m.text());

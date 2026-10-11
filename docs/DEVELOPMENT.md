@@ -188,7 +188,7 @@ not carried across menu/game switches. The menu's settings screen covers the pla
 so direct query parameters are mainly for reproducible diagnostics.
 
 For HUD checks, use `/?map=magiczny_las&intro=off` to load the map without dismissing the briefing.
-For a playable match or victory checks, use `/?map=magiczny_las&ai=1,2,3,4,5&intro=off`:
+For a playable match or victory checks, use `/?map=magiczny_las&computer=1,2,3,4,5&intro=off`:
 without `ai=`, the other selectable seats are idle and do not count toward elimination, even though
 their settlements remain on the map. Mission scripts still run in both cases, and recorded chapters
 remain available from the mission book. Omit `intro=off` when testing the briefing itself.
@@ -388,7 +388,8 @@ the sampling slows the worker, so read its `simMsPerTick` from an unprofiled run
 its checkout, client build and generated content, derives map,
 seed, AI seats and rules from the checkpoint, and checks the restored hash before every condition.
 It opens muted headed Chromium at 1440×900, device scale 1, with fullscreen disabled. Each window
-restores the same state and warms for five seconds. Run it after other benchmarks finish on an idle
+restores the same state with the frame cap off, so frames follow the display, and warms for five
+seconds. Run it after other benchmarks finish on an idle
 machine; recorded OS load and a repeated dense x3 window help assess stability, but do not certify
 an idle machine or calibrate CPU speed. A window whose one-minute load per CPU exceeds 1.5 at either
 boundary is invalid; the report distinguishes this from camera drift or browser failure. Platforms
@@ -439,8 +440,8 @@ selected, which always opens the settler panel and its portrait, paused and x3; 
 settlers box-selected, paused; `?weather=rain` against `?weather=clear` at x3; zoom 0.35 paused and
 x3. `ON_BENCH_GPU_SCENARIOS=panel-x3,on-x3` runs only those. Selections use the player's own clicks
 and box drags before input is blocked. `report.md` holds the table and `report.json` every repeat.
-The load gate, hidden windows, camera drift, a missing reading or a short selection void a scenario
-and make the command exit nonzero; Windows has no load average, so the report marks the gate
+The load gate, hidden windows, camera drift, a missing GPU reading where the browser exposes the
+timer, or a short selection void a scenario and make the command exit nonzero; Windows has no load average, so the report marks the gate
 unavailable there and the reader judges idleness. Read milliseconds only from an idle machine; the call counts hold
 regardless.
 
@@ -638,8 +639,8 @@ npm run test:desktop    # app:// boot and save/load across a relaunch; requires 
 installers under `packages/desktop/release/`, so the packaged game plays without any content on the
 player's machine.
 
-The shell asks Chromium for the discrete GPU and logs a `GPU:` line at start naming each adapter and
-the active one; the FPS counter's breakdown and `perf().gpu.adapter` name the adapter WebGL draws on.
+The shell asks Chromium for the discrete GPU and logs a `GPU:` line on the terminal it was launched
+from, naming each adapter and the active one (a packaged Windows build has no console for it); the FPS counter's breakdown and `perf().gpu.adapter` name the adapter WebGL draws on.
 On a Windows dual-GPU laptop that still draws on the integrated GPU, set the game's executable to
 "High performance" under Settings > System > Display > Graphics.
 

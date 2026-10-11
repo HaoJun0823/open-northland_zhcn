@@ -15,13 +15,12 @@ import {
   checkpointSession,
   densestBuildings,
   machineLoad,
+  openBenchPage,
   overloaded,
   restoreCheckpoint,
   VIEWPORT,
   verifyDevServer,
 } from './bench-browser-session.mjs';
-import { repoRoot } from './content-dir.mjs';
-import { skipOriginalGameGate } from './original-game-gate.mjs';
 
 const [checkpoint, origin, output = 'bench-out/browser', secondsText = '15'] = process.argv.slice(2);
 if (!checkpoint || !origin || process.argv.length > 6)
@@ -96,8 +95,7 @@ try {
   browser = await chromium.launch({ headless: false, args: ['--mute-audio'] });
   const browserSession = await browser.newBrowserCDPSession();
   const system = await browserSession.send('SystemInfo.getInfo');
-  page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
-  await skipOriginalGameGate(page);
+  page = await openBenchPage(browser);
   const errors = metadata.errors;
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => {
@@ -108,7 +106,14 @@ try {
   const simWorker = workerProfile ? await simWorkerChannel(page) : null;
   async function restore() {
     progress(`restoring checkpoint at tick ${header.tick}`);
-    const restored = await restoreCheckpoint(page, { saveText, header, stateHash, url: previewUrl.href });
+    // Frames follow the display here, so RAF quantiles compare across profiles whatever the stored cap.
+    const restored = await restoreCheckpoint(page, {
+      saveText,
+      header,
+      stateHash,
+      url: previewUrl.href,
+      settings: { fpsLimit: null },
+    });
     progress(`restored tick ${restored.tick}, state hash verified`);
     if (watchedSeat !== null)
       await page.evaluate((seat) => {

@@ -115,6 +115,12 @@ describe('parseStoredSettings', () => {
     expect(parsed.keyBindings).toEqual(DEFAULT_KEY_BINDINGS);
   });
 
+  it('keeps the display-rate frame cap and defaults a missing one', () => {
+    expect(parseStoredSettings('{"fpsLimit":null}').fpsLimit).toBeNull();
+    expect(parseStoredSettings('{"fpsLimit":30}').fpsLimit).toBe(30);
+    expect(parseStoredSettings('{}').fpsLimit).toBe(60);
+  });
+
   it('persists explicit sprite smoothing choices and defaults older settings to on', () => {
     expect(parseStoredSettings('{}').spriteSmoothing).toBe(true);
     expect(parseStoredSettings('{"spriteSmoothing":false}').spriteSmoothing).toBe(false);

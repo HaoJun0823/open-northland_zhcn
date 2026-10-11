@@ -108,6 +108,13 @@ describe('buildPerfReport', () => {
     expect(report.frame.gpuMs).toBe(0);
   });
 
+  it('carries the GPU meter reading and adapter through', () => {
+    expect(buildPerfReport(inputs()).gpu).toEqual({
+      adapter: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)',
+      ms: 3.5,
+    });
+  });
+
   it('flags that profiling inflates the sim milliseconds it just reported', () => {
     expect(buildPerfReport(inputs()).profiling).toBe(true);
     expect(buildPerfReport(inputs({ profiling: false, systems: [] })).systems).toEqual([]);

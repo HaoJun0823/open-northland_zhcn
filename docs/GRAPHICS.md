@@ -23,7 +23,7 @@ database. The game owns only the mapping in
 
 Every profile keeps blood, bone fading and sprite smoothing enabled. Disabling detailed damage
 retains basic smoke; disabling enhanced shadows retains authored shadows. Render scale stays at 1,
-the frame cap follows the display, and HUD/input/audio preferences keep their ordinary defaults.
+the frame cap is 60, and HUD/input/audio preferences keep their ordinary defaults.
 Sharp and bilinear filtering remain available as manual choices; automatic selection uses only xBR
 or Off. The mapping remains a project quality policy requiring game-specific calibration.
 

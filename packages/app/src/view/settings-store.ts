@@ -44,7 +44,7 @@ export type AutosaveMinutes = 0 | 5 | 10 | 15 | 30;
 /** Drawn-frame cap in frames per second; `null` follows the display's own refresh rate. */
 export type FpsLimit = 30 | 60 | null;
 /** 60 by default: a 144 Hz laptop panel would otherwise draw 2.4 times the frames of a 60 Hz one for
- *  no visible gain in an isometric game, on the web and the desktop alike. Owner ruling. */
+ *  no visible gain in an isometric game, on the web and the desktop alike. */
 const DEFAULT_FPS_LIMIT: FpsLimit = 60;
 
 export const RENDER_SCALE_MIN = 0.5;

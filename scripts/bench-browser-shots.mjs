@@ -6,11 +6,10 @@ import {
   cameraAt,
   checkpointSession,
   densestBuildings,
+  openBenchPage,
   restoreCheckpoint,
   VIEWPORT,
 } from './bench-browser-session.mjs';
-import { repoRoot } from './content-dir.mjs';
-import { skipOriginalGameGate } from './original-game-gate.mjs';
 
 /**
  * Paused world screenshots of a checkpoint at fixed cameras, for comparing a render change pixel by
@@ -42,8 +41,7 @@ async function capture(checkpoint, origin, outDir) {
   const browser = await chromium.launch({ headless: false, args: ['--mute-audio'] });
   const report = { checkpoint: resolve(checkpoint), steps, seat, views: {}, errors: [] };
   try {
-    const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
-    await skipOriginalGameGate(page);
+    const page = await openBenchPage(browser);
     page.on('pageerror', (error) => report.errors.push(error.message));
     await page.goto(origin);
     const url = new URL(`?${params}`, origin).href;

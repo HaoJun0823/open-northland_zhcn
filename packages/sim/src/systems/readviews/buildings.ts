@@ -9,7 +9,7 @@ import type { SystemContext } from '../context.js';
 export const HEADQUARTERS_BUILDING_ID = 'headquarters';
 
 /**
- * Siege priority: a headquarters and a defensive tower are auto-targeted on par with an enemy unit,
+ * Siege classes: headquarters and defensive towers precede ordinary buildings in automatic targeting,
  * while `'other'` is the fallback tier a warrior turns on only when nothing better is in sight. An
  * unknown type reads as `'other'`.
  */

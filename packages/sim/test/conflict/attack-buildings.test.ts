@@ -327,7 +327,7 @@ describe('warriors attack enemy buildings', () => {
     expect(sim.world.get(home, Health).hitpoints).toBe(sim.world.get(home, Health).max);
   });
 
-  it('prefers HQ / tower over a nearer plain building (high-value structures are on par with units)', () => {
+  it('prefers HQ / tower over a nearer plain building', () => {
     const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(8, 1) });
     warriorAt(sim, 0, 0, P1);
     const home = buildingAt(sim, 1, 0, HOME, P2); // plain building, adjacent
@@ -339,15 +339,17 @@ describe('warriors attack enemy buildings', () => {
     expect(sim.world.get(home, Health).hitpoints).toBe(sim.world.get(home, Health).max); // spared
   });
 
-  it('takes an enemy fighter before a nearer tower, and a tower before a nearer civilian', () => {
-    const IDLE = 0;
-    const first = new Simulation({ seed: 1, content: siegeContent(), map: grass(8, 1) });
-    const a = warriorAt(first, 0, 0, P1);
-    buildingAt(first, 2, 0, TOWER, P2);
-    const fighter = warriorAt(first, 4, 0, P2);
-    combatSystem(first.world, ctxOf(first));
-    expect(first.world.get(a, Engagement).target).toBe(fighter);
+  it.each([true, false])('picks the nearer fighter or tower (tower nearer: %s)', (towerNearer) => {
+    const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(8, 1) });
+    const soldier = warriorAt(sim, 0, 0, P1);
+    const tower = buildingAt(sim, towerNearer ? 2 : 4, 0, TOWER, P2);
+    const fighter = warriorAt(sim, towerNearer ? 4 : 2, 0, P2);
+    combatSystem(sim.world, ctxOf(sim));
+    expect(sim.world.get(soldier, Engagement).target).toBe(towerNearer ? tower : fighter);
+  });
 
+  it('takes a tower before a nearer civilian', () => {
+    const IDLE = 0;
     const second = new Simulation({ seed: 1, content: siegeContent(), map: grass(8, 1) });
     const b = warriorAt(second, 0, 0, P1);
     warriorAt(second, 1, 0, P2, IDLE);
@@ -355,6 +357,44 @@ describe('warriors attack enemy buildings', () => {
     combatSystem(second.world, ctxOf(second));
     expect(second.world.get(b, Engagement).target).toBe(tower);
   });
+
+  it('an attack-move pursuit turns from a retreating fighter to a nearby tower', () => {
+    const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(24, 4) });
+    const soldier = warriorAt(sim, 0, 0, P1);
+    const fighter = warriorAt(sim, 3, 0, P2);
+    const tower = buildingAt(sim, 6, 1, TOWER, P2, 1_000_000);
+    sim.enqueue(playerCommand(P1, { kind: 'attackMoveUnit', entity: soldier, x: 40, y: 0 }));
+    sim.step();
+    expect(sim.world.get(soldier, Engagement).target).toBe(fighter);
+
+    sim.enqueue(playerCommand(P2, { kind: 'moveUnit', entity: fighter, x: 44, y: 0 }));
+    let turned = false;
+    for (let i = 0; i < 300; i++) {
+      sim.step();
+      if (sim.world.tryGet(soldier, Engagement)?.target === tower) turned = true;
+    }
+    expect(sim.world.isAlive(fighter)).toBe(true);
+    expect(turned).toBe(true);
+    expect(sim.world.get(tower, Health).hitpoints).toBeLessThan(1_000_000);
+    expect(sim.world.get(soldier, Engagement).target).toBe(tower);
+  });
+
+  it.each([false, true])(
+    'keeps battering a tower when a fighter is nearby (explicit order: %s)',
+    (ordered) => {
+      const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(8, 3) });
+      const soldier = warriorAt(sim, 0, 0, P1);
+      const tower = buildingAt(sim, 1, 0, TOWER, P2, 1_000_000);
+      const fighter = warriorAt(sim, 1, 1, P2);
+      sim.world.mut(fighter, Stance).mode = MILITARY_MODE.IGNORE;
+      sim.world.add(soldier, Engagement, { target: tower, repathAt: 0 });
+      if (ordered) sim.enqueue(playerCommand(P1, { kind: 'attackUnit', entity: soldier, target: tower }));
+      for (let i = 0; i < 100; i++) sim.step();
+      expect(sim.world.get(soldier, Engagement).target).toBe(tower);
+      expect(sim.world.get(tower, Health).hitpoints).toBeLessThan(1_000_000);
+      if (ordered) expect(sim.world.get(soldier, AttackOrder).target).toBe(tower);
+    },
+  );
 
   it('honours an explicit attack order on a building beyond sight radius', () => {
     const sim = new Simulation({ seed: 1, content: siegeContent(), map: grass(24, 1) });

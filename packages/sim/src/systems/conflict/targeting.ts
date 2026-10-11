@@ -23,6 +23,7 @@ import { isManningShelter, shelterOccupancy, shelterStillHolds } from '../defenc
 import { herdLeaderOf } from '../movement/herd-leader.js';
 import {
   animalCannotBeAttacked,
+  buildingCombatClass,
   houseBow,
   isAggressiveAnimal,
   isAnimalTribe,
@@ -96,27 +97,33 @@ export function isStructureTarget(world: World, t: Entity): boolean {
   return world.has(t, Building) || world.has(t, Palisade) || world.has(t, Vehicle);
 }
 
-/** A soldier or hero: the kind of enemy a fighter looks for first, and the one that takes it off a target
- *  of any other kind. */
+/** A soldier or hero. */
 export function isFighterTarget(world: World, ctx: SystemContext, t: Entity): boolean {
   return world.has(t, Person) && isFighterJob(ctx.content, world.get(t, Settler).jobType);
 }
 
+/** Owner rule: soldiers, heroes and towers share the first combat priority. */
+export function isPriorityCombatTarget(world: World, ctx: SystemContext, t: Entity): boolean {
+  if (isFighterTarget(world, ctx, t)) return true;
+  const building = world.tryGet(t, Building);
+  return building !== undefined && buildingCombatClass(ctx, building.buildingType) === 'tower';
+}
+
 /** Whether a fighter under `order` may turn aside to an enemy of a higher {@link STRIKE_RANK} than its
- *  target and take the target up again afterwards: an order on anything but a fighter, unless it is a
- *  breach, whose breaker stays on its wall (`palisades/breach.ts`). Owner rule. */
+ *  target and take the target up again afterwards: an order on anything but a fighter or tower,
+ *  unless it is a breach, whose breaker stays on its wall (`palisades/breach.ts`). Owner rule. */
 export function turnsAsideUnder(
   world: World,
   ctx: SystemContext,
   order: { readonly target: Entity; readonly breach?: unknown },
 ): boolean {
-  return order.breach === undefined && !isFighterTarget(world, ctx, order.target);
+  return order.breach === undefined && !isPriorityCombatTarget(world, ctx, order.target);
 }
 
-/** How a fighter ranks the enemies it may turn between, first rank first: an enemy fighter, then a shooting
- *  structure, then anything else. Owner rule: no retarget takes a fighter off a target for one of a lower
+/** How a fighter ranks the enemies it may turn between, first rank first: fighters and towers,
+ *  then other shooting structures, then anything else. Owner rule: no retarget takes a fighter off a target for one of a lower
  *  rank. */
-export const STRIKE_RANK = { FIGHTER: 0, SHOOTER: 1, OTHER: 2 } as const;
+export const STRIKE_RANK = { COMBAT: 0, SHOOTER: 1, OTHER: 2 } as const;
 export type StrikeRank = (typeof STRIKE_RANK)[keyof typeof STRIKE_RANK];
 
 /** The {@link STRIKE_RANK} of `t`. A shooter is a building among `firing()`, the ones shooting this tick
@@ -128,7 +135,7 @@ export function strikeRank(
   t: Entity,
   firing: () => ReadonlySet<Entity>,
 ): StrikeRank {
-  if (isFighterTarget(world, ctx, t)) return STRIKE_RANK.FIGHTER;
+  if (isPriorityCombatTarget(world, ctx, t)) return STRIKE_RANK.COMBAT;
   if (world.has(t, Building)) return firing().has(t) ? STRIKE_RANK.SHOOTER : STRIKE_RANK.OTHER;
   const vehicle = world.tryGet(t, Vehicle);
   return vehicle !== undefined && vehicleWeapon(ctx, vehicle) !== null

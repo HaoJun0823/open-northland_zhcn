@@ -24,7 +24,7 @@ import { frightenKin } from '../../../../../conflict/fright.js';
 import { combatTargetNode } from '../../../../../conflict/target-node.js';
 import {
   firingBuildings,
-  isFighterTarget,
+  isPriorityCombatTarget,
   isValidTarget,
   STRIKE_RANK,
   type StrikeRank,
@@ -148,9 +148,9 @@ export function turnOnAttacker(world: World, ctx: SystemContext, attacker: Entit
     return firing;
   };
   const strikerRank = strikeRank(world, ctx, striker, firingNow);
-  // Below a fighter every other kind ranks alike, so a fighter's blow never reads the firing set.
+  // A first-tier striker outranks all remaining kinds without reading the firing set.
   const rankOf = (t: Entity): StrikeRank =>
-    strikerRank === STRIKE_RANK.FIGHTER && !isFighterTarget(world, ctx, t)
+    strikerRank === STRIKE_RANK.COMBAT && !isPriorityCombatTarget(world, ctx, t)
       ? STRIKE_RANK.OTHER
       : strikeRank(world, ctx, t, firingNow);
   const order = world.tryGet(victim, AttackOrder);

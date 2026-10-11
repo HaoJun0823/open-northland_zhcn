@@ -126,9 +126,12 @@ export class SelectionEffects {
     }
   }
 
-  /** Portrait and map insets borrow the world without its selection emphasis. */
+  /** Portrait and map insets borrow the world without its selection emphasis. The outlines go to zero
+   *  alpha rather than invisible: Pixi repacks an alpha change in place, where a visibility flip rebuilds
+   *  the instructions of every band holding an outline, once to hide and once to show. */
   setVisible(visible: boolean): void {
-    for (const outline of this.outlines.values()) outline.visible = visible;
+    const alpha = visible ? 1 : 0;
+    for (const outline of this.outlines.values()) outline.alpha = alpha;
     for (const [pe, light] of this.lit) this.light(pe, visible ? light : 0);
   }
 

@@ -37,10 +37,12 @@ it('outlines the visible body, excludes shadows, and releases stamps when the st
   effects.update(pe, 'outline', 2, 0);
   expect(pe.container.children[0]).toBe(outline);
   expect(outline?.children[0]?.position.x).toBeCloseTo(13);
+  // Hidden for an inset by alpha, so the band's structure (and its instructions) stays as it was.
   effects.setVisible(false);
-  expect(outline?.visible).toBe(false);
-  effects.setVisible(true);
   expect(outline?.visible).toBe(true);
+  expect(outline?.alpha).toBe(0);
+  effects.setVisible(true);
+  expect(outline?.alpha).toBe(1);
   effects.update(pe, 'pulse', 2, 0.45);
   expect(outline?.destroyed).toBe(true);
   expect(shadow.selectionEffect).toBe(0);

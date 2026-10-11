@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { BRAND_LOGO_STACKED_SIZE } from '../../packages/app/src/view/brand-art.ts';
+import { portableSplash } from './portable-splash.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -328,6 +329,7 @@ execFileSync(
 await emit(DESKTOP_RESOURCES, 'icon.png', await paintedEmblem(DESKTOP_ICON_SIZE, ICON_PADDING));
 await emit(DESKTOP_RESOURCES, 'icon.ico', ico(icoEntries));
 await emit(DESKTOP_RESOURCES, 'icon.icns', icns(icnsSlots));
+await emit(DESKTOP_RESOURCES, 'portable-splash.bmp', await portableSplash(lockupStacked));
 
 await emit(
   DOCS_IMAGES,

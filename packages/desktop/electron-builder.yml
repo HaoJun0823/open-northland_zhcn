@@ -39,6 +39,7 @@ nsis:
   artifactName: ${productName}-${version}-setup.exe
 portable:
   artifactName: ${productName}-${version}-portable.exe
+  splashImage: resources/portable-splash.bmp
 mac:
   # arm64 pinned because the default is the build host's arch. An Intel dmg costs a whole extra mac
   # build; `--mac dmg:x64 dmg:arm64` adds it and replaces this list.

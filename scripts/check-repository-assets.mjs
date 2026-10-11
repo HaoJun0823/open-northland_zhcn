@@ -82,10 +82,12 @@ const reviewedBinaryAssets = new Set([
   'packages/desktop/resources/icon.icns',
   'packages/desktop/resources/icon.ico',
   'packages/desktop/resources/icon.png',
+  'packages/desktop/resources/portable-splash.bmp',
 ]);
 
 const reviewRequiredExtensions = new Set([
   '.blend',
+  '.bmp',
   '.exr',
   '.fbx',
   '.gif',

@@ -1,11 +1,15 @@
 import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { drawPassDepth } from '../src/data/scene/index.js';
-import { DepthSortedLayer } from '../src/gpu/depth-sorted-layer.js';
+import { drawPassDepth, rowOfDepth } from '../src/data/scene/index.js';
+import { BAND_DEPTH, DepthSortedLayer } from '../src/gpu/depth-sorted-layer.js';
+import { PLOT_BOUNDS } from '../src/gpu/plan-road.js';
 import { restoreStash, stashHidden } from '../src/gpu/visibility.js';
 
 /** Depths this far apart always file into different bands; closer ones may share one. */
 const FAR = 10_000;
+/** A window of feet rows whose edges fall mid-band. */
+const WINDOW_TOP = 7 * BAND_DEPTH + BAND_DEPTH / 2;
+const WINDOW_BOTTOM = 12 * BAND_DEPTH + BAND_DEPTH / 2;
 
 function layerWith(depths: readonly number[]): { layer: DepthSortedLayer; children: Container[] } {
   const layer = new DepthSortedLayer();
@@ -224,5 +228,41 @@ describe('depth sorted layer', () => {
     layer.showBands(hidden);
     expect(layer.children.every((band) => band.visible)).toBe(true);
     expect(hidden).toEqual([]);
+  });
+
+  it('keeps a band reaching into the window from either edge and hides one wholly past it', () => {
+    const sorted = drawPassDepth('sorted');
+    const straddlingTop = sorted + WINDOW_TOP - BAND_DEPTH / 2;
+    const straddlingBottom = sorted + WINDOW_BOTTOM;
+    const pastBottom = sorted + WINDOW_BOTTOM + BAND_DEPTH;
+    const { layer, children } = layerWith([straddlingTop, straddlingBottom, pastBottom]);
+    const [top, bottom, past] = children;
+    if (!top || !bottom || !past) throw new Error('missing children');
+    // The first band starts above the window but its rows run into it.
+    const topRow = rowOfDepth(Math.floor(straddlingTop / BAND_DEPTH) * BAND_DEPTH);
+    if (topRow === null) throw new Error('expected a sorted-pass row');
+    expect(topRow).toBeLessThan(WINDOW_TOP);
+    expect(topRow + BAND_DEPTH).toBeGreaterThan(WINDOW_TOP);
+    const hidden: Container[] = [];
+    layer.hideBandsOutside(WINDOW_TOP, WINDOW_BOTTOM, hidden);
+    expect([top, bottom, past].map((child) => bandOf(child).visible)).toEqual([true, true, false]);
+    expect(hidden).toEqual([bandOf(past)]);
+  });
+
+  it('keeps a claimed road plot sorting back past the window top once the window lowers by the plot', () => {
+    const sorted = drawPassDepth('sorted');
+    // A plot anchored on the window's top row sorts back by the plot's top, onto the last row of a band
+    // whose rows all lie above the anchor.
+    const plotRow = Math.floor(WINDOW_TOP / BAND_DEPTH) * BAND_DEPTH - 1;
+    const anchorRow = plotRow - PLOT_BOUNDS.top;
+    const { layer, children } = layerWith([sorted + plotRow]);
+    const [plot] = children;
+    if (!plot) throw new Error('missing children');
+    const hidden: Container[] = [];
+    layer.hideBandsOutside(anchorRow, WINDOW_BOTTOM, hidden);
+    expect(bandOf(plot).visible).toBe(false);
+    layer.showBands(hidden);
+    layer.hideBandsOutside(anchorRow + PLOT_BOUNDS.top, WINDOW_BOTTOM, hidden);
+    expect(bandOf(plot).visible).toBe(true);
   });
 });

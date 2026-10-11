@@ -11,7 +11,7 @@ import type { StillBandCollector } from './still-mesh/still-mesh.js';
 /** Painter-depth span one band holds, in world px of feet row (a row is 38): narrower bands rebuild
  *  fewer entries per change but each adds a render-group pass and a draw call. Chosen by measuring the
  *  instruction rebuild at the dense and the widest zoom. */
-const BAND_DEPTH = 32;
+export const BAND_DEPTH = 32;
 
 /** A band's place in painter order; a NaN depth files last. */
 function bandIndexOf(depth: number): number {

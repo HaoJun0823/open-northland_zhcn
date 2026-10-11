@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { gzip } from 'node:zlib';
@@ -10,8 +10,8 @@ const ARCHIVE_DIR = 'archives';
 const CONVERTED_DIR = 'converted';
 const CONVERSION_FILE = 'conversion.json';
 const SOURCE_FILE = 'source.json';
-export const GZIP_SUFFIX = '.gz';
-/** Sidecars ending so are text and get a precompressed copy. */
+const GZIP_SUFFIX = '.gz';
+/** Sidecars ending so are text and are stored gzip-compressed only. */
 const TEXT_SUFFIX = '.json';
 const TEMPORARY_SUFFIX = '.tmp';
 const SHA256_HEX = /^[a-f0-9]{64}$/;
@@ -23,6 +23,11 @@ export interface ArchiveSource {
   readonly ext: string;
   readonly updatedAt: string;
   readonly url: string;
+}
+
+/** A kept archive's source with the file's size in bytes, null when the file is gone. */
+export interface KeptArchive extends ArchiveSource {
+  readonly bytes: number | null;
 }
 
 /** `converted/<irVersion>/<id>/conversion.json`: the verdict and what it was made from. */
@@ -137,13 +142,22 @@ export class ConversionStore {
     return stored;
   }
 
-  async readSources(): Promise<Map<string, ArchiveSource>> {
-    const sources = new Map<string, ArchiveSource>();
+  async readSources(): Promise<Map<string, KeptArchive>> {
+    const sources = new Map<string, KeptArchive>();
     for (const id of await entryIds(this.archiveDir)) {
       const source = parseSource(await readJson(join(this.archiveDir, id, SOURCE_FILE)));
-      if (source !== null) sources.set(id, source);
+      if (source !== null) sources.set(id, { ...source, bytes: await this.archiveSize(id, source) });
     }
     return sources;
+  }
+
+  private async archiveSize(id: string, source: ArchiveSource): Promise<number | null> {
+    try {
+      return (await stat(join(this.archiveDir, id, `${source.sha256}.${source.ext}`))).size;
+    } catch (error) {
+      if (isMissing(error)) return null;
+      throw error;
+    }
   }
 
   /** The kept archive's bytes, or null when the file is gone or no longer matches its hash. */
@@ -169,9 +183,9 @@ export class ConversionStore {
     }
   }
 
-  /** Replaces the entry's directory with `files`, a gzip copy of each text file and the verdict, all
-   *  written into a temporary directory first so a reader never sees half a conversion. Returns the
-   *  sidecar hashes it recorded. */
+  /** Replaces the entry's directory with `files` (each text file as `<name>.gz` only) and the verdict,
+   *  all written into a temporary directory first so a reader never sees half a conversion. Returns
+   *  the hashes of the uncompressed sidecars. */
   async writeConversion(
     id: string,
     verdict: Omit<StoredConversion, 'files'>,
@@ -185,9 +199,9 @@ export class ConversionStore {
       const hashes: Record<string, string> = {};
       for (const [name, bytes] of files) {
         hashes[name] = sha256Hex(bytes);
-        await writeFile(join(temporary, name), bytes);
-        if (name.endsWith(TEXT_SUFFIX))
+        if (this.isGzipped(name))
           await writeFile(join(temporary, name + GZIP_SUFFIX), await gzipAsync(bytes));
+        else await writeFile(join(temporary, name), bytes);
       }
       const stored: StoredConversion = { ...verdict, files: hashes };
       await writeFile(join(temporary, CONVERSION_FILE), JSON.stringify(stored));
@@ -200,12 +214,12 @@ export class ConversionStore {
     }
   }
 
+  /** The stored file of a sidecar: `<fileName>.gz` when `isGzipped`, else `<fileName>`. */
   sidecarPath(id: string, fileName: string): string {
-    return join(this.convertedDir, id, fileName);
+    return join(this.convertedDir, id, this.isGzipped(fileName) ? fileName + GZIP_SUFFIX : fileName);
   }
 
-  /** Whether `fileName` got a precompressed copy. */
-  hasGzip(fileName: string): boolean {
+  isGzipped(fileName: string): boolean {
     return fileName.endsWith(TEXT_SUFFIX);
   }
 

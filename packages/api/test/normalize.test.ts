@@ -1,6 +1,12 @@
 import { Catalog } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { CATALOG_PAGE, catalogMapId, classifyFile, normalizeRecords } from '../src/catalog/normalize.js';
+import {
+  CATALOG_PAGE,
+  catalogMapId,
+  classifyCategory,
+  classifyFile,
+  normalizeRecords,
+} from '../src/catalog/normalize.js';
 import { ACCEPTED_RECORDS, REFUSED_RECORDS, UPSTREAM } from './support/strapi-fixture.js';
 
 describe('normalizeRecords', () => {
@@ -12,24 +18,22 @@ describe('normalizeRecords', () => {
     return found;
   };
 
-  it('keeps accepted records of known categories, sorted by id, as schema-valid entries', () => {
+  it('keeps accepted records of every category, sorted by id, as schema-valid entries', () => {
     expect(records.map(({ entry }) => entry.id)).toEqual([...records.map(({ entry }) => entry.id)].sort());
     expect(records).toHaveLength(ACCEPTED_RECORDS.length);
     expect(() => Catalog.parse(records.map(({ entry }) => entry))).not.toThrow();
-    expect(skipped).toEqual([
-      { upstreamId: 21, reason: 'acceptStatus oczekujacy' },
-      { upstreamId: 22, reason: 'unknown category "Mapy Specjalne"' },
-    ]);
+    expect(skipped).toEqual([{ upstreamId: 21, reason: 'acceptStatus oczekujacy' }]);
   });
 
-  it('maps every upstream category', () => {
-    expect(records.map(({ entry }) => [entry.title, entry.category])).toEqual(
+  it('classifies every category by keyword and keeps its text', () => {
+    expect(records.map(({ entry }) => [entry.title, entry.kind, entry.series, entry.categoryLabel])).toEqual(
       expect.arrayContaining([
-        ['Frozen Fjord', 'single'],
-        ['Two Rivers', 'multi'],
-        ['The Long Road', 'campaign'],
-        ['Old Shores', 'series-single'],
-        ['Island Duel', 'series-multi'],
+        ['Frozen Fjord', 'single', false, 'Mapy Singleplayer'],
+        ['Two Rivers', 'multi', false, 'Mapy Multiplayer'],
+        ['The Long Road', 'campaign', false, 'Kampanie'],
+        ['Old Shores', 'single', true, 'Mapy z serii Cultures- Singleplayer'],
+        ['Island Duel', 'multi', true, 'Mapy z serii Cultures- Multiplayer'],
+        ['Mystery Pack', 'other', false, 'Mapy Specjalne'],
       ]),
     );
   });
@@ -42,7 +46,9 @@ describe('normalizeRecords', () => {
       shortDescription: 'Short text for Frozen Fjord.',
       fullDescription: 'Full text for Frozen Fjord.\nSecond line.',
       author: 'Author 11',
-      category: 'single',
+      kind: 'single',
+      series: false,
+      categoryLabel: 'Mapy Singleplayer',
       publishedAt: '2024-03-01T12:00:00.000Z',
       updatedAt: '2024-03-02T11:00:00.000Z',
       downloadCount: 12,
@@ -65,12 +71,21 @@ describe('normalizeRecords', () => {
       kind: 'external',
       url: 'https://files.example.com/download.php?id=7',
     });
-    expect(classifyFile('https://culturesnation.pl.evil.test/a.c2m')).toEqual({
+    expect(classifyFile('https://culturesnation.pl.evil.test/a.c2m', UPSTREAM)).toEqual({
       kind: 'external',
       url: 'https://culturesnation.pl.evil.test/a.c2m',
     });
-    expect(classifyFile('ftp://culturesnation.pl/a.rar')).toBeNull();
-    expect(classifyFile('not a url')).toBeNull();
+    expect(classifyFile('ftp://culturesnation.pl/a.rar', UPSTREAM)).toBeNull();
+    expect(classifyFile('not a url', UPSTREAM)).toBeNull();
+  });
+
+  it('fetches a file on the configured upstream host, as an offline mirror serves it', () => {
+    expect(classifyFile('http://127.0.0.1:8791/downloads/a.rar', 'http://127.0.0.1:8791')).toEqual({
+      kind: 'archive',
+    });
+    expect(classifyFile('http://127.0.0.1:9999/downloads/a.rar', 'http://127.0.0.1:8791')).toMatchObject({
+      kind: 'external',
+    });
   });
 
   it('takes the small screenshot, else the original, against the upstream origin', () => {
@@ -98,6 +113,14 @@ describe('normalizeRecords', () => {
     const result = normalizeRecords([ACCEPTED_RECORDS[0], twin], UPSTREAM);
     expect(result.records).toHaveLength(1);
     expect(result.skipped).toEqual([{ upstreamId: 99, reason: 'duplicate id' }]);
+  });
+});
+
+describe('classifyCategory', () => {
+  it('reads kind and series case-insensitively and never refuses a category', () => {
+    expect(classifyCategory('MAPY SINGLEPLAYER')).toEqual({ kind: 'single', series: false });
+    expect(classifyCategory('Kampanie z serii Cultures')).toEqual({ kind: 'campaign', series: true });
+    expect(classifyCategory('')).toEqual({ kind: 'other', series: false });
   });
 });
 

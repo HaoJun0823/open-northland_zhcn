@@ -1,4 +1,4 @@
-import { CATALOG_MAP_ID, type CatalogCategory, CatalogEntry, type CatalogFile } from '@open-northland/data';
+import { CATALOG_MAP_ID, CatalogEntry, type CatalogFile, type CatalogKind } from '@open-northland/data';
 
 /** The status the catalogue's moderators give a published download. */
 const ACCEPTED_STATUS = 'zaakceptowany';
@@ -8,14 +8,21 @@ const CATALOG_HOSTS: ReadonlySet<string> = new Set(['culturesnation.pl', 'www.cu
 const C2M_SUFFIX = '.c2m';
 const ID_PREFIX = 'cn-';
 
-/** The upstream `category` strings, exactly as the catalogue writes them. */
-const CATEGORIES: ReadonlyMap<string, CatalogCategory> = new Map([
-  ['Mapy Singleplayer', 'single'],
-  ['Mapy Multiplayer', 'multi'],
-  ['Kampanie', 'campaign'],
-  ['Mapy z serii Cultures- Singleplayer', 'series-single'],
-  ['Mapy z serii Cultures- Multiplayer', 'series-multi'],
-]);
+/** Lowercase words of the upstream's free-text `category` that place an entry, checked in order. */
+const KIND_KEYWORDS: readonly (readonly [keyword: string, kind: CatalogKind])[] = [
+  ['singleplayer', 'single'],
+  ['multiplayer', 'multi'],
+  ['kampanie', 'campaign'],
+];
+/** The word of the "maps from the Cultures series" categories. */
+const SERIES_KEYWORD = 'serii';
+
+/** What the upstream's category text says about an entry; text no keyword places is `other`. */
+export function classifyCategory(label: string): { kind: CatalogKind; series: boolean } {
+  const lower = label.toLowerCase();
+  const kind = KIND_KEYWORDS.find(([keyword]) => lower.includes(keyword))?.[1] ?? 'other';
+  return { kind, series: lower.includes(SERIES_KEYWORD) };
+}
 
 /** An upstream record kept out of the catalogue, and why. */
 export interface SkippedRecord {
@@ -65,7 +72,9 @@ export function catalogMapId(documentId: string): string | null {
   return CATALOG_MAP_ID.test(id) ? id : null;
 }
 
-export function classifyFile(fileUrl: string): CatalogFile | null {
+/** A file on the catalogue's hosts, or on the configured upstream's own host (an offline mirror serves
+ *  the files beside the pages), is ours to fetch; any other host is a link. */
+export function classifyFile(fileUrl: string, upstream: string): CatalogFile | null {
   let url: URL;
   try {
     url = new URL(fileUrl);
@@ -73,7 +82,8 @@ export function classifyFile(fileUrl: string): CatalogFile | null {
     return null;
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-  if (!CATALOG_HOSTS.has(url.hostname.toLowerCase())) return { kind: 'external', url: url.toString() };
+  const ours = CATALOG_HOSTS.has(url.hostname.toLowerCase()) || url.host === new URL(upstream).host;
+  if (!ours) return { kind: 'external', url: url.toString() };
   return url.pathname.toLowerCase().endsWith(C2M_SUFFIX) ? { kind: 'c2m' } : { kind: 'archive' };
 }
 
@@ -107,10 +117,9 @@ function normalizeRecord(record: unknown, upstream: string): NormalizedRecord | 
   if (typeof upstreamId !== 'number' || !Number.isInteger(upstreamId) || upstreamId < 0) return skip('no id');
   const id = catalogMapId(text(record.documentId));
   if (id === null) return skip(`documentId ${String(record.documentId)}`);
-  const category = CATEGORIES.get(text(record.category));
-  if (category === undefined) return skip(`unknown category ${JSON.stringify(record.category)}`);
+  const categoryLabel = text(record.category);
   const fileUrl = text(record.fileUrl);
-  const file = classifyFile(fileUrl);
+  const file = classifyFile(fileUrl, upstream);
   if (file === null) return skip(`fileUrl ${String(record.fileUrl)}`);
   const publishedAt = isoDate(record.publishedAt);
   const updatedAt = isoDate(record.updatedAt);
@@ -124,7 +133,8 @@ function normalizeRecord(record: unknown, upstream: string): NormalizedRecord | 
     shortDescription: text(record.shortDescription),
     fullDescription: text(record.fullDescription),
     author: isRecord(record.author) ? text(record.author.username) : '',
-    category,
+    ...classifyCategory(categoryLabel),
+    categoryLabel,
     publishedAt,
     updatedAt,
     downloadCount: count(record.downloadCount),

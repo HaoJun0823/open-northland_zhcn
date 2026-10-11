@@ -14,6 +14,8 @@ export const CatalogConvertedMap = z.strictObject({
   /** The languages the map's own string table carries; the client falls back along
    *  `MAP_TEXT_LANGUAGES` for the rest. */
   languages: z.array(z.enum(MAP_TEXT_LANGUAGES)),
+  /** The terrain grid in cells, for size filters without fetching the terrain. */
+  cells: z.strictObject({ width: z.number().int().positive(), height: z.number().int().positive() }),
   /** The row the map would have in `maps-index.json`, so the client lists it without a second fetch. */
   index: MapsIndexEntry,
 });

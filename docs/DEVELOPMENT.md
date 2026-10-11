@@ -621,7 +621,11 @@ thread. An entry is `pending` while queued, then `ok` with its maps or `failed` 
 (`no-map`, `too-large`, `unsupported-archive`, `decode-failed`, `download-failed`). A failed download
 is retried with the next catalogue; every other verdict stays until the entry changes. Each map is
 served as `<entry id>-<folder slug>`, a repeated slug inside one entry as `-2`, `-3`. A finished
-batch publishes the catalogue again with the `conversion` fields, so its `ETag` changes.
+batch publishes the catalogue again with the `conversion` fields, so its `ETag` changes. Each
+entry's `kind` (`single`, `multi`, `campaign` or `other`) and `series` are read case-insensitively
+out of the upstream category text by keyword (`singleplayer`, `multiplayer`, `kampanie`, `serii`),
+which `categoryLabel` keeps as written; a category no keyword places is listed as `other`. A
+downloaded file's size is its `file.bytes`, and each converted map names its grid as `cells`.
 
 The app reaches the API at `ON_API_URL` (default `https://api.opennorthland.org`), stamped into the
 build by Vite and passed on by the desktop shell; a `?api=http://127.0.0.1:8790` URL parameter
@@ -638,7 +642,7 @@ New Game and in a multiplayer room's map picker.
 | `thumbnails/<id>`, `thumbnails/<id>.json` | Each map's screenshot and its content type, `updatedAt` and SHA-256; fetched again only when `updatedAt` changes |
 | `archives/<id>/<sha256>.<ext>`, `archives/<id>/source.json` | The downloaded catalogue file, kept as the source of every re-conversion, and the URL and `updatedAt` it was fetched for |
 | `converted/<irVersion>/<id>/conversion.json` | The entry's verdict with the archive SHA-256, the `updatedAt` it was made from and each sidecar's SHA-256 |
-| `converted/<irVersion>/<id>/<mapId><suffix>`, `<mapId><suffix>.gz` | The sidecars, named as under `content/maps/`, each JSON one with a gzip copy made at conversion time |
+| `converted/<irVersion>/<id>/<mapId><suffix>` | The sidecars, named as under `content/maps/`; each JSON one is stored only gzip-compressed, as `<mapId><suffix>.gz` |
 
 A start with another `IR_VERSION` deletes every other `converted/<version>` and converts again from
 the kept archives without downloading them. Entries that leave the catalogue lose their archive and
@@ -657,13 +661,31 @@ Endpoints, `GET` and `HEAD` (plus the `OPTIONS` preflight below):
 `OPTIONS` on a `/v1` path answers a CORS preflight with 204, allowing `GET`, `HEAD` and the
 `If-None-Match` header. Every `/v1` answer carries `Access-Control-Allow-Origin: *`, a SHA-256 `ETag` that `If-None-Match`
 turns into a 304, and a short `Cache-Control`; errors are `{ "error": "..." }`. A content file's
-`ETag` is its SHA-256, it is cached for an hour, and a request that accepts gzip gets the stored gzip
-copy. The tests under
+`ETag` is the SHA-256 of its uncompressed bytes, it is cached for an hour, and a request that accepts
+gzip gets the stored gzip file as-is; any other request gets it inflated, without `Content-Length`. The tests under
 `packages/api/test` run against an invented upstream and archives built in the test:
 
 ```bash
 npx vitest run --project core packages/api
 ```
+
+To run the whole server offline, serve a one-time download of the upstream with the mock in
+`packages/api/src/upstream-mock/` and point the API at it:
+
+```bash
+ON_UPSTREAM_CACHE_DIR=/path/to/cache npm run api:upstream-mock
+ON_API_UPSTREAM=http://127.0.0.1:8791 npm run api
+```
+
+The mock listens on `127.0.0.1:PORT` (default `8791`), logs every request and reads the cache
+directory `ON_UPSTREAM_CACHE_DIR` (required), laid out as the API's own data dir keeps it:
+`raw/<page>.json` (the upstream's `/api/downloads` pages as returned),
+`archives/<entry id>/<sha256>.<ext>` beside `source.json` (with the upstream `url`) and
+`thumbnails/<entry id>` beside `<entry id>.json` (with its `contentType`). It answers each page with
+every culturesnation.pl file and screenshot URL moved to its own origin, the archive whose
+`source.json` URL has the requested path, the thumbnail of the record whose screenshot names it, an
+empty `data` past the last page and 404 for anything else. The API fetches a file on the host of
+`ON_API_UPSTREAM` as it fetches one on culturesnation.pl.
 
 ## Build version
 

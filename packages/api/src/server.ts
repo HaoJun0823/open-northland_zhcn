@@ -2,6 +2,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { pipeline } from 'node:stream/promises';
+import { createGunzip } from 'node:zlib';
 import { CATALOG_MAP_ID } from '@open-northland/data';
 import { MAP_FILE_SUFFIXES } from '@open-northland/map-import';
 import type { Body, CatalogSnapshot } from './catalog/snapshot.js';
@@ -55,10 +56,11 @@ export interface ApiHealth {
   readonly failed: number;
 }
 
-/** One stored sidecar: its file, its precompressed copy when there is one, and its validator. */
+/** One stored sidecar: its file, whether that file is gzip-compressed, and the validator of the
+ *  uncompressed bytes. */
 export interface ContentFile {
   readonly path: string;
-  readonly gzipPath: string | null;
+  readonly gzipped: boolean;
   readonly etag: string;
 }
 
@@ -184,7 +186,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     failed: snapshot?.conversions.failed ?? 0,
   });
 
-  /** Streams one sidecar from disk, the gzip copy when the request takes it. */
+  /** Streams one sidecar from disk; a gzip-stored one is inflated for a request that does not take gzip. */
   const serveContent = async (
     request: IncomingMessage,
     response: ServerResponse,
@@ -224,26 +226,27 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       response.writeHead(NOT_MODIFIED, headers).end();
       return;
     }
-    const gzipped = file.gzipPath !== null && acceptsGzip(request);
-    const path = gzipped && file.gzipPath !== null ? file.gzipPath : file.path;
+    const inflate = file.gzipped && !acceptsGzip(request);
     let size: number;
     try {
-      ({ size } = await stat(path));
+      ({ size } = await stat(file.path));
     } catch {
       // Replaced or pruned since the lookup.
       sendError(request, response, NOT_FOUND, 'no such file', V1_HEADERS);
       return;
     }
+    // An inflated body's length is unknown until it is sent, so it goes out chunked.
     response.writeHead(OK, {
       ...headers,
-      ...(gzipped ? { 'content-encoding': GZIP } : {}),
-      'content-length': size,
+      ...(file.gzipped && !inflate ? { 'content-encoding': GZIP } : {}),
+      ...(inflate ? {} : { 'content-length': size }),
     });
     if (request.method === 'HEAD') {
       response.end();
       return;
     }
-    await pipeline(createReadStream(path), response);
+    if (inflate) await pipeline(createReadStream(file.path), createGunzip(), response);
+    else await pipeline(createReadStream(file.path), response);
   };
 
   const serveThumbnail = async (

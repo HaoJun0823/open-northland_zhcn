@@ -88,6 +88,7 @@ export async function convertArchive(
       mapId,
       fingerprint: mapFingerprint(own, mapId),
       languages: languagesOf(renamed),
+      cells: { width: renamed.terrain.width, height: renamed.terrain.height },
       index: renamed.index,
     });
     for (const [name, file] of own) files.set(name, utf8(file));

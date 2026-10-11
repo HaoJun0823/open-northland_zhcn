@@ -7,7 +7,7 @@ import type { ContentFile, ContentSource } from '../server.js';
 import type { Fetch } from '../upstream/strapi.js';
 import { convertArchive } from './convert.js';
 import { DownloadError, type DownloadLimits, downloadArchive } from './download.js';
-import { type ArchiveSource, type ConversionStore, GZIP_SUFFIX, type StoredConversion } from './store.js';
+import type { ArchiveSource, ConversionStore, KeptArchive, StoredConversion } from './store.js';
 
 /** A hang guard: the largest catalogue file is tens of megabytes. */
 const DOWNLOAD_TIMEOUT_MS = 120_000;
@@ -61,7 +61,7 @@ export class ConversionService implements ContentSource {
   private catalog: SyncedCatalog | null = null;
   private entries: ReadonlyMap<string, CatalogEntry> = new Map();
   private stored = new Map<string, StoredConversion>();
-  private sources = new Map<string, ArchiveSource>();
+  private sources = new Map<string, KeptArchive>();
   /** Download failures since the entry's last stored verdict, by entry id. */
   private readonly downloadFailures = new Map<string, string>();
   private readonly maps = new Map<string, MapLocation>();
@@ -112,10 +112,9 @@ export class ConversionService implements ContentSource {
     const location = this.maps.get(mapId);
     const hash = location?.files.get(fileName);
     if (location === undefined || hash === undefined) return null;
-    const path = this.options.store.sidecarPath(location.entryId, fileName);
     return {
-      path,
-      gzipPath: this.options.store.hasGzip(fileName) ? path + GZIP_SUFFIX : null,
+      path: this.options.store.sidecarPath(location.entryId, fileName),
+      gzipped: this.options.store.isGzipped(fileName),
       etag: `"${hash}"`,
     };
   }
@@ -150,12 +149,24 @@ export class ConversionService implements ContentSource {
   private publish(): CatalogSnapshot | null {
     if (this.catalog === null) return null;
     const entries = this.catalog.catalog.map((entry) => {
-      const conversion = entry.file.kind === 'external' ? undefined : this.conversionOf(entry);
-      return conversion === undefined ? entry : { ...entry, conversion };
+      if (entry.file.kind === 'external') return entry;
+      const conversion = this.conversionOf(entry);
+      const bytes = this.archiveBytes(entry);
+      return {
+        ...entry,
+        ...(bytes === null ? {} : { file: { ...entry.file, bytes } }),
+        ...(conversion === undefined ? {} : { conversion }),
+      };
     });
     const snapshot = catalogSnapshot(entries, this.catalog.syncedAt);
     this.options.publish(snapshot);
     return snapshot;
+  }
+
+  /** The kept archive's size when it was downloaded for the entry's current `updatedAt`. */
+  private archiveBytes(entry: CatalogEntry): number | null {
+    const kept = this.sources.get(entry.id);
+    return kept?.updatedAt === entry.updatedAt ? kept.bytes : null;
   }
 
   private kick(): void {
@@ -284,7 +295,7 @@ export class ConversionService implements ContentSource {
       url,
     };
     await this.options.store.keepArchive(entry.id, bytes, source);
-    this.sources.set(entry.id, source);
+    this.sources.set(entry.id, { ...source, bytes: bytes.byteLength });
     return { bytes, sha256: source.sha256 };
   }
 

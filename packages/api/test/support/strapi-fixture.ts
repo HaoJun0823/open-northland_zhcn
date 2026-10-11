@@ -60,7 +60,8 @@ export function strapiRecord(input: RecordInput): Record<string, unknown> {
   };
 }
 
-/** Five accepted records across the categories, an external host, a bare map and garbage sizes. */
+/** Accepted records across every category the catalogue writes and one it does not, an external host,
+ *  a bare map and garbage sizes. */
 export const ACCEPTED_RECORDS = [
   strapiRecord({
     id: 11,
@@ -102,9 +103,16 @@ export const ACCEPTED_RECORDS = [
     category: 'Mapy z serii Cultures- Multiplayer',
     fileUrl: 'https://culturesnation.pl/downloads/island_duel.c2m',
   }),
+  strapiRecord({
+    id: 22,
+    documentId: 'gggggggggggggggggggggggg',
+    title: 'Mystery Pack',
+    category: 'Mapy Specjalne',
+    fileUrl: 'https://culturesnation.pl/downloads/mystery.rar',
+  }),
 ];
 
-/** Records the catalogue keeps out: not accepted, and a category nobody mapped. */
+/** Records the catalogue keeps out: not accepted. */
 export const REFUSED_RECORDS = [
   strapiRecord({
     id: 21,
@@ -113,13 +121,6 @@ export const REFUSED_RECORDS = [
     category: 'Mapy Singleplayer',
     fileUrl: 'https://culturesnation.pl/downloads/pending.rar',
     acceptStatus: 'oczekujacy',
-  }),
-  strapiRecord({
-    id: 22,
-    documentId: 'gggggggggggggggggggggggg',
-    title: 'Mystery Pack',
-    category: 'Mapy Specjalne',
-    fileUrl: 'https://culturesnation.pl/downloads/mystery.rar',
   }),
 ];
 

@@ -47,7 +47,9 @@ export function catalogEntry(
     shortDescription: '',
     fullDescription: '',
     author: 'Author',
-    category: 'single',
+    kind: 'single',
+    series: false,
+    categoryLabel: 'Mapy Singleplayer',
     publishedAt: UPDATED_AT,
     updatedAt,
     downloadCount: 0,
@@ -97,7 +99,7 @@ export interface Harness {
 
 export async function harness(
   dir: string,
-  files: FakeFiles,
+  files: { readonly fetch: Fetch },
   options: { irVersion: number; downloadLimits?: DownloadLimits },
 ): Promise<Harness> {
   const published: CatalogSnapshot[] = [];

@@ -27,7 +27,7 @@ Epic: [`docs/tickets/api/README.md`](../api/README.md).
   link, download / play / remove.
 - An "Installed" tab: what is on disk, space used, updates, removal.
 - Categories are shown from the entry's `kind` and `categoryLabel` (see
-  [`../api/catalogue-metadata.md`](../api/catalogue-metadata.md)); no upstream string in the client.
+  [API server](../../DEVELOPMENT.md#api-server)); no upstream string in the client.
 - Dev default: with `ON_API_URL` unset, the Vite dev server talks to `http://127.0.0.1:8790` (the
   `api` root script syncing from culturesnation) and production builds to `DEFAULT_API_URL`. The mock
   catalogue server used by the browser tests moves into `packages/app/test/support/` with synthetic

@@ -1,8 +1,9 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { request as httpRequest, type IncomingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { Catalog, CatalogEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { verifyMapDocuments } from '../../app/src/content/transfer/documents.js';
@@ -20,6 +21,7 @@ import {
 } from './support/conversion-fixture.js';
 
 const ENTRY = 'cn-wyspa';
+const ARCHIVE = zipOf(under('Wyspa', plaintextMap('Wyspa')));
 const MAP_ID = `${ENTRY}-wyspa`;
 const CONTENT = `/v1/content/${IR_VERSION}/maps`;
 
@@ -58,7 +60,7 @@ describe('content route', () => {
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'on-api-content-'));
     const files = new FakeFiles();
-    files.serve(ENTRY, zipOf(under('Wyspa', plaintextMap('Wyspa'))));
+    files.serve(ENTRY, ARCHIVE);
     converted = await harness(dir, files, { irVersion: IR_VERSION });
     const store = new DataStore(dir);
     await store.init();
@@ -97,21 +99,40 @@ describe('content route', () => {
     expect(again.headers['access-control-allow-origin']).toBe('*');
   });
 
-  it('sends the precompressed copy only to a request that takes gzip', async () => {
-    const plain = await raw(`${CONTENT}/${MAP_ID}.json`);
+  it('sends the stored gzip file as-is to a request that takes gzip and inflates it for any other', async () => {
+    const stored = await readFile(join(dir, 'converted', String(IR_VERSION), ENTRY, `${MAP_ID}.json.gz`));
     const gzipped = await raw(`${CONTENT}/${MAP_ID}.json`, { 'accept-encoding': 'br, gzip;q=0.8' });
     expect(gzipped.headers['content-encoding']).toBe('gzip');
     expect(Number(gzipped.headers['content-length'])).toBe(gzipped.body.byteLength);
-    expect(gunzipSync(gzipped.body)).toEqual(plain.body);
+    expect(gzipped.body).toEqual(stored);
+    const plain = await raw(`${CONTENT}/${MAP_ID}.json`);
+    expect(plain.body).toEqual(gunzipSync(stored));
+    expect(plain.headers.etag).toBe(gzipped.headers.etag);
     const refused = await raw(`${CONTENT}/${MAP_ID}.json`, { 'accept-encoding': 'gzip;q=0' });
     expect(refused.headers['content-encoding']).toBeUndefined();
+    expect(refused.body).toEqual(plain.body);
+  });
+
+  it('names the archive size and the cell grid of each map in the entry', async () => {
+    const entry = CatalogEntry.parse(
+      await (await fetch(`http://127.0.0.1:${server.port}/v1/maps/${ENTRY}`)).json(),
+    );
+    expect(entry.file).toEqual({ kind: 'archive', bytes: ARCHIVE.byteLength });
+    if (entry.conversion?.verdict !== 'ok') throw new Error('not converted');
+    const terrain = JSON.parse((await raw(`${CONTENT}/${MAP_ID}.json`)).body.toString('utf8'));
+    expect(entry.conversion.maps[0]?.cells).toEqual({ width: terrain.width, height: terrain.height });
+    const catalog = Catalog.parse(await (await fetch(`http://127.0.0.1:${server.port}/v1/catalog`)).json());
+    expect(catalog[0]).toEqual(entry);
   });
 
   it('answers HEAD with the headers and no body', async () => {
-    const head = await raw(`${CONTENT}/${MAP_ID}.script.json`, {}, 'HEAD');
+    const head = await raw(`${CONTENT}/${MAP_ID}.script.json`, { 'accept-encoding': 'gzip' }, 'HEAD');
     expect(head.status).toBe(200);
     expect(Number(head.headers['content-length'])).toBeGreaterThan(0);
     expect(head.body.byteLength).toBe(0);
+    const inflated = await raw(`${CONTENT}/${MAP_ID}.script.json`, {}, 'HEAD');
+    expect(inflated.status).toBe(200);
+    expect(inflated.body.byteLength).toBe(0);
   });
 
   it('answers another IR version with the served one', async () => {

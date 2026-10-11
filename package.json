@@ -41,6 +41,7 @@
     "test:shaders": "node scripts/test-shaders.mjs",
     "relay": "tsc --build && node packages/net-server/dist/main.js",
     "api": "tsc --build && node packages/api/dist/main.js",
+    "api:upstream-mock": "tsc --build && node packages/api/dist/upstream-mock/main.js",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check .",

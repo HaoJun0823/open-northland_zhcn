@@ -14,7 +14,8 @@ Order and dependencies:
    [briefing pictures and worker threads](archive-conversion-service.md))
 4. [Ship the API as its own image](deploy-image.md) (parallel to 2 and 3)
 5. First client: browse, download and play catalogue maps (done)
-6. [Keyword categories, map dimensions, gzip-only store](catalogue-metadata.md)
+6. Keyword categories, map dimensions, gzip-only store (done; offline upstream mock:
+   `npm run api:upstream-mock`)
 7. [Rework the catalogue into a browsing view of its own](../features/map-catalogue-client.md)
 8. [Load a map from the player's own file](../features/map-catalogue-local-files.md)
 9. [Curate, correct and translate catalogue maps](../features/map-catalogue-curation.md)

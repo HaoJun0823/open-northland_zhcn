@@ -57,11 +57,14 @@ describe('ConversionService', () => {
     const direct = (await convertMapTree(await openArchive(archive), { provenance: 'catalog' })).maps[0];
     if (direct === undefined) throw new Error('no direct map');
     const expected = mapFiles({ ...direct, id: mapId, index: { ...direct.index, id: mapId } });
+    const storedFiles = await readdir(converted());
     for (const [name, file] of expected) {
-      const bytes = await readFile(join(converted(), name));
+      const text = name.endsWith('.json');
+      const bytes = text
+        ? gunzipSync(await readFile(join(converted(), `${name}.gz`)))
+        : await readFile(join(converted(), name));
       expect(bytes).toEqual(Buffer.from(file));
-      if (name.endsWith('.json'))
-        expect(gunzipSync(await readFile(join(converted(), `${name}.gz`)))).toEqual(bytes);
+      if (text) expect(storedFiles).not.toContain(name);
     }
     const stored = JSON.parse(await readFile(join(converted(), 'conversion.json'), 'utf8'));
     expect(stored).toMatchObject({ conversion, updatedAt: UPDATED_AT });

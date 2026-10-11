@@ -10,7 +10,7 @@ import type { SaveSlotInfo } from '../../../view/runtime/save-load/store.js';
 import { worldNameIndex } from '../../../view/runtime/save-load/world-names.js';
 import type { AutosaveMinutes } from '../../../view/settings-store.js';
 import { GLYPH } from '../icons.js';
-import { button, element } from '../parts/dom.js';
+import { button, element, setTip } from '../parts/dom.js';
 import { quietTextField } from '../parts/text-field.js';
 import { exportAction, removeSlot } from './actions.js';
 import { type MenuPageView, nextPaint, type SaveWindowDeps, savesFrame } from './frame.js';
@@ -29,10 +29,6 @@ export function createSaveWindow(
   const autoLabel = element('legend', 'on-saves__label');
   autoLabel.textContent = copy.autosave;
   const autoOptions = element('div', 'on-saves__auto-options');
-  const autoHint = element('p', 'on-saves__hint');
-  autoHint.id = 'on-saves-autosave-hint';
-  autoHint.textContent = copy.autosaveHint;
-  autosave.setAttribute('aria-describedby', autoHint.id);
   const choices: readonly AutosaveMinutes[] = [0, 5, 10, 15, 30];
   const autoButtons = new Map<AutosaveMinutes, HTMLButtonElement>();
   const refreshAutosave = (): void => {
@@ -45,13 +41,15 @@ export function createSaveWindow(
   for (const minutes of choices) {
     const choice = button('on-button', '');
     choice.textContent = minutes === 0 ? copy.autosaveOff : formatMessage(copy.autosaveEvery, { n: minutes });
+    setTip(choice, copy.autosaveHint);
     choice.addEventListener('click', () => {
       void deps.settings.update({ autosaveMinutes: minutes }).then(refreshAutosave);
     });
     autoButtons.set(minutes, choice);
     autoOptions.append(choice);
   }
-  autosave.append(autoLabel, autoOptions, autoHint);
+  autosave.append(autoLabel, autoOptions);
+  frame.leading.after(autosave);
 
   const nameId = 'on-saves-name';
   const label = element('label', 'on-saves__label');
@@ -109,7 +107,7 @@ export function createSaveWindow(
   const note = element('p', 'on-parchment__note');
   note.textContent = copy.existing;
   sheet.el.prepend(note);
-  frame.window.body.append(label, nameRow, hint, autosave, sheet.el);
+  frame.window.body.append(label, nameRow, hint, sheet.el);
   frame.actions.append(exportButton);
 
   /** Only the newest refresh may publish: an earlier one resolving late would put the pre-save list

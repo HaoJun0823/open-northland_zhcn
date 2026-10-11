@@ -522,7 +522,7 @@ describe('removeVehicle', () => {
     const s = sim();
     const catapult = spawn(s, CATAPULT, 20, 20);
     modifyVehicleStock(s.world, spawn(s, HANDCART, 12, 12), s.content, WOOD, HANDCART_SLOTS);
-    removeVehiclesOf(s.world, ctxOf(s), P0);
+    removeVehiclesOf(s.world, ctxOf(s), P0, 'defeated');
     expect(loosePiles(s, WOOD)).toEqual([]);
     const wrecks = s.events.current().filter((ev) => ev.kind === 'vehicleDestroyed');
     expect(wrecks.map((ev) => ev.cause)).toEqual(['defeated', 'defeated']);

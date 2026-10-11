@@ -1,5 +1,5 @@
-import type { MatchOutcome, SimEvent } from '@open-northland/sim';
-import { messages } from '../../i18n/index.js';
+import type { MatchOutcome, MatchRank, SimEvent } from '@open-northland/sim';
+import { formatMessage, messages } from '../../i18n/index.js';
 import { matchResultActions, matchResultState } from '../../view/match-result-state.js';
 import { GLYPH } from './icons.js';
 import { createHudPlane, type HudPlane } from './root.js';
@@ -9,6 +9,10 @@ import { createHudWindow } from './window.js';
 export interface MatchResultDeps {
   readonly localPlayer: number;
   readonly sharedClock?: boolean;
+  /** A goal table's verdicts in the order they landed, read when the window opens; empty shows no list. */
+  readonly ranking?: () => readonly MatchRank[];
+  /** The roster's authored seat name; absent, the list numbers the seat. */
+  readonly seatNameOf?: ((player: number) => string | undefined) | undefined;
   readonly hud: Pick<HudPlane, 'element' | 'currentScale'>;
   readonly pause: () => void;
   readonly resume: () => void;
@@ -93,6 +97,31 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
       rule,
     );
     if (terminal) frame.body.append(line('p', 'on-result__detail', copy.matchFinishedDetail));
+    const ranking = deps.ranking?.() ?? [];
+    if (ranking.length > 0) {
+      const list = document.createElement('ol');
+      list.className = 'on-result__ranking';
+      list.setAttribute('aria-label', copy.matchRankingTitle);
+      ranking.forEach((rank, index) => {
+        const row = document.createElement('li');
+        row.className = 'on-result__rank';
+        if (rank.player === deps.localPlayer) row.dataset.local = 'true';
+        row.dataset.outcome = rank.outcome;
+        const name =
+          deps.seatNameOf?.(rank.player) ?? formatMessage(copy.matchRankSeat, { n: rank.player + 1 });
+        row.append(
+          line('span', 'on-result__rank-no', `${index + 1}.`),
+          line('span', 'on-result__rank-name', name),
+          line(
+            'span',
+            'on-result__rank-verdict',
+            rank.outcome === 'victory' ? copy.matchRankWon : copy.matchRankLost,
+          ),
+        );
+        list.append(row);
+      });
+      frame.body.append(list);
+    }
     if (watching) frame.body.append(line('p', 'on-result__hint', copy.matchWatchHint));
     const confirm = createSystemConfirm(plane.element);
     const button = (label: string, glyph: string, click: () => void): HTMLButtonElement => {

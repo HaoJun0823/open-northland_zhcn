@@ -8,6 +8,7 @@ import type {
   FogMaskAnswer,
   FogMode,
   MatchOutcome,
+  MatchRank,
   MatchRulesView,
   MissionScript,
   MissionStatus,
@@ -74,6 +75,7 @@ export const HOST_REQUESTS = [
   'missionCentre',
   'missionPresentation',
   'infoLines',
+  'matchGoalProgress',
   'landscapeEdits',
   'exportSave',
   'commandLog',
@@ -151,6 +153,7 @@ export interface WorldFacts {
   readonly fogMode: FogMode;
   /** Indexed by player. */
   readonly matchOutcomes: readonly MatchOutcome[];
+  readonly matchRanking: readonly MatchRank[];
   readonly missionStatus: readonly MissionStatus[];
 }
 

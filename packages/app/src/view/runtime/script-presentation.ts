@@ -9,7 +9,8 @@ import type {
 } from '@open-northland/sim';
 import { entityById, TICKS_PER_SECOND } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
-import { infoLineTexts } from '../../game/info-lines.js';
+import { goalProgressTexts, infoLineTexts } from '../../game/info-lines.js';
+import { messages } from '../../i18n/index.js';
 import { createLastAnswerCache, type SessionHost } from '../../session/index.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';
 import { entityAnchor } from '../projections/entity-anchor.js';
@@ -29,7 +30,7 @@ const NO_LINES: readonly string[] = [];
 export interface ScriptPresentationDeps {
   readonly host: Pick<
     SessionHost,
-    'tick' | 'snapshot' | 'infoLines' | 'missionPresentation' | 'missionStatus'
+    'tick' | 'snapshot' | 'infoLines' | 'matchGoalProgress' | 'missionPresentation' | 'missionStatus'
   >;
   readonly missionTrace?: boolean;
   /** False suppresses automatic briefing windows; the host still records their chapters. */
@@ -48,6 +49,8 @@ export interface ScriptPresentationDeps {
   readonly weather: WeatherFeed;
   /** The map's own string by id, for the info lines. */
   readonly mapText: (stringId: number) => string | undefined;
+  /** A good's display name, for the goal table's progress lines. */
+  readonly goodLabel: (typeId: number) => string | undefined;
   readonly now: () => number;
   /** A local verdict offers continued play, so a later script Exit must not leave the map. */
   readonly keepPlayingAfterResult?: () => boolean;
@@ -213,7 +216,17 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
           ? NO_LINES
           : (lineAnswers.read(
               `${seat}`,
-              () => host.infoLines(seat).then((views) => infoLineTexts(views, deps.mapText)),
+              () =>
+                Promise.all([host.infoLines(seat), host.matchGoalProgress(seat)]).then(
+                  ([views, progress]) => [
+                    ...infoLineTexts(views, deps.mapText),
+                    ...goalProgressTexts(progress, {
+                      good: deps.goodLabel,
+                      inhabitants: messages().hud.matchGoalInhabitants,
+                      soldiers: messages().hud.matchGoalSoldiers,
+                    }),
+                  ],
+                ),
               `${linesTick}`,
             ) ?? NO_LINES);
       // Pushed every frame: the panel remounts on a scale change and starts blank.

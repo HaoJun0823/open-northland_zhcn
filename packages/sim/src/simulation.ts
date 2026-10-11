@@ -19,8 +19,10 @@ import {
   fogMode,
   goodsTradedWith,
   type MatchOutcome,
+  type MatchRank,
   matchEnded,
   matchOutcome,
+  matchRanking,
   missionBriefingHistory,
   missionBriefingPage,
   needsEnabled,
@@ -91,6 +93,7 @@ import {
   placementBlockerVersion,
 } from './systems/footprint/index.js';
 import { type LandscapeEditView, landscapeEdits } from './systems/landscape/view.js';
+import { type MatchGoalProgress, matchGoalProgress } from './systems/match/index.js';
 import {
   type InfoLineView,
   infoLines,
@@ -677,6 +680,16 @@ export class Simulation {
   /** `player`'s standing in the match the MatchSystem drives; `undecided` for a non-participant too. */
   matchOutcome(player: number): MatchOutcome {
     return matchOutcome(this.world, player);
+  }
+
+  /** A goal table's verdicts in the order they landed; empty under any other rule. */
+  matchRanking(): readonly MatchRank[] {
+    return matchRanking(this.world);
+  }
+
+  /** `player`'s standing on the goal table's goods and inhabitants rows as of the latest check. */
+  matchGoalProgress(player: number): readonly MatchGoalProgress[] {
+    return matchGoalProgress(this.world, { content: this.content }, player);
   }
 
   /** The open, unpaid tributes the map's script has `payer` owing, ascending by slot, each with what

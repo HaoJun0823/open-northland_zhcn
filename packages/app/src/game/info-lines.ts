@@ -1,4 +1,4 @@
-import type { InfoLineView } from '@open-northland/sim';
+import type { InfoLineView, MatchGoalProgress } from '@open-northland/sim';
 
 /** The `%d` a map's info string prints its tally into; a second one prints the line's `extra`. */
 const COUNT_PLACEHOLDER = '%d';
@@ -16,6 +16,30 @@ export function formatInfoLine(text: string | undefined, line: InfoLineView): st
     out = `${out.slice(0, at)}${value}${out.slice(at + COUNT_PLACEHOLDER.length)}`;
   }
   return out;
+}
+
+/**
+ * The goal table's goods and inhabitants rows as `have/need` lines under the map's own, one per listed
+ * good. Approximation: the original prints these in its info lines; its wording is not recorded, so
+ * each row names its subject and the two counts.
+ */
+export function goalProgressTexts(
+  rows: readonly MatchGoalProgress[],
+  naming: {
+    readonly good: (typeId: number) => string | undefined;
+    readonly inhabitants: string;
+    readonly soldiers: string;
+  },
+): string[] {
+  return rows.map((row) => {
+    const subject =
+      row.kind === 'goods'
+        ? (naming.good(row.good) ?? `#${row.good}`)
+        : row.soldiers
+          ? naming.soldiers
+          : naming.inhabitants;
+    return `${subject} ${row.have}/${row.need}`;
+  });
 }
 
 /** The player's info lines as the display prints them, top to bottom. */

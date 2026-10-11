@@ -16,7 +16,9 @@ import type {
   InfoLineView,
   LandscapeEditView,
   LoggedCommand,
+  MatchGoalProgress,
   MatchOutcome,
+  MatchRank,
   MissionGroupKind,
   MissionPresentationView,
   MissionScript,
@@ -137,6 +139,8 @@ export interface SessionHost {
   needsEnabled(): boolean;
   fogMode(): FogMode;
   matchOutcome(player: number): MatchOutcome;
+  /** A goal table's verdicts in the order they landed; empty under any other rule. */
+  matchRanking(): readonly MatchRank[];
   missionStatus(): readonly MissionStatus[];
 
   // Per tick.
@@ -225,6 +229,8 @@ export interface SessionHost {
   missionCentre(kind: MissionGroupKind, id: number): Promise<HalfCellNode | null>;
   missionPresentation(): Promise<MissionPresentationView>;
   infoLines(player: number): Promise<readonly InfoLineView[]>;
+  /** `player`'s standing on the goal table's goods and inhabitants rows as of the latest check. */
+  matchGoalProgress(player: number): Promise<readonly MatchGoalProgress[]>;
   landscapeEdits(): Promise<LandscapeEditView>;
   /** The world alone; a session driver's capture adds the accepted future input. */
   exportSave(options?: ExportSaveOptions): Promise<SaveGame>;

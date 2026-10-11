@@ -99,6 +99,7 @@ export {
   MATCH_DEATH_CHECK_INTERVAL_TICKS,
   MATCH_DEATH_GRACE_TICKS,
   MATCH_GOAL_CHECK_TICKS,
+  type MatchGoalProgress,
 } from './match/index.js';
 // The mission engine's cadence, the opcodes it runs, and the ids a world's placements carry: the
 // coverage report and the real-content suite read these from outside the package.

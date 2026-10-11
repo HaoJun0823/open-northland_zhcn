@@ -23,8 +23,10 @@ const CORPUS_TABLES: Readonly<Record<string, readonly string[]>> = {
 const RED = 1;
 const BLUE = 0;
 
+/** Kill the seat's men, which is its death; its women stay for the teardown to replace. */
 function killSeat(sim: Simulation, player: number): void {
   for (const entity of sim.world.query(components.Person, components.Owner)) {
+    if (sim.world.has(entity, components.Female)) continue;
     if (sim.world.get(entity, components.Owner).player === player) {
       sim.enqueue(adminCommand({ kind: 'debugKill', target: entity }));
     }
@@ -61,6 +63,28 @@ describe.runIf(hasRealIr())('multiplayer goal tables', () => {
     expect(sim.matchOutcome(BLUE)).toBe('victory');
     expect(sim.matchOutcome(RED)).toBe('defeat');
     expect(won % systems.MATCH_GOAL_CHECK_TICKS).toBe(0);
+    expect(sim.matchRanking()).toEqual([
+      { player: BLUE, outcome: 'victory' },
+      { player: RED, outcome: 'defeat' },
+    ]);
+    // The loser's houses go on the next check, with wild chickens where its people stood.
+    const houses = (player: number): number =>
+      [...sim.world.query(components.Building, components.Owner)].filter(
+        (e) => sim.world.get(e, components.Owner).player === player,
+      ).length;
+    expect(houses(RED)).toBeGreaterThan(0);
+    sim.run(systems.MATCH_GOAL_CHECK_TICKS);
+    expect(houses(RED)).toBe(0);
+    expect(houses(BLUE)).toBeGreaterThan(0);
+    const people = [...sim.world.query(components.Person, components.Owner)].filter(
+      (e) => sim.world.get(e, components.Owner).player === RED,
+    );
+    expect(people).toEqual([]);
+    const chicken = sim.content.tribes.find((tribe) => tribe.id === 'chicken')?.typeId;
+    const chickens = [...sim.world.query(components.Settler)].filter(
+      (e) => sim.world.get(e, components.Settler).tribe === chicken && !sim.world.has(e, components.Owner),
+    );
+    expect(chickens.length).toBeGreaterThan(0);
   }, 60_000);
 
   it("decides Ucieczka z Gazy's never-dying seats by their script verdict", async () => {

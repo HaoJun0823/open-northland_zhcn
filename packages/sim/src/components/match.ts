@@ -63,6 +63,10 @@ interface MatchGoalTable {
   /** Participants the table decided, never both: a decided seat is not checked again. */
   won: number;
   lost: number;
+  /** The decided seats in the order their verdicts landed: the end-of-match ranking. */
+  decided: number[];
+  /** Seats of `lost` whose world the check after their verdict took off the map. */
+  tornDown: number;
 }
 
 const matchGoals = defineWorldSingleton<MatchGoalTable & { enabled: boolean }>(
@@ -75,6 +79,8 @@ const matchGoals = defineWorldSingleton<MatchGoalTable & { enabled: boolean }>(
     raised: [],
     won: 0,
     lost: 0,
+    decided: [],
+    tornDown: 0,
   }),
 );
 
@@ -218,6 +224,8 @@ export function setMatchParticipants(
       table.raised = rows.map(() => 0);
       table.won = 0;
       table.lost = 0;
+      table.decided = [];
+      table.tornDown = 0;
     });
   } else if (goalsMatchVictory(world)) {
     matchGoals.write(world, (table) => {
@@ -296,7 +304,33 @@ export function markGoalVerdict(world: World, player: number, verdict: 'won' | '
   if (((table.won | table.lost) & bit) !== 0) return;
   matchGoals.write(world, (rows) => {
     rows[verdict] |= bit;
+    rows.decided.push(player);
   });
+}
+
+/** Record that the loser teardown ran for `player`, so the next check skips it. */
+export function markGoalTeardown(world: World, player: number): void {
+  matchGoals.write(world, (rows) => {
+    rows.tornDown |= playerBit(player);
+  });
+}
+
+export interface MatchRank {
+  readonly player: number;
+  readonly outcome: 'victory' | 'defeat';
+}
+
+/**
+ * The goal table's verdicts in the order they landed, first decided first: the original numbers each
+ * verdict as it lands and its end-of-game ranking sorts by that number. Empty under any other rule.
+ */
+export function matchRanking(world: World): readonly MatchRank[] {
+  const table = matchGoals.read(world);
+  if (!table.enabled) return [];
+  return table.decided.map((player) => ({
+    player,
+    outcome: (table.won & playerBit(player)) !== 0 ? 'victory' : 'defeat',
+  }));
 }
 
 export interface MatchRulesView {

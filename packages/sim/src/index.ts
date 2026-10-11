@@ -7,7 +7,13 @@ export {
   productionCountOf,
 } from './components/economy/production.js';
 export * as components from './components/index.js';
-export type { MatchGoal, MatchOutcome, MatchRulesView, MatchVictory } from './components/match.js';
+export type {
+  MatchGoal,
+  MatchOutcome,
+  MatchRank,
+  MatchRulesView,
+  MatchVictory,
+} from './components/match.js';
 export { BRIEFING_HISTORY_LIMIT } from './components/mission.js';
 export type { MissionPresentationView } from './components/mission-presentation.js';
 // Fog mode ids, their two settings and the diplomacy stance union, flattened to the package root for
@@ -243,6 +249,7 @@ export type { GatheringTrade } from './systems/economy/gather-goods.js';
 export type { ConstructionPlot, PlacementProbe, ResourceNodeSpec } from './systems/footprint/index.js';
 export type { LandscapeEditView } from './systems/landscape/view.js';
 export { RUIN_COLLAPSE_TICKS } from './systems/lifecycle/ruins.js';
+export type { MatchGoalProgress } from './systems/match/index.js';
 export type {
   InfoLineView,
   MissionDefinition,

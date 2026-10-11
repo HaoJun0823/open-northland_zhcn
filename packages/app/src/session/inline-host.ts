@@ -62,6 +62,7 @@ export function inlineSessionHost(sim: Simulation, options: InlineSessionHostOpt
     needsEnabled: () => sim.needsEnabled(),
     fogMode: () => sim.fogMode(),
     matchOutcome: (player) => sim.matchOutcome(player),
+    matchRanking: () => sim.matchRanking(),
     missionStatus: () => sim.missionStatus(),
 
     tickEvents: () => sim.events.current(),
@@ -114,6 +115,7 @@ export function inlineSessionHost(sim: Simulation, options: InlineSessionHostOpt
     missionCentre: (kind, id) => Promise.resolve(sim.missionCentre(kind, id)),
     missionPresentation: () => Promise.resolve(sim.missionPresentation()),
     infoLines: (player) => Promise.resolve(sim.infoLines(player)),
+    matchGoalProgress: (player) => Promise.resolve(sim.matchGoalProgress(player)),
     landscapeEdits: () => Promise.resolve(sim.landscapeEdits()),
     exportSave: (options?: ExportSaveOptions) => Promise.resolve(exportSaveGame(sim, options)),
 

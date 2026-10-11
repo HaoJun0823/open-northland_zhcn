@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
+
+import type { MatchRank } from '@open-northland/sim';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createLinkLostScreen } from '../src/hud/dom/link-lost-screen.js';
 import { createMatchResultOverlay, type MatchResultOverlay } from '../src/hud/dom/match-result.js';
+import { formatMessage, messages } from '../src/i18n/index.js';
 
 const overlays: MatchResultOverlay[] = [];
 afterEach(() => {
@@ -9,7 +12,7 @@ afterEach(() => {
   document.body.replaceChildren();
   vi.unstubAllGlobals();
 });
-function setup(sharedClock: boolean) {
+function setup(sharedClock: boolean, ranking: () => readonly MatchRank[] = () => []) {
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -26,6 +29,8 @@ function setup(sharedClock: boolean) {
   const overlay = createMatchResultOverlay({
     localPlayer: 0,
     sharedClock,
+    ranking,
+    seatNameOf: (player) => (player === 1 ? 'Ragnar' : undefined),
     pause,
     resume,
     onQuit,
@@ -60,6 +65,28 @@ it('lets a defeated player watch without pausing and inspect the map after the m
   expect(h.body.children).toHaveLength(1);
   h.body.buttons()[1]?.click();
   expect(h.onQuit).toHaveBeenCalledOnce();
+  expect(h.body.children).toHaveLength(0);
+});
+
+it('lists the goal table ranking in verdict order, naming the roster seat and numbering the rest', () => {
+  const h = setup(false, () => [
+    { player: 1, outcome: 'defeat' },
+    { player: 0, outcome: 'victory' },
+  ]);
+  h.overlay.announce('victory');
+  const rows = [...document.querySelectorAll<HTMLElement>('.on-result__rank')];
+  const copy = messages().hud;
+  const text = (row: HTMLElement, part: string): string | null | undefined =>
+    row.querySelector(`.on-result__rank-${part}`)?.textContent;
+  expect(rows.map((row) => text(row, 'name'))).toEqual([
+    'Ragnar',
+    formatMessage(copy.matchRankSeat, { n: 1 }),
+  ]);
+  expect(rows.map((row) => text(row, 'verdict'))).toEqual([copy.matchRankLost, copy.matchRankWon]);
+  expect(rows.map((row) => text(row, 'no'))).toEqual(['1.', '2.']);
+  expect(rows.map((row) => row.dataset.local)).toEqual([undefined, 'true']);
+  expect(rows.map((row) => row.dataset.outcome)).toEqual(['defeat', 'victory']);
+  h.overlay.dispose();
   expect(h.body.children).toHaveLength(0);
 });
 

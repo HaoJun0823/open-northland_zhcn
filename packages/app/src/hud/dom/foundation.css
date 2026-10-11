@@ -8392,6 +8392,38 @@ body.on-drag-scroll * {
   font-size: 14px;
   line-height: 1.45;
 }
+.on-hud .on-result__ranking {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.on-hud .on-result__rank {
+  display: flex;
+  gap: 10px;
+  padding: 0 6px;
+}
+.on-hud .on-result__rank-no {
+  min-width: 1.6em;
+  color: var(--muted);
+}
+.on-hud .on-result__rank-name {
+  flex: 1;
+}
+.on-hud .on-result__rank[data-local="true"] {
+  color: var(--bronze-hi);
+  font-weight: 700;
+}
+.on-hud .on-result__rank-verdict {
+  color: var(--muted);
+}
+.on-hud .on-result__rank[data-outcome="defeat"] .on-result__rank-verdict {
+  color: var(--danger);
+}
 .on-hud .on-result__actions {
   width: 100%;
   display: grid;

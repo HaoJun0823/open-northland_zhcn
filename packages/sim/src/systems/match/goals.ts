@@ -5,6 +5,7 @@ import {
   isValidPlayer,
   lostByScriptBits,
   type MatchGoal,
+  markGoalTeardown,
   markGoalVerdict,
   matchGoalTable,
   matchParticipantBits,
@@ -18,11 +19,12 @@ import {
   wonByScriptBits,
 } from '../../components/index.js';
 import type { World } from '../../ecs/world.js';
-import type { SystemContext } from '../context.js';
+import type { ContentContext, SystemContext } from '../context.js';
 import { isAdultSettler } from '../family/eligibility.js';
 import { stockOf, typeStoresGood } from '../missions/stock.js';
 import { isSoldierJob } from '../readviews/index.js';
 import { allMutualFriends, hasTwoSeats } from './standing.js';
+import { tearDownLoser } from './teardown.js';
 
 /**
  * Ticks between two goal checks. Original behavior: the table is checked on every tick count that is a
@@ -44,14 +46,25 @@ type Verdict = 'won' | 'lost';
  */
 export function checkMatchGoals(world: World, ctx: SystemContext): void {
   if (ctx.tick % MATCH_GOAL_CHECK_TICKS !== 0) return;
-  const table = matchGoalTable(world);
+  let table = matchGoalTable(world);
+  // A loser's world goes on the check after its verdict, never on the verdict's own check.
+  for (const player of playersOfBits(table.lost & ~table.tornDown)) {
+    tearDownLoser(world, ctx, player);
+    markGoalTeardown(world, player);
+  }
+  table = matchGoalTable(world);
   const pending = table.seats & ~(table.won | table.lost);
-  if (pending === 0) return;
+  if (pending === 0) {
+    progressByWorld.set(world, new Map());
+    return;
+  }
   const tallies = new GoalTallies(world, ctx, pending);
+  let undecided = pending;
   for (const player of playersOfBits(pending)) {
     const verdict = playerVerdict(world, tallies, player);
     if (verdict === undefined) continue;
     markGoalVerdict(world, player, verdict);
+    undecided &= ~playerBit(player);
     const announced = verdict === 'won' ? wonByScriptBits(world) : lostByScriptBits(world);
     ctx.events.emit({
       kind: verdict === 'won' ? 'playerWon' : 'playerDefeated',
@@ -59,6 +72,7 @@ export function checkMatchGoals(world: World, ctx: SystemContext): void {
       ...((announced & playerBit(player)) !== 0 ? { notificationAlreadySent: true as const } : {}),
     });
   }
+  progressByWorld.set(world, goalProgressOf(world, tallies, undecided));
 }
 
 function playerVerdict(world: World, tallies: GoalTallies, player: number): Verdict | undefined {
@@ -116,6 +130,62 @@ function lastStanding(world: World, player: number): boolean {
   );
 }
 
+/** One goods or inhabitants row's standing for a seat, as the on-screen info lines print it. */
+export type MatchGoalProgress =
+  | { readonly kind: 'goods'; readonly good: number; readonly have: number; readonly need: number }
+  | {
+      readonly kind: 'inhabitants';
+      readonly soldiers: boolean;
+      readonly have: number;
+      readonly need: number;
+    };
+
+/** The counts of the latest check per seat, outside the state: a read model, refreshed each check and
+ *  built once on a first read before any check (a loaded game), never per frame. */
+const progressByWorld = new WeakMap<World, ReadonlyMap<number, readonly MatchGoalProgress[]>>();
+
+/** `player`'s standing on the table's goods and inhabitants rows as of the latest check, in table order;
+ *  empty for a decided seat, or under another rule. */
+export function matchGoalProgress(
+  world: World,
+  ctx: ContentContext,
+  player: number,
+): readonly MatchGoalProgress[] {
+  let progress = progressByWorld.get(world);
+  if (progress === undefined) {
+    const table = matchGoalTable(world);
+    const pending = table.seats & ~(table.won | table.lost);
+    progress = goalProgressOf(world, new GoalTallies(world, ctx, pending), pending);
+    progressByWorld.set(world, progress);
+  }
+  return progress.get(player) ?? [];
+}
+
+function goalProgressOf(
+  world: World,
+  tallies: GoalTallies,
+  pending: number,
+): ReadonlyMap<number, readonly MatchGoalProgress[]> {
+  const out = new Map<number, MatchGoalProgress[]>();
+  const goals = matchGoalTable(world).goals;
+  if (!goals.some((goal) => goal.kind === 'goods' || goal.kind === 'inhabitants')) return out;
+  for (const player of playersOfBits(pending)) {
+    const rows: MatchGoalProgress[] = [];
+    for (const goal of goals) {
+      if (goal.kind === 'goods') {
+        for (const { good, amount } of goal.goods) {
+          rows.push({ kind: 'goods', good, have: tallies.goods(player, good), need: amount });
+        }
+      } else if (goal.kind === 'inhabitants') {
+        const have = goal.soldiers ? tallies.soldiers(player) : tallies.inhabitants(player);
+        rows.push({ kind: 'inhabitants', soldiers: goal.soldiers, have, need: goal.count });
+      }
+    }
+    out.set(player, rows);
+  }
+  return out;
+}
+
 /**
  * The per-player counts the goods and inhabitants rows compare, each taken in one walk on first use.
  * Original behavior: goods are what the player's houses hold in their own stock slots; inhabitants are
@@ -127,7 +197,7 @@ class GoalTallies {
 
   constructor(
     private readonly world: World,
-    private readonly ctx: SystemContext,
+    private readonly ctx: ContentContext,
     private readonly players: number,
   ) {}
 

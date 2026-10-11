@@ -21,7 +21,7 @@ import { removeVehiclesOf } from '../vehicles/remove.js';
 import { checkMatchGoals } from './goals.js';
 import { allMutualFriends, hasTwoSeats } from './standing.js';
 
-export { MATCH_GOAL_CHECK_TICKS } from './goals.js';
+export { MATCH_GOAL_CHECK_TICKS, type MatchGoalProgress, matchGoalProgress } from './goals.js';
 
 /**
  * Death-check cadence in ticks: the first check lands on the cadence tick past the grace period.
@@ -73,7 +73,7 @@ function markDeaths(world: World, ctx: SystemContext, participants: number, anno
     dead |= playerBit(player);
     if (announce) ctx.events.emit({ kind: 'playerDefeated', player });
     // A dead seat's vehicles are destroyed, never transferred (reading of the original's teardown).
-    removeVehiclesOf(world, ctx, player);
+    removeVehiclesOf(world, ctx, player, 'defeated');
   }
   return dead;
 }

@@ -285,6 +285,12 @@ export const deGame = {
     matchKicker: 'Das Schicksal deines Stammes',
     matchWatchHint: 'Du kannst die Karte und die anderen Spieler beobachten, ohne Befehle zu erteilen.',
     matchContinue: 'Weiterspielen',
+    matchRankingTitle: 'Rangliste',
+    matchRankWon: 'gewonnen',
+    matchRankLost: 'verloren',
+    matchRankSeat: 'Spieler {n}',
+    matchGoalInhabitants: 'Einwohner',
+    matchGoalSoldiers: 'Soldaten',
     matchWatch: 'Weiter zuschauen',
     returnToMenu: 'Zurück zum Menü',
     quitConfirm:

@@ -719,6 +719,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       verdict = createMatchResultOverlay({
         localPlayer,
         sharedClock,
+        ranking: () => host.matchRanking(),
+        ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
         hud: hudDom,
         onOpen: () => systemMenu?.close(),
         setCameraSuspended: cameraCtl.setSuspended,
@@ -962,6 +964,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         deps.ambientWeather ?? null,
       ),
       mapText,
+      goodLabel: (typeId) => goodLabelByType.get(typeId),
       now: () => performance.now(),
       keepPlayingAfterResult: () => sharedClock || host.matchOutcome(localPlayer) !== 'undecided',
       exit: () => queueMicrotask(quitToMenu),

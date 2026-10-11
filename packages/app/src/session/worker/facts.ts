@@ -38,6 +38,7 @@ export function readWorldFacts(sim: Simulation): WorldFacts {
     needsEnabled: sim.needsEnabled(),
     fogMode: sim.fogMode(),
     matchOutcomes: SEATS.map((player) => sim.matchOutcome(player)),
+    matchRanking: sim.matchRanking(),
     missionStatus: sim.missionStatus(),
   };
 }
@@ -63,6 +64,7 @@ export function changedFacts(last: WorldFacts, next: WorldFacts): Partial<WorldF
   if (next.needsEnabled !== last.needsEnabled) changed.needsEnabled = next.needsEnabled;
   if (next.fogMode !== last.fogMode) changed.fogMode = next.fogMode;
   if (!samePlainData(next.matchOutcomes, last.matchOutcomes)) changed.matchOutcomes = next.matchOutcomes;
+  if (!samePlainData(next.matchRanking, last.matchRanking)) changed.matchRanking = next.matchRanking;
   if (!samePlainData(next.missionStatus, last.missionStatus)) changed.missionStatus = next.missionStatus;
   return changed;
 }

@@ -54,6 +54,7 @@ function harness(
     },
     snapshot: () => snapshotAt(tick),
     infoLines: (player: number) => Promise.resolve(lines.filter((line) => line.index === player)),
+    matchGoalProgress: () => Promise.resolve([]),
     missionPresentation: () => Promise.resolve(saved),
     missionStatus: () => [],
   };
@@ -96,6 +97,7 @@ function harness(
     effects,
     weather,
     mapText: (id) => (id === 7 ? 'Held: %d of %d' : undefined),
+    goodLabel: () => undefined,
     now: () => 0,
     exit: () => calls.push('exit'),
   });

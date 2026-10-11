@@ -499,6 +499,7 @@ class WorkerClient<E> {
       needsEnabled: () => facts().needsEnabled,
       fogMode: () => facts().fogMode,
       matchOutcome: (player) => facts().matchOutcomes[player] ?? 'undecided',
+      matchRanking: () => facts().matchRanking,
       missionStatus: () => facts().missionStatus,
 
       tickEvents: () => this.events,
@@ -541,6 +542,7 @@ class WorkerClient<E> {
       missionCentre: (...args) => this.ask('missionCentre', args),
       missionPresentation: (...args) => this.ask('missionPresentation', args),
       infoLines: (...args) => this.ask('infoLines', args),
+      matchGoalProgress: (...args) => this.ask('matchGoalProgress', args),
       landscapeEdits: (...args) => this.ask('landscapeEdits', args),
       exportSave: (...args) => this.ask('exportSave', args),
       commandLog: (...args) => this.ask('commandLog', args),

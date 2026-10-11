@@ -87,9 +87,14 @@ export function removeVehicle(world: World, ctx: SystemContext, e: Entity, cause
 
 /** Remove every vehicle `player` owns, in ascending entity order. The list is copied because every
  *  removal rebuilds the index it came from. */
-export function removeVehiclesOf(world: World, ctx: SystemContext, player: number): void {
+export function removeVehiclesOf(
+  world: World,
+  ctx: SystemContext,
+  player: number,
+  cause: VehicleRemovalCause,
+): void {
   for (const e of [...vehicleIndex(world).ownedBy(player)]) {
-    if (world.isAlive(e)) removeVehicle(world, ctx, e, 'defeated');
+    if (world.isAlive(e)) removeVehicle(world, ctx, e, cause);
   }
 }
 

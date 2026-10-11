@@ -150,7 +150,7 @@ function startQueuedOrder(world: World, ctx: SystemContext, queued: QueuedUnitOr
       attackMoveUnit(world, ctx, command, origin);
       return;
     case 'placeSignpost':
-      placeSignpost(world, ctx, command);
+      placeSignpost(world, ctx, command, origin);
       return;
     case 'openChest':
       orderOpenChest(world, ctx, command);

@@ -10,6 +10,7 @@ import {
   MISSION_BEHAVIOUR,
   NoRegeneration,
   Owner,
+  PlayerOrder,
   Position,
   Settler,
   Stance,
@@ -50,6 +51,7 @@ import {
 } from '../../src/systems/computer-player/index.js';
 import { standsAtPost } from '../../src/systems/conflict/tower-post.js';
 import type { SystemContext } from '../../src/systems/index.js';
+import { setAiControl } from '../../src/systems/orders/ai.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { entityNode } from '../../src/systems/spatial/nodes.js';
 import { aiContent } from '../fixtures/ai-content.js';
@@ -675,6 +677,37 @@ function roundTripCamp(sim: Simulation): Simulation {
 }
 
 describe('map camp defence pursuit leash', () => {
+  it('withdraws an unrestricted sortie when autonomous military stops', () => {
+    const sim = aiSim();
+    const hq = place(sim, HQ_TYPE, SEAT_HQ);
+    const [defender] = spawn(sim, 1, { x: SEAT_HQ.x, y: SEAT_HQ.y + 6 }, SPEARMAN);
+    if (defender === undefined) throw new Error('missing defender');
+    const raider = standOff(sim, hq, watchOf(sim), SPEARMAN);
+    const ctx = { ...ctxOf(sim), tick: 19, commands: sim.commands };
+    setAiControl(sim.world, ctx, { kind: 'setAiControl', player: SEAT, enabled: true });
+    settlementDefenceSystem(sim.world, ctx);
+    commandSystem(sim.world, ctx);
+    expect(sim.world.get(defender, AiOrder).source).toBe('settlement-defence');
+    expect(sim.world.has(defender, MapAiDefence)).toBe(false);
+    sim.world.add(defender, Engagement, { repathAt: ctx.tick, target: raider });
+    sim.world.add(raider, Position, positionOfNode(100, SEAT_HQ.y));
+    setAiControl(sim.world, ctx, {
+      kind: 'setAiControl',
+      player: SEAT,
+      enabled: true,
+      computerEnabled: false,
+    });
+    expect(sim.world.has(defender, PlayerOrder)).toBe(false);
+    expect(sim.world.has(defender, Engagement)).toBe(false);
+    expect(sim.world.has(defender, AiOrder)).toBe(false);
+    expect(sim.world.get(defender, Stance).mode).toBe(MILITARY_MODE.IGNORE);
+    sim.world.add(raider, Position, positionOfNode(SEAT_HQ.x + watchOf(sim), SEAT_HQ.y));
+    settlementDefenceSystem(sim.world, { ...ctx, tick: 67 });
+    commandSystem(sim.world, { ...ctx, tick: 67 });
+    expect(sim.world.get(defender, AiOrder).source).toBe('settlement-defence');
+    expect(sim.world.has(defender, MapAiDefence)).toBe(true);
+  });
+
   it('recalls an engaged defender when its enemy retreats and preserves the return through a save', () => {
     const original = dispatchedCampSortie();
     const sim = roundTripCamp(original.sim);

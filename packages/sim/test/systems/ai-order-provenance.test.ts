@@ -5,21 +5,26 @@ import {
   addPerson,
   CurrentAtomic,
   DeferredOrder,
+  ErectSignpostOrder,
+  MealBreak,
   MoveGoal,
   OrderQueue,
   Owner,
   PlayerOrder,
   Position,
+  Signpost,
   Stance,
   seatPassenger,
 } from '../../src/components/index.js';
 import { aiCommand, type CommandEnvelope, playerCommand } from '../../src/core/commands/index.js';
-import { fx, Simulation } from '../../src/index.js';
+import { fx, positionOfNode, Simulation } from '../../src/index.js';
 import { commandSystem } from '../../src/systems/command/index.js';
 import { setAiControl } from '../../src/systems/orders/ai.js';
+import { suspendWalkForMeal } from '../../src/systems/orders/meal-break.js';
 import { sendUnit } from '../../src/systems/orders/movement.js';
 import { deferredOrderSystem } from '../../src/systems/orders/pending.js';
 import { orderQueueSystem } from '../../src/systems/orders/queue.js';
+import { signpostOrderSystem } from '../../src/systems/orders/signposts.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/stances.js';
 import { boardRider, createVehicle } from '../../src/systems/vehicles/index.js';
 import { testContent } from '../fixtures/content.js';
@@ -60,6 +65,85 @@ function fixture(jobType = 1, content = testContent()) {
 }
 
 describe('accepted AI order ownership', () => {
+  it.each(['walking', 'queued', 'deferred', 'meal', 'hammer'] as const)(
+    'withdraws a guideBuild signpost order while %s',
+    (phase) => {
+      const { sim, entity, ctx, move, apply } = fixture(27);
+      if (sim.terrain === undefined) throw new Error('missing terrain');
+      const source = { player: PLAYER, source: 'guideBuild' } as const;
+      const post = { kind: 'placeSignpost', entity, x: 20, y: 4 } as const;
+      if (phase === 'queued') apply(playerCommand(PLAYER, move));
+      if (phase === 'deferred') {
+        addCurrentAtomic(sim.world, entity, {
+          atomicId: 10,
+          duration: 5,
+          effect: { kind: 'idle' },
+          targetEntity: null,
+          targetTile: null,
+        });
+      }
+      apply(aiCommand(PLAYER, { ...post, ...(phase === 'queued' ? { queued: true } : {}) }, source.source));
+      if (phase === 'queued') {
+        sim.world.remove(entity, PlayerOrder);
+        orderQueueSystem(sim.world, ctx);
+      }
+      if (phase === 'deferred') {
+        expect(sim.world.get(entity, AiOrder)).toEqual(source);
+        sim.world.remove(entity, CurrentAtomic);
+        deferredOrderSystem(sim.world, ctx);
+      }
+      if (phase === 'meal') {
+        suspendWalkForMeal(sim.world, sim.terrain, entity);
+        sim.world.remove(entity, MealBreak);
+        orderQueueSystem(sim.world, ctx);
+      }
+      if (phase === 'hammer') {
+        sim.world.add(entity, Position, positionOfNode(post.x, post.y));
+        sim.world.remove(entity, PlayerOrder);
+        signpostOrderSystem(sim.world, ctx);
+        expect(sim.world.get(entity, CurrentAtomic).effect.kind).toBe('erectSignpost');
+      }
+      expect(sim.world.get(entity, AiOrder)).toEqual(source);
+      setAiControl(sim.world, ctx, {
+        kind: 'setAiControl',
+        player: PLAYER,
+        enabled: true,
+        computerEnabled: false,
+      });
+      expect(sim.world.has(entity, PlayerOrder)).toBe(false);
+      expect(sim.world.has(entity, ErectSignpostOrder)).toBe(false);
+      expect(sim.world.has(entity, DeferredOrder)).toBe(false);
+      expect(sim.world.tryGet(entity, CurrentAtomic)?.effect.kind).not.toBe('erectSignpost');
+      sim.run(300);
+      expect([...sim.world.query(Signpost)]).toHaveLength(0);
+    },
+  );
+
+  it.each([false, true])('withdraws a scout movement across a meal break (resumed: %s)', (resumed) => {
+    const { sim, entity, ctx, move, apply } = fixture(27);
+    const source = { player: PLAYER, source: 'guideBuild' } as const;
+    apply(aiCommand(PLAYER, move, source.source));
+    if (sim.terrain === undefined) throw new Error('missing terrain');
+    suspendWalkForMeal(sim.world, sim.terrain, entity);
+    expect(sim.world.get(entity, OrderQueue).orders[0]).toMatchObject({ aiOrder: source });
+    if (resumed) {
+      sim.world.remove(entity, MealBreak);
+      orderQueueSystem(sim.world, ctx);
+      expect(sim.world.get(entity, AiOrder)).toEqual(source);
+    }
+    setAiControl(sim.world, ctx, {
+      kind: 'setAiControl',
+      player: PLAYER,
+      enabled: true,
+      computerEnabled: false,
+    });
+    sim.world.remove(entity, MealBreak);
+    orderQueueSystem(sim.world, ctx);
+    expect(sim.world.has(entity, PlayerOrder)).toBe(false);
+    expect(sim.world.has(entity, OrderQueue)).toBe(false);
+    expect(sim.world.has(entity, AiOrder)).toBe(false);
+  });
+
   it('retains the old owner after a refused attack instead of labelling an unapplied order', () => {
     const { sim, entity, move, apply, disable } = fixture();
     apply(aiCommand(PLAYER, move, 'military'));

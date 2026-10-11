@@ -1,3 +1,4 @@
+import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   addCurrentAtomic,
   CurrentAtomic,
@@ -14,6 +15,7 @@ import type { System, SystemContext } from '../context.js';
 import { atomicDuration } from '../readviews/animations.js';
 import { isScoutJob } from '../readviews/index.js';
 import { canPlaceSignpost } from '../signposts/index.js';
+import { recordAiOrder } from './ai-lifecycle.js';
 import { deferOrderDuringAtomic, isOrderableSettler } from './guards.js';
 import { moveUnit } from './movement.js';
 
@@ -34,6 +36,7 @@ export function placeSignpost(
   world: World,
   ctx: SystemContext,
   command: Extract<Command, { kind: 'placeSignpost' }>,
+  origin?: AiOrderOrigin,
 ): boolean {
   const terrain = ctx.terrain;
   if (terrain === undefined) return false; // mapless sim: no cells to erect on
@@ -45,10 +48,13 @@ export function placeSignpost(
   if (!canPlaceSignpost(world, ctx, terrain, goal, player)) return false;
   // A non-interruptible atomic parks the whole command: deferring only the inner moveUnit would strand an
   // ErectSignpostOrder that the parked move erases on apply. The replay re-validates the spot.
-  if (deferOrderDuringAtomic(world, ctx, e, command)) return true;
+  if (deferOrderDuringAtomic(world, ctx, e, command)) {
+    recordAiOrder(world, e, origin);
+    return true;
+  }
   const c = terrain.coordsOf(goal);
   // canPlaceSignpost already proved the goal standable, so the move's goal snap leaves it in place.
-  const walks = moveUnit(world, ctx, { kind: 'moveUnit', entity: e, x: c.x, y: c.y });
+  const walks = moveUnit(world, ctx, { kind: 'moveUnit', entity: e, x: c.x, y: c.y }, origin);
   world.add(e, ErectSignpostOrder, { goal });
   return walks;
 }

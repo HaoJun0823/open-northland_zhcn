@@ -48,7 +48,7 @@ function applyDeferredOrder(
       setJob(world, ctx, command);
       return;
     case 'placeSignpost':
-      placeSignpost(world, ctx, command);
+      placeSignpost(world, ctx, command, origin);
       return;
     case 'openChest':
       orderOpenChest(world, ctx, command);

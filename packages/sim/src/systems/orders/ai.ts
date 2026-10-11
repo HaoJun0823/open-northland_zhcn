@@ -15,7 +15,7 @@ import type { Entity, World } from '../../ecs/world.js';
 import { COMPUTER_PUBLISHED_COUNTERS } from '../computer-player/assistant-counters.js';
 import { soldierOutfitGoods } from '../computer-player/military/outfit.js';
 import type { SystemContext } from '../context.js';
-import { retireComputerCampaign, withdrawAiOrders } from './ai-lifecycle.js';
+import { retireComputerCampaign, standDownAutonomousSorties, withdrawAiOrders } from './ai-lifecycle.js';
 import {
   clearAssistantWeaponVetoes,
   liftAssistantSoldiersOnly,
@@ -75,9 +75,11 @@ export function setAiControl(
   const next = computerModuleEnables(
     Object.fromEntries(Object.entries(modules).map(([id, enabled]) => [id, computerEnabled && enabled])),
   );
+  if (previous.military && !next.military) standDownAutonomousSorties(world, ctx, command.player);
   withdrawAiOrders(world, ctx, command.player, (source) => {
     if (source === 'map-ai') return !mapAiEnabled;
-    if (source === 'settlement-defence') return !mapAiEnabled && !next.military;
+    // Autonomous sorties have no camp leash. A map-only controller must plan a bounded replacement.
+    if (source === 'settlement-defence') return !next.military && (!mapAiEnabled || previous.military);
     return !next[source];
   });
   if (previous.military && !next.military) retireComputerCampaign(world, command.player);

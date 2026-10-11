@@ -1,4 +1,5 @@
 import {
+  AiOrder,
   ClaimAnimalOrder,
   ErectSignpostOrder,
   ExploreOrder,
@@ -96,10 +97,13 @@ export function startMealBreak(world: World, e: Entity): void {
 export function suspendWalkForMeal(world: World, terrain: TerrainGraph, e: Entity): void {
   const resume = resumableOrder(world, terrain, e);
   if (resume !== null) {
+    const origin = world.tryGet(e, AiOrder);
+    const pending = { ...resume, ...(origin === undefined ? {} : { aiOrder: { ...origin } }) };
     const queue = world.tryMut(e, OrderQueue);
-    if (queue === undefined) world.add(e, OrderQueue, { orders: [resume] });
-    else queue.orders.unshift(resume);
+    if (queue === undefined) world.add(e, OrderQueue, { orders: [pending] });
+    else queue.orders.unshift(pending);
   }
+  world.remove(e, AiOrder);
   world.remove(e, PlayerOrder);
   world.remove(e, ErectSignpostOrder);
   world.remove(e, OpenChestOrder);

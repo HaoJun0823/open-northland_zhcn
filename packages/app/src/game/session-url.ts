@@ -45,11 +45,13 @@ export type SessionRosterSlot = Pick<
   MapsIndexPlayerSlot,
   'player' | 'colorId' | 'tribeId' | 'type' | 'claimable'
 > &
-  Partial<Pick<MapsIndexPlayerSlot, 'aiAllowed' | 'hidden'>>;
+  Partial<Pick<MapsIndexPlayerSlot, 'aiAllowed' | 'noneAllowed' | 'hidden'>>;
 
 /** An authored computer seat the map never offers to a person; lobby mode choices cannot retype it. */
-export function isReservedMapAiSeat(slot: Pick<SessionRosterSlot, 'type' | 'claimable'>): boolean {
-  return slot.type === 'ai' && !slot.claimable;
+export function isReservedMapAiSeat(
+  slot: Pick<SessionRosterSlot, 'type' | 'claimable' | 'aiAllowed'>,
+): boolean {
+  return slot.type !== 'none' && !slot.claimable && slot.aiAllowed !== false;
 }
 
 /** A reserved or hidden slot cannot grant local player authority through a launch URL or stale selection. */
@@ -218,16 +220,16 @@ export interface SeatLists {
 /** Closed authored seats never participate. A human claim wins over mode lists; locked computer
  *  seats follow the map. An unclaimed selectable computer seat defaults to Computer. */
 export function seatMode(
-  slot: Pick<SessionRosterSlot, 'player' | 'type' | 'claimable' | 'aiAllowed'>,
+  slot: Pick<SessionRosterSlot, 'player' | 'type' | 'claimable' | 'aiAllowed' | 'noneAllowed'>,
   localSeat: LocalSeat,
   lists: SeatLists,
 ): SeatMode {
   if (slot.type === 'none') return 'absent';
   if (isReservedMapAiSeat(slot)) return 'map-ai';
   if (slot.player === localSeat) return 'human';
-  if (lists.computer.has(slot.player)) return 'computer';
+  if (slot.aiAllowed !== false && lists.computer.has(slot.player)) return 'computer';
   if (lists.idle.has(slot.player)) return 'idle';
-  if (lists.absent.has(slot.player)) return 'absent';
+  if (slot.noneAllowed !== false && lists.absent.has(slot.player)) return 'absent';
   return slot.type === 'ai' && slot.aiAllowed !== false ? 'computer' : 'idle';
 }
 

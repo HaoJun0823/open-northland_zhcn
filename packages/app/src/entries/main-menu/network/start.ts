@@ -1,6 +1,7 @@
 import { compatibilityIssues } from '@open-northland/net-protocol';
 import { loadLobbyCompatibility } from '../../../content/lobby-identity.js';
-import { loadRoomMapDocuments } from '../../../content/transfer/index.js';
+import { loadRoomMapDocuments, readVerifiedMapDocuments } from '../../../content/transfer/index.js';
+import { assertMapRoomSeats } from '../../../game/session-roster.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
 import type { NetworkConnection } from '../../../net/connection.js';
@@ -48,6 +49,7 @@ export async function launchNetworkGame(
     }
   }
   if (!current()) return;
+  assertMapRoomSeats(room.seats, readVerifiedMapDocuments(map).script);
   stageNetworkHandover({ connection, map, initialSave: assets.initialSave() });
   const search = new URLSearchParams({ relay: connection.url, room: room.id, network: '1' });
   launch(targetSearch(`?${search}`));

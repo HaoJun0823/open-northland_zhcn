@@ -110,6 +110,12 @@ describe('mapSession', () => {
     expect(sessionSearch(result, ROSTER).has('map-ai')).toBe(false);
   });
 
+  it.each(['computer', 'absent'])('cannot select a forbidden %s mode through the URL', (mode) => {
+    const roster = ROSTER.map((slot) => ({ ...slot, aiAllowed: false, noneAllowed: false }));
+    const parsed = mapSession(new URLSearchParams(`map=zatoka&player=observer&${mode}=0,1,2`), roster);
+    expect(parsed.seats.map((seat) => seat.mode)).toEqual(['idle', 'idle', 'idle']);
+  });
+
   it('overrides authored colours and drops a pair no consumer could render', () => {
     // An out-of-range colour renders differently per consumer (the sprite LUT clamps, the minimap
     // wraps, the signpost atlas misses), so it keeps the authored one instead.

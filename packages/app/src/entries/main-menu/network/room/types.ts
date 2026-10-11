@@ -1,3 +1,4 @@
+import type { MapsIndexPlayerSlot } from '@open-northland/data';
 import type { SavedSessionMetadata, SessionWorld } from '@open-northland/lockstep';
 import type { RelayClientView } from '@open-northland/net-client';
 import type { enNetworkRoom } from '../../../../i18n/catalogs/en-network-room.js';
@@ -13,6 +14,7 @@ export interface NetworkRoomDeps {
   readonly client: RoomClient;
   readonly copy: NetworkRoomCopy;
   readonly mapPreview?: (world: SessionWorld) => MapSelectItem | null;
+  readonly mapSlots?: () => readonly MapsIndexPlayerSlot[] | null;
   readonly savedRoster?: () => SavedSessionMetadata | null;
   readonly onLeave: () => void;
   /** The way back into a game that had already started when the player entered the room; null for

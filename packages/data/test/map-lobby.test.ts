@@ -98,6 +98,19 @@ describe('mapLobbySlots', () => {
       [3, true],
     ]);
   });
+
+  it('lets an explicit AI-only option reserve a seat whose authored type is human', () => {
+    const script = MapScript.parse({
+      players: roster,
+      multiplayer: { slotOptions: [{ player: 0, allowed: ['ai'] }] },
+    });
+    expect(mapLobbySlots(script)[0]).toMatchObject({
+      type: 'human',
+      claimable: false,
+      aiAllowed: true,
+      noneAllowed: false,
+    });
+  });
 });
 
 it('never offers an authored closed seat even when multiplayer options name human', () => {

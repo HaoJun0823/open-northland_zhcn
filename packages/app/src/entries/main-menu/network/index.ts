@@ -278,6 +278,7 @@ export function networkScreen(
             client: current.client,
             copy: messages().networkRoom,
             savedRoster: () => assets?.savedRoster() ?? null,
+            mapSlots: () => assets?.mapSlots() ?? null,
             mapPreview: (world) => (world.kind === 'map' ? (mapPreviews.get(world.mapId) ?? null) : null),
             onLeave: leaveRoom,
             rejoin: enteredStartedRoom ? launchGame : null,

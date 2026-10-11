@@ -4,9 +4,30 @@ import { MapScript, mapLobbySlots } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { loadLobbyCompatibility } from '../../src/content/lobby-identity.js';
 import { authoredVacantMode, vacantOffers } from '../../src/entries/main-menu/lobby/roster-state.js';
+import { mapSession } from '../../src/game/session-url.js';
 import { contentDir, hasRealIr } from './helpers.js';
 
 describe.runIf(hasRealIr())('lobby identity over generated content', () => {
+  it.each([
+    ['polski_mlyn_1_1', 3],
+    ['starozytny_trakt', 4],
+  ] as const)('honors AI-only playeroption over the human roster default in %s', (mapId, player) => {
+    const script = MapScript.parse(
+      JSON.parse(readFileSync(join(contentDir(), 'maps', `${mapId}.script.json`), 'utf8')),
+    );
+    const roster = mapLobbySlots(script);
+    const reserved = roster.find((slot) => slot.player === player);
+    if (reserved === undefined) throw new Error('missing reserved slot');
+    expect(reserved).toMatchObject({ type: 'human', claimable: false });
+    expect(vacantOffers(reserved)).toEqual(['map-ai']);
+    const session = mapSession(
+      new URLSearchParams(`map=${mapId}&player=${player}&computer=${player}`),
+      roster,
+    );
+    expect(session.localSeat).toBe('observer');
+    expect(session.seats.find((seat) => seat.player === player)?.mode).toBe('map-ai');
+  });
+
   it.each(['magiczny_las', 'smocza_kraina'])('reserves map AI for authored locked seats in %s', (mapId) => {
     const script = MapScript.parse(
       JSON.parse(readFileSync(join(contentDir(), 'maps', `${mapId}.script.json`), 'utf8')),

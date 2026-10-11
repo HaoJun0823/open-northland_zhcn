@@ -64,7 +64,10 @@ function lobby(): RoomView {
     ],
   };
 }
-function mount(mapPreview: NetworkRoomDeps['mapPreview'] = () => null) {
+function mount(
+  mapPreview: NetworkRoomDeps['mapPreview'] = () => null,
+  mapSlots?: NetworkRoomDeps['mapSlots'],
+) {
   const client = {
     nick: 'Astrid',
     claimSeat: vi.fn(),
@@ -77,6 +80,7 @@ function mount(mapPreview: NetworkRoomDeps['mapPreview'] = () => null) {
   const room = mountNetworkRoom({
     client,
     mapPreview,
+    ...(mapSlots === undefined ? {} : { mapSlots }),
     copy: messages().networkRoom,
     onLeave: vi.fn(),
     rejoin: null,
@@ -141,6 +145,35 @@ describe('multiplayer entry', () => {
 });
 
 describe('room guidance and chat', () => {
+  it('hides a transferred hidden seat even when the local listing shows it', () => {
+    const slots = [
+      {
+        player: 0,
+        type: 'human' as const,
+        tribeId: 1,
+        colorId: 0,
+        claimable: true,
+        hidden: true,
+        aiAllowed: true,
+        noneAllowed: true,
+        hasComputerControl: true,
+      },
+    ];
+    const stale = mapItem({
+      id: 'test',
+      picture: false,
+      minimap: false,
+      players: slots.map((slot) => ({ ...slot, hidden: false })),
+    });
+    for (const preview of [null, stale]) {
+      const { room } = mount(
+        () => preview,
+        () => slots,
+      );
+      room.update(lobby(), true);
+      expect(room.element.querySelector<HTMLElement>('.network-room__seat')?.hidden).toBe(true);
+    }
+  });
   it('hides authored hidden seats while keeping visible map AI reserved', () => {
     const map = mapItem({
       id: 'test',

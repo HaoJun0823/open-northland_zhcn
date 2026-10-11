@@ -7,6 +7,7 @@ import { buildingFootprints } from '../../content/ir/joins.js';
 import type { ContentIr } from '../../content/ir/rows.js';
 import { resolveAiControlPolicy } from '../../game/ai-control-policy.js';
 import { sessionMapScript } from '../../game/seat-tribes.js';
+import { assertMapSessionSeats } from '../../game/session-roster.js';
 import { mapSession } from '../../game/session-url.js';
 import { sessionWorldOptions } from '../../game/session-world.js';
 import { servedOverLoopback } from '../../session/worker/loopback.js';
@@ -106,6 +107,7 @@ export function buildRelayedMapWorld(
   boot: MapWorkerBoot,
   snapshot: SaveGame | null,
 ): RelayedBuild<MapWorldPlacements> {
+  assertMapSessionSeats(boot.session.seats, boot.script);
   const { saveText, ...inputs } = boot;
   const save = snapshot ?? (saveText === null ? null : parseSaveGame(saveDocumentOf(saveText)));
   const world = buildMapWorldFromInputs({ ...inputs, save });

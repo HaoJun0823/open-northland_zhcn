@@ -6,7 +6,8 @@ import { MapPlayerSlot } from './script.js';
 /** One lobby seat as `maps-index.json` lists it: the authored roster row plus what the map's
  *  `[multiplayer]` table says about that seat. */
 export const MapsIndexPlayerSlot = MapPlayerSlot.extend({
-  /** A person may take the seat: authored `human`, or its `playeroption` row offers `human`. */
+  /** A person may take the seat: its `playeroption` row offers `human`, or the authored type is
+   *  `human` when no options are present. A closed authored seat cannot be claimed. */
   claimable: z.boolean(),
   /** `playerhideinmenu`: the lobby never lists the seat. */
   hidden: z.boolean(),

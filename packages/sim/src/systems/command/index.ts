@@ -374,7 +374,7 @@ function applyCommand(
       setHouseholdGoodUse(world, ctx, command);
       return;
     case 'placeSignpost':
-      obeyDespiteHunger(world, ctx, command.entity, () => placeSignpost(world, ctx, command));
+      obeyDespiteHunger(world, ctx, command.entity, () => placeSignpost(world, ctx, command, origin));
       return;
     case 'openChest':
       obeyDespiteHunger(world, ctx, command.entity, () => orderOpenChest(world, ctx, command));

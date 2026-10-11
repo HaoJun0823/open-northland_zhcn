@@ -4,11 +4,19 @@ import { type LobbyCompatibility, PROTOCOL_VERSION, type RoomView } from '@open-
 import { exportSaveGame, type SaveGame, Simulation } from '@open-northland/sim';
 import { describe, expect, it, vi } from 'vitest';
 import { testContent } from '../../../sim/test/fixtures/content.js';
-import type { RoomMapTransferOptions, VerifiedMapDocuments } from '../../src/content/transfer/index.js';
+import {
+  type RoomMapTransferOptions,
+  type VerifiedMapDocuments,
+  verifyMapDocuments,
+} from '../../src/content/transfer/index.js';
 import { roomAssets } from '../../src/entries/main-menu/network/assets.js';
 
 const IDENTITY = { fingerprint: 'c'.repeat(64), tick: 0 };
-const MAP = { mapId: 'forest', fingerprint: 'b'.repeat(64) };
+const MAP = verifyMapDocuments(
+  'forest',
+  { width: 8, height: 8, typeIds: new Array<number>(64).fill(0) },
+  null,
+);
 const REPORT: LobbyCompatibility = {
   content: 'a'.repeat(64),
   map: MAP.fingerprint,
@@ -125,6 +133,29 @@ function harness(verify = vi.fn(async () => SAVE)) {
 }
 
 describe('room assets coordinator', () => {
+  it('exposes transferred hidden slots without a local map listing and repaints the room', () => {
+    const h = harness();
+    h.assets.observe(room());
+    const received = verifyMapDocuments(
+      'forest',
+      { width: 8, height: 8, typeIds: new Array<number>(64).fill(0) },
+      {
+        players: [
+          { player: 0, type: 'human', tribeId: 1, colorId: 0 },
+          { player: 6, type: 'none', tribeId: 1, colorId: 6 },
+        ],
+        multiplayer: { hiddenSlots: [6] },
+      },
+    );
+    h.deliver(received);
+    expect(h.assets.mapSlots()?.map((slot) => [slot.player, slot.hidden])).toEqual([
+      [0, false],
+      [6, true],
+    ]);
+    expect(h.changed).toHaveBeenCalledOnce();
+    h.assets.observe(null);
+    expect(h.assets.mapSlots()).toBeNull();
+  });
   it('asks for the initial save once per room, whatever the relay answers, until Retry', async () => {
     const h = harness();
     const requests = () =>

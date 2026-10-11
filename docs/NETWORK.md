@@ -70,7 +70,13 @@ diplomacy; while the rules' `alliedVision` is on, the sim joins mutual friends i
 follows later stance changes, so allies explore, see and meet as one in every fog mode. `seats` lists
 the world's seats in ascending order as `{ player, mode, claimable, offers, color, authoredTribe?, tribe?, difficulty? }` with `mode` `map-ai`, `computer`, `idle` or `absent`;
 `human` is never chosen, it is what a claimed seat becomes. The required boolean `claimable`
-is false for scenario-only or hidden seats; the relay rejects claims with `seatNotClaimable`. `offers` lists the vacant modes the map's
+is false for scenario-only or hidden seats; the relay rejects claims with `seatNotClaimable`.
+An explicit `playeroption` row determines whether a person may take the seat, even when its roster
+default is `human`; without that row, the authored player type determines eligibility.
+The receiving app validates the room and session roster against the verified map before starting
+the world; the relay validates wire consistency without loading map content. Hidden seats are read
+from that verified map, including maps transferred by the host.
+`offers` lists the vacant modes the map's
 `playeroption` row allows the seat, `mode` among them. Where a computer is allowed, the lobby offers
 Computer (`computer`, autonomous control) and Idle (entities remain without AI control). Where `playeroption` allows None, the lobby also
 offers None (`absent`), which omits that seat’s starting entities. Selectable authored AI seats default to Computer. Only reserved scenario seats use Map AI

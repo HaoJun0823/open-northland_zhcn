@@ -1,3 +1,4 @@
+import { type MapsIndexPlayerSlot, mapLobbySlots } from '@open-northland/data';
 import { parseSavedSessionMetadata, type SavedSessionMetadata } from '@open-northland/lockstep';
 import { type RelayClientView, verifyInitialSave } from '@open-northland/net-client';
 import {
@@ -7,7 +8,11 @@ import {
   sameCompatibility,
 } from '@open-northland/net-protocol';
 import { loadLobbyCompatibility } from '../../../content/lobby-identity.js';
-import { createRoomMapTransfer, type VerifiedMapDocuments } from '../../../content/transfer/index.js';
+import {
+  createRoomMapTransfer,
+  readVerifiedMapDocuments,
+  type VerifiedMapDocuments,
+} from '../../../content/transfer/index.js';
 import { type PreparedNetworkSave, validateNetworkSave } from './save.js';
 
 interface AssetServices {
@@ -34,6 +39,7 @@ export function roomAssets(
   let validationPending = false;
   let report: LobbyCompatibility | null = null;
   let map: VerifiedMapDocuments | null = null;
+  let mapSlots: readonly MapsIndexPlayerSlot[] | null = null;
   let prepared: PreparedNetworkSave | null = null;
   let verifiedSave: PreparedNetworkSave | null = null;
   let savedRoster: SavedSessionMetadata | null = null;
@@ -48,6 +54,10 @@ export function roomAssets(
     onVerified(handle) {
       if (disposed || room?.state !== 'lobby') return;
       map = handle;
+      const script = handle === null ? null : readVerifiedMapDocuments(handle).script;
+      const previousSlots = mapSlots;
+      mapSlots = script === null ? null : mapLobbySlots(script);
+      if (mapSlots !== previousSlots) onChanged();
       invalidateValidation();
       void refresh();
     },
@@ -150,6 +160,7 @@ export function roomAssets(
         revision++;
         report = null;
         map = null;
+        mapSlots = null;
         saveRequest = false;
         uploaded = false;
         invalidateValidation();
@@ -188,6 +199,7 @@ export function roomAssets(
       requestSave();
     },
     verifiedMap: () => map,
+    mapSlots: () => mapSlots,
     initialSave: () => verifiedSave,
     savedRoster: () => savedRoster,
     dispose(): void {
@@ -198,6 +210,7 @@ export function roomAssets(
       transfer.dispose();
       room = null;
       map = null;
+      mapSlots = null;
       prepared = null;
       report = null;
     },

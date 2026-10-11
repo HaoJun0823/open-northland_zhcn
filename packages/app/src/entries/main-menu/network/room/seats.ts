@@ -193,7 +193,8 @@ export function roomSeats(deps: NetworkRoomDeps) {
               : seat.mode === 'absent'
                 ? copy.absentSeat
                 : copy.empty);
-        const slot = deps.mapPreview?.(room.settings.world)?.players.find((slot) => slot.player === player);
+        const slots = deps.mapSlots?.() ?? deps.mapPreview?.(room.settings.world)?.players;
+        const slot = slots?.find((slot) => slot.player === player);
         row.hidden = slot?.hidden === true;
         faction.textContent =
           localizedMapText(slot?.name, currentLocale()) ??

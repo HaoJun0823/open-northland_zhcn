@@ -76,12 +76,18 @@ export const mapAiSystem: System = (world, ctx) => {
     recheck || turn % 2 === 0
       ? assignSoldiers(world, ctx, defs, groups, program.soldiers, program.groups, defaultPosition)
       : [];
+  const claims = mapAiSoldierClaims(world, seat);
   const reassigned = new Set(
     program.soldiers
-      .filter((record) => record.task !== null && previous.get(record.entity) !== record.task)
+      .filter((record) => {
+        if (record.task === null) return false;
+        if (previous.get(record.entity) !== record.task) return true;
+        // A disabled handler retains its task records while another controller may take its men.
+        const source = world.tryGet(record.entity, AiOrder)?.source;
+        return claims.has(record.entity) && source !== undefined && source !== 'map-ai';
+      })
       .map((record) => record.entity),
   );
-  const claims = mapAiSoldierClaims(world, seat);
   releaseCampaignClaims(world, seat, claims);
   // The fallback guard must not start a walk that delays a tower's next posting decision.
   const wanted = towerPostOrders(

@@ -6,6 +6,7 @@ import {
   COMPUTER_MODULE_IDS,
   computerModuleEnables,
   diplomacyStance,
+  Engagement,
   MapAiState,
   type MapAiStateData,
   MISSION_BEHAVIOUR,
@@ -19,6 +20,7 @@ import {
   setDiplomacyStance,
   stampMissionBehaviour,
 } from '../../src/components/index.js';
+import { aiCommand } from '../../src/core/commands/index.js';
 import type { DeepReadonly, Entity } from '../../src/ecs/world.js';
 import {
   exportSaveGame,
@@ -30,9 +32,13 @@ import {
 import { hexDistanceBetween, nodeOfPosition } from '../../src/nav/halfcell.js';
 import { AI_HANDLER_ROUND_TICKS } from '../../src/systems/ai-shared/cadence.js';
 import { mapAiSoldierClaims } from '../../src/systems/ai-shared/military/ownership.js';
+import { commandSystem } from '../../src/systems/command/index.js';
 import { CONDITION_ALWAYS } from '../../src/systems/map-ai/index.js';
+import { mapAiSystem } from '../../src/systems/map-ai/system.js';
+import { setAiControl } from '../../src/systems/orders/ai.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { aiContent } from '../fixtures/ai-content.js';
+import { ctxOf } from '../fixtures/context.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 
 /**
@@ -345,6 +351,34 @@ describe('ai program - one-shots and saves', () => {
 });
 
 describe('map AI and autonomous military ownership', () => {
+  it.each([false, true])('reclaims its unchanged task after being disabled (engaged: %s)', (engaged) => {
+    const sim = simWith([
+      seatRow({
+        tasks: [{ kind: 'defend', priority: 10, condition: CONDITION_ALWAYS, ...POST, min: 0, max: 0 }],
+      }),
+    ]);
+    const [soldier] = spawn(sim, 1, SPAWN);
+    if (soldier === undefined) throw new Error('missing soldier');
+    const ctx = { ...ctxOf(sim), tick: 6, mapAiScript: sim.mapAiScript ?? [] };
+    mapAiSystem(sim.world, ctx);
+    commandSystem(sim.world, ctx);
+    expect(programOf(sim).soldiers[0]?.task).toBe(0);
+    setAiControl(sim.world, ctx, { kind: 'setAiControl', player: SEAT, enabled: true, mapAiEnabled: false });
+    sim.commands.enqueue(
+      aiCommand(SEAT, { kind: 'attackMoveUnit', entity: soldier, x: 110, y: 20 }, 'military'),
+    );
+    commandSystem(sim.world, ctx);
+    if (engaged) sim.world.add(soldier, Engagement, { repathAt: ctx.tick });
+    expect(sim.world.get(soldier, AiOrder).source).toBe('military');
+    setAiControl(sim.world, ctx, { kind: 'setAiControl', player: SEAT, enabled: true });
+    const next = { ...ctx, tick: 126 };
+    mapAiSystem(sim.world, next);
+    commandSystem(sim.world, next);
+    expect(programOf(sim).soldiers[0]?.task).toBe(0);
+    expect(sim.world.get(soldier, AiOrder).source).toBe('map-ai');
+    expect(sim.world.has(soldier, Engagement)).toBe(false);
+  });
+
   it('reserves an authored band, leaves the rest to the computer, and releases the band when its condition ends', () => {
     const FLAG = 2;
     const sim = simWith([

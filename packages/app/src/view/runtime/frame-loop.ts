@@ -19,7 +19,7 @@ import {
 import { HUMAN_PLAYER } from '../../game/rules.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
 import type { MinimapHandle } from '../../hud/minimap/index.js';
-import { type BuildingPick, techWaived } from '../../hud/tool-panel/placement.js';
+import { type BuildingPick, probeOwner, techWaived } from '../../hud/tool-panel/placement.js';
 import { setCanvasCursor } from '../cursors/element.js';
 import { placementPointer } from '../cursors/placement.js';
 import { createFellingPresenter } from '../felling-presenter.js';
@@ -101,6 +101,7 @@ export interface FrameLoopDeps {
     col: number,
     row: number,
     techWaived?: boolean,
+    owner?: number,
   ) => boolean;
   /** The held building's defence range at a node, drawn around its ghost. */
   readonly defenceRangeAt: (typeId: number, tribe: number, col: number, row: number) => number | undefined;
@@ -198,6 +199,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       app.screen.width,
       app.screen.height,
       techWaived(pick),
+      probeOwner(pick),
     );
   const signpostOverlay = () => signpostOverlayFrame(cameraCtl.camera(), app.screen.width, app.screen.height);
   const visiblePlots = createVisiblePlots(() => host.constructionPlots(), fogGates.seesNode);

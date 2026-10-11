@@ -205,11 +205,4 @@ describe('a trusted placement past the tech gate', () => {
     expect(buildings(sim)).toHaveLength(1);
     expect(sim.world.get(buildings(sim)[0] as Entity, Building).built).toBe(ONE);
   });
-
-  it('is refused to a seat', () => {
-    const sim = fresh();
-    sim.enqueue(playerCommand(P0, { ...smithy, x: 8, y: 8, ignoreTechnology: true } as never));
-    sim.step();
-    expect(buildings(sim)).toEqual([]);
-  });
 });

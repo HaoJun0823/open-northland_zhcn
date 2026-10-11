@@ -55,6 +55,8 @@ export interface DebugMountsOptions {
   readonly enterStanding?: (structure: StandingStructure, owner: number, tribe: number) => boolean;
   /** Drop the HUD's held placement as a debug map tool is armed. */
   readonly cancelPlacement?: () => void;
+  /** Drop the HUD's held placement when it is a debug finished structure. */
+  readonly cancelStanding?: () => void;
   /** The session's own clock for the debug tempos; absent under a shared clock. */
   readonly clock?: Pick<SessionClock, 'speed' | 'setSpeed'>;
   readonly paintGood?: GoodIconPainter;
@@ -103,7 +105,7 @@ export function mountDebugOverlays(opts: DebugMountsOptions): DebugMounts {
     if (!enabled) {
       admin?.setVisible(false);
       // A finished structure held for placement is a debug tool too.
-      opts.cancelPlacement?.();
+      opts.cancelStanding?.();
       // The grid's only switch is on the panel, so it must not outlive it.
       if (admin !== null && geometryDebug.enabled()) setGeometryEnabled(false);
       if (zoomOutUnlocked) setZoomOutUnlocked(false);

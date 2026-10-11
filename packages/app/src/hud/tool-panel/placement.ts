@@ -70,6 +70,12 @@ export function techWaived(pick: BuildingPick): boolean {
   return pick.paper !== null || pick.standing !== undefined;
 }
 
+/** The seat whose ground rule a pick's probe reads: the owner the admin tool stands it for, else the
+ *  local seat (undefined). */
+export function probeOwner(pick: BuildingPick): number | undefined {
+  return pick.standing?.owner;
+}
+
 /** A held road line: the side it lays for, and whether it lays finished road through the trusted
  *  channel (the admin tool) rather than ordering sites. */
 interface RoadHold {
@@ -105,6 +111,7 @@ export interface PlacementClickAsks {
     col: number,
     row: number,
     techWaived?: boolean,
+    owner?: number,
   ) => Promise<boolean>;
   /** Resolves once the wall answers within `reach` nodes of `anchor` and `owner`'s built nodes are
    *  current, so the line decided next reads them through the synchronous rules. */
@@ -153,6 +160,7 @@ export interface PlacementDeps {
     col: number,
     row: number,
     techWaived?: boolean,
+    owner?: number,
   ) => boolean;
   /** Where a wall segment may stand; with `overUpgradeGround`, on ground a building keeps for its
    *  upgrade too. */
@@ -210,6 +218,8 @@ export interface PlacementController {
   activePalisadeMode(): PalisadePlacementMode | null;
   /** The road tool is held. */
   activeRoad(): boolean;
+  /** The held placement is the admin tool's: a finished building, road or wall line. */
+  activeStanding(): boolean;
   /** Hold a building for placement; its paper rides the placement command and buys it finished. */
   enter(pick: BuildingPick): void;
   /** Hold a wall or gate row; `owner` and `tribe` override the seat's for an admin standing-wall line. */
@@ -548,6 +558,8 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
     activePalisade: () => palisade?.gfxIndex ?? null,
     activePalisadeMode: () => palisade?.mode ?? null,
     activeRoad: () => road !== null,
+    activeStanding: () =>
+      building?.standing !== undefined || road?.standing === true || palisade?.mode === 'standingWall',
     enter,
     enterPalisade,
     enterRoad,
@@ -624,13 +636,14 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       if (building === null || tile === null) return true;
       const pick = building;
       const waived = techWaived(pick);
+      const owner = probeOwner(pick);
       // A plan pays for one house, so its placement ends with it.
       const repeat = shiftHeld && pick.paper === null;
       if (asks === undefined) {
-        if (deps.canPlaceAt(pick.typeId, pick.tribe, tile.col, tile.row, waived))
+        if (deps.canPlaceAt(pick.typeId, pick.tribe, tile.col, tile.row, waived, owner))
           placeBuilding(pick, tile, repeat);
       } else {
-        decideLater(asks.askPlaceAt(pick.typeId, pick.tribe, tile.col, tile.row, waived), (ok) => {
+        decideLater(asks.askPlaceAt(pick.typeId, pick.tribe, tile.col, tile.row, waived, owner), (ok) => {
           if (ok) placeBuilding(pick, tile, repeat);
         });
       }

@@ -3,6 +3,7 @@ import type { LinePreviewNode } from '../../hud/tool-panel/line-tool.js';
 import {
   type BuildingPick,
   type GatePreview,
+  probeOwner,
   type RoadPreview,
   techWaived,
 } from '../../hud/tool-panel/placement.js';
@@ -14,7 +15,8 @@ export interface PlacementCursor {
 
 export interface PlacementCursorInput {
   /** The building the tool panel holds, or null outside build mode; its nation picks the ghost's body
-   *  and footprint, its waiver ({@link techWaived}) the technology part of the live probe. */
+   *  and footprint, its waiver ({@link techWaived}) the technology part of the live probe, and an admin
+   *  pick's owner ({@link probeOwner}) whose ground rule it reads. */
   readonly building: BuildingPick | null;
   readonly palisadeGfxIndex?: number | null;
   /** The road tool is held. */
@@ -38,6 +40,7 @@ export interface PlacementCursorInput {
     col: number,
     row: number,
     techWaived?: boolean,
+    owner?: number,
   ) => boolean;
   /** How far a held building would shoot in defence mode from a node, undefined for a type without one. */
   readonly defenceRangeAt?: (typeId: number, tribe: number, col: number, row: number) => number | undefined;
@@ -110,7 +113,7 @@ export function placementCursor(input: PlacementCursorInput): PlacementCursor {
   if (tile === null) return { overlay, ghost: null };
   if (building !== null) {
     const { typeId, tribe } = building;
-    if (!input.canPlaceAt(typeId, tribe, tile.col, tile.row, techWaived(building)))
+    if (!input.canPlaceAt(typeId, tribe, tile.col, tile.row, techWaived(building), probeOwner(building)))
       return { overlay, ghost: null };
     const defenceRangeNodes = input.defenceRangeAt?.(typeId, tribe, tile.col, tile.row);
     const ghost: PlacementGhost = {

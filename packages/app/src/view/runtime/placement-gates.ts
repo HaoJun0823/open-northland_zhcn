@@ -24,8 +24,9 @@ import type { FogGates } from '../projections/index.js';
 /** The host's placement answers the overlays walk; the gates below read the same ones. */
 export interface PlacementProbeViews {
   /** The held building's rule for the local seat in `tribe`, whose footprint and technology gate it
-   *  takes; `techWaived` (a paper, the admin tool) skips the gate. */
-  readonly building: (typeId: number, tribe: number, techWaived?: boolean) => NodeGridProbe;
+   *  takes; `techWaived` (a paper, the admin tool) skips the gate, and `owner` (the admin tool's) asks
+   *  that seat's ground rule instead. */
+  readonly building: (typeId: number, tribe: number, techWaived?: boolean, owner?: number) => NodeGridProbe;
   readonly signpost: () => NodeGridProbe;
   /** The wall and road line tools' rules, which their lit washes wait on. */
   readonly palisade: (gfxIndex: number) => NodeGridProbe;
@@ -42,6 +43,7 @@ export interface PlacementClickGates {
     col: number,
     row: number,
     techWaived?: boolean,
+    owner?: number,
   ) => Promise<boolean>;
   /** Brings the wall answers within `reach` nodes of a line's anchor, and `owner`'s built nodes, up to
    *  now, so a line decided right after reads current answers through the synchronous rules. */
@@ -70,6 +72,7 @@ export interface PlacementGates extends PlacementClickGates {
     col: number,
     row: number,
     techWaived?: boolean,
+    owner?: number,
   ) => boolean;
   readonly canPlaceSignpostAt: (col: number, row: number) => boolean;
   /** With `overUpgradeGround`, ground a building keeps for its upgrade takes a wall too. */
@@ -131,16 +134,21 @@ export function createPlacementGates(
     }
     return probe;
   };
-  const building = (typeId: number, tribe: number, techWaived = false): NodeGridProbe => {
+  const building = (
+    typeId: number,
+    tribe: number,
+    techWaived = false,
+    owner = localPlayer,
+  ): NodeGridProbe => {
     // The tribe still picks the footprint of a house waived past the technology gate.
     const gated = !techWaived;
-    const family = `b${typeId}:${tribe}:${gated}`;
+    const family = `b${typeId}:${tribe}:${gated}:${owner}`;
     // Asked every tick besides: a hostile fighter's step and a technology unlock move no blocker version.
     return gridProbe(family, () =>
       nodeGridProbe(
         grids,
         family,
-        (area) => host.placementProbe(typeId, area, localPlayer, tribe, gated),
+        (area) => host.placementProbe(typeId, area, owner, tribe, gated),
         blockerVersion,
         true,
       ),
@@ -216,9 +224,9 @@ export function createPlacementGates(
   };
   return {
     // A waiver bypasses only technology; fog, footprint and contested-ground rules still apply.
-    canPlaceAt: (typeId, tribe, col, row, techWaived) => {
+    canPlaceAt: (typeId, tribe, col, row, techWaived, owner) => {
       if (!fogGates.seesNode(col, row)) return false;
-      const verdict = building(typeId, tribe, techWaived).at(col, row);
+      const verdict = building(typeId, tribe, techWaived, owner).at(col, row);
       return verdict === null || verdict === true;
     },
     canPlaceSignpostAt: (col, row) => fogGates.seesNode(col, row) && signpost().at(col, row) === true,
@@ -241,9 +249,9 @@ export function createPlacementGates(
     canPlaceRoadAt: (col, row, overUpgradeGround) =>
       fogGates.seesNode(col, row) && road().at(col, row, overUpgradeGround) === true,
     roadAnswersKey: () => `${grids.version}:${fogKey()}`,
-    askPlaceAt: (typeId, tribe, col, row, techWaived) =>
+    askPlaceAt: (typeId, tribe, col, row, techWaived, owner) =>
       fogGates.seesNode(col, row)
-        ? building(typeId, tribe, techWaived)
+        ? building(typeId, tribe, techWaived, owner)
             .freshAt(col, row)
             .then((verdict) => verdict !== false)
         : Promise.resolve(false),

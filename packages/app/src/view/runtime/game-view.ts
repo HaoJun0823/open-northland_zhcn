@@ -993,6 +993,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       seatTribeOf,
       enterStanding: (structure, owner, tribe) => toolPanel.controller.enterStanding(structure, owner, tribe),
       cancelPlacement: () => toolPanel.controller.cancelPlacement(),
+      cancelStanding: () => toolPanel.controller.cancelStanding(),
       ...(sharedClock ? {} : { clock: driver }),
       paintGood: goodIcons,
     });

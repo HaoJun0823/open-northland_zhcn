@@ -419,6 +419,21 @@ describe('CommandSystem - command authority', () => {
       expect(sim.world.get(site, Owner)).toEqual({ player: MINE });
     });
 
+    it("refuses a seat the admin tools' finished road and technology-free house off the wire", () => {
+      const sim = walled();
+      const road = { kind: 'placeRoadSite', x: 6, y: 6, tribe: VIKING } as const;
+      const house = { kind: 'placeBuilding', buildingType: 1, x: 6, y: 6, tribe: VIKING } as const;
+      const wire = (command: unknown) =>
+        parseCommandEnvelope({ v: 2, origin: 'player', player: MINE, command });
+      for (const command of [road, house]) {
+        expect(authorizedCommand(sim.world, wire(command)), command.kind).toBeDefined();
+      }
+      expect(authorizedCommand(sim.world, wire({ ...road, laid: true }))).toBeUndefined();
+      expect(authorizedCommand(sim.world, wire({ ...house, ignoreTechnology: true }))).toBeUndefined();
+      expect(authorizedCommand(sim.world, adminCommand({ ...road, laid: true }))).toBeDefined();
+      expect(authorizedCommand(sim.world, adminCommand({ ...house, ignoreTechnology: true }))).toBeDefined();
+    });
+
     it('refuses a seat a gate row on open ground, which a map may still stand', () => {
       const sim = walled();
       const gate = { kind: 'placePalisade', gfxIndex: GATE_ROW, x: 12, y: 6, tribe: VIKING } as const;

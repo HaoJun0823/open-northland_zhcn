@@ -450,7 +450,7 @@ function nextCommand(rng: Rng): Command {
   const y = rng.int(NODE_H);
   // Every roll is an explicit case, so a modulus that drifts past the case list throws below instead
   // of silently dropping a command kind from the stream.
-  const roll = rng.int(75);
+  const roll = rng.int(76);
   switch (roll) {
     case 31:
       // An AI-seat flip: valid players (the AiControl carrier created/updated/destroyed - the
@@ -517,6 +517,8 @@ function nextCommand(rng: Rng): Command {
         ...(rng.int(2) === 0 ? { owner: pick(rng, OWNERS) } : {}),
         // Occasionally an authored-import-style forced placement (skips the tech/collision gates).
         ...(rng.int(4) === 0 ? { force: true } : {}),
+        // Occasionally the admin tools' placement past the tech gate alone.
+        ...(rng.int(4) === 0 ? { ignoreTechnology: true } : {}),
         // Occasionally an authored pre-stocked placement (every stock slot seeded to capacity).
         ...(rng.int(4) === 0 ? { fillStock: true } : {}),
         // Occasionally an authored starting stock (a decoded map's `addgoods` import).
@@ -1061,6 +1063,16 @@ function nextCommand(rng: Rng): Command {
         kind: 'debugSetHealth',
         target: (rng.int(TARGET_ID_RANGE) + 1) as Entity,
         percent: pick(rng, [0, 1, 20, 80, 100, 101]),
+      };
+    case 75:
+      // A road site, sometimes the admin tools' finished road a seat is refused.
+      return {
+        kind: 'placeRoadSite',
+        x,
+        y,
+        tribe: VIKING,
+        ...(rng.int(2) === 0 ? { owner: pick(rng, OWNERS) } : {}),
+        ...(rng.int(3) === 0 ? { laid: true } : {}),
       };
     default:
       throw new Error(`fuzz roll ${roll} has no case: widen the switch or the modulus above`);

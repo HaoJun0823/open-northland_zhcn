@@ -181,6 +181,7 @@ export interface ToolPanelOptions {
     col: number,
     row: number,
     techWaived?: boolean,
+    owner?: number,
   ) => boolean;
   readonly canPlacePalisadeAt?: (
     gfxIndex: number,
@@ -303,6 +304,8 @@ export interface ToolPanelController {
   enterStanding(structure: StandingStructure, owner: number, tribe: number): boolean;
   /** Drop a held placement or plan, as Esc does. */
   cancelPlacement(): void;
+  /** Drop a held placement only when it is the admin tool's finished structure. */
+  cancelStanding(): void;
   palisadePreview(tile: LineNode | null): readonly LinePreviewNode[] | null;
   gatePreview(tile: LineNode | null): GatePreview | null;
   /** The started wall line, for the reach wash; null before its first click. */
@@ -962,6 +965,9 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
         }
       },
       cancelPlacement: cancelHeld,
+      cancelStanding: (): void => {
+        if (placement.activeStanding()) placement.cancel();
+      },
       palisadePreview: (tile) => placement.palisadePreview(tile),
       gatePreview: (tile) => placement.gatePreview(tile),
       activeLine: () => placement.activeLine(),

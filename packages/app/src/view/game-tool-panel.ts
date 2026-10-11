@@ -73,6 +73,7 @@ export interface GameToolPanelDeps {
     col: number,
     row: number,
     techWaived?: boolean,
+    owner?: number,
   ) => boolean;
   readonly canPlacePalisadeAt: (
     gfxIndex: number,

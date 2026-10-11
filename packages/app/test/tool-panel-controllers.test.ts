@@ -380,6 +380,7 @@ describe('placement controller', () => {
       col: number,
       row: number,
       techWaived?: boolean,
+      owner?: number,
     ) => boolean = () => true,
     canPlacePalisadeAt: (gfxIndex: number, col: number, row: number) => boolean = () => true,
     palisadeGateProbe?: Parameters<typeof createPlacementController>[0]['palisadeGateProbe'],
@@ -1021,11 +1022,11 @@ describe('placement controller', () => {
 
   it('stands an admin building finished for the chosen owner past the technology gate, cancelling quietly', () => {
     const trusted: Command[] = [];
-    const waived: (boolean | undefined)[] = [];
+    const asked: [boolean | undefined, number | undefined][] = [];
     const { placement, commands, strip, cancels } = mount(
       () => ({ col: 4, row: 2 }),
-      (_type, _tribe, _col, _row, techWaived) => {
-        waived.push(techWaived);
+      (_type, _tribe, _col, _row, techWaived, owner) => {
+        asked.push([techWaived, owner]);
         return true;
       },
       undefined,
@@ -1035,7 +1036,8 @@ describe('placement controller', () => {
     placement.enter({ typeId: 23, tribe: 2, paper: null, standing: { owner: 3 } });
     expect(strip.shown?.label).toBe(formatMessage(messages().admin.standingBuilding, { name: 'Joinery' }));
     placement.handleClick(0, 0);
-    expect(waived).toEqual([true]);
+    // The chosen owner's ground decides, as the sim's rule for that owner will.
+    expect(asked).toEqual([[true, 3]]);
     expect(commands).toEqual([]);
     expect(trusted).toEqual([
       {
@@ -1050,8 +1052,15 @@ describe('placement controller', () => {
       },
     ]);
     placement.enter({ typeId: 23, tribe: 2, paper: null, standing: { owner: 3 } });
+    expect(placement.activeStanding()).toBe(true);
     placement.cancel();
     expect(cancels).toEqual([]);
+    placement.enter({ typeId: 23, tribe: 1, paper: null });
+    expect(placement.activeStanding()).toBe(false);
+    placement.enterRoad({ owner: 3, tribe: 2 });
+    expect(placement.activeStanding()).toBe(true);
+    placement.enterRoad();
+    expect(placement.activeStanding()).toBe(false);
   });
 
   it("keeps an admin standing-wall line's chosen side through a HUD remount", () => {

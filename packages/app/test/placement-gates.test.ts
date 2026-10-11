@@ -94,6 +94,20 @@ describe('placement gates - the ground an enemy army contests', () => {
     await expect(gates.askPlaceAt(BUILDING_HOME_00, VIKING, NEAR.hx, NEAR.hy, WAIVED)).resolves.toBe(true);
   });
 
+  it('asks the ground of the owner an admin house is for, whose own soldier contests nothing', async () => {
+    const { sim, gates } = openField();
+    spawnSandboxSettler(sim, JOB_SOLDIER_SWORD, RAIDER.x, RAIDER.y, ENEMY_PLAYER, {
+      weaponTypeId: WEAPON_SWORD,
+    });
+    sim.step();
+    const ask = (owner?: number) =>
+      gates.askPlaceAt(BUILDING_HOME_00, VIKING, NEAR.hx, NEAR.hy, WAIVED, owner);
+    await expect(ask()).resolves.toBe(false);
+    await expect(ask(ENEMY_PLAYER)).resolves.toBe(true);
+    expect(gates.canPlaceAt(BUILDING_HOME_00, VIKING, NEAR.hx, NEAR.hy, WAIVED, ENEMY_PLAYER)).toBe(true);
+    expect(gates.canPlaceAt(BUILDING_HOME_00, VIKING, NEAR.hx, NEAR.hy, WAIVED)).toBe(false);
+  });
+
   it("waives only the technology gate for a waived probe, and asks each nation's rule apart", () => {
     const { sim, fog } = openField();
     const gates = createPlacementGates(inlineSessionHost(sim), fog, HUMAN_PLAYER);

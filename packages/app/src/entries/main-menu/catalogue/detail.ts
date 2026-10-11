@@ -15,6 +15,7 @@ import {
   playersText,
   removeButton,
 } from './card.js';
+import { descriptionBlocks } from './description.js';
 import { type CatalogueRow, canDownload, playerCount } from './model.js';
 import { formatBytes } from './query.js';
 
@@ -53,7 +54,7 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
   const mapsHead = node('h3', 'catalogue-detail__heading', text.details.maps);
   const maps = node('ul', 'catalogue-detail__maps');
   const descriptionHead = node('h3', 'catalogue-detail__heading', text.details.description);
-  const description = node('p', 'catalogue-detail__description');
+  const description = node('div', 'catalogue-detail__description');
   scroll.append(picture, title, byline, chipRow, status, facts, mapsHead, maps, descriptionHead, description);
   const actions = node('div', 'catalogue-detail__actions');
   root.append(close, scroll, actions);
@@ -197,8 +198,11 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
       paintMaps(row);
       const about =
         row.entry.fullDescription.trim() === '' ? row.entry.shortDescription : row.entry.fullDescription;
-      description.textContent = about.trim() === '' ? text.details.noDescription : about;
-      description.classList.toggle('is-empty', about.trim() === '');
+      const blocks = descriptionBlocks(about);
+      description.replaceChildren(
+        ...(blocks.length > 0 ? blocks : [node('p', '', text.details.noDescription)]),
+      );
+      description.classList.toggle('is-empty', blocks.length === 0);
       paintActions(row, installed);
     },
     close() {

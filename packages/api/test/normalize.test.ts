@@ -155,6 +155,6 @@ describe('catalogPageUrl', () => {
     expect(catalogPageSlug('Żółw & "Łódź" -- (PL)')).toBe('zolw-lodz-pl');
     expect(catalogPageSlug('Café Déjà Vu')).toBe('cafe-deja-vu');
     expect(catalogPageSlug('!!!')).toBe('wpis');
-    expect(catalogPageSlug('a'.repeat(79) + '-b')).toBe('a'.repeat(79));
+    expect(catalogPageSlug(`${'a'.repeat(79)}-b`)).toBe('a'.repeat(79));
   });
 });

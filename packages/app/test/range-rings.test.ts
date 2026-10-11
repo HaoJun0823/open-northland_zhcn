@@ -123,6 +123,20 @@ describe('rangeRingsOf', () => {
     expect(rangeRingsOf(content, snapshotOf([flagged, building(store.typeId)]), [TOWER])).toEqual([]);
   });
 
+  it("draws a defence-capable store's fire reach over its porters' pickup area", () => {
+    const fort = content.buildings.find(
+      (b) => (b.shelterCapacity ?? 0) > 0 && systems.postCollectsAroundWorkplace(content, CARRIER, b.typeId),
+    );
+    if (fort === undefined) throw new Error('no defence-capable store in the sandbox content');
+    const world = snapshotOf([
+      settler(1, CARRIER, { JobAssignment: { workplace: TOWER } }),
+      building(fort.typeId),
+    ]);
+    expect(rangeRingsOf(content, world, [TOWER])).toEqual([
+      expect.objectContaining({ entity: TOWER, kind: 'defence' }),
+    ]);
+  });
+
   it("draws no pickup area for a workshop's carrier", () => {
     const world = snapshotOf([
       settler(1, CARRIER, { JobAssignment: { workplace: TOWER } }),

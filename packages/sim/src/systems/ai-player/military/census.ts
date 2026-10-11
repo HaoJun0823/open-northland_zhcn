@@ -49,7 +49,8 @@ export interface WeaponMix {
  * than the garrison marker, so an archer still walking to his tower is already gone from the muster. A
  * man attached to a vehicle belongs to it: a walk order to a driver would drive his catapult instead.
  * A man the map put beyond control (behaviour bit 5) is no soldier of the seat's: the original's scripted
- * handler never lists him, so a script-placed guard or envoy stays where the map stands him.
+ * handler never lists him, so a script-placed guard or envoy stays where the map stands him. Approximation:
+ * the strategic modules read this census too, so they pass him over by the same rule.
  */
 export function takeCensus(world: World, ctx: SystemContext, player: number): ArmyCensus {
   const ready: Entity[] = [];

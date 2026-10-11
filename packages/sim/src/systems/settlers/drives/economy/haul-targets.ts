@@ -49,29 +49,34 @@ function nearestLoosePickup(
   const avoid = unreachableGoalVeto(world, ctx, plan.entity);
   const onSide = sameSideAs(world, plan.owner);
   const area = haulFlagArea(plan);
-  const best =
-    area === null
-      ? targets.stockpileCells.nearestLoose(here, groundPileGood, workplaceCollectGate(plan), avoid, onSide)
-      : targets.stockpileCells.nearest(
-          here,
-          (e) =>
-            world.has(e, Building)
-              ? qualifiedGood(haulableOutputGood(world, ctx, supply, deliverable, e))
-              : groundPileGood(e),
-          area.gate,
-          avoid,
-          onSide,
-          area.center,
-        );
+  if (area === null) {
+    const collect = workplaceCollectGate(plan);
+    const loose =
+      collect === null
+        ? null
+        : targets.stockpileCells.nearestLoose(here, groundPileGood, collect, avoid, onSide);
+    return loose === null ? null : { from: loose.entity, goodType: loose.payload };
+  }
+  const best = targets.stockpileCells.nearest(
+    here,
+    (e) =>
+      world.has(e, Building)
+        ? qualifiedGood(haulableOutputGood(world, ctx, supply, deliverable, e))
+        : groundPileGood(e),
+    area.gate,
+    avoid,
+    onSide,
+    area.center,
+  );
   return best === null ? null : { from: best.entity, goodType: best.payload };
 }
 
 /** The pickup area of a porter without a flag: {@link WORKPLACE_COLLECT_RADIUS} around its workplace,
- *  inside its signpost confinement. */
-function workplaceCollectGate(plan: PlannerContext): SpatialGate | undefined {
+ *  inside its signpost confinement. Null, so nothing is lifted, for a porter with no positioned workplace. */
+function workplaceCollectGate(plan: PlannerContext): SpatialGate | null {
   const { world, terrain, limit } = plan;
   const workplace = world.tryGet(plan.entity, JobAssignment)?.workplace;
-  if (workplace === undefined || !world.has(workplace, Position)) return limit ?? undefined;
+  if (workplace === undefined || !world.has(workplace, Position)) return null;
   return workAreaGate(terrain, entityNode(world, terrain, workplace), WORKPLACE_COLLECT_RADIUS, limit);
 }
 

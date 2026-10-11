@@ -39,7 +39,8 @@ export function holdsHaulFlagPost(world: World, ctx: ContentContext, e: Entity):
 
 /** How far (Manhattan half-cell nodes) from its workplace a porter without a flag lifts ground piles: the
  *  reach of a newly placed flag standing at the building's centre (owner's choice). Original behavior, for
- *  comparison: a store carrier searches 20 map points around its work point, a farm carrier 10. */
+ *  comparison and unconfirmed against the running original: a store carrier searches 20 map points around
+ *  its work point, a farm carrier 10. */
 export const WORKPLACE_COLLECT_RADIUS = DEFAULT_WORK_FLAG_RADIUS;
 
 /** Whether a `jobType` worker posted at `buildingType` is a porter, which without a flag lifts ground piles

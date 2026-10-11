@@ -6,6 +6,7 @@ import {
   CurrentAtomic,
   JobAssignment,
   MoveGoal,
+  PickupClaim,
   Position,
   RoadSite,
   Stockpile,
@@ -250,6 +251,22 @@ describe('carrier - choosing what to haul', () => {
 
     const inside = cellAnchorNode(Math.floor(WORKPLACE_COLLECT_RADIUS / 2) - 1, 0);
     expect(sim.world.tryGet(carrier, MoveGoal)?.cell).toBe(sim.terrain?.nodeAt(inside.hx, inside.hy));
+  });
+
+  it('a porter leaves a ground pile past its collect radius where it lies, even right beside it', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(32, 1) });
+    const hq = hqAt(sim, 0, 0);
+    const outside = Math.ceil(WORKPLACE_COLLECT_RADIUS / 2) + 2;
+    const carrier = carrierAt(sim, outside + 1, 0, hq);
+    const pile = sim.world.create();
+    sim.world.add(pile, Position, { x: fx.fromInt(outside), y: fx.fromInt(0) });
+    sim.world.add(pile, Stockpile, { amounts: new Map([[WOOD, 1]]) });
+
+    plannerSystem(sim.world, ctxOf(sim));
+
+    const pileNode = cellAnchorNode(outside, 0);
+    expect(sim.world.has(carrier, PickupClaim)).toBe(false);
+    expect(sim.world.tryGet(carrier, MoveGoal)?.cell).not.toBe(sim.terrain?.nodeAt(pileNode.hx, pileNode.hy));
   });
 
   it('a porter passes wall and road sites holding delivered material for the ground pile beyond', () => {

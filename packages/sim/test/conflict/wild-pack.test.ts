@@ -237,4 +237,18 @@ describe('wild pack targeting', () => {
 
     expect(sim.world.get(bear, Engagement).target).toBe(plain);
   });
+
+  it('a leader keeps a victim it already holds when the map hides him from animals', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(24, 1) });
+    const bear = animalAt(sim, BEAR, 10);
+    joinHerd(sim, bear);
+    const victim = fighterAtNode(sim, 12, 0, VIKING, WOODCUTTER);
+    combatSystem(sim.world, ctxOf(sim));
+    expect(sim.world.get(bear, Engagement).target).toBe(victim);
+
+    stampMissionBehaviour(sim.world, victim, MISSION_BEHAVIOUR.HIDDEN_FROM_ANIMALS);
+    combatSystem(sim.world, nextTickCtxOf(sim));
+
+    expect(sim.world.get(bear, Engagement).target).toBe(victim);
+  });
 });

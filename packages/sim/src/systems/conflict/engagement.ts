@@ -134,8 +134,8 @@ export class EngagementSpecs {
       this.reachable(t)
     );
   };
-  // Original behavior: a wild animal looking for a victim passes over a human the map made invulnerable
-  // or hid from animals; one it already holds it keeps.
+  // Original behavior, unconfirmed against the running original: a wild animal looking for a victim
+  // passes over a human the map made invulnerable or hid from animals; one it already holds it keeps.
   private readonly wildAccept = (t: Entity): boolean =>
     !hasMissionBehaviour(this.world, t, ANIMAL_BLIND_BEHAVIOUR) && this.advanceAccept(t);
   private readonly accept = (t: Entity): boolean => {

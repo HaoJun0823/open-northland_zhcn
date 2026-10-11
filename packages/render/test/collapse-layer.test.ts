@@ -1,4 +1,4 @@
-import type { SimEvent } from '@open-northland/sim';
+import { RUIN_COLLAPSE_TICKS, type SimEvent } from '@open-northland/sim';
 import { Container, DOMAdapter, type Mesh, Sprite, Texture, TextureSource } from 'pixi.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -82,6 +82,14 @@ const razed = (
 const AT = { hx: 4, hy: 6 };
 
 describe('foldBuildingCollapses', () => {
+  it('clears the building body when the simulation releases its goods, while dust still settles', () => {
+    const [collapse] = foldBuildingCollapses([], [razed(9)], 100);
+    if (collapse === undefined) throw new Error('expected a collapse');
+    expect(collapseProgress(collapse, 100 + RUIN_COLLAPSE_TICKS - 1)).toBeLessThan(1);
+    expect(collapseProgress(collapse, 100 + RUIN_COLLAPSE_TICKS)).toBe(1);
+    expect(foldBuildingCollapses([collapse], [], 100 + RUIN_COLLAPSE_TICKS)).toHaveLength(1);
+  });
+
   it('spawns a collapse per positioned buildingDestroyed and expires it once the dust settles', () => {
     const live = foldBuildingCollapses([], [razed(9)], 100);
     expect(live).toHaveLength(1);

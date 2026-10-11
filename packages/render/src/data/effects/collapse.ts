@@ -1,4 +1,4 @@
-import type { SimEvent } from '@open-northland/sim';
+import { RUIN_COLLAPSE_TICKS, type SimEvent } from '@open-northland/sim';
 import { clamp01 } from '../math.js';
 import { ONE } from '../projection/index.js';
 
@@ -25,9 +25,9 @@ export interface BuildingCollapse {
 }
 
 /** Artistic pacing for readability at ×3: smoke and accelerating removal take one real second.
- * Presentation deliberately outlives the simulation's ruin delay. */
+ * The body clears when the simulation releases the goods; only dust outlives that delay. */
 export const COLLAPSE_SMOKE_LEAD_TICKS = 6;
-export const COLLAPSE_TICKS = 30;
+export const COLLAPSE_TICKS = RUIN_COLLAPSE_TICKS - COLLAPSE_SMOKE_LEAD_TICKS;
 
 /** Ticks reserved for airborne dust to disperse after the structure is gone. */
 export const DUST_SETTLE_TICKS = 100;

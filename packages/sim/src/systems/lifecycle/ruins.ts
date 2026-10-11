@@ -3,9 +3,9 @@ import type { Entity, World } from '../../ecs/world.js';
 import type { System, SystemContext } from '../context.js';
 import { type SpilledStock, scatterSpilledStock } from '../economy/goods-spill.js';
 
-/** Ticks a razed building takes to sink into the ground (~1.7 s at 12 Hz); its goods land after it. The
- *  render collapse plays over the same span. Feel-tuned; holding the goods back is an owner choice. */
-export const RUIN_COLLAPSE_TICKS = 20;
+/** Ticks before a razed building releases its goods (3 s at 12 Hz). The renderer fits its smoke lead
+ *  and body removal into this span; lingering dust may outlive it. Feel-tuned owner choice. */
+export const RUIN_COLLAPSE_TICKS = 36;
 
 /** Hold a razed building's spill until its collapse ends; a mapless sim has no ground to heap it on. */
 export function holdRuinSpill(world: World, ctx: SystemContext, spill: SpilledStock | null): void {

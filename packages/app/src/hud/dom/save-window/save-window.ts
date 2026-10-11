@@ -25,9 +25,12 @@ export function createSaveWindow(
   const frame = savesFrame(deps, copy.saveTitle, 'on-saves--save');
   const run = flowRunner(frame.status, copy.actionFailed);
 
-  const autosave = element('fieldset', 'on-saves__autosave');
-  const autoLabel = element('legend', 'on-saves__label');
+  const autosave = element('div', 'on-saves__autosave');
+  const autoLabel = element('span', 'on-saves__label');
   autoLabel.textContent = copy.autosave;
+  autoLabel.id = 'on-saves-autosave-label';
+  autosave.setAttribute('role', 'group');
+  autosave.setAttribute('aria-labelledby', autoLabel.id);
   const autoOptions = element('div', 'on-saves__auto-options');
   const choices: readonly AutosaveMinutes[] = [0, 5, 10, 15, 30];
   const autoButtons = new Map<AutosaveMinutes, HTMLButtonElement>();

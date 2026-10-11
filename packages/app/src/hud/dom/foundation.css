@@ -7771,16 +7771,25 @@ body.on-drag-scroll * {
   color: var(--warning);
 }
 .on-hud .on-saves__autosave {
+  display: flex;
   flex: 1;
-  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  min-width: max-content;
+}
+.on-hud .on-saves__autosave .on-saves__label {
   margin: 0;
-  padding: 0;
-  border: 0;
+  white-space: nowrap;
 }
 .on-hud .on-saves__auto-options {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-shrink: 0;
+}
+.on-hud .on-saves__auto-options .on-button {
+  border-radius: 0;
+}
+.on-hud .on-saves__auto-options :where(.on-button) + .on-button {
+  margin-left: -1px;
 }
 .on-hud .on-saves__sheet {
   display: flex;

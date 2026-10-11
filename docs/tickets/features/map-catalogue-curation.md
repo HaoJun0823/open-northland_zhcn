@@ -26,6 +26,20 @@ needs the same keyed by archive fingerprint. Epic: [`docs/tickets/api/README.md`
   it introduces Postgres (compose service, schema in `packages/api/db/`) rather than another JSON file.
 - `/v1/maps/:id` exposes `languages` as authored plus translated, marked apart.
 
+## Known upstream defects to report or correct
+
+Found converting the whole catalogue; each needs the upstream author or an allow/deny or correction
+entry, not engine work:
+
+- "TAJEMNICZA ŚCIANA MGŁY": the uploaded rar is cut short (the upstream serves 644646 bytes, its
+  listing says about 1 MB); the main map is intact, the sub-mission's `map.dat` is missing its tail.
+- "The King of Norway": a Cultures 1 map (`.map` file, `C1_txt` folder), never playable here; deny.
+- "Grobowiec Króla": a three-part campaign whose parts 2 and 3 are passworded inside the rar (the
+  password is meant to be earned by finishing the earlier part); only part 1 can convert.
+- 53 maps carry Polish text in their `ger` string slot, so the client reports them as German.
+- Every entry links the same generic upstream listing page as its `source.page`; a per-entry page
+  needs the upstream's URL scheme.
+
 ## Verify
 
 - Tests: a denied entry is absent from `/v1/catalog`; a correction applies and its hash drift fails

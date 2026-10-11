@@ -19,6 +19,7 @@ Order and dependencies:
 7. [Rework the catalogue into a browsing view of its own](../features/map-catalogue-client.md)
 8. [Load a map from the player's own file](../features/map-catalogue-local-files.md)
 9. [Curate, correct and translate catalogue maps](../features/map-catalogue-curation.md)
+10. [Fetch catalogue files hosted outside culturesnation.pl](external-file-hosts.md) (parallel to 8 and 9)
 
 Decisions these tickets build on:
 

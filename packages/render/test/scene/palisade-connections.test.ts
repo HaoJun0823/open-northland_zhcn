@@ -37,6 +37,40 @@ function damagedPalisade(id: number, hx: number, hy: number, hitpoints: number) 
 }
 
 describe('palisadePostOffsets', () => {
+  it('draws the boundary footprint through its terminal and keeps it tied to its damaged post', () => {
+    const base = damagedPalisade(1, 10, 5, 40);
+    const extended = {
+      ...base,
+      components: {
+        ...base.components,
+        Palisade: {
+          ...base.components.Palisade,
+          walk: [
+            { dx: 0, dy: 0 },
+            { dx: -1, dy: -1 },
+            { dx: 0, dy: -2 },
+            { dx: -1, dy: -3 },
+            { dx: 0, dy: -4 },
+            { dx: -1, dy: -5 },
+          ],
+        },
+      },
+    };
+    const drawn = buildSpriteScene(snapshotOf([extended]));
+    expect(drawn[0]?.palisadePosts).toHaveLength(15);
+    expect(drawn[0]?.palisadePosts?.at(-1)).toMatchObject({ dx: 0, dy: -95, builtPct: 40 });
+    const posts = drawn[0]?.palisadePosts ?? [];
+    expect(posts.every((post) => post.builtPct === 40)).toBe(true);
+    for (let i = 0; i < posts.length; i++) {
+      expect(Math.abs((posts[i]?.dy ?? 0) - (posts[i - 1]?.dy ?? 0))).toBeLessThanOrEqual(
+        PALISADE_POST_SPACING_PX,
+      );
+    }
+    expect(buildSpriteScene(snapshotOf([]))).toEqual([]);
+    const site = { ...extended, components: { ...extended.components, UnderConstruction: {} } };
+    expect(buildSpriteScene(snapshotOf([site]))[0]?.palisadePosts).toBeUndefined();
+  });
+
   it('fills horizontal and diagonal half-cell edges with no span wider than a post body', () => {
     for (const [dx, dy] of [
       [34, 0],

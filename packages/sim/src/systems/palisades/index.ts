@@ -38,6 +38,7 @@ import { isTravelling } from '../movement/nav-state.js';
 import { cancelRoadSitesUnder } from '../roads/sites.js';
 import { canonicalById, NodeBuckets } from '../spatial/nodes.js';
 import { releaseWallBreaches } from './breach.js';
+import { mapEdgeWallWalk } from './map-edge.js';
 
 export type PalisadeGateAxis = 0 | 1 | 2;
 
@@ -606,7 +607,14 @@ export function placePalisade(
     );
     if (probe === null || !probe.canPlace(command.x, command.y)) return;
   }
-  const entity = createPalisade(world, type, {
+  const walk = mapEdgeWallWalk(
+    terrain,
+    type,
+    command.x,
+    command.y,
+    (x, y) => palisadePlacementProbe(world, ctx.content, terrain, command.gfxIndex)?.canPlace(x, y) === true,
+  );
+  const entity = createPalisade(world, walk === type.walk ? type : { ...type, walk }, {
     x: command.x,
     y: command.y,
     tribe: command.tribe,
@@ -614,7 +622,7 @@ export function placePalisade(
     underConstruction: command.underConstruction === true,
     ...(command.valency !== undefined ? { valency: command.valency } : {}),
     ...(command.landscapeId !== undefined ? { landscapeId: command.landscapeId } : {}),
-    placementWalk: placementWalkOf(terrain, type),
+    placementWalk: type.wall?.gate === undefined ? walk : placementWalkOf(terrain, type),
   });
   if (entity === null) return;
   cancelRoadSitesUnder(world, ctx, entity);

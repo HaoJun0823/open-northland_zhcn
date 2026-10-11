@@ -46,6 +46,7 @@ interface PalisadeNode {
   readonly y: number;
   readonly gfxIndex: number;
   readonly builtPct: number | undefined;
+  readonly walk: readonly FootprintCell[];
 }
 
 interface GateNode {
@@ -164,6 +165,7 @@ function buildPalisadeLayout(
       x: position.x,
       y: position.y,
       gfxIndex: component.gfxIndex,
+      walk: footprintCells(component.walk),
       builtPct: readPalisadeStatePct(entity.components),
     };
     byNode.set(key, post);
@@ -200,6 +202,30 @@ function buildPalisadeLayout(
     const fromScreen = tileToScreen(fromTileX, fromTileY);
     const fromDrawX = fromScreen.x + shiftOf(fromNode.hx, fromNode.hy);
     const fromDrawY = fromScreen.y - terrainLiftAt(elevation, fromTileX, fromTileY);
+    // Boundary extensions belong to this post, including their terminal, so damage and removal
+    // affect the whole closure. Their walk footprint is the simulation's collision authority.
+    for (const cell of from.walk) {
+      if (cell.dx === 0 && cell.dy === 0) continue;
+      const hx = fromNode.hx + footprintCellDx(fromNode.hy, cell);
+      const hy = fromNode.hy + cell.dy;
+      if (byNode.has(wallNodeKey(hx, hy))) continue;
+      const endpoint = positionOfNode(hx, hy);
+      const previous = positionOfNode(hx - Math.sign(hx - fromNode.hx), hy - Math.sign(hy - fromNode.hy));
+      const screen = tileToScreen(endpoint.x / ONE, endpoint.y / ONE);
+      const start = tileToScreen(previous.x / ONE, previous.y / ONE);
+      const startX = start.x - fromScreen.x;
+      const startY = start.y - terrainLiftAt(elevation, previous.x / ONE, previous.y / ONE) - fromDrawY;
+      appendEdgePosts(
+        posts,
+        from,
+        screen.x - fromScreen.x - startX,
+        screen.y - terrainLiftAt(elevation, endpoint.x / ONE, endpoint.y / ONE) - fromDrawY - startY,
+        from.builtPct,
+        null,
+        true,
+        { dx: startX, dy: startY },
+      );
+    }
     for (const neighbour of hexNeighboursOf(fromNode.hx, fromNode.hy)) {
       const to = byNode.get(wallNodeKey(neighbour.hx, neighbour.hy));
       if (to === undefined || from.ref >= to.ref) continue;
@@ -354,7 +380,7 @@ function outsideNeighbour(
 }
 
 /** Emit an edge's posts. With a `far` endpoint the post nearer it rides its draw, offset from its own
- *  anchor; a gate's collar edge has none, so every post stays with the wall. */
+ *  anchor. A gate collar or boundary extension has none; its posts stay with the wall, at `origin`. */
 function appendEdgePosts(
   posts: Map<number, PalisadePostDraw[]>,
   from: PalisadeNode,
@@ -363,20 +389,21 @@ function appendEdgePosts(
   toBuiltPct: number | undefined,
   far: PalisadeNode | null,
   includeEndpoint = false,
+  origin: PalisadePostOffset = { dx: 0, dy: 0 },
 ): void {
   const fromProgress = from.builtPct ?? 100;
   const toProgress = toBuiltPct ?? 100;
   const offsets = palisadePostOffsets(dx, dy);
   // Gate art has transparent margin outside its terminal posts. An ordinary source wall post at the
-  // exact terminal overlaps that margin and closes the collar while leaving the leaf opening untouched.
+  // exact terminal closes the collar; a boundary extension likewise needs its final post.
   if (includeEndpoint) offsets.push({ dx, dy });
   offsets.forEach((offset, index) => {
     const fraction = (index + 1) / 3;
     const progress = Math.floor(fromProgress + (toProgress - fromProgress) * fraction);
     const nearFar = far !== null && fraction > 1 / 2;
     const post: PalisadePostDraw = {
-      dx: nearFar ? offset.dx - dx : offset.dx,
-      dy: nearFar ? offset.dy - dy : offset.dy,
+      dx: nearFar ? offset.dx - dx : origin.dx + offset.dx,
+      dy: nearFar ? offset.dy - dy : origin.dy + offset.dy,
       gfxIndex: from.gfxIndex,
       variantStep: index + 1,
       ...(progress < 100 ? { builtPct: progress } : {}),

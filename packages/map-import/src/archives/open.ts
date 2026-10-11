@@ -13,6 +13,7 @@ import {
 export { detectArchiveFormat };
 
 import { unpackRar } from './rar.js';
+import { unpackTar } from './tar.js';
 import { unpackZip } from './zip.js';
 
 export interface OpenOptions {
@@ -30,6 +31,8 @@ function unpackers(options: OpenOptions): (format: ArchiveFormat) => Unpack {
         return unpackZip;
       case 'c2m':
         return unpackC2m;
+      case 'tar':
+        return unpackTar;
       case 'rar': {
         const wasm = options.unrarWasm;
         if (wasm === undefined) {
@@ -50,7 +53,7 @@ async function open(bytes: Uint8Array, format: ArchiveFormat, options: OpenOptio
   return builder.build();
 }
 
-/** The map files of a zip, nested `.c2m`/`.rar`/`.zip` entries opened one level deep. */
+/** The map files of a zip, nested `.c2m`/`.rar`/`.tar`/`.zip` entries opened one level deep. */
 export function openZip(bytes: Uint8Array, options: OpenOptions = {}): Promise<MapTree> {
   return open(bytes, 'zip', options);
 }
@@ -65,12 +68,12 @@ export function openC2m(bytes: Uint8Array, options: OpenOptions = {}): Promise<M
   return open(bytes, 'c2m', options);
 }
 
-/** Opens whichever supported archive `bytes` hold, told apart by their leading bytes. */
+/** Opens a zip, rar, c2m or plain tar, told apart by their leading bytes or the tar's ustar magic. */
 export function openArchive(bytes: Uint8Array, options: OpenOptions = {}): Promise<MapTree> {
   const format = detectArchiveFormat(bytes);
   if (format === undefined) {
     return Promise.reject(
-      new MapImportError('unsupported-archive', `${options.name ?? 'archive'}: not a zip, rar or c2m`),
+      new MapImportError('unsupported-archive', `${options.name ?? 'archive'}: not a zip, rar, c2m or tar`),
     );
   }
   return open(bytes, format, options);

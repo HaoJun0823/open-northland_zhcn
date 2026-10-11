@@ -6,6 +6,7 @@ import { MapImportError, type MapImportFailure } from '../src/errors.js';
 import { DEFAULT_IMPORT_LIMITS } from '../src/limits.js';
 import { treeFromFolder } from '../src/tree.js';
 import { encodeRar4 } from './support/rar.js';
+import { encodeTar } from './support/tar.js';
 import { unrarWasm } from './support/unrar.js';
 import { deflated, encodeZip } from './support/zip.js';
 
@@ -221,6 +222,59 @@ describe('openRar', () => {
       'kingde/king/map.dat',
     ]);
     expect(await failure(openZip(zip))).toBe('unsupported-archive');
+  });
+});
+
+describe('tar archives', () => {
+  const text = (value: string): Uint8Array => new TextEncoder().encode(value);
+  /** Longer than one 512-byte block, so the next header sits past padding. */
+  const LONG_INI = text('x'.repeat(600));
+
+  it('keeps the map files of a map folder, skipping directory entries', async () => {
+    const tar = encodeTar([
+      { name: 'DECISION TIME/', type: '5' },
+      { name: 'DECISION TIME/map.dat', bytes: MAP_DAT },
+      { name: 'DECISION TIME/map.ini', bytes: LONG_INI },
+      { name: 'DECISION TIME/text/pol/briefings/', type: '5' },
+      { name: 'DECISION TIME/misc.inc', bytes: MISC, gnu: true },
+      { name: 'DECISION TIME/readme.txt', bytes: bytes(1) },
+    ]);
+    expect(detectArchiveFormat(tar)).toBe('tar');
+    const tree = await openArchive(tar);
+    expect([...tree.files.keys()].sort()).toEqual([
+      'decision time/map.dat',
+      'decision time/map.ini',
+      'decision time/misc.inc',
+    ]);
+    expect(Array.from(tree.files.get('decision time/misc.inc') ?? [])).toEqual([4, 5]);
+    expect(tree.files.get('decision time/map.ini')?.length).toBe(LONG_INI.length);
+  });
+
+  it('joins a POSIX prefix before the name', async () => {
+    const tar = encodeTar([{ prefix: 'Pack/Some Long Folder', name: 'Map/map.dat', bytes: MAP_DAT }]);
+    expect([...(await openArchive(tar)).files.keys()]).toEqual(['pack/some long folder/map/map.dat']);
+  });
+
+  it('skips GNU long-name and pax records with their data', async () => {
+    const tar = encodeTar([
+      { name: '././@LongLink', type: 'L', bytes: text('Map/misc.inc'), gnu: true },
+      { name: 'Map/misc.inc', bytes: MISC, gnu: true },
+      { name: 'PaxHeaders/map.dat', type: 'x', bytes: LONG_INI },
+      { name: 'Map/map.dat', bytes: MAP_DAT },
+    ]);
+    expect([...(await openArchive(tar)).files.keys()].sort()).toEqual(['map/map.dat', 'map/misc.inc']);
+  });
+
+  it('fails a bad header checksum and a size running past the bytes as unsupported', async () => {
+    const skewed = encodeTar([{ name: 'Map/map.dat', bytes: MAP_DAT, checksumSkew: 1 }]);
+    expect(await failure(openArchive(skewed))).toBe('unsupported-archive');
+    const truncated = encodeTar([{ name: 'Map/map.dat', bytes: MAP_DAT, declaredSize: 8 * MIB }]);
+    expect(await failure(openArchive(truncated))).toBe('unsupported-archive');
+  });
+
+  it('opens a tar nested in a zip one level deep', async () => {
+    const zip = zipSync({ 'decision_time.tar': encodeTar([{ name: 'Map/map.dat', bytes: MAP_DAT }]) });
+    expect([...(await openZip(zip)).files.keys()]).toEqual(['decision_time/map/map.dat']);
   });
 });
 

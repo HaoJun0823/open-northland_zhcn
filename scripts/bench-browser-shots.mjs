@@ -2,6 +2,13 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { countGlCalls } from './bench-browser-profile.mjs';
+import {
+  cameraAt,
+  checkpointSession,
+  densestBuildings,
+  restoreCheckpoint,
+  VIEWPORT,
+} from './bench-browser-session.mjs';
 import { repoRoot } from './content-dir.mjs';
 import { skipOriginalGameGate } from './original-game-gate.mjs';
 
@@ -22,26 +29,11 @@ import { skipOriginalGameGate } from './original-game-gate.mjs';
  */
 
 const [command, ...args] = process.argv.slice(2);
-const VIEWPORT = { width: 1440, height: 900 };
 const VIEWS = { dense: 1, zoom05: 0.5, wide: 0.35, magnify: 2 };
 
 async function capture(checkpoint, origin, outDir) {
   const saveText = await readFile(checkpoint, 'utf8');
-  const { header } = JSON.parse(saveText);
-  const stamp = header.session;
-  const params = new URLSearchParams({
-    map: header.mapId,
-    player: 'observer',
-    computer: stamp.machineSeats.length === 1 ? `${stamp.machineSeats[0]},` : stamp.machineSeats.join(','),
-    seed: String(header.seed),
-    fog: 'classic',
-    zoom: '1',
-    uiscale: '1',
-    fullscreen: 'off',
-  });
-  if (typeof stamp.tribes === 'string' && stamp.tribes !== '') params.set('tribes', stamp.tribes);
-  for (const key of ['progression', 'needs'])
-    if (typeof stamp[key] === 'boolean') params.set(key, stamp[key] ? 'on' : 'off');
+  const { header, stateHash, params } = checkpointSession(JSON.parse(saveText));
   const steps = Number(process.env.ON_BENCH_SHOT_STEPS ?? '0');
   const seat =
     process.env.ON_BENCH_BROWSER_SEAT === undefined ? null : Number(process.env.ON_BENCH_BROWSER_SEAT);
@@ -54,54 +46,19 @@ async function capture(checkpoint, origin, outDir) {
     await skipOriginalGameGate(page);
     page.on('pageerror', (error) => report.errors.push(error.message));
     await page.goto(origin);
-    await page.evaluate(async (text) => {
-      const { storePendingLoad } = await import('/src/view/runtime/save-load/pending-store.ts');
-      await storePendingLoad(new TextEncoder().encode(text), false);
-    }, saveText);
-    await page.goto(new URL(`?${params}`, origin).href);
-    await page.waitForFunction((tick) => window.__opennorthland?.host.tick === tick, header.tick, {
-      timeout: 180000,
-    });
-    await page.evaluate(() => window.__opennorthland.setPaused(true));
+    const url = new URL(`?${params}`, origin).href;
+    await restoreCheckpoint(page, { saveText, header, stateHash, url });
     if (seat !== null)
       await page.evaluate((watched) => {
         const watch = window.__opennorthland.watchSeat;
         if (watch === null) throw new Error('The session has no seat picker to watch a seat with');
         watch(watched);
       }, seat);
-    const dense = await page.evaluate(
-      async (modules) => {
-        const { ONE } = await import(modules.fixed);
-        const { tileToScreen } = await import(modules.projection);
-        const points = window.__opennorthland.host
-          .snapshot()
-          .entities.filter((e) => e.components.Building && e.components.Position)
-          .map((e) => tileToScreen(e.components.Position.x / ONE, e.components.Position.y / ONE));
-        let best = points[0] ?? { x: 0, y: 0 };
-        let count = -1;
-        for (const p of points) {
-          const n = points.filter((q) => Math.abs(q.x - p.x) < 650 && Math.abs(q.y - p.y) < 380).length;
-          if (n > count) {
-            count = n;
-            best = p;
-          }
-        }
-        return best;
-      },
-      {
-        fixed: `/@fs${resolve(repoRoot, 'packages/sim/src/core/fixed.ts')}`,
-        projection: `/@fs${resolve(repoRoot, 'packages/render/src/data/projection/iso.ts')}`,
-      },
-    );
+    const dense = (await densestBuildings(page)).point;
     await page.evaluate(() => window.__opennorthland.cameraCtl.setSuspended(true));
     await page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height - 3);
     for (const [view, scale] of Object.entries(VIEWS)) {
-      const camera = {
-        scale,
-        offsetX: VIEWPORT.width / 2 - dense.x * scale,
-        offsetY: VIEWPORT.height / 2 - dense.y * scale,
-      };
-      await page.evaluate((c) => window.__opennorthland.cameraCtl.jumpTo(c), camera);
+      await page.evaluate((c) => window.__opennorthland.cameraCtl.jumpTo(c), cameraAt(dense, scale));
       await page.waitForTimeout(1500);
       for (let i = 0; i < steps; i++) {
         await page.evaluate(async () => {

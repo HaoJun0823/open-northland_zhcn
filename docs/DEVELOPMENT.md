@@ -439,7 +439,7 @@ settlements: most hunters on hare herds among dense wood nodes, a quarter on a s
 the last-resort probe, so they chase livestock.
 
 Run the real-map benchmark with `npm run bench:map`. It needs generated content and measures the
-session a `?map=<id>&player=observer&ai=<seats>&seed=<n>&fog=classic` search describes, parsed by the map
+session a `?map=<id>&player=observer&computer=<seats>&seed=<n>&fog=classic` search describes, parsed by the map
 entry's own URL adapter and built by its world builder, so the map's own computer seats play beside the named ones as they do in the
 browser. `player=overseer` builds the same world whenever seat 0 is an AI seat. Its controls:
 

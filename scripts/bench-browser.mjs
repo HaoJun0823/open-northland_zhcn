@@ -1,18 +1,25 @@
-import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { cpus, loadavg, platform, release } from 'node:os';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
-import { loadConfigFromFile } from 'vite';
-import { verifyPreview } from '../packages/app/scripts/dev-verify.mjs';
 import {
   busyShare,
   countGlCalls,
   guardCamera,
-  machineLoad,
   profileBrowser,
   simWorkerChannel,
   throttleCpu,
 } from './bench-browser-profile.mjs';
+import {
+  cameraAt,
+  checkpointSession,
+  densestBuildings,
+  machineLoad,
+  overloaded,
+  restoreCheckpoint,
+  VIEWPORT,
+  verifyDevServer,
+} from './bench-browser-session.mjs';
 import { repoRoot } from './content-dir.mjs';
 import { skipOriginalGameGate } from './original-game-gate.mjs';
 
@@ -47,37 +54,7 @@ const workerProfile = process.env.ON_BENCH_BROWSER_WORKER_PROFILE === '1';
 if (!profileViews.every((name) => CAMERA_NAMES.includes(name)))
   throw new Error(`ON_BENCH_BROWSER_PROFILE_VIEWS takes ${CAMERA_NAMES}`);
 const saveText = await readFile(checkpoint, 'utf8');
-const save = JSON.parse(saveText);
-const { header } = save;
-const stamp = header?.session;
-if (
-  !header?.mapId ||
-  !Number.isInteger(header.tick) ||
-  !Number.isInteger(header.seed) ||
-  !Array.isArray(stamp?.machineSeats) ||
-  !stamp.machineSeats.every((seat) => Number.isInteger(seat) && seat >= 0 && seat < 16) ||
-  typeof stamp.stateHash !== 'string'
-)
-  throw new Error('Input must be a bench:map checkpoint carrying map, seed, AI seats and stateHash');
-const ai =
-  stamp.machineSeats.length === 0
-    ? ''
-    : stamp.machineSeats.length === 1
-      ? `${stamp.machineSeats[0]},`
-      : stamp.machineSeats.join(',');
-const params = new URLSearchParams({
-  map: header.mapId,
-  player: 'observer',
-  ai,
-  seed: String(header.seed),
-  fog: 'classic',
-  zoom: '1',
-  uiscale: '1',
-  fullscreen: 'off',
-});
-if (typeof stamp.tribes === 'string' && stamp.tribes !== '') params.set('tribes', stamp.tribes);
-for (const key of ['progression', 'needs'])
-  if (typeof stamp[key] === 'boolean') params.set(key, stamp[key] ? 'on' : 'off');
+const { header, stateHash, params } = checkpointSession(JSON.parse(saveText));
 const url = new URL(origin);
 if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Origin must be an HTTP development server');
 const search = `?${params}`;
@@ -88,7 +65,7 @@ const metadata = {
   checkpoint: resolve(checkpoint),
   header,
   scenarioSearch: search,
-  viewport: { width: 1440, height: 900 },
+  viewport: VIEWPORT,
   seconds,
   mode,
   watchedSeat,
@@ -116,21 +93,11 @@ const progress = (message) => {
 };
 try {
   progress('verifying development server and content');
-  const checkout = await realpath(repoRoot);
-  const loaded = await loadConfigFromFile(
-    { command: 'serve', mode: 'development' },
-    undefined,
-    resolve(repoRoot, 'packages/app'),
-  );
-  if (!loaded) throw new Error('Cannot load this checkout Vite config');
-  metadata.preview = await verifyPreview(previewUrl, {
-    checkout,
-    clientBuild: JSON.parse(loaded.config.define.__CLIENT_BUILD__),
-  });
+  metadata.preview = await verifyDevServer(previewUrl);
   browser = await chromium.launch({ headless: false, args: ['--mute-audio'] });
   const browserSession = await browser.newBrowserCDPSession();
   const system = await browserSession.send('SystemInfo.getInfo');
-  page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
   await skipOriginalGameGate(page);
   const errors = metadata.errors;
   page.on('pageerror', (e) => errors.push(e.message));
@@ -141,23 +108,8 @@ try {
   if (metadata.cpuThrottle !== null) await throttleCpu(page, metadata.cpuThrottle);
   const simWorker = workerProfile ? await simWorkerChannel(page) : null;
   async function restore() {
-    progress(`staging checkpoint at tick ${header.tick}`);
-    await page.evaluate(async (text) => {
-      const { storePendingLoad } = await import('/src/view/runtime/save-load/pending-store.ts');
-      await storePendingLoad(new TextEncoder().encode(text), false);
-    }, saveText);
-    await page.goto(previewUrl.href);
-    progress('waiting for restored world and renderer');
-    await page.waitForFunction((tick) => window.__opennorthland?.host.tick === tick, save.header.tick, {
-      timeout: 180000,
-    });
-    await page.evaluate(async () => {
-      await window.__opennorthland.setPaused(true);
-      if (document.fullscreenElement) await document.exitFullscreen();
-    });
-    const restored = await page.evaluate(() => window.__opennorthland.host.hashState());
-    if (restored.tick !== header.tick || restored.hash !== stamp.stateHash)
-      throw new Error(`Checkpoint restore mismatch: tick ${restored.tick}, hash ${restored.hash}`);
+    progress(`restoring checkpoint at tick ${header.tick}`);
+    const restored = await restoreCheckpoint(page, { saveText, header, stateHash, url: previewUrl.href });
     progress(`restored tick ${restored.tick}, state hash verified`);
     if (watchedSeat !== null)
       await page.evaluate((seat) => {
@@ -182,47 +134,15 @@ try {
       );
     return { fogMode: host.fogMode(), components: Object.fromEntries(rules) };
   });
-  const cameras = await page.evaluate(
-    async (modules) => {
-      const { ONE } = await import(modules.fixed);
-      const { tileToScreen } = await import(modules.projection);
-      const entities = window.__opennorthland.host.snapshot().entities;
-      const points = entities
-        .filter(
-          (e) =>
-            e.components.Building &&
-            e.components.Position &&
-            (modules.seat === null || e.components.Owner?.player === modules.seat),
-        )
-        .map((e) => {
-          const p = e.components.Position;
-          return tileToScreen(p.x / ONE, p.y / ONE);
-        });
-      let dense = points[0] ?? { x: 0, y: 0 },
-        best = -1;
-      for (const p of points) {
-        const n = points.filter((q) => Math.abs(q.x - p.x) < 650 && Math.abs(q.y - p.y) < 380).length;
-        if (n > best) {
-          best = n;
-          dense = p;
-        }
-      }
-      const camera = (p, scale) => ({ scale, offsetX: 720 - p.x * scale, offsetY: 450 - p.y * scale });
-      return {
-        dense: camera(dense, 1),
-        zoom07: camera(dense, 0.7),
-        zoom05: camera(dense, 0.5),
-        wide: camera(dense, 0.35),
-        empty: { scale: 1, offsetX: 100000, offsetY: 100000 },
-        selectedBuildings: best,
-      };
-    },
-    {
-      fixed: `/@fs${resolve(repoRoot, 'packages/sim/src/core/fixed.ts')}`,
-      projection: `/@fs${resolve(repoRoot, 'packages/render/src/data/projection/iso.ts')}`,
-      seat: watchedSeat,
-    },
-  );
+  const dense = await densestBuildings(page, watchedSeat);
+  const cameras = {
+    dense: cameraAt(dense.point, 1),
+    zoom07: cameraAt(dense.point, 0.7),
+    zoom05: cameraAt(dense.point, 0.5),
+    wide: cameraAt(dense.point, 0.35),
+    empty: { scale: 1, offsetX: 100000, offsetY: 100000 },
+    selectedBuildings: dense.count,
+  };
   const hardware = await page.evaluate(() => {
     const gl = window.__opennorthland.renderer.app.renderer.gl;
     const ext = gl.getExtension('WEBGL_debug_renderer_info');
@@ -331,9 +251,7 @@ try {
       result.worker = { profile: name, ...busyShare(workerProfiled), heapUsedMb: heap.usedSize / 2 ** 20 };
     }
     const loadAtEnd = machineLoad();
-    const invalidSystemLoad = [loadAtStart, loadAtEnd].some(
-      (load) => load.available && load.loadPerCpu > 1.5,
-    );
+    const invalidSystemLoad = overloaded(loadAtStart, loadAtEnd);
     result.valid &&= !invalidSystemLoad;
     reports.push({ cameraName, speed, suffix, loadAtStart, loadAtEnd, invalidSystemLoad, ...result });
     progress(

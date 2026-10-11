@@ -1,13 +1,6 @@
 import { writeFile } from 'node:fs/promises';
-import { cpus, loadavg, platform } from 'node:os';
 import { resolve } from 'node:path';
-
-export function machineLoad() {
-  const cpuCount = cpus().length;
-  const loads = loadavg();
-  const available = platform() !== 'win32' && cpuCount > 0;
-  return { available, cpuCount, loads, loadPerCpu: available ? loads[0] / cpuCount : null };
-}
+import { machineLoad, overloaded } from './bench-browser-session.mjs';
 
 /**
  * Slow the page's main thread by `record.rate`, the weak-CPU proxy. The emulation is per thread and
@@ -203,9 +196,7 @@ export async function profileBrowser({ page, cameras, restore, seconds, output, 
     });
     result.loadAtStart = metadata.loadAtStart;
     result.loadAtEnd = machineLoad();
-    result.invalidSystemLoad = [result.loadAtStart, result.loadAtEnd].some(
-      (load) => load.available && load.loadPerCpu > 1.5,
-    );
+    result.invalidSystemLoad = overloaded(result.loadAtStart, result.loadAtEnd);
     result.valid &&= !result.invalidSystemLoad;
     return result;
   }

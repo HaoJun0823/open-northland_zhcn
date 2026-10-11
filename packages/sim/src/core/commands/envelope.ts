@@ -166,6 +166,7 @@ export const COMMAND_ISSUER: {
   setJob: 'seat',
   setMatchParticipants: 'trusted',
   continueMatch: 'trusted',
+  endMatchContinuation: 'trusted',
   setMissionsEnabled: 'trusted',
   setNeedsEnabled: 'trusted',
   setAiControl: 'trusted',

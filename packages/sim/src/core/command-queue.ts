@@ -128,9 +128,11 @@ export class CommandQueue {
     return this.pending.map(ownedEnvelope);
   }
 
-  /** Pre-start session assembly may supersede administrative inputs inherited from its old room. */
-  discardContinuation(matches: (envelope: CommandEnvelope) => boolean): void {
-    this.continuation = this.continuation.filter(({ envelope }) => !matches(envelope));
+  /** Before adoption, a new session applies its setup before inherited inputs, dropping only those
+   *  its rules supersede. Surviving inputs retain their order and assigned ticks. */
+  prepareResume(setup: readonly CommandEnvelope[], superseded: (envelope: CommandEnvelope) => boolean): void {
+    this.pending = [...setup.map(ownedEnvelope), ...this.pending.filter((envelope) => !superseded(envelope))];
+    this.continuation = this.continuation.filter(({ envelope }) => !superseded(envelope));
   }
 
   /** Detached inherited commands, without claims on the new transport's sequence space. */

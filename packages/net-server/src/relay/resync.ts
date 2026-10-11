@@ -157,7 +157,9 @@ export class Resync {
         if (member.outOfSync === null) this.deliverCache(member, cached);
       }
     }
-    const eligible = [...this.members.values()].filter(isSynced);
+    const members = [...this.members.values()];
+    const hasPlayers = members.some((member) => member.seat !== null);
+    const eligible = members.filter((member) => isSynced(member) && (!hasPlayers || member.seat !== null));
     if (eligible.length === 0) return;
     if (eligible.every((member) => this.triedDonors.has(member.token))) this.triedDonors.clear();
     let donor: Member | null = null;

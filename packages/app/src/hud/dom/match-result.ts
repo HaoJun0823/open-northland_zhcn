@@ -23,6 +23,8 @@ export interface MatchResultOverlay {
   announce(outcome: MatchOutcome): void;
   finish(outcome: MatchOutcome): void;
   isOpen(): boolean;
+  /** A lost link owns the page until it returns; retain the result without accepting input. */
+  setSuspended(suspended: boolean): void;
   dispose(): void;
 }
 
@@ -30,10 +32,17 @@ export interface MatchResultOverlay {
 export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOverlay {
   const state = matchResultState();
   let close: (() => void) | null = null;
-  const hide = (): void => close?.();
+  let suspended = false;
+  let current: { verdict: MatchOutcome; terminal: boolean } | null = null;
+  const hide = (): void => {
+    close?.();
+    current = null;
+  };
 
   const show = (verdict: MatchOutcome, terminal = false): void => {
     hide();
+    current = { verdict, terminal };
+    if (suspended) return;
     deps.onOpen();
     const scope = new AbortController();
     const actions = matchResultActions(deps.sharedClock === true, terminal);
@@ -199,6 +208,12 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
       if (state.finish()) show(outcome, true);
     },
     isOpen: () => close !== null,
+    setSuspended(next): void {
+      if (suspended === next) return;
+      suspended = next;
+      if (next) close?.();
+      else if (current !== null) show(current.verdict, current.terminal);
+    },
     dispose: hide,
   };
 }

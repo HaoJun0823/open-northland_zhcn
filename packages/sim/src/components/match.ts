@@ -95,6 +95,18 @@ export function continueMatch(world: World, player: number): void {
   });
 }
 
+/** Whether a saved world still grants local orders after a result. */
+export function hasMatchContinuation(world: World): boolean {
+  return matchContinuation.read(world).players !== 0;
+}
+
+export function endMatchContinuation(world: World): void {
+  if (!hasMatchContinuation(world)) return;
+  matchContinuation.write(world, (state) => {
+    state.players = 0;
+  });
+}
+
 export function isContinuingMatch(world: World, player: number): boolean {
   return isValidPlayer(player) && (matchContinuation.read(world).players & playerBit(player)) !== 0;
 }
@@ -188,11 +200,7 @@ export function setMatchParticipants(
     rules.won &= bits;
     if (victory !== 'elimination') rules.won = 0;
   });
-  if (matchContinuation.read(world).players !== 0) {
-    matchContinuation.write(world, (state) => {
-      state.players = 0;
-    });
-  }
+  endMatchContinuation(world);
   const enabled = victory === 'script';
   if (scriptedMatchVictory(world) !== enabled) {
     scriptMatchRules.write(world, (rules) => {

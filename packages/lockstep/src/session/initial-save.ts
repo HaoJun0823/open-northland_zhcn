@@ -1,4 +1,4 @@
-import { type Command, components, type Simulation } from '@open-northland/sim';
+import { type Command, components, type Simulation, setupCommand } from '@open-northland/sim';
 import type { GameSession, SeatMode } from './descriptor.js';
 
 export interface InitialSaveIdentity {
@@ -34,8 +34,11 @@ export function applyInitialSaveSeats(
   if (session.initialSave === undefined || sim.tick !== session.initialSave.tick) {
     throw new Error('initial save seat setup requires the declared saved tick');
   }
-  sim.commands.discardContinuation(
-    (envelope) => envelope.origin === 'admin' && envelope.command.kind === 'setAiControl',
+  sim.commands.prepareResume(
+    components.hasMatchContinuation(sim.world) ? [setupCommand({ kind: 'endMatchContinuation' })] : [],
+    (envelope) =>
+      envelope.command.kind === 'continueMatch' ||
+      (envelope.origin === 'admin' && envelope.command.kind === 'setAiControl'),
   );
   for (const seat of session.seats) {
     const enabled = seat.mode === 'computer' || seat.mode === 'map-ai';

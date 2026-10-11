@@ -1,6 +1,6 @@
 # Network protocol
 
-The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 28` in
+The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 31` in
 `packages/net-protocol`. A change one side of the current version could not honour, a message shape
 or the value set of a validated field such as the fog mode ids, bumps the version; the relay refuses a
 `hello` that names another.
@@ -185,13 +185,13 @@ burst and the game runs late; no tick is dropped.
 from 0 in the order the relay received them. Every client applies them in that order, after the
 tick's own untargeted commands, through `Simulation.enqueueAt`.
 
-Any member may change the clock with `clock { speed?, paused? }`. The relay applies it and broadcasts
+Any seated player may change the clock with `clock { speed?, paused? }`. The relay applies it and broadcasts
 `clock { tick, speed, paused, by, governed }` with the sender's nick and the first tick the setting
 holds from; a speed request carries `governed` recomputed for the new requested speed. Pauses are
 unlimited.
 
 `speed` is always the requested speed. The running speed is `governed.speed` while `governed` is
-`{ nick, speed, cause }`, and `speed` when it is null: the relay governs the clock while any member is
+`{ nick, speed, cause }`, and `speed` when it is null: the relay governs the clock while any seated player is
 slow (see [Pacing](#pacing)) and runs it at the slowest one's pace. `cause` is `load` when that
 member's reported tick cost bounds the speed, and `lag` when the catch-up share does: the member says
 it could keep up, yet trails, as over a poor link. Clients run their driver at
@@ -262,7 +262,7 @@ change is sent as `delay { ticks }`; every member also gets its current delay at
 
 ## Order responsiveness
 
-Any member may select `responsiveness { mode }` for the whole room, including while paused. `mode`
+Any seated player may select `responsiveness { mode }` for the whole room, including while paused. `mode`
 is `auto` (the default), `responsive`, `balanced` or `smooth`. The relay broadcasts
 `responsiveness { mode, bufferTicks, by }` and sends the current state after `chatHistory` whenever a
 member joins or reconnects. `by` is the last explicit selector's nick, or null before anyone chooses;
@@ -322,7 +322,7 @@ count; it says where it stands again on its return.
 
 ## Waiting
 
-The clock holds, emitting no frames, while any member is:
+The clock holds, emitting no frames, while any seated player is:
 
 - `gone`: its connection dropped;
 - `silent`: it has answered no ping for `SILENT_AFTER_MS` (4 s), whatever its socket says;
@@ -371,7 +371,7 @@ on its return; one that had lagged 1 s has 3 s of grace left on its return, howe
 Only leaving the room, or a world rebuilt from a snapshot after a resync or a return without one,
 clears the verdict and the lag.
 
-A slow member is never waited for, gets no countdown and cannot be voted out. While any member is
+A slow member is never waited for, gets no countdown and cannot be voted out. While any seated player is
 slow the relay governs the clock, whatever the requested speed. Each slow member's bound is the lower
 of its sustainable speed with headroom, `TICK_MS / load.tickMs * GOVERNOR_HEADROOM` (0.8), or
 `GOVERNOR_HEADROOM` times the requested speed before its first load report, and the catch-up share
@@ -474,7 +474,9 @@ compatibility report.
 
 A saved start names `snapshotTick: initialSave.tick`; the relay seeds its clock and snapshot cache
 there, and every world reported for it must carry that generation. Saved rules and diplomacy stay as
-saved; each client queues the roster's seat control once on the first resumed tick. The lobby
+saved; each client queues the roster's seat control once on the first resumed tick. Local
+post-result command grants and pending `continueMatch` commands are removed before inherited orders
+run, so importing a single-player save never restores a defeated multiplayer seat's authority. The lobby
 releases its cache at Start, and the room's snapshot retention takes over.
 
 A `save` is relayed as addressed and never refreshes the room's cached snapshot: its persisted
@@ -510,7 +512,9 @@ keeps every frame from the first one. Replay retention is limited to `MAX_HISTOR
 UTF-8 frame JSON) and `MAX_HISTORY_AGE_MS` (10 minutes of wall time since the oldest retained frame).
 
 The relay requests a refresh every `SNAPSHOT_REFRESH_MS` (5 min), or once history reaches half its
-byte or age budget. `snapshotRequest` goes to the client in sync with the lowest round trip, which
+byte or age budget. While any seated player remains, only seated players may donate snapshots;
+observer uploads are refused and observers are not retried as donors. With no seated players,
+observers maintain the cache. `snapshotRequest` goes to the eligible client in sync with the lowest round trip, which
 answers with a `snapshot` blob at its current tick. An unanswered request is repeated every
 `SNAPSHOT_RETRY_MS` (10 s) to the next eligible donor, at once when the asked donor drops, and one
 request is outstanding however many members wait for it. A snapshot prunes the frames it covers.
@@ -534,7 +538,7 @@ including disconnected ones, lose their room association, and the snapshot and h
 Their connections remain usable and other rooms continue. The relay never silently discards a frame
 needed to replay from its advertised snapshot.
 
-A client told `desync` drops its world and waits. The relay asks the best-connected client in sync for
+A client told `desync` drops its world and waits. The relay asks the best-connected eligible donor in sync for
 a fresh snapshot and, when it arrives, sends the diverged client `blob { type: "snapshot" }` followed
 by every frame after the snapshot's tick. The client restores, replays those frames, and acknowledges
 from the snapshot's tick on, catching up as any lagging member does (see [Pacing](#pacing)). A

@@ -363,6 +363,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   },
   setJob: { required: { entity: 'integer', jobType: 'integer' } },
   continueMatch: { required: { player: 'integer' } },
+  endMatchContinuation: { required: {} },
   setMatchParticipants: {
     required: { players: { arrayOf: 'integer' } },
     optional: {

@@ -90,6 +90,10 @@ export type RulesCommand =
       /** Local free play after the result; shared sessions never accept this trusted command. */
       readonly kind: 'continueMatch';
       readonly player: number;
+    }
+  | {
+      /** A saved world entering multiplayer loses its local post-result command grants. */
+      readonly kind: 'endMatchContinuation';
     };
 
 /**

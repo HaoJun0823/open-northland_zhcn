@@ -1157,8 +1157,12 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       // The lost link takes the page over, the open game menu included, until the relay is heard again.
       followLink = () => {
         const loss = netPanel.model()?.link.loss ?? null;
-        if (loss !== null) systemMenu?.close();
+        if (loss !== null) {
+          systemMenu?.close();
+          verdict?.setSuspended(true);
+        }
         screen.refresh(loss);
+        if (loss === null) verdict?.setSuspended(false);
       };
     }
 

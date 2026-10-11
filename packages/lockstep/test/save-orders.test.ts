@@ -152,3 +152,53 @@ it('captures pending commands in assigned sequence order without mutating transp
   expect(restored.hashState()).toBe(sim.hashState());
   expect(frame.commands.map(({ sequence }) => sequence)).toEqual([1, 0]);
 });
+
+it('removes local continuation grants and queued grants before a saved multiplayer world accepts orders', () => {
+  const content = testContent();
+  const sim = new Simulation({ seed: 5, content });
+  components.setMatchParticipants(sim.world, [0, 1, 2]);
+  components.markPlayerDead(sim.world, 1);
+  components.continueMatch(sim.world, 1);
+  const order = (player: number) =>
+    playerCommand(player, {
+      kind: 'setAssistantCounter',
+      player,
+      counter: 'extraMen',
+      value: 3,
+      infinite: false,
+    });
+  sim.enqueue(order(1));
+  sim.enqueue(adminCommand({ kind: 'continueMatch', player: 1 }));
+  sim.enqueue(order(1));
+  const save = exportSaveGame(sim, {
+    continuation: [
+      { applyTick: 2, envelope: adminCommand({ kind: 'continueMatch', player: 1 }) },
+      { applyTick: 2, envelope: order(1) },
+      { applyTick: 2, envelope: order(0) },
+    ],
+  });
+  const resumed = restoreSimulation(save, { content });
+  applyInitialSaveSeats(resumed, {
+    initialSave: { tick: 0, fingerprint: 'a'.repeat(64) },
+    world: { kind: 'scene', sceneId: 'test' },
+    seed: 5,
+    localSeat: 1,
+    speed: 1,
+    seats: [0, 1, 2].map((player) => ({ player, mode: 'human', color: player })),
+    rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
+  });
+  resumed.run(3);
+  expect(components.hasMatchContinuation(resumed.world)).toBe(false);
+  expect(resumed.matchOutcome(1)).toBe('defeat');
+  expect(components.assistantCountersEntity(resumed.world, 1)).toBeNull();
+  const living = components.assistantCountersEntity(resumed.world, 0);
+  expect(living).not.toBeNull();
+  if (living !== null)
+    expect(resumed.world.get(living, components.AssistantCounters).counters.extraMen.value).toBe(3);
+  expect(resumed.commands.log.some((entry) => entry.command.kind === 'continueMatch')).toBe(false);
+  // Preparing the shared session never changes the saved local session.
+  const local = restoreSimulation(save, { content });
+  local.run(3);
+  expect(components.isContinuingMatch(local.world, 1)).toBe(true);
+  expect(components.assistantCountersEntity(local.world, 1)).not.toBeNull();
+});

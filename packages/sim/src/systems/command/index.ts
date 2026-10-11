@@ -2,6 +2,7 @@ import type { AiOrderOrigin } from '../../components/ai-order.js';
 import {
   addPaper,
   continueMatch,
+  endMatchContinuation,
   setAlliedVision,
   setDiplomacyStance,
   setFogMode,
@@ -478,6 +479,9 @@ function applyCommand(
     case 'setDiplomacy':
       setDiplomacyStance(world, command.from, command.to, command.state);
       return;
+    case 'endMatchContinuation':
+      endMatchContinuation(world);
+      break;
     case 'continueMatch':
       continueMatch(world, command.player);
       break;

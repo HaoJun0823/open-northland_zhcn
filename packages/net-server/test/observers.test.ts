@@ -97,3 +97,30 @@ it('retains a finish report when its author becomes an observer before the last 
   expect(s.a.last('ended')?.tick).toBe(1);
   expect(s.b.last('ended')?.tick).toBe(1);
 });
+
+it('keeps observer reports nonauthoritative while the remaining player reconnects', () => {
+  const s = startedRoom();
+  s.b.send({ kind: 'claimSeat', player: null });
+  s.advance(TICK_MS);
+  s.relay.disconnect(s.a.handle);
+  s.b.send({ kind: 'ack', load: LOAD, tick: 1, world: 0, digest: digest(2) });
+  const returning = s.introduce(TOKEN_A, 'Ania');
+  returning.send({ kind: 'loaded', tick: 0, world: 0 });
+  returning.send({ kind: 'ack', load: LOAD, tick: 1, world: 0, digest: digest(1) });
+  expect(returning.last('desync')).toBeUndefined();
+  expect(s.b.last('desync')).toBeDefined();
+  expect(s.b.last('snapshotRequest')).toBeUndefined();
+});
+
+it('refuses an unsolicited observer snapshot while a seated player remains', () => {
+  const s = startedRoom();
+  s.b.send({ kind: 'claimSeat', player: null });
+  s.advance(TICK_MS);
+  s.b.send({ kind: 'blob', type: 'snapshot', to: null, tick: 1, world: 0, bytes: 'YQ==' });
+  expect(s.b.last('rejected')?.reason).toEqual({ code: 'seatRequired' });
+  s.relay.disconnect(s.a.handle);
+  const returning = s.introduce(TOKEN_A, 'Ania');
+  returning.send({ kind: 'loaded', tick: null });
+  expect(returning.last('blob')).toBeUndefined();
+  expect(returning.last('rejected')?.reason).toEqual({ code: 'noSnapshot' });
+});

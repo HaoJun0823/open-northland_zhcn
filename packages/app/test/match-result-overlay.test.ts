@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
+import { createLinkLostScreen } from '../src/hud/dom/link-lost-screen.js';
 import { createMatchResultOverlay, type MatchResultOverlay } from '../src/hud/dom/match-result.js';
 
 const overlays: MatchResultOverlay[] = [];
@@ -166,4 +167,36 @@ it('cancels an outstanding quit confirmation when disposed', async () => {
   expect(h.onQuit).not.toHaveBeenCalled();
   expect(h.resume).toHaveBeenCalledOnce();
   expect(document.querySelector('.on-system-confirm')).toBeNull();
+});
+
+it('yields a pending result to connection loss and restores usable input after reconnect', () => {
+  const h = setup(true);
+  const lost = createLinkLostScreen({
+    hud: { element: h.hud, currentScale: () => 1 },
+    setCameraSuspended: vi.fn(),
+    onLeave: vi.fn(),
+  });
+  try {
+    h.overlay.announce('defeat');
+    h.overlay.setSuspended(true);
+    lost.refresh({ kind: 'dropped', waitedSinceMs: 0 });
+    expect(
+      document.querySelector('.on-link-lost')?.closest<HTMLElement>('.on-system-backdrop')?.inert,
+    ).not.toBe(true);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(h.onContinue).not.toHaveBeenCalled();
+    expect(h.overlay.isOpen()).toBe(false);
+    // A terminal result can arrive during reconnect and supersede the pending defeat.
+    h.overlay.finish('undecided');
+    expect(h.overlay.isOpen()).toBe(false);
+    lost.refresh(null);
+    h.overlay.setSuspended(false);
+    expect(h.overlay.isOpen()).toBe(true);
+    expect(h.hud.inert).toBe(true);
+    h.body.buttons()[0]?.click();
+    expect(h.onContinue).toHaveBeenCalledOnce();
+    expect(h.hud.inert).not.toBe(true);
+  } finally {
+    lost.dispose();
+  }
 });

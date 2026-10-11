@@ -257,6 +257,8 @@ export class Game {
       if (upload.tick < 1 || upload.tick > this.clock.tick)
         return { code: 'tickNotEmitted', tick: upload.tick };
       if (upload.type === 'snapshot') {
+        if (sender.seat === null && [...this.members.values()].some((member) => member.seat !== null))
+          return { code: 'seatRequired' };
         if (this.resync.take(sender.nick, upload.tick, upload.bytes, now))
           this.ledger.pruneBefore(upload.tick + 1);
         return null;
@@ -407,14 +409,14 @@ export class Game {
     const synced = new Set<string>();
     let passed = Number.POSITIVE_INFINITY;
     let lowest = Number.POSITIVE_INFINITY;
-    const hasPlayers = [...this.members.values()].some((member) => member.seat !== null && isSynced(member));
+    const hasPlayers = [...this.members.values()].some((member) => member.seat !== null);
     for (const member of this.members.values()) {
       if (member.seat !== null || isSynced(member)) lowest = Math.min(lowest, member.ackedTick);
       if (!isSynced(member)) continue;
       synced.add(member.token);
       if (member.seat !== null || !hasPlayers) passed = Math.min(passed, member.ackedTick);
     }
-    if (synced.size === 0) return;
+    if (passed === Number.POSITIVE_INFINITY) return;
     for (const verdict of this.ledger.settle(passed, synced)) this.apply(verdict, now);
     this.ledger.pruneBefore(lowest + 1);
   }

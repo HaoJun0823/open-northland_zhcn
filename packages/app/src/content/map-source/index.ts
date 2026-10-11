@@ -2,6 +2,7 @@ export {
   apiBase,
   apiBaseUrl,
   catalogEntryThumbnailUrl,
+  catalogFileUrl,
   catalogThumbnailUrl,
   convertedMaps,
   DEFAULT_API_URL,

@@ -9,6 +9,7 @@ import {
   formatCount,
   formatDate,
   kindText,
+  manualLink,
   pageLink,
   pickButton,
   playersText,
@@ -92,9 +93,11 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
     status.textContent =
       failure !== undefined
         ? formatMessage(text.downloadFailed, { reason: failure })
-        : conversion?.verdict === 'failed'
-          ? `${text.status[row.status]}. ${formatMessage(text.failedReason, { message: conversion.message })}`
-          : text.status[row.status];
+        : conversion?.verdict !== 'failed'
+          ? text.status[row.status]
+          : row.status === 'manual'
+            ? formatMessage(text.status.manual, { message: conversion.message })
+            : `${text.status[row.status]}. ${formatMessage(text.failedReason, { message: conversion.message })}`;
   };
 
   const paintFacts = (row: CatalogueRow): void => {
@@ -158,9 +161,10 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
     const { entry } = row;
     const downloading = ctx.progress(entry.id) !== undefined;
     const buttons: HTMLElement[] = [];
-    if (entry.file.kind === 'external')
-      buttons.push(pageLink('main-menu__ghost', text.openPage, entry.file.url));
-    else buttons.push(pageLink('main-menu__ghost', text.cataloguePage, entry.source.page));
+    if (entry.file.kind !== 'external')
+      buttons.push(pageLink('main-menu__ghost', text.cataloguePage, entry.source.page));
+    const manual = manualLink(row, ctx, 'main-menu__primary');
+    if (manual !== null) buttons.push(manual);
     if (installed && ctx.canStore) buttons.push(removeButton(entry.id, ctx));
     const offersDownload = ctx.canStore && (downloading || canDownload(row.status));
     if (row.playableMapId !== null) {

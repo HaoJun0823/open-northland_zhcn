@@ -6,8 +6,8 @@ import {
   type CatalogueRow,
   canDownload,
   catalogueRow,
+  catalogueRows,
   installedGroups,
-  isReady,
   MEDIUM_MAP_MAX_CELLS,
   mainCatalogMap,
   mapSize,
@@ -109,9 +109,16 @@ describe('catalogue rows', () => {
     ).toBe('external');
     expect(status(catalogEntry('x', [], { conversion: undefined }))).toBe('pending');
     expect(status(catalogEntry('x', [], { conversion: { verdict: 'pending' } }))).toBe('pending');
+    const unpackFailed = { verdict: 'failed', reason: 'unsupported-archive', message: 'm' } as const;
+    expect(status(catalogEntry('x', [], { conversion: unpackFailed }))).toBe('failed');
     expect(
-      status(catalogEntry('x', [], { conversion: { verdict: 'failed', reason: 'no-map', message: 'm' } })),
-    ).toBe('failed');
+      status(
+        catalogEntry('x', [], {
+          file: { kind: 'archive', bytes: KIB, path: '/v1/maps/x/file' },
+          conversion: unpackFailed,
+        }),
+      ),
+    ).toBe('manual');
     expect(status(converted('x', ['x'], IR + 1))).toBe('gameTooOld');
     expect(status(converted('x', ['x'], IR - 1))).toBe('serverTooOld');
     expect(status(converted('x'))).toBe('available');
@@ -123,6 +130,14 @@ describe('catalogue rows', () => {
       'installed',
     );
     expect(canDownload('redownload') && canDownload('updatable') && !canDownload('pending')).toBe(true);
+  });
+
+  it('never lists an entry that holds no map', () => {
+    const mapless = catalogEntry('cn-norway', [], {
+      file: { kind: 'archive', bytes: KIB, path: '/v1/maps/cn-norway/file' },
+      conversion: { verdict: 'failed', reason: 'no-map', message: 'm' },
+    });
+    expect(ids(catalogueRows([converted('cn-a'), mapless], [], IR))).toEqual(['cn-a']);
   });
 
   it('shows a pack by its main map, counts the rest and joins their seats and languages', () => {
@@ -221,7 +236,6 @@ describe('catalogue rows against the shipped maps', () => {
     expect(same.playableIndex?.id).toBe('wyspa');
     expect(same.shipped).toMatchObject({ index: { id: 'wyspa' }, sameVersion: true });
     expect(canDownload(same.status)).toBe(false);
-    expect(isReady(same)).toBe(true);
   });
 
   it('offers the catalogue copy of a shipped map in another version, or of a partly shipped pack', () => {
@@ -314,6 +328,11 @@ describe('catalogue query', () => {
     }),
     catalogEntry('cn-zepsuta', [], {
       title: 'Zepsuta',
+      conversion: { verdict: 'failed', reason: 'download-failed', message: 'm' },
+    }),
+    catalogEntry('cn-reczna', [], {
+      title: 'Ręczna',
+      file: { kind: 'archive', bytes: KIB, path: '/v1/maps/cn-reczna/file' },
       conversion: { verdict: 'failed', reason: 'decode-failed', message: 'm' },
     }),
   ];
@@ -321,28 +340,37 @@ describe('catalogue query', () => {
     installed('cn-dolina', 'cn-dolina'),
     installed('cn-atak', 'cn-atak', IR, 'e'.repeat(64)),
   ]);
-  const run = (patch: Partial<CatalogueQuery>) =>
-    ids(queryRows(rows, { ...DEFAULT_CATALOGUE_QUERY, ...patch }, compare));
+  const run = (patch: Partial<CatalogueQuery>, among: readonly CatalogueRow[] = rows) =>
+    ids(queryRows(among, { ...DEFAULT_CATALOGUE_QUERY, ...patch }, compare));
 
   it('orders by each sort, the most liked first by default', () => {
-    expect(run({})).toEqual(['cn-dolina', 'cn-burza', 'cn-atak']);
-    expect(run({ sort: 'downloaded' })).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
-    expect(run({ sort: 'newest' })).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
-    expect(run({ sort: 'updated' })).toEqual(['cn-burza', 'cn-atak', 'cn-dolina']);
-    expect(run({ sort: 'title' })).toEqual(['cn-atak', 'cn-burza', 'cn-dolina']);
-    expect(run({ sort: 'author' })).toEqual(['cn-dolina', 'cn-atak', 'cn-burza']);
+    const playable = rows.slice(0, 3);
+    expect(run({}, playable)).toEqual(['cn-dolina', 'cn-burza', 'cn-atak']);
+    expect(run({ sort: 'downloaded' }, playable)).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
+    expect(run({ sort: 'newest' }, playable)).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
+    expect(run({ sort: 'updated' }, playable)).toEqual(['cn-burza', 'cn-atak', 'cn-dolina']);
+    expect(run({ sort: 'title' }, playable)).toEqual(['cn-atak', 'cn-burza', 'cn-dolina']);
+    expect(run({ sort: 'author' }, playable)).toEqual(['cn-dolina', 'cn-atak', 'cn-burza']);
   });
 
-  it('hides external links and entries this build cannot have until asked', () => {
-    expect(run({ readyOnly: false })).toEqual(['cn-dolina', 'cn-burza', 'cn-atak', 'cn-zepsuta']);
-    expect(run({ readyOnly: false, showExternal: true })).toContain('cn-link');
-    expect(run({ showExternal: true })).toEqual(['cn-dolina', 'cn-burza', 'cn-atak', 'cn-link']);
-    expect(isReady(rows[4] as CatalogueRow)).toBe(false);
+  it('lists every entry by default, links and failures included', () => {
+    expect(run({ sort: 'title' })).toEqual([
+      'cn-atak',
+      'cn-burza',
+      'cn-dolina',
+      'cn-link',
+      'cn-reczna',
+      'cn-zepsuta',
+    ]);
+  });
+
+  it('finds the entries a player downloads by hand in one state', () => {
+    expect(run({ state: 'manual', sort: 'title' })).toEqual(['cn-link', 'cn-reczna']);
   });
 
   it('narrows by kind, series, seats, language, size, author and state', () => {
     expect(run({ kind: 'campaign' })).toEqual(['cn-atak']);
-    expect(run({ kind: 'other', readyOnly: false, showExternal: true })).toEqual(['cn-link']);
+    expect(run({ kind: 'other' })).toEqual(['cn-link']);
     expect(run({ seriesOnly: true })).toEqual(['cn-dolina']);
     expect(run({ players: 4 })).toEqual(['cn-burza']);
     expect(run({ language: 'pol' })).toEqual(['cn-burza', 'cn-atak']);
@@ -352,7 +380,12 @@ describe('catalogue query', () => {
     expect(run({ author: 'zolw' })).toEqual(['cn-burza']);
     expect(run({ state: 'installed' })).toEqual(['cn-dolina', 'cn-atak']);
     expect(run({ state: 'update' })).toEqual(['cn-atak']);
-    expect(run({ state: 'notInstalled' })).toEqual(['cn-burza']);
+    expect(run({ state: 'notInstalled', sort: 'title' })).toEqual([
+      'cn-burza',
+      'cn-link',
+      'cn-reczna',
+      'cn-zepsuta',
+    ]);
   });
 
   it('searches every word in title, author and both descriptions, without diacritics', () => {
@@ -367,7 +400,7 @@ describe('catalogue query', () => {
   it('counts only filters as active, not the search or the sort', () => {
     expect(hasActiveFilters(DEFAULT_CATALOGUE_QUERY)).toBe(false);
     expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, text: 'x', sort: 'title' })).toBe(false);
-    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, readyOnly: false })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, state: 'manual' })).toBe(true);
     expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, players: 2 })).toBe(true);
   });
 

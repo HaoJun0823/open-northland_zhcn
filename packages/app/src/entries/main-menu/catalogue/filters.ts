@@ -36,12 +36,11 @@ function labelled(label: string, control: HTMLElement): HTMLElement {
   return field;
 }
 
-function toggleRow(label: string, on: boolean, onToggle: (on: boolean) => void, hint?: string): HTMLElement {
+function toggleRow(label: string, on: boolean, onToggle: (on: boolean) => void): HTMLElement {
   const row = node('label', 'catalogue-filter__toggle');
   const pill = togglePill(on, onToggle);
   pill.setAttribute('aria-label', label);
   row.append(node('span', '', label), pill);
-  if (hint !== undefined) row.title = hint;
   return row;
 }
 
@@ -219,8 +218,6 @@ export function catalogueFilters(
       ),
       authorField(),
       labelled(labels.state, state.root),
-      toggleRow(text.readyOnly, query.readyOnly, (readyOnly) => set({ readyOnly }), text.readyHint),
-      toggleRow(text.showExternal, query.showExternal, (showExternal) => set({ showExternal })),
     );
   };
   paintSidebar();

@@ -12,6 +12,8 @@ export interface CatalogueContext {
   /** False where the platform has no installed-map store: nothing downloads or removes. */
   readonly canStore: boolean;
   thumbnail(entry: CatalogEntry): string | null;
+  /** The file the server kept, for a player to unpack by hand; null when it kept none. */
+  fileUrl(entry: CatalogEntry): string | null;
   /** Download progress as a fraction while the entry downloads. */
   progress(entryId: string): number | undefined;
   /** The last download or removal error, shown until the next attempt. */
@@ -99,6 +101,25 @@ export function pageLink(className: string, label: string, href: string): HTMLAn
   return link;
 }
 
+/** A link that saves the server's kept file, opening like `pageLink` where the browser will not save. */
+export function fileLink(className: string, href: string): HTMLAnchorElement {
+  const link = pageLink(className, messages().mapCatalogue.downloadFile, href);
+  link.download = '';
+  return link;
+}
+
+/** What an entry the player downloads by hand links to: its page on another site, or our kept file. */
+export function manualLink(
+  row: CatalogueRow,
+  ctx: CatalogueContext,
+  className: string,
+): HTMLAnchorElement | null {
+  const { file } = row.entry;
+  if (file.kind === 'external') return pageLink(className, messages().mapCatalogue.openPage, file.url);
+  const href = row.status === 'manual' ? ctx.fileUrl(row.entry) : null;
+  return href === null ? null : fileLink(className, href);
+}
+
 export function downloadLabel(row: CatalogueRow, ctx: CatalogueContext): string {
   const text = messages().mapCatalogue;
   const progress = ctx.progress(row.entry.id);
@@ -138,14 +159,12 @@ export function removeButton(entryId: string, ctx: CatalogueContext): HTMLButton
   return remove;
 }
 
-/** The one thing a card offers: play or choose, download, or the page on another site. */
+/** The one thing a card offers: play or choose, download, or the file to download by hand. */
 export function mainAction(row: CatalogueRow, ctx: CatalogueContext): HTMLElement | null {
   if (ctx.progress(row.entry.id) !== undefined) return downloadButton(row, ctx, 'main-menu__ghost is-accent');
   if (row.playableMapId !== null) return pickButton(row, ctx, 'main-menu__primary');
   if (canDownload(row.status) && ctx.canStore) return downloadButton(row, ctx, 'main-menu__ghost is-accent');
-  if (row.entry.file.kind === 'external')
-    return pageLink('main-menu__ghost', messages().mapCatalogue.openPage, row.entry.file.url);
-  return null;
+  return manualLink(row, ctx, 'main-menu__ghost');
 }
 
 export function thumbImage(url: string | null): HTMLImageElement | null {

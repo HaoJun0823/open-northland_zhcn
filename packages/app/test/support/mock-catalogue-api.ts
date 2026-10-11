@@ -8,6 +8,7 @@
  * With `ON_CONTENT_DIR` each converted map is a copy of a shipped map from that content tree, so it
  * installs and plays; without it every map is a one-cell terrain. `POST /mock/republish/<entry id>`
  * gives an entry's maps a new conversion, which an installed copy then shows as an update.
+ * `/v1/maps/<id>/file` serves a placeholder for the file an entry's `file.path` names.
  */
 import { closeSync, existsSync, openSync, readFileSync, readSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -54,9 +55,20 @@ interface EntrySpec {
   readonly megabytes?: number;
   readonly version?: string;
   readonly description?: string;
-  /** How the server got on with the entry; `ok` by default. */
-  readonly state?: 'ok' | 'pending' | 'failed' | 'external' | 'newer' | 'older';
+  /** How the server got on with the entry; `ok` by default. `failed` lost the download and kept no
+   *  file, `manual` kept a file it could not unpack, `mapless` kept an archive that holds no map. */
+  readonly state?: 'ok' | 'pending' | 'failed' | 'manual' | 'mapless' | 'external' | 'newer' | 'older';
 }
+
+/** The failure each failed state reports. */
+const FAILURES = {
+  failed: { reason: 'download-failed', message: 'upstream answered 404' },
+  manual: { reason: 'unsupported-archive', message: 'the rar archive is password-protected' },
+  mapless: { reason: 'no-map', message: 'the archive holds no Cultures 2 map' },
+} as const;
+
+/** The placeholder bytes the mock serves as a kept file. */
+const KEPT_FILE_BODY = 'mock archive';
 
 const CATEGORY = {
   single: 'Mapy singleplayer',
@@ -214,6 +226,34 @@ const SPECS: readonly EntrySpec[] = [
     languages: [],
     maps: [],
     state: 'failed',
+  },
+  {
+    id: 'cn-grobowiec',
+    title: 'Grobowiec Króla',
+    author: 'Kasia',
+    kind: 'single',
+    categoryLabel: CATEGORY.single,
+    likes: 11,
+    downloads: 320,
+    published: '2016-06-06',
+    languages: [],
+    maps: [],
+    megabytes: 3.2,
+    state: 'manual',
+  },
+  {
+    id: 'cn-norwegia',
+    title: 'The King of Norway',
+    author: 'Thorgal',
+    kind: 'single',
+    categoryLabel: CATEGORY.single,
+    likes: 8,
+    downloads: 90,
+    published: '2015-05-05',
+    languages: [],
+    maps: [],
+    megabytes: 0.4,
+    state: 'mapless',
   },
   {
     id: 'cn-gdzie-indziej',
@@ -400,6 +440,8 @@ export function mockCatalogue(options: MockCatalogueOptions) {
           ? options.irVersion - 1
           : options.irVersion;
     const hasPicture = options.contentDir !== null && spec.maps.length > 0;
+    // The server keeps a file it fetched, but the one whose download failed.
+    const kept = state !== 'failed' && state !== 'pending' && spec.megabytes !== undefined;
     return {
       id: spec.id,
       source: {
@@ -426,19 +468,14 @@ export function mockCatalogue(options: MockCatalogueOptions) {
           : {
               kind: 'archive',
               ...(spec.megabytes === undefined ? {} : { bytes: Math.round(spec.megabytes * BYTES_PER_MB) }),
+              ...(kept ? { path: `/v1/maps/${spec.id}/file` } : {}),
             },
       ...(state === 'external'
         ? {}
         : state === 'pending'
           ? { conversion: { verdict: 'pending' as const } }
-          : state === 'failed'
-            ? {
-                conversion: {
-                  verdict: 'failed' as const,
-                  reason: 'decode-failed' as const,
-                  message: 'map.dat: unexpected end of the terrain chunk',
-                },
-              }
+          : state === 'failed' || state === 'manual' || state === 'mapless'
+            ? { conversion: { verdict: 'failed' as const, ...FAILURES[state] } }
             : {
                 conversion: {
                   verdict: 'ok' as const,
@@ -480,6 +517,13 @@ export function mockCatalogue(options: MockCatalogueOptions) {
       const file = join(options.contentDir, 'maps', `${source.shippedId}${suffix}`);
       return existsSync(file) ? { body: readFileSync(file), type } : null;
     },
+    /** The kept file an entry's `file.path` names, or null. */
+    keptFile(entryId: string): Buffer | null {
+      const found = entries.find((item) => item.id === entryId);
+      return found?.file.kind !== 'external' && found?.file.path !== undefined
+        ? Buffer.from(KEPT_FILE_BODY)
+        : null;
+    },
     thumbnail(entryId: string): Buffer | null {
       const found = entries.find((item) => item.id === entryId);
       const main = found?.conversion?.verdict === 'ok' ? found.conversion.maps[0] : undefined;
@@ -507,6 +551,11 @@ function serve(port: number, catalogue: ReturnType<typeof mockCatalogue>): void 
     if (thumbnail !== null) {
       const png = catalogue.thumbnail(thumbnail[1] ?? '');
       return png === null ? send(404, '{"error":"no thumbnail"}') : send(200, png, 'image/png');
+    }
+    const kept = /^\/v1\/maps\/([^/]+)\/file$/.exec(url.pathname);
+    if (kept !== null) {
+      const body = catalogue.keptFile(kept[1] ?? '');
+      return body === null ? send(404, '{"error":"no file"}') : send(200, body, 'application/octet-stream');
     }
     const single = /^\/v1\/maps\/([^/]+)$/.exec(url.pathname);
     if (single !== null) {

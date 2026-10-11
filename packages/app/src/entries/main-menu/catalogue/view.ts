@@ -2,6 +2,7 @@ import type { CatalogEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import {
   apiBaseUrl,
+  catalogFileUrl,
   catalogThumbnailUrl,
   fetchCatalog,
   findMapSource,
@@ -78,6 +79,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     purpose: options.purpose,
     canStore: store !== null,
     thumbnail: (entry) => catalogThumbnailUrl(api, entry),
+    fileUrl: (entry) => catalogFileUrl(api, entry),
     progress: (entryId) => downloads.get(entryId),
     failure: (entryId) => failures.get(entryId),
     download: (row) => startDownload(row),

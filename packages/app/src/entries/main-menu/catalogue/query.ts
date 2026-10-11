@@ -1,5 +1,5 @@
 import type { CatalogKind, MapTextLanguage } from '@open-northland/data';
-import { type CatalogueRow, isInGame, isReady, type MapSize } from './model.js';
+import { type CatalogueRow, isInGame, isManualDownload, type MapSize } from './model.js';
 
 export type CatalogueSort = 'liked' | 'downloaded' | 'newest' | 'updated' | 'title' | 'author';
 export const CATALOGUE_SORTS: readonly CatalogueSort[] = [
@@ -14,7 +14,14 @@ export const CATALOGUE_SORTS: readonly CatalogueSort[] = [
 export type KindFilter = 'all' | CatalogKind;
 export const KIND_FILTERS: readonly KindFilter[] = ['all', 'single', 'multi', 'campaign', 'other'];
 
-export type StateFilter = 'all' | 'installed' | 'update' | 'notInstalled' | 'inGame' | 'inGameChanged';
+export type StateFilter =
+  | 'all'
+  | 'installed'
+  | 'update'
+  | 'notInstalled'
+  | 'inGame'
+  | 'inGameChanged'
+  | 'manual';
 export const STATE_FILTERS: readonly StateFilter[] = [
   'all',
   'installed',
@@ -22,6 +29,7 @@ export const STATE_FILTERS: readonly StateFilter[] = [
   'notInstalled',
   'inGame',
   'inGameChanged',
+  'manual',
 ];
 
 /** What the browse tab shows: the search, the sort and every filter. */
@@ -38,10 +46,6 @@ export interface CatalogueQuery {
   /** A part of the author's name; empty for any. */
   readonly author: string;
   readonly state: StateFilter;
-  /** Only entries this build can install or play. */
-  readonly readyOnly: boolean;
-  /** Entries whose file lives on another site, which only open their page. */
-  readonly showExternal: boolean;
 }
 
 export const DEFAULT_CATALOGUE_QUERY: CatalogueQuery = {
@@ -54,8 +58,6 @@ export const DEFAULT_CATALOGUE_QUERY: CatalogueQuery = {
   size: null,
   author: '',
   state: 'all',
-  readyOnly: true,
-  showExternal: false,
 };
 
 /** Whether any filter differs from the default; the search and the sort are not filters. */
@@ -90,6 +92,8 @@ function matchesState(row: CatalogueRow, state: StateFilter): boolean {
     case 'inGame':
     case 'inGameChanged':
       return row.status === state;
+    case 'manual':
+      return isManualDownload(row.status);
   }
 }
 
@@ -97,8 +101,6 @@ export function matchesQuery(row: CatalogueRow, query: CatalogueQuery): boolean 
   const { entry } = row;
   const author = foldText(query.author.trim());
   return (
-    // A link is never ready to play; its own switch decides whether it shows.
-    (entry.file.kind === 'external' ? query.showExternal : !query.readyOnly || isReady(row)) &&
     (query.kind === 'all' || entry.kind === query.kind) &&
     (!query.seriesOnly || entry.series) &&
     (query.players === null || row.playerCounts.includes(query.players)) &&

@@ -468,7 +468,9 @@
 
 .catalogue-badge.is-updatable,
 .catalogue-badge.is-redownload,
-.catalogue-badge.is-inGameChanged {
+.catalogue-badge.is-inGameChanged,
+.catalogue-badge.is-external,
+.catalogue-badge.is-manual {
   border-color: var(--bronze);
   color: var(--bronze-hi);
 }
@@ -660,7 +662,9 @@
 .catalogue-detail__status.is-installed,
 .catalogue-detail__status.is-updatable,
 .catalogue-detail__status.is-inGame,
-.catalogue-detail__status.is-inGameChanged {
+.catalogue-detail__status.is-inGameChanged,
+.catalogue-detail__status.is-external,
+.catalogue-detail__status.is-manual {
   border-left-color: var(--bronze);
 }
 

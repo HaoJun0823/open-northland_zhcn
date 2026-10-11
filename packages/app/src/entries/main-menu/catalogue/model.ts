@@ -10,8 +10,10 @@ import { convertedMaps, type InstalledMapRecord } from '../../../content/map-sou
 
 /**
  * What a player can do with an entry:
- * - `external`: the file lives on another site; only its page opens;
- * - `failed`: the server could not convert it; the page opens with the server's reason;
+ * - `external`: the file lives on another site; only its page opens, the player downloads it there;
+ * - `manual`: the server kept the file but could not unpack it; the player downloads it from our API
+ *   and unpacks it by hand;
+ * - `failed`: the server could not fetch or convert it and kept no file; only its reason shows;
  * - `pending`: the server has not converted it yet; nothing is clickable;
  * - `gameTooOld` / `serverTooOld`: converted for another content version than this build's;
  * - `available`: downloadable; `installed`: playable; `updatable`: playable, with a newer conversion;
@@ -22,6 +24,7 @@ import { convertedMaps, type InstalledMapRecord } from '../../../content/map-sou
  */
 export type CatalogueStatus =
   | 'external'
+  | 'manual'
   | 'failed'
   | 'pending'
   | 'gameTooOld'
@@ -126,7 +129,7 @@ function serverStatus(entry: CatalogEntry, irVersion: number): CatalogueStatus {
   if (entry.file.kind === 'external') return 'external';
   const conversion = entry.conversion;
   if (conversion === undefined || conversion.verdict === 'pending') return 'pending';
-  if (conversion.verdict === 'failed') return 'failed';
+  if (conversion.verdict === 'failed') return entry.file.path === undefined ? 'failed' : 'manual';
   if (conversion.irVersion > irVersion) return 'gameTooOld';
   if (conversion.irVersion < irVersion) return 'serverTooOld';
   return 'available';
@@ -194,13 +197,21 @@ export function catalogueRow(
   return { ...base, status: served, playableMapId: null, playableIndex: null };
 }
 
+/** Whether the entry holds no map at all, such as a map for another game; the catalogue never lists it. */
+export function isMapless(entry: CatalogEntry): boolean {
+  return entry.conversion?.verdict === 'failed' && entry.conversion.reason === 'no-map';
+}
+
+/** The listed rows: every entry but a mapless one. */
 export function catalogueRows(
   entries: readonly CatalogEntry[],
   installed: readonly InstalledMapRecord[],
   irVersion: number,
   shipped: ShippedMaps = new Map(),
 ): readonly CatalogueRow[] {
-  return entries.map((entry) => catalogueRow(entry, installed, irVersion, shipped));
+  return entries
+    .filter((entry) => !isMapless(entry))
+    .map((entry) => catalogueRow(entry, installed, irVersion, shipped));
 }
 
 /** Whether the row offers a download: a fresh install, an update, a re-download or the catalogue's
@@ -216,9 +227,9 @@ export function isInGame(status: CatalogueStatus): boolean {
   return status === 'inGame' || status === 'inGameChanged';
 }
 
-/** Whether a player can have the entry on this build: installed and playable, or downloadable. */
-export function isReady(row: CatalogueRow): boolean {
-  return row.playableMapId !== null || canDownload(row.status);
+/** Whether the player downloads the entry's file outside the game: from another site or from our API. */
+export function isManualDownload(status: CatalogueStatus): boolean {
+  return status === 'external' || status === 'manual';
 }
 
 /** One installed catalogue entry as the Installed tab lists it: its maps on disk, and the catalogue's

@@ -50,6 +50,13 @@ export function catalogThumbnailUrl(api: string, entry: Pick<CatalogEntry, 'thum
   return entry.thumbnail === undefined ? null : `${api}${entry.thumbnail}`;
 }
 
+/** The entry's file as the catalogue server kept it, for a player to unpack by hand; null until the
+ *  server fetched a file, and on an entry hosted on another site. */
+export function catalogFileUrl(api: string, entry: Pick<CatalogEntry, 'file'>): string | null {
+  const { file } = entry;
+  return file.kind === 'external' || file.path === undefined ? null : `${api}${file.path}`;
+}
+
 /** The converted maps of an entry the server finished, else none. */
 export function convertedMaps(entry: CatalogEntry): readonly CatalogConvertedMap[] {
   return entry.conversion?.verdict === 'ok' ? entry.conversion.maps : [];

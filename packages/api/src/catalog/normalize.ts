@@ -2,8 +2,41 @@ import { CATALOG_MAP_ID, CatalogEntry, type CatalogFile, type CatalogKind } from
 
 /** The status the catalogue's moderators give a published download. */
 const ACCEPTED_STATUS = 'zaakceptowany';
-/** The upstream exposes no per-entry page we verified as stable, so every entry links the maps list. */
-export const CATALOG_PAGE = 'https://culturesnation.pl/downloads/maps';
+const CATALOG_ORIGIN = 'https://culturesnation.pl';
+/** The upstream site's slug rule, as its pages build it: Polish letters plain, every other run of
+ *  non-alphanumerics a hyphen, at most this long. The site redirects a wrong slug to its own. */
+const SLUG_MAX_LENGTH = 80;
+const SLUG_FALLBACK = 'wpis';
+const POLISH_PLAIN: Readonly<Record<string, string>> = {
+  ą: 'a',
+  ć: 'c',
+  ę: 'e',
+  ł: 'l',
+  ń: 'n',
+  ó: 'o',
+  ś: 's',
+  ź: 'z',
+  ż: 'z',
+};
+
+export function catalogPageSlug(title: string): string {
+  const slug = title
+    .trim()
+    .toLowerCase()
+    .replace(/[ąćęłńóśźż]/g, (letter) => POLISH_PLAIN[letter] ?? letter)
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, SLUG_MAX_LENGTH)
+    .replace(/-+$/g, '');
+  return slug === '' ? SLUG_FALLBACK : slug;
+}
+
+/** The entry's own page on the upstream site: `/downloads/<documentId>/<slug>`. */
+export function catalogPageUrl(documentId: string, title: string): string {
+  return `${CATALOG_ORIGIN}/downloads/${documentId}/${catalogPageSlug(title)}`;
+}
 const CATALOG_HOSTS: ReadonlySet<string> = new Set(['culturesnation.pl', 'www.culturesnation.pl']);
 const C2M_SUFFIX = '.c2m';
 const ID_PREFIX = 'cn-';
@@ -128,7 +161,11 @@ function normalizeRecord(record: unknown, upstream: string): NormalizedRecord | 
   // The schema is the served contract: an entry it refuses would fail every later catalogue write.
   const checked = CatalogEntry.safeParse({
     id,
-    source: { documentId: text(record.documentId), id: upstreamId, page: CATALOG_PAGE },
+    source: {
+      documentId: text(record.documentId),
+      id: upstreamId,
+      page: catalogPageUrl(text(record.documentId), text(record.title)),
+    },
     title: text(record.title),
     shortDescription: text(record.shortDescription),
     fullDescription: text(record.fullDescription),

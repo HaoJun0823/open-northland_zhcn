@@ -42,7 +42,7 @@ export function catalogEntry(
 ): CatalogEntry {
   return {
     id,
-    source: { documentId: id, id: 1, page: 'https://culturesnation.pl/downloads/maps' },
+    source: { documentId: id, id: 1, page: `https://culturesnation.pl/downloads/${id}/map` },
     title: id,
     shortDescription: '',
     fullDescription: '',

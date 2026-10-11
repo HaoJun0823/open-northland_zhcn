@@ -37,8 +37,6 @@ entry, not engine work:
 - "Grobowiec Króla": a three-part campaign whose parts 2 and 3 are passworded inside the rar (the
   password is meant to be earned by finishing the earlier part); only part 1 can convert.
 - 53 maps carry Polish text in their `ger` string slot, so the client reports them as German.
-- Every entry links the same generic upstream listing page as its `source.page`; a per-entry page
-  needs the upstream's URL scheme.
 
 ## Verify
 

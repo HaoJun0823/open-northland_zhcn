@@ -1,8 +1,9 @@
 import { Catalog } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
-  CATALOG_PAGE,
   catalogMapId,
+  catalogPageSlug,
+  catalogPageUrl,
   classifyCategory,
   classifyFile,
   normalizeRecords,
@@ -41,7 +42,11 @@ describe('normalizeRecords', () => {
   it('copies the listing fields and trims free text', () => {
     expect(entry('Frozen Fjord').entry).toEqual({
       id: 'cn-abcdef0123456789ghijklmn',
-      source: { documentId: 'AbCdEf0123456789ghijklmn', id: 11, page: CATALOG_PAGE },
+      source: {
+        documentId: 'AbCdEf0123456789ghijklmn',
+        id: 11,
+        page: 'https://culturesnation.pl/downloads/AbCdEf0123456789ghijklmn/frozen-fjord',
+      },
       title: 'Frozen Fjord',
       shortDescription: 'Short text for Frozen Fjord.',
       fullDescription: 'Full text for Frozen Fjord.\nSecond line.',
@@ -135,5 +140,21 @@ describe('catalogMapId', () => {
     expect(catalogMapId('../etc')).toBeNull();
     expect(catalogMapId('a b')).toBeNull();
     expect(catalogMapId('x'.repeat(126))).toBeNull();
+  });
+});
+
+describe('catalogPageUrl', () => {
+  it('builds the entry page from the document id and the title as the site slugs it', () => {
+    expect(catalogPageUrl('yhdgxtpy0gj2kewaf6z2b634', 'Miasto portowe Kalos')).toBe(
+      'https://culturesnation.pl/downloads/yhdgxtpy0gj2kewaf6z2b634/miasto-portowe-kalos',
+    );
+  });
+
+  it('slugs Polish letters, punctuation runs and edges the way the site does', () => {
+    expect(catalogPageSlug('  Legenda Sześciu Synów v1.0 ')).toBe('legenda-szesciu-synow-v1-0');
+    expect(catalogPageSlug('Żółw & "Łódź" -- (PL)')).toBe('zolw-lodz-pl');
+    expect(catalogPageSlug('Café Déjà Vu')).toBe('cafe-deja-vu');
+    expect(catalogPageSlug('!!!')).toBe('wpis');
+    expect(catalogPageSlug('a'.repeat(79) + '-b')).toBe('a'.repeat(79));
   });
 });

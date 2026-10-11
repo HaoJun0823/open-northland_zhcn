@@ -1,4 +1,4 @@
-export { CATALOG_PAGE, catalogMapId, classifyFile, normalizeRecords } from './catalog/normalize.js';
+export { catalogMapId, catalogPageUrl, classifyFile, normalizeRecords } from './catalog/normalize.js';
 export { catalogSnapshot, parseCatalog } from './catalog/snapshot.js';
 export { CatalogSync, type SyncedCatalog, syncCatalog } from './catalog/sync.js';
 export { apiConfigFromEnvironment, parseSyncInterval } from './config.js';

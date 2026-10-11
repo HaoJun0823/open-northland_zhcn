@@ -31,8 +31,8 @@ import { MEAL_UNITS } from '../atomics/effects/goods/index.js';
 import { atOrWalk, PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic, startMeal } from '../atomics/start.js';
 import type { PlannerSpacing } from '../planner/spacing.js';
 import { interactionCell, nearestFood, nearestPrayerSite, type TargetCandidates } from '../targets/index.js';
-import { unreachableGoalVeto } from '../unreachable-goals.js';
 import { eatAtHome, homeMealFor, prayAtHome, sleepAtHome } from './home-errands.js';
+import { prayerStand } from './prayer-stand.js';
 import { restingCell } from './rest-spot.js';
 import { eatAtPost, sleepAtPost } from './tower-post.js';
 
@@ -218,7 +218,8 @@ export function planNeeds(
     maySeek(world, e, ordered, 'piety') &&
     !onAlert();
   if (prays) {
-    if (prayAtHome(world, ctx, terrain, e, settler, here, limit)) return true;
+    if (prayAtHome(world, ctx, terrain, e, settler, here, limit, spacing)) return true;
+    const stands = new Map<Entity, NodeId>();
     const site = nearestPrayerSite(
       targets.bands,
       world,
@@ -226,10 +227,19 @@ export function planNeeds(
       here,
       ownerOf(world, e),
       gate,
-      unreachableGoalVeto(world, ctx, e),
+      undefined,
+      (candidate) => {
+        const stand = prayerStand(world, ctx, terrain, e, candidate, here, spacing, limit);
+        if (stand === null) return false;
+        stands.set(candidate, stand);
+        return true;
+      },
     );
     if (site !== null) {
-      atOrWalk(world, e, here, interactionCell(world, ctx, terrain, site, here), () =>
+      const stand = stands.get(site);
+      if (stand === undefined) return false;
+      spacing.claim(stand);
+      atOrWalk(world, e, here, stand, () =>
         startAtomic(
           world,
           e,

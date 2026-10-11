@@ -38,6 +38,7 @@ export type PlacementGhost =
       /** How far the building would shoot in defence mode from this anchor, in map points; absent for a
        *  type with no defence mode. */
       readonly defenceRangeNodes?: number;
+      readonly blessingRangeNodes?: number;
     }
   | { readonly kind: 'signpost'; readonly col: number; readonly row: number; readonly player: number }
   | {
@@ -166,9 +167,9 @@ function sameShifts(a: readonly number[], b: readonly number[]): boolean {
 
 export class PlacementGhostLayer {
   readonly container = new Container();
-  /** The held building's defence range on the ground, mounted under the sprites apart from the ghost. */
+  /** The held building's defence or blessing range, mounted under the sprites apart from the ghost. */
   readonly rangeContainer = new Container();
-  private rangeRing: { g: Graphics; radiusNodes: number } | null = null;
+  private rangeRing: { g: Graphics; radiusNodes: number; kind: 'defence' | 'blessing' } | null = null;
   private builtForKey: string | null = null;
   /** The line plan and wall layout the memoized `lineShifts` were worked out for. The app hands a new
    *  node list every frame, so the plan compares by value. */
@@ -249,16 +250,18 @@ export class PlacementGhostLayer {
   }
 
   private setRange(ghost: PlacementGhost | null, elevation: ElevationField): void {
-    const radiusNodes = ghost?.kind === 'building' ? ghost.defenceRangeNodes : undefined;
+    const radiusNodes =
+      ghost?.kind === 'building' ? (ghost.blessingRangeNodes ?? ghost.defenceRangeNodes) : undefined;
     if (ghost?.kind !== 'building' || radiusNodes === undefined) {
       this.rangeContainer.visible = false;
       return;
     }
-    if (this.rangeRing?.radiusNodes !== radiusNodes) {
+    const kind = ghost.blessingRangeNodes === undefined ? 'defence' : 'blessing';
+    if (this.rangeRing?.radiusNodes !== radiusNodes || this.rangeRing.kind !== kind) {
       this.rangeRing?.g.destroy();
-      const g = mintRangeRing(radiusNodes, 'hex', 'defence');
+      const g = mintRangeRing(radiusNodes, 'hex', kind);
       this.rangeContainer.addChild(g);
-      this.rangeRing = { g, radiusNodes };
+      this.rangeRing = { g, radiusNodes, kind };
     }
     const p = halfCellToScreen(ghost.col, ghost.row);
     this.rangeContainer.position.set(p.x, p.y - terrainLiftAtNode(elevation, ghost.col, ghost.row));

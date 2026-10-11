@@ -90,6 +90,7 @@ export {
   needLevel,
   needLevels,
 } from './lifecycle/needs/index.js';
+export { TEMPLE_AURA_RANGE } from './lifecycle/temple-aura.js';
 // The herding ring bound, asserted by the livestock scene; the slaughter clip's wares, so the
 // real-content suite reads them the way the sim does.
 export { LIVESTOCK_GRAZE_RANGE_NODES } from './livestock/assignment.js';
@@ -162,6 +163,7 @@ export {
   isSoldierJob,
   isTraderJob,
   jobChangesProduction,
+  jobNeedsReligion,
   scoutJobType,
 } from './readviews/jobs.js';
 // The landscape a dead animal leaves, so a scene's terrain types the same record the sim lays.

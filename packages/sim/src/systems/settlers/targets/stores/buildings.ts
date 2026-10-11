@@ -29,15 +29,18 @@ export function nearestPrayerSite(
   gate?: SpatialGate,
   /** The settler's failed-goal veto. */
   avoid?: (cell: NodeId) => boolean,
+  acceptsSite?: (entity: Entity) => boolean,
 ): Entity | null {
   const onSide = sameSideAs(world, owner);
-  const temple = bands.prayerSites(PRAYER_SITE.temple).nearest(here, ACCEPT_ALL, gate, avoid, onSide);
+  const accepts =
+    acceptsSite === undefined ? ACCEPT_ALL : (entity: Entity) => (acceptsSite(entity) ? QUALIFIES : null);
+  const temple = bands.prayerSites(PRAYER_SITE.temple).nearest(here, accepts, gate, avoid, onSide);
   const templePoints =
     temple === null ? Number.POSITIVE_INFINITY : mapPointsBetween(terrain, here, temple.cell);
   if (temple !== null && templePoints <= TEMPLE_PREFERRED_RANGE) return temple.entity;
   const headquarters = bands
     .prayerSites(PRAYER_SITE.headquarters)
-    .nearest(here, ACCEPT_ALL, gate, avoid, onSide);
+    .nearest(here, accepts, gate, avoid, onSide);
   if (headquarters !== null && mapPointsBetween(terrain, here, headquarters.cell) <= templePoints) {
     return headquarters.entity;
   }

@@ -198,14 +198,14 @@ export function setHouseholdGoodUse(
   else Object.assign(world.mut(carrier, HouseholdGoodPolicy), next);
 }
 
-/** Burn the sacred fire once per game second in every eligible finished home. A remainder smaller than
- * one use stays in the pool, as in the original. */
+/** Burn to zero once per game second, including damaged homes. Deliberate rule: a partial last
+ * payment extinguishes the fire instead of preserving an indefinitely usable remainder. */
 export function drainHolyOil(world: World, ctx: SystemContext): void {
   if (ctx.tick % TICKS_PER_SECOND !== 0) return;
   const oil = homeQualityUseFor(ctx, 'piety');
   if (oil === undefined) return;
   for (const home of world.query(HomeQuality, Building)) {
     if (!homeQualityActive(world, ctx, home, 'piety')) continue;
-    spendHomeQuality(world, home, 'piety', oil.useCost);
+    spendHomeQuality(world, home, 'piety', Math.min(oil.useCost, homeQualityValue(world, home, 'piety')));
   }
 }

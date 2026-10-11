@@ -12,9 +12,11 @@ import type { SupplyTally } from '../../stores/index.js';
 import { MEAL_UNITS } from '../atomics/effects/goods/index.js';
 import { atOrWalk, PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic, startMeal } from '../atomics/start.js';
 import { enterBuilding, isInside } from '../indoors.js';
+import type { PlannerSpacing } from '../planner/spacing.js';
 import { interactionCell, storedFoodGood } from '../targets/index.js';
 import { isUnreachableGoal, unreachableGoals } from '../unreachable-goals.js';
 import { homeClipServes } from './at-home.js';
+import { prayerStand } from './prayer-stand.js';
 
 // Sleeping at home: a settler with a house walks to its door, goes inside, and comes back out rested; the
 // homeless keep the open-ground rule.
@@ -77,8 +79,8 @@ export function sleepAtHome(
 }
 
 /**
- * Pray outside at the home entrance (an approximation of the original outdoor stand). Falls back to
- * a public site when the fire is out, the clip pays no religion, or the entrance cannot be reached.
+ * Pray at an available outdoor stand. Falls back to a public site when the fire is out,
+ * the clip pays no religion, or no stand can be reached.
  */
 export function prayAtHome(
   world: World,
@@ -88,12 +90,14 @@ export function prayAtHome(
   settler: SettlerIdentity,
   here: NodeId,
   limit: NavigationLimit | null,
+  spacing: PlannerSpacing,
 ): boolean {
   const home = homeUsedBy(world, ctx, e);
   if (home === undefined || !homeQualityActive(world, ctx, home, 'piety')) return false;
   if (!homeClipServes(ctx, settler, PRAY_ATOMIC_ID, ATOMIC_EVENT_CHANNEL.PIETY)) return false;
-  const door = homeDoorFor(world, ctx, terrain, e, home, here, limit);
+  const door = prayerStand(world, ctx, terrain, e, home, here, spacing, limit);
   if (door === null) return false;
+  spacing.claim(door);
   atOrWalk(world, e, here, door, () =>
     startAtomic(
       world,

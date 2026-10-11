@@ -24,7 +24,10 @@ import {
   plannerSystem,
 } from '../../src/systems/index.js';
 import { isServedAtHome } from '../../src/systems/settlers/drives/home-errands.js';
+import { prayerStand } from '../../src/systems/settlers/drives/prayer-stand.js';
+import { PlannerSpacing } from '../../src/systems/settlers/planner/spacing.js';
 import { TEMPLE_PREFERRED_RANGE } from '../../src/systems/settlers/targets/stores/buildings.js';
+import { NodeBuckets } from '../../src/systems/spatial/nodes.js';
 import { testContent } from '../fixtures/content.js';
 import { nextTickCtxOf } from '../fixtures/context.js';
 import { needsOf } from '../fixtures/settler.js';
@@ -86,6 +89,35 @@ function templeAt(sim: Simulation, x: number, y: number, buildingType = TEMPLE_T
 }
 
 describe('prayDrive - the planner choosing to pray (target-bound: walk to a temple)', () => {
+  it('automatically seeks prayer for a consuming trade without the authored religion flag', () => {
+    const base = testContent();
+    const content = parseContentSet({
+      ...base,
+      jobs: base.jobs.map((job) => (job.typeId === SMITH ? { ...job, needsReligion: false } : job)),
+      tribes: base.tribes.map((tribe) =>
+        tribe.typeId === VIKING
+          ? {
+              ...tribe,
+              atomicBindings: [
+                ...tribe.atomicBindings,
+                { jobType: SMITH, atomicId: 24, animation: 'viking_chop' },
+              ],
+            }
+          : tribe,
+      ),
+      atomicAnimations: base.atomicAnimations.map((clip) =>
+        clip.id === 'viking_chop'
+          ? { ...clip, events: [...clip.events, { at: 1, type: 4, value: -1500 }] }
+          : clip,
+      ),
+    });
+    const sim = new Simulation({ seed: 1, content, map: grassMap(6, 1) });
+    const settler = settlerAt(sim, 0, 0, DEVOUT);
+    templeAt(sim, 4, 0);
+    plannerSystem(sim.world, ctxOf(sim));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 4, 0));
+  });
+
   it('walks to the nearest temple when piety crosses the threshold (no atomic yet - must arrive)', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(6, 1) });
     const settler = settlerAt(sim, 0, 0, DEVOUT);
@@ -198,11 +230,12 @@ describe('pray atomic - taking one prayer off piety (AtomicSystem)', () => {
   it('takes one prayer off piety and consumes no goods', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(3, 1) });
     const settler = settlerAt(sim, 0, 0, DEVOUT);
+    const temple = templeAt(sim, 0, 0);
     addCurrentAtomic(sim.world, settler, {
       atomicId: PRAY_ATOMIC,
       duration: PRAY_CLIP_TICKS,
       effect: { kind: 'pray' },
-      targetEntity: settler,
+      targetEntity: temple,
       targetTile: null,
     });
 
@@ -303,6 +336,66 @@ function litHomeAt(sim: Simulation, x: number): Entity {
 }
 
 describe('where a devout settler prays: its holy fire, then a temple, then the headquarters', () => {
+  it.each(['extinguished', 'destroyed', 'upgrading'] as const)(
+    'ends prayer at an %s home before another religion pulse',
+    (change) => {
+      const sim = new Simulation({ seed: 1, content: oilContent(), map: grassMap(8, 1) });
+      const home = litHomeAt(sim, 4);
+      const settler = devoutAt(sim, 4, home);
+      plannerSystem(sim.world, ctxOf(sim));
+      expect(sim.world.get(settler, CurrentAtomic).effect.kind).toBe('pray');
+      const before = needsOf(sim, settler).piety;
+      if (change === 'extinguished') sim.world.mut(home, HomeQuality).piety = 0;
+      else if (change === 'destroyed') sim.world.destroy(home);
+      else sim.world.add(home, UnderConstruction, { labor: 0 });
+      atomicSystem(sim.world, nextTickCtxOf(sim));
+      expect(sim.world.has(settler, CurrentAtomic)).toBe(false);
+      expect(needsOf(sim, settler).piety).toBe(before);
+    },
+  );
+
+  it('uses distinct exterior stands when the entrance is blocked and stays at an arrived stand', () => {
+    const sim = new Simulation({ seed: 1, content: oilContent(), map: grassMap(8, 5) });
+    const temple = ownedAt(sim, 4, TEMPLE_TYPE);
+    const first = devoutAt(sim, 1);
+    const second = devoutAt(sim, 2);
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('missing terrain');
+    const door = cellOf(sim, 4, 0);
+    const firstCell = cellOf(sim, 1, 0);
+    const secondCell = cellOf(sim, 2, 0);
+    if (door === undefined || firstCell === undefined || secondCell === undefined)
+      throw new Error('missing node');
+    const spacing = PlannerSpacing.overExplicit(
+      sim.world,
+      ctxOf(sim),
+      terrain,
+      new NodeBuckets(sim.world, [first, second]),
+      new Set([door]),
+    );
+    const firstStand = prayerStand(sim.world, ctxOf(sim), terrain, first, temple, firstCell, spacing, null);
+    expect(firstStand).not.toBeNull();
+    expect(firstStand).not.toBe(door);
+    if (firstStand === null) throw new Error('missing stand');
+    expect(prayerStand(sim.world, ctxOf(sim), terrain, first, temple, firstStand, spacing, null)).toBe(
+      firstStand,
+    );
+    spacing.claim(firstStand);
+    const secondStand = prayerStand(
+      sim.world,
+      ctxOf(sim),
+      terrain,
+      second,
+      temple,
+      secondCell,
+      spacing,
+      null,
+    );
+    expect(secondStand).not.toBeNull();
+    expect(secondStand).not.toBe(firstStand);
+    expect(secondStand).not.toBe(door);
+  });
+
   it('walks home to its burning holy fire past a nearer temple', () => {
     const sim = new Simulation({ seed: 1, content: oilContent(), map: grassMap(8, 1) });
     ownedAt(sim, 3, TEMPLE_TYPE);

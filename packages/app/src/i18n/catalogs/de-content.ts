@@ -552,6 +552,11 @@ export const deContent = {
       summary:
         'In der kleinen Hütte braut ein Druide Öl aus Pilzen. In der großen brauen zwei Druiden Tränke aus Wasser, Pilz, Kraut und Münze.',
     },
+    'temple-aura': {
+      title: 'Tempelsegen',
+      summary:
+        'Wähle den Tempel, um die hellblaue Reichweite des Segens zu sehen. Der nahe Siedler gewinnt Religion zurück, der entfernte bleibt außerhalb der Aura.',
+    },
     'household-goods': {
       title: 'Haushaltswaren',
       summary:

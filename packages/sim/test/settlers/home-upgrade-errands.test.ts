@@ -26,6 +26,7 @@ import type { NodeId } from '../../src/nav/terrain/index.js';
 import { residentsOf } from '../../src/systems/family/households.js';
 import { constructionWorkCell, dynamicBlockOverlay, plannerSystem } from '../../src/systems/index.js';
 import { prayAtHome } from '../../src/systems/settlers/drives/home-errands.js';
+import { PlannerSpacing } from '../../src/systems/settlers/planner/spacing.js';
 import { interactionCell } from '../../src/systems/settlers/targets/workplaces.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -251,6 +252,7 @@ describe('home errands during an entrance-changing upgrade', () => {
         sim.world.get(resident, Settler),
         terrain.nodeAt(RESIDENT_HX, 20),
         null,
+        PlannerSpacing.forTick(sim.world, ctxOf(sim), terrain),
       ),
     ).toBe(true);
     finish(sim, home);

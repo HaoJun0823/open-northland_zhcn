@@ -1,4 +1,4 @@
-import type { ContentSet } from '@open-northland/data';
+import { type ContentSet, PRAYER_SITE } from '@open-northland/data';
 import type { RangeRing } from '@open-northland/render';
 import { components, entityById, nodeOfPosition, systems, type WorldSnapshot } from '@open-northland/sim';
 import {
@@ -25,7 +25,11 @@ export function rangeRingOf(
   snapshot: WorldSnapshot,
   e: SnapshotEntity,
 ): RangeRing | undefined {
-  if (isBuilding(e)) return defenceRing(content, e) ?? porterRing(content, snapshot, e);
+  if (isBuilding(e)) {
+    const radius = templeAuraRadius(content, buildingTypeOf(e));
+    if (radius !== undefined) return { entity: e.id, radiusNodes: radius, metric: 'hex', kind: 'blessing' };
+    return defenceRing(content, e) ?? porterRing(content, snapshot, e);
+  }
   const job = settlerJobType(e);
   if (job === undefined) return undefined;
   const fisher = systems.isFisherJob(content, job);
@@ -68,6 +72,13 @@ function collectsAround(content: ContentSet, settler: SnapshotEntity, building: 
     workAreaOf(settler) === undefined &&
     systems.postCollectsAroundWorkplace(content, job, type)
   );
+}
+
+/** Potential coverage, also shown for construction and damaged temples when planning the settlement. */
+export function templeAuraRadius(content: ContentSet, typeId: number | undefined): number | undefined {
+  return content.buildings.find((type) => type.typeId === typeId)?.prayerSite === PRAYER_SITE.temple
+    ? systems.TEMPLE_AURA_RANGE
+    : undefined;
 }
 
 function porterArea(building: number): RangeRing {

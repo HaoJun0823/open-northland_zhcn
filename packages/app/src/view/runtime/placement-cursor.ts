@@ -44,6 +44,7 @@ export interface PlacementCursorInput {
   ) => boolean;
   /** How far a held building would shoot in defence mode from a node, undefined for a type without one. */
   readonly defenceRangeAt?: (typeId: number, tribe: number, col: number, row: number) => number | undefined;
+  readonly blessingRangeFor?: (typeId: number) => number | undefined;
   readonly canPlaceSignpostAt: (col: number, row: number) => boolean;
   readonly palisadePreview?: (tile: {
     readonly col: number;
@@ -116,6 +117,7 @@ export function placementCursor(input: PlacementCursorInput): PlacementCursor {
     if (!input.canPlaceAt(typeId, tribe, tile.col, tile.row, techWaived(building), probeOwner(building)))
       return { overlay, ghost: null };
     const defenceRangeNodes = input.defenceRangeAt?.(typeId, tribe, tile.col, tile.row);
+    const blessingRangeNodes = input.blessingRangeFor?.(typeId);
     const ghost: PlacementGhost = {
       kind: 'building',
       col: tile.col,
@@ -123,6 +125,7 @@ export function placementCursor(input: PlacementCursorInput): PlacementCursor {
       buildingType: typeId,
       tribe,
       ...(defenceRangeNodes === undefined ? {} : { defenceRangeNodes }),
+      ...(blessingRangeNodes === undefined ? {} : { blessingRangeNodes }),
     };
     return { overlay, ghost };
   }

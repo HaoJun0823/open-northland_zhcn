@@ -1,10 +1,12 @@
 import type { Recipe } from '@open-northland/data';
-import { Building, Production, Stockpile, sameSideAs } from '../../../../../components/index.js';
+import { Building, Settler, Stockpile, sameSideAs } from '../../../../../components/index.js';
 import { ONE } from '../../../../../core/fixed.js';
 import type { Entity, World } from '../../../../../ecs/world.js';
 import type { NodeId } from '../../../../../nav/terrain/index.js';
 import type { SystemContext } from '../../../../context.js';
 import { craftablePool, startableCycleCount } from '../../../../economy/production.js';
+import { religionAllowsAtomic } from '../../../../lifecycle/needs/religion.js';
+import { productionAtomic } from '../../../../readviews/production-atomic.js';
 import {
   buildingProduces,
   isWorkplaceOutput,
@@ -44,34 +46,36 @@ export function operatorRecipes(
   const own: Recipe[] = [];
   for (const good of craftablePool(world, ctx, operator, recipes)) {
     const recipe = recipes.get(good);
-    if (recipe !== undefined) own.push(recipe);
+    if (
+      recipe !== undefined &&
+      religionAllowsAtomic(
+        world,
+        ctx,
+        operator,
+        productionAtomic(ctx.content, world.get(operator, Settler), good),
+      )
+    )
+      own.push(recipe);
   }
   return own;
 }
 
-/**
- * How many work seats the workplace offers this tick: the cycles already grinding, each of which needs one
- * present operator to advance, plus the further cycles this operator's own recipes could start. The planner
- * hands out seats to the crafters keeping theirs first, then in canonical settler order, so a worker that finds them all taken is surplus and is freed
- * to fetch inputs or haul output instead of idling inside while a colleague's batch finishes.
- *
- * Approximation: the further-seat estimate is the max over the operator's pool, so two spare operators
- * whose pools name different startable products fill two seats where this counts one.
- */
+/** Additional batches this operator could start. Existing batches are claimed individually by the
+ * planner, so suspended work cannot take a seat from a free recipe. The max across products is an
+ * approximation: input reservations and actual starts remain owned by the production system. */
 export function workSeatCount(
   world: World,
   ctx: SystemContext,
   workplace: Entity,
   own: readonly Recipe[],
 ): number {
-  const running = world.tryGet(workplace, Production)?.cycles.length ?? 0;
   const b = world.tryGet(workplace, Building);
-  if (b === undefined || b.built < ONE) return running; // a construction site never starts a cycle
+  if (b === undefined || b.built < ONE) return 0; // a construction site never starts a cycle
   let startable = 0;
   for (const recipe of own) {
     startable = Math.max(startable, startableCycleCount(world, ctx, workplace, recipe));
   }
-  return running + startable;
+  return startable;
 }
 
 /** The store a producer worker fetches one unit of a missing recipe input from; `refills` when it is a

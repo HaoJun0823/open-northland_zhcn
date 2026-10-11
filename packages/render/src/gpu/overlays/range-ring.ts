@@ -1,7 +1,7 @@
 import { Graphics } from 'pixi.js';
 import { TILE_HALF_H, TILE_HALF_W } from '../../data/projection/index.js';
 
-export const RANGE_RING_KINDS = ['work', 'defence'] as const;
+export const RANGE_RING_KINDS = ['work', 'defence', 'blessing'] as const;
 export type RangeRingKind = (typeof RANGE_RING_KINDS)[number];
 
 /** The distance a range is counted in: Manhattan half-cell nodes, or map points (hex distance). */
@@ -17,8 +17,12 @@ export interface RangeRing {
 }
 
 /** A dashed, unfilled outline, so the ground under it still reads: amber for where a worker works, red for
- *  where a defence-mode building shoots. */
-const RANGE_RING_COLOR: Readonly<Record<RangeRingKind, number>> = { work: 0xffc020, defence: 0xe03a2a };
+ *  where a defence-mode building shoots, pale blue for a temple blessing. */
+const RANGE_RING_COLOR: Readonly<Record<RangeRingKind, number>> = {
+  work: 0xffc020,
+  defence: 0xe03a2a,
+  blessing: 0xc5edff,
+};
 const RANGE_RING_WIDTH = 2;
 const RANGE_RING_ALPHA = 0.8;
 /** Dash and gap lengths along the outline, in world px. */

@@ -73,10 +73,12 @@ export class SelectionLayer {
   > = {
     work: new Map(),
     defence: new Map(),
+    blessing: new Map(),
   };
   private readonly seenRanges: Readonly<Record<RangeRingKind, Set<number>>> = {
     work: new Set(),
     defence: new Set(),
+    blessing: new Set(),
   };
   /** Reused per-frame scratch of ids drawn this frame (one per pool; avoids a per-frame allocation). */
   private readonly seen = new Set<number>();
@@ -102,14 +104,18 @@ export class SelectionLayer {
 
   /** Reconcile the range circles: one flat ground ellipse per shown range, retiring the rest. */
   private reconcileRanges(ranges: readonly RangeRing[], frame: SelectionFrame): void {
-    this.seenRanges.work.clear();
-    this.seenRanges.defence.clear();
+    for (const kind of RANGE_RING_KINDS) this.seenRanges[kind].clear();
     for (const range of ranges) {
       const ent = entityById(frame.snapshot, range.entity);
       if (ent === undefined) continue;
       const pos = readPosition(ent.components);
       if (pos === null) continue;
-      const s = feetAnchor(frame.drawn, range.entity, pos, frame.elevation);
+      const s = feetAnchor(
+        range.kind === 'blessing' ? undefined : frame.drawn,
+        range.entity,
+        pos,
+        frame.elevation,
+      );
       const pool = this.rangeRings[range.kind];
       let held = pool.get(range.entity);
       if (held === undefined || held.radiusNodes !== range.radiusNodes || held.metric !== range.metric) {

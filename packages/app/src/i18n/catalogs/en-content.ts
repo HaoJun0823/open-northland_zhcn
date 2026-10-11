@@ -547,6 +547,11 @@ export const enContent = {
       summary:
         'A druid brews oil from mushrooms in the small hut; two druids brew potions from water, mushroom, herb and coin in the large one.',
     },
+    'temple-aura': {
+      title: 'Temple blessing',
+      summary:
+        'Select the temple to see its pale-blue blessing range. The nearby civilian regains religion; the distant one stays outside the aura.',
+    },
     'household-goods': {
       title: 'Household goods',
       summary:

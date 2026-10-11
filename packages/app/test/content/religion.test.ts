@@ -28,6 +28,7 @@ describe.runIf(hasRealIr())('religion over generated content', () => {
     for (const name of ['joiner', 'armorer', 'smith', 'sewer', 'civilist']) {
       const job = real.jobs.find((row) => row.id === name);
       expect(jobCanPray(real.jobs, job?.typeId ?? null), name).toBe(true);
+      expect(systems.jobNeedsReligion(real, job?.typeId ?? null), name).toBe(name !== 'civilist');
     }
     for (const job of real.jobs.filter((row) => row.id === 'woman' || row.id.startsWith('soldier_'))) {
       expect(jobCanPray(real.jobs, job.typeId), job.id).toBe(false);

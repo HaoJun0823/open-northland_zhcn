@@ -1,6 +1,7 @@
 import type { ContentSet, JobType } from '@open-northland/data';
 import { isCarrierJobId, isFighterRole, isTraderJobId, jobRoleOfId } from '../../core/content-index/jobs.js';
 import { contentIndex } from '../../core/content-index.js';
+import { atomicSpendsReligion } from './religion.js';
 
 /**
  * A soldier or hero class, whose whole role is combat. A weapon-carrying scout or hunter is not one, and
@@ -48,12 +49,28 @@ export function isHeroJobRow(job: Pick<JobType, 'id'>): boolean {
   return jobRoleOfId(job.id) === 'hero';
 }
 
-/**
- * Whether the trade serves a piety need (`jobtypes.ini` `needsReligionFlag`: joiner, armorer, smith). Every
- * other trade prays only when ordered, even the sewer, whose armour clips drain its bar.
- */
+const religiousJobs = new WeakMap<ContentSet, Map<number, boolean>>();
+
+/** Authored religion need, extended deliberately to trades whose allowed actions spend it. */
 export function jobNeedsReligion(content: ContentSet, jobType: number | null): boolean {
-  return jobType !== null && contentIndex(content).jobs.get(jobType)?.needsReligion === true;
+  if (jobType === null) return false;
+  let jobs = religiousJobs.get(content);
+  if (jobs === undefined) {
+    jobs = new Map();
+    religiousJobs.set(content, jobs);
+  }
+  const cached = jobs.get(jobType);
+  if (cached !== undefined) return cached;
+  const index = contentIndex(content);
+  const needs =
+    index.jobs.get(jobType)?.needsReligion === true ||
+    content.tribes.some((tribe) =>
+      [...(index.atomicsByJob.get(jobType) ?? [])].some((atomic) =>
+        atomicSpendsReligion(content, { tribe: tribe.typeId, jobType }, atomic),
+      ),
+    );
+  jobs.set(jobType, needs);
+  return needs;
 }
 
 /**

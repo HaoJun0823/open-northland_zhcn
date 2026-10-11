@@ -545,6 +545,11 @@ export const plContent = {
       summary:
         'Druid warzy oliwę z grzybów w małej chatce, a dwóch druidów mikstury z wody, grzybów, ziół i monet w dużej.',
     },
+    'temple-aura': {
+      title: 'Aura świątyni',
+      summary:
+        'Zaznacz świątynię, aby zobaczyć jasnoniebieski zasięg błogosławieństwa. Bliski osadnik odzyskuje religię, odległy pozostaje poza aurą.',
+    },
     'household-goods': {
       title: 'Wyposażenie domu',
       summary:

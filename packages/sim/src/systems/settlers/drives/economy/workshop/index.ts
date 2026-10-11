@@ -1,13 +1,8 @@
 import type { Recipe } from '@open-northland/data';
-import {
-  CARRY_CAPACITY,
-  CurrentAtomic,
-  inPastimeChat,
-  Owner,
-  Production,
-} from '../../../../../components/index.js';
+import { CARRY_CAPACITY, inPastimeChat, Owner, Resting } from '../../../../../components/index.js';
 import { mergeRecipes } from '../../../../../core/content-index/production.js';
 import type { Entity, World } from '../../../../../ecs/world.js';
+import { claimProductionCycle, productionAssignments } from '../../../../economy/production/assignments.js';
 import {
   outputRoomForCycles,
   shelfBlockedOutput,
@@ -16,7 +11,7 @@ import {
 import { operatorRecipeEnabled } from '../../../../progression/index.js';
 import { planGossipIdle } from '../../../../social/index.js';
 import { assignedWorkers } from '../../../../stores/assigned-workers.js';
-import { isWorkplaceOperator, mergedRecipeOf } from '../../../../stores/index.js';
+import { isWorkplaceOperator, mergedRecipeOf, presentOperators } from '../../../../stores/index.js';
 import { type WorkshopWorkforce, workshopWorkforce } from '../../../../stores/workshop-workforce.js';
 import { atOrWalk, walkFetchInput, walkPickupBatch } from '../../../atomics/start.js';
 import { enterBuilding } from '../../../indoors.js';
@@ -38,14 +33,9 @@ import {
   workSeatCount,
 } from './supply.js';
 
-/**
- * One workplace's tally over the canonical planner sweep: seats handed out, and how many of their holders
- * already stand inside. Production advances one batch per operator present, so the indoor count - not the
- * claim order - is the index a craft clip may follow without freezing behind a claimant still walking.
- */
+/** Seats claimed during this planner pass, including workers still approaching. */
 export interface WorkSeats {
   claimed: number;
-  performing: number;
 }
 
 /** A supply errand stamped during this planner pass, after the pass's crew index was taken. */
@@ -71,22 +61,35 @@ export class WorkSeatClaims {
   /** `keepsSeat` says whether a crafter keeps its clip through this pass without being visited. */
   constructor(private readonly keepsSeat: (e: Entity) => boolean) {}
 
-  /**
-   * `workplace`'s tally this pass, counting first the crafters that keep their seats through it. They
-   * re-plan together, on the workplace's shared beat, a batch change or the wake of one of them, so they
-   * hold its first seats.
-   */
-  seatsAt(world: World, workplace: Entity): WorkSeats {
+  /** New batch seats claimed this pass, separate from reservations of existing batches. */
+  seatsAt(workplace: Entity): WorkSeats {
     let seats = this.seats.get(workplace);
     if (seats === undefined) {
-      let kept = 0;
-      for (const e of assignedWorkers(world, workplace)) {
-        if (world.tryGet(e, CurrentAtomic)?.targetEntity === workplace && this.keepsSeat(e)) kept++;
-      }
-      seats = { claimed: kept, performing: kept };
+      seats = { claimed: 0 };
       this.seats.set(workplace, seats);
     }
     return seats;
+  }
+
+  private readonly batches = new Map<Entity, Set<number>>();
+
+  claimRunning(world: World, ctx: PlannerContext['ctx'], workplace: Entity, operator: Entity): boolean {
+    let claimed = this.batches.get(workplace);
+    if (claimed === undefined) {
+      claimed = new Set();
+      const present = presentOperators(world, ctx, workplace);
+      if (present.kind === 'staffed') {
+        const assignments = productionAssignments(world, ctx, workplace, present.operators);
+        for (let i = 0; i < present.operators.length; i++) {
+          const worker = present.operators[i];
+          const batch = assignments[i];
+          if (worker !== undefined && batch !== undefined && batch >= 0 && this.keepsSeat(worker))
+            claimed.add(batch);
+        }
+      }
+      this.batches.set(workplace, claimed);
+    }
+    return claimProductionCycle(world, ctx, workplace, operator, claimed) >= 0;
   }
 
   recipesFor(world: World, ctx: PlannerContext['ctx'], workplace: Entity): readonly Recipe[] {
@@ -164,10 +167,8 @@ export function planProducer(
   if (planVehicleYard(plan, workplace, spacing)) return;
 
   const own = operatorRecipes(world, ctx, workplace, plan.entity);
-  const seats = seatClaims.seatsAt(world, workplace);
-  const running = world.tryGet(workplace, Production)?.cycles.length ?? 0;
-  if (seats.claimed < running) {
-    seats.claimed += 1;
+  const seats = seatClaims.seatsAt(workplace);
+  if (seatClaims.claimRunning(world, ctx, workplace, plan.entity)) {
     holdInsideWorkplace(plan, workplace, seats, idle);
     return;
   }
@@ -278,9 +279,8 @@ function routeToInputSource(
 
 /**
  * Stand on the workplace's door and step inside; that door presence is what drives the production gate.
- * An operator that arrives takes the next indoor seat's craft clip, which is what the render draws it
- * performing. Without `seats` - an idle shop, or an unowned fixture's carrier - it waits inside with
- * nothing to show. With `idle` it keeps that wait through its idle beats.
+ * The displayed clip follows the production system's batch assignment. Without `seats` it waits inside
+ * with nothing to show; `idle` keeps that wait through idle beats.
  */
 function holdInsideWorkplace(
   plan: PlannerContext,
@@ -289,11 +289,17 @@ function holdInsideWorkplace(
   idle?: IdleStands,
 ): void {
   const { world, ctx, terrain, entity, here } = plan;
+  const entering = world.tryGet(entity, Resting)?.at !== workplace;
   enterBuilding(world, entity, workplace, here, interactionCell(world, ctx, terrain, workplace, here), () => {
     idle?.stand(entity, false);
     if (seats === undefined) return;
-    startCraftAtomic(world, ctx, entity, workplace, seats.performing);
-    seats.performing += 1;
+    if (entering) {
+      // Arrival changes canonical operator order; refresh the seated crew without handing out their
+      // already-claimed seats a second time in this planner pass.
+      for (const worker of assignedWorkers(world, workplace)) {
+        if (world.tryGet(worker, Resting)?.at === workplace) startCraftAtomic(world, ctx, worker, workplace);
+      }
+    } else startCraftAtomic(world, ctx, entity, workplace);
   });
 }
 

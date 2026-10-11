@@ -54,6 +54,21 @@ const building = (buildingType: number, extra: Record<string, unknown> = {}): En
 });
 
 describe('rangeRingsOf', () => {
+  it('shows a temple blessing range while planning, damaged or complete, but no headquarters aura', () => {
+    const temple = content.buildings.find((row) => row.prayerSite === 'temple');
+    const headquarters = content.buildings.find((row) => row.prayerSite === 'headquarters');
+    if (temple === undefined || headquarters === undefined) throw new Error('missing prayer sites');
+    for (const extra of [{}, { Health: { hitpoints: 1, max: 100 } }, { UnderConstruction: { labor: 0 } }]) {
+      expect(rangeRingsOf(content, snapshotOf([building(temple.typeId, extra)]), [TOWER])).toEqual([
+        { entity: TOWER, radiusNodes: systems.TEMPLE_AURA_RANGE, metric: 'hex', kind: 'blessing' },
+      ]);
+    }
+    expect(
+      rangeRingsOf(content, snapshotOf([building(headquarters.typeId)]), [TOWER]).some(
+        (ring) => ring.kind === 'blessing',
+      ),
+    ).toBe(false);
+  });
   it("draws a flag gatherer's circle around its flag at the flag's radius", () => {
     const world = snapshotOf([settler(1, COLLECTOR, { WorkFlag: { flag: FLAG, radius: FLAG_RADIUS } })]);
     expect(rangeRingsOf(content, world, [1])).toEqual([

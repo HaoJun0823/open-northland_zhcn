@@ -1,8 +1,13 @@
 import {
+  AtomicClock,
+  atomicElapsed,
   Building,
   CompletedCycles,
+  CurrentAtomic,
   Production,
   type ProductionCycle,
+  Resting,
+  removeCurrentAtomic,
   Settler,
   Stockpile,
 } from '../../components/index.js';
@@ -15,6 +20,7 @@ import { applyAtomicNeedEvents } from '../settlers/atomics/effects/need-events.j
 import { wakeCrewInside } from '../settlers/planner/idle-replan.js';
 import { operatorCountOf, presentOperators, recipesByProductOf } from '../stores/index.js';
 import { type WorkshopWorkforce, workshopWorkforce } from '../stores/workshop-workforce.js';
+import { productionAssignments } from './production/assignments.js';
 import { accrueBonusOutput } from './production/bonus-output.js';
 import { depositCycleOutput, startFirstStartable } from './production/cycles.js';
 import { incomingRecipeReservations, recipeInputUnits } from './production/reservations.js';
@@ -46,7 +52,7 @@ export {
 
 /**
  * One workplace turns input goods into output goods over time, one independent batch per present operator,
- * advanced oldest first. Observed: a multi-worker workshop out-produces a single-worker one. With every
+ * advancing the oldest batch each operator can perform. Observed: a multi-worker workshop out-produces a single-worker one. With every
  * operator away all cycles pause and `elapsed` is held rather than lost.
  *
  * A workplace produces only while an assigned operator is present, the original's staffed-workshop rule; a carrier at
@@ -67,19 +73,26 @@ export const productionSystem: System = (world, ctx) => {
     const operators = operatorCountOf(staffing);
     if (operators <= 0) continue;
     const prod = world.mut(e, Production);
-    const advanced = Math.min(operators, prod.cycles.length);
+    const assignments =
+      staffing.kind === 'unstaffed' ? [0] : productionAssignments(world, ctx, e, staffing.operators);
     // `duration` was clamped at cycle start, so the two complementary compares below are plain.
-    let finished = 0;
-    for (let i = 0; i < advanced; i++) {
-      const cycle = prod.cycles[i];
-      if (cycle === undefined) break;
-      cycle.elapsed += 1;
+    const done: ProductionCycle[] = [];
+    const completedOperators: Entity[] = [];
+    for (let i = 0; i < assignments.length; i++) {
+      const cycle = prod.cycles[assignments[i] ?? -1];
+      const operator = staffing.kind === 'unstaffed' ? undefined : staffing.operators[i];
+      if (cycle === undefined) {
+        const display = operator === undefined ? undefined : world.tryGet(operator, CurrentAtomic);
+        if (operator !== undefined && display?.effect.kind === 'produce' && display.targetEntity === e)
+          removeCurrentAtomic(world, operator);
+        continue;
+      }
       // The batch clock owns need events, including pauses and replacement operators. The indoor
       // display atomic must not pay them again or replay an earlier frame after a re-plan.
-      const operator = staffing.kind === 'unstaffed' ? undefined : staffing.operators[i];
       const settler = operator === undefined ? undefined : world.tryGet(operator, Settler);
       const atomicId =
         settler === undefined ? undefined : productionAtomic(ctx.content, settler, cycle.goodType);
+      cycle.elapsed += 1;
       if (operator !== undefined && atomicId !== undefined) {
         applyAtomicNeedEvents(
           world,
@@ -93,11 +106,31 @@ export const productionSystem: System = (world, ctx) => {
           false,
         );
       }
-      if (cycle.elapsed >= cycle.duration) finished++;
+      if (
+        operator !== undefined &&
+        atomicId !== undefined &&
+        cycle.elapsed < cycle.duration &&
+        world.tryGet(operator, Resting)?.at === e
+      ) {
+        const display = world.tryGet(operator, CurrentAtomic);
+        const clock = world.tryGet(operator, AtomicClock);
+        // Religion can restore an earlier batch without an arrival or completion. Re-pair the crew on
+        // the next planner pass rather than leaving its old clip until the workplace's idle beat.
+        if (
+          display?.effect.kind !== 'produce' ||
+          display.effect.recipeOutput !== cycle.goodType ||
+          clock === undefined ||
+          atomicElapsed(clock, ctx.tick) !== cycle.elapsed
+        )
+          wakeCrewInside(world, e);
+      }
+      if (cycle.elapsed >= cycle.duration) {
+        done.push(cycle);
+        if (operator !== undefined) completedOperators.push(operator);
+      }
     }
-    if (finished === 0) continue; // the usual tick: batches grind on with nothing to deposit
+    if (done.length === 0) continue;
     wakeCrewInside(world, e);
-    const done = prod.cycles.filter((c) => c.elapsed >= c.duration);
     prod.cycles = prod.cycles.filter((c) => c.elapsed < c.duration);
     const recipes = recipesByProductOf(world, ctx, e);
     for (const cycle of done) depositCycleOutput(world, ctx, e, cycle, recipes);
@@ -106,11 +139,18 @@ export const productionSystem: System = (world, ctx) => {
       world,
       ctx,
       done.length,
-      staffing,
+      staffing.kind === 'unstaffed' ? staffing : { kind: 'staffed', operators: completedOperators },
       done.map((cycle) => cycle.goodType),
     );
     // After the grant, so the batch that just finished already counts toward its own bonus tenths.
-    accrueBonusOutput(world, ctx, e, done, staffing, recipes);
+    accrueBonusOutput(
+      world,
+      ctx,
+      e,
+      done,
+      staffing.kind === 'unstaffed' ? staffing : { kind: 'staffed', operators: completedOperators },
+      recipes,
+    );
     if (prod.cycles.length === 0) world.remove(e, Production);
   }
 
@@ -133,10 +173,9 @@ export const productionSystem: System = (world, ctx) => {
     // Authored arbitration: give the actual next recipe needing more input units first access to
     // shared stock. Re-evaluate after each start; another operator may have consumed its ingredients.
     if (recipes.size > 1) workforce ??= workshopWorkforce(world, ctx);
-    if (staffing.operators.length <= running) continue; // every present operator runs a batch
-    // The seats past the running batches, each taking its own product choice; a failed choice skips just
-    // that operator.
-    const next = staffing.operators.slice(running);
+    // Operators without an executable batch may start another product; suspended work retains its inputs.
+    const assigned = productionAssignments(world, ctx, e, staffing.operators);
+    const next = staffing.operators.filter((_, index) => assigned[index] === -1);
     const choices: (CycleChoice | undefined)[] = [];
     while (next.length > 0) {
       choices.length = next.length;

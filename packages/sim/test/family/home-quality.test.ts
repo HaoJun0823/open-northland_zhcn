@@ -5,6 +5,7 @@ import {
   Building,
   Carrying,
   CurrentAtomic,
+  Health,
   HomeQuality,
   Owner,
   Position,
@@ -259,6 +260,18 @@ describe('household quality goods', () => {
     drainHolyOil(sim.world, ctxOf(sim));
     expect(sim.world.get(home, HomeQuality).piety).toBe(997);
   });
+
+  it.each([1, 2, 3, 999, 1000, 3000])(
+    'burns %i oil to zero in a damaged home with deliveries forbidden',
+    (oil) => {
+      const { sim, home } = setup(false);
+      sim.world.add(home, HomeQuality, { cooking: 0, rest: 0, piety: oil });
+      sim.world.add(home, Health, { hitpoints: 50, max: 100 });
+      for (let i = 0; i < Math.ceil(oil / 3); i++) drainHolyOil(sim.world, ctxOf(sim));
+      expect(sim.world.get(home, HomeQuality).piety).toBe(0);
+      expect(homeQualityActive(sim.world, ctxOf(sim), home, 'piety')).toBe(false);
+    },
+  );
 
   it('starts every player with holy oil off: no demand, no delivery, no fire', () => {
     const { sim, home, carrier } = setup(false);

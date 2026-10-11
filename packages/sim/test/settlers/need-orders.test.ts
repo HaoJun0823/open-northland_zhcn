@@ -53,6 +53,7 @@ function templeAt(sim: Simulation, x: number, y: number): Entity {
   const e = sim.world.create();
   sim.world.add(e, Position, { x: fx.fromInt(x), y: fx.fromInt(y) });
   sim.world.add(e, Building, { buildingType: TEMPLE, tribe: VIKING, built: ONE, level: 0 });
+  sim.world.add(e, Owner, { player: P0 });
   return e;
 }
 

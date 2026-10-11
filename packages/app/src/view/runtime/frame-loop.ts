@@ -105,6 +105,7 @@ export interface FrameLoopDeps {
   ) => boolean;
   /** The held building's defence range at a node, drawn around its ghost. */
   readonly defenceRangeAt: (typeId: number, tribe: number, col: number, row: number) => number | undefined;
+  readonly blessingRangeFor?: (typeId: number) => number | undefined;
   readonly canPlaceSignpostAt: (col: number, row: number) => boolean;
   readonly soundDriver: ReturnType<typeof createSoundDriver> | null;
   /** The map script's display: its camera jitter for the frame, and its overlays after the draw. */
@@ -157,6 +158,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     lifeHeartsFor,
     canPlaceAt,
     defenceRangeAt,
+    blessingRangeFor,
     canPlaceSignpostAt,
     soundDriver,
     presentation,
@@ -305,6 +307,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       tileAt: () => (pointer === null ? null : toolPanel.clientToTile(pointer.clientX, pointer.clientY)),
       canPlaceAt,
       defenceRangeAt,
+      ...(blessingRangeFor === undefined ? {} : { blessingRangeFor }),
       canPlaceSignpostAt,
       palisadePreview: (tile) => toolPanel.controller.palisadePreview(tile),
       roadPreview: (tile) => toolPanel.controller.roadPreview(tile),

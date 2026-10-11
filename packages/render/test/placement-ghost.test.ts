@@ -58,6 +58,17 @@ describe('PlacementGhostLayer', () => {
     expect([layer.rangeContainer.x, layer.rangeContainer.y]).toEqual([layer.container.x, layer.container.y]);
     expect(layer.rangeContainer.children).toHaveLength(1);
 
+    layer.set(
+      { kind: 'building', col: 4, row: 6, buildingType: HOUSE_TYPE, tribe: VIKING, blessingRangeNodes: 10 },
+      FLAT,
+    );
+    const aura = layer.rangeContainer.children[0];
+    if (!(aura instanceof Graphics)) throw new Error('missing aura');
+    expect(layer.rangeContainer.children).toHaveLength(1);
+    expect(aura.context.instructions.find((entry) => entry.action === 'stroke')?.data.style.color).toBe(
+      0xc5edff,
+    );
+
     layer.set(null, FLAT);
     expect(layer.rangeContainer.visible).toBe(false);
   });

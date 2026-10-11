@@ -8,6 +8,7 @@ import {
 } from '../../../components/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SystemContext } from '../../context.js';
+import { religionAllowsAtomic } from '../../lifecycle/needs/religion.js';
 import { needSubjectOf, operatorRecipeEnabled, settlerMeetsNeed } from '../../progression/index.js';
 import { resolvedAtomicLength } from '../../readviews/animations.js';
 import { productionAtomic } from '../../readviews/production-atomic.js';
@@ -75,6 +76,15 @@ export function nextRotationPick(
     const good = pool[index];
     const recipe = good !== undefined ? recipes.get(good) : undefined;
     if (good === undefined || recipe === undefined) continue;
+    if (
+      !religionAllowsAtomic(
+        world,
+        ctx,
+        operator,
+        productionAtomic(ctx.content, world.get(operator, Settler), good),
+      )
+    )
+      continue;
     if (!operatorRecipeEnabled(world, ctx, building, operator, recipe)) continue;
     if (isYardBuilt(ctx, recipe) || canStartCycle(world, ctx, building, recipe)) {
       return { good, index, pool, recipe };

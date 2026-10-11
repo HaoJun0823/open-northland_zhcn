@@ -77,6 +77,7 @@ import { siegeScene } from './siege.js';
 import { signpostsScene } from './signposts.js';
 import { storeReachScene } from './store-reach.js';
 import { technologyScene } from './technology.js';
+import { templeAuraScene } from './temple-aura.js';
 import { terrainEditsScene } from './terrain-edits.js';
 import { towerDefenceScene } from './tower-defence.js';
 import { towerGarrisonScene } from './tower-garrison.js';
@@ -165,6 +166,7 @@ export const SCENES: readonly SceneDefinition[] = [
   movementContinuityScene,
   huntingScene,
   householdGoodsScene,
+  templeAuraScene,
   idleWorkScene,
   storeReachScene,
   farPostScene,

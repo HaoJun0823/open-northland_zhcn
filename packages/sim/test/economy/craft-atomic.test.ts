@@ -155,25 +155,29 @@ describe('a workshop operator performing its craft', () => {
   });
 
   it('shows each seat its own batch, and gives a hand beyond them nothing to perform', () => {
-    const shop = staffedKitchen(2);
+    const sim = new Simulation({ seed: 1, content: craftablePlankContent(), map: grassMap(4, 1) });
+    const mill = buildingAt(sim, TWIN_MILL, 1, 0, [[WOOD, 2]]);
+    const shop = { sim, shop: mill, cook: settlerAt(sim, 1, 0, CARPENTER, mill) };
     const world = shop.sim.world;
+    const second = settlerAt(shop.sim, 1, 0, CARPENTER, shop.shop);
+    const third = settlerAt(shop.sim, 1, 0, CARPENTER, shop.shop);
     world.add(shop.shop, Production, {
       cycles: [
-        { elapsed: 3, duration: KITCHEN_RECIPE_TICKS, goodType: BREAD },
-        { elapsed: 11, duration: KITCHEN_RECIPE_TICKS, goodType: BREAD },
+        { elapsed: 3, duration: KITCHEN_RECIPE_TICKS, goodType: PLANK },
+        { elapsed: 11, duration: KITCHEN_RECIPE_TICKS, goodType: PLANK },
       ],
     });
-    const seatOf = (seat: number): number | null => {
-      removeCurrentAtomic(world, shop.cook);
-      startCraftAtomic(world, ctxOf(shop.sim), shop.cook, shop.shop, seat);
-      return world.has(shop.cook, AtomicClock)
-        ? atomicElapsed(world.get(shop.cook, AtomicClock), fixtureTick(shop.sim))
+    const seatOf = (worker: Entity): number | null => {
+      removeCurrentAtomic(world, worker);
+      startCraftAtomic(world, ctxOf(shop.sim), worker, shop.shop);
+      return world.has(worker, AtomicClock)
+        ? atomicElapsed(world.get(worker, AtomicClock), fixtureTick(shop.sim))
         : null;
     };
-    expect(seatOf(0)).toBe(3);
-    expect(seatOf(1)).toBe(11);
+    expect(seatOf(shop.cook)).toBe(3);
+    expect(seatOf(second)).toBe(11);
     // More hands than batches: the spare performs nothing rather than doubling a co-worker's motion.
-    expect(seatOf(2)).toBeNull();
+    expect(seatOf(third)).toBeNull();
   });
 
   it('gives the operator standing inside a batch that is actually advancing', () => {
@@ -274,10 +278,10 @@ describe('a seated crafter between its idle beats', () => {
     return { sim, mill, offBeat: { ...ctx, tick: idleReplanDue(ctx.tick, mill) ? ctx.tick + 1 : ctx.tick } };
   }
 
-  /** Sit `e` at `mill`'s `batch`-th clip, standing through its idle beats. */
-  function sitAt(sim: Simulation, ctx: SystemContext, e: Entity, mill: Entity, batch: number): void {
+  /** Sit `e` at its assigned batch, standing through its idle beats. */
+  function sitAt(sim: Simulation, ctx: SystemContext, e: Entity, mill: Entity): void {
     sim.world.add(e, Resting, { at: mill });
-    startCraftAtomic(sim.world, ctx, e, mill, batch);
+    startCraftAtomic(sim.world, ctx, e, mill);
     sim.world.add(e, IdleStand, { standing: false });
   }
 
@@ -285,8 +289,8 @@ describe('a seated crafter between its idle beats', () => {
     const { sim, mill, offBeat } = twinMill(TWIN_MILL_RECIPE_TICKS - 1, 5);
     const first = settlerAt(sim, 1, 0, CARPENTER, mill);
     const second = settlerAt(sim, 1, 0, CARPENTER, mill);
-    sitAt(sim, offBeat, first, mill, 0);
-    sitAt(sim, offBeat, second, mill, 1);
+    sitAt(sim, offBeat, first, mill);
+    sitAt(sim, offBeat, second, mill);
 
     productionSystem(sim.world, offBeat); // batch 0 lands; the one left advances to 6
     plannerSystem(sim.world, offBeat);
@@ -299,8 +303,8 @@ describe('a seated crafter between its idle beats', () => {
     const { sim, mill, offBeat } = twinMill(3, 11);
     const first = settlerAt(sim, 1, 0, CARPENTER, mill);
     const second = settlerAt(sim, 1, 0, CARPENTER, mill);
-    sitAt(sim, offBeat, first, mill, 0);
-    sitAt(sim, offBeat, second, mill, 1);
+    sitAt(sim, offBeat, first, mill);
+    sitAt(sim, offBeat, second, mill);
 
     wakeIdle(sim.world, first); // an order or errand addressed to it alone
     plannerSystem(sim.world, offBeat);
@@ -309,7 +313,7 @@ describe('a seated crafter between its idle beats', () => {
     expect(atomicElapsed(sim.world.get(second, AtomicClock), fixtureTick(sim))).toBe(11);
   });
 
-  it('hands a hand arriving between beats the next batch, not the one a seated crafter keeps', () => {
+  it('re-pairs displayed batches in canonical operator order when a lower-id hand arrives', () => {
     const sim = new Simulation({ seed: 1, content: craftablePlankContent(), map: grassMap(8, 1) });
     const mill = buildingAt(sim, TWIN_MILL, 1, 0, [[WOOD, 4]]);
     const arriving = settlerAt(sim, 1, 0, CARPENTER, mill); // lower id: plans first in the pass
@@ -324,12 +328,12 @@ describe('a seated crafter between its idle beats', () => {
     const ctx = ctxOf(sim);
     const offBeat = { ...ctx, tick: idleReplanDue(ctx.tick, mill) ? ctx.tick + 1 : ctx.tick };
     world.add(seated, Resting, { at: mill });
-    startCraftAtomic(world, offBeat, seated, mill, 0);
+    startCraftAtomic(world, offBeat, seated, mill);
     world.add(seated, IdleStand, { standing: false });
 
     plannerSystem(world, offBeat);
 
-    expect(atomicElapsed(world.get(seated, AtomicClock), fixtureTick(sim))).toBe(3); // left on its seat
-    expect(atomicElapsed(world.get(arriving, AtomicClock), fixtureTick(sim))).toBe(11);
+    expect(atomicElapsed(world.get(seated, AtomicClock), fixtureTick(sim))).toBe(11);
+    expect(atomicElapsed(world.get(arriving, AtomicClock), fixtureTick(sim))).toBe(3);
   });
 });

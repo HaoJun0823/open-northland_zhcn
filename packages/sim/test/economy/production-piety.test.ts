@@ -1,24 +1,36 @@
 import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
+  AtomicClock,
+  addCurrentAtomic,
+  atomicElapsed,
+  CurrentAtomic,
+  Equipment,
+  IdleStand,
   JobAssignment,
+  MISC_EQUIP_SLOTS,
+  MoveGoal,
   Position,
   Production,
+  ProductionBonus,
   Resting,
+  SettlerProgress,
   Stockpile,
   setNeedsEnabled,
 } from '../../src/components/index.js';
 import { exportSaveGame, fx, ONE, restoreSimulation, Simulation } from '../../src/index.js';
-import { atomicSystem, needBar, productionSystem } from '../../src/systems/index.js';
+import { atomicSystem, needBar, plannerSystem, productionSystem } from '../../src/systems/index.js';
 import { startCraftAtomic } from '../../src/systems/settlers/drives/economy/workshop/craft.js';
 import { testContent } from '../fixtures/content.js';
 import { nextTickCtxOf } from '../fixtures/context.js';
 import { needsOf, setNeeds } from '../fixtures/settler.js';
+import { buildingAt, grassMap, HEADQUARTERS } from './producer-supply/support.js';
 import {
   CARPENTER,
   CYCLE_TICKS,
   ctxOf,
   PLANK,
+  PLANK_GATE_EARNED,
   sawmill,
   spawnSettler,
   WOOD,
@@ -110,6 +122,215 @@ describe('productionSystem - forging a military good charges the smith piety', (
 });
 
 describe('production events share the batch clock with the displayed craft', () => {
+  it('stops before reserving inputs at empty religion and finishes the last paid batch', () => {
+    const sim = new Simulation({ seed: 1, content: contentWithMilitaryPlank() });
+    const { mill, worker } = sawmill(sim, [[WOOD, 2]]);
+    if (worker === null) throw new Error('missing maker');
+    setNeeds(sim, worker, { piety: ONE });
+    productionSystem(sim.world, nextTickCtxOf(sim));
+    expect(sim.world.has(mill, Production)).toBe(false);
+    expect(sim.world.get(mill, Stockpile).amounts.get(WOOD)).toBe(2);
+    setNeeds(sim, worker, { piety: needBar(9999) });
+    for (let i = 0; i < 10; i++) productionSystem(sim.world, nextTickCtxOf(sim));
+    expect(needsOf(sim, worker).piety).toBe(ONE);
+    expect(sim.world.get(mill, Stockpile).amounts.get(PLANK)).toBe(1);
+    expect(sim.world.get(mill, Stockpile).amounts.get(WOOD)).toBe(1);
+    expect(sim.world.has(mill, Production)).toBe(false);
+  });
+
+  it('holds an unpaid batch through save/load and resumes after religion is restored', () => {
+    const content = contentWithMilitaryPlank();
+    const sim = new Simulation({ seed: 1, content });
+    const { mill, worker } = sawmill(sim, [[WOOD, 1]]);
+    if (worker === null) throw new Error('missing maker');
+    productionSystem(sim.world, nextTickCtxOf(sim));
+    productionSystem(sim.world, nextTickCtxOf(sim));
+    setNeeds(sim, worker, { piety: ONE });
+    for (let i = 0; i < 5; i++) productionSystem(sim.world, nextTickCtxOf(sim));
+    expect(sim.world.get(mill, Production).cycles[0]?.elapsed).toBe(1);
+    const restored = restoreSimulation(exportSaveGame(sim), { content });
+    setNeeds(restored, worker, { piety: needBar(5000) });
+    for (let i = 0; i < 3; i++) productionSystem(restored.world, nextTickCtxOf(restored));
+    expect(restored.world.get(mill, Stockpile).amounts.get(PLANK)).toBe(1);
+    expect(needsOf(restored, worker).piety).toBe(needBar(6500));
+  });
+
+  it.each([true, false])(
+    'keeps an unpaid batch while free work continues (inputs stocked: %s)',
+    (stocked) => {
+      const base = contentWithMilitaryPlank();
+      const freeGood = 3;
+      const content = parseContentSet({
+        ...base,
+        buildings: base.buildings.map((b) =>
+          b.typeId !== 2
+            ? b
+            : {
+                ...b,
+                stock: [...b.stock, { goodType: freeGood, capacity: 20, initial: 0 }],
+                recipes: [
+                  ...b.recipes,
+                  {
+                    inputs: [{ goodType: WOOD, amount: 1 }],
+                    outputs: [{ goodType: freeGood, amount: 1 }],
+                    ticks: 2,
+                  },
+                ],
+              },
+        ),
+      });
+      const sim = new Simulation({ seed: 1, content, map: grassMap(12, 12) });
+      const { mill, worker } = sawmill(sim, [[WOOD, stocked ? 2 : 1]]);
+      if (worker === null) throw new Error('missing maker');
+      productionSystem(sim.world, nextTickCtxOf(sim));
+      setNeeds(sim, worker, { piety: ONE });
+      if (!stocked) {
+        buildingAt(sim, HEADQUARTERS, 4, 0, [[WOOD, 1]]);
+        plannerSystem(sim.world, ctxOf(sim));
+        expect(sim.world.has(worker, MoveGoal)).toBe(true);
+        for (let i = 0; i < 400 && (sim.world.get(mill, Stockpile).amounts.get(freeGood) ?? 0) === 0; i++)
+          sim.step();
+      } else for (let i = 0; i < 4; i++) productionSystem(sim.world, nextTickCtxOf(sim));
+      expect(sim.world.get(mill, Stockpile).amounts.get(freeGood)).toBe(1);
+      expect(sim.world.get(mill, Production).cycles).toEqual([{ goodType: PLANK, elapsed: 0, duration: 4 }]);
+      sim.world.remove(worker, MoveGoal);
+      sim.world.add(worker, Position, { x: fx.fromInt(0), y: fx.fromInt(0) });
+      setNeeds(sim, worker, { piety: needBar(5000) });
+      for (let i = 0; i < 4; i++) productionSystem(sim.world, nextTickCtxOf(sim));
+      expect(sim.world.get(mill, Stockpile).amounts.get(PLANK)).toBe(1);
+      expect(sim.world.has(mill, Production)).toBe(false);
+    },
+  );
+
+  it('keeps two operators at different executable batches instead of sending the empty one for inputs', () => {
+    const base = contentWithMilitaryPlank();
+    const content = parseContentSet({
+      ...base,
+      buildings: base.buildings.map((b) =>
+        b.typeId !== 2
+          ? b
+          : {
+              ...b,
+              workers: [{ jobType: CARPENTER, count: 2 }],
+              stock: [...b.stock, { goodType: 3, capacity: 20, initial: 0 }],
+              recipes: [
+                ...b.recipes,
+                { inputs: [{ goodType: WOOD, amount: 1 }], outputs: [{ goodType: 3, amount: 1 }], ticks: 20 },
+              ],
+            },
+      ),
+    });
+    const sim = new Simulation({ seed: 1, content, map: grassMap(12, 12) });
+    const { mill, worker } = sawmill(sim, []);
+    if (worker === null) throw new Error('missing maker');
+    const second = spawnSettler(sim, CARPENTER, 0, 0, PLANK_GATE_EARNED);
+    sim.world.add(second, JobAssignment, { workplace: mill });
+    setNeeds(sim, second, { piety: ONE });
+    buildingAt(sim, HEADQUARTERS, 4, 0, [[WOOD, 2]]);
+    sim.world.add(mill, Production, {
+      cycles: [
+        { goodType: PLANK, elapsed: 0, duration: 4 },
+        { goodType: 3, elapsed: 0, duration: 20 },
+      ],
+    });
+    plannerSystem(sim.world, ctxOf(sim));
+    expect(sim.world.has(worker, MoveGoal)).toBe(false);
+    expect(sim.world.has(second, MoveGoal)).toBe(false);
+    productionSystem(sim.world, nextTickCtxOf(sim));
+    expect(sim.world.get(mill, Production).cycles.map((cycle) => cycle.elapsed)).toEqual([1, 1]);
+  });
+
+  it('credits the actual maker when a later batch finishes first', () => {
+    const base = contentWithMilitaryPlank();
+    const content = parseContentSet({
+      ...base,
+      buildings: base.buildings.map((b) =>
+        b.typeId === 2 ? { ...b, workers: [{ jobType: CARPENTER, count: 2 }] } : b,
+      ),
+    });
+    const sim = new Simulation({ seed: 1, content });
+    const { mill, worker } = sawmill(sim, []);
+    if (worker === null) throw new Error('missing maker');
+    const second = spawnSettler(sim, CARPENTER, 0, 0, PLANK_GATE_EARNED);
+    sim.world.add(second, JobAssignment, { workplace: mill });
+    sim.world.add(mill, Production, {
+      cycles: [
+        { goodType: PLANK, elapsed: 0, duration: 4 },
+        { goodType: PLANK, elapsed: 3, duration: 4 },
+      ],
+    });
+    for (const maker of [worker, second])
+      sim.world.add(maker, Equipment, {
+        boots: null,
+        tool: { goodType: 12, degreeOfUse: fx.fromInt(0) },
+        weapon: null,
+        armor: null,
+        misc: new Array(MISC_EQUIP_SLOTS).fill(null),
+      });
+    const firstXp = [...sim.world.get(worker, SettlerProgress).experience];
+    const secondXp = [...sim.world.get(second, SettlerProgress).experience];
+    productionSystem(sim.world, nextTickCtxOf(sim));
+    expect([...sim.world.get(worker, SettlerProgress).experience]).toEqual(firstXp);
+    expect([...sim.world.get(second, SettlerProgress).experience]).not.toEqual(secondXp);
+    expect(sim.world.get(mill, Production).cycles[0]?.elapsed).toBe(1);
+    expect(sim.world.get(worker, Equipment).tool?.degreeOfUse).toBe(0);
+    expect(sim.world.get(second, Equipment).tool?.degreeOfUse).toBeGreaterThan(0);
+    expect(sim.world.get(mill, ProductionBonus).remainders.get(PLANK)).toBe(7);
+  });
+
+  it('refreshes a seated clip when replenishment changes its assigned batch between idle beats', () => {
+    const sim = new Simulation({ seed: 1, content: contentWithMilitaryPlank() });
+    const { mill, worker } = sawmill(sim, []);
+    if (worker === null) throw new Error('missing maker');
+    sim.world.add(mill, Production, {
+      cycles: [
+        { goodType: PLANK, elapsed: 0, duration: 8 },
+        { goodType: PLANK, elapsed: 3, duration: 8 },
+      ],
+    });
+    sim.world.add(worker, Resting, { at: mill });
+    setNeeds(sim, worker, { piety: ONE });
+    startCraftAtomic(sim.world, ctxOf(sim), worker, mill);
+    expect(atomicElapsed(sim.world.get(worker, AtomicClock), 0)).toBe(3);
+    sim.world.add(worker, IdleStand, { standing: false });
+    setNeeds(sim, worker, { piety: needBar(5000) });
+    const ctx = nextTickCtxOf(sim);
+    atomicSystem(sim.world, ctx);
+    productionSystem(sim.world, ctx);
+    expect(sim.world.has(worker, IdleStand)).toBe(false);
+    startCraftAtomic(sim.world, ctx, worker, mill);
+    expect(atomicElapsed(sim.world.get(worker, AtomicClock), ctx.tick)).toBe(1);
+  });
+
+  it('also stops an outdoor spending action at zero, before its other effects land', () => {
+    const sim = new Simulation({ seed: 1, content: contentWithMilitaryPlank() });
+    const worker = spawnSettler(sim, CARPENTER, 0, 0);
+    setNeeds(sim, worker, { piety: ONE });
+    addCurrentAtomic(sim.world, worker, {
+      atomicId: FORGE_ATOMIC,
+      duration: 4,
+      effect: { kind: 'produce', recipeOutput: PLANK },
+      targetEntity: null,
+      targetTile: null,
+    });
+    atomicSystem(sim.world, nextTickCtxOf(sim));
+    expect(sim.world.has(worker, CurrentAtomic)).toBe(false);
+    expect(needsOf(sim, worker).hunger).toBe(0);
+  });
+
+  it.each([0, -1500])(
+    'permits a cost %i with frozen needs and permits free work with an empty reserve',
+    (cost) => {
+      const sim = new Simulation({ seed: 1, content: contentWithMilitaryPlank(cost) });
+      const { mill, worker } = sawmill(sim, [[WOOD, 1]]);
+      if (worker === null) throw new Error('missing maker');
+      setNeeds(sim, worker, { piety: ONE });
+      if (cost < 0) setNeedsEnabled(sim.world, false);
+      for (let i = 0; i < 5; i++) productionSystem(sim.world, nextTickCtxOf(sim));
+      expect(sim.world.get(mill, Stockpile).amounts.get(PLANK)).toBe(1);
+    },
+  );
+
   it.each([1500, 3000])(
     'charges %i on the authored frame only, across display replans and completion',
     (cost) => {
@@ -120,7 +341,7 @@ describe('production events share the batch clock with the displayed craft', () 
       productionSystem(sim.world, nextTickCtxOf(sim));
       for (let frame = 1; frame <= 4; frame++) {
         const ctx = nextTickCtxOf(sim);
-        startCraftAtomic(sim.world, ctx, worker, mill, 0);
+        startCraftAtomic(sim.world, ctx, worker, mill);
         atomicSystem(sim.world, ctx);
         productionSystem(sim.world, ctx);
         expect(needsOf(sim, worker).piety).toBe(frame < 2 ? 0 : needBar(cost));

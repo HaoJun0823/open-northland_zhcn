@@ -115,6 +115,7 @@ import {
   entityAnchor,
   memoBySnapshot,
   messageTargetAnchor,
+  templeAuraRadius,
 } from '../projections/index.js';
 import { createScriptEffects } from '../script-effects.js';
 import { createScriptMarkers } from '../script-markers.js';
@@ -699,7 +700,10 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         : {}),
       prayerNeeds: new Set(
         host.content.jobs
-          .filter((job) => job.needsReligion && jobCanPray(host.content.jobs, job.typeId))
+          .filter(
+            (job) =>
+              systems.jobNeedsReligion(host.content, job.typeId) && jobCanPray(host.content.jobs, job.typeId),
+          )
           .map((job) => job.typeId),
       ),
       workshops: {
@@ -1248,6 +1252,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       lifeHeartsFor,
       canPlaceAt,
       defenceRangeAt: (typeId, tribe, col, row) => defenceRadiusAt(host.content, typeId, tribe, col, row),
+      blessingRangeFor: (typeId) => templeAuraRadius(host.content, typeId),
       canPlaceSignpostAt,
       soundDriver,
       presentation,

@@ -246,13 +246,14 @@ it('draws a defence range red beside a work range on the same centre', () => {
   const ranges = [
     { entity: 2, radiusNodes: 4, metric: 'manhattan' as const, kind: 'work' as const },
     { entity: 2, radiusNodes: 6, metric: 'hex' as const, kind: 'defence' as const },
+    { entity: 2, radiusNodes: 50, metric: 'hex' as const, kind: 'blessing' as const },
   ];
   layer.draw({ snapshot }, new Set(), new Set(), ranges);
   const colours = layer.container.children.map((ring) => {
     if (!(ring instanceof Graphics)) throw new Error('Missing range');
     return ring.context.instructions.find((entry) => entry.action === 'stroke')?.data.style.color;
   });
-  expect(colours).toEqual([0xffc020, 0xe03a2a]);
+  expect(colours).toEqual([0xffc020, 0xe03a2a, 0xc5edff]);
   layer.draw({ snapshot }, new Set(), new Set(), ranges.slice(0, 1));
   expect(layer.container.children).toHaveLength(1);
   layer.destroy();

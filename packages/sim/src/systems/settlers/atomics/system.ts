@@ -7,7 +7,10 @@ import {
   Resting,
   removeCurrentAtomic,
 } from '../../../components/index.js';
+import type { Entity } from '../../../ecs/world.js';
 import type { System } from '../../context.js';
+import { religionAllowsAtomic } from '../../lifecycle/needs/religion.js';
+import { prayerSiteAvailable } from '../../readviews/prayer-sites.js';
 import { applyEffect } from './effects/apply.js';
 import {
   applyPendingHitReactions,
@@ -41,7 +44,21 @@ export const atomicSystem: System = (world, ctx) => {
     }
     const elapsed = atomicElapsed(clock, ctx.tick);
     const running = world.get(e, CurrentAtomic);
+    if (
+      running.effect.kind === 'pray' &&
+      running.targetEntity !== null &&
+      !prayerSiteAvailable(world, ctx, e, running.targetEntity as Entity)
+    ) {
+      removeCurrentAtomic(world, e);
+      continue;
+    }
     const duration = Math.max(1, running.duration);
+    const workshopDisplay =
+      running.effect.kind === 'produce' && world.tryGet(e, Resting)?.at === running.targetEntity;
+    if (!workshopDisplay && !religionAllowsAtomic(world, ctx, e, running.atomicId, elapsed - 1)) {
+      removeCurrentAtomic(world, e);
+      continue;
+    }
 
     // Each authored attack event lands at its frame. Only a swing with no bound clip uses the
     // completion fallback; a bound clip with no attack event is a visual feint.
@@ -59,8 +76,6 @@ export const atomicSystem: System = (world, ctx) => {
       if (lunge?.frames.includes(elapsed)) lungeForward(world, ctx, e, lunge.direction);
     }
 
-    const workshopDisplay =
-      running.effect.kind === 'produce' && world.tryGet(e, Resting)?.at === running.targetEntity;
     if (!workshopDisplay) applyAtomicNeedEvents(world, ctx, e, running, elapsed);
     applyAtomicStockEvents(world, ctx, e, running, elapsed);
     emitAtomicSoundCues(world, ctx, e, running, elapsed);

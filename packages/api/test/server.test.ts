@@ -6,21 +6,26 @@ import { Catalog, CatalogEntry } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { catalogSnapshot } from '../src/catalog/snapshot.js';
 import { syncCatalog } from '../src/catalog/sync.js';
-import { type ApiServer, startApiServer } from '../src/server.js';
+import { type ApiServer, type KeptFile, startApiServer } from '../src/server.js';
 import { DataStore } from '../src/store.js';
 import { ACCEPTED_RECORDS, FakeUpstream, PNG_BYTES, UPSTREAM } from './support/strapi-fixture.js';
 
 const SYNCED_AT = new Date('2024-05-01T00:00:00.000Z');
 const LATER_SECONDS = 90;
 const LATER = new Date(SYNCED_AT.getTime() + LATER_SECONDS * 1000);
+const KEPT_BYTES = Buffer.from('kept archive bytes');
+const KEPT_SHA256 = 'ab'.repeat(32);
 
 describe('api server', () => {
   let dir: string;
   let store: DataStore;
   let server: ApiServer;
   let base: string;
+  /** What the stub kept-file source answers, by entry id. */
+  let kept: Map<string, KeptFile>;
 
   beforeEach(async () => {
+    kept = new Map();
     dir = await mkdtemp(join(tmpdir(), 'on-api-server-'));
     store = new DataStore(dir);
     await store.init();
@@ -29,6 +34,7 @@ describe('api server', () => {
       host: '127.0.0.1',
       build: 'test-build',
       store,
+      files: { keptFile: async (id) => kept.get(id) ?? null },
       now: () => LATER,
     });
     base = `http://127.0.0.1:${server.port}`;
@@ -134,6 +140,42 @@ describe('api server', () => {
     expect(await unknown.json()).toEqual({ error: 'no such map' });
     expect((await fetch(`${base}/v1/maps/..%2Fcatalog.json/thumbnail`)).status).toBe(404);
     expect((await fetch(`${base}/elsewhere`)).status).toBe(404);
+  });
+
+  it('serves a kept file as an attachment with a hash validator, and 404 without one', async () => {
+    await sync();
+    const catalog = Catalog.parse(await (await fetch(`${base}/v1/catalog`)).json());
+    const [first, second] = catalog;
+    if (first === undefined || second === undefined) throw new Error('catalogue too small');
+    const file = { bytes: KEPT_BYTES, sha256: KEPT_SHA256, name: 'Wyspa "Ł" (v2).rar' };
+    kept.set(first.id, file);
+    kept.set('cn-not-listed', file);
+
+    const response = await fetch(`${base}/v1/maps/${first.id}/file?v=${KEPT_SHA256}`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/octet-stream');
+    expect(response.headers.get('content-disposition')).toBe(
+      `attachment; filename="Wyspa ___ (v2).rar"; filename*=UTF-8''Wyspa%20%22%C5%81%22%20%28v2%29.rar`,
+    );
+    expect(response.headers.get('etag')).toBe(`"${KEPT_SHA256}"`);
+    expect(response.headers.get('cache-control')).toBe('public, max-age=86400');
+    expect(response.headers.get('access-control-allow-origin')).toBe('*');
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(KEPT_BYTES);
+
+    const head = await fetch(`${base}/v1/maps/${first.id}/file`, { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(head.headers.get('content-length')).toBe(String(KEPT_BYTES.length));
+    expect(await head.text()).toBe('');
+    const cached = await fetch(`${base}/v1/maps/${first.id}/file`, {
+      headers: { 'if-none-match': `"${KEPT_SHA256}"` },
+    });
+    expect(cached.status).toBe(304);
+
+    for (const id of [second.id, 'cn-not-listed']) {
+      const missing = await fetch(`${base}/v1/maps/${id}/file`);
+      expect(missing.status).toBe(404);
+      expect(await missing.json()).toEqual({ error: 'no file' });
+    }
   });
 
   it('answers a CORS preflight on /v1 so a browser may send If-None-Match', async () => {

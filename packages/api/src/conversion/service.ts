@@ -3,7 +3,7 @@ import { DEFAULT_IMPORT_LIMITS, detectArchiveFormat, MapImportError } from '@ope
 import { type CatalogSnapshot, catalogSnapshot, sha256Hex } from '../catalog/snapshot.js';
 import type { SyncedCatalog } from '../catalog/sync.js';
 import type { Log } from '../catalog/thumbnails.js';
-import type { ContentFile, ContentSource } from '../server.js';
+import type { ContentFile, ContentSource, KeptFile, KeptFileSource } from '../server.js';
 import type { Fetch } from '../upstream/strapi.js';
 import { convertArchive } from './convert.js';
 import { DownloadError, type DownloadLimits, downloadArchive } from './download.js';
@@ -14,6 +14,22 @@ const DOWNLOAD_TIMEOUT_MS = 120_000;
 /** The extension a kept file gets when its leading bytes name no supported format. */
 const UNKNOWN_EXT = 'bin';
 const MICROSECONDS_PER_MS = 1000;
+
+/** The catalogue links the kept file by a URL carrying its hash, so a replaced file gets a new URL. */
+function keptFilePath(id: string, sha256: string): string {
+  return `/v1/maps/${id}/file?v=${sha256}`;
+}
+
+/** The last segment of the upstream URL's path, percent-decoded; empty when it names none. */
+function upstreamFileName(url: string): string {
+  if (!URL.canParse(url)) return '';
+  const segment = new URL(url).pathname.split('/').at(-1) ?? '';
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
 
 export const DEFAULT_DOWNLOAD_LIMITS: DownloadLimits = {
   maxBytes: DEFAULT_IMPORT_LIMITS.archiveBytes,
@@ -54,7 +70,7 @@ function messageOf(error: unknown): string {
  * of this build's IR version. An entry converts again when its `updatedAt` or kept archive changes. A
  * failed download is retried with the next catalogue and keeps an older good conversion serving.
  */
-export class ConversionService implements ContentSource {
+export class ConversionService implements ContentSource, KeptFileSource {
   readonly irVersion: number;
   private readonly log: Log;
   private readonly downloadLimits: DownloadLimits;
@@ -119,6 +135,16 @@ export class ConversionService implements ContentSource {
     };
   }
 
+  async keptFile(id: string): Promise<KeptFile | null> {
+    const entry = this.entry(id);
+    const kept = entry === undefined ? null : this.keptArchive(entry);
+    if (kept === null) return null;
+    const bytes = await this.options.store.readArchive(id, kept);
+    if (bytes === null) return null;
+    const name = upstreamFileName(kept.url);
+    return { bytes, sha256: kept.sha256, name: name === '' ? `${id}.${kept.ext}` : name };
+  }
+
   private entry(id: string): CatalogEntry | undefined {
     return this.entries.get(id);
   }
@@ -151,10 +177,11 @@ export class ConversionService implements ContentSource {
     const entries = this.catalog.catalog.map((entry) => {
       if (entry.file.kind === 'external') return entry;
       const conversion = this.conversionOf(entry);
-      const bytes = this.archiveBytes(entry);
+      const kept = this.keptArchive(entry);
+      const file = kept === null ? {} : { bytes: kept.bytes, path: keptFilePath(entry.id, kept.sha256) };
       return {
         ...entry,
-        ...(bytes === null ? {} : { file: { ...entry.file, bytes } }),
+        file: { ...entry.file, ...file },
         ...(conversion === undefined ? {} : { conversion }),
       };
     });
@@ -163,10 +190,12 @@ export class ConversionService implements ContentSource {
     return snapshot;
   }
 
-  /** The kept archive's size when it was downloaded for the entry's current `updatedAt`. */
-  private archiveBytes(entry: CatalogEntry): number | null {
+  /** The kept archive when it was downloaded for the entry's current `updatedAt` and is on disk. A
+   *  failed conversion keeps it too, so a player can unpack it by hand. */
+  private keptArchive(entry: CatalogEntry): (KeptArchive & { readonly bytes: number }) | null {
     const kept = this.sources.get(entry.id);
-    return kept?.updatedAt === entry.updatedAt ? kept.bytes : null;
+    if (kept?.updatedAt !== entry.updatedAt || kept.bytes === null) return null;
+    return { ...kept, bytes: kept.bytes };
   }
 
   private kick(): void {

@@ -7,6 +7,7 @@ import { Catalog, CatalogEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { verifyMapDocuments } from '../../app/src/content/transfer/documents.js';
+import { sha256Hex } from '../src/catalog/snapshot.js';
 import { type ApiServer, startApiServer } from '../src/server.js';
 import { DataStore } from '../src/store.js';
 import {
@@ -64,7 +65,13 @@ describe('content route', () => {
     converted = await harness(dir, files, { irVersion: IR_VERSION });
     const store = new DataStore(dir);
     await store.init();
-    server = await startApiServer({ port: 0, host: '127.0.0.1', store, content: converted.service });
+    server = await startApiServer({
+      port: 0,
+      host: '127.0.0.1',
+      store,
+      content: converted.service,
+      files: converted.service,
+    });
     converted.service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
     await converted.service.idle();
     const snapshot = converted.published.at(-1);
@@ -113,11 +120,29 @@ describe('content route', () => {
     expect(refused.body).toEqual(plain.body);
   });
 
+  it('serves the kept archive at the path the entry links', async () => {
+    const entry = CatalogEntry.parse(
+      await (await fetch(`http://127.0.0.1:${server.port}/v1/maps/${ENTRY}`)).json(),
+    );
+    const path = entry.file.kind === 'external' ? undefined : entry.file.path;
+    if (path === undefined) throw new Error('no kept file path');
+    const response = await raw(path);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(Buffer.from(ARCHIVE));
+    expect(response.headers['content-disposition']).toBe(
+      `attachment; filename="${ENTRY}.zip"; filename*=UTF-8''${ENTRY}.zip`,
+    );
+  });
+
   it('names the archive size and the cell grid of each map in the entry', async () => {
     const entry = CatalogEntry.parse(
       await (await fetch(`http://127.0.0.1:${server.port}/v1/maps/${ENTRY}`)).json(),
     );
-    expect(entry.file).toEqual({ kind: 'archive', bytes: ARCHIVE.byteLength });
+    expect(entry.file).toEqual({
+      kind: 'archive',
+      bytes: ARCHIVE.byteLength,
+      path: `/v1/maps/${ENTRY}/file?v=${sha256Hex(ARCHIVE)}`,
+    });
     if (entry.conversion?.verdict !== 'ok') throw new Error('not converted');
     const terrain = JSON.parse((await raw(`${CONTENT}/${MAP_ID}.json`)).body.toString('utf8'));
     expect(entry.conversion.maps[0]?.cells).toEqual({ width: terrain.width, height: terrain.height });

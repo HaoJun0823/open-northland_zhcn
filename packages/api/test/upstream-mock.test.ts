@@ -98,7 +98,11 @@ describe('upstream mock', () => {
     await service.idle();
     const conversion = served(ENTRY).conversion;
     expect(conversion).toMatchObject({ verdict: 'ok', maps: [{ mapId: `${ENTRY}-wyspa` }] });
-    expect(served(ENTRY).file).toEqual({ kind: 'archive', bytes: ARCHIVE.byteLength });
+    expect(served(ENTRY).file).toEqual({
+      kind: 'archive',
+      bytes: ARCHIVE.byteLength,
+      path: `/v1/maps/${ENTRY}/file?v=${sha256Hex(ARCHIVE)}`,
+    });
     expect(requests).toEqual(expect.arrayContaining(['/downloads/wyspa.zip', '/uploads/small_shot_1.png']));
   });
 });

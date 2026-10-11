@@ -12,7 +12,7 @@ import type { DataStore } from './store.js';
 
 export const HEALTH_PATH = '/healthz';
 const CATALOG_PATH = '/v1/catalog';
-const MAP_PATH = /^\/v1\/maps\/([^/]+)(\/thumbnail)?$/;
+const MAP_PATH = /^\/v1\/maps\/([^/]+)(?:\/(thumbnail|file))?$/;
 const CONTENT_PATH = /^\/v1\/content\/([^/]+)\/maps\/([^/]+)$/;
 /** The sidecars the content route serves, longest first so `.meta.json` wins over `.json`. The
  *  minimap is left out: the client renders previews itself. */
@@ -29,6 +29,12 @@ const GZIP = 'gzip';
 const CATALOG_CACHE = 'public, max-age=300';
 /** The catalogue names a thumbnail by a URL carrying its bytes' hash, so a replaced one gets a new URL. */
 const THUMBNAIL_CACHE = 'public, max-age=86400';
+/** The catalogue names a kept file by a URL carrying its hash, like a thumbnail. */
+const KEPT_FILE_CACHE = 'public, max-age=86400';
+const KEPT_FILE_TYPE = 'application/octet-stream';
+const HEX_RADIX = 16;
+/** What a quoted `filename` may hold: printable ASCII without the quote and backslash it would escape. */
+const UNQUOTABLE = /[^\x20-\x7e]|["\\]/g;
 const MS_PER_SECOND = 1000;
 const REQUEST_TIMEOUT_MS = 10_000;
 const HEADERS_TIMEOUT_MS = 5000;
@@ -70,6 +76,18 @@ export interface ContentSource {
   file(mapId: string, fileName: string): ContentFile | null;
 }
 
+/** A kept catalogue file as downloaded, with the name its upstream URL gave it. */
+export interface KeptFile {
+  readonly bytes: Buffer;
+  readonly sha256: string;
+  readonly name: string;
+}
+
+/** The kept catalogue files by entry id; null when none is kept or it no longer matches its hash. */
+export interface KeptFileSource {
+  keptFile(entryId: string): Promise<KeptFile | null>;
+}
+
 export interface ApiServerOptions {
   /** 0 picks a free port; read it back from the server. */
   readonly port: number;
@@ -78,6 +96,8 @@ export interface ApiServerOptions {
   readonly store: DataStore;
   /** Serves `/v1/content/<irVersion>/maps/*`; without it every content request is a 404. */
   readonly content?: ContentSource;
+  /** Serves `/v1/maps/<id>/file`; without it every file request is a 404. */
+  readonly files?: KeptFileSource;
   readonly log?: Log;
   readonly now?: () => Date;
 }
@@ -131,6 +151,18 @@ function contentName(fileName: string): { mapId: string; suffix: string } | null
     return CATALOG_MAP_ID.test(mapId) ? { mapId, suffix } : null;
   }
   return null;
+}
+
+/** An attachment named `name`: an ASCII `filename` for every client, the exact one as RFC 5987
+ *  `filename*` for those that read it. */
+function attachment(name: string): string {
+  const fallback = name.replace(UNQUOTABLE, '_');
+  // encodeURIComponent leaves these four, which RFC 5987's attr-char does not admit.
+  const exact = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (char) => `%${char.charCodeAt(0).toString(HEX_RADIX).toUpperCase()}`,
+  );
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${exact}`;
 }
 
 /** Answers with `body`, or 304 when the request already holds it. Only a 200 carries the validator. */
@@ -267,6 +299,31 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     });
   };
 
+  const serveKeptFile = async (
+    request: IncomingMessage,
+    response: ServerResponse,
+    id: string,
+  ): Promise<void> => {
+    const kept = snapshot?.entries.has(id) ? ((await options.files?.keptFile(id)) ?? null) : null;
+    if (kept === null) {
+      sendError(request, response, NOT_FOUND, 'no file', V1_HEADERS);
+      return;
+    }
+    send(
+      request,
+      response,
+      OK,
+      { bytes: kept.bytes, etag: `"${kept.sha256}"` },
+      {
+        ...V1_HEADERS,
+        'cache-control': KEPT_FILE_CACHE,
+        'content-type': KEPT_FILE_TYPE,
+        'content-disposition': attachment(kept.name),
+        'x-content-type-options': 'nosniff',
+      },
+    );
+  };
+
   const serveV1 = async (request: IncomingMessage, response: ServerResponse, path: string): Promise<void> => {
     const content = CONTENT_PATH.exec(path);
     if (content?.[1] !== undefined && content[2] !== undefined) {
@@ -288,8 +345,12 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       sendError(request, response, NOT_FOUND, 'not found', V1_HEADERS);
       return;
     }
-    if (match?.[2] !== undefined) {
+    if (match?.[2] === 'thumbnail') {
       await serveThumbnail(request, response, id);
+      return;
+    }
+    if (match?.[2] === 'file') {
+      await serveKeptFile(request, response, id);
       return;
     }
     const entry = snapshot.entries.get(id);

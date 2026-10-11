@@ -161,7 +161,7 @@ export class ConversionStore {
   }
 
   /** The kept archive's bytes, or null when the file is gone or no longer matches its hash. */
-  async readArchive(id: string, source: ArchiveSource): Promise<Uint8Array | null> {
+  async readArchive(id: string, source: ArchiveSource): Promise<Buffer | null> {
     try {
       const bytes = await readFile(join(this.archiveDir, id, `${source.sha256}.${source.ext}`));
       return sha256Hex(bytes) === source.sha256 ? bytes : null;

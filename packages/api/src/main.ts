@@ -33,7 +33,7 @@ try {
     log: logLine,
   });
   await conversions.init();
-  server = await startApiServer({ ...config, store, content: conversions, log: logLine });
+  server = await startApiServer({ ...config, store, content: conversions, files: conversions, log: logLine });
   // The last good catalogue serves at once and converts from the kept archives; the first sync
   // replaces it when it completes. Its download URLs come from the raw pages it was made from.
   const stored = await store.readCatalog();

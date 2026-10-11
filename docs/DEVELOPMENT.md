@@ -663,6 +663,7 @@ Endpoints, `GET` and `HEAD` (plus the `OPTIONS` preflight below):
 | `/v1/catalog` | Every entry, sorted by id, as the `Catalog` schema in `packages/data` |
 | `/v1/maps/<id>` | One `CatalogEntry` |
 | `/v1/maps/<id>/thumbnail` | The stored screenshot with its content type, or 404; the catalogue links it with `?v=<sha256>`, which the route ignores |
+| `/v1/maps/<id>/file` | The kept catalogue file as downloaded, an attachment named after its upstream URL, or 404; the entry's `file.path` links it with `?v=<sha256>`, which the route ignores |
 | `/v1/content/<irVersion>/maps/<mapId><suffix>` | One sidecar: `.json`, `.meta.json`, `.strings.json`, `.script.json`, `.briefing.json` or `.png`; another `irVersion` is a 404 whose body names the served one |
 
 `OPTIONS` on a `/v1` path answers a CORS preflight with 204, allowing `GET`, `HEAD` and the

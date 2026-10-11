@@ -4,6 +4,7 @@ import { gunzipSync } from 'node:zlib';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { convertMapTree, MAP_FILE_SUFFIXES, mapFiles, openArchive } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { sha256Hex } from '../src/catalog/snapshot.js';
 import {
   catalogEntry,
   FakeFiles,
@@ -111,6 +112,37 @@ describe('ConversionService', () => {
     expect(served(ENTRY).conversion).toMatchObject({ verdict: 'failed', reason: 'unsupported-archive' });
     expect(served('cn-text').conversion).toMatchObject({ verdict: 'failed', reason: 'unsupported-archive' });
     expect(await readdir(converted())).toEqual(['conversion.json']);
+  });
+
+  it('links the kept file of a converted and of a failed entry, and drops it once its bytes change', async () => {
+    const corrupt = zipOf(under('Wyspa', plaintextMap('Wyspa'))).slice(0, SMALL_LIMIT);
+    files.serve(ENTRY, zipOf(under('Wyspa', plaintextMap('Wyspa'))));
+    files.serve('cn-broken', corrupt);
+    const { service, served } = await harness(dir, files, { irVersion: IR_VERSION });
+    service.setCatalog(syncedOf([catalogEntry(ENTRY), catalogEntry('cn-broken')]));
+    expect(served(ENTRY).file).toEqual({ kind: 'archive' });
+    await service.idle();
+
+    expect(served('cn-broken').conversion).toMatchObject({
+      verdict: 'failed',
+      reason: 'unsupported-archive',
+    });
+    const brokenSha = sha256Hex(corrupt);
+    expect(served('cn-broken').file).toEqual({
+      kind: 'archive',
+      bytes: corrupt.length,
+      path: `/v1/maps/cn-broken/file?v=${brokenSha}`,
+    });
+    expect(await service.keptFile('cn-broken')).toEqual({
+      bytes: Buffer.from(corrupt),
+      sha256: brokenSha,
+      name: 'cn-broken.zip',
+    });
+    expect(served(ENTRY).file).toMatchObject({ path: expect.stringMatching(`^/v1/maps/${ENTRY}/file\\?v=`) });
+
+    await writeFile(join(dir, 'archives', 'cn-broken', `${brokenSha}.zip`), 'tampered');
+    expect(await service.keptFile('cn-broken')).toBeNull();
+    expect(await service.keptFile('cn-not-listed')).toBeNull();
   });
 
   it('records an archive without a map as no-map', async () => {

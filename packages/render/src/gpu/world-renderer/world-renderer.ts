@@ -527,11 +527,15 @@ export class WorldRenderer {
     this.groundWaves.suspend(true);
     this.portrait.draw(camera, {
       toInset: (cam, iw, ih) => {
-        this.terrain.cull(cameraViewport(cam, iw, ih, this.elevation.maxLift));
+        const view = cameraViewport(cam, iw, ih, this.elevation.maxLift);
+        this.terrain.cull(view);
         // The bands the main cull would keep for this view: anchors within the sprite margin, and a
         // claimed road plot sorting back by its plot's top.
-        const rows = cameraViewport(cam, iw, ih, SPRITE_CULL_MARGIN + this.elevation.maxLift);
-        this.spriteLayer.hideBandsOutside(rows.minY + PLOT_BOUNDS.top, rows.maxY, this.insetBands);
+        this.spriteLayer.hideBandsOutside(
+          view.minY - SPRITE_CULL_MARGIN + PLOT_BOUNDS.top,
+          view.maxY + SPRITE_CULL_MARGIN,
+          this.insetBands,
+        );
       },
       restore: () => {
         this.terrain.cull(vp);

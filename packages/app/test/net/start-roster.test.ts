@@ -38,20 +38,60 @@ function rows(over: Partial<StartRosterInputs> = {}) {
 }
 
 describe('start roster', () => {
-  it('lists the seated players in seat order with their colour, state and progress', () => {
+  it('lists players in seat order followed by observers with their loading progress', () => {
     expect(rows()).toEqual([
-      { nick: 'Ania', color: playerSwatchHex(3), self: true, state: 'loading', progress: 60 },
-      { nick: 'Celina', color: playerSwatchHex(5), self: false, state: 'away', progress: null },
-      { nick: 'Bartek', color: playerSwatchHex(7), self: false, state: 'loading', progress: 40 },
+      {
+        nick: 'Ania',
+        color: playerSwatchHex(3),
+        self: true,
+        observer: false,
+        state: 'loading',
+        progress: 60,
+      },
+      {
+        nick: 'Celina',
+        color: playerSwatchHex(5),
+        self: false,
+        observer: false,
+        state: 'away',
+        progress: null,
+      },
+      {
+        nick: 'Bartek',
+        color: playerSwatchHex(7),
+        self: false,
+        observer: false,
+        state: 'loading',
+        progress: 40,
+      },
+      { nick: 'Widz', color: 'transparent', self: false, observer: true, state: 'loading', progress: null },
     ]);
   });
 
   it('reads a player nobody waits for as ready, but only once the relay said who it waits for', () => {
-    expect(rows({ waitingFor: [] }).map((row) => row.state)).toEqual(['ready', 'ready', 'ready']);
+    expect(rows({ waitingFor: [] }).map((row) => row.state)).toEqual(['ready', 'away', 'ready', 'loading']);
     expect(rows({ waitingFor: [], heardWaiting: false }).map((row) => row.state)).toEqual([
       'loading',
+      'away',
       'loading',
       'loading',
     ]);
+  });
+});
+
+it('shows observer progress independently of the players the relay waits for', () => {
+  const room = (loading: number | null, connected = true): RoomView => ({
+    ...ROOM,
+    members: ROOM.members.map((member) =>
+      member.seat === null ? { ...member, loading, connected } : member,
+    ),
+  });
+  expect(rows({ room: room(45) }).at(-1)).toMatchObject({ state: 'loading', progress: 45 });
+  expect(rows({ room: room(100) }).at(-1)).toMatchObject({ state: 'ready', progress: null });
+  expect(rows({ room: room(45, false) }).at(-1)).toMatchObject({ state: 'away', progress: null });
+  expect(rows({ room: room(45), ownNick: 'Widz', ownProgress: 70 }).at(-1)).toMatchObject({
+    self: true,
+    state: 'loading',
+    progress: 70,
   });
 });

@@ -14,7 +14,7 @@ export function roomObservers({ client, copy }: NetworkRoomDeps) {
   const label = node('div');
   label.append(node('strong', '', text.observerName), node('p', 'network-room__muted', text.observerDetail));
   free.append(label, join);
-  root.append(node('h3', '', text.watchTitle), list, free);
+  root.append(node('h3', '', copy.observers), list, free);
   return {
     root,
     update(room: RoomView, connected: boolean): void {

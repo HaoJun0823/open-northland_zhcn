@@ -5,6 +5,7 @@ export const ruNetworkRoom = {
   changeSeat: 'Сменить место',
   absentSeat: 'Отключённое место',
   departure: 'Когда игрок выходит, его место остаётся в режиме бездействия.',
+  observers: 'Наблюдатели',
   players: 'Игроки',
   chooseSeat: 'Выберите свободное место.',
   checkFiles: 'Проверка файлов игры.',

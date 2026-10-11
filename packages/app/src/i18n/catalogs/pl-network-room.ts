@@ -7,6 +7,7 @@ export const plNetworkRoom: { readonly [Key in keyof typeof enNetworkRoom]: stri
   changeSeat: 'Przesiądź się',
   absentSeat: 'Wyłączone miejsce',
   departure: 'Po wyjściu gracza jego miejsce pozostaje bezczynne.',
+  observers: 'Obserwatorzy',
   players: 'Gracze',
   chooseSeat: 'Wybierz wolne miejsce.',
   checkFiles: 'Sprawdzanie plików gry.',

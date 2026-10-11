@@ -257,6 +257,7 @@
   white-space: nowrap;
 }
 
+.boot-roster__role,
 .boot-roster__you {
   margin-left: 0.5em;
   color: rgba(232, 201, 120, 0.75);

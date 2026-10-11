@@ -5,6 +5,7 @@ export const enNetworkRoom = {
   changeSeat: 'Switch seat',
   absentSeat: 'Disabled seat',
   departure: 'When a player leaves, their seat stays idle.',
+  observers: 'Observers',
   players: 'Players',
   chooseSeat: 'Choose an open seat.',
   checkFiles: 'Checking game files.',

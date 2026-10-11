@@ -5,6 +5,7 @@ export const deNetworkRoom = {
   changeSeat: 'Platz wechseln',
   absentSeat: 'Deaktivierter Platz',
   departure: 'Wenn ein Spieler die Partie verlässt, bleibt sein Platz inaktiv.',
+  observers: 'Zuschauer',
   players: 'Spieler',
   chooseSeat: 'Wähle einen freien Platz.',
   checkFiles: 'Spieldateien werden geprüft.',

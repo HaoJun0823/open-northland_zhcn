@@ -306,10 +306,8 @@ export class Room {
     const refusal = this.game.loaded(member, world, now);
     if (refusal !== null) return refusal;
     member.progressAt = now;
-    if (member.loading !== null) {
-      member.loading = null;
-      this.figuresMoved = true;
-    }
+    member.loading = null;
+    this.figuresMoved = true;
     return null;
   }
 

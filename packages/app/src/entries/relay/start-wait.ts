@@ -1,5 +1,5 @@
 import type { RelayClientView } from '@open-northland/net-client';
-import type { ServerMessage } from '@open-northland/net-protocol';
+import { MAX_LOADING_PROGRESS, type ServerMessage } from '@open-northland/net-protocol';
 import { mountStartRoster, type StartRoster, startRosterRows } from '../../view/net/start-roster.js';
 
 type StartClient = Pick<RelayClientView, 'nick' | 'room' | 'clockState' | 'waitingFor'>;
@@ -19,12 +19,12 @@ export interface StartWait {
   end(): void;
 }
 
-/** A relayed start: the loading card stays up until the room's clock runs and nobody still loads, with
- *  the players plaque showing how far each one is. */
+/** Keep the room roster through this client's boot, then until the seated players can start. */
 export function createStartWait(client: StartClient): StartWait {
   let roster: StartRoster | null = mountStartRoster();
   let waits: (() => void)[] = [];
   let ownProgress: number | null = null;
+  let ownReady = false;
   let heardWaiting = client.waitingFor.length > 0;
 
   const started = (): boolean =>
@@ -59,7 +59,7 @@ export function createStartWait(client: StartClient): StartWait {
     },
     observe(message): void {
       if (message.kind === 'waiting') heardWaiting = true;
-      if (started()) end();
+      if (ownReady && started()) end();
       else render();
     },
     progress(percent): void {
@@ -68,13 +68,20 @@ export function createStartWait(client: StartClient): StartWait {
     },
     untilStart(current): Promise<void> {
       if (!current()) return Promise.resolve();
+      ownReady = true;
+      ownProgress = MAX_LOADING_PROGRESS;
       if (started()) {
         end();
         return Promise.resolve();
       }
+      render();
       return new Promise((resolve) => waits.push(resolve));
     },
-    release,
+    release(): void {
+      ownReady = false;
+      ownProgress = null;
+      release();
+    },
     end,
   };
 }

@@ -76,8 +76,7 @@ export interface RoomMemberView {
   readonly compatibility: LobbyCompatibility | null;
   /** The load the member's last acknowledgement reported; null before its first. */
   readonly load: ClientLoad | null;
-  /** The boot progress in whole percent the member last reported while building its world; null once
-   *  that world has loaded, and before its first report. */
+  /** Boot progress in whole percent, with 100 once the world has loaded; null before its first report. */
   readonly loading: number | null;
   /** The relay's smoothed round trip to the member in milliseconds; null while it is disconnected. */
   readonly roundTripMs: number | null;

@@ -1,5 +1,10 @@
 import type { GameSession } from '@open-northland/lockstep';
-import type { RoomSettings, RoomState, RoomView } from '@open-northland/net-protocol';
+import {
+  MAX_LOADING_PROGRESS,
+  type RoomSettings,
+  type RoomState,
+  type RoomView,
+} from '@open-northland/net-protocol';
 import type { Member } from './member.js';
 import type { SeatTable } from './seats.js';
 
@@ -27,7 +32,7 @@ export function roomView(
       connected: member.connected,
       compatibility: member.compatibility,
       load: member.load,
-      loading: member.loaded ? null : member.loading,
+      loading: member.loaded ? MAX_LOADING_PROGRESS : member.loading,
       roundTripMs: member.connected ? member.roundTripMs : null,
       delayTicks: member.connected ? member.delayTicks : null,
       behindTicks: behindTicks(member),

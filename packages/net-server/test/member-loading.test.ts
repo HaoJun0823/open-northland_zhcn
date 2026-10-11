@@ -36,8 +36,8 @@ describe('member boot progress', () => {
     s.advance(LOAD_VIEW_INTERVAL_MS);
     expect(s.a.last('clock')?.paused).toBe(false);
     expect(progress()).toEqual([
-      { nick: 'Ania', loading: null },
-      { nick: 'Bartek', loading: null },
+      { nick: 'Ania', loading: 100 },
+      { nick: 'Bartek', loading: 100 },
     ]);
   });
 
@@ -148,4 +148,19 @@ describe('member boot progress', () => {
     s.advance(1);
     expect(a.of('left')).toEqual([]);
   });
+});
+
+it('publishes observer progress and completion without adding the observer to the start wait', () => {
+  const s = startingRoom();
+  s.b.send({ kind: 'claimSeat', player: null });
+  const observer = () => s.a.last('room')?.room.members.find((member) => member.nick === 'Bartek');
+  expect(observer()?.loading).toBeNull();
+  s.b.send({ kind: 'loading', progress: 45 });
+  s.advance(LOAD_VIEW_INTERVAL_MS);
+  expect(observer()?.loading).toBe(45);
+  expect(s.a.last('waiting')?.for.some((member) => member.nick === 'Bartek')).not.toBe(true);
+  s.b.send({ kind: 'loaded', tick: 0, world: 0 });
+  s.advance(LOAD_VIEW_INTERVAL_MS);
+  expect(observer()?.loading).toBe(100);
+  expect(s.a.last('clock')).toBeUndefined();
 });

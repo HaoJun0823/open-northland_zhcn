@@ -104,7 +104,7 @@ Every change to a room is broadcast to its members as `room { room }`, the whole
 where a seat carries `authoredTribe` and its current `tribe` together or neither.
 A member's `load` is the one its last acknowledgement reported (below), null before its first. Its
 `loading` is the boot progress in whole percent it last reported before its world loaded (below),
-null once that world has loaded and before its first report. `roundTripMs` is the relay's smoothed
+100 once that world has loaded, and null before its first report. `roundTripMs` is the relay's smoothed
 round trip to the member in milliseconds (0 until its first pong) and `delayTicks` its assigned input
 delay (see [Input delay](#input-delay)), both null while it is disconnected. `behindTicks` is how many
 ticks its acknowledgements trail the clock: 0 before the clock runs, after the match ended, and while

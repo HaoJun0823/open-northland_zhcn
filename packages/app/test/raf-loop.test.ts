@@ -114,13 +114,29 @@ describe('startRafLoop', () => {
     const frames: number[] = [];
     const loop = startRafLoop((nowMs) => frames.push(nowMs), { fpsLimit: null });
     const at = (frame: number): number => frame * (1000 / 60);
-    // A 60 Hz display drawn uncapped, then held to 30 FPS, then let go again.
+    // A 60 Hz display drawn uncapped, then held to 30 FPS, then let go again. The cap's grid runs on
+    // from the last frame drawn, so the first capped frame waits a whole 30 FPS interval.
     for (let frame = 0; frame < 2; frame++) clock.flush(at(frame));
     loop.setFpsLimit(30);
     for (let frame = 2; frame < 6; frame++) clock.flush(at(frame));
     loop.setFpsLimit(null);
     for (let frame = 6; frame < 8; frame++) clock.flush(at(frame));
-    expect(frames).toEqual([0, 1, 2, 4, 6, 7].map(at));
+    expect(frames).toEqual([0, 1, 3, 5, 6, 7].map(at));
+    loop.stop();
+  });
+
+  it('draws no extra frame when the same cap is set again, as a restore of defaults does', () => {
+    const clock = fakeRaf();
+    vi.stubGlobal('requestAnimationFrame', clock.raf);
+    vi.stubGlobal('cancelAnimationFrame', clock.caf);
+
+    const frames: number[] = [];
+    const loop = startRafLoop((nowMs) => frames.push(nowMs), { fpsLimit: 30 });
+    const at = (frame: number): number => frame * (1000 / 60);
+    for (let frame = 0; frame < 3; frame++) clock.flush(at(frame));
+    loop.setFpsLimit(30);
+    for (let frame = 3; frame < 6; frame++) clock.flush(at(frame));
+    expect(frames).toEqual([0, 2, 4].map(at));
     loop.stop();
   });
 

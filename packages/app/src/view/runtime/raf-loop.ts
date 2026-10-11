@@ -3,7 +3,7 @@ import type { FpsLimit } from '../settings-store.js';
 export interface RafLoop {
   /** Halt the chain; a second call is a no-op. */
   stop(): void;
-  /** Gate the following animation frames by a new cap; the first of them draws and anchors its grid. */
+  /** Gate the following animation frames by a new cap, its grid anchored on the last drawn frame. */
   setFpsLimit(fpsLimit: FpsLimit): void;
 }
 
@@ -21,12 +21,16 @@ const EARLY_FRAME_TOLERANCE_MS = 4;
 /**
  * Wall-clock gate for a drawn-frame cap: `null` admits every animation frame. Due times advance
  * along the cap's own grid rather than from each admitted timestamp, so the admitted rate averages
- * the cap even when the display rate is not a multiple of it.
+ * the cap even when the display rate is not a multiple of it. Given the last frame drawn before it,
+ * the grid starts one interval after that frame; without one, the first frame draws and anchors it.
  */
-export function createFrameLimiter(fpsLimit: FpsLimit): (nowMs: number) => boolean {
+export function createFrameLimiter(
+  fpsLimit: FpsLimit,
+  lastDrawnMs: number | null = null,
+): (nowMs: number) => boolean {
   if (fpsLimit === null) return () => true;
   const intervalMs = 1000 / fpsLimit;
-  let nextDueMs: number | null = null;
+  let nextDueMs = lastDrawnMs === null ? null : lastDrawnMs + intervalMs;
   return (nowMs) => {
     if (nextDueMs !== null && nowMs < nextDueMs - EARLY_FRAME_TOLERANCE_MS) return false;
     if (nextDueMs === null || nowMs - nextDueMs > intervalMs) {
@@ -47,6 +51,7 @@ export function createFrameLimiter(fpsLimit: FpsLimit): (nowMs: number) => boole
  */
 export function startRafLoop(frame: (nowMs: number) => void, options: RafLoopOptions = {}): RafLoop {
   let admits = createFrameLimiter(options.fpsLimit ?? null);
+  let lastDrawnMs: number | null = null;
   let running = true;
   let drawn = false;
   let shown = false;
@@ -57,6 +62,7 @@ export function startRafLoop(frame: (nowMs: number) => void, options: RafLoopOpt
       options.onFirstFrameShown?.();
     }
     if (admits(nowMs)) {
+      lastDrawnMs = nowMs;
       frame(nowMs);
       drawn = true;
     }
@@ -69,7 +75,7 @@ export function startRafLoop(frame: (nowMs: number) => void, options: RafLoopOpt
       cancelAnimationFrame(rafId);
     },
     setFpsLimit(fpsLimit): void {
-      admits = createFrameLimiter(fpsLimit);
+      admits = createFrameLimiter(fpsLimit, lastDrawnMs);
     },
   };
 }

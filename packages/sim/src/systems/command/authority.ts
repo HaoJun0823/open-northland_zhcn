@@ -128,7 +128,7 @@ function seatMayIssue(
     return false;
   }
   if (command.kind === 'placeRoadSite') {
-    if (command.force !== undefined) return false;
+    if (command.force !== undefined || command.laid !== undefined) return false;
     if (!playerPlacementTribes(world, seat)?.includes(command.tribe)) return false;
   }
   // A seat cuts a gate into its own finished run; only a map stands one on open ground.

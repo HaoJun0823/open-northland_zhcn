@@ -68,6 +68,8 @@ export interface PlaceRoadSiteCommand {
   readonly force?: boolean;
   /** Run where a building only keeps room for its upgrade; that upgrade lifts the road. */
   readonly overUpgradeGround?: boolean;
+  /** Trusted only: lay the road at once instead of ordering a site. */
+  readonly laid?: boolean;
 }
 
 /** Withdraw a road site not yet laid; any stone already delivered drops beside it. */

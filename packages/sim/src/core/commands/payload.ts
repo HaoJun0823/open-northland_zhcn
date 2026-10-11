@@ -320,7 +320,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   convertPalisadeGate: { required: { palisade: 'integer', gfxIndex: 'integer' } },
   placeRoadSite: {
     required: { ...NODE, tribe: 'integer' },
-    optional: { owner: 'integer', force: 'boolean', overUpgradeGround: 'boolean' },
+    optional: { owner: 'integer', force: 'boolean', overUpgradeGround: 'boolean', laid: 'boolean' },
   },
   cancelRoadSite: { required: { roadSite: 'integer' } },
   placeResource: {

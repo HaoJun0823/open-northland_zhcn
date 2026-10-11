@@ -19,6 +19,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import {
+  adminCommand,
   exportSaveGame,
   hexNeighboursOf,
   type NodeArea,
@@ -260,11 +261,25 @@ describe('road site commands', () => {
     expect(sim.world.isAlive(mushroom)).toBe(false);
   });
 
-  it('refuse a seat the force option and a tribe it may not place', () => {
+  it('refuse a seat the force and laid options and a tribe it may not place', () => {
     const sim = roadSim();
     sim.enqueue(playerCommand(HUMAN, { kind: 'placeRoadSite', x: 20, y: ROW, tribe: VIKING, force: true }));
     sim.enqueue(playerCommand(HUMAN, { kind: 'placeRoadSite', x: 22, y: ROW, tribe: VIKING + 1 }));
+    sim.enqueue(playerCommand(HUMAN, { kind: 'placeRoadSite', x: 24, y: ROW, tribe: VIKING, laid: true }));
     sim.step();
+    expect([...sim.world.query(RoadSite)]).toEqual([]);
+    expect(roadAt(sim, 24, ROW)).toBe(false);
+  });
+
+  it('lay a trusted laid road at once, on ground a site may take only', () => {
+    const sim = roadSim();
+    storeAt(sim, STORE_HX);
+    const road = { kind: 'placeRoadSite', y: ROW, tribe: VIKING, owner: HUMAN, laid: true } as const;
+    sim.enqueue(adminCommand({ ...road, x: CENTRE.hx }));
+    sim.enqueue(adminCommand({ ...road, x: STORE_HX }));
+    sim.step();
+    expect(roadAt(sim, CENTRE.hx, ROW)).toBe(true);
+    expect(roadAt(sim, STORE_HX, ROW)).toBe(false);
     expect([...sim.world.query(RoadSite)]).toEqual([]);
   });
 

@@ -138,6 +138,11 @@ export function placeRoadSite(
   ) {
     return;
   }
+  if (command.laid === true) {
+    clearLineGround(world, ctx, [{ hx: command.x, hy: command.y }]);
+    layRoad(world, terrain, [node]);
+    return;
+  }
   const e = world.create();
   world.add(e, Position, positionOfNode(command.x, command.y));
   world.add(e, RoadSite, {

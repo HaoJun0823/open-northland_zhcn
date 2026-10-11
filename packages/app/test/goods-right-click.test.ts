@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { JOB_COLLECTOR, JOB_SOLDIER_SWORD } from '../src/catalog/jobs.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
 import {
+  GOOD_BREAD,
+  GOOD_FOOD_EXTRA,
+  GOOD_FOOD_SIMPLE,
   GOOD_MEAD,
   GOOD_SHOES,
   GOOD_SWORD_SHORT,
@@ -57,6 +60,7 @@ async function rightClick(
   settlers: readonly Entity[],
   pile: Pickable,
   withPickList = true,
+  shiftKey = false,
 ): Promise<Command[]> {
   const pickList: UnitOrderDeps['requestEquipPicks'] = withPickList
     ? (entity, group) => Promise.resolve(sim.equipPickList(entity as Entity, group))
@@ -88,7 +92,7 @@ async function rightClick(
     enqueue: (command) => issued.push(command),
     selectOwnSettler: () => {},
     openActions: () => {},
-  }).issueRightClick({ clientX: 0, clientY: 0 } as MouseEvent);
+  }).issueRightClick({ clientX: 0, clientY: 0, shiftKey } as MouseEvent);
   await new Promise((resolve) => setTimeout(resolve, 0));
   return issued;
 }
@@ -100,6 +104,28 @@ function heap(sim: Simulation, goodType: number, amount = 1): Pickable {
 }
 
 describe('right-clicking a good on the ground', () => {
+  it.each([GOOD_FOOD_SIMPLE, GOOD_FOOD_EXTRA, GOOD_BREAD])(
+    'orders selected civilians and soldiers to eat over food %s without an equipment pick list',
+    async (goodType) => {
+      const sim = new Simulation({ seed: 1, content: sandboxContent() });
+      const food = heap(sim, goodType, 2);
+      const collector = settlerAt(sim, JOB_COLLECTOR);
+      const soldier = settlerAt(sim, JOB_SOLDIER_SWORD);
+      expect(await rightClick(sim, [collector, soldier], food, false)).toEqual([
+        {
+          kind: 'unitActionGroup',
+          members: [{ entity: collector }, { entity: soldier }],
+          action: { kind: 'orderNeed', need: 'hunger' },
+        },
+      ]);
+      expect(await rightClick(sim, [soldier], food, false)).toEqual([
+        { kind: 'orderNeed', entity: soldier, need: 'hunger' },
+      ]);
+      const [walk] = await rightClick(sim, [soldier], food, false, true);
+      expect(walk).toMatchObject({ kind: 'moveUnit', entity: soldier, queued: true });
+    },
+  );
+
   it('orders every selected settler that may wear it to put it on, skipping one already wearing it', async () => {
     const sim = new Simulation({ seed: 1, content: sandboxContent() });
     const shoes = heap(sim, GOOD_SHOES, 2);

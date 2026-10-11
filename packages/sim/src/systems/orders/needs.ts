@@ -10,6 +10,7 @@ import {
 import type { Command } from '../../core/commands/index.js';
 import type { World } from '../../ecs/world.js';
 import type { SystemContext } from '../context.js';
+import { carriesFoodAmulet } from '../equipment/effects.js';
 import { carriesNeeds } from '../lifecycle/needs/index.js';
 import { clearNavState } from '../movement/nav-state.js';
 import { isHeroJob } from '../readviews/index.js';
@@ -31,6 +32,8 @@ export function orderNeed(
   // A settler whose bars do not move, a hero or a script-frozen unit, has no rung that would answer the
   // order and clear it.
   if (!carriesNeeds(world, ctx.content, e)) return;
+  // Original behavior (not yet confirmed in a running game): a food amulet makes an eat order a no-op.
+  if (command.need === 'hunger' && carriesFoodAmulet(world, ctx.content, e)) return;
   world.add(e, NeedOrder, { need: command.need });
   removeCurrentAtomic(world, e);
   supersedeStandingOrders(world, e);

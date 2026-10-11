@@ -359,6 +359,20 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     const goods = deps.targets.goods();
     const pile = pickTopAt(goods, world.x, world.y);
     const pileGood = pile === null ? undefined : goods.find((target) => target.ref === pile)?.goodType;
+    if (
+      pileGood !== undefined &&
+      systems.isFoodIn(deps.content, systems.edibleGoodFormOf(deps.content, pileGood))
+    ) {
+      return enqueueArmyOrder(
+        {
+          kind: 'unitActionGroup',
+          members: rest.map((unit) => ({ entity: unit.ref as Entity })),
+          action: { kind: 'orderNeed', need: 'hunger' },
+        },
+        deps.enqueue,
+        onOrderLimit,
+      );
+    }
     const aim: RightClickAim = {
       house: onBuilding ?? pickTopAt(deps.targets.buildings(), world.x, world.y),
       building: onBuilding ?? pickTopAt(deps.targets.owned('building'), world.x, world.y),

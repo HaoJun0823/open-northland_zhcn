@@ -17,6 +17,14 @@ function liveEquipOf(content: ContentSet, slot: EquipmentSlot | null | undefined
   return contentIndex(content).goods.get(slot.goodType)?.equip;
 }
 
+/** A permanent equipped hunger restore makes an ordered meal unnecessary. */
+export function carriesFoodAmulet(world: World, content: ContentSet, e: Entity): boolean {
+  return (world.tryGet(e, Equipment)?.misc ?? []).some((slot) => {
+    const equip = liveEquipOf(content, slot);
+    return !equip?.wears && (equip?.restorePct?.hunger ?? 0) > 0;
+  });
+}
+
 type CarriedEffect = 'damageDealtPct' | 'criticalHit' | 'damageTakenPct' | 'walkStepTicksSaved';
 
 /** A carried effect of `e`'s misc row: the first live slot's value, so a second copy adds nothing. */

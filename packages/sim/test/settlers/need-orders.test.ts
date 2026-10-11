@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   Building,
   CurrentAtomic,
+  Equipment,
   MISSION_BEHAVIOUR,
   MoveGoal,
   NeedOrder,
@@ -125,6 +126,52 @@ describe('orderNeed - answering a need on command', () => {
 
     for (let i = 0; i < atomic.duration + 2 && sim.world.has(settler, NeedOrder); i++) sim.step();
     expect(sim.world.has(settler, NeedOrder)).toBe(false); // the eat effect retired it
+  });
+
+  it('leaves an amulet bearer walking while the rest of an ordered group eats', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(6, 1) });
+    const bearer = ownedSettlerAt(sim, 0, 0, { hunger: FED });
+    const eater = ownedSettlerAt(sim, 0, 0, { hunger: FED });
+    const store = storeAt(sim, 0, 0, 3);
+    sim.world.add(bearer, Equipment, {
+      boots: null,
+      tool: null,
+      weapon: null,
+      armor: null,
+      misc: [null, { goodType: 23, degreeOfUse: fx.fromInt(0) }, null, null],
+    });
+    sim.enqueueSetup({ kind: 'moveUnit', entity: bearer, x: 8, y: 0 });
+    sim.step();
+    const destination = sim.world.get(bearer, MoveGoal).cell;
+    sim.enqueueSetup({
+      kind: 'unitActionGroup',
+      members: [{ entity: bearer }, { entity: eater }],
+      action: { kind: 'orderNeed', need: 'hunger' },
+    });
+    sim.step();
+    expect(sim.world.has(bearer, NeedOrder)).toBe(false);
+    expect(sim.world.get(bearer, MoveGoal).cell).toBe(destination);
+    expect(sim.world.get(eater, CurrentAtomic).effect).toEqual({ kind: 'eat', goodType: FOOD, from: store });
+  });
+
+  it.each([14, 24])('still orders a meal with a food potion or an unrelated amulet (%s)', (goodType) => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(5, 1) });
+    const settler = ownedSettlerAt(sim, 2, 0, { hunger: FED });
+    const store = storeAt(sim, 2, 0, 3);
+    sim.world.add(settler, Equipment, {
+      boots: null,
+      tool: null,
+      weapon: null,
+      armor: null,
+      misc: [{ goodType, degreeOfUse: fx.fromInt(0) }, null, null, null],
+    });
+    sim.enqueueSetup({ kind: 'orderNeed', entity: settler, need: 'hunger' });
+    sim.step();
+    expect(sim.world.get(settler, CurrentAtomic).effect).toEqual({
+      kind: 'eat',
+      goodType: FOOD,
+      from: store,
+    });
   });
 
   it('walks the ordered settler to the food it is not standing on', () => {

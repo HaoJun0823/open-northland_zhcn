@@ -3,7 +3,7 @@
 // draws once with each, and fails on a compile or link error, a slow program at compile or at its
 // first draw, or a renderer that is not the backend asked for (docs/TESTING.md "Shader compile
 // check"). Needs no game content.
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -49,8 +49,9 @@ const EXIT_USAGE = 2;
 function usage(message) {
   console.error(`test:shaders: ${message}`);
   console.error(
-    'usage: npm run test:shaders -- [--angle=d3d11|metal|swiftshader] [--max-ms=N] [--max-total-ms=N] [--relink] [--json=path]\n' +
-      "  --max-ms bounds a program's compile and link, and separately its first draw; --max-total-ms their sum",
+    'usage: npm run test:shaders -- [--angle=d3d11|metal|swiftshader] [--max-ms=N] [--max-total-ms=N] [--relink] [--json=path] [--dump-translated=dir]\n' +
+      "  --max-ms bounds a program's compile and link, and separately its first draw; --max-total-ms their sum\n" +
+      "  --dump-translated writes each program's backend source (HLSL on d3d11) to dir",
   );
   process.exit(EXIT_USAGE);
 }
@@ -70,6 +71,9 @@ try {
       'max-ms': { type: 'string' },
       'max-total-ms': { type: 'string' },
       json: { type: 'string' },
+      // ANGLE's translated source per program, through WEBGL_debug_shaders: on Direct3D the HLSL that
+      // FXC compiles, where a flattened sampler chain shows.
+      'dump-translated': { type: 'string' },
       // Links every program a second time in another context, timing the browser's program cache.
       relink: { type: 'boolean', default: false },
     },
@@ -91,8 +95,10 @@ const maxTotalMs =
     : positiveNumber(parsed['max-total-ms'], 'max-total-ms');
 const hungCompileMs = maxMs * HUNG_COMPILE_FACTOR;
 // npm runs the script from the repository root; a relative path names the caller's directory.
-const jsonPath =
-  parsed.json === undefined ? undefined : resolve(process.env.INIT_CWD ?? process.cwd(), parsed.json);
+const callerPath = (path) =>
+  path === undefined ? undefined : resolve(process.env.INIT_CWD ?? process.cwd(), path);
+const jsonPath = callerPath(parsed.json);
+const translatedDir = callerPath(parsed['dump-translated']);
 
 function withTimeout(promise, ms, describeTimeout) {
   let timer;
@@ -196,6 +202,20 @@ function failuresOf(report) {
   return failures;
 }
 
+/** Writes and drops a program's translated stages; a browser without WEBGL_debug_shaders gives none. */
+async function writeTranslated(result) {
+  const { translated } = result;
+  delete result.translated;
+  if (result.status !== 'compiled') return;
+  if (translated === undefined) {
+    console.log(`${result.name}: no translated source (WEBGL_debug_shaders unavailable)`);
+    return;
+  }
+  const base = resolve(translatedDir, result.name.replaceAll('/', '__'));
+  await writeFile(`${base}.vert.txt`, translated.vertex);
+  await writeFile(`${base}.frag.txt`, translated.fragment);
+}
+
 async function probe(pageUrl, failures) {
   const browser = await chromium.launch({
     channel: 'chromium',
@@ -230,7 +250,10 @@ async function probe(pageUrl, failures) {
     for (const [index, name] of programNames.entries()) {
       try {
         const result = await withTimeout(
-          page.evaluate((at) => globalThis.shaderProbe.compile(at), index),
+          page.evaluate(
+            ([at, translate]) => globalThis.shaderProbe.compile(at, translate),
+            [index, translatedDir !== undefined],
+          ),
           hungCompileMs,
           () =>
             `${name} was still compiling or drawing after ${hungCompileMs} ms; ` +
@@ -244,6 +267,7 @@ async function probe(pageUrl, failures) {
           );
           result.relinkMs = again.ms;
         }
+        if (translatedDir !== undefined) await writeTranslated(result);
         report.programs.push(result);
         report.totalMs += programMs(result);
         if (result.contextLost) break;
@@ -262,6 +286,7 @@ async function probe(pageUrl, failures) {
   }
 }
 
+if (translatedDir !== undefined) await mkdir(translatedDir, { recursive: true });
 const dir = await mkdtemp(join(tmpdir(), 'on-shader-probe-'));
 const failures = [];
 let report = null;

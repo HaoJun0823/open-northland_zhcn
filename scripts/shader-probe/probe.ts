@@ -31,6 +31,9 @@ export interface CompiledProgram {
   readonly vertexLog: string;
   readonly fragmentLog: string;
   readonly programLog: string;
+  /** The backend's own source of each stage (HLSL on Direct3D), when asked for and the browser
+   *  exposes `WEBGL_debug_shaders`. */
+  readonly translated?: { readonly vertex: string; readonly fragment: string };
 }
 
 /** The fragment stage declares more samplers than the device has units: the game never compiles that
@@ -194,6 +197,7 @@ function compileAndLink(
   vertex: string,
   fragment: string,
   draw: boolean,
+  translate = false,
 ): CompiledProgram {
   const start = performance.now();
   const vertexShader = shader(gl, gl.VERTEX_SHADER, vertex);
@@ -205,6 +209,7 @@ function compileAndLink(
   const linked = gl.getProgramParameter(program, gl.LINK_STATUS) === true;
   const ms = performance.now() - start;
   const drawn = linked && draw ? firstDraw(gl, program) : null;
+  const debugShaders = translate ? gl.getExtension('WEBGL_debug_shaders') : null;
   const result: CompiledProgram = {
     status: 'compiled',
     name,
@@ -216,6 +221,14 @@ function compileAndLink(
     vertexLog: gl.getShaderInfoLog(vertexShader) ?? '',
     fragmentLog: gl.getShaderInfoLog(fragmentShader) ?? '',
     programLog: gl.getProgramInfoLog(program) ?? '',
+    ...(debugShaders === null
+      ? {}
+      : {
+          translated: {
+            vertex: debugShaders.getTranslatedShaderSource(vertexShader),
+            fragment: debugShaders.getTranslatedShaderSource(fragmentShader),
+          },
+        }),
   };
   gl.deleteProgram(program);
   gl.deleteShader(vertexShader);
@@ -260,6 +273,7 @@ function compileIn(
   context: WebGL2RenderingContext,
   index: number,
   draw: boolean,
+  translate = false,
 ): CompiledProgram | SkippedProgram {
   const entry = catalogue[index];
   if (entry === undefined) throw new Error(`no catalogue entry ${index}`);
@@ -268,11 +282,12 @@ function compileIn(
   const textureUnits = declaredSamplers(fragment);
   if (textureUnits > context.getParameter(context.MAX_TEXTURE_IMAGE_UNITS))
     return { status: 'skipped', name: entry.name, ms: 0, textureUnits };
-  return compileAndLink(context, entry.name, vertex, fragment, draw);
+  return compileAndLink(context, entry.name, vertex, fragment, draw, translate);
 }
 
-function compile(index: number): CompiledProgram | SkippedProgram {
-  return compileIn(gl(), index, true);
+/** `translate` returns the backend's translated source beside the timings. */
+function compile(index: number, translate: boolean): CompiledProgram | SkippedProgram {
+  return compileIn(gl(), index, true, translate);
 }
 
 /** Links entry `index` again in a second context, without a draw: fast where the browser's program

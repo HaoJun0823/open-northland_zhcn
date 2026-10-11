@@ -193,11 +193,15 @@ through the CI workflow's manual `shaders` checkbox. A Metal run catches compile
 links every program a second time in another context and prints that time beside the first: it
 measures the browser's program cache, which the game's shader warm-up (`gpu/shader-warmup.ts`) relies
 on to link the renderer's programs without a second compile, so CI passes it on Direct3D.
+`--dump-translated=<dir>` writes each program's source as the backend compiles it (HLSL on Direct3D,
+MSL on Metal) through `WEBGL_debug_shaders`, so a Windows run shows whether FXC got a sampler chain
+it must flatten.
 
 ```bash
 npm run test:shaders                              # d3d11 on Windows, metal on macOS, else swiftshader
 npm run test:shaders -- --angle=swiftshader --json=shaders.json
 npm run test:shaders -- --angle=d3d11 --relink    # second column: the cached relink
+npm run test:shaders -- --dump-translated=hlsl    # one .vert.txt and .frag.txt per program
 gh workflow run ci.yml --ref <branch> -f shaders=true
 ```
 

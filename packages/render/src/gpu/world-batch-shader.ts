@@ -179,12 +179,12 @@ bool hasFlag(int bit) {
   return (flags & bit) != 0;
 }
 
-// Direct3D's compiler cannot branch around a sample with implicit derivatives and may flatten this
-// chain into a sample from every slot, so each sample names its level of detail. No page drawn in mode
-// off carries mipmaps (the mipmapped building bakes need enhanced sampling), so level 0 there; the other
-// modes pass the fragment's own uv derivatives, which texture() would take for uv = vUV.
+// Mode off samples as Pixi's default batcher does, mipmaps included, so world art the fork ships with
+// mipmaps keeps them. The other modes sample off the viewport's edge of the frame and pass the
+// fragment's own uv derivatives explicitly: a sample with implicit derivatives inside this chain may
+// make Direct3D's compiler flatten it into a sample from every slot (unverified on that hardware).
 vec4 sampleTexture(vec2 uv) {
-${textureChain(maxTextures, 'vTextureId', (i) => (MODE_NAMES[mode] === 'off' ? `return textureLod(uTextures[${i}], uv, 0.0);` : `return textureGrad(uTextures[${i}], uv, uvDx, uvDy);`))}
+${textureChain(maxTextures, 'vTextureId', (i) => (MODE_NAMES[mode] === 'off' ? `return texture(uTextures[${i}], uv);` : `return textureGrad(uTextures[${i}], uv, uvDx, uvDy);`))}
 }
 
 ivec2 textureSizeOf() {
@@ -194,7 +194,7 @@ ${textureChain(maxTextures, 'vTextureId', (i) => `return textureSize(uTextures[$
 // Direct3D inlines every function into each branch it is called from, so the page is chosen once per
 // fragment and the one chain reads every tap; a tap-by-tap chain compiled for minutes there.
 void fetchTaps() {
-${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < TAP_COUNT; k++) { if (k == tapCount) break; taps[k] = texelFetch(uTextures[${i}], tapAt[k], 0); }`)}
+${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < TAP_COUNT; k++) { if (k < tapCount) taps[k] = texelFetch(uTextures[${i}], tapAt[k], 0); }`)}
 }
 
 // A paletted texel's red is its palette index, read exactly (an interpolated index names another colour).
@@ -204,8 +204,10 @@ vec3 paletteColour(float red) {
 
 void gatherTaps() {
   fetchTaps();
+  // A fixed trip count with a guarded body, so the compiler unrolls the loop and every taps index
+  // stays a constant; a data-dependent exit could leave the array runtime-indexed.
   for (int k = 0; k < TAP_COUNT; k++) {
-    if (k == tapCount) break;
+    if (k >= tapCount) continue;
     vec2 uv = (vec2(tapAt[k]) + 0.5) / texSize;
     if (any(lessThan(uv, vFrame.xy)) || any(greaterThanEqual(uv, vFrame.zw))) {
       taps[k] = vec4(0.0);

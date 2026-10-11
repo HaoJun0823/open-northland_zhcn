@@ -407,13 +407,18 @@ selected once from the greatest nearby building count, among the watched seat's 
 one is watched.
 
 Separate x3 windows write a CPU profile and allocation profile with summary tables and
-elapsed time, ticks and frame counts. CPU sampling runs with a GPU timer query around the main Pixi
-stage (world, HUD and weather)
-submission when the browser exposes `EXT_disjoint_timer_query_webgl2`; disjoint results are discarded.
+elapsed time, ticks and frame counts. CPU sampling runs with a GPU timer query around the stage
+render (`app.render()`: world, HUD and weather) when the browser exposes
+`EXT_disjoint_timer_query_webgl2`; disjoint results are discarded.
 GPU capture has its own tick/time boundaries, stops before output writes, and drains outstanding
 queries for at most twelve frames or two seconds, reporting discarded queries.
-That GPU diagnostic excludes subsequent portrait/inset draws and compositor work. An unavailable
-extension is reported explicitly. `perf().frame.gpuMs` is the RAF interval minus measured app CPU,
+That GPU diagnostic excludes the ground-wave lift map rendered just before the stage, the portrait
+and map-view insets after it, and compositor work. An unavailable extension is reported explicitly.
+The in-game FPS counter's GPU meter and `perf().gpu` time the same stage render plus that lift map, and
+the insets as a second query (`perf().gpu.insetMs`, included in `perf().gpu.ms`); both are null while
+the counter is off. Neither bracket holds the CPU work that prepares the frame, so the meter reads GPU
+execution of the WebGL commands, not Chrome's composite of the canvas and the DOM HUD.
+`perf().frame.gpuMs` is the RAF interval minus measured app CPU,
 including idle time, vsync and compositor work; it is not a GPU execution measurement. Diagnostic
 timings include instrumentation overhead and must not replace baseline measurements. Failures leave
 metadata and completed windows in the output directory before the browser closes.

@@ -113,6 +113,25 @@ describe('PerfReadingWindow', () => {
     expect(readOnce(window, {}).gpuMs).toBeNull();
   });
 
+  it('adds the insets to the stage, spread over every measured frame', () => {
+    const window = new PerfReadingWindow(WORKER);
+    window.recordGpu(2);
+    window.recordGpu(4);
+    // Only one of the two frames drew an inset.
+    window.recordInsetGpu(1);
+    const reading = readOnce(window, {});
+    expect(reading.insetGpuMs).toBeCloseTo(0.5);
+    expect(reading.gpuMs).toBeCloseTo(3.5);
+  });
+
+  it('reads no GPU time from insets alone', () => {
+    const window = new PerfReadingWindow(WORKER);
+    window.recordInsetGpu(1);
+    const reading = readOnce(window, {});
+    expect(reading.gpuMs).toBeNull();
+    expect(reading.insetGpuMs).toBeNull();
+  });
+
   it('shows the delivered speed only while a shortfall holds', () => {
     const window = new PerfReadingWindow(WORKER);
     expect(readOnce(window, { speed: 3 }, 2.4).deliveredSpeed).toBe(2.4);

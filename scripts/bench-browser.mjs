@@ -103,7 +103,7 @@ const metadata = {
     'No CPU calibration or idle-machine certification; compare OS load and repeat condition before interpreting timing.',
     'perf.frame CPU/draw fields are recent EMAs; RAF quantiles cover each whole measurement window.',
     'perf.frame.gpuMs is RAF interval minus app CPU, including idle/vsync/compositor; it is not measured GPU execution.',
-    'GPU diagnostic measures the main Pixi stage including world, HUD and weather with CPU sampling active; excludes later inset draws and compositor.',
+    'GPU diagnostic times app.render() (world, HUD and weather) with CPU sampling active; excludes the ground-wave lift map, inset draws and compositor.',
   ],
   reports: [],
   errors: [],

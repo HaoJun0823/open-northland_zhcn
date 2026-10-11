@@ -2,6 +2,7 @@ import type { WorldSnapshot } from '@open-northland/sim';
 import type { TextureSource } from 'pixi.js';
 import type { Camera } from '../../data/projection/index.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
+import type { GpuSpan } from '../gpu-frame-timer.js';
 import type {
   ConstructionSign,
   DoorBadge,
@@ -131,6 +132,17 @@ export interface WorldFrame {
   readonly lostGoals?: readonly LostGoalMarker[] | undefined;
   /** The refused goals' shared breathing phase, 0..1 and wrapping, off the app's wall clock (default 0). */
   readonly lostGoalPulse?: number | undefined;
+  /** Brackets for a GPU timer around the frame's renders alone, none of the CPU work that prepares them
+   *  (default untimed). */
+  readonly gpuTimers?: WorldGpuTimers | undefined;
+}
+
+/** Where {@link WorldFrame.gpuTimers} open and close. */
+export interface WorldGpuTimers {
+  /** The ground-wave lift map, when waves show, and the stage render: world, HUD layer and weather. */
+  readonly stage: GpuSpan;
+  /** The portrait inset and map view renders after the stage; opened only on a frame that has any. */
+  readonly insets: GpuSpan;
 }
 
 /**

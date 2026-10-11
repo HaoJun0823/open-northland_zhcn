@@ -5,6 +5,7 @@ import type { SpriteSheet, WorldRenderer } from '@open-northland/render';
 import { TICKS_PER_SECOND } from '@open-northland/sim';
 import type { FrameStats, FrameStatsReport } from '../../diag/frame-stats.js';
 import { heapMb } from '../../diag/heap.js';
+import type { PerfReading } from '../../diag/perf-reading.js';
 import type { SystemProfileRow } from '../../diag/system-profile.js';
 import { recordedTraceEvents, type TraceEvent } from '../../diag/trace.js';
 import type { ProfileSource, SessionHost } from '../../session/index.js';
@@ -26,6 +27,15 @@ export interface PerfSampling {
   readonly canvas: { readonly width: number; readonly height: number };
   /** Chrome-only JS heap in whole MB; null where the browser does not expose it. */
   readonly heapMb: number | null;
+}
+
+/** The GPU timer queries of the FPS counter's newest reading: measured GPU execution, unlike
+ *  `frame.gpuMs`. Null while the counter is off or where the browser gives no timer. */
+export interface PerfGpu {
+  /** Per frame: the ground-wave lift map and the stage render, then the insets. */
+  readonly ms: number | null;
+  /** The portrait inset and map view renders' share of `ms`. */
+  readonly insetMs: number | null;
 }
 
 export interface PerfReport {
@@ -89,6 +99,7 @@ export interface PerfReport {
   /** Per-system sim cost since the window opened; empty unless profiling. */
   readonly systems: readonly SystemProfileRow[];
   readonly sampling: PerfSampling;
+  readonly gpu: PerfGpu;
   /** The connection figures of a relayed session; absent in a local one. */
   readonly net?: NetReadout;
 }
@@ -130,6 +141,7 @@ export interface PerfReportInputs {
   readonly profiling: boolean;
   readonly systems: readonly SystemProfileRow[];
   readonly sampling: PerfSampling;
+  readonly gpu: PerfGpu;
   readonly net?: NetReadout | null;
 }
 
@@ -187,6 +199,7 @@ export function buildPerfReport(inputs: PerfReportInputs): PerfReport {
     profiling: inputs.profiling,
     systems: inputs.systems,
     sampling,
+    gpu: inputs.gpu,
     ...(inputs.net !== undefined && inputs.net !== null ? { net: inputs.net } : {}),
   };
 }
@@ -205,6 +218,12 @@ export interface DebugHandleDeps {
   readonly watchSeat: ((seat: number | null) => void) | null;
   /** The sound driver's live counts, or null when the session plays no sound. */
   readonly audioStats: () => SoundStatsView | null;
+  /** The FPS counter's newest reading, null while it is off. */
+  readonly perfReading: () => PerfReading | null;
+}
+
+function perfGpu(reading: PerfReading | null): PerfGpu {
+  return { ms: reading?.gpuMs ?? null, insetMs: reading?.insetGpuMs ?? null };
 }
 
 export function installDebugHandle(deps: DebugHandleDeps): void {
@@ -231,6 +250,7 @@ export function installDebugHandle(deps: DebugHandleDeps): void {
         droppedTicksTotal: deps.driver.droppedTicks,
         profiling: deps.profile !== null,
         sampling: sampling(),
+        gpu: perfGpu(deps.perfReading()),
         net: deps.netReadout(),
       };
       return buildPerfReport({ ...inputs, systems: (await deps.profile?.rows()) ?? [] });

@@ -1176,6 +1176,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       profile,
       watchSeat: switchableSeat === null ? null : (seat) => switchableSeat.watch(seat),
       audioStats: () => soundDriver?.stats ?? null,
+      perfReading: perfReadout.lastReading,
     });
 
     const autosave = createAutosave(

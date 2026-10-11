@@ -1,13 +1,17 @@
 import type { Application } from 'pixi.js';
 
+/** A bracket around GL commands to be timed; WebGL allows one open at a time. */
+export interface GpuSpan {
+  begin(): void;
+  end(): void;
+}
+
 /**
  * GPU execution time of the commands issued between `begin` and `end`, read through WebGL2's
  * `EXT_disjoint_timer_query_webgl2`. A result lands a few frames after its frame; a frame that finds
  * every query still in flight goes unmeasured rather than stalling on the GPU.
  */
-export interface GpuFrameTimer {
-  begin(): void;
-  end(): void;
+export interface GpuFrameTimer extends GpuSpan {
   /** Hands each landed measurement, in ms, to `take`, oldest first. */
   drain(take: (ms: number) => void): void;
   dispose(): void;
@@ -66,12 +70,18 @@ export function createGpuFrameTimer(app: Application): GpuFrameTimer | null {
       open = null;
     },
     drain(take): void {
-      // A disjoint event (power state change, context switch) voids every result in flight.
-      if (gl.getParameter(ext.GPU_DISJOINT_EXT) === true) voided = inFlight.length;
+      let disjointRead = false;
       while (inFlight.length > 0) {
         const query = inFlight[0];
         if (query === undefined) break;
         if (gl.getQueryParameter(query, gl.QUERY_RESULT_AVAILABLE) !== true) break;
+        // Read only once a result is to be taken, so a frame with none to take skips the getter; the
+        // flag holds any disjoint event (power state change, context switch) since the last read, and
+        // such an event voids every result in flight.
+        if (!disjointRead) {
+          disjointRead = true;
+          if (gl.getParameter(ext.GPU_DISJOINT_EXT) === true) voided = inFlight.length;
+        }
         inFlight.shift();
         idle.push(query);
         const ns: unknown = gl.getQueryParameter(query, gl.QUERY_RESULT);

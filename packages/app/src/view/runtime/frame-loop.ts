@@ -360,7 +360,6 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     const doorBadges = doorBadgesFor(snap, markViewport);
     const lifeHearts = lifeHeartsFor(snap, markViewport);
     const world0 = performance.now();
-    perfReadout.beginGpu();
     renderer.update({
       snapshot: snap,
       camera: drawnCamera,
@@ -379,8 +378,8 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       orderMarkers: controls.orderMarkers(),
       lostGoals,
       lostGoalPulse: lostGoalPulse(nowMs),
+      gpuTimers: perfReadout.gpuTimers(),
     });
-    perfReadout.endGpu();
     const worldMs = performance.now() - world0;
     loop.mapOverlay?.update(snap, drawnCamera, app.screen, loop.viewer.seat(), fogView);
     controls.refreshCursor(snap);

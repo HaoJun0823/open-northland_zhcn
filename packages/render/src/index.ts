@@ -156,7 +156,7 @@ export {
   type GalleryDirection,
   type GalleryPalette,
 } from './gpu/gallery/index.js';
-export { createGpuFrameTimer, type GpuFrameTimer } from './gpu/gpu-frame-timer.js';
+export { createGpuFrameTimer, type GpuFrameTimer, type GpuSpan } from './gpu/gpu-frame-timer.js';
 export type { GroundWave } from './gpu/ground-waves/index.js';
 export { type HumanArmorPalettes, HumanPaletteLut } from './gpu/human-palette-lut.js';
 export {
@@ -282,6 +282,7 @@ export {
   SPRITE_CULL_MARGIN,
   type WorldEnhancements,
   type WorldFrame,
+  type WorldGpuTimers,
   WorldRenderer,
   type WorldRendererOptions,
 } from './gpu/world-renderer/index.js';

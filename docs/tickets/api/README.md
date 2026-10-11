@@ -10,11 +10,14 @@ Order and dependencies:
 
 1. Share the map conversion between pipeline, API and app (done: `packages/formats`, `packages/map-import`)
 2. Serve the culturesnation catalogue from our own API (done: `packages/api`, `/v1/catalog`)
-3. [Convert catalogue archives on the server and serve the sidecars](archive-conversion-service.md)
+3. Convert catalogue archives on the server and serve the sidecars (done; remaining:
+   [briefing pictures and worker threads](archive-conversion-service.md))
 4. [Ship the API as its own image](deploy-image.md) (parallel to 2 and 3)
-5. [Browse, download and play catalogue maps in the client](../features/map-catalogue-client.md)
-6. [Load a map from the player's own file](../features/map-catalogue-local-files.md)
-7. [Curate, correct and translate catalogue maps](../features/map-catalogue-curation.md)
+5. First client: browse, download and play catalogue maps (done)
+6. [Keyword categories, map dimensions, gzip-only store](catalogue-metadata.md)
+7. [Rework the catalogue into a browsing view of its own](../features/map-catalogue-client.md)
+8. [Load a map from the player's own file](../features/map-catalogue-local-files.md)
+9. [Curate, correct and translate catalogue maps](../features/map-catalogue-curation.md)
 
 Decisions these tickets build on:
 
@@ -30,6 +33,12 @@ Decisions these tickets build on:
 - Public read-only endpoints answer every origin (`Access-Control-Allow-Origin: *`), which covers the
   web app, a local Vite server and the Electron `app://` origin without a proxy. Endpoints that need a
   caller identity, when they come, get their own policy.
+- The server converts the whole catalogue ahead of requests and keeps the result on its volume: the
+  browsing view sorts and filters on conversion results (players, languages, size, verdict), and the
+  whole catalogue is about 564 MB of archives and 121 MB of gzip sidecars. Nothing is converted on a
+  player's request. The volume outlives deploys; no database holds the cache.
+- The catalogue is our own view of the maps, not a mirror of the upstream site: our sorting,
+  filters, descriptions and states, in the reworked menu style.
 - Hosting other authors' maps in converted form is accepted by the owner; every served map names its
   author and links its catalogue page.
 - Names: default port `8790`, `ON_API_URL` in the app (default `https://api.opennorthland.org`),

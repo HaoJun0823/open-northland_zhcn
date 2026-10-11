@@ -10,8 +10,8 @@ export async function portableSplash(logo) {
     <rect x="1" y="1" width="638" height="398" fill="none" stroke="#68583c"/>
     <path d="M240 301 H400" stroke="#b79a62"/>
     <g text-anchor="middle" font-family="sans-serif">
-      <text x="320" y="334" font-size="20" fill="#f0e6d2">Przygotowywanie plików gry…</text>
-      <text x="320" y="364" font-size="16" fill="#b9b7b0">Preparing game files… / Proszę czekać · Please wait</text>
+      <text x="320" y="334" font-size="20" fill="#f0e6d2">Preparing game files…</text>
+      <text x="320" y="364" font-size="16" fill="#b9b7b0">Please wait</text>
     </g>
   </svg>`);
   const { data, info } = await sharp(card)

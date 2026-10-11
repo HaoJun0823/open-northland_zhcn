@@ -99,7 +99,7 @@ export function removeVehiclesOf(
 }
 
 /** Whether a settler can stand at `point`: on the map and walkable, which excludes open water. */
-function isLand(ctx: SystemContext, point: HalfCellNode): boolean {
+export function isLand(ctx: SystemContext, point: HalfCellNode): boolean {
   const terrain = ctx.terrain;
   if (terrain === undefined) return true; // a mapless sim has no sea to drown in
   return terrain.inBounds(point.hx, point.hy) && terrain.isWalkable(terrain.nodeAt(point.hx, point.hy));

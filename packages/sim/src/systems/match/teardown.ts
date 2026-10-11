@@ -9,7 +9,6 @@ import {
 } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import type { HalfCellNode } from '../../nav/halfcell.js';
 import type { SystemContext } from '../context.js';
 import { removeBuildingSilently } from '../lifecycle/cleanup.js';
 import { removeSettlerSilently } from '../lifecycle/death.js';
@@ -17,7 +16,7 @@ import { entityPoint } from '../missions/targets.js';
 import { clearNavState } from '../movement/nav-state.js';
 import { razeSignpost } from '../signposts/placement.js';
 import { spawnAnimalHerd } from '../spawn/animals.js';
-import { removeVehiclesOf } from '../vehicles/remove.js';
+import { isLand, removeVehiclesOf } from '../vehicles/remove.js';
 
 /** The creature left where each of the loser's humans stood: the `chicken` tribe's adult. */
 const LOSER_CHICKEN_TRIBE_SLUG = 'chicken';
@@ -72,11 +71,4 @@ function turnWild(world: World, e: Entity): void {
     walking = true;
   }
   if (walking) clearNavState(world, e);
-}
-
-/** Whether a human at `point` stood on land: on the map and walkable, which excludes open water. */
-function isLand(ctx: SystemContext, point: HalfCellNode): boolean {
-  const terrain = ctx.terrain;
-  if (terrain === undefined) return true; // a mapless sim has no sea
-  return terrain.inBounds(point.hx, point.hy) && terrain.isWalkable(terrain.nodeAt(point.hx, point.hy));
 }

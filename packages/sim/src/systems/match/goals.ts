@@ -2,6 +2,7 @@ import {
   Building,
   deadPlayerBits,
   Female,
+  goalsMatchVictory,
   isValidPlayer,
   lostByScriptBits,
   type MatchGoal,
@@ -151,6 +152,7 @@ export function matchGoalProgress(
   ctx: ContentContext,
   player: number,
 ): readonly MatchGoalProgress[] {
+  if (!goalsMatchVictory(world)) return [];
   let progress = progressByWorld.get(world);
   if (progress === undefined) {
     const table = matchGoalTable(world);

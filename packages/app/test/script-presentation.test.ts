@@ -3,12 +3,14 @@ import { halfCellToScreen } from '@open-northland/render';
 import type {
   Entity,
   InfoLineView,
+  MatchGoalProgress,
   MissionPresentationView,
   SimEvent,
   WorldSnapshot,
 } from '@open-northland/sim';
 import { ONE } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
+import { messages } from '../src/i18n/index.js';
 import type { GameToolPanelHandle } from '../src/view/game-tool-panel.js';
 import { createScriptPresentation } from '../src/view/runtime/script-presentation.js';
 import type { ScriptEffects } from '../src/view/script-effects.js';
@@ -22,6 +24,7 @@ import type { WeatherFeed } from '../src/view/weather-feed.js';
  */
 
 const HERO = 3 as Entity;
+const WOOD = 5;
 const HERO_NODE = { hx: 11, hy: 10 };
 const CAMERA: Camera = { offsetX: 0, offsetY: 0, scale: 1 };
 const SCREEN = { width: 800, height: 600 };
@@ -43,6 +46,7 @@ function harness(
   seat: () => number | null = () => 0,
   showBriefings = true,
   keepPlayingAfterResult = () => false,
+  goalProgress: readonly MatchGoalProgress[] = [],
 ) {
   const calls: string[] = [];
   const infoLines: (readonly string[])[] = [];
@@ -54,7 +58,7 @@ function harness(
     },
     snapshot: () => snapshotAt(tick),
     infoLines: (player: number) => Promise.resolve(lines.filter((line) => line.index === player)),
-    matchGoalProgress: () => Promise.resolve([]),
+    matchGoalProgress: () => Promise.resolve(goalProgress),
     missionPresentation: () => Promise.resolve(saved),
     missionStatus: () => [],
   };
@@ -97,7 +101,7 @@ function harness(
     effects,
     weather,
     mapText: (id) => (id === 7 ? 'Held: %d of %d' : undefined),
-    goodLabel: () => undefined,
+    goodLabel: (typeId) => (typeId === WOOD ? 'Wood' : undefined),
     now: () => 0,
     exit: () => calls.push('exit'),
   });
@@ -187,6 +191,20 @@ describe('createScriptPresentation', () => {
     await landed();
     presentation.frame(snapshotAt(24), CAMERA, 0);
     expect(infoLines.at(-1)).toEqual(['Held: 2 of 4']);
+  });
+
+  it('appends the goal table rows after the map lines', async () => {
+    const lines: InfoLineView[] = [{ index: 0, stringId: 7, count: 1, extra: 4 }];
+    const progress: MatchGoalProgress[] = [
+      { kind: 'goods', good: WOOD, have: 12, need: 50 },
+      { kind: 'inhabitants', soldiers: true, have: 3, need: 10 },
+    ];
+    const { presentation, infoLines } = harness(lines, undefined, undefined, true, undefined, progress);
+    presentation.frame(snapshotAt(0), CAMERA, 0);
+    await landed();
+    presentation.frame(snapshotAt(0), CAMERA, 0);
+    const hud = messages().hud;
+    expect(infoLines.at(-1)).toEqual(['Held: 1 of 4', 'Wood 12/50', `${hud.matchGoalSoldiers} 3/10`]);
   });
 
   it('re-reads the lines at once when the watched seat changes, and shows none for no seat', async () => {

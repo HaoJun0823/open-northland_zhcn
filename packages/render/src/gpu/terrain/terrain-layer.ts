@@ -246,10 +246,12 @@ export class TerrainLayer {
     this.coverUniforms.update();
   }
 
-  /** The puddles' rain rings run on this clock; a dry frame after a dry frame writes nothing. */
+  /** The puddles' rain rings run on this clock; a dry frame after a dry frame, or a paused frame,
+   *  writes nothing. */
   setWeatherCoverClock(gameSeconds: number, rainFalling: number): void {
     const clock = this.coverUniforms.uniforms.uCoverClock;
     if (rainFalling === 0 && clock[1] === 0) return;
+    if (clock[0] === Math.fround(gameSeconds) && clock[1] === Math.fround(rainFalling)) return;
     clock[0] = gameSeconds;
     clock[1] = rainFalling;
     this.coverUniforms.update();

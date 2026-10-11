@@ -110,8 +110,6 @@ export class WorldRenderer {
   private elevation: ElevationField = makeElevationField(undefined, 0, 0);
   private readonly portrait: PortraitInsetLayer;
   private readonly mapViews: MapViewLayer;
-  private portraitCount = 0;
-  private mapViewCount = 0;
 
   private readonly viewSmoothing: boolean;
   /** What the ground last drew of the road network. */
@@ -407,7 +405,7 @@ export class WorldRenderer {
       orderMarkers = NO_ORDER_MARKERS,
       lostGoals = NO_LOST_GOALS,
       lostGoalPulse = 0,
-      gpuTimers,
+      gpuTimer,
     } = frame;
     // Filtered sprites can move continuously; pixel snapping would reintroduce one-pixel pan/feet
     // jumps. Keep the old alignment only for the baseline nearest-sampled presentation.
@@ -508,7 +506,7 @@ export class WorldRenderer {
     this.pool.coverGroundPiles(this.marks.collapseGroundCover());
     this.chrome.resize(this.app.screen.width, this.app.screen.height);
     this.hud.draw(hud);
-    gpuTimers?.stage.begin();
+    gpuTimer?.begin();
     this.groundWaves.update(
       vp,
       camera,
@@ -518,10 +516,7 @@ export class WorldRenderer {
       this.enhancements.environmentMotion,
     );
     this.app.render();
-    gpuTimers?.stage.end();
     this.groundWaves.suspend(true);
-    const insetsTimer = this.portraitCount + this.mapViewCount > 0 ? gpuTimers?.insets : undefined;
-    insetsTimer?.begin();
     this.portrait.draw(camera, {
       toInset: (cam, iw, ih) => this.terrain.cull(cameraViewport(cam, iw, ih, this.elevation.maxLift)),
       restore: () => this.terrain.cull(vp),
@@ -552,7 +547,7 @@ export class WorldRenderer {
         backdrop: this.terrain.groundColour(),
       },
     );
-    insetsTimer?.end();
+    gpuTimer?.end();
     this.groundWaves.suspend(false);
   }
 
@@ -560,14 +555,12 @@ export class WorldRenderer {
    *  an empty list draws none. */
   setMapViews(views: readonly MapViewFrame[]): void {
     this.mapViews.set(views);
-    this.mapViewCount = views.length;
   }
 
   /** The portrait insets drawn after the main render this frame (the details panel's, a window's
    *  houses); an empty list draws none. */
   setPortraitInsets(frames: readonly PortraitInsetFrame[]): void {
     this.portrait.set(frames);
-    this.portraitCount = frames.length;
   }
 
   updatePlacementOverlay(frame: PlacementOverlayFrame | null): void {

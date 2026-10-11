@@ -378,7 +378,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       orderMarkers: controls.orderMarkers(),
       lostGoals,
       lostGoalPulse: lostGoalPulse(nowMs),
-      gpuTimers: perfReadout.gpuTimers(),
+      gpuTimer: perfReadout.gpuTimer(),
     });
     const worldMs = performance.now() - world0;
     loop.mapOverlay?.update(snap, drawnCamera, app.screen, loop.viewer.seat(), fogView);

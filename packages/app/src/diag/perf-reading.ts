@@ -41,11 +41,8 @@ export interface PerfReading {
   readonly simMsPerTick: number | null;
   /** The share of real time the sim needs to step the requested speed; null without a stepped tick. */
   readonly simLoad: number | null;
-  /** GPU time per frame, the stage and the insets after it; null where the browser gives no timer or
-   *  no stage measurement landed this window. */
+  /** GPU time per frame; null where the browser gives no timer or none landed this window. */
   readonly gpuMs: number | null;
-  /** The insets' share of `gpuMs`, averaged over every measured frame, those without insets too. */
-  readonly insetGpuMs: number | null;
   readonly requestedSpeed: number;
   /** Set while a sustained shortfall holds: the speed the clock actually delivers. */
   readonly deliveredSpeed: number | null;
@@ -99,22 +96,16 @@ export class PerfReadingWindow {
   private worstMs = 0;
   private gpuMs = 0;
   private gpuFrames = 0;
-  private insetGpuMs = 0;
   private readonly intervals = new Float64Array(WINDOW_FRAME_CAPACITY);
   /** Each recent window's low-quantile interval, newest last; their minimum is the refresh. */
   private readonly recentRefreshMs: number[] = [];
 
   constructor(private readonly context: PerfReadingContext) {}
 
-  /** One frame's stage measurement, whichever frame it belongs to: the window averages what landed in it. */
+  /** One GPU measurement, whichever frame it belongs to: the window averages what landed in it. */
   recordGpu(ms: number): void {
     this.gpuMs += ms;
     this.gpuFrames++;
-  }
-
-  /** One frame's inset measurement; a frame without insets takes none, so they divide by the stage's. */
-  recordInsetGpu(ms: number): void {
-    this.insetGpuMs += ms;
   }
 
   /**
@@ -159,7 +150,6 @@ export class PerfReadingWindow {
     this.worstMs = 0;
     this.gpuMs = 0;
     this.gpuFrames = 0;
-    this.insetGpuMs = 0;
   }
 
   private close(sample: FrameSample, shortfallSpeed: number | null): PerfReading {
@@ -169,8 +159,7 @@ export class PerfReadingWindow {
     const simMsPerTick = this.steps === 0 ? null : this.simMs / this.steps;
     const ticksPerSecond = TICKS_PER_SECOND * sample.speed;
     const simLoad = simMsPerTick === null ? null : (simMsPerTick * ticksPerSecond) / MS_PER_SECOND;
-    const insetGpuMs = this.gpuFrames === 0 ? null : this.insetGpuMs / this.gpuFrames;
-    const gpuMs = insetGpuMs === null ? null : this.gpuMs / this.gpuFrames + insetGpuMs;
+    const gpuMs = this.gpuFrames === 0 ? null : this.gpuMs / this.gpuFrames;
     const slowed = !sample.paused && shortfallSpeed !== null;
     const loads: VerdictLoads = {
       frameMs,
@@ -192,7 +181,6 @@ export class PerfReadingWindow {
       simMsPerTick,
       simLoad,
       gpuMs,
-      insetGpuMs,
       requestedSpeed: sample.speed,
       deliveredSpeed: slowed ? shortfallSpeed : null,
       worstMs: this.worstMs,

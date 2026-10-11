@@ -71,7 +71,6 @@ function inputs(overrides: Partial<PerfReportInputs> = {}): PerfReportInputs {
     gpu: {
       adapter: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)',
       ms: 3.5,
-      insetMs: 0.5,
     },
     ...overrides,
   };

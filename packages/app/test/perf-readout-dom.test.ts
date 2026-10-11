@@ -77,7 +77,7 @@ it('stands first in the bar once switched on, and follows a rebuilt bar after a 
   feedSecond(readout);
   expect(readout.lastReading()?.fps).toBeCloseTo(60);
   // Without WebGL there is nothing to time the renders with.
-  expect(readout.gpuTimers()).toBeUndefined();
+  expect(readout.gpuTimer()).toBeUndefined();
   expect(first.plane.querySelector('.on-bar')?.firstElementChild).toBe(lead);
   // The counter leads the debug corner, ahead of the tools' toggle mounted before it.
   expect(lead.firstElementChild?.classList.contains('on-perf')).toBe(true);

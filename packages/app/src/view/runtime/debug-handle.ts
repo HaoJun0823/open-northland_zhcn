@@ -29,15 +29,13 @@ export interface PerfSampling {
   readonly heapMb: number | null;
 }
 
-/** The GPU timer queries of the FPS counter's newest reading: measured GPU execution, unlike
- *  `frame.gpuMs`. Null while the counter is off or where the browser gives no timer. */
 export interface PerfGpu {
   /** The WebGL renderer string naming the adapter the browser draws on; null where it gives none. */
   readonly adapter: string | null;
-  /** Per frame: the ground-wave lift map and the stage render, then the insets. */
+  /** The FPS counter's newest GPU reading per frame, from the ground-wave lift map through the stage
+   *  render to the insets: measured GPU execution, unlike `frame.gpuMs`. Null while the counter is
+   *  off or where the browser gives no timer. */
   readonly ms: number | null;
-  /** The portrait inset and map view renders' share of `ms`. */
-  readonly insetMs: number | null;
 }
 
 export interface PerfReport {
@@ -226,7 +224,7 @@ export interface DebugHandleDeps {
 }
 
 function perfGpu(adapter: string | null, reading: PerfReading | null): PerfGpu {
-  return { adapter, ms: reading?.gpuMs ?? null, insetMs: reading?.insetGpuMs ?? null };
+  return { adapter, ms: reading?.gpuMs ?? null };
 }
 
 export function installDebugHandle(deps: DebugHandleDeps): void {

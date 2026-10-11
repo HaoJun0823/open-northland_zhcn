@@ -283,7 +283,6 @@ export {
   SPRITE_CULL_MARGIN,
   type WorldEnhancements,
   type WorldFrame,
-  type WorldGpuTimers,
   WorldRenderer,
   type WorldRendererOptions,
 } from './gpu/world-renderer/index.js';

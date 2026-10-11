@@ -414,11 +414,12 @@ GPU capture has its own tick/time boundaries, stops before output writes, and dr
 queries for at most twelve frames or two seconds, reporting discarded queries.
 That GPU diagnostic excludes the ground-wave lift map rendered just before the stage, the portrait
 and map-view insets after it, and compositor work. An unavailable extension is reported explicitly.
-The in-game FPS counter's GPU meter and `perf().gpu` time the same stage render plus that lift map, and
-the insets as a second query (`perf().gpu.insetMs`, included in `perf().gpu.ms`); both are null while
-the counter is off, and `perf().gpu.adapter` holds the WebGL renderer string. Neither bracket holds
-the CPU work that prepares the frame, so the meter reads GPU execution of the WebGL commands, not
-Chrome's composite of the canvas and the DOM HUD.
+The in-game FPS counter's GPU meter and `perf().gpu.ms` (null while the counter is off) time one span
+from that lift map through the stage render to the last inset. Separate short spans each count the
+GPU's idle time between submissions, so on Metal a portrait inset timed alone read about as long as
+the whole stage while adding well under a millisecond to the single span. `perf().gpu.adapter` holds
+the WebGL renderer string. Neither bracket holds the CPU work before the first render, so the meter
+reads GPU execution of the WebGL commands, not Chrome's composite of the canvas and the DOM HUD.
 `perf().frame.gpuMs` is the RAF interval minus measured app CPU,
 including idle time, vsync and compositor work; it is not a GPU execution measurement. Diagnostic
 timings include instrumentation overhead and must not replace baseline measurements. Failures leave

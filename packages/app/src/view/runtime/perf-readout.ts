@@ -1,4 +1,4 @@
-import { createGpuFrameTimer, type GpuFrameTimer, type WorldGpuTimers } from '@open-northland/render';
+import { createGpuFrameTimer, type GpuFrameTimer, type GpuSpan } from '@open-northland/render';
 import type { Application } from 'pixi.js';
 import type { FrameSample } from '../../diag/frame-stats.js';
 import { type PerfReading, type PerfReadingContext, PerfReadingWindow } from '../../diag/perf-reading.js';
@@ -7,8 +7,8 @@ import { createPerfReadoutView, type PerfReadoutView } from '../../hud/dom/perf-
 /** The player's frame-rate counter on the top bar, fed once a frame by the frame loop. */
 export interface PerfReadout {
   setShown(shown: boolean): void;
-  /** The brackets the world renderer times its renders with; undefined while nothing measures them. */
-  gpuTimers(): WorldGpuTimers | undefined;
+  /** The bracket the world renderer times its renders with; undefined while nothing measures them. */
+  gpuTimer(): GpuSpan | undefined;
   /** `shortfallSpeed` is the delivered speed while a sustained shortfall holds, else null. */
   record(sample: FrameSample, shortfallSpeed: number | null): void;
   /** The newest half-second reading while the counter shows, else null. */
@@ -31,7 +31,7 @@ const GRAPH_FRAMES = 120;
 
 /**
  * Measures whenever the counter shows, so its breakdown opens on a current reading rather than half a
- * second of nothing; the GPU timers cost two GL calls a frame for the stage and two for any insets.
+ * second of nothing; the GPU timer costs two GL calls a frame.
  */
 export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
   const readings = new PerfReadingWindow(deps.context);
@@ -43,9 +43,8 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
   let view: PerfReadoutView | null = null;
   let latest: PerfReading | null = null;
   // Built with the view; null where the browser gives no timer.
-  let gpu: { readonly stage: GpuFrameTimer; readonly insets: GpuFrameTimer } | null | undefined;
-  const takeStage = (ms: number): void => readings.recordGpu(ms);
-  const takeInsets = (ms: number): void => readings.recordInsetGpu(ms);
+  let gpu: GpuFrameTimer | null | undefined;
+  const takeGpu = (ms: number): void => readings.recordGpu(ms);
   const discardGpu = (): void => {};
 
   const setShown = (next: boolean): void => {
@@ -58,24 +57,22 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
     view ??= createPerfReadoutView(deps.adapter);
     // First in the lead, before the debug tools' toggle.
     deps.lead.prepend(view.element);
-    gpu ??= gpuTimersFor(deps.app);
+    gpu ??= createGpuFrameTimer(deps.app);
     // Measurements left in flight when the counter went off belong to another stretch of play.
-    gpu?.stage.drain(discardGpu);
-    gpu?.insets.drain(discardGpu);
+    gpu?.drain(discardGpu);
   };
   setShown(deps.initiallyShown);
 
   return {
     setShown,
-    gpuTimers(): WorldGpuTimers | undefined {
+    gpuTimer(): GpuSpan | undefined {
       return shown ? (gpu ?? undefined) : undefined;
     },
     record(sample, shortfallSpeed): void {
       if (!shown || view === null) return;
       newest = (newest + 1) % GRAPH_FRAMES;
       frameTimes[newest] = sample.elapsedMs;
-      gpu?.stage.drain(takeStage);
-      gpu?.insets.drain(takeInsets);
+      gpu?.drain(takeGpu);
       const reading = readings.record(sample, shortfallSpeed);
       if (reading === null) return;
       latest = reading;
@@ -85,19 +82,7 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
     lastReading: () => latest,
     dispose(): void {
       view?.element.remove();
-      gpu?.stage.dispose();
-      gpu?.insets.dispose();
+      gpu?.dispose();
     },
   };
-}
-
-function gpuTimersFor(app: Application): { stage: GpuFrameTimer; insets: GpuFrameTimer } | null {
-  const stage = createGpuFrameTimer(app);
-  const insets = createGpuFrameTimer(app);
-  if (stage === null || insets === null) {
-    stage?.dispose();
-    insets?.dispose();
-    return null;
-  }
-  return { stage, insets };
 }

@@ -1,11 +1,29 @@
 /**
- * GLSL for magnifying pixel art without blur, shared by the paletted-character shader and the world
- * batch shader. The host defines `MAGNIFY_FETCH(ivec2 px)` returning that texel as premultiplied RGBA
- * (transparent outside the current frame) before including this block. `p` is the sample point in
- * texel units and `texelsPerPixel` the screen-pixel footprint; both modes converge on bilinear as
- * texels reach pixel size.
+ * xBR's twelve texels around the judged corner, as `(dx, dy)` from the centre texel along the mirroring
+ * step `magnifyWindowStep` returns, named after Hyllian's description with the corner at the lower right.
+ * The order is the `XbrNeighbours` field order.
  */
-export const PIXEL_ART_MAGNIFY_GLSL = /* glsl */ `
+export const XBR_NEIGHBOURS = [
+  ['e', 0, 0],
+  ['f', 1, 0],
+  ['h', 0, 1],
+  ['i', 1, 1],
+  ['b', 0, -1],
+  ['c', 1, -1],
+  ['d', -1, 0],
+  ['g', -1, 1],
+  ['f4', 2, 0],
+  ['i4', 2, 1],
+  ['h5', 0, 2],
+  ['i5', 1, 2],
+] as const;
+
+/**
+ * The magnifiers' arithmetic, which reads no texel itself: a host that gathers its taps ahead of the
+ * magnifiers hands them in as values, so no tap is addressed at run time. `XBR_NEIGHBOURS_OF(TAP)` builds
+ * the neighbourhood from a host macro `TAP(dx, dy)` naming the texel at `centre + (dx, dy) * step`.
+ */
+export const PIXEL_ART_MAGNIFY_CORE_GLSL = /* glsl */ `
 /** Floor on the screen-pixel footprint, so a degenerate transform cannot divide by zero. */
 const float MIN_TEXELS_PER_PIXEL = 0.0001;
 /** Rec. 601 luma weights, the published grey the texel distance is measured in. */
@@ -21,23 +39,11 @@ const float XBR_CUT_DIAGONAL_GRADIENT = 1.4142;
 const float XBR_CUT_SHALLOW = 0.25;
 const float XBR_CUT_SHALLOW_GRADIENT = 1.118;
 
-// Blend of the texel at base with its right/down neighbours by weights f; weight 0 is base's centre.
-vec4 magnifyBlend(ivec2 base, vec2 f) {
-  return mix(mix(MAGNIFY_FETCH(base), MAGNIFY_FETCH(base + ivec2(1, 0)), f.x),
-             mix(MAGNIFY_FETCH(base + ivec2(0, 1)), MAGNIFY_FETCH(base + ivec2(1, 1)), f.x), f.y);
-}
-
-vec4 magnifyBilinear(vec2 p) {
-  vec2 q = p - 0.5;
-  return magnifyBlend(ivec2(floor(q)), fract(q));
-}
-
 // Nearest inside a texel, one screen pixel of blend across each texel boundary: crisp pixels that
-// no longer shimmer under subpixel placement.
-vec4 magnifySharp(vec2 p, float texelsPerPixel) {
+// no longer shimmer under subpixel placement. The weights of the 2x2 at floor(p - 0.5).
+vec2 magnifySharpWeights(vec2 p, float texelsPerPixel) {
   vec2 q = p - 0.5;
-  vec2 f = clamp((fract(q) - 0.5) / max(texelsPerPixel, MIN_TEXELS_PER_PIXEL) + 0.5, 0.0, 1.0);
-  return magnifyBlend(ivec2(floor(q)), f);
+  return clamp((fract(q) - 0.5) / max(texelsPerPixel, MIN_TEXELS_PER_PIXEL) + 0.5, 0.0, 1.0);
 }
 
 // Luma-weighted RGB plus alpha on premultiplied texels, so a silhouette against transparency is a
@@ -50,61 +56,79 @@ float magnifyDistance(vec4 a, vec4 b) {
 const float MAGNIFY_DISTINCT = 1.0 / 255.0; // two texels differ once any channel moves a level
 
 // The mirroring that puts the texel corner nearest the fragment at the lower right, so every tap
-// below reads the same way for all four corners. A host gathering the taps ahead of the magnifiers
-// lays its window out along the same step: centre - step is the window's first texel, and the
-// 4x4 window from there holds every texel xBR, sharp and bilinear read for this fragment.
+// below reads the same way for all four corners.
 ivec2 magnifyWindowStep(vec2 fp) {
   return ivec2(fp.x >= 0.5 ? 1 : -1, fp.y >= 0.5 ? 1 : -1);
 }
 
+struct XbrNeighbours {
+  vec4 ${XBR_NEIGHBOURS.map(([name]) => name).join(', ')};
+};
+#define XBR_NEIGHBOURS_OF(TAP) XbrNeighbours(${XBR_NEIGHBOURS.map(([, dx, dy]) => `TAP(${dx}, ${dy})`).join(', ')})
+
 // Edge-directed magnification after the published xBR rule set (Hyllian's 2011 algorithm; an
 // approximation, not an original-engine mechanism): a diagonal edge through a texel's corner is
 // redrawn as a straight cut at 45, ~27 or ~63 degrees, filled with the neighbour that continues
-// the edge. Only the corner nearest the fragment is judged; s mirrors that corner onto one
-// orientation so the 3x3 core plus its two outer taps read the same way for all four corners.
-vec4 magnifyXbr(vec2 p, float texelsPerPixel) {
-  ivec2 centre = ivec2(floor(p));
-  vec2 fp = fract(p);
-  ivec2 s = magnifyWindowStep(fp);
-  vec2 local = abs(fp - 0.5); // 0 at the texel centre, 0.5 at the judged corner
-  #define MAGNIFY_TAP(dx, dy) MAGNIFY_FETCH(centre + ivec2(dx, dy) * s)
-  vec4 e = MAGNIFY_TAP(0, 0);
-  vec4 f = MAGNIFY_TAP(1, 0);
-  vec4 h = MAGNIFY_TAP(0, 1);
-  vec4 i = MAGNIFY_TAP(1, 1);
-  vec4 b = MAGNIFY_TAP(0, -1);
-  vec4 c = MAGNIFY_TAP(1, -1);
-  vec4 d = MAGNIFY_TAP(-1, 0);
-  vec4 g = MAGNIFY_TAP(-1, 1);
-  vec4 f4 = MAGNIFY_TAP(2, 0);
-  vec4 i4 = MAGNIFY_TAP(2, 1);
-  vec4 h5 = MAGNIFY_TAP(0, 2);
-  vec4 i5 = MAGNIFY_TAP(1, 2);
-  #undef MAGNIFY_TAP
-  vec4 base = magnifySharp(p, texelsPerPixel);
-  float ef = magnifyDistance(e, f);
-  float eh = magnifyDistance(e, h);
+// the edge. Only the corner nearest the fragment is judged, from its neighbourhood n; base is the
+// sharp magnification kept where no edge runs.
+vec4 magnifyXbrCorner(XbrNeighbours n, vec4 base, vec2 p, float texelsPerPixel) {
+  vec2 local = abs(fract(p) - 0.5); // 0 at the texel centre, 0.5 at the judged corner
+  float ef = magnifyDistance(n.e, n.f);
+  float eh = magnifyDistance(n.e, n.h);
   if (ef < MAGNIFY_DISTINCT || eh < MAGNIFY_DISTINCT) return base;
   // The corner is an edge when the diagonal e-i is a stronger contrast than the diagonal f-h.
-  float along = magnifyDistance(e, c) + magnifyDistance(e, g) + magnifyDistance(i, h5)
-              + magnifyDistance(i, f4) + XBR_DIAGONAL_WEIGHT * magnifyDistance(h, f);
-  float across = magnifyDistance(h, d) + magnifyDistance(h, i5) + magnifyDistance(f, i4)
-               + magnifyDistance(f, b) + XBR_DIAGONAL_WEIGHT * magnifyDistance(e, i);
+  float along = magnifyDistance(n.e, n.c) + magnifyDistance(n.e, n.g) + magnifyDistance(n.i, n.h5)
+              + magnifyDistance(n.i, n.f4) + XBR_DIAGONAL_WEIGHT * magnifyDistance(n.h, n.f);
+  float across = magnifyDistance(n.h, n.d) + magnifyDistance(n.h, n.i5) + magnifyDistance(n.f, n.i4)
+               + magnifyDistance(n.f, n.b) + XBR_DIAGONAL_WEIGHT * magnifyDistance(n.e, n.i);
   if (along >= across) return base;
-  float fg = magnifyDistance(f, g);
-  float hc = magnifyDistance(h, c);
+  float fg = magnifyDistance(n.f, n.g);
+  float hc = magnifyDistance(n.h, n.c);
   // The 45 degree cut, plus the two shallower slopes taken when the edge continues past g or c.
   // Each blends over one screen pixel, carried as the half-width aa in texel units.
   float aa = 0.5 * texelsPerPixel;
   float diagonal = aa * XBR_CUT_DIAGONAL_GRADIENT;
   float shallow = aa * XBR_CUT_SHALLOW_GRADIENT;
   float cut = smoothstep(XBR_CUT_DIAGONAL - diagonal, XBR_CUT_DIAGONAL + diagonal, local.x + local.y);
-  if (XBR_SHOULDER_RATIO * fg <= hc && magnifyDistance(e, g) >= MAGNIFY_DISTINCT && magnifyDistance(d, g) >= MAGNIFY_DISTINCT) {
+  if (XBR_SHOULDER_RATIO * fg <= hc && magnifyDistance(n.e, n.g) >= MAGNIFY_DISTINCT && magnifyDistance(n.d, n.g) >= MAGNIFY_DISTINCT) {
     cut = max(cut, smoothstep(XBR_CUT_SHALLOW - shallow, XBR_CUT_SHALLOW + shallow, local.y + 0.5 * local.x));
   }
-  if (fg >= XBR_SHOULDER_RATIO * hc && magnifyDistance(e, c) >= MAGNIFY_DISTINCT && magnifyDistance(b, c) >= MAGNIFY_DISTINCT) {
+  if (fg >= XBR_SHOULDER_RATIO * hc && magnifyDistance(n.e, n.c) >= MAGNIFY_DISTINCT && magnifyDistance(n.b, n.c) >= MAGNIFY_DISTINCT) {
     cut = max(cut, smoothstep(XBR_CUT_SHALLOW - shallow, XBR_CUT_SHALLOW + shallow, local.x + 0.5 * local.y));
   }
-  return mix(base, ef <= eh ? f : h, cut);
+  return mix(base, ef <= eh ? n.f : n.h, cut);
+}
+`;
+
+/**
+ * GLSL for magnifying pixel art without blur, shared by the paletted-character and dismantle shaders.
+ * The host defines `MAGNIFY_FETCH(ivec2 px)` returning that texel as premultiplied RGBA (transparent
+ * outside the current frame) before including this block. `p` is the sample point in texel units and
+ * `texelsPerPixel` the screen-pixel footprint; both modes converge on bilinear as texels reach pixel
+ * size.
+ */
+export const PIXEL_ART_MAGNIFY_GLSL = /* glsl */ `${PIXEL_ART_MAGNIFY_CORE_GLSL}
+// Blend of the texel at base with its right/down neighbours by weights f; weight 0 is base's centre.
+vec4 magnifyBlend(ivec2 base, vec2 f) {
+  return mix(mix(MAGNIFY_FETCH(base), MAGNIFY_FETCH(base + ivec2(1, 0)), f.x),
+             mix(MAGNIFY_FETCH(base + ivec2(0, 1)), MAGNIFY_FETCH(base + ivec2(1, 1)), f.x), f.y);
+}
+
+vec4 magnifyBilinear(vec2 p) {
+  vec2 q = p - 0.5;
+  return magnifyBlend(ivec2(floor(q)), fract(q));
+}
+
+vec4 magnifySharp(vec2 p, float texelsPerPixel) {
+  return magnifyBlend(ivec2(floor(p - 0.5)), magnifySharpWeights(p, texelsPerPixel));
+}
+
+vec4 magnifyXbr(vec2 p, float texelsPerPixel) {
+  ivec2 centre = ivec2(floor(p));
+  ivec2 s = magnifyWindowStep(fract(p));
+  #define MAGNIFY_TAP(dx, dy) MAGNIFY_FETCH(centre + ivec2(dx, dy) * s)
+  XbrNeighbours n = XBR_NEIGHBOURS_OF(MAGNIFY_TAP);
+  #undef MAGNIFY_TAP
+  return magnifyXbrCorner(n, magnifySharp(p, texelsPerPixel), p, texelsPerPixel);
 }
 `;

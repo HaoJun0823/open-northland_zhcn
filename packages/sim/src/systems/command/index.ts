@@ -18,6 +18,7 @@ import { type Command, MAX_UNIT_MEMBER_ACTIONS, MAX_UNIT_ORDER_MEMBERS } from '.
 import type { World } from '../../ecs/world.js';
 import type { System, SystemContext } from '../context.js';
 import { forceFinishConstruction } from '../economy/construction.js';
+import { carriesFoodAmulet } from '../equipment/effects.js';
 import { setHouseholdGoodUse } from '../family/home-quality.js';
 import { razePalisade } from '../lifecycle/cleanup.js';
 import { payTribute } from '../missions/tributes.js';
@@ -137,6 +138,14 @@ function applyCommand(
   orders: VehicleOrderRoutes,
   origin?: AiOrderOrigin,
 ): void {
+  // Original behavior (not yet confirmed in a running game): a food amulet makes an eat order a no-op,
+  // including keeping its bearer's vehicle seat.
+  if (
+    command.kind === 'orderNeed' &&
+    command.need === 'hunger' &&
+    carriesFoodAmulet(world, ctx.content, command.entity)
+  )
+    return;
   // A Shift-clicked order waits behind the current one; an order that takes the settler at once drops
   // every order still waiting in its handler.
   if (isQueuedOrder(command) && queueBehindCurrentOrder(world, command, origin)) return;

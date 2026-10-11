@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   Chat,
+  Equipment,
   JobAssignment,
+  NeedOrder,
   Owner,
   PlayerOrder,
   Position,
@@ -18,6 +20,7 @@ import type { Entity } from '../../src/ecs/world.js';
 import {
   adminCommand,
   exportSaveGame,
+  fx,
   type HalfCellNode,
   halfCellMapFromCells,
   nodeOfPosition,
@@ -152,6 +155,31 @@ function boardOut(s: Simulation, vehicle: Entity, rider: Entity, limit = BOARD_T
 }
 
 describe('attachToVehicle', () => {
+  it('keeps a food-amulet commander aboard and travelling when ordered to eat', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, CART_DOOR.hx, CART_DOOR.hy);
+    s.world.add(scout, Equipment, {
+      boots: null,
+      tool: null,
+      weapon: null,
+      armor: null,
+      misc: [{ goodType: 23, degreeOfUse: fx.fromInt(0) }, null, null, null],
+    });
+    attach(s, scout, cart);
+    boardOut(s, cart, scout);
+    s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: cart, x: 4, y: 12 }));
+    s.step();
+    expect(s.world.get(cart, VehicleDrive).goal).toEqual({ hx: 4, hy: 12 });
+    s.enqueue(playerCommand(P0, { kind: 'orderNeed', entity: scout, need: 'hunger' }));
+    s.step();
+    expect(s.world.has(scout, Rider)).toBe(true);
+    expect(vehicleCommander(s.world.get(cart, Vehicle))).toBe(scout);
+    expect(seatOf(s, cart, scout)?.inside).toBe(true);
+    expect(s.world.get(cart, VehicleDrive).goal).toEqual({ hx: 4, hy: 12 });
+    expect(s.world.has(scout, NeedOrder)).toBe(false);
+  });
+
   it('seats an allowed trade in the commander slot and walks it in at the door, leaving its workplace', () => {
     const s = sim();
     const cart = spawn(s, HANDCART, 12, 6);

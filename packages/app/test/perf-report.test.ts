@@ -68,7 +68,11 @@ function inputs(overrides: Partial<PerfReportInputs> = {}): PerfReportInputs {
       canvas: { width: 1920, height: 1080 },
       heapMb: 512,
     },
-    gpu: { ms: 3.5, insetMs: 0.5 },
+    gpu: {
+      adapter: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)',
+      ms: 3.5,
+      insetMs: 0.5,
+    },
     ...overrides,
   };
 }

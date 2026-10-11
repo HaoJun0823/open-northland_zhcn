@@ -3,8 +3,9 @@ import type { PerfReading, PerfVerdict } from '../../diag/perf-reading.js';
 import { formatMessage, messages } from '../../i18n/index.js';
 
 /** The frame rate on the top bar, with a breakdown that opens on hover, focus or a click like the bar's
- *  other counters: a verdict, a load meter each for the sim, the main thread and the GPU, the recent
- *  frame times against the frame budget, and the game speed, frame times and memory as figures. */
+ *  other counters: a verdict, a load meter each for the sim, the main thread and the GPU with the
+ *  adapter's name under it, the recent frame times against the frame budget, and the game speed, frame
+ *  times and memory as figures. */
 export interface PerfReadoutView {
   readonly element: HTMLElement;
   /** `frameTimes` are the newest frame intervals in ms, oldest first; the view keeps the reference and
@@ -112,6 +113,26 @@ function showFigure(figure: Figure, text: string, health: Health | null): void {
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+/** ANGLE's renderer string, `ANGLE (vendor, device, backend)`. */
+const ANGLE_RENDERER = /^ANGLE \((.*)\)$/;
+const ANGLE_FIELD_SEPARATOR = ', ';
+/** The fields of an ANGLE renderer string: vendor, device and backend. */
+const ANGLE_FIELDS = 3;
+/** What ANGLE adds around the device's own name: Metal's prefix, the Direct3D PCI id and shader models. */
+const ANGLE_DEVICE_NOISE = [/^ANGLE \w+ Renderer: /, / \(0x[0-9a-f]+\)/i, / Direct3D.*$/];
+
+/** The device name from a WebGL renderer string, so the breakdown's line stays short; a string not
+ *  shaped like ANGLE's shows whole. */
+export function shortAdapterName(renderer: string): string {
+  const inner = ANGLE_RENDERER.exec(renderer)?.[1];
+  if (inner === undefined) return renderer;
+  const fields = inner.split(ANGLE_FIELD_SEPARATOR);
+  // A device name with a comma of its own leaves the device as everything between vendor and backend.
+  const device = fields.length >= ANGLE_FIELDS ? fields.slice(1, -1).join(ANGLE_FIELD_SEPARATOR) : inner;
+  const short = ANGLE_DEVICE_NOISE.reduce((name, noise) => name.replace(noise, ''), device).trim();
+  return short.length > 0 ? short : renderer;
+}
+
 /** One bar per frame, right-aligned so the newest frame stands at the right edge, in two paths split at
  *  the budget so a missed frame shows in its own colour. */
 function graphPaths(frameTimes: ArrayLike<number>, budgetMs: number): { within: string; over: string } {
@@ -129,7 +150,8 @@ function graphPaths(frameTimes: ArrayLike<number>, budgetMs: number): { within: 
   return { within, over };
 }
 
-export function createPerfReadoutView(): PerfReadoutView {
+/** `adapter` is the WebGL renderer string, null where the browser gives none. */
+export function createPerfReadoutView(adapter: string | null): PerfReadoutView {
   const copy = messages().performance.readout;
   const element = document.createElement('div');
   element.className = 'on-perf';
@@ -157,6 +179,13 @@ export function createPerfReadoutView(): PerfReadoutView {
   const sim = meterRow(copy.sim);
   const cpu = meterRow(copy.cpu);
   const gpu = meterRow(copy.gpu);
+  const adapterLine = document.createElement('p');
+  adapterLine.className = 'on-perf__adapter';
+  adapterLine.hidden = adapter === null;
+  if (adapter !== null) {
+    adapterLine.textContent = shortAdapterName(adapter);
+    adapterLine.title = adapter;
+  }
   const graph = document.createElementNS(SVG_NS, 'svg');
   graph.setAttribute('class', 'on-perf__graph');
   graph.setAttribute('viewBox', `0 0 ${GRAPH_W} ${GRAPH_H}`);
@@ -177,7 +206,7 @@ export function createPerfReadoutView(): PerfReadoutView {
   const worst = figureRow(copy.worst);
   const memory = figureRow(copy.memory);
   figures.append(speed.row, frame.row, worst.row, memory.row);
-  tip.append(verdict, hint, sim.row, cpu.row, gpu.row, graph, figures);
+  tip.append(verdict, hint, sim.row, cpu.row, gpu.row, adapterLine, graph, figures);
   element.append(button, tip);
 
   const ms = (value: number): string => formatMessage(copy.ms, { value: decimal(value) });

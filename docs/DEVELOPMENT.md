@@ -416,8 +416,9 @@ That GPU diagnostic excludes the ground-wave lift map rendered just before the s
 and map-view insets after it, and compositor work. An unavailable extension is reported explicitly.
 The in-game FPS counter's GPU meter and `perf().gpu` time the same stage render plus that lift map, and
 the insets as a second query (`perf().gpu.insetMs`, included in `perf().gpu.ms`); both are null while
-the counter is off. Neither bracket holds the CPU work that prepares the frame, so the meter reads GPU
-execution of the WebGL commands, not Chrome's composite of the canvas and the DOM HUD.
+the counter is off, and `perf().gpu.adapter` holds the WebGL renderer string. Neither bracket holds
+the CPU work that prepares the frame, so the meter reads GPU execution of the WebGL commands, not
+Chrome's composite of the canvas and the DOM HUD.
 `perf().frame.gpuMs` is the RAF interval minus measured app CPU,
 including idle time, vsync and compositor work; it is not a GPU execution measurement. Diagnostic
 timings include instrumentation overhead and must not replace baseline measurements. Failures leave
@@ -619,9 +620,9 @@ installers under `packages/desktop/release/`, so the packaged game plays without
 player's machine.
 
 The shell asks Chromium for the discrete GPU and logs a `GPU:` line at start naming each adapter and
-the active one. On a Windows dual-GPU
-laptop that still draws on the integrated GPU, set the game's executable to "High performance" under
-Settings > System > Display > Graphics.
+the active one; the FPS counter's breakdown and `perf().gpu.adapter` name the adapter WebGL draws on.
+On a Windows dual-GPU laptop that still draws on the integrated GPU, set the game's executable to
+"High performance" under Settings > System > Display > Graphics.
 
 ## Brand assets
 

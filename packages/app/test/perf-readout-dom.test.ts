@@ -2,6 +2,7 @@
 import type { Application } from 'pixi.js';
 import { afterEach, expect, it } from 'vitest';
 import type { FrameSample } from '../src/diag/frame-stats.js';
+import { shortAdapterName } from '../src/hud/dom/perf-readout.js';
 import { createHudSystemBar, type HudSystemBar } from '../src/hud/dom/system-bar.js';
 import { messages } from '../src/i18n/index.js';
 import { mountPerfReadout } from '../src/view/runtime/perf-readout.js';
@@ -47,6 +48,8 @@ const frame: FrameSample = {
   worldMs: 1,
 };
 
+const METAL_M2 = 'ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Pro, Unspecified Version)';
+
 /** A renderer without WebGL, so the GPU row has no timer. */
 const app = { renderer: {} } as unknown as Application;
 
@@ -63,6 +66,7 @@ it('stands first in the bar once switched on, and follows a rebuilt bar after a 
     app,
     context: { capFps: null, simOnMainThread: false, sharedClock: false },
     initiallyShown: false,
+    adapter: null,
     lead,
   });
   feedSecond(readout);
@@ -97,6 +101,7 @@ it('opens the breakdown on hover with the latest reading and closes it on leave'
     app,
     context: { capFps: null, simOnMainThread: false, sharedClock: false },
     initiallyShown: true,
+    adapter: METAL_M2,
     lead,
   });
   feedSecond(readout);
@@ -111,6 +116,9 @@ it('opens the breakdown on hover with the latest reading and closes it on leave'
     copy.verdicts.display.replace('{hz}', '60'),
   );
   expect(plane.querySelectorAll('.on-perf__row b')[2]?.textContent).toBe(copy.notMeasured);
+  const adapterLine = plane.querySelector<HTMLElement>('.on-perf__adapter');
+  expect(adapterLine?.textContent).toBe('Apple M2 Pro');
+  expect(adapterLine?.title).toBe(METAL_M2);
   const figures = [...plane.querySelectorAll('.on-perf__figure')].map((row) => row.textContent);
   expect(figures[0]).toBe(`${copy.speed}${copy.speedValue.replace('{speed}', '1')}`);
   expect(figures[2]).toBe(`${copy.worst}${copy.ms.replace('{value}', '17')}`);
@@ -118,4 +126,15 @@ it('opens the breakdown on hover with the latest reading and closes it on leave'
   counter?.dispatchEvent(new MouseEvent('mouseleave'));
   expect(tip?.hidden).toBe(true);
   readout.dispose();
+});
+
+it('shortens ANGLE renderer strings to the device name', () => {
+  expect(shortAdapterName(METAL_M2)).toBe('Apple M2 Pro');
+  expect(
+    shortAdapterName('ANGLE (NVIDIA, NVIDIA GeForce GTX 1650 (0x00001F91) Direct3D11 vs_5_0 ps_5_0, D3D11)'),
+  ).toBe('NVIDIA GeForce GTX 1650');
+  expect(
+    shortAdapterName('ANGLE (Intel, Intel(R) UHD Graphics 630 (0x00003E9B) Direct3D11 vs_5_0 ps_5_0, D3D11)'),
+  ).toBe('Intel(R) UHD Graphics 630');
+  expect(shortAdapterName('WebKit WebGL')).toBe('WebKit WebGL');
 });

@@ -9,7 +9,13 @@ import type {
   SpriteSheet,
   WorldRenderer,
 } from '@open-northland/render';
-import { fogTileVisible, mapObjectBounds, mapObjectPixelHit, projectNode } from '@open-northland/render';
+import {
+  fogTileVisible,
+  gpuAdapterName,
+  mapObjectBounds,
+  mapObjectPixelHit,
+  projectNode,
+} from '@open-northland/render';
 import {
   adminCommand,
   type Command,
@@ -701,8 +707,10 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     });
 
     cleanup.push(() => toolPanel.dispose());
+    const gpuAdapter = gpuAdapterName(app);
     const perfReadout = mountPerfReadout({
       app,
+      adapter: gpuAdapter,
       context: {
         capFps: storedSettings.fpsLimit,
         simOnMainThread: deps.offThreadTickCost === undefined,
@@ -1177,6 +1185,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       watchSeat: switchableSeat === null ? null : (seat) => switchableSeat.watch(seat),
       audioStats: () => soundDriver?.stats ?? null,
       perfReading: perfReadout.lastReading,
+      gpuAdapter,
     });
 
     const autosave = createAutosave(

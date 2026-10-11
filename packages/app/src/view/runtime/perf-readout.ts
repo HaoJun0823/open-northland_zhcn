@@ -20,6 +20,8 @@ export interface PerfReadoutDeps {
   readonly app: Application;
   readonly context: PerfReadingContext;
   readonly initiallyShown: boolean;
+  /** The WebGL renderer string naming the GPU, null where the browser gives none. */
+  readonly adapter: string | null;
   /** The system bar's lead node, which the counter stands in while shown. */
   readonly lead: HTMLElement;
 }
@@ -53,7 +55,7 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
       view?.element.remove();
       return;
     }
-    view ??= createPerfReadoutView();
+    view ??= createPerfReadoutView(deps.adapter);
     // First in the lead, before the debug tools' toggle.
     deps.lead.prepend(view.element);
     gpu ??= gpuTimersFor(deps.app);

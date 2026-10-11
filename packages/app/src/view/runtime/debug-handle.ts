@@ -32,6 +32,8 @@ export interface PerfSampling {
 /** The GPU timer queries of the FPS counter's newest reading: measured GPU execution, unlike
  *  `frame.gpuMs`. Null while the counter is off or where the browser gives no timer. */
 export interface PerfGpu {
+  /** The WebGL renderer string naming the adapter the browser draws on; null where it gives none. */
+  readonly adapter: string | null;
   /** Per frame: the ground-wave lift map and the stage render, then the insets. */
   readonly ms: number | null;
   /** The portrait inset and map view renders' share of `ms`. */
@@ -220,10 +222,11 @@ export interface DebugHandleDeps {
   readonly audioStats: () => SoundStatsView | null;
   /** The FPS counter's newest reading, null while it is off. */
   readonly perfReading: () => PerfReading | null;
+  readonly gpuAdapter: string | null;
 }
 
-function perfGpu(reading: PerfReading | null): PerfGpu {
-  return { ms: reading?.gpuMs ?? null, insetMs: reading?.insetGpuMs ?? null };
+function perfGpu(adapter: string | null, reading: PerfReading | null): PerfGpu {
+  return { adapter, ms: reading?.gpuMs ?? null, insetMs: reading?.insetGpuMs ?? null };
 }
 
 export function installDebugHandle(deps: DebugHandleDeps): void {
@@ -250,7 +253,7 @@ export function installDebugHandle(deps: DebugHandleDeps): void {
         droppedTicksTotal: deps.driver.droppedTicks,
         profiling: deps.profile !== null,
         sampling: sampling(),
-        gpu: perfGpu(deps.perfReading()),
+        gpu: perfGpu(deps.gpuAdapter, deps.perfReading()),
         net: deps.netReadout(),
       };
       return buildPerfReport({ ...inputs, systems: (await deps.profile?.rows()) ?? [] });

@@ -258,6 +258,19 @@ vec4 blendTaps(int first, vec2 f) {
 }
 
 void main(void) {
+  vec2 p = vec2(0.0);
+  float texelsPerPixel = 0.0;
+  vec2 uvFootprint = vec2(0.0);
+  // Derivatives before any branch, where they are defined; mode off needs neither them nor the page
+  // size, except a splash's size below. The condition is a compile-time constant.
+  if (WORLD_MAGNIFY > 0.5) {
+    texSize = vec2(textureSizeOf());
+    p = vUV * texSize;
+    texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
+    uvFootprint = fwidth(vUV);
+    uvDx = dFdx(vUV);
+    uvDy = dFdy(vUV);
+  }
   if (vSelection < 0.0) {
     // A selection outline stamp draws its colour over the body's coverage alone, which one plain tap
     // gives: no palette, magnifier or minification taps.
@@ -268,19 +281,6 @@ void main(void) {
   flags = int(vFlags);
   paletted = hasFlag(WORLD_FLAG_PALETTED);
   lutRow = flags >> WORLD_LUT_ROW_SHIFT;
-  vec2 p = vec2(0.0);
-  float texelsPerPixel = 0.0;
-  vec2 uvFootprint = vec2(0.0);
-  // Mode off needs neither the page size nor derivatives, except a splash's size below. The condition
-  // is a compile-time constant, so the derivatives stay in uniform control flow, where they are defined.
-  if (WORLD_MAGNIFY > 0.5) {
-    texSize = vec2(textureSizeOf());
-    p = vUV * texSize;
-    texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
-    uvFootprint = fwidth(vUV);
-    uvDx = dFdx(vUV);
-    uvDy = dFdy(vUV);
-  }
   bool magnified = texelsPerPixel < 1.0;
   // A paletted element always resolves through its LUT; a plain one only when its page is magnified.
   bool filtered = WORLD_MAGNIFY > 0.5 && (paletted || hasFlag(WORLD_FLAG_MAGNIFY));

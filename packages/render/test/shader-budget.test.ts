@@ -5,8 +5,8 @@ import { fragmentCost } from './support/glsl-cost.js';
 
 /**
  * Texture operations a fragment shader may hold once every function is inlined. The catalogue's
- * dearest programs measure 754 (`world-batch/textures32/*`; the 16-slot variants a Direct3D 11 GPU
- * compiles measure 386). The world batch shader that sampled a page through the whole magnify path
+ * dearest programs measure 786 (`world-batch/textures32/*`; the 16-slot variants a Direct3D 11 GPU
+ * compiles measure 402). The world batch shader that sampled a page through the whole magnify path
  * inside every branch of its sampler chain measured 16,960 at 16 slots and stalled ANGLE's Direct3D
  * compile for minutes, while Metal compiled it at once; the shape before the one chain pass, a
  * sampler chain in every magnifier tap, measured 2,080 and compiled for about 30 s on a Direct3D

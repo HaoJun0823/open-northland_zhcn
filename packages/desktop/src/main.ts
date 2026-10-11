@@ -31,8 +31,8 @@ const roots = resolveShellRoots({
 });
 
 // A dual-GPU laptop otherwise runs the GPU process on the adapter Windows assigns, usually the
-// integrated one. This only asks: the player's per-app choice in Windows graphics settings wins, and
-// the startup GPU line says which adapter the game got.
+// integrated one; a single-GPU machine is unaffected. Whether it took effect shows in the startup GPU
+// line and the FPS counter's adapter name (unconfirmed on a dual-GPU Windows machine).
 app.commandLine.appendSwitch('force_high_performance_gpu');
 
 // One window per profile: a second instance would share the IndexedDB the saves live in.

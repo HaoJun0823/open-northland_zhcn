@@ -7,13 +7,21 @@ import { CATALOG_MAP_ID } from './id.js';
 export const CatalogKind = z.enum(['single', 'multi', 'campaign', 'other']);
 export type CatalogKind = z.infer<typeof CatalogKind>;
 
+/** What the API knows about a file it fetched; both absent until it has. */
+const keptFile = {
+  /** The downloaded size. */
+  bytes: z.number().int().nonnegative().optional(),
+  /** Our `/v1/maps/<id>/file` path serving the file as downloaded, for a player to unpack by hand
+   *  when the API could not. */
+  path: z.string().startsWith('/v1/maps/').optional(),
+};
+
 /** Where a catalogue map's download lives. */
 export const CatalogFile = z.discriminatedUnion('kind', [
-  /** An archive on the catalogue's own host, which the API may fetch and unpack. `bytes` is the
-   *  downloaded size, absent until the API has fetched it. */
-  z.strictObject({ kind: z.literal('archive'), bytes: z.number().int().nonnegative().optional() }),
+  /** An archive on the catalogue's own host, which the API fetches and unpacks. */
+  z.strictObject({ kind: z.literal('archive'), ...keptFile }),
   /** A bare `.c2m` map file on the catalogue's own host. */
-  z.strictObject({ kind: z.literal('c2m'), bytes: z.number().int().nonnegative().optional() }),
+  z.strictObject({ kind: z.literal('c2m'), ...keptFile }),
   /** A page on another host. The URL is only a link for a person to open: nothing proves it leads
    *  straight to a file. */
   z.strictObject({ kind: z.literal('external'), url: z.url() }),

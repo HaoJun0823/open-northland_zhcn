@@ -3,13 +3,19 @@ import type { GoodIconPainter } from '../good-art.js';
 /** The debug tools' tabs: drop things on the map, act on what stands there, change the world's rules. */
 export type AdminTab = 'spawn' | 'act' | 'world';
 
-/** A per-spawn setting; a group lists the ones its tools apply. */
-export type AdminKnob = 'owner' | 'hitpoints' | 'armor';
+/** A per-spawn setting. Owner and health stand above every group; the rest show with a group whose
+ *  tools apply them. */
+export type AdminKnob = 'owner' | 'hitpoints' | 'weapon' | 'armor' | 'skills';
+
+/** A man's professions: the basic ones a newcomer may take, or every one already learned. */
+export type AdminSkills = 'basic' | 'all';
 
 /** One armable tool; `key` is the controller's, unique across the panel. */
 export interface AdminTool {
   readonly key: string;
   readonly label: string;
+  /** The settings its spawn takes. */
+  readonly knobs: readonly AdminKnob[];
   /** Shows the good's own icon on the tile. */
   readonly goodId?: string;
 }
@@ -18,8 +24,15 @@ export interface AdminSpawnGroup {
   readonly id: string;
   readonly title: string;
   readonly note?: string;
-  readonly knobs: readonly AdminKnob[];
   readonly tools: readonly AdminTool[];
+}
+
+/** One option of an equipment setting. */
+export interface AdminChoice {
+  readonly value: number;
+  readonly label: string;
+  /** Shows the good's own icon on the option. */
+  readonly goodId?: string;
 }
 
 export interface AdminAction {
@@ -54,7 +67,11 @@ export interface AdminPanelSpec {
   readonly owners: readonly AdminOwner[];
   readonly owner: number;
   readonly hitpoints: number;
-  readonly armorClasses: readonly number[];
+  readonly weapons: readonly AdminChoice[];
+  readonly weapon: number;
+  readonly armors: readonly AdminChoice[];
+  readonly armor: number;
+  readonly skills: AdminSkills;
   readonly groups: readonly AdminSpawnGroup[];
   readonly actions: readonly AdminAction[];
   readonly healthPercent: number;
@@ -72,7 +89,9 @@ export interface AdminPanelHandlers {
   readonly onDisarm: () => void;
   readonly onOwner: (player: number) => void;
   readonly onHitpoints: (hitpoints: number) => void;
-  readonly onArmor: (armorClass: number) => void;
+  readonly onWeapon: (weapon: number) => void;
+  readonly onArmor: (armor: number) => void;
+  readonly onSkills: (skills: AdminSkills) => void;
   readonly onHealthPercent: (percent: number) => void;
   readonly onNeeds: (enabled: boolean) => void;
   readonly onFogMap: (map: FogMapKey) => void;

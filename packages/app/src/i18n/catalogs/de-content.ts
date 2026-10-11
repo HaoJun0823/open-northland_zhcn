@@ -29,6 +29,14 @@ export const deContent = {
     archer_long: 'Langbogenschütze',
     worker: 'Arbeiter',
   },
+  soldierClasses: {
+    unarmed: 'Soldat',
+    spear: 'Speerträger',
+    sword: 'Kurzschwertträger',
+    broadsword: 'Langschwertträger',
+    bow: 'Kurzbogenschütze',
+    longbow: 'Langbogenschütze',
+  },
   category: {
     gathering: 'Abbau',
     transport: 'Transport',

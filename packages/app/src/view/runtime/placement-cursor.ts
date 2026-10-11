@@ -1,7 +1,11 @@
 import type { PlacementGhost, PlacementOverlayFrame } from '@open-northland/render';
-import type { Paper } from '@open-northland/sim';
 import type { LinePreviewNode } from '../../hud/tool-panel/line-tool.js';
-import type { BuildingPick, GatePreview, RoadPreview } from '../../hud/tool-panel/placement.js';
+import {
+  type BuildingPick,
+  type GatePreview,
+  type RoadPreview,
+  techWaived,
+} from '../../hud/tool-panel/placement.js';
 
 export interface PlacementCursor {
   readonly overlay: PlacementOverlayFrame | null;
@@ -10,7 +14,7 @@ export interface PlacementCursor {
 
 export interface PlacementCursorInput {
   /** The building the tool panel holds, or null outside build mode; its nation picks the ghost's body
-   *  and footprint, its paper bypasses the technology part of the live probe. */
+   *  and footprint, its waiver ({@link techWaived}) the technology part of the live probe. */
   readonly building: BuildingPick | null;
   readonly palisadeGfxIndex?: number | null;
   /** The road tool is held. */
@@ -28,7 +32,13 @@ export interface PlacementCursorInput {
   readonly dockOverlay: (vehicle: number) => PlacementOverlayFrame | null;
   /** The tile under the cursor, or null off the map or off the canvas. */
   readonly tileAt: () => { readonly col: number; readonly row: number } | null;
-  readonly canPlaceAt: (typeId: number, tribe: number, col: number, row: number, paper?: Paper) => boolean;
+  readonly canPlaceAt: (
+    typeId: number,
+    tribe: number,
+    col: number,
+    row: number,
+    techWaived?: boolean,
+  ) => boolean;
   /** How far a held building would shoot in defence mode from a node, undefined for a type without one. */
   readonly defenceRangeAt?: (typeId: number, tribe: number, col: number, row: number) => number | undefined;
   readonly canPlaceSignpostAt: (col: number, row: number) => boolean;
@@ -99,8 +109,8 @@ export function placementCursor(input: PlacementCursorInput): PlacementCursor {
   }
   if (tile === null) return { overlay, ghost: null };
   if (building !== null) {
-    const { typeId, tribe, paper } = building;
-    if (!input.canPlaceAt(typeId, tribe, tile.col, tile.row, paper ?? undefined))
+    const { typeId, tribe } = building;
+    if (!input.canPlaceAt(typeId, tribe, tile.col, tile.row, techWaived(building)))
       return { overlay, ghost: null };
     const defenceRangeNodes = input.defenceRangeAt?.(typeId, tribe, tile.col, tile.row);
     const ghost: PlacementGhost = {

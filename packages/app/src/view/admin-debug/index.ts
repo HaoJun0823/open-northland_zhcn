@@ -12,25 +12,28 @@ import {
 import { HUMAN_PLAYER } from '../../game/rules.js';
 import { resourceCommand } from '../../game/sandbox/place/index.js';
 import { type AdminPanel, createAdminPanel } from '../../hud/dom/admin-panel/index.js';
-import type { AdminWorldState, FogMapKey } from '../../hud/dom/admin-panel/model.js';
+import type { AdminSkills, AdminWorldState, FogMapKey } from '../../hud/dom/admin-panel/model.js';
 import type { GoodIconPainter } from '../../hud/dom/good-art.js';
+import type { StandingStructure } from '../../hud/tool-panel/placement.js';
 import { formatMessage, messages } from '../../i18n/index.js';
 import type { DebugAction, DebugTargetKind } from './actions-catalog.js';
 import { createHoldRepeat } from './hold-repeat.js';
 import { createAdminLabels } from './labels.js';
 import {
   type AnimalEntry,
-  ARMOR_CLASSES,
+  type ArmorEntry,
   animalSpawnCommand,
   creatureSpawnCommand,
   type GoodEntry,
   goodDropCommand,
   PLAYER_SWATCHES,
-  unitSpawnCommand,
+  personSpawnCommand,
+  SOLDIER_WEAPONS,
+  soldierSpawnCommand,
   type VehicleEntry,
   vehicleSpawnCommand,
 } from './spawn-catalog.js';
-import { type Armed, armedKey, createAdminToolCatalogue } from './tools.js';
+import { type Armed, armedKey, type BuildingEntry, createAdminToolCatalogue, NO_ARMOR } from './tools.js';
 
 /**
  * The debug tools: arm a tool in the panel, then click the map to drop a test entity or run an entity
@@ -56,12 +59,20 @@ export interface AdminDebugDeps {
   /** Owner slot to its roster tribe: a spawn is stamped for the slot it is dropped for, so it can work
    *  that slot's buildings. */
   readonly seatTribeOf: (player: number) => number;
-  /** Hand the HUD's wall line tool a line of finished walls for an owner; false when it cannot take one.
-   *  Absent hides the structures group. */
-  readonly enterStandingWall?: (owner: number, tribe: number) => boolean;
+  /** Hand the HUD's placement tools a finished structure for an owner; false when they cannot take it.
+   *  Absent hides the structures and buildings groups. */
+  readonly enterStanding?: (structure: StandingStructure, owner: number, tribe: number) => boolean;
+  /** Drop the HUD's held placement, so an armed map tool is the only one taking clicks. */
+  readonly cancelPlacement?: () => void;
+  /** The building types the buildings group offers. */
+  readonly buildings?: readonly BuildingEntry[];
   /** Every good the running content defines, each droppable as a loose pile. Live-sourced, so no entry
    *  can trip the sim's `dropGood` content guard. */
   readonly goods: readonly GoodEntry[];
+  /** The armors a soldier may wear, in class order. */
+  readonly armors: readonly ArmorEntry[];
+  /** The starting experience of a man spawned with every profession learned. */
+  readonly learnedExperience: readonly (readonly [number, number])[];
   /** Wildlife entries, each spawnable as its data-pinned herd. Empty or absent hides the group. */
   readonly animals?: readonly AnimalEntry[];
   /** The running content's vehicle types. Empty or absent hides the group. */
@@ -90,9 +101,10 @@ export interface AdminDebugHandle {
 const DEFAULT_HITPOINTS = systems.HUMAN_HITPOINTS;
 /** The action tools' health share until the field is edited. */
 const DEFAULT_HEALTH_PERCENT = 1;
-const UNARMORED = 0;
+/** A soldier's weapon until one is picked: the short sword. */
+const DEFAULT_WEAPON = SOLDIER_WEAPONS[1] ?? SOLDIER_WEAPONS[0];
 /** The debug tempos beyond the HUD's ×1..×3, for watching a map script's slow chains. */
-const DEBUG_GAME_SPEEDS: readonly number[] = [5, 10, 15, 20];
+const DEBUG_GAME_SPEEDS: readonly number[] = [5, 10, 15, 20, 30];
 
 const FOG_MAP_SETTINGS: Readonly<Record<Exclude<FogMapKey, 'off'>, boolean>> = {
   classic: false,
@@ -112,9 +124,13 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
   const labels = createAdminLabels(msgs, deps.goodLabel);
   const catalogue = createAdminToolCatalogue(msgs, labels, {
     goods: deps.goods,
+    armors: deps.armors,
     animals: deps.animals ?? [],
     vehicles: deps.vehicles ?? [],
-    standingWall: deps.enterStandingWall !== undefined,
+    standing:
+      deps.enterStanding === undefined
+        ? { wall: false, road: false, buildings: [] }
+        : { wall: true, road: true, buildings: deps.buildings ?? [] },
   });
   // The goods table in the weapon-lookup seam shape (`GoodEntry` names the typeId `good`).
   const spawnGoods = deps.goods.map((g) => ({ typeId: g.good, id: g.id }));
@@ -123,7 +139,9 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
   let player = HUMAN_PLAYER;
   let hitpoints = DEFAULT_HITPOINTS;
   let healthPercent = DEFAULT_HEALTH_PERCENT;
-  let armorClass = UNARMORED;
+  let weapon = DEFAULT_WEAPON;
+  let armor: ArmorEntry | null = null;
+  let skills: AdminSkills = 'basic';
   // The rules as last requested: a command applies next tick, so the sim's read lags a click.
   let needs = deps.needsEnabled?.() ?? true;
   let fog: FogSettings | null = fogSettings(deps.fogMode?.() ?? FOG_MODE.OFF);
@@ -151,6 +169,7 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
 
   const setArmed = (next: Armed | null): void => {
     stopHold();
+    if (next !== null && armed === null) deps.cancelPlacement?.();
     armed = next;
     panel.showArmed(next === null ? null : catalogue.describe(next, player));
     canvas.style.cursor = next === null ? '' : 'var(--cursor-crosshair, crosshair)';
@@ -162,7 +181,11 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
       owners: PLAYER_SWATCHES.map((s) => ({ player: s.player, css: s.css, name: labels.player(s.player) })),
       owner: player,
       hitpoints,
-      armorClasses: ARMOR_CLASSES,
+      weapons: catalogue.weapons,
+      weapon: weapon?.jobType ?? 0,
+      armors: catalogue.armors,
+      armor: NO_ARMOR,
+      skills,
       groups: catalogue.groups,
       actions: catalogue.actions,
       healthPercent,
@@ -185,9 +208,9 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
       onTool: (key) => {
         const choice = catalogue.choiceOf(key);
         if (choice === undefined) return;
-        if (choice.kind === 'standingWall') {
+        if (choice.kind === 'standing') {
           setArmed(null);
-          deps.enterStandingWall?.(player, deps.seatTribeOf(player));
+          deps.enterStanding?.(choice.structure, player, deps.seatTribeOf(player));
           return;
         }
         setArmed(armed !== null && armedKey(armed) === key ? null : choice);
@@ -200,8 +223,14 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
       onHitpoints: (next) => {
         hitpoints = next;
       },
-      onArmor: (next) => {
-        armorClass = next;
+      onWeapon: (job) => {
+        weapon = SOLDIER_WEAPONS.find((entry) => entry.jobType === job) ?? weapon;
+      },
+      onArmor: (armorClass) => {
+        armor = deps.armors.find((entry) => entry.armorClass === armorClass) ?? null;
+      },
+      onSkills: (next) => {
+        skills = next;
       },
       onHealthPercent: (next) => {
         healthPercent = next;
@@ -258,16 +287,15 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
       deps.enqueue(creatureSpawnCommand(armed.preset, { player, hitpoints, x: col, y: row }));
       return;
     }
+    const person = { player, tribe: deps.seatTribeOf(player), hitpoints, x: col, y: row };
+    if (armed.kind === 'soldier') {
+      if (weapon !== undefined)
+        deps.enqueue(soldierSpawnCommand({ ...person, weapon, armor, goods: spawnGoods }));
+      return;
+    }
+    const learned = armed.preset.learns === true && skills === 'all';
     deps.enqueue(
-      unitSpawnCommand(armed.preset, {
-        player,
-        tribe: deps.seatTribeOf(player),
-        hitpoints,
-        armorClass,
-        x: col,
-        y: row,
-        goods: spawnGoods,
-      }),
+      personSpawnCommand(armed.preset, learned ? { ...person, experience: deps.learnedExperience } : person),
     );
   };
 

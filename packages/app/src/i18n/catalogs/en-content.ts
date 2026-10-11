@@ -29,6 +29,14 @@ export const enContent = {
     archer_long: 'Longbow Archer',
     worker: 'Worker',
   },
+  soldierClasses: {
+    unarmed: 'Soldier',
+    spear: 'Spearman',
+    sword: 'Shortsword Fighter',
+    broadsword: 'Longsword Fighter',
+    bow: 'Short Bow Archer',
+    longbow: 'Longbow Archer',
+  },
   category: {
     gathering: 'Extraction',
     transport: 'Transport',

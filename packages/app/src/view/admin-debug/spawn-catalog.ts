@@ -1,12 +1,13 @@
-import type { Command } from '@open-northland/sim';
+import type { ContentSet } from '@open-northland/data';
+import { type Command, systems } from '@open-northland/sim';
 import { MONSTER_TRIBE_WERESNAKE, MONSTER_TRIBE_WEREWOLF } from '../../catalog/creatures.js';
 import {
   JOB_ARCHER,
   JOB_ARCHER_LONG,
   JOB_BREEDER,
-  JOB_CARRIER,
+  JOB_CHILD_FEMALE,
+  JOB_CHILD_MALE,
   JOB_CIVILIST,
-  JOB_COLLECTOR,
   JOB_FARMER,
   JOB_SOLDIER_BROADSWORD,
   JOB_SOLDIER_SPEAR,
@@ -19,10 +20,12 @@ import {
   GATHERERS,
   WEAPON_BROADSWORD,
   WEAPON_FISTS,
+  WEAPON_GOOD_SLUG_BY_JOB,
   WEAPON_LONG_BOW,
   WEAPON_SHORT_BOW,
   WEAPON_SPEAR,
   WEAPON_SWORD,
+  WEAPON_WOODEN_SPEAR,
   type WeaponGoodLookup,
   weaponEquipmentFor,
 } from '../../game/sandbox/ids/index.js';
@@ -32,39 +35,77 @@ import {
  * soldier class or gatherer shows up here for free.
  */
 
-/** One spawnable unit: its `spawnSettler` job plus, for a warrior, the weapon it wields. */
-export interface UnitPreset {
-  readonly id: string;
+/** Who a person spawn is: the job decides the sex, and a child job the age. */
+export interface PersonPreset {
+  readonly id: 'man' | 'woman' | 'boy' | 'girl';
   readonly jobType: number;
-  /** A warrior's wielded weapon, omitted for a civilian. The matching equipment-slot good is derived
-   *  from `jobType`, so it cannot drift from the scene and map spawns. */
-  readonly weaponTypeId?: number;
+  /** Takes professions, so the panel may spawn it with all of them learned. */
+  readonly learns?: boolean;
 }
 
-/** The per-spawn settings the panel applies to every unit it drops; a resource ignores them. */
-export interface UnitSpawnOptions {
+export const PERSON_PRESETS: readonly PersonPreset[] = [
+  { id: 'man', jobType: JOB_CIVILIST, learns: true },
+  { id: 'woman', jobType: JOB_WOMAN },
+  { id: 'boy', jobType: JOB_CHILD_MALE },
+  { id: 'girl', jobType: JOB_CHILD_FEMALE },
+];
+
+/** A soldier's weapon: the class whose body and attack it draws, and the weapon it wields. */
+export interface SoldierWeapon {
+  readonly jobType: number;
+  readonly weaponTypeId: number;
+}
+
+/** In the panel's order: bare hands, then swords, bows and spears, the lighter first. */
+export const SOLDIER_WEAPONS: readonly SoldierWeapon[] = [
+  { jobType: JOB_SOLDIER_UNARMED, weaponTypeId: WEAPON_FISTS },
+  { jobType: JOB_SOLDIER_SWORD, weaponTypeId: WEAPON_SWORD },
+  { jobType: JOB_SOLDIER_BROADSWORD, weaponTypeId: WEAPON_BROADSWORD },
+  { jobType: JOB_ARCHER, weaponTypeId: WEAPON_SHORT_BOW },
+  { jobType: JOB_ARCHER_LONG, weaponTypeId: WEAPON_LONG_BOW },
+  { jobType: JOB_SOLDIER_SPEAR_WOODEN, weaponTypeId: WEAPON_WOODEN_SPEAR },
+  { jobType: JOB_SOLDIER_SPEAR, weaponTypeId: WEAPON_SPEAR },
+];
+
+/** The weapon good a soldier holds, by slug; undefined for bare hands. */
+export function weaponGoodSlug(weapon: SoldierWeapon): string | undefined {
+  return WEAPON_GOOD_SLUG_BY_JOB[weapon.jobType];
+}
+
+/** One wearable armor: its `[armortype]` class and the good worn in the armor slot. */
+export interface ArmorEntry {
+  readonly armorClass: number;
+  readonly good: number;
+  readonly id: string;
+}
+
+/** The content's armor classes in class order, each with the good it is worn as. */
+export function armorEntriesOf(content: Pick<ContentSet, 'armor' | 'goods'>): ArmorEntry[] {
+  return content.armor
+    .flatMap((armor) => {
+      const good = content.goods.find((g) => g.typeId === armor.goodType);
+      return good === undefined ? [] : [{ armorClass: armor.typeId, good: good.typeId, id: good.id }];
+    })
+    .sort((a, b) => a.armorClass - b.armorClass);
+}
+
+/** The per-spawn settings shared by every person the panel drops. */
+export interface PersonSpawnOptions {
   /** A slot in `[0, MAX_PLAYERS)`. */
   readonly player: number;
   /** The spawned settler's tribe, which decides whose buildings it may staff. */
   readonly tribe: number;
   /** `<= 0` defers to the sim's default settler pool. */
   readonly hitpoints: number;
-  /** The worn armor class 1..4; `<= 0` spawns unarmored. */
-  readonly armorClass: number;
   readonly x: number;
   readonly y: number;
-  /** Resolves the class weapon's good slug into the id space the sim actually plays on. */
-  readonly goods: WeaponGoodLookup;
 }
 
-/**
- * Build the `spawnSettler` command for a unit preset at a tile. A non-positive `hitpoints` or
- * `armorClass` and a civilian's absent weapon are omitted, leaving the sim's own defaults.
- */
-export function unitSpawnCommand(preset: UnitPreset, opts: UnitSpawnOptions): Command {
-  // Derived from the job and shared with the scene and map spawns; a bare-handed warrior gets none,
-  // which leaves the slot empty and the body unarmed.
-  const equipment = weaponEquipmentFor(preset.jobType, opts.goods);
+/** A person spawn; `experience` lines it starts with (see {@link everyJobExperience}). */
+export function personSpawnCommand(
+  preset: PersonPreset,
+  opts: PersonSpawnOptions & { readonly experience?: readonly (readonly [number, number])[] },
+): Command {
   return {
     kind: 'spawnSettler',
     jobType: preset.jobType,
@@ -73,34 +114,67 @@ export function unitSpawnCommand(preset: UnitPreset, opts: UnitSpawnOptions): Co
     tribe: opts.tribe,
     owner: opts.player,
     ...(opts.hitpoints > 0 ? { hitpoints: opts.hitpoints } : {}),
-    ...(preset.weaponTypeId !== undefined ? { weaponTypeId: preset.weaponTypeId } : {}),
-    ...(opts.armorClass > 0 ? { armorClass: opts.armorClass } : {}),
-    ...(equipment !== undefined ? { equipment } : {}),
+    ...(opts.experience !== undefined && opts.experience.length > 0 ? { experience: opts.experience } : {}),
   };
 }
 
-/** The soldier classes, each paired with its weapon so the drawn body and attack animation match it. */
-export const WARRIOR_PRESETS: readonly UnitPreset[] = [
-  { id: 'unarmed', jobType: JOB_SOLDIER_UNARMED, weaponTypeId: WEAPON_FISTS },
-  { id: 'spear', jobType: JOB_SOLDIER_SPEAR, weaponTypeId: WEAPON_SPEAR },
-  { id: 'sword', jobType: JOB_SOLDIER_SWORD, weaponTypeId: WEAPON_SWORD },
-  {
-    id: 'broadsword',
-    jobType: JOB_SOLDIER_BROADSWORD,
-    weaponTypeId: WEAPON_BROADSWORD,
-  },
-  { id: 'bow', jobType: JOB_ARCHER, weaponTypeId: WEAPON_SHORT_BOW },
-  { id: 'longbow', jobType: JOB_ARCHER_LONG, weaponTypeId: WEAPON_LONG_BOW },
-];
+export interface SoldierSpawnOptions extends PersonSpawnOptions {
+  readonly weapon: SoldierWeapon;
+  /** Null spawns unarmored. */
+  readonly armor: ArmorEntry | null;
+  /** Resolves the weapon's good slug into the id space the sim actually plays on. */
+  readonly goods: WeaponGoodLookup;
+}
 
-/** The civilian trades and the woman, whose job makes the spawn female. One collector preset covers every
- *  gathered good, since they share the trade. */
-export const CIVILIAN_PRESETS: readonly UnitPreset[] = [
-  { id: 'civilian', jobType: JOB_CIVILIST },
-  { id: 'woman', jobType: JOB_WOMAN },
-  { id: 'carrier', jobType: JOB_CARRIER },
-  { id: 'collector', jobType: JOB_COLLECTOR },
-];
+/**
+ * A soldier spawn: the weapon's class and wielded weapon, the armor's class, and both goods in their
+ * equipment slots, so the settler panel shows what it fights with.
+ */
+export function soldierSpawnCommand(opts: SoldierSpawnOptions): Command {
+  // Shared with the scene and map spawns; bare hands leave the slot empty.
+  const weapon = weaponEquipmentFor(opts.weapon.jobType, opts.goods)?.weapon;
+  const armor = opts.armor;
+  const equipment = {
+    ...(weapon !== undefined ? { weapon } : {}),
+    ...(armor !== null ? { armor: { goodType: armor.good } } : {}),
+  };
+  return {
+    kind: 'spawnSettler',
+    jobType: opts.weapon.jobType,
+    x: opts.x,
+    y: opts.y,
+    tribe: opts.tribe,
+    owner: opts.player,
+    ...(opts.hitpoints > 0 ? { hitpoints: opts.hitpoints } : {}),
+    weaponTypeId: opts.weapon.weaponTypeId,
+    ...(armor !== null ? { armorClass: armor.armorClass } : {}),
+    ...(weapon !== undefined || armor !== null ? { equipment } : {}),
+  };
+}
+
+/**
+ * Starting experience that clears every `needfor*` and `trainfor*` row of the content's tribes: each
+ * named track at the largest amount a row asks of it. A row naming two tracks sums them, so each alone
+ * at that amount clears it too.
+ */
+export function everyJobExperience(
+  content: Pick<ContentSet, 'tribes' | 'jobExperience'>,
+): [number, number][] {
+  const repeats = new Map<number, number>();
+  for (const tribe of content.tribes) {
+    for (const row of tribe.jobRequirements) {
+      for (const track of row.experienceTypes)
+        repeats.set(track, Math.max(repeats.get(track) ?? 0, row.amount));
+    }
+  }
+  return [...repeats].map(([id, amount]) => [
+    id,
+    systems.rawXpForRepeats(
+      content.jobExperience.find((track) => track.typeId === id),
+      amount,
+    ),
+  ]);
+}
 
 /** Creature bodies have fixed tribes and natural weapons; they carry no human inventory goods. */
 export interface CreaturePreset {
@@ -121,7 +195,7 @@ export const CREATURE_PRESETS: readonly CreaturePreset[] = [
 
 export function creatureSpawnCommand(
   preset: CreaturePreset,
-  opts: Pick<UnitSpawnOptions, 'player' | 'hitpoints' | 'x' | 'y'>,
+  opts: Pick<PersonSpawnOptions, 'player' | 'hitpoints' | 'x' | 'y'>,
 ): Command {
   return {
     kind: 'spawnSettler',
@@ -188,9 +262,6 @@ export const ADMIN_DROP_AMOUNT = 1;
 export function goodDropCommand(good: number, x: number, y: number): Command {
   return { kind: 'dropGood', good, x, y, amount: ADMIN_DROP_AMOUNT };
 }
-
-/** 0 is unarmoured, plus the `[armortype]` classes 1..4 that mitigate an incoming hit. */
-export const ARMOR_CLASSES = [0, 1, 2, 3, 4] as const;
 
 /**
  * Approximation: rough CSS stand-ins for the real team-colour LUT, so a swatch reads at a glance. Slot

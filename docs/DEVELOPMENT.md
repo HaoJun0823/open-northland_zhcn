@@ -281,13 +281,15 @@ missing build.
 
 The debug tools are off by default: the "Debug tools" toggle on the settings screen's Gameplay tab
 puts a wrench button on the top bar, persists with the other settings, and applies live inside a
-running game. The button drops a panel with three tabs: **Spawn** (units, monsters, wildlife,
-vehicles, deposits, goods and a standing stockade, for a chosen owner, health and armor), **Act**
-(click-a-target orders) and **World** (needs, visibility, test speeds, the building grid, unlimited
-zoom out). A relayed session has no tools, since their pokes are trusted world edits with no wire.
+running game. The button drops a panel with three tabs: **Objects** (people, soldiers with a chosen
+weapon and armor, monsters, wildlife, vehicles, deposits, goods, and a finished stockade, road or
+building, for a chosen owner), **Actions** (click-a-target orders) and **Settings** (needs,
+visibility, test speeds up to ×30, the building grid, unlimited zoom out). A man may spawn with every
+profession already learned. A relayed session has no tools, since their pokes are trusted world edits
+with no wire.
 The frame-rate counter is the separate "FPS counter" graphics setting.
 
-On the **Act** tab, enter the share beside **Set health**, arm it, then click a building, settler or
+On the **Actions** tab, enter the share beside **Set health**, arm it, then click a building, settler or
 vehicle of any owner. The range is 1–100%, initially 1%; 100% restores its available pool. Tiny pools retain
 at least one hitpoint. Construction uses its currently built pool, while upgrades use the standing
 building's pool. Like the other admin orders, the change applies on the next simulation tick; ordinary

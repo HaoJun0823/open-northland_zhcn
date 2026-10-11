@@ -21,25 +21,38 @@ const SPEC: AdminPanelSpec = {
   ],
   owner: 0,
   hitpoints: 5000,
-  armorClasses: [0, 1, 2],
+  weapons: [
+    { value: 31, label: 'Bare hands' },
+    { value: 34, label: 'Shortsword', goodId: 'sword_shord' },
+  ],
+  weapon: 34,
+  armors: [
+    { value: 0, label: 'None' },
+    { value: 3, label: 'Chain Mail', goodId: 'armor_chain' },
+  ],
+  armor: 0,
+  skills: 'basic',
   groups: [
     {
-      id: 'warriors',
-      title: 'Warriors',
-      knobs: ['owner', 'hitpoints', 'armor'],
+      id: 'people',
+      title: 'People',
       tools: [
-        { key: 'unit:spear', label: 'Spearman' },
-        { key: 'unit:sword', label: 'Sword Fighter' },
+        { key: 'person:man', label: 'Man', knobs: ['owner', 'hitpoints', 'skills'] },
+        { key: 'person:woman', label: 'Woman', knobs: ['owner', 'hitpoints'] },
       ],
+    },
+    {
+      id: 'soldiers',
+      title: 'Soldiers',
+      tools: [{ key: 'soldier', label: 'Sword Soldier', knobs: ['owner', 'hitpoints', 'weapon', 'armor'] }],
     },
     {
       id: 'goods',
       title: 'Goods',
       note: 'One per click.',
-      knobs: [],
       tools: [
-        { key: 'good:1', label: 'Long Sword', goodId: 'sword_long' },
-        { key: 'good:2', label: 'Bread', goodId: 'bread' },
+        { key: 'good:1', label: 'Long Sword', knobs: [], goodId: 'sword_long' },
+        { key: 'good:2', label: 'Bread', knobs: [], goodId: 'bread' },
       ],
     },
   ],
@@ -73,7 +86,9 @@ function mount(overrides: Partial<AdminPanelHandlers> = {}) {
     onDisarm: log('disarm'),
     onOwner: log('owner'),
     onHitpoints: log('hp'),
+    onWeapon: log('weapon'),
     onArmor: log('armor'),
+    onSkills: log('skills'),
     onHealthPercent: log('percent'),
     onNeeds: log('needs'),
     onFogMap: log('fogMap'),
@@ -120,19 +135,20 @@ describe('admin panel', () => {
 
   it('browses one group at a time, painting icons on its first showing, and searches across all', () => {
     const { q, shownTiles, painted, plane } = mount();
-    expect(shownTiles()).toEqual(['Spearman', 'Sword Fighter']);
-    expect(painted).toEqual([]);
+    expect(shownTiles()).toEqual(['Man', 'Woman']);
+    // The equipment options are few, so they paint at once; the tiles wait for their group.
+    expect(painted).toEqual(['sword_shord', 'armor_chain']);
 
-    const goodsChip = plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip')[1];
+    const goodsChip = plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip')[2];
     goodsChip?.click();
     expect(shownTiles()).toEqual(['Long Sword', 'Bread']);
-    expect(painted).toEqual(['sword_long', 'bread']);
+    expect(painted).toEqual(['sword_shord', 'armor_chain', 'sword_long', 'bread']);
     expect(q<HTMLElement>('.on-admin__note').textContent).toBe('One per click.');
 
     const search = q<HTMLInputElement>('.on-admin__search input');
     search.value = 'sword';
     search.dispatchEvent(new Event('input'));
-    expect(shownTiles()).toEqual(['Sword Fighter', 'Long Sword']);
+    expect(shownTiles()).toEqual(['Sword Soldier', 'Long Sword']);
     expect(q<HTMLElement>('.on-admin__note').hidden).toBe(true);
 
     search.value = 'zzz';
@@ -141,20 +157,51 @@ describe('admin panel', () => {
     expect(q<HTMLElement>('.on-admin__empty').hidden).toBe(false);
   });
 
-  it('fades the settings a group ignores, following the armed tool over the open group', () => {
-    const { panel, plane } = mount();
+  it('shows a group its own settings and fades what the open group or the armed tool ignores', () => {
+    const { panel, plane, q } = mount();
+    const chips = plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip');
     const idle = (): number => plane.querySelectorAll('.on-admin__knob--idle').length;
+    const options = (): string[] =>
+      [...q<HTMLElement>('.on-admin__options').children]
+        .filter((row) => !(row as HTMLElement).hidden)
+        .map((row) => row.querySelector('.on-admin__label')?.textContent ?? '');
+    expect(options()).toEqual([copy.skills]);
     expect(idle()).toBe(0);
+    panel.showArmed({ key: 'person:woman', name: 'Woman · Blue', hint: 'Click the map' });
+    expect(idle()).toBe(1);
+
+    panel.showArmed(null);
+    chips[1]?.click();
+    expect(options()).toEqual([copy.weapon, copy.armor]);
+    chips[2]?.click();
+    expect(q<HTMLElement>('.on-admin__options').hidden).toBe(true);
+    expect(idle()).toBe(2);
+    panel.showArmed({ key: 'soldier', name: 'Sword Soldier · Blue', hint: 'Click the map' });
+    expect(options()).toEqual([copy.weapon, copy.armor]);
+    expect(idle()).toBe(0);
+  });
+
+  it('names the chosen weapon and armor and passes every equipment pick through', () => {
+    const { plane, calls, q } = mount();
     plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip')[1]?.click();
-    expect(idle()).toBe(3);
-    panel.showArmed({ key: 'unit:spear', name: 'Spearman · Blue', hint: 'Click the map' });
-    expect(idle()).toBe(0);
+    const names = (): string[] =>
+      [...plane.querySelectorAll('.on-admin__choice-name')].map((name) => name.textContent ?? '');
+    expect(names()).toEqual(['Shortsword', 'None']);
+    q<HTMLButtonElement>('.on-admin__choice[aria-label="Bare hands"]').click();
+    q<HTMLButtonElement>('.on-admin__choice[aria-label="Chain Mail"]').click();
+    expect(names()).toEqual(['Bare hands', 'Chain Mail']);
+    plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip')[0]?.click();
+    const all = [
+      ...plane.querySelectorAll<HTMLButtonElement>('.on-admin__options .on-segmented button'),
+    ].find((b) => b.textContent === copy.skillModes.all);
+    all?.click();
+    expect(calls).toEqual(['weapon:31', 'armor:3', 'skills:all']);
   });
 
   it('reports a pressed tile and shows the armed tool lit in the tiles, the footer and the toggle', () => {
     const { panel, plane, calls, q } = mount();
     plane.querySelector<HTMLButtonElement>('.on-admin__tile')?.click();
-    expect(calls).toEqual(['tool:unit:spear']);
+    expect(calls).toEqual(['tool:person:man']);
 
     expect(q<HTMLElement>('.on-admin__status-text b').textContent).toBe(copy.idle);
     expect(q<HTMLElement>('.on-admin__disarm').hidden).toBe(true);

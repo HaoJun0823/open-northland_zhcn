@@ -1,19 +1,20 @@
 import type { Entity } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { VEHICLE_HANDCART } from '../src/game/sandbox/ids/index.js';
-import { formatMessage, messages, professionLabel } from '../src/i18n/index.js';
+import { formatMessage, messages } from '../src/i18n/index.js';
 import { DEBUG_ACTIONS, type DebugAction } from '../src/view/admin-debug/actions-catalog.js';
 import { createAdminLabels } from '../src/view/admin-debug/labels.js';
 import {
-  CIVILIAN_PRESETS,
+  type ArmorEntry,
   CREATURE_PRESETS,
   type GoodEntry,
+  PERSON_PRESETS,
+  type PersonPreset,
   RESOURCE_ENTRIES,
-  type UnitPreset,
+  SOLDIER_WEAPONS,
   type VehicleEntry,
-  WARRIOR_PRESETS,
 } from '../src/view/admin-debug/spawn-catalog.js';
-import { type Armed, armedKey, createAdminToolCatalogue } from '../src/view/admin-debug/tools.js';
+import { type Armed, armedKey, createAdminToolCatalogue, NO_ARMOR } from '../src/view/admin-debug/tools.js';
 
 /**
  * The debug tools' pure half: the labels each tool resolves through, the groups and keys the panel
@@ -26,20 +27,28 @@ const copy = messages().admin;
 const NAMED_GOOD = 900;
 const goodLabel = (typeId: number): string | undefined =>
   typeId === NAMED_GOOD ? 'Nazwa Towaru' : undefined;
-const GOODS: readonly GoodEntry[] = [{ good: NAMED_GOOD, id: 'test_good' }];
+const SWORD_GOOD = 901;
+const GOODS: readonly GoodEntry[] = [
+  { good: NAMED_GOOD, id: 'test_good' },
+  { good: SWORD_GOOD, id: 'sword_shord' },
+];
+const CHAIN_CLASS = 3;
+const ARMORS: readonly ArmorEntry[] = [{ armorClass: CHAIN_CLASS, good: 935, id: 'armor_chain' }];
 const CART: VehicleEntry = { vehicleType: VEHICLE_HANDCART, label: 'Wózek' };
 const WOLVES = { tribe: 20, id: 'wolves' };
+const HALL = { typeId: 1, label: 'Hala' };
 
 const labels = createAdminLabels(messages(), goodLabel);
 const catalogue = createAdminToolCatalogue(messages(), labels, {
   goods: GOODS,
+  armors: ARMORS,
   animals: [WOLVES],
   vehicles: [CART],
-  standingWall: true,
+  standing: { wall: true, road: true, buildings: [HALL] },
 });
 
-function preset(id: string): UnitPreset {
-  const found = [...WARRIOR_PRESETS, ...CIVILIAN_PRESETS].find((p) => p.id === id);
+function preset(id: PersonPreset['id']): PersonPreset {
+  const found = PERSON_PRESETS.find((p) => p.id === id);
   if (found === undefined) throw new Error(`missing preset ${id}`);
   return found;
 }
@@ -59,55 +68,96 @@ function groupOf(id: string) {
 describe('admin tool catalogue', () => {
   it('lists the groups in browsing order, each tool once under a unique key', () => {
     expect(catalogue.groups.map((group) => group.id)).toEqual([
-      'warriors',
-      'civilians',
+      'people',
+      'soldiers',
       'creatures',
       'animals',
       'vehicles',
       'resources',
       'goods',
       'structures',
+      'buildings',
     ]);
     const keys = [...catalogue.groups.flatMap((g) => g.tools), ...catalogue.actions].map((tool) => tool.key);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(groupOf('warriors').tools.map((tool) => tool.label)).toEqual(
-      WARRIOR_PRESETS.map((p) => labels.unit(p)),
-    );
+    expect(groupOf('people').tools.map((tool) => tool.label)).toEqual([
+      copy.people.man,
+      copy.people.woman,
+      copy.people.boy,
+      copy.people.girl,
+    ]);
+    expect(groupOf('soldiers').tools.map((tool) => tool.label)).toEqual([copy.soldier]);
     expect(groupOf('resources').tools).toHaveLength(RESOURCE_ENTRIES.length);
   });
 
-  it('applies the owner, health and armor only where the spawn takes them', () => {
-    expect(groupOf('warriors').knobs).toEqual(['owner', 'hitpoints', 'armor']);
-    expect(groupOf('creatures').knobs).toEqual(['owner', 'hitpoints']);
-    expect(groupOf('vehicles').knobs).toEqual(['owner']);
-    expect(groupOf('animals').knobs).toEqual([]);
-    expect(groupOf('goods').knobs).toEqual([]);
+  it('applies each setting only where the spawn takes it', () => {
+    const knobsOf = (id: string) => groupOf(id).tools.map((tool) => tool.knobs);
+    expect(knobsOf('people')).toEqual([
+      ['owner', 'hitpoints', 'skills'],
+      ['owner', 'hitpoints'],
+      ['owner', 'hitpoints'],
+      ['owner', 'hitpoints'],
+    ]);
+    expect(knobsOf('soldiers')).toEqual([['owner', 'hitpoints', 'weapon', 'armor']]);
+    expect(knobsOf('creatures').every((knobs) => knobs.join() === 'owner,hitpoints')).toBe(true);
+    expect(knobsOf('vehicles')).toEqual([['owner']]);
+    expect(knobsOf('buildings')).toEqual([['owner']]);
+    expect(knobsOf('animals')).toEqual([[]]);
+  });
+
+  it('offers a soldier every weapon and armor by name, bare hands and no armor first', () => {
+    expect(catalogue.weapons.map((choice) => choice.value)).toEqual(SOLDIER_WEAPONS.map((w) => w.jobType));
+    expect(catalogue.weapons[0]).toEqual({ value: SOLDIER_WEAPONS[0]?.jobType, label: copy.weaponNone });
+    expect(catalogue.weapons[1]).toEqual({
+      value: SOLDIER_WEAPONS[1]?.jobType,
+      label: messages().goods.sword_shord,
+      goodId: 'sword_shord',
+    });
+    expect(catalogue.armors).toEqual([
+      { value: NO_ARMOR, label: copy.armorNone },
+      { value: CHAIN_CLASS, label: messages().goods.armor_chain, goodId: 'armor_chain' },
+    ]);
   });
 
   it('shows goods and deposits with their own icons, named live where the content names them', () => {
-    expect(groupOf('goods').tools).toEqual([{ key: 'good:900', label: 'Nazwa Towaru', goodId: 'test_good' }]);
+    expect(groupOf('goods').tools[0]).toEqual({
+      key: 'good:900',
+      label: 'Nazwa Towaru',
+      knobs: [],
+      goodId: 'test_good',
+    });
     expect(groupOf('resources').tools.every((tool) => tool.goodId !== undefined)).toBe(true);
   });
 
-  it('resolves every key back to its arm, and the standing wall to the wall tool', () => {
+  it('resolves every key back to its arm, and a structure to the placement it stands', () => {
     for (const tool of catalogue.groups.flatMap((g) => g.tools)) {
       const choice = catalogue.choiceOf(tool.key);
       expect(choice).toBeDefined();
-      if (choice !== undefined && choice.kind !== 'standingWall') expect(armedKey(choice)).toBe(tool.key);
+      if (choice !== undefined && choice.kind !== 'standing') expect(armedKey(choice)).toBe(tool.key);
     }
-    expect(catalogue.choiceOf('standingWall')).toEqual({ kind: 'standingWall' });
+    const standing = [...groupOf('structures').tools, ...groupOf('buildings').tools].map((tool) =>
+      catalogue.choiceOf(tool.key),
+    );
+    expect(standing).toEqual([
+      { kind: 'standing', structure: { kind: 'wall' } },
+      { kind: 'standing', structure: { kind: 'road' } },
+      { kind: 'standing', structure: { kind: 'building', typeId: HALL.typeId } },
+    ]);
+    expect(groupOf('buildings').tools.map((tool) => tool.label)).toEqual([HALL.label]);
     expect(catalogue.choiceOf('nope')).toBeUndefined();
   });
 
-  it('leaves out the structures without a wall tool and a group with nothing in it', () => {
+  it('leaves out the structures the HUD cannot stand and a group with nothing in it', () => {
     const bare = createAdminToolCatalogue(messages(), labels, {
       goods: GOODS,
+      armors: [],
       animals: [],
       vehicles: [],
-      standingWall: false,
+      standing: { wall: false, road: false, buildings: [] },
     });
     const ids = bare.groups.map((group) => group.id);
     expect(ids).not.toContain('structures');
+    expect(ids).not.toContain('buildings');
     expect(ids).not.toContain('vehicles');
     expect(ids).not.toContain('animals');
   });
@@ -126,12 +176,13 @@ describe('admin tool catalogue', () => {
 
 describe('the footer line for an arm', () => {
   it('names an owned spawn with the owner it is dropped for', () => {
-    const spear: Armed = { kind: 'unit', preset: preset('spear') };
-    expect(catalogue.describe(spear, 1)).toEqual({
-      key: 'unit:spear',
-      name: formatMessage(copy.armedFor, { label: labels.unit(preset('spear')), name: labels.player(1) }),
+    const man: Armed = { kind: 'person', preset: preset('man') };
+    expect(catalogue.describe(man, 1)).toEqual({
+      key: 'person:man',
+      name: formatMessage(copy.armedFor, { label: copy.people.man, name: labels.player(1) }),
       hint: copy.hintSpawn,
     });
+    expect(catalogue.describe({ kind: 'soldier' }, 0).name).toContain(copy.soldier);
     expect(catalogue.describe({ kind: 'vehicle', entry: CART }, 0).name).toContain(CART.label);
   });
 
@@ -163,11 +214,6 @@ describe('createAdminLabels', () => {
     const entry = { good: NAMED_GOOD, id: 'test_good' };
     expect(labels.good(entry)).toBe('Nazwa Towaru');
     expect(createAdminLabels(messages(), undefined).good(entry)).toBe('test_good');
-  });
-
-  it('reads a directly-labelled preset, and routes collector through the profession label', () => {
-    expect(labels.unit(preset('spear'))).toBe(copy.units.spear);
-    expect(labels.unit(preset('collector'))).toBe(professionLabel('collector'));
   });
 
   it('names creature forms and threat herds by their visible species', () => {

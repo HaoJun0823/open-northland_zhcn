@@ -120,25 +120,35 @@ describe('placement cursor', () => {
     expect(f.cursor()).toEqual({ overlay: BUILDING_WASH, ghost: null });
   });
 
-  it("passes the held nation and paper to the probes, so the paper's bypass and the nation's footprint govern the ghost", () => {
+  it("passes the held nation and its waiver to the probes, so a paper's or the admin tool's bypass and the nation's footprint govern the ghost", () => {
     const paper: Paper = { kind: 'placeAny', param: 0 };
-    const gateAsks: Array<readonly [number, Paper | undefined]> = [];
+    const gateAsks: Array<readonly [number, boolean | undefined]> = [];
     const overlayAsks: Array<readonly [number, Paper | null]> = [];
-    const f = frame({
-      building: { ...HELD, paper },
-      buildingOverlay: (held) => {
-        overlayAsks.push([held.tribe, held.paper]);
-        return BUILDING_WASH;
-      },
-      canPlaceAt: (_type, tribe, _col, _row, activePaper) => {
-        gateAsks.push([tribe, activePaper]);
-        return activePaper !== undefined;
-      },
-    });
-
-    expect(f.cursor().ghost).toMatchObject({ kind: 'building', tribe: SARACEN });
-    expect(gateAsks).toEqual([[SARACEN, paper]]);
-    expect(overlayAsks).toEqual([[SARACEN, paper]]);
+    for (const building of [
+      { ...HELD, paper },
+      { ...HELD, standing: { owner: 2 } },
+    ]) {
+      const f = frame({
+        building,
+        buildingOverlay: (held) => {
+          overlayAsks.push([held.tribe, held.paper]);
+          return BUILDING_WASH;
+        },
+        canPlaceAt: (_type, tribe, _col, _row, techWaived) => {
+          gateAsks.push([tribe, techWaived]);
+          return techWaived === true;
+        },
+      });
+      expect(f.cursor().ghost).toMatchObject({ kind: 'building', tribe: SARACEN });
+    }
+    expect(gateAsks).toEqual([
+      [SARACEN, true],
+      [SARACEN, true],
+    ]);
+    expect(overlayAsks).toEqual([
+      [SARACEN, paper],
+      [SARACEN, null],
+    ]);
   });
 
   it('hides the ghost while the pointer is off the canvas', () => {

@@ -29,6 +29,14 @@ export const plContent = {
     archer_long: 'Łucznik z długim łukiem',
     worker: 'Pracownik',
   },
+  soldierClasses: {
+    unarmed: 'Żołnierz bez broni',
+    spear: 'Włócznik',
+    sword: 'Miecznik',
+    broadsword: 'Miecznik (długi miecz)',
+    bow: 'Łucznik',
+    longbow: 'Łucznik (długi łuk)',
+  },
   category: {
     gathering: 'Wydobywanie',
     transport: 'Transport',

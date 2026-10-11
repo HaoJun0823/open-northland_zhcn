@@ -31,7 +31,8 @@ const MAP_H = 12;
 const VIKING = 1;
 const FRANK = 2;
 /** A plan waives the seat's technology gate, so the contested ground alone decides. */
-const PLAN = { kind: 'placeAny', param: 0 } as const;
+/** A paper or the admin tool waives the technology gate. */
+const PLAN = true;
 /** The enemy swordsman's cell, and a site two cells off him against one across the map. */
 const RAIDER = { x: 6, y: 4 };
 const NEAR = cellAnchorNode(8, 4);
@@ -94,14 +95,13 @@ describe('placement gates - the ground an enemy army contests', () => {
     await expect(gates.askPlaceAt(BUILDING_HOME_00, VIKING, NEAR.hx, NEAR.hy, PLAN)).resolves.toBe(true);
   });
 
-  it("waives only the technology gate for a paper-paid probe, and asks each nation's rule apart", () => {
+  it("waives only the technology gate for a waived probe, and asks each nation's rule apart", () => {
     const { sim, fog } = openField();
     const gates = createPlacementGates(inlineSessionHost(sim), fog, HUMAN_PLAYER);
     const probe = vi.spyOn(sim, 'placementAnswer');
-    const paper = { kind: 'placeAny', param: 0 } as const;
 
     gates.canPlaceAt(BUILDING_HOME_00, VIKING, FAR.hx, FAR.hy);
-    gates.canPlaceAt(BUILDING_HOME_00, VIKING, FAR.hx, FAR.hy, paper);
+    gates.canPlaceAt(BUILDING_HOME_00, VIKING, FAR.hx, FAR.hy, true);
     gates.canPlaceAt(BUILDING_HOME_00, FRANK, FAR.hx, FAR.hy);
 
     expect(probe.mock.calls.map(([type, , player, tribe, gated]) => [type, player, tribe, gated])).toEqual([
@@ -282,18 +282,17 @@ describe('placement gates - the ground an enemy army contests', () => {
     expect(sites.highlight).toEqual([]);
   });
 
-  it('uses the same paper technology bypass for the bright buildable-ground overlay', () => {
+  it('uses the same technology waiver for the bright buildable-ground overlay', () => {
     const { sim, fog } = openField();
     const host = inlineSessionHost(sim);
     const gates = createPlacementGates(host, fog, HUMAN_PLAYER);
     const overlay = makeOverlayFrameSource(gates.probes, host, { width: MAP_W, height: MAP_H }, HUMAN_PLAYER);
     const probe = vi.spyOn(sim, 'placementAnswer');
     const camera = { offsetX: 0, offsetY: 0, scale: 1 };
-    const paper = { kind: 'placeHouse', param: BUILDING_HOME_00 } as const;
 
     overlay(BUILDING_HOME_00, VIKING, camera, 320, 200);
     const techAreas = probe.mock.calls.length;
-    overlay(BUILDING_HOME_00, VIKING, camera, 320, 200, paper);
+    overlay(BUILDING_HOME_00, VIKING, camera, 320, 200, true);
 
     const tribes = probe.mock.calls.map(([, , player, tribe, gated]) => `${player}:${tribe}:${gated}`);
     expect(techAreas).toBeGreaterThan(0);

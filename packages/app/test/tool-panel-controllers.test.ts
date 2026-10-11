@@ -374,8 +374,13 @@ describe('tool windows registry', () => {
 describe('placement controller', () => {
   function mount(
     screenToTile: (x: number, y: number) => { col: number; row: number } | null,
-    canPlaceAt: (typeId: number, tribe: number, col: number, row: number, paper?: Paper) => boolean = () =>
-      true,
+    canPlaceAt: (
+      typeId: number,
+      tribe: number,
+      col: number,
+      row: number,
+      techWaived?: boolean,
+    ) => boolean = () => true,
     canPlacePalisadeAt: (gfxIndex: number, col: number, row: number) => boolean = () => true,
     palisadeGateProbe?: Parameters<typeof createPlacementController>[0]['palisadeGateProbe'],
     extra: Partial<Parameters<typeof createPlacementController>[0]> = {},
@@ -614,20 +619,20 @@ describe('placement controller', () => {
     expect(commands[1]).not.toHaveProperty('paper');
   });
 
-  it('passes a paper through the live gate so technology cannot reject its placement', () => {
+  it('waives the live gate for a paper so technology cannot reject its placement', () => {
     const paper = { kind: 'placeAny', param: 0 } as const;
-    const seen: Array<typeof paper | undefined> = [];
+    const seen: Array<boolean | undefined> = [];
     const { placement, commands } = mount(
       () => ({ col: 4, row: 2 }),
-      (_type, _tribe, _col, _row, activePaper) => {
-        seen.push(activePaper as typeof paper | undefined);
-        return activePaper !== undefined;
+      (_type, _tribe, _col, _row, techWaived) => {
+        seen.push(techWaived);
+        return techWaived === true;
       },
     );
 
     placement.enter(joinery(paper));
     expect(placement.handleClick(10, 10)).toBe(true);
-    expect(seen).toEqual([paper]);
+    expect(seen).toEqual([true]);
     expect(commands).toHaveLength(1);
   });
 
@@ -948,7 +953,7 @@ describe('placement controller', () => {
     });
     placement.enterRoad();
     const held = placement.state();
-    expect(held.road).toBe(true);
+    expect(held.road).toEqual({ side: { owner: 0, tribe: VIKING }, standing: false });
     placement.handleClick(0, 0);
     tile = { col: 9, row: 2 };
     placement.handleClick(10, 0);
@@ -990,6 +995,63 @@ describe('placement controller', () => {
     );
     // The line joins the chosen owner's walls, not the seat's.
     expect([...builtOwners]).toEqual([3]);
+  });
+
+  it('lays an admin road line finished for the chosen owner, and keeps it through a remount', () => {
+    let tile = { col: 4, row: 2 };
+    const trusted: Command[] = [];
+    const before = mount(() => tile, undefined, undefined, undefined, { canPlaceRoadAt: () => true });
+    before.placement.enterRoad({ owner: 3, tribe: 2 });
+    expect(before.strip.shown?.label).toBe(messages().admin.standingRoad);
+    const saved = before.placement.state();
+
+    const after = mount(() => tile, undefined, undefined, undefined, {
+      canPlaceRoadAt: () => true,
+      enqueueTrusted: (command) => trusted.push(command),
+    });
+    after.placement.restore(saved);
+    after.placement.handleClick(0, 0);
+    tile = { col: 5, row: 2 };
+    after.placement.handleClick(10, 0);
+    expect(after.commands).toEqual([]);
+    expect(trusted).toEqual(
+      [4, 5].map((x) => ({ kind: 'placeRoadSite', x, y: 2, owner: 3, tribe: 2, laid: true })),
+    );
+  });
+
+  it('stands an admin building finished for the chosen owner past the technology gate, cancelling quietly', () => {
+    const trusted: Command[] = [];
+    const waived: (boolean | undefined)[] = [];
+    const { placement, commands, strip, cancels } = mount(
+      () => ({ col: 4, row: 2 }),
+      (_type, _tribe, _col, _row, techWaived) => {
+        waived.push(techWaived);
+        return true;
+      },
+      undefined,
+      undefined,
+      { enqueueTrusted: (command) => trusted.push(command) },
+    );
+    placement.enter({ typeId: 23, tribe: 2, paper: null, standing: { owner: 3 } });
+    expect(strip.shown?.label).toBe(formatMessage(messages().admin.standingBuilding, { name: 'Joinery' }));
+    placement.handleClick(0, 0);
+    expect(waived).toEqual([true]);
+    expect(commands).toEqual([]);
+    expect(trusted).toEqual([
+      {
+        kind: 'placeBuilding',
+        buildingType: 23,
+        x: 4,
+        y: 2,
+        tribe: 2,
+        owner: 3,
+        underConstruction: false,
+        force: true,
+      },
+    ]);
+    placement.enter({ typeId: 23, tribe: 2, paper: null, standing: { owner: 3 } });
+    placement.cancel();
+    expect(cancels).toEqual([]);
   });
 
   it("keeps an admin standing-wall line's chosen side through a HUD remount", () => {

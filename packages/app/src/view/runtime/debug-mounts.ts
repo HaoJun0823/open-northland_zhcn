@@ -1,3 +1,4 @@
+import { BUILDING_KIND } from '@open-northland/data';
 import type { SessionClock } from '@open-northland/lockstep';
 import type { ElevationField, WorldRenderer } from '@open-northland/render';
 import type { Command } from '@open-northland/sim';
@@ -6,10 +7,15 @@ import { ANIMAL_PALETTE_BY_TRIBE } from '../../catalog/animal-roster.js';
 import { hasDebugFlag, setDebugFlag } from '../../diag/index.js';
 import { vehicleLabel } from '../../game/technology.js';
 import type { GoodIconPainter } from '../../hud/dom/good-art.js';
+import type { StandingStructure } from '../../hud/tool-panel/placement.js';
+import { bcp47Tag, compareLabels, currentLocale } from '../../i18n/index.js';
 import type { SessionHost } from '../../session/index.js';
 import { createAdminEntityPicker } from '../admin-debug/entity-picker.js';
 import { type AdminDebugHandle, mountAdminDebug } from '../admin-debug/index.js';
+import { armorEntriesOf, everyJobExperience } from '../admin-debug/spawn-catalog.js';
+import type { BuildingEntry } from '../admin-debug/tools.js';
 import type { CameraController } from '../camera/index.js';
+import { buildingLabelsFromContent } from '../game-tool-panel.js';
 import { replaceEntryUrl } from '../navigation-guard.js';
 import {
   createGeometryDebugOverlay,
@@ -45,8 +51,10 @@ export interface DebugMountsOptions {
   readonly goodLabel: (typeId: number) => string | undefined;
   /** Owner slot to its roster tribe, so a spawned settler can work the buildings that slot raises. */
   readonly seatTribeOf: (player: number) => number;
-  /** Hand the HUD's wall line tool a standing-wall line for `owner`; false when it cannot take one. */
-  readonly enterStandingWall?: (owner: number, tribe: number) => boolean;
+  /** Hand the HUD's placement tools a finished structure for `owner`; false when they cannot take it. */
+  readonly enterStanding?: (structure: StandingStructure, owner: number, tribe: number) => boolean;
+  /** Drop the HUD's held placement as a debug map tool is armed. */
+  readonly cancelPlacement?: () => void;
   /** The session's own clock for the debug tempos; absent under a shared clock. */
   readonly clock?: Pick<SessionClock, 'speed' | 'setSpeed'>;
   readonly paintGood?: GoodIconPainter;
@@ -150,9 +158,13 @@ function mountAdminPanel(
     claimPointer: (x, y) => opts.claimPointer(x, y),
     goodLabel: (typeId) => opts.goodLabel(typeId),
     seatTribeOf: (player) => opts.seatTribeOf(player),
-    ...(opts.enterStandingWall !== undefined ? { enterStandingWall: opts.enterStandingWall } : {}),
+    ...(opts.enterStanding !== undefined ? { enterStanding: opts.enterStanding } : {}),
+    ...(opts.cancelPlacement !== undefined ? { cancelPlacement: opts.cancelPlacement } : {}),
     ...(opts.clock !== undefined ? { clock: opts.clock } : {}),
+    buildings: standingBuildings(host),
     goods: host.content.goods.map((g) => ({ good: g.typeId, id: g.id })),
+    armors: armorEntriesOf(host.content),
+    learnedExperience: everyJobExperience(host.content),
     // Skips decorative swarms (hitpoints 0) and species with no body in the render roster; first-wins
     // dedup matches the sim's `animalRecord` read, so a listed entry is the record a spawn consumes.
     animals: host.content.animals
@@ -180,4 +192,15 @@ function mountAdminPanel(
     setZoomOutUnlocked: zoomOut.setUnlocked,
     ...(opts.paintGood !== undefined ? { paintGood: opts.paintGood } : {}),
   });
+}
+
+/** Every building type but a workshop's hidden vehicle site, in the language's alphabetical order. */
+function standingBuildings(host: SessionHost): BuildingEntry[] {
+  const lang = currentLocale();
+  const labels = buildingLabelsFromContent(host.content, lang);
+  const compare = compareLabels(bcp47Tag(lang));
+  return host.content.buildings
+    .filter((b) => b.kind !== BUILDING_KIND.vehicle)
+    .map((b) => ({ typeId: b.typeId, label: labels.get(b.typeId) ?? b.id }))
+    .sort((a, b) => compare(a.label, b.label) || a.typeId - b.typeId);
 }

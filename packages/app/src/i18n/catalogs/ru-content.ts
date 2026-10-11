@@ -29,6 +29,14 @@ export const ruContent = {
     archer_long: 'Стрелок с длинным луком',
     worker: 'Рабочий',
   },
+  soldierClasses: {
+    unarmed: 'Солдат',
+    spear: 'Копьеносец',
+    sword: 'Воин с мечом',
+    broadsword: 'Воин с длинным мечом',
+    bow: 'Стрелок с луком',
+    longbow: 'Стрелок с длинным луком',
+  },
   category: {
     gathering: 'Добыча',
     transport: 'Перевозка',

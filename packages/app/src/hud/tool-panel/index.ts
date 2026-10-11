@@ -91,6 +91,7 @@ import {
   type PlacementClickAsks,
   type PlacementState,
   type RoadPreview,
+  type StandingStructure,
 } from './placement.js';
 import { canBecomeOptions } from './residents/can-become.js';
 import { NO_RESIDENT_FILTERS } from './residents/rows.js';
@@ -156,7 +157,8 @@ export interface ToolPanelOptions {
   };
   /** Submit a seat command into the sim. */
   readonly enqueue: (command: PlayerCommand) => void;
-  /** The admin channel, for the debug tools' standing-wall line; absent where world edits are off. */
+  /** The admin channel, for the debug tools' finished walls, roads and buildings; absent where world
+   *  edits are off. */
   readonly enqueueTrusted?: (command: Command) => void;
   /** The assistant window's live state, commands and tooltip chip. */
   readonly assistant: AssistantSource;
@@ -173,7 +175,13 @@ export interface ToolPanelOptions {
   /** Convert a client (CSS) point to a map tile, or `null` off the map - the placement target. */
   readonly screenToTile: (clientX: number, clientY: number) => { col: number; row: number } | null;
   /** The sim's live placement rule (`SessionHost.placementProbe`), which gates the placement click. */
-  readonly canPlaceAt: (typeId: number, tribe: number, col: number, row: number, paper?: Paper) => boolean;
+  readonly canPlaceAt: (
+    typeId: number,
+    tribe: number,
+    col: number,
+    row: number,
+    techWaived?: boolean,
+  ) => boolean;
   readonly canPlacePalisadeAt?: (
     gfxIndex: number,
     col: number,
@@ -290,9 +298,11 @@ export interface ToolPanelController {
   /** The road tool is held. */
   roadActive(): boolean;
   roadPreview(tile: LineNode | null): RoadPreview | null;
-  /** Arm the wall line tool to lay finished walls for `owner` through the admin channel; false when the
-   *  map has no wall row or world edits are off. */
-  enterStandingWall(owner: number, tribe: number): boolean;
+  /** Hold a placement that stands `structure` finished for `owner` through the admin channel; false when
+   *  the map offers no such tool or world edits are off. */
+  enterStanding(structure: StandingStructure, owner: number, tribe: number): boolean;
+  /** Drop a held placement or plan, as Esc does. */
+  cancelPlacement(): void;
   palisadePreview(tile: LineNode | null): readonly LinePreviewNode[] | null;
   gatePreview(tile: LineNode | null): GatePreview | null;
   /** The started wall line, for the reach wash; null before its first click. */
@@ -933,12 +943,25 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       palisadeMode: () => placement.activePalisadeMode(),
       roadActive: () => placement.activeRoad(),
       roadPreview: (tile) => placement.roadPreview(tile),
-      enterStandingWall: (owner, tribe): boolean => {
-        const gfxIndex = opts.palisadeTools?.wall ?? null;
-        if (gfxIndex === null || opts.enqueueTrusted === undefined) return false;
-        placement.enterPalisade(gfxIndex, 'standingWall', { owner, tribe });
-        return true;
+      enterStanding: (structure, owner, tribe): boolean => {
+        if (opts.enqueueTrusted === undefined) return false;
+        switch (structure.kind) {
+          case 'wall': {
+            const gfxIndex = opts.palisadeTools?.wall ?? null;
+            if (gfxIndex === null) return false;
+            placement.enterPalisade(gfxIndex, 'standingWall', { owner, tribe });
+            return true;
+          }
+          case 'road':
+            if (!roadOffered) return false;
+            placement.enterRoad({ owner, tribe });
+            return true;
+          case 'building':
+            placement.enter({ typeId: structure.typeId, tribe, paper: null, standing: { owner } });
+            return true;
+        }
       },
+      cancelPlacement: cancelHeld,
       palisadePreview: (tile) => placement.palisadePreview(tile),
       gatePreview: (tile) => placement.gatePreview(tile),
       activeLine: () => placement.activeLine(),

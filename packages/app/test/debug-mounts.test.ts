@@ -18,7 +18,15 @@ function mounts(allowWorldEdits: boolean) {
     initialToolsEnabled: true,
     allowWorldEdits,
     host: {
-      content: { goods: [], animals: [], tribes: [], vehicles: [] },
+      content: {
+        goods: [],
+        animals: [],
+        tribes: [],
+        vehicles: [],
+        armor: [],
+        buildings: [],
+        jobExperience: [],
+      },
       needsEnabled: () => true,
       fogMode: () => 0,
     },

@@ -1,13 +1,19 @@
 // @vitest-environment jsdom
 import type { Command } from '@open-northland/sim';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { JOB_ARCHER_LONG, JOB_CIVILIST, JOB_SOLDIER_SWORD } from '../src/catalog/jobs.js';
 import { messages } from '../src/i18n/index.js';
 import { mountAdminDebug } from '../src/view/admin-debug/index.js';
 
 const copy = messages().admin;
+const goods = messages().goods;
 const TILE = { col: 12, row: 34 };
 const PICKED = 42;
 const SEAT_TRIBE = 3;
+const LONG_BOW_GOOD = 38;
+const CHAIN = { armorClass: 3, good: 35, id: 'armor_chain' };
+const LEARNED: readonly (readonly [number, number])[] = [[7, 500]];
+const HALL = { typeId: 1, label: 'Hala' };
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -18,7 +24,8 @@ function mount() {
   const plane = document.createElement('div');
   document.body.append(canvas, plane);
   const sent: Command[] = [];
-  const enterStandingWall = vi.fn(() => true);
+  const enterStanding = vi.fn(() => true);
+  const cancelPlacement = vi.fn();
   const handle = mountAdminDebug({
     canvas,
     plane,
@@ -27,8 +34,12 @@ function mount() {
     pickEntity: () => PICKED,
     claimPointer: () => false,
     seatTribeOf: () => SEAT_TRIBE,
-    enterStandingWall,
-    goods: [],
+    enterStanding,
+    cancelPlacement,
+    buildings: [HALL],
+    goods: [{ good: LONG_BOW_GOOD, id: 'bow_long' }],
+    armors: [CHAIN],
+    learnedExperience: LEARNED,
     geometryEnabled: () => false,
     setGeometryEnabled: () => undefined,
     zoomOutUnlocked: () => false,
@@ -49,20 +60,28 @@ function mount() {
     return down;
   };
   const footer = (): string => plane.querySelector('.on-admin__status-text b')?.textContent ?? '';
-  return { canvas, plane, sent, enterStandingWall, handle, tile, press, footer };
+  const option = (knob: string, label: string): HTMLButtonElement => {
+    const strip = plane.querySelector(`.on-admin__choices[aria-label="${knob}"]`);
+    const found = [...(strip?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
+      (b) => b.getAttribute('aria-label') === label,
+    );
+    if (found === undefined) throw new Error(`missing ${knob} option ${label}`);
+    return found;
+  };
+  return { canvas, plane, sent, enterStanding, cancelPlacement, handle, tile, press, footer, option };
 }
 
 describe('debug tools controller', () => {
   it('drops the armed unit where the map is clicked, and a second press on its tile puts it away', () => {
     const { handle, tile, press, canvas, sent } = mount();
     handle.toggle.click();
-    tile(copy.units.spear).click();
+    tile(copy.soldier).click();
     expect(canvas.style.cursor).not.toBe('');
     press(canvas);
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ kind: 'spawnSettler', x: TILE.col, y: TILE.row, tribe: SEAT_TRIBE });
 
-    tile(copy.units.spear).click();
+    tile(copy.soldier).click();
     press(canvas);
     expect(sent).toHaveLength(1);
     expect(canvas.style.cursor).toBe('');
@@ -71,7 +90,7 @@ describe('debug tools controller', () => {
   it('never spawns from a press on the panel itself', () => {
     const { handle, tile, press, plane, sent } = mount();
     handle.toggle.click();
-    tile(copy.units.spear).click();
+    tile(copy.soldier).click();
     press(plane.querySelector('.on-admin__body') as HTMLElement);
     expect(sent).toEqual([]);
   });
@@ -79,16 +98,16 @@ describe('debug tools controller', () => {
   it('puts the tool away on a right click, on Esc and when the panel closes', () => {
     const { handle, tile, press, canvas, footer } = mount();
     handle.toggle.click();
-    tile(copy.units.spear).click();
+    tile(copy.soldier).click();
     const right = press(canvas, 2);
     expect(right.defaultPrevented).toBe(true);
     expect(footer()).toBe(copy.idle);
 
-    tile(copy.units.spear).click();
+    tile(copy.soldier).click();
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));
     expect(footer()).toBe(copy.idle);
 
-    tile(copy.units.spear).click();
+    tile(copy.soldier).click();
     handle.toggle.click();
     expect(footer()).toBe(copy.idle);
   });
@@ -96,18 +115,66 @@ describe('debug tools controller', () => {
   it('renames the armed spawn when its owner changes', () => {
     const { handle, tile, plane, footer } = mount();
     handle.toggle.click();
-    tile(copy.units.spear).click();
+    tile(copy.soldier).click();
     const before = footer();
     plane.querySelectorAll<HTMLButtonElement>('.on-admin__swatch')[1]?.click();
     expect(footer()).not.toBe(before);
     expect(footer()).toContain(messages().animation.playerColors[1]);
   });
 
-  it('hands the standing stockade to the wall tool for the chosen owner', () => {
-    const { handle, tile, enterStandingWall } = mount();
+  it('arms a soldier with the picked weapon and armor, both in its equipment', () => {
+    const { handle, tile, press, canvas, sent, option } = mount();
+    handle.toggle.click();
+    tile(copy.soldier).click();
+    press(canvas);
+    expect(sent[0]).toMatchObject({ jobType: JOB_SOLDIER_SWORD });
+    expect(sent[0]).not.toHaveProperty('armorClass');
+
+    option(copy.weapon, goods.bow_long).click();
+    option(copy.armor, goods.armor_chain).click();
+    press(canvas);
+    expect(sent[1]).toMatchObject({
+      jobType: JOB_ARCHER_LONG,
+      armorClass: CHAIN.armorClass,
+      equipment: { weapon: { goodType: LONG_BOW_GOOD }, armor: { goodType: CHAIN.good } },
+    });
+  });
+
+  it('spawns a man with every profession learned only when asked to', () => {
+    const { handle, tile, press, canvas, sent, plane } = mount();
+    handle.toggle.click();
+    tile(copy.people.man).click();
+    press(canvas);
+    expect(sent[0]).toMatchObject({ jobType: JOB_CIVILIST });
+    expect(sent[0]).not.toHaveProperty('experience');
+
+    const all = [...plane.querySelectorAll<HTMLButtonElement>('.on-segmented button')].find(
+      (b) => b.textContent === copy.skillModes.all,
+    );
+    all?.click();
+    press(canvas);
+    expect(sent[1]).toMatchObject({ jobType: JOB_CIVILIST, experience: LEARNED });
+  });
+
+  it('drops a held HUD placement when a map tool is armed, not on every switch between tools', () => {
+    const { handle, tile, cancelPlacement } = mount();
+    handle.toggle.click();
+    tile(copy.soldier).click();
+    tile(copy.people.man).click();
+    expect(cancelPlacement).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands a finished structure to the HUD placement for the chosen owner', () => {
+    const { handle, tile, enterStanding } = mount();
     handle.toggle.click();
     tile(copy.standingPalisade).click();
-    expect(enterStandingWall).toHaveBeenCalledWith(0, SEAT_TRIBE);
+    tile(copy.standingRoad).click();
+    tile(HALL.label).click();
+    expect(enterStanding.mock.calls).toEqual([
+      [{ kind: 'wall' }, 0, SEAT_TRIBE],
+      [{ kind: 'road' }, 0, SEAT_TRIBE],
+      [{ kind: 'building', typeId: HALL.typeId }, 0, SEAT_TRIBE],
+    ]);
   });
 
   it('moves a picked settler to the next clicked node and waits for another pick', () => {
@@ -126,7 +193,7 @@ describe('debug tools controller', () => {
   it('takes its DOM and window listeners down on dispose', () => {
     const { handle, tile, press, canvas, plane, sent } = mount();
     handle.toggle.click();
-    tile(copy.units.spear).click();
+    tile(copy.soldier).click();
     handle.dispose();
     expect(canvas.style.cursor).toBe('');
     expect(plane.querySelector('.on-admin')).toBeNull();

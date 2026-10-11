@@ -991,7 +991,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       claimPointer: (x, y) => controls.claimsPointer(x, y),
       goodLabel,
       seatTribeOf,
-      enterStandingWall: (owner, tribe) => toolPanel.controller.enterStandingWall(owner, tribe),
+      enterStanding: (structure, owner, tribe) => toolPanel.controller.enterStanding(structure, owner, tribe),
+      cancelPlacement: () => toolPanel.controller.cancelPlacement(),
       ...(sharedClock ? {} : { clock: driver }),
       paintGood: goodIcons,
     });

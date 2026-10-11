@@ -6,7 +6,6 @@ import {
   type Command,
   constructionBillForType,
   type HalfCellNode,
-  type Paper,
   type PlayerCommand,
 } from '@open-northland/sim';
 import type { Application } from 'pixi.js';
@@ -68,7 +67,13 @@ export interface GameToolPanelDeps {
   /** The admin channel for the debug tools' standing-wall line; absent where world edits are off. */
   readonly enqueueTrusted?: (command: Command) => void;
   /** Gates the placement click; a closure, so it follows a scene restart. */
-  readonly canPlaceAt: (typeId: number, tribe: number, col: number, row: number, paper?: Paper) => boolean;
+  readonly canPlaceAt: (
+    typeId: number,
+    tribe: number,
+    col: number,
+    row: number,
+    techWaived?: boolean,
+  ) => boolean;
   readonly canPlacePalisadeAt: (
     gfxIndex: number,
     col: number,

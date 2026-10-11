@@ -8,13 +8,7 @@ import {
   SPRITE_CULL_MARGIN,
   type Viewport,
 } from '@open-northland/render';
-import {
-  type FogView,
-  type Paper,
-  type SimEvent,
-  TICKS_PER_SECOND,
-  type WorldSnapshot,
-} from '@open-northland/sim';
+import { type FogView, type SimEvent, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
 import type { createSoundDriver } from '../../content/audio.js';
 import {
   type FrameSample,
@@ -25,7 +19,7 @@ import {
 import { HUMAN_PLAYER } from '../../game/rules.js';
 import type { ViewerSeat } from '../../game/viewer-seat.js';
 import type { MinimapHandle } from '../../hud/minimap/index.js';
-import type { BuildingPick } from '../../hud/tool-panel/placement.js';
+import { type BuildingPick, techWaived } from '../../hud/tool-panel/placement.js';
 import { setCanvasCursor } from '../cursors/element.js';
 import { placementPointer } from '../cursors/placement.js';
 import { createFellingPresenter } from '../felling-presenter.js';
@@ -101,7 +95,13 @@ export interface FrameLoopDeps {
   readonly settlerBubblesFor: (snap: WorldSnapshot) => ReturnType<typeof computeSettlerBubbles>;
   /** Memoized by snapshot identity, the screen and the selection version, and fog-filtered. */
   readonly lifeHeartsFor: (snap: WorldSnapshot, viewport?: Viewport) => ReturnType<typeof computeLifeHearts>;
-  readonly canPlaceAt: (typeId: number, tribe: number, col: number, row: number, paper?: Paper) => boolean;
+  readonly canPlaceAt: (
+    typeId: number,
+    tribe: number,
+    col: number,
+    row: number,
+    techWaived?: boolean,
+  ) => boolean;
   /** The held building's defence range at a node, drawn around its ghost. */
   readonly defenceRangeAt: (typeId: number, tribe: number, col: number, row: number) => number | undefined;
   readonly canPlaceSignpostAt: (col: number, row: number) => boolean;
@@ -190,8 +190,15 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     stance: harshestStance(host, musicRoster),
   });
   // Bound once, so a frame never mints a fresh pair of closures.
-  const buildingOverlay = ({ typeId, tribe, paper }: BuildingPick) =>
-    overlayFrame(typeId, tribe, cameraCtl.camera(), app.screen.width, app.screen.height, paper ?? undefined);
+  const buildingOverlay = (pick: BuildingPick) =>
+    overlayFrame(
+      pick.typeId,
+      pick.tribe,
+      cameraCtl.camera(),
+      app.screen.width,
+      app.screen.height,
+      techWaived(pick),
+    );
   const signpostOverlay = () => signpostOverlayFrame(cameraCtl.camera(), app.screen.width, app.screen.height);
   const visiblePlots = createVisiblePlots(() => host.constructionPlots(), fogGates.seesNode);
   const presentFellings =

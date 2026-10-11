@@ -1,11 +1,10 @@
-import { type Messages, professionLabel } from '../../i18n/index.js';
+import type { Messages } from '../../i18n/index.js';
 import type { DebugAction } from './actions-catalog.js';
-import type { AnimalEntry, CreaturePreset, UnitPreset } from './spawn-catalog.js';
+import type { AnimalEntry, CreaturePreset } from './spawn-catalog.js';
 
 export interface AdminLabels {
   /** The live localized name, else the catalog id. */
   readonly good: (entry: { readonly good: number; readonly id: string }) => string;
-  readonly unit: (preset: UnitPreset) => string;
   readonly creature: (preset: CreaturePreset) => string;
   /** The localized species name, falling back to the content tribe slug. */
   readonly animal: (entry: AnimalEntry) => string;
@@ -23,12 +22,6 @@ export function createAdminLabels(
   const goodLabelOf = (good: number, fallback: string): string => goodLabel?.(good) ?? fallback;
   const localizedGood = (entry: { readonly good: number; readonly id: string }): string =>
     goodLabelOf(entry.good, goodNames[entry.id as keyof Messages['goods']] ?? entry.id);
-  const unitLabel = (preset: UnitPreset): string => {
-    const direct = copy.units[preset.id as keyof Messages['admin']['units']];
-    if (direct !== undefined) return direct;
-    if (preset.id === 'collector') return professionLabel('collector');
-    return preset.id;
-  };
   const actionLabel = (action: DebugAction): string => copy.actions[action.id];
   const creatureLabel = (preset: CreaturePreset): string =>
     copy.creaturesCatalog[preset.id as keyof typeof copy.creaturesCatalog] ?? preset.id;
@@ -38,7 +31,6 @@ export function createAdminLabels(
 
   return {
     good: localizedGood,
-    unit: unitLabel,
     creature: creatureLabel,
     animal: animalLabel,
     action: actionLabel,

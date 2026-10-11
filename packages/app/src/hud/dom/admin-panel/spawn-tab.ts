@@ -5,12 +5,21 @@ import { button, element, setAttribute, setClass, setHidden, write } from '../pa
 import { nameContains } from '../parts/name-search.js';
 import { createSegmented } from '../parts/segmented.js';
 import { quietTextField } from '../parts/text-field.js';
-import type { AdminKnob, AdminPanelHandlers, AdminPanelSpec, AdminSpawnGroup } from './model.js';
+import { createChoiceStrip } from './choice-strip.js';
+import type {
+  AdminKnob,
+  AdminPanelHandlers,
+  AdminPanelSpec,
+  AdminSkills,
+  AdminSpawnGroup,
+  AdminTool,
+} from './model.js';
 
 /** Design px of a good's icon on its tile. */
 const TILE_ICON_PX = 26;
-/** The armor class a spawn starts with: none. */
-const UNARMORED = 0;
+/** The settings that stand above every group; the rest show with a group that uses them. */
+const SHARED_KNOBS: ReadonlySet<AdminKnob> = new Set(['owner', 'hitpoints']);
+const SKILL_KEYS: readonly AdminSkills[] = ['basic', 'all'];
 
 export interface SpawnTab {
   readonly element: HTMLElement;
@@ -32,10 +41,14 @@ interface GroupView {
   painted: boolean;
 }
 
-/** The spawn tab: who and how strong a spawn is, then every spawnable thing by group or by search. */
+/** The spawn tab: who and how strong a spawn is, then every spawnable thing by group or by search, with
+ *  the open group's own settings (a soldier's weapon and armor) above its tiles. */
 export function createSpawnTab(
   spec: AdminPanelSpec,
-  handlers: Pick<AdminPanelHandlers, 'onTool' | 'onOwner' | 'onHitpoints' | 'onArmor'>,
+  handlers: Pick<
+    AdminPanelHandlers,
+    'onTool' | 'onOwner' | 'onHitpoints' | 'onWeapon' | 'onArmor' | 'onSkills'
+  >,
 ): SpawnTab {
   const copy = messages().admin;
   const root = element('div', 'on-admin__pane');
@@ -47,6 +60,13 @@ export function createSpawnTab(
     const name = element('span', 'on-admin__label');
     write(name, label);
     row.append(name);
+    knobRows.set(id, row);
+    return row;
+  };
+  /** A knob whose options take a line of their own under its head. */
+  const stackedKnob = (id: AdminKnob, head: HTMLElement, body: HTMLElement): HTMLElement => {
+    const row = element('div', 'on-admin__knob on-admin__knob--stacked');
+    row.append(head, body);
     knobRows.set(id, row);
     return row;
   };
@@ -82,7 +102,6 @@ export function createSpawnTab(
   };
   ownerRow.append(swatches, ownerName);
 
-  const statsRow = element('div', 'on-admin__knob-pair');
   const hitpointsRow = knob('hitpoints', copy.hitpoints, 'label');
   const hitpointsField = element('span', 'on-res-field on-admin__number');
   const hitpoints = quietTextField(element('input', ''));
@@ -97,26 +116,28 @@ export function createSpawnTab(
   });
   hitpointsField.append(hitpoints);
   hitpointsRow.append(hitpointsField);
+  knobs.append(ownerRow, hitpointsRow);
 
-  const armorRow = knob('armor', copy.armor);
-  const armorKeys = spec.armorClasses.map(String);
-  const armorOptions = Object.fromEntries(
-    spec.armorClasses.map((value) => [
-      String(value),
-      { label: value === UNARMORED ? copy.armorNone : String(value) },
-    ]),
-  );
-  let armor = String(UNARMORED);
-  const armorStrip = createSegmented(armorKeys, copy.armor, (key) => {
-    armor = key;
-    armorStrip.update(armorOptions, armor);
-    handlers.onArmor(Number(key));
+  const options = element('div', 'on-admin__knobs on-admin__options');
+  const weapon = createChoiceStrip(copy.weapon, spec.weapons, spec.weapon, spec.paintGood, handlers.onWeapon);
+  const armor = createChoiceStrip(copy.armor, spec.armors, spec.armor, spec.paintGood, handlers.onArmor);
+  const skillsRow = knob('skills', copy.skills);
+  const skillOptions = {
+    basic: { label: copy.skillModes.basic },
+    all: { label: copy.skillModes.all },
+  };
+  const skills = createSegmented(SKILL_KEYS, copy.skills, (key) => {
+    skills.update(skillOptions, key);
+    handlers.onSkills(key);
   });
-  armorStrip.element.classList.add('on-admin__segmented');
-  armorStrip.update(armorOptions, armor);
-  armorRow.append(armorStrip.element);
-  statsRow.append(hitpointsRow, armorRow);
-  knobs.append(ownerRow, statsRow);
+  skills.element.classList.add('on-admin__segmented');
+  skills.update(skillOptions, spec.skills);
+  skillsRow.append(skills.element);
+  options.append(
+    stackedKnob('weapon', weapon.head, weapon.strip),
+    stackedKnob('armor', armor.head, armor.strip),
+    skillsRow,
+  );
 
   const search = element('label', 'on-res-field on-res-field--search on-admin__search', GLYPH.search);
   const query = quietTextField(element('input', ''));
@@ -176,11 +197,34 @@ export function createSpawnTab(
     });
   };
 
-  /** The group whose settings a spawn takes: the armed tool's, else the open one while browsing. */
-  const activeGroup = (searching: boolean): AdminSpawnGroup | null => {
-    const armedGroup = groups.find((view) => view.tiles.some((t) => t.key === armedKey));
-    if (armedGroup !== undefined) return armedGroup.group;
-    return searching ? null : (groups.find((view) => view.group.id === openGroup)?.group ?? null);
+  const armedTool = (): { readonly group: AdminSpawnGroup; readonly tool: AdminTool } | null => {
+    for (const { group } of groups) {
+      const tool = group.tools.find((t) => t.key === armedKey);
+      if (tool !== undefined) return { group, tool };
+    }
+    return null;
+  };
+  const knobsOf = (group: AdminSpawnGroup): ReadonlySet<AdminKnob> =>
+    new Set(group.tools.flatMap((tool) => tool.knobs));
+
+  /** The settings a spawn takes fade where they do not apply: the armed tool's, else the open group's
+   *  while browsing. A group's own settings show only with that group. */
+  const paintKnobs = (searching: boolean): void => {
+    const armed = armedTool();
+    const open = searching ? null : (groups.find((view) => view.group.id === openGroup)?.group ?? null);
+    const group = armed?.group ?? open;
+    const used = group === null ? null : knobsOf(group);
+    let optionsShown = false;
+    for (const [id, row] of knobRows) {
+      const applies = armed !== null ? armed.tool.knobs.includes(id) : used === null || used.has(id);
+      const shared = SHARED_KNOBS.has(id);
+      const shown = shared || used?.has(id) === true;
+      setClass(row, 'on-admin__knob--idle', shown && !applies);
+      if (shared) continue;
+      setHidden(row, !shown);
+      optionsShown ||= shown;
+    }
+    setHidden(options, !optionsShown);
   };
 
   const paint = (): void => {
@@ -208,13 +252,11 @@ export function createSpawnTab(
     write(note, noteText);
     setHidden(empty, !searching || matches > 0);
     write(empty, formatMessage(copy.noMatches, { query: text }));
-    const active = activeGroup(searching);
-    for (const [id, row] of knobRows)
-      setClass(row, 'on-admin__knob--idle', active !== null && !active.knobs.includes(id));
+    paintKnobs(searching);
   };
   query.addEventListener('input', paint);
 
-  root.append(knobs, search, chips, note, list, empty);
+  root.append(knobs, search, chips, note, options, list, empty);
   paintOwner();
   paint();
 

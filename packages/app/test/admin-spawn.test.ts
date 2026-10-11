@@ -1,9 +1,13 @@
+import type { JobRequirement } from '@open-northland/data';
+import { systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { grassTerrain } from '../src/catalog/buildings.js';
 import { WOOD_YIELD_PER_NODE } from '../src/catalog/felling.js';
 import {
   JOB_ARCHER,
   JOB_ARCHER_LONG,
+  JOB_CHILD_FEMALE,
+  JOB_CHILD_MALE,
   JOB_CIVILIST,
   JOB_COLLECTOR,
   JOB_HERO_SABER,
@@ -17,6 +21,7 @@ import {
   JOB_SOLDIER_SPEAR_WOODEN,
   JOB_SOLDIER_SWORD,
   JOB_SOLDIER_UNARMED,
+  JOB_WOMAN,
 } from '../src/catalog/jobs.js';
 import { MINE_LEVELS, STONE_DEPOSIT_UNITS } from '../src/catalog/mining.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
@@ -32,6 +37,7 @@ import {
   VEHICLE_SHIP_SMALL,
   WEAPON_FISTS,
   WEAPON_SWORD,
+  WEAPON_WOODEN_SPEAR,
   weaponEquipmentFor,
 } from '../src/game/sandbox/ids/index.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
@@ -40,45 +46,51 @@ import { createSceneSim } from '../src/scenes/index.js';
 import { sandboxScene } from '../src/scenes/sandbox/index.js';
 import {
   ADMIN_DROP_AMOUNT,
-  CIVILIAN_PRESETS,
+  type ArmorEntry,
   CREATURE_PRESETS,
   creatureSpawnCommand,
+  everyJobExperience,
   goodDropCommand,
+  PERSON_PRESETS,
+  type PersonPreset,
+  personSpawnCommand,
   RESOURCE_ENTRIES,
-  unitSpawnCommand,
+  SOLDIER_WEAPONS,
+  type SoldierWeapon,
+  soldierSpawnCommand,
   vehicleSpawnCommand,
-  WARRIOR_PRESETS,
+  weaponGoodSlug,
 } from '../src/view/admin-debug/spawn-catalog.js';
 
 /**
- * The admin/debug spawn palette's PURE command mapping - the data half of the panel (a click → a sim
- * command), verifiable without the DOM. The panel's window-capture wiring (a map click enqueues this)
- * is browser-verified; here we pin that a warrior carries its weapon, a civilian does not, the optional
- * HP/armor stamps are omitted when non-positive, and a resource resolves to the right node lifecycle.
+ * The admin/debug spawn palette's pure command mapping: a soldier carries its weapon and armor, a person
+ * neither, a non-positive health is left to the sim, and a resource resolves to the right node lifecycle.
  */
 
 describe('admin spawn command mapping', () => {
-  const sword = WARRIOR_PRESETS.find((p) => p.id === 'sword');
-  const civilian = CIVILIAN_PRESETS.find((p) => p.id === 'civilian');
   // The running content's goods table the palette resolves weapon-good slugs against.
   const sandboxGoods = sandboxContent(grassTerrain(4, 4)).goods;
+  const person = { player: 1, tribe: PRIMARY_TRIBE, hitpoints: 0, x: 2, y: 3 };
+  const weapon = (jobType: number): SoldierWeapon => {
+    const found = SOLDIER_WEAPONS.find((entry) => entry.jobType === jobType);
+    if (found === undefined) throw new Error(`missing weapon for job ${jobType}`);
+    return found;
+  };
+  const presetOf = (id: PersonPreset['id']): PersonPreset => {
+    const found = PERSON_PRESETS.find((entry) => entry.id === id);
+    if (found === undefined) throw new Error(`missing preset ${id}`);
+    return found;
+  };
 
-  it('offers the woman among the civilians, and her spawn is female', () => {
-    const woman = CIVILIAN_PRESETS.find((p) => p.id === 'woman');
-    if (woman === undefined) throw new Error('missing woman preset');
+  it('offers a man, a woman and both children, the woman and the girl spawning female', () => {
+    expect(PERSON_PRESETS.map(({ id, jobType }) => [id, jobType])).toEqual([
+      ['man', JOB_CIVILIST],
+      ['woman', JOB_WOMAN],
+      ['boy', JOB_CHILD_MALE],
+      ['girl', JOB_CHILD_FEMALE],
+    ]);
     const sim = createSceneSim(sandboxScene);
-    const goods = sim.content.goods;
-    sim.enqueueSetup(
-      unitSpawnCommand(woman, {
-        player: HUMAN_PLAYER,
-        tribe: PRIMARY_TRIBE,
-        hitpoints: 0,
-        armorClass: 0,
-        x: 2,
-        y: 2,
-        goods,
-      }),
-    );
+    sim.enqueueSetup(personSpawnCommand(presetOf('woman'), { ...person, player: HUMAN_PLAYER }));
     const before = new Set(sim.snapshot().entities.map((e) => e.id));
     sim.step();
     const spawned = sim
@@ -86,6 +98,18 @@ describe('admin spawn command mapping', () => {
       .entities.filter((e) => !before.has(e.id) && e.components.Settler !== undefined);
     expect(spawned).toHaveLength(1);
     expect(spawned[0]?.components.Female).toBeDefined();
+  });
+
+  it('offers a soldier the seven weapons in the panel order', () => {
+    expect(SOLDIER_WEAPONS.map(weaponGoodSlug)).toEqual([
+      undefined,
+      'sword_shord',
+      'sword_long',
+      'bow_short',
+      'bow_long',
+      'spear_wooden',
+      'spear_iron',
+    ]);
   });
 
   it('spawns each creature with its fixed tribe and form, selected owner and natural weapon', () => {
@@ -116,13 +140,13 @@ describe('admin spawn command mapping', () => {
     });
   });
 
-  it('a warrior spawns with its class weapon (combat + equipment slot), chosen owner, HP and armor', () => {
-    if (sword === undefined) throw new Error('missing sword preset');
-    const cmd = unitSpawnCommand(sword, {
-      player: 1,
-      tribe: PRIMARY_TRIBE,
+  it('a soldier wields its weapon and wears its armor, both also in its equipment slots', () => {
+    const chain: ArmorEntry = { armorClass: 3, good: 999, id: 'armor_chain' };
+    const cmd = soldierSpawnCommand({
+      ...person,
       hitpoints: 250,
-      armorClass: 2,
+      weapon: weapon(JOB_SOLDIER_SWORD),
+      armor: chain,
       x: 7,
       y: 9,
       goods: sandboxGoods,
@@ -136,73 +160,71 @@ describe('admin spawn command mapping', () => {
       owner: 1,
       hitpoints: 250,
       weaponTypeId: WEAPON_SWORD,
-      armorClass: 2,
-      // The weapon good in the equipment slot drives the drawn look + the panel's Weapon row.
-      equipment: { weapon: { goodType: GOOD_SWORD_SHORT } },
+      armorClass: 3,
+      // The goods in the slots drive the drawn look and the settler panel's equipment rows.
+      equipment: { weapon: { goodType: GOOD_SWORD_SHORT }, armor: { goodType: 999 } },
     });
   });
 
-  it('the bare-handed warrior spawns as job soldier_unarmed wielding fists', () => {
-    const unarmed = WARRIOR_PRESETS.find((p) => p.id === 'unarmed');
-    if (unarmed === undefined) throw new Error('missing unarmed preset');
-    const cmd = unitSpawnCommand(unarmed, {
-      player: 0,
-      tribe: PRIMARY_TRIBE,
-      hitpoints: 300,
-      armorClass: 0,
-      x: 4,
-      y: 6,
+  it('a bare-handed, unarmored soldier spawns as soldier_unarmed with fists and empty slots', () => {
+    const cmd = soldierSpawnCommand({
+      ...person,
+      weapon: weapon(JOB_SOLDIER_UNARMED),
+      armor: null,
       goods: sandboxGoods,
     });
     expect(cmd).toEqual({
       kind: 'spawnSettler',
       jobType: JOB_SOLDIER_UNARMED,
-      x: 4,
-      y: 6,
+      x: 2,
+      y: 3,
       tribe: PRIMARY_TRIBE,
-      owner: 0,
-      hitpoints: 300,
+      owner: 1,
       weaponTypeId: WEAPON_FISTS,
     });
   });
 
-  it('a civilian carries no weapon, and non-positive HP/armor are omitted (non-combatant)', () => {
-    if (civilian === undefined) throw new Error('missing civilian preset');
-    const cmd = unitSpawnCommand(civilian, {
-      player: HUMAN_PLAYER,
-      tribe: PRIMARY_TRIBE,
-      hitpoints: 0,
-      armorClass: 0,
-      x: 2,
-      y: 3,
+  it('a wooden spear arms the wooden spearman with its own weapon', () => {
+    const cmd = soldierSpawnCommand({
+      ...person,
+      weapon: weapon(JOB_SOLDIER_SPEAR_WOODEN),
+      armor: null,
       goods: sandboxGoods,
     });
-    expect(cmd).toEqual({
-      kind: 'spawnSettler',
-      jobType: JOB_CIVILIST,
-      x: 2,
-      y: 3,
-      tribe: PRIMARY_TRIBE,
-      owner: HUMAN_PLAYER,
+    expect(cmd).toMatchObject({
+      jobType: JOB_SOLDIER_SPEAR_WOODEN,
+      weaponTypeId: WEAPON_WOODEN_SPEAR,
+      equipment: { weapon: { goodType: GOOD_SPEAR_WOODEN } },
     });
-    expect('weaponTypeId' in cmd).toBe(false);
-    expect('hitpoints' in cmd).toBe(false);
-    expect('armorClass' in cmd).toBe(false);
   });
 
-  it('stamps the seat’s tribe, so a spawn can staff the buildings that seat raises', () => {
-    if (civilian === undefined) throw new Error('missing civilian preset');
+  it('a person carries nothing, and the seat tribe and non-positive health pass as the sim defaults', () => {
     const FRANK = 2;
-    const cmd = unitSpawnCommand(civilian, {
-      player: 1,
-      tribe: FRANK,
-      hitpoints: 0,
-      armorClass: 0,
-      x: 2,
-      y: 3,
-      goods: sandboxGoods,
+    const cmd = personSpawnCommand(presetOf('man'), { ...person, tribe: FRANK });
+    expect(cmd).toEqual({ kind: 'spawnSettler', jobType: JOB_CIVILIST, x: 2, y: 3, tribe: FRANK, owner: 1 });
+    expect(personSpawnCommand(presetOf('man'), { ...person, experience: [[7, 50]] })).toMatchObject({
+      experience: [[7, 50]],
     });
-    expect(cmd).toMatchObject({ tribe: FRANK, owner: 1 });
+  });
+
+  it('every job experience clears each need and training row of the content', () => {
+    const content = sandboxContent(grassTerrain(4, 4));
+    const [track] = content.jobExperience;
+    const [tribe] = content.tribes;
+    if (track === undefined || tribe === undefined) throw new Error('sandbox lacks a track or a tribe');
+    const RAW_TRACK = 77;
+    const rows: JobRequirement[] = [
+      { requirement: 'need', target: 'job', targetId: 19, amount: 10, experienceTypes: [track.typeId] },
+      { requirement: 'need', target: 'job', targetId: 20, amount: 30, experienceTypes: [track.typeId] },
+      { requirement: 'train', target: 'job', targetId: 31, amount: 5, experienceTypes: [RAW_TRACK] },
+    ];
+    const withRows = { ...content, tribes: [{ ...tribe, jobRequirements: rows }] };
+    const xp = new Map(everyJobExperience(withRows));
+    for (const row of rows) {
+      expect(
+        systems.requirementRepeats(content.jobExperience, xp, row.experienceTypes),
+      ).toBeGreaterThanOrEqual(row.amount);
+    }
   });
 
   it('a vehicle spawns through createVehicle for the chosen seat and that seat’s tribe', () => {

@@ -4,13 +4,7 @@ import {
   type PlacementOverlayFrame,
   visibleTileRange,
 } from '@open-northland/render';
-import {
-  FOG_STATE,
-  type NodeGridAnswer,
-  nodeGridAccepts,
-  nodeGridUpgradeReserve,
-  type Paper,
-} from '@open-northland/sim';
+import { FOG_STATE, type NodeGridAnswer, nodeGridAccepts, nodeGridUpgradeReserve } from '@open-northland/sim';
 import { HUMAN_PLAYER } from '../game/rules.js';
 import type { LitNodes } from '../hud/tool-panel/line-tool.js';
 import { type NodeGridProbe, PROBE_AREA_NODES, type SessionHost } from '../session/index.js';
@@ -39,13 +33,13 @@ export function makeOverlayFrameSource(
   camera: Camera,
   screenW: number,
   screenH: number,
-  paper?: Paper,
+  techWaived?: boolean,
 ) => PlacementOverlayFrame | null {
   const band = makeBandProber(host, mapSize, player);
-  return (buildingType, tribe, camera, screenW, screenH, paper) => {
-    const probe = probes.building(buildingType, tribe, paper);
+  return (buildingType, tribe, camera, screenW, screenH, techWaived = false) => {
+    const probe = probes.building(buildingType, tribe, techWaived);
     return band(
-      gridBandProbe(probe, `b${buildingType}:${tribe}:${paper === undefined ? 'tech' : 'paper'}`),
+      gridBandProbe(probe, `b${buildingType}:${tribe}:${techWaived ? 'waived' : 'tech'}`),
       camera,
       screenW,
       screenH,

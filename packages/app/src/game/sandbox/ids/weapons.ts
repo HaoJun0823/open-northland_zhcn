@@ -16,6 +16,7 @@ import {
 
 // Weapon typeIds ride the real viking `weapons.ini` ids.
 export const WEAPON_FISTS = 1;
+export const WEAPON_WOODEN_SPEAR = 4;
 export const WEAPON_SPEAR = 5;
 export const WEAPON_SWORD = 7;
 export const WEAPON_BROADSWORD = 8;

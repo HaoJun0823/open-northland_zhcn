@@ -45,8 +45,8 @@ export interface GatePreview {
   readonly ok: boolean;
 }
 
-/** The owner and tribe a wall line lays for. */
-type PalisadeSide = { readonly owner: number; readonly tribe: number };
+/** The owner and tribe a wall or road line lays for. */
+export type PlacementSide = { readonly owner: number; readonly tribe: number };
 
 /** A building held for placement: its type, the nation whose house it is (its look, footprint and
  *  gate), and the plan paying for it, if any. */
@@ -54,6 +54,27 @@ export interface BuildingPick {
   readonly typeId: number;
   readonly tribe: number;
   readonly paper: Paper | null;
+  /** The admin tool's pick: it stands finished for `owner` through the trusted channel, past the
+   *  technology gate. */
+  readonly standing?: { readonly owner: number };
+}
+
+/** What the admin tool stands finished: a line of wall or road, or a building. */
+export type StandingStructure =
+  | { readonly kind: 'wall' }
+  | { readonly kind: 'road' }
+  | { readonly kind: 'building'; readonly typeId: number };
+
+/** A paper or the admin tool waives a building's technology gate; its ground rules still apply. */
+export function techWaived(pick: BuildingPick): boolean {
+  return pick.paper !== null || pick.standing !== undefined;
+}
+
+/** A held road line: the side it lays for, and whether it lays finished road through the trusted
+ *  channel (the admin tool) rather than ordering sites. */
+interface RoadHold {
+  readonly side: PlacementSide;
+  readonly standing: boolean;
 }
 
 /** A held placement, carried through a HUD remount. */
@@ -62,10 +83,10 @@ export interface PlacementState {
   readonly palisade: {
     readonly gfxIndex: number;
     readonly mode: PalisadePlacementMode;
-    readonly side: PalisadeSide;
+    readonly side: PlacementSide;
   } | null;
-  /** The road tool is held. */
-  readonly road: boolean;
+  /** The road tool, when held. */
+  readonly road: RoadHold | null;
 }
 
 /** The walls a gate can go into now, lit span by span. */
@@ -83,7 +104,7 @@ export interface PlacementClickAsks {
     tribe: number,
     col: number,
     row: number,
-    paper?: Paper,
+    techWaived?: boolean,
   ) => Promise<boolean>;
   /** Resolves once the wall answers within `reach` nodes of `anchor` and `owner`'s built nodes are
    *  current, so the line decided next reads them through the synchronous rules. */
@@ -126,7 +147,13 @@ export interface PlacementDeps {
   readonly screenToTile: (clientX: number, clientY: number) => { col: number; row: number } | null;
   /** The sim's live placement rule for the held type and nation at a tile (`SessionHost.placementProbe`);
    *  a click on a rejecting tile is inert, so build mode only ends on a placement that lands. */
-  readonly canPlaceAt: (typeId: number, tribe: number, col: number, row: number, paper?: Paper) => boolean;
+  readonly canPlaceAt: (
+    typeId: number,
+    tribe: number,
+    col: number,
+    row: number,
+    techWaived?: boolean,
+  ) => boolean;
   /** Where a wall segment may stand; with `overUpgradeGround`, on ground a building keeps for its
    *  upgrade too. */
   readonly canPlacePalisadeAt?: (
@@ -152,7 +179,8 @@ export interface PlacementDeps {
   readonly ownRoadSiteAt?: (col: number, row: number) => number | null;
   /** The label of the key that lets a wall or road line over upgrade ground, for the strip; null unbound. */
   readonly upgradeGroundKey?: () => string | null;
-  /** The admin channel a standing-wall line commits through; absent, that tool lays nothing. */
+  /** The admin channel the admin tool's finished walls, roads and buildings commit through; absent, those
+   *  tools lay nothing. */
   readonly enqueueTrusted?: (command: Command) => void;
   /** The rules a click decides on, asked of the sim as it lands; absent, a click decides on the
    *  synchronous rules above. */
@@ -185,9 +213,10 @@ export interface PlacementController {
   /** Hold a building for placement; its paper rides the placement command and buys it finished. */
   enter(pick: BuildingPick): void;
   /** Hold a wall or gate row; `owner` and `tribe` override the seat's for an admin standing-wall line. */
-  enterPalisade(gfxIndex: number, mode: PalisadePlacementMode, side?: PalisadeSide): void;
-  /** Hold the road tool: a line of road sites, one per node, for the seat. */
-  enterRoad(): void;
+  enterPalisade(gfxIndex: number, mode: PalisadePlacementMode, side?: PlacementSide): void;
+  /** Hold the road tool: a line of road sites, one per node, for the seat; with `standing`, the admin
+   *  tool's line of finished road for that side. */
+  enterRoad(standing?: PlacementSide): void;
   cancel(): void;
   /** Drop a started wall line and keep the tool; false when no line was started. */
   stepBack(): boolean;
@@ -239,10 +268,10 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
   let palisade: {
     readonly gfxIndex: number;
     readonly mode: PalisadePlacementMode;
-    readonly side: PalisadeSide;
+    readonly side: PlacementSide;
     readonly line: LineTool;
   } | null = null;
-  let road: LineTool | null = null;
+  let road: (RoadHold & { readonly line: LineTool }) | null = null;
 
   /** The line tool's strip with the upgrade-ground switch's state and key. */
   const withUpgradeGround = (shown: { label: string; hint: string }): { label: string; hint: string } => {
@@ -261,15 +290,16 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
     const copy = messages().hud;
     const { construction } = copy;
     if (erase) {
-      const started = roadCancel.anchor() !== null || road.anchor() !== null;
+      const started = roadCancel.anchor() !== null || road.line.anchor() !== null;
       strip.show({
         label: copy.cancelRoadSite,
         hint: started ? construction.cancelRoadLineHint : construction.cancelRoadHint,
       });
       return;
     }
-    const hint = road.anchor() === null ? construction.placeRoadHint : construction.placeRoadLineHint;
-    strip.show(withUpgradeGround({ label: construction.road, hint }));
+    const hint = road.line.anchor() === null ? construction.placeRoadHint : construction.placeRoadLineHint;
+    const label = road.standing ? messages().admin.standingRoad : construction.road;
+    strip.show(withUpgradeGround({ label, hint }));
   };
 
   const showPalisadeStrip = (): void => {
@@ -300,7 +330,7 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
     strip.clear();
   };
 
-  const wallLine = (gfxIndex: number, standing: boolean, side: PalisadeSide): LineTool =>
+  const wallLine = (gfxIndex: number, standing: boolean, side: PlacementSide): LineTool =>
     createLineTool({
       tool: `palisade:${gfxIndex}`,
       maxEdges: PALISADE_LINE_MAX_EDGES,
@@ -324,7 +354,7 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       },
     });
 
-  const roadLine = (): LineTool =>
+  const roadLine = ({ side, standing }: RoadHold): LineTool =>
     createLineTool({
       tool: 'road',
       maxEdges: ROAD_LINE_MAX_EDGES,
@@ -333,14 +363,15 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       answersKey: () => `${deps.roadAnswersKey?.() ?? ''}:${overUpgradeGround}`,
       commit: (nodes) => {
         for (const node of nodes) {
-          deps.enqueue({
+          const place = {
             kind: 'placeRoadSite',
             x: node.col,
             y: node.row,
-            tribe: deps.tribe,
-            owner: deps.owner,
+            ...side,
             ...(overUpgradeGround ? { overUpgradeGround } : {}),
-          });
+          } as const;
+          if (standing) deps.enqueueTrusted?.({ ...place, laid: true });
+          else deps.enqueue(place);
         }
         ctx.cue('confirm');
       },
@@ -426,18 +457,24 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
   };
 
   /** `repeat` keeps the building held for the next placement. */
-  const placeBuilding = ({ typeId, tribe, paper }: BuildingPick, tile: LineNode, repeat: boolean): void => {
-    deps.enqueue({
-      kind: 'placeBuilding',
-      buildingType: typeId,
-      x: tile.col,
-      y: tile.row,
-      tribe,
-      owner: deps.owner,
-      // The foundation stands at 0% and builders raise it, unless a paper pays for it finished.
-      underConstruction: true,
-      ...(paper !== null ? { paper } : {}),
-    });
+  const placeBuilding = (
+    { typeId, tribe, paper, standing }: BuildingPick,
+    tile: LineNode,
+    repeat: boolean,
+  ): void => {
+    const place = { kind: 'placeBuilding', buildingType: typeId, x: tile.col, y: tile.row, tribe } as const;
+    // Forced past the technology gate the click's probe waived; the probe already held its ground.
+    if (standing !== undefined) {
+      deps.enqueueTrusted?.({ ...place, owner: standing.owner, underConstruction: false, force: true });
+    } else {
+      deps.enqueue({
+        ...place,
+        owner: deps.owner,
+        // The foundation stands at 0% and builders raise it, unless a paper pays for it finished.
+        underConstruction: true,
+        ...(paper !== null ? { paper } : {}),
+      });
+    }
     ctx.cue('confirm');
     if (repeat) chained = true;
     else exitPlacement();
@@ -471,13 +508,14 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
     palisade = null;
     road = null;
     const copy = messages().hud.construction;
+    const name = deps.labelByType.get(pick.typeId) ?? `#${pick.typeId}`;
     strip.show({
-      label: deps.labelByType.get(pick.typeId) ?? `#${pick.typeId}`,
+      label: pick.standing === undefined ? name : formatMessage(messages().admin.standingBuilding, { name }),
       hint: pick.paper === null ? copy.placeHint : copy.placePaperHint,
     });
   };
 
-  const enterPalisade = (gfxIndex: number, mode: PalisadePlacementMode, side?: PalisadeSide): void => {
+  const enterPalisade = (gfxIndex: number, mode: PalisadePlacementMode, side?: PlacementSide): void => {
     building = null;
     const held = side ?? { owner: deps.owner, tribe: deps.tribe };
     road = null;
@@ -486,10 +524,14 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
     showPalisadeStrip();
   };
 
-  const enterRoad = (): void => {
+  const enterRoad = (standing?: PlacementSide): void => {
     building = null;
     palisade = null;
-    road = roadLine();
+    const hold: RoadHold = {
+      side: standing ?? { owner: deps.owner, tribe: deps.tribe },
+      standing: standing !== undefined,
+    };
+    road = { ...hold, line: roadLine(hold) };
     overUpgradeGround = false;
     roadCancel.stepBack();
     showRoadStrip();
@@ -508,10 +550,10 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       if (building === null && palisade === null && road === null) return;
       const cancelled = building;
       exitPlacement();
-      if (cancelled !== null) deps.onCancel?.(cancelled.paper);
+      if (cancelled !== null && cancelled.standing === undefined) deps.onCancel?.(cancelled.paper);
     },
     stepBack: (): boolean => {
-      if (road !== null && (roadCancel.stepBack() || road.stepBack())) {
+      if (road !== null && (roadCancel.stepBack() || road.line.stepBack())) {
         showRoadStrip();
         return true;
       }
@@ -544,11 +586,11 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       const asks = deps.clickAsks;
       const keep = mods?.keep === true;
       if (road !== null && erase) {
-        clickCancel(road, tile);
+        clickCancel(road.line, tile);
         return true;
       }
       if (road !== null) {
-        const line = road;
+        const { line } = road;
         const spec: LineClickSpec = { keep, holds: true, showStrip: showRoadStrip };
         if (asks === undefined || tile === null) clickLine(line, tile, spec);
         else {
@@ -576,14 +618,14 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       }
       if (building === null || tile === null) return true;
       const pick = building;
-      const paper = pick.paper ?? undefined;
+      const waived = techWaived(pick);
       // A plan pays for one house, so its placement ends with it.
       const repeat = shiftHeld && pick.paper === null;
       if (asks === undefined) {
-        if (deps.canPlaceAt(pick.typeId, pick.tribe, tile.col, tile.row, paper))
+        if (deps.canPlaceAt(pick.typeId, pick.tribe, tile.col, tile.row, waived))
           placeBuilding(pick, tile, repeat);
       } else {
-        decideLater(asks.askPlaceAt(pick.typeId, pick.tribe, tile.col, tile.row, paper), (ok) => {
+        decideLater(asks.askPlaceAt(pick.typeId, pick.tribe, tile.col, tile.row, waived), (ok) => {
           if (ok) placeBuilding(pick, tile, repeat);
         });
       }
@@ -596,8 +638,12 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
     roadPreview: (tile): RoadPreview | null => {
       if (tile === null || road === null) return null;
       if (!erase)
-        return { nodes: road.preview(tile, shiftHeld), cancel: false, anchored: road.anchor() !== null };
-      const from = roadCancel.anchor() ?? road.anchor();
+        return {
+          nodes: road.line.preview(tile, shiftHeld),
+          cancel: false,
+          anchored: road.line.anchor() !== null,
+        };
+      const from = roadCancel.anchor() ?? road.line.anchor();
       return {
         nodes: roadCancel.preview(from ?? tile, tile, shiftHeld),
         cancel: true,
@@ -608,12 +654,12 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       tile === null || palisade?.mode !== 'gate' ? null : gateAt(tile),
     activeLine: () => {
       // A cancel line washes nothing: every node takes it.
-      if (road !== null) return erase ? null : road.active();
+      if (road !== null) return erase ? null : road.line.active();
       return palisade !== null && palisade.mode !== 'gate' ? palisade.line.active() : null;
     },
     lineStarts: () => {
       if (road !== null && erase) return null;
-      const line = road ?? (palisade !== null && palisade.mode !== 'gate' ? palisade.line : null);
+      const line = road?.line ?? (palisade !== null && palisade.mode !== 'gate' ? palisade.line : null);
       return line !== null && line.active() === null ? line.starts() : null;
     },
     gateSites: () => (palisade?.mode === 'gate' ? (deps.palisadeGateSites?.() ?? null) : null),
@@ -621,7 +667,7 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       building,
       palisade:
         palisade === null ? null : { gfxIndex: palisade.gfxIndex, mode: palisade.mode, side: palisade.side },
-      road: road !== null,
+      road: road === null ? null : { side: road.side, standing: road.standing },
     }),
     dispose: (): void => {
       disposed = true;
@@ -630,7 +676,7 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       if (state.building !== null) enter(state.building);
       else if (state.palisade !== null)
         enterPalisade(state.palisade.gfxIndex, state.palisade.mode, state.palisade.side);
-      else if (state.road) enterRoad();
+      else if (state.road !== null) enterRoad(state.road.standing ? state.road.side : undefined);
     },
   };
 }

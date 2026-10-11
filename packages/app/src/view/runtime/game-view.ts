@@ -1113,6 +1113,10 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       setBloodEnabled: applyWhenWarmed((enabled) => renderer.setBloodEnabled(enabled), turnedOn),
       setBonesFade: (fades) => renderer.setBonesFade(fades),
       setFpsCounterShown: perfReadout.setShown,
+      setFpsLimit: (limit) => {
+        loop?.setFpsLimit(limit);
+        perfReadout.setCapFps(limit);
+      },
       setWeatherEnabled: (enabled) => {
         setWeatherDrawn(enabled);
         soundDriver?.setWeatherEnabled(enabled);
@@ -1208,7 +1212,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         },
       },
       suspended: subMissions.isPending,
-      fpsLimit: storedSettings.fpsLimit,
+      fpsLimit: liveSettings.settings.current().fpsLimit,
       fogView: fogViewOf,
       viewer,
       onMatchEnd: () => verdict?.finish(watching ? 'undecided' : host.matchOutcome(localPlayer)),

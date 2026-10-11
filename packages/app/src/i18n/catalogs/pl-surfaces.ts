@@ -168,7 +168,7 @@ export const plSurfaces = {
         'Rozdzielczość, w której rysowany jest cały obraz gry: niższa daje płynność na słabszym sprzęcie, wyższa daje ostrzejszy obraz. Działa w grze.',
       fpsLimit: 'Limit klatek na sekundę',
       fpsLimitTip:
-        'Ogranicza liczbę rysowanych klatek: mniejsze zużycie energii i cichszy wentylator. Działa w grze, nie w menu.',
+        'Ogranicza liczbę klatek rysowanych w grze: mniejsze zużycie energii i cichszy wentylator.',
       fpsLimitScreen: 'Ekran',
       spriteSmoothing: 'Wygładzanie sprite’ów',
       spriteSmoothingTip:

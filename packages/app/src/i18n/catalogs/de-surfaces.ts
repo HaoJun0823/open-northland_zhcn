@@ -205,7 +205,7 @@ export const deSurfaces = {
         'Auflösung des gesamten Spielbildes: niedrigere Werte verbessern die Leistung auf schwächerer Hardware, höhere machen das Bild schärfer. Gilt im Spiel.',
       fpsLimit: 'Bildratenlimit',
       fpsLimitTip:
-        'Begrenzt die Bilder pro Sekunde und senkt damit Stromverbrauch und Lüftergeräusche. Gilt im Spiel, nicht im Menü.',
+        'Begrenzt die Bilder pro Sekunde im Spiel und senkt damit Stromverbrauch und Lüftergeräusche.',
       fpsLimitScreen: 'Bildschirm',
       spriteSmoothing: 'Sprite-Glättung',
       spriteSmoothingTip:

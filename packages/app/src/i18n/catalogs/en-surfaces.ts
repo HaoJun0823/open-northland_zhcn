@@ -168,8 +168,7 @@ export const enSurfaces = {
       renderScaleTip:
         'Resolution the whole game image is drawn at: lower runs smoother on weak hardware, higher sharpens it. Applies in game.',
       fpsLimit: 'Frame rate limit',
-      fpsLimitTip:
-        'Caps the drawn frames per second: less power draw and fan noise. Applies in game, not in the menu.',
+      fpsLimitTip: 'Caps the frames drawn per second in game: less power draw and fan noise.',
       // The display's own refresh rate, next to the fixed 30/60 FPS caps.
       fpsLimitScreen: 'Display',
       spriteSmoothing: 'Sprite smoothing',

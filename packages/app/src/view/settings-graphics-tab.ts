@@ -186,7 +186,7 @@ export function graphicsSettingsRows(
       tip: store.pinnedUiScale === null ? text.uiScaleTip : text.uiScalePinnedTip,
     }),
     settingRow(text.renderScale, renderScale, { tip: deferredTip(text.renderScaleTip) }),
-    settingRow(text.fpsLimit, fpsSeg.root, { tip: deferredTip(text.fpsLimitTip) }),
+    settingRow(text.fpsLimit, fpsSeg.root, { tip: liveTip(text.fpsLimitTip) }),
     ...cursorSettingsRows(store, markSegment),
     settingsHeading(text.interfaceHeading),
     settingRow(text.selectionStyle, selectionStyle.root, { tip: text.selectionStyleTip }),

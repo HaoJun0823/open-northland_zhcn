@@ -127,6 +127,13 @@ describe('PerfReadingWindow', () => {
     const capped = new PerfReadingWindow({ ...WORKER, capFps: 30 });
     expect(readOnce(capped, { elapsedMs: 1000 / 30 }).verdict).toBe('cap');
   });
+
+  it('judges the next window by a frame-rate limit changed in play', () => {
+    const window = new PerfReadingWindow(WORKER);
+    expect(readOnce(window, { elapsedMs: 1000 / 30 }).verdict).toBe('display');
+    window.setCapFps(30);
+    expect(readOnce(window, { elapsedMs: 1000 / 30 }).verdict).toBe('cap');
+  });
 });
 
 describe('perfVerdict', () => {

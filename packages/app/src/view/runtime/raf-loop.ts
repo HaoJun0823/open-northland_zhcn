@@ -3,6 +3,8 @@ import type { FpsLimit } from '../settings-store.js';
 export interface RafLoop {
   /** Halt the chain; a second call is a no-op. */
   stop(): void;
+  /** Gate the following animation frames by a new cap; the first of them draws and anchors its grid. */
+  setFpsLimit(fpsLimit: FpsLimit): void;
 }
 
 export interface RafLoopOptions {
@@ -44,7 +46,7 @@ export function createFrameLimiter(fpsLimit: FpsLimit): (nowMs: number) => boole
  * never stops leaves a second loop stepping the same stage.
  */
 export function startRafLoop(frame: (nowMs: number) => void, options: RafLoopOptions = {}): RafLoop {
-  const admits = createFrameLimiter(options.fpsLimit ?? null);
+  let admits = createFrameLimiter(options.fpsLimit ?? null);
   let running = true;
   let drawn = false;
   let shown = false;
@@ -65,6 +67,9 @@ export function startRafLoop(frame: (nowMs: number) => void, options: RafLoopOpt
     stop(): void {
       running = false;
       cancelAnimationFrame(rafId);
+    },
+    setFpsLimit(fpsLimit): void {
+      admits = createFrameLimiter(fpsLimit);
     },
   };
 }

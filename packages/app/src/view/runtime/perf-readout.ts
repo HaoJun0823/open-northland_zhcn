@@ -7,6 +7,8 @@ import { createPerfReadoutView, type PerfReadoutView } from '../../hud/dom/perf-
 /** The player's frame-rate counter on the top bar, fed once a frame by the frame loop. */
 export interface PerfReadout {
   setShown(shown: boolean): void;
+  /** The frame-rate limit the verdict measures the frames against; null follows the display. */
+  setCapFps(capFps: number | null): void;
   /** The bracket the world renderer times its renders with; undefined while nothing measures them. */
   gpuTimer(): GpuSpan | undefined;
   /** `shortfallSpeed` is the delivered speed while a sustained shortfall holds, else null. */
@@ -65,6 +67,7 @@ export function mountPerfReadout(deps: PerfReadoutDeps): PerfReadout {
 
   return {
     setShown,
+    setCapFps: (capFps) => readings.setCapFps(capFps),
     gpuTimer(): GpuSpan | undefined {
       return shown ? (gpu ?? undefined) : undefined;
     },

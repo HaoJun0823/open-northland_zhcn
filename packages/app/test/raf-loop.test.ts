@@ -106,6 +106,24 @@ describe('startRafLoop', () => {
     loop.stop();
   });
 
+  it('gates the following frames by a cap replaced while the loop runs', () => {
+    const clock = fakeRaf();
+    vi.stubGlobal('requestAnimationFrame', clock.raf);
+    vi.stubGlobal('cancelAnimationFrame', clock.caf);
+
+    const frames: number[] = [];
+    const loop = startRafLoop((nowMs) => frames.push(nowMs), { fpsLimit: null });
+    const at = (frame: number): number => frame * (1000 / 60);
+    // A 60 Hz display drawn uncapped, then held to 30 FPS, then let go again.
+    for (let frame = 0; frame < 2; frame++) clock.flush(at(frame));
+    loop.setFpsLimit(30);
+    for (let frame = 2; frame < 6; frame++) clock.flush(at(frame));
+    loop.setFpsLimit(null);
+    for (let frame = 6; frame < 8; frame++) clock.flush(at(frame));
+    expect(frames).toEqual([0, 1, 2, 4, 6, 7].map(at));
+    loop.stop();
+  });
+
   it('reports the first frame shown once the animation frame after the first drawn one begins', () => {
     const clock = fakeRaf();
     vi.stubGlobal('requestAnimationFrame', clock.raf);

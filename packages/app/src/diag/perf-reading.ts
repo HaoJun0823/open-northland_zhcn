@@ -100,7 +100,12 @@ export class PerfReadingWindow {
   /** Each recent window's low-quantile interval, newest last; their minimum is the refresh. */
   private readonly recentRefreshMs: number[] = [];
 
-  constructor(private readonly context: PerfReadingContext) {}
+  constructor(private context: PerfReadingContext) {}
+
+  /** The player changed the frame-rate limit; the window under way is judged by the new one. */
+  setCapFps(capFps: number | null): void {
+    this.context = { ...this.context, capFps };
+  }
 
   /** One GPU measurement, whichever frame it belongs to: the window averages what landed in it. */
   recordGpu(ms: number): void {

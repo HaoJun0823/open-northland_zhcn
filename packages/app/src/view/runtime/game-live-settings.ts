@@ -35,6 +35,7 @@ export interface LiveGameSettingsDeps {
   readonly setBloodEnabled: (enabled: boolean) => void;
   readonly setBonesFade: (fades: boolean) => void;
   readonly setFpsCounterShown: (shown: boolean) => void;
+  readonly setFpsLimit: (limit: MenuSettings['fpsLimit']) => void;
 }
 
 export interface LiveGameSettings {
@@ -112,6 +113,7 @@ export function createLiveGameSettings(deps: LiveGameSettingsDeps): LiveGameSett
     setBloodEnabled: deps.setBloodEnabled,
     setBonesFade: deps.setBonesFade,
     setFpsCounterShown: deps.setFpsCounterShown,
+    setFpsLimit: deps.setFpsLimit,
     ...(sound !== null ? { previewBus: (bus) => sound.previewBus(bus) } : {}),
   });
 

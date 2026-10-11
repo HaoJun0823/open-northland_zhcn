@@ -80,6 +80,14 @@ it('shows or hides the frame-rate counter live, hidden until the player turns it
   expect(h.persist).toHaveBeenCalledWith({ fpsCounter: true });
 });
 
+it('hands a new frame-rate limit to the running game at once', async () => {
+  const h = harness();
+  await h.settings.update({ fpsLimit: 30 });
+  await h.settings.update({ fpsLimit: null });
+  expect(h.setFpsLimit.mock.calls).toEqual([[30], [null]]);
+  expect(h.persist.mock.calls).toEqual([[{ fpsLimit: 30 }], [{ fpsLimit: null }]]);
+});
+
 it('applies the background and mono sound choices live', async () => {
   const h = harness();
   await h.settings.update({ soundInBackground: true });
@@ -126,6 +134,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
   const setBloodEnabled = vi.fn();
   const setBonesFade = vi.fn();
   const setFpsCounterShown = vi.fn();
+  const setFpsLimit = vi.fn();
   const settings = createGameSettingsRuntime({
     initial: {
       ...defaultSettings(),
@@ -153,6 +162,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
     setBloodEnabled,
     setBonesFade,
     setFpsCounterShown,
+    setFpsLimit,
     ...overrides,
   });
   return {
@@ -177,6 +187,7 @@ function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
     setBloodEnabled,
     setBonesFade,
     setFpsCounterShown,
+    setFpsLimit,
   };
 }
 

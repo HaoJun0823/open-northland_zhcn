@@ -24,20 +24,24 @@ import { WORLD_BATCH_MAX_TEXTURES, worldBatchProgramSource } from './world-batch
  */
 const WORLD_BATCH_TEXTURE_LIMITS: readonly number[] = [8, 16, WORLD_BATCH_MAX_TEXTURES];
 
-/** The programs every world compiles whatever its settings, beside the world batch variant they select. */
-function fixedPrograms(): readonly GlslProgramSource[] {
+/** The programs a world may draw with whatever its settings; map content and events decide whether it does. */
+function unconditionalPrograms(): readonly GlslProgramSource[] {
   return [
     PALETTED_SPRITE_SOURCE,
-    BLOOD_GROUND_SOURCE,
     DISMANTLE_SOURCE,
     DECOR_SHADOW_SOURCE,
     SHADED_TERRAIN_SOURCE,
     SHADED_DECOR_SOURCE,
     TINTED_TERRAIN_SOURCE,
+  ];
+}
+
+/** The sky grade, veil, ground reactions and precipitation the weather setting turns off. */
+function weatherPrograms(): readonly GlslProgramSource[] {
+  return [
     WEATHER_GRADE_SOURCE,
     WEATHER_VEIL_SOURCE,
     GROUND_REACTIONS_SOURCE,
-    GROUND_WAVE_FILTER_SOURCE,
     ...WEATHER_KINDS.map((kind) => precipitationSource(kind)),
   ];
 }
@@ -56,17 +60,38 @@ export function shaderCatalog(): readonly GlslProgramSource[] {
       }
     }
   }
-  entries.push(...fixedPrograms());
+  entries.push(
+    ...unconditionalPrograms(),
+    BLOOD_GROUND_SOURCE,
+    GROUND_WAVE_FILTER_SOURCE,
+    ...weatherPrograms(),
+  );
   return entries;
 }
 
-/** What a world draws with: the one batch variant for the device's batch limit and the player's
- *  enhancement settings, and the fixed programs. */
+/** The settings that decide which programs a world can draw with. */
+export interface ShaderSelection {
+  readonly magnification: WorldMagnification;
+  readonly shadow: ShadowStyle | null;
+  readonly weather: boolean;
+  /** Blood marks on the ground. */
+  readonly blood: boolean;
+  /** The shore-wave filter, which only environment motion draws. */
+  readonly groundWaves: boolean;
+}
+
+/** What a world can draw with: the one batch variant for the device's batch limit and the player's
+ *  settings, and every other program those settings leave on. */
 export function bootShaderPrograms(
   maxBatchTextures: number,
-  magnification: WorldMagnification,
-  shadow: ShadowStyle | null,
+  selection: ShaderSelection,
 ): readonly GlslProgramSource[] {
   const slots = Math.min(maxBatchTextures, WORLD_BATCH_MAX_TEXTURES);
-  return [worldBatchProgramSource(slots, worldMagnifyModeNumber(magnification), shadow), ...fixedPrograms()];
+  return [
+    worldBatchProgramSource(slots, worldMagnifyModeNumber(selection.magnification), selection.shadow),
+    ...unconditionalPrograms(),
+    ...(selection.blood ? [BLOOD_GROUND_SOURCE] : []),
+    ...(selection.groundWaves ? [GROUND_WAVE_FILTER_SOURCE] : []),
+    ...(selection.weather ? weatherPrograms() : []),
+  ];
 }

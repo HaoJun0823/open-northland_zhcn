@@ -1,9 +1,8 @@
 import { checkMaxIfStatementsInShader } from 'pixi.js';
 import type { WorldMagnification } from './pixel-art-registry.js';
 import { type GlslProgramSource, glProgramFor } from './program-source.js';
-import { bootShaderPrograms } from './shader-catalog.js';
+import { bootShaderPrograms, type ShaderSelection } from './shader-catalog.js';
 import { DEFAULT_SHADOW_STYLE, type ShadowStyle } from './shadow-style.js';
-import { WORLD_BATCH_MAX_TEXTURES } from './world-batch-shader.js';
 import type { WorldEnhancements } from './world-renderer/frame.js';
 
 /**
@@ -12,19 +11,32 @@ import type { WorldEnhancements } from './world-renderer/frame.js';
  * link of the same text is answered from the cache instead of compiling: on Direct3D that compile is
  * seconds per program, and with `KHR_parallel_shader_compile` the driver runs it on its own threads
  * while the caller keeps loading. Without the extension each link blocks this thread, one program per
- * turn so a progress label can paint between them.
+ * turn so a progress label can paint between them. The cache key also covers the shader-visible
+ * extensions and the bound attribute locations, which the renderer leaves as this context has them.
  */
 export interface ShaderWarmup {
-  /** Settles once every program is linked or has failed; a failure is reported, never thrown, since the
-   *  renderer reports its own. */
+  /** Settles once no program is waited for: each linked, failed, or still with a driver that stopped
+   *  completing links. A failure is reported, never thrown, since the renderer reports its own. */
   readonly done: Promise<readonly WarmedProgram[]>;
 }
 
+/** `pending`: still with the driver when the warm-up stopped waiting for it. */
+export type WarmOutcome = 'linked' | 'failed' | 'pending';
+
 export interface WarmedProgram {
   readonly name: string;
-  readonly linked: boolean;
-  /** Wall time from the request to the link's completion; parallel compiles overlap. */
+  readonly outcome: WarmOutcome;
+  /** Wall time from the request to the link's completion, or to when the warm-up stopped waiting;
+   *  parallel compiles overlap. */
   readonly ms: number;
+}
+
+/** A link's end, once the driver has it. */
+export interface LinkResult {
+  readonly outcome: Exclude<WarmOutcome, 'pending'>;
+  readonly ms: number;
+  /** The context was lost when the link ended, which failed the link rather than the program. */
+  readonly contextLost: boolean;
 }
 
 /** The world batch variant a setting pair selects; the renderer applies the same reading. */
@@ -44,16 +56,24 @@ export function worldShaderSettings(
 
 /** How often a pending parallel link is asked whether it has completed. */
 const COMPLETION_POLL_MS = 16;
+/** How long links may go without one completing before `done` stops waiting: a slow driver keeps
+ *  completing them, while one under load from a dozen other tabs drawing maps was observed with none
+ *  completing for over a minute. A cold Direct3D compile of the heaviest program took 8 s on CI. */
+const STALL_LIMIT_MS = 20_000;
+/** How often a stalled link is still asked: nobody waits on it any more, but its context is freed only
+ *  once it completes, since deleting a program the driver is still linking blocks the GPU process
+ *  until the link ends. */
+const STALLED_POLL_MS = 1000;
 
 const KHR_PARALLEL_SHADER_COMPILE = 'KHR_parallel_shader_compile';
 /** `COMPLETION_STATUS_KHR` of the extension; the GL enum, so no typed extension object is needed. */
 const COMPLETION_STATUS_KHR = 0x91b1;
 
 interface PendingLink {
-  readonly name: string;
   readonly program: WebGLProgram;
   readonly shaders: readonly WebGLShader[];
   readonly startedAt: number;
+  readonly resolve: (result: LinkResult) => void;
 }
 
 /** The calls the warm-up makes on its context, so a test can drive it without a GPU. */
@@ -74,130 +94,300 @@ export type LinkingContext = Pick<
   | 'isContextLost'
 >;
 
-export function startShaderWarmup(
-  enhancements: Pick<WorldEnhancements, 'enhancedSampling' | 'pixelArtScaler' | 'softShadows'>,
-  onProgress?: (linked: number, total: number) => void,
-): ShaderWarmup {
-  const settings = worldShaderSettings(enhancements);
+/** The player settings that pick which programs a world can draw with. */
+export type WarmupSettings = Pick<
+  WorldEnhancements,
+  'enhancedSampling' | 'pixelArtScaler' | 'softShadows' | 'environmentMotion'
+> & {
+  readonly weather: boolean;
+  readonly blood: boolean;
+};
+
+function shaderSelection(settings: WarmupSettings): ShaderSelection {
+  return {
+    ...worldShaderSettings(settings),
+    weather: settings.weather,
+    blood: settings.blood,
+    groundWaves: settings.environmentMotion,
+  };
+}
+
+/** Every link this page requested, by program name, so warm-ups for different settings share the
+ *  programs they have in common and none is compiled twice. */
+const requested = new Map<string, Promise<LinkResult>>();
+/** The batch texture limit the first probe found; one GPU answers every context the same. */
+let batchTextureLimit: number | null = null;
+
+const SETTLED: ShaderWarmup = { done: Promise.resolve([]) };
+
+/** Warm-up for a loading screen: without parallel links each one blocks this thread in turn. */
+export function startShaderWarmup(settings: WarmupSettings): ShaderWarmup {
+  return openWarmup(settings, false) ?? SETTLED;
+}
+
+/** Warm-up while an interface stays live: null, and nothing linked, where a link would block it. */
+export function startBackgroundShaderWarmup(settings: WarmupSettings): ShaderWarmup | null {
+  return openWarmup(settings, true);
+}
+
+function openWarmup(settings: WarmupSettings, parallelOnly: boolean): ShaderWarmup | null {
+  const selection = shaderSelection(settings);
+  if (batchTextureLimit !== null) {
+    const programs = bootShaderPrograms(batchTextureLimit, selection);
+    if (programs.every((program) => requested.has(program.name))) return warmupOf(programs);
+  }
   const gl =
     typeof document === 'undefined'
       ? null
       : document.createElement('canvas').getContext('webgl2', { antialias: false, depth: false });
-  // No usable WebGL 2 here: the renderer will say so itself. On a lost context every compile reports
-  // failure, so Pixi's if-limit probe below would halve its limit to 0 and never return.
-  if (gl === null || gl.isContextLost()) return { done: Promise.resolve([]) };
-  // The limit the renderer will find for its own context: WebGL 2 guarantees the if-chain at 16, and
-  // Pixi halves the limit where a larger chain fails to compile.
-  const limit = checkMaxIfStatementsInShader(gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS), gl);
-  const programs = bootShaderPrograms(
-    Math.min(limit, WORLD_BATCH_MAX_TEXTURES),
-    settings.magnification,
-    settings.shadow,
-  );
+  // No usable WebGL 2 here: the renderer will say so itself.
+  if (gl === null || gl.isContextLost()) return SETTLED;
+  const release = (): void => gl.getExtension('WEBGL_lose_context')?.loseContext();
   const parallel = gl.getExtension(KHR_PARALLEL_SHADER_COMPILE) !== null;
-  const done = linkPrograms(gl, programs, parallel, onProgress).finally(() =>
-    gl.getExtension('WEBGL_lose_context')?.loseContext(),
-  );
-  return { done };
+  if (parallelOnly && !parallel) {
+    release();
+    return null;
+  }
+  batchTextureLimit ??= probeBatchTextureLimit(gl);
+  if (batchTextureLimit === null) {
+    release();
+    return SETTLED;
+  }
+  const programs = bootShaderPrograms(batchTextureLimit, selection);
+  const fresh = programs.filter((program) => !requested.has(program.name));
+  for (const [name, link] of linkPrograms(gl, fresh, parallel, release)) {
+    requested.set(
+      name,
+      link.then((result) => {
+        // Asked at the link's end: the context is freed, and so lost, once every link has ended.
+        if (result.contextLost) requested.delete(name);
+        return result;
+      }),
+    );
+  }
+  return warmupOf(programs);
 }
 
-/** Links `programs` on `gl`; `parallel` says the context offers `KHR_parallel_shader_compile`. */
+function warmupOf(programs: readonly GlslProgramSource[]): ShaderWarmup {
+  const links = new Map<string, Promise<LinkResult>>();
+  for (const program of programs) {
+    const link = requested.get(program.name);
+    if (link !== undefined) links.set(program.name, link);
+  }
+  return { done: waitForLinks(links) };
+}
+
+/**
+ * The limit the renderer will find for its own context: WebGL 2 guarantees the batch's sampler
+ * if-chain at 16, and Pixi halves the limit where a larger chain fails to compile. Null on a context
+ * lost before or during the probe, whose every compile reports failure: Pixi's probe would halve to 0
+ * and never return, so it runs here on a context that answers success once the halving is spent.
+ */
+function probeBatchTextureLimit(gl: WebGL2RenderingContext): number | null {
+  const units: unknown = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
+  if (typeof units !== 'number' || units < 1) return null;
+  const halvings = Math.floor(Math.log2(units)) + 1;
+  let compiles = 0;
+  const bounded = new Proxy(gl, {
+    get(target, key) {
+      if (key === 'getShaderParameter') {
+        return (shader: WebGLShader, name: GLenum): unknown => {
+          const answer: unknown = target.getShaderParameter(shader, name);
+          compiles++;
+          return typeof answer !== 'boolean' || compiles > halvings ? true : answer;
+        };
+      }
+      const value: unknown = Reflect.get(target, key);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+  const limit = checkMaxIfStatementsInShader(units, bounded);
+  return gl.isContextLost() || limit < 1 ? null : limit;
+}
+
+/**
+ * Waits for `links`, settling once every one has ended or none has for `stallMs`; those still with the
+ * driver then read as pending. A stall needs two checks in a row, so a hidden tab whose throttled
+ * timers fire together still credits a link that completed in the same batch.
+ */
+export function waitForLinks(
+  links: ReadonlyMap<string, Promise<LinkResult>>,
+  stallMs = STALL_LIMIT_MS,
+): Promise<readonly WarmedProgram[]> {
+  return new Promise((resolve) => {
+    const startedAt = performance.now();
+    const ended = new Map<string, LinkResult>();
+    let progressAt = startedAt;
+    let stallSeen = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const settle = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const now = performance.now();
+      resolve(
+        [...links.keys()].map((name): WarmedProgram => {
+          const end = ended.get(name);
+          return end === undefined
+            ? { name, outcome: 'pending', ms: now - startedAt }
+            : { name, outcome: end.outcome, ms: end.ms };
+        }),
+      );
+    };
+    for (const [name, link] of links) {
+      void link.then((result) => {
+        ended.set(name, result);
+        progressAt = performance.now();
+        stallSeen = false;
+        if (ended.size === links.size) settle();
+      });
+    }
+    if (links.size === 0) {
+      settle();
+      return;
+    }
+    const check = (): void => {
+      const stalled = performance.now() - progressAt > stallMs;
+      if (stalled && stallSeen) {
+        settle();
+        return;
+      }
+      stallSeen = stalled;
+      timer = setTimeout(check, COMPLETION_POLL_MS);
+    };
+    timer = setTimeout(check, COMPLETION_POLL_MS);
+  });
+}
+
+/**
+ * Links `programs` on `gl`, each link's end by program name; `onFinished` runs once none is left with
+ * the driver, so the context can be freed. A program is deleted only after its link has ended.
+ */
 export function linkPrograms(
   gl: LinkingContext,
   programs: readonly GlslProgramSource[],
   parallel: boolean,
-  onProgress: (linked: number, total: number) => void = () => undefined,
-): Promise<readonly WarmedProgram[]> {
-  return (parallel ? linkInParallel : linkOneByOne)(gl, programs, onProgress);
+  onFinished: () => void = () => undefined,
+): ReadonlyMap<string, Promise<LinkResult>> {
+  // Every source is resolved before the first GL call, so a dropped one leaves no link behind.
+  const sources = programs.map((program) => ({ name: program.name, ...glProgramText(program) }));
+  const ends = new Map<string, Promise<LinkResult>>();
+  const resolvers = new Map<string, (result: LinkResult) => void>();
+  for (const { name } of sources) {
+    ends.set(
+      name,
+      new Promise((resolve) => {
+        resolvers.set(name, resolve);
+      }),
+    );
+  }
+  const resolverOf = (name: string): ((result: LinkResult) => void) =>
+    resolvers.get(name) ?? (() => undefined);
+  if (parallel) linkInParallel(gl, sources, resolverOf, onFinished);
+  else void linkInTurns(gl, sources, resolverOf, onFinished);
+  return ends;
 }
 
-/** Requests every link up front, then waits for the driver's threads to finish them all. */
-async function linkInParallel(
+interface ProgramText {
+  readonly name: string;
+  readonly vertex: string;
+  readonly fragment: string;
+}
+
+function glProgramText(source: GlslProgramSource): Omit<ProgramText, 'name'> {
+  const { vertex, fragment } = glProgramFor(source);
+  if (vertex === undefined || fragment === undefined) throw new Error(`Pixi dropped ${source.name}'s source`);
+  return { vertex, fragment };
+}
+
+/** Requests every link up front, then polls the driver's threads until none is left. */
+function linkInParallel(
   gl: LinkingContext,
-  programs: readonly GlslProgramSource[],
-  onProgress: (linked: number, total: number) => void,
-): Promise<readonly WarmedProgram[]> {
-  const warmed: WarmedProgram[] = [];
+  sources: readonly ProgramText[],
+  resolverOf: (name: string) => (result: LinkResult) => void,
+  onFinished: () => void,
+): void {
   let pending: PendingLink[] = [];
-  for (const source of programs) {
-    const link = requestLink(gl, source);
-    if (link === null) warmed.push(unlinked(source));
-    else pending.push(link);
+  for (const source of sources) {
+    const link = requestLink(gl, source, resolverOf(source.name));
+    if (link !== null) pending.push(link);
   }
-  while (pending.length > 0) {
-    await new Promise((resolve) => setTimeout(resolve, COMPLETION_POLL_MS));
+  let progressAt = performance.now();
+  const poll = (): void => {
     // A lost context links nothing more, so its pending links are failures already.
     const lost = gl.isContextLost();
     const still: PendingLink[] = [];
     for (const link of pending) {
-      if (lost || gl.getProgramParameter(link.program, COMPLETION_STATUS_KHR) === true)
-        warmed.push(finishLink(gl, link));
+      if (lost || gl.getProgramParameter(link.program, COMPLETION_STATUS_KHR) === true) finishLink(gl, link);
       else still.push(link);
     }
+    const now = performance.now();
+    if (still.length < pending.length) progressAt = now;
     pending = still;
-    if (warmed.length > 0) onProgress(warmed.length, programs.length);
-  }
-  return warmed;
+    if (pending.length === 0) {
+      onFinished();
+      return;
+    }
+    setTimeout(poll, now - progressAt > STALL_LIMIT_MS ? STALLED_POLL_MS : COMPLETION_POLL_MS);
+  };
+  if (pending.length === 0) onFinished();
+  else setTimeout(poll, COMPLETION_POLL_MS);
 }
 
 /** One blocking link per turn, so the label a caller wrote can paint before the next one. */
-async function linkOneByOne(
+async function linkInTurns(
   gl: LinkingContext,
-  programs: readonly GlslProgramSource[],
-  onProgress: (linked: number, total: number) => void,
-): Promise<readonly WarmedProgram[]> {
-  const warmed: WarmedProgram[] = [];
-  for (const source of programs) {
+  sources: readonly ProgramText[],
+  resolverOf: (name: string) => (result: LinkResult) => void,
+  onFinished: () => void,
+): Promise<void> {
+  for (const source of sources) {
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const link = requestLink(gl, source);
-    warmed.push(link === null ? unlinked(source) : finishLink(gl, link));
-    onProgress(warmed.length, programs.length);
+    const link = requestLink(gl, source, resolverOf(source.name));
+    if (link !== null) finishLink(gl, link);
   }
-  return warmed;
+  onFinished();
 }
 
 /**
- * Compiles and links the text Pixi will hand the renderer for `source`; the driver may defer both.
- * Null once the context is lost, which creates no objects and links nothing.
+ * Compiles and links the text Pixi will hand the renderer; the driver may defer both. Null, with the
+ * link resolved failed, where the context creates no objects: lost, or out of resources.
  */
-function requestLink(gl: LinkingContext, source: GlslProgramSource): PendingLink | null {
-  const { vertex, fragment } = glProgramFor(source);
-  if (vertex === undefined || fragment === undefined) throw new Error(`Pixi dropped ${source.name}'s source`);
-  const created = <T>(object: T | null, call: string): T | null => {
-    if (object !== null || gl.isContextLost()) return object;
-    throw new Error(`${call} failed for ${source.name}`);
-  };
-  const program = created(gl.createProgram(), 'createProgram');
-  if (program === null) return null;
-  const compile = (type: GLenum, text: string): WebGLShader | null => {
-    const shader = created(gl.createShader(type), 'createShader');
-    if (shader === null) return null;
+function requestLink(
+  gl: LinkingContext,
+  source: ProgramText,
+  resolve: (result: LinkResult) => void,
+): PendingLink | null {
+  const startedAt = performance.now();
+  // The DOM types omit the null a context without objects to give answers.
+  const program = gl.createProgram() as WebGLProgram | null;
+  const vertexShader = program === null ? null : (gl.createShader(gl.VERTEX_SHADER) as WebGLShader | null);
+  const fragmentShader =
+    vertexShader === null ? null : (gl.createShader(gl.FRAGMENT_SHADER) as WebGLShader | null);
+  if (program === null || vertexShader === null || fragmentShader === null) {
+    // Nothing was compiled or linked yet, so freeing never waits on the driver.
+    if (vertexShader !== null) gl.deleteShader(vertexShader);
+    if (program !== null) gl.deleteProgram(program);
+    resolve({ outcome: 'failed', ms: 0, contextLost: gl.isContextLost() });
+    return null;
+  }
+  for (const [shader, text] of [
+    [vertexShader, source.vertex],
+    [fragmentShader, source.fragment],
+  ] as const) {
     gl.shaderSource(shader, text);
     gl.compileShader(shader);
     gl.attachShader(program, shader);
-    return shader;
-  };
-  const vertexShader = compile(gl.VERTEX_SHADER, vertex);
-  const fragmentShader = vertexShader === null ? null : compile(gl.FRAGMENT_SHADER, fragment);
-  if (vertexShader === null || fragmentShader === null) return null;
+  }
   gl.linkProgram(program);
-  return {
-    name: source.name,
-    program,
-    shaders: [vertexShader, fragmentShader],
-    startedAt: performance.now(),
-  };
+  return { program, shaders: [vertexShader, fragmentShader], startedAt, resolve };
 }
 
-function unlinked(source: GlslProgramSource): WarmedProgram {
-  return { name: source.name, linked: false, ms: 0 };
-}
-
-/** Reads the link's outcome, which waits for a deferred link, and frees the objects. */
-function finishLink(gl: LinkingContext, link: PendingLink): WarmedProgram {
-  const linked = gl.getProgramParameter(link.program, gl.LINK_STATUS) === true;
-  const ms = performance.now() - link.startedAt;
+/** Reads the outcome of a link that has ended, or that a lost context ended, and frees its objects. */
+function finishLink(gl: LinkingContext, link: PendingLink): void {
+  const outcome = gl.getProgramParameter(link.program, gl.LINK_STATUS) === true ? 'linked' : 'failed';
   for (const shader of link.shaders) gl.deleteShader(shader);
   gl.deleteProgram(link.program);
-  return { name: link.name, linked, ms };
+  link.resolve({ outcome, ms: performance.now() - link.startedAt, contextLost: gl.isContextLost() });
 }

@@ -114,7 +114,7 @@ import {
 import { createScriptEffects } from '../script-effects.js';
 import { createScriptMarkers } from '../script-markers.js';
 import { patchStoredSettings, readStoredSettings } from '../settings-store.js';
-import { applyEnhancementsWarmed } from '../shader-warmup.js';
+import { applyWhenWarmed } from '../shader-warmup.js';
 import { createShortfallLook } from '../speed-shortfall.js';
 import { createTooltip } from '../tooltip.js';
 import { createUnitControls, type UnitControls } from '../unit-controls/index.js';
@@ -1056,6 +1056,13 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       cameraCtl.jumpTo(cameraCenteredOnTile(focus.x, focus.y, zoom, app.screen.width, app.screen.height));
     });
 
+    // Turning an effect on may need its programs linked first; turning it off draws nothing new. The
+    // weather sound follows at once either way.
+    const turnedOn = (enabled: boolean): boolean => enabled;
+    const setWeatherDrawn = applyWhenWarmed(
+      (enabled: boolean) => renderer.setWeatherEnabled(enabled),
+      turnedOn,
+    );
     const liveSettings = createLiveGameSettings({
       screen: app.screen,
       initialViewport: deps.initialViewport,
@@ -1073,12 +1080,12 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       setDebugToolsEnabled: debugMounts.setToolsEnabled,
       setSelectionStyle: (style) => renderer.setSelectionStyle(style),
       setGroupNumbersShown: (shown) => renderer.setGroupNumbersShown(shown),
-      setGraphicsEnhancements: applyEnhancementsWarmed((next) => renderer.setGraphicsEnhancements(next)),
-      setBloodEnabled: (enabled) => renderer.setBloodEnabled(enabled),
+      setGraphicsEnhancements: applyWhenWarmed((next) => renderer.setGraphicsEnhancements(next)),
+      setBloodEnabled: applyWhenWarmed((enabled) => renderer.setBloodEnabled(enabled), turnedOn),
       setBonesFade: (fades) => renderer.setBonesFade(fades),
       setFpsCounterShown: perfReadout.setShown,
       setWeatherEnabled: (enabled) => {
-        renderer.setWeatherEnabled(enabled);
+        setWeatherDrawn(enabled);
         soundDriver?.setWeatherEnabled(enabled);
       },
       setKeyBindings: (next) => {

@@ -1,12 +1,11 @@
 import { messages } from '../../i18n/index.js';
 import { type LaunchEntry, swapToEntry } from '../../launch.js';
-import { mountBootProgress } from '../../view/boot-progress.js';
 import { BRAND_LOGO_STACKED, BRAND_LOGO_STACKED_SIZE } from '../../view/brand-art.js';
 import { bindDisplayMode } from '../../view/fullscreen.js';
 import { servedByBrowser } from '../../view/host.js';
 import { clearPendingLoad } from '../../view/runtime/save-load/pending-store.js';
 import { initialSettingsMemory } from '../../view/settings-page.js';
-import { graphicsShaderWarmup } from '../../view/shader-warmup.js';
+import { warmGraphicsInBackground } from '../../view/shader-warmup.js';
 import { startBackdropRotation } from './backdrops.js';
 import { creditsScreen } from './credits.js';
 import { mountFullscreenPrompt } from './fullscreen-prompt.js';
@@ -27,7 +26,7 @@ import {
 import { startMenuMusic } from './music.js';
 import { networkScreen } from './network/index.js';
 import { settingsScreen } from './settings.js';
-import { adoptStoredSettings, updateSettings } from './settings-state.js';
+import { adoptStoredSettings, onSettingsChange, updateSettings } from './settings-state.js';
 
 /** Grade layers above the scene, bottom to top; the scene layer itself is built as the backdrop host. */
 const OVERLAY_LAYERS = ['tint', 'shade', 'aurora-dusk', 'aurora-blue'] as const;
@@ -86,15 +85,13 @@ function mainScreen(open: (screen: MenuScreen) => void): HTMLElement {
 export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearchParams): Promise<void> {
   // Runs before anything reads the locale or the URL.
   const tribeNames = adoptStoredSettings(params);
-  // The graphics programs compile here, behind a card, so a map opens without that wait; a cold cache
-  // pays once per settings and install, a warm one closes the card within a frame.
-  const boot = mountBootProgress(['shaders']);
-  await boot.begin('shaders');
-  await graphicsShaderWarmup().done;
+  // The graphics programs compile while the player is in the menu, so a map opens without that wait.
+  warmGraphicsInBackground();
   await tribeNames;
-  await boot.finish();
   // Owns the handlers this module binds outside `root`, so `closeMenu` releases them in one step.
   const scope = new AbortController();
+  // A graphics change in the settings warms its programs before a map needs them.
+  onSettingsChange(warmGraphicsInBackground, scope.signal);
   // Through the menu's own writer, so the settings session it caches stays in step with the store.
   bindDisplayMode(
     params,

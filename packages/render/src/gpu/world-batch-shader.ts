@@ -258,6 +258,13 @@ vec4 blendTaps(int first, vec2 f) {
 }
 
 void main(void) {
+  if (vSelection < 0.0) {
+    // A selection outline stamp draws its colour over the body's coverage alone, which one plain tap
+    // gives: no palette, magnifier or minification taps.
+    float coverage = sampleTexture(vUV).a;
+    finalColor = vec4(vColor.rgb * coverage, vColor.a * coverage);
+    return;
+  }
   flags = int(vFlags);
   paletted = hasFlag(WORLD_FLAG_PALETTED);
   lutRow = flags >> WORLD_LUT_ROW_SHIFT;
@@ -332,10 +339,6 @@ void main(void) {
   }
   if (paletted && hasFlag(WORLD_FLAG_GLOW)) {
     outColor = vec4(paletteColour(GLOW_PALETTE_INDEX / PALETTE_INDEX_MAX), 1.0) * outColor.a;
-  }
-  if (vSelection < 0.0) {
-    finalColor = vec4(vColor.rgb * outColor.a, vColor.a * outColor.a);
-    return;
   }
   if (vBlood > 0.0 && outColor.a > 0.0) {
     vec2 bodyUV = (vUV - vFrame.xy) / max(vFrame.zw - vFrame.xy, vec2(0.000001));

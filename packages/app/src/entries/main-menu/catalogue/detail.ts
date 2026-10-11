@@ -4,16 +4,18 @@ import { node } from '../dom.js';
 import { mapItem, mapPreviewUrl, mapSourceItem } from '../map-select-model.js';
 import {
   type CatalogueContext,
-  chips,
   downloadButton,
   formatCount,
   formatDate,
+  kindChips,
   kindText,
+  languageCodes,
   manualLink,
   pageLink,
   pickButton,
   playersText,
   removeButton,
+  statusLine,
 } from './card.js';
 import { descriptionBlocks } from './description.js';
 import { type CatalogueRow, canDownload, playerCount } from './model.js';
@@ -21,47 +23,72 @@ import { formatBytes } from './query.js';
 
 export interface CatalogueDetail {
   readonly root: HTMLElement;
-  /** The entry shown, or null while the panel is closed. */
+  /** The entry shown, or null while the panel shows its placeholder. */
   readonly shownId: string | null;
   show(row: CatalogueRow, installed: boolean): void;
-  close(): void;
+  /** The placeholder art, with a line under it or none. */
+  clear(line: string | null): void;
+  /** Moves the focus to the main action, or to the panel's first control without one. */
+  focusAction(): void;
 }
 
 function fact(list: HTMLElement, label: string, value: string): void {
-  const term = node('dt', '', label);
-  const detail = node('dd', '', value);
-  list.append(term, detail);
+  list.append(node('dt', '', label), node('dd', '', value));
 }
 
-/** The side panel a card opens: picture, the full description as written, every number the catalogue
- *  knows, the pack's maps and the entry's actions. */
-export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () => void): CatalogueDetail {
+function stripCell(label: string, value: string): HTMLElement {
+  const cell = node('div', 'catalogue-detail__cell');
+  cell.append(
+    node('span', 'catalogue-detail__cell-label', label),
+    node('span', 'catalogue-detail__cell-value', value),
+  );
+  return cell;
+}
+
+/** Seats as the fact strip shows them: "4", or "2-8" for a pack whose maps differ. */
+function seatsText(counts: readonly number[]): string | null {
+  const min = counts[0];
+  const max = counts.at(-1);
+  if (min === undefined || max === undefined) return null;
+  return min === max ? String(min) : `${min}-${max}`;
+}
+
+/** The panel beside the grid, always there: picture, title, the facts a player decides on, the
+ *  description as written, reference data, and the entry's actions in a footer that never scrolls. */
+export function catalogueDetail(
+  ctx: CatalogueContext,
+  api: string,
+  onAuthor: (author: string) => void,
+): CatalogueDetail {
   const text = messages().mapCatalogue;
+  const details = text.details;
   const root = node('aside', 'catalogue-detail');
-  root.hidden = true;
-  const close = node('button', 'catalogue-detail__close', '×');
-  close.type = 'button';
-  close.setAttribute('aria-label', text.details.close);
-  close.title = text.details.close;
-  const scroll = node('div', 'catalogue-detail__scroll');
   const picture = node('div', 'catalogue-detail__picture');
+  const empty = node('p', 'catalogue-detail__empty');
+  const scroll = node('div', 'catalogue-detail__scroll');
+  const content = node('div', 'catalogue-detail__content');
   const title = node('h2', 'catalogue-detail__title');
   const byline = node('div', 'catalogue-detail__byline');
   const chipRow = node('div');
-  const status = node('div', 'catalogue-detail__status');
-  status.setAttribute('role', 'status');
-  const facts = node('dl', 'catalogue-detail__facts');
-  const mapsHead = node('h3', 'catalogue-detail__heading', text.details.maps);
-  const maps = node('ul', 'catalogue-detail__maps');
-  const descriptionHead = node('h3', 'catalogue-detail__heading', text.details.description);
+  const strip = node('div', 'catalogue-detail__strip');
   const description = node('div', 'catalogue-detail__description');
-  scroll.append(picture, title, byline, chipRow, status, facts, mapsHead, maps, descriptionHead, description);
+  const mapsHead = node('h3', 'catalogue-detail__heading', details.maps);
+  const maps = node('ul', 'catalogue-detail__maps');
+  const factsHead = node('h3', 'catalogue-detail__heading', details.more);
+  const facts = node('dl', 'catalogue-detail__facts');
+  content.append(title, byline, chipRow, strip, description, mapsHead, maps, factsHead, facts);
+  // The picture scrolls with the text, so a short window keeps room for the description.
+  scroll.append(picture, empty, content);
   const actions = node('div', 'catalogue-detail__actions');
-  root.append(close, scroll, actions);
+  const status = node('p', 'catalogue-detail__status');
+  status.setAttribute('role', 'status');
+  const primary = node('div', 'catalogue-detail__primary');
+  const links = node('div', 'catalogue-detail__links');
+  actions.append(status, primary, links);
+  root.append(scroll, actions);
 
   let shownId: string | null = null;
   let pictureLoad = 0;
-  close.addEventListener('click', onClose);
 
   const paintPicture = (row: CatalogueRow): void => {
     const load = ++pictureLoad;
@@ -74,6 +101,7 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
       const img = node('img');
       img.alt = '';
       img.src = url;
+      // A missing picture leaves the placeholder behind it.
       img.addEventListener('error', () => img.remove());
       picture.replaceChildren(img);
     };
@@ -87,51 +115,44 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
     });
   };
 
-  const paintStatus = (row: CatalogueRow): void => {
-    const conversion = row.entry.conversion;
-    const failure = ctx.failure(row.entry.id);
-    status.className = `catalogue-detail__status is-${row.status}`;
-    status.textContent =
-      failure !== undefined
-        ? formatMessage(text.downloadFailed, { reason: failure })
-        : conversion?.verdict !== 'failed'
-          ? text.status[row.status]
-          : row.status === 'manual'
-            ? formatMessage(text.status.manual, { message: conversion.message })
-            : `${text.status[row.status]}. ${formatMessage(text.failedReason, { message: conversion.message })}`;
+  const paintByline = (row: CatalogueRow): void => {
+    const { entry } = row;
+    const author = node('button', 'catalogue-detail__author', entry.author);
+    author.type = 'button';
+    author.title = formatMessage(text.byAuthor, { author: entry.author });
+    author.addEventListener('click', () => onAuthor(entry.author));
+    const likes = node('span', 'catalogue-stat is-likes', formatCount(entry.likeCount));
+    likes.title = details.likes;
+    const downloads = node('span', 'catalogue-stat is-downloads', formatCount(entry.downloadCount));
+    downloads.title = details.downloads;
+    byline.replaceChildren(author, likes, downloads);
+  };
+
+  const paintStrip = (row: CatalogueRow): void => {
+    const main = row.maps.find((map) => map.index.id === row.mainIndex?.id) ?? row.maps[0];
+    const size =
+      main === undefined || row.size === null
+        ? details.unknown
+        : `${text.sizes[row.size]} ${formatMessage(details.cells, main.cells)}`;
+    strip.replaceChildren(
+      stripCell(details.players, seatsText(row.playerCounts) ?? details.unknown),
+      stripCell(details.size, size),
+      stripCell(details.languages, row.languages.length > 0 ? languageCodes(row.languages) : details.unknown),
+    );
   };
 
   const paintFacts = (row: CatalogueRow): void => {
     const { entry } = row;
-    const details = text.details;
     facts.replaceChildren();
-    fact(facts, details.likes, formatCount(entry.likeCount));
-    fact(facts, details.downloads, formatCount(entry.downloadCount));
     fact(facts, details.published, formatDate(entry.publishedAt));
     fact(facts, details.updated, formatDate(entry.updatedAt));
     fact(facts, details.version, entry.versionText ?? details.unknown);
     const bytes = entry.file.kind === 'external' ? undefined : entry.file.bytes;
     fact(facts, details.fileSize, bytes === undefined ? details.unknown : formatBytes(bytes, bcp47Tag()));
-    fact(facts, details.players, playersText(row.playerCounts) ?? details.unknown);
-    fact(
-      facts,
-      details.languages,
-      row.languages.length > 0
-        ? row.languages.map((language) => text.languageNames[language]).join(', ')
-        : details.unknown,
-    );
-    const main = row.maps.find((map) => map.index.id === row.mainIndex?.id) ?? row.maps[0];
-    fact(
-      facts,
-      details.size,
-      main === undefined || row.size === null
-        ? details.unknown
-        : `${text.sizes[row.size]} · ${formatMessage(details.cells, main.cells)}`,
-    );
     fact(facts, details.category, entry.categoryLabel === '' ? kindText(entry) : entry.categoryLabel);
     if (row.shipped !== null) {
       const version = row.shipped.sameVersion ? details.sameVersion : details.otherVersion;
-      fact(facts, details.inGame, `${mapItem(row.shipped.index).title} · ${version}`);
+      fact(facts, details.inGame, `${mapItem(row.shipped.index).title} (${version})`);
     }
   };
 
@@ -144,10 +165,7 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
         ? row.maps.map((map) => {
             const item = node('li');
             const players = playersText([playerCount(map.index)].filter((count) => count > 0));
-            const parts = [
-              ...(players === null ? [] : [players]),
-              formatMessage(text.details.cells, map.cells),
-            ];
+            const parts = [...(players === null ? [] : [players]), formatMessage(details.cells, map.cells)];
             item.append(
               node('span', 'catalogue-detail__map-name', mapItem(map.index).title),
               node('span', 'catalogue-detail__map-meta', parts.join(' · ')),
@@ -160,22 +178,45 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
 
   const paintActions = (row: CatalogueRow, installed: boolean): void => {
     const { entry } = row;
-    const downloading = ctx.progress(entry.id) !== undefined;
+    const failure = ctx.failure(entry.id);
+    const line =
+      failure === undefined ? statusLine(row) : formatMessage(text.downloadFailed, { reason: failure });
+    status.textContent = line ?? '';
+    status.hidden = line === null;
+    status.className = `catalogue-detail__status is-${failure === undefined ? row.status : 'error'}`;
+
+    const progress = ctx.progress(entry.id);
     const buttons: HTMLElement[] = [];
-    if (entry.file.kind !== 'external')
-      buttons.push(pageLink('main-menu__ghost', text.cataloguePage, entry.source.page));
-    const manual = manualLink(row, ctx, 'main-menu__primary');
-    if (manual !== null) buttons.push(manual);
-    if (installed && ctx.canStore) buttons.push(removeButton(entry.id, ctx));
-    const offersDownload = ctx.canStore && (downloading || canDownload(row.status));
-    if (row.playableMapId !== null) {
-      if (offersDownload) buttons.push(downloadButton(row, ctx, 'main-menu__ghost is-accent'));
-      buttons.push(pickButton(row, ctx, 'main-menu__primary'));
-    } else if (offersDownload) {
+    if (progress !== undefined) {
       buttons.push(downloadButton(row, ctx, 'main-menu__primary'));
+    } else if (row.playableMapId !== null) {
+      buttons.push(pickButton(row, ctx, 'main-menu__primary'));
+      if (row.status === 'updatable' && ctx.canStore)
+        buttons.push(downloadButton(row, ctx, 'main-menu__ghost is-accent'));
+    } else if (canDownload(row.status) && ctx.canStore) {
+      buttons.push(downloadButton(row, ctx, 'main-menu__primary'));
+    } else {
+      const manual = manualLink(row, ctx, 'main-menu__primary');
+      if (manual !== null) buttons.push(manual);
     }
-    actions.replaceChildren(...buttons);
+    const bar = node('div', 'catalogue-detail__progress');
+    bar.hidden = progress === undefined;
+    bar.style.setProperty('--progress', String(progress ?? 0));
+    primary.replaceChildren(...buttons, bar);
+    primary.hidden = buttons.length === 0;
+
+    const page = pageLink('catalogue-detail__page', text.mapPage, entry.source.page);
+    page.title = text.mapPageTitle;
+    links.replaceChildren(page, ...(installed && ctx.canStore ? [removeButton(entry.id, ctx)] : []));
   };
+
+  const setEmpty = (isEmpty: boolean): void => {
+    root.classList.toggle('is-empty', isEmpty);
+    empty.hidden = !isEmpty;
+    content.hidden = isEmpty;
+    actions.hidden = isEmpty;
+  };
+  setEmpty(true);
 
   return {
     root,
@@ -185,31 +226,35 @@ export function catalogueDetail(ctx: CatalogueContext, api: string, onClose: () 
     show(row, installed) {
       const fresh = shownId !== row.entry.id;
       shownId = row.entry.id;
-      root.hidden = false;
+      setEmpty(false);
       if (fresh) {
         paintPicture(row);
         scroll.scrollTop = 0;
       }
       title.textContent = row.entry.title;
-      byline.textContent = formatMessage(text.byAuthor, { author: row.entry.author });
-      chipRow.replaceChildren(chips(row));
-      paintStatus(row);
-      paintFacts(row);
-      paintMaps(row);
+      paintByline(row);
+      chipRow.replaceChildren(kindChips(row));
+      paintStrip(row);
       const about =
         row.entry.fullDescription.trim() === '' ? row.entry.shortDescription : row.entry.fullDescription;
-      const blocks = descriptionBlocks(about);
-      description.replaceChildren(
-        ...(blocks.length > 0 ? blocks : [node('p', '', text.details.noDescription)]),
-      );
+      const blocks = descriptionBlocks(about, row.entry.title);
+      description.replaceChildren(...(blocks.length > 0 ? blocks : [node('p', '', details.noDescription)]));
       description.classList.toggle('is-empty', blocks.length === 0);
+      paintMaps(row);
+      paintFacts(row);
       paintActions(row, installed);
     },
-    close() {
+    clear(line) {
       shownId = null;
       pictureLoad++;
-      root.hidden = true;
       picture.replaceChildren();
+      empty.textContent = line ?? '';
+      setEmpty(true);
+    },
+    focusAction() {
+      const target =
+        primary.querySelector<HTMLElement>('button:not(:disabled), a') ?? links.querySelector('a');
+      target?.focus();
     },
   };
 }

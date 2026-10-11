@@ -44,6 +44,7 @@ export function roomMapPick(options: MapPickOptions) {
     if (catalogue === null) return;
     catalogue.dispose();
     catalogue.tabs.remove();
+    catalogue.count.remove();
     catalogue.body.remove();
     catalogue = null;
     title.textContent = copy.network.chooseMap;
@@ -67,7 +68,7 @@ export function roomMapPick(options: MapPickOptions) {
     openButton.hidden = true;
     picker.body.hidden = true;
     picker.tabs.hidden = true;
-    tools.append(catalogue.tabs);
+    tools.append(catalogue.count, catalogue.tabs);
     element.append(catalogue.body);
     back.focus();
   }

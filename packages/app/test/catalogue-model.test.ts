@@ -15,12 +15,15 @@ import {
   shippedMaps,
 } from '../src/entries/main-menu/catalogue/model.js';
 import {
-  authorSuggestions,
+  authorCounts,
+  authorListing,
   type CatalogueQuery,
   DEFAULT_CATALOGUE_QUERY,
+  facetCounts,
   foldText,
   formatBytes,
   hasActiveFilters,
+  PROLIFIC_AUTHOR_MIN_MAPS,
   queryRows,
 } from '../src/entries/main-menu/catalogue/query.js';
 import { catalogEntry, TINY_FINGERPRINT } from './support/catalog-maps.js';
@@ -259,18 +262,16 @@ describe('catalogue rows against the shipped maps', () => {
     expect(row(converted('cn-wyspa', ['cn-wyspa-wyspa'], IR - 1)).status).toBe('serverTooOld');
   });
 
-  it('filters by the two in-game states and keeps them out of installed and not installed', () => {
+  it('hides a shipped map of the same version as owned and keeps one that offers a download', () => {
     const rows = [
       row(fromFolders('cn-wyspa', ['wyspa'])),
       row(fromFolders('cn-zmieniona', ['zmieniona'])),
       row(fromFolders('cn-nowa', ['nowa'])),
     ];
-    const run = (state: CatalogueQuery['state']) =>
-      ids(queryRows(rows, { ...DEFAULT_CATALOGUE_QUERY, sort: 'title', state }, compare));
-    expect(run('inGame')).toEqual(['cn-wyspa']);
-    expect(run('inGameChanged')).toEqual(['cn-zmieniona']);
-    expect(run('installed')).toEqual([]);
-    expect(run('notInstalled')).toEqual(['cn-nowa']);
+    const run = (patch: Partial<CatalogueQuery>) =>
+      ids(queryRows(rows, { ...DEFAULT_CATALOGUE_QUERY, sort: 'title', ...patch }, compare));
+    expect(run({ hideOwned: true })).toEqual(['cn-nowa', 'cn-zmieniona']);
+    expect(run({ download: 'auto' })).toEqual(['cn-nowa', 'cn-wyspa', 'cn-zmieniona']);
   });
 });
 
@@ -364,28 +365,55 @@ describe('catalogue query', () => {
     ]);
   });
 
-  it('finds the entries a player downloads by hand in one state', () => {
-    expect(run({ state: 'manual', sort: 'title' })).toEqual(['cn-link', 'cn-reczna']);
+  it('splits the entries by how they download, a failed one under neither', () => {
+    expect(run({ download: 'manual', sort: 'title' })).toEqual(['cn-link', 'cn-reczna']);
+    expect(run({ download: 'auto', sort: 'title' })).toEqual(['cn-atak', 'cn-burza', 'cn-dolina']);
   });
 
-  it('narrows by kind, series, seats, language, size, author and state', () => {
-    expect(run({ kind: 'campaign' })).toEqual(['cn-atak']);
-    expect(run({ kind: 'other' })).toEqual(['cn-link']);
-    expect(run({ seriesOnly: true })).toEqual(['cn-dolina']);
-    expect(run({ players: 4 })).toEqual(['cn-burza']);
-    expect(run({ language: 'pol' })).toEqual(['cn-burza', 'cn-atak']);
-    expect(run({ size: 'small' })).toEqual(['cn-dolina']);
-    expect(run({ size: 'medium' })).toEqual(['cn-atak']);
-    expect(run({ size: 'large' })).toEqual(['cn-burza']);
-    expect(run({ author: 'zolw' })).toEqual(['cn-burza']);
-    expect(run({ state: 'installed' })).toEqual(['cn-dolina', 'cn-atak']);
-    expect(run({ state: 'update' })).toEqual(['cn-atak']);
-    expect(run({ state: 'notInstalled', sort: 'title' })).toEqual([
+  it('hides what the player can already play, installed or with an update', () => {
+    expect(run({ hideOwned: true, sort: 'title' })).toEqual([
       'cn-burza',
       'cn-link',
       'cn-reczna',
       'cn-zepsuta',
     ]);
+  });
+
+  it('narrows by kind, series, seats, language, size and author', () => {
+    expect(run({ kind: 'campaign' })).toEqual(['cn-atak']);
+    expect(run({ seriesOnly: true })).toEqual(['cn-dolina']);
+    expect(run({ players: '4' })).toEqual(['cn-burza']);
+    expect(run({ language: 'pol' })).toEqual(['cn-burza', 'cn-atak']);
+    expect(run({ size: 'small' })).toEqual(['cn-dolina']);
+    expect(run({ size: 'medium' })).toEqual(['cn-atak']);
+    expect(run({ size: 'large' })).toEqual(['cn-burza']);
+    expect(run({ author: 'Żółw' })).toEqual(['cn-burza']);
+    expect(run({ author: 'zolw' })).toEqual(['cn-burza']);
+    expect(run({ author: 'Żół' })).toEqual([]);
+  });
+
+  it('matches a pack to a seat bucket when any of its maps falls in it, a one-seat map in none', () => {
+    const packs = rowsOf([
+      mapEntry('cn-piec', {}, { players: 5 }),
+      mapEntry('cn-szesc', {}, { players: 6 }),
+      mapEntry('cn-dwanascie', {}, { players: 12 }),
+      mapEntry('cn-jeden', {}, { players: 1 }),
+    ]);
+    const bucket = (players: string) => run({ players, sort: 'title' }, packs);
+    expect(bucket('5-6')).toEqual(['cn-piec', 'cn-szesc']);
+    expect(bucket('9+')).toEqual(['cn-dwanascie']);
+    expect(bucket('2')).toEqual([]);
+    expect(run({ sort: 'title' }, packs)).toHaveLength(packs.length);
+  });
+
+  it('counts each filter choice over every listed row', () => {
+    const counts = facetCounts(rows);
+    expect(counts.players.get('4')).toBe(1);
+    expect(counts.players.get('2')).toBe(1);
+    expect(counts.languages.get('pol')).toBe(2);
+    expect(counts.sizes.get('small')).toBe(1);
+    expect(counts.downloads.get('manual')).toBe(2);
+    expect(counts.downloads.get('auto')).toBe(3);
   });
 
   it('searches every word in title, author and both descriptions, without diacritics', () => {
@@ -400,15 +428,36 @@ describe('catalogue query', () => {
   it('counts only filters as active, not the search or the sort', () => {
     expect(hasActiveFilters(DEFAULT_CATALOGUE_QUERY)).toBe(false);
     expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, text: 'x', sort: 'title' })).toBe(false);
-    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, state: 'manual' })).toBe(true);
-    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, players: 2 })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, download: 'manual' })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, players: '2' })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, hideOwned: true })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_CATALOGUE_QUERY, author: 'Ania' })).toBe(true);
   });
 
-  it('suggests matching authors, the most prolific first, until one is named exactly', () => {
-    expect(authorSuggestions(rows, 'a')).toEqual(['Ania', 'Bartek']);
-    expect(authorSuggestions(rows, 'an', 1)).toEqual(['Ania']);
-    expect(authorSuggestions(rows, 'ania')).toEqual([]);
-    expect(authorSuggestions(rows, ' ')).toEqual([]);
+  it('lists the prolific authors apart, everyone by name, or the matches of a typed name', () => {
+    const many = Array.from({ length: PROLIFIC_AUTHOR_MIN_MAPS }, (_, i) =>
+      mapEntry(`cn-z${i}`, { author: 'Zenon' }),
+    );
+    const authors = authorCounts(rowsOf([...entries, ...many]), compare);
+    const names = (list: readonly { readonly name: string }[]) => list.map((author) => author.name);
+    expect(authors.map(({ name, count }) => [name, count])).toEqual([
+      ['Zenon', PROLIFIC_AUTHOR_MIN_MAPS],
+      ['Ania', 4],
+      ['Bartek', 1],
+      ['Żółw', 1],
+    ]);
+    const groups = authorListing(authors, '', compare);
+    if (groups.kind !== 'groups') throw new Error('expected the two groups');
+    expect(names(groups.top)).toEqual(['Zenon']);
+    expect(names(groups.all)).toEqual(['Ania', 'Bartek', 'Zenon', 'Żółw']);
+    const matches = (typed: string) => {
+      const listing = authorListing(authors, typed, compare);
+      if (listing.kind !== 'matches') throw new Error('expected matches');
+      return names(listing.matches);
+    };
+    expect(matches(' ZOL')).toEqual(['Żółw']);
+    expect(matches('a')).toEqual(['Ania', 'Bartek']);
+    expect(matches('qq')).toEqual([]);
   });
 });
 

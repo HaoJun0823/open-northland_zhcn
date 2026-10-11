@@ -39,10 +39,13 @@ export type CatalogueStatus =
 export type MapSize = 'small' | 'medium' | 'large';
 export const MAP_SIZES: readonly MapSize[] = ['small', 'medium', 'large'];
 
-/** The largest cell areas a small and a medium map have, as squares of 120 and 200 cells a side. The
- *  shipped maps run from 50x50 to 500x500, most of them 250x250. */
-export const SMALL_MAP_MAX_CELLS = 120 * 120;
-export const MEDIUM_MAP_MAX_CELLS = 200 * 200;
+/** The sides of the largest square small and medium maps, in cells. The shipped maps run from 50x50
+ *  to 500x500, most of them 250x250; these edges split the catalogue's maps about 30/27/43. */
+export const SMALL_MAP_MAX_SIDE = 150;
+export const MEDIUM_MAP_MAX_SIDE = 200;
+/** The largest cell areas a small and a medium map have. */
+export const SMALL_MAP_MAX_CELLS = SMALL_MAP_MAX_SIDE * SMALL_MAP_MAX_SIDE;
+export const MEDIUM_MAP_MAX_CELLS = MEDIUM_MAP_MAX_SIDE * MEDIUM_MAP_MAX_SIDE;
 
 export function mapSize(cells: CatalogConvertedMap['cells']): MapSize {
   const area = cells.width * cells.height;

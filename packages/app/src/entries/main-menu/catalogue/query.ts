@@ -1,5 +1,5 @@
-import type { CatalogKind, MapTextLanguage } from '@open-northland/data';
-import { type CatalogueRow, isInGame, isManualDownload, type MapSize } from './model.js';
+import { MAP_TEXT_LANGUAGES, type MapTextLanguage } from '@open-northland/data';
+import { type CatalogueRow, isManualDownload, MAP_SIZES, type MapSize } from './model.js';
 
 export type CatalogueSort = 'liked' | 'downloaded' | 'newest' | 'updated' | 'title' | 'author';
 export const CATALOGUE_SORTS: readonly CatalogueSort[] = [
@@ -11,26 +11,30 @@ export const CATALOGUE_SORTS: readonly CatalogueSort[] = [
   'author',
 ];
 
-export type KindFilter = 'all' | CatalogKind;
-export const KIND_FILTERS: readonly KindFilter[] = ['all', 'single', 'multi', 'campaign', 'other'];
+export type KindFilter = 'all' | 'single' | 'multi' | 'campaign';
+export const KIND_FILTERS: readonly KindFilter[] = ['all', 'single', 'multi', 'campaign'];
 
-export type StateFilter =
-  | 'all'
-  | 'installed'
-  | 'update'
-  | 'notInstalled'
-  | 'inGame'
-  | 'inGameChanged'
-  | 'manual';
-export const STATE_FILTERS: readonly StateFilter[] = [
-  'all',
-  'installed',
-  'update',
-  'notInstalled',
-  'inGame',
-  'inGameChanged',
-  'manual',
+export interface PlayerBucket {
+  readonly id: string;
+  readonly min: number;
+  readonly max: number;
+}
+
+/** The player filter's seat ranges, cut so each holds a fair share of the catalogue's packs. A
+ *  one-seat map falls under none. */
+export const PLAYER_BUCKETS: readonly PlayerBucket[] = [
+  { id: '2', min: 2, max: 2 },
+  { id: '3', min: 3, max: 3 },
+  { id: '4', min: 4, max: 4 },
+  { id: '5-6', min: 5, max: 6 },
+  { id: '7-8', min: 7, max: 8 },
+  { id: '9+', min: 9, max: Number.POSITIVE_INFINITY },
 ];
+
+/** How an entry reaches the player: `auto` downloads in the game, `manual` from a page or our kept
+ *  file. A failed entry falls under neither. */
+export type DownloadMode = 'any' | 'auto' | 'manual';
+export const DOWNLOAD_MODES: readonly DownloadMode[] = ['any', 'auto', 'manual'];
 
 /** What the browse tab shows: the search, the sort and every filter. */
 export interface CatalogueQuery {
@@ -39,13 +43,15 @@ export interface CatalogueQuery {
   readonly kind: KindFilter;
   /** Only entries the upstream files under the Cultures series. */
   readonly seriesOnly: boolean;
-  /** A seat count some map of the pack offers; null for any. */
-  readonly players: number | null;
+  /** A `PLAYER_BUCKETS` id some map of the pack falls in; null for any. */
+  readonly players: string | null;
   readonly language: MapTextLanguage | null;
   readonly size: MapSize | null;
-  /** A part of the author's name; empty for any. */
-  readonly author: string;
-  readonly state: StateFilter;
+  /** One author's exact name; null for any. */
+  readonly author: string | null;
+  readonly download: DownloadMode;
+  /** Leaves out what the player can already play: installed maps and maps the game ships as listed. */
+  readonly hideOwned: boolean;
 }
 
 export const DEFAULT_CATALOGUE_QUERY: CatalogueQuery = {
@@ -56,8 +62,9 @@ export const DEFAULT_CATALOGUE_QUERY: CatalogueQuery = {
   players: null,
   language: null,
   size: null,
-  author: '',
-  state: 'all',
+  author: null,
+  download: 'any',
+  hideOwned: false,
 };
 
 /** Whether any filter differs from the default; the search and the sort are not filters. */
@@ -79,35 +86,39 @@ function matchesText(row: CatalogueRow, words: readonly string[]): boolean {
   return words.every((word) => haystack.includes(word));
 }
 
-function matchesState(row: CatalogueRow, state: StateFilter): boolean {
-  switch (state) {
-    case 'all':
+export function matchesPlayers(row: CatalogueRow, bucketId: string | null): boolean {
+  if (bucketId === null) return true;
+  const bucket = PLAYER_BUCKETS.find((candidate) => candidate.id === bucketId);
+  return bucket !== undefined && row.playerCounts.some((count) => count >= bucket.min && count <= bucket.max);
+}
+
+export function matchesDownload(row: CatalogueRow, mode: DownloadMode): boolean {
+  switch (mode) {
+    case 'any':
       return true;
-    case 'installed':
-      return row.playableMapId !== null && !isInGame(row.status);
-    case 'update':
-      return row.status === 'updatable' || row.status === 'redownload';
-    case 'notInstalled':
-      return row.playableMapId === null && row.status !== 'redownload' && !isInGame(row.status);
-    case 'inGame':
-    case 'inGameChanged':
-      return row.status === state;
+    case 'auto':
+      return !isManualDownload(row.status) && row.status !== 'failed';
     case 'manual':
       return isManualDownload(row.status);
   }
 }
 
+/** Whether the player can already play the entry and it offers nothing new to download. */
+export function isOwned(row: CatalogueRow): boolean {
+  return row.status === 'installed' || row.status === 'updatable' || row.status === 'inGame';
+}
+
 export function matchesQuery(row: CatalogueRow, query: CatalogueQuery): boolean {
   const { entry } = row;
-  const author = foldText(query.author.trim());
   return (
     (query.kind === 'all' || entry.kind === query.kind) &&
     (!query.seriesOnly || entry.series) &&
-    (query.players === null || row.playerCounts.includes(query.players)) &&
+    matchesPlayers(row, query.players) &&
     (query.language === null || row.languages.includes(query.language)) &&
     (query.size === null || row.size === query.size) &&
-    (author === '' || foldText(entry.author).includes(author)) &&
-    matchesState(row, query.state) &&
+    (query.author === null || foldText(entry.author) === foldText(query.author)) &&
+    matchesDownload(row, query.download) &&
+    (!query.hideOwned || !isOwned(row)) &&
     matchesText(row, foldText(query.text).split(/\s+/).filter(Boolean))
   );
 }
@@ -153,30 +164,73 @@ export function queryRows(
   return rows.filter((row) => matchesQuery(row, query)).sort(comparator(query.sort, compareLabels));
 }
 
-/** The seat counts the catalogue's packs offer, for the player filter's choices. */
-export function playerCountChoices(rows: readonly CatalogueRow[]): readonly number[] {
-  return [...new Set(rows.flatMap((row) => row.playerCounts))].sort((a, b) => a - b);
+/** How many listed packs each filter choice keeps, counted once over every listed row. */
+export interface FacetCounts {
+  readonly players: ReadonlyMap<string, number>;
+  readonly languages: ReadonlyMap<MapTextLanguage, number>;
+  readonly sizes: ReadonlyMap<MapSize, number>;
+  readonly downloads: ReadonlyMap<DownloadMode, number>;
 }
 
-/** How many author names the author field suggests at once. */
-export const AUTHOR_SUGGESTION_LIMIT = 8;
-
-/** Authors whose name holds `typed`, the most prolific first; none for an empty field or once the
- *  field names one author exactly. */
-export function authorSuggestions(
+function countBy<K>(
   rows: readonly CatalogueRow[],
-  typed: string,
-  limit: number = AUTHOR_SUGGESTION_LIMIT,
-): readonly string[] {
-  const needle = foldText(typed.trim());
-  if (needle === '') return [];
+  keys: readonly K[],
+  keeps: (row: CatalogueRow, key: K) => boolean,
+) {
+  return new Map(keys.map((key) => [key, rows.filter((row) => keeps(row, key)).length] as const));
+}
+
+export function facetCounts(rows: readonly CatalogueRow[]): FacetCounts {
+  return {
+    players: countBy(
+      rows,
+      PLAYER_BUCKETS.map((bucket) => bucket.id),
+      matchesPlayers,
+    ),
+    languages: countBy(rows, MAP_TEXT_LANGUAGES, (row, language) => row.languages.includes(language)),
+    sizes: countBy(rows, MAP_SIZES, (row, size) => row.size === size),
+    downloads: countBy(rows, DOWNLOAD_MODES, matchesDownload),
+  };
+}
+
+export interface AuthorCount {
+  readonly name: string;
+  readonly count: number;
+}
+
+/** Every author with the number of listed packs, the most prolific first, then by name. */
+export function authorCounts(rows: readonly CatalogueRow[], compareLabels: Compare): readonly AuthorCount[] {
   const counts = new Map<string, number>();
   for (const { entry } of rows) {
-    if (foldText(entry.author).includes(needle))
-      counts.set(entry.author, (counts.get(entry.author) ?? 0) + 1);
+    if (entry.author.trim() !== '') counts.set(entry.author, (counts.get(entry.author) ?? 0) + 1);
   }
-  const names = [...counts].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([name]) => name);
-  return names.length === 1 && foldText(names[0] ?? '') === needle ? [] : names.slice(0, limit);
+  return [...counts]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || compareLabels(a.name, b.name));
+}
+
+/** An author counts among the prolific ones with this many listed packs. */
+export const PROLIFIC_AUTHOR_MIN_MAPS = 10;
+
+/** What the author picker lists: the prolific authors and everyone by name, or the matches of a
+ *  typed name, the most prolific first. */
+export type AuthorListing =
+  | { readonly kind: 'groups'; readonly top: readonly AuthorCount[]; readonly all: readonly AuthorCount[] }
+  | { readonly kind: 'matches'; readonly matches: readonly AuthorCount[] };
+
+export function authorListing(
+  authors: readonly AuthorCount[],
+  typed: string,
+  compareLabels: Compare,
+): AuthorListing {
+  const needle = foldText(typed.trim());
+  if (needle !== '')
+    return { kind: 'matches', matches: authors.filter((author) => foldText(author.name).includes(needle)) };
+  return {
+    kind: 'groups',
+    top: authors.filter((author) => author.count >= PROLIFIC_AUTHOR_MIN_MAPS),
+    all: [...authors].sort((a, b) => compareLabels(a.name, b.name)),
+  };
 }
 
 const BYTES_PER_UNIT = 1024;

@@ -49,31 +49,6 @@
   padding-block: calc(var(--u) * 10);
 }
 
-.catalogue-screen input,
-.catalogue-screen .main-menu__dropdown-btn {
-  width: 100%;
-  min-width: 0;
-  min-height: calc(var(--u) * 40);
-  padding: calc(var(--u) * 8) calc(var(--u) * 12);
-  border: 1px solid var(--wood-hi);
-  border-radius: 3px;
-  background: var(--deep);
-  color: var(--text);
-  font: inherit;
-}
-
-.catalogue-screen .main-menu__dropdown-btn {
-  padding-right: calc(var(--u) * 28);
-}
-
-.catalogue-screen .main-menu__dropdown-btn::after {
-  right: calc(var(--u) * 10);
-}
-
-.catalogue-screen .main-menu__dropdown-option {
-  font: inherit;
-}
-
 .catalogue-screen :is(.main-menu__primary, .main-menu__ghost) {
   display: inline-flex;
   justify-content: center;
@@ -114,8 +89,19 @@
 
 /* ---- Shared by both hosts ---- */
 
-/* The head's Browse / Installed switch and the filter column's state strip, as the room's source
-   choice draws them. */
+/* The head's result count and Browse / Installed switch; the count sits after the title. */
+.main-menu__head-tools:has(> .catalogue__count) {
+  flex: 1;
+  min-width: 0;
+}
+
+.main-menu__head-tools > .catalogue__count {
+  margin: 0 auto 0 0;
+  color: var(--muted);
+  font: calc(var(--u) * 17) / 1.3 var(--font-body);
+  white-space: nowrap;
+}
+
 .catalogue__tabs,
 .catalogue .main-menu__seg {
   border: 1px solid var(--wood-hi);
@@ -135,6 +121,26 @@
   color: var(--ink);
 }
 
+/* Updates waiting, on the Installed tab. */
+.catalogue__tab-updates {
+  display: inline-grid;
+  place-items: center;
+  min-width: calc(var(--u) * 18);
+  height: calc(var(--u) * 18);
+  margin-left: calc(var(--u) * 6);
+  padding: 0 calc(var(--u) * 5);
+  border-radius: calc(var(--u) * 9);
+  background: var(--bronze-hi);
+  color: var(--ink);
+  font: 700 calc(var(--u) * 12) / 1 var(--font-body);
+  vertical-align: 0.1em;
+}
+
+.main-menu__seg-btn.is-active .catalogue__tab-updates {
+  background: var(--ink);
+  color: var(--bronze-hi);
+}
+
 .catalogue__open {
   min-height: calc(var(--u) * 40);
 }
@@ -143,7 +149,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 20);
+  gap: calc(var(--u) * 16);
   min-height: 0;
   color: var(--text);
   font: calc(var(--u) * 17) / 1.4 var(--font-body);
@@ -161,7 +167,6 @@
 }
 
 /* A panel as the room's cards frame one: deep green, a bronze line and an inset rule. */
-.catalogue-sidebar,
 .catalogue-detail,
 .catalogue-installed {
   border: 1px solid var(--bronze-lo);
@@ -173,35 +178,338 @@
     inset 0 0 0 4px #7a5f4040;
 }
 
-.catalogue__empty {
+.catalogue__empty,
+.catalogue__notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--u) * 14);
   padding: calc(var(--u) * 48) calc(var(--u) * 16);
   border-block: 1px solid #7a5f4050;
   color: var(--muted);
   text-align: center;
 }
 
-/* ---- Status strip ---- */
+/* ---- Toolbar ---- */
 
-.catalogue__status {
+.catalogue-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 10);
+  min-width: 0;
+}
+
+.catalogue-toolbar__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: calc(var(--u) * 16);
-  min-height: calc(var(--u) * 64);
-  padding: calc(var(--u) * 12) calc(var(--u) * 20);
-  border-block: 1px solid var(--wood-hi);
-  background: #182521e8;
+  gap: calc(var(--u) * 12);
+  min-width: 0;
 }
 
-.catalogue__status-line {
-  color: var(--ok);
+.catalogue-toolbar__row.is-facets {
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 8);
+}
+
+.catalogue .catalogue-toolbar__search,
+.catalogue .catalogue-authors__search {
+  min-width: 0;
+  height: calc(var(--u) * 40);
+  margin: 0;
+  padding: 0 calc(var(--u) * 12) 0 calc(var(--u) * 36);
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background:
+    var(--deep)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='8.5' cy='8.5' r='5.5' fill='none' stroke='%23c1baa8' stroke-width='1.8'/%3E%3Cpath d='M12.6 12.6 17 17' stroke='%23c1baa8' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")
+    calc(var(--u) * 11) 50% / calc(var(--u) * 17) no-repeat;
+  color: var(--text);
+  font: calc(var(--u) * 16) / 1 var(--font-body);
+}
+
+.catalogue .catalogue-toolbar__search {
+  flex: 1 1 calc(var(--u) * 260);
+  min-width: calc(var(--u) * 260);
+  max-width: calc(var(--u) * 560);
+}
+
+.catalogue :is(.catalogue-toolbar__search, .catalogue-authors__search):focus {
+  border-color: var(--bronze);
+  outline: none;
+}
+
+.catalogue :is(.catalogue-toolbar__search, .catalogue-authors__search)::placeholder {
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.catalogue .catalogue-toolbar__kind {
+  flex: none;
+  height: calc(var(--u) * 40);
+}
+
+.catalogue .catalogue-toolbar__kind .main-menu__seg-btn {
+  padding: calc(var(--u) * 8) calc(var(--u) * 14);
+  white-space: nowrap;
+}
+
+.catalogue .catalogue-toolbar__reset {
+  min-height: calc(var(--u) * 36);
+  margin-left: auto;
+  padding: 0 calc(var(--u) * 6);
+  border: 0;
+  background: none;
+  color: var(--bronze-hi);
+  font-size: calc(var(--u) * 15);
+}
+
+.catalogue .catalogue-toolbar__reset:hover:not(:disabled) {
+  text-decoration: underline;
+  filter: none;
+}
+
+/* A facet pill: caption, the chosen value once there is one, an arrow or a clear button. */
+.catalogue .catalogue-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  flex: none;
+  max-width: 100%;
+  height: calc(var(--u) * 36);
+  padding-left: calc(var(--u) * 12);
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--deep);
+  color: var(--muted);
+  font: calc(var(--u) * 15) / 1 var(--font-body);
+  transition: border-color 150ms ease-out;
+}
+
+.catalogue .catalogue-pill:hover,
+.catalogue .catalogue-pill:has(.main-menu__dropdown-btn[aria-expanded="true"]) {
+  border-color: var(--bronze);
+}
+
+.catalogue-pill__caption {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.catalogue .catalogue-pill .main-menu__dropdown-btn {
+  width: auto;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  padding: 0 calc(var(--u) * 30) 0 calc(var(--u) * 6);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.catalogue .catalogue-pill .main-menu__dropdown-btn::after {
+  right: calc(var(--u) * 12);
+  width: calc(var(--u) * 7);
+  height: calc(var(--u) * 7);
+}
+
+.catalogue-pill.is-any .main-menu__dropdown-btn-label {
+  display: none;
+}
+
+.catalogue .catalogue-pill.is-set {
+  border-color: var(--bronze);
+  background: rgb(var(--accent-rgb, 201 162 98) / 0.14);
+}
+
+.catalogue-pill.is-set .catalogue-pill__caption {
+  color: var(--parchment);
+}
+
+.catalogue-pill.is-set .catalogue-pill__caption::after {
+  content: ":";
+}
+
+.catalogue .catalogue-pill.is-set .main-menu__dropdown-btn {
+  padding-right: calc(var(--u) * 10);
+  color: var(--bronze-hi);
+  font-weight: 600;
+}
+
+.catalogue .catalogue-pill.is-set .main-menu__dropdown-btn::after {
+  display: none;
+}
+
+.catalogue .catalogue-pill__clear {
+  flex: none;
+  min-height: 0;
+  padding: 0 calc(var(--u) * 10);
+  border: 0;
+  border-left: 1px solid var(--bronze-lo);
+  border-radius: 0;
+  background: none;
+  color: var(--bronze-hi);
+  font: calc(var(--u) * 13) / 1 var(--font-body);
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.catalogue-pill__clear::before {
+  content: "✕";
+}
+
+.catalogue .catalogue-pill__clear:hover {
+  color: var(--text-hi);
+}
+
+/* The sort control: the same pill, its caption always shown, in the first row's height. */
+.catalogue .catalogue-sort {
+  height: calc(var(--u) * 40);
+  margin-left: auto;
+  width: clamp(calc(var(--u) * 240), 13vw, calc(var(--u) * 300));
+}
+
+.catalogue .catalogue-pill.catalogue-sort .main-menu__dropdown-btn {
+  flex: 1;
+  color: var(--text);
+}
+
+/* Static counts beside each choice; no list is narrower than a readable column. */
+.catalogue .catalogue-pill .main-menu__dropdown-option {
+  min-width: calc(var(--u) * 220);
+  font: calc(var(--u) * 16) / 1.2 var(--font-body);
+}
+
+.catalogue .catalogue-pill .main-menu__dropdown-option-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.catalogue .main-menu__dropdown-option-detail {
+  flex: none;
+  margin-left: auto;
+  padding-left: calc(var(--u) * 16);
+  color: var(--muted);
+  font-size: calc(var(--u) * 14);
+  font-variant-numeric: tabular-nums;
+}
+
+.catalogue .main-menu__dropdown-option[aria-selected="true"] .main-menu__dropdown-option-detail {
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* Toggle chips: an inactive pill, or an active one with a check while pressed. */
+.catalogue .catalogue-toggle {
+  flex: none;
+  min-height: 0;
+  height: calc(var(--u) * 36);
+  padding: 0 calc(var(--u) * 12);
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--deep);
+  color: var(--muted);
+  font: calc(var(--u) * 15) / 1 var(--font-body);
+  white-space: nowrap;
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.catalogue .catalogue-toggle[aria-pressed="true"] {
+  border-color: var(--bronze);
+  background: rgb(var(--accent-rgb, 201 162 98) / 0.14);
+  color: var(--bronze-hi);
+  font-weight: 600;
+}
+
+.catalogue-toggle[aria-pressed="true"]::before {
+  content: "✓";
+  margin-right: calc(var(--u) * 6);
+}
+
+/* ---- Author picker ---- */
+
+.catalogue .catalogue-authors:popover-open {
+  width: calc(var(--u) * 380);
+  max-height: min(calc(var(--u) * 560), 70vh);
+  gap: calc(var(--u) * 6);
+  padding: calc(var(--u) * 8);
+  overflow: hidden;
+}
+
+.catalogue .catalogue-authors__search {
+  flex: none;
+  width: 100%;
+  height: calc(var(--u) * 36);
+}
+
+.catalogue-authors__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-color: var(--wood-hi) transparent;
+  scrollbar-width: thin;
+}
+
+.catalogue .catalogue-authors .main-menu__dropdown-group-label {
+  padding: calc(var(--u) * 10) calc(var(--u) * 8) calc(var(--u) * 4);
+  font-size: calc(var(--u) * 12);
+}
+
+.catalogue .catalogue-authors .is-all .main-menu__dropdown-group-label {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-base);
+}
+
+.catalogue-authors__items {
+  display: flex;
+  flex-direction: column;
+}
+
+.catalogue-authors .is-top .catalogue-authors__items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: calc(var(--u) * 4);
+}
+
+.catalogue .catalogue-authors .catalogue-authors__option {
+  min-width: 0;
+  font: calc(var(--u) * 16) / 1.2 var(--font-body);
+}
+
+.catalogue .catalogue-authors__option .main-menu__dropdown-option-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalogue .catalogue-authors__option:focus-visible {
+  outline: 1px solid var(--bronze-hi);
+  outline-offset: -1px;
+}
+
+.catalogue-authors__match {
+  background: none;
+  color: var(--bronze-hi);
   font-weight: 700;
-  overflow-wrap: anywhere;
 }
 
-.catalogue__status.is-failed .catalogue__status-line {
-  color: var(--warning);
+.catalogue-authors__option[aria-selected="true"] .catalogue-authors__match {
+  color: inherit;
 }
+
+.catalogue-authors__none {
+  padding: calc(var(--u) * 16) calc(var(--u) * 8);
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ---- Grid and panel ---- */
 
 .catalogue__main {
   flex: 1;
@@ -210,172 +518,12 @@
   min-height: 0;
 }
 
-.catalogue__browse {
-  flex: 1;
-  display: flex;
-  gap: calc(var(--u) * 20);
-  min-width: 0;
-  min-height: 0;
-}
-
-/* ---- Filter column ---- */
-
-.catalogue-sidebar {
-  width: calc(var(--u) * 250);
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--u) * 16);
-  min-height: 0;
-  padding: calc(var(--u) * 20);
-  overflow-y: auto;
-  scrollbar-color: var(--wood-hi) transparent;
-  scrollbar-width: thin;
-}
-
-.catalogue-sidebar__fields {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--u) * 14);
-}
-
-.catalogue-filter {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--u) * 6);
-  min-width: 0;
-}
-
-.catalogue-filter__label {
-  color: var(--muted);
-  font-size: calc(var(--u) * 15);
-}
-
-/* The states do not fit side by side in the column; rows of two do. */
-.catalogue .catalogue-filter__seg {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-}
-
-.catalogue .catalogue-filter__seg .main-menu__seg-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: calc(var(--u) * 7) calc(var(--u) * 6);
-  font-size: calc(var(--u) * 15);
-  white-space: normal;
-}
-
-.catalogue-filter__toggle {
-  cursor: var(--cursor-pointer, pointer);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: calc(var(--u) * 12);
-  font-size: calc(var(--u) * 16);
-  line-height: 1.25;
-}
-
-/* The room's pill: a dark track that lights bronze when on. */
-.catalogue .main-menu__toggle {
-  width: calc(var(--u) * 40);
-  height: calc(var(--u) * 22);
-  border: 1px solid var(--wood-hi);
-  border-radius: calc(var(--u) * 11);
-  background: var(--deep);
-}
-
-.catalogue .main-menu__toggle::after {
-  left: calc(var(--u) * 2);
-  top: calc(var(--u) * 2);
-  width: calc(var(--u) * 16);
-  height: calc(var(--u) * 16);
-  background: var(--wood-hi);
-}
-
-.catalogue .main-menu__toggle.is-on {
-  border-color: var(--bronze-hi);
-  background: linear-gradient(var(--bronze-hi), var(--bronze));
-}
-
-.catalogue .main-menu__toggle.is-on::after {
-  left: calc(var(--u) * 20);
-  background: var(--ink);
-}
-
-.catalogue-sidebar__reset {
-  align-self: stretch;
-}
-
-.catalogue-author {
-  position: relative;
-}
-
-.catalogue-author__list {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  max-height: calc(var(--u) * 260);
-  padding: 4px;
-  overflow-y: auto;
-  border: 1px solid var(--bronze-lo);
-  border-radius: 3px;
-  background: var(--deep);
-  box-shadow: 0 8px 18px #000a;
-}
-
-.catalogue-author__option {
-  all: unset;
-  cursor: var(--cursor-pointer, pointer);
-  padding: calc(var(--u) * 6) calc(var(--u) * 10);
-  border-radius: 2px;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.catalogue-author__option:hover,
-.catalogue-author__option:focus-visible {
-  color: var(--bronze-hi);
-  background: #c9a2621f;
-}
-
-/* ---- Results ---- */
-
 .catalogue__results {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 16);
   min-width: 0;
   min-height: 0;
-}
-
-.catalogue-toolbar {
-  display: flex;
-  align-items: flex-end;
-  gap: calc(var(--u) * 16);
-  min-width: 0;
-}
-
-/* The fields borrow the map list's search class, which spaces it from the list below. */
-.catalogue-toolbar__search,
-.catalogue-author__input {
-  margin-bottom: 0;
-}
-
-.catalogue-toolbar__search {
-  flex: 1;
-}
-
-.catalogue-toolbar > .catalogue-filter {
-  width: calc(var(--u) * 230);
-  flex: none;
 }
 
 .catalogue__scroll {
@@ -384,13 +532,13 @@
 
 .catalogue__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 220), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 260), 1fr));
   align-content: start;
   gap: calc(var(--u) * 16);
-  padding-bottom: calc(var(--u) * 8);
+  padding: 2px 2px calc(var(--u) * 8);
 }
 
-.catalogue__grid > .catalogue__empty {
+.catalogue__grid > .catalogue__notice {
   grid-column: 1 / -1;
 }
 
@@ -417,36 +565,65 @@
   box-shadow: inset 0 0 0 1px var(--bronze-hi);
 }
 
+.catalogue-card.is-selected:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px var(--bronze-hi),
+    0 0 0 2px var(--focus);
+}
+
+/* The placeholder behind every picture: a compass rose over a staggered dot lattice. The picture
+   covers it once loaded; a failed load removes the picture and shows it. Colours are the bronze
+   tokens as hex, since a data URI cannot read them. */
 .catalogue-card__picture,
 .catalogue-detail__picture,
 .catalogue-installed__thumb {
   position: relative;
   flex: none;
   overflow: hidden;
-  background: linear-gradient(160deg, #273832, #121b18);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='38' fill='none' stroke='%237a5a2f' stroke-width='1.2'/%3E%3Cpath d='M50 50 L66 34 M50 50 L66 66 M50 50 L34 66 M50 50 L34 34' stroke='%237a5a2f' stroke-width='3'/%3E%3Cpath d='M50 6 L56 50 L50 94 L44 50Z M6 50 L50 44 L94 50 L50 56Z' fill='%23c9a262' fill-opacity='.55'/%3E%3Cpath d='M2 78 q14 -8 26 0 t26 -2 t24 4 t22 -3' fill='none' stroke='%237a5a2f' stroke-dasharray='3 3'/%3E%3C/svg%3E")
+    center / auto 46% no-repeat,
+    radial-gradient(circle, #c9a26214 1px, transparent 1.5px) 0 0 / calc(var(--u) * 24) calc(var(--u) * 14),
+    radial-gradient(circle, #c9a26214 1px, transparent 1.5px) calc(var(--u) * 12) calc(var(--u) * 7) /
+    calc(var(--u) * 24) calc(var(--u) * 14),
+    linear-gradient(160deg, #273832, #121b18);
+  box-shadow: inset 0 0 calc(var(--u) * 40) #0008;
 }
 
 .catalogue-card__picture {
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   border-bottom: 1px solid var(--bronze-lo);
 }
 
 /* Screenshots are photographs of the game, not pixel art; they scale smoothly. */
 .catalogue-card__picture img,
+.catalogue-detail__picture img,
 .catalogue-installed__thumb img {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
+.catalogue-card__progress {
+  position: absolute;
+  inset: auto 0 0;
+  height: calc(var(--u) * 3);
+  background: linear-gradient(
+    90deg,
+    var(--bronze-hi) calc(var(--progress, 0) * 100%),
+    #0008 calc(var(--progress, 0) * 100%)
+  );
+}
+
 .catalogue-badge {
   display: inline-block;
   padding: calc(var(--u) * 2) calc(var(--u) * 8);
-  border: 1px solid var(--bronze-lo);
+  border: 1px solid var(--wood-hi);
   border-radius: 2px;
   background: var(--deep);
-  color: var(--parchment);
+  color: var(--muted);
   font: 700 calc(var(--u) * 12) / 1.3 var(--font-body);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -455,8 +632,12 @@
 
 .catalogue-card__picture .catalogue-badge {
   position: absolute;
+  z-index: 1;
   top: calc(var(--u) * 8);
   left: calc(var(--u) * 8);
+  max-width: calc(100% - var(--u) * 16);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .catalogue-badge.is-installed,
@@ -468,16 +649,18 @@
 
 .catalogue-badge.is-updatable,
 .catalogue-badge.is-redownload,
-.catalogue-badge.is-inGameChanged,
-.catalogue-badge.is-external,
-.catalogue-badge.is-manual {
+.catalogue-badge.is-inGameChanged {
   border-color: var(--bronze);
   color: var(--bronze-hi);
 }
 
+.catalogue-badge.is-external,
+.catalogue-badge.is-manual {
+  color: var(--parchment-lo);
+}
+
 .catalogue-badge.is-failed,
-.catalogue-badge.is-gameTooOld,
-.catalogue-badge.is-serverTooOld {
+.catalogue-badge.is-gameTooOld {
   border-color: var(--wax-danger);
   color: var(--danger);
 }
@@ -487,7 +670,8 @@
   display: flex;
   flex-direction: column;
   gap: calc(var(--u) * 6);
-  padding: calc(var(--u) * 12) calc(var(--u) * 14) calc(var(--u) * 14);
+  min-width: 0;
+  padding: calc(var(--u) * 10) calc(var(--u) * 12) calc(var(--u) * 12);
 }
 
 .catalogue-card__title {
@@ -496,54 +680,46 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: var(--text-hi);
-  font: 700 calc(var(--u) * 17) / 1.25 var(--font-title);
+  font: 700 calc(var(--u) * 18) / 1.25 var(--font-title);
+  overflow-wrap: anywhere;
 }
 
 .catalogue-card.is-selected .catalogue-card__title {
   color: var(--bronze-hi);
 }
 
-.catalogue-card__author {
+/* Author, likes and downloads (or the sorted-by date) on one line, the author cut first. */
+.catalogue-card__meta,
+.catalogue-detail__byline {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
   color: var(--muted);
-  font-size: calc(var(--u) * 15);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.catalogue-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(var(--u) * 5);
-}
-
-.catalogue-chip {
-  padding: calc(var(--u) * 1) calc(var(--u) * 7);
-  border: 1px solid var(--bronze-lo);
-  border-radius: 2px;
-  background: var(--deep);
-  color: var(--parchment);
-  font-size: calc(var(--u) * 13);
-  line-height: 1.4;
-}
-
-.catalogue-card__foot {
+.catalogue-card__meta {
   margin-top: auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: calc(var(--u) * 10);
-  padding-top: calc(var(--u) * 10);
-  border-top: 1px solid #7a5f4038;
+  font-size: calc(var(--u) * 14);
 }
 
-.catalogue-card__stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(var(--u) * 2) calc(var(--u) * 10);
+.catalogue-card__meta > *,
+.catalogue-detail__byline > * {
+  flex: none;
+}
+
+.catalogue-card__meta > * + *,
+.catalogue-detail__byline > * + * {
+  margin-left: calc(var(--u) * 8);
+  padding-left: calc(var(--u) * 8);
+  border-left: 1px solid #7a5f4070;
+}
+
+.catalogue-card__author {
+  flex: 0 1 auto;
   min-width: 0;
-  color: var(--muted);
-  font-size: calc(var(--u) * 14);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .catalogue-stat.is-likes::before,
@@ -560,11 +736,31 @@
   content: "↓";
 }
 
-.catalogue-card__action {
-  flex: none;
+.catalogue-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 5);
+  min-width: 0;
 }
 
-/* Download and Update: outlined like Change map, in bronze so the next step reads first. */
+.catalogue-card .catalogue-chips {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.catalogue-chip {
+  flex: none;
+  padding: calc(var(--u) * 1) calc(var(--u) * 7);
+  border: 1px solid var(--bronze-lo);
+  border-radius: 2px;
+  background: var(--deep);
+  color: var(--parchment);
+  font-size: calc(var(--u) * 13);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Download and Update: outlined, in bronze so the next step reads first. */
 .catalogue .main-menu__ghost.is-accent {
   border-color: var(--bronze);
   color: var(--bronze-hi);
@@ -573,128 +769,194 @@
 /* ---- Detail panel ---- */
 
 .catalogue-detail {
-  position: relative;
-  width: calc(var(--u) * 400);
-  flex: none;
+  container-type: inline-size;
+  flex: 0 0 clamp(calc(var(--u) * 360), 26%, calc(var(--u) * 520));
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 12);
+  min-width: 0;
   min-height: 0;
   padding: calc(var(--u) * 20);
 }
 
-.catalogue-detail__close {
-  position: absolute;
-  z-index: 1;
-  top: calc(var(--u) * 28);
-  right: calc(var(--u) * 28);
-  width: calc(var(--u) * 36);
-  height: calc(var(--u) * 36);
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid var(--wood-hi);
+.catalogue-detail__picture {
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--bronze-lo);
   border-radius: 3px;
-  background: var(--deep);
-  color: var(--text);
-  font: 400 calc(var(--u) * 24) / 1 var(--font-body);
-  cursor: var(--cursor-pointer, pointer);
 }
 
-.catalogue-detail__close:hover,
-.catalogue-detail__close:focus-visible {
-  border-color: var(--bronze-hi);
-  color: var(--bronze-hi);
+/* A tall window keeps the picture in view while the text scrolls under it. */
+@media (min-height: 900px) {
+  .catalogue-detail__picture {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+  }
+}
+
+.catalogue-detail__empty {
+  color: var(--muted);
+  text-align: center;
 }
 
 .catalogue-detail__scroll {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--u) * 10);
+  gap: calc(var(--u) * 14);
   min-height: 0;
-  overflow-y: auto;
   padding-right: calc(var(--u) * 6);
+  overflow-y: auto;
   scrollbar-color: var(--wood-hi) transparent;
   scrollbar-width: thin;
 }
 
+.catalogue-detail.is-empty .catalogue-detail__scroll {
+  padding-right: 0;
+  overflow: hidden;
+}
+
+.catalogue-detail__content {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 10);
+}
+
 /* The parts keep their height; the column scrolls instead. */
-.catalogue-detail__scroll > * {
+.catalogue-detail__scroll > *,
+.catalogue-detail__content > * {
   flex: none;
 }
 
-.catalogue-detail__picture {
-  aspect-ratio: 16 / 10;
-  /* Short windows keep room for the facts under the picture. */
-  max-height: 30vh;
-  border: 1px solid var(--bronze-lo);
-  border-radius: 3px;
-}
-
-.catalogue-detail__picture img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: var(--deep);
-}
-
-.catalogue-detail__title {
-  margin-top: calc(var(--u) * 6);
+.catalogue .catalogue-detail__title {
   overflow-wrap: anywhere;
+}
+
+@container (min-width: 450px) {
+  .catalogue .catalogue-detail__title {
+    font-size: calc(var(--u) * 26);
+  }
 }
 
 .catalogue-detail__byline {
-  color: var(--muted);
+  flex-wrap: wrap;
+  row-gap: calc(var(--u) * 2);
   font-size: calc(var(--u) * 15);
 }
 
-.catalogue-detail__status {
-  padding: calc(var(--u) * 8) calc(var(--u) * 12);
-  border-left: 3px solid var(--ok);
-  background: var(--deep);
-  color: var(--text);
-  font-size: calc(var(--u) * 15);
-  overflow-wrap: anywhere;
+.catalogue .catalogue-detail__author {
+  all: unset;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--bronze-hi);
+  text-overflow: ellipsis;
+  cursor: var(--cursor-pointer, pointer);
 }
 
-.catalogue-detail__status.is-installed,
-.catalogue-detail__status.is-updatable,
-.catalogue-detail__status.is-inGame,
-.catalogue-detail__status.is-inGameChanged,
-.catalogue-detail__status.is-external,
-.catalogue-detail__status.is-manual {
-  border-left-color: var(--bronze);
+.catalogue .catalogue-detail__author:hover,
+.catalogue .catalogue-detail__author:focus-visible {
+  text-decoration: underline;
 }
 
-.catalogue-detail__status.is-failed,
-.catalogue-detail__status.is-gameTooOld,
-.catalogue-detail__status.is-serverTooOld,
-.catalogue-detail__status.is-redownload {
-  border-left-color: var(--warning);
-  color: var(--warning);
-}
-
-.catalogue-detail__facts {
+/* Players, size and languages: the facts a player decides on, in one strip. */
+.catalogue-detail__strip {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: calc(var(--u) * 4) calc(var(--u) * 16);
-  margin-block: calc(var(--u) * 4) 0;
-  font-size: calc(var(--u) * 15);
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.5fr) minmax(0, 1fr);
+  border: 1px solid #7a5f4070;
+  border-radius: 3px;
+  background: #1825218c;
 }
 
-.catalogue-detail__facts dt {
+.catalogue-detail__cell {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 2);
+  min-width: 0;
+  padding: calc(var(--u) * 6) calc(var(--u) * 10);
+}
+
+.catalogue-detail__cell + .catalogue-detail__cell {
+  border-left: 1px solid #7a5f4070;
+}
+
+.catalogue-detail__cell-label {
   color: var(--muted);
+  font-size: calc(var(--u) * 12);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.catalogue-detail__facts dd {
-  margin: 0;
+.catalogue-detail__cell-value {
+  color: var(--text-hi);
+  font-size: calc(var(--u) * 16);
   overflow-wrap: anywhere;
+}
+
+/* The author's text as written: their paragraphs, lists and emphasis. */
+.catalogue-detail__description {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: calc(var(--u) * 16);
+  line-height: 1.55;
+}
+
+.catalogue-detail__description.is-empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.catalogue-detail__description > * {
+  margin: 0;
+}
+
+.catalogue-detail__description > * + * {
+  margin-top: calc(var(--u) * 10);
+}
+
+.catalogue-detail__description > .catalogue-desc__heading {
+  margin-top: calc(var(--u) * 14);
+}
+
+.catalogue-detail__description .catalogue-desc__heading {
+  color: var(--bronze-hi);
+  font: 700 calc(var(--u) * 15) / 1.3 var(--font-title);
+  font-variant: small-caps;
+}
+
+.catalogue-detail__description > .catalogue-desc__heading:first-child {
+  margin-top: 0;
+}
+
+.catalogue-desc__heading + .catalogue-desc__paragraph,
+.catalogue-desc__heading + .catalogue-desc__list {
+  margin-top: calc(var(--u) * 4);
+}
+
+.catalogue-detail__description .catalogue-desc__list {
+  padding-left: calc(var(--u) * 18);
+}
+
+ul.catalogue-desc__list {
+  list-style: none;
+}
+
+ul.catalogue-desc__list > li::before {
+  content: "›";
+  display: inline-block;
+  width: calc(var(--u) * 14);
+  margin-left: calc(var(--u) * -14);
+  color: var(--bronze);
+}
+
+.catalogue-detail__description strong {
+  color: var(--text-hi);
+}
+
+.catalogue-detail__description a {
+  color: var(--bronze-hi);
 }
 
 /* A section label, as the connection card's eyebrow. */
-.catalogue-detail__heading {
+.catalogue .catalogue-detail__heading {
   margin: calc(var(--u) * 8) 0 0;
   padding-top: calc(var(--u) * 10);
   border-top: 1px solid #7a5f4050;
@@ -732,60 +994,125 @@
   color: var(--muted);
 }
 
-/* The author's text as written: their line breaks stay. */
-.catalogue-detail__description {
-  overflow-wrap: anywhere;
-  color: var(--muted);
-  font-size: calc(var(--u) * 16);
-  line-height: 1.45;
-}
-
-.catalogue-detail__description.is-empty {
-  font-style: italic;
-}
-
-.catalogue-detail__description > * {
+.catalogue-detail__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: calc(var(--u) * 3) calc(var(--u) * 14);
   margin: 0;
+  font-size: calc(var(--u) * 14);
 }
 
-.catalogue-detail__description > * + * {
-  margin-top: calc(var(--u) * 10);
+.catalogue-detail__facts dt {
+  color: var(--muted);
 }
 
-.catalogue-desc__heading {
-  color: var(--text);
-  font: 700 calc(var(--u) * 16) / 1.3 var(--font-body);
+.catalogue-detail__facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
-.catalogue-desc__list {
-  padding-left: calc(var(--u) * 22);
-}
-
-.catalogue-desc__heading + .catalogue-desc__paragraph,
-.catalogue-desc__heading + .catalogue-desc__list {
-  margin-top: calc(var(--u) * 4);
-}
-
-.catalogue-desc__paragraph strong,
-.catalogue-desc__list strong {
-  color: var(--text);
-}
-
-.catalogue-detail__description a {
-  color: var(--bronze-hi);
-}
-
-/* The room's sticky action bar. */
+/* The footer: what the state means, the main action, and the quieter links. It never scrolls. */
 .catalogue-detail__actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 10);
+  margin-top: calc(var(--u) * 12);
+  padding-top: calc(var(--u) * 14);
+  border-top: 1px solid var(--bronze-lo);
+}
+
+.catalogue-detail__status {
+  padding: calc(var(--u) * 6) calc(var(--u) * 10);
+  border-left: 3px solid var(--bronze);
+  background: var(--deep);
+  color: var(--text);
+  font-size: calc(var(--u) * 15);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.catalogue-detail__status.is-failed,
+.catalogue-detail__status.is-gameTooOld,
+.catalogue-detail__status.is-serverTooOld,
+.catalogue-detail__status.is-pending,
+.catalogue-detail__status.is-redownload {
+  border-left-color: var(--warning);
+  color: var(--warning);
+}
+
+.catalogue-detail__status.is-error {
+  border-left-color: var(--wax-danger);
+  color: var(--danger);
+}
+
+.catalogue-detail__primary {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: calc(var(--u) * 8) calc(var(--u) * 10);
+}
+
+.catalogue .catalogue-detail__primary > :is(a, button) {
+  flex: 1 1 auto;
+}
+
+.catalogue .catalogue-detail__primary > .main-menu__ghost {
+  flex: none;
+}
+
+.catalogue-detail__progress {
+  flex: 0 0 100%;
+  height: calc(var(--u) * 4);
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--bronze-hi) calc(var(--progress, 0) * 100%),
+    var(--deep) calc(var(--progress, 0) * 100%)
+  );
+}
+
+.catalogue .main-menu__primary.is-external::after,
+.catalogue-detail__page::after {
+  content: "↗";
+  margin-left: calc(var(--u) * 6);
+}
+
+.catalogue .main-menu__primary.is-file::after {
+  content: "⤓";
+  margin-left: calc(var(--u) * 6);
+}
+
+.catalogue-detail__links {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: calc(var(--u) * 10);
-  padding: calc(var(--u) * 10) calc(var(--u) * 12);
-  border: 1px solid var(--bronze-lo);
-  border-radius: calc(var(--u) * 6);
-  background: var(--deep);
+  gap: calc(var(--u) * 12);
+  font-size: calc(var(--u) * 15);
+}
+
+.catalogue .catalogue-detail__page {
+  min-width: 0;
+  color: var(--bronze-hi);
+  text-decoration: none;
+}
+
+.catalogue .catalogue-detail__page:hover {
+  text-decoration: underline;
+  filter: none;
+}
+
+.catalogue .catalogue-detail__links .main-menu__ghost {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--danger);
+  font-size: calc(var(--u) * 15);
+}
+
+.catalogue .catalogue-detail__links .main-menu__ghost:hover:not(:disabled) {
+  text-decoration: underline;
+  filter: none;
 }
 
 /* ---- Installed tab ---- */

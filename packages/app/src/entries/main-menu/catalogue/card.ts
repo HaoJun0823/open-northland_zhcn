@@ -3,7 +3,7 @@ import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/ind
 import { node } from '../dom.js';
 import { hasClaimableSeat } from '../lobby/roster-state.js';
 import { listedIn, mapItem } from '../map-select-model.js';
-import { type CatalogueRow, canDownload } from './model.js';
+import type { CatalogueRow } from './model.js';
 
 /** What the cards, the detail panel and the Installed tab ask of the view that owns the data. */
 export interface CatalogueContext {
@@ -21,13 +21,14 @@ export interface CatalogueContext {
   download(row: CatalogueRow): void;
   remove(entryId: string): void;
   pick(row: CatalogueRow): void;
+  /** Shows the entry in the detail panel. */
   open(entryId: string): void;
 }
 
 const PERCENT = 100;
 
 /** Short language codes as chips list them. */
-const LANGUAGE_CODES: Readonly<Record<MapTextLanguage, string>> = {
+export const LANGUAGE_CODES: Readonly<Record<MapTextLanguage, string>> = {
   pol: 'PL',
   eng: 'EN',
   ger: 'DE',
@@ -60,18 +61,26 @@ export function kindText(entry: CatalogEntry): string {
   return entry.kind === 'other' ? entry.categoryLabel : messages().mapCatalogue.kindChips[entry.kind];
 }
 
-export function chips(row: CatalogueRow): HTMLElement {
-  const text = messages().mapCatalogue;
+function chipBox(parts: readonly string[]): HTMLElement {
+  const box = node('div', 'catalogue-chips');
+  box.append(...parts.filter((part) => part !== '').map((part) => node('span', 'catalogue-chip', part)));
+  return box;
+}
+
+/** A card's one chip line: kind, seats, languages and the series, clipped where it runs out. */
+export function cardChips(row: CatalogueRow): HTMLElement {
   const players = playersText(row.playerCounts);
-  const parts = [
+  return chipBox([
     kindText(row.entry),
-    ...(row.entry.series ? [text.seriesChip] : []),
     ...(players === null ? [] : [players]),
     ...(row.languages.length > 0 ? [languageCodes(row.languages)] : []),
-  ].filter((part) => part !== '');
-  const box = node('div', 'catalogue-chips');
-  box.append(...parts.map((part) => node('span', 'catalogue-chip', part)));
-  return box;
+    ...(row.entry.series ? [messages().mapCatalogue.seriesChip] : []),
+  ]);
+}
+
+/** The panel's chips: kind and series; its fact strip holds the rest. */
+export function kindChips(row: CatalogueRow): HTMLElement {
+  return chipBox([kindText(row.entry), ...(row.entry.series ? [messages().mapCatalogue.seriesChip] : [])]);
 }
 
 /** Whether a multiplayer room can take the installed map: listed for multiplayer, with a free seat. */
@@ -84,7 +93,7 @@ function button(className: string, label: string, action: () => void): HTMLButto
   const element = node('button', className, label);
   element.type = 'button';
   element.addEventListener('click', (event) => {
-    // A card opens its details on a click; its own buttons do only what they say.
+    // An Installed row opens its details on a click; its own buttons do only what they say.
     event.stopPropagation();
     action();
   });
@@ -103,7 +112,7 @@ export function pageLink(className: string, label: string, href: string): HTMLAn
 
 /** A link that saves the server's kept file, opening like `pageLink` where the browser will not save. */
 export function fileLink(className: string, href: string): HTMLAnchorElement {
-  const link = pageLink(className, messages().mapCatalogue.downloadFile, href);
+  const link = pageLink(`${className} is-file`, messages().mapCatalogue.downloadFile, href);
   link.download = '';
   return link;
 }
@@ -115,7 +124,8 @@ export function manualLink(
   className: string,
 ): HTMLAnchorElement | null {
   const { file } = row.entry;
-  if (file.kind === 'external') return pageLink(className, messages().mapCatalogue.openPage, file.url);
+  if (file.kind === 'external')
+    return pageLink(`${className} is-external`, messages().mapCatalogue.openPage, file.url);
   const href = row.status === 'manual' ? ctx.fileUrl(row.entry) : null;
   return href === null ? null : fileLink(className, href);
 }
@@ -125,11 +135,16 @@ export function downloadLabel(row: CatalogueRow, ctx: CatalogueContext): string 
   const progress = ctx.progress(row.entry.id);
   if (progress !== undefined)
     return formatMessage(text.downloading, { percent: Math.round(progress * PERCENT) });
-  return row.status === 'updatable'
-    ? text.update
-    : row.status === 'redownload' || row.status === 'inGameChanged'
-      ? text.redownload
-      : text.download;
+  switch (row.status) {
+    case 'updatable':
+      return text.update;
+    case 'redownload':
+      return text.redownload;
+    case 'inGameChanged':
+      return text.downloadCatalogueVersion;
+    default:
+      return text.download;
+  }
 }
 
 /** Play or Choose for a playable entry; disabled in a room for a map without a free seat. */
@@ -159,14 +174,6 @@ export function removeButton(entryId: string, ctx: CatalogueContext): HTMLButton
   return remove;
 }
 
-/** The one thing a card offers: play or choose, download, or the file to download by hand. */
-export function mainAction(row: CatalogueRow, ctx: CatalogueContext): HTMLElement | null {
-  if (ctx.progress(row.entry.id) !== undefined) return downloadButton(row, ctx, 'main-menu__ghost is-accent');
-  if (row.playableMapId !== null) return pickButton(row, ctx, 'main-menu__primary');
-  if (canDownload(row.status) && ctx.canStore) return downloadButton(row, ctx, 'main-menu__ghost is-accent');
-  return manualLink(row, ctx, 'main-menu__ghost');
-}
-
 export function thumbImage(url: string | null): HTMLImageElement | null {
   if (url === null) return null;
   const img = node('img');
@@ -178,63 +185,86 @@ export function thumbImage(url: string | null): HTMLImageElement | null {
   return img;
 }
 
-/** A state worth a badge; a plain downloadable entry carries none. */
-export function badge(row: CatalogueRow): HTMLElement | null {
-  if (row.status === 'available') return null;
-  return node('span', `catalogue-badge is-${row.status}`, messages().mapCatalogue.badges[row.status]);
+/** What the entry's state means for the player, in one sentence; null where the state says nothing
+ *  beyond the buttons (downloadable, installed). */
+export function statusLine(row: CatalogueRow): string | null {
+  const text = messages().mapCatalogue;
+  const conversion = row.entry.conversion;
+  const message = conversion?.verdict === 'failed' ? conversion.message : '';
+  switch (row.status) {
+    case 'available':
+    case 'installed':
+      return null;
+    case 'manual':
+      return formatMessage(text.status.manual, { message });
+    case 'failed':
+      return `${text.status.failed}. ${formatMessage(text.failedReason, { message })}`;
+    default:
+      return text.status[row.status];
+  }
 }
 
-/** Which date a card shows: the update date while the grid sorts by it, else the publication. */
-export type CardDate = 'published' | 'updated';
+/** A state worth a badge, its meaning a hover away; a plain downloadable entry carries none. */
+export function badge(row: CatalogueRow): HTMLElement | null {
+  if (row.status === 'available') return null;
+  const element = node(
+    'span',
+    `catalogue-badge is-${row.status}`,
+    messages().mapCatalogue.badges[row.status],
+  );
+  element.title = statusLine(row) ?? messages().mapCatalogue.status[row.status];
+  return element;
+}
 
-/** One grid card: picture, title, author, chips, numbers and the main action. */
+/** Which date a card's meta line shows in place of the downloads: the publication or the update date
+ *  while the grid sorts by it, else none. */
+export type CardDate = 'published' | 'updated' | null;
+
+/** One grid card: picture, title, one meta line and one chip line. The detail panel holds the actions. */
 export function catalogueCard(row: CatalogueRow, ctx: CatalogueContext, dateOf: CardDate) {
   const text = messages().mapCatalogue;
   const { entry } = row;
   const card = node('article', 'catalogue-card');
   card.dataset.entryId = entry.id;
-  card.tabIndex = 0;
+  card.tabIndex = -1;
   card.setAttribute('aria-label', entry.title);
   const picture = node('div', 'catalogue-card__picture');
   const img = thumbImage(ctx.thumbnail(entry));
   if (img !== null) picture.append(img);
   const state = badge(row);
   if (state !== null) picture.append(state);
+  const progress = node('div', 'catalogue-card__progress');
+  picture.append(progress);
   const body = node('div', 'catalogue-card__body');
   const title = node('div', 'catalogue-card__title', entry.title);
   title.title = entry.title;
-  const author = node(
-    'div',
-    'catalogue-card__author',
-    formatMessage(text.byAuthor, { author: entry.author }),
-  );
-  const foot = node('div', 'catalogue-card__foot');
-  const stats = node('div', 'catalogue-card__stats');
+  const meta = node('div', 'catalogue-card__meta');
   const likes = node('span', 'catalogue-stat is-likes', formatCount(entry.likeCount, true));
   likes.title = text.details.likes;
-  const downloads = node('span', 'catalogue-stat is-downloads', formatCount(entry.downloadCount, true));
-  downloads.title = text.details.downloads;
-  const date = node(
-    'span',
-    'catalogue-stat',
-    formatDate(dateOf === 'updated' ? entry.updatedAt : entry.publishedAt),
-  );
-  date.title = dateOf === 'updated' ? text.details.updated : text.details.published;
-  stats.append(likes, downloads, date);
-  const action = node('div', 'catalogue-card__action');
-  const paintAction = (next: CatalogueRow): void => {
-    const element = mainAction(next, ctx);
-    action.replaceChildren(...(element === null ? [] : [element]));
-  };
-  paintAction(row);
-  foot.append(stats, action);
-  body.append(title, author, chips(row), foot);
+  const tail =
+    dateOf === null
+      ? node('span', 'catalogue-stat is-downloads', formatCount(entry.downloadCount, true))
+      : node(
+          'span',
+          'catalogue-stat',
+          formatDate(dateOf === 'updated' ? entry.updatedAt : entry.publishedAt),
+        );
+  tail.title =
+    dateOf === null
+      ? text.details.downloads
+      : dateOf === 'updated'
+        ? text.details.updated
+        : text.details.published;
+  meta.append(node('span', 'catalogue-card__author', entry.author), likes, tail);
+  meta.title = entry.author;
+  body.append(title, meta, cardChips(row));
   card.append(picture, body);
+  const paintProgress = (): void => {
+    const fraction = ctx.progress(entry.id);
+    progress.hidden = fraction === undefined;
+    progress.style.setProperty('--progress', String(fraction ?? 0));
+  };
+  paintProgress();
   card.addEventListener('click', () => ctx.open(entry.id));
-  card.addEventListener('keydown', (event) => {
-    if (event.target !== card || (event.key !== 'Enter' && event.key !== ' ')) return;
-    event.preventDefault();
-    ctx.open(entry.id);
-  });
-  return { element: card, paintAction };
+  return { element: card, paintProgress };
 }

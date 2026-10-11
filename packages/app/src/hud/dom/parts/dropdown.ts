@@ -5,6 +5,10 @@ export interface DropdownChoice<T extends string> {
   readonly label: string;
   readonly image?: string;
   readonly disabled?: boolean;
+  /** The button's text for this choice, where the list's label is too long for it. */
+  readonly short?: string;
+  /** A quiet note the list shows after the label, such as a count. */
+  readonly detail?: string;
 }
 
 /** Choices listed under a heading, as an `<optgroup>` lists them. */
@@ -42,10 +46,10 @@ const TYPE_AHEAD_RESET_MS = 700;
 
 const isGroup = <T extends string>(entry: DropdownEntry<T>): entry is DropdownGroup<T> => 'group' in entry;
 
-function face(choice: DropdownChoice<string>, className: string): HTMLElement[] {
+function face(choice: DropdownChoice<string>, className: string, label: string): HTMLElement[] {
   const text = document.createElement('span');
   text.className = `${className}-label`;
-  text.textContent = choice.label;
+  text.textContent = label;
   if (choice.image === undefined) return [text];
   // A background, so a caller's stylesheet can frame the part of the art that tells choices apart.
   const image = document.createElement('span');
@@ -53,6 +57,17 @@ function face(choice: DropdownChoice<string>, className: string): HTMLElement[] 
   image.style.backgroundImage = `url("${choice.image}")`;
   return [image, text];
 }
+
+function optionFace(choice: DropdownChoice<string>, className: string): HTMLElement[] {
+  const parts = face(choice, className, choice.label);
+  if (choice.detail === undefined) return parts;
+  const detail = document.createElement('span');
+  detail.className = `${className}-detail`;
+  detail.textContent = choice.detail;
+  return [...parts, detail];
+}
+
+const buttonText = (choice: DropdownChoice<string>): string => choice.short ?? choice.label;
 
 /**
  * One button showing the current choice over a list drawn by the page, so every browser shows the
@@ -106,7 +121,7 @@ export function dropdownControl<T extends string>(options: DropdownOptions<T>): 
     option.className = `${className}-option`;
     option.setAttribute('role', 'option');
     option.disabled = choice.disabled === true;
-    option.append(...face(choice, `${className}-option`));
+    option.append(...optionFace(choice, `${className}-option`));
     option.addEventListener('click', () => {
       close();
       button.focus({ preventScroll: true });
@@ -115,10 +130,13 @@ export function dropdownControl<T extends string>(options: DropdownOptions<T>): 
     rows.set(choice.id, option);
     return option;
   };
-  // The choices and headings in order; entries with the same shape only relabel the rows they have.
+  // The choices, whether they carry a detail, and the headings in order; entries with the same shape
+  // only relabel the rows they have.
+  const keyOf = (choice: DropdownChoice<T>): string =>
+    `${choice.id}${choice.detail === undefined ? '' : '+'}`;
   const shapeOf = (of: readonly DropdownEntry<T>[]): string =>
     JSON.stringify(
-      of.map((entry) => (isGroup(entry) ? [entry.group, entry.choices.map((c) => c.id)] : entry.id)),
+      of.map((entry) => (isGroup(entry) ? [entry.group, entry.choices.map(keyOf)] : keyOf(entry))),
     );
   let shape = '';
   const relabel = (): void => {
@@ -129,6 +147,9 @@ export function dropdownControl<T extends string>(options: DropdownOptions<T>): 
         option.disabled = choice.disabled === true;
         const text = option.querySelector(`.${className}-option-label`);
         if (text !== null && text.textContent !== choice.label) text.textContent = choice.label;
+        const detail = option.querySelector(`.${className}-option-detail`);
+        if (detail !== null && detail.textContent !== (choice.detail ?? ''))
+          detail.textContent = choice.detail ?? '';
       }
     }
   };
@@ -179,9 +200,11 @@ export function dropdownControl<T extends string>(options: DropdownOptions<T>): 
       choice.image === shownFace.image &&
       text !== null
     ) {
-      if (text.textContent !== choice.label) text.textContent = choice.label;
+      if (text.textContent !== buttonText(choice)) text.textContent = buttonText(choice);
     } else if (choice !== shownFace) {
-      button.replaceChildren(...(choice === undefined ? [] : face(choice, `${className}-btn`)));
+      button.replaceChildren(
+        ...(choice === undefined ? [] : face(choice, `${className}-btn`, buttonText(choice))),
+      );
     }
     shownFace = choice;
     for (const [key, option] of rows) {

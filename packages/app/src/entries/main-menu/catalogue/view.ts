@@ -15,12 +15,19 @@ import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, compareLabels, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import { node } from '../dom.js';
 import { type MapSelectItem, mapSourceItem } from '../map-select-model.js';
-import { type CardDate, type CatalogueContext, catalogueCard } from './card.js';
+import { type CardDate, type CatalogueContext, catalogueCard, formatCount } from './card.js';
 import { catalogueDetail } from './detail.js';
 import { catalogueFilters } from './filters.js';
 import { installedPane } from './installed.js';
-import { type CatalogueRow, catalogueRows, installedGroups, type ShippedMaps, shippedMaps } from './model.js';
-import { type CatalogueQuery, DEFAULT_CATALOGUE_QUERY, queryRows } from './query.js';
+import {
+  type CatalogueRow,
+  catalogueRows,
+  type InstalledGroup,
+  installedGroups,
+  type ShippedMaps,
+  shippedMaps,
+} from './model.js';
+import { type CatalogueQuery, DEFAULT_CATALOGUE_QUERY, hasActiveFilters, queryRows } from './query.js';
 
 export type CatalogueTab = 'browse' | 'installed';
 const CATALOGUE_TABS: readonly CatalogueTab[] = ['browse', 'installed'];
@@ -48,12 +55,23 @@ export interface CatalogueViewOptions {
 export interface CatalogueView {
   /** The Browse / Installed switch, for the owner's header. */
   readonly tabs: HTMLElement;
+  /** How many maps the catalogue lists or the filters show, for the owner's header before the tabs. */
+  readonly count: HTMLElement;
   readonly body: HTMLElement;
   dispose(): void;
 }
 
-/** The culturesnation.pl catalogue as a filterable card grid with a detail panel and an Installed
- *  tab, for the main menu and a multiplayer room. */
+/** Cards in the grid's first rendered row: how far the Up and Down keys move. */
+function gridColumns(cards: readonly HTMLElement[]): number {
+  const top = cards[0]?.offsetTop;
+  return Math.max(1, cards.filter((card) => card.offsetTop === top).length);
+}
+
+const isUpdate = (group: InstalledGroup): boolean =>
+  group.row?.status === 'updatable' || group.row?.status === 'redownload';
+
+/** The culturesnation.pl catalogue as a filterable card grid beside a detail panel that always shows
+ *  the selected entry, with an Installed tab, for the main menu and a multiplayer room. */
 export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   const { memory } = options;
   const text = messages().mapCatalogue;
@@ -85,7 +103,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     download: (row) => startDownload(row),
     remove: (entryId) => removeInstall(entryId),
     pick: (row) => void pick(row),
-    open: (entryId) => openDetail(entryId),
+    open: (entryId) => select(entryId),
   };
 
   const tabs = node('div', 'main-menu__seg catalogue__tabs');
@@ -95,100 +113,122 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     button.type = 'button';
     button.addEventListener('click', () => {
       memory.tab = tab;
-      paintTabs();
+      render();
     });
     tabButtons.set(tab, button);
     tabs.append(button);
   }
+  const count = node('p', 'catalogue__count');
+  count.setAttribute('role', 'status');
 
   const body = node('div', 'catalogue');
-  // The catalogue's own state line: how many maps show, or why none do.
-  const status = node('div', 'catalogue__status');
-  const statusLine = node('p', 'catalogue__status-line');
-  statusLine.setAttribute('role', 'status');
-  const retry = node('button', 'main-menu__ghost', text.retry);
-  retry.type = 'button';
-  retry.hidden = true;
-  retry.addEventListener('click', () => void loadCatalogue());
-  status.append(statusLine, retry);
-  const main = node('div', 'catalogue__main');
-  const browse = node('div', 'catalogue__browse');
   const filters = catalogueFilters(memory.query, (query) => {
     memory.query = query;
-    renderGrid();
+    render();
   });
+  const main = node('div', 'catalogue__main');
   const results = node('div', 'catalogue__results');
   const scroll = node('div', 'main-menu__map-scroll catalogue__scroll');
   const grid = node('div', 'catalogue__grid');
   scroll.append(grid);
-  results.append(filters.toolbar, scroll);
-  browse.append(filters.sidebar, results);
+  results.append(scroll);
   const installedView = installedPane(ctx);
-  const detail = catalogueDetail(ctx, api, () => closeDetail());
-  main.append(browse, installedView.root, detail.root);
-  body.append(status, main);
+  const detail = catalogueDetail(ctx, api, (author) => filters.update({ author }));
+  main.append(results, installedView.root, detail.root);
+  body.append(filters.root, main);
 
-  function paintTabs(): void {
-    const labels = {
-      browse: text.tabs.browse,
-      installed: formatMessage(text.tabs.installed, { count: installedGroups(installed, rows).length }),
-    };
-    for (const [tab, button] of tabButtons) {
-      button.textContent = labels[tab];
-      button.classList.toggle('is-active', tab === memory.tab);
-      button.setAttribute('aria-pressed', String(tab === memory.tab));
+  /** A line in the grid's place, with the one button that can change it. */
+  const notice = (line: string, action: { label: string; run: () => void } | null): HTMLElement => {
+    const box = node('div', 'catalogue__notice');
+    box.append(node('p', 'catalogue__notice-line', line));
+    if (action !== null) {
+      const button = node('button', 'main-menu__ghost', action.label);
+      button.type = 'button';
+      button.addEventListener('click', action.run);
+      box.append(button);
     }
-    browse.hidden = memory.tab !== 'browse';
-    installedView.root.hidden = memory.tab !== 'installed';
-    if (memory.tab === 'installed') installedView.paint(installedGroups(installed, rows), memory.selectedId);
-  }
-
-  function paintDetail(): void {
-    const row = memory.selectedId === null ? undefined : rowOf(memory.selectedId);
-    if (row === undefined) detail.close();
-    else detail.show(row, isInstalled(row.entry.id));
-    for (const [id, card] of cards) card.element.classList.toggle('is-selected', id === memory.selectedId);
-  }
-
-  function openDetail(entryId: string): void {
-    memory.selectedId = entryId;
-    paintDetail();
-    if (memory.tab === 'installed') paintTabs();
-  }
-
-  function closeDetail(): void {
-    const was = memory.selectedId;
-    memory.selectedId = null;
-    paintDetail();
-    if (memory.tab === 'installed') paintTabs();
-    // The card that opened the panel takes the focus back, so Esc and the arrows keep working.
-    if (was !== null) cards.get(was)?.element.focus({ preventScroll: true });
-  }
-
-  const paintStatus = (line: string, failed: boolean): void => {
-    statusLine.textContent = line;
-    status.classList.toggle('is-failed', failed);
-    retry.hidden = !failed;
+    return box;
   };
+
+  function paintTabs(groups: readonly InstalledGroup[]): void {
+    const updates = groups.filter(isUpdate).length;
+    for (const [tab, button] of tabButtons) {
+      const active = tab === memory.tab;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+      if (tab === 'browse') {
+        button.textContent = text.tabs.browse;
+        continue;
+      }
+      button.replaceChildren(formatMessage(text.tabs.installed, { count: groups.length }));
+      button.removeAttribute('title');
+      if (updates > 0) {
+        button.title = formatMessage(text.tabUpdatesTitle, { count: updates });
+        button.append(node('span', 'catalogue__tab-updates', formatCount(updates)));
+      }
+    }
+    filters.root.hidden = memory.tab !== 'browse';
+    results.hidden = memory.tab !== 'browse';
+    installedView.root.hidden = memory.tab !== 'installed';
+  }
+
+  /** Keeps the selection while it is among `ids`, else moves it to the first of them. */
+  function keepSelection(ids: readonly string[]): void {
+    if (memory.selectedId === null || !ids.includes(memory.selectedId)) memory.selectedId = ids[0] ?? null;
+  }
+
+  function paintDetail(emptyLine: string | null): void {
+    const row = memory.selectedId === null ? undefined : rowOf(memory.selectedId);
+    if (row === undefined) detail.clear(emptyLine);
+    else detail.show(row, isInstalled(row.entry.id));
+  }
+
+  function paintSelection(): void {
+    for (const [id, card] of cards) {
+      const selected = id === memory.selectedId;
+      card.element.classList.toggle('is-selected', selected);
+      // One tab stop for the whole grid: the selected card; the arrows walk the rest.
+      card.element.tabIndex = selected ? 0 : -1;
+    }
+  }
 
   function renderGrid(): void {
     if (failure !== null || entries === null) {
-      paintStatus(failure !== null ? text.unreachable : text.loading, failure !== null);
-      grid.replaceChildren();
+      count.textContent = '';
+      grid.replaceChildren(
+        failure !== null
+          ? notice(text.unreachable, { label: text.retry, run: () => void loadCatalogue() })
+          : notice(text.loading, null),
+      );
+      memory.selectedId = null;
+      paintDetail(null);
       return;
     }
     const shown = queryRows(rows, memory.query, compareLabels());
-    paintStatus(
-      formatMessage(text.countLine, {
-        maps: formatMessage(pluralForm(shown.length, text.entries, bcp47Tag()), { count: shown.length }),
-      }),
-      false,
-    );
+    const filtered = hasActiveFilters(memory.query) || memory.query.text.trim() !== '';
+    count.textContent = filtered
+      ? formatMessage(text.countFiltered, {
+          shown: formatCount(shown.length),
+          total: formatCount(rows.length),
+        })
+      : formatMessage(text.countLine, {
+          maps: formatMessage(pluralForm(rows.length, text.entries, bcp47Tag()), { count: rows.length }),
+        });
+    keepSelection(shown.map((row) => row.entry.id));
     if (shown.length === 0) {
-      grid.replaceChildren(node('p', 'catalogue__empty', rows.length === 0 ? text.empty : text.noMatch));
+      grid.replaceChildren(
+        rows.length === 0
+          ? notice(text.empty, null)
+          : notice(
+              text.noMatch,
+              hasActiveFilters(memory.query) ? { label: text.resetFilters, run: filters.reset } : null,
+            ),
+      );
+      paintDetail(text.panelEmpty);
       return;
     }
-    const dateOf: CardDate = memory.query.sort === 'updated' ? 'updated' : 'published';
+    const sort = memory.query.sort;
+    const dateOf: CardDate = sort === 'updated' ? 'updated' : sort === 'newest' ? 'published' : null;
     grid.replaceChildren(
       ...shown.map((row) => {
         let card = cards.get(row.entry.id);
@@ -196,31 +236,82 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
           card = { ...catalogueCard(row, ctx, dateOf), dateOf };
           cards.set(row.entry.id, card);
         }
-        card.element.classList.toggle('is-selected', row.entry.id === memory.selectedId);
         return card.element;
       }),
     );
+    paintSelection();
+    paintDetail(text.panelEmpty);
   }
+
+  function renderInstalled(groups: readonly InstalledGroup[]): void {
+    keepSelection(groups.filter((group) => group.row !== null).map((group) => group.entryId));
+    installedView.paint(groups, memory.selectedId);
+    paintDetail(text.panelEmpty);
+  }
+
+  /** The tabs and the open tab's content and panel, after any change to the rows, query or tab. */
+  function render(): void {
+    const groups = installedGroups(installed, rows);
+    paintTabs(groups);
+    if (memory.tab === 'browse') renderGrid();
+    else renderInstalled(groups);
+  }
+
+  function select(entryId: string): void {
+    memory.selectedId = entryId;
+    paintSelection();
+    paintDetail(text.panelEmpty);
+    if (memory.tab === 'installed') installedView.paint(installedGroups(installed, rows), memory.selectedId);
+  }
+
+  // Arrows walk the grid and the selection follows; Enter or Space hands the focus to the panel's
+  // action, so nothing downloads from one key press on the grid.
+  grid.addEventListener('keydown', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || !target.classList.contains('catalogue-card')) return;
+    const all = [...grid.querySelectorAll<HTMLElement>('.catalogue-card')];
+    const at = all.indexOf(target);
+    const columns = gridColumns(all);
+    const steps: Readonly<Record<string, number>> = {
+      ArrowRight: at + 1,
+      ArrowLeft: at - 1,
+      ArrowDown: at + columns,
+      ArrowUp: at - columns,
+      Home: 0,
+      End: all.length - 1,
+    };
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      detail.focusAction();
+      return;
+    }
+    const next = steps[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    const card = all[Math.min(all.length - 1, Math.max(0, next))];
+    const id = card?.dataset.entryId;
+    if (card === undefined || id === undefined) return;
+    select(id);
+    card.focus({ preventScroll: true });
+    card.scrollIntoView({ block: 'nearest' });
+  });
 
   /** Rows and every view over them again, after the catalogue or the installed maps changed. */
   function refreshAll(): void {
     rows = entries === null ? [] : catalogueRows(entries, installed, IR_VERSION, shipped);
     cards.clear();
     filters.setRows(rows);
-    renderGrid();
-    paintTabs();
-    paintDetail();
+    render();
   }
 
-  /** One entry's buttons and status again, while it downloads. */
+  /** One entry's progress, panel and Installed row again, while it downloads. */
   function refreshEntry(entryId: string): void {
     const row = rowOf(entryId);
     if (row === undefined) return;
-    cards.get(entryId)?.paintAction(row);
+    cards.get(entryId)?.paintProgress();
     if (detail.shownId === entryId) detail.show(row, isInstalled(entryId));
-    if (memory.tab === 'installed') paintTabs();
+    if (memory.tab === 'installed') installedView.paint(installedGroups(installed, rows), memory.selectedId);
   }
-
   async function pick(row: CatalogueRow): Promise<void> {
     if (row.playableMapId === null) return;
     const source = await findMapSource(row.playableMapId);
@@ -294,20 +385,12 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     if (!scope.signal.aborted) refreshAll();
   }
 
-  // Esc closes the open panel before it walks the menu back; a search field with text clears first.
-  body.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || memory.selectedId === null) return;
-    const field = event.target;
-    if (field instanceof HTMLInputElement && field.value !== '') return;
-    event.stopPropagation();
-    closeDetail();
-  });
-
-  paintTabs();
+  render();
   void loadCatalogue();
 
   return {
     tabs,
+    count,
     body,
     dispose: () => scope.abort(),
   };

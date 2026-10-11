@@ -447,7 +447,7 @@ export function mockCatalogue(options: MockCatalogueOptions) {
       source: {
         documentId: `doc-${spec.id}`,
         id: SPECS.indexOf(spec) + 1,
-        page: `https://culturesnation.pl/mapy/${spec.id}`,
+        page: `https://culturesnation.pl/downloads/doc-${spec.id}/${spec.id}`,
       },
       title: spec.title,
       shortDescription: spec.description?.split('\n')[0] ?? '',

@@ -1,4 +1,5 @@
 import { node } from '../dom.js';
+import { foldText } from './query.js';
 
 function plain<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
@@ -130,7 +131,14 @@ function blockElement(block: Block): HTMLElement {
   }
 }
 
-/** The description as block elements; empty for text without a visible character. */
-export function descriptionBlocks(raw: string): HTMLElement[] {
-  return blocksOf(decodeEntities(raw)).map(blockElement);
+const folded = (text: string): string => foldText(text).replace(/\s+/g, ' ').trim();
+
+/** The description as block elements; empty for text without a visible character. A first block
+ *  that only repeats the entry's `title` is left out. */
+export function descriptionBlocks(raw: string, title?: string): HTMLElement[] {
+  const blocks = blocksOf(decodeEntities(raw)).map(blockElement);
+  const first = blocks[0];
+  if (title !== undefined && first !== undefined && folded(first.textContent ?? '') === folded(title))
+    blocks.shift();
+  return blocks;
 }

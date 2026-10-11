@@ -53,6 +53,16 @@ describe('descriptionBlocks', () => {
     );
   });
 
+  it('drops a first block that only repeats the entry title, ignoring case, marks and diacritics', () => {
+    const raw = '**GROBOWIEC  krola**\n\nOpis mapy.';
+    expect(html(raw)).toContain('Grobowiec'.toUpperCase());
+    expect(descriptionBlocks(raw, 'Grobowiec Króla').map((block) => block.textContent)).toEqual([
+      'Opis mapy.',
+    ]);
+    expect(descriptionBlocks('Grobowiec Króla 2\n\nOpis.', 'Grobowiec Króla')).toHaveLength(2);
+    expect(descriptionBlocks('Opis.\n\nGrobowiec Króla', 'Grobowiec Króla')).toHaveLength(2);
+  });
+
   it('gives nothing for blank text', () => {
     expect(descriptionBlocks(' \r\n\n ')).toEqual([]);
   });

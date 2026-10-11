@@ -17,7 +17,7 @@ export function catalogueScreen(
   tools.className = 'main-menu__head-tools';
   const view = catalogueView({ memory, purpose: 'play', onPick: openLobby });
   view.tabs.setAttribute('aria-label', messages().mapCatalogue.open);
-  tools.append(view.tabs);
+  tools.append(view.count, view.tabs);
   head.append(tools);
   section.append(head, view.body);
   return { element: section, dispose: view.dispose };

@@ -59,8 +59,8 @@ export const combatSystem: System = (world, ctx) => {
   holdPassIndex(world, pass.index);
   answerQueuedAlarms(world, ctx, terrain, pass.index);
   // Every combatant stays a target, but only one that may act runs the ladder. Candidates come in ascending
-  // id, so a tie-break lands on the same winner. The ladder writes only the unit it runs for, so each reads
-  // at its turn as it did when drawn.
+  // id, so a tie-break lands on the same winner. A closer chaser may release a farther ally's slot
+  // reservation; the ally keeps its enemy and asks for another approach.
   for (const e of engageCandidates(world, ctx, pass.index)) {
     if (mayEngage(world, ctx, terrain, pass.index, e)) engageCombatant(world, ctx, terrain, pass, e);
   }

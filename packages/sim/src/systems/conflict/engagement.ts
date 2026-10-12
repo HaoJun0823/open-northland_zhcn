@@ -192,7 +192,7 @@ export class EngagementSpecs {
     | undefined;
   private readonly look = { minRange: 0, maxRange: 0 };
   private readonly priorityTarget = (t: Entity): boolean =>
-    isPriorityCombatTarget(this.world, this.ctx, t) && this.accept(t);
+    isPriorityCombatTarget(this.world, this.ctx, t, this.index.firingNow) && this.accept(t);
   private leash: NonNullable<NonNullable<EngagementSpecs['spec']>['defend']> | undefined;
 
   constructor(
@@ -416,7 +416,7 @@ export interface EngageSpec {
     readonly contact: boolean;
     /** Retarget band plus one approach step; a garrison searches only its weapon band. */
     readonly look: WeaponBand;
-    /** `accept` narrowed to enemy fighters and towers. */
+    /** `accept` narrowed to first-tier combat targets. */
     readonly priorityTarget: (t: Entity) => boolean;
   };
 }
@@ -462,7 +462,7 @@ export function resolveTarget(
             SEARCH_METRIC,
           );
     if (rival !== null) return { target: rival.entity, dist: rival.distance };
-    if (spec.hold !== undefined && turnsAsideUnder(world, ctx, order)) {
+    if (spec.hold !== undefined && turnsAsideUnder(world, ctx, order, index.firingNow)) {
       const aside = asideFromOrder(
         world,
         ctx,
@@ -525,10 +525,10 @@ const PICK_SPREAD_NODES = 3;
 
 type PickTier = (world: World, ctx: SystemContext, index: CombatIndex, t: Entity) => boolean;
 
-/** Owner rule: fighters and towers share the first tier. Remaining tiers preserve the original's
+/** Owner rule: fighters, towers and firing buildings share the first tier. Remaining tiers preserve the original's
  *  approximate ordering: military buildings, wildlife, other people, vehicles, then other buildings. */
 const PICK_TIERS: readonly PickTier[] = [
-  (world, ctx, _index, t) => isPriorityCombatTarget(world, ctx, t),
+  (world, ctx, index, t) => isPriorityCombatTarget(world, ctx, t, index.firingNow),
   (world, _ctx, index, t) => world.has(t, Building) && !index.isLowPriorityBuilding(t),
   (world, _ctx, _index, t) => isWildlife(world, t),
   (world, _ctx, _index, t) => world.has(t, Person),
@@ -540,7 +540,7 @@ const PICK_TIERS: readonly PickTier[] = [
 const COMBAT_TIER: readonly PickTier[] = PICK_TIERS.slice(0, 1);
 
 /**
- * Owner rule: a fighter or tower interrupts a lower-priority target. Search near the weapon band
+ * Owner rule: a first-tier threat interrupts a lower-priority target. Search near the weapon band
  * between blows, or across sight every REPATH_CADENCE ticks while approaching. The original keeps
  * its target until it falls; this lets a besieger answer nearby threats.
  */
@@ -564,7 +564,7 @@ function priorityTargetToTurnTo(
   return found === null ? null : focusedOn(world, ctx, terrain, here, found.entity);
 }
 
-/** The nearest enemy fighter or tower `spec` admits within `hold.look` of `here`: one small band scan. */
+/** The nearest first-tier enemy `spec` admits within `hold.look` of `here`: one small band scan. */
 function priorityTargetInLook(
   world: World,
   ctx: SystemContext,
@@ -589,7 +589,7 @@ function priorityTargetInLook(
 /**
  * The enemy a combatant fights ahead of its order's `target` when the order lets it turn aside
  * ({@link turnsAsideUnder}): the one it already turned to while that still outranks the target
- * ({@link strikeRank}), the striker it turned on included, else a fighter or tower in its look
+ * ({@link strikeRank}), the striker it turned on included, else a first-tier threat in its look
  * ({@link priorityTargetInLook}), between blows or every {@link REPATH_CADENCE} ticks of a walk.
  * Null takes the target up again. The order stands throughout: a chase the enemy escapes lets only that enemy go
  * (`chase.ts`).
@@ -636,7 +636,7 @@ function stepPastReach(band: WeaponBand): WeaponBand {
  * finds one that scores strictly better ({@link crowdedScore}). Original behavior: a fighter keeps its
  * target until it is gone or strays past its leash, and a new scan takes over only a nearer enemy. It scans
  * when it has no target, then while it walks every tenth step ({@link RESCAN_WALK_STEPS}), and never
- * between blows. A lower-priority target also yields to a fighter or tower ({@link priorityTargetToTurnTo}).
+ * between blows. A lower-priority target also yields to a first-tier threat ({@link priorityTargetToTurnTo}).
  */
 function heldOrPicked(
   world: World,
@@ -662,7 +662,11 @@ function heldOrPicked(
         mine: { goal: world.tryGet(self, MoveGoal)?.cell, standingOn: here },
       }
     : null;
-  if (held !== null && heldTarget !== undefined && !isPriorityCombatTarget(world, ctx, heldTarget)) {
+  if (
+    held !== null &&
+    heldTarget !== undefined &&
+    !isPriorityCombatTarget(world, ctx, heldTarget, pass.index.firingNow)
+  ) {
     const striking = !isTravelling(world, self) && withinBand(hold.band, held.dist);
     const priority = priorityTargetToTurnTo(
       world,

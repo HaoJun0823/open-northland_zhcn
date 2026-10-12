@@ -80,8 +80,8 @@ import {
  * Resolve and act on one combatant's engagement this tick: swing, chase, hold a post, flee, or hand back to
  * the economy. The gates run as a ladder whose order is behavior: each rung shields every rung under it
  * from a case it must not see. A rung that writes for a unit holding no combat state must widen
- * `mayEngage` and `readyAnywhere` (`acting.ts`), which skip the units no rung touches. A rung writes only
- * `e`: the pass draws its candidates before the first rung runs.
+ * `mayEngage` and `readyAnywhere` (`acting.ts`), which skip the units no rung touches. Chasing may release
+ * a farther ally's route reservation; all other decisions affect only `e`.
  */
 export function engageCombatant(
   world: World,
@@ -430,16 +430,17 @@ function pullUpInReach(
   const follow = world.tryGet(e, PathFollow);
   const stop = follow === undefined ? undefined : world.tryGet(e, PathRoute)?.waypoints[follow.index]?.node;
   const goal = world.tryGet(e, MoveGoal)?.cell;
+  const chaser = { entity: e, target };
   for (const cell of stop === undefined ? [here] : [stop, here]) {
     if (
       !withinBand(weapon, hexNodeDistance(terrain, cell, combatTargetNode(world, ctx, terrain, cell, target)))
     )
       continue;
     // A body can step onto the goal ahead of it, and two never share a node.
-    if (slots.isOccupied(cell)) continue;
+    if (!slots.canStop(cell, goal, chaser)) continue;
     if (cell === goal) return true; // already walking there
     redirectRoute(world, e, cell);
-    slots.claim(cell, world.tryGet(e, Owner)?.player ?? null);
+    slots.claim(cell, world.tryGet(e, Owner)?.player ?? null, chaser);
     const engagement = world.tryMut(e, Engagement);
     if (engagement !== undefined) engagement.repathAt = ctx.tick + REPATH_CADENCE;
     return true;

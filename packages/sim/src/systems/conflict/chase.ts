@@ -261,6 +261,7 @@ export function chase(
   const crossingFriend =
     (world.has(e, PathFollow) && slots.isOccupied(here)) || slots.isTaken(here, ownGoal, here);
   const mine: OwnClaims = {
+    chaser: { entity: e, target: target.entity },
     goal: ownGoal,
     standingOn: onNodeCentre(world, terrain, e, here) && !crossingFriend ? here : undefined,
   };
@@ -270,7 +271,7 @@ export function chase(
   // The near-side node a breach dealt this breaker comes first, while it is open and untaken.
   const stand = breachStand(world, terrain, e, target, weapon);
   let approach: Approach =
-    stand !== null && slots.isOpen(stand) && !slots.isTaken(stand, mine.goal, mine.standingOn)
+    stand !== null && slots.isOpen(stand) && !slots.isTaken(stand, mine.goal, mine.standingOn, mine.chaser)
       ? { cell: stand, waiting: false }
       : target.body !== null && target.body.length > 0
         ? faceApproach(terrain, slots, here, target, weapon, mine, onOurBank)
@@ -341,7 +342,11 @@ export function chase(
     return true;
   }
   redirectRoute(world, e, dest); // keep the live route - dropping it reset the gait (chase stutter)
-  slots.claim(dest, world.tryGet(e, Owner)?.player ?? null);
+  slots.claim(
+    dest,
+    world.tryGet(e, Owner)?.player ?? null,
+    alongFront === null ? mine.chaser : { entity: e, target: alongFront },
+  );
   const held = world.mut(e, Engagement);
   held.repathAt = ctx.tick + REPATH_CADENCE;
   held.waiting = undefined;
@@ -518,7 +523,8 @@ function faceApproach(
   mine: OwnClaims,
   onOurBank: (cell: NodeId) => boolean,
 ): Approach {
-  const free = (cell: NodeId): boolean => onOurBank(cell) && !slots.isTaken(cell, mine.goal, mine.standingOn);
+  const free = (cell: NodeId): boolean =>
+    onOurBank(cell) && !slots.isTaken(cell, mine.goal, mine.standingOn, mine.chaser);
   const faces = slots.encircleCandidates(target.entity, target.body, weapon);
   const face = nearestHexCell(terrain, faces, here, free);
   if (face !== null) return { cell: face, waiting: false };
@@ -552,7 +558,7 @@ function contactSlot(
     return reach >= band.minRange && reach <= band.maxRange;
   };
   const free = (cell: NodeId): boolean =>
-    slots.isOpen(cell) && reachable(cell) && !slots.isTaken(cell, mine.goal, mine.standingOn);
+    slots.isOpen(cell) && reachable(cell) && !slots.isTaken(cell, mine.goal, mine.standingOn, mine.chaser);
   if (mine.goal !== undefined && inBand(mine.goal) && free(mine.goal)) return mine.goal;
   const choices: NodeId[] = [];
   const at = { hx: terrain.xOf(from), hy: terrain.yOf(from) };
@@ -622,7 +628,8 @@ function freeOnRingsFrom(
     const cell = terrain.nodeAt(hx, hy);
     if (!slots.isOpen(cell) || !reachable(cell)) return true;
     anyOpen = true;
-    if ((best === null || cell < best) && !slots.isTaken(cell, mine.goal, mine.standingOn)) best = cell;
+    if ((best === null || cell < best) && !slots.isTaken(cell, mine.goal, mine.standingOn, mine.chaser))
+      best = cell;
     return true;
   };
   const last = toTarget + band.maxRange;
@@ -654,7 +661,7 @@ function freeOverBand(
   forEachNodeInBand(terrain, targetCell, band, (cell) => {
     if (!slots.isOpen(cell) || !reachable(cell)) return true;
     anyOpen = true;
-    if (slots.isTaken(cell, mine.goal, mine.standingOn)) return true; // someone already fights (or was dealt) here
+    if (slots.isTaken(cell, mine.goal, mine.standingOn, mine.chaser)) return true; // someone already fights (or was dealt) here
     const d = hexDistanceBetween(fromX, fromY, terrain.xOf(cell), terrain.yOf(cell));
     if (closer(d, cell, bestDist, bestCell)) {
       best = cell;

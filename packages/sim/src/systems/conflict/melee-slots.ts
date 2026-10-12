@@ -1,12 +1,14 @@
-import { Engagement, MoveGoal, Owner } from '../../components/index.js';
+import { AttackOrder, Engagement, MoveGoal, Owner, PathFollow, PathRoute } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
 import { standingFighterPosts } from '../movement/collision/index.js';
+import { liveStepEnd, stopAtNextNode } from '../movement/nav-state.js';
 import { structureRegionOf } from '../movement/structure-route.js';
 import { hexNodeDistance } from '../spatial/metric.js';
+import { entityNode } from '../spatial/nodes.js';
 import { encircleBands } from './encircle-bands.js';
 import { forEachNodeInBand, type WeaponBand } from './weapon-band.js';
 
@@ -17,6 +19,19 @@ const NO_CELLS: readonly NodeId[] = [];
 export interface OwnClaims {
   readonly goal: NodeId | undefined;
   readonly standingOn: NodeId | undefined;
+  readonly chaser?: SlotChaser;
+}
+
+export interface SlotChaser {
+  readonly entity: Entity;
+  readonly target: Entity;
+}
+
+interface Reservation {
+  readonly entity: Entity;
+  readonly target: Entity | undefined;
+  readonly side: Side;
+  shared: boolean;
 }
 
 /** {@link MeleeSlots.crowdingAround}: `occupied` cells of the band held by the asker's own side, and
@@ -42,10 +57,9 @@ interface WaitingRanks {
 export class MeleeSlots {
   /** The standing bodies by node, each with its player. */
   private standing?: ReadonlyMap<NodeId, number>;
-  /** Goals en-route chasers already own, each with the chaser's side: a slot dealt in an earlier tick
-   *  stays taken while its owner is still walking to it, else two chasers dealt across ticks converge on
-   *  one cell and stack. */
-  private enRoute?: ReadonlyMap<NodeId, Side>;
+  /** Reservations from earlier ticks; a closer ally may take a front slot before its owner arrives. */
+  private enRoute?: Map<NodeId, Reservation>;
+  private readonly claimants = new Map<NodeId, SlotChaser>();
   /** The cells dealt this tick, each with the side it was dealt to. */
   private readonly claimed = new Map<NodeId, Side>();
   private blocked?: BlockOverlay;
@@ -63,11 +77,25 @@ export class MeleeSlots {
   /** Whether `cell` is already spoken for: a standing body, a cell dealt earlier this tick, or another
    *  chaser's live goal. `ownGoal` is the asker's own goal and `standingOn` the node it stands on, neither
    *  taken to itself - a cadence repath may re-choose and keep either. */
-  isTaken(cell: NodeId, ownGoal: NodeId | undefined, standingOn?: NodeId): boolean {
+  isTaken(cell: NodeId, ownGoal: NodeId | undefined, standingOn?: NodeId, chaser?: SlotChaser): boolean {
     this.standing ??= standingFighterPosts(this.world, this.ctx.content, this.terrain);
-    if ((this.standing.has(cell) && cell !== standingOn) || this.claimed.has(cell)) return true;
+    if (this.standing.has(cell) && cell !== standingOn) return true;
+    if (this.claimed.has(cell)) return !this.canYield(cell, chaser);
     this.enRoute ??= enRouteChaseGoals(this.world);
-    return this.enRoute.has(cell) && cell !== ownGoal;
+    return this.enRoute.has(cell) && cell !== ownGoal && !this.canYield(cell, chaser);
+  }
+
+  /** Friendly destinations stay distinct when braking; opposing chasers can still meet head-on. */
+  canStop(cell: NodeId, ownGoal: NodeId | undefined, chaser: SlotChaser): boolean {
+    if (this.isOccupied(cell)) return false;
+    this.enRoute ??= enRouteChaseGoals(this.world);
+    const side = this.world.tryGet(chaser.entity, Owner)?.player;
+    if (cell !== ownGoal && this.enRoute.get(cell)?.shared === true) return false;
+    return (
+      side === undefined ||
+      this.enRoute.get(cell)?.side !== side ||
+      !this.isTaken(cell, ownGoal, undefined, chaser)
+    );
   }
 
   /** Whether a body stands on `cell` or it was dealt earlier this tick: {@link isTaken} without the goals of
@@ -98,7 +126,7 @@ export class MeleeSlots {
       }
       const body = standing.get(cell);
       const dealt = this.claimed.get(cell);
-      const walking = cell === mine.goal ? undefined : enRoute.get(cell);
+      const walking = cell === mine.goal ? undefined : enRoute.get(cell)?.side;
       if (body === undefined && dealt === undefined && walking === undefined) {
         if (this.isOpen(cell)) open++;
       } else if (body === side || dealt === side || walking === side) {
@@ -119,8 +147,47 @@ export class MeleeSlots {
   }
 
   /** Deal `cell` to the asking chaser of `side` - the tick's later chasers aim at the next free one. */
-  claim(cell: NodeId, side: Side): void {
+  claim(cell: NodeId, side: Side, chaser?: SlotChaser): void {
+    const prior = this.claimants.get(cell) ?? this.enRoute?.get(cell);
+    if (prior !== undefined && this.canYield(cell, chaser)) {
+      stopAtNextNode(this.world, this.terrain, prior.entity);
+      const engagement = this.world.tryMut(prior.entity, Engagement);
+      if (engagement !== undefined) engagement.repathAt = this.ctx.tick;
+      const order = this.world.tryMut(prior.entity, AttackOrder);
+      if (order?.breach?.stand === cell) order.breach.stand = null;
+      this.enRoute?.delete(cell);
+    }
     this.claimed.set(cell, side);
+    if (chaser !== undefined) this.claimants.set(cell, chaser);
+    else this.claimants.delete(cell);
+  }
+
+  /** A reservation is a destination, not a body. A nearer ally fighting the same target may take it;
+   * equal distances preserve the incumbent, so a moving front does not shuffle on ties. */
+  private canYield(cell: NodeId, chaser: SlotChaser | undefined): boolean {
+    if (chaser === undefined || (this.claimed.has(cell) && !this.claimants.has(cell))) return false;
+    const prior = this.claimants.get(cell) ?? this.enRoute?.get(cell);
+    if (prior === undefined || prior.entity === chaser.entity || prior.target !== chaser.target) return false;
+    if (this.enRoute?.get(cell)?.shared === true) return false;
+    const side = this.world.tryGet(chaser.entity, Owner)?.player;
+    if (side === undefined || this.world.tryGet(prior.entity, Owner)?.player !== side) return false;
+    if (this.world.tryGet(prior.entity, MoveGoal)?.cell !== cell) return false;
+    const target =
+      this.world.tryGet(prior.entity, Engagement)?.target ??
+      this.world.tryGet(prior.entity, AttackOrder)?.target;
+    if (target !== chaser.target) return false;
+    const here = entityNode(this.world, this.terrain, chaser.entity);
+    const there = entityNode(this.world, this.terrain, prior.entity);
+    const follow = this.world.tryGet(prior.entity, PathFollow);
+    const route = this.world.tryGet(prior.entity, PathRoute)?.waypoints;
+    if (follow !== undefined && route !== undefined) {
+      const end = liveStepEnd(this.terrain, follow.index, route);
+      if (end !== undefined && route[end]?.node === cell) return false;
+    }
+    const remaining = hexNodeDistance(this.terrain, there, cell);
+    if (remaining <= 1 || hexNodeDistance(this.terrain, here, cell) >= remaining) return false;
+    const bank = this.bankOf(here);
+    return bank !== null && this.bankOf(cell) === bank;
   }
 
   /** Connected ground under structures; bodies only reserve individual slots. */
@@ -197,8 +264,12 @@ export class MeleeSlots {
           onBank(cell) &&
           this.isOpen(cell) &&
           !this.isTaken(cell, mine.goal, mine.standingOn)
-        )
+        ) {
+          // Keep a live destination within this rank; choosing another equally deep slot each cadence
+          // can turn a detour around a crowded building back on itself indefinitely.
+          if (cell === mine.goal) return cell;
           consider(cell);
+        }
       }
       if (best !== undefined) return best;
     }
@@ -223,13 +294,19 @@ export class MeleeSlots {
   }
 }
 
-/** The chase destinations en-route chasers already own, by the chaser's side. Membership and side only,
- *  so query order carries no decision; conservatively stale within the tick, which only delays a slot's
- *  reuse by one tick. */
-function enRouteChaseGoals(world: World): ReadonlyMap<NodeId, Side> {
-  const out = new Map<NodeId, Side>();
-  for (const e of world.query(Engagement, MoveGoal)) {
-    out.set(world.get(e, MoveGoal).cell, world.tryGet(e, Owner)?.player ?? null);
+/** Multiple live routes to one cell cannot be transferred as one reservation. Retain the first
+ * canonical owner for crowding and mark the cell shared, so a claimant never leaves a second route live. */
+function enRouteChaseGoals(world: World): Map<NodeId, Reservation> {
+  const out = new Map<NodeId, Reservation>();
+  for (const e of world.canonicalQuery(Engagement, MoveGoal)) {
+    const cell = world.get(e, MoveGoal).cell;
+    const prior = out.get(cell);
+    if (prior !== undefined) {
+      prior.shared = true;
+      continue;
+    }
+    const target = world.get(e, Engagement).target ?? world.tryGet(e, AttackOrder)?.target;
+    out.set(cell, { entity: e, target, side: world.tryGet(e, Owner)?.player ?? null, shared: false });
   }
   return out;
 }

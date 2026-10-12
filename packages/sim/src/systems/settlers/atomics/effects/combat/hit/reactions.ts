@@ -24,9 +24,7 @@ import { frightenKin } from '../../../../../conflict/fright.js';
 import { combatTargetNode } from '../../../../../conflict/target-node.js';
 import {
   firingBuildings,
-  isPriorityCombatTarget,
   isValidTarget,
-  STRIKE_RANK,
   type StrikeRank,
   strikeRank,
   turnsAsideUnder,
@@ -148,13 +146,12 @@ export function turnOnAttacker(world: World, ctx: SystemContext, attacker: Entit
     return firing;
   };
   const strikerRank = strikeRank(world, ctx, striker, firingNow);
-  // A first-tier striker outranks all remaining kinds without reading the firing set.
-  const rankOf = (t: Entity): StrikeRank =>
-    strikerRank === STRIKE_RANK.COMBAT && !isPriorityCombatTarget(world, ctx, t)
-      ? STRIKE_RANK.OTHER
-      : strikeRank(world, ctx, t, firingNow);
+  const rankOf = (t: Entity): StrikeRank => strikeRank(world, ctx, t, firingNow);
   const order = world.tryGet(victim, AttackOrder);
-  if (order !== undefined && !(turnsAsideUnder(world, ctx, order) && strikerRank < rankOf(order.target))) {
+  if (
+    order !== undefined &&
+    !(turnsAsideUnder(world, ctx, order, firingNow) && strikerRank < rankOf(order.target))
+  ) {
     return;
   }
   if (held !== undefined && world.isAlive(held) && world.has(held, Position)) {

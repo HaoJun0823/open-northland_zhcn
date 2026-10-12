@@ -561,6 +561,49 @@ describe('warriors attack enemy buildings', () => {
     }
   });
 
+  it.each([false, true])(
+    'a nearer besieger takes an unoccupied front reservation (created first: %s)',
+    (nearFirst) => {
+      const content = siegeContent({ meleeRange: { min: 1, max: 1 } });
+      const sim = new Simulation({ seed: 1, content, map: grass(24, 14) });
+      const terrain = sim.terrain;
+      if (terrain === undefined) throw new Error('expected terrain');
+      const fort = buildingAt(sim, 3, 3, FORT, P2, 1_000_000);
+      const makeNear = () => warriorAt(sim, 5, 3, P1);
+      let near = nearFirst ? makeNear() : undefined;
+      const slots = new MeleeSlots(sim.world, ctxOf(sim), terrain);
+      const body = buildingBodyNodes(sim.world, ctxOf(sim), terrain, fort);
+      const cells = slots.encircleCandidates(fort, body, { minRange: 1, maxRange: 1 });
+      const reservers = new Map(
+        cells.map((cell, i) => {
+          const far = warriorAt(sim, 16 + (i % 5), 2 + Math.floor(i / 5), P1);
+          sim.world.add(far, AttackOrder, { target: fort });
+          sim.world.add(far, Engagement, { target: fort, repathAt: 1000 });
+          sim.world.add(far, MoveGoal, { cell });
+          return [cell, far] as const;
+        }),
+      );
+      near ??= makeNear();
+      sim.world.add(near, AttackOrder, { target: fort });
+      const restored = restoreSimulation(exportSaveGame(sim), { content, map: grass(24, 14) });
+      combatSystem(sim.world, ctxOf(sim));
+      combatSystem(restored.world, ctxOf(restored));
+      const chosen = sim.world.get(near, MoveGoal).cell;
+      const previous = reservers.get(chosen);
+      expect(previous).toBeDefined();
+      if (previous === undefined) throw new Error('expected a reserved front cell');
+      expect(sim.world.tryGet(previous, MoveGoal)?.cell).not.toBe(chosen);
+      expect(hexDistanceBetween(10, 6, terrain.xOf(chosen), terrain.yOf(chosen))).toBeLessThanOrEqual(2);
+      expect(sim.world.get(previous, Engagement).target).toBe(fort);
+      for (let i = 0; i < 120; i++) {
+        sim.step();
+        restored.step();
+      }
+      expect(restored.hashState()).toBe(sim.hashState());
+      expect(sim.world.verifyCaches()).toEqual([]);
+    },
+  );
+
   it('brings a large siege into successive waiting ranks and advances when the front leaves', () => {
     const sim = new Simulation({
       seed: 1,

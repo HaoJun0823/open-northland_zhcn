@@ -8,6 +8,7 @@ import {
   Carrying,
   CurrentAtomic,
   DefenceMode,
+  Engagement,
   Fleeing,
   Health,
   IdleStand,
@@ -28,6 +29,7 @@ import {
   Simulation,
   type TerrainMap,
 } from '../../src/index.js';
+import { combatSystem } from '../../src/systems/conflict/combat.js';
 import {
   SHELTER_SHOT_PERIOD_TICKS,
   shelterFireRadius,
@@ -38,6 +40,7 @@ import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import * as ladder from '../../src/systems/settlers/drives/ladder.js';
 import { IDLE_REPLAN_PERIOD_TICKS, idleReplanDue } from '../../src/systems/settlers/planner/idle-replan.js';
 import { TEST_MANIFEST } from '../fixtures/content.js';
+import { ctxOf } from '../fixtures/context.js';
 import { needsOf, setNeeds } from '../fixtures/settler.js';
 
 // DEFENCE MODE - the alarm a player raises on a garrison building: its civilians run inside, the building
@@ -755,4 +758,35 @@ describe('shelterFireRadius', () => {
     expect(shelterFireRadius(defenceContent(), HUT, VIKING, HX, HY)).toBeUndefined();
     expect(shelterFireRadius(defenceContent(), TOWER, NO_BOW_TRIBE, HX, HY)).toBeUndefined();
   });
+});
+
+describe('defending buildings share combat priority with towers and fighters', () => {
+  it.each(['barracks', 'headquarters'] as const)(
+    'prioritizes an occupied %s only while it can defend',
+    (id) => {
+      for (const state of ['off', 'empty', 'active'] as const) {
+        const base = defenceContent();
+        const content = parseContentSet({
+          ...base,
+          buildings: base.buildings.map((b) =>
+            b.typeId === HUT
+              ? { ...b, id, kind: id === 'barracks' ? 'training' : 'storage', shelterCapacity: 2 }
+              : b,
+          ),
+        });
+        const sim = new Simulation({ seed: 1, content, map: grass(20, 20) });
+        const attacker = settlerAt(sim, 2, 4, P2, SOLDIER);
+        const shelter = buildingAt(sim, 4, 4, HUT, P1);
+        const tower = buildingAt(sim, 8, 4, TOWER, P1);
+        if (state !== 'off') sim.world.add(shelter, DefenceMode, {});
+        if (state !== 'empty') {
+          const inside = settlerAt(sim, 4, 4, P1, FARMER);
+          sim.world.add(inside, Sheltering, { shelter });
+          sim.world.add(inside, Resting, { at: shelter });
+        }
+        combatSystem(sim.world, ctxOf(sim));
+        expect(sim.world.get(attacker, Engagement).target, state).toBe(state === 'active' ? shelter : tower);
+      }
+    },
+  );
 });

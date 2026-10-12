@@ -45,6 +45,7 @@ export const openGateAttackScene: SceneDefinition = {
   id: 'open-gate-attack',
   seed: 7,
   terrain: grassTerrain(WIDTH, 26),
+  initialZoom: 0.4,
   build,
   runTicks: 140,
   checks: [

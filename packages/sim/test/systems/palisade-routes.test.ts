@@ -1,7 +1,8 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   AttackOrder,
+  Building,
   Engagement,
   Health,
   Owner,
@@ -11,6 +12,7 @@ import {
   Position,
   SettlerProgress,
   Stance,
+  setDiplomacyStance,
 } from '../../src/components/index.js';
 import {
   type Entity,
@@ -27,8 +29,12 @@ import {
 import { hexagonRing, hexDistance } from '../../src/nav/halfcell.js';
 import { findPath } from '../../src/nav/pathfinding/index.js';
 import { dynamicBlockOverlay } from '../../src/systems/footprint/index.js';
+import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
+import { attackMoveBlocks } from '../../src/systems/movement/attack-move-blocks.js';
+import { structureRegionOf, structureRouteSealed } from '../../src/systems/movement/structure-route.js';
 import { attackMoveUnit, attackUnit, moveUnit } from '../../src/systems/orders/index.js';
 import { palisadeBarring } from '../../src/systems/palisades/breach.js';
+import { createPalisade } from '../../src/systems/palisades/index.js';
 import { fightExperienceTypeFor } from '../../src/systems/progression/experience.js';
 import { ARMOR_MATERIAL, MILITARY_MODE, WEAPON_MAIN_TYPE } from '../../src/systems/readviews/index.js';
 import { fighterAt } from '../conflict/melee-engagement/support.js';
@@ -238,7 +244,8 @@ describe('walls that start blocking a route', () => {
         sim.enqueueSetup({ kind: 'attackMoveUnit', entity, x: NORTH.hx, y: NORTH.hy });
       sim.step();
       expect(sim.world.get(gate, Palisade).gate?.open).toBe(true);
-      expect(squad.every((e) => sim.world.has(e, PathFollow))).toBe(true);
+      sim.step();
+      expect(squad.every((e) => sim.world.tryGet(e, AttackOrder)?.breach !== undefined)).toBe(true);
       for (let tick = 0; tick < 800 && sim.world.get(gate, Palisade).gate?.open; tick++) sim.step();
       expect(sim.world.get(gate, Palisade).gate?.open).toBe(false);
       for (
@@ -257,49 +264,52 @@ describe('walls that start blocking a route', () => {
     },
   );
 
-  it('packs a large attack-move army behind a closed gate while the wall survives', () => {
-    const base = wallBreakingContent();
-    const content = parseContentSet({
-      ...base,
-      weapons: base.weapons.map((weapon) =>
-        weapon.id === 'test_axe' ? { ...weapon, jobType: UNARMED_SOLDIER } : weapon,
-      ),
-    });
-    const sim = new Simulation({
-      seed: 1,
-      content,
-      map: {
-        ...grassNodeMap(WIDTH, 48),
-        landscapes: {
-          types: [WALL, CLOSED_GATE, OPEN_GATE].map((type) => {
-            if (type.wall === undefined) throw new Error('expected a wall type');
-            return { ...type, wall: { ...type.wall, maxHitpoints: 1_000_000 } };
-          }),
-          placements: [],
+  it.each(['automatic', 'open'] as const)(
+    'packs a large attack-move army on its side of an %s gate while the wall survives',
+    (mode) => {
+      const base = wallBreakingContent();
+      const content = parseContentSet({
+        ...base,
+        weapons: base.weapons.map((weapon) =>
+          weapon.id === 'test_axe' ? { ...weapon, jobType: UNARMED_SOLDIER } : weapon,
+        ),
+      });
+      const sim = new Simulation({
+        seed: 1,
+        content,
+        map: {
+          ...grassNodeMap(WIDTH, 48),
+          landscapes: {
+            types: [WALL, CLOSED_GATE, OPEN_GATE].map((type) => {
+              if (type.wall === undefined) throw new Error('expected a wall type');
+              return { ...type, wall: { ...type.wall, maxHitpoints: 1_000_000 } };
+            }),
+            placements: [],
+          },
         },
-      },
-    });
-    const gate = wallRow(sim, P1);
-    const squad = Array.from({ length: 100 }, (_, i) => {
-      const e = fighterAt(sim, 0, 0, VIKING, UNARMED_SOLDIER, { owner: P0 });
-      sim.world.add(e, Position, positionOfNode(2 + (i % 10) * 2, 25 + Math.floor(i / 10) * 2));
-      return e;
-    });
-    sim.enqueueSetup({ kind: 'setPalisadeGateMode', palisade: gate, mode: 'automatic' });
-    for (const entity of squad)
-      sim.enqueueSetup({ kind: 'attackMoveUnit', entity, x: NORTH.hx, y: NORTH.hy });
-    for (let tick = 0; tick < 1600; tick++) sim.step();
-    expect(sim.world.get(gate, Palisade).gate?.open).toBe(false);
-    const positions = squad.map((e) => nodeRow(sim, e));
-    expect(Math.max(...positions.map((p) => p.hy))).toBeLessThanOrEqual(WALL_ROW + 10);
-    expect(positions.every((p) => p.hy > WALL_ROW)).toBe(true);
-    const waiting = squad.filter((e) => sim.world.tryGet(e, Engagement)?.waiting === true);
-    expect(waiting.length).toBeGreaterThan(40);
-    const ranks = waiting.map((e) => nodeRow(sim, e));
-    expect(new Set(ranks.map((p) => `${p.hx},${p.hy}`)).size).toBe(waiting.length);
-    expect(new Set(squad.map((e) => JSON.stringify(sim.world.get(e, Position)))).size).toBe(squad.length);
-    expect(sim.world.verifyCaches()).toEqual([]);
-  });
+      });
+      const gate = wallRow(sim, P1);
+      const squad = Array.from({ length: 100 }, (_, i) => {
+        const e = fighterAt(sim, 0, 0, VIKING, UNARMED_SOLDIER, { owner: P0 });
+        sim.world.add(e, Position, positionOfNode(2 + (i % 10) * 2, 25 + Math.floor(i / 10) * 2));
+        return e;
+      });
+      sim.enqueueSetup({ kind: 'setPalisadeGateMode', palisade: gate, mode });
+      for (const entity of squad)
+        sim.enqueueSetup({ kind: 'attackMoveUnit', entity, x: NORTH.hx, y: NORTH.hy });
+      for (let tick = 0; tick < 1600; tick++) sim.step();
+      expect(sim.world.get(gate, Palisade).gate?.open).toBe(mode === 'open');
+      const positions = squad.map((e) => nodeRow(sim, e));
+      expect(Math.max(...positions.map((p) => p.hy))).toBeLessThanOrEqual(WALL_ROW + 10);
+      expect(positions.every((p) => p.hy > WALL_ROW)).toBe(true);
+      const waiting = squad.filter((e) => sim.world.tryGet(e, Engagement)?.waiting === true);
+      expect(waiting.length).toBeGreaterThan(40);
+      const ranks = waiting.map((e) => nodeRow(sim, e));
+      expect(new Set(ranks.map((p) => `${p.hx},${p.hy}`)).size).toBe(waiting.length);
+      expect(new Set(squad.map((e) => JSON.stringify(sim.world.get(e, Position)))).size).toBe(squad.length);
+      expect(sim.world.verifyCaches()).toEqual([]);
+    },
+  );
 
   it('stops a walker a gate shuts in front of, instead of letting it through', () => {
     const sim = fresh();
@@ -532,6 +542,144 @@ describe('walls as targets', () => {
       if (wall === null) throw new Error(`expected a wall to bar the way to ${goal.hx},${goal.hy}`);
       expect(nodeRow(sim, wall).hy).toBe(11);
     }
+  });
+});
+
+describe('attack-move planning around open enemy gates', () => {
+  it.each([PRESSED_X, GATE_X])(
+    'breaches from column %s while the enemy gate stays open, then uses the hole',
+    (hx) => {
+      const sim = fresh();
+      const gate = wallRow(sim, P1);
+      const raider = fighter(sim, { hx, hy: NORTH.hy }, P0);
+      attackMoveUnit(sim.world, ctxOf(sim), { kind: 'attackMoveUnit', entity: raider, x: hx, y: SOUTH.hy });
+      for (let tick = 0; tick < 20 && !sim.world.has(raider, AttackOrder); tick++) sim.step();
+      const target = sim.world.tryGet(raider, AttackOrder)?.target;
+      if (target === undefined) throw new Error('expected a breach before approaching the open gate');
+      expect(nodeRow(sim, target)).toEqual({ hx, hy: WALL_ROW });
+      expect(sim.world.get(gate, Palisade).gate?.open).toBe(true);
+      expect(sealed(sim)).toBe(false);
+      const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content, map: routesMap() });
+      sim.world.mut(target, Health).hitpoints = 0;
+      restored.world.mut(target, Health).hitpoints = 0;
+      for (let tick = 0; tick < 600 && nodeRow(sim, raider).hy < SOUTH.hy; tick++) {
+        sim.step();
+        restored.step();
+      }
+      expect(nodeRow(sim, raider)).toEqual({ hx, hy: SOUTH.hy });
+      expect(restored.hashState()).toBe(sim.hashState());
+      expect(sim.world.verifyCaches()).toEqual([]);
+    },
+  );
+
+  it.each(['move', 'own', 'friend', 'neutral'] as const)('keeps the open passage for %s', (mode) => {
+    const sim = fresh();
+    const gate = wallRow(sim, mode === 'own' ? P0 : P1);
+    if (mode === 'friend' || mode === 'neutral') setDiplomacyStance(sim.world, P0, P1, mode);
+    const raider = fighter(sim, NORTH, P0);
+    const command = { entity: raider, x: SOUTH.hx, y: SOUTH.hy };
+    if (mode === 'move') moveUnit(sim.world, ctxOf(sim), { kind: 'moveUnit', ...command });
+    else attackMoveUnit(sim.world, ctxOf(sim), { kind: 'attackMoveUnit', ...command });
+    for (let tick = 0; tick < 600 && nodeRow(sim, raider).hy < SOUTH.hy; tick++) {
+      sim.step();
+      expect(sim.world.has(raider, AttackOrder)).toBe(false);
+    }
+    expect(nodeRow(sim, raider)).toEqual(SOUTH);
+    expect(sim.world.get(gate, Health).hitpoints).toBe(100);
+  });
+
+  it('refreshes virtual joints when a new door leaves the physical block mask unchanged', () => {
+    const DOOR_HUT = 999;
+    const base = wallBreakingContent();
+    const content = parseContentSet({
+      ...base,
+      buildings: [
+        ...base.buildings,
+        {
+          typeId: DOOR_HUT,
+          id: 'door_hut',
+          kind: 'storage',
+          footprint: { blocked: [{ dx: 0, dy: 0 }], door: { dx: 0, dy: 0 } },
+        },
+      ],
+    });
+    const sim = fresh(content);
+    const terrain = mapped(sim);
+    createPalisade(
+      sim.world,
+      { ...OPEN_GATE, walk: [] },
+      {
+        x: 10,
+        y: 10,
+        tribe: VIKING,
+        owner: P1,
+        underConstruction: false,
+        placementWalk: [{ dx: 0, dy: 0 }],
+      },
+    );
+    createPalisade(sim.world, WALL, { x: 9, y: 11, tribe: VIKING, owner: P1, underConstruction: false });
+    const plan = () => attackMoveBlocks(sim.world, ctxOf(sim), terrain, P0);
+    const oddCorner = terrain.nodeAt(10, 11);
+    const evenCorner = terrain.nodeAt(9, 10);
+    expect(plan().blocked.has(oddCorner)).toBe(true);
+    expect(plan().blocked.has(evenCorner)).toBe(false);
+    const version = walkBlockMask(sim.world, ctxOf(sim), terrain).version;
+    const hut = sim.world.create();
+    sim.world.add(hut, Position, positionOfNode(10, 11));
+    sim.world.add(hut, Building, { buildingType: DOOR_HUT, tribe: VIKING, built: fx.fromInt(1), level: 0 });
+    expect(walkBlockMask(sim.world, ctxOf(sim), terrain).version).toBe(version);
+    expect(plan().blocked.has(oddCorner)).toBe(false);
+    expect(plan().blocked.has(evenCorner)).toBe(true);
+    const restored = restoreSimulation(exportSaveGame(sim), { content, map: routesMap() });
+    const cold = attackMoveBlocks(restored.world, ctxOf(restored), mapped(restored), P0);
+    for (let node = 0; node < terrain.nodeCount; node++) {
+      const cell = terrain.nodeAt(node % terrain.width, Math.floor(node / terrain.width));
+      expect(cold.blocked.has(cell)).toBe(plan().blocked.has(cell));
+    }
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('shares the predicted closed topology and refreshes it after diplomacy, owner and wall changes', () => {
+    const sim = fresh();
+    const gate = wallRow(sim, P1);
+    const terrain = mapped(sim);
+    const start = terrain.nodeAt(NORTH.hx, NORTH.hy);
+    const goal = terrain.nodeAt(SOUTH.hx, SOUTH.hy);
+    const plan = () => attackMoveBlocks(sim.world, ctxOf(sim), terrain, P0);
+    const first = plan();
+    expect(plan()).toBe(first);
+    expect(structureRouteSealed(sim.world, ctxOf(sim), terrain, start, goal, first.blocked)).toBe(true);
+    expect(structureRegionOf(sim.world, ctxOf(sim), terrain, start, first.blocked)).not.toBe(
+      structureRegionOf(sim.world, ctxOf(sim), terrain, goal, first.blocked),
+    );
+    const steps = vi.spyOn(terrain, 'stepsInto');
+    for (let i = 0; i < 100; i++) {
+      expect(
+        structureRouteSealed(
+          sim.world,
+          ctxOf(sim),
+          terrain,
+          terrain.nodeAt(i % WIDTH, 2),
+          terrain.nodeAt(i % WIDTH, 18),
+          plan().blocked,
+        ),
+      ).toBe(true);
+    }
+    expect(steps).not.toHaveBeenCalled();
+    steps.mockRestore();
+    setDiplomacyStance(sim.world, P0, P1, 'friend');
+    expect(findPath(terrain, start, goal, plan().blocked)).not.toBeNull();
+    setDiplomacyStance(sim.world, P0, P1, 'enemy');
+    sim.world.mut(gate, Owner).player = P0;
+    expect(findPath(terrain, start, goal, plan().blocked)).not.toBeNull();
+    sim.world.mut(gate, Owner).player = P1;
+    expect(findPath(terrain, start, goal, plan().blocked)).toBeNull();
+    const wall = [...sim.world.query(Palisade)].find((e) => nodeRow(sim, e).hx === PRESSED_X);
+    if (wall === undefined) throw new Error('missing side wall');
+    sim.world.mut(wall, Health).hitpoints = 0;
+    sim.step();
+    expect(structureRouteSealed(sim.world, ctxOf(sim), terrain, start, goal, plan().blocked)).toBe(false);
+    expect(sim.world.verifyCaches()).toEqual([]);
   });
 });
 

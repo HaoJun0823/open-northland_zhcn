@@ -31,6 +31,7 @@ import type { System, SystemContext } from '../context.js';
 import { type WalkBlockMask, walkBlockMask } from '../footprint/walk-block-mask.js';
 import { routeFound } from '../settlers/lost-way.js';
 import { isValidNodeId } from '../spatial/nodes.js';
+import { attackMoveBlocks } from './attack-move-blocks.js';
 import {
   ColliderWalkBlocks,
   hasBodyCollision,
@@ -87,9 +88,9 @@ export function drainPathRequests(
   let dynamic: BlockOverlay | undefined;
   let units: UnitWalkBlocks | undefined;
   let hostile: readonly number[] | undefined;
-  const combinedByPlayer = new Map<number, ColliderWalkBlocks>();
+  const combinedByPlayer = new Map<string, ColliderWalkBlocks>();
   const besideTargetsByPlayer = new Map<number, ColliderWalkBlocks>();
-  let occupiedView: BlockOverlay | undefined;
+  const occupiedViews = new Map<BlockOverlay, BlockOverlay>();
   // Goal stand-ins already handed out this tick, so two walkers aimed at one crowded node fan out to
   // different free nodes instead of both claiming the same one.
   const claimedStandIns = new Set<NodeId>();
@@ -105,34 +106,39 @@ export function drainPathRequests(
     }
     return dynamic;
   };
-  const blockedFor = (player: number): ColliderWalkBlocks => {
-    let view = combinedByPlayer.get(player);
+  const blockedFor = (player: number, structures: BlockOverlay, marching: boolean): ColliderWalkBlocks => {
+    const key = `${player}:${marching}`;
+    let view = combinedByPlayer.get(key);
     if (view === undefined) {
       units ??= unitWalkBlocks(world, ctx.content, terrain);
       hostile ??= hostilePlayerMasks(world);
-      view = new ColliderWalkBlocks(dynamicOnly(), units, hostileMaskOf(hostile, player));
-      combinedByPlayer.set(player, view);
+      view = new ColliderWalkBlocks(structures, units, hostileMaskOf(hostile, player));
+      combinedByPlayer.set(key, view);
     }
     return view;
   };
   // The bodies an attack-move of `player` cannot fight its way through: the hostile ones it does not
   // fight itself, as a side that holds it an enemy it holds a friend.
-  const besideTargetsFor = (player: number): ColliderWalkBlocks => {
+  const besideTargetsFor = (player: number, structures: BlockOverlay): ColliderWalkBlocks => {
     let view = besideTargetsByPlayer.get(player);
     if (view === undefined) {
       units ??= unitWalkBlocks(world, ctx.content, terrain);
       hostile ??= hostilePlayerMasks(world);
       const passable = hostileMaskOf(hostile, player) & ~enemyPlayerMask(world, player);
-      view = new ColliderWalkBlocks(dynamicOnly(), units, passable);
+      view = new ColliderWalkBlocks(structures, units, passable);
       besideTargetsByPlayer.set(player, view);
     }
     return view;
   };
   // Every post, whoever stands there: a walker passes its own side and its allies but never stops on them.
-  const occupied = (): BlockOverlay => {
-    units ??= unitWalkBlocks(world, ctx.content, terrain);
-    occupiedView ??= new ColliderWalkBlocks(dynamicOnly(), units, EVERY_PLAYER);
-    return occupiedView;
+  const occupied = (structures: BlockOverlay): BlockOverlay => {
+    let view = occupiedViews.get(structures);
+    if (view === undefined) {
+      units ??= unitWalkBlocks(world, ctx.content, terrain);
+      view = new ColliderWalkBlocks(structures, units, EVERY_PLAYER);
+      occupiedViews.set(structures, view);
+    }
+    return view;
   };
   // A group member's route under `overlay`: refused at once by a region the group already found sealed,
   // borrowed from a neighbour, or searched, a searched answer kept for the rest of the group.
@@ -170,14 +176,19 @@ export function drainPathRequests(
 
     const traversal = settlerTraversal(world, e);
     const collides = traversal === 'land' && hasBodyCollision(world, ctx.content, e);
-    const bodies = collides ? blockedFor(world.tryGet(e, Owner)?.player ?? -1) : null;
-    const blocked = bodies ?? dynamicOnly();
+    const player = world.tryGet(e, Owner)?.player;
+    const marching =
+      traversal === 'land' && player !== undefined && world.tryGet(e, PlayerOrder)?.attackMove !== undefined;
+    const actual = dynamicOnly();
+    const structures = marching ? attackMoveBlocks(world, ctx, terrain, player).blocked : actual;
+    const bodies = collides ? blockedFor(player ?? -1, structures, marching) : null;
+    const blocked = bodies ?? structures;
     // A grind reroute plans as if its live route were already dropped, which it is unless the answer matches.
     const stepEnd =
       req.retainRoute || req.grind || !finishesStepOnReroute(world, e)
         ? undefined
         : freeStepEnd(world, terrain, e, blocked);
-    const asked = startBesideBlocks(world, terrain, e, req, traversal, dynamicOnly());
+    const asked = startBesideBlocks(world, terrain, e, req, traversal, structures);
     const start = stepEnd ?? asked;
     // A goal taken only by a standing unit, of any side, is recoverable: re-aim at the nearest free node so
     // a charge fans out around a crowded target. Collider-only, since a ghost's goal must stay exact.
@@ -187,10 +198,10 @@ export function drainPathRequests(
       collides &&
       goal !== start && // a walker already standing there has arrived, however crowded
       isValidNodeId(terrain, goal) &&
-      occupied().has(goal) &&
-      !dynamicOnly().has(goal)
+      occupied(structures).has(goal) &&
+      !structures.has(goal)
     ) {
-      const free = nearestUnblockedNode(terrain, goal, occupied(), claimedStandIns);
+      const free = nearestUnblockedNode(terrain, goal, occupied(structures), claimedStandIns);
       if (free !== null) {
         goal = free;
         standIn = true;
@@ -207,7 +218,7 @@ export function drainPathRequests(
     );
     // An attack-move goes for what seals its goal off: the bodies it fights shape its route, never refuse it.
     if (path === null && bodies !== null && world.tryGet(e, PlayerOrder)?.attackMove !== undefined) {
-      const through = besideTargetsFor(world.tryGet(e, Owner)?.player ?? -1);
+      const through = besideTargetsFor(player ?? -1, structures);
       if (through.posts < bodies.posts) {
         path = routeUnder(through, start, goal, group, () =>
           resolvePath(terrain, start, goal, through, spent, traversal),

@@ -316,6 +316,10 @@ export const plContent = {
       summary:
         'Strzała trafia kobietę: ona i stojący obok myśliwy uciekają, osadnik z rozkazem obrony stoi, a wojownicy spoza zasięgu wzroku ruszają na łucznika.',
     },
+    'open-gate-attack': {
+      title: 'Atak przy otwartej bramie',
+      summary: 'Wojownicy przebijają pobliską palisadę zamiast obchodzić ją do odległej bramy.',
+    },
     'melee-front': {
       title: 'Front walki wręcz',
       summary:

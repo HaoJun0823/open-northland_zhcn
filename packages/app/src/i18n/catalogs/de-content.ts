@@ -320,6 +320,11 @@ export const deContent = {
       summary:
         'Ein Pfeil trifft eine Frau und treibt sie und den Jäger neben ihr in die Flucht. Ein auf Verteidigung eingestellter Zivilist hält stand, und Schwertkämpfer greifen den Bogenschützen an, obwohl er außerhalb ihrer eigenen Sichtweite steht.',
     },
+    'open-gate-attack': {
+      title: 'Angriff bei offenem Tor',
+      summary:
+        'Krieger durchbrechen die nahe Palisade, statt einen Umweg zum entfernten offenen Tor zu nehmen.',
+    },
     'melee-front': {
       title: 'Nahkampffront',
       summary:

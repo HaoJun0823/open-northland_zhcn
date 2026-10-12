@@ -317,6 +317,10 @@ export const enContent = {
       summary:
         'An arrow in a woman sends her and the hunter beside her running, a civilian set to defend stands, and swordsmen past their own sight turn on the archer.',
     },
+    'open-gate-attack': {
+      title: 'Attack past an open gate',
+      summary: 'Warriors breach the nearby palisade instead of detouring toward a distant open gate.',
+    },
     'melee-front': {
       title: 'Melee front',
       summary:

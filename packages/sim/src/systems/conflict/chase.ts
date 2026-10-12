@@ -252,9 +252,9 @@ export function chase(
   const crowdedBreach =
     weapon.minRange <= 1 && order?.target === target.entity && order.breach?.stand === null;
   const terrainBank = terrain.isWalkable(here) ? terrain.componentOf(here) : null;
-  const bank = crowdedBreach ? slots.bankOf(here) : terrainBank;
+  const bank = crowdedBreach ? slots.bankOf(here, e) : terrainBank;
   const onOurBank = (cell: NodeId): boolean =>
-    bank === null || (crowdedBreach ? slots.bankOf(cell) === bank : terrain.componentOf(cell) === bank);
+    bank === null || (crowdedBreach ? slots.bankOf(cell, e) === bank : terrain.componentOf(cell) === bank);
 
   // Its own body does not take the node it stands on from itself. A walker crossing a node its own side
   // stands on holds no claim there: routes pass friends, but no two bodies come to rest on one node.

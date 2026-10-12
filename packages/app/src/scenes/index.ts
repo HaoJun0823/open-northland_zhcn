@@ -60,6 +60,7 @@ import { mealBreakScene } from './meal-break.js';
 import { meleeFrontScene } from './melee-front.js';
 import { movementContinuityScene } from './movement-continuity.js';
 import { netPanelScene } from './net-panel.js';
+import { openGateAttackScene } from './open-gate-attack.js';
 import { palisadeScene } from './palisade.js';
 import { personalNamesScene } from './personal-names.js';
 import { porterFlagScene } from './porter-flag.js';
@@ -175,6 +176,7 @@ export const SCENES: readonly SceneDefinition[] = [
   scoutClaimScene,
   scoutExploreScene,
   palisadeScene,
+  openGateAttackScene,
   roadsScene,
   roadUpgradeScene,
   equipmentScene,

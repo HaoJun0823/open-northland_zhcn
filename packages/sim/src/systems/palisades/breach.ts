@@ -18,7 +18,7 @@ import { isValidOrderedTarget } from '../conflict/targeting.js';
 import { attackerWeapon, wallBlowDamage } from '../conflict/weapons.js';
 import type { SystemContext } from '../context.js';
 import { translatedCells } from '../footprint/geometry.js';
-import { dynamicBlockOverlay } from '../footprint/index.js';
+import { attackMoveBlocks, routeStructureBlocks } from '../movement/attack-move-blocks.js';
 import { clearNavState } from '../movement/nav-state.js';
 import { structureRouteSealed } from '../movement/structure-route.js';
 import { ARMOR_MATERIAL, weaponDamageVsMaterial } from '../readviews/index.js';
@@ -143,17 +143,23 @@ export function palisadeBarring(
   if (arms === null || wallBlowDamage(weaponDamageVsMaterial(arms.weapon, ARMOR_MATERIAL.HOUSE)) === 0) {
     return null;
   }
+  const player = world.get(e, Owner).player;
+  const projected =
+    world.tryGet(e, PlayerOrder)?.attackMove === undefined
+      ? undefined
+      : attackMoveBlocks(world, ctx, terrain, player);
   const wallAt = standingWallAt(
     world,
     terrain,
     (wall) =>
       (walls === 'attackable' || world.has(wall, Owner)) &&
       isValidOrderedTarget(world, ctx, e, settler, wall),
+    projected?.gates,
   );
   if (wallAt.size === 0) return null;
-  const blocked = dynamicBlockOverlay(world, ctx, terrain);
+  const blocked = projected?.blocked ?? routeStructureBlocks(world, ctx, terrain, e);
   // A route refused over a crowd or a far-off chase target is not a wall's doing.
-  if (route.sealed !== true && !structureRouteSealed(world, ctx, terrain, route.start, route.goal))
+  if (route.sealed !== true && !structureRouteSealed(world, ctx, terrain, route.start, route.goal, blocked))
     return null;
   const breachable: BlockOverlay = {
     has: (node) => !wallAt.has(node) && blocked.has(node),
@@ -168,7 +174,13 @@ export function palisadeBarring(
   // Only a breaker that strikes from beside the wall needs a node of its own; a shooter keeps its range.
   // One standing on a post has no near side to be dealt.
   if (arms.minRange > 1 || wallAt.has(hit.approach)) return { wall: hit.wall, stand: null };
-  const line: BreachLine = { terrain, blocked, wallAt, first: hit.wall, approach: hit.approach };
+  const line: BreachLine = {
+    terrain,
+    blocked,
+    wallAt,
+    first: hit.wall,
+    approach: hit.approach,
+  };
   return spreadAlongLine(world, line, e);
 }
 
@@ -177,6 +189,7 @@ function standingWallAt(
   world: World,
   terrain: TerrainGraph,
   admits: (wall: Entity) => boolean,
+  projected?: ReadonlyMap<NodeId, Entity>,
 ): Map<NodeId, Entity> {
   const wallAt = new Map<NodeId, Entity>();
   for (const wall of canonicalById(world.query(PalisadeBlocking, Palisade, Position))) {
@@ -186,6 +199,11 @@ function standingWallAt(
     for (const cell of translatedCells(terrain, world.get(wall, Palisade).walk, hx, hy)) {
       if (!wallAt.has(cell)) wallAt.set(cell, wall);
     }
+  }
+  for (const [cell, wall] of projected ?? []) {
+    if (!admits(wall)) continue;
+    const prior = wallAt.get(cell);
+    if (prior === undefined || wall < prior) wallAt.set(cell, wall);
   }
   return wallAt;
 }

@@ -1,9 +1,18 @@
-import { AttackOrder, Engagement, MoveGoal, Owner, PathFollow, PathRoute } from '../../components/index.js';
+import {
+  AttackOrder,
+  Engagement,
+  MoveGoal,
+  Owner,
+  PathFollow,
+  PathRoute,
+  PlayerOrder,
+} from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { dynamicBlockOverlay } from '../footprint/index.js';
+import { routeStructureBlocks } from '../movement/attack-move-blocks.js';
 import { standingFighterPosts } from '../movement/collision/index.js';
 import { liveStepEnd, stopAtNextNode } from '../movement/nav-state.js';
 import { structureRegionOf } from '../movement/structure-route.js';
@@ -63,6 +72,7 @@ export class MeleeSlots {
   /** The cells dealt this tick, each with the side it was dealt to. */
   private readonly claimed = new Map<NodeId, Side>();
   private blocked?: BlockOverlay;
+  private readonly marchBlocks = new Map<number, BlockOverlay>();
   /** The tick's open encircle candidates per target and weapon band, so every chaser only filters taken
    *  slots over them. */
   private readonly bands = new Map<string, readonly NodeId[]>();
@@ -186,13 +196,23 @@ export class MeleeSlots {
     }
     const remaining = hexNodeDistance(this.terrain, there, cell);
     if (remaining <= 1 || hexNodeDistance(this.terrain, here, cell) >= remaining) return false;
-    const bank = this.bankOf(here);
-    return bank !== null && this.bankOf(cell) === bank;
+    const bank = this.bankOf(here, chaser.entity);
+    return bank !== null && this.bankOf(cell, chaser.entity) === bank;
   }
 
   /** Connected ground under structures; bodies only reserve individual slots. */
-  bankOf(cell: NodeId): number | null {
-    return structureRegionOf(this.world, this.ctx, this.terrain, cell);
+  bankOf(cell: NodeId, chaser?: Entity): number | null {
+    const player =
+      chaser !== undefined && this.world.tryGet(chaser, PlayerOrder)?.attackMove !== undefined
+        ? this.world.tryGet(chaser, Owner)?.player
+        : undefined;
+    if (player === undefined) return structureRegionOf(this.world, this.ctx, this.terrain, cell);
+    let blocked = this.marchBlocks.get(player);
+    if (blocked === undefined) {
+      blocked = routeStructureBlocks(this.world, this.ctx, this.terrain, chaser);
+      this.marchBlocks.set(player, blocked);
+    }
+    return structureRegionOf(this.world, this.ctx, this.terrain, cell, blocked);
   }
 
   /** Owner rule: fill successive ranks behind a full front. Full rows are skipped collectively for
@@ -203,7 +223,10 @@ export class MeleeSlots {
     weapon: WeaponBand,
     mine: OwnClaims,
   ): NodeId {
-    const key = `${target.entity}:${weapon.maxRange}`;
+    const chaser = mine.chaser?.entity;
+    const marching = chaser !== undefined && this.world.tryGet(chaser, PlayerOrder)?.attackMove !== undefined;
+    const side = marching ? this.world.tryGet(chaser, Owner)?.player : undefined;
+    const key = `${target.entity}:${weapon.maxRange}:${side}`;
     let ranks = this.waiting.get(key);
     if (ranks === undefined) {
       ranks = { rows: new Map(), firstOpenByBank: new Map() };
@@ -217,8 +240,8 @@ export class MeleeSlots {
       return distance;
     };
     const distance = reach(here);
-    const bank = this.bankOf(here) ?? -1;
-    const onBank = (cell: NodeId): boolean => bank < 0 || this.bankOf(cell) === bank;
+    const bank = this.bankOf(here, chaser) ?? -1;
+    const onBank = (cell: NodeId): boolean => bank < 0 || this.bankOf(cell, chaser) === bank;
     const own = [mine.goal, mine.standingOn].filter((cell): cell is NodeId => cell !== undefined);
     const ownRanks = own.map(reach);
     let firstOpen = ranks.firstOpenByBank.get(bank) ?? weapon.maxRange + 1;

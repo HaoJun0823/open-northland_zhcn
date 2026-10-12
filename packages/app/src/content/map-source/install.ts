@@ -185,6 +185,7 @@ export async function installCatalogEntry(
     installable.push({
       record: {
         version: INSTALLED_MAP_RECORD_VERSION,
+        revision: crypto.randomUUID(),
         mapId: map.mapId,
         entryId: entry.id,
         fingerprint,

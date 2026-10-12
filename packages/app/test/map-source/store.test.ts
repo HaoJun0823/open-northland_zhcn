@@ -13,6 +13,7 @@ const BUDGET = 100;
 function record(mapId: string, entryId: string, installedAt: number, size: number): InstalledMapRecord {
   return {
     version: INSTALLED_MAP_RECORD_VERSION,
+    revision: '00000000-0000-0000-0000-000000000001',
     mapId,
     entryId,
     fingerprint: TINY_FINGERPRINT,
@@ -36,7 +37,8 @@ describe('installed map records', () => {
   it('reads exactly its own layout', () => {
     const good = record('cn-a', 'cn-a', 1, 1);
     expect(installedRecord(structuredClone(good))).toEqual(good);
-    expect(installedRecord({ ...good, version: 2 })).toBeNull();
+    expect(installedRecord({ ...good, version: 1 })).toBeNull();
+    expect(installedRecord({ ...good, revision: undefined })).toBeNull();
     expect(installedRecord({ ...good, mapId: '../x' })).toBeNull();
     expect(installedRecord({ ...good, suffixes: ['.meta.json'] })).toBeNull();
     expect(installedRecord({ ...good, suffixes: ['.json', '.exe'] })).toBeNull();
@@ -70,7 +72,7 @@ describe('the web budget', () => {
 describe('an installed map store', () => {
   it('replaces an entry, evicts the least recently installed and removes on request', async () => {
     const { storage, records, files: stored } = memoryInstalledStorage();
-    const store = createInstalledMapStore(storage, { budget: BUDGET, files: 'stored' });
+    const store = createInstalledMapStore(storage, { budget: BUDGET });
     await store.install('first', [install(record('first', 'first', 1, 50))]);
     await store.install('pack', [
       install(record('pack', 'pack', 2, 30)),
@@ -90,21 +92,54 @@ describe('an installed map store', () => {
     const { storage, records, files: stored } = memoryInstalledStorage();
     records.set('broken', { version: 0, mapId: 'broken' });
     stored.set('broken.json', new Uint8Array(1));
-    const store = createInstalledMapStore(storage, { budget: null, files: 'served' });
+    const store = createInstalledMapStore(storage, { budget: null });
     expect(await store.list()).toEqual([]);
     await store.install('a', [install(record('a', 'a', 1, 1))]);
     expect([...records.keys()]).toEqual(['a']);
     expect(stored.has('broken.json')).toBe(false);
   });
 
-  it('points a served store at the page and a stored one at its bytes', async () => {
+  it('keeps terrain and sidecars on one revision after a replacement', async () => {
     const { storage } = memoryInstalledStorage();
-    const served = createInstalledMapStore(storage, { budget: null, files: 'served' });
-    const withPicture = { ...record('a', 'a', 1, 1), suffixes: ['.json', '.png'] as const };
-    expect(served.fetchFor(withPicture)).toBe(fetch);
-    expect(await served.pictureUrl(withPicture)).toBe('/maps/a.png');
-    expect(await served.pictureUrl(record('b', 'b', 1, 1))).toBeNull();
-    const kept = createInstalledMapStore(storage, { budget: null, files: 'stored' });
+    const store = createInstalledMapStore(storage, { budget: null });
+    const first = { ...record('a', 'a', 1, 2), suffixes: ['.json', '.script.json'] as const };
+    const pack = (item: InstalledMapRecord, text: string) => ({
+      record: item,
+      files: new Map(item.suffixes.map((suffix) => [suffix, new TextEncoder().encode(text)])),
+    });
+    await store.install('a', [pack(first, 'old')]);
+    const files = store.fetchFor(first);
+    expect(await (await files('/maps/a.json')).text()).toBe('old');
+    await store.install('a', [pack({ ...first, installedAt: 2 }, 'new')]);
+    expect(await (await files('/maps/a.script.json')).text()).toBe('old');
+  });
+
+  it('rejects a stale handle before its first read without eagerly loading files', async () => {
+    const { storage } = memoryInstalledStorage();
+    let reads = 0;
+    const store = createInstalledMapStore(
+      {
+        ...storage,
+        readMap: async (id) => {
+          reads++;
+          return storage.readMap(id);
+        },
+      },
+      { budget: null },
+    );
+    const first = record('a', 'a', 1, 1);
+    await store.install('a', [install(first)]);
+    const files = store.fetchFor(first);
+    await store.list();
+    expect(reads).toBe(0);
+    await store.install('a', [install({ ...first, revision: '00000000-0000-0000-0000-000000000002' })]);
+    await expect(files('/maps/a.json')).rejects.toThrow('changed before loading');
+    expect(reads).toBe(1);
+  });
+
+  it('reads installed bytes through the source fetch', async () => {
+    const { storage } = memoryInstalledStorage();
+    const kept = createInstalledMapStore(storage, { budget: null });
     await kept.install('a', [
       { record: record('a', 'a', 1, 2), files: new Map([['.json', new Uint8Array([123, 125])]]) },
     ]);

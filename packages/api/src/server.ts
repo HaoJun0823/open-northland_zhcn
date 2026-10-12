@@ -1,5 +1,4 @@
-import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip } from 'node:zlib';
@@ -21,8 +20,8 @@ const CONTENT_SUFFIXES: readonly string[] = Object.entries(MAP_FILE_SUFFIXES)
   .map(([, suffix]) => suffix)
   .sort((a, b) => b.length - a.length);
 const PNG_SUFFIX = '.png';
-/** A sidecar changes only when its entry converts again, which also changes its `ETag`. */
-const CONTENT_CACHE = 'public, max-age=3600';
+/** Stable map URLs can name a new conversion; caches must validate before reusing their bytes. */
+const CONTENT_CACHE = 'public, no-cache';
 const PNG_TYPE = 'image/png';
 const GZIP = 'gzip';
 /** The catalogue changes a few times a day at most. */
@@ -65,7 +64,7 @@ export interface ApiHealth {
 /** One stored sidecar: its file, whether that file is gzip-compressed, and the validator of the
  *  uncompressed bytes. */
 export interface ContentFile {
-  readonly path: string;
+  readonly handle: FileHandle;
   readonly gzipped: boolean;
   readonly etag: string;
 }
@@ -73,18 +72,20 @@ export interface ContentFile {
 /** The converted maps of one IR version, by map id and sidecar file name. */
 export interface ContentSource {
   readonly irVersion: number;
-  file(mapId: string, fileName: string): ContentFile | null;
+  /** The caller closes a returned handle, including for HEAD and conditional requests. */
+  file(mapId: string, fileName: string): Promise<ContentFile | null>;
 }
 
 /** A kept catalogue file as downloaded, with the name its upstream URL gave it. */
 export interface KeptFile {
-  readonly bytes: Buffer;
+  readonly handle: FileHandle;
   readonly sha256: string;
   readonly name: string;
 }
 
 /** The kept catalogue files by entry id; null when none is kept or it no longer matches its hash. */
 export interface KeptFileSource {
+  /** The caller closes the verified handle, including for HEAD and conditional requests. */
   keptFile(entryId: string): Promise<KeptFile | null>;
 }
 
@@ -241,44 +242,42 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       return;
     }
     const name = contentName(fileName);
-    const file = name === null ? null : (content?.file(name.mapId, fileName) ?? null);
+    const file = name === null ? null : ((await content?.file(name.mapId, fileName)) ?? null);
     if (name === null || file === null) {
       sendError(request, response, NOT_FOUND, 'no such file', V1_HEADERS);
       return;
     }
-    const headers: Record<string, string> = {
-      ...V1_HEADERS,
-      'cache-control': CONTENT_CACHE,
-      'content-type': name.suffix === PNG_SUFFIX ? PNG_TYPE : JSON_TYPE,
-      'x-content-type-options': 'nosniff',
-      vary: 'Accept-Encoding',
-      etag: file.etag,
-    };
-    if (holds(request, file.etag)) {
-      response.writeHead(NOT_MODIFIED, headers).end();
-      return;
-    }
-    const inflate = file.gzipped && !acceptsGzip(request);
-    let size: number;
     try {
-      ({ size } = await stat(file.path));
-    } catch {
-      // Replaced or pruned since the lookup.
-      sendError(request, response, NOT_FOUND, 'no such file', V1_HEADERS);
-      return;
+      const headers: Record<string, string> = {
+        ...V1_HEADERS,
+        'cache-control': CONTENT_CACHE,
+        'content-type': name.suffix === PNG_SUFFIX ? PNG_TYPE : JSON_TYPE,
+        'x-content-type-options': 'nosniff',
+        vary: 'Accept-Encoding',
+        etag: file.etag,
+      };
+      if (holds(request, file.etag)) {
+        response.writeHead(NOT_MODIFIED, headers).end();
+        return;
+      }
+      const inflate = file.gzipped && !acceptsGzip(request);
+      const { size } = await file.handle.stat();
+      // An inflated body's length is unknown until it is sent, so it goes out chunked.
+      response.writeHead(OK, {
+        ...headers,
+        ...(file.gzipped && !inflate ? { 'content-encoding': GZIP } : {}),
+        ...(inflate ? {} : { 'content-length': size }),
+      });
+      if (request.method === 'HEAD') {
+        response.end();
+        return;
+      }
+      const stream = file.handle.createReadStream({ autoClose: false });
+      if (inflate) await pipeline(stream, createGunzip(), response);
+      else await pipeline(stream, response);
+    } finally {
+      await file.handle.close();
     }
-    // An inflated body's length is unknown until it is sent, so it goes out chunked.
-    response.writeHead(OK, {
-      ...headers,
-      ...(file.gzipped && !inflate ? { 'content-encoding': GZIP } : {}),
-      ...(inflate ? {} : { 'content-length': size }),
-    });
-    if (request.method === 'HEAD') {
-      response.end();
-      return;
-    }
-    if (inflate) await pipeline(createReadStream(file.path), createGunzip(), response);
-    else await pipeline(createReadStream(file.path), response);
   };
 
   const serveThumbnail = async (
@@ -309,19 +308,30 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       sendError(request, response, NOT_FOUND, 'no file', V1_HEADERS);
       return;
     }
-    send(
-      request,
-      response,
-      OK,
-      { bytes: kept.bytes, etag: `"${kept.sha256}"` },
-      {
+    try {
+      const etag = `"${kept.sha256}"`;
+      const headers = {
         ...V1_HEADERS,
         'cache-control': KEPT_FILE_CACHE,
         'content-type': KEPT_FILE_TYPE,
         'content-disposition': attachment(kept.name),
         'x-content-type-options': 'nosniff',
-      },
-    );
+        etag,
+      };
+      if (holds(request, etag)) {
+        response.writeHead(NOT_MODIFIED, headers).end();
+        return;
+      }
+      const { size } = await kept.handle.stat();
+      response.writeHead(OK, { ...headers, 'content-length': size });
+      if (request.method === 'HEAD') {
+        response.end();
+        return;
+      }
+      await pipeline(kept.handle.createReadStream({ autoClose: false, start: 0 }), response);
+    } finally {
+      await kept.handle.close();
+    }
   };
 
   const serveV1 = async (request: IncomingMessage, response: ServerResponse, path: string): Promise<void> => {

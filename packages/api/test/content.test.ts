@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { request as httpRequest, type IncomingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -88,7 +88,7 @@ describe('content route', () => {
     expect(response.status).toBe(200);
     expect(response.headers).toMatchObject({
       'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'public, max-age=3600',
+      'cache-control': 'public, no-cache',
       'access-control-allow-origin': '*',
       'x-content-type-options': 'nosniff',
       vary: 'Accept-Encoding',
@@ -107,7 +107,10 @@ describe('content route', () => {
   });
 
   it('sends the stored gzip file as-is to a request that takes gzip and inflates it for any other', async () => {
-    const stored = await readFile(join(dir, 'converted', String(IR_VERSION), ENTRY, `${MAP_ID}.json.gz`));
+    const file = await converted.service.file(MAP_ID, `${MAP_ID}.json`);
+    if (file === null) throw new Error('no stored terrain');
+    const stored = await file.handle.readFile();
+    await file.handle.close();
     const gzipped = await raw(`${CONTENT}/${MAP_ID}.json`, { 'accept-encoding': 'br, gzip;q=0.8' });
     expect(gzipped.headers['content-encoding']).toBe('gzip');
     expect(Number(gzipped.headers['content-length'])).toBe(gzipped.body.byteLength);

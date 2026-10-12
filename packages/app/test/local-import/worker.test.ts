@@ -32,10 +32,15 @@ beforeAll(async () => {
 afterAll(async () => {
   await rm(dir, { recursive: true, force: true });
 });
-it.each(['zip', 'rar'] as const)(
-  'converts synthetic %s across a real worker boundary and reports progress',
-  async (format) => {
-    const worker = new Worker(path);
+it.each([
+  { format: 'zip', wasm: true },
+  { format: 'rar', wasm: true },
+  { format: 'zip', wasm: false },
+  { format: 'folder', wasm: false },
+] as const)(
+  'converts synthetic $format across a real worker boundary (wasm: $wasm)',
+  async ({ format, wasm }) => {
+    const worker = new Worker(path, { workerData: wasm ? undefined : 'no-wasm' });
     const phases: string[] = [];
     try {
       const result = new Promise<PreparedLocalImport>((resolve, reject) => {
@@ -57,14 +62,24 @@ it.each(['zip', 'rar'] as const)(
           ? zipSync(files)
           : encodeRar4(Object.entries(files).map(([path, bytes]) => ({ path, bytes })));
       worker.postMessage({
-        input: { kind: 'archive', name: `worker.${format}`, file: new Blob([new Uint8Array(archive)]) },
+        input:
+          format === 'folder'
+            ? {
+                kind: 'folder',
+                name: 'worker',
+                files: Object.entries(files).map(([path, bytes]) => ({
+                  path,
+                  file: new Blob([new Uint8Array(bytes)]),
+                })),
+              }
+            : { kind: 'archive', name: `worker.${format}`, file: new Blob([new Uint8Array(archive)]) },
         installedAt: 1,
       });
       const converted = await result;
       expect(converted.maps).toHaveLength(1);
       expect(converted.maps[0]?.files.get('.json')?.length).toBeGreaterThan(0);
       expect(phases).toContain('reading');
-      expect(phases).toContain('unpacking');
+      if (format !== 'folder') expect(phases).toContain('unpacking');
       expect(phases).toContain('converting');
     } finally {
       await worker.terminate();

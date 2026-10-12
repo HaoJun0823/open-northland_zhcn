@@ -4,7 +4,7 @@ import { isMapId } from '../transfer/documents.js';
 import { isMapFileSuffix, type MapFileSuffix } from './files.js';
 
 /** The stored record layout; a reader accepts exactly this version and drops every other record. */
-export const INSTALLED_MAP_RECORD_VERSION = 1;
+export const INSTALLED_MAP_RECORD_VERSION = 2;
 
 /** The web budget includes retained sources. Only catalogue downloads are evictable; local maps
  *  stay until removed. The desktop keeps its files on disk without an aggregate budget. */
@@ -13,6 +13,8 @@ export const MAX_INSTALLED_MAP_BYTES = 512 * 1024 * 1024;
 /** One installed catalogue or user map: its listing row and what it was converted from and for. */
 export interface InstalledMapRecord {
   readonly version: typeof INSTALLED_MAP_RECORD_VERSION;
+  /** Identifies this exact installation, including sidecars outside the playable fingerprint. */
+  readonly revision: string;
   readonly mapId: string;
   readonly entryId: string;
   readonly fingerprint: string;
@@ -41,6 +43,8 @@ export function installedRecord(raw: unknown): InstalledMapRecord | null {
   const r = raw as Record<string, unknown>;
   if (
     r.version !== INSTALLED_MAP_RECORD_VERSION ||
+    typeof r.revision !== 'string' ||
+    !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(r.revision) ||
     typeof r.mapId !== 'string' ||
     !isMapId(r.mapId) ||
     typeof r.entryId !== 'string' ||
@@ -64,6 +68,7 @@ export function installedRecord(raw: unknown): InstalledMapRecord | null {
     return null;
   return {
     version: INSTALLED_MAP_RECORD_VERSION,
+    revision: r.revision,
     mapId: r.mapId,
     entryId: r.entryId,
     fingerprint: r.fingerprint,

@@ -1,13 +1,21 @@
+import { open } from 'node:fs/promises';
 import type { CatalogConversion, CatalogEntry } from '@open-northland/data';
 import { DEFAULT_IMPORT_LIMITS, detectArchiveFormat, MapImportError } from '@open-northland/map-import';
 import { type CatalogSnapshot, catalogSnapshot, sha256Hex } from '../catalog/snapshot.js';
 import type { SyncedCatalog } from '../catalog/sync.js';
 import type { Log } from '../catalog/thumbnails.js';
 import type { ContentFile, ContentSource, KeptFile, KeptFileSource } from '../server.js';
+import { isMissing } from '../store.js';
 import type { Fetch } from '../upstream/strapi.js';
 import { convertArchive } from './convert.js';
 import { DownloadError, type DownloadLimits, downloadArchive } from './download.js';
-import type { ArchiveSource, ConversionStore, KeptArchive, StoredConversion } from './store.js';
+import type {
+  ArchiveSource,
+  ConversionStore,
+  ConversionVerdict,
+  KeptArchive,
+  StoredConversion,
+} from './store.js';
 
 /** A hang guard: the largest catalogue file is tens of megabytes. */
 const DOWNLOAD_TIMEOUT_MS = 120_000;
@@ -50,13 +58,14 @@ export interface ConversionServiceOptions {
 /** Where one converted map's sidecars live, with their hashes by file name. */
 interface MapLocation {
   readonly entryId: string;
+  readonly generation: string;
   readonly files: ReadonlyMap<string, string>;
 }
 
 type Attempt =
   | {
       readonly kind: 'converted';
-      readonly verdict: Omit<StoredConversion, 'files'>;
+      readonly verdict: ConversionVerdict;
       readonly files: ReadonlyMap<string, Uint8Array>;
     }
   | { readonly kind: 'download-failed'; readonly message: string };
@@ -89,6 +98,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
   /** Stored failures this process has already tried again. */
   private readonly retriedFailures = new Set<string>();
   private batch: Promise<void> | null = null;
+  private prunePending = false;
   private stopped = false;
 
   constructor(private readonly options: ConversionServiceOptions) {
@@ -110,6 +120,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
   setCatalog(synced: SyncedCatalog): void {
     this.catalog = synced;
     this.entries = new Map(synced.catalog.map((entry) => [entry.id, entry]));
+    this.prunePending = true;
     for (const entry of synced.catalog) if (this.needsWork(entry)) this.enqueue(entry.id);
     this.publish();
     this.kick();
@@ -127,25 +138,32 @@ export class ConversionService implements ContentSource, KeptFileSource {
     await this.idle();
   }
 
-  file(mapId: string, fileName: string): ContentFile | null {
-    const location = this.maps.get(mapId);
-    const hash = location?.files.get(fileName);
-    if (location === undefined || hash === undefined) return null;
-    return {
-      path: this.options.store.sidecarPath(location.entryId, fileName),
-      gzipped: this.options.store.isGzipped(fileName),
-      etag: `"${hash}"`,
-    };
+  async file(mapId: string, fileName: string): Promise<ContentFile | null> {
+    for (;;) {
+      const location = this.maps.get(mapId);
+      const hash = location?.files.get(fileName);
+      if (location === undefined || hash === undefined || !this.entries.has(location.entryId)) return null;
+      try {
+        const handle = await open(
+          this.options.store.sidecarPath(location.entryId, location.generation, fileName),
+        );
+        return { handle, gzipped: this.options.store.isGzipped(fileName), etag: `"${hash}"` };
+      } catch (error) {
+        if (!isMissing(error)) throw error;
+        // A replacement can retire this generation while open is in flight. Resolve the new one.
+        if (this.maps.get(mapId) === location) return null;
+      }
+    }
   }
 
   async keptFile(id: string): Promise<KeptFile | null> {
     const entry = this.entry(id);
     const kept = entry === undefined ? null : this.keptArchive(entry);
     if (kept === null) return null;
-    const bytes = await this.options.store.readArchive(id, kept);
-    if (bytes === null) return null;
+    const handle = await this.options.store.openVerifiedArchive(id, kept);
+    if (handle === null) return null;
     const name = upstreamFileName(kept.url);
-    return { bytes, sha256: kept.sha256, name: name === '' ? `${id}.${kept.ext}` : name };
+    return { handle, sha256: kept.sha256, name: name === '' ? `${id}.${kept.ext}` : name };
   }
 
   private entry(id: string): CatalogEntry | undefined {
@@ -207,7 +225,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
   }
 
   private kick(): void {
-    if (this.batch !== null || this.stopped || this.queue.length === 0) return;
+    if (this.batch !== null || this.stopped || (this.queue.length === 0 && !this.prunePending)) return;
     this.batch = this.runBatch().finally(() => {
       this.batch = null;
       this.kick();
@@ -236,7 +254,10 @@ export class ConversionService implements ContentSource, KeptFileSource {
       }
     };
     await Promise.all(Array.from({ length: this.options.concurrency }, worker));
-    if (!this.stopped) await this.prune();
+    if (!this.stopped) {
+      this.prunePending = false;
+      await this.prune();
+    }
     const snapshot = this.publish();
     const cpu = process.cpuUsage(cpuBefore);
     this.log('conversion batch done', {
@@ -264,6 +285,9 @@ export class ConversionService implements ContentSource, KeptFileSource {
         this.stored.set(id, stored);
         this.downloadFailures.delete(id);
         this.index(id, stored);
+        await this.options.store.pruneGenerations(id, stored.generation).catch((error: unknown) => {
+          this.log('old conversion cleanup failed', { id, error: messageOf(error) });
+        });
         const { conversion } = stored;
         this.log('conversion done', {
           id,
@@ -347,7 +371,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
           ([name]) => name.startsWith(mapId) && name.charAt(mapId.length) === '.',
         ),
       );
-      this.maps.set(mapId, { entryId: id, files });
+      this.maps.set(mapId, { entryId: id, generation: stored.generation, files });
     }
     this.mapIdsByEntry.set(id, mapIds);
   }
@@ -361,6 +385,9 @@ export class ConversionService implements ContentSource, KeptFileSource {
         this.sources.delete(id);
         this.downloadFailures.delete(id);
         this.index(id, undefined);
+        // A sync can restore an entry while its old files are being removed.
+        const current = this.entry(id);
+        if (!this.stopped && current !== undefined && this.needsWork(current)) this.enqueue(id);
       }
       if (removed.length > 0) this.log('conversions pruned', { ids: removed });
     } catch (error) {

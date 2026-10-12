@@ -55,14 +55,13 @@ async function serveFile(file: string, contentType: string, method: string): Pro
 
 const DIRECTORY_INDEX = 'index.html';
 
-/** Install the `app://` handler; call once in `app.whenReady`. The built app, the content tree and the
- *  installed maps share one URL space in `servedFile`'s order. */
-export function handleAppProtocol(roots: ShellRoots, mapsRoot: string): void {
+/** Install the read-only app and generated-content handler once in `app.whenReady`. */
+export function handleAppProtocol(roots: ShellRoots): void {
   protocol.handle(APP_SCHEME, async (request) => {
     const url = new URL(request.url);
     const routePath = routePathOf(url.host, url.pathname);
     const pathname = routePath === '/' ? `/${DIRECTORY_INDEX}` : routePath;
-    const file = await servedFile(roots, mapsRoot, pathname);
+    const file = await servedFile(roots, pathname);
     if (file === undefined) return notFound();
     const contentType = CONTENT_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
     return serveFile(file, contentType, request.method);

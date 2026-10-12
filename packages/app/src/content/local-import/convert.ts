@@ -6,6 +6,7 @@ import {
   MapImportError,
   type MapTree,
   mapFiles,
+  type OpenOptions,
   openArchive,
   treeFromFolder,
 } from '@open-northland/map-import';
@@ -26,7 +27,7 @@ export interface PreparedLocalImport {
 }
 
 export interface LocalConversionOptions {
-  readonly unrarWasm?: ArrayBuffer;
+  readonly unrarWasm?: OpenOptions['unrarWasm'];
   readonly onProgress?: (progress: LocalImportProgress) => void;
   readonly previous?: LocalSourceRecord;
   readonly knownSources?: readonly LocalSourceRecord[];
@@ -122,6 +123,7 @@ export async function prepareLocalImport(
     return {
       record: {
         version: INSTALLED_MAP_RECORD_VERSION,
+        revision: crypto.randomUUID(),
         mapId,
         entryId,
         fingerprint: index.fingerprint,

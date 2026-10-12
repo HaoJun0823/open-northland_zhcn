@@ -1,5 +1,6 @@
 import type { CatalogEntry } from '@open-northland/data';
 import type { DataStore } from '../store.js';
+import { readCappedBody } from '../upstream/body.js';
 import { type Fetch, UPSTREAM_TIMEOUT_MS } from '../upstream/strapi.js';
 import type { NormalizedRecord } from './normalize.js';
 
@@ -23,13 +24,20 @@ async function fetchThumbnail(
   url: string,
 ): Promise<{ bytes: Uint8Array; contentType: string }> {
   const response = await fetchFn(url, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
-  if (!response.ok) throw new Error(`answered ${response.status}`);
+  if (!response.ok) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error(`answered ${response.status}`);
+  }
   const contentType =
     (response.headers.get('content-type') ?? '').split(';', 1)[0]?.trim().toLowerCase() ?? '';
-  if (!IMAGE_TYPES.has(contentType)) throw new Error(`content type ${contentType || 'missing'}`);
-  if (Number(response.headers.get('content-length') ?? 0) > MAX_THUMBNAIL_BYTES) throw new Error('too large');
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength > MAX_THUMBNAIL_BYTES) throw new Error(`${bytes.byteLength} bytes`);
+  if (
+    !IMAGE_TYPES.has(contentType) ||
+    Number(response.headers.get('content-length') ?? 0) > MAX_THUMBNAIL_BYTES
+  ) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error(!IMAGE_TYPES.has(contentType) ? `content type ${contentType || 'missing'}` : 'too large');
+  }
+  const bytes = await readCappedBody(response, MAX_THUMBNAIL_BYTES);
   return { bytes, contentType };
 }
 

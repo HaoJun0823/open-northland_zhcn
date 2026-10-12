@@ -3,8 +3,10 @@ import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { convertMapTree, MAP_FILE_SUFFIXES, mapFiles, openArchive } from '@open-northland/map-import';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sha256Hex } from '../src/catalog/snapshot.js';
+import { ConversionStore } from '../src/conversion/store.js';
+import * as storeIo from '../src/store.js';
 import {
   catalogEntry,
   FakeFiles,
@@ -58,16 +60,17 @@ describe('ConversionService', () => {
     const direct = (await convertMapTree(await openArchive(archive), { provenance: 'catalog' })).maps[0];
     if (direct === undefined) throw new Error('no direct map');
     const expected = mapFiles({ ...direct, id: mapId, index: { ...direct.index, id: mapId } });
-    const storedFiles = await readdir(converted());
+    const stored = JSON.parse(await readFile(join(converted(), 'conversion.json'), 'utf8'));
+    const generation = join(converted(), stored.generation);
+    const storedFiles = await readdir(generation);
     for (const [name, file] of expected) {
       const text = name.endsWith('.json');
       const bytes = text
-        ? gunzipSync(await readFile(join(converted(), `${name}.gz`)))
-        : await readFile(join(converted(), name));
+        ? gunzipSync(await readFile(join(generation, `${name}.gz`)))
+        : await readFile(join(generation, name));
       expect(bytes).toEqual(Buffer.from(file));
       if (text) expect(storedFiles).not.toContain(name);
     }
-    const stored = JSON.parse(await readFile(join(converted(), 'conversion.json'), 'utf8'));
     expect(stored).toMatchObject({ conversion, updatedAt: UPDATED_AT });
     expect(await readdir(join(dir, 'archives', ENTRY))).toEqual([
       `${stored.archiveSha256}.zip`,
@@ -98,7 +101,9 @@ describe('ConversionService', () => {
     for (const map of conversion.maps) expect(map.fingerprint).toBe(map.index.fingerprint);
     expect(conversion.maps[1]?.index.campaign).toEqual({ campaignId: 0, missionId: 7 });
     for (const mapId of ids) {
-      expect(service.file(mapId, `${mapId}${MAP_FILE_SUFFIXES.terrain}`)).not.toBeNull();
+      const file = await service.file(mapId, `${mapId}${MAP_FILE_SUFFIXES.terrain}`);
+      expect(file).not.toBeNull();
+      await file?.handle.close();
     }
   });
 
@@ -111,7 +116,8 @@ describe('ConversionService', () => {
     await service.idle();
     expect(served(ENTRY).conversion).toMatchObject({ verdict: 'failed', reason: 'unsupported-archive' });
     expect(served('cn-text').conversion).toMatchObject({ verdict: 'failed', reason: 'unsupported-archive' });
-    expect(await readdir(converted())).toEqual(['conversion.json']);
+    const stored = JSON.parse(await readFile(join(converted(), 'conversion.json'), 'utf8'));
+    expect(await readdir(join(converted(), stored.generation))).toEqual([]);
   });
 
   it('tries a stored failure once more per process from the kept archive', async () => {
@@ -154,11 +160,14 @@ describe('ConversionService', () => {
       bytes: corrupt.length,
       path: `/v1/maps/cn-broken/file?v=${brokenSha}`,
     });
-    expect(await service.keptFile('cn-broken')).toEqual({
-      bytes: Buffer.from(corrupt),
-      sha256: brokenSha,
-      name: 'cn-broken.zip',
-    });
+    const kept = await service.keptFile('cn-broken');
+    expect(kept).toMatchObject({ sha256: brokenSha, name: 'cn-broken.zip' });
+    if (kept === null) throw new Error('kept archive missing');
+    try {
+      expect(await kept.handle.readFile()).toEqual(Buffer.from(corrupt));
+    } finally {
+      await kept.handle.close();
+    }
     expect(served(ENTRY).file).toMatchObject({ path: expect.stringMatching(`^/v1/maps/${ENTRY}/file\\?v=`) });
 
     await writeFile(join(dir, 'archives', 'cn-broken', `${brokenSha}.zip`), 'tampered');
@@ -263,10 +272,147 @@ describe('ConversionService', () => {
     const { service } = await harness(dir, files, { irVersion: IR_VERSION });
     service.setCatalog(syncedOf([catalogEntry(ENTRY), catalogEntry('cn-other')]));
     await service.idle();
-    service.setCatalog(syncedOf([catalogEntry(ENTRY, { kind: 'archive' }, LATER)]));
+    service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
     await service.idle();
     expect(await readdir(join(dir, 'archives'))).toEqual([ENTRY]);
     expect(await readdir(join(dir, 'converted', String(IR_VERSION)))).toEqual([ENTRY]);
-    expect(service.file('cn-other-inna', 'cn-other-inna.json')).toBeNull();
+    expect(await service.file('cn-other-inna', 'cn-other-inna.json')).toBeNull();
+    expect(files.requests).toEqual([fileUrl(ENTRY), fileUrl('cn-other')]);
+  });
+
+  it('keeps the last published conversion when replacement manifest publication fails', async () => {
+    files.serve(ENTRY, zipOf(under('Wyspa', plaintextMap('First'))));
+    const { service, served } = await harness(dir, files, { irVersion: IR_VERSION });
+    service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await service.idle();
+    const before = served(ENTRY).conversion;
+    const manifest = await readFile(join(converted(), 'conversion.json'), 'utf8');
+    const write = storeIo.writeAtomic;
+    const fault = vi
+      .spyOn(storeIo, 'writeAtomic')
+      .mockImplementation((path, bytes) =>
+        path === join(converted(), 'conversion.json')
+          ? Promise.reject(new Error('publication failed'))
+          : write(path, bytes),
+      );
+    try {
+      files.serve(ENTRY, zipOf(under('Wyspa', plaintextMap('Replacement'))));
+      service.setCatalog(syncedOf([catalogEntry(ENTRY, { kind: 'archive' }, LATER)]));
+      await service.idle();
+    } finally {
+      fault.mockRestore();
+    }
+    expect(await readFile(join(converted(), 'conversion.json'), 'utf8')).toBe(manifest);
+    expect(served(ENTRY).conversion).toEqual(before);
+    const file = await service.file(`${ENTRY}-wyspa`, `${ENTRY}-wyspa.strings.json`);
+    if (file === null) throw new Error('previous strings missing');
+    try {
+      expect(gunzipSync(await file.handle.readFile()).toString()).toContain('First');
+    } finally {
+      await file.handle.close();
+    }
+    expect(await readdir(converted())).toHaveLength(2);
+  });
+
+  it('reconverts an entry restored by a sync while its previous files are being pruned', async () => {
+    files.serve(ENTRY, zipOf(under('Wyspa', plaintextMap('Wyspa'))));
+    const { service, served } = await harness(dir, files, { irVersion: IR_VERSION });
+    service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await service.idle();
+    let markRemoved: () => void = () => undefined;
+    const removed = new Promise<void>((resolve) => {
+      markRemoved = resolve;
+    });
+    let resume: () => void = () => undefined;
+    const resumed = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    const prune = ConversionStore.prototype.prune;
+    const pause = vi.spyOn(ConversionStore.prototype, 'prune').mockImplementationOnce(async function (
+      this: ConversionStore,
+      keep,
+    ) {
+      const result = await prune.call(this, keep);
+      markRemoved();
+      await resumed;
+      return result;
+    });
+    try {
+      service.setCatalog(syncedOf([]));
+      await removed;
+      service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+      resume();
+      await service.idle();
+      expect(served(ENTRY).conversion?.verdict).toBe('ok');
+      const file = await service.file(`${ENTRY}-wyspa`, `${ENTRY}-wyspa.json`);
+      expect(file).not.toBeNull();
+      await file?.handle.close();
+      expect(await readdir(join(dir, 'archives'))).toEqual([ENTRY]);
+    } finally {
+      resume();
+      pause.mockRestore();
+    }
+  });
+
+  it('holds an in-flight reader on its old generation while publishing and pruning its replacement', async () => {
+    files.serve(ENTRY, zipOf(under('Wyspa', plaintextMap('First'))));
+    const { service } = await harness(dir, files, { irVersion: IR_VERSION });
+    service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await service.idle();
+    const mapId = `${ENTRY}-wyspa`;
+    const old = await service.file(mapId, `${mapId}.strings.json`);
+    if (old === null) throw new Error('old strings missing');
+    try {
+      files.serve(ENTRY, zipOf(under('Wyspa', plaintextMap('Replacement'))));
+      service.setCatalog(syncedOf([catalogEntry(ENTRY, { kind: 'archive' }, LATER)]));
+      await service.idle();
+      const current = await service.file(mapId, `${mapId}.strings.json`);
+      if (current === null) throw new Error('replacement strings missing');
+      try {
+        const previousBytes = gunzipSync(await old.handle.readFile());
+        const currentBytes = gunzipSync(await current.handle.readFile());
+        expect(previousBytes.toString()).toContain('First');
+        expect(currentBytes.toString()).toContain('Replacement');
+        expect(old.etag).toBe(`"${sha256Hex(previousBytes)}"`);
+        expect(current.etag).toBe(`"${sha256Hex(currentBytes)}"`);
+        expect(current.etag).not.toBe(old.etag);
+      } finally {
+        await current.handle.close();
+      }
+    } finally {
+      await old.handle.close();
+    }
+    const store = new ConversionStore(dir, IR_VERSION);
+    const manifest = (await store.readConversions()).get(ENTRY);
+    expect((await readdir(converted())).sort()).toEqual([manifest?.generation, 'conversion.json'].sort());
+  });
+
+  it('keeps a verified archive reader intact after a different archive replaces it', async () => {
+    const first = zipOf(under('Wyspa', plaintextMap('First')));
+    const replacement = zipOf(under('Wyspa', plaintextMap('Replacement')));
+    files.serve(ENTRY, first);
+    const { service } = await harness(dir, files, { irVersion: IR_VERSION });
+    service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await service.idle();
+    const old = await service.keptFile(ENTRY);
+    if (old === null) throw new Error('old archive missing');
+    try {
+      files.serve(ENTRY, replacement);
+      service.setCatalog(syncedOf([catalogEntry(ENTRY, { kind: 'archive' }, LATER)]));
+      await service.idle();
+      const current = await service.keptFile(ENTRY);
+      if (current === null) throw new Error('replacement archive missing');
+      try {
+        expect(await old.handle.readFile()).toEqual(Buffer.from(first));
+        expect(await current.handle.readFile()).toEqual(Buffer.from(replacement));
+        expect(old.sha256).toBe(sha256Hex(first));
+        expect(current.sha256).toBe(sha256Hex(replacement));
+        expect(await readdir(join(dir, 'archives', ENTRY))).toEqual([`${current.sha256}.zip`, 'source.json']);
+      } finally {
+        await current.handle.close();
+      }
+    } finally {
+      await old.handle.close();
+    }
   });
 });

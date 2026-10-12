@@ -3,7 +3,6 @@ import { createRequire } from 'node:module';
 import { CATALOG_MAP_ID, type CatalogConvertedMap, MAP_TEXT_LANGUAGES } from '@open-northland/data';
 import { type ConvertedMap, convertMapTree, mapFiles, openArchive } from '@open-northland/map-import';
 
-/** map-import declares node-unrar-js; the workspace install hoists it, so it resolves from here too. */
 const UNRAR_WASM_PATH = 'node-unrar-js/esm/js/unrar.wasm';
 /** The first repeat of a map id inside one entry gets this suffix, the next one more. */
 const FIRST_REPEAT = 2;

@@ -22,12 +22,15 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
   nbsp: ' ',
 };
 
+const MAX_UNICODE_CODE_POINT = 0x10ffff;
+
 export function decodeEntities(text: string): string {
   return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, body: string) => {
-    if (body.startsWith('#x') || body.startsWith('#X'))
-      return String.fromCodePoint(parseInt(body.slice(2), 16));
-    if (body.startsWith('#')) return String.fromCodePoint(Number(body.slice(1)));
-    return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
+    if (!body.startsWith('#')) return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
+    const codePoint = body[1]?.toLowerCase() === 'x' ? parseInt(body.slice(2), 16) : Number(body.slice(1));
+    return Number.isInteger(codePoint) && codePoint <= MAX_UNICODE_CODE_POINT
+      ? String.fromCodePoint(codePoint)
+      : whole;
   });
 }
 

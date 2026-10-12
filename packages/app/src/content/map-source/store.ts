@@ -1,12 +1,12 @@
 import { desktopMaps } from '../../view/desktop-bridge.js';
-import { type LocalMapInput, localInputBytes } from '../local-import/input.js';
+import { localInputBytes } from '../local-import/input.js';
 import {
   type LocalSourceRecord,
   localSourceRecord,
   type RetainedLocalSource,
 } from '../local-import/source.js';
 import { isMapId } from '../transfer/documents.js';
-import { type MapFileSuffix, mapFileContentType, mapFilePath, storedMapFetch } from './files.js';
+import { type MapFileSuffix, mapFileContentType, storedMapFetch } from './files.js';
 import {
   type InstallableMap,
   type InstalledMapRecord,
@@ -26,7 +26,11 @@ export interface SourceChanges {
 /** The raw storage under an installed-map store: records, and the files where the store keeps them. */
 export interface InstalledMapStorage {
   records(): Promise<readonly unknown[]>;
-  readSource(entryId: string): Promise<LocalMapInput | null>;
+  readSource(entryId: string): Promise<RetainedLocalSource | null>;
+  /** A record and its files from one storage revision. */
+  readMap(
+    mapId: string,
+  ): Promise<{ readonly record: unknown; readonly files: ReadonlyMap<MapFileSuffix, Uint8Array> }>;
   readFile(mapId: string, suffix: MapFileSuffix): Promise<Uint8Array | null>;
   /** Drops the named maps' records and files, then stores the new maps, as one step where it can. */
   commit(drop: readonly string[], put: readonly InstallableMap[], sources: SourceChanges): Promise<void>;
@@ -53,8 +57,6 @@ export interface InstalledMapStore {
 export interface InstalledMapStoreOptions {
   /** Bytes the store may hold before evicting whole entries; null keeps everything. */
   readonly budget: number | null;
-  /** `served`: the host serves the files under `/maps/`; `stored`: the store answers them itself. */
-  readonly files: 'served' | 'stored';
 }
 
 const PICTURE: MapFileSuffix = '.png';
@@ -127,10 +129,7 @@ export function createInstalledMapStore(
       return (await read()).sources;
     },
     async readSource(entryId) {
-      const record = (await read()).sources.find((source) => source.entryId === entryId);
-      if (record === undefined) return null;
-      const input = await storage.readSource(entryId);
-      return input === null ? null : { record, input };
+      return storage.readSource(entryId);
     },
     install(entryId, maps, source, expectedSource) {
       return mutate(async () => {
@@ -214,15 +213,21 @@ export function createInstalledMapStore(
       });
     },
     fetchFor(record) {
-      if (options.files === 'served') return fetch;
-      return storedMapFetch(record.mapId, (suffix) =>
-        record.suffixes.includes(suffix) ? storage.readFile(record.mapId, suffix) : Promise.resolve(null),
-      );
+      let snapshot: Promise<ReadonlyMap<MapFileSuffix, Uint8Array>> | undefined;
+      return storedMapFetch(record.mapId, async (suffix) => {
+        snapshot ??= storage.readMap(record.mapId).then((stored) => {
+          const current = installedRecord(stored.record);
+          if (current === null || current.revision !== record.revision)
+            throw new Error('Installed map changed before loading');
+          return stored.files;
+        });
+        const files = await snapshot;
+        return record.suffixes.includes(suffix) ? (files.get(suffix) ?? null) : null;
+      });
     },
     pictureUrl(record) {
       if (!record.suffixes.includes(PICTURE)) return Promise.resolve(null);
-      if (options.files === 'served') return Promise.resolve(mapFilePath(record.mapId, PICTURE));
-      const key = `${record.mapId}:${record.installedAt}`;
+      const key = `${record.mapId}:${record.revision}`;
       let url = pictures.get(key);
       if (url === undefined) {
         url = storage
@@ -253,8 +258,7 @@ export function installedMapStore(): InstalledMapStore | null {
     desktop === null
       ? createInstalledMapStore(browserInstalledMapStorage(), {
           budget: MAX_INSTALLED_MAP_BYTES,
-          files: 'stored',
         })
-      : createInstalledMapStore(desktopInstalledMapStorage(desktop), { budget: null, files: 'served' });
+      : createInstalledMapStore(desktopInstalledMapStorage(desktop), { budget: null });
   return platformStore;
 }

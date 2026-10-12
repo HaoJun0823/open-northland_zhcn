@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { type FileHandle, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,11 +22,14 @@ describe('api server', () => {
   let server: ApiServer;
   let base: string;
   /** What the stub kept-file source answers, by entry id. */
-  let kept: Map<string, KeptFile>;
+  let kept: Map<string, Omit<KeptFile, 'handle'>>;
+  let opened: FileHandle[];
 
   beforeEach(async () => {
     kept = new Map();
+    opened = [];
     dir = await mkdtemp(join(tmpdir(), 'on-api-server-'));
+    await writeFile(join(dir, 'kept.zip'), KEPT_BYTES);
     store = new DataStore(dir);
     await store.init();
     server = await startApiServer({
@@ -34,7 +37,15 @@ describe('api server', () => {
       host: '127.0.0.1',
       build: 'test-build',
       store,
-      files: { keptFile: async (id) => kept.get(id) ?? null },
+      files: {
+        keptFile: async (id) => {
+          const meta = kept.get(id);
+          if (meta === undefined) return null;
+          const handle = await open(join(dir, 'kept.zip'));
+          opened.push(handle);
+          return { ...meta, handle };
+        },
+      },
       now: () => LATER,
     });
     base = `http://127.0.0.1:${server.port}`;
@@ -147,7 +158,7 @@ describe('api server', () => {
     const catalog = Catalog.parse(await (await fetch(`${base}/v1/catalog`)).json());
     const [first, second] = catalog;
     if (first === undefined || second === undefined) throw new Error('catalogue too small');
-    const file = { bytes: KEPT_BYTES, sha256: KEPT_SHA256, name: 'Wyspa "Ł" (v2).rar' };
+    const file = { sha256: KEPT_SHA256, name: 'Wyspa "Ł" (v2).rar' };
     kept.set(first.id, file);
     kept.set('cn-not-listed', file);
 
@@ -161,15 +172,18 @@ describe('api server', () => {
     expect(response.headers.get('cache-control')).toBe('public, max-age=86400');
     expect(response.headers.get('access-control-allow-origin')).toBe('*');
     expect(Buffer.from(await response.arrayBuffer())).toEqual(KEPT_BYTES);
+    await expect.poll(() => opened.every((handle) => handle.fd === -1)).toBe(true);
 
     const head = await fetch(`${base}/v1/maps/${first.id}/file`, { method: 'HEAD' });
     expect(head.status).toBe(200);
     expect(head.headers.get('content-length')).toBe(String(KEPT_BYTES.length));
     expect(await head.text()).toBe('');
+    await expect.poll(() => opened.every((handle) => handle.fd === -1)).toBe(true);
     const cached = await fetch(`${base}/v1/maps/${first.id}/file`, {
       headers: { 'if-none-match': `"${KEPT_SHA256}"` },
     });
     expect(cached.status).toBe(304);
+    await expect.poll(() => opened.every((handle) => handle.fd === -1)).toBe(true);
 
     for (const id of [second.id, 'cn-not-listed']) {
       const missing = await fetch(`${base}/v1/maps/${id}/file`);

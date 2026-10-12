@@ -1,6 +1,5 @@
 import { stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
-import { installedMapPath } from './installed-maps.js';
 import type { ShellRoots } from './paths.js';
 
 /**
@@ -25,23 +24,7 @@ export async function fileUnderRoot(root: string, rawPathname: string): Promise<
   }
 }
 
-/**
- * The file an `app://` path serves: the app root first, then the content root, then the installed
- * catalogue maps under `/maps/`. A shipped map therefore wins over an installed one with the same id.
- */
-export async function servedFile(
-  roots: ShellRoots,
-  mapsRoot: string,
-  pathname: string,
-): Promise<string | undefined> {
-  return (
-    (await fileUnderRoot(roots.appRoot, pathname)) ??
-    (await fileUnderRoot(roots.contentRoot, pathname)) ??
-    (await installedMapFileFor(mapsRoot, pathname))
-  );
-}
-
-async function installedMapFileFor(mapsRoot: string, pathname: string): Promise<string | undefined> {
-  const installed = installedMapPath(pathname);
-  return installed === undefined ? undefined : fileUnderRoot(mapsRoot, installed);
+/** Installed maps use the snapshot IPC; static resources remain read-only. */
+export async function servedFile(roots: ShellRoots, pathname: string): Promise<string | undefined> {
+  return (await fileUnderRoot(roots.appRoot, pathname)) ?? (await fileUnderRoot(roots.contentRoot, pathname));
 }

@@ -4,7 +4,12 @@ import {
   IS_FULLSCREEN_CHANNEL,
   SET_FULLSCREEN_CHANNEL,
 } from './fullscreen-channels.js';
-import { REMOVE_MAP_CHANNEL, WRITE_MAP_FILE_CHANNEL } from './map-channels.js';
+import {
+  COMMIT_MAPS_CHANNEL,
+  LIST_MAPS_CHANNEL,
+  READ_MAP_CHANNEL,
+  READ_MAP_FILE_CHANNEL,
+} from './map-channels.js';
 import type { OriginalGamePick, OriginalGameStatus } from './original-game/gate.js';
 import { ORIGINAL_GAME_STATUS_CHANNEL, PICK_ORIGINAL_GAME_CHANNEL } from './original-game-channels.js';
 
@@ -34,13 +39,10 @@ contextBridge.exposeInMainWorld('desktop', {
     status: (): Promise<OriginalGameStatus> => ipcRenderer.invoke(ORIGINAL_GAME_STATUS_CHANNEL),
     pickFolder: (): Promise<OriginalGamePick> => ipcRenderer.invoke(PICK_ORIGINAL_GAME_CHANNEL),
   },
-  // Installed catalogue maps; the shell validates every argument again and serves them under `/maps/`.
   maps: {
-    writeFile: async (mapId: unknown, suffix: unknown, bytes: unknown): Promise<void> => {
-      await ipcRenderer.invoke(WRITE_MAP_FILE_CHANNEL, mapId, suffix, bytes);
-    },
-    remove: async (mapId: unknown): Promise<void> => {
-      await ipcRenderer.invoke(REMOVE_MAP_CHANNEL, mapId);
-    },
+    list: () => ipcRenderer.invoke(LIST_MAPS_CHANNEL),
+    readFile: (mapId: unknown, suffix: unknown) => ipcRenderer.invoke(READ_MAP_FILE_CHANNEL, mapId, suffix),
+    readMap: (mapId: unknown) => ipcRenderer.invoke(READ_MAP_CHANNEL, mapId),
+    commit: (drop: unknown, put: unknown) => ipcRenderer.invoke(COMMIT_MAPS_CHANNEL, drop, put),
   },
 });

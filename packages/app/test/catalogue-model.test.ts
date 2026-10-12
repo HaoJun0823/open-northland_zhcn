@@ -47,6 +47,7 @@ function installed(
 ): InstalledMapRecord {
   return {
     version: INSTALLED_MAP_RECORD_VERSION,
+    revision: '00000000-0000-0000-0000-000000000001',
     mapId,
     entryId,
     fingerprint,

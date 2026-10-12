@@ -139,6 +139,22 @@ describe('convertMapTree', () => {
     expect(within.maps[0]?.picture).toBeDefined();
   });
 
+  it('bounds retained campaign cells before decoding the map that exceeds the remaining budget', async () => {
+    const tree = treeOf({ ...under('A', plaintextMap('A')), ...under('B', plaintextMap('B')) });
+    const progress: ConvertProgress[] = [];
+    const limits = { ...DEFAULT_IMPORT_LIMITS, cells: 2, totalCells: 3 };
+    const result = await failure(
+      convertMapTree(tree, { provenance: 'catalog', limits, onProgress: (p) => progress.push(p) }),
+    );
+    expect(result.kind).toBe('too-large');
+    expect(progress.filter((p) => p.folder === 'B').map((p) => p.stage)).toEqual(['terrain']);
+    const within = await convertMapTree(tree, {
+      provenance: 'catalog',
+      limits: { ...limits, totalCells: 4 },
+    });
+    expect(within.maps).toHaveLength(2);
+  });
+
   it('reports every stage per map, and optional-file problems as warnings', async () => {
     const progress: ConvertProgress[] = [];
     const onWarning = vi.fn();

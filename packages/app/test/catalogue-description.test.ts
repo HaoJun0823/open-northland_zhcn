@@ -8,6 +8,12 @@ const html = (raw: string): string =>
     .join('');
 
 describe('decodeEntities', () => {
+  it('preserves out-of-range numeric entities without breaking the description', () => {
+    const invalid = '&#1114112; &#x110000; &#999999999999999999999999999999999999999;';
+    expect(decodeEntities(invalid)).toBe(invalid);
+    expect(descriptionBlocks(`Opis ${invalid}`)[0]?.textContent).toBe(`Opis ${invalid}`);
+  });
+
   it('decodes the named and numeric entities the upstream escapes', () => {
     expect(decodeEntities('&quot;Trudny wyb&oacute;r&quot; &#39;x&#39; &amp; &gt; &#92; &#x41; &nbsp;')).toBe(
       '"Trudny wyb&oacute;r" \'x\' & > \\ A \u00a0',

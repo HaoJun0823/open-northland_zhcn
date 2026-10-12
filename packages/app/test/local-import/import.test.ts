@@ -83,7 +83,7 @@ describe('local conversion and retained sources', () => {
 
   it('refreshes text without duplicating the map and retains the latest input', async () => {
     const backing = memoryInstalledStorage();
-    const store = createInstalledMapStore(backing.storage, { budget: null, files: 'stored' });
+    const store = createInstalledMapStore(backing.storage, { budget: null });
     const first = await installLocalMap(input(), { store, convert, now: () => 1 });
     const next = await installLocalMap(input('Druga'), { store, convert, now: () => 2 });
     expect(next.source.record.entryId).toBe(first.source.record.entryId);
@@ -94,7 +94,7 @@ describe('local conversion and retained sources', () => {
 
   it('rebuilds from retained input even when the old generated record cannot be parsed', async () => {
     const backing = memoryInstalledStorage();
-    const store = createInstalledMapStore(backing.storage, { budget: null, files: 'stored' });
+    const store = createInstalledMapStore(backing.storage, { budget: null });
     const first = await installLocalMap(input(), { store, convert });
     const entryId = first.source.record.entryId;
     for (const map of first.maps)
@@ -109,11 +109,43 @@ describe('local conversion and retained sources', () => {
     expect(backing.files.size).toBe(0);
   });
 
+  it('reads source metadata and input as one storage snapshot during replacement', async () => {
+    const backing = memoryInstalledStorage();
+    const store = createInstalledMapStore(backing.storage, { budget: null });
+    const first = await installLocalMap(input(), { store, convert });
+    const captured = deferred();
+    const release = deferred();
+    const reader = createInstalledMapStore(
+      {
+        ...backing.storage,
+        readSource: async (entryId) => {
+          const pair = await backing.storage.readSource(entryId);
+          captured.resolve();
+          await release.promise;
+          return pair;
+        },
+      },
+      { budget: null },
+    );
+    const reading = reader.readSource(first.source.record.entryId);
+    await captured.promise;
+    await installLocalMap(input('Replacement'), { store, convert });
+    release.resolve();
+    const retained = await reading;
+    expect(retained?.record).toEqual(first.source.record);
+    if (retained === null) throw new Error('Missing retained source');
+    const rebuilt = await prepareLocalImport(retained.input, {
+      previous: retained.record,
+      installedAt: 3,
+    });
+    expect(rebuilt.source.record.fingerprint).toBe(first.source.record.fingerprint);
+  });
+
   it('counts retained bytes, protects local entries and preserves the old pack on failure', async () => {
     const backing = memoryInstalledStorage();
     const prepared = await prepareLocalImport(input(), { installedAt: 1 });
     const cost = prepared.source.record.size + prepared.maps.reduce((sum, map) => sum + map.record.size, 0);
-    const store = createInstalledMapStore(backing.storage, { budget: cost, files: 'stored' });
+    const store = createInstalledMapStore(backing.storage, { budget: cost });
     await store.install(prepared.source.record.entryId, prepared.maps, prepared.source);
     await expect(
       installLocalMap(input('Bardzo dluga nowa nazwa'), { store, convert }),
@@ -153,7 +185,7 @@ describe('local conversion and retained sources', () => {
       palette: rampPalette(),
     });
     const backing = memoryInstalledStorage();
-    const store = createInstalledMapStore(backing.storage, { budget: null, files: 'stored' });
+    const store = createInstalledMapStore(backing.storage, { budget: null });
     const prepared = await installLocalMap(
       { kind: 'archive', name: 'pictured.zip', file: new Blob([new Uint8Array(zipSync(files))]) },
       { store, convert },
@@ -195,7 +227,7 @@ describe('local conversion and retained sources', () => {
     const [map] = prepared.maps;
     if (map === undefined) throw new Error('Missing fixture');
     const cost = prepared.source.record.size + map.record.size;
-    const store = () => createInstalledMapStore(backing.storage, { budget: cost, files: 'stored' });
+    const store = () => createInstalledMapStore(backing.storage, { budget: cost });
     const otherId = 'user-second';
     const otherMapId = `${otherId}-1`;
     const second = {
@@ -220,7 +252,7 @@ describe('local conversion and retained sources', () => {
   });
   it('routes a local map through stored files without announcing a catalogue reference', async () => {
     const backing = memoryInstalledStorage();
-    const store = createInstalledMapStore(backing.storage, { budget: null, files: 'stored' });
+    const store = createInstalledMapStore(backing.storage, { budget: null });
     const prepared = await installLocalMap(input(), { store, convert });
     const registry = createMapSourceRegistry({
       store: () => store,
@@ -242,7 +274,7 @@ describe('local conversion and retained sources', () => {
   });
   it.each(['remove', 'replace'])('does not overwrite a concurrent %s after reconversion', async (action) => {
     const backing = memoryInstalledStorage();
-    const store = createInstalledMapStore(backing.storage, { budget: null, files: 'stored' });
+    const store = createInstalledMapStore(backing.storage, { budget: null });
     const first = await installLocalMap(input(), { store, convert });
     const started = deferred();
     const release = deferred();
@@ -267,7 +299,7 @@ describe('local conversion and retained sources', () => {
 
   it('does not repeatedly retry a failed source until it changes or the player retries', async () => {
     const backing = memoryInstalledStorage();
-    const store = createInstalledMapStore(backing.storage, { budget: null, files: 'stored' });
+    const store = createInstalledMapStore(backing.storage, { budget: null });
     const first = await installLocalMap(input(), { store, convert });
     for (const map of first.maps)
       backing.records.set(map.record.mapId, { ...map.record, irVersion: IR_VERSION - 1 });

@@ -47,7 +47,7 @@ async function member(
   options: { installed: boolean; server: typeof fetch; origin: 'catalog' | 'user' },
 ) {
   const { storage } = memoryInstalledStorage();
-  const store = createInstalledMapStore(storage, { budget: null, files: 'stored' });
+  const store = createInstalledMapStore(storage, { budget: null });
   if (options.installed)
     await installCatalogEntry(ENTRY, { api: API, store, fetchImpl: catalogServer([ENTRY]) });
   const source = async (mapId: string): Promise<MapSource | null> => {

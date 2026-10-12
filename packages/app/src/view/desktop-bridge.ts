@@ -1,8 +1,14 @@
-/** Installed catalogue maps on disk, served back under `/maps/`; the shell validates every argument. */
+/** The shell publishes installed files and metadata together and returns coherent file snapshots. */
 export interface DesktopMaps {
-  writeFile(mapId: string, suffix: string, bytes: Uint8Array): Promise<void>;
-  /** Removes every file of the map. */
-  remove(mapId: string): Promise<void>;
+  readFile(mapId: string, suffix: string): Promise<Uint8Array | null>;
+  list(): Promise<readonly unknown[]>;
+  readMap(
+    mapId: string,
+  ): Promise<{ readonly record: unknown; readonly files: readonly (readonly [string, Uint8Array])[] }>;
+  commit(
+    drop: readonly string[],
+    put: readonly { readonly record: unknown; readonly files: readonly (readonly [string, Uint8Array])[] }[],
+  ): Promise<void>;
 }
 
 export function desktopMaps(): DesktopMaps | null {

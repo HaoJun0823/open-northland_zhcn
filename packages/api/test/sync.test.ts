@@ -132,6 +132,33 @@ describe('syncCatalog', () => {
     expect(await readFile(join(dir, 'catalog.json'), 'utf8')).toBe(before);
     expect(await readdir(join(dir, 'raw'))).toEqual(['1.json']);
   });
+
+  it('cancels an oversized chunked thumbnail before consuming the remaining body', async () => {
+    const upstream = new FakeUpstream([ACCEPTED_RECORDS.slice(0, 1)]);
+    let cancelled = false;
+    let chunks = 0;
+    const fetch = async (url: string): Promise<Response> => {
+      if (!new URL(url).pathname.startsWith('/uploads/')) return upstream.fetch(url);
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          pull(controller) {
+            chunks += 1;
+            controller.enqueue(new Uint8Array(1024 * 1024));
+            if (chunks === 20) controller.close();
+          },
+          cancel() {
+            cancelled = true;
+          },
+        }),
+        { headers: { 'content-type': 'image/png' } },
+      );
+    };
+    const synced = await syncCatalog({ fetch, upstream: UPSTREAM, store, log });
+    expect(cancelled).toBe(true);
+    expect(chunks).toBeLessThanOrEqual(4);
+    expect(synced.catalog[0]?.thumbnail).toBeUndefined();
+    expect(await readdir(join(dir, 'thumbnails'))).toEqual([]);
+  });
 });
 
 describe('CatalogSync', () => {

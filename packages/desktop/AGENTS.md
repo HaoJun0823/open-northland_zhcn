@@ -11,16 +11,19 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   `ON_DESKTOP_RESTORE_WINDOW=1` opts into the packaged startup behavior for explicit window-mode checks.
   Its preload exposes only `window.desktop.fullscreen` (read, set, subscribe),
   `window.desktop.originalGame` (status, pick a folder) and `window.desktop.maps`
-  (write one installed map file, remove a map), which the app feature-detects; keep that bridge
+  (list records, read a map snapshot or one file, commit a complete replacement), which the app feature-detects; keep that bridge
   narrow, validate every IPC argument and sender, and keep sandbox and context isolation on.
   Saves live in the page's IndexedDB like in a browser. A page link the game opens goes to the
   system browser, never a second window.
-- Serve the app and the content through `app://` as static files: the app root first, then the
-  content root, then the installed catalogue maps under `/maps/`, all laid out as the app fetches
-  them (`servedFile` in `static-files.ts`). Content and app are read-only resources. The shell's own
-  code writes only the window state file, `original-game.json` and the installed maps
-  (`src/installed-maps.ts`) in Electron's profile, beside the page's IndexedDB that holds the saves
-  and the installed-map records.
+- Serve the app and generated content through `app://` as read-only static files. Installed maps
+  use the snapshot IPC: the app's map-source store serves their logical `/maps/` URLs from those
+  bytes. The shell owns both installed records and immutable file generations in the profile's
+  `maps/` directory (`src/map-store.ts`). One atomic manifest replacement publishes a complete pack;
+  failed writes preserve the previous manifest. Reads and commits share one queue, and cleanup
+  follows publication. The app owns the record schema; the shell validates IPC shapes, paths,
+  revisions and per-request sizes. There is no aggregate desktop storage budget.
+- The shell writes only window state, `original-game.json`, and installed-map storage in its
+  profile. Saves remain in the page's IndexedDB.
 - A packaged build (or a run with `ON_ORIGINAL_GAME_CHECK=1`) requires an installed original game
   through `src/original-game/`. Before the window opens, a profile without `original-game.json`
   runs detection (or checks only the folder `ON_ORIGINAL_GAME_DIR` names) and records a hit. The
@@ -32,7 +35,7 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   `packages/app/dist` and `content/` with `ON_CONTENT_DIR` honoured like Vite does, and the
   profile's `maps/` for installed maps. Do not duplicate that choice elsewhere.
 - Keep `main.ts` and `window.ts` free of logic worth a unit test; routing, containment and path
-  rules live in `protocol-routing.ts`, `static-files.ts`, `installed-maps.ts`, `paths.ts`,
+  rules live in `protocol-routing.ts`, `static-files.ts`, `installed-maps.ts`, `map-store.ts`, `paths.ts`,
   `window-state.ts` and `window-control.ts`, which import nothing from `electron`.
 
 ## Build and verification

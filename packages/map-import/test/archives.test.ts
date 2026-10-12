@@ -1,5 +1,5 @@
 import { zipSync } from 'fflate';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { encodeC2m } from '../../formats/test/fixtures/c2m.js';
 import { detectArchiveFormat, openArchive, openC2m, openRar, openZip } from '../src/archives/open.js';
 import { MapImportError, type MapImportFailure } from '../src/errors.js';
@@ -279,6 +279,26 @@ describe('tar archives', () => {
 });
 
 describe('openArchive', () => {
+  it('loads optional RAR support only when needed, sharing it across nested archives', async () => {
+    const unavailable = vi.fn(async (): Promise<ArrayBuffer> => {
+      throw new Error('decoder offline');
+    });
+    const zip = zipSync({ 'Map/map.dat': MAP_DAT });
+    expect([...(await openArchive(zip, { unrarWasm: unavailable })).files.keys()]).toEqual(['map/map.dat']);
+    expect(unavailable).not.toHaveBeenCalled();
+
+    const rar = encodeRar4([{ path: 'Map/map.dat', bytes: MAP_DAT }]);
+    const nested = zipSync({ 'A.rar': rar, 'B.rar': rar });
+    const load = vi.fn(async () => unrarWasm());
+    expect([...(await openArchive(nested, { unrarWasm: load })).files.keys()]).toEqual([
+      'a/map/map.dat',
+      'b/map/map.dat',
+    ]);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(await failure(openArchive(nested, { unrarWasm: unavailable }))).toBe('unsupported-archive');
+    expect(unavailable).toHaveBeenCalledTimes(1);
+  });
+
   it('tells the formats apart by their leading bytes', async () => {
     const rar = encodeRar4([{ path: 'R/map.dat', bytes: MAP_DAT }]);
     expect(detectArchiveFormat(zipSync({ 'a/map.dat': MAP_DAT }))).toBe('zip');

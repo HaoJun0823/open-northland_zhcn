@@ -14,14 +14,14 @@ import {
   IS_FULLSCREEN_CHANNEL,
   SET_FULLSCREEN_CHANNEL,
 } from './fullscreen-channels.js';
-import {
-  parseInstalledMapFileWrite,
-  parseInstalledMapId,
-  removeInstalledMap,
-  writeInstalledMapFile,
-} from './installed-maps.js';
 import { leavePromptFor } from './leave-prompt.js';
-import { REMOVE_MAP_CHANNEL, WRITE_MAP_FILE_CHANNEL } from './map-channels.js';
+import {
+  COMMIT_MAPS_CHANNEL,
+  LIST_MAPS_CHANNEL,
+  READ_MAP_CHANNEL,
+  READ_MAP_FILE_CHANNEL,
+} from './map-channels.js';
+import { createDesktopMapStore } from './map-store.js';
 import {
   folderPickProperties,
   type OriginalGamePick,
@@ -131,13 +131,22 @@ export function createWindow({ statePath, mapsRoot, startUrl, originalGame }: Wi
     });
     return picking;
   });
-  ipcMain.handle(WRITE_MAP_FILE_CHANNEL, async (event, mapId: unknown, suffix: unknown, bytes: unknown) => {
+  const maps = createDesktopMapStore(mapsRoot);
+  ipcMain.handle(LIST_MAPS_CHANNEL, (event) => {
     if (!fromGame(event)) throw new Error('Refused');
-    await writeInstalledMapFile(mapsRoot, parseInstalledMapFileWrite(mapId, suffix, bytes));
+    return maps.list();
   });
-  ipcMain.handle(REMOVE_MAP_CHANNEL, async (event, mapId: unknown) => {
+  ipcMain.handle(READ_MAP_CHANNEL, (event, mapId: unknown) => {
     if (!fromGame(event)) throw new Error('Refused');
-    await removeInstalledMap(mapsRoot, parseInstalledMapId(mapId));
+    return maps.readMap(mapId);
+  });
+  ipcMain.handle(READ_MAP_FILE_CHANNEL, (event, mapId: unknown, suffix: unknown) => {
+    if (!fromGame(event)) throw new Error('Refused');
+    return maps.readFile(mapId, suffix);
+  });
+  ipcMain.handle(COMMIT_MAPS_CHANNEL, (event, drop: unknown, put: unknown) => {
+    if (!fromGame(event)) throw new Error('Refused');
+    return maps.commit(drop, put);
   });
   win.on('enter-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, true));
   win.on('leave-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, false));

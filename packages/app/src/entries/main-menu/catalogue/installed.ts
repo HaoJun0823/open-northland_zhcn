@@ -45,7 +45,9 @@ function groupRow(group: InstalledGroup, ctx: CatalogueContext, local: Installed
       },
     ),
     formatBytes(group.bytes, bcp47Tag()),
-    formatMessage(text.installedView.installedOn, { date: installedDate(group.installedAt) }),
+    ...(group.records.length > 0
+      ? [formatMessage(text.installedView.installedOn, { date: installedDate(group.installedAt) })]
+      : []),
     ...(group.source !== undefined
       ? [text.localImport.local]
       : row === null

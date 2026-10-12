@@ -137,6 +137,9 @@ export function decodeMapSize(map: MapDat, maxCells = Number.POSITIVE_INFINITY):
   const view = viewOf(chunk.payload);
   const width = view.getUint32(0, true);
   const height = view.getUint32(4, true);
+  if (width === 0 || height === 0) {
+    throw new Error(`mapdat: lsiz dimensions must be positive, got ${width}x${height}`);
+  }
   if (width * height > maxCells) {
     throw new DecodeLimitError(`mapdat: lsiz ${width}x${height} is more than ${maxCells} cells`);
   }

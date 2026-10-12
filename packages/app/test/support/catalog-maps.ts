@@ -1,6 +1,8 @@
 import { type CatalogEntry, mapDocumentsFingerprint } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import type { LocalMapInput } from '../../src/content/local-import/input.js';
+import { localSourceRecord } from '../../src/content/local-import/source.js';
+import { isMapFileSuffix } from '../../src/content/map-source/files.js';
 import type { InstallableMap, InstalledMapStorage } from '../../src/content/map-source/index.js';
 
 /** A one-cell map the loaders and `verifyMapDocuments` accept. */
@@ -85,7 +87,20 @@ export function memoryInstalledStorage() {
   const sources = new Map<string, LocalMapInput>();
   const storage: InstalledMapStorage = {
     records: async () => [...records.values()].map((record) => structuredClone(record)),
-    readSource: async (entryId) => sources.get(entryId) ?? null,
+    readSource: async (entryId) => {
+      const record = localSourceRecord(records.get(`source:${entryId}`));
+      const input = sources.get(entryId);
+      return record === null || input === undefined ? null : structuredClone({ record, input });
+    },
+    readMap: async (mapId) => ({
+      record: structuredClone(records.get(mapId)),
+      files: new Map(
+        [...files].flatMap(([key, bytes]) => {
+          const suffix = key.startsWith(`${mapId}.`) ? key.slice(mapId.length) : null;
+          return isMapFileSuffix(suffix) ? [[suffix, bytes.slice()] as const] : [];
+        }),
+      ),
+    }),
     readFile: async (mapId, suffix) => files.get(`${mapId}${suffix}`) ?? null,
     commit: async (drop, put: readonly InstallableMap[], changes) => {
       for (const id of changes.drop) {

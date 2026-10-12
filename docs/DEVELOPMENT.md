@@ -648,12 +648,15 @@ in the main menu; a multiplayer room's map picker opens the same screen and retu
 | `raw/<page>.json` | The upstream pages that catalogue came from |
 | `thumbnails/<id>`, `thumbnails/<id>.json` | Each map's screenshot and its content type, `updatedAt` and SHA-256; fetched again only when `updatedAt` changes |
 | `archives/<id>/<sha256>.<ext>`, `archives/<id>/source.json` | The downloaded catalogue file, kept as the source of every re-conversion, and the URL and `updatedAt` it was fetched for |
-| `converted/<irVersion>/<id>/conversion.json` | The entry's verdict with the archive SHA-256, the `updatedAt` it was made from and each sidecar's SHA-256 |
-| `converted/<irVersion>/<id>/<mapId><suffix>` | The sidecars, named as under `content/maps/`; each JSON one is stored only gzip-compressed, as `<mapId><suffix>.gz` |
+| `converted/<irVersion>/<id>/conversion.json` | Versioned manifest selecting the immutable generation, with the entry's verdict, archive SHA-256, `updatedAt` and each sidecar's SHA-256 |
+| `converted/<irVersion>/<id>/<generation>/<mapId><suffix>` | The sidecars, named as under `content/maps/`; each JSON one is stored only gzip-compressed, as `<mapId><suffix>.gz` |
 
 A start with another `IR_VERSION` deletes every other `converted/<version>` and converts again from
 the kept archives without downloading them. Entries that leave the catalogue lose their archive and
-conversion after the next batch.
+conversion when that catalogue is reconciled, even if no conversion is needed. A replacement writes
+its complete generation before atomically publishing its manifest; open readers retain the previous
+bytes while the retired generation is removed. An incompatible manifest is discarded and converted
+again from its kept archive.
 
 Endpoints, `GET` and `HEAD` (plus the `OPTIONS` preflight below):
 
@@ -669,9 +672,11 @@ Endpoints, `GET` and `HEAD` (plus the `OPTIONS` preflight below):
 `OPTIONS` on a `/v1` path answers a CORS preflight with 204, allowing `GET`, `HEAD` and the
 `If-None-Match` header. Every `/v1` answer carries `Access-Control-Allow-Origin: *`, a SHA-256 `ETag` that `If-None-Match`
 turns into a 304, and a short `Cache-Control`; errors are `{ "error": "..." }`. A content file's
-`ETag` is the SHA-256 of its uncompressed bytes, it is cached for an hour, and a request that accepts
-gzip gets the stored gzip file as-is; any other request gets it inflated, without `Content-Length`. The tests under
-`packages/api/test` run against an invented upstream and archives built in the test:
+`ETag` is the SHA-256 of its uncompressed bytes; its stable URL requires cache revalidation before
+reuse. A request that accepts gzip gets the stored gzip file as-is; any other request gets it
+inflated, without `Content-Length`. Kept archives are verified with bounded reads and streamed from
+the same open file, so concurrent downloads do not buffer entire archives in memory. The tests
+under `packages/api/test` run against an invented upstream and archives built in the test:
 
 ```bash
 npx vitest run --project core packages/api

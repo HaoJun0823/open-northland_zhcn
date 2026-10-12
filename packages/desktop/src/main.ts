@@ -52,7 +52,7 @@ if (app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(menu === null ? null : Menu.buildFromTemplate([...menu]));
     const userData = app.getPath('userData');
     const mapsRoot = installedMapsRoot(userData);
-    handleAppProtocol(roots, mapsRoot);
+    handleAppProtocol(roots);
     const originalGamePath = join(userData, ORIGINAL_GAME_STATE_FILE);
     const originalGame: OriginalGameRecord = {
       required: originalGameCheckWanted(app.isPackaged, process.env),

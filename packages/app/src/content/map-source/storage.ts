@@ -1,7 +1,8 @@
 import type { DesktopMaps } from '../../view/desktop-bridge.js';
 import { completed, openDb } from '../../view/runtime/save-load/idb.js';
 import { storedLocalInput } from '../local-import/input.js';
-import type { MapFileSuffix } from './files.js';
+import { localSourceRecord } from '../local-import/source.js';
+import { isMapFileSuffix, type MapFileSuffix } from './files.js';
 import type { InstalledMapStorage, SourceChanges } from './store.js';
 
 const DB_NAME = 'open-northland-installed-maps';
@@ -47,13 +48,11 @@ async function idbRecords(): Promise<readonly unknown[]> {
   return request.result;
 }
 
-function dropInTxn(txn: IDBTransaction, drop: readonly string[], withFiles: boolean): void {
+function dropInTxn(txn: IDBTransaction, drop: readonly string[]): void {
   for (const mapId of drop) {
     txn.objectStore(RECORDS).delete(mapId);
-    if (withFiles) {
-      const prefix = `${mapId}.`;
-      txn.objectStore(FILES).delete(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
-    }
+    const prefix = `${mapId}.`;
+    txn.objectStore(FILES).delete(IDBKeyRange.bound(prefix, `${prefix}\uffff`));
   }
 }
 
@@ -74,8 +73,31 @@ export function browserInstalledMapStorage(): InstalledMapStorage {
   return {
     records: idbRecords,
     async readSource(entryId) {
-      const request = await inDb(FILES, 'readonly', (txn) => txn.objectStore(FILES).get(sourceKey(entryId)));
-      return storedLocalInput(request.result);
+      const requests = await inDb([RECORDS, FILES], 'readonly', (txn) => ({
+        record: txn.objectStore(RECORDS).get(sourceKey(entryId)),
+        input: txn.objectStore(FILES).get(sourceKey(entryId)),
+      }));
+      const record = localSourceRecord(requests.record.result);
+      const input = storedLocalInput(requests.input.result);
+      return record === null || input === null ? null : { record, input };
+    },
+    async readMap(mapId) {
+      const prefix = `${mapId}.`;
+      const range = IDBKeyRange.bound(prefix, `${prefix}\uffff`);
+      const requests = await inDb([RECORDS, FILES], 'readonly', (txn) => ({
+        record: txn.objectStore(RECORDS).get(mapId),
+        keys: txn.objectStore(FILES).getAllKeys(range),
+        values: txn.objectStore(FILES).getAll(range),
+      }));
+      const files = new Map<MapFileSuffix, Uint8Array>();
+      requests.keys.result.forEach((key, i) => {
+        const suffix = typeof key === 'string' ? key.slice(mapId.length) : null;
+        const value: unknown = requests.values.result[i];
+        if (!isMapFileSuffix(suffix)) return;
+        if (value instanceof Uint8Array) files.set(suffix, value);
+        else if (value instanceof ArrayBuffer) files.set(suffix, new Uint8Array(value));
+      });
+      return { record: requests.record.result, files };
     },
     async readFile(mapId, suffix) {
       const request = await inDb(FILES, 'readonly', (txn) =>
@@ -90,7 +112,7 @@ export function browserInstalledMapStorage(): InstalledMapStorage {
     },
     async commit(drop, put, sources) {
       await inDb([RECORDS, FILES], 'readwrite', (txn) => {
-        dropInTxn(txn, drop, true);
+        dropInTxn(txn, drop);
         sourceChanges(txn, sources);
         for (const { record, files } of put) {
           for (const [suffix, bytes] of files)
@@ -102,24 +124,27 @@ export function browserInstalledMapStorage(): InstalledMapStorage {
   };
 }
 
-/** The desktop's storage: files on disk through the shell, records in the page's IndexedDB. A record
- *  is written after its files, so a listed map always has them. */
+/** The shell commits metadata and file generations together, outside browser quota. */
 export function desktopInstalledMapStorage(maps: DesktopMaps): InstalledMapStorage {
   return {
-    records: idbRecords,
-    readFile: async () => null,
+    records: () => maps.list(),
+    async readMap(mapId) {
+      const snapshot = await maps.readMap(mapId);
+      const files = new Map<MapFileSuffix, Uint8Array>();
+      for (const [suffix, bytes] of snapshot.files) if (isMapFileSuffix(suffix)) files.set(suffix, bytes);
+      return { record: snapshot.record, files };
+    },
+    async readFile(mapId, suffix) {
+      return maps.readFile(mapId, suffix);
+    },
     readSource: async () => null,
     async commit(drop, put, sources) {
       if (sources.put !== undefined || sources.drop.length > 0)
         throw new Error('Local source storage requires desktop import support');
-      await inDb(RECORDS, 'readwrite', (txn) => dropInTxn(txn, drop, false));
-      for (const mapId of drop) await maps.remove(mapId);
-      for (const { record, files } of put) {
-        for (const [suffix, bytes] of files) await maps.writeFile(record.mapId, suffix, bytes);
-      }
-      await inDb(RECORDS, 'readwrite', (txn) => {
-        for (const { record } of put) txn.objectStore(RECORDS).put(record, record.mapId);
-      });
+      await maps.commit(
+        drop,
+        put.map(({ record, files }) => ({ record, files: [...files] })),
+      );
     },
   };
 }

@@ -15,6 +15,8 @@ export interface ImportLimits {
   readonly depth: number;
   /** Cells (`width * height`) of one map's grid, checked against its `lsiz` before a lane unpacks. */
   readonly cells: number;
+  /** Cells retained across every decoded map in one tree. */
+  readonly totalCells: number;
   /** Pixels (`width * height`) of one picture, checked against its header before it decodes. */
   readonly picturePixels: number;
 }
@@ -30,6 +32,9 @@ export const DEFAULT_DEPTH = 8;
  *  maps while the per-cell arrays a decode builds, several at four half-cells per cell, stay in the
  *  low hundreds of megabytes. */
 export const DEFAULT_CELLS = 1024 * 1024;
+/** Four maximum-size maps, or sixteen 500x500 maps, per pack. This bounds retained terrain lanes
+ *  across a campaign independently of the highly compressible input bytes; it is not a byte cap. */
+export const DEFAULT_TOTAL_CELLS = 4 * DEFAULT_CELLS;
 /** Map and briefing pictures are menu-sized; 16 Mpx is far above them and bounds one picture's
  *  RGBA expansion at 64 MiB. */
 export const DEFAULT_PICTURE_PIXELS = 16 * MEGAPIXEL;
@@ -41,6 +46,7 @@ export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
   entries: DEFAULT_ENTRIES,
   depth: DEFAULT_DEPTH,
   cells: DEFAULT_CELLS,
+  totalCells: DEFAULT_TOTAL_CELLS,
   picturePixels: DEFAULT_PICTURE_PIXELS,
 };
 
@@ -52,5 +58,6 @@ export const NO_IMPORT_LIMITS: ImportLimits = {
   entries: Number.POSITIVE_INFINITY,
   depth: Number.POSITIVE_INFINITY,
   cells: Number.POSITIVE_INFINITY,
+  totalCells: Number.POSITIVE_INFINITY,
   picturePixels: Number.POSITIVE_INFINITY,
 };

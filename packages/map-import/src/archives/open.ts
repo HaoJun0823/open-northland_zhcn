@@ -18,13 +18,27 @@ import { unpackZip } from './zip.js';
 
 export interface OpenOptions {
   readonly limits?: ImportLimits;
-  /** The `node-unrar-js` wasm binary; without it a RAR, top-level or nested, is `unsupported-archive`. */
-  readonly unrarWasm?: ArrayBuffer;
+  /** The `node-unrar-js` binary or its loader, called only for RAR and once per archive tree. */
+  readonly unrarWasm?: ArrayBuffer | (() => Promise<ArrayBuffer>);
   /** Names the archive in failure messages. */
   readonly name?: string;
 }
 
 function unpackers(options: OpenOptions): (format: ArchiveFormat) => Unpack {
+  let wasm: Promise<ArrayBuffer> | undefined;
+  const loadWasm = async (): Promise<ArrayBuffer> => {
+    try {
+      const source = options.unrarWasm;
+      if (source === undefined) throw new Error('no unrar wasm given');
+      wasm ??= typeof source === 'function' ? source() : Promise.resolve(source);
+      return await wasm;
+    } catch (err) {
+      throw new MapImportError(
+        'unsupported-archive',
+        `rar: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  };
   return (format) => {
     switch (format) {
       case 'zip':
@@ -33,13 +47,8 @@ function unpackers(options: OpenOptions): (format: ArchiveFormat) => Unpack {
         return unpackC2m;
       case 'tar':
         return unpackTar;
-      case 'rar': {
-        const wasm = options.unrarWasm;
-        if (wasm === undefined) {
-          return () => Promise.reject(new MapImportError('unsupported-archive', 'rar: no unrar wasm given'));
-        }
-        return (bytes, builder, keep) => unpackRar(bytes, builder, keep, wasm);
-      }
+      case 'rar':
+        return async (bytes, builder, keep) => unpackRar(bytes, builder, keep, await loadWasm());
     }
   };
 }

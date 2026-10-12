@@ -10,6 +10,7 @@ import { ORIGINAL_GAME_STATE_FILE } from '../src/original-game/state.js';
 import { resolveShellRoots } from '../src/paths.js';
 import { FIRST_RUN_WINDOW_STATE, WINDOW_STATE_FILE } from '../src/window-state.js';
 import { libraryHead } from '../test/original-game/fixture.js';
+import { installedMapFixture } from './installed-map.js';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const roots = resolveShellRoots({
@@ -100,6 +101,19 @@ test('boots app://, lists map previews, and restores a save and the window mode 
 
   try {
     let page = await launch();
+    const installed = await installedMapFixture(roots.contentRoot);
+    await page.evaluate(async ({ record, originalId }) => {
+      const maps = window.desktop?.maps;
+      if (maps === undefined) throw new Error('Installed-map bridge unavailable');
+      const files = await Promise.all(
+        record.suffixes.map(async (suffix): Promise<[string, Uint8Array]> => {
+          const response = await fetch(`/maps/${originalId}${suffix}`);
+          if (!response.ok) throw new Error('Missing installed-map sidecar');
+          return [suffix, new Uint8Array(await response.arrayBuffer())];
+        }),
+      );
+      await maps.commit([], [{ record, files }]);
+    }, installed);
     await access(join(profile, ORIGINAL_GAME_STATE_FILE));
     await waitForFullscreen(page, testFullscreen);
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -134,7 +148,7 @@ test('boots app://, lists map previews, and restores a save and the window mode 
     assert.deepEqual(routes[1], routes[0], 'both app:// spellings must serve the same sprite');
     assert.deepEqual(routes[0]?.bytes.slice(0, 8), [137, 80, 78, 71, 13, 10, 26, 10]);
 
-    await page.goto(`${MENU}&map=magiczny_las&intro=off&uiscale=1`);
+    await page.goto(`${MENU}&map=${installed.record.mapId}&intro=off&uiscale=1`);
     await page.waitForFunction(() => (window.__opennorthland?.host.tick ?? 0) >= 3, null, {
       timeout: 90_000,
     });
@@ -188,6 +202,8 @@ test('boots app://, lists map previews, and restores a save and the window mode 
     await waitForFullscreen(page, false);
 
     page = await relaunch();
+    const persisted = await page.evaluate(async () => window.desktop?.maps?.list());
+    assert.deepEqual(persisted, [installed.record]);
     // The window reopens in the mode it closed in.
     await waitForFullscreen(page, false);
     await page.locator('[data-nav-id="load"]').click();
@@ -202,7 +218,7 @@ test('boots app://, lists map previews, and restores a save and the window mode 
         map: new URLSearchParams(location.search).get('map'),
       };
     });
-    assert.deepEqual(restored, { ...saved, paused: true, map: 'magiczny_las' });
+    assert.deepEqual(restored, { ...saved, paused: true, map: installed.record.mapId });
     assert.deepEqual(errors, []);
 
     if (testFullscreen) {

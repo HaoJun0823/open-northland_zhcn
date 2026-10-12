@@ -17,7 +17,7 @@ export function serveLocalImport(port: ImportWorkerPort, wasm: () => Promise<Arr
       try {
         const result = await prepareLocalImport(event.data.input, {
           ...event.data,
-          unrarWasm: await wasm(),
+          unrarWasm: wasm,
           onProgress: (progress) => port.postMessage({ kind: 'progress', progress }),
         });
         const transfer: Transferable[] = [];

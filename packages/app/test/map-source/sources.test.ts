@@ -33,6 +33,7 @@ function record(
 ): InstalledMapRecord {
   return {
     version: INSTALLED_MAP_RECORD_VERSION,
+    revision: '00000000-0000-0000-0000-000000000001',
     mapId,
     entryId,
     fingerprint: TINY_FINGERPRINT,
@@ -53,7 +54,7 @@ function record(
 
 async function storeWith(records: readonly InstalledMapRecord[]): Promise<InstalledMapStore> {
   const { storage } = memoryInstalledStorage();
-  const store = createInstalledMapStore(storage, { budget: null, files: 'stored' });
+  const store = createInstalledMapStore(storage, { budget: null });
   const byEntry = new Map<string, InstalledMapRecord[]>();
   for (const item of records) byEntry.set(item.entryId, [...(byEntry.get(item.entryId) ?? []), item]);
   for (const [entryId, maps] of byEntry) {

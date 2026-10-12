@@ -128,6 +128,15 @@ describe('decodeMapDat', () => {
 });
 
 describe('decodeMapSize', () => {
+  it.each([
+    { width: 0, height: 0xffffffff },
+    { width: 0xffffffff, height: 0 },
+    { width: 0, height: 0 },
+  ])('rejects empty dimensions before a zero cell count can bypass the limit: %j', (size) => {
+    const map = decodeMapDat(encodeMapDat([{ tag: 'lsiz', payload: encodeMapSize(size) }]));
+    expect(() => decodeMapSize(map, 1)).toThrow(/dimensions must be positive/);
+  });
+
   it('reads lsiz [u32 width][u32 height]', () => {
     const map = decodeMapDat(
       encodeMapDat([{ tag: 'lsiz', version: 1, payload: encodeMapSize({ width: 142, height: 146 }) }]),

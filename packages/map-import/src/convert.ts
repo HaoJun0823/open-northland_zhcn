@@ -63,7 +63,7 @@ export interface ConvertOptions {
   /** Recoverable problems: an unreadable optional file or layer, which the map then goes without. */
   readonly onWarning?: (message: string) => void;
   /** Bounds on what the decoders build; defaults to {@link DEFAULT_IMPORT_LIMITS}. */
-  readonly limits?: Pick<ImportLimits, 'cells' | 'picturePixels'>;
+  readonly limits?: Pick<ImportLimits, 'cells' | 'picturePixels'> & Partial<Pick<ImportLimits, 'totalCells'>>;
 }
 
 /** One converted map: the documents and pictures the content tree serves for it. */
@@ -282,9 +282,18 @@ export async function convertMapTree(tree: MapTree, options: ConvertOptions): Pr
   if (folders.length === 0) throw new MapImportError('no-map', `no folder holds a ${MAP_DAT_FILE}`);
   const maps: ConvertedMap[] = [];
   const skipped: SkippedMap[] = [];
+  const limits = options.limits ?? DEFAULT_IMPORT_LIMITS;
+  let remainingCells = limits.totalCells ?? DEFAULT_IMPORT_LIMITS.totalCells;
   for (const [index, key] of folders.entries()) {
     try {
-      maps.push(await convertMapFolder(tree, key, options, { index, total: folders.length }));
+      const map = await convertMapFolder(
+        tree,
+        key,
+        { ...options, limits: { ...limits, cells: Math.min(limits.cells, remainingCells) } },
+        { index, total: folders.length },
+      );
+      remainingCells -= map.terrain.width * map.terrain.height;
+      maps.push(map);
     } catch (err) {
       if (!(err instanceof MapImportError) || err.kind === 'too-large') throw err;
       const { path } = mapFolderOf(tree, key, options.rootName ?? DEFAULT_ROOT_NAME, () => {});

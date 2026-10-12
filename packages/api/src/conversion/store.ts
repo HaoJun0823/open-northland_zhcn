@@ -1,4 +1,15 @@
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  type FileHandle,
+  mkdir,
+  open,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { gzip } from 'node:zlib';
@@ -15,6 +26,8 @@ const GZIP_SUFFIX = '.gz';
 const TEXT_SUFFIX = '.json';
 const TEMPORARY_SUFFIX = '.tmp';
 const SHA256_HEX = /^[a-f0-9]{64}$/;
+const GENERATION = /^[a-f0-9-]{36}$/;
+const CONVERSION_STORE_VERSION = 1;
 const gzipAsync = promisify(gzip);
 
 /** A kept catalogue file: `archives/<id>/<sha256>.<ext>` and what it was downloaded for. */
@@ -32,6 +45,8 @@ export interface KeptArchive extends ArchiveSource {
 
 /** `converted/<irVersion>/<id>/conversion.json`: the verdict and what it was made from. */
 export interface StoredConversion {
+  readonly version: typeof CONVERSION_STORE_VERSION;
+  readonly generation: string;
   readonly conversion: CatalogConversion;
   /** Null when the file was refused before it was downloaded. */
   readonly archiveSha256: string | null;
@@ -41,13 +56,17 @@ export interface StoredConversion {
   readonly files: Readonly<Record<string, string>>;
 }
 
+export type ConversionVerdict = Omit<StoredConversion, 'version' | 'generation' | 'files'>;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function parseStored(value: unknown): StoredConversion | null {
   if (!isRecord(value)) return null;
-  const { conversion, archiveSha256, updatedAt, files } = value;
+  const { version, generation, conversion, archiveSha256, updatedAt, files } = value;
+  if (version !== CONVERSION_STORE_VERSION || typeof generation !== 'string' || !GENERATION.test(generation))
+    return null;
   const parsed = CatalogConversion.safeParse(conversion);
   if (!parsed.success || parsed.data.verdict === 'pending') return null;
   if (archiveSha256 !== null && (typeof archiveSha256 !== 'string' || !SHA256_HEX.test(archiveSha256))) {
@@ -59,7 +78,7 @@ function parseStored(value: unknown): StoredConversion | null {
     if (typeof hash !== 'string' || !SHA256_HEX.test(hash)) return null;
     hashes[name] = hash;
   }
-  return { conversion: parsed.data, archiveSha256, updatedAt, files: hashes };
+  return { version, generation, conversion: parsed.data, archiveSha256, updatedAt, files: hashes };
 }
 
 function parseSource(value: unknown): ArchiveSource | null {
@@ -93,8 +112,6 @@ async function entryIds(dir: string): Promise<string[]> {
     throw error;
   }
 }
-
-let directorySequence = 0;
 
 /**
  * The kept archives and the converted sidecars under the data dir. Every id passed in passed
@@ -137,7 +154,10 @@ export class ConversionStore {
     const stored = new Map<string, StoredConversion>();
     for (const id of await entryIds(this.convertedDir)) {
       const conversion = parseStored(await readJson(join(this.convertedDir, id, CONVERSION_FILE)));
-      if (conversion !== null) stored.set(id, conversion);
+      if (conversion !== null) {
+        stored.set(id, conversion);
+        await this.pruneGenerations(id, conversion.generation);
+      }
     }
     return stored;
   }
@@ -171,6 +191,28 @@ export class ConversionStore {
     }
   }
 
+  /** Verifies with bounded reads and keeps that inode open for the response. The caller closes the
+   *  handle and starts its response stream at offset zero after this verification pass. */
+  async openVerifiedArchive(id: string, source: ArchiveSource): Promise<FileHandle | null> {
+    let handle: FileHandle;
+    try {
+      handle = await open(join(this.archiveDir, id, `${source.sha256}.${source.ext}`));
+    } catch (error) {
+      if (isMissing(error)) return null;
+      throw error;
+    }
+    try {
+      const hash = createHash('sha256');
+      for await (const bytes of handle.createReadStream({ autoClose: false, start: 0 })) hash.update(bytes);
+      if (hash.digest('hex') === source.sha256) return handle;
+      await handle.close();
+      return null;
+    } catch (error) {
+      await handle.close();
+      throw error;
+    }
+  }
+
   /** Keeps `bytes` as the entry's only archive. The bytes land before the source that names them. */
   async keepArchive(id: string, bytes: Uint8Array, source: ArchiveSource): Promise<void> {
     const dir = join(this.archiveDir, id);
@@ -183,18 +225,19 @@ export class ConversionStore {
     }
   }
 
-  /** Replaces the entry's directory with `files` (each text file as `<name>.gz` only) and the verdict,
-   *  all written into a temporary directory first so a reader never sees half a conversion. Returns
-   *  the hashes of the uncompressed sidecars. */
+  /** Writes immutable sidecars, then atomically replaces the manifest that selects their generation.
+   *  A failed write leaves the previous manifest and its files intact. */
   async writeConversion(
     id: string,
-    verdict: Omit<StoredConversion, 'files'>,
+    verdict: ConversionVerdict,
     files: ReadonlyMap<string, Uint8Array>,
   ): Promise<StoredConversion> {
-    directorySequence += 1;
-    const temporary = join(this.convertedDir, `${id}.${process.pid}.${directorySequence}${TEMPORARY_SUFFIX}`);
-    const target = join(this.convertedDir, id);
+    const generation = randomUUID();
+    const entry = join(this.convertedDir, id);
+    const temporary = join(entry, generation + TEMPORARY_SUFFIX);
+    const target = join(entry, generation);
     try {
+      await mkdir(entry, { recursive: true });
       await mkdir(temporary);
       const hashes: Record<string, string> = {};
       for (const [name, bytes] of files) {
@@ -203,20 +246,39 @@ export class ConversionStore {
           await writeFile(join(temporary, name + GZIP_SUFFIX), await gzipAsync(bytes));
         else await writeFile(join(temporary, name), bytes);
       }
-      const stored: StoredConversion = { ...verdict, files: hashes };
-      await writeFile(join(temporary, CONVERSION_FILE), JSON.stringify(stored));
-      await rm(target, { recursive: true, force: true });
+      const stored: StoredConversion = {
+        version: CONVERSION_STORE_VERSION,
+        generation,
+        ...verdict,
+        files: hashes,
+      };
       await rename(temporary, target);
+      await writeAtomic(join(entry, CONVERSION_FILE), JSON.stringify(stored));
       return stored;
     } catch (error) {
       await rm(temporary, { recursive: true, force: true });
+      await rm(target, { recursive: true, force: true });
       throw error;
     }
   }
 
   /** The stored file of a sidecar: `<fileName>.gz` when `isGzipped`, else `<fileName>`. */
-  sidecarPath(id: string, fileName: string): string {
-    return join(this.convertedDir, id, this.isGzipped(fileName) ? fileName + GZIP_SUFFIX : fileName);
+  sidecarPath(id: string, generation: string, fileName: string): string {
+    return join(
+      this.convertedDir,
+      id,
+      generation,
+      this.isGzipped(fileName) ? fileName + GZIP_SUFFIX : fileName,
+    );
+  }
+
+  /** Call after publishing the new index; readers already holding a file handle retain its bytes. */
+  async pruneGenerations(id: string, generation: string): Promise<void> {
+    const entry = join(this.convertedDir, id);
+    for (const name of await readdir(entry)) {
+      if (name !== CONVERSION_FILE && name !== generation)
+        await rm(join(entry, name), { recursive: true, force: true });
+    }
   }
 
   isGzipped(fileName: string): boolean {

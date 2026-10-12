@@ -364,11 +364,9 @@
   color: var(--text-hi);
 }
 
-/* The sort control: the same pill, its caption always shown, in the first row's height. */
+/* The sort control: the same pill, its caption always shown, first in the facet row. */
 .catalogue .catalogue-sort {
-  height: calc(var(--u) * 40);
-  margin-left: auto;
-  width: clamp(calc(var(--u) * 240), 13vw, calc(var(--u) * 300));
+  margin-right: calc(var(--u) * 8);
 }
 
 .catalogue .catalogue-pill.catalogue-sort .main-menu__dropdown-btn {

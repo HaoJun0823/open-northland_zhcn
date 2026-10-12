@@ -43,7 +43,7 @@ export function mapSelectScreen(
   });
   const catalogue = document.createElement('button');
   catalogue.type = 'button';
-  catalogue.className = 'main-menu__ghost catalogue__open';
+  catalogue.className = 'main-menu__map-select-catalogue';
   catalogue.textContent = messages().mapCatalogue.open;
   catalogue.addEventListener('click', () => open('catalogue'));
   tools.append(catalogue, picker.tabs);

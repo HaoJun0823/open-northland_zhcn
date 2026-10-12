@@ -9,6 +9,30 @@
   align-self: center;
 }
 
+/* A quiet text link to the catalogue beside the filter tabs; the tabs stay the eye-catcher. */
+.main-menu__map-select-catalogue {
+  all: unset;
+  cursor: var(--cursor-pointer, pointer);
+  margin-right: calc(var(--u) * 10);
+  font:
+    500 calc(var(--u) * 19) / 1 "Alegreya Sans",
+    system-ui,
+    sans-serif;
+  color: rgba(180, 205, 200, 0.6);
+  white-space: nowrap;
+  transition: color 150ms ease-out;
+}
+
+.main-menu__map-select-catalogue::after {
+  content: " ›";
+}
+
+.main-menu__map-select-catalogue:hover,
+.main-menu__map-select-catalogue:focus-visible {
+  color: var(--text-body);
+  text-decoration: underline;
+}
+
 /* Sits at the top of the list column, under the screen title. */
 .main-menu__map-search {
   box-sizing: border-box;

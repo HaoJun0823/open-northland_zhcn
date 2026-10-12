@@ -204,9 +204,10 @@ export function catalogueFilters(
 
   const root = node('div', 'catalogue-toolbar');
   const top = node('div', 'catalogue-toolbar__row is-main');
-  top.append(search, kind.root, sort.root);
+  top.append(search, kind.root);
   const facets = node('div', 'catalogue-toolbar__row is-facets');
   facets.append(
+    sort.root,
     players.root,
     language.root,
     size.root,

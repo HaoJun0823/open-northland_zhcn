@@ -241,7 +241,7 @@ export const enContent = {
       summary: 'Stone gatherers fill an empty yard, a full centre and a full first ring.',
     },
     'clay-overlays': {
-      title: 'Clay under roads and homes',
+      title: 'Clay, roads and homes',
       summary: 'A road and two home tiers overlap clay deposits.',
     },
     'clay-gatherers': {

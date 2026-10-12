@@ -242,8 +242,8 @@ export const deContent = {
       summary: 'Steinsammler füllen einen leeren Lagerplatz, eine volle Mitte und einen vollen ersten Ring.',
     },
     'clay-overlays': {
-      title: 'Lehm unter Straßen und Häusern',
-      summary: 'Eine Straße und zwei Hausstufen über Lehmvorkommen.',
+      title: 'Lehm, Straßen und Häuser',
+      summary: 'Eine Straße und zwei Hausstufen überschneiden sich mit Lehmvorkommen.',
     },
     'clay-gatherers': {
       title: 'Lehmabbau',

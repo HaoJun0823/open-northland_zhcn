@@ -238,7 +238,7 @@ export const plContent = {
       summary: 'Zbieracze kamienia uzupełniają pusty plac, pełny środek i pełny pierwszy krąg.',
     },
     'clay-overlays': {
-      title: 'Glina pod drogą i domami',
+      title: 'Glina, droga i domy',
       summary: 'Droga i dwa poziomy domu na złożach gliny.',
     },
     'clay-gatherers': {

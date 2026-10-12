@@ -546,6 +546,59 @@ describe('walls as targets', () => {
 });
 
 describe('attack-move planning around open enemy gates', () => {
+  it.each(
+    [false, true].flatMap((centreLast) =>
+      [GATE_X - 3, GATE_X, GATE_X + 3].map((fallenColumn) => ({ centreLast, fallenColumn })),
+    ),
+  )(
+    'resumes both sides of a converted open gate after column $fallenColumn falls (centre built last: $centreLast)',
+    ({ centreLast, fallenColumn }) => {
+      const sim = fresh();
+      postRow(sim, WALL_ROW, P1, centreLast ? [GATE_X] : []);
+      if (centreLast) {
+        sim.enqueueSetup({
+          kind: 'placePalisade',
+          gfxIndex: WALL.typeId,
+          x: GATE_X,
+          y: WALL_ROW,
+          tribe: VIKING,
+          owner: P1,
+        });
+        sim.step();
+      }
+      const gate = [...sim.world.query(Palisade)].find((e) => nodeRow(sim, e).hx === GATE_X);
+      if (gate === undefined) throw new Error('expected the central wall');
+      sim.enqueueSetup({ kind: 'convertPalisadeGate', palisade: gate, gfxIndex: CLOSED_GATE.typeId });
+      sim.step();
+      sim.enqueueSetup({ kind: 'setPalisadeGateMode', palisade: gate, mode: 'open' });
+      sim.step();
+      expect(sim.world.get(gate, Palisade).gate?.open).toBe(true);
+      const squad = [GATE_X - 6, GATE_X + 6].map((hx) => {
+        const entity = fighter(sim, { hx, hy: NORTH.hy }, P0);
+        sim.enqueueSetup({ kind: 'attackMoveUnit', entity, x: hx, y: SOUTH.hy });
+        return entity;
+      });
+      for (let tick = 0; tick < 20 && squad.some((e) => !sim.world.has(e, AttackOrder)); tick++) sim.step();
+      for (const e of squad) {
+        const order = sim.world.get(e, AttackOrder);
+        expect(order.breach).toBeDefined();
+        expect(nodeRow(sim, order.target).hx).toBe(nodeRow(sim, e).hx);
+      }
+      const fallen = [...sim.world.query(Palisade)].find((e) => nodeRow(sim, e).hx === fallenColumn);
+      if (fallen === undefined) throw new Error('expected a segment of the gate run');
+      const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content, map: routesMap() });
+      for (const run of [sim, restored]) {
+        run.world.mut(fallen, Health).hitpoints = 0;
+        run.step();
+        expect(squad.every((e) => !run.world.has(e, AttackOrder))).toBe(true);
+        run.run(600);
+        expect(squad.every((e) => nodeRow(run, e).hy === SOUTH.hy)).toBe(true);
+        expect(run.world.verifyCaches()).toEqual([]);
+      }
+      expect(restored.hashState()).toBe(sim.hashState());
+    },
+  );
+
   it.each([PRESSED_X, GATE_X])(
     'breaches from column %s while the enemy gate stays open, then uses the hole',
     (hx) => {

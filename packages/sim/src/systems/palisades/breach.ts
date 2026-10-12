@@ -96,7 +96,9 @@ export function releaseWallBreaches(world: World, ctx: SystemContext, fallen: En
     if (order.breach !== undefined) breaches.push({ e, wall: order.target, resume: order.breach.resume });
   }
   if (breaches.length === 0) return;
-  const wallAt = standingWallAt(world, terrain, () => true);
+  // Marching breakers treat open gates as part of the wall. Their passage must join the run
+  // when either the gate itself or a neighbouring segment falls, including retained outer posts.
+  const wallAt = standingWallAt(world, terrain, () => true, { includeGatePassages: true });
   const line = joinedWalls(terrain, wallAt, wallCellsOf(wallAt), fallen);
   for (const { e, wall, resume } of breaches) {
     if (!line.has(wall)) continue;
@@ -154,7 +156,7 @@ export function palisadeBarring(
     (wall) =>
       (walls === 'attackable' || world.has(wall, Owner)) &&
       isValidOrderedTarget(world, ctx, e, settler, wall),
-    projected?.gates,
+    { projected: projected?.gates },
   );
   if (wallAt.size === 0) return null;
   const blocked = projected?.blocked ?? routeStructureBlocks(world, ctx, terrain, e);
@@ -184,23 +186,28 @@ export function palisadeBarring(
   return spreadAlongLine(world, line, e);
 }
 
-/** The walk cells of every standing wall `admits`, each to its lowest-id wall. */
+/** The admitted wall bodies, each cell assigned to its lowest-id wall. */
 function standingWallAt(
   world: World,
   terrain: TerrainGraph,
   admits: (wall: Entity) => boolean,
-  projected?: ReadonlyMap<NodeId, Entity>,
+  options: {
+    readonly projected?: ReadonlyMap<NodeId, Entity> | undefined;
+    readonly includeGatePassages?: boolean;
+  } = {},
 ): Map<NodeId, Entity> {
   const wallAt = new Map<NodeId, Entity>();
   for (const wall of canonicalById(world.query(PalisadeBlocking, Palisade, Position))) {
     if (!admits(wall)) continue;
     const at = world.get(wall, Position);
     const { hx, hy } = nodeOfPosition(at.x, at.y);
-    for (const cell of translatedCells(terrain, world.get(wall, Palisade).walk, hx, hy)) {
+    const body = world.get(wall, Palisade);
+    const cells = options.includeGatePassages && body.gate !== null ? body.placementWalk : body.walk;
+    for (const cell of translatedCells(terrain, cells, hx, hy)) {
       if (!wallAt.has(cell)) wallAt.set(cell, wall);
     }
   }
-  for (const [cell, wall] of projected ?? []) {
+  for (const [cell, wall] of options.projected ?? []) {
     if (!admits(wall)) continue;
     const prior = wallAt.get(cell);
     if (prior === undefined || wall < prior) wallAt.set(cell, wall);

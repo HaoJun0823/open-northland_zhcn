@@ -11,6 +11,7 @@ import {
   Owner,
   Position,
   Settler,
+  SettlerNeeds,
   Stockpile,
   setMissionBehaviour,
   setSettlerJob,
@@ -202,7 +203,7 @@ describe('orderNeed - answering a need on command', () => {
   it('sends a trade that never prays of its own accord to the temple', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(5, 1) });
     // The fixture's default trade carries no `needsReligionFlag`, so only the order gives it a prayer.
-    const settler = ownedSettlerAt(sim, 3, 0, { piety: FED });
+    const settler = ownedSettlerAt(sim, 3, 0, { piety: fx.div(ONE, fx.fromInt(2)) });
     templeAt(sim, 3, 0);
 
     plannerSystem(sim.world, ctxOf(sim));
@@ -217,8 +218,12 @@ describe('orderNeed - answering a need on command', () => {
     expect(atomic.atomicId).toBe(PRAY_ATOMIC);
     expect(atomic.effect).toEqual({ kind: 'pray' });
 
-    for (let i = 0; i < atomic.duration + 2 && sim.world.has(settler, NeedOrder); i++) sim.step();
+    sim.run(atomic.duration);
+    expect(sim.world.has(settler, NeedOrder)).toBe(true);
+    expect(sim.world.get(settler, SettlerNeeds).piety).toBeGreaterThan(0);
+    for (let i = 0; i < 100 && sim.world.has(settler, NeedOrder); i++) sim.step();
     expect(sim.world.has(settler, NeedOrder)).toBe(false);
+    expect(sim.world.get(settler, SettlerNeeds).piety).toBeLessThanOrEqual(0);
   });
 
   it('a walk order calls it off', () => {

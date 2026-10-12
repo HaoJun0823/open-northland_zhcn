@@ -11,6 +11,7 @@ import {
   Position,
   Residence,
   Resting,
+  SettlerNeeds,
   UnderConstruction,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
@@ -233,8 +234,38 @@ describe('prayDrive - the planner choosing to pray (target-bound: walk to a temp
   });
 });
 
-describe('pray atomic - taking one prayer off piety (AtomicSystem)', () => {
-  it('takes one prayer off piety and consumes no goods', () => {
+describe('pray atomic - replenishing religion (AtomicSystem)', () => {
+  it.each(['hunger', 'fatigue', 'no benefit'] as const)(
+    'does not repeat prayer when there is %s',
+    (reason) => {
+      const base = testContent();
+      const content =
+        reason === 'no benefit'
+          ? parseContentSet({
+              ...base,
+              atomicAnimations: base.atomicAnimations.map((clip) =>
+                clip.id === 'viking_pray' ? { ...clip, events: [] } : clip,
+              ),
+            })
+          : base;
+      const sim = new Simulation({ seed: 1, content, map: grassMap(3, 1) });
+      const settler = settlerAt(sim, 0, 0, DEVOUT);
+      const temple = templeAt(sim, 0, 0);
+      if (reason !== 'no benefit') sim.world.mut(settler, SettlerNeeds)[reason] = DEVOUT;
+      addCurrentAtomic(sim.world, settler, {
+        atomicId: PRAY_ATOMIC,
+        duration: PRAY_CLIP_TICKS,
+        effect: { kind: 'pray' },
+        targetEntity: temple,
+        targetTile: null,
+      });
+      for (let i = 0; i < PRAY_CLIP_TICKS; i++) atomicSystem(sim.world, nextTickCtxOf(sim));
+      expect(sim.world.has(settler, CurrentAtomic)).toBe(false);
+      expect(needsOf(sim, settler).piety).toBeGreaterThan(0);
+    },
+  );
+
+  it('repeats the clip below the drive threshold until the reserve is full', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(3, 1) });
     const settler = settlerAt(sim, 0, 0, DEVOUT);
     const temple = templeAt(sim, 0, 0);
@@ -248,14 +279,38 @@ describe('pray atomic - taking one prayer off piety (AtomicSystem)', () => {
 
     for (let i = 0; i < PRAY_CLIP_TICKS; i++) atomicSystem(sim.world, nextTickCtxOf(sim));
 
-    // A prayer is a partial refill, not a reset: a smith comes back to the temple every few items.
+    // One clip pays only its authored pulses; the visit continues even below the drive threshold.
     expect(needsOf(sim, settler).piety).toBe(fx.sub(DEVOUT, PRAYER));
-    expect(sim.world.has(settler, CurrentAtomic)).toBe(false); // atomic done
+    expect(needsOf(sim, settler).piety).toBeLessThan(NEED_DRIVE_THRESHOLD);
+    expect(sim.world.get(settler, CurrentAtomic).effect.kind).toBe('pray');
+    for (let i = 0; i < 100 && sim.world.has(settler, CurrentAtomic); i++)
+      atomicSystem(sim.world, nextTickCtxOf(sim));
+    expect(needsOf(sim, settler).piety).toBeLessThanOrEqual(0);
+    expect(sim.world.has(settler, CurrentAtomic)).toBe(false);
+  });
+
+  it('lets a movement order interrupt a prayer visit before the reserve is full', () => {
+    const sim = new Simulation({ seed: 1, content: oilContent(), map: grassMap(8, 2) });
+    const home = litHomeAt(sim, 4);
+    const settler = devoutAt(sim, 4, home);
+    standBefore(sim, settler, 4);
+    sim.step();
+    expect(sim.world.get(settler, CurrentAtomic).effect.kind).toBe('pray');
+    sim.enqueueSetup({ kind: 'moveUnit', entity: settler, x: 0, y: 0 });
+    for (
+      let i = 0;
+      i <= PRAY_CLIP_TICKS && sim.world.tryGet(settler, CurrentAtomic)?.effect.kind === 'pray';
+      i++
+    )
+      sim.step();
+    expect(sim.world.tryGet(settler, CurrentAtomic)?.effect.kind).not.toBe('pray');
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(sim.terrain?.nodeAt(0, 0));
+    expect(needsOf(sim, settler).piety).toBeGreaterThan(0);
   });
 });
 
 describe('pray drive - closing the forge→pray→relief loop through the real schedule', () => {
-  it('a devout settler walks to the temple and a prayer comes off its piety', () => {
+  it('a devout settler walks to the temple and fills its religion reserve', () => {
     const sim = new Simulation({ seed: 3, content: testContent(), map: grassMap(4, 1) });
     // Start near the threshold so it crosses within a short headless run; temple a couple cells away.
     const settler = settlerAt(sim, 0, 0, NEED_DRIVE_THRESHOLD);
@@ -269,9 +324,8 @@ describe('pray drive - closing the forge→pray→relief loop through the real s
       if (p < troughPiety) troughPiety = p;
     }
 
-    // The loop closed: the settler walked to the temple and one prayer came off the bar. Piety never
-    // rises on its own, so the peak is where it started.
-    expect(troughPiety).toBe(fx.sub(peakPiety, PRAYER));
+    expect(troughPiety).toBeLessThanOrEqual(0);
+    expect(sim.world.tryGet(settler, CurrentAtomic)?.effect.kind).not.toBe('pray');
     expect(peakPiety).toBeLessThanOrEqual(ONE); // never breached the pietyInRange ceiling
     expect(sim.checkInvariants()).toEqual([]);
   });

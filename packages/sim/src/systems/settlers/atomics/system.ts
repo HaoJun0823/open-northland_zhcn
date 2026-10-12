@@ -22,6 +22,7 @@ import { advanceFishingAtomic } from './effects/goods/fishing.js';
 import { continuesHarvest } from './effects/goods/index.js';
 import { applyAtomicNeedEvents } from './effects/need-events.js';
 import { applyAtomicStockEvents } from './effects/stock-events.js';
+import { continuesPrayer } from './prayer.js';
 import { emitAtomicSoundCues } from './sound-cue.js';
 import {
   armStrokeFollowThrough,
@@ -84,6 +85,11 @@ export const atomicSystem: System = (world, ctx) => {
     const atomic = world.mut(e, CurrentAtomic);
 
     const completedAtomicId = atomic.atomicId;
+    if (atomic.effect.kind === 'pray' && continuesPrayer(world, ctx, e, atomic.atomicId)) {
+      world.add(e, AtomicClock, { startedAt: ctx.tick });
+      ctx.events.emit({ kind: 'atomicCompleted', entity: e, atomicId: completedAtomicId });
+      continue;
+    }
     if (atomic.effect.kind === 'fish') {
       const continues = advanceFishingAtomic(world, ctx, e, atomic, atomic.effect);
       ctx.events.emit({ kind: 'atomicCompleted', entity: e, atomicId: completedAtomicId });

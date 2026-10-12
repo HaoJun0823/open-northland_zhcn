@@ -155,10 +155,19 @@ describe('parseStoredSettings', () => {
     });
   });
 
-  it('keeps the debug tools off unless a stored boolean turns them on', () => {
-    expect(parseStoredSettings('{}').debugToolsEnabled).toBe(false);
-    expect(parseStoredSettings('{"debugToolsEnabled":true}').debugToolsEnabled).toBe(true);
-    expect(parseStoredSettings('{"debugToolsEnabled":"on"}').debugToolsEnabled).toBe(false);
+  it.each([false, true])('defaults diagnostics to development mode (%s), keeping stored choices', (dev) => {
+    vi.stubEnv('DEV', dev);
+    try {
+      for (const raw of [null, '{}', '{"fpsCounter":"on","debugToolsEnabled":"on"}']) {
+        expect(parseStoredSettings(raw)).toMatchObject({ fpsCounter: dev, debugToolsEnabled: dev });
+      }
+      for (const enabled of [false, true]) {
+        const settings = { fpsCounter: enabled, debugToolsEnabled: enabled };
+        expect(parseStoredSettings(JSON.stringify(settings))).toMatchObject(settings);
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('defaults, validates, and clamps persisted camera input settings', () => {

@@ -70,9 +70,7 @@ it('fades bones by default and keeps them for good once switched off', async () 
   expect(h.persist).toHaveBeenCalledWith({ bonesFade: false });
 });
 
-it('shows or hides the frame-rate counter live, hidden until the player turns it on', async () => {
-  expect(defaultSettings().fpsCounter).toBe(false);
-  expect(parseStoredSettings('{"fpsCounter":"yes"}').fpsCounter).toBe(false);
+it('shows or hides the frame-rate counter live', async () => {
   expect(parseStoredSettings('{"fpsCounter":true}').fpsCounter).toBe(true);
   const h = harness();
   await h.settings.update({ fpsCounter: true });

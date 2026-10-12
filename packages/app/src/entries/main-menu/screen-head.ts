@@ -1,13 +1,14 @@
 import { messages } from '../../i18n/index.js';
 import { backTarget, type MenuScreen } from './model.js';
 
-/** The back+title header every sub-screen opens with; screens append their own tools after. */
+/** The back+title header every sub-screen opens with; screens append their own tools after.
+ *  `target` names where the back button leads when the screen opens from more than one place. */
 export function screenHead(
   screen: Exclude<MenuScreen, 'main'>,
   open: (screen: MenuScreen) => void,
+  target: MenuScreen = backTarget(screen) ?? 'main',
 ): HTMLDivElement {
   const copy = messages().mainMenu;
-  const target = backTarget(screen) ?? 'main';
   const head = document.createElement('div');
   head.className = 'main-menu__screen-head';
   const back = document.createElement('button');

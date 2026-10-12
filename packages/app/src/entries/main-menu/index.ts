@@ -164,6 +164,10 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
     lobbyMap = item;
     show('lobby');
   };
+  /** The catalogue opens from the main menu and from New Game; back and Esc return to that screen. */
+  let catalogueBack: MenuScreen = 'main';
+  const backOf = (current: MenuScreen): MenuScreen | null =>
+    current === 'catalogue' ? catalogueBack : backTarget(current);
   const screenFor = (next: MenuScreen): MountedScreen => {
     switch (next) {
       case 'main':
@@ -171,7 +175,7 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
       case 'newGame':
         return { element: mapSelectScreen(show, mapSelectMemory, openLobby, launch) };
       case 'catalogue':
-        return catalogueScreen(show, catalogueMemory, openLobby);
+        return catalogueScreen(show, catalogueBack, catalogueMemory, openLobby);
       case 'multiplayer':
         return networkScreen(show, launch, params, sound);
       case 'load':
@@ -189,6 +193,7 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
     if (launching) return;
     disposeScreen();
     disposeScreen = (): void => undefined;
+    if (next === 'catalogue') catalogueBack = screen === 'newGame' ? 'newGame' : 'main';
     screen = next;
     root.classList.toggle('is-sub', next !== 'main');
     const mounted = screenFor(next);
@@ -223,7 +228,7 @@ export async function renderMainMenu(canvas: HTMLCanvasElement, params: URLSearc
         field.value !== ''
       )
         return;
-      const target = backTarget(screen);
+      const target = backOf(screen);
       if (target !== null) show(target);
       return;
     }

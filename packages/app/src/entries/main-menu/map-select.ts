@@ -41,7 +41,12 @@ export function mapSelectScreen(
       } else openLobby(item);
     },
   });
-  tools.append(picker.tabs);
+  const catalogue = document.createElement('button');
+  catalogue.type = 'button';
+  catalogue.className = 'main-menu__ghost catalogue__open';
+  catalogue.textContent = messages().mapCatalogue.open;
+  catalogue.addEventListener('click', () => open('catalogue'));
+  tools.append(catalogue, picker.tabs);
   head.append(tools);
   section.append(head, picker.body);
   return section;

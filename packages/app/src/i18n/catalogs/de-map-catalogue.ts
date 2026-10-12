@@ -5,7 +5,7 @@ export const deMapCatalogue = {
     file: 'Aus Datei laden',
     folder: 'Ordner laden',
     hint: 'ZIP, RAR, C2M oder Ordner. Du kannst sie auch hierher ziehen.',
-    drop: 'Karte hier ablegen',
+    drop: 'Datei hierher ziehen',
     cancel: 'Abbrechen',
     reading: 'Dateien werden gelesen…',
     unpacking: 'Wird entpackt…',

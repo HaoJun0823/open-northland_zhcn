@@ -6,7 +6,7 @@ export const enMapCatalogue = {
     file: 'Load from file',
     folder: 'Load folder',
     hint: 'ZIP, RAR, C2M or a folder. You can also drop them here.',
-    drop: 'Drop your map here',
+    drop: 'Drag a file here',
     cancel: 'Cancel',
     reading: 'Reading files…',
     unpacking: 'Unpacking…',

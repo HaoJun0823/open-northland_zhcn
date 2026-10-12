@@ -5,7 +5,7 @@ export const plMapCatalogue = {
     file: 'Wczytaj z pliku',
     folder: 'Wczytaj folder',
     hint: 'ZIP, RAR, C2M lub folder. Możesz też przeciągnąć je tutaj.',
-    drop: 'Upuść mapę tutaj',
+    drop: 'Przeciągnij plik',
     cancel: 'Anuluj',
     reading: 'Odczytywanie plików…',
     unpacking: 'Rozpakowywanie…',

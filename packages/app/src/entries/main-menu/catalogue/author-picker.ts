@@ -3,7 +3,8 @@ import { FIELD_KEYS_ATTRIBUTE } from '../../../hud/hotkeys.js';
 import { compareLabels, formatMessage, messages } from '../../../i18n/index.js';
 import { node } from '../dom.js';
 import { formatCount } from './card.js';
-import { type AuthorCount, authorListing, foldText } from './query.js';
+import { foldText } from './fold.js';
+import { type AuthorCount, authorListing } from './query.js';
 
 /** Viewport px between the pill and its popover, and the popover and the window edge. */
 const POPOVER_GAP_PX = 4;

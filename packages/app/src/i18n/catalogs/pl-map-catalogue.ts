@@ -38,9 +38,7 @@ export const plMapCatalogue = {
   playerBucketPlus: '{min}+',
   anyLanguage: 'Dowolny język',
   languageNames: { pol: 'Polski', eng: 'Angielski', ger: 'Niemiecki', rus: 'Rosyjski' },
-  sizes: { any: 'Dowolna wielkość', small: 'Mała', medium: 'Średnia', large: 'Duża' },
-  sizeUpTo: 'do {side}×{side}',
-  sizeOver: 'ponad {side}×{side}',
+  sizes: { any: 'Dowolna wielkość', small: 'Mała', medium: 'Średnia', large: 'Duża', huge: 'Bardzo duża' },
   downloadModes: {
     any: 'Wszystkie mapy',
     auto: 'Automatycznie (w grze)',

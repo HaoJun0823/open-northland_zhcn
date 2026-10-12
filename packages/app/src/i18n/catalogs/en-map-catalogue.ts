@@ -40,9 +40,7 @@ export const enMapCatalogue = {
   playerBucketPlus: '{min}+',
   anyLanguage: 'Any language',
   languageNames: { pol: 'Polish', eng: 'English', ger: 'German', rus: 'Russian' },
-  sizes: { any: 'Any size', small: 'Small', medium: 'Medium', large: 'Large' },
-  sizeUpTo: 'up to {side}×{side}',
-  sizeOver: 'over {side}×{side}',
+  sizes: { any: 'Any size', small: 'Small', medium: 'Medium', large: 'Large', huge: 'Very large' },
   downloadModes: {
     any: 'All maps',
     auto: 'Automatic (in game)',

@@ -38,9 +38,13 @@ export const ruMapCatalogue = {
   playerBucketPlus: '{min}+',
   anyLanguage: 'Любой язык',
   languageNames: { pol: 'Польский', eng: 'Английский', ger: 'Немецкий', rus: 'Русский' },
-  sizes: { any: 'Любой размер', small: 'Маленькая', medium: 'Средняя', large: 'Большая' },
-  sizeUpTo: 'до {side}×{side}',
-  sizeOver: 'больше {side}×{side}',
+  sizes: {
+    any: 'Любой размер',
+    small: 'Маленькая',
+    medium: 'Средняя',
+    large: 'Большая',
+    huge: 'Очень большая',
+  },
   downloadModes: {
     any: 'Все карты',
     auto: 'Автоматически (в игре)',

@@ -24,6 +24,7 @@ import {
   catalogueRows,
   type InstalledGroup,
   installedGroups,
+  NO_SHIPPED_MAPS,
   type ShippedMaps,
   shippedMaps,
 } from './model.js';
@@ -82,7 +83,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   let entries: readonly CatalogEntry[] | null = null;
   let failure: unknown = null;
   let installed: readonly InstalledMapRecord[] = [];
-  let shipped: ShippedMaps = new Map();
+  let shipped: ShippedMaps = NO_SHIPPED_MAPS;
   let rows: readonly CatalogueRow[] = [];
   /** Download progress per entry id, as a fraction. */
   const downloads = new Map<string, number>();

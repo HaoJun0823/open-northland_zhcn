@@ -151,8 +151,10 @@ export function catalogueDetail(
     fact(facts, details.fileSize, bytes === undefined ? details.unknown : formatBytes(bytes, bcp47Tag()));
     fact(facts, details.category, entry.categoryLabel === '' ? kindText(entry) : entry.categoryLabel);
     if (row.shipped !== null) {
-      const version = row.shipped.sameVersion ? details.sameVersion : details.otherVersion;
-      fact(facts, details.inGame, `${mapItem(row.shipped.index).title} (${version})`);
+      const { index, sameVersion } = row.shipped;
+      const version =
+        sameVersion === null ? '' : ` (${sameVersion ? details.sameVersion : details.otherVersion})`;
+      fact(facts, details.inGame, `${mapItem(index).title}${version}`);
     }
   };
 

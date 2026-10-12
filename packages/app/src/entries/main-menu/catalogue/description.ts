@@ -1,5 +1,5 @@
 import { node } from '../dom.js';
-import { foldText } from './query.js';
+import { foldText } from './fold.js';
 
 function plain<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);

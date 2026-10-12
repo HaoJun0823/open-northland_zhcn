@@ -10,13 +10,7 @@ import { segControl } from '../../../view/settings-controls.js';
 import { node } from '../dom.js';
 import { authorPicker } from './author-picker.js';
 import { formatCount, LANGUAGE_CODES } from './card.js';
-import {
-  type CatalogueRow,
-  MAP_SIZES,
-  type MapSize,
-  MEDIUM_MAP_MAX_SIDE,
-  SMALL_MAP_MAX_SIDE,
-} from './model.js';
+import { type CatalogueRow, MAP_SIZES, type MapSize } from './model.js';
 import {
   authorCounts,
   CATALOGUE_SORTS,
@@ -52,18 +46,6 @@ function bucketLabel(bucket: PlayerBucket): string {
   if (bucket.max === Number.POSITIVE_INFINITY)
     return formatMessage(messages().mapCatalogue.playerBucketPlus, { min: bucket.min });
   return bucket.min === bucket.max ? String(bucket.min) : `${bucket.min}-${bucket.max}`;
-}
-
-function sizeEdge(size: MapSize): string {
-  const text = messages().mapCatalogue;
-  switch (size) {
-    case 'small':
-      return formatMessage(text.sizeUpTo, { side: SMALL_MAP_MAX_SIDE });
-    case 'medium':
-      return formatMessage(text.sizeUpTo, { side: MEDIUM_MAP_MAX_SIDE });
-    case 'large':
-      return formatMessage(text.sizeOver, { side: MEDIUM_MAP_MAX_SIDE });
-  }
 }
 
 interface Pill<T extends string> {
@@ -185,12 +167,7 @@ export function catalogueFilters(
     { id: ANY, label: text.sizes.any },
     ...MAP_SIZES.map((id) => {
       const detail = count(counts?.sizes, id);
-      return {
-        id,
-        label: `${text.sizes[id]} · ${sizeEdge(id)}`,
-        short: text.sizes[id],
-        ...(detail === undefined ? {} : { detail }),
-      };
+      return { id, label: text.sizes[id], ...(detail === undefined ? {} : { detail }) };
     }),
   ];
   const downloadEntries = (): DropdownChoice<Exclude<DownloadMode, 'any'> | Any>[] =>

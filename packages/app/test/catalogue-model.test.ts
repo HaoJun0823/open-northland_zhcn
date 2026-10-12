@@ -2,12 +2,14 @@ import type { CatalogConvertedMap, CatalogEntry, MapsIndexPlayerSlot } from '@op
 import { describe, expect, it } from 'vitest';
 import { INSTALLED_MAP_RECORD_VERSION, type InstalledMapRecord } from '../src/content/map-source/index.js';
 import { languageCodes } from '../src/entries/main-menu/catalogue/card.js';
+import { foldText, titleKey } from '../src/entries/main-menu/catalogue/fold.js';
 import {
   type CatalogueRow,
   canDownload,
   catalogueRow,
   catalogueRows,
   installedGroups,
+  LARGE_MAP_MAX_CELLS,
   MEDIUM_MAP_MAX_CELLS,
   mainCatalogMap,
   mapSize,
@@ -20,7 +22,6 @@ import {
   type CatalogueQuery,
   DEFAULT_CATALOGUE_QUERY,
   facetCounts,
-  foldText,
   formatBytes,
   hasActiveFilters,
   PROLIFIC_AUTHOR_MIN_MAPS,
@@ -193,6 +194,11 @@ describe('catalogue rows', () => {
     expect(mapSize({ width: side(MEDIUM_MAP_MAX_CELLS) + 1, height: side(MEDIUM_MAP_MAX_CELLS) })).toBe(
       'large',
     );
+    expect(mapSize({ width: side(LARGE_MAP_MAX_CELLS), height: side(LARGE_MAP_MAX_CELLS) })).toBe('large');
+    expect(mapSize({ width: side(LARGE_MAP_MAX_CELLS) + 1, height: side(LARGE_MAP_MAX_CELLS) })).toBe('huge');
+    // Sized by area: a long map is not huge for its long side alone.
+    expect(mapSize({ width: 500, height: 150 })).toBe('huge');
+    expect(mapSize({ width: 250, height: 80 })).toBe('small');
   });
 
   it('groups installed maps by entry, the newest install first, with the catalogue row when listed', () => {
@@ -252,6 +258,22 @@ describe('catalogue rows against the shipped maps', () => {
     expect(partly.shipped).toMatchObject({ index: { id: 'glowna' }, sameVersion: true });
     const whole = row(fromFolders('cn-two', ['wyspa', 'glowna']));
     expect(whole.status).toBe('inGame');
+  });
+
+  it('plays an entry without a converted copy from the shipped map that carries its title', () => {
+    const external = catalogEntry('cn-wyspa', [], {
+      title: 'Wyspa',
+      file: { kind: 'external', url: 'https://example.test/wyspa' },
+      conversion: undefined,
+    });
+    const found = row(external);
+    expect(found.status).toBe('inGame');
+    expect(found.playableMapId).toBe('wyspa');
+    expect(found.mainIndex?.id).toBe('wyspa');
+    expect(found.shipped).toEqual({ index: expect.objectContaining({ id: 'wyspa' }), sameVersion: null });
+    expect(row({ ...external, title: 'Wyspa 2' }).status).toBe('external');
+    // A converted copy matches by folder only; its title alone does not make it the shipped map.
+    expect(row(fromFolders('cn-wyspa', ['inna'])).status).toBe('available');
   });
 
   it('keeps the states of an installed copy and of a map the game does not ship', () => {
@@ -344,10 +366,10 @@ describe('catalogue query', () => {
   const run = (patch: Partial<CatalogueQuery>, among: readonly CatalogueRow[] = rows) =>
     ids(queryRows(among, { ...DEFAULT_CATALOGUE_QUERY, ...patch }, compare));
 
-  it('orders by each sort, the most liked first by default', () => {
+  it('orders by each sort, the most downloaded first by default', () => {
     const playable = rows.slice(0, 3);
-    expect(run({}, playable)).toEqual(['cn-dolina', 'cn-burza', 'cn-atak']);
-    expect(run({ sort: 'downloaded' }, playable)).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
+    expect(run({}, playable)).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
+    expect(run({ sort: 'liked' }, playable)).toEqual(['cn-dolina', 'cn-burza', 'cn-atak']);
     expect(run({ sort: 'newest' }, playable)).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
     expect(run({ sort: 'updated' }, playable)).toEqual(['cn-burza', 'cn-atak', 'cn-dolina']);
     expect(run({ sort: 'title' }, playable)).toEqual(['cn-atak', 'cn-burza', 'cn-dolina']);
@@ -383,10 +405,11 @@ describe('catalogue query', () => {
     expect(run({ kind: 'campaign' })).toEqual(['cn-atak']);
     expect(run({ seriesOnly: true })).toEqual(['cn-dolina']);
     expect(run({ players: '4' })).toEqual(['cn-burza']);
-    expect(run({ language: 'pol' })).toEqual(['cn-burza', 'cn-atak']);
+    expect(run({ language: 'pol' })).toEqual(['cn-atak', 'cn-burza']);
     expect(run({ size: 'small' })).toEqual(['cn-dolina']);
     expect(run({ size: 'medium' })).toEqual(['cn-atak']);
     expect(run({ size: 'large' })).toEqual(['cn-burza']);
+    expect(run({ size: 'huge' })).toEqual([]);
     expect(run({ author: 'Żółw' })).toEqual(['cn-burza']);
     expect(run({ author: 'zolw' })).toEqual(['cn-burza']);
     expect(run({ author: 'Żół' })).toEqual([]);
@@ -423,6 +446,7 @@ describe('catalogue query', () => {
     expect(run({ text: 'twierdzy' })).toEqual(['cn-atak']);
     expect(run({ text: 'twierdzy burza' })).toEqual([]);
     expect(foldText('Łódź Żółw')).toBe('lodz zolw');
+    expect(titleKey('PDP : 01 WRÓG NA NASZEJ ZIEMI')).toBe(titleKey('PDP 01: Wróg na naszej ziemi'));
   });
 
   it('counts only filters as active, not the search or the sort', () => {

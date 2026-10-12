@@ -7,6 +7,7 @@ import {
   type MapTextLanguage,
 } from '@open-northland/data';
 import { convertedMaps, type InstalledMapRecord } from '../../../content/map-source/index.js';
+import { titleKey } from './fold.js';
 
 /**
  * What a player can do with an entry:
@@ -36,20 +37,25 @@ export type CatalogueStatus =
   | 'inGame'
   | 'inGameChanged';
 
-export type MapSize = 'small' | 'medium' | 'large';
-export const MAP_SIZES: readonly MapSize[] = ['small', 'medium', 'large'];
+export type MapSize = 'small' | 'medium' | 'large' | 'huge';
+export const MAP_SIZES: readonly MapSize[] = ['small', 'medium', 'large', 'huge'];
 
-/** The sides of the largest square small and medium maps, in cells. The shipped maps run from 50x50
- *  to 500x500, most of them 250x250; these edges split the catalogue's maps about 30/27/43. */
+/** The sides of the largest square small, medium and large maps, in cells. A map is sized by its
+ *  area, so a long 250x80 map counts as small. The catalogue's maps run from 50x50 to 500x500, a
+ *  third of them 250x250; these edges split them about 22/27/47/4. */
 export const SMALL_MAP_MAX_SIDE = 150;
 export const MEDIUM_MAP_MAX_SIDE = 200;
-/** The largest cell areas a small and a medium map have. */
+export const LARGE_MAP_MAX_SIDE = 250;
+/** The largest cell areas a small, a medium and a large map have. */
 export const SMALL_MAP_MAX_CELLS = SMALL_MAP_MAX_SIDE * SMALL_MAP_MAX_SIDE;
 export const MEDIUM_MAP_MAX_CELLS = MEDIUM_MAP_MAX_SIDE * MEDIUM_MAP_MAX_SIDE;
+export const LARGE_MAP_MAX_CELLS = LARGE_MAP_MAX_SIDE * LARGE_MAP_MAX_SIDE;
 
 export function mapSize(cells: CatalogConvertedMap['cells']): MapSize {
   const area = cells.width * cells.height;
-  return area <= SMALL_MAP_MAX_CELLS ? 'small' : area <= MEDIUM_MAP_MAX_CELLS ? 'medium' : 'large';
+  if (area <= SMALL_MAP_MAX_CELLS) return 'small';
+  if (area <= MEDIUM_MAP_MAX_CELLS) return 'medium';
+  return area <= LARGE_MAP_MAX_CELLS ? 'large' : 'huge';
 }
 
 export interface CatalogueRow {
@@ -77,22 +83,41 @@ export interface CatalogueRow {
   readonly shipped: ShippedMatch | null;
 }
 
-/** A converted catalogue map the game already ships under its archive folder name. */
+/** A catalogue map the game already ships: a converted one under its archive folder name, or an
+ *  entry without a converted copy under one of the shipped map's titles. */
 export interface ShippedMatch {
   readonly index: MapsIndexEntry;
-  /** The two copies have the same terrain and script documents. */
-  readonly sameVersion: boolean;
+  /** The two copies have the same terrain and script documents; null for a title match, where the
+   *  catalogue holds no converted copy to compare. */
+  readonly sameVersion: boolean | null;
 }
 
-/** The shipped listing rows by lower-cased id, the key a catalogue map's `folder` meets. */
-export type ShippedMaps = ReadonlyMap<string, MapsIndexEntry>;
+/** The shipped listing rows by lower-cased id, the key a catalogue map's `folder` meets, and by the
+ *  `titleKey` of each of their names. */
+export interface ShippedMaps {
+  readonly byFolder: ReadonlyMap<string, MapsIndexEntry>;
+  readonly byTitle: ReadonlyMap<string, MapsIndexEntry>;
+}
+
+export const NO_SHIPPED_MAPS: ShippedMaps = { byFolder: new Map(), byTitle: new Map() };
 
 export function shippedMaps(entries: readonly MapsIndexEntry[]): ShippedMaps {
-  return new Map(entries.map((entry) => [entry.id.toLowerCase(), entry]));
+  const byTitle = new Map<string, MapsIndexEntry>();
+  // A pack's main map claims a title before its campaign sub maps, which may share it.
+  const mainFirst = [...entries].sort(
+    (a, b) => Number(a.campaign !== undefined) - Number(b.campaign !== undefined),
+  );
+  for (const entry of mainFirst) {
+    for (const name of Object.values(entry.name ?? {})) {
+      const key = titleKey(name);
+      if (key !== '' && !byTitle.has(key)) byTitle.set(key, entry);
+    }
+  }
+  return { byFolder: new Map(entries.map((entry) => [entry.id.toLowerCase(), entry])), byTitle };
 }
 
 function shippedMatch(map: CatalogConvertedMap, shipped: ShippedMaps): ShippedMatch | null {
-  const index = shipped.get(map.folder.toLowerCase());
+  const index = shipped.byFolder.get(map.folder.toLowerCase());
   return index === undefined ? null : { index, sameVersion: index.fingerprint === map.fingerprint };
 }
 
@@ -153,7 +178,7 @@ export function catalogueRow(
   entry: CatalogEntry,
   installed: readonly InstalledMapRecord[],
   irVersion: number,
-  shipped: ShippedMaps = new Map(),
+  shipped: ShippedMaps = NO_SHIPPED_MAPS,
 ): CatalogueRow {
   const maps = convertedMaps(entry);
   const current = installed.filter((record) => record.entryId === entry.id && record.irVersion === irVersion);
@@ -190,6 +215,21 @@ export function catalogueRow(
   if (installedElsewhere && served === 'available') {
     return { ...base, status: 'redownload', playableMapId: null, playableIndex: null };
   }
+  // An entry the server holds no converted copy of (a file on another site, one unpacked by hand, a
+  // failed one) is the shipped map that carries its title; nothing compares their versions.
+  if (maps.length === 0) {
+    const index = shipped.byTitle.get(titleKey(entry.title));
+    if (index !== undefined)
+      return {
+        ...base,
+        mainIndex: index,
+        playerCounts: [playerCount(index)].filter((count) => count > 0),
+        status: 'inGame',
+        shipped: { index, sameVersion: null },
+        playableMapId: index.id,
+        playableIndex: index,
+      };
+  }
   // Fingerprints compare only within one content version, which `available` guarantees.
   const inGame = served === 'available' ? shippedState(maps, serverMain, shipped) : null;
   if (inGame?.status === 'inGame') {
@@ -210,7 +250,7 @@ export function catalogueRows(
   entries: readonly CatalogEntry[],
   installed: readonly InstalledMapRecord[],
   irVersion: number,
-  shipped: ShippedMaps = new Map(),
+  shipped: ShippedMaps = NO_SHIPPED_MAPS,
 ): readonly CatalogueRow[] {
   return entries
     .filter((entry) => !isMapless(entry))

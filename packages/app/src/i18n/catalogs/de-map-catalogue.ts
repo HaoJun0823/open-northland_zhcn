@@ -38,9 +38,7 @@ export const deMapCatalogue = {
   playerBucketPlus: '{min}+',
   anyLanguage: 'Jede Sprache',
   languageNames: { pol: 'Polnisch', eng: 'Englisch', ger: 'Deutsch', rus: 'Russisch' },
-  sizes: { any: 'Jede Größe', small: 'Klein', medium: 'Mittel', large: 'Groß' },
-  sizeUpTo: 'bis {side}×{side}',
-  sizeOver: 'über {side}×{side}',
+  sizes: { any: 'Jede Größe', small: 'Klein', medium: 'Mittel', large: 'Groß', huge: 'Sehr groß' },
   downloadModes: {
     any: 'Alle Karten',
     auto: 'Automatisch (im Spiel)',

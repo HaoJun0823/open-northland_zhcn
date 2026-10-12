@@ -1,10 +1,11 @@
 import { MAP_TEXT_LANGUAGES, type MapTextLanguage } from '@open-northland/data';
+import { foldText } from './fold.js';
 import { type CatalogueRow, isManualDownload, MAP_SIZES, type MapSize } from './model.js';
 
 export type CatalogueSort = 'liked' | 'downloaded' | 'newest' | 'updated' | 'title' | 'author';
 export const CATALOGUE_SORTS: readonly CatalogueSort[] = [
-  'liked',
   'downloaded',
+  'liked',
   'newest',
   'updated',
   'title',
@@ -56,7 +57,7 @@ export interface CatalogueQuery {
 
 export const DEFAULT_CATALOGUE_QUERY: CatalogueQuery = {
   text: '',
-  sort: 'liked',
+  sort: 'downloaded',
   kind: 'all',
   seriesOnly: false,
   players: null,
@@ -72,11 +73,6 @@ export function hasActiveFilters(query: CatalogueQuery): boolean {
   const { text: _text, sort: _sort, ...filters } = query;
   const { text: _defaultText, sort: _defaultSort, ...defaults } = DEFAULT_CATALOGUE_QUERY;
   return (Object.keys(filters) as (keyof typeof filters)[]).some((key) => filters[key] !== defaults[key]);
-}
-
-/** Lower case without diacritics, so "zolw" finds "Żółw". `ł` has no decomposition of its own. */
-export function foldText(text: string): string {
-  return text.normalize('NFD').replace(/\p{M}/gu, '').replace(/ł/g, 'l').replace(/Ł/g, 'l').toLowerCase();
 }
 
 function matchesText(row: CatalogueRow, words: readonly string[]): boolean {

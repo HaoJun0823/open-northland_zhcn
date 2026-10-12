@@ -211,6 +211,8 @@ describe('orderNeed - answering a need on command', () => {
     sim.enqueueSetup({ kind: 'orderNeed', entity: settler, need: 'piety' });
     sim.step();
 
+    for (let i = 0; i < 80 && !sim.world.has(settler, CurrentAtomic); i++) sim.step();
+
     const atomic = sim.world.get(settler, CurrentAtomic);
     expect(atomic.atomicId).toBe(PRAY_ATOMIC);
     expect(atomic.effect).toEqual({ kind: 'pray' });

@@ -5,6 +5,7 @@ import {
   CurrentAtomic,
   HomeQuality,
   MoveGoal,
+  NeedOrder,
   PathFollow,
   PathRequest,
   PlayerOrder,
@@ -240,8 +241,10 @@ describe('home errands during an entrance-changing upgrade', () => {
     );
   });
 
-  it('retargets the home prayer route through the same entrance', () => {
+  it('finds an exterior prayer stand after the home entrance changes', () => {
     const { sim, home, resident, terrain } = scenario();
+    setNeeds(sim, resident, { fatigue: ZERO, hunger: ZERO, piety: ONE });
+    sim.world.add(resident, NeedOrder, { need: 'piety' });
     sim.world.add(home, HomeQuality, { cooking: 0, rest: 0, piety: 1000 });
     expect(
       prayAtHome(
@@ -255,10 +258,18 @@ describe('home errands during an entrance-changing upgrade', () => {
         PlannerSpacing.forTick(sim.world, ctxOf(sim), terrain),
       ),
     ).toBe(true);
+    expect(sim.world.get(resident, MoveGoal).cell).toBe(terrain.nodeAt(87, 20));
     finish(sim, home);
-    expect(sim.world.get(resident, MoveGoal).cell).toBe(
-      interactionCell(sim.world, ctxOf(sim), terrain, home),
-    );
+    for (let i = 0; i < 1000 && sim.world.tryGet(resident, CurrentAtomic)?.effect.kind !== 'pray'; i++) {
+      sim.step();
+      expect(sim.world.has(resident, Stranded)).toBe(false);
+    }
+    expect(sim.world.get(resident, CurrentAtomic)).toMatchObject({
+      effect: { kind: 'pray' },
+      targetEntity: home,
+    });
+    expect(sim.world.get(resident, Position)).toEqual(positionOfNode(93, 20));
+    expect(sim.world.has(resident, Resting)).toBe(false);
   });
 });
 

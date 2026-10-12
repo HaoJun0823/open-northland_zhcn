@@ -14,7 +14,7 @@ import {
   UnderConstruction,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { type Fixed, fx, ONE, Simulation } from '../../src/index.js';
+import { type Fixed, fx, ONE, positionOfNode, Simulation } from '../../src/index.js';
 import { setHouseholdGoodUse } from '../../src/systems/family/home-quality.js';
 import {
   atomicSystem,
@@ -88,6 +88,15 @@ function templeAt(sim: Simulation, x: number, y: number, buildingType = TEMPLE_T
   return e;
 }
 
+// The anchor-only fixtures use a south-west stand, one hex off the building.
+function prayerNode(sim: Simulation, x: number) {
+  return sim.terrain?.nodeAt(2 * x - 1, 1);
+}
+
+function standBefore(sim: Simulation, settler: Entity, x: number): void {
+  Object.assign(sim.world.mut(settler, Position), positionOfNode(2 * x - 1, 1));
+}
+
 describe('prayDrive - the planner choosing to pray (target-bound: walk to a temple)', () => {
   it('automatically seeks prayer for a consuming trade without the authored religion flag', () => {
     const base = testContent();
@@ -115,13 +124,13 @@ describe('prayDrive - the planner choosing to pray (target-bound: walk to a temp
     const settler = settlerAt(sim, 0, 0, DEVOUT);
     templeAt(sim, 4, 0);
     plannerSystem(sim.world, ctxOf(sim));
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 4, 0));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(prayerNode(sim, 4));
   });
 
   it('walks to the nearest temple when piety crosses the threshold (no atomic yet - must arrive)', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(6, 1) });
     const settler = settlerAt(sim, 0, 0, DEVOUT);
-    const temple = templeAt(sim, 4, 0);
+    templeAt(sim, 4, 0);
     // A tree to harvest exists, but the devout settler heads for the temple instead.
     treeAt(sim, 2, 0);
 
@@ -129,17 +138,15 @@ describe('prayDrive - the planner choosing to pray (target-bound: walk to a temp
 
     // Not on the temple yet: a MoveGoal to it, no atomic started.
     expect(sim.world.has(settler, CurrentAtomic)).toBe(false);
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 4, 0));
-    // Temple is at (4,0); confirm the goal is the temple's cell, not the tree's.
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(
-      cellOf(sim, fx.toInt(sim.world.get(temple, Position).x), 0),
-    );
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(prayerNode(sim, 4));
+    expect(sim.world.get(settler, MoveGoal).cell).not.toBe(cellOf(sim, 2, 0));
   });
 
-  it('starts a pray atomic (duration from content) once standing on the temple', () => {
+  it('starts a pray atomic (duration from content) once standing one hex before the temple', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(5, 1) });
     const settler = settlerAt(sim, 3, 0, DEVOUT);
-    templeAt(sim, 3, 0); // settler is already on the temple cell
+    templeAt(sim, 3, 0);
+    standBefore(sim, settler, 3);
 
     plannerSystem(sim.world, ctxOf(sim));
 
@@ -336,12 +343,51 @@ function litHomeAt(sim: Simulation, x: number): Entity {
 }
 
 describe('where a devout settler prays: its holy fire, then a temple, then the headquarters', () => {
+  it.each([
+    [-3, 3, 7, 14],
+    [3, 3, 14, 14],
+    [-3, 0, 6, 10],
+    [3, 0, 14, 10],
+  ])('backs one hex away from an entrance at (%i, %i)', (dx, dy, x, y) => {
+    const base = testContent();
+    const content = parseContentSet({
+      ...base,
+      buildings: base.buildings.map((type) =>
+        type.typeId === TEMPLE_TYPE
+          ? { ...type, footprint: { blocked: [{ dx: 0, dy: 0 }], door: { dx, dy } } }
+          : type,
+      ),
+    });
+    const sim = new Simulation({ seed: 1, content, map: grassMap(12, 12) });
+    const temple = templeAt(sim, 5, 5);
+    Object.assign(sim.world.mut(temple, Position), positionOfNode(10, 10));
+    const settler = devoutAt(sim, 1);
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('missing terrain');
+    const spacing = PlannerSpacing.forTick(sim.world, ctxOf(sim), terrain);
+    const stand = prayerStand(
+      sim.world,
+      ctxOf(sim),
+      terrain,
+      settler,
+      temple,
+      terrain.nodeAt(2, 0),
+      spacing,
+      null,
+    );
+    expect(stand).toBe(terrain.nodeAt(x, y));
+    expect(
+      prayerStand(sim.world, ctxOf(sim), terrain, settler, temple, terrain.nodeAt(x, y), spacing, null),
+    ).toBe(stand);
+  });
+
   it.each(['extinguished', 'destroyed', 'upgrading'] as const)(
     'ends prayer at an %s home before another religion pulse',
     (change) => {
       const sim = new Simulation({ seed: 1, content: oilContent(), map: grassMap(8, 1) });
       const home = litHomeAt(sim, 4);
       const settler = devoutAt(sim, 4, home);
+      standBefore(sim, settler, 4);
       plannerSystem(sim.world, ctxOf(sim));
       expect(sim.world.get(settler, CurrentAtomic).effect.kind).toBe('pray');
       const before = needsOf(sim, settler).piety;
@@ -371,7 +417,7 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
       ctxOf(sim),
       terrain,
       new NodeBuckets(sim.world, [first, second]),
-      new Set([door]),
+      new Set([door, terrain.nodeAt(7, 1)]),
     );
     const firstStand = prayerStand(sim.world, ctxOf(sim), terrain, first, temple, firstCell, spacing, null);
     expect(firstStand).not.toBeNull();
@@ -403,13 +449,14 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 6, 0));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(prayerNode(sim, 6));
   });
 
-  it('prays outside at its own door without entering the home', () => {
+  it('prays one hex before its own door without entering the home', () => {
     const sim = new Simulation({ seed: 1, content: oilContent(), map: grassMap(8, 1) });
     const home = litHomeAt(sim, 4);
     const settler = devoutAt(sim, 4, home);
+    standBefore(sim, settler, 4);
 
     plannerSystem(sim.world, ctxOf(sim));
 
@@ -442,22 +489,22 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
       jobs: base.jobs.map((job) => (job.typeId === SMITH ? { ...job, ignoresHomeHouse: true } : job)),
     });
     const sim = new Simulation({ seed: 1, content, map: grassMap(8, 1) });
-    ownedAt(sim, 3, TEMPLE_TYPE);
+    const temple = ownedAt(sim, 3, TEMPLE_TYPE);
     const settler = devoutAt(sim, 2, litHomeAt(sim, 6));
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 3, 0));
+    expect(sim.world.get(settler, CurrentAtomic).targetEntity).toBe(temple);
   });
 
   it('goes to the temple when its home fire is out', () => {
     const sim = new Simulation({ seed: 1, content: oilContent(), map: grassMap(8, 1) });
-    ownedAt(sim, 3, TEMPLE_TYPE);
+    const temple = ownedAt(sim, 3, TEMPLE_TYPE);
     const settler = devoutAt(sim, 2, ownedAt(sim, 6, HOME_TYPE));
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 3, 0));
+    expect(sim.world.get(settler, CurrentAtomic).targetEntity).toBe(temple);
   });
 
   it('keeps praying at its lit home when oil deliveries are forbidden', () => {
@@ -468,7 +515,7 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 6, 0));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(prayerNode(sim, 6));
   });
 
   it('prays at its own headquarters when it has no temple, not at a rival one', () => {
@@ -479,7 +526,7 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 6, 0));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(prayerNode(sim, 6));
   });
 
   it('prefers a temple to a nearer headquarters', () => {
@@ -490,7 +537,7 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 7, 0));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(prayerNode(sim, 7));
   });
 
   it('prays at a nearer headquarters when its nearest temple lies beyond the preferred range', () => {
@@ -503,7 +550,7 @@ describe('where a devout settler prays: its holy fire, then a temple, then the h
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 5, 0));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(prayerNode(sim, 5));
   });
 
   it('warns a human seat whose settler has nowhere to pray, and settles a computer seat one instead', () => {

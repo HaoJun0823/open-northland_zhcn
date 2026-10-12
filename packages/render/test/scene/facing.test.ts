@@ -3,6 +3,18 @@ import { buildScene, ONE } from '../../src/index.js';
 import { entity, FLAT_3x2, snapshotOf } from '../support/fixtures.js';
 
 describe('buildScene - settler facing derivation', () => {
+  it('turns a praying settler toward its site after approaching from the side', () => {
+    const worshipper = entity(1, 1, 1, {
+      Settler: { tribe: 1 },
+      WalkFacing: { direction: 7, target: 7 },
+      CurrentAtomic: { atomicId: 12, targetEntity: 2, targetTile: null },
+      AtomicClock: { pendingElapsed: 3 },
+    });
+    const site = entity(2, 2, 1, { Building: { buildingType: 3, built: ONE } });
+    const scene = buildScene(snapshotOf([worshipper, site]), FLAT_3x2);
+    expect(scene.find((d) => d.kind === 'settler' && d.ref === 1)?.facing).toBe(4);
+  });
+
   it('renders the intermediate sim turn heading, retaining it without a path', () => {
     const turning = entity(1, 1, 1, {
       Settler: { tribe: 0 },

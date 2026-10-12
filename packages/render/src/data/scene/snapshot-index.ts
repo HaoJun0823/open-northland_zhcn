@@ -38,6 +38,9 @@ const BUILD_ROAD_ATOMIC_ID = 41;
 /** The builder's wall action (`setatomic 7 42`), the same hammer clip aimed at a wall segment. */
 const BUILD_WALL_ATOMIC_ID = 42;
 
+/** Outdoor prayer faces its site after the walk to a stand. */
+const PRAY_ATOMIC_ID = 12;
+
 /** The original's dedicated well-pump and hive-pickup actions. */
 const UTILITY_DRAW_ATOMIC_IDS = [44, 45] as const;
 
@@ -75,6 +78,7 @@ const FISHING_ATOMIC_IDS = [36, 37, 38] as const;
  * is what the original does (`atomicanimations.ini` carries `startdirection` pins for a subset).
  */
 export const TARGET_FACING_ATOMIC_IDS: ReadonlySet<number> = new Set([
+  PRAY_ATOMIC_ID,
   BUILD_HOUSE_ATOMIC_ID,
   BUILD_ROAD_ATOMIC_ID,
   BUILD_WALL_ATOMIC_ID,

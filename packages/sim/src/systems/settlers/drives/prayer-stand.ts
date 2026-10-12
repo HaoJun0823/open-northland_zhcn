@@ -1,4 +1,6 @@
+import { Position } from '../../../components/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
+import { HEX_DIRECTIONS, hexHeadingBetween, nodeOfPosition, stepHex } from '../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
 import type { NavigationLimit } from '../../signposts/index.js';
@@ -7,7 +9,7 @@ import type { PlannerSpacing } from '../planner/spacing.js';
 import { interactionCell } from '../targets/index.js';
 import { isUnreachableGoal, unreachableGoals } from '../unreachable-goals.js';
 
-/** Authored outdoor placement: use the entrance or a free stand on the footprint perimeter.
+/** Authored outdoor placement: stand one hex back from the entrance or footprint perimeter.
  * Keep an arriving worshipper's stand stable; no original work-area coordinates are assumed. */
 export function prayerStand(
   world: World,
@@ -35,10 +37,25 @@ export function prayerStand(
     const { x, y } = terrain.coordsOf(cell);
     return spacing.occupancy.at(x, y).every((occupant) => occupant === entity);
   };
-  const door = interactionCell(world, ctx, terrain, site, here);
-  const perimeter = spacing.workCells(site);
+  const position = world.get(site, Position);
+  const anchor = nodeOfPosition(position.x, position.y);
+  const stepBack = (cell: NodeId): NodeId | null => {
+    const { x, y } = terrain.coordsOf(cell);
+    // An anchor-only site has no authored front; use the south-west side consistently.
+    const direction =
+      x === anchor.hx && y === anchor.hy
+        ? 'southWest'
+        : (HEX_DIRECTIONS[hexHeadingBetween(anchor.hx, anchor.hy, x, y)] ?? 'southWest');
+    const back = stepHex({ hx: x, hy: y }, direction);
+    return terrain.inBounds(back.hx, back.hy) ? terrain.nodeAt(back.hx, back.hy) : null;
+  };
+  const door = stepBack(interactionCell(world, ctx, terrain, site, here));
+  const perimeter = spacing.workCells(site).flatMap((cell) => {
+    const back = stepBack(cell);
+    return back === null ? [] : [back];
+  });
   if ((here === door || perimeter.includes(here)) && usable(here)) return here;
-  if (usable(door)) return door;
+  if (door !== null && usable(door)) return door;
   let nearest: NodeId | null = null;
   let distance = Number.POSITIVE_INFINITY;
   for (const cell of perimeter) {

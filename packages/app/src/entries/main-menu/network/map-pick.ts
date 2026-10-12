@@ -1,4 +1,7 @@
+import { installedMapStore } from '../../../content/map-source/store.js';
 import { messages } from '../../../i18n/index.js';
+import { desktopMaps } from '../../../view/desktop-bridge.js';
+import { localImportControls } from '../catalogue/local-import.js';
 import { type CatalogueView, catalogueView, initialCatalogueMemory } from '../catalogue/view.js';
 import { node } from '../dom.js';
 import { hasClaimableSeat } from '../lobby/roster-state.js';
@@ -39,8 +42,33 @@ export function roomMapPick(options: MapPickOptions) {
   let catalogue: CatalogueView | null = null;
   const openButton = node('button', 'main-menu__ghost catalogue__open', copy.mapCatalogue.open);
   openButton.type = 'button';
+  const importArea = node('div', 'network-menu__import');
+  const store = installedMapStore();
+  const imports =
+    store === null || desktopMaps() !== null
+      ? null
+      : localImportControls({
+          store,
+          target: element,
+          enabled: () => catalogue === null && !element.hidden,
+          onBusyChange: (busy) => {
+            openButton.disabled = busy;
+          },
+          manage: () => {
+            catalogueMemory.tab = 'installed';
+            openCatalogue();
+          },
+          changed: async (entryId) => {
+            picker.reload();
+            catalogueMemory.tab = 'installed';
+            catalogueMemory.selectedId = entryId;
+            if (!element.hidden) openCatalogue();
+          },
+        });
+  if (imports !== null) importArea.append(imports.root);
 
   function closeCatalogue(): void {
+    imports?.closeMenu();
     if (catalogue === null) return;
     catalogue.dispose();
     catalogue.tabs.remove();
@@ -49,12 +77,17 @@ export function roomMapPick(options: MapPickOptions) {
     catalogue = null;
     title.textContent = copy.network.chooseMap;
     openButton.hidden = false;
+    importArea.hidden = false;
+    if (imports !== null) imports.pickers.hidden = false;
     picker.body.hidden = false;
     picker.tabs.hidden = ROOM_TABS.length === 0;
     back.focus();
   }
   function openCatalogue(): void {
     if (catalogue !== null) return;
+    imports?.closeMenu();
+    importArea.hidden = true;
+    if (imports !== null) imports.pickers.hidden = true;
     catalogue = catalogueView({
       memory: catalogueMemory,
       purpose: 'choose',
@@ -77,15 +110,18 @@ export function roomMapPick(options: MapPickOptions) {
     options.onBack();
   });
   openButton.addEventListener('click', openCatalogue);
-  tools.append(openButton, picker.tabs);
+  tools.append(openButton);
+  if (imports !== null) tools.append(imports.pickers);
+  tools.append(picker.tabs);
   head.append(back, title, tools);
-  element.append(head, picker.body);
+  element.append(head, importArea, picker.body);
   return {
     element,
     select: picker.select,
     closeCatalogue,
     dispose(): void {
       catalogue?.dispose();
+      imports?.dispose();
     },
   };
 }

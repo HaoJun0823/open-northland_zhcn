@@ -34,6 +34,7 @@ type Any = typeof ANY;
 export interface CatalogueFilters {
   /** Row 1 (search, kind, sort) over row 2 (facet pills, toggle chips, reset). */
   readonly root: HTMLElement;
+  readonly trailing: HTMLElement;
   /** The rows the facet counts and the authors come from; counted here once, not per filter change. */
   setRows(rows: readonly CatalogueRow[]): void;
   /** Applies a change from outside the bar, such as the panel's author link, and repaints the bar. */
@@ -217,6 +218,8 @@ export function catalogueFilters(
     hideOwned,
     resetButton,
   );
+  const trailing = node('div', 'catalogue-toolbar__trailing');
+  facets.append(trailing);
   root.append(top, facets);
 
   function paint(): void {
@@ -236,6 +239,7 @@ export function catalogueFilters(
 
   return {
     root,
+    trailing,
     setRows(rows) {
       counts = facetCounts(rows);
       players.setEntries(playerEntries());

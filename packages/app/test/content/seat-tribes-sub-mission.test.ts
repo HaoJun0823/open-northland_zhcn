@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { MapScript, mapLobbySlots, TerrainMapFile } from '@open-northland/data';
 import { components, exportSaveGame, type SaveGame, type Simulation } from '@open-northland/sim';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ContentIr } from '../../src/content/ir/rows.js';
-import { loadMapScript, loadTerrainMap } from '../../src/content/map-loader.js';
-import { loadMapList } from '../../src/content/maps-index.js';
+import * as mapLoader from '../../src/content/map-loader.js';
+import * as mapIndex from '../../src/content/maps-index.js';
 import { mapSubMissionLoader } from '../../src/entries/map/sub-missions.js';
 import { buildMapWorldFromInputs } from '../../src/entries/map/world-inputs.js';
 import { sessionSeating } from '../../src/game/seat-tribes.js';
@@ -13,9 +13,6 @@ import { mapSession } from '../../src/game/session-url.js';
 import { worldTribes } from '../../src/game/world-tribes.js';
 import { TINY_FINGERPRINT } from '../support/catalog-maps.js';
 import { contentDir, hasRealIr, loadContentUnderTest, rawIrUnderTest } from './helpers.js';
-
-vi.mock('../../src/content/map-loader.js', () => ({ loadTerrainMap: vi.fn(), loadMapScript: vi.fn() }));
-vi.mock('../../src/content/maps-index.js', () => ({ loadMapList: vi.fn() }));
 
 /** The main map's script opens this sub-mission (`StartSubMission 0 59504`) and it ends back home. */
 const PARENT = 'wilczy_lad';
@@ -58,12 +55,13 @@ function seatSettlerTribes(sim: Simulation, player: number): ReadonlySet<number>
 }
 
 describe.runIf(hasRealIr())(`${PARENT} played as franks through its sub-mission`, () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
-    vi.mocked(loadMapList).mockResolvedValue([
+    vi.spyOn(mapIndex, 'loadMapList').mockResolvedValue([
       { id: CHILD, fingerprint: TINY_FINGERPRINT, picture: true, minimap: true, campaign: CHILD_CAMPAIGN },
     ]);
-    vi.mocked(loadTerrainMap).mockImplementation(async (id) => readMap(id).map);
-    vi.mocked(loadMapScript).mockImplementation(async (id) => readMap(id).script);
+    vi.spyOn(mapLoader, 'loadTerrainMap').mockImplementation(async (id) => readMap(id).map);
+    vi.spyOn(mapLoader, 'loadMapScript').mockImplementation(async (id) => readMap(id).script);
   });
 
   it('carries the chosen civilization into the sub-mission and back, heroes keeping their own', async () => {

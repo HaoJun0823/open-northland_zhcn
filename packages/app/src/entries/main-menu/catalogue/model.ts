@@ -6,6 +6,7 @@ import {
   type MapsIndexEntry,
   type MapTextLanguage,
 } from '@open-northland/data';
+import type { LocalSourceRecord } from '../../../content/local-import/source.js';
 import { convertedMaps, type InstalledMapRecord } from '../../../content/map-source/index.js';
 import { titleKey } from './fold.js';
 
@@ -281,6 +282,7 @@ export interface InstalledGroup {
   readonly entryId: string;
   readonly records: readonly InstalledMapRecord[];
   readonly row: CatalogueRow | null;
+  readonly source?: LocalSourceRecord;
   /** Bytes of every stored file of the entry. */
   readonly bytes: number;
   readonly installedAt: number;
@@ -290,6 +292,7 @@ export interface InstalledGroup {
 export function installedGroups(
   records: readonly InstalledMapRecord[],
   rows: readonly CatalogueRow[],
+  sources: readonly LocalSourceRecord[] = [],
 ): readonly InstalledGroup[] {
   const byEntry = new Map<string, InstalledMapRecord[]>();
   for (const record of records) {
@@ -297,14 +300,20 @@ export function installedGroups(
     if (group === undefined) byEntry.set(record.entryId, [record]);
     else group.push(record);
   }
+  for (const source of sources) if (!byEntry.has(source.entryId)) byEntry.set(source.entryId, []);
+  const sourceOf = new Map(sources.map((source) => [source.entryId, source]));
   const rowOf = new Map(rows.map((row) => [row.entry.id, row]));
   return [...byEntry]
-    .map(([entryId, own]) => ({
-      entryId,
-      records: own,
-      row: rowOf.get(entryId) ?? null,
-      bytes: own.reduce((sum, record) => sum + record.size, 0),
-      installedAt: Math.max(...own.map((record) => record.installedAt)),
-    }))
+    .map(([entryId, own]) => {
+      const source = sourceOf.get(entryId);
+      return {
+        entryId,
+        records: own,
+        row: rowOf.get(entryId) ?? null,
+        ...(source === undefined ? {} : { source }),
+        bytes: own.reduce((sum, record) => sum + record.size, sourceOf.get(entryId)?.size ?? 0),
+        installedAt: Math.max(0, ...own.map((record) => record.installedAt)),
+      };
+    })
     .sort((a, b) => b.installedAt - a.installedAt || (a.entryId < b.entryId ? -1 : 1));
 }

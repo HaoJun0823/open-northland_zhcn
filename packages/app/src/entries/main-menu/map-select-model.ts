@@ -102,7 +102,8 @@ export function mapSourceItem(
   lang: MapTextLanguage = currentLocale(),
 ): MapSelectItem {
   const item = mapItem(source.entry, lang);
-  if (source.catalog === undefined) return item;
+  if (source.catalog === undefined)
+    return source.pictureUrl === undefined ? item : { ...item, picture: true, pictureUrl: source.pictureUrl };
   const pictureUrl = source.pictureUrl ?? catalogEntryThumbnailUrl(api, source.catalog.entryId);
   return { ...item, picture: true, pictureUrl, minimap: false };
 }

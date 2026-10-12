@@ -83,7 +83,7 @@ describe('an installed map store', () => {
     expect([...stored.keys()].sort()).toEqual(['big.json', 'pack.json']);
     await store.remove('pack');
     expect((await store.list()).map((item) => item.mapId)).toEqual(['big']);
-    await expect(store.install('x', [install(record('y', 'y', 5, 1))])).rejects.toThrow(/mixes/);
+    await expect(store.install('x', [install(record('y', 'y', 5, 1))])).rejects.toThrow(/one entry/);
   });
 
   it('drops a record it cannot read with its files on the next install', async () => {

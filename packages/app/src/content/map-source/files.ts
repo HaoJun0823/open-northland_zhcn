@@ -9,7 +9,14 @@ export const MAP_FILE_SUFFIXES = [
   '.briefing.json',
   '.png',
 ] as const;
-export type MapFileSuffix = (typeof MAP_FILE_SUFFIXES)[number];
+export type MapFileSuffix = (typeof MAP_FILE_SUFFIXES)[number] | `.pictures-${string}.png`;
+const BRIEFING_PICTURE_SUFFIX = /^\.pictures-[0-9a-f]{16}\.png$/;
+export function isMapFileSuffix(value: unknown): value is MapFileSuffix {
+  return (
+    typeof value === 'string' &&
+    (MAP_FILE_SUFFIXES.some((suffix) => suffix === value) || BRIEFING_PICTURE_SUFFIX.test(value))
+  );
+}
 
 /** Where the app reads a map's files, whichever store actually holds them. */
 export const MAPS_PATH = '/maps/';
@@ -23,7 +30,7 @@ const JSON_TYPE = 'application/json';
 const PNG_TYPE = 'image/png';
 
 export function mapFileContentType(suffix: MapFileSuffix): string {
-  return suffix === PICTURE_SUFFIX ? PNG_TYPE : JSON_TYPE;
+  return suffix.endsWith(PICTURE_SUFFIX) ? PNG_TYPE : JSON_TYPE;
 }
 
 /** Reads one stored file of a map, or null when the map has none with that suffix. */
@@ -36,7 +43,9 @@ export type StoredMapFileReader = (suffix: MapFileSuffix) => Promise<Uint8Array 
 export function storedMapFetch(mapId: string, read: StoredMapFileReader): typeof fetch {
   return async (input) => {
     const path = typeof input === 'string' ? input : input instanceof URL ? input.pathname : input.url;
-    const suffix = MAP_FILE_SUFFIXES.find((candidate) => path === mapFilePath(mapId, candidate));
+    const prefix = `${MAPS_PATH}${mapId}`;
+    const candidate = path.startsWith(prefix) ? path.slice(prefix.length) : null;
+    const suffix = isMapFileSuffix(candidate) ? candidate : undefined;
     const bytes = suffix === undefined ? null : await read(suffix);
     if (suffix === undefined || bytes === null) return new Response(null, { status: 404 });
     // A copy owned by the response, so the stored buffer type never leaks into the body.

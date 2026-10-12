@@ -136,7 +136,11 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
       if (!locallyListed) {
         const installed = await (options.findSource ?? findMapSource)(mapId);
         if (disposed || generation !== active) return;
-        if (installed?.catalog !== undefined && !installed.stale) {
+        if (
+          installed !== null &&
+          (installed?.catalog !== undefined || installed?.local !== undefined) &&
+          !installed.stale
+        ) {
           origin = installed.entry.provenance;
           locallyListed = true;
         }

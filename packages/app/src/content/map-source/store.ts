@@ -1,13 +1,12 @@
-import { type DesktopMaps, desktopMaps } from '../../view/desktop-bridge.js';
-import { completed, openDb } from '../../view/runtime/save-load/idb.js';
-import { isMapId } from '../transfer/documents.js';
+import { desktopMaps } from '../../view/desktop-bridge.js';
+import { type LocalMapInput, localInputBytes } from '../local-import/input.js';
 import {
-  MAP_FILE_SUFFIXES,
-  type MapFileSuffix,
-  mapFileContentType,
-  mapFilePath,
-  storedMapFetch,
-} from './files.js';
+  type LocalSourceRecord,
+  localSourceRecord,
+  type RetainedLocalSource,
+} from '../local-import/source.js';
+import { isMapId } from '../transfer/documents.js';
+import { type MapFileSuffix, mapFileContentType, mapFilePath, storedMapFetch } from './files.js';
 import {
   type InstallableMap,
   type InstalledMapRecord,
@@ -15,19 +14,35 @@ import {
   MAX_INSTALLED_MAP_BYTES,
   retainedEntries,
 } from './installed.js';
+import { browserInstalledMapStorage, desktopInstalledMapStorage } from './storage.js';
+
+export { browserInstalledMapStorage, desktopInstalledMapStorage } from './storage.js';
+
+export interface SourceChanges {
+  readonly drop: readonly string[];
+  readonly put?: RetainedLocalSource;
+}
 
 /** The raw storage under an installed-map store: records, and the files where the store keeps them. */
 export interface InstalledMapStorage {
   records(): Promise<readonly unknown[]>;
+  readSource(entryId: string): Promise<LocalMapInput | null>;
   readFile(mapId: string, suffix: MapFileSuffix): Promise<Uint8Array | null>;
   /** Drops the named maps' records and files, then stores the new maps, as one step where it can. */
-  commit(drop: readonly string[], put: readonly InstallableMap[]): Promise<void>;
+  commit(drop: readonly string[], put: readonly InstallableMap[], sources: SourceChanges): Promise<void>;
 }
 
 export interface InstalledMapStore {
   list(): Promise<readonly InstalledMapRecord[]>;
-  /** Stores one catalogue entry's maps, replacing that entry's earlier install. */
-  install(entryId: string, maps: readonly InstallableMap[]): Promise<void>;
+  sources(): Promise<readonly LocalSourceRecord[]>;
+  readSource(entryId: string): Promise<RetainedLocalSource | null>;
+  /** Replaces one complete map pack and, for a local import, its retained input. */
+  install(
+    entryId: string,
+    maps: readonly InstallableMap[],
+    source?: RetainedLocalSource,
+    expectedSource?: LocalSourceRecord,
+  ): Promise<void>;
   remove(entryId: string): Promise<void>;
   /** A fetch that serves the map's `/maps/` paths. */
   fetchFor(record: InstalledMapRecord): typeof fetch;
@@ -50,6 +65,25 @@ function rawMapId(raw: unknown): string | null {
   return typeof mapId === 'string' && isMapId(mapId) ? mapId : null;
 }
 
+export class LocalSourceChangedError extends Error {
+  constructor() {
+    super('Local source changed during conversion');
+    this.name = 'LocalSourceChangedError';
+  }
+}
+
+const STORE_LOCK = 'open-northland-installed-maps';
+let pending: Promise<void> = Promise.resolve();
+function mutate(run: () => Promise<void>): Promise<void> {
+  const result = pending.then(() =>
+    typeof navigator !== 'undefined' && navigator.locks !== undefined
+      ? navigator.locks.request(STORE_LOCK, run)
+      : run(),
+  );
+  pending = result.catch(() => undefined);
+  return result;
+}
+
 export function createInstalledMapStore(
   storage: InstalledMapStorage,
   options: InstalledMapStoreOptions,
@@ -60,7 +94,13 @@ export function createInstalledMapStore(
     const raw = await storage.records();
     const valid: InstalledMapRecord[] = [];
     const broken: string[] = [];
+    const sources: LocalSourceRecord[] = [];
     for (const item of raw) {
+      const source = localSourceRecord(item);
+      if (source !== null) {
+        sources.push(source);
+        continue;
+      }
       const record = installedRecord(item);
       if (record !== null) valid.push(record);
       else {
@@ -68,33 +108,110 @@ export function createInstalledMapStore(
         if (mapId !== null) broken.push(mapId);
       }
     }
-    return { valid, broken };
+    return { valid, broken, sources };
+  };
+  const forgetPictures = (mapIds: readonly string[]): void => {
+    for (const [key, picture] of pictures)
+      if (mapIds.some((mapId) => key.startsWith(`${mapId}:`))) {
+        pictures.delete(key);
+        void picture.then((url) => {
+          if (url !== null) URL.revokeObjectURL(url);
+        });
+      }
   };
   return {
     async list() {
       return (await read()).valid;
     },
-    async install(entryId, maps) {
-      if (maps.some((map) => map.record.entryId !== entryId))
-        throw new Error('Install mixes catalogue entries');
-      const { valid, broken } = await read();
-      const keep =
-        options.budget === null
-          ? null
-          : retainedEntries(
-              valid,
-              maps.map((map) => map.record),
-              options.budget,
-            );
-      const drop = valid
-        .filter((record) => record.entryId === entryId || (keep !== null && !keep.has(record.entryId)))
-        .map((record) => record.mapId);
-      await storage.commit([...drop, ...broken], maps);
+    async sources() {
+      return (await read()).sources;
     },
-    async remove(entryId) {
-      const { valid, broken } = await read();
-      const drop = valid.filter((record) => record.entryId === entryId).map((record) => record.mapId);
-      await storage.commit([...drop, ...broken], []);
+    async readSource(entryId) {
+      const record = (await read()).sources.find((source) => source.entryId === entryId);
+      if (record === undefined) return null;
+      const input = await storage.readSource(entryId);
+      return input === null ? null : { record, input };
+    },
+    install(entryId, maps, source, expectedSource) {
+      return mutate(async () => {
+        if (
+          maps.length === 0 ||
+          new Set(maps.map((map) => map.record.mapId)).size !== maps.length ||
+          maps.some((map) => map.record.entryId !== entryId || installedRecord(map.record) === null)
+        )
+          throw new Error('Install must contain valid maps from one entry');
+        const user = maps.some((map) => map.record.index.provenance?.kind === 'user');
+        if (
+          user !== (source !== undefined) ||
+          maps.some((map) => (map.record.index.provenance?.kind === 'user') !== user)
+        )
+          throw new Error('Local maps require their source');
+        if (
+          source !== undefined &&
+          (localSourceRecord(source.record) === null ||
+            source.record.entryId !== entryId ||
+            source.record.name !== source.input.name ||
+            source.record.size !== localInputBytes(source.input) ||
+            source.record.maps.length !== maps.length ||
+            source.record.maps.some((item) => !maps.some((map) => map.record.mapId === item.mapId)))
+        )
+          throw new Error('Source does not describe the installed map pack');
+        const { valid, broken, sources } = await read();
+        if (expectedSource !== undefined) {
+          const current = sources.find((item) => item.entryId === entryId);
+          if (
+            current === undefined ||
+            current.fingerprint !== expectedSource.fingerprint ||
+            current.name !== expectedSource.name ||
+            current.size !== expectedSource.size ||
+            JSON.stringify(current.maps) !== JSON.stringify(expectedSource.maps)
+          )
+            throw new LocalSourceChangedError();
+        }
+        const keep =
+          options.budget === null
+            ? null
+            : retainedEntries(
+                valid,
+                maps.map((map) => map.record),
+                options.budget,
+                sources,
+                source?.record,
+              );
+        const dropEntries = new Set(
+          valid
+            .filter((record) => record.entryId === entryId || (keep !== null && !keep.has(record.entryId)))
+            .map((record) => record.entryId),
+        );
+        dropEntries.add(entryId);
+        const drop = new Set([
+          ...broken,
+          ...valid.filter((record) => dropEntries.has(record.entryId)).map((record) => record.mapId),
+          ...sources
+            .filter((item) => dropEntries.has(item.entryId))
+            .flatMap((item) => item.maps.map((map) => map.mapId)),
+        ]);
+        await storage.commit([...drop], maps, {
+          drop: sources.filter((item) => dropEntries.has(item.entryId)).map((item) => item.entryId),
+          ...(source === undefined ? {} : { put: source }),
+        });
+        forgetPictures([...drop]);
+      });
+    },
+    remove(entryId) {
+      return mutate(async () => {
+        const { valid, broken, sources } = await read();
+        const source = sources.find((item) => item.entryId === entryId);
+        const drop = [
+          ...new Set([
+            ...broken,
+            ...valid.filter((record) => record.entryId === entryId).map((record) => record.mapId),
+            ...(source?.maps.map((map) => map.mapId) ?? []),
+          ]),
+        ];
+        await storage.commit(drop, [], { drop: source === undefined ? [] : [entryId] });
+        forgetPictures(drop);
+      });
     },
     fetchFor(record) {
       if (options.files === 'served') return fetch;
@@ -118,91 +235,6 @@ export function createInstalledMapStore(
         pictures.set(key, url);
       }
       return url;
-    },
-  };
-}
-
-const DB_NAME = 'open-northland-installed-maps';
-const RECORDS = 'records';
-const FILES = 'files';
-
-const fileKey = (mapId: string, suffix: MapFileSuffix): string => `${mapId}${suffix}`;
-
-async function inDb<T>(
-  stores: string | string[],
-  mode: IDBTransactionMode,
-  run: (txn: IDBTransaction) => T,
-): Promise<T> {
-  const db = await openDb(DB_NAME, (created) => {
-    created.createObjectStore(RECORDS);
-    created.createObjectStore(FILES);
-  });
-  try {
-    const txn = db.transaction(stores, mode);
-    const result = run(txn);
-    await completed(txn);
-    return result;
-  } finally {
-    db.close();
-  }
-}
-
-async function idbRecords(): Promise<readonly unknown[]> {
-  const request = await inDb(RECORDS, 'readonly', (txn) => txn.objectStore(RECORDS).getAll());
-  return request.result;
-}
-
-function dropInTxn(txn: IDBTransaction, drop: readonly string[], withFiles: boolean): void {
-  for (const mapId of drop) {
-    txn.objectStore(RECORDS).delete(mapId);
-    if (withFiles)
-      for (const suffix of MAP_FILE_SUFFIXES) txn.objectStore(FILES).delete(fileKey(mapId, suffix));
-  }
-}
-
-/** The web build's storage: records and files in one IndexedDB, committed in one transaction. */
-export function browserInstalledMapStorage(): InstalledMapStorage {
-  return {
-    records: idbRecords,
-    async readFile(mapId, suffix) {
-      const request = await inDb(FILES, 'readonly', (txn) =>
-        txn.objectStore(FILES).get(fileKey(mapId, suffix)),
-      );
-      const value: unknown = request.result;
-      return value instanceof Uint8Array
-        ? value
-        : value instanceof ArrayBuffer
-          ? new Uint8Array(value)
-          : null;
-    },
-    async commit(drop, put) {
-      await inDb([RECORDS, FILES], 'readwrite', (txn) => {
-        dropInTxn(txn, drop, true);
-        for (const { record, files } of put) {
-          for (const [suffix, bytes] of files)
-            txn.objectStore(FILES).put(bytes, fileKey(record.mapId, suffix));
-          txn.objectStore(RECORDS).put(record, record.mapId);
-        }
-      });
-    },
-  };
-}
-
-/** The desktop's storage: files on disk through the shell, records in the page's IndexedDB. A record
- *  is written after its files, so a listed map always has them. */
-export function desktopInstalledMapStorage(maps: DesktopMaps): InstalledMapStorage {
-  return {
-    records: idbRecords,
-    readFile: async () => null,
-    async commit(drop, put) {
-      await inDb(RECORDS, 'readwrite', (txn) => dropInTxn(txn, drop, false));
-      for (const mapId of drop) await maps.remove(mapId);
-      for (const { record, files } of put) {
-        for (const [suffix, bytes] of files) await maps.writeFile(record.mapId, suffix, bytes);
-      }
-      await inDb(RECORDS, 'readwrite', (txn) => {
-        for (const { record } of put) txn.objectStore(RECORDS).put(record, record.mapId);
-      });
     },
   };
 }

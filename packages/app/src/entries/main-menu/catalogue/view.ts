@@ -1,5 +1,6 @@
 import type { CatalogEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
+import type { LocalSourceRecord } from '../../../content/local-import/source.js';
 import {
   apiBaseUrl,
   catalogFileUrl,
@@ -13,12 +14,15 @@ import {
 } from '../../../content/map-source/index.js';
 import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, compareLabels, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
+import { confirmDialog } from '../../../view/confirm-dialog.js';
+import { desktopMaps } from '../../../view/desktop-bridge.js';
 import { node } from '../dom.js';
 import { type MapSelectItem, mapSourceItem } from '../map-select-model.js';
 import { type CardDate, type CatalogueContext, catalogueCard, formatCount } from './card.js';
 import { catalogueDetail } from './detail.js';
 import { catalogueFilters } from './filters.js';
 import { installedPane } from './installed.js';
+import { localImportControls } from './local-import.js';
 import {
   type CatalogueRow,
   catalogueRows,
@@ -83,6 +87,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   let entries: readonly CatalogEntry[] | null = null;
   let failure: unknown = null;
   let installed: readonly InstalledMapRecord[] = [];
+  let localSources: readonly LocalSourceRecord[] = [];
   let shipped: ShippedMaps = NO_SHIPPED_MAPS;
   let rows: readonly CatalogueRow[] = [];
   /** Download progress per entry id, as a fraction. */
@@ -102,7 +107,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     progress: (entryId) => downloads.get(entryId),
     failure: (entryId) => failures.get(entryId),
     download: (row) => startDownload(row),
-    remove: (entryId) => removeInstall(entryId),
+    remove: (entryId) => void removeInstall(entryId),
     pick: (row) => void pick(row),
     open: (entryId) => select(entryId),
   };
@@ -133,10 +138,34 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   const grid = node('div', 'catalogue__grid');
   scroll.append(grid);
   results.append(scroll);
-  const installedView = installedPane(ctx);
+  const imports =
+    store === null || desktopMaps() !== null
+      ? null
+      : localImportControls({
+          store,
+          target: body,
+          manage: () => {
+            memory.tab = 'installed';
+            render();
+          },
+          changed: async (entryId) => {
+            memory.tab = 'installed';
+            memory.selectedId = entryId;
+            await reloadInstalled();
+            options.onInstalledChanged?.();
+          },
+        });
+  const installedView = installedPane(ctx, {
+    pick: (record) => void pickMap(record.mapId, record.entryId),
+    rebuild: (entryId) => imports?.rebuild(entryId),
+  });
   const detail = catalogueDetail(ctx, api, (author) => filters.update({ author }));
   main.append(results, installedView.root, detail.root);
-  body.append(filters.root, main);
+  const importTools = node('div', 'catalogue__import-tools');
+  importTools.hidden = true;
+  body.append(filters.root, importTools);
+  if (imports !== null) body.append(imports.root);
+  body.append(main);
 
   /** A line in the grid's place, with the one button that can change it. */
   const notice = (line: string, action: { label: string; run: () => void } | null): HTMLElement => {
@@ -169,6 +198,11 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
       }
     }
     filters.root.hidden = memory.tab !== 'browse';
+    importTools.hidden = imports === null || memory.tab === 'browse';
+    if (imports !== null) {
+      const target = memory.tab === 'browse' ? filters.trailing : importTools;
+      if (imports.pickers.parentElement !== target) target.append(imports.pickers);
+    }
     results.hidden = memory.tab !== 'browse';
     installedView.root.hidden = memory.tab !== 'installed';
   }
@@ -180,6 +214,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
 
   function paintDetail(emptyLine: string | null): void {
     const row = memory.selectedId === null ? undefined : rowOf(memory.selectedId);
+    detail.root.hidden = memory.tab === 'installed' && row === undefined;
     if (row === undefined) detail.clear(emptyLine);
     else detail.show(row, isInstalled(row.entry.id));
   }
@@ -194,6 +229,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   }
 
   function renderGrid(): void {
+    detail.root.hidden = false;
     if (failure !== null || entries === null) {
       count.textContent = '';
       grid.replaceChildren(
@@ -245,14 +281,14 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   }
 
   function renderInstalled(groups: readonly InstalledGroup[]): void {
-    keepSelection(groups.filter((group) => group.row !== null).map((group) => group.entryId));
+    keepSelection(groups.map((group) => group.entryId));
     installedView.paint(groups, memory.selectedId);
     paintDetail(text.panelEmpty);
   }
 
   /** The tabs and the open tab's content and panel, after any change to the rows, query or tab. */
   function render(): void {
-    const groups = installedGroups(installed, rows);
+    const groups = installedGroups(installed, rows, localSources);
     paintTabs(groups);
     if (memory.tab === 'browse') renderGrid();
     else renderInstalled(groups);
@@ -262,7 +298,8 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     memory.selectedId = entryId;
     paintSelection();
     paintDetail(text.panelEmpty);
-    if (memory.tab === 'installed') installedView.paint(installedGroups(installed, rows), memory.selectedId);
+    if (memory.tab === 'installed')
+      installedView.paint(installedGroups(installed, rows, localSources), memory.selectedId);
   }
 
   // Arrows walk the grid and the selection follows; Enter or Space hands the focus to the panel's
@@ -311,14 +348,19 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     if (row === undefined) return;
     cards.get(entryId)?.paintProgress();
     if (detail.shownId === entryId) detail.show(row, isInstalled(entryId));
-    if (memory.tab === 'installed') installedView.paint(installedGroups(installed, rows), memory.selectedId);
+    if (memory.tab === 'installed')
+      installedView.paint(installedGroups(installed, rows, localSources), memory.selectedId);
   }
   async function pick(row: CatalogueRow): Promise<void> {
     if (row.playableMapId === null) return;
-    const source = await findMapSource(row.playableMapId);
+    await pickMap(row.playableMapId, row.entry.id);
+  }
+
+  async function pickMap(mapId: string, entryId: string): Promise<void> {
+    const source = await findMapSource(mapId);
     if (scope.signal.aborted) return;
     if (source === null || source.stale) {
-      failures.set(row.entry.id, text.mapMissing);
+      failures.set(entryId, text.mapMissing);
       void reloadInstalled();
       return;
     }
@@ -350,8 +392,17 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
       });
   }
 
-  function removeInstall(entryId: string): void {
+  async function removeInstall(entryId: string): Promise<void> {
     if (store === null) return;
+    if (localSources.some((source) => source.entryId === entryId)) {
+      const copy = text.localImport;
+      const accepted = await confirmDialog({
+        message: `${copy.removeTitle} ${copy.removePrompt}`,
+        confirmLabel: copy.confirmRemove,
+        cancelLabel: copy.keep,
+      });
+      if (!accepted || scope.signal.aborted) return;
+    }
     failures.delete(entryId);
     void store
       .remove(entryId)
@@ -363,7 +414,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
 
   async function reloadInstalled(): Promise<void> {
     try {
-      installed = (await store?.list()) ?? [];
+      [installed, localSources] = await Promise.all([store?.list() ?? [], store?.sources() ?? []]);
     } catch {
       installed = [];
     }
@@ -375,11 +426,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     entries = null;
     refreshAll();
     try {
-      const [catalog, sources] = await Promise.all([fetchCatalog(api), loadMapSources(), reloadInstalled()]);
-      entries = catalog;
-      shipped = shippedMaps(
-        sources.filter((source) => source.catalog === undefined).map(({ entry }) => entry),
-      );
+      entries = await fetchCatalog(api);
     } catch (error) {
       failure = error;
     }
@@ -388,11 +435,26 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
 
   render();
   void loadCatalogue();
+  void loadMapSources()
+    .then(async (sources) => {
+      shipped = shippedMaps(
+        sources
+          .filter((source) => source.catalog === undefined && source.local === undefined)
+          .map(({ entry }) => entry),
+      );
+      await reloadInstalled();
+    })
+    .catch(() => {
+      if (!scope.signal.aborted) void reloadInstalled();
+    });
 
   return {
     tabs,
     count,
     body,
-    dispose: () => scope.abort(),
+    dispose: () => {
+      imports?.dispose();
+      scope.abort();
+    },
   };
 }

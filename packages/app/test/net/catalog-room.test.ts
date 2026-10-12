@@ -41,7 +41,11 @@ async function settle(): Promise<void> {
 }
 
 /** One client's room map transfer over a relay peer, with its own installed maps. */
-async function member(peer: Peer, nick: string, options: { installed: boolean; server: typeof fetch }) {
+async function member(
+  peer: Peer,
+  nick: string,
+  options: { installed: boolean; server: typeof fetch; origin: 'catalog' | 'user' },
+) {
   const { storage } = memoryInstalledStorage();
   const store = createInstalledMapStore(storage, { budget: null, files: 'stored' });
   if (options.installed)
@@ -51,8 +55,15 @@ async function member(peer: Peer, nick: string, options: { installed: boolean; s
     return record === undefined
       ? null
       : {
-          entry: record.index,
-          catalog: { entryId: record.entryId, fingerprint: record.fingerprint, irVersion: record.irVersion },
+          entry:
+            options.origin === 'user'
+              ? { ...record.index, provenance: { kind: 'user', folder: 'picked' } }
+              : record.index,
+          [options.origin === 'user' ? 'local' : 'catalog']: {
+            entryId: record.entryId,
+            fingerprint: record.fingerprint,
+            irVersion: record.irVersion,
+          },
           stale: false,
           fetch: store.fetchFor(record),
         };
@@ -89,16 +100,18 @@ async function member(peer: Peer, nick: string, options: { installed: boolean; s
   return { transfer, verified, errors, catalogInstall, pump, store };
 }
 
-async function lobby(server: typeof fetch) {
+async function lobby(server: typeof fetch, origin: 'catalog' | 'user' = 'catalog') {
   const s = stage();
   const a = s.introduce(TOKEN_A, 'Ania');
   const b = s.introduce(TOKEN_B, 'Bartek');
-  a.send({ kind: 'createRoom', settings: ROOM, seats: SEATS });
+  const { catalogMap: _catalogMap, ...withoutCatalog } = ROOM;
+  const settings = origin === 'catalog' ? ROOM : { ...withoutCatalog, mapOrigin: origin };
+  a.send({ kind: 'createRoom', settings, seats: SEATS });
   a.send({ kind: 'setCompatibility', compatibility: { ...TEST_COMPATIBILITY, map: TINY_FINGERPRINT } });
   b.send({ kind: 'joinRoom', roomId: a.last('room')?.room.id });
   b.send({ kind: 'setCompatibility', compatibility: { ...TEST_COMPATIBILITY, map: null } });
-  const host = await member(a, 'Ania', { installed: true, server });
-  const guest = await member(b, 'Bartek', { installed: false, server });
+  const host = await member(a, 'Ania', { installed: true, server, origin });
+  const guest = await member(b, 'Bartek', { installed: false, server, origin });
   const run = async (): Promise<void> => {
     for (let round = 0; round < 4; round++) {
       host.pump();
@@ -132,4 +145,15 @@ describe('a catalogue map in a lobby', () => {
     expect(guest.verified.at(-1)?.fingerprint).toBe(TINY_FINGERPRINT);
     expect([...host.errors, ...guest.errors]).toEqual([]);
   });
+});
+
+it('delivers a locally imported user map through the relay without consulting the catalogue', async () => {
+  const { a, b, host, guest, run } = await lobby(catalogServer([ENTRY]), 'user');
+  await run();
+  expect(host.catalogInstall).not.toHaveBeenCalled();
+  expect(guest.catalogInstall).not.toHaveBeenCalled();
+  expect(a.of('mapRequest')).toEqual([{ kind: 'mapRequest', from: 'Bartek' }]);
+  expect(b.last('blob')).toMatchObject({ type: 'map', from: 'Ania' });
+  expect(guest.verified.at(-1)?.fingerprint).toBe(TINY_FINGERPRINT);
+  expect([...host.errors, ...guest.errors]).toEqual([]);
 });

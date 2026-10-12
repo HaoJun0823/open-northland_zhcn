@@ -231,6 +231,7 @@ export interface ToolPanelOptions {
   /** The mission book's pages and goals; absent, the book stays empty. */
   readonly mission?: MissionReader;
   readonly missionBriefingHistory?: () => readonly number[];
+  readonly missionPictureUrl?: (file: string) => string;
   /** The briefing page the mission book opens on from the beam; null before any replayable one. */
   readonly missionReplayPage?: () => number | null;
   /** The human a briefing picture of a mission id shows; absent, those pictures draw nothing. */
@@ -563,7 +564,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
           history,
           missionHuman: opts.missionHuman ?? ((): null => null),
           answersVersion: opts.missionAnswersVersion ?? ((): number => 0),
-          pictureUrl: hypertextPictureUrl,
+          pictureUrl: opts.missionPictureUrl ?? hypertextPictureUrl,
           pauseStopsClock: opts.pauseStopsClock ?? false,
           onHold: (held) => opts.onMissionHold?.(held),
           onShowOnMap: (target) => opts.onShowOnMap?.(target),

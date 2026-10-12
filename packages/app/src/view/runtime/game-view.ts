@@ -251,6 +251,7 @@ export interface GameViewDeps {
   readonly networkSave?: Pick<SaveLoadSessionOptions, 'sessionMetadata' | 'onSaved'>;
   /** Where the mission book's pages and goals come from; omitted, the book shows nothing. */
   readonly missionBriefSource?: MissionBriefSource;
+  readonly missionPictureUrl?: (file: string) => string;
   /** Open the mission book as the session starts, the original's mission briefing; the entry decides
    *  (a fresh world, and no `?intro=off`). */
   readonly introAtStart?: boolean;
@@ -658,6 +659,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       escapeClaimed: () => escapeClaimed?.() === true,
       ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
       ...(mission !== undefined ? { mission } : {}),
+      ...(deps.missionPictureUrl === undefined ? {} : { missionPictureUrl: deps.missionPictureUrl }),
       missionBriefingHistory: answers.missionBriefingHistory,
       missionReplayPage: answers.missionBriefingPage,
       missionHuman: answers.missionHuman,

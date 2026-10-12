@@ -23,12 +23,13 @@ export {
   type InstalledMapRecord,
   installedRecord,
   MAX_INSTALLED_MAP_BYTES,
+  MapStorageFullError,
   retainedEntries,
 } from './installed.js';
 export {
-  type CatalogMapRef,
   createMapSourceRegistry,
   findMapSource,
+  type InstalledMapRef,
   loadMapSources,
   type MapSource,
   mapFetch,

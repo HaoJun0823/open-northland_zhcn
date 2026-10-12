@@ -16,6 +16,7 @@
     { "path": "../ownership" },
     { "path": "../render" },
     { "path": "../audio" },
-    { "path": "../art-contracts" }
+    { "path": "../art-contracts" },
+    { "path": "../map-import" }
   ]
 }

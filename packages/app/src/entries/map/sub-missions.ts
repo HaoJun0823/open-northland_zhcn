@@ -23,10 +23,11 @@ export function subMissionPool(
   currentMapId: string | null,
 ): readonly MapSource[] {
   const key = currentMapId?.toLowerCase();
-  const entryId = sources.find((source) => source.entry.id.toLowerCase() === key)?.catalog?.entryId;
+  const current = sources.find((source) => source.entry.id.toLowerCase() === key);
+  const entryId = (current?.catalog ?? current?.local)?.entryId;
   return entryId === undefined
-    ? sources.filter((source) => source.catalog === undefined)
-    : sources.filter((source) => source.catalog?.entryId === entryId && !source.stale);
+    ? sources.filter((source) => source.catalog === undefined && source.local === undefined)
+    : sources.filter((source) => (source.catalog ?? source.local)?.entryId === entryId && !source.stale);
 }
 
 export async function validateSavedMap(inputs: Inputs, save: SaveGame): Promise<void> {

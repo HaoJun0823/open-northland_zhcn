@@ -1211,3 +1211,120 @@ ul.catalogue-desc__list > li::before {
 .catalogue__open[hidden] {
   display: none;
 }
+
+.catalogue-import {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--u) * 8) calc(var(--u) * 16);
+  padding: calc(var(--u) * 12);
+  border: 1px solid var(--wood-hi);
+  border-radius: 3px;
+  background: var(--deep);
+}
+.catalogue-import__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 8);
+}
+.catalogue-import__status {
+  flex: 1;
+  min-width: min(100%, calc(var(--u) * 260));
+  color: var(--muted);
+  font-size: calc(var(--u) * 14);
+}
+.catalogue-import__status.is-error {
+  color: var(--text-hi);
+}
+.catalogue-import__progress {
+  width: 100%;
+  height: calc(var(--u) * 5);
+  accent-color: var(--bronze-hi);
+}
+.catalogue.is-file-drop {
+  outline: 2px dashed var(--bronze-hi);
+  outline-offset: calc(var(--u) * 4);
+}
+.catalogue-installed__map-choice {
+  max-width: 100%;
+  padding: calc(var(--u) * 6);
+  background: var(--deep);
+  color: var(--text-hi);
+  border: 1px solid var(--wood-hi);
+  font: inherit;
+}
+
+.catalogue-toolbar__trailing {
+  margin-inline-start: auto;
+}
+.catalogue-toolbar__trailing:empty {
+  display: none;
+}
+.catalogue__import-tools {
+  display: flex;
+  justify-content: flex-end;
+}
+.catalogue-import__pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 8);
+  max-width: 100%;
+}
+.catalogue-import__actions:not(:has(button:not([hidden]))) {
+  display: none;
+}
+
+.catalogue-import-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: min(calc(var(--u) * 340), calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: calc(var(--u) * 16);
+  border: 1px solid var(--wood-hi);
+  border-radius: 4px;
+  background: var(--deep);
+  color: var(--text);
+  font: calc(var(--u) * 16) / 1.4 var(--font-body);
+  box-shadow: 0 8px 24px #0008;
+}
+.catalogue-import-menu__choices {
+  display: flex;
+  gap: calc(var(--u) * 8);
+}
+.catalogue-import-menu__choices > button {
+  flex: 1;
+}
+.catalogue-import-menu__drop {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 6);
+  margin-top: calc(var(--u) * 16);
+  padding: calc(var(--u) * 24) calc(var(--u) * 12);
+  border: 1px dashed var(--wood-hi);
+  border-radius: 3px;
+  text-align: center;
+}
+.catalogue-import-menu__drop > span {
+  font-size: calc(var(--u) * 14);
+  color: var(--muted);
+}
+.catalogue-import-menu__drop.is-active {
+  border-color: var(--bronze-hi);
+  background: var(--fill);
+}
+
+.catalogue .catalogue-import__pickers > button {
+  min-height: calc(var(--u) * 36);
+  padding: calc(var(--u) * 6) calc(var(--u) * 10);
+  font-size: calc(var(--u) * 15);
+}
+
+.catalogue-import[hidden],
+.catalogue-import [hidden],
+.network-menu__import:has(> [hidden]),
+.network-menu__import:empty,
+.catalogue-import__pickers[hidden] {
+  display: none;
+}

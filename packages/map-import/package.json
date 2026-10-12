@@ -9,6 +9,10 @@
     ".": {
       "source": "./src/index.ts",
       "default": "./dist/index.js"
+    },
+    "./input": {
+      "source": "./src/input.ts",
+      "default": "./dist/input.js"
     }
   },
   "scripts": {

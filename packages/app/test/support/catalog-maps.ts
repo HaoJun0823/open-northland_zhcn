@@ -1,5 +1,6 @@
 import { type CatalogEntry, mapDocumentsFingerprint } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
+import type { LocalMapInput } from '../../src/content/local-import/input.js';
 import type { InstallableMap, InstalledMapStorage } from '../../src/content/map-source/index.js';
 
 /** A one-cell map the loaders and `verifyMapDocuments` accept. */
@@ -81,10 +82,20 @@ export function catalogServer(
 export function memoryInstalledStorage() {
   const records = new Map<string, unknown>();
   const files = new Map<string, Uint8Array>();
+  const sources = new Map<string, LocalMapInput>();
   const storage: InstalledMapStorage = {
     records: async () => [...records.values()].map((record) => structuredClone(record)),
+    readSource: async (entryId) => sources.get(entryId) ?? null,
     readFile: async (mapId, suffix) => files.get(`${mapId}${suffix}`) ?? null,
-    commit: async (drop, put: readonly InstallableMap[]) => {
+    commit: async (drop, put: readonly InstallableMap[], changes) => {
+      for (const id of changes.drop) {
+        sources.delete(id);
+        records.delete(`source:${id}`);
+      }
+      if (changes.put !== undefined) {
+        sources.set(changes.put.record.entryId, changes.put.input);
+        records.set(`source:${changes.put.record.entryId}`, structuredClone(changes.put.record));
+      }
       for (const mapId of drop) {
         records.delete(mapId);
         for (const key of [...files.keys()]) if (key.startsWith(`${mapId}.`)) files.delete(key);

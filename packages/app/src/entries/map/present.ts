@@ -10,6 +10,7 @@ import {
 import type { Camera } from '@open-northland/render';
 import type { SaveGame } from '@open-northland/sim';
 import { loadFellingClips } from '../../content/felling-clips.js';
+import { mapBriefingPictures } from '../../content/map-source/briefing-pictures.js';
 import { loadMinimapCellColours } from '../../content/minimap-ground.js';
 import { loadScriptLandscapeSprites } from '../../content/script-landscape-sprites.js';
 import { soundScenery } from '../../content/sound-scenery.js';
@@ -186,7 +187,9 @@ export async function presentMapWorld(
   const shown = new Promise<true>((resolve) => {
     markShown = () => resolve(true);
   });
+  const pictures = await mapBriefingPictures(mapId, world.briefing);
   const view = await startGameView({
+    missionPictureUrl: pictures.url,
     app,
     canvas,
     params,
@@ -261,7 +264,11 @@ export async function presentMapWorld(
           ? messages().hud.skirmishGoal
           : null,
     },
+  }).catch((error: unknown) => {
+    pictures.dispose();
+    throw error;
   });
+  view.lifetime.addEventListener('abort', pictures.dispose, { once: true });
   if (runtime.untilStart !== undefined) {
     // Under the card the world's first frame may block for long on first-use graphics work; the room
     // counts this client loaded only once that frame has been shown, so its clock cannot run meanwhile.

@@ -7,6 +7,13 @@ declare const __API_URL__: string | null;
 /** The map catalogue server a build talks to unless `ON_API_URL` or `?api=` names another. */
 export const DEFAULT_API_URL = 'https://api.opennorthland.org';
 
+export const CATALOG_REQUEST_TIMEOUT_MS = 30_000;
+
+export function catalogRequestSignal(signal?: AbortSignal): AbortSignal {
+  const deadline = AbortSignal.timeout(CATALOG_REQUEST_TIMEOUT_MS);
+  return signal === undefined ? deadline : AbortSignal.any([signal, deadline]);
+}
+
 const API_PARAM = 'api';
 const WEB_PROTOCOLS: readonly string[] = ['http:', 'https:'];
 
@@ -66,8 +73,9 @@ export function convertedMaps(entry: CatalogEntry): readonly CatalogConvertedMap
 export async function fetchCatalog(
   api: string,
   fetchImpl: typeof fetch = fetch,
+  signal?: AbortSignal,
 ): Promise<readonly CatalogEntry[]> {
-  const response = await fetchImpl(catalogUrl(api));
+  const response = await fetchImpl(catalogUrl(api), { signal: catalogRequestSignal(signal) });
   if (!response.ok) throw new Error(`Map catalogue: HTTP ${response.status}`);
   const body: unknown = await response.json();
   if (!Array.isArray(body)) throw new Error('Map catalogue: expected a list');
@@ -88,8 +96,9 @@ export async function fetchCatalogEntry(
   api: string,
   entryId: string,
   fetchImpl: typeof fetch = fetch,
+  signal?: AbortSignal,
 ): Promise<CatalogEntry | null> {
-  const response = await fetchImpl(catalogEntryUrl(api, entryId));
+  const response = await fetchImpl(catalogEntryUrl(api, entryId), { signal: catalogRequestSignal(signal) });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Map catalogue: HTTP ${response.status}`);
   return CatalogEntry.parse(await response.json());

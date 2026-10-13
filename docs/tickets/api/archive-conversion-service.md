@@ -18,10 +18,13 @@ during which every request waited.
   `/v1/content/<IR_VERSION>/gui/hypertext/<file>` with the same headers and validation as the map
   sidecars; the client's briefing loader fetches them from the map's base URL.
 - Run `convertArchive` in a `node:worker_threads` worker (one per `API_CONVERT_CONCURRENCY` slot) so
-  the HTTP server keeps answering; failures still map to the same verdicts.
+  the HTTP server keeps answering; failures still map to the same verdicts. Bound queued work and
+  conversion duration, terminate a stuck worker and retain the last complete generation. Worker
+  isolation complements archive expansion limits; it must not replace them.
 
 ## Verify
 
 - Tests: a synthetic map whose briefing references a picture is served at the new route; a conversion
-  that blocks for a second does not delay a concurrent `/healthz`.
+  that blocks for a second does not delay a concurrent `/healthz`; an over-deadline conversion is
+  terminated without losing the previous generation and subsequent conversions still run.
 - The full catalogue run keeps its verdict distribution; `npm run check`, `npm run build`, `npm test`.

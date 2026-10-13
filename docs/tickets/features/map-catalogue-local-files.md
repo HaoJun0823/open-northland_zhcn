@@ -1,26 +1,26 @@
-# Load a map from the player's own file
+# Complete local map import on desktop
 
 **Area:** app, desktop · **Priority:** P2
-**Blocked by:** [Browse, download and play catalogue maps](map-catalogue-client.md)
 
-A player with a map folder, a `.zip`/`.rar` from elsewhere or a `.c2m` editor export cannot play it:
-nothing in the app reads a file the user picks. `MapProvenance.kind` already has `user` and the lobby
-already allows delivering a `user` map, so only the import path is missing. Reference:
-[API architecture and flow](../../API.md).
+Web ZIP/RAR/C2M and folder import is implemented through a conversion Worker, retained source
+storage, reconversion after IR changes and the installed-map store. Desktop local import is still
+disabled in `catalogue/view.ts` and `network/map-pick.ts`. Its storage adapter returns no retained
+source and refuses local-source writes, so simply showing the web controls would not complete it.
 
 ## Scope
 
-- "Load from file" on the catalogue screen and drag-and-drop onto it: an archive or a folder
-  (`webkitdirectory` on the web, the native dialog over a narrow IPC on desktop).
-- Conversion runs in a Worker with `@open-northland/map-import`, with progress and the typed failures
-  shown in words; the same size limits the API uses, as the shared named constants.
-- The result is installed through the client ticket's storage with `provenance.kind = 'user'`, the
-  archive kept beside it so an `IR_VERSION` bump re-converts locally instead of asking for the file
-  again. A re-import of the same fingerprint replaces the entry.
-- A user map in a lobby still travels through the relay transfer, as today.
+- Expose file/folder selection and drag-and-drop for desktop with a narrow validated native dialog
+  boundary. Reuse the shared conversion Worker and typed progress/failure presentation.
+- Persist original input and source metadata alongside converted map generations. Keep replacement
+  atomic and reject unsafe paths, symlinks and excessive input before reading or writing it.
+- Implement source reads, removal and reconversion after an IR bump in the desktop storage adapter.
+  Preserve map IDs and reject stale replacements; retain a usable earlier install on failure.
+- Make the controls available in the catalogue and multiplayer map picker once the full path works.
+  Keep existing per-import limits; desktop has no aggregate browser storage budget.
 
 ## Verify
 
-- Worker conversion test with a synthetic archive; a browser pass loading a zip, a c2m and a folder;
-  the desktop dialog path under `npm run test:desktop`.
-- `npm run check`, `npm run build`, `npm test`, browser preview.
+Desktop E2E chooses a ZIP, C2M and folder through the native path, imports, starts the map, quits,
+relaunches and starts it again. Verify retained-source rebuild, duplicate import, cancellation and
+failed replacement without losing an existing pack. Cover malicious path/input cases with synthetic
+fixtures. Run desktop tests and the applicable standard gates.

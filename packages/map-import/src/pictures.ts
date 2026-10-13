@@ -1,5 +1,6 @@
 import type { HypertextPicture } from '@open-northland/data';
 import {
+  type HypertextBudget,
   type IncludeResolver,
   type PictureResolver,
   renderHypertext,
@@ -38,13 +39,15 @@ export async function collectPagePictures(
   include: IncludeResolver,
   warn: (message: string) => void,
   maxPixels = Number.POSITIVE_INFINITY,
+  budget?: HypertextBudget,
 ): Promise<PagePictures> {
   const wanted = new Set<string>();
   const collect: PictureResolver = (name) => {
     wanted.add(name);
     return undefined;
   };
-  for (const page of pages) renderHypertext(page, { include, picture: collect });
+  for (const page of pages)
+    renderHypertext(page, { include, picture: collect, ...(budget === undefined ? {} : { budget }) });
   const pictures = new Map<string, HypertextPicture>();
   const files = new Map<string, Uint8Array>();
   for (const name of wanted) {

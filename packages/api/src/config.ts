@@ -63,6 +63,9 @@ function upstreamSetting(env: Environment): string {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error(`ON_API_UPSTREAM must be an http:// or https:// URL, got ${raw}`);
   }
+  if (url.username !== '' || url.password !== '') {
+    throw new Error('ON_API_UPSTREAM must not contain credentials');
+  }
   return url.origin;
 }
 

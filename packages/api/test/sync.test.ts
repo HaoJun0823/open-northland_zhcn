@@ -123,6 +123,17 @@ describe('syncCatalog', () => {
     );
   });
 
+  it('keeps the last good catalogue and raw page when a replacement exceeds the page budget', async () => {
+    const upstream = new FakeUpstream([ACCEPTED_RECORDS]);
+    await syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log });
+    const catalog = await readFile(join(dir, 'catalog.json'), 'utf8');
+    const raw = await readFile(join(dir, 'raw', '1.json'), 'utf8');
+    const fetch = async () => new Response('', { headers: { 'content-length': String(3 * 1024 * 1024) } });
+    await expect(syncCatalog({ fetch, upstream: UPSTREAM, store, log })).rejects.toThrow(/byte budget/);
+    expect(await readFile(join(dir, 'catalog.json'), 'utf8')).toBe(catalog);
+    expect(await readFile(join(dir, 'raw', '1.json'), 'utf8')).toBe(raw);
+  });
+
   it('keeps the last good catalogue when the upstream fails', async () => {
     const upstream = new FakeUpstream([ACCEPTED_RECORDS]);
     await syncCatalog({ fetch: upstream.fetch, upstream: UPSTREAM, store, log });

@@ -212,3 +212,36 @@ describe('treeFromFolder', () => {
     expect([...tree.names.values()]).toEqual(['Map/map.dat', 'Map/Text/POL/strings.ini']);
   });
 });
+
+it('reports expanding briefing includes as too-large before retaining a map', async () => {
+  const include = '<include:f,b>';
+  const tree = treeOf({
+    ...plaintextMap('Expansion'),
+    'mission.inc': '[MissionData]\ndebuginfo "Briefing"\nresult "PlayCutscene" 0 1\n',
+    'text/pol/briefings/0000.hlt': include,
+    'text/pol/briefings/briefings.txt': `[blockstart:b]\nword ${include.repeat(20)}\n[blockend:b]`,
+  });
+  expect(
+    (
+      await failure(
+        convertMapTree(tree, { provenance: 'user', hypertextBudget: { remaining: 16 * 1024 * 1024 } }),
+      )
+    ).kind,
+  ).toBe('too-large');
+});
+
+it('shares the briefing expansion allowance across maps in a pack', async () => {
+  const files = {
+    ...plaintextMap('Briefing'),
+    'mission.inc': '[MissionData]\ndebuginfo "Briefing"\nresult "PlayCutscene" 0 1\n',
+    'text/pol/briefings/0000.hlt': 'word',
+    'text/pol/briefings/briefings.txt': '',
+  };
+  const tree = treeOf({ ...under('a', files), ...under('b', files) });
+  expect(
+    (await failure(convertMapTree(tree, { provenance: 'user', hypertextBudget: { remaining: 12 } }))).kind,
+  ).toBe('too-large');
+  expect(
+    (await convertMapTree(tree, { provenance: 'user', hypertextBudget: { remaining: 16 } })).maps,
+  ).toHaveLength(2);
+});

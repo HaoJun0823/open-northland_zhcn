@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { type Body, jsonBody } from '../catalog/snapshot.js';
+import { acceptsGzip } from './encoding.js';
 
 const JSON_TYPE = 'application/json; charset=utf-8';
 const OK = 200;
@@ -34,6 +35,12 @@ export function send(
   body: Body,
   headers: Readonly<Record<string, string>>,
 ): void {
+  const compressed = body.gzip;
+  if (compressed !== undefined) {
+    const gzip = acceptsGzip(request);
+    headers = { ...headers, vary: 'Accept-Encoding', ...(gzip ? { 'content-encoding': 'gzip' } : {}) };
+    if (gzip) body = compressed;
+  }
   const ok = status === OK;
   if (ok && holds(request, body.etag)) {
     response.writeHead(NOT_MODIFIED, { ...headers, etag: body.etag }).end();

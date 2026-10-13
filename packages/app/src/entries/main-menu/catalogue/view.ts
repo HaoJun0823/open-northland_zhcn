@@ -180,6 +180,16 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     return box;
   };
 
+  function loadingNotice(): HTMLElement {
+    const box = notice(text.loading, null);
+    box.classList.add('catalogue__notice--loading');
+    box.setAttribute('role', 'status');
+    const spinner = node('span', 'catalogue__spinner');
+    spinner.setAttribute('aria-hidden', 'true');
+    box.prepend(spinner);
+    return box;
+  }
+
   function paintTabs(groups: readonly InstalledGroup[]): void {
     const updates = groups.filter(isUpdate).length;
     for (const [tab, button] of tabButtons) {
@@ -230,12 +240,13 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
 
   function renderGrid(): void {
     detail.root.hidden = false;
+    grid.setAttribute('aria-busy', String(failure === null && entries === null));
     if (failure !== null || entries === null) {
       count.textContent = '';
       grid.replaceChildren(
         failure !== null
           ? notice(text.unreachable, { label: text.retry, run: () => void loadCatalogue() })
-          : notice(text.loading, null),
+          : loadingNotice(),
       );
       memory.selectedId = null;
       paintDetail(null);
@@ -426,7 +437,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     entries = null;
     refreshAll();
     try {
-      entries = await fetchCatalog(api);
+      entries = await fetchCatalog(api, fetch, scope.signal);
     } catch (error) {
       failure = error;
     }

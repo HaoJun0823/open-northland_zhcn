@@ -172,7 +172,10 @@ export function createRoomMapTransfer(options: RoomMapTransferOptions) {
       const announced = room?.settings.catalogMap;
       if (resolved === null && !creator && announced?.mapId === mapId) {
         try {
-          resolved = await (options.catalogInstall ?? installAnnouncedCatalogMap)(announced);
+          resolved =
+            options.catalogInstall === undefined
+              ? await installAnnouncedCatalogMap(announced, { signal: abort?.signal })
+              : await options.catalogInstall(announced);
         } catch (error) {
           // The relay delivery below stays the fallback when the catalogue server cannot help.
           diag.warn('content', 'catalogue server could not deliver the room map', { error: String(error) });

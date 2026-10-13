@@ -39,6 +39,10 @@ export class TreeBuilder {
     private readonly source: string,
   ) {}
 
+  get remainingEntries(): number {
+    return this.limits.entries - this.listed;
+  }
+
   /** Counts one listed entry, kept or not. */
   list(count = 1): void {
     this.listed += count;

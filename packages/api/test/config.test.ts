@@ -47,6 +47,9 @@ describe('apiConfigFromEnvironment', () => {
       /API_CONVERT_CONCURRENCY/,
     );
     expect(() => apiConfigFromEnvironment({ ON_API_UPSTREAM: 'ftp://x' }, '/')).toThrow(/ON_API_UPSTREAM/);
+    expect(() => apiConfigFromEnvironment({ ON_API_UPSTREAM: 'https://user:secret@x' }, '/')).toThrow(
+      /credentials/,
+    );
   });
 });
 

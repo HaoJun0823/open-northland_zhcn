@@ -17,6 +17,15 @@ record per line; a skipped upstream record names its reason, a record the `Catal
 refuses included. An upstream that lists no map while a non-empty catalogue is stored counts as a
 failed sync and changes nothing.
 
+Automatic thumbnail and archive downloads permit only the HTTPS origins `culturesnation.pl`,
+`www.culturesnation.pl`, `api.culturesnation.pl`, and the exact configured `ON_API_UPSTREAM` origin
+(including its scheme and port). URLs containing credentials are refused. Other HTTP(S) archive
+URLs remain manual download links; untrusted screenshot URLs are omitted. Every outbound API
+request rejects redirects, including redirects within an allowed origin. Catalogue responses are
+limited to 2 MiB per page, 100 records per page, 16 MiB and 5000 records per synchronization, and
+100 pages. Byte limits apply to decoded response bodies before JSON parsing. A refused page keeps
+the last good catalogue serving.
+
 After each sync, and at start from the stored catalogue, a queue downloads every `archive` or `c2m`
 entry whose file is new or whose `updatedAt` changed, opens it with `packages/map-import` under its
 default limits (64 MiB archive) and writes the sidecars. `API_CONVERT_CONCURRENCY` (1 to 8, default 1)
@@ -38,8 +47,7 @@ version, or only in part, shows as in the game in another version and offers its
 download. A stored conversion that lacks either field fails the schema and is converted again.
 
 The app reaches the API at `ON_API_URL`, stamped into the build by Vite and passed on by the desktop
-shell: a build defaults to `https://api.opennorthland.org`, the Vite dev server to
-`http://127.0.0.1:8790` (the local `api` script); a `?api=http://127.0.0.1:8790` URL parameter
+shell: both a build and the Vite dev server default to `https://api.opennorthland.org`; a `?api=http://127.0.0.1:8790` URL parameter
 overrides it for one session, the way `?relay=` does for the relay. The catalogue is its own screen
 in the main menu; a multiplayer room's map picker opens the same screen and returns with the choice.
 
@@ -76,7 +84,9 @@ Endpoints, `GET` and `HEAD` (plus the `OPTIONS` preflight below):
 `OPTIONS` on a `/v1` path answers a CORS preflight with 204, allowing `GET`, `HEAD` and the
 `If-None-Match` header. Normal `/v1` responses allow every origin with `Access-Control-Allow-Origin: *`. Successful resource
 responses carry a SHA-256 `ETag` for conditional requests and a `Cache-Control` policy; matching
-`If-None-Match` returns 304. Errors use `{ "error": "..." }` and are not cacheable. A content file's
+`If-None-Match` returns 304. Errors use `{ "error": "..." }` and are not cacheable.
+The catalogue list has a precompressed gzip representation, selected by `Accept-Encoding`, with
+`Vary` and a separate representation validator. A content file's
 `ETag` is the SHA-256 of its uncompressed bytes; its stable URL requires cache revalidation before
 reuse. A request that accepts gzip gets the stored gzip file as-is; any other request gets it
 inflated, without `Content-Length`. Kept archives are verified with bounded reads and streamed from
@@ -91,12 +101,13 @@ To run the whole server offline, serve a one-time download of the upstream with 
 `packages/api/src/upstream-mock/` and point the API at it:
 
 ```bash
-ON_UPSTREAM_CACHE_DIR=/path/to/cache npm run api:upstream-mock
+npm run api:upstream-mock
 ON_API_UPSTREAM=http://127.0.0.1:8791 npm run api
 ```
 
 The mock listens on `127.0.0.1:PORT` (default `8791`), logs every request and reads the cache
-directory `ON_UPSTREAM_CACHE_DIR` (required), laid out as the API's own data dir keeps it:
+directory `.api-upstream-cache` in the checkout root (gitignored, optionally overridden by
+`ON_UPSTREAM_CACHE_DIR`), laid out as the API's own data dir keeps it:
 `raw/<page>.json` (the upstream's `/api/downloads` pages as returned),
 `archives/<entry id>/<sha256>.<ext>` beside `source.json` (with the upstream `url`) and
 `thumbnails/<entry id>` beside `<entry id>.json` (with its `contentType`). It answers each page with
@@ -107,23 +118,24 @@ empty `data` past the last page and 404 for anything else. The API fetches a fil
 
 ## Fresh checkout and offline replay
 
-The upstream mock is a replay server, not a downloader or a synthetic demo catalogue. Without
-`ON_UPSTREAM_CACHE_DIR` it exits with an explanatory error; a missing `raw/` or `archives/`
-directory also prevents startup. A cache is not included in Git. Missing cached archive files
-return 404 and cause download failures in the API using that mock.
+The upstream mock is a replay server, not a downloader or a synthetic demo catalogue. Its default
+`.api-upstream-cache/` is local and gitignored. Missing required cache directories prevent startup;
+missing cached archives return 404. `ON_UPSTREAM_CACHE_DIR` remains an optional override for shared
+or external caches, not a prerequisite for ordinary development.
 
-For a fresh checkout, run `npm ci`, then `npm run api` against its default live upstream. Wait for
-`/healthz` to show no pending conversions. Stop that API before using its `.api-data` as the mock's
-cache. Start the mock and a separate API data directory in separate terminals:
+Ordinary `npm run dev` uses the public API. To develop the API offline, first prepare a cache with
+`ON_API_DATA_DIR=.api-upstream-cache npm run api` against the live upstream. Wait for conversion to
+finish, then stop it. Run the following in separate terminals:
 
 ```bash
-ON_UPSTREAM_CACHE_DIR="$PWD/.api-data" npm run api:upstream-mock
-ON_API_UPSTREAM=http://127.0.0.1:8791 ON_API_DATA_DIR=/path/to/replay-data npm run api
+npm run api:upstream-mock
+ON_API_UPSTREAM=http://127.0.0.1:8791 npm run api
+ON_API_URL=http://127.0.0.1:8790 npm run dev
 ```
 
-Use an ignored or external directory for replay output; do not commit downloaded or converted data.
-The app connects to port 8790, not directly to the upstream mock on 8791. It still needs the base
-game content built separately as described in [Local game content](DEVELOPMENT.md#local-game-content).
+The mock reads `.api-upstream-cache`; the local API writes `.api-data`. Neither tree belongs in Git.
+The app connects to the API on 8790, not directly to the mock on 8791. It still needs base game
+content built separately as described in [Local game content](DEVELOPMENT.md#local-game-content).
 Catalogue sidecars do not contain the shared sprites, audio and rule tables needed to play.
 Synthetic API fixtures under `packages/api/test/support/` and the app's browser-test mock exercise
 tests without downloading real maps; they are not the `api:upstream-mock` CLI.
@@ -142,17 +154,18 @@ tests without downloading real maps; they are not the `api:upstream-mock` CLI.
 4. A file/folder chosen or dropped by the player instead enters `content/local-import/`. A dedicated
    Worker converts it locally; the original input is retained for reconversion after an IR bump.
    The player does not upload it to the API.
-5. `content/map-source/` joins shipped maps with installed maps. Web installs live in IndexedDB;
-   Electron persists them through desktop IPC to disk. The runtime resolves each map through its
+5. `content/map-source/` joins shipped maps with installed maps. Web installs live in IndexedDB. Electron persists catalogue installs through desktop IPC to disk;
+   desktop local-file import and retained-source storage are still
+   [unfinished](tickets/features/map-catalogue-local-files.md). The runtime resolves each map through its
    source instead of assuming every file lives at the app's `/maps/` URL.
 6. A selected map loads its documents and uses shared game content to construct the world. The
    simulation runs through the normal session host and the renderer presents it. A multiplayer
    room uses the same selection and installed-map flow, with map transfer owned by the existing
    room protocol rather than this HTTP API.
 
-The API runs no game simulation and accepts no player map uploads. Local import still has per-input
-resource limits on desktop; persistent storage on disk avoids the browser storage-budget constraint,
-not every conversion limit. Briefing image serving and conversion off the API's main thread remain
+The API runs no game simulation and accepts no player map uploads. Local import has per-input
+resource limits. Completing desktop import must preserve those limits; disk storage removes the
+browser aggregate storage budget, not conversion safeguards. Briefing image serving and conversion off the API's main thread remain
 [backlog work](tickets/api/archive-conversion-service.md).
 
 ## API image

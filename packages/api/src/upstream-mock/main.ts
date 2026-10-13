@@ -8,11 +8,7 @@ function logLine(event: string, fields?: Record<string, unknown>): void {
   console.log(JSON.stringify({ time: new Date().toISOString(), event, ...fields }));
 }
 
-const cacheDir = process.env.ON_UPSTREAM_CACHE_DIR?.trim();
-if (cacheDir === undefined || cacheDir === '') {
-  logLine('start failed', { error: 'ON_UPSTREAM_CACHE_DIR must name the download cache directory' });
-  process.exit(1);
-}
+const cacheDir = process.env.ON_UPSTREAM_CACHE_DIR?.trim() || '.api-upstream-cache';
 const port = process.env.PORT?.trim() ? Number(process.env.PORT) : DEFAULT_PORT;
 if (!Number.isInteger(port)) {
   logLine('start failed', { error: `PORT must be an integer, got ${process.env.PORT}` });

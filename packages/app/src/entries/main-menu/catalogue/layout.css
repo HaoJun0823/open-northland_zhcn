@@ -189,3 +189,29 @@
   color: var(--muted);
   text-align: center;
 }
+
+.catalogue__notice--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--u) * 12);
+}
+.catalogue__spinner {
+  flex: none;
+  width: calc(var(--u) * 24);
+  height: calc(var(--u) * 24);
+  border: 2px solid var(--wood-hi);
+  border-top-color: var(--bronze-hi);
+  border-radius: 50%;
+  animation: catalogue-loading 900ms linear infinite;
+}
+@keyframes catalogue-loading {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .catalogue__spinner {
+    animation: none;
+  }
+}

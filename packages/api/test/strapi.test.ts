@@ -34,3 +34,65 @@ describe('fetchCatalogPages', () => {
     await expect(fetchCatalogPages(secondFails, UPSTREAM)).rejects.toThrow(/page 2/);
   });
 });
+
+describe('catalogue response budgets', () => {
+  it('cancels bodies whose declared size exceeds the page budget before reading', async () => {
+    let canceled = false;
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        cancel: () => {
+          canceled = true;
+        },
+      }),
+      { headers: { 'content-length': String(2 * 1024 * 1024 + 1) } },
+    );
+    await expect(fetchCatalogPages(async () => response, UPSTREAM)).rejects.toThrow(/byte budget/);
+    expect(canceled).toBe(true);
+  });
+
+  it('cancels a chunked response when its actual bytes exceed the page budget', async () => {
+    let canceled = false;
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        pull: (controller) => controller.enqueue(new Uint8Array(1024 * 1024)),
+        cancel: () => {
+          canceled = true;
+        },
+      }),
+    );
+    await expect(fetchCatalogPages(async () => response, UPSTREAM)).rejects.toThrow(/exceeds/i);
+    expect(canceled).toBe(true);
+  });
+
+  it('rejects more records than the requested page size', async () => {
+    await expect(
+      fetchCatalogPages(async () => Response.json(strapiPage(Array(101).fill({}), 1, 1)), UPSTREAM),
+    ).rejects.toThrow(/record budget/);
+  });
+
+  it('bounds aggregate bytes before retaining the next page', async () => {
+    let requested = 0;
+    const body = JSON.stringify({
+      ...(strapiPage([], 1, 100) as object),
+      padding: 'x'.repeat(1024 * 1024),
+    });
+    await expect(
+      fetchCatalogPages(async () => {
+        requested += 1;
+        return new Response(body);
+      }, UPSTREAM),
+    ).rejects.toThrow(/exceeds/i);
+    expect(requested).toBe(16);
+  });
+
+  it('bounds aggregate records across otherwise valid pages', async () => {
+    let requested = 0;
+    await expect(
+      fetchCatalogPages(async () => {
+        requested += 1;
+        return Response.json(strapiPage(Array(100).fill({}), requested, 100));
+      }, UPSTREAM),
+    ).rejects.toThrow(/record budget/);
+    expect(requested).toBe(51);
+  });
+});

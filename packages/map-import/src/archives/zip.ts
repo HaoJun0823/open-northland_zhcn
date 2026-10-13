@@ -1,4 +1,4 @@
-import { unzipSync } from 'fflate';
+import { Inflate } from 'fflate';
 import { errorMessage, MapImportError } from '../errors.js';
 import type { TreeBuilder } from '../tree.js';
 import type { ArchiveEntry } from './entries.js';
@@ -33,15 +33,18 @@ function rejectZip64(): never {
   throw new MapImportError('unsupported-archive', 'zip: ZIP64 archives are not supported');
 }
 
-/**
- * The names of encrypted entries, read from the central directory. fflate would inflate an encrypted
- * entry into noise instead of refusing it. Empty when the directory is absent. A ZIP64 archive is
- * `unsupported-archive` rather than parsed: no catalogue archive needs it, and an unread ZIP64
- * directory would let an encrypted entry through.
- */
-function encryptedEntries(bytes: Uint8Array): Set<string> {
+interface ZipEntry {
+  readonly path: string;
+  readonly size: number;
+  readonly compressed: Uint8Array;
+  readonly method: number;
+}
+
+function readEntries(bytes: Uint8Array, builder: TreeBuilder, keep: (path: string) => boolean): ZipEntry[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const entries: ZipEntry[] = [];
   const names = new Set<string>();
+  const spans: { start: number; end: number }[] = [];
   const floor = Math.max(0, bytes.length - EOCD_BYTES - MAX_COMMENT_BYTES);
   let eocd = -1;
   for (let at = bytes.length - EOCD_BYTES; at >= floor; at--) {
@@ -50,14 +53,16 @@ function encryptedEntries(bytes: Uint8Array): Set<string> {
       break;
     }
   }
-  if (eocd < 0) return names;
+  if (eocd < 0) throw new Error('missing central directory');
   const locator = eocd - ZIP64_LOCATOR_BYTES;
   if (locator >= 0 && view.getUint32(locator, true) === ZIP64_LOCATOR_SIGNATURE) rejectZip64();
   const count = view.getUint16(eocd + EOCD_ENTRY_COUNT, true);
   let at = view.getUint32(eocd + EOCD_DIRECTORY_OFFSET, true);
   if (count === ZIP64_DEFERRED_COUNT || at === ZIP64_DEFERRED) rejectZip64();
-  for (let i = 0; i < count && at + CENTRAL_HEADER_BYTES <= bytes.length; i++) {
-    if (view.getUint32(at, true) !== CENTRAL_SIGNATURE) break;
+  for (let i = 0; i < count; i++) {
+    builder.list();
+    if (at + CENTRAL_HEADER_BYTES > bytes.length || view.getUint32(at, true) !== CENTRAL_SIGNATURE)
+      throw new Error('invalid central directory');
     const flags = view.getUint16(at + CENTRAL_FLAGS, true);
     const deferred = [CENTRAL_COMPRESSED_SIZE, CENTRAL_UNCOMPRESSED_SIZE, CENTRAL_LOCAL_OFFSET].some(
       (field) => view.getUint32(at + field, true) === ZIP64_DEFERRED,
@@ -66,55 +71,89 @@ function encryptedEntries(bytes: Uint8Array): Set<string> {
     const nameLength = view.getUint16(at + CENTRAL_NAME_LENGTH, true);
     const extraLength = view.getUint16(at + CENTRAL_EXTRA_LENGTH, true);
     const commentLength = view.getUint16(at + CENTRAL_COMMENT_LENGTH, true);
-    const name = bytes.subarray(at + CENTRAL_HEADER_BYTES, at + CENTRAL_HEADER_BYTES + nameLength);
-    // Decoded the way fflate names the entry, so the two sets compare.
-    if ((flags & FLAG_ENCRYPTED) !== 0) {
-      names.add((flags & FLAG_UTF8) !== 0 ? new TextDecoder().decode(name) : String.fromCharCode(...name));
+    const end = at + CENTRAL_HEADER_BYTES + nameLength + extraLength + commentLength;
+    if (end > bytes.length) throw new Error('truncated central directory');
+    const nameBytes = bytes.subarray(at + CENTRAL_HEADER_BYTES, at + CENTRAL_HEADER_BYTES + nameLength);
+    const path =
+      (flags & FLAG_UTF8) !== 0 ? new TextDecoder().decode(nameBytes) : String.fromCharCode(...nameBytes);
+    if (!path.endsWith('/') && keep(path)) {
+      if ((flags & FLAG_ENCRYPTED) !== 0) throw new Error(`${path} is encrypted`);
+      if (names.has(path)) throw new Error(`duplicate entry ${path}`);
+      names.add(path);
+      const size = view.getUint32(at + CENTRAL_UNCOMPRESSED_SIZE, true);
+      builder.reserve(path, size);
+      const local = view.getUint32(at + CENTRAL_LOCAL_OFFSET, true);
+      if (local + 30 > bytes.length || view.getUint32(local, true) !== 0x04034b50)
+        throw new Error('invalid local header');
+      const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+      const finish = start + view.getUint32(at + CENTRAL_COMPRESSED_SIZE, true);
+      if (finish > bytes.length) throw new Error('truncated entry');
+      const method = view.getUint16(at + 10, true);
+      if (method !== 0 && method !== 8) throw new Error(`unsupported compression ${method}`);
+      if (finish > start) spans.push({ start, end: finish });
+      entries.push({ path, size, compressed: bytes.subarray(start, finish), method });
     }
     at += CENTRAL_HEADER_BYTES + nameLength + extraLength + commentLength;
   }
-  return names;
+  spans.sort((a, b) => a.start - b.start);
+  for (let i = 1; i < spans.length; i++) {
+    const previous = spans[i - 1];
+    const current = spans[i];
+    if (previous !== undefined && current !== undefined && current.start < previous.end)
+      throw new Error('overlapping compressed entries');
+  }
+  return entries;
 }
 
-/**
- * Unpacks the kept entries of a zip. Each entry's declared size is reserved in fflate's filter, which
- * runs before that entry inflates, so an archive over the budget fails before it allocates. An
- * encrypted kept entry, a ZIP64 or corrupt archive, or an entry whose inflated size differs from its
- * declared one is `unsupported-archive`: the declared size is what the budget checked.
- */
+/** A small compressed chunk bounds inflation overshoot before its callback checks actual output.
+ * DEFLATE's maximum expansion is bounded by its 258-byte length codes; 512 input bytes cannot
+ * allocate an entire forged multi-megabyte entry before this check runs. */
+const INFLATE_CHUNK_BYTES = 512;
+/** Resource policy, not a DEFLATE validity rule. Stored blocks can wait for 65535 input bytes before
+ * producing output. Twice that allowance bounds decoder retention after an early final block or
+ * a long sequence of empty blocks; unusual valid streams without progress may exceed this budget. */
+const MAX_INFLATE_NO_OUTPUT_BYTES = 128 * 1024;
+
+function inflateEntry(entry: ZipEntry): Uint8Array {
+  if (entry.method === 0) {
+    if (entry.compressed.length !== entry.size) throw new Error(`${entry.path}: size mismatch`);
+    return entry.compressed.slice();
+  }
+  const output = new Uint8Array(entry.size);
+  let written = 0;
+  const inflater = new Inflate((chunk) => {
+    if (written + chunk.length > entry.size)
+      throw new Error(`${entry.path}: inflated size exceeds declaration`);
+    output.set(chunk, written);
+    written += chunk.length;
+  });
+  let noOutputBytes = 0;
+  for (let at = 0; at < entry.compressed.length; at += INFLATE_CHUNK_BYTES) {
+    const end = Math.min(at + INFLATE_CHUNK_BYTES, entry.compressed.length);
+    if (noOutputBytes + end - at > MAX_INFLATE_NO_OUTPUT_BYTES)
+      throw new MapImportError('too-large', `${entry.path}: compressed stream exceeds the no-output budget`);
+    const before = written;
+    inflater.push(entry.compressed.subarray(at, end), end === entry.compressed.length);
+    noOutputBytes = written === before ? noOutputBytes + end - at : 0;
+  }
+  if (entry.compressed.length === 0) inflater.push(entry.compressed, true);
+  if (written !== entry.size) throw new Error(`${entry.path}: inflated size differs from declaration`);
+  return output;
+}
+
+/** Reserves the entire selected directory before inflation, then bounds actual output while decoding. */
 export async function unpackZip(
   bytes: Uint8Array,
   builder: TreeBuilder,
   keep: (path: string) => boolean,
 ): Promise<ArchiveEntry[]> {
-  const encrypted = encryptedEntries(bytes);
-  const declared = new Map<string, number>();
-  let files: Record<string, Uint8Array>;
   try {
-    files = unzipSync(bytes, {
-      filter: (file) => {
-        builder.list();
-        if (file.name.endsWith('/') || !keep(file.name)) return false;
-        if (encrypted.has(file.name)) {
-          throw new MapImportError('unsupported-archive', `zip: ${file.name} is encrypted`);
-        }
-        builder.reserve(file.name, file.originalSize);
-        declared.set(file.name, file.originalSize);
-        return true;
-      },
-    });
+    return readEntries(bytes, builder, keep).map((entry) => ({
+      path: entry.path,
+      bytes: inflateEntry(entry),
+    }));
   } catch (err) {
     if (err instanceof MapImportError) throw err;
     throw new MapImportError('unsupported-archive', `zip: ${errorMessage(err)}`);
   }
-  return Object.entries(files).map(([path, data]) => {
-    const size = declared.get(path);
-    if (data.length !== size) {
-      throw new MapImportError(
-        'unsupported-archive',
-        `zip: ${path} declares ${size} bytes but holds ${data.length}`,
-      );
-    }
-    return { path, bytes: data };
-  });
 }

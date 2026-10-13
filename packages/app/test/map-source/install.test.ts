@@ -46,6 +46,53 @@ describe('the catalogue server address', () => {
 });
 
 describe('installing a catalogue entry', () => {
+  it('stops sibling downloads and progress after a failed attempt so it can be retried', async () => {
+    const entry = catalogEntry('cn-a');
+    const { store: target, records } = store();
+    const progress = vi.fn();
+    let releaseRemaining = () => {};
+    const remaining = new Promise<void>((resolve) => {
+      releaseRemaining = resolve;
+    });
+    const signals: AbortSignal[] = [];
+    const server: typeof fetch = async (input, init) => {
+      if (init?.signal !== undefined && init.signal !== null) signals.push(init.signal);
+      if (String(input).endsWith('/cn-a.json')) return new Response(null, { status: 500 });
+      await remaining;
+      return new Response(null, { status: 404 });
+    };
+    await expect(
+      installCatalogEntry(entry, { api: API, store: target, fetchImpl: server, onProgress: progress }),
+    ).rejects.toThrow(/500/);
+    expect(signals).toHaveLength(6);
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
+    const callsAfterFailure = progress.mock.calls.length;
+    releaseRemaining();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(progress).toHaveBeenCalledTimes(callsAfterFailure);
+    expect(records.size).toBe(0);
+    await installCatalogEntry(entry, { api: API, store: target, fetchImpl: catalogServer([entry]) });
+    expect([...records.keys()]).toEqual(['cn-a']);
+  });
+
+  it('does not commit an install cancelled after the final download', async () => {
+    const entry = catalogEntry('cn-cancel');
+    const { store: target, records } = store();
+    const controller = new AbortController();
+    await expect(
+      installCatalogEntry(entry, {
+        api: API,
+        store: target,
+        fetchImpl: catalogServer([entry]),
+        signal: controller.signal,
+        onProgress: ({ done, total }) => {
+          if (done === total) controller.abort();
+        },
+      }),
+    ).rejects.toThrow();
+    expect(records.size).toBe(0);
+  });
+
   it('stores a campaign with its sub maps, verified, and reports progress per file', async () => {
     const entry = catalogEntry('cn-pack', ['cn-pack', 'cn-pack-2']);
     const { store: target, records, files } = store();

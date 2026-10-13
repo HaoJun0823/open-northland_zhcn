@@ -308,3 +308,70 @@ describe('openArchive', () => {
     expect(await failure(openArchive(bytes(0x1f, 0x8b, 8, 0)))).toBe('unsupported-archive');
   });
 });
+
+it('rejects deflate output larger than its declaration before inflating the full bomb', async () => {
+  const content = deflated(new Uint8Array(32 * MIB));
+  const zip = encodeZip([{ path: 'map.dat', content, declaredSize: 1 }]);
+  const { kind, growth } = await failureWithGrowth(() => openZip(zip));
+  expect(kind).toBe('unsupported-archive');
+  expect(growth).toBeLessThan(4 * MIB);
+});
+
+it('rejects C2M entry counts before reading the declared records', async () => {
+  const header = new Uint8Array(12);
+  const view = new DataView(header.buffer);
+  view.setUint32(0, 1, true);
+  view.setUint32(8, DEFAULT_IMPORT_LIMITS.entries + 1, true);
+  expect(await failure(openC2m(header))).toBe('too-large');
+});
+
+it('reads stored ZIP entries and rejects repeated exact paths', async () => {
+  const tree = await openZip(zipSync({ 'map.dat': [MAP_DAT, { level: 0 }] }));
+  expect(tree.files.get('map.dat')).toEqual(MAP_DAT);
+  const content = deflated(MAP_DAT);
+  expect(
+    await failure(
+      openZip(
+        encodeZip([
+          { path: 'map.dat', content },
+          { path: 'map.dat', content },
+        ]),
+      ),
+    ),
+  ).toBe('unsupported-archive');
+});
+
+it.each(['padding', 'empty blocks'] as const)('bounds DEFLATE input without output: %s', async (kind) => {
+  const compressed = new Uint8Array(256 * 1024);
+  if (kind === 'padding') compressed.set([3, 0]);
+  else {
+    // Non-final empty stored blocks, each aligned and carrying LEN=0, NLEN=65535.
+    for (let at = 0; at + 5 <= compressed.length; at += 5) compressed.set([0, 0, 0, 255, 255], at);
+  }
+  const zip = encodeZip([{ path: 'map.dat', content: { deflated: compressed, crc: 0, size: 0 } }]);
+  expect(await failure(openZip(zip))).toBe('too-large');
+});
+
+it('accepts a maximum-size stored DEFLATE block before its first output', async () => {
+  const compressed = new Uint8Array(5 + 65535);
+  compressed.set([1, 255, 255, 0, 0]);
+  compressed.fill(65, 5);
+  const zip = encodeZip([{ path: 'map.dat', content: { deflated: compressed, crc: 0, size: 65535 } }]);
+  expect((await openZip(zip)).files.get('map.dat')).toEqual(new Uint8Array(65535).fill(65));
+});
+
+it('rejects central-directory entries that replay overlapping compressed bytes', async () => {
+  const content = deflated(MAP_DAT);
+  const zip = encodeZip([
+    { path: 'a/map.dat', content },
+    { path: 'b/map.dat', content },
+  ]);
+  const view = new DataView(zip.buffer);
+  let firstOffset: number | undefined;
+  for (let at = 0; at + 46 <= zip.length; at++) {
+    if (view.getUint32(at, true) !== 0x02014b50) continue;
+    if (firstOffset === undefined) firstOffset = view.getUint32(at + 42, true);
+    else view.setUint32(at + 42, firstOffset, true);
+  }
+  expect(await failure(openZip(zip))).toBe('unsupported-archive');
+});

@@ -229,3 +229,14 @@ describe('renderHypertext', () => {
     expect(renderHypertext('\n<font:a.fnt>\n\n\\n\\n\n', { include })).toEqual([]);
   });
 });
+
+it('bounds include expansion and shares the budget across pages', () => {
+  const include = '<include:f,b>';
+  const block = `word ${include.repeat(20)}`;
+  expect(() => renderHypertext(include, { include: () => block })).toThrow(/expanded text exceeds budget/);
+  const budget = { remaining: 8 };
+  renderHypertext('hello', { include: () => undefined, budget });
+  expect(() => renderHypertext('world', { include: () => undefined, budget })).toThrow(
+    /expanded text exceeds budget/,
+  );
+});

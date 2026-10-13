@@ -1,4 +1,5 @@
 import { CATALOG_MAP_ID, CatalogEntry, type CatalogFile, type CatalogKind } from '@open-northland/data';
+import { permittedDownloadUrl } from '../upstream/urls.js';
 
 /** The status the catalogue's moderators give a published download. */
 const ACCEPTED_STATUS = 'zaakceptowany';
@@ -37,7 +38,6 @@ export function catalogPageSlug(title: string): string {
 export function catalogPageUrl(documentId: string, title: string): string {
   return `${CATALOG_ORIGIN}/downloads/${documentId}/${catalogPageSlug(title)}`;
 }
-const CATALOG_HOSTS: ReadonlySet<string> = new Set(['culturesnation.pl', 'www.culturesnation.pl']);
 const C2M_SUFFIX = '.c2m';
 const ID_PREFIX = 'cn-';
 
@@ -105,8 +105,7 @@ export function catalogMapId(documentId: string): string | null {
   return CATALOG_MAP_ID.test(id) ? id : null;
 }
 
-/** A file on the catalogue's hosts, or on the configured upstream's own host (an offline mirror serves
- *  the files beside the pages), is ours to fetch; any other host is a link. */
+/** Allowed origins are fetched automatically; other HTTP(S) files stay manual download links. */
 export function classifyFile(fileUrl: string, upstream: string): CatalogFile | null {
   let url: URL;
   try {
@@ -115,8 +114,8 @@ export function classifyFile(fileUrl: string, upstream: string): CatalogFile | n
     return null;
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
-  const ours = CATALOG_HOSTS.has(url.hostname.toLowerCase()) || url.host === new URL(upstream).host;
-  if (!ours) return { kind: 'external', url: url.toString() };
+  if (url.username !== '' || url.password !== '') return null;
+  if (!permittedDownloadUrl(url, upstream)) return { kind: 'external', url: url.toString() };
   return url.pathname.toLowerCase().endsWith(C2M_SUFFIX) ? { kind: 'c2m' } : { kind: 'archive' };
 }
 
@@ -136,7 +135,8 @@ function screenshotUrl(record: UpstreamRecord, upstream: string): string | null 
   const path = small || text(shot.url);
   if (path === '') return null;
   try {
-    return new URL(path, upstream).toString();
+    const url = new URL(path, upstream);
+    return permittedDownloadUrl(url, upstream) ? url.toString() : null;
   } catch {
     return null;
   }

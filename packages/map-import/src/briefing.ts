@@ -6,6 +6,8 @@ import {
   type MapScript,
 } from '@open-northland/data';
 import {
+  DEFAULT_HYPERTEXT_CHARACTERS,
+  type HypertextBudget,
   type IncludeResolver,
   parseBriefingBlocks,
   renderHypertext,
@@ -52,12 +54,13 @@ export async function resolveMapBriefing(
   folder: MapFolder,
   ids: readonly number[],
   maxPixels = Number.POSITIVE_INFINITY,
+  budget: HypertextBudget = { remaining: DEFAULT_HYPERTEXT_CHARACTERS },
 ): Promise<ResolvedBriefing | undefined> {
   if (ids.length === 0) return undefined;
   const texts: Record<string, Record<string, HypertextBlock[]>> = {};
   const pictures = new Map<string, Uint8Array>();
   for (const lang of MAP_TEXT_LANGUAGES) {
-    const pages = await renderLanguage(folder, lang, ids, pictures, maxPixels);
+    const pages = await renderLanguage(folder, lang, ids, pictures, maxPixels, budget);
     if (pages !== undefined) texts[lang] = pages;
   }
   return Object.keys(texts).length === 0 ? undefined : { briefing: { texts }, pictures };
@@ -69,6 +72,7 @@ async function renderLanguage(
   ids: readonly number[],
   pictures: Map<string, Uint8Array>,
   maxPixels: number,
+  budget?: HypertextBudget,
 ): Promise<Record<string, HypertextBlock[]> | undefined> {
   const dir = [STRING_TABLE_DIR, lang, BRIEFINGS_DIR];
   const blocksBytes = folder.read([...dir, BRIEFINGS_FILE]);
@@ -92,11 +96,16 @@ async function renderLanguage(
     include,
     (message) => folder.warn(message),
     maxPixels,
+    budget,
   );
   for (const [file, png] of files) pictures.set(file, png);
   const pages: Record<string, HypertextBlock[]> = {};
   for (const [id, page] of texts) {
-    const blocksOfPage = renderHypertext(page, { include, picture });
+    const blocksOfPage = renderHypertext(page, {
+      include,
+      picture,
+      ...(budget === undefined ? {} : { budget }),
+    });
     if (blocksOfPage.length > 0) pages[String(id)] = blocksOfPage;
   }
   return Object.keys(pages).length === 0 ? undefined : pages;

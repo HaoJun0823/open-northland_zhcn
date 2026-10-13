@@ -14,6 +14,7 @@
  */
 
 import { ByteCursor } from './byte-cursor.js';
+import { DecodeLimitError } from './limit.js';
 
 export const C2M_VERSION = 1;
 const C2M_PREFIX = 'c2m';
@@ -35,12 +36,14 @@ export function isC2m(bytes: Uint8Array): boolean {
 }
 
 /** Every file record with a zero-copy view of its blob. Throws a `c2m:` error on a corrupt directory. */
-export function decodeC2m(bytes: Uint8Array): C2mFile[] {
+export function decodeC2m(bytes: Uint8Array, maxEntries = Number.POSITIVE_INFINITY): C2mFile[] {
   const cursor = new ByteCursor(bytes, C2M_PREFIX);
   const version = cursor.u32();
   if (version !== C2M_VERSION) throw new Error(`${C2M_PREFIX}: version ${version}, expected ${C2M_VERSION}`);
   const dirCount = cursor.u32();
   const fileCount = cursor.u32();
+  if (dirCount + fileCount > maxEntries)
+    throw new DecodeLimitError(`c2m: ${dirCount + fileCount} entries exceed ${maxEntries}`);
   if ((dirCount + fileCount) * MIN_RECORD_BYTES > bytes.length) {
     throw new Error(
       `${C2M_PREFIX}: ${dirCount} dirs and ${fileCount} files cannot fit ${bytes.length} bytes`,

@@ -59,6 +59,7 @@ map.dat
 
 # The API server's default data dir: the synced catalogue, raw upstream pages and thumbnails.
 /.api-data/
+/.api-upstream-cache/
 
 # Benchmark reports. Absolute timings only mean something against another run on the same machine,
 # so a baseline belongs to a checkout, never to the repository.

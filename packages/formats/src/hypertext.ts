@@ -7,6 +7,7 @@ import type {
   HypertextPicture,
   HypertextUserIcon,
 } from '@open-northland/data';
+import { DecodeLimitError } from './limit.js';
 
 /**
  * The hypertext the original's mission window and history book render: `briefings.txt`-style files
@@ -87,7 +88,14 @@ export type IncludeResolver = (file: string, label: string) => string | undefine
 /** Resolves a `<picture:…>` tag's lower-cased file name to the emitted picture. */
 export type PictureResolver = (name: string) => HypertextPicture | undefined;
 
+/** Shared across pages when decoding an untrusted map pack. Counts text before tokenization. */
+export interface HypertextBudget {
+  remaining: number;
+}
+export const DEFAULT_HYPERTEXT_CHARACTERS = 1024 * 1024;
+
 export interface HypertextSources {
+  readonly budget?: HypertextBudget;
   readonly include: IncludeResolver;
   /** Without one, pictures are dropped. */
   readonly picture?: PictureResolver;
@@ -150,6 +158,11 @@ function sameAttrs(a: RunAttrs, b: RunAttrs): boolean {
 
 /** Render one hypertext page into blocks. */
 export function renderHypertext(text: string, sources: HypertextSources): HypertextBlock[] {
+  const budget = sources.budget ?? { remaining: DEFAULT_HYPERTEXT_CHARACTERS };
+  const consume = (characters: number): void => {
+    if (characters > budget.remaining) throw new DecodeLimitError('hypertext: expanded text exceeds budget');
+    budget.remaining -= characters;
+  };
   const out: HypertextBlock[] = [];
   let attrs: RunAttrs = { style: 'body', color: DEFAULT_COLOR, link: null };
   let align: HypertextAlign | undefined;
@@ -259,6 +272,7 @@ export function renderHypertext(text: string, sources: HypertextSources): Hypert
       if (block === undefined) return;
       const flag = Number.parseInt(breaks ?? '', 10);
       const lineEndsBreak = Number.isInteger(flag) && flag !== 0;
+      consume(block.length);
       for (const blockLine of block.split('\n')) {
         walk(blockLine, depth + 1);
         if (lineEndsBreak) newline();
@@ -266,6 +280,7 @@ export function renderHypertext(text: string, sources: HypertextSources): Hypert
     }
   };
   const walk = (page: string, depth: number): void => {
+    consume(page.length);
     for (const token of page.matchAll(TOKEN)) {
       const [raw, tag, args] = token;
       if (tag !== undefined) applyTag(tag.toLowerCase(), args ?? '', depth);

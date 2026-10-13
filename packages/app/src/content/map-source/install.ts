@@ -13,7 +13,13 @@ import {
   type VerifiedMapDocuments,
   verifyMapDocuments,
 } from '../transfer/documents.js';
-import { apiBaseUrl, catalogSidecarUrl, convertedMaps, fetchCatalogEntry } from './api.js';
+import {
+  apiBaseUrl,
+  catalogRequestSignal,
+  catalogSidecarUrl,
+  convertedMaps,
+  fetchCatalogEntry,
+} from './api.js';
 import { MAP_FILE_SUFFIXES, type MapFileSuffix } from './files.js';
 import { INSTALLED_MAP_RECORD_VERSION, type InstallableMap, type InstalledMapRecord } from './installed.js';
 import { type InstalledMapStore, installedMapStore } from './store.js';
@@ -127,6 +133,7 @@ export async function installCatalogEntry(
   entry: CatalogEntry,
   options: InstallOptions,
 ): Promise<readonly InstalledMapRecord[]> {
+  options.signal?.throwIfAborted();
   const irVersion = options.irVersion ?? IR_VERSION;
   const fetchImpl = options.fetchImpl ?? fetch;
   if (entry.conversion?.verdict !== 'ok')
@@ -141,12 +148,16 @@ export async function installCatalogEntry(
   const installable: InstallableMap[] = [];
   for (const map of maps) {
     const files = new Map<MapFileSuffix, Uint8Array>();
+    const download = new AbortController();
+    const signal = catalogRequestSignal(
+      options.signal === undefined ? download.signal : AbortSignal.any([download.signal, options.signal]),
+    );
     await Promise.all(
       MAP_FILE_SUFFIXES.map(async (suffix) => {
         const url = catalogSidecarUrl(options.api, irVersion, map.mapId, suffix);
         let response: Response;
         try {
-          response = await fetchImpl(url, options.signal === undefined ? {} : { signal: options.signal });
+          response = await fetchImpl(url, { signal });
         } catch (error) {
           throw new CatalogInstallError('download', `${url}: ${String(error)}`);
         }
@@ -162,10 +173,16 @@ export async function installCatalogEntry(
           checkSidecar(suffix, bytes, url);
           files.set(suffix, bytes);
         }
-        done++;
-        options.onProgress?.({ done, total });
+        if (!signal.aborted) {
+          done++;
+          options.onProgress?.({ done, total });
+        }
       }),
-    );
+    ).catch((error: unknown) => {
+      // Failed installs must not leave sibling requests reporting progress into a later retry.
+      download.abort();
+      throw error;
+    });
     const terrain = files.get(TERRAIN);
     if (terrain === undefined) throw new CatalogInstallError('download', `${map.mapId} has no terrain`);
     const script = files.get(SCRIPT);
@@ -198,11 +215,13 @@ export async function installCatalogEntry(
       files,
     });
   }
+  options.signal?.throwIfAborted();
   await options.store.install(entry.id, installable);
   return installable.map((map) => map.record);
 }
 
 export interface AnnouncedMapServices {
+  readonly signal?: AbortSignal;
   readonly api?: string;
   readonly store?: InstalledMapStore | null;
   readonly fetchImpl?: typeof fetch;
@@ -222,11 +241,17 @@ export async function installAnnouncedCatalogMap(
   if (store === null || announced.irVersion !== irVersion) return null;
   const api = services.api ?? apiBaseUrl();
   const fetchImpl = services.fetchImpl ?? fetch;
-  const entry = await fetchCatalogEntry(api, announced.entryId, fetchImpl);
+  const entry = await fetchCatalogEntry(api, announced.entryId, fetchImpl, services.signal);
   const listed =
     entry === null ? undefined : convertedMaps(entry).find((map) => map.mapId === announced.mapId);
   if (entry === null || listed?.fingerprint !== announced.fingerprint) return null;
-  const records = await installCatalogEntry(entry, { api, store, fetchImpl, irVersion });
+  const records = await installCatalogEntry(entry, {
+    api,
+    store,
+    fetchImpl,
+    irVersion,
+    ...(services.signal === undefined ? {} : { signal: services.signal }),
+  });
   const record = records.find((item) => item.mapId === announced.mapId);
   if (record === undefined) return null;
   const documents = await loadVerifiedMapDocuments(announced.mapId, store.fetchFor(record));

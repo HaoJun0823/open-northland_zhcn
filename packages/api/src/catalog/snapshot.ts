@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { Catalog } from '@open-northland/data';
 
 /** A response body with its validator. */
 export interface Body {
   readonly bytes: Buffer;
+  readonly gzip?: Body;
   /** A strong `ETag`: the quoted SHA-256 of the bytes. */
   readonly etag: string;
 }
@@ -45,9 +47,14 @@ function conversionCounts(catalog: Catalog): ConversionCounts {
   return counts;
 }
 
+function compressedCatalog(catalog: Catalog): Body {
+  const body = jsonBody(catalog);
+  return { ...body, gzip: bytesBody(gzipSync(body.bytes)) };
+}
+
 export function catalogSnapshot(catalog: Catalog, syncedAt: Date): CatalogSnapshot {
   return {
-    catalog: jsonBody(catalog),
+    catalog: compressedCatalog(catalog),
     entries: new Map(catalog.map((entry) => [entry.id, jsonBody(entry)])),
     syncedAt,
     conversions: conversionCounts(catalog),

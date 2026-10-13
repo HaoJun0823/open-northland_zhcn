@@ -4,6 +4,7 @@ import { createGunzip } from 'node:zlib';
 import { CATALOG_MAP_ID } from '@open-northland/data';
 import { MAP_FILE_SUFFIXES } from '@open-northland/map-import';
 import { jsonBody } from '../catalog/snapshot.js';
+import { acceptsGzip } from './encoding.js';
 import { holds, send, sendError, V1_HEADERS } from './response.js';
 import type { ContentSource, KeptFile } from './sources.js';
 
@@ -28,18 +29,6 @@ const KEPT_FILE_TYPE = 'application/octet-stream';
 const HEX_RADIX = 16;
 /** What a quoted `filename` may hold: printable ASCII without the quote and backslash it would escape. */
 const UNQUOTABLE = /[^\x20-\x7e]|["\\]/g;
-
-/** Whether `Accept-Encoding` admits gzip, by name or `*`, with a nonzero quality. */
-function acceptsGzip(request: IncomingMessage): boolean {
-  const header = request.headers['accept-encoding'];
-  if (header === undefined) return false;
-  return header.split(',').some((part) => {
-    const [coding = '', ...parameters] = part.split(';').map((piece) => piece.trim().toLowerCase());
-    if (coding !== GZIP && coding !== '*') return false;
-    const quality = parameters.find((parameter) => parameter.startsWith('q='));
-    return quality === undefined || Number(quality.slice(2)) > 0;
-  });
-}
 
 /** The map id and suffix of a content file name, or null unless both are valid. */
 function contentName(fileName: string): { mapId: string; suffix: string } | null {

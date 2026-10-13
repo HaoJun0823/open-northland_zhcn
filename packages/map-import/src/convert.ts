@@ -7,6 +7,7 @@ import {
   type MapsIndexEntry,
   mapDocumentsFingerprint,
 } from '@open-northland/data';
+import { DEFAULT_HYPERTEXT_CHARACTERS, type HypertextBudget } from '@open-northland/formats/hypertext';
 import {
   cifBytesToSections,
   extractStaticObjects,
@@ -20,7 +21,7 @@ import { type MapFolder, mapFolderOf } from './folder.js';
 import { findMapFolders, mapIdFromFolderName } from './folders.js';
 import { mapsIndexEntry } from './index-entry.js';
 import { MAP_CIF_FILE, MAP_DAT_FILE, PICTURE_PATH, STATIC_OBJECT_FILES } from './layout.js';
-import { DEFAULT_IMPORT_LIMITS, type ImportLimits } from './limits.js';
+import { DEFAULT_IMPORT_LIMITS, DEFAULT_TOTAL_HYPERTEXT_CHARACTERS, type ImportLimits } from './limits.js';
 import { loadMapStringTables, resolveMapMeta } from './meta.js';
 import { minimapToPng } from './minimap.js';
 import { resolveMapScript } from './script.js';
@@ -53,6 +54,8 @@ export interface ConvertProgress {
 }
 
 export interface ConvertOptions {
+  /** Shared expansion budget across the pack, including picture discovery. */
+  readonly hypertextBudget?: HypertextBudget;
   /** Classifies each map by its spelled folder path; a plain kind applies to every map. */
   readonly provenance: MapProvenanceKind | ((folder: string) => MapProvenanceKind);
   /** The folder name a map at the tree root goes by, such as the archive's name. */
@@ -217,15 +220,23 @@ export async function convertMapFolder(
   }
 
   report('briefing');
+  const availableCharacters = Math.min(
+    DEFAULT_HYPERTEXT_CHARACTERS,
+    options.hypertextBudget?.remaining ?? Number.POSITIVE_INFINITY,
+  );
+  const pageBudget = { remaining: availableCharacters };
   let resolved: ResolvedBriefing | undefined;
   try {
     resolved =
       script === undefined
         ? undefined
-        : await resolveMapBriefing(folder, cutsceneIdsOf(script), limits.picturePixels);
+        : await resolveMapBriefing(folder, cutsceneIdsOf(script), limits.picturePixels, pageBudget);
   } catch (err) {
     throw limitFailure(err, folder.rel);
   }
+
+  if (options.hypertextBudget !== undefined)
+    options.hypertextBudget.remaining -= availableCharacters - pageBudget.remaining;
 
   report('picture');
   let picture: Uint8Array | undefined;
@@ -278,6 +289,7 @@ export async function convertMapFolder(
  * one with a map over the decode limits `too-large`.
  */
 export async function convertMapTree(tree: MapTree, options: ConvertOptions): Promise<MapTreeConversion> {
+  const hypertextBudget = options.hypertextBudget ?? { remaining: DEFAULT_TOTAL_HYPERTEXT_CHARACTERS };
   const folders = findMapFolders(tree);
   if (folders.length === 0) throw new MapImportError('no-map', `no folder holds a ${MAP_DAT_FILE}`);
   const maps: ConvertedMap[] = [];
@@ -289,7 +301,7 @@ export async function convertMapTree(tree: MapTree, options: ConvertOptions): Pr
       const map = await convertMapFolder(
         tree,
         key,
-        { ...options, limits: { ...limits, cells: Math.min(limits.cells, remainingCells) } },
+        { ...options, hypertextBudget, limits: { ...limits, cells: Math.min(limits.cells, remainingCells) } },
         { index, total: folders.length },
       );
       remainingCells -= map.terrain.width * map.terrain.height;

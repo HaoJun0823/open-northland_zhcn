@@ -36,3 +36,8 @@ describe('decodeC2m', () => {
     expect(() => decodeC2m(header)).toThrow(/cannot fit/);
   });
 });
+
+it('rejects a declared entry count before parsing records', () => {
+  const header = new Uint8Array([...le32(1), ...le32(1), ...le32(5000)]);
+  expect(() => decodeC2m(header, 5000)).toThrow(/entries exceed/);
+});

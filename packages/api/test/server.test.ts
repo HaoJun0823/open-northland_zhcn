@@ -2,6 +2,7 @@ import { type FileHandle, mkdtemp, open, rm, writeFile } from 'node:fs/promises'
 import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gunzipSync } from 'node:zlib';
 import { Catalog, CatalogEntry } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { catalogSnapshot } from '../src/catalog/snapshot.js';
@@ -119,6 +120,42 @@ describe('api server', () => {
     expect(cached.headers.get('access-control-allow-origin')).toBe('*');
     await sync();
     expect((await fetch(`${base}/v1/catalog`)).headers.get('etag')).toBe(etag);
+  });
+
+  it('compresses catalogue responses with representation validators and respects gzip refusal', async () => {
+    await sync();
+    const read = (headers: Record<string, string>, method = 'GET') =>
+      new Promise<{ status: number; headers: import('node:http').IncomingHttpHeaders; bytes: Buffer }>(
+        (resolve, reject) => {
+          const request = httpRequest(`${base}/v1/catalog`, { method, headers }, (response) => {
+            const chunks: Buffer[] = [];
+            response.on('data', (chunk: Buffer) => chunks.push(chunk));
+            response.on('end', () =>
+              resolve({
+                status: response.statusCode ?? 0,
+                headers: response.headers,
+                bytes: Buffer.concat(chunks),
+              }),
+            );
+          });
+          request.on('error', reject);
+          request.end();
+        },
+      );
+    const plain = await read({ 'accept-encoding': 'gzip;q=0, *;q=1' });
+    const zipped = await read({ 'accept-encoding': 'gzip' });
+    expect(plain.headers['content-encoding']).toBeUndefined();
+    expect(zipped.headers['content-encoding']).toBe('gzip');
+    expect(zipped.headers.vary).toBe('Accept-Encoding');
+    expect(gunzipSync(zipped.bytes)).toEqual(plain.bytes);
+    expect(zipped.headers.etag).not.toBe(plain.headers.etag);
+    const headers = { 'accept-encoding': 'gzip', 'if-none-match': String(zipped.headers.etag) };
+    const cached = await read(headers);
+    expect(cached.status).toBe(304);
+    expect(cached.bytes).toHaveLength(0);
+    const head = await read({ 'accept-encoding': 'gzip' }, 'HEAD');
+    expect(head.bytes).toHaveLength(0);
+    expect(Number(head.headers['content-length'])).toBe(zipped.bytes.length);
   });
 
   it('serves stored thumbnails with their type and 404 for maps without one', async () => {

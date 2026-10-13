@@ -23,7 +23,10 @@ async function fetchThumbnail(
   fetchFn: Fetch,
   url: string,
 ): Promise<{ bytes: Uint8Array; contentType: string }> {
-  const response = await fetchFn(url, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
+  const response = await fetchFn(url, {
+    redirect: 'error',
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  });
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
     throw new Error(`answered ${response.status}`);

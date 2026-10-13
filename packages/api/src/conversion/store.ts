@@ -1,21 +1,12 @@
-import { createHash, randomUUID } from 'node:crypto';
-import {
-  type FileHandle,
-  mkdir,
-  open,
-  readdir,
-  readFile,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { type FileHandle, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { gzip } from 'node:zlib';
 import { CATALOG_MAP_ID, CatalogConversion } from '@open-northland/data';
 import { sha256Hex } from '../catalog/snapshot.js';
 import { isMissing, writeAtomic } from '../store.js';
+import { ArchiveVerifier } from './archive-verifier.js';
 
 const ARCHIVE_DIR = 'archives';
 const CONVERTED_DIR = 'converted';
@@ -121,6 +112,7 @@ async function entryIds(dir: string): Promise<string[]> {
 export class ConversionStore {
   readonly convertedDir: string;
   private readonly archiveDir: string;
+  private readonly verifier = new ArchiveVerifier();
 
   constructor(
     readonly dir: string,
@@ -191,26 +183,13 @@ export class ConversionStore {
     }
   }
 
-  /** Verifies with bounded reads and keeps that inode open for the response. The caller closes the
-   *  handle and starts its response stream at offset zero after this verification pass. */
-  async openVerifiedArchive(id: string, source: ArchiveSource): Promise<FileHandle | null> {
-    let handle: FileHandle;
-    try {
-      handle = await open(join(this.archiveDir, id, `${source.sha256}.${source.ext}`));
-    } catch (error) {
-      if (isMissing(error)) return null;
-      throw error;
-    }
-    try {
-      const hash = createHash('sha256');
-      for await (const bytes of handle.createReadStream({ autoClose: false, start: 0 })) hash.update(bytes);
-      if (hash.digest('hex') === source.sha256) return handle;
-      await handle.close();
-      return null;
-    } catch (error) {
-      await handle.close();
-      throw error;
-    }
+  /** Returns a verified open inode; unchanged files share bounded verification work. */
+  openVerifiedArchive(id: string, source: ArchiveSource, signal?: AbortSignal): Promise<FileHandle | null> {
+    return this.verifier.open(
+      join(this.archiveDir, id, `${source.sha256}.${source.ext}`),
+      source.sha256,
+      signal,
+    );
   }
 
   /** Keeps `bytes` as the entry's only archive. The bytes land before the source that names them. */

@@ -3,6 +3,7 @@ import { CATALOG_MAP_ID } from '@open-northland/data';
 import type { CatalogSnapshot } from './catalog/snapshot.js';
 import { bytesBody, jsonBody } from './catalog/snapshot.js';
 import type { Log } from './catalog/thumbnails.js';
+import { ArchiveVerificationBusyError } from './conversion/archive-verifier.js';
 import { serveContent, serveKeptFile } from './http/files.js';
 import { pathOf, send, sendError, V1_HEADERS } from './http/response.js';
 import type { ContentSource, KeptFileSource } from './http/sources.js';
@@ -128,8 +129,19 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       return;
     }
     if (match?.[2] === 'file') {
-      const kept = snapshot.entries.has(id) ? ((await options.files?.keptFile(id)) ?? null) : null;
-      await serveKeptFile(kept, request, response);
+      const abort = new AbortController();
+      const disconnected = (): void => abort.abort();
+      response.once('close', disconnected);
+      if (response.destroyed) abort.abort();
+      try {
+        const kept = snapshot.entries.has(id)
+          ? ((await options.files?.keptFile(id, abort.signal)) ?? null)
+          : null;
+        if (abort.signal.aborted) await kept?.handle.close();
+        else await serveKeptFile(kept, request, response);
+      } finally {
+        response.off('close', disconnected);
+      }
       return;
     }
     const entry = snapshot.entries.get(id);
@@ -179,8 +191,20 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       // A fault in one request costs that request, never the server.
       serve(request, response).catch((error: unknown) => {
         log('request failed', { error: String(error) });
-        if (!response.headersSent) sendError(request, response, INTERNAL_ERROR, 'internal error');
-        else response.end();
+        if (response.destroyed) return;
+        if (!response.headersSent) {
+          const busy = error instanceof ArchiveVerificationBusyError;
+          sendError(
+            request,
+            response,
+            busy ? UNAVAILABLE : INTERNAL_ERROR,
+            busy ? error.message : 'internal error',
+            {
+              ...(pathOf(request).startsWith('/v1/') ? V1_HEADERS : {}),
+              ...(busy ? { 'retry-after': '1' } : {}),
+            },
+          );
+        } else response.end();
       });
     },
   );

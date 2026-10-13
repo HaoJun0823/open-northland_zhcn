@@ -180,22 +180,138 @@ describe('CatalogSync', () => {
     const upstream = new FakeUpstream([ACCEPTED_RECORDS]);
     const events: string[] = [];
     const published: number[] = [];
+    let finished: () => void = () => undefined;
+    const goodDone = new Promise<void>((resolve) => {
+      finished = resolve;
+    });
     const options = {
       fetch: upstream.fetch,
       upstream: UPSTREAM,
       store,
-      log: (event: string) => events.push(event),
+      log: (event: string) => {
+        events.push(event);
+        if (event === 'sync done' || event === 'sync failed') finished();
+      },
     };
     const good = new CatalogSync(options, HOUR_MS, (synced) => published.push(synced.catalog.length));
     good.start();
+    await goodDone;
     await good.stop();
     expect(published).toEqual([ACCEPTED_RECORDS.length]);
     upstream.failing = true;
     const bad = new CatalogSync(options, HOUR_MS, (synced) => published.push(synced.catalog.length));
+    const badDone = new Promise<void>((resolve) => {
+      finished = resolve;
+    });
     bad.start();
+    await badDone;
     await bad.stop();
     expect(published).toHaveLength(1);
     expect(events).toEqual(expect.arrayContaining(['sync done', 'sync failed']));
     await rm(dir, { recursive: true, force: true });
+  });
+});
+
+describe('CatalogSync cancellation', () => {
+  let dir: string;
+  let store: DataStore;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'on-api-sync-stop-'));
+    store = new DataStore(dir);
+    await store.init();
+    await store.writeCatalog('[]');
+  });
+  afterEach(() => rm(dir, { recursive: true, force: true }));
+
+  it('aborts a stalled page instead of waiting for its timeout', async () => {
+    let began: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    let aborted = false;
+    let published = false;
+    const sync = new CatalogSync(
+      {
+        store,
+        upstream: UPSTREAM,
+        log: () => undefined,
+        fetch: async (_url, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener(
+              'abort',
+              () => {
+                aborted = true;
+                reject(new Error('aborted'));
+              },
+              { once: true },
+            );
+            began();
+          }),
+      },
+      HOUR_MS,
+      () => {
+        published = true;
+      },
+    );
+    sync.start();
+    await started;
+    await sync.stop();
+    expect(aborted).toBe(true);
+    expect(published).toBe(false);
+    expect(await readdir(join(dir, 'raw'))).toEqual([]);
+    expect(await readFile(join(dir, 'catalog.json'), 'utf8')).toBe('[]');
+  });
+
+  it('cancels active thumbnails, leaves queued ones unfetched and preserves the catalogue', async () => {
+    const upstream = new FakeUpstream([
+      Array.from({ length: 10 }, (_, index) =>
+        strapiRecord({
+          id: index,
+          documentId: `map${index}`,
+          title: `Map ${index}`,
+          category: 'Mapy Singleplayer',
+          fileUrl: `${UPSTREAM}/map${index}.zip`,
+        }),
+      ),
+    ]);
+    let began: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    let requested = 0;
+    let aborted = 0;
+    let published = false;
+    const sync = new CatalogSync(
+      {
+        store,
+        upstream: UPSTREAM,
+        log: () => undefined,
+        fetch: async (url, init) => {
+          if (!new URL(url).pathname.startsWith('/uploads/')) return upstream.fetch(url);
+          requested += 1;
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener(
+              'abort',
+              () => {
+                aborted += 1;
+                reject(new Error('aborted'));
+              },
+              { once: true },
+            );
+            if (requested === 4) began();
+          });
+        },
+      },
+      HOUR_MS,
+      () => {
+        published = true;
+      },
+    );
+    sync.start();
+    await started;
+    await sync.stop();
+    expect({ requested, aborted, published }).toEqual({ requested: 4, aborted: 4, published: false });
+    expect(await readdir(join(dir, 'thumbnails'))).toEqual([]);
+    expect(await readFile(join(dir, 'catalog.json'), 'utf8')).toBe('[]');
   });
 });

@@ -161,11 +161,11 @@ export class ConversionService implements ContentSource, KeptFileSource {
     }
   }
 
-  async keptFile(id: string): Promise<KeptFile | null> {
+  async keptFile(id: string, signal?: AbortSignal): Promise<KeptFile | null> {
     const entry = this.entry(id);
     const kept = entry === undefined ? null : this.keptArchive(entry);
     if (kept === null) return null;
-    const handle = await this.options.store.openVerifiedArchive(id, kept);
+    const handle = await this.options.store.openVerifiedArchive(id, kept, signal);
     if (handle === null) return null;
     const name = upstreamFileName(kept.url);
     return { handle, sha256: kept.sha256, name: name === '' ? `${id}.${kept.ext}` : name };

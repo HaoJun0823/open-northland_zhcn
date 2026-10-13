@@ -9,6 +9,7 @@ export interface SyncOptions {
   readonly upstream: string;
   readonly store: DataStore;
   readonly log: Log;
+  readonly signal?: AbortSignal;
 }
 
 /** A catalogue as one sync left it, with the download URL of every entry that has a file to convert. */
@@ -39,8 +40,8 @@ export async function syncCatalog(
   options: SyncOptions,
   now: () => Date = () => new Date(),
 ): Promise<SyncedCatalog> {
-  const { fetch, upstream, store, log } = options;
-  const pages = await fetchCatalogPages(fetch, upstream);
+  const { fetch, upstream, store, log, signal } = options;
+  const pages = await fetchCatalogPages(fetch, upstream, signal);
   const { records, skipped } = normalizeRecords(
     pages.flatMap(({ records: pageRecords }) => pageRecords),
     upstream,
@@ -49,8 +50,10 @@ export async function syncCatalog(
   if (records.length === 0 && (await storedEntryCount(store)) > 0) {
     throw new Error('upstream lists no map; the stored catalogue stays');
   }
+  signal?.throwIfAborted();
   await store.writeRawPages(pages);
-  const catalog: Catalog = await syncThumbnails(fetch, store, records, log);
+  const catalog: Catalog = await syncThumbnails(fetch, store, records, log, signal);
+  signal?.throwIfAborted();
   await store.writeCatalog(JSON.stringify(catalog));
   return { catalog, downloads: downloadsOf(records), syncedAt: now() };
 }
@@ -61,6 +64,7 @@ export class CatalogSync {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running: Promise<void> | null = null;
   private stopped = false;
+  private readonly abort = new AbortController();
 
   constructor(
     private readonly options: SyncOptions,
@@ -72,9 +76,10 @@ export class CatalogSync {
     this.running = this.run();
   }
 
-  /** Resolves once a sync in flight has finished; no further sync starts. */
+  /** Cancels upstream work and waits for in-flight storage; no further sync starts. */
   async stop(): Promise<void> {
     this.stopped = true;
+    this.abort.abort();
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = null;
     await this.running;
@@ -83,14 +88,19 @@ export class CatalogSync {
   private async run(): Promise<void> {
     const startedAt = performance.now();
     try {
-      const synced = await syncCatalog(this.options);
-      this.publish(synced);
+      const signal =
+        this.options.signal === undefined
+          ? this.abort.signal
+          : AbortSignal.any([this.abort.signal, this.options.signal]);
+      const synced = await syncCatalog({ ...this.options, signal });
+      if (!this.stopped) this.publish(synced);
       this.options.log('sync done', {
         entries: synced.catalog.length,
         ms: Math.round(performance.now() - startedAt),
       });
     } catch (error) {
-      this.options.log('sync failed', { error: error instanceof Error ? error.message : String(error) });
+      if (!this.stopped)
+        this.options.log('sync failed', { error: error instanceof Error ? error.message : String(error) });
     }
     if (!this.stopped) {
       this.timer = setTimeout(() => {

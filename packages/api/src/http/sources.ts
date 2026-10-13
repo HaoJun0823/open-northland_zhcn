@@ -25,5 +25,5 @@ export interface KeptFile {
 /** The kept catalogue files by entry id; null when none is kept or it no longer matches its hash. */
 export interface KeptFileSource {
   /** The caller closes the verified handle, including for HEAD and conditional requests. */
-  keptFile(entryId: string): Promise<KeptFile | null>;
+  keptFile(entryId: string, signal?: AbortSignal): Promise<KeptFile | null>;
 }

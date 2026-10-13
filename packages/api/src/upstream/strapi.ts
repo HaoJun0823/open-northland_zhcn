@@ -45,11 +45,15 @@ async function fetchPage(
   page: number,
   remainingBytes: number,
   remainingRecords: number,
+  signal?: AbortSignal,
 ): Promise<UpstreamPage & { pageCount: number; byteLength: number }> {
   const url = catalogPageUrl(upstream, page);
   const response = await fetchFn(url, {
     redirect: 'error',
-    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    signal:
+      signal === undefined
+        ? AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
+        : AbortSignal.any([signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
   });
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
@@ -82,13 +86,19 @@ async function fetchPage(
 
 /** Every catalogue page, from the first up to the `pageCount` the first page reports. Any failed or
  *  malformed page fails the whole download, so a partial catalogue never replaces a whole one. */
-export async function fetchCatalogPages(fetchFn: Fetch, upstream: string): Promise<UpstreamPage[]> {
-  const first = await fetchPage(fetchFn, upstream, 1, MAX_CATALOG_BYTES, MAX_CATALOG_RECORDS);
+export async function fetchCatalogPages(
+  fetchFn: Fetch,
+  upstream: string,
+  signal?: AbortSignal,
+): Promise<UpstreamPage[]> {
+  signal?.throwIfAborted();
+  const first = await fetchPage(fetchFn, upstream, 1, MAX_CATALOG_BYTES, MAX_CATALOG_RECORDS, signal);
   const pages: UpstreamPage[] = [first];
   let remainingBytes = MAX_CATALOG_BYTES - first.byteLength;
   let remainingRecords = MAX_CATALOG_RECORDS - first.records.length;
   for (let page = 2; page <= first.pageCount; page++) {
-    const next = await fetchPage(fetchFn, upstream, page, remainingBytes, remainingRecords);
+    signal?.throwIfAborted();
+    const next = await fetchPage(fetchFn, upstream, page, remainingBytes, remainingRecords, signal);
     remainingBytes -= next.byteLength;
     remainingRecords -= next.records.length;
     pages.push(next);

@@ -22,10 +22,14 @@ export function thumbnailPath(id: string, sha256: string): string {
 async function fetchThumbnail(
   fetchFn: Fetch,
   url: string,
+  signal?: AbortSignal,
 ): Promise<{ bytes: Uint8Array; contentType: string }> {
   const response = await fetchFn(url, {
     redirect: 'error',
-    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    signal:
+      signal === undefined
+        ? AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
+        : AbortSignal.any([signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)]),
   });
   if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
@@ -51,15 +55,18 @@ async function syncThumbnail(
   store: DataStore,
   record: NormalizedRecord,
   log: Log,
+  signal?: AbortSignal,
 ): Promise<string | null> {
   const { id, updatedAt } = record.entry;
   const meta = await store.readThumbnailMeta(id);
   if (record.screenshotUrl === null) return null;
   if (meta?.updatedAt === updatedAt) return meta.sha256;
   try {
-    const { bytes, contentType } = await fetchThumbnail(fetchFn, record.screenshotUrl);
+    const { bytes, contentType } = await fetchThumbnail(fetchFn, record.screenshotUrl, signal);
+    signal?.throwIfAborted();
     return (await store.writeThumbnail(id, bytes, { contentType, updatedAt })).sha256;
   } catch (error) {
+    signal?.throwIfAborted();
     log('thumbnail failed', { id, error: error instanceof Error ? error.message : String(error) });
     return meta?.sha256 ?? null;
   }
@@ -72,17 +79,21 @@ export async function syncThumbnails(
   store: DataStore,
   records: readonly NormalizedRecord[],
   log: Log,
+  signal?: AbortSignal,
 ): Promise<CatalogEntry[]> {
   const stored = new Array<string | null>(records.length).fill(null);
   let next = 0;
   const worker = async (): Promise<void> => {
     while (next < records.length) {
+      signal?.throwIfAborted();
       const index = next++;
       const record = records[index];
-      if (record !== undefined) stored[index] = await syncThumbnail(fetchFn, store, record, log);
+      if (record !== undefined) stored[index] = await syncThumbnail(fetchFn, store, record, log, signal);
     }
   };
-  await Promise.all(Array.from({ length: FETCH_CONCURRENCY }, worker));
+  const results = await Promise.allSettled(Array.from({ length: FETCH_CONCURRENCY }, worker));
+  for (const result of results) if (result.status === 'rejected') throw result.reason;
+  signal?.throwIfAborted();
   await store.pruneThumbnails(
     new Set(records.filter((_, index) => stored[index] != null).map(({ entry }) => entry.id)),
   );

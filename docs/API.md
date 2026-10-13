@@ -76,7 +76,9 @@ HTTP behavior:
 - The list supports precompressed gzip, `Vary: Accept-Encoding` and a separate ETag per representation.
 - Map JSON is stored as gzip. Clients accepting gzip receive it directly; others receive an inflated
   stream without `Content-Length`. Its ETag hashes the uncompressed bytes; reuse requires revalidation.
-- Archives are verified and streamed from the same open file without buffering the whole archive.
+- Archive verification reuses unchanged inode, size and timestamp identities; responses retain their
+  verified open inode. At most two hash passes and 32 verification requests run at once; overload
+  returns 503 with `Retry-After`. Disconnects cancel verification when no other requester needs it.
 - Thumbnail and archive links include `?v=<sha256>`; these routes ignore that query parameter.
 
 ## Stored files
@@ -171,7 +173,7 @@ curl -s http://127.0.0.1:8790/healthz
 ```
 
 `packages/api/Dockerfile` supports `linux/amd64` and `linux/arm64`. It includes compiled API,
-map-import, formats, data, render and sim packages plus runtime dependencies. It contains no Pixi
+map-import, formats and data packages plus runtime dependencies. It contains no Pixi
 or game content. Archives and converted maps stay in `/data`.
 
 Defaults: `PORT=8790`, `ON_API_DATA_DIR=/data`. The `API_BUILD` build argument sets the reported build.

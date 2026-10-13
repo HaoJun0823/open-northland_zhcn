@@ -175,7 +175,8 @@ export function mapCategory(item: MapSelectItem): Exclude<MapFilter, 'all'> {
  * `USER_MULTI_PLAYER_FREE`; the two sections are one list here, since an item does not carry its root.
  * Its single-player free-game list takes the free types plus a multiplayer map without
  * `mapmultiplayeronly` (the untyped case is carried over from the
- * multiplayer rule). Neither list takes `SINGLE_PLAYER_CAMPAIGN`: the original reaches such a map only
+ * multiplayer rule). This menu also allows user multiplayer maps in local matches under the same
+ * multiplayer-only restriction. Neither list takes `SINGLE_PLAYER_CAMPAIGN`: the original reaches such a map only
  * through its `mapcampaignid` pair, and that lookup's one caller is the sub-map start reached from
  * mission-goal evaluation, so a sub-mission starts from its parent map's script and never from a menu.
  * Approximation: `SINGLE_PLAYER_DEMO` is listed nowhere, its menu being unobserved.
@@ -188,7 +189,7 @@ export function listedIn(item: MapSelectItem, listing: MapListing): boolean {
   return (
     has(item, MAP_TYPE.SINGLE_PLAYER_FREE) ||
     has(item, MAP_TYPE.USER_SINGLE_PLAYER_FREE) ||
-    (has(item, MAP_TYPE.MULTI_PLAYER_FREE) && !item.multiplayerOnly)
+    (isMultiplayerMapType(item.types) && !item.multiplayerOnly)
   );
 }
 
@@ -205,11 +206,7 @@ function matchesFilter(item: MapSelectItem, filter: MapFilter): boolean {
         untyped(item) || has(item, MAP_TYPE.SINGLE_PLAYER_FREE) || has(item, MAP_TYPE.USER_SINGLE_PLAYER_FREE)
       );
     case 'multiplayer':
-      return (
-        untyped(item) ||
-        (has(item, MAP_TYPE.MULTI_PLAYER_FREE) && !item.multiplayerOnly) ||
-        has(item, MAP_TYPE.USER_MULTI_PLAYER_FREE)
-      );
+      return untyped(item) || (isMultiplayerMapType(item.types) && !item.multiplayerOnly);
   }
 }
 

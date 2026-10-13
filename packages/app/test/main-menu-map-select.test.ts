@@ -173,7 +173,7 @@ describe('listedIn', () => {
       multiOnly,
       scene,
     ].filter((item) => listedIn(item, 'single'));
-    expect(single).toEqual([tutorial, free, userFree, multi, untyped, scene]);
+    expect(single).toEqual([tutorial, free, userFree, multi, userMulti, untyped, scene]);
   });
 });
 
@@ -299,6 +299,27 @@ describe('filterItems', () => {
     expect(filterItems([both], 'single', 'all', '')).toEqual([both]);
     expect(filterItems([both], 'single', 'multiplayer', '')).toEqual([]);
   });
+
+  it.each([MAP_TYPE.MULTI_PLAYER_FREE, MAP_TYPE.USER_MULTI_PLAYER_FREE])(
+    'lists multiplayer type %s in local All and Multiplayer unless restricted to network play',
+    (type) => {
+      const map = mapItem({
+        id: 'downloaded-arena',
+        name: { pol: 'Pobrana arena' },
+        fingerprint: TINY_FINGERPRINT,
+        picture: false,
+        minimap: false,
+        mapTypes: [type],
+      });
+      expect(filterItems([map], 'single', 'all', 'arena')).toEqual([map]);
+      expect(filterItems([map], 'single', 'multiplayer', '')).toEqual([map]);
+      expect(filterItems([map], 'single', 'free', '')).toEqual([]);
+      const restricted = { ...map, multiplayerOnly: true };
+      expect(filterItems([restricted], 'single', 'all', '')).toEqual([]);
+      expect(filterItems([restricted], 'single', 'multiplayer', '')).toEqual([]);
+      expect(filterItems([restricted], 'multiplayer', 'all', '')).toEqual([restricted]);
+    },
+  );
 
   it('orders maps by title as the language reads them, a number by its value', () => {
     const titled = (id: string, name: string): MapSelectItem =>

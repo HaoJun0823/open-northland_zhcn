@@ -23,6 +23,7 @@ import {
   uiStringLookup,
 } from '../../content/gui-gfx.js';
 import { loadUiFont, type UiFont } from '../../content/ui-font.js';
+import type { MissionInfoRow } from '../../game/info-lines.js';
 import type { MissionReader } from '../../game/mission-brief.js';
 import type { ObserverSeatEntry } from '../../game/observer-seats.js';
 import { canonicalJobType } from '../../game/sandbox/index.js';
@@ -63,7 +64,6 @@ import { CONSTRUCTION_TOOLS, type ConstructionTool, type MenuBuildingEntry } fro
 import type { PanelBitmaps, PanelContext } from './context.js';
 import type { GameSpeedChangeCause, GameSpeedControl, GameSpeedStateSpec } from './game-speed.js';
 import { createHeldPaperController } from './held-paper.js';
-import { createInfoLinesOverlay } from './info-lines.js';
 import { createToolPanelInput, type HeldMode, type ToolPanelInput } from './input.js';
 import { buildToolPanelLayout } from './layout.js';
 import type { ActiveLine, LineNode, LinePreviewNode, LitNodes } from './line-tool.js';
@@ -281,7 +281,7 @@ export interface ToolPanelController {
    *  script asked for one, which holds the game while it shows. */
   openMission(page?: number): void;
   /** The on-screen info lines a map script writes for the seat, top to bottom. */
-  setInfoLines(lines: readonly string[]): void;
+  setInfoLines(lines: readonly MissionInfoRow[]): void;
   /** Hide the info lines with the rest of the HUD. Hiding closes the open windows, so none is left
    *  taking presses unseen; a window opened while hidden shows. */
   setHudHidden(hidden: boolean): void;
@@ -435,9 +435,8 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
   const root = new Container();
   root.zIndex = 1000;
   app.stage.addChild(root);
-  const infoContainer = new Container();
   const windowContainer = new Container();
-  root.addChild(infoContainer, windowContainer);
+  root.addChild(windowContainer);
 
   const domParts: { dispose(): void }[] = [];
   let input: ToolPanelInput | null = null;
@@ -804,12 +803,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
     });
     domParts.push(messageCenter);
 
-    const infoLines = createInfoLinesOverlay(ctx, infoContainer);
     let hudHidden = false;
-    const applyHudHidden = (hidden: boolean): void => {
-      hudHidden = hidden;
-      infoContainer.visible = !hidden;
-    };
 
     // Esc closes the open window and hands focus back to its beam entry.
     const closeWindow = (): boolean => {
@@ -915,10 +909,10 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
         if (page !== undefined) applyNavEntry(surfaces, 'mission', () => windows.mission.showPage(page));
         else if (!windows.mission.isOpen()) applyNavEntry(surfaces, 'mission');
       },
-      setInfoLines: (lines) => infoLines.set(lines),
+      setInfoLines: (lines) => windows.mission.setInfoLines(lines),
       setHudHidden: (hidden) => {
         if (hidden) windows.closeAll();
-        applyHudHidden(hidden);
+        hudHidden = hidden;
       },
       centralWindows: {
         isOpen: () => windows.openId() !== null,
@@ -987,8 +981,6 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
         const open = windows.openId();
         nav.setActive(open === null ? null : navEntryForWindow(open));
         nav.setMarked('mission', windows.mission.unread(), messages().hud.missionBook.beamMark);
-        infoLines.refresh();
-        windows.mission.dropSlip(infoLines.depth());
       },
       mapViews: () => bookFrames(windows.mission.views()),
       presentMessages: (snapshot, events, departed, alpha) =>
@@ -1018,11 +1010,10 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
         windows.restore(state.windows);
         placement.restore(state.placement);
         messageCenter.restore(state.messages);
-        applyHudHidden(state.hudHidden);
+        hudHidden = state.hudHidden;
       },
       dispose(): void {
         placement.dispose();
-        infoLines.dispose();
         disposeAll();
       },
     };

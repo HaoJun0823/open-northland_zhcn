@@ -1093,6 +1093,8 @@ export const ruGame = {
       removeLabel: 'Удалить перевозку: {good}',
     },
     missionBook: {
+      progress: 'Прогресс',
+      progressCounters: 'Счётчики: {count}',
       title: 'Миссия',
       tabsLabel: 'Книга миссии',
       tabs: {

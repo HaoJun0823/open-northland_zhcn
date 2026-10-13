@@ -1001,6 +1001,8 @@ export const plGame = {
       removeLabel: 'Usuń przewóz: {good}',
     },
     missionBook: {
+      progress: 'Postęp',
+      progressCounters: 'Liczniki: {count}',
       title: 'Misja',
       tabsLabel: 'Księga misji',
       tabs: { brief: 'Zadanie', goals: 'Cele', history: 'Kronika' },

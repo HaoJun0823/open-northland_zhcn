@@ -10,6 +10,7 @@ import type {
 } from '@open-northland/sim';
 import { ONE } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
+import type { MissionInfoRow } from '../src/game/info-lines.js';
 import { messages } from '../src/i18n/index.js';
 import type { GameToolPanelHandle } from '../src/view/game-tool-panel.js';
 import { createScriptPresentation } from '../src/view/runtime/script-presentation.js';
@@ -49,7 +50,7 @@ function harness(
   goalProgress: readonly MatchGoalProgress[] = [],
 ) {
   const calls: string[] = [];
-  const infoLines: (readonly string[])[] = [];
+  const infoLines: (readonly MissionInfoRow[])[] = [];
   let tick = 0;
   let camera = { ...CAMERA };
   const host = {
@@ -65,7 +66,7 @@ function harness(
   const toolPanel = {
     controller: {
       openMission: (page?: number) => calls.push(`open:${page}`),
-      setInfoLines: (next: readonly string[]) => infoLines.push(next),
+      setInfoLines: (next: readonly MissionInfoRow[]) => infoLines.push(next),
     },
   } as unknown as GameToolPanelHandle;
   const markers: ScriptMarkers = {
@@ -179,18 +180,18 @@ describe('createScriptPresentation', () => {
     expect(infoLines).toEqual([[]]);
     await landed();
     presentation.frame(snapshotAt(0), CAMERA, 0);
-    expect(infoLines.at(-1)).toEqual(['Held: 1 of 4']);
+    expect(infoLines.at(-1)).toEqual([{ kind: 'text', text: 'Held: 1 of 4' }]);
     lines[0] = { index: 0, stringId: 7, count: 2, extra: 4 };
     advance(12);
     presentation.frame(snapshotAt(12), CAMERA, 0);
     await landed();
     presentation.frame(snapshotAt(12), CAMERA, 0);
-    expect(infoLines.at(-1)).toEqual(['Held: 1 of 4']);
+    expect(infoLines.at(-1)).toEqual([{ kind: 'text', text: 'Held: 1 of 4' }]);
     advance(24);
     presentation.frame(snapshotAt(24), CAMERA, 0);
     await landed();
     presentation.frame(snapshotAt(24), CAMERA, 0);
-    expect(infoLines.at(-1)).toEqual(['Held: 2 of 4']);
+    expect(infoLines.at(-1)).toEqual([{ kind: 'text', text: 'Held: 2 of 4' }]);
   });
 
   it('appends the goal table rows after the map lines', async () => {
@@ -204,7 +205,11 @@ describe('createScriptPresentation', () => {
     await landed();
     presentation.frame(snapshotAt(0), CAMERA, 0);
     const hud = messages().hud;
-    expect(infoLines.at(-1)).toEqual(['Held: 1 of 4', 'Wood 12/50', `${hud.matchGoalSoldiers} 3/10`]);
+    expect(infoLines.at(-1)).toEqual([
+      { kind: 'text', text: 'Held: 1 of 4' },
+      { kind: 'progress', label: 'Wood', have: 12, need: 50 },
+      { kind: 'progress', label: hud.matchGoalSoldiers, have: 3, need: 10 },
+    ]);
   });
 
   it('re-reads the lines at once when the watched seat changes, and shows none for no seat', async () => {
@@ -218,12 +223,12 @@ describe('createScriptPresentation', () => {
     presentation.frame(snapshotAt(0), CAMERA, 0);
     await landed();
     presentation.frame(snapshotAt(0), CAMERA, 0);
-    expect(infoLines.at(-1)).toEqual(['Held: 1 of 4']);
+    expect(infoLines.at(-1)).toEqual([{ kind: 'text', text: 'Held: 1 of 4' }]);
     seat = 1;
     presentation.frame(snapshotAt(0), CAMERA, 0);
     await landed();
     presentation.frame(snapshotAt(0), CAMERA, 0);
-    expect(infoLines.at(-1)).toEqual(['Held: 3 of 4']);
+    expect(infoLines.at(-1)).toEqual([{ kind: 'text', text: 'Held: 3 of 4' }]);
     seat = null;
     presentation.frame(snapshotAt(0), CAMERA, 0);
     expect(infoLines.at(-1)).toEqual([]);

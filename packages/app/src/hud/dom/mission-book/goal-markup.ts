@@ -1,7 +1,9 @@
+import type { MissionInfoRow } from '../../../game/info-lines.js';
 import type { MissionGoal } from '../../../game/mission-brief.js';
 import { messages } from '../../../i18n/index.js';
 import { escapeHtml } from '../parts/dom.js';
 import { type GoalMark, goalLists, openGoalCount } from './goal-marks.js';
+import { infoRowsMarkup } from './info-markup.js';
 import { FLOURISH } from './markup.js';
 
 const CHECK =
@@ -27,6 +29,7 @@ export function goalsSpread(
   goals: readonly MissionGoal[],
   marks: ReadonlyMap<string, GoalMark>,
   missionName: string,
+  infoRows: readonly MissionInfoRow[] = [],
 ): string {
   const copy = messages().hud.missionBook;
   const row = (goal: MissionGoal): string => {
@@ -47,7 +50,8 @@ export function goalsSpread(
   return `<div class="on-book__page on-book__page--left"><div class="on-book__sheet">
       <p class="on-book__kicker">${escapeHtml(copy.goalsKicker)}${name}</p>
       <h3 class="on-book__title">${escapeHtml(copy.goalsTitle)}</h3>${FLOURISH}
-      <p class="on-book__list-head">${escapeHtml(copy.current)} · ${openGoalCount(goals)}</p>${list(current, copy.noneOpen)}
+      <p class="on-book__list-head">${escapeHtml(copy.current)} · ${openGoalCount(goals)}</p>${list(current, infoRows.length === 0 ? copy.noneOpen : null)}
+      ${infoRows.length === 0 ? '' : `<p class="on-book__list-head">${escapeHtml(copy.progress)}</p>${infoRowsMarkup(infoRows)}`}
     </div><p class="on-book__folio">${escapeHtml(copy.tabs.goals)}</p></div>
     <div class="on-book__page on-book__page--right"><div class="on-book__sheet">
       <p class="on-book__list-head">${escapeHtml(copy.done)} · ${done.length}</p>${list(done, null)}

@@ -57,7 +57,6 @@ function mount(pauseStopsClock = true) {
     setFolded: (next) => {
       folded = next;
     },
-    setDrop: () => undefined,
     dispose: () => undefined,
   };
   const deps: MissionBookDeps = {

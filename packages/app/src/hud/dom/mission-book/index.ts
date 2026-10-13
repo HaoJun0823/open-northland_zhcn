@@ -1,6 +1,7 @@
 import type { UiCue } from '@open-northland/audio';
 import type { HypertextBook } from '@open-northland/data';
 import type { MapViewTarget } from '@open-northland/render';
+import type { MissionInfoRow } from '../../../game/info-lines.js';
 import type { MissionReader } from '../../../game/mission-brief.js';
 import type { ToolWindow } from '../../tool-panel/window-shell.js';
 import {
@@ -79,8 +80,8 @@ export interface MissionBook extends ToolWindow {
   restore(state: MissionWindowState): void;
   /** Once a frame: follow the goals, the slip and the screen. */
   refresh(): void;
-  /** Hang the goal slip `depth` design px lower, below the script's info lines. */
-  dropSlip(depth: number): void;
+  /** Live script messages and goal counters for the watched seat. */
+  setInfoLines(rows: readonly MissionInfoRow[]): void;
   /** The world views the open book shows, for the renderer to paint under its holes. */
   views(): readonly BookView[];
   /** A goal changed since the goal page last showed, which the beam and the folded slip mark. */
@@ -111,6 +112,9 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
   const shown = new ShownPages();
   const marks = new GoalMarks();
   const listeners: (() => void)[] = [];
+  let infoRows: readonly MissionInfoRow[] = [];
+  let infoKey = '';
+  let lastInfoInput: readonly MissionInfoRow[] | null = null;
   let held = false;
   let arrival = false;
   /** The original's one-shot flag: one callback centres the view per opening of the window, a page
@@ -149,6 +153,7 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     chapters,
     page: (page) => deps.reader.page(page),
     goals: () => deps.reader.goals(),
+    infoRows: () => infoRows,
     missionName: deps.reader.missionName,
     history: deps.history,
     missionHuman: deps.missionHuman,
@@ -201,7 +206,6 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     onOpenBook: deps.onSlipOpen,
     cue: deps.cue,
   });
-  slip.setDrop(0);
 
   return {
     isOpen: () => book.isOpen(),
@@ -245,9 +249,16 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
       const goals = deps.reader.goals();
       marks.observe(goals);
       book.refresh();
-      slip.update(goals, marks, book.isOpen());
+      slip.update(goals, marks, book.isOpen(), infoRows);
     },
-    dropSlip: (depth) => slip.setDrop(depth),
+    setInfoLines(rows): void {
+      if (rows === lastInfoInput) return;
+      lastInfoInput = rows;
+      const key = JSON.stringify(rows);
+      if (key === infoKey) return;
+      infoRows = rows;
+      infoKey = key;
+    },
     views: () => book.views(),
     unread: () => marks.unread,
     onDismiss: (listener) => {

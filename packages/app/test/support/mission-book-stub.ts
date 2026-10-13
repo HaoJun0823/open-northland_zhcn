@@ -36,7 +36,7 @@ export function stubMissionBook(): MissionBook & { readonly shownPages: readonly
       state = next;
     },
     refresh: () => undefined,
-    dropSlip: () => undefined,
+    setInfoLines: () => undefined,
     views: () => [],
     unread: () => false,
     onDismiss: () => undefined,

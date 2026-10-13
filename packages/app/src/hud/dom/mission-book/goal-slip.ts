@@ -1,18 +1,18 @@
 import type { UiCue } from '@open-northland/audio';
+import type { MissionInfoRow } from '../../../game/info-lines.js';
 import type { MissionGoal } from '../../../game/mission-brief.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
 import { GOAL_SLIP, TOP_BAR_HEIGHT } from '../../regions.js';
 import { escapeHtml, setHidden } from '../parts/dom.js';
 import { type GoalMarks, openGoalCount, SlipReadClock, type SlipRow, slipRows } from './goal-marks.js';
 import { goalMarkMarkup, goalTextMarkup } from './goal-markup.js';
+import { infoRowsMarkup, infoRowsSummary } from './info-markup.js';
 
 /** Open goals the slip lists before it points to the book. */
 const SLIP_OPEN_ROWS = 4;
 /** How long the open slip shows a done or new goal before it counts as read: the done goal leaves,
  *  the new one loses its tag. Real time, so a paused game reads it too. */
 const SLIP_READ_MS = 30_000;
-/** Room it keeps under the script's info lines when they stand under the bar. */
-const INFO_LINES_GAP = 6;
 
 const FOLD =
   '<svg viewBox="0 0 20 20" class="on-book__ico on-slip__fold"><path d="M5 12.5l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -32,12 +32,14 @@ export interface GoalSlipDeps {
  */
 export interface GoalSlip {
   /** Show the goals as they stand; nothing changes the markup unless the list, a mark or the fold did. */
-  update(goals: readonly MissionGoal[], marks: GoalMarks, bookOpen: boolean): void;
+  update(
+    goals: readonly MissionGoal[],
+    marks: GoalMarks,
+    bookOpen: boolean,
+    infoRows: readonly MissionInfoRow[],
+  ): void;
   isFolded(): boolean;
   setFolded(folded: boolean): void;
-  /** Hang the slip below the script's info lines, `depth` design px under the bar; 0 hangs it from the
-   *  bar itself. */
-  setDrop(depth: number): void;
   dispose(): void;
 }
 
@@ -49,7 +51,7 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
   dock.style.right = `${GOAL_SLIP.right}px`;
   dock.style.width = `${GOAL_SLIP.width}px`;
   deps.plane.append(dock);
-  let drop = Number.NaN;
+  dock.style.top = `${TOP_BAR_HEIGHT + 1}px`;
   let folded = false;
   /** The sheet unrolls once per unfold, not on every repaint. */
   let unroll = false;
@@ -64,6 +66,7 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
     bookOpen: boolean;
     folded: boolean;
     bookKey: string | null;
+    infoRows: readonly MissionInfoRow[];
   } | null = null;
 
   const markup = (
@@ -71,10 +74,12 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
     marks: GoalMarks,
     rows: readonly SlipRow[],
     more: number,
+    infoRows: readonly MissionInfoRow[],
   ): string => {
     const open = openGoalCount(goals);
+    const summary = folded ? infoRowsSummary(infoRows) : '';
     const tab = `<button type="button" class="on-slip__tab${folded ? '' : ' on-slip__tab--open'}" data-fold aria-expanded="${!folded}" aria-label="${escapeHtml(folded ? copy.slipOpen : copy.slipFold)}">
-      <span class="on-slip__label">${escapeHtml(copy.slipTab)}</span><span class="on-tab__count">${open}</span>${
+      <span class="on-slip__label">${escapeHtml(copy.slipTab)}</span>${open > 0 ? `<span class="on-tab__count">${open}</span>` : ''}${summary}${
         folded && marks.unread
           ? `<i class="on-slip__seal" aria-label="${escapeHtml(copy.slipChanged)}"></i>`
           : ''
@@ -89,13 +94,14 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
       })
       .join('');
     const empty =
-      rows.length === 0
+      rows.length === 0 && infoRows.length === 0
         ? `<li class="on-slip__row on-slip__row--empty">${escapeHtml(copy.noneOpen)}</li>`
         : '';
     const key = deps.bookKey();
     const moreText = more > 0 ? escapeHtml(formatMessage(copy.slipMore, { count: more })) : '';
     return `<aside class="on-slip__sheet${unroll ? ' on-slip__sheet--unroll' : ''}" aria-label="${escapeHtml(copy.slipLabel)}">
-        <ul class="on-slip__list">${items}${empty}</ul>
+        <div class="on-slip__content"><div class="on-slip__heading"><span>${escapeHtml(copy.goalsKicker)}</span>${infoRows.length > 0 ? `<span>${escapeHtml(copy.progress)}</span>` : ''}</div>
+        <ul class="on-slip__list">${items}${empty}</ul>${infoRowsMarkup(infoRows)}</div>
         <button type="button" class="on-slip__book" data-book><span>${moreText}</span><span>${escapeHtml(copy.openBook)}${
           key === null ? '' : ` <kbd class="on-key">${escapeHtml(key)}</kbd>`
         }</span></button>
@@ -104,11 +110,20 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
 
   let lastMarks: GoalMarks | null = null;
 
-  const keyOf = (goals: readonly MissionGoal[], marks: GoalMarks): string =>
-    `${folded}|${marks.version}|${deps.bookKey()}|${goals.map((g) => `${g.key}:${g.state}:${g.text}`).join('\n')}`;
+  const keyOf = (
+    goals: readonly MissionGoal[],
+    marks: GoalMarks,
+    infoRows: readonly MissionInfoRow[],
+  ): string =>
+    `${JSON.stringify(infoRows)}|${folded}|${marks.version}|${deps.bookKey()}|${goals.map((g) => `${g.key}:${g.state}:${g.text}`).join('\n')}`;
 
-  const paint = (goals: readonly MissionGoal[], marks: GoalMarks, bookOpen: boolean): void => {
-    const hidden = bookOpen || goals.length === 0;
+  const paint = (
+    goals: readonly MissionGoal[],
+    marks: GoalMarks,
+    bookOpen: boolean,
+    infoRows: readonly MissionInfoRow[],
+  ): void => {
+    const hidden = bookOpen || (goals.length === 0 && infoRows.length === 0);
     setHidden(dock, hidden);
     if (hidden) {
       // Shown again, the same rows restart their clock.
@@ -116,11 +131,24 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
       shownKey = '';
       return;
     }
-    const key = keyOf(goals, marks);
+    const key = keyOf(goals, marks, infoRows);
     if (key === shownKey) return;
     shownKey = key;
     const { rows, more } = folded ? { rows: [], more: 0 } : slipRows(goals, marks, SLIP_OPEN_ROWS);
-    dock.innerHTML = markup(goals, marks, rows, more);
+    const scrollTop = dock.querySelector('.on-slip__content')?.scrollTop ?? 0;
+    const active = dock.ownerDocument.activeElement;
+    const focus =
+      active instanceof Element && dock.contains(active)
+        ? active.closest('[data-fold]') !== null
+          ? '[data-fold]'
+          : active.closest('[data-book]') !== null
+            ? '[data-book]'
+            : null
+        : null;
+    dock.innerHTML = markup(goals, marks, rows, more, infoRows);
+    const content = dock.querySelector('.on-slip__content');
+    if (content !== null) content.scrollTop = scrollTop;
+    if (focus !== null) dock.querySelector<HTMLElement>(focus)?.focus({ preventScroll: true });
     unroll = false;
     stamped = new Set(rows.filter(({ mark }) => mark === 'done').map(({ goal }) => goal.key));
     clock.shown(
@@ -129,7 +157,12 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
     );
   };
 
-  const update = (goals: readonly MissionGoal[], marks: GoalMarks, bookOpen: boolean): void => {
+  const update = (
+    goals: readonly MissionGoal[],
+    marks: GoalMarks,
+    bookOpen: boolean,
+    infoRows: readonly MissionInfoRow[],
+  ): void => {
     lastMarks = marks;
     const read = clock.due(performance.now());
     if (read.length > 0) marks.read(read);
@@ -141,16 +174,17 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
       seen.version === marks.version &&
       seen.bookOpen === bookOpen &&
       seen.folded === folded &&
-      seen.bookKey === bookKey
+      seen.bookKey === bookKey &&
+      seen.infoRows === infoRows
     ) {
       return;
     }
-    seen = { goals, version: marks.version, bookOpen, folded, bookKey };
-    paint(goals, marks, bookOpen);
+    seen = { goals, version: marks.version, bookOpen, folded, bookKey, infoRows };
+    paint(goals, marks, bookOpen, infoRows);
   };
 
   const repaint = (): void => {
-    if (seen !== null && lastMarks !== null) update(seen.goals, lastMarks, seen.bookOpen);
+    if (seen !== null && lastMarks !== null) update(seen.goals, lastMarks, seen.bookOpen, seen.infoRows);
   };
 
   dock.addEventListener('click', (event) => {
@@ -170,11 +204,6 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
   return {
     update,
     isFolded: () => folded,
-    setDrop(depth): void {
-      if (depth === drop) return;
-      drop = depth;
-      dock.style.top = `${TOP_BAR_HEIGHT + 1 + (depth > 0 ? depth + INFO_LINES_GAP : 0)}px`;
-    },
     setFolded(next): void {
       folded = next;
       repaint();

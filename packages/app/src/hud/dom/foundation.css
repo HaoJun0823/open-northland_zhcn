@@ -5936,7 +5936,7 @@ body.on-drag-scroll * {
 .on-hud .on-slip__sheet {
   position: relative;
   width: 100%;
-  padding: 9px 11px 2px 12px;
+  padding: 13px 14px 3px;
   pointer-events: auto;
   color: var(--ink);
   background:
@@ -5975,6 +5975,101 @@ body.on-drag-scroll * {
     opacity: 0;
   }
 }
+.on-hud .on-slip__content {
+  max-height: calc(100vh / var(--hud-scale) - 190px);
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #987440 transparent;
+}
+.on-hud .on-slip__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #8d754977;
+  color: var(--ink-muted);
+  font: 700 10px var(--font-title);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.on-hud .on-slip__heading > span:last-child:not(:first-child) {
+  font: 600 11px var(--font-body);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.on-hud .on-goal-info {
+  margin-top: 10px;
+}
+.on-hud .on-goal-info__row {
+  padding: 9px 0 10px;
+  border-top: 1px dotted #8d754977;
+}
+.on-hud .on-goal-info__row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.on-hud .on-goal-info__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.on-hud .on-goal-info__line > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.on-hud .on-goal-info__count {
+  flex-shrink: 0;
+  font: 700 20px var(--font-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.on-hud .on-goal-info__count small {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+.on-hud .on-goal-info__track {
+  height: 4px;
+  margin-top: 6px;
+  background: #795b2d28;
+  box-shadow: inset 0 1px 1px #5c402840;
+  border-radius: 1px;
+  overflow: hidden;
+}
+.on-hud .on-goal-info__track > div {
+  height: 100%;
+  background: linear-gradient(#987440, #6c4d27);
+  box-shadow: inset 0 1px #d3b575;
+}
+.on-hud .on-goal-info__row--reached .on-goal-info__track > div {
+  background: #607844;
+  box-shadow: inset 0 1px #a2af74;
+}
+.on-hud .on-goal-info__row--reached .on-goal-info__count {
+  color: #4e6a3e;
+}
+.on-hud .on-goal-info__notice {
+  margin: 0;
+  padding: 8px 0 10px;
+  border-top: 1px dotted #8d754977;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+.on-hud .on-slip__progress {
+  margin-left: 2px;
+  padding-left: 7px;
+  border-left: 1px solid #b08a5059;
+  color: var(--bronze-hi);
+  font: 700 12px var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
 .on-hud .on-slip__list {
   margin: 0;
   padding: 0;
@@ -5986,8 +6081,8 @@ body.on-drag-scroll * {
   gap: 7px;
   align-items: start;
   padding: 4px 0;
-  font-size: 12.5px;
-  line-height: 1.28;
+  font-size: 14px;
+  line-height: 1.35;
   border-top: 1px dotted #8d754977;
 }
 .on-hud .on-slip__row:first-child {

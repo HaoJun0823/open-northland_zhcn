@@ -1016,6 +1016,8 @@ export const enGame = {
       removeLabel: 'Remove the transfer: {good}',
     },
     missionBook: {
+      progress: 'Progress',
+      progressCounters: 'Counters: {count}',
       title: 'Mission',
       tabsLabel: 'Mission book',
       tabs: { brief: 'Task', goals: 'Objectives', history: 'History' },

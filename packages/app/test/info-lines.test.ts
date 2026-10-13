@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { formatInfoLine, goalProgressTexts, infoLineTexts } from '../src/game/info-lines.js';
+import { formatInfoLine, goalProgressRows, infoLineRows } from '../src/game/info-lines.js';
 
-describe('goalProgressTexts', () => {
+describe('goalProgressRows', () => {
   it('names each row and prints have over need, falling back to the good id', () => {
     const naming = {
       good: (id: number) => (id === 1 ? 'Wood' : undefined),
@@ -9,7 +9,7 @@ describe('goalProgressTexts', () => {
       soldiers: 'Men',
     };
     expect(
-      goalProgressTexts(
+      goalProgressRows(
         [
           { kind: 'goods', good: 1, have: 3, need: 50 },
           { kind: 'goods', good: 9, have: 0, need: 2 },
@@ -18,7 +18,12 @@ describe('goalProgressTexts', () => {
         ],
         naming,
       ),
-    ).toEqual(['Wood 3/50', '#9 0/2', 'People 4/10', 'Men 1/5']);
+    ).toEqual([
+      { kind: 'progress', label: 'Wood', have: 3, need: 50 },
+      { kind: 'progress', label: '#9', have: 0, need: 2 },
+      { kind: 'progress', label: 'People', have: 4, need: 10 },
+      { kind: 'progress', label: 'Men', have: 1, need: 5 },
+    ]);
   });
 });
 
@@ -39,13 +44,40 @@ describe('formatInfoLine', () => {
   it('lists the lines in the order given', () => {
     const texts: Record<number, string> = { 1: 'one', 2: 'two %d' };
     expect(
-      infoLineTexts(
+      infoLineRows(
         [
           { index: 0, stringId: 1, count: 0, extra: 0 },
           { index: 2, stringId: 2, count: 4, extra: 0 },
         ],
         (id) => texts[id],
       ),
-    ).toEqual(['one', 'two 4']);
+    ).toEqual([
+      { kind: 'text', text: 'one' },
+      { kind: 'text', text: 'two 4' },
+    ]);
+  });
+});
+
+describe('script progress templates', () => {
+  const line = { index: 0, stringId: 901, count: 3, extra: 10 };
+  it('uses an explicit trailing ratio, including a dynamic target', () => {
+    for (const template of ['Diamonds: %d/10', 'Diamonds: %d / %d']) {
+      expect(infoLineRows([line], () => template)).toEqual([
+        { kind: 'progress', label: 'Diamonds', have: 3, need: 10 },
+      ]);
+    }
+  });
+  it('keeps prose, missing strings and invalid targets intact', () => {
+    for (const template of [
+      'Held: %d of %d',
+      'Time 3/10',
+      'Diamonds %d/0',
+      'At %d: diamonds %d/10',
+      undefined,
+    ]) {
+      expect(infoLineRows([line], () => template)).toEqual([
+        { kind: 'text', text: formatInfoLine(template, line) },
+      ]);
+    }
   });
 });

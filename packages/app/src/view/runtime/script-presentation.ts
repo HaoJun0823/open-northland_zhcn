@@ -9,7 +9,7 @@ import type {
 } from '@open-northland/sim';
 import { entityById, TICKS_PER_SECOND } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
-import { goalProgressTexts, infoLineTexts } from '../../game/info-lines.js';
+import { goalProgressRows, infoLineRows, type MissionInfoRow } from '../../game/info-lines.js';
 import { messages } from '../../i18n/index.js';
 import { createLastAnswerCache, type SessionHost } from '../../session/index.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';
@@ -25,7 +25,7 @@ const DIAG_CHANNEL = 'missions';
  *  seconds (reading). */
 const INFO_LINE_REFRESH_SECONDS = 2;
 const INFO_LINE_REFRESH_TICKS = INFO_LINE_REFRESH_SECONDS * TICKS_PER_SECOND;
-const NO_LINES: readonly string[] = [];
+const NO_LINES: readonly MissionInfoRow[] = [];
 
 export interface ScriptPresentationDeps {
   readonly host: Pick<
@@ -79,7 +79,7 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
   const trace = deps.missionTrace === true ? mountMissionTrace(host) : null;
   let linesTick = Number.NEGATIVE_INFINITY;
   let linesSeat: number | null = null;
-  const lineAnswers = createLastAnswerCache<readonly string[]>({ tick: () => host.tick });
+  const lineAnswers = createLastAnswerCache<readonly MissionInfoRow[]>({ tick: () => host.tick });
   let disposed = false;
   let followed: Entity | null = null;
   let followedCamera: Camera | null = null;
@@ -219,8 +219,8 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
               () =>
                 Promise.all([host.infoLines(seat), host.matchGoalProgress(seat)]).then(
                   ([views, progress]) => [
-                    ...infoLineTexts(views, deps.mapText),
-                    ...goalProgressTexts(progress, {
+                    ...infoLineRows(views, deps.mapText),
+                    ...goalProgressRows(progress, {
                       good: deps.goodLabel,
                       inhabitants: messages().hud.matchGoalInhabitants,
                       soldiers: messages().hud.matchGoalSoldiers,

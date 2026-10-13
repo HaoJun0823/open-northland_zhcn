@@ -1,6 +1,7 @@
 import type { UiCue } from '@open-northland/audio';
 import type { HypertextBook, HypertextCallback, HypertextUserIcon } from '@open-northland/data';
 import type { MapViewTarget } from '@open-northland/render';
+import type { MissionInfoRow } from '../../../game/info-lines.js';
 import type { MissionGoal, MissionPage } from '../../../game/mission-brief.js';
 import { bcp47Tag, formatMessage, messages } from '../../../i18n/index.js';
 import { navBeamRect } from '../../nav-beam.js';
@@ -63,6 +64,7 @@ export interface BookWindowDeps {
   readonly chapters: () => readonly (number | null)[];
   readonly page: (page: number | null) => MissionPage;
   readonly goals: () => readonly MissionGoal[];
+  readonly infoRows: () => readonly MissionInfoRow[];
   readonly missionName: string;
   readonly history: HypertextBook | null;
   readonly missionHuman: MissionHumanLookup;
@@ -185,6 +187,7 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
   /** The goal list the tabs and the goal page were built from, and its content. */
   let goalsShown: readonly MissionGoal[] | null = null;
   let goalsKey = '';
+  let infoShown: readonly MissionInfoRow[] | null = null;
   let placed = '';
   let lastWheel = Number.NEGATIVE_INFINITY;
   /** The shown briefing chapter's callbacks; a layout reports the last one it shows to the owner, which
@@ -406,13 +409,14 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
     leaves.replaceChildren();
     const goals = deps.goals();
     goalsShown = goals;
+    infoShown = deps.infoRows();
     goalsKey = goalsKeyOf(goals);
     syncTabs(goals);
     spreadEl.className = 'on-book__spread';
     callbacks = [];
     if (reading.tab === 'goals') {
       for (const [key, mark] of deps.takeGoalMarks()) marks.set(key, mark);
-      spreadEl.innerHTML = goalsSpread(goals, marks, displayTitle(deps.missionName, locale));
+      spreadEl.innerHTML = goalsSpread(goals, marks, displayTitle(deps.missionName, locale), infoShown);
     } else if (reading.tab === 'history' && reading.table !== null)
       spreadEl.innerHTML = tableMarkup(reading.table);
     else if (reading.tab === 'history') {
@@ -656,13 +660,21 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
       if (place()) relayout();
       // The goal states follow the sim; the reading pages never move under the reader.
       const goals = deps.goals();
-      if (goals === goalsShown) return;
+      const info = deps.infoRows();
+      if (goals === goalsShown && info === infoShown) return;
+      const infoChanged = info !== infoShown;
+      infoShown = info;
       goalsShown = goals;
       const key = goalsKeyOf(goals);
-      if (key === goalsKey) return;
+      if (key === goalsKey && !infoChanged) return;
       goalsKey = key;
-      if (reading.tab === 'goals') render();
-      else syncTabs(goals);
+      if (reading.tab === 'goals') {
+        const scrolls = [...spreadEl.querySelectorAll('.on-book__sheet')].map((sheet) => sheet.scrollTop);
+        render();
+        spreadEl.querySelectorAll('.on-book__sheet').forEach((sheet, i) => {
+          sheet.scrollTop = scrolls[i] ?? 0;
+        });
+      } else syncTabs(goals);
     },
     rebuild(): void {
       if (!scene.hidden) render();

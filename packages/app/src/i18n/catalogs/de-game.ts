@@ -1098,6 +1098,8 @@ export const deGame = {
       removeLabel: 'Transport entfernen: {good}',
     },
     missionBook: {
+      progress: 'Fortschritt',
+      progressCounters: 'Zähler: {count}',
       title: 'Mission',
       tabsLabel: 'Missionsbuch',
       tabs: {

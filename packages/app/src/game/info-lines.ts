@@ -18,34 +18,51 @@ export function formatInfoLine(text: string | undefined, line: InfoLineView): st
   return out;
 }
 
-/**
- * The goal table's goods and inhabitants rows as `have/need` lines under the map's own, one per listed
- * good. Approximation: the original prints these in its info lines; its wording is not recorded, so
- * each row names its subject and the two counts.
- */
-export function goalProgressTexts(
+/** A map may publish free text without a target; only explicit counts get a progress bar. */
+export type MissionInfoRow =
+  | { readonly kind: 'text'; readonly text: string }
+  | { readonly kind: 'progress'; readonly label: string; readonly have: number; readonly need: number };
+
+export function goalProgressRows(
   rows: readonly MatchGoalProgress[],
   naming: {
     readonly good: (typeId: number) => string | undefined;
     readonly inhabitants: string;
     readonly soldiers: string;
   },
-): string[] {
-  return rows.map((row) => {
-    const subject =
+): MissionInfoRow[] {
+  return rows.map((row) => ({
+    kind: 'progress',
+    label:
       row.kind === 'goods'
         ? (naming.good(row.good) ?? `#${row.good}`)
         : row.soldiers
           ? naming.soldiers
-          : naming.inhabitants;
-    return `${subject} ${row.have}/${row.need}`;
-  });
+          : naming.inhabitants,
+    have: row.have,
+    need: row.need,
+  }));
 }
 
-/** The player's info lines as the display prints them, top to bottom. */
-export function infoLineTexts(
+/** Presentation convention: an authored trailing `%d/target` becomes a counter. Other templates
+ * retain their complete formatted text; numbers in prose never imply a victory condition. */
+export function infoLineRows(
   lines: readonly InfoLineView[],
   textOf: (stringId: number) => string | undefined,
-): string[] {
-  return lines.map((line) => formatInfoLine(textOf(line.stringId), line));
+): MissionInfoRow[] {
+  return lines.map((line) => {
+    const template = textOf(line.stringId);
+    const ratio = template?.match(/^([^%]+?)\s*%d\s*\/\s*(\d+|%d)\s*$/u);
+    if (ratio !== undefined && ratio !== null) {
+      const label = ratio[1]
+        ?.trim()
+        .replace(/[:：]$/u, '')
+        .trim();
+      const need = ratio[2] === '%d' ? line.extra : Number(ratio[2]);
+      if (label && Number.isSafeInteger(need) && need > 0 && line.count >= 0) {
+        return { kind: 'progress', label, have: line.count, need };
+      }
+    }
+    return { kind: 'text', text: formatInfoLine(template, line) };
+  });
 }

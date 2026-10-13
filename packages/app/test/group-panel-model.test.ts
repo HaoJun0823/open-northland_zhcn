@@ -72,22 +72,22 @@ describe('group panel model', () => {
     const gear = Object.fromEntries(archers.gear.map((row) => [row.gear, row]));
     expect(gear.weapon?.items.map((i) => [i.goodId, i.count])).toEqual([['bow_short', 12]]);
     expect(gear.armor?.items.map((i) => [i.goodId, i.count])).toEqual([['armor_leather', 12]]);
-    expect(gear.armor?.bare).toBe(0);
+    expect(gear.armor?.bare).toEqual([]);
     const bag = gear.misc?.items.map((i) => [i.goodId, i.count, i.sips]);
     // Equal counts sort by name: the large healing potion before the small food potion.
     expect(bag).toEqual([
       ['potion_heal_big', 6, 30],
       ['potion_food_small', 6, 12],
     ]);
-    expect(gear.misc?.bare).toBe(6);
-    expect(gear.tool).toEqual({ gear: 'tool', items: [], bare: 0 });
+    expect(gear.misc?.bare).toHaveLength(6);
+    expect(gear.tool).toEqual({ gear: 'tool', items: [], bare: [] });
   });
 
   it("keeps the whole group's lines in every tab, empty where the tab holds nobody for them", () => {
     const builders = scope(model, 'Budowniczowie');
     const gear = Object.fromEntries(builders.gear.map((row) => [row.gear, row]));
     expect(builders.gear.map((row) => row.gear)).toEqual(['weapon', 'armor', 'boots', 'tool', 'misc']);
-    expect(gear.weapon).toEqual({ gear: 'weapon', items: [], bare: 0 });
+    expect(gear.weapon).toEqual({ gear: 'weapon', items: [], bare: [] });
     expect(gear.tool?.items.map((i) => [i.goodId, i.count])).toEqual([['tool_iron', 4]]);
     expect(builders.military?.count).toBe(0);
     expect(builders.siege?.ids).toEqual([]);

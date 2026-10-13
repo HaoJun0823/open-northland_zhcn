@@ -7,7 +7,7 @@ import {
   type UnitPanelModel,
 } from '../../details-panel/model/index.js';
 import { type FigureSlot, NO_FIGURE_SLOTS } from '../../figures/live-figures.js';
-import { setStyleVar } from '../parts/dom.js';
+import { button, setHidden, setStyleVar, setTip, write } from '../parts/dom.js';
 import { createSection } from '../parts/section.js';
 import { createSelectionPanel, type SelectionHeadModel } from '../selection-panel.js';
 import type { GroupPanelDeps } from './actions.js';
@@ -145,10 +145,19 @@ export function createGroupPanel(deps: GroupPanelDeps): GroupPanel {
   };
 
   const tabs = createScopeTabs(onScope, deps.icons);
-  const rosterTitle = createSection();
+  const selectScope = button('on-more');
+  selectScope.addEventListener('click', () => {
+    const current = scope();
+    if (current !== null) actions.select(current.ids);
+  });
+  const rosterTitle = createSection(selectScope);
   const roster = createMemberRoster(onMember);
   const military = createGroupMilitarySection(deps, scope);
-  const overview = createOverviewSection(deps);
+  const overview = createOverviewSection(deps, (ids, drop) => {
+    if (shown === null) return;
+    const matched = new Set(ids);
+    actions.select(drop ? shown.members.filter((m) => !matched.has(m.id)).map((m) => m.id) : ids);
+  });
   frame.body.append(tabs.element, rosterTitle.element, roster.element, military.element, overview.element);
 
   /** Fit the panel to the plane: the roster is as tall as the whole group needs, so every tab keeps the
@@ -175,6 +184,9 @@ export function createGroupPanel(deps: GroupPanelDeps): GroupPanel {
     if (current === null) return;
     const copy = messages().hud.groupPanel;
     tabs.update(model.scopes, current.key);
+    write(selectScope, copy.selectOnly);
+    setTip(selectScope, formatMessage(copy.selectScope, { label: current.label, count: current.ids.length }));
+    setHidden(selectScope, current.key === ALL_SCOPE);
     rosterTitle.update(
       current.key === ALL_SCOPE ? copy.members : formatMessage(copy.membersOf, { label: current.label }),
     );

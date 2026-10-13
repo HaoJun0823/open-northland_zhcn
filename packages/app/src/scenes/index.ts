@@ -47,7 +47,7 @@ import { gathererFlagFollowScene } from './gatherer-flag-follow.js';
 import { gathererGoodsScene } from './gatherer-goods.js';
 import { goodsCatalogScene } from './goods-catalog.js';
 import { gossipScene } from './gossip.js';
-import { groupPanelArmyScene, groupPanelScene } from './group-panel.js';
+import { groupPanelArmyScene, groupPanelScene, groupSelectionScene } from './group-panel.js';
 import { grownUpTrainingScene } from './grown-up-training.js';
 import { hitAlarmScene } from './hit-alarm.js';
 import { householdGoodsScene } from './household-goods.js';
@@ -182,6 +182,7 @@ export const SCENES: readonly SceneDefinition[] = [
   equipmentScene,
   equipmentEffectsScene,
   groupPanelScene,
+  groupSelectionScene,
   groupPanelArmyScene,
   armyControlScene,
   armyPassageScene,

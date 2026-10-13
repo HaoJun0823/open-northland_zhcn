@@ -4519,8 +4519,7 @@ body.on-drag-scroll * {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
+  flex-wrap: wrap;
 }
 .on-hud .on-gear__item {
   display: inline-flex;
@@ -4532,13 +4531,42 @@ body.on-drag-scroll * {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.on-hud .on-gear__more {
-  color: var(--text-hi);
-  font-weight: 600;
-}
 .on-hud .on-gear__bare {
   color: var(--muted);
   font-size: 11px;
+}
+.on-hud .on-gear__empty-slot {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+  border: 1px dashed currentColor;
+  border-radius: 3px;
+  opacity: 0.65;
+}
+.on-hud .on-gear__empty-slot::after {
+  content: "";
+  width: 5px;
+  height: 1px;
+  background: currentColor;
+}
+.on-hud .on-gear__bare .on-gear__count {
+  color: var(--muted);
+}
+.on-hud .on-gear__pick {
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 3px;
+  background: transparent;
+}
+.on-hud .on-gear__pick:hover,
+.on-hud .on-gear__pick:focus-visible {
+  border-color: var(--bronze-lo);
+  background: #c9a26218;
+}
+.on-hud .on-gear__pick:focus-visible {
+  outline: 1px solid var(--focus);
 }
 /* The hold: a load gauge (aboard, on the way, the target) over one manifest line per good. */
 .on-hud .on-load {

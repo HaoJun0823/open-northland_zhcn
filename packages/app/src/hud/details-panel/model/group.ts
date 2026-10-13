@@ -29,6 +29,7 @@ import {
   settlerTribeOf,
   stanceModeOf,
 } from '../../../game/snapshot.js';
+import { soldierWeaponFamily } from '../../../game/unit-kind.js';
 import { pickableSeat } from '../../../game/viewer-seat.js';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import { pctRatio, remainingPct } from './bars.js';
@@ -76,17 +77,17 @@ export interface GroupMemberModel {
 /** One good worn or carried across the scope, with how many hold it; `sips` counts a draught's uses left. */
 export interface GroupGearItem {
   readonly goodId: string | undefined;
+  readonly ids: readonly number[];
   readonly label: string;
   readonly count: number;
   readonly sips: number | null;
 }
 
-/** One gear line: the goods the scope's members wear in that slot, and how many of those the slot is
- *  for hold nothing in it. */
+/** Goods and holders in one slot; `bare` names the eligible members whose slot is empty. */
 export interface GroupGearRow {
   readonly gear: GroupGear;
   readonly items: readonly GroupGearItem[];
-  readonly bare: number;
+  readonly bare: readonly number[];
 }
 
 /** The scope's fighters, soldiers and heroes: their shared stance and regeneration rule, null when they
@@ -150,6 +151,16 @@ const SOLDIER_CLASS: ReadonlyMap<number, keyof GroupCopy['soldierClasses']> = ne
   [JOB_SOLDIER_AXE_BIG, 'soldier_axe_big'],
   [JOB_ARCHER, 'soldier_bow_short'],
   [JOB_ARCHER_LONG, 'soldier_bow_long'],
+]);
+
+/** Labels for the extracted weapon families, independent of their equipment tier. */
+const FAMILY_LABEL: ReadonlyMap<number, keyof GroupCopy['soldierFamilies']> = new Map([
+  [1, 'unarmed'],
+  [2, 'spear'],
+  [3, 'sword'],
+  [4, 'saber'],
+  [5, 'axe'],
+  [6, 'bow'],
 ]);
 
 const ROLE_GLYPH: Readonly<Record<Exclude<SettlerRole, 'soldier'>, GroupKindIcon>> = {
@@ -251,11 +262,19 @@ function settlerFacts(
   let plural: string;
   let singular: string;
   switch (role) {
-    case 'soldier':
-      kind = `job:${jobType ?? ''}`;
-      plural = soldierClass === undefined ? jobDisplayName(ctx, jobType) : copy.soldierClasses[soldierClass];
+    case 'soldier': {
+      const family = soldierWeaponFamily(ctx.weapons ?? [], ent);
+      const label = family === undefined ? undefined : FAMILY_LABEL.get(family);
+      kind = family === undefined ? `job:${jobType ?? ''}` : `soldier:${family}`;
+      plural =
+        label === undefined
+          ? soldierClass === undefined
+            ? jobDisplayName(ctx, jobType)
+            : copy.soldierClasses[soldierClass]
+          : copy.soldierFamilies[label];
       singular = soldierClass === undefined ? jobDisplayName(ctx, jobType) : copy.soldierClass[soldierClass];
       break;
+    }
     case 'worker':
       kind = `job:${jobType ?? ''}`;
       plural = profession === undefined ? jobDisplayName(ctx, jobType) : copy.professions[profession];
@@ -362,12 +381,12 @@ function vehicleFacts(ctx: UnitPanelModelContext, ent: SnapshotEntity, owned: bo
 /** Count goods across members, most common first; a draught sums the sips its bottles have left. */
 function gearItems(
   ctx: UnitPanelModelContext,
-  entries: readonly { readonly goodType: number; readonly used?: number | undefined }[],
+  entries: readonly { readonly id: number; readonly goodType: number; readonly used?: number | undefined }[],
 ): GroupGearItem[] {
-  const tally = new Map<number, { count: number; sips: number }>();
+  const tally = new Map<number, { ids: Set<number>; sips: number }>();
   for (const entry of entries) {
-    const row = tally.get(entry.goodType) ?? { count: 0, sips: 0 };
-    row.count += 1;
+    const row = tally.get(entry.goodType) ?? { ids: new Set<number>(), sips: 0 };
+    row.ids.add(entry.id);
     const uses = goodDef(ctx, entry.goodType)?.equip?.uses;
     if (uses !== undefined) row.sips += Math.round((uses * remainingPct(entry.used)) / FULL_PCT);
     tally.set(entry.goodType, row);
@@ -378,7 +397,8 @@ function gearItems(
       return {
         goodId: def?.id,
         label: goodLabel(ctx, goodType),
-        count: row.count,
+        count: row.ids.size,
+        ids: [...row.ids],
         sips: def?.equip?.uses === undefined ? null : row.sips,
       };
     })
@@ -420,9 +440,13 @@ function gearRows(
     if (!present) return;
     const goods = holders.flatMap((f) => {
       const goodType = good(f);
-      return goodType === null ? [] : [{ goodType }];
+      return goodType === null ? [] : [{ id: f.id, goodType }];
     });
-    rows.push({ gear, items: gearItems(ctx, goods), bare: holders.length - goods.length });
+    rows.push({
+      gear,
+      items: gearItems(ctx, goods),
+      bare: holders.filter((f) => good(f) === null).map((f) => f.id),
+    });
   };
   slotRow('weapon', shape.fighters, fighters, (f) => f.weapon);
   slotRow('armor', shape.fighters, fighters, (f) => f.armor);
@@ -434,9 +458,9 @@ function gearRows(
       gear: 'misc',
       items: gearItems(
         ctx,
-        settlers.flatMap((f) => f.misc),
+        settlers.flatMap((f) => f.misc.map((item) => ({ ...item, id: f.id }))),
       ),
-      bare: settlers.filter((f) => f.misc.length === 0).length,
+      bare: settlers.filter((f) => f.misc.length === 0).map((f) => f.id),
     });
   }
   return rows;

@@ -140,6 +140,8 @@ describe('group panel presses', () => {
 
   it('reads a tab press, and never narrows or drops the whole group', () => {
     expect(scopePress('job:40', click)).toBe('show');
+    expect(scopePress('job:40', { ...click, ctrlKey: true })).toBe('narrow');
+    expect(scopePress('job:40', { ...click, metaKey: true })).toBe('narrow');
     expect(scopePress('job:40', { ...click, detail: 2 })).toBe('narrow');
     expect(scopePress('job:40', { ...click, shiftKey: true })).toBe('drop');
     expect(scopePress(ALL_SCOPE, { ...click, detail: 2 })).toBe('show');

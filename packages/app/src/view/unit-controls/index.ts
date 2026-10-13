@@ -458,7 +458,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     const mates =
       hit !== null && hit === previousHit && e.detail >= DOUBLE_CLICK
         ? jobMatesIn(
-            unitTargets.owned('settler'),
+            [...unitTargets.owned('settler'), ...unitTargets.owned('vehicle')],
             hit,
             jobMateArea(opts.camera(), opts.app.screen.width, opts.app.screen.height),
             opts.snapshot(),

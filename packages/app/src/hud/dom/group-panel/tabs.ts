@@ -2,7 +2,15 @@ import { formatMessage, messages } from '../../../i18n/index.js';
 import { ALL_SCOPE, type GroupKindIcon, type GroupScopeModel } from '../../details-panel/model/index.js';
 import { type GoodIconPainter, goodIconMarkup } from '../good-art.js';
 import { FIGURE, GLYPH } from '../icons.js';
-import { button, element, setAttribute, setClass, setTip, write } from '../parts/dom.js';
+import {
+  button,
+  element,
+  onPress as onPressNode,
+  setAttribute,
+  setClass,
+  setTip,
+  write,
+} from '../parts/dom.js';
 
 /** A tab's kind icon (design px): a weapon reads at the glyphs' size. */
 const TAB_ICON_PX = 14;
@@ -10,10 +18,13 @@ const TAB_ICON_PX = 14;
 /** What a press on a kind's tab does: show the kind, select only it, or drop it from the group. */
 export type ScopePress = 'show' | 'narrow' | 'drop';
 
-export function scopePress(scope: string, event: Pick<MouseEvent, 'detail' | 'shiftKey'>): ScopePress {
+export function scopePress(
+  scope: string,
+  event: Pick<MouseEvent, 'detail' | 'shiftKey' | 'ctrlKey' | 'metaKey'>,
+): ScopePress {
   if (scope === ALL_SCOPE) return 'show';
   if (event.shiftKey) return 'drop';
-  return event.detail >= 2 ? 'narrow' : 'show';
+  return event.detail >= 2 || event.ctrlKey || event.metaKey ? 'narrow' : 'show';
 }
 
 const KIND_GLYPH: Readonly<Record<Extract<GroupKindIcon, { glyph: string }>['glyph'], string>> = {
@@ -83,7 +94,7 @@ export function createScopeTabs(
           if ('good' in scope.icon && frame instanceof HTMLElement)
             icons(frame, scope.icon.good, TAB_ICON_PX);
           node.setAttribute('role', 'tab');
-          node.addEventListener('click', (event) => onPress(scope.key, scopePress(scope.key, event)));
+          onPressNode(node, (event) => onPress(scope.key, scopePress(scope.key, event)));
           return { key: scope.key, node };
         });
         root.replaceChildren(...tabs.map((tab) => tab.node));
@@ -96,6 +107,7 @@ export function createScopeTabs(
         if (label !== null) write(label, scope.label);
         if (count !== null) write(count, String(scope.ids.length));
         setAttribute(tab.node, 'aria-selected', String(scope.key === open));
+        setAttribute(tab.node, 'aria-label', `${scope.label} · ${scope.ids.length}`);
         setTip(
           tab.node,
           scope.key === ALL_SCOPE ? copy.allTooltip : formatMessage(copy.tabTooltip, { label: scope.label }),

@@ -3,8 +3,10 @@ import { components, fx } from '@open-northland/sim';
 import { grassTerrain } from '../catalog/buildings.js';
 import {
   JOB_ARCHER,
+  JOB_ARCHER_LONG,
   JOB_BUILDER,
   JOB_CIVILIST,
+  JOB_SOLDIER_BROADSWORD,
   JOB_SOLDIER_SPEAR,
   JOB_SOLDIER_SWORD,
   JOB_WOMAN,
@@ -193,6 +195,41 @@ export const groupPanelArmyScene: SceneDefinition = {
     {
       label: 'the whole army stands, more than the roster shows at full size',
       predicate: (sim) => [...sim.world.query(components.Settler)].length === ARMY_SETTLERS,
+    },
+  ],
+};
+
+/** UI acceptance arrangement, not a reconstruction of an original map. */
+export const groupSelectionScene: SceneDefinition = {
+  id: 'group-selection',
+  seed: 23,
+  terrain: grassTerrain(MAP_W, MAP_H),
+  needs: false,
+  initialZoom: INITIAL_ZOOM,
+  build(sim): void {
+    spawnRanks(sim, [
+      { job: JOB_ARCHER, count: 4, x: 9, armor: 'armor_leather', bag: { every: 2, goods: ['mead'] } },
+      { job: JOB_ARCHER_LONG, count: 4, x: 12 },
+      { job: JOB_SOLDIER_SWORD, count: 4, x: 15, armor: 'armor_chain' },
+      { job: JOB_SOLDIER_BROADSWORD, count: 2, x: 18, bag: { every: 1, goods: ['mead'] } },
+      { job: JOB_SOLDIER_SPEAR, count: 4, x: 9, y: 14 },
+      { job: JOB_CIVILIST, count: 2, x: 12, y: 14 },
+    ]);
+    for (const at of CATAPULTS) spawnVehicleDirect(sim, VEHICLE_CATAPULT, at.x, at.y);
+    spawnVehicleDirect(sim, VEHICLE_HANDCART, HANDCART.x, HANDCART.y);
+  },
+  runTicks: 20,
+  checks: [
+    {
+      label: 'the mead stays equipped until a drink is ordered',
+      predicate: (sim) => {
+        const mead = goodBySlug(sim, 'mead');
+        return (
+          [...sim.world.query(Equipment)].filter((e) =>
+            sim.world.get(e, Equipment).misc.some((slot) => slot?.goodType === mead),
+          ).length === 4
+        );
+      },
     },
   ],
 };

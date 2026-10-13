@@ -665,6 +665,11 @@ export const plContent = {
       summary:
         'Trzej osadnicy do okna ekwipunku: cywil z założonymi butami, narzędziem i miksturami, żołnierz z mieczem i kolczugą oraz osadnik bez niczego. Przy kwaterze głównej leży zapasowy sprzęt do rozkazów załóż, wymień i zdejmij.',
     },
+    'group-selection': {
+      title: 'Zaznaczanie podgrup',
+      summary:
+        'Krótkie i długie łuki, dwa rodzaje mieczy, włócznicy, katapulty i cywile. Sprawdź dwuklik, Ctrl+klik i Shift+klik w panelu oraz wybór jednostek bez zbroi i z miodem pitnym.',
+    },
     'group-panel': {
       title: 'Panel grupy',
       summary:

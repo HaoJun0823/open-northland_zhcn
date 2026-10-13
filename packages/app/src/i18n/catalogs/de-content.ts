@@ -676,6 +676,11 @@ export const deContent = {
       summary:
         'Drei Siedler für das Ausrüstungsfenster: ein Zivilist mit abgenutzten Schuhen, Werkzeug und Verbrauchsgegenständen, ein Soldat mit Schwert und Kettenhemd sowie ein Siedler ohne Ausrüstung. Neben dem Hauptquartier liegt Ersatzausrüstung für die Befehle zum Anlegen, Tauschen und Ablegen je Ausrüstungsplatz.',
     },
+    'group-selection': {
+      title: 'Untergruppen auswählen',
+      summary:
+        'Kurze und lange Bögen, zwei Schwertstufen, Speerträger, Katapulte und Zivilisten. Doppelklick, Strg+Klick und Shift+Klick sowie die Auswahl ohne Rüstung und mit Met testen.',
+    },
     'group-panel': {
       title: 'Gruppenübersicht',
       summary:

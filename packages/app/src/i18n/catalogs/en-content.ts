@@ -667,6 +667,11 @@ export const enContent = {
       summary:
         'Three settlers for the equip window: a civilian with worn shoes, tool and consumables, a soldier with sword and chain mail, and a bare settler. Spare gear lies by the HQ for the per-slot equip, swap and take-off orders.',
     },
+    'group-selection': {
+      title: 'Subgroup selection',
+      summary:
+        'Short and long bows, two sword tiers, spearmen, catapults and civilians. Try double-clicking, Ctrl+click and Shift+click in the panel, then selecting no armour or mead.',
+    },
     'group-panel': {
       title: 'Group panel',
       summary:

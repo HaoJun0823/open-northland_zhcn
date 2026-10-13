@@ -23,6 +23,9 @@ campaign "DOLINA PEŁNA NIESPODZIANEK" (Drive) and the "PDP" campaign series (ho
   a host answering with an HTML page instead of an archive counts as a failed download.
 - The upstream mock serves the recorded pages and files so the offline run still covers them.
 
+Failure classification and user-facing availability are owned by
+[unavailable catalogue links](catalogue-unavailable-links.md).
+
 Non-goals: hosts that need an account or a browser-only step, and any retry schedule that polls a
 host more often than the catalogue sync itself.
 
@@ -33,3 +36,8 @@ host more often than the catalogue sync itself.
 - One sync against the upstream converts the resolvable entries; report which of the 23 still fail
   and why.
 - The client shows a resolved entry as downloadable and a failed one as a manual download.
+
+- Include War of the Sands Legend of the Golden Pharaoh: its downloaded archive is 69,814,638
+  bytes, exceeding the deliberate 64 MiB default web import cap. Verify the server/desktop route
+  under its applicable limits and clearly explain a refusal; do not raise the browser cap merely
+  to admit this archive. Download success alone does not establish conversion or startup success.

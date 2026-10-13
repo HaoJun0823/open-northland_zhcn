@@ -8,7 +8,7 @@ import {
   rasterizeMinimap,
 } from '@open-northland/render/data';
 import { describe, expect, it } from 'vitest';
-import { createMinimapSynthesizer, minimapFeatureByEditName } from '../src/index.js';
+import { createMinimapSynthesizer, minimapFeatureByEditName } from '../src/stages/maps/synth-minimap.js';
 
 const BLUE = 0x0000ff;
 const DEBUG_GREEN = (10 << 16) | (200 << 8) | 30;

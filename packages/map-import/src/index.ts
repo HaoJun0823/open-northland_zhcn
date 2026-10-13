@@ -39,10 +39,5 @@ export {
   NO_IMPORT_LIMITS,
 } from './limits.js';
 export { collectPagePictures, type PagePictures } from './pictures.js';
-export {
-  createMinimapSynthesizer,
-  type MinimapSynthesizerSources,
-  minimapFeatureByEditName,
-} from './synth-minimap.js';
 export { type MapDatTerrainFile, mapDatToTerrain } from './terrain/index.js';
 export { isMapTreePath, type MapTree, treeFromFolder } from './tree.js';

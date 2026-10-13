@@ -7,6 +7,7 @@ import {
 } from '@open-northland/data';
 import type { RgbaImage } from '@open-northland/formats/image';
 import { encodePng } from '@open-northland/formats/png';
+import type { MapDatTerrainFile } from '@open-northland/map-import';
 import {
   averagePatternColour,
   cellColourResolver,
@@ -20,7 +21,6 @@ import {
   rasterizeMinimap,
   texturePageKey,
 } from '@open-northland/render/data';
-import type { MapDatTerrainFile } from './terrain/index.js';
 
 /**
  * Fill for cells whose lanes and typeId both resolve no colour, a deliberate divergence from the

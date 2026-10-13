@@ -5,8 +5,8 @@
 
 A player with a map folder, a `.zip`/`.rar` from elsewhere or a `.c2m` editor export cannot play it:
 nothing in the app reads a file the user picks. `MapProvenance.kind` already has `user` and the lobby
-already allows delivering a `user` map, so only the import path is missing. Epic:
-[`docs/tickets/api/README.md`](../api/README.md).
+already allows delivering a `user` map, so only the import path is missing. Reference:
+[API architecture and flow](../../API.md).
 
 ## Scope
 

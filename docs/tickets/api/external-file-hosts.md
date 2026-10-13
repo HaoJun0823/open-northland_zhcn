@@ -6,8 +6,8 @@
 is null, `/v1/catalog` serves them as `file.kind: 'external'`): hostuje.net (14), moddb.com (5),
 Google Drive (2), mediafire.com (2). The API cannot fetch a download page, so these maps never
 convert and the client lists them as "download yourself" with the page link. Among them are the
-campaign "DOLINA PEŁNA NIESPODZIANEK" (Drive) and the "PDP" campaign series (hostuje.net). Epic:
-[`docs/tickets/api/README.md`](README.md).
+campaign "DOLINA PEŁNA NIESPODZIANEK" (Drive) and the "PDP" campaign series (hostuje.net). Reference:
+[API architecture and flow](../../API.md).
 
 ## Scope
 

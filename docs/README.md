@@ -16,6 +16,10 @@ behavior. Open deeper format references when the task needs their evidence.
 
 Other references:
 
+- [`API.md`](API.md): catalogue API, offline replay and map import flow
+- [`BROWSER-DEVELOPMENT.md`](BROWSER-DEVELOPMENT.md): browser entries and screenshots
+- [`PERFORMANCE.md`](PERFORMANCE.md): profiling and benchmark commands
+- [`BUILDING.md`](BUILDING.md): builds, packaging and images
 - [`SCENES.md`](SCENES.md): acceptance scenes for tests and human review
 - [`NETWORK.md`](NETWORK.md): multiplayer protocol, lockstep and server
 - [`GRAPHICS.md`](GRAPHICS.md): first-launch hardware defaults, effect costs and calibration limits

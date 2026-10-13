@@ -8,7 +8,7 @@ the room's catalogue button open it, with sorting, filters, search, a card grid,
 Installed tab. Entries whose maps ship with the game show as "In the game" (Play starts the shipped
 map) or "In the game, other version" (Download again installs the catalogue copy beside it). The
 browser pass ran against the real local API with the full catalogue.
-Epic: [`docs/tickets/api/README.md`](../api/README.md).
+Reference: [API architecture and flow](../../API.md).
 
 ## Scope
 

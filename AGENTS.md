@@ -168,6 +168,7 @@ Commands and local tools: [DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 Load the relevant file when working in that area:
 
+- `packages/api/AGENTS.md`
 - `packages/sim/AGENTS.md` (and `packages/sim/src/systems/missions/AGENTS.md`)
 - `packages/lockstep/AGENTS.md`
 - `packages/net-protocol/AGENTS.md`

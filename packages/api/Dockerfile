@@ -1,8 +1,5 @@
 # syntax=docker/dockerfile:1
 
-# The API is plain JavaScript, so it is compiled once on the builder's own platform; only the compiled
-# workspace packages it imports and their runtime dependencies enter the per-architecture image. It
-# holds no content tree and no mod file: the catalogue archives it converts live on the data volume.
 FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
@@ -10,9 +7,6 @@ ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
 
 WORKDIR /src
 COPY . .
-# The API workspace with what its build needs. The runtime layout is assembled here so the final
-# stage only copies it: render enters for its pure `data` helpers (the minimap synthesizer's inputs),
-# sim because those helpers import it; neither Pixi nor a content directory is copied.
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --workspace @open-northland/api --include-workspace-root --no-audit --no-fund \
     && npx tsc --build packages/api \

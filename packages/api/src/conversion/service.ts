@@ -4,7 +4,7 @@ import { DEFAULT_IMPORT_LIMITS, detectArchiveFormat, MapImportError } from '@ope
 import { type CatalogSnapshot, catalogSnapshot, sha256Hex } from '../catalog/snapshot.js';
 import type { SyncedCatalog } from '../catalog/sync.js';
 import type { Log } from '../catalog/thumbnails.js';
-import type { ContentFile, ContentSource, KeptFile, KeptFileSource } from '../server.js';
+import type { ContentFile, ContentSource, KeptFile, KeptFileSource } from '../http/sources.js';
 import { isMissing } from '../store.js';
 import type { Fetch } from '../upstream/strapi.js';
 import { convertArchive } from './convert.js';

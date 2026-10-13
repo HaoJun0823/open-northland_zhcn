@@ -9,7 +9,7 @@ The converted catalogue will contain maps that fail in our engine for a reason a
 would cure, maps the owner does not want listed, and maps with text in one language only
 (`MAP_TEXT_LANGUAGES` falls back `pol`, `eng`, `ger`, `rus`). The pipeline has the mechanism for
 the first problem (`tools/asset-pipeline/corrections/`, keyed by mod path and file hash); the API
-needs the same keyed by archive fingerprint. Epic: [`docs/tickets/api/README.md`](../api/README.md).
+needs the same keyed by archive fingerprint. Reference: [API architecture and flow](../../API.md).
 
 ## Scope
 

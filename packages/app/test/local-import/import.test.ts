@@ -8,12 +8,7 @@ import { rampPalette } from '../../../formats/test/fixtures/palette.js';
 import { plaintextMap } from '../../../map-import/test/support/maps.js';
 import { prepareLocalImport } from '../../src/content/local-import/convert.js';
 import { checkedLocalInput, type LocalMapInput } from '../../src/content/local-import/input.js';
-import {
-  installLocalMap,
-  reconvertLocalMap,
-  restoreLocalMaps,
-  staleLocalEntries,
-} from '../../src/content/local-import/install.js';
+import { installLocalMap, reconvertLocalMap } from '../../src/content/local-import/install.js';
 import { MapStorageFullError } from '../../src/content/map-source/installed.js';
 import { createMapSourceRegistry } from '../../src/content/map-source/sources.js';
 import { createInstalledMapStore } from '../../src/content/map-source/store.js';
@@ -99,11 +94,11 @@ describe('local conversion and retained sources', () => {
     const entryId = first.source.record.entryId;
     for (const map of first.maps)
       backing.records.set(map.record.mapId, { ...map.record, index: { obsolete: true } });
-    expect(await staleLocalEntries(store)).toEqual([entryId]);
+    expect(await store.list()).toEqual([]);
     const restored = await reconvertLocalMap(entryId, { store, convert });
     expect(restored.maps.map((map) => map.record.mapId)).toEqual(first.maps.map((map) => map.record.mapId));
     expect(restored.maps[0]?.record.irVersion).toBe(IR_VERSION);
-    expect(await staleLocalEntries(store)).toEqual([]);
+    expect((await store.list()).every((record) => record.irVersion === IR_VERSION)).toBe(true);
     await store.remove(entryId);
     expect(await store.sources()).toEqual([]);
     expect(backing.files.size).toBe(0);
@@ -297,19 +292,66 @@ describe('local conversion and retained sources', () => {
     );
   });
 
-  it('does not repeatedly retry a failed source until it changes or the player retries', async () => {
+  it.each(['sources', 'readSource'] as const)(
+    'cancels a pending %s read before starting conversion',
+    async (method) => {
+      const store = createInstalledMapStore(memoryInstalledStorage().storage, { budget: null });
+      const first = await installLocalMap(input(), { store, convert });
+      const before = await store.list();
+      const started = deferred();
+      vi.spyOn(store, method).mockImplementation(() => {
+        started.resolve();
+        return new Promise<never>(() => {});
+      });
+      const converter = vi.fn(convert);
+      const controller = new AbortController();
+      const options = { store, convert: converter, signal: controller.signal };
+      const importing =
+        method === 'sources'
+          ? installLocalMap(input(), options)
+          : reconvertLocalMap(first.source.record.entryId, options);
+      const cancelled = expect(importing).rejects.toMatchObject({ name: 'AbortError' });
+      await started.promise;
+      controller.abort();
+      await cancelled;
+      expect(converter).not.toHaveBeenCalled();
+      expect(await store.list()).toEqual(before);
+    },
+  );
+
+  it('lists healthy maps beside stale maps without opening their retained input', async () => {
     const backing = memoryInstalledStorage();
     const store = createInstalledMapStore(backing.storage, { budget: null });
     const first = await installLocalMap(input(), { store, convert });
     for (const map of first.maps)
       backing.records.set(map.record.mapId, { ...map.record, irVersion: IR_VERSION - 1 });
-    const failed = vi.fn(async () => {
-      throw new Error('Synthetic conversion failure');
+    const record = first.maps[0]?.record;
+    if (record === undefined) throw new Error('Missing fixture');
+    backing.records.set('healthy-local', {
+      ...record,
+      mapId: 'healthy-local',
+      entryId: 'healthy-local',
+      index: { ...record.index, id: 'healthy-local' },
     });
-    await restoreLocalMaps(store, { convert: failed });
-    await restoreLocalMaps(store, { convert: failed });
-    expect(failed).toHaveBeenCalledTimes(1);
+    const readSource = vi.spyOn(store, 'readSource').mockImplementation(() => new Promise(() => {}));
+    const registry = createMapSourceRegistry({
+      store: () => store,
+      shipped: async () => [
+        { id: 'healthy', fingerprint: record.fingerprint, picture: false, minimap: false },
+      ],
+      irVersion: IR_VERSION,
+    });
+    const maps = await registry.sources();
+    expect(maps.map((map) => [map.entry.id, map.stale])).toEqual([
+      ['healthy', false],
+      [first.maps[0]?.record.mapId, true],
+      ['healthy-local', false],
+    ]);
+    expect(readSource).not.toHaveBeenCalled();
+    expect((await registry.find('healthy'))?.stale).toBe(false);
+    expect((await registry.find('healthy-local'))?.stale).toBe(false);
+    readSource.mockRestore();
     await reconvertLocalMap(first.source.record.entryId, { store, convert });
-    expect(await staleLocalEntries(store)).toEqual([]);
+    expect((await registry.find(first.maps[0]?.record.mapId ?? ''))?.stale).toBe(false);
   });
 });

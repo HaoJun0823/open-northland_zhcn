@@ -11,8 +11,8 @@ import {
   type InstalledMapRecord,
   installCatalogEntry,
   installedMapStore,
-  loadMapSources,
 } from '../../../content/map-source/index.js';
+import { loadMapList } from '../../../content/maps-index.js';
 import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, compareLabels, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import { confirmDialog } from '../../../view/confirm-dialog.js';
@@ -91,6 +91,9 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   let failure: unknown = null;
   let installed: readonly InstalledMapRecord[] = [];
   let localSources: readonly LocalSourceRecord[] = [];
+  let storageState: 'loading' | 'ready' | 'error' = store === null ? 'ready' : 'loading';
+  let hasInstalledSnapshot = store === null;
+  let installedRead = 0;
   let shipped: ShippedMaps = NO_SHIPPED_MAPS;
   let rows: readonly CatalogueRow[] = [];
   /** Download progress per entry id, as a fraction. */
@@ -140,6 +143,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     memory.query = query;
     render();
   });
+  const storageNotice = node('div', 'catalogue__storage-notice');
   const main = node('div', 'catalogue__main');
   const results = node('div', 'catalogue__results');
   const scroll = node('div', 'main-menu__map-scroll catalogue__scroll');
@@ -152,6 +156,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
       : localImportControls({
           store,
           target: body,
+          enabled: () => storageState === 'ready',
           manage: () => {
             memory.tab = 'installed';
             render();
@@ -173,7 +178,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   importTools.hidden = true;
   body.append(filters.root, importTools);
   if (imports !== null) body.append(imports.root);
-  body.append(main);
+  body.append(storageNotice, main);
 
   /** A line in the grid's place, with the one button that can change it. */
   const notice = (line: string, action: { label: string; run: () => void } | null): HTMLElement => {
@@ -208,7 +213,11 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
         button.textContent = text.tabs.browse;
         continue;
       }
-      button.replaceChildren(formatMessage(text.tabs.installed, { count: groups.length }));
+      button.replaceChildren(
+        hasInstalledSnapshot
+          ? formatMessage(text.tabs.installed, { count: groups.length })
+          : text.storage.installed,
+      );
       button.removeAttribute('title');
       if (updates > 0) {
         button.title = formatMessage(text.tabUpdatesTitle, { count: updates });
@@ -222,7 +231,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
       if (imports.pickers.parentElement !== target) target.append(imports.pickers);
     }
     results.hidden = memory.tab !== 'browse';
-    installedView.root.hidden = memory.tab !== 'installed';
+    installedView.root.hidden = memory.tab !== 'installed' || !hasInstalledSnapshot;
   }
 
   /** Keeps the selection while it is among `ids`, else moves it to the first of them. */
@@ -332,6 +341,28 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
 
   /** The tabs and the open tab's content and panel, after any change to the rows, query or tab. */
   function render(): void {
+    main.inert = storageState !== 'ready';
+    main.setAttribute('aria-busy', String(storageState === 'loading'));
+    storageNotice.hidden = storageState === 'ready';
+    storageNotice.setAttribute('role', storageState === 'error' ? 'alert' : 'status');
+    storageNotice.replaceChildren(
+      ...(storageState === 'ready'
+        ? []
+        : [
+            notice(
+              storageState === 'error'
+                ? hasInstalledSnapshot
+                  ? text.storage.failedPrevious
+                  : text.storage.failed
+                : text.storage.loading,
+              storageState === 'error' ? { label: text.retry, run: () => void reloadInstalled() } : null,
+            ),
+          ]),
+    );
+    if (imports !== null) {
+      imports.pickers.inert = storageState !== 'ready';
+      if (storageState !== 'ready') imports.closeMenu();
+    }
     const groups = installedGroups(installed, rows, localSources);
     paintTabs(groups);
     if (memory.tab === 'browse') renderGrid();
@@ -414,8 +445,9 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   }
 
   async function pickMap(mapId: string, entryId: string): Promise<void> {
+    if (storageState !== 'ready') return;
     const source = await findMapSource(mapId);
-    if (scope.signal.aborted) return;
+    if (scope.signal.aborted || storageState !== 'ready') return;
     if (source === null || source.stale) {
       failures.set(entryId, text.mapMissing);
       void reloadInstalled();
@@ -425,7 +457,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   }
 
   function startDownload(row: CatalogueRow): void {
-    if (store === null || downloads.has(row.entry.id)) return;
+    if (store === null || storageState !== 'ready' || downloads.has(row.entry.id)) return;
     const id = row.entry.id;
     downloads.set(id, 0);
     failures.delete(id);
@@ -455,7 +487,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   }
 
   async function removeInstall(entryId: string): Promise<void> {
-    if (store === null) return;
+    if (store === null || storageState !== 'ready') return;
     if (localSources.some((source) => source.entryId === entryId)) {
       const copy = text.localImport;
       const accepted = await confirmDialog({
@@ -463,7 +495,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
         confirmLabel: copy.confirmRemove,
         cancelLabel: copy.keep,
       });
-      if (!accepted || scope.signal.aborted) return;
+      if (!accepted || scope.signal.aborted || storageState !== 'ready') return;
     }
     failures.delete(entryId);
     void store
@@ -475,12 +507,20 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   }
 
   async function reloadInstalled(): Promise<void> {
+    const read = ++installedRead;
+    storageState = 'loading';
+    refreshAll();
     try {
-      [installed, localSources] = await Promise.all([store?.list() ?? [], store?.sources() ?? []]);
+      const snapshot = await Promise.all([store?.list() ?? [], store?.sources() ?? []]);
+      if (scope.signal.aborted || read !== installedRead) return;
+      [installed, localSources] = snapshot;
+      hasInstalledSnapshot = true;
+      storageState = 'ready';
     } catch {
-      installed = [];
+      if (scope.signal.aborted || read !== installedRead) return;
+      storageState = 'error';
     }
-    if (!scope.signal.aborted) refreshAll();
+    refreshAll();
   }
 
   async function loadCatalogue(): Promise<void> {
@@ -497,18 +537,14 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
 
   render();
   void loadCatalogue();
-  void loadMapSources()
-    .then(async (sources) => {
-      shipped = shippedMaps(
-        sources
-          .filter((source) => source.catalog === undefined && source.local === undefined)
-          .map(({ entry }) => entry),
-      );
-      await reloadInstalled();
+  void reloadInstalled();
+  void loadMapList()
+    .then((maps) => {
+      if (scope.signal.aborted) return;
+      shipped = shippedMaps(maps);
+      refreshAll();
     })
-    .catch(() => {
-      if (!scope.signal.aborted) void reloadInstalled();
-    });
+    .catch(() => {});
 
   return {
     tabs,

@@ -69,7 +69,6 @@ export interface MapSourceDeps {
   readonly shipped: () => Promise<readonly MapsIndexEntry[]>;
   readonly store: () => InstalledMapStore | null;
   readonly irVersion: number;
-  readonly prepareLocal?: (store: InstalledMapStore) => Promise<void>;
 }
 
 export interface MapSourceRegistry {
@@ -86,7 +85,6 @@ export function createMapSourceRegistry(deps: MapSourceDeps): MapSourceRegistry 
     const store = deps.store();
     if (store === null) return [];
     try {
-      await deps.prepareLocal?.(store);
       const records = await store.list();
       return await Promise.all(
         records.map(async (record) => ({
@@ -126,10 +124,6 @@ const registry = createMapSourceRegistry({
   shipped: () => loadMapList(),
   store: installedMapStore,
   irVersion: IR_VERSION,
-  prepareLocal: async (store) => {
-    const { restoreLocalMaps } = await import('../local-import/install.js');
-    await restoreLocalMaps(store);
-  },
 });
 
 export const loadMapSources = (): Promise<readonly MapSource[]> => registry.sources();

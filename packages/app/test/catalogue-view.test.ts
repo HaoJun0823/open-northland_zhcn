@@ -2,9 +2,11 @@
 import { catalogBrowseEntry } from '@open-northland/data';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as sources from '../src/content/map-source/index.js';
+import * as mapList from '../src/content/maps-index.js';
 import { CARDS_PER_BATCH } from '../src/entries/main-menu/catalogue/card-batches.js';
 import { catalogueView, initialCatalogueMemory } from '../src/entries/main-menu/catalogue/view.js';
-import { catalogEntry } from './support/catalog-maps.js';
+import { messages } from '../src/i18n/index.js';
+import { API, catalogEntry, catalogServer, memoryInstalledStorage } from './support/catalog-maps.js';
 
 const entries = Array.from({ length: 40 }, (_, i) => catalogEntry(`cn-${String(i).padStart(2, '0')}`));
 const disposals: (() => void)[] = [];
@@ -14,7 +16,7 @@ async function settle() {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.spyOn(sources, 'installedMapStore').mockReturnValue(null);
-  vi.spyOn(sources, 'loadMapSources').mockResolvedValue([]);
+  vi.spyOn(mapList, 'loadMapList').mockResolvedValue([]);
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -113,3 +115,59 @@ it('cancels remaining browse batches when switching to the installed tab', async
   expect(grid.children).toHaveLength(CARDS_PER_BATCH);
   expect(grid.getAttribute('aria-busy')).toBe('false');
 });
+
+it('shows a first storage failure without claiming the library is empty, then retries', async () => {
+  const store = sources.createInstalledMapStore(memoryInstalledStorage().storage, { budget: null });
+  vi.spyOn(sources, 'installedMapStore').mockReturnValue(store);
+  vi.spyOn(store, 'list').mockRejectedValueOnce(new Error('blocked'));
+  const { view } = await mounted();
+  (view.tabs.children[1] as HTMLElement).click();
+  expect(view.tabs.textContent).toContain(messages().mapCatalogue.storage.installed);
+  expect(view.tabs.textContent).not.toContain('(0)');
+  expect(view.body.querySelector('.catalogue-installed')?.hasAttribute('hidden')).toBe(true);
+  expect(view.body.querySelector('.catalogue__storage-notice')?.textContent).toContain(
+    messages().mapCatalogue.storage.failed,
+  );
+  expect((view.body.querySelector('.catalogue__main') as HTMLElement).inert).toBe(true);
+  (view.body.querySelector('.catalogue__storage-notice button') as HTMLButtonElement).click();
+  await settle();
+  expect(view.tabs.textContent).toContain('(0)');
+  expect((view.body.querySelector('.catalogue__main') as HTMLElement).inert).toBe(false);
+  expect(view.body.querySelector('.catalogue-installed')?.textContent).toContain(
+    messages().mapCatalogue.installedView.none,
+  );
+});
+
+it.each(['list', 'sources'] as const)(
+  'keeps the previous library when %s fails after a removal and recovers on retry',
+  async (method) => {
+    const backing = memoryInstalledStorage();
+    const store = sources.createInstalledMapStore(backing.storage, { budget: null });
+    await sources.installCatalogEntry(catalogEntry('cn-00'), {
+      api: API,
+      store,
+      fetchImpl: catalogServer(entries),
+    });
+    vi.spyOn(sources, 'installedMapStore').mockReturnValue(store);
+    const { view } = await mounted();
+    (view.tabs.children[1] as HTMLElement).click();
+    expect(view.tabs.textContent).toContain('(1)');
+    vi.spyOn(store, method).mockRejectedValueOnce(new Error('temporary read failure'));
+    const remove = [...view.body.querySelectorAll<HTMLButtonElement>('.catalogue-installed button')].find(
+      (button) => button.textContent === messages().mapCatalogue.remove,
+    );
+    expect(remove).toBeDefined();
+    remove?.click();
+    await settle();
+    expect(view.tabs.textContent).toContain('(1)');
+    expect(view.body.querySelector('.catalogue-installed__row')?.getAttribute('data-entry-id')).toBe('cn-00');
+    expect((view.body.querySelector('.catalogue__main') as HTMLElement).inert).toBe(true);
+    expect(view.body.querySelector('.catalogue__storage-notice')?.textContent).toContain(
+      messages().mapCatalogue.storage.failedPrevious,
+    );
+    (view.body.querySelector('.catalogue__storage-notice button') as HTMLButtonElement).click();
+    await settle();
+    expect(view.tabs.textContent).toContain('(0)');
+    expect((view.body.querySelector('.catalogue__main') as HTMLElement).inert).toBe(false);
+  },
+);

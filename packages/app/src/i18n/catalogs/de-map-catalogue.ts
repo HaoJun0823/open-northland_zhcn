@@ -1,4 +1,11 @@
 export const deMapCatalogue = {
+  storage: {
+    failedPrevious:
+      'Installierte Karten konnten nicht aktualisiert werden. Die zuletzt geladene Liste wird angezeigt. Bitte erneut versuchen.',
+    installed: 'Installiert',
+    loading: 'Installierte Karten werden gelesen…',
+    failed: 'Installierte Karten konnten nicht gelesen werden. Bitte erneut versuchen.',
+  },
   localImport: {
     open: 'Karte laden…',
     formats: 'ZIP, RAR, C2M oder Kartenordner',
@@ -27,7 +34,8 @@ export const deMapCatalogue = {
     storageFailed: 'Karte konnte nicht gespeichert werden. Vorhandene Karten bleiben unverändert.',
     oneInput: 'Ziehe jeweils eine Datei oder einen Ordner hierher.',
     local: 'Aus Datei',
-    rebuild: 'Erneut vorbereiten',
+    rebuild: 'Erneut laden',
+    stale: 'Nach diesem Spielupdate muss diese Karte erneut aus der gespeicherten Quelldatei geladen werden.',
     rebuilding: 'Karte wird vorbereitet…',
     removeTitle: 'Lokale Karte entfernen?',
     removePrompt:

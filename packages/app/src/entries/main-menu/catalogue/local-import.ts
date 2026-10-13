@@ -94,7 +94,7 @@ export function localImportControls(options: LocalImportControlsOptions) {
   const run = async (
     source: LocalMapInput | ((signal: AbortSignal) => Promise<LocalMapInput>) | string,
   ): Promise<void> => {
-    if (active !== null || disposed) return;
+    if (active !== null || disposed || options.enabled?.() === false) return;
     const controller = new AbortController();
     menu.close(true);
     active = controller;

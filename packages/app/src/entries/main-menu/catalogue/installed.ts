@@ -99,6 +99,7 @@ function groupRow(group: InstalledGroup, ctx: CatalogueContext, local: Installed
     paintPick();
     if (playable.length > 0) actions.append(pick);
     if (group.source !== undefined && playable.length !== group.source.maps.length) {
+      info.append(node('p', 'catalogue-import__status', text.localImport.stale));
       const rebuild = node('button', 'main-menu__ghost', text.localImport.rebuild);
       rebuild.type = 'button';
       rebuild.addEventListener('click', () => local.rebuild(group.entryId));

@@ -215,3 +215,14 @@
     animation: none;
   }
 }
+
+.catalogue__storage-notice .catalogue__notice {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: calc(var(--u) * 12) calc(var(--u) * 16);
+}
+
+.catalogue [inert] {
+  opacity: 0.5;
+}

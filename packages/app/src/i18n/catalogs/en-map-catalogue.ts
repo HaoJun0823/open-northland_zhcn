@@ -1,5 +1,11 @@
 /** The map catalogue view: browsing, downloading and starting culturesnation.pl maps. */
 export const enMapCatalogue = {
+  storage: {
+    failedPrevious: 'Could not refresh installed maps. Showing the last loaded list. Try again.',
+    installed: 'Installed',
+    loading: 'Reading installed maps…',
+    failed: 'Could not read installed maps. Try again.',
+  },
   localImport: {
     open: 'Load map…',
     formats: 'ZIP, RAR, C2M or a map folder',
@@ -26,7 +32,8 @@ export const enMapCatalogue = {
     storageFailed: 'Could not save the map. Previous maps are unchanged.',
     oneInput: 'Drop one file or one folder at a time.',
     local: 'From file',
-    rebuild: 'Prepare again',
+    rebuild: 'Load again',
+    stale: 'After this game update, load this map again from its saved source file.',
     rebuilding: 'Preparing map…',
     removeTitle: 'Remove this local map?',
     removePrompt:

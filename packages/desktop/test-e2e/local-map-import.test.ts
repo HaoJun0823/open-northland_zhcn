@@ -14,7 +14,7 @@ import { installedMapsRoot } from '../src/paths.js';
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MENU = 'app://game/index.html?lang=eng&sound=off&fullscreen=off';
 
-test('imports ZIP, C2M and folder through native picks, rebuilds retained input and plays after relaunch', {
+test('imports ZIP, C2M and folder through native picks, reloads retained input on request and plays after relaunch', {
   timeout: 240_000,
 }, async () => {
   const profile = await mkdtemp(join(tmpdir(), 'on-desktop-local-e2e-'));
@@ -149,6 +149,9 @@ test('imports ZIP, C2M and folder through native picks, rebuilds retained input 
     await writeFile(manifestPath, JSON.stringify(manifest));
     page = await launch();
     await catalogue(page);
+    await page.getByRole('button', { name: /^Installed/ }).click();
+    assert.equal((await localRecords(page))[0]?.irVersion, IR_VERSION - 1);
+    await page.getByRole('button', { name: 'Load again', exact: true }).click();
     await expect
       .poll(async () => (await localRecords(page))[0]?.irVersion, { timeout: 30_000 })
       .toBe(IR_VERSION);

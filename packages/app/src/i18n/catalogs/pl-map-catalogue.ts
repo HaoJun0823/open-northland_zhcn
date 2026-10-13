@@ -1,4 +1,11 @@
 export const plMapCatalogue = {
+  storage: {
+    failedPrevious:
+      'Nie udało się odświeżyć zapisanych map. Wyświetlamy ostatnio odczytaną listę. Spróbuj ponownie.',
+    installed: 'Zainstalowane',
+    loading: 'Odczytywanie zapisanych map…',
+    failed: 'Nie udało się odczytać zapisanych map. Spróbuj ponownie.',
+  },
   localImport: {
     open: 'Wczytaj mapę…',
     formats: 'ZIP, RAR, C2M lub folder mapy',
@@ -25,7 +32,8 @@ export const plMapCatalogue = {
     storageFailed: 'Nie udało się zapisać mapy. Poprzednie mapy pozostały bez zmian.',
     oneInput: 'Przeciągnij jeden plik lub jeden folder naraz.',
     local: 'Z pliku',
-    rebuild: 'Przygotuj ponownie',
+    rebuild: 'Wczytaj ponownie',
+    stale: 'Po aktualizacji gry ta mapa wymaga ponownego wczytania z zachowanej kopii pliku.',
     rebuilding: 'Przygotowywanie mapy…',
     removeTitle: 'Usunąć lokalną mapę?',
     removePrompt:

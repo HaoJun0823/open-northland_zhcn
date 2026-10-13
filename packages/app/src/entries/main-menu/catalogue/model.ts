@@ -317,3 +317,25 @@ export function installedGroups(
     })
     .sort((a, b) => b.installedAt - a.installedAt || (a.entryId < b.entryId ? -1 : 1));
 }
+
+/** Imported campaign slots are reached from their parent scenario, never from the library. */
+export function isImportedMainMap(index: MapsIndexEntry): boolean {
+  return index.campaign === undefined && !(index.mapTypes ?? []).includes(MAP_TYPE.SINGLE_PLAYER_CAMPAIGN);
+}
+
+interface InstalledMapRow {
+  readonly group: InstalledGroup;
+  readonly map: InstalledMapRecord | null;
+}
+
+export function installedMapRows(groups: readonly InstalledGroup[]): readonly InstalledMapRow[] {
+  return groups.flatMap<InstalledMapRow>((group) => {
+    if (group.row !== null || group.records.length === 0) return [{ group, map: null }];
+    if (
+      group.source === undefined &&
+      !group.records.some((record) => record.index.provenance?.kind === 'user')
+    )
+      return [{ group, map: mainCatalogMap(group.records) }];
+    return group.records.filter((record) => isImportedMainMap(record.index)).map((map) => ({ group, map }));
+  });
+}

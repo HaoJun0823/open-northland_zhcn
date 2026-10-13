@@ -1,12 +1,23 @@
-import { catalogBrowseEntry } from '@open-northland/data';
+import { catalogBrowseEntry, MAP_TYPE } from '@open-northland/data';
 // @vitest-environment jsdom
 import { IR_VERSION } from '@open-northland/data/ir-version';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { catalogFileUrl, catalogThumbnailUrl } from '../src/content/map-source/index.js';
+import {
+  INSTALLED_MAP_RECORD_VERSION,
+  type InstalledMapRecord,
+} from '../src/content/map-source/installed.js';
 import { type CatalogueContext, catalogueCard } from '../src/entries/main-menu/catalogue/card.js';
 import { catalogueDetail } from '../src/entries/main-menu/catalogue/detail.js';
-import { type CatalogueRow, catalogueRows, shippedMaps } from '../src/entries/main-menu/catalogue/model.js';
+import { installedPane } from '../src/entries/main-menu/catalogue/installed.js';
+import {
+  type CatalogueRow,
+  catalogueRows,
+  installedGroups,
+  shippedMaps,
+} from '../src/entries/main-menu/catalogue/model.js';
 import { currentLocale, formatMessage, messages, setActiveLocale } from '../src/i18n/index.js';
+import { TINY_FINGERPRINT } from './support/catalog-maps.js';
 import { mockCatalogue } from './support/mock-catalogue-api.js';
 
 const API = 'https://api.test';
@@ -161,4 +172,95 @@ describe('catalogue detail panel', () => {
     expect(panel.root.classList.contains('is-empty')).toBe(true);
     expect(panel.root.querySelector('.catalogue-detail__empty')?.textContent).toBe('Brak map do pokazania');
   });
+});
+
+function importedMap(n: number, sub = false): InstalledMapRecord {
+  const mapId = `user-pack-${n}`;
+  return {
+    version: INSTALLED_MAP_RECORD_VERSION,
+    revision: '00000000-0000-0000-0000-000000000001',
+    mapId,
+    entryId: 'user-pack',
+    fingerprint: TINY_FINGERPRINT,
+    irVersion: IR_VERSION,
+    index: {
+      id: mapId,
+      fingerprint: TINY_FINGERPRINT,
+      name: { pol: `Mapa ${n}` },
+      picture: false,
+      minimap: false,
+      provenance: { kind: 'user', folder: mapId },
+      mapTypes: [MAP_TYPE.SINGLE_PLAYER_FREE],
+      ...(sub ? { campaign: { campaignId: 0, missionId: n } } : {}),
+    },
+    installedAt: 1,
+    size: 100,
+    suffixes: ['.json'],
+  };
+}
+
+it('lists three imported main maps separately and keeps ten sub-missions out of the picker and count', () => {
+  const mains = [importedMap(1), importedMap(2), importedMap(3)];
+  const subs = Array.from({ length: 10 }, (_, i) => importedMap(i + 4, true));
+  const records = [...subs, ...mains];
+  const pick = vi.fn();
+  const rebuild = vi.fn();
+  const pane = installedPane(ctx, { pick, rebuild });
+  pane.paint(
+    installedGroups(
+      records,
+      [],
+      [
+        {
+          kind: 'local-source',
+          version: 1,
+          entryId: 'user-pack',
+          name: 'pack.rar',
+          fingerprint: TINY_FINGERPRINT,
+          size: 500,
+          maps: records.map((record) => ({ folder: record.mapId, mapId: record.mapId })),
+        },
+      ],
+    ),
+    null,
+  );
+  expect(pane.root.querySelector('h2')?.textContent).toBe('Zainstalowane (3)');
+  expect([...pane.root.querySelectorAll('.catalogue-installed__title')].map((el) => el.textContent)).toEqual([
+    'Mapa 1',
+    'Mapa 2',
+    'Mapa 3',
+  ]);
+  expect(pane.root.querySelector('select')).toBeNull();
+  const play = [...pane.root.querySelectorAll<HTMLButtonElement>('.main-menu__primary')];
+  for (const button of play) button.click();
+  expect(pick.mock.calls.map(([record]) => record.mapId)).toEqual(mains.map((map) => map.mapId));
+  expect(rebuild).not.toHaveBeenCalled();
+  expect(pane.root.textContent).not.toContain(messages().mapCatalogue.localImport.stale);
+});
+
+it('hides campaign-only imports even without a campaign slot', () => {
+  const map = importedMap(1);
+  const pane = installedPane(ctx, { pick: vi.fn(), rebuild: vi.fn() });
+  pane.paint(
+    installedGroups([{ ...map, index: { ...map.index, mapTypes: [MAP_TYPE.SINGLE_PLAYER_CAMPAIGN] } }], []),
+    null,
+  );
+  expect(pane.root.querySelector('h2')?.textContent).toBe('Zainstalowane (0)');
+  expect(pane.root.querySelector('.catalogue-installed__row')).toBeNull();
+});
+
+it('keeps a downloaded pack playable as one entry while its catalogue is unavailable', () => {
+  const records = [importedMap(1), importedMap(2, true)].map(
+    (record): InstalledMapRecord => ({
+      ...record,
+      index: { ...record.index, provenance: { kind: 'catalog', folder: 'pack' } },
+    }),
+  );
+  const pick = vi.fn();
+  const pane = installedPane(ctx, { pick, rebuild: vi.fn() });
+  pane.paint(installedGroups(records, []), null);
+  expect(pane.root.querySelectorAll('.catalogue-installed__row')).toHaveLength(1);
+  pane.root.querySelector<HTMLButtonElement>('.main-menu__primary')?.click();
+  expect(pick).toHaveBeenCalledWith(records[0]);
+  expect(pane.root.querySelector('select')).toBeNull();
 });

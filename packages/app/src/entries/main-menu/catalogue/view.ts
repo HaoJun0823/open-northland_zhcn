@@ -30,6 +30,7 @@ import {
   catalogueRows,
   type InstalledGroup,
   installedGroups,
+  installedMapRows,
   NO_SHIPPED_MAPS,
   type ShippedMaps,
   shippedMaps,
@@ -203,7 +204,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
       }
       button.replaceChildren(
         hasInstalledSnapshot
-          ? formatMessage(text.tabs.installed, { count: groups.length })
+          ? formatMessage(text.tabs.installed, { count: installedMapRows(groups).length })
           : text.storage.installed,
       );
       button.removeAttribute('title');

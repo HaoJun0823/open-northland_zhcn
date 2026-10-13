@@ -11,6 +11,7 @@ import { formatMessage, messages } from '../../../i18n/index.js';
 import { desktopMaps } from '../../../view/desktop-bridge.js';
 import { node } from '../dom.js';
 import { importMenu } from './import-menu.js';
+import { isImportedMainMap } from './model.js';
 
 export function localImportMessage(error: unknown): { text: string; full: boolean } {
   const text = messages().mapCatalogue.localImport;
@@ -125,7 +126,7 @@ export function localImportControls(options: LocalImportControlsOptions) {
             );
       if (disposed) return;
       status.textContent = formatMessage(prepared.skipped.length > 0 ? text.partial : text.success, {
-        count: prepared.maps.length,
+        count: prepared.maps.filter((map) => isImportedMainMap(map.record.index)).length,
         skipped: prepared.skipped.length,
       });
       await options.changed(prepared.source.record.entryId);

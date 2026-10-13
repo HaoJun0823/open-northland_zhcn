@@ -14,7 +14,7 @@ import {
   removeButton,
   thumbImage,
 } from './card.js';
-import { type InstalledGroup, mainCatalogMap } from './model.js';
+import { type InstalledGroup, installedMapRows } from './model.js';
 import { formatBytes } from './query.js';
 
 function installedDate(at: number): string {
@@ -25,7 +25,12 @@ interface InstalledActions {
   pick(record: InstalledMapRecord): void;
   rebuild(entryId: string): void;
 }
-function groupRow(group: InstalledGroup, ctx: CatalogueContext, local: InstalledActions): HTMLElement {
+function groupRow(
+  group: InstalledGroup,
+  ctx: CatalogueContext,
+  local: InstalledActions,
+  map: InstalledMapRecord | null,
+): HTMLElement {
   const text = messages().mapCatalogue;
   const { row } = group;
   const element = node('div', 'catalogue-installed__row');
@@ -33,18 +38,15 @@ function groupRow(group: InstalledGroup, ctx: CatalogueContext, local: Installed
   const thumb = node('div', 'catalogue-installed__thumb');
   const img = row === null ? null : thumbImage(ctx.thumbnail(row.entry));
   if (img !== null) thumb.append(img);
-  const main = mainCatalogMap(group.records);
+  if (map !== null) element.dataset.mapId = map.mapId;
   const title =
-    row?.entry.title ?? (main === null ? (group.source?.name ?? group.entryId) : mapItem(main.index).title);
+    row?.entry.title ?? (map === null ? (group.source?.name ?? group.entryId) : mapItem(map.index).title);
   const name = node('div', 'catalogue-installed__title', title);
   const parts = [
-    formatMessage(
-      pluralForm(group.source?.maps.length ?? group.records.length, text.installedView.maps, bcp47Tag()),
-      {
-        count: group.source?.maps.length ?? group.records.length,
-      },
-    ),
-    formatBytes(group.bytes, bcp47Tag()),
+    formatMessage(pluralForm(map === null ? group.records.length : 1, text.installedView.maps, bcp47Tag()), {
+      count: map === null ? group.records.length : 1,
+    }),
+    formatBytes(map?.size ?? group.bytes, bcp47Tag()),
     ...(group.records.length > 0
       ? [formatMessage(text.installedView.installedOn, { date: installedDate(group.installedAt) })]
       : []),
@@ -66,38 +68,18 @@ function groupRow(group: InstalledGroup, ctx: CatalogueContext, local: Installed
   if (row !== null && row.playableMapId !== null) actions.append(pickButton(row, ctx, 'main-menu__primary'));
   if (row === null) {
     const playable = group.records.filter((record) => record.irVersion === IR_VERSION);
-    let selected =
-      main === null ? playable[0] : (playable.find((record) => record.mapId === main.mapId) ?? playable[0]);
-    const pick = node('button', 'main-menu__primary', ctx.purpose === 'choose' ? text.choose : text.play);
-    pick.type = 'button';
-    const paintPick = (): void => {
+    const selected = map?.irVersion === IR_VERSION ? map : undefined;
+    if (selected !== undefined) {
+      const pick = node('button', 'main-menu__primary', ctx.purpose === 'choose' ? text.choose : text.play);
+      pick.type = 'button';
       pick.disabled =
-        selected === undefined ||
-        (ctx.purpose === 'choose' &&
-          (!listedIn(mapItem(selected.index), 'multiplayer') ||
-            !hasClaimableSeat(selected.index.players ?? [])));
+        ctx.purpose === 'choose' &&
+        (!listedIn(mapItem(selected.index), 'multiplayer') ||
+          !hasClaimableSeat(selected.index.players ?? []));
       pick.title = pick.disabled ? text.notMultiplayer : '';
-    };
-    if (playable.length > 1) {
-      const select = node('select', 'catalogue-installed__map-choice');
-      select.setAttribute('aria-label', title);
-      for (const record of playable) {
-        const option = node('option', '', mapItem(record.index).title);
-        option.value = record.mapId;
-        option.selected = record === selected;
-        select.append(option);
-      }
-      select.addEventListener('change', () => {
-        selected = playable.find((record) => record.mapId === select.value);
-        paintPick();
-      });
-      info.append(select);
+      pick.addEventListener('click', () => local.pick(selected));
+      actions.append(pick);
     }
-    pick.addEventListener('click', () => {
-      if (selected !== undefined) local.pick(selected);
-    });
-    paintPick();
-    if (playable.length > 0) actions.append(pick);
     if (group.source !== undefined && playable.length !== group.source.maps.length) {
       info.append(node('p', 'catalogue-import__status', text.localImport.stale));
       const rebuild = node('button', 'main-menu__ghost', text.localImport.rebuild);
@@ -132,7 +114,8 @@ export function installedPane(ctx: CatalogueContext, local: InstalledActions) {
   return {
     root,
     paint(groups: readonly InstalledGroup[], selectedId: string | null): void {
-      heading.textContent = formatMessage(catalogue.tabs.installed, { count: groups.length });
+      const rows = installedMapRows(groups);
+      heading.textContent = formatMessage(catalogue.tabs.installed, { count: rows.length });
       const bytes = groups.reduce((sum, group) => sum + group.bytes, 0);
       const updates = groups.filter(
         (group) => group.row?.status === 'updatable' || group.row?.status === 'redownload',
@@ -150,13 +133,13 @@ export function installedPane(ctx: CatalogueContext, local: InstalledActions) {
           ? [formatMessage(pluralForm(updates, text.updates, bcp47Tag()), { count: updates })]
           : []),
       ].join(' · ');
-      if (groups.length === 0) {
+      if (rows.length === 0) {
         list.replaceChildren(node('p', 'catalogue__empty', text.none));
         return;
       }
       list.replaceChildren(
-        ...groups.map((group) => {
-          const element = groupRow(group, ctx, local);
+        ...rows.map(({ group, map }) => {
+          const element = groupRow(group, ctx, local, map);
           element.classList.toggle('is-selected', group.entryId === selectedId);
           return element;
         }),

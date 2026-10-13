@@ -31,15 +31,6 @@
   outline: 2px dashed var(--bronze-hi);
   outline-offset: calc(var(--u) * 4);
 }
-.catalogue-installed__map-choice {
-  max-width: 100%;
-  padding: calc(var(--u) * 6);
-  background: var(--deep);
-  color: var(--text-hi);
-  border: 1px solid var(--wood-hi);
-  font: inherit;
-}
-
 .catalogue-toolbar__trailing {
   margin-inline-start: auto;
 }

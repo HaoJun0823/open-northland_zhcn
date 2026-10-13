@@ -1,4 +1,4 @@
-import { type CifLine, decodeCifStringArray } from '../cif.js';
+import { type CifDecodeLimits, type CifLine, decodeCifStringArray } from '../cif.js';
 
 /**
  * Decodes `.ini` bytes in the requested code page, defaulting to the rule files' CP1250:
@@ -104,6 +104,6 @@ export function cifLinesToSections(lines: readonly CifLine[]): RuleSection[] {
 }
 
 /** Encrypted `.cif` bytes straight to sections: the latin1 line decode paired with the section adapter. */
-export function cifBytesToSections(bytes: Uint8Array): RuleSection[] {
-  return cifLinesToSections(decodeCifStringArray(bytes).lines);
+export function cifBytesToSections(bytes: Uint8Array, limits?: CifDecodeLimits): RuleSection[] {
+  return cifLinesToSections(decodeCifStringArray(bytes, limits).lines);
 }

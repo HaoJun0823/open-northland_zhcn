@@ -12,7 +12,22 @@
  */
 
 import { ByteCursor, decodeLatin1, viewOf } from './byte-cursor.js';
+import { DecodeLimitError } from './limit.js';
 import { readCMemory, StorableId } from './storable.js';
+
+/** Resource policy: weighted offset visits and scanned string bytes share this expansion budget. */
+export const DEFAULT_CIF_DECODE_UNITS = 16 * 1024 * 1024;
+/** Bounds line objects as well as text: at most 262,144 slots under the default document budget.
+ * The largest slot count among the mod's 209 CIF headers is 21,622. */
+export const CIF_SLOT_DECODE_UNITS = 64;
+export interface CifDecodeBudget {
+  remaining: number;
+}
+export interface CifDecodeLimits {
+  readonly units?: number;
+  /** Shared across documents, including malformed documents that consumed work before failing. */
+  readonly budget?: CifDecodeBudget;
+}
 
 /** One decoded line of a `.cif` string pool: a nesting level + its text. */
 export interface CifLine {
@@ -80,26 +95,48 @@ export function encryptMode1(buf: Uint8Array): void {
  * Bounds use the pool's own length: some shipped tables carry a stale `stringPoolUsedBytes` smaller
  * than the strings their offsets point at.
  */
-function readLines(pool: Uint8Array, offsets: Uint8Array, slotCount: number): CifLine[] {
+function readLines(
+  pool: Uint8Array,
+  offsets: Uint8Array,
+  slotCount: number,
+  limits: CifDecodeLimits,
+): CifLine[] {
   const INVALID = 0xffffffff;
   const limit = pool.length;
   const offView = viewOf(offsets);
   const lines: CifLine[] = [];
-  for (let id = 0; id < slotCount; id++) {
-    const byteIndex = id * 4;
-    if (byteIndex + 4 > offsets.length) break;
-    const start = offView.getUint32(byteIndex, true);
-    if (start === INVALID || start >= limit) continue; // hole
-    let end = start;
-    while (end < limit && pool[end] !== 0) end++; // an unterminated final entry stops at `limit`
-    if (end === start) continue; // empty
-    const raw = pool.subarray(start, end);
-    const first = raw[0] as number;
-    const hasLevel = first < 0x20;
-    lines.push({
-      level: hasLevel ? first : 0,
-      text: decodeLatin1(hasLevel ? raw.subarray(1) : raw),
-    });
+  let remaining = Math.min(limits.units ?? DEFAULT_CIF_DECODE_UNITS, limits.budget?.remaining ?? Infinity);
+  const available = remaining;
+  try {
+    for (let id = 0; id < slotCount; id++) {
+      const byteIndex = id * 4;
+      if (byteIndex + 4 > offsets.length) break;
+      if (remaining < CIF_SLOT_DECODE_UNITS)
+        throw new DecodeLimitError('cif: decoded text exceeds the work budget');
+      remaining -= CIF_SLOT_DECODE_UNITS;
+      const start = offView.getUint32(byteIndex, true);
+      if (start === INVALID || start >= limit) continue; // hole
+      let end = start;
+      // Aliased and overlapping offsets are valid, but each occurrence costs its full scan and text.
+      const scanEnd = Math.min(limit, start + remaining);
+      while (end < scanEnd && pool[end] !== 0) end++;
+      remaining -= end - start;
+      if (end < limit) {
+        if (remaining < 1) throw new DecodeLimitError('cif: decoded text exceeds the work budget');
+        remaining--; // the NUL inspected by the scan
+      }
+      if (end === start) continue; // empty
+      const raw = pool.subarray(start, end);
+      const first = raw[0] as number;
+      const hasLevel = first < 0x20;
+      lines.push({
+        level: hasLevel ? first : 0,
+        text: decodeLatin1(hasLevel ? raw.subarray(1) : raw),
+      });
+    }
+  } finally {
+    if (limits.budget !== undefined && Number.isFinite(available))
+      limits.budget.remaining -= available - remaining;
   }
   return lines;
 }
@@ -111,7 +148,7 @@ function readLines(pool: Uint8Array, offsets: Uint8Array, slotCount: number): Ci
  * Text is decoded as latin1 to preserve every source byte. Display strings carrying Polish glyphs
  * are actually CP1250; re-decode those at the IR layer where it matters.
  */
-export function decodeCifStringArray(bytes: Uint8Array): CifStringArray {
+export function decodeCifStringArray(bytes: Uint8Array, limits: CifDecodeLimits = {}): CifStringArray {
   const r = new ByteCursor(bytes, 'cif');
   const id = r.u32();
   r.u32(); // version
@@ -133,7 +170,7 @@ export function decodeCifStringArray(bytes: Uint8Array): CifStringArray {
   if (hasStringPool) {
     const pool = readCMemory(r);
     decryptMode1(pool);
-    lines = readLines(pool, offsets, slotCount);
+    lines = readLines(pool, offsets, slotCount, limits);
   }
 
   return { forceSequentialIds, stringCount, usedIdCount, slotCount, stringPoolUsedBytes, lines };

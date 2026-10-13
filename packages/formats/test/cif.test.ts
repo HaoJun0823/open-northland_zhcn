@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { decodeCifStringArray, decryptMode1, encryptMode1 } from '../src/cif.js';
+import { CIF_SLOT_DECODE_UNITS, decodeCifStringArray, decryptMode1, encryptMode1 } from '../src/cif.js';
 import { decodeCifStringTable } from '../src/ini.js';
+import { DecodeLimitError } from '../src/limit.js';
 import { StorableId } from '../src/storable.js';
+import { buildCifPool } from './fixtures/cif.js';
 import { u32Into } from './support/bytes.js';
 
 /**
@@ -87,6 +89,43 @@ describe('Mode1 cipher', () => {
 });
 
 describe('decodeCifStringArray', () => {
+  it('bounds repeated offset expansion before decoding beyond the text budget', () => {
+    const pool = Uint8Array.from([2, ...new TextEncoder().encode('string "aliased"'), 0]);
+    const bytes = buildCifPool(pool, new Uint8Array(1024 * 4));
+    const oneLineUnits = CIF_SLOT_DECODE_UNITS + pool.length;
+    const budget = { remaining: oneLineUnits * 2 };
+    expect(() => decodeCifStringArray(bytes, { budget })).toThrow(DecodeLimitError);
+    expect(budget.remaining).toBe(0);
+    const two = buildCifPool(pool, new Uint8Array(2 * 4));
+    expect(decodeCifStringArray(two, { units: oneLineUnits * 2 }).lines).toEqual([
+      { level: 2, text: 'string "aliased"' },
+      { level: 2, text: 'string "aliased"' },
+    ]);
+  });
+
+  it('bounds scans inside a long unterminated string and visits to empty slots', () => {
+    const budget = { remaining: CIF_SLOT_DECODE_UNITS + 32 };
+    const long = buildCifPool(new Uint8Array(1024).fill(65), new Uint8Array(4));
+    expect(() => decodeCifStringArray(long, { budget })).toThrow(DecodeLimitError);
+    expect(budget.remaining).toBe(0);
+    const holes = new Uint8Array(128).fill(0xff);
+    const empty = buildCifPool(new Uint8Array([0]), holes);
+    expect(() => decodeCifStringArray(empty, { units: 32 * CIF_SLOT_DECODE_UNITS - 1 })).toThrow(
+      DecodeLimitError,
+    );
+    expect(decodeCifStringArray(empty, { units: 32 * CIF_SLOT_DECODE_UNITS }).lines).toEqual([]);
+  });
+
+  it('preserves overlapping offsets and unterminated tails within the work budget', () => {
+    const slots = new Uint8Array(8);
+    new DataView(slots.buffer).setUint32(4, 1, true);
+    const bytes = buildCifPool(new TextEncoder().encode('abc'), slots);
+    expect(decodeCifStringArray(bytes, { units: 2 * CIF_SLOT_DECODE_UNITS + 5 }).lines).toEqual([
+      { level: 0, text: 'abc' },
+      { level: 0, text: 'bc' },
+    ]);
+  });
+
   it('decodes a synthetic housetypes-shaped container', () => {
     const lines = [
       { level: 1, text: 'logichousetype' },

@@ -7,6 +7,7 @@ import {
   type MapsIndexEntry,
   mapDocumentsFingerprint,
 } from '@open-northland/data';
+import type { CifDecodeBudget, CifDecodeLimits } from '@open-northland/formats/cif';
 import type { HypertextBudget } from '@open-northland/formats/hypertext';
 import {
   cifBytesToSections,
@@ -56,6 +57,7 @@ export interface ConvertProgress {
 export interface ConvertOptions {
   /** Shared expansion budget across the pack, including picture discovery. */
   readonly hypertextBudget?: HypertextBudget;
+  readonly cifBudget?: CifDecodeBudget;
   /** Classifies each map by its spelled folder path; a plain kind applies to every map. */
   readonly provenance: MapProvenanceKind | ((folder: string) => MapProvenanceKind);
   /** The folder name a map at the tree root goes by, such as the archive's name. */
@@ -67,7 +69,16 @@ export interface ConvertOptions {
   readonly onWarning?: (message: string) => void;
   /** Bounds on what the decoders build; defaults to {@link DEFAULT_IMPORT_LIMITS}. */
   readonly limits?: Pick<ImportLimits, 'cells' | 'picturePixels'> &
-    Partial<Pick<ImportLimits, 'totalCells' | 'hypertextCharacters' | 'totalHypertextCharacters'>>;
+    Partial<
+      Pick<
+        ImportLimits,
+        | 'totalCells'
+        | 'hypertextCharacters'
+        | 'totalHypertextCharacters'
+        | 'cifDecodeUnits'
+        | 'totalCifDecodeUnits'
+      >
+    >;
 }
 
 /** One converted map: the documents and pictures the content tree serves for it. */
@@ -124,15 +135,17 @@ export interface MapPosition {
 function readEntities(
   folder: MapFolder,
   onUnknownVerb: (verb: string) => void,
+  cifLimits: CifDecodeLimits,
 ): { cifSections?: readonly RuleSection[]; entities?: MapDatTerrainFile['entities'] } {
   let cifSections: readonly RuleSection[] | undefined;
   let entities: MapDatTerrainFile['entities'];
   const cif = folder.read([MAP_CIF_FILE]);
   if (cif !== undefined) {
     try {
-      cifSections = cifBytesToSections(cif);
+      cifSections = cifBytesToSections(cif, cifLimits);
       entities = extractStaticObjects(cifSections, onUnknownVerb);
-    } catch {
+    } catch (err) {
+      if (err instanceof DecodeLimitError) throw err;
       // Undecodable: the entity layer is skipped.
     }
   }
@@ -193,15 +206,28 @@ export async function convertMapFolder(
 
   report('entities');
   const unknownVerbs = new Set<string>();
-  const { cifSections, entities } = readEntities(folder, (verb) => unknownVerbs.add(verb));
+  const cifLimits = {
+    units: limits.cifDecodeUnits ?? DEFAULT_IMPORT_LIMITS.cifDecodeUnits,
+    budget: options.cifBudget ?? {
+      remaining: limits.totalCifDecodeUnits ?? DEFAULT_IMPORT_LIMITS.totalCifDecodeUnits,
+    },
+  };
+  let authored: ReturnType<typeof readEntities>;
+  let stringTables: ReturnType<typeof loadMapStringTables>;
+  try {
+    authored = readEntities(folder, (verb) => unknownVerbs.add(verb), cifLimits);
+    report('strings');
+    stringTables = loadMapStringTables(folder, cifLimits);
+  } catch (err) {
+    throw limitFailure(err, folder.rel);
+  }
+  const { cifSections, entities } = authored;
   if (entities !== undefined) terrain = { ...terrain, entities };
   const unknownStaticVerbs = [...unknownVerbs].sort();
   if (unknownStaticVerbs.length > 0) {
     folder.warn(`unknown [StaticObjects] verb(s) skipped: ${unknownStaticVerbs.join(', ')}`);
   }
 
-  report('strings');
-  const stringTables = loadMapStringTables(folder);
   const strings = Object.keys(stringTables).length > 0 ? MapStrings.parse(stringTables) : undefined;
 
   report('meta');
@@ -293,6 +319,9 @@ export async function convertMapTree(tree: MapTree, options: ConvertOptions): Pr
   const hypertextBudget = options.hypertextBudget ?? {
     remaining: options.limits?.totalHypertextCharacters ?? DEFAULT_IMPORT_LIMITS.totalHypertextCharacters,
   };
+  const cifBudget = options.cifBudget ?? {
+    remaining: options.limits?.totalCifDecodeUnits ?? DEFAULT_IMPORT_LIMITS.totalCifDecodeUnits,
+  };
   const folders = findMapFolders(tree);
   if (folders.length === 0) throw new MapImportError('no-map', `no folder holds a ${MAP_DAT_FILE}`);
   const maps: ConvertedMap[] = [];
@@ -304,7 +333,12 @@ export async function convertMapTree(tree: MapTree, options: ConvertOptions): Pr
       const map = await convertMapFolder(
         tree,
         key,
-        { ...options, hypertextBudget, limits: { ...limits, cells: Math.min(limits.cells, remainingCells) } },
+        {
+          ...options,
+          hypertextBudget,
+          cifBudget,
+          limits: { ...limits, cells: Math.min(limits.cells, remainingCells) },
+        },
         { index, total: folders.length },
       );
       remainingCells -= map.terrain.width * map.terrain.height;

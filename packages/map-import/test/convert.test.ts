@@ -1,9 +1,11 @@
 import { mapDocumentsFingerprint } from '@open-northland/data';
+import { CIF_SLOT_DECODE_UNITS } from '@open-northland/formats/cif';
 import { encodeMapDat, encodeMapSize, packMapLayer } from '@open-northland/formats/mapdat/index';
 import { encodePcx } from '@open-northland/formats/pcx';
 import { zipSync } from 'fflate';
 import { describe, expect, it, vi } from 'vitest';
 import { encodeC2m } from '../../formats/test/fixtures/c2m.js';
+import { buildCifPool } from '../../formats/test/fixtures/cif.js';
 import { openZip } from '../src/archives/open.js';
 import { type ConvertProgress, convertMapFolder, convertMapTree } from '../src/convert.js';
 import { MapImportError, type MapImportFailure } from '../src/errors.js';
@@ -24,6 +26,49 @@ async function failure(promise: Promise<unknown>): Promise<{ kind: MapImportFail
 }
 
 describe('convertMapTree', () => {
+  it.each(['map.cif', 'text/pol/strings.cif'])(
+    'refuses over-budget CIF expansion in %s instead of skipping the optional file',
+    async (path) => {
+      const cif = buildCifPool(latin1('\u0002string "repeated"\0'), new Uint8Array(1024 * 4));
+      const tree = treeOf({ 'map.dat': mapDat(), [path]: cif });
+      const result = await failure(
+        convertMapTree(tree, {
+          provenance: 'user',
+          limits: { ...DEFAULT_IMPORT_LIMITS, cifDecodeUnits: 2 * CIF_SLOT_DECODE_UNITS },
+        }),
+      );
+      expect(result).toMatchObject({ kind: 'too-large', message: expect.stringContaining('cif:') });
+    },
+  );
+
+  it('shares the CIF budget across maps and localized tables in a pack', async () => {
+    const pool = latin1('\u0001text\0');
+    const cif = buildCifPool(pool, new Uint8Array(4));
+    const tree = treeOf({
+      'a/map.dat': mapDat(),
+      'a/map.cif': cif,
+      'b/map.dat': mapDat(),
+      'b/text/pol/strings.cif': cif,
+    });
+    const units = CIF_SLOT_DECODE_UNITS + pool.length;
+    expect(
+      await failure(
+        convertMapTree(tree, {
+          provenance: 'catalog',
+          limits: { ...DEFAULT_IMPORT_LIMITS, cifDecodeUnits: units, totalCifDecodeUnits: units * 2 - 1 },
+        }),
+      ),
+    ).toMatchObject({ kind: 'too-large' });
+    expect(
+      (
+        await convertMapTree(tree, {
+          provenance: 'catalog',
+          limits: { ...DEFAULT_IMPORT_LIMITS, cifDecodeUnits: units, totalCifDecodeUnits: units * 2 },
+        })
+      ).maps,
+    ).toHaveLength(2);
+  });
+
   it('converts a campaign pack: the main map and its sub-mission folder, each with its own id', async () => {
     const tree = treeOf({
       ...under('Kampania/Glowna', { ...plaintextMap('Glowna'), 'misc.inc': '[misc_maptype]\nmaptype 2\n' }),

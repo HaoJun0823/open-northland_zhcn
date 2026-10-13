@@ -1,4 +1,5 @@
 import { MAP_TEXT_LANGUAGES, type MapMeta, type MapText, type MapTextLanguage } from '@open-northland/data';
+import type { CifDecodeLimits } from '@open-northland/formats/cif';
 import {
   decodeCifStringTable,
   extractMapTypes,
@@ -9,6 +10,7 @@ import {
   parseIniSections,
   type RuleSection,
 } from '@open-northland/formats/ini';
+import { DecodeLimitError } from '@open-northland/formats/limit';
 import { errorMessage } from './errors.js';
 import type { MapFolder } from './folder.js';
 import { HEADER_FILES, STRING_TABLE_DIR, STRING_TABLE_FILES } from './layout.js';
@@ -93,7 +95,7 @@ function resolveMapHeader(folder: MapFolder, cifSections: readonly RuleSection[]
  * `{ <stringId>: <text> }`, preferring the readable `strings.ini` over its encrypted `strings.cif`
  * twin. An unreadable or empty table falls through to the next form, then the next language.
  */
-export function loadMapStringTables(folder: MapFolder): MapStringTables {
+export function loadMapStringTables(folder: MapFolder, cifLimits?: CifDecodeLimits): MapStringTables {
   const tables: MapStringTables = {};
   for (const lang of MAP_TEXT_LANGUAGES) {
     for (const form of STRING_TABLE_FILES) {
@@ -106,8 +108,9 @@ export function loadMapStringTables(folder: MapFolder): MapStringTables {
         table =
           form === 'strings.ini'
             ? extractStringTable(parseIniSections(decodeMapText(bytes, lang)))
-            : decodeCifStringTable(bytes, encoding);
+            : decodeCifStringTable(bytes, encoding, cifLimits);
       } catch (err) {
+        if (err instanceof DecodeLimitError) throw err;
         folder.warn(`text/${lang}/${form} undecodable: ${errorMessage(err)}`);
         continue;
       }

@@ -1,3 +1,4 @@
+import { DEFAULT_CIF_DECODE_UNITS } from '@open-northland/formats/cif';
 import { DEFAULT_HYPERTEXT_CHARACTERS } from '@open-northland/formats/hypertext';
 
 const MIB = 1024 * 1024;
@@ -29,6 +30,10 @@ export interface ImportLimits {
   readonly hypertextCharacters: number;
   /** Processed briefing characters across the complete pack. */
   readonly totalHypertextCharacters: number;
+  /** Weighted offset visits plus scanned string bytes in one CIF; bounds line and text expansion. */
+  readonly cifDecodeUnits: number;
+  /** CIF processing and decoded text retained across the complete pack. */
+  readonly totalCifDecodeUnits: number;
 }
 
 /** Defaults sized from the culturesnation catalogue: its largest archive unpacks to 20 MB, its largest
@@ -60,6 +65,8 @@ export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
   picturePixels: DEFAULT_PICTURE_PIXELS,
   hypertextCharacters: DEFAULT_HYPERTEXT_CHARACTERS,
   totalHypertextCharacters: DEFAULT_TOTAL_HYPERTEXT_CHARACTERS,
+  cifDecodeUnits: DEFAULT_CIF_DECODE_UNITS,
+  totalCifDecodeUnits: 4 * DEFAULT_CIF_DECODE_UNITS,
 };
 
 /** No bound at all, for a trusted source such as the mod tree the pipeline converts. */
@@ -74,4 +81,6 @@ export const NO_IMPORT_LIMITS: ImportLimits = {
   picturePixels: Number.POSITIVE_INFINITY,
   hypertextCharacters: Number.POSITIVE_INFINITY,
   totalHypertextCharacters: Number.POSITIVE_INFINITY,
+  cifDecodeUnits: Number.POSITIVE_INFINITY,
+  totalCifDecodeUnits: Number.POSITIVE_INFINITY,
 };

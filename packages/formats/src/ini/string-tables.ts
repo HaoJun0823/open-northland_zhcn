@@ -1,6 +1,7 @@
 /**
  * String-table decoders: numbered display strings from `.ini` sections and the encrypted `.cif` blob.
  */
+import type { CifDecodeLimits } from '../cif.js';
 import { cifBytesToSections, decodeIni, type RuleSection } from './grammar.js';
 
 /**
@@ -88,8 +89,12 @@ export function decodeDisplayText(latin1: string, encoding = 'windows-1250'): st
  * Decodes one encrypted `.cif` string table (a `CStringArray` of `[control]`/`[text]` lines) straight to
  * display text in the caller's codepage; the `.cif` seam preserves source bytes as latin1.
  */
-export function decodeCifStringTable(bytes: Uint8Array, encoding = 'windows-1250'): Record<number, string> {
-  const raw = extractStringTable(cifBytesToSections(bytes));
+export function decodeCifStringTable(
+  bytes: Uint8Array,
+  encoding = 'windows-1250',
+  limits?: CifDecodeLimits,
+): Record<number, string> {
+  const raw = extractStringTable(cifBytesToSections(bytes, limits));
   const table: Record<number, string> = {};
   for (const [id, display] of Object.entries(raw)) {
     table[Number(id)] = decodeDisplayText(display, encoding);

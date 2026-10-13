@@ -22,6 +22,13 @@ export const buildStringCif = (lines: readonly { level: number; text: string }[]
   offsetValues.forEach((v, i) => {
     ov.setUint32(i * 4, v, true);
   });
+  return buildCifPool(pool, offsets);
+};
+
+/** Raw slots allow synthetic aliases, overlaps and holes independently of string storage. */
+export function buildCifPool(rawPool: Uint8Array, rawOffsets: Uint8Array): Uint8Array {
+  const pool = rawPool.slice();
+  const offsets = rawOffsets.slice();
   encryptMode1(offsets);
   encryptMode1(pool);
 
@@ -37,15 +44,15 @@ export const buildStringCif = (lines: readonly { level: number; text: string }[]
   pushU32(StorableId.CStringArray);
   pushU32(0);
   pushU32(1); // forceSequentialIds
-  pushU32(lines.length); // stringCount
-  pushU32(lines.length); // usedIdCount
-  pushU32(lines.length); // slotCount
+  pushU32(offsets.length / 4); // stringCount
+  pushU32(offsets.length / 4); // usedIdCount
+  pushU32(offsets.length / 4); // slotCount
   pushU32(pool.length); // stringPoolUsedBytes
   pushCMemory(offsets);
   out.push(1); // hasStringPool
   pushCMemory(pool);
   return Uint8Array.from(out);
-};
+}
 
 /** A minimal campaign-map logic header: mapsize/mapguid + maptype/mapname metadata. */
 export const sampleMapLines = (): { level: number; text: string }[] => [

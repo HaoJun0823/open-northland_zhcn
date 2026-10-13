@@ -7,7 +7,6 @@ import type { Log } from '../catalog/thumbnails.js';
 import type { ContentFile, ContentSource, KeptFile, KeptFileSource } from '../http/sources.js';
 import { isMissing } from '../store.js';
 import type { Fetch } from '../upstream/strapi.js';
-import { convertArchive } from './convert.js';
 import { DownloadError, type DownloadLimits, downloadArchive } from './download.js';
 import type {
   ArchiveSource,
@@ -16,6 +15,7 @@ import type {
   KeptArchive,
   StoredConversion,
 } from './store.js';
+import type { ArchiveConverter } from './worker-converter.js';
 
 /** A hang guard: the largest catalogue file is tens of megabytes. */
 const DOWNLOAD_TIMEOUT_MS = 120_000;
@@ -47,7 +47,7 @@ export const DEFAULT_DOWNLOAD_LIMITS: DownloadLimits = {
 export interface ConversionServiceOptions {
   readonly store: ConversionStore;
   readonly fetch: Fetch;
-  readonly unrarWasm: ArrayBuffer;
+  readonly converter: ArchiveConverter;
   readonly concurrency: number;
   /** Receives the catalogue with every entry's `conversion`, after each catalogue and each batch. */
   readonly publish: (snapshot: CatalogSnapshot) => void;
@@ -100,6 +100,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
   private batch: Promise<void> | null = null;
   private prunePending = false;
   private stopped = false;
+  private readonly abort = new AbortController();
 
   constructor(private readonly options: ConversionServiceOptions) {
     this.irVersion = options.store.irVersion;
@@ -118,6 +119,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
 
   /** Takes a new catalogue: publishes it at once, then queues every entry whose file needs converting. */
   setCatalog(synced: SyncedCatalog): void {
+    if (this.stopped) return;
     this.catalog = synced;
     this.entries = new Map(synced.catalog.map((entry) => [entry.id, entry]));
     this.prunePending = true;
@@ -131,10 +133,13 @@ export class ConversionService implements ContentSource, KeptFileSource {
     while (this.batch !== null) await this.batch;
   }
 
-  /** Finishes the conversions in flight and starts no other. */
+  /** Cancels downloads and worker jobs, then waits for outstanding storage operations. */
   async stop(): Promise<void> {
     this.stopped = true;
     this.queue.length = 0;
+    this.waiting.clear();
+    this.abort.abort();
+    await this.options.converter.stop();
     await this.idle();
   }
 
@@ -276,10 +281,18 @@ export class ConversionService implements ContentSource, KeptFileSource {
     if (entry === undefined || entry.file.kind === 'external') return null;
     const startedAt = performance.now();
     const attempt = await this.attempt(entry);
+    if (this.stopped) return entry.updatedAt;
     if (attempt.kind === 'download-failed') {
       this.downloadFailures.set(id, attempt.message);
       this.log('download failed', { id, error: attempt.message });
     } else {
+      if (
+        attempt.verdict.conversion.verdict === 'failed' &&
+        this.stored.get(id)?.conversion.verdict === 'ok'
+      ) {
+        this.log('replacement conversion failed', { id, error: attempt.verdict.conversion.message });
+        return entry.updatedAt;
+      }
       try {
         const stored = await this.options.store.writeConversion(id, attempt.verdict, attempt.files);
         this.stored.set(id, stored);
@@ -311,10 +324,9 @@ export class ConversionService implements ContentSource, KeptFileSource {
     try {
       const archive = await this.archiveFor(entry);
       archiveSha256 = archive.sha256;
-      const result = await convertArchive(archive.bytes, id, {
-        unrarWasm: this.options.unrarWasm,
-        onWarning: (message) => this.log('conversion warning', { id, message }),
-      });
+      const result = await this.options.converter.convert(archive.bytes, id, (message) =>
+        this.log('conversion warning', { id, message }),
+      );
       return {
         kind: 'converted',
         verdict: {
@@ -348,7 +360,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
     }
     const url = this.catalog?.downloads.get(entry.id);
     if (url === undefined) throw new DownloadError('no download URL for this entry');
-    const bytes = await downloadArchive(this.options.fetch, url, this.downloadLimits);
+    const bytes = await downloadArchive(this.options.fetch, url, this.downloadLimits, this.abort.signal);
     const source: ArchiveSource = {
       sha256: sha256Hex(bytes),
       ext: detectArchiveFormat(bytes) ?? UNKNOWN_EXT,

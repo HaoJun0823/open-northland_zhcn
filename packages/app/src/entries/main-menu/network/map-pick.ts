@@ -1,6 +1,5 @@
 import { installedMapStore } from '../../../content/map-source/store.js';
 import { messages } from '../../../i18n/index.js';
-import { desktopMaps } from '../../../view/desktop-bridge.js';
 import { localImportControls } from '../catalogue/local-import.js';
 import { type CatalogueView, catalogueView, initialCatalogueMemory } from '../catalogue/view.js';
 import { node } from '../dom.js';
@@ -45,7 +44,7 @@ export function roomMapPick(options: MapPickOptions) {
   const importArea = node('div', 'network-menu__import');
   const store = installedMapStore();
   const imports =
-    store === null || desktopMaps() !== null
+    store === null
       ? null
       : localImportControls({
           store,

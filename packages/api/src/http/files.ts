@@ -19,6 +19,7 @@ const CONTENT_SUFFIXES: readonly string[] = Object.entries(MAP_FILE_SUFFIXES)
   .map(([, suffix]) => suffix)
   .sort((a, b) => b.length - a.length);
 const PNG_SUFFIX = '.png';
+const BRIEFING_PICTURE_SUFFIX = /\.pictures-[0-9a-f]{16}\.png$/;
 /** Stable map URLs can name a new conversion; caches must validate before reusing their bytes. */
 const CONTENT_CACHE = 'public, no-cache';
 const PNG_TYPE = 'image/png';
@@ -32,6 +33,11 @@ const UNQUOTABLE = /[^\x20-\x7e]|["\\]/g;
 
 /** The map id and suffix of a content file name, or null unless both are valid. */
 function contentName(fileName: string): { mapId: string; suffix: string } | null {
+  const picture = BRIEFING_PICTURE_SUFFIX.exec(fileName);
+  if (picture !== null) {
+    const mapId = fileName.slice(0, picture.index);
+    return CATALOG_MAP_ID.test(mapId) ? { mapId, suffix: picture[0] } : null;
+  }
   for (const suffix of CONTENT_SUFFIXES) {
     if (!fileName.endsWith(suffix)) continue;
     const mapId = fileName.slice(0, -suffix.length);
@@ -78,7 +84,7 @@ export async function serveContent(
     const headers: Record<string, string> = {
       ...V1_HEADERS,
       'cache-control': CONTENT_CACHE,
-      'content-type': name.suffix === PNG_SUFFIX ? PNG_TYPE : JSON_TYPE,
+      'content-type': name.suffix.endsWith(PNG_SUFFIX) ? PNG_TYPE : JSON_TYPE,
       'x-content-type-options': 'nosniff',
       vary: 'Accept-Encoding',
       etag: file.etag,

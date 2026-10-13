@@ -3,7 +3,6 @@
 **Area:** api, data · **Priority:** P3
 **Needs user:** which categories ship at launch (the "Mapy z serii Cultures" ones carry maps from
 the original series); review of each correction and translation batch
-**Blocked by:** [Convert catalogue archives on the server](../api/archive-conversion-service.md)
 
 The converted catalogue will contain maps that fail in our engine for a reason a single-file fix
 would cure, maps the owner does not want listed, and maps with text in one language only

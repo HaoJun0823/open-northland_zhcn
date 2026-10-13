@@ -9,10 +9,11 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   opens fullscreen on a packaged profile's first launch and reopens in the mode, bounds and display it
   closed with (`src/window-state.ts`). Development always starts in a normal window, preserving bounds;
   `ON_DESKTOP_RESTORE_WINDOW=1` opts into the packaged startup behavior for explicit window-mode checks.
-  Its preload exposes only `window.desktop.fullscreen` (read, set, subscribe),
-  `window.desktop.originalGame` (status, pick a folder) and `window.desktop.maps`
-  (list records, read a map snapshot or one file, commit a complete replacement), which the app feature-detects; keep that bridge
-  narrow, validate every IPC argument and sender, and keep sandbox and context isolation on.
+  Its preload exposes only `window.desktop.fullscreen` (read, set,
+  subscribe), `window.desktop.originalGame` (status, pick a folder) and `window.desktop.maps`
+  (pick/drop/cancel a local file or folder, list records, read a map snapshot, file or retained source,
+  commit maps and source together), which the app feature-detects. Keep that bridge narrow, validate
+  every IPC argument and sender, and keep sandbox and context isolation on.
   Saves live in the page's IndexedDB like in a browser. A page link the game opens goes to the
   system browser, never a second window.
 - Serve the app and generated content through `app://` as read-only static files. Installed maps
@@ -20,8 +21,10 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   bytes. The shell owns both installed records and immutable file generations in the profile's
   `maps/` directory (`src/map-store.ts`). One atomic manifest replacement publishes a complete pack;
   failed writes preserve the previous manifest. Reads and commits share one queue, and cleanup
-  follows publication. The app owns the record schema; the shell validates IPC shapes, paths,
-  revisions and per-request sizes. There is no aggregate desktop storage budget.
+  follows publication. Original input paths are metadata; retained bytes use numeric file slots in
+  immutable generations. Native picks enforce shared import limits before reading and refuse symlinks.
+  The app owns the record schema; the shell validates IPC shapes, paths, revisions and per-request sizes.
+  There is no aggregate desktop storage budget.
 - The shell writes only window state, `original-game.json`, and installed-map storage in its
   profile. Saves remain in the page's IndexedDB.
 - A packaged build (or a run with `ON_ORIGINAL_GAME_CHECK=1`) requires an installed original game

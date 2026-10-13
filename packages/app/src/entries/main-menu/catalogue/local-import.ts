@@ -1,12 +1,14 @@
 import { MapImportError } from '@open-northland/map-import/input';
 import { LocalImportError } from '../../../content/local-import/client.js';
 import type { LocalImportProgress, PreparedLocalImport } from '../../../content/local-import/convert.js';
+import { pickDesktopMap } from '../../../content/local-import/desktop.js';
 import type { LocalMapInput } from '../../../content/local-import/input.js';
 import { installLocalMap, reconvertLocalMap } from '../../../content/local-import/install.js';
 import { droppedLocalInput, LocalPickError, localFilePicker } from '../../../content/local-import/picker.js';
 import { MapStorageFullError } from '../../../content/map-source/installed.js';
 import type { InstalledMapStore } from '../../../content/map-source/store.js';
 import { formatMessage, messages } from '../../../i18n/index.js';
+import { desktopMaps } from '../../../view/desktop-bridge.js';
 import { node } from '../dom.js';
 import { importMenu } from './import-menu.js';
 
@@ -129,7 +131,8 @@ export function localImportControls(options: LocalImportControlsOptions) {
       await options.changed(prepared.source.record.entryId);
     } catch (error) {
       if (disposed) return;
-      if (controller.signal.aborted) status.textContent = text.cancelled;
+      if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError'))
+        status.textContent = text.cancelled;
       else failure(error);
     } finally {
       active = null;
@@ -143,11 +146,13 @@ export function localImportControls(options: LocalImportControlsOptions) {
   const folderInput = localFilePicker(true, receive, failure);
   file.addEventListener('click', () => {
     menu.close(true);
-    fileInput.click();
+    if (desktopMaps() === null) fileInput.click();
+    else void run((signal) => pickDesktopMap('archive', signal));
   });
   folder.addEventListener('click', () => {
     menu.close(true);
-    folderInput.click();
+    if (desktopMaps() === null) folderInput.click();
+    else void run((signal) => pickDesktopMap('folder', signal));
   });
   cancel.addEventListener('click', () => active?.abort());
   manage.addEventListener('click', options.manage);
@@ -200,7 +205,13 @@ export function localImportControls(options: LocalImportControlsOptions) {
       if (active !== null || event.dataTransfer === null) return;
       // Start enumeration during the event; cancellation also stops a directory walk.
       const transfer = event.dataTransfer;
-      void run((signal) => droppedLocalInput(transfer, signal));
+      void run((signal) => {
+        if (desktopMaps() === null) return droppedLocalInput(transfer, signal);
+        const items = Array.from(transfer.items).filter((item) => item.kind === 'file');
+        const file = items.length === 1 ? items[0]?.getAsFile() : undefined;
+        if (file === undefined || file === null) throw new LocalPickError('one-input');
+        return pickDesktopMap(file, signal);
+      });
     },
     { signal: scope.signal },
   );

@@ -28,7 +28,7 @@ export const CatalogFile = z.discriminatedUnion('kind', [
 ]);
 export type CatalogFile = z.infer<typeof CatalogFile>;
 
-/** One `/v1/catalog` entry: an accepted culturesnation.pl map, normalized by the API. */
+/** One `/v1/maps/<id>` detail: an accepted culturesnation.pl map, normalized by the API. */
 export const CatalogEntry = z.strictObject({
   id: z.string().regex(CATALOG_MAP_ID),
   source: z.strictObject({
@@ -65,6 +65,6 @@ export const CatalogEntry = z.strictObject({
 });
 export type CatalogEntry = z.infer<typeof CatalogEntry>;
 
-/** The whole `/v1/catalog` body: every entry, sorted by id. */
+/** The stored normalized catalogue before projection: every complete entry, sorted by id. */
 export const Catalog = z.array(CatalogEntry);
 export type Catalog = z.infer<typeof Catalog>;

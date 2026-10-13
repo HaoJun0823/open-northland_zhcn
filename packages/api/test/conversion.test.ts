@@ -200,6 +200,30 @@ describe('ConversionService', () => {
     expect(served(ENTRY).conversion?.verdict).toBe('ok');
   });
 
+  it('aborts an in-flight download on shutdown without persisting a failed generation', async () => {
+    let markStarted: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const { service } = await harness(
+      dir,
+      {
+        fetch: async (_url, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new Error('download aborted')), {
+              once: true,
+            });
+            markStarted();
+          }),
+      },
+      { irVersion: IR_VERSION },
+    );
+    service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await started;
+    await service.stop();
+    expect(await readdir(join(dir, 'converted', String(IR_VERSION)))).toEqual([]);
+  });
+
   it('fails a body shorter than its declared length as a download failure', async () => {
     const archive = zipOf(under('Wyspa', plaintextMap('Wyspa')));
     files.serve(ENTRY, archive, { 'content-length': String(archive.byteLength + LYING_EXTRA_BYTES) });

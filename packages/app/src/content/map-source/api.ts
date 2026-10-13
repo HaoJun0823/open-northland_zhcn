@@ -1,4 +1,4 @@
-import { type CatalogConvertedMap, CatalogEntry } from '@open-northland/data';
+import { CatalogBrowseEntry, type CatalogConvertedMap, CatalogEntry } from '@open-northland/data';
 import { diag } from '../../diag/log.js';
 import type { MapFileSuffix } from './files.js';
 
@@ -74,15 +74,15 @@ export async function fetchCatalog(
   api: string,
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal,
-): Promise<readonly CatalogEntry[]> {
+): Promise<readonly CatalogBrowseEntry[]> {
   const response = await fetchImpl(catalogUrl(api), { signal: catalogRequestSignal(signal) });
   if (!response.ok) throw new Error(`Map catalogue: HTTP ${response.status}`);
   const body: unknown = await response.json();
   if (!Array.isArray(body)) throw new Error('Map catalogue: expected a list');
-  const entries: CatalogEntry[] = [];
+  const entries: CatalogBrowseEntry[] = [];
   let skipped = 0;
   for (const raw of body) {
-    const parsed = CatalogEntry.safeParse(raw);
+    const parsed = CatalogBrowseEntry.safeParse(raw);
     if (parsed.success) entries.push(parsed.data);
     else skipped++;
   }

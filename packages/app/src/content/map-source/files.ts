@@ -1,3 +1,5 @@
+import type { MapBriefing } from '@open-northland/data';
+
 /** The sidecars a converted map ships under `/maps/<id><suffix>`: terrain, the four optional JSON
  *  sidecars and the authored picture. The pipeline's `.map.png` minimap is not among them, since a
  *  catalogue map has none. */
@@ -53,4 +55,19 @@ export function storedMapFetch(mapId: string, read: StoredMapFileReader): typeof
       headers: { 'content-type': mapFileContentType(suffix), 'content-length': String(bytes.byteLength) },
     });
   };
+}
+
+/** The converted picture files referenced by any language, without repeated downloads. */
+export function briefingPictureSuffixes(briefing: MapBriefing): MapFileSuffix[] {
+  const suffixes = new Set<MapFileSuffix>();
+  for (const pages of Object.values(briefing.texts)) {
+    for (const blocks of Object.values(pages)) {
+      for (const block of blocks) {
+        if (block.kind !== 'picture') continue;
+        const suffix = `.pictures-${block.file}`;
+        if (isMapFileSuffix(suffix)) suffixes.add(suffix);
+      }
+    }
+  }
+  return [...suffixes];
 }

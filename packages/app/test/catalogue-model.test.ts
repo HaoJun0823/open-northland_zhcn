@@ -1,13 +1,14 @@
 import type { CatalogConvertedMap, CatalogEntry, MapsIndexPlayerSlot } from '@open-northland/data';
+import { catalogBrowseEntry } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { INSTALLED_MAP_RECORD_VERSION, type InstalledMapRecord } from '../src/content/map-source/index.js';
 import { languageCodes } from '../src/entries/main-menu/catalogue/card.js';
 import { foldText, titleKey } from '../src/entries/main-menu/catalogue/fold.js';
 import {
+  catalogueRow as browseRow,
+  catalogueRows as browseRows,
   type CatalogueRow,
   canDownload,
-  catalogueRow,
-  catalogueRows,
   installedGroups,
   LARGE_MAP_MAX_CELLS,
   MEDIUM_MAP_MAX_CELLS,
@@ -28,6 +29,15 @@ import {
   queryRows,
 } from '../src/entries/main-menu/catalogue/query.js';
 import { catalogEntry, TINY_FINGERPRINT } from './support/catalog-maps.js';
+
+const catalogueRow = (
+  entry: CatalogEntry,
+  ...args: Parameters<typeof browseRow> extends [unknown, ...infer Rest] ? Rest : never
+) => browseRow(catalogBrowseEntry(entry), ...args);
+const catalogueRows = (
+  entries: readonly CatalogEntry[],
+  ...args: Parameters<typeof browseRows> extends [unknown, ...infer Rest] ? Rest : never
+) => browseRows(entries.map(catalogBrowseEntry), ...args);
 
 const IR = 9;
 const KIB = 1024;
@@ -167,7 +177,7 @@ describe('catalogue rows', () => {
       },
     };
     const row = catalogueRow(pack, [], IR);
-    expect(row.mainIndex?.id).toBe('cn-pack-2');
+    expect(row.mainMapId).toBe('cn-pack-2');
     expect(row.subMapCount).toBe(2);
     expect(row.playerCounts).toEqual([2, 4]);
     expect(row.languages).toEqual(['pol', 'eng', 'ger']);
@@ -270,7 +280,7 @@ describe('catalogue rows against the shipped maps', () => {
     const found = row(external);
     expect(found.status).toBe('inGame');
     expect(found.playableMapId).toBe('wyspa');
-    expect(found.mainIndex?.id).toBe('wyspa');
+    expect(found.mainMapId).toBe('wyspa');
     expect(found.shipped).toEqual({ index: expect.objectContaining({ id: 'wyspa' }), sameVersion: null });
     expect(row({ ...external, title: 'Wyspa 2' }).status).toBe('external');
     // A converted copy matches by folder only; its title alone does not make it the shipped map.

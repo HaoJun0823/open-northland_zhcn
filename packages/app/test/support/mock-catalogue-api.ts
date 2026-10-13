@@ -17,6 +17,7 @@ import {
   type CatalogConvertedMap,
   type CatalogEntry,
   type CatalogKind,
+  catalogBrowseEntry,
   type MapsIndexEntry,
   type MapsIndexPlayerSlot,
   type MapTextLanguage,
@@ -546,7 +547,8 @@ function serve(port: number, catalogue: ReturnType<typeof mockCatalogue>): void 
     const republish = /^\/mock\/republish\/([^/]+)$/.exec(url.pathname);
     if (republish !== null && request.method === 'POST')
       return send(catalogue.republish(republish[1] ?? '') ? 200 : 404, '{}');
-    if (url.pathname === '/v1/catalog') return send(200, JSON.stringify(catalogue.entries));
+    if (url.pathname === '/v1/catalog')
+      return send(200, JSON.stringify(catalogue.entries.map(catalogBrowseEntry)));
     const thumbnail = /^\/v1\/maps\/([^/]+)\/thumbnail$/.exec(url.pathname);
     if (thumbnail !== null) {
       const png = catalogue.thumbnail(thumbnail[1] ?? '');

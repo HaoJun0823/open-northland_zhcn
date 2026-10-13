@@ -104,6 +104,7 @@ export async function convertMapDatTree(
         key,
         {
           provenance: mapProvenanceKind,
+          limits: NO_IMPORT_LIMITS,
           ...(synthesizeMinimap === undefined ? {} : { minimap: synthesizeMinimap }),
           onWarning: (message) => console.warn(`[pipeline] ${message}`),
         },

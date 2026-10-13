@@ -1,4 +1,4 @@
-import type { CatalogEntry, MapTextLanguage } from '@open-northland/data';
+import type { CatalogBrowseEntry, MapTextLanguage } from '@open-northland/data';
 import { bcp47Tag, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import { node } from '../dom.js';
 import { hasClaimableSeat } from '../lobby/roster-state.js';
@@ -11,9 +11,9 @@ export interface CatalogueContext {
   readonly purpose: 'play' | 'choose';
   /** False where the platform has no installed-map store: nothing downloads or removes. */
   readonly canStore: boolean;
-  thumbnail(entry: CatalogEntry): string | null;
+  thumbnail(entry: CatalogBrowseEntry): string | null;
   /** The file the server kept, for a player to unpack by hand; null when it kept none. */
-  fileUrl(entry: CatalogEntry): string | null;
+  fileUrl(entry: CatalogBrowseEntry): string | null;
   /** Download progress as a fraction while the entry downloads. */
   progress(entryId: string): number | undefined;
   /** The last download or removal error, shown until the next attempt. */
@@ -57,7 +57,7 @@ export function playersText(counts: readonly number[]): string | null {
 }
 
 /** The kind as a card names it; an entry the keywords did not place shows its catalogue category. */
-export function kindText(entry: CatalogEntry): string {
+export function kindText(entry: CatalogBrowseEntry): string {
   return entry.kind === 'other' ? entry.categoryLabel : messages().mapCatalogue.kindChips[entry.kind];
 }
 

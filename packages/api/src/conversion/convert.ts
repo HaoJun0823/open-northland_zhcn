@@ -69,6 +69,7 @@ export async function convertArchive(
       index: renamed.index,
     });
     for (const [name, file] of own) files.set(name, utf8(file));
+    for (const [name, png] of map.pictures) files.set(`${mapId}.pictures-${name}`, png);
   }
   return { maps, files };
 }

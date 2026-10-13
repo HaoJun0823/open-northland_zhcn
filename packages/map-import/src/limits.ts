@@ -25,6 +25,10 @@ export interface ImportLimits {
   readonly totalCells: number;
   /** Pixels (`width * height`) of one picture, checked against its header before it decodes. */
   readonly picturePixels: number;
+  /** Processed briefing characters per map, including include expansion and picture discovery. */
+  readonly hypertextCharacters: number;
+  /** Processed briefing characters across the complete pack. */
+  readonly totalHypertextCharacters: number;
 }
 
 /** Defaults sized from the culturesnation catalogue: its largest archive unpacks to 20 MB, its largest
@@ -54,6 +58,8 @@ export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
   cells: DEFAULT_CELLS,
   totalCells: DEFAULT_TOTAL_CELLS,
   picturePixels: DEFAULT_PICTURE_PIXELS,
+  hypertextCharacters: DEFAULT_HYPERTEXT_CHARACTERS,
+  totalHypertextCharacters: DEFAULT_TOTAL_HYPERTEXT_CHARACTERS,
 };
 
 /** No bound at all, for a trusted source such as the mod tree the pipeline converts. */
@@ -66,4 +72,6 @@ export const NO_IMPORT_LIMITS: ImportLimits = {
   cells: Number.POSITIVE_INFINITY,
   totalCells: Number.POSITIVE_INFINITY,
   picturePixels: Number.POSITIVE_INFINITY,
+  hypertextCharacters: Number.POSITIVE_INFINITY,
+  totalHypertextCharacters: Number.POSITIVE_INFINITY,
 };

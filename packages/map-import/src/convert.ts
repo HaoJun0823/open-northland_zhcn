@@ -7,7 +7,7 @@ import {
   type MapsIndexEntry,
   mapDocumentsFingerprint,
 } from '@open-northland/data';
-import { DEFAULT_HYPERTEXT_CHARACTERS, type HypertextBudget } from '@open-northland/formats/hypertext';
+import type { HypertextBudget } from '@open-northland/formats/hypertext';
 import {
   cifBytesToSections,
   extractStaticObjects,
@@ -21,7 +21,7 @@ import { type MapFolder, mapFolderOf } from './folder.js';
 import { findMapFolders, mapIdFromFolderName } from './folders.js';
 import { mapsIndexEntry } from './index-entry.js';
 import { MAP_CIF_FILE, MAP_DAT_FILE, PICTURE_PATH, STATIC_OBJECT_FILES } from './layout.js';
-import { DEFAULT_IMPORT_LIMITS, DEFAULT_TOTAL_HYPERTEXT_CHARACTERS, type ImportLimits } from './limits.js';
+import { DEFAULT_IMPORT_LIMITS, type ImportLimits } from './limits.js';
 import { loadMapStringTables, resolveMapMeta } from './meta.js';
 import { minimapToPng } from './minimap.js';
 import { resolveMapScript } from './script.js';
@@ -66,7 +66,8 @@ export interface ConvertOptions {
   /** Recoverable problems: an unreadable optional file or layer, which the map then goes without. */
   readonly onWarning?: (message: string) => void;
   /** Bounds on what the decoders build; defaults to {@link DEFAULT_IMPORT_LIMITS}. */
-  readonly limits?: Pick<ImportLimits, 'cells' | 'picturePixels'> & Partial<Pick<ImportLimits, 'totalCells'>>;
+  readonly limits?: Pick<ImportLimits, 'cells' | 'picturePixels'> &
+    Partial<Pick<ImportLimits, 'totalCells' | 'hypertextCharacters' | 'totalHypertextCharacters'>>;
 }
 
 /** One converted map: the documents and pictures the content tree serves for it. */
@@ -221,7 +222,7 @@ export async function convertMapFolder(
 
   report('briefing');
   const availableCharacters = Math.min(
-    DEFAULT_HYPERTEXT_CHARACTERS,
+    limits.hypertextCharacters ?? DEFAULT_IMPORT_LIMITS.hypertextCharacters,
     options.hypertextBudget?.remaining ?? Number.POSITIVE_INFINITY,
   );
   const pageBudget = { remaining: availableCharacters };
@@ -235,7 +236,7 @@ export async function convertMapFolder(
     throw limitFailure(err, folder.rel);
   }
 
-  if (options.hypertextBudget !== undefined)
+  if (options.hypertextBudget !== undefined && Number.isFinite(availableCharacters))
     options.hypertextBudget.remaining -= availableCharacters - pageBudget.remaining;
 
   report('picture');
@@ -289,7 +290,9 @@ export async function convertMapFolder(
  * one with a map over the decode limits `too-large`.
  */
 export async function convertMapTree(tree: MapTree, options: ConvertOptions): Promise<MapTreeConversion> {
-  const hypertextBudget = options.hypertextBudget ?? { remaining: DEFAULT_TOTAL_HYPERTEXT_CHARACTERS };
+  const hypertextBudget = options.hypertextBudget ?? {
+    remaining: options.limits?.totalHypertextCharacters ?? DEFAULT_IMPORT_LIMITS.totalHypertextCharacters,
+  };
   const folders = findMapFolders(tree);
   if (folders.length === 0) throw new MapImportError('no-map', `no folder holds a ${MAP_DAT_FILE}`);
   const maps: ConvertedMap[] = [];

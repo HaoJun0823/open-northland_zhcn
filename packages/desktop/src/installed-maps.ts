@@ -1,3 +1,6 @@
+export const INSTALLED_MAP_GENERATION = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
+export const MAX_INSTALLED_MAP_RECORD_BYTES = 1024 * 1024;
+
 /** A map id names a file on every peer, so it is one plain ASCII token (the app's `isMapId`). */
 const INSTALLED_MAP_ID = /^[a-z0-9_-]{1,128}$/i;
 
@@ -10,7 +13,7 @@ export const INSTALLED_MAP_SUFFIXES = [
   '.json',
   '.png',
 ] as const;
-export type InstalledMapSuffix = (typeof INSTALLED_MAP_SUFFIXES)[number];
+export type InstalledMapSuffix = (typeof INSTALLED_MAP_SUFFIXES)[number] | `.pictures-${string}.png`;
 
 /** The app's own cap on one map document; a picture is far smaller. */
 export const MAX_INSTALLED_MAP_FILE_BYTES = 64 * 1024 * 1024;
@@ -27,6 +30,8 @@ export function parseInstalledMapId(value: unknown): string {
 }
 
 export function parseInstalledMapSuffix(value: unknown): InstalledMapSuffix {
+  if (typeof value === 'string' && /^\.pictures-[0-9a-f]{16}\.png$/.test(value))
+    return value as InstalledMapSuffix;
   const suffix = INSTALLED_MAP_SUFFIXES.find((candidate) => candidate === value);
   if (suffix === undefined) throw new Error('Invalid map file suffix');
   return suffix;

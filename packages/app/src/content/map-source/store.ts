@@ -19,6 +19,7 @@ import { browserInstalledMapStorage, desktopInstalledMapStorage } from './storag
 export { browserInstalledMapStorage, desktopInstalledMapStorage } from './storage.js';
 
 export interface SourceChanges {
+  readonly expected?: LocalSourceRecord;
   readonly drop: readonly string[];
   readonly put?: RetainedLocalSource;
 }
@@ -193,6 +194,7 @@ export function createInstalledMapStore(
         await storage.commit([...drop], maps, {
           drop: sources.filter((item) => dropEntries.has(item.entryId)).map((item) => item.entryId),
           ...(source === undefined ? {} : { put: source }),
+          ...(expectedSource === undefined ? {} : { expected: expectedSource }),
         });
         forgetPictures([...drop]);
       });

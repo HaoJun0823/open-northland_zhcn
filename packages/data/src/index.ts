@@ -11,6 +11,7 @@ export * from './lookup.js';
 export * from './map-lobby.js';
 export * from './missions/index.js';
 export { PERSONAL_NAMES } from './names/index.js';
+export * from './schema/catalog/browse.js';
 export * from './schema/catalog/conversion.js';
 export * from './schema/catalog/entry.js';
 export * from './schema/catalog/id.js';

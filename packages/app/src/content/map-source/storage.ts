@@ -1,5 +1,6 @@
 import type { DesktopMaps } from '../../view/desktop-bridge.js';
 import { completed, openDb } from '../../view/runtime/save-load/idb.js';
+import { localInputFromDesktop, localInputToDesktop } from '../local-import/desktop.js';
 import { storedLocalInput } from '../local-import/input.js';
 import { localSourceRecord } from '../local-import/source.js';
 import { isMapFileSuffix, type MapFileSuffix } from './files.js';
@@ -137,13 +138,24 @@ export function desktopInstalledMapStorage(maps: DesktopMaps): InstalledMapStora
     async readFile(mapId, suffix) {
       return maps.readFile(mapId, suffix);
     },
-    readSource: async () => null,
+    async readSource(entryId) {
+      const source = await maps.readSource(entryId);
+      if (source === null) return null;
+      const record = localSourceRecord(source.record);
+      if (record === null) return null;
+      return { record, input: localInputFromDesktop(source.input) };
+    },
     async commit(drop, put, sources) {
-      if (sources.put !== undefined || sources.drop.length > 0)
-        throw new Error('Local source storage requires desktop import support');
       await maps.commit(
         drop,
         put.map(({ record, files }) => ({ record, files: [...files] })),
+        {
+          drop: sources.drop,
+          ...(sources.put === undefined
+            ? {}
+            : { put: { record: sources.put.record, input: await localInputToDesktop(sources.put.input) } }),
+          ...(sources.expected === undefined ? {} : { expected: sources.expected }),
+        },
       );
     },
   };

@@ -14,9 +14,8 @@ instructions or malformed tokens (`setexperience` in SARACENI - PODSTĘP,
   original offending token. Preserve them through API and local import without duplicate reporting.
 - Classify the listed cases against archive contents and parser behavior. Repair verified parser
   defects; distinguish unavailable source resources from unsupported decoding and decorative noise.
-- Keep missing source images separate from the existing
-  [briefing image serving work](../api/archive-conversion-service.md). Route bad source archives
-  and corrections to [curation](../features/map-catalogue-curation.md).
+- Distinguish missing source images from failures of the implemented briefing image delivery.
+  Route bad source archives and corrections to [curation](../features/map-catalogue-curation.md).
 
 ## Verify
 

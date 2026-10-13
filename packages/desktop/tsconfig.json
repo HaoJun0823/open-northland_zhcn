@@ -8,5 +8,12 @@
     "emitDeclarationOnly": true
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../ownership" }]
+  "references": [
+    {
+      "path": "../ownership"
+    },
+    {
+      "path": "../map-import"
+    }
+  ]
 }

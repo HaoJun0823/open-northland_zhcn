@@ -15,8 +15,10 @@ const MIN_SYNC_INTERVAL_SECONDS = SECONDS_PER_UNIT.m;
 const MAX_SYNC_INTERVAL_SECONDS = 7 * SECONDS_PER_UNIT.d;
 const MS_PER_SECOND = 1000;
 const DEFAULT_CONVERT_CONCURRENCY = 1;
-/** Conversion is CPU work on the server's one thread; more only overlaps downloads. */
+/** Concurrent archive downloads and isolated conversion workers. */
 const MAX_CONVERT_CONCURRENCY = 8;
+const DEFAULT_CONVERT_TIMEOUT_SECONDS = 120;
+const MAX_CONVERT_TIMEOUT_SECONDS = 600;
 
 export type Environment = Readonly<Record<string, string | undefined>>;
 
@@ -33,6 +35,8 @@ export interface ApiConfig {
   readonly syncIntervalMs: number;
   /** Catalogue files downloaded and converted at once. */
   readonly convertConcurrency: number;
+  /** Wall-clock budget of one conversion worker, including startup. */
+  readonly convertTimeoutMs: number;
   /** The build this image came from, for the health endpoint. */
   readonly build: string | null;
 }
@@ -81,6 +85,17 @@ function convertConcurrencySetting(env: Environment): number {
   return value;
 }
 
+function convertTimeoutSetting(env: Environment): number {
+  const raw = setting(env, 'API_CONVERT_TIMEOUT_SECONDS');
+  if (raw === null) return DEFAULT_CONVERT_TIMEOUT_SECONDS * MS_PER_SECOND;
+  const seconds = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+  if (!Number.isInteger(seconds) || seconds < 1 || seconds > MAX_CONVERT_TIMEOUT_SECONDS)
+    throw new Error(
+      `API_CONVERT_TIMEOUT_SECONDS must be an integer from 1 to ${MAX_CONVERT_TIMEOUT_SECONDS}`,
+    );
+  return seconds * MS_PER_SECOND;
+}
+
 /** `API_SYNC_INTERVAL`: whole seconds (`21600`) or a number with one unit `s`, `m`, `h` or `d` (`6h`). */
 export function parseSyncInterval(raw: string): number {
   const match = /^(\d+)\s*([smhd]?)$/i.exec(raw);
@@ -108,6 +123,7 @@ export function apiConfigFromEnvironment(env: Environment, cwd: string): ApiConf
     syncIntervalMs:
       interval === null ? DEFAULT_SYNC_INTERVAL_SECONDS * MS_PER_SECOND : parseSyncInterval(interval),
     convertConcurrency: convertConcurrencySetting(env),
+    convertTimeoutMs: convertTimeoutSetting(env),
     build: setting(env, 'API_BUILD'),
   };
 }

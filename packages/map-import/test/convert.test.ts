@@ -8,7 +8,7 @@ import { openZip } from '../src/archives/open.js';
 import { type ConvertProgress, convertMapFolder, convertMapTree } from '../src/convert.js';
 import { MapImportError, type MapImportFailure } from '../src/errors.js';
 import { mapFiles } from '../src/files.js';
-import { DEFAULT_IMPORT_LIMITS } from '../src/limits.js';
+import { DEFAULT_IMPORT_LIMITS, NO_IMPORT_LIMITS } from '../src/limits.js';
 import { treeFromFolder } from '../src/tree.js';
 import { latin1, treeOf } from './support/folder.js';
 import { mapDat, plaintextMap, under } from './support/maps.js';
@@ -244,4 +244,20 @@ it('shares the briefing expansion allowance across maps in a pack', async () => 
   expect(
     (await convertMapTree(tree, { provenance: 'user', hypertextBudget: { remaining: 16 } })).maps,
   ).toHaveLength(2);
+});
+
+it('keeps untrusted briefing limits while explicitly trusted folder and pack conversions are unlimited', async () => {
+  const files = {
+    ...plaintextMap('Long briefing'),
+    'mission.inc': '[MissionData]\ndebuginfo "Briefing"\nresult "PlayCutscene" 0 1\n',
+    'text/pol/briefings/0000.hlt': 'x'.repeat(DEFAULT_IMPORT_LIMITS.hypertextCharacters),
+    'text/pol/briefings/briefings.txt': '',
+  };
+  const tree = treeOf({ ...under('a', files), ...under('b', files), ...under('c', files) });
+  for (const provenance of ['catalog', 'user', 'mod'] as const) {
+    expect((await failure(convertMapTree(tree, { provenance }))).kind).toBe('too-large');
+  }
+  const trusted = { provenance: 'mod' as const, limits: NO_IMPORT_LIMITS };
+  expect((await convertMapFolder(tree, 'a', trusted)).briefing).toBeDefined();
+  expect((await convertMapTree(tree, trusted)).maps).toHaveLength(3);
 });

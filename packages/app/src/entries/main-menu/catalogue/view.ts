@@ -1,4 +1,4 @@
-import type { CatalogEntry } from '@open-northland/data';
+import type { CatalogBrowseEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import type { LocalSourceRecord } from '../../../content/local-import/source.js';
 import {
@@ -6,6 +6,7 @@ import {
   catalogFileUrl,
   catalogThumbnailUrl,
   fetchCatalog,
+  fetchCatalogEntry,
   findMapSource,
   type InstalledMapRecord,
   installCatalogEntry,
@@ -15,11 +16,12 @@ import {
 import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, compareLabels, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
 import { confirmDialog } from '../../../view/confirm-dialog.js';
-import { desktopMaps } from '../../../view/desktop-bridge.js';
 import { node } from '../dom.js';
 import { type MapSelectItem, mapSourceItem } from '../map-select-model.js';
 import { type CardDate, type CatalogueContext, catalogueCard, formatCount } from './card.js';
+import { renderCardBatches } from './card-batches.js';
 import { catalogueDetail } from './detail.js';
+import { catalogueEntryDetails } from './entry-details.js';
 import { catalogueFilters } from './filters.js';
 import { installedPane } from './installed.js';
 import { localImportControls } from './local-import.js';
@@ -69,7 +71,8 @@ export interface CatalogueView {
 /** Cards in the grid's first rendered row: how far the Up and Down keys move. */
 function gridColumns(cards: readonly HTMLElement[]): number {
   const top = cards[0]?.offsetTop;
-  return Math.max(1, cards.filter((card) => card.offsetTop === top).length);
+  const nextRow = cards.findIndex((card) => card.offsetTop !== top);
+  return Math.max(1, nextRow === -1 ? cards.length : nextRow);
 }
 
 const isUpdate = (group: InstalledGroup): boolean =>
@@ -84,7 +87,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   const store = installedMapStore();
   const scope = new AbortController();
 
-  let entries: readonly CatalogEntry[] | null = null;
+  let entries: readonly CatalogBrowseEntry[] | null = null;
   let failure: unknown = null;
   let installed: readonly InstalledMapRecord[] = [];
   let localSources: readonly LocalSourceRecord[] = [];
@@ -95,6 +98,11 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   /** The last download or removal error per entry id. */
   const failures = new Map<string, string>();
   const cards = new Map<string, ReturnType<typeof catalogueCard> & { readonly dateOf: CardDate }>();
+
+  const details = catalogueEntryDetails(api, scope.signal, () => paintDetail(text.panelEmpty));
+  let cancelCards = () => {};
+  let shownRows: readonly CatalogueRow[] = [];
+  let focusWhenRendered: string | null = null;
 
   const rowOf = (entryId: string): CatalogueRow | undefined => rows.find((row) => row.entry.id === entryId);
   const isInstalled = (entryId: string): boolean => installed.some((record) => record.entryId === entryId);
@@ -139,7 +147,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   scroll.append(grid);
   results.append(scroll);
   const imports =
-    store === null || desktopMaps() !== null
+    store === null
       ? null
       : localImportControls({
           store,
@@ -224,9 +232,11 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
 
   function paintDetail(emptyLine: string | null): void {
     const row = memory.selectedId === null ? undefined : rowOf(memory.selectedId);
+    const id = row?.entry.id ?? null;
+    details.select(id);
     detail.root.hidden = memory.tab === 'installed' && row === undefined;
     if (row === undefined) detail.clear(emptyLine);
-    else detail.show(row, isInstalled(row.entry.id));
+    else detail.show(row, isInstalled(row.entry.id), details.get(row.entry.id), details.error(row.entry.id));
   }
 
   function paintSelection(): void {
@@ -239,6 +249,9 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   }
 
   function renderGrid(): void {
+    cancelCards();
+    focusWhenRendered = null;
+    grid.style.minHeight = '';
     detail.root.hidden = false;
     grid.setAttribute('aria-busy', String(failure === null && entries === null));
     if (failure !== null || entries === null) {
@@ -253,6 +266,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
       return;
     }
     const shown = queryRows(rows, memory.query, compareLabels());
+    shownRows = shown;
     const filtered = hasActiveFilters(memory.query) || memory.query.text.trim() !== '';
     count.textContent = filtered
       ? formatMessage(text.countFiltered, {
@@ -277,17 +291,36 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     }
     const sort = memory.query.sort;
     const dateOf: CardDate = sort === 'updated' ? 'updated' : sort === 'newest' ? 'published' : null;
-    grid.replaceChildren(
-      ...shown.map((row) => {
+    const scrollTop = scroll.scrollTop;
+    grid.style.minHeight = `${grid.offsetHeight}px`;
+    grid.replaceChildren();
+    scroll.scrollTop = scrollTop;
+    grid.setAttribute('aria-busy', 'true');
+    cancelCards = renderCardBatches(shown, (batch, complete) => {
+      const fragment = document.createDocumentFragment();
+      for (const row of batch) {
         let card = cards.get(row.entry.id);
         if (card === undefined || card.dateOf !== dateOf) {
           card = { ...catalogueCard(row, ctx, dateOf), dateOf };
           cards.set(row.entry.id, card);
         }
-        return card.element;
-      }),
-    );
-    paintSelection();
+        const selected = row.entry.id === memory.selectedId;
+        card.element.classList.toggle('is-selected', selected);
+        card.element.tabIndex = selected ? 0 : -1;
+        fragment.append(card.element);
+      }
+      grid.append(fragment);
+      if (complete) grid.style.minHeight = '';
+      grid.setAttribute('aria-busy', String(!complete));
+      if (focusWhenRendered !== null) {
+        const target = cards.get(focusWhenRendered)?.element;
+        if (target?.parentElement === grid) {
+          target.focus({ preventScroll: true });
+          target.scrollIntoView({ block: 'nearest' });
+          focusWhenRendered = null;
+        }
+      }
+    });
     paintDetail(text.panelEmpty);
   }
 
@@ -302,10 +335,17 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     const groups = installedGroups(installed, rows, localSources);
     paintTabs(groups);
     if (memory.tab === 'browse') renderGrid();
-    else renderInstalled(groups);
+    else {
+      cancelCards();
+      grid.setAttribute('aria-busy', 'false');
+      grid.style.minHeight = '';
+      renderInstalled(groups);
+    }
   }
 
   function select(entryId: string): void {
+    focusWhenRendered = null;
+    details.select(entryId, true);
     memory.selectedId = entryId;
     paintSelection();
     paintDetail(text.panelEmpty);
@@ -319,7 +359,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     const target = event.target;
     if (!(target instanceof HTMLElement) || !target.classList.contains('catalogue-card')) return;
     const all = [...grid.querySelectorAll<HTMLElement>('.catalogue-card')];
-    const at = all.indexOf(target);
+    const at = shownRows.findIndex((row) => row.entry.id === memory.selectedId);
     const columns = gridColumns(all);
     const steps: Readonly<Record<string, number>> = {
       ArrowRight: at + 1,
@@ -327,7 +367,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
       ArrowDown: at + columns,
       ArrowUp: at - columns,
       Home: 0,
-      End: all.length - 1,
+      End: shownRows.length - 1,
     };
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -337,10 +377,15 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     const next = steps[event.key];
     if (next === undefined) return;
     event.preventDefault();
-    const card = all[Math.min(all.length - 1, Math.max(0, next))];
-    const id = card?.dataset.entryId;
-    if (card === undefined || id === undefined) return;
+    const row = shownRows[Math.min(shownRows.length - 1, Math.max(0, next))];
+    if (row === undefined) return;
+    const id = row.entry.id;
     select(id);
+    const card = cards.get(id)?.element;
+    if (card?.parentElement !== grid) {
+      focusWhenRendered = id;
+      return;
+    }
     card.focus({ preventScroll: true });
     card.scrollIntoView({ block: 'nearest' });
   });
@@ -358,7 +403,8 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     const row = rowOf(entryId);
     if (row === undefined) return;
     cards.get(entryId)?.paintProgress();
-    if (detail.shownId === entryId) detail.show(row, isInstalled(entryId));
+    if (detail.shownId === entryId)
+      detail.show(row, isInstalled(entryId), details.get(entryId), details.error(entryId));
     if (memory.tab === 'installed')
       installedView.paint(installedGroups(installed, rows, localSources), memory.selectedId);
   }
@@ -384,15 +430,20 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     downloads.set(id, 0);
     failures.delete(id);
     refreshEntry(id);
-    void installCatalogEntry(row.entry, {
-      api,
-      store,
-      signal: scope.signal,
-      onProgress: ({ done, total }) => {
-        downloads.set(id, total === 0 ? 1 : done / total);
-        refreshEntry(id);
-      },
-    })
+    void fetchCatalogEntry(api, id, fetch, scope.signal)
+      .then((entry) => {
+        if (entry === null) throw new Error(text.mapMissing);
+        details.set(entry);
+        return installCatalogEntry(entry, {
+          api,
+          store,
+          signal: scope.signal,
+          onProgress: ({ done, total }) => {
+            downloads.set(id, total === 0 ? 1 : done / total);
+            refreshEntry(id);
+          },
+        });
+      })
       .catch((error: unknown) => {
         if (!scope.signal.aborted) failures.set(id, errorText(error));
       })
@@ -465,6 +516,8 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     body,
     dispose: () => {
       imports?.dispose();
+      cancelCards();
+      details.dispose();
       scope.abort();
     },
   };

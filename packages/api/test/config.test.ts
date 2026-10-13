@@ -18,6 +18,7 @@ describe('apiConfigFromEnvironment', () => {
       upstream: DEFAULT_UPSTREAM,
       syncIntervalMs: SIX_HOURS * MS_PER_HOUR,
       convertConcurrency: 1,
+      convertTimeoutMs: 120_000,
       build: null,
     });
   });
@@ -31,6 +32,7 @@ describe('apiConfigFromEnvironment', () => {
         ON_API_UPSTREAM: 'http://localhost:1337/',
         API_BUILD: 'abc',
         API_CONVERT_CONCURRENCY: '3',
+        API_CONVERT_TIMEOUT_SECONDS: '30',
       },
       '/checkout',
     );
@@ -41,7 +43,14 @@ describe('apiConfigFromEnvironment', () => {
       upstream: 'http://localhost:1337',
       build: 'abc',
       convertConcurrency: 3,
+      convertTimeoutMs: 30_000,
     });
+    expect(() => apiConfigFromEnvironment({ API_CONVERT_TIMEOUT_SECONDS: '0' }, '/')).toThrow(
+      /API_CONVERT_TIMEOUT_SECONDS/,
+    );
+    expect(() => apiConfigFromEnvironment({ API_CONVERT_TIMEOUT_SECONDS: '601' }, '/')).toThrow(
+      /API_CONVERT_TIMEOUT_SECONDS/,
+    );
     expect(() => apiConfigFromEnvironment({ PORT: '70000' }, '/')).toThrow(/PORT/);
     expect(() => apiConfigFromEnvironment({ API_CONVERT_CONCURRENCY: '0' }, '/')).toThrow(
       /API_CONVERT_CONCURRENCY/,

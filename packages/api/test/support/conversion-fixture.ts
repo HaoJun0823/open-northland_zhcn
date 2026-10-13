@@ -9,10 +9,11 @@ import { latin1 } from '../../../map-import/test/support/folder.js';
 import { plaintextMap, under } from '../../../map-import/test/support/maps.js';
 import type { CatalogSnapshot } from '../../src/catalog/snapshot.js';
 import type { SyncedCatalog } from '../../src/catalog/sync.js';
-import { loadUnrarWasm } from '../../src/conversion/convert.js';
+import { convertArchive, loadUnrarWasm } from '../../src/conversion/convert.js';
 import type { DownloadLimits } from '../../src/conversion/download.js';
 import { ConversionService } from '../../src/conversion/service.js';
 import { ConversionStore } from '../../src/conversion/store.js';
+import type { ArchiveConverter } from '../../src/conversion/worker-converter.js';
 import type { Fetch } from '../../src/upstream/strapi.js';
 
 export { plaintextMap, under };
@@ -100,14 +101,18 @@ export interface Harness {
 export async function harness(
   dir: string,
   files: { readonly fetch: Fetch },
-  options: { irVersion: number; downloadLimits?: DownloadLimits },
+  options: { irVersion: number; downloadLimits?: DownloadLimits; converter?: ArchiveConverter },
 ): Promise<Harness> {
   const published: CatalogSnapshot[] = [];
   const events: Harness['events'] = [];
   const service = new ConversionService({
     store: new ConversionStore(dir, options.irVersion),
     fetch: files.fetch,
-    unrarWasm: UNRAR_WASM,
+    converter: options.converter ?? {
+      convert: (bytes, entryId, onWarning) =>
+        convertArchive(bytes, entryId, { unrarWasm: UNRAR_WASM, onWarning }),
+      stop: async () => undefined,
+    },
     concurrency: 1,
     publish: (snapshot) => published.push(snapshot),
     log: (event, fields) => events.push({ event, ...(fields === undefined ? {} : { fields }) }),

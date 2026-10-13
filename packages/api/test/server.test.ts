@@ -3,7 +3,7 @@ import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { Catalog, CatalogEntry } from '@open-northland/data';
+import { CatalogBrowse, CatalogEntry } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { catalogSnapshot } from '../src/catalog/snapshot.js';
 import { syncCatalog } from '../src/catalog/sync.js';
@@ -101,7 +101,7 @@ describe('api server', () => {
     expect(response.headers.get('access-control-allow-origin')).toBe('*');
     expect(response.headers.get('access-control-expose-headers')).toBe('ETag');
     expect(response.headers.get('cache-control')).toBe('public, max-age=300');
-    const catalog = Catalog.parse(await response.json());
+    const catalog = CatalogBrowse.parse(await response.json());
     expect(catalog).toHaveLength(ACCEPTED_RECORDS.length);
     const first = catalog[0];
     if (first === undefined) throw new Error('empty catalogue');
@@ -160,7 +160,7 @@ describe('api server', () => {
 
   it('serves stored thumbnails with their type and 404 for maps without one', async () => {
     await sync();
-    const catalog = Catalog.parse(await (await fetch(`${base}/v1/catalog`)).json());
+    const catalog = CatalogBrowse.parse(await (await fetch(`${base}/v1/catalog`)).json());
     const withShot = catalog.find((entry) => entry.thumbnail !== undefined);
     const withoutShot = catalog.find((entry) => entry.thumbnail === undefined);
     const image = await fetch(`${base}${withShot?.thumbnail}`);
@@ -192,7 +192,7 @@ describe('api server', () => {
 
   it('serves a kept file as an attachment with a hash validator, and 404 without one', async () => {
     await sync();
-    const catalog = Catalog.parse(await (await fetch(`${base}/v1/catalog`)).json());
+    const catalog = CatalogBrowse.parse(await (await fetch(`${base}/v1/catalog`)).json());
     const [first, second] = catalog;
     if (first === undefined || second === undefined) throw new Error('catalogue too small');
     const file = { sha256: KEPT_SHA256, name: 'Wyspa "Ł" (v2).rar' };

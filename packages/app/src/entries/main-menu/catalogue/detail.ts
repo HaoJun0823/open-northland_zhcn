@@ -1,3 +1,4 @@
+import type { CatalogEntry } from '@open-northland/data';
 import { findMapSource } from '../../../content/map-source/index.js';
 import { bcp47Tag, formatMessage, messages } from '../../../i18n/index.js';
 import { node } from '../dom.js';
@@ -25,7 +26,7 @@ export interface CatalogueDetail {
   readonly root: HTMLElement;
   /** The entry shown, or null while the panel shows its placeholder. */
   readonly shownId: string | null;
-  show(row: CatalogueRow, installed: boolean): void;
+  show(row: CatalogueRow, installed: boolean, entry?: CatalogEntry, loadError?: string): void;
   /** The placeholder art, with a line under it or none. */
   clear(line: string | null): void;
   /** Moves the focus to the main action, or to the panel's first control without one. */
@@ -129,7 +130,7 @@ export function catalogueDetail(
   };
 
   const paintStrip = (row: CatalogueRow): void => {
-    const main = row.maps.find((map) => map.index.id === row.mainIndex?.id) ?? row.maps[0];
+    const main = row.maps.find((map) => map.mapId === row.mainMapId) ?? row.maps[0];
     const size =
       main === undefined || row.size === null
         ? details.unknown
@@ -158,13 +159,14 @@ export function catalogueDetail(
     }
   };
 
-  const paintMaps = (row: CatalogueRow): void => {
-    const many = row.maps.length > 1;
+  const paintMaps = (entry: CatalogEntry | undefined): void => {
+    const converted = entry?.conversion?.verdict === 'ok' ? entry.conversion.maps : [];
+    const many = converted.length > 1;
     mapsHead.hidden = !many;
     maps.hidden = !many;
     maps.replaceChildren(
       ...(many
-        ? row.maps.map((map) => {
+        ? converted.map((map) => {
             const item = node('li');
             const players = playersText([playerCount(map.index)].filter((count) => count > 0));
             const parts = [...(players === null ? [] : [players]), formatMessage(details.cells, map.cells)];
@@ -178,11 +180,12 @@ export function catalogueDetail(
     );
   };
 
-  const paintActions = (row: CatalogueRow, installed: boolean): void => {
+  const paintActions = (row: CatalogueRow, installed: boolean, loadError?: string): void => {
     const { entry } = row;
     const failure = ctx.failure(entry.id);
     const line =
-      failure === undefined ? statusLine(row) : formatMessage(text.downloadFailed, { reason: failure });
+      loadError ??
+      (failure === undefined ? statusLine(row) : formatMessage(text.downloadFailed, { reason: failure }));
     status.textContent = line ?? '';
     status.hidden = line === null;
     status.className = `catalogue-detail__status is-${failure === undefined ? row.status : 'error'}`;
@@ -225,7 +228,7 @@ export function catalogueDetail(
     get shownId() {
       return shownId;
     },
-    show(row, installed) {
+    show(row, installed, entry, loadError) {
       const fresh = shownId !== row.entry.id;
       shownId = row.entry.id;
       setEmpty(false);
@@ -242,9 +245,9 @@ export function catalogueDetail(
       const blocks = descriptionBlocks(about, row.entry.title);
       description.replaceChildren(...(blocks.length > 0 ? blocks : [node('p', '', details.noDescription)]));
       description.classList.toggle('is-empty', blocks.length === 0);
-      paintMaps(row);
+      paintMaps(entry);
       paintFacts(row);
-      paintActions(row, installed);
+      paintActions(row, installed, loadError);
     },
     clear(line) {
       shownId = null;

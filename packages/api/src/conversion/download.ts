@@ -27,11 +27,15 @@ export async function downloadArchive(
   fetchFn: Fetch,
   url: string,
   limits: DownloadLimits,
+  signal?: AbortSignal,
 ): Promise<Uint8Array> {
   try {
     const response = await fetchFn(url, {
       redirect: 'error',
-      signal: AbortSignal.timeout(limits.timeoutMs),
+      signal:
+        signal === undefined
+          ? AbortSignal.timeout(limits.timeoutMs)
+          : AbortSignal.any([signal, AbortSignal.timeout(limits.timeoutMs)]),
     });
     if (!response.ok) {
       await response.body?.cancel().catch(() => undefined);

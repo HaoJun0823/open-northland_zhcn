@@ -1,4 +1,6 @@
+import { catalogBrowseEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
+import { encodePng } from '@open-northland/formats/png';
 import { describe, expect, it, vi } from 'vitest';
 import {
   apiBase,
@@ -18,7 +20,7 @@ import {
   TINY_FINGERPRINT,
 } from '../support/catalog-maps.js';
 
-const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0];
+const PNG = await encodePng({ width: 1, height: 1, rgba: new Uint8Array([0, 0, 0, 255]) });
 
 function store() {
   const memory = memoryInstalledStorage();
@@ -39,13 +41,45 @@ describe('the catalogue server address', () => {
 
   it('lists the entries this build reads and fails loudly when the server does not answer', async () => {
     const entry = catalogEntry('cn-a');
-    const server: typeof fetch = async () => Response.json([entry, { id: 'cn-new-shape' }]);
+    const server: typeof fetch = async () =>
+      Response.json([catalogBrowseEntry(entry), { id: 'cn-new-shape' }]);
     expect((await fetchCatalog(API, server)).map((item) => item.id)).toEqual(['cn-a']);
     await expect(fetchCatalog(API, async () => new Response(null, { status: 503 }))).rejects.toThrow(/503/);
   });
 });
 
 describe('installing a catalogue entry', () => {
+  it('requires referenced pictures and refuses invalid PNGs without committing a partial pack', async () => {
+    const entry = catalogEntry('cn-picture');
+    const { store: target, records, files } = store();
+    const suffix = '.pictures-0123456789abcdef.png';
+    const picture = { kind: 'picture', file: '0123456789abcdef.png', width: 3, height: 2 };
+    const server = catalogServer([entry], {
+      'cn-picture.briefing.json': { texts: { pol: { '500': [picture, picture] } } },
+    });
+    await expect(installCatalogEntry(entry, { api: API, store: target, fetchImpl: server })).rejects.toThrow(
+      /404/,
+    );
+    expect(records.size).toBe(0);
+    const invalid: typeof fetch = async (input) =>
+      String(input).endsWith(suffix) ? new Response('not a PNG') : server(input);
+    await expect(installCatalogEntry(entry, { api: API, store: target, fetchImpl: invalid })).rejects.toThrow(
+      /PNG/,
+    );
+    expect(records.size).toBe(0);
+    let images = 0;
+    const valid: typeof fetch = async (input) => {
+      if (!String(input).endsWith(suffix)) return server(input);
+      images++;
+      return new Response(new Uint8Array(PNG));
+    };
+    const progress = vi.fn();
+    await installCatalogEntry(entry, { api: API, store: target, fetchImpl: valid, onProgress: progress });
+    expect(images).toBe(1);
+    expect(files.get(`cn-picture${suffix}`)).toEqual(new Uint8Array(PNG));
+    expect(progress).toHaveBeenLastCalledWith({ done: 7, total: 7 });
+  });
+
   it('stops sibling downloads and progress after a failed attempt so it can be retried', async () => {
     const entry = catalogEntry('cn-a');
     const { store: target, records } = store();

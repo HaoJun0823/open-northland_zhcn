@@ -29,11 +29,17 @@ the last good catalogue serving.
 After each sync, and at start from the stored catalogue, a queue downloads every `archive` or `c2m`
 entry whose file is new or whose `updatedAt` changed, opens it with `packages/map-import` under its
 default limits (64 MiB archive) and writes the sidecars. `API_CONVERT_CONCURRENCY` (1 to 8, default 1)
-sets how many entries download and convert at once; conversion itself is CPU work on the server's one
-thread. An entry is `pending` while queued, then `ok` with its maps or `failed` with a `reason`
-(`no-map`, `too-large`, `unsupported-archive`, `decode-failed`, `download-failed`). A failed download
-is retried with the next catalogue; every other verdict stays until the entry changes. Each map is
-served as `<entry id>-<folder slug>`, a repeated slug inside one entry as `-2`, `-3`. A finished
+sets how many entries download and convert at once. Each conversion runs in a separate disposable
+Node worker; the queue releases its slot after that worker has stopped. `API_CONVERT_TIMEOUT_SECONDS`
+(1 to 600, default 120) bounds one worker's wall-clock lifetime, including startup. A timeout or crash
+ends that worker and lets the queue continue with a fresh worker. Shutdown aborts downloads,
+terminates workers and waits for pending storage operations.
+
+An entry is `pending` while queued, then `ok` with its maps or `failed` with a `reason`
+(`no-map`, `too-large`, `unsupported-archive`, `decode-failed`, `download-failed`). Worker timeouts and
+crashes use `decode-failed`. Failed downloads retry on the next catalogue; stored failures retry
+once per process and when their entry changes. A failed replacement preserves the previous good
+conversion and retries on a later synchronization. Each map is served as `<entry id>-<folder slug>`, a repeated slug inside one entry as `-2`, `-3`. A finished
 batch publishes the catalogue again with the `conversion` fields, so its `ETag` changes. Each
 entry's `kind` (`single`, `multi`, `campaign` or `other`) and `series` are read case-insensitively
 out of the upstream category text by keyword (`singleplayer`, `multiplayer`, `kampanie`, `serii`),
@@ -75,11 +81,11 @@ Endpoints, `GET` and `HEAD` (plus the `OPTIONS` preflight below):
 | Path | Answer |
 | --- | --- |
 | `/healthz` | Build, `lastSyncAt`, `staleSeconds`, `entryCount` and the `converted`, `pending` and `failed` entry counts; 503 until a catalogue is loaded |
-| `/v1/catalog` | Every entry, sorted by id, as the `Catalog` schema in `packages/data` |
-| `/v1/maps/<id>` | One `CatalogEntry` |
+| `/v1/catalog` | Every entry, sorted by id, as the `CatalogBrowse` schema in `packages/data` |
+| `/v1/maps/<id>` | One complete `CatalogEntry`, including installation indexes |
 | `/v1/maps/<id>/thumbnail` | The stored screenshot with its content type, or 404; the catalogue links it with `?v=<sha256>`, which the route ignores |
 | `/v1/maps/<id>/file` | The kept catalogue file as downloaded, an attachment named after its upstream URL, or 404; the entry's `file.path` links it with `?v=<sha256>`, which the route ignores |
-| `/v1/content/<irVersion>/maps/<mapId><suffix>` | One sidecar: `.json`, `.meta.json`, `.strings.json`, `.script.json`, `.briefing.json` or `.png`; another `irVersion` is a 404 whose body names the served one |
+| `/v1/content/<irVersion>/maps/<mapId><suffix>` | One sidecar: `.json`, `.meta.json`, `.strings.json`, `.script.json`, `.briefing.json`, `.png` or `.pictures-<16hex>.png`; another `irVersion` is a 404 whose body names the served one |
 
 `OPTIONS` on a `/v1` path answers a CORS preflight with 204, allowing `GET`, `HEAD` and the
 `If-None-Match` header. Normal `/v1` responses allow every origin with `Access-Control-Allow-Origin: *`. Successful resource
@@ -148,25 +154,31 @@ tests without downloading real maps; they are not the `api:upstream-mock` CLI.
 2. `packages/formats` decodes file formats. `packages/map-import` opens archives, applies resource
    limits and produces map documents. Pipeline, API and local import share this conversion code;
    each host owns its I/O, scheduling and storage.
-3. The catalogue UI reads `/v1/catalog` and filters/sorts locally. Installing a catalogue entry
+3. The catalogue UI reads compact browse entries from `/v1/catalog` and filters/sorts locally,
+   including both descriptions in text search. Selection and installation load `/v1/maps/<id>`
+   with the full map indexes and lobby rosters. Installing a catalogue entry
    downloads its already-converted documents, validates schemas and fingerprints and installs all
-   maps of the entry, including campaign submaps.
+   maps of the entry, including campaign submaps. Briefing documents name their map-scoped
+   `.pictures-<16hex>.png` files; those images install in the same pack for offline use. The picture
+   loader resolves installed catalogue and local-map images through that map's source.
 4. A file/folder chosen or dropped by the player instead enters `content/local-import/`. A dedicated
    Worker converts it locally; the original input is retained for reconversion after an IR bump.
    The player does not upload it to the API.
-5. `content/map-source/` joins shipped maps with installed maps. Web installs live in IndexedDB. Electron persists catalogue installs through desktop IPC to disk;
-   desktop local-file import and retained-source storage are still
-   [unfinished](tickets/features/map-catalogue-local-files.md). The runtime resolves each map through its
-   source instead of assuming every file lives at the app's `/maps/` URL.
+5. `content/map-source/` joins shipped maps with installed maps. Web installs retain inputs and
+   converted files atomically in IndexedDB. Electron's native file/folder picker applies the shared
+   import limits, rejects symlinks and returns selected bytes through validated IPC. Desktop storage
+   keeps original inputs in immutable numeric file slots beside converted generations; one manifest
+   replacement publishes both. Removal and reconversion preserve map identities and refuse stale
+   source replacements. Both hosts share worker conversion, cancellation and typed failures. The
+   runtime resolves each map through its source instead of assuming every file lives at `/maps/`.
 6. A selected map loads its documents and uses shared game content to construct the world. The
    simulation runs through the normal session host and the renderer presents it. A multiplayer
    room uses the same selection and installed-map flow, with map transfer owned by the existing
    room protocol rather than this HTTP API.
 
 The API runs no game simulation and accepts no player map uploads. Local import has per-input
-resource limits. Completing desktop import must preserve those limits; disk storage removes the
-browser aggregate storage budget, not conversion safeguards. Briefing image serving and conversion off the API's main thread remain
-[backlog work](tickets/api/archive-conversion-service.md).
+resource limits on both hosts. Desktop disk storage has no aggregate storage budget; conversion
+safeguards still apply.
 
 ## API image
 

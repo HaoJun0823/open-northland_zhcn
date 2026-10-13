@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
-import { Catalog } from '@open-northland/data';
+import { Catalog, catalogBrowseEntry } from '@open-northland/data';
 
 /** A response body with its validator. */
 export interface Body {
@@ -48,7 +48,7 @@ function conversionCounts(catalog: Catalog): ConversionCounts {
 }
 
 function compressedCatalog(catalog: Catalog): Body {
-  const body = jsonBody(catalog);
+  const body = jsonBody(catalog.map(catalogBrowseEntry));
   return { ...body, gzip: bytesBody(gzipSync(body.bytes)) };
 }
 

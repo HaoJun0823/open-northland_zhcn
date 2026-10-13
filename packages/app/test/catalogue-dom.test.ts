@@ -1,3 +1,4 @@
+import { catalogBrowseEntry } from '@open-northland/data';
 // @vitest-environment jsdom
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -10,7 +11,7 @@ import { mockCatalogue } from './support/mock-catalogue-api.js';
 
 const API = 'https://api.test';
 const entries = mockCatalogue({ irVersion: IR_VERSION, contentDir: null }).entries;
-const rows = catalogueRows(entries, [], IR_VERSION);
+const rows = catalogueRows(entries.map(catalogBrowseEntry), [], IR_VERSION);
 
 const ctx: CatalogueContext = {
   purpose: 'play',
@@ -39,7 +40,11 @@ function detail(
   onAuthor: (author: string) => void = () => {},
 ): HTMLElement {
   const panel = catalogueDetail(ctx, API, onAuthor);
-  panel.show(row, false);
+  panel.show(
+    row,
+    false,
+    entries.find((entry) => entry.id === entryId),
+  );
   return panel.root;
 }
 
@@ -109,8 +114,8 @@ describe('catalogue maps the game already ships', () => {
   const [map] = downloadable.maps;
   if (map === undefined) throw new Error('fixture');
   const shippedRow = (fingerprint: string) => {
-    const shipped = shippedMaps([{ ...map.index, id: map.folder, fingerprint }]);
-    const row = catalogueRows(entries, [], IR_VERSION, shipped).find(
+    const shipped = shippedMaps([{ id: map.folder, fingerprint, picture: false, minimap: false }]);
+    const row = catalogueRows(entries.map(catalogBrowseEntry), [], IR_VERSION, shipped).find(
       (candidate) => candidate.entry.id === id,
     );
     if (row === undefined) throw new Error('fixture');

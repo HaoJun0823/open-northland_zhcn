@@ -15,11 +15,16 @@ import {
   SET_FULLSCREEN_CHANNEL,
 } from './fullscreen-channels.js';
 import { leavePromptFor } from './leave-prompt.js';
+import { createLocalMapPicker } from './local-map-input.js';
 import {
+  CANCEL_LOCAL_MAP_PICK_CHANNEL,
   COMMIT_MAPS_CHANNEL,
+  DROP_LOCAL_MAP_CHANNEL,
   LIST_MAPS_CHANNEL,
+  PICK_LOCAL_MAP_CHANNEL,
   READ_MAP_CHANNEL,
   READ_MAP_FILE_CHANNEL,
+  READ_MAP_SOURCE_CHANNEL,
 } from './map-channels.js';
 import { createDesktopMapStore } from './map-store.js';
 import {
@@ -132,6 +137,30 @@ export function createWindow({ statePath, mapsRoot, startUrl, originalGame }: Wi
     return picking;
   });
   const maps = createDesktopMapStore(mapsRoot);
+  const localPicker = createLocalMapPicker(async (kind) => {
+    const selected = await dialog.showOpenDialog(win, {
+      properties: kind === 'folder' ? ['openDirectory', 'dontAddToRecent'] : ['openFile', 'dontAddToRecent'],
+      ...(kind === 'folder' ? {} : { filters: [{ name: 'Maps', extensions: ['zip', 'rar', 'c2m'] }] }),
+    });
+    return selected.canceled ? undefined : selected.filePaths[0];
+  });
+  win.on('closed', () => localPicker.cancel());
+  ipcMain.handle(DROP_LOCAL_MAP_CHANNEL, (event, path: unknown) => {
+    if (!fromGame(event)) throw new Error('Refused');
+    return localPicker.drop(path);
+  });
+  ipcMain.handle(PICK_LOCAL_MAP_CHANNEL, (event, kind: unknown) => {
+    if (!fromGame(event)) throw new Error('Refused');
+    return localPicker.pick(kind);
+  });
+  ipcMain.handle(CANCEL_LOCAL_MAP_PICK_CHANNEL, (event) => {
+    if (!fromGame(event)) throw new Error('Refused');
+    localPicker.cancel();
+  });
+  ipcMain.handle(READ_MAP_SOURCE_CHANNEL, (event, entryId: unknown) => {
+    if (!fromGame(event)) throw new Error('Refused');
+    return maps.readSource(entryId);
+  });
   ipcMain.handle(LIST_MAPS_CHANNEL, (event) => {
     if (!fromGame(event)) throw new Error('Refused');
     return maps.list();
@@ -144,9 +173,9 @@ export function createWindow({ statePath, mapsRoot, startUrl, originalGame }: Wi
     if (!fromGame(event)) throw new Error('Refused');
     return maps.readFile(mapId, suffix);
   });
-  ipcMain.handle(COMMIT_MAPS_CHANNEL, (event, drop: unknown, put: unknown) => {
+  ipcMain.handle(COMMIT_MAPS_CHANNEL, (event, drop: unknown, put: unknown, sources: unknown) => {
     if (!fromGame(event)) throw new Error('Refused');
-    return maps.commit(drop, put);
+    return maps.commit(drop, put, sources);
   });
   win.on('enter-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, true));
   win.on('leave-full-screen', () => win.webContents.send(FULLSCREEN_CHANGED_CHANNEL, false));

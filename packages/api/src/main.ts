@@ -3,9 +3,9 @@ import { normalizeRecords } from './catalog/normalize.js';
 import { parseCatalog } from './catalog/snapshot.js';
 import { CatalogSync, downloadsOf } from './catalog/sync.js';
 import { apiConfigFromEnvironment } from './config.js';
-import { loadUnrarWasm } from './conversion/convert.js';
 import { ConversionService } from './conversion/service.js';
 import { ConversionStore } from './conversion/store.js';
+import { WorkerArchiveConverter } from './conversion/worker-converter.js';
 import { type ApiServer, startApiServer } from './server.js';
 import { DataStore } from './store.js';
 
@@ -27,7 +27,7 @@ try {
   const conversions = new ConversionService({
     store: new ConversionStore(config.dataDir, IR_VERSION),
     fetch,
-    unrarWasm: loadUnrarWasm(),
+    converter: new WorkerArchiveConverter(config.convertTimeoutMs),
     concurrency: config.convertConcurrency,
     publish: (snapshot) => server?.publish(snapshot),
     log: logLine,
@@ -64,9 +64,7 @@ try {
   });
   const running = server;
   stopAll = async () => {
-    await running.close();
-    await sync.stop();
-    await conversions.stop();
+    await Promise.all([running.close(), sync.stop(), conversions.stop()]);
   };
 } catch (error) {
   logLine('start failed', { error: messageOf(error) });

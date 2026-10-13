@@ -20,14 +20,18 @@ import {
   convertedMaps,
   fetchCatalogEntry,
 } from './api.js';
-import { MAP_FILE_SUFFIXES, type MapFileSuffix } from './files.js';
+import { briefingPictureSuffixes, MAP_FILE_SUFFIXES, type MapFileSuffix } from './files.js';
 import { INSTALLED_MAP_RECORD_VERSION, type InstallableMap, type InstalledMapRecord } from './installed.js';
+import { boundedMapPicture } from './picture.js';
 import { type InstalledMapStore, installedMapStore } from './store.js';
 
 /** A map's authored picture is a menu illustration; anything near this size is not one. */
 export const MAX_MAP_PICTURE_BYTES = 16 * 1024 * 1024;
+/** One map may contain many pages; their images share a bounded download budget. */
+const MAX_BRIEFING_PICTURES_BYTES = 64 * 1024 * 1024;
+/** Bounds one in-memory installation, including all maps and their pictures. */
+const MAX_CATALOG_INSTALL_BYTES = 512 * 1024 * 1024;
 
-const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
 const TERRAIN: MapFileSuffix = '.json';
 const SCRIPT: MapFileSuffix = '.script.json';
 const PICTURE: MapFileSuffix = '.png';
@@ -95,14 +99,10 @@ function json(bytes: Uint8Array, url: string): unknown {
   }
 }
 
-function isPng(bytes: Uint8Array): boolean {
-  return PNG_SIGNATURE.every((byte, i) => bytes[i] === byte);
-}
-
 /** Checks one sidecar the way the loaders will read it, so a stored map never fails at boot. */
 function checkSidecar(suffix: MapFileSuffix, bytes: Uint8Array, url: string): void {
-  if (suffix === PICTURE) {
-    if (!isPng(bytes)) throw new CatalogInstallError('verify', `${url} is not a PNG`);
+  if (suffix.endsWith(PICTURE)) {
+    if (!boundedMapPicture(bytes)) throw new CatalogInstallError('verify', `${url} is not a PNG`);
     return;
   }
   const value = json(bytes, url);
@@ -141,8 +141,9 @@ export async function installCatalogEntry(
   if (entry.conversion.irVersion !== irVersion)
     throw new CatalogInstallError('otherVersion', `${entry.id} was converted for another game version`);
   const maps = convertedMaps(entry);
-  const total = maps.length * MAP_FILE_SUFFIXES.length;
+  let total = maps.length * MAP_FILE_SUFFIXES.length;
   let done = 0;
+  let downloadedBytes = 0;
   options.onProgress?.({ done, total });
   const installedAt = (options.now ?? Date.now)();
   const installable: InstallableMap[] = [];
@@ -152,37 +153,57 @@ export async function installCatalogEntry(
     const signal = catalogRequestSignal(
       options.signal === undefined ? download.signal : AbortSignal.any([download.signal, options.signal]),
     );
-    await Promise.all(
-      MAP_FILE_SUFFIXES.map(async (suffix) => {
-        const url = catalogSidecarUrl(options.api, irVersion, map.mapId, suffix);
-        let response: Response;
-        try {
-          response = await fetchImpl(url, { signal });
-        } catch (error) {
-          throw new CatalogInstallError('download', `${url}: ${String(error)}`);
+    let pictures: MapFileSuffix[] = [];
+    let pictureBytes = 0;
+    const fetchSidecar = async (suffix: MapFileSuffix, required = false): Promise<void> => {
+      const url = catalogSidecarUrl(options.api, irVersion, map.mapId, suffix);
+      let response: Response;
+      try {
+        response = await fetchImpl(url, { signal });
+      } catch (error) {
+        throw new CatalogInstallError('download', `${url}: ${String(error)}`);
+      }
+      if (response.status === HTTP_NOT_FOUND && suffix !== TERRAIN && !required) {
+        await response.body?.cancel();
+      } else {
+        if (!response.ok) throw new CatalogInstallError('download', `${url}: HTTP ${response.status}`);
+        const bytes = await readCapped(
+          response,
+          suffix.endsWith(PICTURE) ? MAX_MAP_PICTURE_BYTES : MAX_MAP_DOCUMENT_BYTES,
+          url,
+        );
+        downloadedBytes += bytes.byteLength;
+        if (downloadedBytes > MAX_CATALOG_INSTALL_BYTES)
+          throw new CatalogInstallError('download', `${entry.id} exceeds the installation size limit`);
+        checkSidecar(suffix, bytes, url);
+        if (required) {
+          pictureBytes += bytes.byteLength;
+          if (pictureBytes > MAX_BRIEFING_PICTURES_BYTES)
+            throw new CatalogInstallError('download', `${map.mapId} briefing pictures exceed the size limit`);
         }
-        if (response.status === HTTP_NOT_FOUND && suffix !== TERRAIN) {
-          await response.body?.cancel();
-        } else {
-          if (!response.ok) throw new CatalogInstallError('download', `${url}: HTTP ${response.status}`);
-          const bytes = await readCapped(
-            response,
-            suffix === PICTURE ? MAX_MAP_PICTURE_BYTES : MAX_MAP_DOCUMENT_BYTES,
-            url,
-          );
-          checkSidecar(suffix, bytes, url);
-          files.set(suffix, bytes);
+        if (suffix === '.briefing.json') {
+          pictures = briefingPictureSuffixes(MapBriefing.parse(json(bytes, url)));
+          total += pictures.length;
         }
-        if (!signal.aborted) {
-          done++;
-          options.onProgress?.({ done, total });
-        }
-      }),
-    ).catch((error: unknown) => {
+        files.set(suffix, bytes);
+      }
+      if (!signal.aborted) {
+        done++;
+        options.onProgress?.({ done, total });
+      }
+    };
+    try {
+      await Promise.all(MAP_FILE_SUFFIXES.map((suffix) => fetchSidecar(suffix)));
+      // Page documents supply the allowlist; never fetch authored URLs or paths.
+      for (const suffix of pictures) {
+        signal.throwIfAborted();
+        await fetchSidecar(suffix, true);
+      }
+    } catch (error) {
       // Failed installs must not leave sibling requests reporting progress into a later retry.
       download.abort();
       throw error;
-    });
+    }
     const terrain = files.get(TERRAIN);
     if (terrain === undefined) throw new CatalogInstallError('download', `${map.mapId} has no terrain`);
     const script = files.get(SCRIPT);
@@ -198,7 +219,7 @@ export async function installCatalogEntry(
     }
     if (fingerprint !== map.fingerprint)
       throw new CatalogInstallError('verify', `${map.mapId} does not match the catalogue's fingerprint`);
-    const suffixes = MAP_FILE_SUFFIXES.filter((suffix) => files.has(suffix));
+    const suffixes = [...MAP_FILE_SUFFIXES, ...pictures].filter((suffix) => files.has(suffix));
     installable.push({
       record: {
         version: INSTALLED_MAP_RECORD_VERSION,

@@ -1,13 +1,13 @@
 import {
-  type CatalogConvertedMap,
-  type CatalogEntry,
+  type CatalogBrowseEntry,
+  type CatalogBrowseMap,
   MAP_TEXT_LANGUAGES,
   MAP_TYPE,
   type MapsIndexEntry,
   type MapTextLanguage,
 } from '@open-northland/data';
 import type { LocalSourceRecord } from '../../../content/local-import/source.js';
-import { convertedMaps, type InstalledMapRecord } from '../../../content/map-source/index.js';
+import type { InstalledMapRecord } from '../../../content/map-source/index.js';
 import { titleKey } from './fold.js';
 
 /**
@@ -52,7 +52,7 @@ export const SMALL_MAP_MAX_CELLS = SMALL_MAP_MAX_SIDE * SMALL_MAP_MAX_SIDE;
 export const MEDIUM_MAP_MAX_CELLS = MEDIUM_MAP_MAX_SIDE * MEDIUM_MAP_MAX_SIDE;
 export const LARGE_MAP_MAX_CELLS = LARGE_MAP_MAX_SIDE * LARGE_MAP_MAX_SIDE;
 
-export function mapSize(cells: CatalogConvertedMap['cells']): MapSize {
+export function mapSize(cells: CatalogBrowseMap['cells']): MapSize {
   const area = cells.width * cells.height;
   if (area <= SMALL_MAP_MAX_CELLS) return 'small';
   if (area <= MEDIUM_MAP_MAX_CELLS) return 'medium';
@@ -60,12 +60,11 @@ export function mapSize(cells: CatalogConvertedMap['cells']): MapSize {
 }
 
 export interface CatalogueRow {
-  readonly entry: CatalogEntry;
+  readonly entry: CatalogBrowseEntry;
   /** The server's converted maps for this entry; empty until it converted them. */
-  readonly maps: readonly CatalogConvertedMap[];
-  /** The listing row of the map the card shows and a player starts: the server's main map, else the
-   *  installed one. */
-  readonly mainIndex: MapsIndexEntry | null;
+  readonly maps: readonly CatalogBrowseMap[];
+  /** The server's main map id, else the installed or shipped map shown by the card. */
+  readonly mainMapId: string | null;
   /** The pack's other maps, installed with the main one. */
   readonly subMapCount: number;
   readonly status: CatalogueStatus;
@@ -117,15 +116,15 @@ export function shippedMaps(entries: readonly MapsIndexEntry[]): ShippedMaps {
   return { byFolder: new Map(entries.map((entry) => [entry.id.toLowerCase(), entry])), byTitle };
 }
 
-function shippedMatch(map: CatalogConvertedMap, shipped: ShippedMaps): ShippedMatch | null {
+function shippedMatch(map: CatalogBrowseMap, shipped: ShippedMaps): ShippedMatch | null {
   const index = shipped.byFolder.get(map.folder.toLowerCase());
   return index === undefined ? null : { index, sameVersion: index.fingerprint === map.fingerprint };
 }
 
 /** How the pack's maps meet the shipped ones: null when none ships with the game. */
 function shippedState(
-  maps: readonly CatalogConvertedMap[],
-  main: CatalogConvertedMap | null,
+  maps: readonly CatalogBrowseMap[],
+  main: CatalogBrowseMap | null,
   shipped: ShippedMaps,
 ): { readonly status: 'inGame' | 'inGameChanged'; readonly shipped: ShippedMatch } | null {
   const matches = maps.map((map) => shippedMatch(map, shipped));
@@ -154,7 +153,7 @@ export function playerCount(index: MapsIndexEntry | null): number {
   return index?.players?.filter((slot) => !slot.hidden).length ?? 0;
 }
 
-function serverStatus(entry: CatalogEntry, irVersion: number): CatalogueStatus {
+function serverStatus(entry: CatalogBrowseEntry, irVersion: number): CatalogueStatus {
   if (entry.file.kind === 'external') return 'external';
   const conversion = entry.conversion;
   if (conversion === undefined || conversion.verdict === 'pending') return 'pending';
@@ -164,8 +163,8 @@ function serverStatus(entry: CatalogEntry, irVersion: number): CatalogueStatus {
   return 'available';
 }
 
-function packFacts(maps: readonly CatalogConvertedMap[]) {
-  const counts = new Set(maps.map((map) => playerCount(map.index)).filter((count) => count > 0));
+function packFacts(maps: readonly CatalogBrowseMap[]) {
+  const counts = new Set(maps.map((map) => map.playerCount).filter((count) => count > 0));
   const languages = new Set(maps.flatMap((map) => map.languages));
   return {
     playerCounts: [...counts].sort((a, b) => a - b),
@@ -176,21 +175,22 @@ function packFacts(maps: readonly CatalogConvertedMap[]) {
 /** One row per entry, its status joined from the server's conversion, the installed maps and the maps
  *  the game ships. */
 export function catalogueRow(
-  entry: CatalogEntry,
+  entry: CatalogBrowseEntry,
   installed: readonly InstalledMapRecord[],
   irVersion: number,
   shipped: ShippedMaps = NO_SHIPPED_MAPS,
 ): CatalogueRow {
-  const maps = convertedMaps(entry);
+  const maps = entry.conversion?.verdict === 'ok' ? entry.conversion.maps : [];
   const current = installed.filter((record) => record.entryId === entry.id && record.irVersion === irVersion);
   const served = serverStatus(entry, irVersion);
   const installedMain = mainCatalogMap(current);
-  const serverMain = mainCatalogMap(maps);
+  const mainMapId = entry.conversion?.verdict === 'ok' ? entry.conversion.mainMapId : null;
+  const serverMain = maps.find((map) => map.mapId === mainMapId) ?? null;
   const facts = packFacts(maps);
   const base = {
     entry,
     maps,
-    mainIndex: serverMain?.index ?? installedMain?.index ?? null,
+    mainMapId: serverMain?.mapId ?? installedMain?.mapId ?? null,
     subMapCount: Math.max(0, (maps.length > 0 ? maps.length : current.length) - 1),
     size: serverMain === null ? null : mapSize(serverMain.cells),
     shipped: null,
@@ -223,7 +223,7 @@ export function catalogueRow(
     if (index !== undefined)
       return {
         ...base,
-        mainIndex: index,
+        mainMapId: index.id,
         playerCounts: [playerCount(index)].filter((count) => count > 0),
         status: 'inGame',
         shipped: { index, sameVersion: null },
@@ -242,13 +242,13 @@ export function catalogueRow(
 }
 
 /** Whether the entry holds no map at all, such as a map for another game; the catalogue never lists it. */
-export function isMapless(entry: CatalogEntry): boolean {
+export function isMapless(entry: CatalogBrowseEntry): boolean {
   return entry.conversion?.verdict === 'failed' && entry.conversion.reason === 'no-map';
 }
 
 /** The listed rows: every entry but a mapless one. */
 export function catalogueRows(
-  entries: readonly CatalogEntry[],
+  entries: readonly CatalogBrowseEntry[],
   installed: readonly InstalledMapRecord[],
   irVersion: number,
   shipped: ShippedMaps = NO_SHIPPED_MAPS,

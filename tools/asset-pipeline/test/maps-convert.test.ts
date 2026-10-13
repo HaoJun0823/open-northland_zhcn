@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { encodePcx } from '@open-northland/formats/pcx';
 import { decodePng } from '@open-northland/formats/png';
-import { mapIdFromPath } from '@open-northland/map-import';
+import { DEFAULT_IMPORT_LIMITS, mapIdFromPath } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
@@ -52,6 +52,23 @@ describe('convertMapDatTree', () => {
     expect(grid).toEqual({ width: 2, height: 1, typeIds: [3, 6] });
     // The id joins onto the same-folder map.cif's MapInfo id.
     expect(done.map((d) => d.id)).toContain(mapIdFromPath(join('CnModMaps', 'tutorial_002', 'map.dat')));
+  });
+
+  it('preserves trusted shipped maps whose briefings exceed the public import budget', async () => {
+    const dir = join(game, 'CnModMaps', 'forteca');
+    const briefings = join(dir, 'text', 'pol', 'briefings');
+    await mkdir(briefings, { recursive: true });
+    await writeFile(
+      join(dir, 'mission.inc'),
+      '[MissionData]\ndebuginfo "Briefing"\nresult "PlayCutscene" 0 1\n',
+    );
+    await writeFile(join(briefings, 'briefings.txt'), '');
+    await writeFile(join(briefings, '0000.hlt'), 'x'.repeat(DEFAULT_IMPORT_LIMITS.hypertextCharacters));
+    const done = await convertMapDatTree({ mod: game }, out);
+    expect(done.map(({ id }) => id)).toContain('forteca');
+    expect((await readFile(join(out, 'maps', 'forteca.briefing.json'))).byteLength).toBeGreaterThan(
+      DEFAULT_IMPORT_LIMITS.hypertextCharacters,
+    );
   });
 
   it('skips a stray map.dat in the Text/ string-table subfolder of a map folder', async () => {

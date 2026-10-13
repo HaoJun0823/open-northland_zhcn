@@ -3,7 +3,7 @@ import { request as httpRequest, type IncomingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { Catalog, CatalogEntry } from '@open-northland/data';
+import { CatalogBrowse, CatalogEntry, catalogBrowseEntry } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { verifyMapDocuments } from '../../app/src/content/transfer/documents.js';
@@ -149,8 +149,10 @@ describe('content route', () => {
     if (entry.conversion?.verdict !== 'ok') throw new Error('not converted');
     const terrain = JSON.parse((await raw(`${CONTENT}/${MAP_ID}.json`)).body.toString('utf8'));
     expect(entry.conversion.maps[0]?.cells).toEqual({ width: terrain.width, height: terrain.height });
-    const catalog = Catalog.parse(await (await fetch(`http://127.0.0.1:${server.port}/v1/catalog`)).json());
-    expect(catalog[0]).toEqual(entry);
+    const catalog = CatalogBrowse.parse(
+      await (await fetch(`http://127.0.0.1:${server.port}/v1/catalog`)).json(),
+    );
+    expect(catalog[0]).toEqual(catalogBrowseEntry(entry));
   });
 
   it('answers HEAD with the headers and no body', async () => {

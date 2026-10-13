@@ -1,4 +1,4 @@
-import { type CatalogEntry, mapDocumentsFingerprint } from '@open-northland/data';
+import { type CatalogEntry, catalogBrowseEntry, mapDocumentsFingerprint } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import type { LocalMapInput } from '../../src/content/local-import/input.js';
 import { localSourceRecord } from '../../src/content/local-import/source.js';
@@ -61,7 +61,7 @@ export function catalogServer(
   return async (input) => {
     const url = new URL(String(input));
     if (url.origin !== API) return new Response(null, { status: 404 });
-    if (url.pathname === '/v1/catalog') return Response.json(entries);
+    if (url.pathname === '/v1/catalog') return Response.json(entries.map(catalogBrowseEntry));
     const entry = entries.find((item) => url.pathname === `/v1/maps/${item.id}`);
     if (entry !== undefined) return Response.json(entry);
     const sidecar = url.pathname.match(/^\/v1\/content\/(\d+)\/maps\/(.+)$/);

@@ -8,6 +8,7 @@ import { test } from 'vitest';
 import { ORIGINAL_GAME_CHECK_ENV, ORIGINAL_GAME_DIR_ENV } from '../src/original-game/detect.js';
 import { ORIGINAL_GAME_STATE_FILE } from '../src/original-game/state.js';
 import { resolveShellRoots } from '../src/paths.js';
+import { FIRST_RUN_WINDOW_STATE, WINDOW_STATE_FILE } from '../src/window-state.js';
 import { libraryHead } from '../test/original-game/fixture.js';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -19,6 +20,7 @@ const roots = resolveShellRoots({
 });
 const MENU = 'app://game/index.html?lang=eng&sound=off&fullscreen=off';
 const SAVE_NAME = 'Desktop relaunch test';
+const testFullscreen = process.env.ON_DESKTOP_RESTORE_WINDOW === '1';
 
 test('boots app://, lists map previews, and restores a save and the window mode after relaunch', {
   timeout: 240_000,
@@ -99,8 +101,7 @@ test('boots app://, lists map previews, and restores a save and the window mode 
   try {
     let page = await launch();
     await access(join(profile, ORIGINAL_GAME_STATE_FILE));
-    // A fresh profile opens fullscreen.
-    await waitForFullscreen(page, true);
+    await waitForFullscreen(page, testFullscreen);
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Graphics', exact: true }).click();
     await page.emulateMedia({ forcedColors: 'active' });
@@ -157,8 +158,10 @@ test('boots app://, lists map previews, and restores a save and the window mode 
     await page.emulateMedia({ forcedColors: 'none' });
     await page.getByRole('button', { name: 'Window', exact: true }).click();
     await waitForFullscreen(page, false);
-    await page.getByRole('button', { name: 'Fullscreen', exact: true }).click();
-    await waitForFullscreen(page, true);
+    if (testFullscreen) {
+      await page.getByRole('button', { name: 'Fullscreen', exact: true }).click();
+      await waitForFullscreen(page, true);
+    }
     // Escape belongs to the game's menus and never leaves the window's fullscreen.
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Save game', exact: true }).waitFor();
@@ -166,14 +169,14 @@ test('boots app://, lists map previews, and restores a save and the window mode 
     // Longer than a native leave transition, which would read fullscreen until it lands.
     const escapeWatchEnds = Date.now() + 2_000;
     while (Date.now() < escapeWatchEnds) {
-      assert.equal(await windowFullscreen(), true, 'Escape left fullscreen');
+      assert.equal(await windowFullscreen(), testFullscreen, 'Escape changed the window mode');
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     await page.getByRole('button', { name: 'Game menu', exact: true }).click();
     await page.getByRole('button', { name: 'Save game', exact: true }).click();
     await page.getByRole('textbox', { name: 'Name', exact: true }).fill(SAVE_NAME);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
-    await page.getByText('Game saved.', { exact: true }).waitFor();
+    await page.getByText(`Saved "${SAVE_NAME}".`, { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     // The game menu's quit asks once more under the same label.
     await page.getByRole('button', { name: 'Leave game', exact: true }).click();
@@ -181,7 +184,7 @@ test('boots app://, lists map previews, and restores a save and the window mode 
     await page.locator('[data-nav-id="newGame"]').waitFor();
     assert.equal(await page.evaluate(() => window.__opennorthland === undefined), true);
     assert.deepEqual(errors, []);
-    await pressAltEnter();
+    if (testFullscreen) await pressAltEnter();
     await waitForFullscreen(page, false);
 
     page = await relaunch();
@@ -202,10 +205,17 @@ test('boots app://, lists map previews, and restores a save and the window mode 
     assert.deepEqual(restored, { ...saved, paused: true, map: 'magiczny_las' });
     assert.deepEqual(errors, []);
 
-    await pressAltEnter();
-    await waitForFullscreen(page, true);
+    if (testFullscreen) {
+      await pressAltEnter();
+      await waitForFullscreen(page, true);
+    } else {
+      // A previously saved fullscreen mode must not steal the desktop on a development launch.
+      await desktop?.close();
+      desktop = undefined;
+      await writeFile(join(profile, WINDOW_STATE_FILE), JSON.stringify(FIRST_RUN_WINDOW_STATE));
+    }
     page = await relaunch();
-    await waitForFullscreen(page, true);
+    await waitForFullscreen(page, testFullscreen);
     assert.deepEqual(errors, []);
   } finally {
     try {

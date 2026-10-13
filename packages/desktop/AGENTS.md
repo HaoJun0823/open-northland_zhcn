@@ -6,8 +6,10 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
 ## Boundaries
 
 - The web app stays shell-agnostic and never imports desktop code. The shell owns its window: it
-  opens fullscreen on a profile's first launch and reopens in the mode, bounds and display it closed
-  with (`src/window-state.ts`). Its preload exposes only `window.desktop.fullscreen` (read, set,
+  opens fullscreen on a packaged profile's first launch and reopens in the mode, bounds and display it
+  closed with (`src/window-state.ts`). Development always starts in a normal window, preserving bounds;
+  `ON_DESKTOP_RESTORE_WINDOW=1` opts into the packaged startup behavior for explicit window-mode checks.
+  Its preload exposes only `window.desktop.fullscreen` (read, set,
   subscribe) and `window.desktop.originalGame` (status, pick a folder), which the app
   feature-detects; keep that bridge that narrow, validate every IPC argument and sender, and keep
   sandbox and context isolation on. The window opens no second window: an `https:` link goes to

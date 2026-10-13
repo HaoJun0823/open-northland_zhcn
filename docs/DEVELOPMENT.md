@@ -633,7 +633,11 @@ npm run desktop:dist
 npm run test:desktop    # app:// boot and save/load across a relaunch; requires local content
 ```
 
-`desktop` opens the checkout's `packages/app/dist` and `content/` in an Electron window;
+`desktop` opens the checkout's `packages/app/dist` and `content/` in a normal Electron window, even if
+the profile last closed fullscreen or maximized. Fullscreen remains available through settings and
+Alt+Enter. `ON_DESKTOP_RESTORE_WINDOW=1 npm run desktop` opts into restoring the saved mode (fullscreen
+on a fresh profile), which remains the packaged game's default.
+
 `ON_CONTENT_DIR` moves the content tree the same way it does for Vite. `desktop:dist` packages
 `packages/app/dist` and the checkout's `content/` (the override does not apply) as resources of the
 installers under `packages/desktop/release/`, so the packaged game plays without any content on the

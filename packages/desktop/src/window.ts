@@ -32,14 +32,23 @@ import {
   opensInSystemBrowser,
   setFullScreen,
 } from './window-control.js';
-import { placeWindow, readWindowState, WINDOW_STATE_VERSION, writeWindowState } from './window-state.js';
+import {
+  placeWindow,
+  readWindowState,
+  startupWindowState,
+  WINDOW_STATE_VERSION,
+  writeWindowState,
+} from './window-state.js';
 
 /** Button order of the leave dialog; staying is the default and what Escape picks. */
 const LEAVE_BUTTON = 0;
 const STAY_BUTTON = 1;
 
 export function createWindow(statePath: string, originalGame: OriginalGameRecord): BrowserWindow {
-  const state = readWindowState(statePath);
+  const state = startupWindowState(
+    readWindowState(statePath),
+    app.isPackaged || process.env.ON_DESKTOP_RESTORE_WINDOW === '1',
+  );
   const workAreas = screen.getAllDisplays().map((display) => display.workArea);
   const win = new BrowserWindow({
     ...placeWindow(state.bounds, workAreas, screen.getPrimaryDisplay().workArea),

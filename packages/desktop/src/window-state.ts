@@ -27,6 +27,11 @@ export const FIRST_RUN_WINDOW_STATE: WindowState = {
   bounds: null,
 };
 
+/** Development starts in a normal window even when the profile remembers fullscreen. */
+export function startupWindowState(saved: WindowState, restoreMode: boolean): WindowState {
+  return restoreMode ? saved : { ...saved, fullscreen: false, maximized: false };
+}
+
 /** Share of the work area a window takes when it has no remembered bounds that still fit a display. */
 const DEFAULT_WINDOW_SHARE = 0.8;
 /** How much of a remembered window must stay on some display, per axis, for its bounds to be kept. */

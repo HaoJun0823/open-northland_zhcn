@@ -7,6 +7,7 @@ import {
   parseWindowState,
   placeWindow,
   readWindowState,
+  startupWindowState,
   WINDOW_STATE_VERSION,
   type WindowState,
   writeWindowState,
@@ -14,6 +15,21 @@ import {
 
 const PRIMARY = { x: 0, y: 25, width: 3840, height: 2110 };
 const SIDE = { x: 3840, y: 0, width: 3440, height: 1415 };
+
+describe('startupWindowState', () => {
+  it('starts development windowed on both fresh and fullscreen profiles, preserving bounds', () => {
+    expect(startupWindowState(FIRST_RUN_WINDOW_STATE, false).fullscreen).toBe(false);
+    const saved = { ...FIRST_RUN_WINDOW_STATE, maximized: true, bounds: SIDE };
+    expect(startupWindowState(saved, false)).toEqual({ ...saved, fullscreen: false, maximized: false });
+    expect(saved.fullscreen).toBe(true);
+  });
+
+  it('preserves first-launch and remembered modes when restoration is enabled', () => {
+    expect(startupWindowState(FIRST_RUN_WINDOW_STATE, true).fullscreen).toBe(true);
+    const saved = { ...FIRST_RUN_WINDOW_STATE, fullscreen: false, maximized: true, bounds: SIDE };
+    expect(startupWindowState(saved, true)).toEqual(saved);
+  });
+});
 
 describe('parseWindowState', () => {
   it('opens a fresh profile fullscreen', () => {

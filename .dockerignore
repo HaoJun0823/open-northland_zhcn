@@ -15,3 +15,4 @@ packages/desktop/release
 .env
 .env.*
 .api-data
+.api-upstream-cache

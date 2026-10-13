@@ -9,10 +9,10 @@ import {
   parseIniSections,
   type RuleSection,
 } from '@open-northland/formats/ini';
-import { textEncoding } from '@open-northland/formats/text-encoding';
 import { errorMessage } from './errors.js';
 import type { MapFolder } from './folder.js';
 import { HEADER_FILES, STRING_TABLE_DIR, STRING_TABLE_FILES } from './layout.js';
+import { decodeMapText, mapTextEncoding } from './text.js';
 
 /** The emitted `maps/<id>.meta.json` sidecar: the map's menu-facing strings and music binding. */
 export type MapMetaFile = MapMeta;
@@ -102,10 +102,10 @@ export function loadMapStringTables(folder: MapFolder): MapStringTables {
       let table: Record<number, string>;
       try {
         // Owned text/rus/strings.ini uses CP1251 (e.g. CD CE C2 C0 DF spells НОВАЯ).
-        const encoding = textEncoding(lang);
+        const encoding = mapTextEncoding(lang);
         table =
           form === 'strings.ini'
-            ? extractStringTable(parseIniSections(new TextDecoder(encoding).decode(bytes)))
+            ? extractStringTable(parseIniSections(decodeMapText(bytes, lang)))
             : decodeCifStringTable(bytes, encoding);
       } catch (err) {
         folder.warn(`text/${lang}/${form} undecodable: ${errorMessage(err)}`);

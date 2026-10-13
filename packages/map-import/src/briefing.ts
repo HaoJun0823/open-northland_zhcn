@@ -12,8 +12,6 @@ import {
   parseBriefingBlocks,
   renderHypertext,
 } from '@open-northland/formats/hypertext';
-import { decodeIni } from '@open-northland/formats/ini/grammar';
-import { textEncoding } from '@open-northland/formats/text-encoding';
 import { errorMessage } from './errors.js';
 import type { MapFolder } from './folder.js';
 import {
@@ -24,6 +22,7 @@ import {
   STRING_TABLE_DIR,
 } from './layout.js';
 import { collectPagePictures } from './pictures.js';
+import { decodeMapText } from './text.js';
 
 /** The cutscene ids the map's mission results play, ascending and deduplicated. Results decode as the
  *  sim decodes them, so every page it can open has a sidecar entry. */
@@ -79,7 +78,7 @@ async function renderLanguage(
   if (blocksBytes === undefined) return undefined;
   let blocks: Map<string, string>;
   try {
-    blocks = parseBriefingBlocks(decodeIni(blocksBytes, textEncoding(lang)));
+    blocks = parseBriefingBlocks(decodeMapText(blocksBytes, lang));
   } catch (err) {
     folder.warn(`text/${lang}/${BRIEFINGS_DIR}/${BRIEFINGS_FILE} unreadable: ${errorMessage(err)}`);
     return undefined;
@@ -117,7 +116,7 @@ function readPage(folder: MapFolder, lang: string, id: number): string | undefin
   const bytes = folder.read([STRING_TABLE_DIR, lang, BRIEFINGS_DIR, file]);
   if (bytes === undefined) return undefined;
   try {
-    return decodeIni(bytes, textEncoding(lang));
+    return decodeMapText(bytes, lang);
   } catch (err) {
     folder.warn(`text/${lang}/${BRIEFINGS_DIR}/${file} unreadable: ${errorMessage(err)}`);
     return undefined;

@@ -3,10 +3,10 @@ import { resolveMapBriefing } from '../src/briefing.js';
 import { loadMapStringTables } from '../src/meta.js';
 import { testFolder } from './support/folder.js';
 
-// Authored display text, written as source bytes rather than UTF-8. German 0x9C is œ in CP1252 but ś
-// in CP1250, and Russian 0xA8 is Ё only in CP1251.
+// Legacy map slots can contain Polish text under ger: 0x9C is ś in CP1250.
+// German umlauts share the Latin codepages; Russian 0xA8 is Ё only in CP1251.
 const TEXTS = [
-  { lang: 'ger', bytes: 'Gr\xf6\xdfe \x9c', text: 'Größe œ' },
+  { lang: 'ger', bytes: 'Gr\xf6\xdfe \x9c', text: 'Größe ś' },
   { lang: 'rus', bytes: '\xa8\xe6', text: 'Ёж' },
 ] as const;
 

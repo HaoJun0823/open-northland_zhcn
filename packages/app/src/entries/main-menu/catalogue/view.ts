@@ -18,8 +18,8 @@ import { bcp47Tag, compareLabels, formatMessage, messages, pluralForm } from '..
 import { confirmDialog } from '../../../view/confirm-dialog.js';
 import { node } from '../dom.js';
 import { type MapSelectItem, mapSourceItem } from '../map-select-model.js';
-import { type CardDate, type CatalogueContext, catalogueCard, formatCount } from './card.js';
-import { renderCardBatches } from './card-batches.js';
+import { type CardDate, type CatalogueContext, formatCount } from './card.js';
+import { catalogueCardGrid } from './card-grid.js';
 import { catalogueDetail } from './detail.js';
 import { catalogueEntryDetails } from './entry-details.js';
 import { catalogueFilters } from './filters.js';
@@ -68,13 +68,6 @@ export interface CatalogueView {
   dispose(): void;
 }
 
-/** Cards in the grid's first rendered row: how far the Up and Down keys move. */
-function gridColumns(cards: readonly HTMLElement[]): number {
-  const top = cards[0]?.offsetTop;
-  const nextRow = cards.findIndex((card) => card.offsetTop !== top);
-  return Math.max(1, nextRow === -1 ? cards.length : nextRow);
-}
-
 const isUpdate = (group: InstalledGroup): boolean =>
   group.row?.status === 'updatable' || group.row?.status === 'redownload';
 
@@ -100,12 +93,8 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   const downloads = new Map<string, number>();
   /** The last download or removal error per entry id. */
   const failures = new Map<string, string>();
-  const cards = new Map<string, ReturnType<typeof catalogueCard> & { readonly dateOf: CardDate }>();
 
   const details = catalogueEntryDetails(api, scope.signal, () => paintDetail(text.panelEmpty));
-  let cancelCards = () => {};
-  let shownRows: readonly CatalogueRow[] = [];
-  let focusWhenRendered: string | null = null;
 
   const rowOf = (entryId: string): CatalogueRow | undefined => rows.find((row) => row.entry.id === entryId);
   const isInstalled = (entryId: string): boolean => installed.some((record) => record.entryId === entryId);
@@ -146,10 +135,9 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   const storageNotice = node('div', 'catalogue__storage-notice');
   const main = node('div', 'catalogue__main');
   const results = node('div', 'catalogue__results');
-  const scroll = node('div', 'main-menu__map-scroll catalogue__scroll');
-  const grid = node('div', 'catalogue__grid');
-  scroll.append(grid);
-  results.append(scroll);
+  const cardGrid = catalogueCardGrid(ctx, () => detail.focusAction());
+  const grid = cardGrid.root;
+  results.append(cardGrid.scroll);
   const imports =
     store === null
       ? null
@@ -248,19 +236,8 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     else detail.show(row, isInstalled(row.entry.id), details.get(row.entry.id), details.error(row.entry.id));
   }
 
-  function paintSelection(): void {
-    for (const [id, card] of cards) {
-      const selected = id === memory.selectedId;
-      card.element.classList.toggle('is-selected', selected);
-      // One tab stop for the whole grid: the selected card; the arrows walk the rest.
-      card.element.tabIndex = selected ? 0 : -1;
-    }
-  }
-
   function renderGrid(): void {
-    cancelCards();
-    focusWhenRendered = null;
-    grid.style.minHeight = '';
+    cardGrid.clear();
     detail.root.hidden = false;
     grid.setAttribute('aria-busy', String(failure === null && entries === null));
     if (failure !== null || entries === null) {
@@ -270,12 +247,10 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
           ? notice(text.unreachable, { label: text.retry, run: () => void loadCatalogue() })
           : loadingNotice(),
       );
-      memory.selectedId = null;
       paintDetail(null);
       return;
     }
     const shown = queryRows(rows, memory.query, compareLabels());
-    shownRows = shown;
     const filtered = hasActiveFilters(memory.query) || memory.query.text.trim() !== '';
     count.textContent = filtered
       ? formatMessage(text.countFiltered, {
@@ -300,41 +275,12 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     }
     const sort = memory.query.sort;
     const dateOf: CardDate = sort === 'updated' ? 'updated' : sort === 'newest' ? 'published' : null;
-    const scrollTop = scroll.scrollTop;
-    grid.style.minHeight = `${grid.offsetHeight}px`;
-    grid.replaceChildren();
-    scroll.scrollTop = scrollTop;
-    grid.setAttribute('aria-busy', 'true');
-    cancelCards = renderCardBatches(shown, (batch, complete) => {
-      const fragment = document.createDocumentFragment();
-      for (const row of batch) {
-        let card = cards.get(row.entry.id);
-        if (card === undefined || card.dateOf !== dateOf) {
-          card = { ...catalogueCard(row, ctx, dateOf), dateOf };
-          cards.set(row.entry.id, card);
-        }
-        const selected = row.entry.id === memory.selectedId;
-        card.element.classList.toggle('is-selected', selected);
-        card.element.tabIndex = selected ? 0 : -1;
-        fragment.append(card.element);
-      }
-      grid.append(fragment);
-      if (complete) grid.style.minHeight = '';
-      grid.setAttribute('aria-busy', String(!complete));
-      if (focusWhenRendered !== null) {
-        const target = cards.get(focusWhenRendered)?.element;
-        if (target?.parentElement === grid) {
-          target.focus({ preventScroll: true });
-          target.scrollIntoView({ block: 'nearest' });
-          focusWhenRendered = null;
-        }
-      }
-    });
+    cardGrid.paint(shown, memory.selectedId, dateOf);
     paintDetail(text.panelEmpty);
   }
 
   function renderInstalled(groups: readonly InstalledGroup[]): void {
-    keepSelection(groups.map((group) => group.entryId));
+    if (hasInstalledSnapshot) keepSelection(groups.map((group) => group.entryId));
     installedView.paint(groups, memory.selectedId);
     paintDetail(text.panelEmpty);
   }
@@ -367,64 +313,23 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     paintTabs(groups);
     if (memory.tab === 'browse') renderGrid();
     else {
-      cancelCards();
-      grid.setAttribute('aria-busy', 'false');
-      grid.style.minHeight = '';
+      cardGrid.clear();
       renderInstalled(groups);
     }
   }
 
   function select(entryId: string): void {
-    focusWhenRendered = null;
     details.select(entryId, true);
     memory.selectedId = entryId;
-    paintSelection();
+    cardGrid.select(entryId);
     paintDetail(text.panelEmpty);
     if (memory.tab === 'installed')
       installedView.paint(installedGroups(installed, rows, localSources), memory.selectedId);
   }
 
-  // Arrows walk the grid and the selection follows; Enter or Space hands the focus to the panel's
-  // action, so nothing downloads from one key press on the grid.
-  grid.addEventListener('keydown', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement) || !target.classList.contains('catalogue-card')) return;
-    const all = [...grid.querySelectorAll<HTMLElement>('.catalogue-card')];
-    const at = shownRows.findIndex((row) => row.entry.id === memory.selectedId);
-    const columns = gridColumns(all);
-    const steps: Readonly<Record<string, number>> = {
-      ArrowRight: at + 1,
-      ArrowLeft: at - 1,
-      ArrowDown: at + columns,
-      ArrowUp: at - columns,
-      Home: 0,
-      End: shownRows.length - 1,
-    };
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      detail.focusAction();
-      return;
-    }
-    const next = steps[event.key];
-    if (next === undefined) return;
-    event.preventDefault();
-    const row = shownRows[Math.min(shownRows.length - 1, Math.max(0, next))];
-    if (row === undefined) return;
-    const id = row.entry.id;
-    select(id);
-    const card = cards.get(id)?.element;
-    if (card?.parentElement !== grid) {
-      focusWhenRendered = id;
-      return;
-    }
-    card.focus({ preventScroll: true });
-    card.scrollIntoView({ block: 'nearest' });
-  });
-
   /** Rows and every view over them again, after the catalogue or the installed maps changed. */
   function refreshAll(): void {
     rows = entries === null ? [] : catalogueRows(entries, installed, IR_VERSION, shipped);
-    cards.clear();
     filters.setRows(rows);
     render();
   }
@@ -433,7 +338,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
   function refreshEntry(entryId: string): void {
     const row = rowOf(entryId);
     if (row === undefined) return;
-    cards.get(entryId)?.paintProgress();
+    cardGrid.paintProgress(entryId);
     if (detail.shownId === entryId)
       detail.show(row, isInstalled(entryId), details.get(entryId), details.error(entryId));
     if (memory.tab === 'installed')
@@ -552,7 +457,7 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     body,
     dispose: () => {
       imports?.dispose();
-      cancelCards();
+      cardGrid.dispose();
       details.dispose();
       scope.abort();
     },

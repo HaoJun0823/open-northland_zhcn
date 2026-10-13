@@ -49,6 +49,10 @@ npm run test:desktop
 | `desktop:dist` | Packages the app and checkout's `content/` into `packages/desktop/release/`; ignores `ON_CONTENT_DIR` |
 | `test:desktop` | Tests `app://` boot, imports and persistence across relaunch; needs local content |
 
+Development starts in a normal window, preserving saved bounds.
+`ON_DESKTOP_RESTORE_WINDOW=1 npm run desktop` restores the saved window mode, including fullscreen.
+Packaged builds restore that mode by default and start fullscreen on a fresh profile.
+
 Installers include the content needed to play. The shell requests the discrete GPU and logs a `GPU:`
 line. The FPS breakdown and `perf().gpu.adapter` show the adapter actually used by WebGL. If Windows
 still chooses the integrated GPU, set the app to **High performance** in Settings > System > Display > Graphics.

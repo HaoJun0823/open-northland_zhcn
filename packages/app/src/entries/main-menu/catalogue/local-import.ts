@@ -160,8 +160,7 @@ export function localImportControls(options: LocalImportControlsOptions) {
   paintBusy();
   actions.append(cancel, manage);
   root.append(actions, status, progress, fileInput, folderInput);
-  const isFiles = (event: DragEvent): boolean =>
-    options.enabled?.() !== false && event.dataTransfer?.types.includes('Files') === true;
+  const isFiles = (event: DragEvent): boolean => event.dataTransfer?.types.includes('Files') === true;
   const resetDrop = (): void => {
     dragDepth = 0;
     options.target.classList.remove('is-file-drop');
@@ -172,6 +171,7 @@ export function localImportControls(options: LocalImportControlsOptions) {
     (event) => {
       if (!isFiles(event)) return;
       event.preventDefault();
+      if (options.enabled?.() === false) return;
       if (++dragDepth === 1) {
         options.target.classList.add('is-file-drop');
         menu.drop.classList.add('is-active');
@@ -184,7 +184,8 @@ export function localImportControls(options: LocalImportControlsOptions) {
     (event) => {
       if (!isFiles(event)) return;
       event.preventDefault();
-      if (event.dataTransfer !== null) event.dataTransfer.dropEffect = active === null ? 'copy' : 'none';
+      if (event.dataTransfer !== null)
+        event.dataTransfer.dropEffect = active === null && options.enabled?.() !== false ? 'copy' : 'none';
     },
     { signal: scope.signal },
   );
@@ -202,7 +203,7 @@ export function localImportControls(options: LocalImportControlsOptions) {
       if (!isFiles(event)) return;
       event.preventDefault();
       resetDrop();
-      if (active !== null || event.dataTransfer === null) return;
+      if (active !== null || options.enabled?.() === false || event.dataTransfer === null) return;
       // Start enumeration during the event; cancellation also stops a directory walk.
       const transfer = event.dataTransfer;
       void run((signal) => {

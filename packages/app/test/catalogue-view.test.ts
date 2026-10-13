@@ -35,8 +35,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
-async function mounted() {
-  const memory = initialCatalogueMemory();
+async function mounted(memory = initialCatalogueMemory()) {
   const view = catalogueView({ memory, purpose: 'play', onPick: () => {} });
   disposals.push(view.dispose);
   document.body.append(view.tabs, view.body);
@@ -171,3 +170,54 @@ it.each(['list', 'sources'] as const)(
     expect((view.body.querySelector('.catalogue__main') as HTMLElement).inert).toBe(false);
   },
 );
+
+it('prevents dropped files from navigating away while storage is unavailable', async () => {
+  const store = sources.createInstalledMapStore(memoryInstalledStorage().storage, { budget: null });
+  vi.spyOn(sources, 'installedMapStore').mockReturnValue(store);
+  vi.spyOn(store, 'list').mockRejectedValue(new Error('blocked'));
+  const readSource = vi.spyOn(store, 'readSource');
+  const { view } = await mounted();
+  const transfer = { types: ['Files'], dropEffect: 'copy' };
+  for (const type of ['dragenter', 'dragover', 'drop']) {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'dataTransfer', { value: transfer });
+    view.body.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  }
+  expect(transfer.dropEffect).toBe('none');
+  expect(view.body.classList.contains('is-file-drop')).toBe(false);
+  expect(view.body.querySelector('.catalogue-import')?.hasAttribute('hidden')).toBe(true);
+  expect(readSource).not.toHaveBeenCalled();
+});
+
+it('keeps the remembered browse selection while catalogue and storage load', async () => {
+  const memory = initialCatalogueMemory();
+  memory.selectedId = 'cn-39';
+  const { grid } = await mounted(memory);
+  expect(memory.selectedId).toBe('cn-39');
+  await vi.runAllTimersAsync();
+  expect(grid.querySelector('.is-selected')?.getAttribute('data-entry-id')).toBe('cn-39');
+});
+
+it('keeps the remembered installed selection until the library loads', async () => {
+  const store = sources.createInstalledMapStore(memoryInstalledStorage().storage, { budget: null });
+  await sources.installCatalogEntry(catalogEntry('cn-01'), {
+    api: API,
+    store,
+    fetchImpl: catalogServer(entries),
+  });
+  await sources.installCatalogEntry(catalogEntry('cn-00'), {
+    api: API,
+    store,
+    fetchImpl: catalogServer(entries),
+  });
+  vi.spyOn(sources, 'installedMapStore').mockReturnValue(store);
+  const memory = initialCatalogueMemory();
+  memory.tab = 'installed';
+  memory.selectedId = 'cn-01';
+  const { view } = await mounted(memory);
+  expect(memory.selectedId).toBe('cn-01');
+  expect(view.body.querySelector('.catalogue-installed .is-selected')?.getAttribute('data-entry-id')).toBe(
+    'cn-01',
+  );
+});

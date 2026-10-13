@@ -1,11 +1,10 @@
 import type { MapBriefing } from '@open-northland/data';
 import { afterEach, expect, it, vi } from 'vitest';
+import * as guiGfx from '../../src/content/gui-gfx.js';
 import { mapBriefingPictures } from '../../src/content/map-source/briefing-pictures.js';
-import { findMapSource } from '../../src/content/map-source/sources.js';
+import * as mapSources from '../../src/content/map-source/sources.js';
 import { catalogEntry } from '../support/catalog-maps.js';
 
-vi.mock('../../src/content/map-source/sources.js', () => ({ findMapSource: vi.fn() }));
-vi.mock('../../src/content/gui-gfx.js', () => ({ hypertextPictureUrl: (name: string) => `/gui/${name}` }));
 afterEach(() => vi.restoreAllMocks());
 
 it('resolves installed catalogue pictures to owned blob URLs and releases them with the presentation', async () => {
@@ -18,7 +17,8 @@ it('resolves installed catalogue pictures to owned blob URLs and releases them w
   const fetchFile = vi.fn<typeof fetch>(
     async () => new Response(new Uint8Array([1]), { headers: { 'content-type': 'image/png' } }),
   );
-  vi.mocked(findMapSource).mockResolvedValue({
+  vi.spyOn(guiGfx, 'hypertextPictureUrl').mockImplementation((name) => `/gui/${name}`);
+  vi.spyOn(mapSources, 'findMapSource').mockResolvedValue({
     entry: map.index,
     catalog: { entryId: entry.id, fingerprint: map.fingerprint, irVersion: entry.conversion.irVersion },
     stale: false,

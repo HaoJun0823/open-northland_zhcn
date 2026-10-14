@@ -197,3 +197,19 @@ test('rejects data that does not match the recorded checksum', async () => {
   archive.write('jello', archive.indexOf('hello'), 'latin1');
   await assert.rejects(extracted(archive), /checksum/);
 });
+
+test('refuses drive paths and duplicate case-folded archive paths', async () => {
+  await assert.rejects(
+    extracted(zip([{ rawName: 'C:/escape.txt', data: Buffer.from('x') }])),
+    /refusing entry path/,
+  );
+  await assert.rejects(
+    extracted(
+      zip([
+        { rawName: 'same.txt', data: Buffer.from('a') },
+        { rawName: 'SAME.txt', data: Buffer.from('b') },
+      ]),
+    ),
+    /duplicate or case-colliding/,
+  );
+});

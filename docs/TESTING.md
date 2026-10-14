@@ -313,7 +313,7 @@ release check.
 
 `test:pipeline` performs a fresh conversion into a temporary directory and runs the real-content
 checks against that result. Use it for source parsing, schemas, decoders, map conversion, and output
-layout changes. It reads the unpacked mod at `CULTURES_MOD_ROOT`, `../CNMod-1.3.2` by default.
+layout changes. It reads the unpacked data pack at `ON_DATA_ROOT`, `.cache/data/unpacked` by default.
 
 Tests must skip cleanly when local content is deliberately unavailable. Synthetic fixtures remain the
 committed regression tests.

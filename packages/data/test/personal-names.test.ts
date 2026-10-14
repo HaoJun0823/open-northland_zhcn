@@ -3,7 +3,7 @@ import { IR_VERSION, PERSONAL_NAMES, PersonalNamePool, parseContentSet } from '.
 
 const pool = { id: 'example-male', tribe: 1, sex: 'male', names: ['Erik', 'Leif'] };
 const raw = {
-  manifest: { version: IR_VERSION, generatedFrom: { mod: 'synthetic' } },
+  manifest: { version: IR_VERSION, generatedFrom: { data: 'synthetic' } },
   goods: [],
   jobs: [],
   buildings: [],

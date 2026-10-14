@@ -3,7 +3,7 @@ import { decodePcx, expandToRgba } from '@open-northland/formats/pcx';
 import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from '../../errors.js';
 import { writeFileWithParents } from '../../files.js';
-import { MOD_GUI_BITMAPS_DIR, type SourceRoots } from '../../roots.js';
+import { DATA_GUI_BITMAPS_DIR, type SourceRoots } from '../../roots.js';
 import { GUI_BITMAPS_DIR } from '../content-tree.js';
 import { readSourceFile } from '../source-files.js';
 
@@ -75,7 +75,7 @@ export async function convertWindowBitmaps(
     }
     if (softenShadows === true) paletteBytes = liftPaletteShadows(paletteBytes);
     try {
-      const image = decodePcx(await readSourceFile(roots, `${MOD_GUI_BITMAPS_DIR}/${bitmap}.pcx`));
+      const image = decodePcx(await readSourceFile(roots, `${DATA_GUI_BITMAPS_DIR}/${bitmap}.pcx`));
       const png = await encodePng(expandToRgba({ ...image, palette: paletteBytes }));
       await writeFileWithParents(join(outDir, GUI_BITMAPS_DIR, `${bitmap}.${palette}.png`), png);
       done++;

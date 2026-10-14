@@ -55,7 +55,7 @@ describe('decodeMapTree', () => {
   });
 
   it('decodes every map.cif under the tree, sorted by relative path, id from folder', async () => {
-    const maps = await decodeMapTree({ mod: game });
+    const maps = await decodeMapTree({ data: game });
     expect(maps.map((m) => m.id)).toEqual(['forteca', 'tutorial_002']); // sorted by rel path
     expect(maps.find((m) => m.id === 'tutorial_002')).toMatchObject({ width: 142, height: 146, mapType: 1 });
     expect(maps.find((m) => m.id === 'forteca')?.campaign).toBeUndefined();
@@ -64,14 +64,14 @@ describe('decodeMapTree', () => {
   it('skips a stray map.cif in the text/ string-table subfolder of a map folder', async () => {
     await mkdir(join(game, 'CnModMaps', 'forteca', 'text'), { recursive: true });
     await writeFile(join(game, 'CnModMaps', 'forteca', 'text', 'map.cif'), buildStringCif(sampleMapLines()));
-    const maps = await decodeMapTree({ mod: game });
+    const maps = await decodeMapTree({ data: game });
     expect(maps.map((m) => m.id)).toEqual(['forteca', 'tutorial_002']); // no ghost `text` entry
   });
 
   it('skips a malformed map.cif with a warning instead of aborting the batch', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     await writeFile(join(game, 'CnModMaps', 'forteca', 'map.cif'), Uint8Array.from([0, 1, 2, 3]));
-    const maps = await decodeMapTree({ mod: game });
+    const maps = await decodeMapTree({ data: game });
     expect(maps.map((m) => m.id)).toEqual(['tutorial_002']); // the good one still decodes
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/skipped map.*forteca/));
     warn.mockRestore();

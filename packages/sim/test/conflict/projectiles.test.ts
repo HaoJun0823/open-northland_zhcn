@@ -81,7 +81,7 @@ const FIRST_STEP: Fixed = fx.mulDiv(fx.fromInt(SHOT_TILES), fx.fromInt(1), fx.fr
 
 function content(): ContentSet {
   return parseContentSet({
-    manifest: { version: IR_VERSION, generatedFrom: { mod: 'synthetic-projectile-test' }, locale: 'eng' },
+    manifest: { version: IR_VERSION, generatedFrom: { data: 'synthetic-projectile-test' }, locale: 'eng' },
     goods: [
       { typeId: 0, id: 'none' },
       { typeId: COIN, id: 'coin' },

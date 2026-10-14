@@ -37,7 +37,7 @@ describe('string corrections', () => {
   }> => {
     const corrections = await loadStringCorrections(file);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await convertGuiStrings({ mod: temp.game, stringCorrections: corrections }, temp.out, ['rus']);
+    await convertGuiStrings({ data: temp.game, stringCorrections: corrections }, temp.out, ['rus']);
     warn.mockRestore();
     const rus = JSON.parse(await readFile(join(temp.out, 'gui/strings/rus.json'), 'utf8'));
     return { rus, corrections };

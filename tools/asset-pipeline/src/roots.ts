@@ -1,20 +1,20 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
+import { readDataPack } from '../../../scripts/data-pack.mjs';
 import type { SourceCorrections } from './corrections.js';
-import { statIfExists, walkFiles } from './files.js';
-import { CULTURESNATION_HOME_URL, CULTURESNATION_MOD } from './mod-root.js';
+import { walkFiles } from './files.js';
 import type { StringCorrections } from './string-corrections.js';
 
 /** The mod subtrees the stages read by name; the on-disk spelling varies, so resolve them through
  *  `resolveSourceFile` or match them lower-cased. */
-export const MOD_BOBS_DIR = 'Data/engine2d/bin/bobs';
-export const MOD_TEXTURES_DIR = 'Data/engine2d/bin/textures';
-export const MOD_SOUNDS_DIR = 'Data/engine2d/bin/sounds';
-export const MOD_GUI_BITMAPS_DIR = 'Data/gui/bitmaps';
+export const DATA_BOBS_DIR = 'Data/engine2d/bin/bobs';
+export const DATA_TEXTURES_DIR = 'Data/engine2d/bin/textures';
+export const DATA_SOUNDS_DIR = 'Data/engine2d/bin/sounds';
+export const DATA_GUI_BITMAPS_DIR = 'Data/gui/bitmaps';
 
-/** The source tree one conversion reads: the unpacked culturesnation mod. */
+/** The base source tree under the validated data pack root. */
 export interface SourceRoots {
-  readonly mod: string;
+  readonly data: string;
   /** Fixes applied as stages read the mod; without them it is read as shipped. */
   readonly corrections?: SourceCorrections;
   /** Fixes applied to decoded display strings; without them the tables keep the shipped text. */
@@ -80,16 +80,16 @@ export async function findPathCaseInsensitive(
 }
 
 /**
- * Resolves `rel` under the mod root case-insensitively, or undefined when it does not exist. Splits
+ * Resolves `rel` under the base data root case-insensitively, or undefined when it does not exist. Splits
  * on either separator, since callers pass either a joined constant or an ini-borne reference already
  * forward-slashed by `normalizeAssetPath`.
  */
 export async function resolveSourceFile(roots: SourceRoots, rel: string): Promise<string | undefined> {
-  return findPathCaseInsensitive(roots.mod, rel.split(/[\\/]+/));
+  return findPathCaseInsensitive(roots.data, rel.split(/[\\/]+/));
 }
 
 /**
- * Recursively collects every file under the mod root whose lower-cased relative path satisfies
+ * Recursively collects every file under the base data root whose lower-cased relative path satisfies
  * `match`. Two paths that fold equal throw, since a case-insensitive filesystem could serve either.
  * Sorted by `rel` so a re-run is reproducible regardless of directory-entry order. A missing root
  * propagates as an environmental error.
@@ -99,14 +99,14 @@ export async function collectSourceFiles(
   match: (relLower: string) => boolean,
 ): Promise<SourceFile[]> {
   const byKey = new Map<string, SourceFile>();
-  for await (const path of walkFiles(roots.mod)) {
-    const rel = relative(roots.mod, path).split(sep).join('/');
+  for await (const path of walkFiles(roots.data)) {
+    const rel = relative(roots.data, path).split(sep).join('/');
     const key = rel.toLowerCase();
     if (!match(key)) continue;
     const twin = byKey.get(key);
     if (twin !== undefined) {
       throw new Error(
-        `case-colliding sources "${twin.rel}" and "${rel}" under ${roots.mod} - two on-disk ` +
+        `case-colliding sources "${twin.rel}" and "${rel}" under ${roots.data} - two on-disk ` +
           'spellings of one source path; remove or rename one and re-run',
       );
     }
@@ -121,15 +121,8 @@ export async function collectSourceFilesNamed(roots: SourceRoots, name: string):
   return collectSourceFiles(roots, (rel) => `/${rel}`.endsWith(suffix));
 }
 
-/**
- * Validates the mod root, the conversion's only input: it must contain a `DataCnmd/` directory,
- * because the tribe/weapon/house tables are readable only there.
- */
-export async function resolveModRoot(modRoot: string): Promise<string> {
-  if ((await statIfExists(join(modRoot, CULTURESNATION_MOD)))?.isDirectory()) return modRoot;
-  throw new Error(
-    `--mod-root ${modRoot} has no ${CULTURESNATION_MOD}/ - point it at the unpacked culturesnation ` +
-      `mod (the directory that contains DataCnmd/ and CnModMaps/), downloaded from ` +
-      `${CULTURESNATION_HOME_URL}. A game folder with the mod installed inside it works too.`,
-  );
+/** Validates a source pack before exposing its base tree to the conversion stages. */
+export async function resolveDataRoot(dataRoot: string): Promise<string> {
+  await readDataPack(dataRoot);
+  return join(dataRoot, 'base');
 }

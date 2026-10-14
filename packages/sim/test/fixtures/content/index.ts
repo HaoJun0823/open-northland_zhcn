@@ -9,7 +9,7 @@ import { societyContent } from './societies.js';
  */
 export const TEST_MANIFEST = {
   version: IR_VERSION,
-  generatedFrom: { mod: 'synthetic-test-fixture' },
+  generatedFrom: { data: 'synthetic-test-fixture' },
   locale: 'eng',
 } as const;
 

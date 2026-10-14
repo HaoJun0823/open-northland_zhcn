@@ -212,7 +212,7 @@ describe('source corrections', () => {
     await writeMod(`${MAP_FOLDER}/map.dat`, buildMapDat(1, 1, [2, 2, 2, 2]));
     await writeMod(AI_INC, SHIPPED_AI);
     await writeCorrection('swap', { reason: 'test', file: AI_INC, sha256: sha256(SHIPPED_AI), lines: SWAP });
-    const roots = { mod, corrections: await loadSourceCorrections(dir, mod) };
+    const roots = { data: mod, corrections: await loadSourceCorrections(dir, mod) };
 
     const [map] = await convertMapDatTree(roots, join(temp.path, 'out'));
     expect(map?.script?.ai.map((row) => [row.player, row.defaultPosition])).toEqual([
@@ -221,7 +221,7 @@ describe('source corrections', () => {
     ]);
     expect(() => roots.corrections.assertApplied()).not.toThrow();
     // Without corrections the stage reads the file as shipped.
-    const shipped = await readSourceFile({ mod }, join(mod, AI_INC));
+    const shipped = await readSourceFile({ data: mod }, join(mod, AI_INC));
     expect(Buffer.from(shipped).toString('latin1')).toBe(SHIPPED_AI);
   });
 
@@ -240,7 +240,7 @@ describe('source corrections', () => {
         { from: 'GfxBobConstructionLayer 0 0 72 -1 0 100', to: 'GfxBobConstructionLayer 0 0 2 -1 0 100' },
       ],
     });
-    const roots = { mod, corrections: await loadSourceCorrections(dir, mod) };
+    const roots = { data: mod, corrections: await loadSourceCorrections(dir, mod) };
 
     const { constructionLayers } = await extractIniTables(roots, [{ path, file: housesIni, layer: 'mod' }]);
     expect(constructionLayers.map((row) => row.bobId)).toEqual([2]);

@@ -1,6 +1,6 @@
 import { decodeBmd } from '@open-northland/formats/bmd/index';
 import { errorMessage } from '../../errors.js';
-import { MOD_BOBS_DIR, type SourceRoots } from '../../roots.js';
+import { DATA_BOBS_DIR, type SourceRoots } from '../../roots.js';
 import { emitIndexedAndPreviewAtlas } from '../content-tree.js';
 import { readSourceFile } from '../source-files.js';
 
@@ -16,8 +16,8 @@ interface GuiAtlasSource {
  * use `context`), so that is its best single preview palette; the bubble sheet uses `gui_bubbles`.
  */
 const GUI_ATLASES: readonly GuiAtlasSource[] = [
-  { stem: 'ls_gui_window', bmd: `${MOD_BOBS_DIR}/ls_gui_window.bmd`, previewPalette: 'iconsleft' },
-  { stem: 'ls_gui_bubbles', bmd: `${MOD_BOBS_DIR}/ls_gui_bubbles.bmd`, previewPalette: 'gui_bubbles' },
+  { stem: 'ls_gui_window', bmd: `${DATA_BOBS_DIR}/ls_gui_window.bmd`, previewPalette: 'iconsleft' },
+  { stem: 'ls_gui_bubbles', bmd: `${DATA_BOBS_DIR}/ls_gui_bubbles.bmd`, previewPalette: 'gui_bubbles' },
 ];
 
 export interface GuiAtlasResult {

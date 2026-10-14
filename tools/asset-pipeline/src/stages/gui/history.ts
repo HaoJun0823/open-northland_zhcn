@@ -41,7 +41,7 @@ export async function convertGuiHistory(
   const done: GuiHistoryResult[] = [];
   for (const lang of langs) {
     const segments = HISTORY_DIR.map((s) => (s === '<lang>' ? lang : s));
-    const dir = await findPathCaseInsensitive(roots.mod, segments);
+    const dir = await findPathCaseInsensitive(roots.data, segments);
     if (dir === undefined) continue;
     let book: HypertextBook | undefined;
     try {

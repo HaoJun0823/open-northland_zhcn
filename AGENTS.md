@@ -10,8 +10,8 @@ nearest package contract.
 
 The repository never contains original game files, mod files, decoded content, binary probes, or
 reference captures from the original. `npm run check:assets` rejects tracked `content/`, original
-file types, and unreviewed binaries; review covers the rest. The pinned CulturesNation mod archive
-is the pipeline's only input; the named corrections in `tools/asset-pipeline/corrections/` fix single
+file types, and unreviewed binaries; review covers the rest. The pinned source data pack is the pipeline's input; it contains the selected CulturesNation base
+and explicitly selected additions. Its format is documented in `docs/DATA-PACK.md`; the named corrections in `tools/asset-pipeline/corrections/` fix single
 mod files as the pipeline reads them. An owned game installation beside the checkout serves as
 format and behavior evidence, never as pipeline input.
 
@@ -94,7 +94,7 @@ machines. Persisted formats are replaced, never migrated:
 
 Before changing extraction or a content join, inspect all three:
 
-1. the real source file in the mod archive;
+1. the real source file in the data pack;
 2. the decoder or extractor;
 3. generated `content/ir.json`.
 

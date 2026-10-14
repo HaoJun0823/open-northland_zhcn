@@ -50,10 +50,10 @@ const SCRIPT_LINE = /^[\x20-\x7e]*$/;
 const DECODED_LINE = /^[^\r\n]*$/;
 
 /**
- * Loads every `<id>.json` under `dir` against the mod at `modRoot`. A missing directory holds no
+ * Loads every `<id>.json` under `dir` against the mod at `dataRoot`. A missing directory holds no
  * corrections; a malformed file, or two corrections naming one mod file, throws.
  */
-export async function loadSourceCorrections(dir: string, modRoot: string): Promise<SourceCorrections> {
+export async function loadSourceCorrections(dir: string, dataRoot: string): Promise<SourceCorrections> {
   let names: string[];
   try {
     names = (await readdir(dir)).filter((name) => name.endsWith('.json')).sort();
@@ -81,7 +81,7 @@ export async function loadSourceCorrections(dir: string, modRoot: string): Promi
     list,
     async read(path) {
       const bytes = await readFile(path);
-      const correction = byFile.get(relative(modRoot, path).split(sep).join('/').toLowerCase());
+      const correction = byFile.get(relative(dataRoot, path).split(sep).join('/').toLowerCase());
       if (correction === undefined) return bytes;
       const corrected = applyCorrection(correction, bytes);
       if (typeof corrected === 'string') {

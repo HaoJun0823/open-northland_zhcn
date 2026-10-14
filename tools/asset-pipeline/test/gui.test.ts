@@ -8,7 +8,7 @@ import { sampleGlyphBmd } from '../../../packages/formats/test/fixtures/bmd.js';
 import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
 import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { paletteCarrier } from '../../../packages/formats/test/fixtures/pcx.js';
-import { MOD_BOBS_DIR } from '../src/roots.js';
+import { DATA_BOBS_DIR } from '../src/roots.js';
 import { BOBS_DIR } from '../src/stages/content-tree.js';
 import {
   BODY_SHADOW_MIN_LUMA,
@@ -59,8 +59,8 @@ describe('gui stage', () => {
     // Palettes.
     for (const f of PALETTE_FILES) await writeGame(f, paletteCarrier());
     // Bob sheets.
-    await writeGame(join(MOD_BOBS_DIR, 'ls_gui_window.bmd'), encodeBmd(sampleGlyphBmd()));
-    await writeGame(join(MOD_BOBS_DIR, 'ls_gui_bubbles.bmd'), encodeBmd(sampleGlyphBmd()));
+    await writeGame(join(DATA_BOBS_DIR, 'ls_gui_window.bmd'), encodeBmd(sampleGlyphBmd()));
+    await writeGame(join(DATA_BOBS_DIR, 'ls_gui_bubbles.bmd'), encodeBmd(sampleGlyphBmd()));
     // Strings, both languages, in the real `[control]`/`[text]` grammar (`stringn` sets the id, `string`
     // auto-increments). `pol`'s first entry stores raw CP1250 BYTES (0xEA='ę', 0xB3='ł' in CP1250) as a
     // latin1 string, so the fixture round-trips a real Polish string through the stage's CP1250 re-decode.
@@ -103,7 +103,7 @@ describe('gui stage', () => {
   });
 
   it('builds a 256×N palette LUT with a stable row order and resolves the preview palettes', async () => {
-    const res = await convertGuiPaletteLut({ mod: game }, out);
+    const res = await convertGuiPaletteLut({ data: game }, out);
     expect(res.names).toHaveLength(14);
     expect(res.names[0]).toBe('iconsleft'); // row 0 is the default window preview palette
     expect(res.names.at(-1)).toBe('gui_bubbles');
@@ -116,15 +116,15 @@ describe('gui stage', () => {
   it('keeps LUT rows stable (neutral fill) when a palette carrier is missing, with a warning', async () => {
     await rm(join(game, 'Data', 'gui', 'palettes', 'frame.pcx'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const res = await convertGuiPaletteLut({ mod: game }, out);
+    const res = await convertGuiPaletteLut({ data: game }, out);
     expect(res.names).toHaveLength(14); // row count unchanged despite the missing carrier
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/palette frame unreadable.*neutral row/));
     warn.mockRestore();
   });
 
   it('emits an indexed + preview atlas (with manifest) per bob sheet under the /bobs tree', async () => {
-    const { byName } = await convertGuiPaletteLut({ mod: game }, out);
-    const atlases = await convertGuiAtlases({ mod: game }, out, byName);
+    const { byName } = await convertGuiPaletteLut({ data: game }, out);
+    const atlases = await convertGuiAtlases({ data: game }, out, byName);
 
     expect(atlases.map((a) => a.stem).sort()).toEqual(['ls_gui_bubbles', 'ls_gui_window']);
     const window = atlases.find((a) => a.stem === 'ls_gui_window');
@@ -143,7 +143,7 @@ describe('gui stage', () => {
   });
 
   it('decodes the eight ingamegui tables per language, id→text, CP1250-decoded', async () => {
-    const res = await convertGuiStrings({ mod: game }, out);
+    const res = await convertGuiStrings({ data: game }, out);
     expect(res.map((r) => r.lang)).toEqual(['eng', 'pol']);
     expect(res.every((r) => r.tables === 8)).toBe(true);
 
@@ -171,7 +171,7 @@ describe('gui stage', () => {
         { level: 2, text: 'stringn 5 "Ok"' },
       ]),
     );
-    await convertGuiStrings({ mod: game }, out, ['eng']);
+    await convertGuiStrings({ data: game }, out, ['eng']);
     const eng = JSON.parse(await readFile(join(out, 'gui', 'strings', 'eng.json'), 'utf8'));
     expect(eng.main['0']).toBe('AfterBad'); // survived - the bad stringn didn't NaN-poison the counter
     expect(eng.main['5']).toBe('Ok');
@@ -202,7 +202,7 @@ describe('gui stage', () => {
       Buffer.from(rows('houses ini'), 'latin1'),
     );
 
-    const res = await convertGuiStrings({ mod: game }, out);
+    const res = await convertGuiStrings({ data: game }, out);
     expect(res.every((r) => r.tables === EXPORTED_TABLES.length)).toBe(true);
     const eng = JSON.parse(await readFile(join(out, 'gui', 'strings', 'eng.json'), 'utf8'));
     const pol = JSON.parse(await readFile(join(out, 'gui', 'strings', 'pol.json'), 'utf8'));
@@ -235,7 +235,7 @@ describe('gui stage', () => {
       ]),
     );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await convertGuiStrings({ mod: game }, out, ['pol', 'rus']);
+    await convertGuiStrings({ data: game }, out, ['pol', 'rus']);
     warn.mockRestore();
     const pol = JSON.parse(await readFile(join(out, 'gui', 'strings', 'pol.json'), 'utf8'));
     const rus = JSON.parse(await readFile(join(out, 'gui', 'strings', 'rus.json'), 'utf8'));
@@ -260,7 +260,7 @@ describe('gui stage', () => {
       Buffer.from('[text]\nstringn 2 "  Wood   Cutter "\nstring "Wood  Cutters  "\n', 'latin1'),
     );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await convertGuiStrings({ mod: game }, out, ['eng']);
+    await convertGuiStrings({ data: game }, out, ['eng']);
     warn.mockRestore();
     const eng = JSON.parse(await readFile(join(out, 'gui', 'strings', 'eng.json'), 'utf8'));
     expect(eng.goods).toEqual({ 46: 'Small Potion' });
@@ -274,7 +274,7 @@ describe('gui stage', () => {
       Buffer.from('[text]\nstringn 1 "Wood"\n', 'latin1'),
     );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const res = await convertGuiStrings({ mod: game }, out, ['eng']);
+    const res = await convertGuiStrings({ data: game }, out, ['eng']);
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/skipped strings eng\/houses/));
     warn.mockRestore();
     expect(res[0]?.tables).toBe(STRING_TABLES.length + 1);
@@ -284,7 +284,7 @@ describe('gui stage', () => {
   });
 
   it('decodes each cursor to a PNG, copies the .cur through, and records the hotspot', async () => {
-    const cursors = await convertCursors({ mod: game }, out);
+    const cursors = await convertCursors({ data: game }, out);
     expect(cursors.map((c) => c.name)).toEqual(['MouseNormal', 'MousePressed', 'MouseRight']);
     const right = cursors.find((c) => c.name === 'MouseRight');
     expect([right?.hotspotX, right?.hotspotY]).toEqual([10, 10]);
@@ -297,7 +297,7 @@ describe('gui stage', () => {
   });
 
   it('ties everything together into content/gui/manifest.json', async () => {
-    const summary = await convertGuiStage({ mod: game }, out);
+    const summary = await convertGuiStage({ data: game }, out);
     expect(summary).toMatchObject({ atlases: 2, frames: 4, palettes: 14, cursors: 3 });
 
     const manifest = JSON.parse(await readFile(join(out, 'gui', 'manifest.json'), 'utf8'));
@@ -311,10 +311,10 @@ describe('gui stage', () => {
   });
 
   it('skips a missing bob sheet with a warning instead of aborting', async () => {
-    await rm(join(game, MOD_BOBS_DIR, 'ls_gui_bubbles.bmd'));
-    const { byName } = await convertGuiPaletteLut({ mod: game }, out);
+    await rm(join(game, DATA_BOBS_DIR, 'ls_gui_bubbles.bmd'));
+    const { byName } = await convertGuiPaletteLut({ data: game }, out);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const atlases = await convertGuiAtlases({ mod: game }, out, byName);
+    const atlases = await convertGuiAtlases({ data: game }, out, byName);
     expect(atlases.map((a) => a.stem)).toEqual(['ls_gui_window']); // the good one still converts
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/skipped ls_gui_bubbles/));
     warn.mockRestore();

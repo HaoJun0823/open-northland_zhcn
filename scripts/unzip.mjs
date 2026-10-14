@@ -141,8 +141,14 @@ async function readEntry(file, entry) {
 /** The entry's path under the target, refusing anything that could leave it; a backslash is a
  *  separator to Windows, so it is refused rather than split. */
 function entryPath(target, name) {
-  const segments = name.split('/');
-  if (segments[0] === '' || segments.some((segment) => segment === '..' || segment.includes('\\'))) {
+  const segments = (name.endsWith('/') ? name.slice(0, -1) : name).split('/');
+  if (
+    segments.some(
+      (segment) =>
+        !segment || segment === '.' || segment === '..' || segment.includes('\\') || segment.includes(':'),
+    ) ||
+    [...name].some((char) => char.charCodeAt(0) < 32)
+  ) {
     throw new Error(`zip: refusing entry path ${name}`);
   }
   return join(target, ...segments);
@@ -151,7 +157,11 @@ function entryPath(target, name) {
 export async function extractZip(archive, target) {
   const file = await open(archive);
   try {
+    const seen = new Set();
     for (const entry of await readCentralDirectory(file)) {
+      const key = entry.name.replace(/\/$/, '').toLowerCase();
+      if (seen.has(key)) throw new Error(`zip: duplicate or case-colliding path ${entry.name}`);
+      seen.add(key);
       const path = entryPath(target, entry.name);
       if (entry.name.endsWith('/')) {
         await mkdir(path, { recursive: true });

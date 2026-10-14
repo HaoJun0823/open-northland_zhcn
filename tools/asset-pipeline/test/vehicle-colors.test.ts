@@ -53,7 +53,7 @@ describe('convertVehiclePaletteFamilies', () => {
       ],
       aliases,
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
     expect(result.luts).toEqual([paletteFamilyLutFile('ship01')]);
@@ -70,7 +70,7 @@ describe('convertVehiclePaletteFamilies', () => {
       [{ bmd: SHIP_BMD, paletteName: 'ship01' }],
       aliases,
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
     expect(result).toEqual({ indexed: [], luts: [] });
   });

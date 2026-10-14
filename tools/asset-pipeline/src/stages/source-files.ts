@@ -9,7 +9,7 @@ import { collectSourceFiles, resolveSourceFile, type SourceFile, type SourceRoot
 export async function readSourceFile(roots: SourceRoots, relPath: string): Promise<Uint8Array> {
   const path = await resolveSourceFile(roots, relPath);
   if (path === undefined) {
-    throw new Error(`${relPath} not found under ${roots.mod}`);
+    throw new Error(`${relPath} not found under ${roots.data}`);
   }
   return readFile(path);
 }

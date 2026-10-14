@@ -45,7 +45,7 @@ describe('localized pipeline text', () => {
         await temp.write(`Data/text/${lang}/strings/ingamegui/ingamegui${name}.cif`, table('fixture'));
       }
     }
-    const result = await convertGuiStrings({ mod: temp.game }, temp.out);
+    const result = await convertGuiStrings({ data: temp.game }, temp.out);
     expect(result.map((r) => r.lang)).toEqual(['eng', 'pol', 'ger', 'rus']);
     for (const { lang, text } of TEXTS) {
       const output = JSON.parse(await readFile(join(temp.out, `gui/strings/${lang}.json`), 'utf8'));
@@ -59,7 +59,7 @@ describe('localized pipeline text', () => {
       await temp.write(`Data/text/${lang}/strings/gameobjects/goods.cif`, table(raw));
     }
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await convertGuiStrings({ mod: temp.game }, temp.out, ['ger', 'rus']);
+    await convertGuiStrings({ data: temp.game }, temp.out, ['ger', 'rus']);
     warn.mockRestore();
     for (const { lang, text } of TEXTS) {
       const output = JSON.parse(await readFile(join(temp.out, `gui/strings/${lang}.json`), 'utf8'));
@@ -75,7 +75,7 @@ describe('localized pipeline text', () => {
       );
     }
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await convertGuiStrings({ mod: temp.game }, temp.out, ['ger', 'rus']);
+    await convertGuiStrings({ data: temp.game }, temp.out, ['ger', 'rus']);
     warn.mockRestore();
     for (const { lang, text } of TEXTS) {
       const output = JSON.parse(await readFile(join(temp.out, `gui/strings/${lang}.json`), 'utf8'));
@@ -88,7 +88,7 @@ describe('localized pipeline text', () => {
     const page = `<include:$local$\\briefings.txt,${raw},1>\n${raw}`;
     await temp.write(`Data/text/${lang}/hypertext/history/briefings.txt`, bytes(blocks));
     await temp.write(`Data/text/${lang}/hypertext/history/index.hlt`, bytes(page));
-    const result = await convertGuiHistory({ mod: temp.game }, temp.out);
+    const result = await convertGuiHistory({ data: temp.game }, temp.out);
     expect(result.map((r) => r.lang)).toEqual([lang]);
     const book = JSON.parse(await readFile(join(temp.out, `gui/history/${lang}.json`), 'utf8'));
     expect(book.pages.index).toEqual([{ kind: 'text', style: 'body', text: `${text}\n${text}` }]);

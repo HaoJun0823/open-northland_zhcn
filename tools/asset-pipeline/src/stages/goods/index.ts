@@ -1,6 +1,6 @@
 import { decodeBmd } from '@open-northland/formats/bmd/index';
 import { errorMessage } from '../../errors.js';
-import { MOD_BOBS_DIR, type SourceRoots } from '../../roots.js';
+import { DATA_BOBS_DIR, type SourceRoots } from '../../roots.js';
 import { emitIndexedAndPreviewAtlas, writeJsonFile } from '../content-tree.js';
 import { identityPalette, writeLutPng } from '../palette-lut.js';
 import { readSourceFile } from '../source-files.js';
@@ -18,7 +18,7 @@ export { resolveGoodIcons } from './icons.js';
  */
 
 /** The shared good-pile bob sheet (155 bobs, up to 5 growth states per good). */
-const GOODS_BMD = `${MOD_BOBS_DIR}/ls_goods.bmd`;
+const GOODS_BMD = `${DATA_BOBS_DIR}/ls_goods.bmd`;
 
 /** `loadLayer` stem of the emitted recolourable indexed goods atlas. */
 const GOODS_INDEXED_STEM = `${GOODS_ATLAS_STEM}.indexed`;

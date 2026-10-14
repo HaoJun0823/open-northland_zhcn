@@ -1,10 +1,9 @@
 import { realpathSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
-import { CULTURESNATION_MOD } from './mod-root.js';
 
 export interface Args {
-  /** The unpacked culturesnation mod, the conversion's only input. */
-  modRoot: string;
+  /** Unpacked source data pack, including its manifest. */
+  dataRoot: string;
   out: string;
 }
 
@@ -13,26 +12,22 @@ export function parseArgs(argv: readonly string[]): Args {
     const i = argv.indexOf(flag);
     return i >= 0 ? argv[i + 1] : undefined;
   };
-  const modRoot = get('--mod-root');
-  if (modRoot === undefined) {
-    throw new Error(
-      'usage: pipeline --mod-root <dir> [--out <dir>] - the unpacked ' +
-        `culturesnation mod (the directory holding ${CULTURESNATION_MOD}/) is the only input; a game ` +
-        'folder with the mod installed inside it works as --mod-root too.',
-    );
+  const dataRoot = get('--data-root');
+  if (dataRoot === undefined) {
+    throw new Error('usage: pipeline --data-root <dir> [--out <dir>] - unpacked data.zip with manifest.json');
   }
-  return { modRoot, out: get('--out') ?? 'content' };
+  return { dataRoot, out: get('--out') ?? 'content' };
 }
 
 /**
  * Resolves the filesystem args against `baseDir`, leaving absolute paths untouched. The entry point
  * passes `process.env.INIT_CWD`: npm runs a workspace script with cwd set to `tools/asset-pipeline/`,
- * so a relative `--mod-root ../CNMod-1.3.2` would otherwise resolve there instead of the repo root.
+ * so a relative `--data-root ../data-pack` would otherwise resolve there instead of the repo root.
  */
 export function resolveArgs(args: Args, baseDir: string): Args {
   return {
     ...args,
-    modRoot: resolve(baseDir, args.modRoot),
+    dataRoot: resolve(baseDir, args.dataRoot),
     out: resolve(baseDir, args.out),
   };
 }

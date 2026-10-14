@@ -89,7 +89,7 @@ export async function convertMapDatTree(
   const pathByRel = new Map(found.map(({ rel, path }) => [rel, path]));
   const tree = await treeFromFolder(
     found.map(({ rel }) => rel),
-    (rel) => readSourceFile(roots, pathByRel.get(rel) ?? join(roots.mod, rel)),
+    (rel) => readSourceFile(roots, pathByRel.get(rel) ?? join(roots.data, rel)),
     NO_IMPORT_LIMITS,
   );
   // This stage is the only writer under <outDir>/maps, so a wholesale reset is safe.

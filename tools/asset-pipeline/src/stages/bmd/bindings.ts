@@ -13,7 +13,7 @@ import {
   type PaletteAlias,
   type RuleSection,
 } from '@open-northland/formats/ini';
-import { CULTURESNATION_MOD } from '../../mod-root.js';
+import { CULTURESNATION_MOD } from '../../cnmod.js';
 import { readSourceFile, resolveSourceFile, type SourceRoots } from '../../roots.js';
 
 /**

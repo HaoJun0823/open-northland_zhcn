@@ -117,7 +117,7 @@ export async function buildIr(roots: SourceRoots): Promise<ContentSet> {
   const buildingsWithRecipes = fillBuildingRecipes(buildingsWithCosts, pairedGoods, tribes);
   const correctedJobExperience = correctJobExperience(jobExperience, tribes);
   return parseContentSet({
-    manifest: { version: IR_VERSION, generatedFrom: { mod: basename(roots.mod) } },
+    manifest: { version: IR_VERSION, generatedFrom: { data: basename(roots.data) } },
     goods: pairedGoods,
     jobs,
     jobExperience: correctedJobExperience,

@@ -32,7 +32,7 @@ content/
 
 ## Input formats
 
-The mod archive carries every file the stages read. Corpus counts in the documentation use an
+The [source data pack](DATA-PACK.md) carries every file the stages read. Corpus counts in the documentation use an
 English-locale conversion of CnMod 1.3.2; state a different input beside any claim that uses one.
 
 | Format | Purpose | Reference |
@@ -69,7 +69,7 @@ The document also contains a manifest:
 {
   "manifest": {
     "version": 3,
-    "generatedFrom": { "mod": "<mod folder name>" },
+    "generatedFrom": { "data": "<data source name>" },
     "locale": "eng"
   },
   "goods": [],

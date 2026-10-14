@@ -1,4 +1,4 @@
-import { CULTURESNATION_MOD } from '../../mod-root.js';
+import { CULTURESNATION_MOD } from '../../cnmod.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 
 export interface IniSource {

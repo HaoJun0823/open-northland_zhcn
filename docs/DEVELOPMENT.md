@@ -84,38 +84,39 @@ primary server and must not be used to start a worktree preview.
 
 ## Local game content
 
-A release builds `content/` from the pinned CulturesNation archive and ships the tree inside the
-desktop installers and the web image. Player-selected local maps are converted separately in a Worker. The same command
-does it locally:
+A release builds `content/` from the pinned source data pack and ships the converted tree inside
+installers and the web image. Player-selected local maps are converted separately in a Worker.
 
 ```bash
 npm run build:content
-npm run build:content -- --zip "../CnMod 1.3.2.zip"
 ```
 
-It keeps a cached `content/cnmod.zip` plus an unpacked `content/.cnmod-unpacked/`, verifies the
-archive's SHA-256 on every run, downloads it only when the archive cache is missing or invalid,
-shows download progress, reuses the unpacked cache when it already matches the pinned archive, and
-empties `content/` except for the rendered music and the cached source data before running the
-pipeline. The music stage re-renders only the tracks its own manifest no longer covers, so a rebuild
-from an unchanged archive keeps them and saves most of the run; `--zip` still bypasses the archive
-cache and uses the given file directly. While working on the pipeline itself, run it directly
-against an unpacked mod, the directory that holds `DataCnmd/`:
+Without local configuration this downloads `https://opennorthland.org/data.zip`. To use a local
+archive, set `ON_DATA_ZIP=/absolute/path/to/data.zip` in the ignored root `.env`; `.env.example`
+shows the setting. Process environment wins, followed by this checkout's `.env`, then the primary
+checkout's `.env` for a Git worktree. Relative paths resolve against their configuration file (or
+the checkout root for an environment value). An empty value selects the normal download/cache path.
+No other dotenv settings are loaded by this command. An invalid explicit archive fails without
+falling back to the network.
+
+The archive hash in `scripts/data-release.json` pins the input. Downloaded archives and the unpacked
+tree live under ignored `.cache/data/`, outside the served `content/`. Every build verifies the
+archive and the manifest's file inventory and hashes; a damaged unpacked cache is rebuilt. A stale
+downloaded archive is replaced, while a local archive must match the pin. Publishing a new pack
+requires updating the pin with it; historical checkouts may need their matching archive locally.
+
+Conversion runs in a temporary tree and replaces `content/` only after success. Existing rendered
+music is reused when its own source fingerprint and render version still match. To run the pipeline
+against an already unpacked pack:
 
 ```bash
-npm run pipeline -- --mod-root "../CNMod-1.3.2" --out content
+npm run pipeline -- --data-root .cache/data/unpacked --out content
 ```
 
-The mod archive carries every file the stages read: the rule tables, bobs, sounds, music, pictures,
-fonts, strings, and the mod's maps. A game folder with the mod installed inside it works as
-`--mod-root` too; the game's own packed `.lib` archives are not read, so its original campaigns and
-tutorials are not converted. CnMod 1.3.2 is the current verified input; treat a newer release as
-unverified until the real pipeline and content gates pass. The generated `content/` tree is ignored
-by Git and `npm run check:assets` fails on anything tracked under it.
-
-The output is laid out exactly as the app fetches it, so every host serves it as static files from
-`/`: `ir.json`, the `maps-index.json` and `bobs-index.json` listings, and the `maps/`, `bobs/`,
-`textures/`, `sounds/`, `music/`, `gui/`, `gui-bitmaps/`, `goods/` and `terrain-palettes/` directories.
+The [source pack contract](DATA-PACK.md) describes the base and the campaign layout. Original source
+assets, local archives, unpacked trees and generated content must never be committed. The default
+base uses CnMod 1.3.2; its original relative paths remain inside `base/` because configuration data
+also references them. Pack construction removes tools and unrelated files before publication.
 
 The music stage renders the DirectMusic soundtrack (`DataX/DM2`, which the mod ships) to one ogg
 track per segment entirely in Node: segment interpretation, DLS synthesis, reverb, and ogg encoding
@@ -131,8 +132,8 @@ npm run test:engines
 ```
 
 `test:content` checks consumers against an existing `content/` directory. `test:pipeline` performs a
-fresh conversion into a temporary directory and validates the result. It reads the mod at
-`CULTURES_MOD_ROOT`, `../CNMod-1.3.2` by default.
+fresh conversion into a temporary directory and validates the result. It reads the unpacked data pack at
+`ON_DATA_ROOT`, `.cache/data/unpacked` by default.
 `test:engines` boots the app in Electron and the Playwright browsers and compares their state hashes
 with Node (see `TESTING.md`).
 

@@ -42,7 +42,7 @@ describe('convertMapDatTree', () => {
   });
 
   it('writes maps/<id>.json for every map.dat, sorted by rel path, id from folder', async () => {
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.map((d) => d.id)).toEqual(['forteca', 'tutorial_002']); // sorted by rel path
     expect(done.find((d) => d.id === 'tutorial_002')).toMatchObject({ width: 2, height: 1 });
 
@@ -64,7 +64,7 @@ describe('convertMapDatTree', () => {
     );
     await writeFile(join(briefings, 'briefings.txt'), '');
     await writeFile(join(briefings, '0000.hlt'), 'x'.repeat(DEFAULT_IMPORT_LIMITS.hypertextCharacters));
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.map(({ id }) => id)).toContain('forteca');
     expect((await readFile(join(out, 'maps', 'forteca.briefing.json'))).byteLength).toBeGreaterThan(
       DEFAULT_IMPORT_LIMITS.hypertextCharacters,
@@ -75,16 +75,16 @@ describe('convertMapDatTree', () => {
     const dir = join(game, 'CnModMaps', 'tutorial_002', 'Text');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, 'map.dat'), buildMapDat(1, 1, [2, 2, 2, 2]));
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.map((d) => d.id)).toEqual(['forteca', 'tutorial_002']); // no ghost `text` map
     await expect(readFile(join(out, 'maps', 'text.json'))).rejects.toThrow();
   });
 
   it('drops the artifacts of a map that vanished from the source between runs', async () => {
-    await convertMapDatTree({ mod: game }, out);
+    await convertMapDatTree({ data: game }, out);
     await readFile(join(out, 'maps', 'forteca.json')); // emitted on the first run
     await rm(join(game, 'CnModMaps', 'forteca'), { recursive: true, force: true });
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.map((d) => d.id)).toEqual(['tutorial_002']);
     await expect(readFile(join(out, 'maps', 'forteca.json'))).rejects.toThrow();
   });
@@ -92,7 +92,7 @@ describe('convertMapDatTree', () => {
   it('skips a malformed map.dat with a warning instead of aborting the batch', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     await writeFile(join(game, 'CnModMaps', 'forteca', 'map.dat'), Uint8Array.from([0, 1, 2, 3]));
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.map((d) => d.id)).toEqual(['tutorial_002']); // the good one still converts
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/skipped map\.dat.*forteca/));
     warn.mockRestore();
@@ -110,7 +110,7 @@ describe('convertMapDatTree', () => {
         'sethuman 0 "viking" "hero_sword_BJARNI" 12 34 5 0',
       ].join('\r\n'),
     );
-    await convertMapDatTree({ mod: game }, out);
+    await convertMapDatTree({ data: game }, out);
     const grid = JSON.parse(await readFile(join(out, 'maps', 'forteca.json'), 'utf8'));
     expect(grid.entities.humans).toEqual([
       { tribe: 'viking', role: 'hero_sword_BJARNI', player: 0, hx: 12, hy: 34, missionId: 5 },
@@ -118,7 +118,7 @@ describe('convertMapDatTree', () => {
 
     // The included file is the usual home and wins when both carry the section.
     await writeFile(join(dir, 'staticobjects.inc'), '[StaticObjects]\nsethuman 1 "frank" "woman" 1 2 0 0\n');
-    await convertMapDatTree({ mod: game }, out);
+    await convertMapDatTree({ data: game }, out);
     const included = JSON.parse(await readFile(join(out, 'maps', 'forteca.json'), 'utf8'));
     expect(included.entities.humans).toEqual([{ tribe: 'frank', role: 'woman', player: 1, hx: 1, hy: 2 }]);
   });
@@ -129,7 +129,7 @@ describe('convertMapDatTree', () => {
       join(game, 'CnModMaps', 'forteca', 'staticobjects.inc'),
       '[StaticObjects]\nsethuman 0 "viking" "woman" 1 2 0 0\nAdoptHuman 1 2\nMARRY 1 2 3 4\n',
     );
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/forteca.*AdoptHuman/));
     warn.mockRestore();
     expect(done.find((d) => d.id === 'forteca')?.unknownStaticVerbs).toEqual(['AdoptHuman']);
@@ -142,7 +142,7 @@ describe('convertMapDatTree', () => {
   const rawBytes = (s: string): Uint8Array => Uint8Array.from(s, (c) => c.charCodeAt(0) & 0xff);
 
   it('emits provenance metadata even without text, picture or minimap', async () => {
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.find((d) => d.id === 'forteca')).toMatchObject({ picture: false, minimap: false });
     expect(JSON.parse(await readFile(join(out, 'maps', 'forteca.meta.json'), 'utf8'))).toEqual({
       provenance: { kind: 'mod', folder: 'CnModMaps/forteca' },
@@ -164,7 +164,7 @@ describe('convertMapDatTree', () => {
       join(dir, 'minimap', 'minimap.pcx'),
       encodePcx({ width: 2, height: 1, pixels: Uint8Array.from([1, 2]), palette: rampPalette() }),
     );
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.find((d) => d.id === 'tutorial_002')).toMatchObject({ picture: true, minimap: false });
     const meta = JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'));
     expect(meta).toMatchObject({ name: { pol: 'BŁĘKIT' }, description: { pol: 'Opis mapy' } });
@@ -180,7 +180,7 @@ describe('convertMapDatTree', () => {
       encodePcx({ width: 2, height: 1, pixels: Uint8Array.from([1, 2]), palette: rampPalette() }),
     );
     const synthesized = Uint8Array.of(7, 7, 7);
-    const done = await convertMapDatTree({ mod: game }, out, async () => synthesized);
+    const done = await convertMapDatTree({ data: game }, out, async () => synthesized);
     expect(done.map(({ id, picture, minimap }) => ({ id, picture, minimap }))).toEqual([
       { id: 'forteca', picture: false, minimap: true },
       { id: 'tutorial_002', picture: true, minimap: true },
@@ -216,7 +216,7 @@ describe('convertMapDatTree', () => {
         rawBytes(`[text]\nstringn 99 "${name}"\nstringn 98 "Desc ${lang}"\n`),
       );
     }
-    await convertMapDatTree({ mod: game }, out);
+    await convertMapDatTree({ data: game }, out);
     const meta = JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'));
     expect(meta).toMatchObject({
       name: { pol: 'Samotnia', eng: 'Hermitage' },
@@ -242,7 +242,7 @@ describe('convertMapDatTree', () => {
       join(dir, 'text', 'pol', 'strings.ini'),
       rawBytes('[text]\nstringn 99 "Samotnia"\nstringn 98 "Opis"\n'),
     );
-    await convertMapDatTree({ mod: game }, out);
+    await convertMapDatTree({ data: game }, out);
     const meta = JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'));
     expect(meta).toMatchObject({ name: { pol: 'Samotnia' }, description: { pol: 'Opis' } });
   });
@@ -259,7 +259,7 @@ describe('convertMapDatTree', () => {
         { level: 2, text: 'stringn 1 "Opis"' },
       ]),
     );
-    await convertMapDatTree({ mod: game }, out);
+    await convertMapDatTree({ data: game }, out);
     const meta = JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'));
     expect(meta).toMatchObject({ name: { pol: 'Błękit' }, description: { pol: 'Opis' } });
   });
@@ -275,7 +275,7 @@ describe('convertMapDatTree', () => {
         { level: 2, text: 'stringn 0 "Encrypted"' },
       ]),
     );
-    await convertMapDatTree({ mod: game }, out);
+    await convertMapDatTree({ data: game }, out);
     const meta = JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'));
     expect(meta).toMatchObject({ name: { pol: 'Readable' } });
   });
@@ -304,7 +304,7 @@ describe('convertMapDatTree', () => {
       join(dir, 'text', 'pol', 'strings.ini'),
       rawBytes('[text]\nstringn 0 "Zero"\nstringn 1 "Jeden"\nstringn 99 "Wlasciwa"\nstringn 98 "Opis99"\n'),
     );
-    await convertMapDatTree({ mod: game }, out);
+    await convertMapDatTree({ data: game }, out);
     const meta = JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'));
     expect(meta).toMatchObject({ name: { pol: 'Wlasciwa' }, description: { pol: 'Opis99' } });
   });
@@ -313,10 +313,10 @@ describe('convertMapDatTree', () => {
     const dir = join(game, 'CnModMaps', 'tutorial_002');
     await mkdir(join(dir, 'text', 'pol'), { recursive: true });
     await writeFile(join(dir, 'text', 'pol', 'strings.ini'), rawBytes('[text]\nstringn 0 "Nazwa"\n'));
-    await convertMapDatTree({ mod: game }, out);
+    await convertMapDatTree({ data: game }, out);
     await readFile(join(out, 'maps', 'tutorial_002.meta.json')); // emitted on the first run
     await rm(join(dir, 'text'), { recursive: true, force: true });
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.find((d) => d.id === 'tutorial_002')).toBeDefined();
     expect(JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'))).toEqual({
       provenance: { kind: 'mod', folder: 'CnModMaps/tutorial_002' },
@@ -335,7 +335,7 @@ describe('convertMapDatTree', () => {
       join(dir, 'text', 'eng', 'strings.ini'),
       rawBytes('[text]\nstringn 0 "Name"\nstringn 12 "Pay the tribute"\n'),
     );
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.find((d) => d.id === 'tutorial_002')).toMatchObject({ strings: true });
     const strings = JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.strings.json'), 'utf8'));
     expect(strings).toEqual({
@@ -343,7 +343,7 @@ describe('convertMapDatTree', () => {
       eng: { 0: 'Name', 12: 'Pay the tribute' },
     });
     await rm(join(dir, 'text'), { recursive: true, force: true });
-    const rerun = await convertMapDatTree({ mod: game }, out);
+    const rerun = await convertMapDatTree({ data: game }, out);
     expect(rerun.find((d) => d.id === 'tutorial_002')).toMatchObject({ strings: false });
     await expect(readFile(join(out, 'maps', 'tutorial_002.strings.json'))).rejects.toThrow();
   });
@@ -355,7 +355,7 @@ describe('convertMapDatTree', () => {
     await mkdir(join(twin, 'text', 'pol'), { recursive: true });
     await writeFile(join(twin, 'map.dat'), buildMapDat(1, 1, [2, 2, 2, 2]));
     await writeFile(join(twin, 'text', 'pol', 'strings.ini'), rawBytes('[text]\nstringn 0 "Nazwa"\n'));
-    const done = await convertMapDatTree({ mod: game }, out);
+    const done = await convertMapDatTree({ data: game }, out);
     expect(done.map((d) => d.id)).toEqual(['forteca', 'tutorial_002', 'tutorial_002']);
     expect(JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'))).toEqual({
       provenance: { kind: 'mod', folder: 'CnModMaps/tutorial_002' },

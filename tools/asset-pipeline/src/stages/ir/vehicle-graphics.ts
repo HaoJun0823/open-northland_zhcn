@@ -18,7 +18,7 @@ import {
   type SourceRef,
   type VehicleGraphicsBinding,
 } from '@open-northland/formats/ini';
-import { CULTURESNATION_MOD } from '../../mod-root.js';
+import { CULTURESNATION_MOD } from '../../cnmod.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 
 const MOD_FILE = `${CULTURESNATION_MOD}/types/vehiclestype/jobgraphics.ini`;

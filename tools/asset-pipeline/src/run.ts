@@ -4,7 +4,7 @@ import { decodePng } from '@open-northland/formats/png';
 import type { Args } from './args.js';
 import { CORRECTIONS_DIR, loadSourceCorrections } from './corrections.js';
 import { errorMessage } from './errors.js';
-import { resolveModRoot, type SourceRoots } from './roots.js';
+import { resolveDataRoot, type SourceRoots } from './roots.js';
 import {
   convertBmdTree,
   convertEffectBmdTree,
@@ -30,13 +30,13 @@ import { convertVehiclePaletteFamilies } from './stages/vehicle-colors.js';
 import { convertVertexPalette, VERTEX_PALETTE_FILE } from './stages/vertex-palette.js';
 import { loadStringCorrections, STRING_CORRECTIONS_FILE } from './string-corrections.js';
 
-/** Runs the full conversion of the mod root into the IR under `args.out`. */
+/** Runs the full conversion of the base data root into the IR under `args.out`. */
 export async function runPipeline(args: Args): Promise<void> {
-  const mod = await resolveModRoot(args.modRoot);
-  const corrections = await loadSourceCorrections(CORRECTIONS_DIR, mod);
+  const data = await resolveDataRoot(args.dataRoot);
+  const corrections = await loadSourceCorrections(CORRECTIONS_DIR, data);
   const stringCorrections = await loadStringCorrections(STRING_CORRECTIONS_FILE);
-  const roots: SourceRoots = { mod, corrections, stringCorrections };
-  console.log(`[pipeline] mod=${roots.mod} out=${args.out}`);
+  const roots: SourceRoots = { data, corrections, stringCorrections };
+  console.log(`[pipeline] data=${roots.data} out=${args.out}`);
   for (const { id, file } of corrections.list) console.log(`[pipeline] correction ${id}: ${file}`);
 
   await mkdir(args.out, { recursive: true });

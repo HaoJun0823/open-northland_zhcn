@@ -3,7 +3,7 @@ import { IR_VERSION, parseContentSet, parseGeneratedContentSet } from '../src/in
 
 function contentSet(version: unknown): Record<string, unknown> {
   return {
-    manifest: { version, generatedFrom: { mod: 'synthetic-test-fixture' }, locale: 'eng' },
+    manifest: { version, generatedFrom: { data: 'synthetic-test-fixture' }, locale: 'eng' },
     goods: [],
     jobs: [],
     buildings: [],

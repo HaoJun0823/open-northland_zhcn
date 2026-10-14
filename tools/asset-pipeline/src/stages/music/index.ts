@@ -132,7 +132,7 @@ async function storedManifest(musicDir: string): Promise<StoredManifest> {
  * that fails leaves the others alone.
  */
 export async function renderMusicStage(roots: SourceRoots, outDir: string): Promise<MusicStageResult> {
-  const dm2 = await findPathCaseInsensitive(roots.mod, ['DataX', 'DM2']);
+  const dm2 = await findPathCaseInsensitive(roots.data, ['DataX', 'DM2']);
   if (dm2 === undefined)
     return { rendered: 0, kept: 0, failed: 0, skipped: 'no DataX/DM2 under the mod root' };
   const entries = await readdir(dm2, { withFileTypes: true });

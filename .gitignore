@@ -77,3 +77,6 @@ npm-debug.log*
 /.art-build/
 **/__pycache__/
 *.blend1
+
+# Source data cache and transactional content builds
+/.cache/

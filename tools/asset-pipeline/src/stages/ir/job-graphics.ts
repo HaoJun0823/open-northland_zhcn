@@ -8,7 +8,7 @@ import {
   makeSource,
   type SourceRef,
 } from '@open-northland/formats/ini';
-import { CULTURESNATION_MOD } from '../../mod-root.js';
+import { CULTURESNATION_MOD } from '../../cnmod.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 import { loadCifTable } from './cif-tables.js';
 

@@ -2,69 +2,70 @@ import { mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { assertOutStaysInCheckout, parseArgs, resolveArgs } from '../src/args.js';
-import { CULTURESNATION_MOD } from '../src/mod-root.js';
-import { resolveModRoot } from '../src/roots.js';
+import { resolveDataRoot } from '../src/roots.js';
 import { makeTempDir } from './support/game-tree.js';
 
 describe('parseArgs', () => {
-  it('reads --mod-root/--out and defaults out to content', () => {
-    expect(parseArgs(['--mod-root', 'm', '--out', 'o'])).toEqual({ modRoot: 'm', out: 'o' });
-    expect(parseArgs(['--mod-root', 'm'])).toEqual({ modRoot: 'm', out: 'content' });
+  it('reads --data-root/--out and defaults out to content', () => {
+    expect(parseArgs(['--data-root', 'm', '--out', 'o'])).toEqual({ dataRoot: 'm', out: 'o' });
+    expect(parseArgs(['--data-root', 'm'])).toEqual({ dataRoot: 'm', out: 'content' });
   });
 
-  it('throws the usage when --mod-root is missing', () => {
-    expect(() => parseArgs(['--out', 'o'])).toThrow(/--mod-root <dir>/);
+  it('throws the usage when --data-root is missing', () => {
+    expect(() => parseArgs(['--out', 'o'])).toThrow(/--data-root <dir>/);
   });
 });
 
 describe('resolveArgs', () => {
   // The bug this guards: npm runs the workspace `start` script with cwd=tools/asset-pipeline/, so a
-  // relative `--mod-root ../CNMod-1.3.2` must resolve against INIT_CWD (repo root), not cwd.
+  // relative `--data-root ../data-pack` must resolve against INIT_CWD (repo root), not cwd.
   // Expected values are resolved from the PARENT dir (not composed as resolve(baseDir, arg) like the
   // implementation), so they independently prove the `..` collapsed against baseDir. `resolve()` in
   // the expectations keeps the test platform-agnostic (Windows adds a drive letter + backslashes).
-  it('resolves a relative mod-root and out against baseDir', () => {
+  it('resolves a relative data-root and out against baseDir', () => {
     expect(
-      resolveArgs({ modRoot: '../mods/CNMod-1.3.2', out: 'content' }, resolve('/home/u/open-northland')),
+      resolveArgs({ dataRoot: '../packs/data-pack', out: 'content' }, resolve('/home/u/open-northland')),
     ).toEqual({
-      modRoot: resolve('/home/u/mods/CNMod-1.3.2'),
+      dataRoot: resolve('/home/u/packs/data-pack'),
       out: resolve('/home/u/open-northland/content'),
     });
   });
 
-  it('passes an absolute mod-root and out through unchanged', () => {
-    const modRoot = resolve('/abs/mod');
+  it('passes an absolute data-root and out through unchanged', () => {
+    const dataRoot = resolve('/abs/data');
     const out = resolve('/abs/out');
-    expect(resolveArgs({ modRoot, out }, resolve('/home/u/open-northland'))).toEqual({ modRoot, out });
+    expect(resolveArgs({ dataRoot, out }, resolve('/home/u/open-northland'))).toEqual({ dataRoot, out });
   });
 });
 
-describe('resolveModRoot', () => {
+describe('resolveDataRoot', () => {
   let base: string;
   beforeEach(async () => {
-    base = (await makeTempDir('mod-root')).path;
+    base = (await makeTempDir('data-root')).path;
   });
   afterEach(async () => {
     await rm(base, { recursive: true, force: true });
   });
 
-  it('accepts a mod root that contains DataCnmd/', async () => {
-    const modRoot = join(base, 'CnMod 1.3.2');
-    await mkdir(join(modRoot, CULTURESNATION_MOD), { recursive: true });
-    await expect(resolveModRoot(modRoot)).resolves.toBe(modRoot);
+  it('rejects an unpacked directory without a data manifest', async () => {
+    await mkdir(join(base, 'DataCnmd'), { recursive: true });
+    await expect(resolveDataRoot(base)).rejects.toThrow(/manifest.json/);
   });
 
-  it('rejects a mod root without DataCnmd/, pointing at the download', async () => {
-    const modRoot = join(base, 'not-a-mod');
-    await mkdir(modRoot, { recursive: true });
-    await expect(resolveModRoot(modRoot)).rejects.toThrow(/DataCnmd.*culturesnation\.pl/s);
-  });
-
-  it('rejects a DataCnmd that is a file, not a directory', async () => {
-    const modRoot = join(base, 'file-mod');
-    await mkdir(modRoot, { recursive: true });
-    await writeFile(join(modRoot, CULTURESNATION_MOD), 'not a directory');
-    await expect(resolveModRoot(modRoot)).rejects.toThrow(/DataCnmd/);
+  it('exposes only the base tree of a valid pack', async () => {
+    await mkdir(join(base, 'base', 'DataCnmd'), { recursive: true });
+    await writeFile(
+      join(base, 'manifest.json'),
+      JSON.stringify({
+        format: 'open-northland-data',
+        version: 1,
+        base: 'base',
+        components: [{ id: 'synthetic', kind: 'base', sha256: '0'.repeat(64) }],
+        campaigns: [],
+        files: [],
+      }),
+    );
+    await expect(resolveDataRoot(base)).resolves.toBe(join(base, 'base'));
   });
 });
 

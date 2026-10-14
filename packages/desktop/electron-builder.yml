@@ -20,10 +20,10 @@ extraResources:
     to: content
     filter:
       - '**/*'
-      - '!cnmod.zip'
-      - '!.cnmod-unpacked'
-      - '!.cnmod-unpacked/**'
-      - '!.cnmod-unpacked.sha256'
+      - '!data.zip'
+      - '!.data-unpacked'
+      - '!.data-unpacked/**'
+      - '!.data-unpacked.sha256'
 win:
   artifactName: ${productName}-${version}-win-${arch}.${ext}
   target:

@@ -29,7 +29,7 @@ import {
  * `overrides` replacing whichever tables the case under test supplies.
  */
 const contentSet = (overrides: Record<string, unknown>): Record<string, unknown> => ({
-  manifest: { version: IR_VERSION, generatedFrom: { mod: 'Cultures 8th Wonder' } },
+  manifest: { version: IR_VERSION, generatedFrom: { data: 'Cultures 8th Wonder' } },
   goods: [],
   jobs: [],
   buildings: [],

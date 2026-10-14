@@ -4,7 +4,7 @@ import { decodePcx, expandToRgba } from '@open-northland/formats/pcx';
 import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from '../errors.js';
 import { writeFileWithParents } from '../files.js';
-import { collectSourceFiles, MOD_GUI_BITMAPS_DIR, MOD_TEXTURES_DIR, type SourceRoots } from '../roots.js';
+import { collectSourceFiles, DATA_GUI_BITMAPS_DIR, DATA_TEXTURES_DIR, type SourceRoots } from '../roots.js';
 import { GUI_BITMAPS_DIR, TEXTURES_DIR } from './content-tree.js';
 import { readSourceFile } from './source-files.js';
 
@@ -47,7 +47,7 @@ export async function composeMaskedTransitionPages(
   const done: PcxConversion[] = [];
   const seen = new Set<string>();
   const readTexturePcx = (normalizedPath: string): Promise<Uint8Array> =>
-    readSourceFile(roots, `${MOD_TEXTURES_DIR}/${basename(normalizedPath)}`);
+    readSourceFile(roots, `${DATA_TEXTURES_DIR}/${basename(normalizedPath)}`);
   for (const pair of pairs) {
     if (seen.has(pair.texture)) continue;
     seen.add(pair.texture);
@@ -75,8 +75,8 @@ export async function composeMaskedTransitionPages(
 
 /** The flat mod directories whose `.pcx` pictures the app fetches, and the served directory each lands in. */
 const PICTURE_DIRS: readonly { readonly source: string; readonly output: string }[] = [
-  { source: MOD_TEXTURES_DIR, output: TEXTURES_DIR },
-  { source: MOD_GUI_BITMAPS_DIR, output: GUI_BITMAPS_DIR },
+  { source: DATA_TEXTURES_DIR, output: TEXTURES_DIR },
+  { source: DATA_GUI_BITMAPS_DIR, output: GUI_BITMAPS_DIR },
 ];
 
 /**

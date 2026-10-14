@@ -33,12 +33,12 @@ function shortSegment(padding = 0): Uint8Array {
 
 describe('music stage incremental identity', () => {
   let temp: GameOutTemp;
-  let roots: { readonly mod: string };
+  let roots: { readonly data: string };
   let manifestPath: string;
 
   beforeEach(async () => {
     temp = await makeGameOutTemp('music');
-    roots = { mod: temp.game };
+    roots = { data: temp.game };
     manifestPath = join(temp.out, MUSIC_DIR, MUSIC_MANIFEST_NAME);
   });
 

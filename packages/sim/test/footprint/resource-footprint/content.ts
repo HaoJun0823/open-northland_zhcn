@@ -41,7 +41,7 @@ export function content(): ContentSet {
   return parseContentSet({
     manifest: {
       version: IR_VERSION,
-      generatedFrom: { mod: 'synthetic-resource-footprint-test' },
+      generatedFrom: { data: 'synthetic-resource-footprint-test' },
       locale: 'eng',
     },
     goods: [

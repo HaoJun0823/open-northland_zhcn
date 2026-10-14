@@ -174,7 +174,7 @@ for (const file of tracked) {
   const lower = file.toLowerCase();
   const extension = extname(lower);
 
-  if (lower.startsWith('content/')) {
+  if (lower.startsWith('content/') || lower.startsWith('.cache/')) {
     errors.push(`${file}: generated content must stay untracked`);
   }
   if (isForbiddenGameFile(file)) {

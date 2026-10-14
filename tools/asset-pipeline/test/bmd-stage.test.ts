@@ -109,7 +109,7 @@ describe('convertBmdTree', () => {
     const done = await convertBmdTree(
       { bindings, palettes, buildTimeBmds: new Set() },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
     expect(done).toHaveLength(1);
@@ -149,7 +149,7 @@ describe('convertBmdTree', () => {
     const done = await convertBmdTree(
       { bindings, palettes, buildTimeBmds: new Set() },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
     expect(done).toHaveLength(2);
@@ -187,7 +187,7 @@ describe('convertBmdTree', () => {
     const done = await convertBmdTree(
       { bindings, palettes, buildTimeBmds: new Set() },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
     expect(done.map((c) => c.png)).toEqual([`${BOBS_DIR}/body.bear01.png`]);
@@ -214,7 +214,7 @@ describe('convertBmdTree', () => {
         buildTimeBmds: new Set(),
       },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
     // The app asks for `/bobs/f_bakery.house.png` - the source's `nowe/` subdirectory must not reach
@@ -236,7 +236,7 @@ describe('convertBmdTree', () => {
       convertBmdTree(
         { bindings, palettes, buildTimeBmds: new Set() },
         out,
-        await indexSourceAssets({ mod: out }),
+        await indexSourceAssets({ data: out }),
       ),
     ).rejects.toThrow(/basename collision.*nowe\/body\.bmd/s);
   });
@@ -261,7 +261,7 @@ describe('convertBmdTree', () => {
     const done = await convertBmdTree(
       { bindings, palettes, buildTimeBmds: new Set() },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
     expect(done.map((c) => c.png)).toEqual([`${BOBS_DIR}/body.bear01.png`]);
@@ -277,7 +277,7 @@ describe('convertBmdTree', () => {
     const done = await convertBmdTree(
       { bindings, palettes: [], buildTimeBmds: new Set() },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     ); // empty palette index
 
     expect(done).toEqual([]);
@@ -295,7 +295,7 @@ describe('convertBmdTree', () => {
     const done = await convertBmdTree(
       { bindings, palettes, buildTimeBmds: new Set() },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
     expect(done).toEqual([]);
@@ -314,7 +314,7 @@ describe('convertBmdTree', () => {
     const done = await convertBmdTree(
       { bindings, palettes, buildTimeBmds: new Set() },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
     expect(done).toEqual([]);
@@ -360,7 +360,7 @@ describe('convertShadowBmdTree', () => {
     convertShadowBmdTree(
       { bindings, palettes: [], buildTimeBmds: new Set() },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
   it('writes `<shadow-basename>.shadow.{png,atlas.json}` under bobs/ - the name the app joins on', async () => {
@@ -469,7 +469,7 @@ describe('convertBmdTree build-time bake', () => {
     await convertBmdTree(
       { bindings, palettes, buildTimeBmds: new Set(['data/bobs/house.bmd']) },
       out,
-      await indexSourceAssets({ mod: out }),
+      await indexSourceAssets({ data: out }),
     );
 
     const alphaOf = async (png: string): Promise<number> => {

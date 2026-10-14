@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { writeFileWithParents } from '../files.js';
-import { collectSourceFiles, MOD_SOUNDS_DIR, type SourceRoots } from '../roots.js';
+import { collectSourceFiles, DATA_SOUNDS_DIR, type SourceRoots } from '../roots.js';
 import { SOUNDS_DIR } from './content-tree.js';
 
-const SOUNDS_SOURCE_PREFIX = `${MOD_SOUNDS_DIR.toLowerCase()}/`;
+const SOUNDS_SOURCE_PREFIX = `${DATA_SOUNDS_DIR.toLowerCase()}/`;
 
 /** Copies the mod's loose `.wav` tree into `sounds/`, lower-cased the way the IR references each file. */
 export async function copySoundTree(roots: SourceRoots, outDir: string): Promise<string[]> {

@@ -10,7 +10,7 @@ const scriptFrom = (file: string) => ({
 
 describe('mapDocumentsFingerprint', () => {
   it('ignores where the script was read from', () => {
-    expect(mapDocumentsFingerprint({ map: MAP, script: scriptFrom('CnModMaps/wyspa/map.cif') })).toBe(
+    expect(mapDocumentsFingerprint({ map: MAP, script: scriptFrom('maps/community/wyspa/map.cif') })).toBe(
       mapDocumentsFingerprint({ map: MAP, script: scriptFrom('wyspa/map.cif') }),
     );
   });

@@ -1,6 +1,6 @@
 {
   "reason": "W wersji rosyjskiej brakuje znacznika końca bloku 501. Blok 501 wciąga blok 502 (BALTAZAR UCIEKŁ) razem z tekstem [blockstart:502], a strona 502 nie ma tekstu po rosyjsku. Dopisujemy brakujący znacznik.",
-  "file": "CnModMaps/SARACEN_4_SUB_3/text/rus/briefings/briefings.txt",
+  "file": "maps/community/SARACEN_4_SUB_3/text/rus/briefings/briefings.txt",
   "sha256": "f7a4202a3ba20d53e1bd7a91f6bc8e8dcdca13b7b53a7652932e89432f0b3d6b",
   "lines": [
     {

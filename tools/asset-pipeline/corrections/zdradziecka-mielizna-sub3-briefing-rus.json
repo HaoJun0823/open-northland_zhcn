@@ -1,6 +1,6 @@
 {
   "reason": "W wersji rosyjskiej znacznik [blockstart:500] stoi dwa razy pod rząd i drugi pokazuje się w odprawie jako tekst. Usuwamy powtórzony znacznik.",
-  "file": "CnModMaps/Zdradziecka mielizna_sub3/text/rus/Briefings/briefings.txt",
+  "file": "maps/community/Zdradziecka mielizna_sub3/text/rus/Briefings/briefings.txt",
   "sha256": "c27ce61c3d0bf17d84fcb5abb7884ddb1583a7fa7f7352e8199cb593839baefb",
   "lines": [
     {

@@ -12,7 +12,7 @@ The repository never contains original game files, mod files, decoded content, b
 reference captures from the original. `npm run check:assets` rejects tracked `content/`, original
 file types, and unreviewed binaries; review covers the rest. The pinned source data pack is the pipeline's input; it contains the selected CulturesNation base
 and explicitly selected additions. Its format is documented in `docs/DATA-PACK.md`; the named corrections in `tools/asset-pipeline/corrections/` fix single
-mod files as the pipeline reads them. An owned game installation beside the checkout serves as
+source files as the pipeline reads them. An owned game installation beside the checkout serves as
 format and behavior evidence, never as pipeline input.
 
 This is an independent AGPL-3.0-or-later implementation. Do not copy or translate another engine's
@@ -27,7 +27,7 @@ the canonical legal wording.
    `fx.*`.
 3. **Content is data.** Goods, jobs, buildings, tribes, graphics bindings, and balance belong in
    validated content or the committed fallback catalog. Systems must not grow id-specific rules.
-4. **Use the strongest readable source.** Prefer mod `.ini`, then base plaintext `.ini`, then decoded
+4. **Use the strongest readable source.** Prefer readable rule `.ini`, then base plaintext `.ini`, then decoded
    `.cif`. Binary claims need byte-level evidence from the owned copy and synthetic tests.
 5. **Name approximations.** A passing test proves internal behavior, not fidelity. Record whether a
    mechanic, constant, timing, or visual choice comes from extracted data, readable semantics,

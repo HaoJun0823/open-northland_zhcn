@@ -682,11 +682,11 @@ export const deSurfaces = {
     summaryHeads: 'Derselbe Gehzyklus mit allen verfügbaren Kopfvarianten.',
     summaryColors: 'Derselbe Gehzyklus in allen sechzehn Spielerfarben.',
     missingAtlas:
-      'Führe die Asset-Pipeline mit der CulturesNation-Mod aus, um den dekodierten Atlas für „{character}“ zu laden ({stem}).',
+      'Führe die Asset-Pipeline mit dem Open-Northland-Datenpaket aus, um den dekodierten Atlas für „{character}“ zu laden ({stem}).',
     missingFrames:
       'content/ir.json enthält keine abspielbaren Animationsbilder für „{character}“ ({imagelib}).',
     missingRoster:
-      'Führe die Asset-Pipeline mit der CulturesNation-Mod aus, um die dekodierten Figurenatlanten zu laden.',
+      'Führe die Asset-Pipeline mit dem Open-Northland-Datenpaket aus, um die dekodierten Figurenatlanten zu laden.',
     noLooks: 'Keine Figurenvarianten',
     noHeads: 'Keine Kopfvarianten',
     noColors: 'Keine Spielerfarben',
@@ -703,7 +703,7 @@ export const deSurfaces = {
     intro:
       'Wähle einen Atlas, filtere die Bildnamen und klicke auf eine Kachel, um ihre Bild-ID zu kopieren.',
     missingDetail:
-      'Führe die Asset-Pipeline mit der CulturesNation-Mod aus, um die lokal dekodierten Atlanten anzusehen.',
+      'Führe die Asset-Pipeline mit dem Open-Northland-Datenpaket aus, um die lokal dekodierten Atlanten anzusehen.',
     atlas: 'Atlas',
     filter: 'Bilder filtern…',
     zoom: 'Zoom',
@@ -727,7 +727,7 @@ export const deSurfaces = {
       'Jede Wiedergabe läuft durch das Mischpult und den Schiedsrichter des Spiels: Die Regler sind die Busse des Spiels, Panorama und Zoom setzen den Hörer, und eine Serie zeigt, was Pool-Grenze und Spurbudget durchlassen. Die Aktionszeilen zeigen, wann ein Klang abgespielt wird; Aktionsklänge sind die Gruppen, auf die Siedleranimationen per ID verweisen.',
     missingTitle: 'Keine dekodierten Klänge gefunden',
     missingDetail:
-      'Führe die Asset-Pipeline mit der CulturesNation-Mod aus, um die lokale Klangbibliothek zu erstellen.',
+      'Führe die Asset-Pipeline mit dem Open-Northland-Datenpaket aus, um die lokale Klangbibliothek zu erstellen.',
     actions: 'Aktionen und Klangzuordnungen',
     cues: 'Aktionsklänge (Verweise aus den Animationsdaten)',
     voices: 'Siedlerstimmen',

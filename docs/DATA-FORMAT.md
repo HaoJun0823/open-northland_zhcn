@@ -1,7 +1,7 @@
 # Generated content and the IR
 
-The asset pipeline converts the unpacked CulturesNation mod into a local `content/` directory. The
-directory is ignored by Git because it contains derived game data.
+The asset pipeline converts the validated Open Northland source data pack into a local `content/`
+directory. The directory is ignored by Git because it contains derived game data.
 
 The tree is laid out exactly as the app fetches it, so every host serves it as static files from `/`:
 
@@ -143,9 +143,9 @@ shipped languages.
 
 ## Layering
 
-Prefer readable CulturesNation `.ini` files when they exist, then readable base-game `.ini` files.
+Prefer readable rule `.ini` files when they exist, then readable base-game `.ini` files.
 Use decoded `.cif` tables only when no readable equivalent is available. The pipeline loads base data
-and applies supported mod overrides.
+and applies the readable rule overrides.
 
 Keys are case-sensitive. A repeated single-value key and a one-line list need different parsing
 helpers. Test both shapes when a source table uses both.

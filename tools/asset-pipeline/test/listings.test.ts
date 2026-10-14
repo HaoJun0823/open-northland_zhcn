@@ -39,7 +39,7 @@ function converted(id: string, extra: Partial<MapDatConversion> = {}): MapDatCon
     output: `maps/${id}.json`,
     picture: false,
     minimap: false,
-    meta: { provenance: { kind: 'mod', folder: `CnModMaps/${id}` } },
+    meta: { provenance: { kind: 'mod', folder: `maps/community/${id}` } },
     briefing: false,
     strings: false,
     unknownStaticVerbs: [],
@@ -62,7 +62,7 @@ describe('mapsIndexEntries', () => {
         picture: true,
         minimap: true,
         meta: {
-          provenance: { kind: 'mod', folder: 'CnModMaps/arena' },
+          provenance: { kind: 'mod', folder: 'maps/community/arena' },
           name: { pol: 'Arena', eng: 'Arena' },
           description: { pol: 'Dwoch na dwoch.', eng: 'Two against two.' },
           musicType: 3,
@@ -76,7 +76,7 @@ describe('mapsIndexEntries', () => {
       {
         id: 'arena',
         fingerprint: FINGERPRINT,
-        provenance: { kind: 'mod', folder: 'CnModMaps/arena' },
+        provenance: { kind: 'mod', folder: 'maps/community/arena' },
         name: { pol: 'Arena', eng: 'Arena' },
         description: { pol: 'Dwoch na dwoch.', eng: 'Two against two.' },
         picture: true,

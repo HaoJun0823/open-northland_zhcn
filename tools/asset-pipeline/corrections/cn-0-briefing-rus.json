@@ -1,6 +1,6 @@
 {
   "reason": "W wersji rosyjskiej tłumacz rozciął bloki 503, 514 i 533 na dwa bloki o tej samej etykiecie; odprawa czyta tylko pierwszy, więc druga połowa tekstu ginie. W bloku 549 drugi raz stoi [blockstart:549], który pokazuje się jako tekst. Usuwamy znaczniki w miejscach cięcia, powtórzony znacznik i powtórzone tytuły drugich połówek, żeby każdy blok miał cały tekst jak w wersji polskiej; tytuły 533 i 549 dostają czcionkę nagłówka jak w wersji polskiej.",
-  "file": "CnModMaps/cn_0/text/rus/briefings/briefings.txt",
+  "file": "maps/community/cn_0/text/rus/briefings/briefings.txt",
   "sha256": "845f16dad2967c36bd4c3a9d41dd1de310d473f9106525b863bf407d3053db0e",
   "encoding": "windows-1251",
   "lines": [

@@ -3,10 +3,10 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 export const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 export async function syntheticPack(root, extra = {}, campaigns = []) {
-  const files = { 'base/DataCnmd/types/example.ini': '[synthetic]', ...extra };
+  const files = { 'base/rules/types/example.ini': '[synthetic]', ...extra };
   const manifest = {
     format: 'open-northland-data',
-    version: 1,
+    version: 2,
     base: 'base',
     components: [{ id: 'synthetic', kind: 'base', sha256: hash('synthetic') }],
     campaigns,

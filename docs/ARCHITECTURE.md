@@ -7,7 +7,7 @@ outside the repository; a release converts it once and ships it inside the build
 ## Package flow
 
 ```text
-CulturesNation mod
+Open Northland data pack
        |
        v
 asset-pipeline -> generated content -> app / desktop
@@ -41,7 +41,7 @@ asset-pipeline -> generated content -> app / desktop
 - `packages/app` owns browser input, menus, HUD, the frame loop, and package wiring.
 - `packages/desktop` serves the browser build and the converted content through Electron.
 - `deploy/web` serves the same two trees through nginx; that image is the web app.
-- `tools/asset-pipeline` converts the CulturesNation mod into the validated content tree.
+- `tools/asset-pipeline` converts the Open Northland data pack into the validated content tree.
 
 The app owns runtime orchestration: it advances the sim and hands snapshots and events to the sinks.
 Audio shares pure camera and projection helpers from `@open-northland/render/data`; it does not own a
@@ -92,7 +92,7 @@ The full contract is in [`../packages/sim/AGENTS.md`](../packages/sim/AGENTS.md)
 The pipeline writes one validated rules document at `content/ir.json`, plus decoded maps, atlases,
 GUI files, audio, and the `maps-index.json`/`bobs-index.json` listings, laid out exactly as the app
 fetches them, so every host serves the tree as static files. A release runs the pipeline once over
-the pinned CulturesNation archive and packs the tree into the desktop installers and the web image;
+the pinned Open Northland source data pack and packs the tree into the desktop installers and the web image;
 nothing is converted on a player's machine. Runtime packages validate what they load through
 `packages/data`; the sim never parses original `.ini`, `.cif`, or binary files.
 

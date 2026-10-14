@@ -139,7 +139,7 @@ test('repairs a modified unpacked cache and rejects a mismatching explicit archi
     },
   };
   const root = await obtainPinnedDataRoot(archive, () => {}, options);
-  await writeFile(join(root, 'base/DataCnmd/types/example.ini'), 'tampered');
+  await writeFile(join(root, 'base/rules/types/example.ini'), 'tampered');
   await obtainPinnedDataRoot(archive, () => {}, options);
   assert.equal(extracts, 2);
   await writeFile(archive, 'bad');

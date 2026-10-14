@@ -71,10 +71,10 @@ describe('convertPcxTree', () => {
     // loader reads a 404 as absent content. Map folders and hypertext pictures have their own stages.
     const { bytes } = samplePcx();
     await mkdir(join(game, 'DATA', 'Engine2D', 'Bin', 'Textures', 'Old'), { recursive: true });
-    await mkdir(join(game, 'CnModMaps', 'arena'), { recursive: true });
+    await mkdir(join(game, 'maps/community', 'arena'), { recursive: true });
     await writeFile(join(game, 'DATA', 'Engine2D', 'Bin', 'Textures', 'Text_000.pcx'), bytes);
     await writeFile(join(game, 'DATA', 'Engine2D', 'Bin', 'Textures', 'Old', 'text_001.pcx'), bytes);
-    await writeFile(join(game, 'CnModMaps', 'arena', 'minimap.pcx'), bytes);
+    await writeFile(join(game, 'maps/community', 'arena', 'minimap.pcx'), bytes);
 
     const done = await convertPcxTree({ data: game }, out);
 

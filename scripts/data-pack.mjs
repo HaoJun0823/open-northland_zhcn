@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export const DATA_PACK_VERSION = 1;
+export const DATA_PACK_VERSION = 2;
 export const DATA_PACK_FORMAT = 'open-northland-data';
 const LANGUAGES = new Set(['pl', 'en', 'de', 'ru']);
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -118,8 +118,8 @@ export async function readDataPack(root) {
     if ((await lstat(path)).size !== entry.size || (await sha256File(path)) !== entry.sha256)
       throw new Error(`Data file checksum mismatch: ${entry.path}`);
   }
-  if (!(await lstat(join(root, 'base', 'DataCnmd'))).isDirectory())
-    throw new Error('Data pack lacks base/DataCnmd');
+  if (!(await lstat(join(root, 'base', 'rules'))).isDirectory())
+    throw new Error('Data pack lacks base/rules');
   for (const campaign of manifest.campaigns) await readCampaign(root, campaign, expected);
   return manifest;
 }

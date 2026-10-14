@@ -10,7 +10,7 @@ Viking-era strategy game. It combines a deterministic TypeScript simulation, a P
 an offline asset pipeline.
 
 The repository contains no original game files or decoded content. The maps, graphics, and audio
-the engine plays come from the original game, converted locally from the CulturesNation mod.
+the engine plays come from the original game, converted locally from the Open Northland data pack.
 Playing requires an installed original: *Cultures 2*, *Cultures: Northland* or *Cultures - 8th
 Wonder of the World* from disc, [Steam](https://store.steampowered.com/app/351870/),
 [GOG](https://www.gog.com/game/cultures_34) or the Mac App Store; the game checks for one at first
@@ -29,7 +29,7 @@ It can load decoded maps and render terrain, buildings, settlers, effects, and t
 ## Requirements
 
 - Node.js `>=22.12.0`
-- For playable content, the pinned CulturesNation archive (`CnMod 1.3.2.zip`, about 570 MB), which
+- For playable content, the pinned Open Northland source pack (`data.zip`), which
   `npm run build:content` downloads and converts.
 
 ## Starting the project
@@ -76,7 +76,7 @@ packages/
   render/            PixiJS isometric renderer
   sim/               Deterministic simulation
 tools/
-  asset-pipeline/    Converts the CulturesNation mod into the served content tree
+  asset-pipeline/    Converts the Open Northland data pack into the served content tree
 deploy/web/          nginx image of the built app and the converted content
 scripts/             Repository checks, content build, benchmarks
 content/             Converted locally, ignored by Git

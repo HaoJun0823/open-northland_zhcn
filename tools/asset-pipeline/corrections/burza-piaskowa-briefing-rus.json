@@ -1,6 +1,6 @@
 {
   "reason": "W wersji rosyjskiej znacznik [blockstart:500] stoi dwa razy pod rząd i drugi pokazuje się w odprawie jako tekst. Usuwamy powtórzony znacznik.",
-  "file": "CnModMaps/Burza Piaskowa/text/rus/briefings/briefings.txt",
+  "file": "maps/community/Burza Piaskowa/text/rus/briefings/briefings.txt",
   "sha256": "779b6479d242af2cba5c82d186ced9eca82d7eaf226f737d298ef5c2b357789f",
   "lines": [
     {

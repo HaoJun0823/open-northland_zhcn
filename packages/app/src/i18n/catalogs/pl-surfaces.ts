@@ -634,11 +634,11 @@ export const plSurfaces = {
     summaryHeads: 'Ten sam chód z każdym dostępnym wyglądem głowy.',
     summaryColors: 'Ten sam chód we wszystkich szesnastu kolorach graczy.',
     missingAtlas:
-      'Uruchom pipeline assetów na modzie CulturesNation, aby wczytać atlas „{character}” ({stem}).',
+      'Uruchom pipeline assetów na paczce danych Open Northland, aby wczytać atlas „{character}” ({stem}).',
     missingFrames:
       'content/ir.json nie zawiera klatek możliwych do odtworzenia dla „{character}” ({imagelib}).',
     missingRoster:
-      'Uruchom pipeline assetów na modzie CulturesNation, aby wczytać zdekodowane atlasy postaci.',
+      'Uruchom pipeline assetów na paczce danych Open Northland, aby wczytać zdekodowane atlasy postaci.',
     noLooks: 'Brak wyglądów postaci',
     noHeads: 'Brak wyglądów głów',
     noColors: 'Brak kolorów graczy',
@@ -652,7 +652,7 @@ export const plSurfaces = {
     title: 'Atlas sprite’ów',
     intro: 'Wybierz atlas, filtruj nazwy klatek i kliknij kafel, aby skopiować identyfikator.',
     missingDetail:
-      'Uruchom pipeline assetów na modzie CulturesNation, aby przeglądać lokalne zdekodowane atlasy.',
+      'Uruchom pipeline assetów na paczce danych Open Northland, aby przeglądać lokalne zdekodowane atlasy.',
     atlas: 'Atlas',
     filter: 'Filtruj klatki…',
     zoom: 'Powiększenie',
@@ -675,7 +675,8 @@ export const plSurfaces = {
     intro:
       'Każde odtworzenie przechodzi przez mikser i arbitra gry: suwaki to szyny gry, panorama i przybliżenie ustawiają słuchacza, a seria pokazuje, ile przepuszcza limit puli i budżet toru. Akcje opisują moment użycia, a dźwięki pracy to grupy wskazywane po id przez animację osadnika.',
     missingTitle: 'Nie znaleziono zdekodowanych dźwięków',
-    missingDetail: 'Uruchom pipeline assetów na modzie CulturesNation, aby utworzyć lokalny bank dźwięków.',
+    missingDetail:
+      'Uruchom pipeline assetów na paczce danych Open Northland, aby utworzyć lokalny bank dźwięków.',
     actions: 'Akcje i przypisane dźwięki',
     cues: 'Dźwięki pracy (wskazane przez dane animacji)',
     voices: 'Głosy osadników',

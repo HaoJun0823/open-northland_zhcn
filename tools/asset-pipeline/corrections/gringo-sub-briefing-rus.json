@@ -1,6 +1,6 @@
 {
   "reason": "W wersji rosyjskiej strony 501 (ZWYCIĘSTWO) tłumaczenie maszynowe zgubiło nazwy plików w znacznikach obrazków, jeden znacznik przetłumaczyło na <картинка:...> (pokazuje się jako tekst), a za każdym zostawiło kropkę. Przywracamy obrazki w kolejności z wersji polskiej i angielskiej (korzen, zohan) i usuwamy kropki.",
-  "file": "CnModMaps/Gringo-sub/text/rus/briefings/briefings.txt",
+  "file": "maps/community/Gringo-sub/text/rus/briefings/briefings.txt",
   "sha256": "e9302edbc8acef27cf19cdbb4e87898f547e9343f814ff3c088b1fd1f5e16463",
   "encoding": "windows-1251",
   "lines": [

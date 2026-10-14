@@ -13,7 +13,7 @@ import {
   type PaletteAlias,
   type RuleSection,
 } from '@open-northland/formats/ini';
-import { CULTURESNATION_MOD } from '../../cnmod.js';
+import { BUILDING_GRAPHICS_FILE, HUMAN_GRAPHICS_FILE, VEHICLE_GRAPHICS_FILE } from '../../data-layout.js';
 import { readSourceFile, resolveSourceFile, type SourceRoots } from '../../roots.js';
 
 /**
@@ -82,7 +82,7 @@ export function jobBaseGraphicsToBindings(records: readonly JobBaseGraphicsBindi
 /** One binding skin: where it lives, how its records reach the flat {@link BmdPaletteBinding} shape,
  *  and the per-source handling applied to them. */
 interface GraphicsBindingSource {
-  /** Path under the mod root: `Data/` for the base tables, `DataCnmd/` for the mod's readable twins. */
+  /** Path under the data root: binary base tables or readable rule tables. */
   readonly path: string;
   readonly encrypted?: true;
   readonly read: (sections: readonly RuleSection[]) => readonly BmdPaletteBinding[];
@@ -133,19 +133,19 @@ const GRAPHICS_BINDING_SOURCES: readonly GraphicsBindingSource[] = [
     read: extractParticleGraphics,
     dedupe: true,
   },
-  /** The mod's readable human twin. */
-  { path: `${CULTURESNATION_MOD}/types/humanstype/jobgraphics.ini`, read: readHumanJobGraphics },
-  /** The mod's broader per-tribe cart/ship set (22 records across tribes 1..4 against the base `.cif`'s
+  /** The readable human graphics rules. */
+  { path: HUMAN_GRAPHICS_FILE, read: readHumanJobGraphics },
+  /** The readable per-tribe cart/ship set (22 records across tribes 1..4 against the base `.cif`'s
    *  6 across tribes 1 and 4); the base pairs are a strict subset and dedup at conversion. */
   {
-    path: `${CULTURESNATION_MOD}/types/vehiclestype/jobgraphics.ini`,
+    path: VEHICLE_GRAPHICS_FILE,
     read: extractGraphicsBindings,
   },
   /** Every settlement house bound to its `ls_houses_*.bmd` body and palette. Records repeat a
    *  bob+palette across tribes and levels (the ~25 viking-home records all bind `ls_houses_viking` with
    *  `house01`/`house02`). The only source claiming build-time `.bmd`s. */
   {
-    path: `${CULTURESNATION_MOD}/budynki12/houses/houses.ini`,
+    path: BUILDING_GRAPHICS_FILE,
     read: extractBuildingGraphics,
     dedupe: true,
     buildTime: true,

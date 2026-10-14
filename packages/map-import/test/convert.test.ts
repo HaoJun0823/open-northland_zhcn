@@ -107,8 +107,9 @@ describe('convertMapTree', () => {
 
   it('fingerprints one map the same under two folder paths, as the served documents hash', async () => {
     const files = { ...plaintextMap('Wyspa'), 'misc.inc': '[misc_maptype]\nmaptype 2\n' };
-    const [first] = (await convertMapTree(treeOf(under('CnModMaps/Wyspa', files)), { provenance: 'mod' }))
-      .maps;
+    const [first] = (
+      await convertMapTree(treeOf(under('maps/community/Wyspa', files)), { provenance: 'mod' })
+    ).maps;
     const [second] = (await convertMapTree(treeOf(under('Wyspa', files)), { provenance: 'catalog' })).maps;
     if (first === undefined || second === undefined) throw new Error('no map');
     expect(first.script?.source?.file).not.toBe(second.script?.source?.file);

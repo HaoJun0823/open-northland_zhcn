@@ -1,4 +1,4 @@
-import { CULTURESNATION_MOD } from '../../cnmod.js';
+import { BUILDING_GRAPHICS_FILE } from '../../data-layout.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 
 export interface IniSource {
@@ -6,17 +6,11 @@ export interface IniSource {
   readonly path: string;
   /** Path stamped onto each record's `source.file` - relative so the IR is location-agnostic. */
   readonly file: string;
-  /** The path's namespace (`Data/logic` vs `DataCnmd`): the mod's patched copy of a base table still
-   *  stamps `base`. */
+  /** Source layer retained for precedence over the original binary tables. */
   readonly layer: 'base' | 'mod';
 }
 
-/**
- * Resolves the readable `.ini` rule sources: tribes, atomic animations, weapons, and buildings are
- * readable text only under `DataCnmd/` (their base twins are encrypted `.cif`), while the
- * `Data/logic/*.ini` tables are the mod's patched copies of the base ones. A missing source is skipped
- * with a warning, so a partial mod tree still yields an IR.
- */
+/** Resolves readable rule tables in the data pack; missing tables warn and are skipped. */
 export async function resolveIniSources(roots: SourceRoots): Promise<IniSource[]> {
   const wanted: { rel: string; layer: 'base' | 'mod' }[] = [
     { rel: 'Data/logic/goodtypes.ini', layer: 'base' },
@@ -26,14 +20,14 @@ export async function resolveIniSources(roots: SourceRoots): Promise<IniSource[]
     { rel: 'Data/logic/vehicletypes.ini', layer: 'base' },
     { rel: 'Data/logic/armortypes.ini', layer: 'base' },
     { rel: 'Data/logic/animaltypes.ini', layer: 'base' },
-    { rel: `${CULTURESNATION_MOD}/tribetypes12/tribetypes.ini`, layer: 'mod' },
-    { rel: `${CULTURESNATION_MOD}/atomicanimations12/atomicanimations.ini`, layer: 'mod' },
-    { rel: `${CULTURESNATION_MOD}/types/weapons.ini`, layer: 'mod' },
-    { rel: `${CULTURESNATION_MOD}/types/houses.ini`, layer: 'mod' },
+    { rel: 'rules/tribes/tribetypes.ini', layer: 'mod' },
+    { rel: 'rules/atomic-animations/atomicanimations.ini', layer: 'mod' },
+    { rel: 'rules/types/weapons.ini', layer: 'mod' },
+    { rel: 'rules/types/houses.ini', layer: 'mod' },
     // The renderer's `[bobseq]` animation table.
-    { rel: `${CULTURESNATION_MOD}/animation/mapmoveableanimations/animations.ini`, layer: 'mod' },
+    { rel: 'rules/map-animations/animations.ini', layer: 'mod' },
     // The `[GfxHouse]` graphics twin of the logic house table above.
-    { rel: `${CULTURESNATION_MOD}/budynki12/houses/houses.ini`, layer: 'mod' },
+    { rel: BUILDING_GRAPHICS_FILE, layer: 'mod' },
   ];
   const sources: IniSource[] = [];
   for (const { rel, layer } of wanted) {

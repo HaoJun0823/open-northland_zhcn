@@ -18,10 +18,10 @@ import {
   type SourceRef,
   type VehicleGraphicsBinding,
 } from '@open-northland/formats/ini';
-import { CULTURESNATION_MOD } from '../../cnmod.js';
+import { VEHICLE_GRAPHICS_FILE } from '../../data-layout.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 
-const MOD_FILE = `${CULTURESNATION_MOD}/types/vehiclestype/jobgraphics.ini`;
+const RULES_FILE = VEHICLE_GRAPHICS_FILE;
 const BASE_FILE = 'Data/engine2d/inis/vehicles/jobgraphics.cif';
 
 /** A vehicle body binding with the file it was read from. */
@@ -47,14 +47,14 @@ export function mergeVehicleBindings(
   return out;
 }
 
-/** The vehicle `[jobgraphics]` table, mod `.ini` over base `.cif`; an absent source contributes nothing. */
+/** The vehicle `[jobgraphics]` table, readable rules over base `.cif`; an absent source contributes nothing. */
 export async function loadVehicleGraphicsBindings(roots: SourceRoots): Promise<SourcedVehicleBinding[]> {
   const layers: SourcedVehicleBinding[][] = [];
-  const modPath = await resolveSourceFile(roots, MOD_FILE);
-  if (modPath !== undefined) {
-    const src: SourceRef = { file: MOD_FILE, layer: 'mod' };
+  const rulesPath = await resolveSourceFile(roots, RULES_FILE);
+  if (rulesPath !== undefined) {
+    const src: SourceRef = { file: RULES_FILE, layer: 'mod' };
     layers.push(
-      extractVehicleGraphicsBindings(iniBytesToSections(await readFile(modPath))).map((binding) => ({
+      extractVehicleGraphicsBindings(iniBytesToSections(await readFile(rulesPath))).map((binding) => ({
         binding,
         src,
       })),

@@ -18,7 +18,7 @@ import {
 } from '../src/stages/ir/vehicle-graphics.js';
 
 const ANIM_SRC = { file: 'animations.ini', layer: 'mod' as const };
-const MOD_SRC = { file: 'DataCnmd/types/vehiclestype/jobgraphics.ini', layer: 'mod' as const };
+const MOD_SRC = { file: 'rules/types/vehiclestype/jobgraphics.ini', layer: 'mod' as const };
 const BASE_SRC = { file: 'Data/engine2d/inis/vehicles/jobgraphics.cif', layer: 'base' as const };
 
 // The real vehicle rows, trimmed to two facings: the handcart's wait is one frame of a one-frame

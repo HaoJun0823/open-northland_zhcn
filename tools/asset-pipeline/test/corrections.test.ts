@@ -9,7 +9,7 @@ import { extractIniTables } from '../src/stages/ir/tables.js';
 import { convertMapDatTree } from '../src/stages/maps/index.js';
 import { makeTempDir, type TempDir } from './support/game-tree.js';
 
-const MAP_FOLDER = 'CnModMaps/Swapped Camps';
+const MAP_FOLDER = 'maps/community/Swapped Camps';
 const AI_INC = `${MAP_FOLDER}/ai.inc`;
 const SHIPPED_AI =
   '[aidata]\r\nAI_SoldiersDefaultPosition 1 40 2 50\r\nAI_UnitLimit 1 30\r\n' +
@@ -226,7 +226,7 @@ describe('source corrections', () => {
   });
 
   it('feeds the corrected houses table to the IR stage', async () => {
-    const housesIni = 'DataCnmd/budynki12/houses/houses.ini';
+    const housesIni = 'rules/buildings/houses.ini';
     const shipped =
       '[GfxHouse]\r\nEditName "hut"\r\nLogicTribeType 2\r\nLogicType 0 29\r\n' +
       'GfxBobLibs "data\\engine2d\\bin\\bobs\\test_house.bmd"\r\nGfxPalette "house01"\r\nGfxBobId 0 0\r\n' +

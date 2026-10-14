@@ -1,6 +1,6 @@
 {
   "reason": "W wersji angielskiej autor mapy zostawił cudzysłów za znacznikiem końca bloku 501 (PASTERZE). Taka linia nie zamyka bloku, więc blok 501 wciąga cały blok 502 (KALIMDOR) razem ze znacznikami [blockend:501] i [blockstart:502], które pokazują się w odprawie, a strona 502 nie ma tekstu w tym języku i odprawa pokazuje się po niemiecku. Usuwamy zbędny cudzysłów; akapit przed znacznikiem nie otwiera cytatu.",
-  "file": "CnModMaps/UPADEK KROLA/text/eng/briefings/briefings.txt",
+  "file": "maps/community/UPADEK KROLA/text/eng/briefings/briefings.txt",
   "sha256": "0ba07f3daddcee59cadbec63a70e84eab2cc657087bcc4c653049baf3ed0f7ec",
   "lines": [
     {

@@ -4,8 +4,8 @@ import { mapProvenance } from '../src/stages/maps/provenance.js';
 
 it.each([
   ['UserMaps/example', 'user'],
-  ['CnModMaps/example', 'mod'],
-  ['DataCnmd/maps/example', 'mod'],
+  ['maps/community/example', 'mod'],
+  ['extras/maps/example', 'mod'],
   ['Data/maps/example', 'unknown'],
 ])('classifies the mod-root folder %s conservatively', (folder, kind) => {
   const rel = `${folder}/map.dat`;

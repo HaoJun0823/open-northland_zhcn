@@ -21,8 +21,15 @@ test('rejects unsafe paths, extra files and changed source bytes', async (t) => 
   await writeFile(join(root, 'unexpected'), 'extra');
   await assert.rejects(readDataPack(root), /inventory/);
   await rm(join(root, 'unexpected'));
-  await writeFile(join(root, 'base/DataCnmd/types/example.ini'), 'changed');
+  await writeFile(join(root, 'base/rules/types/example.ini'), 'changed');
   await assert.rejects(readDataPack(root), /checksum/);
+});
+
+test('rejects the previous source layout version', async (t) => {
+  const root = await temp(t);
+  const manifest = await syntheticPack(root);
+  await writeFile(join(root, 'manifest.json'), JSON.stringify({ ...manifest, version: 1 }));
+  await assert.rejects(readDataPack(root), /version|Unsupported/);
 });
 
 test('rejects symlinks inside a source tree', async (t) => {

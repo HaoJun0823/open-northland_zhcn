@@ -23,7 +23,7 @@ interface JobExperienceCorrection {
  * collector's own record superseded. `docs/formats/PROGRESSION.md` holds the evidence and the
  * consequence of shipping them as written.
  */
-const CULTURESNATION_CORRECTIONS: readonly JobExperienceCorrection[] = [
+const JOB_EXPERIENCE_CORRECTIONS: readonly JobExperienceCorrection[] = [
   {
     shipped: { typeId: 29, jobType: JOB.SMITH, goodTypes: [GOOD.IRON_TOOL] },
     corrected: { jobType: JOB.CARPENTER, name: 'carpenter iron tool' },
@@ -58,7 +58,7 @@ export function correctJobExperience(
 function applyCorrections(tracks: readonly HumanJobExperienceType[]): HumanJobExperienceType[] {
   const out: HumanJobExperienceType[] = [];
   for (const track of tracks) {
-    const row = CULTURESNATION_CORRECTIONS.find(({ shipped }) => matchesShipped(shipped, track));
+    const row = JOB_EXPERIENCE_CORRECTIONS.find(({ shipped }) => matchesShipped(shipped, track));
     if (row === undefined) {
       out.push(track);
       continue;

@@ -11,7 +11,7 @@ describe('parseMapsIndex', () => {
   const arena = {
     id: 'arena',
     fingerprint: TINY_FINGERPRINT,
-    provenance: { kind: 'mod', folder: 'CnModMaps/arena' },
+    provenance: { kind: 'mod', folder: 'maps/community/arena' },
     name: { pol: 'Arena', eng: 'Arena' },
     description: { eng: 'Two against two.' },
     picture: true,

@@ -12,9 +12,9 @@ describe('buildIr / resolveIniSources', () => {
     const root = (await makeTempDir('ir')).path;
     game = join(root, 'game');
     await mkdir(join(game, 'Data', 'logic'), { recursive: true });
-    await mkdir(join(game, 'DataCnmd', 'tribetypes12'), { recursive: true });
-    await mkdir(join(game, 'DataCnmd', 'atomicanimations12'), { recursive: true });
-    await mkdir(join(game, 'DataCnmd', 'types'), { recursive: true });
+    await mkdir(join(game, 'rules/tribes'), { recursive: true });
+    await mkdir(join(game, 'rules/atomic-animations'), { recursive: true });
+    await mkdir(join(game, 'rules/types'), { recursive: true });
     await writeFile(
       join(game, 'Data', 'logic', 'goodtypes.ini'),
       '[goodtype]\nname "wood"\ntype 7\natomicForHarvesting 26\n',
@@ -39,20 +39,23 @@ describe('buildIr / resolveIniSources', () => {
       '[armortype]\nname "leather armor"\ntype 2\nmainType 1\ngoodtype 7\nmaterialType 2\nweight 0\nblockingValue 5\n',
     );
     await writeFile(
-      join(game, 'DataCnmd', 'tribetypes12', 'tribetypes.ini'),
+      join(game, 'rules/tribes', 'tribetypes.ini'),
       '[tribetype]\ntype 1\nname "viking"\nsetatomic 3 5 "viking_carry"\n',
     );
     await writeFile(
-      join(game, 'DataCnmd', 'atomicanimations12', 'atomicanimations.ini'),
+      join(game, 'rules/atomic-animations', 'atomicanimations.ini'),
       '[atomicanimation]\nname "viking_carry"\nlength 40\ninterruptable 1\n',
     );
     // Weapon wields jobType 3 (the [jobtype] above) so its cross-reference resolves.
     await writeFile(
-      join(game, 'DataCnmd', 'types', 'weapons.ini'),
+      join(game, 'rules/types', 'weapons.ini'),
       '[weapontype]\ntribetype 1\ntype 2\nname "fist"\nminimumrange 1\nmaximumrange 1\ndamagevalue 0 400\njobtype 3\n',
     );
-    await mkdir(join(game, 'CnModMaps', 'tutorial_002'), { recursive: true });
-    await writeFile(join(game, 'CnModMaps', 'tutorial_002', 'map.cif'), buildStringCif(sampleMapLines()));
+    await mkdir(join(game, 'maps/community', 'tutorial_002'), { recursive: true });
+    await writeFile(
+      join(game, 'maps/community', 'tutorial_002', 'map.cif'),
+      buildStringCif(sampleMapLines()),
+    );
   });
 
   afterEach(async () => {
@@ -82,7 +85,7 @@ describe('buildIr / resolveIniSources', () => {
     // The map.cif logic header is decoded into the IR alongside the .ini type tables.
     expect(set.maps.map((m) => m.id)).toEqual(['tutorial_002']);
     expect(set.maps[0]).toMatchObject({ width: 142, height: 146, mapType: 1 });
-    // Provenance stamps the mod layer on a DataCnmd source, base on a Data/logic one.
+    // Provenance stamps the mod layer on a rules source, base on a Data/logic one.
     expect(set.goods[0]?.source?.layer).toBe('base');
     expect(set.tribes[0]?.source?.layer).toBe('mod');
   });
@@ -90,7 +93,7 @@ describe('buildIr / resolveIniSources', () => {
   it('cross-validates: a tribe binding to an absent jobType fails parseContentSet', async () => {
     // Point the tribe's setatomic at jobType 99, which no [jobtype] defines.
     await writeFile(
-      join(game, 'DataCnmd', 'tribetypes12', 'tribetypes.ini'),
+      join(game, 'rules/tribes', 'tribetypes.ini'),
       '[tribetype]\ntype 1\nname "viking"\nsetatomic 99 5 "viking_carry"\n',
     );
     await expect(buildIr({ data: game })).rejects.toThrow(/unknown jobType 99/);
@@ -98,7 +101,7 @@ describe('buildIr / resolveIniSources', () => {
 
   it('drops a missing source with a warning instead of aborting', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    // The DataCnmd rels are always requested and resolve against the mod root this fixture lays down.
+    // The rule paths are always requested and resolve against the data root this fixture lays down.
     const noOverlay = await resolveIniSources({ data: game });
     // Sort both sides: sources resolve in wanted-list order, not path order.
     expect(noOverlay.map((s) => s.file).sort()).toEqual(
@@ -108,9 +111,9 @@ describe('buildIr / resolveIniSources', () => {
         'Data/logic/jobtypes.ini',
         'Data/logic/landscapetypes.ini',
         'Data/logic/vehicletypes.ini',
-        'DataCnmd/atomicanimations12/atomicanimations.ini',
-        'DataCnmd/tribetypes12/tribetypes.ini',
-        'DataCnmd/types/weapons.ini',
+        'rules/atomic-animations/atomicanimations.ini',
+        'rules/tribes/tribetypes.ini',
+        'rules/types/weapons.ini',
       ].sort(),
     );
 

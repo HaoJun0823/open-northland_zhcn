@@ -108,11 +108,11 @@ describe('source roots', () => {
   describe('collectSourceFilesNamed', () => {
     it('lists every match sorted by relative path', async () => {
       await write(game, join('Data', 'maps', 'shared', 'map.dat'), 'x');
-      await write(game, join('CnModMaps', 'mod_only', 'map.dat'), 'x');
+      await write(game, join('maps/community', 'mod_only', 'map.dat'), 'x');
       const found = await collectSourceFilesNamed({ data: game }, 'map.dat');
       expect(found).toEqual([
-        { rel: 'CnModMaps/mod_only/map.dat', path: join(game, 'CnModMaps', 'mod_only', 'map.dat') },
         { rel: 'Data/maps/shared/map.dat', path: join(game, 'Data', 'maps', 'shared', 'map.dat') },
+        { rel: 'maps/community/mod_only/map.dat', path: join(game, 'maps/community', 'mod_only', 'map.dat') },
       ]);
     });
 

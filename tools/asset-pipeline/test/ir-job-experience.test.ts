@@ -39,7 +39,7 @@ const tribe = (jobEnables: TribeType['jobEnables']): TribeType => ({
 const enables = (jobType: number, targetId: number) => ({ jobType, kind: 'good' as const, targetId });
 
 /** The mod's real edges for the goods these cases touch. */
-const CULTURESNATION_TRIBE = tribe([
+const CORRECTION_TRIBE = tribe([
   enables(CARPENTER, IRON_TOOL),
   enables(COLLECTOR, MUSHROOM),
   enables(DRUID, POTION_SMALL),
@@ -52,7 +52,7 @@ describe('correctJobExperience', () => {
       track(9, CARPENTER, [], 'carpenter general'),
       track(29, SMITH, [IRON_TOOL], 'smith iron tool'),
     ];
-    const [, corrected] = correctJobExperience(tracks, [CULTURESNATION_TRIBE]);
+    const [, corrected] = correctJobExperience(tracks, [CORRECTION_TRIBE]);
     expect(corrected).toMatchObject({
       typeId: 29,
       id: 'carpenter_iron_tool',
@@ -64,23 +64,23 @@ describe('correctJobExperience', () => {
 
   it('drops the herbalist mushroom record the collector already specializes', () => {
     const tracks = [track(8, COLLECTOR, [MUSHROOM]), track(55, HERBALIST, [MUSHROOM])];
-    const corrected = correctJobExperience(tracks, [CULTURESNATION_TRIBE]);
+    const corrected = correctJobExperience(tracks, [CORRECTION_TRIBE]);
     expect(corrected.map((t) => t.typeId)).toEqual([8]);
   });
 
   it('leaves a record a mod revision already fixed exactly as it ships', () => {
     const fixed = track(29, CARPENTER, [IRON_TOOL], 'carpenter iron tool');
-    expect(correctJobExperience([fixed], [CULTURESNATION_TRIBE])).toEqual([fixed]);
+    expect(correctJobExperience([fixed], [CORRECTION_TRIBE])).toEqual([fixed]);
   });
 
   it('keeps a two-good record whose profession enables both variants', () => {
     const tracks = [track(59, DRUID, [POTION_SMALL, POTION_BIG], 'druid potion food')];
-    expect(correctJobExperience(tracks, [CULTURESNATION_TRIBE])).toEqual(tracks);
+    expect(correctJobExperience(tracks, [CORRECTION_TRIBE])).toEqual(tracks);
   });
 
   it('fails the build on an uncorrected record whose profession does not enable its good', () => {
     const tracks = [track(80, ARMORER, [IRON_TOOL], 'armorer iron tool')];
-    expect(() => correctJobExperience(tracks, [CULTURESNATION_TRIBE])).toThrow(
+    expect(() => correctJobExperience(tracks, [CORRECTION_TRIBE])).toThrow(
       /"armorer_iron_tool" \(type 80\) specializes job 10 on good 32, which only job 9 enables/,
     );
   });
@@ -90,7 +90,7 @@ describe('correctJobExperience', () => {
       track(80, CARPENTER, [IRON_TOOL], 'carpenter iron tool'),
       track(81, CARPENTER, [IRON_TOOL], 'carpenter iron tool again'),
     ];
-    expect(() => correctJobExperience(tracks, [CULTURESNATION_TRIBE])).toThrow(
+    expect(() => correctJobExperience(tracks, [CORRECTION_TRIBE])).toThrow(
       /repeats the job 9 \/ good 32 specialization type 80 already owns/,
     );
   });

@@ -114,11 +114,12 @@ npm run pipeline -- --data-root .cache/data/unpacked --out content
 ```
 
 The [source pack contract](DATA-PACK.md) describes the base and the campaign layout. Original source
-assets, local archives, unpacked trees and generated content must never be committed. The default
-base uses CnMod 1.3.2; its original relative paths remain inside `base/` because configuration data
-also references them. Pack construction removes tools and unrelated files before publication.
+assets, local archives, unpacked trees and generated content must never be committed. The pack is
+built and versioned independently. Its initial base derives from CnMod 1.3.2;
+readable rules and community maps use the pack layout documented in the contract. Pack construction
+removes tools and unrelated files before publication.
 
-The music stage renders the DirectMusic soundtrack (`DataX/DM2`, which the mod ships) to one ogg
+The music stage renders the DirectMusic soundtrack (`DataX/DM2`, included in the pack) to one ogg
 track per segment entirely in Node: segment interpretation, DLS synthesis, reverb, and ogg encoding
 all run from npm dependencies, with no native toolchain. Without `DataX/DM2` the stage is skipped
 with a note and the game simply has no music.

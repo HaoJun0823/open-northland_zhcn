@@ -2,7 +2,7 @@
 
 The pipeline validates an unpacked source data pack and converts its base tree into local runtime content.
 `docs/DATA-PACK.md` owns the archive and campaign import contract. Campaign gameplay is a separate integration. It runs only under
-Node: stages read the mod and write the output tree through `node:fs` directly, and `src/files.ts`
+Node: stages read the data and write the output tree through `node:fs` directly, and `src/files.ts`
 holds the shared helpers (parent-creating writes, tolerant `stat`, the file walk). Compression and
 floating-point image work are fine. The sim determinism restrictions do not apply, but root legal,
 source, readability, and verification rules do.
@@ -10,11 +10,11 @@ source, readability, and verification rules do.
 The output tree is served as static files, so every served directory is named once, after the URL
 root the app fetches it at (`stages/content-tree.ts`, or the stage that owns the directory), files the
 IR references are written lower-cased like the references, and a stage writes only what the app
-fetches: intermediates stay in memory. The mod's own subtrees are named in `roots.ts`.
+fetches: intermediates stay in memory. The pack's resource subtrees are named in `roots.ts`, shared rule paths in `data-layout.ts`.
 
 ## Source discipline
 
-- Prefer readable CulturesNation `.ini`, then readable base `.ini`, then decoded `.cif`.
+- Prefer readable rule `.ini`, then readable base `.ini`, then decoded `.cif`.
 - Inspect the real source, decoder, and generated `ir.json` before changing a join.
 - Treat keys as case-sensitive. Repeated keys and one-line lists need distinct helpers.
 - Check whether numeric ids are globally unique or scoped before building an index.
@@ -26,8 +26,8 @@ decoder and its tests.
 
 ## Corrections
 
-`corrections/<id>.json` fixes an authoring error in one mod file that no data rule can express, such
-as a map script that swaps two seats' gathering points. The file names the mod-relative path, the
+`corrections/<id>.json` fixes an authoring error in one source file that no data rule can express, such
+as a map script that swaps two seats' gathering points. The file names the data-relative path, the
 SHA-256 of the shipped file, and whole-line `from`/`to` swaps (a list in `to` replaces the line with
 several, an empty list deletes it; `"every": true` when the line repeats and each copy takes the same
 fix; `"section"` naming a unique line to confine the swap to its `[...]` block when the line repeats
@@ -37,8 +37,8 @@ with a `reason` in Polish for the owner reviewing the list. `"encoding"` (an ASC
 reading the file goes through `readSourceFile`, which applies the swaps only while the hash still
 matches.
 
-A correction the run did not apply fails the pipeline, including after a mod release changes the
-file: check whether the mod now fixes it, then delete the file or re-pin its hash. Deleting the file
+A correction the run did not apply fails the pipeline, including after a data release changes the
+file: check whether the data now fixes it, then delete the file or re-pin its hash. Deleting the file
 removes the correction. Behavior differences from the original stay in code and docs, not here.
 
 `corrections/strings/tables.json` is the one place for display-string fixes in all four languages,
@@ -46,12 +46,12 @@ whether the table ships as `.ini` or `.cif`. Each entry names `lang`, `table` (i
 `gui/strings/<lang>.json`), the string `id`, the exact decoded `from` text (game-object names arrive
 trimmed, with single spaces), our `to` text and a Polish `reason`. The strings stage swaps the text
 only while it still reads `from`, and an entry the run did not apply fails the pipeline the same way,
-so a mod release that fixes the text forces its removal.
+so a data release that fixes the text forces its removal.
 
 ## Decoder work
 
 The decoders live in `packages/formats` and map conversion in `packages/map-import`. Both run in a
-browser too, so they take bytes and never import `node:` modules; the maps stage only walks the mod,
+browser too, so they take bytes and never import `node:` modules; the maps stage only walks the data tree,
 reads the map files through `readSourceFile` and writes what the package returns. These rules apply
 to both packages.
 

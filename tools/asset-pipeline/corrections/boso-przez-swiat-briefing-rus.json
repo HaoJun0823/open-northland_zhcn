@@ -1,6 +1,6 @@
 {
   "reason": "W wersji rosyjskiej blok 508 kończy się znacznikiem [blockend:509], a początku bloku 509 (PORAŻKA) brak, więc strona 509 nie ma tekstu po rosyjsku. W bloku 554 drugi raz stoi [blockstart:554], który pokazuje się w odprawie jako tekst. Poprawiamy koniec 508, dopisujemy początek 509 i usuwamy powtórzony znacznik.",
-  "file": "CnModMaps/Boso_Przez_Swiat/text/rus/briefings/briefings.txt",
+  "file": "maps/community/Boso_Przez_Swiat/text/rus/briefings/briefings.txt",
   "sha256": "732692f6f7928020434360ccf658590736eddeb7e75c72f0c9dc051da2e85766",
   "lines": [
     {

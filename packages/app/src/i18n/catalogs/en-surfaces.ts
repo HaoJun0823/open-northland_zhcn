@@ -634,9 +634,10 @@ export const enSurfaces = {
     summaryHeads: 'The same walk cycle with every available head look.',
     summaryColors: 'The same walk cycle in all sixteen player colours.',
     missingAtlas:
-      'Run the asset pipeline on the CulturesNation mod to load the decoded “{character}” atlas ({stem}).',
+      'Run the asset pipeline on the Open Northland data pack to load the decoded “{character}” atlas ({stem}).',
     missingFrames: 'content/ir.json has no playable frames for “{character}” ({imagelib}).',
-    missingRoster: 'Run the asset pipeline on the CulturesNation mod to load the decoded character atlases.',
+    missingRoster:
+      'Run the asset pipeline on the Open Northland data pack to load the decoded character atlases.',
     noLooks: 'No character looks',
     noHeads: 'No head looks',
     noColors: 'No player colours',
@@ -649,7 +650,8 @@ export const enSurfaces = {
   icons: {
     title: 'Sprite atlas',
     intro: 'Choose an atlas, filter frame names and click a tile to copy its frame id.',
-    missingDetail: 'Run the asset pipeline on the CulturesNation mod to browse the local decoded atlases.',
+    missingDetail:
+      'Run the asset pipeline on the Open Northland data pack to browse the local decoded atlases.',
     atlas: 'Atlas',
     filter: 'Filter frames…',
     zoom: 'Zoom',
@@ -672,7 +674,7 @@ export const enSurfaces = {
     intro:
       "Every play goes through the game's own mixer and arbiter: the sliders are the game's buses, pan and zoom place the listener, and a burst shows what the pool cap and the lane budgets let through. Action rows show when a clip fires; action sounds are the groups a settler animation names by id.",
     missingTitle: 'No decoded sounds found',
-    missingDetail: 'Run the asset pipeline on the CulturesNation mod to create the local sound bank.',
+    missingDetail: 'Run the asset pipeline on the Open Northland data pack to create the local sound bank.',
     actions: 'Actions and sound bindings',
     cues: 'Action sounds (named by the animation data)',
     voices: 'Settler voices',

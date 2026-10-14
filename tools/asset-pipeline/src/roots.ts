@@ -5,7 +5,7 @@ import type { SourceCorrections } from './corrections.js';
 import { walkFiles } from './files.js';
 import type { StringCorrections } from './string-corrections.js';
 
-/** The mod subtrees the stages read by name; the on-disk spelling varies, so resolve them through
+/** The data subtrees the stages read by name; the on-disk spelling varies, so resolve them through
  *  `resolveSourceFile` or match them lower-cased. */
 export const DATA_BOBS_DIR = 'Data/engine2d/bin/bobs';
 export const DATA_TEXTURES_DIR = 'Data/engine2d/bin/textures';
@@ -15,13 +15,13 @@ export const DATA_GUI_BITMAPS_DIR = 'Data/gui/bitmaps';
 /** The base source tree under the validated data pack root. */
 export interface SourceRoots {
   readonly data: string;
-  /** Fixes applied as stages read the mod; without them it is read as shipped. */
+  /** Fixes applied as stages read the data; without them it is read as shipped. */
   readonly corrections?: SourceCorrections;
   /** Fixes applied to decoded display strings; without them the tables keep the shipped text. */
   readonly stringCorrections?: StringCorrections;
 }
 
-/** Reads a mod file as the run sees it, through the corrections that name it. */
+/** Reads a data file as the run sees it, through the corrections that name it. */
 export function readSourceFile(roots: SourceRoots, path: string): Promise<Uint8Array> {
   return roots.corrections?.read(path) ?? readFile(path);
 }

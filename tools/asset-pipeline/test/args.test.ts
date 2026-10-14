@@ -48,17 +48,17 @@ describe('resolveDataRoot', () => {
   });
 
   it('rejects an unpacked directory without a data manifest', async () => {
-    await mkdir(join(base, 'DataCnmd'), { recursive: true });
+    await mkdir(join(base, 'extras'), { recursive: true });
     await expect(resolveDataRoot(base)).rejects.toThrow(/manifest.json/);
   });
 
   it('exposes only the base tree of a valid pack', async () => {
-    await mkdir(join(base, 'base', 'DataCnmd'), { recursive: true });
+    await mkdir(join(base, 'base', 'rules'), { recursive: true });
     await writeFile(
       join(base, 'manifest.json'),
       JSON.stringify({
         format: 'open-northland-data',
-        version: 1,
+        version: 2,
         base: 'base',
         components: [{ id: 'synthetic', kind: 'base', sha256: '0'.repeat(64) }],
         campaigns: [],

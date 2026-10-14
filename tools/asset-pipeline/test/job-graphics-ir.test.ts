@@ -31,7 +31,7 @@ logicjob 6
 gfxbobmanagerbody 0 "Data\\Engine2D\\Bin\\Bobs\\CR_Hum_Body_99.bmd"
 <CULTURES_CIF_END> Don't modify this line!`;
 
-const MOD_SRC = { file: 'DataCnmd/types/humanstype/jobgraphics.ini', layer: 'mod' } as const;
+const MOD_SRC = { file: 'rules/types/humanstype/jobgraphics.ini', layer: 'mod' } as const;
 
 describe('jobGraphicsRows', () => {
   it('keys each record by (tribe, job) with its body, heads and lower-cased palettes', () => {

@@ -1,6 +1,6 @@
 {
   "reason": "W wersji rosyjskiej znacznik początku bloku 525 (FRANKOWIE) nie ma otwierającego nawiasu, więc strona 525 nie ma tekstu po rosyjsku. Dopisujemy nawias.",
-  "file": "CnModMaps/Nowa_Nadzieja_vik/text/rus/briefings/briefings.txt",
+  "file": "maps/community/Nowa_Nadzieja_vik/text/rus/briefings/briefings.txt",
   "sha256": "fb2e2292570da50f9dc467c66d00680232e30f17cf1bf5fc823316930b78cc68",
   "lines": [
     {

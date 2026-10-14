@@ -29,7 +29,7 @@ describe('convertVertexPalette', () => {
   });
 
   it('fails the run when the mod ships no palette picture or one without a colour table', async () => {
-    await mkdir(join(temp.game, 'DataCnmd'));
+    await mkdir(join(temp.game, 'extras'));
     await expect(convertVertexPalette({ data: temp.game }, temp.out)).rejects.toThrow(
       /vertexcolors\.pcx not found/,
     );

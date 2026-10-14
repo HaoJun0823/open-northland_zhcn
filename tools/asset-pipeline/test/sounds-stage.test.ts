@@ -30,12 +30,12 @@ describe('copySoundTree', () => {
 
   it('leaves wavs outside the sounds tree and non-wav files inside it alone', async () => {
     await modWith([
-      'CnModMaps/some_map/briefing.wav',
+      'maps/community/some_map/briefing.wav',
       'Data/engine2d/bin/sounds/soundfx.cif',
       'Data/engine2d/bin/sounds/misc/thunder.wav',
     ]);
     const copied = await copySoundTree({ data: temp.game }, temp.out);
     expect(copied).toEqual(['sounds/misc/thunder.wav']);
-    expect(await statIfExists(join(temp.out, 'CnModMaps', 'some_map', 'briefing.wav'))).toBeUndefined();
+    expect(await statIfExists(join(temp.out, 'maps/community', 'some_map', 'briefing.wav'))).toBeUndefined();
   });
 });

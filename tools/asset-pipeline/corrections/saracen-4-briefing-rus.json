@@ -1,6 +1,6 @@
 {
   "reason": "Wersja rosyjska ma dwie kopie bloków 503-506; odprawa czyta tylko pierwszą, w której tytuł strony 504 został po polsku (TARYFA). W bloku 535 drugi raz stoi [blockstart:535], który pokazuje się jako tekst. Usuwamy początki pierwszych kopii i powtórzony znacznik. Bloków 511-513 tłumaczenie nie ma wcale; tych stron poprawka nie uzupełni.",
-  "file": "CnModMaps/SARACEN_4/text/rus/briefings/briefings.txt",
+  "file": "maps/community/SARACEN_4/text/rus/briefings/briefings.txt",
   "sha256": "2918c6c204c6277ec0e6e302aa0da39d21fae65003dc8a7bfc49abc9233753db",
   "lines": [
     {

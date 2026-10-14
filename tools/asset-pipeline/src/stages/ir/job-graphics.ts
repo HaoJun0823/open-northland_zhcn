@@ -8,11 +8,11 @@ import {
   makeSource,
   type SourceRef,
 } from '@open-northland/formats/ini';
-import { CULTURESNATION_MOD } from '../../cnmod.js';
+import { HUMAN_GRAPHICS_FILE } from '../../data-layout.js';
 import { resolveSourceFile, type SourceRoots } from '../../roots.js';
 import { loadCifTable } from './cif-tables.js';
 
-const MOD_FILE = `${CULTURESNATION_MOD}/types/humanstype/jobgraphics.ini`;
+const RULES_FILE = HUMAN_GRAPHICS_FILE;
 const BASE_FILE = 'Data/engine2d/inis/humans/jobgraphics.cif';
 
 /** The IR rows of one source's `[jobbasegraphics]` records; a record missing its tribe or job is dropped. */
@@ -80,12 +80,12 @@ export interface HumanJobGraphics {
 }
 
 /**
- * The human `[jobbasegraphics]` and `[jobchangegraphics]` tables, mod `.ini` over base `.cif`. An absent
- * source contributes nothing, so a partial mod tree still yields the rows it has.
+ * The human `[jobbasegraphics]` and `[jobchangegraphics]` tables, readable rules over base `.cif`. An absent
+ * source contributes nothing, so a partial data tree still yields the rows it has.
  */
 export async function loadJobGraphics(roots: SourceRoots): Promise<HumanJobGraphics> {
-  const modPath = await resolveSourceFile(roots, MOD_FILE);
-  const modSections = modPath === undefined ? [] : iniBytesToSections(await readFile(modPath));
+  const rulesPath = await resolveSourceFile(roots, RULES_FILE);
+  const rulesSections = rulesPath === undefined ? [] : iniBytesToSections(await readFile(rulesPath));
   const base = await loadCifTable(
     roots,
     BASE_FILE,
@@ -95,9 +95,12 @@ export async function loadJobGraphics(roots: SourceRoots): Promise<HumanJobGraph
     }),
     { looks: [], changes: [] },
   );
-  const modLooks = jobGraphicsRows(extractJobBaseGraphics(modSections), { file: MOD_FILE, layer: 'mod' });
+  const rulesLooks = jobGraphicsRows(extractJobBaseGraphics(rulesSections), {
+    file: RULES_FILE,
+    layer: 'mod',
+  });
   return {
-    jobGraphics: mergeJobGraphics([modLooks, base.looks]),
-    jobChanges: mergeJobGraphics([jobChangeRows(extractJobChangeGraphics(modSections)), base.changes]),
+    jobGraphics: mergeJobGraphics([rulesLooks, base.looks]),
+    jobChanges: mergeJobGraphics([jobChangeRows(extractJobChangeGraphics(rulesSections)), base.changes]),
   };
 }

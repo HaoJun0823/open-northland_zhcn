@@ -1,7 +1,7 @@
 # Testing
 
 Use the lowest test layer that proves the behavior. Normal development should stay independent of the
-mod archive; real-content and pipeline tests are separate local gates.
+source data pack; real-content and pipeline tests are separate local gates.
 
 ## Standard gates
 

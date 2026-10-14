@@ -19,10 +19,10 @@ describe('convertMapDatTree', () => {
     root = (await makeTempDir('mapdat')).path;
     game = join(root, 'game');
     out = join(root, 'out');
-    await mkdir(join(game, 'CnModMaps', 'tutorial_002'), { recursive: true });
-    await mkdir(join(game, 'CnModMaps', 'forteca'), { recursive: true });
+    await mkdir(join(game, 'maps/community', 'tutorial_002'), { recursive: true });
+    await mkdir(join(game, 'maps/community', 'forteca'), { recursive: true });
     await writeFile(
-      join(game, 'CnModMaps', 'tutorial_002', 'map.dat'),
+      join(game, 'maps/community', 'tutorial_002', 'map.dat'),
       buildMapDat(2, 1, [
         3,
         3,
@@ -34,7 +34,7 @@ describe('convertMapDatTree', () => {
         6, // half-cell row 1
       ]),
     );
-    await writeFile(join(game, 'CnModMaps', 'forteca', 'map.dat'), buildMapDat(1, 1, [2, 2, 2, 2]));
+    await writeFile(join(game, 'maps/community', 'forteca', 'map.dat'), buildMapDat(1, 1, [2, 2, 2, 2]));
   });
 
   afterEach(async () => {
@@ -51,11 +51,11 @@ describe('convertMapDatTree', () => {
     const grid = JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.json'), 'utf8'));
     expect(grid).toEqual({ width: 2, height: 1, typeIds: [3, 6] });
     // The id joins onto the same-folder map.cif's MapInfo id.
-    expect(done.map((d) => d.id)).toContain(mapIdFromPath(join('CnModMaps', 'tutorial_002', 'map.dat')));
+    expect(done.map((d) => d.id)).toContain(mapIdFromPath(join('maps/community', 'tutorial_002', 'map.dat')));
   });
 
   it('preserves trusted shipped maps whose briefings exceed the public import budget', async () => {
-    const dir = join(game, 'CnModMaps', 'forteca');
+    const dir = join(game, 'maps/community', 'forteca');
     const briefings = join(dir, 'text', 'pol', 'briefings');
     await mkdir(briefings, { recursive: true });
     await writeFile(
@@ -72,7 +72,7 @@ describe('convertMapDatTree', () => {
   });
 
   it('skips a stray map.dat in the Text/ string-table subfolder of a map folder', async () => {
-    const dir = join(game, 'CnModMaps', 'tutorial_002', 'Text');
+    const dir = join(game, 'maps/community', 'tutorial_002', 'Text');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, 'map.dat'), buildMapDat(1, 1, [2, 2, 2, 2]));
     const done = await convertMapDatTree({ data: game }, out);
@@ -83,7 +83,7 @@ describe('convertMapDatTree', () => {
   it('drops the artifacts of a map that vanished from the source between runs', async () => {
     await convertMapDatTree({ data: game }, out);
     await readFile(join(out, 'maps', 'forteca.json')); // emitted on the first run
-    await rm(join(game, 'CnModMaps', 'forteca'), { recursive: true, force: true });
+    await rm(join(game, 'maps/community', 'forteca'), { recursive: true, force: true });
     const done = await convertMapDatTree({ data: game }, out);
     expect(done.map((d) => d.id)).toEqual(['tutorial_002']);
     await expect(readFile(join(out, 'maps', 'forteca.json'))).rejects.toThrow();
@@ -91,7 +91,7 @@ describe('convertMapDatTree', () => {
 
   it('skips a malformed map.dat with a warning instead of aborting the batch', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await writeFile(join(game, 'CnModMaps', 'forteca', 'map.dat'), Uint8Array.from([0, 1, 2, 3]));
+    await writeFile(join(game, 'maps/community', 'forteca', 'map.dat'), Uint8Array.from([0, 1, 2, 3]));
     const done = await convertMapDatTree({ data: game }, out);
     expect(done.map((d) => d.id)).toEqual(['tutorial_002']); // the good one still converts
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/skipped map\.dat.*forteca/));
@@ -99,7 +99,7 @@ describe('convertMapDatTree', () => {
   });
 
   it('reads the placements from map.ini when a flattened folder ships no staticobjects.inc', async () => {
-    const dir = join(game, 'CnModMaps', 'forteca');
+    const dir = join(game, 'maps/community', 'forteca');
     await writeFile(
       join(dir, 'map.ini'),
       [
@@ -126,7 +126,7 @@ describe('convertMapDatTree', () => {
   it('reports a [StaticObjects] verb the decoder does not know, which then fails the run', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     await writeFile(
-      join(game, 'CnModMaps', 'forteca', 'staticobjects.inc'),
+      join(game, 'maps/community', 'forteca', 'staticobjects.inc'),
       '[StaticObjects]\nsethuman 0 "viking" "woman" 1 2 0 0\nAdoptHuman 1 2\nMARRY 1 2 3 4\n',
     );
     const done = await convertMapDatTree({ data: game }, out);
@@ -145,14 +145,14 @@ describe('convertMapDatTree', () => {
     const done = await convertMapDatTree({ data: game }, out);
     expect(done.find((d) => d.id === 'forteca')).toMatchObject({ picture: false, minimap: false });
     expect(JSON.parse(await readFile(join(out, 'maps', 'forteca.meta.json'), 'utf8'))).toEqual({
-      provenance: { kind: 'mod', folder: 'CnModMaps/forteca' },
+      provenance: { kind: 'mod', folder: 'maps/community/forteca' },
     });
     await expect(readFile(join(out, 'maps', 'forteca.png'))).rejects.toThrow();
     await expect(readFile(join(out, 'maps', 'forteca.map.png'))).rejects.toThrow();
   });
 
   it('emits the meta sidecar from text/pol/strings.ini (CP1250, observed 0/1 string ids) + the picture PNG', async () => {
-    const dir = join(game, 'CnModMaps', 'tutorial_002');
+    const dir = join(game, 'maps/community', 'tutorial_002');
     // "BŁĘKIT" with CP1250 bytes (Ł=0xA3, Ę=0xCA) - the map strings' real codepage.
     await mkdir(join(dir, 'text', 'pol'), { recursive: true });
     await writeFile(
@@ -173,7 +173,7 @@ describe('convertMapDatTree', () => {
   });
 
   it('rasterizes a minimap for every map beside the authored picture, each in its own file', async () => {
-    const dir = join(game, 'CnModMaps', 'tutorial_002');
+    const dir = join(game, 'maps/community', 'tutorial_002');
     await mkdir(join(dir, 'minimap'), { recursive: true });
     await writeFile(
       join(dir, 'minimap', 'minimap.pcx'),
@@ -193,7 +193,7 @@ describe('convertMapDatTree', () => {
   });
 
   it('emits every shipped language and resolves the string ids from the map.cif misc_mapname header', async () => {
-    const dir = join(game, 'CnModMaps', 'tutorial_002');
+    const dir = join(game, 'maps/community', 'tutorial_002');
     // The header names non-default string ids (the tutorial maps really use 99/98).
     await writeFile(
       join(dir, 'map.cif'),
@@ -228,7 +228,7 @@ describe('convertMapDatTree', () => {
     // The map folders mix casing freely, so the cif read resolves by directory listing like every
     // sibling read here. This bites only on a case-sensitive filesystem (Linux CI): on a
     // case-insensitive one the plain `join(dir, 'map.cif')` would find `Map.CIF` anyway.
-    const dir = join(game, 'CnModMaps', 'tutorial_002');
+    const dir = join(game, 'maps/community', 'tutorial_002');
     await writeFile(
       join(dir, 'Map.CIF'),
       buildStringCif([
@@ -248,7 +248,7 @@ describe('convertMapDatTree', () => {
   });
 
   it('falls back to the encrypted strings.cif when no strings.ini exists (re-decoded to CP1250)', async () => {
-    const dir = join(game, 'CnModMaps', 'tutorial_002');
+    const dir = join(game, 'maps/community', 'tutorial_002');
     await mkdir(join(dir, 'text', 'pol'), { recursive: true });
     // 0xB3/0xEA are ł/ę in CP1250 - the .cif seam decodes latin1, the stage re-decodes for display.
     await writeFile(
@@ -265,7 +265,7 @@ describe('convertMapDatTree', () => {
   });
 
   it('prefers the readable strings.ini over a sibling strings.cif (golden rule 4)', async () => {
-    const dir = join(game, 'CnModMaps', 'tutorial_002');
+    const dir = join(game, 'maps/community', 'tutorial_002');
     await mkdir(join(dir, 'text', 'pol'), { recursive: true });
     await writeFile(join(dir, 'text', 'pol', 'strings.ini'), rawBytes('[text]\nstringn 0 "Readable"\n'));
     await writeFile(
@@ -281,7 +281,7 @@ describe('convertMapDatTree', () => {
   });
 
   it('resolves the string ids from a readable misc.inc header before the encrypted map.cif', async () => {
-    const dir = join(game, 'CnModMaps', 'tutorial_002');
+    const dir = join(game, 'maps/community', 'tutorial_002');
     // misc.inc says 99/98 (the real corpus carries ~25 such headers); the map.cif disagrees - the
     // readable header must win (golden rule 4).
     await writeFile(
@@ -310,7 +310,7 @@ describe('convertMapDatTree', () => {
   });
 
   it('removes stale metadata strings when a re-run no longer finds strings', async () => {
-    const dir = join(game, 'CnModMaps', 'tutorial_002');
+    const dir = join(game, 'maps/community', 'tutorial_002');
     await mkdir(join(dir, 'text', 'pol'), { recursive: true });
     await writeFile(join(dir, 'text', 'pol', 'strings.ini'), rawBytes('[text]\nstringn 0 "Nazwa"\n'));
     await convertMapDatTree({ data: game }, out);
@@ -319,12 +319,12 @@ describe('convertMapDatTree', () => {
     const done = await convertMapDatTree({ data: game }, out);
     expect(done.find((d) => d.id === 'tutorial_002')).toBeDefined();
     expect(JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'))).toEqual({
-      provenance: { kind: 'mod', folder: 'CnModMaps/tutorial_002' },
+      provenance: { kind: 'mod', folder: 'maps/community/tutorial_002' },
     });
   });
 
   it('emits the strings sidecar per shipped language, and clears it when the text folder goes', async () => {
-    const dir = join(game, 'CnModMaps', 'tutorial_002');
+    const dir = join(game, 'maps/community', 'tutorial_002');
     await mkdir(join(dir, 'text', 'pol'), { recursive: true });
     await mkdir(join(dir, 'text', 'eng'), { recursive: true });
     await writeFile(
@@ -351,14 +351,14 @@ describe('convertMapDatTree', () => {
   it('clears a same-id twin sidecar within one run so last-write-wins covers sidecars too', async () => {
     // `tutorial-002` slugs to the same id and sorts first (`-` < `_`); it carries strings, the
     // winning `tutorial_002` does not, so the winner must clear the twin's strings.
-    const twin = join(game, 'CnModMaps', 'tutorial-002');
+    const twin = join(game, 'maps/community', 'tutorial-002');
     await mkdir(join(twin, 'text', 'pol'), { recursive: true });
     await writeFile(join(twin, 'map.dat'), buildMapDat(1, 1, [2, 2, 2, 2]));
     await writeFile(join(twin, 'text', 'pol', 'strings.ini'), rawBytes('[text]\nstringn 0 "Nazwa"\n'));
     const done = await convertMapDatTree({ data: game }, out);
     expect(done.map((d) => d.id)).toEqual(['forteca', 'tutorial_002', 'tutorial_002']);
     expect(JSON.parse(await readFile(join(out, 'maps', 'tutorial_002.meta.json'), 'utf8'))).toEqual({
-      provenance: { kind: 'mod', folder: 'CnModMaps/tutorial_002' },
+      provenance: { kind: 'mod', folder: 'maps/community/tutorial_002' },
     });
   });
 });

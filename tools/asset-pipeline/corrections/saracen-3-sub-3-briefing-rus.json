@@ -1,6 +1,6 @@
 {
   "reason": "W wersji rosyjskiej blok 523 zamyka się w połowie tekstu, a drugi [blockend:523] stoi na właściwym końcu; druga połowa strony ginie. Usuwamy przedwczesny znacznik końca.",
-  "file": "CnModMaps/SARACEN_3_SUB_3/text/rus/briefings/briefings.txt",
+  "file": "maps/community/SARACEN_3_SUB_3/text/rus/briefings/briefings.txt",
   "sha256": "0ac30d7f509b02634c70dba4655ff60d017fe99a036c37feb39ed68d36f0e501",
   "lines": [
     {

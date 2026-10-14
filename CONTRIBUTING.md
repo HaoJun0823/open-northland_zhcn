@@ -7,7 +7,7 @@ Code, bug reports, platform testing, and documentation fixes are welcome.
 Open Northland is an independent implementation. Do not include any of the following in a commit,
 pull request, or issue attachment:
 
-- files from a *Cultures* installation or the CulturesNation mod;
+- files from a *Cultures* installation or the source data pack;
 - generated files from `content/`;
 - extracted text, audio, screenshots, or temporary decoder dumps;
 - copied or translated code from another engine implementation.
@@ -26,7 +26,7 @@ npm run build
 npm test
 ```
 
-The normal development setup does not need game files. You only need the CulturesNation mod archive
+The normal development setup does not need game files. You only need the Open Northland source data pack
 to generate playable content or test the asset pipeline. Those steps are in
 [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 

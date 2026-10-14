@@ -46,13 +46,13 @@ describe('resolveGraphicsBindings', () => {
   it('merges the mod [jobbasegraphics] human body/head bobs onto the base animals bindings', async () => {
     const inis = join('Data', 'engine2d', 'inis');
     await mkdir(join(game, inis, 'animals'), { recursive: true });
-    await mkdir(join(game, 'DataCnmd', 'types', 'humanstype'), { recursive: true });
+    await mkdir(join(game, 'rules/types', 'humanstype'), { recursive: true });
     await writeFile(
       join(game, inis, 'animals', 'jobgraphics.ini'),
       '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\Lion.bmd"\ngfxpalettebody "Lion01"\n',
     );
     await writeFile(
-      join(game, 'DataCnmd', 'types', 'humanstype', 'jobgraphics.ini'),
+      join(game, 'rules/types', 'humanstype', 'jobgraphics.ini'),
       '[jobbasegraphics]\nlogictribe 1\nlogicjob 6\n' +
         'gfxbobmanagerbody 0 "Data\\Bobs\\Body00.bmd" "Data\\Bobs\\Body00_s.bmd"\n' +
         'gfxbobmanagerhead 0 "Data\\Bobs\\Head00.bmd"\n' +
@@ -160,7 +160,7 @@ describe('resolveGraphicsBindings', () => {
     const inis = join('Data', 'engine2d', 'inis');
     await mkdir(join(game, inis, 'animals'), { recursive: true });
     await mkdir(join(game, inis, 'vehicles'), { recursive: true });
-    await mkdir(join(game, 'DataCnmd', 'types', 'vehiclestype'), { recursive: true });
+    await mkdir(join(game, 'rules/types', 'vehiclestype'), { recursive: true });
     await writeFile(
       join(game, inis, 'animals', 'jobgraphics.ini'),
       '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\Lion.bmd"\ngfxpalettebody "Lion01"\n',
@@ -178,7 +178,7 @@ describe('resolveGraphicsBindings', () => {
     );
     // The mod ships the readable twin with an extra tribe's vehicle recolour (broader per-tribe set).
     await writeFile(
-      join(game, 'DataCnmd', 'types', 'vehiclestype', 'jobgraphics.ini'),
+      join(game, 'rules/types', 'vehiclestype', 'jobgraphics.ini'),
       '[jobgraphics]\nlogictribe 1\nlogicvehicle 2\n' +
         'gfxbobmanagerbody "Data\\Bobs\\Cart.bmd" "Data\\Bobs\\Cart_s.bmd"\ngfxpalettebody "OxCart"\n\n' +
         '[jobgraphics]\nlogictribe 3\nlogicvehicle 4\n' +
@@ -203,9 +203,9 @@ describe('resolveGraphicsBindings', () => {
   });
 
   it('claims [GfxHouse] .bmds for the opaque-alpha bake (mod houses.ini leg)', async () => {
-    await mkdir(join(game, 'DataCnmd', 'budynki12', 'houses'), { recursive: true });
+    await mkdir(join(game, 'rules/buildings'), { recursive: true });
     await writeFile(
-      join(game, 'DataCnmd', 'budynki12', 'houses', 'houses.ini'),
+      join(game, 'rules/buildings', 'houses.ini'),
       '[GfxHouse]\nEditName "viking home"\n' +
         'GfxBobLibs "Data\\Bobs\\ls_houses_viking.bmd" "Data\\Bobs\\ls_houses_viking_s.bmd"\n' +
         'GfxPalette "house01" "house02"\n',
@@ -229,12 +229,8 @@ describe('resolveGraphicsBindings', () => {
     for (const dir of ['animals', 'vehicles', 'humans', 'landscapes']) {
       await mkdir(join(game, inis, dir), { recursive: true });
     }
-    for (const dir of [
-      join('types', 'humanstype'),
-      join('types', 'vehiclestype'),
-      join('budynki12', 'houses'),
-    ]) {
-      await mkdir(join(game, 'DataCnmd', dir), { recursive: true });
+    for (const dir of ['types/humanstype', 'types/vehiclestype', 'buildings']) {
+      await mkdir(join(game, 'rules', dir), { recursive: true });
     }
     await writeFile(
       join(game, inis, 'animals', 'jobgraphics.ini'),
@@ -271,15 +267,15 @@ describe('resolveGraphicsBindings', () => {
       ]),
     );
     await writeFile(
-      join(game, 'DataCnmd', 'types', 'humanstype', 'jobgraphics.ini'),
+      join(game, 'rules/types', 'humanstype', 'jobgraphics.ini'),
       '[jobbasegraphics]\ngfxbobmanagerbody 0 "Data\\Bobs\\ModBody.bmd"\ngfxpalettebasebody "ModBody01"\n',
     );
     await writeFile(
-      join(game, 'DataCnmd', 'types', 'vehiclestype', 'jobgraphics.ini'),
+      join(game, 'rules/types', 'vehiclestype', 'jobgraphics.ini'),
       '[jobgraphics]\ngfxbobmanagerbody "Data\\Bobs\\ModCart.bmd"\ngfxpalettebody "ModCart01"\n',
     );
     await writeFile(
-      join(game, 'DataCnmd', 'budynki12', 'houses', 'houses.ini'),
+      join(game, 'rules/buildings', 'houses.ini'),
       '[GfxHouse]\nEditName "viking home"\n' + 'GfxBobLibs "Data\\Bobs\\Houses.bmd"\nGfxPalette "House01"\n',
     );
 

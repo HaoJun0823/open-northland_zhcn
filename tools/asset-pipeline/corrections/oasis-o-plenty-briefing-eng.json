@@ -1,6 +1,6 @@
 {
   "reason": "W wersji angielskiej za znacznikiem [blockstart:02_credits] stoi kropka, więc blok nie zaczyna się, a strona 2 traci napisy końcowe. Usuwamy kropkę.",
-  "file": "CnModMaps/oasis_o_plenty/text/eng/briefings/briefings.txt",
+  "file": "maps/community/oasis_o_plenty/text/eng/briefings/briefings.txt",
   "sha256": "5c20de8d56e44a7f4c7c1a80781f82a6d3edc9536be7779e5a47ed6ff16626d7",
   "lines": [
     {

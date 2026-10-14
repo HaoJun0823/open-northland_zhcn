@@ -1,6 +1,6 @@
 # Network protocol
 
-The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 32` in
+The wire contract between a game client and the relay server, version `PROTOCOL_VERSION = 34` in
 `packages/net-protocol`. A change one side of the current version could not honour, a message shape
 or the value set of a validated field such as the fog mode ids, bumps the version; the relay refuses a
 `hello` that names another.
@@ -17,7 +17,7 @@ trader route orders and civilian lessons; all peers must understand their payloa
 ## Transport
 
 WebSocket, one JSON text frame per message. A client message is at most `MAX_CLIENT_MESSAGE_BYTES`
-(513 KiB), except a `blob`, which is at most `MAX_BLOB_MESSAGE_BYTES` (a 16 MiB payload in base64
+(513 KiB), except a `blob`, which is at most `MAX_BLOB_MESSAGE_BYTES` (a 32 MiB payload in base64
 plus its fields). A relay message is bounded by what it carries: a full tick frame holds up to
 `MAX_SEATS * MAX_COMMANDS_PER_TICK` envelopes, with at most 1 MiB of serialized envelopes per
 member plus sequence wrappers (a little over 16 MiB in all), and a blob is as large as the one a client
@@ -448,7 +448,7 @@ refusals included.
 ## Blobs
 
 `blob { type, to, tick, bytes }` carries opaque bytes: `bytes` is base64 of at most `MAX_BLOB_BYTES`
-(16 MiB) decoded, `type` is `snapshot`, `save`, `initialSave`, or `map`, `to` names one member's nick or null for
+(32 MiB) decoded, `type` is `snapshot`, `save`, `initialSave`, or `map`, `to` names one member's nick or null for
 everyone else in the room, and `tick` is required for a snapshot or a save. The relay never decodes
 the bytes; it delivers them as `blob { type, from, tick, bytes }` with the sender's nick.
 
@@ -595,7 +595,7 @@ every return of its token, before `start` and `clock`.
 | Limit | Value |
 | --- | --- |
 | `MAX_CLIENT_MESSAGE_BYTES` | 513 KiB |
-| `MAX_BLOB_BYTES` (decoded) | 16 MiB |
+| `MAX_BLOB_BYTES` (decoded) | 32 MiB |
 | `MAX_ENVELOPE_BYTES` | 512 KiB |
 | `MAX_SEATS` (seat indices) | 16, the sim's `MAX_PLAYERS` |
 | Observer slots per room | No slot limit |

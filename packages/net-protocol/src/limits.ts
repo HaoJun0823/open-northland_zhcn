@@ -32,10 +32,10 @@ export const MAX_SEED = 0xffff_ffff;
 
 /** One complete group order plus its message fields; blobs have their own budget. */
 export const MAX_CLIENT_MESSAGE_BYTES = MAX_ENVELOPE_BYTES + 1024;
-/** Bytes of one relayed blob once decoded; a gzip snapshot is about 1.3 MB, a decoded map a few. */
-export const MAX_BLOB_BYTES = 16 * 1024 * 1024;
+/** Bytes of one relayed blob once base64-decoded, including uncompressed map documents. */
+export const MAX_BLOB_BYTES = 32 * 1024 * 1024;
 /** Upper bound on a serialized manual-save order capture. */
-export const MAX_SAVE_ORDERS_BYTES = MAX_BLOB_BYTES;
+export const MAX_SAVE_ORDERS_BYTES = 16 * 1024 * 1024;
 /** Bytes of the JSON message carrying a blob: its base64 text plus the fields around it. */
 export const MAX_BLOB_MESSAGE_BYTES = Math.ceil(MAX_BLOB_BYTES / 3) * 4 + 1024;
 /** RFC 6455 close codes a connection ends with for good: the relay's private code for a connection a

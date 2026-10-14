@@ -886,3 +886,20 @@ describe('catalogue map announcements', () => {
     ).toThrow(/immutable/);
   });
 });
+
+describe('map blob transfer budget', () => {
+  const parseSession = (): never => {
+    throw new Error('A map blob must not parse a session descriptor');
+  };
+  it('accepts 32 MiB in both directions and rejects one more decoded byte', () => {
+    const limit = 32 * 1024 * 1024;
+    const bytes = `${'A'.repeat(Math.ceil(limit / 3) * 4 - 1)}=`;
+    const upload = { kind: 'blob', type: 'map', to: null, tick: null, bytes };
+    const delivery = { kind: 'blob', type: 'map', from: 'Ania', tick: null, bytes };
+    expect(parseClientMessage(upload).kind).toBe('blob');
+    expect(parseServerMessage(delivery, parseSession).kind).toBe('blob');
+    const oversized = `${bytes.slice(0, -1)}A`;
+    expect(() => parseClientMessage({ ...upload, bytes: oversized })).toThrow(/over/);
+    expect(() => parseServerMessage({ ...delivery, bytes: oversized }, parseSession)).toThrow(/over/);
+  });
+});

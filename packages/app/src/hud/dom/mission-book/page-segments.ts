@@ -190,13 +190,19 @@ export function openingWords(page: BookPage): string | null {
   return null;
 }
 
-/** A title the corpus wrote in capitals reads in title case; any other stays as written. */
+/** Languages whose titles capitalise only a sentence's first word. Capitals cannot tell a proper name,
+ *  so a title that needs one is written in mixed case and kept as written. */
+const SENTENCE_CASE_LANGUAGES: ReadonlySet<string> = new Set(['ru']);
+const WORD_START = /(^|[\s:(„-])(\p{L})/gu;
+const SENTENCE_START = /(^\P{L}*|[.!?]\s+\P{L}*)(\p{L})/gu;
+
+/** A title the corpus wrote in capitals reads in title case, or sentence case where the language uses
+ *  it; any other stays as written. */
 export function displayTitle(text: string, locale: string): string {
   if (text !== text.toLocaleUpperCase(locale)) return text;
+  const language = locale.toLowerCase().split('-')[0] ?? locale;
+  const starts = SENTENCE_CASE_LANGUAGES.has(language) ? SENTENCE_START : WORD_START;
   return text
     .toLocaleLowerCase(locale)
-    .replace(
-      /(^|[\s:(„-])(\p{L})/gu,
-      (_, before: string, letter: string) => before + letter.toLocaleUpperCase(locale),
-    );
+    .replace(starts, (_, before: string, letter: string) => before + letter.toLocaleUpperCase(locale));
 }

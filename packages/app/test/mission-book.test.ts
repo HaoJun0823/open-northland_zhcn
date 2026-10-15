@@ -161,6 +161,13 @@ describe('displayTitle', () => {
     expect(displayTitle('BOSO PRZEZ ŚWIAT', 'pl')).toBe('Boso Przez Świat');
     expect(displayTitle('Powrót Gato', 'pl')).toBe('Powrót Gato');
   });
+
+  it('sets a Russian title written in capitals in sentence case and leaves any other alone', () => {
+    expect(displayTitle('КОЛОСС: ТАЙНЫЙ ХОД', 'ru')).toBe('Колосс: тайный ход');
+    expect(displayTitle('«ДАР» ДЛЯ КОНУНГА. ДОРОГА ДОМОЙ', 'ru')).toBe('«Дар» для конунга. Дорога домой');
+    expect(displayTitle('Висячие сады Семирамиды', 'ru')).toBe('Висячие сады Семирамиды');
+    expect(displayTitle('THE LONG ROAD HOME', 'en')).toBe('The Long Road Home');
+  });
 });
 
 describe('paging', () => {

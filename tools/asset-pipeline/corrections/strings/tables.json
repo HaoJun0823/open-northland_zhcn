@@ -708,8 +708,8 @@
     "table": "experiences",
     "id": 5,
     "from": "Добыча - Камень",
-    "to": "Добыча - Бут",
-    "reason": "Wydobywa się kamień łamany, towar 3 \"Бут\"; \"Камень\" to kamienny blok kamieniarza (towar 26)."
+    "to": "Добыча - Булыжник",
+    "reason": "Wydobywa się kamień łamany, towar 3 \"Булыжник\"; \"Камень\" to kamienny blok kamieniarza (towar 26)."
   },
   {
     "lang": "eng",
@@ -1030,5 +1030,93 @@
     "from": "Franken",
     "to": "Franke",
     "reason": "Pozostałe plemiona stoją w liczbie pojedynczej (Wikinger, Byzantiner, Ägypter); \"Franken\" to liczba mnoga albo nazwa regionu."
+  },
+  {
+    "lang": "rus",
+    "table": "goods",
+    "id": 3,
+    "from": "Бут",
+    "to": "Булыжник",
+    "reason": "\"Бут\" to termin murarski, którego większość graczy nie zna; \"Булыжник\" to zrozumiały kamień łamany."
+  },
+  {
+    "lang": "rus",
+    "table": "goods",
+    "id": 17,
+    "from": "Торт",
+    "to": "Пирог",
+    "reason": "Wikingowie pieką placek, \"Пирог\"; \"Торт\" brzmi jak współczesny tort cukierniczy."
+  },
+  {
+    "lang": "rus",
+    "table": "goods",
+    "id": 20,
+    "from": "Торт",
+    "to": "Пирог",
+    "reason": "Wikingowie pieką placek, \"Пирог\"; \"Торт\" brzmi jak współczesny tort cukierniczy."
+  },
+  {
+    "lang": "rus",
+    "table": "experiences",
+    "id": 51,
+    "from": "Выпечка - Торт",
+    "to": "Выпечка - Пирог",
+    "reason": "Wikingowie pieką placek, \"Пирог\"; \"Торт\" brzmi jak współczesny tort cukierniczy."
+  },
+  {
+    "lang": "rus",
+    "table": "jobs",
+    "id": 27,
+    "from": "Скаут",
+    "to": "Разведчик",
+    "reason": "\"Скаут\" to współczesny anglicyzm; zwiadowca to po rosyjsku \"Разведчик\"."
+  },
+  {
+    "lang": "rus",
+    "table": "jobsPlural",
+    "id": 27,
+    "from": "Скауты",
+    "to": "Разведчики",
+    "reason": "\"Скаут\" to współczesny anglicyzm; zwiadowca to po rosyjsku \"Разведчик\"."
+  },
+  {
+    "lang": "rus",
+    "table": "jobs",
+    "id": 47,
+    "from": "Сира",
+    "to": "Кира",
+    "reason": "Rosyjscy gracze znają bohaterkę jako \"Кира\"; \"Сира\" nie jest rosyjskim imieniem i kojarzy się z \"сирый\" (osierocony)."
+  },
+  {
+    "lang": "rus",
+    "table": "jobsPlural",
+    "id": 47,
+    "from": "Сира",
+    "to": "Кира",
+    "reason": "Rosyjscy gracze znają bohaterkę jako \"Кира\"; \"Сира\" nie jest rosyjskim imieniem i kojarzy się z \"сирый\" (osierocony)."
+  },
+  {
+    "lang": "rus",
+    "table": "goods",
+    "id": 48,
+    "from": "S Зелье Здоровья",
+    "to": "S Целебное Зелье",
+    "reason": "\"Целебное зелье\" lepiej oddaje miksturę leczniczą niż \"Зелье Здоровья\"."
+  },
+  {
+    "lang": "rus",
+    "table": "goods",
+    "id": 49,
+    "from": "L Зелье Здоровья",
+    "to": "L Целебное Зелье",
+    "reason": "\"Целебное зелье\" lepiej oddaje miksturę leczniczą niż \"Зелье Здоровья\"."
+  },
+  {
+    "lang": "rus",
+    "table": "experiences",
+    "id": 61,
+    "from": "Алхимия - Зелье Здоровья",
+    "to": "Алхимия - Целебное Зелье",
+    "reason": "\"Целебное зелье\" lepiej oddaje miksturę leczniczą niż \"Зелье Здоровья\"."
   }
 ]

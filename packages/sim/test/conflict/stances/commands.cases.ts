@@ -35,9 +35,9 @@ describe('stance defaults - the job → military-mode lookup', () => {
     return sim.world.get(spawn(sim, jobType, tribe, behaviourFlags), Stance).mode;
   }
 
-  it('classifies the roster: soldiers/heroes ATTACK, scout/hunter IGNORE, everyone else FLEE', () => {
-    expect(spawnedStance(SOLDIER)).toBe(MILITARY_MODE.ATTACK);
-    expect(spawnedStance(45)).toBe(MILITARY_MODE.ATTACK); // hero_saber
+  it('classifies the roster: soldiers/heroes DEFEND, scout/hunter IGNORE, everyone else FLEE', () => {
+    expect(spawnedStance(SOLDIER)).toBe(MILITARY_MODE.DEFEND);
+    expect(spawnedStance(45)).toBe(MILITARY_MODE.DEFEND); // hero_saber
     expect(spawnedStance(27)).toBe(MILITARY_MODE.IGNORE); // scout
     expect(spawnedStance(15)).toBe(MILITARY_MODE.IGNORE); // hunter (toward humans)
     expect(spawnedStance(WOODCUTTER)).toBe(MILITARY_MODE.FLEE); // civilian
@@ -89,6 +89,7 @@ describe('stance defaults - the job → military-mode lookup', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
     const soldier = spawn(sim, SOLDIER);
     setAiControl(sim.world, ctxOf(sim), { kind: 'setAiControl', player: P0, enabled: true });
+    setStance(sim.world, ctxOf(sim), { kind: 'setStance', entity: soldier, mode: MILITARY_MODE.ATTACK });
     expect(sim.world.get(soldier, Stance).mode).toBe(MILITARY_MODE.ATTACK);
     setAiControl(sim.world, ctxOf(sim), {
       kind: 'setAiControl',
@@ -99,12 +100,10 @@ describe('stance defaults - the job → military-mode lookup', () => {
     expect(sim.world.get(soldier, Stance).mode).toBe(MILITARY_MODE.DEFEND);
   });
 
-  it('leaves the computer player’s fighters in ATTACK', () => {
+  it('starts the computer player’s fighters in DEFEND like every other human', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
-    const soldier = spawn(sim, SOLDIER);
     setAiControl(sim.world, ctxOf(sim), { kind: 'setAiControl', player: P0, enabled: true });
-    expect(sim.world.get(soldier, Stance).mode).toBe(MILITARY_MODE.ATTACK);
-    expect(sim.world.get(spawn(sim, SOLDIER, VIKING, undefined, 2), Stance).mode).toBe(MILITARY_MODE.ATTACK);
+    expect(sim.world.get(spawn(sim, SOLDIER), Stance).mode).toBe(MILITARY_MODE.DEFEND);
   });
 
   it('stamps the job default on an OWNED settler at spawn - and NONE on an unowned one', () => {

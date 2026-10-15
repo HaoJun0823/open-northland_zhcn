@@ -4,7 +4,6 @@ import {
   hasMissionBehaviour,
   isMachinePlayer,
   MISSION_BEHAVIOUR,
-  Owner,
   Settler,
   Stance,
 } from '../../components/index.js';
@@ -50,11 +49,10 @@ export function isMilitaryMode(mode: number): mode is MilitaryMode {
 
 /**
  * The stance stamped on an owned settler at spawn and on a profession change, until `setStance` overrides
- * it. Original behavior: a weresnake or werewolf fighter starts in ATTACK unless its map gives it
- * {@link MISSION_BEHAVIOUR.SPAWNS_DEFENDING}, and every other human in DEFEND. Approximation: only the
- * fighters of a seat the computer does not command (`seatLeftToMapAi`) start in DEFEND; a person's or the
- * computer player's start in ATTACK, a civilian in FLEE and a scout or hunter in IGNORE, the modes this
- * build's orders, flee and hunt rules read.
+ * it. Original behavior: every human starts in DEFEND, except a weresnake or werewolf fighter, which
+ * starts in ATTACK unless its map gives it {@link MISSION_BEHAVIOUR.SPAWNS_DEFENDING}. Approximation:
+ * a civilian starts in FLEE and a scout or hunter in IGNORE, the modes this build's orders, flee and
+ * hunt rules read.
  */
 export function defaultStance(
   world: World,
@@ -70,8 +68,7 @@ export function defaultStance(
         ? MILITARY_MODE.DEFEND
         : MILITARY_MODE.ATTACK;
     }
-    const owner = world.tryGet(e, Owner)?.player;
-    return owner !== undefined && seatLeftToMapAi(world, owner) ? MILITARY_MODE.DEFEND : MILITARY_MODE.ATTACK;
+    return MILITARY_MODE.DEFEND;
   }
   if (isScoutJob(content, jobType)) return MILITARY_MODE.IGNORE;
   if (isHunterJob(content, jobType)) return MILITARY_MODE.IGNORE; // ignores humans; its hunt drive stays
@@ -85,7 +82,7 @@ export function seatLeftToMapAi(world: World, player: number): boolean {
 }
 
 /**
- * The mode a combatant acts under, falling back to the job default when the component is missing. `NONE`
+ * The mode a combatant acts under, falling back to the default stance when the component is missing. `NONE`
  * normalizes to the passive {@link MILITARY_MODE.IGNORE} so a stray value never becomes an aggressor.
  */
 export function stanceMode(

@@ -39,7 +39,7 @@ import { recordAiOrder } from './ai-lifecycle.js';
 import { isOrderableSettler, supersedeStandingOrders } from './guards.js';
 
 /**
- * Stamp the job-based default military stance on an owned settler. The anchor resets to null until
+ * Stamp the default military stance on an owned settler. The anchor resets to null until
  * {@link anchorAtFeet} or an order sets one. The caller guarantees `e` is owned, and Stance stays owned-only.
  */
 export function stampDefaultStance(

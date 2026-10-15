@@ -33,6 +33,7 @@ const SLOW_CORE_TESTS = [
   'packages/sim/test/movement/army-geometry.test.ts',
   'packages/sim/test/lifecycle/needs-levels.test.ts',
   'packages/net-server/test/socket-recovery.test.ts',
+  'packages/net-server/test/army-socket.test.ts',
   'packages/net-server/test/army-session.test.ts',
   'packages/net-server/test/ws-host.test.ts',
   'packages/net-server/test/relay-resilience-session.test.ts',
@@ -54,6 +55,9 @@ export default defineConfig({
   ssr: { resolve: { conditions: ['source', 'module', 'node', 'development|production'] } },
   test: {
     maxWorkers: MAX_WORKERS,
+    // Keeps transformed modules in node_modules/.vitest-cache, so a focused rerun skips the
+    // ~5 s an app test spends transforming its import graph. Edits to any dependency invalidate.
+    fsModuleCache: true,
     projects: [
       {
         extends: true,

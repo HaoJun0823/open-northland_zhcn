@@ -44,6 +44,8 @@ run is not gated, so keep it to the affected files; run a whole package's test d
 the gate with `npm run test:vitest -- <path>`.
 Vitest selects the workspace packages' `source` exports, so package edits are tested immediately.
 Focused runs and watch mode transpile TypeScript; they do not typecheck it or replace completion gates.
+Transformed modules persist in `node_modules/.vitest-cache`, so a rerun skips most of an app test's
+startup; an edit to any imported file invalidates its entry.
 Production builds and plain Node tools still use `dist/`; run `npx tsc --build` before a Node tool
 when its package sources changed.
 
@@ -91,6 +93,9 @@ correctness from a headless test.
 - A scale ladder is one contract, not one per rung. Keep the smallest case that reaches the branch.
 - To prove a write happened, read the value back. A spy's call count cannot tell a correct write from
   a wrong one.
+- Compare large buffers and pixel arrays with `Buffer.equals` or a hash, not `toEqual`: Vitest's deep
+  equality walks every element (an 8 MiB buffer takes about 15 s).
+- Do not wait out a real timeout. Use fake timers or inject a short limit.
 
 ## Scenario harness
 

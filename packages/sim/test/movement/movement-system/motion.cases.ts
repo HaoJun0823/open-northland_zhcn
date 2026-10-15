@@ -15,7 +15,7 @@ import {
 import type { Entity } from '../../../src/ecs/world.js';
 import { exportSaveGame, fx, ONE, restoreSimulation, Simulation } from '../../../src/index.js';
 import { HALF_COLUMN, worldDistance } from '../../../src/nav/world-metric.js';
-import { MAX_STEP_PER_TICK, MIN_STEP_TICKS } from '../../../src/systems/index.js';
+import { MAX_STEP_PER_TICK } from '../../../src/systems/index.js';
 import { movementSystem } from '../../../src/systems/movement/system.js';
 import { testContent } from '../../fixtures/content.js';
 import { nextTickCtxOf } from '../../fixtures/context.js';
@@ -116,7 +116,6 @@ describe('movementSystem - constant pace: no ramp, corner loss or brake', () => 
     expect(paced(MISSION_BEHAVIOUR.WALKS_SLOWLY | MISSION_BEHAVIOUR.WALKS_FAST)).toBe(
       2 * LAND_STEP_TICKS - 2,
     );
-    expect(MIN_STEP_TICKS).toBe(3);
   });
 
   it('never advances past the per-tick cap: a leg pushed behind schedule is delayed, not skipped', () => {

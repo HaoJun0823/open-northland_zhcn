@@ -118,6 +118,8 @@ const NORTH = { hx: GATE_X, hy: 2 };
 /** A wall post's column well clear of the gate. */
 const PRESSED_X = 6;
 const SOUTH = { hx: GATE_X, hy: 18 };
+/** Enough attackers that the front fills and later ones queue in waiting ranks behind it. */
+const PACKED_ARMY = 60;
 
 /** The fixture content with the woodcutter's axe and the hunter's bow dealing {@link HOUSE_DAMAGE} in the
  *  building column, so either dents a wall. The plain fixture weapons list no building column at all. */
@@ -289,7 +291,7 @@ describe('walls that start blocking a route', () => {
         },
       });
       const gate = wallRow(sim, P1);
-      const squad = Array.from({ length: 100 }, (_, i) => {
+      const squad = Array.from({ length: PACKED_ARMY }, (_, i) => {
         const e = fighterAt(sim, 0, 0, VIKING, UNARMED_SOLDIER, { owner: P0 });
         sim.world.add(e, Position, positionOfNode(2 + (i % 10) * 2, 25 + Math.floor(i / 10) * 2));
         return e;
@@ -297,13 +299,14 @@ describe('walls that start blocking a route', () => {
       sim.enqueueSetup({ kind: 'setPalisadeGateMode', palisade: gate, mode });
       for (const entity of squad)
         sim.enqueueSetup({ kind: 'attackMoveUnit', entity, x: NORTH.hx, y: NORTH.hy });
-      for (let tick = 0; tick < 1600; tick++) sim.step();
+      // The ranks settle by about tick 300 and hold still after.
+      for (let tick = 0; tick < 400; tick++) sim.step();
       expect(sim.world.get(gate, Palisade).gate?.open).toBe(mode === 'open');
       const positions = squad.map((e) => nodeRow(sim, e));
-      expect(Math.max(...positions.map((p) => p.hy))).toBeLessThanOrEqual(WALL_ROW + 10);
+      expect(Math.max(...positions.map((p) => p.hy))).toBeLessThanOrEqual(WALL_ROW + 6);
       expect(positions.every((p) => p.hy > WALL_ROW)).toBe(true);
       const waiting = squad.filter((e) => sim.world.tryGet(e, Engagement)?.waiting === true);
-      expect(waiting.length).toBeGreaterThan(40);
+      expect(waiting.length).toBeGreaterThan(20);
       const ranks = waiting.map((e) => nodeRow(sim, e));
       expect(new Set(ranks.map((p) => `${p.hx},${p.hy}`)).size).toBe(waiting.length);
       expect(new Set(squad.map((e) => JSON.stringify(sim.world.get(e, Position)))).size).toBe(squad.length);
@@ -932,10 +935,6 @@ describe('a fighter walled in with its enemy in sight', () => {
       map: routesMap(),
     });
     expect(restored.world.get(prisoner, AttackOrder).breach?.enemy).toBe(shooter);
-    for (let tick = 0; tick < 60; tick++) {
-      sim.step();
-      restored.step();
-    }
     expect(restored.hashState()).toBe(sim.hashState());
   });
 

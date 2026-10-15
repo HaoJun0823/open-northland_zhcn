@@ -4,10 +4,6 @@ import { defaultSettings } from '../src/view/settings-store.js';
 
 // The control is built from these two, so they carry its whole contract without needing a DOM.
 describe('original art filter control', () => {
-  it('offers Off plus one choice per scaler', () => {
-    expect(FILTER_CHOICES).toEqual(['off', 'bilinear', 'sharp', 'xbr']);
-  });
-
   it('shows Off while the filter is off, whatever scaler is stored', () => {
     expect(filterChoiceOf({ enhancedSampling: false, pixelArtScaler: 'sharp' })).toBe('off');
     expect(filterChoiceOf({ enhancedSampling: true, pixelArtScaler: 'sharp' })).toBe('sharp');

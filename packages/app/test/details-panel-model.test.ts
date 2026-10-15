@@ -65,7 +65,12 @@ import { currentLocale, installNameOverlay, messages } from '../src/i18n/index.j
 import { equipmentScene } from '../src/scenes/equipment.js';
 import { createSceneSim } from '../src/scenes/index.js';
 import { sandboxScene } from '../src/scenes/sandbox/index.js';
-import { buildingEntity, ctxOf, sandboxCtx, snapshotOf } from './support/sandbox.js';
+import { buildingEntity, ctxOf, sandboxCtx as freshSandboxCtx, snapshotOf } from './support/sandbox.js';
+
+/** One sandbox build for the whole file. Tests treat it as read-only; one that edits content builds its
+ *  own with `freshSandboxCtx`. */
+let sharedSandboxCtx: UnitPanelModelContext | undefined;
+const sandboxCtx = (): UnitPanelModelContext => (sharedSandboxCtx ??= freshSandboxCtx());
 
 /** The equipment scene's first-tick snapshot + its content context - the preamble both equipment
  *  tests open with. */
@@ -707,8 +712,7 @@ describe('selection details panel model', () => {
 
   it('lists each worker trade with its own filled/capacity (Druid 1/1 · Tragarz 0/1 · Zbieracz 0/1)', () => {
     const DRUID_HUT = 35;
-    const sim = createSceneSim(sandboxScene);
-    const druidSlot = sim.content.buildings.find((b) => b.typeId === DRUID_HUT)?.workers[0]; // Druid, declared first
+    const druidSlot = sandboxCtx().buildings.find((b) => b.typeId === DRUID_HUT)?.workers[0]; // Druid, declared first
     if (druidSlot === undefined) throw new Error('druid hut has no worker slots');
     const snapshot = snapshotOf([
       buildingEntity(1, DRUID_HUT),
@@ -1079,7 +1083,7 @@ describe('selection details panel model', () => {
   it('locks a needforgood-gated ware in the gather list until the settler earns it', () => {
     const DIG_TRACK = 999; // no jobExperience record - raw XP counts as repeats
     const IRON_REPEATS = 10;
-    const ctx = sandboxCtx();
+    const ctx = freshSandboxCtx();
     const tribe = ctx.tribes.find((t) => t.typeId === 1);
     if (tribe === undefined) throw new Error('sandbox tribe missing');
     tribe.jobRequirements.push({

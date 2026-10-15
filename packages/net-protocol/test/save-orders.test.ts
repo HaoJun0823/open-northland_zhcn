@@ -76,7 +76,8 @@ describe('saved accepted order wire contract', () => {
     ).toThrow(/byte budget/);
   });
 
-  it.each(['x', 'ą', '雪', '😀', '\ud800'])('counts serialized UTF-8 bytes at the limit for %j', (unit) => {
+  it('counts serialized UTF-8 bytes at the limit for every code-unit width and escaped lone surrogates', () => {
+    const unit = 'ą雪😀\ud800';
     const withText = (data: string) => ({
       ...response,
       frames: [

@@ -10,17 +10,6 @@ import {
 import { defaultSettings, parseStoredSettings } from '../src/view/settings-store.js';
 
 describe('minimap filters', () => {
-  it('start with the owned forces and works shown, the clutter hidden, and every owner in scope', () => {
-    const shown = MINIMAP_LAYERS.filter((layer) => DEFAULT_MINIMAP_FILTERS.layers[layer]);
-    expect(shown).toEqual(['civilians', 'soldiers', 'buildings', 'vehicles']);
-    expect(allMinimapLayersShown(DEFAULT_MINIMAP_FILTERS)).toBe(false);
-    expect(DEFAULT_MINIMAP_FILTERS.scope).toBe('everyone');
-    expect(DEFAULT_MINIMAP_FILTERS.ground).toBe('natural');
-    expect(DEFAULT_MINIMAP_FILTERS.markerSize).toBe('medium');
-    expect(DEFAULT_MINIMAP_FILTERS.colours).toBe('players');
-    expect(defaultSettings().minimapFilters).toEqual(DEFAULT_MINIMAP_FILTERS);
-  });
-
   it('toggle one layer, or all of them at once', () => {
     const roads = toggleMinimapLayer(DEFAULT_MINIMAP_FILTERS, 'roads');
     expect(roads.layers.roads).toBe(true);

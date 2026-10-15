@@ -200,17 +200,4 @@ describe('diplomacy in combat targeting (owner axis, full step() schedule)', () 
 
     expect(sim.world.has(civ, Fleeing)).toBe(false);
   });
-
-  it('is deterministic: two same-seed runs with diplomacy commands reach the same state hash', () => {
-    const run = (): string => {
-      const sim = skirmishSim();
-      fighterAt(sim, 0, 0, VIKING, WOODCUTTER, { owner: P0, hitpoints: 500 });
-      fighterAt(sim, 1, 0, VIKING, WOODCUTTER, { owner: P1, hitpoints: 500 });
-      sim.enqueueSetup({ kind: 'setDiplomacy', from: P0, to: P1, state: 'friend' });
-      sim.enqueueSetup({ kind: 'setDiplomacy', from: P1, to: P0, state: 'enemy' });
-      for (let i = 0; i < TICKS; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

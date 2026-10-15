@@ -175,17 +175,6 @@ describe('the settler panel’s rows', () => {
     ).toBe('Zdrowie: 4/10');
   });
 
-  it('offers the rings to a person free to marry and fades them while the wedding runs', () => {
-    const copy = messages().hud.settlerPanel;
-    const free = { partner: null, child: null, marry: true, childOnHold: null } as const;
-    expect(familyButton(free)).toMatchObject({ enabled: true, tooltip: copy.noPartnerTooltip });
-    expect(familyButton({ ...free, marry: copy.weddingUnderWay })).toMatchObject({
-      enabled: false,
-      tooltip: copy.weddingUnderWay,
-    });
-    expect(familyButton({ ...free, marry: null })).toBeNull();
-  });
-
   it('starts a stopped good for good on Ctrl and stops a running one', () => {
     expect(toggledProductionCount(0)).toBe(PRODUCTION_UNLIMITED);
     expect(toggledProductionCount(7)).toBe(0);
@@ -219,19 +208,17 @@ describe('the settler panel’s rows', () => {
     ]);
   });
 
-  it('offers "bez pary" as the partner search only to a person free to marry', () => {
+  it('offers the partner search, link and rings, only to a person free to marry, fading it while he weds', () => {
     const copy = messages().hud.settlerPanel;
-    expect(familyValue({ partner: null, child: null, marry: true, childOnHold: null })[0]).toMatchObject({
-      text: copy.noPartner,
-      link: true,
-      tone: 'missing',
-    });
-    expect(
-      familyValue({ partner: null, child: null, marry: null, childOnHold: null })[0]?.link,
-    ).toBeUndefined();
-    expect(
-      familyValue({ partner: null, child: null, marry: copy.weddingUnderWay, childOnHold: null })[0]?.link,
-    ).toBeUndefined();
+    const free = { partner: null, child: null, marry: true, childOnHold: null } as const;
+    const wedding = { ...free, marry: copy.weddingUnderWay };
+    const barred = { ...free, marry: null };
+    expect(familyValue(free)[0]).toMatchObject({ text: copy.noPartner, link: true, tone: 'missing' });
+    expect(familyButton(free)).toMatchObject({ enabled: true, tooltip: copy.noPartnerTooltip });
+    expect(familyValue(wedding)[0]?.link).toBeUndefined();
+    expect(familyButton(wedding)).toMatchObject({ enabled: false, tooltip: copy.weddingUnderWay });
+    expect(familyValue(barred)[0]?.link).toBeUndefined();
+    expect(familyButton(barred)).toBeNull();
     expect(
       familyValue({
         partner: { id: 2, label: 'Astrid' },

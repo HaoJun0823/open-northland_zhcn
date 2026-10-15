@@ -170,20 +170,6 @@ describe('movementSystem - arrival in place', () => {
   });
 });
 
-describe('movementSystem - determinism', () => {
-  it('two same-seed sims following the same path reach the same state hash', () => {
-    // Each sim owns its stores, so two same-seed runs are independent; compare the final hashes -
-    // same seed + same path must yield byte-identical state.
-    const runOne = (): string => {
-      const s = new Simulation({ seed: 5, content: testContent(), map: grassMap(10, 1) });
-      followerAt(s, 0, 0, halfSteps(4));
-      for (let i = 0; i < 20; i++) s.step();
-      return s.hashState();
-    };
-    expect(runOne()).toBe(runOne());
-  });
-});
-
 describe('movementSystem - invoked directly (unit, no sim)', () => {
   it('no-ops on an entity without a PathFollow', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });

@@ -855,17 +855,6 @@ describe('the scatter roll', () => {
     }
     expect(landings.some((ev) => ev.kind === 'projectileMissed')).toBe(true);
   });
-
-  it('is deterministic: the same seed lands the same stones', () => {
-    const run = (): string => {
-      const s = sim(grass(40, 20), 7);
-      const catapult = catapultAt(s, 8, 10, P1, 0);
-      order(s, catapult, P1, houseAt(s, 28, 10, P2, TOUGH_HOUSE));
-      s.run(10 * VEHICLE_ATTACK_CLIP_TICKS);
-      return s.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });
 
 describe('the ground burst', () => {

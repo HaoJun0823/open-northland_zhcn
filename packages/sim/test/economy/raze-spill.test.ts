@@ -212,21 +212,6 @@ describe('a razed building spills its contents on the ground', () => {
     expect(Math.max(...spilled.map((h) => manhattan(terrain, ruin, h.node)))).toBeGreaterThan(nearestWall);
     for (const h of spilled) expect(walls).not.toContain(h.node);
   });
-
-  it('places the heaps identically on a repeated run (same seed, same layout)', () => {
-    const layout = (): Heap[] => {
-      const sim = mappedSim();
-      demolish(
-        sim,
-        stockedHut(sim, ANCHOR, [
-          [WOOD, 18],
-          [PLANK, 12],
-        ]),
-      );
-      return heaps(sim);
-    };
-    expect(layout()).toEqual(layout());
-  });
 });
 
 describe('a razed standing building gives back half its construction bill, rounded up', () => {

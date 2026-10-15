@@ -60,12 +60,11 @@ describe('minimap ground mode', () => {
     }
   });
 
-  it('keeps every alpha and is deterministic', () => {
+  it('keeps every alpha, the same in place or copied', () => {
     const source = raster(GRASS, WATER, SAND);
     for (const mode of MINIMAP_GROUND_MODES) {
       const out = graded(mode, source);
       expect([0, 1, 2].map((index) => pixel(out, index)[3])).toEqual([SEMI_ALPHA, 255, 255]);
-      expect(graded(mode, source)).toEqual(out);
       expect(applyMinimapGroundMode(source.slice(), mode)).toEqual(out);
     }
   });

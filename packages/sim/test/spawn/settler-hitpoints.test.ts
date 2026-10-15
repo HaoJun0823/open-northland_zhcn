@@ -32,7 +32,6 @@ describe('createSettler - spawn hitpoints', () => {
     const world = new World();
     const e = createSettler(world, testContent(), new Rng(1), spec(VIKING), new PersonalNames(1, []));
     if (e === null) throw new Error('spawn failed');
-    expect(HUMAN_HITPOINTS).toBe(5000);
     expect(world.get(e, Health)).toEqual({ hitpoints: HUMAN_HITPOINTS, max: HUMAN_HITPOINTS });
   });
 

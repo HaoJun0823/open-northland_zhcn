@@ -1057,7 +1057,7 @@ describe('military module - the live seat', { timeout: 60_000 }, () => {
   /** Ticks to watch a wave: the seat calls its men in to the barracks door, holds them there for the size
    *  it drew or the patience window, and marches them the whole way from there. */
   const MARCH_TICKS = 4000;
-  /** A band cheap enough to run the whole schedule three times for the replay case. */
+  /** A band cheap enough to run the whole schedule twice for the replay case. */
   const WAR_BAND = 12;
 
   /** An AI-driven seat with a barracks and a wave, and an enemy seat within marching reach. */
@@ -1162,20 +1162,18 @@ describe('military module - the live seat', { timeout: 60_000 }, () => {
     expect(sim.commands.log.some((c) => c.command.kind === 'attackMoveUnit')).toBe(false);
   });
 
-  it('reaches the same state twice from one seed, and the log replays it', () => {
-    const a = warSim();
-    a.run(MARCH_TICKS);
-    const b = warSim();
-    b.run(MARCH_TICKS);
-    expect(a.hashState()).toBe(b.hashState());
+  it('replays the live war log, re-issued marches included, to the same state', () => {
+    const live = warSim();
+    live.run(MARCH_TICKS);
+    expect(live.commands.log.some((c) => c.command.kind === 'attackMoveUnit')).toBe(true);
 
     const replayed = replay({
       content: aiContent(),
       seed: 1,
       map: grassNodeMap(128, 96),
-      log: a.commands.log,
-      untilTick: a.tick, // the setup steps count too, so replay to the live run's own clock
+      log: live.commands.log,
+      untilTick: live.tick, // the setup steps count too, so replay to the live run's own clock
     });
-    expect(replayed.hashState()).toBe(a.hashState());
+    expect(replayed.hashState()).toBe(live.hashState());
   });
 });

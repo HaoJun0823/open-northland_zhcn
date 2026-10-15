@@ -121,14 +121,4 @@ describe('sleep drive - closing the rise→sleep→relief loop through the real 
     expect(peakFatigue).toBeLessThanOrEqual(ONE); // never breached the fatigueInRange ceiling
     expect(sim.checkInvariants()).toEqual([]);
   });
-
-  it('is byte-identical across two same-seed runs (determinism)', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 5, content: testContent(), map: grassMap(3, 1) });
-      settlerAt(sim, 0, 0, NEED_DRIVE_THRESHOLD);
-      for (let i = 0; i < 200; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

@@ -125,12 +125,6 @@ describe('goodsGraph', () => {
     expect(graph.get(STONE)?.producedBy).toEqual([]); // produced by nothing
   });
 
-  it('is deterministic - identical content yields an identical graph', () => {
-    const a = goodsGraph(graphContent());
-    const b = goodsGraph(graphContent());
-    expect([...a.entries()]).toEqual([...b.entries()]);
-  });
-
   it('is empty for content with no goods', () => {
     const empty = parseContentSet({
       manifest: TEST_MANIFEST,

@@ -1081,20 +1081,6 @@ describe('constructionSystem - material-DELIVERY dispatch (carrier path)', () =>
     expect(sim.world.get(enemy, UnderConstruction).labor).toBe(0);
     expect(sim.world.get(enemy, Stockpile).amounts.get(STONE)).toBe(2); // material untouched
   });
-
-  it('is deterministic - two same-seed delivery+build runs reach the same finished state hash', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 9, content: constructionContent(), map: grassMap(6, 1) });
-      siteAt(sim, HOUSE, 3, 0);
-      loadedCarrierAt(sim, 0, 0, STONE, 1);
-      loadedCarrierAt(sim, 1, 0, STONE, 1);
-      loadedCarrierAt(sim, 5, 0, WOOD, 1);
-      builderAt(sim, 4, 0);
-      for (let i = 0; i < 120; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });
 
 /**
@@ -1139,19 +1125,5 @@ describe('constructionSystem - upgrade-site DELIVERY dispatch (carrier path)', (
     expect(sim.world.get(home, Stockpile).amounts.get(STONE) ?? 0).toBe(0); // nothing delivered
     expect(sim.world.has(carrier, Carrying)).toBe(false); // no sink → set the load on the ground
     expect(sim.world.get(home, Building).buildingType).toBe(HOME_L0); // unchanged
-  });
-
-  it('is deterministic - two same-seed upgrade-delivery runs reach the same state hash', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 9, content: levelChainWithCarrier(), map: grassMap(6, 1) });
-      const home = builtBuildingAt(sim, HOME_L0, 3, 0);
-      loadedCarrierAt(sim, 0, 0, STONE, 1);
-      loadedCarrierAt(sim, 1, 0, STONE, 1);
-      builderAt(sim, 5, 0);
-      sim.enqueueSetup({ kind: 'upgradeBuilding', building: home });
-      for (let i = 0; i < 200; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
   });
 });

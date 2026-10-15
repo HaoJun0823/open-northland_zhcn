@@ -28,7 +28,6 @@ import type { NodeId } from '../../src/nav/terrain/index.js';
 import { boardingNode } from '../../src/systems/vehicles/crew.js';
 import {
   createVehicle,
-  DRAUGHT_BREEDING_PAIR,
   DRAUGHT_RECRUIT_CADENCE_TICKS,
   draughtAnimalSystem,
   harnessVehicle,
@@ -134,7 +133,6 @@ describe('the recruit pick', () => {
     const near = cow(s, CART.hx + 2, CART.hy);
     const nearer = cow(s, CART.hx + 1, CART.hy);
     const far = cow(s, CART.hx + 10, CART.hy);
-    expect(DRAUGHT_BREEDING_PAIR).toBe(2);
     expect(pick(s, c)).toBe(far);
     expect([near, nearer]).not.toContain(pick(s, c));
   });

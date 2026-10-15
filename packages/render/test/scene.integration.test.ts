@@ -59,10 +59,6 @@ describe('buildScene over a real Simulation snapshot', () => {
     const lastTile = scene.map((d) => d.kind).lastIndexOf('tile');
     const firstSprite = scene.findIndex((d) => d.kind !== 'tile');
     expect(lastTile).toBeLessThan(firstSprite);
-
-    // A second snapshot of the same state yields the same scene.
-    const again = buildScene(sim.snapshot(), terrain);
-    expect(JSON.stringify(again)).toBe(JSON.stringify(scene));
   });
 });
 

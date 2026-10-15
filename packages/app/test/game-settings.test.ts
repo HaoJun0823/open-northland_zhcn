@@ -15,100 +15,64 @@ import { defaultSettings, parseStoredSettings } from '../src/view/settings-store
 const worldAt = (world: number): MixerVolumes => ({ ...DEFAULT_VOLUMES, world });
 const QUIET_WORLD = worldAt(35);
 
-it('applies a graphics enhancement immediately without changing its siblings', async () => {
-  const h = harness();
-  await h.settings.update({ softShadows: false });
-  expect(h.settings.current().softShadows).toBe(false);
-  expect(h.setGraphicsEnhancements).toHaveBeenCalledWith({
-    ...enhancementsOf(defaultSettings()),
-    softShadows: false,
+type SettingsPatch = Parameters<ReturnType<typeof harness>['settings']['update']>[0];
+type Seam = Exclude<keyof ReturnType<typeof harness>, 'settings' | 'persist'>;
+
+/** A setting the running game applies at once: the patch, the seam that takes it, and what it is handed. */
+interface LiveSetting {
+  readonly patch: SettingsPatch;
+  readonly seam: Seam;
+  readonly applied: unknown;
+}
+
+const LIVE_SETTINGS: readonly LiveSetting[] = [
+  {
+    patch: { softShadows: false },
+    seam: 'setGraphicsEnhancements',
+    applied: { ...enhancementsOf(defaultSettings()), softShadows: false },
+  },
+  {
+    patch: { enhancedSampling: true, pixelArtScaler: 'sharp' },
+    seam: 'setGraphicsEnhancements',
+    applied: { ...enhancementsOf(defaultSettings()), pixelArtScaler: 'sharp' },
+  },
+  { patch: { weather: false }, seam: 'setWeatherEnabled', applied: false },
+  { patch: { groupNumbers: true }, seam: 'setGroupNumbersShown', applied: true },
+  { patch: { blood: false }, seam: 'setBloodEnabled', applied: false },
+  { patch: { bonesFade: false }, seam: 'setBonesFade', applied: false },
+  { patch: { fpsCounter: true }, seam: 'setFpsCounterShown', applied: true },
+  { patch: { fpsLimit: 30 }, seam: 'setFpsLimit', applied: 30 },
+  { patch: { fpsLimit: null }, seam: 'setFpsLimit', applied: null },
+  { patch: { soundInBackground: true }, seam: 'setSoundInBackground', applied: true },
+  { patch: { monoSound: true }, seam: 'setMonoSound', applied: true },
+  { patch: { jinglesEnabled: false }, seam: 'setJinglesEnabled', applied: false },
+  { patch: { unitResponses: 'selection' }, seam: 'setUnitResponses', applied: 'selection' },
+  { patch: { minimapFrame: 'urnes' }, seam: 'setMinimapFrame', applied: 'urnes' },
+  ...(['outline', 'pulse', 'ring-white', 'ring-green'] as const).map(
+    (selectionStyle): LiveSetting => ({
+      patch: { selectionStyle },
+      seam: 'setSelectionStyle',
+      applied: selectionStyle,
+    }),
+  ),
+];
+
+describe('a live setting', () => {
+  it.each(LIVE_SETTINGS)('$patch reaches $seam at once and persists', async ({ patch, seam, applied }) => {
+    const h = harness();
+    await h.settings.update(patch);
+    expect(h.settings.current()).toMatchObject(patch);
+    expect(h.persist).toHaveBeenCalledWith(patch);
+    expect(h[seam]).toHaveBeenLastCalledWith(applied);
+    if (seam !== 'setGraphicsEnhancements') expect(h.setGraphicsEnhancements).not.toHaveBeenCalled();
   });
-});
 
-it('hands the renderer a newly picked pixel-art filter', async () => {
-  const h = harness();
-  await h.settings.update({ enhancedSampling: true, pixelArtScaler: 'sharp' });
-  expect(h.setGraphicsEnhancements).toHaveBeenLastCalledWith({
-    ...enhancementsOf(defaultSettings()),
-    pixelArtScaler: 'sharp',
+  it('hides group numbers until opted in, fades bones by default, and reads group numbers only as a boolean', () => {
+    expect(defaultSettings().groupNumbers).toBe(false);
+    expect(defaultSettings().bonesFade).toBe(true);
+    expect(parseStoredSettings('{"groupNumbers":"yes"}').groupNumbers).toBe(false);
+    expect(parseStoredSettings('{"groupNumbers":true}').groupNumbers).toBe(true);
   });
-});
-
-it('switches weather live without touching the renderer enhancements', async () => {
-  const h = harness();
-  await h.settings.update({ weather: false });
-  expect(h.setWeatherEnabled).toHaveBeenCalledWith(false);
-  expect(h.setGraphicsEnhancements).not.toHaveBeenCalled();
-  expect(h.persist).toHaveBeenCalledWith({ weather: false });
-});
-
-it('shows or hides the control-group numbers live, hidden until the player turns them on', async () => {
-  expect(defaultSettings().groupNumbers).toBe(false);
-  expect(parseStoredSettings('{"groupNumbers":"yes"}').groupNumbers).toBe(false);
-  expect(parseStoredSettings('{"groupNumbers":true}').groupNumbers).toBe(true);
-  const h = harness();
-  await h.settings.update({ groupNumbers: true });
-  expect(h.setGroupNumbersShown).toHaveBeenCalledWith(true);
-  expect(h.persist).toHaveBeenCalledWith({ groupNumbers: true });
-});
-
-it('persists and switches blood immediately, including while paused', async () => {
-  const h = harness();
-  expect(h.settings.current().blood).toBe(true);
-  await h.settings.update({ blood: false });
-  expect(h.setBloodEnabled).toHaveBeenCalledWith(false);
-  expect(h.persist).toHaveBeenCalledWith({ blood: false });
-  await h.settings.update({ blood: true });
-  expect(h.setBloodEnabled).toHaveBeenLastCalledWith(true);
-});
-
-it('fades bones by default and keeps them for good once switched off', async () => {
-  const h = harness();
-  expect(h.settings.current().bonesFade).toBe(true);
-  await h.settings.update({ bonesFade: false });
-  expect(h.setBonesFade).toHaveBeenCalledWith(false);
-  expect(h.persist).toHaveBeenCalledWith({ bonesFade: false });
-});
-
-it('shows or hides the frame-rate counter live', async () => {
-  expect(parseStoredSettings('{"fpsCounter":true}').fpsCounter).toBe(true);
-  const h = harness();
-  await h.settings.update({ fpsCounter: true });
-  expect(h.setFpsCounterShown).toHaveBeenCalledWith(true);
-  expect(h.persist).toHaveBeenCalledWith({ fpsCounter: true });
-});
-
-it('hands a new frame-rate limit to the running game at once', async () => {
-  const h = harness();
-  await h.settings.update({ fpsLimit: 30 });
-  await h.settings.update({ fpsLimit: null });
-  expect(h.setFpsLimit.mock.calls).toEqual([[30], [null]]);
-  expect(h.persist.mock.calls).toEqual([[{ fpsLimit: 30 }], [{ fpsLimit: null }]]);
-});
-
-it('applies the background and mono sound choices live', async () => {
-  const h = harness();
-  await h.settings.update({ soundInBackground: true });
-  await h.settings.update({ monoSound: true });
-  expect(h.setSoundInBackground).toHaveBeenCalledWith(true);
-  expect(h.setMonoSound).toHaveBeenCalledWith(true);
-  expect(h.persist.mock.calls).toEqual([[{ soundInBackground: true }], [{ monoSound: true }]]);
-});
-
-it('applies the jingles switch and the unit responses choice to the driver live', async () => {
-  const h = harness();
-  await h.settings.update({ jinglesEnabled: false });
-  await h.settings.update({ unitResponses: 'selection' });
-  expect(h.setJinglesEnabled).toHaveBeenCalledWith(false);
-  expect(h.setUnitResponses).toHaveBeenCalledWith('selection');
-  expect(h.persist.mock.calls).toEqual([[{ jinglesEnabled: false }], [{ unitResponses: 'selection' }]]);
-});
-
-it('reframes the mounted minimap when another frame is picked', async () => {
-  const h = harness();
-  await h.settings.update({ minimapFrame: 'urnes' });
-  expect(h.setMinimapFrame).toHaveBeenCalledWith('urnes');
-  expect(h.persist).toHaveBeenCalledWith({ minimapFrame: 'urnes' });
 });
 
 function harness(overrides: Partial<GameSettingsRuntimeDeps> = {}) {
@@ -403,14 +367,4 @@ describe('gameSoundEnabled', () => {
     expect(gameSoundEnabled(new URLSearchParams('sound=off'), true)).toBe(false);
     expect(gameSoundEnabled(new URLSearchParams('sound=on'), false)).toBe(true);
   });
-});
-
-it('persists and applies every selection style immediately', async () => {
-  const h = harness();
-  for (const selectionStyle of ['outline', 'pulse', 'ring-white', 'ring-green'] as const) {
-    await h.settings.update({ selectionStyle });
-    expect(h.settings.current().selectionStyle).toBe(selectionStyle);
-    expect(h.persist).toHaveBeenLastCalledWith({ selectionStyle });
-    expect(h.setSelectionStyle).toHaveBeenLastCalledWith(selectionStyle);
-  }
 });

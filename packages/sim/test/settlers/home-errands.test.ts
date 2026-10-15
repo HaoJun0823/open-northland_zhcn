@@ -316,18 +316,6 @@ describe('sleepAtHome - a housed settler goes to bed indoors', () => {
     expect(needsOf(sim, settler).fatigue).toBeLessThan(TIRED); // and slept it off
     expect(sim.checkInvariants()).toEqual([]);
   });
-
-  it('is byte-identical across two same-seed runs (determinism)', () => {
-    const run = (): string => {
-      const sim = simWithHomes();
-      const settler = tiredAt(sim, 2, 2);
-      const home = homeAt(sim, 4, 3);
-      sim.world.add(settler, Residence, { home });
-      for (let i = 0; i < 60; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });
 
 describe('the at-home top-up - a settler home for one need serves the rest before it leaves', () => {

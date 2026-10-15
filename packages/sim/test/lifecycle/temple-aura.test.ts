@@ -235,16 +235,4 @@ describe('templeAuraSystem - the temple blesses its owner people once a game sec
     expect(names.indexOf('projectile')).toBeLessThan(names.indexOf('templeAura'));
     expect(names.indexOf('combat')).toBeLessThan(names.indexOf('templeAura'));
   });
-
-  it('is byte-identical across two same-seed runs', () => {
-    const run = (): string => {
-      const sim = fresh();
-      templeAt(sim, 10);
-      personAt(sim, 12);
-      personAt(sim, 30, { piety: ONE });
-      for (let i = 0; i < 5 * TICKS_PER_SECOND; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

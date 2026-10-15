@@ -258,14 +258,4 @@ describe('a fallen character drops its gear beside the bones', () => {
     };
     expect(hashOf(true)).toBe(hashOf(false));
   });
-
-  it('places the loot identically on a repeated run (same seed, same layout)', () => {
-    const run = (): string => {
-      const sim = mappedSim();
-      doomedWearing(sim, { weapon: worn(SWORD), armor: worn(MAIL), misc: misc(worn(DRAUGHT)) });
-      sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

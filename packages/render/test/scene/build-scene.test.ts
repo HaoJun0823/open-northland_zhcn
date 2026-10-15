@@ -139,14 +139,4 @@ describe('buildScene - projection, depth order & classification', () => {
     expect(tiles).toHaveLength(6); // 2*3 cells
     expect(tiles.map((t) => t.typeId)).toEqual([5, 1, 2, 5, 16, 1]);
   });
-
-  it('is pure: the same snapshot yields a byte-identical draw list', () => {
-    const snap = snapshotOf([
-      entity(1, 1, 0, { Settler: { tribe: 0 } }),
-      entity(2, 0, 2, { Building: { buildingType: 1 } }),
-    ]);
-    const a = buildScene(snap, FLAT_3x2);
-    const b = buildScene(snap, FLAT_3x2);
-    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
-  });
 });

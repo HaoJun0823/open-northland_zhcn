@@ -111,7 +111,12 @@ describe('soft shadows', () => {
         for (let x = 3; x < write.width - 3; x++) expected[(y * write.width + x) * 4 + 3] = 80;
       }
       softenShadowAlpha(expected, write.width, write.height);
-      expect(write.data).toEqual(expected);
+      const baked = (bytes: Uint8ClampedArray): Buffer =>
+        Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      expect(
+        baked(write.data).equals(baked(expected)),
+        `shadow ${i} pixels match a fresh softened bake`,
+      ).toBe(true);
       expect({ x: write.x, y: write.y }).toEqual({ x: texture.frame.x, y: texture.frame.y });
       expect(texture.frame.right).toBeLessThanOrEqual(texture.source.width);
       expect(texture.frame.bottom).toBeLessThanOrEqual(texture.source.height);

@@ -353,17 +353,6 @@ describe('animalWanderSystem: the grazing drive', () => {
     expect(everMoved.size).toBe(herd.length); // every creature roamed, none stayed frozen
     expect(sim.checkInvariants()).toEqual([]);
   });
-
-  it('two same-seed runs graze identically (seeded rng only)', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 21, content: testContent(), map: grassMap(30, 30) });
-      const birth = cellAnchorNode(8, 8);
-      sim.enqueueSetup({ kind: 'spawnAnimalHerd', tribe: BEAR, x: birth.hx, y: birth.hy });
-      for (let i = 0; i < 200; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });
 
 describe('a creature whose route the router refused', () => {

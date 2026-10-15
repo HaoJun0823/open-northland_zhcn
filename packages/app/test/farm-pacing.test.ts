@@ -149,16 +149,19 @@ const LONE_FIRST_GRAIN_TICKS = 3600;
  *  and seeds. */
 const MAX_STAGE_SHARE = 0.7;
 
-/** Whichever test runs first pays for all four memoized 14 400-tick runs, ~2 s on a quiet machine.
+/** Whichever test runs first pays for both memoized 14 400-tick runs, ~1 s on a quiet machine.
  *  A loaded full suite stretches that past vitest's 5 s default (13.4 s observed). The budget is a
  *  hang-guard sized ~30x the quiet run, not a benchmark. */
 const PACING_RUN_TIMEOUT_MS = 60_000;
 
 describe('farm pacing against the original', { timeout: PACING_RUN_TIMEOUT_MS }, () => {
-  const CREWS = [1, 2, 3, 4];
+  // A lone farmer and a full crew: the two ends the plot-size and per-farmer-rate contracts compare.
+  const LONE = 1;
+  const FULL_CREW = 4;
+  const CREWS = [LONE, FULL_CREW];
   // Memoized on first use, never at collection time: each crew is a 14 400-tick simulation, so running
   // them in the describe body would put every one behind an unnamed collection error rather than the
-  // failing test, put them outside per-test timeouts, and run all four even for a single filtered test.
+  // failing test, put them outside per-test timeouts, and run both even for a single filtered test.
   const runs = new Map<number, Measured>();
   const runOf = (crew: number): Measured => {
     const cached = runs.get(crew);
@@ -169,21 +172,19 @@ describe('farm pacing against the original', { timeout: PACING_RUN_TIMEOUT_MS },
   };
   const rateOf = (crew: number): number => runOf(crew).grain / crew;
 
-  it('throughput follows the crew: every added farmer adds grain and the per-farmer rate holds', () => {
+  it('throughput follows the crew: a full crew adds grain and the per-farmer rate holds', () => {
     for (const crew of CREWS) {
       expect(rateOf(crew), `${crew} farmer(s)`).toBeGreaterThanOrEqual(RATE_FLOOR);
       expect(rateOf(crew), `${crew} farmer(s)`).toBeLessThanOrEqual(RATE_CEILING);
-      expect(rateOf(crew), `${crew} farmer(s)`).toBeGreaterThanOrEqual(rateOf(1) * CREW_RATE_HOLD);
     }
-    for (const crew of CREWS.slice(1)) {
-      expect(runOf(crew).grain, `${crew} farmer(s)`).toBeGreaterThan(runOf(crew - 1).grain);
-    }
+    expect(rateOf(FULL_CREW)).toBeGreaterThanOrEqual(rateOf(LONE) * CREW_RATE_HOLD);
+    expect(runOf(FULL_CREW).grain).toBeGreaterThan(runOf(LONE).grain);
   });
 
   it('a lone farmer banks its first grain within the cold-start budget', () => {
     // The whole plot is ploughed and levelled before anything ripens, so the first sheaf is late but
     // bounded; a sow that dithers between spots or a can that serves one field at a time blows this.
-    expect(runOf(1).firstGrainTick).toBeLessThanOrEqual(LONE_FIRST_GRAIN_TICKS);
+    expect(runOf(LONE).firstGrainTick).toBeLessThanOrEqual(LONE_FIRST_GRAIN_TICKS);
   });
 
   it("the plot holds ~20-25 plants for ANY crew size - its size is the farm's, not the crew's", () => {

@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   addCurrentAtomic,
   addPerson,
-  Building,
   DEFAULT_WORK_FLAG_RADIUS,
   DeliveryFlag,
   Health,
@@ -18,7 +17,7 @@ import {
 } from '../../src/components/index.js';
 import { eventAt } from '../../src/core/events.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { exportSaveGame, fx, ONE, restoreSimulation, Simulation } from '../../src/index.js';
+import { exportSaveGame, fx, restoreSimulation, Simulation } from '../../src/index.js';
 import { atomicSystem, cleanupSystem } from '../../src/systems/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf, nextTickCtxOf } from '../fixtures/context.js';
@@ -315,29 +314,5 @@ describe('cleanupSystem - end-to-end with attack', () => {
 
     expect(sim.world.isAlive(target)).toBe(false); // dealt 0 HP by attack, reaped by cleanup same tick
     expect(sim.snapshot().events.filter((ev) => ev.kind === 'settlerDied')).toHaveLength(1);
-  });
-});
-
-describe('cleanupSystem - determinism', () => {
-  it('two same-seed runs that kill the same entities reach the same state hash', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 9, content: testContent() });
-      const survivor = sim.world.create();
-      const doomed = sim.world.create();
-      sim.world.add(survivor, Health, { hitpoints: 500, max: 500 });
-      sim.world.add(doomed, Health, { hitpoints: 5, max: 500 });
-      sim.world.add(survivor, Building, { buildingType: 1, tribe: 1, built: ONE, level: 0 });
-      addCurrentAtomic(sim.world, doomed, {
-        atomicId: 81,
-        duration: 1,
-        // doomed attacks itself for lethal damage, then cleanup reaps it the same tick.
-        effect: { kind: 'attack', target: doomed, damage: 50 },
-        targetEntity: doomed,
-        targetTile: null,
-      });
-      sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
   });
 });

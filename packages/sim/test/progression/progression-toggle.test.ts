@@ -35,16 +35,6 @@ describe('setProfessionProgression - the rules command and its default', () => {
     expect(sim.professionProgressionEnabled()).toBe(true);
     expect(sim.world.lowestEntityWith(ProgressionRules)).not.toBeNull(); // re-enabling keeps the singleton
   });
-
-  it('replays deterministically: same seed and commands produce the same state hash', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 7, content: testContent() });
-      sim.enqueueSetup({ kind: 'setProfessionProgression', enabled: false });
-      sim.run(10);
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });
 
 describe('setJob - the profession tree gates the manual trade change', () => {

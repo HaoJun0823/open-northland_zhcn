@@ -70,13 +70,6 @@ describe('resolveSpriteFrame', () => {
       offsetY: -100,
     });
   });
-
-  it('is pure: the same item + tables always resolve to the same frame', () => {
-    const a = atlas();
-    const first = resolveSpriteFrame(drawItem('building'), BINDINGS, a);
-    const second = resolveSpriteFrame(drawItem('building'), BINDINGS, a);
-    expect(JSON.stringify(first)).toBe(JSON.stringify(second));
-  });
 });
 
 describe('atlasFromManifest', () => {

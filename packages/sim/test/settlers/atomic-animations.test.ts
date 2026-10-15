@@ -129,102 +129,62 @@ describe('atomicDuration', () => {
 });
 
 describe('atomicAnimationByName', () => {
-  it('resolves an animation by its exact name (the setatomic join key, not the slug id)', () => {
+  it('resolves by exact name (the setatomic join key, not the slug id); an unknown name has no record', () => {
     const content = animationContent();
     const chop = atomicAnimationByName(content, 'viking_chop');
     expect(chop?.length).toBe(3);
     expect(chop?.name).toBe('viking_chop');
-  });
-
-  it('returns undefined for a name with no record (an unresolvable binding is expected, not malformed)', () => {
-    expect(atomicAnimationByName(animationContent(), 'nonexistent_anim')).toBeUndefined();
+    expect(atomicAnimationByName(content, 'nonexistent_anim')).toBeUndefined();
   });
 });
 
 describe('isInterruptibleAtomic', () => {
-  it('is true for an interruptible animation and false for an uninterruptible one', () => {
+  it('reads the flag, defaulting to false for an unflagged entry and an unknown name', () => {
     const content = animationContent();
     expect(isInterruptibleAtomic(content, 'viking_idle')).toBe(true);
     expect(isInterruptibleAtomic(content, 'viking_chop')).toBe(false);
-  });
-
-  it('defaults to false for the entry pinning no flag and for an unknown name', () => {
-    const content = animationContent();
     expect(isInterruptibleAtomic(content, 'viking_walk')).toBe(false); // schema default
-    expect(isInterruptibleAtomic(content, 'nonexistent_anim')).toBe(false); // unknown → safe non-preempt default
+    expect(isInterruptibleAtomic(content, 'nonexistent_anim')).toBe(false); // safe non-preempt default
   });
 });
 
 describe('atomicStartDirection', () => {
-  it('returns the pinned facing index when the animation carries one', () => {
-    expect(atomicStartDirection(animationContent(), 'viking_chop')).toBe(2);
-  });
-
-  it('returns undefined when the animation pins no facing (distinct from facing 0/north)', () => {
+  it('returns the pinned facing, and undefined (not facing 0) when none is pinned or the name is unknown', () => {
     const content = animationContent();
+    expect(atomicStartDirection(content, 'viking_chop')).toBe(2);
     expect(atomicStartDirection(content, 'viking_idle')).toBeUndefined();
     expect(atomicStartDirection(content, 'viking_walk')).toBeUndefined();
-  });
-
-  it('returns undefined for an unknown name', () => {
-    expect(atomicStartDirection(animationContent(), 'nonexistent_anim')).toBeUndefined();
+    expect(atomicStartDirection(content, 'nonexistent_anim')).toBeUndefined();
   });
 });
 
 describe('atomicEventChannelDelta', () => {
-  it('returns the single restore on a channel the animation touches once', () => {
+  it('sums every event on the channel, across both the plain and the eventx stream', () => {
     const content = animationContent();
     expect(atomicEventChannelDelta(content, 'viking_eat', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(4000);
+    expect(atomicEventChannelDelta(content, 'viking_sleep', ATOMIC_EVENT_CHANNEL.REST)).toBe(300); // 3 x +100
+    // An eventx -100 self-drain and a plain +50 on the same channel.
+    expect(atomicEventChannelDelta(content, 'viking_produce', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(-50);
   });
 
-  it('SUMS repeated ticks on one channel (the per-tick sleep/enjoy stream)', () => {
-    const content = animationContent();
-    // 3 rest ticks of +100 each → +300
-    expect(atomicEventChannelDelta(content, 'viking_sleep', ATOMIC_EVENT_CHANNEL.REST)).toBe(300);
-  });
-
-  it('ignores events on other channels (an eat contributes nothing to the rest bar)', () => {
+  it('is 0 for another channel, a value-less cue, an animation without events and an unknown name', () => {
     const content = animationContent();
     expect(atomicEventChannelDelta(content, 'viking_eat', ATOMIC_EVENT_CHANNEL.REST)).toBe(0);
     expect(atomicEventChannelDelta(content, 'viking_sleep', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(0);
-  });
-
-  it('treats a value-less cue event as a 0 delta (does not throw or skew the sum)', () => {
-    const content = animationContent();
-    // viking_eat carries a `type 34` cue with no `value` alongside the hunger restore; channel 34 sums 0.
-    expect(atomicEventChannelDelta(content, 'viking_eat', 34)).toBe(0);
-    // …and that cue did not corrupt the hunger total above.
-    expect(atomicEventChannelDelta(content, 'viking_eat', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(4000);
-  });
-
-  it('returns 0 for an animation with no events and for an unknown name', () => {
-    const content = animationContent();
-    expect(atomicEventChannelDelta(content, 'viking_walk', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(0); // no events
-    expect(atomicEventChannelDelta(content, 'nonexistent_anim', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(0); // unknown
-  });
-
-  it('sums across BOTH event streams on a channel (eventx self-drain + plain event)', () => {
-    const content = animationContent();
-    // viking_produce: hunger gets an eventx -100 and a plain event +50 → net -50 (the sum spans streams).
-    expect(atomicEventChannelDelta(content, 'viking_produce', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(-50);
+    expect(atomicEventChannelDelta(content, 'viking_eat', 34)).toBe(0); // the cue carries no value
+    expect(atomicEventChannelDelta(content, 'viking_walk', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(0);
+    expect(atomicEventChannelDelta(content, 'nonexistent_anim', ATOMIC_EVENT_CHANNEL.HUNGER)).toBe(0);
   });
 });
 
 describe('atomicHasExtendedEvents', () => {
-  it('is true for an animation carrying any eventx line (the *_produce_* two-stream shape)', () => {
-    expect(atomicHasExtendedEvents(animationContent(), 'viking_produce')).toBe(true);
-  });
-
-  it('is false for an animation whose events are all plain `event`s', () => {
+  it('is true only when the animation carries an eventx line', () => {
     const content = animationContent();
+    expect(atomicHasExtendedEvents(content, 'viking_produce')).toBe(true);
     expect(atomicHasExtendedEvents(content, 'viking_eat')).toBe(false);
     expect(atomicHasExtendedEvents(content, 'viking_sleep')).toBe(false);
-  });
-
-  it('is false for an animation with no events and for an unknown name', () => {
-    const content = animationContent();
     expect(atomicHasExtendedEvents(content, 'viking_walk')).toBe(false); // no events at all
-    expect(atomicHasExtendedEvents(content, 'nonexistent_anim')).toBe(false); // unknown → safe default
+    expect(atomicHasExtendedEvents(content, 'nonexistent_anim')).toBe(false);
   });
 });
 

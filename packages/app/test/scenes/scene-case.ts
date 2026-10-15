@@ -18,13 +18,12 @@ const SCENE_RUN_TIMEOUT_MS = 300_000;
  * for, which `registry.test.ts` alone would not notice.
  */
 export function sceneAcceptance(scene: SceneDefinition, testFileUrl: string): void {
-  it(`${scene.id} is the scene its file is named for`, () => {
-    expect(basename(fileURLToPath(testFileUrl), SCENE_TEST_SUFFIX)).toBe(scene.id);
-  });
-
   it(`${scene.id} satisfies its mechanic checks and holds the core invariants`, {
     timeout: SCENE_RUN_TIMEOUT_MS,
   }, () => {
+    expect(basename(fileURLToPath(testFileUrl), SCENE_TEST_SUFFIX), 'the scene its file is named for').toBe(
+      scene.id,
+    );
     const sim = createSceneSim(scene);
     sim.run(scene.runTicks);
     expect(checkInvariants(sim.world, sim.content, CORE_INVARIANTS)).toEqual([]);

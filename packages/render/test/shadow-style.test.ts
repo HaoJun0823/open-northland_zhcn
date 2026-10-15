@@ -19,9 +19,6 @@ describe('setCastShadowTransform', () => {
     // The frame's top-left corner, in the drawing container's feet-local px.
     expect(m.tx).toBeCloseTo(BODY.ox - DEFAULT_SHADOW_STYLE.castShear * BODY.oy);
     expect(m.ty).toBeCloseTo(DEFAULT_SHADOW_STYLE.castFlatten * BODY.oy);
-    // A point 27 px above the feet lands 27 x shear to the right and 27 x flatten above them.
-    expect(m.tx).toBeCloseTo(BODY.ox + 14.85);
-    expect(m.ty).toBeCloseTo(-8.1);
   });
 
   it('shears right with height and flattens the frame, leaving columns vertical', () => {

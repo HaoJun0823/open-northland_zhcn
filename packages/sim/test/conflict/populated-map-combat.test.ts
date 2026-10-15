@@ -145,17 +145,4 @@ describe('populated-map combat scenario (civ vs seeded wildlife, end-to-end)', (
     );
     expect(bears.length).toBeGreaterThan(0);
   });
-
-  it('the populated-map skirmish is deterministic: two same-seed runs reach the same state hash', () => {
-    const run = (): string => {
-      const content = testContent();
-      const map = grass(9, 1);
-      const sim = new Simulation({ seed: 7, content, map });
-      for (const c of seedAnimalHerds(content, map, { tribes: [BEAR], maxHerds: 1 })) sim.enqueueSetup(c);
-      vikingFighterAt(sim, 1, 0, 200);
-      for (let i = 0; i < 60; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

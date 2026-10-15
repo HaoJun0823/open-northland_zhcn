@@ -251,22 +251,13 @@ describe('resolveSpriteBobId - directional animated binding', () => {
 
   it('acting chop (atomic 24) advances on its elapsed clock at a fixed cadence, ignoring tick', () => {
     // frame = start + facing*stride + ((elapsed-1) % cycle), on the atomic's own elapsed-tick clock, so
-    // the tick 999 passed below must not change it.
+    // the tick 999 passed below must not change it, and no duration input can change the speed.
     const swing = (elapsed: number): number | null =>
       resolveSpriteBobId(settlerItem('acting', { facing: 4, atomicId: 24, elapsed }), bindings, 999);
     expect(swing(1)).toBe(5106 + 4 * 15 + 0);
     expect(swing(8)).toBe(5106 + 4 * 15 + 7);
     expect(swing(15)).toBe(5106 + 4 * 15 + 14); // the swing's last frame
-  });
-
-  it('the chop cadence is the SAME regardless of how long the action runs (constant speed)', () => {
-    // The phase is a pure function of elapsed with no duration input, so a swing advances one frame per
-    // tick whatever the action's length.
-    const frameAt = (elapsed: number): number | null =>
-      resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: 24, elapsed }), bindings, 0);
-    expect(frameAt(1)).toBe(5106 + 0);
-    expect(frameAt(2)).toBe(5106 + 1);
-    expect(frameAt(16)).toBe(5106 + 0); // (16-1) % 15 == 0: a longer action loops the cycle
+    expect(swing(16)).toBe(5106 + 4 * 15 + 0); // a longer action loops the cycle
   });
 
   it('phaseStart rotates the loop start so a chop plays windup (9..14) then strike (0..8)', () => {
@@ -338,8 +329,9 @@ describe('resolveSpriteBobId - FrameListAnim (explicit per-direction attack layo
       resolveSpriteBobId(settlerItem('acting', { facing: 1, atomicId: ATTACK, elapsed: 4 }), bindings, 0),
     ).toBe(2000 + 5);
     // Past dir 0's 4-entry end a wrap would give entry 1 at elapsed 6 and cycle back through the motion.
+    // The free tick passed here must not move it: the list runs on the atomic's elapsed clock.
     expect(
-      resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 6 }), bindings, 0),
+      resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 6 }), bindings, 12345),
     ).toBe(2000 + 0);
     expect(
       resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 60 }), bindings, 0),
@@ -368,12 +360,6 @@ describe('resolveSpriteBobId - FrameListAnim (explicit per-direction attack layo
     // A short atomic still reaches the list's last entry, the blow, on its last tick; a long one holds.
     expect(played(3)).toEqual([0, 2, 4]);
     expect(played(12)).toEqual([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5]);
-  });
-
-  it('runs on the atomic elapsed clock, not the free tick (a swing is duration-independent)', () => {
-    expect(
-      resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 2 }), bindings, 12345),
-    ).toBe(2000 + 2); // frame 1
   });
 
   it('wraps a facing beyond the list count into the available directions', () => {

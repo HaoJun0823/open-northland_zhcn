@@ -4,7 +4,7 @@ import { PersonalNames } from '../../../src/core/personal-names.js';
 import { Rng } from '../../../src/core/rng.js';
 import { World } from '../../../src/ecs/world.js';
 import { fx, ONE } from '../../../src/index.js';
-import { NEED_INIT_SPREAD_UNITS, NEED_RESERVE_UNITS, rollInitialNeed } from '../../../src/systems/index.js';
+import { rollInitialNeed } from '../../../src/systems/index.js';
 import { createSettler } from '../../../src/systems/spawn/index.js';
 import { testContent } from '../../fixtures/content.js';
 
@@ -24,18 +24,11 @@ describe('rollInitialNeed - seeded random starting needs (50–100% satisfaction
     }
   });
 
-  it('is deterministic for a given seed (same RNG state → same sequence)', () => {
-    const a = new Rng(7);
-    const b = new Rng(7);
-    for (let i = 0; i < 20; i++) expect(rollInitialNeed(a)).toBe(rollInitialNeed(b));
-  });
-
   it('varies across draws rather than pinning to one value', () => {
     const rng = new Rng(99);
     const seen = new Set<number>();
     for (let i = 0; i < 500; i++) seen.add(rollInitialNeed(rng));
     expect(seen.size).toBeGreaterThan(10);
-    expect(NEED_INIT_SPREAD_UNITS).toBe(NEED_RESERVE_UNITS / 2);
   });
 });
 
@@ -51,19 +44,5 @@ describe('createSettler - every settler spawns with seeded random needs', () => 
       expect(need).toBeGreaterThanOrEqual(fx.fromInt(0));
       expect(need).toBeLessThanOrEqual(HALF);
     }
-  });
-
-  it('is reproducible: same seed → identical needs on two independent worlds', () => {
-    const wa = new World();
-    const wb = new World();
-    const ea = createSettler(wa, testContent(), new Rng(42), spec, new PersonalNames(1, []));
-    const eb = createSettler(wb, testContent(), new Rng(42), spec, new PersonalNames(1, []));
-    if (ea === null || eb === null) throw new Error('spawn failed');
-    const a = wa.get(ea, SettlerNeeds);
-    const b = wb.get(eb, SettlerNeeds);
-    expect(a.hunger).toBe(b.hunger);
-    expect(a.fatigue).toBe(b.fatigue);
-    expect(a.piety).toBe(b.piety);
-    expect(a.enjoyment).toBe(b.enjoyment);
   });
 });

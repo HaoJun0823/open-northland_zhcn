@@ -426,7 +426,6 @@ describe('wall claims', () => {
     expect(sim.world.get(first, SiteAssignment)).toEqual({ site: wall, pinned: true });
     sim.enqueueSetup({ kind: 'assignBuilder', entity: second, site: wall });
     sim.step();
-    expect(WALL_REPAIR_CREW_LIMIT).toBe(1);
     expect(sim.world.tryGet(second, SiteAssignment)?.site).not.toBe(wall);
   });
 

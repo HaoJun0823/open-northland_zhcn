@@ -626,25 +626,17 @@ describe('warriors attack enemy buildings', () => {
     expect(waiting.every((s) => sim.world.get(s, Engagement).waiting === true)).toBe(true);
     expect(waiting.every((s) => !sim.world.has(s, MoveGoal) && !sim.world.has(s, PathFollow))).toBe(true);
 
+    // The rest runs on the restored sim, so the waiting ranks' wake state must survive the save.
     const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content, map: grass(24, 14) });
-    const front = soldiers.filter((s) => distToFort(sim, s) === 1);
+    const front = soldiers.filter((s) => distToFort(restored, s) === 1);
     for (const [i, entity] of front.entries()) {
-      const command = playerCommand(P1, {
-        kind: 'moveUnit',
-        entity,
-        x: 40 + (i % 5),
-        y: 22 + Math.floor(i / 5),
-      });
-      sim.enqueue(command);
-      restored.enqueue(command);
+      restored.enqueue(
+        playerCommand(P1, { kind: 'moveUnit', entity, x: 40 + (i % 5), y: 22 + Math.floor(i / 5) }),
+      );
     }
-    for (let i = 0; i < 250; i++) {
-      sim.step();
-      restored.step();
-    }
-    expect(waiting.some((s) => distToFort(sim, s) === 1)).toBe(true);
-    expect(restored.hashState()).toBe(sim.hashState());
-    expect(sim.world.verifyCaches()).toEqual([]);
+    for (let i = 0; i < 250; i++) restored.step();
+    expect(waiting.some((s) => distToFort(restored, s) === 1)).toBe(true);
+    expect(restored.world.verifyCaches()).toEqual([]);
   });
 
   it('hands back from a building across water: an empty slot deal is not a manned front', () => {

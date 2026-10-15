@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   cycleMessageLevel,
-  DEFAULT_MESSAGE_LEVEL,
   messagePassesFilter,
   messagePriority,
 } from '../src/hud/tool-panel/messages/priority.js';
@@ -86,8 +85,7 @@ describe('user message priority (original behavior)', () => {
     expect(messagePassesFilter(2, 2)).toBe(true);
   });
 
-  it('cycles the button through all three levels from the show-all default', () => {
-    expect(DEFAULT_MESSAGE_LEVEL).toBe(0);
+  it('cycles the button through all three levels', () => {
     expect(cycleMessageLevel(0)).toBe(1);
     expect(cycleMessageLevel(1)).toBe(2);
     expect(cycleMessageLevel(2)).toBe(0);

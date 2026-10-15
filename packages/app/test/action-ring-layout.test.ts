@@ -64,15 +64,15 @@ describe('action-ring-layout - arm footprint', () => {
     const centres = l.buttons.map(centre);
     // Middle button sits exactly on the arm: centre.x = settler.x, centre.y = settler.y + 100 (no nudge).
     expect(centre(nth(l.buttons, 1))).toEqual({ x: 500, y: 400 + ACTION_ARM_PX });
-    // The row is centred on the settler (first/last average back to settler.x), stepped 32 px apart.
+    // The row is centred on the settler (first/last average back to settler.x), buttons edge to edge.
     expect((nth(centres, 0).x + nth(centres, 2).x) / 2).toBe(500);
-    expect(nth(centres, 2).x - nth(centres, 1).x).toBe(32);
+    expect(nth(centres, 2).x - nth(centres, 1).x).toBe(nth(l.buttons, 1).rect.w);
     // Drawn order: the first command is the left-most, the last the right-most.
     expect(nth(l.buttons, 0).command.id).toBe('haveGirl');
     expect(nth(centres, 0).x).toBeLessThan(nth(centres, 2).x);
-    // First + last get the −5 corner nudge in y (bottom arm), the middle does not.
-    expect(nth(centres, 0).y).toBe(400 + ACTION_ARM_PX - 5);
-    expect(nth(centres, 1).y).toBe(400 + ACTION_ARM_PX);
+    // First + last get a corner nudge toward the settler (bottom arm), the middle does not.
+    expect(nth(centres, 0).y).toBeLessThan(nth(centres, 1).y);
+    expect(nth(centres, 2).y).toBe(nth(centres, 0).y);
   });
 
   it('places the top arm on the opposite side, so bottom and top rows never overlap', () => {
@@ -97,10 +97,10 @@ describe('action-ring-layout - arm footprint', () => {
     expect(centre(nth(l1.buttons, 1)).y - 400).toBe(ACTION_ARM_PX);
     expect(centre(nth(l2.buttons, 1)).y - 400).toBe(ACTION_ARM_PX * 2);
     expect(centre(nth(l075.buttons, 1)).y - 400).toBe(ACTION_ARM_PX * 0.75);
-    // Button squares are 32 px at 1×, 64 px at 2×, 24 px at 0.75×.
-    expect(nth(l1.buttons, 1).rect.w).toBe(32);
-    expect(nth(l2.buttons, 1).rect.w).toBe(64);
-    expect(nth(l075.buttons, 1).rect.w).toBe(24);
+    // The button squares scale with it.
+    const w1 = nth(l1.buttons, 1).rect.w;
+    expect(nth(l2.buttons, 1).rect.w).toBe(w1 * 2);
+    expect(nth(l075.buttons, 1).rect.w).toBe(w1 * 0.75);
   });
 
   it('actionRingScale shrinks the shared uiscale by the ring factor after flooring it', () => {
@@ -121,8 +121,19 @@ describe('action-ring-layout - arm footprint', () => {
       800,
     );
     for (const p of l.buttons) expect(p.rect.y).toBeGreaterThanOrEqual(0);
-    // The whole menu shifted as a rigid body - relative spacing is preserved (bottom row still 32 apart).
-    expect(xOf(l, 'haveBoy') - xOf(l, 'haveGirl')).toBe(32);
+    // The whole menu shifted as a rigid body - relative spacing is preserved.
+    const free = layoutActionRing(
+      [trio(BOTTOM_ARM, BOTTOM_TRIO), trio(TOP_ARM, TOP_TRIO)],
+      500,
+      400,
+      1,
+      1000,
+      800,
+    );
+    expect(xOf(l, 'haveBoy') - xOf(l, 'haveGirl')).toBe(xOf(free, 'haveBoy') - xOf(free, 'haveGirl'));
+    expect(yOf(l, 'haveGirl') - yOf(l, 'changeProfession')).toBe(
+      yOf(free, 'haveGirl') - yOf(free, 'changeProfession'),
+    );
   });
 
   it('keeps right of a window edge when the band fits the menu, and on-screen when it does not', () => {

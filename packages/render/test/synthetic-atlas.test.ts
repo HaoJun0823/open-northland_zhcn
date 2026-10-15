@@ -14,12 +14,6 @@ const ALL_ITEMS: readonly DrawItem[] = [
 ];
 
 describe('syntheticAtlasFrames', () => {
-  it('reports the declared sheet dimensions', () => {
-    const atlas = syntheticAtlasFrames();
-    expect(atlas.width).toBe(SYNTHETIC_ATLAS_WIDTH);
-    expect(atlas.height).toBe(SYNTHETIC_ATLAS_HEIGHT);
-  });
-
   it('binds every drawable kind (and every settler state) to an in-bounds, non-empty frame', () => {
     const atlas = syntheticAtlasFrames();
     for (const drawable of ALL_ITEMS) {
@@ -65,16 +59,6 @@ describe('syntheticAtlasFrames', () => {
           a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
         expect(disjoint, `frames ${i} and ${j} must not overlap`).toBe(true);
       }
-    }
-  });
-
-  it('is pure: two calls produce structurally equal frame tables', () => {
-    const a = syntheticAtlasFrames();
-    const b = syntheticAtlasFrames();
-    for (const drawable of ALL_ITEMS) {
-      const fa = resolveSpriteFrame(drawable, SYNTHETIC_BINDINGS, a);
-      const fb = resolveSpriteFrame(drawable, SYNTHETIC_BINDINGS, b);
-      expect(JSON.stringify(fa)).toBe(JSON.stringify(fb));
     }
   });
 });

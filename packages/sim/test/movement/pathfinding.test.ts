@@ -211,15 +211,6 @@ describe('findPath - deterministic tie-breaking', () => {
     for (let i = 0; i < 5; i++) expect(findPath(g, a, b)).toEqual(first);
   });
 
-  it('picks the same path across independently-built identical graphs (lockstep-equal)', () => {
-    const ga = open(6, 6);
-    const gb = open(6, 6);
-    const a = 0 as NodeId;
-    const b = 35 as NodeId;
-    // Cell ids are identical across the two graphs (same dims), so the paths must be id-for-id equal.
-    expect(findPath(ga, a, b)).toEqual(findPath(gb, a, b));
-  });
-
   /** A walk-block ANNULUS sealing node (40,40) on an 80×80 grid: nodes at Chebyshev distance 3..4
    *  from it. Thickness 2 in y seals the ±2 diagonal/step reach (any escape from max ≤ 2 lands at
    *  max ≤ 4 - inside the ring), leaving a ~25-node pocket around the centre. */

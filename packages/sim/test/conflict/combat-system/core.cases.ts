@@ -177,15 +177,4 @@ describe('combatSystem - end-to-end through the real schedule', () => {
     expect(sim.world.isAlive(viking)).toBe(true); // unharmed (the frank never attacked)
     expect(deaths).toBe(1); // exactly one death announced for render/audio (the felled frank)
   });
-
-  it('two same-seed runs of a skirmish reach the same state hash (determinism)', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 7, content: testContent(), map: grassMap(5, 1) });
-      fighterAt(sim, 0, 0, VIKING, WOODCUTTER, 1000);
-      fighterAt(sim, 1, 0, FRANK, 2, 200);
-      for (let i = 0; i < 20; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

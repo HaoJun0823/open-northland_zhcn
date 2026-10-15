@@ -4,7 +4,6 @@ import {
   notificationShot,
   type OneShot,
   oneShotBus,
-  SOUND_BUSES,
   uiCueShot,
   VOLUME_CHANNELS,
   VOLUME_MAX,
@@ -17,7 +16,6 @@ const dB = (gain: number): number => 20 * Math.log10(gain);
 describe('volumeGain', () => {
   it('is linear in dB over the slider range, full scale at the top', () => {
     expect(volumeGain(VOLUME_MAX)).toBe(1);
-    expect(VOLUME_RANGE_DB).toBe(40);
     expect(dB(volumeGain(50))).toBeCloseTo(-VOLUME_RANGE_DB / 2, 6);
     expect(dB(volumeGain(80))).toBeCloseTo(-8, 6);
     expect(dB(volumeGain(1))).toBeCloseTo(-39.6, 6);
@@ -70,9 +68,5 @@ describe('oneShotBus', () => {
 
   it('puts a shot that names its bus there: an answer on responses', () => {
     expect(oneShotBus({ ...shot(undefined), bus: 'responses' })).toBe('responses');
-  });
-
-  it('lists the buses players read: music, responses, world, ambience, interface', () => {
-    expect(SOUND_BUSES).toEqual(['music', 'responses', 'world', 'ambient', 'ui']);
   });
 });

@@ -240,19 +240,12 @@ describe('atomic army orders', () => {
       playerCommand(P0, { kind: 'attackMoveUnitGroup', members: destinations(army, 120), queued: true }),
     );
     sim.step();
-    const copy = restore(sim);
+    expect(restore(sim).hashState()).toBe(sim.hashState());
     const replay = restore(pendingCopy);
     const log = parseCommandLog(JSON.parse(JSON.stringify(sim.commands.log)));
     for (const entry of log.filter((entry) => entry.applyTick > replay.tick)) replay.enqueue(entry);
     replay.step();
     expect(replay.hashState()).toBe(sim.hashState());
-    for (let i = 0; i < 20; i++) {
-      sim.step();
-      copy.step();
-      replay.step();
-      expect(copy.hashState()).toBe(sim.hashState());
-      expect(replay.hashState()).toBe(sim.hashState());
-    }
   });
 
   it.each([

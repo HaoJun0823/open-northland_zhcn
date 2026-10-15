@@ -139,21 +139,6 @@ function expectReadersMatchWalk(live: WorldSnapshot): void {
   }
 }
 
-describe('snapshot readers over a mirror', () => {
-  it.each(SCENES)('equal a fresh walk after every delta of the %s scene', (id) => {
-    const scene = getScene(id);
-    if (scene === undefined) throw new Error(`scene ${id} missing`);
-    const sim = createSceneSim(scene);
-    const { mirror, advance } = checkedMirror(sim);
-    for (let tick = 0; tick < RUN_TICKS; tick++) {
-      sim.step();
-      advance();
-      expectReadersMatchWalk(mirror.snapshot());
-      expect(mirror.verifyIndexes()).toEqual([]);
-    }
-  });
-});
-
 /** Scenes whose runs raise the projected marks: bubbles, wounds and stock hearts, sites, staff and homes. */
 const PROJECTION_SCENES = ['family', 'battle-weary', 'livestock', 'construction', 'ai-defence'] as const;
 /** Every how-many-th settler of the list stands selected, so selected people join the heart candidates. */
@@ -233,10 +218,15 @@ function expectProjectionsMatchWalk(
   );
 }
 
-describe('per-tick projections over a mirror', () => {
-  it.each(PROJECTION_SCENES)('equal a fresh walk after every delta of the %s scene', (id) => {
+/** Each scene runs once; every tick checks the readers, the projections, or both, by the lists above. */
+const MIRROR_SCENES: readonly string[] = [...new Set<string>([...SCENES, ...PROJECTION_SCENES])];
+
+describe('snapshot readers and per-tick projections over a mirror', () => {
+  it.each(MIRROR_SCENES)('equal a fresh walk after every delta of the %s scene', (id) => {
     const scene = getScene(id);
     if (scene === undefined) throw new Error(`scene ${id} missing`);
+    const checkReaders = (SCENES as readonly string[]).includes(id);
+    const checkProjections = (PROJECTION_SCENES as readonly string[]).includes(id);
     const sim = createSceneSim(scene);
     const { mirror, advance } = checkedMirror(sim);
     const isLivestockTribe = (tribe: number): boolean => systems.isCatchableAnimal(sim.content, tribe);
@@ -245,7 +235,10 @@ describe('per-tick projections over a mirror', () => {
       sim.step();
       advance();
       const live = mirror.snapshot();
-      expectProjectionsMatchWalk(live, { isLivestockTribe, selected: everyFewSettlers(live) }, badges);
+      if (checkReaders) expectReadersMatchWalk(live);
+      if (checkProjections) {
+        expectProjectionsMatchWalk(live, { isLivestockTribe, selected: everyFewSettlers(live) }, badges);
+      }
       expect(mirror.verifyIndexes()).toEqual([]);
     }
   });

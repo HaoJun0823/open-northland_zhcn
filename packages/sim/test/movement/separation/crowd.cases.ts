@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { PathFollow } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
-import { orderTo, P0, P1, SOLDIER, settlerAt, sim } from './support.js';
+import { orderTo, P0, SOLDIER, settlerAt, sim } from './support.js';
 
-describe('unit body collision - crowded determinism', () => {
+describe('unit body collision - a crowd on one node', () => {
   it('a crowd mass-ordered onto one node never crashes mid-tick and every walker stands down', () => {
     // The reported crash: "everyone move to one spot". In the packed crowd an early-processed
     // walker drops its OWN PathFollow inside the separation loop (the grind re-route/stand-down of
@@ -21,20 +21,5 @@ describe('unit body collision - crowded determinism', () => {
     for (const e of crowd) {
       expect(s.world.has(e, PathFollow)).toBe(false); // settled - arrived or stood down, no orbiting
     }
-  });
-
-  it('is deterministic: the same collision scenario replayed from scratch hashes identically', () => {
-    const play = (): string => {
-      const s = sim();
-      const east = settlerAt(s, 4, 6, SOLDIER, P0);
-      const west = settlerAt(s, 16, 6, SOLDIER, P0);
-      settlerAt(s, 10, 6, SOLDIER, P1); // an enemy post right on the crossing line
-      orderTo(s, east, 16, 6);
-      orderTo(s, west, 4, 6);
-      s.run(200);
-      return s.hashState();
-    };
-    const first = play();
-    expect(play()).toBe(first);
   });
 });

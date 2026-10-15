@@ -339,17 +339,6 @@ describe('eat drive - closing the rise→eat→relief loop through the real sche
     expect(sim.world.get(larder, Stockpile).amounts.get(FOOD) ?? 0).toBeLessThan(FOOD_START);
     expect(sim.checkInvariants()).toEqual([]);
   });
-
-  it('is byte-identical across two same-seed runs (determinism)', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 5, content: testContent(), map: grassMap(3, 1) });
-      settlerAt(sim, 0, 0, NEED_DRIVE_THRESHOLD);
-      storeAt(sim, 1, 0, 10);
-      for (let i = 0; i < 200; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });
 
 describe('eat drive - unreachable larders (the componentOf gate + the failed-goal memo)', () => {

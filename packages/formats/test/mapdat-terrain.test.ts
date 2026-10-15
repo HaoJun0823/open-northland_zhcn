@@ -95,7 +95,7 @@ describe('lmltToTerrainMap', () => {
     expect(map.typeIds).toEqual(new Array(cells).fill(VOID_TYPE_ID));
   });
 
-  it('is deterministic - same layer + dims yield byte-identical typeIds', () => {
+  it('resolves each cell from its half-cells, raw values unshifted', () => {
     // 3×1 grid = a 6×2 half-cell lane.
     const halfCells = [
       1,
@@ -111,10 +111,8 @@ describe('lmltToTerrainMap', () => {
       4,
       9, // half-cell row 1
     ];
-    const a = lmltToTerrainMap(layer(halfCells), { width: 3, height: 1 });
-    const b = lmltToTerrainMap(layer(halfCells), { width: 3, height: 1 });
-    expect(a.typeIds).toEqual(b.typeIds);
-    expect(a.typeIds).toEqual([1, 7, 4]); // 1<2 tie, uniform 7, 4<9 tie - raw values unshifted
+    const map = lmltToTerrainMap(layer(halfCells), { width: 3, height: 1 });
+    expect(map.typeIds).toEqual([1, 7, 4]); // 1<2 tie, uniform 7, 4<9 tie - raw values unshifted
   });
 
   it('throws when the layer length is not width × height × 4', () => {

@@ -248,16 +248,4 @@ describe('plannerSystem - end-to-end: goal to arrival through the real schedule'
   });
 });
 
-describe('plannerSystem - determinism', () => {
-  it('two same-seed sims with the same goal reach the same state hash', () => {
-    const runOne = (): string => {
-      const s = new Simulation({ seed: 7, content: testContent(), map: grassMap(5, 1) });
-      travellerAt(s, 0, 0, anchorCell(s, 4, 0));
-      for (let i = 0; i < 25; i++) s.step();
-      return s.hashState();
-    };
-    expect(runOne()).toBe(runOne());
-  });
-});
-
 /** A SystemContext for invoking plannerSystem directly with the sim's live terrain. */

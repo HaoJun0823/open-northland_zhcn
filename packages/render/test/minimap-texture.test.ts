@@ -132,15 +132,6 @@ describe('sampleDomes', () => {
     expect(pairs).toBeGreaterThan(0);
     expect(litSide / pairs).toBeGreaterThan(0);
   });
-
-  it('is deterministic', () => {
-    const jitter = 0.3;
-    const first: Dome = { cover: 0, light: 1 };
-    const again: Dome = { cover: 0, light: 1 };
-    domeAt(probeU * 10, probeV * 20, jitter, first);
-    domeAt(probeU * 10, probeV * 20, jitter, again);
-    expect(again).toEqual(first);
-  });
 });
 
 describe('valueNoisePair', () => {

@@ -1,8 +1,8 @@
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { IR_VERSION } from '@open-northland/data/ir-version';
-import { afterEach, describe, expect, it } from 'vitest';
-import { WorkerArchiveConverter } from '../src/conversion/worker-converter.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { type ArchiveConverter, WorkerArchiveConverter } from '../src/conversion/worker-converter.js';
 import { type ApiServer, startApiServer } from '../src/server.js';
 import { DataStore } from '../src/store.js';
 import {
@@ -20,6 +20,21 @@ const WORKER = new URL('../dist/conversion/worker.js', import.meta.url);
 const SYNTHETIC_WORKER = new URL('./support/conversion-worker.mjs', import.meta.url);
 const LATER = '2025-01-01T00:00:00.000Z';
 const mapArchive = (): Uint8Array => zipOf(under('Island', plaintextMap('Island')));
+const TIMEOUT_MS = 2000;
+const BLOCKED_WORKER_STARTED = 'synthetic worker started';
+
+/** Fires the fake conversion timer as soon as the synthetic worker reports that it is blocked. */
+const expiringOnBlock = (instance: WorkerArchiveConverter): ArchiveConverter => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  return {
+    convert: (bytes, entryId, onWarning) =>
+      instance.convert(bytes, entryId, (message) => {
+        onWarning(message);
+        if (message === BLOCKED_WORKER_STARTED) vi.advanceTimersByTime(TIMEOUT_MS);
+      }),
+    stop: () => instance.stop(),
+  };
+};
 
 describe('worker archive conversion', () => {
   const converters: WorkerArchiveConverter[] = [];
@@ -36,6 +51,7 @@ describe('worker archive conversion', () => {
     return dir;
   };
   afterEach(async () => {
+    vi.useRealTimers();
     await Promise.all(converters.map((item) => item.stop()));
     await api?.close();
     api = undefined;
@@ -92,7 +108,7 @@ describe('worker archive conversion', () => {
   });
 
   it('times out a blocked worker and converts the next job in a fresh worker', async () => {
-    const instance = converter(2000);
+    const instance = expiringOnBlock(converter(TIMEOUT_MS));
     await expect(instance.convert(new Uint8Array(), 'cn-hang', () => undefined)).rejects.toMatchObject({
       kind: 'timeout',
     });
@@ -121,7 +137,7 @@ describe('worker archive conversion', () => {
     const dir = await directory();
     const { service, served } = await harness(dir, files, {
       irVersion: IR_VERSION,
-      converter: converter(2000),
+      converter: expiringOnBlock(converter(TIMEOUT_MS)),
     });
     service.setCatalog(syncedOf([catalogEntry('cn-island')]));
     await service.idle();

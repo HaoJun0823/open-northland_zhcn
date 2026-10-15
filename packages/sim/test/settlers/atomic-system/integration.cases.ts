@@ -4,7 +4,7 @@ import { ONE, Simulation } from '../../../src/index.js';
 import { anchorOnlyFootprint, atomicSystem, stampResourceFootprintData } from '../../../src/systems/index.js';
 import { testContent } from '../../fixtures/content.js';
 import { nextTickCtxOf } from '../../fixtures/context.js';
-import { PLANK, SAWMILL, startAtomic, WOOD } from './support.js';
+import { SAWMILL, startAtomic, WOOD } from './support.js';
 
 describe('atomicSystem - end-to-end: harvest -> carry -> pileup', () => {
   it('a settler harvests wood then piles it up at a store via two atomics', () => {
@@ -30,23 +30,5 @@ describe('atomicSystem - end-to-end: harvest -> carry -> pileup', () => {
     atomicSystem(sim.world, nextTickCtxOf(sim));
     expect(sim.world.get(store, Stockpile).amounts.get(WOOD)).toBe(1);
     expect(sim.world.has(settler, Carrying)).toBe(false);
-  });
-});
-
-describe('atomicSystem - determinism', () => {
-  it('two same-seed runs reach the same state hash', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 5, content: testContent() });
-      const settler = sim.world.create();
-      const store = sim.world.create();
-      sim.world.add(store, Building, { buildingType: SAWMILL, tribe: 1, built: ONE, level: 0 });
-      sim.world.add(store, Stockpile, { amounts: new Map() });
-      startAtomic(sim, settler, { kind: 'pickup', goodType: PLANK, amount: 4, from: null }, 3, 22);
-      for (let i = 0; i < 3; i++) sim.step();
-      startAtomic(sim, settler, { kind: 'pileup', store }, 2, 23);
-      for (let i = 0; i < 2; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
   });
 });

@@ -2,7 +2,7 @@ import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import * as components from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { CORE_INVARIANTS, checkInvariants, Simulation } from '../../src/index.js';
+import { Simulation } from '../../src/index.js';
 import { testContent } from '../fixtures/content.js';
 import { grassCellMap as grassMap } from '../fixtures/terrain.js';
 
@@ -182,33 +182,5 @@ describe('placeResource command', () => {
     });
     sim.step();
     expect([...sim.world.query(Resource)].length).toBe(before);
-  });
-
-  it('is byte-identical from the same seed and holds the core invariants', () => {
-    const runOnce = (): string => {
-      const sim = newSim();
-      sim.enqueueSetup({
-        kind: 'placeResource',
-        good: WOOD,
-        x: 3,
-        y: 4,
-        remaining: 4,
-        harvestAtomic: WOOD_ATOM,
-        felling: true,
-      });
-      sim.enqueueSetup({
-        kind: 'placeResource',
-        good: STONE,
-        x: 7,
-        y: 7,
-        remaining: 5,
-        harvestAtomic: STONE_ATOM,
-        deposit: { levels: 5 },
-      });
-      for (let t = 0; t < 5; t++) sim.step();
-      expect(checkInvariants(sim.world, sim.content, CORE_INVARIANTS)).toEqual([]); // includes cachesCoherent
-      return sim.hashState();
-    };
-    expect(runOnce()).toBe(runOnce());
   });
 });

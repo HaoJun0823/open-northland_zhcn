@@ -15,41 +15,52 @@ import {
   playerCommand,
   positionOfNode,
   restoreSimulation,
+  type Simulation,
   serializeSaveGame,
 } from '../../src/index.js';
 import { fighterAt } from '../conflict/melee-engagement/support.js';
 import { COUNT, DESTINATION_SHIFT, geometry, makeArmy, report, translated } from './army-geometry/support.js';
 
-it.each(['moveUnitGroup', 'attackMoveUnitGroup'] as const)(
-  'keeps a 1000-soldier %s spread through an open march and distinct arrival slots',
-  (kind) => {
-    const { sim, members } = makeArmy(false);
-    const reports = [geometry(sim, translated(members))];
-    sim.enqueue(
-      playerCommand(0, {
-        kind,
-        members: translated(members),
-      }),
-    );
-    sim.step();
-    expect(members.filter(({ entity }) => sim.world.has(entity, PathRequest))).toHaveLength(0);
-    expect(members.filter(({ entity }) => sim.world.has(entity, PathFollow))).toHaveLength(COUNT);
-    const goalNodes = members.map(({ entity }) => sim.world.get(entity, PathRoute).waypoints.at(-1)?.node);
-    expect(new Set(goalNodes).size).toBe(COUNT);
-    for (const tick of [128, 512, 1024, 2048]) {
-      while (sim.tick < tick) sim.step();
-      reports.push(geometry(sim, translated(members)));
-    }
-    report(kind, reports);
-    expect(reports[0]?.nearPairs).toBe(0);
-    expect(reports[0]?.exactStacked).toBe(0);
-    expect(reports[2]?.width90).toBeGreaterThan((reports[0]?.width90 ?? 0) * 0.8);
-    expect(reports[2]?.nearPairs).toBe(0);
-    expect(reports.at(-1)?.arrived).toBe(COUNT);
-    expect(reports.at(-1)?.exactStacked).toBe(0);
-    expect(reports.at(-1)?.nearPairs).toBe(0);
-  },
-);
+type Destinations = ReturnType<typeof translated>;
+const ARRIVAL_POLL = 32;
+
+/** Steps until every member stands on its destination, or `limit` ticks, checking every `ARRIVAL_POLL` ticks. */
+function marchUntilArrived(sim: Simulation, destinations: Destinations, limit: number): void {
+  while (sim.tick < limit && geometry(sim, destinations).arrived < destinations.length) {
+    for (let i = 0; i < ARRIVAL_POLL && sim.tick < limit; i++) sim.step();
+  }
+}
+
+// A move group splits into the same per-member walks; attack-move adds the attack-move routing branch on top.
+it('keeps a 1000-soldier attack-move group spread through an open march and distinct arrival slots', () => {
+  const { sim, members } = makeArmy(false);
+  const reports = [geometry(sim, translated(members))];
+  sim.enqueue(
+    playerCommand(0, {
+      kind: 'attackMoveUnitGroup',
+      members: translated(members),
+    }),
+  );
+  sim.step();
+  expect(members.filter(({ entity }) => sim.world.has(entity, PathRequest))).toHaveLength(0);
+  expect(members.filter(({ entity }) => sim.world.has(entity, PathFollow))).toHaveLength(COUNT);
+  const goalNodes = members.map(({ entity }) => sim.world.get(entity, PathRoute).waypoints.at(-1)?.node);
+  expect(new Set(goalNodes).size).toBe(COUNT);
+  for (const tick of [128, 512]) {
+    while (sim.tick < tick) sim.step();
+    reports.push(geometry(sim, translated(members)));
+  }
+  marchUntilArrived(sim, translated(members), 2048);
+  reports.push(geometry(sim, translated(members)));
+  report('attackMoveUnitGroup', reports);
+  expect(reports[0]?.nearPairs).toBe(0);
+  expect(reports[0]?.exactStacked).toBe(0);
+  expect(reports[2]?.width90).toBeGreaterThan((reports[0]?.width90 ?? 0) * 0.8);
+  expect(reports[2]?.nearPairs).toBe(0);
+  expect(reports.at(-1)?.arrived).toBe(COUNT);
+  expect(reports.at(-1)?.exactStacked).toBe(0);
+  expect(reports.at(-1)?.nearPairs).toBe(0);
+});
 
 it('lets 1000 soldiers narrow through a gap and recover distinct destination slots', () => {
   const { sim, members } = makeArmy(true);
@@ -77,10 +88,12 @@ it('lets 1000 soldiers narrow through a gap and recover distinct destination slo
     expect(crossing.length).toBeGreaterThan(0);
     expect(crossing.every(({ node }) => terrain.yOf(node) >= 52 && terrain.yOf(node) <= 64)).toBe(true);
   }
-  for (const tick of [512, 1024, 2048, 4096]) {
+  for (const tick of [512, 1024]) {
     while (sim.tick < tick) sim.step();
     reports.push(geometry(sim, translated(members)));
   }
+  marchUntilArrived(sim, translated(members), 4096);
+  reports.push(geometry(sim, translated(members)));
   report('gap', reports);
   expect(reports.at(-1)?.arrived).toBe(COUNT);
   expect(reports.at(-1)?.exactStacked).toBe(0);
@@ -111,10 +124,8 @@ it('redirects a marching 1000-soldier army without retaining the old shared lane
     expect(sim.world.get(entity, MoveGoal).cell).toBe(goal);
     expect(sim.world.get(entity, PathRoute).waypoints.at(-1)?.node).toBe(goal);
   }
-  for (const tick of [512, 1024, 2048]) {
-    while (sim.tick < tick) sim.step();
-    reports.push(geometry(sim, redirected));
-  }
+  marchUntilArrived(sim, redirected, 2048);
+  reports.push(geometry(sim, redirected));
   report('redirect', reports);
   expect(reports.at(-1)?.arrived).toBe(COUNT);
   expect(reports.at(-1)?.exactStacked).toBe(0);

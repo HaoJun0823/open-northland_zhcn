@@ -36,6 +36,11 @@ function stamped(nodes: readonly number[], stampScale = STAMP_SCALE): Uint8Array
   return raster.rgba;
 }
 
+/** Byte equality: a deep `toEqual` over the RGBA array costs more than the bake it checks. */
+function expectSameRaster(actual: Uint8Array, expected: Uint8Array): void {
+  expect(Buffer.compare(actual, expected)).toBe(0);
+}
+
 /** A road network of one shard whose node reads are counted. */
 function network(nodes: readonly number[], revision: number): { world: Ent[]; reads: () => number } {
   let reads = 0;
@@ -72,7 +77,7 @@ describe('minimap road raster', () => {
     const raster = blankRaster();
     const draw = createRoadRaster(raster, GEOMETRY);
     expect(draw(snapshotOf(network([NEAR, FAR], 1).world), null, STAMP_SCALE)).toBe(true);
-    expect(raster.rgba).toEqual(stamped([NEAR, FAR]));
+    expectSameRaster(raster.rgba, stamped([NEAR, FAR]));
   });
 
   it('leaves the road nodes alone on a replot of unchanged roads, and re-reads them on a new revision', () => {
@@ -87,7 +92,7 @@ describe('minimap road raster', () => {
     const longer = network([NEAR, FAR, node(6, 4)], 2);
     expect(draw(snapshotOf(longer.world, 2), null, STAMP_SCALE)).toBe(true);
     expect(longer.reads()).toBeGreaterThan(0);
-    expect(raster.rgba).toEqual(stamped([NEAR, FAR, node(6, 4)]));
+    expectSameRaster(raster.rgba, stamped([NEAR, FAR, node(6, 4)]));
   });
 
   it('hides roads on unexplored ground and adds them as the ground is explored, without the network', () => {
@@ -101,7 +106,7 @@ describe('minimap road raster', () => {
         STAMP_SCALE,
       ),
     ).toBe(true);
-    expect(raster.rgba).toEqual(stamped([NEAR]));
+    expectSameRaster(raster.rgba, stamped([NEAR]));
     const readsAfterBake = roads.reads();
 
     // A sighting elsewhere bumps the generation but explores nothing new: the raster keeps.
@@ -119,7 +124,7 @@ describe('minimap road raster', () => {
         STAMP_SCALE,
       ),
     ).toBe(true);
-    expect(raster.rgba).toEqual(stamped([NEAR, FAR]));
+    expectSameRaster(raster.rgba, stamped([NEAR, FAR]));
     expect(roads.reads()).toBe(readsAfterBake);
   });
 
@@ -135,10 +140,10 @@ describe('minimap road raster', () => {
     // The other seat has explored less under the same generation: its own fog, from scratch.
     const otherSeat = fogOf((cellX) => cellX < 4, 1, OTHER_SEAT);
     expect(draw(snapshotOf(world), otherSeat, STAMP_SCALE)).toBe(true);
-    expect(raster.rgba).toEqual(stamped([NEAR]));
+    expectSameRaster(raster.rgba, stamped([NEAR]));
     const zoomedStamp = STAMP_SCALE / 2;
     expect(draw(snapshotOf(world), null, zoomedStamp)).toBe(true);
-    expect(raster.rgba).toEqual(stamped([NEAR, FAR], zoomedStamp));
+    expectSameRaster(raster.rgba, stamped([NEAR, FAR], zoomedStamp));
   });
 
   it("finds a node's fog cell by the sim's own node-to-cell rule", () => {

@@ -103,20 +103,6 @@ describe('buildSoundGalleryModel', () => {
     expect(model.cues.map((c) => c.group)).toEqual(['Woodcutter Axe']);
   });
 
-  it('binds a finished building to the house-built jingle, marked screen-gated', () => {
-    const finished = model.actions.find((a) => a.label === 'Ukończenie budowy');
-    expect(finished?.kind).toBe('jingle');
-    expect(finished?.screenGated).toBe(true);
-    expect(finished?.group).toBe('House Built');
-    expect(finished?.clips).toEqual(['jingles/jingles_housebuilt.wav']);
-    expect(finished?.play).toEqual({ kind: 'pool', role: { kind: 'jingle', musicType: 26 } });
-  });
-
-  it('binds vehicle completion and production to their positional groups', () => {
-    expect(model.actions.find((a) => a.label === 'Ukończenie wehikułu')?.group).toBe('Hammer Wood');
-    expect(model.actions.find((a) => a.label === 'Produkcja towaru')?.group).toBe('Carpenter Saw');
-  });
-
   it('lists each tribe`s voices by class, grown first, each role in the lane the game plays it in', () => {
     expect(model.voices.map((v) => v.label)).toEqual([
       'Wikingowie · Mężczyźni',

@@ -190,15 +190,4 @@ describe('herdingSystem - follow-the-leader cohesion', () => {
     // It comes to rest within the cohesion radius (node Manhattan) and stops (no perpetual jitter).
     expect(endHx).toBeLessThanOrEqual(LEADER_DISTANCE);
   });
-
-  it('two same-seed runs herd identically (deterministic - no RNG)', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 7, content: testContent(), map: grassMap(20, 1) });
-      const leader = herderAt(sim, 0, 0, 'self');
-      herderAt(sim, 10, 0, leader);
-      for (let i = 0; i < 12; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

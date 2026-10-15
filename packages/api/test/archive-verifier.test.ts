@@ -8,6 +8,11 @@ import { ArchiveVerificationBusyError, ArchiveVerifier } from '../src/conversion
 const ARCHIVE = Buffer.alloc(8 * 1024 * 1024, 7);
 const HASH = sha256Hex(ARCHIVE);
 
+/** Deep equality on megabytes of bytes costs seconds; compare buffers natively instead. */
+const expectArchiveBytes = (bytes: Buffer | undefined): void => {
+  expect(bytes?.equals(ARCHIVE), 'handle reads the verified archive bytes').toBe(true);
+};
+
 describe('retained archive verification', () => {
   let dir: string;
   let path: string;
@@ -94,7 +99,7 @@ describe('retained archive verification', () => {
     // Unlinking can update the old inode's ctime; refusal is also safe in that case.
     if (handle !== null) {
       try {
-        expect(await handle.readFile()).toEqual(ARCHIVE);
+        expectArchiveBytes(await handle.readFile());
       } finally {
         await handle.close();
       }
@@ -152,7 +157,7 @@ describe('retained archive verification', () => {
     const handle = await second;
     expect(handle).not.toBeNull();
     try {
-      expect(await handle?.readFile()).toEqual(ARCHIVE);
+      expectArchiveBytes(await handle?.readFile());
     } finally {
       await handle?.close();
     }

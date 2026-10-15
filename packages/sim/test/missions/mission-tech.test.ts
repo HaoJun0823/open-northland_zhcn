@@ -1,16 +1,21 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
+  Building,
   grantScriptUnlock,
   missionRecords,
+  Owner,
   ScriptUnlocks,
   scriptAllows,
   scriptEnables,
+  setMapPermission,
+  setProfessionProgression,
 } from '../../src/components/index.js';
 import {
   exportSaveGame,
   parseSaveGame,
   restoreSimulation,
+  Simulation,
   scenario,
   serializeSaveGame,
 } from '../../src/index.js';
@@ -19,6 +24,8 @@ import { SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
 import { buildingEnabled, goodEnabled, jobEnabled } from '../../src/systems/progression/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
+import { settlerAt } from '../fixtures/settler.js';
+import { grassNodeMap } from '../fixtures/terrain.js';
 import {
   CARPENTER,
   FRANK,
@@ -39,6 +46,7 @@ import {
 
 const PLANK = 2;
 const GATED_HOUSE = 4;
+const SAWMILL = 2;
 const OWNER = 0;
 const RIVAL = 1;
 
@@ -52,6 +60,21 @@ function techContent(): ContentSet {
         : t,
     ),
   });
+}
+
+/** The fixture with every viking gate replaced by a living woodcutter: the sawmill, the carpenter and
+ *  the plank, and no profession requirements. */
+function cutterGatedContent(): ContentSet {
+  const data = testContent();
+  const tribe = data.tribes[0];
+  if (tribe === undefined) throw new Error('Missing fixture tribe');
+  tribe.jobEnables = [
+    { kind: 'house', targetId: SAWMILL, jobType: WOODCUTTER },
+    { kind: 'job', targetId: CARPENTER, jobType: WOODCUTTER },
+    { kind: 'good', targetId: PLANK, jobType: WOODCUTTER },
+  ];
+  tribe.jobRequirements = [];
+  return data;
 }
 
 function firing(result: MissionResultOp): MissionDefinition {
@@ -101,14 +124,49 @@ describe('EnableGood', () => {
     earned.run(LOAD_PASS);
     expect(holds(earned)).toBe(true);
   });
+
+  it('leaves a map ban in place', () => {
+    const sim = firingSim(
+      [{ opcode: 'EnableGood', player: OWNER, tribe: VIKING, good: PLANK }],
+      cutterGatedContent(),
+    );
+    setMapPermission(sim.world, {
+      player: OWNER,
+      tribe: VIKING,
+      kind: 'good',
+      typeId: PLANK,
+      allowed: false,
+    });
+    sim.run(LOAD_PASS);
+    expect(sim.unlockStatus('good', PLANK, VIKING, OWNER)).toMatchObject({ allowed: false, enabled: false });
+  });
 });
 
 describe('AllowGood', () => {
-  it('records permission without unlocking anything', () => {
-    const sim = firingSim([{ opcode: 'AllowGood', player: OWNER, tribe: VIKING, good: PLANK }]);
+  it('removes a map ban without granting technology, and survives save/load', () => {
+    const sim = firingSim(
+      [{ opcode: 'AllowGood', player: OWNER, tribe: VIKING, good: PLANK }],
+      cutterGatedContent(),
+    );
+    setMapPermission(sim.world, {
+      player: OWNER,
+      tribe: VIKING,
+      kind: 'good',
+      typeId: PLANK,
+      allowed: false,
+    });
+    expect(sim.unlockStatus('good', PLANK, VIKING, OWNER).allowed).toBe(false);
     sim.run(LOAD_PASS);
     expect(scriptAllows(sim.world, OWNER, VIKING, 'good', PLANK)).toBe(true);
-    expect(goodEnabled(sim.world, ctxOf(sim), OWNER, VIKING, PLANK)).toBe(false);
+    expect(sim.unlockStatus('good', PLANK, VIKING, OWNER)).toMatchObject({ allowed: true, enabled: false });
+    const restored = restoreSimulation(exportSaveGame(sim), {
+      content: sim.content,
+      map: grassNodeMap(48, 48),
+      ...(sim.missions !== undefined ? { missions: sim.missions } : {}),
+    });
+    expect(restored.unlockStatus('good', PLANK, VIKING, OWNER)).toEqual(
+      sim.unlockStatus('good', PLANK, VIKING, OWNER),
+    );
   });
 });
 
@@ -148,6 +206,15 @@ describe('EnableJob and JobEnabled', () => {
     expect(missionRecords(scripted.world)[1]?.evaluated).toBe(true);
     expect(jobEnabled(scripted.world, ctxOf(scripted), RIVAL, VIKING, CARPENTER)).toBe(false);
   });
+
+  it('a profession requires the player’s own prerequisite, independently of individual experience', () => {
+    const sim = new Simulation({ seed: 1, content: cutterGatedContent() });
+    const trainee = settlerAt(sim, { jobType: null, tribe: VIKING });
+    sim.world.add(trainee, Owner, { player: OWNER });
+    expect(sim.canChooseJob(trainee, CARPENTER)).toBe(false);
+    grantScriptUnlock(sim.world, 'enabled', OWNER, VIKING, 'job', CARPENTER);
+    expect(sim.canChooseJob(trainee, CARPENTER)).toBe(true);
+  });
 });
 
 describe('EnableHouse and AllowHouse', () => {
@@ -163,6 +230,59 @@ describe('EnableHouse and AllowHouse', () => {
     expect(scriptAllows(sim.world, OWNER, VIKING, 'job', CARPENTER)).toBe(true);
     expect(scriptEnables(sim.world, OWNER, VIKING, 'job', CARPENTER)).toBe(false);
     expect(buildingEnabled(sim.world, ctxOf(sim), OWNER, VIKING, GATED_HOUSE)).toBe(true);
+  });
+
+  it('EnableHouse opens both the placement probe and the command for the selected seat only', () => {
+    const sim = new Simulation({ seed: 1, content: cutterGatedContent(), map: grassNodeMap(48, 48) });
+    const place = () =>
+      sim.enqueueSetup({
+        kind: 'placeBuilding',
+        buildingType: SAWMILL,
+        tribe: VIKING,
+        owner: OWNER,
+        x: 20,
+        y: 20,
+      });
+    expect(sim.placementProbe(SAWMILL, OWNER, VIKING)?.canPlace(20, 20)).toBe(false);
+    place();
+    sim.step();
+    expect(sim.unlockStatus('house', SAWMILL, VIKING, OWNER).enabled).toBe(false);
+    grantScriptUnlock(sim.world, 'enabled', OWNER, VIKING, 'house', SAWMILL);
+    expect(sim.placementProbe(SAWMILL, OWNER, VIKING)?.canPlace(20, 20)).toBe(true);
+    expect(sim.placementProbe(SAWMILL, RIVAL, VIKING)?.canPlace(20, 20)).toBe(false);
+    expect([...sim.world.query(Building)]).toHaveLength(0);
+    place();
+    sim.step();
+    expect([...sim.world.query(Building)]).toHaveLength(1);
+  });
+});
+
+describe('the technology gates', () => {
+  it('isolate every gate by owner and invalidate on ownership transfer', () => {
+    const sim = new Simulation({ seed: 1, content: cutterGatedContent() });
+    const worker = settlerAt(sim, { jobType: WOODCUTTER, tribe: VIKING });
+    sim.world.add(worker, Owner, { player: RIVAL });
+    for (const kind of ['house', 'job', 'good'] as const) {
+      expect(sim.unlockStatus(kind, SAWMILL, VIKING, OWNER).enabled).toBe(false);
+      expect(sim.unlockStatus(kind, SAWMILL, VIKING, RIVAL).enabled).toBe(true);
+    }
+    sim.world.mut(worker, Owner).player = OWNER;
+    expect(sim.unlockStatus('house', SAWMILL, VIKING, OWNER).enabled).toBe(true);
+    expect(sim.unlockStatus('house', SAWMILL, VIKING, RIVAL).enabled).toBe(false);
+  });
+
+  it('progression off lifts prerequisites but preserves explicit map restrictions', () => {
+    const sim = new Simulation({ seed: 1, content: cutterGatedContent() });
+    setProfessionProgression(sim.world, false);
+    expect(sim.unlockStatus('house', SAWMILL, VIKING, OWNER).enabled).toBe(true);
+    setMapPermission(sim.world, {
+      player: OWNER,
+      tribe: VIKING,
+      kind: 'house',
+      typeId: SAWMILL,
+      allowed: false,
+    });
+    expect(sim.unlockStatus('house', SAWMILL, VIKING, OWNER).enabled).toBe(false);
   });
 });
 

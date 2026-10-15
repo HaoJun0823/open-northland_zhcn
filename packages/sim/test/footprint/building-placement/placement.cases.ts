@@ -40,7 +40,6 @@ import {
   terrainOf,
   VIKING,
   WATER,
-  WOODCUTTER,
 } from './support.js';
 
 /** The seat the player-placement cases issue from. */
@@ -519,20 +518,5 @@ describe('placement razes felled-tree stumps in the reserved zone', () => {
     sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, x: 5, y: 5, tribe: VIKING, force: true });
     sim.step();
     expect(sim.world.isAlive(under)).toBe(false);
-  });
-});
-
-describe('determinism', () => {
-  it('two same-seed runs through placement + rejection + pathing hash identically', () => {
-    const run = (): string => {
-      const sim = mappedSim();
-      createBerryBush(sim.world, { x: 6, y: 6 }); // razed by the hut below - its removal must be deterministic
-      sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, x: 5, y: 5, tribe: VIKING });
-      sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, x: 6, y: 5, tribe: VIKING }); // rejected
-      sim.enqueueSetup({ kind: 'spawnSettler', jobType: WOODCUTTER, x: 0, y: 5, tribe: VIKING });
-      for (let i = 0; i < 50; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
   });
 });

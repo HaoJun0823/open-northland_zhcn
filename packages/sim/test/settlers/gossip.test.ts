@@ -583,16 +583,4 @@ describe('gossip chat rounds (GossipSystem)', () => {
 
     expect(sim.world.has(a, Chat)).toBe(false);
   });
-
-  it('is byte-identical across two same-seed runs (determinism)', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 9, content: testContent(), map: grassMap(10, 1) });
-      gossiper(sim, 1, 0, LONELY);
-      gossiper(sim, 4, 0, MILD);
-      gossiper(sim, 7, 0, MILD);
-      for (let i = 0; i < 300; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

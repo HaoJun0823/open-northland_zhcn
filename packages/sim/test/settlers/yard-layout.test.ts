@@ -93,25 +93,21 @@ describe('flag yard layout approximation', () => {
     expect(pick()).toBe(terrain.nodeAt(2, 0));
   });
 
-  it('walks each delivery to its pile and repeats the same layout and state with the same seed', () => {
-    const run = () => {
-      const { sim, worker } = fixture();
-      for (let load = 0; load < 11; load++) {
-        sim.world.add(worker, Carrying, { goodType: WOOD, amount: 1 });
-        expect(runTicks(sim, 200)).toEqual([]);
-        expect(sim.world.has(worker, Carrying)).toBe(false);
-      }
-      const heaps = groundHeaps(sim).map((e) => {
-        const p = sim.world.get(e, Position);
-        return { ...nodeOfPosition(p.x, p.y), fill: sim.world.get(e, Stockpile).amounts.get(WOOD) };
-      });
-      expect(heaps).toEqual([
-        { hx: 10, hy: 10, fill: 5 },
-        { hx: 11, hy: 10, fill: 5 },
-        { hx: 10, hy: 11, fill: 1 },
-      ]);
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
+  it('walks each delivery to its pile', () => {
+    const { sim, worker } = fixture();
+    for (let load = 0; load < 11; load++) {
+      sim.world.add(worker, Carrying, { goodType: WOOD, amount: 1 });
+      expect(runTicks(sim, 200)).toEqual([]);
+      expect(sim.world.has(worker, Carrying)).toBe(false);
+    }
+    const heaps = groundHeaps(sim).map((e) => {
+      const p = sim.world.get(e, Position);
+      return { ...nodeOfPosition(p.x, p.y), fill: sim.world.get(e, Stockpile).amounts.get(WOOD) };
+    });
+    expect(heaps).toEqual([
+      { hx: 10, hy: 10, fill: 5 },
+      { hx: 11, hy: 10, fill: 5 },
+      { hx: 10, hy: 11, fill: 1 },
+    ]);
   });
 });

@@ -288,12 +288,19 @@ describe('waitForLinks', () => {
     const gapMs = 30;
     const stallMs = 200;
     const names = Array.from({ length: 16 }, (_, index) => `p${index}`);
-    // Every gap is well inside the stall limit, the whole run well past it.
-    const warmed = await waitForLinks(
-      new Map(names.map((name, index) => [name, after((index + 1) * gapMs)])),
-      stallMs,
-    );
-    expect(outcomesOf(warmed).every((outcome) => outcome === 'linked')).toBe(true);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+    try {
+      // Every gap is well inside the stall limit, the whole run well past it.
+      const pending = waitForLinks(
+        new Map(names.map((name, index) => [name, after((index + 1) * gapMs)])),
+        stallMs,
+      );
+      await vi.advanceTimersByTimeAsync(names.length * gapMs);
+      const warmed = await pending;
+      expect(outcomesOf(warmed).every((outcome) => outcome === 'linked')).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('credits a link that ended between two checks a held-back tab ran back to back', async () => {

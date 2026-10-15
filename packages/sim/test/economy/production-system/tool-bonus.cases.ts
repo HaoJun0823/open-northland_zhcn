@@ -63,7 +63,6 @@ describe('productionSystem credits a worn tool additively and wears it per cycle
     expect(sim.world.get(mill, Stockpile).amounts.get(PLANK)).toBe(1); // the base plank landed
     // The batch's own XP grant lands first (7 raw XP: still 0 points), then the credit: the tool's 7
     // tenths and nothing from the curve.
-    expect(IRON_TENTHS).toBe(7);
     expect(sim.world.get(mill, ProductionBonus).remainders.get(PLANK)).toBe(IRON_TENTHS);
     // And the tool wore one cycle's step.
     expect(sim.world.get(worker, Equipment).tool?.degreeOfUse).toBe(wearStepOf(ctxOf(sim), TOOL_IRON));

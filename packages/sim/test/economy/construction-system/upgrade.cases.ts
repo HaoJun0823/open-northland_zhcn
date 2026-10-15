@@ -309,18 +309,4 @@ describe('constructionSystem - manual upgrade lifecycle', () => {
     expect(sim.world.get(e, Building).buildingType).toBe(HOME_L1);
     expect(sim.world.get(e, Health).max).toBe(SARACEN_L1_HITPOINTS);
   });
-
-  it('is deterministic - two same-seed upgrade runs reach the same state hash', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 5, content: levelChainContent() });
-      const e = placeBuiltHome(sim, HOME_L0, 0, { [STONE]: 1 });
-      sim.enqueueSetup({ kind: 'upgradeBuilding', building: e });
-      sim.step();
-      sim.world.mut(e, Stockpile).amounts.set(STONE, 2);
-      sim.world.mut(e, UnderConstruction).labor = ONE;
-      constructionSystem(sim.world, ctxOf(sim));
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

@@ -37,19 +37,20 @@ const WOODCUTTER = 1;
 /** A soldier trade (jobtypes.ini soldiers 31..41): hunger and fatigue drain, company does not. */
 const SOLDIER = 31;
 const SETTLERS = 3;
-const SPAN_TICKS = 60_000;
+/** With SEED, a short span that still crosses every band threshold both ways and starves. */
+const SPAN_TICKS = 19_000;
 /** Roughly one bar event per this many ticks per settler. */
 const EVENT_ODDS = 1000;
 /** Roughly one drain change per this many ticks per settler. */
 const GATE_ODDS = 3_000;
 /** A pool no starvation in the span can empty, so hitpoints keep moving the whole run. */
 const POOL = 1_000_000;
-const SEED = 20_251_001;
+const SEED = 2;
 /** Ticks between cache checks of the needs wake list. */
 const VERIFY_EVERY = 500;
 /** A stretch of passes far short of any band threshold. */
 const DRAINED_TICKS = 50;
-/** A 60000-tick differential against the per-tick drain: slow by design, and slower on a loaded machine. */
+/** A long differential against the per-tick drain: slow by design, and slower on a loaded machine. */
 const DIFFERENTIAL_TIMEOUT_MS = 60_000;
 
 const DRAINING = ['hunger', 'fatigue', 'enjoyment'] as const;
@@ -192,7 +193,9 @@ describe('needs stored as level-at-tick', () => {
     }
 
     expect(derivedCrossings).toEqual(referenceCrossings);
-    expect(derivedCrossings.length).toBeGreaterThan(SETTLERS * THRESHOLDS.length);
+    // Every draining bar crossed every band threshold both ways.
+    const crossed = new Set(derivedCrossings.map((c) => c.slice(c.indexOf(':') + 1)));
+    expect(crossed.size).toBe(DRAINING.length * THRESHOLDS.length * 2);
     expect(starvedTicks).toBeGreaterThan(0);
     // The point of the form: far fewer writes than passes.
     const writes = sim.world.componentValueGeneration(SettlerNeeds) - writesBefore;

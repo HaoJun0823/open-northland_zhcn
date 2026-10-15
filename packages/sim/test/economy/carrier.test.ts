@@ -356,16 +356,3 @@ describe('carrier - end-to-end haul through the real schedule', () => {
     expect(sim.world.has(carrier, Carrying)).toBe(false);
   });
 });
-
-describe('carrier - determinism', () => {
-  it('two same-seed runs of the haul reach the same state hash', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 13, content: testContent(), map: grassMap(4, 1) });
-      carrierAt(sim, 0, 0, hqAt(sim, 2, 0));
-      sawmillAt(sim, 1, 0, 3);
-      for (let i = 0; i < 120; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
-});

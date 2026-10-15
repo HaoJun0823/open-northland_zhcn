@@ -201,15 +201,4 @@ describe('constructionSystem', () => {
     expect(sim.world.get(e, Stockpile).amounts.get(STONE)).toBe(2); // untouched
     expect(finishedEvents(sim)).toHaveLength(0);
   });
-
-  it('is deterministic - two runs from the same seed reach the same finished state', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 7, content: constructionContent() });
-      const e = placeSite(sim, HOUSE, { [STONE]: 2, [WOOD]: 1 });
-      fullyHammer(sim, e);
-      constructionSystem(sim.world, ctxOf(sim));
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

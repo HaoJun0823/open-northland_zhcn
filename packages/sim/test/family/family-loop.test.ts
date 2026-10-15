@@ -1182,19 +1182,6 @@ describe('e2e: marriage → household → child (full step schedule)', () => {
     sim.world.mut(home(), Stockpile).amounts.set(FOOD, CHILD_FOOD_UNITS - 2);
     runUntil(sim, () => sim.world.has(home(), MakingLove), 3000, 'larder stocked from both piles');
   });
-
-  it('is deterministic - two same-seed full-loop runs reach the same final state hash', () => {
-    const run = (): string => {
-      const { sim, woman, home } = familySim(9);
-      sim.enqueueSetup({ kind: 'marry', entity: woman() });
-      runUntil(sim, () => sim.world.has(woman(), Marriage), 400, 'wedding');
-      sim.enqueueSetup({ kind: 'assignHouse', entity: woman(), house: home() });
-      sim.enqueueSetup({ kind: 'makeChild', entity: woman(), child: 'male' });
-      runUntil(sim, () => sim.world.get(woman(), Marriage).child !== null, 4000, 'child');
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });
 
 describe('marry matches the nearest partner', () => {

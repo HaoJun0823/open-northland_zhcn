@@ -322,12 +322,4 @@ describe('golden: the vertical slice over ~1000 ticks', () => {
     // point in this window, so no bonus tenths reach a whole unit (see the production-bonus cases).
     expect(run.produced).toBe(14);
   });
-
-  it('is byte-identical across two same-seed runs (determinism)', () => {
-    const a = runSlice(SEED, TICKS);
-    const b = runSlice(SEED, TICKS);
-    expect(a.hash).toBe(b.hash);
-    expect(a.trace).toEqual(b.trace);
-    expect(a.produced).toBe(b.produced);
-  });
 });

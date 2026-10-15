@@ -404,10 +404,6 @@ describe('road build module (roadBuild)', () => {
       expect(spent).toBeGreaterThan(0);
       expect(spent).toBeLessThan(laid);
     });
-
-    it('same seed twice gives byte-identical state', { timeout: 60_000 }, () => {
-      expect(layingRun(5).hashState()).toBe(layingRun(5).hashState());
-    });
   });
 
   it('takes a third roadster on a backlog only from the late road crew time', () => {

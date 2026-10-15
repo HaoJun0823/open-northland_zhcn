@@ -111,15 +111,10 @@ describe('seedAnimalHerds (map populator)', () => {
     expect(seedAnimalHerds(content, allWater)).toHaveLength(0);
   });
 
-  it('is deterministic: two calls (and a built-graph call) produce identical commands', () => {
+  it('accepts a built terrain graph with the same result as the raw map', () => {
     const content = testContent();
     const map = grass(5, 2);
-    const a = seedAnimalHerds(content, map);
-    const b = seedAnimalHerds(content, map);
-    // Accepts a built TerrainGraph too - same result as the raw map.
-    const c = seedAnimalHerds(content, buildTerrainGraph(content, map));
-    expect(a).toEqual(b);
-    expect(a).toEqual(c);
+    expect(seedAnimalHerds(content, buildTerrainGraph(content, map))).toEqual(seedAnimalHerds(content, map));
   });
 
   it('end-to-end: enqueuing the seeded commands actually places herds via step()', () => {

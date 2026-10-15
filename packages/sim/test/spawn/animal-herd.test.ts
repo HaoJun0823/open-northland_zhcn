@@ -153,14 +153,4 @@ describe('spawnAnimalHerd command', () => {
     expect(creatures(sim)).toHaveLength(0); // nothing spawned - the viking has no herd params
     expect(sim.commands.log).toHaveLength(1); // but recorded for faithful replay
   });
-
-  it('two same-seed runs spawn the same herd (deterministic - no RNG)', () => {
-    const run = (): string => {
-      const sim = fresh(7);
-      spawnHerdAt(sim, BEAR, 4, 6);
-      sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

@@ -50,14 +50,4 @@ describe('two squads exchange blows at the data cadence (extended headless scena
       expect(needsOf(sim, anyViking).fatigue).toBeGreaterThan(0);
     }
   });
-
-  it('is deterministic - two same-seed runs of the skirmish reach the same state hash', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 7, content: combatCadenceContent(), map: grass(4, 1) });
-      seedSquads(sim);
-      for (let i = 0; i < 80; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

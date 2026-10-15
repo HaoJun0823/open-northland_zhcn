@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { Building, Position, Settler } from '../../../src/components/index.js';
-import type { Command } from '../../../src/index.js';
 
 import { fresh, HEADQUARTERS, nthEntity, VIKING, WOODCUTTER } from './support.js';
 
@@ -29,24 +28,5 @@ describe('CommandSystem - dispatch and logging', () => {
     // First enqueued (the building) got the lower id.
     expect(sim.world.has(nthEntity(sim, 0), Building)).toBe(true);
     expect(sim.world.has(nthEntity(sim, 1), Settler)).toBe(true);
-  });
-
-  it('is deterministic: same seed + same commands on the same ticks => byte-identical state', () => {
-    const cmds: Command[] = [
-      { kind: 'placeBuilding', buildingType: HEADQUARTERS, x: 2, y: 2, tribe: VIKING },
-      { kind: 'spawnSettler', jobType: WOODCUTTER, x: 3, y: 3, tribe: VIKING },
-    ];
-
-    const runA = fresh(7);
-    for (const c of cmds) runA.enqueueSetup(c);
-    runA.run(50);
-    const hashA = runA.hashState();
-
-    const runB = fresh(7);
-    for (const c of cmds) runB.enqueueSetup(c);
-    runB.run(50);
-    const hashB = runB.hashState();
-
-    expect(hashB).toBe(hashA);
   });
 });

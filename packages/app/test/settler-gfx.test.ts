@@ -642,13 +642,6 @@ describe('the job → character tables (the [jobbasegraphics] transcription)', (
       // tribe authors for the class (the skin the job change swaps in).
       expect(specId !== undefined && CHARACTER_SPECS[specId].gfxJobs.at(-1)).toBe(JOB_SOLDIER_UNARMED);
     }
-    expect(ADULT_CHARACTER_BY_JOB[5]).toBe('woman');
-    expect(ADULT_CHARACTER_BY_JOB[22]).toBe('fisher');
-    expect(CHARACTER_SPECS.fisher.atomics).toMatchObject({
-      36: { seq: 'human_man_fisher_work_fishing' },
-      37: { seq: 'human_man_fisher_work_fishing' },
-      38: { seq: 'human_man_fisher_work_fishing' },
-    });
   });
 
   it('maps the scout and the druid onto their own head records, degrading to the civilist', () => {
@@ -707,13 +700,10 @@ describe('the job → character tables (the [jobbasegraphics] transcription)', (
     }
   });
 
-  it('maps the age classes (1..4, Age-gated) onto the baby/child bodies', () => {
-    expect(YOUNG_CHARACTER_BY_JOB[1]).toBe('baby');
-    expect(YOUNG_CHARACTER_BY_JOB[2]).toBe('baby');
-    expect(YOUNG_CHARACTER_BY_JOB[3]).toBe('girl');
-    expect(YOUNG_CHARACTER_BY_JOB[4]).toBe('boy');
-    // The adult table must NOT claim the age-class ids - an adult fixture job 1..4 stays the default.
-    for (const id of [1, 2, 3, 4]) expect(ADULT_CHARACTER_BY_JOB[id]).toBeUndefined();
+  it('keeps the age-class ids out of the adult table, so an adult fixture job there stays the default', () => {
+    const ageClasses = Object.keys(YOUNG_CHARACTER_BY_JOB).map(Number);
+    expect(ageClasses.length).toBeGreaterThan(0);
+    for (const id of ageClasses) expect(ADULT_CHARACTER_BY_JOB[id]).toBeUndefined();
   });
 
   it('every spec a job table references exists and names at least one graphics job', () => {

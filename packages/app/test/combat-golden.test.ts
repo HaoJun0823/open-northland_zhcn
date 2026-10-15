@@ -176,6 +176,8 @@ function runCombat(ticks: number): CombatRun {
 
 describe('golden: a seeded fight over the extracted weapon and armor rows', () => {
   const TICKS = 400;
+  let run: CombatRun | undefined;
+  const combat = (): CombatRun => (run ??= runCombat(TICKS));
 
   // Entities: each lane's victim then its striker, lane by lane (1/2 short sword on wool, 3/4 long sword
   // on leather, 5/6 short sword on chain, 7/8 long sword on plate, 9/10 iron spear on plate, 11/12 short
@@ -282,23 +284,16 @@ describe('golden: a seeded fight over the extracted weapon and armor rows', () =
   ];
 
   it('holds every core invariant on every tick', () => {
-    expect(runCombat(TICKS).invariantViolations).toEqual([]);
+    expect(combat().invariantViolations).toEqual([]);
   });
 
   it('matches the golden final state hash', () => {
     // Moves on any intentional combat change, including a new shape of the stored swing that leaves the
     // hit trace alone; name the change in the commit that moves it.
-    expect(runCombat(TICKS).hash).toBe('645b8981');
+    expect(combat().hash).toBe('645b8981');
   });
 
   it('matches the golden hit trace', () => {
-    expect(runCombat(TICKS).trace).toEqual(GOLDEN_TRACE);
-  });
-
-  it('is identical across two same-seed runs', () => {
-    const a = runCombat(TICKS);
-    const b = runCombat(TICKS);
-    expect(a.hash).toBe(b.hash);
-    expect(a.trace).toEqual(b.trace);
+    expect(combat().trace).toEqual(GOLDEN_TRACE);
   });
 });

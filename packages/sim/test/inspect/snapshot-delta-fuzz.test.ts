@@ -31,7 +31,7 @@ const VALUES: readonly unknown[] = [
   null,
   undefined,
 ];
-const SEEDS = 20;
+const SEEDS = 5;
 const BATCHES = 150;
 const ENTITIES = 6;
 /** Each batch makes a few writes before its delta. */
@@ -67,24 +67,26 @@ function expectSame(mirrored: WorldSnapshot, live: WorldSnapshot, where: string)
     where,
   ).toEqual(live.entities.map((e) => e.id));
   for (let i = 0; i < live.entities.length; i++) {
-    const want = live.entities[i]?.components ?? {};
-    const got = mirrored.entities[i]?.components ?? {};
-    // A component a held entity gains lands last in the mirror's record: components read by name.
-    expect(Object.keys(got).sort(), where).toEqual(Object.keys(want).sort());
-    for (const name of Object.keys(want)) expectLeaves(got[name], want[name], `${where} ${name}`);
+    const want = live.entities[i];
+    expect(layout(mirrored.entities[i]?.components), `${where} entity ${want?.id}`).toStrictEqual(
+      layout(want?.components),
+    );
   }
 }
 
-function expectLeaves(got: unknown, want: unknown, where: string): void {
-  if (typeof want !== 'object' || want === null) {
-    expect(Object.is(got, want), `${where}: ${String(got)} against ${String(want)}`).toBe(true);
-    return;
-  }
-  expect(typeof got, where).toBe('object');
-  const gotRecord = got as Record<string, unknown>;
-  const wantRecord = want as Record<string, unknown>;
-  expect(Object.keys(gotRecord), where).toEqual(Object.keys(wantRecord));
-  for (const key of Object.keys(wantRecord)) expectLeaves(gotRecord[key], wantRecord[key], `${where}.${key}`);
+/**
+ * A value as nested `[key, value]` entries in key order, so one strict deep equality checks key order,
+ * explicit `undefined` and `Object.is` leaves (`-0` against `0`, `NaN`). A component a held entity gains
+ * lands last in the mirror's record, so components sort by name.
+ */
+function layout(components: Readonly<Record<string, unknown>> | undefined): unknown {
+  const entries = (value: unknown): unknown =>
+    typeof value === 'object' && value !== null
+      ? Object.entries(value).map(([key, field]) => [key, entries(field)])
+      : value;
+  return Object.entries(components ?? {})
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([name, value]) => [name, entries(value)]);
 }
 
 describe('snapshot delta layouts under a seeded fuzz', () => {

@@ -135,18 +135,4 @@ describe('e2e: the housing → upgrade loop (full step schedule)', () => {
       if (sim.world.get(e, Settler).jobType === CARRIER) expect(sim.world.has(e, Carrying)).toBe(false);
     }
   });
-
-  it('is deterministic - two same-seed loop runs reach the same final state hash', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 9, content: loopContent(), map: grassMap(8, 1) });
-      const home = builtHomeAt(sim, 3, 0);
-      loadedCarrierAt(sim, 0, 0, STONE, 1);
-      loadedCarrierAt(sim, 5, 0, STONE, 1);
-      builderAt(sim, 7, 0);
-      sim.enqueueSetup({ kind: 'upgradeBuilding', building: home });
-      for (let i = 0; i < 250; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

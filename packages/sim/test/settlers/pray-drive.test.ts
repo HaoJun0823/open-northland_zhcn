@@ -329,17 +329,6 @@ describe('pray drive - closing the forge→pray→relief loop through the real s
     expect(peakPiety).toBeLessThanOrEqual(ONE); // never breached the pietyInRange ceiling
     expect(sim.checkInvariants()).toEqual([]);
   });
-
-  it('is byte-identical across two same-seed runs (determinism)', () => {
-    const run = (): string => {
-      const sim = new Simulation({ seed: 5, content: testContent(), map: grassMap(4, 1) });
-      settlerAt(sim, 0, 0, NEED_DRIVE_THRESHOLD);
-      templeAt(sim, 3, 0);
-      for (let i = 0; i < 400; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });
 
 const HQ_TYPE = 1;

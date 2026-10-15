@@ -404,15 +404,6 @@ describe('layoutHud', () => {
     expect(busy.height).toBe(empty.height + HUD_LINE_H);
     expect(busy.width).toBe(empty.width); // width is a fixed column, height grows with content
   });
-
-  it('is byte-identical for the same model (deterministic - never reshuffles between equal frames)', () => {
-    const m = model({
-      tick: 3,
-      jobs: [{ jobType: 1, count: 2, female: 0 }],
-      stocks: [{ goodType: 9, amount: 5 }],
-    });
-    expect(layoutHud(m, LABELS)).toEqual(layoutHud(m, LABELS));
-  });
 });
 
 const HUD_MARGIN = 8; // mirrors the placement margin in hud.ts, kept local so a drift is caught
@@ -448,10 +439,5 @@ describe('placeHud', () => {
     const placed = placeHud(layout, 'bottom-right', { width: 10, height: 10 });
     expect(placed.panelX).toBe(0);
     expect(placed.panelY).toBe(0);
-  });
-
-  it('is byte-identical for the same inputs (deterministic placement)', () => {
-    const screen = { width: 800, height: 600 };
-    expect(placeHud(layout, 'top-right', screen)).toEqual(placeHud(layout, 'top-right', screen));
   });
 });

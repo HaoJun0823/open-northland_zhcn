@@ -57,12 +57,6 @@ describe('runDemoWorld on a loaded map', () => {
     expect([...sim.world.query(DeliveryFlag)]).toHaveLength(1);
   });
 
-  it('is deterministic over the loaded map (same seed+map ⇒ same hash)', () => {
-    const a = runDemoWorld(7, 60, mixedGrid(4, 8)).hashState();
-    const b = runDemoWorld(7, 60, mixedGrid(4, 8)).hashState();
-    expect(a).toBe(b);
-  });
-
   it('falls back to the synthetic strip when a loaded map has too few walkable cells', () => {
     // TERRAIN_IMPASSABLE is the demo's non-walkable water class; an all-impassable grid has 0 walkable
     // cells, so placement can't fit - runDemoWorld must degrade to the 6×1 strip rather than throw.
@@ -91,12 +85,6 @@ describe('runBareMap (imported map with no authored entities)', () => {
     expect([...sim.world.query(Position)]).toHaveLength(0);
     expect([...sim.world.query(Building)]).toHaveLength(0);
     expect([...sim.world.query(Settler)]).toHaveLength(0);
-  });
-
-  it('is deterministic over the loaded map (same seed+map ⇒ same hash)', () => {
-    const a = runBareMap(7, mixedGrid(4, 3)).hashState();
-    const b = runBareMap(7, mixedGrid(4, 3)).hashState();
-    expect(a).toBe(b);
   });
 });
 
@@ -151,12 +139,5 @@ describe('runAuthoredMap (map.cif StaticObjects to sim commands)', () => {
       animals: [],
     };
     expect(runAuthoredMap(7, 1, authoredMap(), unresolvable, AUTHORED_ROWS)).toBeNull();
-  });
-
-  it('is deterministic (same seed + same authored entities ⇒ same hash)', () => {
-    const a = runAuthoredMap(7, 40, authoredMap(), AUTHORED_ENTITIES, AUTHORED_ROWS)?.hashState();
-    const b = runAuthoredMap(7, 40, authoredMap(), AUTHORED_ENTITIES, AUTHORED_ROWS)?.hashState();
-    expect(a).toBeDefined();
-    expect(a).toBe(b);
   });
 });

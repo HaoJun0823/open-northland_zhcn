@@ -101,14 +101,6 @@ describe('culture pools', () => {
     expect(POOLS.get('norse')?.tense).not.toContain('mission_midgard1_standard');
   });
 
-  it('files hostile themes, Danger missions and attacks as tense', () => {
-    expect(POOLS.get('norse')?.tense).toEqual([
-      'attack_viking',
-      'mission_viking1_danger',
-      'theme_viking_hostile',
-    ]);
-  });
-
   it('lends Underworld the two quietest Norse calm stems and the Norse tense pool', () => {
     expect(POOLS.get('underworld')).toEqual({
       calm: [

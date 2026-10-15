@@ -15,6 +15,13 @@ function raster(seed: number, width = 48): DamageRaster {
   return { pixels, backing, width, height, fractures: analyseSurface(pixels, width, height, seed) };
 }
 
+/** Byte comparison; deep equality over every bake costs seconds. */
+function expectSameBytes(actual: Uint8ClampedArray, expected: Uint8ClampedArray, what: string): void {
+  const bytes = (view: Uint8ClampedArray): Buffer =>
+    Buffer.from(view.buffer, view.byteOffset, view.byteLength);
+  expect(bytes(actual).equals(bytes(expected)), what).toBe(true);
+}
+
 describe('building damage endpoint cache', () => {
   it('matches independent bakes while damage and repair cross every blend interval', () => {
     const surface = raster(73);
@@ -23,7 +30,8 @@ describe('building damage endpoint cache', () => {
     for (const direction of [1, -1]) {
       for (let step = 0; step <= 96; step++) {
         const level = direction > 0 ? step / 16 : 6 - step / 16;
-        expect(cache.paint(surface, level)).toEqual(
+        expectSameBytes(
+          cache.paint(surface, level),
           scarSurface(
             surface.pixels,
             surface.width,
@@ -32,10 +40,11 @@ describe('building damage endpoint cache', () => {
             level,
             surface.backing,
           ),
+          `cached paint at level ${level} matches an independent bake`,
         );
       }
     }
-    expect(surface.pixels).toEqual(pristine);
+    expectSameBytes(surface.pixels, pristine, 'source pixels stay pristine');
     expect(cache.stats.endpointPaints).toBeLessThan(20);
   });
 

@@ -31,7 +31,6 @@ import {
   SHIP_BELL_FILE,
   SoundDriver,
   UI_CUE_FILES,
-  UI_CUE_GAIN,
   VOICE_DUCK_RELEASE_S,
   VOICE_MUSIC_DUCK_DB,
   WebAudioEngine,
@@ -245,14 +244,11 @@ describe('alert and notice sounds', () => {
       files: ['gui/briefing_popup.wav'],
       gain: NOTICE_CARD_GAIN,
     });
-    expect(NOTICE_CARD_GAIN).toBe(0.25);
     expect(notificationShot('chat')).toMatchObject({
       files: ['gui/chat_incoming.wav'],
       gain: CHAT_CUE_GAIN,
       cooldownS: CHAT_CUE_COOLDOWN_S,
     });
-    expect(CHAT_CUE_GAIN).toBe(UI_CUE_GAIN / 2);
-    expect(CHAT_CUE_COOLDOWN_S).toBe(1);
   });
 
   it("rings a player's coming and going on the ship's bell, the going lower and quieter, never the fail click", () => {

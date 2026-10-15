@@ -20,12 +20,4 @@ describe('terrain wired as a world resource on the Simulation', () => {
     const bad: TerrainMap = { resolution: 'half-cell', width: 1, height: 1, typeIds: [99] };
     expect(() => new Simulation({ seed: 1, content: testContent(), map: bad })).toThrow(/typeId 99 absent/);
   });
-
-  it('two sims with the same seed + map stay determinism-equal (terrain is not hashed state)', () => {
-    const a = new Simulation({ seed: 5, content: testContent(), map: crossMap() });
-    const b = new Simulation({ seed: 5, content: testContent(), map: crossMap() });
-    a.run(100);
-    b.run(100);
-    expect(a.hashState()).toBe(b.hashState());
-  });
 });

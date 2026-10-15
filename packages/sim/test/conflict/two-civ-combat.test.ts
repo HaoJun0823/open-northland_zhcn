@@ -206,16 +206,4 @@ describe('two-civ combat scenario (two playable tribes, asymmetric bindings, end
     expect(sim.world.isAlive(viking)).toBe(true); // the viking (1e6 HP) survives the saxon's 30-dmg blows
     expect(deaths).toBe(1); // exactly one death announced (the felled saxon), for render/audio
   });
-
-  it('is deterministic: two same-seed runs of the skirmish reach the same state hash', () => {
-    const run = (): string => {
-      const content = twoCivContent();
-      const sim = new Simulation({ seed: 7, content, map: grass(5, 1) });
-      fighterAt(sim, 0, 0, VIKING, 500);
-      fighterAt(sim, 1, 0, SAXON, 500); // 2 nodes - inside both reach bands, so the skirmish really runs
-      for (let i = 0; i < 60; i++) sim.step();
-      return sim.hashState();
-    };
-    expect(run()).toBe(run());
-  });
 });

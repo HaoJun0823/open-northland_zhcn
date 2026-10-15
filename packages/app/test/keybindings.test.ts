@@ -23,13 +23,11 @@ describe('parseKeyBindings', () => {
   });
 
   it('keeps valid stored codes and defaults the missing actions', () => {
-    const parsed = parseKeyBindings({ pauseToggle: 'KeyO' });
-    expect(parsed.pauseToggle).toBe('KeyO');
-    expect(parsed.panLeft).toBe('ArrowLeft');
-    expect(parsed.actionRing).toBe('Space');
-    expect(parsed.professionPicker).toBe('KeyC');
     // Settings store only the changed bindings, so an action left out reads its default.
-    expect(parsed.network).toBe('KeyN');
+    expect(parseKeyBindings({ pauseToggle: 'KeyO' })).toEqual({
+      ...DEFAULT_KEY_BINDINGS,
+      pauseToggle: 'KeyO',
+    });
   });
 
   it('keeps modifier chords distinct from their plain base key', () => {
@@ -63,44 +61,12 @@ describe('parseKeyBindings', () => {
     expect(parsed.panLeft).toBe('KeyO');
     expect(parsed.attackMove).toBeNull();
   });
-
-  it('fills older stored settings with the default 1-0 control-group bindings', () => {
-    const parsed = parseKeyBindings({ pauseToggle: 'KeyO' });
-    expect([
-      parsed.controlGroup1,
-      parsed.controlGroup1Replace,
-      parsed.controlGroup1Add,
-      parsed.controlGroup2,
-      parsed.controlGroup3,
-      parsed.controlGroup4,
-      parsed.controlGroup5,
-      parsed.controlGroup6,
-      parsed.controlGroup7,
-      parsed.controlGroup8,
-      parsed.controlGroup9,
-      parsed.controlGroup0,
-    ]).toEqual([
-      'Digit1',
-      'Ctrl+Digit1',
-      'Shift+Digit1',
-      'Digit2',
-      'Digit3',
-      'Digit4',
-      'Digit5',
-      'Digit6',
-      'Digit7',
-      'Digit8',
-      'Digit9',
-      'Digit0',
-    ]);
-  });
 });
 
 describe('defaults', () => {
-  it("gives every default chord to one action, with R on the shown building's upgrade", () => {
+  it('gives every default chord to one action', () => {
     const chords = Object.values(DEFAULT_KEY_BINDINGS).filter((chord) => chord !== null);
     expect(new Set(chords).size).toBe(chords.length);
-    expect(DEFAULT_KEY_BINDINGS.upgradeBuilding).toBe('KeyR');
   });
 });
 
@@ -158,15 +124,9 @@ describe('Escape', () => {
     }
   });
 
-  it('opens the game menu by default, with B on the construction window', () => {
-    expect(DEFAULT_KEY_BINDINGS.gameMenu).toBe('Escape');
-    expect(DEFAULT_KEY_BINDINGS.construction).toBe('KeyB');
-    expect(keyDisplayLabel('Escape')).toBe('Esc');
-  });
-
   it('never sticks to another action through storage', () => {
     const parsed = parseKeyBindings({ pauseToggle: 'Escape', gameMenu: 'KeyM' });
-    expect(parsed.pauseToggle).toBe('KeyP');
+    expect(parsed.pauseToggle).toBe(DEFAULT_KEY_BINDINGS.pauseToggle);
     expect(parsed.gameMenu).toBe('KeyM');
   });
 });
@@ -276,6 +236,7 @@ describe('keyDisplayLabel', () => {
     expect(keyDisplayLabel('Ctrl+Mouse2', names)).toBe('Ctrl + prawy klik');
     expect(keyDisplayLabel('Primary+Mouse2', names)).toBe('Ctrl/Cmd + prawy klik');
     expect(keyDisplayLabel('Mouse1', names)).toBe('środkowy klik');
+    expect(keyDisplayLabel('Escape')).toBe('Esc');
   });
 
   it('leaves navigation keys as their code', () => {

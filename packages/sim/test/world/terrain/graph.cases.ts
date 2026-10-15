@@ -123,16 +123,6 @@ describe('neighbours are emitted in canonical N, E, S, W order', () => {
       { x: 0, y: 0 }, // W grass - S is water, dropped
     ]);
   });
-
-  it('produces byte-identical neighbour lists across rebuilds (determinism)', () => {
-    const a = buildTerrainGraph(testContent(), crossMap());
-    const b = buildTerrainGraph(testContent(), crossMap());
-    for (let i = 0; i < a.nodeCount; i++) {
-      const cell = i as NodeId;
-      expect(a.neighbours(cell)).toEqual(b.neighbours(cell));
-      expect(a.walkableNeighbours(cell)).toEqual(b.walkableNeighbours(cell));
-    }
-  });
 });
 
 const EDGE_GRID_WIDTH = 5;

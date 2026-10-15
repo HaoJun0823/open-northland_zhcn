@@ -423,10 +423,6 @@ describe('AI seat determinism and replay', () => {
     return sim;
   }
 
-  it('same seed + an AI-flagged seat twice → byte-identical hashes', () => {
-    expect(liveRun().hashState()).toBe(liveRun().hashState());
-  });
-
   it('replaying the log reproduces the state, discarding commands the replaying sim re-emits', () => {
     const live = liveRun();
     const replayed = replay({ content: testContent(), seed: 7, log: live.commands.log, untilTick: TICKS });

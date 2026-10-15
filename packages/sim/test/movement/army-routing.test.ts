@@ -77,63 +77,56 @@ function enemyLine(sim: Simulation): Entity[] {
 }
 
 describe('army player routing', () => {
-  it.each([1, MEMBERS])(
-    'rejects %i statically disconnected orders without a dynamic-region flood',
-    (count) => {
-      const { sim, members } = army(true, HEIGHT);
-      const terrain = sim.terrain;
-      if (terrain === undefined) throw new Error('army terrain missing');
-      let expansions = 0;
-      const stepsInto = terrain.stepsInto.bind(terrain);
-      terrain.stepsInto = (...args) => {
-        expansions++;
-        return stepsInto(...args);
-      };
-      for (const { entity, x, y } of members.slice(0, count))
-        sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: x + 240, y }));
-      sim.step();
-      for (const { entity } of members.slice(0, count))
-        expect(sim.world.get(entity, PathRequest).failed).toBe(true);
-      reportRouting('static-disconnected', count, expansions);
-      expect(expansions).toBe(0);
-    },
-  );
+  it(`rejects ${MEMBERS} statically disconnected orders without a dynamic-region flood`, () => {
+    const { sim, members } = army(true, HEIGHT);
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('army terrain missing');
+    let expansions = 0;
+    const stepsInto = terrain.stepsInto.bind(terrain);
+    terrain.stepsInto = (...args) => {
+      expansions++;
+      return stepsInto(...args);
+    };
+    for (const { entity, x, y } of members)
+      sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: x + 240, y }));
+    sim.step();
+    for (const { entity } of members) expect(sim.world.get(entity, PathRequest).failed).toBe(true);
+    reportRouting('static-disconnected', MEMBERS, expansions);
+    expect(expansions).toBe(0);
+  });
 
-  it.each([1, MEMBERS])(
-    'rejects %i orders into a tiny sealed goal without flooding the open map',
-    (count) => {
-      const { sim, members } = army(false);
-      const terrain = sim.terrain;
-      if (terrain === undefined) throw new Error('army terrain missing');
-      const goalX = 300,
-        goalY = 70;
-      const wall = sim.world.create();
-      sim.world.add(wall, Position, positionOfNode(goalX, goalY));
-      const neighbours = new StepBuffer();
-      terrain.stepsInto(terrain.nodeAt(goalX, goalY), undefined, neighbours);
-      stampResourceFootprintData(sim.world, wall, {
-        walk: Array.from({ length: neighbours.length }, (_, i) => ({
-          dx: terrain.xOf(neighbours.nodeAt(i)) - goalX,
-          dy: terrain.yOf(neighbours.nodeAt(i)) - goalY,
-        })),
-        build: [],
-        work: [],
-      });
-      let expansions = 0;
-      const stepsInto = terrain.stepsInto.bind(terrain);
-      terrain.stepsInto = (...args) => {
-        expansions++;
-        return stepsInto(...args);
-      };
-      for (const { entity } of members.slice(0, count))
-        sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: goalX, y: goalY }));
-      sim.step();
-      for (const { entity } of members.slice(0, count))
-        expect(sim.world.get(entity, PathRequest).failed).toBe(true);
-      reportRouting('sealed-goal', count, expansions);
-      expect(expansions).toBe(3);
-    },
-  );
+  // Three expansions for the whole army: the sealed-goal check is not repeated per order.
+  it(`rejects ${MEMBERS} orders into a tiny sealed goal without flooding the open map`, () => {
+    const { sim, members } = army(false);
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('army terrain missing');
+    const goalX = 300,
+      goalY = 70;
+    const wall = sim.world.create();
+    sim.world.add(wall, Position, positionOfNode(goalX, goalY));
+    const neighbours = new StepBuffer();
+    terrain.stepsInto(terrain.nodeAt(goalX, goalY), undefined, neighbours);
+    stampResourceFootprintData(sim.world, wall, {
+      walk: Array.from({ length: neighbours.length }, (_, i) => ({
+        dx: terrain.xOf(neighbours.nodeAt(i)) - goalX,
+        dy: terrain.yOf(neighbours.nodeAt(i)) - goalY,
+      })),
+      build: [],
+      work: [],
+    });
+    let expansions = 0;
+    const stepsInto = terrain.stepsInto.bind(terrain);
+    terrain.stepsInto = (...args) => {
+      expansions++;
+      return stepsInto(...args);
+    };
+    for (const { entity } of members)
+      sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: goalX, y: goalY }));
+    sim.step();
+    for (const { entity } of members) expect(sim.world.get(entity, PathRequest).failed).toBe(true);
+    reportRouting('sealed-goal', MEMBERS, expansions);
+    expect(expansions).toBe(3);
+  });
 
   it.each(['structure', 'soldiers'] as const)(
     'rejects 1000 orders across a closed %s wall without repeating the region flood per soldier',

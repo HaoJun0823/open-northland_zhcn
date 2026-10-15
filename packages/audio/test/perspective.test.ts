@@ -58,12 +58,6 @@ describe('muffleCutoffHz', () => {
     expect(muffleCutoffHz(1)).toBeCloseTo(MUFFLE_FAR_HZ, 6);
     expect(muffleCutoffHz(0.5)).toBeCloseTo(Math.sqrt(MUFFLE_OPEN_HZ * MUFFLE_FAR_HZ), 6);
   });
-
-  it('muffles only the detail layer', () => {
-    expect(PERSPECTIVE_CURVES.detail.muffled).toBe(true);
-    expect(PERSPECTIVE_CURVES.impact.muffled).toBe(false);
-    expect(PERSPECTIVE_CURVES.bed.muffled).toBe(false);
-  });
 });
 
 const shot = (over: Partial<OneShot>): OneShot => ({

@@ -20,7 +20,6 @@ import {
   Simulation,
 } from '../../src/index.js';
 import { settlersByNode } from '../../src/systems/movement/settler-nodes.js';
-import { GATE_ENEMY_NEAR_POINTS } from '../../src/systems/palisades/gate-control.js';
 import { aiContent } from '../fixtures/ai-content.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 
@@ -156,7 +155,6 @@ describe('shared gate control', () => {
   it('closes only at the 12-point boundary and reopens outside it', () => {
     const sim = gateSim(false);
     const gate = placeGate(sim, GATE, false);
-    expect(GATE_ENEMY_NEAR_POINTS).toBe(12);
     const enemy = spawn(sim, { x: GATE.x + 13, y: GATE.y }, CIVILIST);
     expect(isOpen(sim, gate)).toBe(true);
     sim.world.add(enemy, Position, positionOfNode(GATE.x + 12, GATE.y));

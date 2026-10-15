@@ -115,21 +115,4 @@ describe('dropGood', () => {
     expect(sim.world.entityCount).toBe(0);
     expect(sim.commands.log).toHaveLength(1);
   });
-
-  it('is deterministic: same seed + same commands on the same ticks => byte-identical state', () => {
-    const drop = (sim: Simulation): void => {
-      sim.enqueueSetup({ kind: 'dropGood', good: WOOD, x: 4, y: 4, amount: 2 });
-      sim.enqueueSetup({ kind: 'dropGood', good: STONE, x: 6, y: 4, amount: 5 });
-      sim.run(20);
-    };
-    const runA = fresh(7);
-    drop(runA);
-    const hashA = runA.hashState();
-
-    const runB = fresh(7);
-    drop(runB);
-    const hashB = runB.hashState();
-
-    expect(hashB).toBe(hashA);
-  });
 });

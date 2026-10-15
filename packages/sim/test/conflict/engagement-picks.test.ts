@@ -15,11 +15,7 @@ import type { Entity } from '../../src/ecs/world.js';
 import { hexDistanceBetween, playerCommand, Simulation } from '../../src/index.js';
 import { hexNeighboursOf, nodeOfPosition } from '../../src/nav/halfcell.js';
 import { CombatIndex } from '../../src/systems/conflict/combat-index.js';
-import {
-  EngagementSpecs,
-  RESCAN_PERIOD_TICKS,
-  RESCAN_WALK_STEPS,
-} from '../../src/systems/conflict/engagement.js';
+import { EngagementSpecs, RESCAN_PERIOD_TICKS } from '../../src/systems/conflict/engagement.js';
 import { noteUnreachableTarget } from '../../src/systems/conflict/unreachable-targets.js';
 import { attackerWeapon } from '../../src/systems/conflict/weapons.js';
 import {
@@ -109,7 +105,6 @@ describe('engagement - how far each stance looks', () => {
       combatSystem(s.world, ctxOf(s));
       expect(held(s, soldier)).toBe(found ? enemy : undefined);
     }
-    expect(SIGHT_RADIUS_NODES).toBe(18);
   });
 
   it('ATTACK looks no farther with a bow that reaches past 18', () => {
@@ -208,7 +203,6 @@ describe('engagement - how far each stance looks', () => {
   });
 
   it('IGNORE lets a held enemy go past 18 from its anchor', () => {
-    expect(IGNORE_LEASH_NODES).toBe(18);
     for (const [off, kept] of [
       [IGNORE_LEASH_NODES, true],
       [IGNORE_LEASH_NODES + 1, false],
@@ -316,7 +310,6 @@ describe('engagement - which enemy it picks', () => {
   });
 
   it('looks again for a nearer enemy only every tenth step while it walks', () => {
-    expect(RESCAN_WALK_STEPS).toBe(10);
     const FAR_AT = 60;
     const NEAR_AT = 14;
     const NEAR_ROW = 2; // off the walk's row, so it never stands in the way

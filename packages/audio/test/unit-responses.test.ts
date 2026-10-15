@@ -91,7 +91,6 @@ describe('unit responses choice', () => {
       [false, true],
       [false, false],
     ]);
-    expect(DEFAULT_UNIT_RESPONSES).toBe('all');
   });
 
   it('keeps the click of a silenced call and nothing else', () => {

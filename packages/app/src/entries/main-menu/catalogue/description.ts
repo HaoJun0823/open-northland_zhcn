@@ -24,7 +24,7 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
 
 const MAX_UNICODE_CODE_POINT = 0x10ffff;
 
-export function decodeEntities(text: string): string {
+function decodeEntitiesOnce(text: string): string {
   return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, body: string) => {
     if (!body.startsWith('#')) return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
     const codePoint = body[1]?.toLowerCase() === 'x' ? parseInt(body.slice(2), 16) : Number(body.slice(1));
@@ -32,6 +32,16 @@ export function decodeEntities(text: string): string {
       ? String.fromCodePoint(codePoint)
       : whole;
   });
+}
+
+/** The upstream escapes some descriptions repeatedly (`&amp;amp;quot;`), so decode until nothing
+ *  changes. Every decoded entity shortens the text, so the loop ends. */
+export function decodeEntities(text: string): string {
+  let current = text;
+  for (let next = decodeEntitiesOnce(current); next !== current; next = decodeEntitiesOnce(current)) {
+    current = next;
+  }
+  return current;
 }
 
 const ORDERED_ITEM = /^\s*\d+[.)]\s+(.*)$/;

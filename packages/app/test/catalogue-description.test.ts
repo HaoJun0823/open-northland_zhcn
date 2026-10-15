@@ -19,6 +19,11 @@ describe('decodeEntities', () => {
       '"Trudny wyb&oacute;r" \'x\' & > \\ A \u00a0',
     );
   });
+
+  it('decodes text the upstream escaped more than once', () => {
+    expect(decodeEntities('test tak zwanej &amp;quot;Massive War&amp;quot;')).toBe('test tak zwanej "Massive War"');
+    expect(decodeEntities('Emil &amp;amp;amp;amp; Mikulus, D&amp;#39;uppa')).toBe("Emil & Mikulus, D'uppa");
+  });
 });
 
 describe('descriptionBlocks', () => {

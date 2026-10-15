@@ -116,6 +116,27 @@ function openSettings(): void {
 }
 
 describe('system menu navigation', () => {
+  it('closes on a backdrop click but not on a drag released there from inside the save window', () => {
+    const { menu } = mount();
+    menu.toggle();
+    button(messages().hud.saveGame).click();
+    const backdrop = document.querySelector<HTMLElement>('.on-system-backdrop');
+    const name = document.querySelector<HTMLInputElement>('.on-saves input[type="text"]');
+    if (backdrop === null || name === null) throw new Error('Missing save window');
+    const press = (down: HTMLElement, up: HTMLElement): void => {
+      down.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+      up.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+      // A click lands on the nearest element holding both the press and the release.
+      (down === up ? up : backdrop).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    };
+    press(name, backdrop);
+    expect(menu.isOpen()).toBe(true);
+    press(backdrop, name);
+    expect(menu.isOpen()).toBe(true);
+    press(backdrop, backdrop);
+    expect(menu.isOpen()).toBe(false);
+  });
+
   it('follows the scale applied by the HUD when its viewport settles', async () => {
     const state = mount();
     state.menu.toggle();

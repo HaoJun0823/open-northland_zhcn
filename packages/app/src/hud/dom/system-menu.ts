@@ -1,5 +1,6 @@
 import { downloadDiagnosticsBundle, downloadTraceFile, isTraceRecording } from '../../diag/index.js';
 import { messages } from '../../i18n/index.js';
+import { dismissOnBackdropClick } from '../../view/backdrop-dismiss.js';
 import type { GameSettingsRuntime } from '../../view/runtime/game-settings.js';
 import type { SaveLoadSession } from '../../view/runtime/save-load/index.js';
 import type { MenuSettings } from '../../view/settings-store.js';
@@ -179,9 +180,7 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
   frame.body.append(quit, support);
   document.body.append(backdrop);
   hidePanels();
-  backdrop.addEventListener('click', (event) => {
-    if (event.target === backdrop) hide();
-  });
+  dismissOnBackdropClick([backdrop], hide);
   const onKey = (event: KeyboardEvent): void => {
     if (backdrop.hidden) return;
     event.stopPropagation();

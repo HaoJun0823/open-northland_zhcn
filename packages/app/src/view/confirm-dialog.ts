@@ -1,3 +1,5 @@
+import { dismissOnBackdropClick } from './backdrop-dismiss.js';
+
 /** Above the system menu's backdrop (z 2000), so the question always tops the panel that asked it. */
 const DIALOG_Z_INDEX = '3000';
 
@@ -99,9 +101,7 @@ export function confirmDialog(copy: ConfirmDialogCopy): Promise<boolean> {
 
     box.append(message, actions);
     backdrop.append(box);
-    backdrop.addEventListener('click', (event) => {
-      if (event.target === backdrop) finish(false);
-    });
+    dismissOnBackdropClick([backdrop], () => finish(false));
     document.addEventListener('keydown', onKey, true);
     document.body.append(backdrop);
     if (copy.defaultChoice === 'confirm') confirm.focus();

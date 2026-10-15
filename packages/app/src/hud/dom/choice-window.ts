@@ -1,5 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import { messages } from '../../i18n/index.js';
+import { dismissOnBackdropClick } from '../../view/backdrop-dismiss.js';
 import { type GoodIconPainter, goodIconMarkup } from './good-art.js';
 import { GLYPH } from './icons.js';
 import { nameMatches } from './parts/name-search.js';
@@ -212,9 +213,7 @@ export function createChoiceWindow(opts: {
       render();
     } else dismiss();
   });
-  dialog.addEventListener('click', (event) => {
-    if (event.target === dialog || event.target === plane.element) dismiss();
-  });
+  dismissOnBackdropClick([dialog, plane.element], dismiss);
   const hide = (): void => {
     if (!dialog.open) return;
     dialog.close();

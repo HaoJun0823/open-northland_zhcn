@@ -1,3 +1,4 @@
+import { dismissOnBackdropClick } from '../../view/backdrop-dismiss.js';
 import { createHudWindow } from './window.js';
 
 export interface SystemConfirmCopy {
@@ -51,9 +52,7 @@ export function createSystemConfirm(plane: HTMLElement) {
         };
         cancel = () => finish(false);
         frame.onDismiss(() => finish(false));
-        shade.addEventListener('click', (event) => {
-          if (event.target === shade) finish(false);
-        });
+        dismissOnBackdropClick([shade], () => finish(false));
         const actions = document.createElement('div');
         actions.className = 'on-system-confirm__actions';
         for (const [label, result] of [

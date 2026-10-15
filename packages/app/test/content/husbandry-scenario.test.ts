@@ -7,7 +7,10 @@ import {
   fx,
   halfCellMapFromCells,
   ONE,
+  PRODUCTION_UNLIMITED,
+  playerCommand,
   positionOfNode,
+  productionCountOf,
   Simulation,
   systems,
 } from '@open-northland/sim';
@@ -26,7 +29,7 @@ import { hasRealIr, loadContentUnderTest } from './helpers.js';
  */
 
 const { addPerson, addWildlife, Building, FarmAnimal, Health, JobAssignment, Livestock, Owner } = components;
-const { Position, Stockpile, YoungAnimal } = components;
+const { Position, ProductionCounters, Stockpile, YoungAnimal } = components;
 
 const SEED = 7;
 const MAP_CELLS = 24;
@@ -150,6 +153,30 @@ describe.runIf(hasRealIr())('the breeder cycle over merged real content', () => 
     ]);
     expect(slayWares(merge.content, sheep).length).toBeGreaterThan(0);
     expect(slayWares(merge.content, cattle)).not.toEqual(slayWares(merge.content, sheep));
+  });
+
+  it('starts a breeder the player posts at the farm on cattle, with sheep stopped', async () => {
+    const { merge } = await loadContentUnderTest();
+    const { sim, farm, actors } = buildScenario(merge.content, 'cattle', 0);
+    const sheep = resolveActors(merge.content, 'sheep').species.typeId;
+    const breeder = [...sim.world.query(JobAssignment)].find(
+      (e) => sim.world.get(e, JobAssignment).workplace === farm,
+    );
+    if (breeder === undefined) throw new Error('the scenario posted no breeder');
+    sim.world.remove(breeder, JobAssignment); // unposted, so the order hires it into a free seat
+    sim.enqueue(
+      playerCommand(PLAYER, {
+        kind: 'assignWorker',
+        entity: breeder,
+        building: farm,
+        jobPriority: [actors.breeder.typeId],
+      }),
+    );
+    sim.step();
+
+    const counters = sim.world.tryGet(breeder, ProductionCounters);
+    expect(productionCountOf(counters, actors.species.typeId)).toBe(PRODUCTION_UNLIMITED);
+    expect(productionCountOf(counters, sheep)).toBe(0);
   });
 
   for (const speciesId of ['sheep', 'cattle'] as const) {

@@ -1,6 +1,7 @@
 import { entityById, ONE, systems, TICKS_PER_SECOND, type WorldSnapshot } from '@open-northland/sim';
 import { JOB_CARRIER, JOB_CIVILIST } from '../../../catalog/jobs.js';
 import {
+  assistantBarracksOf,
   isFemale,
   marriageOf,
   needsRuleEnabled,
@@ -126,11 +127,14 @@ function isShortageOver(site: SnapshotEntity, shortages: ShortageReader | null):
   return shortages.verdict(site.id) === null;
 }
 
-/** A grown-up note has done its job once the player acted on it: a grown man took up a trade or is on
- *  his way to a school or barracks to learn one, a grown woman has a home. */
+/** A grown-up note has done its job once the player acted on it: a grown man took up a trade or the player
+ *  sent him to a school or barracks to learn one, a grown woman has a home. A drill the assistant booked
+ *  keeps the note up until he enlists, so the player can still pick him from it and send him elsewhere. */
 function isGrownUpSettled(e: SnapshotEntity): boolean {
   if (isFemale(e)) return residenceHomeOf(e) !== undefined;
-  return settlerJobType(e) !== JOB_CIVILIST || trainingHouseOf(e) !== undefined;
+  if (settlerJobType(e) !== JOB_CIVILIST) return true;
+  const house = trainingHouseOf(e);
+  return house !== undefined && house !== assistantBarracksOf(e);
 }
 
 function isDriving(vehicle: SnapshotEntity): boolean {

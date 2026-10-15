@@ -624,7 +624,7 @@ export const deContent = {
     'grown-up-training': {
       title: 'Erwachsen geworden und zur Ausbildung geschickt',
       summary:
-        'Ein Junge wird neben einer Schule und einer Kaserne erwachsen. Schickst du ihn in eines der beiden Gebäude, verschwindet seine Meldung zum Erwachsenwerden.',
+        'Zwei Jungen werden neben einer Schule und einer Kaserne erwachsen, und der Assistent will einen Soldaten. Schickst du selbst einen in eines der beiden Gebäude, verschwindet seine Meldung zum Erwachsenwerden; der vom Assistenten Eingezogene behält sie bis zum Ende der Ausbildung.',
     },
     gossip: {
       title: 'Plaudern und Gedankenblasen',

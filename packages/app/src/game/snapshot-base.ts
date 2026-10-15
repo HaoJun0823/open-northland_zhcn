@@ -389,6 +389,12 @@ export function trainingHouseOf(e: SnapshotEntity): number | undefined {
   return num(order?.house);
 }
 
+/** The barracks the assistant booked a recruit's drill at; undefined for a settler it did not send. */
+export function assistantBarracksOf(e: SnapshotEntity): number | undefined {
+  const booking = e.components.AssistantRecruit as { barracks?: unknown } | undefined;
+  return num(booking?.barracks);
+}
+
 /** The half-cell node a lost settler's latest refused way led to; undefined while it is not lost or no
  *  single node was out of reach. */
 export function lostGoalOf(e: SnapshotEntity): number | undefined {

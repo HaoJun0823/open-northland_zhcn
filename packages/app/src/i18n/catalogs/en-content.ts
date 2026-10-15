@@ -613,9 +613,9 @@ export const enContent = {
       summary: 'Hungry children walk to wild bushes and eat; the cared-for baby never self-feeds.',
     },
     'grown-up-training': {
-      title: 'Grown-up sent to train',
+      title: 'Grown-ups sent to train',
       summary:
-        'A boy grows up beside a school and a barracks; sending him to either clears his grown-up note.',
+        'Two boys grow up beside a school and a barracks, and the assistant wants one soldier. Sending one yourself to either house clears his grown-up note; the man the assistant drafts keeps his until he enlists.',
     },
     gossip: {
       title: 'Gossip and need bubbles',

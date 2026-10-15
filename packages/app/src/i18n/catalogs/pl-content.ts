@@ -611,9 +611,9 @@ export const plContent = {
       summary: 'Głodne dzieci podchodzą do dzikich krzaków i jedzą; niemowlę pod opieką samo się nie karmi.',
     },
     'grown-up-training': {
-      title: 'Dorosły wysłany na naukę',
+      title: 'Dorośli wysłani na naukę',
       summary:
-        'Chłopiec dorasta obok szkoły i koszar; wysłanie go do którejkolwiek zdejmuje powiadomienie, że dorósł.',
+        'Dwóch chłopców dorasta obok szkoły i koszar, a asystent chce jednego żołnierza. Gdy sam wyślesz jednego do któregokolwiek budynku, jego powiadomienie, że dorósł, znika; ten, którego wysłał asystent, zachowuje je do końca szkolenia.',
     },
     gossip: {
       title: 'Plotki i dymki potrzeb',

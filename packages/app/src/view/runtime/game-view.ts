@@ -1042,6 +1042,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       constructionSignsFor,
       settlerBubblesFor,
       lifeHeartsFor,
+      experienceStarsFor,
     } = await createViewReadModels({
       authoredBuildings:
         typeof deps.sheet?.bindings.building === 'object' ? deps.sheet.bindings.building.byEntity : undefined,
@@ -1351,6 +1352,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       constructionSignsFor,
       settlerBubblesFor,
       lifeHeartsFor,
+      experienceStarsFor,
       canPlaceAt,
       defenceRangeAt: (typeId, tribe, col, row) => defenceRadiusAt(host.content, typeId, tribe, col, row),
       blessingRangeFor: (typeId) => templeAuraRadius(host.content, typeId),

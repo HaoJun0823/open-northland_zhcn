@@ -196,7 +196,7 @@ export function listedIn(item: MapSelectItem, listing: MapListing): boolean {
 function matchesFilter(item: MapSelectItem, filter: MapFilter): boolean {
   switch (filter) {
     case 'all':
-      return item.kind === 'map';
+      return item.kind === 'map' && item.tutorialStep === undefined;
     case 'scenes':
       return item.kind === 'scene';
     case 'tutorial':
@@ -211,9 +211,9 @@ function matchesFilter(item: MapSelectItem, filter: MapFilter): boolean {
 }
 
 /**
- * The rows a menu shows: those the listing takes, under the chosen tab (`all` is every map, never a
- * scene). Search matches the title or the id stem, case-folded locale-independently so the host
- * locale cannot change the match.
+ * The rows a menu shows: those the listing takes, under the chosen tab (`all` is every map but the
+ * tutorial lessons, never a scene). Search matches the title or the id stem, case-folded
+ * locale-independently so the host locale cannot change the match.
  */
 export function filterItems(
   items: readonly MapSelectItem[],

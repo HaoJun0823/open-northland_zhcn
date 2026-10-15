@@ -274,8 +274,8 @@ describe('filterItems', () => {
   });
   const items = [subMission, secondLesson, free, arena, firstLesson, scene];
 
-  it('lists every root map under "all" by title and keeps test scenes to their own filter', () => {
-    expect(filterItems(items, 'single', 'all', '')).toEqual([free, secondLesson, firstLesson, arena]);
+  it('lists every root map but the tutorial lessons under "all" by title, scenes under their own filter', () => {
+    expect(filterItems(items, 'single', 'all', '')).toEqual([free, arena]);
     expect(filterItems(items, 'single', 'scenes', '')).toEqual([scene]);
     expect(filterItems(items, 'multiplayer', 'all', '')).toEqual([arena]);
   });

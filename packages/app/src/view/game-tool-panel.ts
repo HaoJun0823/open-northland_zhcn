@@ -5,6 +5,7 @@ import type { Camera, ElevationField, MapViewTarget, SpriteSheet } from '@open-n
 import {
   type Command,
   constructionBillForType,
+  type FogView,
   type HalfCellNode,
   type PlayerCommand,
 } from '@open-northland/sim';
@@ -128,6 +129,8 @@ export interface GameToolPanelDeps {
   readonly diplomacy: DiplomacySource;
   /** The discovered players and their stance toward the viewer, the message centre's per-tick read. */
   readonly metSeats: () => readonly MetSeat[];
+  /** The viewer's fog, null with fog off or the whole map in view. */
+  readonly fogView: () => FogView | null;
   /** A seat's roster name, for the note about an eliminated player. */
   readonly seatNameOf?: (player: number) => string | undefined;
   /** UI string language (`pol`/`eng`/`ger`/`rus`); defaults to the active locale. */
@@ -307,6 +310,7 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
       residents: deps.residents,
       diplomacy: deps.diplomacy,
       metSeats: deps.metSeats,
+      fogView: deps.fogView,
       ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
       screenToTile: clientToTile,
       canPlaceAt: deps.canPlaceAt,

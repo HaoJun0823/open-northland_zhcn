@@ -618,6 +618,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         }),
       },
       metSeats,
+      fogView: fogViewOf,
       canPlaceAt,
       canPlacePalisadeAt,
       palisadeBuiltAt,

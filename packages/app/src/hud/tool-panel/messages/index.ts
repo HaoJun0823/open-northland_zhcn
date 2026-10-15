@@ -2,6 +2,7 @@ import type { SpriteSheet } from '@open-northland/render';
 import {
   type EntitySnapshot,
   entityById,
+  type FogView,
   type HalfCellNode,
   type Paper,
   type SimEvent,
@@ -42,6 +43,7 @@ import type { MessageNaming, RaisedMessage } from './raise.js';
 import { isSubjectGone, NoteRetirement } from './retire.js';
 import { createSeatFeeds } from './seat-feeds.js';
 import { clearSettingsRestart, settingsRestartNote } from './settings-restart.js';
+import { sightingOf } from './sighting.js';
 import type { SiteSeam } from './site-shortages.js';
 import { composeMessageText, fightSummary } from './text.js';
 import type { PendingMessage, UserMessage } from './types.js';
@@ -107,6 +109,9 @@ export interface MessageCenterDeps {
   /** The seats this player has met, as the diplomacy roster lists them; a first contact and a seat that
    *  changed its stance toward this one each become a note. Read once per tick. */
   readonly metSeats: () => readonly MetSeat[];
+  /** The viewer's fog, which bounds where a first-contact note points; null with fog off or the whole
+   *  map in view. */
+  readonly fogView: () => FogView | null;
   readonly onSelect: (target: MessageTarget) => void;
   /** An attack note just shown as a new card, at its hit: the minimap's alarm follows the column. */
   readonly onAttackShown?: ((at: HalfCellNode) => void) | undefined;
@@ -406,7 +411,8 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
           take(raised, snapshot.tick);
         }
         if (seat !== null) {
-          for (const raised of diplomacySource.poll(naming)) take(raised, snapshot.tick);
+          const sighting = (player: number) => sightingOf(snapshot, player, deps.fogView());
+          for (const raised of diplomacySource.poll(naming, sighting)) take(raised, snapshot.tick);
         }
         if (seat !== null && deps.gallery !== undefined && galleryDue(snapshot.tick)) {
           for (const raised of galleryMessages(

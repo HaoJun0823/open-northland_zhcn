@@ -1,4 +1,4 @@
-import type { DiplomacyState } from '@open-northland/sim';
+import type { DiplomacyState, HalfCellNode } from '@open-northland/sim';
 import type { MessageNaming, RaisedMessage } from './raise.js';
 import { USER_MESSAGE_TYPE, type UserMessageType } from './types.js';
 
@@ -9,19 +9,27 @@ export interface MetSeat {
   readonly towardYou: DiplomacyState;
 }
 
+/** Where the viewer met a seat, which a first-contact note's Select jumps to; null for nowhere known. */
+export type SightingOf = (player: number) => HalfCellNode | null;
+
 export interface DiplomacyMessageSource {
   /** The notes owed for what the roster learned since the last poll. */
-  poll(naming: MessageNaming): readonly RaisedMessage[];
+  poll(naming: MessageNaming, sightingOf: SightingOf): readonly RaisedMessage[];
 }
 
 const NO_MESSAGES: readonly RaisedMessage[] = [];
 
-function seatNote(naming: MessageNaming, type: UserMessageType, seat: MetSeat): RaisedMessage {
+function seatNote(
+  naming: MessageNaming,
+  type: UserMessageType,
+  seat: MetSeat,
+  at: HalfCellNode | null,
+): RaisedMessage {
   return {
     pending: {
       type,
       subject: null,
-      at: null,
+      at,
       about: seat.player,
       goodType: null,
       technologies: null,
@@ -49,7 +57,7 @@ function seatNote(naming: MessageNaming, type: UserMessageType, seat: MetSeat): 
 export function createDiplomacyMessageSource(metSeats: () => readonly MetSeat[]): DiplomacyMessageSource {
   let known: Map<number, DiplomacyState> | null = null;
   return {
-    poll: (naming) => {
+    poll: (naming, sightingOf) => {
       const seats = metSeats();
       const before = known;
       known = new Map(seats.map((seat) => [seat.player, seat.towardYou]));
@@ -57,9 +65,10 @@ export function createDiplomacyMessageSource(metSeats: () => readonly MetSeat[])
       const out: RaisedMessage[] = [];
       for (const seat of seats) {
         const was = before.get(seat.player);
-        if (was === undefined) out.push(seatNote(naming, USER_MESSAGE_TYPE.playerSighted, seat));
-        else if (was !== seat.towardYou) {
-          out.push(seatNote(naming, USER_MESSAGE_TYPE.diplomacyChanged, seat));
+        if (was === undefined) {
+          out.push(seatNote(naming, USER_MESSAGE_TYPE.playerSighted, seat, sightingOf(seat.player)));
+        } else if (was !== seat.towardYou) {
+          out.push(seatNote(naming, USER_MESSAGE_TYPE.diplomacyChanged, seat, null));
         }
       }
       return out;

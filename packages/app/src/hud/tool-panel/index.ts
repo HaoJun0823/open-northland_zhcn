@@ -4,6 +4,7 @@ import type { HudLayout, HudModel, MapViewFrame, MapViewTarget, SpriteSheet } fr
 import type {
   Command,
   EntitySnapshot,
+  FogView,
   HalfCellNode,
   Paper,
   PlayerCommand,
@@ -170,6 +171,9 @@ export interface ToolPanelOptions {
   readonly diplomacy: DiplomacySource;
   /** The discovered players and their stance toward the viewer, which the message centre reads a tick. */
   readonly metSeats: () => readonly MetSeat[];
+  /** The viewer's fog, null with fog off or the whole map in view: a first-contact note points only at
+   *  ground it knows. */
+  readonly fogView: () => FogView | null;
   /** A seat's roster name, which the diplomacy rows withhold for the viewer's own and unmet seats. */
   readonly seatNameOf?: (player: number) => string | undefined;
   /** Convert a client (CSS) point to a map tile, or `null` off the map - the placement target. */
@@ -792,6 +796,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       playerLabel: (player) =>
         opts.seatNameOf?.(player) ?? opts.diplomacy.rows().find((r) => r.player === player)?.name ?? null,
       metSeats: opts.metSeats,
+      fogView: opts.fogView,
       onSelect: (target) => opts.onSelectMessageTarget?.(target),
       onAttackShown: opts.onAttackShown,
       onNoteShown: opts.onNoteShown,

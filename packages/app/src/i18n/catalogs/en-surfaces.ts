@@ -24,8 +24,7 @@ export const enSurfaces = {
     comingSoonTip: 'Coming soon',
     fullscreenPrompt: 'For a better experience, play in fullscreen',
     originalGame: {
-      message:
-        'The game needs an installed original Cultures 2, Cultures: Northland or Cultures - 8th Wonder of the World.',
+      message: 'The game needs one of these games installed:',
       pick: 'Pick the game folder',
       checking: 'Checking the folder…',
       notRecognized: 'That folder holds no Cultures game data',

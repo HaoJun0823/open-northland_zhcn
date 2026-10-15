@@ -23,8 +23,7 @@ export const deSurfaces = {
     comingSoonTip: 'Demnächst verfügbar',
     fullscreenPrompt: 'Am besten spielst du im Vollbildmodus',
     originalGame: {
-      message:
-        'Zum Spielen wird ein installiertes Original von Cultures 2, Cultures: Northland oder Cultures - 8th Wonder of the World benötigt.',
+      message: 'Zum Spielen muss eines dieser Spiele installiert sein:',
       pick: 'Spielordner wählen',
       checking: 'Ordner wird geprüft…',
       notRecognized: 'Dieser Ordner enthält keine Cultures-Spieldaten',

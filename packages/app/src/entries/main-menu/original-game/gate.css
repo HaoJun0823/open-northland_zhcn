@@ -30,6 +30,23 @@
   color: var(--text-body);
 }
 
+.main-menu__gate-lead {
+  margin: 0;
+}
+
+.main-menu__gate-games {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A title breaks only between titles, never inside one. */
+.main-menu__gate-game {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
 .main-menu__gate-pick:disabled {
   cursor: var(--cursor-progress, progress);
   opacity: 0.6;

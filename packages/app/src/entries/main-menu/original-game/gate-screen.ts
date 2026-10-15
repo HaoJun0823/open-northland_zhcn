@@ -22,6 +22,13 @@ const STORE_PAGES: readonly { readonly name: string; readonly href: string }[] =
   { name: 'GOG', href: 'https://www.gog.com/game/cultures_34' },
 ];
 
+/** Product names, untranslated in every locale. */
+const ACCEPTED_GAMES: readonly string[] = [
+  'Cultures 2',
+  'Cultures: Northland',
+  'Cultures - 8th Wonder of the World',
+];
+
 /** A picker the player closed without choosing throws this; it is no failure. */
 const PICK_CANCELLED = 'AbortError';
 
@@ -133,7 +140,12 @@ export function originalGameGateScreen(
     stores.append(link);
   }
 
-  body.append(logo, node('p', 'main-menu__gate-message', copy.message), pick, input, status, stores);
+  const games = node('ul', 'main-menu__gate-games');
+  for (const title of ACCEPTED_GAMES) games.append(node('li', 'main-menu__gate-game', title));
+  const message = node('div', 'main-menu__gate-message');
+  message.append(node('p', 'main-menu__gate-lead', copy.message), games);
+
+  body.append(logo, message, pick, input, status, stores);
   if (desktop !== null) {
     const quit = node('button', 'main-menu__ghost main-menu__gate-quit', messages().mainMenu.items.exit);
     quit.type = 'button';

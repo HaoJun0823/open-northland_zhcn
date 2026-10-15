@@ -15,3 +15,11 @@ export const nameMatches = (label: string, query: string): boolean =>
 /** Anywhere in the name, for a long catalogue searched by any word ("long" finds "Longbow Archer"). */
 export const nameContains = (label: string, query: string): boolean =>
   foldedName(label).includes(foldedName(query));
+
+/** Every typed word anywhere in the name, in any order ("obronna wiez" finds "Wieża obronna 1"). */
+export const nameHasWords = (label: string, query: string): boolean => {
+  const name = foldedName(label);
+  return foldedName(query)
+    .split(/\s+/)
+    .every((word) => name.includes(word));
+};

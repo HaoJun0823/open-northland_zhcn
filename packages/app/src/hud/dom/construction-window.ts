@@ -28,7 +28,7 @@ import type { BuildingThumbs } from './building-thumb.js';
 import { goodIconMarkup, goodIconSource, goodIconStyle } from './good-art.js';
 import { GLYPH, paintedIcon } from './icons.js';
 import { escapeHtml } from './parts/dom.js';
-import { nameMatches } from './parts/name-search.js';
+import { nameHasWords } from './parts/name-search.js';
 import { quietTextField } from './parts/text-field.js';
 import { centralWindowPlacer, createHudWindow } from './window.js';
 
@@ -542,7 +542,7 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
     for (const card of listedCards) {
       card.element.hidden =
         (category !== 'all' && card.row.category !== category) ||
-        !nameMatches(card.row.entry.label, state.query);
+        !nameHasWords(card.row.entry.label, state.query);
       if (card.element.hidden) continue;
       if (card.pick.disabled) locked += 1;
       else open += 1;

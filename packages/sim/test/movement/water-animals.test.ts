@@ -155,11 +155,7 @@ describe('water wildlife', () => {
     const p = sim.world.mut(duck, Position);
     p.x = fx.fromInt(8.75);
     p.y = fx.fromInt(4);
-    sim.world.add(duck, Frightened, {
-      until: sim.tick + 40,
-      repathAt: sim.tick,
-      from: terrain.nodeAt(14, 8),
-    });
+    sim.world.add(duck, Frightened, { from: terrain.nodeAt(14, 8), dest: null });
     const visited = new Set<number>();
     for (let i = 0; i < 400; i++) {
       sim.step();

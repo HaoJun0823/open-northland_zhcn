@@ -3,6 +3,7 @@
  * before tick 0, where the command log is empty. A mid-run placement must go through the command seam
  * (`placeBuilding`, `spawnSettler`, `resourceCommand`) instead, to stay replay-faithful.
  */
+export { spawnAnimalHerdDirect } from './animals.js';
 export {
   buildingDef,
   buildingDoorNode,

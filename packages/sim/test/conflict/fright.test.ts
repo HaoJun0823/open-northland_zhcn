@@ -1,6 +1,6 @@
-import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
+  Engagement,
   Frightened,
   Health,
   HerdMember,
@@ -9,41 +9,31 @@ import {
   Projectile,
   Resting,
   StayPoint,
+  WildHabitat,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { type Fixed, positionOfNode, Simulation } from '../../src/index.js';
-import {
-  animalFrightSystem,
-  FRIGHT_DURATION_TICKS,
-  FRIGHT_RADIUS_NODES,
-  FRIGHT_STEP_NODES,
-  frightenKin,
-} from '../../src/systems/conflict/fright.js';
+import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
+import { animalFrightSystem, FLIGHT_REACH_NODES } from '../../src/systems/conflict/fright.js';
 import { isTravelling } from '../../src/systems/movement/nav-state.js';
-import { stayPointRangeOf } from '../../src/systems/readviews/index.js';
+import {
+  KIN_ALARM_RADIUS_NODES,
+  reactToBlowOnAnimal,
+} from '../../src/systems/settlers/atomics/effects/combat/hit/reactions.js';
 import { looseProjectile } from '../../src/systems/settlers/atomics/effects/combat/index.js';
-import { manhattan } from '../../src/systems/spatial/metric.js';
+import { hexNodeDistance } from '../../src/systems/spatial/metric.js';
 import { entityNode } from '../../src/systems/spatial/nodes.js';
-import { combatContent } from '../fixtures/content/combat.js';
-import { economyContent } from '../fixtures/content/economy.js';
-import { TEST_MANIFEST } from '../fixtures/content/index.js';
-import { societyContent } from '../fixtures/content/societies.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
-import { grassCellMap } from '../fixtures/terrain.js';
+import { grassCellMap, waterColumnMap } from '../fixtures/terrain.js';
 import { BEAR, COW, DEER, fighterAtNode, HUNTER, VIKING } from './combat-system/support.js';
 import { P0 } from './stances/support.js';
 
-/**
- * The wildlife FRIGHT reaction: a blow landed on a wild animal scares the passive animals around it into
- * scattering away from the attacker (`frightenKin` stamps {@link Frightened}, the
- * `animalFrightSystem` runs them off), a missed shot scares nothing, aggressive species and out-of-radius
- * animals stand, a flight stays inside the animal's territory, and a lapsed scare hands the animal back to
- * its herd drives. Wildlife = a {@link StayPoint} carrier, so the plain combat fixtures (which stamp none)
- * stay scare-free.
- */
+// An animal's flight from a blow: a struck leader that does not fight runs once to the point farthest from
+// its attacker within reach, its followers run after it, and kin of its kind and side within the alarm
+// radius answer the blow as if struck.
 
-/** A wild animal: a fixture combatant plus the roaming StayPoint marker the scare targets. */
+/** A wild animal anchored where it stands. */
 function wildAtNode(sim: Simulation, hx: number, hy: number, tribe: number): Entity {
   const e = fighterAtNode(sim, hx, hy, tribe, null);
   const terrain = sim.terrain;
@@ -52,17 +42,19 @@ function wildAtNode(sim: Simulation, hx: number, hy: number, tribe: number): Ent
   return e;
 }
 
-/** The test content with the cow given a territory, the leash its grazing and its flight keep to. */
-function territorialCowContent(): ContentSet {
-  return parseContentSet({
-    manifest: TEST_MANIFEST,
-    ...economyContent,
-    ...societyContent,
-    ...combatContent,
-    animals: societyContent.animals.map((a) =>
-      a.tribeType === COW ? { ...a, maximumDistanceToStayPoint: 6 } : a,
-    ),
-  });
+function joinHerd(sim: Simulation, leader: Entity, ...followers: Entity[]): void {
+  sim.world.add(leader, HerdMember, { leader });
+  for (const f of followers) sim.world.add(f, HerdMember, { leader });
+}
+
+function mapTerrain(sim: Simulation): TerrainGraph {
+  const terrain = sim.terrain;
+  if (terrain === undefined) throw new Error('test map missing');
+  return terrain;
+}
+
+function nodeOf(sim: Simulation, e: Entity): NodeId {
+  return entityNode(sim.world, mapTerrain(sim), e);
 }
 
 /** Loose one arrow from `shooter` at `target`, coming down at `aim`. */
@@ -91,139 +83,193 @@ function stepUntilLanded(sim: Simulation): void {
   while ([...sim.world.query(Projectile)].length > 0 && guard-- > 0) sim.step();
 }
 
-describe('frightenKin - who the scare reaches', () => {
-  it('stamps the struck animal and its kind in radius; other kinds and sides, the distant and the marker-less stand', () => {
+describe('reactToBlowOnAnimal - who answers a blow', () => {
+  it('a passive leader runs, and so does every leader of its kind and side within the alarm radius', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
-    const struck = wildAtNode(sim, 40, 40, COW);
-    const kin = wildAtNode(sim, 42, 40, COW); // same kind, 2 nodes off
-    const deer = wildAtNode(sim, 40, 44, DEER); // passive, but another kind
-    const far = wildAtNode(sim, 40 + FRIGHT_RADIUS_NODES + 2, 40, COW); // beyond the scare
-    const plain = fighterAtNode(sim, 41, 40, COW, null); // no StayPoint - not a roaming animal
-    const owned = wildAtNode(sim, 41, 41, COW); // same kind, another side
+    const hunter = fighterAtNode(sim, 20, 40, VIKING, HUNTER);
+    const struck = wildAtNode(sim, 30, 40, COW);
+    const atEdge = wildAtNode(sim, 30 + KIN_ALARM_RADIUS_NODES, 40, COW);
+    const beyond = wildAtNode(sim, 31 + KIN_ALARM_RADIUS_NODES, 40, COW);
+    const deer = wildAtNode(sim, 32, 40, DEER);
+    const owned = wildAtNode(sim, 33, 40, COW);
     sim.world.add(owned, Owner, { player: P0 });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
+    const indoors = wildAtNode(sim, 34, 40, COW);
+    sim.world.add(indoors, Resting, { at: sim.world.create() });
 
-    frightenKin(sim.world, ctxOf(sim), terrain, struck, terrain.nodeAt(30, 40));
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, struck);
 
-    expect(sim.world.has(struck, Frightened)).toBe(true);
-    expect(sim.world.has(kin, Frightened)).toBe(true);
+    expect(sim.world.get(struck, Frightened).from).toBe(nodeOf(sim, hunter));
+    expect(sim.world.has(atEdge, Frightened)).toBe(true);
+    expect(sim.world.has(beyond, Frightened)).toBe(false);
     expect(sim.world.has(deer, Frightened)).toBe(false);
-    expect(sim.world.has(far, Frightened)).toBe(false);
-    expect(sim.world.has(plain, Frightened)).toBe(false);
     expect(sim.world.has(owned, Frightened)).toBe(false);
+    expect(sim.world.has(indoors, Frightened)).toBe(false);
   });
 
-  it('an aggressive kind answers threat with threat: nothing stampedes', () => {
+  it('a struck follower leaves the flight to its leader and runs after it', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
-    const bear = wildAtNode(sim, 40, 40, BEAR);
-    const packmate = wildAtNode(sim, 41, 41, BEAR);
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
+    const hunter = fighterAtNode(sim, 20, 40, VIKING, HUNTER);
+    const leader = wildAtNode(sim, 32, 40, COW);
+    const struck = wildAtNode(sim, 30, 40, COW);
+    joinHerd(sim, leader, struck);
 
-    frightenKin(sim.world, ctxOf(sim), terrain, bear, terrain.nodeAt(30, 40));
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, struck);
+    // The leader aims its flight and alarms its herd; the follower takes the leader's route a tick later.
+    animalFrightSystem(sim.world, ctxOf(sim));
+    animalFrightSystem(sim.world, ctxOf(sim));
+
+    const flight = sim.world.get(leader, Frightened).dest;
+    expect(flight).not.toBeNull();
+    expect(sim.world.get(struck, Frightened).dest).toBe(flight);
+    expect(sim.world.get(struck, MoveGoal).cell).toBe(flight);
+  });
+
+  it('a follower out of earshot of the blow still runs after its fleeing leader', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
+    const hunter = fighterAtNode(sim, 20, 40, VIKING, HUNTER);
+    const leader = wildAtNode(sim, 30, 40, COW);
+    const straggler = wildAtNode(sim, 30, 90, COW);
+    joinHerd(sim, leader, straggler);
+    expect(hexNodeDistance(mapTerrain(sim), nodeOf(sim, leader), nodeOf(sim, straggler))).toBeGreaterThan(
+      KIN_ALARM_RADIUS_NODES,
+    );
+
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, leader);
+    expect(sim.world.has(straggler, Frightened)).toBe(false);
+    animalFrightSystem(sim.world, ctxOf(sim));
+    animalFrightSystem(sim.world, ctxOf(sim));
+
+    const flight = sim.world.get(leader, Frightened).dest;
+    expect(flight).not.toBeNull();
+    expect(sim.world.get(straggler, MoveGoal).cell).toBe(flight);
+  });
+
+  it('an angry animal a player owns runs from a blow rather than standing it', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
+    const hunter = fighterAtNode(sim, 20, 40, VIKING, HUNTER);
+    const bear = wildAtNode(sim, 30, 40, BEAR);
+    sim.world.add(bear, Owner, { player: P0 });
+
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, bear);
+
+    expect(sim.world.has(bear, Engagement)).toBe(false);
+    expect(sim.world.get(bear, Frightened).from).toBe(nodeOf(sim, hunter));
+  });
+
+  it('an adult angry animal struck by a person takes the striker instead of running', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
+    const hunter = fighterAtNode(sim, 20, 40, VIKING, HUNTER);
+    const bear = wildAtNode(sim, 30, 40, BEAR);
+    const packmate = wildAtNode(sim, 31, 41, BEAR);
+
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, bear);
 
     expect(sim.world.has(bear, Frightened)).toBe(false);
-    expect(sim.world.has(packmate, Frightened)).toBe(false);
-  });
-
-  it('leaves an animal inside a building alone - a blow outdoors must not walk it out', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
-    const struck = wildAtNode(sim, 40, 40, COW);
-    const indoors = wildAtNode(sim, 41, 40, COW); // one node off, but on a farm's feed batch
-    sim.world.add(indoors, Resting, { at: sim.world.create() });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
-
-    frightenKin(sim.world, ctxOf(sim), terrain, struck, terrain.nodeAt(30, 40));
-
-    expect(sim.world.has(indoors, Frightened)).toBe(false);
+    expect(sim.world.get(bear, Engagement).target).toBe(hunter);
+    expect(sim.world.get(packmate, Engagement).target).toBe(hunter);
   });
 });
 
-describe('animalFrightSystem - the scatter and the calm-down', () => {
-  it('runs a frightened animal away from the scare, then calms it once the fright lapses', () => {
+describe('animalFrightSystem - the flight and its end', () => {
+  it('aims the leader the full flight reach away from its attacker', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
-    const cow = wildAtNode(sim, 41, 40, COW);
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
-    const scare = terrain.nodeAt(40, 40);
-    frightenKin(sim.world, ctxOf(sim), terrain, cow, scare);
-    const before = manhattan(terrain, scare, entityNode(sim.world, terrain, cow));
-
-    // Well inside the fright window: the cow has bolted away from the mark.
-    for (let i = 0; i < FRIGHT_DURATION_TICKS; i++) sim.step();
-    const fled = manhattan(terrain, scare, entityNode(sim.world, terrain, cow));
-    expect(fled).toBeGreaterThan(before);
-
-    // The scare lapses: the marker is shed and the animal is the herd drives' again.
-    for (let i = 0; i < FRIGHT_DURATION_TICKS; i++) sim.step();
-    expect(sim.world.has(cow, Frightened)).toBe(false);
-  });
-
-  it('aims the run the full fright step away from the scare', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
+    const hunter = fighterAtNode(sim, 29, 40, VIKING, HUNTER);
     const cow = wildAtNode(sim, 30, 40, COW);
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('test map missing');
-    frightenKin(sim.world, ctxOf(sim), terrain, cow, terrain.nodeAt(29, 40));
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, cow);
     animalFrightSystem(sim.world, ctxOf(sim));
     const goal = terrain.coordsOf(sim.world.get(cow, MoveGoal).cell);
-    // One of the eight walk directions, the full step along each axis it moves on.
-    expect(Math.max(Math.abs(goal.x - 30), Math.abs(goal.y - 40))).toBe(FRIGHT_STEP_NODES);
+    // One of the eight walk directions, the full reach along each axis it moves on.
+    expect(Math.max(Math.abs(goal.x - 30), Math.abs(goal.y - 40))).toBe(FLIGHT_REACH_NODES);
     expect(goal.x).toBeGreaterThan(30);
   });
 
-  it('the lapse tick hands the animal straight back to herding (fright runs before the recall)', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
-    // A two-cow herd: the leader far outside the scare (and beyond the herd's leader distance from
-    // wherever the scatter ends), the follower at the mark.
-    const leader = wildAtNode(sim, 10, 40, COW);
-    const follower = wildAtNode(sim, 40, 40, COW);
-    sim.world.add(leader, HerdMember, { leader });
-    sim.world.add(follower, HerdMember, { leader });
-    frightenKin(sim.world, ctxOf(sim), terrain, follower, terrain.nodeAt(38, 40));
-    expect(sim.world.has(follower, Frightened)).toBe(true);
-    expect(sim.world.has(leader, Frightened)).toBe(false); // out of the scare radius
+  it('a flight cut short by water ends at the farthest point before it', () => {
+    // Water fills node columns 60 and 61; the cow stands ten points short of it.
+    const sim = new Simulation({ seed: 1, content: testContent(), map: waterColumnMap(64, 64, 30) });
+    const terrain = mapTerrain(sim);
+    const hunter = fighterAtNode(sim, 30, 40, VIKING, HUNTER);
+    const cow = wildAtNode(sim, 50, 40, COW);
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, cow);
 
-    // Step to the lapse: the schedule runs fright BEFORE herding, so the very tick the marker is shed
-    // the recall route is already issued - the calmed follower never stands a tick unowned.
-    let guard = FRIGHT_DURATION_TICKS * 3;
-    while (sim.world.has(follower, Frightened) && guard-- > 0) sim.step();
-    expect(sim.world.has(follower, Frightened)).toBe(false);
-    expect(isTravelling(sim.world, follower)).toBe(true); // herding's pull, same tick as the calm-down
+    animalFrightSystem(sim.world, ctxOf(sim));
+
+    // The diagonal away from the hunter, cut to the last point on its bank, beats every point the full
+    // reach lands on that bank.
+    const goal = sim.world.get(cow, MoveGoal).cell;
+    expect(goal).toBe(terrain.nodeAt(59, 31));
+    expect(terrain.componentOf(goal)).toBe(terrain.componentOf(nodeOf(sim, cow)));
   });
 
-  it('the scare stamps the struck animal itself and the herd standing beside it', () => {
+  it('a wild leader settles where it fled: the flight goal becomes its stay point and work center', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
-    // The helper driven directly; the next cases drive it through real shots.
-    const cow = wildAtNode(sim, 44, 40, COW);
-    const bystander = wildAtNode(sim, 45, 41, COW);
-    const shooterAt = terrain.nodeAt(36, 40);
-    frightenKin(sim.world, ctxOf(sim), terrain, cow, shooterAt);
+    const hunter = fighterAtNode(sim, 29, 40, VIKING, HUNTER);
+    const cow = wildAtNode(sim, 30, 40, COW);
+    const home = nodeOf(sim, cow);
+    sim.world.add(cow, WildHabitat, { birth: home, workCenter: home, fedUntil: 0, food: 0, nextStayAt: 0 });
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, cow);
 
-    expect(sim.world.get(cow, Frightened).from).toBe(shooterAt); // the struck animal runs from the shooter
-    expect(sim.world.has(bystander, Frightened)).toBe(true); // and so does the herd beside it
+    animalFrightSystem(sim.world, ctxOf(sim));
+
+    const flight = sim.world.get(cow, Frightened).dest;
+    expect(flight).not.toBeNull();
+    expect(flight).not.toBe(home);
+    expect(sim.world.get(cow, StayPoint).cell).toBe(flight);
+    expect(sim.world.get(cow, WildHabitat).workCenter).toBe(flight);
+    expect(sim.world.get(cow, WildHabitat).birth).toBe(home);
+  });
+
+  it('a follower holding a target lets it go and runs after its fleeing leader', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
+    const hunter = fighterAtNode(sim, 20, 40, VIKING, HUNTER);
+    const leader = wildAtNode(sim, 30, 40, COW);
+    const follower = wildAtNode(sim, 32, 40, COW);
+    joinHerd(sim, leader, follower);
+    const victim = fighterAtNode(sim, 34, 40, VIKING, HUNTER);
+    sim.world.add(follower, Engagement, { repathAt: 0, target: victim });
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, leader);
+
+    animalFrightSystem(sim.world, ctxOf(sim));
+    animalFrightSystem(sim.world, ctxOf(sim));
+
+    const flight = sim.world.get(leader, Frightened).dest;
+    expect(flight).not.toBeNull();
+    expect(sim.world.has(follower, Engagement)).toBe(false);
+    expect(sim.world.get(follower, MoveGoal).cell).toBe(flight);
+  });
+
+  it('runs once: the flight ends where it arrives and the herd drives take the animal back', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
+    const hunter = fighterAtNode(sim, 20, 40, VIKING, HUNTER);
+    const leader = wildAtNode(sim, 32, 40, COW);
+    const follower = wildAtNode(sim, 30, 40, COW);
+    joinHerd(sim, leader, follower);
+    const before = hexNodeDistance(mapTerrain(sim), nodeOf(sim, hunter), nodeOf(sim, leader));
+    reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, follower);
+
+    let guard = 1000;
+    while (sim.world.has(leader, Frightened) && guard-- > 0) sim.step();
+    expect(sim.world.has(leader, Frightened)).toBe(false);
+    expect(isTravelling(sim.world, leader)).toBe(false);
+    expect(hexNodeDistance(mapTerrain(sim), nodeOf(sim, hunter), nodeOf(sim, leader))).toBeGreaterThan(
+      before,
+    );
+    sim.step();
+    expect(sim.world.has(follower, Frightened)).toBe(false); // calmed with its leader
   });
 
   it('a shot that lands on its quarry scatters the herd away from the shooter', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
     const shooter = fighterAtNode(sim, 30, 40, VIKING, HUNTER);
     const cow = wildAtNode(sim, 40, 40, COW);
     const bystander = wildAtNode(sim, 42, 41, COW);
     loose(sim, shooter, cow, positionOfNode(40, 40));
     stepUntilLanded(sim);
 
-    const shooterAt = entityNode(sim.world, terrain, shooter);
     expect(sim.world.get(cow, Health).hitpoints).toBeLessThan(1000); // the arrow struck
-    expect(sim.world.get(cow, Frightened).from).toBe(shooterAt);
-    expect(sim.world.get(bystander, Frightened).from).toBe(shooterAt);
+    expect(sim.world.get(cow, Frightened).from).toBe(nodeOf(sim, shooter));
+    expect(sim.world.get(bystander, Frightened).from).toBe(nodeOf(sim, shooter));
   });
 
   it('a shot that misses scares nothing, so the next one is loosed at a standing target', () => {
@@ -237,72 +283,19 @@ describe('animalFrightSystem - the scatter and the calm-down', () => {
     expect(sim.world.has(cow, Frightened)).toBe(false);
   });
 
-  it('a flight runs from the attacker without leaving the territory', () => {
-    const sim = new Simulation({ seed: 1, content: territorialCowContent(), map: grassCellMap(64, 64) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
-    const range = stayPointRangeOf(sim.content, COW);
-    const home = terrain.nodeAt(40, 40);
-    const threat = terrain.nodeAt(30, 40);
-    const cow = wildAtNode(sim, 40, 40, COW);
-    frightenKin(sim.world, ctxOf(sim), terrain, cow, threat);
-
-    let farthest = 0;
-    for (let i = 0; i < FRIGHT_DURATION_TICKS; i++) {
-      sim.step();
-      farthest = Math.max(farthest, manhattan(terrain, home, entityNode(sim.world, terrain, cow)));
-    }
-    const fled = manhattan(terrain, threat, entityNode(sim.world, terrain, cow));
-    expect(fled).toBeGreaterThan(manhattan(terrain, threat, home)); // it ran from the attacker
-    expect(farthest).toBeLessThanOrEqual(range); // and kept to its range
-  });
-
-  it('game at the edge of its territory stands rather than leave it', () => {
-    const sim = new Simulation({ seed: 1, content: territorialCowContent(), map: grassCellMap(64, 64) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
-    const range = stayPointRangeOf(sim.content, COW);
-    // At the east rim of its territory, scared from the west: every way out of the threat leaves it.
-    const cow = wildAtNode(sim, 40 + range, 40, COW);
-    sim.world.mut(cow, StayPoint).cell = terrain.nodeAt(40, 40);
-    frightenKin(sim.world, ctxOf(sim), terrain, cow, terrain.nodeAt(30, 40));
-
-    let farthest = 0;
-    for (let i = 0; i < FRIGHT_DURATION_TICKS; i++) {
-      sim.step();
-      const home = manhattan(terrain, terrain.nodeAt(40, 40), entityNode(sim.world, terrain, cow));
-      farthest = Math.max(farthest, home);
-    }
-    expect(farthest).toBeLessThanOrEqual(range);
-  });
-
-  it('game driven out of its territory may still flee homeward', () => {
-    const sim = new Simulation({ seed: 1, content: territorialCowContent(), map: grassCellMap(64, 64) });
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('test map missing');
-    const range = stayPointRangeOf(sim.content, COW);
-    const home = terrain.nodeAt(40, 40);
-    const cow = wildAtNode(sim, 40 + range + 6, 40, COW); // outside its range, east of home
-    sim.world.mut(cow, StayPoint).cell = home;
-    const before = manhattan(terrain, home, entityNode(sim.world, terrain, cow));
-    frightenKin(sim.world, ctxOf(sim), terrain, cow, terrain.nodeAt(60, 40)); // struck from the east
-
-    for (let i = 0; i < FRIGHT_DURATION_TICKS; i++) sim.step();
-    expect(manhattan(terrain, home, entityNode(sim.world, terrain, cow))).toBeLessThan(before);
-  });
-
   it('is byte-identical across two same-seed runs (determinism)', () => {
     const scatter = (): { hash: string; fled: boolean } => {
       const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(64, 64) });
+      const hunter = fighterAtNode(sim, 38, 40, VIKING, HUNTER);
       const cow = wildAtNode(sim, 41, 40, COW);
+      const calf = wildAtNode(sim, 42, 41, COW);
+      joinHerd(sim, cow, calf);
       wildAtNode(sim, 40, 42, DEER);
-      const terrain = sim.terrain;
-      if (terrain === undefined) throw new Error('test map missing');
-      const scare = terrain.nodeAt(40, 40);
-      const before = manhattan(terrain, scare, entityNode(sim.world, terrain, cow));
-      frightenKin(sim.world, ctxOf(sim), terrain, cow, scare);
-      for (let i = 0; i < FRIGHT_DURATION_TICKS; i++) sim.step();
-      const after = manhattan(terrain, scare, entityNode(sim.world, terrain, cow));
+      const terrain = mapTerrain(sim);
+      const before = hexNodeDistance(terrain, nodeOf(sim, hunter), nodeOf(sim, cow));
+      reactToBlowOnAnimal(sim.world, ctxOf(sim), hunter, cow);
+      for (let i = 0; i < FLIGHT_REACH_NODES * 4; i++) sim.step();
+      const after = hexNodeDistance(terrain, nodeOf(sim, hunter), nodeOf(sim, cow));
       return { hash: sim.hashState(), fled: after > before };
     };
     const a = scatter();

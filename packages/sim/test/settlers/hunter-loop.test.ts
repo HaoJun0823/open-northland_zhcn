@@ -28,8 +28,9 @@ import { grassCellMap } from '../fixtures/terrain.js';
 describe('hunter - shoot, leave a carcass, carry it home to the flag (the full loop)', () => {
   const VIKING = 1;
   const HUNTER = 15;
-  const COW = 13; // fixture yield: meat(21) ×4 (lastResort, but the only prey here)
+  const COW = 13; // fixture `maximumcadaversize` 4: two leather, two meat
   const MEAT = 21;
+  const LEATHER = 22;
   const HUNTER_GENERAL_TRACK = 37;
   const HUNTER_GENERAL_FACTOR = 200;
   const P0 = 0;
@@ -98,9 +99,10 @@ describe('hunter - shoot, leave a carcass, carry it home to the flag (the full l
     expect(sim.world.isAlive(cow)).toBe(false);
     expect(killers).toEqual([hunter]); // the body named the hunter that shot it
     expect([...sim.world.query(Resource)]).toHaveLength(0);
-    // Every meat unit was carried to the flag and piled on the ground beside it (the flag itself
-    // stores nothing), and the hunter stands empty-handed.
-    expect(yardAmount(sim, MEAT)).toBe(4);
+    // Every unit was carried to the flag and piled on the ground beside it (the flag itself stores
+    // nothing), and the hunter stands empty-handed.
+    expect(yardAmount(sim, LEATHER)).toBe(2);
+    expect(yardAmount(sim, MEAT)).toBe(2);
     expect(sim.world.has(flag, Stockpile)).toBe(false);
     // Each harvested unit trained the hunter's general track through the ordinary work-XP seam.
     expect(sim.world.get(hunter, SettlerProgress).experience.get(HUNTER_GENERAL_TRACK)).toBe(
@@ -123,7 +125,7 @@ describe('hunter - shoot, leave a carcass, carry it home to the flag (the full l
     expect(sim.world.isAlive(far)).toBe(false); // the second hunter took the other cow, not this one
     // Both hunters made a kill of their own, and every unit of both bodies reached a flag.
     expect(killers).toEqual([west, east].sort((a, b) => a - b));
-    expect(yardAmount(sim, MEAT)).toBe(8);
+    expect(yardAmount(sim, LEATHER) + yardAmount(sim, MEAT)).toBe(8);
     expect(violations).toEqual([]);
   });
 });

@@ -15,6 +15,7 @@ import {
   ownerPlayerOf,
   positionOf,
   type SnapshotEntity,
+  settlerTribeOf,
 } from '../../game/snapshot.js';
 import { pickableSeat, type ViewerSeat } from '../../game/viewer-seat.js';
 import { containsTargetPoint, isHitTarget, type Pickable } from '../picking.js';
@@ -30,6 +31,8 @@ export interface UnitTargetsDeps {
   /** Whether the viewer's seat holds an `enemy` stance toward `owner` - the same directed gate the sim's
    *  attack order obeys, so a click on a non-enemy falls through to a move instead of a dropped order. */
   readonly hostileToward: (owner: number) => boolean;
+  /** `animaltypes.ini` `cannotbeattacked` for a tribe: decorative fauna no order may strike. */
+  readonly animalCannotBeAttacked: (tribe: number) => boolean;
   /** The frame the player is clicking on. */
   readonly drawnItems: () => readonly DrawItem[];
   /** The exact sprite bounds (world px) of a drawn entity, a statically drawn harvestable included, or
@@ -86,8 +89,8 @@ export interface UnitTargets {
   resources(): Pickable[];
   /**
    * The wild creatures on screen - the "attack animal" order's targets. Claimed livestock carries an
-   * owner and is property rather than game, so it stays out, exactly as the sim's ordered-target rule
-   * reads it.
+   * owner and is property rather than game, and `cannotbeattacked` fauna is no target, so both stay
+   * out, exactly as the sim's ordered-target rule reads it.
    */
   wildlife(): Pickable[];
   /** The livestock on screen a scout may be sent to claim: wild, or held by a player the viewer's seat is
@@ -271,6 +274,9 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
         const e = entityById(snapshot, it.ref);
         if (e === undefined || !isWildlife(e)) continue;
         if (ownerPlayerOf(e) !== undefined) continue; // owned - a person or someone's livestock, not game
+        // Decorative fauna is no target, so a click on it falls through to the order under it.
+        const tribe = settlerTribeOf(e);
+        if (tribe !== undefined && deps.animalCannotBeAttacked(tribe)) continue;
         out.push(hitTarget(it, 'settler'));
       }
       return out;

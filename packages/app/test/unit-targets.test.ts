@@ -38,6 +38,7 @@ describe('unit-controls targets over the renderer frame', () => {
       snapshot: () => snapshot,
       viewer: fixedViewerSeat(HUMAN_PLAYER),
       hostileToward,
+      animalCannotBeAttacked: () => false,
       drawnItems: () => drawn,
       boundsOf,
       pixelHitOf,
@@ -64,6 +65,7 @@ describe('unit-controls targets over the renderer frame', () => {
       snapshot: () => snapshot,
       viewer: overseerViewerSeat(HUMAN_PLAYER),
       hostileToward: () => true,
+      animalCannotBeAttacked: () => false,
       drawnItems: () => [enemy],
       boundsOf: undefined,
       pixelHitOf: undefined,
@@ -92,6 +94,7 @@ describe('unit-controls targets over the renderer frame', () => {
       snapshot: () => snapshot,
       viewer: fixedViewerSeat(HUMAN_PLAYER),
       hostileToward: () => true,
+      animalCannotBeAttacked: () => false,
       drawnItems: () => drawn,
       boundsOf: () => box,
       pixelHitOf: () => verdict,
@@ -221,6 +224,7 @@ describe('unit-controls targets over the renderer frame', () => {
       snapshot: () => snapshot,
       viewer: overseerViewerSeat(HUMAN_PLAYER),
       hostileToward: () => true,
+      animalCannotBeAttacked: () => false,
       drawnItems: () => [wall],
       boundsOf: undefined,
       pixelHitOf: undefined,
@@ -243,6 +247,7 @@ describe('unit-controls targets over the renderer frame', () => {
       snapshot: () => snapshot,
       viewer: fixedViewerSeat(HUMAN_PLAYER),
       hostileToward: () => true,
+      animalCannotBeAttacked: () => false,
       drawnItems: () => [wall],
       boundsOf: () => ({ minX: 180, maxX: 220, minY: 230, maxY: 305 }),
       pixelHitOf: () => false,
@@ -450,6 +455,36 @@ describe('unit-controls targets over the renderer frame', () => {
     expect(targets.wildlife().map((t) => t.ref)).toEqual([deer.id]);
   });
 
+  it('leaves `cannotbeattacked` fauna out of the strike, so the click falls through', () => {
+    // Mock tribe ids: only the `animalCannotBeAttacked` stub below gives them meaning.
+    const STRIKABLE_TRIBE = 9;
+    const IMMUNE_TRIBE = 40;
+    const deer = {
+      id: 90_012,
+      components: { Settler: { tribe: STRIKABLE_TRIBE }, Position: { x: 6 * ONE, y: 8 * ONE } },
+    };
+    const butterfly = {
+      id: 90_013,
+      components: { Settler: { tribe: IMMUNE_TRIBE }, Position: { x: 7 * ONE, y: 8 * ONE } },
+    };
+    snapshot = { ...snapshot, entities: [...snapshot.entities, deer, butterfly] };
+    const template = firstDrawn('settler', HUMAN_PLAYER);
+    const targets = createUnitTargets({
+      snapshot: () => snapshot,
+      viewer: fixedViewerSeat(HUMAN_PLAYER),
+      hostileToward: () => true,
+      animalCannotBeAttacked: (tribe) => tribe === IMMUNE_TRIBE,
+      drawnItems: () => [
+        { ...template, ref: deer.id },
+        { ...template, ref: butterfly.id },
+      ],
+      boundsOf: undefined,
+      pixelHitOf: undefined,
+    });
+
+    expect(targets.wildlife().map((t) => t.ref)).toEqual([deer.id]);
+  });
+
   it('orders a settler the frame never draws, such as one standing inside a building', () => {
     // Indoor settlers (the `Resting` marker, or mid-exchange in a store) are deliberately not drawn, so
     // the frame cannot supply them - the order set reads the snapshot instead and still reaches them.
@@ -500,6 +535,7 @@ describe('the ordered set', () => {
       snapshot: () => snapshot,
       viewer: fixedViewerSeat(HUMAN_PLAYER),
       hostileToward: () => true,
+      animalCannotBeAttacked: () => false,
       drawnItems: () => [],
       boundsOf: undefined,
       pixelHitOf: undefined,

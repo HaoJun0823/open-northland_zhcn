@@ -4,6 +4,7 @@ import {
   Building,
   Carrying,
   DeliveryFlag,
+  Health,
   JobAssignment,
   Position,
   ProductionCounters,
@@ -12,9 +13,10 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { FOG_MODE, fx, ONE, positionOfNode, Simulation, type TerrainMap } from '../../src/index.js';
+import { HUNT_PREY_SCORE_CEILING } from '../../src/systems/conflict/hunting/spec.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { playerSeesEntity } from '../../src/systems/vision/index.js';
-import { COW, DEER, fighterAtNode, HUNTER } from '../conflict/combat-system/support.js';
+import { DEER, fighterAtNode, HUNTER } from '../conflict/combat-system/support.js';
 import { combatantAtNode, P0 } from '../conflict/stances/support.js';
 import { testContent } from '../fixtures/content.js';
 import { grassCellMap, grassNodeMap } from '../fixtures/terrain.js';
@@ -75,6 +77,14 @@ describe('selected hunter work diagnostics', () => {
     expect(sim.workStatus(hunter)).toEqual({ kind: 'unknown', reason: 'gatherSearch' });
   });
 
+  it('reports no game while the only game in the ground is too tough to pick', () => {
+    const { sim, hunter } = hunterOn(grassNodeMap(48, 48));
+    const deer = fighterAtNode(sim, HUNTER_AT.hx + 5, HUNTER_AT.hy, DEER, null);
+    sim.world.add(deer, Health, { hitpoints: HUNT_PREY_SCORE_CEILING, max: HUNT_PREY_SCORE_CEILING });
+    sim.step();
+    expect(sim.workStatus(hunter)).toEqual({ kind: 'noGame' });
+  });
+
   it('counts game the player has not seen, as the acquisition does', () => {
     // A ground wider than the hunter's own sight, with the deer past that sight.
     const { sim, hunter } = hunterOn(grassNodeMap(64, 48), 26);
@@ -92,14 +102,6 @@ describe('selected hunter work diagnostics', () => {
     const before = sim.hashState();
     expect(sim.workStatus(hunter)).toEqual({ kind: 'gameOutOfReach' });
     expect(sim.hashState()).toBe(before);
-  });
-
-  it('holds back last-resort livestock as the acquisition does while real game stands in the probe', () => {
-    const { sim, hunter } = hunterOn(grassNodeMap(64, 48));
-    fighterAtNode(sim, HUNTER_AT.hx + 3, HUNTER_AT.hy, COW, null);
-    fighterAtNode(sim, HUNTER_AT.hx + GROUND_RADIUS + 4, HUNTER_AT.hy, DEER, null);
-    sim.step();
-    expect(sim.workStatus(hunter)).toEqual({ kind: 'noGame' });
   });
 
   it('puts a stopped selection ahead of the game search', () => {

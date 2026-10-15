@@ -56,15 +56,10 @@ export function animalCannotBeAttacked(content: ContentSet, tribeType: number): 
 
 /**
  * `animaltypes.ini` `catchable`: a scout may claim it by contact and a farm may pen it. Huntability is
- * the separate {@link isHuntablePrey} table.
+ * the separate {@link isHuntablePrey} flag.
  */
 export function isCatchableAnimal(content: ContentSet, tribeType: number): boolean {
   return animalRecord(content, tribeType)?.catchable ?? false;
-}
-
-/** `animaltypes.ini` `warrantable`: the animal can become a tribe's property as penned livestock. */
-export function isWarrantableAnimal(content: ContentSet, tribeType: number): boolean {
-  return animalRecord(content, tribeType)?.warrantable ?? false;
 }
 
 /** `animaltypes.ini` `ignorehouses`: the animal paths through buildings instead of around them. */
@@ -130,22 +125,9 @@ export function locomotionOf(content: ContentSet, tribeType: number): Locomotion
 }
 
 /**
- * The authored prey table is the single huntability signal: game species plus the last-resort
- * livestock, with no row for predators or decorative fauna.
+ * `animaltypes.ini` `warrantable`: game. Original behavior: the hunter's own prey search takes only wild
+ * animals of a warrantable type; predators, decorative fauna and the rest are hunted only on an order.
  */
 export function isHuntablePrey(content: ContentSet, tribeType: number): boolean {
-  return contentIndex(content).huntPreyByTribe.has(tribeType);
-}
-
-/** Prey a hunter takes only when no normal prey is in its hunting area, such as penned livestock. */
-export function isLastResortPrey(content: ContentSet, tribeType: number): boolean {
-  return contentIndex(content).huntPreyByTribe.get(tribeType)?.lastResort ?? false;
-}
-
-/** One harvestable carcass node per entry, or null when the tribe is not huntable prey. */
-export function huntYieldsOf(
-  content: ContentSet,
-  tribeType: number,
-): readonly { readonly goodType: number; readonly amount: number }[] | null {
-  return contentIndex(content).huntPreyByTribe.get(tribeType)?.yields ?? null;
+  return animalRecord(content, tribeType)?.warrantable ?? false;
 }

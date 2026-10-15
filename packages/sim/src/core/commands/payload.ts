@@ -399,7 +399,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
   },
   spawnAnimalHerd: {
     required: { tribe: 'integer', ...NODE },
-    optional: { count: 'integer', missionId: 'integer', owner: 'integer' },
+    optional: { count: 'integer', missionId: 'integer', owner: 'integer', flags: 'integer' },
   },
   spawnSettler: {
     required: { jobType: 'integer', ...NODE, tribe: 'integer' },

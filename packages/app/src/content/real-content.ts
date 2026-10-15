@@ -14,7 +14,6 @@ import { VIKING_BUILDINGS } from '../catalog/buildings.js';
 import { shelterCapacityFor } from '../catalog/defence.js';
 import { FARMING_BALANCE_BY_ID } from '../catalog/farming.js';
 import { GATHERING_BALANCE_BY_ID } from '../catalog/gathering.js';
-import { huntPreyRows } from '../catalog/hunting.js';
 import { NAV_LANDSCAPE_TYPES } from '../catalog/terrain.js';
 import { withUnitVariants } from '../catalog/unit-variants.js';
 import { diag } from '../diag/index.js';
@@ -107,14 +106,6 @@ function withHeroFistJob(weapon: WeaponType): WeaponType {
     : weapon;
 }
 
-/** Give WOOL the carcass-harvest atomic. In the source wool is purely a husbandry product (no harvest
- *  atomic, no gathering pipeline), so the hunter's wool-off-a-sheep-kill yield and this atomic are a
- *  named approximation mirroring leather/meat's extracted `atomicForHarvesting 33`. */
-function withWoolCarcassHarvest(good: GoodType): GoodType {
-  if (good.id !== 'wool' || good.atomics.harvest !== undefined) return good;
-  return { ...good, atomics: { ...good.atomics, harvest: HARVEST_CADAVER_ATOMIC } };
-}
-
 /** Overlay the garrison size: the flag decides who offers the mode, so an unflagged row is zeroed whatever
  *  it arrived with. */
 function withShelterCapacity(building: BuildingType): BuildingType {
@@ -149,9 +140,7 @@ function withGatheringBalance(good: GoodType): GoodType {
  * band that never aliases them. Idempotent, so a class row already present is not duplicated.
  */
 export function mergeRealContent(real: ContentSet): RealContentMerge {
-  const goods = real.goods.map((raw) =>
-    withWoolCarcassHarvest(withEquipClass(withGatheringBalance(withFarmingBalance(raw)))),
-  );
+  const goods = real.goods.map((raw) => withEquipClass(withGatheringBalance(withFarmingBalance(raw))));
   const unfarmedFieldGoods = goods
     .filter((g) => hasFieldFarmAtomics(g) && g.farming === undefined)
     .map((g) => g.id);
@@ -166,28 +155,14 @@ export function mergeRealContent(real: ContentSet): RealContentMerge {
   const navRows = NAV_LANDSCAPE_TYPES.filter((t) => !landscapeIds.has(t.typeId));
   const landscape = [...real.landscape, ...navRows];
   const weapons = real.weapons.map(withHeroFistJob);
-  // Wool's pipeline row is leather's whole row re-keyed: the cadaver stage (landscape 79 / gfx 847), its
-  // footprint, and the store-pile stage, so a wool heap draws the hide pile's decal. The same named
-  // approximation as the harvest atomic.
-  const woolType = goods.find((g) => g.id === 'wool')?.typeId;
-  const leatherRow = real.gatheringPipeline.find((p) => p.goodId === 'leather');
-  const needsWoolRow =
-    woolType !== undefined &&
-    leatherRow !== undefined &&
-    !real.gatheringPipeline.some((p) => p.goodId === 'wool');
-  const gatheringPipeline = needsWoolRow
-    ? [...real.gatheringPipeline, { ...leatherRow, goodType: woolType, goodId: 'wool' }]
-    : real.gatheringPipeline;
-  const huntPrey = huntPreyRows(goods, real.tribes);
   // Only a good felled or mined off a landscape node reads the felling/mining balance. A field crop, a
   // carcass yield and a hive's honey (no harvest stage) are supplied by their own loops.
-  const huntYields = new Set(huntPrey.flatMap((prey) => prey.yields.map((y) => y.goodType)));
   const unbalancedGoods = goods
     .filter(
       (g) =>
         g.gathering?.harvest !== undefined &&
         g.farming === undefined &&
-        !huntYields.has(g.typeId) &&
+        g.atomics.harvest !== HARVEST_CADAVER_ATOMIC &&
         GATHERING_BALANCE_BY_ID[g.id] === undefined,
     )
     .map((g) => g.id);
@@ -201,8 +176,6 @@ export function mergeRealContent(real: ContentSet): RealContentMerge {
       landscape,
       weapons,
       tribes: real.tribes.map((tribe) => withUnitVariants(tribe, weapons)),
-      gatheringPipeline,
-      huntPrey,
     }),
     unbalancedGoods,
     unfarmedFieldGoods,

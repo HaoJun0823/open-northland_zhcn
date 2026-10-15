@@ -15,13 +15,6 @@ import { hexNodeDistance } from '../../spatial/metric.js';
 export const HUNT_CHASE_SLACK_NODES = 4;
 
 /**
- * How much wider than its hunting ground a hunter probes for real game before it will draw on last-resort
- * livestock. A multiple of the ground radius rather than its own length, so the probe stays proportional to
- * the area the hunter was posted over. Approximation - no source describes an empty ground.
- */
-export const HUNT_LAST_RESORT_SCAN_FACTOR = 2;
-
-/**
  * How far (map points) past the ground's radius a hunter's carcass may lie and still be its work: the
  * chase overshoot ({@link HUNT_CHASE_SLACK_NODES}) plus a drift margin for prey that keeps fleeing between
  * the release and the arrow's contact. Not airtight - a runner can be carried past even this band, and such

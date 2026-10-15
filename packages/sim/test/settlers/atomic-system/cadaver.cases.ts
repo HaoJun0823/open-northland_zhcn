@@ -6,6 +6,7 @@ import {
   Resource,
   ResourceLayers,
   SettlerProgress,
+  YoungAnimal,
 } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { fx, nodeOfPosition, positionOfNode, Simulation } from '../../../src/index.js';
@@ -27,9 +28,9 @@ describe('atomicSystem - hunter kill leaves a harvestable carcass (spawnCarcasse
   const VIKING = 1;
   const HUNTER = 15; // job 15 - JOB_TYPE_HUMAN_HUNTER
   const WOODCUTTER = 1; // a non-hunter trade
-  const COW = 13; // lastResort prey, fixture yield: meat(21) ×4
-  const DEER = 14; // normal game, fixture yield: meat(21) ×2 + leather(22) ×1 (the layered carcass)
-  const WOLVES = 9; // a known animal tribe with NO huntPrey row (not huntable)
+  const COW = 13; // fixture `maximumcadaversize` 4: leather, meat, leather, meat
+  const DEER = 14; // fixture `maximumcadaversize` 3: leather, meat, leather
+  const WOLVES = 9; // an animal record with no `maximumcadaversize`
   const MEAT = 21;
   const LEATHER = 22;
   const HARVEST_CADAVER = 33;
@@ -73,42 +74,53 @@ describe('atomicSystem - hunter kill leaves a harvestable carcass (spawnCarcasse
     return out;
   }
 
-  it("a hunter's LETHAL blow on prey leaves its carcass as harvestable nodes, nothing on its back", () => {
+  /** The one carcass body's head and buried layers, as `goodType x amount` pairs in pluck order. */
+  function plucks(sim: Simulation): [number, number][] {
+    const node = [...sim.world.query(Resource)][0];
+    if (node === undefined) return [];
+    const head = sim.world.get(node, Resource);
+    const layers = sim.world.tryGet(node, ResourceLayers)?.layers ?? [];
+    return [[head.goodType, head.remaining], ...layers.map((l): [number, number] => [l.goodType, l.amount])];
+  }
+
+  it("a hunter's LETHAL blow leaves one cadaver body where the prey fell, nothing on its back", () => {
     const sim = simWithMap();
     const hunter = combatant(sim, VIKING, HUNTER, 0, 0);
     const cow = prey(sim, COW, 3, 0, 20);
     startAtomic(sim, hunter, { kind: 'attack', target: cow, damage: 100 }, 1, 81); // overkill - lethal
     atomicSystem(sim.world, nextTickCtxOf(sim));
     expect(sim.world.get(cow, Health).hitpoints).toBe(0); // felled
-    // The cow's carcass: one meat node holding its whole fixture yield, at the node it fell on
-    // (visual cell (3,0) → half-cell node (6,0)); the hunter carries nothing off the blow itself.
+    // Visual cell (3,0) is half-cell node (6,0); the open stage is the leather one.
     expect(carcasses(sim)).toEqual([
-      {
-        goodType: MEAT,
-        remaining: 4,
-        harvestAtomic: HARVEST_CADAVER,
-        position: positionOfNode(6, 0),
-      },
+      { goodType: LEATHER, remaining: 1, harvestAtomic: HARVEST_CADAVER, position: positionOfNode(6, 0) },
     ]);
     expect(sim.world.has(hunter, Carrying)).toBe(false);
   });
 
-  it('a TWO-good carcass (deer: meat + leather) is ONE body whose yields interleave as layers', () => {
+  it('the cadaver holds `maximumcadaversize` plucks alternating leather and meat, leather first', () => {
     const sim = simWithMap();
     const hunter = combatant(sim, VIKING, HUNTER, 0, 0);
-    const deer = prey(sim, DEER, 3, 0, 20);
-    startAtomic(sim, hunter, { kind: 'attack', target: deer, damage: 100 }, 1, 81);
+    const cow = prey(sim, COW, 3, 0, 20);
+    startAtomic(sim, hunter, { kind: 'attack', target: cow, damage: 100 }, 1, 81);
     atomicSystem(sim.world, nextTickCtxOf(sim));
-    // One node where the deer fell (user rule: one body, one decal). The open good is the first unit of
-    // the meat-first interleave; the rest is buried as layers (leather, then the second meat).
-    expect(carcasses(sim)).toEqual([
-      { goodType: MEAT, remaining: 1, harvestAtomic: HARVEST_CADAVER, position: positionOfNode(6, 0) },
+    expect(plucks(sim)).toEqual([
+      [LEATHER, 1],
+      [MEAT, 1],
+      [LEATHER, 1],
+      [MEAT, 1],
     ]);
-    const node = [...sim.world.query(Resource)][0];
-    if (node === undefined) throw new Error('carcass missing');
-    expect(sim.world.get(node, ResourceLayers).layers).toEqual([
-      { goodType: LEATHER, amount: 1, harvestAtomic: HARVEST_CADAVER },
-      { goodType: MEAT, amount: 1, harvestAtomic: HARVEST_CADAVER },
+  });
+
+  it("a young animal's cadaver is half the size", () => {
+    const sim = simWithMap();
+    const hunter = combatant(sim, VIKING, HUNTER, 0, 0);
+    const calf = prey(sim, COW, 3, 0, 20);
+    sim.world.add(calf, YoungAnimal, { adultAt: sim.tick + 1000 });
+    startAtomic(sim, hunter, { kind: 'attack', target: calf, damage: 100 }, 1, 81);
+    atomicSystem(sim.world, nextTickCtxOf(sim));
+    expect(plucks(sim)).toEqual([
+      [LEATHER, 1],
+      [MEAT, 1],
     ]);
   });
 
@@ -121,10 +133,10 @@ describe('atomicSystem - hunter kill leaves a harvestable carcass (spawnCarcasse
     const node = [...sim.world.query(Resource)][0];
     if (node === undefined) throw new Error('carcass missing');
 
-    // Meat, skin, meat off the one body - the alternating cadaver stages (see ResourceLayers). Each stage
+    // Skin, meat, skin off the one body - the alternating cadaver stages (see ResourceLayers). Each stage
     // keeps the harvest atomic but changes the good, so the per-good indexes must follow it.
     const { hx, hy } = nodeOfPosition(sim.world.get(node, Position).x, sim.world.get(node, Position).y);
-    for (const expected of [MEAT, LEATHER, MEAT]) {
+    for (const expected of [LEATHER, MEAT, LEATHER]) {
       const other = expected === MEAT ? LEATHER : MEAT;
       expect(sim.world.get(node, Resource).goodType).toBe(expected);
       expect(nearestLiveResource(sim.world, expected, { hx: 0, hy: 0 })).toBe(node);
@@ -153,7 +165,7 @@ describe('atomicSystem - hunter kill leaves a harvestable carcass (spawnCarcasse
     for (const layer of sim.world.mut(node, ResourceLayers).layers) layer.harvestAtomic = OTHER_ATOMIC;
     expect(resourcesNearNode(sim.world, 6, 0, 0, new Set([HARVEST_CADAVER]))).toEqual([node]); // indexed
 
-    startAtomic(sim, hunter, { kind: 'harvest', resource: node, goodType: MEAT }, 1, HARVEST_CADAVER);
+    startAtomic(sim, hunter, { kind: 'harvest', resource: node, goodType: LEATHER }, 1, HARVEST_CADAVER);
     atomicSystem(sim.world, nextTickCtxOf(sim));
 
     expect(sim.world.get(node, Resource).harvestAtomic).toBe(OTHER_ATOMIC);
@@ -181,10 +193,10 @@ describe('atomicSystem - hunter kill leaves a harvestable carcass (spawnCarcasse
     const node = [...sim.world.query(Resource)][0];
     if (node === undefined) throw new Error('carcass missing');
 
-    startAtomic(sim, hunter, { kind: 'harvest', resource: node, goodType: MEAT }, 1, HARVEST_CADAVER);
+    startAtomic(sim, hunter, { kind: 'harvest', resource: node, goodType: LEATHER }, 1, HARVEST_CADAVER);
     atomicSystem(sim.world, nextTickCtxOf(sim));
-    expect(sim.world.get(hunter, Carrying)).toEqual({ goodType: MEAT, amount: 1 });
-    expect(sim.world.get(node, Resource).remaining).toBe(3); // one unit off the cow's four
+    expect(sim.world.get(hunter, Carrying)).toEqual({ goodType: LEATHER, amount: 1 });
+    expect(sim.world.get(node, Resource).goodType).toBe(MEAT); // one pluck turned the body to its next stage
     expect(sim.world.get(node, Resource).strikes).toBeUndefined();
     // One unit, one experienceFactor grant.
     expect(sim.world.get(hunter, SettlerProgress).experience.get(HUNTER_GENERAL_TRACK)).toBe(
@@ -202,9 +214,9 @@ describe('atomicSystem - hunter kill leaves a harvestable carcass (spawnCarcasse
     if (node === undefined) throw new Error('carcass missing');
 
     // A second hunter's in-flight swing lands after the body re-armed to another good: it hit air.
-    expect(harvestFromNode(sim.world, ctxOf(sim), hunter, node, LEATHER, PICKUP_STROKES_PER_UNIT)).toBe(0);
+    expect(harvestFromNode(sim.world, ctxOf(sim), hunter, node, MEAT, PICKUP_STROKES_PER_UNIT)).toBe(0);
     expect(sim.world.has(hunter, Carrying)).toBe(false); // nothing minted, nothing transmuted
-    expect(sim.world.get(node, Resource)).toMatchObject({ goodType: MEAT, remaining: 1 });
+    expect(sim.world.get(node, Resource)).toMatchObject({ goodType: LEATHER, remaining: 1 });
   });
 
   it('a stroke-counted bare node banks landed strokes and restarts the count for the next unit', () => {
@@ -218,13 +230,13 @@ describe('atomicSystem - hunter kill leaves a harvestable carcass (spawnCarcasse
     if (node === undefined) throw new Error('carcass missing');
 
     for (let stroke = 1; stroke < STROKES; stroke++) {
-      expect(harvestFromNode(sim.world, ctxOf(sim), hunter, node, MEAT, STROKES)).toBe(0);
+      expect(harvestFromNode(sim.world, ctxOf(sim), hunter, node, LEATHER, STROKES)).toBe(0);
       expect(sim.world.get(node, Resource).strikes).toBe(stroke);
     }
-    expect(harvestFromNode(sim.world, ctxOf(sim), hunter, node, MEAT, STROKES)).toBe(1);
-    expect(sim.world.get(hunter, Carrying)).toEqual({ goodType: MEAT, amount: 1 });
+    expect(harvestFromNode(sim.world, ctxOf(sim), hunter, node, LEATHER, STROKES)).toBe(1);
+    expect(sim.world.get(hunter, Carrying)).toEqual({ goodType: LEATHER, amount: 1 });
     expect(sim.world.get(node, Resource).strikes).toBeUndefined(); // a fresh count for the next unit
-    expect(sim.world.get(node, Resource).remaining).toBe(3);
+    expect(sim.world.get(node, Resource).goodType).toBe(MEAT);
   });
 
   it('a NON-lethal hunter blow leaves no carcass (the kill must fell the prey)', () => {
@@ -247,14 +259,31 @@ describe('atomicSystem - hunter kill leaves a harvestable carcass (spawnCarcasse
     expect(carcasses(sim)).toEqual([]); // but no carcass - not a hunter's kill
   });
 
-  it('a hunter felling an animal with NO huntPrey row leaves no carcass (wolves are not game)', () => {
+  it('a hunter felling an animal with no cadaver size leaves nothing at all', () => {
     const sim = simWithMap();
     const hunter = combatant(sim, VIKING, HUNTER, 0, 0);
     const wolf = prey(sim, WOLVES, 3, 0, 20);
     startAtomic(sim, hunter, { kind: 'attack', target: wolf, damage: 100 }, 1, 81);
     atomicSystem(sim.world, nextTickCtxOf(sim));
     expect(sim.world.get(wolf, Health).hitpoints).toBe(0);
-    expect(carcasses(sim)).toEqual([]); // a wolf is not huntable prey
+    expect(carcasses(sim)).toEqual([]);
+  });
+
+  it("a hunter's kill of an animal that is not game still lays its cadaver", () => {
+    const base = testContent();
+    const content = {
+      ...base,
+      animals: base.animals.map((a) => (a.tribeType === WOLVES ? { ...a, maximumCadaverSize: 2 } : a)),
+    };
+    const sim = new Simulation({ seed: 1, content, map: grassCellMap(5, 2) });
+    const hunter = combatant(sim, VIKING, HUNTER, 0, 0);
+    const wolf = prey(sim, WOLVES, 3, 0, 20);
+    startAtomic(sim, hunter, { kind: 'attack', target: wolf, damage: 100 }, 1, 81);
+    atomicSystem(sim.world, nextTickCtxOf(sim));
+    expect(plucks(sim)).toEqual([
+      [LEATHER, 1],
+      [MEAT, 1],
+    ]);
   });
 
   it('a MAPLESS kill spawns nothing and does not crash (the fixture-combat guard)', () => {

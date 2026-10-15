@@ -1,7 +1,7 @@
 import type { Command, Entity, WorldSnapshot } from '@open-northland/sim';
 import { components, fx, ONE, Simulation } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { JOB_SCOUT } from '../src/catalog/jobs.js';
+import { JOB_SCOUT, JOB_SOLDIER } from '../src/catalog/jobs.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
 import type { Pickable } from '../src/view/picking.js';
@@ -10,8 +10,9 @@ import { createUnitOrderController } from '../src/view/unit-controls/orders.js';
 import type { UnitTargets } from '../src/view/unit-controls/unit-targets.js';
 
 /**
- * Right-clicking a claimable animal sends the selected scouts after it; every other selected settler takes
- * the usual ladder. With Shift the claim waits behind each scout's current order.
+ * Right-clicking a claimable animal sends the selected scouts after it, and any wild animal the scouts
+ * are not claiming the selected fighters; every other selected settler takes the usual ladder. With Shift the claim waits behind each
+ * scout's current order.
  */
 
 const { addPerson, Owner, Position } = components;
@@ -35,7 +36,11 @@ function settlerAt(sim: Simulation, jobType: number): Entity {
   return e;
 }
 
-function rightClick(sim: Simulation, settlers: readonly Entity[], shiftKey = false): Command[] {
+function rightClick(
+  sim: Simulation,
+  settlers: readonly Entity[],
+  { shiftKey = false, claimable = true }: { readonly shiftKey?: boolean; readonly claimable?: boolean } = {},
+): Command[] {
   const issued: Command[] = [];
   const snapshot = sim.snapshot();
   const animal: Pickable = { ref: ANIMAL, x: 0, y: 0, kind: 'settler' };
@@ -49,7 +54,7 @@ function rightClick(sim: Simulation, settlers: readonly Entity[], shiftKey = fal
     goods: () => [],
     resources: () => [],
     wildlife: () => [animal],
-    claimableLivestock: () => [animal],
+    claimableLivestock: () => (claimable ? [animal] : []),
     ownedSettlersIn: () => settlers.map((ref) => ({ ref, x: 0, y: 0 })),
   };
   createUnitOrderController({
@@ -85,11 +90,45 @@ describe('right-clicking a claimable animal', () => {
     const sim = new Simulation({ seed: 1, content: sandboxContent() });
     const scout = settlerAt(sim, JOB_SCOUT);
     const cutter = settlerAt(sim, WOODCUTTER);
-    expect(rightClick(sim, [scout], true)).toEqual([
+    expect(rightClick(sim, [scout], { shiftKey: true })).toEqual([
       { kind: 'claimAnimal', entity: scout, animal: ANIMAL, queued: true },
     ]);
-    expect(rightClick(sim, [cutter], true)).toEqual([
+    expect(rightClick(sim, [cutter], { shiftKey: true })).toEqual([
       expect.objectContaining({ kind: 'moveUnit', entity: cutter, queued: true }),
     ]);
+  });
+});
+
+describe('right-clicking a wild animal', () => {
+  it('sends the fighters to strike it and walks the rest there', () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const soldiers = [settlerAt(sim, JOB_SOLDIER), settlerAt(sim, JOB_SOLDIER)];
+    const cutter = settlerAt(sim, WOODCUTTER);
+    const issued = rightClick(sim, [...soldiers, cutter], { claimable: false });
+    expect(issued[0]).toEqual({
+      kind: 'attackUnitGroup',
+      members: soldiers.map((entity) => ({ entity })),
+      target: ANIMAL,
+    });
+    expect(issued.slice(1).map((c) => c.kind)).toEqual(['moveUnit']);
+  });
+
+  it('walks a selection without fighters there', () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const cutter = settlerAt(sim, WOODCUTTER);
+    expect(rightClick(sim, [cutter], { claimable: false }).map((c) => c.kind)).toEqual(['moveUnit']);
+  });
+
+  it('lets the scouts claim a claimable one and walks the fighters there instead of striking it', () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const scout = settlerAt(sim, JOB_SCOUT);
+    const soldier = settlerAt(sim, JOB_SOLDIER);
+    expect(rightClick(sim, [scout, soldier]).map((c) => c.kind)).toEqual(['claimAnimal', 'moveUnit']);
+  });
+
+  it('sends the fighters to strike a claimable one no selected scout claims', () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const soldier = settlerAt(sim, JOB_SOLDIER);
+    expect(rightClick(sim, [soldier])).toEqual([{ kind: 'attackUnit', entity: soldier, target: ANIMAL }]);
   });
 });

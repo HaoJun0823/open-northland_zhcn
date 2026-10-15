@@ -1,3 +1,4 @@
+import { cadaverStageGoods } from './cadaver.js';
 import { checkHumanPalettes } from './human-palette-references.js';
 import { firstByTypeId } from './lookup.js';
 import {
@@ -28,7 +29,7 @@ const CHECKS: readonly CrossReferenceCheck[] = [
   checkUnitVariants,
   checkWeaponsAndArmor,
   checkAnimals,
-  checkHuntPrey,
+  checkCadaverGoods,
   checkLandscapeGfx,
   checkGoodLandscape,
   checkGatheringPipeline,
@@ -212,25 +213,20 @@ function checkAnimals(set: ContentSet, { tribeIds }: IdSets): string[] {
   return errors;
 }
 
-// Every yield good must share one harvest atomic: a carcass is one node re-armed good-to-good in
-// place, and the sim's resource dormancy index captures a node's atomic once at spawn.
-function checkHuntPrey(set: ContentSet, { tribeIds }: IdSets): string[] {
+// A carcass is one node re-armed good-to-good in place, and the sim's resource dormancy index captures a
+// node's harvest atomic once at spawn, so every cadaver good must share one harvest atomic.
+function checkCadaverGoods(set: ContentSet): string[] {
   const errors: string[] = [];
-  const goods = new Map(set.goods.map((g) => [g.typeId, g]));
-  for (const p of set.huntPrey) {
-    if (!tribeIds.has(p.tribeType)) errors.push(`huntPrey references unknown tribeType ${p.tribeType}`);
-    const atomics = new Set<number>();
-    for (const y of p.yields) {
-      const good = goods.get(y.goodType);
-      if (good === undefined)
-        errors.push(`huntPrey tribe ${p.tribeType} yields unknown goodType ${y.goodType}`);
-      else if (good.atomics.harvest === undefined)
-        errors.push(`huntPrey tribe ${p.tribeType} yields good "${good.id}" with no harvest atomic`);
-      else atomics.add(good.atomics.harvest);
-    }
-    if (atomics.size > 1)
-      errors.push(`huntPrey tribe ${p.tribeType} yields goods with differing harvest atomics`);
+  const goods = firstByTypeId(set.goods);
+  const atomics = new Set<number>();
+  for (const goodType of cadaverStageGoods(set.landscape)) {
+    const good = goods.get(goodType);
+    if (good === undefined) errors.push(`cadaver stage yields unknown goodType ${goodType}`);
+    else if (good.atomics.harvest === undefined)
+      errors.push(`cadaver stage yields good "${good.id}" with no harvest atomic`);
+    else atomics.add(good.atomics.harvest);
   }
+  if (atomics.size > 1) errors.push('cadaver stages yield goods with differing harvest atomics');
   return errors;
 }
 

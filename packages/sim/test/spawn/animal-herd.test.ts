@@ -3,6 +3,7 @@ import { Age, Health, HerdMember, MoveStepPeriod, Position, Settler } from '../.
 import type { Entity } from '../../src/ecs/world.js';
 import { cellAnchorNode, fx, nodeOfPosition, Simulation } from '../../src/index.js';
 import { testContent } from '../fixtures/content.js';
+import { grassCellMap } from '../fixtures/terrain.js';
 
 /**
  * Tests for the `spawnAnimalHerd` command - the animal-PLACEMENT mechanic:
@@ -23,6 +24,11 @@ const VIKING = 1; // a civilization - no animaltypes record (bad input for spawn
 
 function fresh(seed = 1): Simulation {
   return new Simulation({ seed, content: testContent() });
+}
+
+/** A sim on a grass map, where the herding drive forms a spawned herd on its spawn tick. */
+function onMap(seed = 1): Simulation {
+  return new Simulation({ seed, content: testContent(), map: grassCellMap(20, 20) });
 }
 
 /** Enqueue a herd spawn at visual tile (x, y) - command coords are half-cell nodes, so anchor-convert. */
@@ -77,8 +83,8 @@ describe('spawnAnimalHerd command', () => {
     }
   });
 
-  it('designates a leader for a searchForLeader animal: the lowest-id member, recorded on every member', () => {
-    const sim = fresh();
+  it('forms the herd on its spawn tick: the lowest-id member leads, recorded on every member', () => {
+    const sim = onMap();
     spawnHerdAt(sim, BEAR, 5, 5);
     sim.step();
 
@@ -106,7 +112,7 @@ describe('spawnAnimalHerd command', () => {
   });
 
   it('count 1 overrides maximumGroupSize: exactly one creature, on the birth node (the map setanimal shape)', () => {
-    const sim = fresh();
+    const sim = onMap();
     const n = cellAnchorNode(5, 5);
     sim.enqueueSetup({ kind: 'spawnAnimalHerd', tribe: BEAR, x: n.hx, y: n.hy, count: 1 });
     sim.step();
@@ -118,7 +124,7 @@ describe('spawnAnimalHerd command', () => {
     // Member 0 sits on the birth point itself (no scatter for the sole creature).
     const p = sim.world.get(lone, Position);
     expect(nodeOfPosition(p.x, p.y)).toEqual({ hx: n.hx, hy: n.hy });
-    // A sole searchForLeader creature still records itself as leader (harmless self-reference).
+    // A sole creature with no herd in reach leads itself, ready to gather later arrivals.
     expect(sim.world.get(lone, HerdMember).leader).toBe(lone);
   });
 

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { AnimalType } from '../actors/animals.js';
 import { ArmorType, WeaponType } from '../actors/equipment.js';
-import { HuntPrey } from '../actors/hunting.js';
 import { PersonalNamePool } from '../actors/personal-names.js';
 import { AtomicAnimation, TribeType } from '../actors/tribes.js';
 import { VehicleType } from '../actors/vehicles.js';
@@ -56,8 +55,6 @@ export const ContentSet = z.strictObject({
   weapons: z.array(WeaponType).default([]),
   armor: z.array(ArmorType).default([]),
   animals: z.array(AnimalType).default([]),
-  /** Authored prey/yield table, joined onto `animals` by `tribeType`. */
-  huntPrey: z.array(HuntPrey).default([]),
   vehicles: z.array(VehicleType).default([]),
   landscape: z.array(LandscapeType).default([]),
   landscapeGfx: z.array(LandscapeGfx).default([]),

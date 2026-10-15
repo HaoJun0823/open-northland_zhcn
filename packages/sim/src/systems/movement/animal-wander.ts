@@ -9,12 +9,8 @@ import { type GrazingFields, grazingFields } from './grazing-fields.js';
 import { nearHeld } from './spacing.js';
 import { settlerTraversal } from './traversal.js';
 
-/** Mean ticks between grazing steps: each idle tick rolls 1-in-N. Approximated (the original's roam
- *  cadence is not readable), paced to read as grazing rather than a patrol. */
-export const ANIMAL_WANDER_PERIOD_TICKS = 5 * TICKS_PER_SECOND;
-
-/** Mean ticks between a claimed animal's grazing steps. Approximation: calmer than the wild cadence, at
- *  which penned stock beside the farm reads as restless. */
+/** Mean ticks between a claimed animal's grazing steps: each idle tick rolls 1-in-N. Approximation: the
+ *  farm herd's own cadence is not pinned, and this pace keeps penned stock beside the farm calm. */
 export const LIVESTOCK_WANDER_PERIOD_TICKS = 15 * TICKS_PER_SECOND;
 
 /** Sidestep candidates for a stacked stander, nearest first and in fixed order so the pick is canonical.
@@ -41,26 +37,17 @@ function fieldContested(
   return fields.keeperNear(node) !== undefined || (taken !== undefined && nearHeld(terrain, node, taken));
 }
 
-/** How far one grazing step may aim from where the creature stands (node Manhattan), clamped down to the
- *  creature's territory radius so a short-ranged species still has picks its leash accepts. Approximation:
- *  no readable step size. */
-export const ANIMAL_WANDER_STEP_NODES = 4;
+/** How far one claimed animal's grazing step may aim from where it stands (node Manhattan), clamped down
+ *  to its leash. Approximation: no readable step size. */
+const LIVESTOCK_WANDER_STEP_NODES = 4;
 
 /**
- * The grazing drive: an idle creature occasionally steps to a spot near itself, and two creatures standing
- * on one node un-stack, since only walkers get the separation system's soft nudge. The territory radius
- * leashes where a step may end rather than how far one step reaches, so short hops drift a creature around
- * its territory without leaving it, and one displaced past its leash may still step home. No leg starts
- * while a fight is live, and `combatSystem` skips acquisition for a travelling unit, so a graze leg is a
- * window in which a creature runs no combat.
+ * The standing drive: two animals standing on one node un-stack, since only walkers get the separation
+ * system's soft nudge, and an idle claimed animal occasionally steps to a spot near itself on its farm's or
+ * yard's leash. The leash bounds where a step may end rather than how far one reaches, so one displaced past
+ * it may still step home. Wild animals graze by their own stay decisions (`systems/wildlife`).
  *
- * source-basis: the territory radius is the verbatim extracted `maximumdistancetostaypoint`, consumed as a
- * node-lattice Manhattan radius like `maximumleaderdistance`, so a territory is a node diamond, wider than
- * tall in world units. Approximation: the step cadence and length, and the birth node as the anchor. The
- * key `maximumdistancetobirthpoint` suggests the stay point itself relocates within a wider radius, but
- * nothing readable gives a trigger or a cadence, so herds stay pinned to their spawn area.
- *
- * `range` is read before the cadence roll so a range-0 species stays out of the rng stream entirely.
+ * `range` is read before the cadence roll so a range-0 animal stays out of the rng stream entirely.
  */
 export const animalWanderSystem: System = (world, ctx) => {
   if (ctx.terrain === undefined) return; // mapless sim: no cells to roam over
@@ -88,17 +75,16 @@ export const animalWanderSystem: System = (world, ctx) => {
       continue;
     }
 
-    // Claimed livestock grazes at a calm pace on its farm's or its base yard's leash; a wild creature
-    // keeps its species' territory radius and the wild cadence.
+    // Claimed livestock grazes at a calm pace on its farm's or its base yard's leash.
+    if (!fields.claimed(e)) continue;
     const range = fields.rangeOf(e);
-    if (range <= 0) continue; // no territory to range over: this creature holds its spot
-    const period = fields.claimed(e) ? LIVESTOCK_WANDER_PERIOD_TICKS : ANIMAL_WANDER_PERIOD_TICKS;
-    if (ctx.rng.int(period) !== 0) continue;
+    if (range <= 0) continue; // no leash to range over: this animal holds its spot
+    if (ctx.rng.int(LIVESTOCK_WANDER_PERIOD_TICKS) !== 0) continue;
 
     const at = terrain.coordsOf(here);
     // A Manhattan diamond around the creature: `dx` first, then `dy` over what the step budget leaves.
     // Uniform per column rather than per node.
-    const step = Math.min(ANIMAL_WANDER_STEP_NODES, range);
+    const step = Math.min(LIVESTOCK_WANDER_STEP_NODES, range);
     const dx = ctx.rng.int(2 * step + 1) - step;
     const span = step - Math.abs(dx);
     const dy = ctx.rng.int(2 * span + 1) - span;

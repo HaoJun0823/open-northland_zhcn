@@ -59,8 +59,10 @@ describe('the slaughter summon', () => {
 
   it('leaves a frightened animal to the fright drive, still in hand', () => {
     const { sim, animal } = summoned();
-    const from = sim.terrain?.nodeAt(FARM_AT.hx + 4, FARM_AT.hy) ?? 0;
-    sim.world.add(animal, Frightened, { until: sim.tick + 10, repathAt: sim.tick, from });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('mapped fixture expected');
+    const from = terrain.nodeAt(FARM_AT.hx + 4, FARM_AT.hy);
+    sim.world.add(animal, Frightened, { from, dest: null });
     summon(sim);
     expect(sim.world.has(animal, MoveGoal)).toBe(false);
     expect(sim.world.get(animal, FarmAnimal).summoner).not.toBeNull();

@@ -40,12 +40,12 @@ import type { CombatPass } from './pass.js';
 import { combatTargetNode, targetReachable } from './target-node.js';
 import {
   ANIMAL_AGGRO_RADIUS_NODES,
-  ANIMAL_LEASH_NODES,
   isPriorityCombatTarget,
   isValidTarget,
   SIGHT_RADIUS_NODES,
   strikeRank,
   turnsAsideUnder,
+  WILD_VICTIM_TIERS,
   wildPursuit,
 } from './targeting.js';
 import { givenUpTargetVeto } from './unreachable-targets.js';
@@ -311,17 +311,20 @@ export class EngagementSpecs {
     // An unowned hostile animal advances on what its herd takes up; any other unowned combatant (a scenario
     // civ) swings in place, its search capped at weapon reach.
     if (isAnimalTribe(ctx.content, attacker.tribe)) {
-      const pursuit = wildPursuit(world, ctx, terrain, e, here, attacker);
+      const pursuit = wildPursuit(world, ctx, terrain, e, here);
       const wild = { minDist: advanceNear, player, animalSeeker: true, lowPriority: lowPriorityBuildings };
       switch (pursuit.kind) {
         case 'hold':
-          // Approximation: the chase stops short of the leash rather than a point past it, and one it gives
-          // up walks home too.
+          if (pursuit.retargetAround === undefined) {
+            return { ...wild, ...NO_SEARCH, lock: { target: pursuit.target }, defend: null };
+          }
           return {
             ...wild,
-            ...NO_SEARCH,
+            accept: this.wildAccept,
+            searchRadius: ANIMAL_AGGRO_RADIUS_NODES,
+            searchCenter: pursuit.retargetAround,
             lock: { target: pursuit.target },
-            defend: pursuit.stay === undefined ? null : wildLeash(pursuit.stay),
+            defend: null,
           };
         case 'search':
           return {
@@ -332,8 +335,6 @@ export class EngagementSpecs {
             lock: null,
             defend: null,
           };
-        case 'return':
-          return { ...wild, ...NO_SEARCH, lock: null, defend: wildLeash(pursuit.stay) };
         case 'idle':
           return { ...wild, ...NO_SEARCH, lock: null, defend: null };
       }
@@ -352,11 +353,6 @@ export class EngagementSpecs {
 
 /** A search that admits nothing, over the seeker's own node alone. */
 const NO_SEARCH = { accept: (): boolean => false, searchRadius: 0 } as const;
-
-/** A wild animal's leash on its stay point, which it walks back to once it lets its target go. */
-function wildLeash(stay: NodeId): NonNullable<EngageSpec['defend']> {
-  return { anchorCell: stay, leash: ANIMAL_LEASH_NODES, hold: true };
-}
 
 /** Whether `t`'s combat node lies within `reach` map points of `here`. */
 function inReachOf(
@@ -384,10 +380,9 @@ export interface EngageSpec {
   /** A hostile wild animal seeking - gates on {@link CombatIndex.civsWithin} instead. */
   readonly animalSeeker?: boolean;
   /** Where the search is centred and its candidates ranked from when not the seeker's own node: a wild
-   *  herd leader's stay point. */
+   *  herd leader's stay point. Beside a `lock`, the wild leader turns to a victim nearer it than the lock. */
   readonly searchCenter?: NodeId;
-  /** A hunter seeking prey: its primary tier is always game {@link CombatIndex.gameWithin} tallies, so a hold
-   *  on the deprioritized tier skips the search for something to yield to while none is in the band. */
+  /** A hunter seeking prey, whose acquisition rests after a pass that took none. */
   readonly preySeeker?: boolean;
   /** The deprioritized tier among accepted targets, searched only when the primary tier finds nothing in
    *  sight. It splits RAW search candidates ahead of {@link EngageSpec.accept}, so it must stay total
@@ -489,19 +484,22 @@ export function resolveTarget(
     // A commitment ignores `minDist`: prey that closes inside the weapon's dead zone is backed off by the
     // chase, not dropped. The tier rule still outranks it, so a hold on the deprioritized tier yields to
     // any primary-tier target in sight.
-    const preempt =
-      spec.lowPriority(locked) && (spec.preySeeker !== true || index.gameWithin(x, y, spec.searchRadius))
-        ? index.nearest(
-            x,
-            y,
-            spec.minDist,
-            spec.searchRadius,
-            (t) => !spec.lowPriority(t) && spec.accept(t),
-            spec.player,
-            SEARCH_METRIC,
-          )
-        : null;
+    const preempt = spec.lowPriority(locked)
+      ? index.nearest(
+          x,
+          y,
+          spec.minDist,
+          spec.searchRadius,
+          (t) => !spec.lowPriority(t) && spec.accept(t),
+          spec.player,
+          SEARCH_METRIC,
+        )
+      : null;
     if (preempt !== null) return focusedOn(world, ctx, terrain, here, preempt.entity);
+    if (spec.animalSeeker === true && spec.searchCenter !== undefined) {
+      const nearer = nearerWildVictim(world, ctx, terrain, pass, spec, spec.searchCenter, locked);
+      if (nearer !== null) return focusedOn(world, ctx, terrain, here, nearer);
+    }
     return focusedOn(world, ctx, terrain, here, locked);
   }
   // Idle early-out (perf-only): when the coarse presence grid proves no member of a player at war with the
@@ -511,7 +509,10 @@ export function resolveTarget(
   // The animal seeker's twin: no civ in the band proves both empty.
   if (spec.animalSeeker === true && !index.civsWithin(x, y, spec.searchRadius)) return null;
   // A nearer tier-2 target never preempts a tier-1 target in sight.
-  const found = pickInBand(pass, spec, x, y, 'primary') ?? pickInBand(pass, spec, x, y, 'low');
+  const found =
+    spec.animalSeeker === true
+      ? pickWildVictim(world, ctx, pass, spec, x, y)
+      : (pickInBand(pass, spec, x, y, 'primary') ?? pickInBand(pass, spec, x, y, 'low'));
   return found === null ? null : focusedOn(world, ctx, terrain, here, found.entity);
 }
 
@@ -955,6 +956,52 @@ function pickInBand(
   const wantsLowPriority = tier === 'low';
   const accept = (t: Entity): boolean => spec.lowPriority(t) === wantsLowPriority && spec.accept(t);
   return pass.index.nearest(x, y, spec.minDist, spec.searchRadius, accept, spec.player, SEARCH_METRIC);
+}
+
+/** The nearest victim `spec` and `also` admit around `x, y` in the first of {@link WILD_VICTIM_TIERS} that
+ *  holds one. */
+function pickWildVictim(
+  world: World,
+  ctx: SystemContext,
+  pass: CombatPass,
+  spec: EngageSpec,
+  x: number,
+  y: number,
+  also?: (t: Entity) => boolean,
+): { entity: Entity; distance: number } | null {
+  for (const tier of WILD_VICTIM_TIERS) {
+    const found = pass.index.nearest(
+      x,
+      y,
+      spec.minDist,
+      spec.searchRadius,
+      (t) => tier(world, ctx, t) && (also === undefined || also(t)) && spec.accept(t),
+      spec.player,
+      SEARCH_METRIC,
+    );
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+/** The victim a wild leader holding `held` turns to: the first of {@link WILD_VICTIM_TIERS} holding one
+ *  nearer `center` than `held`, the nearest of it. Original behavior. */
+function nearerWildVictim(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  pass: CombatPass,
+  spec: EngageSpec,
+  center: NodeId,
+  held: Entity,
+): Entity | null {
+  const x = terrain.xOf(center);
+  const y = terrain.yOf(center);
+  if (!pass.index.civsWithin(x, y, spec.searchRadius)) return null;
+  const heldDist = hexNodeDistance(terrain, center, entityNode(world, terrain, held));
+  const nearer = (t: Entity): boolean =>
+    t !== held && hexNodeDistance(terrain, center, entityNode(world, terrain, t)) < heldDist;
+  return pickWildVictim(world, ctx, pass, spec, x, y, nearer)?.entity ?? null;
 }
 
 /** A focused target and its real distance from `here`, uncapped by the search band - a building

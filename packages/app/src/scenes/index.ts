@@ -12,6 +12,7 @@ import { audioMixScene } from './audio-mix.js';
 import { barracksScene } from './barracks.js';
 import { battleScene } from './battle.js';
 import { battleWearyScene } from './battle-weary.js';
+import { bearHuntScene } from './bear-hunt.js';
 import { berriesScene } from './berries.js';
 import { bowFlightScene } from './bow-flight.js';
 import { buildingDamageScene, buildingDamageVariantsScene } from './building-damage.js';
@@ -163,6 +164,7 @@ export const SCENES: readonly SceneDefinition[] = [
   gossipScene,
   wildlifeScene,
   wolfPackScene,
+  bearHuntScene,
   creaturesScene,
   creatureFormsScene,
   movementContinuityScene,

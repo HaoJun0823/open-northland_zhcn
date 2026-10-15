@@ -1,5 +1,5 @@
 import type { Fixed } from '../core/fixed.js';
-import { defineComponent, type Entity } from '../ecs/world.js';
+import { defineComponent, type Entity, type World } from '../ecs/world.js';
 import type { NodeId } from '../nav/terrain/index.js';
 
 /** World position in fixed-point tile units. */
@@ -17,6 +17,46 @@ export const HerdMember = defineComponent<{ leader: Entity }>('HerdMember', 'mov
  * `spawnAnimalHerd` placed on a map carries one, so it doubles as the roaming-wildlife marker.
  */
 export const StayPoint = defineComponent<{ cell: NodeId }>('StayPoint', 'movement');
+
+/**
+ * A free-roaming animal's range and appetite, the state the original keeps beside its {@link StayPoint}.
+ * Only a map-spawned or wild-born animal carries one; a claim drops it.
+ */
+export const WildHabitat = defineComponent<{
+  /** The point the animal's range is measured from; a wild herd's drifts away from foreign buildings. */
+  birth: NodeId;
+  /** The point a leader's next graze leg starts from; it creeps one map point at a time over grass. */
+  workCenter: NodeId;
+  /** The tick its hunger runs out: hunger falls one per tick and a meal adds to it. */
+  fedUntil: number;
+  /** A leader's grazing left around its stay point; the herd's meals use it up. */
+  food: number;
+  /** The tick of its next stay decision, the end of the idle or meal clip it plays. */
+  nextStayAt: number;
+  /** The node a leader's graze leg aims at, until it decides again. */
+  nextPoint?: NodeId | undefined;
+}>('WildHabitat', 'movement');
+
+/** Original behavior: the bits of a map's `setanimal` flags word an animal honours. */
+export const ANIMAL_FLAG = {
+  /** Its work center never moves. */
+  FIXED_WORK_CENTER: 1,
+  /** It never breeds. */
+  NEVER_BREEDS: 2,
+  /** Its stay range is 5 map points, whatever its species' `maximumdistancetostaypoint`. */
+  NARROW_STAY_RANGE: 4,
+  /** A blow takes none of its hitpoints; everything else about the blow still happens. */
+  TAKES_NO_DAMAGE: 8,
+} as const;
+export type AnimalFlag = (typeof ANIMAL_FLAG)[keyof typeof ANIMAL_FLAG];
+
+/** An animal's nonzero `setanimal` flags word, kept whole and passed on to the young it bears. It
+ *  outlives a claim, since the bits belong to the animal rather than to its wild range. */
+export const AnimalFlags = defineComponent<{ bits: number }>('AnimalFlags', 'movement');
+
+export function hasAnimalFlag(world: World, e: Entity, flag: AnimalFlag): boolean {
+  return ((world.tryGet(e, AnimalFlags)?.bits ?? 0) & flag) !== 0;
+}
 
 /**
  * How far this entity advances toward its current {@link PathFollow} waypoint each tick, in fixed-point

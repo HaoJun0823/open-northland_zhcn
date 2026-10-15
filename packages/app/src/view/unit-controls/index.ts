@@ -153,6 +153,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     snapshot: opts.snapshot,
     viewer: opts.viewer,
     hostileToward: opts.hostileToward,
+    animalCannotBeAttacked: (tribe) => systems.animalCannotBeAttacked(opts.content, tribe),
     drawnItems: opts.drawnItems,
     boundsOf: opts.boundsOf,
     pixelHitOf: opts.pixelHitOf,

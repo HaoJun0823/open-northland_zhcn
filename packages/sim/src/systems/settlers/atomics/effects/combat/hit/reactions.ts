@@ -1,10 +1,13 @@
 import {
+  Age,
   Anger,
   AttackOrder,
   diplomacyStance,
   Engagement,
   FOG_MODE,
   Frightened,
+  Health,
+  isWildlife,
   Owner,
   ownerOf,
   PlayerOrder,
@@ -13,18 +16,20 @@ import {
   recordContact,
   Settler,
   type SettlerIdentity,
-  StayPoint,
   setDiplomacyStance,
   Weapon,
 } from '../../../../../../components/index.js';
 import type { Entity, World } from '../../../../../../ecs/world.js';
+import { rowReachLeft, rowReachRight } from '../../../../../../nav/halfcell.js';
+import type { NodeId, TerrainGraph } from '../../../../../../nav/terrain/index.js';
 import { holdEnemy } from '../../../../../conflict/chase.js';
 import { passIndexOf } from '../../../../../conflict/combat-index.js';
-import { frightenKin } from '../../../../../conflict/fright.js';
 import { combatTargetNode } from '../../../../../conflict/target-node.js';
 import {
+  angryAnimal,
   firingBuildings,
   isValidTarget,
+  keepsWildTarget,
   type StrikeRank,
   strikeRank,
   turnsAsideUnder,
@@ -35,6 +40,7 @@ import { withinBand } from '../../../../../conflict/weapon-band.js';
 import { attackerWeapon } from '../../../../../conflict/weapons.js';
 import type { SystemContext } from '../../../../../context.js';
 import { herdLeaderOf } from '../../../../../movement/herd-leader.js';
+import { settlersByNode } from '../../../../../movement/settler-nodes.js';
 import {
   angryGameTimeOf,
   isAggressiveAnimal,
@@ -50,6 +56,7 @@ import { entityNode } from '../../../../../spatial/nodes.js';
  * Provoke a struck passive `getAngry` animal into temporary hostility - the provoked half of
  * `animaltypes.ini` aggression. Stamps an {@link Anger} deadline the `combatSystem` reads to make the
  * animal fight back until it lapses; a re-strike refreshes it, so harassment keeps the animal angry.
+ * Original behavior: `angryGameTime` counts down once per game tick, the unit of this sim's tick.
  */
 export function provokeAnger(world: World, ctx: SystemContext, target: Entity): void {
   const settler = world.tryGet(target, Settler);
@@ -64,25 +71,6 @@ export function provokeAnger(world: World, ctx: SystemContext, target: Entity): 
   const anger = world.tryMut(target, Anger);
   if (anger === undefined) world.add(target, Anger, { until });
   else anger.until = until;
-}
-
-/**
- * Send a struck animal and its kin running from its attacker, unless the blow provoked it. Original
- * behavior: a blow, not a loosed shot, sends game running.
- */
-export function frightenStruckAnimal(
-  world: World,
-  ctx: SystemContext,
-  attacker: Entity,
-  target: Entity,
-): void {
-  const terrain = ctx.terrain;
-  if (terrain === undefined || !world.has(target, StayPoint) || !world.has(target, Position)) return;
-  // A provoked animal's kin within the scare's reach were provoked with it by the alarm.
-  if (world.has(target, Anger)) return;
-  // A shot outlives a slain archer; its quarry then runs from where it stands.
-  const threat = world.has(attacker, Position) ? attacker : target;
-  frightenKin(world, ctx, terrain, target, entityNode(world, terrain, threat));
 }
 
 /**
@@ -185,48 +173,96 @@ function withinOwnBand(
 export const KIN_ALARM_RADIUS_NODES = 20;
 
 /**
- * Rouse a struck animal's kin as if each were struck: every animal of its species and side within
- * {@link KIN_ALARM_RADIUS_NODES} is provoked and, holding no target, takes the attacker. Original behavior:
- * a blow on an animal re-runs the struck reaction for those kin, so a pack fights as one. A species neither
- * aggressive nor `getAngry` only runs, which {@link frightenStruckAnimal} covers. Approximation: the
- * alarmed kin take no damage of their own.
+ * An animal's answer to a blow, and its kin's. Original behavior: the struck animal and every animal of its
+ * kind and side within {@link KIN_ALARM_RADIUS_NODES} of it react as if struck, the kin by a blow of no
+ * damage: a `getAngry` one grows angry, and then each in turn {@link answerBlow}s. Leaders answer before
+ * followers, so a follower reads whether its leader runs; the fright drive sends a fleeing leader's
+ * followers after it.
  */
-export function alarmKin(world: World, ctx: SystemContext, attacker: Entity, struck: Entity): void {
-  const terrain = ctx.terrain;
-  const kind = world.tryGet(struck, Settler)?.tribe;
-  if (terrain === undefined || kind === undefined) return;
-  if (!world.has(struck, StayPoint) || !world.has(struck, Position)) return;
-  if (!isAggressiveAnimal(ctx.content, kind) && !isProvokableAnimal(ctx.content, kind)) return;
-  const side = ownerOf(world, struck);
-  const at = entityNode(world, terrain, struck);
-  for (const e of world.query(StayPoint, Settler, Position)) {
-    if (e === struck || world.get(e, Settler).tribe !== kind || ownerOf(world, e) !== side) continue;
-    if (world.has(e, Resting)) continue; // indoors, out of earshot
-    if (hexNodeDistance(terrain, at, entityNode(world, terrain, e)) > KIN_ALARM_RADIUS_NODES) continue;
-    provokeAnger(world, ctx, e);
-    animalTakesAttacker(world, ctx, attacker, e);
-  }
-}
-
-/**
- * Turn a struck wild animal on its attacker, the unowned twin of {@link turnOnAttacker}. Original behavior:
- * an animal holding no target, leader or follower, takes the one who struck it, unless its leader is
- * fleeing. Only a hostile animal does: {@link isValidTarget} admits the attacker for an aggressive or
- * provoked one alone.
- */
-export function animalTakesAttacker(
+export function reactToBlowOnAnimal(
   world: World,
   ctx: SystemContext,
   attacker: Entity,
-  victim: Entity,
+  struck: Entity,
 ): void {
-  const settler = world.tryGet(victim, Settler);
-  if (settler === undefined || world.has(victim, Owner)) return;
-  if (world.has(herdLeaderOf(world, victim), Frightened)) return;
-  const engagement = world.tryGet(victim, Engagement);
-  const held = engagement?.target;
-  if (held !== undefined && isValidTarget(world, ctx, victim, settler, held)) return;
-  if (!isValidTarget(world, ctx, victim, settler, attacker)) return;
-  if (engagement === undefined) world.add(victim, Engagement, { repathAt: ctx.tick, target: attacker });
-  else world.mut(victim, Engagement).target = attacker;
+  const terrain = ctx.terrain;
+  const kind = world.tryGet(struck, Settler)?.tribe;
+  if (terrain === undefined || kind === undefined || !world.has(struck, Position)) return;
+  if (!isWildlife(world, struck)) return;
+  const side = ownerOf(world, struck);
+  const at = entityNode(world, terrain, struck);
+  const threat = world.has(attacker, Position) ? entityNode(world, terrain, attacker) : at;
+  const herd = kinWithin(world, terrain, at, struck, kind, side);
+  for (const e of herd) provokeAnger(world, ctx, e);
+  for (const e of herd) if (herdLeaderOf(world, e) === e) answerBlow(world, ctx, attacker, e, threat);
+  for (const e of herd) if (herdLeaderOf(world, e) !== e) answerBlow(world, ctx, attacker, e, threat);
+}
+
+/**
+ * One animal's answer to a blow from `attacker`. Original behavior: an adult, angry animal struck by a
+ * person or animal of another side takes the striker for its target, unless it already holds one or its
+ * leader runs; otherwise a leader runs from the blow, and a follower does nothing of its own.
+ * Approximation: a player's animal fights through no drive of this sim, so an angry one runs like a calm one.
+ */
+function answerBlow(world: World, ctx: SystemContext, attacker: Entity, e: Entity, threat: NodeId): void {
+  if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) return;
+  const tribe = world.get(e, Settler).tribe;
+  const fights =
+    !world.has(e, Owner) &&
+    !world.has(e, Age) &&
+    angryAnimal(world, ctx, e, tribe) &&
+    world.has(attacker, Settler) &&
+    !sameSide(world, attacker, e);
+  if (fights) {
+    const held = world.tryGet(e, Engagement)?.target;
+    if (held !== undefined && keepsWildTarget(world, e, held)) return;
+    if (world.has(herdLeaderOf(world, e), Frightened)) return;
+    if (!keepsWildTarget(world, e, attacker)) return;
+    if (held === undefined) world.add(e, Engagement, { repathAt: ctx.tick, target: attacker });
+    else world.mut(e, Engagement).target = attacker;
+    return;
+  }
+  if (herdLeaderOf(world, e) !== e) return;
+  const fright = world.tryMut(e, Frightened);
+  if (fright === undefined) world.add(e, Frightened, { from: threat, dest: null });
+  else {
+    // A fresh blow re-aims the flight: it may come from the other side.
+    fright.from = threat;
+    fright.dest = null;
+  }
+}
+
+/** Whether `attacker` strikes from `animal`'s own side: the same player, or both wild, where no person is. */
+function sameSide(world: World, attacker: Entity, animal: Entity): boolean {
+  const side = ownerOf(world, animal);
+  if (ownerOf(world, attacker) !== side) return false;
+  return side !== undefined || isWildlife(world, attacker);
+}
+
+/** The struck animal and its kin of `kind` and `side` within {@link KIN_ALARM_RADIUS_NODES} of `at`, out in
+ *  the open, ascending by id. */
+function kinWithin(
+  world: World,
+  terrain: TerrainGraph,
+  at: NodeId,
+  struck: Entity,
+  kind: number,
+  side: number | undefined,
+): Entity[] {
+  const centre = { hx: terrain.xOf(at), hy: terrain.yOf(at) };
+  const byNode = settlersByNode(world);
+  const herd: Entity[] = [];
+  const lastRow = Math.min(terrain.height - 1, centre.hy + KIN_ALARM_RADIUS_NODES);
+  for (let hy = Math.max(0, centre.hy - KIN_ALARM_RADIUS_NODES); hy <= lastRow; hy++) {
+    const right = Math.min(terrain.width - 1, rowReachRight(centre, hy, KIN_ALARM_RADIUS_NODES));
+    for (let hx = Math.max(0, rowReachLeft(centre, hy, KIN_ALARM_RADIUS_NODES)); hx <= right; hx++) {
+      for (const e of byNode.at(hx, hy)) {
+        if (e !== struck && world.has(e, Resting)) continue; // indoors, out of earshot
+        if (world.get(e, Settler).tribe !== kind || ownerOf(world, e) !== side) continue;
+        if (isWildlife(world, e)) herd.push(e);
+      }
+    }
+  }
+  if (!herd.includes(struck)) herd.push(struck);
+  return herd.sort((a, b) => a - b);
 }

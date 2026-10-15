@@ -1,6 +1,6 @@
 import { systems } from '@open-northland/sim';
 import { NAV_LANDSCAPE_TYPES } from '../../catalog/terrain.js';
-import { GATHERERS, type GathererSpec, GOOD_MUD } from './ids/index.js';
+import { GATHERERS, type GathererSpec, GOOD_LEATHER, GOOD_MEAT, GOOD_MUD } from './ids/index.js';
 import { sandboxPalisadeGfx, sandboxPalisadeLandscapeTypes } from './palisades.js';
 
 /** Structural, so both the authored cell grids and the sim's half-cell maps satisfy it. */
@@ -14,6 +14,35 @@ const RESOURCE_GFX_BASE = 2000;
 /** `landscapetypes.ini` type 44 `meat` and its decoded `meat pile 01` record: what a dead animal leaves. */
 const MEAT_LANDSCAPE_TYPE = 44;
 const MEAT_PILE_GFX_INDEX = 215;
+
+/**
+ * `landscapetypes.ini` 79 `cadaver_leather` and 80 `cadaver_meat`, the body a hunter's kill lays: each
+ * stage's readable harvest `transition` tuple (event, next type, 2, valency step, good), re-keyed on the
+ * sandbox's leather and meat goods.
+ */
+const CADAVER_LEATHER_TYPE = 79;
+const CADAVER_MEAT_TYPE = 80;
+const HARVEST_TRANSITION_EVENT = 3;
+const PLUCK_VALENCY_STEP = -1;
+function cadaverPluck(next: number, good: number): number[] {
+  return [HARVEST_TRANSITION_EVENT, next, 2, PLUCK_VALENCY_STEP, good];
+}
+const CADAVER_LANDSCAPE_TYPES = [
+  {
+    typeId: CADAVER_LEATHER_TYPE,
+    id: 'cadaver_leather',
+    walkable: true,
+    buildable: true,
+    transitions: [cadaverPluck(CADAVER_MEAT_TYPE, GOOD_LEATHER)],
+  },
+  {
+    typeId: CADAVER_MEAT_TYPE,
+    id: 'cadaver_meat',
+    walkable: true,
+    buildable: true,
+    transitions: [cadaverPluck(CADAVER_LEATHER_TYPE, GOOD_MEAT)],
+  },
+];
 
 function resourceLandscapeType(good: number): number {
   return RESOURCE_LANDSCAPE_BASE + good;
@@ -66,12 +95,18 @@ function workAreas(g: GathererSpec): number[][] {
   ];
 }
 
-export function sandboxLandscape(
-  map?: TerrainTypeIds,
-): Array<{ typeId: number; id: string; walkable: boolean; buildable: boolean; plantable?: boolean }> {
+export function sandboxLandscape(map?: TerrainTypeIds): Array<{
+  typeId: number;
+  id: string;
+  walkable: boolean;
+  buildable: boolean;
+  plantable?: boolean;
+  transitions?: number[][];
+}> {
   const base = [
     ...NAV_LANDSCAPE_TYPES,
     { typeId: MEAT_LANDSCAPE_TYPE, id: systems.MEAT_LANDSCAPE_SLUG, walkable: true, buildable: true },
+    ...CADAVER_LANDSCAPE_TYPES,
     ...sandboxPalisadeLandscapeTypes(),
     ...GATHERERS.map((g) => ({
       typeId: resourceLandscapeType(g.good),

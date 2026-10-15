@@ -377,7 +377,7 @@ describe('CombatIndex nearest search - equivalent to the node ring walk', () => 
   });
 
   it('scans a query nested in an accept into its own buffer, leaving the outer band intact', () => {
-    // The hunter's last-resort gate asks for game from inside its own candidate filter.
+    // A candidate filter may query the index again from inside the outer scan.
     const sim = mappedSim(1);
     const outer = [10, 14, 16].map((x) => combatantAtNode(sim, x, 10, P1, MILITARY_MODE.ATTACK));
     const inner = [60, 61, 62].map((x) => combatantAtNode(sim, x, 10, P1, MILITARY_MODE.ATTACK));

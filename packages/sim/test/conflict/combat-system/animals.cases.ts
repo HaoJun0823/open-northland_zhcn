@@ -8,12 +8,10 @@ import {
   HerdMember,
   MoveGoal,
   Owner,
-  Position,
-  StayPoint,
   WalkFacing,
 } from '../../../src/components/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
-import { positionOfNode, Simulation } from '../../../src/index.js';
+import { Simulation } from '../../../src/index.js';
 import { atomicSystem, combatSystem } from '../../../src/systems/index.js';
 import { testContent } from '../../fixtures/content.js';
 import { fixtureTick, nextTickCtxOf } from '../../fixtures/context.js';
@@ -290,17 +288,33 @@ describe('combatSystem - hostile-animal advance', () => {
     expect(sim.world.get(follower, Engagement).target).toBe(leaderTarget);
   });
 
-  it('drops a chase when its former target has left the search circle', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(28, 1) });
-    const bear = fighterAt(sim, 0, 0, BEAR, null);
-    const target = fighterAt(sim, 2, 0, VIKING, WOODCUTTER);
-    const terrain = sim.terrain;
-    if (terrain === undefined) throw new Error('mapped fixture expected');
-    sim.world.add(bear, StayPoint, { cell: terrain.nodeAt(0, 0) });
-    sim.world.add(bear, Engagement, { target, repathAt: 0 });
-    sim.world.add(bear, Position, positionOfNode(42, 0));
+  it('a passive follower within the leader distance takes up its attacking leader target', () => {
+    // Deer that keep herds: a passive follower runs no search of its own, so only the leader's attack
+    // brings it into the fight. Cells 2 points apart on a row: 10 cells = 20 points.
+    const LEADER_DISTANCE_POINTS = 20;
+    const base = testContent();
+    const content = {
+      ...base,
+      animals: base.animals.map((a) =>
+        a.tribeType === DEER
+          ? { ...a, maximumGroupSize: 3, maximumLeaderDistance: LEADER_DISTANCE_POINTS }
+          : a,
+      ),
+    };
+    const sim = new Simulation({ seed: 1, content, map: grassMap(40, 1) });
+    const leader = fighterAt(sim, 12, 0, DEER, null);
+    const near = fighterAt(sim, 3, 0, DEER, null);
+    const far = fighterAt(sim, 1, 0, DEER, null);
+    const target = fighterAt(sim, 14, 0, VIKING, WOODCUTTER);
+    sim.world.add(leader, HerdMember, { leader });
+    sim.world.add(near, HerdMember, { leader });
+    sim.world.add(far, HerdMember, { leader });
+    sim.world.add(leader, Engagement, { target, repathAt: 0 });
+
     combatSystem(sim.world, ctxOf(sim));
-    expect(sim.world.has(bear, Engagement)).toBe(false);
+
+    expect(sim.world.get(near, Engagement).target).toBe(target);
+    expect(sim.world.has(far, Engagement)).toBe(false);
   });
 
   it('a passive animal never advances (only a hostile one ambushes)', () => {

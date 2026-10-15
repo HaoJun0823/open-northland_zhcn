@@ -183,9 +183,9 @@ describe('resolveAuthoredPlacements', () => {
       buildings: [],
       humans: [{ tribe: 'viking', role: 'builder', player: 0, hx: 3, hy: 5 }],
       animals: [
-        { species: 'hares', player: WILD_ANIMAL_PLAYER, hx: 1, hy: 1 },
+        { species: 'hares', player: WILD_ANIMAL_PLAYER, hx: 1, hy: 1, behaviour: 9 }, // its flags word rides along
         { species: 'evil hares', player: WILD_ANIMAL_PLAYER, hx: 2, hy: 1 }, // joins via the display NAME (id is evil_hares)
-        { species: 'cattle ', player: WILD_ANIMAL_PLAYER, hx: 3, hy: 1 }, // the trailing-space variant maps really author
+        { species: 'cattle ', player: WILD_ANIMAL_PLAYER, hx: 3, hy: 1, behaviour: 0 }, // the trailing-space variant maps really author
         { species: 'deers', player: WILD_ANIMAL_PLAYER, hx: 4, hy: 1 }, // no animals row → the sim would drop it: skip + count
         { species: 'gryphons', player: WILD_ANIMAL_PLAYER, hx: 5, hy: 1 }, // unknown species → skip + count
         { species: 'hares', player: WILD_ANIMAL_PLAYER, hx: 99, hy: 1 }, // out of bounds → skip + count
@@ -195,7 +195,7 @@ describe('resolveAuthoredPlacements', () => {
     const { placements, skippedAnimals } = resolveAuthoredPlacements(entities, rows, authoredMap());
     expect(placements).toEqual([
       { kind: 'human', jobType: 7, tribe: 1, x: 3, y: 5, owner: 0 },
-      { kind: 'animal', tribe: 16, x: 1, y: 1 },
+      { kind: 'animal', tribe: 16, x: 1, y: 1, flags: 9 },
       { kind: 'animal', tribe: 18, x: 2, y: 1 },
       { kind: 'animal', tribe: 10, x: 3, y: 1 },
     ]);

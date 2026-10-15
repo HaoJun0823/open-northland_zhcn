@@ -11,6 +11,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, positionOfNode, Simulation } from '../../src/index.js';
+import { HUNT_PREY_SCORE_CEILING } from '../../src/systems/conflict/hunting/spec.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { entityNode } from '../../src/systems/spatial/nodes.js';
 import { COW, fighterAtNode, HUNTER } from '../conflict/combat-system/support.js';
@@ -29,11 +30,15 @@ import { justAbove, NEED_DRIVE_THRESHOLD } from './needs/support.js';
  */
 
 const EAT_ATOMIC = 10;
-/** Enough to outlast the meal: the hunt is still on when the hunter comes back. */
-const TOUGH_HITPOINTS = 20_000;
+/** Enough to outlast the meal, yet under the pick's score ceiling: the hunt is still on when the hunter
+ *  comes back. */
+const TOUGH_HITPOINTS = HUNT_PREY_SCORE_CEILING - 1_000;
 
-/** The test content with the fixture spear made a ranged weapon, so the hunter shoots from its band, and
- *  the cow given a territory, so a struck one keeps to the hunting ground. */
+/** Map points from the hunter's flag to past every corner of the 64x64-cell test map: a struck cow runs
+ *  20 points from each blow, and the hunt under test must not end at the ground's edge. */
+const MAP_WIDE_GROUND_RADIUS = 128;
+
+/** The test content with the fixture spear made a ranged weapon, so the hunter shoots from its band. */
 function huntContent(): ContentSet {
   return parseContentSet({
     manifest: TEST_MANIFEST,
@@ -43,19 +48,16 @@ function huntContent(): ContentSet {
     weapons: combatContent.weapons.map((w) =>
       w.id === 'test_spear' ? { ...w, munitionType: 1, speed: 8 } : w,
     ),
-    animals: societyContent.animals.map((a) =>
-      a.tribeType === COW ? { ...a, maximumDistanceToStayPoint: 6 } : a,
-    ),
   });
 }
 
-/** A hunter posted on its own node, with a flag-bound hunting ground. */
+/** A hunter posted on its own node, with a flag-bound hunting ground spanning the map. */
 function postedHunter(sim: Simulation, hx: number, hy: number): Entity {
   const e = combatantAtNode(sim, hx, hy, P0, MILITARY_MODE.IGNORE, { jobType: HUNTER });
   const flag = sim.world.create();
   sim.world.add(flag, Position, positionOfNode(hx, hy));
   sim.world.add(flag, DeliveryFlag, {});
-  sim.world.add(e, WorkFlag, { flag, radius: 24 });
+  sim.world.add(e, WorkFlag, { flag, radius: MAP_WIDE_GROUND_RADIUS });
   return e;
 }
 
@@ -97,7 +99,8 @@ describe('hunter - a pressing need breaks off the hunt', () => {
     sim.world.add(cow, StayPoint, { cell: entityNode(sim.world, terrain, cow) });
     setNeeds(sim, hunter, { hunger: justAbove(NEED_DRIVE_THRESHOLD) });
 
-    let guard = 1200;
+    // Each blow sends the cow 20 points off, so the hunter shoots, chases and shoots again.
+    let guard = 2400;
     while (sim.world.isAlive(cow) && guard-- > 0) sim.step();
     expect(sim.world.isAlive(cow)).toBe(false); // the meat it hunts is the food it lacks
   });

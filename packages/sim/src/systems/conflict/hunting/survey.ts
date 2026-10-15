@@ -8,11 +8,11 @@ import { combatDormantOn, passIndexOf } from '../combat-index.js';
 import { isHuntTarget, SIGHT_RADIUS_NODES } from '../targeting.js';
 import { groundDistance, huntingGround } from './ground.js';
 import { preyHeldByOthers } from './prey-holds.js';
-import { isLastResortAnimal, lastResortGate, preyOnBank } from './spec.js';
+import { HUNT_PREY_SCORE_CEILING, preyOnBank, preyScore } from './spec.js';
 
 /**
  * What a hunter's prey acquisition finds in its ground: `game` an animal it would draw on, `cutOff` only
- * game across a terrain seam or given up as unreachable, `none` no free game in its ground.
+ * game across a terrain seam or given up as unreachable, `none` no free game in its ground it would pick.
  */
 export type HuntingGameSurvey = 'game' | 'cutOff' | 'none';
 
@@ -44,14 +44,6 @@ export function surveyHuntingGame(
   const givenUp = world.tryGet(e, UnreachableTargets)?.entries;
   const gaveUp = (t: Entity): boolean =>
     givenUp?.some((entry) => entry.target === t && entry.until > ctx.tick) ?? false;
-  const lastResortOk = lastResortGate(
-    terrain,
-    index,
-    center,
-    radius,
-    (t) => preyOnBank(world, ctx, terrain, t, jobType, bank),
-    (t) => isLastResortAnimal(world, ctx, t),
-  );
   let cutOff = false;
   const { x, y } = terrain.coordsOf(center);
   const found = index.nearest(
@@ -63,12 +55,13 @@ export function surveyHuntingGame(
       if (!isHuntTarget(world, ctx, t, jobType)) return false;
       if (ground !== null && groundDistance(terrain, center, entityNode(world, terrain, t)) > radius)
         return false;
+      if (preyScore(world, terrain, here, t) >= HUNT_PREY_SCORE_CEILING) return false;
       if (heldByColleague(t)) return false;
       if (!preyOnBank(world, ctx, terrain, t, jobType, bank) || gaveUp(t)) {
         cutOff = true;
         return false;
       }
-      return lastResortOk(t);
+      return true;
     },
     null,
     'hex',

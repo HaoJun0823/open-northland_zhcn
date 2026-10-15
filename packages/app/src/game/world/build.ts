@@ -145,6 +145,7 @@ export function enqueuePlacements(sim: Simulation, placements: readonly Authored
         count: 1,
         ...(p.owner !== undefined ? { owner: p.owner } : {}),
         ...(p.missionId !== undefined ? { missionId: p.missionId } : {}),
+        ...(p.flags !== undefined ? { flags: p.flags } : {}),
       });
       continue;
     }

@@ -4,8 +4,7 @@ import { animalCannotBeAttacked, isAggressiveAnimal, isAnimalTribe, isHuntablePr
 
 /**
  * The predation relation, gated by the attacker's job rather than by tribe hostility, and one direction
- * only: provoked prey fights back through the combat `Anger` path instead. The last-resort ordering is the
- * target search's tiering, not this pairwise relation.
+ * only: provoked prey fights back through the combat `Anger` path instead.
  */
 export function mayHunt(content: ContentSet, attackerJobType: number | null, targetTribe: number): boolean {
   if (!isHunterJob(content, attackerJobType)) return false;

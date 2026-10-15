@@ -90,6 +90,8 @@ export type AuthoredPlacement =
       owner?: number;
       /** The `setanimal` mission object id. */
       missionId?: number;
+      /** The `setanimal` flags word, absent when 0. */
+      flags?: number;
     };
 
 /**
@@ -288,6 +290,7 @@ export function resolveAuthoredPlacements(
       y: a.hy,
       ...(components.isValidPlayer(a.player) ? { owner: a.player } : {}),
       ...(a.missionId !== undefined ? { missionId: a.missionId } : {}),
+      ...(a.behaviour !== undefined && a.behaviour !== 0 ? { flags: a.behaviour } : {}),
     });
   }
   for (const guide of entities.guides ?? []) {

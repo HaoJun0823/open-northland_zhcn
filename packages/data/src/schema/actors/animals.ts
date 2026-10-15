@@ -47,7 +47,7 @@ export const AnimalType = z.strictObject({
   runSpeed: z.number().int().nonnegative().default(0),
   /** `catchable` - livestock a scout claims by contact (cows/sheep) vs wild-only. */
   catchable: z.boolean().default(false),
-  /** `warrantable` - can be claimed/owned (livestock vs wildlife). */
+  /** `warrantable` - game: the hunter's own prey search takes only wild animals of a warrantable type. */
   warrantable: z.boolean().default(false),
   /** `cannotbeattacked` - immune to civ attacks (bees/decorative fauna). */
   cannotBeAttacked: z.boolean().default(false),

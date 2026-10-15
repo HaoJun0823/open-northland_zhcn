@@ -357,10 +357,15 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
       return walk(walkers);
     }
     // The scouts go after a claimable animal; the rest take the ladder, which strikes an enemy's animal.
-    const rest = animal === null ? commanded : claimAnimal(commanded, animal);
-    if (rest.length === 0) return true;
+    // An animal the scouts are claiming is struck by nobody: the others take their order under it.
+    const unclaiming = animal === null ? commanded : claimAnimal(commanded, animal);
+    if (unclaiming.length === 0) return true;
+    const claimed = unclaiming.length < commanded.length ? animal : null;
     const enemy = pickTopAt(deps.targets.enemies(), world.x, world.y);
-    if (enemy !== null) return strike(rest, enemy);
+    if (enemy !== null && enemy !== claimed) return strike(unclaiming, enemy);
+    const prey = pickTopAt(deps.targets.wildlife(), world.x, world.y);
+    const rest = prey === null || prey === claimed ? unclaiming : huntWithFighters(unclaiming, prey);
+    if (rest.length === 0) return true;
     // A chest nobody selected may open is walked to like any ground.
     if (chest !== null && openChest(rest, chest)) return true;
     if (
@@ -392,6 +397,22 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     const others = gatherFromResource(rest, world.x, world.y);
     if (others.length === 0) return true;
     return rightClickRest(event, others, aim);
+  };
+
+  /** The fighters among `commanded` strike a wild animal; returns the rest for the usual ladder. Original
+   *  behavior: the right click offers every settler the attack-animal order; here only fighters take it. */
+  const huntWithFighters = (commanded: readonly FormationUnit[], prey: number): readonly FormationUnit[] => {
+    const snapshot = deps.snapshot();
+    const fighters: FormationUnit[] = [];
+    const others: FormationUnit[] = [];
+    for (const unit of commanded) {
+      const self = entityById(snapshot, unit.ref);
+      const fighter = self !== undefined && systems.isFighterJob(deps.content, settlerJobType(self) ?? null);
+      (fighter ? fighters : others).push(unit);
+    }
+    // Fighters whose strike is refused take the click's normal order with the rest.
+    if (fighters.length === 0 || !strike(fighters, prey)) return commanded;
+    return others;
   };
 
   /** A right click on a resource switches the gatherers among `commanded` that gather its good to it,

@@ -64,7 +64,7 @@ import { breaksHuntForNeed, holdPrey, preySearchResting, restPreySearch } from '
 import type { MeleeSlots } from './melee-slots.js';
 import type { CombatPass } from './pass.js';
 import { combatTargetNode, targetBodyNodes } from './target-node.js';
-import { hostileAnimalNow, isValidOrderedTarget, isValidTarget } from './targeting.js';
+import { hostileAnimalNow, isValidOrderedTarget, isValidTarget, wildPursuit } from './targeting.js';
 import { garrisonReach, standsAtPost, towerPostFor } from './tower-post.js';
 import { withinBand } from './weapon-band.js';
 import {
@@ -159,7 +159,7 @@ export function engageCombatant(
 
   const travelling = isTravelling(world, e);
   if (walksUnderAnotherDrive(world, e, travelling, ordered || marching)) return;
-  if (standsDownAsPassiveAnimal(world, ctx, e, stance, attacker)) {
+  if (standsDownAsPassiveAnimal(world, ctx, terrain, e, stance, attacker)) {
     disengage(world, e);
     return;
   }
@@ -397,17 +397,20 @@ function walksUnderAnotherDrive(world: World, e: Entity, travelling: boolean, co
   return travelling && !world.has(e, Engagement) && !commanded;
 }
 
-/** An unowned animal that is neither aggressive nor still provoked runs no attack drive. Reaps a lapsed
- *  {@link Anger} timer as it reads it. */
+/** An unowned animal that is neither aggressive nor still provoked runs no attack drive, unless it has an
+ *  attack running: original behavior, the anger lapsing does not end one ({@link wildPursuit}). Reaps a
+ *  lapsed {@link Anger} timer as it reads it. */
 function standsDownAsPassiveAnimal(
   world: World,
   ctx: SystemContext,
+  terrain: TerrainGraph,
   e: Entity,
   stance: CombatantStance,
   attacker: SettlerIdentity,
 ): boolean {
   if (stance.owned || stance.ordered || !isAnimalTribe(ctx.content, attacker.tribe)) return false;
-  return !hostileAnimalNow(world, ctx, e, attacker.tribe);
+  if (hostileAnimalNow(world, ctx, e, attacker.tribe)) return false;
+  return wildPursuit(world, ctx, terrain, e, entityNode(world, terrain, e)).kind !== 'hold';
 }
 
 /**

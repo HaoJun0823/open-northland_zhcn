@@ -13,7 +13,6 @@ import {
 import { FARMING_BALANCE_BY_ID } from '../../../../catalog/farming.js';
 import { GATHERING_BALANCE_BY_ID } from '../../../../catalog/gathering.js';
 import { EXTENDED_GOODS, PRODUCE_ATOMIC_BY_GOOD_ID } from '../../../../catalog/goods.js';
-import { CARCASS_GOOD_SLUGS } from '../../../../catalog/hunting.js';
 import { EQUIP_CLASS_BY_TYPE } from '../../combat.js';
 import {
   BUILDING_CATAPULT_YARD,
@@ -35,6 +34,9 @@ import {
   GOOD_WHEAT,
   GOOD_WOOD,
 } from '../../ids/index.js';
+
+/** The goods a cadaver yields, the extracted rows that carry the cadaver harvest atomic. */
+const CADAVER_GOOD_IDS: readonly string[] = ['leather', 'meat'];
 
 /** The vehicle good to yard pairing of `logicdefines.inc` (`GOOD_TYPE_VEHICLE_*` / `HOUSE_TYPE_VEHICLE_*`),
  *  for the vehicles the sandbox builds. */
@@ -94,8 +96,7 @@ export function buildSandboxGoods(): readonly object[] {
     },
     ...EXTENDED_GOODS.map((good) => {
       const equip = EQUIP_CLASS_BY_TYPE.get(good.typeId);
-      // The extracted leather/meat rows carry this harvest atomic; wool's is a named approximation.
-      const carcassGood = (CARCASS_GOOD_SLUGS as readonly string[]).includes(good.id);
+      const carcassGood = CADAVER_GOOD_IDS.includes(good.id);
       const produce = PRODUCE_ATOMIC_BY_GOOD_ID[good.id];
       const vehicleHouse = VEHICLE_HOUSE_BY_GOOD.get(good.typeId);
       const atomics = {

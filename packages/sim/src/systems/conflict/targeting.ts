@@ -1,26 +1,32 @@
 import {
   Age,
+  ANIMAL_FLAG,
   Anger,
   Building,
   diplomacyStance,
   Engagement,
+  Frightened,
   Garrison,
   Health,
+  hasAnimalFlag,
   isWildlife,
   Owner,
   Palisade,
   Person,
   Position,
+  Resting,
   Settler,
   type SettlerIdentity,
   StayPoint,
   Vehicle,
+  YoungAnimal,
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { isManningShelter, shelterOccupancy, shelterStillHolds } from '../defence/index.js';
 import { herdLeaderOf } from '../movement/herd-leader.js';
+import { isTravelling } from '../movement/nav-state.js';
 import {
   animalCannotBeAttacked,
   buildingCombatClass,
@@ -48,25 +54,29 @@ export const SIGHT_RADIUS_NODES = 18;
  *  point looks around itself. Original behavior. */
 export const ANIMAL_AGGRO_RADIUS_NODES = 20;
 
-/** How far from its stay point, in map points, a wild animal still takes up a target. Original behavior:
- *  one pursuing past it drops its target and walks back to its stay point. */
-export const ANIMAL_LEASH_NODES = 40;
+/** How far from its stay point, in map points, a wild herd leader takes up a target, and how far an angry
+ *  attacker walks from it before it lets its target go. Original behavior: on each map point an angry adult
+ *  leader walks to its target it looks again for a victim nearer its stay point while within this range, and
+ *  past it drops its target and goes back to its stay. A provoked animal whose anger lapsed has no leash: its
+ *  attack runs until the target is gone or the walk to it fails. */
+export const ANIMAL_ACQUIRE_RANGE_NODES = 40;
 
-/** What an unowned animal's attack drive does this pass: fight `target` on the leash of its stay point,
- *  search around `center`, walk back to `stay` having pursued past its leash, or nothing. */
+/** What an unowned animal's attack drive does this pass: fight `target`, search around `center`, or
+ *  nothing. A hold with `retargetAround` also takes a victim nearer that point than `target`. */
 export type WildPursuit =
-  | { readonly kind: 'hold'; readonly target: Entity; readonly stay: NodeId | undefined }
+  | { readonly kind: 'hold'; readonly target: Entity; readonly retargetAround?: NodeId }
   | { readonly kind: 'search'; readonly center: NodeId }
-  | { readonly kind: 'return'; readonly stay: NodeId }
   | { readonly kind: 'idle' };
 
 const WILD_IDLE: WildPursuit = { kind: 'idle' };
 
 /**
- * An unowned animal's pursuit this pass. Original behavior: an animal keeps its target, and a follower
- * without one copies its leader's; a leader without one searches around its stay point. Past the leash
- * nothing is taken up, and a pursuit is dropped. Approximation: the leash is read every pass rather than
- * at each map point reached, and a follower's leash counts from its own stay point.
+ * An unowned animal's pursuit this pass. Original behavior: an animal keeps its target while
+ * {@link keepsWildTarget} holds; a follower without one does nothing of its own (it takes up its leader's
+ * through `rallyFollowers`), and only an adult leader searches, around its stay point and only within
+ * {@link ANIMAL_ACQUIRE_RANGE_NODES} of it. A fleeing animal does nothing else. Whether the animal is
+ * angry enough to search at all is its caller's gate ({@link hostileAnimalNow}). An angry adult walking to
+ * its target answers to its herd ({@link angryWalkerPursuit}).
  */
 export function wildPursuit(
   world: World,
@@ -74,23 +84,87 @@ export function wildPursuit(
   terrain: TerrainGraph,
   e: Entity,
   here: NodeId,
-  attacker: SettlerIdentity,
 ): WildPursuit {
-  const stay = world.tryGet(e, StayPoint)?.cell;
-  if (stay !== undefined && hexNodeDistance(terrain, here, stay) > ANIMAL_LEASH_NODES) {
-    return world.has(e, Engagement) ? { kind: 'return', stay } : WILD_IDLE;
-  }
+  if (world.has(e, Frightened)) return WILD_IDLE;
   const own = world.tryGet(e, Engagement)?.target;
-  if (own !== undefined && isValidTarget(world, ctx, e, attacker, own)) {
-    return { kind: 'hold', target: own, stay };
+  if (own !== undefined && keepsWildTarget(world, e, own)) {
+    const tribe = world.get(e, Settler).tribe;
+    if (world.has(e, Age) || !isTravelling(world, e) || !angryAnimal(world, ctx, e, tribe)) {
+      return { kind: 'hold', target: own };
+    }
+    return angryWalkerPursuit(world, terrain, e, here, own);
   }
+  if (herdLeaderOf(world, e) !== e || world.has(e, Age)) return WILD_IDLE;
+  const stay = world.tryGet(e, StayPoint)?.cell;
+  if (stay === undefined) return { kind: 'search', center: here };
+  return hexNodeDistance(terrain, here, stay) > ANIMAL_ACQUIRE_RANGE_NODES
+    ? WILD_IDLE
+    : { kind: 'search', center: stay };
+}
+
+/**
+ * The pursuit of an angry adult walking to `own`. Original behavior, asked on every map point it reaches: a
+ * leader within {@link ANIMAL_ACQUIRE_RANGE_NODES} of its stay point keeps `own` but takes a victim nearer
+ * the stay point, and past that range drops `own` to walk back; a follower takes its leader's target, and
+ * drops `own` when the leader holds none. Approximation: asked each pass the animal walks.
+ */
+function angryWalkerPursuit(
+  world: World,
+  terrain: TerrainGraph,
+  e: Entity,
+  here: NodeId,
+  own: Entity,
+): WildPursuit {
   const leader = herdLeaderOf(world, e);
-  if (leader === e) return { kind: 'search', center: stay ?? here };
-  const copied = world.tryGet(leader, Engagement)?.target;
-  return copied !== undefined && isValidTarget(world, ctx, e, attacker, copied)
-    ? { kind: 'hold', target: copied, stay }
+  if (leader === e) {
+    const stay = world.tryGet(e, StayPoint)?.cell ?? here;
+    return hexNodeDistance(terrain, here, stay) > ANIMAL_ACQUIRE_RANGE_NODES
+      ? WILD_IDLE
+      : { kind: 'hold', target: own, retargetAround: stay };
+  }
+  const led = world.tryGet(leader, Engagement)?.target;
+  return led !== undefined && keepsWildTarget(world, leader, led) && keepsWildTarget(world, e, led)
+    ? { kind: 'hold', target: led }
     : WILD_IDLE;
 }
+
+/** Whether the unowned animal `e` presses an attack: it holds a target {@link keepsWildTarget} keeps. The
+ *  attack outlasts its anger (original behavior), so it keeps the animal an enemy to those it threatens. */
+export function pressesWildAttack(world: World, e: Entity): boolean {
+  if (world.has(e, Owner)) return false;
+  const target = world.tryGet(e, Engagement)?.target;
+  return target !== undefined && keepsWildTarget(world, e, target);
+}
+
+/** Whether an unowned animal's attack on `t` goes on. Original behavior: until the target is dead or gone
+ *  from the open map, whatever the animal's anger. */
+export function keepsWildTarget(world: World, self: Entity, t: Entity): boolean {
+  if (t === self || !world.isAlive(t) || !world.has(t, Settler) || !world.has(t, Position)) return false;
+  if ((world.tryGet(t, Health)?.hitpoints ?? 0) <= 0) return false;
+  if (world.has(t, Resting) || standsAtPost(world, t) !== null) return false;
+  return !isManningShelter(world, t);
+}
+
+/** Whether animal `e` (of `tribe`) is angry right now without reaping a lapsed timer: an always-aggressive
+ *  species, or a provoked one whose {@link Anger} still runs. */
+export function angryAnimal(world: World, ctx: SystemContext, e: Entity, tribe: number): boolean {
+  if (isAggressiveAnimal(ctx.content, tribe)) return true;
+  const anger = world.tryGet(e, Anger);
+  return anger !== undefined && ctx.tick < anger.until;
+}
+
+/**
+ * The tiers a wild herd leader takes up a victim in, first tier first, the nearest to its stay point within
+ * each. Original behavior: soldiers and heroes, then angry animals, then the other people, then any other
+ * animal. Who is a candidate at all (an adult, of another side, out in the open) is
+ * {@link isValidTarget}'s to say; an animal never takes up a building or a vehicle.
+ */
+export const WILD_VICTIM_TIERS: readonly ((world: World, ctx: SystemContext, t: Entity) => boolean)[] = [
+  (world, ctx, t) => isFighterTarget(world, ctx, t),
+  (world, ctx, t) => isWildlife(world, t) && angryAnimal(world, ctx, t, world.get(t, Settler).tribe),
+  (world, _ctx, t) => world.has(t, Person),
+  (world, _ctx, t) => isWildlife(world, t),
+];
 
 /** A building, wall or vehicle: a hit on one is an impact on a hull, not a body - no blood, no scream. */
 export function isStructureTarget(world: World, t: Entity): boolean {
@@ -277,13 +351,20 @@ function isAlive(world: World, e: Entity): boolean {
   return (world.tryGet(e, Health)?.hitpoints ?? 0) > 0;
 }
 
-/** Whether `t` is huntable prey a hunter of `hunterJob` may strike - the predation-only target filter an
- *  IGNORE hunter uses, which admits no player-hostility. */
+/** Whether `t` is game a hunter of `hunterJob` takes up on its own - the predation-only target filter an
+ *  IGNORE hunter uses, which admits no player-hostility. Original behavior: the search skips owned animals,
+ *  one whose map flags say it takes no damage, and an angry one: an adult of an aggressive type, or one
+ *  still angry from a provocation. A young animal of an aggressive type is not angry, so it stays game. */
 export function isHuntTarget(world: World, ctx: SystemContext, t: Entity, hunterJob: number | null): boolean {
   if (!world.has(t, Settler) || !world.has(t, Health) || !world.has(t, Position)) return false;
   if (world.get(t, Health).hitpoints <= 0) return false;
   if (world.has(t, Owner)) return false; // property, not prey - the predation rule of mayTarget below
-  return mayHunt(ctx.content, hunterJob, world.get(t, Settler).tribe);
+  if (hasAnimalFlag(world, t, ANIMAL_FLAG.TAKES_NO_DAMAGE)) return false; // a hunt it would never end
+  const tribe = world.get(t, Settler).tribe;
+  if (!mayHunt(ctx.content, hunterJob, tribe)) return false;
+  if (isAggressiveAnimal(ctx.content, tribe) && !world.has(t, YoungAnimal)) return false;
+  const anger = world.tryGet(t, Anger);
+  return anger === undefined || ctx.tick >= anger.until;
 }
 
 /**
@@ -296,8 +377,8 @@ export function isHuntTarget(world: World, ctx: SystemContext, t: Entity, hunter
  * (source basis "Combat hostility axis": the maps' `diplomacy` rows), and a pair no map or command ever
  * set reads `enemy` - itself an approximation on maps that author only one direction of a pair.
  * Otherwise the content relations decide: {@link mayAttack} tribe hostility, {@link mayHunt} predation
- * over unowned prey only (claimed livestock is property), and a live {@link Anger} timer that makes a
- * civ-animal fight valid in both directions.
+ * over unowned prey only (claimed livestock is property), and a live {@link Anger} timer or a pressed
+ * attack ({@link pressesWildAttack}) that makes a civ-animal fight valid in both directions.
  *
  * A lapsed anger timer is not reaped here, keeping this a const-time candidate check;
  * {@link hostileAnimalNow} reaps it once per tick on the attacker pass and an expired timer reads
@@ -319,14 +400,15 @@ export function mayTarget(
     if (selfOwner.player === targetOwner.player) return false;
     return diplomacyStance(world, selfOwner.player, targetOwner.player) === 'enemy';
   }
-  // A wild aggressive animal may turn on a player's claimed animal. Wildlife carries no Owner in
-  // this sim, so its directed diplomacy stance cannot yet be checked here; this assumes hostility.
+  // An angry wild animal may turn on a player's animal; original behavior, where wild animals never fight
+  // each other. Wildlife carries no Owner in this sim, so its directed diplomacy stance cannot yet be
+  // checked here; this assumes hostility.
   if (
     selfOwner === undefined &&
     targetOwner !== undefined &&
     isAnimalTribe(ctx.content, attackerTribe) &&
     isAnimalTribe(ctx.content, targetTribe) &&
-    isAggressiveAnimal(ctx.content, attackerTribe)
+    angryAnimal(world, ctx, self, attackerTribe)
   ) {
     return !animalCannotBeAttacked(ctx.content, targetTribe);
   }
@@ -337,10 +419,10 @@ export function mayTarget(
   const targetIsAnimal = isAnimalTribe(ctx.content, targetTribe);
   // The anger override only bridges a civilization-vs-animal pair - never animal-vs-animal, never civ-vs-civ.
   if (attackerIsAnimal === targetIsAnimal) return false;
-  // The animal side of the pair must carry a live anger timer.
+  // The animal side of the pair must carry a live anger timer, or press an attack its anger outlasted.
   const animalEntity = attackerIsAnimal ? self : t;
   const anger = world.tryGet(animalEntity, Anger);
-  return anger !== undefined && ctx.tick < anger.until;
+  return (anger !== undefined && ctx.tick < anger.until) || pressesWildAttack(world, animalEntity);
 }
 
 /**

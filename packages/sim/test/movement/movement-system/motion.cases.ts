@@ -211,7 +211,7 @@ describe('movementSystem - per-entity movement timing', () => {
     expect(sim.world.has(e, AnimalRunning)).toBe(false);
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('mapped fixture expected');
-    sim.world.add(e, Frightened, { until: 100, from: terrain.nodeAt(0, 0), repathAt: 0 });
+    sim.world.add(e, Frightened, { from: terrain.nodeAt(0, 0), dest: null });
     for (let i = 0; i < 7; i++) movementSystem(sim.world, nextTickCtxOf(sim));
     movementSystem(sim.world, nextTickCtxOf(sim));
     expect(sim.world.get(e, MoveStepPeriod).ticks).toBe(4);

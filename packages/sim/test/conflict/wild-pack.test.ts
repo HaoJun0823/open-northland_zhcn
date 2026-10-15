@@ -4,23 +4,33 @@ import {
   addCurrentAtomic,
   CurrentAtomic,
   Engagement,
+  Fleeing,
   Frightened,
   Health,
   HerdMember,
   MISSION_BEHAVIOUR,
-  MoveGoal,
+  Settler,
   StayPoint,
   stampMissionBehaviour,
+  UnreachableTargets,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { Simulation } from '../../src/index.js';
 import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
-import { ANIMAL_AGGRO_RADIUS_NODES, ANIMAL_LEASH_NODES } from '../../src/systems/conflict/targeting.js';
+import {
+  ANIMAL_ACQUIRE_RANGE_NODES,
+  ANIMAL_AGGRO_RADIUS_NODES,
+  isFleeThreat,
+} from '../../src/systems/conflict/targeting.js';
 import { atomicSystem, cleanupSystem, combatSystem, herdingSystem } from '../../src/systems/index.js';
+import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { KIN_ALARM_RADIUS_NODES } from '../../src/systems/settlers/atomics/effects/combat/hit/reactions.js';
 import { hexNodeDistance } from '../../src/systems/spatial/metric.js';
+import { entityNode } from '../../src/systems/spatial/nodes.js';
 import { testContent } from '../fixtures/content.js';
-import { nextTickCtxOf } from '../fixtures/context.js';
+import { fleeCheckCtxOf, nextTickCtxOf } from '../fixtures/context.js';
+import { grassNodeMap } from '../fixtures/terrain.js';
+import { wildAt } from '../fixtures/wildlife.js';
 import {
   ATTACK_ATOMIC,
   BEAR,
@@ -31,10 +41,14 @@ import {
   VIKING,
   WOODCUTTER,
 } from './combat-system/support.js';
+import { combatantAtNode, P0 } from './stances/support.js';
 
 // Wild packs: the fixture BEAR is aggressive with a reach of 2 map points and follows a leader; the BOAR
 // fights only once struck. Every animal here stands on row 0 of the half-cell lattice, where one node
 // step is one map point.
+
+/** `soldier_unarmed`, a fighter job in the fixture content. */
+const SOLDIER = 31;
 
 function mapTerrain(sim: Simulation): TerrainGraph {
   const terrain = sim.terrain;
@@ -72,6 +86,49 @@ function strike(sim: Simulation, striker: Entity, target: Entity): void {
 
 function node(sim: Simulation, hx: number): NodeId {
   return mapTerrain(sim).nodeAt(hx, 0);
+}
+
+/** How far `e` stands from node (hx, 0), in map points. */
+function pointsFrom(sim: Simulation, e: Entity, hx: number): number {
+  return hexNodeDistance(mapTerrain(sim), node(sim, hx), entityNode(sim.world, mapTerrain(sim), e));
+}
+
+/** An anger that outlasts the walk to the leash and well past it, in ticks. */
+const LONG_ANGER_TICKS = 400;
+/** A stretch of the anger after the leash, and how far home a walking boar gets in it, in map points. */
+const HOMEWARD_TICKS = 80;
+const HOMEWARD_MIN_POINTS = 4;
+
+/** A landscape type that walls its one node off, and the test content's wood good it is built of. */
+const WALL_POST = 691;
+const WOOD = 5;
+const WALL_HITPOINTS = 100;
+
+/** An all-grass node map of `size` x `size` that knows the {@link WALL_POST} type. */
+function postMap(size: number): Simulation {
+  return new Simulation({
+    seed: 1,
+    content: testContent(),
+    map: {
+      ...grassNodeMap(size, size),
+      landscapes: {
+        placements: [],
+        types: [
+          {
+            typeId: WALL_POST,
+            walk: [{ dx: 0, dy: 0 }],
+            build: [{ dx: 0, dy: 0 }],
+            groups: [],
+            wall: {
+              maxHitpoints: WALL_HITPOINTS,
+              repairPerStrike: 1,
+              construction: [{ goodType: WOOD, amount: 1 }],
+            },
+          },
+        ],
+      },
+    },
+  });
 }
 
 describe('wild pack targeting', () => {
@@ -155,7 +212,7 @@ describe('wild pack targeting', () => {
     const leader = fighterAtNode(sim, 2, 0, BOAR, null);
     const follower = fighterAtNode(sim, 4, 0, BOAR, null);
     joinHerd(sim, leader, follower);
-    sim.world.add(leader, Frightened, { until: 100, repathAt: 0, from: node(sim, 6) });
+    sim.world.add(leader, Frightened, { from: node(sim, 6), dest: null });
     const viking = fighterAtNode(sim, 6, 0, VIKING, WOODCUTTER);
     strike(sim, viking, follower);
 
@@ -164,42 +221,60 @@ describe('wild pack targeting', () => {
     expect(sim.world.tryGet(follower, Engagement)?.target).toBeUndefined();
   });
 
-  it('a leader pursuing 41 points from its stay point drops its target and walks back', () => {
-    const run = (hx: number) => {
-      const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(24, 1) });
-      const bear = animalAt(sim, BEAR, hx, 0);
-      joinHerd(sim, bear);
-      const viking = fighterAtNode(sim, hx + 2, 0, VIKING, WOODCUTTER); // inside the bear's reach
-      sim.world.add(bear, Engagement, { repathAt: 0, target: viking });
-      combatSystem(sim.world, ctxOf(sim));
-      return { sim, bear, viking };
-    };
-
-    const atLeash = run(ANIMAL_LEASH_NODES);
-    expect(
-      hexNodeDistance(mapTerrain(atLeash.sim), node(atLeash.sim, ANIMAL_LEASH_NODES), node(atLeash.sim, 0)),
-    ).toBe(ANIMAL_LEASH_NODES);
-    expect(swingTarget(atLeash.sim, atLeash.bear)).toBe(atLeash.viking);
-
-    const past = run(ANIMAL_LEASH_NODES + 1);
-    expect(past.sim.world.has(past.bear, Engagement)).toBe(false);
-    expect(past.sim.world.has(past.bear, CurrentAtomic)).toBe(false);
-    expect(past.sim.world.get(past.bear, MoveGoal).cell).toBe(node(past.sim, 0));
-  });
-
-  it("a follower's own target is on the same leash", () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(24, 1) });
-    const hx = ANIMAL_LEASH_NODES + 1;
+  it('an attack in reach runs on however far from the stay point it stands', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(64, 1) });
+    const hx = ANIMAL_ACQUIRE_RANGE_NODES + 10;
     const leader = animalAt(sim, BEAR, hx - 2, 0);
     const follower = animalAt(sim, BEAR, hx, 0);
     joinHerd(sim, leader, follower);
-    const viking = fighterAtNode(sim, hx + 2, 0, VIKING, WOODCUTTER);
+    const viking = fighterAtNode(sim, hx + 2, 0, VIKING, WOODCUTTER); // inside the follower's reach
+    sim.world.add(leader, Engagement, { repathAt: 0, target: viking });
     sim.world.add(follower, Engagement, { repathAt: 0, target: viking });
 
     combatSystem(sim.world, ctxOf(sim));
 
-    expect(swingTarget(sim, follower)).toBeUndefined();
-    expect(sim.world.get(follower, MoveGoal).cell).toBe(node(sim, 0));
+    expect(swingTarget(sim, follower)).toBe(viking);
+    expect(sim.world.get(leader, Engagement).target).toBe(viking);
+  });
+
+  it('a leader farther than 40 points from its stay point takes up no new target', () => {
+    const run = (hx: number) => {
+      const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(64, 1) });
+      const bear = animalAt(sim, BEAR, hx, 0);
+      joinHerd(sim, bear);
+      fighterAtNode(sim, hx + 2, 0, VIKING, WOODCUTTER);
+      combatSystem(sim.world, ctxOf(sim));
+      return sim.world.has(bear, Engagement);
+    };
+    // Within the acquisition gate the search circle still reaches the man two points past the bear.
+    expect(run(ANIMAL_AGGRO_RADIUS_NODES - 2)).toBe(true);
+    expect(run(ANIMAL_ACQUIRE_RANGE_NODES + 1)).toBe(false);
+  });
+
+  it('a provoked animal whose anger lapses fights its running attack to the end', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
+    const boar = animalAt(sim, BOAR, 2);
+    joinHerd(sim, boar);
+    const viking = fighterAtNode(sim, 3, 0, VIKING, WOODCUTTER);
+    sim.world.add(boar, Anger, { until: sim.tick }); // lapsed this very tick
+    sim.world.add(boar, Engagement, { repathAt: 0, target: viking });
+
+    combatSystem(sim.world, ctxOf(sim));
+
+    expect(swingTarget(sim, boar)).toBe(viking);
+  });
+
+  it('a leader takes up a soldier before a nearer civilian, nearest to its stay point within a tier', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(24, 1) });
+    const bear = animalAt(sim, BEAR, 10);
+    joinHerd(sim, bear);
+    fighterAtNode(sim, 12, 0, VIKING, WOODCUTTER);
+    fighterAtNode(sim, 22, 0, VIKING, SOLDIER);
+    const nearSoldier = fighterAtNode(sim, 16, 0, VIKING, SOLDIER);
+
+    combatSystem(sim.world, ctxOf(sim));
+
+    expect(sim.world.get(bear, Engagement).target).toBe(nearSoldier);
   });
 
   it('a leader searches around its stay point and takes the enemy nearest it', () => {
@@ -250,5 +325,126 @@ describe('wild pack targeting', () => {
     combatSystem(sim.world, nextTickCtxOf(sim));
 
     expect(sim.world.get(bear, Engagement).target).toBe(victim);
+  });
+
+  it('an angry leader walking past 40 points from its stay point lets its victim go, and its follower too', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(64, 1) });
+    const victimAt = ANIMAL_ACQUIRE_RANGE_NODES + 12;
+    const leader = animalAt(sim, BEAR, ANIMAL_ACQUIRE_RANGE_NODES - 4, 0);
+    const follower = animalAt(sim, BEAR, ANIMAL_ACQUIRE_RANGE_NODES - 6, 0);
+    joinHerd(sim, leader, follower);
+    const victim = fighterAtNode(sim, victimAt, 0, VIKING, WOODCUTTER);
+    sim.world.add(leader, Engagement, { repathAt: 0, target: victim });
+    sim.world.add(follower, Engagement, { repathAt: 0, target: victim });
+
+    let farthest = 0;
+    for (let i = 0; i < 300; i++) {
+      sim.step();
+      farthest = Math.max(farthest, pointsFrom(sim, leader, 0));
+    }
+
+    expect(sim.world.get(victim, Health).hitpoints).toBe(sim.world.get(victim, Health).max);
+    expect(sim.world.has(leader, Engagement)).toBe(false);
+    expect(sim.world.has(follower, Engagement)).toBe(false);
+    // The step that crosses the leash ends the walk.
+    expect(farthest).toBeLessThanOrEqual(ANIMAL_ACQUIRE_RANGE_NODES + 1);
+  });
+
+  it('a provoked leader that drops its victim at the leash walks home while its anger still runs', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(64, 1) });
+    const boar = wildAt(sim, BOAR, ANIMAL_ACQUIRE_RANGE_NODES - 4, 0);
+    sim.world.mut(boar, StayPoint).cell = node(sim, 0);
+    joinHerd(sim, boar);
+    const victim = fighterAtNode(sim, ANIMAL_ACQUIRE_RANGE_NODES + 12, 0, VIKING, WOODCUTTER);
+    stampMissionBehaviour(sim.world, victim, MISSION_BEHAVIOUR.PASSIVE);
+    sim.world.add(boar, Anger, { until: sim.tick + LONG_ANGER_TICKS });
+    sim.world.add(boar, Engagement, { repathAt: 0, target: victim });
+
+    for (let i = 0; i < LONG_ANGER_TICKS && sim.world.has(boar, Engagement); i++) sim.step();
+    expect(sim.world.has(boar, Engagement)).toBe(false);
+    const dropped = pointsFrom(sim, boar, 0);
+    for (let i = 0; i < HOMEWARD_TICKS; i++) sim.step();
+
+    expect(sim.world.get(boar, Anger).until).toBeGreaterThan(sim.tick);
+    expect(pointsFrom(sim, boar, 0)).toBeLessThan(dropped - HOMEWARD_MIN_POINTS);
+  });
+
+  it('a provoked animal whose anger lapsed walks after its victim past the leash', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(64, 1) });
+    const boar = animalAt(sim, BOAR, ANIMAL_ACQUIRE_RANGE_NODES - 4, 0);
+    joinHerd(sim, boar);
+    const victim = fighterAtNode(sim, ANIMAL_ACQUIRE_RANGE_NODES + 12, 0, VIKING, WOODCUTTER);
+    stampMissionBehaviour(sim.world, victim, MISSION_BEHAVIOUR.PASSIVE);
+    sim.world.add(boar, Anger, { until: sim.tick });
+    sim.world.add(boar, Engagement, { repathAt: 0, target: victim });
+
+    for (let i = 0; i < 300 && pointsFrom(sim, boar, 0) <= ANIMAL_ACQUIRE_RANGE_NODES + 2; i++) sim.step();
+
+    expect(pointsFrom(sim, boar, 0)).toBeGreaterThan(ANIMAL_ACQUIRE_RANGE_NODES + 2);
+    expect(sim.world.get(boar, Engagement).target).toBe(victim);
+  });
+
+  it('an angry leader walking to its victim turns to one nearer its stay point', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(32, 1) });
+    const stay = 10;
+    const bear = animalAt(sim, BEAR, stay);
+    joinHerd(sim, bear);
+    const far = fighterAtNode(sim, stay + ANIMAL_AGGRO_RADIUS_NODES, 0, VIKING, WOODCUTTER);
+    sim.world.add(bear, Engagement, { repathAt: 0, target: far });
+    // The nearer man arrives once the bear is on its way.
+    sim.step();
+    sim.step();
+    const near = fighterAtNode(sim, stay - 6, 0, VIKING, WOODCUTTER);
+
+    for (let i = 0; i < 4; i++) sim.step();
+
+    expect(sim.world.get(bear, Engagement).target).toBe(near);
+  });
+
+  it('a boar whose anger lapsed mid-attack stays an enemy: a fighter takes it up and its victim runs', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(16, 1) });
+    const boar = animalAt(sim, BOAR, 10);
+    joinHerd(sim, boar);
+    const victim = combatantAtNode(sim, 12, 0, P0, MILITARY_MODE.FLEE);
+    const fighter = combatantAtNode(sim, 16, 0, P0, MILITARY_MODE.ATTACK);
+    sim.world.add(boar, Anger, { until: sim.tick }); // lapsed this very tick
+    sim.world.add(boar, Engagement, { repathAt: 0, target: victim });
+    const ctx = fleeCheckCtxOf(sim, victim);
+    expect(isFleeThreat(sim.world, ctx, victim, sim.world.get(victim, Settler), boar, new Set())).toBe(true);
+
+    combatSystem(sim.world, ctx);
+
+    expect(sim.world.get(boar, Engagement).target).toBe(victim);
+    expect(sim.world.get(fighter, Engagement).target).toBe(boar);
+    expect(sim.world.has(victim, Fleeing)).toBe(true);
+  });
+
+  it('an animal whose walk to a walled-in victim fails does not take the victim up again at once', () => {
+    const sim = postMap(32);
+    const terrain = mapTerrain(sim);
+    const bear = fighterAtNode(sim, 6, 16, BEAR, null);
+    sim.world.add(bear, StayPoint, { cell: terrain.nodeAt(6, 16) });
+    joinHerd(sim, bear);
+    const victim = fighterAtNode(sim, 16, 16, VIKING, WOODCUTTER);
+    const at = terrain.nodeAt(16, 16);
+    for (let y = 0; y < 32; y++) {
+      for (let x = 0; x < 32; x++) {
+        const d = hexNodeDistance(terrain, at, terrain.nodeAt(x, y));
+        if (d < 2 || d > 3) continue;
+        sim.enqueueSetup({ kind: 'placePalisade', gfxIndex: WALL_POST, x, y, tribe: VIKING, force: true });
+      }
+    }
+
+    let takes = 0;
+    let held = false;
+    for (let i = 0; i < 200; i++) {
+      sim.step();
+      const holds = sim.world.tryGet(bear, Engagement)?.target === victim;
+      if (holds && !held) takes++;
+      held = holds;
+    }
+
+    expect(takes).toBe(1);
+    expect(sim.world.get(bear, UnreachableTargets).entries.map((entry) => entry.target)).toEqual([victim]);
   });
 });

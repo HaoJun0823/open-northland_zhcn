@@ -44,6 +44,8 @@ const VIKING = 1;
 const HUNTER = 15;
 const ATTACK_ATOMIC = 81;
 const MEAT = 21;
+/** The cadaver's first pluck: a hunter's kill lays its leather stage first. */
+const LEATHER = 22;
 const MEAT_LANDSCAPE_TYPE = 44;
 const MEAT_PILE_GFX = 215;
 const REMAINS_MAP = {
@@ -145,8 +147,18 @@ describe('cleanupSystem - reaping 0-HP combatants', () => {
     const cow = killWithOneBlow(sim, HUNTER);
     cleanupSystem(sim.world, ctxOf(sim));
     expect(sim.world.isAlive(cow)).toBe(false);
-    expect([...sim.world.query(Resource)].map((e) => sim.world.get(e, Resource).goodType)).toEqual([MEAT]);
+    expect([...sim.world.query(Resource)].map((e) => sim.world.get(e, Resource).goodType)).toEqual([LEATHER]);
     expect(sim.landscapeEdits().added).toEqual([]);
+  });
+
+  it("leaves a hunter's kill the meat pile when the content has no cadaver chain", () => {
+    const base = remainsContent([[COW, 12]]);
+    const content = { ...base, landscape: base.landscape.filter((t) => !t.id.startsWith('cadaver_')) };
+    const sim = new Simulation({ seed: 1, content, map: REMAINS_MAP });
+    killWithOneBlow(sim, HUNTER);
+    cleanupSystem(sim.world, ctxOf(sim));
+    expect([...sim.world.query(Resource)]).toEqual([]);
+    expect(sim.landscapeEdits().added).toMatchObject([{ typeId: MEAT_PILE_GFX, hx: 9, hy: 10, level: 4 }]);
   });
 
   it('leaves meat for huntable prey any other hand kills', () => {

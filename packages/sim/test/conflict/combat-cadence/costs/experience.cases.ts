@@ -172,6 +172,21 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     expect(hits.map((ev) => ev.kind === 'combatHit' && ev.attacker)).toEqual([killer]);
   });
 
+  it('a damaging blow on a wild animal trains the striker like one on a person', () => {
+    const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
+    const attacker = fighterAt(sim, 0, 0, VIKING, SOLDIER_SPEAR);
+    const wolf = fighterAt(sim, 1, 0, WOLF_TRIBE, null, { hitpoints: 10_000 });
+    startSwing(
+      sim,
+      attacker,
+      { target: wolf, damage: 100, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
+      4,
+    );
+    atomicSystem(sim.world, nextTickCtxOf(sim));
+    expect(sim.world.get(wolf, Health).hitpoints).toBeLessThan(10_000);
+    expect(sim.world.get(attacker, SettlerProgress).experience.get(FIGHT_EXPERIENCE_TYPE.SPEAR)).toBe(1);
+  });
+
   it('a wild-animal bite trains nothing - progression is a civilization mechanic', () => {
     const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
     // A jobless animal-tribe attacker whose natural weapon carries the real `maintype 1` (bearfist/

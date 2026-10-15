@@ -25,11 +25,7 @@ import { LayeredBlocks } from '../../src/nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
 import { CombatIndex } from '../../src/systems/conflict/combat-index.js';
 import { FLEE_REPATH_CADENCE, fleeDestination } from '../../src/systems/conflict/flee.js';
-import {
-  animalFrightSystem,
-  FRIGHT_REPATH_CADENCE,
-  FRIGHT_STEP_NODES,
-} from '../../src/systems/conflict/fright.js';
+import { animalFrightSystem, FLIGHT_REACH_NODES } from '../../src/systems/conflict/fright.js';
 import { firingBuildings, isFleeThreat, SIGHT_RADIUS_NODES } from '../../src/systems/conflict/targeting.js';
 import { dynamicBlockOverlay, stampResourceFootprintData } from '../../src/systems/footprint/index.js';
 import { combatSystem } from '../../src/systems/index.js';
@@ -313,7 +309,7 @@ describe('FLEE and fright - a cornered or refused run waits for the cadence', ()
     expect(requests).toBeLessThanOrEqual(Math.ceil(WATCH_TICKS / FLEE_REPATH_CADENCE));
   });
 
-  it('a frightened animal beside a house runs past it and stands a refused run out', () => {
+  it('a frightened animal beside a house runs past it, and a refused run ends its flight', () => {
     const s = sim();
     const terrain = terrainOf(s);
     const cow = fighterAtNode(s, 30, 30, COW, null);
@@ -324,25 +320,21 @@ describe('FLEE and fright - a cornered or refused run waits for the cadence', ()
       new LayeredBlocks([]),
       terrain.nodeAt(30, 30),
       [scare],
-      FRIGHT_STEP_NODES,
+      FLIGHT_REACH_NODES,
     );
     const { x, y } = terrain.coordsOf(best);
     buildingAtNode(s, HOUSE, x - 1, y, P0);
-    const from = ctxOf(s).tick;
-    s.world.add(cow, Frightened, { until: from + WATCH_TICKS * 2, repathAt: from, from: scare });
+    s.world.add(cow, Frightened, { from: scare, dest: null });
 
-    animalFrightSystem(s.world, { ...ctxOf(s), tick: from });
+    animalFrightSystem(s.world, ctxOf(s));
     const goal = s.world.get(cow, MoveGoal).cell;
     expect(goal).not.toBe(best);
     expect(dynamicBlockOverlay(s.world, ctxOf(s), terrain).has(goal)).toBe(false);
 
     s.world.add(cow, PathRequest, { start: terrain.nodeAt(30, 30), goal, failed: true });
-    for (let tick = from + 1; tick < from + FRIGHT_REPATH_CADENCE; tick++) {
-      animalFrightSystem(s.world, { ...ctxOf(s), tick });
-      expect(s.world.has(cow, MoveGoal)).toBe(false);
-    }
-    animalFrightSystem(s.world, { ...ctxOf(s), tick: from + FRIGHT_REPATH_CADENCE });
-    expect(s.world.has(cow, MoveGoal)).toBe(true);
+    animalFrightSystem(s.world, ctxOf(s));
+    expect(s.world.has(cow, Frightened)).toBe(false);
+    expect(s.world.has(cow, MoveGoal)).toBe(false);
   });
 });
 

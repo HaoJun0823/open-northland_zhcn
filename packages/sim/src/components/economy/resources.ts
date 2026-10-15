@@ -31,8 +31,8 @@ export const FishSwarm = defineComponent<{
 /**
  * The still-buried yields of a multi-good {@link Resource} node, in extraction order: when the current good
  * drains, the node is re-armed as the head layer instead of removed. Built interleaved for a carcass, whose
- * two stages alternate per pluck (`landscapetypes.ini` 79 `cadaver_leather` / 80 `cadaver_meat`). Which
- * stage a fresh kill opens with is not readable; meat-first is an approximation.
+ * two stages alternate per pluck (`landscapetypes.ini` 79 `cadaver_leather` / 80 `cadaver_meat`). Original
+ * behavior: a fresh kill opens on `cadaver_leather`.
  */
 export interface ResourceLayer {
   goodType: number;

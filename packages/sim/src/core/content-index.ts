@@ -7,7 +7,6 @@ import {
   type GatheringPipeline,
   type GoodType,
   type HumanJobExperienceType,
-  type HuntPrey,
   type JobType,
   type LandscapeGfx,
   lastByTypeId,
@@ -20,6 +19,7 @@ import {
 import type { GoodsLine } from '../components/economy/infrastructure.js';
 import { atomicAnimationTable, atomicBindingTables, harvestCapableJobs } from './content-index/atomics.js';
 import { byKey, byOptionalKey, byPairKey, lastByPairKey, valueByKey } from './content-index/by-key.js';
+import { cadaverGoodCycle } from './content-index/cadaver.js';
 import { civilianJobTypes, militaryGoodTypes } from './content-index/combat.js';
 import { constructionBills } from './content-index/construction.js';
 import { jobRoleSets } from './content-index/jobs.js';
@@ -78,8 +78,8 @@ export interface ContentIndex {
   readonly jobExperience: ReadonlyMap<number, HumanJobExperienceType>;
   /** Animal records by their `tribeType` (an animal's identity is its tribe). */
   readonly animalsByTribe: ReadonlyMap<number, AnimalType>;
-  /** Hunt-prey rows by the prey's `tribeType` - membership is huntability ({@link HuntPrey}). */
-  readonly huntPreyByTribe: ReadonlyMap<number, HuntPrey>;
+  /** The goods a hunter's cadaver yields, one per pluck of each stage in turn ({@link cadaverGoodCycle}). */
+  readonly cadaverGoodCycle: readonly number[];
   /** Livestock species (`catchable` animal tribeType) → its species good, the animal farm's breeding
    *  product and herd row. */
   readonly livestockGoodByTribe: ReadonlyMap<number, number>;
@@ -221,7 +221,7 @@ function buildIndex(content: ContentSet): ContentIndex {
     militaryGoods: militaryGoodTypes(content),
     jobExperience: byKey(content.jobExperience, (t) => t.typeId),
     animalsByTribe: byKey(content.animals, (a) => a.tribeType),
-    huntPreyByTribe: byKey(content.huntPrey, (p) => p.tribeType),
+    cadaverGoodCycle: cadaverGoodCycle(content),
     livestockGoodByTribe: livestock.goodByTribe,
     livestockTribeByGood: livestock.tribeByGood,
     livestockWorkplaceTypes: livestock.workplaceTypes,

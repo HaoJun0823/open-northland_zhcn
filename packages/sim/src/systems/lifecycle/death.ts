@@ -73,10 +73,9 @@ function layBonePile(world: World, tick: number, at: HalfCellNode): void {
 }
 
 /**
- * Original behavior: an animal's death other than a hunter's bow kill leaves a `meat` pile where it fell.
- * Approximations: a species with no carcass yields leaves meat even to a hunter's shot, where the original
- * lays its tribe's cadaver; a young pile halved to zero lays nothing, where the original also clears the
- * node's standing object.
+ * Original behavior: an animal's death other than a hunter's bow kill (which lays a cadaver instead,
+ * {@link LeftCarcass}) leaves a `meat` pile where it fell. Approximation: a young pile halved to zero lays
+ * nothing, where the original also clears the node's standing object.
  */
 function layAnimalRemains(
   world: World,

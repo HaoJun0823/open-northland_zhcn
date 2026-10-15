@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest';
 import { hasRealIr } from './helpers.js';
 import { realMapWorld } from './real-map-world.js';
 
-const { Vehicle, vehiclePassengers } = components;
+const { Person, Vehicle, vehiclePassengers } = components;
 
 /**
  * The raids of a story map whose script lands each wave by ship: men spawned on the raiders' shore, a
@@ -82,7 +82,10 @@ describe.runIf(hasRealIr())(`${MAP_ID}: the scripted raids`, () => {
         }
       }
       sim.step();
-      const raiders = [...sim.world.query(components.Settler)].filter((e) => !before.has(e));
+      // A wild herd may breed on the same tick: only the people are the wave.
+      const raiders = [...sim.world.query(components.Settler)].filter(
+        (e) => !before.has(e) && sim.world.has(e, Person),
+      );
       expect(raiders.length, label).toBe(men.reduce((sum, line) => sum + line.amount, 0));
       for (const raider of raiders) {
         sim.enqueue(playerCommand(ship.player, { kind: 'attachToVehicle', entity: raider, vehicle }));

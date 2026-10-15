@@ -2,6 +2,7 @@ import type { ContentSet } from '@open-northland/data';
 import {
   Anger,
   Building,
+  Engagement,
   Health,
   isValidPlayer,
   MAX_PLAYERS,
@@ -13,13 +14,7 @@ import type { ChangeFeed, Component, Entity, World } from '../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { MapContext, SystemContext } from '../context.js';
-import {
-  isAggressiveAnimal,
-  isAnimalTribe,
-  isHuntablePrey,
-  isLastResortPrey,
-  isLowPriorityBuildingTarget,
-} from '../readviews/index.js';
+import { isAggressiveAnimal, isAnimalTribe, isLowPriorityBuildingTarget } from '../readviews/index.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../spatial/node-moves.js';
 import { entityNode } from '../spatial/nodes.js';
 import { buildingBodyNodes } from './target-node.js';
@@ -37,11 +32,11 @@ const BAND_SCAN_INITIAL_KEYS = 64;
 const LAYER_STORES: readonly Component<unknown>[] = [Building, Health, Position, Owner];
 
 /** The stores whose membership or value re-classes a unit in the unit layer: a unit is indexed while it
- *  holds a Settler, a Health pool and a Position, and its Owner, tribe and Anger decide its tallies. The
- *  tribe never changes, and an Anger that lapses without a write is re-read every build. A Position write
- *  only moves a unit, so it has its own feed. */
-const UNIT_MEMBERSHIP: readonly Component<unknown>[] = [Settler, Health, Position, Owner, Anger];
-const UNIT_VALUES: readonly Component<unknown>[] = [Owner];
+ *  holds a Settler, a Health pool and a Position, and its Owner, tribe, Anger and Engagement target decide
+ *  its tallies. The tribe never changes, and an Anger that lapses without a write is re-read every build. A
+ *  Position write only moves a unit, so it has its own feed. */
+const UNIT_MEMBERSHIP: readonly Component<unknown>[] = [Settler, Health, Position, Owner, Anger, Engagement];
+const UNIT_VALUES: readonly Component<unknown>[] = [Owner, Engagement];
 
 /** A player's slot bit, or 0 for a player outside the slots. */
 export function playerBit(player: number): number {
@@ -78,8 +73,6 @@ export interface CoarseCell {
   total: number;
   passive: number;
   hostileAnimal: number;
-  /** Unowned members of a huntable tribe that is not last-resort prey: a hunter's primary tier. */
-  game: number;
   /** Members no diplomacy can discount: unowned ones other than passive wildlife, and any owned outside the
    *  player slots. */
   undiscounted: number;
@@ -101,7 +94,6 @@ export interface CoarseCell {
   /** The unit layer's share; a unit threatens where it stands, so its threat share is its owner share. */
   unitPassive: number;
   unitHostileAnimal: number;
-  unitGame: number;
   unitUndiscounted: number;
   /** Per player slot, the units it owns here, which keep {@link unitOwnerMask} exact as units leave. */
   readonly unitOwners: number[];
@@ -161,7 +153,6 @@ interface HeldUnit {
   slot: number;
   readonly bit: number;
   readonly wild: WildClass;
-  readonly game: boolean;
 }
 
 const grids = new WeakMap<World, CombatGrid>();
@@ -450,7 +441,6 @@ export class CombatGrid {
       cell.units.count = 0;
       cell.unitPassive = 0;
       cell.unitHostileAnimal = 0;
-      cell.unitGame = 0;
       cell.unitUndiscounted = 0;
       cell.unitOwners.fill(0);
       cell.unitOwnerMask = 0;
@@ -475,17 +465,16 @@ export class CombatGrid {
     const bit = owner === undefined ? 0 : playerBit(owner.player);
     const unowned = owner === undefined ? world.get(e, Settler) : undefined;
     const wild = wildClassOf(world, this.content, tick, e, unowned);
-    const game = isGame(this.content, unowned);
     if (held !== undefined) {
       const cell = this.cellFor(x, y);
-      if (held.cell === cell && held.bit === bit && held.wild === wild && held.game === game) {
+      if (held.cell === cell && held.bit === bit && held.wild === wild) {
         cell.units.x[held.slot] = x;
         cell.units.y[held.slot] = y;
         return;
       }
       this.dropUnit(e, held);
     }
-    this.addUnit(e, x, y, bit, wild, game);
+    this.addUnit(e, x, y, bit, wild);
   }
 
   /** Follow held unit `e` to the node its Position now stands on; the membership feed, replayed first,
@@ -506,15 +495,15 @@ export class CombatGrid {
       return;
     }
     this.dropUnit(e, held);
-    this.addUnit(e, x, y, held.bit, held.wild, held.game);
+    this.addUnit(e, x, y, held.bit, held.wild);
   }
 
-  private addUnit(e: Entity, x: number, y: number, bit: number, wild: WildClass, game: boolean): void {
+  private addUnit(e: Entity, x: number, y: number, bit: number, wild: WildClass): void {
     const cell = this.cellFor(x, y);
     const slot = cell.units.count;
     push(cell.units, e, x, y, bit);
-    this.units.set(e, { cell, slot, bit, wild, game });
-    tallyUnit(cell, bit, wild, game, 1);
+    this.units.set(e, { cell, slot, bit, wild });
+    tallyUnit(cell, bit, wild, 1);
     this.refresh(cell);
   }
 
@@ -534,7 +523,7 @@ export class CombatGrid {
     }
     units.count = last;
     this.units.delete(e);
-    tallyUnit(cell, held.bit, held.wild, held.game, -1);
+    tallyUnit(cell, held.bit, held.wild, -1);
     this.refresh(cell);
   }
 
@@ -546,7 +535,6 @@ export class CombatGrid {
     cell.total = cell.baseTotal + cell.units.count + cell.buildTotal;
     cell.passive = cell.unitPassive;
     cell.hostileAnimal = cell.unitHostileAnimal;
-    cell.game = cell.unitGame;
     cell.undiscounted = cell.baseUndiscounted + cell.unitUndiscounted + cell.buildUndiscounted;
     cell.ownerMask = cell.baseOwnerMask | cell.unitOwnerMask | cell.buildOwnerMask;
     cell.threatMask = cell.unitOwnerMask | cell.buildThreatMask;
@@ -638,7 +626,6 @@ export class CombatGrid {
         units.y[held.slot] !== y ||
         held.cell !== this.cellFor(x, y) ||
         held.bit !== (owner === undefined ? 0 : playerBit(owner.player)) ||
-        held.game !== isGame(this.content, unowned) ||
         // An Anger's lapse is re-read at the next build, so the class of its holder may lag until then.
         (!world.has(e, Anger) && held.wild !== wildClassOf(world, this.content, 0, e, unowned))
       ) {
@@ -661,7 +648,7 @@ export class CombatGrid {
         fresh.set(held.cell, tally);
       }
       tally.count++;
-      tallyUnit(tally.tallies, held.bit, held.wild, held.game, 1);
+      tallyUnit(tally.tallies, held.bit, held.wild, 1);
     }
     for (const cell of this.cells) {
       if (cell === undefined) continue;
@@ -670,7 +657,6 @@ export class CombatGrid {
         cell.units.count !== count ||
         cell.unitPassive !== tallies.unitPassive ||
         cell.unitHostileAnimal !== tallies.unitHostileAnimal ||
-        cell.unitGame !== tallies.unitGame ||
         cell.unitUndiscounted !== tallies.unitUndiscounted ||
         cell.unitOwnerMask !== tallies.unitOwnerMask ||
         cell.unitOwners.some((owned, player) => owned !== tallies.unitOwners[player])
@@ -711,7 +697,6 @@ export class CombatGrid {
         total: 0,
         passive: 0,
         hostileAnimal: 0,
-        game: 0,
         undiscounted: 0,
         ownerMask: 0,
         threatMask: 0,
@@ -724,7 +709,6 @@ export class CombatGrid {
         baseOwnerMask: 0,
         unitPassive: 0,
         unitHostileAnimal: 0,
-        unitGame: 0,
         unitUndiscounted: 0,
         unitOwners: new Array<number>(MAX_PLAYERS).fill(0),
         unitOwnerMask: 0,
@@ -772,7 +756,9 @@ function heldBuilding(world: World, ctx: MapContext, terrain: TerrainGraph, b: E
  * Classify a unit by `unowned`, its Settler when it carries no Owner, or null for anything owned or
  * non-animal. `'passive'` is discounted from the stranger tests and `'hostile'` additionally from the civ
  * test, so neither a grazing herd nor a wolf pack can defeat every gated seeker's early-out. The lapsed-Anger
- * reap stays with the attacker pass; the next build re-reads the class.
+ * reap stays with the attacker pass; the next build re-reads the class. An animal holding a target stays
+ * hostile past its anger, as `pressesWildAttack` reads it; one whose target just fell over-counts as hostile,
+ * which only costs a seeker its early-out.
  */
 function wildClassOf(
   world: World,
@@ -784,16 +770,8 @@ function wildClassOf(
   if (unowned === undefined || !isAnimalTribe(content, unowned.tribe)) return null;
   if (isAggressiveAnimal(content, unowned.tribe)) return 'hostile';
   const anger = world.tryGet(e, Anger);
-  return anger !== undefined && tick < anger.until ? 'hostile' : 'passive';
-}
-
-/** Whether an unowned unit counts toward {@link CoarseCell.game}. */
-function isGame(content: ContentSet, unowned: { readonly tribe: number } | undefined): boolean {
-  return (
-    unowned !== undefined &&
-    isHuntablePrey(content, unowned.tribe) &&
-    !isLastResortPrey(content, unowned.tribe)
-  );
+  if (anger !== undefined && tick < anger.until) return 'hostile';
+  return world.tryGet(e, Engagement)?.target !== undefined ? 'hostile' : 'passive';
 }
 
 function memberList(): MemberList {
@@ -811,14 +789,13 @@ function push(list: MemberList, e: Entity, x: number, y: number, bit: number): v
 /** A cell's unit layer share. */
 type UnitTallies = Pick<
   CoarseCell,
-  'unitPassive' | 'unitHostileAnimal' | 'unitGame' | 'unitUndiscounted' | 'unitOwners' | 'unitOwnerMask'
+  'unitPassive' | 'unitHostileAnimal' | 'unitUndiscounted' | 'unitOwners' | 'unitOwnerMask'
 >;
 
 function emptyUnitTallies(): UnitTallies {
   return {
     unitPassive: 0,
     unitHostileAnimal: 0,
-    unitGame: 0,
     unitUndiscounted: 0,
     unitOwners: new Array<number>(MAX_PLAYERS).fill(0),
     unitOwnerMask: 0,
@@ -826,10 +803,9 @@ function emptyUnitTallies(): UnitTallies {
 }
 
 /** Add (`sign` 1) or remove (-1) one unit's share of `cell`'s unit tallies. */
-function tallyUnit(cell: UnitTallies, bit: number, wild: WildClass, game: boolean, sign: 1 | -1): void {
+function tallyUnit(cell: UnitTallies, bit: number, wild: WildClass, sign: 1 | -1): void {
   if (wild === 'passive') cell.unitPassive += sign;
   else if (wild === 'hostile') cell.unitHostileAnimal += sign;
-  if (game) cell.unitGame += sign;
   if (bit === 0) {
     if (wild !== 'passive') cell.unitUndiscounted += sign;
     return;

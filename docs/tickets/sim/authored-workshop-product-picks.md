@@ -24,8 +24,8 @@ Measured breakdown of the 246 that do not land (re-measure before acting - count
   fishing drive selects authored `lafm` swarms and can produce only fish. These rows still do not land as
   counters, but no gameplay choice is lost.
 - **38 `hunter` → `prey` / 13 `farmer` → `wheat`** - **no action needed, do not "fix" these.** `prey` is
-  the resource, not a good; the hunter falls back to every good it can harvest (`leather` + `meat` +
-  `wool`, all harvest atomic 33), which is what hunted carcasses yield. A farmer is bound to its farm by
+  the resource, not a good; the hunter falls back to every good it can harvest, which covers what a
+  hunted carcass yields (`leather`, then `meat`, in turn). A farmer is bound to its farm by
   the farming rule (`jobCanHarvest`), never a flag gatherer.
 
 ## Scope

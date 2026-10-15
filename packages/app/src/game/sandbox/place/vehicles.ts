@@ -1,23 +1,8 @@
 import { cellAnchorNode, components, type Entity, type Simulation, systems } from '@open-northland/sim';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../../rules.js';
+import { directSpawnContext } from './context.js';
 
 const { Vehicle } = components;
-
-type VehicleSpawnContext = Parameters<typeof systems.createVehicle>[1];
-
-/** The system context a pre-tick placement hands the vehicle spawn: the sim's own resources, as
- *  `step()` assembles them for a system. */
-function spawnContext(sim: Simulation): VehicleSpawnContext {
-  return {
-    content: sim.content,
-    rng: sim.rng,
-    names: sim.names,
-    tick: sim.tick,
-    events: sim.events,
-    commands: sim.commands,
-    ...(sim.terrain !== undefined ? { terrain: sim.terrain } : {}),
-  };
-}
 
 /**
  * Stand a vehicle of `vehicleType` at cell (x, y) directly (scene setup, pre-tick-0) and return it, so a
@@ -31,7 +16,7 @@ export function spawnVehicleDirect(
   opts: { readonly tribe?: number; readonly owner?: number; readonly facing?: components.WalkDirection } = {},
 ): Entity {
   const node = cellAnchorNode(x, y);
-  const e = systems.createVehicle(sim.world, spawnContext(sim), {
+  const e = systems.createVehicle(sim.world, directSpawnContext(sim), {
     vehicleType,
     x: node.hx,
     y: node.hy,

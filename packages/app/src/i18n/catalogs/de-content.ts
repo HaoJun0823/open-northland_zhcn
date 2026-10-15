@@ -641,6 +641,11 @@ export const deContent = {
       summary:
         'Bären, Hirsche und Wölfe erscheinen in Gruppen auf offenen Grasflächen, jeweils mit arttypischen Körpern und Schatten dargestellt.',
     },
+    'bear-hunt': {
+      title: 'Bärenjagd',
+      summary:
+        'Ein Bär grast außer Reichweite. Schwertkämpfer, die per Rechtsklick oder Angriffsbewegung auf ihn geschickt werden, greifen an, Zivilisten gehen nur hin.',
+    },
     'wolf-pack': {
       title: 'Wolfsrudel',
       summary:

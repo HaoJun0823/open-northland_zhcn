@@ -172,7 +172,7 @@ export { productionAtomic } from './readviews/production-atomic.js';
 export { MILITARY_MODE } from './readviews/stances.js';
 // Exported so the app's livestock-heart projection keys on the same content read as the capture drive,
 // and so a real-content scenario stands its herd on the same pool the spawn would give it.
-export { animalHitpoints, isCatchableAnimal } from './readviews/tribes/animals.js';
+export { animalCannotBeAttacked, animalHitpoints, isCatchableAnimal } from './readviews/tribes/animals.js';
 // The livestock join, so the details panel names a farm's herds from the same table the sim breeds by
 // and the real-content suite can pin the slug join on the extracted ids.
 export {

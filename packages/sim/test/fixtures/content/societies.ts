@@ -194,36 +194,30 @@ export const societyContent = {
       moveSpeed: 8,
     },
     // The cow is passive livestock (`catchable`, NOT aggressive, NOT getAngry): an ordinary
-    // civilization leaves it alone, it never fights back, and its huntability comes from the huntPrey
-    // row below, not this record.
-    { id: 'cow', tribeType: 13, catchable: true, hitpointsAdult: 1000, maximumCadaverSize: 4 },
+    // civilization leaves it alone and it never fights back. `warrantable` makes a wild one game.
+    {
+      id: 'cow',
+      tribeType: 13,
+      catchable: true,
+      warrantable: true,
+      hitpointsAdult: 1000,
+      maximumCadaverSize: 4,
+    },
     // The deer is CATCHABLE AND PROVOKABLE: `catchable` + `getAngry` (NOT aggressive), `angryGameTime`
     // 10 - a hunter's strike provokes it (the provocation SOURCE), then it fights back for 10 ticks.
     {
       id: 'deer',
       tribeType: 14,
       catchable: true,
+      warrantable: true,
       getAngry: true,
       angryGameTime: 10,
       hitpointsAdult: 1000,
+      maximumCadaverSize: 3,
     },
     // The wolf is the PASSIVE wild animal: every behaviour flag left at its default - not aggressive,
-    // not getAngry, not catchable. It is wildlife purely by having a record.
+    // not getAngry, not catchable, not warrantable. It is wildlife purely by having a record.
     { id: 'wolf', tribeType: 9, hitpointsAdult: 500 },
-  ],
-  // The hunter's prey/yield table (authored, like the app catalog's): membership is huntability, so
-  // the wolves (9), bear (10) and bee (11) stay unhuntable with no row. The deer is normal game with a
-  // TWO-good carcass (the multi-node spawn shape); the cow is lastResort livestock - hunted only when
-  // no normal game is in the hunting ground (the target-tiering fixture).
-  huntPrey: [
-    { tribeType: 13, lastResort: true, yields: [{ goodType: 21, amount: 4 }] },
-    {
-      tribeType: 14,
-      yields: [
-        { goodType: 21, amount: 2 },
-        { goodType: 22, amount: 1 },
-      ],
-    },
   ],
   atomicAnimations: [
     // The chop carries the original's mid-swing sound cue (`event <at> 34 9` - PLAY_SOUND_FX naming

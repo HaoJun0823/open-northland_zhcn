@@ -60,9 +60,9 @@ const WOOD_SPACING = 3;
 const HUNT_STRIP_MARGIN = 8;
 /** One hunter in this many is posted on the sheep pasture instead of the game ground. */
 const PASTURE_HUNTER_SHARE = 4;
-/** Rows between the game ground's last row and the pasture: more than the sim's last-resort probe
- *  (twice the ground radius, in nodes; a row is two nodes) plus a hare's roam, so pasture hunters
- *  see no real game and hold livestock. */
+/** Rows between the game ground's last row and the pasture: twice a hunter's ground radius in nodes (a
+ *  row is two nodes) plus room for a herd's roam, so no hunter's ground spans both strips and the
+ *  pasture hunters, who would rank a nearby hare first, hunt sheep alone. */
 const PASTURE_GAP_ROWS = components.HUNTER_WORK_FLAG_RADIUS + 8;
 
 export interface BenchWorldOptions {
@@ -77,8 +77,8 @@ export interface BenchWorldOptions {
    */
   readonly fightersPerSide: number;
   /** Hunters in the hunting strips below everything else; 0 (the default) adds no strip. Most hunt hare
-   *  herds among dense wood nodes, and one in {@link PASTURE_HUNTER_SHARE} is posted on a gameless sheep
-   *  pasture, where it chases last-resort livestock. Non-stationary like the battle: the herds thin. */
+   *  herds among dense wood nodes, and one in {@link PASTURE_HUNTER_SHARE} is posted on a pasture of wild
+   *  sheep, which are warrantable game. Non-stationary like the battle: the herds thin. */
   readonly hunters: number;
 }
 

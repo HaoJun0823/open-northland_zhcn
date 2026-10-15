@@ -7,11 +7,11 @@ import {
   Owner,
   ownerOf,
   Position,
+  WildHabitat,
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { hexDistanceBetween } from '../../nav/halfcell.js';
 import type { System } from '../context.js';
-import { promoteHerdSuccessor } from '../movement/herd-leader.js';
 import { clearNavState } from '../movement/nav-state.js';
 import { entityNode } from '../spatial/nodes.js';
 import { claimingScouts } from './scouts.js';
@@ -98,10 +98,10 @@ function herdScratchOf(world: World): HerdScratch {
 
 /** Stamp the claim and cut whatever held the animal before it: a wild herd, or an enemy farm mid-summon. */
 function claim(world: World, animal: Entity, player: number): void {
-  // Only an animal still in a wild herd can have followers, so a re-claim skips the successor scan.
-  const wasHerded = world.has(animal, HerdMember);
   world.add(animal, Owner, { player });
+  // Its wild herd re-leads itself on the herding drive's next pass.
   world.remove(animal, HerdMember);
+  world.remove(animal, WildHabitat);
   if (world.has(animal, FarmAnimal)) {
     // A steal off an enemy farm abandons its herd and any walk to that farm's door with it.
     const summoned = world.get(animal, FarmAnimal).summoner !== null;
@@ -113,6 +113,4 @@ function claim(world: World, animal: Entity, player: number): void {
     world.remove(animal, DraughtAnimal);
     clearNavState(world, animal);
   }
-  // The wild herd does not follow the claimed animal to the farm.
-  if (wasHerded) promoteHerdSuccessor(world, animal);
 }

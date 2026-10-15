@@ -7,6 +7,7 @@ import { combatPossible } from './dormancy.js';
 import { engageCandidates } from './engage-candidates.js';
 import { engageCombatant } from './engage-combatant.js';
 import { engageVehicle } from './engage-vehicle.js';
+import { rallyAttackingHerds, rallyFollowers } from './herd-rally.js';
 import { answerQueuedAlarms } from './hit-alarm.js';
 import { MeleeSlots } from './melee-slots.js';
 import type { CombatPass } from './pass.js';
@@ -58,11 +59,14 @@ export const combatSystem: System = (world, ctx) => {
   };
   holdPassIndex(world, pass.index);
   answerQueuedAlarms(world, ctx, terrain, pass.index);
+  rallyAttackingHerds(world, ctx, terrain);
   // Every combatant stays a target, but only one that may act runs the ladder. Candidates come in ascending
   // id, so a tie-break lands on the same winner. A closer chaser may release a farther ally's slot
   // reservation; the ally keeps its enemy and asks for another approach.
   for (const e of engageCandidates(world, ctx, pass.index)) {
-    if (mayEngage(world, ctx, terrain, pass.index, e)) engageCombatant(world, ctx, terrain, pass, e);
+    if (!mayEngage(world, ctx, terrain, pass.index, e)) continue;
+    engageCombatant(world, ctx, terrain, pass, e);
+    rallyFollowers(world, ctx, terrain, e);
   }
   fireFromShelters(world, ctx, terrain, pass.index);
   // The siege vehicles fight after the men, off the same index, so a catapult's scan sees the tick's

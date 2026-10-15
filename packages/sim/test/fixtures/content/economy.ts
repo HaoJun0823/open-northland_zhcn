@@ -448,5 +448,9 @@ export const economyContent = {
     { typeId: 0, id: 'grass', walkable: true, buildable: true, plantable: true },
     { typeId: 1, id: 'water', walkable: false, buildable: false },
     { typeId: 2, id: 'barren', walkable: true, buildable: true },
+    // The cadaver a hunter's kill lays: the readable `cadaver_leather` / `cadaver_meat` harvest
+    // transitions (event 3, next type, 2, valency step, good), keyed on this fixture's leather and meat.
+    { typeId: 79, id: 'cadaver_leather', walkable: true, buildable: true, transitions: [[3, 80, 2, -1, 22]] },
+    { typeId: 80, id: 'cadaver_meat', walkable: true, buildable: true, transitions: [[3, 79, 2, -1, 21]] },
   ],
 };

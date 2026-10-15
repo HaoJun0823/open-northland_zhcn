@@ -630,6 +630,11 @@ export const plContent = {
       summary:
         'Jelenie, owce i wilki odpoczywają z dodatkowymi gestami, lwy pokazują dwa warianty chodu, a kaczki samodzielnie pływają po stawie obok niedźwiedzi.',
     },
+    'bear-hunt': {
+      title: 'Polowanie na niedźwiedzia',
+      summary:
+        'Niedźwiedź pasie się poza zasięgiem. Miecznicy wysłani na niego prawym klikiem lub atakiem w marszu uderzają, cywile tylko podchodzą.',
+    },
     'wolf-pack': {
       title: 'Wataha wilków',
       summary:

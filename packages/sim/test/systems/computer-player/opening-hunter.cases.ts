@@ -10,6 +10,7 @@ import {
 import type { Entity } from '../../../src/ecs/world.js';
 import { Simulation } from '../../../src/index.js';
 import { OPENING_HUNT_UNTIL_TICKS } from '../../../src/systems/computer-player/game-phase.js';
+import { HUNT_PREY_SCORE_CEILING } from '../../../src/systems/conflict/hunting/index.js';
 import { grassNodeMap } from '../../fixtures/terrain.js';
 import {
   aiSim,
@@ -42,15 +43,25 @@ const NEAR_GAME_DX = 10;
 const FAR_GAME_DX = 90;
 const WIDE_MAP_NODES = 128;
 
-/** {@link huntingContent} plus a huntable deer whose carcass yields meat. */
+/** {@link huntingContent} plus a deer, a warrantable type and so game. */
 function gameContent(): ContentSet {
   const base = huntingContent();
   return parseContentSet({
     ...base,
     goods: [...base.goods, { typeId: MEAT, id: 'meat', weight: 1, atomics: { harvest: MEAT_HARVEST } }],
     tribes: [...base.tribes, { typeId: DEER, id: 'deer' }],
-    animals: [...base.animals, { id: 'deer', tribeType: DEER, hitpointsAdult: 1000 }],
-    huntPrey: [...base.huntPrey, { tribeType: DEER, yields: [{ goodType: MEAT, amount: 2 }] }],
+    animals: [...base.animals, { id: 'deer', tribeType: DEER, warrantable: true, hitpointsAdult: 1000 }],
+  });
+}
+
+/** Game too tough to pick: its hit points alone reach the hunter's prey score ceiling. */
+function toughGameContent(): ContentSet {
+  const base = gameContent();
+  return parseContentSet({
+    ...base,
+    animals: base.animals.map((a) =>
+      a.tribeType === DEER ? { ...a, hitpointsAdult: HUNT_PREY_SCORE_CEILING } : a,
+    ),
   });
 }
 
@@ -163,6 +174,16 @@ describe('workforce module - the opening hunter', () => {
     placeHq(sim);
     spawnMen(sim, 4);
     spawnDeer(sim, HQ_X + FAR_GAME_DX, HQ_Y);
+    const commands = [...collectModule.run(sim.world, { ...ctxOf(sim), content }, SEAT)];
+    expect(commands.filter((c) => c.kind === 'assignWorker')).toEqual([]);
+  });
+
+  it('posts nobody while the only game near the base is too tough for a hunter to pick', () => {
+    const content = toughGameContent();
+    const sim = new Simulation({ seed: 1, content, map: grassNodeMap(64, 32) });
+    placeHq(sim);
+    spawnMen(sim, 4);
+    spawnDeer(sim, HQ_X + NEAR_GAME_DX, HQ_Y);
     const commands = [...collectModule.run(sim.world, { ...ctxOf(sim), content }, SEAT)];
     expect(commands.filter((c) => c.kind === 'assignWorker')).toEqual([]);
   });

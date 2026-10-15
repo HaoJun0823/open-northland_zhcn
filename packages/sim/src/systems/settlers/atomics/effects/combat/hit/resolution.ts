@@ -1,7 +1,9 @@
 import {
   Age,
+  ANIMAL_FLAG,
   Health,
   HOUSE_BEHAVIOUR,
+  hasAnimalFlag,
   hasHouseBehaviour,
   hasMissionBehaviour,
   MISSION_BEHAVIOUR,
@@ -31,14 +33,7 @@ import { spawnCarcasses } from './carcass.js';
 import { landedDamage } from './damage.js';
 import { launchProjectile } from './projectile-launch.js';
 import { collectHitReaction, type PendingHitReaction } from './reaction.js';
-import {
-  alarmKin,
-  animalTakesAttacker,
-  frightenStruckAnimal,
-  provokeAnger,
-  provokeHostility,
-  turnOnAttacker,
-} from './reactions.js';
+import { provokeHostility, reactToBlowOnAnimal, turnOnAttacker } from './reactions.js';
 
 /**
  * Resolve an `attack` swing at its ATTACK-event frame, the mid-animation hit. A ranged swing launches a
@@ -183,12 +178,9 @@ export function resolveCombatHit(
     markStructureDamaged(world, ctx, target);
   }
   // Original behavior: a struck beast turns angry and a struck person reacts whatever the damage.
-  provokeAnger(world, ctx, target);
-  alarmKin(world, ctx, attacker, target);
-  frightenStruckAnimal(world, ctx, attacker, target);
+  reactToBlowOnAnimal(world, ctx, attacker, target);
   if (dealtDamage && source !== 'collateral') provokeHostility(world, ctx, attacker, target);
   turnOnAttacker(world, ctx, attacker, target);
-  animalTakesAttacker(world, ctx, attacker, target);
   raiseHitAlarm(world, ctx, attacker, target);
   // A damaging blow on a human marks its owner as attacked by the striker's owner, shield or no shield:
   // the original marks it on the computed damage, before the pool is touched.
@@ -207,11 +199,12 @@ export function resolveCombatHit(
   return dealtDamage ? wound : null;
 }
 
-/** Whether a script has made this target unharmable - a human's invulnerable bit or a house's
- *  indestructible one. */
+/** Whether a script or the map has made this target unharmable - a human's invulnerable bit, a house's
+ *  indestructible one or an animal's no-damage flag. */
 function shieldedByScript(world: World, target: Entity): boolean {
   return (
     hasMissionBehaviour(world, target, MISSION_BEHAVIOUR.INVULNERABLE) ||
-    hasHouseBehaviour(world, target, HOUSE_BEHAVIOUR.INDESTRUCTIBLE)
+    hasHouseBehaviour(world, target, HOUSE_BEHAVIOUR.INDESTRUCTIBLE) ||
+    hasAnimalFlag(world, target, ANIMAL_FLAG.TAKES_NO_DAMAGE)
   );
 }

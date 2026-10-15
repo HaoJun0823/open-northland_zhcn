@@ -10,6 +10,7 @@ import {
 } from '../../src/components/index.js';
 import { positionOfNode } from '../../src/index.js';
 import { livestockCaptureSystem } from '../../src/systems/index.js';
+import { hasValidLeader } from '../../src/systems/movement/herd-leader.js';
 import { settlerAt } from '../fixtures/settler.js';
 import { BEAR_TRIBE, cowAt, ctxOf, farmAt, livestockSim, SCOUT, scoutAt } from './support.js';
 
@@ -101,7 +102,7 @@ describe('livestock capture - a scout claims the catchable animals it passes', (
     expect(sim.world.has(cow, FarmAnimal)).toBe(false);
   });
 
-  it("re-points a claimed leader's wild followers onto a successor (no conga to the farm)", () => {
+  it('drops a claimed leader from its wild herd, leaving the followers to find a new one', () => {
     const sim = livestockSim();
     scoutAt(sim, 10, 10, P0);
     const leader = cowAt(sim, 11, 10);
@@ -115,9 +116,9 @@ describe('livestock capture - a scout claims the catchable animals it passes', (
 
     expect(sim.world.tryGet(leader, Owner)?.player).toBe(P0);
     expect(sim.world.has(leader, HerdMember)).toBe(false);
-    // The lowest-id remaining member leads; both wild followers point at it.
-    expect(sim.world.get(followerA, HerdMember).leader).toBe(followerA);
-    expect(sim.world.get(followerB, HerdMember).leader).toBe(followerA);
+    // No conga to the farm: the wild followers have no valid leader until the herding drive re-leads them.
+    expect(hasValidLeader(sim.world, followerA)).toBe(false);
+    expect(hasValidLeader(sim.world, followerB)).toBe(false);
   });
 
   it("a steal mid-walk drops a cart's recruitment and the walk to its door with it", () => {

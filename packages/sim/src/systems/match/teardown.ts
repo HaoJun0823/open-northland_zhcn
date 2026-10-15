@@ -15,7 +15,7 @@ import { removeSettlerSilently } from '../lifecycle/death.js';
 import { entityPoint } from '../missions/targets.js';
 import { clearNavState } from '../movement/nav-state.js';
 import { razeSignpost } from '../signposts/placement.js';
-import { spawnAnimalHerd } from '../spawn/animals.js';
+import { spawnAnimalHerd, stampWildRange } from '../spawn/animals.js';
 import { isLand, removeVehiclesOf } from '../vehicles/remove.js';
 
 /** The creature left where each of the loser's humans stood: the `chicken` tribe's adult. */
@@ -53,13 +53,13 @@ export function tearDownLoser(world: World, ctx: SystemContext, player: number):
     if (world.isAlive(e)) razeSignpost(world, e);
   }
   for (const e of [...world.canonicalQuery(Livestock, Owner)].filter(owned)) {
-    if (world.isAlive(e)) turnWild(world, e);
+    if (world.isAlive(e)) turnWild(world, ctx, e);
   }
 }
 
 /** Drop the claim and whatever bound the animal to the seat: its farm, a summons to its door, a cart's
- *  recruitment. It keeps its stay point, so it grazes on where it stood. */
-function turnWild(world: World, e: Entity): void {
+ *  recruitment. It takes a fresh wild range where it stands and grazes on from there. */
+function turnWild(world: World, ctx: SystemContext, e: Entity): void {
   world.remove(e, Owner);
   let walking = false;
   if (world.has(e, FarmAnimal)) {
@@ -71,4 +71,5 @@ function turnWild(world: World, e: Entity): void {
     walking = true;
   }
   if (walking) clearNavState(world, e);
+  stampWildRange(world, ctx, e);
 }

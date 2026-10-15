@@ -84,17 +84,17 @@ describe('mayAttack (the combat hostility relation)', () => {
 });
 
 describe('mayHunt (the hunter predation relation)', () => {
-  it('lets a HUNTER strike huntable prey (a huntPrey row), but a non-hunter / non-prey target does not', () => {
+  it('lets a HUNTER strike a warrantable animal, but a non-hunter / non-prey target does not', () => {
     const content = tribeContent();
-    expect(mayHunt(content, HUNTER_JOB, 10)).toBe(true); // hunter -> the cow's huntPrey row
+    expect(mayHunt(content, HUNTER_JOB, 10)).toBe(true); // hunter -> the warrantable cow
     expect(mayHunt(content, 1, 10)).toBe(false); // a non-hunter trade does not hunt
     expect(mayHunt(content, null, 10)).toBe(false); // a jobless settler does not hunt
-    expect(mayHunt(content, HUNTER_JOB, 8)).toBe(false); // hunter -> aggressive bear (no huntPrey row)
-    expect(mayHunt(content, HUNTER_JOB, 9)).toBe(false); // hunter -> wild wolf (no huntPrey row)
+    expect(mayHunt(content, HUNTER_JOB, 8)).toBe(false); // hunter -> aggressive bear (not warrantable)
+    expect(mayHunt(content, HUNTER_JOB, 9)).toBe(false); // hunter -> wild wolf (not warrantable)
     expect(mayHunt(content, HUNTER_JOB, 1)).toBe(false); // a civilization is not huntable prey
   });
 
-  it('still exempts a cannotBeAttacked animal even with a huntPrey row', () => {
+  it('still exempts a cannotBeAttacked animal even when warrantable', () => {
     const content = parseContentSet({
       manifest: TEST_MANIFEST,
       goods: [
@@ -110,8 +110,9 @@ describe('mayHunt (the hunter predation relation)', () => {
         { typeId: 1, id: 'viking', jobEnables: [{ jobType: 0, kind: 'good', targetId: 0 }] },
         { typeId: 5, id: 'tame_bees', atomicBindings: [{ jobType: 0, atomicId: 1, animation: 'b' }] },
       ],
-      animals: [{ id: 'tame_bee', tribeType: 5, cannotBeAttacked: true, hitpointsAdult: 200 }],
-      huntPrey: [{ tribeType: 5, yields: [{ goodType: 21, amount: 1 }] }],
+      animals: [
+        { id: 'tame_bee', tribeType: 5, cannotBeAttacked: true, warrantable: true, hitpointsAdult: 200 },
+      ],
     });
     // The cannotBeAttacked exemption holds for hunting too - a hunter can no more strike it than a soldier.
     expect(mayHunt(content, HUNTER_JOB, 5)).toBe(false);

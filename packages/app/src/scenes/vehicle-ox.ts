@@ -4,6 +4,7 @@ import { grassTerrain } from '../catalog/buildings.js';
 import { JOB_CARRIER } from '../catalog/jobs.js';
 import { HUMAN_PLAYER } from '../game/rules.js';
 import {
+  spawnAnimalHerdDirect,
   spawnSettlerDirect,
   spawnVehicleDirect,
   VEHICLE_CART_NO_OX,
@@ -25,6 +26,7 @@ const CART = { x: 9, y: 7 } as const;
 const HERD_BIRTH = { x: 15, y: 7 } as const;
 /** Two cows are the pair the recruit scan keeps; the two others are candidates. */
 const HERD_SIZE = 4;
+const BREEDING_PAIR = 2;
 /** A carrier ordered onto the cart twice: refused while it is bare, seated once it is an ox cart. */
 const CARRIER_AT = { x: 8, y: 9 } as const;
 /** The goto and the first attach, ordered while the cart still waits: the goto is refused with
@@ -37,19 +39,17 @@ const RUN_TICKS = 600;
 /** Claims positions no session transport hands out for those ticks. */
 const ORDER_SEQUENCE = 1_000_000;
 
-const { DraughtAnimal, HerdMember, Settler } = components;
+const { DraughtAnimal } = components;
 
 function build(sim: Simulation): void {
   const cart = spawnVehicleDirect(sim, VEHICLE_CART_NO_OX, CART.x, CART.y);
-  const birth = cellAnchorNode(HERD_BIRTH.x, HERD_BIRTH.y);
-  sim.enqueueSetup({
-    kind: 'spawnAnimalHerd',
-    tribe: ANIMAL_TRIBE_CATTLE,
-    x: birth.hx,
-    y: birth.hy,
-    count: HERD_SIZE,
-    owner: HUMAN_PLAYER,
-  });
+  spawnedHerds.set(
+    sim,
+    spawnAnimalHerdDirect(sim, ANIMAL_TRIBE_CATTLE, HERD_BIRTH.x, HERD_BIRTH.y, {
+      count: HERD_SIZE,
+      owner: HUMAN_PLAYER,
+    }),
+  );
   const carrier = spawnSettlerDirect(sim, JOB_CARRIER, CARRIER_AT.x, CARRIER_AT.y, HUMAN_PLAYER);
   const goal = cellAnchorNode(GOTO_GOAL.x, GOTO_GOAL.y);
   const attach = playerCommand(HUMAN_PLAYER, { kind: 'attachToVehicle', entity: carrier, vehicle: cart });
@@ -62,13 +62,8 @@ function build(sim: Simulation): void {
   sim.enqueueAt(attach, ATTACH_TICK, ORDER_SEQUENCE);
 }
 
-function cattle(sim: Simulation): Entity[] {
-  const herd: Entity[] = [];
-  for (const e of sim.world.query(Settler)) {
-    if (sim.world.get(e, Settler).tribe === ANIMAL_TRIBE_CATTLE) herd.push(e);
-  }
-  return herd.sort((a, b) => a - b);
-}
+/** The herd each scene sim spawned, in ascending id. */
+const spawnedHerds = new WeakMap<Simulation, readonly Entity[]>();
 
 export const vehicleOxScene: SceneDefinition = {
   id: 'vehicle-ox',
@@ -98,19 +93,15 @@ export const vehicleOxScene: SceneDefinition = {
       },
     },
     {
-      label: 'one cow was consumed and the breeding pair, the herd leader and its successor, still graze',
+      label: 'one cow was consumed and the breeding pair, the two lowest ids, still graze',
       predicate: (sim) => {
-        const herd = cattle(sim);
-        const [first, second] = herd;
-        if (first === undefined || second === undefined) return false;
-        // The herd spawned in one command, so its ids run from the leader upward: the pair survives when
-        // the two lowest survivors are the leader and the next id.
-        const leader = sim.world.get(first, HerdMember).leader;
+        const herd = spawnedHerds.get(sim) ?? [];
+        const survivors = herd.filter((e) => sim.world.isAlive(e));
         return (
-          herd.length === HERD_SIZE - 1 &&
-          first === leader &&
-          Number(second) === Number(leader) + 1 &&
-          herd.every((e) => !sim.world.has(e, DraughtAnimal))
+          herd.length === HERD_SIZE &&
+          survivors.length === HERD_SIZE - 1 &&
+          herd.slice(0, BREEDING_PAIR).every((e) => survivors.includes(e)) &&
+          survivors.every((e) => !sim.world.has(e, DraughtAnimal))
         );
       },
     },

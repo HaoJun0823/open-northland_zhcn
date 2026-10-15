@@ -132,6 +132,8 @@ export type SpawnCommand =
       /** The player that owns the herd (a slot in `[0, MAX_PLAYERS)`; stamps an `Owner`). Omit, or
        *  name the wild slot a `setanimal` writes, for creatures nobody owns. */
       readonly owner?: number;
+      /** The `setanimal` flags word stamped on every member as `AnimalFlags`; omit (or 0) for none. */
+      readonly flags?: number;
     }
   | {
       /** Wed the woman placed on `woman` to the man placed on `man` at once, with no wedding walk (a

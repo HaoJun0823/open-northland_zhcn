@@ -14,6 +14,8 @@ import type { SpareForce } from '../../ai-shared/workforce/pool.js';
 import {
   groundDistance,
   HUNT_CHASE_SLACK_NODES,
+  HUNT_PREY_SCORE_CEILING,
+  preyScore,
   workplaceHuntingGround,
 } from '../../conflict/hunting/index.js';
 import { huntingGroundHoldsCarcass } from '../../conflict/hunting/kill-claim.js';
@@ -76,7 +78,8 @@ function offersHunterSeat(world: World, ctx: SystemContext, base: Entity, hunter
 
 /**
  * Whether the base's hunting ground, widened by `slack` nodes, still holds live game a hunter could walk
- * to or an unbanked carcass of a posted hunter's. The hire asks the bare ground and the retirement the
+ * to and would pick (scored from the ground's anchor, see {@link HUNT_PREY_SCORE_CEILING}) or an unbanked
+ * carcass of a posted hunter's. The hire asks the bare ground and the retirement the
  * chase leash, so game grazing on the edge does not flip the post each decision. Mapless: always true.
  */
 function huntWorkLeft(
@@ -98,6 +101,7 @@ function huntWorkLeft(
     if (!isHuntTarget(world, ctx, t, hunterJob)) continue;
     const at = entityNode(world, terrain, t);
     if (groundDistance(terrain, ground.anchorCell, at) > reach) continue;
+    if (preyScore(world, terrain, ground.anchorCell, t) >= HUNT_PREY_SCORE_CEILING) continue;
     if (home < 0 || terrain.componentOf(at) === home) return true;
   }
   return false;

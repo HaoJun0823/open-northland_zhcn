@@ -1,8 +1,10 @@
-import { HerdMember, Position } from '../../components/index.js';
+import { HerdMember, Owner, Position, WildHabitat } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
+import type { NodeId } from '../../nav/terrain/index.js';
+import { herdEligible } from './herd-roster.js';
 
 /** Whether `e` can lead a herd: it stands on the map and follows no other animal. A reaped leader has no
- *  position; a claimed one has left its wild herd, which capture re-leads. */
+ *  position; a claimed one has left its wild herd. */
 export function leadsHerd(world: World, e: Entity): boolean {
   if (!world.has(e, Position)) return false;
   const leader = world.tryGet(e, HerdMember)?.leader;
@@ -15,24 +17,33 @@ export function herdLeaderOf(world: World, e: Entity): Entity {
   return leader !== undefined && leadsHerd(world, leader) ? leader : e;
 }
 
+/** Original behavior: an animal keeps its leader while that leader lives on the map, leads itself and
+ *  answers to the same owner. */
+export function hasValidLeader(world: World, e: Entity): boolean {
+  const leader = world.tryGet(e, HerdMember)?.leader;
+  if (leader === undefined) return false;
+  if (leader === e) return world.has(e, Position);
+  if (!world.isAlive(leader) || !herdEligible(world, leader)) return false;
+  if (world.tryGet(leader, HerdMember)?.leader !== leader) return false;
+  return world.tryGet(leader, Owner)?.player === world.tryGet(e, Owner)?.player;
+}
+
 /**
- * Re-point the followers of `former`, a leader that no longer leads (claimed, reaped or off the map),
- * onto their lowest-id member on the map, which then leads itself. Returns that successor, or null when
- * none is left. One pass over the herd store per lost leader.
- *
- * Original behavior: an orphaned follower joins another leader of its tribe within 40 map points, or
- * else leads itself. Approximation: the orphans stay together under one successor.
+ * Make `e`, standing on `here`, lead itself. Original behavior: it resets its grazing (no food, its work
+ * center where it stands, no graze leg); a species with no group (`maximumgroupsize` 0) leads no one, itself
+ * included, and walks alone. Answers whether it now leads.
  */
-export function promoteHerdSuccessor(world: World, former: Entity): Entity | null {
-  let successor: Entity | null = null;
-  for (const f of world.query(HerdMember, Position)) {
-    if (f === former || world.get(f, HerdMember).leader !== former) continue;
-    if (successor === null || f < successor) successor = f;
+export function leadItself(world: World, e: Entity, here: NodeId, maxGroupSize: number): boolean {
+  if (maxGroupSize <= 0) {
+    world.remove(e, HerdMember);
+    return false;
   }
-  if (successor === null) return null;
-  for (const f of world.query(HerdMember)) {
-    if (f === former || world.get(f, HerdMember).leader !== former) continue;
-    world.mut(f, HerdMember).leader = successor;
+  world.add(e, HerdMember, { leader: e });
+  if (world.has(e, WildHabitat)) {
+    const habitat = world.mut(e, WildHabitat);
+    habitat.food = 0;
+    habitat.workCenter = here;
+    habitat.nextPoint = undefined;
   }
-  return successor;
+  return true;
 }

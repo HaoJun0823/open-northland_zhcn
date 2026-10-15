@@ -633,6 +633,11 @@ export const enContent = {
       summary:
         'Stags, sheep and wolves show extra idle gestures, lions use two walking variants, and ducks roam the pond beside the bears.',
     },
+    'bear-hunt': {
+      title: 'Bear hunt',
+      summary:
+        'A bear grazes out of reach. Swordsmen sent at it with a right click or an attack-move strike it, civilians only walk there.',
+    },
     'wolf-pack': {
       title: 'Wolf pack',
       summary:

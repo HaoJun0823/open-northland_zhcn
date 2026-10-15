@@ -1,4 +1,4 @@
-import { cellAnchorNode, components, type Simulation, systems } from '@open-northland/sim';
+import { cellAnchorNode, components, type Simulation } from '@open-northland/sim';
 import { ANIMAL_TRIBE_CATTLE } from '../catalog/animal-tribes.js';
 import { grassTerrain } from '../catalog/buildings.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../game/rules.js';
@@ -7,6 +7,7 @@ import {
   BUILDING_JOINERY_02,
   BUILDING_WAREHOUSE_00,
   placeBuiltSandboxBuilding,
+  spawnAnimalHerdDirect,
   spawnWorkersAtDoor,
   VEHICLE_CART_NO_OX,
   VEHICLE_OXCART,
@@ -14,7 +15,7 @@ import {
 import { goodBySlug } from './sandbox-queries.js';
 import type { SceneDefinition } from './types.js';
 
-const { Building, FarmAnimal, JobAssignment, Livestock, Stockpile } = components;
+const { Building, FarmAnimal, JobAssignment, Stockpile } = components;
 
 function build(sim: Simulation): void {
   const joinery = placeBuiltSandboxBuilding(sim, BUILDING_JOINERY_02, 9, 12);
@@ -42,23 +43,11 @@ function build(sim: Simulation): void {
     [23, 17, 2],
   ] as const) {
     const farm = placeBuiltSandboxBuilding(sim, BUILDING_ANIMAL_FARM, x, y);
-    const at = cellAnchorNode(x - 3, y + 3);
-    systems.spawnAnimalHerd(
-      sim.world,
-      {
-        content: sim.content,
-        rng: sim.rng,
-        names: sim.names,
-        tick: sim.tick,
-        events: sim.events,
-        commands: sim.commands,
-        ...(sim.terrain === undefined ? {} : { terrain: sim.terrain }),
-      },
-      { kind: 'spawnAnimalHerd', tribe: ANIMAL_TRIBE_CATTLE, x: at.hx, y: at.hy, count, owner: HUMAN_PLAYER },
-    );
-    for (const animal of sim.world.query(Livestock)) {
-      if (!sim.world.has(animal, FarmAnimal)) sim.world.add(animal, FarmAnimal, { farm, summoner: null });
-    }
+    const herd = spawnAnimalHerdDirect(sim, ANIMAL_TRIBE_CATTLE, x - 3, y + 3, {
+      count,
+      owner: HUMAN_PLAYER,
+    });
+    for (const animal of herd) sim.world.add(animal, FarmAnimal, { farm, summoner: null });
   }
 }
 

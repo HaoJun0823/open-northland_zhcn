@@ -98,7 +98,7 @@ export const TerrainEntities = z.strictObject({
         hx: z.number().int().nonnegative(),
         hy: z.number().int().nonnegative(),
         missionId: MissionObjectId,
-        /** The verb's last column; its meaning is unconfirmed, so it is kept verbatim. */
+        /** The verb's last column, the animal's flags word, verbatim; the sim reads its bits. */
         behaviour: z.number().int().nonnegative().optional(),
       }),
     )

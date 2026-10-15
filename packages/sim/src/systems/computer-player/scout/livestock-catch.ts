@@ -15,8 +15,7 @@ import { seatBaseOf } from '../base.js';
  * seats have stock within the 32 cells this radius covers.
  *
  * A base-employed hunter's ground is a circle around this same anchor (`HUNTER_WORK_FLAG_RADIUS`), and
- * an unclaimed animal is nobody's property, so it is valid last-resort prey (`isHuntTarget`) once no
- * normal game stands anywhere in the wider probe around that ground (`HUNT_LAST_RESORT_SCAN_FACTOR`).
+ * an unclaimed animal of a warrantable type is nobody's property, so it is ordinary game (`isHuntTarget`).
  * The round-up is intentionally not gated behind the hunt: the seat races its own hunter for a stray
  * until the hunt ends (`workforce/hunter.ts`).
  */

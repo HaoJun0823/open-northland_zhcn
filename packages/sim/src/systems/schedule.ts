@@ -61,6 +61,7 @@ import {
 } from './vehicles/index.js';
 import { shipboardNeedsSystem } from './vehicles/shipboard-needs.js';
 import { visionSystem } from './vision/index.js';
+import { wildlifeSystem } from './wildlife/index.js';
 
 /** One schedule slot: the system plus its stable display name (perf marks, bench reports). */
 interface ScheduledSystem {
@@ -86,10 +87,12 @@ export const SYSTEM_ORDER: readonly ScheduledSystem[] = [
   { name: 'defence', system: defenceSystem },
   { name: 'needs', system: needsSystem },
   { name: 'shipboardNeeds', system: shipboardNeedsSystem },
-  // Before herding, so a fresh scatter outranks the cohesion recall.
+  // Before the animals' own decisions, so a fresh scatter holds them first.
   { name: 'animalFright', system: animalFrightSystem },
+  // Before wildlife, so an orphan decides with its new leader and a commanded spawn forms its herd that tick.
   { name: 'herding', system: herdingSystem },
-  // After herding, so cohesion outranks grazing.
+  { name: 'wildlife', system: wildlifeSystem },
+  // After wildlife, so a stay decision's walk outranks an un-stacking sidestep.
   { name: 'animalWander', system: animalWanderSystem },
   // Just before the player-order system, so a claim walk that arrives short of a moved animal is re-aimed
   // before that system retires it.

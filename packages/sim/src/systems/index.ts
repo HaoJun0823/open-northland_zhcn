@@ -47,6 +47,7 @@ export * from './spatial/nodes.js';
 export { createSettler, HUMAN_HITPOINTS, type SettlerSpec } from './spawn/index.js';
 export * from './stores/index.js';
 export * from './vision/index.js';
+export * from './wildlife/index.js';
 // The package-internal systems barrel, so tests and implementation helpers share one import site. The
 // canonical schedule stays separate in schedule.ts and the external namespace is curated in public.ts.
 // Only system entry modules and cross-system helper leaves are star-exported; a cluster's internals stay

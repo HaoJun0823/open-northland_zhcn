@@ -67,6 +67,7 @@ export {
   type UnitSelfAction,
 } from './core/commands/index.js';
 export { parseCommandEnvelope, parseCommandLog } from './core/commands/parse.js';
+export { cadaverGoodCycle } from './core/content-index/cadaver.js';
 export {
   buildingLevelForType,
   constructionBillForType,

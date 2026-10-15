@@ -8,8 +8,8 @@ import {
   ignoresHousesAnimal,
   isAggressiveAnimal,
   isAnimalTribe,
+  isHuntablePrey,
   isPlayableTribe,
-  isWarrantableAnimal,
   locomotionOf,
   stayPointRangeOf,
 } from '../../../src/systems/index.js';
@@ -100,14 +100,14 @@ describe('isAggressiveAnimal / animalCannotBeAttacked / animalHitpoints (animalt
 // (every extracted animaltypes.ini field is now surfaced to the sim). Both are the same boolean-flag
 // pattern as animalCannotBeAttacked, read straight off the record (false when absent).
 
-describe('isWarrantableAnimal / ignoresHousesAnimal (the last animaltypes flag read views)', () => {
-  it('isWarrantableAnimal reads the `warrantable` flag (owned livestock) off the record', () => {
+describe('isHuntablePrey / ignoresHousesAnimal (the last animaltypes flag read views)', () => {
+  it('isHuntablePrey reads the `warrantable` flag (game) off the record', () => {
     const content = tribeContent();
-    expect(isWarrantableAnimal(content, 10)).toBe(true); // cow - warrantable (penned livestock)
-    expect(isWarrantableAnimal(content, 8)).toBe(false); // bear - a record, but wild (not warrantable)
-    expect(isWarrantableAnimal(content, 9)).toBe(false); // wolves - animal tribe but NO animaltypes record
-    expect(isWarrantableAnimal(content, 1)).toBe(false); // viking - a civilization
-    expect(isWarrantableAnimal(content, 99)).toBe(false); // unknown tribe - no record
+    expect(isHuntablePrey(content, 10)).toBe(true); // cow - warrantable
+    expect(isHuntablePrey(content, 8)).toBe(false); // bear - a record, but not warrantable
+    expect(isHuntablePrey(content, 9)).toBe(false); // wolves - animal tribe but NO animaltypes record
+    expect(isHuntablePrey(content, 1)).toBe(false); // viking - a civilization
+    expect(isHuntablePrey(content, 99)).toBe(false); // unknown tribe - no record
   });
 
   it('ignoresHousesAnimal reads the `ignorehouses` pathing flag off the record', () => {
@@ -122,8 +122,8 @@ describe('isWarrantableAnimal / ignoresHousesAnimal (the last animaltypes flag r
   it('the two flags are independent (a warrantable animal need not ignore houses, and vice versa)', () => {
     const content = tribeContent();
     // cow: warrantable but NOT ignoreHouses; bear: ignoreHouses but NOT warrantable - orthogonal flags.
-    expect(isWarrantableAnimal(content, 10) && !ignoresHousesAnimal(content, 10)).toBe(true);
-    expect(ignoresHousesAnimal(content, 8) && !isWarrantableAnimal(content, 8)).toBe(true);
+    expect(isHuntablePrey(content, 10) && !ignoresHousesAnimal(content, 10)).toBe(true);
+    expect(ignoresHousesAnimal(content, 8) && !isHuntablePrey(content, 8)).toBe(true);
   });
 });
 

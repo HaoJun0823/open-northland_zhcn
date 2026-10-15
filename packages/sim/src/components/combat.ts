@@ -30,14 +30,12 @@ export const Weapon = defineComponent<{ weaponTypeId: number }>('Weapon', 'comba
 export const Anger = defineComponent<{ until: number }>('Anger', 'combat');
 
 /**
- * A wild animal's fright: it runs away from `from`, the node its attacker struck from, until the `until`
- * tick, re-aiming on the `repathAt` throttle. Separate from {@link Fleeing}, which the stance ladder strips
- * from any unit not in FLEE stance - an unowned animal carries no stance.
+ * An animal's flight from a blow. A herd leader runs from `from`, the node its attacker struck from, to
+ * `dest`, null until the flight is aimed; a follower runs after its fleeing leader, `dest` naming the leader's
+ * destination it last aimed at. Separate from {@link Fleeing}, which the stance ladder strips from any unit
+ * not in FLEE stance - an unowned animal carries no stance.
  */
-export const Frightened = defineComponent<{ until: number; repathAt: number; from: NodeId }>(
-  'Frightened',
-  'combat',
-);
+export const Frightened = defineComponent<{ from: NodeId; dest: NodeId | null }>('Frightened', 'combat');
 
 /**
  * A hunter's empty-search breather: skip prey acquisition until the `until` tick. A cost throttle only -

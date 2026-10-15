@@ -1,7 +1,6 @@
 import { type ContentSet, IR_VERSION, PERSONAL_NAMES, parseContentSet } from '@open-northland/data';
 import { WHEAT_WORK_REPEATS } from '../../../catalog/farming.js';
-import { EXTENDED_GOODS } from '../../../catalog/goods.js';
-import { HUNTER_GENERAL_XP_TRACK, huntPreyRows } from '../../../catalog/hunting.js';
+import { HUNTER_GENERAL_XP_TRACK } from '../../../catalog/hunting.js';
 import { JOB_COLLECTOR } from '../../../catalog/jobs.js';
 import type { GoodRef } from '../../../content/settler-gfx/index.js';
 import { buildSandboxBuildings } from '../building-set.js';
@@ -13,7 +12,7 @@ import {
   sandboxLandscapeGfx,
   type TerrainTypeIds,
 } from '../landscape.js';
-import { buildSandboxAnimals, SANDBOX_ANIMAL_TRIBES } from './catalog/animals.js';
+import { buildSandboxAnimals } from './catalog/animals.js';
 import { buildSandboxAtomicAnimations } from './catalog/atomic-animations.js';
 import { buildSandboxGoods } from './catalog/goods.js';
 import { buildSandboxJobs } from './catalog/jobs.js';
@@ -74,7 +73,6 @@ export function sandboxContent(map?: TerrainTypeIds, extras: SandboxContentExtra
     tribes: [...tribes.values()],
     personalNames: PERSONAL_NAMES.filter((pool) => tribes.has(pool.tribe)),
     animals: buildSandboxAnimals(),
-    huntPrey: huntPreyRows(EXTENDED_GOODS, SANDBOX_ANIMAL_TRIBES),
     jobExperience: [COLLECTOR_GENERAL_XP_TRACK, HUNTER_GENERAL_XP_TRACK, FARMER_WHEAT_XP_TRACK],
     atomicAnimations: buildSandboxAtomicAnimations(),
   });

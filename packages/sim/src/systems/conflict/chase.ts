@@ -5,6 +5,7 @@ import {
   EquipOrder,
   Garrison,
   HuntFocus,
+  isWildlife,
   JobAssignment,
   MoveGoal,
   Owner,
@@ -208,6 +209,13 @@ export function chase(
         // Only the dropped attack order is worth a note; the march above keeps walking.
         markLostWay(world, ctx, e, request.goal);
       }
+      return true;
+    }
+    // Original behavior: an animal's attack ends the moment its walk to the target fails. The memo keeps
+    // its search off the sealed-off target, which would otherwise cost a failed route every other tick.
+    if (isWildlife(world, e) && !world.has(e, Owner)) {
+      noteUnreachableTarget(world, ctx, e, target.entity);
+      breakOff(world, ctx, e, here, defend);
       return true;
     }
     // Stand the refused route out for a cadence and count it; from the threshold on, only a refusal that

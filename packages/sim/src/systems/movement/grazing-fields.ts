@@ -71,16 +71,27 @@ interface FieldFeeds {
   readonly moves: NodeMoveFeed;
 }
 
-/** Whether a drive other than grazing holds standing animal `e`. */
+/** Whether a drive other than grazing holds standing animal `e`. A provoked animal stands while its
+ *  {@link Anger} runs, so the fight search that skips walkers keeps finding its attacker. */
 function driveHolds(world: World, e: Entity): boolean {
+  return world.has(e, Anger) || holdBesidesAnger(world, e);
+}
+
+function holdBesidesAnger(world: World, e: Entity): boolean {
   return (
     world.has(e, CurrentAtomic) ||
     world.has(e, DraughtAnimal) ||
     world.tryGet(e, FarmAnimal)?.summoner != null ||
     world.has(e, Engagement) ||
-    world.has(e, Anger) ||
     world.has(e, AttackOrder) ||
     world.has(e, Frightened)
+  );
+}
+
+/** Whether animal `e` stands on the field held by nothing but its {@link Anger}: provoked, out of any fight. */
+export function heldByAngerAlone(world: World, e: Entity): boolean {
+  return (
+    world.has(e, Anger) && !world.has(e, Resting) && !isTravelling(world, e) && !holdBesidesAnger(world, e)
   );
 }
 
@@ -127,6 +138,11 @@ export class GrazingFields {
   /** Standing animals no other drive holds, ascending id: the grazing drive's candidates. */
   get grazers(): readonly Entity[] {
     return this.grazerIds;
+  }
+
+  /** Whether `e` stands on the field with no other drive holding it. */
+  grazes(e: Entity): boolean {
+    return this.roles[e] === GRAZING;
   }
 
   nodeOf(e: Entity): NodeId {

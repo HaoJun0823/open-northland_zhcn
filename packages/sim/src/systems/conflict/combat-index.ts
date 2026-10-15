@@ -295,15 +295,6 @@ export class CombatIndex {
   }
 
   /**
-   * Whether any unowned member of a huntable tribe that is not last-resort prey might lie within `radius`
-   * map points of node (hx, hy). Every hunter's primary-tier target is one, so `false` proves that tier's
-   * search empty.
-   */
-  gameWithin(hx: number, hy: number, radius: number): boolean {
-    return this.someCell(hx, hy, radius, (cell) => cell.game > 0);
-  }
-
-  /**
    * Write to `out` from index `at` every owned unit in a slot whose {@link othersWithin} could be true at up
    * to `radius` map points from its node: one in a cell whose neighbourhood of that reach holds an
    * undiscounted member or a player at war with it either way. Every other owned unit proves that test

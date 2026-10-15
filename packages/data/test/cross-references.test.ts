@@ -27,6 +27,12 @@ function base(): Record<string, unknown> {
 }
 
 const UNKNOWN = 99;
+/** A two-stage cadaver: each `transition` tuple is a pluck (event 3) into the other stage, yielding good
+ *  1 then good 2. */
+const CADAVER_STAGES = [
+  { typeId: 79, id: 'cadaver_leather', transitions: [[3, 80, 2, -1, 1]] },
+  { typeId: 80, id: 'cadaver_meat', transitions: [[3, 79, 2, -1, 2]] },
+];
 
 /** A schema-valid TerrainPattern row; cases override `patternId` to make its representative pick dangle. */
 function terrainPattern(): Record<string, unknown> {
@@ -390,26 +396,28 @@ describe('validateCrossReferences', () => {
       overrides: { jobExperience: [{ typeId: 1, id: 'chop_xp', jobType: 1, goodTypes: [UNKNOWN] }] },
       error: /jobExperience "chop_xp" references unknown goodType 99/,
     },
-    // huntPrey
+    // cadaver chain
     {
-      name: 'a huntPrey row whose yield goods carry differing harvest atomics',
+      name: 'cadaver stages whose goods carry differing harvest atomics',
       overrides: {
         goods: [
-          { typeId: 1, id: 'meat', atomics: { harvest: 33 } },
-          { typeId: 2, id: 'leather', atomics: { harvest: 34 } },
+          { typeId: 1, id: 'leather', atomics: { harvest: 33 } },
+          { typeId: 2, id: 'meat', atomics: { harvest: 34 } },
         ],
-        tribes: [{ typeId: 7, id: 'deers' }],
-        huntPrey: [
-          {
-            tribeType: 7,
-            yields: [
-              { goodType: 1, amount: 1 },
-              { goodType: 2, amount: 1 },
-            ],
-          },
-        ],
+        landscape: CADAVER_STAGES,
       },
-      error: /huntPrey tribe 7 yields goods with differing harvest atomics/,
+      error: /cadaver stages yield goods with differing harvest atomics/,
+    },
+    {
+      name: 'a cadaver stage yielding a good with no harvest atomic',
+      overrides: {
+        goods: [
+          { typeId: 1, id: 'leather', atomics: { harvest: 33 } },
+          { typeId: 2, id: 'meat' },
+        ],
+        landscape: CADAVER_STAGES,
+      },
+      error: /cadaver stage yields good "meat" with no harvest atomic/,
     },
   ];
 

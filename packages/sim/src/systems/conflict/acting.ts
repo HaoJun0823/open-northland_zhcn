@@ -77,7 +77,7 @@ export function mayEngage(
     if (!isAnimalTribe(ctx.content, settler.tribe)) return true; // a scenario civ's search is ungated
     // A passive animal stands down; a provoked one holds Anger.
     if (!isAggressiveAnimal(ctx.content, settler.tribe)) return false;
-    const pursuit = wildPursuit(world, ctx, terrain, e, here, settler);
+    const pursuit = wildPursuit(world, ctx, terrain, e, here);
     if (pursuit.kind !== 'search') return pursuit.kind !== 'idle';
     const { center } = pursuit;
     return index.civsWithin(terrain.xOf(center), terrain.yOf(center), ANIMAL_AGGRO_RADIUS_NODES);

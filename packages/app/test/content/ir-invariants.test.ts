@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { hasFieldFarmAtomics } from '@open-northland/data';
 import { atlasFromManifest } from '@open-northland/render';
+import { cadaverGoodCycle } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
+import { HARVEST_CADAVER_ATOMIC } from '../../src/catalog/atomics.js';
 import { PLACED_GARRISON_MASTS } from '../../src/catalog/building-tweaks.js';
 import { NAV_LANDSCAPE_TYPES } from '../../src/catalog/terrain.js';
 import {
@@ -167,10 +169,13 @@ describe.runIf(hasRealIr())('real IR invariants', () => {
     const reported = new Set(merge.unbalancedGoods);
     // A field crop, a carcass yield and a hive's honey (no harvest stage) are supplied by their own
     // loops, so the felling/mining balance never applies to them.
-    const huntYields = new Set(merge.content.huntPrey.flatMap((p) => p.yields.map((y) => y.goodType)));
     for (const good of merge.content.goods) {
       if (good.gathering === undefined || reported.has(good.id)) continue;
-      if (good.gathering.harvest === undefined || good.farming !== undefined || huntYields.has(good.typeId)) {
+      if (
+        good.gathering.harvest === undefined ||
+        good.farming !== undefined ||
+        good.atomics.harvest === HARVEST_CADAVER_ATOMIC
+      ) {
         continue;
       }
       if (KNOWN_UNCALIBRATED_GOOD_IDS.includes(good.id)) {
@@ -190,6 +195,14 @@ describe.runIf(hasRealIr())('real IR invariants', () => {
         `good '${good.id}' merged to a dead gathering balance (no yield, no deposit)`,
       ).toBe(true);
     }
+  });
+
+  it("a hunter's cadaver alternates leather and meat under one harvest atomic", async () => {
+    const { content } = (await loadContentUnderTest()).merge;
+    const goods = new Map(content.goods.map((g) => [g.typeId, g]));
+    const cycle = cadaverGoodCycle(content).map((typeId) => goods.get(typeId));
+    expect(cycle.map((g) => g?.id)).toEqual(['leather', 'meat']);
+    expect(new Set(cycle.map((g) => g?.atomics.harvest))).toEqual(new Set([HARVEST_CADAVER_ATOMIC]));
   });
 
   it('every field-farmed good has a farming block or is reported as a gap - never silently barren', async () => {

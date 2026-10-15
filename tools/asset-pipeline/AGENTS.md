@@ -49,6 +49,11 @@ trimmed, with single spaces), our `to` text and a Polish `reason`. The strings s
 only while it still reads `from`, and an entry the run did not apply fails the pipeline the same way,
 so a data release that fixes the text forces its removal.
 
+`corrections/strings/maps.json` does the same for a map's own strings (`maps/<map>.strings.json`), such
+as mission goals kept in an encrypted `text/<lang>/strings.cif` that no line swap can reach. Each entry
+names `map` (the map id) instead of `table`; the maps stage swaps the decoded text before the meta,
+script and strings files read it, under the same `from` check and the same failure rule.
+
 ## Decoder work
 
 The decoders live in `packages/formats` and map conversion in `packages/map-import`. Both run in a

@@ -1,0 +1,122 @@
+[
+  {
+    "map": "tutorial_001",
+    "lang": "rus",
+    "id": 3,
+    "from": "НАйдите женщину для него и для окружающих!",
+    "to": "Найдите Кнуту женщину где-нибудь поблизости!",
+    "reason": "Literówka \"НАйдите\", a \"для него и для окружающих\" to błędne tłumaczenie; oryginał każe znaleźć Knutowi kobietę w okolicy."
+  },
+  {
+    "map": "tutorial_003",
+    "lang": "pol",
+    "id": 4,
+    "from": "Niech jeden z twoich ludzi zajmie farmę i poczekaj, aż zostanie mistrzem.",
+    "to": "Niech jeden z twoich ludzi zajmie farmę i poczekaj, aż farmer zdobędzie dość doświadczenia, by odblokować młynarza.",
+    "reason": "Skrypt czeka na odblokowanie młynarza (10 punktów doświadczenia farmera), a nie na mistrza."
+  },
+  {
+    "map": "tutorial_003",
+    "lang": "eng",
+    "id": 4,
+    "from": "Have one of your people join the farm as a farmer and wait until he has become a master.",
+    "to": "Have one of your people join the farm as a farmer and wait until he has gained enough experience to unlock the miller.",
+    "reason": "Skrypt czeka na odblokowanie młynarza (10 punktów doświadczenia farmera), a nie na mistrza."
+  },
+  {
+    "map": "tutorial_003",
+    "lang": "ger",
+    "id": 4,
+    "from": "Weise der Farm einen deiner Leute als Farmer zu und warte bis er Meister wird.",
+    "to": "Weise der Farm einen deiner Leute als Farmer zu und warte, bis er genug Erfahrung gesammelt hat, um den Müller freizuschalten.",
+    "reason": "Skrypt czeka na odblokowanie młynarza (10 punktów doświadczenia farmera), a nie na mistrza."
+  },
+  {
+    "map": "tutorial_003",
+    "lang": "rus",
+    "id": 4,
+    "from": "Направьте одного своего человека на ферму и подождите пока он там станет мастером.",
+    "to": "Направьте одного своего человека на ферму и подождите, пока он наберётся опыта и откроет профессию мельника.",
+    "reason": "Skrypt czeka na odblokowanie młynarza (10 punktów doświadczenia farmera), a nie na mistrza."
+  },
+  {
+    "map": "tutorial_005",
+    "lang": "pol",
+    "id": 0,
+    "from": "Daj kupcowi dwa magazyny i patrz, co się dzieje.",
+    "to": "Daj kupcowi wóz i dwa punkty handlowe, a potem zaznacz strzałką miód, żeby go przewiózł.",
+    "reason": "U nas kupiec handluje tylko jadąc wozem i przewozi tylko towary zaznaczone strzałką; cel czeka, aż miód trafi do drugiego magazynu."
+  },
+  {
+    "map": "tutorial_005",
+    "lang": "eng",
+    "id": 0,
+    "from": "Give a merchant two warehouses and watch what happens.",
+    "to": "Give a merchant a cart and two trade posts, then mark the honey with an arrow so he carries it over.",
+    "reason": "U nas kupiec handluje tylko jadąc wozem i przewozi tylko towary zaznaczone strzałką; cel czeka, aż miód trafi do drugiego magazynu."
+  },
+  {
+    "map": "tutorial_005",
+    "lang": "ger",
+    "id": 0,
+    "from": "Weise einem Händler zwei Lagerhäuser zu und schau, was passiert.",
+    "to": "Gib einem Händler einen Karren und zwei Handelshäuser und markiere den Honig mit einem Pfeil, damit er ihn hinüberbringt.",
+    "reason": "U nas kupiec handluje tylko jadąc wozem i przewozi tylko towary zaznaczone strzałką; cel czeka, aż miód trafi do drugiego magazynu."
+  },
+  {
+    "map": "tutorial_005",
+    "lang": "rus",
+    "id": 0,
+    "from": "Дайте купцу два склада и наблюдайте , что произойдет.",
+    "to": "Дайте купцу повозку и два торговых поста, затем отметьте мёд стрелкой, чтобы он его перевёз.",
+    "reason": "U nas kupiec handluje tylko jadąc wozem i przewozi tylko towary zaznaczone strzałką; cel czeka, aż miód trafi do drugiego magazynu."
+  },
+  {
+    "map": "tutorial_006",
+    "lang": "rus",
+    "id": 7,
+    "from": "@НАйдите способ захватить Сарацин!",
+    "to": "@Найдите способ захватить Сарацин!",
+    "reason": "Literówka \"НАйдите\"."
+  },
+  {
+    "map": "tutorial_006",
+    "lang": "rus",
+    "id": 8,
+    "from": "Защищайте передовой пост Сарацин!",
+    "to": "Уничтожьте передовой пост Сарацин!",
+    "reason": "\"Защищайте\" znaczy \"brońcie\"; cel wymaga zabicia załogi placówki Saracenów i zniszczenia jej budynku."
+  },
+  {
+    "map": "tutorial_007",
+    "lang": "pol",
+    "id": 5,
+    "from": "Niech kowal wyprodukuje 5 metalowych narzędzi!",
+    "to": "Niech cieśla wyprodukuje 5 żelaznych narzędzi!",
+    "reason": "Żelazne narzędzia robi u nas cieśla w stolarni, nie kowal."
+  },
+  {
+    "map": "tutorial_007",
+    "lang": "eng",
+    "id": 5,
+    "from": "Have your blacksmith produce 5 iron tools!",
+    "to": "Have your carpenter produce 5 iron tools!",
+    "reason": "Żelazne narzędzia robi u nas cieśla w stolarni, nie kowal."
+  },
+  {
+    "map": "tutorial_007",
+    "lang": "ger",
+    "id": 5,
+    "from": "Lass vom Schmied 5 Eisenwerkzeuge herstellen!",
+    "to": "Lass vom Schreiner 5 Eisenwerkzeuge herstellen!",
+    "reason": "Żelazne narzędzia robi u nas cieśla w stolarni, nie kowal."
+  },
+  {
+    "map": "tutorial_007",
+    "lang": "rus",
+    "id": 5,
+    "from": "Прикажите своему кузнецу произвести 5 железных инструментов!",
+    "to": "Прикажите своему столяру произвести 5 железных инструментов!",
+    "reason": "Żelazne narzędzia robi u nas cieśla w stolarni, nie kowal."
+  }
+]

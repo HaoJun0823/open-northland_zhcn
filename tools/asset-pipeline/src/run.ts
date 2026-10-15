@@ -28,14 +28,20 @@ import { copySoundTree } from './stages/sounds.js';
 import { indexSourceAssets } from './stages/source-files.js';
 import { convertVehiclePaletteFamilies } from './stages/vehicle-colors.js';
 import { convertVertexPalette, VERTEX_PALETTE_FILE } from './stages/vertex-palette.js';
-import { loadStringCorrections, STRING_CORRECTIONS_FILE } from './string-corrections.js';
+import {
+  loadMapStringCorrections,
+  loadStringCorrections,
+  MAP_STRING_CORRECTIONS_FILE,
+  STRING_CORRECTIONS_FILE,
+} from './string-corrections.js';
 
 /** Runs the full conversion of the base data root into the IR under `args.out`. */
 export async function runPipeline(args: Args): Promise<void> {
   const data = await resolveDataRoot(args.dataRoot);
   const corrections = await loadSourceCorrections(CORRECTIONS_DIR, data);
   const stringCorrections = await loadStringCorrections(STRING_CORRECTIONS_FILE);
-  const roots: SourceRoots = { data, corrections, stringCorrections };
+  const mapStringCorrections = await loadMapStringCorrections(MAP_STRING_CORRECTIONS_FILE);
+  const roots: SourceRoots = { data, corrections, stringCorrections, mapStringCorrections };
   console.log(`[pipeline] data=${roots.data} out=${args.out}`);
   for (const { id, file } of corrections.list) console.log(`[pipeline] correction ${id}: ${file}`);
 
@@ -179,8 +185,10 @@ export async function runPipeline(args: Args): Promise<void> {
 
   corrections.assertApplied();
   stringCorrections.assertApplied();
+  mapStringCorrections.assertApplied();
   console.log(
-    `[pipeline] corrections: ${corrections.list.length} file(s), ${stringCorrections.list.length} string(s) applied`,
+    `[pipeline] corrections: ${corrections.list.length} file(s), ${stringCorrections.list.length} string(s), ` +
+      `${mapStringCorrections.list.length} map string(s) applied`,
   );
   assertStaticVerbsKnown(terrains);
 }

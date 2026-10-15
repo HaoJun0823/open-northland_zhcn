@@ -23,7 +23,7 @@ import { findMapFolders, mapIdFromFolderName } from './folders.js';
 import { mapsIndexEntry } from './index-entry.js';
 import { MAP_CIF_FILE, MAP_DAT_FILE, PICTURE_PATH, STATIC_OBJECT_FILES } from './layout.js';
 import { DEFAULT_IMPORT_LIMITS, type ImportLimits } from './limits.js';
-import { loadMapStringTables, resolveMapMeta } from './meta.js';
+import { loadMapStringTables, type MapStringTables, resolveMapMeta } from './meta.js';
 import { minimapToPng } from './minimap.js';
 import { resolveMapScript } from './script.js';
 import { type MapDatTerrainFile, mapDatToTerrain } from './terrain/index.js';
@@ -64,6 +64,8 @@ export interface ConvertOptions {
   readonly rootName?: string;
   /** Rasterizes the menu minimap from the decoded terrain; without it no minimap is produced. */
   readonly minimap?: (terrain: MapDatTerrainFile) => Promise<Uint8Array | undefined>;
+  /** Rewrites the decoded string tables of map `id` before the meta, script and sidecar read them. */
+  readonly correctStrings?: (id: string, tables: MapStringTables) => MapStringTables;
   readonly onProgress?: (progress: ConvertProgress) => void;
   /** Recoverable problems: an unreadable optional file or layer, which the map then goes without. */
   readonly onWarning?: (message: string) => void;
@@ -213,7 +215,7 @@ export async function convertMapFolder(
     },
   };
   let authored: ReturnType<typeof readEntities>;
-  let stringTables: ReturnType<typeof loadMapStringTables>;
+  let stringTables: MapStringTables;
   try {
     authored = readEntities(folder, (verb) => unknownVerbs.add(verb), cifLimits);
     report('strings');
@@ -221,6 +223,7 @@ export async function convertMapFolder(
   } catch (err) {
     throw limitFailure(err, folder.rel);
   }
+  if (options.correctStrings !== undefined) stringTables = options.correctStrings(id, stringTables);
   const { cifSections, entities } = authored;
   if (entities !== undefined) terrain = { ...terrain, entities };
   const unknownStaticVerbs = [...unknownVerbs].sort();

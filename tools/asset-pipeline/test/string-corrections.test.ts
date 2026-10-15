@@ -2,11 +2,14 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
+import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
 import { convertGuiStrings } from '../src/stages/gui/strings.js';
+import { convertMapDatTree } from '../src/stages/maps/index.js';
 import {
+  loadMapStringCorrections,
   loadStringCorrections,
+  MAP_STRING_CORRECTIONS_FILE,
   STRING_CORRECTIONS_FILE,
-  type StringCorrection,
   type StringCorrections,
 } from '../src/string-corrections.js';
 import { type GameOutTemp, makeGameOutTemp } from './support/game-tree.js';
@@ -16,7 +19,7 @@ const RUS_SOURCE = '\xa8\xe6';
 const RUS_TEXT = 'Ёж';
 const GOOD_ID = 4;
 
-const ENTRY: StringCorrection = {
+const ENTRY = {
   lang: 'rus',
   table: 'goods',
   id: GOOD_ID,
@@ -114,5 +117,83 @@ describe('string corrections', () => {
 
   it('parses the committed corrections, each naming a known language and table', async () => {
     expect((await loadStringCorrections(STRING_CORRECTIONS_FILE)).list.length).toBeGreaterThan(0);
+  });
+});
+
+const MAP_ID = 'tutorial_002';
+// The map description's default string id, so the meta sidecar shows whether it read the fix too.
+const STRING_ID = 1;
+const MAP_ENTRY = {
+  map: MAP_ID,
+  lang: 'pol',
+  id: STRING_ID,
+  from: 'Zbuduj ul.',
+  to: 'Zbuduj dwa ule.',
+  reason: 'test',
+};
+
+describe('map string corrections', () => {
+  let temp: GameOutTemp;
+  let file: string;
+
+  /** Converts the map tree through the corrections in `file`. */
+  const convertMaps = async (
+    entries: unknown,
+  ): Promise<{
+    strings: Record<string, Record<string, string>>;
+    corrections: StringCorrections;
+  }> => {
+    await writeFile(file, JSON.stringify(entries));
+    const corrections = await loadMapStringCorrections(file);
+    await convertMapDatTree({ data: temp.game, mapStringCorrections: corrections }, temp.out);
+    const strings = JSON.parse(await readFile(join(temp.out, `maps/${MAP_ID}.strings.json`), 'utf8'));
+    return { strings, corrections };
+  };
+
+  beforeEach(async () => {
+    temp = await makeGameOutTemp('map-string-corrections');
+    file = join(temp.root, 'maps.json');
+    await temp.write(`maps/community/${MAP_ID}/map.dat`, buildMapDat(1, 1, [2, 2, 2, 2]));
+    await temp.write(
+      `maps/community/${MAP_ID}/text/pol/strings.cif`,
+      buildStringCif([
+        { level: 1, text: 'text' },
+        { level: 2, text: `stringn ${STRING_ID} "Zbuduj ul."` },
+        { level: 2, text: 'stringn 4 "Inne"' },
+      ]),
+    );
+  });
+
+  afterEach(() => temp.cleanup());
+
+  it('replaces the decoded map string that still reads "from" before the meta reads it', async () => {
+    const { strings, corrections } = await convertMaps([MAP_ENTRY]);
+    expect(strings.pol).toEqual({ [STRING_ID]: 'Zbuduj dwa ule.', 4: 'Inne' });
+    const meta = JSON.parse(await readFile(join(temp.out, `maps/${MAP_ID}.meta.json`), 'utf8'));
+    expect(meta.description).toEqual({ pol: 'Zbuduj dwa ule.' });
+    expect(() => corrections.assertApplied()).not.toThrow();
+  });
+
+  it.each([
+    [
+      'the text changed',
+      { ...MAP_ENTRY, from: 'Zbuduj most.' },
+      /pol\/tutorial_002\/1 .*the text is now "Zbuduj ul."/,
+    ],
+    ['the language is not shipped', { ...MAP_ENTRY, lang: 'eng' }, /eng\/tutorial_002\/1 .*never read/],
+    ['the map is unknown', { ...MAP_ENTRY, map: 'tutorial_099' }, /pol\/tutorial_099\/1 .*never read/],
+  ])('fails the run when %s', async (_why, entry, message) => {
+    const { strings, corrections } = await convertMaps([entry]);
+    expect(strings.pol?.[STRING_ID]).toBe('Zbuduj ul.');
+    expect(() => corrections.assertApplied()).toThrow(message);
+  });
+
+  it('rejects a table key in a map entry', async () => {
+    await writeFile(file, JSON.stringify([{ ...MAP_ENTRY, table: 'goods' }]));
+    await expect(loadMapStringCorrections(file)).rejects.toThrow(/unknown key "table"/);
+  });
+
+  it('parses the committed map corrections', async () => {
+    expect((await loadMapStringCorrections(MAP_STRING_CORRECTIONS_FILE)).list.length).toBeGreaterThan(0);
   });
 });

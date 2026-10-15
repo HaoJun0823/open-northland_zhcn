@@ -19,6 +19,8 @@ export interface SourceRoots {
   readonly corrections?: SourceCorrections;
   /** Fixes applied to decoded display strings; without them the tables keep the shipped text. */
   readonly stringCorrections?: StringCorrections;
+  /** Fixes applied to decoded map string tables; without them the maps keep the shipped text. */
+  readonly mapStringCorrections?: StringCorrections;
 }
 
 /** Reads a data file as the run sees it, through the corrections that name it. */

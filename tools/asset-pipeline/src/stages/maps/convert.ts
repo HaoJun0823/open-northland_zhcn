@@ -15,6 +15,7 @@ import {
 } from '@open-northland/map-import';
 import { writeFileWithParents } from '../../files.js';
 import { collectSourceFiles, readSourceFile, type SourceRoots } from '../../roots.js';
+import { correctMapStrings } from '../../string-corrections.js';
 import { MAPS_DIR } from '../content-tree.js';
 import { writePagePictures } from '../hypertext-pictures.js';
 import { mapProvenanceKind } from './provenance.js';
@@ -76,9 +77,9 @@ function summarize(map: ConvertedMap): MapDatConversion {
 /**
  * Converts every map folder under the mod root into `<outDir>/maps/<id>.*` and its briefing pictures
  * into `gui/hypertext/`, in path-sorted order so a re-run is reproducible. The map files are read
- * through the corrections. Two folders with one slug write one id, last write wins, sidecars
- * included. A `map.dat` that fails to decode is logged and skipped; a write failure and a missing
- * mod root propagate.
+ * through the corrections, their decoded strings through the map-string corrections. Two folders with
+ * one slug write one id, last write wins, sidecars included. A `map.dat` that fails to decode is
+ * logged and skipped; a write failure and a missing mod root propagate.
  */
 export async function convertMapDatTree(
   roots: SourceRoots,
@@ -95,6 +96,7 @@ export async function convertMapDatTree(
   // This stage is the only writer under <outDir>/maps, so a wholesale reset is safe.
   await rm(join(outDir, MAPS_DIR), { recursive: true, force: true });
   const folders = findMapFolders(tree);
+  const stringCorrections = roots.mapStringCorrections;
   const done: MapDatConversion[] = [];
   for (const [index, key] of folders.entries()) {
     let map: ConvertedMap;
@@ -106,6 +108,9 @@ export async function convertMapDatTree(
           provenance: mapProvenanceKind,
           limits: NO_IMPORT_LIMITS,
           ...(synthesizeMinimap === undefined ? {} : { minimap: synthesizeMinimap }),
+          ...(stringCorrections === undefined
+            ? {}
+            : { correctStrings: (id, tables) => correctMapStrings(stringCorrections, id, tables) }),
           onWarning: (message) => console.warn(`[pipeline] ${message}`),
         },
         { index, total: folders.length },

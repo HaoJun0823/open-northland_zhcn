@@ -1,5 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { MAP_TEXT_LANGUAGES } from '@open-northland/data';
+import type { MapStringTables } from '@open-northland/map-import';
 import { errorMessage } from './errors.js';
 import { GUI_LANGS } from './stages/gui/paths.js';
 import { EXPORTED_TABLES } from './stages/gui/strings.js';
@@ -9,12 +11,17 @@ export const STRING_CORRECTIONS_FILE = fileURLToPath(
   new URL('../corrections/strings/tables.json', import.meta.url),
 );
 
+/** The committed fixes to decoded map strings (`maps/<map>.strings.json`), under the same rules. */
+export const MAP_STRING_CORRECTIONS_FILE = fileURLToPath(
+  new URL('../corrections/strings/maps.json', import.meta.url),
+);
+
 /** One display string replaced while the decoded original still reads `from`. */
 export interface StringCorrection {
   /** The text folder, e.g. `rus`. */
   readonly lang: string;
-  /** The table key in `gui/strings/<lang>.json`. */
-  readonly table: string;
+  /** The table key in `gui/strings/<lang>.json`, or the map id for a map string. */
+  readonly scope: string;
   /** The string id within that table. */
   readonly id: number;
   readonly from: string;
@@ -25,32 +32,75 @@ export interface StringCorrection {
 /** One pipeline run's string corrections, and which of them the decoded tables took. */
 export interface StringCorrections {
   readonly list: readonly StringCorrection[];
-  /** `byId` with every correction naming `lang`/`table` applied where the text still matches. */
-  correct(lang: string, table: string, byId: Readonly<Record<number, string>>): Record<number, string>;
+  /** `byId` with every correction naming `lang`/`scope` applied where the text still matches. */
+  correct(lang: string, scope: string, byId: Readonly<Record<number, string>>): Record<number, string>;
   /** Throws naming every correction the run did not apply, and why. */
   assertApplied(): void;
 }
 
-const ENTRY_KEYS = ['lang', 'table', 'id', 'from', 'to', 'reason'] as const;
+/** What one corrections file keys its entries by besides `lang` and `id`. */
+interface CorrectionKind {
+  /** The entry key naming the scope: `table` or `map`. */
+  readonly scopeKey: string;
+  readonly langs: readonly string[];
+  /** Why a scope value is invalid, or undefined when it is valid. */
+  checkScope(value: string): string | undefined;
+}
 
-/** Loads the corrections at `path`; a missing file holds none, a malformed one throws. */
-export async function loadStringCorrections(path: string): Promise<StringCorrections> {
+const TABLE_KIND: CorrectionKind = {
+  scopeKey: 'table',
+  langs: GUI_LANGS,
+  checkScope: (table) =>
+    EXPORTED_TABLES.includes(table) ? undefined : `table must be one of ${EXPORTED_TABLES.join(', ')}`,
+};
+
+const MAP_KIND: CorrectionKind = {
+  scopeKey: 'map',
+  langs: MAP_TEXT_LANGUAGES,
+  checkScope: (map) => (map.trim() === '' ? 'map must name a map id' : undefined),
+};
+
+/** Loads the display-table corrections at `path`; a missing file holds none, a malformed one throws. */
+export function loadStringCorrections(path: string): Promise<StringCorrections> {
+  return loadCorrections(path, TABLE_KIND);
+}
+
+/** Loads the map-string corrections at `path`; a missing file holds none, a malformed one throws. */
+export function loadMapStringCorrections(path: string): Promise<StringCorrections> {
+  return loadCorrections(path, MAP_KIND);
+}
+
+/** Map `id`'s decoded tables with every correction naming that map applied. */
+export function correctMapStrings(
+  corrections: StringCorrections,
+  id: string,
+  tables: MapStringTables,
+): MapStringTables {
+  const corrected: MapStringTables = {};
+  for (const lang of MAP_TEXT_LANGUAGES) {
+    const table = tables[lang];
+    if (table !== undefined) corrected[lang] = corrections.correct(lang, id, table);
+  }
+  return corrected;
+}
+
+async function loadCorrections(path: string, kind: CorrectionKind): Promise<StringCorrections> {
   let text: string | undefined;
   try {
     text = await readFile(path, 'utf8');
   } catch {
     text = undefined;
   }
-  const list = text === undefined ? [] : parseStringCorrections(path, parseJson(path, text));
+  const list = text === undefined ? [] : parseStringCorrections(path, kind, parseJson(path, text));
 
   const applied = new Set<StringCorrection>();
   const failures = new Map<StringCorrection, string>();
   return {
     list,
-    correct(lang, table, byId) {
+    correct(lang, scope, byId) {
       const corrected: Record<number, string> = { ...byId };
       for (const entry of list) {
-        if (entry.lang !== lang || entry.table !== table) continue;
+        if (entry.lang !== lang || entry.scope !== scope) continue;
         const actual = byId[entry.id];
         if (actual === entry.from) {
           corrected[entry.id] = entry.to;
@@ -71,7 +121,7 @@ export async function loadStringCorrections(path: string): Promise<StringCorrect
         .filter((entry) => !applied.has(entry))
         .map(
           (entry) =>
-            `${entry.lang}/${entry.table}/${entry.id} ${JSON.stringify(entry.from)}: ${failures.get(entry) ?? 'never read: the mod lacks the table, or no stage decodes it'}`,
+            `${entry.lang}/${entry.scope}/${entry.id} ${JSON.stringify(entry.from)}: ${failures.get(entry) ?? `never read: the data lacks that ${kind.scopeKey} or language, or no stage decodes it`}`,
         );
       if (problems.length > 0) {
         throw new Error(
@@ -90,33 +140,35 @@ function parseJson(path: string, text: string): unknown {
   }
 }
 
-function parseStringCorrections(path: string, raw: unknown): StringCorrection[] {
+function parseStringCorrections(path: string, kind: CorrectionKind, raw: unknown): StringCorrection[] {
   const fail = (why: string): never => {
     throw new Error(`string corrections ${path}: ${why}`);
   };
   if (!Array.isArray(raw)) return fail('not a JSON array');
+  const entryKeys = ['lang', kind.scopeKey, 'id', 'from', 'to', 'reason'];
   const seen = new Set<string>();
   return raw.map((item: unknown, index): StringCorrection => {
     const at = (why: string): never => fail(`entry ${index}: ${why}`);
     if (typeof item !== 'object' || item === null || Array.isArray(item)) return at('not a JSON object');
     const record = item as Record<string, unknown>;
-    const unknownKey = Object.keys(record).find((key) => !(ENTRY_KEYS as readonly string[]).includes(key));
+    const unknownKey = Object.keys(record).find((key) => !entryKeys.includes(key));
     if (unknownKey !== undefined) at(`unknown key "${unknownKey}"`);
-    const { lang, table, id, from, to, reason } = record;
-    if (typeof lang !== 'string' || !(GUI_LANGS as readonly string[]).includes(lang)) {
-      return at(`lang must be one of ${GUI_LANGS.join(', ')}`);
+    const { lang, id, from, to, reason } = record;
+    const scope = record[kind.scopeKey];
+    if (typeof lang !== 'string' || !kind.langs.includes(lang)) {
+      return at(`lang must be one of ${kind.langs.join(', ')}`);
     }
-    if (typeof table !== 'string' || !EXPORTED_TABLES.includes(table)) {
-      return at(`table must be one of ${EXPORTED_TABLES.join(', ')}`);
-    }
+    if (typeof scope !== 'string') return at(`${kind.scopeKey} must be a string`);
+    const badScope = kind.checkScope(scope);
+    if (badScope !== undefined) at(badScope);
     if (typeof id !== 'number' || !Number.isSafeInteger(id) || id < 0) return at('id must be a string id');
     if (typeof from !== 'string' || typeof to !== 'string' || from === to) {
       return at('"from" and "to" must be two different strings');
     }
     if (typeof reason !== 'string' || reason.trim() === '') return at('reason must say why the fix exists');
-    const key = `${lang}/${table}/${id}`;
+    const key = `${lang}/${scope}/${id}`;
     if (seen.has(key)) at(`a second entry for ${key}`);
     seen.add(key);
-    return { lang, table, id, from, to, reason };
+    return { lang, scope, id, from, to, reason };
   });
 }

@@ -9,13 +9,16 @@ import {
   type GroupPanelModel,
   type GroupScopeModel,
 } from '../src/hud/details-panel/model/index.js';
-import { groupPanelScene } from '../src/scenes/group-panel.js';
+import { groupPanelScene, groupSelectionScene } from '../src/scenes/group-panel.js';
 import { createSceneSim } from '../src/scenes/index.js';
 import { ctxOf, sandboxCtx, snapshotOf } from './support/sandbox.js';
 
 /** The scene's whole company, boxed: 35 settlers, two catapults and a handcart. */
-function company(select: (kind: 'settler' | 'vehicle') => boolean = () => true): GroupPanelModel {
-  const sim = createSceneSim(groupPanelScene);
+function company(
+  select: (kind: 'settler' | 'vehicle') => boolean = () => true,
+  scene = groupPanelScene,
+): GroupPanelModel {
+  const sim = createSceneSim(scene);
   const snapshot = sim.snapshot();
   const ids = snapshot.entities
     .filter((e) => (isSettler(e) && select('settler')) || (isVehicle(e) && select('vehicle')))
@@ -81,6 +84,17 @@ describe('group panel model', () => {
     ]);
     expect(gear.misc?.bare).toHaveLength(6);
     expect(gear.tool).toEqual({ gear: 'tool', items: [], bare: [] });
+  });
+
+  it('marks each member who carries mead', () => {
+    const marked = company(() => true, groupSelectionScene).members.filter((m) => m.carriesMead);
+    expect(marked.map((m) => m.kindLabel)).toEqual([
+      'Miecznik (długi miecz)',
+      'Miecznik (długi miecz)',
+      'Łucznik',
+      'Łucznik',
+    ]);
+    expect(model.members.some((m) => m.carriesMead)).toBe(false);
   });
 
   it("keeps the whole group's lines in every tab, empty where the tab holds nobody for them", () => {

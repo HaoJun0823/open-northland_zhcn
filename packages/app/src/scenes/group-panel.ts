@@ -95,6 +95,7 @@ const ARMY: readonly Rank[] = [
     width: ARMY_ABREAST,
     y: 4,
     armor: 'armor_chain',
+    bag: { every: 3, goods: ['mead'] },
     wounded: { every: 7, pct: 18 },
   },
   { job: JOB_SOLDIER_SPEAR, count: ARMY_BLOCK, x: 25, width: ARMY_ABREAST, y: 4 },

@@ -1,6 +1,7 @@
 import { formatMessage, messages } from '../../../i18n/index.js';
-import type { GroupMemberModel } from '../../details-panel/model/index.js';
+import { type GroupMemberModel, MEAD_GOOD_ID } from '../../details-panel/model/index.js';
 import type { FigureSlot } from '../../figures/live-figures.js';
+import { type GoodIconPainter, goodIconMarkup } from '../good-art.js';
 import { FIGURE, GLYPH } from '../icons.js';
 import { element, onPress, setClass, setStyleVar, setTip } from '../parts/dom.js';
 import {
@@ -23,6 +24,9 @@ const ROSTER_COMPACT_ABOVE = 99;
 const ROSTER_COLUMNS = 8;
 const COMPACT_COLUMNS = 10;
 const VEHICLE_SPAN = 2;
+/** The mead badge in a well's top corner, full size and compact; its icon paints on the first bearer. */
+const MEAD_BADGE_PX = 11;
+const COMPACT_MEAD_BADGE_PX = 8;
 
 /** The rows `members` fill in grid order: a vehicle that would cross the row's end starts the next. */
 export function rosterRows(members: readonly GroupMemberModel[], columns: number): number {
@@ -57,6 +61,8 @@ export function memberPress(
 
 interface RosterWell {
   readonly well: FigureWell;
+  readonly mead: HTMLElement;
+  meadPainted: boolean;
   member: GroupMemberModel;
   /** The member as its bars and tooltip last showed it; a rebuild skips a well whose member held. */
   shown: GroupMemberModel | null;
@@ -66,10 +72,11 @@ const sameShown = (a: GroupMemberModel, b: GroupMemberModel): boolean =>
   a.healthPct === b.healthPct &&
   a.hungerPct === b.hungerPct &&
   a.name === b.name &&
-  a.kindLabel === b.kindLabel;
+  a.kindLabel === b.kindLabel &&
+  a.carriesMead === b.carriesMead;
 
-/** The selected members as live wells, health and hunger lines under each; past the row cap the grid
- *  scrolls in place. Only the wells in view are painted. */
+/** The selected members as live wells, health and hunger lines under each and a mead badge on a bearer;
+ *  past the row cap the grid scrolls in place. Only the wells in view are painted. */
 export interface MemberRoster {
   readonly element: HTMLElement;
   /** Show `members`, the tab's share of `group`; the well size follows the whole group, so a tab switch
@@ -91,6 +98,7 @@ export interface MemberRoster {
 
 export function createMemberRoster(
   onMember: (member: GroupMemberModel, press: MemberPress) => void,
+  icons: GoodIconPainter,
 ): MemberRoster {
   const root = element('div', 'on-roster');
   const wells = new Map<number, RosterWell>();
@@ -138,11 +146,15 @@ export function createMemberRoster(
       compact ? COMPACT_FIT : ROSTER_FIT,
     );
     well.glyph.innerHTML = vehicle ? GLYPH.wheel : FIGURE.man;
+    const mead = element('span', 'on-roster__mead');
+    mead.innerHTML = goodIconMarkup(compact ? COMPACT_MEAD_BADGE_PX : MEAD_BADGE_PX);
+    mead.hidden = true;
     well.node.append(
       element('i', 'on-roster__bar on-roster__bar--health'),
       element('i', 'on-roster__bar on-roster__bar--hunger'),
+      mead,
     );
-    const entry: RosterWell = { well, member, shown: null };
+    const entry: RosterWell = { well, mead, meadPainted: false, member, shown: null };
     onPress(well.node, (event) => press(entry, event));
     well.node.addEventListener('mouseenter', () => {
       hovered = entry.member.id;
@@ -212,6 +224,12 @@ export function createMemberRoster(
         setClass(well.node, 'on-roster__well--no-hunger', hungerPct === null);
         if (healthPct !== null) setStyleVar(well.node, '--health', `${healthPct}%`);
         if (hungerPct !== null) setStyleVar(well.node, '--hunger', `${hungerPct}%`);
+        entry.mead.hidden = !member.carriesMead;
+        const frame = member.carriesMead && !entry.meadPainted && entry.mead.querySelector('.on-good__frame');
+        if (frame instanceof HTMLElement) {
+          entry.meadPainted = true;
+          icons(frame, MEAD_GOOD_ID, compact ? COMPACT_MEAD_BADGE_PX : MEAD_BADGE_PX);
+        }
         const meters = [
           ...(healthPct === null
             ? []

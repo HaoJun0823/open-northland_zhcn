@@ -64,6 +64,7 @@ export {
   type GroupScopeModel,
   type GroupSiegeModel,
   type GroupStance,
+  MEAD_GOOD_ID,
 } from './group.js';
 export {
   EXPERIENCE_FOLDED_MAX,

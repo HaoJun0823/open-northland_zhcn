@@ -10,6 +10,7 @@ const member = (look: GroupMemberModel['look']): GroupMemberModel => ({
   kindLabel: '',
   healthPct: null,
   hungerPct: null,
+  carriesMead: false,
 });
 
 describe('roster rows', () => {

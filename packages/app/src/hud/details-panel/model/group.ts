@@ -72,6 +72,8 @@ export interface GroupMemberModel {
   readonly healthPct: number | null;
   /** Hunger's satisfaction; null for a vehicle, or while the map's needs are off. */
   readonly hungerPct: number | null;
+  /** At least one bottle of mead in the misc slots, which the well marks however many there are. */
+  readonly carriesMead: boolean;
 }
 
 /** One good worn or carried across the scope, with how many hold it; `sips` counts a draught's uses left. */
@@ -131,6 +133,9 @@ export interface GroupPanelModel {
 export const ALL_SCOPE = 'all';
 
 const FULL_PCT = 100;
+
+/** The good the roster marks on a bearer's well: the drink a player hands out before a march. */
+export const MEAD_GOOD_ID = 'mead';
 
 const STANCE_OF_MODE: ReadonlyMap<number, GroupStance> = new Map([
   [systems.MILITARY_MODE.ATTACK, 'attack'],
@@ -320,6 +325,7 @@ function settlerFacts(
       kindLabel: singular,
       healthPct: healthPctOf(ent),
       hungerPct: hunger?.pct ?? null,
+      carriesMead: misc.some((item) => goodDef(ctx, item.goodType)?.id === MEAD_GOOD_ID),
     },
     fighter,
     worker: role === 'worker' || role === 'civilian',
@@ -363,6 +369,7 @@ function vehicleFacts(ctx: UnitPanelModelContext, ent: SnapshotEntity, owned: bo
       kindLabel: title,
       healthPct: healthPctOf(ent),
       hungerPct: null,
+      carriesMead: false,
     },
     fighter: false,
     worker: false,

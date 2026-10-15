@@ -4501,6 +4501,14 @@ body.on-drag-scroll * {
 .on-hud .on-roster__well--no-hunger .on-roster__bar--hunger {
   display: none;
 }
+/* A mead bearer's badge: the bottle in the well's top corner, one however many it carries. */
+.on-hud .on-roster__mead {
+  position: absolute;
+  z-index: 1;
+  top: 1px;
+  right: 1px;
+  pointer-events: none;
+}
 /* What the scope wears and carries: the slot's name, then each good with how many hold it. */
 .on-hud .on-gear {
   display: flex;

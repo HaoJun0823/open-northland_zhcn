@@ -63,6 +63,7 @@ function warmModel(): GroupPanelModel {
     kindLabel: '',
     healthPct: 100,
     hungerPct: 100,
+    carriesMead: false,
   });
   const scope = (key: string, ids: readonly number[]): GroupScopeModel => ({
     key,
@@ -151,7 +152,7 @@ export function createGroupPanel(deps: GroupPanelDeps): GroupPanel {
     if (current !== null) actions.select(current.ids);
   });
   const rosterTitle = createSection(selectScope);
-  const roster = createMemberRoster(onMember);
+  const roster = createMemberRoster(onMember, deps.icons);
   const military = createGroupMilitarySection(deps, scope);
   const overview = createOverviewSection(deps, (ids, drop) => {
     if (shown === null) return;

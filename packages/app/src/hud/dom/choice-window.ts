@@ -3,7 +3,7 @@ import { messages } from '../../i18n/index.js';
 import { dismissOnBackdropClick } from '../../view/backdrop-dismiss.js';
 import { type GoodIconPainter, goodIconMarkup } from './good-art.js';
 import { GLYPH } from './icons.js';
-import { nameMatches } from './parts/name-search.js';
+import { hasWords, searchWords } from './parts/name-search.js';
 import { quietTextField } from './parts/text-field.js';
 import { createHudPlane } from './root.js';
 import { createHudWindow } from './window.js';
@@ -117,8 +117,9 @@ export function createChoiceWindow(opts: {
     const scroll = list.scrollTop;
     list.replaceChildren();
     let count = 0;
+    const words = searchWords(search.value);
     for (const group of groups) {
-      const rows = group.rows.filter((row) => nameMatches(row.label, search.value));
+      const rows = group.rows.filter((row) => hasWords(row.label, words));
       if (rows.length === 0) continue;
       count += rows.length;
       const section = document.createElement('section');

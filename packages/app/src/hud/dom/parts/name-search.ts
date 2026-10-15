@@ -1,25 +1,19 @@
-import { bcp47Tag } from '../../../i18n/index.js';
+/** Text as a search compares it: lower case without diacritics, so "zolw" finds "Żółw". Locale-independent,
+ *  so the host locale cannot change a match; `ł` has no decomposition of its own. */
+export const foldText = (text: string): string =>
+  text.normalize('NFD').replace(/\p{M}/gu, '').replace(/[łŁ]/g, 'l').toLowerCase();
 
-/** A name as a search compares it: trimmed, lower case, without diacritics. */
-export const foldedName = (text: string): string =>
-  text
-    .trim()
-    .toLocaleLowerCase(bcp47Tag())
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .replaceAll('ł', 'l');
+/** The query's folded words; none for a blank query. */
+export const searchWords = (query: string): readonly string[] => foldText(query).split(/\s+/).filter(Boolean);
 
-export const nameMatches = (label: string, query: string): boolean =>
-  foldedName(label).startsWith(foldedName(query));
-
-/** Anywhere in the name, for a long catalogue searched by any word ("long" finds "Longbow Archer"). */
-export const nameContains = (label: string, query: string): boolean =>
-  foldedName(label).includes(foldedName(query));
-
-/** Every typed word anywhere in the name, in any order ("obronna wiez" finds "Wieża obronna 1"). */
-export const nameHasWords = (label: string, query: string): boolean => {
-  const name = foldedName(label);
-  return foldedName(query)
-    .split(/\s+/)
-    .every((word) => name.includes(word));
+/** Every word anywhere in the text, in any order ("obronna wiez" finds "Wieża obronna 1"). Join several
+ *  fields with a line break: no word holds one, so no match spans two fields. */
+export const hasWords = (text: string, words: readonly string[]): boolean => {
+  if (words.length === 0) return true;
+  const folded = foldText(text);
+  return words.every((word) => folded.includes(word));
 };
+
+/** The whole query anywhere in the name ("long" finds "Longbow Archer"). */
+export const nameContains = (label: string, query: string): boolean =>
+  foldText(label).includes(foldText(query).trim());

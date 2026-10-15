@@ -1,9 +1,9 @@
+import { foldText, searchWords } from '../../../hud/dom/parts/name-search.js';
 import { quietTextField } from '../../../hud/dom/parts/text-field.js';
 import { FIELD_KEYS_ATTRIBUTE } from '../../../hud/hotkeys.js';
 import { compareLabels, formatMessage, messages } from '../../../i18n/index.js';
 import { node } from '../dom.js';
 import { formatCount } from './card.js';
-import { foldText } from './fold.js';
 import { type AuthorCount, authorListing } from './query.js';
 
 /** Viewport px between the pill and its popover, and the popover and the window edge. */
@@ -16,8 +16,8 @@ export interface AuthorPicker {
   setActive(author: string | null): void;
 }
 
-/** `name` with the folded `needle` it holds marked, so a typed "zolw" lights "Żółw". */
-function highlighted(name: string, needle: string): Node[] {
+/** `name` with each folded word it holds marked, so a typed "zolw" lights "Żółw". */
+function highlighted(name: string, words: readonly string[]): Node[] {
   // Folded one character at a time, so each folded offset maps back to its source character.
   const chars = [...name];
   const folded = chars.map((char) => foldText(char));
@@ -27,17 +27,23 @@ function highlighted(name: string, needle: string): Node[] {
     starts.push(joined.length);
     joined += part;
   }
-  const at = joined.indexOf(needle);
-  if (needle === '' || at === -1) return [document.createTextNode(name)];
-  const from = starts.filter((start) => start <= at).length - 1;
-  const to = starts.findIndex((start) => start >= at + needle.length);
-  const end = to === -1 ? chars.length : to;
-  const mark = node('mark', 'catalogue-authors__match', chars.slice(from, end).join(''));
-  return [
-    document.createTextNode(chars.slice(0, from).join('')),
-    mark,
-    document.createTextNode(chars.slice(end).join('')),
-  ];
+  const marked = chars.map(() => false);
+  for (const word of words) {
+    const at = joined.indexOf(word);
+    if (at === -1) continue;
+    starts.forEach((start, index) => {
+      if (start < at + word.length && start + (folded[index]?.length ?? 0) > at) marked[index] = true;
+    });
+  }
+  const nodes: Node[] = [];
+  let from = 0;
+  for (let index = 1; index <= chars.length; index += 1) {
+    if (index < chars.length && marked[index] === marked[from]) continue;
+    const text = chars.slice(from, index).join('');
+    nodes.push(marked[from] ? node('mark', 'catalogue-authors__match', text) : document.createTextNode(text));
+    from = index;
+  }
+  return nodes;
 }
 
 /**
@@ -82,14 +88,14 @@ export function authorPicker(onPick: (author: string | null) => void): AuthorPic
   };
   const options = (): HTMLButtonElement[] => [...list.querySelectorAll<HTMLButtonElement>('[role="option"]')];
 
-  const option = (name: string | null, count: number | null, needle: string): HTMLButtonElement => {
+  const option = (name: string | null, count: number | null, words: readonly string[]): HTMLButtonElement => {
     const element = node('button', 'main-menu__dropdown-option catalogue-authors__option');
     element.type = 'button';
     element.setAttribute('role', 'option');
     element.setAttribute('aria-selected', String(name === active));
     const nameSpan = node('span', 'main-menu__dropdown-option-label');
     nameSpan.append(
-      ...(name === null ? [document.createTextNode(text.anyAuthor)] : highlighted(name, needle)),
+      ...(name === null ? [document.createTextNode(text.anyAuthor)] : highlighted(name, words)),
     );
     element.append(nameSpan);
     if (count !== null) element.append(node('span', 'main-menu__dropdown-option-detail', formatCount(count)));
@@ -112,13 +118,13 @@ export function authorPicker(onPick: (author: string | null) => void): AuthorPic
   };
 
   const paintList = (): void => {
-    const needle = foldText(search.value.trim());
+    const words = searchWords(search.value);
     const listing = authorListing(authors, search.value, compareLabels());
     if (listing.kind === 'matches') {
       list.replaceChildren(
         ...(listing.matches.length === 0
           ? [node('p', 'catalogue-authors__none', text.authorNone)]
-          : listing.matches.map((author) => option(author.name, author.count, needle))),
+          : listing.matches.map((author) => option(author.name, author.count, words))),
       );
       return;
     }
@@ -128,13 +134,13 @@ export function authorPicker(onPick: (author: string | null) => void): AuthorPic
             group(
               text.authorTop,
               'is-top',
-              listing.top.map((author) => option(author.name, author.count, '')),
+              listing.top.map((author) => option(author.name, author.count, [])),
             ),
           ]
         : []),
       group(text.authorAll, 'is-all', [
-        option(null, null, ''),
-        ...listing.all.map((author) => option(author.name, author.count, '')),
+        option(null, null, []),
+        ...listing.all.map((author) => option(author.name, author.count, [])),
       ]),
     );
   };

@@ -2,6 +2,7 @@ import type { MapsIndexEntry, MapsIndexPlayerSlot, MapTextLanguage } from '@open
 import { isMultiplayerMapType, MAP_TYPE } from '@open-northland/data';
 import { catalogEntryThumbnailUrl, type MapSource } from '../../content/map-source/index.js';
 import { localizedMapText } from '../../game/map-strings.js';
+import { hasWords, searchWords } from '../../hud/dom/parts/name-search.js';
 import { compareLabels, currentLocale } from '../../i18n/index.js';
 
 /**
@@ -212,8 +213,7 @@ function matchesFilter(item: MapSelectItem, filter: MapFilter): boolean {
 
 /**
  * The rows a menu shows: those the listing takes, under the chosen tab (`all` is every map but the
- * tutorial lessons, never a scene). Search matches the title or the id stem, case-folded
- * locale-independently so the host locale cannot change the match.
+ * tutorial lessons, never a scene). Search finds every typed word in the title or the id stem.
  */
 export function filterItems(
   items: readonly MapSelectItem[],
@@ -221,12 +221,11 @@ export function filterItems(
   filter: MapFilter,
   query: string,
 ): readonly MapSelectItem[] {
-  const needle = query.trim().toLowerCase();
-  const matches = items.filter((item) => {
-    if (!listedIn(item, listing) || !matchesFilter(item, filter)) return false;
-    if (needle === '') return true;
-    return item.title.toLowerCase().includes(needle) || item.id.toLowerCase().includes(needle);
-  });
+  const words = searchWords(query);
+  const matches = items.filter(
+    (item) =>
+      listedIn(item, listing) && matchesFilter(item, filter) && hasWords(`${item.title}\n${item.id}`, words),
+  );
   if (filter === 'scenes') return matches;
   if (filter === 'tutorial') return matches.sort((a, b) => (a.tutorialStep ?? 0) - (b.tutorialStep ?? 0));
   const compare = compareLabels();

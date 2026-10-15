@@ -3,7 +3,7 @@ import { catalogBrowseEntry } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { INSTALLED_MAP_RECORD_VERSION, type InstalledMapRecord } from '../src/content/map-source/index.js';
 import { languageCodes } from '../src/entries/main-menu/catalogue/card.js';
-import { foldText, titleKey } from '../src/entries/main-menu/catalogue/fold.js';
+import { titleKey } from '../src/entries/main-menu/catalogue/fold.js';
 import {
   catalogueRow as browseRow,
   catalogueRows as browseRows,
@@ -456,7 +456,6 @@ describe('catalogue query', () => {
     expect(run({ text: 'oazami pustynia' })).toEqual(['cn-burza']);
     expect(run({ text: 'twierdzy' })).toEqual(['cn-atak']);
     expect(run({ text: 'twierdzy burza' })).toEqual([]);
-    expect(foldText('Łódź Żółw')).toBe('lodz zolw');
     expect(titleKey('PDP : 01 WRÓG NA NASZEJ ZIEMI')).toBe(titleKey('PDP 01: Wróg na naszej ziemi'));
   });
 
@@ -492,6 +491,7 @@ describe('catalogue query', () => {
     };
     expect(matches(' ZOL')).toEqual(['Żółw']);
     expect(matches('a')).toEqual(['Ania', 'Bartek']);
+    expect(matches('lw zo')).toEqual(['Żółw']);
     expect(matches('qq')).toEqual([]);
   });
 });

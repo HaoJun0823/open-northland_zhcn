@@ -69,11 +69,14 @@ describe('residents list filters', () => {
     expect(shown({ group: 'soldiers', lacks: ['shoes'] })).toEqual([]);
   });
 
-  it('searches the name, the profession and the workplace, whatever the case', () => {
+  it('searches every word in the name, the profession and the workplace, folded', () => {
     expect(shown({ query: 'PIEK' })).toEqual([1]);
     expect(shown({ query: 'kowal' })).toEqual([2]);
     expect(shown({ query: ' bj' })).toEqual([2, 5]);
     expect(shown({ query: 'nikt taki' })).toEqual([]);
+    expect(shown({ query: 'zolnierz' })).toEqual([8]);
+    expect(shown({ query: 'kowal bj' })).toEqual([2]);
+    expect(shown({ query: 'piekarnia arne' })).toEqual([1]);
   });
 
   it('keeps the holders of a trade and the people the sim would let take it', () => {

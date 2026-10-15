@@ -28,7 +28,7 @@ import type { BuildingThumbs } from './building-thumb.js';
 import { goodIconMarkup, goodIconSource, goodIconStyle } from './good-art.js';
 import { GLYPH, paintedIcon } from './icons.js';
 import { escapeHtml } from './parts/dom.js';
-import { nameHasWords } from './parts/name-search.js';
+import { hasWords, searchWords } from './parts/name-search.js';
 import { quietTextField } from './parts/text-field.js';
 import { centralWindowPlacer, createHudWindow } from './window.js';
 
@@ -539,10 +539,10 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
     for (const [id, tab] of tabButtons) tab.button.setAttribute('aria-selected', String(id === category));
     let open = 0;
     let locked = 0;
+    const words = searchWords(state.query);
     for (const card of listedCards) {
       card.element.hidden =
-        (category !== 'all' && card.row.category !== category) ||
-        !nameHasWords(card.row.entry.label, state.query);
+        (category !== 'all' && card.row.category !== category) || !hasWords(card.row.entry.label, words);
       if (card.element.hidden) continue;
       if (card.pick.disabled) locked += 1;
       else open += 1;

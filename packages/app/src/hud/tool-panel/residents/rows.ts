@@ -1,6 +1,7 @@
 import { TICKS_PER_SECOND } from '@open-northland/sim';
 import { compareLabels } from '../../../i18n/index.js';
 import type { ProductSelection } from '../../details-panel/model/settler-work.js';
+import { hasWords, searchWords } from '../../dom/parts/name-search.js';
 
 /** Who a resident is, as the original subjects window groups its people: one group each. */
 export type ResidentKind = 'child' | 'woman' | 'worker' | 'civilian' | 'soldier' | 'hero';
@@ -134,8 +135,7 @@ interface FilterVerdict {
 function verdictOf(
   row: ResidentRow,
   filters: ResidentFilters,
-  needle: string,
-  locale: string,
+  words: readonly string[],
   canBecome: (id: number, pick: TradePick) => boolean,
 ): FilterVerdict {
   const pick = filters.canBecome;
@@ -143,9 +143,7 @@ function verdictOf(
     pick === null ||
     (pick.goodType === null && row.jobType === pick.jobType) ||
     (row.kind !== 'child' && !row.female && canBecome(row.id, pick));
-  const named =
-    needle === '' ||
-    [row.name, row.profession, row.workplace].some((text) => text.toLocaleLowerCase(locale).includes(needle));
+  const named = hasWords(`${row.name}\n${row.profession}\n${row.workplace}`, words);
   return {
     lacks: filters.lacks.every((lack) => row.lacks.includes(lack)),
     profession: filters.profession === '' || row.profession === filters.profession,
@@ -179,9 +177,9 @@ export function listResidents(
   const professions = new Map<string, number>();
   const shown: ResidentRow[] = [];
   const compare = compareLabels(locale);
-  const needle = filters.query.trim().toLocaleLowerCase(locale);
+  const words = searchWords(filters.query);
   for (const row of rows) {
-    const verdict = verdictOf(row, filters, needle, locale, canBecome);
+    const verdict = verdictOf(row, filters, words, canBecome);
     if (!verdict.rest || !verdict.lacks) continue;
     const grouped = inGroup(row, filters.group);
     if (verdict.profession) {

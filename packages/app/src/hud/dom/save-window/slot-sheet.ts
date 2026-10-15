@@ -9,7 +9,7 @@ import type { SaveSlotInfo } from '../../../view/runtime/save-load/store.js';
 import type { WorldNameOf } from '../../../view/runtime/save-load/world-names.js';
 import { GLYPH } from '../icons.js';
 import { button, element, setTip } from '../parts/dom.js';
-import { foldedName } from '../parts/name-search.js';
+import { foldText } from '../parts/name-search.js';
 
 export interface SlotSheetOptions {
   /** A save of another world than the running one, whose game is tagged so. */
@@ -91,7 +91,7 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
   /** Picture URLs of the drawn rows, released when the rows are replaced. */
   let pictures: string[] = [];
 
-  const searching = (): boolean => foldedName(query) !== '';
+  const searching = (): boolean => foldText(query).trim() !== '';
   const matches = (row: Row): boolean => !row.item.hidden;
   const expanded = (group: Group): boolean => searching() || open.has(group.playthrough.key);
   const shows = (row: Row): boolean => matches(row) && expanded(row.group);
@@ -137,7 +137,7 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
 
   /** Settle the selection and the list after a search, a redraw or a game opening or closing. */
   const sync = (): void => {
-    const needle = foldedName(query);
+    const needle = foldText(query).trim();
     for (const row of rows) row.item.hidden = needle !== '' && !row.haystack.includes(needle);
     for (const group of groups) group.item.hidden = !rows.some((row) => row.group === group && matches(row));
     if (current !== null && !shows(current)) {
@@ -216,7 +216,7 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
     setTip(del, delLabel);
     item.append(pick, del);
     group.rows.append(item);
-    const haystack = foldedName(`${slot.name} ${worldName(slot.mapId) ?? ''}`);
+    const haystack = foldText(`${slot.name} ${worldName(slot.mapId) ?? ''}`);
     const row: Row = { slot, group, item, pick, del, haystack };
     pick.addEventListener('click', () => choose(row));
     pick.addEventListener('dblclick', () => opts.onActivate?.(slot));

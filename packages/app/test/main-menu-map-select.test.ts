@@ -280,6 +280,12 @@ describe('filterItems', () => {
     expect(filterItems(items, 'multiplayer', 'all', '')).toEqual([arena]);
   });
 
+  it('finds every typed word in the title or the id, folded', () => {
+    expect(filterItems(items, 'single', 'all', 'MGIEL zatoka')).toEqual([arena]);
+    expect(filterItems(items, 'single', 'all', 'zatoka arena')).toEqual([arena]);
+    expect(filterItems(items, 'single', 'all', 'zatoka dolina')).toEqual([]);
+  });
+
   it('keeps tutorial lessons in authored mission order and out of multiplayer rooms', () => {
     expect(filterItems(items, 'single', 'tutorial', '')).toEqual([firstLesson, secondLesson]);
     expect(filterItems(items, 'multiplayer', 'tutorial', '')).toEqual([]);

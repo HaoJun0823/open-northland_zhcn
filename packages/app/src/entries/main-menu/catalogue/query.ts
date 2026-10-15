@@ -1,5 +1,5 @@
 import { MAP_TEXT_LANGUAGES, type MapTextLanguage } from '@open-northland/data';
-import { foldText } from './fold.js';
+import { foldText, hasWords, searchWords } from '../../../hud/dom/parts/name-search.js';
 import { type CatalogueRow, isManualDownload, MAP_SIZES, type MapSize } from './model.js';
 
 export type CatalogueSort = 'liked' | 'downloaded' | 'newest' | 'updated' | 'title' | 'author';
@@ -76,10 +76,8 @@ export function hasActiveFilters(query: CatalogueQuery): boolean {
 }
 
 function matchesText(row: CatalogueRow, words: readonly string[]): boolean {
-  if (words.length === 0) return true;
   const { title, author, shortDescription, fullDescription } = row.entry;
-  const haystack = foldText(`${title}\n${author}\n${shortDescription}\n${fullDescription}`);
-  return words.every((word) => haystack.includes(word));
+  return hasWords(`${title}\n${author}\n${shortDescription}\n${fullDescription}`, words);
 }
 
 export function matchesPlayers(row: CatalogueRow, bucketId: string | null): boolean {
@@ -115,7 +113,7 @@ export function matchesQuery(row: CatalogueRow, query: CatalogueQuery): boolean 
     (query.author === null || foldText(entry.author) === foldText(query.author)) &&
     matchesDownload(row, query.download) &&
     (!query.hideOwned || !isOwned(row)) &&
-    matchesText(row, foldText(query.text).split(/\s+/).filter(Boolean))
+    matchesText(row, searchWords(query.text))
   );
 }
 
@@ -219,9 +217,9 @@ export function authorListing(
   typed: string,
   compareLabels: Compare,
 ): AuthorListing {
-  const needle = foldText(typed.trim());
-  if (needle !== '')
-    return { kind: 'matches', matches: authors.filter((author) => foldText(author.name).includes(needle)) };
+  const words = searchWords(typed);
+  if (words.length > 0)
+    return { kind: 'matches', matches: authors.filter((author) => hasWords(author.name, words)) };
   return {
     kind: 'groups',
     top: authors.filter((author) => author.count >= PROLIFIC_AUTHOR_MIN_MAPS),

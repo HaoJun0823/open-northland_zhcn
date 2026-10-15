@@ -82,12 +82,12 @@ describe('source corrections', () => {
     expect(() => corrections.assertApplied()).not.toThrow();
   });
 
-  it('edits one numbered line among identical ones, deletes for an empty list, and reads an encoding', async () => {
+  it('edits one numbered line among identical ones, deletes for an empty list, and reads and writes an encoding', async () => {
     const shipped = '[a]\r\n[a]\r\nx\r\n\xe1\r\n\xe1\xe2\r\n[end]\r\n';
     const path = await writeMod(AI_INC, shipped);
     const lines = [
       { from: '[a]', to: [], line: 2 },
-      { from: '\u0431', to: 'b', line: 4 },
+      { from: '\u0431', to: '\u0432b', line: 4 },
     ];
     await writeCorrection('numbered', {
       reason: 'test',
@@ -99,8 +99,24 @@ describe('source corrections', () => {
     const corrections = await loadSourceCorrections(dir, mod);
 
     expect(Buffer.from(await corrections.read(path)).toString('latin1')).toBe(
-      '[a]\r\nx\r\nb\r\n\xe1\xe2\r\n[end]\r\n',
+      '[a]\r\nx\r\n\xe2b\r\n\xe1\xe2\r\n[end]\r\n',
     );
+    expect(() => corrections.assertApplied()).not.toThrow();
+  });
+
+  it('writes a UTF-8 correction as UTF-8 bytes', async () => {
+    const shipped = 'a\r\nb\r\n';
+    const path = await writeMod(AI_INC, shipped);
+    await writeCorrection('utf8', {
+      reason: 'test',
+      file: AI_INC,
+      sha256: sha256(shipped),
+      encoding: 'utf-8',
+      lines: [{ from: 'b', to: '\u201eż\u201d' }],
+    });
+    const corrections = await loadSourceCorrections(dir, mod);
+
+    expect(Buffer.from(await corrections.read(path)).toString('utf8')).toBe('a\r\n\u201eż\u201d\r\n');
     expect(() => corrections.assertApplied()).not.toThrow();
   });
 
@@ -183,12 +199,13 @@ describe('source corrections', () => {
       [{ ...valid, reason: ' ' }, /reason/],
       [{ ...valid, sha256: 'ABC' }, /sha256/],
       [{ ...valid, lines: [] }, /at least one edit/],
-      [{ ...valid, lines: [{ from: 'ż', to: 'z' }] }, /printable-ASCII/],
+      [{ ...valid, lines: [{ from: 'ż', to: 'z' }] }, /printable ASCII/],
       [{ ...valid, lines: [{ from: 'a', to: 'z', line: 0 }] }, /"line"/],
       [{ ...valid, lines: [{ from: 'a', to: 'z', line: 2, every: true }] }, /"line"/],
       [{ ...valid, encoding: 'no-such-codepage' }, /"encoding"/],
       [{ ...valid, encoding: 'utf-16le' }, /"encoding"/],
-      [{ ...valid, lines: [{ from: 'a', to: ['z', 'ż'] }] }, /printable-ASCII/],
+      [{ ...valid, lines: [{ from: 'a', to: ['z', 'ż'] }] }, /printable ASCII/],
+      [{ ...valid, encoding: 'windows-1251', lines: [{ from: 'a', to: 'ż' }] }, /windows-1251 cannot write/],
       [{ ...valid, lines: [{ from: 'a', to: 'z', every: false }] }, /"every"/],
       [{ ...valid, lines: [{ from: 'a', to: 'z', section: '' }] }, /"section"/],
       [{ ...valid, note: 'x' }, /unknown key "note"/],

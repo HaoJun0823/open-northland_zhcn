@@ -14,6 +14,7 @@ export const CORRECTIONS_DIR = fileURLToPath(new URL('../corrections/', import.m
  */
 interface LineEdit {
   readonly from: string;
+  /** The replacement lines as file bytes, one latin1 code unit per byte. */
   readonly to: readonly string[];
   readonly every: boolean;
   readonly section?: string;
@@ -28,7 +29,7 @@ export interface SourceCorrection {
   /** Mod-root-relative and `/`-separated, matched case-insensitively like every mod path. */
   readonly file: string;
   readonly sha256: string;
-  /** The `TextDecoder` label `from` lines are read in; without one they are printable ASCII. */
+  /** The code page `from` lines are read and `to` lines written in; without one both are printable ASCII. */
   readonly encoding?: string;
   readonly lines: readonly LineEdit[];
 }
@@ -185,14 +186,23 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
   }
   if (!Array.isArray(lines) || lines.length === 0) return fail('lines must list at least one edit');
   const isLine = (value: unknown): value is string => typeof value === 'string' && SCRIPT_LINE.test(value);
-  const isFrom = (value: unknown): value is string =>
+  const isText = (value: unknown): value is string =>
     encoding === undefined ? isLine(value) : typeof value === 'string' && DECODED_LINE.test(value);
+  const write = encoding === undefined ? (text: string) => text : codePageWriter(encoding);
   const edits = lines.map((edit: unknown): LineEdit => {
     if (typeof edit !== 'object' || edit === null) return fail('each line edit is an object');
     const { from, to, every, section, line } = edit as Record<string, unknown>;
-    const target = isLine(to) ? [to] : Array.isArray(to) && to.every(isLine) ? to : undefined;
-    if (!isFrom(from) || target === undefined) {
-      return fail('each line edit has a "from" line and a printable-ASCII "to" line or list of lines');
+    const target = isText(to) ? [to] : Array.isArray(to) && to.every(isText) ? to : undefined;
+    if (!isText(from) || target === undefined) {
+      return fail(
+        'each line edit has a "from" line and a "to" line or list of lines, printable ASCII without "encoding"',
+      );
+    }
+    const bytes: string[] = [];
+    for (const text of target) {
+      const written = write(text);
+      if (written === undefined) return fail(`"${text}" has a character ${encoding} cannot write`);
+      bytes.push(written);
     }
     if (every !== undefined && every !== true) return fail('"every" is true or absent');
     if (
@@ -207,13 +217,36 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
     }
     return {
       from,
-      to: target,
+      to: bytes,
       every: every === true,
       ...(section === undefined ? {} : { section }),
       ...(lineNumber === undefined ? {} : { line: lineNumber }),
     };
   });
   return { id, reason, file, sha256, ...(encoding === undefined ? {} : { encoding }), lines: edits };
+}
+
+/**
+ * `text` as file bytes in the code page `label` (one latin1 code unit per byte), or undefined for a
+ * character it has no byte for. UTF-8 is written as such; any other label is read as a single-byte page.
+ */
+function codePageWriter(label: string): (text: string) => string | undefined {
+  const decoder = new TextDecoder(label);
+  if (decoder.encoding === 'utf-8') return (text) => Buffer.from(text, 'utf8').toString('latin1');
+  const byteOf = new Map<string, number>();
+  for (let byte = 0; byte <= 0xff; byte++) {
+    const char = decoder.decode(Uint8Array.of(byte));
+    if (char.length === 1 && char !== '\ufffd' && !byteOf.has(char)) byteOf.set(char, byte);
+  }
+  return (text) => {
+    let bytes = '';
+    for (const char of text) {
+      const byte = byteOf.get(char);
+      if (byte === undefined) return undefined;
+      bytes += String.fromCharCode(byte);
+    }
+    return bytes;
+  };
 }
 
 /** Lines split at byte 0x0A and ASCII `to` lines written as single bytes need an ASCII-compatible code page. */

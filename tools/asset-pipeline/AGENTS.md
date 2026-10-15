@@ -33,7 +33,8 @@ several, an empty list deletes it; `"every": true` when the line repeats and eac
 fix; `"section"` naming a unique line to confine the swap to its `[...]` block when the line repeats
 across records; `"line"` naming the one line by number when identical lines need different fixes),
 with a `reason` in Polish for the owner reviewing the list. `"encoding"` (an ASCII-compatible
-`TextDecoder` label) lets `from` match a line outside ASCII; `to` stays printable ASCII. The stage
+`TextDecoder` label) reads `from` and writes `to` lines outside ASCII in that code page, such as a
+briefing's text; without it both stay printable ASCII. The stage
 reading the file goes through `readSourceFile`, which applies the swaps only while the hash still
 matches.
 

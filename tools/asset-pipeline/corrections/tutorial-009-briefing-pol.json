@@ -1,0 +1,72 @@
+{
+  "reason": "Asystenta otwiera u nas klawisz E albo przycisk \"Asystent\" na dolnym pasku, nie \"A\" ani skrzynka w menu po lewej. Nasza szkoła nie odtwarza bugu ze szkołą (ukończenie nauki nie daje doświadczenia, uczy tylko odblokowanych już zawodów), a samouczek 8 o tym bugu znika z gry. Opisujemy więc odblokowanie zwykłą pracą według tribetypes.ini: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar, zbieracz 10 żelaza lub złota -> kowal (żelazo zbiera zbieracz z 10 gliny lub kamienia). Budynki poziomu 2 wymagają towaru, który odblokowuje 10 wyrobów robotnika w budynku poziomu 1 (kuźnia 2: kolczuga, zakład krawiecki 2: wełniana zbroja, warsztat płatnerski 2: długi łuk, warsztat ciesielski 2: meble), a świątynia druida (zbieracz 10 grzybów -> zbieracz ziół, 10 ziół -> druid). Dopisana nazwa licznika w oknie Asystenta (Synowie, Córki), żeby było wiadomo, co ustawić.",
+  "file": "maps/community/tutorial_009/text/pol/briefings/briefings.txt",
+  "sha256": "b116e9514f8579dc1d332ed8ef2ef9137fac93121bdc11471b11187ed005bb0e",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Aby otworzyć asystenta kliknij duże ‘A’ albo ikonkę skrzynki w menu po lewej (druga ikonka od góry). Ustaw w asystencie liczbę wymaganych chłopców na 20.",
+      "to": "Aby otworzyć asystenta, wciśnij klawisz ‘E’ albo kliknij przycisk „Asystent” (trzeci od lewej na pasku na dole ekranu). Ustaw w asystencie liczbę wymaganych chłopców (licznik „Synowie”) na 20."
+    },
+    {
+      "from": "Początkowy etap rozgrywki zakończymy wybudowaniem szkoły. Z poprzedniego samouczka (Bug ze szkołą) wiesz, że szkoła to jeden z najważniejszych (jak nie najważniejszy) budynek w Twojej osadzie. Potrzebujemy jej, aby ruszyć dalej z budową kolejnych budynków!",
+      "to": "Początkowy etap rozgrywki zakończymy wybudowaniem szkoły. Szkoła to jeden z najważniejszych (jak nie najważniejszy) budynek w Twojej osadzie: cywile uczą się w niej zawodów, które już odblokowałeś. Potrzebujemy jej, aby szybko obsadzać kolejne budynki!"
+    },
+    {
+      "from": "Oczywiście nie będziemy czekać, aż przejdziemy całą ścieżkę od farmera, ponieważ zajmie to wieczność. Mamy już szkołę, więc otworzyła się furtka do “bugu ze szkołą” (patrz samouczek numer 8). Użyj bugu ze szkołą, aby odblokować od razu cały łańcuch zawodów: młynarza, piekarza i piwowara.",
+      "to": "Każdy zawód w tym łańcuchu odblokowuje się zwykłą pracą, gdy pracownik poprzedniego zawodu nabierze doświadczenia. Szkoła pomoże nam szybko obsadzić nowe budynki: cywil może się w niej nauczyć każdego zawodu, który już odblokowałeś."
+    },
+    {
+      "from": "Wybierz wolnego cywila, zmień mu zawód na farmera, wyślij go do szkoły, aby nauczył się dowolnego zawodu.",
+      "to": "Farmer, który zbierze 10 snopów zboża, odblokowuje młynarza. Twój farmer pracuje od początku gry, więc młynarz jest pewnie już odblokowany. Wybuduj młyn i studnię, wyślij cywila do szkoły, aby nauczył się młynarstwa, i przydziel go do młyna."
+    },
+    {
+      "from": "Kiedy skończy, zmień mu zawód na młynarza i wyślij do szkoły, aby nauczył się młynarstwa.",
+      "to": "Kiedy młynarz zmiele 10 worków mąki, odblokuje piekarza. Wybuduj piekarnię 1 (blisko młyna i studni), wyślij cywila do szkoły, aby nauczył się piekarstwa, i przydziel go do piekarni. Piekarnia wymaga kamiennego bloku - to dobry moment, aby wybudować warsztat kamieniarski."
+    },
+    {
+      "from": "Kiedy skończy, zmień mu zawód na piekarza i wyślij do szkoły, aby nauczył się piekarstwa.",
+      "to": "Kiedy piekarz upiecze 10 bochenków chleba, odblokuje piwowara, a z nim miód pitny."
+    },
+    {
+      "from": "Wybudujmy więc następujące budynki:",
+      "to": "Wybudujmy więc brakujące budynki z tej listy:"
+    },
+    {
+      "from": "Użyj bugu ze szkołą, aby oblokować zawód kowala! Wyślij dowolnego zbieracza, aby nauczył się w szkole garncarza (cegła).",
+      "to": "Odblokuj zawód kowala! Kowala odblokowuje zbieracz, który zbierze 10 rudy żelaza lub złota. Rudę żelaza może zbierać zbieracz, który zebrał już łącznie 10 gliny lub kamienia, więc wyślij go do złóż żelaza."
+    },
+    {
+      "from": "W kuźni wykorzystujemy żelazo oraz drewno, dlatego wybuduj teraz “kuźnię 2” w pobliżu złóż żelaza oraz lasu. ",
+      "to": "W kuźni wykorzystujemy żelazo oraz drewno, dlatego stawiaj kuźnie w pobliżu złóż żelaza oraz lasu. Kuźnia 2 odblokuje się, gdy kowal wykuje 10 wyrobów w kuźni 1, dlatego najpierw wybuduj “kuźnię 1” i przydziel do niej kowala, a potem wybuduj “kuźnię 2”."
+    },
+    {
+      "from": "PS. Do postawienia kuźni potrzebujemy żelaza, dlatego najpierw wyślij jakiegoś cywila do szkoły, aby nauczył się zbierać żelazo.",
+      "to": "PS. Do postawienia kuźni 1 potrzebujemy żelaza, dlatego pilnuj, aby zbieracz cały czas zbierał żelazo. Kolejnych zbieraczy żelaza możesz wyszkolić w szkole."
+    },
+    {
+      "from": "Wybuduj fermę bydła i zakład krawiecki 2. Postaraj się, aby ferma bydła znalazła się w miarę blisko farmy i studni.",
+      "to": [
+        "Wybuduj fermę bydła i zakład krawiecki 2. Postaraj się, aby ferma bydła znalazła się w miarę blisko farmy i studni.",
+        "",
+        "PS. Zakład krawiecki 2 odblokuje się, gdy krawiec uszyje 10 wyrobów w zakładzie krawieckim 1, dlatego najpierw wybuduj zakład krawiecki 1 i przydziel do niego krawca."
+      ]
+    },
+    {
+      "from": "PS2. Jeżeli warsztat płatnerski 2 jest zablokowany, to użyj bugu ze szkołą: wyślij cywila, aby nauczył się płatnerza i potem ponownie, aby nauczył się płatnerza.",
+      "to": "PS2. Jeżeli warsztat płatnerski 2 jest zablokowany, to najpierw wybuduj warsztat płatnerski 1 i przydziel do niego płatnerza. Gdy wykona w nim 10 wyrobów, odblokuje długi łuk, a z nim warsztat płatnerski 2."
+    },
+    {
+      "from": "Wybudujmy więc warsztat ciesielski 2 w pobliżu lasu! Jeżeli jest on zablokowany, to użyj bugu ze szkołą: wyślij cieślę, aby nauczył się ciesielstwa w szkole.",
+      "to": "Wybudujmy więc warsztat ciesielski 2 w pobliżu lasu! Jeżeli jest on zablokowany, to najpierw wybuduj warsztat ciesielski 1 i przydziel do niego cieślę. Gdy wykona w nim 10 wyrobów, odblokuje meble, a z nimi warsztat ciesielski 2."
+    },
+    {
+      "from": "PS2. Jeżeli nie masz odblokowanej świątyni, to użyj bugu ze szkołą. Wyślij cywila, aby nauczył się zbieracza ziół. Następnie ponownie wyślij tegoż zbieracza ziół, aby nauczył się zbieracza ziół.",
+      "to": "PS2. Jeżeli nie masz odblokowanej świątyni, to brakuje Ci druida. Wyślij zbieracza po grzyby: gdy zbierze ich 10, odblokuje zbieracza ziół. Gdy zbieracz ziół zbierze 10 ziół, odblokuje druida."
+    },
+    {
+      "from": "Ustaw produkcję dziewczyn na 5.",
+      "to": "Ustaw produkcję dziewczyn (licznik „Córki”) na 5."
+    }
+  ]
+}

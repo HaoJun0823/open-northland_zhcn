@@ -1,0 +1,12 @@
+{
+  "reason": "Samouczek 8 (bug ze szkołą) znika z naszej gry, bo nasza szkoła nie odtwarza tego błędu. Ten samouczek zajmuje jego miejsce w kampanii samouczków jako numer 8.",
+  "file": "maps/community/tutorial_009/misc.inc",
+  "sha256": "8ca51e5098662b99a59db336d5614e2a856770d2a575a9cdcb3e78ca30d57d13",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "mapcampaignid 100 9",
+      "to": "mapcampaignid 100 8"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "reason": "Przycisk budowania nie leży w pasku menu po lewej stronie ekranu: w naszej grze to \"Buduj\", pierwszy z lewej na pasku na dole ekranu (klawisz B bez zmian). Miejsce budowy wskazuje się LEWYM przyciskiem myszy; prawy przycisk odwołuje stawianie budynku. Zbędny cudzysłów na końcu zdania (błąd autora).",
+  "file": "maps/community/tutorial_003/text/ger/briefings/briefings.txt",
+  "sha256": "ffe2c6b111a4bb9dbbf05a67f02368e97f010ea92375416d44efc643c671edf4",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Klicke dazu auf das Bausymbol (Haus mit Hammer) in der Menüleiste links am Rand deines Bildschirmes, oder auf das B auf deiner Tastatur. Wähle dann aus der Liste die Farm aus. Der Untergrund verdunkelt sich dann bis auf die Stellen, wo eine Farm errichtet werden kann. Klicke mit der RECHTEN MAUSTASTE auf eine helle Stelle deiner Wahl. Bauarbeiter suchen sich ihre Baustellen von alleine, aber du kannst sie auch speziellen Baustellen bei Bedarf zuweisen.",
+      "to": "Klicke dazu auf die Schaltfläche \"Bauen\" (ganz links in der Leiste am unteren Bildschirmrand), oder auf das B auf deiner Tastatur. Wähle dann aus der Liste die Farm aus. Der Untergrund verdunkelt sich dann bis auf die Stellen, wo eine Farm errichtet werden kann. Klicke mit der LINKEN MAUSTASTE auf eine helle Stelle deiner Wahl. Bauarbeiter suchen sich ihre Baustellen von alleine, aber du kannst sie auch speziellen Baustellen bei Bedarf zuweisen."
+    },
+    {
+      "from": "Baue deshalb einen Brunnen in der Nähe der Stelle, wo du nachher deine Bäckerei platzieren willst. Direkt vor dem Haupthaus ist noch Platz. Es sieht nett aus, und du sparst Bauplatz für die wirklich großen Gebäude.\"",
+      "to": "Baue deshalb einen Brunnen in der Nähe der Stelle, wo du nachher deine Bäckerei platzieren willst. Direkt vor dem Haupthaus ist noch Platz. Es sieht nett aus, und du sparst Bauplatz für die wirklich großen Gebäude."
+    }
+  ]
+}

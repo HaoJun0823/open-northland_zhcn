@@ -1,0 +1,20 @@
+{
+  "reason": "Samouczek 8 (bug ze szkołą) znika z naszej gry, więc ten staje się samouczkiem 8. Cele 46 i 41 każą użyć bugu ze szkołą, którego nasza szkoła nie odtwarza (ukończenie nauki nie daje doświadczenia). U nas zawody odblokowuje zwykła praca: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar (miód pitny), zbieracz 10 rudy żelaza lub złota -> kowal (tribetypes.ini needforjob). Warunki celów bez zmian.",
+  "file": "maps/community/tutorial_009/text/eng/strings.ini",
+  "sha256": "3efa53b50e272d0d279a8529ad86ce8caafdfc3fe967437883de117289ae9655",
+  "encoding": "utf-8",
+  "lines": [
+    {
+      "from": "stringn 99 \"9) SPECIAL: VILLAGE DEVELOPMENT PRO\"",
+      "to": "stringn 99 \"8) SPECIAL: VILLAGE DEVELOPMENT PRO\""
+    },
+    {
+      "from": "stringn 46 \"Use the school bug to unlock: miller, baker, and brewer.\"",
+      "to": "stringn 46 \"Unlock through work: miller, baker, and brewer.\""
+    },
+    {
+      "from": "stringn 41 \"Use the school bug to unlock the blacksmith.\"",
+      "to": "stringn 41 \"Unlock the blacksmith: a collector must gather 10 iron ore or gold.\""
+    }
+  ]
+}

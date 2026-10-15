@@ -1,0 +1,48 @@
+{
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji.",
+  "file": "maps/community/tutorial_002/text/eng/briefings/briefings.txt",
+  "sha256": "49e81ce03dd855ba663225526b9cf396ed7be9a1eaa25eb0a420a10c32a9f680",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "line": 35,
+      "from": "If you move the cursor over Gunnhild, her outline will light up. Everything connected to this character will also flash: the home, partner, work place and children. This way you can see at a glance who belongs to her, where she lives and works and what paths she has to take. Moreover, the name, current profession and experience level of the highlighted character are indicated underneath the mouse pointer if this Viking is currently learning a profession.",
+      "to": "If you move the cursor over Gunnhild, a card with her name and current profession appears underneath the mouse pointer. When you select her, the character panel in the bottom right corner of the screen shows her home, work place, partner and children. Clicking the partner, a child or a building in that panel selects it straight away. This way you can see at a glance who belongs to her, where she lives and where she works."
+    },
+    {
+      "line": 37,
+      "from": "You'll see the same effect if you move the cursor over a building as well. All the characters who live or work in that building will flash.",
+      "to": "Buildings work the same way: when you select a building, its panel shows all the characters who live or work in it."
+    },
+    {
+      "line": 49,
+      "from": "Start with the NAME. Select Bjoern and click on his name in the character display. A small window will pop up where you can change his name. ",
+      "to": "Start with the NAME. Select Bjoern and click on his name in the character panel in the bottom right corner of the screen. The name turns into a field where you can type his new name and confirm it with ENTER. "
+    },
+    {
+      "line": 79,
+      "from": "Your Vikings will tell you what they think is important via the parchments at the top of the screen! Red parchments are important, green ones are slightly less important. By holding CTRL and right-clicking, you can delete all the displayed messages.",
+      "to": "Your Vikings will tell you what they think is important via the messages in the top left corner of the screen! Messages with a red seal are urgent, an orange seal marks important ones and a green seal less important ones. By holding SHIFT and right-clicking a message, you can delete all the displayed messages."
+    },
+    {
+      "line": 86,
+      "from": "Some Vikings differ from your civilian population: They are stronger and faster than ordinary Vikings, they don't get hungry and they don't need to sleep. They don't have a profession either, because their profession is to be a HERO. Their exploration radius corresponds to that of a scout. Heroes mainly live a solitary life and there are not many of them in the world, but one of them will accompany you from the very start of the game. He is BJARNI - the son of a legendary Viking king of the past. ",
+      "to": "Some Vikings differ from your civilian population: They are stronger and faster than ordinary Vikings, they don't get hungry and they don't need to sleep. They don't have a profession either, because their profession is to be a HERO. Their exploration radius is almost as wide as that of a scout. Heroes mainly live a solitary life and there are not many of them in the world, but one of them will accompany you from the very start of the game. He is BJARNI - the son of a legendary Viking king of the past. "
+    },
+    {
+      "line": 92,
+      "from": "CHARACTER DISPLAY",
+      "to": "SUBJECTS WINDOW"
+    },
+    {
+      "line": 94,
+      "from": "If you lose a hero or another Viking, use the character display (F7) or click the button with the helmet and the question mark. There you can search for your characters according to different categories and select them.",
+      "to": "If you lose a hero or another Viking, open the subjects window (F2) or click the \"Subjects\" button on the bottom bar. There you can search for your characters according to different categories and select them."
+    },
+    {
+      "line": 107,
+      "from": "Fight the wolves in the swamp with Bjarni by selecting him and clicking on the animals with the RIGHT MOUSE BUTTON when the tooltip \"Bjarni - Attack animal\" appears!",
+      "to": "Fight the wolves in the swamp with Bjarni: select him, click on him with the RIGHT MOUSE BUTTON (or press SPACE), choose the order \"Attack Animal\" from the action menu and click on a wolf with the LEFT MOUSE BUTTON!"
+    }
+  ]
+}

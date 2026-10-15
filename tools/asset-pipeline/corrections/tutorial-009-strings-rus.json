@@ -1,0 +1,20 @@
+{
+  "reason": "Samouczek 8 (bug ze szkołą) znika z naszej gry, więc ten staje się samouczkiem 8. Cele 46 i 41 każą użyć bugu ze szkołą, którego nasza szkoła nie odtwarza (ukończenie nauki nie daje doświadczenia). U nas zawody odblokowuje zwykła praca: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar (miód pitny), zbieracz 10 rudy żelaza lub złota -> kowal (tribetypes.ini needforjob). Warunki celów bez zmian.",
+  "file": "maps/community/tutorial_009/text/rus/strings.ini",
+  "sha256": "67488f7df0d305ae25ca9dd8330052e10a68f55c7c253e96e86643df48445e50",
+  "encoding": "windows-1251",
+  "lines": [
+    {
+      "from": "stringn 99 \"9) СПЕЦИАЛЬНОЕ: РАЗВИТИЕ ДЕРЕВНИ PRO\"",
+      "to": "stringn 99 \"8) СПЕЦИАЛЬНОЕ: РАЗВИТИЕ ДЕРЕВНИ PRO\""
+    },
+    {
+      "from": "stringn 46 \"Используй школьный баг, чтобы открыть: мельника, пекаря и пивовара.\"",
+      "to": "stringn 46 \"Открой работой: мельника, пекаря и пивовара.\""
+    },
+    {
+      "from": "stringn 41 \"Используй школьный баг, чтобы открыть кузнеца.\"",
+      "to": "stringn 41 \"Открой кузнеца: сборщик должен собрать 10 единиц железной руды или золота.\""
+    }
+  ]
+}

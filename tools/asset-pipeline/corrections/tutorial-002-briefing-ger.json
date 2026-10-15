@@ -1,0 +1,48 @@
+{
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji.",
+  "file": "maps/community/tutorial_002/text/ger/briefings/briefings.txt",
+  "sha256": "62ca680a9b5a89c9cadc56f6d6683e60cfd7b42b51fec8503a407977238ae2c7",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "line": 35,
+      "from": "Wenn du den Mauszeiger über Gunnhild bewegst, blinkt ihr Umriss hell auf. Außerdem blinken alle Dinge, die mit der Figur in Zusammenhang stehen: Wohnung, Ehepartner, Arbeitsplatz, Kinder. Somit siehst du auf einen Blick, was zu ihr gehört, wo sie wohnt und arbeitet, und damit auch, welche Wege sie zurücklegen muss. Unter dem Mauszeiger erscheinen darüber hinaus der Name, der aktuelle Beruf und der Erfahrungsstatus der Figur, falls er gerade einen Beruf erlernt.",
+      "to": "Wenn du den Mauszeiger über Gunnhild bewegst, erscheint unter dem Mauszeiger eine Karte mit ihrem Namen und ihrem aktuellen Beruf. Wählst du sie aus, zeigt dir das Figurenfenster unten rechts am Bildschirm ihre Wohnung, ihren Arbeitsplatz, ihren Ehepartner und ihre Kinder. Ein Klick auf den Partner, ein Kind oder ein Gebäude in diesem Fenster wählt es direkt aus. Somit siehst du auf einen Blick, was zu ihr gehört, wo sie wohnt und wo sie arbeitet."
+    },
+    {
+      "line": 37,
+      "from": "Den gleichen Effekt siehst du übrigens auch, wenn du den Mauszeiger über ein Gebäude bewegst. Dann blinken auch alle Figuren, die in dem Gebäude leben oder arbeiten.",
+      "to": "Bei Gebäuden ist es übrigens genauso: Wählst du ein Gebäude aus, zeigt sein Fenster alle Figuren, die darin leben oder arbeiten."
+    },
+    {
+      "line": 49,
+      "from": "Fang mit dem NAMEN an. Wähle Björn dazu aus und klicke auf seinen Namen im Figurenfenster. Es erscheint ein kleines Fenster, in dem du seinen Namen ändern kannst. ",
+      "to": "Fang mit dem NAMEN an. Wähle Björn dazu aus und klicke auf seinen Namen im Figurenfenster unten rechts am Bildschirm. Der Name wird zu einem Eingabefeld, in dem du seinen neuen Namen eintippst und mit ENTER bestätigst. "
+    },
+    {
+      "line": 79,
+      "from": "Auf den Fähnchen am oberen Bildschirmrand teilen dir deine Wikinger mit, was sie für wichtig halten! Rote sind wichtige, grüne sind weniger wichtige Nachrichten. Mit STRG und Rechtsklick auf eine der Nachrichten, löscht du alle angezeigten Nachrichten.",
+      "to": "In den Nachrichten oben links am Bildschirmrand teilen dir deine Wikinger mit, was sie für wichtig halten! Nachrichten mit rotem Siegel sind dringend, mit orangem wichtig und mit grünem weniger wichtig. Mit UMSCHALT und Rechtsklick auf eine der Nachrichten löschst du alle angezeigten Nachrichten."
+    },
+    {
+      "line": 86,
+      "from": "Es gibt aber auch Wikinger, die sich von deiner Zivilbevölkerung unterscheiden: sie sind stärker und schneller als die normalen Wikinger, haben keinen Hunger und müssen nicht schlafen. Sie üben auch keinen Beruf aus, denn sie sind vom Beruf aus HELD. Ihr Aufklärungsradius entspricht dem eines Kundschafters. Helden leben meist ein einsames Leben und es gibt nicht allzu viele auf der weiten Welt, aber einer begleitet dich von Beginn an. Das ist BJARNI - der Sohn eines geachteten Wikingerkönigs der alten Zeit. ",
+      "to": "Es gibt aber auch Wikinger, die sich von deiner Zivilbevölkerung unterscheiden: sie sind stärker und schneller als die normalen Wikinger, haben keinen Hunger und müssen nicht schlafen. Sie üben auch keinen Beruf aus, denn sie sind vom Beruf aus HELD. Ihr Aufklärungsradius ist fast so groß wie der eines Kundschafters. Helden leben meist ein einsames Leben und es gibt nicht allzu viele auf der weiten Welt, aber einer begleitet dich von Beginn an. Das ist BJARNI - der Sohn eines geachteten Wikingerkönigs der alten Zeit. "
+    },
+    {
+      "line": 92,
+      "from": "FIGURENMENÜ",
+      "to": "UNTERTANENFENSTER"
+    },
+    {
+      "line": 94,
+      "from": "Geht dir mal ein Held oder ein anderer Wikinger verloren, benutze das Figurenmenü (F7) oder den Button mit dem Helm und den Fragezeichen. Dort kannst du deine Figuren nach verschiedenen Kategorien suchen und direkt auswählen.",
+      "to": "Geht dir mal ein Held oder ein anderer Wikinger verloren, öffne das Untertanenfenster (F2) oder klicke auf den Button \"Untertanen\" in der unteren Leiste. Dort kannst du deine Figuren nach verschiedenen Kategorien suchen und direkt auswählen."
+    },
+    {
+      "line": 107,
+      "from": "Bekämpfe mit Bjarni die Wölfe im Sumpf, indem du ihn auswählst und mit der RECHTEN MAUSTASTE auf die Tiere klickst, wenn im Tooltip \"Bjarni - Greife Tier an\" erscheint!",
+      "to": "Bekämpfe mit Bjarni die Wölfe im Sumpf: Wähle ihn aus, klicke ihn mit der RECHTEN MAUSTASTE an (oder drücke die LEERTASTE), wähle im Aktionsmenü den Befehl \"Greife Tier an\" und klicke mit der LINKEN MAUSTASTE auf einen Wolf!"
+    }
+  ]
+}

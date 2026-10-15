@@ -1,0 +1,72 @@
+{
+  "reason": "Asystenta otwiera u nas klawisz E albo przycisk \"Asystent\" na dolnym pasku, nie \"A\" ani skrzynka w menu po lewej. Nasza szkoła nie odtwarza bugu ze szkołą (ukończenie nauki nie daje doświadczenia, uczy tylko odblokowanych już zawodów), a samouczek 8 o tym bugu znika z gry. Opisujemy więc odblokowanie zwykłą pracą według tribetypes.ini: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar, zbieracz 10 żelaza lub złota -> kowal (żelazo zbiera zbieracz z 10 gliny lub kamienia). Budynki poziomu 2 wymagają towaru, który odblokowuje 10 wyrobów robotnika w budynku poziomu 1 (kuźnia 2: kolczuga, zakład krawiecki 2: wełniana zbroja, warsztat płatnerski 2: długi łuk, warsztat ciesielski 2: meble), a świątynia druida (zbieracz 10 grzybów -> zbieracz ziół, 10 ziół -> druid). Dopisana nazwa licznika w oknie Asystenta (Synowie, Córki), żeby było wiadomo, co ustawić.",
+  "file": "maps/community/tutorial_009/text/eng/briefings/briefings.txt",
+  "sha256": "9786aff7bbdb602a67966ca4b5dcf098a8f7db1e0b9da9ebacbeb750cfad4b3b",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "To open the assistant, click the big ‘A’ or the crate icon in the left menu (second icon from the top). Set the required number of boys to 20.",
+      "to": "To open the assistant, press the ‘E’ key or click the “Assistant” button (third from the left on the bar at the bottom of the screen). Set the required number of boys (the “Sons” counter) to 20."
+    },
+    {
+      "from": "We’ll finish this first stage of the game by building a school. From the previous tutorial (School Bug), you know that the school is one of the most important (if not the most important) buildings in your village. We need it to progress with constructing more advanced buildings!",
+      "to": "We’ll finish this first stage of the game by building a school. The school is one of the most important (if not the most important) buildings in your village: there your civilians learn professions you have already unlocked. We need it to staff our next buildings quickly!"
+    },
+    {
+      "from": "Of course, we’re not going to wait and go through the full path from farmer — that takes forever. We already have a school, so we can now use the “school bug” (see Tutorial 8). Use the school bug to immediately unlock the full chain of professions: miller, baker, and brewer.",
+      "to": "Each profession in this chain is unlocked by ordinary work, once a worker of the previous profession gains experience. The school will help us staff the new buildings quickly: a civilian can learn there any profession you have already unlocked."
+    },
+    {
+      "from": "Pick a free civilian, change his profession to farmer, send him to school to learn any profession.",
+      "to": "A farmer who harvests 10 sheaves of wheat unlocks the miller. Your farmer has been working since the start of the game, so the miller is probably unlocked already. Build a mill and a well, send a civilian to school to learn milling and assign him to the mill."
+    },
+    {
+      "from": "When he finishes, change his profession to miller and send him to school to learn milling.",
+      "to": "When the miller has ground 10 sacks of flour, he unlocks the baker. Build bakery 1 (close to the mill and the well), send a civilian to school to learn baking and assign him to the bakery. The bakery needs stone blocks, so this is a good time to build a stonemason’s workshop."
+    },
+    {
+      "from": "When he finishes, change his profession to baker and send him to school to learn baking.",
+      "to": "When the baker has baked 10 loaves of bread, he unlocks the brewer, and with him mead."
+    },
+    {
+      "from": "Let’s now build the following buildings:",
+      "to": "Let’s now build the missing buildings from this list:"
+    },
+    {
+      "from": "Use the school bug to unlock the blacksmith profession! Send any collector to school to learn potter (brick).",
+      "to": "Unlock the blacksmith profession! The blacksmith is unlocked by a collector who gathers 10 iron ore or gold. A collector who has already gathered 10 clay or stone in total can gather iron ore, so send him to the iron deposits."
+    },
+    {
+      "from": "In the blacksmith, we use iron and wood, so now build “Blacksmith 2” near iron deposits and a forest.",
+      "to": "In the blacksmith, we use iron and wood, so place your blacksmiths near iron deposits and a forest. Blacksmith 2 is unlocked once a blacksmith has forged 10 items in blacksmith 1, so first build “Blacksmith 1” and assign a blacksmith to it, then build “Blacksmith 2”."
+    },
+    {
+      "from": "PS. To build the blacksmith, you’ll need iron, so first send a civilian to school to learn how to gather iron.",
+      "to": "PS. To build blacksmith 1, you’ll need iron, so keep a collector gathering iron. You can train more iron collectors at the school."
+    },
+    {
+      "from": "Build a cattle farm and tailor’s workshop 2. Try to place the cattle farm close to the farm and the well.",
+      "to": [
+        "Build a cattle farm and tailor’s workshop 2. Try to place the cattle farm close to the farm and the well.",
+        "",
+        "PS. Tailor’s workshop 2 is unlocked once a tailor has made 10 items in tailor’s workshop 1, so first build tailor’s workshop 1 and assign a tailor to it."
+      ]
+    },
+    {
+      "from": "PS2. If Armorer’s workshop 2 is locked, use the school bug: send a civilian to learn the armorer profession, then send him again to learn the same.",
+      "to": "PS2. If Armorer’s workshop 2 is locked, first build armorer’s workshop 1 and assign an armorer to it. Once he has made 10 items there, he unlocks the longbow, and with it armorer’s workshop 2."
+    },
+    {
+      "from": "So let’s build carpenter’s workshop 2 near the forest! If it’s locked, use the school bug: send a carpenter to learn carpentry at school.",
+      "to": "So let’s build carpenter’s workshop 2 near the forest! If it’s locked, first build carpenter’s workshop 1 and assign a carpenter to it. Once he has made 10 items there, he unlocks furniture, and with it carpenter’s workshop 2."
+    },
+    {
+      "from": "PS2. If the temple is still locked, use the school bug. Send a civilian to learn herbal gathering. Then send them again to learn the same.",
+      "to": "PS2. If the temple is still locked, you are missing a druid. Send a collector to gather mushrooms: after 10 mushrooms he unlocks the herb gatherer. After 10 herbs the herb gatherer unlocks the druid."
+    },
+    {
+      "from": "Set the production of girls to 5.  ",
+      "to": "Set the production of girls (the “Daughters” counter) to 5.  "
+    }
+  ]
+}

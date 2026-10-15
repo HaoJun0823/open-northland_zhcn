@@ -1,0 +1,44 @@
+{
+  "reason": "W naszej grze (dane CulturesNation) część opisu się nie zgadza: mikstury wymagają grzybów, wody, ziół i monet (bez oleju i złota) i warzy je druid w rozbudowanej chatce alchemika; amulety wyrabia mincerz w mennicy; żelazne narzędzia robi cieśla, nie kowal; misę na olej ma dopiero Dom 3 i olej trzeba dopuścić w panelu domu. Zamiast okna z symbolem skrzyni jest okno Asystenta (E), a zamiast żółtych przycisków wolne pola torby w panelu postaci. Nie mamy okna pomocy ani tabeli skuteczności broni, więc dopisek o niej znika; po tym samouczku jest jeszcze samouczek 8 PRO, więc to nie są wszystkie samouczki, tylko wszystkie podstawowe.",
+  "file": "maps/community/tutorial_007/text/pol/briefings/briefings.txt",
+  "sha256": "fb876741f16e9bf6417403a9aa3fdced06906d54bd1205c8a79277d18754efbc",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Jeśli nie znajdujesz w skrzyniach żadnych napojów, ale wciąż ich potrzebujesz, może przyrządzić je druid w chatce alchemika. Do przyrządzenia mikstur druid potrzebuje jako składników nie tylko grzybów i oleju, ale także wody i ziół. Potrzebuje również złota, aby nabyć tajemnicze i rzadkie składniki. Wszyscy Wikingowie - poza kobietami i bohaterami - mogą zostać wyposażeni w te specjalne przedmioty, mikstury leczące i bitewne. Małe mikstury mogą być użyte dwa razy, duże  - 5 razy. Wówczas zużywają się.",
+      "to": "Jeśli nie znajdujesz w skrzyniach żadnych napojów, ale wciąż ich potrzebujesz, może przyrządzić je druid w rozbudowanej chatce alchemika. Do przyrządzenia mikstur druid potrzebuje jako składników grzybów, wody i ziół. Potrzebuje również monet, aby nabyć tajemnicze i rzadkie składniki. Wszyscy Wikingowie - poza kobietami i bohaterami - mogą zostać wyposażeni w te specjalne przedmioty, mikstury leczące i bitewne. Małe mikstury mogą być użyte dwa razy, duże  - 5 razy. Wówczas zużywają się."
+    },
+    {
+      "from": "Wyposaż swoich Wikingów, żołnierzy, w napoje wybierając wszystkich - poza BJARNIM - jako grupę i wciskając klawisz spacji. Wybierz opcję \"ZMIEŃ EKWIPUNEK\" i daj im napoje! Możesz również powiedzieć poszczególnym postaciom, ile mikstur danego rodzaju mogą wziąć, używając żółtych przycisków na okienku postaci. W ten sposób również otwiera się listę ekwipunku. ",
+      "to": "Wyposaż swoich Wikingów, żołnierzy, w napoje wybierając wszystkich - poza BJARNIM - jako grupę i wciskając klawisz spacji. Wybierz opcję \"ZMIEŃ EKWIPUNEK\" i daj im napoje! Możesz również wyposażać pojedyncze postacie: kliknij wolne pole torby obok portretu w panelu postaci, a otworzy się lista ekwipunku. Każde pole torby mieści jedną miksturę lub amulet. "
+    },
+    {
+      "from": "Amulety nie mogą być wyprodukowane. Musisz znaleźć je bądź nabyć handlując z innymi plemionami. Wszyscy Wikingowie mężczyźni - poza twoimi bohaterami - mogą być wyposażeni w amulety. Dają one noszącemu pewne właściwości, a ich moc nigdy nie słabnie. Są różne rodzaje amuletów:",
+      "to": "Amulety wyrabia mincerz w mennicy z żelaza, złota i jeszcze jednego towaru, innego dla każdego rodzaju amuletu. Możesz je też znaleźć bądź nabyć handlując z innymi plemionami. Wszyscy Wikingowie mężczyźni - poza twoimi bohaterami - mogą być wyposażeni w amulety. Dają one noszącemu pewne właściwości, a ich moc nigdy nie słabnie. Są różne rodzaje amuletów:"
+    },
+    {
+      "from": "Niech cieśla wykona 5 jednostek narzędzi z drewna i da je mieszkańcom przez aktywację rozkazu \"Zawsze dawaj narzędzia z drewna mieszkańcom \" w dodatkowych oknach (przycisk z symbolem skrzyni)!",
+      "to": "Niech cieśla wykona 5 jednostek narzędzi z drewna i da je mieszkańcom: otwórz okno Asystenta (przycisk Asystent na dolnym pasku lub klawisz E) i w sekcji Dodatki włącz \"Drewniane narzędzia\"!"
+    },
+    {
+      "from": "Żelazne narzędzia podnoszą produktywność pracownika jeszcze bardziej, niż drewniane. Innymi słowy, produkcja pracownika jest jeszcze większa. Narzędzia z żelaza są wyrabiane przez kowala.",
+      "to": "Żelazne narzędzia podnoszą produktywność pracownika jeszcze bardziej, niż drewniane. Innymi słowy, produkcja pracownika jest jeszcze większa. Narzędzia z żelaza wyrabia cieśla z drewna i żelaza w rozbudowanym warsztacie ciesielskim."
+    },
+    {
+      "from": "Niech kowal wykona narzędzia z żelaza i rozda je mieszkańcom, używając tej samej procedury jak z narzędziami z drewna!",
+      "to": "Niech cieśla wykona narzędzia z żelaza i rozda je mieszkańcom, używając tej samej procedury jak z narzędziami z drewna (polecenie \"Żelazne narzędzia\")!"
+    },
+    {
+      "from": "Na zewnątrz każdego domu znajduje się metalowe naczynie, które kobiety mogą napełnić olejem i użyć do zapalenia Świętego Ognia. Gdy tylko ten błękitny płomień zaczyna migotać, mężczyzna może przyjść do tego domu modlić się. To zaspokaja jego potrzebę oddania się religii! Olej jest wytwarzany przez druida. ",
+      "to": "Na zewnątrz każdego domu, od Domu 3 wzwyż, znajduje się metalowe naczynie, które kobiety mogą napełnić olejem i użyć do zapalenia Świętego Ognia, jeśli zezwolisz na olej (panel domu, sekcja Wyposażenie, pozycja \"Oliwa\"). Gdy tylko ten błękitny płomień zaczyna migotać, mężczyzna może przyjść do tego domu modlić się. To zaspokaja jego potrzebę oddania się religii! Olej jest wytwarzany przez druida. "
+    },
+    {
+      "from": "P.S.: W tabeli efektywności broni w podręczniku oraz w pomocy znajdziesz opis, która z broni jest efektywna przeciwko której zbroi, a które nie. ",
+      "to": []
+    },
+    {
+      "from": "Jeśli kończyłeś samouczki po kolei, to teraz masz je wszystkie świetnie opanowane! ",
+      "to": "Jeśli kończyłeś samouczki po kolei, to teraz masz wszystkie podstawowe samouczki świetnie opanowane! "
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "reason": "U nas tragarza, zwiadowcę i kupca wysyła się do koszar przyciskiem \"Przydziel miejsce nauki\" (prawy klik na koszarach zatrudnia tragarza jako tragarza koszar); każdy dorosły mężczyzna poza bohaterami może się tam szkolić, trening nic nie kosztuje i nie daje doświadczenia (żołnierze zdobywają je w walce). Ekwipunek daje się też klawiszem I i polami w panelu osadnika. Katapultę robi warsztat ciesielski 4, a wehikuł wybiera się lewym kliknięciem. Wszystkich żołnierzy zaznacza klawisz M, grupę buduje się SHIFT. Tryb ignorowania nie wstrzymuje jedzenia i snu. Do wieży przydziela się tylko łuczników (koszary i magazyn główny nie biorą żołnierzy). Okno dyplomacji otwiera przycisk Dyplomacja na dolnym pasku i pokazuje listę plemion, nie mapę; trybut płaci się przyciskiem Zapłać. Plemię nie staje się wrogie od ataku, bo atakować można tylko wroga; komputer odpowiada na ustawiony stosunek.",
+  "file": "maps/community/tutorial_006/text/pol/briefings/briefings.txt",
+  "sha256": "427451ab1a423916ff5ad4c7484314b3fe6a16a12f645dcc950af61dbbbdc0e2",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Wskazówka: Jeśli chcesz zwerbować tragarza, zwiadowcę lub kupca, przed wysłaniem go do koszar musisz nadać mu inną profesję (np. cywilną). W innym przypadku nie zostanie tam wytrenowany, ponieważ będzie sądził, że oczekuje się od niego pracy w koszarach! ",
+      "to": "Wskazówka: Tragarza, zwiadowcę lub kupca wyślesz do koszar na trening przyciskiem akcji \"Przydziel Miejsce Nauki\". Jeśli zamiast tego klikniesz prawym przyciskiem myszy na koszarach, tragarz nie zostanie tam wytrenowany, ponieważ będzie sądził, że oczekuje się od niego pracy w koszarach! "
+    },
+    {
+      "from": "(Jeśli chcesz zwerbować tragarza, zwiadowcę lub kupca, przed wysłaniem go do koszar musisz nadać mu inną profesję (np. cywilną). W innym przypadku nie zostanie wytrenowany tam, ponieważ będzie sądził, że oczekuje się od niego pracy w koszarach!)",
+      "to": "(Tragarza, zwiadowcę lub kupca wyślesz do koszar na trening przyciskiem akcji \"Przydziel Miejsce Nauki\". Jeśli zamiast tego klikniesz prawym przyciskiem myszy na koszarach, tragarz nie zostanie tam wytrenowany, ponieważ będzie sądził, że oczekuje się od niego pracy w koszarach!)"
+    },
+    {
+      "from": "Każdy Wiking płci męskiej - poza tragarzami, kupcami i bohaterami - może zostać przydzielony do koszar i wytrenowany. Gdy tylko Wiking przybędzie do koszar, zostanie automatycznie wytrenowany na żołnierza. Opuści koszary jako wytrenowany żołnierz, ale bez jakiejkolwiek broni czy pancerza. Wciąż musisz dać mu je (przez akcję w menu opcji \"Zmień Ekwipunek \" lub przez jego zakładkę EKWIPUNEK)",
+      "to": "Każdy dorosły Wiking płci męskiej - poza bohaterami - może zostać przydzielony do koszar i wytrenowany. Gdy tylko Wiking przybędzie do koszar, zostanie automatycznie wytrenowany na żołnierza. Opuści koszary jako wytrenowany żołnierz, ale bez jakiejkolwiek broni czy pancerza. Wciąż musisz dać mu je (przez akcję \"Zmień Ekwipunek\" w menu akcji, klawiszem I lub przez pola ekwipunku w jego panelu)"
+    },
+    {
+      "from": "Jeśli wyślesz ponownie żołnierzy do koszar, zostaną wytrenowani raz jeszcze. ",
+      "to": "Trening w koszarach nic nie kosztuje, ale też nie daje doświadczenia, więc ponowne wysłanie żołnierza do koszar niczego mu nie da. "
+    },
+    {
+      "from": "Każdy żołnierz może być wytrenowany tak często, jak sobie życzysz. Za każdy trening w koszarach, będziesz musiał zapłacić monetami z magazynu koszar, za które żołnierz otrzymuje 5 punktów doświadczenia. Im więcej żołnierz ma punktów doświadczenia, tym silniejszy i potężniejszy będzie twój żołnierz.",
+      "to": "Doświadczenie żołnierze zdobywają w walce: każde celne uderzenie lub strzał uczy ich lepiej władać bronią. Im więcej żołnierz ma punktów doświadczenia, tym silniejszy i potężniejszy będzie twój żołnierz."
+    },
+    {
+      "from": "Żołnierze i bohaterowie mogą obsadzać katapulty, które są niezwykle skuteczne w atakach na budynki. Katapulty są produkowane przez warsztat płatnerski 2. Żołnierz lub bohater musi zostać przydzielony do wehikułu aby sterować nim. ",
+      "to": "Żołnierze i bohaterowie mogą obsadzać katapulty, które są niezwykle skuteczne w atakach na budynki. Katapulty są produkowane przez warsztat ciesielski 4. Żołnierz lub bohater musi zostać przydzielony do wehikułu aby sterować nim. "
+    },
+    {
+      "from": "Użyj przycisku akcji \"Przydziel Wehikuł\" aby przydzielić katapultę do Wikinga. Gdy tylko klikniesz na przycisk, dostępne katapulty podświetlą się. Kliknij prawym przyciskiem myszy na katapulcie, aby poinformować Wikinga o swoim wyborze.",
+      "to": "Użyj przycisku akcji \"Przydziel Wehikuł\" aby przydzielić katapultę do Wikinga. Gdy tylko klikniesz na przycisk, dostępne katapulty podświetlą się. Kliknij lewym przyciskiem myszy na katapulcie, aby poinformować Wikinga o swoim wyborze."
+    },
+    {
+      "from": "Kilku żołnierzy wybiera się w ten sam sposób, co Wikingów. Przez DWUKROTNE KLIKNIĘCIE lewym przyciskiem myszy, możesz wybrać wszystkich żołnierzy tego samego typu. Podwójne kliknięcie na jednym z twoich włóczników, na przykład, spowoduje wybranie wszystkich włóczników na pewnym obszarze. Możesz również wybrać wszystkich żołnierzy w zasięgu wzroku poprzez przycisk wyboru w oknie podmiotowym, leżącym w dolnym, prawym rogu. ",
+      "to": "Kilku żołnierzy wybiera się w ten sam sposób, co Wikingów. Przez DWUKROTNE KLIKNIĘCIE lewym przyciskiem myszy, możesz wybrać wszystkich żołnierzy tego samego typu. Podwójne kliknięcie na jednym z twoich włóczników, na przykład, spowoduje wybranie wszystkich włóczników na pewnym obszarze. Możesz również wybrać wszystkich swoich żołnierzy, wciskając klawisz M. "
+    },
+    {
+      "from": "Możesz stworzyć grupę żołnierzy tak samo, jak postąpiłbyś z grupą cywili (zobacz samouczek 1) używając klawiszy SHIFT i CTRL. Jeśli wybrałeś kilku żołnierzy, możesz przydzielić tą grupę do określonego numeru trzymając klawisz CTRL i wciskając klawisz z cyfrą od 0 do 9. Aby wybrać tą grupę, po prostu wciśnij znowu klawisz z jej numerem. Ta funkcja jest niezwykle przydatna w bitwie!",
+      "to": "Możesz stworzyć grupę żołnierzy tak samo, jak postąpiłbyś z grupą cywili (zobacz samouczek 1) używając klawisza SHIFT. Jeśli wybrałeś kilku żołnierzy, możesz przydzielić tą grupę do określonego numeru trzymając klawisz CTRL i wciskając klawisz z cyfrą od 0 do 9. Aby wybrać tą grupę, po prostu wciśnij znowu klawisz z jej numerem. Ta funkcja jest niezwykle przydatna w bitwie!"
+    },
+    {
+      "from": "Tryb ignorowania: Ta funkcja gwarantuje, że twoi żołnierze utrzymają swoje pozycje, cokolwiek by się działo! Niezależnie, czy są głodni lub czy ich przyjaciele są atakowani - nie ruszą się nawet o krok.",
+      "to": "Tryb ignorowania: Ta funkcja gwarantuje, że twoi żołnierze utrzymają swoje pozycje, cokolwiek by się działo! Nawet gdy ich przyjaciele są atakowani - nie ruszą się nawet o krok, uderzą tylko wroga, który podejdzie na zasięg ich broni. Na jedzenie i sen odejdą jednak, chyba że zabronisz im regeneracji."
+    },
+    {
+      "from": "Używając przycisku akcji \"Przydziel Miejsce Pracy \", możesz wysłać swoich żołnierzy do koszar, ustawić łuczników w wieży obronnej lub w magazynie głównym. Będą oni bronić tego budynku w przypadku ataku. Zamiast używać tego przycisku, możesz również przydzielić wybranego żołnierza przez kliknięcie prawym przyciskiem myszy na żądanym budynku.",
+      "to": "Używając przycisku akcji \"Przydziel Miejsce Pracy \", możesz ustawić łuczników w wieży obronnej. Będą oni bronić tego budynku w przypadku ataku. Zamiast używać tego przycisku, możesz również przydzielić wybranego łucznika przez kliknięcie prawym przyciskiem myszy na wieży."
+    },
+    {
+      "from": "Otwórz okno dyplomacji, klikając na przycisku po lewej stronie ekranu, lub wciskając klawisz F5. Mapa ogólna wyświetli wszystkie nacje, które zostały już przez ciebie odkryte. ",
+      "to": "Otwórz okno dyplomacji, klikając na przycisku \"Dyplomacja\" na dolnym pasku ekranu, lub wciskając klawisz F5. Lista plemion wyświetli wszystkie nacje, które zostały już przez ciebie odkryte. "
+    },
+    {
+      "from": "Jeśli posiadasz w swoich magazynach wymagane towary, możesz kliknąć lewym przyciskiem myszy odpowiednią opcję, a twoja armia nabędzie kilku nowych, dzielnych wojowników!",
+      "to": "Jeśli posiadasz w swoich magazynach wymagane towary, możesz kliknąć przycisk \"Zapłać\", a twoja armia nabędzie kilku nowych, dzielnych wojowników!"
+    },
+    {
+      "from": "Otwarcie okna dyplomacji powoduje wyświetlenie mapy ogólnej. Jeśli na mapie znajduje się więcej niż jedna nacja, możesz zobaczyć, czy inne nacje są wrogie, neutralne, czy przyjazne, jak również możesz ustawić własny stosunek. Te stosunki mogą się czasami różnić: To, że ktoś jest do ciebie przyjaźnie nastawiony, nie musi oznaczać, że ty lubisz jego.",
+      "to": "Otwarcie okna dyplomacji powoduje wyświetlenie listy plemion. Jeśli na mapie znajduje się więcej niż jedna nacja, możesz zobaczyć, czy inne nacje są wrogie, neutralne, czy przyjazne, jak również możesz ustawić własny stosunek. Te stosunki mogą się czasami różnić: To, że ktoś jest do ciebie przyjaźnie nastawiony, nie musi oznaczać, że ty lubisz jego."
+    },
+    {
+      "from": "Gdy tylko plemię jest zaatakowane, jego stosunek do atakującego staje się wrogi, nawet jeśli przedtem był nastawiony przyjaźnie.",
+      "to": "Twoi żołnierze zaatakują tylko plemię, wobec którego ustawisz wrogi stosunek. Plemię kierowane przez komputer odpowiada wtedy tym samym i staje się wrogie, nawet jeśli przedtem było nastawione przyjaźnie."
+    }
+  ]
+}

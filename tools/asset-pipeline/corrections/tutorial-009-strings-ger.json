@@ -1,0 +1,20 @@
+{
+  "reason": "Samouczek 8 (bug ze szkołą) znika z naszej gry, więc ten staje się samouczkiem 8. Cele 46 i 41 każą użyć bugu ze szkołą, którego nasza szkoła nie odtwarza (ukończenie nauki nie daje doświadczenia). U nas zawody odblokowuje zwykła praca: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar (miód pitny), zbieracz 10 rudy żelaza lub złota -> kowal (tribetypes.ini needforjob). Warunki celów bez zmian.",
+  "file": "maps/community/tutorial_009/text/ger/strings.ini",
+  "sha256": "e866e594d8d49ffa7f1cf9c94a397889061838b2f6288c01869aa0480deb1994",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "stringn 99 \"9) SPEZIAL: DORFENTWICKLUNG PRO\"",
+      "to": "stringn 99 \"8) SPEZIAL: DORFENTWICKLUNG PRO\""
+    },
+    {
+      "from": "stringn 46 \"Nutze den Schulfehler, um Müller, Bäcker und Braumeister freizuschalten.\"",
+      "to": "stringn 46 \"Schalte durch Arbeit Müller, Bäcker und Braumeister frei.\""
+    },
+    {
+      "from": "stringn 41 \"Nutze den Schulfehler, um den Schmied freizuschalten.\"",
+      "to": "stringn 41 \"Schalte den Schmied frei: Ein Abbauer muss 10 Eisenerz oder Gold abbauen.\""
+    }
+  ]
+}

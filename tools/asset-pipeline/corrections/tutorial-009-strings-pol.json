@@ -1,0 +1,20 @@
+{
+  "reason": "Samouczek 8 (bug ze szkołą) znika z naszej gry, więc ten staje się samouczkiem 8. Cele 46 i 41 każą użyć bugu ze szkołą, którego nasza szkoła nie odtwarza (ukończenie nauki nie daje doświadczenia). U nas zawody odblokowuje zwykła praca: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar (miód pitny), zbieracz 10 rudy żelaza lub złota -> kowal (tribetypes.ini needforjob). Warunki celów bez zmian.",
+  "file": "maps/community/tutorial_009/text/pol/strings.ini",
+  "sha256": "905ba0d48caa4223df96a62bccd60e1b3c6a1d2f1623e4b4b763dda50fd4729a",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "stringn 99\t\"9) SPECJALNY: ROZBUDOWA OSADY PRO\"",
+      "to": "stringn 99\t\"8) SPECJALNY: ROZBUDOWA OSADY PRO\""
+    },
+    {
+      "from": "stringn 46 \"Użyj bugu ze szkołą, aby odblokować: młynarza, piekarza i piwowara.\"",
+      "to": "stringn 46 \"Odblokuj pracą kolejne zawody: młynarza, piekarza i piwowara.\""
+    },
+    {
+      "from": "stringn 41 \"Użyj bugu ze szkołą, aby oblokować zawód kowala.\"",
+      "to": "stringn 41 \"Odblokuj zawód kowala: zbieracz musi zebrać 10 rudy żelaza lub złota.\""
+    }
+  ]
+}

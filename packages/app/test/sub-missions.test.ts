@@ -6,7 +6,6 @@ import * as mapLoader from '../src/content/map-loader.js';
 import * as mapsIndex from '../src/content/maps-index.js';
 import { mapSubMissionLoader, validateSavedMap } from '../src/entries/map/sub-missions.js';
 import { buildMapWorld } from '../src/entries/map/world.js';
-import { evaluateSaveFile } from '../src/view/runtime/save-load/evaluate.js';
 import { AUTHORED_ENTITIES, AUTHORED_ROWS } from './support/authored-entities.js';
 import { TINY_FINGERPRINT } from './support/catalog-maps.js';
 import { authoredMapFile } from './support/world-maps.js';
@@ -62,22 +61,6 @@ describe('map sub-mission worlds', () => {
     const returned = await load({ kind: 'end', mission: 1 }, saved);
     expect(returned).toEqual(parent);
     expect(returned.parent).toBeUndefined();
-    expect(
-      evaluateSaveFile(serializeSaveGame(saved), {
-        worldToken: 'parent',
-        rootWorldToken: 'parent',
-        irVersion: parent.header.irVersion,
-        mapFingerprint: parent.header.mapFingerprint,
-      }),
-    ).toEqual({ ok: true, save: saved });
-    expect(
-      evaluateSaveFile(serializeSaveGame(saved), {
-        worldToken: 'other',
-        rootWorldToken: 'other',
-        irVersion: parent.header.irVersion,
-        mapFingerprint: parent.header.mapFingerprint,
-      }),
-    ).toEqual({ ok: false, reason: 'wrongWorld' });
   });
 
   it('refuses ambiguous or missing target pairs, missing parents and changed terrain before handover', async () => {
@@ -98,5 +81,13 @@ describe('map sub-mission worlds', () => {
     await expect(
       validateSavedMap(inputs, { ...parent, header: { ...parent.header, mapFingerprint: 'bad' } }),
     ).rejects.toThrow('mapFingerprint');
+  });
+
+  it('passes a scene save without fetching map content: a scene builds its world from code', async () => {
+    const parent = parentSave();
+    await expect(
+      validateSavedMap(inputs, { ...parent, header: { ...parent.header, mapId: 'scene:goods-catalog' } }),
+    ).resolves.toBeUndefined();
+    expect(mapLoader.loadTerrainMap).not.toHaveBeenCalled();
   });
 });

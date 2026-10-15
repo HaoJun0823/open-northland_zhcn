@@ -2,12 +2,12 @@ import { localAlliedVision } from '../../game/session-rules.js';
 import { drawSessionSeed } from '../../game/session-url.js';
 import { messages } from '../../i18n/index.js';
 import type { LaunchEntry } from '../../launch.js';
+import { targetSearch } from '../../view/target-search.js';
 import { initialLobbyOptions, initialLobbyState, lobbyStartEntry } from './lobby/model.js';
 import { mapPicker } from './map-picker.js';
 import { type MapSelectItem, type MapSelectMemory, SINGLE_PLAYER_TABS } from './map-select-model.js';
 import type { MenuScreen } from './model.js';
 import { screenHead } from './screen-head.js';
-import { targetSearch } from './target-search.js';
 
 /** Free-play maps continue to the lobby; tutorials and test scenes start with their safe defaults. */
 export function mapSelectScreen(

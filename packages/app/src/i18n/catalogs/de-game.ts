@@ -305,7 +305,6 @@ export const deGame = {
       corrupt: 'Diese Datei ist kein lesbarer Open-Northland-Spielstand.',
       incompatibleVersion: 'Dieser Spielstand stammt aus einer inkompatiblen Spielversion.',
       wrongContent: 'Dieser Spielstand wurde mit anderen Spielinhalten erstellt.',
-      wrongWorld: 'Dieser Spielstand gehört zu einer anderen Karte oder Szene. Lade ihn über das Hauptmenü.',
       wrongMap: 'Die Karte in diesem Spielstand stimmt nicht mehr mit den installierten Inhalten überein.',
       storage:
         'Der Browser konnte den Spielstand nicht zum Laden zwischenspeichern. Prüfe den freien Speicherplatz und ob du ein privates Fenster verwendest.',

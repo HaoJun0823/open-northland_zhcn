@@ -265,7 +265,7 @@ describe('save window', () => {
 });
 
 describe('load window', () => {
-  it('preselects the newest save this world can load and holds another map back', async () => {
+  it("preselects the running game's newest save and loads another map's from the same list", async () => {
     const copy = messages().saveList;
     const { menu, saveLoad } = mount([slot('Old', 1), slot('Away', 9, ELSEWHERE), slot('New', 5)]);
     menu.openPage('load');
@@ -276,19 +276,16 @@ describe('load window', () => {
     const [mine, away] = groupHeads(load);
     expect(mine?.textContent).toContain(copy.currentGame);
     expect(away?.getAttribute('aria-expanded')).toBe('false');
-    expect(load.querySelector('.is-foreign .on-saves__tag')?.textContent).toBe(copy.otherWorld);
+    expect(away?.querySelector('.on-saves__tag')?.textContent).toBe(copy.otherWorld);
     away?.click();
     expect(rowNames(load)).toEqual(['New', 'Old', 'Away']);
-
-    load.querySelector<HTMLButtonElement>('.is-foreign .on-saves__pick')?.click();
-    expect(button(copy.load, load).disabled).toBe(true);
-    expect(button(copy.export, load).disabled).toBe(false);
-    expect(load.querySelector('.on-saves__hint')?.textContent).toBe(messages().hud.loadErrors.wrongWorld);
 
     const rowOf = (name: string) =>
       [...load.querySelectorAll<HTMLButtonElement>('.on-saves__pick')].find((pick) =>
         pick.textContent?.startsWith(name),
       );
+    rowOf('Away')?.click();
+    expect(button(copy.load, load).disabled).toBe(false);
     // The walk passes each game's head between its rows; a head moves focus, not the selection.
     rowOf('Away')?.focus();
     press(rowOf('Away'), 'ArrowUp');
@@ -301,6 +298,12 @@ describe('load window', () => {
     await vi.waitFor(() => question());
     button(copy.load, question()).click();
     await vi.waitFor(() => expect(saveLoad.loadSave).toHaveBeenCalledWith('Old'));
+
+    rowOf('Away')?.click();
+    button(copy.load, load).click();
+    await vi.waitFor(() => question());
+    button(copy.load, question()).click();
+    await vi.waitFor(() => expect(saveLoad.loadSave).toHaveBeenCalledWith('Away'));
   });
 
   it('filters by name or map and deletes a row through its bin after asking', async () => {

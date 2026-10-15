@@ -41,6 +41,7 @@ import {
  */
 
 const WORLD_TOKEN = 'demo-test';
+const ENTRY_SEARCH = '?map=demo-test&player=2';
 
 function demoSim(): Simulation {
   return runDemoWorld(7, 2);
@@ -55,7 +56,7 @@ function liveIdentity(sim: Simulation): LiveWorldIdentity {
 }
 
 function savedBytes(sim: Simulation, mapId: string = WORLD_TOKEN): string {
-  return serializeSaveGame(exportSaveGame(sim, { mapId }));
+  return serializeSaveGame(exportSaveGame(sim, { mapId, entry: ENTRY_SEARCH }));
 }
 
 /** A pick of an uncompressed save file, as a pre-gzip build would have written it. */
@@ -99,19 +100,20 @@ describe('evaluateSaveFile', () => {
     }
   });
 
-  it('rejects a save from another IR version, world or map', () => {
+  it('rejects a save from another IR version, or of this world on changed terrain', () => {
     expect(evaluateSaveFile(bytes, { ...live, irVersion: live.irVersion + 1 })).toEqual({
       ok: false,
       reason: 'wrongContent',
-    });
-    expect(evaluateSaveFile(bytes, { ...live, worldToken: 'another-map' })).toEqual({
-      ok: false,
-      reason: 'wrongWorld',
     });
     expect(evaluateSaveFile(bytes, { ...live, mapFingerprint: 'deadbeef' })).toEqual({
       ok: false,
       reason: 'wrongMap',
     });
+  });
+
+  it("accepts another world's save, whose own entry checks its terrain", () => {
+    const elsewhere = { ...live, worldToken: 'another-map', mapFingerprint: 'deadbeef' };
+    expect(evaluateSaveFile(bytes, elsewhere)).toMatchObject({ ok: true });
   });
 });
 
@@ -135,9 +137,9 @@ interface Harness {
   readonly reloads: () => number;
   readonly paused: () => boolean;
   readonly delivered: Array<{ fileName: string; bytes: SaveBytes }>;
+  /** The entries of saves handed to their own world. */
+  readonly launched: (string | null)[];
 }
-
-const ENTRY_SEARCH = '?map=demo-test&player=2';
 
 function harness(
   sim: Simulation,
@@ -150,7 +152,7 @@ function harness(
     sessionMetadata?: () => unknown;
     viewState?: () => SavedView | null;
     onSaved?: (file: SaveFile) => Promise<void>;
-    loadRelatedWorld?: (save: SaveGame, bytes: SaveBytes) => Promise<void>;
+    loadOtherWorld?: (save: SaveGame, bytes: SaveBytes) => Promise<void>;
     captureThumbnail?: () => Promise<Blob | null>;
   } = {},
 ): Harness {
@@ -160,12 +162,18 @@ function harness(
   const staged: SaveBytes[] = [];
   const resumes: boolean[] = [];
   const delivered: Array<{ fileName: string; bytes: SaveBytes }> = [];
+  const launched: (string | null)[] = [];
   const session = saveLoadSession({
     ...(overrides.captureSave === undefined ? {} : { captureSave: overrides.captureSave }),
     ...(overrides.sessionMetadata === undefined ? {} : { sessionMetadata: overrides.sessionMetadata }),
     ...(overrides.viewState === undefined ? {} : { viewState: overrides.viewState }),
     ...(overrides.onSaved === undefined ? {} : { onSaved: overrides.onSaved }),
-    ...(overrides.loadRelatedWorld === undefined ? {} : { loadRelatedWorld: overrides.loadRelatedWorld }),
+    loadOtherWorld:
+      overrides.loadOtherWorld ??
+      ((save) => {
+        launched.push(save.header.entry);
+        return Promise.resolve();
+      }),
     ...(overrides.captureThumbnail === undefined ? {} : { captureThumbnail: overrides.captureThumbnail }),
     host: inlineSessionHost(sim),
     worldToken: WORLD_TOKEN,
@@ -214,7 +222,16 @@ function harness(
       },
     },
   });
-  return { session, store, staged, resumes, reloads: () => reloads, paused: () => paused, delivered };
+  return {
+    session,
+    store,
+    staged,
+    resumes,
+    reloads: () => reloads,
+    paused: () => paused,
+    delivered,
+    launched,
+  };
 }
 
 describe('stagedSaveFrom', () => {
@@ -445,16 +462,10 @@ describe('saveLoadSession slot load and export', () => {
   });
 
   it('reloads a save of this session in place and relaunches one this map recorded under another', async () => {
-    const relaunched: (string | null)[] = [];
-    const h = harness(demoSim(), {
-      loadRelatedWorld: (save) => {
-        relaunched.push(save.header.entry);
-        return Promise.resolve();
-      },
-    });
+    const h = harness(demoSim());
     await h.session.saveGame('Same');
     await expect(h.session.loadSave('Same')).resolves.toEqual({ kind: 'loading' });
-    expect([h.reloads(), relaunched]).toEqual([1, []]);
+    expect([h.reloads(), h.launched]).toEqual([1, []]);
 
     const other = `${ENTRY_SEARCH}&tribes=2:4`;
     const save = exportSaveGame(demoSim(), { mapId: WORLD_TOKEN, entry: other });
@@ -463,7 +474,30 @@ describe('saveLoadSession slot load and export', () => {
       meta: { mapId: WORLD_TOKEN, tick: 0, entry: other, seed: 0, thumbnail: null },
     });
     await expect(h.session.loadSave('Other')).resolves.toEqual({ kind: 'loading' });
-    expect([h.reloads(), relaunched]).toEqual([1, [other]]);
+    expect([h.reloads(), h.launched]).toEqual([1, [other]]);
+  });
+
+  it("hands another world's save to that world's entry, staging nothing here", async () => {
+    const h = harness(demoSim());
+    const entry = '?map=another-map&player=1';
+    const save = exportSaveGame(demoSim(), { mapId: 'another-map', entry });
+    h.store.set('Away', {
+      bytes: await compressSaveText(serializeSaveGame(save)),
+      meta: { mapId: 'another-map', tick: 0, entry, seed: 0, thumbnail: null },
+    });
+    await expect(h.session.loadSave('Away')).resolves.toEqual({ kind: 'loading' });
+    expect([h.reloads(), h.staged, h.launched]).toEqual([0, [], [entry]]);
+  });
+
+  it("keeps the session when another world's save cannot load there", async () => {
+    const sim = demoSim();
+    const h = harness(sim, {
+      pickFile: () => Promise.resolve(pickedOf(savedBytes(sim, 'another-map'))),
+      loadOtherWorld: () => Promise.reject(new Error('map gone')),
+      startPaused: true,
+    });
+    await expect(h.session.loadFromFile()).resolves.toEqual({ kind: 'rejected', reason: 'wrongMap' });
+    expect([h.reloads(), h.staged, h.paused()]).toEqual([0, [], true]);
   });
 
   it('rejects a vanished slot as missing, touching nothing', async () => {
@@ -539,14 +573,15 @@ describe('saveLoadSession file load flow', () => {
 
   it('keeps the session on a rejected file and names the rejection', async () => {
     const sim = demoSim();
-    const wrongWorld = savedBytes(sim, 'another-map');
+    const doc = JSON.parse(savedBytes(sim)) as { header: { irVersion: number } };
+    doc.header.irVersion += 1;
     const h = harness(sim, {
-      pickFile: () => Promise.resolve(pickedOf(wrongWorld)),
+      pickFile: () => Promise.resolve(pickedOf(JSON.stringify(doc))),
       startPaused: true,
     });
     await expect(h.session.loadFromFile()).resolves.toEqual({
       kind: 'rejected',
-      reason: 'wrongWorld',
+      reason: 'wrongContent',
     });
     expect(h.staged).toEqual([]);
     expect(h.reloads()).toBe(0);

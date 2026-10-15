@@ -154,7 +154,7 @@ import {
   type SaveLoadSessionOptions,
   savedView,
 } from './save-load/index.js';
-import { relatedWorldLoader } from './save-load/related-world.js';
+import { otherWorldLoader } from './save-load/other-world.js';
 import { worldThumbnail } from './save-load/thumbnail.js';
 import { createScriptPresentation } from './script-presentation.js';
 import { mountScriptTints } from './script-tints.js';
@@ -347,11 +347,9 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     worldSeed: deps.worldSeed ?? null,
     captureThumbnail: () => worldThumbnail(renderer, app.screen.width),
     ...(deps.saveEntrySearch !== undefined ? { entrySearch: deps.saveEntrySearch } : {}),
-    // A shared clock is nobody's to hold: the save dialog and the overlays above pause nothing.
-    ...(deps.validateSavedMap !== undefined
-      ? { loadRelatedWorld: relatedWorldLoader(deps.validateSavedMap, teardownWorld) }
-      : {}),
+    loadOtherWorld: otherWorldLoader(teardownWorld, deps.validateSavedMap),
     ...(deps.parentSave !== undefined ? { parent: deps.parentSave } : {}),
+    // A shared clock is nobody's to hold: the save dialog and the overlays above pause nothing.
     setPaused: (paused) => {
       if (!sharedClock) driver.setPaused(paused);
     },

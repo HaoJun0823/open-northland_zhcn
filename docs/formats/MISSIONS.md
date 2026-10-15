@@ -1071,8 +1071,8 @@ commands, RNG, fog and mission state. The app session retains that envelope on s
 restoring a single simulation does not itself manage the world stack. Returning discards the child, so
 neither inhabitants nor goods are merged into the parent. Parent simulation time stays frozen. The
 parser limits nesting to 16 parents, a defensive approximation. A fresh child reuses the parent's
-construction seed and URL session rules, an approximation. The in-game load menu accepts another map in
-the same saved parent chain, with a destination preflight; unrelated map saves remain rejected.
+construction seed and URL session rules, an approximation. The in-game load menu loads any map's save
+through that map's own entry, after restoring it off to the side as a destination preflight.
 Automatic handovers resume play; ordinary user loads remain paused. The temporary IndexedDB handover
 records this distinction separately from the saved game.
 

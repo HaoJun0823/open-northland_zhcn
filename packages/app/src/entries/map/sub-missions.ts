@@ -9,6 +9,7 @@ import { mapSession } from '../../game/session-url.js';
 import { sessionWorldOptions } from '../../game/session-world.js';
 import { mapScriptWorld } from '../../game/world/mission-script.js';
 import { relaunchSearch } from '../../view/runtime/save-load/relaunch.js';
+import { SCENE_TOKEN_PREFIX } from '../../view/runtime/save-load/world-names.js';
 import { buildMapWorld, type MapWorldOptions, restoreMapWorld } from './world.js';
 
 type Transition = Extract<SimEvent, { kind: 'missionSubMission' }>['transition'];
@@ -30,9 +31,12 @@ export function subMissionPool(
     : sources.filter((source) => (source.catalog ?? source.local)?.entryId === entryId && !source.stale);
 }
 
+/** Restore a map save off to the side, so a broken one is refused before the running world goes.
+ *  A scene save builds its world from code, with no map content to check. */
 export async function validateSavedMap(inputs: Inputs, save: SaveGame): Promise<void> {
   const target = save.header.mapId;
   if (target === null) throw new Error('Saved mission has no map identity');
+  if (target.startsWith(SCENE_TOKEN_PREFIX)) return;
   const files = await mapFetch(target);
   const [map, source] = await Promise.all([loadTerrainMap(target, files), loadMapScript(target, files)]);
   if (map === null || source === null || inputs.ir === null)

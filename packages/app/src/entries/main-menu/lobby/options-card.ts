@@ -1,7 +1,7 @@
-import { FOG_MODE_BY_NAME, fogModeName } from '../../../game/fog.js';
+import { FOG_MODE_BY_NAME, fogModeName, LOBBY_FOG_MODES } from '../../../game/fog.js';
 import { messages } from '../../../i18n/index.js';
 import { gameRuleControls } from '../lobby-controls/rules.js';
-import { LOBBY_FOG_MODES, type LobbyOptions } from './model.js';
+import type { LobbyOptions } from './model.js';
 
 export function lobbyOptionsCard(options: LobbyOptions): HTMLElement {
   const lobby = messages().mainMenu.lobby;

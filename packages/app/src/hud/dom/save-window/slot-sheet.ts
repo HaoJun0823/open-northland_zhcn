@@ -12,9 +12,8 @@ import { button, element, setTip } from '../parts/dom.js';
 import { foldedName } from '../parts/name-search.js';
 
 export interface SlotSheetOptions {
-  /** A save the running world cannot load: its game is dimmed and tagged, its rows still selectable
-   *  for export and delete. */
-  readonly foreign?: (slot: SaveSlotInfo) => boolean;
+  /** A save of another world than the running one, whose game is tagged so. */
+  readonly otherWorld?: (slot: SaveSlotInfo) => boolean;
   /** The game running now, whose saves come first and open. */
   readonly running: RunningWorld | null;
   readonly emptyHint: string;
@@ -172,10 +171,8 @@ export function createSlotSheet(opts: SlotSheetOptions): SlotSheet {
     }
     if (playthrough.current) title.append(textElement('span', 'on-saves__tag is-current', copy.currentGame));
     const newest = playthrough.slots[0];
-    if (newest !== undefined && opts.foreign?.(newest) === true) {
-      item.classList.add('is-foreign');
+    if (newest !== undefined && opts.otherWorld?.(newest) === true)
       title.append(textElement('span', 'on-saves__tag', copy.otherWorld));
-    }
     const count = playthrough.slots.length;
     const summary = [
       formatMessage(pluralForm(count, copy.saveCount, tag), { count }),

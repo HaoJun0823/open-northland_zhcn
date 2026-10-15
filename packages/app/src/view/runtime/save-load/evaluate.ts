@@ -1,18 +1,16 @@
 import { parseSaveGame, SAVE_FORMAT_VERSION, SAVE_KIND, type SaveGame } from '@open-northland/sim';
 
 import { saveDocumentOf } from './codec.js';
-import { rootWorldId } from './related-world.js';
 
-/** The live session identity a candidate save must match before the page reloads into it. */
+/** The live session identity a candidate save is checked against before the page leaves it. */
 export interface LiveWorldIdentity {
   /** The entry's world token: the decoded map id, or `scene:<id>`; null for a tokenless world. */
   readonly worldToken: string | null;
-  readonly rootWorldToken?: string | null;
   readonly mapFingerprint: string | null;
   readonly irVersion: number;
 }
 
-export type SaveRejection = 'corrupt' | 'incompatibleVersion' | 'wrongContent' | 'wrongWorld' | 'wrongMap';
+export type SaveRejection = 'corrupt' | 'incompatibleVersion' | 'wrongContent' | 'wrongMap';
 
 export type EvaluatedSave =
   | { readonly ok: true; readonly save: SaveGame }
@@ -44,22 +42,16 @@ export function evaluateSaveDocument(text: string): EvaluatedDocument {
 
 /**
  * Classify a picked file against the running session, so a rejected file never navigates the page.
- * Every comparison reads the live sim's own identity; the reload boots on the same served content,
- * so a save that matches here restores there.
+ * The next boot runs on the same served content, so the content version must match; a save of
+ * another world launches into that world, and only one of this world must match its terrain.
  */
 export function evaluateSaveFile(text: string, live: LiveWorldIdentity): EvaluatedSave {
   const evaluated = evaluateSaveDocument(text);
   if (!evaluated.ok) return evaluated;
   const save = evaluated.save;
   if (save.header.irVersion !== live.irVersion) return { ok: false, reason: 'wrongContent' };
-  if (save.header.mapId !== live.worldToken) {
-    return live.rootWorldToken !== undefined &&
-      live.rootWorldToken !== null &&
-      rootWorldId(save) === live.rootWorldToken
-      ? { ok: true, save }
-      : { ok: false, reason: 'wrongWorld' };
-  }
-  if (save.header.mapFingerprint !== live.mapFingerprint) return { ok: false, reason: 'wrongMap' };
+  if (save.header.mapId === live.worldToken && save.header.mapFingerprint !== live.mapFingerprint)
+    return { ok: false, reason: 'wrongMap' };
   return { ok: true, save };
 }
 

@@ -6,7 +6,7 @@ import { formatMessage, messages } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
 import type { NetworkConnection } from '../../../net/connection.js';
 import { stageNetworkHandover } from '../../../net/handover.js';
-import { targetSearch } from '../target-search.js';
+import { targetSearch } from '../../../view/target-search.js';
 import type { roomAssets } from './assets.js';
 
 export async function launchNetworkGame(

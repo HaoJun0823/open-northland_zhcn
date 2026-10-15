@@ -5,7 +5,6 @@ import { isGzipSave, type SaveBytes, type SaveFile, saveFileOf } from './codec.j
 import { evaluateSaveFile, type SaveRejection } from './evaluate.js';
 import { browserSaveDownload, type PickedSaveFile, pickedSaveOf } from './file-access.js';
 import { displayNameOf } from './list-model.js';
-import { rootWorldId } from './related-world.js';
 import { relaunchSearch } from './relaunch.js';
 import type { SaveSlotInfo, SaveStore } from './store.js';
 import type { SavedView } from './view-state.js';
@@ -24,8 +23,9 @@ export interface SaveLoadDeps {
   /** The same capture as file bytes, produced where the sim runs; preferred over `captureSave`. */
   readonly captureSaveFile?: (options: ExportSaveOptions) => Promise<SaveFile>;
   readonly parent?: SaveGame;
-  readonly loadRelatedWorld?: (save: SaveGame, bytes: SaveBytes) => Promise<void>;
-  /** The entry's world identity, exported as the save header's `mapId` and required to match on load. */
+  /** Hand the page to the entry that boots `save`'s own session, staging `bytes` for it. */
+  readonly loadOtherWorld: (save: SaveGame, bytes: SaveBytes) => Promise<void>;
+  /** The entry's world identity, exported as the save header's `mapId`; a load of another relaunches. */
   readonly worldToken: string | null;
   /** The entry-selecting URL search, exported as the header's `entry` relaunch token. */
   readonly entrySearch: string | null;
@@ -115,24 +115,21 @@ export function saveLoadSession(deps: SaveLoadDeps): SaveLoadSession {
     if (picked === null) return { kind: 'cancelled' };
     const evaluated = evaluateSaveFile(picked.contents, {
       worldToken,
-      ...(deps.loadRelatedWorld !== undefined
-        ? { rootWorldToken: deps.parent !== undefined ? rootWorldId(deps.parent) : worldToken }
-        : {}),
       mapFingerprint: host.mapFingerprint ?? null,
       irVersion: host.content.manifest.version,
     });
     if (!evaluated.ok) return { kind: 'rejected', reason: evaluated.reason };
-    // A save of this map played under another session (another seat or civilization) relaunches
-    // through its own entry, as another map's does: the running search would assemble its world.
+    // Another world's save, or this map's played under another session (another seat or
+    // civilization), relaunches through its own entry: the running search would assemble this world.
     const relaunch = relaunchSearch(evaluated.save.header);
     const elsewhere =
       evaluated.save.header.mapId !== worldToken || (relaunch !== null && relaunch !== deps.entrySearch);
-    if (elsewhere && deps.loadRelatedWorld !== undefined) {
+    if (elsewhere) {
       try {
-        await deps.loadRelatedWorld(evaluated.save, picked.raw);
+        await deps.loadOtherWorld(evaluated.save, picked.raw);
         return { kind: 'loading' };
       } catch (err) {
-        diag.warn('save', `related mission could not load: ${String(err)}`);
+        diag.warn('save', `the save's own world could not load: ${String(err)}`);
         return { kind: 'rejected', reason: 'wrongMap' };
       }
     }

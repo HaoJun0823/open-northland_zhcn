@@ -10,17 +10,12 @@ import { exportAction, removeSlot } from './actions.js';
 import { type MenuPageView, nextPaint, type SaveWindowDeps, savesFrame } from './frame.js';
 import { createSlotSheet } from './slot-sheet.js';
 
-/** Pick a stored save, or a file, and restore it over the running game. */
+/** Pick a stored save, or a file, and restore it in place of the running game, whatever its world. */
 export function createLoadWindow(deps: SaveWindowDeps): MenuPageView {
   const copy = messages().saveList;
   const hud = messages().hud;
   const frame = savesFrame(deps, copy.loadTitle, 'on-saves--load');
   const run = flowRunner(frame.status, copy.actionFailed);
-
-  /** In-game loading restores into the running world only. A slot from elsewhere stays listed and
-   *  selectable, since deleting and exporting it still work. */
-  const foreign = (slot: SaveSlotInfo): boolean =>
-    slot.mapId !== null && slot.mapId !== deps.saveLoad.worldToken;
 
   const search = element('label', 'on-saves__field on-saves__search', GLYPH.search);
   const query = quietTextField(element('input', ''));
@@ -32,26 +27,23 @@ export function createLoadWindow(deps: SaveWindowDeps): MenuPageView {
   const load = button('on-button on-button--primary', GLYPH.next);
   load.append(copy.load);
   load.disabled = true;
-  const hint = element('p', 'on-saves__hint is-warning');
 
   const exportButton = exportAction(deps, () => sheet.selected(), run);
   const running = { mapId: deps.saveLoad.worldToken, seed: deps.saveLoad.worldSeed };
   const sheet = createSlotSheet({
-    foreign,
+    otherWorld: (slot) => slot.mapId !== null && slot.mapId !== deps.saveLoad.worldToken,
     running,
     signal: deps.signal,
     emptyHint: copy.emptyLoadHint,
     onSelect: (slot) => {
-      const away = slot !== null && foreign(slot);
-      load.disabled = slot === null || away;
+      load.disabled = slot === null;
       exportButton.disabled = slot === null;
-      hint.textContent = away ? hud.loadErrors.wrongWorld : '';
     },
     onActivate: () => loadSelected(),
     onDelete: (slot) => removeSlot(deps, slot, run, refresh),
   });
   query.addEventListener('input', () => sheet.filter(query.value));
-  frame.window.body.append(search, sheet.el, hint);
+  frame.window.body.append(search, sheet.el);
 
   /** Only the newest refresh may draw: an earlier one resolving late would list slots the store has
    *  already moved past. */
@@ -70,14 +62,9 @@ export function createLoadWindow(deps: SaveWindowDeps): MenuPageView {
     if (mine !== refreshes) return;
     frame.hideTips();
     sheet.show(slots, worldName);
-    // The newest save of the game running now, or else the newest this world can load, comes up
-    // selected, so Enter continues from it.
-    if (!sheet.holdsSelection()) {
-      const loadable = playthroughsOf(slots, running)
-        .flatMap((playthrough) => playthrough.slots)
-        .find((slot) => !foreign(slot));
-      sheet.select(loadable?.id ?? null);
-    }
+    // The newest save of the game running now, or else the newest of all, comes up selected, so
+    // Enter continues from it.
+    if (!sheet.holdsSelection()) sheet.select(playthroughsOf(slots, running)[0]?.slots[0]?.id ?? null);
     if (!frame.window.element.contains(document.activeElement) && !sheet.focus()) load.focus();
   }
 
@@ -85,8 +72,6 @@ export function createLoadWindow(deps: SaveWindowDeps): MenuPageView {
     run(async (progress) => {
       const slot = sheet.selected();
       if (slot === null) return null;
-      // Refused before the question, so the player never trades a running game for a refusal.
-      if (foreign(slot)) return hud.loadErrors.wrongWorld;
       // Loading replaces the running session, so it asks like the other destructive actions.
       const confirmed = await deps.confirm({
         title: copy.loadTitle,

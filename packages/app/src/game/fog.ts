@@ -23,6 +23,15 @@ export const FOG_MODE_BY_NAME: Readonly<Record<FogModeName, FogMode>> = {
   'recon-fow': FOG_MODE.RECON_FOG_OF_WAR,
 };
 
+/** The fog modes a lobby offers: its map setting times fog of war. `off` stays a debug-menu pick. */
+export type LobbyFogModeName = Exclude<FogModeName, 'off'>;
+
+export const LOBBY_FOG_MODES: readonly LobbyFogModeName[] = ['classic', 'classic-fow', 'recon', 'recon-fow'];
+
+/** Fallback fog mode for a `?map=` launch that carries no explicit pick: the original's classic map
+ *  without fog of war. */
+export const DEFAULT_FOG_MODE: LobbyFogModeName = 'classic';
+
 /**
  * The `?fog=` URL flag: the requested `FOG_MODE` id, or null when absent or unrecognized, which leaves
  * the caller's default. An explicit `?fog=off` returns `FOG_MODE.OFF`, disabling a scene's own fog.

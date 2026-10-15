@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LOBBY_FOG_MODES } from '../src/entries/main-menu/lobby/model.js';
-import { targetSearch } from '../src/entries/main-menu/target-search.js';
+import { LOBBY_FOG_MODES } from '../src/game/fog.js';
+import { targetSearch } from '../src/view/target-search.js';
 
 describe('targetSearch', () => {
   it('carries only player-facing game settings into the selected entry', () => {

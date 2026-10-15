@@ -25,7 +25,7 @@ export interface SaveLoadSessionOptions
   > {
   readonly host: SaveLoadDeps['host'];
   readonly parent?: SaveGame;
-  readonly loadRelatedWorld?: NonNullable<SaveLoadDeps['loadRelatedWorld']>;
+  readonly loadOtherWorld: SaveLoadDeps['loadOtherWorld'];
   readonly worldToken: string | null;
   readonly entrySearch?: string;
   readonly setPaused: (paused: boolean) => void;

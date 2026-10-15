@@ -7,7 +7,12 @@ import {
   type SessionSeat,
   type WeatherMode,
 } from '@open-northland/lockstep';
-import { FOG_MODE_BY_NAME, type FogModeName } from '../../../game/fog.js';
+import {
+  DEFAULT_FOG_MODE,
+  FOG_MODE_BY_NAME,
+  LOBBY_FOG_MODES,
+  type LobbyFogModeName,
+} from '../../../game/fog.js';
 import { onOffParam, weatherModeParam } from '../../../game/session-rules.js';
 import {
   claimableLocalSeat,
@@ -31,15 +36,6 @@ import {
   slotDifficulty,
   type VacantMode,
 } from './roster-state.js';
-
-/** The fog modes a lobby offers: its map setting times fog of war. `off` stays a debug-menu pick. */
-export type LobbyFogModeName = Exclude<FogModeName, 'off'>;
-
-export const LOBBY_FOG_MODES: readonly LobbyFogModeName[] = ['classic', 'classic-fow', 'recon', 'recon-fow'];
-
-/** Fallback fog mode for a `?map=` launch that carries no explicit pick: the original's classic map
- *  without fog of war. */
-export const DEFAULT_FOG_MODE: LobbyFogModeName = 'classic';
 
 export interface LobbyOptions {
   fog: LobbyFogModeName;

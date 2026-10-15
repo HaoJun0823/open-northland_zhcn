@@ -277,7 +277,6 @@ export const enGame = {
       corrupt: 'This file is not a readable Open Northland save.',
       incompatibleVersion: 'This save comes from an incompatible game version.',
       wrongContent: 'This save was made with different game content.',
-      wrongWorld: 'This save belongs to a different map or scene. Load it from the main menu instead.',
       wrongMap: 'The map in this save no longer matches the installed content.',
       storage:
         'The browser would not hold the save for loading. Check the free space, and whether this is a private window.',

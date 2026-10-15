@@ -12,9 +12,9 @@ import { relaunchSearch } from '../../view/runtime/save-load/relaunch.js';
 import type { SaveSlotInfo } from '../../view/runtime/save-load/store.js';
 import { browserSaveStore } from '../../view/runtime/save-load/store-browser.js';
 import { worldNameIndex } from '../../view/runtime/save-load/world-names.js';
+import { targetSearch } from '../../view/target-search.js';
 import type { MenuScreen } from './model.js';
 import { screenHead } from './screen-head.js';
-import { targetSearch } from './target-search.js';
 
 /** The main menu's load screen: the save store's slots, launched into their own worlds. */
 export function loadSelectScreen(open: (screen: MenuScreen) => void, launch: LaunchEntry): HTMLElement {

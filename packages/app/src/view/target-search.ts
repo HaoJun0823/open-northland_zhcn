@@ -1,5 +1,5 @@
-import { type CarriedParam, carriedParams, formatSearch } from '../../view/params.js';
-import { DEFAULT_FOG_MODE, LOBBY_FOG_MODES } from './lobby/model.js';
+import { DEFAULT_FOG_MODE, LOBBY_FOG_MODES } from '../game/fog.js';
+import { type CarriedParam, carriedParams, formatSearch } from './params.js';
 
 /** World rules a scene authors for itself, so a carried menu choice never reaches one. */
 const SCENE_OWNED_PARAMS: readonly CarriedParam[] = ['fog', 'progression', 'needs', 'weathermode'];

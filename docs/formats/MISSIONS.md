@@ -537,10 +537,10 @@ Readings unless marked otherwise.
   reward writes the produceable byte the same way, and `JobEnabled` and `GoodProduceable` read it.
   This build keeps script grants per player and tribe (`components/unlocks.ts`). Initial permissions
   come from `tribetypes.ini` `allowjob`, `allowhouse`, `allowgood`; map `[allowedthings]` overrides
-  (`forbid*` / `allow*`) are saved in `MapPermissions`. Owned `tutorial_008/player.inc` forbids good 14
-  for player 0, tribe 1; `StraznicyPolnocy/player.inc` forbids good 63. A `forbid*` line clears both
-  bytes; an `allow*` line writes the enabled byte, for a job or good only when the tribe's own table
-  allows the type (reading). This build reads an `allow*` line as a
+  (`forbid*` / `allow*`) are saved in `MapPermissions`. Pack `Walhalla/player.inc` forbids the
+  wooden spear for players 0-5, tribe 1; `StraznicyPolnocy/player.inc` forbids good 63. A `forbid*`
+  line clears both bytes; an `allow*` line writes the enabled byte, for a job or good only when the
+  tribe's own table allows the type (reading). This build reads an `allow*` line as a
   permission grant instead (approximation; no corpus map writes one). The `Allow*` results remove
   the restriction without granting progress. `Enable*` grants availability and leaves a ban in place: a forbidden
   type stays unusable however often a script enables it. A synthetic catalog without permission tables

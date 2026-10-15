@@ -381,3 +381,36 @@ describe('an armor layout', () => {
     expect(out.body[TUNIC * BAND_BYTES + 15 * 3]).toBe(0);
   });
 });
+
+describe('a weapon layout', () => {
+  const SHAFT = 2;
+  const look: CharacterPalette = {
+    ...PLAIN,
+    weapon: { bands: [SHAFT, APRON], rampByJob: {} },
+  };
+  const b = () =>
+    book(
+      [
+        { name: 'skin', patches: [ramp(SHAFT, 'blue')] },
+        { name: 'human_armor_001', patches: [ramp(APRON, 'mail')] },
+      ],
+      { armorRecipes: ['human_armor_000', 'human_armor_001'] },
+    );
+
+  it("paints every weapon band the material's ramp, over the rolled recipe and the armor", () => {
+    const out = compose(b(), identity({ ...look, random: ['skin'] }, { weaponRamp: 'wood', armorTier: 1 }));
+    expect(band(out.body, SHAFT)).toEqual(WOOD);
+    expect(band(out.body, APRON)).toEqual(WOOD);
+  });
+
+  it('leaves the bands alone without a material, or with a ramp the lane lacks', () => {
+    expect(band(compose(b(), identity(look)).body, SHAFT)).toEqual(grey(SHAFT * 16));
+    expect(band(compose(b(), identity(look, { weaponRamp: 'missing' })).body, SHAFT)).toEqual(
+      grey(SHAFT * 16),
+    );
+  });
+
+  it('does nothing on a look without one', () => {
+    expect(band(compose(b(), identity(PLAIN, { weaponRamp: 'wood' })).body, SHAFT)).toEqual(grey(SHAFT * 16));
+  });
+});

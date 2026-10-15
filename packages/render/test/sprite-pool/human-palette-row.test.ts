@@ -88,6 +88,17 @@ describe('a settler palette identity', () => {
     expect(out.armorTier).toBeUndefined();
   });
 
+  it("reads the held weapon's material ramp off the look by job", () => {
+    const SPEAR_JOB = 32;
+    const armed = { ...look, weapon: { bands: [14], rampByJob: { [SPEAR_JOB]: 'hair brown' } } };
+    const spearmen = { byJob: {}, default: { palette: armed } } as unknown as SettlerCharacterSet;
+    const out = createHumanPaletteIdentity(armed);
+    humanPaletteIdentity(sheetWith(spearmen), { ...item, jobType: SPEAR_JOB }, out);
+    expect(out.weaponRamp).toBe('hair brown');
+    humanPaletteIdentity(sheetWith(spearmen), { ...item, jobType: SOLDIER_JOB }, out);
+    expect(out.weaponRamp).toBeUndefined();
+  });
+
   it('draws a baked look without the human LUT', () => {
     const baked = { byJob: {}, default: { indexed: false } } as unknown as SettlerCharacterSet;
     expect(humanPaletteIdentity(sheetWith(baked), item, createHumanPaletteIdentity(look))).toBe(false);

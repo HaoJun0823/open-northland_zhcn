@@ -5,6 +5,7 @@ import {
   JOB_ARCHER_LONG,
   JOB_SOLDIER_BROADSWORD,
   JOB_SOLDIER_SPEAR,
+  JOB_SOLDIER_SPEAR_WOODEN,
   JOB_SOLDIER_SWORD,
 } from '../catalog/jobs.js';
 import { HUMAN_PLAYER } from '../game/rules.js';
@@ -13,8 +14,9 @@ import type { SceneDefinition } from './types.js';
 
 const { Position, Settler } = components;
 
-/** One column per weapon class. */
+/** One column per weapon class; the two spears side by side show their materials. */
 const WEAPON_JOBS = [
+  JOB_SOLDIER_SPEAR_WOODEN,
   JOB_SOLDIER_SPEAR,
   JOB_SOLDIER_SWORD,
   JOB_SOLDIER_BROADSWORD,
@@ -22,7 +24,7 @@ const WEAPON_JOBS = [
   JOB_ARCHER_LONG,
 ];
 
-/** Post spacing and border, in cells: close enough that all 25 fit one screen at the starting zoom. */
+/** Post spacing and border, in cells: close enough that all 30 fit one screen at the starting zoom. */
 const SPACING_X = 3;
 const SPACING_Y = 4;
 const MARGIN = 5;

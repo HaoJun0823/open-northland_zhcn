@@ -248,7 +248,7 @@ export const plContent = {
     'armed-idle': {
       title: 'Uzbrojeni w bezczynności',
       summary:
-        'Uzbrojeni żołnierze każdego plemienia stoją bezczynnie; w każdej animacji nudzenia się trzymają broń.',
+        'Uzbrojeni żołnierze każdego plemienia stoją bezczynnie; w każdej animacji nudzenia się trzymają broń. Dwie pierwsze kolumny mają włócznię drewnianą (brązową) i żelazną (szarą).',
     },
     'weapon-facings': {
       title: 'Kierunki broni',

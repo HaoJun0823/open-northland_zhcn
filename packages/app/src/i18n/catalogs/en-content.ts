@@ -250,7 +250,8 @@ export const enContent = {
     },
     'armed-idle': {
       title: 'Armed idle',
-      summary: "Every tribe's armed soldiers stand idle; each fidget keeps the weapon in hand.",
+      summary:
+        "Every tribe's armed soldiers stand idle; each fidget keeps the weapon in hand. The first two columns hold a wooden spear (brown) and an iron one (grey).",
     },
     'weapon-facings': {
       title: 'Weapon facings',

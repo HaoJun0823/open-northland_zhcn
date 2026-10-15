@@ -34,6 +34,7 @@ export {
   type HumanPaletteColours,
   type HumanPaletteIdentity,
   headPaletteBand,
+  type WeaponLayout,
 } from './data/palettes/human-palettes.js';
 export {
   type Camera,

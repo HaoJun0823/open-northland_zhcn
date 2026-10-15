@@ -2,6 +2,7 @@ import type { CharacterPalette } from '@open-northland/render';
 import type { ContentIr, JobGraphicsRow } from '../ir/rows.js';
 import { armorLayout } from './armor-bands.js';
 import { CHARACTER_SPEC_ENTRIES, type CharacterSpecId } from './character-specs.js';
+import { weaponLayout } from './weapon-bands.js';
 
 /**
  * The bob sets one tribe composes a character look from: the `[jobbasegraphics]` record's body and head
@@ -52,6 +53,7 @@ export function lookFrom(row: JobGraphicsRow): TribeLook {
   }
   const bodyBmd = bobStem(row.body);
   const armor = armorLayout(bodyBmd, heads);
+  const weapon = weaponLayout(bodyBmd);
   return {
     job: row.job,
     bodyBmd,
@@ -64,6 +66,7 @@ export function lookFrom(row: JobGraphicsRow): TribeLook {
       head: row.headPalette ?? DEFAULT_PALETTE,
       random: row.randomPalettes,
       ...(armor !== undefined ? { armor } : {}),
+      ...(weapon !== undefined ? { weapon } : {}),
     },
   };
 }

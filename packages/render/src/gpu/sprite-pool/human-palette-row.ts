@@ -50,6 +50,7 @@ export function humanPaletteIdentity(
     out.female = driver.female === true;
     out.jobChange = lut.book.jobChangeRecipe(driver.tribe, driver.jobType);
     out.armorTier = undefined;
+    out.weaponRamp = undefined;
     out.scripted = undefined;
     out.cart = driven.cartRecipe;
     out.carried = undefined;
@@ -78,6 +79,8 @@ export function humanPaletteIdentity(
   const worn = armorGood == null ? undefined : lut.armor.tierByGood.get(armorGood);
   const soldier = item.jobType !== undefined && lut.armor.soldierJobs.has(item.jobType);
   out.armorTier = fixed ? undefined : (worn ?? (soldier ? UNARMORED_TIER : undefined));
+  out.weaponRamp =
+    item.jobType === undefined ? undefined : character.palette?.weapon?.rampByJob[item.jobType];
   out.scripted = item.scriptedLook;
   out.cart = undefined;
   out.carried = item.carrying === true ? item.carryGood : undefined;

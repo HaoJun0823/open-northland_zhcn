@@ -252,7 +252,7 @@ export const deContent = {
     'armed-idle': {
       title: 'Bewaffnete im Leerlauf',
       summary:
-        'Bewaffnete Soldaten aller Stämme stehen untätig herum; bei jeder kleinen Bewegung behalten sie ihre Waffe in der Hand.',
+        'Bewaffnete Soldaten aller Stämme stehen untätig herum; bei jeder kleinen Bewegung behalten sie ihre Waffe in der Hand. Die ersten beiden Spalten tragen einen Holzspeer (braun) und einen Eisenspeer (grau).',
     },
     'weapon-facings': {
       title: 'Angriffsrichtungen der Waffen',

@@ -27,6 +27,8 @@ export interface CharacterPalette {
   readonly random: readonly string[];
   /** How a soldier's armor colours this body, in place of the `human_armor_NNN` recipe. */
   readonly armor?: ArmorLayout;
+  /** Where this body draws its weapon, which the weapon's material colours. */
+  readonly weapon?: WeaponLayout;
 }
 
 /**
@@ -52,6 +54,17 @@ export interface ArmorRamp {
   readonly order?: readonly number[];
 }
 
+/**
+ * A body's weapon colours by material. Project choice, not the original's: the original tells a wooden
+ * spear from an iron one only on the viking body, through its spear `[jobchangegraphics]` recipes.
+ */
+export interface WeaponLayout {
+  /** The bands the weapon is drawn in. */
+  readonly bands: readonly number[];
+  /** Armed job → the ramp its weapon's material paints those bands. */
+  readonly rampByJob: Readonly<Record<number, string>>;
+}
+
 /** Everything that decides one human's composed palettes. */
 export interface HumanPaletteIdentity {
   look: CharacterPalette;
@@ -63,6 +76,8 @@ export interface HumanPaletteIdentity {
   jobChange: string | undefined;
   /** Worn `TArmorType`, which picks a `human_armor_NNN` recipe. */
   armorTier: number | undefined;
+  /** The ramp the held weapon's material paints the look's weapon bands. */
+  weaponRamp: string | undefined;
   /** The recipes the human's map laid over it, in file order. */
   scripted: readonly string[] | undefined;
   cart: CartRecipe | undefined;
@@ -79,6 +94,7 @@ export function createHumanPaletteIdentity(look: CharacterPalette): HumanPalette
     female: false,
     jobChange: undefined,
     armorTier: undefined,
+    weaponRamp: undefined,
     scripted: undefined,
     cart: undefined,
     carried: undefined,
@@ -93,6 +109,7 @@ export function sameHumanPaletteIdentity(a: HumanPaletteIdentity, b: HumanPalett
     a.female === b.female &&
     a.jobChange === b.jobChange &&
     a.armorTier === b.armorTier &&
+    a.weaponRamp === b.weaponRamp &&
     sameRecipes(a.scripted, b.scripted) &&
     a.cart === b.cart &&
     a.carried === b.carried &&
@@ -106,6 +123,7 @@ export function copyHumanPaletteIdentity(from: HumanPaletteIdentity, to: HumanPa
   to.female = from.female;
   to.jobChange = from.jobChange;
   to.armorTier = from.armorTier;
+  to.weaponRamp = from.weaponRamp;
   to.scripted = from.scripted;
   to.cart = from.cart;
   to.carried = from.carried;
@@ -220,7 +238,7 @@ export class HumanPaletteBook {
   /**
    * Compose `identity`'s palettes into `out`: the look's bases, then its player recipe by sex, one recipe
    * rolled from the look's list, the job-change recipe, the worn armor's recipe or the look's armor
-   * layout, the map's scripted recipes, the cart's, and last the carried good's.
+   * layout, the weapon's material, the map's scripted recipes, the cart's, and last the carried good's.
    *
    * Approximation: the original lays a map's recipes over the palettes once, at load, so a later job
    * change or armor recipe goes over them; here they stay over the current job's and armor's recipes.
@@ -254,6 +272,10 @@ export class HumanPaletteBook {
         const armor = this.armorRecipes[identity.armorTier];
         if (armor !== undefined) this.apply(armor, seed, STAGE_ARMOR, out);
       }
+    }
+    const weaponRamp = identity.weaponRamp === undefined ? undefined : this.ramps.get(identity.weaponRamp);
+    if (weaponRamp !== undefined && look.weapon !== undefined) {
+      for (const band of look.weapon.bands) bandPalette(out, band).set(weaponRamp, bandStart(band));
     }
     const scripted = identity.scripted ?? NO_RECIPES;
     for (let i = 0; i < scripted.length; i++) {

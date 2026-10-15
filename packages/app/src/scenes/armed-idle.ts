@@ -1,5 +1,5 @@
 import { cellAnchorNode, components, nodeOfPosition, type Simulation } from '@open-northland/sim';
-import { grassTerrain, VIKING } from '../catalog/buildings.js';
+import { grassTerrain } from '../catalog/buildings.js';
 import {
   JOB_ARCHER,
   JOB_ARCHER_LONG,
@@ -8,17 +8,11 @@ import {
   JOB_SOLDIER_SWORD,
 } from '../catalog/jobs.js';
 import { HUMAN_PLAYER } from '../game/rules.js';
-import type { WorldTribes } from '../game/world-tribes.js';
+import { CIVILIZATIONS } from './civilizations.js';
 import type { SceneDefinition } from './types.js';
 
 const { Position, Settler } = components;
 
-/** The `TRIBE_TYPE_HUMAN_*` civilizations (`logicdefines.inc`), one row each, viking leading as the base. */
-const FRANK = 2;
-const BYZANTINE = 3;
-const SARACEN = 4;
-const EGYPTIAN = 7;
-const CIVILIZATIONS: WorldTribes = [VIKING, FRANK, BYZANTINE, SARACEN, EGYPTIAN];
 /** One column per weapon class. */
 const WEAPON_JOBS = [
   JOB_SOLDIER_SPEAR,

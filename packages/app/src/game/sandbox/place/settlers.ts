@@ -49,8 +49,9 @@ export function spawnSettlerDirect(
   x: number,
   y: number,
   owner: number = HUMAN_PLAYER,
+  tribe: number = PRIMARY_TRIBE,
 ): Entity {
-  return spawnSettlerAtNode(sim, jobType, cellAnchorNode(x, y), owner);
+  return spawnSettlerAtNode(sim, jobType, cellAnchorNode(x, y), owner, tribe);
 }
 
 /** {@link spawnSettlerDirect} on a half-cell node, for a scene that places between tile centres. */
@@ -59,6 +60,7 @@ export function spawnSettlerAtNode(
   jobType: number,
   node: HalfCellNode,
   owner: number = HUMAN_PLAYER,
+  tribe: number = PRIMARY_TRIBE,
 ): Entity {
   const e = systems.createSettler(
     sim.world,
@@ -68,7 +70,7 @@ export function spawnSettlerAtNode(
       jobType,
       x: node.hx,
       y: node.hy,
-      tribe: PRIMARY_TRIBE,
+      tribe,
       owner,
     },
     sim.names,

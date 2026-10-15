@@ -14,12 +14,10 @@ import {
   placeSandboxSite,
   spawnSandboxSettler,
 } from '../game/sandbox/index.js';
+import { FRANK } from './civilizations.js';
 import type { SceneDefinition } from './types.js';
 
 const { Building } = components;
-
-/** `TRIBE_TYPE_HUMAN_FRANK` (`logicdefines.inc`). */
-const FRANK = 2;
 
 const MAP_W = 28;
 const MAP_H = 18;

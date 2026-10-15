@@ -733,7 +733,7 @@ export const plContent = {
     armor: {
       title: 'Parada zbroi',
       summary:
-        'Parada mieczników: po kolumnie na każdy stan zbroi (bez zbroi, tunika, skórzana zbroja, kolczuga, zbroja płytowa) i po wierszu na kolor gracza, wszyscy w trybie ignorowania, więc wrodzy gracze nie walczą. Do oceny przebarwień zbroi na tle kolorów drużyn.',
+        'Parada mieczników: po kolumnie na każdy stan zbroi (bez zbroi, tunika, skórzana zbroja, kolczuga, zbroja płytowa) i po niebieskim i czerwonym wierszu na każdą nację (wikingowie, Frankowie, Bizantyjczycy, Saraceni, Egipcjanie), wszyscy w trybie ignorowania, więc wrodzy gracze nie walczą. Do oceny przebarwień zbroi u każdej nacji na tle kolorów drużyn.',
     },
     'ai-defence': {
       title: 'Obrona AI',

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { HumanPalettes } from '@open-northland/data';
 import type { SettlerCharacter } from '@open-northland/render';
 import { describe, expect, it } from 'vitest';
 import { MONSTER_TRIBES } from '../../src/catalog/creatures.js';
@@ -28,6 +29,10 @@ import { characterTablesUnderTest, contentDir, hasRealIr, rawIrUnderTest } from 
 const VIKING = 1;
 const FRANK = 2;
 const EGYPT = 7;
+/** The viking soldier body, drawn in the armor recipe's own bands by every tribe that borrows it. */
+const VIKING_SOLDIER_BODY = 'cr_hum_body_05';
+/** A byzantine record's grizzly body, a creature without armor. */
+const GRIZZLY_BODY = 'cr_hum_body_72';
 const INDEXED_SUFFIX = `.${INDEXED_CHARACTER_PALETTE}`;
 
 function atlasServed(stem: string): boolean {
@@ -99,6 +104,29 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'bobs')))('charac
       const character: SettlerCharacter | undefined = tables?.get(tribe)?.byJob[job];
       expect(character, `tribe ${tribe} job ${job}`).toBeDefined();
       expect(character?.indexed, `tribe ${tribe} job ${job}`).not.toBe(false);
+    }
+  });
+
+  it('gives every other civilization soldier an armor layout of ramps the lane carries', () => {
+    const ir = rawIrUnderTest() as ContentIr;
+    const ramps = new Set(Object.keys(HumanPalettes.parse(ir.humanPalettes).ramps));
+    const soldierJobs = new Set(
+      (ir.jobs ?? []).filter((job) => job.id?.startsWith('soldier') === true).map((job) => job.typeId),
+    );
+    const soldiers = everyLook(ir).filter(
+      (look) =>
+        look.indexed &&
+        soldierJobs.has(look.job) &&
+        look.bodyBmd !== VIKING_SOLDIER_BODY &&
+        look.bodyBmd !== GRIZZLY_BODY,
+    );
+    expect(soldiers.length).toBeGreaterThan(0);
+    for (const look of soldiers) {
+      const armor = look.palette.armor;
+      expect(armor, look.bodyBmd).toBeDefined();
+      for (const { tiers } of armor?.bands ?? []) {
+        for (const tier of tiers) if (tier !== undefined) expect(ramps, look.bodyBmd).toContain(tier.ramp);
+      }
     }
   });
 });

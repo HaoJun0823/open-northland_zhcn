@@ -7,21 +7,14 @@ import {
   type Simulation,
   systems,
 } from '@open-northland/sim';
-import { grassTerrain, VIKING } from '../catalog/buildings.js';
+import { grassTerrain } from '../catalog/buildings.js';
 import { JOB_CARRIER, JOB_TRADER } from '../catalog/jobs.js';
 import { HUMAN_PLAYER } from '../game/rules.js';
 import { spawnVehicleDirect, VEHICLE_HANDCART, VEHICLE_OXCART } from '../game/sandbox/index.js';
-import type { WorldTribes } from '../game/world-tribes.js';
+import { CIVILIZATIONS } from './civilizations.js';
 import type { SceneDefinition } from './types.js';
 
 const { Settler, WALK_DIRECTION } = components;
-
-/** The `TRIBE_TYPE_HUMAN_*` civilizations, one row each, viking leading as the base. */
-const FRANK = 2;
-const BYZANTINE = 3;
-const SARACEN = 4;
-const EGYPTIAN = 7;
-const CIVILIZATIONS: WorldTribes = [VIKING, FRANK, BYZANTINE, SARACEN, EGYPTIAN];
 
 /** Each row's two carts, their commander one cell behind, each driving east to its own goal. */
 const DRIVES = [

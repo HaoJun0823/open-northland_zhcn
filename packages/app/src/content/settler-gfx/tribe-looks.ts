@@ -1,5 +1,6 @@
 import type { CharacterPalette } from '@open-northland/render';
 import type { ContentIr, JobGraphicsRow } from '../ir/rows.js';
+import { armorLayout } from './armor-bands.js';
 import { CHARACTER_SPEC_ENTRIES, type CharacterSpecId } from './character-specs.js';
 
 /**
@@ -49,9 +50,11 @@ export function lookFrom(row: JobGraphicsRow): TribeLook {
     const stem = bobStem(head);
     if (!heads.includes(stem)) heads.push(stem);
   }
+  const bodyBmd = bobStem(row.body);
+  const armor = armorLayout(bodyBmd, heads);
   return {
     job: row.job,
-    bodyBmd: bobStem(row.body),
+    bodyBmd,
     ...(row.shadowBody !== undefined ? { shadowBmd: bobStem(row.shadowBody) } : {}),
     headBmds: heads,
     bodyPalette: row.bodyPalette ?? DEFAULT_PALETTE,
@@ -60,6 +63,7 @@ export function lookFrom(row: JobGraphicsRow): TribeLook {
       body: row.bodyPalette ?? DEFAULT_PALETTE,
       head: row.headPalette ?? DEFAULT_PALETTE,
       random: row.randomPalettes,
+      ...(armor !== undefined ? { armor } : {}),
     },
   };
 }

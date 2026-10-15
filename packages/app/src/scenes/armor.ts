@@ -3,6 +3,7 @@ import { components, fx, systems } from '@open-northland/sim';
 import { grassTerrain } from '../catalog/buildings.js';
 import { JOB_SOLDIER_SWORD } from '../catalog/jobs.js';
 import { spawnSettlerDirect } from '../game/sandbox/index.js';
+import { CIVILIZATIONS } from './civilizations.js';
 import { goodBySlug } from './sandbox-queries.js';
 import type { SceneDefinition } from './types.js';
 
@@ -16,8 +17,9 @@ const ARMOR_COLUMNS: readonly (string | null)[] = [
   'armor_chain',
   'armor_plate',
 ];
-/** One row each, in the original's blue/red/yellow/cyan colour order. */
-const PLAYERS: readonly number[] = [0, 1, 2, 3];
+/** Two rows per civilization, blue then red, the original's first two player colours. */
+const PLAYERS: readonly number[] = [0, 1];
+const ROWS = CIVILIZATIONS.flatMap((tribe) => PLAYERS.map((player) => ({ tribe, player })));
 /** Parade geometry in cells. */
 const GRID_X = 4;
 const GRID_Y = 4;
@@ -31,9 +33,10 @@ function paradeSoldier(
   x: number,
   y: number,
   player: number,
+  tribe: number,
   armorSlug: string | null,
 ): Entity {
-  const e = spawnSettlerDirect(sim, JOB_SOLDIER_SWORD, x, y, player);
+  const e = spawnSettlerDirect(sim, JOB_SOLDIER_SWORD, x, y, player, tribe);
   sim.world.add(e, Equipment, {
     boots: null,
     tool: null,
@@ -48,9 +51,9 @@ function paradeSoldier(
 }
 
 function build(sim: Simulation): void {
-  for (const [row, player] of PLAYERS.entries()) {
+  for (const [row, { tribe, player }] of ROWS.entries()) {
     for (const [col, armorSlug] of ARMOR_COLUMNS.entries()) {
-      paradeSoldier(sim, GRID_X + col * COL_STEP, GRID_Y + row * ROW_STEP, player, armorSlug);
+      paradeSoldier(sim, GRID_X + col * COL_STEP, GRID_Y + row * ROW_STEP, player, tribe, armorSlug);
     }
   }
 }
@@ -69,19 +72,20 @@ function wornArmorCounts(sim: Simulation): Map<number | null, number> {
 export const armorScene: SceneDefinition = {
   id: 'armor',
   seed: 11,
-  terrain: grassTerrain(22, 14),
+  terrain: grassTerrain(22, GRID_Y * 2 + ROWS.length * ROW_STEP),
+  graphicTribes: CIVILIZATIONS,
   build,
   runTicks: 4,
   // `cameraFor` only centres on the settler centroid at a non-default zoom, and the whole parade
   // must be on screen.
-  initialZoom: 1.4,
+  initialZoom: 1.1,
   checks: [
     {
-      label: 'every armor column is worn by one soldier per player row',
+      label: 'every armor column is worn by one soldier per tribe and player row',
       predicate: (sim) => {
         const counts = wornArmorCounts(sim);
         return ARMOR_COLUMNS.every(
-          (slug) => counts.get(slug === null ? null : goodBySlug(sim, slug)) === PLAYERS.length,
+          (slug) => counts.get(slug === null ? null : goodBySlug(sim, slug)) === ROWS.length,
         );
       },
     },

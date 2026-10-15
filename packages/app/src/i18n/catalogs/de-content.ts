@@ -744,7 +744,7 @@ export const deContent = {
     armor: {
       title: 'Rüstungsparade',
       summary:
-        'Eine Paradeaufstellung von Schwertkämpfern im Raster: eine Spalte je Rüstungszustand (ohne, Waffenrock, Lederrüstung, Kettenhemd, Plattenrüstung) und eine Zeile je Spielerfarbe. Keine Einheit greift an, damit es zwischen verfeindeten Besitzern nicht zum Kampf kommt. So lassen sich die Einfärbungen jeder Rüstung über die Teamfarben hinweg beurteilen.',
+        'Eine Paradeaufstellung von Schwertkämpfern im Raster: eine Spalte je Rüstungszustand (ohne, Waffenrock, Lederrüstung, Kettenhemd, Plattenrüstung) und je Volk (Wikinger, Franken, Byzantiner, Sarazenen, Ägypter) eine blaue und eine rote Zeile. Keine Einheit greift an, damit es zwischen verfeindeten Besitzern nicht zum Kampf kommt. So lassen sich die Einfärbungen jeder Rüstung über Völker und Teamfarben hinweg beurteilen.',
     },
     'ai-defence': {
       title: 'KI-Verteidigung',

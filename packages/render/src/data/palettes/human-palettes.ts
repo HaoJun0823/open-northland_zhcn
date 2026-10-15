@@ -9,6 +9,8 @@ export const HUMAN_PALETTE_BYTES = PALETTE_COLOURS * RGB;
 const BAND_BYTES = BAND_COLOURS * RGB;
 /** Recipe band ids from here on address the head palette (`id - 16`), below it the body palette. */
 const HEAD_BAND_BASE = PALETTE_COLOURS / BAND_COLOURS;
+/** The recipe band id of head palette band `band`. */
+export const headPaletteBand = (band: number): number => HEAD_BAND_BASE + band;
 const HEX_BYTE_DIGITS = 2;
 const HEX_RADIX = 16;
 
@@ -23,6 +25,31 @@ export interface CharacterPalette {
   readonly head: string;
   /** Recipe names, one of which each human rolls. */
   readonly random: readonly string[];
+  /** How a soldier's armor colours this body, in place of the `human_armor_NNN` recipe. */
+  readonly armor?: ArmorLayout;
+}
+
+/**
+ * A soldier body's armor colours. Project choice, not the original's: the original applies the
+ * `human_armor_NNN` recipe to every soldier, and only the viking body draws its armor in that recipe's
+ * bands, so another tribe's armor would barely change colour and its weapons, boots or gloves could.
+ */
+export interface ArmorLayout {
+  readonly bands: readonly ArmorBand[];
+  /** Bands that keep the team ramp whatever the armor. */
+  readonly team: readonly number[];
+}
+
+/** One band the armor colours: a ramp for each armor tier, the team ramp where none is named. */
+export interface ArmorBand {
+  readonly band: number;
+  readonly tiers: readonly (ArmorRamp | undefined)[];
+}
+
+/** A lane ramp, its colours optionally reordered: `order[i]` is the ramp colour index `i` takes. */
+export interface ArmorRamp {
+  readonly ramp: string;
+  readonly order?: readonly number[];
 }
 
 /** Everything that decides one human's composed palettes. */
@@ -117,6 +144,9 @@ const STAGE_GOOD = 7;
 const STAGE_SCRIPTED = 8;
 /** An empty set of bands; a band set holds one bit per band id. */
 const NO_BANDS = 0;
+/** The body band every male player recipe writes its `Player NN` ramp into; armor layouts are for
+ *  soldiers, who are men. */
+const TEAM_BAND = 10;
 
 /**
  * The `humanPalettes` lane made ready to compose: colours decoded, each recipe grouped into its band
@@ -125,6 +155,7 @@ const NO_BANDS = 0;
  */
 export class HumanPaletteBook {
   private readonly bases = new Map<string, Uint8Array>();
+  private readonly ramps = new Map<string, Uint8Array>();
   private readonly recipes = new Map<string, readonly BandRoll[]>();
   private readonly players = new Map<number, { readonly male: string; readonly female: string }>();
   /** Each `(tribe, job)` record's recipe; null for a record that applies none. */
@@ -135,6 +166,9 @@ export class HumanPaletteBook {
   private readonly cartRecipes: Readonly<Record<CartRecipe, string>>;
   private readonly goodRecipes = new Map<number, string>();
   private readonly rng = new PaletteRng();
+  /** The team ramp as the player recipe left it, before a later recipe can repaint its band. */
+  private readonly team = new Uint8Array(BAND_BYTES);
+  private readonly armorRamps = new WeakMap<ArmorRamp, Uint8Array | null>();
 
   constructor(
     lane: HumanPalettes,
@@ -142,9 +176,8 @@ export class HumanPaletteBook {
     private readonly parentJobs: ReadonlyMap<number, number> = new Map(),
   ) {
     for (const [name, hex] of Object.entries(lane.bases)) this.bases.set(name, decodeHex(hex));
-    const ramps = new Map<string, Uint8Array>();
-    for (const [name, hex] of Object.entries(lane.ramps)) ramps.set(name, decodeHex(hex));
-    for (const recipe of lane.recipes) this.recipes.set(recipe.name, bandRolls(recipe.patches, ramps));
+    for (const [name, hex] of Object.entries(lane.ramps)) this.ramps.set(name, decodeHex(hex));
+    for (const recipe of lane.recipes) this.recipes.set(recipe.name, bandRolls(recipe.patches, this.ramps));
     for (const p of lane.players) this.players.set(p.player, { male: p.male, female: p.female });
     for (const change of lane.jobChanges) {
       const key = jobKey(change.tribe, change.job);
@@ -186,8 +219,8 @@ export class HumanPaletteBook {
 
   /**
    * Compose `identity`'s palettes into `out`: the look's bases, then its player recipe by sex, one recipe
-   * rolled from the look's list, the job-change recipe, the worn armor's recipe, the map's scripted
-   * recipes, the cart's, and last the carried good's.
+   * rolled from the look's list, the job-change recipe, the worn armor's recipe or the look's armor
+   * layout, the map's scripted recipes, the cart's, and last the carried good's.
    *
    * Approximation: the original lays a map's recipes over the palettes once, at load, so a later job
    * change or armor recipe goes over them; here they stay over the current job's and armor's recipes.
@@ -205,6 +238,8 @@ export class HumanPaletteBook {
       player === undefined
         ? NO_BANDS
         : this.apply(identity.female ? player.female : player.male, seed, STAGE_PLAYER, out);
+    const teamAt = bandStart(TEAM_BAND);
+    this.team.set(out.body.subarray(teamAt, teamAt + BAND_BYTES));
     if (look.random.length > 0) {
       // Original behavior: a `gfxpaletterandom` name no recipe carries still takes its share of the
       // roll and changes nothing.
@@ -214,8 +249,11 @@ export class HumanPaletteBook {
     }
     if (identity.jobChange !== undefined) this.apply(identity.jobChange, seed, STAGE_JOB_CHANGE, out);
     if (identity.armorTier !== undefined) {
-      const armor = this.armorRecipes[identity.armorTier];
-      if (armor !== undefined) this.apply(armor, seed, STAGE_ARMOR, out);
+      if (look.armor !== undefined) this.applyArmorLayout(look.armor, identity.armorTier, out);
+      else {
+        const armor = this.armorRecipes[identity.armorTier];
+        if (armor !== undefined) this.apply(armor, seed, STAGE_ARMOR, out);
+      }
     }
     const scripted = identity.scripted ?? NO_RECIPES;
     for (let i = 0; i < scripted.length; i++) {
@@ -236,6 +274,26 @@ export class HumanPaletteBook {
     out.head.set(this.base(this.fallbackBase));
     const recipes = this.players.get(player);
     if (recipes !== undefined) this.apply(recipes.male, 0, STAGE_PLAYER, out, NO_BANDS, true);
+  }
+
+  /** A tier past a band's list, or a ramp the lane lacks, leaves the band as it is. */
+  private applyArmorLayout(layout: ArmorLayout, tier: number, out: HumanPaletteColours): void {
+    for (const { band, tiers } of layout.bands) {
+      if (tier >= tiers.length) continue;
+      const armorRamp = tiers[tier];
+      const ramp = armorRamp === undefined ? this.team : this.armorRamp(armorRamp);
+      if (ramp !== null) bandPalette(out, band).set(ramp, bandStart(band));
+    }
+    for (const band of layout.team) bandPalette(out, band).set(this.team, bandStart(band));
+  }
+
+  private armorRamp(armorRamp: ArmorRamp): Uint8Array | null {
+    let colours = this.armorRamps.get(armorRamp);
+    if (colours === undefined) {
+      colours = reorderedRamp(this.ramps.get(armorRamp.ramp), armorRamp.order);
+      this.armorRamps.set(armorRamp, colours);
+    }
+    return colours;
   }
 
   private base(name: string): Uint8Array {
@@ -309,6 +367,20 @@ function jobKey(tribe: number, job: number): number {
 /** The palette a band id addresses. */
 function bandPalette(out: HumanPaletteColours, band: number): Uint8Array {
   return band < HEAD_BAND_BASE ? out.body : out.head;
+}
+
+function reorderedRamp(
+  ramp: Uint8Array | undefined,
+  order: readonly number[] | undefined,
+): Uint8Array | null {
+  if (ramp === undefined) return null;
+  if (order === undefined) return ramp;
+  const out = new Uint8Array(BAND_BYTES);
+  for (let i = 0; i < BAND_COLOURS; i++) {
+    const from = (order[i] ?? i) * RGB;
+    out.set(ramp.subarray(from, from + RGB), i * RGB);
+  }
+  return out;
 }
 
 /** A band id's first byte in the palette it addresses. */

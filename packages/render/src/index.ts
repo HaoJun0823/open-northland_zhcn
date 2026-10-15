@@ -22,6 +22,9 @@ export {
 } from './data/hud/index.js';
 export { HumanPaletteCache } from './data/palettes/human-palette-cache.js';
 export {
+  type ArmorBand,
+  type ArmorLayout,
+  type ArmorRamp,
   type CartRecipe,
   type CharacterPalette,
   createHumanPaletteColours,
@@ -30,6 +33,7 @@ export {
   HumanPaletteBook,
   type HumanPaletteColours,
   type HumanPaletteIdentity,
+  headPaletteBand,
 } from './data/palettes/human-palettes.js';
 export {
   type Camera,

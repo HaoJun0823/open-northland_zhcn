@@ -307,3 +307,77 @@ describe('composing a human palette', () => {
     });
   });
 });
+
+describe('an armor layout', () => {
+  const TEAM_BAND = 10;
+  const TUNIC = 3;
+  const BLADE = 5;
+  const HEAD_TEAM = 22;
+  const WOOL = [200, 190, 170];
+  const layoutRamps = { ...ramps, wool: flatRamp(200, 190, 170) };
+  const layoutBook = () =>
+    new HumanPaletteBook(
+      syntheticLane(
+        layoutRamps,
+        [
+          { name: 'player_00', patches: [ramp(TEAM_BAND, 'red')] },
+          { name: 'woman_00', patches: [ramp(TEAM, 'blue')] },
+          { name: 'skin', patches: [ramp(TEAM_BAND, 'brown')] },
+          { name: 'human_armor_000', patches: [copy(BLADE, TEAM_BAND)] },
+          { name: 'human_armor_001', patches: [ramp(BLADE, 'mail')] },
+        ],
+        { armorRecipes: ['human_armor_000', 'human_armor_001'] },
+      ),
+      TEST_BASE,
+    );
+  const soldier: CharacterPalette = {
+    ...PLAIN,
+    random: ['skin'],
+    armor: { bands: [{ band: TUNIC, tiers: [undefined, { ramp: 'wool' }] }], team: [HEAD_TEAM] },
+  };
+
+  it('colours its bands by tier in place of the armor recipe, which then leaves the blade alone', () => {
+    const out = compose(layoutBook(), identity(soldier, { armorTier: 1 }));
+    expect(band(out.body, TUNIC)).toEqual(WOOL);
+    expect(band(out.body, BLADE)).toEqual(grey(BLADE * 16));
+  });
+
+  it('gives a tier without a ramp the team colour, even where a look recipe repainted the team band', () => {
+    const out = compose(layoutBook(), identity(soldier, { armorTier: 0 }));
+    expect(band(out.body, TEAM_BAND)).toEqual(BROWN);
+    expect(band(out.body, TUNIC)).toEqual(RED);
+  });
+
+  it('keeps its team bands in the team colour under any armor, and does nothing without a tier', () => {
+    expect(band(compose(layoutBook(), identity(soldier, { armorTier: 1 })).head, HEAD_TEAM - 16)).toEqual(
+      RED,
+    );
+    const hero = compose(layoutBook(), identity(soldier));
+    expect(band(hero.body, TUNIC)).toEqual(grey(TUNIC * 16));
+    expect(band(hero.head, HEAD_TEAM - 16)).toEqual(grey((HEAD_TEAM - 16) * 16));
+  });
+
+  it('leaves its bands alone for a tier past their lists, as the recipe does for a tier it lacks', () => {
+    const out = compose(layoutBook(), identity(soldier, { armorTier: 2 }));
+    expect(band(out.body, TUNIC)).toEqual(grey(TUNIC * 16));
+  });
+
+  it("reorders a ramp's colours as the tier asks", () => {
+    const gradient = Array.from({ length: 16 }, (_, i) => `${i.toString(16).padStart(2, '0')}0000`).join('');
+    const b = new HumanPaletteBook(
+      syntheticLane({ ...layoutRamps, gradient }, [{ name: 'player_00', patches: [] }], { armorRecipes: [] }),
+      TEST_BASE,
+    );
+    const reversed = Array.from({ length: 16 }, (_, i) => 15 - i);
+    const look: CharacterPalette = {
+      ...PLAIN,
+      armor: {
+        bands: [{ band: TUNIC, tiers: [undefined, { ramp: 'gradient', order: reversed }] }],
+        team: [],
+      },
+    };
+    const out = compose(b, identity(look, { armorTier: 1 }));
+    expect(out.body[TUNIC * BAND_BYTES]).toBe(15);
+    expect(out.body[TUNIC * BAND_BYTES + 15 * 3]).toBe(0);
+  });
+});

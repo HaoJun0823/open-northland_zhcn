@@ -735,7 +735,7 @@ export const enContent = {
     armor: {
       title: 'Armour parade',
       summary:
-        'A parade grid of sword soldiers: one column per armour state (bare, tunic, leather armour, chain mail, plate armour) and one row per player colour, every unit standing down so rival owners never fight. For judging the per-armour recolours across team colours.',
+        'A parade grid of sword soldiers: one column per armour state (bare, tunic, leather armour, chain mail, plate armour) and a blue and a red row for each civilization (viking, frankish, byzantine, saracen, egyptian), every unit standing down so rival owners never fight. For judging the per-armour recolours across tribes and team colours.',
     },
     'ai-defence': {
       title: 'AI defence',

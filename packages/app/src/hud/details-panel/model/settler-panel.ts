@@ -1,16 +1,18 @@
 import { jobCanPray } from '@open-northland/data';
 import { indoorHouseOf } from '@open-northland/render';
-import type { WorldSnapshot } from '@open-northland/sim';
+import { entityById, type WorldSnapshot } from '@open-northland/sim';
 import { settlerName } from '../../../game/character-names/index.js';
 import {
   childAgeYearsOf,
   childOrderWaitOf,
   isFemale,
   isPlayerControllable,
+  isVehicle,
   lostGoalOf,
   needsRuleEnabled,
   num,
   ownerPlayerOf,
+  positionOf,
   progressionGatesSettler,
   regeneratesInWorld,
   type SnapshotEntity,
@@ -103,6 +105,8 @@ export interface SettlerPanelModel {
   readonly foreign: boolean;
   /** The building the person has stepped into, which the portrait frames instead; null out of doors. */
   readonly inside: number | null;
+  /** The vehicle the person rides, which the portrait frames instead; null on foot. */
+  readonly aboard: SettlerAboard | null;
   readonly renamable: boolean;
   /** The owner line: another seat's owner and stance, or a child's age; null when it says nothing. */
   readonly meta: string | null;
@@ -196,6 +200,23 @@ function statusDetail(
   return idle ? workStatusDetail(ctx, status) : null;
 }
 
+/** A vehicle a person rides, and the ship that vehicle is carried on, if any. */
+export interface SettlerAboard {
+  readonly vehicle: number;
+  readonly carrier: number | null;
+}
+
+/** A rider stands nowhere on the map: one with a `Position` still walks to the vehicle's door. */
+function aboardOf(snapshot: WorldSnapshot, ent: SnapshotEntity): SettlerAboard | null {
+  if (positionOf(ent) !== undefined) return null;
+  const vehicleId = num((ent.components.Rider as { vehicle?: unknown } | undefined)?.vehicle);
+  const vehicle = vehicleId === undefined ? undefined : entityById(snapshot, vehicleId);
+  if (vehicle === undefined || !isVehicle(vehicle)) return null;
+  const carrierId = num((vehicle.components.Vehicle as { carrier?: unknown }).carrier);
+  const carrier = carrierId === undefined ? undefined : entityById(snapshot, carrierId);
+  return { vehicle: vehicle.id, carrier: carrier !== undefined && isVehicle(carrier) ? carrier.id : null };
+}
+
 export function settlerPanelModel(
   ctx: UnitPanelModelContext,
   snapshot: WorldSnapshot,
@@ -241,6 +262,7 @@ export function settlerPanelModel(
     role,
     foreign,
     inside: indoorHouseOf(snapshot, comps),
+    aboard: aboardOf(snapshot, ent),
     meta: metaLine(ctx, ent, snapshot.tick, foreign, role),
     status,
     bars,

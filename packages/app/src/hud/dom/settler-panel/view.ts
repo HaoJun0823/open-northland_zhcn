@@ -1,6 +1,7 @@
 import type { SettlerPanelModel, UnitPanelModel } from '../../details-panel/model/index.js';
 import type { ClientRect } from '../portrait-hole.js';
 import { createSelectionPanel } from '../selection-panel.js';
+import type { VehiclePortraitSubject } from '../vehicle-panel/view.js';
 import type { SettlerPanelDeps } from './actions.js';
 import { createExperienceSection } from './experience.js';
 import { settlerHead } from './head.js';
@@ -18,8 +19,8 @@ export interface SettlerPanel {
   /** Show the model when it is a single settler, else hide. */
   update(model: UnitPanelModel): void;
   hide(): void;
-  /** The shown person and the client box the renderer paints its live figure into. */
-  portrait(): PortraitSubject | null;
+  /** The shown person, or the vehicle they ride, and the client box the renderer paints it into. */
+  portrait(): PortraitSubject | VehiclePortraitSubject | null;
   claims(clientX: number, clientY: number): boolean;
   /** Tab and Shift+Tab: show the next or previous person of the trade; false when there is none. */
   browse(step: 1 | -1): boolean;
@@ -188,10 +189,20 @@ export function createSettlerPanel(deps: SettlerPanelDeps): SettlerPanel {
       refit = false;
       fit(false);
     },
-    portrait(): PortraitSubject | null {
+    portrait(): PortraitSubject | VehiclePortraitSubject | null {
       if (shown === null) return null;
       const rect = frame.holeClientRect();
       if (rect === null) return null;
+      const aboard = shown.aboard;
+      if (aboard !== null) {
+        // A rider stands nowhere on the map, so the portrait frames the vehicle as its own panel does.
+        return {
+          entityRef: aboard.vehicle,
+          kind: 'vehicle',
+          ...(aboard.carrier === null ? {} : { aboard: aboard.carrier }),
+          rect,
+        };
+      }
       return {
         entityRef: shown.entityId,
         kind: 'settler',

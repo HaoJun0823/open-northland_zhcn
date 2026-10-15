@@ -72,8 +72,8 @@ export interface SpriteSceneOptions {
    *  vehicle's spot, for a figure drawn outside the map. */
   readonly keepAboardRiders?: boolean;
   /** The details-panel portrait's subject: emitted even when the viewport/fog cull or the
-   *  indoor-settler suppression would drop it, so its live cutout never blanks; a rider stands still on
-   *  its vehicle's spot. Absent = no portrait open. */
+   *  indoor-settler suppression would drop it, so its live cutout never blanks. Absent = no portrait
+   *  open. */
   readonly portraitRef?: number | undefined;
   /** The building the portrait's settler subject is inside. With it named, a subject nothing
    *  choreographs in there is left hidden (no frozen figure over the panel's backdrop) and the building
@@ -290,12 +290,8 @@ function collectScene(
     const components = entity.components;
     const kind = classify(components);
     if (kind === null) return;
-    // The portrait subject riding a vehicle stands in it too, so its cutout shows the person and not the
-    // map the vehicle crosses.
     const aboard =
-      kind === 'settler' && (keepAboardRiders === true || isPortrait)
-        ? aboardVehicleOf(snapshot, components)
-        : null;
+      kind === 'settler' && keepAboardRiders === true ? aboardVehicleOf(snapshot, components) : null;
     const pos = readPosition(components) ?? (aboard === null ? null : readPosition(aboard.components));
     if (pos === null) return;
     if (collects) collected.add(entity.id);
@@ -337,8 +333,7 @@ function collectScene(
     if (record !== undefined) record.item = item;
     // Being choreographed excuses only the indoor hiding: the portrait frames the worker at his craft
     // instead of soloing a hidden sprite, but an offscreen or fogged subject still draws for it alone.
-    const portraitRider = isPortrait && aboard !== null && keepAboardRiders !== true;
-    if (isPortrait && (offscreen || fogged || portraitRider || (indoorSettler && inHouse === undefined)))
+    if (isPortrait && (offscreen || fogged || (indoorSettler && inHouse === undefined)))
       item.portraitOnly = true;
     // A subject kept only for the portrait stages nothing: its effects would paint on the map the culls
     // just kept it off.
@@ -347,8 +342,8 @@ function collectScene(
       applyInHousePose(item, inHouse.inHouse);
       if (stagesEffects) pushEffectItems(list, collected, item, inHouse.overlays, screen, tileX, tileY);
     }
-    // Only a kept or forced settler gets this far indoors without a craft to show, and only a kept or
-    // forced rider aboard: both stand still, as the vehicle carries a rider and plays no idle for it.
+    // Only a kept or forced settler gets this far indoors without a craft to show, and only a kept rider
+    // aboard: both stand still, as the vehicle carries a rider and plays no idle for it.
     else if (indoorSettler || aboard !== null) item.frozen = true;
     if (kind === 'building' && stagesEffects) {
       const fire = holyFireOverlays(snapshot, entity.id, components, holyFire);

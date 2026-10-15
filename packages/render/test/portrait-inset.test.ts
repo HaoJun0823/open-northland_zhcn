@@ -20,6 +20,8 @@ const GROUND = 0x336633;
 const BOX = { x: 40, y: 30, w: 96, h: 92 };
 const SETTLER = 1;
 const CART = 2;
+/** A ref the pool never drew. */
+const UNDRAWN = 99;
 const HOUSE = 3;
 const SHIP = 4;
 
@@ -53,10 +55,12 @@ function harness(portraitRef?: number) {
     },
   } as unknown as Application;
   const pool = new SpritePool(sprites, new TextureCache(), undefined);
-  // The rider has no Position: it draws only as the portrait's subject.
-  const rider = { id: SETTLER, components: { Settler: { tribe: 0 }, Rider: { vehicle: CART } } };
   pool.reconcile({
-    snapshot: snapshotOf([rider, entity(CART, 4, 4, { Vehicle: {} }), entity(HOUSE, 8, 4, { Building: {} })]),
+    snapshot: snapshotOf([
+      entity(SETTLER, 2, 4, { Settler: { tribe: 0 } }),
+      entity(CART, 4, 4, { Vehicle: {} }),
+      entity(HOUSE, 8, 4, { Building: {} }),
+    ]),
     ...(portraitRef === undefined ? {} : { portraitRef }),
     viewport: EVERYTHING,
     tick: 0,
@@ -73,21 +77,6 @@ function harness(portraitRef?: number) {
 }
 
 describe('PortraitInsetLayer', () => {
-  it("draws a rider alone on its vehicle's spot, over the panel's backdrop", () => {
-    const { pool, passes, layer, terrain } = harness(SETTLER);
-    const cart = pool.anchorOf(CART);
-    if (cart === undefined) throw new Error('expected the cart drawn');
-    expect(pool.anchorOf(SETTLER)).toEqual(cart);
-    layer.set([{ rect: BOX, entityRef: SETTLER, kind: 'settler' }]);
-    layer.draw(CAMERA, terrain);
-    expect(passes).toHaveLength(1);
-    const scale = BOX.h / 58;
-    expect(passes[0]?.x).toBeCloseTo(BOX.w / 2 - cart.x * scale);
-    // The sprite layer alone, holding the rider alone: neither the cart nor the ground it crosses.
-    expect(passes[0]?.visibleChildren).toBe(1);
-    expect(passes[0]?.visibleSprites).toBe(1);
-  });
-
   it("holds a vehicle's zoom while its drawn box shrinks between frames, and forgets it once unframed", () => {
     // A stand-in pool: the vehicle's box narrows as a turning ship or a walking driver changes frame.
     const anchor = { x: 100, y: 200 };
@@ -120,7 +109,7 @@ describe('PortraitInsetLayer', () => {
 
   it('floors a box it cannot frame instead of leaving the map under it exposed', () => {
     const { passes, layer, terrain } = harness();
-    layer.set([{ rect: BOX, entityRef: SETTLER, kind: 'settler' }]);
+    layer.set([{ rect: BOX, entityRef: UNDRAWN, kind: 'settler' }]);
     layer.draw(CAMERA, terrain);
     expect(passes).toHaveLength(1);
     expect(passes[0]?.frame).toMatchObject({ x: BOX.x, y: BOX.y, width: BOX.w, height: BOX.h });
@@ -141,7 +130,7 @@ describe('PortraitInsetLayer', () => {
     const worldPasses = passes.filter((pass) => !pass.floor);
     expect(worldPasses.map((pass) => pass.frame.x)).toEqual([BOX.x, 300, 500]);
     // A floored cutout paints its floor first, in the same frame, and never parents it into the world.
-    expect(passes.filter((pass) => pass.floor).map((pass) => pass.frame.x)).toEqual([300, 500]);
+    expect(passes.filter((pass) => pass.floor).map((pass) => pass.frame.x)).toEqual([BOX.x, 300, 500]);
     expect(passes.every((pass) => pass.worldChildren === 1)).toBe(true);
     expect(layer.subjects()).toEqual({ ref: SETTLER, house: null, others: [HOUSE, CART, SHIP] });
     const drawn = passes.length;

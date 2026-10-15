@@ -166,19 +166,14 @@ describe('collectSpriteScene - the single-pass draw list + liveness set', () => 
     expect(rider).toMatchObject({ kind: 'settler', state: 'idle', frozen: true, ...tileToScreen(4, 3) });
   });
 
-  it('stands the portrait subject riding a vehicle still on its spot, for the portrait only', () => {
+  it('draws no portrait subject riding a vehicle: the settler panel frames the vehicle instead', () => {
     const entities = [
       entity(20, 4, 3, {}),
       { id: 3, components: { Settler: { tribe: 0 }, Rider: { vehicle: 20, boarding: false } } },
     ];
-    const rider = collectSpriteScene(snapshotOf(entities), { portraitRef: 3 }).items.find((d) => d.ref === 3);
-    expect(rider).toMatchObject({
-      kind: 'settler',
-      state: 'idle',
-      portraitOnly: true,
-      frozen: true,
-      ...tileToScreen(4, 3),
-    });
+    expect(collectSpriteScene(snapshotOf(entities), { portraitRef: 3 }).items.some((d) => d.ref === 3)).toBe(
+      false,
+    );
   });
 
   // Narrowing the snapshot instead would blind the whole-snapshot pre-scans: no buildings (nothing reads

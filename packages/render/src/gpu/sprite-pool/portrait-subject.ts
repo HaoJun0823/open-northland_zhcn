@@ -10,8 +10,8 @@ import type { PooledEntity } from './pooled-entity.js';
 
 interface HiddenSubject {
   readonly pe: PooledEntity;
-  /** Inside a building or aboard a vehicle: the inset then renders it alone, so its cutout drops the
-   *  world backdrop instead of reading as standing on top of the building or out on the map. */
+  /** Inside a building: the inset then renders it alone, so its cutout drops the world backdrop instead
+   *  of reading as standing on top of the building. */
   readonly solo: boolean;
 }
 

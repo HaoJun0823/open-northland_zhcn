@@ -43,6 +43,7 @@ const HOME = 10;
 const WORKSHOP = 11;
 const OTHER_SEAT = 3;
 const CART = 12;
+const SHIP = 13;
 const WOOD_ABOARD = 3;
 const IRON_ABOARD = 2;
 /** An import mark's fill ceiling and source reserve, in units. */
@@ -768,6 +769,32 @@ describe('the settler panel’s Pojazd row', () => {
     expect(empty.vehicle?.target?.load).toBe(
       formatMessage(copy.vehicleLoad, { vehicle: cartName(ctx), goods: copy.vehicleEmpty }),
     );
+  });
+
+  it('frames the vehicle ridden, and the ship carrying it, once the rider has left the map', () => {
+    const rider = person(JOB_CARRIER, { Rider: { vehicle: CART, boarding: false } });
+    expect(settlerModel([rider, cart([])]).aboard).toEqual({ vehicle: CART, carrier: null });
+
+    const shipped = cart([]);
+    const onShip: EntitySnapshot = {
+      ...shipped,
+      components: {
+        ...shipped.components,
+        Vehicle: { ...(shipped.components.Vehicle as Record<string, unknown>), carrier: SHIP },
+      },
+    };
+    const ship: EntitySnapshot = {
+      id: SHIP,
+      components: owned({ Vehicle: { passengers: [], vehicles: [CART] } }),
+    };
+    expect(settlerModel([rider, onShip, ship]).aboard).toEqual({ vehicle: CART, carrier: SHIP });
+
+    // Still walking to the door: the person stands on the map and is framed there.
+    const boarding = person(JOB_CARRIER, {
+      Rider: { vehicle: CART, boarding: true },
+      Position: { x: 0, y: 0 },
+    });
+    expect(settlerModel([boarding, cart([])]).aboard).toBeNull();
   });
 
   it('hides the row from another seat and fades it for a settler a mission holds', () => {

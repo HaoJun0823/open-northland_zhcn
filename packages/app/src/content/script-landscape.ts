@@ -12,7 +12,12 @@ import {
   groundGoodByObjectName,
   harvestGoodByObjectName,
 } from './map-resources.js';
-import { CLOSED_GATE_LOGIC_ID, OPEN_GATE_LOGIC_ID, playerWallRows } from './palisade-rows.js';
+import {
+  gateCounterpartName,
+  OPEN_GATE_LOGIC_ID,
+  playerWallRows,
+  wallStrengthScales,
+} from './palisade-rows.js';
 
 // Original behavior: each group removal matches these exact GfxLandscape EditNames. The shipped result
 // reference lists FX1 with small fire and smoke and Smoke without small fire or land waves; the original
@@ -49,6 +54,7 @@ export function scriptLandscapeTypes(ir: ContentIr): ScriptLandscapeType[] {
   const groundGoodByName = groundGoodByObjectName(ir);
   const chestKindByType = chestKindByLogicType(ir);
   const wallByType = playerWallRows(ir);
+  const wallScales = wallStrengthScales(ir);
   const woodGoodType = ir.goods?.find((good) => good.id === 'wood')?.typeId;
   const gfxByName = new Map(
     (ir.landscapeGfx ?? []).flatMap((row) =>
@@ -69,11 +75,8 @@ export function scriptLandscapeTypes(ir: ContentIr): ScriptLandscapeType[] {
     const goodId = g.editName === undefined ? undefined : groundGoodByName.get(g.editName);
     const wall = wallByType.get(g.logicType);
     const counterpartName =
-      wall?.logicId === CLOSED_GATE_LOGIC_ID
-        ? `${g.editName ?? ''}_open`
-        : wall?.logicId === OPEN_GATE_LOGIC_ID
-          ? (g.editName ?? '').replace(/_open$/, '')
-          : undefined;
+      wall === undefined ? undefined : gateCounterpartName(wall.logicId, g.editName ?? '');
+    const wallScale = wallScales.get(g.index) ?? 1;
     const counterpartGfxIndex = counterpartName === undefined ? undefined : gfxByName.get(counterpartName);
     let resource: ScriptLandscapeType['resource'];
     if (gatherer !== undefined && ref !== undefined) {
@@ -121,8 +124,8 @@ export function scriptLandscapeTypes(ir: ContentIr): ScriptLandscapeType[] {
         ? {}
         : {
             wall: {
-              maxHitpoints: wall.maxHitpoints,
-              repairPerStrike: wall.repairPerStrike,
+              maxHitpoints: wall.maxHitpoints * wallScale,
+              repairPerStrike: wall.repairPerStrike * wallScale,
               construction: woodGoodType === undefined ? [] : [{ goodType: woodGoodType, amount: 1 }],
               ...(counterpartGfxIndex === undefined
                 ? {}

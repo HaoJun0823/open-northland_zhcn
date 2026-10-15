@@ -1,3 +1,4 @@
+import { fullStateBlockAreaCells, type LandscapeBlockArea } from '@open-northland/data';
 import type { ContentIr, LandscapeTypeRow } from './ir/rows.js';
 
 /** The `landscapetypes.ini` slugs of the wall family: a post and a gate in either state. */
@@ -43,4 +44,39 @@ function playerWallRow(row: LandscapeTypeRow): PlayerWallRow | undefined {
     row.transitions?.find((t) => t[TRANSITION_EVENT] === BUILD_STRIKE_EVENT)?.[TRANSITION_VALENCY_STEP] ?? 0;
   if (maxHitpoints <= 0 || repairPerStrike <= 0) return undefined;
   return { logicId: row.id, maxHitpoints, repairPerStrike };
+}
+
+/** A gate graphic's paired state by edit name: `<name>` closed, `<name>_open` open. */
+export function gateCounterpartName(logicId: string, editName: string): string | undefined {
+  if (logicId === CLOSED_GATE_LOGIC_ID) return `${editName}_open`;
+  if (logicId === OPEN_GATE_LOGIC_ID) return editName.replace(/_open$/, '');
+  return undefined;
+}
+
+/**
+ * How many times a wall graphic holds its row's valency and repair step: once per cell its closed body
+ * blocks. Project rule: a gate five cells wide lasts and mends like the five posts it stands in for,
+ * instead of falling to the larger squad its longer face admits. Original behavior: every wall and gate
+ * graphic holds one `maximumValency` pool, so there a gate falls several times faster than a post.
+ */
+export function wallStrengthScale(closedWalk: readonly Readonly<LandscapeBlockArea>[] | undefined): number {
+  return Math.max(1, fullStateBlockAreaCells(closedWalk).length);
+}
+
+/** {@link wallStrengthScale} of every player wall graphic by gfx index; an open gate reads its closed pair. */
+export function wallStrengthScales(ir: ContentIr | null): ReadonlyMap<number, number> {
+  const walls = playerWallRows(ir);
+  const rows = (ir?.landscapeGfx ?? []).filter((g) => walls.has(g.logicType));
+  const byName = new Map(rows.flatMap((g) => (g.editName === undefined ? [] : [[g.editName, g] as const])));
+  const out = new Map<number, number>();
+  for (const g of rows) {
+    const logicId = walls.get(g.logicType)?.logicId;
+    const pairName =
+      logicId === OPEN_GATE_LOGIC_ID && g.editName !== undefined
+        ? gateCounterpartName(logicId, g.editName)
+        : undefined;
+    const closed = (pairName === undefined ? undefined : byName.get(pairName)) ?? g;
+    out.set(g.index, wallStrengthScale(closed.walkBlockAreas));
+  }
+  return out;
 }

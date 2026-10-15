@@ -1,6 +1,11 @@
 import { fullStateBlockAreaCells, type LandscapeBlockArea, type LandscapeGfx } from '@open-northland/data';
 import type { ScriptLandscapeType } from '@open-northland/sim';
-import { CLOSED_GATE_LOGIC_ID, OPEN_GATE_LOGIC_ID, WALL_LOGIC_ID } from '../../content/palisade-rows.js';
+import {
+  CLOSED_GATE_LOGIC_ID,
+  OPEN_GATE_LOGIC_ID,
+  WALL_LOGIC_ID,
+  wallStrengthScale,
+} from '../../content/palisade-rows.js';
 import { GOOD_WOOD } from './ids/index.js';
 
 export const PALISADE_WALL_GFX_INDEX = 691;
@@ -12,6 +17,7 @@ const CLOSED_GATE_LOGIC_TYPE = 83;
 const OPEN_GATE_LOGIC_TYPE = 84;
 const PALISADE_MAX_HITPOINTS = 100;
 const PALISADE_REPAIR_PER_STRIKE = 3;
+const GATE_REPAIR_PER_STRIKE = 1;
 
 /** Logic rows referenced by the fallback graphics below. These keep the sandbox ContentSet's
  * graphics-to-landscape join complete; collision and construction remain object-record rules. */
@@ -197,21 +203,29 @@ export function sandboxPalisadeGfx(): LandscapeGfx[] {
 }
 
 /**
- * Shared fallback wall rules. Readable data pins max valency 100 and repairs +3 for walls, +1 for gates; one wood per
- * new anchor is the original's behavior. Gate pairing follows the
+ * Shared fallback wall rules. Readable data pins max valency 100 and repairs +3 for walls, +1 for gates, both
+ * scaled by `wallStrengthScale`; one wood per new anchor is the original's behavior. Gate pairing follows the
  * adjacent closed/open decoded records. Construction blocking after completion is an explicit adaptation.
  */
 export function sandboxPalisadeTypes(): ScriptLandscapeType[] {
-  return PALISADE_RECORDS.map((record) => ({
-    typeId: record.index,
-    walk: fullStateBlockAreaCells(record.walkBlockAreas),
-    build: fullStateBlockAreaCells(record.buildBlockAreas),
-    groups: [],
-    wall: {
-      maxHitpoints: PALISADE_MAX_HITPOINTS,
-      repairPerStrike: record.gate === undefined ? PALISADE_REPAIR_PER_STRIKE : 1,
-      construction: [{ goodType: GOOD_WOOD, amount: 1 }],
-      ...(record.gate === undefined ? {} : { gate: { ...record.gate } }),
-    },
-  }));
+  return PALISADE_RECORDS.map((record) => {
+    const closed =
+      record.gate?.open === true
+        ? (PALISADE_RECORDS.find((other) => other.index === record.gate?.counterpartGfxIndex) ?? record)
+        : record;
+    const scale = wallStrengthScale(closed.walkBlockAreas);
+    return {
+      typeId: record.index,
+      walk: fullStateBlockAreaCells(record.walkBlockAreas),
+      build: fullStateBlockAreaCells(record.buildBlockAreas),
+      groups: [],
+      wall: {
+        maxHitpoints: PALISADE_MAX_HITPOINTS * scale,
+        repairPerStrike:
+          (record.gate === undefined ? PALISADE_REPAIR_PER_STRIKE : GATE_REPAIR_PER_STRIKE) * scale,
+        construction: [{ goodType: GOOD_WOOD, amount: 1 }],
+        ...(record.gate === undefined ? {} : { gate: { ...record.gate } }),
+      },
+    };
+  });
 }

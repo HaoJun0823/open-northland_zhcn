@@ -3,7 +3,7 @@ import type { Command } from '@open-northland/sim';
 import type { WorldSetup } from '../game/world/index.js';
 import type { ContentIr } from './ir/rows.js';
 import { forEachPlacement } from './map-placements.js';
-import { playerWallRows } from './palisade-rows.js';
+import { playerWallRows, wallStrengthScales } from './palisade-rows.js';
 
 export interface MapPalisadeSpawn {
   readonly gfxIndex: number;
@@ -11,6 +11,7 @@ export interface MapPalisadeSpawn {
   readonly hy: number;
   readonly placement: number;
   readonly owner: number | undefined;
+  /** The authored level as hitpoints: its valency times the graphic's `wallStrengthScale`. */
   readonly valency: number | undefined;
 }
 
@@ -27,18 +28,20 @@ function palisadeGfxByName(ir: ContentIr): ReadonlyMap<string, number> {
 /** Source-order authored wall/gate placements on the map's native half-cell lattice. */
 export function mapPalisadeSpawns(objects: TerrainObjects, ir: ContentIr): MapPalisadeSpawn[] {
   const byName = palisadeGfxByName(ir);
+  const scales = wallStrengthScales(ir);
   const out: MapPalisadeSpawn[] = [];
   forEachPlacement(objects.placements, (hx, hy, typeIndex, placement) => {
     const name = objects.types[typeIndex];
     const gfxIndex = name === undefined ? undefined : byName.get(name);
     if (gfxIndex !== undefined) {
+      const level = objects.levels?.[placement];
       out.push({
         gfxIndex,
         hx,
         hy,
         placement,
         owner: objects.owners?.[placement] ?? undefined,
-        valency: objects.levels?.[placement],
+        valency: level === undefined ? undefined : level * (scales.get(gfxIndex) ?? 1),
       });
     }
   });

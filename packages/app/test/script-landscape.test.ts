@@ -192,24 +192,33 @@ describe('script landscape walls', () => {
       wallRow(84, 'wall_gate_open', 1, playerIdAllowed),
     ],
     landscapeGfx: [
-      { index: 691, editName: 'wall_01', logicType: 82 },
-      { index: 696, editName: 'gate_01', logicType: 83 },
-      { index: 700, editName: 'gate_01_open', logicType: 84 },
+      { index: 691, editName: 'wall_01', logicType: 82, walkBlockAreas: [[1, 0, 0, 1]] },
+      { index: 696, editName: 'gate_01', logicType: 83, walkBlockAreas: [[1, -2, 0, 5]] },
+      {
+        index: 700,
+        editName: 'gate_01_open',
+        logicType: 84,
+        walkBlockAreas: [
+          [1, -2, 0, 1],
+          [1, 2, 0, 1],
+        ],
+      },
     ],
   });
 
   it('joins the player wall rows to their hitpoints, repair steps, gate pairs and wood', () => {
+    // A gate holds a post's valency and repair step once per closed cell, its open state included.
     expect(scriptLandscapeTypes(wallIr(true)).map((t) => t.wall)).toEqual([
       { maxHitpoints: 100, repairPerStrike: 3, construction: [{ goodType: WOOD, amount: 1 }] },
       {
-        maxHitpoints: 100,
-        repairPerStrike: 1,
+        maxHitpoints: 500,
+        repairPerStrike: 5,
         construction: [{ goodType: WOOD, amount: 1 }],
         gate: { open: false, counterpartGfxIndex: 700 },
       },
       {
-        maxHitpoints: 100,
-        repairPerStrike: 1,
+        maxHitpoints: 500,
+        repairPerStrike: 5,
         construction: [{ goodType: WOOD, amount: 1 }],
         gate: { open: true, counterpartGfxIndex: 696 },
       },

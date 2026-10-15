@@ -28,11 +28,11 @@ function segmentAt(sim: Simulation, hx: number, hy: number): Entity {
   return wall;
 }
 
-it('uses the source repair deltas for wall and gate records', () => {
+it('uses the source repair deltas for wall and gate records, once per closed gate cell', () => {
   const types = sandboxPalisadeTypes();
   expect(
     types.filter((type) => type.wall?.gate !== undefined).map((type) => type.wall?.repairPerStrike),
-  ).toEqual([1, 1, 1, 1, 1, 1]);
+  ).toEqual([5, 5, 5, 5, 5, 5]);
   expect(
     types.filter((type) => type.wall?.gate === undefined).map((type) => type.wall?.repairPerStrike),
   ).toEqual([3, 3, 3, 3, 3, 3]);

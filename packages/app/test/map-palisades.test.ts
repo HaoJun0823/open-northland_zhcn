@@ -36,6 +36,29 @@ describe('map palisade promotion', () => {
     ]);
   });
 
+  it("scales a gate's authored level by its closed cells, as its hitpoints are", () => {
+    const gateIr: ContentIr = {
+      landscape: [
+        {
+          typeId: 83,
+          id: 'wall_gate_closed',
+          maxValency: 100,
+          playerIdAllowed: true,
+          transitions: [
+            [9, 83, 2, 1, 0],
+            [10, 83, 2, -1, 0],
+          ],
+        },
+      ],
+      landscapeGfx: [{ index: 697, editName: 'gate_02', logicType: 83, walkBlockAreas: [[1, -2, 0, 5]] }],
+    };
+    const objects: TerrainObjects = { types: ['gate_02'], placements: [2, 4, 0], owners: [0], levels: [70] };
+
+    expect(mapPalisadeSpawns(objects, gateIr)).toEqual([
+      { gfxIndex: 697, hx: 2, hy: 4, placement: 0, owner: 0, valency: 350 },
+    ]);
+  });
+
   it('uses each owner roster tribe and passes authored durability and placement to trusted placement', () => {
     const commands: Command[] = [];
     const sim = {

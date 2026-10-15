@@ -4,6 +4,7 @@ import {
   Carrying,
   CurrentAtomic,
   KilledBy,
+  OpenedChest,
   Owner,
   Palisade,
   Position,
@@ -215,6 +216,9 @@ describe('road site commands', () => {
     const stump = sim.world.create();
     sim.world.add(stump, Position, positionOfNode(CENTRE.hx, CENTRE.hy));
     sim.world.add(stump, Stump, { goodType: WOOD });
+    const openedChest = sim.world.create();
+    sim.world.add(openedChest, Position, positionOfNode(CENTRE.hx, CENTRE.hy));
+    sim.world.add(openedChest, OpenedChest, {});
     // A hunted carcass is a walk-through resource that lies loose, like goods.
     const carcass = resourceAt(sim, HEAP, MUSHROOM_GFX);
     sim.world.add(carcass, KilledBy, { by: stump });
@@ -230,15 +234,18 @@ describe('road site commands', () => {
     orderRoads(sim, [SAPLING, MUSHROOM, BUSH, CENTRE, HEAP]);
     expect(siteAt(sim, SAPLING.hx, SAPLING.hy)).toBeUndefined();
     for (const at of [MUSHROOM, BUSH, CENTRE, HEAP]) expect(siteAt(sim, at.hx, at.hy)).toBeDefined();
-    expect([sapling, mushroom, bush, stump, carcass].map((e) => sim.world.isAlive(e))).toEqual([
+    expect([sapling, mushroom, bush, stump, openedChest, carcass].map((e) => sim.world.isAlive(e))).toEqual([
       true,
+      false,
       false,
       false,
       false,
       true,
     ]);
     const cleared = sim.events.current().flatMap((ev) => (ev.kind === 'groundCleared' ? ev.razed : []));
-    expect([...cleared].sort((a, b) => a - b)).toEqual([mushroom, bush, stump].sort((a, b) => a - b));
+    expect([...cleared].sort((a, b) => a - b)).toEqual(
+      [mushroom, bush, stump, openedChest].sort((a, b) => a - b),
+    );
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 

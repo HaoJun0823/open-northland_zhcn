@@ -2,6 +2,7 @@ import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   BerryBush,
+  OpenedChest,
   PathFollow,
   PathRequest,
   PathRoute,
@@ -470,6 +471,30 @@ describe('placement razes wild berry bushes in the reserved zone', () => {
     sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, x: 5, y: 5, tribe: VIKING, force: true });
     sim.step();
     expect(sim.world.isAlive(under)).toBe(false);
+  });
+});
+
+describe('placement razes opened chests in the reserved zone', () => {
+  /** Place the inert open lid an opened chest leaves behind (a Position + OpenedChest) at a node. */
+  function placeOpenedChest(sim: Simulation, x: number, y: number) {
+    const e = sim.world.create();
+    sim.world.add(e, Position, positionOfNode(x, y));
+    sim.world.add(e, OpenedChest, {});
+    return e;
+  }
+
+  it('destroys an opened chest inside the reserved zone and spares one outside it', () => {
+    const sim = mappedSim();
+    // Same HUT reserved ring as the stump case: (6,6) sits inside it, (12,12) well clear.
+    const inside = placeOpenedChest(sim, 6, 6);
+    const outside = placeOpenedChest(sim, 12, 12);
+
+    sim.enqueueSetup({ kind: 'placeBuilding', buildingType: HUT, x: 5, y: 5, tribe: VIKING });
+    sim.step();
+
+    expect(buildingsPlaced(sim)).toBe(1);
+    expect(sim.world.isAlive(inside)).toBe(false);
+    expect(sim.world.isAlive(outside)).toBe(true);
   });
 });
 

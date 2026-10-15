@@ -46,9 +46,9 @@ import { retireCompletedSiteErrands } from './completed-site-errands.js';
 import { destroyFieldsUnderBuilding } from './fields.js';
 import { evictLooseGoodsFromFootprint } from './goods-evict.js';
 import { scatterSpilledStock, spilledStockOf } from './goods-spill.js';
+import { destroyInertDecorInReserved } from './inert-decor.js';
 import { clearRepairedDamage } from './repair.js';
 import { dropLapsedClaim, holdsSiteClaim, isSoloSite } from './site-claim.js';
-import { destroyStumpsInReserved } from './stumps.js';
 import { clearUpgradeGround } from './upgrade-ground.js';
 
 /**
@@ -291,7 +291,7 @@ export function settleFootprint(world: World, ctx: SystemContext, e: Entity): vo
   evictLooseGoodsFromFootprint(world, ctx, e);
   evictCarcassesFromFootprint(world, ctx, e);
   destroyBerryBushesInReserved(world, ctx, e);
-  destroyStumpsInReserved(world, ctx, e);
+  destroyInertDecorInReserved(world, ctx, e);
   destroyFieldsUnderBuilding(world, ctx, e);
   cancelRoadSitesUnder(world, ctx, e, true);
 }

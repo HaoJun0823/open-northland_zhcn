@@ -5,6 +5,7 @@ import type { Entity, World } from '../../ecs/world.js';
 import type { HalfCellNode } from '../../nav/halfcell.js';
 import type { SystemContext } from '../context.js';
 import { bushesAtNode } from '../spatial/bushes.js';
+import { openedChestsAtNode } from '../spatial/opened-chests.js';
 import { resourcesAtNode } from '../spatial/resources.js';
 import { stumpsAtNode } from '../spatial/stumps.js';
 import { unstampResourceFootprint } from './resources.js';
@@ -35,8 +36,8 @@ export function lineGroundOpen(world: World, content: ContentSet, hx: number, hy
 
 /**
  * Clear what a road or wall ordered over `nodes` covers: the walk-through resources such as mushrooms,
- * clay or a crop, the bushes and the stumps. `groundCleared` names them, so the map's static layer drops
- * their sprites and the scenery on those nodes.
+ * clay or a crop, the bushes, the stumps and the opened chests. `groundCleared` names them, so the map's
+ * static layer drops their sprites and the scenery on those nodes.
  */
 export function clearLineGround(world: World, ctx: SystemContext, nodes: readonly HalfCellNode[]): void {
   const razed: Entity[] = [];
@@ -47,7 +48,11 @@ export function clearLineGround(world: World, ctx: SystemContext, nodes: readonl
       unstampResourceFootprint(world, e);
       razed.push(e);
     }
-    razed.push(...bushesAtNode(world, hx, hy), ...stumpsAtNode(world, hx, hy));
+    razed.push(
+      ...bushesAtNode(world, hx, hy),
+      ...stumpsAtNode(world, hx, hy),
+      ...openedChestsAtNode(world, hx, hy),
+    );
   }
   for (const e of razed) world.destroy(e);
   ctx.events.emit({ kind: 'groundCleared', nodes, razed });

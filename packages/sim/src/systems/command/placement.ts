@@ -28,8 +28,8 @@ import { destroyBerryBushesInReserved } from '../economy/berries.js';
 import { evictCarcassesFromFootprint } from '../economy/carcasses.js';
 import { destroyFieldsUnderBuilding } from '../economy/fields.js';
 import { evictLooseGoodsFromFootprint } from '../economy/goods-evict.js';
+import { destroyInertDecorInReserved } from '../economy/inert-decor.js';
 import { releaseEmployment } from '../economy/jobs/index.js';
-import { destroyStumpsInReserved } from '../economy/stumps.js';
 import { clearUpgradeGround } from '../economy/upgrade-ground.js';
 import { evictWorkFlagsFromFootprint } from '../economy/work-flag.js';
 import { evictSettlersFromFootprint } from '../movement/evict.js';
@@ -189,10 +189,10 @@ export function assembleBuilding(
   displaceSignpostsFromFootprint(world, ctx, e);
   evictLooseGoodsFromFootprint(world, ctx, e);
   evictCarcassesFromFootprint(world, ctx, e);
-  // Bushes and felled-tree stumps are walkable and not a placement obstacle, so the plot may cover them; the
-  // original clears landscape decoration in a building's reserved zone.
+  // Bushes, felled-tree stumps and opened chests are walkable and not a placement obstacle, so the plot may
+  // cover them; the original clears landscape decoration in a building's reserved zone.
   destroyBerryBushesInReserved(world, ctx, e);
-  destroyStumpsInReserved(world, ctx, e);
+  destroyInertDecorInReserved(world, ctx, e);
   // A field declares no build area, so it never refuses a site - this is the only thing that clears one.
   destroyFieldsUnderBuilding(world, ctx, e);
   cancelRoadSitesUnder(world, ctx, e);

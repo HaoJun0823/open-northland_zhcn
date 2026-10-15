@@ -44,6 +44,8 @@ interface RoadSiteIndex {
   /** Bumped by a rebuild, which may move any region at once. */
   epoch: number;
   readonly byOwner: Map<number, Map<Entity, OwnedRoadSite>>;
+  /** Per owner, the times one of its sites came, went, was claimed or released, or changed stock unclaimed. */
+  readonly ownerChanges: Map<number, number>;
 }
 
 const NO_SITES: ReadonlyMap<Entity, OwnedRoadSite> = new Map();
@@ -68,6 +70,7 @@ function indexOf(world: World, terrain: TerrainGraph): RoadSiteIndex {
       regionChanges: new Map(),
       epoch: 0,
       byOwner: new Map(),
+      ownerChanges: new Map(),
     };
     indexes.set(world, index);
     rebuildIndex(world, index);
@@ -107,13 +110,21 @@ function countRegionChange(index: RoadSiteIndex, node: NodeId): void {
   regionChanges.set(key, (regionChanges.get(key) ?? 0) + 1);
 }
 
-/** Every road site `owner` holds, claimed or not, in no canonical order. Read-only. */
+/** Every road site `owner` holds, claimed or not, in no canonical order; an unowned asker gets the
+ *  sites no player owns. Read-only. */
 export function ownedRoadSites(
   world: World,
   terrain: TerrainGraph,
-  owner: number,
+  owner: number | undefined,
 ): ReadonlyMap<Entity, OwnedRoadSite> {
-  return indexOf(world, terrain).byOwner.get(owner) ?? NO_SITES;
+  return indexOf(world, terrain).byOwner.get(owner ?? NEUTRAL) ?? NO_SITES;
+}
+
+/** A token over {@link ownedRoadSites}: it changes whenever one of `owner`'s sites comes, goes, is claimed
+ *  or released, or gains or loses stock while unclaimed. */
+export function ownedRoadSitesKey(world: World, terrain: TerrainGraph, owner: number | undefined): string {
+  const index = indexOf(world, terrain);
+  return `${index.epoch}.${index.ownerChanges.get(owner ?? NEUTRAL) ?? 0}`;
 }
 
 /** `owner`'s unclaimed road sites, or every owner's for an unowned asker. Read-only. */
@@ -150,7 +161,10 @@ function refreshEntry(world: World, index: RoadSiteIndex, e: Entity): void {
   const site = world.tryGet(e, RoadSite);
   const p = site === undefined ? undefined : world.tryGet(e, Position);
   if (site === undefined || p === undefined) {
-    if (held !== undefined) countRegionChange(index, held.node);
+    if (held !== undefined) {
+      countRegionChange(index, held.node);
+      countOwnerChange(index, held.owner);
+    }
     return;
   }
   const { hx, hy } = nodeOfPosition(p.x, p.y);
@@ -162,6 +176,10 @@ function refreshEntry(world: World, index: RoadSiteIndex, e: Entity): void {
   };
   index.entries.set(e, entry);
   index.byNode.set(entry.node, e);
+  if (held === undefined || !samePlanInput(held, entry)) {
+    if (held !== undefined && held.owner !== entry.owner) countOwnerChange(index, held.owner);
+    countOwnerChange(index, entry.owner);
+  }
   tally(index, entry, 1);
   let owned = index.byOwner.get(entry.owner);
   if (owned === undefined) {
@@ -172,6 +190,17 @@ function refreshEntry(world: World, index: RoadSiteIndex, e: Entity): void {
   if (held?.node === entry.node) return;
   if (held !== undefined) countRegionChange(index, held.node);
   countRegionChange(index, entry.node);
+}
+
+/** Whether a stone plan reads both entries alike: a claimed site's stock is its builder's business. */
+function samePlanInput(a: SiteEntry, b: SiteEntry): boolean {
+  return (
+    a.node === b.node && a.owner === b.owner && a.open === b.open && (!a.open || a.stocked === b.stocked)
+  );
+}
+
+function countOwnerChange(index: RoadSiteIndex, owner: number): void {
+  index.ownerChanges.set(owner, (index.ownerChanges.get(owner) ?? 0) + 1);
 }
 
 function holdsStock(world: World, e: Entity): boolean {
@@ -200,6 +229,7 @@ function verifyIndex(world: World): string[] {
     openByOwner: new Map(),
     regionChanges: new Map(),
     byOwner: new Map(),
+    ownerChanges: new Map(),
   };
   rebuildIndex(world, fresh);
   const out: string[] = [];

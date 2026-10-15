@@ -19,9 +19,10 @@ import {
   constructionSiteAvailableTo,
   isSoloSite,
   releaseSiteClaim,
+  siteClaimHolder,
 } from '../../../economy/site-claim.js';
 import { atomicDuration } from '../../../readviews/animations.js';
-import { pickRoadSite } from '../../../roads/site-pick.js';
+import { type RoadSitePlan, type RoadSiteRole, roadSitePlan } from '../../../roads/site-plan.js';
 import type { NavigationLimit } from '../../../signposts/index.js';
 import {
   atOrWalk,
@@ -137,16 +138,42 @@ export function planBuilder(
   ): Entity | null =>
     nearestBuilderSite(sites, world, here, settler.owner, limit ?? undefined, avoidSite, accepts);
 
-  // A road site's stone paves its pending neighbours too, so the nearest one only anchors the pick.
+  // A road site's stone paves its pending neighbours too, so a builder takes its own claim or the nearest
+  // site of the owner's stone plan, a planned filler or a spare one only while no better one is its to
+  // take, one beside an unclaimed stocked site only when nothing else is, and never one a claim paves.
   const pickRoad = (
     sites: InteractionCellIndex,
     accepts: (site: Entity) => boolean,
     limit = plan.limit,
   ): Entity | null => {
-    const nearest = nearestSite(sites, accepts, limit);
-    return nearest === null
-      ? null
-      : pickRoadSite(world, terrain, e, here, nearest, (site) => avoidSite?.(site) !== true && accepts(site));
+    const plans = new Map<number | undefined, RoadSitePlan>();
+    const planOf = (owner: number | undefined): RoadSitePlan => {
+      let held = plans.get(owner);
+      if (held === undefined) {
+        held = roadSitePlan(world, terrain, owner, ctx.tick);
+        plans.set(owner, held);
+      }
+      return held;
+    };
+    // An owned builder takes its owner's sites and unowned ones; an unowned one takes every owner's.
+    const offered = (role: RoadSiteRole): boolean =>
+      settler.owner === undefined || planOf(settler.owner).has(role) || planOf(undefined).has(role);
+    const taking = (role: RoadSiteRole) => (site: Entity) =>
+      planOf(ownerOf(world, site)).is(site, role) && accepts(site);
+    const tier = (role: RoadSiteRole): Entity | null =>
+      offered(role) ? nearestSite(sites, taking(role), limit) : null;
+    return (
+      nearestSite(
+        sites,
+        (site) =>
+          (siteClaimHolder(world, site) === e || planOf(ownerOf(world, site)).is(site, 'build')) &&
+          accepts(site),
+        limit,
+      ) ??
+      tier('filler') ??
+      tier('spare') ??
+      tier('waiting')
+    );
   };
 
   if (mode !== undefined) {

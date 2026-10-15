@@ -292,6 +292,11 @@ export const enContent = {
       summary:
         'Builders raise a connected wooden stockade, a gate opens a route through it, and an enemy soldier breaks a segment to make a second breach.',
     },
+    'road-crew': {
+      title: 'Road crew',
+      summary:
+        'Ten builders share one plan of which plots take a quarrystone and pave a two-lane road with the fewest quarrystones it allows.',
+    },
     'road-upgrade': {
       title: 'Roads beside an upgrade',
       summary:

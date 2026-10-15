@@ -286,6 +286,11 @@ export const plContent = {
       summary:
         'Budowniczowie najpierw naprawiają spokojny dom, a bliższy, przy którym trwa walka, zostawiają na później.',
     },
+    'road-crew': {
+      title: 'Brygada drogowa',
+      summary:
+        'Dziesięciu budowniczych dzieli jeden plan, które place dostają kamień, i brukuje dwupasmową drogę najmniejszą możliwą liczbą kamieni.',
+    },
     'road-upgrade': {
       title: 'Drogi przy rozbudowie',
       summary:

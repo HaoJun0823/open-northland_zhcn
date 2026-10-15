@@ -295,6 +295,11 @@ export const deContent = {
       summary:
         'Bauarbeiter errichten eine zusammenhängende Holzpalisade. Ein Tor öffnet einen Weg hindurch, und ein feindlicher Soldat zerstört ein Segment, um einen zweiten Durchgang zu schaffen.',
     },
+    'road-crew': {
+      title: 'Straßentrupp',
+      summary:
+        'Zehn Bauarbeiter teilen einen Plan, welche Baustellen einen Bruchstein bekommen, und pflastern eine zweispurige Straße mit so wenig Bruchstein wie möglich.',
+    },
     'road-upgrade': {
       title: 'Straßen neben einem Ausbau',
       summary:

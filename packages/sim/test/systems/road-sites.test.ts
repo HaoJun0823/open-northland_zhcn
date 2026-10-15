@@ -36,7 +36,7 @@ import { claimSite, releaseSiteClaim } from '../../src/systems/economy/site-clai
 import { stampResourceFootprintData } from '../../src/systems/footprint/index.js';
 import { palisadePlacementProbe as palisadeProbe } from '../../src/systems/palisades/index.js';
 import { openRoadSites } from '../../src/systems/roads/site-index.js';
-import { pickRoadSite } from '../../src/systems/roads/site-pick.js';
+import { roadSitePlan } from '../../src/systems/roads/site-plan.js';
 import { roadSitePlacementProbe } from '../../src/systems/roads/sites.js';
 import { createVehicle } from '../../src/systems/vehicles/index.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -110,6 +110,10 @@ function looseStone(sim: Simulation): number {
 }
 /** The store's stone in the scenes that count every unit after a site goes away mid-errand. */
 const STOCKED_STONE = 10;
+const DIAGONAL_ROWS = 14;
+const DIAGONAL_HX = 10;
+/** The fewest stones that pave the three-lane diagonal, found by exhaustive search. */
+const DIAGONAL_STONES = 8;
 
 describe('road site commands', () => {
   it('place a seat-owned site costing one stone, even under a standing settler', () => {
@@ -591,7 +595,7 @@ describe('road site pick', () => {
     });
   }
 
-  it('two builders pick interior sites a stone apart and pave six of seven with two stones', () => {
+  it('two builders take the two sites whose stone paves three, so two stones pave six of seven', () => {
     const sim = roadSim();
     const store = storeAt(sim, STORE_HX, 2);
     const builders = [builderAt(sim, 6), builderAt(sim, 7)];
@@ -604,15 +608,15 @@ describe('road site pick', () => {
         if (site !== undefined && !firstPick.has(b)) firstPick.set(b, site);
       }
     }
-    expect(builders.map((b) => firstPick.get(b))).toEqual([sites[1], sites[4]]);
+    expect(builders.map((b) => firstPick.get(b))).toEqual([sites[1], sites[5]]);
     expect(LINE.map(({ hx, hy }) => roadAt(sim, hx, hy))).toEqual([
       true,
       true,
       true,
-      true,
-      true,
-      true,
       false,
+      true,
+      true,
+      true,
     ]);
     expect(sim.world.get(store, Stockpile).amounts.get(STONE) ?? 0).toBe(0);
   });
@@ -640,22 +644,108 @@ describe('road site pick', () => {
     for (const site of sites.slice(3)) expect(sim.world.get(site, RoadSite).reservation).toBeNull();
   });
 
-  it('prefers the most pending cover away from another builder claim, then the nearer site', () => {
+  it('plans a site beside each end and a filler between, and leaves what a claim paves to it', () => {
     const sim = roadSim();
     const sites = lineSites(sim);
     const terrain = sim.terrain;
-    const [west, second] = sites;
-    if (terrain === undefined || west === undefined || second === undefined)
-      throw new Error('expected sites');
+    const second = sites[1];
+    if (terrain === undefined || second === undefined) throw new Error('expected sites');
+    // Each ask stands for a later tick: a plan holds for the rest of the tick that first asked.
+    let tick = sim.tick;
+    const rolesOf = () => sites.map((site) => roadSitePlan(sim.world, terrain, HUMAN, ++tick).roleOf(site));
+    expect(rolesOf()).toEqual(['spare', 'build', 'filler', 'spare', 'spare', 'build', 'spare']);
     const holder = builderAt(sim, 30);
     sim.world.add(holder, SiteAssignment, { site: second, pinned: false });
     claimSite(sim.world, second, holder);
-    const seeker = builderAt(sim, 2);
-    const here = terrain.nodeAt(2, ROW);
-    const pick = pickRoadSite(sim.world, terrain, seeker, here, west, () => true);
-    expect(sites.indexOf(pick)).toBe(4);
-    const lone = pickRoadSite(sim.world, terrain, seeker, here, west, (site) => site === west);
-    expect(lone).toBe(west);
+    expect(rolesOf()).toEqual(['paved', undefined, 'paved', 'filler', 'spare', 'build', 'spare']);
+  });
+
+  it('builds a site beside a stocked one no builder can reach, which would otherwise wait for it', () => {
+    // The stocked site sits on water ringed by water but for its one pending neighbour.
+    const ring = [
+      CENTRE,
+      ...hexNeighboursOf(CENTRE.hx, CENTRE.hy).filter((n) => n.hx !== CENTRE.hx + 1 || n.hy !== ROW),
+    ];
+    const sim = roadSim(1, MAP_WIDTH, ring);
+    storeAt(sim, STORE_HX);
+    builderAt(sim, FAR_HX);
+    sim.enqueueSetup({
+      kind: 'placeRoadSite',
+      x: CENTRE.hx,
+      y: ROW,
+      tribe: VIKING,
+      owner: HUMAN,
+      force: true,
+    });
+    sim.step();
+    const stocked = siteAt(sim, CENTRE.hx, ROW);
+    if (stocked === undefined) throw new Error('expected a forced road site');
+    setStockAmount(sim.world, stocked, STONE, 1);
+    orderRoads(sim, [{ hx: CENTRE.hx + 1, hy: ROW }]);
+    const terrain = sim.terrain;
+    const neighbour = siteAt(sim, CENTRE.hx + 1, ROW);
+    if (terrain === undefined || neighbour === undefined) throw new Error('expected the neighbour site');
+    expect(roadSitePlan(sim.world, terrain, HUMAN, sim.tick).roleOf(neighbour)).toBe('waiting');
+    sim.run(BUILD_TICKS);
+    expect(roadAt(sim, CENTRE.hx + 1, ROW)).toBe(true);
+    expect(sim.world.isAlive(stocked)).toBe(true);
+  });
+
+  it('takes a planned filler only once no site whose stone paves more is left', () => {
+    const sim = roadSim();
+    storeAt(sim, STORE_HX);
+    // From the east end the filler is nearer than the west site whose stone paves three.
+    const builder = builderAt(sim, FAR_HX);
+    const sites = lineSites(sim);
+    const claimed: Entity[] = [];
+    for (let tick = 0; tick < BUILD_TICKS && [...sim.world.query(RoadSite)].length > 0; tick++) {
+      sim.step();
+      const site = sim.world.tryGet(builder, SiteAssignment)?.site;
+      if (site !== undefined && claimed.at(-1) !== site) claimed.push(site);
+    }
+    expect(claimed).toEqual([sites[5], sites[1], sites[3]]);
+  });
+
+  it('spends the fewest stones a crew of any size can, on a three-lane diagonal', () => {
+    // Fourteen rows down a south-east diagonal, three sites wide.
+    const diagonal = Array.from({ length: DIAGONAL_ROWS }, (_, hy) =>
+      [0, 1, 2].map((k) => ({ hx: DIAGONAL_HX + k + Math.floor(hy / 2), hy })),
+    ).flat();
+    for (const crew of [1, 6]) {
+      const sim = roadSim();
+      const store = storeAt(sim, STORE_HX, STOCKED_STONE);
+      for (let i = 0; i < crew; i++) builderAt(sim, 2 + i);
+      orderRoads(sim, diagonal);
+      for (let tick = 0; tick < BUILD_TICKS && [...sim.world.query(RoadSite)].length > 0; tick++) sim.step();
+      expect(
+        diagonal.every(({ hx, hy }) => roadAt(sim, hx, hy)),
+        `crew ${crew}`,
+      ).toBe(true);
+      expect(STOCKED_STONE - (sim.world.get(store, Stockpile).amounts.get(STONE) ?? 0), `crew ${crew}`).toBe(
+        DIAGONAL_STONES,
+      );
+    }
+  });
+
+  it('spends the fewest stones a crew of any size can, on a two-lane road', () => {
+    const lanes = [ROW, ROW + 1].flatMap((hy) =>
+      [10, 11, 12, 13, 14, 15, 16, 17, 18, 19].map((hx) => ({ hx, hy })),
+    );
+    for (const crew of [1, 6]) {
+      const sim = roadSim();
+      const store = storeAt(sim, STORE_HX, STOCKED_STONE);
+      for (let i = 0; i < crew; i++) builderAt(sim, 2 + i);
+      orderRoads(sim, lanes);
+      for (let tick = 0; tick < BUILD_TICKS && [...sim.world.query(RoadSite)].length > 0; tick++) sim.step();
+      expect(
+        lanes.every(({ hx, hy }) => roadAt(sim, hx, hy)),
+        `crew ${crew}`,
+      ).toBe(true);
+      // Twenty sites of two lanes: one stone paves at most five of them.
+      expect(STOCKED_STONE - (sim.world.get(store, Stockpile).amounts.get(STONE) ?? 0), `crew ${crew}`).toBe(
+        4,
+      );
+    }
   });
 });
 
@@ -686,6 +776,8 @@ describe('road site index', () => {
 });
 
 describe('road sites persisted', () => {
+  const MID_ROAD_TICKS = 100;
+
   function midBuild(): Simulation {
     const sim = roadSim(7);
     storeAt(sim, STORE_HX);
@@ -714,5 +806,29 @@ describe('road sites persisted', () => {
     expect(a.hashState()).toBe(b.hashState());
     expect(a.world.verifyCaches()).toEqual([]);
     expect([...a.world.query(RoadSite)]).toEqual([]);
+  });
+
+  it('let a crew restored mid-road follow the same stone plan as the crew that kept going', () => {
+    const crewMidRoad = (): Simulation => {
+      const sim = roadSim(7);
+      storeAt(sim, STORE_HX);
+      for (let i = 0; i < 4; i++) builderAt(sim, 2 + i);
+      orderRoads(
+        sim,
+        [ROW, ROW + 1].flatMap((hy) => [10, 11, 12, 13, 14, 15, 16, 17, 18, 19].map((hx) => ({ hx, hy }))),
+      );
+      // Claims are in flight then, well before the last site is laid.
+      sim.run(MID_ROAD_TICKS);
+      return sim;
+    };
+    const kept = crewMidRoad();
+    expect(
+      [...kept.world.query(RoadSite)].some((e) => kept.world.get(e, RoadSite).reservation !== null),
+    ).toBe(true);
+    const restored = restoreSimulation(exportSaveGame(kept), { content: kept.content, map: roadMapOf() });
+    kept.run(BUILD_TICKS);
+    restored.run(BUILD_TICKS);
+    expect(restored.hashState()).toBe(kept.hashState());
+    expect([...kept.world.query(RoadSite)]).toEqual([]);
   });
 });

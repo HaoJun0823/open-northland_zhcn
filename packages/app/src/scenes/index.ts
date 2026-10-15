@@ -66,6 +66,7 @@ import { personalNamesScene } from './personal-names.js';
 import { porterFlagScene } from './porter-flag.js';
 import { presentationScene } from './presentation.js';
 import { repairScene } from './repair.js';
+import { roadCrewScene } from './road-crew.js';
 import { roadUpgradeScene } from './road-upgrade.js';
 import { roadsScene } from './roads.js';
 import { sandboxScene } from './sandbox/index.js';
@@ -178,6 +179,7 @@ export const SCENES: readonly SceneDefinition[] = [
   palisadeScene,
   openGateAttackScene,
   roadsScene,
+  roadCrewScene,
   roadUpgradeScene,
   equipmentScene,
   equipmentEffectsScene,

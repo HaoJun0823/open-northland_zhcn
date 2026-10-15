@@ -53,15 +53,15 @@ export const ATTACK_ALERT_NEW_FRONT_PX = 1280;
  *  rest wait for the next frame past it. Approximation. */
 export const ATTACK_ALERT_MIN_GAP_S = 5;
 /** The horn's gain per front. Its wav peaks at -1 dBFS with an RMS of -10 dB, about 13 dB over an
- *  order's answer at full gain, so an attack inside the settlement rings about 8 dB under full scale
- *  and people hit in the field about 4 dB under that. Authored, tune by ear. */
+ *  order's answer at full gain, so an attack inside the settlement rings at full scale, the loudest cue
+ *  in the mix, and people hit in the field about 4 dB under that. Authored, tune by ear. */
 export const ATTACK_ALERT_GAIN: Readonly<Record<AttackFront, number>> = {
-  base: 0.4,
-  units: 0.25,
+  base: 1,
+  units: 0.63,
 };
-/** dB the world and ambient buses dip while an alert rings, so the horn reads over a battle. Authored:
- *  the common "a few dB" alert duck. */
-export const ALERT_DUCK_DB = -4;
+/** dB the world and ambient buses dip while an alert rings, so the horn reads over a battle. Authored,
+ *  deeper than the common "a few dB" duck because the horn must cut through a fight on screen. */
+export const ALERT_DUCK_DB = -8;
 
 const FRONT_ALERT: Readonly<Record<AttackFront, AlertKind>> = {
   base: 'baseAttacked',

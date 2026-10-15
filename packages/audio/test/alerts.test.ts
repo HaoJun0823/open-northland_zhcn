@@ -161,7 +161,7 @@ const snapshot: WorldSnapshot = {
 
 const dbOf = (gain: number): number => 20 * Math.log10(gain);
 /** The horn's level for an attack on the settlement, and how far under it a field attack rings, in dB. */
-const HORN_BASE_DB = -8;
+const HORN_BASE_DB = 0;
 const HORN_FIELD_UNDER_DB = 4;
 
 describe('alert and notice sounds', () => {
@@ -174,7 +174,7 @@ describe('alert and notice sounds', () => {
     expect(horn?.lane).toEqual({ kind: 'alert', alert: 'baseAttacked' });
     expect(horn?.duckWorldDb).toBe(ALERT_DUCK_DB);
     expect(horn?.duckMusicDb).toBe(VOICE_MUSIC_DUCK_DB);
-    // The hot horn rings about 8 dB under full scale for the settlement, 4 dB further down for the field.
+    // The horn rings at full scale for the settlement, 4 dB further down for the field.
     expect(dbOf(ATTACK_ALERT_GAIN.base)).toBeCloseTo(HORN_BASE_DB, 0);
     expect(dbOf(ATTACK_ALERT_GAIN.units)).toBeCloseTo(HORN_BASE_DB - HORN_FIELD_UNDER_DB, 0);
     // The reports were taken: the next frame starts empty.

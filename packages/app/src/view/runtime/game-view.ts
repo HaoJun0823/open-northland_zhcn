@@ -67,6 +67,7 @@ import { createSystemMenu } from '../../hud/dom/system-menu.js';
 import { type BuildingHoverContext, buildingHoverModel } from '../../hud/hover-card/building.js';
 import type { HoverOwnerContext } from '../../hud/hover-card/owner.js';
 import { type SettlerHoverContext, settlerHoverModel } from '../../hud/hover-card/settler.js';
+import { vehicleHoverModel } from '../../hud/hover-card/vehicle.js';
 import type { MapOverlayControls } from '../../hud/map-overlays.js';
 import { type MinimapHandle, mountMinimap } from '../../hud/minimap/index.js';
 import { minimapFeatureOfGoodTypes } from '../../hud/minimap/live-objects.js';
@@ -1072,8 +1073,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       ...hoverOwners,
     };
 
-    // The parchment card a hovered settler or building opens, on the DOM plane the redesigned regions
-    // share.
+    // The parchment card a hovered settler, building or vehicle opens, on the DOM plane the redesigned
+    // regions share.
     const hoverCard = createHoverCard({
       plane: hudDom.element,
       scale: hudDom.currentScale,
@@ -1088,11 +1089,11 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       camera: () => cameraCtl.camera(),
       clientToScreen,
       goodLabel,
-      vehicleLabel: (typeId) => vehicleLabel(host.content, typeId),
       ...chestTooltipLines(host.content, toolPanel.controller.uiString, viewerPlayer, controls.selectedIds),
       card: hoverCard,
       buildingModel: (snapshot, entityId) => buildingHoverModel(snapshot, entityId, hoverContext),
       settlerModel: (snapshot, entityId) => settlerHoverModel(snapshot, entityId, settlerHoverContext),
+      vehicleModel: (snapshot, entityId) => vehicleHoverModel(snapshot, entityId, settlerHoverContext),
       // Both only grow, so their sum moves whenever either does.
       modelVersion: () => viewer.version() + answers.versions.unitPanel(),
       pixelHitOf: (ref, wx, wy) => renderer.entityPixelHit(ref, wx, wy),

@@ -96,6 +96,10 @@ export const enGame = {
       upgrade: 'Upgrade in progress',
       /** A worker set to make every product open to it. */
       allProducts: 'everything',
+      /** A vehicle seat nobody holds. */
+      nobody: 'none',
+      /** A trader's stops, from the one left to the one headed for. */
+      route: 'Route',
     },
     workFlag: 'Work flag',
     specialization: 'Specialization {id}',
@@ -167,16 +171,6 @@ export const enGame = {
     demolishGate: 'Demolish gate',
     constructionProgress: 'Construction: {percent}%',
     vehicle: 'Vehicle',
-    vehicleTask: 'Task: {task}',
-    vehicleTasks: {
-      none: 'idle',
-      docks: 'mooring',
-      attacks: 'attacking',
-      waitsForHuman: 'waiting for the crew',
-      waitsForAnimal: 'waiting for the draught animal',
-      interrupted: 'stopped',
-      boardsShip: 'boarding the ship',
-    },
     help: 'Help',
     statistics: 'Statistics',
     diplomacy: 'Diplomacy',

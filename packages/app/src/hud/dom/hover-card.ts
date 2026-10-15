@@ -3,6 +3,7 @@ import { messages } from '../../i18n/index.js';
 import type {
   BuildingHoverModel,
   BuildingHoverState,
+  HoverCardFact,
   HoverCardModel,
   HoverCardRow,
   HoverOwner,
@@ -14,9 +15,10 @@ import { setClass, setHidden, setStyleVar, write } from './parts/dom.js';
 import { createMeterRow } from './parts/meter-row.js';
 
 /**
- * The parchment card the cursor opens over the world: a settler's name and trade, or a building's name,
- * construction state, health and store; another seat's adds its owner. It rides the DOM plane in design px
- * and never takes pointer events, so the press under it still reaches the map.
+ * The parchment card the cursor opens over the world: a settler's name and trade, a building's name,
+ * construction state, health and store, or a vehicle's name, state, health, crew and hold; another seat's
+ * adds its owner. It rides the DOM plane in design px and never takes pointer events, so the press under
+ * it still reaches the map.
  */
 
 /** Design px between the cursor and the card's near corner, so the card never covers what is pointed at. */
@@ -65,9 +67,26 @@ function rowKey(row: HoverCardRow): string {
   return row.goodId ?? row.label;
 }
 
-/** The good rows the card lists: a store's, and none at all for a settler. */
+/** The good rows the card lists: a store's or a hold's, and none at all for a settler. */
 function rowsOf(model: HoverCardModel): readonly HoverCardRow[] {
-  return model.kind === 'building' ? model.rows : [];
+  return model.kind === 'settler' ? [] : model.rows;
+}
+
+const NO_FACTS: readonly HoverCardFact[] = [];
+
+function factsOf(model: HoverCardModel): readonly HoverCardFact[] {
+  return model.kind === 'vehicle' ? model.facts : NO_FACTS;
+}
+
+function factElement(fact: HoverCardFact): HTMLElement {
+  const line = document.createElement('p');
+  line.className = 'on-tip__row';
+  const label = document.createElement('span');
+  label.textContent = fact.label;
+  const value = document.createElement('b');
+  value.textContent = fact.value;
+  line.append(label, value);
+  return line;
 }
 
 export function createHoverCard(deps: HoverCardDeps): HoverCard {
@@ -91,12 +110,13 @@ export function createHoverCard(deps: HoverCardDeps): HoverCard {
   element.innerHTML =
     '<h4 class="on-tip__title"></h4><p class="on-hovercard__caption"></p>' +
     '<p class="on-hovercard__owner"><i class="on-hovercard__swatch"></i><span></span></p>' +
-    '<div class="on-hovercard__rows"></div>';
+    '<div class="on-hovercard__facts"></div><div class="on-hovercard__rows"></div>';
   const title = element.querySelector('.on-tip__title');
   const caption = element.querySelector('.on-hovercard__caption');
   const owner = element.querySelector('.on-hovercard__owner');
   const swatch = element.querySelector('.on-hovercard__swatch');
   const ownerName = element.querySelector('.on-hovercard__owner > span');
+  const facts = element.querySelector('.on-hovercard__facts');
   const rows = element.querySelector('.on-hovercard__rows');
   if (
     !(title instanceof HTMLElement) ||
@@ -104,6 +124,7 @@ export function createHoverCard(deps: HoverCardDeps): HoverCard {
     !(owner instanceof HTMLElement) ||
     !(swatch instanceof HTMLElement) ||
     !(ownerName instanceof HTMLElement) ||
+    !(facts instanceof HTMLElement) ||
     !(rows instanceof HTMLElement)
   ) {
     throw new Error('hover card: template incomplete');
@@ -116,6 +137,8 @@ export function createHoverCard(deps: HoverCardDeps): HoverCard {
   /** The model drawn now: the caller's per-tick object, so identity is the cheap unchanged test. */
   let drawn: HoverCardModel | null = null;
   let drawnRows: DrawnRow[] = [];
+  /** The fact lines drawn now, as one string, so an unchanged crew and route touch no DOM. */
+  let drawnFacts = '';
   /** The card's own design-px box and where it stands, so a resting cursor writes no style. */
   let box = { w: 0, h: 0 };
   let placed = '';
@@ -148,11 +171,23 @@ export function createHoverCard(deps: HoverCardDeps): HoverCard {
     return changed;
   };
 
-  /** The second line: a settler's trade, or how far a site or an upgrade has come. */
+  /** True when the lines changed. */
+  const fillFacts = (model: HoverCardModel): boolean => {
+    const modelFacts = factsOf(model);
+    const key = modelFacts.map((fact) => `${fact.label}\u0000${fact.value}`).join('\u0001');
+    const changed = setHidden(facts, modelFacts.length === 0);
+    if (key === drawnFacts) return changed;
+    drawnFacts = key;
+    facts.replaceChildren(...modelFacts.map(factElement));
+    return true;
+  };
+
+  /** The second line: a settler's trade, a vehicle's state, or how far a site or an upgrade has come. */
   const captionOf = (model: HoverCardModel): string | null => {
     if (model.kind === 'settler') {
       return model.products === null ? model.profession : `${model.profession} - ${model.products}`;
     }
+    if (model.kind === 'vehicle') return model.status.label;
     if (model.state === null) return null;
     const fallback = messages().hud.hoverCard[model.state.kind];
     const label = deps.uiString('misc', STATE_STRING_ID[model.state.kind], fallback);
@@ -176,15 +211,17 @@ export function createHoverCard(deps: HoverCardDeps): HoverCard {
     const line = captionOf(model);
     changed = setHidden(caption, line === null) || changed;
     if (line !== null) changed = write(caption, line) || changed;
+    setClass(caption, 'on-hovercard__caption--trouble', model.kind === 'vehicle' && model.status.trouble);
     changed = setHidden(owner, model.owner === null) || changed;
     if (model.owner !== null) {
       changed = write(ownerName, ownerLine(model.owner)) || changed;
       setStyleVar(swatch, '--swatch', model.owner.colour);
     }
-    const bar = model.kind === 'building' ? model.health : null;
+    const bar = model.kind === 'settler' ? null : model.health;
     changed = setHidden(health.element, bar === null) || changed;
     // The meter's width is fixed by its grid, so a new figure never changes the card's box.
     if (bar !== null) health.update({ label: bar.label, pct: bar.pct, tooltip: bar.hover });
+    changed = fillFacts(model) || changed;
     return fillRows(model) || changed;
   };
 

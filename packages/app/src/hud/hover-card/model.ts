@@ -2,9 +2,9 @@ import type { DiplomacyState } from '@open-northland/sim';
 import type { PanelBar } from '../details-panel/model/bars.js';
 
 /**
- * What the cursor card says about the thing under it. A settler and a building share one card: a title,
- * one line under it, and the good rows only a store fills. A building shows its health; another seat's
- * building or person also names its owner, and its building keeps its store to itself.
+ * What the cursor card says about the thing under it. A settler, a building and a vehicle share one card:
+ * a title, one line under it, and the good rows only a store or a hold fills. A building and a vehicle
+ * show their health; another seat's thing also names its owner and keeps its goods to itself.
  */
 
 /** The seat another seat's building or person belongs to. */
@@ -57,4 +57,24 @@ export interface SettlerHoverModel {
   readonly owner: HoverOwner | null;
 }
 
-export type HoverCardModel = BuildingHoverModel | SettlerHoverModel;
+/** A named line of words, such as who commands a vehicle, drawn like a good row. */
+export interface HoverCardFact {
+  readonly label: string;
+  readonly value: string;
+}
+
+export interface VehicleHoverModel {
+  readonly kind: 'vehicle';
+  readonly entityId: number;
+  readonly title: string;
+  /** What the vehicle is doing, the vehicle window's status strip; `trouble` while it cannot move. */
+  readonly status: { readonly label: string; readonly trouble: boolean };
+  readonly owner: HoverOwner | null;
+  readonly health: PanelBar | null;
+  /** The commander, a ship's seat count and deck, and an own trader's route. */
+  readonly facts: readonly HoverCardFact[];
+  /** What an own hold carries; empty for another seat's vehicle. */
+  readonly rows: readonly HoverCardRow[];
+}
+
+export type HoverCardModel = BuildingHoverModel | SettlerHoverModel | VehicleHoverModel;

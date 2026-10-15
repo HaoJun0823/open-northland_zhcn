@@ -6,20 +6,24 @@ import {
   canOpenChest,
   chestKindOf,
   isSettler,
+  isVehicle,
   isWildlife,
-  num,
   ownerPlayerOf,
-  type SnapshotEntity,
 } from '../game/snapshot.js';
 import type { HoverCard } from '../hud/dom/hover-card.js';
-import type { BuildingHoverModel, HoverCardModel, SettlerHoverModel } from '../hud/hover-card/model.js';
-import { formatMessage, messages } from '../i18n/index.js';
+import type {
+  BuildingHoverModel,
+  HoverCardModel,
+  SettlerHoverModel,
+  VehicleHoverModel,
+} from '../hud/hover-card/model.js';
+import { messages } from '../i18n/index.js';
 import { isHitTarget, type Pickable, pickTopAt, screenToWorld } from './picking.js';
 import { createTooltip } from './tooltip.js';
 
 /**
- * What the cursor is over in the world: a settler or a building opens a card, a loose good pile, a chest
- * or a vehicle a text chip. Hit targets are filtered from the renderer's already-culled `drawnItems`, so the
+ * What the cursor is over in the world: a settler, a building or a vehicle opens a card, a loose good pile
+ * or a chest a text chip. Hit targets are filtered from the renderer's already-culled `drawnItems`, so the
  * work follows the screen, not the map. Owns the chip element; the details panel's stock-row tooltip
  * must not share it.
  */
@@ -37,14 +41,13 @@ export interface WorldHoverOptions {
   readonly goodLabel: (goodType: number) => string | undefined;
   /** A chest's localized name, per kind. */
   readonly chestLabel: (kind: ChestKind) => string;
-  /** A vehicle type's localized name; the vehicle chip leads with it. */
-  readonly vehicleLabel: (typeId: number) => string | undefined;
   /** The order line after a chest's name: the open order when the selection can open it, else null. */
   readonly chestOrderLine: (snapshot: WorldSnapshot, kind: ChestKind) => string | null;
-  /** The card a hovered settler or building opens; its owner creates and disposes it. */
+  /** The card a hovered settler, building or vehicle opens; its owner creates and disposes it. */
   readonly card: HoverCard;
   readonly buildingModel: (snapshot: WorldSnapshot, entityId: number) => BuildingHoverModel | null;
   readonly settlerModel: (snapshot: WorldSnapshot, entityId: number) => SettlerHoverModel | null;
+  readonly vehicleModel: (snapshot: WorldSnapshot, entityId: number) => VehicleHoverModel | null;
   /** Bumps whenever the models above would read differently within one tick: a spectator's seat switch
    *  turns another seat's card into an own one and back, and a sim answer the worker's products read
    *  lands. */
@@ -67,33 +70,18 @@ export interface WorldHover {
 type HoverInfo =
   | { readonly kind: 'pile'; readonly goodType: number; readonly amount: number }
   | { readonly kind: 'chest'; readonly chestKind: ChestKind }
-  | { readonly kind: 'vehicle'; readonly line: string }
   | { readonly kind: 'building' }
-  | { readonly kind: 'settler' };
+  | { readonly kind: 'settler' }
+  | { readonly kind: 'vehicle' };
+
+/** The targets that open the card rather than a chip. */
+type CardKind = 'building' | 'settler' | 'vehicle';
 
 /** The hit targets of one drawn frame, people apart: a settler answers the cursor before whatever it
  *  stands on or in front of. */
 interface HoverTargets {
   readonly people: Pickable[];
   readonly rest: Pickable[];
-}
-
-/** "Type · Player #n · task": a vehicle's hover line. */
-function vehicleLine(
-  vehicleLabel: WorldHoverOptions['vehicleLabel'],
-  entity: SnapshotEntity,
-): string | undefined {
-  const vehicle = entity.components.Vehicle as { vehicleType?: unknown; task?: unknown } | undefined;
-  const typeId = num(vehicle?.vehicleType);
-  if (typeId === undefined) return undefined;
-  const hud = messages().hud;
-  const tasks: Readonly<Record<string, string | undefined>> = hud.vehicleTasks;
-  const task = typeof vehicle?.task === 'string' ? tasks[vehicle.task] : undefined;
-  const owner = ownerPlayerOf(entity);
-  const parts = [vehicleLabel(typeId) ?? hud.vehicle];
-  if (owner !== undefined) parts.push(`${hud.player} ${owner}`);
-  if (task !== undefined) parts.push(formatMessage(hud.vehicleTask, { task }));
-  return parts.join(' · ');
 }
 
 export function createWorldHover(opts: WorldHoverOptions): WorldHover {
@@ -163,8 +151,7 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
       }
       if (it.kind === 'vehicle') {
         const entity = entityById(snap, it.ref);
-        const line = entity === undefined ? undefined : vehicleLine(opts.vehicleLabel, entity);
-        if (line === undefined) continue;
+        if (entity === undefined || !isVehicle(entity)) continue;
         hoverTargets.rest.push({
           ref: it.ref,
           x: it.x,
@@ -175,7 +162,7 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
             ? { pixelHit: (wx: number, wy: number) => pixelHitOf(it.ref, wx, wy) }
             : {}),
         });
-        hoverInfo.set(it.ref, { kind: 'vehicle', line });
+        hoverInfo.set(it.ref, { kind: 'vehicle' });
         continue;
       }
       if (it.kind !== 'stockpile' && it.kind !== 'grounddrop') continue;
@@ -190,15 +177,16 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
   // between show the model already standing.
   let cardKey = '';
   let cardModel: HoverCardModel | null = null;
-  const modelFor = (
-    snap: WorldSnapshot,
-    ref: number,
-    kind: 'building' | 'settler',
-  ): HoverCardModel | null => {
+  const modelFor = (snap: WorldSnapshot, ref: number, kind: CardKind): HoverCardModel | null => {
     const key = `${ref}:${snap.tick}:${opts.modelVersion()}`;
     if (key !== cardKey) {
       cardKey = key;
-      cardModel = kind === 'building' ? opts.buildingModel(snap, ref) : opts.settlerModel(snap, ref);
+      cardModel =
+        kind === 'building'
+          ? opts.buildingModel(snap, ref)
+          : kind === 'settler'
+            ? opts.settlerModel(snap, ref)
+            : opts.vehicleModel(snap, ref);
     }
     return cardModel;
   };
@@ -243,16 +231,12 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
         hideAll();
         return;
       }
-      if (info.kind === 'building' || info.kind === 'settler') {
+      if (info.kind === 'building' || info.kind === 'settler' || info.kind === 'vehicle') {
         tooltip.hide();
         // The card's own hide, not hideCard(): a rest still running must not restart under itself.
         const model = restedOn(ref, nowMs) ? modelFor(snap, ref, info.kind) : null;
         if (model === null) opts.card.hide();
         else opts.card.show(p.clientX, p.clientY, model);
-        return;
-      }
-      if (info.kind === 'vehicle') {
-        chip(p.clientX, p.clientY, info.line);
         return;
       }
       if (info.kind === 'chest') {

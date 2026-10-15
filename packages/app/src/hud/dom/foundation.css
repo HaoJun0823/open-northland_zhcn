@@ -2263,7 +2263,7 @@ body.on-drag-scroll * {
   opacity: 0.45;
 }
 
-/* ---------- hover card: the sheet the cursor opens over a settler or a building ---------- */
+/* ---------- hover card: the sheet the cursor opens over a settler, a building or a vehicle ---------- */
 /* The breakdown sheet's own parchment at half the summary bar's type: small enough that even a
    warehouse's whole store leaves the map around it in view. The column lays the lines out with a gap
    rather than margins, so a settler's two lines leave no space where a store's rows would stand. */
@@ -2304,15 +2304,20 @@ body.on-drag-scroll * {
   padding-bottom: 0;
   border-bottom: none;
 }
-/* A settler's trade, or how far a site has come. */
+/* A settler's trade, a vehicle's state, or how far a site has come. */
 .on-hud .on-hovercard__caption {
   margin: 0;
   font-size: 9px;
   color: var(--ink-muted);
 }
+/* A vehicle that cannot move: no commander, or no draught animal yet. */
+.on-hud .on-hovercard__caption--trouble {
+  color: var(--wax-warn);
+}
 .on-hud .on-hovercard__caption[hidden],
 .on-hud .on-hovercard__owner[hidden],
 .on-hud .on-hovercard__health[hidden],
+.on-hud .on-hovercard__facts[hidden],
 .on-hud .on-hovercard__rows[hidden] {
   display: none;
 }

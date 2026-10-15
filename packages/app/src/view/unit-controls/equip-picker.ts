@@ -50,16 +50,22 @@ interface EquipIntentView {
   readonly slot?: unknown;
 }
 
-/** The misc slots the settler's own equip errand, under way or queued, is already filling. The sim lets
- *  a later order for one of them replace it, so a second pick must aim at another slot to queue. */
+/** The misc slots the settler's own equip errands already fill: under way, queued on the errand, or
+ *  Shift-queued behind its current order. The sim lets a later order for one of them replace it, so a
+ *  further pick must aim at another slot to queue. */
 function pendingMiscSlots(components: Readonly<Record<string, unknown>>): Set<number> {
   const order = components.EquipOrder as
     | (EquipIntentView & { readonly issuer?: unknown; readonly queued?: readonly EquipIntentView[] })
     | undefined;
-  const slots = new Set<number>();
+  const waiting = components.OrderQueue as
+    | { readonly orders?: readonly (EquipIntentView & { readonly kind?: unknown })[] }
+    | undefined;
+  const intents: EquipIntentView[] = [];
   // An assistant's hand-out gives way to the player's order instead of holding it back.
-  if (order?.issuer !== 'player') return slots;
-  for (const intent of [order, ...(order.queued ?? [])]) {
+  if (order?.issuer === 'player') intents.push(order, ...(order.queued ?? []));
+  for (const queued of waiting?.orders ?? []) if (queued.kind === 'equipGood') intents.push(queued);
+  const slots = new Set<number>();
+  for (const intent of intents) {
     if (intent.group === 'misc' && typeof intent.slot === 'number') slots.add(intent.slot);
   }
   return slots;
@@ -82,12 +88,12 @@ export function equipSlotFor(components: Readonly<Record<string, unknown>>, grou
 }
 
 /** One selected good becomes one order per still-live selected settler. `skipReturn` skips the walk
- *  back to where each settler stood. */
+ *  back to where each settler stood; `queued` waits behind each settler's current order. */
 export function selectionEquipCommands(
   snapshot: WorldSnapshot,
   settlerIds: readonly number[],
   pick: Pick<EquipSelectionPick, 'goodType' | 'group'>,
-  { skipReturn = false }: { readonly skipReturn?: boolean } = {},
+  { skipReturn = false, queued = false }: { readonly skipReturn?: boolean; readonly queued?: boolean } = {},
 ): UnitSelectionCommand[] {
   const commands: UnitSelectionCommand[] = [];
   for (const settlerId of settlerIds) {
@@ -100,6 +106,7 @@ export function selectionEquipCommands(
       slot: equipSlotFor(entity.components, pick.group),
       goodType: pick.goodType,
       ...(skipReturn ? { skipReturn } : {}),
+      ...(queued ? { queued } : {}),
     });
   }
   return commands;

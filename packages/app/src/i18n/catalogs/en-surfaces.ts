@@ -480,7 +480,8 @@ export const enSurfaces = {
   loadingTips: {
     heading: 'Tip',
     tips: {
-      queueOrders: '{shift} + click queues walk, attack-move, signpost and open-chest orders.',
+      queueOrders:
+        '{shift} + click queues walk, attack-move, signpost, open-chest and put-on-from-the-ground orders.',
       buildMany: 'Hold {shift} while placing a building to place several of it, one per click.',
       attackMove: '{key} is attack-move: units walk to the target and attack everything on the way.',
       postGraduates:

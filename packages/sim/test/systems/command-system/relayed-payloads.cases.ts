@@ -211,6 +211,7 @@ function seatPayloads(t: Targets): { readonly [K in PlayerCommand['kind']]: read
       { kind: 'openChest', chest: t.hq, queued: true },
       { kind: 'claimAnimal', animal: t.hq, queued: true },
       { kind: 'equipGood', group: 'boots', slot: 0, goodType: SHOES, skipReturn: true },
+      { kind: 'equipGood', group: 'misc', slot: 1, goodType: MEAD, skipReturn: true, queued: true },
       { kind: 'unequipGood', group: 'misc', slot: 1 },
       { kind: 'setJob', jobType: CARPENTER },
       { kind: 'assignBuilder', site: t.hq },
@@ -248,6 +249,7 @@ function seatPayloads(t: Targets): { readonly [K in PlayerCommand['kind']]: read
     equipGood: [
       { entity: t.worker, group: 'boots', slot: 0, goodType: SHOES },
       { entity: t.worker, group: 'misc', slot: 0, goodType: MEAD },
+      { entity: t.worker, group: 'misc', slot: 1, goodType: MEAD, skipReturn: true, queued: true },
     ],
     leaveCarrier: [{ vehicle: t.cart }],
     loadIntoVehicle: [{ vehicle: t.cart, carrier: t.ship }],

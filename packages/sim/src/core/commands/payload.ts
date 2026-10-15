@@ -138,7 +138,7 @@ const UNIT_SELECTION_ACTION_PAYLOAD: {
   claimAnimal: { required: { animal: 'integer' }, optional: QUEUED },
   equipGood: {
     required: { group: { oneOf: EQUIP_CATEGORIES }, slot: 'integer', goodType: 'integer' },
-    optional: { skipReturn: 'boolean' },
+    optional: { skipReturn: 'boolean', ...QUEUED },
   },
   unequipGood: { required: { group: { oneOf: EQUIP_CATEGORIES }, slot: 'integer' } },
   setJob: { required: { jobType: 'integer' } },
@@ -282,7 +282,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
       slot: 'integer',
       goodType: 'integer',
     },
-    optional: { skipReturn: 'boolean' },
+    optional: { skipReturn: 'boolean', ...QUEUED },
   },
   leaveCarrier: { required: { vehicle: 'integer' } },
   loadIntoVehicle: { required: { vehicle: 'integer', carrier: 'integer' } },

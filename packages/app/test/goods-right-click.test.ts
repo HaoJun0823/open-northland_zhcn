@@ -173,6 +173,24 @@ describe('right-clicking a good on the ground', () => {
     ]);
   });
 
+  it('Shift queues the put-on behind the current order; a good nobody wears queues a walk', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const drinker = settlerAt(sim, JOB_COLLECTOR);
+    expect(await rightClick(sim, [drinker], heap(sim, GOOD_MEAD), true, true)).toEqual([
+      {
+        kind: 'equipGood',
+        entity: drinker,
+        group: 'misc',
+        slot: 0,
+        goodType: GOOD_MEAD,
+        skipReturn: true,
+        queued: true,
+      },
+    ]);
+    const [walk] = await rightClick(sim, [drinker], heap(sim, GOOD_WOOD), true, true);
+    expect(walk).toMatchObject({ kind: 'moveUnit', entity: drinker, queued: true });
+  });
+
   it('a good nobody wears, or a session without the pick-list seam, is a walk', async () => {
     const sim = new Simulation({ seed: 1, content: sandboxContent() });
     const collector = settlerAt(sim, JOB_COLLECTOR);

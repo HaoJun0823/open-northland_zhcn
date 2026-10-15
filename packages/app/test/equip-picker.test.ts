@@ -26,6 +26,20 @@ describe('equipSlotFor', () => {
     expect(equipSlotFor({ Equipment: full, EquipOrder: everySlot }, 'misc')).toBe(0);
   });
 
+  it('also skips the misc slots of put-ons Shift-queued behind the current order', () => {
+    const empty = { misc: [null, null, null, null] };
+    const waiting = {
+      orders: [
+        { kind: 'moveUnit', x: 4, y: 4 },
+        { kind: 'equipGood', group: 'misc', slot: 0 },
+        { kind: 'equipGood', group: 'misc', slot: 1 },
+      ],
+    };
+    expect(equipSlotFor({ Equipment: empty, OrderQueue: waiting }, 'misc')).toBe(2);
+    const fetching = { issuer: 'player', group: 'misc', slot: 2, queued: [] };
+    expect(equipSlotFor({ Equipment: empty, EquipOrder: fetching, OrderQueue: waiting }, 'misc')).toBe(3);
+  });
+
   it('ignores an assistant hand-out, which the player order replaces', () => {
     const empty = { misc: [null, null, null, null] };
     const handOut = { issuer: 'assistant-grant', group: 'misc', slot: 0, queued: [] };

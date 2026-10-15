@@ -356,6 +356,7 @@ export const QUEUEABLE_ORDER_KINDS = [
   'placeSignpost',
   'openChest',
   'claimAnimal',
+  'equipGood',
 ] as const;
 
 export type QueueableOrderCommand = Extract<Command, { kind: (typeof QUEUEABLE_ORDER_KINDS)[number] }>;

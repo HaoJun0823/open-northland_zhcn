@@ -28,6 +28,7 @@ import type { Entity, World } from '../../ecs/world.js';
 import { authorizedCommand } from '../command/authority.js';
 import type { System, SystemContext } from '../context.js';
 import { orderOpenChest } from './chests.js';
+import { equipGood } from './equipment.js';
 import { dropOrderQueue, isOrderableSettler } from './guards.js';
 import { orderClaimAnimal } from './livestock.js';
 import { breaksForMeal, startMealBreak } from './meal-break.js';
@@ -157,6 +158,9 @@ function startQueuedOrder(world: World, ctx: SystemContext, queued: QueuedUnitOr
       return;
     case 'claimAnimal':
       orderClaimAnimal(world, ctx, command);
+      return;
+    case 'equipGood':
+      equipGood(world, ctx, command);
       return;
     default:
       assertNever(command);

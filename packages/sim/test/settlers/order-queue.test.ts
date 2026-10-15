@@ -6,6 +6,8 @@ import {
   Building,
   CurrentAtomic,
   DeferredOrder,
+  Equipment,
+  EquipOrder,
   JobAssignment,
   MISSION_BEHAVIOUR,
   MoveGoal,
@@ -48,6 +50,8 @@ const EAT_TICKS = 5; // fixture `viking_eat` length
 const WALK_BUDGET = 400;
 const CARPENTER = 2;
 const SAWMILL = 2; // fixture building type with one carpenter seat
+const MEAD = 13; // fixture misc goods
+const POTION_FOOD_SMALL = 14;
 
 const MAP = { width: 48, height: 8 };
 
@@ -89,6 +93,11 @@ function eat(sim: Simulation, e: Entity): void {
     targetEntity: null,
     targetTile: null,
   });
+}
+
+/** A Shift-clicked put-on of the misc good `goodType` from a pile, into misc slot `slot`. */
+function queuedEquip(e: Entity, goodType: number, slot: number): Command {
+  return { kind: 'equipGood', entity: e, group: 'misc', slot, goodType, skipReturn: true, queued: true };
 }
 
 function stepUntil(sim: Simulation, done: () => boolean, budget = WALK_BUDGET): void {
@@ -301,6 +310,38 @@ describe('order queue', () => {
     stepUntil(sim, () => standsAt(sim, scout, 20, 2) && !sim.world.has(scout, OrderQueue), 2 * WALK_BUDGET);
     expect(standsAt(sim, scout, 20, 2)).toBe(true);
     expect([...sim.world.query(Signpost)]).toHaveLength(1);
+  });
+
+  it('queued put-ons wait for the walk ahead, then fill their own misc slots one after another', () => {
+    const sim = freshSim();
+    const e = ownedSettler(sim, 2, 2, WOODCUTTER);
+    const pile = sim.world.create();
+    sim.world.add(pile, Position, { x: fx.fromInt(14), y: fx.fromInt(5) });
+    sim.world.add(pile, Stockpile, {
+      amounts: new Map([
+        [MEAD, 1],
+        [POTION_FOOD_SMALL, 1],
+      ]),
+    });
+    sim.enqueueSetup(walk(e, 8, 2));
+    sim.enqueueSetup(queuedEquip(e, MEAD, 0));
+    sim.enqueueSetup(queuedEquip(e, POTION_FOOD_SMALL, 1));
+    sim.step();
+    expect(sim.world.get(e, OrderQueue).orders.map((order) => order.kind)).toEqual([
+      'equipGood',
+      'equipGood',
+    ]);
+    expect(sim.world.has(e, EquipOrder)).toBe(false);
+
+    stepUntil(sim, () => sim.world.has(e, EquipOrder));
+    expect(fx.toInt(sim.world.get(e, Position).x)).toBe(8);
+    stepUntil(sim, () => !sim.world.has(e, EquipOrder) && !sim.world.has(e, OrderQueue), 2 * WALK_BUDGET);
+    expect(sim.world.get(e, Equipment).misc.map((good) => good?.goodType ?? null)).toEqual([
+      MEAD,
+      POTION_FOOD_SMALL,
+      null,
+      null,
+    ]);
   });
 
   it('a queued attack-move marches after the walk ahead of it', () => {

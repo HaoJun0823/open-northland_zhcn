@@ -341,13 +341,20 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     }
     const chest = pickTopAt(deps.targets.chests(), world.x, world.y);
     const animal = pickTopAt(deps.targets.claimableLivestock(), world.x, world.y);
-    // Shift queues a chest to open, an animal to claim or a walk behind each settler's current order; no
-    // order on another target is queueable, so the ground under it is walked to instead.
+    const goods = deps.targets.goods();
+    const pile = pickTopAt(goods, world.x, world.y);
+    const pileGood = pile === null ? undefined : goods.find((target) => target.ref === pile)?.goodType;
+    // Shift queues a chest to open, an animal to claim, a good to put on or a walk behind each settler's
+    // current order; no order on another target is queueable, so the ground under it is walked to instead.
     if (event.shiftKey) {
       if (chest !== null && openChest(commanded, chest, true)) return true;
       const walkers = animal === null ? commanded : claimAnimal(commanded, animal, true);
       if (walkers.length === 0) return true;
-      return issueWalkOrder(worldToTile(world.x, world.y, deps.elevation), walkers, 'moveUnit', true);
+      const tile = worldToTile(world.x, world.y, deps.elevation);
+      const walk = (unworn: readonly FormationUnit[]): boolean =>
+        issueWalkOrder(tile, unworn, 'moveUnit', true);
+      if (pileGood !== undefined && wearFromGround(walkers, pileGood, walk, true)) return true;
+      return walk(walkers);
     }
     // The scouts go after a claimable animal; the rest take the ladder, which strikes an enemy's animal.
     const rest = animal === null ? commanded : claimAnimal(commanded, animal);
@@ -356,9 +363,6 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
     if (enemy !== null) return strike(rest, enemy);
     // A chest nobody selected may open is walked to like any ground.
     if (chest !== null && openChest(rest, chest)) return true;
-    const goods = deps.targets.goods();
-    const pile = pickTopAt(goods, world.x, world.y);
-    const pileGood = pile === null ? undefined : goods.find((target) => target.ref === pile)?.goodType;
     if (
       pileGood !== undefined &&
       systems.isFoodIn(deps.content, systems.edibleGoodFormOf(deps.content, pileGood))
@@ -700,11 +704,13 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
    * reachable unit rather than this exact heap. A misc good (mead, potions, amulets) skips the worn
    * check, as its slots stack. The gate is the sim's pick list, the same read the equip window shows.
    * Unlike an order from the equip window or the ring, the settler does not walk back to where it stood.
+   * `queued` waits behind each settler's current order.
    */
   const wearFromGround = (
     commanded: readonly FormationUnit[],
     goodType: number,
     onNoneWears: (commanded: readonly FormationUnit[]) => void,
+    queued = false,
   ): boolean => {
     const request = deps.requestEquipPicks;
     const group = goodsByType.get(goodType)?.equip?.category;
@@ -726,7 +732,7 @@ export function createUnitOrderController(deps: UnitOrderDeps): UnitOrderControl
         deps.snapshot(),
         wearers,
         { goodType, group },
-        { skipReturn: true },
+        { skipReturn: true, queued },
       );
       enqueueUnitSelection(commands, deps.enqueue, onOrderLimit);
       if (commands.length === 0) onNoneWears(commanded);

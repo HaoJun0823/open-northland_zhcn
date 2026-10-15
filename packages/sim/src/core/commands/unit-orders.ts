@@ -52,6 +52,7 @@ export type UnitSelectionAction =
       readonly slot: number;
       readonly goodType: number;
       readonly skipReturn?: boolean;
+      readonly queued?: boolean;
     }
   | { readonly kind: 'unequipGood'; readonly group: EquipCategory; readonly slot: number }
   | { readonly kind: 'setJob'; readonly jobType: number }
@@ -577,6 +578,8 @@ export type UnitOrderCommand =
       /** Skip the walk back to the issue spot: the errand ends where the fetch, or the stow of a
        *  swapped-out good, leaves the settler. */
       readonly skipReturn?: boolean;
+      /** As `moveUnit`'s; the good and slot are judged when the order starts. */
+      readonly queued?: boolean;
     }
   | {
       /**

@@ -161,6 +161,8 @@ export interface GameToolPanelDeps {
   readonly missionHuman?: (missionId: number) => number | null;
   /** Bumped when a mission read above lands anew, which rebuilds an open mission book. */
   readonly missionAnswersVersion?: () => number;
+  /** A briefing picture's URL; absent, only the shipped pictures resolve, never an installed map's. */
+  readonly missionPictureUrl?: (file: string) => string;
   /** The open mission book holds the game. */
   readonly onMissionHold?: (held: boolean) => void;
   /** Whether a held pause stops the clock; false on a shared clock. */
@@ -346,6 +348,7 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
       ...(deps.missionAnswersVersion !== undefined
         ? { missionAnswersVersion: deps.missionAnswersVersion }
         : {}),
+      ...(deps.missionPictureUrl !== undefined ? { missionPictureUrl: deps.missionPictureUrl } : {}),
       ...(deps.onMissionHold !== undefined ? { onMissionHold: deps.onMissionHold } : {}),
       ...(deps.pauseStopsClock !== undefined ? { pauseStopsClock: deps.pauseStopsClock } : {}),
       ...(deps.onShowOnMap !== undefined ? { onShowOnMap: deps.onShowOnMap } : {}),

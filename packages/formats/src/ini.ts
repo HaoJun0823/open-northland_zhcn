@@ -42,6 +42,7 @@ export {
   extractHouseDrawnBobs,
   extractHouseHitpoints,
   extractUpgradeTargets,
+  gfxHouseRecords,
 } from './ini/buildings-gfx/index.js';
 export type { RuleSection } from './ini/grammar.js';
 export {

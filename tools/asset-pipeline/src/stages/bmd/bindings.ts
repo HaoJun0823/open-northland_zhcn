@@ -16,8 +16,14 @@ import {
   type PaletteAlias,
   type RuleSection,
 } from '@open-northland/formats/ini';
-import { BUILDING_GRAPHICS_FILE, HUMAN_GRAPHICS_FILE, VEHICLE_GRAPHICS_FILE } from '../../data-layout.js';
+import {
+  BASE_BUILDING_GRAPHICS_FILE,
+  BUILDING_GRAPHICS_FILE,
+  HUMAN_GRAPHICS_FILE,
+  VEHICLE_GRAPHICS_FILE,
+} from '../../data-layout.js';
 import { readSourceFile, resolveSourceFile, type SourceRoots } from '../../roots.js';
+import { loadBaseOnlyHouseRecords } from '../base-houses.js';
 
 /**
  * One graphics-binding resolution: every `(bmd, palette)` binding, the palette `editname` index, the
@@ -92,6 +98,8 @@ interface GraphicsBindingSource {
   /** Path under the data root: binary base tables or readable rule tables. */
   readonly path: string;
   readonly encrypted?: true;
+  /** Reads the sections in place of decoding `path` whole. */
+  readonly load?: (roots: SourceRoots) => Promise<RuleSection[] | undefined>;
   readonly read: (sections: readonly RuleSection[]) => readonly BmdPaletteBinding[];
   readonly dedupe?: true;
   /** The source's `.bmd`s bake construction-progress thresholds rather than coverage (`AtlasAlphaMode`). */
@@ -161,6 +169,15 @@ const GRAPHICS_BINDING_SOURCES: readonly GraphicsBindingSource[] = [
     dedupe: true,
     buildTime: true,
     drawnBobs: extractHouseDrawnBobs,
+  },
+  /** The base houses whose names the readable table above does not define. */
+  {
+    path: BASE_BUILDING_GRAPHICS_FILE,
+    load: async (roots) =>
+      loadBaseOnlyHouseRecords(roots, (await readSections(roots, BUILDING_GRAPHICS_FILE)) ?? []),
+    read: extractBuildingGraphics,
+    dedupe: true,
+    buildTime: true,
   },
 ];
 
@@ -237,7 +254,7 @@ export async function resolveGraphicsBindings(roots: SourceRoots): Promise<Graph
   const landscapeBobs = new Map<string, Set<number>>();
   const houseBobs = new Map<string, Set<number>>();
   for (const source of GRAPHICS_BINDING_SOURCES) {
-    const sections = await readSections(roots, source.path, source.encrypted);
+    const sections = await (source.load?.(roots) ?? readSections(roots, source.path, source.encrypted));
     if (sections === undefined) continue;
     const records = source.read(sections);
     if (source.buildTime) for (const record of records) buildTimeBmds.add(record.bmd);

@@ -28,8 +28,8 @@ import type { OneShot } from './types.js';
  *   behavior: a jingle already sounding is not started again). A type that keeps firing earns a growing
  *   cooldown, so the tenth birth in a row is a reminder every minute while the first birth after a
  *   quiet spell rings at once; a notice card outside the lane grows its key's cooldown the same way. A
- *   more important jingle (a death, the alarm) rings over a lesser one already sounding; a lesser one
- *   waits for the lane and rings late, or is dropped once stale.
+ *   death rings the moment it happens, over whatever sounds. Any other jingle or alert rings over a
+ *   lesser one already sounding, or waits for the lane and rings late, or is dropped once stale.
  * - Voices, screams and positioned SFX draw from a rate budget each, loudest first, so the busiest battle
  *   starts a bounded number of layered sounds a second. Each sound pool starts at most its loudest shot
  *   a frame, holds a few instances at once, and the world as a whole a capped number
@@ -49,18 +49,21 @@ import type { OneShot } from './types.js';
 
 /**
  * The jingle and alert lane's ladder: a higher rank interrupts the lane, a lower or equal one waits for
- * it, so a birth never delays an alert. Authored, after the common RTS order of alerts.
+ * it, so a birth never delays an alert. An {@link IMMEDIATE_JINGLES} type never waits. Authored, after
+ * the common RTS order of alerts.
  */
 export const LANE_RANK = {
   /** The match decided. */
-  critical: 6,
+  critical: 7,
   /** The settlement attacked, or its alarm raised. */
-  baseAttacked: 5,
+  baseAttacked: 6,
   /** People attacked out in the field. */
-  unitsAttacked: 4,
+  unitsAttacked: 5,
+  /** A settler died. */
+  death: 4,
   /** A settler about to die of hunger: one life still to save. */
   peril: 3,
-  /** The economy failing: hunger, idle hands, a death. */
+  /** The economy failing: hunger, idle hands. */
   economy: 2,
   /** Something done: a building, a discovery, a birth, a wedding, a chest. */
   completion: 1,
@@ -71,7 +74,7 @@ export const JINGLE_PRIORITY: ReadonlyMap<number, number> = new Map([
   [JINGLE_WON, LANE_RANK.critical],
   [JINGLE_LOST, LANE_RANK.critical],
   [JINGLE_CIVIL_DEFENSE, LANE_RANK.baseAttacked],
-  [JINGLE_DEATH, LANE_RANK.economy],
+  [JINGLE_DEATH, LANE_RANK.death],
   [JINGLE_TECHNOLOGY, LANE_RANK.completion],
   [JINGLE_HOUSE_BUILT, LANE_RANK.completion],
   [JINGLE_OPEN_CHEST, LANE_RANK.completion],
@@ -86,6 +89,9 @@ export const ALERT_PRIORITY: Readonly<Record<AlertKind, number>> = {
   hungry: LANE_RANK.economy,
   weary: LANE_RANK.economy,
 };
+/** Jingle types that ring the moment their event happens, layered over the lane's holder when that one
+ *  ranks as high: a death heard seconds late reads as a different event. Authored. */
+export const IMMEDIATE_JINGLES: ReadonlySet<number> = new Set([JINGLE_DEATH]);
 /** The rank of a jingle the table leaves out (a custom bank's type): under everything ranked. */
 export const DEFAULT_JINGLE_PRIORITY = 0;
 /** How long a jingle without a music-duck hold, or an alert whose wav is not decoded yet, is taken to
@@ -186,6 +192,7 @@ interface PendingJingle {
 interface LaneType {
   readonly key: string;
   readonly rank: number;
+  readonly immediate: boolean;
 }
 
 function laneType(shot: OneShot): LaneType | null {
@@ -194,9 +201,11 @@ function laneType(shot: OneShot): LaneType | null {
     return {
       key: `jingle:${lane.musicType}`,
       rank: JINGLE_PRIORITY.get(lane.musicType) ?? DEFAULT_JINGLE_PRIORITY,
+      immediate: IMMEDIATE_JINGLES.has(lane.musicType),
     };
   }
-  if (lane?.kind === 'alert') return { key: `alert:${lane.alert}`, rank: ALERT_PRIORITY[lane.alert] };
+  if (lane?.kind === 'alert')
+    return { key: `alert:${lane.alert}`, rank: ALERT_PRIORITY[lane.alert], immediate: false };
   return null;
 }
 
@@ -224,7 +233,7 @@ export interface ArbiterOptions {
 export class OneShotArbiter {
   private readonly cooldowns = new GrowingCooldowns();
   private readonly pending = new Map<string, PendingJingle>();
-  /** When the jingle lane frees, and the rank of the jingle holding it. */
+  /** When the jingle lane frees, and the highest rank among the jingles holding it. */
   private laneBusyUntil = Number.NEGATIVE_INFINITY;
   private lanePriority = DEFAULT_JINGLE_PRIORITY;
   /** The player's jingles switch: off drops every {@link isCompletionJingle} shot on arrival. */
@@ -360,7 +369,7 @@ export class OneShotArbiter {
     const type = laneType(shot);
     if (type === null || this.ledger.keyCooling(shot.key, now)) return;
     if (this.cooldowns.cooling(type.key, now)) return; // folded into the last ring
-    if (now < this.laneBusyUntil && type.rank <= this.lanePriority) {
+    if (now < this.laneBusyUntil && type.rank <= this.lanePriority && !type.immediate) {
       this.pending.set(type.key, { shot, since: now }); // the latest instance waits; earlier ones fold into it
       return;
     }
@@ -379,8 +388,9 @@ export class OneShotArbiter {
     const length = this.laneLengthS(shot);
     this.cooldowns.rang(type.key, shot.cooldownS ?? length, now);
     this.pending.delete(type.key);
-    this.laneBusyUntil = now + length;
-    this.lanePriority = type.rank;
+    const held = now < this.laneBusyUntil;
+    this.laneBusyUntil = held ? Math.max(this.laneBusyUntil, now + length) : now + length;
+    this.lanePriority = held ? Math.max(this.lanePriority, type.rank) : type.rank;
     out.push(this.ledger.ring(shot, now));
   }
 

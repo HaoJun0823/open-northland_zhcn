@@ -90,26 +90,28 @@ describe('jingle lane', () => {
     expect(arbiter.decide([], deathEnd + 0.1).map((s) => s.key)).toEqual(['born:2']);
   });
 
-  it('orders one frame by rank, so the verdict rings first and the lesser ones wait', () => {
+  it('rings a verdict and a death of one frame at once, while a birth waits and goes stale', () => {
     const arbiter = new OneShotArbiter();
     const frame = [jingle(JINGLE_BIRTH, 'born:1'), jingle(JINGLE_WON, 'won'), jingle(JINGLE_DEATH, 'died:1')];
-    expect(arbiter.decide(frame, 0).map((s) => s.key)).toEqual(['won']);
+    expect(arbiter.decide(frame, 0).map((s) => s.key)).toEqual(['won', 'died:1']);
     const wonEnd = (JINGLE_DUCK_HOLD_MS.get(JINGLE_WON) ?? 0) / 1000;
-    // Both waited too long for the lane: the won jingle outlives the pending age, so neither rings.
+    // The birth waited too long for the lane: the won jingle outlives the pending age.
     expect(JINGLE_PENDING_MAX_AGE_S).toBeLessThan(wonEnd);
     expect(arbiter.decide([], wonEnd + 0.1)).toHaveLength(0);
   });
 
-  it('rings the highest-ranked waiting jingle first once the lane frees', () => {
+  it('rings a death at once over a verdict, and a waiting birth only once both have ended', () => {
     const arbiter = new OneShotArbiter();
     expect(arbiter.decide([jingle(JINGLE_WON, 'won')], 0)).toHaveLength(1);
     const wonEnd = (JINGLE_DUCK_HOLD_MS.get(JINGLE_WON) ?? 0) / 1000;
     const late = wonEnd - 1;
     expect(
-      arbiter.decide([jingle(JINGLE_BIRTH, 'born:1'), jingle(JINGLE_DEATH, 'died:1')], late),
-    ).toHaveLength(0);
-    expect(arbiter.decide([], wonEnd + 0.1).map((s) => s.key)).toEqual(['died:1']);
-    const deathEnd = wonEnd + 0.1 + (JINGLE_DUCK_HOLD_MS.get(JINGLE_DEATH) ?? 0) / 1000;
+      arbiter
+        .decide([jingle(JINGLE_BIRTH, 'born:1'), jingle(JINGLE_DEATH, 'died:1')], late)
+        .map((s) => s.key),
+    ).toEqual(['died:1']);
+    const deathEnd = late + (JINGLE_DUCK_HOLD_MS.get(JINGLE_DEATH) ?? 0) / 1000;
+    expect(arbiter.decide([], wonEnd + 0.1)).toHaveLength(0);
     expect(arbiter.decide([], deathEnd + 0.1).map((s) => s.key)).toEqual(['born:1']);
   });
 

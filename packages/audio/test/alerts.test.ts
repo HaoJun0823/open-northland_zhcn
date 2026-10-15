@@ -3,7 +3,7 @@ import type { Camera } from '@open-northland/render/data';
 import type { Entity, HalfCellNode, SimEvent, WorldSnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { AlertDesk, noticeVoiceShot } from '../src/data/alerts.js';
-import { JINGLE_BIRTH, JINGLE_DUCK_HOLD_MS, JINGLE_TECHNOLOGY } from '../src/data/bindings.js';
+import { JINGLE_BIRTH, JINGLE_DEATH, JINGLE_DUCK_HOLD_MS, JINGLE_TECHNOLOGY } from '../src/data/bindings.js';
 import {
   ALERT_DUCK_DB,
   ALERT_DUCKED_BUSES,
@@ -21,6 +21,7 @@ import {
   DEPARTURE_BELL_RATE,
   defaultBindings,
   directAudio,
+  IMMEDIATE_JINGLES,
   JINGLE_COOLDOWN_MAX_S,
   LANE_RANK,
   NOTICE_CARD_GAIN,
@@ -352,10 +353,11 @@ describe('notice cadence', () => {
 });
 
 describe('alert lane ladder', () => {
-  it('ranks defeat over the settlement over people over the economy over completions', () => {
+  it('ranks defeat over the settlement over people over a death over the economy over completions', () => {
     expect(LANE_RANK.critical).toBeGreaterThan(LANE_RANK.baseAttacked);
     expect(LANE_RANK.baseAttacked).toBeGreaterThan(LANE_RANK.unitsAttacked);
-    expect(LANE_RANK.unitsAttacked).toBeGreaterThan(LANE_RANK.peril);
+    expect(LANE_RANK.unitsAttacked).toBeGreaterThan(LANE_RANK.death);
+    expect(LANE_RANK.death).toBeGreaterThan(LANE_RANK.peril);
     expect(LANE_RANK.peril).toBeGreaterThan(LANE_RANK.economy);
     expect(LANE_RANK.economy).toBeGreaterThan(LANE_RANK.completion);
   });
@@ -368,6 +370,25 @@ describe('alert lane ladder', () => {
     expect(keys(arbiter.decide([], CLIP_S))).toEqual(['unitsAttacked']);
     expect(keys(arbiter.decide([], 2 * CLIP_S))).toEqual(['hungry']);
     expect(keys(arbiter.decide([], 3 * CLIP_S))).toEqual(['born']);
+  });
+
+  it('rings a death the moment it happens, over a horn or a sigh still holding the lane', () => {
+    const arbiter = new OneShotArbiter({ playback: { clipLengthS: () => CLIP_S } });
+    const death: OneShot = {
+      files: ['jingles/death.wav'],
+      gain: 1,
+      pan: 0,
+      key: 'died',
+      lane: { kind: 'jingle', musicType: JINGLE_DEATH },
+    };
+    expect(IMMEDIATE_JINGLES.has(JINGLE_DEATH)).toBe(true);
+    expect(arbiter.decide([laneShot('hungry')], 0)).toHaveLength(1);
+    expect(arbiter.decide([death], CLIP_S / 2).map((s) => s.key)).toEqual(['died']);
+    const later = 10 * JINGLE_COOLDOWN_MAX_S;
+    expect(arbiter.decide([laneShot('baseAttacked')], later)).toHaveLength(1);
+    expect(arbiter.decide([{ ...death, key: 'died:2' }], later + CLIP_S / 2).map((s) => s.key)).toEqual([
+      'died:2',
+    ]);
   });
 
   it('never lets a birth delay an alert: the alert rings over it at once', () => {

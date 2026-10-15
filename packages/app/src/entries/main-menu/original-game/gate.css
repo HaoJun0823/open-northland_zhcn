@@ -74,6 +74,20 @@
   gap: calc(var(--u) * 20);
 }
 
+.main-menu__gate-store {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 12);
+}
+
+.main-menu__gate-store-mark {
+  width: calc(var(--u) * 32);
+  height: calc(var(--u) * 32);
+  /* Taller than the label's line box; a negative margin keeps the button its ghost height. */
+  margin-block: calc(var(--u) * -4);
+  fill: currentColor;
+}
+
 .main-menu__gate-stores-label {
   font:
     500 calc(var(--u) * 19) / 1 "Alegreya Sans",

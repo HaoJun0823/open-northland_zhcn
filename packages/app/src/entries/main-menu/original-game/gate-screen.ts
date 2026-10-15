@@ -16,10 +16,11 @@ import {
   originalGameGate,
   readerCheck,
 } from './gate.js';
+import { type StoreMark, storeMark } from './store-marks.js';
 
-const STORE_PAGES: readonly { readonly name: string; readonly href: string }[] = [
-  { name: 'Steam', href: 'https://store.steampowered.com/app/351870/' },
-  { name: 'GOG', href: 'https://www.gog.com/game/cultures_34' },
+const STORE_PAGES: readonly { readonly name: string; readonly href: string; readonly mark: StoreMark }[] = [
+  { name: 'Steam', href: 'https://store.steampowered.com/app/351870/', mark: 'steam' },
+  { name: 'GOG', href: 'https://www.gog.com/game/cultures_34', mark: 'gog' },
 ];
 
 /** Product names, untranslated in every locale. */
@@ -133,7 +134,8 @@ export function originalGameGateScreen(
   const stores = node('div', 'main-menu__gate-stores');
   stores.append(node('span', 'main-menu__gate-stores-label', copy.buy));
   for (const store of STORE_PAGES) {
-    const link = node('a', 'main-menu__ghost', store.name);
+    const link = node('a', 'main-menu__ghost main-menu__gate-store');
+    link.append(storeMark(store.mark), store.name);
     link.href = store.href;
     link.target = '_blank';
     link.rel = 'noopener';

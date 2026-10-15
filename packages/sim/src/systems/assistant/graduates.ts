@@ -6,6 +6,7 @@ import type { SystemContext } from '../context.js';
 import { bindEmployment, craftsAnyAt, openWorkerJobFromList } from '../economy/jobs/index.js';
 import { jobUsesWorkFlag } from '../economy/work-flag.js';
 import { routeRegions } from '../footprint/index.js';
+import { schoolTeachesMethodChoice } from '../orders/education.js';
 import { isTradeAssignable } from '../orders/guards.js';
 import { isFighterJob } from '../readviews/index.js';
 import { interactionCell } from '../settlers/targets/index.js';
@@ -16,10 +17,10 @@ import { hexNodeDistance } from '../spatial/metric.js';
  * The assistant's graduate posting, checked once as a settler leaves school in `jobType`: with its owner's
  * switch on, bind it to the nearest of the owner's workplaces with a free slot in that trade it can walk to,
  * ties by entity id. A foundation counts, since a site takes its staff from placement. Returns whether it was
- * posted; with no such slot nothing happens. A workplace that crafts a method the settler learned wins over
- * a nearer one that does not, and the graduate starts on those methods. A flag gatherer (collector, fisher)
- * is never posted, since its work runs from a flag rather than a building. Source basis: authored, the
- * switch is this project's addition.
+ * posted; with no such slot nothing happens. Where the school teaches the trade several methods, a workplace
+ * that crafts one the settler learned wins over a nearer one that does not, and the graduate starts on those
+ * methods. A flag gatherer (collector, fisher) is never posted, since its work runs from a flag rather than a
+ * building. Source basis: authored, the switch is this project's addition.
  */
 export function postGraduate(
   world: World,
@@ -45,7 +46,11 @@ export function postGraduate(
     learned: progress.learned,
     jobType: settler.jobType,
   };
-  const methods = progress.learned?.good ?? [];
+  // A trade with a single school method keeps its first product: the player picked the trade, not a ware
+  // (a baker taught cakes still bakes bread first).
+  const methods = schoolTeachesMethodChoice(ctx.content, settler.tribe, jobType)
+    ? (progress.learned?.good ?? [])
+    : [];
   const regions = routeRegions(world, ctx, terrain);
   let best: Entity | null = null;
   let bestCrafts = false;

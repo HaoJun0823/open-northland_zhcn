@@ -123,7 +123,9 @@ active training orders, and a course is refused while the school is full, the ta
 or the school's door out of the worker's reach; the dialog greys such courses with the reason.
 Reissuing the same course keeps its progress (the original restarts the count, an approximation);
 choosing another starts a new course. A completed course grants only the chosen qualification, not a
-general education currency. Changing profession releases the old workplace. Moving cancels the order;
+general education currency. The data gives leather armour only an experience threshold, the one crafted
+ware without a course; a pipeline correction adds a five-lesson course beside the tunic's, an owner
+decision that departs from the original. Changing profession releases the old workplace. Moving cancels the order;
 needs can interrupt it without losing progress. A school lost to demolition or another owner cancels
 the course. Military recruitment remains the barracks' responsibility.
 

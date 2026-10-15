@@ -42,6 +42,7 @@ const COLLECTOR = 1;
 const CARPENTER = 2;
 const PLANK = 2; // the forge's first product, and the sawmill's only one
 const FORGED = 3; // the forge's second product, taught at the school as a method
+const BREAD = 7; // a second carpenter method, so the school offers a choice between methods
 const SCHOOL_AT = { x: 10, y: 10 };
 const MAP_CELLS = 24;
 /** The school yard's reach in half-cell steps, matching the planner's loiter yard. */
@@ -55,33 +56,33 @@ type Target = 'job' | 'good';
 
 /**
  * A world with a built school teaching `course`, discovered for the seat, and the seat's pupil of `jobType`.
- * A `good` course is a carpenter's method.
+ * A `good` course is a carpenter's method, beside any `otherMethods` the school also teaches the carpenter.
  */
 function school(
   jobType: number,
   course: number,
   map: TerrainMap = grassCellMap(MAP_CELLS, MAP_CELLS),
   target: Target = 'job',
+  otherMethods: readonly number[] = [],
 ): { sim: Simulation; pupil: Entity; house: Entity } {
+  const methods = target === 'good' ? [course, ...otherMethods] : [];
   const base = testContent();
   const content = parseContentSet({
     ...base,
     buildings: [...base.buildings, { typeId: SCHOOL, id: 'school', kind: 'training', schoolSize: 1 }],
     tribes: base.tribes.map((tribe) => ({
       ...tribe,
-      jobEnables:
-        target === 'good'
-          ? [...tribe.jobEnables, { jobType: CARPENTER, kind: 'good', targetId: course }]
-          : tribe.jobEnables,
-      jobRequirements: [
-        {
-          target,
-          targetId: course,
-          requirement: 'train',
-          amount: 1,
-          experienceTypes: [TRAINING_EXPERIENCE_TYPE],
-        },
+      jobEnables: [
+        ...tribe.jobEnables,
+        ...methods.map((targetId) => ({ jobType: CARPENTER, kind: 'good' as const, targetId })),
       ],
+      jobRequirements: [course, ...otherMethods].map((targetId) => ({
+        target,
+        targetId,
+        requirement: 'train' as const,
+        amount: 1,
+        experienceTypes: [TRAINING_EXPERIENCE_TYPE],
+      })),
     })),
   });
   const sim = new Simulation({ seed: 7, content, map });
@@ -246,8 +247,8 @@ describe('school graduates', () => {
     expect(sim.world.get(pupil, GraduateWait).school).toBe(house);
   });
 
-  it('starts a graduate on the method it learned rather than the first product', () => {
-    const { sim, pupil, house } = school(COLLECTOR, FORGED, undefined, 'good');
+  it('starts a graduate on the method it picked from several rather than the first product', () => {
+    const { sim, pupil, house } = school(COLLECTOR, FORGED, undefined, 'good', [BREAD]);
     postGraduates(sim, true);
     const forge = building(sim, FORGE, { x: 8, y: 12 });
     graduate(sim, pupil, house, FORGED, 'good');
@@ -257,8 +258,19 @@ describe('school graduates', () => {
     expect(productionCountOf(counters, PLANK)).toBe(0);
   });
 
-  it('posts a graduate past a nearer workplace that lacks its learned method', () => {
+  it('keeps the first product for a trade whose school teaches a single method', () => {
     const { sim, pupil, house } = school(COLLECTOR, FORGED, undefined, 'good');
+    postGraduates(sim, true);
+    const forge = building(sim, FORGE, { x: 8, y: 12 });
+    graduate(sim, pupil, house, FORGED, 'good');
+    expect(sim.world.get(pupil, JobAssignment).workplace).toBe(forge);
+    const counters = sim.world.get(pupil, ProductionCounters);
+    expect(productionCountOf(counters, PLANK)).toBe(PRODUCTION_UNLIMITED);
+    expect(productionCountOf(counters, FORGED)).toBe(0);
+  });
+
+  it('posts a graduate past a nearer workplace that lacks its learned method', () => {
+    const { sim, pupil, house } = school(COLLECTOR, FORGED, undefined, 'good', [BREAD]);
     postGraduates(sim, true);
     building(sim, SAWMILL, { x: 8, y: 12 });
     const forge = building(sim, FORGE, { x: 20, y: 20 });

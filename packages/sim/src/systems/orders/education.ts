@@ -78,6 +78,22 @@ export function knowsCourse(
   );
 }
 
+/** Whether the school teaches `jobType`'s trade more than one method, so a course in one was picked from a
+ *  list rather than being the trade's only course. */
+export function schoolTeachesMethodChoice(content: ContentSet, tribeId: number, jobType: number): boolean {
+  const tribe = contentIndex(content).tribes.get(tribeId);
+  if (tribe === undefined) return false;
+  const methods = new Set<number>();
+  for (const edge of tribe.jobEnables) {
+    if (edge.kind !== 'good' || edge.jobType !== jobType) continue;
+    const taught = tribe.jobRequirements.some(
+      (r) => r.requirement === 'train' && r.target === 'good' && r.targetId === edge.targetId,
+    );
+    if (taught) methods.add(edge.targetId);
+  }
+  return methods.size > 1;
+}
+
 /** School course policy: a method teaches its producer trade as well. Preserve a matching trade; otherwise the lowest
  * declared civilian producer wins if content shares a method across trades. */
 export function schoolMethodJob(

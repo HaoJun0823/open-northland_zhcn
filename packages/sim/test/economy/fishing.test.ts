@@ -28,7 +28,9 @@ import {
   FISH_CAST_ATOMIC,
   FISH_CAUGHT_ATOMIC,
   FISH_FAILED_ATOMIC,
+  FISH_REPRODUCTION_TICKS,
   FISH_SHORE_SEARCH_RADIUS,
+  FISH_SPREAD_RADIUS,
   fishReproductionSystem,
   takeFishNear,
   workplaceShoreSearchRadius,
@@ -478,21 +480,57 @@ describe('fishing', () => {
     expect(sim.world.has(fisher, CurrentAtomic)).toBe(false);
   });
 
-  it('reproduces only a nonempty, nonfull swarm on the 2160-tick cadence', () => {
+  it('grows a nonempty, nonfull swarm on the 2160-tick cadence', () => {
     const sim = new Simulation({ seed: 1, content: fishingContent(), map: grassNodeMap(12, 6) });
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('test needs terrain');
     const swarms = addFishSwarms(sim.world, terrain, [
       { hx: 2, hy: 2, count: 0, continent: 1 },
       { hx: 5, hy: 2, count: 2, continent: 1 },
-      { hx: 8, hy: 2, count: 30, continent: 1 },
+      { hx: 8, hy: 2, count: 29, continent: 2 },
     ]);
     // Empty authored slots are intentionally not materialized.
     expect(swarms).toHaveLength(2);
     fishReproductionSystem(sim.world, { ...ctxOf(sim), tick: 2159 });
-    expect(swarms.map((e) => sim.world.get(e, FishSwarm).count)).toEqual([2, 30]);
+    expect(swarms.map((e) => sim.world.get(e, FishSwarm).count)).toEqual([2, 29]);
     fishReproductionSystem(sim.world, { ...ctxOf(sim), tick: 2160 });
     expect(swarms.map((e) => sim.world.get(e, FishSwarm).count)).toEqual([3, 30]);
+  });
+
+  it('has a full swarm feed its nearest nonfull swarm on the same water, an emptied one included', () => {
+    const sim = new Simulation({ seed: 1, content: fishingContent(), map: grassNodeMap(48, 6) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('test needs terrain');
+    const [full, emptied, nearerElsewhere, farther] = addFishSwarms(sim.world, terrain, [
+      { hx: 20, hy: 2, count: 30, continent: 1 },
+      { hx: 24, hy: 2, count: 5, continent: 1 },
+      { hx: 22, hy: 2, count: 5, continent: 2 },
+      { hx: 14, hy: 2, count: 5, continent: 1 },
+    ]);
+    if (full === undefined || emptied === undefined || nearerElsewhere === undefined || farther === undefined)
+      throw new Error('fish swarms did not spawn');
+    sim.world.mut(emptied, FishSwarm).count = 0;
+    fishReproductionSystem(sim.world, { ...ctxOf(sim), tick: FISH_REPRODUCTION_TICKS });
+    // Fed first in the pass, the emptied swarm grows again on its own visit.
+    expect([full, emptied, nearerElsewhere, farther].map((e) => sim.world.get(e, FishSwarm).count)).toEqual([
+      30, 2, 6, 6,
+    ]);
+  });
+
+  it(`feeds no swarm ${FISH_SPREAD_RADIUS} map points or more from a full one`, () => {
+    const sim = new Simulation({ seed: 1, content: fishingContent(), map: grassNodeMap(48, 6) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('test needs terrain');
+    const [, beyond, within] = addFishSwarms(sim.world, terrain, [
+      { hx: 20, hy: 2, count: 30, continent: 1 },
+      { hx: 20 + FISH_SPREAD_RADIUS, hy: 2, count: 1, continent: 1 },
+      { hx: 20 - FISH_SPREAD_RADIUS + 1, hy: 2, count: 1, continent: 1 },
+    ]);
+    if (beyond === undefined || within === undefined) throw new Error('fish swarms did not spawn');
+    sim.world.mut(beyond, FishSwarm).count = 0;
+    sim.world.mut(within, FishSwarm).count = 0;
+    fishReproductionSystem(sim.world, { ...ctxOf(sim), tick: FISH_REPRODUCTION_TICKS });
+    expect([beyond, within].map((e) => sim.world.get(e, FishSwarm).count)).toEqual([0, 2]);
   });
 
   it('reselects a nearby nonempty swarm when a planned target was depleted by another fisher', () => {

@@ -32,6 +32,8 @@ export function workplaceShoreSearchRadius(
 }
 /** The original's fish reproduction fires exactly once per 2160 game ticks. */
 export const FISH_REPRODUCTION_TICKS = 2160;
+/** A full swarm feeds a swarm fewer than this many map points away (original behavior). */
+export const FISH_SPREAD_RADIUS = 16;
 
 /** The raw fish, the fisher's work and experience good whatever form lands in hand. Resolved by slug so
  *  modded numeric ids stay valid. */
@@ -41,8 +43,8 @@ export function fishGoodOf(content: ContentSet): number | undefined {
 
 /**
  * Add authored swarms before tick zero, retaining source order as entity order. Original
- * behavior: a swarm stores at most 30 fish, the fisher's shore search covers 20 nodes, and reproduction
- * increments each positive non-full swarm once every 2160 ticks.
+ * behavior: a swarm stores at most 30 fish and the fisher's shore search covers 20 nodes; reproduction is
+ * {@link fishReproductionSystem}.
  */
 export function addFishSwarms(
   world: World,
@@ -115,12 +117,42 @@ export function takeFishNear(
   return best.entity;
 }
 
-/** Positive swarms recover one fish every three game minutes, capped at the source's 30. */
+/**
+ * Once per {@link FISH_REPRODUCTION_TICKS}, in swarm order, a positive swarm below the cap gains one fish
+ * and a full one gives one to its nearest non-full swarm on the same water within
+ * {@link FISH_SPREAD_RADIUS}, an emptied one included. Original behavior; the pass reads each count as
+ * it reaches the swarm, so a swarm fed earlier in the pass grows again on its own visit.
+ */
 export const fishReproductionSystem: System = (world, ctx) => {
   if (ctx.tick % FISH_REPRODUCTION_TICKS !== 0) return;
-  for (const e of world.query(FishSwarm)) {
-    const swarm = world.get(e, FishSwarm);
-    if (swarm.count <= 0 || swarm.count >= MAX_FISH_PER_SWARM) continue;
-    world.mut(e, FishSwarm).count += 1;
+  for (const e of world.canonicalQuery(FishSwarm)) {
+    const count = world.get(e, FishSwarm).count;
+    if (count <= 0) continue;
+    if (count < MAX_FISH_PER_SWARM) {
+      world.mut(e, FishSwarm).count = count + 1;
+      continue;
+    }
+    const fed = nearestUnfilledSwarm(world, e);
+    if (fed !== null) world.mut(fed, FishSwarm).count += 1;
   }
 };
+
+/** The non-full swarm on `full`'s water nearest it within {@link FISH_SPREAD_RADIUS}, the lower id on a tie. */
+function nearestUnfilledSwarm(world: World, full: Entity): Entity | null {
+  const at = world.get(full, Position);
+  const origin = nodeOfPosition(at.x, at.y);
+  const continent = world.get(full, FishSwarm).continent;
+  let best: Entity | null = null;
+  let bestDistance = FISH_SPREAD_RADIUS;
+  for (const entity of fishSwarmsNearNode(world, origin.hx, origin.hy, FISH_SPREAD_RADIUS - 1)) {
+    const swarm = world.get(entity, FishSwarm);
+    if (swarm.count >= MAX_FISH_PER_SWARM || swarm.continent !== continent) continue;
+    const position = world.get(entity, Position);
+    const distance = hexDistance(origin, nodeOfPosition(position.x, position.y));
+    if (distance < bestDistance) {
+      best = entity;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}

@@ -25,6 +25,11 @@ export const enSurfaces = {
     fullscreenPrompt: 'For a better experience, play in fullscreen',
     originalGame: {
       message: 'The game needs one of these games installed:',
+      games: [
+        'Cultures 2: The Gates of Asgard',
+        'Cultures: Northland',
+        'Cultures - 8th Wonder of the World',
+      ],
       pick: 'Pick the game folder',
       checking: 'Checking the folder…',
       notRecognized: 'That folder holds no Cultures game data',

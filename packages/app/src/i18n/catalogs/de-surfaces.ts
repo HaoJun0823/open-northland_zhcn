@@ -24,6 +24,11 @@ export const deSurfaces = {
     fullscreenPrompt: 'Am besten spielst du im Vollbildmodus',
     originalGame: {
       message: 'Zum Spielen muss eines dieser Spiele installiert sein:',
+      games: [
+        'Cultures 2: Die Tore Asgards',
+        'Cultures: Northland',
+        'Cultures - 8th Wonder of the World',
+      ],
       pick: 'Spielordner wählen',
       checking: 'Ordner wird geprüft…',
       notRecognized: 'Dieser Ordner enthält keine Cultures-Spieldaten',

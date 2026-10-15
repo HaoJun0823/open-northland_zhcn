@@ -16,6 +16,7 @@ import {
   fightPlaceOf,
 } from './fight-areas.js';
 import { type MessageNaming, MessageRaiser, type RaisedMessage } from './raise.js';
+import type { SightingOf } from './sighting.js';
 import type { NamedSettler } from './text.js';
 import {
   type FightTally,
@@ -55,6 +56,7 @@ export type BuildingTrades = (typeId: number) => readonly number[] | undefined;
 export type VehicleSiteTest = (typeId: number) => boolean;
 
 const NO_VEHICLE_SITES: VehicleSiteTest = () => false;
+const NOWHERE: SightingOf = () => null;
 
 /** The two notes one settler's discoveries make: the trades and goods it learned, and the buildings
  *  they open. */
@@ -241,7 +243,8 @@ export function courseNoteKeeps(
  * frame's steps removed, as the world last held them: the only place a settler reaped this frame can
  * still be named, and a body a killing blow felled can still be told. A blow on the seat's own settler,
  * building or vehicle files a hit under `fights`, unless it is the seat's own fire or splash from a
- * side not at war with it; each fight a frame touched raises one note.
+ * side not at war with it; each fight a frame touched raises one note. A defeated seat's note points
+ * where `sightingOf` finds it.
  */
 export function messagesFromEvents(
   events: readonly SimEvent[],
@@ -252,6 +255,7 @@ export function messagesFromEvents(
   buildingTrades: BuildingTrades,
   fights: FightAreas,
   isVehicleSite: VehicleSiteTest = NO_VEHICLE_SITES,
+  sightingOf: SightingOf = NOWHERE,
 ): RaisedMessage[] {
   const raiser = new MessageRaiser(snapshot, naming);
   const discoveries = new Map<number, MessageTechnology[]>();
@@ -415,7 +419,7 @@ export function messagesFromEvents(
           {
             type: USER_MESSAGE_TYPE.playerDied,
             subject: null,
-            at: null,
+            at: sightingOf(ev.player),
             about: ev.player,
             goodType: null,
             technologies: null,

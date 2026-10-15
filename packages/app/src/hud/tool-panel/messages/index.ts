@@ -109,8 +109,8 @@ export interface MessageCenterDeps {
   /** The seats this player has met, as the diplomacy roster lists them; a first contact and a seat that
    *  changed its stance toward this one each become a note. Read once per tick. */
   readonly metSeats: () => readonly MetSeat[];
-  /** The viewer's fog, which bounds where a first-contact note points; null with fog off or the whole
-   *  map in view. */
+  /** The viewer's fog, which bounds where a note about another seat points; null with fog off or the
+   *  whole map in view. */
   readonly fogView: () => FogView | null;
   readonly onSelect: (target: MessageTarget) => void;
   /** An attack note just shown as a new card, at its hit: the minimap's alarm follows the column. */
@@ -393,6 +393,7 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
       presentedTick = snapshot.tick;
       // The same snapshot object means no tick ran, so nothing was raised and nothing aged.
       if (snapshot !== previous) {
+        const sighting = (player: number) => sightingOf(snapshot, player, deps.fogView(), departed);
         if (seat !== null && events.length > 0) {
           for (const raised of messagesFromEvents(
             events,
@@ -403,6 +404,7 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
             deps.buildingTrades,
             fights,
             deps.isVehicleSite,
+            sighting,
           )) {
             take(raised, snapshot.tick);
           }
@@ -411,7 +413,6 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
           take(raised, snapshot.tick);
         }
         if (seat !== null) {
-          const sighting = (player: number) => sightingOf(snapshot, player, deps.fogView());
           for (const raised of diplomacySource.poll(naming, sighting)) take(raised, snapshot.tick);
         }
         if (seat !== null && deps.gallery !== undefined && galleryDue(snapshot.tick)) {

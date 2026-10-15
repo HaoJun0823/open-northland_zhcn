@@ -74,19 +74,20 @@ describe('user messages about the other seats', () => {
     ]);
   });
 
-  it('points a first contact at where the seat was sighted, and a stance change nowhere', () => {
+  it('points a first contact and a stance change at where the viewer finds the seat', () => {
     let seats: readonly MetSeat[] = [{ player: ALLY, towardYou: 'neutral' }];
     const source = createDiplomacyMessageSource(() => seats);
-    const met: HalfCellNode = { hx: 12, hy: 8 };
-    const sighting = (player: number): HalfCellNode | null => (player === RIVAL ? met : null);
+    const allyAt: HalfCellNode = { hx: 4, hy: 6 };
+    const rivalAt: HalfCellNode = { hx: 12, hy: 8 };
+    const sighting = (player: number): HalfCellNode | null => (player === RIVAL ? rivalAt : allyAt);
     source.poll(naming, sighting);
     seats = [
       { player: ALLY, towardYou: 'enemy' },
       { player: RIVAL, towardYou: 'neutral' },
     ];
     expect(source.poll(naming, sighting).map((r) => [r.pending.type, r.pending.at])).toEqual([
-      [USER_MESSAGE_TYPE.diplomacyChanged, null],
-      [USER_MESSAGE_TYPE.playerSighted, met],
+      [USER_MESSAGE_TYPE.diplomacyChanged, allyAt],
+      [USER_MESSAGE_TYPE.playerSighted, rivalAt],
     ]);
   });
 });
@@ -128,6 +129,15 @@ describe('where a seat was sighted', () => {
       nodeAt(4, 4),
     );
     expect(sightingOf(snapshot, RIVAL, fogOf(new Map()))).toBeNull();
+  });
+
+  it('falls back to a body this frame removed, still only on known ground', () => {
+    const lastMan = owned(9, RIVAL, 6, 6);
+    const gone = snapshotOf([owned(1, ALLY, 2, 2)]);
+    const known = fogOf(new Map([[cellKey(6, 6), FOG_STATE.EXPLORED]]));
+    expect(sightingOf(gone, RIVAL, known, [lastMan])).toEqual(nodeAt(6, 6));
+    expect(sightingOf(gone, RIVAL, fogOf(new Map()), [lastMan])).toBeNull();
+    expect(sightingOf(snapshot, RIVAL, null, [lastMan])).toEqual(nodeAt(4, 4));
   });
 
   it("takes the seat's first body with fog off", () => {

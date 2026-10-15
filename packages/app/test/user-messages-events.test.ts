@@ -405,6 +405,23 @@ describe('user messages from sim events', () => {
     ]);
   });
 
+  it("points an eliminated seat's note where the viewer finds that seat", () => {
+    const snap = snapshot(50, [{ id: 1, player: LOCAL, kind: 'person' }]);
+    const at = { hx: 20, hy: 14 };
+    const raised = messagesFromEvents(
+      [{ kind: 'playerDefeated', player: ENEMY }],
+      snap,
+      [],
+      LOCAL,
+      naming,
+      NO_MENU,
+      new FightAreas(),
+      undefined,
+      (player) => (player === ENEMY ? at : null),
+    );
+    expect(raised.map((r) => [r.pending.type, r.pending.at])).toEqual([[USER_MESSAGE_TYPE.playerDied, at]]);
+  });
+
   it('waits for the goal table before announcing a rival scripted defeat', () => {
     const snap = snapshot(50, [{ id: 1, player: LOCAL, kind: 'person' }]);
     expect(run([{ kind: 'playerDefeated', player: ENEMY, scripted: true }], snap)).toEqual([]);

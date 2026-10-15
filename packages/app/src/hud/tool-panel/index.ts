@@ -171,8 +171,8 @@ export interface ToolPanelOptions {
   readonly diplomacy: DiplomacySource;
   /** The discovered players and their stance toward the viewer, which the message centre reads a tick. */
   readonly metSeats: () => readonly MetSeat[];
-  /** The viewer's fog, null with fog off or the whole map in view: a first-contact note points only at
-   *  ground it knows. */
+  /** The viewer's fog, null with fog off or the whole map in view: a note about another seat points only
+   *  at ground it knows. */
   readonly fogView: () => FogView | null;
   /** A seat's roster name, which the diplomacy rows withhold for the viewer's own and unmet seats. */
   readonly seatNameOf?: (player: number) => string | undefined;

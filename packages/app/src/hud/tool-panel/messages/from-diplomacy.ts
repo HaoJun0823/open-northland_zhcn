@@ -1,5 +1,6 @@
 import type { DiplomacyState, HalfCellNode } from '@open-northland/sim';
 import type { MessageNaming, RaisedMessage } from './raise.js';
+import type { SightingOf } from './sighting.js';
 import { USER_MESSAGE_TYPE, type UserMessageType } from './types.js';
 
 /** One seat the local player has met, as the diplomacy roster lists it. */
@@ -8,9 +9,6 @@ export interface MetSeat {
   /** The seat's stance toward this player, which both of these rows report. */
   readonly towardYou: DiplomacyState;
 }
-
-/** Where the viewer met a seat, which a first-contact note's Select jumps to; null for nowhere known. */
-export type SightingOf = (player: number) => HalfCellNode | null;
 
 export interface DiplomacyMessageSource {
   /** The notes owed for what the roster learned since the last poll. */
@@ -68,7 +66,7 @@ export function createDiplomacyMessageSource(metSeats: () => readonly MetSeat[])
         if (was === undefined) {
           out.push(seatNote(naming, USER_MESSAGE_TYPE.playerSighted, seat, sightingOf(seat.player)));
         } else if (was !== seat.towardYou) {
-          out.push(seatNote(naming, USER_MESSAGE_TYPE.diplomacyChanged, seat, null));
+          out.push(seatNote(naming, USER_MESSAGE_TYPE.diplomacyChanged, seat, sightingOf(seat.player)));
         }
       }
       return out;

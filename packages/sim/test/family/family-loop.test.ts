@@ -26,7 +26,7 @@ import {
   Wedding,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { fx, ONE, type SimEvent, Simulation } from '../../src/index.js';
+import { fx, ONE, playerCommand, type SimEvent, Simulation } from '../../src/index.js';
 import { nodeOfPosition, nodesAdjacent, positionOfNode } from '../../src/nav/halfcell.js';
 import { FOOD_SEARCH_RETRY_TICKS } from '../../src/systems/family/children/order.js';
 import {
@@ -475,6 +475,66 @@ describe('e2e: marriage → household → child (full step schedule)', () => {
 
     setSettlerJob(sim.world, man(), CIVILIST);
     runUntil(sim, () => sim.world.get(woman(), Marriage).child !== null, 4000, 'child after he came home');
+  });
+
+  it('turns the walking partner toward the other at once, abandoning a walk it had under way', () => {
+    const sim = new Simulation({ seed: 3, content: familyContent(), map: grassMap(60, 30) });
+    sim.enqueueSetup({ kind: 'spawnSettler', jobType: WOMAN, x: 20, y: 0, tribe: VIKING, owner: PLAYER });
+    // Off her row, so the approach crosses rows as well as columns.
+    sim.enqueueSetup({ kind: 'spawnSettler', jobType: CIVILIST, x: 34, y: 20, tribe: VIKING, owner: PLAYER });
+    sim.step();
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('mapped sim expected');
+    // The lower id walks to the partner: the woman, here already walking off west on an errand of her own.
+    const [woman, man] = [...sim.world.query(Settler)].sort((a, b) => a - b);
+    if (woman === undefined || man === undefined) throw new Error('setup: settlers missing');
+    sim.world.add(woman, MoveGoal, { cell: terrain.nodeAt(0, 0) });
+    for (let i = 0; i < 4; i++) sim.step();
+    const hxOf = (e: Entity): number => {
+      const p = sim.world.get(e, Position);
+      return nodeOfPosition(p.x, p.y).hx;
+    };
+    const hxAtMatch = hxOf(woman);
+
+    sim.enqueueSetup({ kind: 'marry', entity: woman });
+    let westmost = hxAtMatch;
+    const approachGoals = new Set<number>();
+    runUntil(
+      sim,
+      () => {
+        westmost = Math.min(westmost, hxOf(woman));
+        const goal = sim.world.tryGet(woman, MoveGoal)?.cell;
+        if (goal !== undefined && sim.world.has(woman, Wedding)) approachGoals.add(goal);
+        return sim.world.has(woman, Marriage);
+      },
+      400,
+      'wedding',
+    );
+    // At most the live step finishes west before she turns east toward him.
+    expect(westmost).toBeGreaterThanOrEqual(hxAtMatch - 1);
+    // Re-aimed once: the walk beside him then goes on unchanged to the kiss.
+    expect(approachGoals.size).toBe(1);
+    expect(sim.world.get(woman, Marriage).spouse).toBe(man);
+  });
+
+  it('lets a player move order take the walking partner off the approach, then resumes the wedding', () => {
+    const sim = new Simulation({ seed: 3, content: familyContent(), map: grassMap(60, 4) });
+    sim.enqueueSetup({ kind: 'spawnSettler', jobType: WOMAN, x: 20, y: 0, tribe: VIKING, owner: PLAYER });
+    sim.enqueueSetup({ kind: 'spawnSettler', jobType: CIVILIST, x: 40, y: 0, tribe: VIKING, owner: PLAYER });
+    sim.step();
+    const [woman, man] = [...sim.world.query(Settler)].sort((a, b) => a - b);
+    if (woman === undefined || man === undefined) throw new Error('setup: settlers missing');
+    sim.enqueueSetup({ kind: 'marry', entity: woman });
+    for (let i = 0; i < 4; i++) sim.step();
+    const hxOf = (e: Entity): number => {
+      const p = sim.world.get(e, Position);
+      return nodeOfPosition(p.x, p.y).hx;
+    };
+
+    sim.enqueue(playerCommand(PLAYER, { kind: 'moveUnit', entity: woman, x: 0, y: 0 }));
+    runUntil(sim, () => hxOf(woman) <= 1, 400, 'the ordered walk west');
+    runUntil(sim, () => sim.world.has(woman, Marriage), 600, 'wedding');
+    expect(sim.world.get(woman, Marriage).spouse).toBe(man);
   });
 
   it('marrying after one spouse is already housed moves the other in (co-housed as one household)', () => {

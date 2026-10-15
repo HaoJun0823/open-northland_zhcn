@@ -65,6 +65,7 @@ allowatomic 12
 allowatomic 19
 forbidatomic 88
 canBeTrainedFlag 0
+mustHaveWorkHouseFlag 1
 userCanChangeProductionFlag 0
 [jobtype]
 type 40

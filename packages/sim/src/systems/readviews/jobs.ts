@@ -90,6 +90,12 @@ export function jobChangesProduction(content: ContentSet, jobType: number | null
   return jobType !== null && contentIndex(content).jobs.get(jobType)?.changesProduction !== false;
 }
 
+/** Whether the trade works only through a workplace ({@link JobType} `needsWorkHouse`); a record without
+ *  the flag reads as free to work without one. */
+export function jobNeedsWorkHouse(content: ContentSet, jobType: number | null): boolean {
+  return jobType !== null && contentIndex(content).jobs.get(jobType)?.needsWorkHouse === true;
+}
+
 /** The transport trade, for the same row-holding callers as {@link isFighterJobRow}. */
 export function isCarrierJobRow(job: Pick<JobType, 'id'>): boolean {
   return isCarrierJobId(job.id);

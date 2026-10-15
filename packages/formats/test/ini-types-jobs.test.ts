@@ -28,6 +28,7 @@ describe('extractJobs', () => {
         needsReligion: false,
         ignoresHomeHouse: false,
         changesProduction: false,
+        needsWorkHouse: true,
         source: src,
       },
       // `&` and spaces slug to single underscores, matching extractLandscape's slug rules.
@@ -41,6 +42,7 @@ describe('extractJobs', () => {
         needsReligion: false,
         ignoresHomeHouse: false,
         changesProduction: undefined, // no flag line: the reader treats the production as changeable
+        needsWorkHouse: undefined,
         source: src,
       },
     ]);

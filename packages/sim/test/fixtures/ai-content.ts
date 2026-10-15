@@ -59,7 +59,7 @@ export function aiContent(): ContentSet {
       // The collector harvests all four collected goods (wood 24, stone 25, iron 26, mud 32).
       { typeId: 8, id: 'collector', allowedAtomics: [24, 25, 26, 32] },
       { typeId: 16, id: 'joiner' },
-      { typeId: 18, id: 'farmer', allowedAtomics: [29] },
+      { typeId: 18, id: 'farmer', allowedAtomics: [29], needsWorkHouse: true },
       { typeId: 19, id: 'miller' },
       { typeId: 20, id: 'baker' },
       { typeId: 21, id: 'brewer' },

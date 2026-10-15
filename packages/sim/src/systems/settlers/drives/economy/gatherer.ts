@@ -11,7 +11,7 @@ import type { SystemContext } from '../../../context.js';
 import { nodeHoldsOpenGood, openGatherGoods } from '../../../economy/gather-goods.js';
 import { resourceStanceCells } from '../../../footprint/index.js';
 import { atomicDuration } from '../../../readviews/animations.js';
-import { isHunterJob } from '../../../readviews/index.js';
+import { isHunterJob, jobNeedsWorkHouse } from '../../../readviews/index.js';
 import { workplaceStocksGood, workplaceStoredGoods } from '../../../stores/index.js';
 import { atOrWalk, startAtomic, walkPickupBatch } from '../../atomics/start.js';
 import type { PlannerContext } from '../../planner/context.js';
@@ -30,7 +30,7 @@ import type { HarvestClaims } from './harvest-claims.js';
 /**
  * HARVEST / COLLECT - the gatherer drive. A flag-bound gatherer harvests inside its flag's radius; an
  * unbound roamer takes the nearest standing resource or loose trunk of its trade, whichever is nearer,
- * and returns false when nothing is reachable.
+ * and returns false when nothing is reachable or its trade needs a workplace.
  *
  * Harvesting is gated by the job's atomic permissions, the good's `needforgood` XP threshold and the
  * gatherer's production counters; collecting an already-dropped good is hauling, not harvesting.
@@ -42,6 +42,9 @@ export function planGatherer(plan: PlannerContext, harvestClaims: HarvestClaims,
   if (flag !== undefined && world.has(flag.flag, Position)) {
     return planFlagGatherer(plan, flag, harvestClaims, idle);
   }
+  // A trade that works only through a workplace never roams: the farmer and the herb gatherer reap map
+  // fields only through their own hut's field rung, and without one they stand idle.
+  if (jobNeedsWorkHouse(ctx.content, plan.jobType)) return false;
 
   // A building-employed roamer forages only goods its workplace stocks, banked form included: an
   // HQ-employed hunter's meat shelves as food, and filtering the carcass out would wedge him after one

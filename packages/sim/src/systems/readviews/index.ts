@@ -81,6 +81,7 @@ export {
   jobChangesProduction,
   jobIgnoresHomeHouse,
   jobNeedsReligion,
+  jobNeedsWorkHouse,
   scoutJobType,
 } from './jobs.js';
 export {

@@ -20,6 +20,10 @@ export const JobType = z.strictObject({
   /** `userCanChangeProductionFlag`: whether the player sets what the trade makes or gathers (the hunter's
    *  is 0). Absent where the record carries no flag; `readviews/jobs.ts` reads that as changeable. */
   changesProduction: z.boolean().optional(),
+  /** `mustHaveWorkHouseFlag`: the trade works only through a workplace (set on the craftsmen, breeder,
+   *  farmer, herb gatherer, druid and sea trader). Absent where the record carries no flag;
+   *  `readviews/jobs.ts` reads that as free to work without one. */
+  needsWorkHouse: z.boolean().optional(),
   /** Permanent armor type assigned by the engine when this job is spawned. This is distinct from armor
    *  a player equips and therefore cannot be removed or replaced. */
   fixedArmorType: TypeId.optional(),

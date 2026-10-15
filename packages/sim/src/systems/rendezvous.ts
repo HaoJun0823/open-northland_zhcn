@@ -1,4 +1,13 @@
-import { MoveGoal, PathFollow, PathRequest, PathRoute, Position } from '../components/index.js';
+import {
+  Engagement,
+  Fleeing,
+  MoveGoal,
+  PathFollow,
+  PathRequest,
+  PathRoute,
+  PlayerOrder,
+  Position,
+} from '../components/index.js';
 import type { Fixed } from '../core/fixed.js';
 import type { Component, DeepReadonly, Entity, World } from '../ecs/world.js';
 import { type HalfCellNode, nodeOfPosition, nodesAdjacent, positionOfNode } from '../nav/halfcell.js';
@@ -6,7 +15,13 @@ import type { NodeId, TerrainGraph } from '../nav/terrain/index.js';
 import { worldDistance } from '../nav/world-metric.js';
 import type { SystemContext } from './context.js';
 import { dynamicBlockOverlay, routeRegions } from './footprint/index.js';
-import { clearNavState, isTravelling, liveStepEnd, stopAtNextNode } from './movement/nav-state.js';
+import {
+  clearNavState,
+  isTravelling,
+  liveStepEnd,
+  redirectRoute,
+  stopAtNextNode,
+} from './movement/nav-state.js';
 import { routeStartCell } from './movement/route-start.js';
 import { startAtomic } from './settlers/atomics/start.js';
 import { stationaryOwnedSettlers } from './settlers/planner/spacing.js';
@@ -87,7 +102,7 @@ export function approachPartner(
   ctx: SystemContext,
   a: Entity,
   b: Entity,
-  target: { hx: number; hy: number },
+  target: HalfCellNode,
   onUnreachable: () => void,
 ): void {
   const terrain = ctx.terrain;
@@ -103,7 +118,16 @@ export function approachPartner(
     return;
   }
   if (terrain === undefined) return;
-  if (stopAtNextNode(world, terrain, b) || isTravelling(world, a)) return;
+  if (stopAtNextNode(world, terrain, b)) return;
+  // A walk aimed beside the partner, one a player order, flight or fight owns, and a step finishing without
+  // a goal all go on. Any other walk, such as one to work taken up before the pair met, is re-aimed now.
+  // Approximation: how the original treats a walk under way when a pair is matched is unconfirmed.
+  const walkingTo = world.tryGet(a, MoveGoal)?.cell;
+  if (
+    isTravelling(world, a) &&
+    (walkingTo === undefined || walkOwnedElsewhere(world, a) || aimsBeside(terrain, walkingTo, target))
+  )
+    return;
   const position = world.get(a, Position);
   const from = routeStartCell(terrain, position.x, position.y);
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
@@ -144,7 +168,15 @@ export function approachPartner(
     onUnreachable();
     return;
   }
-  world.add(a, MoveGoal, { cell: goal });
+  redirectRoute(world, a, goal);
+}
+
+function walkOwnedElsewhere(world: World, e: Entity): boolean {
+  return world.has(e, PlayerOrder) || world.has(e, Fleeing) || world.has(e, Engagement);
+}
+
+function aimsBeside(terrain: TerrainGraph, goal: NodeId, target: HalfCellNode): boolean {
+  return standsBeside({ hx: terrain.xOf(goal), hy: terrain.yOf(goal) }, target);
 }
 
 /**

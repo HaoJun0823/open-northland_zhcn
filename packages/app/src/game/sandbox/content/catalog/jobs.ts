@@ -66,6 +66,8 @@ export interface SandboxJob {
   readonly ignoresHomeHouse?: boolean;
   /** `jobtypes.ini` `userCanChangeProductionFlag`, 0 on the hunter alone among the sandbox trades. */
   readonly changesProduction?: boolean;
+  /** `jobtypes.ini` `mustHaveWorkHouseFlag`, 1 on the farmer among the sandbox's harvesting trades. */
+  readonly needsWorkHouse?: boolean;
 }
 
 /** Extracted `jobtypes.ini` 15 `allowatomic 33/81`; the rebase-exempt hunter slot shares it by identity. */
@@ -126,6 +128,7 @@ export function buildSandboxJobs(extras: SandboxContentExtras): Map<number, Sand
       id: 'farmer',
       name: professionLabel('farmer'),
       allowedAtomics: [WHEAT_HARVEST_ATOMIC, PLANT_ATOMIC, CULTIVATE_ATOMIC],
+      needsWorkHouse: true,
     },
     { typeId: JOB_SOLDIER_UNARMED, id: 'soldier_unarmed', name: messages().soldierClasses.unarmed },
     // The animal attack bindings use the adult pseudo-job; its base job carries atomic 81.

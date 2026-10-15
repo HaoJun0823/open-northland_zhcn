@@ -32,6 +32,7 @@ export function extractJobs(sections: readonly RuleSection[], src: SourceRef): J
         needsReligion: getInt(sec, 'needsReligionFlag') === 1,
         ignoresHomeHouse: getInt(sec, 'ignoresHomeHouseFlag') === 1,
         changesProduction: optionalFlag(getInt(sec, 'userCanChangeProductionFlag')),
+        needsWorkHouse: optionalFlag(getInt(sec, 'mustHaveWorkHouseFlag')),
         source: makeSource(src, 'jobtype'),
       }),
     );

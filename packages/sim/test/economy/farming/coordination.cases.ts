@@ -48,6 +48,20 @@ describe('work division - two farmers never share a target', () => {
     });
   });
 
+  it('a farmer without a farm leaves a ripe map field standing (`mustHaveWorkHouseFlag 1`)', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 8) });
+    const farm = farmAt(sim, 4, 4);
+    const field = fieldAt(sim, farm, 2, 2, { stage: STAGES });
+    sim.world.mut(field, Crop).farm = null;
+    const farmer = farmerAt(sim, 4, 4);
+
+    plannerSystem(sim.world, ctxOf(sim));
+
+    expect(sim.world.has(farmer, components.CurrentAtomic)).toBe(false);
+    expect(sim.world.has(farmer, components.MoveGoal)).toBe(false);
+    expect(sim.world.has(farmer, components.HarvestFocus)).toBe(false);
+  });
+
   it('the second farmer skips the field the first is already reaping', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 8) });
     const farm = farmAt(sim, 4, 4);

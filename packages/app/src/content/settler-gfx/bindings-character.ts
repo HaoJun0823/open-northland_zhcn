@@ -221,7 +221,9 @@ export function characterBinding(
     const program = programsByAction?.get(ATTACK_ATOMIC)?.get(attackSeq);
     const lists = row === undefined ? undefined : playableLists(program, row, bodyAtlas);
     if (row !== undefined && lists !== undefined) {
-      const swing: FrameListAnim = { start: row.start, frameLists: lists };
+      // Original behavior: an attack's `gfxanimmode 0` lists stretch over the swing's atomic, whatever
+      // their own length, so the blow lands on the frame the clip's event names.
+      const swing: FrameListAnim = { start: row.start, frameLists: lists, spansAtomic: true };
       byAtomic[ATTACK_ATOMIC] = swing;
     }
   }

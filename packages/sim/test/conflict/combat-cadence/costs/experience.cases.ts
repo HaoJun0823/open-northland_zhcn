@@ -39,11 +39,11 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     startSwing(
       sim,
       attacker,
-      { target, damage: 2090, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
+      { target, damage: 2090, hitFrames: [0], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
       4,
     );
 
-    atomicSystem(sim.world, nextTickCtxOf(sim)); // the blow lands (frame 1) and trains the weapon class
+    atomicSystem(sim.world, nextTickCtxOf(sim)); // the blow lands (frame 0) and trains the weapon class
 
     const xp = sim.world.get(attacker, SettlerProgress).experience;
     expect(xp.get(FIGHT_EXPERIENCE_TYPE.SPEAR)).toBe(1); // soldier-general factor 1 per swing
@@ -56,7 +56,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
       const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
       const attacker = fighterAt(sim, 0, 0, VIKING, SOLDIER_UNARMED);
       const target = fighterAt(sim, 1, 0, OTHER, null, { hitpoints: 10_000 });
-      startSwing(sim, attacker, { target, damage: 100, hitFrames: [1], weaponMainType: mainType }, 2);
+      startSwing(sim, attacker, { target, damage: 100, hitFrames: [0], weaponMainType: mainType }, 2);
       atomicSystem(sim.world, nextTickCtxOf(sim));
       expect(sim.world.get(attacker, SettlerProgress).experience.get(bucket)).toBe(1);
     };
@@ -72,7 +72,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     startSwing(
       sim,
       attacker,
-      { target, damage: 0, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
+      { target, damage: 0, hitFrames: [0], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
       2,
     );
     atomicSystem(sim.world, nextTickCtxOf(sim));
@@ -81,7 +81,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     // The data's saber and axe classes have no fight bucket, but a soldier-band hit still feeds the
     // class-gate track (69).
     for (const mainType of [SABER_MAIN_TYPE, AXE_MAIN_TYPE]) {
-      startSwing(sim, attacker, { target, damage: 400, hitFrames: [1], weaponMainType: mainType }, 2);
+      startSwing(sim, attacker, { target, damage: 400, hitFrames: [0], weaponMainType: mainType }, 2);
       atomicSystem(sim.world, nextTickCtxOf(sim));
     }
     const xp = sim.world.get(attacker, SettlerProgress).experience;
@@ -97,7 +97,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
       startSwing(
         sim,
         attacker,
-        { target, damage, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
+        { target, damage, hitFrames: [0], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
         2,
       );
       atomicSystem(sim.world, nextTickCtxOf(sim));
@@ -122,7 +122,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     startSwing(
       sim,
       attacker,
-      { target, damage: 100, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
+      { target, damage: 100, hitFrames: [0], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
       2,
     );
     atomicSystem(sim.world, nextTickCtxOf(sim));
@@ -135,7 +135,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     const target = fighterAt(sim, 2, 0, OTHER, null, { hitpoints: 10_000 });
 
     const hero = fighterAt(sim, 0, 0, VIKING, HERO);
-    startSwing(sim, hero, { target, damage: 400, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.SWORD }, 2);
+    startSwing(sim, hero, { target, damage: 400, hitFrames: [0], weaponMainType: WEAPON_MAIN_TYPE.SWORD }, 2);
     atomicSystem(sim.world, nextTickCtxOf(sim));
     const heroXp = sim.world.get(hero, SettlerProgress).experience;
     expect(heroXp.get(FIGHT_EXPERIENCE_TYPE.SWORD)).toBe(1);
@@ -146,7 +146,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     startSwing(
       sim,
       civilian,
-      { target, damage: 100, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.UNARMED },
+      { target, damage: 100, hitFrames: [0], weaponMainType: WEAPON_MAIN_TYPE.UNARMED },
       2,
     );
     atomicSystem(sim.world, nextTickCtxOf(sim));
@@ -160,7 +160,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     const target = fighterAt(sim, 1, 0, OTHER, null, { hitpoints: 100 });
     const killer = fighterAt(sim, 0, 0, VIKING, SOLDIER_SPEAR);
     const late = fighterAt(sim, 2, 0, VIKING, SOLDIER_SPEAR);
-    const blow = { target, damage: 2090, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.SPEAR };
+    const blow = { target, damage: 2090, hitFrames: [0], weaponMainType: WEAPON_MAIN_TYPE.SPEAR };
     startSwing(sim, killer, blow, 4);
     startSwing(sim, late, blow, 4);
 
@@ -179,7 +179,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     startSwing(
       sim,
       attacker,
-      { target: wolf, damage: 100, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
+      { target: wolf, damage: 100, hitFrames: [0], weaponMainType: WEAPON_MAIN_TYPE.SPEAR },
       4,
     );
     atomicSystem(sim.world, nextTickCtxOf(sim));
@@ -197,7 +197,7 @@ describe('atomicSystem - a damaging swing accrues fight XP into the weapon-class
     startSwing(
       sim,
       wolf,
-      { target, damage: 100, hitFrames: [1], weaponMainType: WEAPON_MAIN_TYPE.UNARMED },
+      { target, damage: 100, hitFrames: [0], weaponMainType: WEAPON_MAIN_TYPE.UNARMED },
       2,
     );
     atomicSystem(sim.world, nextTickCtxOf(sim));

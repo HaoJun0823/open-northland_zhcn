@@ -126,6 +126,6 @@ describe('a one-strike site', () => {
     };
     const paced = contentIndex(content).atomicAnimationsByName.get(BUILD_ROAD_CLIP);
     expect(paced?.length).toBe(BUILD_STRIKE_TICKS);
-    expect(paced?.events.map((e) => e.at)).toEqual([FIRST_TICK, (NEED_FRAME - 1) * ONE_STRIKE_CLIP_PACE + 1]);
+    expect(paced?.events.map((e) => e.at)).toEqual([FIRST_TICK, NEED_FRAME * ONE_STRIKE_CLIP_PACE]);
   });
 });

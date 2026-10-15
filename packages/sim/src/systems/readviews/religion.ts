@@ -1,8 +1,9 @@
 import type { ContentSet } from '@open-northland/data';
 import type { SettlerIdentity } from '../../components/index.js';
-import { ATOMIC_EVENT_CHANNEL, atomicAnimationByName, atomicClipName } from './animations.js';
+import { ATOMIC_EVENT_CHANNEL, atomicAnimationByName, atomicClipName, eventTick } from './animations.js';
 
-/** Whether an unpaid frame of this action spends religion. Positive prayer events never block work. */
+/** Whether a frame of this action not fired in its first `paidThrough` ticks spends religion. Positive
+ *  prayer events never block work. */
 export function atomicSpendsReligion(
   content: ContentSet,
   settler: SettlerIdentity,
@@ -16,8 +17,8 @@ export function atomicSpendsReligion(
       (event) =>
         event.type === ATOMIC_EVENT_CHANNEL.PIETY &&
         (event.value ?? 0) < 0 &&
-        event.at > paidThrough &&
-        event.at <= clip.length,
+        eventTick(event.at) > paidThrough &&
+        event.at < clip.length,
     ) ?? false
   );
 }

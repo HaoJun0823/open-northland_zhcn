@@ -125,13 +125,13 @@ function content() {
       },
     ],
     atomicAnimations: [
-      { id: 'civilist_sleep', name: 'civilist_sleep', length: 2, events: [{ at: 1, type: 1, value: NAP }] },
-      { id: 'civilist_pray', name: 'civilist_pray', length: 2, events: [{ at: 1, type: 4, value: 1000 }] },
+      { id: 'civilist_sleep', name: 'civilist_sleep', length: 2, events: [{ at: 0, type: 1, value: NAP }] },
+      { id: 'civilist_pray', name: 'civilist_pray', length: 2, events: [{ at: 0, type: 4, value: 1000 }] },
       {
         id: 'civilist_work',
         name: 'civilist_work',
         length: 2,
-        events: [{ at: 1, type: 1, value: -WORK_DRAIN }],
+        events: [{ at: 0, type: 1, value: -WORK_DRAIN }],
       },
     ],
   });

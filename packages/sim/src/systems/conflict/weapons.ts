@@ -30,6 +30,7 @@ import {
   armorMaterialForGood,
   atomicEventFrame,
   atomicEventFrames,
+  eventTick,
   isAnimalTribe,
   isAreaWeapon,
   isRangedWeapon,
@@ -300,7 +301,7 @@ export function attackClipTiming(
   const clip = attackAnimationName(content, attacker);
   const length = atomicDurationForName(content, clip);
   const event = clip === undefined ? undefined : atomicEventFrame(content, clip, ATOMIC_EVENT_TYPE_ATTACK);
-  return { length, shotAt: Math.min(event ?? length, length) };
+  return { length, shotAt: Math.min(event === undefined ? length : eventTick(event), length) };
 }
 
 /**

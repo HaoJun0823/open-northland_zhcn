@@ -129,7 +129,7 @@ describe('subtick work animation presentation', () => {
   it('preserves original tick cadence and starts a new action on frame zero', () => {
     const pooled = createPooled('settler', undefined);
     for (const alpha of [0, 0.5, 1]) {
-      expect(presentEntity(pooled, item, { ...frame, alpha }, sheet(false))?.[0]?.frame.x).toBe(2);
+      expect(presentEntity(pooled, item, { ...frame, alpha }, sheet(false))?.[0]?.frame.x).toBe(4);
       expect(
         presentEntity(pooled, { ...item, elapsed: 1 }, { ...frame, alpha }, sheet(true))?.[0]?.frame.x,
       ).toBe(alpha * 2);

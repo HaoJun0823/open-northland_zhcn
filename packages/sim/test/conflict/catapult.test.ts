@@ -88,7 +88,7 @@ const CATAPULT_VS_VEHICLE = 350;
 const CATAPULT_VS_HOUSE = 3625;
 /** The catapult's attack clip (`atomicanimations.ini` `viking_catapult_attack`: `length 48`, `event 1 25`). */
 const VEHICLE_ATTACK_CLIP_TICKS = 48;
-const VEHICLE_ATTACK_EVENT_TICK = 1;
+const VEHICLE_ATTACK_EVENT_FRAME = 1;
 const ATTACK_ATOMIC = 81;
 const ATOMIC_EVENT_ATTACK = 25;
 /** Every armor material a weapon row lists damage for. */
@@ -215,7 +215,7 @@ function siegeContent(): ContentSet {
         id: 'viking_catapult_attack',
         name: 'viking_catapult_attack',
         length: VEHICLE_ATTACK_CLIP_TICKS,
-        events: [{ at: VEHICLE_ATTACK_EVENT_TICK, type: ATOMIC_EVENT_ATTACK }],
+        events: [{ at: VEHICLE_ATTACK_EVENT_FRAME, type: ATOMIC_EVENT_ATTACK }],
       },
     ],
   });
@@ -375,8 +375,8 @@ describe('catapult stances and scans', () => {
       for (const ev of s.events.current()) if (ev.kind === 'projectileLaunched') launchTicks.push(s.tick);
     }
     expect(launchTicks.length).toBeGreaterThanOrEqual(3);
-    // The scan acquires on tick 1 and the clip starts there; its event tick is one later.
-    expect(launchTicks[0]).toBe(1 + VEHICLE_ATTACK_EVENT_TICK);
+    // The scan acquires on tick 1 and the clip starts there; its event frame fires `frame + 1` ticks later.
+    expect(launchTicks[0]).toBe(1 + VEHICLE_ATTACK_EVENT_FRAME + 1);
     expect((launchTicks[1] ?? 0) - (launchTicks[0] ?? 0)).toBe(VEHICLE_ATTACK_CLIP_TICKS);
   });
 });

@@ -40,11 +40,14 @@ import {
  *  weapon and armour `..._produce_*` clip carries, where the plain rows spend 1500 and the heavy ones 3000. */
 const FORGE_ATOMIC = 69;
 const FORGE_PIETY_UNITS = -1500;
+/** The forge clip's need events: authored at frame 2, fired on the batch's third tick. */
+const FORGE_EVENT_FRAME = 2;
+const FORGE_EVENT_TICK = FORGE_EVENT_FRAME + 1;
 
 // Religion (piety) is spent only on forging a weapon or piece of armor. The fixture sawmill turns wood
 // into plank; declaring PLANK a weapon good (a WeaponType with `goodType: PLANK`) and binding the carpenter
 // a forge clip makes the sawmill stand in for a smithy on the shared production fixture.
-function contentWithMilitaryPlank(pietyUnits = FORGE_PIETY_UNITS) {
+function contentWithMilitaryPlank(pietyUnits = FORGE_PIETY_UNITS, eventFrame = FORGE_EVENT_FRAME) {
   const base = testContent();
   return parseContentSet({
     ...base,
@@ -68,9 +71,9 @@ function contentWithMilitaryPlank(pietyUnits = FORGE_PIETY_UNITS) {
         name: 'viking_forge',
         length: 4,
         events: [
-          { at: 2, type: 4, value: pietyUnits },
-          { at: 2, type: 1, value: -100 },
-          { at: 2, type: 2, value: -100 },
+          { at: eventFrame, type: 4, value: pietyUnits },
+          { at: eventFrame, type: 1, value: -100 },
+          { at: eventFrame, type: 2, value: -100 },
         ],
       },
     ],
@@ -302,21 +305,27 @@ describe('production events share the batch clock with the displayed craft', () 
     expect(atomicElapsed(sim.world.get(worker, AtomicClock), ctx.tick)).toBe(1);
   });
 
-  it('also stops an outdoor spending action at zero, before its other effects land', () => {
-    const sim = new Simulation({ seed: 1, content: contentWithMilitaryPlank() });
-    const worker = spawnSettler(sim, CARPENTER, 0, 0);
-    setNeeds(sim, worker, { piety: ONE });
-    addCurrentAtomic(sim.world, worker, {
-      atomicId: FORGE_ATOMIC,
-      duration: 4,
-      effect: { kind: 'produce', recipeOutput: PLANK },
-      targetEntity: null,
-      targetTile: null,
-    });
-    atomicSystem(sim.world, nextTickCtxOf(sim));
-    expect(sim.world.has(worker, CurrentAtomic)).toBe(false);
-    expect(needsOf(sim, worker).hunger).toBe(0);
-  });
+  it.each([0, FORGE_EVENT_FRAME])(
+    'also stops an outdoor spending action at zero before its frame-%i cost lands, with its other effects',
+    (eventFrame) => {
+      const sim = new Simulation({
+        seed: 1,
+        content: contentWithMilitaryPlank(FORGE_PIETY_UNITS, eventFrame),
+      });
+      const worker = spawnSettler(sim, CARPENTER, 0, 0);
+      setNeeds(sim, worker, { piety: ONE });
+      addCurrentAtomic(sim.world, worker, {
+        atomicId: FORGE_ATOMIC,
+        duration: 4,
+        effect: { kind: 'produce', recipeOutput: PLANK },
+        targetEntity: null,
+        targetTile: null,
+      });
+      atomicSystem(sim.world, nextTickCtxOf(sim));
+      expect(sim.world.has(worker, CurrentAtomic)).toBe(false);
+      expect(needsOf(sim, worker).hunger).toBe(0);
+    },
+  );
 
   it.each([0, -1500])(
     'permits a cost %i with frozen needs and permits free work with an empty reserve',
@@ -339,39 +348,40 @@ describe('production events share the batch clock with the displayed craft', () 
       if (worker === null) throw new Error('missing maker');
       sim.world.add(worker, Resting, { at: mill });
       productionSystem(sim.world, nextTickCtxOf(sim));
-      for (let frame = 1; frame <= 4; frame++) {
+      for (let tick = 1; tick <= 4; tick++) {
         const ctx = nextTickCtxOf(sim);
         startCraftAtomic(sim.world, ctx, worker, mill);
         atomicSystem(sim.world, ctx);
         productionSystem(sim.world, ctx);
-        expect(needsOf(sim, worker).piety).toBe(frame < 2 ? 0 : needBar(cost));
-        expect(needsOf(sim, worker).hunger).toBe(frame < 2 ? 0 : needBar(100));
-        expect(needsOf(sim, worker).fatigue).toBe(frame < 2 ? 0 : needBar(50));
+        const paid = tick >= FORGE_EVENT_TICK;
+        expect(needsOf(sim, worker).piety).toBe(paid ? needBar(cost) : 0);
+        expect(needsOf(sim, worker).hunger).toBe(paid ? needBar(100) : 0);
+        expect(needsOf(sim, worker).fatigue).toBe(paid ? needBar(50) : 0);
       }
       expect(sim.world.get(mill, Stockpile).amounts.get(PLANK)).toBe(1);
     },
   );
 
-  it.each([1, 2])(
-    'resumes after frame %i with another worker without replaying paid events, including a saved batch',
-    (frame) => {
+  it.each([FORGE_EVENT_TICK - 1, FORGE_EVENT_TICK])(
+    'resumes after tick %i with another worker without replaying paid events, including a saved batch',
+    (ticks) => {
       const content = contentWithMilitaryPlank();
       const sim = new Simulation({ seed: 1, content });
       const { mill, worker } = sawmill(sim, [[WOOD, 1]]);
       if (worker === null) throw new Error('missing maker');
       productionSystem(sim.world, nextTickCtxOf(sim));
-      for (let i = 0; i < frame; i++) productionSystem(sim.world, nextTickCtxOf(sim));
+      for (let i = 0; i < ticks; i++) productionSystem(sim.world, nextTickCtxOf(sim));
       sim.world.remove(worker, JobAssignment);
       sim.world.mut(worker, Position).x = fx.fromInt(8);
       for (let i = 0; i < 3; i++) productionSystem(sim.world, nextTickCtxOf(sim));
-      expect(sim.world.get(mill, Production).cycles[0]?.elapsed).toBe(frame);
+      expect(sim.world.get(mill, Production).cycles[0]?.elapsed).toBe(ticks);
       const replacement = spawnSettler(sim, CARPENTER, 0, 0);
       sim.world.add(replacement, JobAssignment, { workplace: mill });
       const restored = restoreSimulation(exportSaveGame(sim), { content });
       for (const run of [sim, restored]) {
-        for (let i = frame; i < 4; i++) productionSystem(run.world, nextTickCtxOf(run));
-        expect(needsOf(run, worker).piety).toBe(frame >= 2 ? needBar(1500) : 0);
-        expect(needsOf(run, replacement).piety).toBe(frame < 2 ? needBar(1500) : 0);
+        for (let i = ticks; i < 4; i++) productionSystem(run.world, nextTickCtxOf(run));
+        expect(needsOf(run, worker).piety).toBe(ticks >= FORGE_EVENT_TICK ? needBar(1500) : 0);
+        expect(needsOf(run, replacement).piety).toBe(ticks < FORGE_EVENT_TICK ? needBar(1500) : 0);
         expect(run.world.get(mill, Stockpile).amounts.get(PLANK)).toBe(1);
       }
     },

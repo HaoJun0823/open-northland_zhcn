@@ -8,6 +8,7 @@ import {
   atomicAnimationByName,
   atomicClipName,
   boundAnimalAtomicAnimation,
+  eventTick,
 } from '../../readviews/animations.js';
 
 /** The running atomic a cue lookup reads - its join key, its length, and the effect that tells a real
@@ -48,7 +49,7 @@ function soundingClip(
 /** Whether `event` is a sound this clip can land: a valued `event <at> 34 <id>` inside its own length. */
 function isPlaceableCue(event: AtomicEvent, anim: AtomicAnimation): boolean {
   return (
-    event.type === ATOMIC_EVENT_TYPE_PLAY_SOUND_FX && event.value !== undefined && event.at <= anim.length
+    event.type === ATOMIC_EVENT_TYPE_PLAY_SOUND_FX && event.value !== undefined && event.at < anim.length
   );
 }
 
@@ -66,8 +67,8 @@ export function atomicClipSounds(
 
 /**
  * Emit the sound cues a settler's running atomic authors on this tick: every `event <at> 34 <id>` row of
- * its clip landing on `elapsed`, carrying `<id>` as the sound bank's `logicSoundType`. A clip authoring
- * no such row is silent.
+ * its clip landing on `elapsed` ({@link eventTick}), carrying `<id>` as the sound bank's `logicSoundType`.
+ * A clip authoring no such row is silent.
  */
 export function emitAtomicSoundCues(
   world: World,
@@ -80,7 +81,7 @@ export function emitAtomicSoundCues(
   if (anim === undefined) return;
   for (const event of anim.events) {
     if (!isPlaceableCue(event, anim) || event.value === undefined) continue;
-    if (Math.max(1, event.at) !== elapsed) continue; // frame 0 plays on the clip's first tick
+    if (eventTick(event.at) !== elapsed) continue;
     ctx.events.emit({ kind: 'atomicSound', entity: settler, soundType: event.value });
   }
 }

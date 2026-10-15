@@ -61,7 +61,7 @@ describe('subtick character clips', () => {
     expect(resolveSettlerBobId({ idle }, item, 2)).toBe(4);
     expect(resolveSettlerBobId({ idle }, item, 2.5)).toBe(5);
     expect(resolveSettlerBobId({ idle }, { ...item, elapsed: 20 }, 3)).toBe(6);
-    expect(resolveSettlerBobId({ idle: { ...idle, subtick: false } }, item, 2.5)).toBe(0);
+    expect(resolveSettlerBobId({ idle: { ...idle, subtick: false } }, { ...item, elapsed: 0 }, 2.5)).toBe(0);
   });
   it('advances a 24 fps idle twice per sim tick without changing the loop duration', () => {
     const idle = { start: 0, dirs: 8, stride: 120, ticksPerFrame: 0.5, subtick: true };
@@ -250,26 +250,26 @@ describe('resolveSpriteBobId - directional animated binding', () => {
   });
 
   it('acting chop (atomic 24) advances on its elapsed clock at a fixed cadence, ignoring tick', () => {
-    // frame = start + facing*stride + ((elapsed-1) % cycle), on the atomic's own elapsed-tick clock, so
+    // frame = start + facing*stride + (elapsed % cycle), on the atomic's own elapsed-tick clock, so
     // the tick 999 passed below must not change it, and no duration input can change the speed.
     const swing = (elapsed: number): number | null =>
       resolveSpriteBobId(settlerItem('acting', { facing: 4, atomicId: 24, elapsed }), bindings, 999);
-    expect(swing(1)).toBe(5106 + 4 * 15 + 0);
-    expect(swing(8)).toBe(5106 + 4 * 15 + 7);
-    expect(swing(15)).toBe(5106 + 4 * 15 + 14); // the swing's last frame
-    expect(swing(16)).toBe(5106 + 4 * 15 + 0); // a longer action loops the cycle
+    expect(swing(0)).toBe(5106 + 4 * 15 + 0);
+    expect(swing(7)).toBe(5106 + 4 * 15 + 7);
+    expect(swing(14)).toBe(5106 + 4 * 15 + 14); // the swing's last frame
+    expect(swing(15)).toBe(5106 + 4 * 15 + 0); // a longer action loops the cycle
   });
 
   it('phaseStart rotates the loop start so a chop plays windup (9..14) then strike (0..8)', () => {
-    // The woodcut loop is 0..8 strike-down, 9..14 windup-rise, so frame = (phaseStart + elapsed-1) % 15.
+    // The woodcut loop is 0..8 strike-down, 9..14 windup-rise, so frame = (phaseStart + elapsed) % 15.
     const SWING: DirectionalAnim = { start: 5106, dirs: 8, stride: 15, phaseStart: 9 };
     const b: SpriteBindings = { settler: { idle: STAND, byAtomic: { 24: SWING } }, building: 0, resource: 0 };
     const at = (elapsed: number): number | null =>
       resolveSpriteBobId(settlerItem('acting', { facing: 4, atomicId: 24, elapsed }), b, 0);
-    expect(at(1)).toBe(5106 + 4 * 15 + 9); // the windup begins
-    expect(at(6)).toBe(5106 + 4 * 15 + 14); // top of the windup
-    expect(at(7)).toBe(5106 + 4 * 15 + 0); // the strike begins
-    expect(at(15)).toBe(5106 + 4 * 15 + 8); // impact, the final frame
+    expect(at(0)).toBe(5106 + 4 * 15 + 9); // the windup begins
+    expect(at(5)).toBe(5106 + 4 * 15 + 14); // top of the windup
+    expect(at(6)).toBe(5106 + 4 * 15 + 0); // the strike begins
+    expect(at(14)).toBe(5106 + 4 * 15 + 8); // impact, the final frame
   });
 
   it('an acting atomic with no bound animation holds the idle pose (no borrowed swing)', () => {
@@ -313,25 +313,25 @@ describe('resolveSpriteBobId - FrameListAnim (explicit per-direction attack layo
   const ANIM: SettlerStateBinding = { idle: STAND, byAtomic: { [ATTACK]: SWING } };
   const bindings: SpriteBindings = { settler: ANIM, building: 20, resource: 30 };
 
-  it('draws start + frameLists[facing][elapsed-1] - the facing selects the list, elapsed indexes it', () => {
+  it('draws start + frameLists[facing][elapsed] - the facing selects the list, elapsed indexes it', () => {
     const at = (facing: number, elapsed: number): number | null =>
       resolveSpriteBobId(settlerItem('acting', { facing, atomicId: ATTACK, elapsed }), bindings, 999);
-    expect(at(0, 1)).toBe(2000 + 0); // dir 0, frame 0 -> local 0
-    expect(at(0, 3)).toBe(2000 + 4); // dir 0, frame 2 -> local 4
-    expect(at(1, 1)).toBe(2000 + 5); // dir 1, frame 0 -> local 5
-    expect(at(1, 2)).toBe(2000 + 5); // dir 1, frame 1 -> local 5 again, the authored hold
-    expect(at(1, 3)).toBe(2000 + 7); // dir 1, frame 2 -> local 7
+    expect(at(0, 0)).toBe(2000 + 0); // dir 0, frame 0 -> local 0
+    expect(at(0, 2)).toBe(2000 + 4); // dir 0, frame 2 -> local 4
+    expect(at(1, 0)).toBe(2000 + 5); // dir 1, frame 0 -> local 5
+    expect(at(1, 1)).toBe(2000 + 5); // dir 1, frame 1 -> local 5 again, the authored hold
+    expect(at(1, 2)).toBe(2000 + 7); // dir 1, frame 2 -> local 7
   });
 
   it('plays ONE-SHOT: past the CHOSEN list end the sprite shows the FIRST entry (the ready stance)', () => {
-    // dir 1 is 3 long, so elapsed 4 is one past the end, where a wrap would also give entry 0.
+    // dir 1 is 3 long, so elapsed 3 is one past the end, where a wrap would also give entry 0.
     expect(
-      resolveSpriteBobId(settlerItem('acting', { facing: 1, atomicId: ATTACK, elapsed: 4 }), bindings, 0),
+      resolveSpriteBobId(settlerItem('acting', { facing: 1, atomicId: ATTACK, elapsed: 3 }), bindings, 0),
     ).toBe(2000 + 5);
-    // Past dir 0's 4-entry end a wrap would give entry 1 at elapsed 6 and cycle back through the motion.
+    // Past dir 0's 4-entry end a wrap would give entry 1 at elapsed 5 and cycle back through the motion.
     // The free tick passed here must not move it: the list runs on the atomic's elapsed clock.
     expect(
-      resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 6 }), bindings, 12345),
+      resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 5 }), bindings, 12345),
     ).toBe(2000 + 0);
     expect(
       resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 60 }), bindings, 0),
@@ -350,14 +350,15 @@ describe('resolveSpriteBobId - FrameListAnim (explicit per-direction attack layo
       Array.from({ length: duration }, (_, tick) =>
         resolveSpriteBobId(
           {
-            ...settlerItem('acting', { facing: 0, atomicId: BUILD, elapsed: tick + 1 }),
+            ...settlerItem('acting', { facing: 0, atomicId: BUILD, elapsed: tick }),
             atomicDuration: duration,
           },
           b,
           0,
         ),
       ).map((frame) => (frame ?? 0) - HAMMER.start);
-    // A short atomic still reaches the list's last entry, the blow, on its last tick; a long one holds.
+    // Entry `elapsed * entries / duration`, as the original plays a `gfxanimmode 0` list: a short atomic
+    // samples the list, a long one holds each entry.
     expect(played(3)).toEqual([0, 2, 4]);
     expect(played(12)).toEqual([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5]);
   });
@@ -466,10 +467,10 @@ describe('compatible atomic variants', () => {
       const item = { ...settlerItem('acting', { atomicId: 81, elapsed: 1, facing: 0 }), atomicDuration: 12 };
       const first = resolveSettlerBobId(binding, item, start + 1);
       selected.add(first);
-      for (let elapsed = 1; elapsed <= 12; elapsed++) {
+      for (let elapsed = 0; elapsed < 12; elapsed++) {
         const facing = elapsed % 2;
         const bob = resolveSettlerBobId(binding, { ...item, elapsed, facing }, start + elapsed + 0.8);
-        expect(bob).toBe(first + facing * 10 + Math.floor((elapsed - 1) / 4));
+        expect(bob).toBe(first + facing * 10 + Math.floor(elapsed / 4));
       }
     }
     expect([...selected].sort()).toEqual([100, 200, 300, 400]);

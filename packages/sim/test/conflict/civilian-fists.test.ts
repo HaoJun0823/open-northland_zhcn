@@ -65,8 +65,8 @@ it('inherits civilian hit timing only for trades, with explicit job clips taking
       { id: 'hunter_attack', name: 'hunter_attack', length: 25, events: [{ at: 11, type: 25 }] },
     ],
   });
-  expect(attackClipTiming(content, { tribe: 1, jobType: 70 })).toEqual({ length: 16, shotAt: 6 });
-  expect(attackClipTiming(content, { tribe: 1, jobType: 80 })).toEqual({ length: 25, shotAt: 11 });
+  expect(attackClipTiming(content, { tribe: 1, jobType: 70 })).toEqual({ length: 16, shotAt: 7 });
+  expect(attackClipTiming(content, { tribe: 1, jobType: 80 })).toEqual({ length: 25, shotAt: 12 });
   expect(attackClipTiming(content, { tribe: 1, jobType: 31 })).toEqual({ length: 4, shotAt: 4 });
   expect(attackClipTiming(content, { tribe: 2, jobType: 70 })).toEqual({ length: 4, shotAt: 4 });
 });

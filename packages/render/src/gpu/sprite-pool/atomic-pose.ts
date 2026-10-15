@@ -25,9 +25,10 @@ export function interpolateAtomicPose(item: DrawItem, alpha: number, track?: Int
     item.ghost === true
   )
     return item;
-  // Preserve the pending action's zero elapsed: frame selection clamps its pose, but variant selection
-  // needs the true elapsed clock to retain the same action identity on the first tick.
-  const elapsed = Math.max(0, item.elapsed + clamp01(alpha));
+  // Interpolates from the previous tick's pose to this tick's, so alpha 1 draws the frame an original clip
+  // shows. Left unclamped on the starting tick: frame selection clamps its pose, but variant selection needs
+  // the true elapsed clock to retain the same action identity on the first tick.
+  const elapsed = item.elapsed - 1 + clamp01(alpha);
   if (track === undefined) return { ...item, elapsed };
   if (track.source !== item || track.pose === undefined) {
     track.source = item;

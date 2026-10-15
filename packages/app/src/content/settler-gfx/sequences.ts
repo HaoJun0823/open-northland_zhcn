@@ -41,9 +41,7 @@ export const FALLBACK_WALK: DirectionalAnim = { start: 1988, dirs: DIRS, stride:
 // axe coming down (impact ~frame 8) and 9..14 the axe rising, so the cycle starts at the windup to end on
 // the strike.
 export const CHOP_PHASE_START = 9;
-/** Frames per facing in the woodcut swing (verified 5106/120 = 15 across the 8 dirs). One clean swing needs
- *  `CHOP_STRIDE + 1` sim ticks, because the render clock is `elapsed - 1` and the completion tick removes
- *  the atomic before its frame draws. */
+/** Frames per facing in the woodcut swing (verified 5106/120 = 15 across the 8 dirs). */
 const CHOP_STRIDE = 15;
 export const FALLBACK_CHOP: DirectionalAnim = {
   start: 5106,

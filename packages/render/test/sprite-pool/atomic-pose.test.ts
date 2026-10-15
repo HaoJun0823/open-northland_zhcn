@@ -17,28 +17,47 @@ describe('atomic completion pose', () => {
   it('reuses only the presentation pose without changing the snapshot or carrying optional fields into the next tick', () => {
     const track: InterpolationTrack = { source: undefined, pose: undefined };
     const first = interpolateAtomicPose({ ...swing, atomicDuration: 15 }, 0.25, track);
-    expect(first.elapsed).toBe(14.25);
+    expect(first.elapsed).toBe(13.25);
     const source = track.source;
     if (source === undefined) throw new Error('acting pose not retained');
     const second = interpolateAtomicPose(source, 0.75, track);
     expect(second).toBe(first);
-    expect(second.elapsed).toBe(14.75);
+    expect(second.elapsed).toBe(13.75);
     expect(source.elapsed).toBe(14);
     const next = interpolateAtomicPose({ ...swing, elapsed: 1 }, 0.5, track);
     expect(next).not.toBe(first);
-    expect(next.elapsed).toBe(1.5);
+    expect(next.elapsed).toBe(0.5);
     expect(next.atomicDuration).toBeUndefined();
     expect(interpolateAtomicPose(idle, 0.5, track)).toBe(idle);
   });
-  it('plays the final swing frame across the planner gap without standing or turning away', () => {
+  it('keeps the swing across the planner gap without standing or turning away', () => {
     const track = fresh();
     const frames = [
       atomicPose(swing, 14, track),
       atomicPose(idle, 15, track),
-      atomicPose({ ...swing, elapsed: 1 }, 16, track),
+      atomicPose({ ...swing, elapsed: 0 }, 16, track),
     ].map((item) => resolveSettlerBobId(binding, item, 1000));
-    expect(frames).toEqual([173, 174, 160]);
+    // The final frame draws on its own tick; the gap plays on to the cycle's first, which the successor opens on.
+    expect(frames).toEqual([174, 160, 160]);
     expect(idle).toEqual({ kind: 'settler', ref: 1, x: 20, y: 30, depth: 0, state: 'idle', facing: 0 });
+  });
+
+  it('keeps one attack variant from the starting tick on when interpolated', () => {
+    const variants = {
+      idle: 0,
+      byAtomicChoices: { 81: [100, 200, 300, 400].map((start) => ({ start, frameLists: [[0]] })) },
+    };
+    for (let start = 0; start < 40; start++) {
+      const picked = new Set<number>();
+      for (let elapsed = 0; elapsed < 4; elapsed++) {
+        for (const alpha of [0, 0.5]) {
+          const pose = interpolateAtomicPose({ ...swing, atomicId: 81, elapsed }, alpha);
+          // The smooth presentation clock trails the snapshot tick by the same `1 - alpha`.
+          picked.add(resolveSettlerBobId(variants, pose, start + elapsed - 1 + alpha));
+        }
+      }
+      expect(picked.size).toBe(1);
+    }
   });
 
   it('keeps the atomic length on the completion pose, so a swing spanning it ends on its blow', () => {

@@ -83,7 +83,7 @@ describe('resolveSpriteBobId - carrying (loaded-gait) override', () => {
     // Carry swaps the gait, never a bound action animation.
     expect(
       resolveSpriteBobId(
-        settlerItem('acting', { facing: 4, atomicId: 24, elapsed: 1, carrying: true }),
+        settlerItem('acting', { facing: 4, atomicId: 24, elapsed: 0, carrying: true }),
         bindings,
         0,
       ),

@@ -10,6 +10,7 @@ import {
 import type { Entity } from '../../../ecs/world.js';
 import type { System } from '../../context.js';
 import { religionAllowsAtomic } from '../../lifecycle/needs/religion.js';
+import { eventTick } from '../../readviews/animations.js';
 import { prayerSiteAvailable } from '../../readviews/prayer-sites.js';
 import { applyEffect } from './effects/apply.js';
 import {
@@ -69,12 +70,13 @@ export const atomicSystem: System = (world, ctx) => {
         if (elapsed === duration) resolveAttackHit(world, ctx, e, running, running.effect, pendingReactions);
       } else {
         for (const frame of frames) {
-          if (elapsed === eventFrameWithin(frame, duration))
+          if (elapsed === eventTickWithin(frame, duration))
             resolveAttackHit(world, ctx, e, running, running.effect, pendingReactions);
         }
       }
       const lunge = running.effect.lunge;
-      if (lunge?.frames.includes(elapsed)) lungeForward(world, ctx, e, lunge.direction);
+      if (lunge?.frames.some((frame) => eventTick(frame) === elapsed))
+        lungeForward(world, ctx, e, lunge.direction);
     }
 
     if (!workshopDisplay) applyAtomicNeedEvents(world, ctx, e, running, elapsed);
@@ -133,8 +135,9 @@ export const atomicSystem: System = (world, ctx) => {
   applyPendingHitReactions(world, pendingReactions);
 };
 
-/** Clamp an animation's event frame into the `[1, duration]` ticks the atomic actually runs, so a blow the
- *  data puts past the animation length still lands exactly once, on the last tick. */
-function eventFrameWithin(frame: number, duration: number): number {
-  return Math.min(Math.max(1, frame), duration);
+/** The tick an animation's event frame fires on, clamped into the `duration` ticks the atomic actually runs.
+ *  Approximation: the original never fires a frame past its clip; here such a blow lands once, on the last
+ *  tick, so an attack clip authored that way still hits. No shipped clip has one. */
+function eventTickWithin(frame: number, duration: number): number {
+  return Math.min(eventTick(frame), duration);
 }

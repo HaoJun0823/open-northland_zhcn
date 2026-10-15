@@ -261,8 +261,10 @@ export function resolveSettlerBobId(
       if (ref === undefined) return frameOf(binding.idle, facing, tick); // an unbound clip just stands
       return stretchedFrame(ref, facing, craft.progress);
     }
-    // An action runs on the atomic's own clock, rebased to 0 so frame 0 shows on its first tick.
-    const clock = Math.max(0, (item.elapsed ?? 1) - 1);
+    // An action runs on the atomic's own clock. Original behavior: a tick fires a clip's events at its frame
+    // counter and then advances it, and the counter it advanced to draws, so `elapsed` ticks in shows frame
+    // `elapsed` and the starting tick frame 0.
+    const clock = Math.max(0, item.elapsed ?? 0);
     const choices = item.atomicId === undefined ? undefined : binding.byAtomicChoices?.[item.atomicId];
     if (choices !== undefined && choices.length > 0) {
       // Presentation-only variation: stable for the whole action, including facing changes and heads.

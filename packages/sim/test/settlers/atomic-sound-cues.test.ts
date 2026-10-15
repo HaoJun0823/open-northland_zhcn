@@ -39,6 +39,7 @@ const SILENT_ATOMIC = 25;
 const TWO_CUE_ATOMIC = 26;
 const OVERRUN_ATOMIC = 27;
 const CIVILIST_ONLY_ATOMIC = 28;
+const EDGE_ATOMIC = 29;
 
 const CHOP_LENGTH = 6;
 
@@ -63,6 +64,7 @@ function cueContent(): ContentSet {
           { jobType: COLLECTOR_JOB, atomicId: SILENT_ATOMIC, animation: 'silent' },
           { jobType: COLLECTOR_JOB, atomicId: TWO_CUE_ATOMIC, animation: 'two_cue' },
           { jobType: COLLECTOR_JOB, atomicId: OVERRUN_ATOMIC, animation: 'overrun' },
+          { jobType: COLLECTOR_JOB, atomicId: EDGE_ATOMIC, animation: 'edge' },
           // Bound on the civilist body only, the original's `baseatomics 6` inheritance.
           { jobType: CIVILIST_JOB, atomicId: CIVILIST_ONLY_ATOMIC, animation: 'inherited' },
         ],
@@ -86,6 +88,16 @@ function cueContent(): ContentSet {
         name: 'overrun',
         length: CHOP_LENGTH,
         events: [{ at: 99, type: PLAY_SOUND_FX, value: AXE }],
+      },
+      // Cues on the clip's last frame and one past it.
+      {
+        id: 'edge',
+        name: 'edge',
+        length: CHOP_LENGTH,
+        events: [
+          { at: CHOP_LENGTH - 1, type: PLAY_SOUND_FX, value: AXE },
+          { at: CHOP_LENGTH, type: PLAY_SOUND_FX, value: VOICE },
+        ],
       },
       {
         id: 'inherited',
@@ -124,8 +136,12 @@ function cuesOverSwing(
 }
 
 describe('atomicSystem - authored sound cues', () => {
-  it('fires the clip’s cue on its authored frame, with the id the data names', () => {
-    expect(cuesOverSwing(COLLECTOR_JOB, CHOP_ATOMIC)).toEqual([{ tick: 4, soundType: AXE }]);
+  it('fires the clip’s cue on the tick after its authored frame, with the id the data names', () => {
+    expect(cuesOverSwing(COLLECTOR_JOB, CHOP_ATOMIC)).toEqual([{ tick: 5, soundType: AXE }]);
+  });
+
+  it('sounds the last frame on the completion tick and never a frame at the clip length', () => {
+    expect(cuesOverSwing(COLLECTOR_JOB, EDGE_ATOMIC)).toEqual([{ tick: CHOP_LENGTH, soundType: AXE }]);
   });
 
   it('keeps a clip with no cue silent for the whole swing, completion included', () => {
@@ -134,8 +150,8 @@ describe('atomicSystem - authored sound cues', () => {
 
   it('fires every cue a clip authors, each on its own frame', () => {
     expect(cuesOverSwing(COLLECTOR_JOB, TWO_CUE_ATOMIC)).toEqual([
-      { tick: 2, soundType: AXE },
-      { tick: 5, soundType: VOICE },
+      { tick: 3, soundType: AXE },
+      { tick: 6, soundType: VOICE },
     ]);
   });
 
@@ -152,7 +168,7 @@ describe('atomicSystem - authored sound cues', () => {
   });
 
   it('sounds a clip a trade inherits from the civilist body', () => {
-    expect(cuesOverSwing(COLLECTOR_JOB, CIVILIST_ONLY_ATOMIC)).toEqual([{ tick: 3, soundType: VOICE }]);
+    expect(cuesOverSwing(COLLECTOR_JOB, CIVILIST_ONLY_ATOMIC)).toEqual([{ tick: 4, soundType: VOICE }]);
   });
 
   it('sounds a counted stroke and its follow-through once each, the rest never', () => {

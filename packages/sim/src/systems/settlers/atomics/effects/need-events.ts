@@ -47,7 +47,7 @@ export function applyAtomicNeedEvents(
   let piety = 0;
   let atHome: boolean | undefined;
   // A workshop batch never wraps: a replacement maker may bind a shorter clip.
-  const frame = repeatClip ? clipFrameAt(elapsed, animation.length) : elapsed;
+  const frame = repeatClip ? clipFrameAt(elapsed, animation.length) : elapsed - 1;
   for (const event of animation.events) {
     if (event.at !== frame) continue;
     const delta = event.value ?? 0;

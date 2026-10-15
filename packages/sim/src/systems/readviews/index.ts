@@ -12,6 +12,7 @@ export {
   atomicHasExtendedEvents,
   atomicStartDirection,
   boundAnimalAtomicAnimation,
+  eventTick,
   isInterruptibleAtomic,
   isStrokeCountedAtomic,
   isTransformAtomic,

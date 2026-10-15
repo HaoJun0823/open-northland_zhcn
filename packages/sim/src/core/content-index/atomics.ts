@@ -55,9 +55,7 @@ function pacedClip(clip: AtomicAnimation, pace: number): AtomicAnimation {
   return {
     ...clip,
     length: clip.length * pace,
-    events: clip.events.map((event) =>
-      event.at === 0 ? event : { ...event, at: (event.at - 1) * pace + 1 },
-    ),
+    events: clip.events.map((event) => ({ ...event, at: event.at * pace })),
   };
 }
 

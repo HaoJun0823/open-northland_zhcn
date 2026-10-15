@@ -324,6 +324,7 @@ describe('characterBinding', () => {
       81: {
         start: 2255,
         frameLists: [[], [], [], [], [79, 79, 80], [97, 97, 98], [], []],
+        spansAtomic: true,
       },
     });
   });
@@ -405,6 +406,7 @@ describe('characterBinding', () => {
     expect(swing).toEqual({
       start: 2255,
       frameLists: [[2], [3], [4], [5], [0], [1], [7], [6]],
+      spansAtomic: true,
     });
   });
 
@@ -817,6 +819,7 @@ describe('characterBinding out-of-row frame lists', () => {
     expect(swing).toEqual({
       start: 425,
       frameLists: [[0], [0], [0], [0], [0, 1], [102, 103], [0], [0]],
+      spansAtomic: true,
     });
   });
 
@@ -842,6 +845,6 @@ describe('characterBinding out-of-row frame lists', () => {
   it('binds a program that stays inside the row without consulting the pool', () => {
     const inRow = new Map([[ATTACK_ATOMIC, new Map([['punch', { dirFrames: [[0, 1]] }]])]]);
     const swing = characterBinding(spec, seqs, [], { programsByAction: inRow })?.byAtomic?.[ATTACK_ATOMIC];
-    expect(swing).toEqual({ start: 425, frameLists: [[0, 1]] });
+    expect(swing).toEqual({ start: 425, frameLists: [[0, 1]], spansAtomic: true });
   });
 });

@@ -89,12 +89,20 @@ function atomicCarriesEvent(
 }
 
 /**
- * The clip frame `elapsed` ticks into an atomic. A clip shorter than the atomic running it replays, so a
- * multi-stroke harvest or a long crank at a well pays its events once per playthrough. Only frames `1` to
- * `length` are ever reached, so an event authored outside that window never fires.
+ * The clip frame whose events fire on the tick `elapsed` ticks into an atomic. Original behavior: a clip's
+ * frame counter starts at 0, and each tick fires the events authored at the counter before advancing it,
+ * so `event <at>` lands on tick `at + 1` ({@link eventTick}). A clip shorter than the atomic running it
+ * replays, so a multi-stroke harvest or a long crank at a well pays its events once per playthrough. Only
+ * frames `0` to `length - 1` are ever reached, so an event authored outside that window never fires.
  */
 export function clipFrameAt(elapsed: number, length: number): number {
-  return length > 0 ? ((elapsed - 1) % length) + 1 : elapsed;
+  return length > 0 ? (elapsed - 1) % length : elapsed - 1;
+}
+
+/** The tick of an atomic (`elapsed`, counted from 1) that fires an event authored at clip frame `at`, the
+ *  inverse of {@link clipFrameAt} for a clip that does not replay. */
+export function eventTick(at: number): number {
+  return at + 1;
 }
 
 /**

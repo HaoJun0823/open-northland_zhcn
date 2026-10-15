@@ -22,9 +22,9 @@ describe('atomicSystem - a struck civilian staggers (data-driven `82` ATTACKED a
     const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
     const attacker = fighterAt(sim, 0, 0, VIKING, SOLDIER_SPEAR);
     const woman = fighterAt(sim, 1, 0, VIKING, WOMAN, { hitpoints: 10_000 }); // survives the blow
-    startSwing(sim, attacker, { target: woman, damage: 2090, hitFrames: [1] }, 27);
+    startSwing(sim, attacker, { target: woman, damage: 2090, hitFrames: [0] }, 27);
 
-    atomicSystem(sim.world, nextTickCtxOf(sim)); // frame 1 = the blow lands
+    atomicSystem(sim.world, nextTickCtxOf(sim)); // frame 0 = the blow lands
 
     const flinch = sim.world.get(woman, CurrentAtomic);
     expect(flinch.atomicId).toBe(ATTACKED_ATOMIC); // she is staggering
@@ -39,7 +39,7 @@ describe('atomicSystem - a struck civilian staggers (data-driven `82` ATTACKED a
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('mapped sim expected');
     sim.world.add(woman, MoveGoal, { cell: terrain.nodeAt(10, 0) }); // walking off east
-    startSwing(sim, attacker, { target: woman, damage: 2090, hitFrames: [1] }, 27);
+    startSwing(sim, attacker, { target: woman, damage: 2090, hitFrames: [0] }, 27);
 
     atomicSystem(sim.world, nextTickCtxOf(sim));
 
@@ -52,7 +52,7 @@ describe('atomicSystem - a struck civilian staggers (data-driven `82` ATTACKED a
     const sim = new Simulation({ seed: 1, content: combatCadenceContent(), map: grass(3, 1) });
     const attacker = fighterAt(sim, 0, 0, VIKING, SOLDIER_SPEAR);
     const soldier = fighterAt(sim, 1, 0, OTHER, SOLDIER_SWORD_SHORT, { hitpoints: 10_000 });
-    startSwing(sim, attacker, { target: soldier, damage: 2090, hitFrames: [1] }, 27);
+    startSwing(sim, attacker, { target: soldier, damage: 2090, hitFrames: [0] }, 27);
 
     atomicSystem(sim.world, nextTickCtxOf(sim));
 
@@ -65,7 +65,7 @@ describe('atomicSystem - a struck civilian staggers (data-driven `82` ATTACKED a
     const woman = fighterAt(sim, 1, 0, VIKING, WOMAN, { hitpoints: 10_000 });
     // The woman is mid-swing (her own attack 81, uninterruptible) - the blow must not cut it short.
     startSwing(sim, woman, { target: attacker, damage: 0 }, 100);
-    startSwing(sim, attacker, { target: woman, damage: 2090, hitFrames: [1] }, 27);
+    startSwing(sim, attacker, { target: woman, damage: 2090, hitFrames: [0] }, 27);
 
     atomicSystem(sim.world, nextTickCtxOf(sim));
 

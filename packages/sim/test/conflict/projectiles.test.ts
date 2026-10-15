@@ -41,7 +41,7 @@ import { grassCellMap as grassMap } from '../fixtures/terrain.js';
  * The combatants are UNOWNED and of DIFFERENT tribes (a viking archer vs an unrecorded "frank" - a valid
  * civ enemy, see `mayAttack`), so the fight runs on the legacy tribe-hostility axis with no Stance/advance
  * machinery: the archer stands and shoots, the (unarmed) target stands still. The bow's ATTACK event fires
- * at frame 6 of its length-12 draw, so a swing that STARTED at tick T looses its arrow 6 ticks later.
+ * at frame 6 of its length-12 draw, so a swing that STARTED at tick T looses its arrow 7 ticks later.
  */
 
 const VIKING = 1; // a civilization tribe (carries a jobEnables tech edge)
@@ -225,9 +225,9 @@ describe('projectiles - launch at the release frame, no instant hit', () => {
     const archer = marksmanAt(sim, 0, 0);
     const target = fighterAt(sim, 8, 0, FRANK, IDLE); // 16 nodes away - inside the 3..20 band, so the archer fires
 
-    // The swing is added on tick 1 (combatSystem) and advances from tick 2; the ATTACK event is frame 6,
-    // so the arrow looses on tick 7. Through frame 5 (6 steps) there is no projectile and no damage.
-    for (let i = 0; i < RELEASE_FRAME; i++) sim.step();
+    // The swing is added on tick 1 (combatSystem) and plays frame 0 on tick 2; the ATTACK event is frame 6,
+    // so the arrow looses on tick 8. Through tick 7 there is no projectile and no damage.
+    for (let i = 0; i <= RELEASE_FRAME; i++) sim.step();
     expect(projectiles(sim)).toHaveLength(0);
     expect(sim.world.get(target, Health).hitpoints).toBe(TARGET_HP);
     expect(sim.world.has(archer, CurrentAtomic)).toBe(true); // the archer is mid-draw

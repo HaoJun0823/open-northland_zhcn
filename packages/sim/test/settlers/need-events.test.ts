@@ -156,6 +156,35 @@ describe('atomic need events - away from home', () => {
     expect(needsOf(sim, settler).hunger).toBe(fx.sub(ONE, needBar(MEAL)));
   });
 
+  it('pays a meal once per play of its clip when the action outlasts the clip, on the tick after its frame', () => {
+    const sim = new Simulation({ seed: 1, content: houseContent(), map: grassNodeMap(32, 20) });
+    const { house } = houseAt(sim);
+    const settler = residentAt(sim, positionOfNode(FIELD_NODE.hx, FIELD_NODE.hy), { hunger: ONE }, house);
+    // The fixture meal pulses at frame 3 of its 5-tick clip, so a 10-tick meal pays on ticks 4 and 9 only.
+    const MEAL_FRAME = 3;
+    addCurrentAtomic(sim.world, settler, {
+      atomicId: EAT_ATOMIC,
+      duration: 2 * EAT_CLIP_TICKS,
+      effect: { kind: 'eat', goodType: 3, from: null },
+      targetEntity: null,
+      targetTile: null,
+    });
+    const paidAfterTick: number[] = [];
+    for (let tick = 1; tick <= 2 * EAT_CLIP_TICKS; tick++) {
+      atomicSystem(sim.world, nextTickCtxOf(sim));
+      paidAfterTick.push(
+        Math.round(fx.toFloat(fx.sub(ONE, needsOf(sim, settler).hunger)) / fx.toFloat(needBar(MEAL))),
+      );
+    }
+    const firstPay = MEAL_FRAME + 1;
+    expect(paidAfterTick).toEqual(
+      Array.from({ length: 2 * EAT_CLIP_TICKS }, (_, i) => {
+        const tick = i + 1;
+        return tick < firstPay ? 0 : tick < firstPay + EAT_CLIP_TICKS ? 1 : 2;
+      }),
+    );
+  });
+
   it('moves no bar at all on a settler that is still growing', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(3, 1) });
     const child = needsSettlerAt(sim, 0, 0, {});

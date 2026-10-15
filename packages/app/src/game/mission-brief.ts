@@ -191,6 +191,12 @@ export interface MissionBriefWorld {
   readonly outcome: () => MatchOutcome;
 }
 
+/** The delivered briefing pages, oldest first, and the replayable one the beam opens on. */
+export interface MissionBriefingAnswer {
+  readonly history: readonly number[];
+  readonly page: number | null;
+}
+
 /** The pages and goals the book and the goal slip pull. */
 export interface MissionReader {
   page(page: number | null): MissionPage;

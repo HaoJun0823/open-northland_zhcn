@@ -24,7 +24,7 @@ import {
 } from '../../content/gui-gfx.js';
 import { loadUiFont, type UiFont } from '../../content/ui-font.js';
 import type { MissionInfoRow } from '../../game/info-lines.js';
-import type { MissionReader } from '../../game/mission-brief.js';
+import type { MissionBriefingAnswer, MissionReader } from '../../game/mission-brief.js';
 import type { ObserverSeatEntry } from '../../game/observer-seats.js';
 import { canonicalJobType } from '../../game/sandbox/index.js';
 import type { SnapshotEntity } from '../../game/snapshot.js';
@@ -232,8 +232,8 @@ export interface ToolPanelOptions {
   readonly mission?: MissionReader;
   readonly missionBriefingHistory?: () => readonly number[];
   readonly missionPictureUrl?: (file: string) => string;
-  /** The briefing page the mission book opens on from the beam; null before any replayable one. */
-  readonly missionReplayPage?: () => number | null;
+  /** The briefing as of now, which the mission book opens on from the beam. */
+  readonly askMissionBriefing?: () => Promise<MissionBriefingAnswer>;
   /** The human a briefing picture of a mission id shows; absent, those pictures draw nothing. */
   readonly missionHuman?: MissionHumanLookup;
   /** Bumped when a mission read above lands anew, which rebuilds an open mission book. */
@@ -559,7 +559,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
           plane,
           reader: opts.mission ?? NO_MISSION,
           briefingHistory: opts.missionBriefingHistory ?? (() => []),
-          replayPage: opts.missionReplayPage ?? ((): null => null),
+          askBriefing: opts.askMissionBriefing ?? (() => Promise.resolve({ history: [], page: null })),
           history,
           missionHuman: opts.missionHuman ?? ((): null => null),
           answersVersion: opts.missionAnswersVersion ?? ((): number => 0),

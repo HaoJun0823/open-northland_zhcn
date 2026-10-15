@@ -10,6 +10,7 @@ import type {
   UnlockStatus,
   WorkStatus,
 } from '@open-northland/sim';
+import type { MissionBriefingAnswer } from '../../game/mission-brief.js';
 import { type BuildingAvailability, OPEN_AVAILABILITY } from '../../hud/tool-panel/building-menu.js';
 import {
   type StatusAnswer,
@@ -94,7 +95,8 @@ export interface HostAnswers {
   readonly askAttachToVehicle: (settler: number, vehicle: number) => Promise<boolean>;
   readonly papers: (player: number) => readonly Paper[];
   readonly missionBriefingHistory: () => readonly number[];
-  readonly missionBriefingPage: () => number | null;
+  /** The briefing as of now, for the beam's click. */
+  readonly askMissionBriefing: () => Promise<MissionBriefingAnswer>;
   readonly missionHuman: (missionId: number) => number | null;
   /** Each consumer's own version, bumped only when a read it takes answers differently. */
   readonly versions: {
@@ -232,7 +234,11 @@ export function createHostAnswers(host: SessionHost, tribeOf: (player: number) =
       vehicles.fresh(`${settler}`, vehiclesOf(settler), NO_INPUTS, PER_TICK).then((ids) => ids.has(vehicle)),
     papers: (player) => perTick(papers, `${player}`, () => host.papers(player)) ?? NO_PAPERS,
     missionBriefingHistory: () => perTick(pages, 'history', () => host.missionBriefingHistory()) ?? NO_PAGES,
-    missionBriefingPage: () => perTick(missionEntities, 'page', () => host.missionBriefingPage()) ?? null,
+    askMissionBriefing: () =>
+      Promise.all([
+        pages.fresh('history', () => host.missionBriefingHistory(), NO_INPUTS, PER_TICK),
+        missionEntities.fresh('page', () => host.missionBriefingPage(), NO_INPUTS, PER_TICK),
+      ]).then(([history, page]) => ({ history, page })),
     missionHuman: (missionId) =>
       perTick(missionEntities, `human:${missionId}`, () => host.missionHuman(missionId)) ?? null,
     versions: {

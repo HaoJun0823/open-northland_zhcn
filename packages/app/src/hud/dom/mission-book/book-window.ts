@@ -564,7 +564,7 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
   const onClick = (event: MouseEvent): void => {
     const target = event.target instanceof Element ? event.target : null;
     const control = target?.closest<HTMLElement>(
-      '[data-tab], [data-turn], .on-book__close, [data-pick], [data-read], [data-jump], [data-table], [data-back], [data-view]',
+      '[data-tab], [data-turn], .on-book__close, [data-pick], [data-read], [data-jump], [data-table], [data-back], [data-go]',
     );
     if (control === null || control === undefined || !scene.contains(control)) return;
     const data = control.dataset;
@@ -588,8 +588,8 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
         show({ tab: 'history', table: page });
     } else if (data.back !== undefined) {
       show({ table: data.back === 'tables' ? (deps.history?.start ?? null) : null });
-    } else if (data.view !== undefined) {
-      const target = slots[Number(data.view)]?.icon.target;
+    } else if (data.go !== undefined) {
+      const target = slots[Number(data.go)]?.icon.target;
       if (target !== undefined && target !== null) deps.onShowOnMap(target);
     }
   };

@@ -324,6 +324,19 @@ describe('flowMarkup', () => {
     }
   });
 
+  it('moves the map only from the pin, never from a click on the picture', () => {
+    const map = flowMarkup(pageSegments([VIEW]), {
+      pictureUrl: (file) => file,
+      iconBox: () => ({ w: 120, h: 80, target: { kind: 'entity', ref: 7 }, focusX: 60, focusY: 40 }),
+      showOnMap: 'Show on map',
+      views: [],
+    });
+    expect(map).toMatch(/<span class="on-book__view" data-view="0">.*<button[^>]* data-go="0"/);
+    expect(map).not.toMatch(/<button[^>]*on-book__view/);
+    expect(card({ kind: 'entity', ref: 7 })).toContain('data-go="0"');
+    expect(card(null)).not.toContain('data-go');
+  });
+
   it('leaves a figure card clear over its hole, where the renderer paints the fill, and fills a card without one', () => {
     expect(card({ kind: 'entity', ref: 7 })).not.toContain('background:');
     expect(card(null)).toContain('background:#c4c09f');

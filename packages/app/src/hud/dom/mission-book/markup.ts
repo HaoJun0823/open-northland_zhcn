@@ -78,11 +78,13 @@ function views(icons: readonly HypertextUserIcon[], ctx: FlowContext): string {
         ? ''
         : `;background:#${box.soloFill.toString(16).padStart(6, '0')}`;
     const lens = `<span class="on-book__lens" style="width:${w}px;height:${h}px${fill}"></span>`;
-    if (box.target === null)
-      return `<span class="on-book__view on-book__view--card" data-view="${index}">${lens}</span>`;
     const label = escapeHtml(ctx.showOnMap);
-    const go = card ? '' : `<span class="on-book__go">${GLYPH.pin}<span>${label}</span></span>`;
-    return `<button type="button" class="on-book__view${card ? ' on-book__view--card' : ''}" data-view="${index}" aria-label="${label}">${lens}${go}</button>`;
+    // Only the pin moves the map, which closes the book; a click on the picture itself does nothing.
+    const go =
+      box.target === null
+        ? ''
+        : `<button type="button" class="on-book__go" data-go="${index}" aria-label="${label}">${GLYPH.pin}${card ? '' : `<span>${label}</span>`}</button>`;
+    return `<span class="on-book__view${card ? ' on-book__view--card' : ''}" data-view="${index}">${lens}${go}</span>`;
   });
   return `<div class="on-book__views on-book__views--${across}">${cells.join('')}</div>`;
 }

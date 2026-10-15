@@ -5505,9 +5505,6 @@ body.on-drag-scroll * {
     0 0 0 1px #8d7549,
     0 2px 5px #5c4c3755;
 }
-.on-hud button.on-book__view {
-  cursor: zoom-in;
-}
 .on-hud .on-book__lens {
   display: block;
   border: 1px solid #3a2a18;
@@ -5535,7 +5532,8 @@ body.on-drag-scroll * {
   color: var(--bronze-hi);
   font: 700 12px var(--font-body);
 }
-.on-hud .on-book__views--2 .on-book__go {
+.on-hud .on-book__views--2 .on-book__go,
+.on-hud .on-book__view--card .on-book__go {
   gap: 0;
   padding: 4px;
 }
@@ -5546,7 +5544,7 @@ body.on-drag-scroll * {
   width: 15px;
   height: 15px;
 }
-.on-hud .on-book__view:hover .on-book__go {
+.on-hud .on-book__go:hover {
   background: var(--wood);
   color: #fff4dc;
 }

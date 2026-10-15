@@ -680,7 +680,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       ...(mission !== undefined ? { mission } : {}),
       ...(deps.missionPictureUrl === undefined ? {} : { missionPictureUrl: deps.missionPictureUrl }),
       missionBriefingHistory: answers.missionBriefingHistory,
-      missionReplayPage: answers.missionBriefingPage,
+      askMissionBriefing: answers.askMissionBriefing,
       missionHuman: answers.missionHuman,
       missionAnswersVersion: answers.versions.mission,
       onMissionHold: (held) => {
@@ -1289,13 +1289,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       syncViewport: liveSettings.syncViewport,
     });
 
-    // The window opens on the briefing the host names, so it waits for that answer.
-    if (deps.introAtStart === true) {
-      answers.missionBriefingHistory();
-      answers.missionBriefingPage();
-      await answers.settled();
-      if (!destroyed) toolPanel.controller.openMission();
-    }
+    if (deps.introAtStart === true) toolPanel.controller.openMission();
     // A restored save of a decided match says so at once, since no event will repeat the verdict.
     if (deps.observer !== true) verdict?.announce(host.matchOutcome(localPlayer));
 

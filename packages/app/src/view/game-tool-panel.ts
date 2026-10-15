@@ -11,7 +11,7 @@ import {
 import type { Application } from 'pixi.js';
 import { localizedBuildingName } from '../catalog/building-i18n.js';
 import { vikingBuildingByTypeId } from '../catalog/buildings.js';
-import type { MissionReader } from '../game/mission-brief.js';
+import type { MissionBriefingAnswer, MissionReader } from '../game/mission-brief.js';
 import type { SnapshotEntity } from '../game/snapshot.js';
 import type { ViewerSeat } from '../game/viewer-seat.js';
 import type { AssistantSource } from '../hud/dom/assistant-window/index.js';
@@ -152,8 +152,8 @@ export interface GameToolPanelDeps {
   /** The mission book's pages and goals; absent, the book stays empty. */
   readonly mission?: MissionReader;
   readonly missionBriefingHistory?: () => readonly number[];
-  /** The briefing page the mission book opens on from the beam; null before any replayable one. */
-  readonly missionReplayPage?: () => number | null;
+  /** The briefing as of now, which the mission book opens on from the beam. */
+  readonly askMissionBriefing?: () => Promise<MissionBriefingAnswer>;
   /** The human a briefing picture of a mission id shows; absent, those pictures draw nothing. */
   readonly missionHuman?: (missionId: number) => number | null;
   /** Bumped when a mission read above lands anew, which rebuilds an open mission book. */
@@ -337,7 +337,7 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
       ...(deps.missionBriefingHistory !== undefined
         ? { missionBriefingHistory: deps.missionBriefingHistory }
         : {}),
-      ...(deps.missionReplayPage !== undefined ? { missionReplayPage: deps.missionReplayPage } : {}),
+      ...(deps.askMissionBriefing !== undefined ? { askMissionBriefing: deps.askMissionBriefing } : {}),
       ...(deps.missionHuman !== undefined ? { missionHuman: deps.missionHuman } : {}),
       ...(deps.missionAnswersVersion !== undefined
         ? { missionAnswersVersion: deps.missionAnswersVersion }

@@ -1,6 +1,6 @@
 import type { HypertextCallback } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import type { MissionGoal, MissionReader } from '../src/game/mission-brief.js';
+import type { MissionBriefingAnswer, MissionGoal, MissionReader } from '../src/game/mission-brief.js';
 import type { BookOpening, BookReading, BookWindow } from '../src/hud/dom/mission-book/book-window.js';
 import type { GoalSlip } from '../src/hud/dom/mission-book/goal-slip.js';
 import {
@@ -15,11 +15,14 @@ import {
 
 const PAGE = 500;
 
+/** Lets the beam's briefing answer land. */
+const answered = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 function goal(key: string, state: MissionGoal['state']): MissionGoal {
   return { key, text: key, emphasis: false, rule: 'authored', state };
 }
 
-function mount(pauseStopsClock = true) {
+function mount(pauseStopsClock = true, briefing: MissionBriefingAnswer = { history: [PAGE], page: PAGE }) {
   const holds: boolean[] = [];
   const openings: BookOpening[] = [];
   const dismiss: { run: () => void } = { run: () => undefined };
@@ -63,7 +66,7 @@ function mount(pauseStopsClock = true) {
     plane: {} as HTMLElement,
     reader,
     briefingHistory: () => [PAGE],
-    replayPage: () => PAGE,
+    askBriefing: () => Promise.resolve(briefing),
     history: null,
     missionHuman: () => null,
     answersVersion: () => 0,
@@ -102,9 +105,10 @@ describe('the mission book`s pause', () => {
     expect(mission.isOpen()).toBe(false);
   });
 
-  it('holds the game for the player`s own reading from the beam or the slip, without the arrival dim', () => {
+  it('holds the game for the player`s own reading from the beam or the slip, without the arrival dim', async () => {
     const { mission, holds, openings } = mount();
     mission.toggle();
+    await answered();
     expect(openings.at(-1)).toMatchObject({ arrival: false, paused: false });
     expect(holds).toEqual([true]);
     mission.close();
@@ -115,9 +119,31 @@ describe('the mission book`s pause', () => {
     expect(holds).toEqual([true, false, true, false]);
   });
 
-  it('keeps one hold when a script`s chapter opens over the player`s reading', () => {
+  it('opens from the beam on the start of the replayable chapter as of the click', async () => {
+    const { mission, openings } = mount(true, { history: [PAGE, PAGE + 1, PAGE + 2], page: PAGE + 1 });
+    mission.toggle();
+    expect(openings).toEqual([]);
+    await answered();
+    expect(openings.at(-1)?.reading).toMatchObject({ tab: 'brief', chapter: 1, spread: 0 });
+  });
+
+  it('drops a beam opening still waiting when the book closes or a script opens it', async () => {
+    const { mission, openings } = mount();
+    mission.toggle();
+    mission.close();
+    await answered();
+    expect(mission.isOpen()).toBe(false);
+    mission.toggle();
+    mission.showPage(PAGE);
+    await answered();
+    expect(openings).toHaveLength(1);
+    expect(openings[0]).toMatchObject({ arrival: true });
+  });
+
+  it('keeps one hold when a script`s chapter opens over the player`s reading', async () => {
     const { mission, holds, openings } = mount();
     mission.toggle();
+    await answered();
     mission.showPage(PAGE);
     expect(openings.at(-1)).toMatchObject({ arrival: true, paused: true });
     mission.openGoals();
@@ -160,9 +186,10 @@ describe('the briefing callbacks', () => {
   const NODE: HypertextCallback['args'] = [1000, 296, 188];
   const SOUND: HypertextCallback['args'] = [2000, 3, 0];
 
-  it('centre the view once per opening, the first that moves a view spending the flag', () => {
+  it('centre the view once per opening, the first that moves a view spending the flag', async () => {
     const { mission, fire, centred } = mount();
     mission.toggle();
+    await answered();
     fire.callback(SOUND);
     fire.callback([999, 1, 2]);
     fire.callback(HUMANS_5);
@@ -170,14 +197,16 @@ describe('the briefing callbacks', () => {
     expect(centred).toEqual([{ kind: 'group', group: 'human', id: 5 }]);
     mission.close();
     mission.toggle();
+    await answered();
     fire.callback(NODE);
     expect(centred.at(-1)).toEqual({ kind: 'node', hx: 296, hy: 188 });
     expect(centred).toHaveLength(2);
   });
 
-  it('reset the flag when a script`s chapter opens the closed book', () => {
+  it('reset the flag when a script`s chapter opens the closed book', async () => {
     const { mission, fire, centred } = mount();
     mission.toggle();
+    await answered();
     fire.callback(NODE);
     mission.close();
     mission.showPage(PAGE);
@@ -185,9 +214,10 @@ describe('the briefing callbacks', () => {
     expect(centred).toHaveLength(2);
   });
 
-  it('keep the spent flag for a chapter delivered to the open book', () => {
+  it('keep the spent flag for a chapter delivered to the open book', async () => {
     const { mission, fire, centred } = mount();
     mission.toggle();
+    await answered();
     fire.callback(NODE);
     mission.showPage(PAGE);
     fire.callback(HUMANS_5);

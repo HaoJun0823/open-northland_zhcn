@@ -2,7 +2,7 @@ import type { UiCue } from '@open-northland/audio';
 import type { HypertextBook } from '@open-northland/data';
 import type { MapViewTarget } from '@open-northland/render';
 import type { MissionInfoRow } from '../../../game/info-lines.js';
-import type { MissionReader } from '../../../game/mission-brief.js';
+import type { MissionBriefingAnswer, MissionReader } from '../../../game/mission-brief.js';
 import type { ToolWindow } from '../../tool-panel/window-shell.js';
 import {
   type BookReading,
@@ -46,8 +46,8 @@ export interface MissionBookDeps {
   readonly reader: MissionReader;
   /** The briefing pages the sim has delivered, oldest first. */
   readonly briefingHistory: () => readonly number[];
-  /** The page the book opens on from the beam: the last replayable one, or null before any. */
-  readonly replayPage: () => number | null;
+  /** The briefing as of now: the beam opens on its replayable page, or the last shown before any. */
+  readonly askBriefing: () => Promise<MissionBriefingAnswer>;
   /** The history tables the chronicle opens; null leaves them out. */
   readonly history: HypertextBook | null;
   readonly missionHuman: MissionHumanLookup;
@@ -123,6 +123,8 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
   /** A restored reading the next opening resumes, and whether a script delivered it. */
   let resume: { readonly reading: BookReading; readonly arrival: boolean } | null = null;
   let answersKey = deps.answersVersion();
+  /** Counts openings and closes, so a beam opening still waiting for its answer yields to them. */
+  let openings = 0;
 
   const chapters = (): readonly (number | null)[] => shown.list;
   const chapterOf = (page: number | null): number => {
@@ -142,6 +144,7 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
   };
 
   const close = (): void => {
+    openings++;
     if (!book.isOpen()) return;
     book.close();
     arrival = false;
@@ -181,6 +184,7 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
   });
 
   const open = (reading: BookReading, { delivered, resumed = false }: MissionOpening): void => {
+    openings++;
     if (!book.isOpen() && !resumed) viewCentred = false;
     marks.observe(deps.reader.goals());
     arrival = delivered;
@@ -188,16 +192,26 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     book.open({ reading, arrival, paused: arrival && deps.pauseStopsClock });
   };
 
-  /** From the beam the book opens on the map's replayable chapter (reading); a map whose pages all came
-   *  without the replay flag opens on the last one shown (approximation). */
+  /** From the beam the book opens on the start of the map's replayable chapter (reading); a map whose
+   *  pages all came without the replay flag opens on the last one shown (approximation). The click
+   *  waits for the briefing as of now, since a held answer can be from the previous opening. */
   const openFromBeam = (): void => {
-    shown.fold(deps.briefingHistory());
     const resumed = resume;
     resume = null;
-    open(resumed?.reading ?? { ...FIRST, chapter: chapterOf(deps.replayPage() ?? shown.page) }, {
-      delivered: resumed?.arrival === true,
-      resumed: resumed !== null,
-    });
+    if (resumed !== null) {
+      shown.fold(deps.briefingHistory());
+      open(resumed.reading, { delivered: resumed.arrival, resumed: true });
+      return;
+    }
+    const asked = openings;
+    void deps
+      .askBriefing()
+      .catch(() => ({ history: deps.briefingHistory(), page: null }))
+      .then(({ history, page }) => {
+        if (asked !== openings) return;
+        shown.fold(history);
+        open({ ...FIRST, chapter: chapterOf(page ?? shown.page) }, { delivered: false });
+      });
   };
 
   const slip = parts.slip({
@@ -266,6 +280,7 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     },
     // A remount reopens an open book from the state, so the hold is not released here.
     dispose(): void {
+      openings++;
       book.dispose();
       slip.dispose();
     },

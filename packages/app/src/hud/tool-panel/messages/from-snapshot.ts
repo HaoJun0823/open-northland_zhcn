@@ -184,23 +184,26 @@ class FoodWaits {
   }
 }
 
-/** Which of this seat's settlers have ever held a workplace, so the note about losing one can tell a
- *  razed post from a trade no workplace employs in the first place. Scoped to this mount, so a reload
- *  or a HUD rescale starts the history over and the note waits for the next post a settler loses. */
+/** Which of this seat's settlers have held a workplace in their current trade, so the note about losing
+ *  one can tell a razed post from a trade no workplace employs, such as the builder a former worker was
+ *  retrained as. Scoped to this mount, so a reload or a HUD rescale starts the history over and the note
+ *  waits for the next post a settler loses. */
 class PostHistory {
-  private employed = new Set<number>();
+  /** The trade each settler held its last post in. */
+  private employed = new Map<number, number | undefined>();
   private seen = new Set<number>();
 
-  /** Records this sweep's employment; returns whether the settler has held a post at some point. */
-  track(entity: number, atPost: boolean): boolean {
+  /** Records this sweep's employment; returns whether the settler held a post in its current trade. */
+  track(entity: number, atPost: boolean, jobType: number | undefined): boolean {
     this.seen.add(entity);
-    if (atPost) this.employed.add(entity);
+    if (atPost) this.employed.set(entity, jobType);
+    else if (this.employed.has(entity) && this.employed.get(entity) !== jobType) this.employed.delete(entity);
     return this.employed.has(entity);
   }
 
-  /** Forget the settlers gone from the world, so the set follows the seat's population. */
+  /** Forget the settlers gone from the world, so the map follows the seat's population. */
   end(): void {
-    for (const entity of this.employed) {
+    for (const entity of this.employed.keys()) {
       if (!this.seen.has(entity)) this.employed.delete(entity);
     }
     this.seen = new Set();
@@ -367,7 +370,7 @@ function raiseIdleNote(
 ): void {
   const atPost = workplaceOf(e) !== undefined;
   // Tracked ahead of the early-outs, since a settler is at its post precisely while it looks busy.
-  const everEmployed = posts.track(e.id, atPost);
+  const everEmployed = posts.track(e.id, atPost, settlerJobType(e));
   if (holdsPost(e) || isSoldier(e)) return;
   const occupation = occupationOf(snapshot, e);
   if (occupation === 'busy') return;

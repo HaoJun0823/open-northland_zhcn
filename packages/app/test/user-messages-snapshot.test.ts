@@ -25,6 +25,8 @@ const ENEMY = 1;
 const WORKPLACE = 90;
 const SITE = 91;
 const WORKER_JOB = 7;
+/** A trade no workplace employs. */
+const BUILDER_JOB = 8;
 const HEALTH_POOL = systems.HUMAN_HITPOINTS;
 /** The original's near-death line on a 5000 pool. */
 const NEAR_DEATH = 720;
@@ -46,6 +48,8 @@ interface Actor {
   /** A script made the settler unharmable. */
   readonly invulnerable?: boolean;
   readonly workplace?: number;
+  /** The trade, {@link WORKER_JOB} when absent. */
+  readonly jobType?: number;
   /** A gatherer's flag yard, which stands in for a workplace. */
   readonly workFlag?: number;
   readonly doing?: Doing;
@@ -107,7 +111,7 @@ function components(a: Actor): Record<string, unknown> {
     Position: { x: 3 * ONE, y: 2 * ONE },
     Settler: {
       tribe: 1,
-      jobType: a.jobless === true ? null : WORKER_JOB,
+      jobType: a.jobless === true ? null : (a.jobType ?? WORKER_JOB),
     },
     SettlerNeeds: {
       hunger: a.hunger ?? 0,
@@ -403,6 +407,19 @@ describe('user messages read off the snapshot', () => {
         [USER_MESSAGE_TYPE.workplaceNotFound, 1],
         [USER_MESSAGE_TYPE.nothingToDo, 3],
       ]);
+    });
+
+    it('has lost no workplace once retrained for a trade no workplace employs', () => {
+      const source = createSnapshotMessageSource(LOCAL);
+      sweep(
+        source,
+        snapshot(SNAPSHOT_SWEEP_INTERVAL_TICKS, [building, { id: 1, workplace: WORKPLACE, doing: 'work' }]),
+      );
+      const retrained: Actor[] = [building, { id: 1, jobType: BUILDER_JOB }];
+      const out = Array.from({ length: IDLE_SWEEPS_BEFORE_MESSAGE }, (_, i) =>
+        sweep(source, snapshot((i + 2) * SNAPSHOT_SWEEP_INTERVAL_TICKS, retrained)),
+      );
+      expect(out.flat()).toEqual([]);
     });
 
     it('reports a trader with a full route and no cart, never one with a cart or a short route', () => {

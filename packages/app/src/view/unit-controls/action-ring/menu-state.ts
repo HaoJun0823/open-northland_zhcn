@@ -3,7 +3,6 @@ import { components, entityById, jobAllowsAtomic, systems, type WorldSnapshot } 
 import { JOB_IDLE } from '../../../catalog/jobs.js';
 import {
   childOrderOf,
-  hasEligiblePartner,
   holdsHaulFlagPost,
   isAdult,
   isBoundByMarriage,
@@ -138,14 +137,15 @@ function allows(
       return !systems.isFighterJob(content, job) && jobAllowsAtomic(content, job, components.TALK_ATOMIC_ID);
     case 'pray':
       return !systems.isHeroJob(content, job) && jobAllowsAtomic(content, job, systems.PRAY_ATOMIC_ID);
+    // Original behavior: the button follows the person alone; the partner search runs once the order
+    // starts, and finding nobody raises the "no one to marry" message instead of hiding the button.
     case 'marry':
       return (
         isAdult(e) &&
         !isBoundByMarriage(snapshot, e) &&
         !isMarrying(e) &&
         trainingHouseOf(e) === undefined &&
-        !systems.isOnMission(content, job) &&
-        hasEligiblePartner(content, snapshot, e)
+        !systems.isOnMission(content, job)
       );
     case 'haveBoy':
     case 'haveGirl':

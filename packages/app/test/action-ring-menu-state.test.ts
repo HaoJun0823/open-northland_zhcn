@@ -14,11 +14,10 @@ import {
   JOB_WOMAN,
 } from '../src/catalog/jobs.js';
 import { sandboxContent } from '../src/game/sandbox/index.js';
-import { hasEligiblePartner } from '../src/game/snapshot.js';
 import type { ActionCommandId } from '../src/hud/action-ring/index.js';
 import { allowedActions, orderRecipients } from '../src/view/unit-controls/action-ring/menu-state.js';
 import { schoolStudents } from '../src/view/unit-controls/school-dialog.js';
-import { countingSnapshot, type Ent, snapshotOf } from './support/snapshot.js';
+import { type Ent, snapshotOf } from './support/snapshot.js';
 
 /**
  * Which orders the ring offers a selection: the per-settler gates mirror what each simulation command
@@ -49,7 +48,6 @@ interface Opts {
   readonly noRegeneration?: boolean;
   readonly rider?: boolean;
   readonly tribe?: number;
-  readonly unplaced?: boolean;
   readonly behaviour?: number;
 }
 
@@ -58,7 +56,7 @@ function settler(id: number, jobType: number, opts: Opts = {}): Ent {
     id,
     components: {
       Settler: { jobType, tribe: opts.tribe ?? TRIBE },
-      ...(opts.unplaced === true ? {} : { Position: { x: fx.fromInt(id), y: fx.fromInt(id) } }),
+      Position: { x: fx.fromInt(id), y: fx.fromInt(id) },
       ...(opts.female === true ? { Female: {} } : {}),
       ...(opts.child === true ? { Age: { ticks: 0 } } : {}),
       ...(opts.spouse !== undefined
@@ -86,7 +84,7 @@ describe('allowedActions - one settler', () => {
     expect(allowed(snapshotOf([settler(1, JOB_COLLECTOR)]), [99])).toEqual([]);
   });
 
-  it('offers a lone collector the walk, needs, trade, place and strike orders but no releases', () => {
+  it('offers a lone collector the walk, needs, trade, place, strike and wedding orders but no releases', () => {
     const snapshot = snapshotOf([settler(1, JOB_COLLECTOR)]);
     expect(allowed(snapshot, [1])).toEqual(
       [
@@ -103,6 +101,7 @@ describe('allowedActions - one settler', () => {
         'changeProfession',
         'eat',
         'goTo',
+        'marry',
         'pray',
         'sleep',
       ].sort(),
@@ -182,7 +181,7 @@ describe('allowedActions - one settler', () => {
   it('keeps the trade and the equipment orders from a woman', () => {
     const snapshot = snapshotOf([settler(1, JOB_WOMAN, { female: true })]);
     expect(allowed(snapshot, [1])).toEqual(
-      ['assignHome', 'assignVehicle', 'attackInhabitants', 'eat', 'goTo', 'sleep'].sort(),
+      ['assignHome', 'assignVehicle', 'attackInhabitants', 'eat', 'goTo', 'marry', 'sleep'].sort(),
     );
   });
 
@@ -302,8 +301,13 @@ describe('allowedActions - one settler', () => {
 });
 
 describe('allowedActions - family orders', () => {
-  it('offers the wedding while an unmarried woman of the tribe stands somewhere', () => {
-    const snapshot = snapshotOf([settler(1, JOB_COLLECTOR), settler(2, JOB_WOMAN, { female: true })]);
+  it('offers the wedding with no partner anywhere, so the order can report there is none', () => {
+    const snapshot = snapshotOf([
+      settler(1, JOB_COLLECTOR),
+      settler(2, JOB_WOMAN, { female: true, spouse: 3 }),
+      settler(3, JOB_COLLECTOR, { spouse: 2 }),
+      settler(4, JOB_WOMAN, { female: true, tribe: TRIBE + 1 }),
+    ]);
     expect(allowedActions(content, snapshot, [1]).has('marry')).toBe(true);
   });
 
@@ -311,24 +315,6 @@ describe('allowedActions - family orders', () => {
     const snapshot = snapshotOf([
       settler(1, JOB_COLLECTOR, { drilling: true }),
       settler(2, JOB_WOMAN, { female: true }),
-    ]);
-    expect(allowedActions(content, snapshot, [1]).has('marry')).toBe(false);
-  });
-
-  it('drops it when the only woman is bound to a living husband', () => {
-    const snapshot = snapshotOf([
-      settler(1, JOB_COLLECTOR),
-      settler(2, JOB_WOMAN, { female: true, spouse: 3 }),
-      settler(3, JOB_COLLECTOR, { spouse: 2 }),
-    ]);
-    expect(allowedActions(content, snapshot, [1]).has('marry')).toBe(false);
-  });
-
-  it('counts neither a foreign tribe woman nor one the snapshot has not placed', () => {
-    const snapshot = snapshotOf([
-      settler(1, JOB_COLLECTOR),
-      settler(2, JOB_WOMAN, { female: true, tribe: TRIBE + 1 }),
-      settler(3, JOB_WOMAN, { female: true, unplaced: true }),
     ]);
     expect(allowedActions(content, snapshot, [1]).has('marry')).toBe(false);
   });
@@ -433,37 +419,6 @@ describe('allowedActions - several settlers', () => {
       settler(3, JOB_CHILD_MALE, { child: true }),
     ]);
     expect(orderRecipients(content, snapshot, [1, 2, 3], 'explore')).toEqual([1, 2]);
-  });
-});
-
-describe('hasEligiblePartner memo', () => {
-  // No woman: the pass runs to the end instead of stopping at a match, the worst case the memo is for.
-  const seeker = settler(1, JOB_COLLECTOR);
-  const entities = [seeker, settler(2, JOB_COLLECTOR)];
-
-  it('scans a snapshot object once, however many frames read it', () => {
-    const { snapshot, scans } = countingSnapshot(snapshotOf(entities));
-    expect(hasEligiblePartner(content, snapshot, seeker)).toBe(false);
-    const scanned = scans();
-    expect(scanned).toBeGreaterThan(0);
-    expect(hasEligiblePartner(content, snapshot, seeker)).toBe(false);
-    expect(scans()).toBe(scanned);
-  });
-
-  it('scans once for every seeker of one tribe and sex', () => {
-    const others = [settler(2, JOB_COLLECTOR), settler(3, JOB_COLLECTOR)];
-    const { snapshot, scans } = countingSnapshot(snapshotOf([seeker, ...others]));
-    expect(hasEligiblePartner(content, snapshot, seeker)).toBe(false);
-    const scanned = scans();
-    for (const other of others) expect(hasEligiblePartner(content, snapshot, other)).toBe(false);
-    expect(scans()).toBe(scanned);
-  });
-
-  it('answers the next tick fresh instead of serving the last verdict', () => {
-    expect(hasEligiblePartner(content, snapshotOf(entities), seeker)).toBe(false);
-    // A woman comes of age: the new snapshot object must not inherit the previous one's "nobody".
-    const grown = snapshotOf([...entities, settler(3, JOB_WOMAN, { female: true })]);
-    expect(hasEligiblePartner(content, grown, seeker)).toBe(true);
   });
 });
 

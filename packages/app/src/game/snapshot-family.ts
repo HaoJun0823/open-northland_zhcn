@@ -1,24 +1,13 @@
-import type { ContentSet } from '@open-northland/data';
 import {
   type components,
   entityById,
   firstDifference,
   indexesOf,
   type SnapshotIndexSpec,
-  systems,
   type WorldSnapshot,
   withComponent,
 } from '@open-northland/sim';
-import {
-  ACTOR_PRESENCE,
-  isActor,
-  isSettler,
-  num,
-  positionOf,
-  type SnapshotEntity,
-  settlerJobType,
-  settlerTribeOf,
-} from './snapshot-base.js';
+import { ACTOR_PRESENCE, isActor, isSettler, num, type SnapshotEntity } from './snapshot-base.js';
 import { entitiesOfIds, idsGroupedBy } from './snapshot-id-index.js';
 
 // Snapshot reads for the marriage, residence and child-order feature.
@@ -57,58 +46,6 @@ export function isBoundByMarriage(snapshot: WorldSnapshot, e: SnapshotEntity): b
   if (entityById(snapshot, marriage.spouse) !== undefined) return true;
   const child = marriage.child !== null ? entityById(snapshot, marriage.child) : undefined;
   return child !== undefined && !isAdult(child);
-}
-
-/**
- * Whether any eligible marriage partner for `seeker` exists: the snapshot mirror of the sim's
- * `mayMarry` and `findPartnerFor` filters, so the UI can drop a dead marry button. The sim command
- * re-validates. The signpost-confinement filter is not mirrored, because the network is not in the
- * snapshot, so under `setSignpostNavigation` an out-of-area-only match still offers the button.
- */
-export function hasEligiblePartner(
-  content: ContentSet,
-  snapshot: WorldSnapshot,
-  seeker: SnapshotEntity,
-): boolean {
-  let byKind = ELIGIBLE_PARTNER.get(snapshot);
-  if (byKind === undefined) {
-    byKind = new Map();
-    ELIGIBLE_PARTNER.set(snapshot, byKind);
-  }
-  const tribe = settlerTribeOf(seeker);
-  const female = isFemale(seeker);
-  const key = `${tribe}:${female}`;
-  const cached = byKind.get(key);
-  if (cached !== undefined) return cached;
-  const found = scanForPartner(content, snapshot, tribe, female);
-  byKind.set(key, found);
-  return found;
-}
-
-/** Keyed by snapshot, then by the seeker's tribe and sex, the only seeker fields a partner depends on, so
- *  a large group scans once per kind of seeker; `content` stays outside the key because a session holds
- *  one {@link ContentSet}. */
-const ELIGIBLE_PARTNER = new WeakMap<WorldSnapshot, Map<string, boolean>>();
-
-/** `isBoundByMarriage` runs last because it is the only clause that searches the snapshot. A partner is
- *  of the other sex, so the seeker never matches itself. */
-function scanForPartner(
-  content: ContentSet,
-  snapshot: WorldSnapshot,
-  tribe: number | undefined,
-  seekerFemale: boolean,
-): boolean {
-  return snapshot.entities.some(
-    (e) =>
-      isSettler(e) &&
-      isAdult(e) &&
-      isFemale(e) !== seekerFemale &&
-      !isMarrying(e) &&
-      settlerTribeOf(e) === tribe &&
-      positionOf(e) !== undefined &&
-      !systems.isOnMission(content, settlerJobType(e) ?? null) &&
-      !isBoundByMarriage(snapshot, e),
-  );
 }
 
 export function residenceHomeOf(e: SnapshotEntity): number | undefined {

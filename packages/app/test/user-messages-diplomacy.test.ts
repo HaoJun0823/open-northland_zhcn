@@ -1,4 +1,12 @@
-import { FOG_STATE, fx, type HalfCellNode, nodeOfPosition, systems } from '@open-northland/sim';
+import {
+  FOG_MODE,
+  FOG_STATE,
+  fogViewOfMask,
+  fx,
+  type HalfCellNode,
+  nodeOfPosition,
+  systems,
+} from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { createMessageFeed } from '../src/hud/tool-panel/messages/feed.js';
 import { createDiplomacyMessageSource, type MetSeat } from '../src/hud/tool-panel/messages/from-diplomacy.js';
@@ -8,8 +16,11 @@ import type { MessageText } from '../src/hud/tool-panel/messages/text.js';
 import { USER_MESSAGE_TYPE } from '../src/hud/tool-panel/messages/types.js';
 import { type Ent, snapshotOf } from './support/snapshot.js';
 
+const LOCAL = 0;
 const ALLY = 1;
 const RIVAL = 2;
+/** Wide enough to hold every tile the sighting cases use. */
+const RECON_CELLS = 32;
 /** Past the feed's setup ticks, which mute every arrival. */
 const TICK = 100;
 
@@ -113,7 +124,7 @@ describe('where a seat was sighted', () => {
   });
   const snapshot = snapshotOf([owned(1, ALLY, 2, 2), owned(2, RIVAL, 4, 4), owned(3, RIVAL, 10, 10)]);
 
-  it('prefers a body in sight over one on explored ground, and ignores other seats', () => {
+  it("takes the seat's first body in sight, and ignores other seats", () => {
     const fog = fogOf(
       new Map([
         [cellKey(2, 2), FOG_STATE.VISIBLE],
@@ -124,19 +135,31 @@ describe('where a seat was sighted', () => {
     expect(sightingOf(snapshot, RIVAL, fog)).toEqual(nodeAt(10, 10));
   });
 
-  it('falls back to explored ground, and points nowhere unknown', () => {
-    expect(sightingOf(snapshot, RIVAL, fogOf(new Map([[cellKey(4, 4), FOG_STATE.EXPLORED]])))).toEqual(
-      nodeAt(4, 4),
-    );
+  it('points nowhere for bodies on explored or unknown ground', () => {
+    expect(sightingOf(snapshot, RIVAL, fogOf(new Map([[cellKey(4, 4), FOG_STATE.EXPLORED]])))).toBeNull();
     expect(sightingOf(snapshot, RIVAL, fogOf(new Map()))).toBeNull();
   });
 
-  it('falls back to a body this frame removed, still only on known ground', () => {
+  it('points nowhere on a recon map, whose unexplored ground reads as explored', () => {
+    const recon = fogViewOfMask({
+      player: LOCAL,
+      mode: FOG_MODE.RECON,
+      cellsWide: RECON_CELLS,
+      cellsHigh: RECON_CELLS,
+      generation: 0,
+      mask: new Uint8Array(RECON_CELLS * RECON_CELLS).fill(FOG_STATE.UNEXPLORED),
+    });
+    expect(sightingOf(snapshot, RIVAL, recon)).toBeNull();
+  });
+
+  it('falls back to a body this frame removed, still only in sight', () => {
     const lastMan = owned(9, RIVAL, 6, 6);
     const gone = snapshotOf([owned(1, ALLY, 2, 2)]);
-    const known = fogOf(new Map([[cellKey(6, 6), FOG_STATE.EXPLORED]]));
-    expect(sightingOf(gone, RIVAL, known, [lastMan])).toEqual(nodeAt(6, 6));
-    expect(sightingOf(gone, RIVAL, fogOf(new Map()), [lastMan])).toBeNull();
+    const seen = fogOf(new Map([[cellKey(6, 6), FOG_STATE.VISIBLE]]));
+    expect(sightingOf(gone, RIVAL, seen, [lastMan])).toEqual(nodeAt(6, 6));
+    expect(
+      sightingOf(gone, RIVAL, fogOf(new Map([[cellKey(6, 6), FOG_STATE.EXPLORED]])), [lastMan]),
+    ).toBeNull();
     expect(sightingOf(snapshot, RIVAL, null, [lastMan])).toEqual(nodeAt(4, 4));
   });
 

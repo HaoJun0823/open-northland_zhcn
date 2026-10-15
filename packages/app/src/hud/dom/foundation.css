@@ -7825,7 +7825,7 @@ body.on-drag-scroll * {
 /* Save and load: a name field over the parchment list of saves, a footer with Back, a live status
    and the window's actions, the primary last. A row's bin shows on hover, focus and selection. */
 .on-hud .on-saves {
-  width: min(88%, 760px);
+  width: min(88%, 880px);
   height: min(86%, 640px);
 }
 .on-hud .on-saves > .on-window__body {
@@ -7914,10 +7914,10 @@ body.on-drag-scroll * {
 }
 .on-hud .on-saves__autosave {
   display: flex;
-  flex: 1;
+  flex-shrink: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  min-width: max-content;
 }
 .on-hud .on-saves__autosave .on-saves__label {
   margin: 0;
@@ -8202,6 +8202,9 @@ body.on-drag-scroll * {
 }
 .on-hud .on-saves--save .on-saves__status:empty {
   display: none;
+}
+.on-hud .on-saves--save .on-saves__actions {
+  margin-left: auto;
 }
 /* The lost-connection screen: the same wash and sheet as the game menu, one message, the room's
    countdown large enough to read from across the room, and the one button left to press. */

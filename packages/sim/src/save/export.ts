@@ -2,6 +2,7 @@ import type { CommandEnvelope } from '../core/commands/index.js';
 import { mergeContinuation, type SavedCommand } from '../core/continuation.js';
 import { isPlainRecord, PROTO_KEY, valueShapeName } from '../core/plain-value.js';
 import type { Simulation } from '../simulation.js';
+import { copyCallerMetadata } from './caller-metadata.js';
 import { simContentFingerprint } from './content-fingerprint.js';
 import {
   SAVE_FORMAT_VERSION,
@@ -12,12 +13,13 @@ import {
 } from './format.js';
 import { parseSavedAt } from './header-fields.js';
 import { parseSaveGame } from './parse.js';
-import { copySessionMetadata } from './session-metadata.js';
 
 export interface ExportSaveOptions {
   readonly continuation?: readonly SavedCommand[];
   /** Opaque plain JSON copied into the header; the session owner validates its schema. */
   readonly session?: unknown;
+  /** Opaque plain JSON copied into the header: the saving client's own view state. */
+  readonly view?: unknown;
   readonly savedAt?: number | null;
   /** The caller's world identity token (the app uses the decoded map id, or `scene:<id>`), recorded
    *  so a loader can match the save to the world it boots. Omit for a world with no identity. */
@@ -108,7 +110,8 @@ function captureSave(
       mapId: opts.mapId ?? null,
       mapFingerprint: sim.mapFingerprint ?? null,
       entry: opts.entry ?? null,
-      session: copySessionMetadata(opts.session ?? null),
+      session: copyCallerMetadata(opts.session ?? null, 'session'),
+      view: copyCallerMetadata(opts.view ?? null, 'view'),
       seed: sim.seed,
       tick: sim.tick,
     },

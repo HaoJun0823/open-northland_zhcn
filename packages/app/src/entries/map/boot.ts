@@ -86,7 +86,7 @@ export interface HostedMapWorld {
 
 /** What the boot reads of the save a world restores from; the host holds the save itself. */
 export interface RestoredSave {
-  readonly header: Pick<SaveGameHeader, 'tick' | 'mapId'>;
+  readonly header: Pick<SaveGameHeader, 'tick' | 'mapId' | 'view'>;
   /** The mission save a sub-mission's save continues. */
   readonly parent?: SaveGame;
 }

@@ -38,6 +38,7 @@ import type { FigureFrames } from '../../hud/figures/figure-frames.js';
 import type { KeyBindings } from '../../hud/keybindings.js';
 import type { ResidentRow } from '../../hud/tool-panel/residents/rows.js';
 import type { PresentationPack } from '../../presentation/pack.js';
+import type { ControlGroupMembers } from './control-groups.js';
 import type { OverviewPress } from './overview-orders.js';
 
 /** The sim's technology read (`SessionHost.unlockStatus`) as its last answer; undefined until one
@@ -85,6 +86,8 @@ export interface UnitControlsOptions {
   readonly hostileToward: (owner: number) => boolean;
   readonly lang: string;
   readonly bindings: KeyBindings;
+  /** The control groups a loaded save restores; absent, every group starts empty. */
+  readonly controlGroups?: ControlGroupMembers;
   readonly professions: readonly PickerEntry[];
   readonly content: ContentSet;
   /** Owner slot to team-colour slot; absent means identity. */
@@ -184,6 +187,7 @@ export interface UnitControls {
   readonly focusedIds: () => ReadonlySet<number>;
   /** Control-group member id → the numbers of its groups the map marks it with. */
   readonly groupNumbers: () => ReadonlyMap<number, readonly string[]>;
+  readonly controlGroupMembers: () => ControlGroupMembers;
   /** The range circles of the selection and of the settlers "Show Work Area" switched on. */
   readonly rangeRings: () => readonly RangeRing[];
   /** The ground acknowledgements of the latest walk and march orders still playing. */

@@ -517,9 +517,12 @@ export const enSurfaces = {
   saveList: {
     autosave: 'Autosave',
     autosaveOff: 'Off',
-    autosaveEvery: 'Every {n} min',
+    autosaveEvery: '{n} min',
     autosaveHint:
-      'Game time; pausing stops the countdown. Keeps the last three autosaves for each map. Remembered for future games, including multiplayer.',
+      'Game time; pausing stops the countdown. Remembered for future games, including multiplayer.',
+    autosaveKeep: 'Keep',
+    autosaveKeepHint:
+      'How many autosaves to keep for each map; the oldest is overwritten. Lowering it removes the extra autosaves at the next autosave.',
     saveTitle: 'Save game',
     loadTitle: 'Load game',
     nameLabel: 'Name',

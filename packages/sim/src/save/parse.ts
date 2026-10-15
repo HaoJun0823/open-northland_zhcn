@@ -2,6 +2,7 @@ import { isFogMode, isValidPlayer } from '../components/index.js';
 import { parseCommandEnvelope } from '../core/commands/parse.js';
 import { parseContinuation } from '../core/continuation.js';
 import { asCount, asInteger, asRecord, typeName } from '../core/untrusted.js';
+import { copyCallerMetadata } from './caller-metadata.js';
 import {
   type CommandsSection,
   type ComponentSection,
@@ -16,7 +17,6 @@ import {
   type SaveGameSection,
 } from './format.js';
 import { parseContentFingerprint, parseSavedAt } from './header-fields.js';
-import { copySessionMetadata } from './session-metadata.js';
 
 export const MAX_SUBMISSION_DEPTH = 16;
 
@@ -61,7 +61,8 @@ function parsedHeader(value: unknown): SaveGameHeader {
     mapId: asNullableString(raw.mapId, `${at}.mapId`),
     mapFingerprint: asNullableString(raw.mapFingerprint, `${at}.mapFingerprint`),
     entry: asNullableString(raw.entry, `${at}.entry`),
-    session: copySessionMetadata(raw.session),
+    session: copyCallerMetadata(raw.session, 'session'),
+    view: copyCallerMetadata(raw.view, 'view'),
     seed: asInteger(raw.seed, `${at}.seed`),
     tick: asCount(raw.tick, `${at}.tick`),
   };

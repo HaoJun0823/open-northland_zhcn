@@ -10,7 +10,7 @@ export const SAVE_KIND = 'open-northland-save';
 
 /** Single monotonic version of the whole persisted layout; any layout change bumps it. A reader accepts
  *  exactly this version and rejects any other, never migrating. */
-export const SAVE_FORMAT_VERSION = 101;
+export const SAVE_FORMAT_VERSION = 102;
 
 /** The single key wrapping a serialized `Map`'s entry pairs; reserved, so a plain record carrying it
  *  is rejected at export. */
@@ -34,6 +34,9 @@ export interface SaveGameHeader {
   readonly entry: string | null;
   /** Caller-owned session metadata, validated by its owner; null when the caller records no session. */
   readonly session: unknown;
+  /** Caller-owned state of the saving client's view, validated by its owner; null when none was
+   *  recorded. Never part of simulated state. */
+  readonly view: unknown;
   /** World seed: reconstructs the personal-name decks. The gameplay stream position is in `rng`. */
   readonly seed: number;
   readonly tick: number;

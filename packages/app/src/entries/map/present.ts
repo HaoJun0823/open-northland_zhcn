@@ -244,6 +244,7 @@ export async function presentMapWorld(
       : {}),
     mapText: mapStringLookup(world.strings, currentLocale()),
     ...(stagedSave?.parent !== undefined ? { parentSave: stagedSave.parent } : {}),
+    ...(stagedSave !== null ? { restoredView: stagedSave.header.view } : {}),
     ...(runtime.sharedClock
       ? {}
       : {

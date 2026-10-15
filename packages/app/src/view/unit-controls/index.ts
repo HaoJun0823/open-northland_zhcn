@@ -86,7 +86,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     cue('fail');
   };
   const answered = createAnsweredOrders();
-  const controlGroups = createControlGroups();
+  const controlGroups = createControlGroups(opts.controlGroups);
   // Without the sim's pick-list seam the panel's equip and swap buttons stay inert.
   const equipPicker: EquipPickController | null =
     opts.requestEquipPicks === undefined || opts.requestSelectionEquipPicks === undefined
@@ -568,6 +568,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     flaggedFlagIds: () => selection.workFlagIds(opts.snapshot()),
     focusedIds: () => chrome.focusedIds(),
     groupNumbers: controlGroups.numbers,
+    controlGroupMembers: controlGroups.members,
     rangeRings: () => rangeRings(opts.snapshot()),
     orderMarkers: orderMarkers.live,
     lostGoals: () => lostGoals(opts.snapshot(), selection.ids(), pickableSeat(opts.viewer)),

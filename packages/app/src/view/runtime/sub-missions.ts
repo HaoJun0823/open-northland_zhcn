@@ -11,6 +11,7 @@ import type { SessionHost } from '../../session/index.js';
 import { compressSaveText } from './save-load/codec.js';
 import { clearPendingLoad, storePendingLoad } from './save-load/pending-store.js';
 import { relaunchSearch } from './save-load/relaunch.js';
+import type { SavedView } from './save-load/view-state.js';
 import { subMissionDialog } from './sub-mission-dialog.js';
 
 export type SubMissionTransition = Extract<SimEvent, { kind: 'missionSubMission' }>['transition'];
@@ -19,6 +20,8 @@ export type PrepareSubMission = (transition: SubMissionTransition, current: Save
 export interface SubMissionDeps {
   readonly host: Pick<SessionHost, 'exportSave'>;
   readonly captureSave?: (options: ExportSaveOptions) => SaveGame | Promise<SaveGame>;
+  /** The view the parent save keeps, so the player's groups return with them. */
+  readonly viewState?: () => SavedView | null;
   readonly worldToken: string | null;
   readonly params: URLSearchParams;
   readonly parent?: SaveGame;
@@ -47,6 +50,7 @@ export function createSubMissions(deps: SubMissionDeps): {
       const current = await capture({
         mapId: deps.worldToken,
         entry: `?${deps.params}`,
+        ...(deps.viewState !== undefined ? { view: deps.viewState() } : {}),
         ...(deps.parent !== undefined ? { parent: deps.parent } : {}),
       });
       const target = parseSaveGame(await deps.prepare(event.transition, current));

@@ -517,9 +517,12 @@ export const plSurfaces = {
   saveList: {
     autosave: 'Autozapis',
     autosaveOff: 'Wyłączony',
-    autosaveEvery: 'Co {n} min',
+    autosaveEvery: '{n} min',
     autosaveHint:
-      'Czas gry; pauza zatrzymuje odliczanie. Zachowuje trzy ostatnie autozapisy na każdej mapie. Ustawienie jest pamiętane dla kolejnych gier, także multiplayer.',
+      'Czas gry; pauza zatrzymuje odliczanie. Ustawienie jest pamiętane dla kolejnych gier, także multiplayer.',
+    autosaveKeep: 'Zachowaj',
+    autosaveKeepHint:
+      'Ile autozapisów trzymać na każdej mapie; najstarszy jest nadpisywany. Po zmniejszeniu nadmiarowe autozapisy znikają przy następnym autozapisie.',
     saveTitle: 'Zapisz grę',
     loadTitle: 'Wczytaj grę',
     nameLabel: 'Nazwa',

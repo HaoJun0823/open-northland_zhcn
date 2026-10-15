@@ -194,7 +194,7 @@ A save is one JSON document produced by `exportSaveGame` and `serializeSaveGame`
 ```
 
 - `header` holds `{kind, formatVersion, irVersion, contentFingerprint, savedAt, mapId, mapFingerprint, entry, session,
-  seed, tick}` and is the document's first key, so a reader classifies compatibility without
+  view, seed, tick}` and is the document's first key, so a reader classifies compatibility without
   touching sections. A later format may compress the sections but never the header. `entry` is a
   caller-recorded relaunch token, opaque to the sim like `mapId`: the app stores the entry URL
   search that reboots the session, so a load launched outside a running world (the main menu's save
@@ -207,6 +207,9 @@ A save is one JSON document produced by `exportSaveGame` and `serializeSaveGame`
   exact ascending seat roster, keeps modes, colors, tribes, levels, rules and the local seat, strips unknown
   fields, and allows a nick (unique, printable, trimmed, at most 24 characters) on human seats only.
   The app checks the descriptor's map and seed against the enclosing header.
+- `header.view` is the saving client's view state, under the same caller-owned rules and bounds as
+  `session`. The app writes `{seat, controlGroups}`: the seat that saved and each control group's
+  member entity ids, keyed by group action. A load restores the groups only into the same seat.
 - Optional `parent` stores the suspended map save, with at most 16 parent envelopes.
 - `sections` is an array of string-identified sections in a fixed order: `entities` (the
   allocation counter plus the alive list), one `component` section per store in first-registration

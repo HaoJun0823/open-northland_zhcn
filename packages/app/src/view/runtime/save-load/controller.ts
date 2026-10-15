@@ -8,6 +8,7 @@ import { displayNameOf } from './list-model.js';
 import { rootWorldId } from './related-world.js';
 import { relaunchSearch } from './relaunch.js';
 import type { SaveSlotInfo, SaveStore } from './store.js';
+import type { SavedView } from './view-state.js';
 
 export type SaveOutcome = { kind: 'saved' } | { kind: 'failed' };
 
@@ -39,6 +40,8 @@ export interface SaveLoadDeps {
   readonly downloadSave: (fileName: string, bytes: SaveBytes) => void;
   readonly store: SaveStore;
   readonly sessionMetadata?: () => unknown;
+  /** The client's view state for the header; absent or null, the save records none. */
+  readonly viewState?: () => SavedView | null;
   readonly onSaved?: (file: SaveFile) => Promise<void>;
   /** The running world's seed, which names its playthrough; null when the entry does not know it. */
   readonly worldSeed?: number | null;
@@ -90,6 +93,7 @@ export function saveLoadSession(deps: SaveLoadDeps): SaveLoadSession {
     const options: ExportSaveOptions = {
       savedAt: Date.now(),
       ...(deps.sessionMetadata === undefined ? {} : { session: deps.sessionMetadata() }),
+      ...(deps.viewState === undefined ? {} : { view: deps.viewState() }),
       ...(deps.parent !== undefined ? { parent: deps.parent } : {}),
       ...(worldToken !== null ? { mapId: worldToken } : {}),
       ...(deps.entrySearch !== null ? { entry: deps.entrySearch } : {}),

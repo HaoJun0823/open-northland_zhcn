@@ -29,6 +29,11 @@ import {
   type LiveWorldIdentity,
   saveLoadSession,
 } from '../src/view/runtime/save-load/index.js';
+import {
+  restoredControlGroups,
+  type SavedView,
+  savedView,
+} from '../src/view/runtime/save-load/view-state.js';
 
 /**
  * The in-game save and load flows against a live demo world: what a picked file must match before
@@ -143,6 +148,7 @@ function harness(
     startPaused?: boolean;
     failWrite?: boolean;
     sessionMetadata?: () => unknown;
+    viewState?: () => SavedView | null;
     onSaved?: (file: SaveFile) => Promise<void>;
     loadRelatedWorld?: (save: SaveGame, bytes: SaveBytes) => Promise<void>;
     captureThumbnail?: () => Promise<Blob | null>;
@@ -157,6 +163,7 @@ function harness(
   const session = saveLoadSession({
     ...(overrides.captureSave === undefined ? {} : { captureSave: overrides.captureSave }),
     ...(overrides.sessionMetadata === undefined ? {} : { sessionMetadata: overrides.sessionMetadata }),
+    ...(overrides.viewState === undefined ? {} : { viewState: overrides.viewState }),
     ...(overrides.onSaved === undefined ? {} : { onSaved: overrides.onSaved }),
     ...(overrides.loadRelatedWorld === undefined ? {} : { loadRelatedWorld: overrides.loadRelatedWorld }),
     ...(overrides.captureThumbnail === undefined ? {} : { captureThumbnail: overrides.captureThumbnail }),
@@ -229,8 +236,9 @@ describe('saveLoadSession save flow', () => {
     const sim = demoSim();
     const shared = vi.fn(async (_file: SaveFile) => undefined);
     const h = harness(sim, { sessionMetadata: () => ({ roster: ['Ania', 'Jan'] }), onSaved: shared });
-    const scheduler = createAutosave(h.session, sim.tick, 5, new AbortController().signal);
-    scheduler.update(sim.tick + 5 * 60 * TICKS_PER_SECOND, 5);
+    const preference = { autosaveMinutes: 5, autosaveCount: 1 } as const;
+    const scheduler = createAutosave(h.session, sim.tick, preference, new AbortController().signal);
+    scheduler.update(sim.tick + 5 * 60 * TICKS_PER_SECOND, preference);
     await vi.waitFor(() => expect(shared).toHaveBeenCalledTimes(1));
     const id = autosaveSlots(WORLD_TOKEN)[0];
     if (id === undefined) throw new Error('Missing autosave slot');
@@ -321,6 +329,49 @@ describe('saveLoadSession save flow', () => {
       thumbnail: null,
     });
     expect(h.paused()).toBe(false);
+  });
+
+  it('records the control groups and restores them only into the seat that saved them', async () => {
+    const SAVING_SEAT = 0;
+    const OTHER_SEAT = 1;
+    const groups = { controlGroup1: [3, 5], controlGroup0: [7] };
+    const h = harness(demoSim(), { viewState: () => ({ seat: SAVING_SEAT, controlGroups: groups }) });
+    await h.session.saveGame('Groups');
+    const slot = h.store.get('Groups');
+    if (slot === undefined) throw new Error('Save not stored');
+    const { view } = stagedSaveFrom(await decodeSaveText(slot.bytes), WORLD_TOKEN).header;
+    expect(restoredControlGroups(view, SAVING_SEAT)).toEqual(groups);
+    expect(restoredControlGroups(view, OTHER_SEAT)).toBeUndefined();
+    expect(restoredControlGroups(null, SAVING_SEAT)).toBeUndefined();
+    expect(
+      restoredControlGroups({ seat: SAVING_SEAT, controlGroups: { group11: [1] } }, SAVING_SEAT),
+    ).toBeUndefined();
+  });
+
+  it('saves oversized groups by keeping only live members up to a cap', async () => {
+    const GROUP_SIZE = 410;
+    const GONE = 1;
+    const ids = Array.from({ length: GROUP_SIZE }, (_, i) => i + 1);
+    const members = Object.fromEntries(
+      [
+        'controlGroup1',
+        'controlGroup2',
+        'controlGroup3',
+        'controlGroup4',
+        'controlGroup5',
+        'controlGroup6',
+        'controlGroup7',
+        'controlGroup8',
+        'controlGroup9',
+        'controlGroup0',
+      ].map((action) => [action, ids]),
+    );
+    const view = savedView(0, members, (id) => id !== GONE);
+    const kept = Object.values(view.controlGroups).flat();
+    expect(kept).not.toContain(GONE);
+    expect(kept.length).toBeLessThan(10 * (GROUP_SIZE - 1));
+    const h = harness(demoSim(), { viewState: () => view });
+    await expect(h.session.saveGame('Crowded')).resolves.toEqual({ kind: 'saved' });
   });
 
   it('stores the picture beside the slot and still saves when taking it fails', async () => {

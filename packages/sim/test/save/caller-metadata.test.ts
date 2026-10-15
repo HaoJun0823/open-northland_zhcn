@@ -5,7 +5,7 @@ import { testContent } from '../fixtures/content.js';
 function sim() {
   return new Simulation({ seed: 1, content: testContent() });
 }
-describe('opaque saved session metadata', () => {
+describe('opaque caller metadata in the save header', () => {
   it('copies caller metadata on export and parse without changing simulated state', () => {
     const world = sim(),
       before = world.hashState(),
@@ -19,6 +19,13 @@ describe('opaque saved session metadata', () => {
     expect(parsed.header.session).toEqual(save.header.session);
     expect(parsed.header.session).not.toBe(save.header.session);
     expect(world.hashState()).toBe(before);
+  });
+  it('keeps the view state apart from the session and names its own field on rejection', () => {
+    const view = { seat: 0, controlGroups: { controlGroup1: [4, 7] } };
+    const save = parseSaveGame(exportSaveGame(sim(), { view }));
+    expect(save.header.view).toEqual(view);
+    expect(save.header.session).toBeNull();
+    expect(() => exportSaveGame(sim(), { view: { v: NaN } })).toThrow('save.header.view');
   });
   it('rejects old format metadata and a missing current field', () => {
     const save = exportSaveGame(sim());

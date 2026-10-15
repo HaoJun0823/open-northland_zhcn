@@ -144,6 +144,20 @@ describe('control groups', () => {
     expect(groups.recall('controlGroup1', () => false, ALL_UNITS)).toBeNull();
     expect(groups.recall('controlGroup1', () => true, ALL_UNITS)).toBeNull();
   });
+
+  it('hands its non-empty groups out for a save and starts from saved ones', () => {
+    const groups = createControlGroups();
+    groups.replace('controlGroup1', [4, 2]);
+    groups.replace('controlGroup5', []);
+    groups.replace('controlGroup0', [9]);
+    const saved = groups.members();
+    expect(saved).toEqual({ controlGroup1: [4, 2], controlGroup0: [9] });
+
+    const restored = createControlGroups(saved);
+    expect(restored.recall('controlGroup1', () => true, ALL_UNITS)).toEqual([4, 2]);
+    expect(restored.recall('controlGroup0', () => true, ALL_UNITS)).toEqual([9]);
+    expect(restored.numbers().get(9)).toEqual(['0']);
+  });
 });
 
 describe('group numbers on the map', () => {

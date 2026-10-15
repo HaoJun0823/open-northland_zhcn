@@ -8,7 +8,7 @@ import {
 } from '../../../view/runtime/save-load/list-model.js';
 import type { SaveSlotInfo } from '../../../view/runtime/save-load/store.js';
 import { worldNameIndex } from '../../../view/runtime/save-load/world-names.js';
-import type { AutosaveMinutes } from '../../../view/settings-store.js';
+import { AUTOSAVE_COUNTS, type AutosaveMinutes } from '../../../view/settings-store.js';
 import { GLYPH } from '../icons.js';
 import { button, element, setTip } from '../parts/dom.js';
 import { quietTextField } from '../parts/text-field.js';
@@ -34,12 +34,15 @@ export function createSaveWindow(
   const autoOptions = element('div', 'on-saves__auto-options');
   const choices: readonly AutosaveMinutes[] = [0, 5, 10, 15, 30];
   const autoButtons = new Map<AutosaveMinutes, HTMLButtonElement>();
+  const countButtons = new Map<number, HTMLButtonElement>();
+  const press = (choice: HTMLButtonElement, selected: boolean): void => {
+    choice.setAttribute('aria-pressed', String(selected));
+    choice.classList.toggle('on-button--primary', selected);
+  };
   const refreshAutosave = (): void => {
-    for (const [minutes, choice] of autoButtons) {
-      const selected = minutes === deps.settings.current().autosaveMinutes;
-      choice.setAttribute('aria-pressed', String(selected));
-      choice.classList.toggle('on-button--primary', selected);
-    }
+    const { autosaveMinutes, autosaveCount } = deps.settings.current();
+    for (const [minutes, choice] of autoButtons) press(choice, minutes === autosaveMinutes);
+    for (const [count, choice] of countButtons) press(choice, count === autosaveCount);
   };
   for (const minutes of choices) {
     const choice = button('on-button', '');
@@ -51,8 +54,20 @@ export function createSaveWindow(
     autoButtons.set(minutes, choice);
     autoOptions.append(choice);
   }
-  autosave.append(autoLabel, autoOptions);
-  frame.leading.after(autosave);
+  const countLabel = element('span', 'on-saves__label');
+  countLabel.textContent = copy.autosaveKeep;
+  const countOptions = element('div', 'on-saves__auto-options on-saves__auto-count');
+  for (const count of AUTOSAVE_COUNTS) {
+    const choice = button('on-button', '');
+    choice.textContent = String(count);
+    setTip(choice, copy.autosaveKeepHint);
+    choice.addEventListener('click', () => {
+      void deps.settings.update({ autosaveCount: count }).then(refreshAutosave);
+    });
+    countButtons.set(count, choice);
+    countOptions.append(choice);
+  }
+  autosave.append(autoLabel, autoOptions, countLabel, countOptions);
 
   const nameId = 'on-saves-name';
   const label = element('label', 'on-saves__label');
@@ -111,6 +126,7 @@ export function createSaveWindow(
   note.textContent = copy.existing;
   sheet.el.prepend(note);
   frame.window.body.append(label, nameRow, hint, sheet.el);
+  frame.leading.after(autosave);
   frame.actions.append(exportButton);
 
   /** Only the newest refresh may publish: an earlier one resolving late would put the pre-save list

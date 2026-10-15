@@ -17,7 +17,8 @@ vi.mock('@open-northland/render', async (original) => ({
 vi.mock('../src/view/boot-progress.js', () => ({
   mountBootProgress: () => ({ begin: async () => undefined, finish: async () => undefined }),
 }));
-vi.mock('../src/view/settings-store.js', () => ({
+vi.mock('../src/view/settings-store.js', async (original) => ({
+  ...(await original<typeof import('../src/view/settings-store.js')>()),
   readStoredSettings: () => ({ renderScale: 1, debugToolsEnabled: false }),
 }));
 vi.mock('../src/content/ir/load.js', () => ({ loadIr: async () => null }));
@@ -46,7 +47,7 @@ const SESSION: GameSession = {
   rules: { fog: null, progression: null, needs: null, weather: null, alliedVision: null },
   speed: 1,
 };
-const STAGED = { header: { tick: 40, mapId: null } };
+const STAGED = { header: { tick: 40, mapId: null, view: null } };
 
 /** A promise with its settle handles, for ordering the worker against the art load. */
 function deferred<T>() {

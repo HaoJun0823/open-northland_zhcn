@@ -563,11 +563,14 @@ export const deSurfaces = {
     randomMore: '▶ Zufall (+{count} weitere)',
   },
   saveList: {
-    autosave: 'Automatisch speichern',
+    autosave: 'Autospeichern',
     autosaveOff: 'Aus',
-    autosaveEvery: 'Alle {n} Min.',
+    autosaveEvery: '{n} Min.',
     autosaveHint:
-      'Spielzeit; bei Pause stoppt der Countdown. Behält die letzten drei automatischen Spielstände jeder Karte. Gilt auch für zukünftige Spiele und Mehrspielerpartien.',
+      'Spielzeit; bei Pause stoppt der Countdown. Gilt auch für zukünftige Spiele und Mehrspielerpartien.',
+    autosaveKeep: 'Behalten',
+    autosaveKeepHint:
+      'Wie viele automatische Spielstände je Karte erhalten bleiben; der älteste wird überschrieben. Beim Verringern verschwinden die überzähligen beim nächsten automatischen Speichern.',
     saveTitle: 'Spiel speichern',
     loadTitle: 'Spiel laden',
     nameLabel: 'Name',

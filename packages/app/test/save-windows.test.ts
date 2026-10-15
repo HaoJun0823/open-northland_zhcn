@@ -127,7 +127,11 @@ describe('save window', () => {
     const first = mount([], settings);
     first.menu.openPage('save');
     const save = page('save');
-    const options = [...save.querySelectorAll<HTMLButtonElement>('.on-saves__auto-options button')];
+    const options = [
+      ...save.querySelectorAll<HTMLButtonElement>(
+        '.on-saves__auto-options:not(.on-saves__auto-count) button',
+      ),
+    ];
     expect(options).toHaveLength(5);
     expect(options[0]?.getAttribute('aria-pressed')).toBe('true');
     options[3]?.focus();
@@ -139,9 +143,18 @@ describe('save window', () => {
     first.menu.dispose();
     const next = mount([], settings);
     next.menu.openPage('save');
-    expect(page('save').querySelector('.on-saves__auto-options [aria-pressed="true"]')?.textContent).toBe(
-      formatMessage(messages().saveList.autosaveEvery, { n: 15 }),
-    );
+    expect(
+      page('save').querySelector('.on-saves__auto-options:not(.on-saves__auto-count) [aria-pressed="true"]')
+        ?.textContent,
+    ).toBe(formatMessage(messages().saveList.autosaveEvery, { n: 15 }));
+    const counts = [...page('save').querySelectorAll<HTMLButtonElement>('.on-saves__auto-count button')];
+    expect(counts.map((choice) => choice.textContent)).toEqual(['1', '2', '3']);
+    expect(counts[0]?.getAttribute('aria-pressed')).toBe('true');
+    counts[2]?.click();
+    await Promise.resolve();
+    expect(readStoredSettings().autosaveCount).toBe(3);
+    expect(counts[2]?.getAttribute('aria-pressed')).toBe('true');
+    expect(counts[0]?.getAttribute('aria-pressed')).toBe('false');
     next.menu.close();
     next.menu.toggle();
     button(messages().mainMenu.items.settings).click();

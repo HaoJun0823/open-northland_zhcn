@@ -82,6 +82,7 @@ describe('exportSaveGame header', () => {
       mapFingerprint: sim.mapFingerprint,
       entry: '?map=campaign_01&player=2',
       session: null,
+      view: null,
       seed: 42,
       tick: 3,
     });

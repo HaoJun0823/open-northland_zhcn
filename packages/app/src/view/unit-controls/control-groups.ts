@@ -35,6 +35,9 @@ export function controlGroupCommand(
   return { action: resolved.group, mode: resolved.mode };
 }
 
+/** Each group's stored members, a group with none left out. */
+export type ControlGroupMembers = Readonly<Partial<Record<ControlGroupAction, readonly number[]>>>;
+
 export interface ControlGroups {
   replace(action: ControlGroupAction, ids: Iterable<number>): void;
   /** Add these members here and remove them from every other group. */
@@ -49,6 +52,8 @@ export interface ControlGroups {
   /** Member id → the numbers of its groups the map marks it with, in group order, the first
    *  {@link MAX_LABELLED_GROUPS} of them. The same map until a group changes. */
   numbers(): ReadonlyMap<number, readonly string[]>;
+  /** The stored members, for a save; recall forgets invalid ones, so these may name gone entities. */
+  members(): ControlGroupMembers;
 }
 
 /** Each group's own number, independent of the key it is bound to. */
@@ -107,8 +112,12 @@ export function isControlGroupMember(snapshot: WorldSnapshot, ref: number, seat:
 }
 
 /** Ten client-local selection groups. Invalid members are forgotten when their group is recalled. */
-export function createControlGroups(): ControlGroups {
+export function createControlGroups(initial: ControlGroupMembers = {}): ControlGroups {
   const groups = new Map<ControlGroupAction, Set<number>>();
+  for (const action of CONTROL_GROUP_ACTIONS) {
+    const ids = initial[action];
+    if (ids !== undefined && ids.length > 0) groups.set(action, new Set(ids));
+  }
   let numbers: Map<number, string[]> | null = null;
 
   return {
@@ -153,6 +162,14 @@ export function createControlGroups(): ControlGroups {
       }
       numbers = built;
       return built;
+    },
+    members: () => {
+      const saved: Partial<Record<ControlGroupAction, readonly number[]>> = {};
+      for (const action of CONTROL_GROUP_ACTIONS) {
+        const group = groups.get(action);
+        if (group !== undefined && group.size > 0) saved[action] = [...group];
+      }
+      return saved;
     },
   };
 }

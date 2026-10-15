@@ -51,6 +51,7 @@ import { technologyName, vehicleLabel } from '../../game/technology.js';
 import {
   fixedViewerSeat,
   overseerViewerSeat,
+  pickableSeat,
   switchableViewerSeat,
   type ViewerSeat,
 } from '../../game/viewer-seat.js';
@@ -123,6 +124,7 @@ import { patchStoredSettings, readStoredSettings } from '../settings-store.js';
 import { applyWhenWarmed } from '../shader-warmup.js';
 import { createShortfallLook } from '../speed-shortfall.js';
 import { createTooltip } from '../tooltip.js';
+import { type ControlGroupMembers, isControlGroupMember } from '../unit-controls/control-groups.js';
 import { createUnitControls, type UnitControls } from '../unit-controls/index.js';
 import { createWeatherFeed } from '../weather-feed.js';
 import { chestTooltipLines, createWorldHover } from '../world-hover.js';
@@ -145,7 +147,13 @@ import type { RafLoop } from './raf-loop.js';
 import { createViewReadModels } from './read-models.js';
 import { roadBuiltAt } from './road-nodes.js';
 import { createAutosave } from './save-load/autosave.js';
-import { createSaveLoadSession, type SaveLoadSessionOptions } from './save-load/index.js';
+import {
+  createSaveLoadSession,
+  restoredControlGroups,
+  type SavedView,
+  type SaveLoadSessionOptions,
+  savedView,
+} from './save-load/index.js';
 import { relatedWorldLoader } from './save-load/related-world.js';
 import { worldThumbnail } from './save-load/thumbnail.js';
 import { createScriptPresentation } from './script-presentation.js';
@@ -189,6 +197,8 @@ export interface GameViewDeps {
    *  in a local session. */
   readonly netPanel?: NetPanelSource;
   readonly parentSave?: SaveGame;
+  /** The loaded save's `view` header, whose control groups return when the same seat loads it. */
+  readonly restoredView?: unknown;
   readonly prepareSubMission?: PrepareSubMission;
   readonly validateSavedMap?: (save: SaveGame) => Promise<void>;
   readonly cameraCtl: CameraController;
@@ -319,8 +329,17 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     cameraCtl,
     disposeSession: () => destroy(),
   });
+  // Bound once the unit controls exist; a save taken before then records no view.
+  let controlGroupMembers: (() => ControlGroupMembers) | null = null;
+  const viewState = (): SavedView | null => {
+    if (controlGroupMembers === null) return null;
+    const seat = pickableSeat(viewer);
+    const snapshot = host.snapshot();
+    return savedView(seat, controlGroupMembers(), (id) => isControlGroupMember(snapshot, id, seat));
+  };
   const saveLoad = createSaveLoadSession({
     ...deps.networkSave,
+    viewState,
     captureSave: (options) => driver.captureSave(options),
     ...(deps.captureSaveFile !== undefined ? { captureSaveFile: deps.captureSaveFile } : {}),
     host,
@@ -763,6 +782,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     const subMissions = createSubMissions({
       host,
       captureSave: (options) => driver.captureSave(options),
+      viewState,
       params,
       worldToken: deps.worldToken ?? null,
       ...(deps.parentSave !== undefined ? { parent: deps.parentSave } : {}),
@@ -841,6 +861,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     // Late-bound: the badge projection below needs the fog gates and the building index.
     let pickableDoorBadges: (() => readonly DoorBadge[]) | undefined;
 
+    const restoredGroups = restoredControlGroups(deps.restoredView, pickableSeat(viewer));
     const controls = await createUnitControls({
       requestFormationSlots: (...args) => host.formationSlots(...args),
       technologyStatus: answers.technologyStatus,
@@ -861,6 +882,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       hostileToward: (owner) => host.diplomacyStance(viewerPlayer(), owner) === 'enemy',
       lang,
       bindings: keyBindings,
+      ...(restoredGroups !== undefined ? { controlGroups: restoredGroups } : {}),
       professions: pickerEntries(),
       content: host.content,
       mapText,
@@ -921,6 +943,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       diplomacyStance: (owner) => host.diplomacyStance(viewerPlayer(), owner),
       ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
     });
+    controlGroupMembers = controls.controlGroupMembers;
     cleanup.push(() => controls.dispose());
     selectEntity = controls.selectEntity;
     unitSelection = controls;
@@ -1207,12 +1230,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       gpuAdapter,
     });
 
-    const autosave = createAutosave(
-      saveLoad,
-      host.tick,
-      liveSettings.settings.current().autosaveMinutes,
-      lifetime.signal,
-    );
+    const autosave = createAutosave(saveLoad, host.tick, liveSettings.settings.current(), lifetime.signal);
     const shortfallLook = createShortfallLook();
     // This mount owns construction; the loop owns the pinned per-frame order.
     loop = startFrameLoop({
@@ -1220,7 +1238,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         ...deps,
         onEvents,
         onFrame: (snapshot) => {
-          autosave.update(snapshot.tick, liveSettings.settings.current().autosaveMinutes);
+          autosave.update(snapshot.tick, liveSettings.settings.current());
           netOverlays?.refresh();
           followLink?.();
           deps.onFrame?.(snapshot);

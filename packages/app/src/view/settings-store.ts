@@ -41,6 +41,11 @@ import {
 /** Zero disables autosaving; other values count minutes of simulation time. */
 export type AutosaveMinutes = 0 | 5 | 10 | 15 | 30;
 
+/** How many autosaves of one map rotate before the oldest is overwritten. */
+export const AUTOSAVE_COUNTS = [1, 2, 3] as const;
+export type AutosaveCount = (typeof AUTOSAVE_COUNTS)[number];
+const DEFAULT_AUTOSAVE_COUNT: AutosaveCount = 1;
+
 /** Drawn-frame cap in frames per second; `null` follows the display's own refresh rate. */
 export type FpsLimit = 30 | 60 | null;
 /** 60 by default: a 144 Hz laptop panel would otherwise draw 2.4 times the frames of a 60 Hz one for
@@ -123,6 +128,7 @@ export interface MenuSettings {
   /** The name of the folder the player picked in a browser, which never learns its path. */
   readonly originalGameFolder: string | null;
   readonly autosaveMinutes: AutosaveMinutes;
+  readonly autosaveCount: AutosaveCount;
 }
 
 /** The desktop game, known by its shell's bridge, owns its window and keeps sounding behind another
@@ -177,6 +183,7 @@ export function defaultSettings(): MenuSettings {
     originalGameLabel: null,
     originalGameFolder: null,
     autosaveMinutes: 0,
+    autosaveCount: DEFAULT_AUTOSAVE_COUNT,
   };
 }
 
@@ -273,6 +280,7 @@ export function parseStoredSettings(raw: string | null): MenuSettings {
       record.autosaveMinutes === 30
         ? record.autosaveMinutes
         : 0,
+    autosaveCount: AUTOSAVE_COUNTS.find((count) => count === record.autosaveCount) ?? DEFAULT_AUTOSAVE_COUNT,
     displayMode: record.displayMode === 'fullscreen' ? 'fullscreen' : 'window',
     renderScale: clampRenderScale(record.renderScale),
     uiScaleFactor: clampFactor(record.uiScaleFactor),

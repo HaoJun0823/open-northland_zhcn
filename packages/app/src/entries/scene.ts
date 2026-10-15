@@ -234,6 +234,7 @@ export async function renderSceneMode(canvas: HTMLCanvasElement, params: URLSear
     worldSeed: sim.seed,
     missionBriefSource: sceneBriefSource(scene),
     ...(netPanel === null ? {} : { netPanel }),
+    ...(stagedSave !== null ? { restoredView: stagedSave.header.view } : {}),
   });
   view.lifetime.addEventListener('abort', () => displayScope.abort(), { once: true });
   if (scene.stages !== undefined) {

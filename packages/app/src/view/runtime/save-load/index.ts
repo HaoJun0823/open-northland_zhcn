@@ -10,11 +10,18 @@ export { type StagedSession, takeStagedSession } from './boot.js';
 export type { LoadOutcome, SaveLoadSession, SaveOutcome } from './controller.js';
 export { saveLoadSession } from './controller.js';
 export { evaluateSaveFile, type LiveWorldIdentity, type SaveRejection } from './evaluate.js';
+export { restoredControlGroups, type SavedView, savedView } from './view-state.js';
 
 export interface SaveLoadSessionOptions
   extends Pick<
     SaveLoadDeps,
-    'sessionMetadata' | 'onSaved' | 'captureSave' | 'captureSaveFile' | 'worldSeed' | 'captureThumbnail'
+    | 'sessionMetadata'
+    | 'viewState'
+    | 'onSaved'
+    | 'captureSave'
+    | 'captureSaveFile'
+    | 'worldSeed'
+    | 'captureThumbnail'
   > {
   readonly host: SaveLoadDeps['host'];
   readonly parent?: SaveGame;

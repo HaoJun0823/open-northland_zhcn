@@ -51,12 +51,12 @@ export class RelayedWorldPort<B, E> implements WorldPort {
   async restore(session: GameSession, bytes: string): Promise<OpenedWorld | null> {
     if (this.disposed) return null;
     const snapshot = await decodeSnapshot(bytes);
-    const { tick, mapId } = snapshot.header;
+    const { tick, mapId, view } = snapshot.header;
     return this.request(snapshot, (requestId) => ({
       kind: 'restoreWorld',
       requestId,
       session,
-      header: { tick, mapId },
+      header: { tick, mapId, view },
     }));
   }
 

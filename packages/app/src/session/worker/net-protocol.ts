@@ -127,6 +127,8 @@ export type FromNetWorker<E> =
 export interface RestoredHeader {
   readonly tick: number;
   readonly mapId: string | null;
+  /** The saving client's view state, restored only into the seat that saved it. */
+  readonly view: unknown;
 }
 
 export type RelayAnswer = readonly TickDigest[] | DisputeRecord | null;

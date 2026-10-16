@@ -104,7 +104,7 @@ export interface CoarseCell {
   buildOwnerMask: number;
   buildThreatMask: number;
   buildThreatUndiscounted: number;
-  /** The last body tallied, so a building's or vehicle's several nodes in one cell count once. */
+  /** The last vehicle tallied, so its several nodes in one cell count once. */
   countedLast: Entity | null;
   /** Whether this build admitted a vehicle or a firing building here, so the next reset visits only such
    *  cells. */
@@ -141,10 +141,17 @@ export interface BandScan {
 }
 
 /** A building as the layer admitted it, for the staleness checks and the verifier. */
-interface HeldBuilding {
+interface BuildingEntry {
   readonly type: number;
   readonly bit: number;
   readonly nodes: readonly NodeId[];
+}
+
+/** A held building with the distinct cells its nodes fall in and how many nodes each holds, so marking it
+ *  firing touches each cell once instead of re-deriving every node's cell per build. */
+interface HeldBuilding extends BuildingEntry {
+  readonly cells: readonly CoarseCell[];
+  readonly cellNodes: readonly number[];
 }
 
 /** A unit as the layer holds it: where in which cell, and the classes its tallies counted. */
@@ -247,7 +254,7 @@ export class CombatGrid {
     for (const node of nodes) {
       const x = this.terrain.xOf(node);
       const y = this.terrain.yOf(node);
-      const cell = this.touchForBuild(x, y);
+      const cell = this.touchForBuild(this.cellFor(x, y));
       push(cell.bodies, e, x, y, bit);
       if (cell.countedLast !== e) {
         cell.countedLast = e;
@@ -264,9 +271,14 @@ export class CombatGrid {
   admitFiring(b: Entity): void {
     const held = this.buildings.get(b);
     if (held === undefined) return;
-    for (const node of held.nodes) {
-      const cell = this.touchForBuild(this.terrain.xOf(node), this.terrain.yOf(node));
-      addBuildThreat(cell, held.bit);
+    const { cells, cellNodes, bit } = held;
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      if (cell === undefined) continue;
+      this.touchForBuild(cell);
+      // Each node counts toward an unowned body's threat, as a vehicle's do.
+      if (bit !== 0) cell.buildThreatMask |= bit;
+      else cell.buildThreatUndiscounted += cellNodes[i] ?? 0;
       this.refresh(cell);
     }
   }
@@ -394,25 +406,31 @@ export class CombatGrid {
     this.buildings.clear();
     this.lowPriority.clear();
     for (const b of world.query(Building, Health, Position)) {
-      const held = heldBuilding(world, ctx, this.terrain, b);
-      for (const node of held.nodes) {
+      const entry = buildingEntry(world, ctx, this.terrain, b);
+      const cells: CoarseCell[] = [];
+      const cellNodes: number[] = [];
+      for (const node of entry.nodes) {
         const x = this.terrain.xOf(node);
         const y = this.terrain.yOf(node);
         const cell = this.cellFor(x, y);
-        push(cell.bodies, b, x, y, held.bit);
-        if (cell.countedLast === b) continue;
-        cell.countedLast = b;
+        push(cell.bodies, b, x, y, entry.bit);
+        const at = cells.indexOf(cell);
+        if (at >= 0) {
+          cellNodes[at] = (cellNodes[at] ?? 0) + 1;
+          continue;
+        }
+        cells.push(cell);
+        cellNodes.push(1);
         cell.baseTotal++;
-        if (held.bit !== 0) cell.baseOwnerMask |= held.bit;
+        if (entry.bit !== 0) cell.baseOwnerMask |= entry.bit;
         else cell.baseUndiscounted++;
       }
-      this.buildings.set(b, held);
+      this.buildings.set(b, { ...entry, cells, cellNodes });
       if (isLowPriorityBuildingTarget(world, ctx, b)) this.lowPriority.add(b);
     }
     for (const cell of this.cells) {
       if (cell === undefined) continue;
       cell.bodyBase = cell.bodies.count;
-      cell.countedLast = null;
       this.refresh(cell);
     }
     this.stampGenerations(world);
@@ -494,8 +512,14 @@ export class CombatGrid {
       units.y[held.slot] = y;
       return;
     }
-    this.dropUnit(e, held);
-    this.addUnit(e, x, y, held.bit, held.wild);
+    this.unslot(held);
+    tallyUnit(held.cell, held.bit, held.wild, -1);
+    this.refresh(held.cell);
+    held.cell = cell;
+    held.slot = cell.units.count;
+    push(cell.units, e, x, y, held.bit);
+    tallyUnit(cell, held.bit, held.wild, 1);
+    this.refresh(cell);
   }
 
   private addUnit(e: Entity, x: number, y: number, bit: number, wild: WildClass): void {
@@ -507,8 +531,15 @@ export class CombatGrid {
     this.refresh(cell);
   }
 
-  /** Swap-remove `e` from its cell: the cell's last unit takes its slot. */
   private dropUnit(e: Entity, held: HeldUnit): void {
+    this.unslot(held);
+    this.units.delete(e);
+    tallyUnit(held.cell, held.bit, held.wild, -1);
+    this.refresh(held.cell);
+  }
+
+  /** Swap-remove `held` from its cell's members: the cell's last unit takes its slot. */
+  private unslot(held: HeldUnit): void {
     const { cell, slot } = held;
     const units = cell.units;
     const last = units.count - 1;
@@ -522,9 +553,6 @@ export class CombatGrid {
       if (movedHeld !== undefined) movedHeld.slot = slot;
     }
     units.count = last;
-    this.units.delete(e);
-    tallyUnit(cell, held.bit, held.wild, -1);
-    this.refresh(cell);
   }
 
   /** Re-derive `cell`'s combined tallies from its layers, and flag the neighbourhood whose stranger test
@@ -582,7 +610,7 @@ export class CombatGrid {
     for (const b of world.query(Building, Health, Position)) {
       live++;
       const held = this.buildings.get(b);
-      const fresh = heldBuilding(world, ctx, this.terrain, b);
+      const fresh = buildingEntry(world, ctx, this.terrain, b);
       if (
         held === undefined ||
         held.type !== fresh.type ||
@@ -678,9 +706,8 @@ export class CombatGrid {
     return [];
   }
 
-  /** The cell at node (x, y), listed for the next build's reset. */
-  private touchForBuild(x: number, y: number): CoarseCell {
-    const cell = this.cellFor(x, y);
+  /** `cell`, listed for the next build's reset. */
+  private touchForBuild(cell: CoarseCell): CoarseCell {
     if (!cell.builtOn) {
       cell.builtOn = true;
       this.builtCells.push(cell);
@@ -743,7 +770,7 @@ export function isCombatant(world: World, e: Entity): boolean {
   return world.has(e, Settler) && world.has(e, Health) && world.has(e, Position);
 }
 
-function heldBuilding(world: World, ctx: MapContext, terrain: TerrainGraph, b: Entity): HeldBuilding {
+function buildingEntry(world: World, ctx: MapContext, terrain: TerrainGraph, b: Entity): BuildingEntry {
   const owner = world.tryGet(b, Owner);
   return {
     type: world.get(b, Building).buildingType,

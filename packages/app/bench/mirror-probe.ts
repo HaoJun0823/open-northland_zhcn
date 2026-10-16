@@ -151,10 +151,11 @@ export class MirrorProbe {
     const posts = this.ticksSinceDelta >= this.ticksThisDelta;
     const events = this.sim.events.current();
     const t0 = performance.now();
-    // Posted now, the live list goes into the post's clone; held back, it must outlive the next step.
+    // A single-tick batch posts its live list, which the post clones; a longer one was held while the
+    // runtime applied the previous batch, so each of its ticks, the last included, outlived its step.
     this.records.push({
       tick: this.sim.tick,
-      events: posts ? events : cloneEvents(events),
+      events: this.ticksThisDelta === 1 ? events : cloneEvents(events),
       simMs: 0,
       diagnostics: null,
     });

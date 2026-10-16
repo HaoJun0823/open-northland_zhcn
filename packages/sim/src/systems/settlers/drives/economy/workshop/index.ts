@@ -181,10 +181,13 @@ export function planProducer(
     restockToCapacity: false,
     inbound: (good) => seatClaims.inboundOf(plan, workplace, good),
   };
+  // Every search below asks from the same door under the same claims until one finds a source, so a good
+  // one of them found no source for is not searched again.
+  const unsourced: number[] = [];
   for (const candidate of seatClaims.recipesFor(world, ctx, workplace)) {
     if (!operatorRecipeEnabled(world, ctx, workplace, plan.entity, candidate)) continue;
     if (outputRoomForCycles(world, ctx, workplace, candidate) <= 0) continue;
-    const source = nearestMissingInputSource(plan, workplace, candidate, crewShortfall);
+    const source = nearestMissingInputSource(plan, workplace, candidate, crewShortfall, undefined, unsourced);
     if (source !== null) {
       routeToInputSource(plan, workplace, source, seatClaims);
       return;
@@ -210,7 +213,7 @@ export function planProducer(
   // first; an operator that has earned no product here keeps the whole-shop view.
   const supply = own.length === 0 ? recipe : mergeRecipes(own);
 
-  const source = nearestMissingInputSource(plan, workplace, supply, OWN_SHORTFALL);
+  const source = nearestMissingInputSource(plan, workplace, supply, OWN_SHORTFALL, undefined, unsourced);
   if (source !== null) {
     routeToInputSource(plan, workplace, source, seatClaims);
     return;

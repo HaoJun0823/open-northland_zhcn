@@ -122,6 +122,9 @@ export function nearestMissingInputSource(
   shortfall: InputShortfall,
   /** Look only at the stores and ground piles in a flagged carrier's pickup area, ranked from its flag. */
   area?: HaulFlagArea,
+  /** Goods an earlier search of this same visit found no source for, with nothing written since; each
+   *  good this search finds none for is added. */
+  unsourced?: number[],
 ): MissingInputSource | null {
   const { world, ctx, here, targets } = plan;
   const stock = world.get(workplace, Stockpile).amounts;
@@ -154,7 +157,10 @@ export function nearestMissingInputSource(
     const input = inputs[pick];
     if (input === undefined) return null;
     const goodType = input.goodType;
-    const band = sideSuppliesNone(plan, goodType) ? null : targets.bands.supplying(goodType);
+    const band =
+      unsourced?.includes(goodType) === true || sideSuppliesNone(plan, goodType)
+        ? null
+        : targets.bands.supplying(goodType);
     // The workplace never supplies itself; a self-filling house qualifies empty or claimed.
     const source = (e: Entity): Qualified<boolean> | null => {
       if (e === workplace) return null;
@@ -179,6 +185,7 @@ export function nearestMissingInputSource(
       const refills = winner.payload || refillingGoodsOf(world, ctx, store).includes(goodType);
       return { store, goodType, refills };
     }
+    if (band !== null) unsourced?.push(goodType);
     lastIndex = pick;
     lastHave = pickHave;
     lastTarget = pickTarget;

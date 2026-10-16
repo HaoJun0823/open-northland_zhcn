@@ -1,4 +1,4 @@
-import { Building, Owner, ownerOf } from '../../components/index.js';
+import { Building } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import { ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
@@ -36,12 +36,8 @@ export function seatBaseOf(world: World, ctx: SystemContext, player: number): En
  * module that musters it always mean the same house.
  */
 export function seatBarracksOf(world: World, ctx: SystemContext, player: number): Entity | null {
-  let best: Entity | null = null;
-  for (const e of world.query(Building, Owner)) {
-    if (best !== null && e >= best) continue;
-    if (ownerOf(world, e) === player && isBarracks(world, ctx, e)) best = e;
-  }
-  return best;
+  for (const e of ownedBuildings(world, player)) if (isBarracks(world, ctx, e)) return e;
+  return null;
 }
 
 /** The candidate nearest the settlement centroid, ties to the lower entity id - `candidates` arrives

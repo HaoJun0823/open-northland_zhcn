@@ -62,6 +62,15 @@ function normalizeRoleKey(name: string): string {
 }
 
 /**
+ * A house `EditName` and level as a join key. The name folds case and nothing else: the original
+ * compares house names case-insensitively, whole (a trailing space still misses). NUL-separated, since a
+ * plain space would let `"foo 1" L0` collide with `"foo" L10`.
+ */
+function houseKey(editName: string, level: number): string {
+  return `${editName.toLowerCase()}\u0000${level}`;
+}
+
+/**
  * A catalog identifier as a join key: case-folded and nothing else, because a tribe or a good is
  * named by its `.ini` id and maps only vary its case (`Byzantine`, `Leather`, `TOOL_WOODEN`). A name
  * the catalog does not carry stays unresolved, including the typographic-quote shapes one map
@@ -105,14 +114,13 @@ export function contentJoins(rows: AuthoredJoinRows): ContentJoins {
   const buildingByName = new Map<string, number>();
   const flagPoints = new Map(
     (rows.buildingFlagPoints ?? []).map((row) => [
-      `${row.editName}\u0000${row.level}\u0000${row.tribeId}`,
+      `${houseKey(row.editName ?? '', row.level)}\u0000${row.tribeId}`,
       { x: row.x, y: row.y },
     ]),
   );
   for (const b of rows.buildingBobs ?? []) {
     if (b.editName === undefined || b.typeId === undefined) continue;
-    // NUL-separated key: a plain space would let `"foo 1" L0` collide with `"foo" L10`.
-    const key = `${b.editName}\u0000${b.level ?? 0}`;
+    const key = houseKey(b.editName, b.level ?? 0);
     const current = bobByNameLevel.get(key);
     const tribeId = b.tribeId ?? 0;
     if (current === undefined || (current.typeId === b.typeId && current.tribeId === tribeId)) {
@@ -184,10 +192,10 @@ export function contentJoins(rows: AuthoredJoinRows): ContentJoins {
   }
   return {
     buildingBob: (name, level) => {
-      const exact = bobByNameLevel.get(`${name}\u0000${level}`);
+      const exact = bobByNameLevel.get(houseKey(name, level));
       if (exact !== undefined) return exact;
       const legacy = legacyHouseName(name);
-      return legacy === undefined ? undefined : bobByNameLevel.get(`${legacy}\u0000${level}`);
+      return legacy === undefined ? undefined : bobByNameLevel.get(houseKey(legacy, level));
     },
     buildingKind: (typeId) => kindByType.get(typeId),
     buildingType: (name) => buildingByName.get(normalizeRoleKey(name)),

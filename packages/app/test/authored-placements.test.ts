@@ -300,6 +300,17 @@ describe('resolveAuthoredPlacements', () => {
     ]);
   });
 
+  it('joins a house name in any case, but not one with a stray trailing space', () => {
+    const at = (name: string, hx: number) => ({ name, level: 0, player: 0, hx, hy: 4 });
+    const { placements, skipped } = resolveAuthoredPlacements(
+      { buildings: [at('VIKING Barracks', 2), at('viking barracks ', 6)], humans: [], animals: [] },
+      AUTHORED_ROWS,
+      authoredMap(),
+    );
+    expect(skipped).toBe(1);
+    expect(placements).toEqual([{ kind: 'building', typeId: 30, tribe: 1, x: 2, y: 4, owner: 0 }]);
+  });
+
   it('places a legacy house name as the defined house it stands for, at its own level', () => {
     const house = (editName: string, level: number, typeId: number) => ({
       editName,

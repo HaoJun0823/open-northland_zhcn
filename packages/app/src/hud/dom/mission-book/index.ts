@@ -24,12 +24,20 @@ export type { BriefingViewTarget } from './callbacks.js';
 export type { MissionHumanLookup } from './user-icons.js';
 export type { BriefingVoicePlayer, BriefingVoiceState } from './voice-row.js';
 
+/** The chapter a script delivered and the clips it has spoken since, by `lang:id`. */
+export interface MissionDelivery {
+  readonly chapter: number;
+  readonly spoken: readonly string[];
+}
+
 /** The chapters shown so far, where an open book's reader stands and the slip's fold, carried across
  *  a remount. */
 export interface MissionWindowState extends ShownPagesState {
   readonly reading: BookReading | null;
   /** The open book shows a chapter a script delivered. */
   readonly arrival: boolean;
+  /** The open book's delivered chapter, so the remounted book neither repeats nor cuts its narration. */
+  readonly delivery: MissionDelivery | null;
   readonly slipFolded: boolean;
   /** Unread goal changes, so the seals survive a remount. */
   readonly goalMarks: GoalMarksState;
@@ -128,8 +136,12 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
   /** The chapter a script delivered and the clips it has spoken since: its narration starts on its own
    *  once, where a book the reader opened only shows the player. Null while nothing awaits speaking. */
   let delivery: { readonly chapter: number; readonly spoken: Set<string> } | null = null;
-  /** A restored reading the next opening resumes, and whether a script delivered it. */
-  let resume: { readonly reading: BookReading; readonly arrival: boolean } | null = null;
+  /** A restored reading the next opening resumes, whether a script delivered it, and its delivery. */
+  let resume: {
+    readonly reading: BookReading;
+    readonly arrival: boolean;
+    readonly delivery: MissionDelivery | null;
+  } | null = null;
   let answersKey = deps.answersVersion();
   /** Counts openings and closes, so a beam opening still waiting for its answer yields to them. */
   let openings = 0;
@@ -231,8 +243,12 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     resume = null;
     if (resumed !== null) {
       shown.fold(deps.briefingHistory());
-      // A remount silenced a delivered chapter, so its reopening speaks it again.
-      if (resumed.arrival) deliver(resumed.reading.chapter);
+      // The delivered chapter's narration plays on through a remount, so a clip already spoken is not
+      // started again, nor another chapter the reader turned to.
+      delivery =
+        resumed.delivery === null
+          ? null
+          : { chapter: resumed.delivery.chapter, spoken: new Set(resumed.delivery.spoken) };
       open(resumed.reading, { delivered: resumed.arrival, resumed: true });
       return;
     }
@@ -277,13 +293,20 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
       ...shown.state(),
       reading: book.isOpen() ? book.reading() : null,
       arrival,
+      delivery:
+        book.isOpen() && delivery !== null
+          ? { chapter: delivery.chapter, spoken: [...delivery.spoken] }
+          : null,
       slipFolded: slip.isFolded(),
       goalMarks: marks.state(),
       viewCentred,
     }),
     restore(state): void {
       shown.restore(state);
-      resume = state.reading === null ? null : { reading: state.reading, arrival: state.arrival };
+      resume =
+        state.reading === null
+          ? null
+          : { reading: state.reading, arrival: state.arrival, delivery: state.delivery };
       slip.setFolded(state.slipFolded);
       marks.restore(state.goalMarks);
       viewCentred = state.viewCentred;
@@ -313,10 +336,10 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     onDismiss: (listener) => {
       listeners.push(listener);
     },
-    // A remount reopens an open book from the state, so the hold is not released here.
+    // A remount reopens an open book from the state, so neither the hold is released here nor the
+    // shared narration stopped: the restored book plays it on, and the game's end closes the sound.
     dispose(): void {
       openings++;
-      silence();
       book.dispose();
       slip.dispose();
     },

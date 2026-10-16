@@ -9,6 +9,7 @@ export function stubMissionBook(): MissionBook & { readonly shownPages: readonly
     pages: [],
     reading: null,
     arrival: false,
+    delivery: null,
     slipFolded: false,
     goalMarks: { states: null, marks: [] },
     viewCentred: false,

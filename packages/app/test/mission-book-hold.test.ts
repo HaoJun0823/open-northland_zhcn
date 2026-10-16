@@ -14,6 +14,7 @@ import {
  *  callbacks centre the view once per opening. */
 
 const PAGE = 500;
+const FIRST_READING: BookReading = { tab: 'brief', chapter: 0, spread: 0, table: null, pick: 0 };
 
 /** Lets the beam's briefing answer land. */
 const answered = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -83,6 +84,7 @@ function mount(pauseStopsClock = true, briefing: MissionBriefingAnswer = { histo
     cue: () => undefined,
     voice: {
       has: () => true,
+      available: () => true,
       play: (voice) => spoken.push(voice),
       stop: () => spoken.push('stop'),
       toggle: () => undefined,
@@ -285,6 +287,47 @@ describe('the briefing callbacks', () => {
     expect(spoken).toEqual([]);
     fire.callback(SOUND);
     expect(spoken).toEqual([{ lang: 'pol', id: 3 }]);
+  });
+
+  it('keep a delivered chapter`s narration playing over a remount, without speaking it again', () => {
+    const first = mount();
+    first.mission.showPage(PAGE);
+    first.fire.callback(SOUND);
+    const state = first.mission.state();
+    expect(state.delivery).toEqual({ chapter: 0, spoken: ['pol:3'] });
+
+    const second = mount();
+    second.mission.restore(state);
+    second.mission.toggle();
+    second.fire.callback(SOUND);
+    first.mission.dispose();
+    expect(first.spoken).toEqual([{ lang: 'pol', id: 3 }]);
+    expect(second.spoken).toEqual([]);
+    second.fire.callback([2000, 4, 0]);
+    expect(second.spoken).toEqual([{ lang: 'pol', id: 4 }]);
+  });
+
+  it('start no narration after a remount on a chapter the reader turned to from the delivered one', () => {
+    const first = mount();
+    first.mission.showPage(PAGE);
+    const state = first.mission.state();
+    const turned = { ...state, reading: { ...(state.reading ?? FIRST_READING), chapter: 1 } };
+
+    const second = mount();
+    second.mission.restore(turned);
+    second.mission.toggle();
+    second.fire.callback(SOUND, 1);
+    expect(second.spoken).toEqual([]);
+  });
+
+  it('carry no delivery for a book the reader opened, nor for a closed one', async () => {
+    const { mission } = mount();
+    mission.showPage(PAGE);
+    mission.close();
+    expect(mission.state().delivery).toBeNull();
+    mission.toggle();
+    await answered();
+    expect(mission.state().delivery).toBeNull();
   });
 
   it('speak a delivered page anew, the chapter already shown included', () => {

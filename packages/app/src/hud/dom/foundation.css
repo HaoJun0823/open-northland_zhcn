@@ -5578,6 +5578,7 @@ body.on-drag-scroll * {
 }
 .on-hud .on-book__fin {
   margin: 0.4em 0 0;
+  break-before: avoid;
   text-align: center;
   color: #8d7549;
   font-size: 18px;

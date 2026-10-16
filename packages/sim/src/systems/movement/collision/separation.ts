@@ -117,8 +117,8 @@ export const separationSystem: System = (world, ctx) => {
     // A firm mover in its own town drops to the soft tier: no post resolve and no grind.
     const ghost = isFirm && gates.isGhost(player ?? world.get(e, Owner).player, nodeHx, nodeHy);
 
-    resolveMoverPush(scratch, slot, moverCount, push);
-    if (push.x !== ZERO || push.y !== ZERO) capToOwnPace(push, walkPacePerTick(world, ctx, e));
+    const pushMagnitude = resolveMoverPush(scratch, slot, moverCount, push);
+    if (push.x !== ZERO || push.y !== ZERO) capToOwnPace(push, pushMagnitude, walkPacePerTick(world, ctx, e));
 
     // The census Position: no earlier mover's resolve writes this one's.
     const px = movers.x[slot] ?? ZERO;
@@ -170,13 +170,14 @@ function dropSlot(list: number[], count: number, slot: number): number {
  * The soft tier: this mover's mover-vs-mover push for the tick, written to `push` in world axes. Read from
  * the pre-separation columns alone so the pairwise split is order-independent, and capped at
  * {@link SEPARATION_PUSH_CAP}. Each pair adds an exact integer term, so neighbour order cannot change it.
+ * Returns the written push's magnitude.
  */
 function resolveMoverPush(
   scratch: SeparationScratch,
   slot: number,
   moverCount: number,
   push: ScratchPoint,
-): void {
+): Fixed {
   const { movers, nearMovers } = scratch;
   const { entity, y, worldX: wx, worldY: wy, headingX, headingY } = movers;
   const e = entity[slot] ?? 0;
@@ -248,22 +249,26 @@ function resolveMoverPush(
       pushY = fx.add(pushY, fx.mulDiv(fx.sub(startWY, otherWY), half, dist));
     }
   }
-  if (pushX !== ZERO || pushY !== ZERO) {
-    const mag = fx.isqrt(fx.add(fx.mul(pushX, pushX), fx.mul(pushY, pushY)));
-    if (mag > SEPARATION_PUSH_CAP) {
-      pushX = fx.mulDiv(pushX, SEPARATION_PUSH_CAP, mag);
-      pushY = fx.mulDiv(pushY, SEPARATION_PUSH_CAP, mag);
-    }
-  }
   push.x = pushX;
   push.y = pushY;
+  if (pushX === ZERO && pushY === ZERO) return ZERO;
+  const mag = magnitudeOf(push);
+  if (mag <= SEPARATION_PUSH_CAP) return mag;
+  push.x = fx.mulDiv(pushX, SEPARATION_PUSH_CAP, mag);
+  push.y = fx.mulDiv(pushY, SEPARATION_PUSH_CAP, mag);
+  // The truncated components no longer measure the cap exactly.
+  return magnitudeOf(push);
 }
 
-/** Scale `push` down to {@link SOFT_PUSH_PACE_SHARE} of the mover's `pace`; a mover with no pace keeps it. */
-function capToOwnPace(push: ScratchPoint, pace: Fixed | null): void {
+function magnitudeOf(v: ScratchPoint): Fixed {
+  return fx.isqrt(fx.add(fx.mul(v.x, v.x), fx.mul(v.y, v.y)));
+}
+
+/** Scale `push`, of magnitude `mag`, down to {@link SOFT_PUSH_PACE_SHARE} of the mover's `pace`; a mover
+ *  with no pace keeps it. */
+function capToOwnPace(push: ScratchPoint, mag: Fixed, pace: Fixed | null): void {
   if (pace === null) return;
   const cap = fx.mul(pace, SOFT_PUSH_PACE_SHARE);
-  const mag = fx.isqrt(fx.add(fx.mul(push.x, push.x), fx.mul(push.y, push.y)));
   if (mag <= cap) return;
   push.x = fx.mulDiv(push.x, cap, mag);
   push.y = fx.mulDiv(push.y, cap, mag);

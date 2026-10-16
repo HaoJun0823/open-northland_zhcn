@@ -16,6 +16,7 @@ import {
   Rider,
   Settler,
   Stance,
+  StandIn,
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { forEachRingNode, hexDistanceBetween, positionOfNode } from '../../nav/halfcell.js';
@@ -84,6 +85,9 @@ function returnToAnchor(world: World, ctx: SystemContext, e: Entity, here: NodeI
   world.remove(e, Engagement);
   world.remove(e, HuntFocus); // a post-holder holds no prey
   if (world.has(e, EquipOrder) || anyNeedPressing(world, ctx, e)) return;
+  // Routing stood it in beside an anchor another unit holds: that stand is its post until a walk moves it.
+  const stood = world.tryGet(e, StandIn);
+  if (stood?.goal === anchorCell && stood.at === here && !isTravelling(world, e)) return;
   clearNavState(world, e);
   if (here !== anchorCell) world.add(e, MoveGoal, { cell: anchorCell });
 }

@@ -4,11 +4,14 @@ import {
   CurrentAtomic,
   Engagement,
   MoveGoal,
+  PathRequest,
   Position,
   Resource,
   Stance,
+  StandIn,
   Stockpile,
   seatPassenger,
+  Weapon,
 } from '../../../src/components/index.js';
 import { fx, ONE } from '../../../src/core/fixed.js';
 import { Simulation } from '../../../src/index.js';
@@ -27,6 +30,8 @@ import { setNeeds } from '../../fixtures/settler.js';
 
 const CART = 5; // the fixture's vehicle type the boarding case seats the enemy in
 const VIKING_TRIBE = 1;
+const SOLDIER = 31; // `soldier_unarmed`: a fighter, so routing stands it in beside an occupied node
+const TEST_AXE = 7; // the fixture's weapon, worn so the soldier fights at all
 
 import {
   cell,
@@ -151,5 +156,34 @@ describe('DEFEND - hold an anchor, don’t chase past the leash', () => {
     expect(ate).toBe(true);
     sim.run(300);
     expect(tileOf(sim, guard)).toEqual({ x: 10, y: 0 }); // fed, back on its post
+  });
+
+  it('settles beside an anchor another unit stands on instead of re-aiming at it every pass', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 3) });
+    const [anchorX, row] = [15, 1];
+    const anchor = cell(sim, anchorX, row);
+    const [holder, guard] = [
+      combatant(sim, anchorX, row, P0, MILITARY_MODE.DEFEND, { jobType: SOLDIER }),
+      combatant(sim, anchorX - 7, row, P0, MILITARY_MODE.DEFEND, { jobType: SOLDIER }),
+    ];
+    for (const e of [holder, guard]) {
+      sim.world.mut(e, Stance).anchorCell = anchor;
+      sim.world.add(e, Weapon, { weaponTypeId: TEST_AXE });
+    }
+    // In sight, past the defend radius: it keeps the combat pass breaking both guards off every pass.
+    const anchorToEnemyCells = DEFEND_RADIUS_NODES / 2 + 2;
+    combatant(sim, anchorX + anchorToEnemyCells, row, P1, MILITARY_MODE.IGNORE, { hitpoints: 100000 });
+
+    sim.run(200);
+    const stand = tileOf(sim, guard);
+    let walkTicks = 0;
+    for (let t = 0; t < 100; t++) {
+      sim.run(1);
+      if (sim.world.has(guard, MoveGoal) || sim.world.has(guard, PathRequest)) walkTicks++;
+    }
+    expect(walkTicks).toBe(0);
+    expect(tileOf(sim, guard)).toEqual(stand);
+    expect(sim.world.tryGet(guard, StandIn)?.goal).toBe(anchor);
+    expect(Math.abs(stand.x - anchorX) + Math.abs(stand.y - row)).toBeLessThanOrEqual(1); // beside the anchor
   });
 });

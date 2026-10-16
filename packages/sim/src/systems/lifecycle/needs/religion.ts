@@ -2,7 +2,7 @@ import { needsEnabled, Settler, SettlerNeeds } from '../../../components/index.j
 import { ONE } from '../../../core/fixed.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { ContentContext } from '../../context.js';
-import { atomicClip, clipEventFactsOf } from '../../readviews/animations.js';
+import { atomicSpendsReligion } from '../../readviews/religion.js';
 import { settlerCarriesNeeds } from './drain-class.js';
 
 /** Deliberate rule: an empty religion reserve blocks further spending, while a paid action may finish.
@@ -19,7 +19,6 @@ export function religionAllowsAtomic(
   if ((world.tryGet(entity, SettlerNeeds)?.piety ?? 0) < ONE) return true;
   const settler = world.tryGet(entity, Settler);
   if (settler === undefined) return true;
-  const clip = atomicClip(ctx.content, settler, atomicId);
-  if (clip === undefined || clipEventFactsOf(clip).lastPietySpendTick <= paidThrough) return true;
+  if (!atomicSpendsReligion(ctx.content, settler, atomicId, paidThrough)) return true;
   return !settlerCarriesNeeds(world, ctx.content, entity, settler);
 }

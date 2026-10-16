@@ -373,6 +373,7 @@ export class FogState {
       radius >= 0 &&
       radius < FOOTPRINT_RADIUS_SPAN
     ) {
+      // Exact while MAX_PLAYERS * FOOTPRINT_RADIUS_SPAN * cellsHigh * cellsWide stays below 2^53.
       const key = ((group * FOOTPRINT_RADIUS_SPAN + radius) * this.cellsHigh + cy) * this.cellsWide + cx;
       if (this.passFootprints.has(key)) return false;
       this.passFootprints.add(key);

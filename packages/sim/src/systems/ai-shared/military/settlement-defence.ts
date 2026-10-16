@@ -200,8 +200,7 @@ function without(men: readonly Entity[], taken: ReadonlySet<Entity>): readonly E
 export const settlementDefenceSystem: System = (world, ctx) => {
   const terrain = ctx.terrain;
   if (terrain === undefined) return;
-  // Collected before planning, since a plan adds components; only the seats whose slot this is, so most
-  // ticks allocate nothing.
+  // Collected before planning, since a plan adds components; only the seats whose slot this is.
   const seats: { readonly player: number; readonly mapAiEnabled: boolean }[] = [];
   for (const e of world.query(AiControl)) {
     const seat = world.get(e, AiControl);

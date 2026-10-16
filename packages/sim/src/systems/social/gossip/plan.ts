@@ -208,8 +208,9 @@ export function planGossipIdle(
   const idle = idlePartnerFilter(world, ctx.tick, e, owner);
   // Adjacency first: it reads only the position, while `idle` reads several stores.
   const idleBeside = (cand: Entity): boolean => {
-    const p = world.get(cand, Position);
+    const p = world.tryGet(cand, Position);
     return (
+      p !== undefined &&
       Math.abs(nodeHxOfPosition(p.x, p.y) - hx) <= ADJACENT_NODES &&
       Math.abs(nodeHyOfPosition(p.y) - hy) <= ADJACENT_NODES &&
       idle(cand)

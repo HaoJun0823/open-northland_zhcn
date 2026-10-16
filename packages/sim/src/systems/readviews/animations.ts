@@ -218,9 +218,13 @@ export interface ClipEventFacts {
   readonly needFrames: ReadonlySet<number>;
   /** Every valued sound FX event inside the clip's length, in event order. */
   readonly soundCues: readonly ClipSoundCue[];
-  /** The last atomic tick a negative piety event inside the clip fires on, `0` when the clip has none. */
+  /** The last atomic tick a negative piety event inside the clip fires on, {@link NO_PIETY_SPEND_TICK} when
+   *  the clip has none. */
   readonly lastPietySpendTick: number;
 }
+
+/** {@link ClipEventFacts.lastPietySpendTick} of a clip without a spend; event ticks count from 1. */
+export const NO_PIETY_SPEND_TICK = 0;
 
 const clipEventFacts = new WeakMap<AtomicAnimation, ClipEventFacts>();
 
@@ -229,7 +233,7 @@ export function clipEventFactsOf(anim: AtomicAnimation): ClipEventFacts {
   if (facts !== undefined) return facts;
   const needFrames = new Set<number>();
   const soundCues: ClipSoundCue[] = [];
-  let lastPietySpendTick = 0;
+  let lastPietySpendTick = NO_PIETY_SPEND_TICK;
   for (const event of anim.events) {
     const value = event.value ?? 0;
     if (isNeedChannel(event.type) && value !== 0) needFrames.add(event.at);

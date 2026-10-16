@@ -179,6 +179,8 @@ function keyIsCurrent(world: World, key: readonly number[]): boolean {
   return true;
 }
 
+const NO_FIGHTERS: readonly LooseFighter[] = [];
+
 function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph): LooseFighterScan {
   let scan = looseFighterScans.get(world);
   if (scan === undefined) {
@@ -220,8 +222,6 @@ function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph):
   scan.stamp++;
   return scan;
 }
-
-const NO_FIGHTERS: readonly LooseFighter[] = [];
 
 function sameFighter(
   was: LooseFighter,

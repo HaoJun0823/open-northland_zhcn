@@ -99,6 +99,8 @@ export function towerPostOrders(
   return { commands, claimed };
 }
 
+const garrisonSlotMemo = new WeakMap<SystemContext['content'], Map<number, ReadonlyMap<number, number>>>();
+
 /** The fighting classes a building employs and how many of each (the towers' `logicworker 40/41` bow-soldier
  *  posts), empty for every building staffed by civilians alone. The shared per-content table; never mutate it. */
 export function garrisonSlots(
@@ -122,8 +124,6 @@ export function garrisonSlots(
   byType.set(buildingType, slots);
   return slots;
 }
-
-const garrisonSlotMemo = new WeakMap<SystemContext['content'], Map<number, ReadonlyMap<number, number>>>();
 
 /** One standing tower this decision mans: the men it wants of each class and in all, the men of each
  *  class it keeps before sending one out, where its door is, and who holds it, counted as men are posted. */
@@ -191,6 +191,8 @@ function standingWalls(
   return walls;
 }
 
+const peaceSlotMemo = new WeakMap<ReadonlyMap<number, number>, ReadonlyMap<number, number>>();
+
 /** The scripted rule's quiet crew for a tower of `slots`, shared like the slots it derives from. */
 function peaceSlots(slots: ReadonlyMap<number, number>): ReadonlyMap<number, number> {
   let peace = peaceSlotMemo.get(slots);
@@ -202,8 +204,6 @@ function peaceSlots(slots: ReadonlyMap<number, number>): ReadonlyMap<number, num
   }
   return peace;
 }
-
-const peaceSlotMemo = new WeakMap<ReadonlyMap<number, number>, ReadonlyMap<number, number>>();
 
 /** The men employed at `tower`, by class. */
 function postedMen(world: World, tower: Entity): Map<number, Entity[]> {

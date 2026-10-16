@@ -45,10 +45,10 @@ function sitesOf(world: World): TileBuckets<Site> {
  *  searches links again. */
 const nearbyScratch: Site[] = [];
 const linkTargets = { nodes: nearbyScratch, count: 0 };
+/** Id scratch filled by count, never truncated, so it keeps its capacity across calls. */
 const linkedScratch: Entity[] = [];
 const mergedScratch: Entity[] = [];
 const NO_BLOCKS: BlockOverlay = { size: 0, has: () => false };
-const ascending = (a: Entity, b: Entity): number => a - b;
 /** The tile box a link search collects sites over, rewritten per post. */
 const siteBox = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 
@@ -86,27 +86,40 @@ function reachableLinks(
     content === undefined
       ? floodReach(terrain, NO_BLOCKS, hx, hy, r, budget, groundCost, linkTargets).area
       : postTerrainReach(world, content, terrain, post, hx, hy, SIGNPOST_LINK_SPAN, linkTargets).area;
-  linkedScratch.length = 0;
+  let linkedCount = 0;
   for (let i = 0; i < candidates; i++) {
     const site = nearbyScratch[i] as Site;
-    if (reachContains(area, site.hx, site.hy)) linkedScratch.push(site.id);
+    if (reachContains(area, site.hx, site.hy))
+      linkedCount = insertAscending(linkedScratch, linkedCount, site.id);
   }
-  linkedScratch.sort(ascending);
   let byPost = heldLinks.get(world);
   if (byPost === undefined) {
     byPost = new Map();
     heldLinks.set(world, byPost);
   }
   const held = byPost.get(post);
-  if (held !== undefined && sameIds(held, linkedScratch)) return held;
-  const linked = linkedScratch.slice();
+  if (held !== undefined && sameIds(held, linkedScratch, linkedCount)) return held;
+  const linked = linkedScratch.slice(0, linkedCount);
   byPost.set(post, linked);
   return linked;
 }
 
-function sameIds(a: readonly Entity[], b: readonly Entity[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+/** Insert `id` into the ascending first `count` entries of `ids`, returning the new count. A link list is
+ *  short, so shifting beats a sort, which allocates a work array per call. */
+function insertAscending(ids: Entity[], count: number, id: Entity): number {
+  let at = count;
+  while (at > 0 && (ids[at - 1] as Entity) > id) {
+    ids[at] = ids[at - 1] as Entity;
+    at--;
+  }
+  ids[at] = id;
+  return count + 1;
+}
+
+/** Whether `a` equals the first `count` entries of `b`. */
+function sameIds(a: readonly Entity[], b: readonly Entity[], count: number): boolean {
+  if (a.length !== count) return false;
+  for (let i = 0; i < count; i++) if (a[i] !== b[i]) return false;
   return true;
 }
 
@@ -139,6 +152,8 @@ const layouts = new WeakMap<World, Layout>();
 const outgoing: (readonly Entity[])[] = [];
 let incomingStart = new Int32Array(0);
 let incoming = new Int32Array(0);
+/** Per pass, each post's index plus one by entity id, zero for any other id; zeroed again after the pass. */
+let postSlots = new Int32Array(0);
 
 /** A changed road, building or landscape can connect or cut an existing network. */
 export const signpostLinksSystem: System = (world, ctx) => {
@@ -154,15 +169,15 @@ export const signpostLinksSystem: System = (world, ctx) => {
   dropFallenLinks(world);
   // A link is either post's reach taking the other in: each post's own list, and the posts whose list
   // names it, gathered in ascending post order.
-  outgoing.length = 0;
   if (incomingStart.length < posts.length + 1) incomingStart = new Int32Array(posts.length + 1);
   incomingStart.fill(0, 0, posts.length + 1);
+  fillPostSlots(posts);
   let named = 0;
-  for (const post of posts) {
-    const linked = reachableLinks(world, terrain, post, ctx.content);
-    outgoing.push(linked);
+  for (let i = 0; i < posts.length; i++) {
+    const linked = reachableLinks(world, terrain, posts[i] as Entity, ctx.content);
+    outgoing[i] = linked;
     for (const other of linked) {
-      const at = indexOf(posts, other);
+      const at = postIndex(other);
       if (at < 0) continue;
       incomingStart[at + 1] = (incomingStart[at + 1] as number) + 1;
       named++;
@@ -174,7 +189,7 @@ export const signpostLinksSystem: System = (world, ctx) => {
   // Filled in ascending post order, each post's span ends ascending; the fill moves each start to its end.
   for (let i = 0; i < posts.length; i++) {
     for (const other of outgoing[i] as readonly Entity[]) {
-      const at = indexOf(posts, other);
+      const at = postIndex(other);
       if (at < 0) continue;
       incoming[incomingStart[at] as number] = posts[i] as Entity;
       incomingStart[at] = (incomingStart[at] as number) + 1;
@@ -184,11 +199,13 @@ export const signpostLinksSystem: System = (world, ctx) => {
   for (let i = 0; i < posts.length; i++) {
     const post = posts[i] as Entity;
     const to = incomingStart[i] as number;
-    const links = mergeAscending(outgoing[i] as readonly Entity[], incoming, from, to, mergedScratch);
-    if (!sameIds(world.get(post, Signpost).links, links)) world.mut(post, Signpost).links = links.slice();
+    const count = mergeAscending(outgoing[i] as readonly Entity[], incoming, from, to, mergedScratch);
+    if (!sameIds(world.get(post, Signpost).links, mergedScratch, count))
+      world.mut(post, Signpost).links = mergedScratch.slice(0, count);
     from = to;
   }
-  outgoing.length = 0;
+  outgoing.fill(NO_LINKS, 0, posts.length);
+  for (const post of posts) postSlots[post] = 0;
   // Settling links moves the network revision, so the layout is read after it.
   const layout = held ?? { mask: 0, roads: 0, network: 0 };
   layout.mask = signpostMask(world, ctx.content, terrain).version;
@@ -197,18 +214,17 @@ export const signpostLinksSystem: System = (world, ctx) => {
   layouts.set(world, layout);
 };
 
-/** `post`'s index in the ascending list `posts`, or -1. */
-function indexOf(posts: readonly Entity[], post: Entity): number {
-  let low = 0;
-  let high = posts.length - 1;
-  while (low <= high) {
-    const mid = (low + high) >> 1;
-    const at = posts[mid] as Entity;
-    if (at === post) return mid;
-    if (at < post) low = mid + 1;
-    else high = mid - 1;
-  }
-  return -1;
+/** Index each post of the ascending list `posts` in {@link postSlots}. */
+function fillPostSlots(posts: readonly Entity[]): void {
+  const last = posts[posts.length - 1];
+  if (last === undefined) return;
+  if (postSlots.length <= last) postSlots = new Int32Array(Math.max(last + 1, postSlots.length * 2));
+  for (let i = 0; i < posts.length; i++) postSlots[posts[i] as Entity] = i + 1;
+}
+
+/** `id`'s index in the pass's posts, or -1. */
+function postIndex(id: Entity): number {
+  return id < postSlots.length ? (postSlots[id] as number) - 1 : -1;
 }
 
 const NO_LINKS: readonly Entity[] = [];
@@ -225,33 +241,33 @@ function dropFallenLinks(world: World): void {
 }
 
 /** The union of ascending id lists `a` and `b`'s `from` to `to`, ascending and without repeats, written
- *  over `out`. */
+ *  over the start of `out`; returns its count. */
 function mergeAscending(
   a: readonly Entity[],
   b: Int32Array,
   from: number,
   to: number,
   out: Entity[],
-): Entity[] {
-  out.length = 0;
+): number {
+  let count = 0;
   let i = 0;
   let j = from;
   while (i < a.length || j < to) {
     const x = a[i];
     const y = j < to ? (b[j] as Entity) : undefined;
     if (y === undefined || (x !== undefined && x < y)) {
-      out.push(x as Entity);
+      out[count++] = x as Entity;
       i++;
     } else if (x === undefined || y < x) {
-      out.push(y);
+      out[count++] = y;
       j++;
     } else {
-      out.push(x);
+      out[count++] = x;
       i++;
       j++;
     }
   }
-  return out;
+  return count;
 }
 
 /** Drop a falling post from its neighbours' link lists, before it is destroyed. */

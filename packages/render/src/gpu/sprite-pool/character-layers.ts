@@ -1,6 +1,7 @@
 import type { DrawItem } from '../../data/scene/index.js';
 import { type AtlasFrame, pickByJob, resolveSettlerBobId } from '../../data/sprites/index.js';
 import { DEFAULT_FACING, movingFrameRef } from '../../data/sprites/settler.js';
+import type { DirectionalAnim } from '../../data/sprites/settler-bindings.js';
 import type { PaletteLut, SettlerCharacter, SettlerCharacterSet, SpriteSheet } from '../sprite-sheet.js';
 import { layerScale, resolveFromLayer, shadowLayerFor } from './layered-layers.js';
 import type { LayerBuffer, ResolvedLayer } from './resolved-layer.js';
@@ -254,9 +255,11 @@ export function characterGaitRate(
   sheet: Pick<SpriteSheet, 'characters' | 'kindScales'> | undefined,
   item: DrawItem,
   lastFacing?: number,
+  /** `item`'s look, when the caller already picked it. */
+  look?: SettlerCharacter,
 ): number | undefined {
   if (sheet?.characters === undefined || item.kind !== 'settler') return undefined;
-  const char = characterForItem(sheet.characters, item);
+  const char = look ?? characterForItem(sheet.characters, item);
   if (char === undefined) return undefined;
   const clip = movingFrameRef(char.binding, item);
   if (typeof clip === 'number' || 'frameLists' in clip) return undefined;
@@ -269,13 +272,48 @@ export function characterGaitRate(
   return ticks / (travel * characterScale(sheet, char));
 }
 
+/** The look a settler item draws, or undefined for any other kind, an unbound wildlife tribe or a sheet
+ *  without characters. */
+export function settlerCharacterOf(
+  characters: SettlerCharacterSet | undefined,
+  item: DrawItem,
+): SettlerCharacter | undefined {
+  return item.kind === 'settler' && characters !== undefined ? characterForItem(characters, item) : undefined;
+}
+
+/** {@link stepsOnWholeTicks} per binding object: bindings are immutable sheet data. */
+const wholeTickBindings = new WeakMap<object, boolean>();
+
+/** Whether every clip under `value` steps on whole ticks: no subtick clip, no fractional frame time. */
+function stepsOnWholeTicks(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return true;
+  const known = wholeTickBindings.get(value);
+  if (known !== undefined) return known;
+  let whole = true;
+  if (Array.isArray(value)) {
+    for (const entry of value) if (!stepsOnWholeTicks(entry)) whole = false;
+  } else {
+    const fields = value as Partial<DirectionalAnim> & Record<string, unknown>;
+    if (fields.subtick === true) whole = false;
+    if (fields.ticksPerFrame !== undefined && !Number.isInteger(fields.ticksPerFrame)) whole = false;
+    if (fields.frameDurations?.some((hold) => !Number.isInteger(hold)) === true) whole = false;
+    for (const key in fields) if (!stepsOnWholeTicks(fields[key])) whole = false;
+  }
+  wholeTickBindings.set(value, whole);
+  return whole;
+}
+
+/**
+ * Whether `char`'s frame choice reads its clocks only through whole ticks: then two presents of one item
+ * in one tick pick the same frames unless the animation clock crossed a whole tick between them.
+ */
+export function characterStepsOnWholeTicks(char: SettlerCharacter): boolean {
+  return stepsOnWholeTicks(char.binding) && stepsOnWholeTicks(char.headBinding);
+}
+
 export function characterInterpolatesMotion(
   characters: SettlerCharacterSet | undefined,
   item: DrawItem,
 ): boolean {
-  return (
-    item.kind === 'settler' &&
-    characters !== undefined &&
-    characterForItem(characters, item)?.interpolateMotion === true
-  );
+  return settlerCharacterOf(characters, item)?.interpolateMotion === true;
 }

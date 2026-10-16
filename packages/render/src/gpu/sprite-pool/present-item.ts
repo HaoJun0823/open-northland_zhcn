@@ -1,7 +1,8 @@
+import { clamp01 } from '../../data/math.js';
 import type { DrawItem } from '../../data/scene/index.js';
 import { IDLE_PHASE_STAGGER_TICKS, type SpriteKind } from '../../data/sprites/index.js';
 import type { WindSway } from '../../data/weather/climate.js';
-import type { SpriteSheet } from '../sprite-sheet.js';
+import type { SettlerCharacter, SpriteSheet } from '../sprite-sheet.js';
 import {
   type AtomicPoseTrack,
   atomicPose,
@@ -9,7 +10,7 @@ import {
   interpolateAtomicPose,
 } from './atomic-pose.js';
 import { cartDriveLook } from './cart-drive.js';
-import { characterGaitRate, characterInterpolatesMotion } from './character-layers.js';
+import { characterGaitRate, characterStepsOnWholeTicks, settlerCharacterOf } from './character-layers.js';
 import { drawAlphaForKind, type MotionTrack, snapDistanceForKind, trackMotion } from './motion.js';
 import { easeReveal, revealedItem, walkPose, writeMotionClocks } from './presentation.js';
 import { resolveLayersInto } from './resolve-layers.js';
@@ -42,6 +43,32 @@ export interface PresentationTrack {
   /** The anchor of the item last presented, read once per item: loading a numeric field off the many
    *  draw item shapes boxes it, on every frame the same item presents again. */
   readonly anchor: PresentedAnchor;
+  /** The settler look of the item last presented, picked once per item. */
+  readonly look: PresentedLook;
+  /** The last present, which another of the same item in the same tick may repeat. */
+  readonly tickPresent: TickPresent;
+}
+
+interface PresentedLook {
+  item: DrawItem | undefined;
+  characters: SpriteSheet['characters'];
+  char: SettlerCharacter | undefined;
+}
+
+/**
+ * A settler drawn at its tick anchor, on a look whose clips step on whole ticks, reads the frame alpha
+ * only through the whole tick its animation clock stands on: another present of the same item in the
+ * same tick resolves the same layers while that step holds.
+ */
+interface TickPresent {
+  /** The item it presented; undefined when no later present may repeat it. */
+  item: DrawItem | undefined;
+  tick: number;
+  sheet: SpriteSheet | undefined;
+  environmentMotion: boolean;
+  /** The whole tick of an animation clock that carried the frame alpha; NaN for one that did not. */
+  clockStep: number;
+  layers: readonly ResolvedLayer[] | null;
 }
 
 interface PresentedAnchor {
@@ -59,6 +86,15 @@ export function createPresentationTrack(kind: SpriteKind): PresentationTrack {
     clocks: { animation: 0, gait: 0 },
     interpolation: { source: undefined, pose: undefined },
     anchor: { item: undefined, x: 0, y: 0, lift: 0 },
+    look: { item: undefined, characters: undefined, char: undefined },
+    tickPresent: {
+      item: undefined,
+      tick: -1,
+      sheet: undefined,
+      environmentMotion: false,
+      clockStep: Number.NaN,
+      layers: null,
+    },
     atomicPose: { tick: -1, item: undefined },
     idleActive: false,
     idleStartTick: 0,
@@ -97,6 +133,7 @@ export function presentItem(
   environmentMotion = false,
   wind?: WindSway,
 ): readonly ResolvedLayer[] | null {
+  if (repeatsInTick(track, item, tick, frameAlpha, sheet, environmentMotion)) return track.tickPresent.layers;
   if (track.motion.tick === -1) {
     track.atomicPose.item = undefined;
     track.idleActive = false;
@@ -106,7 +143,8 @@ export function presentItem(
   // An original walker keeps its tick anchor under the motion setting too: its clip plays one authored
   // frame per tick, so the body may only move with the frame, as the original engine steps it. Moving
   // it inside a frame hold drags the planted foot along the ground.
-  const smooth = characterInterpolatesMotion(sheet?.characters, item);
+  const look = lookOf(track, sheet, item);
+  const smooth = look?.interpolateMotion === true;
   const held = item.ghost === true || item.frozen === true;
   // A cart drawn as its driver plays that walker's clip, so it keeps the walker's tick anchor too.
   const walkerClip = track.kind === 'vehicle' && cartDriveLook(sheet, item) !== undefined;
@@ -127,7 +165,7 @@ export function presentItem(
     anchor.x,
     anchor.y - anchor.lift,
     alpha,
-    characterGaitRate(sheet, item, track.lastFacing),
+    characterGaitRate(sheet, item, track.lastFacing, look),
     track.kind === 'projectile' ? (item.rotation ?? 0) : undefined,
     anchor.lift,
   );
@@ -139,7 +177,7 @@ export function presentItem(
   writeMotionClocks(clocks, pose, tick, frameAlpha, track.motion, smooth, environmentMotion);
   const displayed = revealedItem(walkPose(pose, track.kind, track.motion, track.lastFacing), track.reveal);
   const idleElapsed = idleClipElapsed(track, displayed, tick);
-  return resolveLayersInto(
+  const layers = resolveLayersInto(
     track.layers,
     sheet,
     displayed,
@@ -149,6 +187,53 @@ export function presentItem(
     held ? 0 : idleElapsed,
     environmentMotion && !held ? wind : undefined,
   );
+  const last = track.tickPresent;
+  const repeatable =
+    track.kind === 'settler' &&
+    look !== undefined &&
+    !smooth &&
+    !held &&
+    track.reveal === undefined &&
+    characterStepsOnWholeTicks(look);
+  last.item = repeatable ? item : undefined;
+  last.tick = tick;
+  last.sheet = sheet;
+  last.environmentMotion = environmentMotion;
+  // Mirrors the clock `writeMotionClocks` picks for a figure drawn at its tick anchor.
+  last.clockStep =
+    environmentMotion && pose.state !== 'acting' ? Math.floor(tick + clamp01(frameAlpha)) : Number.NaN;
+  last.layers = layers;
+  return layers;
+}
+
+/** Whether this present repeats the track's last one (see {@link TickPresent}), whose layers it returns. */
+function repeatsInTick(
+  track: PresentationTrack,
+  item: DrawItem,
+  tick: number,
+  frameAlpha: number,
+  sheet: SpriteSheet | undefined,
+  environmentMotion: boolean,
+): boolean {
+  const last = track.tickPresent;
+  return (
+    last.item === item &&
+    last.tick === tick &&
+    track.motion.tick === tick &&
+    last.sheet === sheet &&
+    last.environmentMotion === environmentMotion &&
+    (Number.isNaN(last.clockStep) || last.clockStep === Math.floor(tick + clamp01(frameAlpha)))
+  );
+}
+
+function lookOf(track: PresentationTrack, sheet: SpriteSheet | undefined, item: DrawItem) {
+  const look = track.look;
+  if (look.item !== item || look.characters !== sheet?.characters) {
+    look.item = item;
+    look.characters = sheet?.characters;
+    look.char = settlerCharacterOf(sheet?.characters, item);
+  }
+  return look.char;
 }
 
 /** A new visible idle period restarts the idle schedules, even after a walk or attack ended mid-clip: an

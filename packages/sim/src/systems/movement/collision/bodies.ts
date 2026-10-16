@@ -1,10 +1,8 @@
-import { ANIMAL_WATER_TRIBES } from '@open-northland/data';
 import {
   Building,
   Owner,
   PathFollow,
   PathRequest,
-  Person,
   Position,
   Settler,
   type SettlerView,
@@ -12,6 +10,7 @@ import {
 import type { Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
+import { settlerTraversalOf } from '../traversal.js';
 
 /**
  * Unit body collision is an authored deviation: the original is observed letting walkers pass through each
@@ -36,9 +35,7 @@ export function softColliderSettler(world: World, e: Entity): SettlerView | unde
   if (!world.has(e, Owner)) return undefined;
   const settler = world.tryGet(e, Settler);
   if (settler === undefined) return undefined;
-  // `settlerTraversal` inlined on the Settler in hand: only a wildlife water tribe swims, and the tribe
-  // test is a set probe where the Person test is a store lookup.
-  return !ANIMAL_WATER_TRIBES.has(settler.tribe) || world.has(e, Person) ? settler : undefined;
+  return settlerTraversalOf(world, e, settler) === 'land' ? settler : undefined;
 }
 
 /** Whether `e` is standing for collision purposes: not walking and not waiting on a live route, since a

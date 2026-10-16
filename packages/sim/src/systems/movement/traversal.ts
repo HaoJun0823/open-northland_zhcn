@@ -1,12 +1,19 @@
 import { ANIMAL_WATER_TRIBES } from '@open-northland/data';
-import { isWildlife, Position, Settler } from '../../components/index.js';
+import { Person, Position, Settler, type SettlerView } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import { entityNode } from '../spatial/nodes.js';
 import { routeStartCell } from './route-start.js';
 
 export function settlerTraversal(world: World, e: Entity): Traversal {
-  return isWildlife(world, e) && ANIMAL_WATER_TRIBES.has(world.get(e, Settler).tribe) ? 'water' : 'land';
+  const settler = world.tryGet(e, Settler);
+  return settler === undefined ? 'land' : settlerTraversalOf(world, e, settler);
+}
+
+/** Only a wildlife water tribe swims. The tribe test goes first: it is a set probe where the Person
+ *  test is a store lookup. */
+export function settlerTraversalOf(world: World, e: Entity, settler: SettlerView): Traversal {
+  return ANIMAL_WATER_TRIBES.has(settler.tribe) && !world.has(e, Person) ? 'water' : 'land';
 }
 
 /** A swimming leg along a bank can lie between a wet and a dry bracket node. Replanning and

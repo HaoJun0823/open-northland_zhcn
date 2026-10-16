@@ -145,6 +145,7 @@ export class SnapshotMirror {
       const held = this.byId[id];
       if (held !== undefined) {
         const found = searchIds(this.ids, list.length, id, from);
+        if (found < 0) throw new Error(`snapshot mirror holds entity ${id} by id but not in its sorted list`);
         const next = patched(held, change, values);
         list[found] = next;
         this.byId[id] = next;
@@ -193,6 +194,7 @@ const INITIAL_IDS = 1024;
 
 /** The index of `id` among the first `length` ascending `ids`, searched from `from` on, or
  *  `-(insertion) - 1`: it gallops from `from`, so ids looked up in ascending order cost a few probes. */
+// Mirrors `indexOfEntityFrom` in snapshot.ts over the id column instead of the entity list.
 function searchIds(ids: Int32Array, length: number, id: number, from: number): number {
   let lo = from;
   let hi = from;

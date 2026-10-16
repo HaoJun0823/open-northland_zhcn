@@ -47,14 +47,17 @@ const INITIAL_RANK_KEYS = 64;
 
 /** Lists ranked by a least distance, ties in insertion order, reused across searches. */
 class RankedLists<T> {
-  private readonly items: T[] = [];
+  private readonly items: (T | undefined)[] = [];
   private keys = new Float64Array(INITIAL_RANK_KEYS);
   private count = 0;
   /** The sorted keys of the last {@link sort}. */
   sorted: Float64Array = this.keys.subarray(0, 0);
 
+  /** Empty the lists, dropping the items so the module scratch does not pin a finished world's grid. */
   reset(): void {
+    this.items.fill(undefined, 0, this.count);
     this.count = 0;
+    this.sorted = this.keys.subarray(0, 0);
   }
 
   push(item: T, distance: number): void {
@@ -173,6 +176,7 @@ export class CellGrid {
     try {
       this.nearestFirstAt(depth, x, y, maxRadius, slack, visit);
     } finally {
+      tileLists[depth]?.reset();
       searchDepth--;
     }
   }
@@ -237,6 +241,8 @@ export class CellGrid {
     try {
       this.farFirstAt(depth, x, y, near, maxRadius, slack, box, bound, visit);
     } finally {
+      blockLists[depth]?.reset();
+      tileLists[depth]?.reset();
       searchDepth--;
     }
   }

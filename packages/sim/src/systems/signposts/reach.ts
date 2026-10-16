@@ -247,9 +247,8 @@ export function goodsSearchLimitAt(
 ): GoodsSearchLimit | null {
   if (!signpostNavigationEnabled(world) || player === undefined) return null;
   const cache = cacheOf(world, content, terrain);
-  const key = spotKey(player, hx, hy);
-  if (key === null) {
-    return new GoodsSearchLimit(
+  const build = (): GoodsSearchLimit =>
+    new GoodsSearchLimit(
       world,
       content,
       terrain,
@@ -258,7 +257,8 @@ export function goodsSearchLimitAt(
       hy,
       limitGroups(world, content, terrain, cache, player, hx, hy),
     );
-  }
+  const key = spotKey(player, hx, hy);
+  if (key === null) return build();
   // Re-inserted on every read, so the map runs least recently asked first and eviction drops the oldest.
   const limits = cache.limits;
   const held = limits.get(key);
@@ -274,15 +274,7 @@ export function goodsSearchLimitAt(
       break;
     }
   }
-  const made = new GoodsSearchLimit(
-    world,
-    content,
-    terrain,
-    cache,
-    hx,
-    hy,
-    limitGroups(world, content, terrain, cache, player, hx, hy),
-  );
+  const made = build();
   limits.set(key, made);
   return made;
 }

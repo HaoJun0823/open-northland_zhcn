@@ -126,7 +126,7 @@ function verifyBodyCache(world: World, content: ContentSet, terrain: TerrainGrap
     const fresh = computeBuildingBodyNodes(world, ctx, terrain, e);
     if (held.length !== fresh.length || fresh.some((n, i) => held[i] !== n)) {
       return [
-        `combatBuildingBodies holds a stale body for building ${e} - a footprint changed without a Building store generation bump`,
+        `combatBuildingBodies holds a stale body for building ${e} - a footprint changed without a Building membership, Building value or Position membership journal bump`,
       ];
     }
   }

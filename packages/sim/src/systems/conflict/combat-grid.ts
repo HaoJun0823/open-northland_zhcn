@@ -697,10 +697,12 @@ export class CombatGrid {
     return this.verifyBaseTallies();
   }
 
-  /** Every cell's building share against its held buildings, counted once per cell each. */
+  /** Every cell's building share against its held buildings, counted once per cell each, and its body
+   *  entries against the held nodes, so an entry a missed drop left behind fails too. */
   private verifyBaseTallies(): string[] {
     const fresh = new Map<CoarseCell, BaseTally>();
-    this.buildings.forEach((held) => {
+    const expectedEntries = new Map<CoarseCell, string[]>();
+    this.buildings.forEach((held, b) => {
       held.cells.forEach((cell, i) => {
         let tally = fresh.get(cell);
         if (tally === undefined) {
@@ -712,6 +714,17 @@ export class CombatGrid {
         if (held.bit !== 0) tally.ownerMask |= held.bit;
         else tally.undiscounted++;
       });
+      for (const node of held.nodes) {
+        const x = this.terrain.xOf(node);
+        const y = this.terrain.yOf(node);
+        const cell = this.cellFor(x, y);
+        let entries = expectedEntries.get(cell);
+        if (entries === undefined) {
+          entries = [];
+          expectedEntries.set(cell, entries);
+        }
+        entries.push(bodyEntryKey(b, x, y));
+      }
     });
     for (const cell of this.cells) {
       if (cell === undefined) continue;
@@ -723,6 +736,16 @@ export class CombatGrid {
         cell.baseOwnerMask !== tally.ownerMask
       ) {
         return [`combatBuildingLayer cell ${cell.index} building tallies drifted from its buildings`];
+      }
+      const expected = (expectedEntries.get(cell) ?? []).sort();
+      const held: string[] = [];
+      const { members, x, y } = cell.bodies;
+      for (let i = 0; i < cell.bodyBase; i++) {
+        held.push(bodyEntryKey(members[i] as Entity, x[i] ?? 0, y[i] ?? 0));
+      }
+      held.sort();
+      if (held.some((entry, i) => entry !== expected[i])) {
+        return [`combatBuildingLayer cell ${cell.index} body entries drifted from its buildings' nodes`];
       }
     }
     return [];
@@ -940,6 +963,10 @@ function tallyBase(cell: CoarseCell): void {
   cell.baseTotal = total;
   cell.baseUndiscounted = undiscounted;
   cell.baseOwnerMask = ownerMask;
+}
+
+function bodyEntryKey(e: Entity, x: number, y: number): string {
+  return `${e}:${x}:${y}`;
 }
 
 /** A cell's building share as {@link CombatGrid.verify} re-derives it. */

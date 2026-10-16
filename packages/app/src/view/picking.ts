@@ -154,7 +154,8 @@ const PICK_BOX = {
   pile: { halfW: 18, up: 26, down: 8 },
 } as const;
 
-function hits(t: Pickable, wx: number, wy: number): boolean {
+/** Whether the world-px point lands on `t`: inside its box, and on a solid texel where it has a pixel test. */
+export function hitsTarget(t: Pickable, wx: number, wy: number): boolean {
   if (!containsTargetPoint(t.kind ?? 'settler', t.x, t.y, t.box, wx, wy)) return false;
   return t.pixelHit?.(wx, wy) ?? true;
 }
@@ -188,7 +189,7 @@ export function drawnInFront(a: Pickable, b: Pickable): boolean {
 export function topTargetAt(targets: readonly Pickable[], wx: number, wy: number): Pickable | null {
   let best: Pickable | null = null;
   for (const t of targets) {
-    if (!hits(t, wx, wy)) continue;
+    if (!hitsTarget(t, wx, wy)) continue;
     if (best === null || drawnInFront(t, best)) best = t;
   }
   return best;
@@ -206,7 +207,7 @@ export function pickNearestAt(targets: readonly Pickable[], wx: number, wy: numb
   let bestDistance = Number.POSITIVE_INFINITY;
   let bestRef = Number.NEGATIVE_INFINITY;
   for (const target of targets) {
-    if (!hits(target, wx, wy)) continue;
+    if (!hitsTarget(target, wx, wy)) continue;
     const dx = wx - target.x;
     const dy = wy - target.y;
     const distance = dx * dx + dy * dy;

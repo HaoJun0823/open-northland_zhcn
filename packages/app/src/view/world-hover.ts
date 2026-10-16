@@ -18,7 +18,7 @@ import type {
   VehicleHoverModel,
 } from '../hud/hover-card/model.js';
 import { messages } from '../i18n/index.js';
-import { isHitTarget, type Pickable, pickTopAt, screenToWorld } from './picking.js';
+import { hitsTarget, isHitTarget, type Pickable, pickTopAt, screenToWorld } from './picking.js';
 import { createTooltip } from './tooltip.js';
 
 /**
@@ -31,6 +31,9 @@ import { createTooltip } from './tooltip.js';
 /** How long the cursor rests on one target before its card opens, so crossing a settlement does not
  *  flash a card over every house and passer-by on the way. */
 const CARD_REST_MS = 250;
+/** How far, in client px, the pointer may drift and still rest where it is, so a hand's tremor does not
+ *  count as moving to another target. */
+const POINTER_REST_SLOP_PX = 4;
 
 export interface WorldHoverOptions {
   readonly renderer: WorldRenderer;
@@ -207,6 +210,24 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
     return nowMs - restingSince >= CARD_REST_MS;
   };
 
+  // Where the pointer last stopped, and the target the hover holds there. While the pointer stays put,
+  // that target keeps the hover for as long as it is still under it: a fighter swinging across a gate,
+  // or anyone walking past a house, would otherwise take the top spot frame by frame and restart the
+  // rest each time, so the card never opens. Moving the pointer picks the frontmost target again.
+  let restAt: { readonly x: number; readonly y: number } | null = null;
+  let held: number | null = null;
+  const pointerMoved = (clientX: number, clientY: number): boolean => {
+    const moved =
+      restAt === null ||
+      Math.abs(clientX - restAt.x) > POINTER_REST_SLOP_PX ||
+      Math.abs(clientY - restAt.y) > POINTER_REST_SLOP_PX;
+    if (moved) restAt = { x: clientX, y: clientY };
+    return moved;
+  };
+  const stillUnder = (targets: HoverTargets, ref: number, wx: number, wy: number): boolean =>
+    targets.people.some((t) => t.ref === ref && hitsTarget(t, wx, wy)) ||
+    targets.rest.some((t) => t.ref === ref && hitsTarget(t, wx, wy));
+
   const hideCard = (): void => {
     restingOn = null;
     opts.card.hide();
@@ -225,12 +246,17 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
     update(snap: WorldSnapshot, nowMs: number): void {
       const p = opts.pointer();
       if (p === null || opts.suppressed(p.clientX, p.clientY)) {
+        restAt = null;
+        held = null;
         hideAll();
         return;
       }
       const w = toWorld(p.clientX, p.clientY);
       const targets = hoverTargetsFor(snap);
-      const ref = pickTopAt(targets.people, w.x, w.y) ?? pickTopAt(targets.rest, w.x, w.y);
+      const keep =
+        !pointerMoved(p.clientX, p.clientY) && held !== null && stillUnder(targets, held, w.x, w.y);
+      const ref = keep ? held : (pickTopAt(targets.people, w.x, w.y) ?? pickTopAt(targets.rest, w.x, w.y));
+      held = ref;
       const info = ref === null ? undefined : hoverInfo.get(ref);
       if (info === undefined || ref === null) {
         hideAll();

@@ -11,13 +11,12 @@ import {
 import type { Entity } from '../../../src/ecs/world.js';
 import { fx, nodeOfPosition, positionOfNode, Simulation } from '../../../src/index.js';
 import { nearestLiveResource } from '../../../src/systems/computer-player/live-resources.js';
-import { resourceAtTile } from '../../../src/systems/footprint/resource-tile-cache.js';
 import { atomicSystem } from '../../../src/systems/index.js';
 import {
   harvestFromNode,
   PICKUP_STROKES_PER_UNIT,
 } from '../../../src/systems/settlers/atomics/effects/goods/harvest.js';
-import { resourceHarvestAtomics, resourcesNearNode } from '../../../src/systems/spatial/resources.js';
+import { resourceHarvestAtomics, resourceOfGoodAtNode, resourcesNearNode } from '../../../src/systems/spatial/resources.js';
 import { testContent } from '../../fixtures/content.js';
 import { nextTickCtxOf } from '../../fixtures/context.js';
 import { settlerAt } from '../../fixtures/settler.js';
@@ -140,8 +139,8 @@ describe('atomicSystem - hunter kill leaves a harvestable carcass (spawnCarcasse
       const other = expected === MEAT ? LEATHER : MEAT;
       expect(sim.world.get(node, Resource).goodType).toBe(expected);
       expect(nearestLiveResource(sim.world, expected, { hx: 0, hy: 0 })).toBe(node);
-      expect(resourceAtTile(sim.world, hx, hy, expected)).toBe(node);
-      expect(resourceAtTile(sim.world, hx, hy, other)).toBeNull();
+      expect(resourceOfGoodAtNode(sim.world, hx, hy, expected)).toBe(node);
+      expect(resourceOfGoodAtNode(sim.world, hx, hy, other)).toBeNull();
       expect(sim.world.verifyCaches()).toEqual([]);
       startAtomic(sim, hunter, { kind: 'harvest', resource: node, goodType: expected }, 1, HARVEST_CADAVER);
       atomicSystem(sim.world, nextTickCtxOf(sim));

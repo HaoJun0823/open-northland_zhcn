@@ -16,10 +16,10 @@ import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, MapContext, SystemContext } from '../context.js';
 import { closer, nearestCell } from '../spatial/metric.js';
+import { resourceOfGoodAtNode } from '../spatial/resources.js';
 import { buildingBlockedCells } from './building-blocked-cache.js';
 import { ANCHOR_ONLY, buildingFootprintOf } from './geometry.js';
 import { resourceBlockedCells } from './resource-blocked-cache.js';
-import { resourceAtTile } from './resource-tile-cache.js';
 import { type RouteRegions, routeRegions } from './route-regions.js';
 
 // INTERACTION - where a unit stands to use a building or resource: a building's door node, and the
@@ -566,7 +566,7 @@ function keptOrCopied(held: readonly NodeId[] | undefined, fresh: CellScratch): 
 function resourceUnderDrop(world: World, entity: Entity, x: number, y: number): Entity | null {
   const drop = world.tryGet(entity, GroundDrop);
   if (drop === undefined) return null;
-  return resourceAtTile(world, x, y, stockedGoodAt(world, entity) ?? drop.goodType);
+  return resourceOfGoodAtNode(world, x, y, stockedGoodAt(world, entity) ?? drop.goodType);
 }
 
 /** The pool of a target no unit can stand on or beside, shared since every caller only reads it. */

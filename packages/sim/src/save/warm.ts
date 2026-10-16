@@ -1,14 +1,13 @@
 import type { Simulation } from '../simulation.js';
 import { foodSourcesOf } from '../systems/family/food-sources.js';
 import { qualitySources } from '../systems/family/quality-search.js';
-import { resourceAtTile } from '../systems/footprint/resource-tile-cache.js';
 import { unitWalkBlocks } from '../systems/movement/collision/standing-posts.js';
 import { stockpileCells } from '../systems/settlers/targets/stockpile-cells.js';
 import { FetchableStock } from '../systems/settlers/targets/stores/fetchable-stock.js';
 import { StoreSinks } from '../systems/settlers/targets/stores/sinks.js';
 import { yardOccupancy } from '../systems/settlers/targets/yard-occupancy.js';
 import { warmPostReaches } from '../systems/signposts/index.js';
-import { resourceHarvestAtomics } from '../systems/spatial/resources.js';
+import { resourceHarvestAtomics, resourceOfGoodAtNode } from '../systems/spatial/resources.js';
 import { stockpilesAtNode } from '../systems/spatial/stockpiles.js';
 
 /**
@@ -25,7 +24,7 @@ export function warmRestoredWorld(sim: Simulation): void {
   foodSourcesOf(world, content);
   qualitySources(world, content);
   resourceHarvestAtomics(world);
-  resourceAtTile(world, 0, 0, 0);
+  resourceOfGoodAtNode(world, 0, 0, 0);
   stockpilesAtNode(world, 0, 0);
   if (terrain === undefined) return;
   warmPostReaches(world, content, terrain);

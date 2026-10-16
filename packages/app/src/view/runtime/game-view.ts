@@ -701,9 +701,11 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         if (at !== null) jumpToWorld(at.x, at.y);
       },
       onCentreView: (target) => {
+        // A briefing moves the view the way its script does: a glide, never a cut.
         const centreOn = (hx: number, hy: number): void => {
           const at = projectNode(deps.elevation, hx, hy);
-          jumpToWorld(at.x, at.y);
+          if (presentation === null) jumpToWorld(at.x, at.y);
+          else presentation.glideTo(at.x, at.y);
         };
         if (target.kind === 'node') centreOn(target.hx, target.hy);
         else

@@ -1,5 +1,5 @@
 import { makeElevationField, tileToScreen } from '@open-northland/render';
-import { fx } from '@open-northland/sim';
+import { fx, components as simComponents } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { JOB_COLLECTOR } from '../src/catalog/jobs.js';
 import { entityAnchor } from '../src/view/projections/entity-anchor.js';
@@ -37,6 +37,24 @@ describe('entityAnchor', () => {
     expect(lifted.x).toBe(flat.x);
     expect(lifted.y).toBe(flat.y - field.liftAt(TILE_X, TILE_Y));
     expect(field.liftAt(TILE_X, TILE_Y)).toBeGreaterThan(0);
+  });
+
+  it('anchors a driving vehicle part-way along its leg, where its hull is drawn', () => {
+    // A leg one column east along an even row: the anchor sits on the node ahead, `from` behind it.
+    const ship = snapshotOf([
+      {
+        id: 3,
+        components: {
+          Vehicle: {},
+          Position: { x: fx.fromInt(TILE_X + 1), y: fx.fromInt(TILE_Y) },
+          VehicleDrive: {
+            from: { hx: 2 * TILE_X, hy: 2 * TILE_Y },
+            progress: simComponents.NODE_PROGRESS_FULL / 2,
+          },
+        },
+      },
+    ]);
+    expect(entityAnchor(ship, 3)).toEqual(tileToScreen(TILE_X + 0.5, TILE_Y));
   });
 
   it('reports nothing for an unknown id or an entity with no position', () => {

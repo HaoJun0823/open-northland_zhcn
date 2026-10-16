@@ -1,10 +1,10 @@
-import { type ElevationField, ONE, projectNode, projectTile } from '@open-northland/render';
+import { type ElevationField, projectNode, projectTile, vehicleDrawTile } from '@open-northland/render';
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
 import { positionOf } from '../../game/snapshot.js';
 import type { MessageTarget } from '../../hud/tool-panel/messages/index.js';
 
-/** The world-px ground anchor an entity stands on: {@link projectTile} of its snapshot position. Null
- *  when the id names no positioned entity. */
+/** The world-px ground anchor an entity is drawn on: {@link projectTile} of its snapshot position, or
+ *  for a driving vehicle of its place part-way along the leg. Null when the id names no positioned entity. */
 export function entityAnchor(
   snapshot: WorldSnapshot,
   id: number,
@@ -12,8 +12,9 @@ export function entityAnchor(
 ): { x: number; y: number } | null {
   const entity = entityById(snapshot, id);
   const pos = entity === undefined ? undefined : positionOf(entity);
-  if (pos === undefined) return null;
-  return projectTile(elevation, pos.x / ONE, pos.y / ONE);
+  if (entity === undefined || pos === undefined) return null;
+  const tile = vehicleDrawTile(entity.components, pos);
+  return projectTile(elevation, tile.x, tile.y);
 }
 
 /** Where a note's Select centres the view: the subject's anchor while it lives, else the half-cell node

@@ -66,6 +66,7 @@ export {
   type SceneTerrain,
   terrainMapToScene,
   type VehicleDrawTask,
+  vehicleDrawTile,
 } from './data/scene/index.js';
 export {
   type AtlasFrame,

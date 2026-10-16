@@ -19,6 +19,7 @@ import type { ScriptMarkers } from '../script-markers.js';
 import type { UnitControls } from '../unit-controls/index.js';
 import type { WeatherFeed } from '../weather-feed.js';
 import { mountMissionTrace } from './mission-trace.js';
+import { createScriptCamera } from './script-camera.js';
 
 const DIAG_CHANNEL = 'missions';
 /** The info lines' tallies are re-read this often: the original rebuilds its lines at most every two
@@ -60,8 +61,11 @@ export interface ScriptPresentationDeps {
 export interface ScriptPresentation {
   /** The frame's sim events, unfiltered: a camera move to unexplored ground must still happen. */
   onEvents(events: readonly SimEvent[]): void;
-  /** Follow the scripted human before reading the camera for drawing. */
-  followCamera(snapshot: WorldSnapshot): void;
+  /** Glide toward a script's or briefing's camera target before reading the camera for drawing;
+   *  `alpha` is the frame's place between two ticks. */
+  steerCamera(snapshot: WorldSnapshot, alpha: number, nowMs: number): void;
+  /** Glide the view to a world-px point, as a script camera result does. */
+  glideTo(worldX: number, worldY: number): void;
   /** The quake's camera offset for this frame, or null while the ground is still. */
   jitter(nowMs: number): CameraJitter | null;
   /** Per-frame, after the sim stepped: the info lines and the overlays under the camera. */
@@ -81,8 +85,7 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
   let linesSeat: number | null = null;
   const lineAnswers = createLastAnswerCache<readonly MissionInfoRow[]>({ tick: () => host.tick });
   let disposed = false;
-  let followed: Entity | null = null;
-  let followedCamera: Camera | null = null;
+  const scriptCamera = createScriptCamera(deps);
 
   const restore = (saved: MissionPresentationView): void => {
     for (const marker of saved.guiMarkers) {
@@ -106,10 +109,10 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
     if (!disposed) restore(saved);
   });
 
-  const centreOn = (point: HalfCellNode): void => {
+  const glideToNode = (point: HalfCellNode): void => {
     const world = halfCellToScreen(point.hx, point.hy);
     const lift = deps.elevation?.liftAtNode(point.hx, point.hy) ?? 0;
-    deps.centerOn(world.x, world.y - lift);
+    scriptCamera.glideTo(world.x, world.y - lift, deps.now());
   };
 
   const humanAnchor = (snapshot: WorldSnapshot, human: Entity): { x: number; y: number } | null => {
@@ -140,15 +143,14 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
             if (deps.showBriefings !== false) toolPanel.controller.openMission(event.page);
             break;
           case 'missionCamera':
-            followed = null;
-            centreOn(event.point);
+            glideToNode(event.point);
             break;
           case 'missionSelectHuman': {
             if (event.select) controls.select([event.entity]);
-            const anchor = humanAnchor(host.snapshot(), event.entity);
-            followed = anchor === null ? null : event.entity;
-            if (anchor !== null) deps.centerOn(anchor.x, anchor.y);
-            followedCamera = { ...deps.camera() };
+            const human = event.entity;
+            const anchor = humanAnchor(host.snapshot(), human);
+            if (anchor === null) scriptCamera.unfollow();
+            else scriptCamera.follow((snapshot) => humanAnchor(snapshot, human), anchor, deps.now());
             break;
           }
           case 'missionGuiMarker':
@@ -180,27 +182,8 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
         }
       }
     },
-    followCamera(snapshot) {
-      if (followed === null || followedCamera === null) return;
-      const camera = deps.camera();
-      // A player pan, overview jump or zoom gives the view back to the player. Compare the steady
-      // camera, so an earthquake never cancels the follow.
-      if (
-        camera.offsetX !== followedCamera.offsetX ||
-        camera.offsetY !== followedCamera.offsetY ||
-        camera.scale !== followedCamera.scale
-      ) {
-        followed = null;
-        return;
-      }
-      const anchor = humanAnchor(snapshot, followed);
-      if (anchor === null) {
-        followed = null;
-        return;
-      }
-      deps.centerOn(anchor.x, anchor.y);
-      followedCamera = { ...deps.camera() };
-    },
+    steerCamera: (snapshot, alpha, nowMs) => scriptCamera.frame(snapshot, alpha, nowMs),
+    glideTo: (worldX, worldY) => scriptCamera.glideTo(worldX, worldY, deps.now()),
     jitter: (nowMs) => effects.jitter(nowMs),
     frame(snapshot, camera, nowMs) {
       weather.frame(snapshot.tick / TICKS_PER_SECOND);

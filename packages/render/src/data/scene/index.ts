@@ -39,7 +39,7 @@ export {
   roadShardOf,
   siegeShotsOf,
 } from './snapshot-index.js';
-export { depositVisualLevel } from './snapshot-readers/index.js';
+export { depositVisualLevel, vehicleDrawTile } from './snapshot-readers/index.js';
 export {
   buildSpriteScene,
   collectSpriteScene,

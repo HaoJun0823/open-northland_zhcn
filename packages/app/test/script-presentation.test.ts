@@ -20,7 +20,7 @@ import type { WeatherFeed } from '../src/view/weather-feed.js';
 
 /**
  * The join from a script's display events to the HUD: a cutscene opens the window on its page, a
- * camera result and a selection centre the view, the markers and effects get their events, and the
+ * camera result and a selection steer the view, the markers and effects get their events, and the
  * info lines reach the panel on the original's refresh cadence.
  */
 
@@ -29,6 +29,8 @@ const WOOD = 5;
 const HERO_NODE = { hx: 11, hy: 10 };
 const CAMERA: Camera = { offsetX: 0, offsetY: 0, scale: 1 };
 const SCREEN = { width: 800, height: 600 };
+/** Past the longest camera glide, so a steered frame lands on its target. */
+const GLIDED_MS = 10_000;
 
 /** Let the host's answers land: each resolves a microtask after it was asked. */
 const landed = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -160,17 +162,16 @@ describe('createScriptPresentation', () => {
       { kind: 'missionUnsupported', mission: 2, opcode: 'SetVehicle' },
     ];
     presentation.onEvents(events);
-    const at = halfCellToScreen(4, 2);
     expect(calls).toEqual([
       'open:500',
-      `centre:${at.x},${at.y}`,
       `select:${HERO}`,
-      `centre:${world.x},${world.y}`,
-      `centre:${world.x},${world.y}`,
       'marker:missionGuiMarker',
       'weather:snow',
       'quake:3',
     ]);
+    // The camera moves on the frame, toward the last request: the human the script picked.
+    presentation.steerCamera(snapshotAt(0), 1, GLIDED_MS);
+    expect(calls.at(-1)).toBe(`centre:${world.x},${world.y}`);
   });
 
   it('pushes the formatted info lines every frame and re-reads their tallies every two seconds', async () => {
@@ -265,27 +266,40 @@ it('follows a moving human until the player moves the view', () => {
     ...moved,
     entities: [{ ...entity, components: { Position: { x: 6 * ONE, y: 5 * ONE } } }],
   } as unknown as WorldSnapshot;
-  presentation.followCamera(snapshot);
+  presentation.steerCamera(snapshot, 1, GLIDED_MS);
   expect(calls.at(-1)).toBe(`centre:${halfCellToScreen(13, 10).x},${halfCellToScreen(13, 10).y}`);
   const count = calls.length;
   moveCamera();
-  presentation.followCamera(snapshot);
-  presentation.followCamera(snapshotAt(2));
+  presentation.steerCamera(snapshot, 1, GLIDED_MS);
+  presentation.steerCamera(snapshotAt(2), 1, GLIDED_MS);
   expect(calls).toHaveLength(count);
 });
 
 it('ends following when the human disappears or a script moves the camera', () => {
   const { presentation, calls } = harness();
   presentation.onEvents([{ kind: 'missionSelectHuman', entity: HERO, select: true }]);
-  presentation.followCamera({ ...snapshotAt(1), entities: [] });
-  presentation.followCamera(snapshotAt(2));
-  expect(calls).toHaveLength(2);
+  presentation.steerCamera({ ...snapshotAt(1), entities: [] }, 1, GLIDED_MS);
+  presentation.steerCamera(snapshotAt(2), 1, GLIDED_MS);
+  expect(calls).toEqual([`select:${HERO}`]);
   presentation.onEvents([
     { kind: 'missionSelectHuman', entity: HERO, select: false },
     { kind: 'missionCamera', point: { hx: 4, hy: 2 } },
   ]);
-  presentation.followCamera(snapshotAt(3));
-  expect(calls).toHaveLength(4);
+  presentation.steerCamera(snapshotAt(3), 1, GLIDED_MS);
+  presentation.steerCamera(snapshotAt(4), 1, GLIDED_MS);
+  const at = halfCellToScreen(4, 2);
+  expect(calls).toEqual([`select:${HERO}`, `centre:${at.x},${at.y}`]);
+});
+
+it('keeps a camera move when the same frame selects a missing human', () => {
+  const { presentation, calls } = harness();
+  presentation.onEvents([
+    { kind: 'missionCamera', point: { hx: 4, hy: 2 } },
+    { kind: 'missionSelectHuman', entity: 99 as Entity, select: false },
+  ]);
+  presentation.steerCamera(snapshotAt(1), 1, GLIDED_MS);
+  const at = halfCellToScreen(4, 2);
+  expect(calls).toEqual([`centre:${at.x},${at.y}`]);
 });
 
 it('keeps following a human aboard a moving vehicle and after disembarking', () => {
@@ -298,9 +312,9 @@ it('keeps following a human aboard a moving vehicle and after disembarking', () 
       { id: 4, components: { Position: { x: 6 * ONE, y: 5 * ONE } } },
     ],
   } as unknown as WorldSnapshot;
-  presentation.followCamera(aboard);
+  presentation.steerCamera(aboard, 1, GLIDED_MS);
   expect(calls.at(-1)).toBe(`centre:${halfCellToScreen(13, 10).x},${halfCellToScreen(13, 10).y}`);
-  presentation.followCamera(snapshotAt(2));
+  presentation.steerCamera(snapshotAt(2), 1, GLIDED_MS);
   expect(calls.at(-1)).toBe(`centre:${halfCellToScreen(11, 10).x},${halfCellToScreen(11, 10).y}`);
 });
 

@@ -402,7 +402,7 @@ reports `missionUnsupported` once; the same tickets carry them.
 | 82 | `RemoveBlockerLandscapeInArea` | 16, 17, 9 | remove `block` landscapes and their collision within `range` | both | 1 |
 | 83 | `RemoveFX1LandscapeInArea` | 16, 17, 9 | remove the fog and waterfall graphics within `range` (membership below) | both | 1 |
 | 84 | `RemoveFX2LandscapeInArea` | 16, 17, 9 | remove the fire and smoke graphics within `range` (membership below) | both | 1 |
-| 85 | `SetCameraPosition` | 16, 17 | end any follow mode and set the display's wanted position to the point (reading). Here: the `missionCamera` event and a jump | app | 197 |
+| 85 | `SetCameraPosition` | 16, 17 | end any follow mode and set the display's wanted position to the point (reading). Here: the `missionCamera` event and an eased glide there | app | 197 |
 | 86 | `SetHumanX` | 1, 3, 4, 16, 17, 10, 29, 7 | `SetHuman` repeated `count` times | sim | 1371 |
 | 87 | `RemoveHPsOfHousesInAreaX` | 1, 16, 17, 9, 7, 14 | as 81, skipping houses with the id | sim | 0 |
 | 88 | `SetHouseOverlayState` | 14, 37, 32 | toggle a landscape overlay on houses with the id | app | 0 \* |

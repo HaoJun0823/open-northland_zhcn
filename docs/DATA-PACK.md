@@ -83,3 +83,9 @@ explicit future gameplay contract, never from sorting filenames.
 pin. The public URL serves the current pack; indefinite historical downloads are not a contract.
 The pack schema version and runtime IR version are independent. Change the former for an input
 layout change and the latter when generated runtime schemas change.
+
+## Derived character libraries
+
+A character library named `<stem>_variant<number>` uses `<stem>`'s armor, weapon and head team-color
+layout. Its frames and animation ranges remain independent. Numbered variants allow appearances
+to share palette semantics without overwriting another character's sprite library.

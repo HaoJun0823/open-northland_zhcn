@@ -1,4 +1,5 @@
 import { type ArmorBand, type ArmorLayout, type ArmorRamp, headPaletteBand } from '@open-northland/render';
+import { paletteLibrary } from './library-layout.js';
 
 /** Ramps by armor tier (none, wool, leather, chain, plate); no ramp keeps the team colour. */
 type TierRamps = readonly (ArmorRamp | undefined)[];
@@ -64,8 +65,8 @@ const TEAM_BY_HEAD: Readonly<Record<string, readonly number[]>> = {
 
 /** The armor layout of a look drawn on `body` with `heads`, if it has one. */
 export function armorLayout(body: string, heads: readonly string[]): ArmorLayout | undefined {
-  const layout = ARMOR_BY_BODY[body.replace(/_preview\d+$/, '')];
+  const layout = ARMOR_BY_BODY[paletteLibrary(body)];
   if (layout === undefined) return undefined;
-  const headTeam = heads.flatMap((head) => TEAM_BY_HEAD[head] ?? []);
+  const headTeam = heads.flatMap((head) => TEAM_BY_HEAD[paletteLibrary(head)] ?? []);
   return headTeam.length === 0 ? layout : { ...layout, team: [...new Set([...layout.team, ...headTeam])] };
 }

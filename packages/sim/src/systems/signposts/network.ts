@@ -393,8 +393,9 @@ function componentAt(terrain: TerrainGraph, x: number, y: number): number | null
 class CaughtPosts {
   readonly bounds: NodeBox;
   private coverage: PostCoverage | undefined;
-  /** The coverage widened by the last radius {@link coversNear} was asked about. */
-  private near: { readonly radius: number; readonly coverage: PostCoverage } | undefined;
+  /** The coverage widened by each radius {@link coversNear} was asked about: a scan alternates between the
+   *  few work reaches its footprints carry. */
+  private readonly near = new Map<number, PostCoverage>();
 
   constructor(
     private readonly posts: readonly SignpostSite[],
@@ -412,10 +413,12 @@ class CaughtPosts {
    *  triangle inequality and never exceeds Manhattan distance, so such a node's post lies strictly inside
    *  `range + radius` of `(x, y)`. */
   coversNear(x: number, y: number, radius: number): boolean {
-    if (this.near?.radius !== radius) {
-      this.near = { radius, coverage: new PostCoverage(this.posts, this.range + radius) };
+    let near = this.near.get(radius);
+    if (near === undefined) {
+      near = new PostCoverage(this.posts, this.range + radius);
+      this.near.set(radius, near);
     }
-    return this.near.coverage.has(x, y);
+    return near.has(x, y);
   }
 }
 

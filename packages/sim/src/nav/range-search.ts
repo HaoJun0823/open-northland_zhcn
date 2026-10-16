@@ -9,9 +9,14 @@ export interface ReachArea extends NodeBox {
   readonly cells: Uint8Array;
 }
 
+/** Area cell states: marked, and a target not marked yet, which only a flood with targets writes and it
+ *  clears before returning. */
+const MARKED = 1;
+const WANTED = 2;
+
 export function reachContains(area: ReachArea, hx: number, hy: number): boolean {
   if (hx < area.minX || hx > area.maxX || hy < area.minY || hy > area.maxY) return false;
-  return area.cells[(hy - area.minY) * (area.maxX - area.minX + 1) + hx - area.minX] === 1;
+  return area.cells[(hy - area.minY) * (area.maxX - area.minX + 1) + hx - area.minX] === MARKED;
 }
 
 /** Any even and any odd node row: only the parity matters. */
@@ -54,6 +59,47 @@ export interface ReachSearch {
   readonly area: ReachArea;
   readonly searched: NodeArea;
   readonly entered: FloodTrace;
+  /** False when the flood stopped once it had marked every target: its area is then only part of the
+   *  full answer, though every node it marks the full flood marks too. */
+  readonly complete: boolean;
+}
+
+/** A node a flood may stop at once it has marked it. */
+export interface ReachTarget {
+  readonly hx: number;
+  readonly hy: number;
+}
+
+/** The first `count` of `nodes`: what a flood asked to stop early must mark before it stops. */
+export interface ReachTargets {
+  readonly nodes: readonly ReachTarget[];
+  readonly count: number;
+}
+
+/** Whether a flood from `(hx, hy)` over `range` can mark `target`: inside its area box and hex range. */
+function markable(area: ReachArea, hx: number, hy: number, range: number, target: ReachTarget): boolean {
+  const { hx: x, hy: y } = target;
+  if (x < area.minX || x > area.maxX || y < area.minY || y > area.maxY) return false;
+  return hexDistanceBetween(hx, hy, x, y) < range;
+}
+
+/** Whether `search`, from `(hx, hy)` over `range`, contains each of `targets` exactly when the full flood
+ *  would: it ran to its budget, or it marked every target the full flood can mark. */
+export function reachCovers(
+  search: ReachSearch,
+  hx: number,
+  hy: number,
+  range: number,
+  targets: ReachTargets | undefined,
+): boolean {
+  if (search.complete) return true;
+  if (targets === undefined) return false;
+  for (let i = 0; i < targets.count; i++) {
+    const target = targets.nodes[i] as ReachTarget;
+    if (markable(search.area, hx, hy, range, target) && !reachContains(search.area, target.hx, target.hy))
+      return false;
+  }
+  return true;
 }
 
 /** The nodes a flood entered, as a row-major bitset over the square cost window at `(x, y)`. */
@@ -111,7 +157,8 @@ export function searchReach(
 /** {@link searchReach} with its searched box; without `groundCost` every step costs one rather than the
  *  entered node's resistance. The marked set is order-independent: a node is marked when
  *  it neighbours any node whose cheapest cost stays under the budget, so the order a bucket is walked in
- *  does not matter. */
+ *  does not matter. With `targets` the flood stops once it has marked every target it can mark, and the
+ *  answer is exact for those targets alone (see {@link reachCovers}). */
 export function floodReach(
   terrain: TerrainGraph,
   blocked: BlockOverlay,
@@ -120,6 +167,7 @@ export function floodReach(
   range: number,
   budget = originalReachBudget(range),
   groundCost = true,
+  targets?: ReachTargets,
 ): ReachSearch {
   const minX = Math.max(0, hx - range + 1);
   const maxX = Math.min(terrain.width - 1, hx + range - 1);
@@ -140,11 +188,20 @@ export function floodReach(
   // The start is read even when the flood goes no further, so it counts as entered.
   const startSlot = reach * side + reach;
   bits[startSlot >> BYTE_SHIFT] = 1 << (startSlot & BIT_INDEX_MASK);
-  const unmoved = { area, searched: { minHx: hx - 1, maxHx: hx + 1, minHy: hy - 1, maxHy: hy + 1 }, entered };
+  const unmoved = {
+    area,
+    searched: { minHx: hx - 1, maxHx: hx + 1, minHy: hy - 1, maxHy: hy + 1 },
+    entered,
+    complete: true,
+  };
   if (!terrain.inBounds(hx, hy)) return unmoved;
   const start = terrain.nodeAt(hx, hy);
   if (!terrain.isWalkable(start) || blocked.has(start)) return unmoved;
-  cells[(hy - minY) * width + hx - minX] = 1;
+  // Targets not marked yet; without targets it never reaches zero.
+  let pending = targets === undefined ? NO_TARGETS : wantTargets(area, hx, hy, range, targets);
+  const startCell = (hy - minY) * width + hx - minX;
+  if (cells[startCell] === WANTED) pending--;
+  cells[startCell] = MARKED;
   // A slot holds the node's best cost under the budget, or the state of a node not entered yet: never
   // inspected, inspected and found closed, or inspected and open (so its mark is already set).
   const unseen = budget + UNSEEN_OVER_BUDGET;
@@ -164,12 +221,12 @@ export function floodReach(
   let poppedMaxX = hx;
   let poppedMinY = hy;
   let poppedMaxY = hy;
-  costs[reach * side + reach] = 0;
+  costs[startSlot] = 0;
   if (entryNodes.length === 0) growEntries();
   entryNodes[0] = start;
   entryNext[0] = NO_ENTRY;
   heads[0] = entries++;
-  for (let cost = 0; cost < budget; cost++) {
+  flood: for (let cost = 0; cost < budget && pending !== 0; cost++) {
     // Every push lands in a later bucket, so this one stays fixed while it is walked.
     for (let entry = heads[cost] as number; entry !== NO_ENTRY; entry = entryNext[entry] as number) {
       const node = entryNodes[entry] as number;
@@ -198,7 +255,14 @@ export function floodReach(
             costs[slot] = closed;
             continue;
           }
-          if (hexDistanceBetween(hx, hy, nx, ny) < range) cells[(ny - minY) * width + nx - minX] = 1;
+          if (hexDistanceBetween(hx, hy, nx, ny) < range) {
+            const cell = (ny - minY) * width + nx - minX;
+            if (cells[cell] === WANTED && --pending === 0) {
+              cells[cell] = MARKED;
+              break flood;
+            }
+            cells[cell] = MARKED;
+          }
           known = open;
           costs[slot] = open;
         }
@@ -212,6 +276,8 @@ export function floodReach(
       }
     }
   }
+  // A full flood leaves the targets it could not mark wanted.
+  if (pending > 0 && targets !== undefined) unwantTargets(area, targets);
   // A popped node inspects its neighbours, one node out on either axis.
   const searched = {
     minHx: Math.max(0, poppedMinX - 1),
@@ -219,29 +285,64 @@ export function floodReach(
     minHy: Math.max(0, poppedMinY - 1),
     maxHy: Math.min(mapHeight - 1, poppedMaxY + 1),
   };
-  return { area, searched, entered };
+  return { area, searched, entered, complete: pending !== 0 };
+}
+
+/** The pending count of a flood without targets. */
+const NO_TARGETS = -1;
+
+/** Mark each target the flood can mark wanted, once per node, and count them. */
+function wantTargets(area: ReachArea, hx: number, hy: number, range: number, targets: ReachTargets): number {
+  const width = area.maxX - area.minX + 1;
+  let wanted = 0;
+  for (let i = 0; i < targets.count; i++) {
+    const target = targets.nodes[i] as ReachTarget;
+    if (!markable(area, hx, hy, range, target)) continue;
+    const cell = (target.hy - area.minY) * width + target.hx - area.minX;
+    if (area.cells[cell] === WANTED) continue;
+    area.cells[cell] = WANTED;
+    wanted++;
+  }
+  return wanted;
+}
+
+function unwantTargets(area: ReachArea, targets: ReachTargets): void {
+  const width = area.maxX - area.minX + 1;
+  for (let i = 0; i < targets.count; i++) {
+    const { hx, hy } = targets.nodes[i] as ReachTarget;
+    if (hx < area.minX || hx > area.maxX || hy < area.minY || hy > area.maxY) continue;
+    const cell = (hy - area.minY) * width + hx - area.minX;
+    if (area.cells[cell] === WANTED) area.cells[cell] = 0;
+  }
 }
 
 export function unionReachAreas(areas: readonly ReachArea[]): ReachArea {
   if (areas.length === 1 && areas[0] !== undefined) return areas[0];
   if (areas.length === 0) return { minX: 0, maxX: -1, minY: 0, maxY: -1, cells: new Uint8Array() };
-  const bounds = {
-    minX: Math.min(...areas.map((a) => a.minX)),
-    maxX: Math.max(...areas.map((a) => a.maxX)),
-    minY: Math.min(...areas.map((a) => a.minY)),
-    maxY: Math.max(...areas.map((a) => a.maxY)),
-  };
-  const width = bounds.maxX - bounds.minX + 1;
-  const union: ReachArea = { ...bounds, cells: new Uint8Array(width * (bounds.maxY - bounds.minY + 1)) };
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const area of areas) {
+    if (area.minX < minX) minX = area.minX;
+    if (area.maxX > maxX) maxX = area.maxX;
+    if (area.minY < minY) minY = area.minY;
+    if (area.maxY > maxY) maxY = area.maxY;
+  }
+  const width = maxX - minX + 1;
+  const cells = new Uint8Array(width * (maxY - minY + 1));
   for (const area of areas) {
     const areaWidth = area.maxX - area.minX + 1;
+    const from = area.cells;
     for (let y = area.minY; y <= area.maxY; y++) {
-      const from = (y - area.minY) * areaWidth;
-      const to = (y - bounds.minY) * width + area.minX - bounds.minX;
-      for (let x = 0; x < areaWidth; x++) if (area.cells[from + x] === 1) union.cells[to + x] = 1;
+      const fromRow = (y - area.minY) * areaWidth;
+      const toRow = (y - minY) * width + area.minX - minX;
+      // Cells hold only 0 or MARKED, so OR is the union without a branch per cell.
+      for (let x = 0; x < areaWidth; x++)
+        cells[toRow + x] = (cells[toRow + x] as number) | (from[fromRow + x] as number);
     }
   }
-  return union;
+  return { minX, maxX, minY, maxY, cells };
 }
 
 export function reachGate(terrain: TerrainGraph, areas: readonly ReachArea[]): SpatialGate {

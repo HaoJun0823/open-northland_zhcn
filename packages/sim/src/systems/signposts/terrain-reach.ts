@@ -8,7 +8,14 @@ import {
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
-import { floodInspected, floodReach, originalReachBudget, type ReachSearch } from '../../nav/range-search.js';
+import {
+  floodInspected,
+  floodReach,
+  originalReachBudget,
+  type ReachSearch,
+  type ReachTargets,
+  reachCovers,
+} from '../../nav/range-search.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import { type WalkBlockMask, walkBlockMask } from '../footprint/walk-block-mask.js';
 import { syncRoadLane } from '../roads/index.js';
@@ -63,7 +70,8 @@ export interface TerrainReach extends ReachSearch {
   resistanceClock: number;
 }
 
-/** A held search survives every change to a node its flood did not read. */
+/** A held search survives every change to a node its flood did not read. With `targets` the answer is
+ *  exact only for whether each target is contained, and a held search serves while it covers them. */
 export function terrainReach(
   world: World,
   content: ContentSet,
@@ -72,21 +80,27 @@ export function terrainReach(
   hy: number,
   span: ReachSpan,
   held?: TerrainReach,
+  targets?: ReachTargets,
 ): TerrainReach {
   const mask = signpostMask(world, content, terrain);
   const maskVersion = mask.version;
   const roadRevision = terrain.mirroredRoadRevision;
-  const sameOrigin =
-    held?.terrain === terrain && held.mask === mask && held.hx === hx && held.hy === hy && held.span === span;
-  if (sameOrigin && held.maskVersion === maskVersion && held.roadRevision === roadRevision) return held;
-  if (sameOrigin && !readNodeChanged(held, mask, terrain)) {
+  const sameQuestion =
+    held?.terrain === terrain &&
+    held.mask === mask &&
+    held.hx === hx &&
+    held.hy === hy &&
+    held.span === span &&
+    reachCovers(held, hx, hy, span.range, targets);
+  if (sameQuestion && held.maskVersion === maskVersion && held.roadRevision === roadRevision) return held;
+  if (sameQuestion && !readNodeChanged(held, mask, terrain)) {
     held.maskVersion = maskVersion;
     held.roadRevision = roadRevision;
     held.resistanceClock = terrain.resistanceClock;
     return held;
   }
   return {
-    ...floodReach(terrain, mask.levelled(), hx, hy, span.range, span.budget, span.groundCost),
+    ...floodReach(terrain, mask.levelled(), hx, hy, span.range, span.budget, span.groundCost, targets),
     terrain,
     hx,
     hy,
@@ -119,6 +133,7 @@ export function postTerrainReach(
   hx: number,
   hy: number,
   span: ReachSpan,
+  targets?: ReachTargets,
 ): TerrainReach {
   let bySpan = postReaches.get(world);
   if (bySpan === undefined) {
@@ -130,7 +145,7 @@ export function postTerrainReach(
     held = new Map();
     bySpan.set(span, held);
   }
-  const found = terrainReach(world, content, terrain, hx, hy, span, held.get(post));
+  const found = terrainReach(world, content, terrain, hx, hy, span, held.get(post), targets);
   held.set(post, found);
   return found;
 }

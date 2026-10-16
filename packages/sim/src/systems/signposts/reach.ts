@@ -130,12 +130,15 @@ function cacheOf(world: World, content: ContentSet, terrain: TerrainGraph): Reac
     cache.terrain !== terrain ||
     !versionsHold(cache.versions, world, content, terrain)
   ) {
-    const sites = new TileBuckets<SignpostSite & { player: number }>();
-    for (const [player, posts] of signpostNetwork(world))
-      for (const p of posts) sites.set(p.entity, { ...p, player }, p.hx / 2, p.hy / 2);
+    const versions = reachVersions(world, content, terrain);
+    // The sites derive from the network alone, so a mask, road or door change keeps them.
+    const sites =
+      cache?.terrain === terrain && cache.versions.network === versions.network
+        ? cache.sites
+        : networkSites(world);
     cache = {
       terrain,
-      versions: reachVersions(world, content, terrain),
+      versions,
       spots: cache?.terrain === terrain ? cache.spots : new Map(),
       views: new Map(),
       sites,
@@ -147,6 +150,13 @@ function cacheOf(world: World, content: ContentSet, terrain: TerrainGraph): Reac
     dropFallenPostReaches(world);
   }
   return cache;
+}
+
+function networkSites(world: World): TileBuckets<SignpostSite & { player: number }> {
+  const sites = new TileBuckets<SignpostSite & { player: number }>();
+  for (const [player, posts] of signpostNetwork(world))
+    for (const p of posts) sites.set(p.entity, { ...p, player }, p.hx / 2, p.hy / 2);
+  return sites;
 }
 
 export function goodsReachAt(

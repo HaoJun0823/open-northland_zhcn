@@ -996,6 +996,13 @@ export const enGame = {
       allowed: '{good} · allowed in every dwelling · click: prohibit',
       forbidden: '{good} · prohibited in every dwelling · click: allow',
       policyForeign: 'The owner sets the rules',
+      minimum: 'Storage minimum',
+      minimumTooltip:
+        'All your storehouses keep at least this much of the good between them. Nobody takes it below the minimum: not workshops, builders, traders or eaters. Wells and hives fill storage up first. The setting is shared by every storehouse.',
+      minimumPick: 'Click a good in the list to set its minimum',
+      minimumLess: 'Lower the minimum: {good}',
+      minimumMore: 'Raise the minimum: {good}',
+      minimumAside: 'min {amount}',
       offers: 'Trade offers',
     },
     tradeWindow: {

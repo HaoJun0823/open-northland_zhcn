@@ -3,7 +3,7 @@ import type { Entity, World } from '../../../../ecs/world.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import type { SystemContext } from '../../../context.js';
 import { type NavigationLimit, spotsReaching } from '../../../signposts/index.js';
-import { accessibleStockAmounts, neededConstructionGoods } from '../../../stores/index.js';
+import { neededConstructionGoods } from '../../../stores/index.js';
 import { atOrWalk, startPickup } from '../../atomics/start.js';
 import type { PlannerContext } from '../../planner/context.js';
 import type { PlannerSpacing } from '../../planner/spacing.js';
@@ -12,6 +12,7 @@ import {
   nearestStoreHolding,
   nearestStoreHoldingAnywhere,
   type TargetCandidates,
+  unclaimedStockOf,
 } from '../../targets/index.js';
 import { unreachableGoalVeto } from '../../unreachable-goals.js';
 
@@ -163,8 +164,7 @@ function fetchableMaterial(
 }
 
 function shelfSource(plan: PlannerContext, shelf: Entity, goodType: number): MaterialSource | null {
-  const stock = accessibleStockAmounts(plan.world, shelf)?.get(goodType) ?? 0;
-  const available = stock - plan.supply.reservedAt(shelf, goodType);
+  const available = unclaimedStockOf(plan.world, plan.ctx, plan.supply, shelf, goodType);
   return available > 0 ? { source: shelf, available } : null;
 }
 
@@ -289,7 +289,6 @@ function materialSource(
         avoid,
       );
   if (source === null) return null;
-  const stock = accessibleStockAmounts(world, source)?.get(goodType) ?? 0;
-  const available = stock - plan.supply.reservedAt(source, goodType);
+  const available = unclaimedStockOf(world, ctx, plan.supply, source, goodType);
   return available > 0 ? { source, available } : null;
 }

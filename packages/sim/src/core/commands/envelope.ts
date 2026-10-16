@@ -164,6 +164,7 @@ export const COMMAND_ISSUER: {
   setFogMode: 'trusted',
   setGatherGood: 'seat',
   setHouseholdGoodUse: 'seat',
+  setStorageMinimum: 'seat',
   setJob: 'seat',
   setMatchParticipants: 'trusted',
   continueMatch: 'trusted',

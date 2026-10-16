@@ -21,6 +21,8 @@ export {
   nearestStoreHolding,
   nearestStoreHoldingAnywhere,
   nearestWorkplaceOutput,
+  storageBelowMinimum,
+  storageLendable,
   storeYieldsGood,
   strandedPile,
   unclaimedGoodsAt,

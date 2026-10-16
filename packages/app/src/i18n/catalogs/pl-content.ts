@@ -589,6 +589,11 @@ export const plContent = {
       summary:
         'Garncarze, cieśle i druid zaopatrują rozbudowany dom w naczynia, meble i oliwę, wspomagające posiłki, odpoczynek i modlitwę.',
     },
+    'storage-minimum': {
+      title: 'Minimum w magazynach',
+      summary:
+        'Magazyny trzymają co najmniej 10 wody: tragarz studni najpierw dopełnia magazyn, potem znów zaopatruje piekarnię, a piekarz nie bierze wody z magazynu poniżej minimum.',
+    },
     warehouse: {
       title: 'Logistyka magazynu',
       summary: 'Tragarze zbierają luźne towary, dopóki magazyn nie osiągnie pojemności.',

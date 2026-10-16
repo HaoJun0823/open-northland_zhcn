@@ -25,6 +25,7 @@ import { isTraderJob } from '../readviews/jobs.js';
 import { atOrWalk, collectAtomicOf, PILEUP_ATOMIC_ID, startAtomic } from '../settlers/atomics/start.js';
 import type { PlannerContext } from '../settlers/planner/context.js';
 import { interactionCell } from '../settlers/targets/index.js';
+import { LendableTally, storageLendable } from '../settlers/targets/stores/storage-reserve.js';
 import { isUnreachableGoal, noteUnreachableGoal, unreachableGoals } from '../settlers/unreachable-goals.js';
 import { mayFetchGoodFrom } from '../stores/index.js';
 import { releaseRider } from '../vehicles/crew.js';
@@ -313,7 +314,10 @@ function decideExchange(
 ): TradeAction {
   const aboard = aboardOfClass(ctx, hold, agreement.giveGood);
   const stocked = stockedFormAt(world, ctx, house, agreement.takeGood);
-  const onOffer = stocked === undefined ? 0 : stockOf(world, house, stocked);
+  const onOffer =
+    stocked === undefined
+      ? 0
+      : Math.min(stockOf(world, house, stocked), storageLendable(world, ctx, house, stocked));
   if (route.given < agreement.giveAmount) {
     if (aboard + route.given < agreement.giveAmount) return NEXT;
     const otherAboard = hold.entries.some(([good]) => !sameFoodClass(ctx, good, agreement.giveGood));
@@ -453,9 +457,10 @@ function loadSourceOf(scope: LoadScope, good: number, keep: number): LoadSource 
   const atHome = cartNearHouse(world, ctx, cart, stop.house);
   if (homeSpare - keep >= 1 && atHome) return fromHome;
   const members = settlementHouses(world, ctx, terrain, trader, stop.house, scope.exclude, good);
-  let total = homeSpare;
-  for (const house of members) total += spareOf(world, ctx, house, good);
-  if (total - keep < 1) return undefined;
+  const settlementSpare = new LendableTally(world, ctx);
+  tallyStock(world, ctx, settlementSpare, stop.house, good);
+  for (const house of members) tallyStock(world, ctx, settlementSpare, house, good);
+  if (settlementSpare.total() - keep < 1) return undefined;
   if (homeSpare >= 1 && atHome) return fromHome;
   const anchor = vehicleAnchor(world, cart.vehicle);
   const failed = unreachableGoals(world, ctx, trader);
@@ -507,11 +512,31 @@ function ownGoodsOf(ctx: ContentContext, buildingType: number): number[] {
 }
 
 /** The units of `good` a house can give up: its own stock, none of it while its recipe consumes the
- *  good (the reserve it runs on). Approximation of the original's per-house minimum stock setting. */
+ *  good (the reserve it runs on), and no more than its owner's storage minimum lets go. Approximation of
+ *  the original's per-house minimum stock setting. */
 function spareOf(world: World, ctx: SystemContext, house: Entity, good: number): number {
+  const stocked = fetchableFormAt(world, ctx, house, good);
+  if (stocked === undefined) return 0;
+  return Math.min(stockOf(world, house, stocked), storageLendable(world, ctx, house, stocked));
+}
+
+/** Adds a house's stock of `good` to a settlement's tally, which caps it by the owner's minimum once
+ *  across the owner's storehouses rather than once per house as {@link spareOf} does. */
+function tallyStock(
+  world: World,
+  ctx: SystemContext,
+  tally: LendableTally,
+  house: Entity,
+  good: number,
+): void {
+  const stocked = fetchableFormAt(world, ctx, house, good);
+  if (stocked !== undefined) tally.add(house, stocked, stockOf(world, house, stocked));
+}
+
+/** {@link stockedFormAt} when the house may give that form up at all. */
+function fetchableFormAt(world: World, ctx: SystemContext, house: Entity, good: number): number | undefined {
   const stocked = stockedFormAt(world, ctx, house, good);
-  if (stocked === undefined || !mayFetchGoodFrom(world, ctx, house, stocked)) return 0;
-  return stockOf(world, house, stocked);
+  return stocked !== undefined && mayFetchGoodFrom(world, ctx, house, stocked) ? stocked : undefined;
 }
 
 /** The good a house answers a request for `good` with out of its own stock: the good itself, else the

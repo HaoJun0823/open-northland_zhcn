@@ -17,6 +17,7 @@ export const EQUIP_FETCH_UNITS = 1;
 
 import { weaponKeepsLockedJob } from '../../../../readviews/equip-pick.js';
 import { accessibleStockAmounts, setAccessibleStockAmount } from '../../../../stores/index.js';
+import { cappedByStorageMinimum } from '../../../targets/stores/storage-reserve.js';
 import { addCarry } from './carry.js';
 import { reapEmptyLoosePile } from './piles.js';
 import { pileupIntoStore } from './transfer.js';
@@ -69,7 +70,11 @@ export function equipFromStore(
   const stock = accessibleStockAmounts(world, from);
   if (stock === undefined) return;
   const have = stock.get(goodType) ?? 0;
-  if (have <= 0) return;
+  if (
+    cappedByStorageMinimum(world, ctx, from, goodType, Math.min(EQUIP_FETCH_UNITS, have)) < EQUIP_FETCH_UNITS
+  ) {
+    return;
+  }
   setAccessibleStockAmount(world, from, goodType, have - EQUIP_FETCH_UNITS);
   reapEmptyLoosePile(world, from);
   ensureEquipment(world, settler);

@@ -101,7 +101,7 @@ export class ExternalQualityIndex {
       this.ctx.content,
       store,
       demanded,
-      unclaimedGoodsAt(world, supply, store),
+      unclaimedGoodsAt(world, this.ctx, supply, store),
     );
   }
 }

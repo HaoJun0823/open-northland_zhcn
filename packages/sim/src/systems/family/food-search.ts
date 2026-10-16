@@ -80,7 +80,7 @@ export class ExternalFoodIndex {
   /** The lowest food `store` holds that `fitsHome` and that no walker has claimed every unit of. */
   private liftableFood(store: Entity, fitsHome: (goodType: number) => boolean): number | null {
     const { world, supply } = this;
-    const unclaimed = unclaimedGoodsAt(world, supply, store);
+    const unclaimed = unclaimedGoodsAt(world, this.ctx, supply, store);
     const accepts =
       unclaimed === undefined
         ? fitsHome

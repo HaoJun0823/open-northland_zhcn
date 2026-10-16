@@ -215,6 +215,25 @@ describe('a settlement stop between own houses', () => {
     expect(stockOf(sim, other, WOOD)).toBe(2 + WOOD_HELD - WOOD_KEPT);
   });
 
+  it('counts a storage minimum’s surplus once across the settlement’s storehouses', () => {
+    const sim = newSim();
+    const anchor = houseAt(sim, ANCHOR_X, [[WOOD, WOOD_HELD]]);
+    const member = houseAt(sim, MEMBER_X, [[WOOD, WOOD_HELD]]);
+    const other = houseAt(sim, OTHER_X);
+    const trader = traderAt(sim, ANCHOR_X);
+    route(sim, trader, anchor, other);
+    // The two storehouses spare WOOD_KEPT - 1 units between them, each alone up to that many.
+    const minimum = 2 * WOOD_HELD - (WOOD_KEPT - 1);
+    sim.enqueueSetup({ kind: 'setStorageMinimum', player: HUMAN, goodType: WOOD, amount: minimum });
+    woodInto(sim, trader, other, TRADE_LIMIT_NONE, WOOD_KEPT);
+    settle(sim, trader, anchor);
+
+    sim.run(RUN_TICKS);
+
+    expect(stockOf(sim, other, WOOD)).toBe(0);
+    expect(stockOf(sim, anchor, WOOD) + stockOf(sim, member, WOOD)).toBe(2 * WOOD_HELD);
+  });
+
   it('never loads out of the stop it carries into', () => {
     const sim = newSim();
     const anchor = houseAt(sim, ANCHOR_X);

@@ -18,6 +18,7 @@ import { intersectReach } from '../../nav/range-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, MapContext } from '../context.js';
 import { interactionCellOf } from '../footprint/interaction.js';
+import { LendableTally, storageLendable } from '../settlers/targets/stores/storage-reserve.js';
 import { equipErrandConfinement, navigationLimitFor } from '../signposts/index.js';
 import { goodsSearchCatchAt } from '../signposts/reach.js';
 import { accessibleStockAmounts, mayFetchGoodFrom } from '../stores/index.js';
@@ -105,7 +106,8 @@ interface SelectionRow {
   readonly group: EquipCategory;
   /** Each store counts once however many settlers reach it. */
   readonly reached: Set<Entity>;
-  available: number;
+  /** The units the reached stores give up, capped by each owner's minimum once across its storehouses. */
+  readonly available: LendableTally;
   readonly takers: Entity[];
 }
 
@@ -140,6 +142,7 @@ export function equipPicksForSelection(
   if (groupOf.size === 0 || entities.length === 0) return [];
   const sources = equipSources(world, terrain === undefined ? { content } : { content, terrain }, groupOf);
   if (sources.length === 0) return [];
+  const fetchCtx: ContentContext = { content };
   const rows = new Map<number, SelectionRow>();
   const onSideOf = new Map<number | undefined, (e: Entity) => boolean>();
   const seen = new Set<Entity>();
@@ -164,12 +167,12 @@ export function equipPicksForSelection(
         if (group === 'weapon' && !weaponKeepsLockedJob(world, content, entity, goodType)) continue;
         let row = rows.get(goodType);
         if (row === undefined) {
-          row = { group, reached: new Set(), available: 0, takers: [] };
+          row = { group, reached: new Set(), available: new LendableTally(world, fetchCtx), takers: [] };
           rows.set(goodType, row);
         }
         if (!row.reached.has(source.store)) {
           row.reached.add(source.store);
-          row.available += amount;
+          row.available.add(source.store, goodType, amount);
         }
         if (row.takers[row.takers.length - 1] !== entity) row.takers.push(entity);
       }
@@ -179,7 +182,7 @@ export function equipPicksForSelection(
   for (const goodType of groupOf.keys()) {
     const row = rows.get(goodType);
     if (row !== undefined) {
-      picks.push({ goodType, group: row.group, available: row.available, takers: row.takers });
+      picks.push({ goodType, group: row.group, available: row.available.total(), takers: row.takers });
     }
   }
   return picks;
@@ -200,7 +203,7 @@ function equipSources(
     for (const [goodType, amount] of stock) {
       if (amount <= 0 || !groupOf.has(goodType)) continue;
       if (!mayFetchGoodFrom(world, fetchCtx, store, goodType)) continue;
-      goods.push({ goodType, amount });
+      if (storageLendable(world, fetchCtx, store, goodType) > 0) goods.push({ goodType, amount });
     }
     if (goods.length === 0) continue;
     sources.push({ store, node: fetchNodeOf(world, ctx, store), goods });

@@ -45,7 +45,7 @@ export class TargetBands {
 
   constructor(
     private readonly world: World,
-    private readonly ctx: SystemContext,
+    readonly ctx: SystemContext,
     private readonly terrain: TerrainGraph,
     /** Canonical ascending-id `Building + Position` candidates, the prayer-site questions' universe. */
     private readonly buildings: readonly Entity[],

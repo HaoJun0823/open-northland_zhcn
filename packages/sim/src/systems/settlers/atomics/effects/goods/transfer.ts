@@ -12,6 +12,7 @@ import { depositHomeQuality, homeQualityUseFor, spendHomeQuality } from '../../.
 import { isFood } from '../../../../readviews/index.js';
 import { accessibleStockAmounts, bankedSlot, setAccessibleStockAmount } from '../../../../stores/index.js';
 import { carriedGoodForm } from '../../../drives/economy/delivery-targets.js';
+import { cappedByStorageMinimum } from '../../../targets/stores/storage-reserve.js';
 import { addCarry, dropCarryAtOwnTile, shrinkCarry } from './carry.js';
 import { reapEmptyLoosePile } from './piles.js';
 
@@ -39,7 +40,7 @@ export function pickupFromStore(
   const stock = accessibleStockAmounts(world, from);
   if (stock === undefined) return;
   const have = stock.get(goodType) ?? 0;
-  const moved = Math.min(amount, have);
+  const moved = cappedByStorageMinimum(world, ctx, from, goodType, Math.min(amount, have));
   if (moved <= 0) return;
   setAccessibleStockAmount(world, from, goodType, have - moved);
   addCarry(world, settler, carried, moved);

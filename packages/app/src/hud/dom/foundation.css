@@ -6548,6 +6548,45 @@ body.on-drag-scroll * {
   margin: 4px 0;
   font-size: 12px;
 }
+/* A storehouse's shelves pick the good its storage-minimum line sets; the picked one stays lit. */
+.on-hud .on-cargo-row--pickable {
+  cursor: pointer;
+}
+.on-hud .on-cargo-row--pickable:hover .on-cargo-row__name {
+  color: var(--text-hi);
+}
+.on-hud .on-cargo-row--picked {
+  background: linear-gradient(90deg, #c9a26226, #c9a26208);
+  box-shadow: inset 2px 0 var(--bronze);
+}
+/* Under the stock: "Storage minimum" over the good it sets and its −/n/+ counter, or the hint to pick one. */
+.on-hud .on-building-minimum {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  row-gap: 2px;
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid #c9a26233;
+  font-size: 13px;
+}
+.on-hud .on-building-minimum__label {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font: 600 10px / 1.2 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.on-hud .on-building-minimum__good {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.on-hud .on-building-minimum__hint {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 11px;
+}
 
 /* ---------- switch: an on/off pill whose knob slides, lit bronze like a chosen segment when on ---------- */
 .on-hud .on-switch {

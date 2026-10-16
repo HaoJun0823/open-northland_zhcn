@@ -137,6 +137,12 @@ export function warmBuildingModel(goodIds: readonly string[]): BuildingPanelMode
       player: 0,
       control: true,
     },
+    storageMinimum: {
+      player: 0,
+      minimums: { 0: 1 },
+      good: { goodType: 0, goodId: goodIds[0], label: 'Warm' },
+      control: true,
+    },
     offers: [{ give: side(0), take: side(1) }],
   };
 }

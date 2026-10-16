@@ -272,7 +272,7 @@ function nearestCargoSource(
       const accept = (e2: Entity): boolean =>
         phase.accept(e2) &&
         !isFoodKeptAtHome(world, ctx, e2, goodType) &&
-        unclaimedStockOf(world, plan.supply, e2, goodType) > 0;
+        unclaimedStockOf(world, ctx, plan.supply, e2, goodType) > 0;
       const hit = targets.bands
         .holding(goodType)
         .nearest(phase.origin, (e2) => (accept(e2) ? QUALIFIES : null), goodsGate, avoid, onSide);

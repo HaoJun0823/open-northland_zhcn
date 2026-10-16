@@ -6,7 +6,7 @@ import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { buildingBlockedCells } from '../footprint/building-blocked-cache.js';
 import { interactionNodeId } from '../footprint/interaction.js';
-import { FetchableStock, strandedPile } from '../settlers/targets/stores/index.js';
+import { FetchableStock, storageLendable, strandedPile } from '../settlers/targets/stores/index.js';
 import { spotsReaching } from '../signposts/index.js';
 import { collectSupplyTally, constructionBillOf } from '../stores/index.js';
 
@@ -112,6 +112,7 @@ function sideHolds(
   for (const store of stock.holders(goodType)) {
     const storeOwner = ownerOf(world, store);
     if (storeOwner !== undefined && storeOwner !== owner) continue;
+    if (storageLendable(world, ctx, store, goodType) <= 0) continue;
     if (terrain === undefined) return true;
     if (storeOwner !== undefined && ++examined > MAX_DIAGNOSTIC_STORES) return true;
     if (reach !== null) {

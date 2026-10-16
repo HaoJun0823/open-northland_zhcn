@@ -295,6 +295,7 @@ function seatPayloads(t: Targets): { readonly [K in PlayerCommand['kind']]: read
     setDefenceMode: [{ building: t.hq, enabled: true }],
     setGatherGood: [{ entity: t.worker, goodType: WOOD }],
     setHouseholdGoodUse: [{ player: SEAT, effect: HomeQualityEffect.options[0], allowed: true }],
+    setStorageMinimum: [{ player: SEAT, goodType: WOOD, amount: 30 }],
     setJob: [{ entity: t.worker, jobType: CARPENTER }],
     setPalisadeGateMode: [{ palisade: t.wall, mode: 'automatic' }],
     setPalisadeGate: [{ palisade: t.wall, open: true }],

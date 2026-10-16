@@ -158,7 +158,7 @@ export function nearestMissingInputSource(
     // The workplace never supplies itself; a self-filling house qualifies empty or claimed.
     const source = (e: Entity): Qualified<boolean> | null => {
       if (e === workplace) return null;
-      if (unclaimedStockOf(world, plan.supply, e, goodType) > 0) return LENDS;
+      if (unclaimedStockOf(world, ctx, plan.supply, e, goodType) > 0) return LENDS;
       return refillingGoodsOf(world, ctx, e).includes(goodType) ? REFILLS : null;
     };
     const winner =

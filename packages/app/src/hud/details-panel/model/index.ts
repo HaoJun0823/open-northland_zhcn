@@ -42,6 +42,7 @@ export {
   type StaffGroup,
   type StaffPerson,
   type StockRow,
+  type StorageMinimumModel,
   type UpgradeCostRow,
 } from './building.js';
 export {

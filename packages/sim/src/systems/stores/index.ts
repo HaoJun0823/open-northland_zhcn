@@ -37,6 +37,7 @@ export {
   buildingWorkerJobs,
   isCarrierJob,
   isStorageBuildingType,
+  isStorehouseType,
   isWorkplaceOutput,
   mayFetchGoodFrom,
   mergedRecipeOf,

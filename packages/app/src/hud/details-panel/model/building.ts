@@ -3,6 +3,7 @@ import {
   homeQualityView,
   householdGoodPolicyView,
   indexesOf,
+  storageMinimumsView,
   type WorldSnapshot,
 } from '@open-northland/sim';
 import { JOB_TRADER } from '../../../catalog/jobs.js';
@@ -42,6 +43,7 @@ import {
   buildingTitle,
   contentTribeName,
   foreignOwnerLine,
+  goodDef,
   goodLabel,
   jobDisplayName,
   recipeOutputs,
@@ -78,6 +80,23 @@ export interface HomeQualityModel {
   /** The seat whose policy the toggles set. */
   readonly player: number;
   /** True while the viewer may set that seat's policy, else the reason. */
+  readonly control: SeatControl;
+}
+
+/** The owner's storage minimums, set from a storehouse for any good it lists or from a self-filling house
+ *  for its own good: the units every storehouse of the owner keeps between them. */
+export interface StorageMinimumModel {
+  readonly player: number;
+  /** Good type -> units; a good without one keeps none. A plain record, so the panel's JSON rebuild key
+   *  sees a change. */
+  readonly minimums: Readonly<Record<number, number>>;
+  /** A self-filling house's own good, which its row sets; null for a storehouse, whose stock row picks it. */
+  readonly good: {
+    readonly goodType: number;
+    readonly goodId: string | undefined;
+    readonly label: string;
+  } | null;
+  /** True while the viewer may set that seat's minimums, else the reason. */
   readonly control: SeatControl;
 }
 
@@ -135,6 +154,7 @@ export interface BuildingPanelModel {
   readonly stock: readonly StockRow[];
   readonly stockLayout: StockLayout;
   readonly homeQuality: HomeQualityModel | null;
+  readonly storageMinimum: StorageMinimumModel | null;
   readonly offers: readonly BuildingOfferModel[];
 }
 
@@ -240,6 +260,25 @@ function homeQuality(
   return {
     rows,
     player,
+    control: player === ctx.viewer?.seat() ? true : messages().hud.buildingPanel.policyForeign,
+  };
+}
+
+function storageMinimum(
+  ctx: UnitPanelModelContext,
+  snapshot: WorldSnapshot,
+  def: BuildingDef,
+  ent: SnapshotEntity,
+): StorageMinimumModel | null {
+  const player = ownerPlayerOf(ent);
+  if (player === undefined) return null;
+  const own = def.refillsOwnStock === true ? def.produces[0] : undefined;
+  if (def.kind !== 'storage' && own === undefined) return null;
+  return {
+    player,
+    minimums: Object.fromEntries(storageMinimumsView(snapshot, player)),
+    good:
+      own === undefined ? null : { goodType: own, goodId: goodDef(ctx, own)?.id, label: goodLabel(ctx, own) },
     control: player === ctx.viewer?.seat() ? true : messages().hud.buildingPanel.policyForeign,
   };
 }
@@ -423,6 +462,8 @@ export function buildingPanelModel(
     stockLayout: stockLayoutOf(def, stock),
     homeQuality:
       foreign || def === undefined || !finished ? null : homeQuality(ctx, snapshot, def, ent, level),
+    storageMinimum:
+      foreign || def === undefined || !finished ? null : storageMinimum(ctx, snapshot, def, ent),
     offers: (ctx.tradeOffersAt?.(ent.id) ?? []).map((offer) => ({
       give: offerSide(ctx, offer.giveAmount, offer.giveGood),
       take: offerSide(ctx, offer.takeAmount, offer.takeGood),

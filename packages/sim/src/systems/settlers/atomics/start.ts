@@ -201,8 +201,8 @@ export function startPickup(
 /** Walk to `from` and lift a carry-load of `goodType`, claiming the units still unclaimed there first so a
  *  settler planned after this one picks another source while it walks. */
 export function walkPickupBatch(plan: PlannerContext, from: Entity, goodType: number, cell?: NodeId): void {
-  const { world, entity: e, supply } = plan;
-  const claimed = Math.min(CARRY_CAPACITY, unclaimedStockOf(world, supply, from, goodType));
+  const { world, ctx, entity: e, supply } = plan;
+  const claimed = Math.min(CARRY_CAPACITY, unclaimedStockOf(world, ctx, supply, from, goodType));
   if (claimed > 0) supply.stampPickupClaim(e, { source: from, goodType, amount: claimed });
   walkThenLift(plan, from, goodType, undefined, cell);
 }
@@ -214,8 +214,10 @@ export function walkPickupBatch(plan: PlannerContext, from: Entity, goodType: nu
  * source for the workplace's inbound count.
  */
 export function walkFetchInput(plan: PlannerContext, from: Entity, goodType: number, refills: boolean): void {
-  const { world, entity: e, supply } = plan;
-  const claimed = refills ? 0 : Math.min(CARRY_CAPACITY, unclaimedStockOf(world, supply, from, goodType));
+  const { world, ctx, entity: e, supply } = plan;
+  const claimed = refills
+    ? 0
+    : Math.min(CARRY_CAPACITY, unclaimedStockOf(world, ctx, supply, from, goodType));
   if (claimed > 0 || refills) supply.stampPickupClaim(e, { source: from, goodType, amount: claimed });
   walkThenLift(plan, from, goodType, refills);
 }

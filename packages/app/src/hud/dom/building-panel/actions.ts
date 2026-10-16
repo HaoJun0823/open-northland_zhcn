@@ -17,6 +17,8 @@ export interface BuildingPanelActions {
   readonly releaseGarrison: (building: number, garrison: readonly number[]) => void;
   /** Allow or forbid a household ware in every home of `player`. */
   readonly setHouseholdGoodUse: (player: number, effect: HouseholdEffect, allowed: boolean) => void;
+  /** Keep `amount` units of `goodType` across every storehouse of `player`; zero keeps none. */
+  readonly setStorageMinimum: (player: number, goodType: number, amount: number) => void;
 }
 
 /** The central windows the panel opens. */

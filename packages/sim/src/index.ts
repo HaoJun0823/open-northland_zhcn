@@ -160,6 +160,7 @@ export {
   withComponent,
 } from './inspect/snapshot-indexes.js';
 export { SnapshotMirror } from './inspect/snapshot-mirror.js';
+export { storageMinimumsView } from './inspect/storage-minimums.js';
 export { bucketsReach, TILE_BUCKET_SIZE, type TileBox, TileBuckets } from './inspect/tile-buckets.js';
 export type { BlockOverlay } from './nav/block-overlay.js';
 export { ClearanceField, MAX_CLEARANCE_CLASS } from './nav/clearance.js';

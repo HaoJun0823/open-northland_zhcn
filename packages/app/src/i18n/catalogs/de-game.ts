@@ -1076,6 +1076,13 @@ export const deGame = {
       allowed: '{good} · in allen Wohnhäusern erlaubt · Klicken: verbieten',
       forbidden: '{good} · in allen Wohnhäusern verboten · Klicken: erlauben',
       policyForeign: 'Der Besitzer legt die Regeln fest',
+      minimum: 'Lagerminimum',
+      minimumTooltip:
+        'Alle deine Lager halten zusammen mindestens so viel von dieser Ware. Niemand nimmt sie unter das Minimum: weder Werkstätten noch Baustellen, Händler oder Essende. Brunnen und Bienenstöcke füllen zuerst die Lager auf. Die Einstellung gilt für alle Lager.',
+      minimumPick: 'Klicke eine Ware in der Liste an, um ihr Minimum festzulegen',
+      minimumLess: 'Minimum senken: {good}',
+      minimumMore: 'Minimum erhöhen: {good}',
+      minimumAside: 'min. {amount}',
       offers: 'Handelsangebote',
     },
     tradeWindow: {

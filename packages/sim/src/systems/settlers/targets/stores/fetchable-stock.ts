@@ -5,6 +5,7 @@ import {
   ownerOf,
   Position,
   Stockpile,
+  storageMinimumOf,
   UnderConstruction,
   Upgrading,
 } from '../../../../components/index.js';
@@ -14,6 +15,7 @@ import type { Entity, World } from '../../../../ecs/world.js';
 import type { ContentContext } from '../../../context.js';
 import {
   accessibleStockAmounts,
+  isStorehouseType,
   mergedRecipeOf,
   recipeConsumes,
   refillingGoodsOf,
@@ -33,6 +35,8 @@ interface Contribution {
   readonly held: number[];
   /** The goods it tops up itself, a finished self-filling house's. */
   refilled: readonly number[];
+  /** A storehouse or headquarters: its units also count toward its owner's storage minimums. */
+  storage: boolean;
 }
 
 /** One good's units and self-filling houses across the stores: unowned ones count for every player. */
@@ -41,6 +45,8 @@ interface GoodTotal {
   readonly byOwner: Map<number, number>;
   unownedRefillers: number;
   readonly refillersByOwner: Map<number, number>;
+  /** The owned units that lie in storehouses, the share a storage minimum holds back. */
+  readonly storedByOwner: Map<number, number>;
 }
 
 const NO_HOLDERS: ReadonlySet<Entity> = new Set();
@@ -62,6 +68,7 @@ export class FetchableStock {
   private readonly holderFeeds = new Map<number, ChangeFeed>();
   private readonly refillersByGood = new Map<number, Set<Entity>>();
   private readonly supplierFeeds = new Map<number, ChangeFeed>();
+  private readonly storagesByOwner = new Map<number, Set<Entity>>();
   private readonly captures: JournaledCaptures<Contribution>;
 
   private constructor(
@@ -80,6 +87,7 @@ export class FetchableStock {
         capture: (e, spent) => contributionOf(world, content, e, spent),
         apply: (e, c) => {
           foldInto(this.totals, c, 1);
+          if (c.storage && c.owner !== undefined) goodSetOf(this.storagesByOwner, c.owner).add(e);
           for (let i = 0; i < c.heldCount; i++) {
             const good = c.held[i] as number;
             goodSetOf(this.holdersByGood, good).add(e);
@@ -93,6 +101,7 @@ export class FetchableStock {
         },
         withdraw: (e, c) => {
           foldInto(this.totals, c, -1);
+          if (c.storage && c.owner !== undefined) this.storagesByOwner.get(c.owner)?.delete(e);
           for (let i = 0; i < c.heldCount; i++) {
             const good = c.held[i] as number;
             this.holdersByGood.get(good)?.delete(e);
@@ -108,6 +117,7 @@ export class FetchableStock {
           this.totals.clear();
           this.holdersByGood.clear();
           this.refillersByGood.clear();
+          this.storagesByOwner.clear();
           for (const feed of this.holderFeeds.values()) feed.lose();
           for (const feed of this.supplierFeeds.values()) feed.lose();
         },
@@ -136,15 +146,33 @@ export class FetchableStock {
     const total = this.totals.get(goodType);
     return (
       total !== undefined &&
-      (total.unowned + (total.byOwner.get(player) ?? 0) > 0 ||
+      (this.lendable(total, player, goodType) > 0 ||
         total.unownedRefillers + (total.refillersByOwner.get(player) ?? 0) > 0)
     );
   }
 
-  /** Whether `player` holds more than `units` of `goodType`. */
+  /** Whether `player` holds more than `units` of `goodType` it may give up. */
   exceeds(player: number, goodType: number, units: number): boolean {
     const total = this.totals.get(goodType);
-    return total !== undefined && total.unowned + (total.byOwner.get(player) ?? 0) > units;
+    return total !== undefined && this.lendable(total, player, goodType) > units;
+  }
+
+  /** The units of `goodType` `player`'s storehouses and headquarters hold between them. */
+  storedUnits(player: number, goodType: number): number {
+    return this.totals.get(goodType)?.storedByOwner.get(player) ?? 0;
+  }
+
+  /** `player`'s storehouses and headquarters holding any good, in no particular order. The live set, as
+   *  {@link holders}. */
+  storagesOf(player: number): ReadonlySet<Entity> {
+    return this.storagesByOwner.get(player) ?? NO_HOLDERS;
+  }
+
+  /** The units on `player`'s side less what its storage minimum holds back. */
+  private lendable(total: GoodTotal, player: number, goodType: number): number {
+    const side = total.unowned + (total.byOwner.get(player) ?? 0);
+    const minimum = storageMinimumOf(this.world, player, goodType);
+    return minimum === 0 ? side : side - Math.min(total.storedByOwner.get(player) ?? 0, minimum);
   }
 
   /** The stores lending at least one unit of `goodType`, in no particular order. The live set: read it,
@@ -180,10 +208,12 @@ export class FetchableStock {
     const fresh = new Map<number, GoodTotal>();
     const freshHolders = new Map<number, Set<Entity>>();
     const freshRefillers = new Map<number, Set<Entity>>();
+    const freshStorages = new Map<number, Set<Entity>>();
     for (const e of this.world.canonicalQuery(Stockpile, Position)) {
       const c = contributionOf(this.world, this.content, e, undefined);
       if (c === null) continue;
       foldInto(fresh, c, 1);
+      if (c.storage && c.owner !== undefined) goodSetOf(freshStorages, c.owner).add(e);
       for (let i = 0; i < c.heldCount; i++) goodSetOf(freshHolders, c.held[i] as number).add(e);
       for (const good of c.refilled) goodSetOf(freshRefillers, good).add(e);
     }
@@ -200,6 +230,9 @@ export class FetchableStock {
       ...[...refilledGoodTypes]
         .filter((good) => !sameMembers(this.refillers(good), freshRefillers.get(good) ?? NO_HOLDERS))
         .map((good) => `fetchableStock refillers of good ${good} disagree with a fresh store scan`),
+      ...[...new Set([...freshStorages.keys(), ...this.storagesByOwner.keys()])]
+        .filter((owner) => !sameMembers(this.storagesOf(owner), freshStorages.get(owner) ?? NO_HOLDERS))
+        .map((owner) => `fetchableStock storehouses of player ${owner} disagree with a fresh store scan`),
     ];
   }
 }
@@ -218,8 +251,19 @@ function contributionOf(
   const refilled = refillingGoodsOf(world, ctx, e);
   if (amounts === undefined || (amounts.size === 0 && refilled.length === 0)) return null;
   const reserved = mergedRecipeOf(world, ctx, e)?.inputs;
-  const c = spent ?? { owner: undefined, lent: 0, goods: [], units: [], heldCount: 0, held: [], refilled };
+  const c = spent ?? {
+    owner: undefined,
+    lent: 0,
+    goods: [],
+    units: [],
+    heldCount: 0,
+    held: [],
+    refilled,
+    storage: false,
+  };
   c.owner = ownerOf(world, e);
+  const building = world.tryGet(e, Building);
+  c.storage = building !== undefined && isStorehouseType(ctx.content, building.buildingType);
   c.lent = 0;
   c.heldCount = 0;
   c.refilled = refilled;
@@ -249,7 +293,11 @@ function foldInto(totals: Map<number, GoodTotal>, contribution: Contribution, si
     const total = totalOf(totals, contribution.goods[i] as number);
     const units = contribution.units[i] as number;
     if (owner === undefined) total.unowned += sign * units;
-    else total.byOwner.set(owner, (total.byOwner.get(owner) ?? 0) + sign * units);
+    else {
+      total.byOwner.set(owner, (total.byOwner.get(owner) ?? 0) + sign * units);
+      if (contribution.storage)
+        total.storedByOwner.set(owner, (total.storedByOwner.get(owner) ?? 0) + sign * units);
+    }
   }
   for (const good of contribution.refilled) {
     const total = totalOf(totals, good);
@@ -261,7 +309,13 @@ function foldInto(totals: Map<number, GoodTotal>, contribution: Contribution, si
 function totalOf(totals: Map<number, GoodTotal>, good: number): GoodTotal {
   let total = totals.get(good);
   if (total === undefined) {
-    total = { unowned: 0, byOwner: new Map(), unownedRefillers: 0, refillersByOwner: new Map() };
+    total = {
+      unowned: 0,
+      byOwner: new Map(),
+      unownedRefillers: 0,
+      refillersByOwner: new Map(),
+      storedByOwner: new Map(),
+    };
     totals.set(good, total);
   }
   return total;
@@ -274,12 +328,15 @@ function sameTotal(a: GoodTotal | undefined, b: GoodTotal | undefined): boolean 
   const owners = new Set([
     ...(a?.byOwner.keys() ?? []),
     ...(b?.byOwner.keys() ?? []),
+    ...(a?.storedByOwner.keys() ?? []),
+    ...(b?.storedByOwner.keys() ?? []),
     ...(a?.refillersByOwner.keys() ?? []),
     ...(b?.refillersByOwner.keys() ?? []),
   ]);
   return [...owners].every(
     (o) =>
       (a?.byOwner.get(o) ?? 0) === (b?.byOwner.get(o) ?? 0) &&
+      (a?.storedByOwner.get(o) ?? 0) === (b?.storedByOwner.get(o) ?? 0) &&
       (a?.refillersByOwner.get(o) ?? 0) === (b?.refillersByOwner.get(o) ?? 0),
   );
 }

@@ -8,6 +8,8 @@ export interface CounterRange {
   readonly min?: number;
   readonly max: number;
   readonly unlimited?: number;
+  /** What one press moves the value by; 1 when absent. The tens key still moves it by ten. */
+  readonly step?: number;
 }
 
 /** What the keys held with an arrow press ask for: a jump to that arrow's end, or a step by tens. */
@@ -34,7 +36,7 @@ export function counterStep(
 ): number {
   const min = range.min ?? 0;
   const { max, unlimited } = range;
-  const step = modifiers.tens ? COUNTER_TENS_STEP : 1;
+  const step = modifiers.tens ? COUNTER_TENS_STEP : (range.step ?? 1);
   if (unlimited === undefined) {
     if (modifiers.jump) return delta > 0 ? max : min;
     return Math.min(max, Math.max(min, current + delta * step));

@@ -1,6 +1,8 @@
 import {
+  anyStorageMinimum,
   Building,
   GroundDrop,
+  keepsStorageMinimums,
   ownerOf,
   Palisade,
   Position,
@@ -18,6 +20,7 @@ import {
   accessibleStockAmounts,
   bankedSlot,
   buildingProduces,
+  isStorehouseType,
   isYardHeap,
   MAX_GROUND_STACK,
   mayFetchGoodFrom,
@@ -28,6 +31,7 @@ import {
 import type { TargetBands } from '../bands.js';
 import type { YardTargets } from '../candidates.js';
 import { ACCEPT_ALL, QUALIFIES } from '../cell-index.js';
+import { minimumBoundOwner, storageLendable, storageSurplus } from './storage-reserve.js';
 import { yardOffsets } from './yard-layout.js';
 
 /**
@@ -193,20 +197,31 @@ export function strandedPlainPile(
   return walls.has(anchor) || anchoredStanceCells(world, ctx, terrain, anchor).length === 0;
 }
 
-/** Units of `goodType` at `store` not yet promised to a settler walking to it. */
-export function unclaimedStockOf(world: World, supply: SupplyTally, store: Entity, goodType: number): number {
-  return (accessibleStockAmounts(world, store)?.get(goodType) ?? 0) - supply.reservedAt(store, goodType);
+/** Units of `goodType` at `store` not yet promised to a settler walking to it, and no more than its
+ *  owner's storage minimum lets go. */
+export function unclaimedStockOf(
+  world: World,
+  ctx: ContentContext,
+  supply: SupplyTally | undefined,
+  store: Entity,
+  goodType: number,
+): number {
+  const unclaimed =
+    (accessibleStockAmounts(world, store)?.get(goodType) ?? 0) - (supply?.reservedAt(store, goodType) ?? 0);
+  return Math.min(unclaimed, storageLendable(world, ctx, store, goodType, supply));
 }
 
-/** A good filter admitting the goods `store` holds beyond what walkers claimed there, or undefined when
- *  nothing is claimed, so a scan over an unclaimed store builds no closure. */
+/** A good filter admitting the goods `store` may give up beyond what walkers claimed there and its
+ *  owner's storage minimum holds back, or undefined when neither binds, so a scan over such a store
+ *  builds no closure. */
 export function unclaimedGoodsAt(
   world: World,
-  supply: SupplyTally,
+  ctx: ContentContext,
+  supply: SupplyTally | undefined,
   store: Entity,
 ): ((goodType: number) => boolean) | undefined {
-  if (!supply.hasClaims(store)) return undefined;
-  return (goodType) => unclaimedStockOf(world, supply, store, goodType) > 0;
+  if (supply?.hasClaims(store) !== true && !storehouseKeepsMinimums(world, ctx, store)) return undefined;
+  return (goodType) => unclaimedStockOf(world, ctx, supply, store, goodType) > 0;
 }
 
 /**
@@ -237,7 +252,7 @@ export function nearestStoreHolding(
       .holding(goodType)
       .nearest(
         here,
-        holdsUnclaimed(world, supply, goodType),
+        holdsUnclaimed(world, bands.ctx, supply, goodType),
         bands.goodsGate(here, owner, gate),
         avoid,
         sameSideAs(world, owner),
@@ -260,8 +275,13 @@ export function nearestStoreHoldingAnywhere(
   return (
     bands
       .holding(goodType)
-      .nearest(here, holdsUnclaimed(world, supply, goodType), undefined, avoid, ownedBy(world, owner))
-      ?.entity ?? null
+      .nearest(
+        here,
+        holdsUnclaimed(world, bands.ctx, supply, goodType),
+        undefined,
+        avoid,
+        ownedBy(world, owner),
+      )?.entity ?? null
   );
 }
 
@@ -271,12 +291,40 @@ function ownedBy(world: World, owner: number | undefined): (store: Entity) => bo
   return (store) => ownerOf(world, store) === owner;
 }
 
+/** Whether `store` is a storehouse whose owner keeps any storage minimum. */
+function storehouseKeepsMinimums(world: World, ctx: ContentContext, store: Entity): boolean {
+  if (!anyStorageMinimum(world)) return false;
+  const type = world.tryGet(store, Building)?.buildingType;
+  return (
+    type !== undefined &&
+    isStorehouseType(ctx.content, type) &&
+    keepsStorageMinimums(world, ownerOf(world, store))
+  );
+}
+
+/** A band accept admitting a store that still lends `goodType` beyond the walkers' claims and its owner's
+ *  minimum. The minimum's surplus is the same for every storehouse of one owner, so a scan rejecting a
+ *  run of them sums the owner's claims once. */
 function holdsUnclaimed(
   world: World,
+  ctx: ContentContext,
   supply: SupplyTally,
   goodType: number,
 ): (store: Entity) => typeof QUALIFIES | null {
-  return (store) => (unclaimedStockOf(world, supply, store, goodType) > 0 ? QUALIFIES : null);
+  const surplusByOwner = new Map<number, number>();
+  return (store) => {
+    const held =
+      (accessibleStockAmounts(world, store)?.get(goodType) ?? 0) - supply.reservedAt(store, goodType);
+    if (held <= 0) return null;
+    const owner = minimumBoundOwner(world, ctx, store, goodType);
+    if (owner === undefined) return QUALIFIES;
+    let surplus = surplusByOwner.get(owner);
+    if (surplus === undefined) {
+      surplus = storageSurplus(world, ctx, owner, goodType, supply);
+      surplusByOwner.set(owner, surplus);
+    }
+    return surplus > 0 ? QUALIFIES : null;
+  };
 }
 
 /**
@@ -292,9 +340,8 @@ export function storeYieldsGood(
   store: Entity,
   goodType: number,
 ): boolean {
-  const stock = accessibleStockAmounts(world, store);
   return (
-    (stock?.get(goodType) ?? 0) > 0 &&
+    unclaimedStockOf(world, ctx, undefined, store, goodType) > 0 &&
     mayFetchGoodFrom(world, ctx, store, goodType) &&
     !strandedPile(world, ctx, terrain, walls, store)
   );

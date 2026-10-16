@@ -592,6 +592,11 @@ export const enContent = {
       summary:
         'Potters, carpenters and druids supply a mature dwelling with crockery, furniture and oil for better meals, rest and prayer.',
     },
+    'storage-minimum': {
+      title: 'Storage minimum',
+      summary:
+        'The storehouses keep at least 10 water: the well carrier fills the warehouse up first, then supplies the bakery again, and the baker never takes the warehouse water below the minimum.',
+    },
     warehouse: {
       title: 'Warehouse logistics',
       summary: 'Carriers collect loose goods until each warehouse capacity is reached.',

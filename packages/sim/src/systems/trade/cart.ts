@@ -19,6 +19,7 @@ import { grantTradeExperience } from '../progression/index.js';
 import { edibleGoodFormOf } from '../readviews/food.js';
 import { isShipVehicle, isSiegeVehicle } from '../readviews/vehicles.js';
 import { addCarry, dropCarryAtOwnTile } from '../settlers/atomics/effects/goods/carry.js';
+import { cappedByStorageMinimum } from '../settlers/targets/stores/storage-reserve.js';
 import { accessibleStockAmounts, bankedSlot, setAccessibleStockAmount } from '../stores/index.js';
 import { commandedVehicleOf } from '../vehicles/commander.js';
 import { tradeVehicleStock, vehicleLineCap, vehicleStockGood } from '../vehicles/stock.js';
@@ -101,7 +102,7 @@ export function loadCart(
   if (route === undefined || cart === null) return;
   const stock = accessibleStockAmounts(world, from);
   const have = stock?.get(goodType) ?? 0;
-  if (stock === undefined || have <= 0) return;
+  if (stock === undefined || cappedByStorageMinimum(world, ctx, from, goodType, have) <= 0) return;
   const carried = edibleGoodFormOf(ctx.content, goodType);
   if (tradeVehicleStock(world, cart.vehicle, ctx.content, carried, 1) !== 1) return;
   setAccessibleStockAmount(world, from, goodType, have - 1);

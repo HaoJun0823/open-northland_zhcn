@@ -4,6 +4,7 @@ import type { Entity, World } from '../../../../../ecs/world.js';
 import type { SystemContext } from '../../../../context.js';
 import { BERRY_STAGE_TICKS } from '../../../../economy/berries.js';
 import { accessibleStockAmounts, setAccessibleStockAmount } from '../../../../stores/index.js';
+import { cappedByStorageMinimum } from '../../../targets/stores/storage-reserve.js';
 import { shrinkCarry } from './carry.js';
 import { reapEmptyLoosePile } from './piles.js';
 
@@ -13,15 +14,21 @@ export const MEAL_UNITS = 1;
 /**
  * Consume one unit of `goodType` for an `eat` atomic: from the store `from` when given, else from the
  * settler's own carried load. A source that emptied since the planner chose it takes nothing rather than
- * going negative, and the atomic still credits the meal. The settler's pickup claim on the store ends here.
+ * going negative or below its owner's storage minimum, and the atomic still credits the meal. The settler's pickup claim on the store ends here.
  */
-export function consumeFood(world: World, settler: Entity, from: Entity | null, goodType: number): void {
+export function consumeFood(
+  world: World,
+  ctx: SystemContext,
+  settler: Entity,
+  from: Entity | null,
+  goodType: number,
+): void {
   if (from !== null) {
     world.remove(settler, PickupClaim);
     const stock = accessibleStockAmounts(world, from);
     if (stock === undefined) return;
     const have = stock.get(goodType) ?? 0;
-    if (have <= 0) return;
+    if (cappedByStorageMinimum(world, ctx, from, goodType, Math.min(MEAL_UNITS, have)) < MEAL_UNITS) return;
     setAccessibleStockAmount(world, from, goodType, have - MEAL_UNITS);
     reapEmptyLoosePile(world, from);
     return;

@@ -108,7 +108,7 @@ export function storedFoodGood(
   entity: Entity,
   claims?: SupplyTally,
 ): number | null {
-  const unclaimed = claims === undefined ? undefined : unclaimedGoodsAt(world, claims, entity);
+  const unclaimed = claims === undefined ? undefined : unclaimedGoodsAt(world, ctx, claims, entity);
   return lowestStockedFood(world, ctx.content, entity, unclaimed);
 }
 

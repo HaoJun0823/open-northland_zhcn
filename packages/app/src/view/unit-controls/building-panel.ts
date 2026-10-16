@@ -53,6 +53,14 @@ export function buildingPanelActions(host: BuildingPanelHost): BuildingPanelActi
       host.cue('confirm');
       send({ kind: 'setHouseholdGoodUse', player, effect, allowed });
     },
+    setStorageMinimum: (player, goodType, amount) => {
+      if (player !== host.viewer.seat()) {
+        host.cue('fail');
+        return;
+      }
+      host.cue('confirm');
+      send({ kind: 'setStorageMinimum', player, goodType, amount });
+    },
   };
 }
 

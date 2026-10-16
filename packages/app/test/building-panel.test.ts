@@ -17,6 +17,7 @@ import {
   BUILDING_JOINERY,
   BUILDING_MILL,
   BUILDING_WATCHTOWER,
+  BUILDING_WELL,
   GOOD_FLOUR,
   GOOD_STONE,
   GOOD_WHEAT,
@@ -357,6 +358,28 @@ describe('building panel orders and alerts', () => {
     expect(rows.length > 0 && rows.every((row) => !row.running)).toBe(true);
   });
 
+  it("sets the owner's storage minimums from a store for a picked good and from a well for its own", () => {
+    const minimums = {
+      components: { StorageMinimums: { player: HUMAN_PLAYER, minimums: [[GOOD_WOOD, 30]] } },
+    };
+    const entities = [
+      buildingEntity(1, BUILDING_HEADQUARTERS),
+      buildingEntity(2, BUILDING_WELL),
+      { id: 9, ...minimums },
+    ];
+    const store = buildingModel(entities, 1).storageMinimum;
+    expect(store?.good).toBeNull();
+    expect(store?.minimums[GOOD_WOOD]).toBe(30);
+    expect(store?.control).toBe(true);
+
+    const ctx = sandboxCtx();
+    const water = ctx.buildings.find((b) => b.typeId === BUILDING_WELL)?.produces[0];
+    expect(buildingModel(entities, 2, ctx).storageMinimum?.good?.goodType).toBe(water);
+    expect(buildingModel([buildingEntity(1, BUILDING_MILL)], 1).storageMinimum).toBeNull();
+    const foreign = buildingEntity(1, BUILDING_HEADQUARTERS, { components: { Owner: { player: 1 } } });
+    expect(buildingModel([foreign], 1).storageMinimum).toBeNull();
+  });
+
   it('names the type without its tier and counts the tier up its upgrade chain', () => {
     const home = buildingModel([buildingEntity(1, BUILDING_HOME_00)], 1);
     expect(home.tier).toBe(1);
@@ -615,6 +638,8 @@ describe('building orders', () => {
     actions.demolish(1, 'Kwatera');
     actions.setHouseholdGoodUse(HUMAN_PLAYER, 'rest', false);
     actions.setHouseholdGoodUse(1, 'rest', false);
+    actions.setStorageMinimum(HUMAN_PLAYER, GOOD_WOOD, 30);
+    actions.setStorageMinimum(1, GOOD_WOOD, 30);
     actions.releaseGarrison(2, [8]);
     actions.releaseGarrison(1, [6, 7]);
     await Promise.resolve();
@@ -623,12 +648,24 @@ describe('building orders', () => {
     expect(sent).toEqual([
       { kind: 'setDefenceMode', building: 1 as Entity, enabled: true },
       { kind: 'setHouseholdGoodUse', player: HUMAN_PLAYER, effect: 'rest', allowed: false },
+      { kind: 'setStorageMinimum', player: HUMAN_PLAYER, goodType: GOOD_WOOD, amount: 30 },
       { kind: 'unassignWorker', entity: 6 as Entity },
       { kind: 'unassignWorker', entity: 7 as Entity },
       { kind: 'demolish', building: 1 as Entity },
     ]);
     expect(selected).toEqual([[6, 7]]);
-    expect(cues).toEqual(['confirm', 'fail', 'confirm', 'confirm', 'confirm', 'fail', 'fail', 'confirm']);
+    expect(cues).toEqual([
+      'confirm',
+      'fail',
+      'confirm',
+      'confirm',
+      'confirm',
+      'fail',
+      'confirm',
+      'fail',
+      'fail',
+      'confirm',
+    ]);
   });
 });
 

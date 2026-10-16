@@ -10,6 +10,7 @@ import { createSection } from '../parts/section.js';
 import { keptRanking, OVERVIEW_TAB, stockStripGlyphs, stockTabRows } from '../parts/stock-browser.js';
 import type { BuildingPanelDeps } from './actions.js';
 import { createGoodLine, type GoodLine, syncLines, withEffect } from './good-line.js';
+import { createMinimumRow, type MinimumGood } from './minimum.js';
 
 /** Design px of one stock line (foundation.css `.on-cargo-row`), and the lines a list squeezed to fit
  *  the plane still shows. */
@@ -19,7 +20,9 @@ const STOCK_LINES_LEAST = 3;
 /** Storage: every good the house stores, what it holds against its shelf with the shelf's fill on the
  *  rule, empty shelves faded, an input the workers wait for in amber and a product's full shelf in red.
  *  A store opens on its largest stocks and lists the rest by category under icon tabs; a workshop's
- *  inputs stand under "Uses" and its products under "Makes". Past eight lines the list scrolls in place. */
+ *  inputs stand under "Uses" and its products under "Makes". Past eight lines the list scrolls in place.
+ *  Under the list a storehouse sets the owner's storage minimum of the good picked on it, and a
+ *  self-filling house that of its own good. */
 export interface StockSection {
   readonly element: HTMLElement;
   /** `fresh` is another house: the tab opens anew. */
@@ -51,8 +54,13 @@ export function createStockSection(deps: BuildingPanelDeps): StockSection {
   // Under tabs the shelves keep one height, so another tab never resizes the window.
   const shelves = element('div', 'on-building-stock__shelves');
   shelves.append(list, empty);
+  const minimum = createMinimumRow(deps);
   const root = element('div', 'on-building-stock');
-  root.append(title.element, tabs.element, shelves);
+  root.append(title.element, tabs.element, shelves, minimum.element);
+  /** The good a storehouse's minimum line sets, picked on the list. */
+  let picked: number | null = null;
+  const pickable = (model: BuildingPanelModel): boolean =>
+    model.storageMinimum !== null && model.storageMinimum.good === null;
   let tabbed = false;
   const lines = new Map<string, GoodLine>();
   // The overview's ranking, kept while the same goods lead so no line moves under the cursor.
@@ -100,8 +108,11 @@ export function createStockSection(deps: BuildingPanelDeps): StockSection {
       list,
       lines,
       rows.map((row) => `${tab}:${row.goodType}`),
-      () => createGoodLine(deps.icons),
+      makeLine,
     );
+    const picking = pickable(model);
+    // A storehouse's shelf reads the minimum its line sets; a well's own shelf is no storehouse.
+    const minimums = picking ? model.storageMinimum?.minimums : undefined;
     const split = model.stockLayout === 'split';
     rows.forEach((row, index) => {
       const line = kept[index];
@@ -118,10 +129,15 @@ export function createStockSection(deps: BuildingPanelDeps): StockSection {
         amount: stockAmount(row.amount),
         capacity: stockAmount(capacity),
       });
+      setAttribute(line.element, 'data-good', String(row.goodType));
+      setClass(line.element, 'on-cargo-row--pickable', picking);
+      setClass(line.element, 'on-cargo-row--picked', picking && row.goodType === picked);
+      const held = minimums?.[row.goodType] ?? 0;
       line.update({
         goodId: row.goodId,
         label: row.label,
         value: stockAmount(row.amount, row.capacity),
+        ...(held > 0 ? { aside: formatMessage(copy.minimumAside, { amount: held }) } : {}),
         fill: meterFill(row.amount, capacity),
         tooltip: withEffect(
           row.alert === undefined
@@ -136,7 +152,30 @@ export function createStockSection(deps: BuildingPanelDeps): StockSection {
       });
     });
     paintFold();
+    paintMinimum(model);
   };
+
+  const paintMinimum = (model: BuildingPanelModel): void => {
+    const setting = model.storageMinimum;
+    setHidden(minimum.element, setting === null);
+    if (setting === null) return;
+    const row = picked === null ? undefined : model.stock.find((line) => line.goodType === picked);
+    const good: MinimumGood | null =
+      setting.good ??
+      (row === undefined ? null : { goodType: row.goodType, goodId: row.goodId, label: row.label });
+    minimum.update(setting, good);
+  };
+
+  function makeLine(): GoodLine {
+    const line = createGoodLine(deps.icons);
+    line.element.addEventListener('click', () => {
+      const good = Number(line.element.dataset.good);
+      if (shown === null || !pickable(shown) || !Number.isInteger(good)) return;
+      picked = good;
+      paint(shown);
+    });
+    return line;
+  }
 
   return {
     element: root,
@@ -147,6 +186,7 @@ export function createStockSection(deps: BuildingPanelDeps): StockSection {
       title.update(messages().hud.buildingPanel.stock);
       if (fresh) {
         tab = OVERVIEW_TAB;
+        picked = null;
         ranked = [];
         list.scrollTop = 0;
       }

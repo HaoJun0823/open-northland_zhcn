@@ -97,7 +97,7 @@ export function applyEffect(
     // The meal itself was paid out at the clip's own event frame; the unit leaves the shelf here. The eat
     // clips carry no `interruptable`, so an order parks behind one rather than splitting the two halves.
     case 'eat':
-      consumeFood(world, settler, effect.from, effect.goodType);
+      consumeFood(world, ctx, settler, effect.from, effect.goodType);
       clearNeedOrder(world, settler, 'hunger');
       return;
     case 'forage':

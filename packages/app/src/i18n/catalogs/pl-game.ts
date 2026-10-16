@@ -980,6 +980,13 @@ export const plGame = {
       allowed: '{good} · dozwolone we wszystkich domach · kliknij: zabroń',
       forbidden: '{good} · zabronione we wszystkich domach · kliknij: pozwól',
       policyForeign: 'Zasady ustala właściciel',
+      minimum: 'Minimum w magazynach',
+      minimumTooltip:
+        'Wszystkie Twoje magazyny trzymają razem co najmniej tyle tego towaru. Nikt nie weźmie go poniżej minimum: ani warsztaty, ani budowy, ani kupcy, ani jedzący. Studnie i pasieki najpierw dopełniają magazyny. Ustawienie jest wspólne dla wszystkich magazynów.',
+      minimumPick: 'Kliknij towar na liście, aby ustawić minimum',
+      minimumLess: 'Zmniejsz minimum: {good}',
+      minimumMore: 'Zwiększ minimum: {good}',
+      minimumAside: 'min {amount}',
       offers: 'Oferty handlowe',
     },
     tradeWindow: {

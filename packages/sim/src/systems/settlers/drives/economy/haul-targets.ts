@@ -42,7 +42,7 @@ function nearestLoosePickup(
   const walls = buildingBlockedCells(world, ctx, terrain);
   const groundPileGood = (e: Entity): Qualified<number> | null => {
     if (!isLoosePile(world, e)) return null;
-    const good = lowestStockedGood(world.get(e, Stockpile), unclaimedGoodsAt(world, supply, e));
+    const good = lowestStockedGood(world.get(e, Stockpile), unclaimedGoodsAt(world, ctx, supply, e));
     if (good === null || !deliverable(good)) return null;
     return strandedPile(world, ctx, terrain, walls, e) ? null : { payload: good };
   };

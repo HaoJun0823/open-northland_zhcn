@@ -65,6 +65,7 @@ const HUMAN_PLAYER = 0;
 const RIVAL_PLAYER = 1;
 const ARMOURY = 22;
 const FORGE = 25;
+const WAREHOUSE = 7;
 const FORGE_UPGRADE = 26;
 /** Appended by this suite alone, out of the 10..19 band the shared fixture reserves for that. */
 const BREWHOUSE = 10;
@@ -175,6 +176,16 @@ function ownedForgeAtNode(sim: Simulation, hx: number, hy: number, swords: numbe
   sim.world.add(e, Position, positionOfNode(hx, hy));
   sim.world.add(e, Building, { buildingType: FORGE, tribe: VIKING, built: fx.fromInt(1), level: 0 });
   sim.world.add(e, Stockpile, { amounts: new Map([[SWORD, swords]]) });
+  sim.world.add(e, Owner, { player: HUMAN_PLAYER });
+  return e;
+}
+
+/** A built warehouse of the human player at (x, y) holding `amount` of `goodType`. */
+function ownedWarehouseAt(sim: Simulation, x: number, y: number, goodType: number, amount: number): Entity {
+  const e = sim.world.create();
+  sim.world.add(e, Position, { x: fx.fromInt(x), y: fx.fromInt(y) });
+  sim.world.add(e, Building, { buildingType: WAREHOUSE, tribe: VIKING, built: fx.fromInt(1), level: 0 });
+  sim.world.add(e, Stockpile, { amounts: new Map([[goodType, amount]]) });
   sim.world.add(e, Owner, { player: HUMAN_PLAYER });
   return e;
 }
@@ -1171,6 +1182,19 @@ describe('equipPicksForSelection - the selection menu read view', () => {
     expect(sim.equipPicksForSelection([a, b, a])).toEqual([
       { goodType: SHOES, group: 'boots', available: 4, takers: [a, b] },
       { goodType: TOOL_WOODEN, group: 'tool', available: 2, takers: [a, b] },
+    ]);
+  });
+
+  it('offers a storage minimum’s surplus once across the owner’s storehouses', () => {
+    const sim = freshSim();
+    const man = ownedSettler(sim, 2, 2);
+    ownedWarehouseAt(sim, 8, 2, SHOES, 3);
+    ownedWarehouseAt(sim, 10, 2, SHOES, 3);
+    sim.enqueueSetup({ kind: 'setStorageMinimum', player: HUMAN_PLAYER, goodType: SHOES, amount: 4 });
+    sim.step();
+
+    expect(sim.equipPicksForSelection([man])).toEqual([
+      { goodType: SHOES, group: 'boots', available: 2, takers: [man] },
     ]);
   });
 

@@ -1,4 +1,4 @@
-import type { ContentSet, GoodQuantity, Recipe } from '@open-northland/data';
+import { BUILDING_KIND, type ContentSet, type GoodQuantity, type Recipe } from '@open-northland/data';
 import { Building, UnderConstruction, Upgrading } from '../../components/index.js';
 import { isCarrierJobId } from '../../core/content-index/jobs.js';
 import { contentIndex } from '../../core/content-index.js';
@@ -89,8 +89,13 @@ export function isWorkplaceOutput(
   return mergedRecipeOf(world, ctx, building)?.outputs.some((o) => o.goodType === goodType) === true;
 }
 
+/** Whether a building type is a storehouse or the headquarters, the houses a storage minimum binds. */
+export function isStorehouseType(content: ContentSet, buildingType: number): boolean {
+  return contentIndex(content).buildings.get(buildingType)?.kind === BUILDING_KIND.storage;
+}
+
 /** Whether a building type takes general deliveries into store: it runs no recipe and fills no stock of
- *  its own. */
+ *  its own. Homes, farms and towers pass too; {@link isStorehouseType} names the storehouses alone. */
 export function isStorageBuildingType(content: ContentSet, buildingType: number): boolean {
   const index = contentIndex(content);
   return (

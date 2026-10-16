@@ -22,6 +22,7 @@ import { constructionWorkCell } from '../../../footprint/index.js';
 import {
   bankedSlot,
   buildingProduces,
+  isStorehouseType,
   mergedRecipeOf,
   refillsOwnStock,
   type SupplyTally,
@@ -32,6 +33,7 @@ import {
   boundWorkplaceTarget,
   nearestStoreFor,
   QUALIFIES,
+  storageBelowMinimum,
   unreachableSiteStand,
 } from '../../targets/index.js';
 import { unreachableGoalVeto } from '../../unreachable-goals.js';
@@ -63,6 +65,7 @@ export const DELIVERY_RULES: readonly DeliveryRule[] = [
   { kind: 'bound', resolve: toBoundStorage },
   { kind: 'bound', resolve: toOwnCrewSite },
   { kind: 'searched', resolve: toNeedingConstructionSite },
+  { kind: 'searched', resolve: toStorageUnderMinimum },
   { kind: 'searched', resolve: toNearbyRecipeConsumer },
   { kind: 'searched', resolve: toNearestCapableStore },
 ];
@@ -198,6 +201,35 @@ function toNeedingConstructionSite(
 function constructionSiteCanReceive(plan: PlannerContext, site: Entity): boolean {
   const { world, ctx, terrain, here, targets } = plan;
   return constructionWorkCell(world, ctx, terrain, site, targets.yard.blocked, here) !== null;
+}
+
+/**
+ * While its player's storehouses hold less of the good than its storage minimum, a carrier posted at a
+ * self-filling house takes the good to the nearest storehouse rather than to a consumer (our rule). With
+ * no storehouse in reach the load falls through to the consumers.
+ */
+function toStorageUnderMinimum(
+  plan: PlannerContext,
+  goodType: number,
+  area: DeliverySearchArea,
+): DeliveryVerdict {
+  const { world, ctx, here, owner, targets } = plan;
+  const home = boundWorkplace(plan);
+  if (home === undefined || owner === undefined || !refillsOwnStock(world, ctx, home)) return null;
+  if (!buildingProduces(world, ctx, home).includes(goodType)) return null;
+  if (!storageBelowMinimum(world, ctx, owner, goodType)) return null;
+  // Its own storehouses alone: only their stock counts toward the minimum.
+  const storage = (e: Entity): typeof QUALIFIES | null => {
+    const type = world.tryGet(e, Building)?.buildingType;
+    return type !== undefined && isStorehouseType(ctx.content, type) && ownerOf(world, e) === owner
+      ? QUALIFIES
+      : null;
+  };
+  return (
+    targets.bands
+      .sinksFor(goodType, false)
+      .nearest(here, storage, area.gate, area.avoid, sameSideAs(world, owner))?.entity ?? null
+  );
 }
 
 /**

@@ -79,6 +79,7 @@ import { scoutExploreScene } from './scout-explore.js';
 import { shipWakesScene } from './ship-wakes.js';
 import { siegeScene } from './siege.js';
 import { signpostsScene } from './signposts.js';
+import { storageMinimumScene } from './storage-minimum.js';
 import { storeReachScene } from './store-reach.js';
 import { technologyScene } from './technology.js';
 import { templeAuraScene } from './temple-aura.js';
@@ -175,6 +176,7 @@ export const SCENES: readonly SceneDefinition[] = [
   movementContinuityScene,
   huntingScene,
   householdGoodsScene,
+  storageMinimumScene,
   templeAuraScene,
   idleWorkScene,
   storeReachScene,

@@ -233,7 +233,10 @@ export function nearestCollectablePileFor(
     plan,
     piles,
     (e) => {
-      const good = lowestStockedGood(world.get(e, Stockpile), unclaimedGoodsAt(world, plan.supply, e));
+      const good = lowestStockedGood(
+        world.get(e, Stockpile),
+        unclaimedGoodsAt(world, plan.ctx, plan.supply, e),
+      );
       if (good === null) return null; // an emptied drop, about to be reaped, or one walkers claimed whole
       if (goodFilter !== undefined && !goodFilter.has(good)) return null; // not a good the caller forages for
       const harvestAtomic = targets.harvestAtomicByGood.get(good);
@@ -258,7 +261,10 @@ export function nearestOwnDropFor(
   return nearestDropFor(plan, [own], (e) => {
     const mark = world.tryGet(e, HarvestedBy);
     if (mark === undefined || mark.by !== gatherer) return null; // not this gatherer's own drop
-    const good = lowestStockedGood(world.get(e, Stockpile), unclaimedGoodsAt(world, plan.supply, e));
+    const good = lowestStockedGood(
+      world.get(e, Stockpile),
+      unclaimedGoodsAt(world, plan.ctx, plan.supply, e),
+    );
     return good; // null when emptied, about to be reaped, or claimed whole by a porter
   });
 }

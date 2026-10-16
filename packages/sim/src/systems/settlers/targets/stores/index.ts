@@ -11,3 +11,4 @@ export {
   unclaimedGoodsAt,
   unclaimedStockOf,
 } from './stock.js';
+export { storageBelowMinimum, storageLendable } from './storage-reserve.js';

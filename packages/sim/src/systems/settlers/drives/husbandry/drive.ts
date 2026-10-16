@@ -238,7 +238,8 @@ function flushFullWare(plan: PlannerContext, farm: Entity, good: number): boolea
   const deliverable = deliverableGoodProbe(plan);
   for (const ware of slayDepositGoods(ctx, world.get(e, Settler), good)) {
     // A ware a carrier already walks to lift is not full for the breeder.
-    if (unclaimedStockOf(world, plan.supply, farm, ware) < stockCapacity(world, ctx, farm, ware)) continue;
+    if (unclaimedStockOf(world, ctx, plan.supply, farm, ware) < stockCapacity(world, ctx, farm, ware))
+      continue;
     if (!deliverable(ware)) continue;
     walkPickupBatch(plan, farm, ware);
     return true;

@@ -16,7 +16,6 @@ import type { Entity } from '../../src/ecs/world.js';
 import { Simulation } from '../../src/index.js';
 import { plannerSystem } from '../../src/systems/index.js';
 import { FetchableStock } from '../../src/systems/settlers/targets/index.js';
-import { testContent } from '../fixtures/content.js';
 import {
   buildingAt,
   cell,
@@ -25,120 +24,27 @@ import {
   PICKUP_ATOMIC,
   settlerAt,
   siteAt,
-  WOOD,
 } from './producer-supply/support.js';
+import {
+  BAKERY,
+  BREAD,
+  BREWERY,
+  CARRIER,
+  CONSUMER_CAPACITY,
+  HIVE,
+  HIVE_COLLECT_ATOMIC,
+  HONEY,
+  OPERATOR,
+  utilityContent,
+  WAREHOUSE,
+  WATER,
+  WELL,
+  WELL_PUMP_ATOMIC,
+} from './utility-content.js';
 
 // Self-filling houses (the well, the hive) top their own stock up once per game second with no worker.
 // Consumers lift the ready unit off the shelf like any store's, and a carrier posted there takes it to the
-// nearest recipe consumer with room before storage. The goods and buildings live in a LOCAL content
-// extension, since the shared fixture's typeIds 10..14 are footprinted houses the placement tests claim.
-
-const WATER = 207;
-const BREAD = 208;
-const HONEY = 209;
-const ALE = 210;
-const OPERATOR = 2; // the bakery/brewery craftsman (the fixture's carpenter job, reused as the operator)
-const CARRIER = 24;
-const WELL = 10;
-const HIVE = 11;
-const BAKERY = 12;
-const BREWERY = 13;
-const WAREHOUSE = 7; // testContent's general storage - extended below to stock the utility outputs
-const WELL_PUMP_ATOMIC = 44; // the well's `collectAtomic`
-const HIVE_COLLECT_ATOMIC = 45; // the hive's
-const CONSUMER_CAPACITY = 10;
-const BUILD_MATERIAL = WOOD;
-
-/** testContent extended with the self-filling well and hive, their consumers (bakery, brewery) and
- *  utility-good slots on the warehouse, the storage fallback. */
-function utilityContent(wellCapacity = 1): ContentSet {
-  const base = testContent();
-  const consumerSlot = (goodType: number) => ({ goodType, capacity: CONSUMER_CAPACITY, initial: 0 });
-  return parseContentSet({
-    ...base,
-    goods: [
-      ...base.goods,
-      { typeId: WATER, id: 'water', weight: 1 },
-      { typeId: BREAD, id: 'bread', weight: 1 },
-      { typeId: HONEY, id: 'honey', weight: 1 },
-      { typeId: ALE, id: 'ale', weight: 1 },
-    ],
-    buildings: [
-      ...base.buildings.map((b) =>
-        b.id === 'warehouse'
-          ? {
-              ...b,
-              stock: [
-                ...b.stock,
-                { goodType: WATER, capacity: 150, initial: 0 },
-                { goodType: BREAD, capacity: 150, initial: 0 },
-                { goodType: HONEY, capacity: 150, initial: 0 },
-                { goodType: ALE, capacity: 150, initial: 0 },
-              ],
-            }
-          : b,
-      ),
-      {
-        typeId: WELL,
-        id: 'work_well_00',
-        kind: 'workplace',
-        buildOnBioPattern: true,
-        collectAtomic: WELL_PUMP_ATOMIC,
-        refillsOwnStock: true,
-        workers: [{ jobType: CARRIER, count: 1 }],
-        stock: [{ goodType: WATER, capacity: wellCapacity, initial: 0 }],
-        produces: [WATER],
-        construction: [{ goodType: BUILD_MATERIAL, amount: 1 }], // so a site stays one until supplied
-      },
-      {
-        typeId: HIVE,
-        id: 'work_hive_00',
-        kind: 'workplace',
-        buildOnBioPattern: true,
-        collectAtomic: HIVE_COLLECT_ATOMIC,
-        refillsOwnStock: true,
-        workers: [{ jobType: CARRIER, count: 1 }],
-        stock: [{ goodType: HONEY, capacity: 1, initial: 0 }],
-        produces: [HONEY],
-      },
-      {
-        typeId: BAKERY,
-        id: 'bakery',
-        kind: 'workplace',
-        workers: [
-          { jobType: OPERATOR, count: 1 },
-          { jobType: CARRIER, count: 1 },
-        ],
-        stock: [consumerSlot(WATER), consumerSlot(BREAD)],
-        produces: [BREAD],
-        recipes: [
-          { inputs: [{ goodType: WATER, amount: 1 }], outputs: [{ goodType: BREAD, amount: 1 }], ticks: 6 },
-        ],
-      },
-      {
-        typeId: BREWERY,
-        id: 'brewery',
-        kind: 'workplace',
-        workers: [
-          { jobType: OPERATOR, count: 1 },
-          { jobType: CARRIER, count: 1 },
-        ],
-        stock: [consumerSlot(HONEY), consumerSlot(WATER), consumerSlot(ALE)],
-        produces: [ALE],
-        recipes: [
-          {
-            inputs: [
-              { goodType: HONEY, amount: 1 },
-              { goodType: WATER, amount: 1 },
-            ],
-            outputs: [{ goodType: ALE, amount: 1 }],
-            ticks: 6,
-          },
-        ],
-      },
-    ],
-  });
-}
+// nearest recipe consumer with room before storage.
 
 const waterIn = (sim: Simulation, store: Entity): number =>
   sim.world.get(store, Stockpile).amounts.get(WATER) ?? 0;

@@ -27,6 +27,14 @@ describe('the counter part', () => {
     expect(counterStep(RANGE, 3, -1, PLAIN)).toBe(2);
   });
 
+  it('steps by its own step, clamped at the ends of a range without unlimited, and by ten with the tens key', () => {
+    const fives = { max: 999, step: 5 };
+    expect(counterStep(fives, 10, 1, PLAIN)).toBe(15);
+    expect(counterStep(fives, 3, -1, PLAIN)).toBe(0);
+    expect(counterStep(fives, 997, 1, PLAIN)).toBe(999);
+    expect(counterStep(fives, 10, 1, TENS)).toBe(20);
+  });
+
   it('wraps − at zero to unlimited and steps − from unlimited to the finite top', () => {
     expect(counterStep(RANGE, 0, -1, PLAIN)).toBe(RANGE.unlimited);
     expect(counterStep(RANGE, RANGE.unlimited, -1, PLAIN)).toBe(RANGE.max);

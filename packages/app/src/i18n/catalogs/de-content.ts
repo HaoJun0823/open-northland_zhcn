@@ -596,6 +596,11 @@ export const deContent = {
       summary:
         'Töpfer, Schreiner und Druiden versorgen ein ausgebautes Wohnhaus mit Geschirr, Möbeln und Öl, um Mahlzeiten, Ruhe und Gebet zu verbessern.',
     },
+    'storage-minimum': {
+      title: 'Lagerminimum',
+      summary:
+        'Die Lager halten mindestens 10 Wasser: Der Brunnenträger füllt zuerst das Lager auf und beliefert dann wieder die Bäckerei, und der Bäcker nimmt das Wasser im Lager nie unter das Minimum.',
+    },
     warehouse: {
       title: 'Lagerlogistik',
       summary: 'Träger sammeln herumliegende Waren ein, bis jedes Lagerhaus voll ist.',

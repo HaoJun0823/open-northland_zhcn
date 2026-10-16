@@ -617,6 +617,14 @@ export type UnitOrderCommand =
       readonly player: number;
       readonly effect: HomeQualityEffect;
       readonly allowed: boolean;
+    }
+  | {
+      /** Set how many units of one good `player`'s storehouses keep between them; zero lifts the minimum.
+       *  Clamped to `[0, STORAGE_MINIMUM_MAX]`. */
+      readonly kind: 'setStorageMinimum';
+      readonly player: number;
+      readonly goodType: number;
+      readonly amount: number;
     };
 
 /**

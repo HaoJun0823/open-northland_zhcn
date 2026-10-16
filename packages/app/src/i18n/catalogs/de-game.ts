@@ -645,7 +645,7 @@ export const deGame = {
       clearWorkAreaHint: 'Der Träger sammelt wieder überall in Reichweite der Wegweiser Waren ein',
       centreFlag: 'Fahne anzeigen',
       centreFlagHint: 'Ansicht auf die Fahne zentrieren',
-      lostDetail: 'Kennt keinen Weg jenseits der Wegweiser',
+      lostDetail: 'Findet keinen Weg zum Ziel',
       lostGoal: 'Ziel anzeigen',
       lostGoalHint: 'Ansicht auf den Ort zentrieren, zu dem dieser Siedler keinen Weg findet',
       buildRun: 'Aufgabe',

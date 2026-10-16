@@ -591,7 +591,7 @@ export const plGame = {
       clearWorkAreaHint: 'Tragarz znów zbiera towary w całym zasięgu drogowskazów',
       centreFlag: 'Pokaż chorągiewkę',
       centreFlagHint: 'Wyśrodkuj widok na chorągiewce',
-      lostDetail: 'Nie zna drogi poza drogowskazami',
+      lostDetail: 'Nie może znaleźć drogi do celu',
       lostGoal: 'Pokaż cel',
       lostGoalHint: 'Wyśrodkuj widok na miejscu, do którego nie zna drogi',
       buildRun: 'Zadanie',

@@ -603,7 +603,7 @@ export const enGame = {
       clearWorkAreaHint: 'The carrier collects goods anywhere within signpost reach again',
       centreFlag: 'Show the flag',
       centreFlagHint: 'Centre the view on the flag',
-      lostDetail: 'Knows no way beyond the signposts',
+      lostDetail: 'Cannot find a route to the destination',
       lostGoal: 'Show the goal',
       lostGoalHint: 'Centre the view on the place this settler cannot find the way to',
       buildRun: 'Task',

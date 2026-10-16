@@ -25,6 +25,7 @@ import { dropPath } from './nav-state.js';
 import { emptyLegMeasure, measureLeg, stepAlongLeg, stepTowardPoint } from './stepping.js';
 import { beginWalkTurn, finishWalkTurn } from './turning.js';
 import {
+  emptyWalkStepModifiers,
   hasLiveBoots,
   isCarryingGood,
   MAX_STEP_TICKS,
@@ -59,6 +60,8 @@ export const SLOWEST_PACE_PER_TICK: Fixed = fx.div(HALF_ROW, fx.fromInt(MAX_STEP
 
 /** The current walker's leg, measured once per tick and shared by its distance check and its step. */
 const leg = emptyLegMeasure();
+/** The step modifiers of the leg being laid out or paced, read and consumed before the next walker's. */
+const stepModifiers = emptyWalkStepModifiers();
 
 /**
  * Advances every {@link PathFollow} walker one tick; dropping the path at the last waypoint is what the
@@ -237,7 +240,7 @@ function walkHumanLeg(
   if (pf.legCost === 0) {
     const resistance = departureResistance(ctx.terrain, pf, stops);
     const follow = writableFollow(world, e, write);
-    const modifiers = walkStepModifiersOf(world, e, ctx.content, ctx.tick);
+    const modifiers = walkStepModifiersOf(world, e, ctx.content, ctx.tick, stepModifiers);
     beginTimedLeg(follow, stops, p, target, walkStepTicks(resistance, modifiers));
     // The planned heading is fixed for this leg. Separation can nudge the position across an octant
     // boundary; re-aiming every tick would insert fresh turn holds in the middle of a steady step.
@@ -344,7 +347,7 @@ export function walkPacePerTick(world: World, ctx: SystemContext, e: Entity): Fi
       : (period ??
         walkStepTicks(
           departureResistance(ctx.terrain, pf, stops),
-          walkStepModifiersOf(world, e, ctx.content, ctx.tick),
+          walkStepModifiersOf(world, e, ctx.content, ctx.tick, stepModifiers),
         ));
   return fx.div(worldDistance(from.x, from.y, to.x, to.y), fx.fromInt(ticks));
 }

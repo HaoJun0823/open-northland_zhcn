@@ -122,12 +122,20 @@ export function isCarryingGood(world: World, e: Entity): boolean {
   return world.has(e, Carrying);
 }
 
-/** Read `e`'s step modifiers for the step about to start. */
+/** {@link WalkStepModifiers} a reader fills in place. */
+export type WalkStepModifiersScratch = { -readonly [K in keyof WalkStepModifiers]: WalkStepModifiers[K] };
+
+export function emptyWalkStepModifiers(): WalkStepModifiersScratch {
+  return { ...UNMODIFIED_STEP };
+}
+
+/** Read `e`'s step modifiers for the step about to start into `out`, a scratch a hot caller reuses. */
 export function walkStepModifiersOf(
   world: World,
   e: Entity,
   content: ContentSet,
   tick: number,
+  out: WalkStepModifiersScratch = emptyWalkStepModifiers(),
 ): WalkStepModifiers {
   const flags = world.tryGet(e, MissionBehaviour)?.flags ?? 0;
   const settler = world.tryGet(e, Settler);
@@ -138,24 +146,23 @@ export function walkStepModifiersOf(
   const job = settler?.jobType ?? null;
   const variant = settler === undefined ? undefined : unitVariantFor(content, settler);
   const reduction = settler === undefined ? undefined : index.tribes.get(settler.tribe)?.walkStepReduction;
-  return {
-    shoes: equipment?.boots != null && hasLiveBoots(world, e),
-    stepTicksSaved: equipment === undefined ? 0 : carriedStepTicksSaved(world, content, e),
-    carrying: isCarryingGood(world, e),
-    tired: fatigue !== undefined && fatigue >= NEED_DRIVE_THRESHOLD,
-    walksSlowly: (flags & MISSION_BEHAVIOUR.WALKS_SLOWLY) !== 0,
-    walksFast: (flags & MISSION_BEHAVIOUR.WALKS_FAST) !== 0,
-    age: ageClassOfJobId(job === null ? undefined : index.jobs.get(job)?.id),
-    tribeReduction:
-      variant?.walkStepReduction ??
-      (reduction !== undefined && (reduction.jobType === undefined || reduction.jobType === job)
-        ? reduction.ticks
-        : 0),
-    equipmentWeight:
-      settler === undefined || isHeroJob(content, job)
-        ? 0
-        : equipmentWeight(world, e, index, equipment, settler.tribe, job, variant),
-  };
+  out.shoes = equipment?.boots != null && hasLiveBoots(world, e);
+  out.stepTicksSaved = equipment === undefined ? 0 : carriedStepTicksSaved(world, content, e);
+  out.carrying = isCarryingGood(world, e);
+  out.tired = fatigue !== undefined && fatigue >= NEED_DRIVE_THRESHOLD;
+  out.walksSlowly = (flags & MISSION_BEHAVIOUR.WALKS_SLOWLY) !== 0;
+  out.walksFast = (flags & MISSION_BEHAVIOUR.WALKS_FAST) !== 0;
+  out.age = ageClassOfJobId(job === null ? undefined : index.jobs.get(job)?.id);
+  out.tribeReduction =
+    variant?.walkStepReduction ??
+    (reduction !== undefined && (reduction.jobType === undefined || reduction.jobType === job)
+      ? reduction.ticks
+      : 0);
+  out.equipmentWeight =
+    settler === undefined || isHeroJob(content, job)
+      ? 0
+      : equipmentWeight(world, e, index, equipment, settler.tribe, job, variant);
+  return out;
 }
 
 function equipmentWeight(

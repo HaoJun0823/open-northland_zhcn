@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import * as alphaMask from '../../src/gpu/sprite-pool/alpha-mask.js';
 import { LayerBinder } from '../../src/gpu/sprite-pool/bind-layers.js';
-import { pixelHit } from '../../src/gpu/sprite-pool/pick.js';
+import { pixelHit, siteFlagHit } from '../../src/gpu/sprite-pool/pick.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
 import type { ResolvedLayer } from '../../src/gpu/sprite-pool/resolved-layer.js';
 import { TextureCache } from '../../src/gpu/texture-cache.js';
@@ -110,6 +110,26 @@ describe('construction pixel picking', () => {
         binder.bind(pe, drawItem('building', { upgradePct: 99 }), layers, VIEW, 2);
         expect(pixelHit(pe, 2, 101, 197)).toBe(false); // old body faded out completely
       }
+    },
+  );
+});
+
+describe('claimed site flag picking', () => {
+  it.each(['roadsite', 'palisade'] as const)(
+    "answers on a claimed %s's flag pixels only, never on the open site or a culled frame",
+    (kind) => {
+      const { binder, pe, layer } = fixture();
+      const claimed =
+        kind === 'roadsite' ? { roadSite: 'claimed' as const } : { palisadeSite: 'claimed' as const };
+      const open =
+        kind === 'roadsite' ? { roadSite: 'unclaimed' as const } : { palisadeSite: 'unclaimed' as const };
+      binder.bind(pe, drawItem(kind, claimed), [layer], VIEW, 1);
+      expect(siteFlagHit(pe, 1, 101, 197)).toBe(true); // on the flag
+      expect(siteFlagHit(pe, 1, 120, 197)).toBe(false); // beside it, on the ring or plot
+      expect(pixelHit(pe, 1, 101, 197)).toBeUndefined(); // the site itself keeps its box
+      expect(siteFlagHit(pe, 2, 101, 197)).toBe(false);
+      binder.bind(pe, drawItem(kind, open), [layer], VIEW, 3);
+      expect(siteFlagHit(pe, 3, 101, 197)).toBe(false);
     },
   );
 });

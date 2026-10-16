@@ -20,6 +20,23 @@ describe('selectedWorkFlags', () => {
     expect(selectedWorkFlags(world, new Set()).size).toBe(0);
   });
 
+  it('adds the wall or road site a selected builder claimed, not one it only works on', () => {
+    const BUILDER = 10;
+    const ROAD_SITE = 201;
+    const WALL = 202;
+    const builderAt = (site: number): Ent => ({ id: BUILDER, components: { SiteAssignment: { site } } });
+    const claimed = (id: number, component: 'RoadSite' | 'Palisade', builder: number | null): Ent => ({
+      id,
+      components: { [component]: { reservation: builder === null ? null : { builder } } },
+    });
+    const road = snapshotOf([builderAt(ROAD_SITE), claimed(ROAD_SITE, 'RoadSite', BUILDER)]);
+    expect([...selectedWorkFlags(road, new Set([BUILDER]))]).toEqual([ROAD_SITE]);
+    const wall = snapshotOf([builderAt(WALL), claimed(WALL, 'Palisade', BUILDER)]);
+    expect([...selectedWorkFlags(wall, new Set([BUILDER]))]).toEqual([WALL]);
+    const open = snapshotOf([builderAt(WALL), claimed(WALL, 'Palisade', null)]);
+    expect(selectedWorkFlags(open, new Set([BUILDER])).size).toBe(0);
+  });
+
   it('costs the selection, not the map', () => {
     const crowd = snapshotOf([
       ...Array.from({ length: 4096 }, (_unused, i) => idle(i + 1)),

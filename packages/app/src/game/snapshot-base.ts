@@ -364,6 +364,15 @@ export function buildSiteOf(e: SnapshotEntity): number | undefined {
   return num(a?.site);
 }
 
+/** The builder whose claim planted a wall or road site's work flag; undefined while no one has claimed
+ *  it. */
+export function siteClaimBuilderOf(e: SnapshotEntity): number | undefined {
+  const site = (e.components.Palisade ?? e.components.RoadSite) as
+    | { reservation?: { builder?: unknown } | null }
+    | undefined;
+  return num(site?.reservation?.builder);
+}
+
 /** The foundation or damaged building an `assignBuilder` order pinned a builder to - the one the player
  *  can take back. */
 export function pinnedSiteOf(e: SnapshotEntity): number | undefined {

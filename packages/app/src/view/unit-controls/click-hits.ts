@@ -53,8 +53,8 @@ export function createClickHits(deps: ClickHitDeps): ClickHits {
   };
 
   /**
-   * A drop-off flag stands for its gatherer and outranks every building. It ties with a settler, and the
-   * one drawn in front takes the click. The original's world pick resolves a hit on a human's
+   * A drop-off flag stands for its gatherer, and a claimed wall or road site's flag for its builder; either
+   * outranks every building. It ties with a settler, and the one drawn in front takes the click. The original's world pick resolves a hit on a human's
    * work-centre marker to that human at the rank humans hold, above houses and signposts, and the later
    * hit of its front-to-back scan wins among equal ranks.
    */

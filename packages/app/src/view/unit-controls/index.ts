@@ -157,6 +157,7 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     drawnItems: opts.drawnItems,
     boundsOf: opts.boundsOf,
     pixelHitOf: opts.pixelHitOf,
+    siteFlagHitOf: opts.siteFlagHitOf,
     elevation: opts.elevation,
     resourceVisible: opts.resourceVisible,
   });

@@ -41,7 +41,15 @@ import { coatBody } from './blood-coats.js';
 import { damageScaffoldLayers } from './building-layers.js';
 import { GroundPileCover } from './ground-pile-cover.js';
 import { atRest } from './motion.js';
-import { anchorOf, boundsOf, type DamagedBuilding, keelOf, pixelHit, type ShipAfloat } from './pick.js';
+import {
+  anchorOf,
+  boundsOf,
+  type DamagedBuilding,
+  keelOf,
+  pixelHit,
+  type ShipAfloat,
+  siteFlagHit,
+} from './pick.js';
 import type { EntityBounds, PooledEntity } from './pooled-entity.js';
 import { PortraitSubject } from './portrait-subject.js';
 import { presentEntity } from './present-entity.js';
@@ -730,6 +738,11 @@ export class SpritePool {
   pixelHit(ref: number, wx: number, wy: number): boolean | undefined {
     const pe = this.pool.get(ref);
     return pixelHit(pe, this.currentFrameOf(pe), wx, wy);
+  }
+
+  siteFlagHit(ref: number, wx: number, wy: number): boolean {
+    const pe = this.pool.get(ref);
+    return siteFlagHit(pe, this.currentFrameOf(pe), wx, wy);
   }
 
   anchorOf(ref: number): { x: number; y: number } | undefined {

@@ -375,6 +375,60 @@ describe('unit-controls targets over the renderer frame', () => {
     expect(pickTopAt(targets.flags(), flag.x, flag.y)).toBeNull(); // the ground the flag was lifted off
   });
 
+  it("hands a claimed site's flag pixels to its builder and the plot around them to the site", () => {
+    const SITE = 90_041;
+    const BUILDER = 90_040;
+    const builder = {
+      id: BUILDER,
+      components: { Settler: {}, Owner: { player: HUMAN_PLAYER }, Position: { x: 6 * ONE, y: 8 * ONE } },
+    };
+    const site = (claim: number | null) => ({
+      id: SITE,
+      components: {
+        Owner: { player: HUMAN_PLAYER },
+        RoadSite: { reservation: claim === null ? null : { builder: claim } },
+      },
+    });
+    const scene = snapshot;
+    const withEntities = (...extra: WorldSnapshot['entities']): WorldSnapshot => ({
+      ...scene,
+      entities: [...scene.entities, ...extra],
+    });
+    snapshot = withEntities(builder, site(BUILDER));
+    const plot = { ref: SITE, kind: 'roadsite', x: 200, y: 300, depth: 300, roadSite: 'claimed' } as const;
+    const FLAG_TIP = { x: 200, y: 260 };
+    const PLOT_EDGE = { x: 206, y: 302 };
+    const targets = createUnitTargets({
+      snapshot: () => snapshot,
+      viewer: fixedViewerSeat(HUMAN_PLAYER),
+      hostileToward: () => true,
+      animalCannotBeAttacked: () => false,
+      drawnItems: () => [plot],
+      boundsOf: () => ({ minX: 190, minY: 250, maxX: 210, maxY: 306 }),
+      pixelHitOf: undefined,
+      siteFlagHitOf: (ref, _wx, wy) => ref === SITE && wy < 290,
+    });
+
+    expect(pickTopAt(targets.flags(), FLAG_TIP.x, FLAG_TIP.y)).toBe(BUILDER);
+    expect(targets.hasFlagAt(FLAG_TIP.x, FLAG_TIP.y)).toBe(true);
+    expect(pickTopAt(targets.flags(), PLOT_EDGE.x, PLOT_EDGE.y)).toBeNull();
+    expect(pickTopAt(targets.owned('roadsite'), PLOT_EDGE.x, PLOT_EDGE.y)).toBe(SITE);
+
+    // An unclaimed plot, an enemy's builder and a dead one leave the flag to the site.
+    snapshot = withEntities(builder, site(null));
+    expect(targets.flags()).toEqual([]);
+    snapshot = withEntities(
+      { ...builder, components: { ...builder.components, Owner: { player: ENEMY_PLAYER } } },
+      site(BUILDER),
+    );
+    expect(targets.flags()).toEqual([]);
+    snapshot = withEntities(site(BUILDER));
+    expect(targets.flags()).toEqual([]);
+    // Without a flag pixel test the whole site stays the site's.
+    snapshot = withEntities(builder, site(BUILDER));
+    expect(targetsOver([plot]).flags()).toEqual([]);
+  });
+
   it('never targets a fog ghost or the force-drawn portrait subject', () => {
     // A remembered enemy structure the fog has swallowed, and our own selected settler force-drawn for
     // the details-panel portrait: both are in the draw list, neither is under the cursor.

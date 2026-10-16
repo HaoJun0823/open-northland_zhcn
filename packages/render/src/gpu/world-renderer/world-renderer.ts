@@ -627,6 +627,11 @@ export class WorldRenderer {
     return this.constructionPlots.hit(ref, wx, wy) || this.pool.pixelHit(ref, wx, wy);
   }
 
+  /** Whether the point lands on the work flag a builder's claim planted in a wall or road site. */
+  siteFlagHit(ref: number, wx: number, wy: number): boolean {
+    return this.pool.siteFlagHit(ref, wx, wy);
+  }
+
   /** The `?debug=geometry` overlay of every placed building's logic geometry. */
   setGeometryDebug(items: readonly GeometryDebugItem[] | null): void {
     this.marks.setGeometryDebug(items, this.elevation);

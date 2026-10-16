@@ -3,7 +3,7 @@ import type { SelectionEllipse } from '../../data/sprites/atlas.js';
 import { PalettedSprite } from '../paletted-sprite/index.js';
 import { alphaMaskOf, maskSolidAt } from './alpha-mask.js';
 import { keelLine } from './keel-line.js';
-import type { EntityBounds, PalettedPooledEntity, PooledEntity } from './pooled-entity.js';
+import type { EntityBounds, PalettedPooledEntity, PlainPooledEntity, PooledEntity } from './pooled-entity.js';
 
 /**
  * Read-only queries over what the pool drew this frame: no mutation, no Pixi scene changes. Each gates on
@@ -90,6 +90,20 @@ export function pixelHit(
     return pe.kind === 'settler' ? undefined : palettedPixelHit(pe, wx, wy);
   }
   if (pe.placeholder?.visible || pe.siteMarker?.visible || pe.siteClaimMarker?.visible) return undefined;
+  return plainSpritesHit(pe, wx, wy);
+}
+
+/** Whether the point lands on a solid texel of a claimed site's work flag, not the ring or plot it stands
+ *  in. Unreadable pixels count as a miss, which leaves the click to the site. */
+export function siteFlagHit(pe: PooledEntity | undefined, frameId: number, wx: number, wy: number): boolean {
+  if (pe === undefined || pe.boundsFrame !== frameId || pe.paletted) return false;
+  if (pe.siteClaimMarker?.visible !== true) return false;
+  return plainSpritesHit(pe, wx, wy) === true;
+}
+
+/** {@link pixelHit} over a plain entity's bound sprites; `undefined` when a sprite under the point cannot
+ *  be sampled. */
+function plainSpritesHit(pe: PlainPooledEntity, wx: number, wy: number): boolean | undefined {
   for (let i = 0; i < pe.sprites.length; i++) {
     const spr = pe.sprites[i];
     if (!(spr instanceof Sprite) || !spr.visible || spr.alpha <= 0) continue;

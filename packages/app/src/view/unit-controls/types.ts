@@ -134,6 +134,8 @@ export interface UnitControlsOptions {
   readonly askMoorAt?: (vehicle: number, x: number, y: number) => Promise<boolean>;
   readonly boundsOf?: (ref: number) => EntityBounds | undefined;
   readonly pixelHitOf?: (ref: number, wx: number, wy: number) => boolean | undefined;
+  /** Whether the point is on a claimed wall or road site's work flag; absent, that flag is the site's. */
+  readonly siteFlagHitOf?: (ref: number, wx: number, wy: number) => boolean;
   readonly claimPointer?: (clientX: number, clientY: number) => boolean;
   /** The GUI click feedback: a pressed button, a taken selection or an accepted order confirms, a
    *  cancelled pick fails. Absent, silent. */

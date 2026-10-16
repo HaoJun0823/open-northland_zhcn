@@ -1,9 +1,10 @@
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
-import { workFlagOf } from '../../game/snapshot.js';
+import { buildSiteOf, siteClaimBuilderOf, workFlagOf } from '../../game/snapshot.js';
 
 /**
- * The work flags planted by the selected gatherers. Resolved through the selection rather than the
- * world: a decoded map holds tens of thousands of entities and a selection is a handful.
+ * The work flags planted by the selected gatherers, and the flags of the wall or road sites the selected
+ * builders claimed. Resolved through the selection rather than the world: a decoded map holds tens of
+ * thousands of entities and a selection is a handful.
  */
 export function selectedWorkFlags(
   snapshot: WorldSnapshot,
@@ -12,8 +13,13 @@ export function selectedWorkFlags(
   const flags = new Set<number>();
   for (const id of selected) {
     const entity = entityById(snapshot, id);
-    const flag = entity !== undefined ? workFlagOf(entity) : undefined;
+    if (entity === undefined) continue;
+    const flag = workFlagOf(entity);
     if (flag !== undefined) flags.add(flag);
+    const site = buildSiteOf(entity);
+    const siteEntity = site === undefined ? undefined : entityById(snapshot, site);
+    if (site !== undefined && siteEntity !== undefined && siteClaimBuilderOf(siteEntity) === id)
+      flags.add(site);
   }
   return flags;
 }

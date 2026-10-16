@@ -925,6 +925,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
           ? renderer.entityPixelHit(ref, wx, wy)
           : mapObjectPixelHit(sprite, host.tick, wx, wy);
       },
+      siteFlagHitOf: (ref, wx, wy) => renderer.siteFlagHit(ref, wx, wy),
       claimPointer: (x: number, y: number) =>
         toolPanel.claimPointer(x, y) || mountedMinimap.claimsPointer(x, y),
       onUiCue: uiCue,

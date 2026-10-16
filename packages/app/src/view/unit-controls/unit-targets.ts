@@ -16,9 +16,10 @@ import {
   positionOf,
   type SnapshotEntity,
   settlerTribeOf,
+  siteClaimBuilderOf,
 } from '../../game/snapshot.js';
 import { pickableSeat, type ViewerSeat } from '../../game/viewer-seat.js';
-import { containsTargetPoint, isHitTarget, type Pickable } from '../picking.js';
+import { containsTargetPoint, hitsTarget, isHitTarget, type Pickable } from '../picking.js';
 import type { FormationUnit } from './formation.js';
 
 /** What the pickable target sets need from the unit-controls options (a subset threaded through). */
@@ -45,6 +46,9 @@ export interface UnitTargetsDeps {
   /** Pixel-accurate refinement of {@link boundsOf} for building and resource targets, or undefined to
    *  keep the box. */
   readonly pixelHitOf: ((ref: number, wx: number, wy: number) => boolean | undefined) | undefined;
+  /** Whether the point is on a claimed wall or road site's work flag, which then stands for its builder;
+   *  absent, the flag is part of the site. */
+  readonly siteFlagHitOf?: ((ref: number, wx: number, wy: number) => boolean) | undefined;
 }
 
 /** World px a road plot's click box reaches past its drawn plot. Tuned by eye. */
@@ -75,7 +79,8 @@ export interface UnitTargets {
    *  vehicle target). `neutralWalls` adds the unowned palisades, which only an explicit attack pick
    *  strikes: a plain right-click beside one walks there. */
   enemies(opts?: { readonly neutralWalls?: boolean }): Pickable[];
-  /** The human's gatherers' drop-off flags, each mapped to its owning gatherer (a flag→unit proxy). */
+  /** The human's gatherers' drop-off flags and the work flags of the wall and road sites its builders
+   *  claimed, each mapped to its settler (a flag→unit proxy). */
   flags(): Pickable[];
   /** The human's standing signposts - direct-click targets only (a marquee never grabs a post). */
   signposts(): Pickable[];
@@ -187,13 +192,37 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
     return false;
   };
 
-  const visitFlags = (visit: (item: DrawItem, gatherer: number) => boolean): boolean => {
-    const gathererOf = gathererByFlag(deps.snapshot(), pickableSeat(deps.viewer) ?? 'any');
-    if (gathererOf.size === 0) return false;
+  /** The builder whose claim planted a drawn site's flag, when the viewer may select that builder. */
+  const siteBuilderOf = (snapshot: WorldSnapshot, item: DrawItem): number | undefined => {
+    if (item.palisadeSite !== 'claimed' && item.roadSite !== 'claimed') return undefined;
+    const site = entityById(snapshot, item.ref);
+    const ref = site === undefined ? undefined : siteClaimBuilderOf(site);
+    const builder = ref === undefined ? undefined : entityById(snapshot, ref);
+    if (builder === undefined || !isSettler(builder) || !pickableOwner(ownerPlayerOf(builder)))
+      return undefined;
+    return builder.id;
+  };
+
+  /** The flag's bounds follow terrain lift; its selection proxy is its settler. A site's flag answers on
+   *  its own pixels only, so the ring or plot it stands in still selects the site. */
+  const visitFlags = (visit: (target: Pickable) => boolean): boolean => {
+    const snapshot = deps.snapshot();
+    const gathererOf = gathererByFlag(snapshot, pickableSeat(deps.viewer) ?? 'any');
+    const siteFlagHitOf = deps.siteFlagHitOf;
     for (const item of deps.drawnItems()) {
-      if (item.isFlag !== true || !isHitTarget(item)) continue;
-      const gatherer = gathererOf.get(item.ref);
-      if (gatherer !== undefined && visit(item, gatherer)) return true;
+      if (!isHitTarget(item)) continue;
+      const box = deps.boundsOf?.(item.ref);
+      if (item.isFlag === true) {
+        const gatherer = gathererOf.get(item.ref);
+        if (gatherer !== undefined && visit({ ref: gatherer, x: item.x, y: item.y, kind: 'settler', box }))
+          return true;
+        continue;
+      }
+      if (siteFlagHitOf === undefined) continue;
+      const builder = siteBuilderOf(snapshot, item);
+      if (builder === undefined) continue;
+      const pixelHit = (wx: number, wy: number): boolean => siteFlagHitOf(item.ref, wx, wy);
+      if (visit({ ref: builder, x: item.x, y: item.y, kind: 'settler', box, pixelHit })) return true;
     }
     return false;
   };
@@ -218,7 +247,7 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
       return out;
     },
     hasOwnedAt: (wx, wy) => visitOwned('all', (item, kind) => itemHits(item, kind, wx, wy)),
-    hasFlagAt: (wx, wy) => visitFlags((item) => itemHits(item, 'settler', wx, wy)),
+    hasFlagAt: (wx, wy) => visitFlags((target) => hitsTarget(target, wx, wy)),
     hasSignpostAt: (wx, wy) => visitSignposts((item) => itemHits(item, 'signpost', wx, wy)),
 
     buildings(): Pickable[] {
@@ -258,9 +287,8 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
 
     flags(): Pickable[] {
       const out: Pickable[] = [];
-      visitFlags((item, gatherer) => {
-        // The flag's bounds follow terrain lift; its selection proxy is the gatherer.
-        out.push({ ref: gatherer, x: item.x, y: item.y, kind: 'settler', box: deps.boundsOf?.(item.ref) });
+      visitFlags((target) => {
+        out.push(target);
         return false;
       });
       return out;

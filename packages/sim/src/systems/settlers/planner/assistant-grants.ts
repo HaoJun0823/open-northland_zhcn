@@ -19,6 +19,7 @@ import { TICKS_PER_SECOND } from '../../../core/loop.js';
 import { includesSortedId, insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
+import type { SpatialGate } from '../../../nav/node-circle.js';
 import type { NodeId } from '../../../nav/terrain/index.js';
 import { standsAtPost } from '../../conflict/tower-post.js';
 import { holdsSiteClaim, isSoloSite } from '../../economy/site-claim.js';
@@ -27,7 +28,7 @@ import { isFighterJob, isScoutJob, MILITARY_MODE, mayChangeEquipment } from '../
 import { equipFetchLimitFor, type NavigationLimit } from '../../signposts/index.js';
 import { anotherSystemOwns } from '../action-owner.js';
 import { equipFetchesUnderway } from '../drives/equip-fetches.js';
-import { FetchableStock, nearestStoreHolding } from '../targets/index.js';
+import { FetchableStock, nearestStoreHolding, storeHoldingMayLieIn } from '../targets/index.js';
 import { unreachableGoalVeto } from '../unreachable-goals.js';
 import { wakeIdle } from './idle-replan.js';
 import type { PlannerPass } from './pass.js';
@@ -80,6 +81,27 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     }
     return goods;
   };
+  // Stock the ledger counts may lie outside every goods gate of a side, where each due settler's search
+  // would sweep its whole reach for nothing; whether any lies in a gate is read once per pass.
+  const inGate = new Map<SpatialGate | undefined, Map<number, Map<number, boolean>>>();
+  const mayLieIn = (area: SpatialGate | undefined, player: number, goodType: number): boolean => {
+    let byPlayer = inGate.get(area);
+    if (byPlayer === undefined) {
+      byPlayer = new Map();
+      inGate.set(area, byPlayer);
+    }
+    let byGood = byPlayer.get(player);
+    if (byGood === undefined) {
+      byGood = new Map();
+      byPlayer.set(player, byGood);
+    }
+    let answer = byGood.get(goodType);
+    if (answer === undefined) {
+      answer = storeHoldingMayLieIn(targets.bands, world, area, goodType, player, pass.supply);
+      byGood.set(goodType, answer);
+    }
+    return answer;
+  };
 
   for (const e of dueThisBeat(world, ctx.tick)) {
     if (!world.has(e, Position)) continue; // the pass plans positioned settlers only
@@ -125,6 +147,8 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       if (!stock.exceeds(owner, spec.goodType, underway)) continue;
       route ??= grantRouteFor(pass, e);
       const here = route.here;
+      const area = targets.bands.goodsGate(here, owner, route.limit ?? undefined);
+      if (!mayLieIn(area, owner, spec.goodType)) continue;
       const src = nearestStoreHolding(
         targets.bands,
         world,

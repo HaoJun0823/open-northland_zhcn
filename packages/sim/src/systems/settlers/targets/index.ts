@@ -23,6 +23,7 @@ export {
   nearestWorkplaceOutput,
   storageBelowMinimum,
   storageLendable,
+  storeHoldingMayLieIn,
   storeYieldsGood,
   strandedPile,
   unclaimedGoodsAt,

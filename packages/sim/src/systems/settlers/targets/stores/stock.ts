@@ -263,6 +263,34 @@ export function nearestStoreHolding(
   );
 }
 
+/**
+ * Whether {@link nearestStoreHolding} may find a store inside `area`, the search's goods gate: false
+ * proves it finds none, since no store of the fetcher's side lending a unit is filed near enough to the
+ * area to be reached in it. One pass over the good's stores, where a missed search sweeps every ring.
+ */
+export function storeHoldingMayLieIn(
+  bands: TargetBands,
+  world: World,
+  area: SpatialGate | undefined,
+  goodType: number,
+  owner: number | undefined,
+  supply: SupplyTally,
+): boolean {
+  if (sideLendsNone(bands, world, owner, goodType)) return false;
+  const holders = bands.holding(goodType);
+  if (!holders.hasCandidates()) return false;
+  const slack = holders.filedSlack;
+  const near =
+    area?.mayAllowNear === undefined
+      ? ANYWHERE
+      : (hx: number, hy: number): boolean => area.mayAllowNear?.(hx, hy, slack) ?? true;
+  const lends = holdsUnclaimed(world, bands.ctx, supply, goodType);
+  const onSide = sameSideAs(world, owner);
+  return holders.anyFiledIn(near, (store) => onSide(store) && lends(store) !== null);
+}
+
+const ANYWHERE = (): boolean => true;
+
 /** {@link nearestStoreHolding} with no signpost or goods-search gate, over `owner`'s own stores alone:
  *  the store a fetcher would reach if nothing guided it, asked only to tell work beyond the signposts from
  *  no work at all. */

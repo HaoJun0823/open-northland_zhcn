@@ -6,6 +6,7 @@ export {
   nearestStoreFor,
   nearestStoreHolding,
   nearestStoreHoldingAnywhere,
+  storeHoldingMayLieIn,
   storeYieldsGood,
   strandedPile,
   unclaimedGoodsAt,

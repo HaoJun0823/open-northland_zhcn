@@ -42,6 +42,21 @@ export interface SettlementDefence {
   readonly mapSorties: readonly { entity: Entity; state: MapAiDefenceState }[];
 }
 
+/** The last plan per world, with everything it was derived from. The defence system and the computer
+ *  player's military module plan the same seat on the same tick with nothing written in between, so the
+ *  second asks for a plan of an unchanged world. */
+interface PlanMemo {
+  readonly ctx: SystemContext;
+  readonly terrain: TerrainGraph;
+  readonly tick: number;
+  readonly mutationVersion: number;
+  readonly player: number;
+  readonly autonomous: boolean;
+  readonly plan: SettlementDefence;
+}
+
+const lastPlans = new WeakMap<World, PlanMemo>();
+
 /** One allocation for both callers: map tasks and marching campaigns keep their soldiers; towers
  * take their posts, a nearby raid takes the remaining home force, and autonomous planning gets the rest. */
 export function planSettlementDefence(
@@ -50,6 +65,34 @@ export function planSettlementDefence(
   terrain: TerrainGraph,
   player: number,
   autonomous = computerModuleRuns(world, player, 'military'),
+): SettlementDefence {
+  const mutationVersion = world.mutationVersion;
+  const memo = lastPlans.get(world);
+  if (
+    memo !== undefined &&
+    memo.mutationVersion === mutationVersion &&
+    memo.tick === ctx.tick &&
+    memo.ctx === ctx &&
+    memo.terrain === terrain &&
+    memo.player === player &&
+    memo.autonomous === autonomous
+  ) {
+    return memo.plan;
+  }
+  const plan = deriveSettlementDefence(world, ctx, terrain, player, autonomous);
+  // A plan whose derivation wrote the world no longer matches the world a repeat call would see.
+  if (world.mutationVersion === mutationVersion) {
+    lastPlans.set(world, { ctx, terrain, tick: ctx.tick, mutationVersion, player, autonomous, plan });
+  }
+  return plan;
+}
+
+function deriveSettlementDefence(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  player: number,
+  autonomous: boolean,
 ): SettlementDefence {
   const owned = ownedBuildings(world, player);
   const claimed = mapAiSoldierClaims(world, player);

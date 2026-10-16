@@ -769,3 +769,19 @@ it('keeps a local response while the intruder remains hostile despite one-way fr
   mapDefenceLeashSystem(sim.world, ctxOf(sim));
   expect(sim.world.get(defender, MapAiDefence).returning).toBe(false);
 });
+
+describe('ai defence - one plan per decision', () => {
+  it('hands the military module the plan the defence system took while nothing was written since', () => {
+    const sim = aiSim();
+    const hq = place(sim, HQ_TYPE, SEAT_HQ);
+    const raider = standOff(sim, hq, watchOf(sim), SPEARMAN);
+    const ctx = ctxOf(sim);
+    const plan = planSettlementDefence(sim.world, ctx, terrainOf(sim), SEAT, true);
+    expect(planSettlementDefence(sim.world, ctx, terrainOf(sim), SEAT, true)).toBe(plan);
+    expect(planSettlementDefence(sim.world, ctx, terrainOf(sim), SEAT, false)).not.toBe(plan);
+
+    const autonomous = planSettlementDefence(sim.world, ctx, terrainOf(sim), SEAT, true);
+    drawOff(sim, raider, 1);
+    expect(planSettlementDefence(sim.world, ctx, terrainOf(sim), SEAT, true)).not.toBe(autonomous);
+  });
+});

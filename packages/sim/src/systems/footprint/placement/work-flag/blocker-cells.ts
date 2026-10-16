@@ -1,5 +1,7 @@
 import type { ContentSet } from '@open-northland/data';
+import { Position } from '../../../../components/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
+import { nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import {
   type BlockerChannel,
@@ -9,7 +11,6 @@ import {
   EXCLUSION,
   eachBlockerCell,
   MARKER,
-  markerBlockerCells,
   OBSTACLE,
   PALISADE_BODY,
   RESOURCE_ANCHOR,
@@ -54,8 +55,14 @@ export function blockedCellsOf(
   return captureCells(terrain, (v) => store.cells(world, content, e, v));
 }
 
-export function markerCells(world: World, terrain: TerrainGraph, e: Entity): BlockedCells {
-  return captureCells(terrain, (v) => markerBlockerCells(world, e, v));
+/** The node `markerBlockerCells` denies for a flag, or null for an unplaced or off-map flag: read without a
+ *  visitor or a list, since the marker layer re-diffs every flag on any flag change. */
+export function markerNode(world: World, terrain: TerrainGraph, e: Entity): NodeId | null {
+  const p = world.tryGet(e, Position);
+  if (p === undefined || !BLOCKS_WORK_FLAG[MARKER]) return null;
+  const hx = nodeHxOfPosition(p.x, p.y);
+  const hy = nodeHyOfPosition(p.y);
+  return terrain.inBounds(hx, hy) ? terrain.nodeAt(hx, hy) : null;
 }
 
 /** The whole blocked set derived from live state in one pass - the reference the incremental state is

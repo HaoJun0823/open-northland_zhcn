@@ -5,7 +5,7 @@ import type { BlockOverlay } from '../../../../nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import { sameCells } from '../../geometry.js';
 import { type BlockerJournal, startBlockerJournal } from '../blocker-journal.js';
-import { type BlockedCells, blockedCellsOf, markerCells, rederiveBlockedCells } from './blocker-cells.js';
+import { type BlockedCells, blockedCellsOf, markerNode, rederiveBlockedCells } from './blocker-cells.js';
 import { workFlagMoveCount } from './flag-moves.js';
 
 // The incrementally-maintained work-flag blocked set - the refcounted per-world cache behind
@@ -30,40 +30,56 @@ interface IncrementalBlocks extends BlockedRefcounts {
   /** The marker layer's inputs; a bump re-diffs the whole DeliveryFlag store - O(flags), tiny. */
   flagGen: number;
   flagMoves: number;
-  readonly flagCells: Map<Entity, BlockedCells>;
+  /** Each placed flag's blocked node; a flag off the map holds none. */
+  readonly flagNodes: Map<Entity, NodeId>;
 }
 const blocksMemo = new WeakMap<World, IncrementalBlocks>();
 
 function addCells(refs: BlockedRefcounts, cells: BlockedCells): void {
-  for (const node of cells) {
-    const next = (refs.counts.get(node) ?? 0) + 1;
-    refs.counts.set(node, next);
-    if (next === 1) refs.blocked.add(node);
-  }
+  for (const node of cells) addNode(refs, node);
+}
+
+function addNode(refs: BlockedRefcounts, node: NodeId): void {
+  const next = (refs.counts.get(node) ?? 0) + 1;
+  refs.counts.set(node, next);
+  if (next === 1) refs.blocked.add(node);
 }
 
 function removeCells(refs: BlockedRefcounts, cells: BlockedCells): void {
-  for (const node of cells) {
-    const next = (refs.counts.get(node) ?? 0) - 1;
-    if (next <= 0) {
-      refs.counts.delete(node);
-      refs.blocked.delete(node);
-    } else {
-      refs.counts.set(node, next);
-    }
+  for (const node of cells) removeNode(refs, node);
+}
+
+function removeNode(refs: BlockedRefcounts, node: NodeId): void {
+  const next = (refs.counts.get(node) ?? 0) - 1;
+  if (next <= 0) {
+    refs.counts.delete(node);
+    refs.blocked.delete(node);
+  } else {
+    refs.counts.set(node, next);
   }
 }
 
-/** Re-derive the whole marker layer from the DeliveryFlag store - flags are the one blocker that MOVES
- *  (an in-place Position write the journals cannot see), and the store is small, so any flag change
- *  re-diffs it wholesale in O(flags). */
+/** Re-diff the marker layer against the DeliveryFlag store - flags are the one blocker that MOVES (an
+ *  in-place Position write the journals cannot see), so any flag change re-reads every flag in O(flags),
+ *  and only a flag whose node changed touches the refcounts. */
 function refreshMarkerLayer(world: World, state: IncrementalBlocks): void {
-  for (const cells of state.flagCells.values()) removeCells(state, cells);
-  state.flagCells.clear();
+  const { flagNodes } = state;
+  flagNodes.forEach((node, e) => {
+    if (world.has(e, DeliveryFlag) && world.has(e, Position)) return;
+    removeNode(state, node);
+    flagNodes.delete(e);
+  });
   for (const e of world.query(DeliveryFlag, Position)) {
-    const cells = markerCells(world, state.terrain, e);
-    state.flagCells.set(e, cells);
-    addCells(state, cells);
+    const node = markerNode(world, state.terrain, e);
+    const held = flagNodes.get(e);
+    if (node === (held ?? null)) continue;
+    if (held !== undefined) removeNode(state, held);
+    if (node === null) {
+      flagNodes.delete(e);
+    } else {
+      addNode(state, node);
+      flagNodes.set(e, node);
+    }
   }
 }
 
@@ -82,7 +98,7 @@ function rebuildState(world: World, content: ContentSet, terrain: TerrainGraph):
     journal,
     flagGen: world.componentGeneration(DeliveryFlag),
     flagMoves: workFlagMoveCount(world),
-    flagCells: new Map(),
+    flagNodes: new Map(),
   };
   refreshMarkerLayer(world, state);
   return state;
@@ -127,20 +143,18 @@ export function workFlagPlacementBlocks(
 ): BlockOverlay {
   const state = liveBlocks(world, content, terrain);
   if (ignoreFlag === undefined) return state.blocked;
-  const held = state.flagCells.get(ignoreFlag);
-  if (held === undefined || held.length === 0) return state.blocked;
+  const held = state.flagNodes.get(ignoreFlag);
+  if (held === undefined) return state.blocked;
   return blocksWithout(state, held);
 }
 
-/** The blocked set minus one flag's own contributions: a node that flag covers stays blocked only
- *  while another blocker also contributes to it. O(|ignoredCells|), the ignored flag's own footprint,
- *  because it withholds through the refcounts instead of materializing the difference. */
-function blocksWithout(state: IncrementalBlocks, ignoredCells: BlockedCells): BlockOverlay {
-  const withheld = new Map<NodeId, number>();
-  for (const node of ignoredCells) withheld.set(node, (withheld.get(node) ?? 0) + 1);
+/** The blocked set minus one flag's own contribution: the node that flag covers stays blocked only
+ *  while another blocker also contributes to it, withheld through the refcounts instead of materializing
+ *  the difference. */
+function blocksWithout(state: IncrementalBlocks, ignored: NodeId): BlockOverlay {
   return {
-    has: (node) => (state.counts.get(node) ?? 0) > (withheld.get(node) ?? 0),
-    // Over-counts by the withheld nodes; `BlockOverlay` asks only that 0 mean empty, which holds
+    has: (node) => (state.counts.get(node) ?? 0) > (node === ignored ? 1 : 0),
+    // Over-counts by the withheld node; `BlockOverlay` asks only that 0 mean empty, which holds
     // because `blocked` is exactly the positive-count keys.
     get size() {
       return state.blocked.size;

@@ -26,7 +26,7 @@ export class SnapshotMirror {
   constructor() {
     attachIdTable(this.entities, this.byId);
   }
-  private readonly indexes = new SnapshotIndexes(() => this.entities);
+  private readonly indexes = new SnapshotIndexes(() => this.entities, this.byId);
   private current: WorldSnapshot | null = null;
   private lastSequence = 0;
   private dropped: EntitySnapshot[] = [];

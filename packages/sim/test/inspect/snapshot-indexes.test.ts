@@ -9,6 +9,7 @@ import {
   groupedBy,
   indexesOf,
   isPositioned,
+  listedWhere,
   ONE,
   packSnapshotDelta,
   positionedWithin,
@@ -344,6 +345,52 @@ describe('a spec that declares its reads', () => {
       [1, 2, 3],
       [1, 3],
     ]);
+  });
+});
+
+describe('a listed view swapping a touched run', () => {
+  it('holds the current object of each entity it lists, shorter or longer than the run', () => {
+    const marked = listedWhere(has('Mark'), 'marked', { presence: ['Mark'] });
+    const unmarked = listedWhere((entity) => !has('Mark')(entity), 'unmarked', { presence: ['Mark'] });
+    const entry = (id: number, components: Record<string, unknown>): EntityDelta => ({
+      id,
+      components,
+      removed: [],
+    });
+    const ENTITIES = 9;
+    const MARKED_IDS = [2, 7];
+    const markOf = (id: number): Record<string, unknown> => (MARKED_IDS.includes(id) ? { Mark: {} } : {});
+    const ids = Array.from({ length: ENTITIES }, (_, i) => i + 1);
+    const mirror = new SnapshotMirror();
+    mirror.apply(
+      packSnapshotDelta({
+        tick: 1,
+        sequence: 0,
+        rebuild: true,
+        touched: ids.map((id) => entry(id, { Step: { n: 0 }, ...markOf(id) })),
+        removed: [],
+        events: [],
+      }),
+    );
+    const short = indexesOf(mirror.snapshot()).get(marked);
+    const long = indexesOf(mirror.snapshot()).get(unmarked);
+    // Every entity but the first steps: the marked list is shorter than the run, the unmarked one longer.
+    mirror.apply(
+      packSnapshotDelta({
+        tick: 2,
+        sequence: 1,
+        rebuild: false,
+        touched: ids.slice(1).map((id) => entry(id, { Step: { n: 1 } })),
+        removed: [],
+        events: [],
+      }),
+    );
+    const current = mirror.snapshot().entities;
+    expect(short).toEqual(current.filter(has('Mark')));
+    expect(short.every((entity) => current.includes(entity))).toBe(true);
+    expect(long.every((entity) => current.includes(entity))).toBe(true);
+    expect(long).toHaveLength(ENTITIES - MARKED_IDS.length);
+    expect(mirror.verifyIndexes()).toEqual([]);
   });
 });
 

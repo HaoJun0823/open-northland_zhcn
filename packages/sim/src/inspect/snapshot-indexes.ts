@@ -33,8 +33,9 @@ export interface SnapshotIndexSpec<T> {
   swap?(state: T, previous: EntitySnapshot, next: EntitySnapshot): void;
   /** `swap` once per delta, over the new objects of every held entity it touched, ascending by id; it
    *  also meets the ones `replace` just placed, which it leaves where they are. Taken over `swap`, so a
-   *  state can merge the run instead of searching per entity. */
-  swapAll?(state: T, nexts: readonly EntitySnapshot[]): void;
+   *  state can merge the run instead of searching per entity. `current` holds each entity of the
+   *  snapshot by id, so a state holding fewer entities than the run can read its own off it instead. */
+  swapAll?(state: T, nexts: readonly EntitySnapshot[], current: EntityTable): void;
   /** Where a maintained state says something a fresh walk (`fresh`) does not, or null; defaults to
    *  {@link firstDifference}. A state holding read-through caches or an order its history set compares
    *  what its readers see; `current` reads the other specs fresh over the same entities. */
@@ -48,6 +49,9 @@ export interface SnapshotIndexReader {
 
 type Replacement = (state: unknown, previous: EntitySnapshot, next: EntitySnapshot) => void;
 
+/** A snapshot's entities indexed by id. */
+export type EntityTable = readonly (EntitySnapshot | undefined)[];
+
 /** A held state with its spec's upkeep resolved once, one shape for every spec. */
 interface HeldIndex {
   readonly spec: SnapshotIndexSpec<unknown>;
@@ -56,7 +60,7 @@ interface HeldIndex {
   readonly replace: Replacement;
   /** Null when the spec swaps per delta or not at all. */
   readonly swap: Replacement | null;
-  readonly swapAll: ((state: unknown, nexts: readonly EntitySnapshot[]) => void) | null;
+  readonly swapAll: ((state: unknown, nexts: readonly EntitySnapshot[], current: EntityTable) => void) | null;
 }
 
 /** What one change of a delta costs each held index, resolved on its first entity: the indexes that
@@ -100,7 +104,11 @@ export class SnapshotIndexes implements SnapshotIndexReader {
   /** The new objects of the held entities the delta touched so far, ascending, for `swapAll`. */
   private readonly nexts: EntitySnapshot[] = [];
 
-  constructor(private readonly entities: () => readonly EntitySnapshot[]) {}
+  /** `current` is the id table a mirror keeps beside `entities`; a set without one takes no deltas. */
+  constructor(
+    private readonly entities: () => readonly EntitySnapshot[],
+    private readonly current: EntityTable | null = null,
+  ) {}
 
   /** A spec is maintained per delta from its first request until a rebuild drops it, so one first read
    *  by a rare caller (a click) keeps its upkeep cost for the rest of the session. */
@@ -177,10 +185,11 @@ export class SnapshotIndexes implements SnapshotIndexReader {
 
   /** The delta's replacements are done: the states that swap per delta take them. */
   endDelta(): void {
-    const { nexts } = this;
+    const { nexts, current } = this;
     if (nexts.length > 0) {
+      if (current === null) throw new Error('snapshot indexes: a delta needs the id table of its mirror');
       for (const index of this.order) {
-        if (index.gated) index.swapAll?.(index.state, nexts);
+        if (index.gated) index.swapAll?.(index.state, nexts, current);
       }
     }
     nexts.length = 0;
@@ -419,10 +428,10 @@ export function groupedBy(
       remove(groups, next.id);
       if (key !== undefined) place(groups, key, next);
     },
-    swapAll: (groups, nexts) => {
+    swapAll: (groups, nexts, current) => {
       // Walk whichever side is smaller: the held entities group by group, or the run id by id.
       if (groups.keyOfId.size < nexts.length) {
-        for (const group of groups.values()) swapAllHeld(group, nexts);
+        for (const group of groups.values()) swapAllHeld(group, nexts, current);
         return;
       }
       for (const next of nexts) {
@@ -514,17 +523,17 @@ function swapHeld(list: EntitySnapshot[], entity: EntitySnapshot): void {
 }
 
 /** Put each of `nexts` (ascending) in the slot its id takes in `list` (ascending), where `list` holds
- *  it: walks the shorter of the two and gallops through the longer. */
-function swapAllHeld(list: EntitySnapshot[], nexts: readonly EntitySnapshot[]): void {
-  let from = 0;
+ *  it: a list no longer than the run reads each of its entities off `current`, a longer one is
+ *  galloped through for each of the run. */
+function swapAllHeld(list: EntitySnapshot[], nexts: readonly EntitySnapshot[], current: EntityTable): void {
   if (list.length <= nexts.length) {
-    for (let at = 0; at < list.length && from < nexts.length; at++) {
-      const found = indexOfEntityFrom(nexts, (list[at] as EntitySnapshot).id, from);
-      if (found >= 0) list[at] = nexts[found] as EntitySnapshot;
-      from = found >= 0 ? found + 1 : -found - 1;
+    for (let at = 0; at < list.length; at++) {
+      const next = current[(list[at] as EntitySnapshot).id];
+      if (next !== undefined) list[at] = next;
     }
     return;
   }
+  let from = 0;
   for (let at = 0; at < nexts.length && from < list.length; at++) {
     const next = nexts[at] as EntitySnapshot;
     const found = indexOfEntityFrom(list, next.id, from);

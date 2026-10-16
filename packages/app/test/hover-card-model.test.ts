@@ -22,6 +22,7 @@ import {
   type ViewerSeat,
 } from '../src/game/viewer-seat.js';
 import { type BuildingHoverContext, buildingHoverModel } from '../src/hud/hover-card/building.js';
+import { palisadeHoverModel } from '../src/hud/hover-card/palisade.js';
 import { type SettlerHoverContext, settlerHoverModel } from '../src/hud/hover-card/settler.js';
 import { buildingEntity, sandboxCtx, snapshotOf } from './support/sandbox.js';
 
@@ -273,5 +274,61 @@ describe('settler hover card model', () => {
     expect(settlerHoverModel(snapshot, 3, ctx)).toBeNull();
     expect(settlerHoverModel(snapshot, 4, ctx)).toBeNull();
     expect(settlerHoverModel(snapshot, 99, ctx)).toBeNull();
+  });
+});
+
+describe('palisade hover card model', () => {
+  /** A finished wall or gate of `owner` at `hitpoints` of `max`. */
+  function wall(
+    id: number,
+    owner: number,
+    hitpoints: number,
+    max: number,
+    extra: Readonly<Record<string, unknown>> = {},
+  ) {
+    return {
+      id,
+      components: {
+        Palisade: { gfxIndex: 0, tribe: PRIMARY_TRIBE, built: ONE, gate: null },
+        Health: { hitpoints, max },
+        Owner: { player: owner },
+        ...extra,
+      },
+    };
+  }
+
+  it("shows another seat's gate with its owner and health, as a building card without a store", () => {
+    const snapshot = snapshotOf([
+      wall(1, OTHER_PLAYER, 250, 500, {
+        Palisade: { gfxIndex: 0, tribe: PRIMARY_TRIBE, built: ONE, gate: { open: false } },
+      }),
+    ]);
+
+    const model = palisadeHoverModel(snapshot, 1, hoverCtx());
+
+    expect(model?.title).toBe('Brama palisady');
+    expect(model?.owner?.player).toBe(OTHER_PLAYER);
+    expect(model?.health).toEqual({ label: 'Zdrowie', pct: 50, hover: '250/500' });
+    expect(model?.rows).toEqual([]);
+  });
+
+  it("opens no card over the viewer's own wall, and every card for the whole map", () => {
+    const snapshot = snapshotOf([wall(1, HUMAN_PLAYER, 150, 150)]);
+
+    expect(palisadeHoverModel(snapshot, 1, hoverCtx())).toBeNull();
+    expect(palisadeHoverModel(snapshot, 1, hoverCtx(overseerViewerSeat(HUMAN_PLAYER)))?.title).toBe(
+      'Palisada',
+    );
+  });
+
+  it("reads another seat's wall site as being raised", () => {
+    const snapshot = snapshotOf([
+      wall(1, OTHER_PLAYER, 1, 150, {
+        Palisade: { gfxIndex: 0, tribe: PRIMARY_TRIBE, built: 0, gate: null },
+        UnderConstruction: { labor: 0 },
+      }),
+    ]);
+
+    expect(palisadeHoverModel(snapshot, 1, hoverCtx())?.state).toEqual({ kind: 'construction', pct: 0 });
   });
 });

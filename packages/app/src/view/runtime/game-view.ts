@@ -66,6 +66,7 @@ import { mountHudDomRoot } from '../../hud/dom/root.js';
 import { createSystemMenu } from '../../hud/dom/system-menu.js';
 import { type BuildingHoverContext, buildingHoverModel } from '../../hud/hover-card/building.js';
 import type { HoverOwnerContext } from '../../hud/hover-card/owner.js';
+import { palisadeHoverModel } from '../../hud/hover-card/palisade.js';
 import { type SettlerHoverContext, settlerHoverModel } from '../../hud/hover-card/settler.js';
 import { vehicleHoverModel } from '../../hud/hover-card/vehicle.js';
 import type { MapOverlayControls } from '../../hud/map-overlays.js';
@@ -1098,6 +1099,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       buildingModel: (snapshot, entityId) => buildingHoverModel(snapshot, entityId, hoverContext),
       settlerModel: (snapshot, entityId) => settlerHoverModel(snapshot, entityId, settlerHoverContext),
       vehicleModel: (snapshot, entityId) => vehicleHoverModel(snapshot, entityId, settlerHoverContext),
+      palisadeModel: (snapshot, entityId) => palisadeHoverModel(snapshot, entityId, hoverContext),
       // Both only grow, so their sum moves whenever either does.
       modelVersion: () => viewer.version() + answers.versions.unitPanel(),
       pixelHitOf: (ref, wx, wy) => renderer.entityPixelHit(ref, wx, wy),

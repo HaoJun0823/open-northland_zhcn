@@ -22,8 +22,8 @@ import { isHitTarget, type Pickable, pickTopAt, screenToWorld } from './picking.
 import { createTooltip } from './tooltip.js';
 
 /**
- * What the cursor is over in the world: a settler, a building or a vehicle opens a card, a loose good pile
- * or a chest a text chip. Hit targets are filtered from the renderer's already-culled `drawnItems`, so the
+ * What the cursor is over in the world: a settler, a building, a vehicle or a wall opens a card, a loose
+ * good pile or a chest a text chip. Hit targets are filtered from the renderer's already-culled `drawnItems`, so the
  * work follows the screen, not the map. Owns the chip element; the details panel's stock-row tooltip
  * must not share it.
  */
@@ -48,6 +48,8 @@ export interface WorldHoverOptions {
   readonly buildingModel: (snapshot: WorldSnapshot, entityId: number) => BuildingHoverModel | null;
   readonly settlerModel: (snapshot: WorldSnapshot, entityId: number) => SettlerHoverModel | null;
   readonly vehicleModel: (snapshot: WorldSnapshot, entityId: number) => VehicleHoverModel | null;
+  /** Null for a wall that opens no card. */
+  readonly palisadeModel: (snapshot: WorldSnapshot, entityId: number) => BuildingHoverModel | null;
   /** Bumps whenever the models above would read differently within one tick: a spectator's seat switch
    *  turns another seat's card into an own one and back, and a sim answer the worker's products read
    *  lands. */
@@ -72,10 +74,11 @@ type HoverInfo =
   | { readonly kind: 'chest'; readonly chestKind: ChestKind }
   | { readonly kind: 'building' }
   | { readonly kind: 'settler' }
-  | { readonly kind: 'vehicle' };
+  | { readonly kind: 'vehicle' }
+  | { readonly kind: 'palisade' };
 
 /** The targets that open the card rather than a chip. */
-type CardKind = 'building' | 'settler' | 'vehicle';
+type CardKind = 'building' | 'settler' | 'vehicle' | 'palisade';
 
 /** The hit targets of one drawn frame, people apart: a settler answers the cursor before whatever it
  *  stands on or in front of. */
@@ -121,18 +124,18 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
         hoverInfo.set(it.ref, { kind: 'settler' });
         continue;
       }
-      if (it.kind === 'building') {
+      if (it.kind === 'building' || it.kind === 'palisade') {
         hoverTargets.rest.push({
           ref: it.ref,
           x: it.x,
           y: it.y,
-          kind: 'building',
+          kind: it.kind,
           box: opts.renderer.entityBounds(it.ref),
           ...(pixelHitOf !== undefined
             ? { pixelHit: (wx: number, wy: number) => pixelHitOf(it.ref, wx, wy) }
             : {}),
         });
-        hoverInfo.set(it.ref, { kind: 'building' });
+        hoverInfo.set(it.ref, { kind: it.kind });
         continue;
       }
       if (it.kind === 'chest') {
@@ -186,7 +189,9 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
           ? opts.buildingModel(snap, ref)
           : kind === 'settler'
             ? opts.settlerModel(snap, ref)
-            : opts.vehicleModel(snap, ref);
+            : kind === 'palisade'
+              ? opts.palisadeModel(snap, ref)
+              : opts.vehicleModel(snap, ref);
     }
     return cardModel;
   };
@@ -231,7 +236,12 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
         hideAll();
         return;
       }
-      if (info.kind === 'building' || info.kind === 'settler' || info.kind === 'vehicle') {
+      if (
+        info.kind === 'building' ||
+        info.kind === 'settler' ||
+        info.kind === 'vehicle' ||
+        info.kind === 'palisade'
+      ) {
         tooltip.hide();
         // The card's own hide, not hideCard(): a rest still running must not restart under itself.
         const model = restedOn(ref, nowMs) ? modelFor(snap, ref, info.kind) : null;

@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
-import { CORRECTIONS_DIR, loadSourceCorrections } from '../src/corrections.js';
+import { CORRECTIONS_DIR, loadSourceCorrections, type SourceCorrection } from '../src/corrections.js';
 import { readSourceFile } from '../src/roots.js';
 import { extractIniTables } from '../src/stages/ir/tables.js';
 import { convertMapDatTree } from '../src/stages/maps/index.js';
@@ -262,6 +262,55 @@ describe('source corrections', () => {
     const { constructionLayers } = await extractIniTables(roots, [{ path, file: housesIni, layer: 'mod' }]);
     expect(constructionLayers.map((row) => row.bobId)).toEqual([2]);
     expect(() => roots.corrections.assertApplied()).not.toThrow();
+  });
+
+  it('arms the death watcher once for every recruitment route without changing other results', async () => {
+    const correction = JSON.parse(
+      await readFile(join(CORRECTIONS_DIR, 'wielkie-sprzatanie-bjarni-death-watch.json'), 'utf8'),
+    ) as Pick<SourceCorrection, 'reason' | 'file' | 'sha256' | 'lines'>;
+    const activate = 'result "ActivateMission" 74';
+    const routes = [0, 101, 102, 103].map((human) =>
+      [
+        '[MissionData]',
+        'description -1',
+        `goal "FindPosByHumans" ${human} 477 189 1`,
+        'result "SetHumanName" 100 100',
+        ...(human === 101 ? [activate] : []),
+        'result "DeactivateMission" 99',
+      ].join('\r\n'),
+    );
+    const unrelated = '[MissionData]\r\ndescription -1\r\ngoal "TimeGone" 12\r\nresult "ActivateMission" 9';
+    const shipped = [...routes, unrelated, ''].join('\r\n');
+    const folder = dirname(correction.file);
+    await writeMod(`${folder}/map.dat`, buildMapDat(1, 1, [2, 2, 2, 2]));
+    const scriptPath = await writeMod(correction.file, shipped);
+    await writeCorrection('recruitment', { ...correction, sha256: sha256(shipped) });
+    const corrections = await loadSourceCorrections(dir, mod);
+    const corrected = Buffer.from(await corrections.read(scriptPath)).toString('latin1');
+    expect(corrected).toBe(
+      [
+        ...routes.map((route, index) =>
+          index === 1
+            ? route
+            : route.replace('result "SetHumanName" 100 100', `result "SetHumanName" 100 100\r\n${activate}`),
+        ),
+        unrelated,
+        '',
+      ].join('\r\n'),
+    );
+    const [map] = await convertMapDatTree({ data: mod, corrections }, join(temp.path, 'out'));
+    expect(
+      map?.script?.missions
+        .slice(0, 4)
+        .map(
+          (mission) =>
+            mission.results.filter(
+              (result) => result.values[0] === 'ActivateMission' && result.values[1] === '74',
+            ).length,
+        ),
+    ).toEqual([1, 1, 1, 1]);
+    expect(map?.script?.missions[4]?.results).toEqual([{ key: 'result', values: ['ActivateMission', '9'] }]);
+    expect(() => corrections.assertApplied()).not.toThrow();
   });
 
   it('parses every committed correction', async () => {

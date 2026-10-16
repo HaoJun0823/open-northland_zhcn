@@ -23,7 +23,7 @@ import {
   playerOfBit,
   type SearchMetric,
 } from './combat-grid.js';
-import { firingBuildings } from './targeting.js';
+import { HeldFiringBuildings } from './targeting.js';
 import { vehicleWeapon } from './weapons.js';
 
 /** A candidate packs as `distance * CANDIDATE_ID_SPAN + entity`, so a numeric sort orders by distance and then
@@ -42,6 +42,18 @@ export function holdPassIndex(world: World, index: CombatIndex): void {
 export function passIndexOf(world: World, tick: number): CombatIndex | null {
   const index = passIndexes.get(world);
   return index !== undefined && index.tick === tick ? index : null;
+}
+
+/** Each world's firing set, refreshed in place by every index built for it. */
+const heldFiring = new WeakMap<World, HeldFiringBuildings>();
+
+function heldFiringOf(world: World): HeldFiringBuildings {
+  let held = heldFiring.get(world);
+  if (held === undefined) {
+    held = new HeldFiringBuildings();
+    heldFiring.set(world, held);
+  }
+  return held;
 }
 
 /** The tick each world's combat system last found no fight possible on. */
@@ -82,7 +94,8 @@ export class CombatIndex {
    *  build: every stance writer ahead of `combat` in the tick schedule has run by then and none runs inside
    *  it, so a stance flipped earlier this tick is already seen. */
   private readonly hostileMasks: readonly number[];
-  /** The buildings able to shoot this build, the only ones a fleer runs from. */
+  /** The buildings able to shoot this build, the only ones a fleer runs from. The next index built for the
+   *  same world refreshes this set in place. */
   readonly firing: ReadonlySet<Entity>;
   /** {@link firing} as the getter `strikeRank` reads. */
   readonly firingNow = (): ReadonlySet<Entity> => this.firing;
@@ -97,7 +110,7 @@ export class CombatIndex {
     this.hostileMasks = hostilePlayerMasks(world);
     this.grid = combatGridOf(world, ctx, terrain);
     this.grid.startBuild(world, ctx);
-    const firing = firingBuildings(world, ctx);
+    const firing = heldFiringOf(world).refresh(world, ctx);
     for (const b of firing) this.grid.admitFiring(b);
     this.firing = firing;
     // A vehicle moves, so it joins per build rather than in a held layer.

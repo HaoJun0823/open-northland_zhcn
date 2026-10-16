@@ -70,9 +70,13 @@ export function isManningPost(world: World, ctx: SystemContext, e: Entity): bool
 /** The post `e` is holding ({@link isManningPost}), or null. */
 export function mannedPostOf(world: World, ctx: SystemContext, e: Entity): Entity | null {
   const post = standsAtPost(world, e);
-  if (post === null) return null;
+  return post !== null && holdsPost(world, ctx, e, post) ? post : null;
+}
+
+/** Whether `e`, standing on `post` ({@link standsAtPost}), is still entitled to it ({@link towerPostFor}). */
+export function holdsPost(world: World, ctx: SystemContext, e: Entity, post: Entity): boolean {
   const jobType = world.tryGet(e, Settler)?.jobType;
-  return jobType != null && towerPostFor(world, ctx, e, jobType) === post ? post : null;
+  return jobType != null && towerPostFor(world, ctx, e, jobType) === post;
 }
 
 /** A garrison's reach band: a bow's far reach plus {@link TOWER_RANGE_BONUS_NODES}, and no near dead zone

@@ -236,6 +236,34 @@ describe('TargetBands.holding kept off the holder ledger', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
+  it.each([1, 2, 3])(
+    'matches a cold judgement as walls and blocking deposits come and go around the piles (seed %i)',
+    (seed) => {
+      const sim = new Simulation({ seed: 1, content: constructionContent(), map: grassMap(24, 8) });
+      const terrain = sim.terrain;
+      if (terrain === undefined) throw new Error('fixture map missing');
+      const roll = lcg(seed);
+      const node = () => [roll(terrain.width), roll(terrain.height)] as const;
+      const piles = Array.from({ length: RANDOM_PILES }, () => pileOnNode(sim, ...node()));
+      const houses: Entity[] = [];
+      const deposits: Entity[] = [];
+      for (let round = 0; round < RANDOM_ROUNDS; round++) {
+        const action = roll(5);
+        if (action === 0) houses.push(houseOn(sim, ...node()));
+        else if (action === 1 && houses.length > 0)
+          sim.world.destroy(houses.splice(roll(houses.length), 1)[0] as Entity);
+        else if (action === 2) deposits.push(blockingDeposit(sim, ...node()));
+        else if (action === 3 && deposits.length > 0)
+          sim.world.destroy(deposits.splice(roll(deposits.length), 1)[0] as Entity);
+        else setStockAmount(sim.world, piles[roll(piles.length)] as Entity, STONE, roll(2));
+        const bands = collectTargets(sim.world, ctxOf(sim), terrain).bands;
+        bands.supplying(STONE);
+        holdingMatchesYield(sim, piles, [STONE]);
+        expect(sim.world.verifyCaches(), `round ${round}`).toEqual([]);
+      }
+    },
+  );
+
   it('reports a pile that moved without the ledger seeing it', () => {
     const sim = new Simulation({ seed: 1, content: constructionContent(), map: grassMap(16, 4) });
     houseOn(sim, 10, 4);
@@ -257,6 +285,26 @@ function pileOnNode(sim: Simulation, hx: number, hy: number): Entity {
   const e = sim.world.create();
   sim.world.add(e, Position, positionOfNode(hx, hy));
   sim.world.add(e, Stockpile, { amounts: new Map([[STONE, 1]]) });
+  return e;
+}
+
+const RANDOM_PILES = 60;
+const RANDOM_ROUNDS = 120;
+
+/** A deterministic LCG, so a failure replays. */
+function lcg(seed: number): (n: number) => number {
+  let state = seed >>> 0;
+  return (n) => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state % n;
+  };
+}
+
+/** A deposit footprint that walls in its own node. */
+function blockingDeposit(sim: Simulation, hx: number, hy: number): Entity {
+  const e = sim.world.create();
+  sim.world.add(e, Position, positionOfNode(hx, hy));
+  sim.world.add(e, ResourceFootprint, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
   return e;
 }
 

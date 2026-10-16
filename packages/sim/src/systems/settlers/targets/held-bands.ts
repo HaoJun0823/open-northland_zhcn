@@ -6,6 +6,7 @@ import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { MapContext, SystemContext } from '../../context.js';
 import { buildingBlockedCells, stanceOverlayEpoch } from '../../footprint/index.js';
+import { type WalkBlockMask, walkBlockMask } from '../../footprint/walk-block-mask.js';
 import { InteractionCellIndex } from './cell-index.js';
 import { FetchableStock } from './stores/fetchable-stock.js';
 import { StoreSinks } from './stores/sinks.js';
@@ -95,6 +96,10 @@ class HeldBand {
   }
 }
 
+/** Where a judged plain pile is filed: under its anchor's block while that node is clear, else among the
+ *  piles every structure move re-judges. */
+type PilePlace = 'open' | 'covered' | 'unfiled';
+
 /** A holder's burial verdict and what it reads besides the overlay, fixed until the ledger recaptures it. */
 interface JudgedHolder {
   /** A store is never stranded by its own walls, so an overlay move leaves it alone. */
@@ -102,7 +107,14 @@ interface JudgedHolder {
   /** A plain pile's node; null for a store or a ground drop, which a standing resource may cover. */
   readonly anchor: NodeId | null;
   admitted: boolean;
+  place: PilePlace;
 }
+
+/** Side, in half-cell nodes, of the blocks the open piles are filed in, so a walk-block flip re-judges only
+ *  the blocks it touched. Performance knob: any size re-judges every pile that could change. */
+const OPEN_PILE_BLOCK = 16;
+
+const ANY_FLIP = (): boolean => true;
 
 /**
  * The band of stores {@link storeYieldsGood} would strip of one good, kept off the holder ledger: a sync
@@ -111,14 +123,19 @@ interface JudgedHolder {
  * band also admits the good's self-filling houses while they are empty.
  *
  * A plain pile's verdict reads only the walls and the stance pools of its anchor, which the overlay epoch
- * versions, so a move of the standing resources alone re-judges just the ground drops.
+ * versions, so a move of the standing resources alone re-judges just the ground drops. A pile on a
+ * walkable anchor outside the walk-block union stands there itself, and the walls and resource blocks
+ * lie inside that union, so it stays admitted until its anchor flips: such an open pile is re-judged only
+ * when the mask stamps a flip in its block.
  */
 class HoldingBand implements SyncedBand {
   private readonly band: HeldBand;
   private readonly judged = new Map<Entity, JudgedHolder>();
-  /** The {@link judged} plain piles and ground drops, apart from the stores an overlay move never
-   *  re-judges. */
-  private readonly plainPiles = new Map<Entity, JudgedHolder>();
+  /** The open plain piles by the block of their anchor; see {@link OPEN_PILE_BLOCK}. */
+  private readonly openPiles = new Map<number, Map<Entity, JudgedHolder>>();
+  /** The plain piles that are not open, re-judged on every structure move. Stores, which an overlay move
+   *  never re-judges, are filed in neither. */
+  private readonly coveredPiles = new Map<Entity, JudgedHolder>();
   private readonly drops = new Map<Entity, JudgedHolder>();
   private ledger: FetchableStock | null = null;
   private feed: ChangeFeed | null = null;
@@ -127,6 +144,11 @@ class HoldingBand implements SyncedBand {
   private walls: ReadonlySet<NodeId> = NO_WALLS;
   private overlay = -1;
   private resources = -1;
+  /** The walk-block mask the open piles were filed under, and its version then. */
+  private mask: WalkBlockMask | null = null;
+  private maskVersion = -1;
+  private readonly blockColumns: number;
+  private readonly blockArea = { minHx: 0, minHy: 0, maxHx: 0, maxHy: 0 };
   private readonly rejudgeHolder = (e: Entity): void => this.rejudge(e);
   private readonly visitAdmitted = (visit: (e: Entity) => void): void => {
     this.judged.forEach((holder, e) => {
@@ -142,6 +164,7 @@ class HoldingBand implements SyncedBand {
     private readonly supplying: boolean,
   ) {
     this.band = new HeldBand(world, ctx, terrain, this.visitAdmitted);
+    this.blockColumns = Math.ceil(terrain.width / OPEN_PILE_BLOCK);
   }
 
   get index(): InteractionCellIndex {
@@ -154,12 +177,16 @@ class HoldingBand implements SyncedBand {
     const walls = buildingBlockedCells(world, ctx, terrain);
     const overlay = stanceOverlayEpoch(world, ctx, terrain);
     const resources = world.componentGeneration(Resource);
+    const mask = walkBlockMask(world, ctx, terrain);
     const structuresMoved = walls !== this.walls || overlay !== this.overlay;
     const resourcesMoved = resources !== this.resources;
+    const flippedSince = mask === this.mask ? this.maskVersion : null;
     this.walls = walls;
     this.overlay = overlay;
     this.resources = resources;
-    if (this.feed === null || ledger !== this.ledger) {
+    this.mask = mask;
+    this.maskVersion = mask.version;
+    if (this.feed === null || ledger !== this.ledger || flippedSince === null) {
       this.ledger = ledger;
       this.feed = this.supplying ? ledger.watchSuppliers(this.goodType) : ledger.watchHolders(this.goodType);
       this.rebuild();
@@ -169,7 +196,8 @@ class HoldingBand implements SyncedBand {
       this.rebuild();
       return;
     }
-    if (structuresMoved) this.plainPiles.forEach(this.reburyPile);
+    if (structuresMoved) this.coveredPiles.forEach(this.reburyPile);
+    if (flippedSince !== this.maskVersion) this.reburyFlippedOpenPiles(mask, flippedSince);
     if (structuresMoved || resourcesMoved) this.drops.forEach(this.reburyPile);
   }
 
@@ -190,7 +218,8 @@ class HoldingBand implements SyncedBand {
 
   private rebuild(): void {
     this.judged.clear();
-    this.plainPiles.clear();
+    this.openPiles.clear();
+    this.coveredPiles.clear();
     this.drops.clear();
     for (const e of this.holders()) this.record(e, this.judge(e));
     for (const e of this.refillers()) this.record(e, this.judge(e));
@@ -198,8 +227,8 @@ class HoldingBand implements SyncedBand {
   }
 
   private rejudge(e: Entity): void {
-    this.plainPiles.delete(e);
-    this.drops.delete(e);
+    const held = this.judged.get(e);
+    if (held !== undefined) this.unfile(e, held);
     if (!this.holders().has(e) && !this.refillers().has(e)) {
       this.judged.delete(e);
       this.band.refile(e, false);
@@ -215,7 +244,73 @@ class HoldingBand implements SyncedBand {
     this.judged.set(e, holder);
     if (holder.store) return;
     if (holder.anchor === null) this.drops.set(e, holder);
-    else this.plainPiles.set(e, holder);
+    else this.filePile(e, holder, holder.anchor);
+  }
+
+  /** File plain pile `e` as open or covered by its verdict and its anchor's current block, unless it is
+   *  filed there already: a pile re-filed while its map is walked would be walked again. */
+  private filePile(e: Entity, holder: JudgedHolder, anchor: NodeId): void {
+    const mask = this.mask;
+    const place: PilePlace =
+      holder.admitted && mask !== null && this.terrain.isWalkable(anchor) && !mask.has(anchor)
+        ? 'open'
+        : 'covered';
+    if (place === holder.place) return;
+    this.unfile(e, holder);
+    holder.place = place;
+    if (place === 'covered') {
+      this.coveredPiles.set(e, holder);
+      return;
+    }
+    const block = this.blockOf(anchor);
+    let piles = this.openPiles.get(block);
+    if (piles === undefined) {
+      piles = new Map();
+      this.openPiles.set(block, piles);
+    }
+    piles.set(e, holder);
+  }
+
+  /** Drop `e` from whichever pile map holds it. */
+  private unfile(e: Entity, holder: JudgedHolder): void {
+    if (holder.anchor === null) {
+      this.drops.delete(e);
+      return;
+    }
+    if (holder.place === 'covered') this.coveredPiles.delete(e);
+    else if (holder.place === 'open') {
+      const block = this.blockOf(holder.anchor);
+      const piles = this.openPiles.get(block);
+      piles?.delete(e);
+      if (piles?.size === 0) this.openPiles.delete(block);
+    }
+    holder.place = 'unfiled';
+  }
+
+  private blockOf(anchor: NodeId): number {
+    const { terrain } = this;
+    return (
+      Math.floor(terrain.yOf(anchor) / OPEN_PILE_BLOCK) * this.blockColumns +
+      Math.floor(terrain.xOf(anchor) / OPEN_PILE_BLOCK)
+    );
+  }
+
+  /** Re-judge the open piles whose anchor the mask now blocks, in the blocks it stamped a flip in after
+   *  version `since`. One whose anchor is clear again stands where it stood, admitted. */
+  private reburyFlippedOpenPiles(mask: WalkBlockMask, since: number): void {
+    const area = this.blockArea;
+    this.openPiles.forEach((piles, block) => {
+      const column = block % this.blockColumns;
+      const row = (block - column) / this.blockColumns;
+      area.minHx = column * OPEN_PILE_BLOCK;
+      area.maxHx = area.minHx + OPEN_PILE_BLOCK - 1;
+      area.minHy = row * OPEN_PILE_BLOCK;
+      area.maxHy = area.minHy + OPEN_PILE_BLOCK - 1;
+      if (!mask.flippedSince(area, since, ANY_FLIP)) return;
+      piles.forEach((holder, e) => {
+        if (holder.anchor !== null && mask.has(holder.anchor)) this.reburyPile(holder, e);
+      });
+    });
   }
 
   private readonly reburyPile = (holder: JudgedHolder, e: Entity): void => {
@@ -224,9 +319,11 @@ class HoldingBand implements SyncedBand {
       holder.anchor === null
         ? !strandedPile(world, ctx, terrain, walls, e)
         : !strandedPlainPile(world, ctx, terrain, walls, holder.anchor);
-    if (admitted === holder.admitted) return;
-    holder.admitted = admitted;
-    this.band.refile(e, admitted);
+    if (admitted !== holder.admitted) {
+      holder.admitted = admitted;
+      this.band.refile(e, admitted);
+    }
+    if (holder.anchor !== null) this.filePile(e, holder, holder.anchor);
   };
 
   private judge(e: Entity): JudgedHolder {
@@ -237,7 +334,7 @@ class HoldingBand implements SyncedBand {
       const p = world.get(e, Position);
       anchor = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
     }
-    return { store, anchor, admitted: this.admitsCold(e) };
+    return { store, anchor, admitted: this.admitsCold(e), place: 'unfiled' };
   }
 
   private admitsCold(e: Entity): boolean {

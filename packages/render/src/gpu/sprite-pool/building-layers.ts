@@ -16,8 +16,9 @@ import type { SpriteSheet } from '../sprite-sheet.js';
 import { hasLoadedFamily, layeredLayerFor, pushGroundedBody } from './layered-layers.js';
 import type { LayerBuffer, ResolvedLayer } from './resolved-layer.js';
 
-/** A state overlay's bounds-exempt twin of its memoized record (see {@link layeredLayerFor}). */
+/** A scripted landscape overlay's resolved layer per frame bob, moved to the overlay's point. */
 const landscapeLayers = new WeakMap<BuildingLandscapeOverlayRef, Map<number, ResolvedLayer>>();
+/** A state overlay's bounds-exempt twin of its memoized record (see {@link layeredLayerFor}). */
 const overlayRecords = new WeakMap<ResolvedLayer, ResolvedLayer>();
 /** An old body part's fading twin, for an upgrade site that rebuilds its next tier. */
 const fadingRecords = new WeakMap<ResolvedLayer, ResolvedLayer>();

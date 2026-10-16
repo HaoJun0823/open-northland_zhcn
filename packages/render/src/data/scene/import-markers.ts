@@ -16,15 +16,18 @@ const IMPORT_MARKED = listedWhere((e) => readBehaviourImported(e.components), 'i
   values: ['MissionBehaviour'],
 });
 
+/** The job slug prefix of Xena's hero class. Approximation: the original names her, not a class. */
+const MARKED_HERO_JOB_PREFIX = 'heroine';
+
 /**
  * The jobs whose holder never wears the import marker. Original behavior (reading, unconfirmed against
- * the running original): a hero does not wear it, except Xena. Approximation over the job slug: the
- * `heroine_*` class is hers, so only the other hero classes are exempt.
+ * the running original): a hero does not wear it, except Xena, so only the other hero classes are
+ * exempt.
  */
 export function importMarkerExemptJobs(jobs: readonly Pick<JobType, 'typeId' | 'id'>[]): ReadonlySet<number> {
   const exempt = new Set<number>();
   for (const job of jobs) {
-    if (systems.isHeroJobRow(job) && !job.id.startsWith('heroine')) exempt.add(job.typeId);
+    if (systems.isHeroJobRow(job) && !job.id.startsWith(MARKED_HERO_JOB_PREFIX)) exempt.add(job.typeId);
   }
   return exempt;
 }

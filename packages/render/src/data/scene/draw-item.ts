@@ -49,6 +49,7 @@ export interface VehicleDriver {
 
 /** The draw fields a fog ghost keeps from its last sighting, shared by every sprite kind. */
 export interface StaticDrawFields {
+  /** Bit `1 << slot` set for each `HouseLandscapeOverlays` slot a script switched on. */
   landscapeOverlayMask?: number;
   /** The type id a per-type binding picks its frame by: a tile's landscape typeId, or a building's
    *  `Building.buildingType` (the `[GfxHouse]` `LogicType`). Omitted for settler/resource. */

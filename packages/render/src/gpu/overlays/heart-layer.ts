@@ -2,6 +2,7 @@ import { Container, Sprite, type TextureSource } from 'pixi.js';
 import type { Viewport } from '../../data/projection/index.js';
 import type { OverheadColumn } from '../../data/scene/overhead-column.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
+import { LIFE_HEART_STEPS } from '../../data/sprites/life-heart-frames.js';
 import type { TextureCache } from '../texture-cache.js';
 import { type MarkAnchorFrame, type MarkedEntity, markAnchor } from './entity-anchor.js';
 import { retireUndrawn } from './retained-pool.js';
@@ -13,8 +14,7 @@ import { retireUndrawn } from './retained-pool.js';
  * bubbles.
  */
 
-/** Frames from full to empty life: `ls_gui_bubbles` bobs 11 to 21, a tenth of life apart. */
-export const LIFE_HEART_STEPS = 11;
+export { LIFE_HEART_STEPS };
 
 /** One unit's heart: its owner's colour slot and remaining life as a `[0, 1]` fraction. */
 export interface LifeHeart extends MarkedEntity {

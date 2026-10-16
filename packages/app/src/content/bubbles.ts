@@ -10,7 +10,7 @@ import {
   type SettlerBubbleKind,
   STAR_TIERS,
 } from '@open-northland/render';
-import { importMarkerExemptJobs } from '@open-northland/render/data';
+import { FULL_HEART_FRAME_ID, importMarkerExemptJobs } from '@open-northland/render/data';
 import { PLAYER_COLOR_COUNT } from '../catalog/roster.js';
 import { loadLayer, MissingAtlasError } from './ir/load.js';
 
@@ -26,10 +26,6 @@ const IMPORT_MARKER_FRAME_ID = 10;
 /** The `ls_gui_bubbles` bob of the smallest experience star; each larger tier is the bob before it, so
  *  the largest is bob 6. Original behavior (reading, unconfirmed against the running original). */
 const SMALLEST_STAR_FRAME_ID = 9;
-
-/** The `ls_gui_bubbles` bob of the full life heart; each tenth of life lost is the next bob, to the
- *  empty heart at bob 21. */
-const FULL_HEART_FRAME_ID = 11;
 
 /** The served stem of one colour slot's hearts: `ls_gui_bubbles` baked through that player's palette. */
 const heartAtlasStem = (slot: number): string => `ls_gui_bubbles.player_${String(slot).padStart(2, '0')}`;

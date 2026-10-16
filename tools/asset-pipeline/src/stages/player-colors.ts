@@ -4,6 +4,7 @@ import { type Bmd, decodeBmd } from '@open-northland/formats/bmd/index';
 import { type BmdPaletteBinding, normalizeAssetPath } from '@open-northland/formats/ini';
 import { decodePcx } from '@open-northland/formats/pcx';
 import { PLAYER_COLORS, synthesizePlayerSource } from '@open-northland/formats/player-palette';
+import { FULL_HEART_FRAME_ID, LIFE_HEART_STEPS } from '@open-northland/render/data';
 import { errorMessage } from '../errors.js';
 import { INDEXED_ATLAS_SUFFIX, writeSourceBobAtlas } from './content-tree.js';
 import type { SourceAssetIndex } from './source-files.js';
@@ -23,12 +24,15 @@ interface PlayerPaletteSheet {
 
 /**
  * The guidepost: its board-text indices 23-30 sit inside the `playerNN.pcx` player ramp and those
- * palettes carry the wood ramp at indices 131-141. The life hearts, `ls_gui_bubbles` bobs 11 (full) to
- * 21 (empty): every pixel indexes 18-29 of the player ramp.
+ * palettes carry the wood ramp at indices 131-141. The life hearts, the `ls_gui_bubbles` bobs from full
+ * to empty: every pixel indexes 18-29 of the player ramp.
  */
 const PLAYER_PALETTE_SHEETS: readonly PlayerPaletteSheet[] = [
   { bmd: 'data/engine2d/bin/bobs/ls_guidepost.bmd' },
-  { bmd: 'data/engine2d/bin/bobs/ls_gui_bubbles.bmd', bobs: { first: 11, last: 21 } },
+  {
+    bmd: 'data/engine2d/bin/bobs/ls_gui_bubbles.bmd',
+    bobs: { first: FULL_HEART_FRAME_ID, last: FULL_HEART_FRAME_ID + LIFE_HEART_STEPS - 1 },
+  },
 ];
 
 /**
@@ -47,13 +51,14 @@ async function readCreaturePalette(tree: SourceAssetIndex, file: string): Promis
  * Bakes one atlas per player and {@link PLAYER_PALETTE_SHEETS} entry (`<bmd>.player_NN.{png,atlas.json}`),
  * decoded through that player's full source palette, which differs from a composed human palette at
  * every index these bobs draw. Baked rather than indexed+LUT so the bobs' graded edge alpha survives.
+ * A sheet in no source layer is skipped with a warning, so the others still bake.
  */
 export async function convertPlayerPaletteAtlases(outDir: string, tree: SourceAssetIndex): Promise<number> {
-  const sheets = PLAYER_PALETTE_SHEETS.map((sheet) => {
+  const sheets = PLAYER_PALETTE_SHEETS.flatMap((sheet) => {
     const source = tree.get(normalizeAssetPath(sheet.bmd));
-    if (source === undefined)
-      throw new Error(`player palette atlases: ${sheet.bmd} not found in any source layer`);
-    return { source, sheet };
+    if (source !== undefined) return [{ source, sheet }];
+    console.warn(`[pipeline] skipped player palette atlases of ${sheet.bmd}: not found in any source layer`);
+    return [];
   });
   const reference = await readCreaturePalette(tree, SYNTHETIC_REFERENCE_PCX);
   let emitted = 0;

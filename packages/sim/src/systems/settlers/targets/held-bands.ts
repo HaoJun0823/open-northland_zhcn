@@ -109,10 +109,17 @@ interface JudgedHolder {
  * judges again the holders the ledger recaptured since the last one, since a positioned stockpile never
  * moves, and only the piles' burial when the structure overlay that check reads moved. A `supplying`
  * band also admits the good's self-filling houses while they are empty.
+ *
+ * A plain pile's verdict reads only the walls and the stance pools of its anchor, which the overlay epoch
+ * versions, so a move of the standing resources alone re-judges just the ground drops.
  */
 class HoldingBand implements SyncedBand {
   private readonly band: HeldBand;
   private readonly judged = new Map<Entity, JudgedHolder>();
+  /** The {@link judged} plain piles and ground drops, apart from the stores an overlay move never
+   *  re-judges. */
+  private readonly plainPiles = new Map<Entity, JudgedHolder>();
+  private readonly drops = new Map<Entity, JudgedHolder>();
   private ledger: FetchableStock | null = null;
   private feed: ChangeFeed | null = null;
   /** The overlay the verdicts were judged under: the walls, the stance pool epoch and the
@@ -147,7 +154,8 @@ class HoldingBand implements SyncedBand {
     const walls = buildingBlockedCells(world, ctx, terrain);
     const overlay = stanceOverlayEpoch(world, ctx, terrain);
     const resources = world.componentGeneration(Resource);
-    const overlayMoved = walls !== this.walls || overlay !== this.overlay || resources !== this.resources;
+    const structuresMoved = walls !== this.walls || overlay !== this.overlay;
+    const resourcesMoved = resources !== this.resources;
     this.walls = walls;
     this.overlay = overlay;
     this.resources = resources;
@@ -161,7 +169,8 @@ class HoldingBand implements SyncedBand {
       this.rebuild();
       return;
     }
-    if (overlayMoved) this.judged.forEach(this.reburyPile);
+    if (structuresMoved) this.plainPiles.forEach(this.reburyPile);
+    if (structuresMoved || resourcesMoved) this.drops.forEach(this.reburyPile);
   }
 
   /** A mismatch per member that differs from a cold judgement of every holder, or whose index entry
@@ -181,24 +190,35 @@ class HoldingBand implements SyncedBand {
 
   private rebuild(): void {
     this.judged.clear();
-    for (const e of this.holders()) this.judged.set(e, this.judge(e));
-    for (const e of this.refillers()) this.judged.set(e, this.judge(e));
+    this.plainPiles.clear();
+    this.drops.clear();
+    for (const e of this.holders()) this.record(e, this.judge(e));
+    for (const e of this.refillers()) this.record(e, this.judge(e));
     this.band.sync();
   }
 
   private rejudge(e: Entity): void {
+    this.plainPiles.delete(e);
+    this.drops.delete(e);
     if (!this.holders().has(e) && !this.refillers().has(e)) {
       this.judged.delete(e);
       this.band.refile(e, false);
       return;
     }
     const holder = this.judge(e);
-    this.judged.set(e, holder);
+    this.record(e, holder);
     this.band.refile(e, holder.admitted);
   }
 
-  private readonly reburyPile = (holder: JudgedHolder, e: Entity): void => {
+  /** File `holder` as `e`'s verdict, and under its pile kind unless it is a store. */
+  private record(e: Entity, holder: JudgedHolder): void {
+    this.judged.set(e, holder);
     if (holder.store) return;
+    if (holder.anchor === null) this.drops.set(e, holder);
+    else this.plainPiles.set(e, holder);
+  }
+
+  private readonly reburyPile = (holder: JudgedHolder, e: Entity): void => {
     const { world, ctx, terrain, walls } = this;
     const admitted =
       holder.anchor === null

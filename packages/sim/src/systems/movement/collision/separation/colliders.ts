@@ -1,10 +1,18 @@
-import { Engagement, Obstructed, PathFollow, PathRoute, Position } from '../../../../components/index.js';
+import {
+  Engagement,
+  Obstructed,
+  PathFollow,
+  PathRoute,
+  Position,
+  Settler,
+} from '../../../../components/index.js';
 import { type Fixed, ZERO } from '../../../../core/fixed.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 import { worldX } from '../../../../nav/world-metric.js';
 import type { SystemContext } from '../../../context.js';
+import { isFighterJob } from '../../../readviews/index.js';
 import { writeLegHeading } from '../../stepping.js';
 import { hasSoftCollision } from '../bodies.js';
 import { hasBodyCollision } from '../owned-fighters.js';
@@ -48,7 +56,8 @@ export function collectColliders(
     const e = order[slot] as Entity;
     const p = world.get(e, Position);
     place(movers, slot, e, p.x, p.y);
-    const firm = hasBodyCollision(world, ctx.content, e);
+    // `hasBodyCollision` with its Owner and Settler checks already passed by `hasSoftCollision`.
+    const firm = isFighterJob(ctx.content, world.get(e, Settler).jobType);
     movers.firm[slot] = firm;
     if (firm) firmCount++;
     // Both present by the movers query above.

@@ -9,8 +9,8 @@ import { dynamicBlockOverlay } from '../../../footprint/index.js';
 import { type CalmZones, calmZonesByPlayer } from '../bodies.js';
 import { playerSlotBit } from '../standing-posts.js';
 
-/** The tick's gates, built on first ask so a tick where no pair interacts builds none. Construct one per
- *  tick: the caches are snapshots, so a pooled instance would keep approving displacements onto ground
+/** The tick's gates, built on first ask so a tick where no pair interacts builds none. {@link reset} them
+ *  every tick: the caches are snapshots, so a held answer would keep approving displacements onto ground
  *  blocked since, and keep answering the old calm zones and stances. */
 export class SeparationGates {
   private zones: CalmZones | undefined;
@@ -19,9 +19,18 @@ export class SeparationGates {
 
   constructor(
     private readonly world: World,
-    private readonly ctx: SystemContext,
-    private readonly terrain: TerrainGraph,
+    private ctx: SystemContext,
+    private terrain: TerrainGraph,
   ) {}
+
+  /** Drop the previous tick's answers and bind this tick's context. */
+  reset(ctx: SystemContext, terrain: TerrainGraph): void {
+    this.ctx = ctx;
+    this.terrain = terrain;
+    this.zones = undefined;
+    this.blocked = undefined;
+    this.hostile = undefined;
+  }
 
   /** Whether `e` stands inside its own player's calm zone. */
   isGhost(e: Entity): boolean {

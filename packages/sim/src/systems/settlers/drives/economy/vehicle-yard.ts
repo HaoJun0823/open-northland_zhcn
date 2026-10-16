@@ -1,3 +1,4 @@
+import type { ContentSet, Recipe } from '@open-northland/data';
 import {
   Building,
   Position,
@@ -41,6 +42,7 @@ export function planVehicleYard(plan: PlannerContext, workplace: Entity, spacing
   if (recipes === undefined) return false;
   pruneYardRefusals(world, ctx.tick, workplace);
   releaseFinishedSite(plan, workplace, recipes);
+  if (!makesVehicles(ctx.content, recipes)) return false;
   const pick = nextRotationPick(world, ctx, workplace, e, recipes);
   const houseType = pick === null ? undefined : vehicleHouseOfGood(ctx.content, pick.good);
   if (pick === null || houseType === undefined) return false;
@@ -74,6 +76,22 @@ export function planVehicleYard(plan: PlannerContext, workplace: Entity, spacing
   // Nothing to install and nothing to fetch: wait at the work point for a delivery.
   atOrWalk(world, e, here, workPoint, () => {});
   return true;
+}
+
+/** Whether any product of a workshop's recipe table is a vehicle good, kept per table. A workshop
+ *  without one never takes a yard turn, so its workers skip the rotation walk that would only say so. */
+const vehicleTables = new WeakMap<ReadonlyMap<number, Recipe>, boolean>();
+
+function makesVehicles(content: ContentSet, recipes: ReadonlyMap<number, Recipe>): boolean {
+  let makes = vehicleTables.get(recipes);
+  if (makes === undefined) {
+    makes = false;
+    for (const good of recipes.keys()) {
+      if (vehicleHouseOfGood(content, good) !== undefined) makes = true;
+    }
+    vehicleTables.set(recipes, makes);
+  }
+  return makes;
 }
 
 /**

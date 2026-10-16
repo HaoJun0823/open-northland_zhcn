@@ -143,7 +143,6 @@ export function nearestHarvestableFor(
     if (cell === undefined) return null;
     return { cell, payload: null };
   };
-  const anchors = new AnchorRanking(terrain.xOf(origin), terrain.yOf(origin), maxWorkOffset, anchorInBound);
   let best: NearestByCell<null> | null;
   if (opts.diagnostic !== undefined) {
     // A diagnostic reports on every candidate, so it walks the whole ascending-id list.
@@ -155,13 +154,16 @@ export function nearestHarvestableFor(
       if (p === undefined || !anchorInBound(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y))) return null;
       return resolve(e);
     });
-  } else if (opts.candidates !== undefined) {
-    best = anchors.addList(world, opts.candidates).fold(terrain, origin, null, resolve);
-  } else if (box !== undefined) {
-    forEachResourceNear(world, box.x, box.y, box.reach, anchors.add, allowed);
-    best = anchors.fold(terrain, origin, null, resolve);
   } else {
-    best = nearestInGrowingBoxes(world, terrain, origin, allowed, anchors, resolve);
+    const anchors = new AnchorRanking(terrain.xOf(origin), terrain.yOf(origin), maxWorkOffset, anchorInBound);
+    if (opts.candidates !== undefined) {
+      best = anchors.addList(world, opts.candidates).fold(terrain, origin, null, resolve);
+    } else if (box !== undefined) {
+      forEachResourceNear(world, box.x, box.y, box.reach, anchors.add, allowed);
+      best = anchors.fold(terrain, origin, null, resolve);
+    } else {
+      best = nearestInGrowingBoxes(world, terrain, origin, allowed, anchors, resolve);
+    }
   }
   // No same-side gate: a standing Resource is never Owner-stamped, so the test would always pass.
   return best === null ? null : { entity: best.entity, cell: best.cell, dist: best.distance };

@@ -102,8 +102,8 @@ function armyStrength(world: World, ctx: SystemContext, player: number, postedWe
  * enemy fields anyone: the men he could march with, counted one to one like the seat's own, so the army
  * floor (`workforce/garrison.ts`) can be met. The weight his tower posts add is the offensive's concern
  * ({@link defendingStrength}), read for the one target it picks. One pass over the owned fighters serves
- * every seat, so the cost is the map's fighters, not its people. Not fog-gated, like the campaign's target scan; that the
- * original's AI sees through the fog too is unconfirmed.
+ * every seat, so the cost is the map's fighters, not its people. Not fog-gated, like the campaign's
+ * target scan; that the original's AI sees through the fog too is unconfirmed.
  */
 export function strongestEnemyStrength(world: World, ctx: SystemContext, player: number): number {
   let counts: readonly number[] | null = null;

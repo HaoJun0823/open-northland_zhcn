@@ -325,21 +325,23 @@ export class InteractionCellIndex {
     if (this.sides !== null && membership === this.ownerMembership && values === this.ownerValues) {
       return this.sides;
     }
+    let sides = this.sides;
     const replayed =
-      this.sides !== null &&
+      sides !== null &&
       world.replayMembershipSince(Owner, this.ownerMembership, this.refileSide) &&
       world.replayValueWritesSince(Owner, this.ownerValues, this.refileSide);
-    if (!replayed) {
+    if (sides === null || !replayed) {
       world.journalMembership(Owner);
       world.journalValueWrites(Owner);
-      this.sides = new Map();
+      sides = new Map();
+      this.sides = sides;
       this.sideOf.clear();
       for (const e of this.all.doorList) this.fileInSide(e);
       for (const e of this.all.looseList) this.fileInSide(e);
     }
     this.ownerMembership = membership;
     this.ownerValues = values;
-    return this.sides as Map<number, CandidateSet>;
+    return sides;
   }
 
   /** File indexed `e` under its owner's side. */

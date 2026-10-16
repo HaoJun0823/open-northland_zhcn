@@ -99,7 +99,8 @@ export class GroupCoverage {
     for (let y = area.minY; y <= area.maxY; y++) {
       const from = (y - area.minY) * areaWidth;
       const to = (y - minY) * this.width + area.minX - minX;
-      // Cells hold only 0 or 1, so the product is the change without a branch per cell.
+      // A returned reach area holds only 0 or MARKED (1), since a flood clears its WANTED targets before
+      // returning (`nav/range-search.ts`), so the product is the change without a branch per cell.
       for (let x = 0; x < areaWidth; x++)
         counts[to + x] = (counts[to + x] as number) + sign * (cells[from + x] as number);
     }

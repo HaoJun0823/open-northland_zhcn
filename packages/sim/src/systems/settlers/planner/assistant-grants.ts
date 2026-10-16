@@ -17,7 +17,8 @@ import {
 import { contentIndex } from '../../../core/content-index.js';
 import { TICKS_PER_SECOND } from '../../../core/loop.js';
 import type { Entity, World } from '../../../ecs/world.js';
-import { nodeOfPosition } from '../../../nav/halfcell.js';
+import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
+import type { NodeId } from '../../../nav/terrain/index.js';
 import { standsAtPost } from '../../conflict/tower-post.js';
 import { holdsSiteClaim, isSoloSite } from '../../economy/site-claim.js';
 import { CIVILIST_JOB } from '../../lifecycle/ageclass.js';
@@ -111,7 +112,7 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     }
     const eq = world.tryGet(e, Equipment);
     // Resolved once, and only when a grant has both a free slot and spare stock.
-    let limit: NavigationLimit | null | undefined;
+    let route: GrantRoute | undefined;
     for (const spec of wanted) {
       if (toolless && spec.category === 'tool') continue; // its boots and misc grants still apply
       if (soldiersOnly.includes(spec.goodType)) continue; // kept for the fighters
@@ -119,10 +120,8 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       if (slot === null) continue;
       const underway = tally.get(spec.goodType) ?? 0;
       if (!stock.exceeds(owner, spec.goodType, underway)) continue;
-      if (limit === undefined) limit = equipFetchLimitFor(world, ctx.content, terrain, e);
-      const p = world.get(e, Position);
-      const n = nodeOfPosition(p.x, p.y);
-      const here = terrain.nodeAtClamped(n.hx, n.hy);
+      route ??= grantRouteFor(pass, e);
+      const here = route.here;
       const src = nearestStoreHolding(
         targets.bands,
         world,
@@ -130,8 +129,8 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
         spec.goodType,
         owner,
         pass.supply,
-        limit ?? undefined,
-        unreachableGoalVeto(world, ctx, e),
+        route.limit ?? undefined,
+        route.veto,
       );
       if (src === null) continue; // nothing reachable through this settler's signpost network
       world.add(e, EquipOrder, {
@@ -149,6 +148,25 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       break; // one errand per settler; the next beat considers the rest of its slots
     }
   }
+}
+
+/** A settler's store-search inputs, read once per beat visit: the node he stands on, the signpost network
+ *  around him and the goals he cannot reach. */
+interface GrantRoute {
+  readonly here: NodeId;
+  readonly limit: NavigationLimit | null;
+  readonly veto: ((cell: NodeId) => boolean) | undefined;
+}
+
+function grantRouteFor(pass: PlannerPass, e: Entity): GrantRoute {
+  const { world, ctx, terrain } = pass;
+  const limit = equipFetchLimitFor(world, ctx.content, terrain, e);
+  const p = world.get(e, Position);
+  return {
+    here: terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y)),
+    limit,
+    veto: unreachableGoalVeto(world, ctx, e),
+  };
 }
 
 function holdsSoloSite(world: World, e: Entity): boolean {
@@ -246,10 +264,17 @@ export function freeSlotFor(eq: EquipmentData | undefined, spec: GrantSpec): num
     return eq === undefined || equipSlotValue(eq, spec.category, 0) === null ? 0 : null;
   }
   if (eq === undefined) return 0;
-  const satisfies = (held: number): boolean => held === spec.goodType || spec.equivalents?.has(held) === true;
-  if (eq.misc.some((s) => s !== null && satisfies(s.goodType))) return null;
-  const free = eq.misc.indexOf(null);
-  return free === -1 ? null : free;
+  let free: number | null = null;
+  for (let i = 0; i < eq.misc.length; i++) {
+    const held = eq.misc[i];
+    if (held === null) {
+      free ??= i;
+      continue;
+    }
+    if (held === undefined) continue;
+    if (held.goodType === spec.goodType || spec.equivalents?.has(held.goodType) === true) return null;
+  }
+  return free;
 }
 
 const NO_SETTLERS: readonly Entity[] = [];

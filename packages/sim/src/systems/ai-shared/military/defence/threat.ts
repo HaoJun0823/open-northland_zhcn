@@ -100,61 +100,73 @@ export function seatRaiders(
   terrain: TerrainGraph,
   player: number,
 ): readonly Raider[] {
+  const fighters = looseFighters(world, ctx, terrain);
   let scans = raiderScans.get(world);
   if (scans === undefined) {
     scans = new Map();
     raiderScans.set(world, scans);
   }
   const held = scans.get(player);
-  if (held !== undefined && held.content === ctx.content && keyIsCurrent(world, held.key)) {
-    return held.raiders;
+  if (held === undefined) {
+    const raiders = enemiesAmong(world, fighters.fighters, player, NO_RAIDERS);
+    scans.set(player, { stamp: fighters.stamp, content: ctx.content, raiders });
+    return raiders;
   }
-  const fighters = looseFighters(world, ctx, terrain);
-  const raiders = enemiesAmong(world, fighters.fighters, player);
-  scans.set(player, { key: fighters.key, content: ctx.content, raiders });
-  return raiders;
+  if (held.stamp !== fighters.stamp || held.content !== ctx.content) {
+    const previous = held.content === ctx.content ? held.raiders : NO_RAIDERS;
+    held.raiders = enemiesAmong(world, fighters.fighters, player, previous);
+    held.stamp = fighters.stamp;
+    held.content = ctx.content;
+  }
+  return held.raiders;
 }
 
-/** One seat's raider scan, kept while nothing it read has changed: the build order and the military
- *  module both read a seat's raiders in its decision tick. Derived read-state, never hashed. */
+/** One seat's raider scan, kept while the fighter scan it was read from stands: the build order and the
+ *  military module both read a seat's raiders in its decision tick. Derived read-state, never hashed. */
 interface RaiderScan {
-  readonly key: readonly number[];
-  readonly content: SystemContext['content'];
-  readonly raiders: readonly Raider[];
+  stamp: number;
+  content: SystemContext['content'];
+  raiders: readonly Raider[];
 }
 
 const raiderScans = new WeakMap<World, Map<number, RaiderScan>>();
 
-/** A live, unposted fighter of any seat, read once for every seat's {@link seatRaiders}. A rescan keeps
- *  the previous record of a man whose owner, node and reach are unchanged, so a standing army costs no
- *  allocation per scan. */
-interface LooseFighter {
+const NO_RAIDERS: readonly Raider[] = [];
+
+/** A live, unposted fighter of any seat, read once for every seat's {@link seatRaiders}: the raider record
+ *  a seat's list hands out, with the owner the stance test reads. A rescan keeps the previous record of a
+ *  man whose owner, node and reach are unchanged, so a standing army costs no allocation per scan. */
+interface LooseFighter extends Raider {
   readonly owner: number;
-  readonly raider: Raider;
 }
 
-/** The map's loose fighters under one scan key, ascending id. Derived read-state, never hashed. */
+/**
+ * The map's loose fighters under one scan key, ascending id, rebuilt in place. `fighters` never leaves this
+ * module, so a rescan writes into `spare` and swaps the two lists. `stamp` moves on every rescan, for the
+ * seat scans read off it. Derived read-state, never hashed.
+ */
 interface LooseFighterScan {
-  readonly key: readonly number[];
-  readonly content: SystemContext['content'];
-  readonly terrain: TerrainGraph;
-  readonly fighters: readonly LooseFighter[];
+  readonly key: number[];
+  stamp: number;
+  content: SystemContext['content'];
+  terrain: TerrainGraph;
+  fighters: LooseFighter[];
+  spare: LooseFighter[];
 }
 
 const looseFighterScans = new WeakMap<World, LooseFighterScan>();
-
-const NO_FIGHTERS: readonly LooseFighter[] = [];
 
 /** Every store the scan reads, membership and in-place writes: a man born, killed, moved, re-owned,
  *  re-jobbed, re-armed or posted, or a stance changed, starts a fresh scan. */
 const SCAN_STORES = [Person, Owner, Position, Health, Settler, Weapon, Garrison, DiplomacyRules] as const;
 
-function scanKey(world: World): readonly number[] {
-  const key: number[] = [];
+/** Writes the live {@link SCAN_STORES} generations into `key`. */
+function fillKey(world: World, key: number[]): void {
+  let i = 0;
   for (const store of SCAN_STORES) {
-    key.push(world.componentGeneration(store), world.componentValueGeneration(store));
+    key[i++] = world.componentGeneration(store);
+    key[i++] = world.componentValueGeneration(store);
   }
-  return key;
 }
 
 /** Whether `key` still matches the live {@link SCAN_STORES} generations, read without building a key. */
@@ -168,22 +180,18 @@ function keyIsCurrent(world: World, key: readonly number[]): boolean {
 }
 
 function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph): LooseFighterScan {
-  const held = looseFighterScans.get(world);
-  if (
-    held !== undefined &&
-    held.content === ctx.content &&
-    held.terrain === terrain &&
-    keyIsCurrent(world, held.key)
-  ) {
-    return held;
+  let scan = looseFighterScans.get(world);
+  if (scan === undefined) {
+    scan = { key: [], stamp: 0, content: ctx.content, terrain, fighters: [], spare: [] };
+    looseFighterScans.set(world, scan);
+  } else if (scan.content === ctx.content && scan.terrain === terrain && keyIsCurrent(world, scan.key)) {
+    return scan;
   }
-  const key = scanKey(world);
-  const previous =
-    held !== undefined && held.content === ctx.content && held.terrain === terrain
-      ? held.fighters
-      : NO_FIGHTERS;
+  fillKey(world, scan.key);
+  const previous = scan.content === ctx.content && scan.terrain === terrain ? scan.fighters : NO_FIGHTERS;
+  const fighters = scan.spare;
   let p = 0;
-  const fighters: LooseFighter[] = [];
+  let n = 0;
   // The owned-fighter index holds every owned settler of a fighting trade, ascending id: the fighters among
   // the people, without a walk over every civilian.
   for (const e of ownedFighters(world, ctx.content)) {
@@ -197,18 +205,23 @@ function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph):
     const reach = Math.max(weaponReach(world, ctx, e), SIGHT_RADIUS_NODES);
     const owner = world.get(e, Owner).player;
     // Both lists ascend by id, so the previous record of `e`, if any, is at or past `p`.
-    while (p < previous.length && (previous[p] as LooseFighter).raider.entity < e) p++;
+    while (p < previous.length && (previous[p] as LooseFighter).entity < e) p++;
     const was = previous[p];
-    if (was !== undefined && sameFighter(was, e, owner, x, y, component, reach)) {
-      fighters.push(was);
-    } else {
-      fighters.push({ owner, raider: { entity: e, x, y, component, reach } });
-    }
+    fighters[n++] =
+      was !== undefined && sameFighter(was, e, owner, x, y, component, reach)
+        ? was
+        : { entity: e, x, y, component, reach, owner };
   }
-  const scan = { key, content: ctx.content, terrain, fighters };
-  looseFighterScans.set(world, scan);
+  fighters.length = n;
+  scan.spare = scan.fighters;
+  scan.fighters = fighters;
+  scan.content = ctx.content;
+  scan.terrain = terrain;
+  scan.stamp++;
   return scan;
 }
+
+const NO_FIGHTERS: readonly LooseFighter[] = [];
 
 function sameFighter(
   was: LooseFighter,
@@ -219,32 +232,61 @@ function sameFighter(
   component: number,
   reach: number,
 ): boolean {
-  const r = was.raider;
   return (
-    r.entity === e &&
+    was.entity === e &&
     was.owner === owner &&
-    r.x === x &&
-    r.y === y &&
-    r.component === component &&
-    r.reach === reach
+    was.x === x &&
+    was.y === y &&
+    was.component === component &&
+    was.reach === reach
   );
 }
 
-/** The `fighters` whose player would engage `player`, in their order: an allied army walking past must not
- *  hold the town in alarm. */
-function enemiesAmong(world: World, fighters: readonly LooseFighter[], player: number): readonly Raider[] {
-  const raiders: Raider[] = [];
-  const enemyOwners = new Map<number, boolean>();
-  for (const { owner, raider } of fighters) {
-    if (owner === player) continue;
-    let enemy = enemyOwners.get(owner);
-    if (enemy === undefined) {
-      enemy = diplomacyStance(world, owner, player) === 'enemy';
-      enemyOwners.set(owner, enemy);
-    }
-    if (enemy) raiders.push(raider);
+/**
+ * The `fighters` whose player would engage `player`, in their order: an allied army walking past must not
+ * hold the town in alarm. Returns `previous` itself when it already lists exactly these records, and
+ * otherwise a list allocated once at its final length.
+ */
+function enemiesAmong(
+  world: World,
+  fighters: readonly LooseFighter[],
+  player: number,
+  previous: readonly Raider[],
+): readonly Raider[] {
+  stanceCount = 0;
+  let count = 0;
+  let same = true;
+  for (const fighter of fighters) {
+    if (!engages(world, fighter.owner, player)) continue;
+    if (same && previous[count] !== fighter) same = false;
+    count++;
+  }
+  if (same && count === previous.length) return previous;
+  const raiders = new Array<Raider>(count);
+  let i = 0;
+  for (const fighter of fighters) {
+    if (engages(world, fighter.owner, player)) raiders[i++] = fighter;
   }
   return raiders;
+}
+
+/** The stances {@link enemiesAmong} has read this call, a few owners at most: owner `stanceOwners[i]`
+ *  is an enemy when `stanceEnemy[i]`. Only the first `stanceCount` slots are live. */
+const stanceOwners: number[] = [];
+const stanceEnemy: boolean[] = [];
+let stanceCount = 0;
+
+/** Whether `owner`'s fighters are `player`'s raiders, the stance read once per owner per call. */
+function engages(world: World, owner: number, player: number): boolean {
+  if (owner === player) return false;
+  for (let i = 0; i < stanceCount; i++) {
+    if (stanceOwners[i] === owner) return stanceEnemy[i] as boolean;
+  }
+  const enemy = diplomacyStance(world, owner, player) === 'enemy';
+  stanceOwners[stanceCount] = owner;
+  stanceEnemy[stanceCount] = enemy;
+  stanceCount++;
+  return enemy;
 }
 
 /** The weapon `e` fights with and its reach band, or null for an unarmed man. */

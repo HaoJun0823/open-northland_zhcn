@@ -57,6 +57,10 @@ const BUILD_VARIANTS = 2;
 const recordCellsByContent = new WeakMap<ContentSet, Map<number, ResourceFootprintCells>>();
 
 function recordFootprintCells(content: ContentSet, key: ResourceFootprintRecordKey): ResourceFootprintCells {
+  // A fractional or negative part would pack onto another record's key and alias its memo entry.
+  if (!Number.isInteger(key.gfx) || key.gfx < 0) {
+    throw new Error(`resource footprint record ${key.gfx} is outside the keyed range`);
+  }
   const levelSlot = key.level === undefined ? 0 : key.level + 1;
   if (!Number.isInteger(levelSlot) || levelSlot < 0 || levelSlot >= LEVEL_SLOTS) {
     throw new Error(`resource footprint level ${key.level} is outside the keyed range`);

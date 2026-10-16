@@ -36,7 +36,9 @@ const LAYER_STORES: readonly Component<unknown>[] = [Building, Health, Position,
  *  its tallies. The tribe never changes, and an Anger that lapses without a write is re-read every build. A
  *  Position write only moves a unit, so it has its own feed. */
 const UNIT_MEMBERSHIP: readonly Component<unknown>[] = [Settler, Health, Position, Owner, Anger, Engagement];
-const UNIT_VALUES: readonly Component<unknown>[] = [Owner, Engagement];
+const UNIT_VALUES: readonly Component<unknown>[] = [Owner];
+/** An Engagement write re-classes only an unowned animal, so its feed skips every other held unit. */
+const WILD_VALUES: readonly Component<unknown>[] = [Engagement];
 
 /** A player's slot bit, or 0 for a player outside the slots. */
 export function playerBit(player: number): number {
@@ -182,6 +184,7 @@ export function combatGridOf(world: World, ctx: SystemContext, terrain: TerrainG
     terrain,
     ctx.content,
     world.watchChanges(UNIT_MEMBERSHIP, UNIT_VALUES),
+    world.watchChanges([], WILD_VALUES),
     watchNodeMoves(world),
   );
   grids.set(world, grid);
@@ -222,6 +225,7 @@ export class CombatGrid {
     readonly terrain: TerrainGraph,
     readonly content: ContentSet,
     private readonly unitFeed: ChangeFeed,
+    private readonly wildFeed: ChangeFeed,
     private readonly moveFeed: NodeMoveFeed,
   ) {
     this.cols = Math.ceil(terrain.width / COARSE_CELL_NODES);
@@ -500,9 +504,15 @@ export class CombatGrid {
     const lost =
       !this.unitsBuilt ||
       this.unitFeed.drain((e) => this.placeUnit(world, tick, e)) ||
+      this.wildFeed.drain((e) => {
+        // The membership feed, replayed first, has placed a unit whose stores changed; a held unit the
+        // Engagement cannot re-class keeps its entry.
+        if (this.units[e]?.wild !== null) this.placeUnit(world, tick, e);
+      }) ||
       this.moveFeed.drain((e) => this.moveUnit(world, e));
     if (lost) {
       this.unitFeed.drain(() => {});
+      this.wildFeed.drain(() => {});
       this.moveFeed.drain(() => {});
       this.rebuildUnits(world, tick);
     }
@@ -726,7 +736,7 @@ export class CombatGrid {
     const note = (e: Entity): void => {
       pending.add(e);
     };
-    if (this.unitFeed.peek(note) || this.moveFeed.peek(note)) return [];
+    if (this.unitFeed.peek(note) || this.wildFeed.peek(note) || this.moveFeed.peek(note)) return [];
     for (const e of world.query(Settler, Health, Position)) {
       if (pending.has(e)) continue;
       const held = this.units[e];

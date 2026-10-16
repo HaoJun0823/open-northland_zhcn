@@ -30,20 +30,16 @@ class SweepCandidates {
   private readonly idle: Entity[] = [];
   private readonly idleByOwner = new Map<number, Entity[]>();
   private readonly idleByBeat: Entity[][] = Array.from({ length: IDLE_REPLAN_PERIOD_TICKS }, () => []);
-  /** The release each positioned settler is filed under, so a change that leaves its release, beat and
-   *  owner as they were edits no list. */
-  private readonly filedRelease = new Map<Entity, IdleRelease | null>();
-  /** The owner each walker or idler is filed under, so a re-owned one leaves its old owner's lists. */
-  private readonly filedOwner = new Map<Entity, number>();
-  /** The beat each idler is filed under, so one that moves into or out of a building leaves its old beat. */
-  private readonly filedBeat = new Map<Entity, number>();
+  /** How each positioned settler is filed, so a change that leaves its release, beat and owner as they
+   *  were edits no list, and a re-owned or re-beaten one leaves its old lists. */
+  private readonly filed = new Map<Entity, Filing>();
   private readonly feed: ChangeFeed;
   private readonly refreshEntity = (e: Entity): void => this.refresh(e);
-  /** Inserts and removals in `acting` so far: the index of the last answer stays a valid start for
-   *  the next, later cursor while this holds still, so a pass walks forward instead of searching. */
-  private actingEdits = 0;
-  private lastAt = 0;
-  private lastAtEdits = -1;
+  /** List edits so far: a remembered index stays a valid start for a later cursor while this holds
+   *  still, so a pass walks forward instead of searching. */
+  private edits = 0;
+  private readonly actingAt = new ForwardIndex();
+  private readonly idleAt = new ForwardIndex();
 
   constructor(private readonly world: World) {
     this.feed = world.watchChanges(
@@ -68,7 +64,10 @@ class SweepCandidates {
   ): Entity | undefined {
     this.catchUp();
     const idlers = beat === undefined ? this.idle : this.idlersOn(beat);
-    let next = earlier(this.acting[this.actingAbove(cursor)], idlers[indexAboveId(idlers, cursor, byId)]);
+    let next = earlier(
+      this.acting[this.actingAt.above(this.acting, cursor, this.edits)],
+      idlers[this.idleAt.above(idlers, cursor, this.edits)],
+    );
     if (shelters.size === 0) return next;
     for (const owner of shelters.keys()) {
       // A walker's visit only claims a place, so it waits while its owner has none left.
@@ -101,19 +100,6 @@ class SweepCandidates {
     return bound;
   }
 
-  private actingAbove(cursor: number): number {
-    let at = this.lastAt;
-    const previous = this.acting[at - 1];
-    if (this.lastAtEdits !== this.actingEdits || (previous !== undefined && previous > cursor)) {
-      at = indexAboveId(this.acting, cursor, byId);
-    } else {
-      while ((this.acting[at] ?? Number.POSITIVE_INFINITY) <= cursor) at++;
-    }
-    this.lastAt = at;
-    this.lastAtEdits = this.actingEdits;
-    return at;
-  }
-
   private catchUp(): void {
     if (this.feed.pending && this.feed.drain(this.refreshEntity)) this.rebuild();
   }
@@ -123,34 +109,37 @@ class SweepCandidates {
     const release = positioned ? idleRelease(this.world, e) : undefined;
     const beat = release === 'idle' ? idleBeatOf(beatKeyOf(this.world, e)) : undefined;
     const owner = release === 'travelling' || release === 'idle' ? ownerOf(this.world, e) : undefined;
-    const priorRelease = this.filedRelease.get(e);
-    const priorBeat = this.filedBeat.get(e);
-    const priorOwner = this.filedOwner.get(e);
+    const filing = this.filed.get(e);
+    const priorRelease = filing?.release;
+    const priorBeat = filing?.beat;
+    const priorOwner = filing?.owner;
+    if (release === priorRelease && beat === priorBeat && owner === priorOwner) return;
     if (release !== priorRelease) {
-      if (release === null || priorRelease === null) {
-        editMember(this.acting, e, release === null);
-        this.actingEdits++;
-      }
-      if (release === 'idle' || priorRelease === 'idle') editMember(this.idle, e, release === 'idle');
-      if (release === undefined) this.filedRelease.delete(e);
-      else this.filedRelease.set(e, release);
+      if (release === null || priorRelease === null) this.editMember(this.acting, e, release === null);
+      if (release === 'idle' || priorRelease === 'idle') this.editMember(this.idle, e, release === 'idle');
     }
     if (beat !== priorBeat) {
-      if (priorBeat !== undefined) editMember(this.idlersOn(priorBeat), e, false);
-      if (beat === undefined) this.filedBeat.delete(e);
-      else {
-        editMember(this.idlersOn(beat), e, true);
-        this.filedBeat.set(e, beat);
-      }
+      if (priorBeat !== undefined) this.editMember(this.idlersOn(priorBeat), e, false);
+      if (beat !== undefined) this.editMember(this.idlersOn(beat), e, true);
     }
     if (owner !== priorOwner || release !== priorRelease) {
-      if (priorOwner !== undefined) editMember(this.ownerListOf(priorRelease, priorOwner), e, false);
-      if (owner === undefined) this.filedOwner.delete(e);
-      else {
-        editMember(this.ownerListOf(release, owner), e, true);
-        this.filedOwner.set(e, owner);
-      }
+      if (priorOwner !== undefined) this.editMember(this.ownerListOf(priorRelease, priorOwner), e, false);
+      if (owner !== undefined) this.editMember(this.ownerListOf(release, owner), e, true);
     }
+    if (release === undefined) this.filed.delete(e);
+    else if (filing === undefined) this.filed.set(e, { release, beat, owner });
+    else {
+      filing.release = release;
+      filing.beat = beat;
+      filing.owner = owner;
+    }
+  }
+
+  /** Insert `e`, which the filing says `ids` lacks, or remove it, which the filing says `ids` holds. */
+  private editMember(ids: Entity[], e: Entity, present: boolean): void {
+    if (present) insertSortedById(ids, e, byId);
+    else removeSortedById(ids, e, byId);
+    this.edits++;
   }
 
   /** The owner list a walker or idler of `owner` is filed in. */
@@ -159,29 +148,25 @@ class SweepCandidates {
   }
 
   private rebuild(): void {
-    this.actingEdits++;
+    this.edits++;
     this.acting.length = 0;
     this.idle.length = 0;
     this.travellingByOwner.clear();
     this.idleByOwner.clear();
-    this.filedRelease.clear();
-    this.filedOwner.clear();
-    this.filedBeat.clear();
+    this.filed.clear();
     for (const beat of this.idleByBeat) beat.length = 0;
     for (const e of this.world.canonicalQuery(Settler, Position)) {
       const release = idleRelease(this.world, e);
-      this.filedRelease.set(e, release);
+      let beat: number | undefined;
       if (release === null) this.acting.push(e);
       else if (release === 'idle') {
-        const beat = idleBeatOf(beatKeyOf(this.world, e));
+        beat = idleBeatOf(beatKeyOf(this.world, e));
         this.idle.push(e);
         this.idlersOn(beat).push(e);
-        this.filedBeat.set(e, beat);
       }
-      const owner = ownerOf(this.world, e);
-      if (owner === undefined || (release !== 'travelling' && release !== 'idle')) continue;
-      ownerList(release === 'travelling' ? this.travellingByOwner : this.idleByOwner, owner).push(e);
-      this.filedOwner.set(e, owner);
+      const owner = release === 'travelling' || release === 'idle' ? ownerOf(this.world, e) : undefined;
+      this.filed.set(e, { release, beat, owner });
+      if (owner !== undefined) this.ownerListOf(release, owner).push(e);
     }
   }
 
@@ -198,8 +183,8 @@ class SweepCandidates {
     const idle = all.filter((e) => idleRelease(this.world, e) === 'idle');
     const problems: string[] = [];
     if (
-      this.filedRelease.size !== all.length ||
-      all.some((e) => this.filedRelease.get(e) !== idleRelease(this.world, e))
+      this.filed.size !== all.length ||
+      all.some((e) => this.filed.get(e)?.release !== idleRelease(this.world, e))
     )
       problems.push('plannerSweep filed releases diverge from a fresh scan');
     if (!sameIds(acting, this.acting))
@@ -248,10 +233,35 @@ function earlier(a: Entity | undefined, b: Entity | undefined): Entity | undefin
   return b === undefined || a < b ? a : b;
 }
 
-/** Insert `e`, which the filing says `ids` lacks, or remove it, which the filing says `ids` holds. */
-function editMember(ids: Entity[], e: Entity, present: boolean): void {
-  if (present) insertSortedById(ids, e, byId);
-  else removeSortedById(ids, e, byId);
+/** Where {@link SweepCandidates} files one positioned settler: its release, and its idle beat and
+ *  owner where its release files it by them. */
+interface Filing {
+  release: IdleRelease | null;
+  beat: number | undefined;
+  owner: number | undefined;
+}
+
+/** An index into one ascending-id list remembered between asks: while the list holds still and the
+ *  cursor does not fall below the remembered answer, the next answer is a forward walk from it. */
+class ForwardIndex {
+  private list: readonly Entity[] | undefined;
+  private at = 0;
+  private edits = -1;
+
+  /** The index of the first id in `list` above `cursor`; `edits` is the owner's count of list edits. */
+  above(list: readonly Entity[], cursor: number, edits: number): number {
+    let at = this.at;
+    const previous = list[at - 1];
+    if (this.list !== list || this.edits !== edits || (previous !== undefined && previous > cursor)) {
+      at = indexAboveId(list, cursor, byId);
+    } else {
+      while ((list[at] ?? Number.POSITIVE_INFINITY) <= cursor) at++;
+    }
+    this.list = list;
+    this.at = at;
+    this.edits = edits;
+    return at;
+  }
 }
 
 function sameIds(a: readonly Entity[], b: readonly Entity[]): boolean {

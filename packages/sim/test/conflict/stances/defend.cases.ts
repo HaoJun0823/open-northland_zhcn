@@ -185,5 +185,12 @@ describe('DEFEND - hold an anchor, don’t chase past the leash', () => {
     expect(tileOf(sim, guard)).toEqual(stand);
     expect(sim.world.tryGet(guard, StandIn)?.goal).toBe(anchor);
     expect(Math.abs(stand.x - anchorX) + Math.abs(stand.y - row)).toBeLessThanOrEqual(1); // beside the anchor
+
+    // The holder takes another post: the anchor frees, and the guard walks onto it.
+    const holderPostCells = 3;
+    sim.world.mut(holder, Stance).anchorCell = cell(sim, anchorX - holderPostCells, row);
+    sim.run(200);
+    expect(tileOf(sim, holder)).toEqual({ x: anchorX - holderPostCells, y: row });
+    expect(tileOf(sim, guard)).toEqual({ x: anchorX, y: row });
   });
 });

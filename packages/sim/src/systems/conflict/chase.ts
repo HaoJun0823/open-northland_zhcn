@@ -22,6 +22,7 @@ import type { Entity, World } from '../../ecs/world.js';
 import { forEachRingNode, hexDistanceBetween, positionOfNode } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
+import { standingFighterPosts } from '../movement/collision/index.js';
 import { clearNavState, isTravelling, redirectRoute } from '../movement/nav-state.js';
 import { structureRouteSealed } from '../movement/structure-route.js';
 import { breakThroughWall } from '../palisades/breach.js';
@@ -85,11 +86,23 @@ function returnToAnchor(world: World, ctx: SystemContext, e: Entity, here: NodeI
   world.remove(e, Engagement);
   world.remove(e, HuntFocus); // a post-holder holds no prey
   if (world.has(e, EquipOrder) || anyNeedPressing(world, ctx, e)) return;
-  // Routing stood it in beside an anchor another unit holds: that stand is its post until a walk moves it.
-  const stood = world.tryGet(e, StandIn);
-  if (stood?.goal === anchorCell && stood.at === here && !isTravelling(world, e)) return;
+  if (holdsStandIn(world, ctx, e, here, anchorCell)) return;
   clearNavState(world, e);
   if (here !== anchorCell) world.add(e, MoveGoal, { cell: anchorCell });
+}
+
+/** Whether `e` stands on the stand-in routing gave it beside `anchorCell` while a standing unit still holds
+ *  the anchor: that stand is its post until the anchor frees, and then it walks on. */
+function holdsStandIn(
+  world: World,
+  ctx: SystemContext,
+  e: Entity,
+  here: NodeId,
+  anchorCell: NodeId,
+): boolean {
+  const stood = world.tryGet(e, StandIn);
+  if (stood?.goal !== anchorCell || stood.at !== here || isTravelling(world, e)) return false;
+  return ctx.terrain !== undefined && standingFighterPosts(world, ctx.content, ctx.terrain).has(anchorCell);
 }
 
 /** Hand a combatant that will not advance this tick back to its idle duty: a post-holder walks back to its

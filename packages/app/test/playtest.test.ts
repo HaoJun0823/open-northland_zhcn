@@ -1,4 +1,4 @@
-import type { Command, SimEvent } from '@open-northland/sim';
+import { type Command, type SimEvent, World } from '@open-northland/sim';
 import { describe, expect, it, vi } from 'vitest';
 import { createPlaytest } from '../src/view/runtime/playtest.js';
 
@@ -114,9 +114,10 @@ describe('local mission playtest handle', () => {
     expect(tail?.nextCursor).toBe(514);
     expect(f.playtest?.handle.events(514)).toEqual({ rows: [], nextCursor: 514, overflow: false });
     expect(() => fixture().playtest?.handle.events(514)).toThrow('this running world');
+    const world = new World();
     f.playtest?.onEvents([
-      { kind: 'buildingFinished', entity: 2 },
-      { kind: 'vehicleMoveRefused', entity: 3, player: 0, reason: 'noPath' },
+      { kind: 'buildingFinished', entity: world.create() },
+      { kind: 'vehicleMoveRefused', entity: world.create(), player: 0, reason: 'noPath' },
     ]);
     expect(f.playtest?.handle.events(514).rows.map((row) => row.event.kind)).toEqual(['vehicleMoveRefused']);
   });

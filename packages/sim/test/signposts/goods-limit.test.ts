@@ -162,6 +162,21 @@ describe('goods search limit', () => {
     expect(() => limit.mayAllowNear?.(25, 30, 1)).toThrow(/reach key moved/);
   });
 
+  it('answers a spot asked again after a mask change as a fresh limit does', () => {
+    const { sim, terrain } = navigableSim(200, 100);
+    createSignpost(sim.world, terrain, terrain.nodeAt(40, 30), 0, sim.content);
+    createSignpost(sim.world, terrain, terrain.nodeAt(70, 30), 0, sim.content);
+    signpostLinksSystem(sim.world, ctxOf(sim));
+    const before = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
+    expect(expectLimitMatchesRule(sim, terrain, 0, 20, 30)).toBeGreaterThan(0);
+    // A wall between the spot and the first post: the network stands, the catch moves.
+    const wall = Array.from({ length: 2 * RANGE }, (_, i) => ({ dx: 0, dy: i - RANGE }));
+    blockNodes(sim, 30, 30, wall);
+    const after = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
+    expect(after).not.toBe(before);
+    expectLimitMatchesRule(sim, terrain, 0, 20, 30);
+  });
+
   it('keeps a signpost confinement and a goods search sound when one gate rules a neighbourhood out', () => {
     const { sim, terrain } = navigableSim(240, 100);
     createSignpost(sim.world, terrain, terrain.nodeAt(40, 30), 0, sim.content);

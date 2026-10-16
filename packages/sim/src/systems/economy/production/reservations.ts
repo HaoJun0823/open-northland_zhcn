@@ -11,6 +11,9 @@ import { type CycleChoice, craftablePool, nextCycleFor } from './rotation.js';
 
 const NO_RESERVATIONS: ReadonlyMap<number, number> = new Map();
 
+/** The products one reservation pass has weighed, emptied per pass, which runs synchronously. */
+const selectedScratch: number[] = [];
+
 /** Protect stocked ingredients while an active crew member's other ingredients are arriving, or while
  * a crew member off the door has a costlier cycle to start. Recomputed after deliveries and each start,
  * so a returning operator cannot spend them first. `present` are the operators on the door and
@@ -29,7 +32,8 @@ export function incomingRecipeReservations(
   const stock = world.get(building, Stockpile).amounts;
   const crew = workforce.operatorsAt(building);
   let reserved: Map<number, number> | undefined;
-  const selected: number[] = [];
+  const selected = selectedScratch;
+  selected.length = 0;
   for (let c = 0; c < crew.length; c++) {
     const operator = crew[c] as Entity;
     const pool = craftablePool(world, ctx, operator, recipes);
@@ -60,7 +64,7 @@ export function incomingRecipeReservations(
   // any present operator's keeps all of its inputs, if it walks onto the door or stock and inbound units
   // cover that cycle; a member whose route failed keeps nothing. Authored arbitration, like the start order.
   let doorCell: NodeId | undefined | null = null;
-  const inboundOf = (good: number): number => workforce.incomingOf(building, good);
+  let inboundOf: ((good: number) => number) | undefined;
   for (let c = 0; c < crew.length; c++) {
     const operator = crew[c] as Entity;
     if (present.includes(operator) || world.tryGet(operator, PathRequest)?.failed === true) continue;
@@ -72,7 +76,10 @@ export function incomingRecipeReservations(
       doorCell = door === null ? undefined : ctx.terrain?.nodeAt(door.x, door.y);
     }
     const arriving = goal !== undefined && doorCell !== undefined && goal.cell === doorCell;
-    if (!arriving && !cycleCoveredWith(world, building, choice.recipe, inboundOf)) continue;
+    if (!arriving) {
+      inboundOf ??= (good) => workforce.incomingOf(building, good);
+      if (!cycleCoveredWith(world, building, choice.recipe, inboundOf)) continue;
+    }
     for (let i = 0; i < choice.recipe.inputs.length; i++) {
       const input = choice.recipe.inputs[i];
       if (input === undefined) continue;

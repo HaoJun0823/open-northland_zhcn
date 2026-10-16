@@ -27,6 +27,8 @@ export {
   operatorSlotCapacity,
   presentOperatorCount,
   presentOperators,
+  presentOperatorsInto,
+  type StaffedScratch,
   type WorkplaceOperators,
 } from './operators.js';
 export { heapReach, type SeatStock } from './seat-stock.js';

@@ -1,3 +1,4 @@
+import type { ContentSet } from '@open-northland/data';
 import { Building, Carrying, MoveGoal, Person, Position, Settler } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
@@ -55,6 +56,31 @@ export function presentOperators(world: World, ctx: SystemContext, building: Ent
     : DESERTED;
 }
 
+/** A caller-owned staffed answer {@link presentOperatorsInto} refills instead of allocating one. */
+export interface StaffedScratch {
+  readonly kind: 'staffed';
+  readonly operators: Entity[];
+}
+
+/**
+ * {@link presentOperators} listed into `into` when anyone is on station, so a per-tick caller allocates
+ * nothing; `into` holds until the caller's next call. Written by index, since an emptied array drops its
+ * storage.
+ */
+export function presentOperatorsInto(
+  world: World,
+  ctx: SystemContext,
+  building: Entity,
+  into: StaffedScratch,
+): WorkplaceOperators {
+  const jobs = operatorJobsOf(world, ctx, building);
+  if (jobs.size === 0) return UNSTAFFED;
+  const count = scanPresent(world, ctx, building, jobs, into.operators);
+  if (count === 0) return DESERTED;
+  if (into.operators.length !== count) into.operators.length = count;
+  return into;
+}
+
 /** {@link presentOperators} counted through {@link operatorCountOf}, listing nobody. */
 export function presentOperatorCount(world: World, ctx: SystemContext, building: Entity): number {
   const jobs = operatorJobsOf(world, ctx, building);
@@ -62,7 +88,7 @@ export function presentOperatorCount(world: World, ctx: SystemContext, building:
   return scanPresent(world, ctx, building, jobs, undefined);
 }
 
-/** How many operators stand on station, each pushed onto `present` when given. */
+/** How many operators stand on station, each written into `present` when given. */
 function scanPresent(
   world: World,
   ctx: SystemContext,
@@ -77,6 +103,8 @@ function scanPresent(
     // Ascending ids, so the clamp keeps the lowest.
     const e = workers[i] as Entity;
     if (!world.has(e, Person) || world.has(e, MoveGoal) || world.has(e, Carrying)) continue;
+    const jobType = world.tryGet(e, Settler)?.jobType;
+    if (jobType === null || jobType === undefined || !jobs.has(jobType)) continue;
     const p = world.tryGet(e, Position);
     // A placed-but-position-less workplace has no interaction node, so nobody stands on station.
     if (
@@ -84,9 +112,7 @@ function scanPresent(
       !atInteractionNode(world, ctx, building, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y))
     )
       continue;
-    const jobType = world.tryGet(e, Settler)?.jobType;
-    if (jobType === null || jobType === undefined || !jobs.has(jobType)) continue;
-    present?.push(e);
+    if (present !== undefined) present[count] = e;
     count++;
   }
   return count;
@@ -116,6 +142,9 @@ export function operatorSlotCapacity(world: World, ctx: SystemContext, building:
   return operatorSlotHeadcount(world, ctx, building, jobs);
 }
 
+/** Operator-slot headcounts by building type, per content set: the jobs are the type's too. */
+const headcounts = new WeakMap<ContentSet, Map<number, number>>();
+
 function operatorSlotHeadcount(
   world: World,
   ctx: SystemContext,
@@ -124,8 +153,16 @@ function operatorSlotHeadcount(
 ): number {
   const b = world.tryGet(building, Building);
   if (b === undefined) return 0;
+  let byType = headcounts.get(ctx.content);
+  if (byType === undefined) {
+    byType = new Map();
+    headcounts.set(ctx.content, byType);
+  }
+  const held = byType.get(b.buildingType);
+  if (held !== undefined) return held;
   const type = contentIndex(ctx.content).buildings.get(b.buildingType);
   let headcount = 0;
   for (const slot of type?.workers ?? []) if (jobs.has(slot.jobType)) headcount += slot.count;
+  byType.set(b.buildingType, headcount);
   return headcount;
 }

@@ -18,7 +18,12 @@ import { grantProductionExperience } from '../progression/index.js';
 import { productionAtomic } from '../readviews/production-atomic.js';
 import { applyAtomicNeedEvents } from '../settlers/atomics/effects/need-events.js';
 import { wakeCrewInside } from '../settlers/planner/idle-replan.js';
-import { operatorCountOf, presentOperators, recipesByProductOf } from '../stores/index.js';
+import {
+  operatorCountOf,
+  presentOperatorsInto,
+  recipesByProductOf,
+  type StaffedScratch,
+} from '../stores/index.js';
 import { type WorkshopWorkforce, workshopWorkforce } from '../stores/workshop-workforce.js';
 import { FREE_SEAT, productionAssignmentsInto } from './production/assignments.js';
 import { accrueBonusOutput } from './production/bonus-output.js';
@@ -69,7 +74,7 @@ export const productionSystem: System = (world, ctx) => {
   for (const e of world.query(Production, Stockpile)) {
     // The tech unlock is a start-only gate, so a committed cycle finishes even if the enabling settler
     // later dies. The worker-presence gate does pause mid-cycle.
-    const staffing = presentOperators(world, ctx, e);
+    const staffing = presentOperatorsInto(world, ctx, e, advancingCrew);
     const operators = operatorCountOf(staffing);
     if (operators <= 0) continue;
     const prod = world.mut(e, Production);
@@ -160,7 +165,7 @@ export const productionSystem: System = (world, ctx) => {
     // or output-blocked workshop skips the lookup. It elides only a provably-empty loop.
     if (!cycleStartable(world, ctx, e, recipes)) continue;
     const running = world.tryGet(e, Production)?.cycles.length ?? 0;
-    const staffing = presentOperators(world, ctx, e);
+    const staffing = presentOperatorsInto(world, ctx, e, startingCrew);
     if (staffing.kind === 'unstaffed') {
       // No worker slots: one anonymous batch, first startable product in content order.
       if (running < operatorCountOf(staffing)) startFirstStartable(world, ctx, e, recipes);
@@ -169,18 +174,20 @@ export const productionSystem: System = (world, ctx) => {
     // Authored arbitration: give the actual next recipe needing more input units first access to
     // shared stock. Re-evaluate after each start; another operator may have consumed its ingredients.
     if (recipes.size > 1) workforce ??= workshopWorkforce(world, ctx);
+    // Nobody on the door: no spare operator, so nothing starts.
+    if (staffing.operators.length === 0) continue;
     // Operators without an executable batch may start another product; suspended work retains its inputs.
     const assigned = productionAssignmentsInto(world, ctx, e, staffing.operators, assignmentScratch);
+    // The head `spare` entries; the list is reused rather than emptied, which would drop its storage.
     const next = spareOperators;
-    next.length = 0;
+    let spare = 0;
     for (let i = 0; i < assigned.length; i++) {
-      if (assigned[i] === FREE_SEAT) next.push(staffing.operators[i] as Entity);
+      if (assigned[i] === FREE_SEAT) next[spare++] = staffing.operators[i] as Entity;
     }
     const choices = choiceScratch;
-    while (next.length > 0) {
-      choices.length = next.length;
-      for (let i = 0; i < next.length; i++)
-        choices[i] = nextCycleFor(world, ctx, e, next[i] as Entity, recipes);
+    while (spare > 0) {
+      choices.length = spare;
+      for (let i = 0; i < spare; i++) choices[i] = nextCycleFor(world, ctx, e, next[i] as Entity, recipes);
       const reserved =
         workforce !== undefined && recipes.size > 1
           ? incomingRecipeReservations(world, ctx, e, recipes, workforce, staffing.operators, choices)
@@ -188,7 +195,7 @@ export const productionSystem: System = (world, ctx) => {
       const stock = world.get(e, Stockpile).amounts;
       let winner = -1;
       let mostInputs = -1;
-      for (let i = 0; i < next.length; i++) {
+      for (let i = 0; i < spare; i++) {
         const choice = choices[i];
         if (choice === undefined || dipsIntoReserve(stock, choice, reserved)) continue;
         const units = recipeInputUnits(choice.recipe);
@@ -200,7 +207,8 @@ export const productionSystem: System = (world, ctx) => {
       const choice = winner < 0 ? undefined : choices[winner];
       if (choice === undefined) break;
       startCycleChoice(world, ctx, e, next[winner] as Entity, choice);
-      next.splice(winner, 1);
+      for (let i = winner + 1; i < spare; i++) next[i - 1] = next[i] as Entity;
+      spare--;
     }
     if ((world.tryGet(e, Production)?.cycles.length ?? 0) !== running) wakeCrewInside(world, e);
   }
@@ -210,6 +218,8 @@ export const productionSystem: System = (world, ctx) => {
 const UNSTAFFED_ASSIGNMENT: readonly number[] = [0];
 
 // Per-workshop lists reused across the pass, which runs synchronously and hands none of them on.
+const advancingCrew: StaffedScratch = { kind: 'staffed', operators: [] };
+const startingCrew: StaffedScratch = { kind: 'staffed', operators: [] };
 const assignmentScratch: number[] = [];
 const spareOperators: Entity[] = [];
 const choiceScratch: (CycleChoice | undefined)[] = [];

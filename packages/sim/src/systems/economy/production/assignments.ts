@@ -18,10 +18,11 @@ export function productionAssignments(
   return productionAssignmentsInto(world, ctx, building, operators, []);
 }
 
-/** The batches one assignment pass has handed out; emptied per pass, which runs synchronously. */
-const claimedScratch = new Set<number>();
-
-/** {@link productionAssignments} written over `out`, so a per-tick caller can reuse one list. */
+/**
+ * {@link productionAssignments} written over `out`, so a per-tick caller can reuse one list. Written by
+ * index rather than emptied first: an emptied array drops its storage, so each pass would allocate it
+ * again; an empty `operators` still answers, at that cost.
+ */
 export function productionAssignmentsInto(
   world: World,
   ctx: SystemContext,
@@ -29,12 +30,36 @@ export function productionAssignmentsInto(
   operators: readonly Entity[],
   out: number[],
 ): number[] {
-  claimedScratch.clear();
-  out.length = 0;
+  const cycles = world.tryGet(building, Production)?.cycles ?? NO_CYCLES;
   for (let i = 0; i < operators.length; i++) {
-    out.push(claimProductionCycle(world, ctx, building, operators[i] as Entity, claimedScratch));
+    out[i] = claimInto(world, ctx, cycles, operators[i] as Entity, out, i);
   }
+  if (out.length !== operators.length) out.length = operators.length;
   return out;
+}
+
+/** The oldest executable batch of `cycles` for `operator` that none of the first `taken` entries of
+ *  `claims` holds. */
+function claimInto(
+  world: World,
+  ctx: SystemContext,
+  cycles: readonly Readonly<ProductionCycle>[],
+  operator: Entity,
+  claims: readonly number[],
+  taken: number,
+): number {
+  for (let index = 0; index < cycles.length; index++) {
+    const cycle = cycles[index];
+    if (cycle === undefined || heldBy(claims, taken, index) || !mayAdvanceCycle(world, ctx, operator, cycle))
+      continue;
+    return index;
+  }
+  return FREE_SEAT;
+}
+
+function heldBy(claims: readonly number[], taken: number, index: number): boolean {
+  for (let i = 0; i < taken; i++) if (claims[i] === index) return true;
+  return false;
 }
 
 const NO_CYCLES: readonly Readonly<ProductionCycle>[] = [];

@@ -4,7 +4,10 @@ import type { SystemContext } from '../../context.js';
 import { religionAllowsAtomic } from '../../lifecycle/needs/religion.js';
 import { productionAtomic } from '../../readviews/production-atomic.js';
 
-/** Oldest executable batch per present operator, or -1 for a free seat. A suspended batch retains
+/** The assignment of a present operator no batch is executable for. */
+export const FREE_SEAT = -1;
+
+/** Oldest executable batch per present operator, or {@link FREE_SEAT}. A suspended batch retains
  * its paid materials and progress without blocking a different product or a replenished coworker. */
 export function productionAssignments(
   world: World,
@@ -12,9 +15,29 @@ export function productionAssignments(
   building: Entity,
   operators: readonly Entity[],
 ): number[] {
-  const claimed = new Set<number>();
-  return operators.map((operator) => claimProductionCycle(world, ctx, building, operator, claimed));
+  return productionAssignmentsInto(world, ctx, building, operators, []);
 }
+
+/** The batches one assignment pass has handed out; emptied per pass, which runs synchronously. */
+const claimedScratch = new Set<number>();
+
+/** {@link productionAssignments} written over `out`, so a per-tick caller can reuse one list. */
+export function productionAssignmentsInto(
+  world: World,
+  ctx: SystemContext,
+  building: Entity,
+  operators: readonly Entity[],
+  out: number[],
+): number[] {
+  claimedScratch.clear();
+  out.length = 0;
+  for (let i = 0; i < operators.length; i++) {
+    out.push(claimProductionCycle(world, ctx, building, operators[i] as Entity, claimedScratch));
+  }
+  return out;
+}
+
+const NO_CYCLES: readonly Readonly<ProductionCycle>[] = [];
 
 /** Claim the oldest executable batch for a production or planner pass. */
 export function claimProductionCycle(
@@ -24,14 +47,14 @@ export function claimProductionCycle(
   operator: Entity,
   claimed: Set<number>,
 ): number {
-  const cycles = world.tryGet(building, Production)?.cycles ?? [];
+  const cycles = world.tryGet(building, Production)?.cycles ?? NO_CYCLES;
   for (let index = 0; index < cycles.length; index++) {
     const cycle = cycles[index];
     if (cycle === undefined || claimed.has(index) || !mayAdvanceCycle(world, ctx, operator, cycle)) continue;
     claimed.add(index);
     return index;
   }
-  return -1;
+  return FREE_SEAT;
 }
 
 function mayAdvanceCycle(

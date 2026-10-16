@@ -20,7 +20,7 @@ import { applyAtomicNeedEvents } from '../settlers/atomics/effects/need-events.j
 import { wakeCrewInside } from '../settlers/planner/idle-replan.js';
 import { operatorCountOf, presentOperators, recipesByProductOf } from '../stores/index.js';
 import { type WorkshopWorkforce, workshopWorkforce } from '../stores/workshop-workforce.js';
-import { productionAssignments } from './production/assignments.js';
+import { FREE_SEAT, productionAssignmentsInto } from './production/assignments.js';
 import { accrueBonusOutput } from './production/bonus-output.js';
 import { depositCycleOutput, startFirstStartable } from './production/cycles.js';
 import { incomingRecipeReservations, recipeInputUnits } from './production/reservations.js';
@@ -73,13 +73,15 @@ export const productionSystem: System = (world, ctx) => {
     const operators = operatorCountOf(staffing);
     if (operators <= 0) continue;
     const prod = world.mut(e, Production);
-    const assignments =
-      staffing.kind === 'unstaffed' ? [0] : productionAssignments(world, ctx, e, staffing.operators);
+    const batches =
+      staffing.kind === 'unstaffed'
+        ? UNSTAFFED_ASSIGNMENT
+        : productionAssignmentsInto(world, ctx, e, staffing.operators, assignmentScratch);
     // `duration` was clamped at cycle start, so the two complementary compares below are plain.
-    const done: ProductionCycle[] = [];
-    const completedOperators: Entity[] = [];
-    for (let i = 0; i < assignments.length; i++) {
-      const cycle = prod.cycles[assignments[i] ?? -1];
+    let done: ProductionCycle[] | undefined;
+    let completedOperators: Entity[] | undefined;
+    for (let i = 0; i < batches.length; i++) {
+      const cycle = prod.cycles[batches[i] ?? -1];
       const operator = staffing.kind === 'unstaffed' ? undefined : staffing.operators[i];
       if (cycle === undefined) {
         const display = operator === undefined ? undefined : world.tryGet(operator, CurrentAtomic);
@@ -94,17 +96,9 @@ export const productionSystem: System = (world, ctx) => {
         settler === undefined ? undefined : productionAtomic(ctx.content, settler, cycle.goodType);
       cycle.elapsed += 1;
       if (operator !== undefined && atomicId !== undefined) {
-        applyAtomicNeedEvents(
-          world,
-          ctx,
-          operator,
-          {
-            atomicId,
-            effect: { kind: 'produce', recipeOutput: cycle.goodType },
-          },
-          cycle.elapsed,
-          false,
-        );
+        produceEffect.recipeOutput = cycle.goodType;
+        produceAtomic.atomicId = atomicId;
+        applyAtomicNeedEvents(world, ctx, operator, produceAtomic, cycle.elapsed, false);
       }
       if (
         operator !== undefined &&
@@ -125,11 +119,13 @@ export const productionSystem: System = (world, ctx) => {
           wakeCrewInside(world, e);
       }
       if (cycle.elapsed >= cycle.duration) {
+        done ??= [];
+        completedOperators ??= [];
         done.push(cycle);
         if (operator !== undefined) completedOperators.push(operator);
       }
     }
-    if (done.length === 0) continue;
+    if (done === undefined || completedOperators === undefined) continue;
     wakeCrewInside(world, e);
     prod.cycles = prod.cycles.filter((c) => c.elapsed < c.duration);
     const recipes = recipesByProductOf(world, ctx, e);
@@ -174,9 +170,13 @@ export const productionSystem: System = (world, ctx) => {
     // shared stock. Re-evaluate after each start; another operator may have consumed its ingredients.
     if (recipes.size > 1) workforce ??= workshopWorkforce(world, ctx);
     // Operators without an executable batch may start another product; suspended work retains its inputs.
-    const assigned = productionAssignments(world, ctx, e, staffing.operators);
-    const next = staffing.operators.filter((_, index) => assigned[index] === -1);
-    const choices: (CycleChoice | undefined)[] = [];
+    const assigned = productionAssignmentsInto(world, ctx, e, staffing.operators, assignmentScratch);
+    const next = spareOperators;
+    next.length = 0;
+    for (let i = 0; i < assigned.length; i++) {
+      if (assigned[i] === FREE_SEAT) next.push(staffing.operators[i] as Entity);
+    }
+    const choices = choiceScratch;
     while (next.length > 0) {
       choices.length = next.length;
       for (let i = 0; i < next.length; i++)
@@ -204,6 +204,22 @@ export const productionSystem: System = (world, ctx) => {
     }
     if ((world.tryGet(e, Production)?.cycles.length ?? 0) !== running) wakeCrewInside(world, e);
   }
+};
+
+/** The one anonymous batch an unstaffed-by-design workplace advances: its oldest. */
+const UNSTAFFED_ASSIGNMENT: readonly number[] = [0];
+
+// Per-workshop lists reused across the pass, which runs synchronously and hands none of them on.
+const assignmentScratch: number[] = [];
+const spareOperators: Entity[] = [];
+const choiceScratch: (CycleChoice | undefined)[] = [];
+
+// The indoor display atomic each batch tick pays need events for, rewritten per call: the need pass
+// reads it and keeps nothing.
+const produceEffect: { readonly kind: 'produce'; recipeOutput: number } = { kind: 'produce', recipeOutput: 0 };
+const produceAtomic: { atomicId: number; readonly effect: typeof produceEffect } = {
+  atomicId: 0,
+  effect: produceEffect,
 };
 
 /** Whether starting `choice` would take stock below zero or below what the reservations hold back. */

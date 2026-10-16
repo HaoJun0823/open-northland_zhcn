@@ -620,9 +620,10 @@ interface AnchoredPoolEntry {
 }
 const stancePoolsByWorld = new WeakMap<World, StancePools>();
 
-/** Anchored pools kept across structure changes before they are dropped wholesale, so the nodes piles
- *  once lay on cannot accumulate without bound. A memory bound only: a dropped pool is re-derived. */
-const MAX_HELD_ANCHORED_POOLS = 8192;
+/** Pools of each kind kept across structure changes before that kind is dropped wholesale, so the
+ *  resources ever queried and the nodes piles once lay on cannot accumulate without bound. A memory bound
+ *  only: a dropped pool is re-derived, at the cost of a fresh cells array. */
+const MAX_HELD_STANCE_POOLS = 8192;
 
 function stancePools(world: World, ctx: ContentContext, terrain: TerrainGraph): StancePools {
   let pools = stancePoolsByWorld.get(world);
@@ -661,7 +662,8 @@ function stancePools(world: World, ctx: ContentContext, terrain: TerrainGraph): 
       pools.anchored.clear();
       pools.epoch = 0;
     } else pools.epoch += 1;
-    if (pools.anchored.size > MAX_HELD_ANCHORED_POOLS) pools.anchored.clear();
+    if (pools.resource.size > MAX_HELD_STANCE_POOLS) pools.resource.clear();
+    if (pools.anchored.size > MAX_HELD_STANCE_POOLS) pools.anchored.clear();
     pools.regions = routeRegions(world, ctx, terrain);
     pools.buildings = buildings;
     pools.resources = resources;

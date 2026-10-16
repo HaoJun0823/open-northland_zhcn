@@ -18,11 +18,12 @@ import {
   TALK_ATOMIC_ID,
   Wedding,
 } from '../../../components/index.js';
-import type { Entity, World } from '../../../ecs/world.js';
+import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import { nodeOfPosition } from '../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
 import type { System, SystemContext } from '../../context.js';
 import { carriesNeeds, NEED_DRIVE_THRESHOLD, needLevel } from '../../lifecycle/needs/index.js';
+import { nextBandTick } from '../../lifecycle/needs/levels.js';
 import { stopAtNextNode } from '../../movement/nav-state.js';
 import { atomicDuration } from '../../readviews/animations.js';
 import {
@@ -80,14 +81,99 @@ function chatOutranked(world: World, tick: number, e: Entity): boolean {
  * every other clip payout.
  */
 export const gossipSystem: System = (world, ctx) => {
+  const rounds = runningRoundsOf(world);
+  rounds.catchUp();
   driveMirroredPairs(
     world,
     Chat,
-    (_e, _partner, c) => c.seeker, // driven once, from the half whose company need started it
+    // Driven once, from the half whose company need started it, unless its round is still playing out.
+    (e, _partner, c) => c.seeker && !rounds.playing(e, ctx.tick),
     (e) => endChat(world, ctx.tick, e),
-    (a, b) => drivePair(world, ctx, ctx.terrain, a, b),
+    (a, b) => {
+      if (drivePair(world, ctx, ctx.terrain, a, b) === 'roundPlaying') rounds.hold(world, a, b, ctx.tick);
+    },
   );
 };
+
+/** Stores whose membership a playing round's checks read on either half. */
+const ROUND_MEMBERSHIP = [
+  Chat,
+  Settler,
+  CurrentAtomic,
+  Engagement,
+  Fleeing,
+  PlayerOrder,
+  Wedding,
+  FamilyDuty,
+  Sheltering,
+];
+/** Stores whose in-place writes a playing round's checks read: the pair link, the clip, the bars. */
+const ROUND_VALUES = [Chat, CurrentAtomic, SettlerNeeds];
+
+/**
+ * The pairs whose talk/listen round was playing out at their last pass, held until a store their checks
+ * read changes on either half or a hunger or fatigue bar can next cross a band. Until then a pass would
+ * read the same stores and again let the round play out, so it skips them.
+ */
+class RunningRounds {
+  /** Per seeker id, the tick its pair is next driven; 0 when not held. */
+  private until = new Float64Array(0);
+  /** Per half id, the other half of a held pair. */
+  private partners = new Int32Array(0);
+  private readonly feed: ChangeFeed;
+  private readonly release = (e: Entity): void => {
+    if (e >= this.until.length) return;
+    this.until[e] = 0;
+    const partner = this.partners[e] ?? 0;
+    if (partner < this.until.length) this.until[partner] = 0;
+  };
+
+  constructor(world: World) {
+    this.feed = world.watchChanges(ROUND_MEMBERSHIP, ROUND_VALUES);
+  }
+
+  catchUp(): void {
+    if (this.feed.pending && this.feed.drain(this.release)) this.until.fill(0);
+  }
+
+  playing(seeker: Entity, tick: number): boolean {
+    return tick < (this.until[seeker] ?? 0);
+  }
+
+  hold(world: World, seeker: Entity, partner: Entity, tick: number): void {
+    const next = tick + 1;
+    const due = Math.min(
+      nextBandTick(world.get(seeker, SettlerNeeds), next),
+      nextBandTick(world.get(partner, SettlerNeeds), next),
+    );
+    if (due <= next) return;
+    if (Math.max(seeker, partner) >= this.until.length) this.grow(world, Math.max(seeker, partner));
+    this.until[seeker] = due;
+    this.partners[seeker] = partner;
+    this.partners[partner] = seeker;
+  }
+
+  private grow(world: World, e: number): void {
+    const size = Math.max(world.nextEntityId, e + 1, 2 * this.until.length);
+    const until = new Float64Array(size);
+    until.set(this.until);
+    const partners = new Int32Array(size);
+    partners.set(this.partners);
+    this.until = until;
+    this.partners = partners;
+  }
+}
+
+const runningRounds = new WeakMap<World, RunningRounds>();
+
+function runningRoundsOf(world: World): RunningRounds {
+  let rounds = runningRounds.get(world);
+  if (rounds === undefined) {
+    rounds = new RunningRounds(world);
+    runningRounds.set(world, rounds);
+  }
+  return rounds;
+}
 
 function drivePair(
   world: World,
@@ -95,7 +181,7 @@ function drivePair(
   terrain: TerrainGraph | undefined,
   a: Entity,
   b: Entity,
-): void {
+): 'roundPlaying' | undefined {
   // Read first: a pair mid-walk or mid-round changes nothing, and a write would mark both as touched.
   const ca = world.get(a, Chat);
   const sa = world.tryGet(a, Settler);
@@ -115,7 +201,7 @@ function drivePair(
       endChat(world, ctx.tick, a);
       return;
     }
-    if (world.has(a, CurrentAtomic) || world.has(b, CurrentAtomic)) return; // the round plays out
+    if (world.has(a, CurrentAtomic) || world.has(b, CurrentAtomic)) return 'roundPlaying';
     // The pair parts once the seeker's need is met, or can no longer be (a script froze its bars), but
     // never before the partner has had its own speaking turn, so every chat is at least one full exchange.
     if (

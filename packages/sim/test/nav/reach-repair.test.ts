@@ -24,6 +24,11 @@ const ROUNDS = 8;
 const MAX_RANGE = 22;
 const MAX_FLIPS = 10;
 const MAX_TARGETS = 6;
+/** One node in this many is water. */
+const WATER_ONE_IN = 10;
+/** Random nodes drawn as roads, and as blocked, repeats allowed. */
+const ROAD_DRAWS = 150;
+const BLOCKER_DRAWS = 250;
 /** Flips land within this many nodes of the start, where the search reads. */
 const FLIP_SPREAD = 2 * MAX_RANGE;
 
@@ -47,7 +52,9 @@ interface Ground {
 }
 
 function ground(next: (bound: number) => number): Ground {
-  const typeIds = Array.from({ length: MAP_WIDTH * MAP_HEIGHT }, () => (next(10) === 0 ? WATER : GRASS));
+  const typeIds = Array.from({ length: MAP_WIDTH * MAP_HEIGHT }, () =>
+    next(WATER_ONE_IN) === 0 ? WATER : GRASS,
+  );
   const roughness = Array.from({ length: MAP_WIDTH * MAP_HEIGHT }, () => next(MAX_ROUGHNESS + 1));
   const terrain = buildTerrainGraph(testContent(), {
     resolution: 'half-cell',
@@ -56,9 +63,9 @@ function ground(next: (bound: number) => number): Ground {
     typeIds,
     roughness,
   });
-  const roads = new Set(Array.from({ length: 150 }, () => next(terrain.nodeCount) as NodeId));
+  const roads = new Set(Array.from({ length: ROAD_DRAWS }, () => next(terrain.nodeCount) as NodeId));
   terrain.syncRoads(1, [...roads]);
-  const blockedIds = new Set(Array.from({ length: 250 }, () => next(terrain.nodeCount) as NodeId));
+  const blockedIds = new Set(Array.from({ length: BLOCKER_DRAWS }, () => next(terrain.nodeCount) as NodeId));
   const blocked = { size: 1, has: (n: NodeId) => blockedIds.has(n) };
   return { terrain, roads, blockedIds, blocked, roadRevision: 1 };
 }

@@ -19,7 +19,7 @@ import { FLOURISH, type FlowContext, flowMarkup, roman, type ViewSlot } from './
 import { type BookCallback, type BookPage, displayTitle, pageSegments } from './page-segments.js';
 import { type BookPosition, columnCount, spreadCount, turnPage } from './paging.js';
 import { type MissionHumanLookup, type UserIconBox, userIconBox } from './user-icons.js';
-import { type BookView, maskHoles, measureViews as viewsOn } from './view-holes.js';
+import { type BookView, createUnderlayCut, maskHoles, measureViews as viewsOn } from './view-holes.js';
 
 export type { BookView } from './view-holes.js';
 
@@ -290,10 +290,13 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
     if (goalCount.textContent !== text) goalCount.textContent = text;
   };
 
-  /** The painted cover and the arrival's dim both lie over a view, so both are cut. */
+  const underlay = createUnderlayCut(scene);
+  /** The painted cover and the arrival's dim both lie over a view, so both are cut, and so are the
+   *  HUD regions under the book. */
   const cutHoles = (clips: readonly ClientRect[]): void => {
     maskHoles(cover, clips);
     maskHoles(dim, clips);
+    underlay.cut(clips);
   };
 
   /** The views on the shown spread, holes cut for them; none while the book is hidden. A turning leaf
@@ -696,6 +699,7 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
     dispose(): void {
       if (turning !== null) clearTimeout(turning);
       resizes.disconnect();
+      underlay.dispose();
       window.removeEventListener('resize', onResize);
       scene.remove();
     },

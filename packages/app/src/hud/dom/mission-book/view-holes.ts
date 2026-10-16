@@ -73,17 +73,25 @@ export function measureViews(
   return views;
 }
 
+const MASK_PROPERTIES = [
+  'mask-image',
+  'mask-size',
+  'mask-position',
+  'mask-repeat',
+  'mask-composite',
+] as const;
+
 /**
  * Cut `clips` (client px) out of `layer`, so the canvas the renderer paints under them shows through
- * it: every hole is one mask layer, excluded from a whole layer under them all (foundation.css).
+ * it: every hole is one mask layer, excluded from a whole layer under them all.
  */
 export function maskHoles(layer: HTMLElement, clips: readonly ClientRect[]): void {
   if (clips.length === 0) {
-    layer.style.removeProperty('mask-image');
-    layer.style.removeProperty('mask-size');
-    layer.style.removeProperty('mask-position');
+    for (const property of MASK_PROPERTIES) layer.style.removeProperty(property);
     return;
   }
+  layer.style.setProperty('mask-repeat', 'no-repeat');
+  layer.style.setProperty('mask-composite', 'exclude');
   const origin = layer.getBoundingClientRect();
   // Client px per px of the layer's own box: the plane's scale, times the book's inside it.
   const k = layer.offsetWidth === 0 ? 1 : origin.width / layer.offsetWidth;
@@ -97,4 +105,93 @@ export function maskHoles(layer: HTMLElement, clips: readonly ClientRect[]): voi
     'mask-position',
     [...clips.map((c) => `${(c.left - origin.left) / k}px ${(c.top - origin.top) / k}px`), '0 0'].join(', '),
   );
+}
+
+export interface UnderlayCut {
+  /** Cut `clips` (client px) out of the regions under the owner; an empty list closes every hole. */
+  cut(clips: readonly ClientRect[]): void;
+  dispose(): void;
+}
+
+function zIndexOf(element: HTMLElement): number {
+  const z = Number.parseInt(getComputedStyle(element).zIndex, 10);
+  return Number.isNaN(z) ? 0 : z;
+}
+
+/** The regions of `owner`'s plane painted under it. */
+function regionsUnder(owner: HTMLElement): HTMLElement[] {
+  const plane = owner.parentElement;
+  if (plane === null) return [];
+  const ownerZ = zIndexOf(owner);
+  const under: HTMLElement[] = [];
+  let beforeOwner = true;
+  for (const child of plane.children) {
+    if (child === owner) {
+      beforeOwner = false;
+      continue;
+    }
+    if (!(child instanceof HTMLElement)) continue;
+    const z = zIndexOf(child);
+    if (z < ownerZ || (z === ownerZ && beforeOwner)) under.push(child);
+  }
+  return under;
+}
+
+/**
+ * A hole in `owner` shows whatever lies under it, so a HUD region between the canvas and `owner`
+ * (the admin panel under the book) would show in the hole instead of the world. This cuts the owner's holes out
+ * of those regions as well, again whenever a region of the plane appears, leaves or resizes. Reads the
+ * layout on those changes only, never per frame; a region that moves without resizing keeps its cut.
+ */
+export function createUnderlayCut(owner: HTMLElement): UnderlayCut {
+  let clips: readonly ClientRect[] = [];
+  const masked = new Set<HTMLElement>();
+
+  const apply = (): void => {
+    const under = new Set(clips.length === 0 ? [] : regionsUnder(owner));
+    for (const region of masked) {
+      if (under.has(region)) continue;
+      maskHoles(region, []);
+      masked.delete(region);
+    }
+    for (const region of under) {
+      const box = region.getBoundingClientRect();
+      const over = clips.filter((clip) => intersect(clip, box) !== null);
+      if (over.length > 0) {
+        maskHoles(region, over);
+        masked.add(region);
+      } else if (masked.delete(region)) maskHoles(region, []);
+    }
+  };
+
+  const resizes = new ResizeObserver(apply);
+  const observeRegions = (): void => {
+    for (const child of owner.parentElement?.children ?? []) if (child !== owner) resizes.observe(child);
+  };
+  const arrivals = new MutationObserver(() => {
+    observeRegions();
+    apply();
+  });
+
+  return {
+    cut(next): void {
+      const opening = clips.length === 0 && next.length > 0;
+      clips = next;
+      if (next.length === 0) {
+        resizes.disconnect();
+        arrivals.disconnect();
+      } else if (opening) {
+        const plane = owner.parentElement;
+        if (plane !== null) arrivals.observe(plane, { childList: true });
+        observeRegions();
+      }
+      apply();
+    },
+    dispose(): void {
+      resizes.disconnect();
+      arrivals.disconnect();
+      clips = [];
+      apply();
+    },
+  };
 }

@@ -158,7 +158,8 @@ describe('terrain-aware goods reach', () => {
     expect(limit?.allowsNode(terrain.nodeAt(200, 30))).toBe(false);
     expect(floods).not.toHaveBeenCalled();
     expect(limit?.allowsNode(terrain.nodeAt(100, 30))).toBe(true);
-    // The spot's own search and the post at 70, the one whose search box holds the node.
+    // The post at 70, whose search box holds the node, and the post at 40, whose search marks the spot and
+    // so shows its group caught; the spot's own search never runs.
     expect(floods).toHaveBeenCalledTimes(2);
     floods.mockRestore();
   });

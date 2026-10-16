@@ -298,7 +298,15 @@ function spotKey(player: number, hx: number, hy: number): number | null {
 /**
  * A spot's goods search: its own terrain search plus the signpost groups that search reaches. A caught
  * post lies strictly inside the hex range, so a node outside that range and outside every group with a
- * post inside it passes under no search result, and the search floods only when asked about another node.
+ * post inside it passes under no search result. The own search floods only for a node inside the range
+ * that no caught group covers.
+ *
+ * Whether a group is caught is read off its posts' held floods: the own flood marks post `p` exactly when
+ * `p`'s flood marks the spot, while both nodes are unblocked with nonzero resistance. A flood marks a
+ * node once it enters a neighbour of it under budget, and a path's cost sums the resistances of the nodes
+ * it enters after its start, so the reversed path, ending next to the other end, costs the same. A spot
+ * failing that test resolves through its own flood.
+ *
  * A limit answers only under the reach key it was built under: asked after that key moved, it throws
  * rather than mix two worlds, since a client restored from a snapshot would resolve it differently.
  */
@@ -306,7 +314,11 @@ class GoodsSearchLimit implements SpatialGate {
   readonly bounds: NodeBox;
   /** Every group with a post inside the hex range: the ones the search may catch. */
   private readonly nearby: readonly GroupCoverage[];
-  private resolved: ResolvedSearch | undefined;
+  /** Per {@link nearby} group, its posts inside the hex range. */
+  private readonly nearbyPosts: readonly (readonly SignpostSite[])[];
+  /** Per {@link nearby} group, whether the own search catches it, once asked. */
+  private readonly caught: Uint8Array;
+  private local: ReachArea | undefined;
   /** The reach versions and epoch the limit was built under, and the world mutation version it was last
    *  confirmed at. */
   private readonly versions: ReachVersions;
@@ -318,7 +330,7 @@ class GoodsSearchLimit implements SpatialGate {
     private readonly content: ContentSet,
     private readonly terrain: TerrainGraph,
     cache: ReachCache,
-    private readonly player: number,
+    player: number,
     private readonly hx: number,
     private readonly hy: number,
   ) {
@@ -327,24 +339,29 @@ class GoodsSearchLimit implements SpatialGate {
     this.confirmedAt = world.mutationVersion;
     const range = GOODS_SEARCH_RANGE_NODES;
     const own = reachBox(terrain, hx, hy, range);
-    const groups = new Set<number>();
+    const groups = new Map<number, SignpostSite[]>();
     for (const p of postsWithin(cache, own)) {
-      if (p.player === player && hexDistanceBetween(hx, hy, p.hx, p.hy) < range) groups.add(p.group);
+      if (p.player !== player || hexDistanceBetween(hx, hy, p.hx, p.hy) >= range) continue;
+      const members = groups.get(p.group);
+      if (members === undefined) groups.set(p.group, [p]);
+      else members.push(p);
     }
-    this.nearby = [...groups].map((group) => coverageOf(world, content, terrain, cache, group));
+    this.nearby = [...groups.keys()].map((group) => coverageOf(world, content, terrain, cache, group));
+    this.nearbyPosts = [...groups.values()];
+    this.caught = new Uint8Array(this.nearby.length);
     this.bounds = unionNodeBoxes([own, ...this.nearby.map((g) => g.bounds)]);
   }
 
   allowsNode(node: NodeId): boolean {
     if (!this.catchesNode(node)) return false;
-    this.resolved ??= this.resolve();
     const x = this.terrain.xOf(node);
     const y = this.terrain.yOf(node);
-    if (reachContains(this.resolved.local, x, y)) return true;
-    const caught = this.resolved.caught;
-    for (let i = 0; i < caught.length; i++)
-      if ((caught[i] as GroupCoverage).covers(x, y, this.epoch)) return true;
-    return false;
+    if (this.local !== undefined && reachContains(this.local, x, y)) return true;
+    for (let i = 0; i < this.nearby.length; i++)
+      if ((this.nearby[i] as GroupCoverage).covers(x, y, this.epoch) && this.catches(i)) return true;
+    // The own flood marks nothing outside the hex range.
+    if (hexDistanceBetween(this.hx, this.hy, x, y) >= GOODS_SEARCH_RANGE_NODES) return false;
+    return reachContains(this.ownSearch(), x, y);
   }
 
   /** The flood-free half of {@link allowsNode}: inside the hex range or under a caught group. */
@@ -387,24 +404,52 @@ class GoodsSearchLimit implements SpatialGate {
     this.confirmedAt = version;
   }
 
-  private resolve(): ResolvedSearch {
-    const { world, content, terrain, player } = this;
-    const cache = cacheOf(world, content, terrain);
-    const local = goodsReachAt(world, content, terrain, this.hx, this.hy);
-    const groups = new Set(
-      postsWithin(cache, local)
-        .filter((p) => p.player === player && reachContains(local, p.hx, p.hy))
-        .map((p) => p.group),
+  private ownSearch(): ReachArea {
+    this.local ??= goodsReachAt(this.world, this.content, this.terrain, this.hx, this.hy);
+    return this.local;
+  }
+
+  /** Whether the own search marks a post of nearby group `i`. */
+  private catches(i: number): boolean {
+    const known = this.caught[i];
+    if (known !== UNASKED) return known === CAUGHT;
+    const posts = this.nearbyPosts[i] as readonly SignpostSite[];
+    let caught = false;
+    if (this.local === undefined && this.markable(this.hx, this.hy)) {
+      const { world, content, terrain } = this;
+      for (const p of posts) {
+        if (!this.markable(p.hx, p.hy)) continue;
+        if (reachContains(postReach(world, content, terrain, p.entity, p.hx, p.hy), this.hx, this.hy)) {
+          caught = true;
+          break;
+        }
+      }
+    } else {
+      const local = this.ownSearch();
+      caught = posts.some((p) => reachContains(local, p.hx, p.hy));
+    }
+    this.caught[i] = caught ? CAUGHT : MISSED;
+    return caught;
+  }
+
+  /** Whether a goods flood can mark node `(x, y)` and start from it: unblocked, with nonzero resistance. */
+  private markable(x: number, y: number): boolean {
+    const terrain = this.terrain;
+    if (!terrain.inBounds(x, y)) return false;
+    const node = terrain.nodeAt(x, y);
+    // A walkable node's flood entry resistance is its resistanceAt; any other node's is zero.
+    return (
+      terrain.isWalkable(node) &&
+      terrain.resistanceAt(node) !== 0 &&
+      !signpostMask(this.world, this.content, terrain).has(node)
     );
-    return { local, caught: [...groups].map((group) => coverageOf(world, content, terrain, cache, group)) };
   }
 }
 
-/** A spot's own goods search and the coverages of the groups it catches. */
-interface ResolvedSearch {
-  readonly local: ReachArea;
-  readonly caught: readonly GroupCoverage[];
-}
+/** {@link GoodsSearchLimit} per nearby group states: not asked yet, caught, or not caught. */
+const UNASKED = 0;
+const CAUGHT = 1;
+const MISSED = 2;
 
 /** The posts filed in the tiles over a node box, a superset of those inside it. */
 function postsWithin(cache: ReachCache, box: NodeBox): (SignpostSite & { player: number })[] {

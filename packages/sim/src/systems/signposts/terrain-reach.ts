@@ -16,7 +16,8 @@ import {
   type ReachTargets,
   reachCovers,
 } from '../../nav/range-search.js';
-import type { TerrainGraph } from '../../nav/terrain/index.js';
+import { repairReach } from '../../nav/reach-repair.js';
+import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import { type WalkBlockMask, walkBlockMask } from '../footprint/walk-block-mask.js';
 import { syncRoadLane } from '../roads/index.js';
 
@@ -70,8 +71,9 @@ export interface TerrainReach extends ReachSearch {
   resistanceClock: number;
 }
 
-/** A held search survives every change to a node its flood did not read. With `targets` the answer is
- *  exact only for whether each target is contained, and a held search serves while it covers them. */
+/** A held search survives every change to a node its flood did not read, and is repaired in place for a
+ *  few changes to nodes it did read. With `targets` the answer is exact only for whether each target is
+ *  contained, and a held search serves while it covers them. */
 export function terrainReach(
   world: World,
   content: ContentSet,
@@ -93,11 +95,25 @@ export function terrainReach(
     held.span === span &&
     reachCovers(held, hx, hy, span.range, targets);
   if (sameQuestion && held.maskVersion === maskVersion && held.roadRevision === roadRevision) return held;
-  if (sameQuestion && !readNodeChanged(held, mask, terrain)) {
+  const repaired = sameQuestion ? repairHeld(held, mask, terrain) : null;
+  if (repaired === held) {
     held.maskVersion = maskVersion;
     held.roadRevision = roadRevision;
     held.resistanceClock = terrain.resistanceClock;
     return held;
+  }
+  if (repaired !== null) {
+    return {
+      ...repaired,
+      terrain,
+      hx,
+      hy,
+      span,
+      mask,
+      maskVersion,
+      roadRevision,
+      resistanceClock: terrain.resistanceClock,
+    };
   }
   return {
     ...floodReach(terrain, mask.levelled(), hx, hy, span.range, span.budget, span.groundCost, targets),
@@ -112,12 +128,43 @@ export function terrainReach(
   };
 }
 
-/** Whether a node the held flood read changed its blocker or resistance since the answer last held. */
-function readNodeChanged(held: TerrainReach, mask: WalkBlockMask, terrain: TerrainGraph): boolean {
-  const read = (x: number, y: number): boolean => floodInspected(held, x, y);
-  return (
-    mask.flippedSince(held.searched, held.maskVersion, read) ||
-    terrain.resistanceChangedSince(held.searched, held.resistanceClock, read)
+/** Read nodes a held search takes in a repair before a fresh flood is the cheaper answer. */
+const MAX_REPAIRED_CHANGES = 256;
+/** The read nodes whose blocker or resistance changed since the held search being checked last held. */
+const changedScratch: NodeId[] = [];
+/** The search {@link listRead} checks and its map width, set only while a check runs. */
+let checkedSearch: ReachSearch | undefined;
+let checkedWidth = 0;
+/** Lists a changed node the checked search read; true, ending the scan, once the list overflows. */
+function listRead(x: number, y: number): boolean {
+  if (checkedSearch === undefined || !floodInspected(checkedSearch, x, y)) return false;
+  changedScratch.push((y * checkedWidth + x) as NodeId);
+  return changedScratch.length > MAX_REPAIRED_CHANGES;
+}
+
+/** `held` itself while no node it read changed, else the repaired search, or null when only a fresh
+ *  flood answers. */
+function repairHeld(
+  held: TerrainReach,
+  mask: WalkBlockMask,
+  terrain: TerrainGraph,
+): TerrainReach | ReachSearch | null {
+  changedScratch.length = 0;
+  checkedSearch = held;
+  checkedWidth = terrain.width;
+  const overflow =
+    mask.flippedSince(held.searched, held.maskVersion, listRead) ||
+    terrain.resistanceChangedSince(held.searched, held.resistanceClock, listRead);
+  checkedSearch = undefined;
+  if (overflow) return null;
+  if (changedScratch.length === 0) return held;
+  const { range, budget, groundCost } = held.span;
+  return repairReach(
+    held,
+    terrain,
+    mask.levelled(),
+    { hx: held.hx, hy: held.hy, range, budget, groundCost },
+    changedScratch,
   );
 }
 

@@ -549,8 +549,9 @@ function pathToWaypoints(terrain: TerrainGraph, path: ReadonlyArray<NodeId>): Wa
   for (let i = 0; i < path.length; i++) {
     const node = path[i];
     if (node === undefined) continue;
-    const x = terrain.xOf(node);
+    // `yOf` once and the column by subtraction: `xOf` exactly, one division fewer.
     const y = terrain.yOf(node);
+    const x = node - y * terrain.width;
     if (i > 0 && Math.abs(y - prevY) === 2) {
       // (hy₁+hy₂)/4 is the row the leg's middle lies on; the middle's world x is (hx₁+hx₂)/4 columns, a
       // quarter and so exact in fixed point.

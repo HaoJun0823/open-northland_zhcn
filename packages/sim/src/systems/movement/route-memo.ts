@@ -144,7 +144,7 @@ export class RouteMemo {
     ) {
       held.tick = tick;
       stats.explored += held.explored;
-      return held.path === null ? null : [...held.path];
+      return held.path === null ? null : held.path.slice();
     }
     const log = this.log;
     log.begin(blocked);
@@ -169,7 +169,7 @@ export class RouteMemo {
     entry.emptyOverlay = emptyOverlay;
     entry.roadRevision = roadRevision;
     entry.tick = tick;
-    entry.path = path === null ? null : [...path];
+    entry.path = path === null ? null : path.slice();
     entry.explored = stats.explored - before;
     if (entry.asked.length < log.count) entry.asked = new Int32Array(log.codes.length);
     entry.asked.set(log.codes.subarray(0, log.count));

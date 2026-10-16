@@ -61,6 +61,7 @@ export function planGatherer(plan: PlannerContext, harvestClaims: HarvestClaims,
   // ground has no sweeper left. A hunter with neither flag nor workplace still roams unbounded.
   const ground = hunter ? huntingGround(world, terrain, e) : null;
   const huntArea = ground === null ? undefined : carcassArea(plan, ground.anchorCell, ground.radius);
+  const reserved = hunter ? foreignKill(plan) : undefined;
   const focus =
     admits === null
       ? null
@@ -70,7 +71,7 @@ export function planGatherer(plan: PlannerContext, harvestClaims: HarvestClaims,
           (node, goodType) =>
             (goodFilter === undefined || goodFilter.has(goodType)) &&
             (admits === undefined || admits(node)) &&
-            !(hunter && foreignKill(plan)(node)),
+            reserved?.(node) !== true,
         );
   if (focus !== null && startHarvestFromNode(plan, focus, harvestClaims, huntArea)) return true;
   const node =
@@ -78,15 +79,12 @@ export function planGatherer(plan: PlannerContext, harvestClaims: HarvestClaims,
       ? null
       : nearestHarvestableFor(plan, {
           exclude: harvestClaims,
-          ...(goodFilter !== undefined ? { goodFilter } : {}),
-          ...(admits !== undefined ? { admits } : {}),
-          ...(huntArea !== undefined ? { within: huntArea } : {}),
-          ...(hunter ? { reserved: foreignKill(plan) } : {}),
+          goodFilter,
+          admits,
+          within: huntArea,
+          reserved,
         });
-  const trunk = nearestCollectablePileFor(plan, {
-    ...(goodFilter !== undefined ? { goodFilter } : {}),
-    ...(huntArea !== undefined ? { within: huntArea } : {}),
-  });
+  const trunk = nearestCollectablePileFor(plan, { goodFilter, within: huntArea });
   const nodeDist = node !== null ? node.dist : Number.POSITIVE_INFINITY;
   // On a tie prefer the already-felled trunk over a fresh tree.
   if (trunk !== null && trunk.dist <= nodeDist) {
@@ -138,25 +136,21 @@ function planFlagGatherer(
     ? carcassArea(plan, flagCell, flag.radius)
     : { center: flagCell, radius: flag.radius };
   const admits = countersAdmit(plan);
+  const reserved = hunter ? foreignKill(plan) : undefined;
   const focus =
     admits === null
       ? null
       : focusedHarvest(
           plan,
           harvestClaims,
-          (node) => (admits === undefined || admits(node)) && !(hunter && foreignKill(plan)(node)),
+          (node) => (admits === undefined || admits(node)) && reserved?.(node) !== true,
         );
   if (focus !== null && startHarvestFromNode(plan, focus, harvestClaims, reach)) return true;
 
   const node =
     admits === null
       ? null
-      : nearestHarvestableFor(plan, {
-          exclude: harvestClaims,
-          ...(hunter ? { reserved: foreignKill(plan) } : {}),
-          ...(admits !== undefined ? { admits } : {}),
-          area: reach,
-        });
+      : nearestHarvestableFor(plan, { exclude: harvestClaims, reserved, admits, area: reach });
   if (node !== null && startHarvestFromNode(plan, node, harvestClaims, reach)) return true;
 
   // Nothing in reach: stand idle beside the flag.

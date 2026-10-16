@@ -46,18 +46,18 @@ export function nearestHarvestableFor(
   opts: {
     /** Bound the scan to this circle and rank from its centre, so a flag-bound gatherer sweeps outward
      *  from its flag rather than from wherever it stands. */
-    readonly area?: WorkBound;
+    readonly area?: WorkBound | undefined;
     /** Bound the scan to this circle but keep the ranking on the settler, for a bound that is a work
      *  area rather than a sweep origin. Pass this or {@link area}, never both. */
-    readonly within?: WorkBound;
-    readonly goodFilter?: ReadonlySet<number>;
+    readonly within?: WorkBound | undefined;
+    readonly goodFilter?: ReadonlySet<number> | undefined;
     /** Resource nodes already claimed this tick, so one node is dug by one settler at a time. */
     readonly exclude?: ReadonlySet<Entity>;
     /** A node reserved to another settler across ticks, rejected even though this settler's trade
      *  could work it. */
-    readonly reserved?: (node: Entity) => boolean;
+    readonly reserved?: ((node: Entity) => boolean) | undefined;
     /** The settler's own per-node gate, such as its production counters; a node it rejects is skipped. */
-    readonly admits?: (node: Entity) => boolean;
+    readonly admits?: ((node: Entity) => boolean) | undefined;
     /** Selected-worker diagnostics cap the candidate list and report incomplete searches explicitly. */
     readonly candidates?: readonly Entity[];
     readonly diagnostic?: { eligibleInArea: boolean };
@@ -234,8 +234,8 @@ function nearestDropFor(
 export function nearestCollectablePileFor(
   plan: PlannerContext,
   opts: {
-    readonly goodFilter?: ReadonlySet<number>;
-    readonly within?: WorkBound;
+    readonly goodFilter?: ReadonlySet<number> | undefined;
+    readonly within?: WorkBound | undefined;
   } = {},
 ): { pile: Entity; goodType: number; cell: NodeId; dist: number } | null {
   const { world, ctx, targets } = plan;

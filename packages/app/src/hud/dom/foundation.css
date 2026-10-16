@@ -5565,6 +5565,8 @@ body.on-drag-scroll * {
 }
 .on-hud .on-book__who {
   display: block;
+  /* A speaker or callout label belongs with the prose that follows it. */
+  break-after: avoid;
   font: 700 12px var(--font-body);
   letter-spacing: 0.1em;
   text-transform: uppercase;

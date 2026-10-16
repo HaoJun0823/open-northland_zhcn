@@ -6,8 +6,9 @@ format and the execution semantics live in [`docs/formats/MISSIONS.md`](../../..
 ## What is content and what is state
 
 - The script is an immutable input, like the content set: `Simulation.missions`, reachable as
-  `ctx.missions`. It is neither hashed nor saved, and a restore is handed the same script the run was
-  built with.
+  `ctx.missions`. Definitions are absent from saved state and the per-tick state hash. A save records
+  the resolved program's fingerprint and restore rejects a different supplied program;
+  [the save format](../../../../../docs/DATA-FORMAT.md) owns that identity check.
 - Only what a pass changes is state: the `MissionState` records, keyed by the mission's index in that
   script. A record holds flags and ticks, never a definition.
 - Ids reaching this module are numeric. Names are resolved at the app boundary, so nothing here joins

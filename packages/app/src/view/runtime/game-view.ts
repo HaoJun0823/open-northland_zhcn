@@ -154,6 +154,7 @@ import { ownRoadSiteAt } from './own-road-sites.js';
 import { createPauseHolds } from './pause-holds.js';
 import { mountPerfReadout } from './perf-readout.js';
 import { createPlacementGates } from './placement-gates.js';
+import { createPlaytest } from './playtest.js';
 import { trackCanvasPointer } from './pointer-tracker.js';
 import type { RafLoop } from './raf-loop.js';
 import { createViewReadModels } from './read-models.js';
@@ -490,6 +491,14 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     const issueTrusted = (command: Command): void => {
       if (!sharedClock) driver.submit(adminCommand(command));
     };
+    const playtest = createPlaytest({
+      params,
+      sharedClock,
+      readOnly: () => readOnly() || lifetime.signal.aborted,
+      tick: () => host.tick,
+      submit: issueTrusted,
+      saveLoad,
+    });
     const issueCommand = (command: PlayerCommand): void => {
       if (readOnly()) return;
       driver.submit(overseer ? adminCommand(command) : playerCommand(localPlayer, command));
@@ -877,6 +886,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       : null;
     campaign?.restore(host.snapshot());
     const onEvents = (events: readonly SimEvent[]): void => {
+      playtest?.onEvents(events);
       if (campaign === null) forwardEvents(events);
       else campaign.events(events, forwardEvents);
     };
@@ -1298,6 +1308,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     }
 
     installDebugHandle({
+      ...(playtest === null ? {} : { playtest: playtest.handle }),
       host,
       renderer,
       sheet: deps.sheet,

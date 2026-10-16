@@ -11,6 +11,7 @@ import { recordedTraceEvents, type TraceEvent } from '../../diag/trace.js';
 import type { ProfileSource, SessionHost } from '../../session/index.js';
 import type { CameraController } from '../camera/index.js';
 import type { NetReadout } from './net-readout.js';
+import type { PlaytestHandle } from './playtest.js';
 
 declare global {
   interface Window {
@@ -105,6 +106,7 @@ export interface PerfReport {
 }
 
 export interface OpenNorthlandDebug {
+  readonly playtest?: PlaytestHandle;
   /** The world as the runtime reads it; the probes await `run`, which steps a paused session, and
    *  `hashState`. */
   readonly host: SessionHost;
@@ -205,6 +207,7 @@ export function buildPerfReport(inputs: PerfReportInputs): PerfReport {
 }
 
 export interface DebugHandleDeps {
+  readonly playtest?: PlaytestHandle;
   readonly host: SessionHost;
   readonly renderer: WorldRenderer;
   readonly sheet: SpriteSheet | undefined;
@@ -237,6 +240,7 @@ export function installDebugHandle(deps: DebugHandleDeps): void {
   });
 
   window.__opennorthland = {
+    ...(deps.playtest === undefined ? {} : { playtest: deps.playtest }),
     host: deps.host,
     renderer: deps.renderer,
     sheet: deps.sheet,

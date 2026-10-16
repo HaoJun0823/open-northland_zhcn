@@ -89,6 +89,7 @@ Combine flags, for example `?debug=profile,trace`.
 | `trace` | Exportable trace |
 | `profile` | Per-system simulation cost |
 | `missions` | Mission execution inspector |
+| `playtest` | Local editable-session preparation, event journal and named checkpoints |
 | `notices` | One notification of each type per second on the player's entities; use `?scene=sandbox&debug=notices` |
 
 For a relay desync, export both clients' diagnostic bundles, build the workspace, then run:
@@ -134,6 +135,47 @@ A running game exposes `window.__opennorthland`:
 Pause before reading the stopped tick: the map's simulation worker may be ahead of the drawn state.
 Do not trust timings when `sampling.hidden` is true. See [PERFORMANCE.md](PERFORMANCE.md) for metrics
 and repeatable benchmarks.
+
+### Mission playtest preparation
+
+With `debug=playtest`, an editable local session also exposes `window.__opennorthland.playtest`.
+Relay and read-only sessions expose no playtest handle. Use normal UI for quests, conversations,
+choices and mission-book interactions. Preparation submits the existing replayable admin commands:
+
+The stepping example below is for worker-backed `?map=` sessions, where `host.run()` delivers each
+tick's events through the runtime before resolving. Inline `?scene=` hosts step directly without
+that delivery; use the normal running clock there to exercise presentation and collect the journal.
+
+```js
+const game = window.__opennorthland;
+await game.setPaused(true);
+const test = game.playtest;
+test.prepare({ kind: 'debugTeleport', target: 42, x: 20, y: 30 });
+await game.host.run(1);
+const journal = test.events();
+await test.checkpoint('before conversation'); // Inspect { kind: 'saved' } or { kind: 'failed' }.
+// Later: await test.restore('before conversation'); // Loads through the normal save flow/reload.
+```
+
+`prepare` accepts `debugTeleport`, `debugKill`, `debugSetHealth`, `debugSetNeeds`,
+`debugFillStockpile`, `debugCompleteConstruction` and `spawnSettler`. It validates payloads and
+returns `{ status: 'submitted', kind, tick }`; inspect the resulting state to establish application.
+Coordinates are half-cell nodes. Spawn accepts `jobType`, `x`, `y`, `tribe`, `owner`, `hitpoints`,
+`weaponTypeId`, `armorClass`, `equipment` and `experience`; script identities and behavior overrides
+are excluded. Health percent is 1–100; needs are 0–100.
+
+`events(afterCursor = 0)` returns detached `{ rows, nextCursor, overflow }`. Each row has `cursor`,
+`observedTick` and `event`. The 512-row tail records all delivered mission events, player verdicts,
+existing `*Refused` events and preparation validation failures. The runtime combines events from
+every tick it delivers in a frame: `observedTick` is that batch's drawn tick, not each event's sim tick.
+Commands that silently do nothing do not acquire a rejection event. Pass `nextCursor` into the next
+read; `overflow` means earlier rows were dropped. Cursors start again at zero for each new world or
+reload; reacquire the handle and discard old cursors after restore.
+
+Checkpoints use ordinary save slots prefixed `playtest: `, overwrite a same-named checkpoint and
+preserve the existing save flow's session metadata, view and accepted pending commands. They appear
+in the normal save list. Names must contain 1–80 characters. Restore returns the normal load outcome
+and reloads on success; the journal is intentionally not persisted.
 
 ## Screenshots
 

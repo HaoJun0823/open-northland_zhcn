@@ -71,9 +71,7 @@ describe('syncMovieSound', () => {
   it('plays the picture on silent when the sound fails while its start is pending', async () => {
     const { picture, sound, onEnd, sync } = film();
     let rejectSound: (error: DOMException) => void = () => undefined;
-    sound.play.mockImplementationOnce(
-      () => new Promise<void>((_resolve, reject) => (rejectSound = reject)),
-    );
+    sound.play.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => (rejectSound = reject)));
     const started = sync.play();
     await vi.waitFor(() => expect(sound.play).toHaveBeenCalledOnce());
     // A missing language track: the browser fires `error`, then rejects the pending start.
@@ -87,7 +85,9 @@ describe('syncMovieSound', () => {
 
   it('plays the picture on silent when the sound start fails before its error event', async () => {
     const { picture, onEnd, sync, sound } = film();
-    sound.play.mockImplementationOnce(() => Promise.reject(new DOMException('no source', 'NotSupportedError')));
+    sound.play.mockImplementationOnce(() =>
+      Promise.reject(new DOMException('no source', 'NotSupportedError')),
+    );
     await expect(sync.play()).resolves.toBeUndefined();
     expect(picture.state.paused).toBe(false);
     reachEnd(picture);

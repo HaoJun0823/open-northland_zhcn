@@ -1,35 +1,44 @@
+import {
+  holdHudKeys,
+  openSystemDialog,
+  systemDialogBody,
+  systemDialogButton,
+} from '../hud/dom/system-confirm.js';
 import { messages } from '../i18n/index.js';
-import { BUTTON_STYLE, DIALOG_STYLE, el } from '../view/overlay.js';
 import type { CampaignFailureRecovery } from './runtime.js';
 
-/** Retry has focus; Escape continues without saving, so blocked storage never holds the game paused. */
-export function campaignFailureDialog(recovery: CampaignFailureRecovery, signal: AbortSignal): void {
+/**
+ * The HUD system window a failed campaign progress write opens. Retry has focus; Escape and the window's
+ * close continue without saving, so blocked storage never holds the game paused.
+ */
+export function campaignFailureDialog(
+  plane: HTMLElement,
+  recovery: CampaignFailureRecovery,
+  signal: AbortSignal,
+): void {
   if (signal.aborted) return;
   const copy = messages().campaign;
-  const dialog = el('dialog', `${DIALOG_STYLE};max-width:30rem`);
-  dialog.append(el('p', 'line-height:1.5', copy.storage));
-  const actions = el('div', 'display:flex;gap:0.5rem;justify-content:flex-end;flex-wrap:wrap');
-  const skip = el('button', BUTTON_STYLE, copy.continueWithoutSaving);
-  const retry = el('button', BUTTON_STYLE, copy.retry);
-  const dispose = (): void => {
-    dialog.remove();
-    signal.removeEventListener('abort', dispose);
+  const dialog = openSystemDialog(plane, copy.title, copy.continueWithoutSaving);
+  const { actions } = systemDialogBody(dialog.frame, copy.storage);
+  let open = true;
+  const close = (): void => {
+    if (!open) return;
+    open = false;
+    release();
+    signal.removeEventListener('abort', close);
+    dialog.close();
   };
   const choose = (action: () => void) => (): void => {
-    dispose();
+    close();
     action();
   };
   const continueWithoutSaving = choose(recovery.continueWithoutSaving);
-  retry.addEventListener('click', choose(recovery.retry));
-  skip.addEventListener('click', continueWithoutSaving);
-  dialog.addEventListener('cancel', (event) => {
-    event.preventDefault();
-    continueWithoutSaving();
-  });
+  const release = holdHudKeys(plane, () => [...actions.querySelectorAll('button')], continueWithoutSaving);
+  const skip = systemDialogButton(copy.continueWithoutSaving, continueWithoutSaving);
+  const retry = systemDialogButton(copy.retry, choose(recovery.retry));
   actions.append(skip, retry);
-  dialog.append(actions);
-  signal.addEventListener('abort', dispose, { once: true });
-  document.body.append(dialog);
-  dialog.showModal();
+  dialog.frame.onDismiss(continueWithoutSaving);
+  signal.addEventListener('abort', close, { once: true });
+  dialog.frame.open();
   retry.focus();
 }

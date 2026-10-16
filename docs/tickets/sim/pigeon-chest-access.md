@@ -14,12 +14,13 @@ test [reproduces the failed approach](../../../packages/app/test/content/map-mis
 
 ## Scope
 
-Determine the intended entry before changing geometry: inspect the readable wall
-placements and any gate or interaction metadata, then confirm the available player
-action in the original. Check whether importing a gate or an existing wall action
-is incomplete. If the authored enclosure itself is wrong, make the smallest
-named pipeline correction for its `staticobjects.inc` placements rather than relaxing ordinary collision
-or adding a map-specific movement exception. No intended opening has been verified.
+Determine the intended entry before changing geometry: trace the loaded landscape wall
+placements back to their `map.dat` records and inspect gate or interaction metadata, then confirm
+the available player action in the original. Check whether importing a gate or an existing wall
+action is incomplete. If the authored enclosure itself is wrong, establish the owning source
+format and make the smallest content correction there. Do not assume these walls come from
+`staticobjects.inc`, relax ordinary collision or add a map-specific movement exception.
+No intended opening has been verified.
 
 ## Verify
 

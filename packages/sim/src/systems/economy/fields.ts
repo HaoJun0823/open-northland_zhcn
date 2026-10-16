@@ -1,8 +1,14 @@
-import { type ContentSet, footprintCellDx, type GoodFarming } from '@open-northland/data';
+import { type ContentSet, type FootprintCell, footprintCellDx, type GoodFarming } from '@open-northland/data';
 import { Building, Crop, LandscapeResource, Position, Resource } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { hexNeighboursOf, nodeOfPosition, positionOfNode } from '../../nav/halfcell.js';
+import {
+  hexNeighboursOf,
+  nodeHxOfPosition,
+  nodeHyOfPosition,
+  nodeOfPosition,
+  positionOfNode,
+} from '../../nav/halfcell.js';
 import type { SystemContext } from '../context.js';
 import { buildingFieldZone, translatedCells } from '../footprint/geometry.js';
 import {
@@ -84,14 +90,52 @@ function insideBuildingFieldZone(world: World, content: ContentSet, hx: number, 
     const { buildingType, tribe } = world.get(entity, Building);
     const zone = buildingFieldZone(content, buildingType, tribe);
     const position = world.get(entity, Position);
-    const anchor = nodeOfPosition(position.x, position.y);
-    if (
-      zone.some((cell) => anchor.hx + footprintCellDx(anchor.hy, cell) === hx && anchor.hy + cell.dy === hy)
-    )
-      return true;
+    const anchorHx = nodeHxOfPosition(position.x, position.y);
+    const anchorHy = nodeHyOfPosition(position.y);
+    const reach = zoneReachOf(zone);
+    const dx = hx - anchorHx;
+    const dy = hy - anchorHy;
+    if (dx < reach.minDx || dx > reach.maxDx || dy < reach.minDy || dy > reach.maxDy) continue;
+    for (const cell of zone) {
+      if (footprintCellDx(anchorHy, cell) === dx && cell.dy === dy) return true;
+    }
   }
   return false;
 }
+
+/** The anchor-relative box a zone's cells can land in under either anchor-row parity. */
+interface ZoneReach {
+  readonly minDx: number;
+  readonly maxDx: number;
+  readonly minDy: number;
+  readonly maxDy: number;
+}
+
+const zoneReaches = new WeakMap<readonly FootprintCell[], ZoneReach>();
+
+function zoneReachOf(zone: readonly FootprintCell[]): ZoneReach {
+  let reach = zoneReaches.get(zone);
+  if (reach !== undefined) return reach;
+  let minDx = Number.POSITIVE_INFINITY;
+  let maxDx = Number.NEGATIVE_INFINITY;
+  let minDy = Number.POSITIVE_INFINITY;
+  let maxDy = Number.NEGATIVE_INFINITY;
+  for (const cell of zone) {
+    for (const anchorHy of ANCHOR_ROW_PARITIES) {
+      const dx = footprintCellDx(anchorHy, cell);
+      minDx = Math.min(minDx, dx);
+      maxDx = Math.max(maxDx, dx);
+    }
+    minDy = Math.min(minDy, cell.dy);
+    maxDy = Math.max(maxDy, cell.dy);
+  }
+  reach = { minDx, maxDx, minDy, maxDy };
+  zoneReaches.set(zone, reach);
+  return reach;
+}
+
+/** An even and an odd anchor row, the two parities {@link footprintCellDx} tells apart. */
+const ANCHOR_ROW_PARITIES = [0, 1] as const;
 
 /**
  * Apply a completed `sow` swing: plant a {@link Crop} field of `goodType` for `farm` at half-cell node

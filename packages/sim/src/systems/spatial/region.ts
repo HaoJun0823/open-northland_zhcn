@@ -115,6 +115,9 @@ interface RegionState<Extra> {
   /** The same members by node, minted by the first {@link RegionIndex.atNode} caller and maintained from
    *  then on. */
   byNode: NodeLayer | null;
+  /** The one-element answer {@link RegionIndex.atNode} reuses for a lone occupant, so the common node read
+   *  allocates nothing. */
+  lone: Entity[];
   /** Ascending-id canonical membership, the mutable master copy behind {@link RegionIndex.canonical}. */
   list: Entity[];
   /** The shared copy handed to consumers, dropped on every change, so a consumer holding one keeps a
@@ -201,8 +204,9 @@ export interface RegionIndex<Extra> {
   /** Whether the box `reach` nodes around `(hx, hy)` holds every indexed entity, so a miss inside it is
    *  a miss everywhere. Judged by whole regions, so a false answer proves nothing. */
   boxHoldsAll(world: World, hx: number, hy: number, reach: number): boolean;
-  /** Every indexed entity whose anchor node is exactly `(hx, hy)`, ascending-id. Two or more are the
-   *  index's live bucket, not a copy, so a caller that destroys members must copy it first. */
+  /** Every indexed entity whose anchor node is exactly `(hx, hy)`, ascending-id. Not a copy: two or more
+   *  are the index's live bucket and a lone one is a scratch array the next call overwrites, so a caller
+   *  that destroys members or holds the answer across another call must copy it first. */
   atNode(world: World, hx: number, hy: number): readonly Entity[];
   /** The per-index derived extra, maintained incrementally beside the membership. */
   extra(world: World): Extra;
@@ -511,6 +515,7 @@ function buildRegionIndex<Extra>(
       byRegion: new Map(),
       byPart: partitionOf === null ? null : new Map(),
       byNode: null,
+      lone: [],
       list: [],
       shared: null,
       extra: extraOps.empty(),
@@ -627,9 +632,12 @@ function buildRegionIndex<Extra>(
       visitBox(memo.read(world).byRegion, hx, hy, reach, visit, keep, skipReach),
     boxHoldsAll: (world, hx, hy, reach) => bucketsInBox(memo.read(world).byRegion, hx, hy, reach),
     atNode: (world, hx, hy) => {
-      const held = nodeLayer(memo.read(world)).get(nodeKeyOf(hx, hy));
+      const state = memo.read(world);
+      const held = nodeLayer(state).get(nodeKeyOf(hx, hy));
       if (held === undefined) return NO_ENTITIES;
-      return typeof held === 'number' ? [held] : held;
+      if (typeof held !== 'number') return held;
+      state.lone[0] = held;
+      return state.lone;
     },
     someNear: (world, hx, hy, reach, test, keep) => {
       const index = memo.read(world);
@@ -699,9 +707,12 @@ function buildRegionIndex<Extra>(
       if (held === undefined) return null;
       const bucket = state.byRegion.get(regionKeyOf(hx, hy));
       if (bucket === undefined) return null;
-      const partOf = (e: Entity): number => bucket.records[bucket.find(e) * REGION_FIELDS + PART] ?? 0;
-      if (typeof held === 'number') return partOf(held) === part ? held : null;
-      for (const e of held) if (partOf(e) === part) return e;
+      const inPart = (e: Entity): boolean => {
+        const slot = bucket.find(e);
+        return slot >= 0 && bucket.records[slot * REGION_FIELDS + PART] === part;
+      };
+      if (typeof held === 'number') return inPart(held) ? held : null;
+      for (const e of held) if (inPart(e)) return e;
       return null;
     },
   };

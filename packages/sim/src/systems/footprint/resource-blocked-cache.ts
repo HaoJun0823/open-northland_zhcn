@@ -95,6 +95,8 @@ function stampWalkCells(
     any = true;
     const cell = terrain.nodeAt(x, y);
     const count = (counts[cell] ?? 0) + delta;
+    // The Uint16 lane would wrap an unbalanced removal to a huge count instead of failing.
+    if (count < 0) throw new Error(`resource walk cell ${cell} unblocked more often than blocked`);
     counts[cell] = count;
     if (count === 0) cells.size -= 1;
     else if (count === 1 && delta > 0) cells.size += 1;

@@ -66,6 +66,171 @@ export const pathfindingSystem: System = (world, ctx) => {
 };
 
 /**
+ * One world's request-serving state, emptied at each drain so no view or claim outlives its tick. Kept
+ * per world so a routing tick reuses its maps instead of minting them; the group helpers are built
+ * fresh, and only by a drain that serves a group order.
+ */
+class PathDrain {
+  // Walk-block overlays, built lazily so only a tick that actually routes pays for them. The standing-unit
+  // stamp applies only to a requester that itself collides: a ghost walks through bodies, and detouring it
+  // would break the economy's exact node-coincidence walks. Only posts at war with the requester's player
+  // block it; player -1 keys an unowned collider, which every post blocks.
+  // `dynamic` is the mask's levelled view, which skips the per-read level check; each request levels it
+  // once before reading it, since the previous request's writes may have moved the version.
+  mask: WalkBlockMask | undefined;
+  private dynamic: BlockOverlay | undefined;
+  private units: UnitWalkBlocks | undefined;
+  private hostile: readonly number[] | undefined;
+  private readonly bodiesByPlayer = new Map<number, ColliderWalkBlocks>();
+  private readonly marchingBodiesByPlayer = new Map<number, ColliderWalkBlocks>();
+  private readonly besideTargetsByPlayer = new Map<number, ColliderWalkBlocks>();
+  private readonly occupiedViews = new Map<BlockOverlay, BlockOverlay>();
+  /** Goal stand-ins already handed out this tick, so two walkers aimed at one crowded node fan out to
+   *  different free nodes instead of both claiming the same one. */
+  readonly claimedStandIns = new Set<NodeId>();
+  private groupRoutes: GroupRoutes | undefined;
+  private groupReachability: GroupReachability | undefined;
+  readonly spent: SearchStats = { explored: 0 };
+
+  constructor(
+    private readonly world: World,
+    private ctx: SystemContext,
+    private terrain: TerrainGraph,
+    /** Colliders only: a firm body that stalls in a crowd asks for the route it walks again, while a
+     *  ghost's repeats are too rare to pay for logging its searches. */
+    private memo: RouteMemo,
+  ) {}
+
+  begin(ctx: SystemContext, terrain: TerrainGraph, memo: RouteMemo): void {
+    this.ctx = ctx;
+    this.terrain = terrain;
+    this.memo = memo;
+    this.reset();
+  }
+
+  /** Drops every view and claim the drain built, so the next drain starts as a fresh one would. */
+  reset(): void {
+    this.spent.explored = 0;
+    this.mask = undefined;
+    this.dynamic = undefined;
+    this.units = undefined;
+    this.hostile = undefined;
+    this.bodiesByPlayer.clear();
+    this.marchingBodiesByPlayer.clear();
+    this.besideTargetsByPlayer.clear();
+    this.occupiedViews.clear();
+    this.claimedStandIns.clear();
+    this.groupRoutes = undefined;
+    this.groupReachability = undefined;
+  }
+
+  dynamicOnly(): BlockOverlay {
+    if (this.dynamic === undefined) {
+      this.mask = walkBlockMask(this.world, this.ctx, this.terrain);
+      this.dynamic = this.mask.levelled();
+    }
+    return this.dynamic;
+  }
+
+  private unitBlocks(): UnitWalkBlocks {
+    this.units ??= unitWalkBlocks(this.world, this.ctx.content, this.terrain);
+    return this.units;
+  }
+
+  private hostileMasks(): readonly number[] {
+    this.hostile ??= hostilePlayerMasks(this.world);
+    return this.hostile;
+  }
+
+  blockedFor(player: number, structures: BlockOverlay, marching: boolean): ColliderWalkBlocks {
+    const views = marching ? this.marchingBodiesByPlayer : this.bodiesByPlayer;
+    let view = views.get(player);
+    if (view === undefined) {
+      view = new ColliderWalkBlocks(structures, this.unitBlocks(), hostileMaskOf(this.hostileMasks(), player));
+      views.set(player, view);
+    }
+    return view;
+  }
+
+  /** The bodies an attack-move of `player` cannot fight its way through: the hostile ones it does not
+   *  fight itself, as a side that holds it an enemy it holds a friend. */
+  besideTargetsFor(player: number, structures: BlockOverlay): ColliderWalkBlocks {
+    let view = this.besideTargetsByPlayer.get(player);
+    if (view === undefined) {
+      const passable = hostileMaskOf(this.hostileMasks(), player) & ~enemyPlayerMask(this.world, player);
+      view = new ColliderWalkBlocks(structures, this.unitBlocks(), passable);
+      this.besideTargetsByPlayer.set(player, view);
+    }
+    return view;
+  }
+
+  /** Every post, whoever stands there: a walker passes its own side and its allies but never stops on them. */
+  occupied(structures: BlockOverlay): BlockOverlay {
+    let view = this.occupiedViews.get(structures);
+    if (view === undefined) {
+      view = new ColliderWalkBlocks(structures, this.unitBlocks(), EVERY_PLAYER);
+      this.occupiedViews.set(structures, view);
+    }
+    return view;
+  }
+
+  /** Readies the group route cache for a group request under the mask's current version. */
+  refreshGroup(): void {
+    if (this.mask === undefined) return;
+    this.groupRoutes ??= new GroupRoutes(this.terrain);
+    this.groupRoutes.refresh(this.mask.version);
+  }
+
+  /**
+   * A route for `e` from `start` to `goal` under `overlay`. A group member's is refused at once by a region
+   * the group already found sealed, borrowed from a neighbour, or searched, a searched answer kept for the
+   * rest of the group. `viaMemo` searches through the route memo, for a collider seen as `player`.
+   */
+  routeUnder(
+    e: Entity,
+    overlay: BlockOverlay,
+    start: NodeId,
+    goal: NodeId,
+    group: boolean,
+    viaMemo: boolean,
+    player: number,
+    traversal: Traversal,
+  ): NodeId[] | null {
+    const { mask, spent } = this;
+    if (group && mask !== undefined) {
+      this.groupReachability ??= new GroupReachability(this.terrain);
+      if (this.groupReachability.unreachable(mask, overlay, start, goal)) return null;
+    }
+    const groupRoutes = group ? this.groupRoutes : undefined;
+    const borrowed = groupRoutes === undefined ? null : groupRoutes.borrow(overlay, start, goal, spent);
+    if (borrowed !== null) return borrowed;
+    const path = viaMemo
+      ? memoPath(this.memo, e, this.ctx.tick, start, goal, player, overlay, spent)
+      : resolvePath(this.terrain, start, goal, overlay, spent, traversal);
+    // Only a searched route is offered: offering borrowed ones grows the list each member tries.
+    if (path !== null && groupRoutes !== undefined) groupRoutes.offer(overlay, path);
+    if (path === null && group && mask !== undefined && !overlay.has(goal)) {
+      this.groupReachability ??= new GroupReachability(this.terrain);
+      this.groupReachability.rememberFailure(mask, overlay, start, goal);
+    }
+    return path;
+  }
+}
+
+const drains = new WeakMap<World, PathDrain>();
+
+function pathDrainOf(world: World, ctx: SystemContext, terrain: TerrainGraph, memo: RouteMemo): PathDrain {
+  let drain = drains.get(world);
+  if (drain === undefined) {
+    drain = new PathDrain(world, ctx, terrain, memo);
+    drains.set(world, drain);
+  } else {
+    drain.begin(ctx, terrain, memo);
+  }
+  return drain;
+}
+
+/**
  * The request-serving pass with an explicit `nodeBudget`, so a test can exercise the budget cut. The
  * budget is checked before each request and the overshooting one still completes, so a tick always
  * serves at least one pending request.
@@ -77,89 +242,15 @@ export function drainPathRequests(
   nodeBudget: number,
 ): void {
   // Serve in ascending entity-id order so the per-tick budget cut is canonical, never insertion order.
-  const spent: SearchStats = { explored: 0 };
-  // Walk-block overlays, built lazily so only a tick that actually routes pays for them. The standing-unit
-  // stamp applies only to a requester that itself collides: a ghost walks through bodies, and detouring it
-  // would break the economy's exact node-coincidence walks. Only posts at war with the requester's player
-  // block it; player -1 keys an unowned collider, which every post blocks.
-  // `dynamic` is the mask's levelled view, which skips the per-read level check; each request levels it
-  // once before reading it, since the previous request's writes may have moved the version.
-  let mask: WalkBlockMask | undefined;
-  let dynamic: BlockOverlay | undefined;
-  let units: UnitWalkBlocks | undefined;
-  let hostile: readonly number[] | undefined;
-  const combinedByPlayer = new Map<string, ColliderWalkBlocks>();
-  const besideTargetsByPlayer = new Map<number, ColliderWalkBlocks>();
-  const occupiedViews = new Map<BlockOverlay, BlockOverlay>();
-  // Goal stand-ins already handed out this tick, so two walkers aimed at one crowded node fan out to
-  // different free nodes instead of both claiming the same one.
-  const claimedStandIns = new Set<NodeId>();
-  const groupRoutes = new GroupRoutes(terrain);
-  const groupReachability = new GroupReachability(terrain);
-  // Colliders only: a firm body that stalls in a crowd asks for the route it walks again, while a ghost's
-  // repeats are too rare to pay for logging its searches.
+  const requests = world.canonicalQuery(PathRequest);
   const memo = routeMemoOf(world, terrain);
-  const dynamicOnly = (): BlockOverlay => {
-    if (dynamic === undefined) {
-      mask = walkBlockMask(world, ctx, terrain);
-      dynamic = mask.levelled();
-    }
-    return dynamic;
-  };
-  const blockedFor = (player: number, structures: BlockOverlay, marching: boolean): ColliderWalkBlocks => {
-    const key = `${player}:${marching}`;
-    let view = combinedByPlayer.get(key);
-    if (view === undefined) {
-      units ??= unitWalkBlocks(world, ctx.content, terrain);
-      hostile ??= hostilePlayerMasks(world);
-      view = new ColliderWalkBlocks(structures, units, hostileMaskOf(hostile, player));
-      combinedByPlayer.set(key, view);
-    }
-    return view;
-  };
-  // The bodies an attack-move of `player` cannot fight its way through: the hostile ones it does not
-  // fight itself, as a side that holds it an enemy it holds a friend.
-  const besideTargetsFor = (player: number, structures: BlockOverlay): ColliderWalkBlocks => {
-    let view = besideTargetsByPlayer.get(player);
-    if (view === undefined) {
-      units ??= unitWalkBlocks(world, ctx.content, terrain);
-      hostile ??= hostilePlayerMasks(world);
-      const passable = hostileMaskOf(hostile, player) & ~enemyPlayerMask(world, player);
-      view = new ColliderWalkBlocks(structures, units, passable);
-      besideTargetsByPlayer.set(player, view);
-    }
-    return view;
-  };
-  // Every post, whoever stands there: a walker passes its own side and its allies but never stops on them.
-  const occupied = (structures: BlockOverlay): BlockOverlay => {
-    let view = occupiedViews.get(structures);
-    if (view === undefined) {
-      units ??= unitWalkBlocks(world, ctx.content, terrain);
-      view = new ColliderWalkBlocks(structures, units, EVERY_PLAYER);
-      occupiedViews.set(structures, view);
-    }
-    return view;
-  };
-  // A group member's route under `overlay`: refused at once by a region the group already found sealed,
-  // borrowed from a neighbour, or searched, a searched answer kept for the rest of the group.
-  const routeUnder = (
-    overlay: BlockOverlay,
-    start: NodeId,
-    goal: NodeId,
-    group: boolean,
-    search: () => NodeId[] | null,
-  ): NodeId[] | null => {
-    if (group && mask !== undefined && groupReachability.unreachable(mask, overlay, start, goal)) return null;
-    const borrowed = group ? groupRoutes.borrow(overlay, start, goal, spent) : null;
-    if (borrowed !== null) return borrowed;
-    // Only a searched route is offered: offering borrowed ones grows the list each member tries.
-    const path = search();
-    if (path !== null && group) groupRoutes.offer(overlay, path);
-    if (path === null && group && mask !== undefined && !overlay.has(goal))
-      groupReachability.rememberFailure(mask, overlay, start, goal);
-    return path;
-  };
-  for (const e of world.canonicalQuery(PathRequest)) {
+  if (requests.length === 0) {
+    memo.expire(ctx.tick);
+    return;
+  }
+  const drain = pathDrainOf(world, ctx, terrain, memo);
+  const { spent, claimedStandIns } = drain;
+  for (const e of requests) {
     // A player order must not trickle into motion in entity-id order. Sharing cuts its search cost,
     // but a member too far from a corridor still receives its own route in this tick.
     const playerOrdered = world.has(e, PlayerOrder);
@@ -172,16 +263,16 @@ export function drainPathRequests(
       world.remove(e, PathRequest);
       continue;
     }
-    mask?.catchUp();
+    drain.mask?.catchUp();
 
     const traversal = settlerTraversal(world, e);
     const collides = traversal === 'land' && hasBodyCollision(world, ctx.content, e);
     const player = world.tryGet(e, Owner)?.player;
     const marching =
       traversal === 'land' && player !== undefined && world.tryGet(e, PlayerOrder)?.attackMove !== undefined;
-    const actual = dynamicOnly();
+    const actual = drain.dynamicOnly();
     const structures = marching ? attackMoveBlocks(world, ctx, terrain, player).blocked : actual;
-    const bodies = collides ? blockedFor(player ?? -1, structures, marching) : null;
+    const bodies = collides ? drain.blockedFor(player ?? -1, structures, marching) : null;
     const blocked = bodies ?? structures;
     // A grind reroute plans as if its live route were already dropped, which it is unless the answer matches.
     const stepEnd =
@@ -198,10 +289,10 @@ export function drainPathRequests(
       collides &&
       goal !== start && // a walker already standing there has arrived, however crowded
       isValidNodeId(terrain, goal) &&
-      occupied(structures).has(goal) &&
+      drain.occupied(structures).has(goal) &&
       !structures.has(goal)
     ) {
-      const free = nearestUnblockedNode(terrain, goal, occupied(structures), claimedStandIns);
+      const free = nearestUnblockedNode(terrain, goal, drain.occupied(structures), claimedStandIns);
       if (free !== null) {
         goal = free;
         standIn = true;
@@ -210,19 +301,13 @@ export function drainPathRequests(
     // Only a player's order moves a group; economy walks keep their own exact routes.
     const group =
       traversal === 'land' && playerOrdered && isValidNodeId(terrain, start) && isValidNodeId(terrain, goal);
-    if (group && mask !== undefined) groupRoutes.refresh(mask.version);
-    let path = routeUnder(blocked, start, goal, group, () =>
-      collides
-        ? memoPath(memo, e, ctx.tick, start, goal, world.tryGet(e, Owner)?.player ?? -1, blocked, spent)
-        : resolvePath(terrain, start, goal, blocked, spent, traversal),
-    );
+    if (group) drain.refreshGroup();
+    let path = drain.routeUnder(e, blocked, start, goal, group, collides, player ?? -1, traversal);
     // An attack-move goes for what seals its goal off: the bodies it fights shape its route, never refuse it.
     if (path === null && bodies !== null && world.tryGet(e, PlayerOrder)?.attackMove !== undefined) {
-      const through = besideTargetsFor(player ?? -1, structures);
+      const through = drain.besideTargetsFor(player ?? -1, structures);
       if (through.posts < bodies.posts) {
-        path = routeUnder(through, start, goal, group, () =>
-          resolvePath(terrain, start, goal, through, spent, traversal),
-        );
+        path = drain.routeUnder(e, through, start, goal, group, false, player ?? -1, traversal);
       }
     }
     if (path !== null) {
@@ -334,6 +419,7 @@ export function drainPathRequests(
     }
     settleRoute(world, e, req.goal);
   }
+  drain.reset();
   memo.expire(ctx.tick);
 }
 

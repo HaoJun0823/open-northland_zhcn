@@ -4,27 +4,29 @@ import type { Component, Entity } from './component.js';
  *  drains it (a snapshot-less headless benchmark); one full cache rebuild is the entire cost. */
 export const TOUCHED_LOG_OVERFLOW_LIMIT = 65536;
 
-/** Entity ids below this are stamped in a dense array; a higher id (only a crafted save can name one)
+/** Entity ids below this are marked in a dense array; a higher id (only a crafted save can name one)
  *  falls back to a map, so a hostile id cannot size the array. */
-const DENSE_STAMP_LIMIT = 1 << 24;
+const DENSE_MARK_LIMIT = 1 << 24;
 const INITIAL_CAPACITY = 1024;
-/** A stamp is `epoch << 1`, with this bit set once the entity's membership changed in that epoch. */
-const MEMBERSHIP_BIT = 1;
+/** A dense entity's epoch and slot sit side by side, so logging a write reads one cache line. */
+const MARK_STRIDE = 2;
+const MARK_SLOT = 1;
 
 /**
  * The entities whose components changed since the last {@link drain}: the invalidation feed for
  * identity-keyed read caches (the snapshot's per-entity clone cache). Read-path only, never consulted by a
- * sim decision, so it cannot affect determinism. Entities are logged in record order and stamped with the
+ * sim decision, so it cannot affect determinism. Entities are logged in record order and marked with the
  * current epoch and their slot in that order, so a drain starts a new epoch instead of clearing a set.
  */
 export class TouchedLog {
   private order = new Int32Array(INITIAL_CAPACITY);
   private count = 0;
-  private stamps = new Int32Array(INITIAL_CAPACITY);
-  /** Per dense entity, its index in `order`, valid while its stamp is the current epoch's. */
-  private slots = new Int32Array(INITIAL_CAPACITY);
-  private readonly sparseStamps = new Map<Entity, number>();
+  /** Per dense entity, the epoch it was last logged in and its index in `order` then. */
+  private marks = new Int32Array(INITIAL_CAPACITY * MARK_STRIDE);
+  /** Per sparse entity, its index in `order`; cleared with each epoch. */
   private readonly sparseSlots = new Map<Entity, number>();
+  /** Per slot, whether its entity's membership changed this epoch. */
+  private memberships = new Uint8Array(INITIAL_CAPACITY);
   private epoch = 1;
   /** Per slot, the components its entity wrote this epoch, in first-write order: the first
    *  `writtenCounts[slot]` entries. A list keeps its storage across epochs, so a newly logged entity
@@ -54,30 +56,31 @@ export class TouchedLog {
       this.forget();
       this.overflowed = true;
     }
-    const logged = this.epoch << 1;
-    const fresh = (this.stampOf(entity) & ~MEMBERSHIP_BIT) !== logged;
-    let slot = this.count;
-    if (fresh) {
-      this.count++;
+    let slot = this.slotOf(entity);
+    if (slot < 0) {
+      slot = this.count++;
       if (slot === this.order.length) {
         this.order = grown(this.order, slot + 1);
         this.writtenCounts = grown(this.writtenCounts, slot + 1);
+        const memberships = new Uint8Array(this.order.length);
+        memberships.set(this.memberships);
+        this.memberships = memberships;
       }
       this.order[slot] = entity;
       this.writtenCounts[slot] = 0;
-      this.stamp(entity, logged, slot);
+      this.memberships[slot] = 0;
+      this.mark(entity, slot);
     }
     if (!this.detailed) return this.mutations;
-    if (!fresh) slot = this.slotOf(entity);
     if (component !== undefined) this.addWritten(slot, component);
-    if (membership) this.stamp(entity, logged | MEMBERSHIP_BIT, slot);
+    if (membership) this.memberships[slot] = 1;
     return this.mutations;
   }
 
   /** Whether `entity` has a recorded mutation the next {@link drain} will deliver. After an overflow every
    *  entity counts as pending, since the individual names were lost. */
   pending(entity: Entity): boolean {
-    return this.overflowed || (this.stampOf(entity) & ~MEMBERSHIP_BIT) === this.epoch << 1;
+    return this.overflowed || this.slotOf(entity) >= 0;
   }
 
   /**
@@ -94,12 +97,11 @@ export class TouchedLog {
       membership: boolean,
     ) => void,
   ): boolean {
-    const logged = this.epoch << 1;
     const written = this.written;
     for (let slot = 0; slot < this.count; slot++) {
       const e = this.order[slot] as Entity;
       const components = written[slot];
-      const membership = this.stampOf(e) === (logged | MEMBERSHIP_BIT);
+      const membership = this.memberships[slot] === 1;
       if (components === undefined) consume(e, NO_COMPONENTS, 0, membership);
       else consume(e, components, this.writtenCounts[slot] as number, membership);
     }
@@ -110,11 +112,10 @@ export class TouchedLog {
     return overflowed;
   }
 
-  /** Empty the log: a new epoch voids every stamp at once. */
+  /** Empty the log: a new epoch voids every mark at once. */
   private forget(): void {
     this.count = 0;
     this.epoch++;
-    this.sparseStamps.clear();
     this.sparseSlots.clear();
   }
 
@@ -136,26 +137,24 @@ export class TouchedLog {
     return written[slot] as Component<unknown>[];
   }
 
-  private stampOf(entity: Entity): number {
-    return entity < this.stamps.length ? (this.stamps[entity] ?? 0) : (this.sparseStamps.get(entity) ?? 0);
-  }
-
+  /** The entity's slot in this epoch, or -1 when it is not logged. */
   private slotOf(entity: Entity): number {
-    return entity < this.slots.length ? (this.slots[entity] ?? 0) : (this.sparseSlots.get(entity) ?? 0);
+    if (entity >= DENSE_MARK_LIMIT) return this.sparseSlots.get(entity) ?? -1;
+    const at = entity * MARK_STRIDE;
+    return at < this.marks.length && this.marks[at] === this.epoch
+      ? (this.marks[at + MARK_SLOT] as number)
+      : -1;
   }
 
-  private stamp(entity: Entity, value: number, slot: number): void {
-    if (entity >= this.stamps.length && entity < DENSE_STAMP_LIMIT) {
-      this.stamps = grown(this.stamps, entity + 1);
-      this.slots = grown(this.slots, entity + 1);
-    }
-    if (entity < this.stamps.length) {
-      this.stamps[entity] = value;
-      this.slots[entity] = slot;
-    } else {
-      this.sparseStamps.set(entity, value);
+  private mark(entity: Entity, slot: number): void {
+    if (entity >= DENSE_MARK_LIMIT) {
       this.sparseSlots.set(entity, slot);
+      return;
     }
+    const at = entity * MARK_STRIDE;
+    if (at >= this.marks.length) this.marks = grown(this.marks, at + MARK_STRIDE);
+    this.marks[at] = this.epoch;
+    this.marks[at + MARK_SLOT] = slot;
   }
 }
 

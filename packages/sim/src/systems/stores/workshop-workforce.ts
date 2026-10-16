@@ -60,6 +60,11 @@ interface WorkforceIndex {
   snapshots: number;
   /** The catch-up's dirty settlers, reused across calls. */
   readonly dirty: Set<Entity>;
+  /** Journal visitors marking a settler, or a workplace's bound workers, dirty; built once per index so
+   *  a catch-up allocates no collected deltas, iterators or closures. */
+  readonly markSettler: (e: Entity) => void;
+  readonly markCrew: (workplace: Entity) => void;
+  readonly resyncDirty: (e: Entity) => void;
 }
 
 /** The loads bound for one workplace in parallel columns, unordered: an inbound read sums them. */
@@ -228,34 +233,37 @@ function caughtUp(world: World, ctx: SystemContext): WorkforceIndex {
   }
   held.ctx = ctx;
   const dirty = held.dirty;
-  dirty.clear();
-  for (const e of held.untracked) dirty.add(e);
-  for (const component of SETTLER_MEMBERSHIP) {
-    const deltas = world.membershipDeltasSince(component, held.generations.get(component) ?? 0);
-    if (deltas === null) return rebuild(world, ctx);
-    for (const e of deltas) dirty.add(e);
+  // A Set's clear allocates a fresh table, so an empty one is left alone.
+  if (dirty.size > 0) dirty.clear();
+  held.untracked.forEach(held.markSettler);
+  for (let i = 0; i < SETTLER_MEMBERSHIP.length; i++) {
+    const component = SETTLER_MEMBERSHIP[i] as Component<unknown>;
+    if (!world.replayMembershipSince(component, held.generations.get(component) ?? 0, held.markSettler))
+      return rebuild(world, ctx);
   }
-  for (const component of SETTLER_VALUES) {
-    const deltas = world.valueWritesSince(component, held.valueGenerations.get(component) ?? 0);
-    if (deltas === null) return rebuild(world, ctx);
-    for (const e of deltas) dirty.add(e);
+  for (let i = 0; i < SETTLER_VALUES.length; i++) {
+    const component = SETTLER_VALUES[i] as Component<unknown>;
+    if (!world.replayValueWritesSince(component, held.valueGenerations.get(component) ?? 0, held.markSettler))
+      return rebuild(world, ctx);
   }
-  for (const component of WORKPLACE_MEMBERSHIP) {
-    const deltas = world.membershipDeltasSince(component, held.generations.get(component) ?? 0);
-    if (deltas === null) return rebuild(world, ctx);
-    for (const e of deltas) for (const worker of assignedWorkers(world, e)) dirty.add(worker);
+  for (let i = 0; i < WORKPLACE_MEMBERSHIP.length; i++) {
+    const component = WORKPLACE_MEMBERSHIP[i] as Component<unknown>;
+    if (!world.replayMembershipSince(component, held.generations.get(component) ?? 0, held.markCrew))
+      return rebuild(world, ctx);
   }
-  for (const component of WORKPLACE_VALUES) {
-    const deltas = world.valueWritesSince(component, held.valueGenerations.get(component) ?? 0);
-    if (deltas === null) return rebuild(world, ctx);
-    for (const e of deltas) for (const worker of assignedWorkers(world, e)) dirty.add(worker);
+  for (let i = 0; i < WORKPLACE_VALUES.length; i++) {
+    const component = WORKPLACE_VALUES[i] as Component<unknown>;
+    if (!world.replayValueWritesSince(component, held.valueGenerations.get(component) ?? 0, held.markCrew))
+      return rebuild(world, ctx);
   }
   const trades = settlerTradeLog(world, 'workshopWorkforce');
-  for (const e of trades) dirty.add(e);
-  trades.clear();
+  if (trades.size > 0) {
+    trades.forEach(held.markSettler);
+    trades.clear();
+  }
   noteGenerations(world, held);
   if (dirty.size === 0) return held;
-  for (const e of dirty) resync(world, ctx, held, e);
+  dirty.forEach(held.resyncDirty);
   dirty.clear();
   held.epoch++;
   return held;
@@ -271,6 +279,7 @@ function rebuild(world: World, ctx: SystemContext): WorkforceIndex {
 }
 
 function deriveIndex(world: World, ctx: SystemContext, epoch: number): WorkforceIndex {
+  const dirty = new Set<Entity>();
   const index: WorkforceIndex = {
     ctx,
     generations: new Map(),
@@ -281,7 +290,15 @@ function deriveIndex(world: World, ctx: SystemContext, epoch: number): Workforce
     untracked: new Set(),
     epoch,
     snapshots: 0,
-    dirty: new Set(),
+    dirty,
+    markSettler: (e) => {
+      dirty.add(e);
+    },
+    markCrew: (workplace) => {
+      const workers = assignedWorkers(world, workplace);
+      for (let i = 0; i < workers.length; i++) dirty.add(workers[i] as Entity);
+    },
+    resyncDirty: (e) => resync(world, index.ctx, index, e),
   };
   noteGenerations(world, index);
   for (const e of world.canonicalQuery(JobAssignment, Settler)) resync(world, ctx, index, e);

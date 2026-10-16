@@ -18,7 +18,7 @@ import {
   Wedding,
 } from '../../../components/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
-import { nodeOfPosition, nodesAdjacent } from '../../../nav/halfcell.js';
+import { nodeHxOfPosition, nodeHyOfPosition, type nodesAdjacent } from '../../../nav/halfcell.js';
 import type { SystemContext } from '../../context.js';
 import { carriesNeeds, NEED_DRIVE_THRESHOLD, needLevel } from '../../lifecycle/needs/index.js';
 import { isTravelling } from '../../movement/nav-state.js';
@@ -36,6 +36,9 @@ const CHAT_PARTNER_MIN_DIST_NODES = 1;
 /** The idle-chat search covers exactly the adjacent lattice nodes: {@link nodesAdjacent} is Chebyshev 1, so
  *  Manhattan ring 2 is needed to reach the diagonals and the accept filter drops the (2,0) points. */
 const CHAT_IDLE_MAX_RING = 2;
+
+/** The Chebyshev reach of {@link nodesAdjacent}, inlined in the idle search to skip its node objects. */
+const ADJACENT_NODES = 1;
 
 /** How far in half-cell nodes an idle settler may wander to a distant partner once its
  *  {@link CHAT_IDLE_WALK_MEAN_WAIT_TICKS} roll fires. Authored value, about 6 cells. */
@@ -202,12 +205,15 @@ export function planGossipIdle(
   // byte-identical.
   const owner = ownerOf(world, e);
   if (owner === undefined) return false;
-  const here = { hx, hy };
   const idle = idlePartnerFilter(world, ctx.tick, e, owner);
+  // Adjacency first: it reads only the position, while `idle` reads several stores.
   const idleBeside = (cand: Entity): boolean => {
-    if (!idle(cand)) return false;
     const p = world.get(cand, Position);
-    return nodesAdjacent(nodeOfPosition(p.x, p.y), here);
+    return (
+      Math.abs(nodeHxOfPosition(p.x, p.y) - hx) <= ADJACENT_NODES &&
+      Math.abs(nodeHyOfPosition(p.y) - hy) <= ADJACENT_NODES &&
+      idle(cand)
+    );
   };
   const buckets = candidates.ensure();
   const beside = buckets.nearest(hx, hy, CHAT_PARTNER_MIN_DIST_NODES, CHAT_IDLE_MAX_RING, idleBeside);

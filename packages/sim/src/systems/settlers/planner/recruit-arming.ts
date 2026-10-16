@@ -191,12 +191,29 @@ export function armableIntents<Intent extends keyof typeof INTENT_WEAPON_CLASS>(
     let approach: NodeId | undefined;
     for (const { intent, goods } of wanted) {
       if (armable.has(intent)) continue;
-      if (!goods.some((good) => storeYieldsGood(world, ctx, terrain, walls, store, good))) continue;
+      if (!yieldsAnyGood(world, ctx, terrain, walls, store, goods)) continue;
       approach ??= approachNode(world, ctx, terrain, store);
       if (reach === null || reach.allowsNode(approach)) armable.add(intent);
     }
   }
   return intents.filter((intent) => armable.has(intent));
+}
+
+/** Whether `store` yields any of `goods`: a loop rather than `some`, whose callback would close over the
+ *  store and allocate once per store and intent. */
+function yieldsAnyGood(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  walls: ReadonlySet<NodeId>,
+  store: Entity,
+  goods: readonly number[],
+): boolean {
+  for (let i = 0; i < goods.length; i++) {
+    const good = goods[i];
+    if (good !== undefined && storeYieldsGood(world, ctx, terrain, walls, store, good)) return true;
+  }
+  return false;
 }
 
 /** Where a fetcher stands to draw on a store: a building at its door, a ground pile at its own node. */

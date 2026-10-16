@@ -15,10 +15,9 @@ import { manhattan } from '../spatial/metric.js';
 import { entityNode } from '../spatial/nodes.js';
 import {
   anyResourceNear,
-  canonicalResources,
+  anyResourceOfGood,
   goodBoxHoldsAll,
   nearestResourceOfGood,
-  resourceBoxHoldsAll,
 } from '../spatial/resources.js';
 
 /** The first expanding-box reach of the live-resource searches below (Chebyshev half-cell nodes). */
@@ -313,23 +312,7 @@ export function nearestLiveResourceOfGoods(
   return best;
 }
 
-/**
- * Whether any not-yet-empty resource of `goodType` stands on the map - existence only, so the first
- * box holding a live node answers without ranking it. `near` seeds the expanding-box search (the
- * seat's base - collector goods are gathered around it). A miss in a box holding every resource decides
- * a dry map; a null seed or a miss within the cap falls back to the early-exit canonical scan.
- */
-export function anyLiveResource(world: World, goodType: number, near: HalfCellNode | null): boolean {
-  if (near !== null) {
-    for (let reach = RESOURCE_BOX_REACH_START; reach <= RESOURCE_BOX_REACH_MAX; reach *= 2) {
-      if (anyResourceNear(world, near.hx, near.hy, reach, (e) => isLiveResource(world, e, goodType))) {
-        return true;
-      }
-      if (resourceBoxHoldsAll(world, near.hx, near.hy, reach)) return false;
-    }
-  }
-  for (const e of canonicalResources(world)) {
-    if (isLiveResource(world, e, goodType)) return true;
-  }
-  return false;
+/** Whether any not-yet-empty resource of `goodType` stands on the map. */
+export function anyLiveResource(world: World, goodType: number): boolean {
+  return anyResourceOfGood(world, goodType, (e) => isLiveResource(world, e, goodType));
 }

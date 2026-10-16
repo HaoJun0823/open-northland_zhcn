@@ -222,7 +222,7 @@ describe('resourceBoxHoldsAll (the dry-map stop of the expanding searches)', () 
     const ABSENT_GOOD = 99;
     const far = nodeAt(sim, 400, 300); // good 1, far past the first boxes
     expect(nearestLiveResource(sim.world, ABSENT_GOOD, { hx: 10, hy: 10 })).toBeNull();
-    expect(anyLiveResource(sim.world, ABSENT_GOOD, { hx: 10, hy: 10 })).toBe(false);
+    expect(anyLiveResource(sim.world, ABSENT_GOOD)).toBe(false);
     expect(nearestLiveResource(sim.world, 1, { hx: 10, hy: 10 })).toBe(far);
     expect(nearestLiveResource(sim.world, 1, { hx: 10, hy: 10 }, (e) => e !== far)).toBeNull();
   });

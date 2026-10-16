@@ -147,7 +147,7 @@ export function entryStatus(
         return 'skip';
       for (const goodId of entry.needsResources ?? []) {
         const needed = goodTypeByContentId(ctx.content, goodId);
-        if (needed === undefined || !liveResourceNearBase(world, ctx, player, needed.typeId, memo.live))
+        if (needed === undefined || !liveResourceOnMap(world, needed.typeId, memo.live))
           return 'skip';
       }
       return 'unmet';
@@ -173,7 +173,7 @@ export function entryStatus(
       const holders = memoFlagsByGood(world, ctx, player, memo).get(good.typeId) ?? 0;
       if (holders >= collectorCount(entry)) return 'satisfied';
       // Nothing left to collect anywhere counts as done, so the list never stalls on a dry map.
-      return liveResourceNearBase(world, ctx, player, good.typeId, memo.live) ? 'unmet' : 'skip';
+      return liveResourceOnMap(world, good.typeId, memo.live) ? 'unmet' : 'skip';
     }
     case 'towerCoverage':
     case 'storeCoverage': {
@@ -184,19 +184,11 @@ export function entryStatus(
   }
 }
 
-/** Whether the map still holds a live resource of `goodType`, searched outward from the seat's base. */
-function liveResourceNearBase(
-  world: World,
-  ctx: SystemContext,
-  player: number,
-  goodType: number,
-  live: Map<number, boolean>,
-): boolean {
+/** Whether the map still holds a live resource of `goodType`, once per good per decision. */
+function liveResourceOnMap(world: World, goodType: number, live: Map<number, boolean>): boolean {
   const known = live.get(goodType);
   if (known !== undefined) return known;
-  const base = seatBaseOf(world, ctx, player);
-  const near = base === null ? null : anchorNodeOf(world, base);
-  const found = anyLiveResource(world, goodType, near);
+  const found = anyLiveResource(world, goodType);
   live.set(goodType, found);
   return found;
 }

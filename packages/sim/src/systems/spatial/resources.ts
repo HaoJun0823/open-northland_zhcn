@@ -116,6 +116,11 @@ export function goodBoxHoldsAll(
   return index.partitionBoxHoldsAll(world, goodType, hx, hy, reach);
 }
 
+/** Whether any `goodType` resource passes `test`. Unordered and first-hit. */
+export function anyResourceOfGood(world: World, goodType: number, test: (e: Entity) => boolean): boolean {
+  return index.somePartition(world, goodType, test);
+}
+
 /** Every resource whose anchor node is exactly `(hx, hy)`. The index's live bucket, so copy it before
  *  destroying members. */
 export function resourcesAtNode(world: World, hx: number, hy: number): readonly Entity[] {

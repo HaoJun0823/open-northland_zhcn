@@ -138,6 +138,8 @@ export interface PartitionedRegionIndex<Extra, Capture> extends RegionIndex<Extr
   ): RegionNearest | null;
   /** {@link RegionIndex.boxHoldsAll} for the members of partition `part` alone. */
   partitionBoxHoldsAll(world: World, part: number, hx: number, hy: number, reach: number): boolean;
+  /** Whether any member of partition `part` passes `test`. Unordered and first-hit. */
+  somePartition(world: World, part: number, test: (e: Entity) => boolean): boolean;
 }
 
 /** Pack a region coordinate pair into a map key. Both axes are non-negative because an anchor is an
@@ -504,6 +506,14 @@ function buildRegionIndex<Extra, Capture>(
     partitionBoxHoldsAll: (world, part, hx, hy, reach) => {
       const regions = memo.read(world).byPart?.get(part);
       return regions === undefined || bucketsInBox(regions, hx, hy, reach);
+    },
+    somePartition: (world, part, test) => {
+      const regions = memo.read(world).byPart?.get(part);
+      if (regions === undefined) return false;
+      for (const bucket of regions.values()) {
+        for (const m of bucket) if (test(m.e)) return true;
+      }
+      return false;
     },
   };
 }

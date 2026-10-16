@@ -9,6 +9,7 @@ import {
   isVehicle,
   isWildlife,
   ownerPlayerOf,
+  type SnapshotEntity,
 } from '../game/snapshot.js';
 import type { HoverCard } from '../hud/dom/hover-card.js';
 import type {
@@ -22,10 +23,10 @@ import { hitsTarget, isHitTarget, type Pickable, pickTopAt, screenToWorld } from
 import { createTooltip } from './tooltip.js';
 
 /**
- * What the cursor is over in the world: a settler, a building, a vehicle or a wall opens a card, a loose
- * good pile or a chest a text chip. Hit targets are filtered from the renderer's already-culled `drawnItems`, so the
- * work follows the screen, not the map. Owns the chip element; the details panel's stock-row tooltip
- * must not share it.
+ * What the cursor is over in the world: a settler, a building, a vehicle or another seat's wall opens a
+ * card, a loose good pile or a chest a text chip. Hit targets are filtered from the renderer's
+ * already-culled `drawnItems`, so the work follows the screen, not the map. Owns the chip element; the
+ * details panel's stock-row tooltip must not share it.
  */
 
 /** How long the cursor rests on one target before its card opens, so crossing a settlement does not
@@ -46,13 +47,15 @@ export interface WorldHoverOptions {
   readonly chestLabel: (kind: ChestKind) => string;
   /** The order line after a chest's name: the open order when the selection can open it, else null. */
   readonly chestOrderLine: (snapshot: WorldSnapshot, kind: ChestKind) => string | null;
-  /** The card a hovered settler, building or vehicle opens; its owner creates and disposes it. */
+  /** The card a hovered settler, building, vehicle or wall opens; its owner creates and disposes it. */
   readonly card: HoverCard;
   readonly buildingModel: (snapshot: WorldSnapshot, entityId: number) => BuildingHoverModel | null;
   readonly settlerModel: (snapshot: WorldSnapshot, entityId: number) => SettlerHoverModel | null;
   readonly vehicleModel: (snapshot: WorldSnapshot, entityId: number) => VehicleHoverModel | null;
-  /** Null for a wall that opens no card. */
   readonly palisadeModel: (snapshot: WorldSnapshot, entityId: number) => BuildingHoverModel | null;
+  /** Whether a wall opens a card at all; one that does not is no hover target, so it hides nothing
+   *  behind it. */
+  readonly wallHovers: (entity: SnapshotEntity) => boolean;
   /** Bumps whenever the models above would read differently within one tick: a spectator's seat switch
    *  turns another seat's card into an own one and back, and a sim answer the worker's products read
    *  lands. */
@@ -128,6 +131,10 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
         continue;
       }
       if (it.kind === 'building' || it.kind === 'palisade') {
+        if (it.kind === 'palisade') {
+          const entity = entityById(snap, it.ref);
+          if (entity === undefined || !opts.wallHovers(entity)) continue;
+        }
         hoverTargets.rest.push({
           ref: it.ref,
           x: it.x,
@@ -210,18 +217,23 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
     return nowMs - restingSince >= CARD_REST_MS;
   };
 
-  // Where the pointer last stopped, and the target the hover holds there. While the pointer stays put,
-  // that target keeps the hover for as long as it is still under it: a fighter swinging across a gate,
-  // or anyone walking past a house, would otherwise take the top spot frame by frame and restart the
-  // rest each time, so the card never opens. Moving the pointer picks the frontmost target again.
-  let restAt: { readonly x: number; readonly y: number } | null = null;
+  // Where the pointer last stopped over the world, and the target the hover holds there. While neither
+  // the pointer nor the camera moves, that target keeps the hover for as long as it is still under it: a
+  // fighter swinging across a gate, or anyone walking past a house, would otherwise take the top spot
+  // frame by frame and restart the rest each time, so the card never opens. Moving either picks the
+  // frontmost target again.
+  let restAt: { readonly x: number; readonly y: number; readonly camera: Camera } | null = null;
   let held: number | null = null;
   const pointerMoved = (clientX: number, clientY: number): boolean => {
+    const camera = opts.camera();
     const moved =
       restAt === null ||
+      restAt.camera.offsetX !== camera.offsetX ||
+      restAt.camera.offsetY !== camera.offsetY ||
+      restAt.camera.scale !== camera.scale ||
       Math.abs(clientX - restAt.x) > POINTER_REST_SLOP_PX ||
       Math.abs(clientY - restAt.y) > POINTER_REST_SLOP_PX;
-    if (moved) restAt = { x: clientX, y: clientY };
+    if (moved) restAt = { x: clientX, y: clientY, camera: { ...camera } };
     return moved;
   };
   const stillUnder = (targets: HoverTargets, ref: number, wx: number, wy: number): boolean =>

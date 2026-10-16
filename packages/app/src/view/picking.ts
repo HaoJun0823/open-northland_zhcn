@@ -154,7 +154,8 @@ const PICK_BOX = {
   pile: { halfW: 18, up: 26, down: 8 },
 } as const;
 
-/** Whether the world-px point lands on `t`: inside its box, and on a solid texel where it has a pixel test. */
+/** Whether the world-px point lands on `t`: inside its box, and on a solid texel where it has a pixel
+ *  test. */
 export function hitsTarget(t: Pickable, wx: number, wy: number): boolean {
   if (!containsTargetPoint(t.kind ?? 'settler', t.x, t.y, t.box, wx, wy)) return false;
   return t.pixelHit?.(wx, wy) ?? true;

@@ -242,16 +242,18 @@ export class SpritePool {
       frame.camera.scale ?? 1,
     );
     // Outlines copy the bound texture. Refresh after swaps/releases, including a fully repaired house
-    // that has just left the damaged list, so a stamp cannot retain a recycled atlas slot.
-    this.refreshBuildingSelection(frame.selection, frame);
-    this.refreshBuildingSelection(frame.flagged, frame);
+    // that has just left the damaged list, so a stamp cannot retain a recycled atlas slot, and a hurt
+    // gate's outline follows its holes.
+    this.refreshDamageableSelection(frame.selection, frame);
+    this.refreshDamageableSelection(frame.flagged, frame);
   }
 
-  private refreshBuildingSelection(refs: ReadonlySet<number> | undefined, frame: PoolFrame): void {
+  private refreshDamageableSelection(refs: ReadonlySet<number> | undefined, frame: PoolFrame): void {
     for (const ref of refs ?? NO_REFS) {
       const pe = this.pool.get(ref);
       const item = pe?.bound.item;
-      if (pe?.kind === 'building' && pe.attached && item !== undefined) this.applySelection(pe, item, frame);
+      const damageable = pe?.kind === 'building' || pe?.kind === 'palisade';
+      if (damageable && pe.attached && item !== undefined) this.applySelection(pe, item, frame);
     }
   }
   private readonly ships: ShipAfloat[] = [];

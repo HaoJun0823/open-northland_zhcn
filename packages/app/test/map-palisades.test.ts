@@ -37,7 +37,7 @@ describe('map palisade promotion', () => {
     ]);
   });
 
-  it("scales a gate's authored level by its closed cells, as its hitpoints are", () => {
+  it("scales a gate's authored level by its closed cells, as its hitpoints are, open or closed", () => {
     const gateIr: ContentIr = {
       landscape: [
         {
@@ -50,13 +50,41 @@ describe('map palisade promotion', () => {
             [10, 83, 2, -1, 0],
           ],
         },
+        {
+          typeId: 84,
+          id: 'wall_gate_open',
+          maxValency: 100,
+          playerIdAllowed: true,
+          transitions: [
+            [9, 84, 2, 1, 0],
+            [10, 84, 2, -1, 0],
+          ],
+        },
       ],
-      landscapeGfx: [{ index: 697, editName: 'gate_02', logicType: 83, walkBlockAreas: [[1, -2, 0, 5]] }],
+      landscapeGfx: [
+        { index: 697, editName: 'gate_02', logicType: 83, walkBlockAreas: [[1, -2, 0, 5]] },
+        {
+          index: 701,
+          editName: 'gate_02_open',
+          logicType: 84,
+          walkBlockAreas: [
+            [1, -2, 0, 1],
+            [1, 2, 0, 1],
+          ],
+        },
+      ],
     };
-    const objects: TerrainObjects = { types: ['gate_02'], placements: [2, 4, 0], owners: [0], levels: [70] };
+    const objects: TerrainObjects = {
+      types: ['gate_02', 'gate_02_open'],
+      placements: [2, 4, 0, 6, 4, 1],
+      owners: [0, 0],
+      levels: [70, 70],
+    };
 
+    // An open gate blocks two cells but scales by its closed pair's five.
     expect(mapPalisadeSpawns(objects, gateIr)).toEqual([
       { gfxIndex: 697, hx: 2, hy: 4, placement: 0, owner: 0, valency: 350 },
+      { gfxIndex: 701, hx: 6, hy: 4, placement: 1, owner: 0, valency: 350 },
     ]);
   });
 

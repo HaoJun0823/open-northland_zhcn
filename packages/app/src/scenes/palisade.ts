@@ -28,9 +28,9 @@ import type { SceneDefinition } from './types.js';
  * a wall the map authored below its maximum, unasked.
  * The detached seven-post rosette makes all six source wall-connection directions visible at once.
  *
- * Source basis: readable wall records pin 100 maximum valency and +3 repair progress, which a post holds
- * one and a half times (`wallStrengthScale`). Original
- * behavior: one wood per placed anchor, interpolated posts along three canonical neighbour directions,
+ * Source basis: readable wall records pin 100 maximum valency and +3 repair progress; a post holds one
+ * and a half of each, its step rounded up to +5 (`wallStrengthScale`). Original behavior: one wood per
+ * placed anchor, interpolated posts along three canonical neighbour directions,
  * and the instant conversion of a straight five-wall span into a gate, which lives in
  * `palisadeGateProbe`. The original reserves a segment before travel; the physical visit before its
  * flag appears is a lifecycle adaptation. Treating valency as hitpoints and unfinished walls as

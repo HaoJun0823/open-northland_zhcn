@@ -2,9 +2,10 @@ import type { DiplomacyState } from '@open-northland/sim';
 import type { PanelBar } from '../details-panel/model/bars.js';
 
 /**
- * What the cursor card says about the thing under it. A settler, a building and a vehicle share one card:
- * a title, one line under it, and the good rows only a store or a hold fills. A building and a vehicle
- * show their health; another seat's thing also names its owner and keeps its goods to itself.
+ * What the cursor card says about the thing under it. A settler, a building, a vehicle and another seat's
+ * wall share one card: a title, one line under it, and the good rows only a store or a hold fills. A
+ * building, a wall and a vehicle show their health; another seat's thing also names its owner and keeps
+ * its goods to itself.
  */
 
 /** The seat another seat's building or person belongs to. */

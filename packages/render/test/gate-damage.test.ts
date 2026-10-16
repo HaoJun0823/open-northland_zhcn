@@ -17,7 +17,7 @@ const POST_GFX = 691;
 const CLOSED_GATE_GFX = 697;
 const OPEN_GATE_GFX = 701;
 const GATE_MAX_HP = 500;
-const POST_MAX_HP = 100;
+const POST_MAX_HP = 150;
 const GATE_WALK = [-2, -1, 0, 1, 2].map((dx) => ({ dx, dy: 0 }));
 const GATE_REF = 1 as Entity;
 
@@ -49,7 +49,7 @@ describe('gate damage input', () => {
   it('leaves wall posts on their durability ladder and gate sites unmarked', () => {
     const post = entity(2, 20, 4, {
       Palisade: { gfxIndex: POST_GFX, tribe: 1, built: ONE },
-      Health: { hitpoints: 40, max: POST_MAX_HP },
+      Health: { hitpoints: 60, max: POST_MAX_HP },
     });
     const scene = collectSpriteScene(snapshotOf([post])).items.find((item) => item.ref === 2);
     expect(scene?.hpFrac).toBeUndefined();

@@ -54,17 +54,17 @@ export function gateCounterpartName(logicId: string, editName: string): string |
 }
 
 /**
- * Project rule: a one-cell post holds one and a half of its row's pools. Archers all shoot the first wall
- * on their route, so a post held them for well under half as long as a gate.
+ * Project rule: a one-cell post holds one and a half of its row's pools. Measured in this engine: archers
+ * all shoot the first wall on their route, so a one-pool post held them well under half as long as a gate.
  */
 const POST_STRENGTH = 1.5;
 
 /**
  * How many times a wall graphic holds its row's valency and repair step: once per cell its closed body
- * blocks, and never less than {@link POST_STRENGTH}. Project rule: a gate five cells wide lasts and mends
- * like the five posts it stands in for, instead of falling to the larger squad its longer face admits.
- * Original behavior: every wall and gate graphic holds one `maximumValency` pool, so there a gate falls
- * several times faster than a post.
+ * blocks, and never less than {@link POST_STRENGTH}. Source basis: every wall and gate row holds one
+ * `maximumValency` pool. Project rule: a gate holds one pool per closed cell, since measured in this
+ * engine a one-pool gate fell three to four times faster than a post to the larger squad its longer face
+ * admits.
  */
 export function wallStrengthScale(closedWalk: readonly Readonly<LandscapeBlockArea>[] | undefined): number {
   return Math.max(POST_STRENGTH, fullStateBlockAreaCells(closedWalk).length);
@@ -81,7 +81,8 @@ export function scaledWallRules(
   };
 }
 
-/** {@link wallStrengthScale} of every player wall graphic by gfx index; an open gate reads its closed pair. */
+/** {@link wallStrengthScale} of every player wall graphic by gfx index; an open gate reads its closed
+ *  pair. */
 export function wallStrengthScales(ir: ContentIr | null): ReadonlyMap<number, number> {
   const walls = playerWallRows(ir);
   const rows = (ir?.landscapeGfx ?? []).filter((g) => walls.has(g.logicType));

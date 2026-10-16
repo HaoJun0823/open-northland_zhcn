@@ -150,14 +150,14 @@ describe('planner-pass occupancy', () => {
     expect(s.world.verifyCaches()).toEqual([]);
   });
 
-  it('rebuilds from the world after more changes than its feed holds', () => {
+  it('follows two walkers through more writes than its feed has entries', () => {
     const s = sim();
     const terrain = s.terrain;
     if (terrain === undefined) throw new Error('setup: terrain missing');
     const ctx = ctxOf(s);
     const [a, b] = [idleWoodcutter(s, 4, 3), idleWoodcutter(s, 6, 3)];
     PlannerSpacing.forTick(s.world, ctx, terrain);
-    // Alternate so no write repeats the one before it; each lands in the feed.
+    // Alternate so no write repeats the one before it; the feed holds each walker once.
     for (let i = 0; i <= CHANGE_FEED_LIMIT; i++) {
       const p = s.world.mut(i % 2 === 0 ? a : b, Position);
       ({ x: p.x, y: p.y } = positionOfNode(i % 2 === 0 ? 2 : 8, 3));

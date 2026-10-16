@@ -2,7 +2,6 @@ import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it, vi } from 'vitest';
 import { Building, Position, ResourceFootprint } from '../../src/components/index.js';
 import { writeLandscapeEdits } from '../../src/components/landscape.js';
-import { CHANGE_FEED_LIMIT } from '../../src/ecs/change-feed.js';
 import { GENERATION_JOURNAL_LIMIT } from '../../src/ecs/generation-journal.js';
 import type { Component } from '../../src/ecs/world.js';
 import { fx, ONE, positionOfNode, Simulation } from '../../src/index.js';
@@ -215,7 +214,7 @@ describe('vehicle resource changes', () => {
     expectFreshClearance(sim);
   });
 
-  it('rebuilds on overflow and reuses its subscription through replacement memos', () => {
+  it('rebuilds on a lost feed and reuses its subscription through replacement memos', () => {
     const sim = siteSim();
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('map missing');
@@ -224,9 +223,11 @@ describe('vehicle resource changes', () => {
     const second = sim.world.create();
     for (const entity of [first, second]) sim.world.add(entity, Position, positionOfNode(10, 6));
     const field = vehicleClearance(sim.world, ctxOf(sim), terrain);
-    for (let i = 0; i <= CHANGE_FEED_LIMIT; i++) {
-      sim.world.add(i % 2 === 0 ? first : second, ResourceFootprint, resourceFootprint(i % 2));
-    }
+    // A feed holds each pending entity once, so only a bulk fill makes it lose its entries.
+    sim.world.restoreStore(ResourceFootprint, [
+      [first, resourceFootprint(0)],
+      [second, resourceFootprint(1)],
+    ]);
     expect(vehicleClearance(sim.world, ctxOf(sim), terrain)).not.toBe(field);
     expectFreshClearance(sim);
     const replacement = siteSim().terrain;

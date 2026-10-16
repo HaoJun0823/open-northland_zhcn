@@ -21,24 +21,38 @@ interface Site {
   readonly hy: number;
 }
 interface Sites {
-  readonly generation: number;
+  generation: number;
   readonly buckets: TileBuckets<Site>;
 }
 const sites = new WeakMap<World, Sites>();
+/** Every standing post's site, replaying the posts added or removed since the last read when the
+ *  membership journal still holds them. A post never moves, so only its membership is followed. */
 function sitesOf(world: World): TileBuckets<Site> {
   const generation = world.componentGeneration(Signpost);
-  let held = sites.get(world);
-  if (held === undefined || held.generation !== generation) {
-    const buckets = new TileBuckets<Site>();
-    for (const id of world.query(Signpost, Position)) {
-      const p = world.get(id, Position);
-      const n = nodeOfPosition(p.x, p.y);
-      buckets.set(id, { id, ...n }, n.hx / 2, n.hy / 2);
+  const held = sites.get(world);
+  if (held !== undefined) {
+    if (held.generation === generation) return held.buckets;
+    const { buckets } = held;
+    if (world.replayMembershipSince(Signpost, held.generation, (id) => placeSite(world, buckets, id))) {
+      held.generation = generation;
+      return buckets;
     }
-    held = { generation, buckets };
-    sites.set(world, held);
   }
-  return held.buckets;
+  world.journalMembership(Signpost);
+  const buckets = new TileBuckets<Site>();
+  for (const id of world.query(Signpost, Position)) placeSite(world, buckets, id);
+  sites.set(world, { generation, buckets });
+  return buckets;
+}
+
+function placeSite(world: World, buckets: TileBuckets<Site>, id: Entity): void {
+  const p = world.has(id, Signpost) ? world.tryGet(id, Position) : undefined;
+  if (p === undefined) {
+    buckets.delete(id);
+    return;
+  }
+  const n = nodeOfPosition(p.x, p.y);
+  buckets.set(id, { id, ...n }, n.hx / 2, n.hy / 2);
 }
 
 /** Scratch for the sites a link search collects, refilled per post: the search calls nothing that

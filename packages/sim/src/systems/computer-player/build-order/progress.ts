@@ -49,6 +49,46 @@ export interface DecisionMemo {
   roleOf: ((joinery: Entity) => JoineryRole) | undefined;
   /** The seat's live flags by the one good each holder gathers. */
   flagsByGood: ReadonlyMap<number, number> | undefined;
+  /** {@link OwnedTally} per owned-building list the decision asks about. */
+  readonly tallies: Map<readonly Entity[], OwnedTally>;
+}
+
+/** One owned-building list counted once, so each entry sums its tiers instead of walking the list. */
+interface OwnedTally {
+  readonly byType: ReadonlyMap<number, number>;
+  readonly homes: number;
+  /** Each building with an upgrade in flight: its type and the tier it is becoming. */
+  readonly upgrading: readonly (readonly [type: number, becoming: number])[];
+}
+
+function ownedTally(
+  world: World,
+  index: ContentIndex,
+  owned: readonly Entity[],
+  memo: DecisionMemo,
+): OwnedTally {
+  const known = memo.tallies.get(owned);
+  if (known !== undefined) return known;
+  const byType = new Map<number, number>();
+  let homes = 0;
+  const upgrading: (readonly [number, number])[] = [];
+  for (const e of owned) {
+    const type = world.get(e, Building).buildingType;
+    byType.set(type, (byType.get(type) ?? 0) + 1);
+    const ownedType = index.buildings.get(type);
+    if (ownedType?.kind === 'home') homes++;
+    const becoming = world.has(e, Upgrading) ? ownedType?.upgradeTarget : undefined;
+    if (becoming !== undefined) upgrading.push([type, becoming]);
+  }
+  const tally = { byType, homes, upgrading };
+  memo.tallies.set(owned, tally);
+  return tally;
+}
+
+function countOfTypes(tally: OwnedTally, types: ReadonlySet<number>): number {
+  let count = 0;
+  for (const type of types) count += tally.byType.get(type) ?? 0;
+  return count;
 }
 
 export function decisionMemo(): DecisionMemo {
@@ -58,6 +98,7 @@ export function decisionMemo(): DecisionMemo {
     grassScarce: undefined,
     roleOf: undefined,
     flagsByGood: undefined,
+    tallies: new Map(),
   };
 }
 
@@ -126,11 +167,16 @@ export function entryStatus(
       const counted = countedTiers(ctx.content, type, entry.belowTier);
       const roleOf = entry.role === undefined ? undefined : memoRoles(world, ctx, player, memo);
       let have = 0;
-      for (const e of owned) {
-        const ownedType = index.buildings.get(world.get(e, Building).buildingType);
-        if (ownedType === undefined) continue;
-        const matches = type.kind === 'home' ? ownedType.kind === 'home' : counted.has(ownedType.typeId);
-        if (matches && (roleOf === undefined || roleOf(e) === entry.role)) have++;
+      if (roleOf === undefined) {
+        const tally = ownedTally(world, index, owned, memo);
+        have = type.kind === 'home' ? tally.homes : countOfTypes(tally, counted);
+      } else {
+        for (const e of owned) {
+          const ownedType = index.buildings.get(world.get(e, Building).buildingType);
+          if (ownedType === undefined) continue;
+          const matches = type.kind === 'home' ? ownedType.kind === 'home' : counted.has(ownedType.typeId);
+          if (matches && roleOf(e) === entry.role) have++;
+        }
       }
       // A seat short of grass raises one of each bio-pattern building, the grass holding no more.
       const wanted =
@@ -155,14 +201,12 @@ export function entryStatus(
       const target = buildingTypeByContentId(ctx.content, entry.building);
       if (target === undefined) return 'skip';
       const done = countedTiers(ctx.content, target, entry.belowTier);
-      let have = 0;
-      for (const e of owned) {
-        const type = world.get(e, Building).buildingType;
-        // `upgradeBuilding` keeps the lower type until the site finishes, so the tier it is becoming
-        // is that type's next one.
-        const becoming =
-          inFlightUpgrades && world.has(e, Upgrading) ? index.buildings.get(type)?.upgradeTarget : undefined;
-        if (done.has(type) || (becoming !== undefined && done.has(becoming))) have++;
+      const tally = ownedTally(world, index, owned, memo);
+      let have = countOfTypes(tally, done);
+      // `upgradeBuilding` keeps the lower type until the site finishes, so the tier it is becoming is that
+      // type's next one.
+      if (inFlightUpgrades) {
+        for (const [type, becoming] of tally.upgrading) if (!done.has(type) && done.has(becoming)) have++;
       }
       return have >= entry.count ? 'satisfied' : 'unmet';
     }

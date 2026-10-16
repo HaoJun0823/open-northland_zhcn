@@ -49,6 +49,11 @@ describe('isContentPath', () => {
       expect(isContentPath(path)).toBe(true);
   });
 
+  it('claims the campaign listing and its films, logos and routes', () => {
+    for (const path of ['/campaigns-index.json', '/campaigns/asgard/logo.png', '/campaigns/x/intro.webm'])
+      expect(isContentPath(path)).toBe(true);
+  });
+
   it('leaves the app and Vite paths to the server', () => {
     for (const path of ['/', '/index.html', '/src/main.ts', '/@vite/client', '/assets/x.png'])
       expect(isContentPath(path)).toBe(false);

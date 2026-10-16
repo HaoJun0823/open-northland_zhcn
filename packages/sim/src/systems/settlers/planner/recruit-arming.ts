@@ -14,7 +14,6 @@ import {
   playerGoodList,
   Settler,
   type SettlerIdentity,
-  Stockpile,
   SupplyRun,
   sameSide,
   TrainingOrder,
@@ -40,6 +39,7 @@ import { anotherSystemOwns } from '../action-owner.js';
 import { EQUIP_FETCH_UNITS } from '../atomics/effects/goods/index.js';
 import { INTENT_WEAPON_CLASS } from '../atomics/effects/goods/weapon-class.js';
 import {
+  FetchableStock,
   interactionCell,
   nearestStoreHolding,
   storeYieldsGood,
@@ -164,8 +164,9 @@ function unvetoedPreference(
  * `reach` holds a good {@link armingGoodPreference} would shop for, returned in the caller's order.
  * The garrison rung sizes its standing order with this, so it applies the same goods, store rule,
  * reach and ownership rule as the dispatch below, and a neutral ground heap of swords counts like a
- * stocked warehouse. Existence only: which recruit walks there is the dispatch's problem. One walk of
- * the stores answers every intent, so the cost is the world's stores, not the stores times the classes.
+ * stocked warehouse. Existence only: which recruit walks there is the dispatch's problem. Only the
+ * stores the {@link FetchableStock} ledger lists as lending a wanted good are read, a superset of those
+ * {@link storeYieldsGood} accepts, so the cost is the weapon holders, not every heap on the map.
  * `vetoed` is the seat's veto list as the caller will have it, which may run ahead of the stored one.
  */
 export function armableIntents<Intent extends keyof typeof INTENT_WEAPON_CLASS>(
@@ -178,42 +179,30 @@ export function armableIntents<Intent extends keyof typeof INTENT_WEAPON_CLASS>(
   reach: NavigationLimit | null,
   vetoed: readonly number[],
 ): readonly Intent[] {
-  // An intent whose tribe data binds no craftable class row can never be armed and is dropped here.
-  const wanted = intents
-    .map((intent) => ({ intent, goods: armingGoodPreference(ctx.content, tribe, intent, vetoed) }))
-    .filter((w) => w.goods.length > 0);
-  if (wanted.length === 0) return [];
-  const armable = new Set<Intent>();
-  const walls = buildingBlockedCells(world, ctx, terrain);
-  for (const store of world.query(Stockpile)) {
-    if (armable.size === wanted.length) break;
-    if (!ownersCompatible(player, ownerOf(world, store))) continue;
-    let approach: NodeId | undefined;
-    for (const { intent, goods } of wanted) {
-      if (armable.has(intent)) continue;
-      if (!yieldsAnyGood(world, ctx, terrain, walls, store, goods)) continue;
-      approach ??= approachNode(world, ctx, terrain, store);
-      if (reach === null || reach.allowsNode(approach)) armable.add(intent);
+  const ledger = FetchableStock.of(world, ctx);
+  let walls: ReadonlySet<NodeId> | undefined;
+  const reachedStores = new Map<Entity, boolean>();
+  const reached = (store: Entity): boolean => {
+    if (reach === null) return true;
+    let known = reachedStores.get(store);
+    if (known === undefined) {
+      known = reach.allowsNode(approachNode(world, ctx, terrain, store));
+      reachedStores.set(store, known);
     }
-  }
-  return intents.filter((intent) => armable.has(intent));
-}
-
-/** Whether `store` yields any of `goods`: a loop rather than `some`, whose callback would close over the
- *  store and allocate once per store and intent. */
-function yieldsAnyGood(
-  world: World,
-  ctx: SystemContext,
-  terrain: TerrainGraph,
-  walls: ReadonlySet<NodeId>,
-  store: Entity,
-  goods: readonly number[],
-): boolean {
-  for (let i = 0; i < goods.length; i++) {
-    const good = goods[i];
-    if (good !== undefined && storeYieldsGood(world, ctx, terrain, walls, store, good)) return true;
-  }
-  return false;
+    return known;
+  };
+  const armable = (goods: readonly number[]): boolean => {
+    for (const good of goods) {
+      for (const store of ledger.holders(good)) {
+        if (!ownersCompatible(player, ownerOf(world, store))) continue;
+        walls ??= buildingBlockedCells(world, ctx, terrain);
+        if (storeYieldsGood(world, ctx, terrain, walls, store, good) && reached(store)) return true;
+      }
+    }
+    return false;
+  };
+  // An intent whose tribe data binds no craftable class row can never be armed: its goods are empty.
+  return intents.filter((intent) => armable(armingGoodPreference(ctx.content, tribe, intent, vetoed)));
 }
 
 /** Where a fetcher stands to draw on a store: a building at its door, a ground pile at its own node. */

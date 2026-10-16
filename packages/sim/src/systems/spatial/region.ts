@@ -1,8 +1,6 @@
 import { insertSortedById, removeSortedById } from '../../core/sorted-id.js';
 import type { Component, Entity, World } from '../../ecs/world.js';
 import { createSpatialMemo } from './memo.js';
-import { nodeKey } from './metric.js';
-import { NodeBuckets } from './nodes.js';
 
 /**
  * The per-world region spatial index behind the standing-entity indexes, so a radius-bounded scan reads
@@ -18,26 +16,105 @@ import { NodeBuckets } from './nodes.js';
 const REGION_NODES = 32;
 /** Region key packing (`rx * STRIDE + ry`): up to 65k regions per axis with a plain-number key. */
 const REGION_KEY_STRIDE = 1 << 16;
+/** Node key packing (`hx * STRIDE + hy`). It is also each member's ledger record, a small integer, so the
+ *  ledger holds no object per member. */
+const NODE_KEY_STRIDE = 1 << 16;
 
-interface RegionMember<Capture> {
-  readonly e: Entity;
-  /** The member's anchor node, kept beside the id so the box filter needs no store read per query. */
-  readonly hx: number;
-  readonly hy: number;
-  /** The extra's capture, kept beside the id so a {@link RegionIndex.near} filter needs no store read. */
-  readonly capture: Capture;
+/** Field offsets of one member in a bucket's interleaved Int32 records. */
+const ID = 0;
+const HX = 1;
+const HY = 2;
+const CAPTURE = 3;
+const PART = 4;
+/** A region bucket holds every field; a partition bucket only what the nearest fold reads. */
+const REGION_FIELDS = 5;
+const PARTITION_FIELDS = 3;
+/** Members a new bucket has room for; it doubles when full and halves when a quarter full. */
+const INITIAL_BUCKET_MEMBERS = 4;
+/** A bucket shrinks once it fills no more than this share of its capacity. */
+const SHRINK_DIVISOR = 4;
+
+/** One bucket's members as interleaved Int32 records, ascending id. */
+class MemberBucket {
+  records: Int32Array;
+  size = 0;
+
+  constructor(readonly fields: number) {
+    this.records = new Int32Array(INITIAL_BUCKET_MEMBERS * fields);
+  }
+
+  /** The first slot whose id is at least `e`. */
+  slotOf(e: number): number {
+    const { records, fields } = this;
+    let lo = 0;
+    let hi = this.size;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if ((records[mid * fields] ?? 0) < e) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  /** The slot holding `e`, or -1. */
+  find(e: number): number {
+    const slot = this.slotOf(e);
+    return slot < this.size && this.records[slot * this.fields] === e ? slot : -1;
+  }
+
+  insert(e: number, hx: number, hy: number, capture: number, part: number): void {
+    const { fields, size } = this;
+    if ((size + 1) * fields > this.records.length) this.resize(this.records.length * 2);
+    const records = this.records;
+    // Ids are monotonic, so an insert is usually an append.
+    const slot = size === 0 || (records[(size - 1) * fields] ?? 0) < e ? size : this.slotOf(e);
+    const at = slot * fields;
+    if (slot < size) records.copyWithin(at + fields, at, size * fields);
+    records[at + ID] = e;
+    records[at + HX] = hx;
+    records[at + HY] = hy;
+    if (fields > CAPTURE) {
+      records[at + CAPTURE] = capture;
+      records[at + PART] = part;
+    }
+    this.size = size + 1;
+  }
+
+  removeAt(slot: number): void {
+    const { fields } = this;
+    const size = this.size - 1;
+    this.records.copyWithin(slot * fields, (slot + 1) * fields, (size + 1) * fields);
+    this.size = size;
+    const capacity = this.records.length / fields;
+    if (capacity > INITIAL_BUCKET_MEMBERS && size * SHRINK_DIVISOR <= capacity) {
+      this.resize(this.records.length / 2);
+    }
+  }
+
+  private resize(length: number): void {
+    const grown = new Int32Array(length);
+    grown.set(this.records.subarray(0, this.size * this.fields));
+    this.records = grown;
+  }
 }
 
-/** Region buckets by region key, each ascending-id. */
-type RegionBuckets<Capture> = Map<number, RegionMember<Capture>[]>;
+/** An unoccupied node's answer, shared since every caller only reads it. */
+const NO_ENTITIES: readonly Entity[] = [];
 
-interface RegionState<Extra, Capture> {
-  byRegion: RegionBuckets<Capture>;
+/** Buckets by region key. */
+type RegionBuckets = Map<number, MemberBucket>;
+
+/** Node key to the members anchored there: a lone member as its id, so the common single occupant costs
+ *  no array; two or more as an ascending-id array. */
+type NodeLayer = Map<number, Entity | Entity[]>;
+
+interface RegionState<Extra> {
+  byRegion: RegionBuckets;
   /** The same members split by their partition key, for a partitioned index; null otherwise. */
-  byPart: Map<number, RegionBuckets<Capture>> | null;
-  /** The same members re-bucketed at node granularity, minted by the first {@link RegionIndex.atNode}
-   *  caller and maintained from then on. */
-  byNode: NodeBuckets | null;
+  byPart: Map<number, RegionBuckets> | null;
+  /** The same members by node, minted by the first {@link RegionIndex.atNode} caller and maintained from
+   *  then on. */
+  byNode: NodeLayer | null;
   /** Ascending-id canonical membership, the mutable master copy behind {@link RegionIndex.canonical}. */
   list: Entity[];
   /** The shared copy handed to consumers, dropped on every change, so a consumer holding one keeps a
@@ -58,20 +135,20 @@ export interface RegionIndexLabels {
 /**
  * The per-index derived extra, maintained incrementally beside the membership. `capture` runs at insert
  * and must record everything `remove` needs, because the entity may be destroyed by the time its removal
- * replays. It must return a primitive: the verifier compares held and fresh captures with `!==`.
+ * replays. It must return an int32, stored beside the member.
  */
-export interface RegionExtraOps<Extra, Capture> {
+export interface RegionExtraOps<Extra> {
   empty(): Extra;
-  capture(world: World, e: Entity): Capture;
-  insert(extra: Extra, c: Capture): void;
-  remove(extra: Extra, c: Capture): void;
+  capture(world: World, e: Entity): number;
+  insert(extra: Extra, c: number): void;
+  remove(extra: Extra, c: number): void;
   diverges(held: Extra, fresh: Extra): boolean;
 }
 
 /** The no-derived-extra ops for indexes that only need membership. */
-export const NO_REGION_EXTRA: RegionExtraOps<undefined, undefined> = {
+export const NO_REGION_EXTRA: RegionExtraOps<undefined> = {
   empty: () => undefined,
-  capture: () => undefined,
+  capture: () => 0,
   insert: () => {},
   remove: () => {},
   diverges: () => false,
@@ -84,7 +161,7 @@ export interface RegionNearest {
 }
 
 /** A memoized region index over `(component, Position)` entities. */
-export interface RegionIndex<Extra, Capture> {
+export interface RegionIndex<Extra> {
   /** The memoized ascending-id list of every indexed entity, shared. */
   canonical(world: World): readonly Entity[];
   /** Every indexed entity whose anchor node lies within the axis-aligned box `reach` nodes around
@@ -97,7 +174,7 @@ export interface RegionIndex<Extra, Capture> {
     hx: number,
     hy: number,
     reach: number,
-    keep?: (capture: Capture) => boolean,
+    keep?: (capture: number) => boolean,
     skipReach?: number,
   ): Entity[];
   /** The members {@link near} lists, handed to `visit` with their anchor node in no particular order,
@@ -108,7 +185,7 @@ export interface RegionIndex<Extra, Capture> {
     hy: number,
     reach: number,
     visit: (e: Entity, hx: number, hy: number) => void,
-    keep?: (capture: Capture) => boolean,
+    keep?: (capture: number) => boolean,
     skipReach?: number,
   ): void;
   /** Whether any indexed entity inside the same box passes `test`. Unordered and first-hit, which a pure
@@ -119,13 +196,13 @@ export interface RegionIndex<Extra, Capture> {
     hy: number,
     reach: number,
     test: (e: Entity) => boolean,
-    keep?: (capture: Capture) => boolean,
+    keep?: (capture: number) => boolean,
   ): boolean;
   /** Whether the box `reach` nodes around `(hx, hy)` holds every indexed entity, so a miss inside it is
    *  a miss everywhere. Judged by whole regions, so a false answer proves nothing. */
   boxHoldsAll(world: World, hx: number, hy: number, reach: number): boolean;
-  /** Every indexed entity whose anchor node is exactly `(hx, hy)`, ascending-id. This is the index's live
-   *  bucket, not a copy, so a caller that destroys members must copy it first. */
+  /** Every indexed entity whose anchor node is exactly `(hx, hy)`, ascending-id. Two or more are the
+   *  index's live bucket, not a copy, so a caller that destroys members must copy it first. */
   atNode(world: World, hx: number, hy: number): readonly Entity[];
   /** The per-index derived extra, maintained incrementally beside the membership. */
   extra(world: World): Extra;
@@ -133,7 +210,7 @@ export interface RegionIndex<Extra, Capture> {
 
 /** A region index whose members also sit in per-key buckets, so a search for one key reads only its own
  *  members. The key is read at insert, so a change to it must re-add the component. */
-export interface PartitionedRegionIndex<Extra, Capture> extends RegionIndex<Extra, Capture> {
+export interface PartitionedRegionIndex<Extra> extends RegionIndex<Extra> {
   /** The `accept`ed member of partition `part` with the least `(Manhattan node distance, entity id)`
    *  inside the box `reach` nodes around `(hx, hy)` and past the inner box `skipReach`, or null. An
    *  unbounded `reach` folds the whole partition. `accept` runs only on a member that would win, so it
@@ -151,6 +228,8 @@ export interface PartitionedRegionIndex<Extra, Capture> extends RegionIndex<Extr
   partitionBoxHoldsAll(world: World, part: number, hx: number, hy: number, reach: number): boolean;
   /** Whether any member of partition `part` passes `test`. Unordered and first-hit. */
   somePartition(world: World, part: number, test: (e: Entity) => boolean): boolean;
+  /** The lowest-id member of partition `part` anchored exactly on `(hx, hy)`, or null. */
+  firstOfPartitionAt(world: World, part: number, hx: number, hy: number): Entity | null;
 }
 
 /** Pack a region coordinate pair into a map key. Both axes are non-negative because an anchor is an
@@ -161,6 +240,19 @@ function regionKey(rx: number, ry: number): number {
 
 function regionKeyOf(hx: number, hy: number): number {
   return regionKey(Math.floor(hx / REGION_NODES), Math.floor(hy / REGION_NODES));
+}
+
+/** An in-bounds anchor as one key, decoded by {@link nodeHxOf} and {@link nodeHyOf}. */
+function nodeKeyOf(hx: number, hy: number): number {
+  return hx * NODE_KEY_STRIDE + hy;
+}
+
+function nodeHxOf(key: number): number {
+  return Math.floor(key / NODE_KEY_STRIDE);
+}
+
+function nodeHyOf(key: number): number {
+  return key % NODE_KEY_STRIDE;
 }
 
 /** The inclusive region range covering the box `reach` nodes around `(hx, hy)`. */
@@ -189,37 +281,54 @@ function regionInBox(rx: number, ry: number, hx: number, hy: number, reach: numb
   );
 }
 
-function inBox(m: RegionMember<unknown>, hx: number, hy: number, reach: number): boolean {
-  return Math.abs(m.hx - hx) <= reach && Math.abs(m.hy - hy) <= reach;
+function inBox(mx: number, my: number, hx: number, hy: number, reach: number): boolean {
+  return Math.abs(mx - hx) <= reach && Math.abs(my - hy) <= reach;
+}
+
+function nodeLayerInsert(layer: NodeLayer, e: Entity, key: number): void {
+  const held = layer.get(key);
+  if (held === undefined) layer.set(key, e);
+  else if (typeof held === 'number') layer.set(key, held < e ? [held, e] : [e, held]);
+  else insertSortedById(held, e, (id) => id);
+}
+
+function nodeLayerRemove(layer: NodeLayer, e: Entity, key: number): void {
+  const held = layer.get(key);
+  if (held === undefined) return;
+  if (typeof held === 'number') {
+    if (held === e) layer.delete(key);
+    return;
+  }
+  removeSortedById(held, e, (id) => id);
+  const lone = held[0];
+  if (held.length === 1 && lone !== undefined) layer.set(key, lone);
 }
 
 /** The node layer's held-versus-fresh verifier leg. The layer rides its own insert and remove calls
  *  beside `byRegion`, so a missed one is invisible to the region walk and would surface only as a wrong
  *  occupancy answer. Compared element-wise, so it still holds once an `atNode` caller picks a winner. */
-function nodeLayerDivergence(
-  verifier: string,
-  held: NodeBuckets,
-  fresh: Map<number, RegionMember<unknown>[]>,
-): string[] {
-  const expected = new Map<string, Entity[]>();
+function nodeLayerDivergence(verifier: string, held: NodeLayer, fresh: RegionBuckets): string[] {
+  const expected = new Map<number, Entity[]>();
   // A node belongs to exactly one region and every region bucket is ascending-id, so appending here
-  // reproduces the ascending order both `atNode` paths build.
+  // reproduces the ascending order the layer keeps.
   for (const bucket of fresh.values()) {
-    for (const m of bucket) {
-      const at = expected.get(nodeKey(m.hx, m.hy));
-      if (at === undefined) expected.set(nodeKey(m.hx, m.hy), [m.e]);
-      else at.push(m.e);
+    const { records, fields } = bucket;
+    for (let at = 0; at < bucket.size * fields; at += fields) {
+      const key = nodeKeyOf(records[at + HX] ?? 0, records[at + HY] ?? 0);
+      const e = (records[at + ID] ?? 0) as Entity;
+      const list = expected.get(key);
+      if (list === undefined) expected.set(key, [e]);
+      else list.push(e);
     }
   }
-  for (const bucket of held.buckets()) {
-    const key = nodeKey(bucket.x, bucket.y);
+  for (const [key, entry] of held) {
+    const entities = typeof entry === 'number' ? [entry] : entry;
     const want = expected.get(key);
-    if (want === undefined || want.length !== bucket.entities.length) {
-      return [`${verifier} node layer diverges at (${bucket.x},${bucket.y}) - a removal missed`];
+    const where = `(${nodeHxOf(key)},${nodeHyOf(key)})`;
+    if (want === undefined || want.length !== entities.length) {
+      return [`${verifier} node layer diverges at ${where} - a removal missed`];
     }
-    if (want.some((e, i) => bucket.entities[i] !== e)) {
-      return [`${verifier} node layer is out of order at (${bucket.x},${bucket.y})`];
-    }
+    if (want.some((e, i) => entities[i] !== e)) return [`${verifier} node layer is out of order at ${where}`];
     expected.delete(key);
   }
   if (expected.size > 0) {
@@ -228,49 +337,61 @@ function nodeLayerDivergence(
   return [];
 }
 
+/** Whether two bucket maps hold the same keys and the same records, element-wise. */
+function bucketsDiverge(held: RegionBuckets, fresh: RegionBuckets): number | null {
+  if (held.size !== fresh.size) return -1;
+  for (const [key, bucket] of fresh) {
+    const heldBucket = held.get(key);
+    if (heldBucket === undefined || heldBucket.size !== bucket.size) return key;
+    const length = bucket.size * bucket.fields;
+    for (let i = 0; i < length; i++) if (heldBucket.records[i] !== bucket.records[i]) return key;
+  }
+  return null;
+}
+
 /** Whether a partition's held buckets match a fresh rebuild's, region for region and element-wise. */
 function partitionsDiverge(
-  held: ReadonlyMap<number, RegionBuckets<unknown>>,
-  fresh: ReadonlyMap<number, RegionBuckets<unknown>>,
+  held: ReadonlyMap<number, RegionBuckets>,
+  fresh: ReadonlyMap<number, RegionBuckets>,
 ): boolean {
   if (held.size !== fresh.size) return true;
   for (const [part, freshRegions] of fresh) {
     const heldRegions = held.get(part);
-    if (heldRegions === undefined || heldRegions.size !== freshRegions.size) return true;
-    for (const [key, bucket] of freshRegions) {
-      const heldBucket = heldRegions.get(key);
-      if (heldBucket === undefined || heldBucket.length !== bucket.length) return true;
-      if (bucket.some((m, i) => heldBucket[i]?.e !== m.e)) return true;
-    }
+    if (heldRegions === undefined || bucketsDiverge(heldRegions, freshRegions) !== null) return true;
   }
   return false;
 }
 
-function insertIntoBuckets<Capture>(buckets: RegionBuckets<Capture>, m: RegionMember<Capture>): void {
-  const key = regionKeyOf(m.hx, m.hy);
-  let bucket = buckets.get(key);
-  if (bucket === undefined) {
-    bucket = [];
-    buckets.set(key, bucket);
-  }
-  insertSortedById(bucket, m, (member) => member.e);
-}
-
-function removeFromBuckets<Capture>(
-  buckets: RegionBuckets<Capture>,
+function insertIntoBuckets(
+  buckets: RegionBuckets,
+  fields: number,
   e: Entity,
   hx: number,
   hy: number,
+  capture: number,
+  part: number,
 ): void {
+  const key = regionKeyOf(hx, hy);
+  let bucket = buckets.get(key);
+  if (bucket === undefined) {
+    bucket = new MemberBucket(fields);
+    buckets.set(key, bucket);
+  }
+  bucket.insert(e, hx, hy, capture, part);
+}
+
+function removeFromBuckets(buckets: RegionBuckets, e: Entity, hx: number, hy: number): void {
   const key = regionKeyOf(hx, hy);
   const bucket = buckets.get(key);
   if (bucket === undefined) return;
-  removeSortedById(bucket, e, (member) => member.e);
-  if (bucket.length === 0) buckets.delete(key);
+  const slot = bucket.find(e);
+  if (slot === -1) return;
+  bucket.removeAt(slot);
+  if (bucket.size === 0) buckets.delete(key);
 }
 
 /** Whether every region holding a member of `buckets` lies inside the box `reach` nodes around `(hx, hy)`. */
-function bucketsInBox(buckets: RegionBuckets<unknown>, hx: number, hy: number, reach: number): boolean {
+function bucketsInBox(buckets: RegionBuckets, hx: number, hy: number, reach: number): boolean {
   for (const key of buckets.keys()) {
     if (!regionInBox(Math.floor(key / REGION_KEY_STRIDE), key % REGION_KEY_STRIDE, hx, hy, reach)) {
       return false;
@@ -279,23 +400,30 @@ function bucketsInBox(buckets: RegionBuckets<unknown>, hx: number, hy: number, r
   return true;
 }
 
-/** Hand `visit` every member of `buckets` whose anchor lies in the box `reach` nodes around `(hx, hy)`
- *  and past the inner box `skipReach`, and whose capture `keep` admits. A box wider than the occupied
- *  regions walks those regions instead of probing every region it spans. */
-function visitBox<Capture>(
-  buckets: RegionBuckets<Capture>,
+/** Hand `visit` every member of region `buckets` whose anchor lies in the box `reach` nodes around
+ *  `(hx, hy)` and past the inner box `skipReach`, and whose capture `keep` admits. A box wider than the
+ *  occupied regions walks those regions instead of probing every region it spans. */
+function visitBox(
+  buckets: RegionBuckets,
   hx: number,
   hy: number,
   reach: number,
   visit: (e: Entity, hx: number, hy: number) => void,
-  keep: ((capture: Capture) => boolean) | undefined,
+  keep: ((capture: number) => boolean) | undefined,
   skipReach: number | undefined,
 ): void {
   const { minRx, maxRx, minRy, maxRy } = boxRegionRange(hx, hy, reach);
-  const visitBucket = (bucket: readonly RegionMember<Capture>[]): void => {
-    for (const m of bucket) {
-      if (!inBox(m, hx, hy, reach) || (keep !== undefined && !keep(m.capture))) continue;
-      if (skipReach === undefined || !inBox(m, hx, hy, skipReach)) visit(m.e, m.hx, m.hy);
+  const visitBucket = (bucket: MemberBucket): void => {
+    const { records, fields } = bucket;
+    const end = bucket.size * fields;
+    for (let at = 0; at < end; at += fields) {
+      const mx = records[at + HX] ?? 0;
+      const my = records[at + HY] ?? 0;
+      if (!inBox(mx, my, hx, hy, reach)) continue;
+      if (keep !== undefined && !keep(records[at + CAPTURE] ?? 0)) continue;
+      if (skipReach === undefined || !inBox(mx, my, hx, hy, skipReach)) {
+        visit((records[at + ID] ?? 0) as Entity, mx, my);
+      }
     }
   };
   if ((maxRx - minRx + 1) * (maxRy - minRy + 1) > buckets.size) {
@@ -324,7 +452,7 @@ interface NearestFold {
 
 /** Fold `bucket` into `acc` by `(Manhattan distance, id)`, testing `accept` only on a member that wins. */
 function foldNearest(
-  bucket: readonly RegionMember<unknown>[],
+  bucket: MemberBucket,
   hx: number,
   hy: number,
   reach: number | undefined,
@@ -332,14 +460,19 @@ function foldNearest(
   accept: (e: Entity) => boolean,
   acc: NearestFold,
 ): void {
-  for (const m of bucket) {
-    if (reach !== undefined && !inBox(m, hx, hy, reach)) continue;
-    if (skipReach !== undefined && inBox(m, hx, hy, skipReach)) continue;
-    const distance = Math.abs(m.hx - hx) + Math.abs(m.hy - hy);
+  const { records, fields } = bucket;
+  const end = bucket.size * fields;
+  for (let at = 0; at < end; at += fields) {
+    const mx = records[at + HX] ?? 0;
+    const my = records[at + HY] ?? 0;
+    if (reach !== undefined && !inBox(mx, my, hx, hy, reach)) continue;
+    if (skipReach !== undefined && inBox(mx, my, hx, hy, skipReach)) continue;
+    const distance = Math.abs(mx - hx) + Math.abs(my - hy);
     if (distance > acc.distance) continue;
-    if (distance === acc.distance && acc.best !== null && m.e > acc.best) continue;
-    if (!accept(m.e)) continue;
-    acc.best = m.e;
+    const e = (records[at + ID] ?? 0) as Entity;
+    if (distance === acc.distance && acc.best !== null && e > acc.best) continue;
+    if (!accept(e)) continue;
+    acc.best = e;
     acc.distance = distance;
   }
 }
@@ -348,38 +481,32 @@ function foldNearest(
  * Build a memoized region index over the entities carrying `component` and a Position, maintained
  * incrementally against that component's store generation.
  */
-export function createRegionIndex<Extra, Capture>(
+export function createRegionIndex<Extra>(
   component: Component<unknown>,
   labels: RegionIndexLabels,
-  extraOps: RegionExtraOps<Extra, Capture>,
-): RegionIndex<Extra, Capture> {
+  extraOps: RegionExtraOps<Extra>,
+): RegionIndex<Extra> {
   return buildRegionIndex(component, labels, extraOps, null);
 }
 
 /** {@link createRegionIndex} with members also bucketed by `partitionOf`, read at insert. */
-export function createPartitionedRegionIndex<Extra, Capture>(
+export function createPartitionedRegionIndex<Extra>(
   component: Component<unknown>,
   labels: RegionIndexLabels,
-  extraOps: RegionExtraOps<Extra, Capture>,
+  extraOps: RegionExtraOps<Extra>,
   partitionOf: (world: World, e: Entity) => number,
-): PartitionedRegionIndex<Extra, Capture> {
+): PartitionedRegionIndex<Extra> {
   return buildRegionIndex(component, labels, extraOps, partitionOf);
 }
 
-function buildRegionIndex<Extra, Capture>(
+function buildRegionIndex<Extra>(
   component: Component<unknown>,
   labels: RegionIndexLabels,
-  extraOps: RegionExtraOps<Extra, Capture>,
+  extraOps: RegionExtraOps<Extra>,
   partitionOf: ((world: World, e: Entity) => number) | null,
-): PartitionedRegionIndex<Extra, Capture> {
-  interface Member {
-    readonly hx: number;
-    readonly hy: number;
-    readonly capture: Capture;
-    readonly part: number;
-  }
-
-  const memo = createSpatialMemo<RegionState<Extra, Capture>, Member>(component, labels, {
+): PartitionedRegionIndex<Extra> {
+  // The ledger record is the anchor's node key; the capture and partition live in the region bucket.
+  const memo = createSpatialMemo<RegionState<Extra>, number>(component, labels, {
     empty: () => ({
       byRegion: new Map(),
       byPart: partitionOf === null ? null : new Map(),
@@ -388,39 +515,47 @@ function buildRegionIndex<Extra, Capture>(
       shared: null,
       extra: extraOps.empty(),
     }),
-    member: (world, e, hx, hy) => ({
-      hx,
-      hy,
-      capture: extraOps.capture(world, e),
-      part: partitionOf === null ? 0 : partitionOf(world, e),
-    }),
-    insert: (state, e, m) => {
+    member: (_world, _e, hx, hy) => nodeKeyOf(hx, hy),
+    insert: (state, e, key, world) => {
+      const hx = nodeHxOf(key);
+      const hy = nodeHyOf(key);
+      const capture = extraOps.capture(world, e);
+      const part = partitionOf === null ? 0 : partitionOf(world, e);
       state.shared = null;
       insertSortedById(state.list, e, (id) => id);
-      const member: RegionMember<Capture> = { e, hx: m.hx, hy: m.hy, capture: m.capture };
-      insertIntoBuckets(state.byRegion, member);
+      insertIntoBuckets(state.byRegion, REGION_FIELDS, e, hx, hy, capture, part);
       if (state.byPart !== null) {
-        let regions = state.byPart.get(m.part);
+        let regions = state.byPart.get(part);
         if (regions === undefined) {
           regions = new Map();
-          state.byPart.set(m.part, regions);
+          state.byPart.set(part, regions);
         }
-        insertIntoBuckets(regions, member);
+        insertIntoBuckets(regions, PARTITION_FIELDS, e, hx, hy, capture, part);
       }
-      state.byNode?.insert(e, m.hx, m.hy);
-      extraOps.insert(state.extra, m.capture);
+      if (state.byNode !== null) nodeLayerInsert(state.byNode, e, key);
+      extraOps.insert(state.extra, capture);
     },
-    remove: (state, e, m) => {
+    remove: (state, e, key) => {
+      const hx = nodeHxOf(key);
+      const hy = nodeHyOf(key);
+      const regionKeyOfMember = regionKeyOf(hx, hy);
+      const bucket = state.byRegion.get(regionKeyOfMember);
+      const slot = bucket === undefined ? -1 : bucket.find(e);
+      if (bucket === undefined || slot === -1) return;
+      const at = slot * REGION_FIELDS;
+      const capture = bucket.records[at + CAPTURE] ?? 0;
+      const part = bucket.records[at + PART] ?? 0;
+      bucket.removeAt(slot);
+      if (bucket.size === 0) state.byRegion.delete(regionKeyOfMember);
       state.shared = null;
       removeSortedById(state.list, e, (id) => id);
-      removeFromBuckets(state.byRegion, e, m.hx, m.hy);
-      const regions = state.byPart?.get(m.part);
+      const regions = state.byPart?.get(part);
       if (regions !== undefined) {
-        removeFromBuckets(regions, e, m.hx, m.hy);
-        if (regions.size === 0) state.byPart?.delete(m.part);
+        removeFromBuckets(regions, e, hx, hy);
+        if (regions.size === 0) state.byPart?.delete(part);
       }
-      state.byNode?.remove(e, m.hx, m.hy);
-      extraOps.remove(state.extra, m.capture);
+      if (state.byNode !== null) nodeLayerRemove(state.byNode, e, key);
+      extraOps.remove(state.extra, capture);
     },
     diverges: (held, fresh) => {
       if (held.list.length !== fresh.list.length || fresh.list.some((e, i) => held.list[i] !== e)) {
@@ -434,22 +569,11 @@ function buildRegionIndex<Extra, Capture>(
       ) {
         return [`${labels.verifier} shared canonical list was edited by a reader`];
       }
-      for (const [key, bucket] of fresh.byRegion) {
-        const heldBucket = held.byRegion.get(key);
-        if (
-          heldBucket === undefined ||
-          heldBucket.length !== bucket.length ||
-          bucket.some((m, i) => {
-            const h = heldBucket[i];
-            return (
-              h === undefined || h.e !== m.e || h.hx !== m.hx || h.hy !== m.hy || h.capture !== m.capture
-            );
-          })
-        ) {
-          return [
-            `${labels.verifier} region ${key} diverges from a fresh rebuild - a ${labels.singular} moved or changed in place`,
-          ];
-        }
+      const region = bucketsDiverge(held.byRegion, fresh.byRegion);
+      if (region !== null) {
+        return [
+          `${labels.verifier} region ${region} diverges from a fresh rebuild - a ${labels.singular} moved or changed in place`,
+        ];
       }
       if (held.byPart !== null && fresh.byPart !== null && partitionsDiverge(held.byPart, fresh.byPart)) {
         return [
@@ -468,6 +592,21 @@ function buildRegionIndex<Extra, Capture>(
       return [];
     },
   });
+
+  const nodeLayer = (state: RegionState<Extra>): NodeLayer => {
+    if (state.byNode === null) {
+      const layer: NodeLayer = new Map();
+      for (const bucket of state.byRegion.values()) {
+        const { records, fields } = bucket;
+        for (let at = 0; at < bucket.size * fields; at += fields) {
+          const key = nodeKeyOf(records[at + HX] ?? 0, records[at + HY] ?? 0);
+          nodeLayerInsert(layer, (records[at + ID] ?? 0) as Entity, key);
+        }
+      }
+      state.byNode = layer;
+    }
+    return state.byNode;
+  };
 
   return {
     canonical: (world) => {
@@ -488,15 +627,9 @@ function buildRegionIndex<Extra, Capture>(
       visitBox(memo.read(world).byRegion, hx, hy, reach, visit, keep, skipReach),
     boxHoldsAll: (world, hx, hy, reach) => bucketsInBox(memo.read(world).byRegion, hx, hy, reach),
     atNode: (world, hx, hy) => {
-      const state = memo.read(world);
-      if (state.byNode === null) {
-        const buckets = new NodeBuckets(world, []);
-        for (const bucket of state.byRegion.values()) {
-          for (const m of bucket) buckets.insert(m.e, m.hx, m.hy);
-        }
-        state.byNode = buckets;
-      }
-      return state.byNode.at(hx, hy);
+      const held = nodeLayer(memo.read(world)).get(nodeKeyOf(hx, hy));
+      if (held === undefined) return NO_ENTITIES;
+      return typeof held === 'number' ? [held] : held;
     },
     someNear: (world, hx, hy, reach, test, keep) => {
       const index = memo.read(world);
@@ -505,8 +638,12 @@ function buildRegionIndex<Extra, Capture>(
         for (let ry = minRy; ry <= maxRy; ry++) {
           const bucket = index.byRegion.get(regionKey(rx, ry));
           if (bucket === undefined) continue;
-          for (const m of bucket) {
-            if (inBox(m, hx, hy, reach) && (keep === undefined || keep(m.capture)) && test(m.e)) return true;
+          const { records, fields } = bucket;
+          const end = bucket.size * fields;
+          for (let at = 0; at < end; at += fields) {
+            if (!inBox(records[at + HX] ?? 0, records[at + HY] ?? 0, hx, hy, reach)) continue;
+            if (keep !== undefined && !keep(records[at + CAPTURE] ?? 0)) continue;
+            if (test((records[at + ID] ?? 0) as Entity)) return true;
           }
         }
       }
@@ -550,9 +687,22 @@ function buildRegionIndex<Extra, Capture>(
       const regions = memo.read(world).byPart?.get(part);
       if (regions === undefined) return false;
       for (const bucket of regions.values()) {
-        for (const m of bucket) if (test(m.e)) return true;
+        const { records, fields } = bucket;
+        const end = bucket.size * fields;
+        for (let at = 0; at < end; at += fields) if (test((records[at + ID] ?? 0) as Entity)) return true;
       }
       return false;
+    },
+    firstOfPartitionAt: (world, part, hx, hy) => {
+      const state = memo.read(world);
+      const held = nodeLayer(state).get(nodeKeyOf(hx, hy));
+      if (held === undefined) return null;
+      const bucket = state.byRegion.get(regionKeyOf(hx, hy));
+      if (bucket === undefined) return null;
+      const partOf = (e: Entity): number => bucket.records[bucket.find(e) * REGION_FIELDS + PART] ?? 0;
+      if (typeof held === 'number') return partOf(held) === part ? held : null;
+      for (const e of held) if (partOf(e) === part) return e;
+      return null;
     },
   };
 }

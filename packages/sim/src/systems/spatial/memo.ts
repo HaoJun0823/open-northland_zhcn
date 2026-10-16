@@ -22,10 +22,11 @@ import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 export interface SpatialMemoPayload<S, M> {
   /** A fresh empty payload - the rebuild starting point. */
   empty(world: World): S;
-  /** Capture the member record for `e` at its anchor node. This is the only op that may read the world:
-   *  `remove` replays after the entity may have been destroyed, so it works from this record alone. */
+  /** Capture the member record for `e` at its anchor node. `remove` replays after the entity may have
+   *  been destroyed, so it works from this record and the payload alone. */
   member(world: World, e: Entity, hx: number, hy: number): M;
-  insert(state: S, e: Entity, m: M): void;
+  /** Runs right after {@link member} on the same live entity, so it may read the world too. */
+  insert(state: S, e: Entity, m: M, world: World): void;
   remove(state: S, e: Entity, m: M): void;
   /** The verifier's payload-specific leg; the scaffold compares membership itself. */
   diverges(held: S, fresh: S): string[];
@@ -63,7 +64,7 @@ export function createSpatialMemo<S, M>(
     const p = world.tryGet(e, Position);
     if (p === undefined) return; // unindexable, exactly as the query-driven build skips it
     const m = payload.member(world, e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
-    payload.insert(state.payload, e, m);
+    payload.insert(state.payload, e, m, world);
     state.members.set(e, m);
   };
 

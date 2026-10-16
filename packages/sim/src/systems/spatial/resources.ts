@@ -14,7 +14,7 @@ interface HarvestAtomics {
   readonly atomics: Set<number>;
 }
 
-const index = createPartitionedRegionIndex<HarvestAtomics, number>(
+const index = createPartitionedRegionIndex<HarvestAtomics>(
   Resource,
   { verifier: 'resourceRegionIndex', plural: 'resources', component: 'Resource', singular: 'resource' },
   {
@@ -147,6 +147,11 @@ export function anyResourceOfGood(world: World, goodType: number, test: (e: Enti
  *  destroying members. */
 export function resourcesAtNode(world: World, hx: number, hy: number): readonly Entity[] {
   return index.atNode(world, hx, hy);
+}
+
+/** The lowest-id `goodType` resource anchored exactly on `(hx, hy)`, or null. */
+export function resourceOfGoodAtNode(world: World, hx: number, hy: number, goodType: number): Entity | null {
+  return index.firstOfPartitionAt(world, goodType, hx, hy);
 }
 
 /** Whether any resource inside the same box passes `test`, narrowed to the harvest atomics in `atomics`

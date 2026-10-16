@@ -8,10 +8,9 @@ import { anchorOnlyFootprint, stampResourceFootprintData } from '../../src/syste
 import { testContent } from '../fixtures/content.js';
 
 /**
- * The resource TILE index (`systems/footprint/resource-tile-cache.ts`) - the O(1) "standing resource of
- * this good on this node" join behind the ground-drop → deposit work-cell match. Pinned here: the pick is
- * the LOWEST id on the tile, an incremental removal surfaces the runner-up (each tile list keeps every
- * co-tile resource, not just the winner), and a value-overwriting re-`add` re-keys the good.
+ * The "standing resource of this good on this node" join behind the ground-drop → deposit work-cell match.
+ * Pinned here: the pick is the LOWEST id on the tile, an incremental removal surfaces the runner-up, and a
+ * value-overwriting re-`add` re-keys the good.
  */
 
 const { Position, Resource } = components;

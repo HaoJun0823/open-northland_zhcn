@@ -12,6 +12,7 @@ import {
   type Qualified,
 } from '../../src/systems/settlers/targets/cell-index.js';
 import { interactionCell } from '../../src/systems/settlers/targets/index.js';
+import { manhattan } from '../../src/systems/spatial/metric.js';
 import { STONE, STONE_ATOMIC, TEST_HUT, VIKING } from '../footprint/resource-footprint/content.js';
 import {
   ctxOf,
@@ -46,6 +47,8 @@ const OWNER_HANDOVERS = 40;
 const RING_CAP_PROBE_MIN = 40;
 const RING_CAP_PROBE_SPAN = 30;
 const PLAYERS = 3;
+/** A candidate list short enough for the index's linear scan. */
+const SHORT_LIST = 40;
 
 /** A deterministic LCG, so a failure replays. */
 function rng(seed: number): (n: number) => number {
@@ -242,13 +245,55 @@ describe('InteractionCellIndex', () => {
         const owned = sim.world.has(e, Owner);
         if (player === PLAYERS) {
           if (owned) sim.world.remove(e, Owner);
-        } else if (owned && roll(2) === 0) sim.world.mut(e, Owner).player = player; // an in-place write
+        } else if (owned && roll(2) === 0)
+          sim.world.mut(e, Owner).player = player; // an in-place write
         else sim.world.add(e, Owner, { player });
       }
       checkQueries(sim, index, candidates, roll);
       expect(index.divergence(new InteractionCellIndex(sim.world, ctx, terrain, candidates))).toEqual([]);
     }
   });
+
+  it.each([13, 14])(
+    "asks a short list's gate only for a candidate that beats the best so far (seed %i)",
+    (seed) => {
+      const { sim, terrain, ctx, candidates, roll } = world(seed);
+      // Under the ring threshold, so the linear scan answers both kinds.
+      const doors = candidates.filter((e) => sim.world.has(e, Building)).slice(0, SHORT_LIST);
+      const loose = candidates.filter((e) => !sim.world.has(e, Building)).slice(0, SHORT_LIST);
+      const index = new InteractionCellIndex(sim.world, ctx, terrain, [...doors, ...loose]);
+      const asked: NodeId[] = [];
+      const gate: SpatialGate = {
+        bounds: { minX: 0, maxX: NODES_W, minY: 0, maxY: NODES_H },
+        allowsNode: (n) => {
+          asked.push(n);
+          return true;
+        },
+      };
+      const accept = (e: Entity): Qualified<number> => ({ payload: e });
+      for (let q = 0; q < QUERIES; q++) {
+        const here = terrain.nodeAt(roll(NODES_W), roll(NODES_H));
+        for (const [kind, list] of [
+          ['door', doors],
+          ['loose', loose],
+        ] as const) {
+          asked.length = 0;
+          const found =
+            kind === 'door' ? index.nearestDoor(here, accept, gate) : index.nearestLoose(here, accept, gate);
+          // Every gate passes, so each asked cell became the best: strictly nearer by (distance, cell).
+          const order = asked.map((n) => [manhattan(terrain, here, n), n] as const);
+          for (let i = 1; i < order.length; i++) {
+            const [d, n] = order[i] as readonly [number, NodeId];
+            const [pd, pn] = order[i - 1] as readonly [number, NodeId];
+            expect(d < pd || (d === pd && n < pn), `${kind} query ${q} ask ${i}`).toBe(true);
+          }
+          expect(found, `${kind} query ${q}`).toEqual(
+            linearWinner(sim, list, here, accept, gate, undefined, undefined),
+          );
+        }
+      }
+    },
+  );
 
   it('rejects a loose pile its gate rules out near its node without resolving its cell', () => {
     const { sim, terrain, ctx, candidates, roll } = world(6);

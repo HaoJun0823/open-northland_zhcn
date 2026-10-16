@@ -551,16 +551,24 @@ export class InteractionCellIndex {
     avoid: ((cell: NodeId) => boolean) | undefined,
     best: NearestByCell<P> | null,
   ): NearestByCell<P> | null {
+    if (best !== null && this.looseFloor(e, rank) > best.distance) return best;
     const hit = accept(e);
     if (hit === null) return best;
     if (this.gatedOutLoose(gate, e)) return best;
     const cell = interactionCell(this.world, this.ctx, this.terrain, e, here);
-    if (gate !== undefined && !gate.allowsNode(cell)) return best;
-    if (vetoed(avoid, here, cell)) return best;
     const distance = manhattan(this.terrain, rank, cell);
     if (best !== null && !precedes(distance, cell, e, best)) return best;
+    if (gate !== undefined && !gate.allowsNode(cell)) return best;
+    if (vetoed(avoid, here, cell)) return best;
     if (this.pileCellSealed(e, here, cell)) return best;
     return { entity: e, cell, distance, payload: hit.payload };
+  }
+
+  /** The least distance from `rank` loose candidate `e`'s interaction cell can lie at: its own node's,
+   *  less {@link slack}. */
+  private looseFloor(e: Entity, rank: NodeId): number {
+    const node = this.looseNode.get(e);
+    return node === undefined ? 0 : manhattan(this.terrain, rank, node) - this.slack;
   }
 
   /** Whether `gate` rules loose candidate `e` out from its own node alone, sparing the per-seeker cell
@@ -589,7 +597,8 @@ export class InteractionCellIndex {
   }
 
   /** The exact linear scan the rings accelerate, for a short list: {@link nearestByCell}'s loop and
-   *  tie-break, resolving each candidate's cell in place. */
+   *  tie-break, resolving each candidate's cell in place. The filters are pure, so a candidate the best so
+   *  far already beats skips them, and the costly gate runs last. */
   private linearNearest<P>(
     list: readonly Entity[],
     here: NodeId,
@@ -607,22 +616,32 @@ export class InteractionCellIndex {
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
       if (e === undefined) continue;
-      const hit = accept(e);
-      if (hit === null) continue;
       const door = this.doorCell.get(e);
-      if (door === undefined && this.gatedOutLoose(gate, e)) continue;
-      const cell = door ?? interactionCell(world, ctx, terrain, e, here);
+      let hit: Qualified<P> | null;
+      let cell: NodeId;
+      let distance: number;
+      if (door !== undefined) {
+        cell = door;
+        distance = manhattan(terrain, rank, cell);
+        if (!closer(distance, cell, bestDist, bestCell)) continue;
+        hit = accept(e);
+        if (hit === null) continue;
+      } else {
+        if (this.looseFloor(e, rank) > bestDist) continue;
+        hit = accept(e);
+        if (hit === null || this.gatedOutLoose(gate, e)) continue;
+        cell = interactionCell(world, ctx, terrain, e, here);
+        distance = manhattan(terrain, rank, cell);
+        if (!closer(distance, cell, bestDist, bestCell)) continue;
+      }
       if (gate !== undefined && !gate.allowsNode(cell)) continue;
       if (vetoed(avoid, here, cell)) continue;
       if (door === undefined && this.pileCellSealed(e, here, cell)) continue;
-      const distance = manhattan(terrain, rank, cell);
-      if (closer(distance, cell, bestDist, bestCell)) {
-        bestEntity = e;
-        bestHit = hit;
-        bestNode = cell;
-        bestDist = distance;
-        bestCell = cell;
-      }
+      bestEntity = e;
+      bestHit = hit;
+      bestNode = cell;
+      bestDist = distance;
+      bestCell = cell;
     }
     return bestEntity === undefined || bestHit === null || bestNode === undefined
       ? null

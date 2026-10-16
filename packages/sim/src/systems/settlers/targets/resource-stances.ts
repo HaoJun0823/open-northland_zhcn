@@ -50,22 +50,25 @@ export function collectorStanceGates(
       !regions.unroutable(here, cell));
 }
 
-/** Select the closest eligible approach without consuming the harvest stance draw. */
+/** Select the closest eligible approach without consuming the harvest stance draw. `passes` is pure, so
+ *  it runs only for a cell nearer than the best so far. */
 export function nearestEligibleStance(
   plan: Pick<PlannerContext, 'terrain' | 'here'>,
   pool: readonly NodeId[],
   passes: (cell: NodeId) => boolean,
+  /** Skip every cell farther than this Manhattan distance from `here`. */
+  maxDistance = Number.POSITIVE_INFINITY,
 ): NodeId | undefined {
   let best: NodeId | undefined;
-  let distance = Number.POSITIVE_INFINITY;
+  let distance = maxDistance;
   for (let i = 0; i < pool.length; i++) {
     const cell = pool[i];
-    if (cell === undefined || !passes(cell)) continue;
+    if (cell === undefined) continue;
     const d = manhattan(plan.terrain, plan.here, cell);
-    if (d < distance || (d === distance && (best === undefined || cell < best))) {
-      best = cell;
-      distance = d;
-    }
+    if (d > distance || (d === distance && best !== undefined && cell >= best)) continue;
+    if (!passes(cell)) continue;
+    best = cell;
+    distance = d;
   }
   return best;
 }

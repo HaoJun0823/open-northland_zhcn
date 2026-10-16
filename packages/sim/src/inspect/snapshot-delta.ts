@@ -238,14 +238,14 @@ export class DeltaColumns {
   /** Write a value read off the live world: a plain record whose fields are all scalars, a cleared
    *  `undefined` one aside, goes straight into the columns, any other value as its {@link clonePlain}.
    *  Either way the columns end as {@link write} of the clone leaves them. */
-  writeLive(name: string, value: unknown): void {
+  readonly writeLive = (name: string, value: unknown): void => {
     this.written[this.writtenCount++] = name;
     this.step = this.shapes.stepAfter(this.step.written, name);
     const kind = isPlainRecord(value) ? this.scalarRecordKind(this.step, value, true) : WHOLE_VALUE;
     this.valueKinds.push(kind);
     // A field that fails the scalar test fails it in the clone too, so the clone needs no second look.
     if (kind === WHOLE_VALUE) this.values.push(clonePlain(value));
-  }
+  };
 
   /** Write a detached value, kept as the delta's own unless its fields are all scalars. */
   write(name: string, value: unknown): void {

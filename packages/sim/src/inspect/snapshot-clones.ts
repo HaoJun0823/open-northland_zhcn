@@ -199,7 +199,7 @@ export class SnapshotDeltaStream {
   private readonly clones: SnapshotClones;
   private readonly pending: PendingDelta;
   /** The entities this stream carried whole since its last rebuild: the others go whole next. */
-  private readonly sent = new Set<Entity>();
+  private readonly sent = new EntityMarks();
   private readonly shapes = new DeltaShapes();
   private lastTick = NO_TICK;
   private lastVersion = NO_VERSION;
@@ -273,7 +273,7 @@ export class SnapshotDeltaStream {
     this.sent.add(id);
     this.digest?.fold(this.clones.snapOf(id));
     columns.begin(id);
-    this.source.world.forEachComponent(id, (name, value) => columns.writeLive(name, value));
+    this.source.world.forEachComponent(id, columns.writeLive);
     columns.end();
   }
 
@@ -306,6 +306,47 @@ export class SnapshotDeltaStream {
       else columns.writeLive(component.name, value);
     }
     columns.end();
+  }
+}
+
+/** Entity ids below this are marked in a dense array; a higher id (only a crafted save can name one)
+ *  falls back to a set, so a hostile id cannot size the array. */
+const DENSE_MARK_LIMIT = 1 << 24;
+const INITIAL_MARKS = 1024;
+
+/** A set of entities read once per touched entity per delta: a byte per id, which a lookup reads
+ *  without hashing. */
+class EntityMarks {
+  private marks = new Uint8Array(INITIAL_MARKS);
+  private readonly sparse = new Set<Entity>();
+
+  has(id: Entity): boolean {
+    return id < DENSE_MARK_LIMIT ? this.marks[id] === 1 : this.sparse.has(id);
+  }
+
+  add(id: Entity): void {
+    if (id >= DENSE_MARK_LIMIT) {
+      this.sparse.add(id);
+      return;
+    }
+    if (id >= this.marks.length) {
+      let length = this.marks.length * 2;
+      while (length <= id) length *= 2;
+      const grown = new Uint8Array(length);
+      grown.set(this.marks);
+      this.marks = grown;
+    }
+    this.marks[id] = 1;
+  }
+
+  delete(id: Entity): void {
+    if (id >= DENSE_MARK_LIMIT) this.sparse.delete(id);
+    else if (id < this.marks.length) this.marks[id] = 0;
+  }
+
+  clear(): void {
+    this.marks.fill(0);
+    this.sparse.clear();
   }
 }
 

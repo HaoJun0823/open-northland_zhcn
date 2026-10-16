@@ -79,6 +79,13 @@ export function isMachinePlayer(world: World, player: number): boolean {
   return aiControlEntity(world, player) !== null;
 }
 
+/** Whether a computer controller runs for `player`: the seat has machine identity and its master
+ *  permission on, so at least its diplomacy decides. A map-AI-only seat has identity alone. */
+export function computerControllerRuns(world: World, player: number): boolean {
+  const carrier = aiControlEntity(world, player);
+  return carrier !== null && world.get(carrier, AiControl).computerEnabled;
+}
+
 /** Whether the computer player may run `module`; both master and module permission are required. */
 export function computerModuleRuns(world: World, player: number, module: ComputerModuleId): boolean {
   const carrier = aiControlEntity(world, player);

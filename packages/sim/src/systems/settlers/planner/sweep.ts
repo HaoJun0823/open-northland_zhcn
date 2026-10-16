@@ -50,7 +50,7 @@ function idleSlotOf(world: World, e: Entity): number {
  * re-plan beat, alarm or cut-off check, also split by {@link idleSlotOf} and by owner. The
  * owner split lets an alarm scan only its owner's settlers. Kept across ticks per world from a change feed,
  * which also watches the flags of the yard routes passed by, since losing one makes its walkers act, and
- * rebuilt when the seats' machine identity moves, which picks each idler's period.
+ * rebuilt when the seats' AiControl moves, which picks each idler's period.
  */
 class SweepCandidates {
   private readonly acting: Entity[] = [];

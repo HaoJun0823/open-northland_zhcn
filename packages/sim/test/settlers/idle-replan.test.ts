@@ -38,6 +38,7 @@ import { grassNodeMap } from '../fixtures/terrain.js';
 
 const VIKING = 1;
 const P0 = 0;
+const P1 = 1;
 const HUMAN = IDLE_REPLAN_PERIOD_TICKS;
 const COMPUTER = COMPUTER_IDLE_REPLAN_PERIOD_TICKS;
 const WOODCUTTER = 1; // harvest atomic 24
@@ -59,15 +60,26 @@ function woodcutterAt(sim: Simulation, hx: number, hy: number): Entity {
   return e;
 }
 
-/** Make `P0` a computer seat, with no module running so nothing but the planner touches its settlers. */
-function computerSeat(sim: Simulation): void {
-  sim.world.add(sim.world.create(), AiControl, {
-    player: P0,
+/** Make `player` a machine seat whose controller, when it runs, runs no module, so nothing but the
+ *  planner touches its settlers. Returns the AiControl carrier. */
+function computerSeat(sim: Simulation, player = P0, controllerRuns = true): Entity {
+  const carrier = sim.world.create();
+  sim.world.add(carrier, AiControl, {
+    player,
     modules: computerModuleEnables(Object.fromEntries(COMPUTER_MODULE_IDS.map((id) => [id, false]))),
-    computerEnabled: false,
-    mapAiEnabled: false,
+    computerEnabled: controllerRuns,
+    mapAiEnabled: !controllerRuns,
     difficulty: 'hard',
   });
+  return carrier;
+}
+
+/** Assert idle `e` re-plans exactly on the beats of `period` over two of them. */
+function expectBeat(sim: Simulation, e: Entity, period: number): void {
+  const watch = 2 * period;
+  const ticks = plannedTicks(sim, e, watch);
+  expect(ticks.length).toBe(watch / period);
+  for (const tick of ticks) expect(idleReplanDue(tick, e, period)).toBe(true);
 }
 
 function treeAt(sim: Simulation, hx: number, hy: number): Entity {
@@ -181,6 +193,36 @@ describe('a computer seat', () => {
     const ticks = plannedTicks(sim, idler, watch);
     expect(ticks.length).toBe(watch / COMPUTER);
     for (const tick of ticks) expect(idleReplanDue(tick, idler, COMPUTER)).toBe(true);
+  });
+
+  it('keeps a map-AI-only seat, whose computer controller does not run, on the human beat', () => {
+    const sim = newSim();
+    computerSeat(sim, P0, false);
+    const idler = woodcutterAt(sim, 10, 10);
+    sim.step();
+    expectBeat(sim, idler, HUMAN);
+  });
+
+  it('re-files an idler re-owned from a human seat to a computer seat', () => {
+    const sim = newSim();
+    computerSeat(sim, P1);
+    const idler = woodcutterAt(sim, 10, 10);
+    sim.step();
+    expectBeat(sim, idler, HUMAN);
+
+    sim.world.add(idler, Owner, { player: P1 });
+    expectBeat(sim, idler, COMPUTER);
+  });
+
+  it('returns its idlers to the human beat once it loses AiControl', () => {
+    const sim = newSim();
+    const carrier = computerSeat(sim);
+    const idler = woodcutterAt(sim, 10, 10);
+    sim.step();
+    expectBeat(sim, idler, COMPUTER);
+
+    sim.world.remove(carrier, AiControl);
+    expectBeat(sim, idler, HUMAN);
   });
 
   it.each([

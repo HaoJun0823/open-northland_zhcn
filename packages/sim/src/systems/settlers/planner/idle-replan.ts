@@ -1,8 +1,8 @@
 import {
   chatHoldsSettler,
+  computerControllerRuns,
   FamilyDuty,
   IdleStand,
-  isMachinePlayer,
   ownerOf,
   Resting,
 } from '../../../components/index.js';
@@ -19,15 +19,16 @@ import { ECONOMY_HOLD_MARKERS } from '../action-owner.js';
  */
 export const IDLE_REPLAN_PERIOD_TICKS = 2 * TICKS_PER_SECOND;
 
-/** {@link IDLE_REPLAN_PERIOD_TICKS} for the adults of a computer seat, which also wait out an economy hold
+/** {@link IDLE_REPLAN_PERIOD_TICKS} for the adults of a seat a computer controller runs, which also wait out an economy hold
  *  on this beat. A deliberate cost cut, not fidelity: a computer settler takes up new work, or answers a
  *  need under a hold, up to this late, which buys planner time on maps crowded with computer seats. */
 export const COMPUTER_IDLE_REPLAN_PERIOD_TICKS = 8 * TICKS_PER_SECOND;
 
-/** The idle re-plan period of `e`'s seat: the computer one when its owner is a machine player. */
+/** The idle re-plan period of `e`'s seat: the computer one while a computer controller runs its owner.
+ *  Reads only the AiControl store, whose generations the planner sweep watches. */
 export function idleReplanPeriodOf(world: World, e: Entity): number {
   const owner = ownerOf(world, e);
-  return owner !== undefined && isMachinePlayer(world, owner)
+  return owner !== undefined && computerControllerRuns(world, owner)
     ? COMPUTER_IDLE_REPLAN_PERIOD_TICKS
     : IDLE_REPLAN_PERIOD_TICKS;
 }

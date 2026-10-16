@@ -1,22 +1,14 @@
 import {
-  AiControl,
-  aiControlEntity,
+  computerControllerRuns,
   diplomacyStance,
   MAX_PLAYERS,
   setDiplomacyStance,
 } from '../../components/index.js';
-import type { World } from '../../ecs/world.js';
 import { handlerTurn, machineSeatOnTurn } from '../ai-shared/cadence.js';
 import type { System } from '../context.js';
 
 /** The player slots the original's per-seat cursor walks, one per handler turn, whatever the map seats. */
 const ORIGINAL_PLAYER_SLOTS = 20;
-
-/** Whether autonomous decisions are enabled independently of the module switches. */
-function computerDiplomacyEnabled(world: World, seat: number): boolean {
-  const carrier = aiControlEntity(world, seat);
-  return carrier !== null && world.get(carrier, AiControl).computerEnabled;
-}
 
 /**
  * A computer seat's answer to how another player stands toward it (the original's diplomacy
@@ -33,7 +25,7 @@ function computerDiplomacyEnabled(world: World, seat: number): boolean {
  */
 export const computerDiplomacySystem: System = (world, ctx) => {
   const seat = machineSeatOnTurn(world, ctx.tick);
-  if (seat === null || !computerDiplomacyEnabled(world, seat)) return;
+  if (seat === null || !computerControllerRuns(world, seat)) return;
   const other = handlerTurn(ctx.tick) % ORIGINAL_PLAYER_SLOTS;
   if (other === seat || other >= MAX_PLAYERS) return;
   const ours = diplomacyStance(world, seat, other);

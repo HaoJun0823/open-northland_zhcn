@@ -9,12 +9,15 @@ import {
   DefenceMode,
   Owner,
   playerPlacementTribes,
+  Settler,
+  Stance,
 } from '../../components/index.js';
 import type { Command } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { COMPUTER_PUBLISHED_COUNTERS } from '../computer-player/assistant-counters.js';
 import { soldierOutfitGoods } from '../computer-player/military/outfit.js';
 import type { SystemContext } from '../context.js';
+import { defaultStance, MILITARY_MODE, seatLeftToMapAi } from '../readviews/stances.js';
 import { retireComputerCampaign, standDownAutonomousSorties, withdrawAiOrders } from './ai-lifecycle.js';
 import {
   clearAssistantWeaponVetoes,
@@ -30,6 +33,29 @@ import {
  * permissions close. Shared defence remains active while map AI or autonomous military can run.
  */
 export function setAiControl(
+  world: World,
+  ctx: SystemContext,
+  command: Extract<Command, { kind: 'setAiControl' }>,
+): void {
+  const wasLeft = seatLeftToMapAi(world, command.player);
+  applyAiControl(world, ctx, command);
+  if (!wasLeft && seatLeftToMapAi(world, command.player)) standFightersOnDefence(world, ctx, command.player);
+}
+
+/** Stand the seat's attacking fighters down to DEFEND, their places kept as the anchor, as the seat is left
+ *  to map AI: a map places its people before their seat's controller is set, and a seat the computer stops
+ *  commanding drops the attack its fighters held. A repeated setting leaves the stances the map AI's own
+ *  tasks gave. A fighter whose own default is ATTACK, a weresnake or werewolf, keeps it. */
+function standFightersOnDefence(world: World, ctx: SystemContext, player: number): void {
+  for (const e of world.query(Stance, Owner)) {
+    if (world.get(e, Owner).player !== player || world.get(e, Stance).mode !== MILITARY_MODE.ATTACK) continue;
+    if (defaultStance(world, ctx.content, e, world.get(e, Settler).jobType) !== MILITARY_MODE.DEFEND)
+      continue;
+    world.mut(e, Stance).mode = MILITARY_MODE.DEFEND;
+  }
+}
+
+function applyAiControl(
   world: World,
   ctx: SystemContext,
   command: Extract<Command, { kind: 'setAiControl' }>,

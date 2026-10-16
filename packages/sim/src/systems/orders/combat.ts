@@ -29,7 +29,7 @@ import type { NodeId } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { clearNavState } from '../movement/nav-state.js';
 import {
-  defaultStanceForJob,
+  defaultStance,
   isFighterJob,
   isMilitaryMode,
   keepsAnchor,
@@ -48,7 +48,7 @@ export function stampDefaultStance(
   e: Entity,
   jobType: number | null,
 ): void {
-  world.add(e, Stance, { mode: defaultStanceForJob(content, jobType), anchorCell: null });
+  world.add(e, Stance, { mode: defaultStance(world, content, e, jobType), anchorCell: null });
 }
 
 /** Anchor a fighter where a spawn or a new trade leaves it. Any other settler keeps its null anchor until

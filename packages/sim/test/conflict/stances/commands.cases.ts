@@ -1,26 +1,110 @@
+import { WERESNAKE_TRIBE, WEREWOLF_TRIBE } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { addPerson, Position, Settler, Stance } from '../../../src/components/index.js';
+import { addPerson, MISSION_BEHAVIOUR, Position, Settler, Stance } from '../../../src/components/index.js';
 import { fx } from '../../../src/core/fixed.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { Simulation } from '../../../src/index.js';
+import { setAiControl } from '../../../src/systems/orders/ai.js';
 import { setJob, setStance } from '../../../src/systems/orders/index.js';
-import { defaultStanceForJob, MILITARY_MODE } from '../../../src/systems/readviews/index.js';
+import { defaultStance, MILITARY_MODE } from '../../../src/systems/readviews/index.js';
 import { spawnSettler } from '../../../src/systems/spawn/index.js';
 import { testContent } from '../../fixtures/content.js';
 import { cell, combatant, ctxOf, grassMap, P0, VIKING, WOODCUTTER } from './support.js';
 
 describe('stance defaults - the job → military-mode lookup', () => {
+  const SOLDIER = 31; // soldier_unarmed
+  const CLOSED_SEAT = { kind: 'setAiControl', player: P0, enabled: true, computerEnabled: false } as const;
+
+  /** An owned settler of `tribe` in `jobType` at node (x, 0). */
+  function spawn(sim: Simulation, jobType: number, tribe = VIKING, behaviourFlags?: number, x = 0): Entity {
+    const e = spawnSettler(sim.world, ctxOf(sim), {
+      kind: 'spawnSettler',
+      jobType,
+      x,
+      y: 0,
+      tribe,
+      owner: P0,
+      ...(behaviourFlags === undefined ? {} : { behaviourFlags }),
+    });
+    if (e === null) throw new Error('spawn refused');
+    return e;
+  }
+
+  function spawnedStance(jobType: number, tribe = VIKING, behaviourFlags?: number): number {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
+    return sim.world.get(spawn(sim, jobType, tribe, behaviourFlags), Stance).mode;
+  }
+
   it('classifies the roster: soldiers/heroes ATTACK, scout/hunter IGNORE, everyone else FLEE', () => {
-    const content = testContent();
-    expect(defaultStanceForJob(content, 31)).toBe(MILITARY_MODE.ATTACK); // soldier_unarmed
-    expect(defaultStanceForJob(content, 45)).toBe(MILITARY_MODE.ATTACK); // hero_saber
-    expect(defaultStanceForJob(content, 27)).toBe(MILITARY_MODE.IGNORE); // scout
-    expect(defaultStanceForJob(content, 15)).toBe(MILITARY_MODE.IGNORE); // hunter (toward humans)
-    expect(defaultStanceForJob(content, 1)).toBe(MILITARY_MODE.FLEE); // woodcutter (civilian)
-    expect(defaultStanceForJob(content, 0)).toBe(MILITARY_MODE.FLEE); // idle
-    expect(defaultStanceForJob(content, null)).toBe(MILITARY_MODE.FLEE); // jobless / child
+    expect(spawnedStance(SOLDIER)).toBe(MILITARY_MODE.ATTACK);
+    expect(spawnedStance(45)).toBe(MILITARY_MODE.ATTACK); // hero_saber
+    expect(spawnedStance(27)).toBe(MILITARY_MODE.IGNORE); // scout
+    expect(spawnedStance(15)).toBe(MILITARY_MODE.IGNORE); // hunter (toward humans)
+    expect(spawnedStance(WOODCUTTER)).toBe(MILITARY_MODE.FLEE); // civilian
+    expect(spawnedStance(0)).toBe(MILITARY_MODE.FLEE); // idle
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
+    const e = spawn(sim, WOODCUTTER);
+    expect(defaultStance(sim.world, sim.content, e, null)).toBe(MILITARY_MODE.FLEE); // jobless / child
     // A job id this content declares no record for is a civilian, not a fighter by numeric band.
-    expect(defaultStanceForJob(content, 41)).toBe(MILITARY_MODE.FLEE);
+    expect(defaultStance(sim.world, sim.content, e, 41)).toBe(MILITARY_MODE.FLEE);
+  });
+
+  it('starts a weresnake or werewolf fighter in ATTACK unless its behaviour bit asks for DEFEND', () => {
+    expect(spawnedStance(SOLDIER, WERESNAKE_TRIBE)).toBe(MILITARY_MODE.ATTACK);
+    expect(spawnedStance(SOLDIER, WEREWOLF_TRIBE)).toBe(MILITARY_MODE.ATTACK);
+    expect(spawnedStance(SOLDIER, WERESNAKE_TRIBE, MISSION_BEHAVIOUR.SPAWNS_DEFENDING)).toBe(
+      MILITARY_MODE.DEFEND,
+    );
+  });
+
+  it('starts the fighters of a seat the computer does not command in DEFEND', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
+    setAiControl(sim.world, ctxOf(sim), CLOSED_SEAT);
+    expect(sim.world.get(spawn(sim, SOLDIER), Stance).mode).toBe(MILITARY_MODE.DEFEND);
+    expect(sim.world.get(spawn(sim, WOODCUTTER, VIKING, undefined, 2), Stance).mode).toBe(MILITARY_MODE.FLEE);
+  });
+
+  it('stands a seat’s placed fighters down to DEFEND at their places once the seat is closed', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
+    const soldier = spawn(sim, SOLDIER, VIKING, undefined, 2);
+    const weresnake = spawn(sim, SOLDIER, WERESNAKE_TRIBE, undefined, 4);
+    setAiControl(sim.world, ctxOf(sim), CLOSED_SEAT);
+    expect(sim.world.get(soldier, Stance)).toEqual({
+      mode: MILITARY_MODE.DEFEND,
+      anchorCell: sim.terrain?.nodeAtClamped(2, 0), // the spawn's own node
+    });
+    expect(sim.world.get(weresnake, Stance).mode).toBe(MILITARY_MODE.ATTACK);
+  });
+
+  it('keeps an attack the map AI ordered when the closed seat is set again', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
+    const soldier = spawn(sim, SOLDIER);
+    setAiControl(sim.world, ctxOf(sim), CLOSED_SEAT);
+    setStance(sim.world, ctxOf(sim), { kind: 'setStance', entity: soldier, mode: MILITARY_MODE.ATTACK });
+    setAiControl(sim.world, ctxOf(sim), CLOSED_SEAT);
+    expect(sim.world.get(soldier, Stance).mode).toBe(MILITARY_MODE.ATTACK);
+  });
+
+  it('stands the fighters down when the computer stops commanding the seat', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
+    const soldier = spawn(sim, SOLDIER);
+    setAiControl(sim.world, ctxOf(sim), { kind: 'setAiControl', player: P0, enabled: true });
+    expect(sim.world.get(soldier, Stance).mode).toBe(MILITARY_MODE.ATTACK);
+    setAiControl(sim.world, ctxOf(sim), {
+      kind: 'setAiControl',
+      player: P0,
+      enabled: true,
+      modules: { military: false },
+    });
+    expect(sim.world.get(soldier, Stance).mode).toBe(MILITARY_MODE.DEFEND);
+  });
+
+  it('leaves the computer player’s fighters in ATTACK', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
+    const soldier = spawn(sim, SOLDIER);
+    setAiControl(sim.world, ctxOf(sim), { kind: 'setAiControl', player: P0, enabled: true });
+    expect(sim.world.get(soldier, Stance).mode).toBe(MILITARY_MODE.ATTACK);
+    expect(sim.world.get(spawn(sim, SOLDIER, VIKING, undefined, 2), Stance).mode).toBe(MILITARY_MODE.ATTACK);
   });
 
   it('stamps the job default on an OWNED settler at spawn - and NONE on an unowned one', () => {

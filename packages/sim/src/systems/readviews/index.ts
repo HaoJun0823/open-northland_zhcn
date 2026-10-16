@@ -97,7 +97,7 @@ export {
 } from './landscape.js';
 export { productionAtomic } from './production-atomic.js';
 export {
-  defaultStanceForJob,
+  defaultStance,
   isMilitaryMode,
   keepsAnchor,
   MILITARY_MODE,

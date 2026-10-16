@@ -1,5 +1,13 @@
-import type { ContentSet } from '@open-northland/data';
-import { Stance } from '../../components/index.js';
+import { type ContentSet, WERESNAKE_TRIBE, WEREWOLF_TRIBE } from '@open-northland/data';
+import {
+  computerModuleRuns,
+  hasMissionBehaviour,
+  isMachinePlayer,
+  MISSION_BEHAVIOUR,
+  Owner,
+  Settler,
+  Stance,
+} from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { isFighterJob, isHunterJob, isScoutJob } from './jobs.js';
 
@@ -42,14 +50,38 @@ export function isMilitaryMode(mode: number): mode is MilitaryMode {
 
 /**
  * The stance stamped on an owned settler at spawn and on a profession change, until `setStance` overrides
- * it. Approximation: the role-to-mode mapping, the readable data carrying no per-job military-mode field.
+ * it. Original behavior: a weresnake or werewolf fighter starts in ATTACK unless its map gives it
+ * {@link MISSION_BEHAVIOUR.SPAWNS_DEFENDING}, and every other human in DEFEND. Approximation: only the
+ * fighters of a seat the computer does not command (`seatLeftToMapAi`) start in DEFEND; a person's or the
+ * computer player's start in ATTACK, a civilian in FLEE and a scout or hunter in IGNORE, the modes this
+ * build's orders, flee and hunt rules read.
  */
-export function defaultStanceForJob(content: ContentSet, jobType: number | null): MilitaryMode {
+export function defaultStance(
+  world: World,
+  content: ContentSet,
+  e: Entity,
+  jobType: number | null,
+): MilitaryMode {
   if (jobType === null) return MILITARY_MODE.FLEE; // a jobless settler or child is a civilian
-  if (isFighterJob(content, jobType)) return MILITARY_MODE.ATTACK;
+  if (isFighterJob(content, jobType)) {
+    const { tribe } = world.get(e, Settler);
+    if (tribe === WERESNAKE_TRIBE || tribe === WEREWOLF_TRIBE) {
+      return hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.SPAWNS_DEFENDING)
+        ? MILITARY_MODE.DEFEND
+        : MILITARY_MODE.ATTACK;
+    }
+    const owner = world.tryGet(e, Owner)?.player;
+    return owner !== undefined && seatLeftToMapAi(world, owner) ? MILITARY_MODE.DEFEND : MILITARY_MODE.ATTACK;
+  }
   if (isScoutJob(content, jobType)) return MILITARY_MODE.IGNORE;
   if (isHunterJob(content, jobType)) return MILITARY_MODE.IGNORE; // ignores humans; its hunt drive stays
   return MILITARY_MODE.FLEE;
+}
+
+/** Whether `player` is a machine seat whose soldiers the computer player does not command: a map AI camp
+ *  or a seat the map closed. */
+export function seatLeftToMapAi(world: World, player: number): boolean {
+  return isMachinePlayer(world, player) && !computerModuleRuns(world, player, 'military');
 }
 
 /**
@@ -63,7 +95,7 @@ export function stanceMode(
   jobType: number | null,
 ): MilitaryMode {
   const s = world.tryGet(e, Stance);
-  const mode = s === undefined ? defaultStanceForJob(content, jobType) : s.mode;
+  const mode = s === undefined ? defaultStance(world, content, e, jobType) : s.mode;
   return mode === MILITARY_MODE.NONE ? MILITARY_MODE.IGNORE : mode;
 }
 

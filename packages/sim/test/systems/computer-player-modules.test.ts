@@ -15,6 +15,7 @@ import './computer-player/road-build.cases.js';
 import './computer-player/road-traffic.cases.js';
 import './computer-player/seat-roster.cases.js';
 import './computer-player/signpost-coverage.cases.js';
+import './computer-player/staffing-tally.cases.js';
 import './computer-player/tower-coverage.cases.js';
 import './computer-player/upgrade-supply.cases.js';
 import './computer-player/walk-flood.cases.js';

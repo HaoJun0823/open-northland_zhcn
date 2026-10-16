@@ -12,11 +12,13 @@ import {
   ComputerPeace,
   EquipOrder,
   Garrison,
+  Health,
   JobAssignment,
   Owner,
   Position,
   ProductionCounters,
   Settler,
+  setSettlerJob,
   setStockAmount,
   TrainingOrder,
 } from '../../../src/components/index.js';
@@ -994,6 +996,22 @@ describe('workforce module - the barracks and craft selections', () => {
     expect(defendingStrength(world, seat.ctx, RIVAL)).toBe(RIVAL_FIGHTERS + TOWER_POST_STRENGTH);
     expect(strongestEnemyStrength(world, seat.ctx, SEAT)).toBe(RIVAL_FIGHTERS + 1);
     expect(drafted(seat)).toBe(RIVAL_FIGHTERS + 1);
+  });
+
+  it("recounts the rival's fighters within the tick when one falls, changes sides or lays down arms", () => {
+    const seat = rivalSeat(RIVAL_FIGHTERS, ARMY_FLOOR_LEAD_TICKS);
+    const { world } = seat.sim;
+    const [fallen, turncoat, retired] = ownedSettlers(world, RIVAL);
+    if (fallen === undefined || turncoat === undefined || retired === undefined) {
+      throw new Error('setup: three rival spearmen');
+    }
+    expect(strongestEnemyStrength(world, seat.ctx, SEAT)).toBe(RIVAL_FIGHTERS);
+    world.mut(fallen, Health).hitpoints = 0;
+    expect(strongestEnemyStrength(world, seat.ctx, SEAT)).toBe(RIVAL_FIGHTERS - 1);
+    world.mut(turncoat, Owner).player = SEAT;
+    expect(strongestEnemyStrength(world, seat.ctx, SEAT)).toBe(RIVAL_FIGHTERS - 2);
+    setSettlerJob(world, retired, null);
+    expect(strongestEnemyStrength(world, seat.ctx, SEAT)).toBe(RIVAL_FIGHTERS - 3);
   });
 
   it("fills a standing workshop's target crew before the army floor claims its men", () => {

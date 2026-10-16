@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   Building,
+  GroundDrop,
   Position,
+  Resource,
+  ResourceFootprint,
   Stockpile,
   setStockAmount,
   UnderConstruction,
@@ -204,6 +207,35 @@ describe('TargetBands.holding kept off the holder ledger', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
+  it('re-judges only the ground drops when a resource comes to stand under them', () => {
+    const sim = new Simulation({ seed: 1, content: constructionContent(), map: grassMap(16, 4) });
+    houseOn(sim, 10, 4);
+    const pile = pileOnNode(sim, 6, 4);
+    const drop = pileOnNode(sim, 14, 4);
+    sim.world.add(drop, GroundDrop, { goodType: STONE });
+    // A deposit footprint on each pile's node whose one work cell lies under the house walls: the
+    // structure overlay moves here, before any resource stands.
+    const deposits = [
+      depositFootprint(sim, 6, 4, WEST_WALL_FROM_PILE),
+      depositFootprint(sim, 14, 4, EAST_WALL_FROM_DROP),
+    ];
+    expect(holdingMatchesYield(sim, [pile, drop], [STONE])).toEqual([pile, drop]);
+
+    // Only the Resource store moves: the drop is now worked from the deposit's walled-in stance, and the
+    // plain pile, whose anchor no resource reads, stays.
+    for (const deposit of deposits) {
+      sim.world.add(deposit, Resource, { goodType: STONE, remaining: 1, harvestAtomic: ANY_HARVEST_ATOMIC });
+    }
+    expect(holdingMatchesYield(sim, [pile, drop], [STONE])).toEqual([pile]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+
+    const [, underDrop] = deposits;
+    if (underDrop === undefined) throw new Error('setup: the deposit under the drop');
+    sim.world.remove(underDrop, Resource);
+    expect(holdingMatchesYield(sim, [pile, drop], [STONE])).toEqual([pile, drop]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
   it('reports a pile that moved without the ledger seeing it', () => {
     const sim = new Simulation({ seed: 1, content: constructionContent(), map: grassMap(16, 4) });
     houseOn(sim, 10, 4);
@@ -225,5 +257,19 @@ function pileOnNode(sim: Simulation, hx: number, hy: number): Entity {
   const e = sim.world.create();
   sim.world.add(e, Position, positionOfNode(hx, hy));
   sim.world.add(e, Stockpile, { amounts: new Map([[STONE, 1]]) });
+  return e;
+}
+
+/** No band reads how a deposit is harvested. */
+const ANY_HARVEST_ATOMIC = 0;
+/** Work cells, in half-cells along the row, from the piles on (6,4) and (14,4) onto the house walls. */
+const WEST_WALL_FROM_PILE = { dx: 4, dy: 0 };
+const EAST_WALL_FROM_DROP = { dx: -2, dy: 0 };
+
+/** A deposit footprint on a node that blocks nothing and is worked from `work` alone. */
+function depositFootprint(sim: Simulation, hx: number, hy: number, work: { dx: number; dy: number }): Entity {
+  const e = sim.world.create();
+  sim.world.add(e, Position, positionOfNode(hx, hy));
+  sim.world.add(e, ResourceFootprint, { walk: [], build: [], work: [work] });
   return e;
 }

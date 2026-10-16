@@ -8,7 +8,7 @@ import {
 } from '@open-northland/render';
 import { entitiesWith, entityById, type WorldSnapshot } from '@open-northland/sim';
 import {
-  gathererByFlag,
+  flagHolderOf,
   isPlayerControllable,
   isSettler,
   isWildlife,
@@ -207,13 +207,13 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
    *  its own pixels only, so the ring or plot it stands in still selects the site. */
   const visitFlags = (visit: (target: Pickable) => boolean): boolean => {
     const snapshot = deps.snapshot();
-    const gathererOf = gathererByFlag(snapshot, pickableSeat(deps.viewer) ?? 'any');
+    const player = pickableSeat(deps.viewer) ?? 'any';
     const siteFlagHitOf = deps.siteFlagHitOf;
     for (const item of deps.drawnItems()) {
       if (!isHitTarget(item)) continue;
       const box = deps.boundsOf?.(item.ref);
       if (item.isFlag === true) {
-        const gatherer = gathererOf.get(item.ref);
+        const gatherer = flagHolderOf(snapshot, item.ref, player);
         if (gatherer !== undefined && visit({ ref: gatherer, x: item.x, y: item.y, kind: 'settler', box }))
           return true;
         continue;

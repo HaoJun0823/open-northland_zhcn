@@ -17,6 +17,7 @@ import {
   actorsOf,
   builderCrewSize,
   buildingTypeOf,
+  flagHolderOf,
   homeFamiliesOf,
   isBuilding,
   isSettler,
@@ -129,6 +130,8 @@ function expectReadersMatchWalk(live: WorldSnapshot): void {
   for (const e of walked.entities) {
     expect(trainingOccupancyOf(live, e.id)).toBe(trainingOccupancyOf(walked, e.id));
     expect(builderCrewSize(live, e.id)).toBe(builderCrewSize(walked, e.id));
+    expect(flagHolderOf(live, e.id, 'any')).toBe(flagHolderOf(walked, e.id, 'any'));
+    for (const seat of SEATS) expect(flagHolderOf(live, e.id, seat)).toBe(flagHolderOf(walked, e.id, seat));
     expect(shelterClaimCount(live, e.id)).toBe(shelterClaimCount(walked, e.id));
     expect(ids(staffOf(live, e.id))).toEqual(ids(staffOf(walked, e.id)));
     expect(ids(siteCrewOf(live, e.id))).toEqual(ids(siteCrewOf(walked, e.id)));

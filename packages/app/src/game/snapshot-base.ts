@@ -529,19 +529,28 @@ export function orderedNeedOf(e: SnapshotEntity): unknown {
   return (e.components.NeedOrder as { need?: unknown } | undefined)?.need;
 }
 
+const FLAG_HOLDERS = idsGroupedBy(workFlagOf, 'flag holders', { values: ['WorkFlag', 'HaulFlag'] });
+
 /**
- * Map each work flag entity to the gatherer or carrier it belongs to, restricted to one player or `'any'`.
- * A flag stores no back-reference, so this scan is the only way to invert the edge; a settler binds to
- * exactly one flag, so the map is 1:1.
+ * The gatherer or carrier bound to work flag `flag`, restricted to one player or `'any'`. A flag stores no
+ * back-reference, so the edge is inverted by an index; should two settlers name one flag, the highest id
+ * holds it.
  */
-export function gathererByFlag(snapshot: WorldSnapshot, player: number | 'any'): Map<number, number> {
-  const out = new Map<number, number>();
-  for (const e of snapshot.entities) {
-    if (player !== 'any' && ownerPlayerOf(e) !== player) continue;
-    const flag = workFlagOf(e);
-    if (flag !== undefined) out.set(flag, e.id);
+export function flagHolderOf(
+  snapshot: WorldSnapshot,
+  flag: number,
+  player: number | 'any',
+): number | undefined {
+  const holders = indexesOf(snapshot).get(FLAG_HOLDERS).get(flag);
+  if (holders === undefined) return undefined;
+  for (let i = holders.length - 1; i >= 0; i--) {
+    const id = holders[i];
+    if (id === undefined) continue;
+    if (player === 'any') return id;
+    const holder = entityById(snapshot, id);
+    if (holder !== undefined && ownerPlayerOf(holder) === player) return id;
   }
-  return out;
+  return undefined;
 }
 
 /** The defence-mode building a settler has claimed, or undefined when it is not running for cover. */

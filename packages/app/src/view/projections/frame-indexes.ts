@@ -18,6 +18,7 @@ import {
 import {
   actorIdsOf,
   fatherOf,
+  flagHolderOf,
   homeFamiliesOf,
   isAdult,
   isBuilding,
@@ -93,6 +94,8 @@ export const FRAME_INDEX_READERS: readonly AppFrameIndexReader[] = [
   { name: 'road sites by node', read: (snapshot) => ownRoadSiteAt(snapshot, NO_ENTITY, 0, 0) },
   // The builder site pick's highlight reads it per frame while the pick is armed.
   { name: 'builder sites by owner', read: (snapshot) => builderSitesOf(snapshot, NO_ENTITY) },
+  // The selection cursor's hover reads it whenever the pointer, the camera or the snapshot moves.
+  { name: 'flag holders', read: (snapshot) => flagHolderOf(snapshot, NO_ENTITY, NO_SEAT) },
   // The assistant window reads it per frame while it is open.
   { name: 'assistant bookings', read: (snapshot) => assistantBookingsOf(snapshot, NO_SEAT) },
   {

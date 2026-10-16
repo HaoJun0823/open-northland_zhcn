@@ -47,9 +47,11 @@ class SnapshotClones {
    *  the same bound (nobody took its deltas) starts over alone. */
   refresh(): void {
     const world = this.world;
+    // A worker's cache stays empty: only `takeSnapshot` and the digest fill it.
+    const cachesAny = this.entries.size > 0;
     const overflowed = world.drainTouched((e, written, count, membership) => {
       const alive = world.isAlive(e);
-      const cached = this.entries.get(e);
+      const cached = cachesAny ? this.entries.get(e) : undefined;
       if (cached !== undefined) {
         if (alive) {
           for (let i = 0; i < count; i++) cached.written.add(written[i] as Component<unknown>);

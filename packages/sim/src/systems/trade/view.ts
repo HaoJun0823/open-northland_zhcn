@@ -4,6 +4,7 @@ import {
   MissionObjectId,
   ownerOf,
   Settler,
+  TRADE_LIMIT_NONE,
   type TradeImportMark,
   tradeRouteOf,
 } from '../../components/index.js';
@@ -12,6 +13,7 @@ import type { ContentContext } from '../context.js';
 import { isTraderJob } from '../readviews/jobs.js';
 import { activeAgreement, agreementsAt, type HouseAgreement } from './agreements.js';
 import { cartHoldOf, tradeCartOf } from './cart.js';
+import { isSettlementAnchor } from './settlement.js';
 
 /** One agreement as a window lists it. */
 export interface TradeOffer {
@@ -30,6 +32,10 @@ export interface TradeStopView {
   readonly imports: readonly TradeImportMark[];
   /** The agreements the house offers; only a foreign stop lists any. */
   readonly offers: readonly TradeOffer[];
+  /** The stop loads out of its whole settlement. */
+  readonly settlement: boolean;
+  /** The stop is an own storehouse, so it may load out of its settlement. */
+  readonly settles: boolean;
 }
 
 /**
@@ -43,6 +49,9 @@ export interface TraderView {
   readonly agreementHolds: boolean;
   readonly given: number;
   readonly received: number;
+  /** The agreement's limits in units; `TRADE_LIMIT_NONE` sets none. */
+  readonly giveKeep: number;
+  readonly takeUpTo: number;
   /** The cart the trader commands, or null while it is on foot. */
   readonly cart: { readonly entity: Entity; readonly vehicleType: number } | null;
   /** The goods aboard that cart, ascending by good; empty without one. */
@@ -94,6 +103,8 @@ export function traderView(world: World, ctx: ContentContext, trader: Entity): T
       agreementHolds: false,
       given: 0,
       received: 0,
+      giveKeep: TRADE_LIMIT_NONE,
+      takeUpTo: TRADE_LIMIT_NONE,
       cart: cartView,
       cargo,
     };
@@ -107,6 +118,8 @@ export function traderView(world: World, ctx: ContentContext, trader: Entity): T
         foreign,
         imports: stop.imports.map((mark) => ({ good: mark.good, upTo: mark.upTo, keep: mark.keep })),
         offers: foreign ? agreementsAt(world, stop.house).map(offerOf) : [],
+        settlement: stop.settlement,
+        settles: !foreign && isSettlementAnchor(world, ctx, stop.house),
       };
     }),
     current: route.current,
@@ -114,6 +127,8 @@ export function traderView(world: World, ctx: ContentContext, trader: Entity): T
     agreementHolds: activeAgreement(world, trader, route) !== undefined,
     given: route.given,
     received: route.received,
+    giveKeep: route.giveKeep,
+    takeUpTo: route.takeUpTo,
     cart: cartView,
     cargo,
   };

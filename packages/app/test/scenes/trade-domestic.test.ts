@@ -5,6 +5,8 @@ import { tradePanelModel } from '../../src/hud/details-panel/model/trade.js';
 import { createSceneSim } from '../../src/scenes/runtime.js';
 import { sceneTrader } from '../../src/scenes/trade.js';
 import {
+  TRADE_DOMESTIC_STOCK_A,
+  TRADE_DOMESTIC_STOCK_C,
   tradeDomesticGood,
   tradeDomesticHouses,
   tradeDomesticScene,
@@ -79,4 +81,28 @@ it("gives the Handel model both houses' stock and the mark as a transfer", () =>
   );
   sim.step();
   expect(model()?.transfers).toMatchObject([{ goodType: sword, direction: 'toB', upTo: TRADE_LIMIT_NONE }]);
+});
+
+it('with A set to its settlement, carries the spears of the warehouse off the route into B as well', () => {
+  const { sim, trader, houses } = sceneRoute();
+  const spear = tradeDomesticGood(sim, 'spear_wooden');
+  if (spear === undefined) throw new Error('expected wooden spears in the scene content');
+  const spears = (stock: ReadonlyMap<string, number>) => stock.get('spear_wooden') ?? 0;
+  sim.enqueue(
+    playerCommand(HUMAN_PLAYER, {
+      kind: 'setTradeImport',
+      entity: trader,
+      house: houses.b,
+      good: spear,
+      on: true,
+    }),
+  );
+  sim.enqueue(
+    playerCommand(HUMAN_PLAYER, { kind: 'setTradeSettlement', entity: trader, house: houses.a, on: true }),
+  );
+  sim.run(2 * tradeDomesticScene.runTicks);
+
+  expect(tradeDomesticStock(sim, houses.b, spear)).toBe(
+    spears(TRADE_DOMESTIC_STOCK_A) + spears(TRADE_DOMESTIC_STOCK_C),
+  );
 });

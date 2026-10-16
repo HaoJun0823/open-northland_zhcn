@@ -20,7 +20,8 @@ import type { SceneDefinition } from './types.js';
 
 /**
  * A trader between two of the player's own warehouses, no good marked yet: the browser view is the
- * settler panel's Trade section, where the player picks each good's direction and limits. Nothing moves
+ * settler panel's Trade section, where the player picks each good's direction and limits, and may set A
+ * to load out of its whole settlement, which takes in a third warehouse off the route. Nothing moves
  * until a good is marked.
  */
 
@@ -29,6 +30,8 @@ const MAP_H = 12;
 
 export const TRADE_DOMESTIC_A_AT = { x: 5, y: 5 } as const;
 export const TRADE_DOMESTIC_B_AT = { x: 17, y: 5 } as const;
+/** A warehouse of the settlement off the route, nearer A than B. */
+export const TRADE_DOMESTIC_C_AT = { x: 9, y: 9 } as const;
 const TRADER_AT = { x: 6, y: 8 } as const;
 /** The handcart the trader commands, a cell beside the trader. */
 const CART_AT = { x: 7, y: 8 } as const;
@@ -41,6 +44,8 @@ export const TRADE_DOMESTIC_STOCK_A: ReadonlyMap<string, number> = new Map([
   ['food_simple', 20],
 ]);
 export const TRADE_DOMESTIC_STOCK_B: ReadonlyMap<string, number> = new Map([['armor_chain', 5]]);
+/** Spears A holds too, so "osada" shows the trader reaching past A once A runs out. */
+export const TRADE_DOMESTIC_STOCK_C: ReadonlyMap<string, number> = new Map([['spear_wooden', 9]]);
 
 /** Several round trips of the cart between the two warehouses. */
 const RUN_TICKS = TICKS_PER_SECOND * 120;
@@ -62,9 +67,17 @@ function build(sim: Simulation): void {
     TRADE_DOMESTIC_B_AT.y,
     HUMAN_PLAYER,
   );
+  const c = placeBuiltSandboxBuilding(
+    sim,
+    BUILDING_WAREHOUSE_00,
+    TRADE_DOMESTIC_C_AT.x,
+    TRADE_DOMESTIC_C_AT.y,
+    HUMAN_PLAYER,
+  );
   for (const [house, stock] of [
     [a, TRADE_DOMESTIC_STOCK_A],
     [b, TRADE_DOMESTIC_STOCK_B],
+    [c, TRADE_DOMESTIC_STOCK_C],
   ] as const) {
     for (const [id, amount] of stock) {
       const good = tradeDomesticGood(sim, id);

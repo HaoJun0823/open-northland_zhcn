@@ -33,6 +33,10 @@ export interface TradeStopModel {
   readonly foreign: boolean;
   /** The stop the trader serves now. */
   readonly heading: boolean;
+  /** The stop loads out of its whole settlement. */
+  readonly settlement: boolean;
+  /** The stop is an own storehouse, so it may load out of its settlement. */
+  readonly settles: boolean;
 }
 
 /** One good an own stop's house stores: its stock table's line with the units it holds now. */
@@ -112,6 +116,10 @@ export interface TradePanelModel {
   readonly offers: readonly TradeOfferModel[];
   /** Whether the chosen agreement trades now; false while none is chosen or the partner is no friend. */
   readonly agreementHolds: boolean;
+  /** The chosen agreement's limits in units, {@link TRADE_LIMIT_NONE} for none: the give good kept back
+   *  at home and the take good home is filled up to. */
+  readonly giveKeep: number;
+  readonly takeUpTo: number;
 }
 
 /** One side of an agreement: so many units of a good. */
@@ -227,6 +235,8 @@ export function tradePanelModel(
     label: houseLabel(ctx, snapshot, stop.house, stop.foreign),
     foreign: stop.foreign,
     heading: index === view.current,
+    settlement: stop.settlement,
+    settles: stop.settles,
   }));
   const a = view.stops.find((stop) => stop.slot === TRADE_SLOT_A);
   const b = view.stops.find((stop) => stop.slot === TRADE_SLOT_B);
@@ -253,5 +263,7 @@ export function tradePanelModel(
     transfers: own === null ? [] : transfersOf(ctx, own.a, own.b),
     offers,
     agreementHolds: view.agreementHolds,
+    giveKeep: view.giveKeep,
+    takeUpTo: view.takeUpTo,
   };
 }

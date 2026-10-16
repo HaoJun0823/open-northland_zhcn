@@ -684,6 +684,12 @@ export const ruGame = {
       tradeHeading: 'Купец сейчас направляется сюда',
       tradeAddStop: 'Добавить торговый пост',
       tradeConfigure: 'Настроить торговлю',
+      tradeSettlement: 'поселение',
+      tradeSettlementOn:
+        'Грузит из всего поселения: сначала из этого склада, затем из складов и мастерских в зоне его сети указателей. Привезённое попадает в этот склад · щелчок: только этот склад',
+      tradeSettlementOff:
+        'Щелчок: грузить из всего поселения, сначала из этого склада, затем из складов и мастерских в зоне его сети указателей',
+      tradeSettlementTaken: 'Другой пункт уже грузит из поселения',
       tradeTransferTo: '{from} → {into}',
       tradeTransferBoth: '{a} ⇄ {b}',
       tradeTransferUpTo: 'до {count}',
@@ -702,6 +708,10 @@ export const ruGame = {
       agreement: 'Предложение',
       agreementTooltip: 'Продать {giveAmount} × {give}, получить {takeAmount} × {take}',
       agreementDrop: 'Щелчок: отказаться от предложения',
+      agreementLimits: 'Пределы',
+      agreementHomeSettlement: '{house} и всё поселение',
+      agreementKeepTooltip: 'Всегда оставлять столько ({good}): {where}',
+      agreementUpToTooltip: 'Торговать, пока не будет столько ({good}): {where} · ∞: без предела',
       repeats: 'Повторений: {count}',
       repeatsBonus: 'Повторений: {count}, выпуск +{bonus}%',
       unlockTooltip: 'Открывает: {unlocks} (опыт: {track})',

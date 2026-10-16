@@ -15,6 +15,7 @@ import { contentIndex } from '../../core/content-index.js';
 import { ONE } from '../../core/fixed.js';
 import type { DeepReadonly, Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, hexDistance } from '../../nav/halfcell.js';
+import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, SystemContext } from '../context.js';
 import { buildingDoorNodes, interactionNode, vehicleAnchor } from '../footprint/index.js';
 import { countsAsOwnStock, roomFor, stockOf, typeStoresGood } from '../missions/stock.js';
@@ -32,6 +33,7 @@ import { activeAgreement } from './agreements.js';
 import { type CartHold, cartHoldOf, type TradeCart, tradeCartOf } from './cart.js';
 import { sameFoodClass } from './goods.js';
 import { refillRestores } from './partner-stock.js';
+import { settlementHouses } from './settlement.js';
 
 /** How close to the stop's door the cart must stand before the trader works the stop, in map-point
  *  steps (original behavior: a hexagon distance over 5 moves the cart). */
@@ -41,9 +43,10 @@ export const TRADE_CART_HOUSE_DISTANCE = 5;
  *  (original behavior: radius 20). */
 export const TRADE_CART_SEARCH_RADIUS = 20;
 
-/** A unit the trader moves at a stop. */
+/** A unit the trader moves at a stop: loaded out of `from`, the stop's house or a house of its
+ *  settlement, or unloaded into the stop's house. */
 type StopWork =
-  | { readonly kind: 'load'; readonly good: number }
+  | { readonly kind: 'load'; readonly good: number; readonly from: Entity }
   | { readonly kind: 'unload'; readonly good: number; readonly into: Entity | null };
 
 type NextStop = { readonly kind: 'next' };
@@ -53,6 +56,18 @@ type TradeAction = StopWork | NextStop | { readonly kind: 'wait' };
 
 const NEXT: NextStop = { kind: 'next' };
 const WAIT: TradeAction = { kind: 'wait' };
+
+/** The stop the trader loads at, with what choosing a source there reads. `exclude` is the other stop's
+ *  house, which a settlement never loads out of. */
+interface LoadScope {
+  readonly world: World;
+  readonly ctx: SystemContext;
+  readonly terrain: TerrainGraph;
+  readonly trader: Entity;
+  readonly cart: TradeCart;
+  readonly stop: DeepReadonly<TradeStop>;
+  readonly exclude: Entity;
+}
 
 /**
  * TRADER - a trader commanding a cart with a valid route works it: it moves the cart to within
@@ -79,7 +94,8 @@ export function planTrader(plan: PlannerContext): boolean {
   if (stop === undefined || other === undefined) return false;
 
   const hold = cartHoldOf(world, ctx, cart);
-  const action = decide(world, ctx, e, current, hold, stop, other);
+  const scope = loadScope(plan, cart, stop, other);
+  const action = decide(scope, current, hold, other);
   switch (action.kind) {
     case 'wait':
       return false;
@@ -92,20 +108,34 @@ export function planTrader(plan: PlannerContext): boolean {
   if (!isForeignHouse(world, e, stop.house) && !isForeignHouse(world, e, other.house)) {
     // Original behavior: an own stop with nothing to move hands the turn to the other one, and the cart
     // drives only once that stop has a unit to load or unload.
-    const there = decideDomestic(world, ctx, hold, other, stop);
+    const there = decideDomestic(loadScope(plan, cart, other, stop), hold, stop);
     if (there.kind === 'next') return false;
     world.mut(e, TradeRoute).current = 1 - current.current;
     return workStop(plan, cart, other.house, there);
   }
-  if (!cartNearHouse(world, ctx, cart, other.house) && !driveCartTo(plan, cart, other.house)) return false;
+  if (!cartNearHouse(world, ctx, cart, other.house) && !driveCartTo(plan, cart, other.house, false)) {
+    return false;
+  }
   world.mut(e, TradeRoute).current = 1 - current.current;
   return true;
 }
 
-/** Move one unit at `house`: bring the cart within reach of it first, then walk over and load or unload. */
-function workStop(plan: PlannerContext, cart: TradeCart, house: Entity, work: StopWork): boolean {
+function loadScope(
+  plan: PlannerContext,
+  cart: TradeCart,
+  stop: DeepReadonly<TradeStop>,
+  other: DeepReadonly<TradeStop>,
+): LoadScope {
+  const { world, ctx, terrain, entity: trader } = plan;
+  return { world, ctx, terrain, trader, cart, stop, exclude: other.house };
+}
+
+/** Move one unit at the stop whose house is `stopHouse`: bring the cart within reach of the house the
+ *  unit moves at first, then walk over and load or unload. */
+function workStop(plan: PlannerContext, cart: TradeCart, stopHouse: Entity, work: StopWork): boolean {
   const { world, ctx, entity: e } = plan;
-  if (!cartNearHouse(world, ctx, cart, house)) return driveCartTo(plan, cart, house);
+  const house = work.kind === 'load' ? work.from : stopHouse;
+  if (!cartNearHouse(world, ctx, cart, house)) return driveCartTo(plan, cart, house, house !== stopHouse);
   walkTo(plan, house, () => {
     if (work.kind === 'load') {
       const atomicId = collectAtomicOf(world, ctx, house);
@@ -141,6 +171,11 @@ function houseDoor(world: World, ctx: SystemContext, house: Entity): HalfCellNod
   return door === null ? null : { hx: door.x, hy: door.y };
 }
 
+/** The node the trader's failed-goal memo keys a house's door by. */
+function doorGoal(terrain: TerrainGraph, door: HalfCellNode): NodeId {
+  return terrain.nodeAtClamped(door.hx, door.hy);
+}
+
 /** Whether the cart stands within {@link TRADE_CART_HOUSE_DISTANCE} steps of the house's door. */
 function cartNearHouse(world: World, ctx: SystemContext, cart: TradeCart, house: Entity): boolean {
   const anchor = vehicleAnchor(world, cart.vehicle);
@@ -156,13 +191,20 @@ function cartNearHouse(world: World, ctx: SystemContext, cart: TradeCart, house:
  * through the detach command with its own note; here the trader's idle-without-a-cart state is what the
  * player sees). A node the cart has no route to keeps the trader seated: the door goes into its
  * failed-goal memo and the search waits the memo out (the original re-aims the vehicle behind its
- * `vehicleNoPath` note and the trader keeps trying). True when the order stands.
+ * `vehicleNoPath` note and the trader keeps trying). A settlement house the cart finds no place at goes
+ * into the memo too, so the trader loads elsewhere meanwhile and keeps its cart. True when the order
+ * stands.
  */
-function driveCartTo(plan: PlannerContext, cart: TradeCart, house: Entity): boolean {
+function driveCartTo(
+  plan: PlannerContext,
+  cart: TradeCart,
+  house: Entity,
+  settlementHouse: boolean,
+): boolean {
   const { world, ctx, terrain, entity: e } = plan;
   const door = houseDoor(world, ctx, house);
   if (door === null) return false;
-  const doorNode = terrain.nodeAtClamped(door.hx, door.hy);
+  const doorNode = doorGoal(terrain, door);
   if (isUnreachableGoal(unreachableGoals(world, ctx, e), doorNode)) return false;
   const doors = buildingDoorNodes(world, ctx, terrain);
   // A house with no authored door is worked at its anchor, which the cart leaves free like a door.
@@ -172,7 +214,8 @@ function driveCartTo(plan: PlannerContext, cart: TradeCart, house: Entity): bool
   });
   const point = goal === null ? null : nodeOf(terrain, goal);
   if (goal === null || point === null || hexDistance(point, door) > TRADE_CART_HOUSE_DISTANCE) {
-    releaseRider(world, e, cart.vehicle);
+    if (settlementHouse) noteUnreachableGoal(world, ctx, e, doorNode);
+    else releaseRider(world, e, cart.vehicle);
     return false;
   }
   if (!sendVehicleTo(world, ctx, terrain, cart.vehicle, goal)) {
@@ -199,55 +242,52 @@ function routeStandsFinished(world: World, e: Entity): boolean {
 }
 
 function decide(
-  world: World,
-  ctx: SystemContext,
-  trader: Entity,
+  scope: LoadScope,
   route: TradeRouteView,
   hold: CartHold,
-  stop: DeepReadonly<TradeStop>,
   other: DeepReadonly<TradeStop>,
 ): TradeAction {
+  const { world, ctx, trader, stop } = scope;
   const foreign = isForeignHouse(world, trader, stop.house);
-  if (!foreign && !isForeignHouse(world, trader, other.house)) {
-    return decideDomestic(world, ctx, hold, stop, other);
-  }
+  if (!foreign && !isForeignHouse(world, trader, other.house)) return decideDomestic(scope, hold, other);
   const agreement = activeAgreement(world, trader, route);
   if (agreement === undefined) return WAIT;
   return foreign
     ? decideExchange(world, ctx, trader, route, hold, stop.house, agreement)
-    : decidePreparation(world, ctx, hold, stop.house, agreement);
+    : decidePreparation(scope, route, hold, agreement);
 }
 
 /**
  * At the player's own house before a foreign trip: clear the cart of everything but the give good into
- * the house, then load give goods while the cart has room for the whole exchange and the house has
- * spare; leave once a batch is aboard. Original behavior (reading): the room test keeps
- * space for the take goods every aboard batch will bring back.
+ * the house, then load give goods while the cart has room for the whole exchange and the house (or its
+ * settlement) has spare; leave once a batch is aboard. Original behavior (reading): the room test keeps
+ * space for the take goods every aboard batch will bring back. The player's two limits are this
+ * build's own (owner's choice): the give goods load only above `giveKeep`, and no batch starts once the
+ * take goods at home plus what the batches aboard bring back reach `takeUpTo`.
  */
 function decidePreparation(
-  world: World,
-  ctx: SystemContext,
+  scope: LoadScope,
+  route: TradeRouteView,
   hold: CartHold,
-  house: Entity,
   agreement: DeepReadonly<TradeAgreement>,
 ): TradeAction {
+  const { world, ctx, stop } = scope;
   const stray = hold.entries.find(([good]) => !sameFoodClass(ctx, good, agreement.giveGood));
-  if (stray !== undefined) return unloadInto(world, ctx, house, stray[0]);
+  if (stray !== undefined) return unloadInto(world, ctx, stop.house, stray[0]);
   const aboard = aboardOfClass(ctx, hold, agreement.giveGood);
   const give = Math.max(1, agreement.giveAmount);
   const extra = Math.max(0, agreement.takeAmount - agreement.giveAmount);
+  const batchesAboard = Math.floor(aboard / give);
   const toCompleteBatch = give - (aboard % give);
-  const roomNeeded = (Math.floor(aboard / give) + 1) * extra + toCompleteBatch;
-  const stocked = stockedFormAt(world, ctx, house, agreement.giveGood);
-  const foodFromHome = isFoodKeptAtHome(world, ctx, house, agreement.giveGood);
-  if (
-    stocked !== undefined &&
-    hold.carries(stocked) &&
-    roomNeeded <= hold.room &&
-    !foodFromHome &&
-    spareOf(world, ctx, house, stocked) >= 1
-  ) {
-    return { kind: 'load', good: stocked };
+  const roomNeeded = (batchesAboard + 1) * extra + toCompleteBatch;
+  const startsBatch = aboard % give === 0;
+  const filled =
+    startsBatch &&
+    route.takeUpTo !== TRADE_LIMIT_NONE &&
+    homeStockOf(scope, agreement.takeGood) + batchesAboard * agreement.takeAmount >= route.takeUpTo;
+  if (roomNeeded <= hold.room && !filled && !isFoodKeptAtHome(world, ctx, stop.house, agreement.giveGood)) {
+    const source = loadSourceOf(scope, agreement.giveGood, route.giveKeep);
+    if (source !== undefined && hold.carries(source.good)) return { kind: 'load', ...source };
   }
   return aboard >= agreement.giveAmount ? NEXT : WAIT;
 }
@@ -299,7 +339,7 @@ function decideExchange(
       resetExchange(world, trader);
       return NEXT;
     }
-    return { kind: 'load', good: stocked };
+    return { kind: 'load', good: stocked, from: house };
   }
   resetExchange(world, trader);
   return aboard >= agreement.giveAmount
@@ -326,7 +366,7 @@ function resetExchange(world: World, trader: Entity): void {
  * - A good marked at this stop and not at the other is unloaded here; one marked at the other stop only
  *   stays aboard for it; one neither stop marks is unloaded at the first stop that stores it.
  * - A good marked at the other stop only is loaded while this stop has a spare unit and the other has
- *   room for it beside what is aboard.
+ *   room for it beside what is aboard; a settlement stop loads it out of its whole settlement.
  * - A good both stops mark is balanced: it is loaded while this stop holds more than the other plus
  *   what is aboard, and unloaded while the other stop holds more (score `(here - there - aboard) / 2`).
  * - A mark limits the flow into its own stop: nothing is unloaded there once the stop holds `upTo`
@@ -341,12 +381,11 @@ function resetExchange(world: World, trader: Entity): void {
  * "home enhancer" goods out of a home, a good class the content does not flag.
  */
 function decideDomestic(
-  world: World,
-  ctx: SystemContext,
+  scope: LoadScope,
   hold: CartHold,
-  stop: DeepReadonly<TradeStop>,
   other: DeepReadonly<TradeStop>,
 ): StopWork | NextStop {
+  const { world, ctx, stop } = scope;
   const markOf = (at: DeepReadonly<TradeStop>, good: number): TradeImportMark | undefined => {
     const edible = edibleGoodFormOf(ctx.content, good);
     return at.imports.find((mark) => mark.good === good || mark.good === edible);
@@ -373,19 +412,80 @@ function decideDomestic(
   for (const good of ownGoodsOf(ctx, hereType)) {
     const wantedThere = markOf(other, good);
     if (wantedThere === undefined || isFoodKeptAtHome(world, ctx, stop.house, good)) continue;
-    if (spareOf(world, ctx, stop.house, good) - wantedThere.keep <= 0) continue;
     const carried = edibleGoodFormOf(ctx.content, good);
     if (!hold.carries(carried)) continue;
     const slot = storableFormAt(world, ctx, other.house, carried);
     if (slot === undefined || roomFor(world, ctx, other.house, slot) - hold.amount(carried) <= 0) continue;
     const bound = stockOf(world, other.house, slot) + hold.amount(carried);
     if (reachesCeiling(wantedThere, bound)) continue;
-    const balanced = markOf(stop, good) !== undefined;
-    const surplus = stockOf(world, stop.house, good) - bound;
-    if (balanced && Math.floor(surplus / 2) <= 0) continue;
-    return { kind: 'load', good };
+    if (markOf(stop, good) !== undefined) {
+      // A balanced good weighs the two houses alone, settlement or not.
+      if (spareOf(world, ctx, stop.house, good) - wantedThere.keep <= 0) continue;
+      if (Math.floor((stockOf(world, stop.house, good) - bound) / 2) <= 0) continue;
+      return { kind: 'load', good, from: stop.house };
+    }
+    const source = loadSourceOf(scope, good, wantedThere.keep);
+    if (source !== undefined) return { kind: 'load', ...source };
   }
   return NEXT;
+}
+
+/** A house to load one unit of a good out of, and the form it holds the good in. */
+interface LoadSource {
+  readonly from: Entity;
+  readonly good: number;
+}
+
+/**
+ * Where the stop loads a unit of `good` while `keep` units stay at home: out of the stop's house while it
+ * spares one, else, at a settlement stop, out of the settlement house nearest the cart that spares one
+ * (ties by id), skipping houses the cart failed to reach. A settlement keeps `keep` summed over its
+ * houses, and a house the cart already stands at goes first, so a unit dropped into the storehouse
+ * meanwhile does not call the cart back from a settlement house it is still emptying. Undefined when
+ * nothing may leave.
+ */
+function loadSourceOf(scope: LoadScope, good: number, keep: number): LoadSource | undefined {
+  const { world, ctx, terrain, trader, cart, stop } = scope;
+  const homeSpare = spareOf(world, ctx, stop.house, good);
+  const homeForm = stockedFormAt(world, ctx, stop.house, good);
+  const fromHome = homeForm === undefined ? undefined : { from: stop.house, good: homeForm };
+  if (!stop.settlement) return homeSpare - keep >= 1 ? fromHome : undefined;
+  const atHome = cartNearHouse(world, ctx, cart, stop.house);
+  if (homeSpare - keep >= 1 && atHome) return fromHome;
+  const members = settlementHouses(world, ctx, terrain, trader, stop.house, scope.exclude, good);
+  let total = homeSpare;
+  for (const house of members) total += spareOf(world, ctx, house, good);
+  if (total - keep < 1) return undefined;
+  if (homeSpare >= 1 && atHome) return fromHome;
+  const anchor = vehicleAnchor(world, cart.vehicle);
+  const failed = unreachableGoals(world, ctx, trader);
+  let best: { readonly house: Entity; readonly distance: number } | undefined;
+  for (const house of members) {
+    if (spareOf(world, ctx, house, good) < 1) continue;
+    const door = houseDoor(world, ctx, house);
+    if (door === null || isUnreachableGoal(failed, doorGoal(terrain, door))) continue;
+    const distance = anchor === null ? 0 : hexDistance(anchor, door);
+    // Members run ascending by id, so a later house wins only when strictly nearer.
+    if (best === undefined || distance < best.distance) best = { house, distance };
+  }
+  const form = best === undefined ? undefined : stockedFormAt(world, ctx, best.house, good);
+  const fromMember = best === undefined || form === undefined ? undefined : { from: best.house, good: form };
+  if (best !== undefined && best.distance <= TRADE_CART_HOUSE_DISTANCE) return fromMember;
+  return homeSpare >= 1 ? fromHome : fromMember;
+}
+
+/** The units of `good` the stop holds at home: in its house, plus its settlement's houses at a
+ *  settlement stop. */
+function homeStockOf(scope: LoadScope, good: number): number {
+  const { world, ctx, terrain, trader, stop } = scope;
+  const held = (house: Entity, form: number | undefined): number =>
+    form === undefined ? 0 : stockOf(world, house, form);
+  let total = held(stop.house, storableFormAt(world, ctx, stop.house, good));
+  if (!stop.settlement) return total;
+  for (const house of settlementHouses(world, ctx, terrain, trader, stop.house, scope.exclude, good)) {
+    total += held(house, stockedFormAt(world, ctx, house, good));
+  }
+  return total;
 }
 
 /** Whether `units` in (or bound for) a mark's stop reach the mark's `upTo` ceiling. */

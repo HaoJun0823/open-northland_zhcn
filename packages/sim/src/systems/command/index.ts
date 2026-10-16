@@ -476,8 +476,10 @@ function applyCommand(
     case 'detachTradeHouse':
     case 'setTradeImport':
     case 'setTradeImportLimits':
+    case 'setTradeSettlement':
     case 'clearTradeImports':
     case 'setTradeAgreement':
+    case 'setTradeAgreementLimits':
       applyTradeCommand(world, ctx, command);
       return;
     case 'addTradeAgreement':

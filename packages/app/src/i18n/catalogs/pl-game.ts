@@ -630,6 +630,12 @@ export const plGame = {
       tradeHeading: 'Kupiec jedzie teraz tutaj',
       tradeAddStop: 'Dodaj punkt handlowy',
       tradeConfigure: 'Konfiguruj handel',
+      tradeSettlement: 'osada',
+      tradeSettlementOn:
+        'Ładuje z całej osady: najpierw z tego magazynu, potem z magazynów i warsztatów w zasięgu jego sieci drogowskazów. Co przywiezie, trafia do tego magazynu · kliknij: tylko ten magazyn',
+      tradeSettlementOff:
+        'Kliknij: ładuj z całej osady, najpierw z tego magazynu, potem z magazynów i warsztatów w zasięgu jego sieci drogowskazów',
+      tradeSettlementTaken: 'Z całej osady ładuje już drugi punkt',
       tradeTransferTo: '{from} → {into}',
       tradeTransferBoth: '{a} ⇄ {b}',
       tradeTransferUpTo: 'do {count}',
@@ -648,6 +654,10 @@ export const plGame = {
       agreement: 'Oferta',
       agreementTooltip: 'Sprzedaj {giveAmount} × {give}, otrzymaj {takeAmount} × {take}',
       agreementDrop: 'kliknij: zrezygnuj z oferty',
+      agreementLimits: 'Limity',
+      agreementHomeSettlement: '{house} i cała osada',
+      agreementKeepTooltip: 'Zawsze zostaw tyle sztuk ({good}): {where}',
+      agreementUpToTooltip: 'Handluj, aż tyle sztuk ({good}) będzie w: {where} · ∞: bez pułapu',
       repeats: '{count} razy',
       repeatsBonus: '{count} razy, wydajność +{bonus}%',
       unlockTooltip: 'Odblokowuje: {unlocks} (doświadczenie: {track})',

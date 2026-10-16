@@ -642,6 +642,12 @@ export const enGame = {
       tradeHeading: 'The merchant is heading here now',
       tradeAddStop: 'Add a trade post',
       tradeConfigure: 'Set up trade',
+      tradeSettlement: 'settlement',
+      tradeSettlementOn:
+        'Loads from the whole settlement: this storehouse first, then the storehouses and workshops its signpost network reaches. What it brings back goes into this storehouse · click: this storehouse only',
+      tradeSettlementOff:
+        'Click: load from the whole settlement, this storehouse first, then the storehouses and workshops its signpost network reaches',
+      tradeSettlementTaken: 'The other stop already loads from the settlement',
       tradeTransferTo: '{from} → {into}',
       tradeTransferBoth: '{a} ⇄ {b}',
       tradeTransferUpTo: 'up to {count}',
@@ -660,6 +666,10 @@ export const enGame = {
       agreement: 'Offer',
       agreementTooltip: 'Sell {giveAmount} × {give}, get {takeAmount} × {take}',
       agreementDrop: 'click: drop the offer',
+      agreementLimits: 'Limits',
+      agreementHomeSettlement: '{house} and its settlement',
+      agreementKeepTooltip: 'Always keep this many {good} in: {where}',
+      agreementUpToTooltip: 'Trade until {where} holds this many {good} · ∞: no ceiling',
       repeats: '{count} times',
       repeatsBonus: '{count} times, output +{bonus}%',
       unlockTooltip: 'Unlocks {unlocks} (experience: {track})',

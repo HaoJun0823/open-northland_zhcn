@@ -115,5 +115,11 @@ export function settlerPanelActions(
     setTradeAgreement: order((id, agreement: number) =>
       enqueue({ kind: 'setTradeAgreement', entity: id as Entity, agreement }),
     ),
+    setTradeSettlement: order((id, house: number, on: boolean) =>
+      enqueue({ kind: 'setTradeSettlement', entity: id as Entity, house: house as Entity, on }),
+    ),
+    setTradeAgreementLimits: order((id, giveKeep: number, takeUpTo: number) =>
+      enqueue({ kind: 'setTradeAgreementLimits', entity: id as Entity, giveKeep, takeUpTo }),
+    ),
   };
 }

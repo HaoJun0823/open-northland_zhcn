@@ -1,4 +1,4 @@
-import { type EntitySnapshot, systems, type TraderView } from '@open-northland/sim';
+import { type EntitySnapshot, systems, TRADE_LIMIT_NONE, type TraderView } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import {
   JOB_BUILDER,
@@ -49,6 +49,9 @@ const IRON_ABOARD = 2;
 /** An import mark's fill ceiling and source reserve, in units. */
 const IRON_CEILING = 10;
 const IRON_RESERVE = 2;
+/** The agreement limits the foreign route carries: give good kept back, take good filled up to. */
+const AGREEMENT_KEEP = 3;
+const AGREEMENT_UP_TO = 12;
 /** A half-cell node a lost settler's refused way led to. */
 const LOST_GOAL = 345;
 
@@ -519,7 +522,15 @@ describe('the settler panel model', () => {
     if (giveGood === undefined || takeGood === undefined) throw new Error('sandbox has no goods');
     const view: TraderView = {
       stops: [
-        { slot: 0, house: HOME as never, foreign: false, imports: [], offers: [] },
+        {
+          slot: 0,
+          house: HOME as never,
+          foreign: false,
+          imports: [],
+          offers: [],
+          settlement: true,
+          settles: true,
+        },
         {
           slot: 1,
           house: WORKSHOP as never,
@@ -528,6 +539,8 @@ describe('the settler panel model', () => {
           offers: [
             { index: 0, giveGood: giveGood.typeId, giveAmount: 2, takeGood: takeGood.typeId, takeAmount: 1 },
           ],
+          settlement: false,
+          settles: false,
         },
       ],
       current: 1,
@@ -535,6 +548,8 @@ describe('the settler panel model', () => {
       agreementHolds: true,
       given: 0,
       received: 0,
+      giveKeep: AGREEMENT_KEEP,
+      takeUpTo: AGREEMENT_UP_TO,
       cart: null,
       cargo: [],
     };
@@ -565,6 +580,11 @@ describe('the settler panel model', () => {
       },
     ]);
     expect(model.trade?.stops.map((stop) => stop.heading)).toEqual([false, true]);
+    expect(model.trade?.stops.map((stop) => [stop.settlement, stop.settles])).toEqual([
+      [true, true],
+      [false, false],
+    ]);
+    expect(model.trade).toMatchObject({ giveKeep: AGREEMENT_KEEP, takeUpTo: AGREEMENT_UP_TO });
     expect(model.trade?.foreign).toBe(true);
     expect(model.trade?.stock).toBeNull();
     expect(model.trade?.transfers).toEqual([]);
@@ -582,6 +602,8 @@ describe('the settler panel model', () => {
           foreign: false,
           imports: [{ good: GOOD_IRON, upTo: IRON_CEILING, keep: IRON_RESERVE }],
           offers: [],
+          settlement: false,
+          settles: false,
         },
         {
           slot: 1,
@@ -589,6 +611,8 @@ describe('the settler panel model', () => {
           foreign: false,
           imports: [{ good: GOOD_WOOD, upTo: 0, keep: 0 }],
           offers: [],
+          settlement: false,
+          settles: false,
         },
       ],
       current: 0,
@@ -596,6 +620,8 @@ describe('the settler panel model', () => {
       agreementHolds: false,
       given: 0,
       received: 0,
+      giveKeep: TRADE_LIMIT_NONE,
+      takeUpTo: TRADE_LIMIT_NONE,
       cart: null,
       cargo: [],
     };

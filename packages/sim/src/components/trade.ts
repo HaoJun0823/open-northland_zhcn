@@ -30,6 +30,9 @@ export interface TradeStop {
   readonly house: Entity;
   /** The goods the player marked for import into this house, ascending by good. */
   imports: TradeImportMark[];
+  /** An own storehouse stop that loads out of its whole settlement: itself first, then the storehouses
+   *  and workshops its goods search reaches. What the route brings in still goes into the house. */
+  settlement: boolean;
 }
 
 /** Whether `house` belongs to another player than `trader`: the stop the exchange happens at. Read off
@@ -63,6 +66,10 @@ export const TradeRoute = defineComponent<{
   agreement: number;
   given: number;
   received: number;
+  /** The player's limits on the agreement, in units: the give good the home stop keeps back, and the
+   *  take good it is filled up to before no further batch starts ({@link TRADE_LIMIT_NONE}: no limit). */
+  giveKeep: number;
+  takeUpTo: number;
 }>('TradeRoute', 'settlers');
 
 export type TradeRouteState = NonNullable<(typeof TradeRoute)['__value']>;
@@ -81,6 +88,8 @@ export function ensureTradeRoute(world: World, e: Entity): void {
     agreement: -1,
     given: 0,
     received: 0,
+    giveKeep: TRADE_LIMIT_NONE,
+    takeUpTo: TRADE_LIMIT_NONE,
   });
 }
 
@@ -108,7 +117,7 @@ export function addTradeStop(world: World, e: Entity, house: Entity): boolean {
     live.stops = live.stops.filter((s) => s !== dropped);
     if (isForeignHouse(world, e, dropped.house)) live.agreement = -1;
   }
-  live.stops.push({ slot, house, imports: [] });
+  live.stops.push({ slot, house, imports: [], settlement: false });
   live.stops.sort((a, b) => a.slot - b.slot);
   for (const stop of live.stops) stop.imports = [];
   live.current = -1;
@@ -210,6 +219,7 @@ export function clearTradeImports(world: World, e: Entity): void {
   for (const stop of live.stops) stop.imports = [];
 }
 
+/** Another agreement trades other goods, so the limits set on the previous one start over. */
 export function setTradeAgreement(world: World, e: Entity, agreement: number): void {
   const route = world.tryGet(e, TradeRoute);
   if (route === undefined || route.agreement === agreement) return;
@@ -217,6 +227,43 @@ export function setTradeAgreement(world: World, e: Entity, agreement: number): v
   live.agreement = agreement;
   live.given = 0;
   live.received = 0;
+  live.giveKeep = TRADE_LIMIT_NONE;
+  live.takeUpTo = TRADE_LIMIT_NONE;
+}
+
+/** Set the agreement's two limits; refused on a route with no agreement chosen or for a limit that is no
+ *  non-negative whole number of units. */
+export function setTradeAgreementLimits(
+  world: World,
+  e: Entity,
+  giveKeep: number,
+  takeUpTo: number,
+): boolean {
+  const route = world.tryGet(e, TradeRoute);
+  if (route === undefined || route.agreement < 0 || !isUnitCount(giveKeep) || !isUnitCount(takeUpTo)) {
+    return false;
+  }
+  if (route.giveKeep === giveKeep && route.takeUpTo === takeUpTo) return true;
+  const live = world.mut(e, TradeRoute);
+  live.giveKeep = giveKeep;
+  live.takeUpTo = takeUpTo;
+  return true;
+}
+
+/** Turn an own stop's settlement loading on or off; the caller checks the house is a storehouse. Refused
+ *  for a foreign stop, and turning it on is refused while the other stop already loads out of a
+ *  settlement: two would only shuttle the same goods between their storehouses. */
+export function setTradeSettlement(world: World, e: Entity, house: Entity, on: boolean): boolean {
+  const route = world.tryGet(e, TradeRoute);
+  const index = route?.stops.findIndex((stop) => stop.house === house) ?? -1;
+  const stop = route?.stops[index];
+  if (route === undefined || stop === undefined || isForeignHouse(world, e, house)) return false;
+  if (stop.settlement === on) return true;
+  if (on && route.stops.some((other) => other !== stop && other.settlement)) return false;
+  const live = world.mut(e, TradeRoute).stops[index];
+  if (live === undefined) return false;
+  live.settlement = on;
+  return true;
 }
 
 /** One `tradeagreement` row of a map: at the houses stamped with `missionId`, hand over `giveAmount`

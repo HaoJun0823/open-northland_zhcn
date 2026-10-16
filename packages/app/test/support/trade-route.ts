@@ -43,8 +43,24 @@ export function transfer(
 export function ownRoute(transfers: readonly TradeTransferModel[] = []): TradePanelModel {
   return {
     stops: [
-      { slot: 0, house: HOUSE_A, label: 'Magazyn', foreign: false, heading: true },
-      { slot: 1, house: HOUSE_B, label: 'Koszary', foreign: false, heading: false },
+      {
+        slot: 0,
+        house: HOUSE_A,
+        label: 'Magazyn',
+        foreign: false,
+        heading: true,
+        settlement: false,
+        settles: true,
+      },
+      {
+        slot: 1,
+        house: HOUSE_B,
+        label: 'Koszary',
+        foreign: false,
+        heading: false,
+        settlement: false,
+        settles: false,
+      },
     ],
     attachSlot: null,
     foreign: false,
@@ -55,5 +71,7 @@ export function ownRoute(transfers: readonly TradeTransferModel[] = []): TradePa
     transfers,
     offers: [],
     agreementHolds: false,
+    giveKeep: TRADE_LIMIT_NONE,
+    takeUpTo: TRADE_LIMIT_NONE,
   };
 }

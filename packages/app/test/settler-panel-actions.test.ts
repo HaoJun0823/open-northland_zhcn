@@ -110,6 +110,16 @@ describe('the Handel section', () => {
     ]);
     expect(cues).toEqual(['confirm', 'confirm']);
   });
+
+  it('sends the settlement toggle of a stop and the limits of the agreement', () => {
+    const { actions, sent } = harness();
+    actions.setTradeSettlement(OWN, HOUSE_A, true);
+    actions.setTradeAgreementLimits(OWN, 3, 12);
+    expect(sent).toEqual([
+      { kind: 'setTradeSettlement', entity: OWN, house: HOUSE_A, on: true },
+      { kind: 'setTradeAgreementLimits', entity: OWN, giveKeep: 3, takeUpTo: 12 },
+    ]);
+  });
 });
 
 describe('the Pojazd row', () => {

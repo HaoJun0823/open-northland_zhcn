@@ -38,6 +38,14 @@ export type TradeCommand =
       readonly keep: number;
     }
   | {
+      /** Load at the own storehouse `house` (a stop of the route) out of its whole settlement, or out of
+       *  the house alone again. */
+      readonly kind: 'setTradeSettlement';
+      readonly entity: Entity;
+      readonly house: Entity;
+      readonly on: boolean;
+    }
+  | {
       /** Clear every import mark on the trader's route. */
       readonly kind: 'clearTradeImports';
       readonly entity: Entity;
@@ -48,6 +56,14 @@ export type TradeCommand =
       readonly kind: 'setTradeAgreement';
       readonly entity: Entity;
       readonly agreement: number;
+    }
+  | {
+      /** Limit the chosen agreement, in units: keep `giveKeep` of the give good at home and start no
+       *  batch once home holds `takeUpTo` of the take good (`TRADE_LIMIT_NONE` sets no limit). */
+      readonly kind: 'setTradeAgreementLimits';
+      readonly entity: Entity;
+      readonly giveKeep: number;
+      readonly takeUpTo: number;
     };
 
 /** Register one of the map's `tradeagreement` rows (trusted setup). The houses it applies to are the

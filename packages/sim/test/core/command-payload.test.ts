@@ -209,6 +209,15 @@ describe('command payload contracts', () => {
     expect(() => parse({ ...command, keep: 1.5 })).toThrow(/command\.keep/);
   });
 
+  it('holds the limits of a trade agreement to non-negative whole numbers', () => {
+    const command = { kind: 'setTradeAgreementLimits', entity: UNIT, giveKeep: 2, takeUpTo: 0 };
+    expect(parse(command)).toEqual(imported(command));
+    expect(() => parse({ ...command, giveKeep: -1 })).toThrow(
+      /command\.giveKeep: expected a non-negative integer/,
+    );
+    expect(() => parse({ ...command, takeUpTo: 1.5 })).toThrow(/command\.takeUpTo/);
+  });
+
   it('holds a settler name to a bounded plain string', () => {
     const command = { kind: 'renameSettler', entity: UNIT, name: 'Ragnar' };
     expect(parse(command)).toEqual(imported(command));

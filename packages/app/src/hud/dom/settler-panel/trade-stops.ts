@@ -7,7 +7,18 @@ import {
 } from '../../details-panel/model/index.js';
 import { createHouseCardLink, type HouseCardLink } from '../hover-card.js';
 import { GLYPH } from '../icons.js';
-import { button, element, setClass, setTip, write } from '../parts/dom.js';
+import {
+  button,
+  element,
+  isDisabled,
+  onPress,
+  setAttribute,
+  setClass,
+  setDisabled,
+  setHidden,
+  setTip,
+  write,
+} from '../parts/dom.js';
 import { createRoundButton, type RoundButton } from '../parts/round-button.js';
 import { stopBadge } from '../trade-window/route.js';
 import type { SettlerPanelDeps } from './actions.js';
@@ -16,6 +27,8 @@ interface SlotRow {
   readonly item: HTMLLIElement;
   /** The house as a link, or the attach link on a free slot. */
   readonly link: HTMLButtonElement;
+  /** The "osada" toggle of an own storehouse stop: load out of its whole settlement. */
+  readonly settlement: HTMLButtonElement;
   readonly heading: HTMLElement;
   readonly detach: RoundButton;
   readonly card: HouseCardLink;
@@ -30,8 +43,19 @@ export function slotState(trade: TradePanelModel, slot: number): SlotState {
   return stop === undefined ? { kind: 'attach' } : { kind: 'stop', stop };
 }
 
+/** The settlement toggle's state on a stop: offered on an own storehouse, refused while the other stop
+ *  already loads out of a settlement. */
+export function settlementToggle(
+  trade: TradePanelModel,
+  stop: TradeStopModel,
+): { readonly shown: boolean; readonly enabled: boolean } {
+  const otherSettled = trade.stops.some((other) => other !== stop && other.settlement);
+  return { shown: stop.settles, enabled: stop.settlement || !otherSettled };
+}
+
 /** One row per route slot, both always present so the section never changes height with the route:
- *  the A/B badge, the house as a link (a foreign house in amber), the heading arrow and the detach. */
+ *  the A/B badge, the house as a link (a foreign house in amber) with an own storehouse's "osada"
+ *  toggle, the heading arrow and the detach. */
 export interface TradeStops {
   readonly element: HTMLElement;
   update(trade: TradePanelModel): void;
@@ -50,6 +74,15 @@ export function createTradeStops(deps: SettlerPanelDeps, current: () => TraderSu
     const item = element('li', 'on-stop');
     const badge = element('span', 'on-stop__badge', stopBadge(slot));
     const link = button('on-ledger__link on-stop__name');
+    const settlement = button('on-stop__settlement');
+    onPress(settlement, () => {
+      const state = liveSlot(slot);
+      if (state?.kind === 'stop' && !isDisabled(settlement)) {
+        actions.setTradeSettlement(id(), state.stop.house, !state.stop.settlement);
+      }
+    });
+    const house = element('span', 'on-stop__house');
+    house.append(link, settlement);
     const heading = element('span', 'on-stop__heading', GLYPH.arrow);
     const detach = createRoundButton('ledger', () => {
       const state = liveSlot(slot);
@@ -68,8 +101,8 @@ export function createTradeStops(deps: SettlerPanelDeps, current: () => TraderSu
     link.addEventListener('mouseenter', hover);
     link.addEventListener('mousemove', hover);
     link.addEventListener('mouseleave', () => card.hover(null, null));
-    item.append(badge, link, heading, detach.element);
-    return { item, link, heading, detach, card };
+    item.append(badge, house, heading, detach.element);
+    return { item, link, settlement, heading, detach, card };
   };
   const rows = Array.from({ length: TRADE_ROUTE_HOUSES }, (_unused, slot) => slotRow(slot));
   list.replaceChildren(...rows.map((row) => row.item));
@@ -87,6 +120,21 @@ export function createTradeStops(deps: SettlerPanelDeps, current: () => TraderSu
         setClass(row.item, 'on-stop--heading', state.kind === 'stop' && state.stop.heading);
         setClass(row.link, 'on-ledger--missing', state.kind === 'attach');
         setTip(row.heading, panel.tradeHeading);
+        const toggle = state.kind === 'stop' ? settlementToggle(trade, state.stop) : null;
+        setHidden(row.settlement, toggle?.shown !== true);
+        if (state.kind === 'stop' && toggle?.shown === true) {
+          write(row.settlement, panel.tradeSettlement);
+          setAttribute(row.settlement, 'aria-pressed', String(state.stop.settlement));
+          setDisabled(row.settlement, !toggle.enabled);
+          setTip(
+            row.settlement,
+            !toggle.enabled
+              ? panel.tradeSettlementTaken
+              : state.stop.settlement
+                ? panel.tradeSettlementOn
+                : panel.tradeSettlementOff,
+          );
+        }
         switch (state.kind) {
           case 'stop':
             write(row.link, state.stop.label);

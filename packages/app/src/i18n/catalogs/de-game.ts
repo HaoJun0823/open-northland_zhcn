@@ -687,6 +687,12 @@ export const deGame = {
       tradeHeading: 'Der Händler ist gerade hierher unterwegs',
       tradeAddStop: 'Handelshaus hinzufügen',
       tradeConfigure: 'Handel einrichten',
+      tradeSettlement: 'Siedlung',
+      tradeSettlementOn:
+        'Lädt aus der ganzen Siedlung: zuerst aus diesem Lager, dann aus den Lagern und Werkstätten, die sein Wegweisernetz erreicht. Was er zurückbringt, kommt in dieses Lager · Klicken: nur dieses Lager',
+      tradeSettlementOff:
+        'Klicken: aus der ganzen Siedlung laden, zuerst aus diesem Lager, dann aus den Lagern und Werkstätten, die sein Wegweisernetz erreicht',
+      tradeSettlementTaken: 'Die andere Station lädt bereits aus der Siedlung',
       tradeTransferTo: '{from} → {into}',
       tradeTransferBoth: '{a} ⇄ {b}',
       tradeTransferUpTo: 'bis zu {count}',
@@ -705,6 +711,10 @@ export const deGame = {
       agreement: 'Handelsangebot',
       agreementTooltip: '{giveAmount} × {give} verkaufen, {takeAmount} × {take} erhalten',
       agreementDrop: 'Klicken: Handelsangebot abwählen',
+      agreementLimits: 'Grenzen',
+      agreementHomeSettlement: '{house} und die ganze Siedlung',
+      agreementKeepTooltip: 'Immer so viel {good} behalten: {where}',
+      agreementUpToTooltip: 'Handeln, bis so viel {good} vorhanden ist: {where} · ∞: keine Obergrenze',
       repeats: '{count} Mal',
       repeatsBonus: '{count} Mal, Ertrag +{bonus}%',
       unlockTooltip: 'Schaltet {unlocks} frei (Erfahrung: {track})',

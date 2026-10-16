@@ -74,6 +74,10 @@ export interface SettlerPanelActions {
   ) => void;
   /** Trade on the agreement at `index` in the map's table; -1 drops the choice. */
   readonly setTradeAgreement: (id: number, index: number) => void;
+  /** Load at the own storehouse `house` out of its whole settlement, or out of the house alone. */
+  readonly setTradeSettlement: (id: number, house: number, on: boolean) => void;
+  /** The chosen agreement's give reserve and take ceiling, in units (`TRADE_LIMIT_NONE`: none). */
+  readonly setTradeAgreementLimits: (id: number, giveKeep: number, takeUpTo: number) => void;
 }
 
 /** What the panel reads besides its model. */

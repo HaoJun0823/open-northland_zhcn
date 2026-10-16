@@ -3912,6 +3912,36 @@ body.on-drag-scroll * {
   height: 13px;
   stroke-width: 2.4;
 }
+/* The house link and, on an own storehouse, the "osada" toggle right after it; the link gives way first. */
+.on-hud .on-stop__house {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.on-hud .on-stop__house > .on-stop__name {
+  flex: 0 1 auto;
+}
+.on-hud button.on-stop__settlement {
+  flex-shrink: 0;
+  height: 16px;
+  padding: 0 5px;
+  border: 1px solid var(--bronze-lo);
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: 700 10px / 1 var(--font-body);
+}
+.on-hud button.on-stop__settlement[hidden] {
+  display: none;
+}
+.on-hud button.on-stop__settlement[aria-pressed="true"] {
+  background: linear-gradient(#e8c479, #b58a3f);
+  color: var(--ink);
+}
+.on-hud button.on-stop__settlement[aria-disabled="true"] {
+  opacity: 0.45;
+}
 /* The stop rows with, while both stops are own houses, the joint at their right: a bracket from the two
    rows' detach buttons to "Konfiguruj handel", the one way into the trade window. Without it the rows
    keep the full width. */
@@ -4011,6 +4041,15 @@ body.on-drag-scroll * {
   gap: 6px;
   font-size: 12px;
   color: var(--muted);
+}
+/* Under the chosen agreement: "zostaw N" for the give good, "do N" for the take good. */
+.on-hud .on-trade-agreement-limits[hidden] {
+  display: none;
+}
+.on-hud .on-trade-agreement-limits__counters {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
 }
 /* Agreement: the agreements as single-choice chips, the chosen one with its exchange meter under it. */
 .on-hud .on-offers {

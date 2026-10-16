@@ -7,8 +7,10 @@ import {
   removeTradeStop,
   Settler,
   setTradeAgreement,
+  setTradeAgreementLimits,
   setTradeImport,
   setTradeImportLimits,
+  setTradeSettlement,
   tradeAgreements,
   tradeRouteOf,
 } from '../../components/index.js';
@@ -19,6 +21,7 @@ import type { Entity, World } from '../../ecs/world.js';
 import type { ContentContext, SystemContext } from '../context.js';
 import { isTraderJob } from '../readviews/jobs.js';
 import { agreementsAt } from './agreements.js';
+import { isSettlementAnchor } from './settlement.js';
 
 function isTrader(world: World, ctx: ContentContext, e: Entity): boolean {
   const settler = world.tryGet(e, Settler);
@@ -63,6 +66,11 @@ export function applyTradeCommand(world: World, ctx: SystemContext, command: Tra
     case 'setTradeImportLimits':
       setTradeImportLimits(world, command.entity, command.house, command.good, command.upTo, command.keep);
       return;
+    case 'setTradeSettlement':
+      if (!command.on || isSettlementAnchor(world, ctx, command.house)) {
+        setTradeSettlement(world, command.entity, command.house, command.on);
+      }
+      return;
     case 'clearTradeImports':
       clearTradeImports(world, command.entity);
       return;
@@ -76,6 +84,9 @@ export function applyTradeCommand(world: World, ctx: SystemContext, command: Tra
       setTradeAgreement(world, command.entity, command.agreement);
       return;
     }
+    case 'setTradeAgreementLimits':
+      setTradeAgreementLimits(world, command.entity, command.giveKeep, command.takeUpTo);
+      return;
   }
 }
 

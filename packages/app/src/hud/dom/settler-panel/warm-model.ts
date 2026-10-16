@@ -81,8 +81,16 @@ export function warmModel(goodIds: readonly string[]): SettlerPanelModel {
     military: { stance: null, regeneration: true },
     trade: {
       stops: [
-        { slot: 0, house: 1, label: 'Warm', foreign: false, heading: true },
-        { slot: 1, house: 2, label: 'Warm', foreign: true, heading: false },
+        { slot: 0, house: 1, label: 'Warm', foreign: false, heading: true, settlement: true, settles: true },
+        {
+          slot: 1,
+          house: 2,
+          label: 'Warm',
+          foreign: true,
+          heading: false,
+          settlement: false,
+          settles: false,
+        },
       ],
       attachSlot: null,
       // Goods and an agreement at once, which no route has, so one paint lights both.
@@ -100,6 +108,8 @@ export function warmModel(goodIds: readonly string[]): SettlerPanelModel {
         },
       ],
       agreementHolds: true,
+      giveKeep: 2,
+      takeUpTo: 10,
     },
     experience: [
       { label: 'Warm', repeats: 1, bonusPct: 5, own: true },

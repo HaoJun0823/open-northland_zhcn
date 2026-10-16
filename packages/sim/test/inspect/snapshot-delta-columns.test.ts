@@ -73,6 +73,38 @@ describe('delta columns from live values', () => {
 });
 
 describe('delta shapes', () => {
+  it('lends its column storage to one delta at a time, each delta keeping its own copy', () => {
+    const shapes = new DeltaShapes();
+    const deltaOf = (columns: DeltaColumns) => ({
+      ...columns.columns(),
+      tick: 0,
+      sequence: 0,
+      rebuild: false,
+      removed: [],
+      events: [],
+    });
+    // Past the initial storage, so the second delta reuses grown columns.
+    const ENTITIES = 3000;
+    const first = new DeltaColumns(shapes);
+    for (let id = 1; id <= ENTITIES; id++) {
+      first.begin(id);
+      first.writeLive('P', { x: id, y: -id });
+      first.end();
+    }
+    const firstDelta = deltaOf(first);
+    const second = new DeltaColumns(shapes);
+    second.begin(7);
+    second.writeLive('P', { x: 70, y: 71 });
+    second.end();
+    const secondDelta = deltaOf(second);
+    expect(deltaValues(secondDelta)).toEqual([{ x: 70, y: 71 }]);
+    expect(Array.from(secondDelta.touched)).toEqual([7]);
+    const values = deltaValues(firstDelta);
+    expect(values).toHaveLength(ENTITIES);
+    expect(values[0]).toEqual({ x: 1, y: -1 });
+    expect(values[ENTITIES - 1]).toEqual({ x: ENTITIES, y: -ENTITIES });
+  });
+
   it('starts over past its bound and still writes exact deltas', () => {
     const shapes = new DeltaShapes();
     // Each entity writes a component of its own: one new change step apiece.

@@ -103,11 +103,20 @@ const NO_NAMES: readonly string[] = [];
 const NO_CHANGE = -1;
 /** Room for a first delta's worth of entries in each column; a column doubles past it. */
 const INITIAL_COLUMN = 1024;
+/** The column storage a stream keeps between deltas: several busy ticks' worth, while a rebuild's
+ *  whole-world columns are let go. */
+const RETAINED_COLUMN = 1 << 17;
 
-/** A growable `Int32Array`. */
+/** A growable `Int32Array`, its storage kept from delta to delta. */
 class IntColumn {
   private items = new Int32Array(INITIAL_COLUMN);
   private count = 0;
+
+  /** Empty the column, dropping storage grown past `retained` entries. */
+  clear(retained: number): void {
+    this.count = 0;
+    if (this.items.length > retained) this.items = new Int32Array(INITIAL_COLUMN);
+  }
 
   push(item: number): void {
     if (this.count === this.items.length) {
@@ -167,16 +176,21 @@ function changeStep(): ChangeStep {
   };
 }
 
-/** The change paths and record layouts one stream met so far, kept from delta to delta so a delta
- *  allocates neither again; each delta numbers its own entries under a new epoch. The layouts are
- *  bounded by the components' field sets; the paths by the combinations of components entities write
- *  together, which keep turning up slowly: magiczny_las at t120000 holds 1000 steps after the opening
- *  rebuild and 2900 after 3000 ticks, with 116 layouts. */
+/** The change paths, record layouts and column storage one stream met so far, kept from delta to
+ *  delta so a delta allocates none of them again; each delta numbers its own entries under a new epoch.
+ *  The layouts are bounded by the components' field sets; the paths by the combinations of components
+ *  entities write together, which keep turning up slowly: magiczny_las at t120000 holds 1000 steps
+ *  after the opening rebuild and 2900 after 3000 ticks, with 116 layouts. */
 export class DeltaShapes {
   firstStep = changeStep();
   readonly layouts = new Map<string, RecordLayout>();
   epoch = NO_EPOCH;
   private steps = 0;
+  /** The typed columns a delta fills before it copies them out: grown once to a busy delta's size. */
+  readonly touched = new IntColumn();
+  readonly changeOf = new IntColumn();
+  readonly valueKinds = new IntColumn();
+  numbers = new Float64Array(INITIAL_COLUMN);
 
   /** The step `name` leads to from `steps`, made on first use. */
   stepAfter(steps: Map<string, ChangeStep>, name: string): ChangeStep {
@@ -200,13 +214,12 @@ export class DeltaShapes {
 
 /** Builds a delta's columns one entity at a time; entities go in ascending id order. */
 export class DeltaColumns {
-  private readonly touched = new IntColumn();
-  private readonly changeOf = new IntColumn();
+  private readonly touched: IntColumn;
+  private readonly changeOf: IntColumn;
   private readonly changes: EntityChange[] = [];
-  private readonly valueKinds = new IntColumn();
+  private readonly valueKinds: IntColumn;
   private readonly recordKeys: (readonly string[])[] = [];
   private readonly recordFields: string[] = [];
-  private numbers = new Float64Array(INITIAL_COLUMN);
   private numberCount = 0;
   private readonly strings: string[] = [];
   private readonly values: unknown[] = [];
@@ -222,10 +235,18 @@ export class DeltaColumns {
   private readonly recordKeyScratch: string[] = [];
   private readonly recordKindScratch: number[] = [];
 
+  /** One builder at a time per `shapes`: it fills the shapes' column storage. */
   constructor(private readonly shapes = new DeltaShapes()) {
     shapes.bound();
     this.epoch = ++shapes.epoch;
     this.step = shapes.firstStep;
+    this.touched = shapes.touched;
+    this.changeOf = shapes.changeOf;
+    this.valueKinds = shapes.valueKinds;
+    this.touched.clear(RETAINED_COLUMN);
+    this.changeOf.clear(RETAINED_COLUMN);
+    this.valueKinds.clear(RETAINED_COLUMN);
+    if (shapes.numbers.length > RETAINED_COLUMN) shapes.numbers = new Float64Array(INITIAL_COLUMN);
   }
 
   begin(id: number): void {
@@ -284,7 +305,7 @@ export class DeltaColumns {
       valueKinds: this.valueKinds.taken(),
       recordKeys: this.recordKeys,
       recordFields: this.recordFields,
-      numbers: this.numbers.slice(0, this.numberCount),
+      numbers: this.shapes.numbers.slice(0, this.numberCount),
       strings: this.strings,
       values: this.values,
     };
@@ -391,12 +412,13 @@ export class DeltaColumns {
   }
 
   private pushNumber(field: number): void {
-    if (this.numberCount === this.numbers.length) {
-      const grown = new Float64Array(this.numbers.length * 2);
-      grown.set(this.numbers);
-      this.numbers = grown;
+    let numbers = this.shapes.numbers;
+    if (this.numberCount === numbers.length) {
+      const grown = new Float64Array(numbers.length * 2);
+      grown.set(numbers);
+      this.shapes.numbers = numbers = grown;
     }
-    this.numbers[this.numberCount++] = field;
+    numbers[this.numberCount++] = field;
   }
 }
 

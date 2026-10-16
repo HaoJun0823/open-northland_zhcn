@@ -20,6 +20,7 @@ import { resourceOfGoodAtNode } from '../spatial/resources.js';
 import { buildingBlockedCells } from './building-blocked-cache.js';
 import { ANCHOR_ONLY, buildingFootprintOf } from './geometry.js';
 import { resourceBlockedCells } from './resource-blocked-cache.js';
+import { footprintCellsOf } from './resource-footprint-cells.js';
 import { type RouteRegions, routeRegions } from './route-regions.js';
 
 // INTERACTION - where a unit stands to use a building or resource: a building's door node, and the
@@ -396,7 +397,7 @@ function fillResourceApproachCells(
   const ax = nodeHxOfPosition(p.x, p.y);
   const ay = nodeHyOfPosition(p.y);
   const anchor = terrain.nodeAtClamped(ax, ay);
-  const cells = world.get(resource, ResourceFootprint).work;
+  const cells = footprintCellsOf(world, resource).work;
   const resources = resourceBlockedCells(world, terrain);
   for (let i = 0; i < cells.length; i++) {
     const c = cells[i];

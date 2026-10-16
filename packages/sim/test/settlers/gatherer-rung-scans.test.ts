@@ -5,7 +5,7 @@ import { contentIndex } from '../../src/core/content-index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { type NodeId, positionOfNode, Simulation } from '../../src/index.js';
 import * as footprint from '../../src/systems/footprint/index.js';
-import { anchorOnlyFootprint, stampResourceFootprintData } from '../../src/systems/index.js';
+import { stampResourceFootprintData } from '../../src/systems/index.js';
 import { dropGroundPile } from '../../src/systems/settlers/atomics/effects/goods/piles.js';
 import type { PlannerContext } from '../../src/systems/settlers/planner/context.js';
 import {
@@ -88,7 +88,7 @@ function resourceAt(
   hy: number,
   goodType: number,
   harvestAtomic: number,
-  work: readonly ResourceFootprintCell[] = anchorOnlyFootprint().work,
+  work: readonly ResourceFootprintCell[] = [{ dx: 0, dy: 0 }],
 ): Entity {
   const e = sim.world.create();
   sim.world.add(e, Position, positionOfNode(hx, hy));
@@ -312,7 +312,7 @@ describe('harvest scan sources', () => {
         const x = offset + roll(WIDE_W - 2 * offset);
         const y = offset + roll(WIDE_H - 2 * offset);
         // Clusters and lone trees alike, so some searches end in the first box and some cross the map.
-        const work = roll(3) === 0 ? anchorOnlyFootprint().work : [{ dx, dy }];
+        const work = roll(3) === 0 ? [{ dx: 0, dy: 0 }] : [{ dx, dy }];
         trees.push(resourceAt(sim, x, y, roll(5) === 0 ? STONE : WOOD, roll(5) === 0 ? MINE : CHOP, work));
       }
       const base = planFor(sim, WOODCUTTER, 0, 0);

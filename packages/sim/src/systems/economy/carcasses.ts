@@ -50,8 +50,9 @@ export function placeCarcass(
  * cover it and pushes it aside on placement (project rule: the player's building is never held back by it).
  */
 export function stampCarcassFootprint(world: World, content: ContentSet, e: Entity, goodType: number): void {
-  const footprint = resourceFootprintForGood(content, goodType) ?? anchorOnlyFootprint();
-  stampResourceFootprintData(world, e, { ...footprint, build: [] });
+  const record = resourceFootprintForGood(content, goodType);
+  const footprint = record === null ? anchorOnlyFootprint() : { ...record, buildFree: true as const };
+  stampResourceFootprintData(world, e, footprint, content);
 }
 
 /**

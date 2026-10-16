@@ -1,5 +1,5 @@
 import { type ContentSet, type FootprintCell, GROUND_LAND, GROUND_WATER } from '@open-northland/data';
-import { Palisade, Position, ResourceFootprint } from '../../components/index.js';
+import { Palisade, Position, ResourceFootprint, type ResourceFootprintData } from '../../components/index.js';
 import { landscapeEditState, writeLandscapeEdits } from '../../components/landscape.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
@@ -30,6 +30,11 @@ import { buildingBodyCells } from '../footprint/building-blocked-cache.js';
 import { translatedCells } from '../footprint/geometry.js';
 import { placementBlockerGrid } from '../footprint/placement/blocker-grid.js';
 import { palisadeBodyCells } from '../footprint/placement/blockers.js';
+import {
+  contentFootprintCells,
+  resourceFootprintCells,
+  tryFootprintCellsOf,
+} from '../footprint/resource-footprint-cells.js';
 import {
   createResourceNode,
   stampResourceFootprintData,
@@ -121,7 +126,7 @@ function removePlacements(
         onResourceRemoved?.(entity);
         continue;
       }
-      const footprint = world.tryGet(entity, ResourceFootprint);
+      const footprint = tryFootprintCellsOf(world, entity);
       const at = world.tryGet(entity, Position);
       if (footprint !== undefined && at !== undefined) {
         const anchor = nodeOfPosition(at.x, at.y);
@@ -164,6 +169,35 @@ function placementBackingOf(type: ScriptLandscapeType): PlacementBacking {
   return { kind: 'none' };
 }
 
+/** A scripted resource placement blocks as `type` at `level` and is worked from its node's own record:
+ *  the record's key at that level when it names the same cells, else those cells written out. */
+function scriptedFootprint(
+  world: World,
+  resource: Entity,
+  type: ScriptLandscapeType,
+  level: number,
+): ResourceFootprintData {
+  const blocks = placementBlockCells(type, level);
+  const own = world.get(resource, ResourceFootprint);
+  const cells = resourceFootprintCells(world, own);
+  if ('gfx' in own && own.buildFree !== true) {
+    const leveled: ResourceFootprintData = { gfx: own.gfx, level };
+    const resolved = resourceFootprintCells(world, leveled);
+    if (sameCellList(resolved.walk, blocks.walk) && sameCellList(resolved.build, blocks.build))
+      return leveled;
+  }
+  return {
+    walk: blocks.walk.map((cell) => ({ ...cell })),
+    build: blocks.build.map((cell) => ({ ...cell })),
+    work: cells.work.map((cell) => ({ ...cell })),
+    ...(cells.sourceGfxIndex !== undefined ? { sourceGfxIndex: cells.sourceGfxIndex } : {}),
+  };
+}
+
+function sameCellList(a: readonly FootprintCell[], b: readonly FootprintCell[]): boolean {
+  return a.length === b.length && a.every((cell, i) => cell.dx === b[i]?.dx && cell.dy === b[i]?.dy);
+}
+
 /**
  * The live entity standing in for a scripted placement of `type`: a chest, a goods heap or a resource
  * node, each created before the old object is removed so a rejected replacement leaves the world as it
@@ -198,14 +232,7 @@ function createPlacementBacking(
           : spec.remaining;
       const resource = createResourceNode(world, ctx.content, { ...spec, remaining, ...at });
       if (resource === null) return null;
-      const footprint = world.get(resource, ResourceFootprint);
-      const blocks = placementBlockCells(type, level);
-      stampResourceFootprintData(world, resource, {
-        walk: blocks.walk.map((cell) => ({ ...cell })),
-        build: blocks.build.map((cell) => ({ ...cell })),
-        work: footprint.work.map((cell) => ({ ...cell })),
-        ...(footprint.sourceGfxIndex !== undefined ? { sourceGfxIndex: footprint.sourceGfxIndex } : {}),
-      });
+      stampResourceFootprintData(world, resource, scriptedFootprint(world, resource, type, level));
       return resource;
     }
     case 'none':
@@ -223,7 +250,10 @@ export function placementWalkCells(
   const backing = placementBackingOf(type);
   switch (backing.kind) {
     case 'chest':
-      return chestFootprint(chestRecord(content, backing.chest.kind, backing.chest.gfxIndex)).walk;
+      return contentFootprintCells(
+        content,
+        chestFootprint(chestRecord(content, backing.chest.kind, backing.chest.gfxIndex)),
+      ).walk;
     case 'good':
       return [];
     case 'resource':

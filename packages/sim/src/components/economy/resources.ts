@@ -50,13 +50,12 @@ export interface ResourceFootprintCell {
 }
 
 /**
- * Data-driven collision/work footprint for a standing {@link Resource} node, copied from its harvest-stage
- * `[GfxLandscape]` record (`LogicWalkBlockArea`, `LogicBuildBlockArea`, `LogicWorkArea`). `walk` cells enter
- * the dynamic pathfinding overlay, `build` cells reserve the no-building ring, and `work` cells are where a
- * collector stands. Every Resource node carries one; a node that blocks nothing says so with empty
- * `walk`/`build`.
+ * The collision/work cells of a standing {@link Resource} node, from its harvest-stage `[GfxLandscape]`
+ * record (`LogicWalkBlockArea`, `LogicBuildBlockArea`, `LogicWorkArea`). `walk` cells enter the dynamic
+ * pathfinding overlay, `build` cells reserve the no-building ring, and `work` cells are where a collector
+ * stands. A node that blocks nothing says so with empty `walk`/`build`.
  */
-export interface ResourceFootprintData {
+export interface ResourceFootprintCells {
   readonly walk: readonly ResourceFootprintCell[];
   readonly build: readonly ResourceFootprintCell[];
   readonly work: readonly ResourceFootprintCell[];
@@ -65,6 +64,28 @@ export interface ResourceFootprintData {
    *  footprint without one counts as walk-through ground those clear. */
   readonly sourceGfxIndex?: number;
 }
+
+/** A footprint read from the content's `[GfxLandscape]` record `gfx`. */
+export interface ResourceFootprintRecordKey {
+  readonly gfx: number;
+  /** The valency its block rows stamp up to; absent, the full-grown object's cells. */
+  readonly level?: number;
+  /** Drops the build area, for a body lying on walkable ground. */
+  readonly buildFree?: true;
+}
+
+/** The sim's own stand-in shapes for a node no record describes. */
+export type ResourceFootprintStandIn = 'anchor' | 'chest';
+
+/**
+ * Every Resource node carries one. A key, not its cells: tens of thousands of nodes share a few hundred
+ * shapes, which `resourceFootprintCells` resolves through a per-content memo. Literal cells are for a
+ * footprint neither a record nor a stand-in describes.
+ */
+export type ResourceFootprintData =
+  | ResourceFootprintRecordKey
+  | { readonly standIn: ResourceFootprintStandIn }
+  | ResourceFootprintCells;
 
 export const ResourceFootprint = defineComponent<ResourceFootprintData>('ResourceFootprint', 'economy');
 

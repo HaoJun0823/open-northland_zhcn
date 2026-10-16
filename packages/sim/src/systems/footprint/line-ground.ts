@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import { KilledBy, ResourceFootprint } from '../../components/index.js';
+import { KilledBy } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { HalfCellNode } from '../../nav/halfcell.js';
@@ -8,6 +8,7 @@ import { bushesAtNode } from '../spatial/bushes.js';
 import { openedChestsAtNode } from '../spatial/opened-chests.js';
 import { resourcesAtNode } from '../spatial/resources.js';
 import { stumpsAtNode } from '../spatial/stumps.js';
+import { tryFootprintCellsOf } from './resource-footprint-cells.js';
 import { unstampResourceFootprint } from './resources.js';
 
 // The ground rule a road and a wall share, node by node, past the blocker grid both already consult.
@@ -18,7 +19,7 @@ import { unstampResourceFootprint } from './resources.js';
 /** Whether resource `e` stands solid: its landscape record blocks walking once full-grown, as a tree, a
  *  stone or a mine does, so it refuses a road or wall even while young or part-mined. */
 function standsSolid(world: World, content: ContentSet, e: Entity): boolean {
-  const gfx = world.tryGet(e, ResourceFootprint)?.sourceGfxIndex;
+  const gfx = tryFootprintCellsOf(world, e)?.sourceGfxIndex;
   if (gfx === undefined) return false;
   return (contentIndex(content).landscapeGfxByIndex.get(gfx)?.walkBlockAreas.length ?? 0) > 0;
 }

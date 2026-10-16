@@ -16,6 +16,7 @@ import {
   resourceStanceCells,
   resourceWorkCell,
 } from '../../src/systems/footprint/interaction.js';
+import { footprintCellsOf } from '../../src/systems/footprint/resource-footprint-cells.js';
 import { stampResourceFootprint, unstampResourceFootprint } from '../../src/systems/footprint/resources.js';
 import { RouteRegions } from '../../src/systems/footprint/route-regions.js';
 import { nearestCell } from '../../src/systems/spatial/metric.js';
@@ -129,7 +130,7 @@ describe('stance validation work', () => {
     sim.world.add(resource, Stockpile, { amounts: new Map([[CLAY, 1]]) });
     expect(resourceStanceCells(sim.world, ctxOf(sim), terrain, resource)).toBe(held);
     sim.world.add(resource, ResourceFootprint, {
-      ...sim.world.get(resource, ResourceFootprint),
+      ...footprintCellsOf(sim.world, resource),
       work: [{ dx: 4, dy: 0 }],
     });
     expect(sim.world.verifyCaches()).toEqual([]);
@@ -203,7 +204,7 @@ describe('stance pick', () => {
     const sim = mappedSim();
     const resource = placeResource(sim, STONE, STONE_ATOMIC, 8, 4);
     sim.world.add(resource, ResourceFootprint, {
-      ...sim.world.get(resource, ResourceFootprint),
+      ...footprintCellsOf(sim.world, resource),
       work: [
         { dx: 4, dy: 0 },
         { dx: -4, dy: 0 },

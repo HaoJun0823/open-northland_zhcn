@@ -67,6 +67,7 @@ export { REPAIR_CREW_LIMIT } from './economy/repair.js';
 export { insideBuildingReservedZone } from './economy/reserved-decor.js';
 export { jobUsesWorkFlag } from './economy/work-flag.js';
 export { isOnMission } from './family/eligibility.js';
+export { footprintCellsOf } from './footprint/resource-footprint-cells.js';
 export {
   createResourceNode,
   resourceFootprintForGood,

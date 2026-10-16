@@ -12,6 +12,7 @@ import { dynamicBlockOverlay } from './blocked.js';
 import { buildingBlockedCells } from './building-blocked-cache.js';
 import { buildingFootprintOf, translatedCells } from './geometry.js';
 import { resourceBlockedCells } from './resource-blocked-cache.js';
+import { tryFootprintCellsOf } from './resource-footprint-cells.js';
 import { standingWallCells } from './wall-joints.js';
 
 // The per-world free-size classes vehicles stand by and ships route by, over the ground walk-block
@@ -90,7 +91,7 @@ function blockerCellsOf(world: World, content: ContentSet, terrain: TerrainGraph
       ]),
     ];
   }
-  const resource = world.tryGet(e, ResourceFootprint);
+  const resource = tryFootprintCellsOf(world, e);
   return resource === undefined ? [] : translatedCells(terrain, resource.walk, hx, hy);
 }
 

@@ -1,9 +1,4 @@
-import {
-  type ContentSet,
-  fullStateBlockAreaCells,
-  type LandscapeGfx,
-  levelBlockAreaCells,
-} from '@open-northland/data';
+import type { ContentSet } from '@open-northland/data';
 import {
   Felling,
   LandscapeResource,
@@ -12,8 +7,10 @@ import {
   Resource,
   ResourceFootprint,
   type ResourceFootprintData,
+  type ResourceFootprintRecordKey,
 } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
+import { bindWorldContent } from '../../core/world-content.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { positionOfNode } from '../../nav/halfcell.js';
 import type { ResourceSpec } from '../../nav/terrain/index.js';
@@ -25,57 +22,35 @@ import {
 
 // Resource footprints are the `[GfxLandscape]` walk, build and work areas a standing resource occupies.
 
-/**
- * Convert one decoded `[GfxLandscape]` record into the sim's resource-footprint component payload. The
- * source stores repeated rows per valency and growth state: a node placed at a known `level` blocks its
- * rows up to that level, as the original stamps it, and one without the full-grown object's cells.
- * Approximation: collision stays at the placed size until the node is removed, where the original's
- * shrinks as the valency is spent.
- */
-export function resourceFootprintFromLandscapeGfx(
-  record: LandscapeGfx,
-  level?: number,
-): ResourceFootprintData {
-  const blocks = (areas: LandscapeGfx['walkBlockAreas']) =>
-    level === undefined ? fullStateBlockAreaCells(areas) : levelBlockAreaCells(areas, level);
-  return {
-    walk: blocks(record.walkBlockAreas),
-    build: blocks(record.buildBlockAreas),
-    work: fullStateBlockAreaCells(record.workAreas),
-    sourceGfxIndex: record.index,
-  };
-}
-
-/** Resolve the representative harvest-stage landscape gfx record for a good's resource node. */
+/** The key of a good's resource node footprint: its harvest-stage record `gfxIndex` at `level`, or
+ *  without one the stage's first record, full-grown. */
 export function resourceFootprintForGood(
   content: ContentSet,
   goodType: number,
   gfxIndex?: number,
   level?: number,
-): ResourceFootprintData | null {
+): ResourceFootprintRecordKey | null {
   const pipeline = contentIndex(content).gatheringPipelinesByGood.get(goodType);
   const stage = pipeline?.harvest ?? pipeline?.pickup;
   if (stage === undefined) return null;
   const byIndex = contentIndex(content).landscapeGfxByIndex;
   if (gfxIndex !== undefined) {
-    if (!stage.gfxIndices.includes(gfxIndex)) return null;
-    const record = byIndex.get(gfxIndex);
-    return record === undefined ? null : resourceFootprintFromLandscapeGfx(record, level);
+    if (!stage.gfxIndices.includes(gfxIndex) || !byIndex.has(gfxIndex)) return null;
+    return level === undefined ? { gfx: gfxIndex } : { gfx: gfxIndex, level };
   }
-  for (const index of stage.gfxIndices) {
-    const record = byIndex.get(index);
-    if (record !== undefined) return resourceFootprintFromLandscapeGfx(record);
-  }
+  for (const index of stage.gfxIndices) if (byIndex.has(index)) return { gfx: index };
   return null;
 }
 
-/** Stamp a resource node with a caller-declared footprint, keeping the incremental blocked-cell cache
- *  coherent. For a node whose cells come from a landscape record, use {@link stampResourceFootprint}. */
+/** Stamp a resource node with `footprint`, keeping the incremental blocked-cell cache coherent. A keyed
+ *  footprint resolves against `content`, which binds the world when nothing has yet. */
 export function stampResourceFootprintData(
   world: World,
   resource: Entity,
   footprint: ResourceFootprintData,
+  content?: ContentSet,
 ): void {
+  if (content !== undefined) bindWorldContent(world, content);
   removeResourceBlockedCacheEntry(world, resource);
   world.add(resource, ResourceFootprint, footprint);
   refreshResourceBlockedCacheEntry(world, resource);
@@ -91,18 +66,13 @@ export function stampResourceFootprint(
 ): boolean {
   const footprint = resourceFootprintForGood(content, goodType, gfxIndex);
   if (footprint === null) return false;
-  stampResourceFootprintData(world, resource, footprint);
+  stampResourceFootprintData(world, resource, footprint, content);
   return true;
 }
 
-/**
- * The stand-in footprint for a node whose good resolves no landscape record: the synthetic fixtures, the
- * sandbox catalog, and real goods with no `[GfxLandscape]` stage such as wool. Non-blocking, and the
- * `work` entry naming the node's own anchor is an invention, since a real record's work area is the
- * neighbour ring.
- */
+/** A fresh key of the anchor-only stand-in footprint. */
 export function anchorOnlyFootprint(): ResourceFootprintData {
-  return { walk: [], build: [], work: [{ dx: 0, dy: 0 }] };
+  return { standIn: 'anchor' };
 }
 
 /** Stamp a node with its good's content-derived footprint, falling back to {@link anchorOnlyFootprint}
@@ -160,7 +130,7 @@ export function createResourceNode(world: World, content: ContentSet, spec: Reso
       ? null
       : resourceFootprintForGood(content, spec.good, spec.gfxIndex, spec.blockLevel);
   if (own === null) stampResourceFootprint(world, content, e, spec.good);
-  else stampResourceFootprintData(world, e, own);
+  else stampResourceFootprintData(world, e, own, content);
   if (spec.felling === true) world.add(e, Felling, { chops: 0 });
   if (spec.deposit !== undefined) {
     world.add(e, MineDeposit, {

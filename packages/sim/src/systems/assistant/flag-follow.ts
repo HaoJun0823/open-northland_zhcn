@@ -8,7 +8,6 @@ import {
   Position,
   ReplantMisses,
   Resource,
-  ResourceFootprint,
   Settler,
   WorkFlag,
 } from '../../components/index.js';
@@ -37,6 +36,7 @@ import {
 import type { System, SystemContext } from '../context.js';
 import { jobGatherGoods, openGatherGoods } from '../economy/gather-goods.js';
 import { jobCanHarvest, liveWorkFlag, relocateWorkFlag } from '../economy/work-flag.js';
+import { tryFootprintCellsOf } from '../footprint/resource-footprint-cells.js';
 import { needSubjectOf, settlerMeetsNeed } from '../progression/index.js';
 import { isHunterJob } from '../readviews/index.js';
 import { anotherSystemOwns } from '../settlers/action-owner.js';
@@ -184,7 +184,7 @@ function followFlag(
  * holder's whole map of trees then skips the stance picks of every tree outside his network.
  */
 function mayWorkInside(world: World, limit: NavigationLimit, r: Entity): boolean {
-  const footprint = world.tryGet(r, ResourceFootprint);
+  const footprint = tryFootprintCellsOf(world, r);
   const p = world.tryGet(r, Position);
   if (limit.mayAllowNear === undefined || footprint === undefined || p === undefined) return true;
   const ax = nodeHxOfPosition(p.x, p.y);

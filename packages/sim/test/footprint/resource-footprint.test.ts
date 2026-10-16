@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import * as components from '../../src/components/index.js';
 import {
   CurrentAtomic,
   GroundDrop,
@@ -9,14 +8,15 @@ import {
   PlayerOrder,
   Position,
   Resource,
-  ResourceFootprint,
 } from '../../src/components/index.js';
 import { findPath, positionOfNode } from '../../src/index.js';
 import { createChest } from '../../src/systems/chests/index.js';
 import {
   canPlaceBuilding,
   canPlaceWorkFlag,
+  contentFootprintCells,
   dynamicBlockOverlay,
+  footprintCellsOf,
   plannerSystem,
   resourceBlockedCells,
   resourceFootprintForGood,
@@ -54,9 +54,15 @@ import {
   terrainOf,
 } from './resource-footprint/support.js';
 
+function cellsForGood(goodType: number) {
+  const set = content();
+  const key = resourceFootprintForGood(set, goodType);
+  return key === null ? null : contentFootprintCells(set, key);
+}
+
 describe('resource footprints', () => {
   it('derives walk/build/work cells from the harvest-stage LandscapeGfx full state', () => {
-    const fp = resourceFootprintForGood(content(), WOOD);
+    const fp = cellsForGood(WOOD);
 
     expect(fp?.sourceGfxIndex).toBe(TREE_GFX);
     expect(fp?.walk).toEqual([{ dx: 0, dy: 0 }]);
@@ -72,7 +78,7 @@ describe('resource footprints', () => {
   });
 
   it('expands LandscapeGfx area runs along +x when deriving resource footprints', () => {
-    const fp = resourceFootprintForGood(content(), STONE);
+    const fp = cellsForGood(STONE);
 
     expect(fp?.sourceGfxIndex).toBe(STONE_GFX);
     expect(fp?.walk).toEqual([
@@ -91,7 +97,7 @@ describe('resource footprints', () => {
 
     expect(stampResourceFootprint(sim.world, sim.content, e, STONE, STONE_VARIANT_GFX)).toBe(true);
 
-    expect(sim.world.get(e, components.ResourceFootprint).sourceGfxIndex).toBe(STONE_VARIANT_GFX);
+    expect(footprintCellsOf(sim.world, e).sourceGfxIndex).toBe(STONE_VARIANT_GFX);
     const blocked = resourceBlockedCells(sim.world, terrain);
     expect(blocked.has(terrain.nodeAt(4, 1))).toBe(true);
     expect(blocked.has(terrain.nodeAt(1, 1))).toBe(false);
@@ -168,7 +174,7 @@ describe('resource footprints', () => {
     const sim = mappedSim();
     const terrain = terrainOf(sim);
     const chest = createChest(sim.world, sim.content, { kind: 'wooden', contents: 20, x: 5, y: 2 });
-    expect(sim.world.get(chest, ResourceFootprint).sourceGfxIndex).toBe(CHEST_GFX);
+    expect(footprintCellsOf(sim.world, chest).sourceGfxIndex).toBe(CHEST_GFX);
     expect(resourceBlockedCells(sim.world, terrain).has(terrain.nodeAt(5, 2))).toBe(true);
     // The build margin keeps a house off, and the work flag rule keeps a flag off the chest's own cell.
     expect(canPlaceBuilding(sim.world, ctxOf(sim), terrain, TEST_HUT, undefined, 4, 2)).toBe(false);

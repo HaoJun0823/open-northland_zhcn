@@ -48,11 +48,17 @@ export {
 } from './placement/index.js';
 export { resourceBlockedCells } from './resource-blocked-cache.js';
 export {
+  contentFootprintCells,
+  footprintCellsOf,
+  resourceFootprintCells,
+  resourceFootprintFromLandscapeGfx,
+  tryFootprintCellsOf,
+} from './resource-footprint-cells.js';
+export {
   anchorOnlyFootprint,
   createResourceNode,
   type ResourceNodeSpec,
   resourceFootprintForGood,
-  resourceFootprintFromLandscapeGfx,
   stampResourceFootprint,
   stampResourceFootprintData,
   stampResourceFootprintOrFallback,

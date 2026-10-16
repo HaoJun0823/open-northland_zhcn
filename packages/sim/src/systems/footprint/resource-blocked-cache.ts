@@ -5,6 +5,7 @@ import type { CountedCells } from '../../nav/block-overlay.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import { countsMatchCells, sameCells } from './geometry.js';
+import { footprintCellsOf } from './resource-footprint-cells.js';
 
 // The incrementally-maintained per-world cache of cells standing resource nodes make unwalkable, plus its
 // coherence verifier - the resource twin of ./building-blocked-cache.ts.
@@ -88,7 +89,7 @@ function stampWalkCells(
 ): boolean {
   const { terrain, counts, cells } = cache;
   let any = false;
-  for (const c of world.get(resource, ResourceFootprint).walk) {
+  for (const c of footprintCellsOf(world, resource).walk) {
     const x = hx + footprintCellDx(hy, c);
     const y = hy + c.dy;
     if (!terrain.inBounds(x, y)) continue;

@@ -1,7 +1,6 @@
 import type { ContentSet, LandscapeGfx } from '@open-northland/data';
 import { CHEST_LANDSCAPE_SLUG, type ChestKind, type ResourceFootprintData } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
-import { resourceFootprintFromLandscapeGfx } from '../footprint/resources.js';
 
 /**
  * The `[GfxLandscape]` record a `kind` chest stands on: the map's own when `gfxIndex` names a record of the
@@ -31,9 +30,8 @@ export function openedChestRecord(
   return content.landscapeGfx.find((g) => g.editName === openName);
 }
 
-/** The footprint `record` declares, or for content shipping no chest record the stand-in of a chest
- *  blocking its own cell and worked from a neighbour (the wooden record's shape), minted fresh per stamp. */
+/** The footprint `record` declares, or for content shipping no chest record the chest stand-in, minted
+ *  fresh per stamp. */
 export function chestFootprint(record: LandscapeGfx | undefined): ResourceFootprintData {
-  if (record === undefined) return { walk: [{ dx: 0, dy: 0 }], build: [], work: [] };
-  return resourceFootprintFromLandscapeGfx(record);
+  return record === undefined ? { standIn: 'chest' } : { gfx: record.index };
 }

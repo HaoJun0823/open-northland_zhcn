@@ -43,6 +43,7 @@ import { type Command, type CommandEnvelope, setupCommand } from './core/command
 import { EventBuffer } from './core/events.js';
 import { PersonalNames } from './core/personal-names.js';
 import { Rng } from './core/rng.js';
+import { bindWorldContent } from './core/world-content.js';
 import { type Entity, World } from './ecs/world.js';
 import { checkInvariants as _checkInvariants, type Invariant as _Invariant } from './harness/invariants.js';
 import { type HouseholdGoodPolicyView, householdGoodPolicyView } from './inspect/household-policy.js';
@@ -225,6 +226,7 @@ export class Simulation {
     this.names = new PersonalNames(opts.seed, opts.content.personalNames);
     this.seed = opts.seed;
     this.content = opts.content;
+    bindWorldContent(this.world, opts.content);
     if (opts.missions !== undefined) this.missions = opts.missions;
     if (opts.mapAiScript !== undefined) this.mapAiScript = opts.mapAiScript;
     if (opts.map !== undefined) {

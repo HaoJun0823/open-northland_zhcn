@@ -14,6 +14,7 @@ import { contentIndex } from '../../../core/content-index.js';
 import type { Component, Entity, World } from '../../../ecs/world.js';
 import { nodeOfPosition } from '../../../nav/halfcell.js';
 import { ANCHOR_ONLY, buildingFlagBody, buildingFootprintOf } from '../geometry.js';
+import { footprintCellsOf } from '../resource-footprint-cells.js';
 import { vehicleAnchorRevision } from '../vehicle-anchors.js';
 import { hexDisc, vehicleAnchor } from '../vehicle-footprint.js';
 
@@ -83,7 +84,7 @@ export function resourceBlockerCells(world: World, e: Entity, visit: BlockerVisi
   const p = world.tryGet(e, Position);
   if (p === undefined) return;
   const { hx, hy } = nodeOfPosition(p.x, p.y);
-  const fp = world.get(e, ResourceFootprint);
+  const fp = footprintCellsOf(world, e);
   visit(hx, hy, RESOURCE_ANCHOR);
   for (const c of fp.walk) visit(hx + footprintCellDx(hy, c), hy + c.dy, OBSTACLE);
   for (const c of fp.build) visit(hx + footprintCellDx(hy, c), hy + c.dy, EXCLUSION);

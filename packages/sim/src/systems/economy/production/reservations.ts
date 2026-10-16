@@ -7,12 +7,15 @@ import { interactionNode } from '../../footprint/index.js';
 import { operatorRecipeEnabled } from '../../progression/index.js';
 import type { WorkshopWorkforce } from '../../stores/workshop-workforce.js';
 import { cycleCoveredWith, outputRoomForCycles } from './cycles.js';
-import { type CycleChoice, craftablePool, nextCycleFor } from './rotation.js';
+import { type CycleChoice, craftablePoolInto, nextCycleFor } from './rotation.js';
 
 const NO_RESERVATIONS: ReadonlyMap<number, number> = new Map();
 
-/** The products one reservation pass has weighed, emptied per pass, which runs synchronously. */
+/** The products one reservation pass has weighed, its head `selectedCount` entries; reused rather than
+ *  emptied, since an emptied array drops its storage. The pass runs synchronously. */
 const selectedScratch: number[] = [];
+/** One crew member's craftable pool, read before the next member's overwrites it. */
+const poolScratch: number[] = [];
 
 /** Protect stocked ingredients while an active crew member's other ingredients are arriving, or while
  * a crew member off the door has a costlier cycle to start. Recomputed after deliveries and each start,
@@ -33,16 +36,16 @@ export function incomingRecipeReservations(
   const crew = workforce.operatorsAt(building);
   let reserved: Map<number, number> | undefined;
   const selected = selectedScratch;
-  selected.length = 0;
+  let selectedCount = 0;
   for (let c = 0; c < crew.length; c++) {
     const operator = crew[c] as Entity;
-    const pool = craftablePool(world, ctx, operator, recipes);
-    for (let p = 0; p < pool.length; p++) {
-      const good = pool[p] as number;
-      if (selected.includes(good)) continue;
+    const size = craftablePoolInto(world, ctx, operator, recipes, poolScratch);
+    for (let p = 0; p < size; p++) {
+      const good = poolScratch[p] as number;
+      if (weighed(selected, selectedCount, good)) continue;
       const recipe = recipes.get(good);
       if (recipe === undefined || !operatorRecipeEnabled(world, ctx, building, operator, recipe)) continue;
-      selected.push(good);
+      selected[selectedCount++] = good;
       if (outputRoomForCycles(world, ctx, building, recipe) <= 0) continue;
       if (!awaitsInbound(stock, recipe, workforce, building)) continue;
       for (let i = 0; i < recipe.inputs.length; i++) {
@@ -88,6 +91,11 @@ export function incomingRecipeReservations(
     }
   }
   return reserved ?? NO_RESERVATIONS;
+}
+
+function weighed(selected: readonly number[], count: number, good: number): boolean {
+  for (let i = 0; i < count; i++) if (selected[i] === good) return true;
+  return false;
 }
 
 /** Whether an input the workshop stocks short of the recipe amount has units on their way. */

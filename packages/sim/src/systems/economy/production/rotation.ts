@@ -28,20 +28,36 @@ export function craftablePool(
   operator: Entity,
   recipes: ReadonlyMap<number, Recipe>,
 ): readonly number[] {
+  const pool: number[] = [];
+  craftablePoolInto(world, ctx, operator, recipes, pool);
+  return pool;
+}
+
+/**
+ * {@link craftablePool} written over the head of `out`, returning its size; the entries past it are
+ * stale. A per-tick caller reuses one list this way, since an emptied array drops its storage.
+ */
+export function craftablePoolInto(
+  world: World,
+  ctx: SystemContext,
+  operator: Entity,
+  recipes: ReadonlyMap<number, Recipe>,
+  out: number[],
+): number {
   const subject = needSubjectOf(world, operator);
   const selection = world.tryGet(operator, ProductionCounters);
-  const pool: number[] = [];
+  let size = 0;
   let lockedLive = false;
   for (const good of recipes.keys()) {
     if (productionCountOf(selection, good) <= 0) continue;
-    if (settlerMeetsNeed(world, ctx, subject, 'good', good)) pool.push(good);
+    if (settlerMeetsNeed(world, ctx, subject, 'good', good)) out[size++] = good;
     else lockedLive = true;
   }
-  if (pool.length > 0 || !lockedLive) return pool;
+  if (size > 0 || !lockedLive) return size;
   for (const good of recipes.keys()) {
-    if (settlerMeetsNeed(world, ctx, subject, 'good', good)) pool.push(good);
+    if (settlerMeetsNeed(world, ctx, subject, 'good', good)) out[size++] = good;
   }
-  return pool;
+  return size;
 }
 
 /** The product an operator's rotation takes next: `good` at `index` into its craftable `pool`. */
@@ -68,11 +84,12 @@ export function nextRotationPick(
   operator: Entity,
   recipes: ReadonlyMap<number, Recipe>,
 ): CycleChoice | null {
-  const pool = craftablePool(world, ctx, operator, recipes);
-  if (pool.length === 0) return null; // no recipes at all, or none this operator has earned yet
+  const pool = poolScratch;
+  const size = craftablePoolInto(world, ctx, operator, recipes, pool);
+  if (size === 0) return null; // no recipes at all, or none this operator has earned yet
   const cursor = world.tryGet(operator, ProductionCounters)?.cursor ?? 0;
-  for (let i = 0; i < pool.length; i++) {
-    const index = (cursor + i) % pool.length;
+  for (let i = 0; i < size; i++) {
+    const index = (cursor + i) % size;
     const good = pool[index];
     const recipe = good !== undefined ? recipes.get(good) : undefined;
     if (good === undefined || recipe === undefined) continue;
@@ -87,12 +104,15 @@ export function nextRotationPick(
       continue;
     if (!operatorRecipeEnabled(world, ctx, building, operator, recipe)) continue;
     if (isYardBuilt(ctx, recipe) || canStartCycle(world, ctx, building, recipe)) {
-      return { good, index, pool, recipe };
+      return { good, index, pool: pool.slice(0, size), recipe };
     }
     if (waitingForRecipeInput(world, ctx, building, recipe)) return null;
   }
   return null;
 }
+
+/** The pool {@link nextRotationPick} walks, copied only into the pick it returns. */
+const poolScratch: number[] = [];
 
 /** Move the rotation past `pick` without a start, so a skipped turn resumes after the product. A
  *  first-ever advance stamps an empty selection so the rotation position persists. */

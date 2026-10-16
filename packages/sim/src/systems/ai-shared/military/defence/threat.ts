@@ -108,7 +108,7 @@ export function seatRaiders(
   }
   const held = scans.get(player);
   if (held !== undefined && held.content === ctx.content && sameKey(held.key, key)) return held.raiders;
-  const raiders = scanRaiders(world, ctx, terrain, player);
+  const raiders = enemiesAmong(world, looseFighters(world, ctx, terrain, key), player);
   scans.set(player, { key, content: ctx.content, raiders });
   return raiders;
 }
@@ -122,6 +122,22 @@ interface RaiderScan {
 }
 
 const raiderScans = new WeakMap<World, Map<number, RaiderScan>>();
+
+/** A live, unposted fighter of any seat, read once for every seat's {@link seatRaiders}. */
+interface LooseFighter {
+  readonly owner: number;
+  readonly raider: Raider;
+}
+
+/** The map's loose fighters under one scan key, ascending id. Derived read-state, never hashed. */
+interface LooseFighterScan {
+  readonly key: readonly number[];
+  readonly content: SystemContext['content'];
+  readonly terrain: TerrainGraph;
+  readonly fighters: readonly LooseFighter[];
+}
+
+const looseFighterScans = new WeakMap<World, LooseFighterScan>();
 
 /** Every store the scan reads, membership and in-place writes: a man born, killed, moved, re-owned,
  *  re-jobbed, re-armed or posted, or a stance changed, starts a fresh scan. */
@@ -139,28 +155,52 @@ function sameKey(a: readonly number[], b: readonly number[]): boolean {
   return a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
-function scanRaiders(
+function looseFighters(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
-  player: number,
-): readonly Raider[] {
-  const raiders: Raider[] = [];
+  key: readonly number[],
+): readonly LooseFighter[] {
+  const held = looseFighterScans.get(world);
+  if (
+    held !== undefined &&
+    held.content === ctx.content &&
+    held.terrain === terrain &&
+    sameKey(held.key, key)
+  ) {
+    return held.fighters;
+  }
+  const fighters: LooseFighter[] = [];
   // The owned-fighter index holds every owned settler of a fighting trade, ascending id: the fighters among
   // the people, without a walk over every civilian.
   for (const e of ownedFighters(world, ctx.content)) {
-    if (!world.has(e, Person)) continue;
-    const owner = world.get(e, Owner).player;
-    if (owner === player) continue;
-    // A fighter is a raid only if his player would engage this seat: an allied army walking past must
-    // not hold the town in alarm.
-    if (diplomacyStance(world, owner, player) !== 'enemy') continue;
-    if (!world.has(e, Position)) continue;
+    if (!world.has(e, Person) || !world.has(e, Position)) continue;
     if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) continue;
     if (standsAtPost(world, e) !== null) continue;
     const at = entityNode(world, terrain, e);
     const reach = Math.max(weaponReach(world, ctx, e), SIGHT_RADIUS_NODES);
-    raiders.push({ entity: e, ...terrain.coordsOf(at), component: terrain.componentOf(at), reach });
+    fighters.push({
+      owner: world.get(e, Owner).player,
+      raider: { entity: e, ...terrain.coordsOf(at), component: terrain.componentOf(at), reach },
+    });
+  }
+  looseFighterScans.set(world, { key, content: ctx.content, terrain, fighters });
+  return fighters;
+}
+
+/** The `fighters` whose player would engage `player`, in their order: an allied army walking past must not
+ *  hold the town in alarm. */
+function enemiesAmong(world: World, fighters: readonly LooseFighter[], player: number): readonly Raider[] {
+  const raiders: Raider[] = [];
+  const enemyOwners = new Map<number, boolean>();
+  for (const { owner, raider } of fighters) {
+    if (owner === player) continue;
+    let enemy = enemyOwners.get(owner);
+    if (enemy === undefined) {
+      enemy = diplomacyStance(world, owner, player) === 'enemy';
+      enemyOwners.set(owner, enemy);
+    }
+    if (enemy) raiders.push(raider);
   }
   return raiders;
 }

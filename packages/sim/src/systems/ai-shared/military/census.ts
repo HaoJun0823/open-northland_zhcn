@@ -101,32 +101,54 @@ function armyStrength(world: World, ctx: SystemContext, player: number, postedWe
  * The {@link fighterStrength} of the strongest player `player` holds an `enemy` stance toward, 0 when no
  * enemy fields anyone: the men he could march with, counted one to one like the seat's own, so the army
  * floor (`workforce/garrison.ts`) can be met. The weight his tower posts add is the offensive's concern
- * ({@link defendingStrength}), read for the one target it picks. One pass over the owned fighters, so the
- * cost is the map's fighters, not its people. Not fog-gated, like the campaign's target scan; that the
+ * ({@link defendingStrength}), read for the one target it picks. One pass over the owned fighters serves
+ * every seat, so the cost is the map's fighters, not its people. Not fog-gated, like the campaign's target scan; that the
  * original's AI sees through the fog too is unconfirmed.
  */
 export function strongestEnemyStrength(world: World, ctx: SystemContext, player: number): number {
-  const strengths: number[] = [];
-  let anyEnemy = false;
+  let counts: readonly number[] | null = null;
+  let strongest = 0;
   for (let other = 0; other < MAX_PLAYERS; other++) {
-    const enemy = other !== player && diplomacyStance(world, player, other) === 'enemy';
-    strengths.push(enemy ? 0 : NOT_AN_ENEMY);
-    anyEnemy ||= enemy;
+    if (other === player || diplomacyStance(world, player, other) !== 'enemy') continue;
+    counts ??= liveFightersByPlayer(world, ctx);
+    strongest = Math.max(strongest, counts[other] ?? 0);
   }
-  if (!anyEnemy) return 0;
+  return strongest;
+}
+
+/** The live fighters per player slot under one store key, shared by every seat until a man is born, killed,
+ *  hurt, re-owned or re-jobbed. Derived read-state, never hashed. */
+interface FighterTally {
+  readonly key: readonly number[];
+  readonly content: SystemContext['content'];
+  readonly counts: readonly number[];
+}
+
+const fighterTallies = new WeakMap<World, FighterTally>();
+
+/** Every store the tally reads, membership and in-place writes. */
+const TALLY_STORES = [Person, Owner, Health, Settler] as const;
+
+function liveFightersByPlayer(world: World, ctx: SystemContext): readonly number[] {
+  const key: number[] = [];
+  for (const store of TALLY_STORES) {
+    key.push(world.componentGeneration(store), world.componentValueGeneration(store));
+  }
+  const held = fighterTallies.get(world);
+  if (held !== undefined && held.content === ctx.content && held.key.every((v, i) => v === key[i])) {
+    return held.counts;
+  }
+  const counts = new Array<number>(MAX_PLAYERS).fill(0);
   for (const e of ownedFighters(world, ctx.content)) {
     if (!world.has(e, Person)) continue;
     const owner = world.get(e, Owner).player;
-    const held = strengths[owner];
-    if (held === undefined || held === NOT_AN_ENEMY) continue;
-    if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) continue;
-    strengths[owner] = held + 1;
+    const count = counts[owner];
+    if (count === undefined || (world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) continue;
+    counts[owner] = count + 1;
   }
-  return Math.max(0, ...strengths);
+  fighterTallies.set(world, { key, content: ctx.content, counts });
+  return counts;
 }
-
-/** {@link strongestEnemyStrength}'s mark on a slot it does not count. */
-const NOT_AN_ENEMY = -1;
 
 /** The weapon mix of one body of fighters. A man with nothing to fight with counts as melee: he has no
  *  reach to keep, so he goes in with the front rank. */

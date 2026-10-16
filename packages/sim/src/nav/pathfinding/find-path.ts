@@ -21,7 +21,7 @@ import {
   type TerrainGraph,
   type Traversal,
 } from '../terrain/index.js';
-import { siftDown, siftUp } from './open-heap.js';
+import { heapPopRoot, heapPush, siftUp } from './open-heap.js';
 import { MAX_QUERY_GENERATION, NO_NODE, SETTLED, type SearchScratch, scratchFor } from './scratch.js';
 
 /**
@@ -317,12 +317,10 @@ class ResumableSearch {
     this.goalY = graph.yOf(goal);
     scratch.stamps[start] = this.query;
     scratch.g[start] = 0;
-    scratch.f[start] = this.heuristic(start);
-    scratch.dev[start] = 0; // the start sits on its own line
     scratch.cameFrom[start] = NO_NODE;
-    scratch.heapIdx[start] = 0;
-    scratch.heap[0] = start;
-    scratch.heapSize = 1;
+    scratch.heapSize = 0;
+    // The start sits on its own line.
+    heapPush(scratch, start, this.heuristic(start), 0);
   }
 
   /** Whether this search has reached `node`. */
@@ -333,14 +331,15 @@ class ResumableSearch {
   /** Settle until a verdict, or return `'aborted'` once this search has settled `maxExplored` in total. */
   advance(maxExplored: number): NodeId[] | 'unreachable' | 'aborted' {
     const { scratch, graph, goal, blocked, stats, query, traversal } = this;
-    const { stamps, g, f, dev, cameFrom, heapIdx, heap, steps } = scratch;
+    // The heap arrays are read through `scratch`: a push may replace them with larger ones.
+    const { stamps, g, cameFrom, heapIdx, steps } = scratch;
     if (scratch.query !== query) throw new Error('a newer search on this scratch overwrote a paused one');
     const lineHX = this.goalX - this.startX;
     const lineHY = this.goalY - this.startY;
     for (;;) {
       if (scratch.heapSize === 0) return 'unreachable';
       // The heap holds node ids; a typed array only drops the brand.
-      const current = (heap[0] ?? 0) as NodeId;
+      const current = (scratch.heap[0] ?? 0) as NodeId;
       if (this.explored >= maxExplored) return 'aborted';
 
       this.explored += 1;
@@ -349,11 +348,7 @@ class ResumableSearch {
 
       // The popped minimum is closed for good; see LAND_HEURISTIC_WEIGHT for what that costs on land.
       heapIdx[current] = SETTLED;
-      scratch.heapSize -= 1;
-      if (scratch.heapSize > 0) {
-        heap[0] = heap[scratch.heapSize] ?? 0;
-        siftDown(scratch, 0);
-      }
+      heapPopRoot(scratch);
 
       const currentG = g[current] ?? 0;
       graph.stepsInto(current, blocked, steps, traversal);
@@ -366,14 +361,11 @@ class ResumableSearch {
         if (!discovered) {
           stamps[next] = query;
           g[next] = tentativeG;
-          f[next] = tentativeG + this.heuristic(next);
-          dev[next] = Math.abs(
+          cameFrom[next] = current;
+          const dev = Math.abs(
             (graph.xOf(next) - this.startX) * lineHY - (graph.yOf(next) - this.startY) * lineHX,
           );
-          cameFrom[next] = current;
-          heap[scratch.heapSize] = next;
-          scratch.heapSize += 1;
-          siftUp(scratch, scratch.heapSize - 1);
+          heapPush(scratch, next, tentativeG + this.heuristic(next), dev);
           continue;
         }
         // A relaxation only decreases the key, so restoring the heap invariant is a sift toward the root.
@@ -382,7 +374,7 @@ class ResumableSearch {
         const index = heapIdx[next] ?? SETTLED;
         const knownG = g[next] ?? 0;
         if (tentativeG >= knownG) continue;
-        f[next] = tentativeG + ((f[next] ?? 0) - knownG);
+        scratch.heapF[index] = tentativeG + ((scratch.heapF[index] ?? 0) - knownG);
         g[next] = tentativeG;
         cameFrom[next] = current;
         siftUp(scratch, index);

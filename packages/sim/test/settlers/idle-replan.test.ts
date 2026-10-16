@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AiControl,
+  Chat,
   COMPUTER_MODULE_IDS,
   computerModuleEnables,
   DeliveryFlag,
@@ -16,7 +17,7 @@ import {
 } from '../../src/components/index.js';
 import { type Entity, World } from '../../src/ecs/world.js';
 import { positionOfNode, Simulation } from '../../src/index.js';
-import { anchorOnlyFootprint, plannerSystem, stampResourceFootprintData } from '../../src/systems/index.js';
+import { plannerSystem, stampResourceFootprintData } from '../../src/systems/index.js';
 import * as ladder from '../../src/systems/settlers/drives/ladder.js';
 import {
   COMPUTER_IDLE_REPLAN_PERIOD_TICKS,
@@ -73,7 +74,7 @@ function treeAt(sim: Simulation, hx: number, hy: number): Entity {
   const e = sim.world.create();
   sim.world.add(e, Position, positionOfNode(hx, hy));
   sim.world.add(e, Resource, { goodType: WOOD, remaining: 3, harvestAtomic: CHOP });
-  stampResourceFootprintData(sim.world, e, { walk: [], build: [], work: [...anchorOnlyFootprint().work] });
+  stampResourceFootprintData(sim.world, e, { walk: [], build: [], work: [{ dx: 0, dy: 0 }] });
   return e;
 }
 
@@ -168,6 +169,60 @@ describe('a computer seat', () => {
     expect(ticks.length).toBe(watch / COMPUTER);
     for (const tick of ticks) expect(idleReplanDue(tick, idler, COMPUTER)).toBe(true);
   });
+
+  it('re-files the idlers it already has into the slower beat once it turns computer', () => {
+    const sim = newSim();
+    const idler = woodcutterAt(sim, 10, 10);
+    sim.step();
+    expect(plannedTicks(sim, idler, HUMAN)).toHaveLength(1);
+
+    computerSeat(sim);
+    const watch = 2 * COMPUTER;
+    const ticks = plannedTicks(sim, idler, watch);
+    expect(ticks.length).toBe(watch / COMPUTER);
+    for (const tick of ticks) expect(idleReplanDue(tick, idler, COMPUTER)).toBe(true);
+  });
+
+  it.each([
+    ['family duty', 'outdoors', false],
+    ['family duty', 'indoors', true],
+    ['company chat', 'outdoors', false],
+  ])(
+    'returns to work after its %s ends %s: outdoors on its beat, indoors on the next pass',
+    (hold, _, indoors) => {
+      // Planner passes run by hand, so no family or social system ends the hold early.
+      const sim = newSim();
+      computerSeat(sim);
+      const held = woodcutterAt(sim, 10, 10);
+      treeAt(sim, 16, 10);
+      const partner = woodcutterAt(sim, 12, 10);
+      const chat = { partner, seeker: true, talking: false, speaks: true, kind: 'company' } as const;
+      if (hold === 'family duty') sim.world.add(held, FamilyDuty, { duty: true });
+      else sim.world.add(held, Chat, chat);
+      if (indoors) sim.world.add(held, Resting, { at: sim.world.create() });
+      const key = sim.world.tryGet(held, Resting)?.at ?? held;
+      let tick = 1;
+      const pass = (): void => {
+        plannerSystem(sim.world, { ...ctxOf(sim), tick });
+        tick++;
+      };
+      pass();
+      expect(sim.world.get(held, IdleStand)).toEqual({ standing: false });
+      // Released just after its beat: the longest wait outdoors.
+      while (!idleReplanDue(tick, key, COMPUTER)) pass();
+      pass();
+      sim.world.remove(held, hold === 'family duty' ? FamilyDuty : Chat);
+
+      const spy = vi.spyOn(ladder, 'planAdult');
+      let waited = 0;
+      while (!spy.mock.calls.some((args) => args[1] === held)) {
+        pass();
+        waited++;
+      }
+      expect(waited).toBe(indoors ? 1 : COMPUTER);
+      expect(sim.world.has(held, IdleStand)).toBe(false);
+    },
+  );
 
   it.each([
     ['outdoors', false],

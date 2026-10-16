@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Owner, Position, ResourceFootprint, Signpost, Stockpile } from '../../src/components/index.js';
+import {
+  Owner,
+  Position,
+  ResourceFootprint,
+  Signpost,
+  Stockpile,
+  stampOwner,
+} from '../../src/components/index.js';
+import type { Entity } from '../../src/ecs/world.js';
 import { positionOfNode } from '../../src/nav/halfcell.js';
 import { intersectReach, reachContains, searchReach } from '../../src/nav/range-search.js';
 import { buildTerrainGraph } from '../../src/nav/terrain/map.js';
@@ -8,7 +16,7 @@ import { layRoad, liftRoad } from '../../src/systems/roads/index.js';
 import { collectTargets, nearestStoreHolding } from '../../src/systems/settlers/targets/index.js';
 import { GroupCoverage } from '../../src/systems/signposts/group-coverage.js';
 import { signpostLinksSystem } from '../../src/systems/signposts/links.js';
-import { createSignpost } from '../../src/systems/signposts/placement.js';
+import { createSignpost, razeSignpost } from '../../src/systems/signposts/placement.js';
 import { goodsReachAt, goodsSearchLimitAt } from '../../src/systems/signposts/reach.js';
 import { signpostMask } from '../../src/systems/signposts/terrain-reach.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
@@ -138,6 +146,48 @@ describe('terrain-aware goods reach', () => {
     expect(scans).toHaveBeenCalledTimes(3);
     expect(posts.map((p) => sim.world.get(p, Signpost).links)).toEqual([[], [], [posts[3]], [posts[2]]]);
     scans.mockRestore();
+  });
+  it('links as a fresh pass would after an owner change and a post added and razed', () => {
+    type Edit = (sim: Simulation) => void;
+    const P0 = 0;
+    const P1 = 1;
+    const POST_HY = 40;
+    const postAt =
+      (hx: number): Edit =>
+      (sim) => {
+        const post = sim.world.create();
+        sim.world.add(post, Owner, { player: P0 });
+        sim.world.add(post, Position, positionOfNode(hx, POST_HY));
+        sim.world.add(post, Signpost, { links: [] });
+      };
+    const farWall: Edit = (sim) => {
+      const wall = sim.world.create();
+      sim.world.add(wall, Position, positionOfNode(480, 0));
+      sim.world.add(wall, ResourceFootprint, {
+        walk: Array.from({ length: 150 }, (_, dy) => ({ dx: 0, dy })),
+        build: [],
+        work: [],
+      });
+    };
+    const postsOf = (sim: Simulation): Entity[] => sim.world.canonicalQuery(Signpost, Position, Owner);
+    const linksOf = (sim: Simulation) => postsOf(sim).map((p) => [p, sim.world.get(p, Signpost).links]);
+    const edits: Edit[][] = [
+      [30, 60, 90, 330, 360].map(postAt),
+      // Meets no post's read box, so every post keeps its links unasked.
+      [farWall],
+      [(sim) => stampOwner(sim.world, postsOf(sim)[1] as Entity, P1)],
+      [postAt(120), (sim) => razeSignpost(sim.world, postsOf(sim)[0] as Entity)],
+    ];
+    const newSim = () => new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(500, 150) });
+    const reused = newSim();
+    edits.forEach((step, i) => {
+      for (const edit of step) edit(reused);
+      signpostLinksSystem(reused.world, ctxOf(reused));
+      const fresh = newSim();
+      for (const edit of edits.slice(0, i + 1).flat()) edit(fresh);
+      signpostLinksSystem(fresh.world, ctxOf(fresh));
+      expect(linksOf(reused), `after edit ${i}`).toEqual(linksOf(fresh));
+    });
   });
   it('asks a coverage post again only when a change since its scan met its read box', () => {
     // Resistance 5 spends the 80-point budget within 16 steps, so each post reads about 17 nodes around it.

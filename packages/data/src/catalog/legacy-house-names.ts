@@ -5,7 +5,7 @@
  * copies never rewrite keeps the same mapping (approximation). Original behavior (unconfirmed): it
  * leaves these houses out, so the mapping is a deliberate departure that keeps such maps playable.
  */
-const LEGACY_HOUSE_NAMES: ReadonlyMap<string, string> = new Map([
+export const LEGACY_HOUSE_NAMES: ReadonlyMap<string, string> = new Map([
   ['byzantine armory', 'byzantine manson'],
   ['byzantine bakery', 'byzantine market'],
   ['byzantine brewery', 'byzantine work02'],
@@ -19,9 +19,3 @@ const LEGACY_HOUSE_NAMES: ReadonlyMap<string, string> = new Map([
   ['byzantine stock', 'byzantine harbour01'],
   ['frank coin mint', 'viking coin mint'],
 ]);
-
-/** The defined house name a legacy `sethouse` name stands for, matched case-insensitively and whole,
- *  like a defined name. */
-export function legacyHouseName(name: string): string | undefined {
-  return LEGACY_HOUSE_NAMES.get(name.toLowerCase());
-}

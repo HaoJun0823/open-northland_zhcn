@@ -1,4 +1,4 @@
-import { legacyHouseName } from './legacy-house-names.js';
+import { LEGACY_HOUSE_NAMES } from '@open-northland/data';
 
 /** The decoded body choices of one authored house, in palette order. */
 export interface AuthoredBuildingGraphics {
@@ -61,13 +61,39 @@ function normalizeRoleKey(name: string): string {
     .replace(/^_+|_+$/g, '');
 }
 
+const HOUSE_KEY_SEPARATOR = '\u0000';
+
 /**
- * A house `EditName` and level as a join key. The name folds case and nothing else: the original
- * compares house names case-insensitively, whole (a trailing space still misses). NUL-separated, since a
- * plain space would let `"foo 1" L0` collide with `"foo" L10`.
+ * A house `EditName` and level as a join key. The name folds ASCII case and nothing else: the original
+ * compares house names ASCII-case-insensitively, whole (a trailing space or `Ä` against `ä` still
+ * misses). NUL-separated, since a plain space would let `"foo 1" L0` collide with `"foo" L10`.
  */
 function houseKey(editName: string, level: number): string {
-  return `${editName.toLowerCase()}\u0000${level}`;
+  return `${editName.replace(/[A-Z]/g, (c) => c.toLowerCase())}${HOUSE_KEY_SEPARATOR}${level}`;
+}
+
+/**
+ * Adds each {@link LEGACY_HOUSE_NAMES} alias, at every level its defined house has, wherever no house
+ * table defines that name and level itself; and to the level-less name table the same way.
+ */
+function addLegacyHouseNames(
+  bobByNameLevel: Map<string, AuthoredBuildingMatch>,
+  buildingByName: Map<string, number>,
+): void {
+  const legacyByTarget = new Map<string, string[]>();
+  for (const [legacy, target] of LEGACY_HOUSE_NAMES) {
+    legacyByTarget.set(target, [...(legacyByTarget.get(target) ?? []), legacy]);
+    const typeId = buildingByName.get(normalizeRoleKey(target));
+    const slug = normalizeRoleKey(legacy);
+    if (typeId !== undefined && !buildingByName.has(slug)) buildingByName.set(slug, typeId);
+  }
+  for (const [key, match] of [...bobByNameLevel]) {
+    const [name = '', level = ''] = key.split(HOUSE_KEY_SEPARATOR);
+    for (const legacy of legacyByTarget.get(name) ?? []) {
+      const legacyKey = houseKey(legacy, Number(level));
+      if (!bobByNameLevel.has(legacyKey)) bobByNameLevel.set(legacyKey, match);
+    }
+  }
 }
 
 /**
@@ -89,8 +115,8 @@ function catalogKey(name: string): string {
  * order the way the original resolves a name.
  */
 export interface ContentJoins {
-  /** A `sethouse` name and level, the only join that is level-specific. A name and level no house
-   *  table defines fall back to the legacy mapping at the same level. */
+  /** A `sethouse` name and level, the only join that is level-specific. A legacy name no house table
+   *  defines joins as its mapped house at the same level. */
   buildingBob(name: string, level: number): AuthoredBuildingMatch | undefined;
   /** A building's `kind`, which routes an `attachtohouse` to a home or a workplace. */
   buildingKind(typeId: number): string | undefined;
@@ -152,6 +178,7 @@ export function contentJoins(rows: AuthoredJoinRows): ContentJoins {
     const slug = b.id === undefined ? undefined : normalizeRoleKey(b.id);
     if (slug !== undefined && !buildingByName.has(slug)) buildingByName.set(slug, b.typeId);
   }
+  addLegacyHouseNames(bobByNameLevel, buildingByName);
   const jobByName = byNormalizedName(rows.jobs ?? []);
   // Two records share the `oxcart` name; the original's name lookup walks the type ids in order, so
   // the ox cart (2) wins over the ox-less cart (6), whatever order the table lists them in.
@@ -191,12 +218,7 @@ export function contentJoins(rows: AuthoredJoinRows): ContentJoins {
     if (g.typeId !== undefined) goodTypeIds.add(g.typeId);
   }
   return {
-    buildingBob: (name, level) => {
-      const exact = bobByNameLevel.get(houseKey(name, level));
-      if (exact !== undefined) return exact;
-      const legacy = legacyHouseName(name);
-      return legacy === undefined ? undefined : bobByNameLevel.get(houseKey(legacy, level));
-    },
+    buildingBob: (name, level) => bobByNameLevel.get(houseKey(name, level)),
     buildingKind: (typeId) => kindByType.get(typeId),
     buildingType: (name) => buildingByName.get(normalizeRoleKey(name)),
     job: (name) => jobByName.get(normalizeRoleKey(name)),

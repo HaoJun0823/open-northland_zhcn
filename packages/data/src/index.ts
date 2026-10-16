@@ -1,6 +1,7 @@
 export * from './building-tribe.js';
 export * from './cadaver.js';
 export * from './catalog/animal-locomotion.js';
+export * from './catalog/legacy-house-names.js';
 export * from './content-fingerprint.js';
 export * from './fnv.js';
 export * from './footprint.js';

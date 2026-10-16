@@ -400,32 +400,40 @@ export class DeltaColumns {
   }
 }
 
-/** The written values of `delta` in turn, per touched entity in its change's `written` order. */
-export function deltaValues(delta: SnapshotDelta): unknown[] {
-  const { valueKinds, recordKeys, recordFields, numbers, strings, values } = delta;
-  const out: unknown[] = new Array(valueKinds.length);
-  let number = 0;
-  let string = 0;
-  let whole = 0;
-  for (let i = 0; i < valueKinds.length; i++) {
-    const kind = valueKinds[i] ?? WHOLE_VALUE;
+/** Reads the written values of a delta in turn, per touched entity in its change's `written` order,
+ *  each scalar record rebuilt as it is read rather than collected into a list first. */
+export class DeltaValueReader {
+  private kind = 0;
+  private number = 0;
+  private string = 0;
+  private whole = 0;
+
+  constructor(private readonly delta: SnapshotDelta) {}
+
+  next(): unknown {
+    const { valueKinds, recordKeys, recordFields, numbers, strings, values } = this.delta;
+    const kind = valueKinds[this.kind++] ?? WHOLE_VALUE;
     const keys = recordKeys[kind];
     const fields = recordFields[kind];
-    if (keys === undefined || fields === undefined) {
-      out[i] = values[whole++];
-      continue;
-    }
+    if (keys === undefined || fields === undefined) return values[this.whole++];
     const record: Record<string, unknown> = {};
     for (let k = 0; k < keys.length; k++) {
       const key = keys[k] as string;
       const field = fields[k];
-      if (field === FIELD.NUMBER) record[key] = numbers[number++];
-      else if (field === FIELD.BOOLEAN) record[key] = numbers[number++] !== 0;
-      else if (field === FIELD.STRING) record[key] = strings[string++];
+      if (field === FIELD.NUMBER) record[key] = numbers[this.number++];
+      else if (field === FIELD.BOOLEAN) record[key] = numbers[this.number++] !== 0;
+      else if (field === FIELD.STRING) record[key] = strings[this.string++];
       else record[key] = null;
     }
-    out[i] = record;
+    return record;
   }
+}
+
+/** The written values of `delta` in turn, per touched entity in its change's `written` order. */
+export function deltaValues(delta: SnapshotDelta): unknown[] {
+  const reader = new DeltaValueReader(delta);
+  const out: unknown[] = new Array(delta.valueKinds.length);
+  for (let i = 0; i < out.length; i++) out[i] = reader.next();
   return out;
 }
 

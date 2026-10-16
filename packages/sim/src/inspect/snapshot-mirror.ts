@@ -1,7 +1,7 @@
 import { addField } from './fast-record.js';
 import type { EntitySnapshot, WorldSnapshot } from './snapshot.js';
-import { attachIdTable, indexOfEntity, indexOfEntityFrom } from './snapshot.js';
-import { changeAt, deltaValues, type EntityChange, type SnapshotDelta } from './snapshot-delta.js';
+import { attachIdTable } from './snapshot.js';
+import { changeAt, DeltaValueReader, type EntityChange, type SnapshotDelta } from './snapshot-delta.js';
 import { attachIndexes, SnapshotIndexes } from './snapshot-indexes.js';
 
 /**
@@ -19,6 +19,9 @@ export class SnapshotMirror {
   /** The entities indexed by id, kept with the list, which `entityById` answers from in place of a
    *  search. An array store costs a replaced entity far less than a map's hashed set. */
   private readonly byId: (EntitySnapshot | undefined)[] = [];
+  /** The ids of `entities` in their order, which the searches and the compaction read instead of
+   *  following each entity object to its id. */
+  private ids = new Int32Array(INITIAL_IDS);
 
   constructor() {
     attachIdTable(this.entities, this.byId);
@@ -48,17 +51,16 @@ export class SnapshotMirror {
     if (delta.rebuild) {
       this.entities.length = 0;
       this.byId.length = 0;
-      const values = deltaValues(delta);
-      let at = 0;
+      this.reserveIds(delta.touched.length);
+      this.ids.set(delta.touched);
+      const values = new DeltaValueReader(delta);
       for (let i = 0; i < delta.touched.length; i++) {
-        const change = changeAt(delta, i);
-        const entity = created(delta.touched[i] as number, change, values, at);
+        const entity = created(delta.touched[i] as number, changeAt(delta, i), values);
         this.entities.push(entity);
         // Grown slot by slot: a sparse store far past the table's end would drop V8's array into its
         // dictionary layout, and every store after that into a hashed one.
         while (this.byId.length < entity.id) this.byId.push(undefined);
         this.byId[entity.id] = entity;
-        at += change.written.length;
       }
       this.indexes.reset();
     } else {
@@ -84,8 +86,13 @@ export class SnapshotMirror {
     let held = 0;
     for (const entity of this.byId) if (entity !== undefined) held++;
     let mapped = held === this.entities.length;
-    for (const entity of this.entities) if (this.byId[entity.id] !== entity) mapped = false;
+    let listed = true;
+    this.entities.forEach((entity, i) => {
+      if (this.byId[entity.id] !== entity) mapped = false;
+      if (this.ids[i] !== entity.id) listed = false;
+    });
     if (!mapped) out.push('the id table differs from the entity list');
+    if (!listed) out.push('the id column differs from the entity list');
     return out;
   }
 
@@ -101,22 +108,24 @@ export class SnapshotMirror {
     const first = removed[0];
     if (first === undefined) return;
     const list = this.entities;
-    const found = indexOfEntity(list, first);
+    const ids = this.ids;
+    const found = searchIds(ids, list.length, first, 0);
     let write = found >= 0 ? found : -found - 1;
     let next = 0;
     for (let read = write; read < list.length; read++) {
-      const entity = list[read];
-      if (entity === undefined) break; // unreachable: read stays inside the list
+      const entityId = ids[read] as number;
       let id = removed[next];
-      while (id !== undefined && id < entity.id) id = removed[++next];
-      if (id === entity.id) {
+      while (id !== undefined && id < entityId) id = removed[++next];
+      if (id === entityId) {
+        const entity = list[read] as EntitySnapshot;
         this.dropped.push(entity);
-        this.byId[entity.id] = undefined;
+        this.byId[entityId] = undefined;
         this.indexes.removed(entity);
         next++;
         continue;
       }
-      list[write++] = entity;
+      list[write] = list[read] as EntitySnapshot;
+      ids[write++] = entityId;
     }
     list.length = write;
   }
@@ -127,66 +136,94 @@ export class SnapshotMirror {
     const list = this.entities;
     const inserts: EntitySnapshot[] = [];
     const { touched } = delta;
-    const values = deltaValues(delta);
+    const values = new DeltaValueReader(delta);
     this.indexes.beginDelta(delta.changes);
-    let at = 0;
     let from = 0;
     for (let i = 0; i < touched.length; i++) {
       const id = touched[i] as number;
       const change = changeAt(delta, i);
-      const found = indexOfEntityFrom(list, id, from);
-      const held = found >= 0 ? list[found] : undefined;
+      const held = this.byId[id];
       if (held !== undefined) {
-        const next = patched(held, change, values, at);
+        const found = searchIds(this.ids, list.length, id, from);
+        const next = patched(held, change, values);
         list[found] = next;
         this.byId[id] = next;
         this.indexes.replaced(held, next, delta.changeOf[i] as number);
         from = found + 1;
       } else {
-        const entity = created(id, change, values, at);
+        const entity = created(id, change, values);
         inserts.push(entity);
         this.byId[id] = entity;
         this.indexes.added(entity);
-        from = -found - 1;
       }
-      at += change.written.length;
     }
     this.indexes.endDelta();
     if (inserts.length === 0) return;
     let read = list.length - 1;
     for (const entity of inserts) list.push(entity); // placeholders; the merge below overwrites them
+    this.reserveIds(list.length);
+    const ids = this.ids;
     let write = list.length - 1;
     for (let next = inserts.length - 1; next >= 0; ) {
-      const insert = inserts[next];
-      const held = read >= 0 ? list[read] : undefined;
-      if (insert === undefined) break; // unreachable: next stays inside inserts
-      if (held !== undefined && held.id > insert.id) {
-        list[write--] = held;
-        read--;
+      const insert = inserts[next] as EntitySnapshot;
+      if (read >= 0 && (ids[read] as number) > insert.id) {
+        list[write] = list[read] as EntitySnapshot;
+        ids[write--] = ids[read--] as number;
       } else {
-        list[write--] = insert;
+        list[write] = insert;
+        ids[write--] = insert.id;
         next--;
       }
     }
   }
+
+  /** Room in the id column for `count` entities, keeping the ids it holds. */
+  private reserveIds(count: number): void {
+    if (count <= this.ids.length) return;
+    let length = this.ids.length * 2;
+    while (length < count) length *= 2;
+    const grown = new Int32Array(length);
+    grown.set(this.ids);
+    this.ids = grown;
+  }
 }
 
-function created(id: number, change: EntityChange, values: readonly unknown[], at: number): EntitySnapshot {
+/** Room for a small world's ids before the column first doubles. */
+const INITIAL_IDS = 1024;
+
+/** The index of `id` among the first `length` ascending `ids`, searched from `from` on, or
+ *  `-(insertion) - 1`: it gallops from `from`, so ids looked up in ascending order cost a few probes. */
+function searchIds(ids: Int32Array, length: number, id: number, from: number): number {
+  let lo = from;
+  let hi = from;
+  let step = 1;
+  while (hi < length && (ids[hi] as number) < id) {
+    lo = hi + 1;
+    hi = from + step;
+    step *= 2;
+  }
+  hi = Math.min(hi, length - 1);
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const at = ids[mid] as number;
+    if (at === id) return mid;
+    if (at < id) lo = mid + 1;
+    else hi = mid - 1;
+  }
+  return -lo - 1;
+}
+
+function created(id: number, change: EntityChange, values: DeltaValueReader): EntitySnapshot {
   const components: Record<string, unknown> = {};
   const { written } = change;
-  for (let k = 0; k < written.length; k++) addField(components, k, written[k] as string, values[at + k]);
+  for (let k = 0; k < written.length; k++) addField(components, k, written[k] as string, values.next());
   return { id, components };
 }
 
 /** The new object of a held entity: the previous clones of the components the change left alone, the
  *  change's fresh clones over them, without the components it removed. A name the entity did not hold
  *  lands last. */
-function patched(
-  held: EntitySnapshot,
-  change: EntityChange,
-  values: readonly unknown[],
-  at: number,
-): EntitySnapshot {
+function patched(held: EntitySnapshot, change: EntityChange, values: DeltaValueReader): EntitySnapshot {
   const { written, removed } = change;
   let components: Record<string, unknown>;
   let fields = -1; // counted only once a name is added
@@ -202,12 +239,13 @@ function patched(
   }
   for (let k = 0; k < written.length; k++) {
     const name = written[k] as string;
+    const value = values.next();
     if (name in components) {
-      components[name] = values[at + k];
+      components[name] = value;
       continue;
     }
     if (fields < 0) fields = fieldCount(components);
-    addField(components, fields++, name, values[at + k]);
+    addField(components, fields++, name, value);
   }
   return { id: held.id, components };
 }

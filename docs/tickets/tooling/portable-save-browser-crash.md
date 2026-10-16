@@ -2,16 +2,17 @@
 
 **Area:** app, tooling · **Focus:** browser save export · **Priority:** P3
 
-A headed Playwright persistent Chromium session closed during export of an already saved tutorial001
-slot. The download's `saveAs` failed because the target closed; the page was closed and the context
-contained no pages. A matching macOS crash report records `EXC_BAD_ACCESS` / `SIGSEGV` on Chromium's
-main thread. This is one confirmed native browser crash, not yet a reproducible app defect or evidence
-of corrupt save data. The preceding local save succeeded; earlier exports in the session succeeded.
+Two headed Playwright persistent Chromium sessions closed during or shortly after exporting a
+tutorial001 save through the normal save window. Matching macOS crash reports record
+`EXC_BAD_ACCESS` / `SIGSEGV` on Chromium's main thread. These are confirmed native browser crashes;
+the cause is not yet isolated to the app, browser or automation. Local saves remained available.
 
 Observed environment: Google Chrome for Testing 153.0.8010.12 on macOS 27.0 (26A428), a muted windowed
-persistent profile, one game browser capped at 30 FPS. The lesson was paused after the group-travel
-exercise, around 10,800 simulation ticks. The selected stored slot was exported through the normal
-save window. No JavaScript error was recorded before the browser closed.
+persistent profile, one game browser capped at 30 FPS. The first crash occurred while exporting a
+paused lesson around 10,800 simulation ticks; the download's `saveAs` failed because the target
+closed. A second session exported a small early save successfully, then the browser closed within
+29 seconds. A completed download alone therefore does not establish a passing export check. No
+JavaScript error was recorded before either closure.
 
 ## Scope
 

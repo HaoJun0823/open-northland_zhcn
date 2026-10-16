@@ -82,17 +82,22 @@ export function nextCampaignStage(campaign: Campaign, progress: CampaignProgress
   return campaign.stages.find((stage) => !progress.unlocked.includes(stage.mapId))?.mapId;
 }
 
-/** Unlocks the next stage; with every stage unlocked there is nothing to skip to. */
+/** Unlocks the next stage, or past the last one completes the campaign; a completed campaign has none. */
 export function skipCampaignStage(campaign: Campaign, storage: ProgressStorage): CampaignProgress {
   const progress = readCampaignProgress(campaign, storage);
   const next = nextCampaignStage(campaign, progress);
-  if (next === undefined) return progress;
+  if (next === undefined) return progress.completed ? progress : completeCampaign(campaign, storage);
   const map = campaign.maps.find((map) => map.id === next);
   return grantCampaignMaps(
     campaign,
     map === undefined ? [] : [{ campaignId: campaign.campaignId, mapId: map.missionId }],
     storage,
   );
+}
+
+/** Whether the alpha recovery has anything left to do: a locked stage, or an unfinished last one. */
+export function canSkipCampaignStage(campaign: Campaign, progress: CampaignProgress): boolean {
+  return nextCampaignStage(campaign, progress) !== undefined || !progress.completed;
 }
 
 /** Back to the first stage, not completed; other campaigns keep their own keys. */

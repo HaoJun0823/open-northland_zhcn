@@ -6,6 +6,7 @@ import { type MovieLabels, type MusicSilencer, playCampaignMovie } from '../../.
 import {
   type CampaignProgress,
   campaignProgressKey,
+  canSkipCampaignStage,
   hasCampaignProgress,
   nextCampaignStage,
   readCampaignProgress,
@@ -317,7 +318,7 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
       asideFoot.append(reset);
     }
 
-    if (readable && nextCampaignStage(campaign, progress) !== undefined) {
+    if (readable && canSkipCampaignStage(campaign, progress)) {
       const skip = node('button', 'campaign-screen__skip', copy.skip);
       skip.type = 'button';
       skip.addEventListener('click', () => {

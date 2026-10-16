@@ -108,13 +108,22 @@ describe('campaign tab', () => {
     confirmButtons()[0]?.click();
   });
 
-  it('unlocks the next mission on a confirmed skip and then hides the skip', async () => {
+  it('unlocks the next mission on a skip, completes the campaign past the last, then hides the skip', async () => {
     const { root } = await mount();
     q<HTMLButtonElement>(root, '.campaign-screen__skip').click();
+    expect(q(document.body, '.on-system-confirm__message').textContent).toBe(messages().campaign.confirm);
     confirmButtons()[1]?.click();
     await vi.waitFor(() => expect(missions(root)).toEqual(['first', 'second']));
     expect(q(root, '.campaign-screen__mission[aria-pressed="true"]').dataset.mapId).toBe('second');
-    expect(root.querySelector('.campaign-screen__skip')).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    q<HTMLButtonElement>(root, '.campaign-screen__skip').click();
+    expect(q(document.body, '.on-system-confirm__message').textContent).toBe(messages().campaign.confirm);
+    confirmButtons()[1]?.click();
+    await vi.waitFor(() => expect(root.querySelector('.campaign-screen__skip')).toBeNull());
+    expect(readCampaignProgress(campaignFixture(), window.localStorage)).toEqual({
+      unlocked: ['first', 'second'],
+      completed: true,
+    });
   });
 
   it('resets one campaign only after confirmation, with cancel focused first', async () => {

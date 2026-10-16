@@ -113,6 +113,7 @@ import { warehouseScene } from './warehouse.js';
 import { weaponFacingsScene } from './weapon-facings.js';
 import { wildlifeScene } from './wildlife.js';
 import { wolfPackScene } from './wolf-pack.js';
+import { wonderLevelsScene } from './wonder-levels.js';
 import { workshopProductsScene } from './workshop-products.js';
 
 export { MAP_SCENES, mapSceneParams } from './map-scenes.js';
@@ -162,6 +163,7 @@ export const SCENES: readonly SceneDefinition[] = [
   upgradeScene,
   upgradeTribesScene,
   frankConstructionScene,
+  wonderLevelsScene,
   workshopProductsScene,
   signpostsScene,
   mealBreakScene,

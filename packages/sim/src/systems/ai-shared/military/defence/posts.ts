@@ -100,15 +100,30 @@ export function towerPostOrders(
 }
 
 /** The fighting classes a building employs and how many of each (the towers' `logicworker 40/41` bow-soldier
- *  posts), empty for every building staffed by civilians alone. */
-export function garrisonSlots(world: World, ctx: SystemContext, building: Entity): Map<number, number> {
-  const type = contentIndex(ctx.content).buildings.get(world.get(building, Building).buildingType);
+ *  posts), empty for every building staffed by civilians alone. The shared per-content table; never mutate it. */
+export function garrisonSlots(
+  world: World,
+  ctx: SystemContext,
+  building: Entity,
+): ReadonlyMap<number, number> {
+  const buildingType = world.get(building, Building).buildingType;
+  let byType = garrisonSlotMemo.get(ctx.content);
+  if (byType === undefined) {
+    byType = new Map();
+    garrisonSlotMemo.set(ctx.content, byType);
+  }
+  const held = byType.get(buildingType);
+  if (held !== undefined) return held;
+  const type = contentIndex(ctx.content).buildings.get(buildingType);
   const slots = new Map<number, number>();
   for (const slot of type?.workers ?? []) {
     if (isFighterJob(ctx.content, slot.jobType)) slots.set(slot.jobType, slot.count);
   }
+  byType.set(buildingType, slots);
   return slots;
 }
+
+const garrisonSlotMemo = new WeakMap<SystemContext['content'], Map<number, ReadonlyMap<number, number>>>();
 
 /** One standing tower this decision mans: the men it wants of each class and in all, the men of each
  *  class it keeps before sending one out, where its door is, and who holds it, counted as men are posted. */
@@ -161,8 +176,7 @@ function standingWalls(
     const calm =
       !threatened &&
       nearestRaiderWithin(near, at.x, at.y, watch + THREAT_STAND_DOWN_MARGIN_NODES, null) === null;
-    const peace = new Map<number, number>();
-    for (const [job, count] of slots) peace.set(job, Math.min(count, MAP_AI_PEACE_ARCHERS_PER_CLASS));
+    const peace = peaceSlots(slots);
     walls.push({
       tower,
       door,
@@ -176,6 +190,20 @@ function standingWalls(
   }
   return walls;
 }
+
+/** The scripted rule's quiet crew for a tower of `slots`, shared like the slots it derives from. */
+function peaceSlots(slots: ReadonlyMap<number, number>): ReadonlyMap<number, number> {
+  let peace = peaceSlotMemo.get(slots);
+  if (peace === undefined) {
+    const quiet = new Map<number, number>();
+    for (const [job, count] of slots) quiet.set(job, Math.min(count, MAP_AI_PEACE_ARCHERS_PER_CLASS));
+    peace = quiet;
+    peaceSlotMemo.set(slots, peace);
+  }
+  return peace;
+}
+
+const peaceSlotMemo = new WeakMap<ReadonlyMap<number, number>, ReadonlyMap<number, number>>();
 
 /** The men employed at `tower`, by class. */
 function postedMen(world: World, tower: Entity): Map<number, Entity[]> {

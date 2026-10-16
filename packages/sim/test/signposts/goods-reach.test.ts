@@ -9,6 +9,7 @@ import { collectTargets, nearestStoreHolding } from '../../src/systems/settlers/
 import { signpostLinksSystem } from '../../src/systems/signposts/links.js';
 import { createSignpost } from '../../src/systems/signposts/placement.js';
 import { goodsReachAt, goodsSearchLimitAt } from '../../src/systems/signposts/reach.js';
+import { signpostMask } from '../../src/systems/signposts/terrain-reach.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -102,6 +103,40 @@ describe('terrain-aware goods reach', () => {
     expect(reachContains(area, 36, 40)).toBe(false);
     expect(local?.posts.at(-1)?.area).toBe(remote?.posts.at(-1)?.area);
     reads.mockRestore();
+  });
+  it('asks the link pass again only for posts whose read box a change since the last pass meets', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(500, 150) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('terrain');
+    const posts = [30, 60, 330, 360].map((hx) => {
+      const post = sim.world.create();
+      sim.world.add(post, Owner, { player: 0 });
+      sim.world.add(post, Position, positionOfNode(hx, 40));
+      sim.world.add(post, Signpost, { links: [] });
+      return post;
+    });
+    signpostLinksSystem(sim.world, ctxOf(sim));
+    const mask = signpostMask(sim.world, sim.content, terrain);
+    const scans = vi.spyOn(mask, 'flippedSince');
+    const wall = (hx: number) => {
+      const id = sim.world.create();
+      sim.world.add(id, Position, positionOfNode(hx, 0));
+      sim.world.add(id, ResourceFootprint, {
+        walk: Array.from({ length: 150 }, (_, dy) => ({ dx: 0, dy })),
+        build: [],
+        work: [],
+      });
+      scans.mockClear();
+      signpostLinksSystem(sim.world, ctxOf(sim));
+    };
+    wall(480);
+    // One scan lists the pass's changes; no post's reach is asked.
+    expect(scans).toHaveBeenCalledTimes(1);
+    wall(45);
+    // The two posts the wall splits are asked again; the far pair keeps its links unasked.
+    expect(scans).toHaveBeenCalledTimes(3);
+    expect(posts.map((p) => sim.world.get(p, Signpost).links)).toEqual([[], [], [posts[3]], [posts[2]]]);
+    scans.mockRestore();
   });
   it('floods each post once for its links and once for the goods search', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(200, 100) });

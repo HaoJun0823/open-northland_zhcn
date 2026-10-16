@@ -3,10 +3,11 @@ import { Owner, Position, Signpost } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { TileBuckets } from '../../inspect/tile-buckets.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
-import { nodeHxOfPosition, nodeHyOfPosition, nodeOfPosition } from '../../nav/halfcell.js';
+import { type NodeArea, nodeHxOfPosition, nodeHyOfPosition, nodeOfPosition } from '../../nav/halfcell.js';
 import { floodReach, reachContains } from '../../nav/range-search.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import type { System } from '../context.js';
+import type { WalkBlockMask } from '../footprint/walk-block-mask.js';
 import { signpostNetworkRevision } from './network.js';
 import {
   dropFallenPostReaches,
@@ -68,6 +69,8 @@ const siteBox = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
 
 /** Each post's latest link list, handed out again while it is unchanged; never stored in a component. */
 const heldLinks = new WeakMap<World, Map<Entity, readonly Entity[]>>();
+/** The box the latest {@link reachableLinks} call's reach read, or null when it asked no reach. */
+let lastLinkSearch: NodeArea | null = null;
 
 /** The same player's posts `post`'s reach takes in, ascending. The flood stops once it has taken in
  *  every candidate it can, as only their containment is asked. Callers must not keep the list. */
@@ -93,13 +96,16 @@ function reachableLinks(
     if (site.id !== post && world.tryGet(site.id, Owner)?.player === owner)
       nearbyScratch[candidates++] = site;
   }
+  lastLinkSearch = null;
   if (candidates === 0) return NO_LINKS;
   linkTargets.count = candidates;
   const { budget, groundCost } = SIGNPOST_LINK_SPAN;
-  const area =
+  const search =
     content === undefined
-      ? floodReach(terrain, NO_BLOCKS, hx, hy, r, budget, groundCost, linkTargets).area
-      : postTerrainReach(world, content, terrain, post, hx, hy, SIGNPOST_LINK_SPAN, linkTargets).area;
+      ? floodReach(terrain, NO_BLOCKS, hx, hy, r, budget, groundCost, linkTargets)
+      : postTerrainReach(world, content, terrain, post, hx, hy, SIGNPOST_LINK_SPAN, linkTargets);
+  lastLinkSearch = search.searched;
+  const area = search.area;
   let linkedCount = 0;
   for (let i = 0; i < candidates; i++) {
     const site = nearbyScratch[i] as Site;
@@ -158,8 +164,90 @@ interface Layout {
   mask: number;
   roads: number;
   network: number;
+  /** The mask, its version and the terrain's resistance clock the pass's reaches were read under. */
+  readMask: WalkBlockMask | undefined;
+  readMaskVersion: number;
+  readResistanceClock: number;
+  /** Per post, the links the pass found and the box its reach read, the box empty when it read none. */
+  readonly found: Map<Entity, FoundLinks>;
+}
+interface FoundLinks {
+  links: readonly Entity[];
+  minHx: number;
+  maxHx: number;
+  minHy: number;
+  maxHy: number;
 }
 const layouts = new WeakMap<World, Layout>();
+
+/** Nodes changed since the last pass past which every post is asked afresh rather than tested against
+ *  each change. */
+const MAX_PASS_CHANGES = 256;
+/** The nodes whose block or resistance changed since the last pass, as x and y pairs filled by count. */
+const passChanges = new Int32Array(2 * MAX_PASS_CHANGES);
+let passChangeCount = 0;
+/** The whole map as a node area, its far edges set per pass. */
+const WHOLE_MAP = { minHx: 0, maxHx: 0, minHy: 0, maxHy: 0 };
+function listPassChange(x: number, y: number): boolean {
+  if (passChangeCount === MAX_PASS_CHANGES) return true;
+  passChanges[2 * passChangeCount] = x;
+  passChanges[2 * passChangeCount + 1] = y;
+  passChangeCount++;
+  return false;
+}
+
+/**
+ * Whether the last pass's links still hold for every post whose read box no listed change meets: no post
+ * rose, fell or changed hands since, so each post's candidates are the same, and a reach whose read nodes
+ * kept their blocks and resistances answers as it did. Lists the changes in {@link passChanges}.
+ */
+function listChangesSinceLastPass(
+  layout: Layout | undefined,
+  mask: WalkBlockMask,
+  terrain: TerrainGraph,
+  network: number,
+): boolean {
+  passChangeCount = 0;
+  if (layout === undefined || layout.readMask !== mask || layout.network !== network) return false;
+  WHOLE_MAP.maxHx = terrain.width - 1;
+  WHOLE_MAP.maxHy = terrain.height - 1;
+  return !(
+    mask.flippedSince(WHOLE_MAP, layout.readMaskVersion, listPassChange) ||
+    terrain.resistanceChangedSince(WHOLE_MAP, layout.readResistanceClock, listPassChange)
+  );
+}
+
+function changeMeets(found: FoundLinks): boolean {
+  for (let i = 0; i < passChangeCount; i++) {
+    const x = passChanges[2 * i] as number;
+    const y = passChanges[2 * i + 1] as number;
+    if (x >= found.minHx && x <= found.maxHx && y >= found.minHy && y <= found.maxHy) return true;
+  }
+  return false;
+}
+
+/** {@link reachableLinks} for `post`, or the last pass's list when it still holds; records what it found. */
+function passLinks(
+  world: World,
+  terrain: TerrainGraph,
+  content: ContentSet,
+  layout: Layout,
+  post: Entity,
+  reuse: boolean,
+): readonly Entity[] {
+  const held = layout.found.get(post);
+  if (reuse && held !== undefined && !changeMeets(held)) return held.links;
+  const links = reachableLinks(world, terrain, post, content);
+  const read = lastLinkSearch;
+  const found = held ?? { links, minHx: 0, maxHx: -1, minHy: 0, maxHy: -1 };
+  found.links = links;
+  found.minHx = read?.minHx ?? 0;
+  found.maxHx = read?.maxHx ?? -1;
+  found.minHy = read?.minHy ?? 0;
+  found.maxHy = read?.maxHy ?? -1;
+  if (held === undefined) layout.found.set(post, found);
+  return links;
+}
 
 /** Per pass, the posts' own link lists by post index, and the posts naming each post as a flat list
  *  ascending per post: `incomingStart[i]` to `incomingStart[i + 1]` of `incoming` for post `i`. */
@@ -175,12 +263,28 @@ export const signpostLinksSystem: System = (world, ctx) => {
   if (terrain === undefined) return;
   const held = layouts.get(world);
   // The mask is read first: it mirrors the roads into the terrain.
-  const mask = signpostMask(world, ctx.content, terrain).version;
+  const maskLayer = signpostMask(world, ctx.content, terrain);
+  const mask = maskLayer.version;
   const network = signpostNetworkRevision(world);
   if (held?.mask === mask && held.roads === terrain.mirroredRoadRevision && held.network === network) return;
   const posts = world.canonicalQuery(Signpost, Position, Owner);
   dropFallenPostReaches(world);
   dropFallenLinks(world);
+  const reuse = listChangesSinceLastPass(held, maskLayer, terrain, network);
+  const layout: Layout = held ?? {
+    mask: 0,
+    roads: 0,
+    network: 0,
+    readMask: undefined,
+    readMaskVersion: 0,
+    readResistanceClock: 0,
+    found: new Map(),
+  };
+  // A post that fell keeps no entry: every entry is asked again whenever the network moves.
+  if (!reuse) layout.found.clear();
+  layout.readMask = maskLayer;
+  layout.readMaskVersion = mask;
+  layout.readResistanceClock = terrain.resistanceClock;
   // A link is either post's reach taking the other in: each post's own list, and the posts whose list
   // names it, gathered in ascending post order.
   if (incomingStart.length < posts.length + 1) incomingStart = new Int32Array(posts.length + 1);
@@ -188,7 +292,7 @@ export const signpostLinksSystem: System = (world, ctx) => {
   fillPostSlots(posts);
   let named = 0;
   for (let i = 0; i < posts.length; i++) {
-    const linked = reachableLinks(world, terrain, posts[i] as Entity, ctx.content);
+    const linked = passLinks(world, terrain, ctx.content, layout, posts[i] as Entity, reuse);
     outgoing[i] = linked;
     for (const other of linked) {
       const at = postIndex(other);
@@ -221,7 +325,6 @@ export const signpostLinksSystem: System = (world, ctx) => {
   outgoing.fill(NO_LINKS, 0, posts.length);
   for (const post of posts) postSlots[post] = 0;
   // Settling links moves the network revision, so the layout is read after it.
-  const layout = held ?? { mask: 0, roads: 0, network: 0 };
   layout.mask = signpostMask(world, ctx.content, terrain).version;
   layout.roads = terrain.mirroredRoadRevision;
   layout.network = signpostNetworkRevision(world);

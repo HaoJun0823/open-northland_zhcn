@@ -1,7 +1,7 @@
 /**
  * Weighted A* pathfinding over the terrain half-cell adjacency graph. Each edge costs its real world
  * length times the entered node's route weight (its walking resistance on land), and the land heuristic
- * is {@link latticeDistanceTo} weighed as grass, lowered near roads. A route so nearly minimises on-screen
+ * is {@link latticeOffsetDistance} weighed as grass, lowered near roads. A route so nearly minimises on-screen
  * distance weighed by ground, reading straight under the staggered raster on even ground. All
  * costs are fixed-point; no float enters the search.
  *
@@ -15,7 +15,7 @@ import { type Fixed, fx, ZERO } from '../../core/fixed.js';
 import type { BlockOverlay } from '../block-overlay.js';
 import {
   DEFAULT_NODE_ROUGHNESS,
-  latticeDistanceTo,
+  latticeOffsetDistance,
   type NodeId,
   StepBuffer,
   type TerrainGraph,
@@ -320,7 +320,7 @@ class ResumableSearch {
     scratch.cameFrom[start] = NO_NODE;
     scratch.heapSize = 0;
     // The start sits on its own line.
-    heapPush(scratch, start, this.heuristic(start), 0);
+    heapPush(scratch, start, this.heuristic(start, this.startX, this.startY), 0);
   }
 
   /** Whether this search has reached `node`. */
@@ -362,10 +362,11 @@ class ResumableSearch {
           stamps[next] = query;
           g[next] = tentativeG;
           cameFrom[next] = current;
-          const dev = Math.abs(
-            (graph.xOf(next) - this.startX) * lineHY - (graph.yOf(next) - this.startY) * lineHX,
-          );
-          heapPush(scratch, next, tentativeG + this.heuristic(next), dev);
+          // The column by subtraction is `xOf` exactly, without its second division.
+          const nextY = graph.yOf(next);
+          const nextX = next - nextY * graph.width;
+          const dev = Math.abs((nextX - this.startX) * lineHY - (nextY - this.startY) * lineHX);
+          heapPush(scratch, next, tentativeG + this.heuristic(next, nextX, nextY), dev);
           continue;
         }
         // A relaxation only decreases the key, so restoring the heap invariant is a sift toward the root.
@@ -390,8 +391,8 @@ class ResumableSearch {
    * its network lies, and a search between towns no road joins floods each town's streets. Measured on
    * 150 routes between magiczny_las towns: 43% fewer settles, and 4.3% over the cheapest route, not 3.2%.
    */
-  private heuristic(node: NodeId): Fixed {
-    const toGoal = latticeDistanceTo(this.graph, this.goalX, this.goalY, node);
+  private heuristic(node: NodeId, x: number, y: number): Fixed {
+    const toGoal = latticeOffsetDistance(Math.abs(this.goalX - x), Math.abs(this.goalY - y));
     if (this.traversal !== 'land') return toGoal;
     const overGrass = fx.mul(toGoal, LAND_HEURISTIC_WEIGHT);
     const toRoad = this.graph.roadDistanceAt(node);

@@ -1,3 +1,5 @@
+import { legacyHouseName } from './legacy-house-names.js';
+
 /** The decoded body choices of one authored house, in palette order. */
 export interface AuthoredBuildingGraphics {
   readonly editName: string;
@@ -78,7 +80,8 @@ function catalogKey(name: string): string {
  * order the way the original resolves a name.
  */
 export interface ContentJoins {
-  /** A `sethouse` name and level, the only join that is level-specific. */
+  /** A `sethouse` name and level, the only join that is level-specific. A name and level no house
+   *  table defines fall back to the legacy mapping at the same level. */
   buildingBob(name: string, level: number): AuthoredBuildingMatch | undefined;
   /** A building's `kind`, which routes an `attachtohouse` to a home or a workplace. */
   buildingKind(typeId: number): string | undefined;
@@ -180,7 +183,12 @@ export function contentJoins(rows: AuthoredJoinRows): ContentJoins {
     if (g.typeId !== undefined) goodTypeIds.add(g.typeId);
   }
   return {
-    buildingBob: (name, level) => bobByNameLevel.get(`${name}\u0000${level}`),
+    buildingBob: (name, level) => {
+      const exact = bobByNameLevel.get(`${name}\u0000${level}`);
+      if (exact !== undefined) return exact;
+      const legacy = legacyHouseName(name);
+      return legacy === undefined ? undefined : bobByNameLevel.get(`${legacy}\u0000${level}`);
+    },
     buildingKind: (typeId) => kindByType.get(typeId),
     buildingType: (name) => buildingByName.get(normalizeRoleKey(name)),
     job: (name) => jobByName.get(normalizeRoleKey(name)),

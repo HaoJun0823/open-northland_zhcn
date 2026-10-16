@@ -300,6 +300,44 @@ describe('resolveAuthoredPlacements', () => {
     ]);
   });
 
+  it('places a legacy house name as the defined house it stands for, at its own level', () => {
+    const house = (editName: string, level: number, typeId: number) => ({
+      editName,
+      level,
+      typeId,
+      tribeId: 3,
+    });
+    const rows: AuthoredJoinRows = {
+      buildingBobs: [
+        house('byzantine cathedral', 0, 1),
+        house('byzantine harbour01', 2, 40),
+        house('byzantine stock', 0, 41),
+      ],
+    };
+    const at = (name: string, level: number, hx: number) => ({ name, level, player: 6, hx, hy: 4 });
+    const { placements, skipped } = resolveAuthoredPlacements(
+      {
+        buildings: [
+          at('Byzantine headquarters house', 0, 0),
+          at('byzantine stock', 2, 3),
+          at('byzantine armory', 0, 6),
+          // A table that defines the name itself wins over the legacy mapping.
+          at('byzantine stock', 0, 9),
+        ],
+        humans: [],
+        animals: [],
+      },
+      rows,
+      authoredMap(),
+    );
+    expect(skipped).toBe(1); // `byzantine manson`, the armory's house, is absent from these rows
+    expect(placements.map((p) => (p.kind === 'building' ? [p.typeId, p.x] : p.kind))).toEqual([
+      [1, 0],
+      [40, 3],
+      [41, 9],
+    ]);
+  });
+
   it('carries the mission ids and the behaviour mask through to the placements', () => {
     const entities = {
       buildings: [{ name: 'viking barracks', level: 0, player: 0, hx: 8, hy: 4, missionId: 1000 }],

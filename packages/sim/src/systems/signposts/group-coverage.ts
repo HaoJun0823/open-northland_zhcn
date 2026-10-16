@@ -5,13 +5,7 @@ import { type ReachArea, reachBox } from '../../nav/range-search.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import type { WalkBlockMask } from '../footprint/walk-block-mask.js';
 import type { SignpostSite } from './network.js';
-import {
-  GOODS_SEARCH_SPAN,
-  listChangesSince,
-  listedChangeMeets,
-  postTerrainReach,
-  signpostMask,
-} from './terrain-reach.js';
+import { ChangedNodeList, GOODS_SEARCH_SPAN, postTerrainReach, signpostMask } from './terrain-reach.js';
 
 /** Nodes per side of the blocks a coverage re-checks its posts by. */
 const COVERAGE_BLOCK_NODES = 16;
@@ -26,6 +20,8 @@ const MAX_Y = 3;
 
 /** The union of the fresh posts' read boxes a scan lists changes over. */
 const scanArea = { minHx: 0, maxHx: 0, minHy: 0, maxHy: 0 };
+/** The changes a scan lists and then marks its posts by. */
+const scanChanges = new ChangedNodeList();
 
 /**
  * A signpost group's goods coverage: the nodes some post's goods search marks. It keeps each post's
@@ -138,7 +134,13 @@ export class GroupCoverage {
       scanArea.maxHy = Math.max(scanArea.maxHy, boxes[at + MAX_Y] as number);
     }
     if (scanArea.maxHx < 0) return false;
-    return listChangesSince(mask, terrain, scanArea, this.scannedMaskVersion, this.scannedResistanceClock);
+    return scanChanges.listSince(
+      mask,
+      terrain,
+      scanArea,
+      this.scannedMaskVersion,
+      this.scannedResistanceClock,
+    );
   }
 
   /** Mark stale each fresh post whose read box holds a listed change. */
@@ -148,7 +150,7 @@ export class GroupCoverage {
       if (this.stale[i] !== 0 || this.held[i] === undefined) continue;
       const at = BOX_FIELDS * i;
       if (
-        listedChangeMeets(
+        scanChanges.meets(
           boxes[at + MIN_X] as number,
           boxes[at + MAX_X] as number,
           boxes[at + MIN_Y] as number,

@@ -179,44 +179,48 @@ function repairHeld(
   );
 }
 
-/** Changed nodes {@link listChangesSince} lists before its caller treats every held search as changed. */
+/** Changed nodes a {@link ChangedNodeList} lists before its caller treats every held search as changed. */
 const MAX_LISTED_CHANGES = 256;
-/** The nodes the latest {@link listChangesSince} listed, as x and y pairs filled by count. */
-const listedChanges = new Int32Array(2 * MAX_LISTED_CHANGES);
-let listedCount = 0;
-function listChange(x: number, y: number): boolean {
-  if (listedCount === MAX_LISTED_CHANGES) return true;
-  listedChanges[2 * listedCount] = x;
-  listedChanges[2 * listedCount + 1] = y;
-  listedCount++;
-  return false;
-}
 
-/** List the nodes of `area` whose block flipped after mask version `maskVersion` or whose resistance
- *  changed after clock reading `resistanceClock`, the two inputs a held search's answer reads; false when
- *  too many changed to list. */
-export function listChangesSince(
-  mask: WalkBlockMask,
-  terrain: TerrainGraph,
-  area: NodeArea,
-  maskVersion: number,
-  resistanceClock: number,
-): boolean {
-  listedCount = 0;
-  return !(
-    mask.flippedSince(area, maskVersion, listChange) ||
-    terrain.resistanceChangedSince(area, resistanceClock, listChange)
-  );
-}
+/** The nodes changed since a held search read them, as x and y pairs filled by count. Each caller owns
+ *  its own list, since one may still read its changes while another lists. */
+export class ChangedNodeList {
+  private readonly nodes = new Int32Array(2 * MAX_LISTED_CHANGES);
+  private count = 0;
+  private readonly add = (x: number, y: number): boolean => {
+    if (this.count === MAX_LISTED_CHANGES) return true;
+    this.nodes[2 * this.count] = x;
+    this.nodes[2 * this.count + 1] = y;
+    this.count++;
+    return false;
+  };
 
-/** Whether a node the latest {@link listChangesSince} listed lies in the box. */
-export function listedChangeMeets(minHx: number, maxHx: number, minHy: number, maxHy: number): boolean {
-  for (let i = 0; i < listedCount; i++) {
-    const x = listedChanges[2 * i] as number;
-    const y = listedChanges[2 * i + 1] as number;
-    if (x >= minHx && x <= maxHx && y >= minHy && y <= maxHy) return true;
+  /** List the nodes of `area` whose block flipped after mask version `maskVersion` or whose resistance
+   *  changed after clock reading `resistanceClock`, the two inputs a held search's answer reads; false
+   *  when too many changed to list. */
+  listSince(
+    mask: WalkBlockMask,
+    terrain: TerrainGraph,
+    area: NodeArea,
+    maskVersion: number,
+    resistanceClock: number,
+  ): boolean {
+    this.count = 0;
+    return !(
+      mask.flippedSince(area, maskVersion, this.add) ||
+      terrain.resistanceChangedSince(area, resistanceClock, this.add)
+    );
   }
-  return false;
+
+  /** Whether a node the latest {@link listSince} listed lies in the box. */
+  meets(minHx: number, maxHx: number, minHy: number, maxHy: number): boolean {
+    for (let i = 0; i < this.count; i++) {
+      const x = this.nodes[2 * i] as number;
+      const y = this.nodes[2 * i + 1] as number;
+      if (x >= minHx && x <= maxHx && y >= minHy && y <= maxHy) return true;
+    }
+    return false;
+  }
 }
 
 /** Each signpost's reach per span, the link pass's and the goods search's. */

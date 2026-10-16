@@ -10,9 +10,8 @@ import type { System } from '../context.js';
 import type { WalkBlockMask } from '../footprint/walk-block-mask.js';
 import { signpostNetworkRevision } from './network.js';
 import {
+  ChangedNodeList,
   dropFallenPostReaches,
-  listChangesSince,
-  listedChangeMeets,
   postTerrainReach,
   SIGNPOST_LINK_SPAN,
   signpostMask,
@@ -184,11 +183,13 @@ const layouts = new WeakMap<World, Layout>();
 
 /** The whole map as a node area, its far edges set per pass. */
 const WHOLE_MAP = { minHx: 0, maxHx: 0, minHy: 0, maxHy: 0 };
+/** The changes since the last pass, read across the whole post loop. */
+const passChanges = new ChangedNodeList();
 
 /**
  * Whether the last pass's links still hold for every post whose read box no listed change meets: no post
  * rose, fell or changed hands since, so each post's candidates are the same, and a reach whose read nodes
- * kept their blocks and resistances answers as it did. Lists the changes for {@link listedChangeMeets}.
+ * kept their blocks and resistances answers as it did. Lists the changes into `passChanges`.
  */
 function listChangesSinceLastPass(
   layout: Layout | undefined,
@@ -199,7 +200,7 @@ function listChangesSinceLastPass(
   if (layout === undefined || layout.readMask !== mask || layout.network !== network) return false;
   WHOLE_MAP.maxHx = terrain.width - 1;
   WHOLE_MAP.maxHy = terrain.height - 1;
-  return listChangesSince(mask, terrain, WHOLE_MAP, layout.readMaskVersion, layout.readResistanceClock);
+  return passChanges.listSince(mask, terrain, WHOLE_MAP, layout.readMaskVersion, layout.readResistanceClock);
 }
 
 /** {@link reachableLinks} for `post`, or the last pass's list when it still holds; records what it found. */
@@ -212,7 +213,7 @@ function passLinks(
   reuse: boolean,
 ): readonly Entity[] {
   const held = layout.found.get(post);
-  if (reuse && held !== undefined && !listedChangeMeets(held.minHx, held.maxHx, held.minHy, held.maxHy))
+  if (reuse && held !== undefined && !passChanges.meets(held.minHx, held.maxHx, held.minHy, held.maxHy))
     return held.links;
   const links = reachableLinks(world, terrain, post, content);
   const read = lastLinkSearch;

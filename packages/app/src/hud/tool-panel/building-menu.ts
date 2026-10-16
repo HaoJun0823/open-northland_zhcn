@@ -33,8 +33,9 @@ export interface MenuBuildingEntry {
   readonly availability?: (tribe: number) => BuildingAvailability;
 }
 
-/** The quick row's tools, in the row's order; they lay the half-cell lattice, not a building footprint. */
-export const CONSTRUCTION_TOOLS = ['road', 'palisade', 'gate'] as const;
+/** The quick row's tools, in the row's order: the line and gate tools lay the half-cell lattice, not a
+ *  building footprint, and the wall brush tears walls and gates down. */
+export const CONSTRUCTION_TOOLS = ['road', 'palisade', 'gate', 'wallDemolish'] as const;
 export type ConstructionTool = (typeof CONSTRUCTION_TOOLS)[number];
 
 /** The five category tabs, in the original's order. */

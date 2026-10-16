@@ -449,6 +449,8 @@ export const enGame = {
       road: 'Road',
       palisade: 'Stockade',
       gate: 'Gate',
+      wallDemolish: 'Tear down walls',
+      wallDemolishTip: 'Tear down walls and gates: hold the left button and drag. Roads stay.',
       notInThisVersion: 'Not available in this version of the game',
       papers: 'Papers',
       papersHint: 'Papers from chests: buildings that stand at once',
@@ -482,6 +484,7 @@ export const enGame = {
       placeWallLineHint:
         'left click lays the stockade, with Ctrl/Cmd it draws on, Shift keeps it straight, right click drops the line',
       placeGateHint: 'point at a straight run of five finished stockade sections',
+      wallDemolishHint: 'hold the left button and drag over your walls and gates, roads stay',
       roadHint:
         'settlers walk faster on roads. One quarrystone paves a plot and the planned plots next to it.',
       placeRoadHint: 'click where the road starts, hold Alt to cancel road sites instead',

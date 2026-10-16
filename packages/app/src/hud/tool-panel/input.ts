@@ -13,6 +13,10 @@ export interface HeldMode {
   /** True when this mode took the press; the first claimer wins. `keep` (Ctrl or Cmd held) keeps a tool
    *  armed after the press completes its work. */
   handleClick(clientX: number, clientY: number, mods?: { readonly keep: boolean }): boolean;
+  /** The pointer moved with the left button down; a brush paints along it from the press it took. */
+  handleDrag?(clientX: number, clientY: number): void;
+  /** The left button went up, wherever the pointer is. */
+  handleRelease?(): void;
   /** Undo the mode's last step without leaving it, as a line tool drops its started line; false when
    *  there is no step to undo and the press should cancel the mode. */
   stepBack?(): boolean;
@@ -75,6 +79,9 @@ export interface ToolPanelInputDeps {
   readonly ctrlClickIsRightButton?: boolean;
 }
 
+/** `MouseEvent.buttons` bit of the left button. */
+const LEFT_BUTTON_HELD = 1;
+
 /** macOS turns Ctrl with the left button into a right-button press. */
 function platformCtrlClickIsRightButton(): boolean {
   return typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent);
@@ -113,6 +120,7 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
   const onBlur = (): void => {
     syncShift(false);
     syncErase(false);
+    for (const mode of held) mode.handleRelease?.();
   };
 
   const onMouseDown = (e: MouseEvent): void => {
@@ -153,6 +161,13 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
 
   const onMouseMove = (e: MouseEvent): void => {
     syncModifiers(e);
+    if ((e.buttons & LEFT_BUTTON_HELD) === 0) return;
+    for (const mode of held) mode.handleDrag?.(e.clientX, e.clientY);
+  };
+
+  const onMouseUp = (e: MouseEvent): void => {
+    if (e.button !== 0) return;
+    for (const mode of held) mode.handleRelease?.();
   };
 
   // A wheel over an open pop-up belongs to that window; its default would scroll the page behind the
@@ -260,6 +275,7 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
 
   canvas.addEventListener('mousedown', onMouseDown);
   canvas.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
   canvas.addEventListener('wheel', onWheel, { passive: false });
   window.addEventListener('keydown', onKeyDown, { capture: true });
   window.addEventListener('keydown', onEscapeMenu);
@@ -271,6 +287,7 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
     dispose(): void {
       canvas.removeEventListener('mousedown', onMouseDown);
       canvas.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
       canvas.removeEventListener('wheel', onWheel);
       window.removeEventListener('keydown', onKeyDown, { capture: true });
       window.removeEventListener('keydown', onEscapeMenu);

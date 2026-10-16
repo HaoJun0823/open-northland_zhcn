@@ -517,7 +517,10 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     // The unit controls mount after the panel and the minimap, so a note's Select and a minimap order
     // reach them through these slots.
     let selectEntity: ((id: number) => void) | null = null;
-    let unitSelection: Pick<UnitControls, 'select' | 'selectedIds' | 'selectionVersion'> | null = null;
+    let unitSelection: Pick<
+      UnitControls,
+      'select' | 'selectedIds' | 'selectionVersion' | 'ownWallsAt'
+    > | null = null;
     const NO_SELECTION: ReadonlySet<number> = new Set();
     const meadGood = host.content.goods.find((good) => good.id === MEAD_GOOD_ID)?.typeId;
     // What each worker is set to make, read through the unit controls' panel context once they mount.
@@ -630,6 +633,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       roadBuiltAt: roadBuiltHere,
       roadAnswersKey,
       ownRoadSiteAt: (col, row) => ownRoadSiteAt(host.snapshot(), localPlayer, col, row),
+      ownWallsAt: (points) => unitSelection?.ownWallsAt(points) ?? [],
       placementClickAsks: placementGates,
       palisadeTools: palisadeToolsOf(host),
       mapSize: deps.mapSize,

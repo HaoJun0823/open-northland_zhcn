@@ -184,6 +184,30 @@ describe('tool panel input clicks', () => {
     input.dispose();
   });
 
+  it('hands a held mode each move with the left button down, and the release anywhere', () => {
+    const { canvas, input, held, arm } = mount();
+    const strokes: string[] = [];
+    Object.assign(held, {
+      handleDrag: (x: number, y: number) => strokes.push(`drag ${x},${y}`),
+      handleRelease: () => strokes.push('release'),
+    });
+    arm();
+    const move = (x: number, buttons: number): Event =>
+      Object.assign(new Event('mousemove'), {
+        clientX: x,
+        clientY: 7,
+        buttons,
+        shiftKey: false,
+        altKey: false,
+      });
+    canvas.dispatchEvent(move(10, 0));
+    canvas.dispatchEvent(move(20, 1));
+    windowTarget.dispatchEvent(Object.assign(new Event('mouseup'), { button: 2 }));
+    windowTarget.dispatchEvent(Object.assign(new Event('mouseup'), { button: 0 }));
+    expect(strokes).toEqual(['drag 20,7', 'release']);
+    input.dispose();
+  });
+
   it('calls a held mode off on a Ctrl right-click where Ctrl-click is no right-click', () => {
     const { canvas, input, cues, held, arm } = mount();
     let clicks = 0;

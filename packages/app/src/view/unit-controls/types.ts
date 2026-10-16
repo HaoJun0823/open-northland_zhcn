@@ -197,6 +197,8 @@ export interface UnitControls {
   /** The green/red assignment wash for the render building-highlight layer, or null when no assign mode
    *  is armed. */
   readonly assignHighlight: () => readonly BuildingHighlightItem[] | null;
+  /** The viewer's own wall or gate drawn on top under each client point, or null there. */
+  readonly ownWallsAt: (points: readonly { readonly x: number; readonly y: number }[]) => (number | null)[];
   readonly signpostPlacementActive: () => boolean;
   /** A flag trade's workplace pick is armed: the placement ghost shows its flag under the cursor. */
   readonly workFlagPlacementActive: () => boolean;

@@ -437,6 +437,8 @@ export const plGame = {
       road: 'Droga',
       palisade: 'Palisada',
       gate: 'Brama',
+      wallDemolish: 'Burzenie palisad',
+      wallDemolishTip: 'Burz palisady i bramy: przytrzymaj lewy przycisk i przeciągnij. Drogi zostają.',
       notInThisVersion: 'Niedostępne w tej wersji gry',
       papers: 'Papiery',
       papersHint: 'Papiery ze skrzyń: budynki stawiane od razu',
@@ -469,6 +471,8 @@ export const plGame = {
       placeWallLineHint:
         'lewy przycisk stawia palisadę, z Ctrl/Cmd ciągnie dalej, Shift trzyma prostą, prawy anuluje linię',
       placeGateHint: 'wskaż prosty odcinek pięciu gotowych segmentów palisady',
+      wallDemolishHint:
+        'przytrzymaj lewy przycisk i przeciągnij po swoich palisadach i bramach, drogi zostają',
       roadHint:
         'po drogach osadnicy chodzą szybciej. Jeden kamień brukuje plac i sąsiednie zaplanowane place.',
       placeRoadHint: 'kliknij, gdzie ma się zacząć droga, z Alt usuwasz place pod drogę',

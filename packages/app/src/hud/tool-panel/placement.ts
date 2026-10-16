@@ -202,6 +202,8 @@ export interface PlacementDeps {
    *  with, for the owner to take back into hand. A wall or gate tool is called off without it: the
    *  player leaves that tool to get back to the map. */
   readonly onCancel?: (paper: Paper | null) => void;
+  /** A building, wall, gate or road was taken up for placement. */
+  readonly onHold?: () => void;
 }
 
 /** Placement mode: pick a building in the window, then one left-click on buildable ground places and
@@ -519,6 +521,7 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
   };
 
   const enter = (pick: BuildingPick): void => {
+    deps.onHold?.();
     building = pick;
     palisade = null;
     road = null;
@@ -531,6 +534,7 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
   };
 
   const enterPalisade = (gfxIndex: number, mode: PalisadePlacementMode, side?: PlacementSide): void => {
+    deps.onHold?.();
     building = null;
     const held = side ?? { owner: deps.owner, tribe: deps.tribe };
     road = null;
@@ -540,6 +544,7 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
   };
 
   const enterRoad = (standing?: PlacementSide): void => {
+    deps.onHold?.();
     building = null;
     palisade = null;
     const hold: RoadHold = {

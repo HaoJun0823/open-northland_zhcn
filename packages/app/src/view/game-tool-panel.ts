@@ -41,6 +41,7 @@ import type {
 import type { PapersSeam } from '../hud/tool-panel/paper-cards.js';
 import type { GateSites, PalisadeGateProbeView, PlacementClickAsks } from '../hud/tool-panel/placement.js';
 import type { ResidentsSeam } from '../hud/tool-panel/residents/seam.js';
+import type { ClientPoint } from '../hud/tool-panel/wall-demolish.js';
 import { bcp47Tag, compareLabels, currentLocale, goodName, type Locale } from '../i18n/index.js';
 import type { PresentationPack } from '../presentation/pack.js';
 import type { SessionHost } from '../session/index.js';
@@ -90,6 +91,7 @@ export interface GameToolPanelDeps {
   readonly roadBuiltAt: (col: number, row: number) => boolean;
   readonly roadAnswersKey: () => string;
   readonly ownRoadSiteAt: (col: number, row: number) => number | null;
+  readonly ownWallsAt: (points: readonly ClientPoint[]) => readonly (number | null)[];
   /** The placement rules a click asks the sim as it lands. */
   readonly placementClickAsks: PlacementClickAsks;
   readonly palisadeTools: PalisadeTools;
@@ -325,6 +327,7 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
       roadBuiltAt: deps.roadBuiltAt,
       roadAnswersKey: deps.roadAnswersKey,
       ownRoadSiteAt: deps.ownRoadSiteAt,
+      ownWallsAt: deps.ownWallsAt,
       placementClickAsks: deps.placementClickAsks,
       palisadeTools: deps.palisadeTools,
       onSpeedChange: deps.onSpeed,

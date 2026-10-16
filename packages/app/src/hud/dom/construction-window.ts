@@ -42,6 +42,12 @@ const COST_ICON_BOX_PX = 16;
 const NATION_ART_PX = 28;
 const VIEWS: readonly CatalogueView[] = ['grid', 'list'];
 const VIEW_GLYPH: Readonly<Record<CatalogueView, string>> = { grid: GLYPH.grid, list: GLYPH.list };
+const TOOL_GLYPH: Readonly<Record<ConstructionTool, string>> = {
+  road: GLYPH.road,
+  palisade: GLYPH.palisade,
+  gate: GLYPH.gate,
+  wallDemolish: GLYPH.demolish,
+};
 
 export interface ConstructionWindowDeps {
   readonly plane: HTMLElement;
@@ -184,7 +190,7 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
   const quick = document.createElement('div');
   quick.className = 'on-toolrow';
   for (const tool of CONSTRUCTION_TOOLS) {
-    const control = button('on-button', `${GLYPH[tool]}<span></span>`);
+    const control = button('on-button', `${TOOL_GLYPH[tool]}<span></span>`);
     const text = control.querySelector('span');
     if (text !== null) text.textContent = copy[tool];
     if (deps.tools.includes(tool)) {

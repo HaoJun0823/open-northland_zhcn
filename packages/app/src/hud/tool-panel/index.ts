@@ -1,8 +1,16 @@
 import type { UiCue } from '@open-northland/audio';
 import type { HypertextBook } from '@open-northland/data';
-import type { HudLayout, HudModel, MapViewFrame, MapViewTarget, SpriteSheet } from '@open-northland/render';
+import type {
+  BuildingHighlightItem,
+  HudLayout,
+  HudModel,
+  MapViewFrame,
+  MapViewTarget,
+  SpriteSheet,
+} from '@open-northland/render';
 import type {
   Command,
+  Entity,
   EntitySnapshot,
   FogView,
   HalfCellNode,
@@ -98,6 +106,7 @@ import { canBecomeOptions } from './residents/can-become.js';
 import { NO_RESIDENT_FILTERS } from './residents/rows.js';
 import type { ResidentsSeam } from './residents/seam.js';
 import { createSpeedControl } from './speed-control.js';
+import { type ClientPoint, createWallDemolishBrush } from './wall-demolish.js';
 import { createToolWindows, type ToolWindowsState } from './windows.js';
 
 /** Painted-icon size in a window head (design px). */
@@ -204,6 +213,9 @@ export interface ToolPanelOptions {
   readonly roadAnswersKey?: () => string;
   /** The seat's own road site on a node, which the road tool's Alt line cancels. */
   readonly ownRoadSiteAt?: (col: number, row: number) => number | null;
+  /** The seat's own wall or gate drawn on top under each client point, which the wall brush tears down;
+   *  absent, its button stays disabled. */
+  readonly ownWallsAt?: (points: readonly ClientPoint[]) => readonly (number | null)[];
   /** The placement rules a click asks the sim as it lands. */
   readonly placementClickAsks?: PlacementClickAsks;
   /** The wall and closed-gate graphics rows the quick row's palisade and gate tools place; a missing
@@ -304,6 +316,8 @@ export interface ToolPanelController {
   palisadeMode(): PalisadePlacementMode | null;
   /** The road tool is held. */
   roadActive(): boolean;
+  /** The wall brush's red tint on the wall under `pointer`; null while the brush is not held. */
+  wallDemolishHighlight(pointer: ClientPoint | null): readonly BuildingHighlightItem[] | null;
   roadPreview(tile: LineNode | null): RoadPreview | null;
   /** Hold a placement that stands `structure` finished for `owner` through the admin channel; false when
    *  the map offers no such tool or world edits are off. */
@@ -480,9 +494,18 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       });
     const strip = createPlacementStrip(plane);
     domParts.push(strip);
+    const { ownWallsAt } = opts;
+    const wallBrush = createWallDemolishBrush({
+      strip,
+      wallsAt: (points) => ownWallsAt?.(points) ?? [],
+      demolish: (wall) => enqueue({ kind: 'demolishPalisade', palisade: wall as Entity }),
+      cue: ctx.cue,
+    });
     const placement = createPlacementController({
       ctx,
       strip,
+      // The brush and a placement share the strip and the canvas: holding one drops the other.
+      onHold: () => wallBrush.cancel(),
       labelByType,
       enqueue,
       screenToTile: opts.screenToTile,
@@ -522,14 +545,18 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
     const wallRow = palisadeToolRow('palisade');
     const gateRow = palisadeToolRow('gate');
     const toolOffered = (tool: ConstructionTool): boolean =>
-      tool === 'road' ? roadOffered : palisadeToolRow(tool) !== null;
+      tool === 'road'
+        ? roadOffered
+        : tool === 'wallDemolish'
+          ? ownWallsAt !== undefined
+          : palisadeToolRow(tool) !== null;
     const keyLabel = (action: 'roadTool' | 'palisadeTool'): string | null => {
       const binding = opts.bindings[action];
       return binding === null ? null : keyDisplayLabel(binding);
     };
     // A cancel runs the modes in this order, so the plan a cancelled placement hands back stays held
     // until the next cancel drops it: one rung per press.
-    const held: readonly HeldMode[] = [heldPaper, placement];
+    const held: readonly HeldMode[] = [heldPaper, placement, wallBrush];
     const cancelHeld = (): void => {
       for (const mode of held) mode.cancel();
     };
@@ -624,10 +651,16 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
           toolHints: {
             road: roadToolHint(keyLabel('roadTool')),
             palisade: palisadeToolHint(keyLabel('palisadeTool')),
+            wallDemolish: messages().hud.construction.wallDemolishTip,
           },
           onPickTool: (tool) => {
             if (tool === 'road') {
               placement.enterRoad();
+              return;
+            }
+            if (tool === 'wallDemolish') {
+              placement.cancel();
+              wallBrush.enter();
               return;
             }
             const gfxIndex = palisadeToolRow(tool);
@@ -950,6 +983,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       palisadeGfxIndex: () => placement.activePalisade(),
       palisadeMode: () => placement.activePalisadeMode(),
       roadActive: () => placement.activeRoad(),
+      wallDemolishHighlight: (pointer) => wallBrush.highlight(pointer),
       roadPreview: (tile) => placement.roadPreview(tile),
       enterStanding: (structure, owner, tribe): boolean => {
         if (opts.enqueueTrusted === undefined) return false;

@@ -574,6 +574,13 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     orderMarkers: orderMarkers.live,
     lostGoals: () => lostGoals(opts.snapshot(), selection.ids(), pickableSeat(opts.viewer)),
     assignHighlight: pickMode.highlight,
+    ownWallsAt: (points) => {
+      const walls = unitTargets.owned('palisade');
+      return points.map(({ x, y }) => {
+        const w = toWorld(x, y);
+        return pickTopAt(walls, w.x, w.y);
+      });
+    },
     signpostPlacementActive: pickMode.signpostActive,
     workFlagPlacementActive: pickMode.flagActive,
     claimsEscape: () =>

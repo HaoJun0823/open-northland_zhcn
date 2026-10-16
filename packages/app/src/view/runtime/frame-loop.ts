@@ -21,7 +21,7 @@ import type { ViewerSeat } from '../../game/viewer-seat.js';
 import type { MinimapHandle } from '../../hud/minimap/index.js';
 import { type BuildingPick, probeOwner, techWaived } from '../../hud/tool-panel/placement.js';
 import { setCanvasCursor } from '../cursors/element.js';
-import { placementPointer } from '../cursors/placement.js';
+import { placementPointer, wallDemolishPointer } from '../cursors/placement.js';
 import { createFellingPresenter } from '../felling-presenter.js';
 import type { GameToolPanelHandle } from '../game-tool-panel.js';
 import type { SignpostMapOverlay } from '../map-overlays/signposts.js';
@@ -318,15 +318,20 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     });
     renderer.updatePlacementOverlay(cursor.overlay);
     renderer.updatePlacementGhost(cursor.ghost, snap);
+    const wallDemolish = toolPanel.controller.wallDemolishHighlight(
+      pointer === null ? null : { x: pointer.clientX, y: pointer.clientY },
+    );
     setCanvasCursor(
       deps.canvas,
       'placement',
-      placementPointer(
-        toolPanel.controller.placementBuilding() !== null ||
-          toolPanel.controller.palisadeGfxIndex() !== null ||
-          toolPanel.controller.roadActive(),
-        cursor.ghost,
-      ),
+      wallDemolish !== null
+        ? wallDemolishPointer(wallDemolish)
+        : placementPointer(
+            toolPanel.controller.placementBuilding() !== null ||
+              toolPanel.controller.palisadeGfxIndex() !== null ||
+              toolPanel.controller.roadActive(),
+            cursor.ghost,
+          ),
     );
     // Before `renderer.update`, so the panel a rebuild bakes and the portrait inset painted over it both
     // show this frame's state.
@@ -337,8 +342,11 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     renderer.setPortraitInsets(controls.portraits());
     renderer.updateConstructionPlots(visiblePlots(fogView));
     geometryDebug.update(snap);
-    // The gate tool tints the walls it can cut into; otherwise an assignment tints its candidates.
-    renderer.setBuildingHighlight(toolPanel.controller.gateSites()?.highlight ?? controls.assignHighlight());
+    // The gate tool tints the walls it can cut into, the wall brush the wall it would tear down; otherwise
+    // an assignment tints its candidates.
+    renderer.setBuildingHighlight(
+      toolPanel.controller.gateSites()?.highlight ?? wallDemolish ?? controls.assignHighlight(),
+    );
     const constructionSigns = constructionSignsFor(snap);
     const settlerBubbles = settlerBubblesFor(snap);
     // Blood and bones decay against the sim tick, so a pause or a screenshot reproduces.

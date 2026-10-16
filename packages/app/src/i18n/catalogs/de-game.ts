@@ -483,6 +483,8 @@ export const deGame = {
       road: 'Straße',
       palisade: 'Palisade',
       gate: 'Tor',
+      wallDemolish: 'Palisaden abreißen',
+      wallDemolishTip: 'Palisaden und Tore abreißen: linke Maustaste halten und ziehen. Straßen bleiben.',
       notInThisVersion: 'In dieser Spielversion nicht verfügbar',
       papers: 'Briefe',
       papersHint: 'Briefe aus Kisten: Gebäude sofort setzen',
@@ -516,6 +518,7 @@ export const deGame = {
       placeWallLineHint:
         'Linksklick legt die Palisade fest, mit Ctrl/Cmd ziehst du sie weiter, Shift hält sie gerade, Rechtsklick verwirft die Linie',
       placeGateHint: 'Zeige auf einen geraden Abschnitt aus fünf fertigen Palisadenteilen',
+      wallDemolishHint: 'halte die linke Maustaste und ziehe über deine Palisaden und Tore, Straßen bleiben',
       roadHint:
         'Siedler gehen auf Straßen schneller. Ein Bruchstein pflastert ein Feld und die angrenzenden geplanten Straßenfelder.',
       placeRoadHint:

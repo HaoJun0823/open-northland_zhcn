@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Position } from '../../src/components/index.js';
 import { exportSaveGame, positionOfNode, restoreSimulation, Simulation } from '../../src/index.js';
-import { LayeredBlocks } from '../../src/nav/block-overlay.js';
+import { type BlockOverlay, LayeredBlocks } from '../../src/nav/block-overlay.js';
 import { findPath } from '../../src/nav/pathfinding/index.js';
-import type { NodeId } from '../../src/nav/terrain/index.js';
+import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
 import { stampResourceFootprintData, unstampResourceFootprint } from '../../src/systems/footprint/index.js';
 import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
 import { GroupReachability } from '../../src/systems/movement/group-reachability.js';
@@ -34,6 +34,27 @@ function fixture() {
     mask: walkBlockMask(sim.world, ctxOf(sim), terrain),
     reachability: new GroupReachability(terrain),
   };
+}
+
+/** Every standable node's region label under `blocked` by a full flood, 0 off every region. */
+function floodRegions(terrain: TerrainGraph, blocked: BlockOverlay): Int32Array {
+  const flood = new Int32Array(terrain.nodeCount);
+  let label = 0;
+  for (let seedNode = 0; seedNode < terrain.nodeCount; seedNode++) {
+    const node = seedNode as NodeId;
+    if (flood[node] !== 0 || !terrain.isWalkable(node) || blocked.has(node)) continue;
+    label++;
+    flood[node] = label;
+    const queue = [node];
+    for (let cursor = 0; cursor < queue.length; cursor++) {
+      for (const step of terrain.steps(queue[cursor] as NodeId, blocked)) {
+        if (flood[step.node] !== 0) continue;
+        flood[step.node] = label;
+        queue.push(step.node);
+      }
+    }
+  }
+  return flood;
 }
 
 describe('group failure reachability', () => {
@@ -300,23 +321,7 @@ describe('structural region predicate', () => {
     for (let i = 0; i < 1200; i++) posts.add(terrain.nodeAt(next(terrain.width), next(terrain.height)));
     for (let y = 0; y < terrain.height; y++) if (y !== 20) posts.add(terrain.nodeAt(25, y));
     const blocked = new LayeredBlocks([mask.levelled(), posts]);
-    const flood = new Int32Array(terrain.nodeCount);
-    let label = 0;
-    const steps = terrain.steps.bind(terrain);
-    for (let seedNode = 0; seedNode < terrain.nodeCount; seedNode++) {
-      const node = seedNode as NodeId;
-      if (flood[node] !== 0 || !terrain.isWalkable(node) || blocked.has(node)) continue;
-      label++;
-      flood[node] = label;
-      const queue = [node];
-      for (let cursor = 0; cursor < queue.length; cursor++) {
-        for (const step of steps(queue[cursor] as NodeId, blocked)) {
-          if (flood[step.node] !== 0) continue;
-          flood[step.node] = label;
-          queue.push(step.node);
-        }
-      }
-    }
+    const flood = floodRegions(terrain, blocked);
     const reachability = new GroupReachability(terrain);
     let connected = 0;
     for (let i = 0; i < 400; i++) {
@@ -329,5 +334,43 @@ describe('structural region predicate', () => {
     // The sample must exercise both answers.
     expect(connected).toBeGreaterThan(50);
     expect(connected).toBeLessThan(350);
+  });
+
+  it('answers like a full flood when one held overlay cycles through three', () => {
+    const { terrain, mask } = fixture();
+    const column = (x: number, gapY?: number): NodeId[] =>
+      Array.from({ length: terrain.height }, (_, y) => y)
+        .filter((y) => y !== gapY)
+        .map((y) => terrain.nodeAt(x, y));
+    const gapY = 20;
+    // A sealed left bank, an open field with a gap and a sealed right bank: a stale complete group from
+    // one would refuse a crossing another allows.
+    const overlays = [
+      new LayeredBlocks([mask.levelled(), new Set(column(25))]),
+      new LayeredBlocks([mask.levelled(), new Set(column(25, gapY))]),
+      new LayeredBlocks([mask.levelled(), new Set(column(75))]),
+    ];
+    const floods = overlays.map((blocked) => floodRegions(terrain, blocked));
+    const reachability = new GroupReachability(terrain, 1);
+    const xs = [4, 20, 40, 60, 90];
+    const rounds = 3;
+    const answers = { connected: 0, apart: 0 };
+    for (let round = 0; round < rounds; round++) {
+      overlays.forEach((blocked, i) => {
+        const flood = floods[i];
+        if (flood === undefined) throw new Error('missing flood');
+        for (const ax of xs) {
+          for (const bx of xs) {
+            const a = terrain.nodeAt(ax, 4 + round);
+            const b = terrain.nodeAt(bx, 30 - round);
+            const expected = flood[a] !== 0 && flood[a] === flood[b];
+            answers[expected ? 'connected' : 'apart']++;
+            expect(reachability.sameRegion(mask, blocked, a, b)).toBe(expected);
+          }
+        }
+      });
+    }
+    expect(answers.connected).toBeGreaterThan(0);
+    expect(answers.apart).toBeGreaterThan(0);
   });
 });

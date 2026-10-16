@@ -17,6 +17,11 @@ function readPalisadeGfxIndex(components: Readonly<Record<string, unknown>>): nu
   return readNumField(components, 'Palisade', 'gfxIndex');
 }
 
+function isFinishedGate(components: Readonly<Record<string, unknown>>): boolean {
+  const palisade = components.Palisade as { gate?: unknown } | undefined;
+  return palisade?.gate !== undefined && palisade.gate !== null && !('UnderConstruction' in components);
+}
+
 /** Whether a builder has claimed an unfinished wall segment, which puts up its work flag. */
 export function readPalisadeClaimed(components: Readonly<Record<string, unknown>>): boolean {
   const palisade = components.Palisade as { reservation?: unknown } | undefined;
@@ -257,6 +262,12 @@ export function assignStaticFields(
     case 'palisade': {
       const gfxIndex = readPalisadeGfxIndex(components);
       if (gfxIndex !== undefined) target.gfxIndex = gfxIndex;
+      // Gate art has one state at every health, so a hurt gate takes the building damage look where a
+      // post descends its durability ladder instead.
+      if (isFinishedGate(components)) {
+        const hpFrac = readHpFraction(components);
+        if (hpFrac !== undefined) target.hpFrac = hpFrac;
+      }
       const builtPct = readPalisadeStatePct(components);
       if (builtPct !== undefined) target.builtPct = builtPct;
       return;

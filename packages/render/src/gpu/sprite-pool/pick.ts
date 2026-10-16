@@ -23,7 +23,7 @@ export interface DrawnGeometry {
   readonly keelOf?: (ref: number) => readonly number[] | undefined;
 }
 
-/** One drawn damaged building, including a remembered appearance under fog. */
+/** One drawn damaged building or gate, including a remembered appearance under fog. */
 export interface DamagedBuilding {
   readonly ref: number;
   readonly hpFrac: number;

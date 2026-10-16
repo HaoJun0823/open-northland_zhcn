@@ -33,6 +33,7 @@ export function damageScaffoldLayers(
 ): readonly ResolvedLayer[] {
   if (
     sheet === undefined ||
+    item.kind !== 'building' ||
     typeof sheet.bindings.building === 'number' ||
     item.builtPct !== undefined ||
     item.upgradePct !== undefined

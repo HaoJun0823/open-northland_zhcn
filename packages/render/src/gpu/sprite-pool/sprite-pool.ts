@@ -514,7 +514,7 @@ export class SpritePool {
     this.ships.length = 0;
     const vehicles = this.sheet?.bindings.vehicle;
     for (const item of items) {
-      if (item.kind === 'building' && item.hpFrac !== undefined) {
+      if ((item.kind === 'building' || item.kind === 'palisade') && item.hpFrac !== undefined) {
         this.damaged.push({
           ref: item.ref,
           hpFrac: item.hpFrac,

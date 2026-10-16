@@ -288,7 +288,11 @@ export class LayerBinder {
           );
           if (receivesBlood) buildingBlood?.set(layer.frame, surface);
         }
-        if (item.kind === 'building' && layer.boundsExempt !== true && layer.shadow !== true) {
+        if (
+          (item.kind === 'building' || item.kind === 'palisade') &&
+          layer.boundsExempt !== true &&
+          layer.shadow !== true
+        ) {
           pe.damageBodies ??= [];
           pe.damageBodies.push(spr);
         }

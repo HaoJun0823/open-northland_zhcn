@@ -3,19 +3,37 @@ import type { World } from '../../ecs/world.js';
 import { type NodeBox, unionNodeBoxes } from '../../nav/node-circle.js';
 import { type ReachArea, reachBox } from '../../nav/range-search.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
+import type { WalkBlockMask } from '../footprint/walk-block-mask.js';
 import type { SignpostSite } from './network.js';
-import { GOODS_SEARCH_SPAN, postTerrainReach } from './terrain-reach.js';
+import {
+  GOODS_SEARCH_SPAN,
+  listChangesSince,
+  listedChangeMeets,
+  postTerrainReach,
+  signpostMask,
+} from './terrain-reach.js';
 
 /** Nodes per side of the blocks a coverage re-checks its posts by. */
 const COVERAGE_BLOCK_NODES = 16;
 /** The epoch reading of a post or block never checked. */
 const UNCHECKED = -1;
+/** Per post, the four bounds of the box its held search read. */
+const BOX_FIELDS = 4;
+const MIN_X = 0;
+const MAX_X = 1;
+const MIN_Y = 2;
+const MAX_Y = 3;
+
+/** The union of the fresh posts' read boxes a scan lists changes over. */
+const scanArea = { minHx: 0, maxHx: 0, minHy: 0, maxHy: 0 };
 
 /**
  * A signpost group's goods coverage: the nodes some post's goods search marks. It keeps each post's
  * search and, per node, how many of those searches mark it. Asked about a node, it re-checks only the
  * posts whose search box meets that node's block, once per reach epoch, so a node's count is exact
  * whatever the other posts hold, and a post whose search changed costs its own area, not a new union.
+ * Once per epoch it lists the nodes changed since its previous scan over the boxes its held searches
+ * read, and asks again only the posts a change met: a search none met answers as it did.
  */
 export class GroupCoverage {
   /** The union of the posts' search boxes, whatever the searches mark. */
@@ -28,6 +46,14 @@ export class GroupCoverage {
   /** Per block, the posts whose search box meets it. */
   private readonly blockPosts: number[][];
   private readonly blockCheckedAt: Float64Array;
+  /** Per post, whether a change may have met its held search since it was asked. */
+  private readonly stale: Uint8Array;
+  private readonly readBoxes: Int32Array;
+  /** The epoch, mask, mask version and resistance clock of the latest scan. */
+  private scannedAt = UNCHECKED;
+  private scannedMask: WalkBlockMask | undefined;
+  private scannedMaskVersion = 0;
+  private scannedResistanceClock = 0;
 
   constructor(
     private readonly world: World,
@@ -44,6 +70,8 @@ export class GroupCoverage {
     this.counts = new Uint16Array(this.width * height);
     this.held = posts.map(() => undefined);
     this.postCheckedAt = new Float64Array(posts.length).fill(UNCHECKED);
+    this.stale = new Uint8Array(posts.length);
+    this.readBoxes = new Int32Array(BOX_FIELDS * posts.length);
     this.blockColumns = Math.ceil(this.width / COVERAGE_BLOCK_NODES);
     const blockRows = Math.ceil(height / COVERAGE_BLOCK_NODES);
     this.blockPosts = Array.from({ length: this.blockColumns * blockRows }, () => []);
@@ -71,19 +99,80 @@ export class GroupCoverage {
       Math.floor((y - minY) / COVERAGE_BLOCK_NODES) * this.blockColumns +
       Math.floor((x - minX) / COVERAGE_BLOCK_NODES);
     if (this.blockCheckedAt[block] !== epoch) {
+      this.scan(epoch);
       for (const i of this.blockPosts[block] as number[]) this.checkPost(i, epoch);
       this.blockCheckedAt[block] = epoch;
     }
     return this.counts[(y - minY) * this.width + x - minX] !== 0;
   }
 
+  /** Mark stale every held post a node changed since the previous scan may have met. */
+  private scan(epoch: number): void {
+    if (this.scannedAt === epoch) return;
+    this.scannedAt = epoch;
+    const { world, content, terrain } = this;
+    const mask = signpostMask(world, content, terrain);
+    const maskVersion = mask.version;
+    const resistanceClock = terrain.resistanceClock;
+    if (mask === this.scannedMask && this.listChanges(mask, terrain)) this.markMet();
+    else this.stale.fill(1);
+    this.scannedMask = mask;
+    this.scannedMaskVersion = maskVersion;
+    this.scannedResistanceClock = resistanceClock;
+  }
+
+  /** List the nodes changed since the previous scan inside the fresh posts' read boxes; false when too
+   *  many changed. */
+  private listChanges(mask: WalkBlockMask, terrain: TerrainGraph): boolean {
+    scanArea.minHx = Number.MAX_SAFE_INTEGER;
+    scanArea.maxHx = -1;
+    scanArea.minHy = Number.MAX_SAFE_INTEGER;
+    scanArea.maxHy = -1;
+    const boxes = this.readBoxes;
+    for (let i = 0; i < this.posts.length; i++) {
+      if (this.stale[i] !== 0 || this.held[i] === undefined) continue;
+      const at = BOX_FIELDS * i;
+      scanArea.minHx = Math.min(scanArea.minHx, boxes[at + MIN_X] as number);
+      scanArea.maxHx = Math.max(scanArea.maxHx, boxes[at + MAX_X] as number);
+      scanArea.minHy = Math.min(scanArea.minHy, boxes[at + MIN_Y] as number);
+      scanArea.maxHy = Math.max(scanArea.maxHy, boxes[at + MAX_Y] as number);
+    }
+    if (scanArea.maxHx < 0) return false;
+    return listChangesSince(mask, terrain, scanArea, this.scannedMaskVersion, this.scannedResistanceClock);
+  }
+
+  /** Mark stale each fresh post whose read box holds a listed change. */
+  private markMet(): void {
+    const boxes = this.readBoxes;
+    for (let i = 0; i < this.posts.length; i++) {
+      if (this.stale[i] !== 0 || this.held[i] === undefined) continue;
+      const at = BOX_FIELDS * i;
+      if (
+        listedChangeMeets(
+          boxes[at + MIN_X] as number,
+          boxes[at + MAX_X] as number,
+          boxes[at + MIN_Y] as number,
+          boxes[at + MAX_Y] as number,
+        )
+      )
+        this.stale[i] = 1;
+    }
+  }
+
   private checkPost(i: number, epoch: number): void {
     if (this.postCheckedAt[i] === epoch) return;
     this.postCheckedAt[i] = epoch;
+    const held = this.held[i];
+    if (held !== undefined && this.stale[i] === 0) return;
     const post = this.posts[i] as SignpostSite;
     const { world, content, terrain } = this;
     const found = postTerrainReach(world, content, terrain, post.entity, post.hx, post.hy, GOODS_SEARCH_SPAN);
-    const held = this.held[i];
+    this.stale[i] = 0;
+    const at = BOX_FIELDS * i;
+    this.readBoxes[at + MIN_X] = found.searched.minHx;
+    this.readBoxes[at + MAX_X] = found.searched.maxHx;
+    this.readBoxes[at + MIN_Y] = found.searched.minHy;
+    this.readBoxes[at + MAX_Y] = found.searched.maxHy;
     if (found.area === held) return;
     if (held !== undefined) this.count(held, -1);
     this.count(found.area, 1);

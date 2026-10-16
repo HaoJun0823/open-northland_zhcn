@@ -11,6 +11,8 @@ import type { WalkBlockMask } from '../footprint/walk-block-mask.js';
 import { signpostNetworkRevision } from './network.js';
 import {
   dropFallenPostReaches,
+  listChangesSince,
+  listedChangeMeets,
   postTerrainReach,
   SIGNPOST_LINK_SPAN,
   signpostMask,
@@ -180,26 +182,13 @@ interface FoundLinks {
 }
 const layouts = new WeakMap<World, Layout>();
 
-/** Nodes changed since the last pass past which every post is asked afresh rather than tested against
- *  each change. */
-const MAX_PASS_CHANGES = 256;
-/** The nodes whose block or resistance changed since the last pass, as x and y pairs filled by count. */
-const passChanges = new Int32Array(2 * MAX_PASS_CHANGES);
-let passChangeCount = 0;
 /** The whole map as a node area, its far edges set per pass. */
 const WHOLE_MAP = { minHx: 0, maxHx: 0, minHy: 0, maxHy: 0 };
-function listPassChange(x: number, y: number): boolean {
-  if (passChangeCount === MAX_PASS_CHANGES) return true;
-  passChanges[2 * passChangeCount] = x;
-  passChanges[2 * passChangeCount + 1] = y;
-  passChangeCount++;
-  return false;
-}
 
 /**
  * Whether the last pass's links still hold for every post whose read box no listed change meets: no post
  * rose, fell or changed hands since, so each post's candidates are the same, and a reach whose read nodes
- * kept their blocks and resistances answers as it did. Lists the changes in {@link passChanges}.
+ * kept their blocks and resistances answers as it did. Lists the changes for {@link listedChangeMeets}.
  */
 function listChangesSinceLastPass(
   layout: Layout | undefined,
@@ -207,23 +196,10 @@ function listChangesSinceLastPass(
   terrain: TerrainGraph,
   network: number,
 ): boolean {
-  passChangeCount = 0;
   if (layout === undefined || layout.readMask !== mask || layout.network !== network) return false;
   WHOLE_MAP.maxHx = terrain.width - 1;
   WHOLE_MAP.maxHy = terrain.height - 1;
-  return !(
-    mask.flippedSince(WHOLE_MAP, layout.readMaskVersion, listPassChange) ||
-    terrain.resistanceChangedSince(WHOLE_MAP, layout.readResistanceClock, listPassChange)
-  );
-}
-
-function changeMeets(found: FoundLinks): boolean {
-  for (let i = 0; i < passChangeCount; i++) {
-    const x = passChanges[2 * i] as number;
-    const y = passChanges[2 * i + 1] as number;
-    if (x >= found.minHx && x <= found.maxHx && y >= found.minHy && y <= found.maxHy) return true;
-  }
-  return false;
+  return listChangesSince(mask, terrain, WHOLE_MAP, layout.readMaskVersion, layout.readResistanceClock);
 }
 
 /** {@link reachableLinks} for `post`, or the last pass's list when it still holds; records what it found. */
@@ -236,7 +212,8 @@ function passLinks(
   reuse: boolean,
 ): readonly Entity[] {
   const held = layout.found.get(post);
-  if (reuse && held !== undefined && !changeMeets(held)) return held.links;
+  if (reuse && held !== undefined && !listedChangeMeets(held.minHx, held.maxHx, held.minHy, held.maxHy))
+    return held.links;
   const links = reachableLinks(world, terrain, post, content);
   const read = lastLinkSearch;
   const found = held ?? { links, minHx: 0, maxHx: -1, minHy: 0, maxHy: -1 };

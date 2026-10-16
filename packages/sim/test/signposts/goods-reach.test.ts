@@ -6,6 +6,7 @@ import { buildTerrainGraph } from '../../src/nav/terrain/map.js';
 import { Simulation } from '../../src/simulation.js';
 import { layRoad, liftRoad } from '../../src/systems/roads/index.js';
 import { collectTargets, nearestStoreHolding } from '../../src/systems/settlers/targets/index.js';
+import { GroupCoverage } from '../../src/systems/signposts/group-coverage.js';
 import { signpostLinksSystem } from '../../src/systems/signposts/links.js';
 import { createSignpost } from '../../src/systems/signposts/placement.js';
 import { goodsReachAt, goodsSearchLimitAt } from '../../src/systems/signposts/reach.js';
@@ -137,6 +138,32 @@ describe('terrain-aware goods reach', () => {
     expect(scans).toHaveBeenCalledTimes(3);
     expect(posts.map((p) => sim.world.get(p, Signpost).links)).toEqual([[], [], [posts[3]], [posts[2]]]);
     scans.mockRestore();
+  });
+  it('asks a coverage post again only when a change since its scan met its read box', () => {
+    // Resistance 5 spends the 80-point budget within 16 steps, so each post reads about 17 nodes around it.
+    const sim = new Simulation({ seed: 1, content: testContent(), map: roughNodeMap(300, 100, () => 5) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('terrain');
+    const posts = [40, 70, 100, 130].map((hx) => {
+      const entity = sim.world.create();
+      sim.world.add(entity, Owner, { player: 0 });
+      sim.world.add(entity, Position, positionOfNode(hx, 30));
+      sim.world.add(entity, Signpost, { links: [] });
+      return { entity, hx, hy: 30, group: 0 };
+    });
+    const coverage = new GroupCoverage(sim.world, sim.content, terrain, posts);
+    expect(coverage.covers(100, 30, 0)).toBe(true);
+    const block = sim.world.create();
+    sim.world.add(block, Position, positionOfNode(145, 30));
+    sim.world.add(block, ResourceFootprint, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
+    const scans = vi.spyOn(signpostMask(sim.world, sim.content, terrain), 'flippedSince');
+    // The node's block meets the posts at 70, 100 and 130; the change lies in the box only the last read.
+    expect(coverage.covers(100, 30, 1)).toBe(true);
+    expect(scans).toHaveBeenCalledTimes(2);
+    scans.mockRestore();
+    const fresh = new GroupCoverage(sim.world, sim.content, terrain, posts);
+    for (let hx = 90; hx < 160; hx++) expect(coverage.covers(hx, 30, 1)).toBe(fresh.covers(hx, 30, 1));
+    expect(coverage.covers(145, 30, 1)).toBe(false);
   });
   it('floods each post once for its links and once for the goods search', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(200, 100) });

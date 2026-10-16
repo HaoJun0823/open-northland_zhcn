@@ -7,7 +7,7 @@ import {
   Signpost,
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
+import { type NodeArea, nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import {
   floodInspected,
   floodReach,
@@ -177,6 +177,46 @@ function repairHeld(
     { hx: held.hx, hy: held.hy, range, budget, groundCost },
     changedScratch,
   );
+}
+
+/** Changed nodes {@link listChangesSince} lists before its caller treats every held search as changed. */
+const MAX_LISTED_CHANGES = 256;
+/** The nodes the latest {@link listChangesSince} listed, as x and y pairs filled by count. */
+const listedChanges = new Int32Array(2 * MAX_LISTED_CHANGES);
+let listedCount = 0;
+function listChange(x: number, y: number): boolean {
+  if (listedCount === MAX_LISTED_CHANGES) return true;
+  listedChanges[2 * listedCount] = x;
+  listedChanges[2 * listedCount + 1] = y;
+  listedCount++;
+  return false;
+}
+
+/** List the nodes of `area` whose block flipped after mask version `maskVersion` or whose resistance
+ *  changed after clock reading `resistanceClock`, the two inputs a held search's answer reads; false when
+ *  too many changed to list. */
+export function listChangesSince(
+  mask: WalkBlockMask,
+  terrain: TerrainGraph,
+  area: NodeArea,
+  maskVersion: number,
+  resistanceClock: number,
+): boolean {
+  listedCount = 0;
+  return !(
+    mask.flippedSince(area, maskVersion, listChange) ||
+    terrain.resistanceChangedSince(area, resistanceClock, listChange)
+  );
+}
+
+/** Whether a node the latest {@link listChangesSince} listed lies in the box. */
+export function listedChangeMeets(minHx: number, maxHx: number, minHy: number, maxHy: number): boolean {
+  for (let i = 0; i < listedCount; i++) {
+    const x = listedChanges[2 * i] as number;
+    const y = listedChanges[2 * i + 1] as number;
+    if (x >= minHx && x <= maxHx && y >= minHy && y <= maxHy) return true;
+  }
+  return false;
 }
 
 /** Each signpost's reach per span, the link pass's and the goods search's. */

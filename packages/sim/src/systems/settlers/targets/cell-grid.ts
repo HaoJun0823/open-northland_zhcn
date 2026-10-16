@@ -41,6 +41,51 @@ const BLOCK_SIZE = 1 << BLOCK_SHIFT;
 /** Packs a node or a tile into one key; coordinates stay below it on every map. */
 const GRID_KEY_STRIDE = 1 << 16;
 
+/** Packs a ranked list entry's distance above its insertion index; every index stays below it. */
+const RANK_INDEX_SPAN = 2 ** 24;
+const INITIAL_RANK_KEYS = 64;
+
+/** Lists ranked by a least distance, ties in insertion order, reused across searches. */
+class RankedLists<T> {
+  private readonly items: T[] = [];
+  private keys = new Float64Array(INITIAL_RANK_KEYS);
+  private count = 0;
+  /** The sorted keys of the last {@link sort}. */
+  sorted: Float64Array = this.keys.subarray(0, 0);
+
+  reset(): void {
+    this.count = 0;
+  }
+
+  push(item: T, distance: number): void {
+    if (this.count === this.keys.length) {
+      const grown = new Float64Array(this.keys.length * 2);
+      grown.set(this.keys);
+      this.keys = grown;
+    }
+    this.items[this.count] = item;
+    this.keys[this.count] = distance * RANK_INDEX_SPAN + this.count;
+    this.count++;
+  }
+
+  sort(): void {
+    this.sorted = this.keys.subarray(0, this.count).sort();
+  }
+
+  itemOf(key: number): T {
+    return this.items[key % RANK_INDEX_SPAN] as T;
+  }
+}
+
+function rankDistanceOf(key: number): number {
+  return Math.floor(key / RANK_INDEX_SPAN);
+}
+
+/** Scratch per search depth, since a visit may search a grid again. */
+const tileLists: RankedLists<readonly GridNode[]>[] = [];
+const blockLists: RankedLists<readonly number[]>[] = [];
+let searchDepth = 0;
+
 /** An occupied node: its packed key and its candidates, ascending-id. */
 interface GridNode {
   readonly key: number;
@@ -124,10 +169,25 @@ export class CellGrid {
     slack: number,
     visit: (nx: number, ny: number, distance: number, bucket: readonly Entity[]) => number,
   ): void {
-    // Call-local, since a visit may search this grid again.
-    const tileNodes: (readonly GridNode[])[] = [];
-    const tileDistances: number[] = [];
-    const tileOrder: number[] = [];
+    const depth = searchDepth++;
+    try {
+      this.nearestFirstAt(depth, x, y, maxRadius, slack, visit);
+    } finally {
+      searchDepth--;
+    }
+  }
+
+  private nearestFirstAt(
+    depth: number,
+    x: number,
+    y: number,
+    maxRadius: number,
+    slack: number,
+    visit: (nx: number, ny: number, distance: number, bucket: readonly Entity[]) => number,
+  ): void {
+    tileLists[depth] ??= new RankedLists();
+    const tiles = tileLists[depth];
+    tiles.reset();
     const minTx = Math.max(0, x - maxRadius) >> TILE_SHIFT;
     const maxTx = (x + maxRadius) >> TILE_SHIFT;
     const minTy = Math.max(0, y - maxRadius) >> TILE_SHIFT;
@@ -139,16 +199,16 @@ export class CellGrid {
         if (nodes === undefined) continue;
         const least = dx + Math.max(0, ty * TILE_SIZE - y, y - (ty * TILE_SIZE + TILE_SIZE - 1));
         if (least > maxRadius) continue;
-        tileOrder.push(tileNodes.length);
-        tileNodes.push(nodes);
-        tileDistances.push(least);
+        tiles.push(nodes, least);
       }
     }
-    tileOrder.sort((a, b) => (tileDistances[a] as number) - (tileDistances[b] as number));
+    tiles.sort();
+    const order = tiles.sorted;
     let bound = Number.POSITIVE_INFINITY;
-    for (const i of tileOrder) {
-      if ((tileDistances[i] as number) - slack > bound) return;
-      for (const node of tileNodes[i] as readonly GridNode[]) {
+    for (let i = 0; i < order.length; i++) {
+      const key = order[i] as number;
+      if (rankDistanceOf(key) - slack > bound) return;
+      for (const node of tiles.itemOf(key)) {
         const nx = Math.floor(node.key / GRID_KEY_STRIDE);
         const ny = node.key - nx * GRID_KEY_STRIDE;
         const distance = Math.abs(nx - x) + Math.abs(ny - y);
@@ -173,32 +233,47 @@ export class CellGrid {
     bound: number,
     visit: (nx: number, ny: number, distance: number, bucket: readonly Entity[]) => number,
   ): void {
-    // Call-local, since a visit may search this grid again.
-    const blockTiles: (readonly number[])[] = [];
-    const blockDistances: number[] = [];
-    const blockOrder: number[] = [];
-    this.blocks.forEach((tiles, key) => {
+    const depth = searchDepth++;
+    try {
+      this.farFirstAt(depth, x, y, near, maxRadius, slack, box, bound, visit);
+    } finally {
+      searchDepth--;
+    }
+  }
+
+  private farFirstAt(
+    depth: number,
+    x: number,
+    y: number,
+    near: number,
+    maxRadius: number,
+    slack: number,
+    box: NodeBox | undefined,
+    bound: number,
+    visit: (nx: number, ny: number, distance: number, bucket: readonly Entity[]) => number,
+  ): void {
+    blockLists[depth] ??= new RankedLists();
+    tileLists[depth] ??= new RankedLists();
+    const blocks = blockLists[depth];
+    const ranked = tileLists[depth];
+    blocks.reset();
+    for (const [key, tiles] of this.blocks) {
       const bx = Math.floor(key / GRID_KEY_STRIDE);
       const by = key - bx * GRID_KEY_STRIDE;
       const minX = bx << BLOCK_SHIFT;
       const minY = by << BLOCK_SHIFT;
       const least = spanGap(x, minX, BLOCK_SIZE) + spanGap(y, minY, BLOCK_SIZE);
-      if (least > maxRadius || least - slack > bound) return;
-      if (box !== undefined && !squareNearBox(box, minX, minY, BLOCK_SIZE, slack)) return;
-      blockOrder.push(blockTiles.length);
-      blockTiles.push(tiles);
-      blockDistances.push(least);
-    });
-    blockOrder.sort((a, b) => (blockDistances[a] as number) - (blockDistances[b] as number));
-    const tileNodes: (readonly GridNode[])[] = [];
-    const tileDistances: number[] = [];
-    const tileOrder: number[] = [];
-    for (const i of blockOrder) {
-      if ((blockDistances[i] as number) - slack > bound) return;
-      tileNodes.length = 0;
-      tileDistances.length = 0;
-      tileOrder.length = 0;
-      for (const tile of blockTiles[i] as readonly number[]) {
+      if (least > maxRadius || least - slack > bound) continue;
+      if (box !== undefined && !squareNearBox(box, minX, minY, BLOCK_SIZE, slack)) continue;
+      blocks.push(tiles, least);
+    }
+    blocks.sort();
+    const blockOrder = blocks.sorted;
+    for (let i = 0; i < blockOrder.length; i++) {
+      const blockKey = blockOrder[i] as number;
+      if (rankDistanceOf(blockKey) - slack > bound) return;
+      ranked.reset();
+      for (const tile of blocks.itemOf(blockKey)) {
         const tx = Math.floor(tile / GRID_KEY_STRIDE);
         const ty = tile - tx * GRID_KEY_STRIDE;
         const minX = tx << TILE_SHIFT;
@@ -208,14 +283,14 @@ export class CellGrid {
         if (spanReach(x, minX, TILE_SIZE) + spanReach(y, minY, TILE_SIZE) <= near) continue;
         const nodes = this.tiles.get(tile);
         if (nodes === undefined) continue; // a block lists only occupied tiles
-        tileOrder.push(tileNodes.length);
-        tileNodes.push(nodes);
-        tileDistances.push(least);
+        ranked.push(nodes, least);
       }
-      tileOrder.sort((a, b) => (tileDistances[a] as number) - (tileDistances[b] as number));
-      for (const j of tileOrder) {
-        if ((tileDistances[j] as number) - slack > bound) break;
-        for (const node of tileNodes[j] as readonly GridNode[]) {
+      ranked.sort();
+      const tileOrder = ranked.sorted;
+      for (let j = 0; j < tileOrder.length; j++) {
+        const rankedKey = tileOrder[j] as number;
+        if (rankDistanceOf(rankedKey) - slack > bound) break;
+        for (const node of ranked.itemOf(rankedKey)) {
           const nx = Math.floor(node.key / GRID_KEY_STRIDE);
           const ny = node.key - nx * GRID_KEY_STRIDE;
           const distance = Math.abs(nx - x) + Math.abs(ny - y);

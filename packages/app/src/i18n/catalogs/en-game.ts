@@ -739,8 +739,8 @@ export const enGame = {
       stances: { attack: 'Attack', defence: 'Defence', hold: 'Ignorant' },
       stanceTooltips: {
         attack: 'Seeks targets around where it stands and chases them',
-        defence: 'Guards this spot: chases nearby targets and returns',
-        hold: 'Ignores enemies out of range: does not move, fires only at targets in range',
+        defence: 'Guards this spot: chases nearby targets, but not too far',
+        hold: 'Fires only at enemies it spots in range, without moving; drives up to a target you order',
       },
       crew: 'Crew',
       roles: { cart: 'Commander', ship: 'Commander', siege: 'Commander' },

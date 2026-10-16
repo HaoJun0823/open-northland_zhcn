@@ -82,8 +82,9 @@ export const Vehicle = defineComponent<{
   heldGoal: HalfCellNode | null;
   stance: VehicleStance;
   /** The position a holding or defending siege vehicle scans around: where it stood when its stance was
-   *  set or its last goto ended. Approximation: which order writes the original's guard position is
-   *  not read. */
+   *  set or its last goto ended. A chase, ordered or scanned, leaves it behind (original behavior).
+   *  Approximation: the original's goto writes its goal as the drive starts; whether its stance order
+   *  writes it is not read. */
   guard: HalfCellNode | null;
   attack: VehicleAttack | null;
   march: VehicleMarch | null;

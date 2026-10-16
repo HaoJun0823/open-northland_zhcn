@@ -366,7 +366,9 @@ goto's no-path note, and that spot becomes the guard position.
 
 Stances (init 3): 3 hold = scan 8..24 around the guard position, never reposition; 2 defence =
 scan 0..40 around the guard position, abandon the chase beyond 60; 1 attack = scan 0..40 around
-the current position. The command-to-stance mapping is *inferred*. Targeting prefers enemy units in
+the current position. The command-to-stance mapping is *inferred*. A player's attack order holds its
+target apart from the scan's: the vehicle backs off from or closes on it in every stance, and the
+defence leash does not end its chase. Targeting prefers enemy units in
 buildings, then enemy houses, keeping the nearer of the new and current target; too close backs off
 to a node inside the band, in range fires, too far drives to a node between `maxRange - 5` and
 `maxRange` of the target on the same continent, else floods a radius-5 disc for a firing spot.
@@ -397,7 +399,10 @@ game removes his vehicles with ruins but without the cargo spill.
 
 Open Northland (`packages/sim/src/systems/conflict/engage-vehicle.ts`, `projectile.ts`): the
 stance, guard position and attack ride on the `Vehicle` component; the guard position is set by
-the stance order and a goto's end (approximation: which order writes the original's is not read).
+the stance order and a goto's end. A chase, ordered or scanned, leaves it where it was, so a holding
+or defending vehicle that chased far scans around the old spot until a goto or stance order (original
+behavior). Approximation: the original's goto writes its goal as the drive starts, and whether its
+stance order writes it is not read.
 Ranges are map points, the hexagon distance every other weapon band counts in. The four-step target
 preference is one nearest search (approximation). The stone is a `Projectile` with a ground-burst
 payload. Its flight time is `dist * 8 / speed` ticks, as an arrow's is: it covers its release chord

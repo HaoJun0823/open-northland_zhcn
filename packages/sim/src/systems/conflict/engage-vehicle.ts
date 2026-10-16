@@ -148,7 +148,7 @@ export function engageVehicle(
     // A find cuts the march short on the node it is crossing, so the next judgement closes or fires.
     if (march !== null) finishLeg(world, e);
   }
-  actOnTarget(world, ctx, terrain, e, type, stance, weapon, here, target);
+  actOnTarget(world, ctx, terrain, e, type, stance, weapon, here, target, ordered);
 }
 
 /** Drive on toward the march's goal once nothing is left to fight; standing on it, the march is over.
@@ -254,9 +254,10 @@ function scanForTarget(
 
 /**
  * Too close backs off to a node inside the band, in range fires (once the vehicle stands, outside every
- * other vehicle's disc), too far closes to a node inside the far reach; a holding vehicle moves only to
- * leave another's disc and otherwise drops the target, and a defending one drops it once its chase has
- * taken it past the leash. An auto target no firing node can be reached for is given up.
+ * other vehicle's disc), too far closes to a node inside the far reach. For a scanned target a holding
+ * vehicle moves only to leave another's disc and otherwise drops it, and a defending one drops it once
+ * its chase has taken it past the leash; an ordered target is closed on in every stance (original
+ * behavior). An auto target no firing node can be reached for is given up.
  */
 function actOnTarget(
   world: World,
@@ -268,10 +269,11 @@ function actOnTarget(
   weapon: { minRange: number; maxRange: number },
   here: NodeId,
   target: VehicleAttackTarget,
+  ordered: boolean,
 ): void {
   const state = world.get(e, Vehicle);
   const targetNode = aimNode(world, ctx, terrain, here, target);
-  if (stance === 'defence' && state.guard !== null) {
+  if (!ordered && stance === 'defence' && state.guard !== null) {
     const leash = hexNodeDistance(terrain, terrain.nodeAtClamped(state.guard.hx, state.guard.hy), here);
     if (leash > VEHICLE_DEFENCE_LEASH_POINTS) {
       dropTarget(world, e);
@@ -293,7 +295,7 @@ function actOnTarget(
     if (live.attack !== null) live.attack.clipStart = ctx.tick;
     return;
   }
-  if (stance === 'hold' && !stacked) {
+  if (!ordered && stance === 'hold' && !stacked) {
     dropTarget(world, e);
     return;
   }
@@ -306,7 +308,7 @@ function actOnTarget(
   if (goal !== null && startVehicleDrive(world, ctx, terrain, e, goal)) return;
   // Without the memo an unreachable enemy in sight is found, judged and dropped again every pass; a
   // march also rests, since the memo's few entries cannot hold a bank lined with such enemies.
-  if (target.kind === 'entity' && state.attack?.ordered !== true) {
+  if (target.kind === 'entity' && !ordered) {
     noteUnreachableTarget(world, ctx, e, target.entity);
     if (state.march !== null)
       world.mut(e, Vehicle).march = { ...state.march, restUntil: ctx.tick + MARCH_REST_TICKS };

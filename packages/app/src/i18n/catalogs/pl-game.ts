@@ -723,8 +723,8 @@ export const plGame = {
       stances: { attack: 'Atak', defence: 'Obrona', hold: 'Ignorowanie' },
       stanceTooltips: {
         attack: 'Szuka celów wokół miejsca, w którym stoi, i ściga je',
-        defence: 'Pilnuje tego miejsca: ściga pobliskie cele i wraca',
-        hold: 'Ignoruje wrogów poza zasięgiem: nie rusza się, strzela tylko do celów w zasięgu',
+        defence: 'Pilnuje tego miejsca: ściga pobliskie cele, ale nie za daleko',
+        hold: 'Strzela tylko do wrogów, których wypatrzy w zasięgu, bez ruszania się; do wskazanego celu podjeżdża',
       },
       crew: 'Załoga',
       roles: { cart: 'Dowódca', ship: 'Dowódca', siege: 'Dowódca' },

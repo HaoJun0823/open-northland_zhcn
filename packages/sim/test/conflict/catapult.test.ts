@@ -416,6 +416,93 @@ describe('catapult stances and scans', () => {
   });
 });
 
+describe('an ordered target', () => {
+  const MAP_CELL_ROWS = 20;
+  const WALL_COLUMN = 20;
+  const ROW = 20;
+
+  /** A grass map split by the owner's own wall: a palisade segment on every node of one column. */
+  function walledOff(owner: number): Simulation {
+    const s = sim(grass(40, MAP_CELL_ROWS, true));
+    for (let hy = 0; hy < 2 * MAP_CELL_ROWS; hy++) {
+      s.enqueueSetup({
+        kind: 'placePalisade',
+        gfxIndex: WALL_TYPE,
+        x: WALL_COLUMN,
+        y: hy,
+        tribe: VIKING,
+        owner,
+      });
+    }
+    s.step();
+    return s;
+  }
+
+  function orderGround(s: Simulation, vehicle: Entity, hx: number): void {
+    s.enqueue(
+      playerCommand(P1, { kind: 'attackWithVehicle', vehicle, target: { kind: 'ground', hx, hy: ROW } }),
+    );
+  }
+
+  /** Where each stone loosed over `ticks` bursts, and the anchor it was loosed from. */
+  function shots(s: Simulation, vehicle: Entity, ticks: number): { from: HalfCellNode; at: HalfCellNode }[] {
+    const out: { from: HalfCellNode; at: HalfCellNode }[] = [];
+    let from: HalfCellNode | null = null;
+    for (let i = 0; i < ticks; i++) {
+      s.step();
+      for (const ev of s.events.current()) {
+        if (ev.kind === 'projectileLaunched') from = anchorOf(s, vehicle);
+        if (ev.kind === 'groundBurst' && from !== null) out.push({ from, at: ev.at });
+      }
+    }
+    return out;
+  }
+
+  it('holding, closes on a spot beyond its far reach on its side of its own wall and shoots over it', () => {
+    const s = walledOff(P1);
+    const catapult = catapultAt(s, 12, ROW, P1);
+    const target = 40; // 28 map points east, past the wall: beyond the far reach of 24
+    orderGround(s, catapult, target);
+    s.run(3);
+    expect(s.world.has(catapult, VehicleDrive)).toBe(true);
+    const fired = shots(s, catapult, 1200);
+    expect(fired.length).toBeGreaterThan(0);
+    for (const { from, at } of fired) {
+      expect(from.hx).toBeLessThan(WALL_COLUMN);
+      expect(at).toEqual({ hx: target, hy: ROW });
+    }
+    expect(s.world.get(catapult, Vehicle).stance).toBe('hold');
+  });
+
+  it('holding, backs off from a spot inside its near reach and then fires at it', () => {
+    const s = walledOff(P1);
+    const catapult = catapultAt(s, 12, ROW, P1);
+    const target = 14; // 2 map points: under the near reach of 8
+    orderGround(s, catapult, target);
+    s.run(3);
+    expect(s.world.has(catapult, VehicleDrive)).toBe(true);
+    const fired = shots(s, catapult, 1200);
+    expect(fired.length).toBeGreaterThan(0);
+    for (const { from, at } of fired) {
+      expect(hexDistanceBetween(from.hx, from.hy, target, ROW)).toBeGreaterThanOrEqual(CATAPULT_MIN_RANGE);
+      expect(at).toEqual({ hx: target, hy: ROW });
+    }
+  });
+
+  it('defending, chases an ordered house past the leash its scan keeps to', () => {
+    const s = sim(grass(60, 12));
+    const catapult = catapultAt(s, 8, 8, P1);
+    const house = houseAt(s, 110, 8, P2, TOUGH_HOUSE); // its firing nodes lie past the 60-point leash
+    s.enqueue(playerCommand(P1, { kind: 'setVehicleStance', vehicle: catapult, stance: 'defence' }));
+    s.step();
+    order(s, catapult, P1, house);
+    const hits = collect(s, 3000, ['projectileHit']);
+    expect(hits.some((ev) => ev.kind === 'projectileHit' && ev.target === house)).toBe(true);
+    // The chase leaves the guard position behind, as every chase does.
+    expect(s.world.get(catapult, Vehicle).guard).toEqual({ hx: 8, hy: 8 });
+  });
+});
+
 describe('the stone explores where it comes down', () => {
   afterEach(() => vi.restoreAllMocks());
 

@@ -792,8 +792,8 @@ export const deGame = {
       },
       stanceTooltips: {
         attack: 'Sucht Ziele in der Umgebung und verfolgt sie',
-        defence: 'Bewacht diese Position: verfolgt nahe Ziele und kehrt zurück',
-        hold: 'Ignoriert Feinde außer Reichweite: bewegt sich nicht, feuert nur auf Ziele in Reichweite',
+        defence: 'Bewacht diese Position: verfolgt nahe Ziele, aber nicht zu weit',
+        hold: 'Feuert nur auf Feinde, die es in Reichweite entdeckt, ohne sich zu bewegen; fährt an ein befohlenes Ziel heran',
       },
       crew: 'Besatzung',
       roles: {

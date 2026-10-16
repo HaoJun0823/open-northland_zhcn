@@ -1,4 +1,4 @@
-import type { BuildingType } from '@open-northland/data';
+import type { BuildingType, ContentSet } from '@open-northland/data';
 import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import {
@@ -333,12 +333,33 @@ function rawGoodShort(
   type: BuildingType,
   holdsCarrier: boolean,
 ): boolean {
-  const index = contentIndex(ctx.content);
-  return COLLECTED_GOOD_IDS.some((id) => {
-    const served = COLLECTOR_WORKSHOP_BY_GOOD_ID[id];
-    const workshop = served === undefined ? undefined : buildingTypeByContentId(ctx.content, served.building);
-    if (workshop === undefined || !tiersAtOrAbove(index, workshop).has(type.typeId)) return false;
-    const good = goodTypeByContentId(ctx.content, id);
-    return good !== undefined && seat.supply.isShort(good.typeId, !holdsCarrier);
-  });
+  return rawGoodsServedBy(ctx.content, type).some((good) => seat.supply.isShort(good, !holdsCarrier));
 }
+
+/** The collected goods, in {@link COLLECTED_GOOD_IDS} order, whose own workshop `type` is or upgrades
+ *  from: content-static, so memoized per content and type id. */
+function rawGoodsServedBy(content: ContentSet, type: BuildingType): readonly number[] {
+  let byType = rawGoodsByContent.get(content);
+  if (byType === undefined) {
+    byType = new Map();
+    rawGoodsByContent.set(content, byType);
+  }
+  let goods = byType.get(type.typeId);
+  if (goods === undefined) {
+    const index = contentIndex(content);
+    const served: number[] = [];
+    for (const id of COLLECTED_GOOD_IDS) {
+      const collector = COLLECTOR_WORKSHOP_BY_GOOD_ID[id];
+      const workshop =
+        collector === undefined ? undefined : buildingTypeByContentId(content, collector.building);
+      if (workshop === undefined || !tiersAtOrAbove(index, workshop).has(type.typeId)) continue;
+      const good = goodTypeByContentId(content, id);
+      if (good !== undefined) served.push(good.typeId);
+    }
+    goods = served;
+    byType.set(type.typeId, goods);
+  }
+  return goods;
+}
+
+const rawGoodsByContent = new WeakMap<ContentSet, Map<number, readonly number[]>>();

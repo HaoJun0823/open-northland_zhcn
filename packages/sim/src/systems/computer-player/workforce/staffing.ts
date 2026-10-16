@@ -101,7 +101,11 @@ function isOperatorJob(ctx: SystemContext, job: number): boolean {
 function heldAt(ctx: SystemContext, tally: StaffingTally, building: Entity): HeldStaff {
   let operators = 0;
   let carriers = 0;
-  for (const [job, count] of tally.get(building) ?? []) {
+  const jobs = tally.get(building);
+  if (jobs === undefined) return { operators, carriers };
+  // keys() plus get: destructured entries would allocate a pair per job of every building asked.
+  for (const job of jobs.keys()) {
+    const count = jobs.get(job) ?? 0;
     if (isCarrierJob(ctx, job)) carriers += count;
     else if (isOperatorJob(ctx, job)) operators += count;
   }

@@ -1,4 +1,4 @@
-import type { BuildingType } from '@open-northland/data';
+import type { BuildingType, ContentSet } from '@open-northland/data';
 import {
   Building,
   CompletedCycles,
@@ -408,9 +408,22 @@ export function tuneCraftCounters(
 /** The goods a workplace type makes, ascending: its recipes' outputs and the field-farmed goods it
  *  produces without a recipe, as the farm's grain. */
 export function productsOf(ctx: SystemContext, type: BuildingType): readonly number[] {
-  const crafted = contentIndex(ctx.content).mergedRecipeByBuilding.get(type.typeId)?.outputs ?? [];
-  return [...new Set([...crafted.map((o) => o.goodType), ...type.produces])].sort((a, b) => a - b);
+  let byType = productsByContent.get(ctx.content);
+  if (byType === undefined) {
+    byType = new Map();
+    productsByContent.set(ctx.content, byType);
+  }
+  let products = byType.get(type.typeId);
+  if (products === undefined) {
+    const crafted = contentIndex(ctx.content).mergedRecipeByBuilding.get(type.typeId)?.outputs ?? [];
+    products = [...new Set([...crafted.map((o) => o.goodType), ...type.produces])].sort((a, b) => a - b);
+    byType.set(type.typeId, products);
+  }
+  return products;
 }
+
+/** {@link productsOf} per content and building type id: content-static, shared, never edited. */
+const productsByContent = new WeakMap<ContentSet, Map<number, readonly number[]>>();
 
 /** Whether the type's products with supply lines all lie at their glut lines, or while the whole crew
  *  already works the sink (`sinking`), all at or above their comfort lines. False for a type with none. */

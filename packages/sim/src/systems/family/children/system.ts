@@ -14,7 +14,7 @@ import type { SystemContext } from '../../context.js';
 import { isInside } from '../../settlers/indoors.js';
 import { collectSupplyTally } from '../../stores/index.js';
 import { ExternalFoodIndex } from '../food-search.js';
-import { type ChildOrderPass, driveOrder } from './order.js';
+import { type ChildOrderPass, DutyClaims, driveOrder } from './order.js';
 
 /**
  * The child-making half of the FamilySystem: drive every married woman's standing {@link ChildOrder} one
@@ -25,8 +25,10 @@ export function driveChildOrders(world: World, ctx: SystemContext, terrain: Terr
   cancelAbandonedSessions(world);
   const dutyBefore = world.canonicalQuery(FamilyDuty);
   const supply = collectSupplyTally(world);
+  const dutyClaimed = dutyClaimsOf(world);
+  dutyClaimed.begin();
   const pass: ChildOrderPass = {
-    dutyClaimed: new Set<Entity>(),
+    dutyClaimed,
     externalFood: new ExternalFoodIndex(world, ctx, terrain, supply),
     supply,
   };
@@ -37,8 +39,22 @@ export function driveChildOrders(world: World, ctx: SystemContext, terrain: Terr
     driveOrder(world, ctx, terrain, e, pass);
   }
   for (const e of dutyBefore) {
-    if (!pass.dutyClaimed.has(e)) world.remove(e, FamilyDuty);
+    if (dutyClaimed.has(e)) continue;
+    world.remove(e, FamilyDuty);
+    dutyClaimed.forget(e);
   }
+  dutyClaimed.end();
+}
+
+const dutyClaims = new WeakMap<World, DutyClaims>();
+
+function dutyClaimsOf(world: World): DutyClaims {
+  let claims = dutyClaims.get(world);
+  if (claims === undefined) {
+    claims = new DutyClaims();
+    dutyClaims.set(world, claims);
+  }
+  return claims;
 }
 
 /**

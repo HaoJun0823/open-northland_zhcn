@@ -46,13 +46,51 @@ import { birth, makeLoveDuration } from './make-love.js';
 export const FOOD_SEARCH_RETRY_TICKS = TICKS_PER_SECOND;
 
 /**
- * The state one child-order pass shares across its orders. `dutyClaimed` is re-made every tick: whatever
- * a tick does not re-claim, the pass strips at its end.
+ * Settlers a child-order pass is driving; their {@link FamilyDuty} fences them off the planner's economy
+ * drives, while needs still fire. Whatever a pass does not re-claim, it strips at its end. Each claim is
+ * stamped with its pass number, so the same couples claimed tick after tick rewrite entries in place.
  */
+export class DutyClaims {
+  private readonly stamps = new Map<Entity, number>();
+  private pass = 0;
+  private claimed = 0;
+
+  /** Start a pass: every earlier claim lapses. */
+  begin(): void {
+    this.pass += 1;
+    this.claimed = 0;
+  }
+
+  claim(e: Entity): void {
+    if (this.stamps.get(e) === this.pass) return;
+    this.stamps.set(e, this.pass);
+    this.claimed += 1;
+  }
+
+  has(e: Entity): boolean {
+    return this.stamps.get(e) === this.pass;
+  }
+
+  /** Forget `e`'s lapsed claim, keeping the stamps to the settlers still on duty. */
+  forget(e: Entity): void {
+    this.stamps.delete(e);
+  }
+
+  /** Drop the lapsed claims {@link forget} never saw, such as a claimed settler that died, once they
+   *  outnumber this pass's own. */
+  end(): void {
+    if (this.stamps.size <= LAPSED_CLAIMS_SWEEP_RATIO * this.claimed + LAPSED_CLAIMS_SLACK) return;
+    for (const [e, pass] of this.stamps) if (pass !== this.pass) this.stamps.delete(e);
+  }
+}
+
+/** Lapsed claims are swept once the stamps hold this many times the live ones, plus the slack. */
+const LAPSED_CLAIMS_SWEEP_RATIO = 2;
+const LAPSED_CLAIMS_SLACK = 64;
+
+/** The state one child-order pass shares across its orders. */
 export type ChildOrderPass = {
-  /** Settlers this tick is driving; their {@link FamilyDuty} fences them off the planner's economy
-   *  drives, while needs still fire. */
-  readonly dutyClaimed: Set<Entity>;
+  readonly dutyClaimed: DutyClaims;
   readonly externalFood: ExternalFoodIndex;
   readonly supply: SupplyTally;
 };
@@ -227,7 +265,7 @@ function claimDuty(world: World, e: Entity, pass: ChildOrderPass): void {
     world.add(e, FamilyDuty, { duty: true });
     pass.supply.releaseErrands(e);
   }
-  pass.dutyClaimed.add(e);
+  pass.dutyClaimed.claim(e);
 }
 
 /** Whether the pass may issue actions on `e` right now: the planner's idle test, plus the marks of the

@@ -136,16 +136,22 @@ export const fx = {
     }
     return (a & (period - 1)) as Fixed;
   },
-  /** Deterministic integer square root of a Fixed (Newton on integers); for distances. */
+  /** Deterministic integer square root of a Fixed; for distances. */
   isqrt(a: Fixed): Fixed {
     if (a <= 0) return 0 as Fixed;
     // sqrt(a/ONE) * ONE  ==  sqrt(a * ONE)
     const scaled = a * ONE;
     assertSafe(scaled, 'isqrt');
-    let x = Math.floor(Math.sqrt(scaled)); // float sqrt then integer-correct below
-    // Correct any last-bit float error deterministically.
-    while ((x + 1) * (x + 1) <= scaled) x++;
-    while (x * x > scaled) x--;
-    return x as Fixed;
+    return intSqrt(scaled) as Fixed;
   },
 } as const;
+
+/** `floor(sqrt(n))` of a non-negative safe integer, exact on every engine: a float root guess corrected
+ *  by integer comparisons. The one place the sim may call `Math.sqrt`. */
+export function intSqrt(n: number): number {
+  if (n <= 0) return 0;
+  let x = Math.floor(Math.sqrt(n));
+  while ((x + 1) * (x + 1) <= n) x++;
+  while (x * x > n) x--;
+  return x;
+}

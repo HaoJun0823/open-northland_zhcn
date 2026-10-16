@@ -1,4 +1,5 @@
 import { FOG_MODE, type FogMode, MAX_PLAYERS } from '../../components/index.js';
+import { intSqrt } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, hexDistanceBetween } from '../../nav/halfcell.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
@@ -623,14 +624,10 @@ export function maskFogState(
 }
 
 /** The largest column offset k with `(68·k)² ≤ remainingSq`, -1 when even the centre column is out:
- *  the ellipse test solved per row, so the stamp visits only the cells it writes. The float root is
- *  corrected both ways, so the span is exact integer arithmetic. */
+ *  the ellipse test solved per row, so the stamp visits only the cells it writes. */
 function ellipseRowSpan(remainingSq: number): number {
   if (remainingSq < 0) return -1;
-  let k = Math.floor(Math.sqrt(remainingSq) / CELL_STEP_PX);
-  while ((k + 1) * CELL_STEP_PX * ((k + 1) * CELL_STEP_PX) <= remainingSq) k++;
-  while (k > 0 && k * CELL_STEP_PX * (k * CELL_STEP_PX) > remainingSq) k--;
-  return k;
+  return Math.floor(intSqrt(remainingSq) / CELL_STEP_PX);
 }
 
 /** Whether any of cell (c, r)'s four nodes lies within `range` map points of `point`. */

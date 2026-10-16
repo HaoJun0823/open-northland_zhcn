@@ -1137,7 +1137,8 @@ people. Read from the script alone, the pass misses a unit that walks into an ar
 of id 0 (every human without an id) and an id a `Build*` goal stamps. A handover that still delivers
 the seat's authored people moves them as it runs, by the same house rules as the build, and emits
 `missionSeatTribeCorrected` for what it moved; a converted house keeps its health fraction of the
-chosen people's hit points. The net knows only the seat that handed a thing, so a re-tribed seat's
+chosen people's hit points. A handover to the seat that already holds a thing delivers nothing, so a
+repeated line leaves it as it is. The net knows only the seat that handed a thing, so a re-tribed seat's
 things passed on through a third seat handed whole take the receiver's choice.
 `seat-tribes-handovers.test.ts` runs every map's spawns, stamps and handovers with the seat on another
 civilization, also from a second seat, with two seats re-tribed and with two seats playing each

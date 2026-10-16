@@ -22,9 +22,11 @@ export function withOwners(world: World, entities: readonly Entity[]): readonly 
  * The safety net behind the world build's seat pass: a thing a handover just gave a re-tribed seat
  * that still carries the seat's authored people takes the chosen people, as the build would have
  * moved it. A hero keeps his people, and so does a thing that came from another re-tribed seat
- * carrying that seat's choice. A house keeps its tribe when the chosen people do not draw it or its
- * footprint cells differ between the two, as the build keeps it, so it is no correction; a converted
- * house keeps its health fraction of the chosen people's hit points.
+ * carrying that seat's choice. A thing the seat already held was not handed: a repeated handover
+ * leaves it as the build or the handover that delivered it settled it. A house keeps its tribe when
+ * the chosen people do not draw it or its footprint cells differ between the two, as the build keeps
+ * it, so it is no correction; a converted house keeps its health fraction of the chosen people's hit
+ * points.
  */
 export function retribeHanded(
   pass: MissionPass,
@@ -38,6 +40,7 @@ export function retribeHanded(
   for (const { entity, from } of handed) {
     if (!pass.world.isAlive(entity)) continue;
     const owner = ownerOf(pass.world, entity);
+    if (owner === from) continue;
     const seat = seats.find((s) => s.player === owner);
     if (seat === undefined) continue;
     if (

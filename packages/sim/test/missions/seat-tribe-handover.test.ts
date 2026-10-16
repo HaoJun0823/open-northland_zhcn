@@ -228,6 +228,38 @@ describe('the handover safety net', () => {
     expect(corrections(sim)).toEqual([]);
   });
 
+  it('leaves a thing handed again to the seat that already holds it', () => {
+    // Seat 2 hands its viking (its choice) to seat 0, whose authored people are vikings; a second line
+    // handing the same id to seat 0 delivers nothing, so the giver's choice stands.
+    const handToPerson: MissionResultOp = {
+      opcode: 'ChangeHumanPlayerId',
+      humanId: VIKING_ID,
+      player: PERSON_SEAT,
+    };
+    const sim = new Simulation({
+      seed: 1,
+      content: variantContent(0),
+      map: grassNodeMap(MAP_NODES, MAP_NODES),
+      missions: {
+        missions: [
+          firingMission([
+            spawnHuman(VIKING, WOODCUTTER, VIKING_ID, COMPUTER_SEAT),
+            handToPerson,
+            handToPerson,
+          ]),
+        ],
+        seatTribes: [
+          { player: PERSON_SEAT, authored: VIKING, chosen: FRANK, drawnBuildings: [HUT] },
+          { player: COMPUTER_SEAT, authored: FRANK, chosen: VIKING, drawnBuildings: [HUT] },
+        ],
+      },
+    });
+    enableMissions(sim);
+    sim.run(LOAD_PASS);
+    expect(tribeOf(sim, VIKING_ID)).toBe(VIKING);
+    expect(corrections(sim)).toEqual([]);
+  });
+
   it('stays silent for a seat the session plays as the map authored it', () => {
     const sim = handoverSim(
       [{ opcode: 'ChangePlayerPlayerId', player: STAGING_SEAT, otherPlayer: PERSON_SEAT }],

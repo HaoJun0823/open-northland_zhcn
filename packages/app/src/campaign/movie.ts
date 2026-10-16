@@ -62,7 +62,7 @@ export interface MovieLabels {
  * A blocking DOM movie surface; owns its media and listeners until end, skip or cancellation. The
  * silent picture and the language's sound track play as one film, until the longer of the two ends;
  * a picture that ends first holds its last frame. While it plays, `silenceMusic` holds the page's
- * music silent.
+ * music silent. A sequence without a film resolves at once.
  */
 export function playCampaignMovie(
   movie: CampaignMovie | undefined,
@@ -70,19 +70,21 @@ export function playCampaignMovie(
   signal?: AbortSignal,
   silenceMusic?: MusicSilencer,
 ): Promise<void> {
-  if (signal?.aborted === true) return Promise.resolve();
+  if (movie === undefined || signal?.aborted === true) return Promise.resolve();
   return new Promise((resolve) => {
     const surface = document.createElement('dialog');
     surface.className = 'campaign-movie';
     surface.setAttribute('role', 'dialog');
     surface.setAttribute('aria-modal', 'true');
     surface.setAttribute('aria-label', labels.play);
+    // A click on the picture focuses the surface, not the page, so its keys stay out of the menu and game.
+    surface.tabIndex = -1;
     const video = document.createElement('video');
-    if (movie !== undefined) video.src = movie.url;
+    video.src = movie.url;
     video.playsInline = true;
     video.preload = 'auto';
     const sound = document.createElement('audio');
-    if (movie !== undefined) sound.src = movie.audio;
+    sound.src = movie.audio;
     sound.preload = 'auto';
     // The film closes once both tracks have ended; `finish` is bound below.
     const media = syncMovieSound(video, sound, () => finish());
@@ -137,8 +139,10 @@ export function playCampaignMovie(
     hud.append(controls);
     surface.append(frame, hud);
     const previousFocus = document.activeElement;
-    const music = movieMusicHold(movie === undefined ? undefined : silenceMusic);
+    const music = movieMusicHold(silenceMusic);
     let done = false;
+    /** The picture could not load; only Skip remains. */
+    let failed = false;
     const finish = (): void => {
       if (done) return;
       done = true;
@@ -157,8 +161,8 @@ export function playCampaignMovie(
     };
     const resize = (): void => {
       const size = movieSize(
-        movie?.width ?? DEFAULT_MOVIE_WIDTH,
-        movie?.height ?? DEFAULT_MOVIE_HEIGHT,
+        movie.width ?? DEFAULT_MOVIE_WIDTH,
+        movie.height ?? DEFAULT_MOVIE_HEIGHT,
         window.innerWidth,
         Math.max(0, window.innerHeight - CONTROLS_RESERVE_PX),
       );
@@ -177,9 +181,11 @@ export function playCampaignMovie(
       clock.textContent = `${movieClock(position)} / ${movieClock(duration)}`;
     };
     const attempt = (): void => {
+      if (failed) return;
       play.hidden = true;
       void media.play().catch(() => {
-        if (!done) {
+        // A picture that failed to load rejects its pending start too; Play cannot help it.
+        if (!done && !failed && video.error === null) {
           play.hidden = false;
           play.focus();
         }
@@ -196,10 +202,13 @@ export function playCampaignMovie(
         element.addEventListener(type, showPosition);
     video.addEventListener('error', () => {
       if (done) return;
+      failed = true;
+      media.pause();
       music.release();
       status.textContent = labels.failed;
       play.hidden = true;
       seekRow.hidden = true;
+      skip.focus();
     });
     surface.addEventListener('cancel', (event) => {
       event.preventDefault();
@@ -228,9 +237,6 @@ export function playCampaignMovie(
     resize();
     showPosition();
     skip.focus();
-    if (movie === undefined) {
-      status.textContent = labels.failed;
-      seekRow.hidden = true;
-    } else attempt();
+    attempt();
   });
 }

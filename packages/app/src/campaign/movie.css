@@ -15,6 +15,10 @@
   justify-content: center;
   color: #fff;
 }
+/* A click on the film focuses the surface itself, which draws no ring. */
+.campaign-movie:focus {
+  outline: none;
+}
 .campaign-movie__frame {
   position: relative;
 }

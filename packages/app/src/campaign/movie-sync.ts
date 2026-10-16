@@ -3,7 +3,10 @@ export const MOVIE_SYNC_TOLERANCE_S = 0.1;
 
 /** The media of one film: the silent picture leads, and its language's sound track follows it. */
 export interface MovieSync {
-  /** Starts the picture, then the sound in place; rejects, with both paused, when either refuses. */
+  /**
+   * Starts the picture, then the sound in place. Rejects, with both paused, when the picture fails or
+   * either is refused autoplay; a sound that cannot load leaves the film playing silent.
+   */
   play(): Promise<void>;
   pause(): void;
   /** Past the picture's end the picture holds its last frame while the sound plays on. */
@@ -22,6 +25,16 @@ function knownDuration(element: HTMLMediaElement): number {
 /** Whether `element` still has media at `seconds`; an unknown length counts as covering it. */
 function covers(element: HTMLMediaElement, seconds: number): boolean {
   return !Number.isFinite(element.duration) || seconds < element.duration;
+}
+
+/** A pause of our own (a stall, a seek, the end) interrupts a pending start; `playing` restarts it. */
+function isInterruption(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+/** The browser's autoplay refusal: only the viewer's play button can start the film now. */
+function isRefusal(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'NotAllowedError';
 }
 
 /**
@@ -94,19 +107,32 @@ export function syncMovieSound(
   return {
     async play() {
       wanted = true;
+      const stop = (): void => {
+        wanted = false;
+        picture.pause();
+        sound.pause();
+      };
       try {
         if (!pictureAtEnd()) {
           await picture.play();
           align();
         }
-        if (!soundFailed && covers(sound, sound.currentTime)) await sound.play();
       } catch (error) {
-        // A pause of our own (a stall, a seek, the end) interrupts a pending start; `playing` restarts it.
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        wanted = false;
-        picture.pause();
-        sound.pause();
+        if (isInterruption(error)) return;
+        stop();
         throw error;
+      }
+      if (soundFailed || !covers(sound, sound.currentTime)) return;
+      try {
+        await sound.play();
+      } catch (error) {
+        if (isInterruption(error)) return;
+        if (isRefusal(error)) {
+          stop();
+          throw error;
+        }
+        // A sound track that cannot load leaves the film silent, not stopped.
+        failSound();
       }
     },
     pause() {

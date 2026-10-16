@@ -18,7 +18,7 @@ function fakeMedia(tag: 'video' | 'audio', duration: number, refuse = false): Fa
   const element = document.createElement(tag);
   const state = { currentTime: 0, duration, paused: true, ended: false };
   const play = vi.fn(() => {
-    if (refuse) return Promise.reject(new Error('NotAllowedError'));
+    if (refuse) return Promise.reject(new DOMException('autoplay refused', 'NotAllowedError'));
     state.paused = false;
     return Promise.resolve();
   });
@@ -63,9 +63,35 @@ describe('syncMovieSound', () => {
 
   it('pauses both when either refuses to start', async () => {
     const { picture, sound, sync } = film(true);
-    await expect(sync.play()).rejects.toThrow('NotAllowedError');
+    await expect(sync.play()).rejects.toMatchObject({ name: 'NotAllowedError' });
     expect(picture.state.paused).toBe(true);
     expect(sound.pause).toHaveBeenCalled();
+  });
+
+  it('plays the picture on silent when the sound fails while its start is pending', async () => {
+    const { picture, sound, onEnd, sync } = film();
+    let rejectSound: (error: DOMException) => void = () => undefined;
+    sound.play.mockImplementationOnce(
+      () => new Promise<void>((_resolve, reject) => (rejectSound = reject)),
+    );
+    const started = sync.play();
+    await vi.waitFor(() => expect(sound.play).toHaveBeenCalledOnce());
+    // A missing language track: the browser fires `error`, then rejects the pending start.
+    sound.element.dispatchEvent(new Event('error'));
+    rejectSound(new DOMException('no source', 'NotSupportedError'));
+    await expect(started).resolves.toBeUndefined();
+    expect(picture.state.paused).toBe(false);
+    reachEnd(picture);
+    expect(onEnd).toHaveBeenCalledOnce();
+  });
+
+  it('plays the picture on silent when the sound start fails before its error event', async () => {
+    const { picture, onEnd, sync, sound } = film();
+    sound.play.mockImplementationOnce(() => Promise.reject(new DOMException('no source', 'NotSupportedError')));
+    await expect(sync.play()).resolves.toBeUndefined();
+    expect(picture.state.paused).toBe(false);
+    reachEnd(picture);
+    expect(onEnd).toHaveBeenCalledOnce();
   });
 
   it('treats a start interrupted by its own stall as no refusal', async () => {

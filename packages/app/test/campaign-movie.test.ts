@@ -57,7 +57,10 @@ async function settled(done: Promise<void>): Promise<boolean> {
 }
 
 beforeEach(() => {
-  HTMLDialogElement.prototype.showModal = vi.fn();
+  // An open dialog renders its controls, so jsdom lets them take focus.
+  HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+    this.open = true;
+  });
   HTMLMediaElement.prototype.play = vi.fn(() => Promise.resolve());
   HTMLMediaElement.prototype.pause = vi.fn();
   HTMLMediaElement.prototype.load = vi.fn();
@@ -166,12 +169,60 @@ describe('playCampaignMovie music', () => {
     expect(state).toEqual({ taken: 1, given: 1 });
   });
 
-  it('leaves the music alone when there is no film to play', async () => {
+  it('leaves the music alone and shows nothing when there is no film to play', async () => {
     const { silence, state } = silencer();
-    const done = playCampaignMovie(undefined, LABELS, undefined, silence);
-    surface().querySelectorAll('button')[1]?.click();
-    await done;
+    await playCampaignMovie(undefined, LABELS, undefined, silence);
+    expect(document.querySelector('.campaign-movie')).toBeNull();
     expect(state).toEqual({ taken: 0, given: 0 });
+  });
+});
+
+describe('playCampaignMovie picture failure', () => {
+  it('stops the sound and keeps Play hidden when the picture fails during its pending start', async () => {
+    const starts: ((error: DOMException) => void)[] = [];
+    HTMLMediaElement.prototype.play = vi.fn(
+      () => new Promise<void>((_resolve, reject) => starts.push(reject)),
+    );
+    const done = playCampaignMovie(MOVIE, LABELS);
+    const { video } = tracks();
+    const [play, skip] = surface().querySelectorAll('button');
+    video.dispatchEvent(new Event('error'));
+    // The browser fires `error`, then rejects the pending start with NotSupportedError.
+    for (const reject of starts) reject(new DOMException('no source', 'NotSupportedError'));
+    expect(await settled(done)).toBe(false);
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+    expect(play?.hidden).toBe(true);
+    expect(document.activeElement).toBe(skip);
+    expect(surface().querySelector('[role="status"]')?.textContent).toBe(LABELS.failed);
+    skip?.click();
+    expect(await settled(done)).toBe(true);
+  });
+});
+
+describe('playCampaignMovie keyboard', () => {
+  it('takes focus on a click inside it and keeps its keys from the page', async () => {
+    const pageKeys: string[] = [];
+    const onPageKey = (event: KeyboardEvent): void => {
+      pageKeys.push(event.key);
+    };
+    window.addEventListener('keydown', onPageKey);
+    try {
+      const done = playCampaignMovie(MOVIE, LABELS);
+      const dialog = surface();
+      // A click on a non-focusable child focuses its nearest focusable ancestor: the surface.
+      expect(dialog.tabIndex).toBe(-1);
+      dialog.focus();
+      expect(document.activeElement).toBe(dialog);
+      for (const key of [' ', 'ArrowLeft', 'ArrowRight'])
+        dialog.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      expect(pageKeys).toEqual([]);
+      expect(await settled(done)).toBe(false);
+      dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(pageKeys).toEqual([]);
+      expect(await settled(done)).toBe(true);
+    } finally {
+      window.removeEventListener('keydown', onPageKey);
+    }
   });
 });
 

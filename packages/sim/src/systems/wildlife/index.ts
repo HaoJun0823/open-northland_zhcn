@@ -67,7 +67,8 @@ export const wildlifeSystem: System = (world, ctx) => {
   const fields = grazingFields(world, ctx.content, terrain);
   blocked ??= dynamicBlockOverlay(world, ctx, terrain);
   const pass: StayPass = { ctx, terrain, fields, blocked, taken: new Set<NodeId>() };
-  for (const e of due) {
+  for (let i = 0; i < due.length; i++) {
+    const e = due[i] as Entity;
     if (!herdEligible(world, e)) continue; // claimed or gone: its range no longer runs
     if (fields.grazes(e)) stayDecision(world, pass, e);
     else if (!heldByAngerAlone(world, e) || !angryStay(world, pass, e)) {

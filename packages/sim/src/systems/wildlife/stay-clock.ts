@@ -1,10 +1,18 @@
 import { WildHabitat } from '../../components/index.js';
-import { includesSortedId, insertSortedById } from '../../core/sorted-id.js';
 import type { ChangeFeed } from '../../ecs/change-feed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { HERD_ELIGIBILITY_STORES } from '../movement/herd-roster.js';
 
-const idOf = (e: Entity): number => e;
+/** Entity slots each take buffer starts with; it doubles when an entry would not fit. */
+const INITIAL_BUFFER_CAPACITY = 256;
+
+function grown(buffer: Int32Array, needed: number): Int32Array {
+  let capacity = buffer.length * 2;
+  while (capacity < needed) capacity *= 2;
+  const next = new Int32Array(capacity);
+  next.set(buffer);
+  return next;
+}
 
 /**
  * When each wild animal next decides what to do, derived from {@link WildHabitat.nextStayAt}: animals are
@@ -16,8 +24,12 @@ const idOf = (e: Entity): number => e;
  */
 class StayClock {
   private readonly due = new Map<number, Entity[]>();
-  /** Animals past due that were not free to decide, ascending id. */
-  private readonly waiting: Entity[] = [];
+  /** Animals past due that were not free to decide, its first {@link waitingCount} slots, in any order and
+   *  possibly repeated. Swapped with {@link taken} on every take, so neither is reallocated per tick. */
+  private waiting: Int32Array = new Int32Array(INITIAL_BUFFER_CAPACITY);
+  private waitingCount = 0;
+  /** The last take's backing store; the caller reads its view while {@link wait} fills the other one. */
+  private taken: Int32Array = new Int32Array(INITIAL_BUFFER_CAPACITY);
   private filedThrough: number | undefined;
 
   constructor(
@@ -25,31 +37,44 @@ class StayClock {
     readonly feed: ChangeFeed,
   ) {}
 
-  /** The animals to consider on `tick`, ascending id: those due now and those still waiting. */
-  take(tick: number): Entity[] {
+  /** The animals to consider on `tick`, ascending id: those due now and those still waiting. The view is
+   *  valid until the next take. */
+  take(tick: number): Int32Array {
     if (this.filedThrough === undefined) {
       this.feed.drain(() => {});
       for (const e of this.world.canonicalQuery(WildHabitat)) this.file(e, tick);
     } else if (this.feed.drain((e) => this.file(e, tick))) {
       for (const e of this.world.canonicalQuery(WildHabitat)) this.file(e, tick);
     }
-    const taken = [...this.waiting];
+    let buffer = this.waiting;
+    let count = this.waitingCount;
     for (let t = (this.filedThrough ?? tick - 1) + 1; t <= tick; t++) {
-      for (const e of this.due.get(t) ?? [])
-        if (!includesSortedId(taken, e, idOf)) insertSortedById(taken, e, idOf);
+      const list = this.due.get(t);
+      if (list === undefined) continue;
+      if (count + list.length > buffer.length) buffer = grown(buffer, count + list.length);
+      for (const e of list) buffer[count++] = e;
       this.due.delete(t);
     }
     this.filedThrough = tick;
-    this.waiting.length = 0;
-    return taken.filter((e) => {
+    buffer.subarray(0, count).sort();
+    let kept = 0;
+    for (let i = 0; i < count; i++) {
+      const e = buffer[i] as Entity;
+      if (kept > 0 && buffer[kept - 1] === e) continue;
       const at = this.world.tryGet(e, WildHabitat)?.nextStayAt;
-      return at !== undefined && at <= tick;
-    });
+      if (at !== undefined && at <= tick) buffer[kept++] = e;
+    }
+    this.waiting = this.taken;
+    this.waitingCount = 0;
+    this.taken = buffer;
+    return buffer.subarray(0, kept);
   }
 
   /** Keep `e` for the next tick: it came due but could not decide yet. */
   wait(e: Entity): void {
-    if (!includesSortedId(this.waiting, e, idOf)) insertSortedById(this.waiting, e, idOf);
+    if (this.waitingCount === this.waiting.length)
+      this.waiting = grown(this.waiting, this.waitingCount + 1);
+    this.waiting[this.waitingCount++] = e;
   }
 
   private file(e: Entity, tick: number): void {

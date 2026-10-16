@@ -14,6 +14,9 @@ interface Tag {
   n: number;
 }
 
+/** Ops spanning several doublings of a journal's ring, still far inside its cap. */
+const GROWING_SPAN = 300;
+
 describe('World generation journals', () => {
   it('answers null for an unjournaled component, and replays adds/removes/destroys once journaled', () => {
     const w = new World();
@@ -42,6 +45,19 @@ describe('World generation journals', () => {
     const mid = w.componentGeneration(C);
     w.add(a, C, { n: 2 }); // same membership, new value - still a journaled bump
     expect(w.membershipDeltasSince(C, mid)).toEqual([a]);
+  });
+
+  it('keeps every op in mutation order while its ring grows toward the cap', () => {
+    const w = new World();
+    const C = defineComponent<Tag>('JournalGrowth', 'economy');
+    w.journalMembership(C);
+    const before = w.componentGeneration(C);
+    const added = Array.from({ length: GROWING_SPAN }, () => w.create());
+    for (const e of added) w.add(e, C, { n: e });
+    const mid = w.componentGeneration(C);
+    for (const e of added) w.remove(e, C);
+    expect(w.membershipDeltasSince(C, before)).toEqual([...added, ...added]);
+    expect(w.membershipDeltasSince(C, mid)).toEqual(added);
   });
 
   it('drops the oldest op past the cap - a consumer left behind gets null and must rebuild', () => {

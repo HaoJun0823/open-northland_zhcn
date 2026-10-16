@@ -377,7 +377,8 @@ export class World {
     for (const [entity, value] of entries) {
       const entering = store.set(entity, value);
       if (entering) this.insertMembership(entity, component);
-      // Every stored value carries a revision, or the first component walk over the restored world throws.
+      // A fresh revision and a logged write per value, so revision-keyed caches and the change feeds see
+      // each restored value as written instead of reading the default revision 0.
       this.recordComponentWrite(component, entity, entering);
     }
     // One bump for the whole fill: a cache built against generation 0 must not read as current over

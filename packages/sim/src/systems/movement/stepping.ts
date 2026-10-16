@@ -15,10 +15,46 @@ export function stepTowardPoint(
   target: { x: Fixed; y: Fixed },
   speed: Fixed,
 ): boolean {
-  const fromWX = worldX(p.x, p.y);
-  const dx = fx.sub(worldX(target.x, target.y), fromWX);
-  const dy = fx.sub(target.y, p.y);
-  const dist = worldDistanceOfDelta(dx, dy);
+  measureLeg(p, target, ownLeg);
+  return stepAlongLeg(p, target, ownLeg, speed);
+}
+
+/** The world-space measure of a leg from `p` to `target`: `dist` is exactly `worldDistance(p, target)`. */
+export interface LegMeasure {
+  fromWX: Fixed;
+  dx: Fixed;
+  dy: Fixed;
+  dist: Fixed;
+}
+
+export function emptyLegMeasure(): LegMeasure {
+  return { fromWX: ZERO, dx: ZERO, dy: ZERO, dist: ZERO };
+}
+
+const ownLeg = emptyLegMeasure();
+
+/** Measure the leg from `p` to `target` into `out` and return its world distance. */
+export function measureLeg(
+  p: { readonly x: Fixed; readonly y: Fixed },
+  target: { readonly x: Fixed; readonly y: Fixed },
+  out: LegMeasure,
+): Fixed {
+  out.fromWX = worldX(p.x, p.y);
+  out.dx = fx.sub(worldX(target.x, target.y), out.fromWX);
+  out.dy = fx.sub(target.y, p.y);
+  out.dist = worldDistanceOfDelta(out.dx, out.dy);
+  return out.dist;
+}
+
+/** {@link stepTowardPoint} over a `leg` that {@link measureLeg} took from `p` to `target` this tick, so a
+ *  caller that already needed the distance does not measure twice. */
+export function stepAlongLeg(
+  p: { x: Fixed; y: Fixed },
+  target: { x: Fixed; y: Fixed },
+  leg: Readonly<LegMeasure>,
+  speed: Fixed,
+): boolean {
+  const { fromWX, dx, dy, dist } = leg;
   if (dist <= speed) {
     // Snap exactly onto the waypoint so no drift accumulates across legs.
     p.x = target.x;

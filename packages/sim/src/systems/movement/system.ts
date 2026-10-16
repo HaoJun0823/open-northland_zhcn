@@ -22,7 +22,7 @@ import { wearWornBoots } from '../equipment/index.js';
 import { chargeBarefootStep, drinkPressingDraughts } from '../lifecycle/needs/index.js';
 import { locomotionOf } from '../readviews/index.js';
 import { dropPath } from './nav-state.js';
-import { stepTowardPoint } from './stepping.js';
+import { emptyLegMeasure, measureLeg, stepAlongLeg, stepTowardPoint } from './stepping.js';
 import { beginWalkTurn, finishWalkTurn } from './turning.js';
 import {
   hasLiveBoots,
@@ -56,6 +56,9 @@ const DEFAULT_ANIMAL_PACE_PER_TICK: Fixed = fx.divCeil(ONE, fx.fromInt(DEFAULT_A
 /** Baseline obstruction pace for an unencumbered adult. Obstruction scales this down for a longer
  *  captured leg cost and excludes held turn ticks. */
 export const SLOWEST_PACE_PER_TICK: Fixed = fx.div(HALF_ROW, fx.fromInt(MAX_STEP_TICKS));
+
+/** The current walker's leg, measured once per tick and shared by its distance check and its step. */
+const leg = emptyLegMeasure();
 
 /**
  * Advances every {@link PathFollow} walker one tick; dropping the path at the last waypoint is what the
@@ -99,9 +102,9 @@ export const movementSystem: System = (world, ctx) => {
         world.remove(e, AnimalRunning);
         break;
       }
-      const distance = paced ? worldDistance(p.x, p.y, target.x, target.y) : ULP;
+      const distance = paced ? measureLeg(p, target, leg) : ULP;
       const arrived = paced
-        ? stepTowardPoint(p, target, budget)
+        ? stepAlongLeg(p, target, leg, budget)
         : period === undefined
           ? walkHumanLeg(world, ctx, e, pf, write, stops, p, target)
           : walkPeriodicLeg(world, ctx, e, pf, write, stops, p, target, period);
@@ -314,11 +317,11 @@ function advanceTimedLeg(
     );
   }
   const remaining = pf.legCost - pathLegTicks(pf, ctx.tick);
-  const dist = worldDistance(p.x, p.y, target.x, target.y);
+  const dist = measureLeg(p, target, leg);
   // The equal share of what is left; on the last tick the whole of it, so the walker lands exactly. A
   // push can leave more than the cap to cover, which then delays the arrival but never prevents it.
   const share = remaining > 0 ? fx.div(dist, fx.fromInt(remaining + 1)) : dist;
-  return stepTowardPoint(p, target, maxPerTick !== undefined && share > maxPerTick ? maxPerTick : share);
+  return stepAlongLeg(p, target, leg, maxPerTick !== undefined && share > maxPerTick ? maxPerTick : share);
 }
 
 /** How far `e` advances along its route each tick, or null while it stands. A timed walker between legs is

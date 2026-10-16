@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeWav, isWav, WavDecodeError, type WavDecodeFailure } from '../src/wav.js';
+import { decodeWav, inspectWav, isWav, WavDecodeError, type WavDecodeFailure } from '../src/wav.js';
 
 const ascii = (s: string): number[] => [...s].map((c) => c.charCodeAt(0));
 const u16 = (v: number): number[] => [v & 0xff, (v >>> 8) & 0xff];
@@ -74,6 +74,34 @@ describe('decodeWav', () => {
       0, 7, 8, 9, 9, 9, 9, 9, 9,
     ]);
     expect(scaled(decodeWav(wav(IMA_ADPCM, 1, 8, 4, block, 5)).channels[0])).toEqual([0, 7, 8, 9, 9]);
+  });
+
+  it('decodes the whole words of a final partial IMA ADPCM block, still cut to the fact length', () => {
+    // A full block of two words, then a partial one: its header (sample 50) and one whole word, with
+    // two stray bytes of a word the file cuts off.
+    const full = [...u16(0), 0, 0, 0x04, 0, 0, 0, 0, 0, 0, 0];
+    const partial = [...u16(50), 0, 0, 0x04, 0, 0, 0, 0x04, 0];
+    const BLOCK_ALIGN = 12;
+    const decoded = scaled(decodeWav(wav(IMA_ADPCM, 1, BLOCK_ALIGN, 4, [...full, ...partial])).channels[0]);
+    expect(decoded).toHaveLength(17 + 9);
+    expect(decoded.slice(17)).toEqual([50, 57, 58, 59, 59, 59, 59, 59, 59]);
+    const FACT_FRAMES = 20;
+    expect(
+      scaled(decodeWav(wav(IMA_ADPCM, 1, BLOCK_ALIGN, 4, [...full, ...partial], FACT_FRAMES)).channels[0]),
+    ).toEqual(decoded.slice(0, FACT_FRAMES));
+  });
+
+  it('reads the decoded length and format without decoding, refusing what decoding refuses', () => {
+    const block = [...u16(0), 0, 0, 0x04, 0, 0, 0];
+    expect(inspectWav(wav(IMA_ADPCM, 1, 8, 4, [...block, ...block.slice(0, 4)]))).toEqual({
+      sampleRate: RATE,
+      channelCount: 1,
+      frames: 9 + 1,
+    });
+    expect(inspectWav(wav(PCM, 2, 4, 16, [0, 0, 0, 0, 0, 0, 0, 0])).frames).toBe(2);
+    const FLOAT = 3;
+    expect(() => inspectWav(wav(FLOAT, 1, 4, 32, [0, 0, 0, 0]))).toThrow(WavDecodeError);
+    expect(() => inspectWav(wav(PCM, 1, 3, 24, [0, 0, 0]))).toThrow(WavDecodeError);
   });
 
   it('refuses another codec and a file that is no wav', () => {

@@ -68,12 +68,54 @@ interface WavFormat {
   readonly bits: number;
 }
 
+/** A wav's header as this decoder reads it, without its samples. */
+export interface WavInfo {
+  readonly sampleRate: number;
+  readonly channelCount: number;
+  /** Decoded length per channel. */
+  readonly frames: number;
+}
+
+/** The checked header and the sample bytes it describes. */
+interface WavLayout {
+  readonly format: WavFormat;
+  readonly body: Uint8Array;
+  readonly frames: number;
+  readonly ima: ImaLayout | null;
+}
+
+/** How an IMA ADPCM body splits into blocks of `perBlock` frames each, the last maybe partial. */
+interface ImaLayout {
+  readonly headerBytes: number;
+  readonly wordGroup: number;
+  readonly perBlock: number;
+}
+
 /**
  * Decodes a RIFF WAVE file in 8/16-bit PCM or IMA ADPCM (Microsoft's `0x0011` layout). Throws a
  * {@link WavDecodeError} on a file that is no wav, is malformed or truncated, or uses another codec,
  * rate or channel count; the browser decoders do not all read IMA ADPCM.
  */
 export function decodeWav(bytes: Uint8Array): WavPcm {
+  const { format, body, frames, ima } = readWav(bytes);
+  const channels = Array.from({ length: format.channelCount }, () => new Float32Array(frames));
+  if (ima === null) decodePcm(body, format, channels);
+  else decodeImaAdpcm(body, format, ima, channels);
+  return { sampleRate: format.sampleRate, channels };
+}
+
+/** What {@link decodeWav} would decode, checked the same way but without decoding the samples. */
+export function inspectWav(bytes: Uint8Array): WavInfo {
+  const { format, frames } = readWav(bytes);
+  return { sampleRate: format.sampleRate, channelCount: format.channelCount, frames };
+}
+
+/** Whether `bytes` starts like a RIFF WAVE file. */
+export function isWav(bytes: Uint8Array): boolean {
+  return bytes.length >= 12 && fourCc(bytes, 0) === 'RIFF' && fourCc(bytes, 8) === 'WAVE';
+}
+
+function readWav(bytes: Uint8Array): WavLayout {
   if (!isWav(bytes)) throw new WavDecodeError('notWav', 'not a RIFF WAVE file');
   const [riff] = riffChildren(bytes, 0, bytes.length);
   if (riff?.id !== 'RIFF' || riff.form !== 'WAVE')
@@ -101,49 +143,41 @@ export function decodeWav(bytes: Uint8Array): WavPcm {
   const fact = chunks.find((chunk) => chunk.id === 'fact');
   const declared =
     fact === undefined || fact.bodyEnd - fact.bodyStart < FACT_BYTES
-      ? undefined
+      ? Number.POSITIVE_INFINITY
       : view.getUint32(fact.bodyStart, true);
-  if (format.tag === FORMAT_PCM && (format.bits === PCM_8_BIT || format.bits === PCM_16_BIT))
-    return { sampleRate: format.sampleRate, channels: decodePcm(body, format) };
-  if (format.tag === FORMAT_IMA_ADPCM && format.bits === IMA_ADPCM_BITS)
-    return { sampleRate: format.sampleRate, channels: decodeImaAdpcm(body, format, declared) };
+  if (format.tag === FORMAT_PCM && (format.bits === PCM_8_BIT || format.bits === PCM_16_BIT)) {
+    const frames = Math.floor(body.length / ((format.bits / PCM_8_BIT) * format.channelCount));
+    return { format, body, frames: checkedFrames(frames), ima: null };
+  }
+  if (format.tag === FORMAT_IMA_ADPCM && format.bits === IMA_ADPCM_BITS) {
+    const ima = imaLayout(format);
+    const frames = Math.min(imaFrames(body.length, format.blockAlign, ima), declared);
+    return { format, body, frames: checkedFrames(frames), ima };
+  }
   throw new WavDecodeError('unsupported', `codec ${format.tag} at ${format.bits} bits`);
 }
 
-/** Whether `bytes` starts like a RIFF WAVE file. */
-export function isWav(bytes: Uint8Array): boolean {
-  return bytes.length >= 12 && fourCc(bytes, 0) === 'RIFF' && fourCc(bytes, 8) === 'WAVE';
-}
-
-function channelsOf(count: number, frames: number): Float32Array[] {
+function checkedFrames(frames: number): number {
   if (frames > MAX_WAV_FRAMES)
     throw new WavDecodeError('unsupported', `${frames} frames is past the decode limit`);
-  return Array.from({ length: count }, () => new Float32Array(frames));
+  return frames;
 }
 
-function decodePcm(body: Uint8Array, { channelCount, bits }: WavFormat): Float32Array[] {
+function decodePcm(body: Uint8Array, { channelCount, bits }: WavFormat, channels: Float32Array[]): void {
   const bytesPerSample = bits / PCM_8_BIT;
-  const frames = Math.floor(body.length / (bytesPerSample * channelCount));
-  const channels = channelsOf(channelCount, frames);
   const view = viewOf(body);
-  for (let frame = 0; frame < frames; frame++) {
-    for (let c = 0; c < channelCount; c++) {
+  for (const [c, out] of channels.entries()) {
+    for (let frame = 0; frame < out.length; frame++) {
       const at = (frame * channelCount + c) * bytesPerSample;
-      const sample =
+      out[frame] =
         bits === PCM_8_BIT
           ? ((body[at] ?? PCM_8_MIDPOINT) - PCM_8_MIDPOINT) / PCM_8_MIDPOINT
           : view.getInt16(at, true) / INT16_SCALE;
-      (channels[c] as Float32Array)[frame] = sample;
     }
   }
-  return channels;
 }
 
-function decodeImaAdpcm(
-  body: Uint8Array,
-  { channelCount, blockAlign }: WavFormat,
-  declaredFrames: number | undefined,
-): Float32Array[] {
+function imaLayout({ channelCount, blockAlign }: WavFormat): ImaLayout {
   const headerBytes = IMA_HEADER_BYTES * channelCount;
   const wordGroup = IMA_WORD_BYTES * channelCount;
   if (blockAlign <= headerBytes || (blockAlign - headerBytes) % wordGroup !== 0)
@@ -151,21 +185,40 @@ function decodeImaAdpcm(
       'malformed',
       `IMA ADPCM block of ${blockAlign} bytes for ${channelCount} channels`,
     );
-  const perBlock = 1 + ((blockAlign - headerBytes) / wordGroup) * IMA_SAMPLES_PER_WORD;
-  const blocks = Math.floor(body.length / blockAlign);
-  const frames = Math.min(blocks * perBlock, declaredFrames ?? Number.POSITIVE_INFINITY);
-  const channels = channelsOf(channelCount, frames);
+  return {
+    headerBytes,
+    wordGroup,
+    perBlock: 1 + ((blockAlign - headerBytes) / wordGroup) * IMA_SAMPLES_PER_WORD,
+  };
+}
+
+/** The frames whole blocks hold, plus a final partial block's header sample and its whole words. */
+function imaFrames(bodyLength: number, blockAlign: number, ima: ImaLayout): number {
+  const blocks = Math.floor(bodyLength / blockAlign);
+  const tail = bodyLength - blocks * blockAlign;
+  const tailFrames =
+    tail < ima.headerBytes
+      ? 0
+      : 1 + Math.floor((tail - ima.headerBytes) / ima.wordGroup) * IMA_SAMPLES_PER_WORD;
+  return blocks * ima.perBlock + tailFrames;
+}
+
+function decodeImaAdpcm(
+  body: Uint8Array,
+  { blockAlign }: WavFormat,
+  { headerBytes, wordGroup, perBlock }: ImaLayout,
+  channels: Float32Array[],
+): void {
   const view = viewOf(body);
-  for (let block = 0; block < blocks; block++) {
-    const start = block * blockAlign;
-    const first = block * perBlock;
-    for (let c = 0; c < channelCount; c++) {
-      const out = channels[c] as Float32Array;
+  const frames = channels[0]?.length ?? 0;
+  for (let first = 0, start = 0; first < frames; first += perBlock, start += blockAlign) {
+    const count = Math.min(perBlock, frames - first);
+    for (const [c, out] of channels.entries()) {
       const header = start + c * IMA_HEADER_BYTES;
       let predictor = view.getInt16(header, true);
       let index = Math.min(body[header + 2] ?? 0, IMA_MAX_INDEX);
-      if (first < frames) out[first] = predictor / INT16_SCALE;
-      for (let s = 0; s < perBlock - 1; s++) {
+      out[first] = predictor / INT16_SCALE;
+      for (let s = 0; s < count - 1; s++) {
         const word = Math.floor(s / IMA_SAMPLES_PER_WORD);
         const inWord = s % IMA_SAMPLES_PER_WORD;
         const byte = body[start + headerBytes + word * wordGroup + c * IMA_WORD_BYTES + (inWord >> 1)] ?? 0;
@@ -183,10 +236,8 @@ function decodeImaAdpcm(
           0,
           Math.min(IMA_MAX_INDEX, index + (IMA_INDEX_MOVES[nibble & NIBBLE_MAGNITUDE] ?? 0)),
         );
-        const at = first + 1 + s;
-        if (at < frames) out[at] = predictor / INT16_SCALE;
+        out[first + 1 + s] = predictor / INT16_SCALE;
       }
     }
   }
-  return channels;
 }

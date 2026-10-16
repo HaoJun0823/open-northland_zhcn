@@ -16,7 +16,7 @@ import {
 } from '../../spatial/resources.js';
 import { lowestStockedGood } from '../../stores/index.js';
 import type { PlannerContext } from '../planner/context.js';
-import { type CellMatch, type NearestByCell, nearerOf, nearestByCell } from './cell-index.js';
+import { type CellMatch, type NearestByCell, nearestByCell, precedes } from './cell-index.js';
 import {
   collectorStanceGates,
   inWorkBound,
@@ -78,8 +78,8 @@ export function nearestHarvestableFor(
   // A work cell lies at most `maxWorkOffset` Manhattan nodes from its anchor, so an anchor farther than
   // this from the bound's centre has a work cell outside the radius.
   const anchorReach = bound === undefined ? 0 : bound.radius + maxWorkOffset;
-  const boundX = bound === undefined ? 0 : terrain.coordsOf(bound.center).x;
-  const boundY = bound === undefined ? 0 : terrain.coordsOf(bound.center).y;
+  const boundX = bound === undefined ? 0 : terrain.xOf(bound.center);
+  const boundY = bound === undefined ? 0 : terrain.yOf(bound.center);
   // A bounded scan reads only the resources of the job's atomics whose anchor lies in the bound's box,
   // widened by the content's max work-cell offset so every node whose work cell could pass the radius
   // test is included. A confined roaming scan reads the region box around the allowed area, which covers
@@ -184,14 +184,6 @@ function nearestDropFor(
   within?: WorkBound,
 ): { pile: Entity; goodType: number; cell: NodeId; dist: number } | null {
   const { world, ctx, terrain, here } = plan;
-  const goods = goodsSearchLimitAt(
-    world,
-    ctx.content,
-    terrain,
-    plan.owner,
-    terrain.xOf(here),
-    terrain.yOf(here),
-  );
   let passes: ((cell: NodeId) => boolean) | undefined;
   // Ranked from `here` as the stance is, so a stance past the best distance so far cannot win.
   const resolve = (e: Entity, cap?: number): CellMatch<number> | null => {
@@ -199,6 +191,15 @@ function nearestDropFor(
     if (good === null) return null;
     if (passes === undefined) {
       const stance = collectorStanceGates(plan, within);
+      // Asked on the first picked pile, so a scan whose piles hold nothing it wants asks none.
+      const goods = goodsSearchLimitAt(
+        world,
+        ctx.content,
+        terrain,
+        plan.owner,
+        terrain.xOf(here),
+        terrain.yOf(here),
+      );
       passes = (node) => stance(node) && (goods === null || goods.allowsNode(node));
     }
     const cell = nearestEligibleStance(plan, positionedStanceCells(world, ctx, terrain, e), passes, cap);
@@ -355,12 +356,9 @@ class AnchorRanking {
       if (best !== null && (key - e) / ENTITY_KEY_SPAN > best.distance) break;
       const match = resolve(e, best?.distance);
       if (match === null) continue;
-      best = nearerOf(best, {
-        entity: e,
-        cell: match.cell,
-        distance: manhattan(terrain, rank, match.cell),
-        payload: match.payload,
-      });
+      const distance = manhattan(terrain, rank, match.cell);
+      if (best === null || precedes(distance, match.cell, e, best))
+        best = { entity: e, cell: match.cell, distance, payload: match.payload };
     }
     return best;
   }

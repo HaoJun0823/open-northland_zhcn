@@ -708,7 +708,7 @@ export function nearestByCell<P = null>(
 }
 
 /** Whether `(distance, cell, entity)` precedes `best` in the total order every scan here shares. */
-function precedes<P>(distance: number, cell: NodeId, entity: Entity, best: NearestByCell<P>): boolean {
+export function precedes<P>(distance: number, cell: NodeId, entity: Entity, best: NearestByCell<P>): boolean {
   if (distance !== best.distance) return distance < best.distance;
   if (cell !== best.cell) return cell < best.cell;
   return entity < best.entity;

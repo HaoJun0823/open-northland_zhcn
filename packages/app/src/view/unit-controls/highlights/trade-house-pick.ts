@@ -1,21 +1,15 @@
 import type { BuildingHighlightItem } from '@open-northland/render';
 import { entitiesWith, entityById, type WorldSnapshot } from '@open-northland/sim';
-import { num } from '../../../game/snapshot.js';
+import { tradeRouteHousesOf } from '../../../game/snapshot.js';
 
 /** The sim's trade-stop rule (`SessionHost.canAttachTradeHouse`): whether the trader's route takes the
  *  house. */
 export type TradeHouseRule = (trader: number, house: number) => boolean;
 
-/** The houses a trader's route already names, read off its snapshot `TradeRoute`. */
+/** The houses a trader's route already names. */
 function routeHousesOf(snapshot: WorldSnapshot, settler: number): Set<number> {
-  const route = entityById(snapshot, settler)?.components.TradeRoute as { stops?: unknown } | undefined;
-  const houses = new Set<number>();
-  if (!Array.isArray(route?.stops)) return houses;
-  for (const stop of route.stops) {
-    const house = num((stop as { house?: unknown }).house);
-    if (house !== undefined) houses.add(house);
-  }
-  return houses;
+  const trader = entityById(snapshot, settler);
+  return new Set(trader === undefined ? [] : tradeRouteHousesOf(trader));
 }
 
 /**

@@ -14,7 +14,13 @@ import {
   systems,
   type WorldSnapshot,
 } from '@open-northland/sim';
-import { entitiesOfIds, entitiesUnder, idsGroupedBy, idsWhere } from './snapshot-id-index.js';
+import {
+  entitiesOfIds,
+  entitiesUnder,
+  idsGroupedBy,
+  idsGroupedByEach,
+  idsWhere,
+} from './snapshot-id-index.js';
 
 // Typed read helpers over the frozen WorldSnapshot, never over live component stores. Every read returns
 // `undefined` for a missing component or field, because a snapshot entity carries only the components it
@@ -250,6 +256,28 @@ const SUPPLY_RUNS = idsGroupedBy(
  *  under way. */
 export function supplyRunsTo(snapshot: WorldSnapshot, site: number): readonly SnapshotEntity[] {
   return entitiesUnder(snapshot, SUPPLY_RUNS, site);
+}
+
+/** The houses a settler's `TradeRoute` names, in stop order, each once. */
+export function tradeRouteHousesOf(e: SnapshotEntity): number[] {
+  const route = e.components.TradeRoute as { stops?: unknown } | undefined;
+  const houses: number[] = [];
+  if (!Array.isArray(route?.stops)) return houses;
+  for (const stop of route.stops) {
+    const house = num((stop as { house?: unknown }).house);
+    if (house !== undefined && !houses.includes(house)) houses.push(house);
+  }
+  return houses;
+}
+
+const ROUTE_CALLERS = idsGroupedByEach((e) => (isSettler(e) ? tradeRouteHousesOf(e) : []), 'route callers', {
+  values: ['TradeRoute'],
+  presence: ['Settler'],
+});
+
+/** The settlers whose trade route has a stop at `house`, ascending by id, whoever owns them. */
+export function routeCallersAt(snapshot: WorldSnapshot, house: number): readonly SnapshotEntity[] {
+  return entitiesUnder(snapshot, ROUTE_CALLERS, house);
 }
 
 const SETTLERS_BY_OWNER = idsGroupedBy(

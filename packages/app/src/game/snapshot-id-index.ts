@@ -60,6 +60,57 @@ export function idsGroupedBy(
   };
 }
 
+/** Ascending entity ids under each key, with the distinct keys each held id sits under. */
+export class IdMultiGroups extends Map<number, number[]> {
+  readonly keysOfId = new Map<number, readonly number[]>();
+}
+
+/** {@link idsGroupedBy} for an entity that sits under several keys at once; `keysOf` lists each key at
+ *  most once, the same keys in the same order while the entity's read components stand unchanged. */
+export function idsGroupedByEach(
+  keysOf: (entity: EntitySnapshot) => readonly number[],
+  name: string,
+  reads: SnapshotIndexReads,
+): SnapshotIndexSpec<IdMultiGroups> {
+  const place = (groups: IdMultiGroups, keys: readonly number[], id: number): void => {
+    if (keys.length === 0) return;
+    groups.keysOfId.set(id, keys);
+    for (const key of keys) {
+      const group = groups.get(key);
+      if (group === undefined) groups.set(key, [id]);
+      else insertId(group, id);
+    }
+  };
+  const remove = (groups: IdMultiGroups, id: number): void => {
+    const keys = groups.keysOfId.get(id);
+    if (keys === undefined) return;
+    groups.keysOfId.delete(id);
+    for (const key of keys) {
+      const group = groups.get(key);
+      if (group === undefined) continue;
+      removeId(group, id);
+      if (group.length === 0) groups.delete(key);
+    }
+  };
+  const sameKeys = (a: readonly number[] | undefined, b: readonly number[]): boolean =>
+    (a ?? []).length === b.length && b.every((key, i) => a?.[i] === key);
+  return {
+    name,
+    reads,
+    empty: () => new IdMultiGroups(),
+    add: (groups, entity) => place(groups, keysOf(entity), entity.id),
+    remove: (groups, entity) => remove(groups, entity.id),
+    replace: (groups, _previous, next) => {
+      const keys = keysOf(next);
+      if (sameKeys(groups.keysOfId.get(next.id), keys)) return;
+      remove(groups, next.id);
+      place(groups, keys, next.id);
+    },
+    differs: (held, fresh) =>
+      firstDifference(held, fresh) ?? firstDifference(held.keysOfId, fresh.keysOfId, 'the keys'),
+  };
+}
+
 /** The ascending ids of the entities `matches` accepts. `reads` names every component it reads. */
 export function idsWhere(
   matches: (entity: EntitySnapshot) => boolean,
@@ -117,7 +168,7 @@ const NO_ENTITIES: readonly EntitySnapshot[] = [];
 /** The entities under `key` of an id grouping over `snapshot`, ascending by id. */
 export function entitiesUnder(
   snapshot: WorldSnapshot,
-  spec: SnapshotIndexSpec<IdGroups>,
+  spec: SnapshotIndexSpec<IdGroups | IdMultiGroups>,
   key: number,
 ): readonly EntitySnapshot[] {
   const ids = indexesOf(snapshot).get(spec).get(key);

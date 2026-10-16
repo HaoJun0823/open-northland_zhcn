@@ -24,6 +24,7 @@ import {
   ownerPlayerOf,
   positionOf,
   progressionGatesSettler,
+  routeCallersAt,
   type SnapshotEntity,
   settlersOwnedBy,
   shelterClaimCount,
@@ -70,7 +71,8 @@ function checkedMirror(sim: Simulation): { readonly mirror: SnapshotMirror; adva
   };
 }
 
-/** Scenes whose runs exercise the grouped bonds: families, building sites, shelters, drills and roads. */
+/** Scenes whose runs exercise the grouped bonds: families, building sites, shelters, drills, roads and
+ *  trade routes. */
 const SCENES = [
   'family',
   'construction',
@@ -79,6 +81,7 @@ const SCENES = [
   'household-goods',
   'roads',
   'equipment',
+  'trade-domestic',
 ] as const;
 /** The seats whose per-owner readers each check compares. */
 const SEATS = [0, 1, 2, 3] as const;
@@ -129,6 +132,7 @@ function expectReadersMatchWalk(live: WorldSnapshot): void {
     expect(ids(staffOf(live, e.id))).toEqual(ids(staffOf(walked, e.id)));
     expect(ids(siteCrewOf(live, e.id))).toEqual(ids(siteCrewOf(walked, e.id)));
     expect(ids(supplyRunsTo(live, e.id))).toEqual(ids(supplyRunsTo(walked, e.id)));
+    expect(ids(routeCallersAt(live, e.id))).toEqual(ids(routeCallersAt(walked, e.id)));
     expect(ids(shelterersOf(live, e.id))).toEqual(ids(shelterersOf(walked, e.id)));
     expect(homeFamiliesOf(live, e.id)).toEqual(homeFamiliesOf(walked, e.id));
     expect(ids(raisingCrew(live, e.id))).toEqual(ids(raisingCrew(walked, e.id)));

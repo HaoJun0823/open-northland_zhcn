@@ -14,9 +14,11 @@ import {
   JOB_HEROINE_BOW,
   JOB_HUNTER,
   JOB_SOLDIER,
+  JOB_TRADER,
   JOB_WOMAN,
 } from '../src/catalog/jobs.js';
 import { STOCK_TAB_COUNT } from '../src/content/gui-atlas-map.js';
+import { HUMAN_PLAYER } from '../src/game/rules.js';
 import {
   BUILDING_ANIMAL_FARM,
   BUILDING_BARRACKS,
@@ -28,6 +30,7 @@ import {
   BUILDING_JOINERY,
   BUILDING_JOINERY_02,
   BUILDING_MILL,
+  BUILDING_WAREHOUSE_00,
   BUILDING_WATCHTOWER,
   GOOD_CATTLE,
   GOOD_CROCKERY,
@@ -141,6 +144,40 @@ describe('selection details panel model', () => {
     if (home.kind !== 'building') throw new Error('expected a building model');
     expect(home.staff?.kind).toBe('residents');
     expect(home.staff?.groups.map((family) => family.people.map((person) => person.entity))).toEqual([[4]]);
+  });
+
+  it("lists the owner's traders whose route stops at the house beside its posted staff", () => {
+    const rival = HUMAN_PLAYER + 1;
+    const routeTo = (...houses: number[]) => ({
+      stops: houses.map((house, slot) => ({ slot, house, imports: [], settlement: false })),
+    });
+    const owned = { player: HUMAN_PLAYER };
+    const snapshot = snapshotOf([
+      buildingEntity(1, BUILDING_WAREHOUSE_00),
+      buildingEntity(2, BUILDING_JOINERY),
+      buildingEntity(3, BUILDING_WAREHOUSE_00, { components: { Owner: { player: rival } } }),
+      { id: 10, components: { Settler: { jobType: JOB_TRADER }, Owner: owned, TradeRoute: routeTo(1, 2) } },
+      { id: 11, components: { Settler: { jobType: JOB_TRADER }, Owner: owned, TradeRoute: routeTo(1, 3) } },
+      // Another player's trader calling here is a visitor, and a settler retrained out of the trade keeps a
+      // stale route that names no trader.
+      {
+        id: 12,
+        components: { Settler: { jobType: JOB_TRADER }, Owner: { player: rival }, TradeRoute: routeTo(3, 1) },
+      },
+      { id: 13, components: { Settler: { jobType: JOB_COLLECTOR }, Owner: owned, TradeRoute: routeTo(1) } },
+    ]);
+    const traderLine = (building: number) => {
+      const model = buildUnitPanelModel(snapshot, new Set([building]), sandboxCtx());
+      if (model.kind !== 'building') throw new Error('expected a building model');
+      return model.staff?.groups.find((group) => group.key === `route:${JOB_TRADER}`);
+    };
+
+    expect(traderLine(1)).toMatchObject({
+      label: jobDisplayName(sandboxCtx(), JOB_TRADER),
+      capacity: null,
+      people: [expect.objectContaining({ entity: 10 }), expect.objectContaining({ entity: 11 })],
+    });
+    expect(traderLine(2)?.people.map((person) => person.entity)).toEqual([10]);
   });
 
   it('shows the generic hero profession for every hero job instead of a body-specific name', () => {

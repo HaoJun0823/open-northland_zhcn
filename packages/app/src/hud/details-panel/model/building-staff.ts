@@ -7,6 +7,8 @@ import {
   isFemale,
   isSettler,
   num,
+  ownerPlayerOf,
+  routeCallersAt,
   type SnapshotEntity,
   settlerJobType,
   shelterersOf,
@@ -110,6 +112,19 @@ export function shelteringIn(snapshot: WorldSnapshot, building: number): Snapsho
   return [...inside, ...running];
 }
 
+/** The settlers by their job, each list in the given order; a settler without one is left out. */
+function byJobType(settlers: Iterable<SnapshotEntity>): Map<number, SnapshotEntity[]> {
+  const byJob = new Map<number, SnapshotEntity[]>();
+  for (const e of settlers) {
+    const jobType = settlerJobType(e);
+    if (jobType === undefined) continue;
+    const list = byJob.get(jobType);
+    if (list === undefined) byJob.set(jobType, [e]);
+    else list.push(e);
+  }
+  return byJob;
+}
+
 /** A workplace's posted staff, one group per declared `workers` slot in content order, then any trade
  *  posted outside the slots; a tower's garrison is a slot like any other. */
 function workerGroups(
@@ -118,14 +133,7 @@ function workerGroups(
   def: BuildingDef | undefined,
   building: number,
 ): StaffGroup[] {
-  const byJob = new Map<number, SnapshotEntity[]>();
-  for (const e of staffOf(snapshot, building)) {
-    const jobType = settlerJobType(e);
-    if (jobType === undefined) continue;
-    const list = byJob.get(jobType);
-    if (list === undefined) byJob.set(jobType, [e]);
-    else list.push(e);
-  }
+  const byJob = byJobType(staffOf(snapshot, building));
   const groups: StaffGroup[] = (def?.workers ?? []).map((slot) => ({
     key: `job:${slot.jobType}`,
     label: jobDisplayName(ctx, slot.jobType),
@@ -145,6 +153,23 @@ function workerGroups(
     });
   }
   return groups;
+}
+
+/** The owner's traders whose route stops at the house, one line per trade. A route takes no seat, so
+ *  the line has no fixed number and no part in the section's count. */
+function routeGroups(ctx: UnitPanelModelContext, snapshot: WorldSnapshot, ent: SnapshotEntity): StaffGroup[] {
+  const owner = ownerPlayerOf(ent);
+  const traders = routeCallersAt(snapshot, ent.id).filter((e) => {
+    const jobType = settlerJobType(e);
+    return ownerPlayerOf(e) === owner && jobType !== undefined && ctx.isTraderJob?.(jobType) === true;
+  });
+  return [...byJobType(traders)].map(([jobType, people]) => ({
+    key: `route:${jobType}`,
+    label: jobDisplayName(ctx, jobType),
+    people: people.map((e) => personOf(ctx, e)),
+    capacity: null,
+    jobType,
+  }));
 }
 
 /** The crew raising `site`: its builders, the ones hammering at it and the ones supplying it. */
@@ -169,7 +194,7 @@ export function siteCrew(
 }
 
 /** Who belongs to the house, standing or still a site: a home's families, else its workers with the
- *  crowd sheltering there and the recruits drilling there. */
+ *  traders whose route stops there, the crowd sheltering there and the recruits drilling there. */
 export function buildingStaff(
   ctx: UnitPanelModelContext,
   snapshot: WorldSnapshot,
@@ -198,9 +223,11 @@ export function buildingStaff(
     return { kind: 'residents', groups, count: { filled: families.length, capacity: def.homeSize } };
   }
   const groups = workerGroups(ctx, snapshot, def, ent.id);
-  // A worker posted here who shelters here too keeps its trade's line.
-  const posted = new Set(groups.flatMap((group) => group.people.map((person) => person.entity)));
-  const sheltering = shelteringIn(snapshot, ent.id).filter((e) => !posted.has(e.id));
+  const posted = groups.reduce((sum, group) => sum + group.people.length, 0);
+  groups.push(...routeGroups(ctx, snapshot, ent));
+  // A worker posted here or a trader calling here who shelters here too keeps its trade's line.
+  const listed = new Set(groups.flatMap((group) => group.people.map((person) => person.entity)));
+  const sheltering = shelteringIn(snapshot, ent.id).filter((e) => !listed.has(e.id));
   if (sheltering.length > 0) {
     groups.push({
       key: 'sheltered',
@@ -222,7 +249,7 @@ export function buildingStaff(
   }
   if (groups.length === 0) return null;
   const slots = (def?.workers ?? []).reduce((sum, slot) => sum + slot.count, 0);
-  return { kind: 'workers', groups, count: slots > 0 ? { filled: posted.size, capacity: slots } : null };
+  return { kind: 'workers', groups, count: slots > 0 ? { filled: posted, capacity: slots } : null };
 }
 
 /** The tower posts manned at `building`, or null for a house with no garrison seat. */

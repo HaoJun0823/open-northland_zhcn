@@ -169,7 +169,8 @@ describe('terrain-aware goods reach', () => {
         work: [],
       });
     };
-    const postsOf = (sim: Simulation): Entity[] => sim.world.canonicalQuery(Signpost, Position, Owner);
+    const postsOf = (sim: Simulation): readonly Entity[] =>
+      sim.world.canonicalQuery(Signpost, Position, Owner);
     const linksOf = (sim: Simulation) => postsOf(sim).map((p) => [p, sim.world.get(p, Signpost).links]);
     const edits: Edit[][] = [
       [30, 60, 90, 330, 360].map(postAt),

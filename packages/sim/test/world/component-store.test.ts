@@ -207,8 +207,8 @@ describe('ComponentStore compaction', () => {
     const native = globalThis.Int32Array;
     let pageAllocations = 0;
     class CountingInt32Array extends native {
-      constructor(...args: ConstructorParameters<Int32ArrayConstructor>) {
-        super(...(args as [number]));
+      constructor(...args: [length: number]) {
+        super(...args);
         if (args[0] === PAGE_SIZE) pageAllocations++;
       }
     }

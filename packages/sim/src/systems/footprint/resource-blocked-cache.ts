@@ -26,25 +26,33 @@ class CountedNodeSet implements ReadonlySet<NodeId> {
     return (this.counts[node] ?? 0) > 0;
   }
 
-  *values(): IterableIterator<NodeId> {
-    const { counts } = this;
-    for (let node = 0; node < counts.length; node++) if ((counts[node] ?? 0) > 0) yield node as NodeId;
+  values(): SetIterator<NodeId> {
+    return this.positiveNodes();
   }
 
-  keys(): IterableIterator<NodeId> {
-    return this.values();
+  keys(): SetIterator<NodeId> {
+    return this.positiveNodes();
   }
 
-  *entries(): IterableIterator<[NodeId, NodeId]> {
-    for (const node of this.values()) yield [node, node];
+  entries(): SetIterator<[NodeId, NodeId]> {
+    return this.positivePairs();
   }
 
-  [Symbol.iterator](): IterableIterator<NodeId> {
-    return this.values();
+  [Symbol.iterator](): SetIterator<NodeId> {
+    return this.positiveNodes();
   }
 
   forEach(visit: (value: NodeId, key: NodeId, set: ReadonlySet<NodeId>) => void): void {
     for (const node of this.values()) visit(node, node, this);
+  }
+
+  private *positiveNodes(): Generator<NodeId, undefined, unknown> {
+    const { counts } = this;
+    for (let node = 0; node < counts.length; node++) if ((counts[node] ?? 0) > 0) yield node as NodeId;
+  }
+
+  private *positivePairs(): Generator<[NodeId, NodeId], undefined, unknown> {
+    for (const node of this.positiveNodes()) yield [node, node];
   }
 }
 

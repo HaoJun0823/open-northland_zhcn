@@ -211,7 +211,8 @@ describe('a computer seat', () => {
       // Released just after its beat: the longest wait outdoors.
       while (!idleReplanDue(tick, key, COMPUTER)) pass();
       pass();
-      sim.world.remove(held, hold === 'family duty' ? FamilyDuty : Chat);
+      if (hold === 'family duty') sim.world.remove(held, FamilyDuty);
+      else sim.world.remove(held, Chat);
 
       const spy = vi.spyOn(ladder, 'planAdult');
       let waited = 0;

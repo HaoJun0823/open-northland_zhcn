@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Simulation, type TerrainMap } from '../../src/index.js';
+import { LandscapePlacements } from '../../src/nav/terrain/landscapes.js';
 import { removeScriptedLandscapes, setScriptedLandscape } from '../../src/systems/landscape/edits.js';
 import { landscapesWithin } from '../../src/systems/landscape/view.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -24,7 +25,10 @@ const BORDER_POINT = { hx: 2, hy: 2 };
  *  stone, a decor and two attaching decors. */
 function sim(): Simulation {
   const base = map();
-  if (base.landscapes === undefined) throw new Error('landscape fixture');
+  if (base.landscapes === undefined || base.landscapes.placements instanceof LandscapePlacements) {
+    throw new Error('landscape fixture lists its placements');
+  }
+  const { placements } = base.landscapes;
   const withTypes: TerrainMap = {
     ...base,
     landscapes: {
@@ -55,7 +59,7 @@ function sim(): Simulation {
         },
         { typeId: LONG, walk: [], build: [], groups: [], attach: [{ dx: -8, dy: 0 }] },
       ],
-      placements: [...base.landscapes.placements, { id: 2, typeId: SMOKE, ...BORDER_POINT, level: 0 }],
+      placements: [...placements, { id: 2, typeId: SMOKE, ...BORDER_POINT, level: 0 }],
     },
   };
   return new Simulation({ seed: 1, content: houseContent(), map: withTypes });

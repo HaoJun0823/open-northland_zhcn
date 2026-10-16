@@ -194,6 +194,30 @@ describe('foodSourcesOf', () => {
     }
   });
 
+  it('sees a store change sides between searches, beside the neutral ones', () => {
+    const SEEKER = 0;
+    const RIVAL = 1;
+    const sim = new Simulation({ seed: 1, content: foodContent() });
+    const home = storeAt(sim, 0, FOOD, 0, HOME);
+    const near = storeAt(sim, 1, FOOD, 3, WAREHOUSE);
+    sim.world.add(near, Owner, { player: RIVAL });
+    const neutral = storeAt(sim, 5, FOOD, 3, WAREHOUSE);
+    const from = { hx: 0, hy: 2 };
+    const search = (): Entity | undefined =>
+      new ExternalFoodIndex(sim.world, ctxOf(sim), undefined, collectSupplyTally(sim.world)).nearest(
+        from,
+        SEEKER,
+        home,
+        null,
+      )?.store;
+
+    expect(search()).toBe(neutral);
+    sim.world.mut(near, Owner).player = SEEKER;
+    expect(search()).toBe(near);
+    sim.world.remove(near, Owner);
+    expect(search()).toBe(near);
+  });
+
   it("offers only a food the seeker's larder has room for", () => {
     const sim = new Simulation({ seed: 1, content: foodContent() });
     const home = storeAt(sim, 9, FOOD, LARDER_SLOT, HOME); // the `food_simple` slot is full

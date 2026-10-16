@@ -19,6 +19,7 @@ import type { SystemContext } from '../context.js';
 import { interactionCell, unclaimedGoodsAt } from '../settlers/targets/index.js';
 import { NodeBuckets } from '../spatial/nodes.js';
 import { accessibleStockAmounts, type SupplyTally } from '../stores/index.js';
+import { CandidateSides } from './food-search.js';
 
 /**
  * Per-tick searchable view of external stores carrying a configured household-quality good. The
@@ -65,22 +66,28 @@ export class ExternalQualityIndex {
         : this.bucketed().nearest(from.hx, from.hy, 0, RING_MAX_RADIUS, accept);
     // A ring sweep that missed rejected every candidate inside its radius already.
     const swept = this.candidates.length <= RING_MIN_CANDIDATES ? -1 : RING_MAX_RADIUS;
-    const store = hit?.entity ?? this.linearNearest(from, accept, swept);
+    const store = hit?.entity ?? this.linearNearest(this.onSide(owner), from, accept, swept);
     if (store === null) return null;
     const goodType = this.lowestDemanded(store, demanded);
     return goodType === null ? null : { store, goodType };
   }
 
+  /** The candidates `owner` may take from, ascending id; `accept` still checks the side. */
+  private onSide(owner: number | undefined): readonly Entity[] {
+    return qualitySourceSides(this.world).of(this.candidates, owner);
+  }
+
   /** The strictly-nearer pick over the ascending-id candidates beyond Manhattan distance `swept`. The
    *  distance is read first, so a candidate that could not win is never judged. */
   private linearNearest(
+    candidates: readonly Entity[],
     from: { hx: number; hy: number },
     accept: (e: Entity) => boolean,
     swept: number,
   ): Entity | null {
     let best: Entity | null = null;
     let bestDistance = 0;
-    for (const store of this.candidates) {
+    for (const store of candidates) {
       const p = this.world.get(store, Position);
       const distance =
         Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.y) - from.hy);
@@ -211,6 +218,16 @@ class QualitySources {
 }
 
 const sourcesByWorld = new WeakMap<World, QualitySources>();
+const sidesByWorld = new WeakMap<World, CandidateSides>();
+
+function qualitySourceSides(world: World): CandidateSides {
+  let sides = sidesByWorld.get(world);
+  if (sides === undefined) {
+    sides = new CandidateSides(world);
+    sidesByWorld.set(world, sides);
+  }
+  return sides;
+}
 
 /** The world's quality sources, caught up to the live world. */
 export function qualitySources(world: World, content: ContentSet): QualitySources {

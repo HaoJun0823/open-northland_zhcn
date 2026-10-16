@@ -27,7 +27,22 @@ class NodeMoves {
   /** Each entity's node at the last pass by id, {@link NO_NODE} in `hxs` for one without a Position. */
   private hxs = new Int32Array(0);
   private hys = new Int32Array(0);
-  private readonly compareEntity = (e: Entity): void => this.compare(e);
+  /** The pump's per-write consumer, a field rather than a method so the drain calls it directly. */
+  private readonly compare = (e: Entity): void => {
+    const p = this.world.tryGet(e, Position);
+    if (e >= this.hxs.length) this.grow(e);
+    let hx = NO_NODE;
+    let hy = 0;
+    if (p !== undefined) {
+      hx = nodeHxOfPosition(p.x, p.y);
+      hy = nodeHyOfPosition(p.y);
+    }
+    if (this.hxs[e] === hx && this.hys[e] === hy) return;
+    this.hxs[e] = hx;
+    this.hys[e] = hy;
+    const subscribers = this.subscribers;
+    for (let i = 0; i < subscribers.length; i++) subscribers[i]?.record(e);
+  };
 
   constructor(private readonly world: World) {
     // Membership too: a Position re-added elsewhere must move the held node, or a later step back
@@ -45,26 +60,10 @@ class NodeMoves {
   /** Forward the node changes since the last pass. */
   pump(): void {
     if (!this.writes.pending) return;
-    if (this.writes.drain(this.compareEntity)) {
+    if (this.writes.drain(this.compare)) {
       for (const feed of this.subscribers) feed.lose();
       this.resync();
     }
-  }
-
-  private compare(e: Entity): void {
-    const p = this.world.tryGet(e, Position);
-    if (e >= this.hxs.length) this.grow(e);
-    let hx = NO_NODE;
-    let hy = 0;
-    if (p !== undefined) {
-      hx = nodeHxOfPosition(p.x, p.y);
-      hy = nodeHyOfPosition(p.y);
-    }
-    if (this.hxs[e] === hx && this.hys[e] === hy) return;
-    this.hxs[e] = hx;
-    this.hys[e] = hy;
-    const subscribers = this.subscribers;
-    for (let i = 0; i < subscribers.length; i++) subscribers[i]?.record(e);
   }
 
   private grow(e: Entity): void {

@@ -26,6 +26,9 @@ interface GoodNodes {
 
 type StandingNodes = Map<number, GoodNodes>;
 
+/** The numbers one placement takes in a baker's objects: `hx`, `hy` and the object type. */
+const PLACEMENT_STRIDE = 3;
+
 /** A node key packs `(hx, hy)` as `hy * NODE_KEY_ROW + hx`, wider than any map's lattice row. */
 const NODE_KEY_ROW = 1 << 16;
 
@@ -208,7 +211,13 @@ export function createSeenStandingObjects(
       return changed;
     },
     objects: () => {
-      const placements: number[] = [];
+      // Sized up front: a forest of standing nodes would otherwise grow the list through every doubling.
+      let standingTotal = 0;
+      for (const goodType of featureOfGoodType.keys()) {
+        for (const standing of seen.get(goodType)?.values() ?? []) standingTotal += standing;
+      }
+      const placements = new Array<number>(standingTotal * PLACEMENT_STRIDE);
+      let at = 0;
       for (const [goodType, feature] of featureOfGoodType) {
         const nodes = seen.get(goodType);
         if (nodes === undefined) continue;
@@ -216,7 +225,11 @@ export function createSeenStandingObjects(
         for (const [node, standing] of nodes) {
           const hx = node % NODE_KEY_ROW;
           const hy = Math.floor(node / NODE_KEY_ROW);
-          for (let i = 0; i < standing; i++) placements.push(hx, hy, type);
+          for (let i = 0; i < standing; i++) {
+            placements[at++] = hx;
+            placements[at++] = hy;
+            placements[at++] = type;
+          }
         }
       }
       return { types: MINIMAP_OBJECT_TYPES, placements };

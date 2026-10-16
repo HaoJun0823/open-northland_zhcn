@@ -78,6 +78,25 @@ describe('minimap standing objects', () => {
     });
   });
 
+  it('places a node once per resource standing on it', () => {
+    const snapshot = snapshotOf([
+      standing(1, GOOD_WOOD, 4, 4),
+      standing(2, GOOD_IRON, 10, 8),
+      standing(3, GOOD_WOOD, 4, 4),
+    ]);
+    expect(standingObjects(snapshot, FEATURES).placements).toEqual([
+      4,
+      4,
+      FOREST_TYPE,
+      4,
+      4,
+      FOREST_TYPE,
+      10,
+      8,
+      IRON_TYPE,
+    ]);
+  });
+
   it('follows a felled tree through the mirror and grows its revision', () => {
     const terrain = grassTerrain(MAP_CELLS, MAP_CELLS);
     const content = sandboxContent(terrain);

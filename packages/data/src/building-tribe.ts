@@ -1,4 +1,4 @@
-import type { BuildingFootprint } from './schema/index.js';
+import type { BuildingFootprint, FootprintCell } from './schema/index.js';
 
 /** The slice of a building type its per-tribe values resolve over, generic over the footprint's shape so
  *  a consumer reading only some of its cells can pass a narrower one. */
@@ -28,6 +28,27 @@ export function buildingHitpointsFor(
 ): number | undefined {
   if (tribe === undefined) return type.hitpoints;
   return variantOf(type, tribe)?.hitpoints ?? type.hitpoints;
+}
+
+/** Whether `type` stands on the same footprint cells for tribes `a` and `b`. Each tribe's variant carries
+ *  its own footprint object, so the cells are compared, in any order. */
+export function sameBuildingFootprintCells(
+  type: TribeVariants<BuildingFootprint>,
+  a: number,
+  b: number,
+): boolean {
+  return footprintKey(buildingFootprintFor(type, a)) === footprintKey(buildingFootprintFor(type, b));
+}
+
+function footprintKey(footprint: BuildingFootprint | undefined): string {
+  if (footprint === undefined) return '';
+  const cells = (list: readonly FootprintCell[]): string =>
+    list
+      .map((cell) => `${cell.dx},${cell.dy}`)
+      .sort()
+      .join(';');
+  const door = footprint.door === undefined ? '' : `${footprint.door.dx},${footprint.door.dy}`;
+  return [cells(footprint.blocked), cells(footprint.familyBody), cells(footprint.reserved), door].join('|');
 }
 
 /** `tribe`'s variant of `type`, found without a per-call closure: this runs per building per tick. */

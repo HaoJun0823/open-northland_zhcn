@@ -1,86 +1,93 @@
-import { type BuildingFootprint, buildingFootprintFor, buildingHitpointsFor } from '@open-northland/data';
+import { buildingHitpointsFor, sameBuildingFootprintCells } from '@open-northland/data';
 import { Building, ownerOf, Person, Settler, Vehicle } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
-import type { Entity } from '../../../ecs/world.js';
+import type { Entity, World } from '../../../ecs/world.js';
 import { changeUnitTribe, resizeUnitHealth } from '../../lifecycle/unit-health.js';
 import { isHeroJob } from '../../readviews/jobs.js';
 import type { MissionPass } from '../pass.js';
 import type { MissionSeatTribe } from '../script.js';
 
+/** A thing a handover gave away, with the owner it had before. */
+export interface Handed {
+  readonly entity: Entity;
+  readonly from: number | undefined;
+}
+
+/** `entities` with their current owners, read before a handover restamps them. */
+export function withOwners(world: World, entities: readonly Entity[]): readonly Handed[] {
+  return entities.map((entity) => ({ entity, from: ownerOf(world, entity) }));
+}
+
 /**
  * The safety net behind the world build's seat pass: a thing a handover just gave a re-tribed seat
  * that still carries the seat's authored people takes the chosen people, as the build would have
- * moved it. A hero keeps his people, and so does a house the chosen people do not draw or whose
- * footprint cells differ between the two, since its placement already stands; a converted house keeps
- * its health fraction of the chosen people's hit points.
+ * moved it. A hero keeps his people, and so does a thing that came from another re-tribed seat
+ * carrying that seat's choice. A house keeps its tribe when the chosen people do not draw it or its
+ * footprint cells differ between the two, as the build keeps it, so it is no correction; a converted
+ * house keeps its health fraction of the chosen people's hit points.
  */
 export function retribeHanded(
   pass: MissionPass,
   mission: number,
   opcode: string,
-  handed: readonly Entity[],
+  handed: readonly Handed[],
 ): void {
   const seats = pass.script.seatTribes;
   if (seats === undefined || seats.length === 0) return;
-  let found = 0;
-  for (const e of handed) {
-    if (!pass.world.isAlive(e)) continue;
-    const owner = ownerOf(pass.world, e);
+  let count = 0;
+  for (const { entity, from } of handed) {
+    if (!pass.world.isAlive(entity)) continue;
+    const owner = ownerOf(pass.world, entity);
     const seat = seats.find((s) => s.player === owner);
-    if (seat !== undefined && retribe(pass, e, seat)) found++;
+    if (seat === undefined) continue;
+    if (
+      retribe(
+        pass,
+        entity,
+        seat,
+        seats.find((s) => s.player === from),
+      )
+    )
+      count++;
   }
-  if (found > 0) pass.ctx.events.emit({ kind: 'missionSeatTribeCorrected', mission, opcode, count: found });
+  if (count > 0) pass.ctx.events.emit({ kind: 'missionSeatTribeCorrected', mission, opcode, count });
 }
 
-/** Whether `e` is of the seat's authored people, moving it to the chosen one where it can. */
-function retribe(pass: MissionPass, e: Entity, seat: MissionSeatTribe): boolean {
+/** Move `e` to the seat's chosen people when it is of the seat's authored people and not the giving
+ *  seat's choice; whether it moved. */
+function retribe(
+  pass: MissionPass,
+  e: Entity,
+  seat: MissionSeatTribe,
+  giver: MissionSeatTribe | undefined,
+): boolean {
   const { world, ctx } = pass;
+  const ours = (tribe: number): boolean => tribe === seat.authored && tribe !== giver?.chosen;
   const settler = world.tryGet(e, Settler);
   if (settler !== undefined) {
-    if (!world.has(e, Person) || settler.tribe !== seat.authored || isHeroJob(ctx.content, settler.jobType))
+    if (!world.has(e, Person) || !ours(settler.tribe) || isHeroJob(ctx.content, settler.jobType))
       return false;
     changeUnitTribe(world, ctx.content, e, seat.chosen);
     return true;
   }
   const vehicle = world.tryGet(e, Vehicle);
   if (vehicle !== undefined) {
-    if (vehicle.tribe !== seat.authored) return false;
+    if (!ours(vehicle.tribe)) return false;
     world.mut(e, Vehicle).tribe = seat.chosen;
     return true;
   }
   const building = world.tryGet(e, Building);
-  if (building === undefined || building.tribe !== seat.authored) return false;
+  if (building === undefined || !ours(building.tribe)) return false;
   const type = contentIndex(ctx.content).buildings.get(building.buildingType);
   if (
-    type !== undefined &&
-    seat.drawnBuildings.includes(building.buildingType) &&
-    sameFootprint(buildingFootprintFor(type, seat.authored), buildingFootprintFor(type, seat.chosen))
-  ) {
-    world.mut(e, Building).tribe = seat.chosen;
-    const previous = buildingHitpointsFor(type, seat.authored);
-    const next = buildingHitpointsFor(type, seat.chosen);
-    if (previous !== undefined && next !== undefined) resizeUnitHealth(world, e, previous, next);
-  }
+    type === undefined ||
+    !seat.drawnBuildings.includes(building.buildingType) ||
+    !sameBuildingFootprintCells(type, seat.authored, seat.chosen)
+  )
+    return false;
+  world.mut(e, Building).tribe = seat.chosen;
+  const previous = buildingHitpointsFor(type, seat.authored);
+  const next = buildingHitpointsFor(type, seat.chosen);
+  if (previous !== undefined && next !== undefined) resizeUnitHealth(world, e, previous, next);
   return true;
-}
-
-/** Each tribe's variant carries its own footprint object, so two footprints match by their cells, in
- *  any order. */
-function sameFootprint(a: BuildingFootprint | undefined, b: BuildingFootprint | undefined): boolean {
-  return cellsKey(a) === cellsKey(b);
-}
-
-function cellsKey(footprint: BuildingFootprint | undefined): string {
-  if (footprint === undefined) return '';
-  return Object.entries(footprint)
-    .sort(([x], [y]) => (x < y ? -1 : 1))
-    .map(([key, value]) =>
-      Array.isArray(value)
-        ? `${key}:${value
-            .map((cell) => JSON.stringify(cell))
-            .sort()
-            .join(';')}`
-        : `${key}:${JSON.stringify(value)}`,
-    )
-    .join('|');
 }

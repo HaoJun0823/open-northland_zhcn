@@ -15,6 +15,7 @@ import {
   LOAD_PASS,
   MAP_NODES,
   POINT,
+  runLoadPass,
   VIKING,
   WOODCUTTER,
 } from './support.js';
@@ -23,6 +24,7 @@ import {
 
 const SARACEN = 4;
 const PERSON_SEAT = 0;
+const COMPUTER_SEAT = 2;
 const STAGING_SEAT = 3;
 /** `hero_saber_hatschi` in the fixture content. */
 const HERO = 45;
@@ -38,9 +40,9 @@ const SEAT: MissionSeatTribe = {
   drawnBuildings: [HUT],
 };
 
-const spawnHuman = (tribe: number, job: number, humanId: number): MissionResultOp => ({
+const spawnHuman = (tribe: number, job: number, humanId: number, player = STAGING_SEAT): MissionResultOp => ({
   opcode: 'SetHuman',
-  player: STAGING_SEAT,
+  player,
   tribe,
   job,
   point: { hx: POINT.hx + humanId - VIKING_ID, hy: POINT.hy },
@@ -50,6 +52,8 @@ const spawnHuman = (tribe: number, job: number, humanId: number): MissionResultO
 
 const VIKING_HUT_HITPOINTS = 100;
 const SARACEN_HUT_HITPOINTS = 200;
+/** A quarter of the viking hut's hit points, a fraction both pools divide evenly. */
+const DAMAGED_HUT_HITPOINTS = VIKING_HUT_HITPOINTS / 4;
 
 /** The hut as real content carries it: each people's own variant with its own footprint object and hit
  *  points, the saracen one shifted by `shift` cells. */
@@ -139,7 +143,7 @@ describe('the handover safety net', () => {
     ]);
   });
 
-  it('moves a human handed by id, and a house the chosen people do not draw is reported but kept', () => {
+  it('moves a human handed by id, and keeps a house the chosen people do not draw without reporting it', () => {
     const sim = handoverSim(
       [
         { opcode: 'ChangeHumanPlayerId', humanId: VIKING_ID, player: PERSON_SEAT },
@@ -149,10 +153,7 @@ describe('the handover safety net', () => {
     );
     expect(tribeOf(sim, VIKING_ID)).toBe(SARACEN);
     expect(tribeOf(sim, HOUSE_ID)).toBe(VIKING);
-    expect(corrections(sim).map((event) => event.opcode)).toEqual([
-      'ChangeHumanPlayerId',
-      'ChangeHousesPlayerId',
-    ]);
+    expect(corrections(sim).map((event) => event.opcode)).toEqual(['ChangeHumanPlayerId']);
   });
 
   it('keeps a handed house whose footprint cells differ between the two peoples', () => {
@@ -162,7 +163,69 @@ describe('the handover safety net', () => {
       variantContent(1),
     );
     expect(tribeOf(sim, HOUSE_ID)).toBe(VIKING);
-    expect(corrections(sim).map((event) => event.count)).toEqual([1]);
+    expect(corrections(sim)).toEqual([]);
+  });
+
+  it("rescales a damaged house to its health fraction of the chosen people's hit points", () => {
+    const sim = new Simulation({
+      seed: 1,
+      content: variantContent(0),
+      map: grassNodeMap(MAP_NODES, MAP_NODES),
+      missions: {
+        missions: [
+          firingMission([{ opcode: 'ChangeHousesPlayerId', objectId: HOUSE_ID, player: PERSON_SEAT }]),
+        ],
+        seatTribes: [SEAT],
+      },
+    });
+    sim.enqueueSetup({
+      kind: 'placeBuilding',
+      buildingType: HUT,
+      tribe: VIKING,
+      x: POINT.hx,
+      y: POINT.hy,
+      owner: STAGING_SEAT,
+      underConstruction: false,
+      force: true,
+      missionId: HOUSE_ID,
+    });
+    sim.step();
+    const house = missionObjects(sim.world, HOUSE_ID)[0];
+    if (house === undefined) throw new Error('the hut was not placed');
+    expect(sim.world.get(house, Health).max).toBe(VIKING_HUT_HITPOINTS);
+    sim.world.mut(house, Health).hitpoints = DAMAGED_HUT_HITPOINTS;
+    runLoadPass(sim);
+    expect(tribeOf(sim, HOUSE_ID)).toBe(SARACEN);
+    expect(sim.world.get(house, Health)).toMatchObject({
+      hitpoints: (DAMAGED_HUT_HITPOINTS * SARACEN_HUT_HITPOINTS) / VIKING_HUT_HITPOINTS,
+      max: SARACEN_HUT_HITPOINTS,
+    });
+  });
+
+  it("leaves a thing of another re-tribed seat carrying that seat's choice", () => {
+    // Seat 0 plays its authored vikings as franks, seat 2 its authored franks as vikings: the frank the
+    // build placed on seat 0 is seat 0's choice, not seat 2's authored people.
+    const sim = new Simulation({
+      seed: 1,
+      content: variantContent(0),
+      map: grassNodeMap(MAP_NODES, MAP_NODES),
+      missions: {
+        missions: [
+          firingMission([
+            spawnHuman(FRANK, WOODCUTTER, FRANK_ID, PERSON_SEAT),
+            { opcode: 'ChangeHumanPlayerId', humanId: FRANK_ID, player: COMPUTER_SEAT },
+          ]),
+        ],
+        seatTribes: [
+          { player: PERSON_SEAT, authored: VIKING, chosen: FRANK, drawnBuildings: [HUT] },
+          { player: COMPUTER_SEAT, authored: FRANK, chosen: VIKING, drawnBuildings: [HUT] },
+        ],
+      },
+    });
+    enableMissions(sim);
+    sim.run(LOAD_PASS);
+    expect(tribeOf(sim, FRANK_ID)).toBe(FRANK);
+    expect(corrections(sim)).toEqual([]);
   });
 
   it('stays silent for a seat the session plays as the map authored it', () => {

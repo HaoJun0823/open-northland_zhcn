@@ -441,8 +441,9 @@ export type SimEvent =
   | {
       /**
        * A handover delivered `count` things of a re-tribed seat's authored people into that seat, which
-       * the world build should already have moved to the chosen people; they took it now, except a
-       * house whose footprint cells differ between the two peoples. Emitted per line that found any.
+       * the world build should already have moved to the chosen people; they took it now. A house the
+       * build keeps too (a type the chosen people do not draw or stand on other footprint cells) is not
+       * counted. Emitted per line that moved any.
        */
       readonly kind: 'missionSeatTribeCorrected';
       readonly mission: number;

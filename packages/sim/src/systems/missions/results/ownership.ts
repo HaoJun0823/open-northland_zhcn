@@ -16,16 +16,17 @@ import { relinkSignpost } from '../../signposts/index.js';
 import type { MissionPass } from '../pass.js';
 import type { MissionResultOp } from '../script.js';
 import { missionHouses, ownedBy, ownedInRange, scriptedHumans, withinRange } from '../targets.js';
+import { type Handed, withOwners } from './seat-tribes.js';
 
 /** How many animals one `ChangeAnimalPlayerIdInArea` may take, whatever it asks for (reading). */
 const ANIMAL_HANDOVER_CAP = 50;
 
 /** Hand every human stamped with the id to `player`, detaching each from the job and home it held
  *  under its old owner (reading). Returns the humans handed. */
-export function handHumansToPlayer(pass: MissionPass, id: number, player: number): readonly Entity[] {
+export function handHumansToPlayer(pass: MissionPass, id: number, player: number): readonly Handed[] {
   if (!isValidPlayer(player)) return [];
-  const handed = scriptedHumans(pass.world, id);
-  for (const e of handed) {
+  const handed = withOwners(pass.world, scriptedHumans(pass.world, id));
+  for (const { entity: e } of handed) {
     detachFromHouses(pass.world, pass.ctx, e);
     stampOwner(pass.world, e, player);
     syncScenarioIdentity(pass.world, pass.ctx.content, e);
@@ -34,21 +35,24 @@ export function handHumansToPlayer(pass: MissionPass, id: number, player: number
 }
 
 /** Hand every house stamped with the id to `player`. Returns the houses handed. */
-export function handHousesToPlayer(pass: MissionPass, id: number, player: number): readonly Entity[] {
-  const handed = missionHouses(pass.world, id);
-  for (const e of handed) stampOwner(pass.world, e, player);
+export function handHousesToPlayer(pass: MissionPass, id: number, player: number): readonly Handed[] {
+  const handed = withOwners(pass.world, missionHouses(pass.world, id));
+  for (const { entity } of handed) stampOwner(pass.world, entity, player);
   return handed;
 }
 
 /** Hand everything one player owns to another - units, houses, vehicles and animals alike. Nobody is
  *  evicted: a town changes flag whole, so every binding inside it still points at the same owner. */
-export function handPlayerToPlayer(pass: MissionPass, from: number, to: number): readonly Entity[] {
+export function handPlayerToPlayer(pass: MissionPass, from: number, to: number): readonly Handed[] {
   const { world } = pass;
   if (!isValidPlayer(from) || !isValidPlayer(to) || from === to) return [];
-  const handed = world.canonicalQuery(Owner).filter((e) => world.get(e, Owner).player === from);
-  for (const e of handed) {
-    stampOwner(world, e, to);
-    syncScenarioIdentity(world, pass.ctx.content, e);
+  const handed = withOwners(
+    world,
+    world.canonicalQuery(Owner).filter((e) => world.get(e, Owner).player === from),
+  );
+  for (const { entity } of handed) {
+    stampOwner(world, entity, to);
+    syncScenarioIdentity(world, pass.ctx.content, entity);
   }
   relinkHandedSignposts(pass, handed);
   return handed;
@@ -59,10 +63,10 @@ export function handPlayerToPlayer(pass: MissionPass, from: number, to: number):
 export function handAreaToPlayer(
   pass: MissionPass,
   op: Extract<MissionResultOp, { opcode: 'ChangePlayerIdInArea' }>,
-): readonly Entity[] {
+): readonly Handed[] {
   if (!isValidPlayer(op.player) || !isValidPlayer(op.otherPlayer)) return [];
-  const handed = ownedInRange(pass.world, op.player, op.point, op.range);
-  for (const e of handed) {
+  const handed = withOwners(pass.world, ownedInRange(pass.world, op.player, op.point, op.range));
+  for (const { entity: e } of handed) {
     if (pass.world.has(e, Person)) detachFromHouses(pass.world, pass.ctx, e);
     stampOwner(pass.world, e, op.otherPlayer);
     syncScenarioIdentity(pass.world, pass.ctx.content, e);
@@ -73,11 +77,11 @@ export function handAreaToPlayer(
 
 /** Relink the signposts among `handed` once every one carries its new owner, so posts handed together
  *  link to each other as well as to the receiver's. */
-function relinkHandedSignposts(pass: MissionPass, handed: readonly Entity[]): void {
+function relinkHandedSignposts(pass: MissionPass, handed: readonly Handed[]): void {
   const terrain = pass.ctx.terrain;
   if (terrain === undefined) return;
-  for (const e of handed)
-    if (pass.world.has(e, Signpost)) relinkSignpost(pass.world, terrain, e, pass.ctx.content);
+  for (const { entity } of handed)
+    if (pass.world.has(entity, Signpost)) relinkSignpost(pass.world, terrain, entity, pass.ctx.content);
 }
 
 /**

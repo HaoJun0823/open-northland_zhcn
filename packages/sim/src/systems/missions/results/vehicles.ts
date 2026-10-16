@@ -30,6 +30,7 @@ import { removeVehicle } from '../../vehicles/remove.js';
 import type { MissionPass } from '../pass.js';
 import type { MissionResultOp } from '../script.js';
 import { missionVehicles, scriptedHumans, withinRange } from '../targets.js';
+import { type Handed, withOwners } from './seat-tribes.js';
 
 // The vehicle results of docs/formats/VEHICLES.md "Map scripts": every one goes through the seams a
 // seat command or a map load takes, so a scripted vehicle and a placed one are the same entity.
@@ -114,10 +115,10 @@ export function removeScriptedVehiclesWithCrews(pass: MissionPass, id: number, c
 
 /** `ChangeVehiclesPlayerId`: the vehicles with the id change flag; their crews keep their own owner and
  *  their seats (the original touches nobody aboard). */
-export function handVehiclesToPlayer(pass: MissionPass, id: number, player: number): readonly Entity[] {
+export function handVehiclesToPlayer(pass: MissionPass, id: number, player: number): readonly Handed[] {
   if (!isValidPlayer(player)) return [];
-  const handed = missionVehicles(pass.world, id);
-  for (const e of handed) stampOwner(pass.world, e, player);
+  const handed = withOwners(pass.world, missionVehicles(pass.world, id));
+  for (const { entity } of handed) stampOwner(pass.world, entity, player);
   return handed;
 }
 

@@ -1121,7 +1121,10 @@ a lobby choice). That seat's authored people become the chosen people, and so do
 authored people the script will hand it. Things of another people stay that people: a scenario that
 gives a viking seat saracen allies keeps them saracen, and a seat's own authored franks stay franks.
 A hero keeps his people, a monster or an animal its kind, and a house type the chosen people have no
-graphics for (the viking big ship, the wonders) its tribe; a vehicle takes the chosen people. Other
+graphics for (the viking big ship, the wonders) its tribe; a vehicle takes the chosen people. A house
+a handover delivers also keeps its tribe when the two peoples stand its type on different footprint
+cells, since its placement stands; the seat's own houses and spawns are placed fresh. A thing a
+re-tribed seat hands another keeps its giver's choice. Other
 seats keep their people, except a seat handed whole, whose roster row takes the chosen people when
 it was authored as the same people, so what it raises reaches the seat as the chosen people too. This is our rule; the original has no civilization choice for a map.
 
@@ -1143,12 +1146,13 @@ Areas are judged at the authored places, and a spawn (`SetHuman`, `SetHumanX`, `
 `SetHouse`) at its line's point, owner and id: a spawn that reaches the seat spawns in the chosen
 people. Read from the script alone, the pass misses a unit that walks into an area later, a handover
 of id 0 (every human without an id) and an id a `Build*` goal stamps. A handover that still delivers
-the seat's authored people moves them as it runs and emits `missionSeatTribeCorrected`; a house whose
-footprint cells differ between the two peoples keeps its tribe, since its placement stands, and a
-converted house keeps its health fraction of the chosen people's hit points.
+the seat's authored people moves them as it runs, by the same house rules as the build, and emits
+`missionSeatTribeCorrected` for what it moved; a converted house keeps its health fraction of the
+chosen people's hit points. The net knows only the seat that handed a thing, so a re-tribed seat's
+things passed on through a third seat handed whole take the receiver's choice.
 `seat-tribes-handovers.test.ts` runs every map's spawns, stamps and handovers with the seat on another
-civilization, also from a second seat and with two seats re-tribed, and requires that the net never
-fires.
+civilization, also from a second seat, with two seats re-tribed and with two seats playing each
+other's people, and requires that the net never fires.
 
 Another person's seat is left to the net: its things keep their people until a handover delivers
 them into a re-tribed seat. A thing follows the first re-tribed seat of its own people it reaches,

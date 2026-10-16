@@ -1,6 +1,12 @@
 import { MapScript } from '@open-northland/data';
 import type { GameSession, SessionSeat } from '@open-northland/lockstep';
-import { components, type Entity, exportSaveGame, type MissionScript } from '@open-northland/sim';
+import {
+  components,
+  type Entity,
+  exportSaveGame,
+  type MissionResultOp,
+  type MissionScript,
+} from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import type { ContentIr } from '../src/content/ir/rows.js';
 import { buildMapWorldFromInputs } from '../src/entries/map/world-inputs.js';
@@ -24,6 +30,8 @@ const BARRACKS = 30;
 const SHIP = 45;
 const BUILDER = 7;
 const HERO_BJARNI = 60;
+/** A vehicle type id; the remap reads only the line's seat and people. */
+const SHIP_VEHICLE = 1;
 /** Ticks run on each side of the save before the two worlds are compared. */
 const RESTORE_TICKS = 40;
 
@@ -118,44 +126,111 @@ describe('seatTribeRemap', () => {
     expect(remap.building(own, SHIP, VIKING)).toBe(VIKING);
   });
 
+  it('keeps a handed building type the chosen civilization stands on other footprint cells', () => {
+    const cells = (shift: number) => [
+      { dx: shift, dy: 0 },
+      { dx: shift + 1, dy: 0 },
+    ];
+    const footprint = (shift: number) => ({
+      blocked: cells(shift),
+      familyBody: cells(shift),
+      reserved: cells(shift),
+    });
+    const withSaracenShift = (shift: number) =>
+      seatTribeRemap(seatFlows({ seats: [seat(0, SARACEN), seat(2), mapAi(3), mapAi(4)] }, staged), {
+        ...rows,
+        buildings: [
+          {
+            typeId: BARRACKS,
+            footprint: footprint(0),
+            tribeVariants: [
+              { tribe: SARACEN, footprint: { ...footprint(shift), blocked: cells(shift).reverse() } },
+            ],
+          },
+        ],
+      });
+    expect(withSaracenShift(0).building(staging, BARRACKS, VIKING)).toBe(SARACEN);
+    expect(withSaracenShift(1).building(staging, BARRACKS, VIKING)).toBe(VIKING);
+    expect(withSaracenShift(1).building(own, BARRACKS, VIKING)).toBe(SARACEN);
+  });
+
   it('spawns what reaches the seat as the chosen people, and carries the seat for the handover net', () => {
-    const line = { successfullIf: 0, active: true, visible: false, goals: [] };
-    const human = { opcode: 'SetHuman', tribe: VIKING, job: BUILDER, point: { hx: 0, hy: 0 }, humanId: 0 };
-    const script = {
+    const point = { hx: 0, hy: 0 };
+    const human = (player: number, tribe: number, humanId = 0): MissionResultOp => ({
+      opcode: 'SetHuman',
+      player,
+      tribe,
+      job: BUILDER,
+      point,
+      humanId,
+      behaviour: 0,
+    });
+    const house = (typeId: number): MissionResultOp => ({
+      opcode: 'SetHouse',
+      player: 0,
+      houseName: { typeId, tribe: VIKING },
+      level: 0,
+      built: true,
+      point,
+      objectId: 0,
+    });
+    const script: MissionScript = {
       missions: [
         {
-          ...line,
+          successfullIf: 0,
+          active: true,
+          visible: false,
+          goals: [],
           results: [
-            { opcode: 'AllowJob', player: 0, tribe: VIKING, job: 7 },
-            { opcode: 'AllowJob', player: 2, tribe: FRANK, job: 7 },
-            { opcode: 'SetHouse', player: 0, houseName: { typeId: BARRACKS, tribe: VIKING }, objectId: 0 },
-            { opcode: 'SetHouse', player: 0, houseName: { typeId: SHIP, tribe: VIKING }, objectId: 0 },
-            { ...human, player: 0 },
-            { ...human, player: 0, opcode: 'SetHumanX', job: HERO_BJARNI },
-            { ...human, player: 3 },
-            { ...human, player: 3, tribe: FRANK },
-            { ...human, player: 4, humanId: 9 },
-            { ...human, player: 4 },
-            { opcode: 'SetVehicle', player: 3, tribe: VIKING, vehicleId: 0, point: { hx: 0, hy: 0 } },
+            { opcode: 'AllowJob', player: 0, tribe: VIKING, job: BUILDER },
+            { opcode: 'AllowJob', player: 2, tribe: FRANK, job: BUILDER },
+            house(BARRACKS),
+            house(SHIP),
+            human(0, VIKING),
+            {
+              opcode: 'SetHumanX',
+              player: 0,
+              tribe: VIKING,
+              job: HERO_BJARNI,
+              point,
+              humanId: 0,
+              behaviour: 0,
+              amount: 1,
+            },
+            human(3, VIKING),
+            human(3, FRANK),
+            human(4, VIKING, 9),
+            human(4, VIKING),
+            {
+              opcode: 'SetVehicle',
+              player: 3,
+              tribe: VIKING,
+              vehicleType: SHIP_VEHICLE,
+              point,
+              vehicleId: 0,
+              withCaptain: false,
+            },
           ],
         },
       ],
-    } as unknown as MissionScript;
+    };
     const seated = seatedMissions(script, remap);
-    const results = seated.missions[0]?.results as unknown as readonly Record<string, unknown>[];
-    expect(results.map((op) => op.tribe ?? op.houseName)).toEqual([
-      SARACEN,
-      FRANK,
-      { typeId: BARRACKS, tribe: SARACEN },
-      { typeId: SHIP, tribe: VIKING },
-      SARACEN,
-      VIKING,
-      SARACEN,
-      FRANK,
-      SARACEN,
-      VIKING,
-      SARACEN,
-    ]);
+    const results = seated.missions[0]?.results ?? [];
+    expect(results.map((op) => ('houseName' in op ? op.houseName : 'tribe' in op ? op.tribe : null))).toEqual(
+      [
+        SARACEN,
+        FRANK,
+        { typeId: BARRACKS, tribe: SARACEN },
+        { typeId: SHIP, tribe: VIKING },
+        SARACEN,
+        VIKING,
+        SARACEN,
+        FRANK,
+        SARACEN,
+        VIKING,
+        SARACEN,
+      ],
+    );
     expect(seated.seatTribes).toEqual([
       { player: 0, authored: VIKING, chosen: SARACEN, drawnBuildings: [BARRACKS] },
     ]);
@@ -190,7 +265,7 @@ describe('a session with a changed seat', () => {
       kind: 'createCreatures',
       priority: 0,
       condition: 0,
-      job: 7,
+      job: BUILDER,
       x: 0,
       y: 0,
       missionId: 0,
@@ -220,6 +295,55 @@ describe('a session with a changed seat', () => {
     expect(
       seated.world.ai?.map((row) => row.tasks.map((task) => ('tribe' in task ? task.tribe : null))),
     ).toEqual([[SARACEN], [WERESNAKE]]);
+  });
+
+  it('raises the creatures of a seat handed in an area as the chosen civilization inside the area only', () => {
+    const area = { x: 40, y: 40, range: 3 };
+    const task = (x: number, y: number) => ({
+      kind: 'createCreatures',
+      priority: 0,
+      condition: 0,
+      tribe: VIKING,
+      job: BUILDER,
+      x,
+      y,
+      missionId: 0,
+      count: 1,
+      once: true,
+    });
+    const script = MapScript.parse({
+      ...roster,
+      players: [...roster.players, { player: 3, type: 'ai', tribeId: VIKING, colorId: 3 }],
+      missions: [
+        {
+          goals: [{ key: 'goal', values: ['True'] }],
+          results: [
+            {
+              key: 'result',
+              values: ['ChangePlayerIdInArea', '3', '0', `${area.x}`, `${area.y}`, `${area.range}`],
+            },
+          ],
+        },
+      ],
+      ai: [
+        {
+          player: 3,
+          allDisabled: false,
+          computerDisabled: false,
+          disabledComputerModules: [],
+          tasks: [task(area.x, area.y + area.range), task(area.x, area.y + area.range + 1)],
+        },
+      ],
+    });
+    const seated = sessionMapScript(
+      session([seat(0, SARACEN), seat(2), { ...seat(3), mode: 'map-ai' }]),
+      script,
+      rows,
+    );
+    expect(seated.world.ai?.[0]?.tasks.map((t) => ('tribe' in t ? t.tribe : null))).toEqual([
+      SARACEN,
+      VIKING,
+    ]);
   });
 
   it("builds the seat's authored settlers and houses as the chosen civilization, and restores them", () => {

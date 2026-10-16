@@ -1,4 +1,10 @@
-import type { MapAiSeat, MapScript } from '@open-northland/data';
+import {
+  type BuildingFootprint,
+  type BuildingTribeVariant,
+  type MapAiSeat,
+  type MapScript,
+  sameBuildingFootprintCells,
+} from '@open-northland/data';
 import type { GameSession } from '@open-northland/lockstep';
 import {
   type MissionGoalOp,
@@ -51,11 +57,31 @@ export const MAP_TRIBES: SeatTribeRemap = {
   seatTribes: [],
 };
 
-export function seatTribeRemap(
-  flows: SeatFlows,
-  rows: Pick<AuthoredJoinRows, 'buildingBobs' | 'jobs'>,
-): SeatTribeRemap {
+/** A building type row with the per-tribe footprints a handed house's conversion compares. */
+interface SeatBuildingRow {
+  readonly typeId?: number;
+  readonly footprint?: BuildingFootprint;
+  readonly tribeVariants?: readonly BuildingTribeVariant[];
+}
+
+/** The content rows the remap reads: the drawn house types, the hero jobs and the house footprints. */
+export type SeatTribeRows = Pick<AuthoredJoinRows, 'buildingBobs' | 'jobs'> & {
+  readonly buildings?: readonly SeatBuildingRow[];
+};
+
+export function seatTribeRemap(flows: SeatFlows, rows: SeatTribeRows): SeatTribeRemap {
   if (flows.changes.size === 0) return MAP_TRIBES;
+  const footprints = new Map<number, SeatBuildingRow>();
+  for (const row of rows.buildings ?? []) if (row.typeId !== undefined) footprints.set(row.typeId, row);
+  /** A house a handover delivers keeps its authored people when the two peoples stand its type on
+   *  different footprint cells, as the handover net rules; the seat's own houses are placed fresh.
+   *  A type without a row has no footprint for either. */
+  const sameCells = (typeId: number, authored: number, chosen: number): boolean => {
+    const row = footprints.get(typeId);
+    if (row === undefined) return true;
+    const type = { footprint: row.footprint, tribeVariants: row.tribeVariants ?? [] };
+    return sameBuildingFootprintCells(type, authored, chosen);
+  };
   const drawn = new Map<number, Set<number>>();
   for (const bob of rows.buildingBobs ?? []) {
     if (bob.typeId === undefined || bob.tribeId === undefined) continue;
@@ -80,8 +106,10 @@ export function seatTribeRemap(
       job !== undefined && heroJobs.has(job) ? current : reached('human', thing, current),
     vehicle: (thing, current) => reached('vehicle', thing, current),
     building: (thing, typeId, current) => {
-      const next = reached('house', thing, current);
-      return drawn.get(next)?.has(typeId) === true ? next : current;
+      const change = flowOf(flows, 'house', thing, current);
+      if (change === undefined || drawn.get(change.chosen)?.has(typeId) !== true) return current;
+      const own = change.seat === thing.owner;
+      return own || sameCells(typeId, current, change.chosen) ? change.chosen : current;
     },
     seatTribes: [...flows.changes.values()].map((change) => ({
       player: change.seat,
@@ -196,7 +224,11 @@ function seatedAi(seats: readonly MapAiSeat[], remap: SeatTribeRemap): readonly 
       task.kind === 'createCreatures'
         ? {
             ...task,
-            tribe: remap.human({ owner: seat.player, missionId: task.missionId }, task.job, task.tribe),
+            tribe: remap.human(
+              { owner: seat.player, missionId: task.missionId, at: { hx: task.x, hy: task.y } },
+              task.job,
+              task.tribe,
+            ),
           }
         : task,
     ),
@@ -235,7 +267,7 @@ export interface SessionSeating {
 export function sessionSeating(
   session: Pick<GameSession, 'seats'>,
   script: SeatScript | null,
-  rows: Pick<AuthoredJoinRows, 'buildingBobs' | 'jobs'>,
+  rows: SeatTribeRows,
 ): SessionSeating {
   if (script === null) return { players: [], remap: MAP_TRIBES };
   const remap = seatTribeRemap(seatFlows(session, script), rows);
@@ -253,7 +285,7 @@ export interface SessionMapScript {
 export function sessionMapScript(
   session: Pick<GameSession, 'seats'>,
   script: MapScript | null,
-  rows: AuthoredJoinRows | null,
+  rows: (AuthoredJoinRows & SeatTribeRows) | null,
 ): SessionMapScript {
   const { players, remap } = sessionSeating(session, script, rows ?? {});
   const seated = script === null ? null : seatedMapScript(script, players, remap);

@@ -346,7 +346,8 @@ export class World {
   }
 
   /** Visit every component store in first-registration order, entries in per-store insertion order
-   *  (the query iteration contract). Values are live; a persisting visitor must clone them. */
+   *  (the query iteration contract). Values are live; a persisting visitor must clone them. A visitor
+   *  must not remove components while it walks: the entries throw once their store compacts. */
   forEachStore(visit: (name: string, entries: IterableIterator<[Entity, unknown]>) => void): void {
     for (const c of this.registered) {
       const store = this.stores.get(c);
@@ -394,9 +395,11 @@ export class World {
       const c = this.registered[index];
       if (c === undefined) continue;
       const store = this.storeOf(c);
-      const slot = store === undefined ? -1 : store.slotOf(entity);
-      const v = slot < 0 ? undefined : store?.valueAt(slot);
-      if (store === undefined || v === undefined) continue;
+      if (store === undefined) continue;
+      const slot = store.slotOf(entity);
+      if (slot < 0) continue;
+      const v = store.valueAt(slot);
+      if (v === undefined) continue;
       visit(c.name, v, store.revisionAt(slot));
     }
   }

@@ -1,12 +1,16 @@
 import type { Entity } from './component.js';
 
 /** Entity ids per index page; a page exists only while it holds a member, so a component whose members
- *  sit in a few id ranges stays small. */
+ *  sit in a few id ranges stays small. One emptied page is kept spare, so a lone member toggled every
+ *  tick does not reallocate its page per add. */
 const PAGE_BITS = 8;
-const PAGE_SIZE = 1 << PAGE_BITS;
+export const PAGE_SIZE = 1 << PAGE_BITS;
 const PAGE_MASK = PAGE_SIZE - 1;
 /** Entity ids start at 1, so 0 marks a vacated dense slot; an index page entry holds `slot + 1`. */
 export const VACANT_SLOT = 0;
+const MIN_ENTITY = 1;
+/** The largest id an `Int32Array` dense slot holds. */
+const MAX_ENTITY = 0x7fffffff;
 const INITIAL_CAPACITY = 8;
 /** Vacated slots are compacted away once they exceed this share of the dense length... */
 const VACANCY_COMPACT_FRACTION = 0.25;
@@ -24,19 +28,41 @@ const SHRINK_FACTOR = 4;
 export class ComponentStore<T> {
   private readonly pages: Array<Int32Array | undefined> = [];
   private readonly pageMembers: number[] = [];
-  /** Dense members in insertion order; {@link VACANT_SLOT} marks a vacated slot. */
-  entities = new Int32Array(INITIAL_CAPACITY);
-  /** Insertion sequence per dense slot, ascending across the dense range. */
-  seqs = new Float64Array(INITIAL_CAPACITY);
+  /** An emptied, all-zero page reused by the next page allocation. */
+  private sparePage: Int32Array | undefined;
+  private denseEntities = new Int32Array(INITIAL_CAPACITY);
+  private denseSeqs = new Float64Array(INITIAL_CAPACITY);
   private values: Array<T | undefined> = [];
   private revisions = new Float64Array(INITIAL_CAPACITY);
-  /** Dense slots in use, vacated ones included. */
-  length = 0;
-  /** Live members. */
-  size = 0;
-  /** Bumped by every compaction, which moves slots under an open cursor. */
-  epoch = 0;
+  private denseLength = 0;
+  private liveSize = 0;
+  private compactions = 0;
   private nextSeq = 0;
+
+  /** Dense members in insertion order; {@link VACANT_SLOT} marks a vacated slot. Callers only read it. */
+  get entities(): Int32Array {
+    return this.denseEntities;
+  }
+
+  /** Insertion sequence per dense slot, ascending across the dense range. Callers only read it. */
+  get seqs(): Float64Array {
+    return this.denseSeqs;
+  }
+
+  /** Dense slots in use, vacated ones included. */
+  get length(): number {
+    return this.denseLength;
+  }
+
+  /** Live members. */
+  get size(): number {
+    return this.liveSize;
+  }
+
+  /** Bumped by every compaction, which moves slots under an open cursor. */
+  get epoch(): number {
+    return this.compactions;
+  }
 
   /** The dense slot of `entity`, or -1 while it is not a member. */
   slotOf(entity: Entity): number {
@@ -76,10 +102,14 @@ export class ComponentStore<T> {
 
   /** Stores `value` for `entity`, keeping a member's slot and appending a newcomer; true when it entered. */
   set(entity: Entity, value: T): boolean {
+    if (entity < MIN_ENTITY || entity > MAX_ENTITY) {
+      throw new RangeError(`ComponentStore.set: entity ${entity} is outside ${MIN_ENTITY}..${MAX_ENTITY}`);
+    }
     const pageIndex = entity >>> PAGE_BITS;
     let page = this.pages[pageIndex];
     if (page === undefined) {
-      page = new Int32Array(PAGE_SIZE);
+      page = this.sparePage ?? new Int32Array(PAGE_SIZE);
+      this.sparePage = undefined;
       this.pages[pageIndex] = page;
       this.pageMembers[pageIndex] = 0;
     }
@@ -89,15 +119,15 @@ export class ComponentStore<T> {
       this.values[existing] = value;
       return false;
     }
-    if (this.length === this.entities.length) this.resize(this.length * 2);
-    const slot = this.length++;
-    this.entities[slot] = entity;
-    this.seqs[slot] = this.nextSeq++;
+    if (this.denseLength === this.denseEntities.length) this.resize(this.denseLength * 2);
+    const slot = this.denseLength++;
+    this.denseEntities[slot] = entity;
+    this.denseSeqs[slot] = this.nextSeq++;
     this.revisions[slot] = 0;
     this.values[slot] = value;
     page[at] = slot + 1;
     this.pageMembers[pageIndex] = (this.pageMembers[pageIndex] ?? 0) + 1;
-    this.size++;
+    this.liveSize++;
     return true;
   }
 
@@ -112,12 +142,15 @@ export class ComponentStore<T> {
     page[at] = 0;
     const left = (this.pageMembers[pageIndex] ?? 0) - 1;
     this.pageMembers[pageIndex] = left;
-    if (left === 0) this.pages[pageIndex] = undefined;
-    this.entities[slot] = VACANT_SLOT;
+    if (left === 0) {
+      this.pages[pageIndex] = undefined;
+      this.sparePage = page;
+    }
+    this.denseEntities[slot] = VACANT_SLOT;
     this.values[slot] = undefined;
-    this.size--;
-    const vacant = this.length - this.size;
-    if (vacant >= VACANCY_COMPACT_MIN && vacant > this.length * VACANCY_COMPACT_FRACTION) this.compact();
+    this.liveSize--;
+    const vacant = this.denseLength - this.liveSize;
+    if (vacant >= VACANCY_COMPACT_MIN && vacant > this.denseLength * VACANCY_COMPACT_FRACTION) this.compact();
     return true;
   }
 
@@ -125,10 +158,10 @@ export class ComponentStore<T> {
    *  resumes after a compaction. */
   firstSlotAfter(seq: number): number {
     let lo = 0;
-    let hi = this.length;
+    let hi = this.denseLength;
     while (lo < hi) {
       const mid = (lo + hi) >>> 1;
-      if ((this.seqs[mid] ?? 0) > seq) hi = mid;
+      if ((this.denseSeqs[mid] ?? 0) > seq) hi = mid;
       else lo = mid + 1;
     }
     return lo;
@@ -137,25 +170,28 @@ export class ComponentStore<T> {
   /** Members in insertion order. */
   keys(): Entity[] {
     const out: Entity[] = [];
-    for (let slot = 0; slot < this.length; slot++) {
-      const e = this.entities[slot] ?? VACANT_SLOT;
+    for (let slot = 0; slot < this.denseLength; slot++) {
+      const e = this.denseEntities[slot] ?? VACANT_SLOT;
       if (e !== VACANT_SLOT) out.push(e as Entity);
     }
     return out;
   }
 
-  /** Members and values in insertion order; values are live. */
-  *entries(): IterableIterator<[Entity, unknown]> {
-    for (let slot = 0; slot < this.length; slot++) {
-      const e = this.entities[slot] ?? VACANT_SLOT;
-      if (e !== VACANT_SLOT) yield [e as Entity, this.values[slot]];
+  /** Members and values in insertion order; values are live. Unlike a query, the walk does not survive a
+   *  compaction, so the store must not shrink while it is open; it throws if it did. */
+  *entries(): IterableIterator<[Entity, T]> {
+    const epoch = this.compactions;
+    for (let slot = 0; slot < this.denseLength; slot++) {
+      const e = this.denseEntities[slot] ?? VACANT_SLOT;
+      if (e !== VACANT_SLOT) yield [e as Entity, this.values[slot] as T];
+      if (this.compactions !== epoch) throw new Error('ComponentStore.entries: store compacted during the walk');
     }
   }
 
   private compact(): void {
-    const { entities, seqs, revisions, values } = this;
+    const { denseEntities: entities, denseSeqs: seqs, revisions, values } = this;
     let to = 0;
-    for (let from = 0; from < this.length; from++) {
+    for (let from = 0; from < this.denseLength; from++) {
       const e = entities[from] ?? VACANT_SLOT;
       if (e === VACANT_SLOT) continue;
       if (to !== from) {
@@ -169,8 +205,8 @@ export class ComponentStore<T> {
       to++;
     }
     values.length = to;
-    this.length = to;
-    this.epoch++;
+    this.denseLength = to;
+    this.compactions++;
     if (entities.length > INITIAL_CAPACITY && entities.length >= to * SHRINK_FACTOR) {
       this.resize(Math.max(INITIAL_CAPACITY, to * 2));
     }
@@ -178,13 +214,13 @@ export class ComponentStore<T> {
 
   private resize(capacity: number): void {
     const entities = new Int32Array(capacity);
-    entities.set(this.entities.subarray(0, this.length));
-    this.entities = entities;
+    entities.set(this.denseEntities.subarray(0, this.denseLength));
+    this.denseEntities = entities;
     const seqs = new Float64Array(capacity);
-    seqs.set(this.seqs.subarray(0, this.length));
-    this.seqs = seqs;
+    seqs.set(this.denseSeqs.subarray(0, this.denseLength));
+    this.denseSeqs = seqs;
     const revisions = new Float64Array(capacity);
-    revisions.set(this.revisions.subarray(0, this.length));
+    revisions.set(this.revisions.subarray(0, this.denseLength));
     this.revisions = revisions;
   }
 }

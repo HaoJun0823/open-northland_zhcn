@@ -22,7 +22,14 @@ import {
 import { contentIndex } from '../../core/content-index.js';
 import type { Component, Entity, World } from '../../ecs/world.js';
 import type { ContentContext, System } from '../context.js';
-import { goodEnabled, jobAwaitsDiscovery, jobEnabled, settlerMeetsNeed, typeAllowed } from './unlocks.js';
+import {
+  goodEnabled,
+  jobAwaitsDiscovery,
+  jobEnabled,
+  settlerMeetsNeed,
+  technologyUnlockGeneration,
+  typeAllowed,
+} from './unlocks.js';
 
 /** What a settler's last discovery walk saw of it: the walk repeats only when one of these moves.
  *  Experience and the learned lists only grow, so their sums and lengths tell every change. */
@@ -46,6 +53,11 @@ interface DiscoveryMemo {
   readonly writes: Set<Entity>;
   readonly generations: Map<Component<unknown>, number>;
   permissions: string;
+  /** The owners and tribes whose last house walk discovered nothing. A re-walk reads only the stores
+   *  {@link technologyUnlockGeneration} sums, so it discovers nothing again until that number moves. */
+  readonly settledHouses: Map<number | undefined, Set<number>>;
+  settledContent: ContentSet | null;
+  settledGeneration: number;
 }
 
 /** The stores whose membership moves an input: Person and Settler decide who is walked (a re-added
@@ -156,6 +168,9 @@ function discoveryMemo(world: World, content: ContentSet): DiscoveryMemo {
     writes: settlerProgressLog(world),
     generations: new Map(),
     permissions: '',
+    settledHouses: new Map(),
+    settledContent: null,
+    settledGeneration: 0,
   };
   memos.set(world, memo);
   world.registerCacheVerifier('technologyInputs', () => verifyDiscoveryMemo(world, content, memo));
@@ -243,9 +258,10 @@ export const technologySystem: System = (world, ctx) => {
     memo.generations.set(component, world.componentGeneration(component));
   }
   memo.permissions = permissions;
-  // The owners and tribes whose last house walk discovered nothing: until the next discovery anywhere, a
-  // re-walk reads the same gates and discovers nothing again.
-  const settledHouses = new Map<number | undefined, Set<number>>();
+  const settledHouses = memo.settledHouses;
+  if (memo.settledContent !== ctx.content || memo.settledGeneration !== technologyUnlockGeneration(world)) {
+    settledHouses.clear();
+  }
   let discoveries = 0;
   const discover = (
     entity: Entity | undefined,
@@ -329,4 +345,6 @@ export const technologySystem: System = (world, ctx) => {
     }
     advanceHouses(entity, owner, s.tribe);
   }
+  memo.settledContent = ctx.content;
+  memo.settledGeneration = technologyUnlockGeneration(world);
 };

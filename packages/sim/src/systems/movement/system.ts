@@ -83,11 +83,12 @@ export const movementSystem: System = (world, ctx) => {
     const stored = world.get(e, Position);
     p.x = stored.x;
     p.y = stored.y;
-    syncAnimalGait(world, ctx, e, pf);
+    const wild = isWildlife(world, e);
+    if (wild) syncAnimalGait(world, ctx, e, pf);
     // Wildlife with source `movespeed = 0` has no period component, but stays on the animal fallback
     // rather than inheriting human terrain, fatigue, equipment and hunger rules.
     const period = world.tryGet(e, MoveStepPeriod)?.ticks;
-    const paced = period === undefined && (world.has(e, MoveSpeed) || isWildlife(world, e));
+    const paced = period === undefined && (wild || world.has(e, MoveSpeed));
     let budget = paced ? creaturePace(world, e) : ULP;
     while (true) {
       const target = stops[pf.index];
@@ -134,15 +135,16 @@ export const movementSystem: System = (world, ctx) => {
   }
 };
 
-/** Change gait at a waypoint boundary, where no leg's captured cost is in flight. Approximation: the
- *  original changes the step rate as soon as an attack or flee task starts, mid-leg included. */
+/** Change a wild animal's gait at a waypoint boundary, where no leg's captured cost is in flight.
+ *  Approximation: the original changes the step rate as soon as an attack or flee task starts, mid-leg
+ *  included. */
 function syncAnimalGait(
   world: World,
   ctx: SystemContext,
   e: Entity,
   follow: { readonly legCost: number },
 ): void {
-  if (!isWildlife(world, e) || follow.legCost !== 0) return;
+  if (follow.legCost !== 0) return;
   const tribe = world.get(e, Settler).tribe;
   const locomotion = locomotionOf(ctx.content, tribe);
   if (locomotion === null) return;

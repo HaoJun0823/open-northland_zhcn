@@ -139,7 +139,8 @@ export function addWildlife(world: World, entity: Entity, tribe: number): void {
 }
 
 export function isWildlife(world: World, entity: Entity): boolean {
-  return world.has(entity, Settler) && !world.has(entity, Person);
+  // Person first: one lookup answers for every person.
+  return !world.has(entity, Person) && world.has(entity, Settler);
 }
 
 type SettlerTradeWrite = { jobType: number | null };

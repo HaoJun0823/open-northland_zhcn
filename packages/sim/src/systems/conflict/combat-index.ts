@@ -266,8 +266,7 @@ export class CombatIndex {
    * `false` is a proof of absence; `true` only means "run the real search".
    */
   othersWithin(player: number, hx: number, hy: number, radius: number): boolean {
-    const hostile = hostileMaskOf(this.hostileMasks, player);
-    return this.someCell(hx, hy, radius, (cell) => cell.undiscounted > 0 || (cell.ownerMask & hostile) !== 0);
+    return this.someCell(hx, hy, radius, 'others', hostileMaskOf(this.hostileMasks, player));
   }
 
   /**
@@ -276,13 +275,7 @@ export class CombatIndex {
    * flee threat. `false` is a proof of absence; `true` only means "run the real search".
    */
   threatsWithin(player: number, hx: number, hy: number, radius: number): boolean {
-    const hostile = hostileMaskOf(this.hostileMasks, player);
-    return this.someCell(
-      hx,
-      hy,
-      radius,
-      (cell) => cell.threatUndiscounted > 0 || (cell.threatMask & hostile) !== 0,
-    );
+    return this.someCell(hx, hy, radius, 'threats', hostileMaskOf(this.hostileMasks, player));
   }
 
   /**
@@ -291,7 +284,7 @@ export class CombatIndex {
    * wild animal's only valid targets are civilization settlers.
    */
   civsWithin(hx: number, hy: number, radius: number): boolean {
-    return this.someCell(hx, hy, radius, (cell) => cell.total - cell.passive - cell.hostileAnimal > 0);
+    return this.someCell(hx, hy, radius, 'civs', 0);
   }
 
   /**
@@ -361,16 +354,32 @@ export class CombatIndex {
     return scan;
   }
 
-  /** Whether any coarse cell overlapping the box `radius` nodes around (hx, hy) passes `test`. */
-  private someCell(hx: number, hy: number, radius: number, test: (cell: CoarseCell) => boolean): boolean {
+  /** Whether any coarse cell overlapping the box `radius` nodes around (hx, hy) passes `test` against the
+   *  asking player's `hostile` mask. */
+  private someCell(hx: number, hy: number, radius: number, test: CellTest, hostile: number): boolean {
     const { cx0, cx1, cy0, cy1 } = boxCellRange(hx, hy, radius);
     for (let cx = cx0; cx <= cx1; cx++) {
       for (let cy = cy0; cy <= cy1; cy++) {
         const cell = this.grid.cellAt(cx, cy);
-        if (cell !== undefined && test(cell)) return true;
+        if (cell !== undefined && passes(cell, test, hostile)) return true;
       }
     }
     return false;
+  }
+}
+
+/** The presence tests {@link CombatIndex.someCell} runs: {@link CombatIndex.othersWithin},
+ *  {@link CombatIndex.threatsWithin} and {@link CombatIndex.civsWithin}. */
+type CellTest = 'others' | 'threats' | 'civs';
+
+function passes(cell: CoarseCell, test: CellTest, hostile: number): boolean {
+  switch (test) {
+    case 'others':
+      return cell.undiscounted > 0 || (cell.ownerMask & hostile) !== 0;
+    case 'threats':
+      return cell.threatUndiscounted > 0 || (cell.threatMask & hostile) !== 0;
+    case 'civs':
+      return cell.total - cell.passive - cell.hostileAnimal > 0;
   }
 }
 

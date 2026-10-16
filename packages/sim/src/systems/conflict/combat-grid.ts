@@ -205,7 +205,8 @@ export class CombatGrid {
   private generations: number[] | null = null;
   private buildingValueGeneration = 0;
   private ownerValueGeneration = 0;
-  private readonly units = new Map<Entity, HeldUnit>();
+  /** The held units by entity id, so a move's lookup is an array read. */
+  private readonly units: (HeldUnit | undefined)[] = [];
   /** Whether the unit layer was ever built; until then the feed's entries describe nothing held. */
   private unitsBuilt = false;
   /** The coarse cells the stranger neighbourhood spans each way; null until first asked. */
@@ -519,14 +520,14 @@ export class CombatGrid {
       cell.unitOwnerMask = 0;
       this.refresh(cell);
     }
-    this.units.clear();
+    this.units.length = 0;
     for (const e of world.query(Settler, Health, Position)) this.placeUnit(world, tick, e);
     this.unitsBuilt = true;
   }
 
   /** Bring `e`'s unit entry in line with the world: admit, move, re-class or drop it. */
   private placeUnit(world: World, tick: number, e: Entity): void {
-    const held = this.units.get(e);
+    const held = this.units[e];
     if (!isCombatant(world, e)) {
       if (held !== undefined) this.dropUnit(e, held);
       return;
@@ -553,7 +554,7 @@ export class CombatGrid {
   /** Follow held unit `e` to the node its Position now stands on; the membership feed, replayed first,
    *  has already dropped one that left the layer. */
   private moveUnit(world: World, e: Entity): void {
-    const held = this.units.get(e);
+    const held = this.units[e];
     if (held === undefined) return;
     // `entityNode`'s clamped coordinates, read without minting the id and dividing it apart again.
     const p = world.get(e, Position);
@@ -581,14 +582,16 @@ export class CombatGrid {
     const cell = this.cellFor(x, y);
     const slot = cell.units.count;
     push(cell.units, e, x, y, bit);
-    this.units.set(e, { cell, slot, bit, wild });
+    const units = this.units;
+    while (units.length <= e) units.push(undefined);
+    units[e] = { cell, slot, bit, wild };
     tallyUnit(cell, bit, wild, 1);
     this.refresh(cell);
   }
 
   private dropUnit(e: Entity, held: HeldUnit): void {
     this.unslot(held);
-    this.units.delete(e);
+    this.units[e] = undefined;
     tallyUnit(held.cell, held.bit, held.wild, -1);
     this.refresh(held.cell);
   }
@@ -604,7 +607,7 @@ export class CombatGrid {
       units.x[slot] = units.x[last] ?? 0;
       units.y[slot] = units.y[last] ?? 0;
       units.bit[slot] = units.bit[last] ?? 0;
-      const movedHeld = this.units.get(moved);
+      const movedHeld = this.units[moved];
       if (movedHeld !== undefined) movedHeld.slot = slot;
     }
     units.count = last;
@@ -726,7 +729,7 @@ export class CombatGrid {
     if (this.unitFeed.peek(note) || this.moveFeed.peek(note)) return [];
     for (const e of world.query(Settler, Health, Position)) {
       if (pending.has(e)) continue;
-      const held = this.units.get(e);
+      const held = this.units[e];
       if (held === undefined) return [`combatUnitLayer lacks unit ${e}`];
       const node = entityNode(world, this.terrain, e);
       const x = this.terrain.xOf(node);
@@ -746,8 +749,8 @@ export class CombatGrid {
         return [`combatUnitLayer holds a stale entry for unit ${e} - it changed without a feed entry`];
       }
     }
-    for (const e of this.units.keys()) {
-      if (!pending.has(e) && !isCombatant(world, e))
+    for (let e = 0 as Entity; e < this.units.length; e++) {
+      if (this.units[e] !== undefined && !pending.has(e) && !isCombatant(world, e))
         return [`combatUnitLayer still holds ${e}, no longer a unit`];
     }
     return this.verifyTallies();
@@ -755,7 +758,8 @@ export class CombatGrid {
 
   private verifyTallies(): string[] {
     const fresh = new Map<CoarseCell, { count: number; tallies: UnitTallies }>();
-    for (const held of this.units.values()) {
+    for (const held of this.units) {
+      if (held === undefined) continue;
       let tally = fresh.get(held.cell);
       if (tally === undefined) {
         tally = { count: 0, tallies: emptyUnitTallies() };

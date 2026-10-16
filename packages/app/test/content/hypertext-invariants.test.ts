@@ -15,6 +15,30 @@ import { contentDir, hasRealIr } from './helpers.js';
 /** The `<usericon:…>` kind the mission window draws as the map around half-cell node (a, b). */
 const ICON_MAP_AT_NODE = 1;
 
+/**
+ * Map pictures the original German authoring places past their own map, kept by every translation:
+ * `saga-campaign_04_01_sub1` (56 x 66 cells, a 112 x 132 node lattice) on its win page, and
+ * `saga-campaign_04_03` and `saga-campaign_04_05` (260 x 320 cells, 520 x 640 nodes) on pages 21 and
+ * 22, whose x runs past 520. The map view projects such a node like any other and floors the off-map
+ * margin with the world's backdrop.
+ */
+const AUTHORED_OFF_MAP_NODES: ReadonlyMap<string, readonly (readonly [number, number])[]> = new Map([
+  ['saga-campaign_04_01_sub1.briefing.json', [[24, 287]]],
+  [
+    'saga-campaign_04_03.briefing.json',
+    [
+      [581, 291],
+      [578, 299],
+    ],
+  ],
+  ['saga-campaign_04_05.briefing.json', [[581, 291]]],
+]);
+
+/** A page that only acts: every block an `<onscreencallback:…>`, nothing to draw. */
+function callbackOnly(blocks: readonly HypertextBlock[]): boolean {
+  return blocks.every((b) => b.kind === 'callback');
+}
+
 function pictureFile(file: string): string {
   return resolve(contentDir(), 'gui', 'hypertext', file);
 }
@@ -34,8 +58,14 @@ describe.runIf(hasRealIr())('decoded hypertext', () => {
         for (const [id, blocks] of Object.entries(pages)) {
           const where = `${file} ${lang}/${id}`;
           expect(blocks.length, where).toBeGreaterThan(0);
+          // `saga-campaign_04_04_sub1` pages 500 and 600, which its script plays when a hero dies, include
+          // `briefings.txt` sections 500 and 600 the file lacks (it holds 100 and 200), so only their
+          // camera callback is left, in the original German as in every translation.
           expect(
-            blocks.some((b) => (textOf(b) ?? '').trim() !== '' || b.kind === 'picture' || b.kind === 'icons'),
+            callbackOnly(blocks) ||
+              blocks.some(
+                (b) => (textOf(b) ?? '').trim() !== '' || b.kind === 'picture' || b.kind === 'icons',
+              ),
             where,
           ).toBe(true);
           for (const block of blocks) {
@@ -50,10 +80,12 @@ describe.runIf(hasRealIr())('decoded hypertext', () => {
     const dir = resolve(contentDir(), 'maps');
     let pictures = 0;
     let pastCellGrid = 0;
+    const offMapSeen = new Set<string>();
     for (const file of readdirSync(dir).filter((f) => f.endsWith('.briefing.json'))) {
       const briefing = MapBriefing.parse(JSON.parse(readFileSync(resolve(dir, file), 'utf8')));
       const map = JSON.parse(readFileSync(resolve(dir, file.replace('.briefing.json', '.json')), 'utf8'));
       const { width, height } = map as { width: number; height: number };
+      const offMap = AUTHORED_OFF_MAP_NODES.get(file) ?? [];
       for (const pages of Object.values(briefing.texts)) {
         for (const blocks of Object.values(pages)) {
           for (const block of blocks) {
@@ -62,6 +94,10 @@ describe.runIf(hasRealIr())('decoded hypertext', () => {
               if (kind !== ICON_MAP_AT_NODE) continue;
               pictures++;
               if (hx >= width || hy >= height) pastCellGrid++;
+              if (offMap.some(([x, y]) => x === hx && y === hy)) {
+                offMapSeen.add(`${file} (${hx}, ${hy})`);
+                continue;
+              }
               expect(hx < 2 * width && hy < 2 * height, `${file} node (${hx}, ${hy})`).toBe(true);
             }
           }
@@ -70,6 +106,11 @@ describe.runIf(hasRealIr())('decoded hypertext', () => {
     }
     // A cell address would stay inside the cell grid; the corpus leaves it for most pictures.
     expect(pastCellGrid).toBeGreaterThan(pictures / 2);
+    expect([...offMapSeen].sort()).toEqual(
+      [...AUTHORED_OFF_MAP_NODES]
+        .flatMap(([file, nodes]) => nodes.map(([x, y]) => `${file} (${x}, ${y})`))
+        .sort(),
+    );
   });
 
   it('opens each history book on a page it holds and links only inside it', () => {

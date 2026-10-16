@@ -147,8 +147,7 @@ export function entryStatus(
         return 'skip';
       for (const goodId of entry.needsResources ?? []) {
         const needed = goodTypeByContentId(ctx.content, goodId);
-        if (needed === undefined || !liveResourceOnMap(world, needed.typeId, memo.live))
-          return 'skip';
+        if (needed === undefined || !liveResourceOnMap(world, needed.typeId, memo.live)) return 'skip';
       }
       return 'unmet';
     }

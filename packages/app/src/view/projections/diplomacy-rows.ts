@@ -33,6 +33,7 @@ export interface DiplomacyRosterOptions {
   /** A good's display label; absent leaves the type id. */
   readonly goodLabelOf?: (goodType: number) => string | undefined;
   readonly goodIdOf?: (goodType: number) => string | undefined;
+  readonly mapText?: (stringId: number) => string | undefined;
   /** Whether the viewer's seat may issue a payment at all; a read-only spectator's buttons stay dead. */
   readonly canPay?: boolean;
   /** Whether the viewer's seat may declare a stance at all, as `canPay` for payments. */
@@ -162,8 +163,10 @@ function tradeOfferRow(offer: TradeOffer, opts: DiplomacyRosterOptions): Diploma
 }
 
 function tributeRow(tribute: OpenTribute, opts: DiplomacyRosterOptions): TributePanelRow {
+  const title = opts.mapText?.(tribute.stringId)?.trim();
   return {
     slot: tribute.slot,
+    ...(title ? { title } : {}),
     demands: tribute.demands.map((d) => ({
       ...goodRow(d.good, d.amount, opts),
       onHand: d.onHand,

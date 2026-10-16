@@ -185,6 +185,28 @@ describe('diplomacyPanelRows', () => {
     ]);
   });
 
+  it('resolves tribute titles from map strings and omits missing or empty labels', () => {
+    const owed: OpenTribute[] = [39, 40, 41].map((stringId, slot) => ({
+      slot,
+      stringId,
+      receiver: 1,
+      demands: [],
+      payable: true,
+    }));
+    const sim = simView([[0, 1]], [], owed);
+    const roster = { localPlayer: 0, rosterPlayers: [0, 1], observer: false };
+    const rows = diplomacyPanelRows(sim, {
+      ...roster,
+      mapText: (id) => (id === 39 ? ' Castle reinforcements ' : id === 40 ? '  ' : undefined),
+    });
+    expect(rows[0]?.tributes).toEqual([
+      { slot: 0, title: 'Castle reinforcements', demands: [], payable: true },
+      { slot: 1, demands: [], payable: true },
+      { slot: 2, demands: [], payable: true },
+    ]);
+    expect(diplomacyPanelRows(sim, roster)[0]?.tributes.every((row) => row.title === undefined)).toBe(true);
+  });
+
   it('leaves the name off an unnamed slot and maps the colour through the roster colour slots', () => {
     const sim = simView([[0, 1]], []);
     const rows = diplomacyPanelRows(sim, {

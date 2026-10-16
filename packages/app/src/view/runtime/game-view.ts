@@ -510,6 +510,8 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     const goodLabelByType = goodLabelsFromContent(host.content);
     const answers = createHostAnswers(host, seatTribeOf);
     cleanup.push(() => answers.dispose());
+    // A delivered page must follow restored chapters even before the first cached answer lands.
+    await answers.askMissionBriefing();
     const { diplomacyView, buildAvailability } = answers;
     const nationEmblemType = emblemBuildingType(host.content.buildings);
     const goodIdByType = new Map(host.content.goods.map((good) => [good.typeId, good.id]));
@@ -520,6 +522,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         observer: viewer.wholeMap(),
         goodLabelOf: (goodType) => goodLabelByType.get(goodType),
         goodIdOf: (goodType) => goodIdByType.get(goodType),
+        ...(deps.mapText !== undefined ? { mapText: deps.mapText } : {}),
         tribeOf: seatTribeOf,
         canPay: !readOnly(),
         canDeclare: !readOnly(),

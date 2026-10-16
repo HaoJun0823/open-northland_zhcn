@@ -11,6 +11,7 @@ export interface DiplomacyGood {
 
 export interface TributePanelRow {
   readonly slot: number;
+  readonly title?: string;
   readonly demands: readonly (DiplomacyGood & { readonly onHand: number })[];
   readonly payable: boolean;
 }

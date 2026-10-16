@@ -33,6 +33,8 @@ function mount(pauseStopsClock = true, briefing: MissionBriefingAnswer = { histo
   const spoken: (BriefingVoice | 'stop')[] = [];
   const centred: BriefingViewTarget[] = [];
   let goals: readonly MissionGoal[] = [goal('0', 'open')];
+  let briefingHistory: readonly number[] = [PAGE];
+  let answersVersion = 0;
   let open = false;
   let reading: BookReading = { tab: 'brief', chapter: 0, spread: 0, table: null, pick: 0 };
   const reader: MissionReader = {
@@ -69,11 +71,11 @@ function mount(pauseStopsClock = true, briefing: MissionBriefingAnswer = { histo
   const deps: MissionBookDeps = {
     plane: {} as HTMLElement,
     reader,
-    briefingHistory: () => [PAGE],
+    briefingHistory: () => briefingHistory,
     askBriefing: () => Promise.resolve(briefing),
     history: null,
     missionHuman: () => null,
-    answersVersion: () => 0,
+    answersVersion: () => answersVersion,
     pictureUrl: (file) => file,
     pauseStopsClock,
     onHold: (held) => holds.push(held),
@@ -104,10 +106,23 @@ function mount(pauseStopsClock = true, briefing: MissionBriefingAnswer = { histo
   const setGoals = (next: readonly MissionGoal[]): void => {
     goals = next;
   };
-  return { mission, holds, openings, dismiss, setGoals, fire, centred, spoken };
+  const setBriefingHistory = (history: readonly number[]): void => {
+    briefingHistory = history;
+    answersVersion++;
+  };
+  return { mission, holds, openings, dismiss, setGoals, setBriefingHistory, fire, centred, spoken };
 }
 
 describe('the mission book`s pause', () => {
+  it('adds a delivered page after the restored chapters primed before mounting', () => {
+    const { mission, setBriefingHistory } = mount();
+    setBriefingHistory([500, 511]);
+    mission.showPage(501);
+    expect(mission.state().pages).toEqual([500, 511, 501]);
+    expect(mission.state().reading?.chapter).toBe(2);
+    expect(mission.state().delivery?.chapter).toBe(2);
+  });
+
   it('holds the game for a script`s chapter until the book closes, once', () => {
     const { mission, holds, openings, dismiss } = mount();
     mission.showPage(PAGE);

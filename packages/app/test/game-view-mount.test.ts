@@ -1,5 +1,5 @@
 import type { SoundDriver } from '@open-northland/audio';
-import { Simulation } from '@open-northland/sim';
+import { components, Simulation } from '@open-northland/sim';
 import { afterEach, expect, it, vi } from 'vitest';
 import { testContent } from '../../sim/test/fixtures/content.js';
 import { currentDiagGameSession, setDiagGameSession } from '../src/diag/session.js';
@@ -23,6 +23,7 @@ it.each([false, true])(
     // The bar's debug corner is a detached node until the tool panel mounts it.
     vi.stubGlobal('document', { createElement: () => ({}) });
     const live = new Set<string>();
+    let primedHistory: readonly number[] | null = null;
     const acquire = (name: string) => {
       expect(live.has(name)).toBe(false);
       live.add(name);
@@ -42,6 +43,7 @@ it.each([false, true])(
     // The DOM plane mounts before the tool panel; the node environment has no document for it. Its
     // cleanup is the one that runs after the failed mount, so it is the one that may throw here.
     vi.spyOn(hudDom, 'mountHudDomRoot').mockImplementation(() => {
+      expect(primedHistory).toEqual([500, 511]);
       const release = acquire('hud dom');
       return {
         element: {} as HTMLElement,
@@ -60,7 +62,16 @@ it.each([false, true])(
 
     for (let attempt = 0; attempt < 2; attempt++) {
       const sim = new Simulation({ seed: 7, content: testContent() });
+      components.deliverMissionBriefing(sim.world, 500, true);
+      components.deliverMissionBriefing(sim.world, 511, true);
       const host = inlineSessionHost(sim);
+      primedHistory = null;
+      const readHistory = host.missionBriefingHistory.bind(host);
+      vi.spyOn(host, 'missionBriefingHistory').mockImplementation(async () => {
+        const history = await readHistory();
+        primedHistory = history;
+        return history;
+      });
       setDiagGameSession({ entry: 'scene', worldId: 'mount-test', seed: 7, host, hashTrace: null });
       const deps = {
         host,

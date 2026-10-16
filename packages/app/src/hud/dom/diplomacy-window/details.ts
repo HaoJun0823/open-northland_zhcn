@@ -93,7 +93,8 @@ export function createTributes(paint: GoodIconPainter, onPay: (slot: number) => 
   let readOnly = false;
   let buttons = new Map<number, HTMLButtonElement>();
   let cells = new Map<number, readonly DemandView[]>();
-  const name = (index: number): string => `${messages().hud.tribute} ${index + 1}`;
+  const name = (tribute: TributePanelRow, index: number): string =>
+    tribute.title?.trim() || `${messages().hud.tribute} ${index + 1}`;
 
   const refresh = (): void => {
     const tribute = rows.find((t) => t.slot === selected);
@@ -114,7 +115,11 @@ export function createTributes(paint: GoodIconPainter, onPay: (slot: number) => 
     const pending = paying(tribute.slot);
     pay.disabled = readOnly || !tribute.payable || pending;
     write(pay, pending ? copy.paying : copy.pay);
-    setAttribute(pay, 'aria-label', formatMessage(copy.payLabel, { tribute: name(rows.indexOf(tribute)) }));
+    setAttribute(
+      pay,
+      'aria-label',
+      formatMessage(copy.payLabel, { tribute: name(tribute, rows.indexOf(tribute)) }),
+    );
   };
   pay.addEventListener('click', () => {
     if (!pay.disabled && selected !== null) onPay(selected);
@@ -134,7 +139,7 @@ export function createTributes(paint: GoodIconPainter, onPay: (slot: number) => 
       const recoverFocus = removed && root.contains(document.activeElement);
       if (selected === null || removed) selected = rows[0]?.slot ?? null;
       const key = JSON.stringify(
-        rows.map((t) => [t.slot, t.demands.map((d) => [d.goodType, d.goodId, d.label, d.amount])]),
+        rows.map((t) => [t.slot, t.title, t.demands.map((d) => [d.goodType, d.goodId, d.label, d.amount])]),
       );
       if (shown !== key) {
         const focused = [...buttons.entries()].find(([, control]) => control === document.activeElement)?.[0];
@@ -144,7 +149,7 @@ export function createTributes(paint: GoodIconPainter, onPay: (slot: number) => 
           rows.map((tribute, index) => {
             const control = button('on-dip-tribute-pick');
             const title = element('strong', '');
-            write(title, name(index));
+            write(title, name(tribute, index));
             const labels = element('span', 'on-dip-cost-row on-dip-cost-row--head');
             for (const label of [copy.good, copy.cost, copy.available, copy.missing]) {
               const cell = element('span', '');

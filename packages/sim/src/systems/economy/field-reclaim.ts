@@ -45,14 +45,14 @@ type ProbeResult = 'reached' | 'exhausted' | 'giveup';
 class ProbeScratch {
   readonly steps = new StepBuffer();
   /** {@link epoch} on each node the running probe has discovered. */
-  private readonly seen: Uint32Array;
+  private readonly seen: Uint16Array;
   private epoch = 0;
   private readonly heapNodes: NodeId[] = [];
   private readonly heapKeys: Fixed[] = [];
   size = 0;
 
   constructor(nodeCount: number) {
-    this.seen = new Uint32Array(nodeCount);
+    this.seen = new Uint16Array(nodeCount);
   }
 
   begin(): void {
@@ -121,8 +121,8 @@ class ProbeScratch {
   }
 }
 
-/** The last epoch before the discovered marks are cleared and counting restarts. */
-const MAX_EPOCH = 0xffffffff;
+/** The last Uint16 epoch before the discovered marks are cleared and counting restarts. */
+const MAX_EPOCH = 0xffff;
 
 const probeScratch = new WeakMap<TerrainGraph, ProbeScratch>();
 

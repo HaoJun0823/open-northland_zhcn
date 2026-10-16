@@ -184,7 +184,7 @@ function isCellCentre(terrain: TerrainGraph, node: NodeId): boolean {
 /** The rally walk's reusable storage per terrain: visit stamps valid while equal to the pass, the queue,
  *  and one node's neighbours. */
 interface RallyScratch {
-  readonly seen: Int32Array;
+  readonly seen: Uint16Array;
   pass: number;
   readonly queue: NodeId[];
   readonly neighbours: NodeId[];
@@ -195,14 +195,14 @@ const rallyScratches = new WeakMap<TerrainGraph, RallyScratch>();
 function rallyScratchOf(terrain: TerrainGraph): RallyScratch {
   let scratch = rallyScratches.get(terrain);
   if (scratch === undefined) {
-    scratch = { seen: new Int32Array(terrain.nodeCount), pass: 0, queue: [], neighbours: [] };
+    scratch = { seen: new Uint16Array(terrain.nodeCount), pass: 0, queue: [], neighbours: [] };
     rallyScratches.set(terrain, scratch);
   }
   return scratch;
 }
 
-/** Int32 stamp ceiling; on the wrap the stamps are cleared so no stale slot matches a reused pass. */
-const MAX_RALLY_PASS = 2 ** 31 - 1;
+/** Uint16 stamp ceiling; on the wrap the stamps are cleared so no stale slot matches a reused pass. */
+const MAX_RALLY_PASS = 0xffff;
 
 function nextRallyPass(scratch: RallyScratch): number {
   if (scratch.pass >= MAX_RALLY_PASS) {

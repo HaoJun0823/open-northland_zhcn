@@ -274,12 +274,12 @@ export function vehicleStandable(
 /** Per-terrain answers of the slow {@link landVehicleFits} test, valid for the predicate whose epoch
  *  stamped them, so one route search tests each node once without allocating per search. */
 class FitMemo {
-  readonly stamps: Uint32Array;
+  readonly stamps: Uint16Array;
   readonly fits: Uint8Array;
   private epoch = 0;
 
   constructor(nodeCount: number) {
-    this.stamps = new Uint32Array(nodeCount);
+    this.stamps = new Uint16Array(nodeCount);
     this.fits = new Uint8Array(nodeCount);
   }
 
@@ -292,7 +292,8 @@ class FitMemo {
   }
 }
 
-const MAX_EPOCH = 0xffffffff;
+/** Uint16 stamp ceiling; on the wrap the stamps are cleared so no stale slot matches a reused epoch. */
+const MAX_EPOCH = 0xffff;
 const fitMemos = new WeakMap<TerrainGraph, FitMemo>();
 
 function fitMemoOf(terrain: TerrainGraph): FitMemo {

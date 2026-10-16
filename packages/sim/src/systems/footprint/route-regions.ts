@@ -23,9 +23,9 @@ const OPEN_REGION = -1;
  *  this never escapes a flood. */
 const PENDING_REGION = -2;
 
-/** Int32 stamp ceiling; on the (practically unreachable) wrap, clear the stamps so no stale slot can
- *  collide with a reused value - the pathfinding-scratch rule. */
-const MAX_STAMP = 2 ** 31 - 1;
+/** Uint16 stamp ceiling; on the wrap, clear the stamps so no stale slot can collide with a reused value -
+ *  the pathfinding-scratch rule. A wrap costs one map-sized fill per 65k epochs or passes. */
+const MAX_STAMP = 0xffff;
 
 /** Pocket ids minted before the labels start over, bounding {@link RouteRegionCache.retired}. Checked
  *  only between verdicts, so one verdict's few floods may overshoot it by a handful of ids. */
@@ -43,13 +43,13 @@ interface RouteRegionCache {
   /** labels[n] is valid only while stamps[n] === epoch and, for a pocket id, that pocket is not
    *  retired - the pathfinding-scratch reuse pattern, so an epoch bump drops every label in O(1). */
   readonly labels: Int32Array;
-  readonly stamps: Int32Array;
+  readonly stamps: Uint16Array;
   epoch: number;
   nextPocket: number;
   /** retired[p] is 1 once a block flip may have reshaped pocket p, so its nodes read unlabeled. */
   retired: Uint8Array;
   /** Visit marks of one refresh's eager re-floods, valid while equal to {@link pass}. */
-  readonly marks: Int32Array;
+  readonly marks: Uint16Array;
   pass: number;
   readonly queue: NodeId[];
   readonly steps: StepBuffer;
@@ -381,11 +381,11 @@ export function routeRegions(world: World, ctx: ContentContext, terrain: Terrain
       terrain,
       mask: walkBlockMask(world, ctx, terrain),
       labels: new Int32Array(terrain.nodeCount),
-      stamps: new Int32Array(terrain.nodeCount),
+      stamps: new Uint16Array(terrain.nodeCount),
       epoch: 0,
       nextPocket: 0,
       retired: new Uint8Array(INITIAL_POCKET_IDS),
-      marks: new Int32Array(terrain.nodeCount),
+      marks: new Uint16Array(terrain.nodeCount),
       pass: 0,
       queue: [],
       steps: new StepBuffer(),

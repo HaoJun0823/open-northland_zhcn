@@ -22,8 +22,8 @@ export const ROAD_DISTANCE_REACH: Fixed = fx.fromInt(16);
 /** Slots a wavefront queue starts with; it doubles as a lay outgrows it. */
 const INITIAL_QUEUE_CAPACITY = 1024;
 
-/** The last wavefront generation before the settle stamps wrap and are cleared. */
-const MAX_GENERATION = 2 ** 31 - 1;
+/** The last wavefront generation before the Uint16 settle stamps wrap and are cleared. */
+const MAX_GENERATION = 0xffff;
 
 /** The nearest road of a node no road reaches. */
 export const NO_NEAREST_ROAD = -1;
@@ -170,7 +170,7 @@ export class RoadDistanceField {
   private readonly columnQueue = new NodeFifo();
   private readonly diagonalQueue = new NodeFifo();
   /** The {@link generation} of the wavefront that settled each node. */
-  private readonly settledIn: Int32Array;
+  private readonly settledIn: Uint16Array;
   private generation = 0;
 
   constructor(
@@ -181,7 +181,7 @@ export class RoadDistanceField {
     this.budget = Math.floor(nodeCount / WAVEFRONT_BUDGET_DIVISOR);
     this.distances = new Int32Array(nodeCount);
     this.nearest = new Int32Array(nodeCount);
-    this.settledIn = new Int32Array(nodeCount);
+    this.settledIn = new Uint16Array(nodeCount);
   }
 
   rebuild(roads: Iterable<number>): void {
@@ -277,6 +277,6 @@ export class RoadDistanceField {
 }
 
 /** Advance `queue` past the nodes this wavefront has already settled. */
-function skipSettled(queue: NodeFifo, settledIn: Int32Array, generation: number): void {
+function skipSettled(queue: NodeFifo, settledIn: Uint16Array, generation: number): void {
   while (queue.head < queue.tail && settledIn[queue.items[queue.head] ?? 0] === generation) queue.head++;
 }

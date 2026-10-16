@@ -31,8 +31,8 @@ interface MemoEntry {
 
 const blockedCode = (node: number): number => -(node + 1);
 
-/** Int32 stamp ceiling; on the wrap the stamps are cleared so no stale slot matches a reused value. */
-const MAX_GENERATION = 2 ** 31 - 1;
+/** Uint16 stamp ceiling; on the wrap the stamps are cleared so no stale slot matches a reused value. */
+const MAX_GENERATION = 0xffff;
 
 /** The ask log's first allocation; it doubles from there as one search asks more nodes. */
 const ASK_LOG_INITIAL_CAPACITY = 256;
@@ -48,11 +48,11 @@ class AskLog implements BlockOverlay {
   count = 0;
   codes = new Int32Array(0);
   private generation = 0;
-  private readonly stamps: Int32Array;
+  private readonly stamps: Uint16Array;
   private readonly blocked: Uint8Array;
 
   constructor(nodeCount: number) {
-    this.stamps = new Int32Array(nodeCount);
+    this.stamps = new Uint16Array(nodeCount);
     this.blocked = new Uint8Array(nodeCount);
   }
 

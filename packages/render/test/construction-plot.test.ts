@@ -1,6 +1,12 @@
-import { GraphicsContext } from 'pixi.js';
+import { Graphics, GraphicsContext } from 'pixi.js';
 import { describe, expect, it, vi } from 'vitest';
-import { ConstructionPlotLayer, plotOutlines } from '../src/gpu/overlays/construction-plot.js';
+import {
+  type ConstructionPlotFrame,
+  ConstructionPlotLayer,
+  fillPlotOutlines,
+  plotIslands,
+  plotOutlines,
+} from '../src/gpu/overlays/construction-plot.js';
 
 /**
  * Outlines are built in the rotated `(u,v)` frame (`u = col+row`, `v = col−row`), where each cell diamond
@@ -196,5 +202,97 @@ describe('construction plot picking', () => {
     expect(layer.hit(8, 136, 76)).toBe(false);
     expect(layer.boundsOf(8, undefined)).toBeUndefined();
     layer.destroy();
+  });
+});
+
+describe('construction plot islands', () => {
+  /** A slope, so a loop's projection depends on where it stands. */
+  const hilly = {
+    maxLift: 30,
+    liftAt: (col: number, row: number) => (col * 3 + row * 2) % 30,
+    liftAtNode: (hx: number, hy: number) => (hx + hy) % 30,
+  };
+  const block = (ref: number, col: number, row: number, w: number, h: number): ConstructionPlotFrame => {
+    const cells: { col: number; row: number }[] = [];
+    for (let r = row; r < row + h; r++) for (let c = col; c < col + w; c++) cells.push({ col: c, row: r });
+    return { ref, cells };
+  };
+  /** Lone plots, an overlapping pair, a corner pinch, plots in a line and a ring around a hole. */
+  const town = (): ConstructionPlotFrame[] => [
+    block(1, 0, 0, 3, 2),
+    block(2, 2, 1, 3, 2),
+    block(3, 20, 0, 2, 2),
+    { ref: 4, cells: [{ col: 22, row: 2 }] },
+    block(5, 40, 10, 2, 1),
+    block(6, 44, 10, 2, 1),
+    block(7, 30, 30, 6, 1),
+    block(8, 30, 31, 1, 4),
+    block(9, 35, 31, 1, 4),
+    block(10, 30, 35, 6, 1),
+    { ref: 11, cells: [{ col: 60, row: 60 }] },
+  ];
+  /** The path each fill of `context` paints, as its drawing calls; the fill objects carry ids. */
+  const shapesOf = (context: GraphicsContext): unknown[] =>
+    context.instructions.map((instruction) =>
+      instruction.action === 'fill'
+        ? instruction.data.path.instructions.map(({ action, data }) => [action, data])
+        : instruction.action,
+    );
+  const drawnShapes = (layer: ConstructionPlotLayer): unknown[] => {
+    const g = layer.container.children[0];
+    if (!(g instanceof Graphics)) throw new Error('the plot layer draws one Graphics');
+    return shapesOf(g.context);
+  };
+  const freshShapes = (plots: readonly ConstructionPlotFrame[]): unknown[] => {
+    const context = new GraphicsContext();
+    fillPlotOutlines(context, plots, hilly);
+    return shapesOf(context);
+  };
+
+  it('groups only plots whose outlines can meet', () => {
+    const islands = plotIslands(town()).map((island) => island.map((plot) => plot.ref));
+    expect(islands).toEqual([[1, 2], [3, 4], [5], [6], [7, 8, 9, 10], [11]]);
+  });
+
+  it('draws what outlining every plot afresh draws, through placed, finished and moved sites', () => {
+    const layer = new ConstructionPlotLayer();
+    const steps: ConstructionPlotFrame[][] = [
+      town(),
+      [...town(), block(12, 50, 50, 2, 2)],
+      town().filter((plot) => plot.ref !== 2),
+      town().map((plot) => (plot.ref === 11 ? { ref: 11, cells: [{ col: 61, row: 60 }] } : plot)),
+      [...town(), block(13, 23, 0, 1, 1)],
+      town().reverse(),
+      [],
+      town(),
+    ];
+    try {
+      for (const plots of steps) {
+        layer.set(plots, hilly);
+        expect(drawnShapes(layer)).toEqual(plots.length === 0 ? [] : freshShapes(plots));
+      }
+    } finally {
+      layer.destroy();
+    }
+  });
+
+  it('outlines again only the island whose plots changed', () => {
+    const layer = new ConstructionPlotLayer();
+    const round = vi.spyOn(GraphicsContext.prototype, 'roundShape');
+    try {
+      layer.set(town(), hilly);
+      const first = round.mock.calls.map(([points]) => points);
+      layer.set(
+        [...town().filter((plot) => plot.ref !== 11), { ref: 11, cells: [{ col: 61, row: 60 }] }],
+        hilly,
+      );
+      const second = round.mock.calls.slice(first.length).map(([points]) => points);
+      expect(second).toHaveLength(first.length);
+      // Every loop but the moved site's is the very array drawn before.
+      expect(second.filter((points, i) => points !== first[i])).toHaveLength(1);
+    } finally {
+      round.mockRestore();
+      layer.destroy();
+    }
   });
 });

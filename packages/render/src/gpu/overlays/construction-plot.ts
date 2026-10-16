@@ -36,6 +36,8 @@ export class ConstructionPlotLayer {
   /** Signature of the plot set last drawn - an unchanged set skips the rebuild. */
   private key = '';
   private readonly picks = new Map<number, PickPlot>();
+  /** The outlines of the plot islands last drawn, by the ref of each island's first plot. */
+  private islands = new Map<number, IslandOutline>();
   private pickGeneration = 0;
   private readonly point = { x: 0, y: 0 };
   private elevation: ElevationField | undefined;
@@ -75,9 +77,33 @@ export class ConstructionPlotLayer {
     if (key === this.key && !elevationChanged) return;
     this.key = key;
 
+    if (elevationChanged) this.islands.clear();
     const g = this.g.clear();
-    if (plots.length === 0) return;
-    fillPlots(g.context, plots, elevation);
+    if (plots.length === 0) {
+      this.islands.clear();
+      return;
+    }
+    fillLoops(g.context, this.outlinedLoops(plots, elevation));
+  }
+
+  /** Every outline loop of `plots` in {@link plotOutlines}' order, reusing the projected loops of each
+   *  island whose plots held since the last draw, so a site placed or finished outlines its island only. */
+  private outlinedLoops(plots: readonly ConstructionPlotFrame[], elevation: ElevationField): OrderedLoop[] {
+    const drawn = new Map<number, IslandOutline>();
+    const loops: OrderedLoop[] = [];
+    for (const island of plotIslands(plots)) {
+      const first = island[0];
+      if (first === undefined) continue;
+      const held = this.islands.get(first.ref);
+      const outline =
+        held !== undefined && sameIsland(held.plots, island)
+          ? held
+          : { plots: island, loops: projectedLoops(island, elevation) };
+      drawn.set(first.ref, outline);
+      for (const loop of outline.loops) loops.push(loop);
+    }
+    this.islands = drawn;
+    return loops.sort(byOutlineOrder);
   }
 
   destroy(): void {
@@ -114,7 +140,7 @@ export class ConstructionPlotLayer {
     if (pick === undefined || elevation === undefined) return undefined;
     if (pick.shape === undefined) {
       pick.shape = new GraphicsContext();
-      fillPlots(pick.shape, [pick.plot], elevation);
+      fillPlotOutlines(pick.shape, [pick.plot], elevation);
     }
     return pick;
   }
@@ -129,16 +155,111 @@ function sameCells(a: ConstructionPlotFrame['cells'], b: ConstructionPlotFrame['
   return true;
 }
 
-function fillPlots(
+/** One outline loop, projected and radiused for `roundShape`, with the edge its walk started from. */
+interface OrderedLoop {
+  readonly start: OutlineStart;
+  /** Handed to `roundShape`, which keeps the array but only reads it. */
+  readonly points: { x: number; y: number; radius: number }[];
+}
+
+/** The plots of one island, as last handed in, and their projected loops. */
+interface IslandOutline {
+  readonly plots: readonly ConstructionPlotFrame[];
+  readonly loops: readonly OrderedLoop[];
+}
+
+function projectedLoops(plots: readonly ConstructionPlotFrame[], elevation: ElevationField): OrderedLoop[] {
+  return startedOutlines(plots).map(({ start, loop }) => ({
+    start,
+    points: withCornerRadii(loop.map(({ u, v }) => projectUV(elevation, u, v))),
+  }));
+}
+
+function fillLoops(context: GraphicsContext, loops: readonly OrderedLoop[]): void {
+  for (const loop of loops) context.roundShape(loop.points, MAX_CORNER_RADIUS);
+  context.fill(PLOT_COLOR);
+}
+
+/** Outline every plot afresh and fill them as one shape, the picture the layer's island cache keeps. */
+export function fillPlotOutlines(
   context: GraphicsContext,
   plots: readonly ConstructionPlotFrame[],
   elevation: ElevationField,
 ): void {
-  for (const loop of plotOutlines(plots)) {
-    const points = loop.map(({ u, v }) => projectUV(elevation, u, v));
-    context.roundShape(withCornerRadii(points), MAX_CORNER_RADIUS);
+  fillLoops(context, projectedLoops(plots, elevation));
+}
+
+function sameIsland(a: readonly ConstructionPlotFrame[], b: readonly ConstructionPlotFrame[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i];
+    const y = b[i];
+    if (x === undefined || y === undefined || x.ref !== y.ref || !sameCells(x.cells, y.cells)) return false;
   }
-  context.fill(PLOT_COLOR);
+  return true;
+}
+
+/** The `(u,v)` extent of a plot's outline vertices: a cell's diamond reaches one unit past its centre. */
+interface UVBox {
+  minU: number;
+  maxU: number;
+  minV: number;
+  maxV: number;
+}
+
+function vertexBoxOf(plot: ConstructionPlotFrame): UVBox {
+  const box = { minU: Infinity, maxU: -Infinity, minV: Infinity, maxV: -Infinity };
+  for (const { col, row } of plot.cells) {
+    const u = col + row;
+    const v = col - row;
+    box.minU = Math.min(box.minU, u - 1);
+    box.maxU = Math.max(box.maxU, u + 1);
+    box.minV = Math.min(box.minV, v - 1);
+    box.maxV = Math.max(box.maxV, v + 1);
+  }
+  return box;
+}
+
+/**
+ * The plots grouped so no outline vertex is shared between groups: plots whose vertex extents meet or
+ * overlap, transitively, share an island, each island's plots in list order. An island's loops are then
+ * exactly the loops the whole set walks around its squares, with the same start edges.
+ */
+export function plotIslands(plots: readonly ConstructionPlotFrame[]): ConstructionPlotFrame[][] {
+  const boxes = plots.map(vertexBoxOf);
+  const parent = plots.map((_, i) => i);
+  const root = (i: number): number => {
+    let r = i;
+    while (parent[r] !== r) r = parent[r] as number;
+    while (parent[i] !== r) {
+      const next = parent[i] as number;
+      parent[i] = r;
+      i = next;
+    }
+    return r;
+  };
+  const byMinU = plots.map((_, i) => i).sort((a, b) => (boxes[a]?.minU ?? 0) - (boxes[b]?.minU ?? 0));
+  const open: number[] = [];
+  for (const i of byMinU) {
+    const box = boxes[i] as UVBox;
+    let kept = 0;
+    for (const j of open) {
+      const other = boxes[j] as UVBox;
+      if (other.maxU < box.minU) continue;
+      open[kept++] = j;
+      if (other.minV <= box.maxV && box.minV <= other.maxV) parent[root(j)] = root(i);
+    }
+    open.length = kept;
+    open.push(i);
+  }
+  const islands = new Map<number, ConstructionPlotFrame[]>();
+  plots.forEach((plot, i) => {
+    const r = root(i);
+    const island = islands.get(r);
+    if (island === undefined) islands.set(r, [plot]);
+    else island.push(plot);
+  });
+  return [...islands.values()];
 }
 
 /**
@@ -152,6 +273,25 @@ function fillPlots(
 export function plotOutlines(
   plots: readonly Pick<ConstructionPlotFrame, 'cells'>[],
 ): { u: number; v: number }[][] {
+  return startedOutlines(plots).map(({ loop }) => loop);
+}
+
+/** The vertex key and direction of the boundary edge an outline loop's walk started from. */
+interface OutlineStart {
+  readonly key: string;
+  readonly dir: number;
+}
+
+/** {@link plotOutlines}' loops are walked in this order of their start edges. */
+function byOutlineOrder(a: { readonly start: OutlineStart }, b: { readonly start: OutlineStart }): number {
+  if (a.start.key !== b.start.key) return a.start.key < b.start.key ? -1 : 1;
+  return a.start.dir - b.start.dir;
+}
+
+/** {@link plotOutlines} with the start edge of each loop. */
+function startedOutlines(
+  plots: readonly Pick<ConstructionPlotFrame, 'cells'>[],
+): { start: OutlineStart; loop: { u: number; v: number }[] }[] {
   // 1. The covered unit squares, keyed by their min corner "a,b" - 4 per cell (the 2×2 block).
   const squares = new Set<string>();
   for (const plot of plots) {
@@ -189,7 +329,7 @@ export function plotOutlines(
   }
 
   // 3. Chain edges into loops, merging collinear runs.
-  const loops: { u: number; v: number }[][] = [];
+  const loops: { start: OutlineStart; loop: { u: number; v: number }[] }[] = [];
   for (const [startKey, startDirs] of [...edges.entries()].sort(([x], [y]) => (x < y ? -1 : 1))) {
     for (let startDir = 0; startDir < 4; startDir++) {
       if (!startDirs[startDir]) continue;
@@ -217,7 +357,7 @@ export function plotOutlines(
           (first.v === last.v && first.v === (loop[1]?.v ?? Number.NaN));
         if (closingCollinear) loop.shift();
       }
-      if (loop.length >= 3) loops.push(loop);
+      if (loop.length >= 3) loops.push({ start: { key: startKey, dir: startDir }, loop });
     }
   }
   return loops;

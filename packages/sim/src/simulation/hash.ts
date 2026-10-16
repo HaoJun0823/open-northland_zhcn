@@ -26,14 +26,15 @@ export function hashSimState(
   mix(tick);
   mix(rngState);
   mix(names);
+  const mixComponent = (name: string, value: unknown): void => {
+    mixString(mix, name);
+    mixValue(mix, mixText, value);
+  };
   const ids = world.canonicalEntities();
   mix(ids.length);
   for (const e of ids) {
     mix(e);
-    for (const [name, val] of world.componentEntries(e)) {
-      mixString(mix, name);
-      mixValue(mix, mixText, val);
-    }
+    world.forEachComponent(e, mixComponent);
   }
   // Fog masks are simulated state living outside the components, so they mix their own canonical bytes.
   fog?.hashInto(mix);

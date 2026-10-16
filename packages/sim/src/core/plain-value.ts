@@ -19,27 +19,26 @@ export function sortedMapEntries<K, V>(map: ReadonlyMap<K, V>): Array<[K, V]> {
 }
 
 /**
- * A record's own keys in ascending order - the canonical field order the state hash and the sync
- * digest both walk. A key holding `undefined` is left out: a component clears an optional field by
- * assigning `undefined` rather than `delete`, which would drop its value out of V8's fast mode, and
- * the cleared field must hash like an absent one. Insertion sort, not `Array.prototype.sort`: a
- * component record holds a handful of fields, where the built-in's generic setup costs several times
- * the comparisons themselves, and the digest sorts thousands of records a tick.
+ * Writes a record's own keys into `keys` in ascending order and returns how many it wrote - the
+ * canonical field order the state hash and the sync digest both walk. Entries past the count are stale
+ * and the caller reuses the buffer. A key holding `undefined` is left out: a component clears an
+ * optional field by assigning `undefined` rather than `delete`, which would drop its value out of V8's
+ * fast mode, and the cleared field must hash like an absent one. Insertion sort, not
+ * `Array.prototype.sort`: a component record holds a handful of fields, where the built-in's generic
+ * setup costs several times the comparisons themselves, and the digest sorts thousands of records a tick.
  */
-export function sortedKeys(value: Record<string, unknown>): string[] {
-  const keys = Object.keys(value);
-  // Compacts in place while sorting: the write index never passes the read index.
+export function sortedKeysInto(value: Record<string, unknown>, keys: string[]): number {
   let kept = 0;
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i] as string;
+  // A plain record has no enumerable inherited keys, so `for...in` lists its own keys without the
+  // array `Object.keys` would allocate.
+  for (const key in value) {
     if (value[key] === undefined) continue;
     let j = kept - 1;
     for (; j >= 0 && (keys[j] as string) > key; j--) keys[j + 1] = keys[j] as string;
     keys[j + 1] = key;
     kept++;
   }
-  keys.length = kept;
-  return keys;
+  return kept;
 }
 
 /** A short shape name for a rejected value, for the walks' throw messages. */

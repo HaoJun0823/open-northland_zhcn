@@ -1,5 +1,5 @@
 import { FNV_OFFSET_BASIS, fnvMixWord } from '@open-northland/data';
-import { isPlainRecord, sortedKeys, sortedMapEntries, valueShapeName } from './plain-value.js';
+import { isPlainRecord, sortedKeysInto, sortedMapEntries, valueShapeName } from './plain-value.js';
 
 /** Folds one 32-bit word into a running hash. */
 export type MixWord = (word: number) => void;
@@ -30,6 +30,16 @@ export function mixString(mix: MixWord, value: string): void {
  * and key-sorted mixing cannot see it.
  */
 export function mixValue(mix: MixWord, mixText: MixText, value: unknown): void {
+  mixValueAt(mix, mixText, value, 0);
+}
+
+/**
+ * One reusable key buffer per record nesting depth, so the walk allocates no key array per record. A
+ * pure scratch: every use overwrites the entries it reads.
+ */
+const keyScratch: string[][] = [];
+
+function mixValueAt(mix: MixWord, mixText: MixText, value: unknown, depth: number): void {
   if (typeof value === 'number') {
     // Both halves, so a large fixed-point double is fully covered. An int32 - every id, entity and
     // Fixed - has a zero high half, so the same word lands without the division.
@@ -43,16 +53,23 @@ export function mixValue(mix: MixWord, mixText: MixText, value: unknown): void {
     mix(ABSENT_WORD);
   } else if (Array.isArray(value)) {
     mix(value.length);
-    for (const item of value) mixValue(mix, mixText, item);
+    for (const item of value) mixValueAt(mix, mixText, item, depth);
   } else if (value instanceof Map) {
     for (const [k, val] of sortedMapEntries(value)) {
-      mixValue(mix, mixText, k);
-      mixValue(mix, mixText, val);
+      mixValueAt(mix, mixText, k, depth);
+      mixValueAt(mix, mixText, val, depth);
     }
   } else if (isPlainRecord(value)) {
-    for (const k of sortedKeys(value)) {
+    let keys = keyScratch[depth];
+    if (keys === undefined) {
+      keys = [];
+      keyScratch[depth] = keys;
+    }
+    const count = sortedKeysInto(value, keys);
+    for (let i = 0; i < count; i++) {
+      const k = keys[i] as string;
       mixText(k);
-      mixValue(mix, mixText, value[k]);
+      mixValueAt(mix, mixText, value[k], depth + 1);
     }
   } else {
     throw new Error(`unhashable value shape ${valueShapeName(value)}`);

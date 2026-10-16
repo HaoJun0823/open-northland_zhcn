@@ -1,4 +1,5 @@
 import { LandscapeGfx, LandscapeType, TrianglePatternType } from '@open-northland/data';
+import { readGfxFrames } from '../bindings/landscape.js';
 import type { RuleSection } from '../grammar.js';
 import {
   getPaletteName,
@@ -122,10 +123,7 @@ export function extractLandscapeGfx(sections: readonly RuleSection[], src: Sourc
     const bmd = libs?.values[0];
     const shadow = libs?.values[1];
     const blockAreas = (key: string): number[][] => getIntRows(sec, key, (n) => n === 4);
-    const frames = getIntRows(sec, 'GfxFrames', (n) => n >= 2).map((vals) => ({
-      state: vals[0] as number,
-      bobIds: vals.slice(1),
-    }));
+    const frames = readGfxFrames(sec);
     records.push(
       LandscapeGfx.parse({
         index: index++,

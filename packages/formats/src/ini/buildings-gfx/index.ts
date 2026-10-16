@@ -13,4 +13,5 @@ export {
   extractBuildingOverlays,
   extractBuildingSoldierFlagPoints,
   extractConstructionLayers,
+  extractHouseDrawnBobs,
 } from './visuals.js';

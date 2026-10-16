@@ -9,10 +9,10 @@ import {
   BuildingHolyFirePoint,
   BuildingOverlay,
 } from '@open-northland/data';
-import { type NamedBmdPaletteBinding, readBmdPaletteBindings } from '../bindings/index.js';
+import { type DrawnBobs, type NamedBmdPaletteBinding, readBmdPaletteBindings } from '../bindings/index.js';
 import type { RuleSection } from '../grammar.js';
-import { makeSource, normalizePaletteName, type SourceRef } from '../ir-fields.js';
-import { findProps, getStr } from '../props.js';
+import { makeSource, normalizeAssetPath, normalizePaletteName, type SourceRef } from '../ir-fields.js';
+import { findProp, findProps, getStr } from '../props.js';
 import { gfxHouseGraphicsRecords, gfxHouseLogicRecords, gfxHouseRecords } from './shared.js';
 
 /**
@@ -232,6 +232,39 @@ export function extractBuildingGraphics(sections: readonly RuleSection[]): Named
     }
   }
   return bindings;
+}
+
+/** Where the bob id sits on each `[GfxHouse]` line naming one: the level body (`GfxBobId <level>
+ *  <bob>`), a construction layer (`<level> <upgrade> <bob> ...`) and a door (`Gfxdoorbobid <level>
+ *  <state> <bob>`, spelled so in the table). */
+const HOUSE_BOB_FIELD: ReadonlyMap<string, number> = new Map([
+  ['GfxBobId', 1],
+  ['GfxBobConstructionLayer', 2],
+  ['Gfxdoorbobid', 2],
+]);
+
+/**
+ * Every bob a `[GfxHouse]` record draws from its body `.bmd`: level bodies, construction layers, doors
+ * and the frames of its animated overlays. A house reads a double-byte bob's second byte as a build
+ * threshold, so these are the bobs a build-time bake must keep.
+ */
+export function extractHouseDrawnBobs(sections: readonly RuleSection[]): DrawnBobs[] {
+  const drawn: DrawnBobs[] = [];
+  for (const rec of gfxHouseRecords(sections)) {
+    const bmd = findProp(rec, 'GfxBobLibs')?.values[0];
+    if (bmd === undefined || bmd.trim() === '') continue;
+    const bobIds: number[] = [];
+    for (const p of rec.props) {
+      const ints = p.values.map((v) => Number.parseInt(v, 10));
+      const field = HOUSE_BOB_FIELD.get(p.key);
+      if (field !== undefined) bobIds.push(ints[field] ?? Number.NaN);
+      else if (p.key === 'GfxOverlay' && ints[1] === ANIMATED_OVERLAY_TYPE) {
+        bobIds.push(...ints.slice(OVERLAY_HEADER_FIELDS));
+      }
+    }
+    drawn.push({ bmd: normalizeAssetPath(bmd), bobIds: bobIds.filter((id) => !Number.isNaN(id)) });
+  }
+  return drawn;
 }
 
 /**

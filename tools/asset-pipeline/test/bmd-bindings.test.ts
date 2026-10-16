@@ -214,7 +214,7 @@ describe('resolveGraphicsBindings', () => {
     const { bindings, buildTimeBmds } = await resolveGraphicsBindings({ data: game });
 
     // Every palette recolour becomes a binding, and the CLAIM is on the .bmd path alone, so the
-    // landscape twins of the same geometry bake opaque too (convertBmdTree keys on the bmd).
+    // landscape twins of the same geometry bake opaque too, except the bobs they draw themselves.
     expect(bindings.map((b) => [b.bmd, b.paletteName])).toEqual([
       ['data/bobs/ls_houses_viking.bmd', 'house01'],
       ['data/bobs/ls_houses_viking.bmd', 'house02'],
@@ -222,6 +222,33 @@ describe('resolveGraphicsBindings', () => {
       GUIDEPOST_BINDING,
     ]);
     expect([...buildTimeBmds]).toEqual(['data/bobs/ls_houses_viking.bmd']);
+  });
+
+  it('keeps the landscape-only bobs of a house .bmd on coverage, and a bob a house also draws on the threshold', async () => {
+    const inis = join('Data', 'engine2d', 'inis');
+    await mkdir(join(game, inis, 'landscapes'), { recursive: true });
+    await mkdir(join(game, 'rules/buildings'), { recursive: true });
+    await writeFile(
+      join(game, 'rules/buildings', 'houses.ini'),
+      '[GfxHouse]\nEditName "wonder"\nGfxBobLibs "Data\\Bobs\\Wonders.bmd"\nGfxPalette "wonder01"\n' +
+        'GfxBobId 0 3\nGfxBobConstructionLayer 0 0 4 -1 0 100\nGfxOverlay 0 4 1 0 0 1 5 6\nGfxOverlay 0 3 1 9 9 0\n' +
+        'Gfxdoorbobid 0 1 8\n',
+    );
+    await writeFile(
+      join(game, inis, 'landscapes', 'landscapes.cif'),
+      buildStringCif([
+        { level: 1, text: 'GfxLandscape' },
+        { level: 2, text: 'EditName "beacon"' },
+        { level: 2, text: 'GfxBobLibs "Data\\Bobs\\Wonders.bmd"' },
+        { level: 2, text: 'GfxPalette "glow01"' },
+        { level: 2, text: 'GfxFrames 1 3 6 7 8 9' },
+      ]),
+    );
+
+    const { coverageBobs } = await resolveGraphicsBindings({ data: game });
+
+    // 3 to 6 and 8 are the house's (body, layer, overlay frames, door); the type-3 overlay names no bob.
+    expect([...(coverageBobs.get('data/bobs/wonders.bmd') ?? [])]).toEqual([7, 9]);
   });
 
   it('merges every binding skin in source-table order, guidepost last', async () => {
@@ -259,6 +286,7 @@ describe('resolveGraphicsBindings', () => {
         { level: 2, text: 'EditName "yew 01"' },
         { level: 2, text: 'GfxBobLibs "Data\\Bobs\\Trees.bmd"' },
         { level: 2, text: 'GfxPalette "Tree01"' },
+        { level: 2, text: 'GfxFrames 1 7 8' },
         // A second species sharing the same bob+palette - dropped by the landscape leg's own dedupe.
         { level: 1, text: 'GfxLandscape' },
         { level: 2, text: 'EditName "fir 01"' },
@@ -279,7 +307,7 @@ describe('resolveGraphicsBindings', () => {
       '[GfxHouse]\nEditName "viking home"\n' + 'GfxBobLibs "Data\\Bobs\\Houses.bmd"\nGfxPalette "House01"\n',
     );
 
-    const { bindings, buildTimeBmds } = await resolveGraphicsBindings({ data: game });
+    const { bindings, buildTimeBmds, coverageBobs } = await resolveGraphicsBindings({ data: game });
 
     expect(bindings.map((b) => [b.bmd, b.paletteName])).toEqual([
       ['data/bobs/animal.bmd', 'animal01'],
@@ -292,8 +320,9 @@ describe('resolveGraphicsBindings', () => {
       FISH_BINDING,
       GUIDEPOST_BINDING,
     ]);
-    // Only the [GfxHouse] leg claims a build-time bake.
+    // Only the [GfxHouse] leg claims a build-time bake; coverage bobs exist only inside a house library.
     expect([...buildTimeBmds]).toEqual(['data/bobs/houses.bmd']);
+    expect([...coverageBobs]).toEqual([]);
   });
 
   it('returns only the engine-owned bindings with a warning when every source is missing', async () => {

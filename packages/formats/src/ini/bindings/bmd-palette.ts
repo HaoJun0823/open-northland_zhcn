@@ -26,6 +26,12 @@ export interface BmdPaletteBinding {
   readonly jobId: number | undefined;
 }
 
+/** The bobs of one `.bmd` that a graphics record draws. */
+export interface DrawnBobs {
+  readonly bmd: string;
+  readonly bobIds: readonly number[];
+}
+
 /** A {@link BmdPaletteBinding} plus the record's `EditName`, the shape the `[GfxLandscape]` and
  *  `[GfxHouse]` bindings share. */
 export interface NamedBmdPaletteBinding extends BmdPaletteBinding {

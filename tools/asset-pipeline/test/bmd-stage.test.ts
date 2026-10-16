@@ -72,6 +72,38 @@ describe('bmdToAtlas', () => {
     expect(timeAt(0, 3)).toBe(0xff);
     expect(graded.timeImage).toBeUndefined(); // the per-pixel bake emits no time sheet
     expect(graded.manifest.build).toBeUndefined();
+    // A landscape bob in a house `.bmd` keeps its coverage; with no house bob left, no time sheet.
+    const decor = bmdToAtlas(bytes, rampPalette(), 'build-time', new Set([10]));
+    expect(alphaAt(decor, 0)).toBe(0x60);
+    expect(decor.manifest.build).toBeUndefined();
+  });
+
+  it('bakes a mixed house library: the house bob on the threshold, the decor bob on its coverage', () => {
+    // Two type-4 bobs sharing one 2x1 run: bob 10 a house body, bob 11 decor no house draws.
+    const pairs = [0x02, 4, 0x60, 8, 0xff, 0x00];
+    const bmd: Bmd = {
+      version: 0,
+      firstBobId: 10,
+      bobCount: 2,
+      generatedNonEmptyLines: 0,
+      generatedEmptyLines: 0,
+      generatedPackedLines: 0,
+      bobs: [
+        { type: BOB_TYPE_DOUBLE8BIT, area: { x: 0, y: 0, width: 2, height: 1 }, misc: 0 },
+        { type: BOB_TYPE_DOUBLE8BIT, area: { x: 0, y: 0, width: 2, height: 1 }, misc: 1 },
+      ],
+      packedLineData: Uint8Array.from([...pairs, ...pairs]),
+      lineControl: Uint32Array.from([packLineControl(0, 0), packLineControl(0, pairs.length)]),
+    };
+    const atlas = bmdToAtlas(encodeBmd(bmd), rampPalette(), 'build-time', new Set([11]));
+    expect(atlas.manifest.build).toBe(true);
+    const [house, decor] = atlas.manifest.frames.map((f) => f.rect);
+    const at = (image: typeof atlas.image | undefined, rect: typeof house, c: number): number =>
+      image?.rgba[((rect?.y ?? 0) * atlas.image.width + (rect?.x ?? 0)) * 4 + c] ?? -1;
+    expect(at(atlas.image, house, 3)).toBe(0xff);
+    expect(at(atlas.timeImage, house, 0)).toBe(0x60);
+    expect(at(atlas.image, decor, 3)).toBe(0x60);
+    expect(at(atlas.timeImage, decor, 3)).toBe(0); // no threshold under the decor bob
   });
 });
 
@@ -107,7 +139,7 @@ describe('convertBmdTree', () => {
     const { bindings, palettes } = sampleBinding();
 
     const done = await convertBmdTree(
-      { bindings, palettes, buildTimeBmds: new Set() },
+      { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
     );
@@ -147,7 +179,7 @@ describe('convertBmdTree', () => {
     ];
 
     const done = await convertBmdTree(
-      { bindings, palettes, buildTimeBmds: new Set() },
+      { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
     );
@@ -185,7 +217,7 @@ describe('convertBmdTree', () => {
     ];
 
     const done = await convertBmdTree(
-      { bindings, palettes, buildTimeBmds: new Set() },
+      { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
     );
@@ -212,6 +244,7 @@ describe('convertBmdTree', () => {
         ],
         palettes: [{ name: 'house', gfxFile: 'data/pal/house.pcx' }],
         buildTimeBmds: new Set(),
+        coverageBobs: new Map(),
       },
       out,
       await indexSourceAssets({ data: out }),
@@ -234,7 +267,7 @@ describe('convertBmdTree', () => {
 
     await expect(
       convertBmdTree(
-        { bindings, palettes, buildTimeBmds: new Set() },
+        { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
         out,
         await indexSourceAssets({ data: out }),
       ),
@@ -259,7 +292,7 @@ describe('convertBmdTree', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const done = await convertBmdTree(
-      { bindings, palettes, buildTimeBmds: new Set() },
+      { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
     );
@@ -275,7 +308,7 @@ describe('convertBmdTree', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const done = await convertBmdTree(
-      { bindings, palettes: [], buildTimeBmds: new Set() },
+      { bindings, palettes: [], buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
     ); // empty palette index
@@ -293,7 +326,7 @@ describe('convertBmdTree', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const done = await convertBmdTree(
-      { bindings, palettes, buildTimeBmds: new Set() },
+      { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
     );
@@ -312,7 +345,7 @@ describe('convertBmdTree', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const done = await convertBmdTree(
-      { bindings, palettes, buildTimeBmds: new Set() },
+      { bindings, palettes, buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
     );
@@ -358,7 +391,7 @@ describe('convertShadowBmdTree', () => {
 
   const convert = async (bindings: BmdPaletteBinding[]): Promise<string[]> =>
     convertShadowBmdTree(
-      { bindings, palettes: [], buildTimeBmds: new Set() },
+      { bindings, palettes: [], buildTimeBmds: new Set(), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
     );
@@ -467,7 +500,7 @@ describe('convertBmdTree build-time bake', () => {
     ];
 
     await convertBmdTree(
-      { bindings, palettes, buildTimeBmds: new Set(['data/bobs/house.bmd']) },
+      { bindings, palettes, buildTimeBmds: new Set(['data/bobs/house.bmd']), coverageBobs: new Map() },
       out,
       await indexSourceAssets({ data: out }),
     );

@@ -1,10 +1,13 @@
 import {
   type BmdPaletteBinding,
   cifBytesToSections,
+  type DrawnBobs,
   extractBuildingGraphics,
   extractGraphicsBindings,
+  extractHouseDrawnBobs,
   extractJobBaseGraphics,
   extractJobChangeGraphics,
+  extractLandscapeDrawnBobs,
   extractLandscapeGraphics,
   extractPaletteIndex,
   extractParticleGraphics,
@@ -17,13 +20,17 @@ import { BUILDING_GRAPHICS_FILE, HUMAN_GRAPHICS_FILE, VEHICLE_GRAPHICS_FILE } fr
 import { readSourceFile, resolveSourceFile, type SourceRoots } from '../../roots.js';
 
 /**
- * One graphics-binding resolution: every `(bmd, palette)` binding, the palette `editname` index, and the
- * `.bmd`s that bake build-time alpha.
+ * One graphics-binding resolution: every `(bmd, palette)` binding, the palette `editname` index, the
+ * `.bmd`s that bake build-time alpha, and per `.bmd` the bobs that bake coverage anyway.
  */
 export interface GraphicsBindingSet {
   readonly bindings: readonly BmdPaletteBinding[];
   readonly palettes: readonly PaletteAlias[];
   readonly buildTimeBmds: ReadonlySet<string>;
+  /** The bobs a `[GfxLandscape]` record draws and no `[GfxHouse]` record does, by house `.bmd`. A house `.bmd`
+   *  also carries decor of its own (the lighthouse fire, the greek ruins), whose second byte is coverage,
+   *  not a build threshold. A bob both draw stays the house's. */
+  readonly coverageBobs: ReadonlyMap<string, ReadonlySet<number>>;
 }
 
 /** The `(bmd, palette)` identity of a binding - the unit an atlas file is emitted (and deduped) per. */
@@ -89,6 +96,9 @@ interface GraphicsBindingSource {
   readonly dedupe?: true;
   /** The source's `.bmd`s bake construction-progress thresholds rather than coverage (`AtlasAlphaMode`). */
   readonly buildTime?: true;
+  /** The bobs the source's records draw: a build-time source's keep their threshold, another's their
+   *  coverage. */
+  readonly drawnBobs?: (sections: readonly RuleSection[]) => readonly DrawnBobs[];
 }
 
 const INIS = 'Data/engine2d/inis';
@@ -125,6 +135,7 @@ const GRAPHICS_BINDING_SOURCES: readonly GraphicsBindingSource[] = [
     encrypted: true,
     read: extractLandscapeGraphics,
     dedupe: true,
+    drawnBobs: extractLandscapeDrawnBobs,
   },
   /** The shots, trails and puffs the engine flies or stages (`Rock` in `ls_smoke` under `rock03`). */
   {
@@ -149,6 +160,7 @@ const GRAPHICS_BINDING_SOURCES: readonly GraphicsBindingSource[] = [
     read: extractBuildingGraphics,
     dedupe: true,
     buildTime: true,
+    drawnBobs: extractHouseDrawnBobs,
   },
 ];
 
@@ -196,6 +208,21 @@ async function readSections(
   }
 }
 
+/** `bobs` per `.bmd` of `within` less the ones `taken` names for the same `.bmd`. */
+function withoutBobs(
+  bobs: ReadonlyMap<string, ReadonlySet<number>>,
+  taken: ReadonlyMap<string, ReadonlySet<number>>,
+  within: ReadonlySet<string>,
+): Map<string, Set<number>> {
+  const out = new Map<string, Set<number>>();
+  for (const [bmd, ids] of bobs) {
+    if (!within.has(bmd)) continue;
+    const kept = [...ids].filter((id) => !taken.get(bmd)?.has(id));
+    if (kept.length > 0) out.set(bmd, new Set(kept));
+  }
+  return out;
+}
+
 /**
  * Reads every {@link GRAPHICS_BINDING_SOURCES} skin and merges their `.bmd`-to-palette pairings into one
  * flat list, followed by the engine-owned fish and guidepost bindings.
@@ -207,11 +234,19 @@ async function readSections(
 export async function resolveGraphicsBindings(roots: SourceRoots): Promise<GraphicsBindingSet> {
   const bindings: BmdPaletteBinding[] = [];
   const buildTimeBmds = new Set<string>();
+  const landscapeBobs = new Map<string, Set<number>>();
+  const houseBobs = new Map<string, Set<number>>();
   for (const source of GRAPHICS_BINDING_SOURCES) {
     const sections = await readSections(roots, source.path, source.encrypted);
     if (sections === undefined) continue;
     const records = source.read(sections);
     if (source.buildTime) for (const record of records) buildTimeBmds.add(record.bmd);
+    const drawn = source.buildTime ? houseBobs : landscapeBobs;
+    for (const { bmd, bobIds } of source.drawnBobs?.(sections) ?? []) {
+      const bobs = drawn.get(bmd) ?? new Set<number>();
+      for (const bobId of bobIds) bobs.add(bobId);
+      drawn.set(bmd, bobs);
+    }
     bindings.push(...(source.dedupe ? dedupeBindings(records) : records));
   }
   bindings.push(FISH_BINDING, GUIDEPOST_BINDING);
@@ -220,5 +255,6 @@ export async function resolveGraphicsBindings(roots: SourceRoots): Promise<Graph
     bindings,
     palettes: palettesIni ? extractPaletteIndex(palettesIni) : [],
     buildTimeBmds,
+    coverageBobs: withoutBobs(landscapeBobs, houseBobs, buildTimeBmds),
   };
 }

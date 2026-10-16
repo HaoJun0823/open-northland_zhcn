@@ -9,6 +9,7 @@ import {
   extractGraphicsBindings,
   extractJobBaseGraphics,
   extractJobChangeGraphics,
+  extractLandscapeDrawnBobs,
   extractLandscapeGraphics,
   extractPaletteIndex,
   extractRawFrameAtomics,
@@ -144,6 +145,13 @@ describe('extractLandscapeGraphics', () => {
         jobId: undefined,
         editName: 'fir 01',
       },
+    ]);
+  });
+
+  it('lists the bobs each record draws over its states, a texture-only record none', () => {
+    expect(extractLandscapeDrawnBobs(cifLinesToSections(lines))).toEqual([
+      { bmd: 'data/engine2d/bin/bobs/ls_trees.bmd', bobIds: [60, 60, 60, 61] },
+      { bmd: 'data/engine2d/bin/bobs/ls_trees.bmd', bobIds: [] },
     ]);
   });
 

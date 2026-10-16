@@ -9,6 +9,7 @@ export type {
   VehicleGraphicsBinding,
 } from './ini/bindings/index.js';
 export {
+  type DrawnBobs,
   extractBobSequences,
   extractGfxAnimAtomics,
   extractGfxInHousePrograms,
@@ -16,6 +17,7 @@ export {
   extractGraphicsBindings,
   extractJobBaseGraphics,
   extractJobChangeGraphics,
+  extractLandscapeDrawnBobs,
   extractLandscapeGraphics,
   extractPaletteIndex,
   extractRawFrameAtomics,
@@ -36,6 +38,7 @@ export {
   extractBuildingSoldierFlagPoints,
   extractConstructionCosts,
   extractConstructionLayers,
+  extractHouseDrawnBobs,
   extractHouseHitpoints,
   extractUpgradeTargets,
 } from './ini/buildings-gfx/index.js';

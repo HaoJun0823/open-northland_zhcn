@@ -18,14 +18,15 @@ import { bindingKey, type GraphicsBindingSet } from './bindings.js';
 /**
  * `.bmd` bytes plus a 768-byte RGB palette to a packed bob atlas. Throws a `bmd:`/`atlas:`-prefixed
  * error for a malformed container or a wrong-sized palette. `alpha` picks the bake mode
- * ({@link AtlasAlphaMode}); the house atlases need `'build-time'`.
+ * ({@link AtlasAlphaMode}); the house atlases need `'build-time'`, except for `coverageBobs`.
  */
 export function bmdToAtlas(
   bmdBytes: Uint8Array,
   palette: Uint8Array,
   alpha: AtlasAlphaMode = 'per-pixel',
+  coverageBobs?: ReadonlySet<number>,
 ): BobAtlas {
-  return packBobAtlas(decodeBmd(bmdBytes), palette, { alpha });
+  return packBobAtlas(decodeBmd(bmdBytes), palette, { alpha, ...(coverageBobs ? { coverageBobs } : {}) });
 }
 
 /** One emitted bob atlas: the binding it came from plus the relative atlas PNG / manifest JSON paths. */
@@ -62,15 +63,15 @@ function paletteSlug(name: string): string {
  *
  * `buildTimeBmds` (the `.bmd` paths a `[GfxHouse]` record claims) bake `'build-time'` alpha. It is keyed
  * on the `.bmd` path alone, not `(bmd, palette)`, because the build-time bytes live in the bob geometry
- * the recolours share. Required with no default, since an accidentally-empty set silently ghosts every
- * building.
+ * the recolours share; only the bobs a landscape record draws (`coverageBobs`) keep their coverage.
+ * Required with no default, since an accidentally-empty set silently ghosts every building.
  */
 export async function convertBmdTree(
   graphics: GraphicsBindingSet,
   outDir: string,
   tree: SourceAssetIndex,
 ): Promise<BmdConversion[]> {
-  const { bindings, palettes, buildTimeBmds } = graphics;
+  const { bindings, palettes, buildTimeBmds, coverageBobs } = graphics;
   assertDistinctBobBasenames(bindings.map((b) => b.bmd).filter((ref) => tree.has(ref)));
   const done: BmdConversion[] = [];
   const paletteByName = paletteAliasMap(palettes);
@@ -99,7 +100,7 @@ export async function convertBmdTree(
         continue;
       }
       const alpha: AtlasAlphaMode = buildTimeBmds.has(binding.bmd) ? 'build-time' : 'per-pixel';
-      atlas = bmdToAtlas(await readFile(bmdSource.path), palette, alpha);
+      atlas = bmdToAtlas(await readFile(bmdSource.path), palette, alpha, coverageBobs.get(binding.bmd));
     } catch (err) {
       console.warn(`[pipeline] skipped ${binding.bmd}: ${errorMessage(err)}`);
       continue;

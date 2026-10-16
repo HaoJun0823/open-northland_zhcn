@@ -100,16 +100,18 @@ export function seatRaiders(
   terrain: TerrainGraph,
   player: number,
 ): readonly Raider[] {
-  const key = scanKey(world);
   let scans = raiderScans.get(world);
   if (scans === undefined) {
     scans = new Map();
     raiderScans.set(world, scans);
   }
   const held = scans.get(player);
-  if (held !== undefined && held.content === ctx.content && sameKey(held.key, key)) return held.raiders;
-  const raiders = enemiesAmong(world, looseFighters(world, ctx, terrain, key), player);
-  scans.set(player, { key, content: ctx.content, raiders });
+  if (held !== undefined && held.content === ctx.content && keyIsCurrent(world, held.key)) {
+    return held.raiders;
+  }
+  const fighters = looseFighters(world, ctx, terrain);
+  const raiders = enemiesAmong(world, fighters.fighters, player);
+  scans.set(player, { key: fighters.key, content: ctx.content, raiders });
   return raiders;
 }
 
@@ -123,7 +125,9 @@ interface RaiderScan {
 
 const raiderScans = new WeakMap<World, Map<number, RaiderScan>>();
 
-/** A live, unposted fighter of any seat, read once for every seat's {@link seatRaiders}. */
+/** A live, unposted fighter of any seat, read once for every seat's {@link seatRaiders}. A rescan keeps
+ *  the previous record of a man whose owner, node and reach are unchanged, so a standing army costs no
+ *  allocation per scan. */
 interface LooseFighter {
   readonly owner: number;
   readonly raider: Raider;
@@ -139,6 +143,8 @@ interface LooseFighterScan {
 
 const looseFighterScans = new WeakMap<World, LooseFighterScan>();
 
+const NO_FIGHTERS: readonly LooseFighter[] = [];
+
 /** Every store the scan reads, membership and in-place writes: a man born, killed, moved, re-owned,
  *  re-jobbed, re-armed or posted, or a stance changed, starts a fresh scan. */
 const SCAN_STORES = [Person, Owner, Position, Health, Settler, Weapon, Garrison, DiplomacyRules] as const;
@@ -151,25 +157,32 @@ function scanKey(world: World): readonly number[] {
   return key;
 }
 
-function sameKey(a: readonly number[], b: readonly number[]): boolean {
-  return a.length === b.length && a.every((v, i) => v === b[i]);
+/** Whether `key` still matches the live {@link SCAN_STORES} generations, read without building a key. */
+function keyIsCurrent(world: World, key: readonly number[]): boolean {
+  let i = 0;
+  for (const store of SCAN_STORES) {
+    if (key[i++] !== world.componentGeneration(store)) return false;
+    if (key[i++] !== world.componentValueGeneration(store)) return false;
+  }
+  return true;
 }
 
-function looseFighters(
-  world: World,
-  ctx: SystemContext,
-  terrain: TerrainGraph,
-  key: readonly number[],
-): readonly LooseFighter[] {
+function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph): LooseFighterScan {
   const held = looseFighterScans.get(world);
   if (
     held !== undefined &&
     held.content === ctx.content &&
     held.terrain === terrain &&
-    sameKey(held.key, key)
+    keyIsCurrent(world, held.key)
   ) {
-    return held.fighters;
+    return held;
   }
+  const key = scanKey(world);
+  const previous =
+    held !== undefined && held.content === ctx.content && held.terrain === terrain
+      ? held.fighters
+      : NO_FIGHTERS;
+  let p = 0;
   const fighters: LooseFighter[] = [];
   // The owned-fighter index holds every owned settler of a fighting trade, ascending id: the fighters among
   // the people, without a walk over every civilian.
@@ -178,14 +191,43 @@ function looseFighters(
     if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) continue;
     if (standsAtPost(world, e) !== null) continue;
     const at = entityNode(world, terrain, e);
+    const x = terrain.xOf(at);
+    const y = terrain.yOf(at);
+    const component = terrain.componentOf(at);
     const reach = Math.max(weaponReach(world, ctx, e), SIGHT_RADIUS_NODES);
-    fighters.push({
-      owner: world.get(e, Owner).player,
-      raider: { entity: e, ...terrain.coordsOf(at), component: terrain.componentOf(at), reach },
-    });
+    const owner = world.get(e, Owner).player;
+    // Both lists ascend by id, so the previous record of `e`, if any, is at or past `p`.
+    while (p < previous.length && (previous[p] as LooseFighter).raider.entity < e) p++;
+    const was = previous[p];
+    if (was !== undefined && sameFighter(was, e, owner, x, y, component, reach)) {
+      fighters.push(was);
+    } else {
+      fighters.push({ owner, raider: { entity: e, x, y, component, reach } });
+    }
   }
-  looseFighterScans.set(world, { key, content: ctx.content, terrain, fighters });
-  return fighters;
+  const scan = { key, content: ctx.content, terrain, fighters };
+  looseFighterScans.set(world, scan);
+  return scan;
+}
+
+function sameFighter(
+  was: LooseFighter,
+  e: Entity,
+  owner: number,
+  x: number,
+  y: number,
+  component: number,
+  reach: number,
+): boolean {
+  const r = was.raider;
+  return (
+    r.entity === e &&
+    was.owner === owner &&
+    r.x === x &&
+    r.y === y &&
+    r.component === component &&
+    r.reach === reach
+  );
 }
 
 /** The `fighters` whose player would engage `player`, in their order: an allied army walking past must not
@@ -274,14 +316,18 @@ export function nearestRaiderWithin(
   radius: number,
   reachable: number | null,
 ): { raider: Raider; distance: number } | null {
-  let best: { raider: Raider; distance: number } | null = null;
+  let best: Raider | null = null;
+  let bestDistance = 0;
   for (const raider of raiders) {
     if (reachable !== null && raider.component !== reachable) continue;
     const distance = hexDistanceBetween(raider.x, raider.y, x, y);
     if (distance > radius) continue;
-    if (best === null || distance < best.distance) best = { raider, distance };
+    if (best === null || distance < bestDistance) {
+      best = raider;
+      bestDistance = distance;
+    }
   }
-  return best;
+  return best === null ? null : { raider: best, distance: bestDistance };
 }
 
 /**
@@ -305,9 +351,15 @@ export function raidOnTheSettlement(
   if (near.length === 0) return null;
   let best: { raider: Raider; distance: number } | null = null;
   for (const e of owned) {
-    const at = terrain.coordsOf(entityNode(world, terrain, e));
+    const at = entityNode(world, terrain, e);
     const door = terrain.componentOf(interactionCell(world, ctx, terrain, e));
-    const found = nearestRaiderWithin(near, at.x, at.y, watchBandOf(world, ctx, e), door);
+    const found = nearestRaiderWithin(
+      near,
+      terrain.xOf(at),
+      terrain.yOf(at),
+      watchBandOf(world, ctx, e),
+      door,
+    );
     if (found === null) continue;
     if (
       best === null ||

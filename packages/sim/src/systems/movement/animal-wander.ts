@@ -66,11 +66,10 @@ export const animalWanderSystem: System = (world, ctx) => {
     // spot with the leash ignored, since getting off a shared field beats staying strictly inside the
     // territory. The sidestep draws no rng; the `continue` drops this animal's cadence roll for the tick.
     const here = fields.nodeOf(e);
-    const traversal = settlerTraversal(world, e);
     if (fields.keeperAt(here) !== e) {
       blocked ??= dynamicBlockOverlay(world, ctx, terrain);
       taken ??= new Set();
-      const spot = sidestepTarget(terrain, fields, taken, blocked, here, traversal);
+      const spot = sidestepTarget(terrain, fields, taken, blocked, here, settlerTraversal(world, e));
       if (spot !== null) world.add(e, MoveGoal, { cell: spot });
       continue;
     }
@@ -99,7 +98,7 @@ export const animalWanderSystem: System = (world, ctx) => {
     const reach = manhattan(terrain, target, anchor);
     if (reach > range && reach >= manhattan(terrain, here, anchor)) continue;
 
-    if (!terrain.traversable(target, traversal)) continue;
+    if (!terrain.traversable(target, settlerTraversal(world, e))) continue;
     // Across water: findPath would reject the goal outright and strand the creature for the planner's
     // retry window.
     if (terrain.componentOf(target) !== terrain.componentOf(here)) continue;

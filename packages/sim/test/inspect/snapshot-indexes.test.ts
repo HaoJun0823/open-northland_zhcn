@@ -374,13 +374,14 @@ describe('a listed view swapping a touched run', () => {
     );
     const short = indexesOf(mirror.snapshot()).get(marked);
     const long = indexesOf(mirror.snapshot()).get(unmarked);
-    // Every entity but the first steps: the marked list is shorter than the run, the unmarked one longer.
+    // Three entities step: the marked list is no longer than the run, the unmarked one is longer.
+    const STEPPED_IDS = [2, 5, 7];
     mirror.apply(
       packSnapshotDelta({
         tick: 2,
         sequence: 1,
         rebuild: false,
-        touched: ids.slice(1).map((id) => entry(id, { Step: { n: 1 } })),
+        touched: STEPPED_IDS.map((id) => entry(id, { Step: { n: 1 } })),
         removed: [],
         events: [],
       }),
@@ -389,6 +390,7 @@ describe('a listed view swapping a touched run', () => {
     expect(short).toEqual(current.filter(has('Mark')));
     expect(short.every((entity) => current.includes(entity))).toBe(true);
     expect(long.every((entity) => current.includes(entity))).toBe(true);
+    expect(long).toEqual(current.filter((entity) => !has('Mark')(entity)));
     expect(long).toHaveLength(ENTITIES - MARKED_IDS.length);
     expect(mirror.verifyIndexes()).toEqual([]);
   });

@@ -98,8 +98,8 @@ function deriveSettlementDefence(
   const claimed = mapAiSoldierClaims(world, player);
   const census = takeCensus(world, ctx, player);
   const army = {
-    ready: census.ready.filter((e) => !claimed.has(e)),
-    awaitingWeapon: census.awaitingWeapon.filter((e) => !claimed.has(e)),
+    ready: without(census.ready, claimed),
+    awaitingWeapon: without(census.awaitingWeapon, claimed),
   };
   const marching = new Set<Entity>();
   if (autonomous) {
@@ -108,7 +108,7 @@ function deriveSettlementDefence(
       for (const e of world.get(carrier, WaveMarch).men) marching.add(e);
     }
   }
-  const home = army.ready.filter((e) => !marching.has(e));
+  const home = without(army.ready, marching);
   const raiders = seatRaiders(world, ctx, terrain, player);
   const posts = towerPostOrders(
     world,
@@ -119,7 +119,7 @@ function deriveSettlementDefence(
     autonomous ? 'computer-player' : 'map-ai',
     () => raiders,
   );
-  const free = home.filter((e) => !posts.claimed.has(e));
+  const free = without(home, posts.claimed);
   const raid = raidOnTheSettlement(world, ctx, terrain, owned, raiders);
   // Approximation: a map-controlled camp answers with nearby free soldiers, using the same reach
   // as its extra tower guards. A distant camp must not empty merely because both share a player.
@@ -191,15 +191,25 @@ function deriveSettlementDefence(
   };
 }
 
+/** `men` less those in `taken`, in order; `men` itself when nothing is taken. */
+function without(men: readonly Entity[], taken: ReadonlySet<Entity>): readonly Entity[] {
+  return taken.size === 0 ? men : men.filter((e) => !taken.has(e));
+}
+
 /** Local protection remains active for map AI even when autonomous military planning is disabled. */
 export const settlementDefenceSystem: System = (world, ctx) => {
   const terrain = ctx.terrain;
   if (terrain === undefined) return;
-  const seats = [...world.query(AiControl)]
-    .map((e) => world.get(e, AiControl))
-    .sort((a, b) => a.player - b.player);
+  // Collected before planning, since a plan adds components; only the seats whose slot this is, so most
+  // ticks allocate nothing.
+  const seats: { readonly player: number; readonly mapAiEnabled: boolean }[] = [];
+  for (const e of world.query(AiControl)) {
+    const seat = world.get(e, AiControl);
+    if (militaryDecisionDue(ctx.tick, seat.player)) seats.push(seat);
+  }
+  seats.sort((a, b) => a.player - b.player);
   for (const seat of seats) {
-    if (!militaryDecisionDue(ctx.tick, seat.player) || isPlayerDead(world, seat.player)) continue;
+    if (isPlayerDead(world, seat.player)) continue;
     if (!seat.mapAiEnabled && !computerModuleRuns(world, seat.player, 'military')) continue;
     const plan = planSettlementDefence(world, ctx, terrain, seat.player);
     for (const { entity, state } of plan.mapSorties) world.add(entity, MapAiDefence, state);

@@ -1,5 +1,6 @@
 export const deGame = {
   subMission: {
+    title: 'Nächste Mission',
     stay: 'Auf dieser Karte bleiben',
     loading: 'Mission wird geladen…',
     failed:

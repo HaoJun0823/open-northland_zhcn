@@ -790,6 +790,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
     let presentation: ReturnType<typeof createScriptPresentation> | null = null;
     const subMissions = createSubMissions({
       host,
+      hudScale: hudDom.currentScale,
       captureSave: (options) => driver.captureSave(options),
       viewState,
       params,

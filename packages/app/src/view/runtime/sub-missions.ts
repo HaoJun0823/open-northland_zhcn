@@ -6,19 +6,21 @@ import {
   serializeSaveGame,
 } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
+import { openSubMissionWindow } from '../../hud/dom/sub-mission-window.js';
 import { swapToEntry } from '../../launch.js';
 import type { SessionHost } from '../../session/index.js';
 import { compressSaveText } from './save-load/codec.js';
 import { clearPendingLoad, storePendingLoad } from './save-load/pending-store.js';
 import { relaunchSearch } from './save-load/relaunch.js';
 import type { SavedView } from './save-load/view-state.js';
-import { subMissionDialog } from './sub-mission-dialog.js';
 
 export type SubMissionTransition = Extract<SimEvent, { kind: 'missionSubMission' }>['transition'];
 export type PrepareSubMission = (transition: SubMissionTransition, current: SaveGame) => Promise<SaveGame>;
 
 export interface SubMissionDeps {
   readonly host: Pick<SessionHost, 'exportSave'>;
+  /** The HUD scale the handover note is drawn at. */
+  readonly hudScale: () => number;
   readonly captureSave?: (options: ExportSaveOptions) => SaveGame | Promise<SaveGame>;
   /** The view the parent save keeps, so the player's groups return with them. */
   readonly viewState?: () => SavedView | null;
@@ -64,7 +66,7 @@ export function createSubMissions(deps: SubMissionDeps): {
     };
     // Let the frame finish reading its renderer before the handover disposes it.
     const attempt = (): void => {
-      const dialog = subMissionDialog();
+      const dialog = openSubMissionWindow(deps.hudScale());
       void run()
         .then(() => dialog.dispose())
         .catch(async (err: unknown) => {

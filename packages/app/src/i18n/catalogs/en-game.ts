@@ -1,5 +1,6 @@
 export const enGame = {
   subMission: {
+    title: 'Next mission',
     stay: 'Stay on this map',
     loading: 'Loading mission…',
     failed:

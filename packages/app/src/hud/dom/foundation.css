@@ -7859,6 +7859,13 @@ body.on-drag-scroll * {
   justify-content: flex-end;
   gap: 10px;
 }
+.on-hud .on-system-confirm__actions[hidden] {
+  display: none;
+}
+/* A note with no choice yet (the sub-mission handover) ends at its line. */
+.on-hud .on-system-confirm__message:has(+ .on-system-confirm__actions[hidden]) {
+  margin-bottom: 8px;
+}
 /* Save and load: a name field over the parchment list of saves, a footer with Back, a live status
    and the window's actions, the primary last. A row's bin shows on hover, focus and selection. */
 .on-hud .on-saves {

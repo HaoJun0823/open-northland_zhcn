@@ -68,3 +68,12 @@ it('keeps the keys for a question that replaced an open one', async () => {
   press('Escape');
   await expect(second).resolves.toBe(false);
 });
+
+it('lets go of the keys once the game under an open question is torn down', () => {
+  const h = setup();
+  void h.ask(COPY);
+  h.plane.remove();
+  press('a');
+  press('a');
+  expect(h.gameKeys).toHaveBeenCalledTimes(2);
+});

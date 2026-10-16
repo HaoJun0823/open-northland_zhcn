@@ -154,6 +154,16 @@ export function searchReach(
   return floodReach(terrain, blocked, hx, hy, range, budget, groundCost).area;
 }
 
+/** The box a flood from `(hx, hy)` over `range` lays its area over, whatever it marks. */
+export function reachBox(terrain: TerrainGraph, hx: number, hy: number, range: number): NodeBox {
+  return {
+    minX: Math.max(0, hx - range + 1),
+    maxX: Math.min(terrain.width - 1, hx + range - 1),
+    minY: Math.max(0, hy - range + 1),
+    maxY: Math.min(terrain.height - 1, hy + range - 1),
+  };
+}
+
 /** {@link searchReach} with its searched box; without `groundCost` every step costs one rather than the
  *  entered node's resistance. The marked set is order-independent: a node is marked when
  *  it neighbours any node whose cheapest cost stays under the budget, so the order a bucket is walked in
@@ -169,10 +179,7 @@ export function floodReach(
   groundCost = true,
   targets?: ReachTargets,
 ): ReachSearch {
-  const minX = Math.max(0, hx - range + 1);
-  const maxX = Math.min(terrain.width - 1, hx + range - 1);
-  const minY = Math.max(0, hy - range + 1);
-  const maxY = Math.min(terrain.height - 1, hy + range - 1);
+  const { minX, maxX, minY, maxY } = reachBox(terrain, hx, hy, range);
   const width = Math.max(0, maxX - minX + 1);
   const cells = new Uint8Array(width * Math.max(0, maxY - minY + 1));
   const area = { minX, maxX, minY, maxY, cells };
@@ -343,11 +350,6 @@ export function unionReachAreas(areas: readonly ReachArea[]): ReachArea {
     }
   }
   return { minX, maxX, minY, maxY, cells };
-}
-
-export function reachGate(terrain: TerrainGraph, areas: readonly ReachArea[]): SpatialGate {
-  const union = unionReachAreas(areas);
-  return { bounds: union, allowsNode: (node) => reachContains(union, terrain.xOf(node), terrain.yOf(node)) };
 }
 
 export function intersectReach(a: SpatialGate | undefined, b: SpatialGate | null): SpatialGate | undefined {

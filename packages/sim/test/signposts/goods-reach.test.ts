@@ -158,7 +158,8 @@ describe('terrain-aware goods reach', () => {
     expect(limit?.allowsNode(terrain.nodeAt(200, 30))).toBe(false);
     expect(floods).not.toHaveBeenCalled();
     expect(limit?.allowsNode(terrain.nodeAt(100, 30))).toBe(true);
-    expect(floods).toHaveBeenCalledTimes(1);
+    // The spot's own search and the post at 70, the one whose search box holds the node.
+    expect(floods).toHaveBeenCalledTimes(2);
     floods.mockRestore();
   });
   it('rules out a neighbourhood only when no node in it passes', () => {

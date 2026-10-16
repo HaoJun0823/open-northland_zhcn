@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { GOODS_SEARCH_RANGE_NODES, Position, ResourceFootprint } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { positionOfNode } from '../../src/nav/halfcell.js';
+import {
+  hexDistanceBetween,
+  nodeHxOfPosition,
+  nodeHyOfPosition,
+  positionOfNode,
+} from '../../src/nav/halfcell.js';
 import { intersectReach, reachContains, searchReach } from '../../src/nav/range-search.js';
 import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
 import { Simulation } from '../../src/simulation.js';
 import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
-import { layRoad } from '../../src/systems/roads/index.js';
+import { layRoad, liftRoad } from '../../src/systems/roads/index.js';
 import { signpostLinksSystem } from '../../src/systems/signposts/links.js';
 import { networkLimitAt, signpostNetwork } from '../../src/systems/signposts/network.js';
 import { createSignpost, razeSignpost } from '../../src/systems/signposts/placement.js';
@@ -185,6 +190,104 @@ describe('goods search limit', () => {
     // Each side alone would admit a node the other rules out.
     expect(near(130, 30, RADIUS)).toBe(false);
     expect(near(10, 30, RADIUS)).toBe(false);
+  });
+});
+
+/** A seeded linear congruential generator, so the property test replays exactly. */
+function seededRandom(seed: number): (bound: number) => number {
+  const MULTIPLIER = 1103515245;
+  const INCREMENT = 12345;
+  const MODULUS = 2 ** 31;
+  let state = seed;
+  return (bound) => {
+    state = (state * MULTIPLIER + INCREMENT) % MODULUS;
+    return Math.floor((state / MODULUS) * bound);
+  };
+}
+
+describe('goods search limit under random world changes', () => {
+  it('answers every asked node as fresh floods do while blockers, roads and posts come and go', () => {
+    const WIDTH = 260;
+    const HEIGHT = 140;
+    const ROUNDS = 40;
+    const SPOTS_PER_ROUND = 3;
+    const NODES_PER_SPOT = 60;
+    const BLOCKER_CELLS = 6;
+    const ROAD_LENGTH = 12;
+    const MARGIN = 10;
+    const random = seededRandom(20261016);
+    const { sim, terrain } = navigableSim(WIDTH, HEIGHT, (hx, hy) => 1 + ((hx * 5 + hy * 11) % 3));
+    const node = () => [MARGIN + random(WIDTH - 2 * MARGIN), MARGIN + random(HEIGHT - 2 * MARGIN)] as const;
+    const posts: Entity[] = [];
+    const blockers: Entity[] = [];
+    const roads: NodeId[][] = [];
+    for (let i = 0; i < 10; i++) {
+      const [hx, hy] = node();
+      posts.push(
+        createSignpost(sim.world, terrain, terrain.nodeAt(hx, hy), i % 3 === 0 ? 1 : 0, sim.content),
+      );
+    }
+    signpostLinksSystem(sim.world, ctxOf(sim));
+    let openedByGroups = 0;
+    for (let round = 0; round < ROUNDS; round++) {
+      const change = random(6);
+      if (change <= 2 || blockers.length === 0) {
+        const [hx, hy] = node();
+        blockers.push(
+          blockNodes(
+            sim,
+            hx,
+            hy,
+            Array.from({ length: BLOCKER_CELLS }, () => ({ dx: random(5) - 2, dy: random(5) - 2 })),
+          ),
+        );
+      } else if (change === 3) {
+        sim.world.destroy(blockers.splice(random(blockers.length), 1)[0] as Entity);
+      } else if (change === 4) {
+        const [hx, hy] = node();
+        const road = Array.from({ length: ROAD_LENGTH }, (_, i) =>
+          terrain.nodeAt(hx, Math.min(HEIGHT - 1, hy + i)),
+        );
+        if (roads.length > 0 && random(2) === 0) liftRoad(sim.world, terrain, roads.pop() ?? []);
+        else {
+          layRoad(sim.world, terrain, road);
+          roads.push(road);
+        }
+      } else if (posts.length > 4 && random(2) === 0) {
+        razeSignpost(sim.world, posts.splice(random(posts.length), 1)[0] as Entity);
+      } else {
+        const [hx, hy] = node();
+        posts.push(createSignpost(sim.world, terrain, terrain.nodeAt(hx, hy), random(2), sim.content));
+      }
+      if (random(2) === 0) signpostLinksSystem(sim.world, ctxOf(sim));
+      for (let s = 0; s < SPOTS_PER_ROUND; s++) {
+        const [hx, hy] = node();
+        const player = random(2);
+        const limit = goodsSearchLimitAt(sim.world, sim.content, terrain, player, hx, hy);
+        if (limit === null) throw new Error('signpost navigation is on');
+        const rule = eagerAllows(sim, terrain, player, hx, hy);
+        for (let n = 0; n < NODES_PER_SPOT; n++) {
+          // Half the nodes around a post, where group coverage decides.
+          const post = posts[random(posts.length)] as Entity;
+          const at = sim.world.get(post, Position);
+          const x =
+            n % 2 === 0
+              ? random(WIDTH)
+              : Math.max(0, Math.min(WIDTH - 1, nodeHxOfPosition(at.x, at.y) + random(2 * RANGE) - RANGE));
+          const y =
+            n % 2 === 0
+              ? random(HEIGHT)
+              : Math.max(0, Math.min(HEIGHT - 1, nodeHyOfPosition(at.y) + random(2 * RANGE) - RANGE));
+          const expected = rule(x, y);
+          expect(
+            limit.allowsNode(terrain.nodeAt(x, y)),
+            `round ${round}: (${x}, ${y}) from (${hx}, ${hy})`,
+          ).toBe(expected);
+          if (expected && hexDistanceBetween(hx, hy, x, y) >= RANGE) openedByGroups++;
+        }
+      }
+    }
+    expect(openedByGroups).toBeGreaterThan(0);
   });
 });
 

@@ -1,5 +1,6 @@
 import type { ContentSet } from '@open-northland/data';
 import {
+  AiControl,
   DeliveryFlag,
   Owner,
   ownerOf,
@@ -11,7 +12,14 @@ import {
 import { indexAboveId, insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import type { ShelterSites } from '../../defence/index.js';
-import { beatKeyOf, IDLE_REPLAN_PERIOD_TICKS, idleBeatOf } from './idle-replan.js';
+import {
+  beatKeyOf,
+  COMPUTER_IDLE_REPLAN_PERIOD_TICKS,
+  IDLE_REPLAN_PERIOD_TICKS,
+  idleBeatOf,
+  idleBeatOfTick,
+  idleReplanPeriodOf,
+} from './idle-replan.js';
 import {
   type IdleRelease,
   idleRelease,
@@ -24,21 +32,32 @@ import {
 
 const byId = (e: Entity): number => e;
 
+/** The idle beats of both cadences as one index space: a human seat's beats, then a computer seat's. */
+const IDLE_SLOTS = IDLE_REPLAN_PERIOD_TICKS + COMPUTER_IDLE_REPLAN_PERIOD_TICKS;
+
+/** The slot idle `e` is filed on: its seat's period and the beat of {@link beatKeyOf} within it. */
+function idleSlotOf(world: World, e: Entity): number {
+  const period = idleReplanPeriodOf(world, e);
+  const beat = idleBeatOf(beatKeyOf(world, e), period);
+  return period === IDLE_REPLAN_PERIOD_TICKS ? beat : IDLE_REPLAN_PERIOD_TICKS + beat;
+}
+
 /**
  * The positioned settlers split by what their planner visit may do, each list in ascending id:
  * `acting` holds every one {@link idleRelease} does not pass by, wildlife included since the release
  * is the only failed-route recovery a parked creature has; `travellingByOwner` holds the quiet walkers
  * only an alarm can divert, by owner; `idle` holds the idlers whose visit does something only on their
- * re-plan beat, alarm or cut-off check, also split by the beat of {@link beatKeyOf} and by owner. The
+ * re-plan beat, alarm or cut-off check, also split by {@link idleSlotOf} and by owner. The
  * owner split lets an alarm scan only its owner's settlers. Kept across ticks per world from a change feed,
- * which also watches the flags of the yard routes passed by, since losing one makes its walkers act.
+ * which also watches the flags of the yard routes passed by, since losing one makes its walkers act, and
+ * rebuilt when the seats' machine identity moves, which picks each idler's period.
  */
 class SweepCandidates {
   private readonly acting: Entity[] = [];
   private readonly travellingByOwner = new Map<number, Entity[]>();
   private readonly idle: Entity[] = [];
   private readonly idleByOwner = new Map<number, Entity[]>();
-  private readonly idleByBeat: Entity[][] = Array.from({ length: IDLE_REPLAN_PERIOD_TICKS }, () => []);
+  private readonly idleBySlot: Entity[][] = Array.from({ length: IDLE_SLOTS }, () => []);
   /** How each positioned settler is filed, so a change that leaves its release, beat and owner as they
    *  were edits no list, and a re-owned or re-beaten one leaves its old lists. */
   private readonly filed = new Map<Entity, Filing>();
@@ -51,6 +70,9 @@ class SweepCandidates {
   private edits = 0;
   private readonly actingAt = new ForwardIndex();
   private readonly idleAt = new ForwardIndex();
+  private readonly computerIdleAt = new ForwardIndex();
+  private aiControlGeneration = -1;
+  private aiControlValueGeneration = -1;
 
   constructor(private readonly world: World) {
     this.feed = world.watchChanges(
@@ -62,8 +84,8 @@ class SweepCandidates {
 
   /**
    * The first settler above `cursor` to visit, caught up first, so one another's plan woke earlier in
-   * this pass is still reached in id order. An idler counts on `beat`, or on every beat when that is
-   * undefined. With `shelters` on alarm a quiet walker or an idler of an alarmed owner counts too when
+   * this pass is still reached in id order. An idler counts when it is due on `idleTick`, or on every
+   * tick when that is undefined. With `shelters` on alarm a quiet walker or an idler of an alarmed owner counts too when
    * {@link takesCoverFrom} holds and it has no shelter yet, a walker only while its owner has a place
    * left; each is looked at about once per pass, since a scan stops at the next settler already chosen.
    */
@@ -71,13 +93,14 @@ class SweepCandidates {
     cursor: number,
     content: ContentSet,
     shelters: ShelterSites,
-    beat: number | undefined,
+    idleTick: number | undefined,
   ): Entity | undefined {
     this.catchUp();
-    const idlers = beat === undefined ? this.idle : this.idlersOn(beat);
     let next = earlier(
       this.acting[this.actingAt.above(this.acting, cursor, this.edits)],
-      idlers[this.idleAt.above(idlers, cursor, this.edits)],
+      idleTick === undefined
+        ? this.idle[this.idleAt.above(this.idle, cursor, this.edits)]
+        : this.firstIdlerDue(cursor, idleTick),
     );
     if (shelters.size === 0) return next;
     for (const owner of shelters.keys()) {
@@ -85,7 +108,7 @@ class SweepCandidates {
       if (shelterHasRoom(shelters, owner)) {
         next = this.firstTakingCover(this.travellingByOwner.get(owner), cursor, next, content, shelters);
       }
-      if (beat !== undefined) {
+      if (idleTick !== undefined) {
         next = this.firstTakingCover(this.idleByOwner.get(owner), cursor, next, content, shelters);
       }
     }
@@ -111,14 +134,34 @@ class SweepCandidates {
     return bound;
   }
 
+  /** The first idler above `cursor` due on `idleTick`, of either cadence. */
+  private firstIdlerDue(cursor: number, idleTick: number): Entity | undefined {
+    const human = this.idlersOn(idleBeatOfTick(idleTick, IDLE_REPLAN_PERIOD_TICKS));
+    const computer = this.idlersOn(
+      IDLE_REPLAN_PERIOD_TICKS + idleBeatOfTick(idleTick, COMPUTER_IDLE_REPLAN_PERIOD_TICKS),
+    );
+    return earlier(
+      human[this.idleAt.above(human, cursor, this.edits)],
+      computer[this.computerIdleAt.above(computer, cursor, this.edits)],
+    );
+  }
+
   private catchUp(): void {
+    if (
+      this.world.componentGeneration(AiControl) !== this.aiControlGeneration ||
+      this.world.componentValueGeneration(AiControl) !== this.aiControlValueGeneration
+    ) {
+      if (this.feed.pending) this.feed.drain(() => {});
+      this.rebuild();
+      return;
+    }
     if (this.feed.pending && this.feed.drain(this.refreshEntity)) this.rebuild();
   }
 
   private refresh(e: Entity): void {
     const positioned = this.world.has(e, Settler) && this.world.has(e, Position);
     const release = positioned ? idleRelease(this.world, e) : undefined;
-    const beat = release === 'idle' ? idleBeatOf(beatKeyOf(this.world, e)) : undefined;
+    const beat = release === 'idle' ? idleSlotOf(this.world, e) : undefined;
     const owner = release === 'travelling' || release === 'idle' ? ownerOf(this.world, e) : undefined;
     const routeFlag = routeFlagOf(this.world, e, release);
     const filing = this.filed.get(e);
@@ -187,19 +230,21 @@ class SweepCandidates {
 
   private rebuild(): void {
     this.edits++;
+    this.aiControlGeneration = this.world.componentGeneration(AiControl);
+    this.aiControlValueGeneration = this.world.componentValueGeneration(AiControl);
     this.acting.length = 0;
     this.idle.length = 0;
     this.travellingByOwner.clear();
     this.idleByOwner.clear();
     this.filed.clear();
     this.routedTo.clear();
-    for (const beat of this.idleByBeat) beat.length = 0;
+    for (const slot of this.idleBySlot) slot.length = 0;
     for (const e of this.world.canonicalQuery(Settler, Position)) {
       const release = idleRelease(this.world, e);
       let beat: number | undefined;
       if (release === null) this.acting.push(e);
       else if (release === 'idle') {
-        beat = idleBeatOf(beatKeyOf(this.world, e));
+        beat = idleSlotOf(this.world, e);
         this.idle.push(e);
         this.idlersOn(beat).push(e);
       }
@@ -211,9 +256,9 @@ class SweepCandidates {
     }
   }
 
-  private idlersOn(beat: number): Entity[] {
-    const idlers = this.idleByBeat[beat];
-    if (idlers === undefined) throw new Error(`plannerSweep: no idle beat ${beat}`);
+  private idlersOn(slot: number): Entity[] {
+    const idlers = this.idleBySlot[slot];
+    if (idlers === undefined) throw new Error(`plannerSweep: no idle slot ${slot}`);
     return idlers;
   }
 
@@ -231,10 +276,10 @@ class SweepCandidates {
     if (!sameIds(acting, this.acting))
       problems.push('plannerSweep acting settlers diverge from a fresh scan');
     if (!sameIds(idle, this.idle)) problems.push('plannerSweep idlers diverge from a fresh scan');
-    this.idleByBeat.forEach((ids, beat) => {
-      const fresh = idle.filter((e) => idleBeatOf(beatKeyOf(this.world, e)) === beat);
+    this.idleBySlot.forEach((ids, slot) => {
+      const fresh = idle.filter((e) => idleSlotOf(this.world, e) === slot);
       if (!sameIds(fresh, ids))
-        problems.push(`plannerSweep idlers on beat ${beat} diverge from a fresh scan`);
+        problems.push(`plannerSweep idlers on slot ${slot} diverge from a fresh scan`);
     });
     const byOwner = (release: IdleRelease): Map<number, Entity[]> => {
       const lists = new Map<number, Entity[]>();
@@ -286,7 +331,7 @@ function earlier(a: Entity | undefined, b: Entity | undefined): Entity | undefin
   return b === undefined || a < b ? a : b;
 }
 
-/** Where {@link SweepCandidates} files one positioned settler: its release, and its idle beat and
+/** Where {@link SweepCandidates} files one positioned settler: its release, and its idle slot and
  *  owner where its release files it by them, and the flag of a yard route it is passed by with. */
 interface Filing {
   release: IdleRelease | null;
@@ -326,7 +371,7 @@ const candidates = new WeakMap<World, SweepCandidates>();
 
 /**
  * The settlers the planner sweep visits this pass, in ascending id, read live between visits: the
- * ones whose {@link releaseStaleIntent} may change something, and the idlers due on `idleBeat`, or all
+ * ones whose {@link releaseStaleIntent} may change something, and the idlers due on `idleTick`, or all
  * of them when that is undefined. The pass's claim maps hand out targets first come, first served, so
  * this order decides who wins. Only settlers positioned when the sweep starts take part; a settler
  * never loses either component while alive, so one created mid-pass is the only newcomer.
@@ -335,7 +380,7 @@ export function sweepOrder(
   world: World,
   content: ContentSet,
   shelters: ShelterSites,
-  idleBeat: number | undefined,
+  idleTick: number | undefined,
 ): PlannerSweep {
   let held = candidates.get(world);
   if (held === undefined) {
@@ -344,7 +389,7 @@ export function sweepOrder(
     candidates.set(world, created);
     held = created;
   }
-  return new PlannerSweep(held, content, shelters, idleBeat, world.nextEntityId);
+  return new PlannerSweep(held, content, shelters, idleTick, world.nextEntityId);
 }
 
 /** A cursor over {@link sweepOrder}'s settlers: a pass asks for the next one after each visit, so the
@@ -357,14 +402,14 @@ export class PlannerSweep {
     private readonly held: SweepCandidates,
     private readonly content: ContentSet,
     private readonly shelters: ShelterSites,
-    private readonly idleBeat: number | undefined,
+    private readonly idleTick: number | undefined,
     private readonly createdMidPass: number,
   ) {}
 
   /** The next settler to visit, or undefined once the sweep is over. */
   next(): Entity | undefined {
     if (this.done) return undefined;
-    const e = this.held.after(this.cursor, this.content, this.shelters, this.idleBeat);
+    const e = this.held.after(this.cursor, this.content, this.shelters, this.idleTick);
     if (e === undefined || e >= this.createdMidPass) {
       this.done = true;
       return undefined;

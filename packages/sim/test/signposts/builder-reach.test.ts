@@ -4,7 +4,7 @@ import type { Entity } from '../../src/ecs/world.js';
 import { fx, Simulation } from '../../src/index.js';
 import { dropGroundPile } from '../../src/systems/settlers/atomics/effects/goods/piles.js';
 import { CUT_OFF_CHECK_TICKS } from '../../src/systems/settlers/drives/cut-off.js';
-import { idleReplanDue } from '../../src/systems/settlers/planner/idle-replan.js';
+import { IDLE_REPLAN_PERIOD_TICKS, idleReplanDue } from '../../src/systems/settlers/planner/idle-replan.js';
 import {
   builderAt,
   builtBuildingAt,
@@ -205,7 +205,7 @@ describe('a builder whose signposts reach its work', () => {
     // A site placed just before a check that falls between its idle beats is in reach, so that check,
     // which runs with no site pick of its own, must not read it as beyond.
     const checkOffBeat = (tick: number): boolean =>
-      tick % CUT_OFF_CHECK_TICKS === 0 && !idleReplanDue(tick, builder);
+      tick % CUT_OFF_CHECK_TICKS === 0 && !idleReplanDue(tick, builder, IDLE_REPLAN_PERIOD_TICKS);
     for (let t = 0; t < 2 * CUT_OFF_CHECK_TICKS && !checkOffBeat(sim.tick + 1); t++) sim.step();
     expect(checkOffBeat(sim.tick + 1)).toBe(true);
     placeSite(sim, ISLAND_SITE_X);

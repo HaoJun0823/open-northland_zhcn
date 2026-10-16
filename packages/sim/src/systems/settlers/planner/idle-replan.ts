@@ -1,4 +1,15 @@
-import { IdleStand, Resting } from '../../../components/index.js';
+import {
+  chatHoldsSettler,
+  Engagement,
+  FamilyDuty,
+  Fleeing,
+  IdleStand,
+  isMachinePlayer,
+  ownerOf,
+  PlayerOrder,
+  Resting,
+  Wedding,
+} from '../../../components/index.js';
 import { TICKS_PER_SECOND } from '../../../core/loop.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { assignedWorkers } from '../../stores/assigned-workers.js';
@@ -11,9 +22,36 @@ import { assignedWorkers } from '../../stores/assigned-workers.js';
  */
 export const IDLE_REPLAN_PERIOD_TICKS = 2 * TICKS_PER_SECOND;
 
-/** Whether `tick` is one on which idle `e` re-plans. */
-export function idleReplanDue(tick: number, e: Entity): boolean {
-  return (tick + e) % IDLE_REPLAN_PERIOD_TICKS === 0;
+/** {@link IDLE_REPLAN_PERIOD_TICKS} for the adults of a computer seat, which also wait out an economy hold
+ *  on this beat. A deliberate cost cut, not fidelity: a computer settler takes up new work, or answers a
+ *  need under a hold, up to this late, which buys planner time on maps crowded with computer seats. */
+export const COMPUTER_IDLE_REPLAN_PERIOD_TICKS = 8 * TICKS_PER_SECOND;
+
+/** The idle re-plan period of `e`'s seat: the computer one when its owner is a machine player. */
+export function idleReplanPeriodOf(world: World, e: Entity): number {
+  const owner = ownerOf(world, e);
+  return owner !== undefined && isMachinePlayer(world, owner)
+    ? COMPUTER_IDLE_REPLAN_PERIOD_TICKS
+    : IDLE_REPLAN_PERIOD_TICKS;
+}
+
+/** Whether `e`, held off the economy, waits its hold out on its idle beat instead of re-planning every
+ *  tick: a computer seat's settler held only by a family duty or a company chat. The duty's and the
+ *  chat's own systems still walk it, and a walk or clip they give it wakes it on its next visit. */
+export function waitsHoldOnBeat(world: World, e: Entity): boolean {
+  return (
+    idleReplanPeriodOf(world, e) === COMPUTER_IDLE_REPLAN_PERIOD_TICKS &&
+    (world.has(e, FamilyDuty) || chatHoldsSettler(world, e)) &&
+    !world.has(e, Engagement) &&
+    !world.has(e, Fleeing) &&
+    !world.has(e, PlayerOrder) &&
+    !world.has(e, Wedding)
+  );
+}
+
+/** Whether `tick` is one on which an idler keyed on `key` re-plans under `period`. */
+export function idleReplanDue(tick: number, key: Entity, period: number): boolean {
+  return (tick + key) % period === 0;
 }
 
 /** The entity whose beat idle `e` re-plans on: the building it waits inside, so a workshop's crew
@@ -22,20 +60,20 @@ export function beatKeyOf(world: World, e: Entity): Entity {
   return world.tryGet(e, Resting)?.at ?? e;
 }
 
-/** The beat of the idle period `e` re-plans on: {@link idleReplanDue} holds on the ticks whose
- *  {@link idleBeatOfTick} is this. */
-export function idleBeatOf(e: Entity): number {
-  return e % IDLE_REPLAN_PERIOD_TICKS;
+/** The beat of `period` an idler keyed on `key` re-plans on: {@link idleReplanDue} holds on the ticks
+ *  whose {@link idleBeatOfTick} is this. */
+export function idleBeatOf(key: Entity, period: number): number {
+  return key % period;
 }
 
-export function idleBeatOfTick(tick: number): number {
-  return (IDLE_REPLAN_PERIOD_TICKS - (tick % IDLE_REPLAN_PERIOD_TICKS)) % IDLE_REPLAN_PERIOD_TICKS;
+export function idleBeatOfTick(tick: number, period: number): number {
+  return (period - (tick % period)) % period;
 }
 
 /** Whether idle `e` skips its full ladder on `tick`. An alarm does not shorten the wait: between beats
  *  the sweep still visits an idler its owner's shelters may draw, for the shelter rung. */
 export function waitsIdle(world: World, tick: number, e: Entity): boolean {
-  return world.has(e, IdleStand) && !idleReplanDue(tick, beatKeyOf(world, e));
+  return world.has(e, IdleStand) && !idleReplanDue(tick, beatKeyOf(world, e), idleReplanPeriodOf(world, e));
 }
 
 /** End `e`'s idle wait, so it re-plans on the next pass: something moved it, or an order or errand

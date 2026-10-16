@@ -495,7 +495,7 @@ describe('gossip chat rounds (GossipSystem)', () => {
     expect(sim.world.get(a, CurrentAtomic).atomicId).toBe(TALK);
 
     treeAt(sim, 6, 0);
-    plannerSystem(sim.world, { ...ctxOf(sim), tick: idleReplanTick(a, sim.tick) });
+    plannerSystem(sim.world, { ...ctxOf(sim), tick: idleReplanTick(sim.world, a, sim.tick) });
 
     // The first half planned walks off to the tree in this very pass, dropping its clip mid-round, and
     // the other half is freed with the chat rather than left listening into the air.
@@ -564,7 +564,7 @@ describe('gossip chat rounds (GossipSystem)', () => {
 
     sim.world.add(a, NeedOrder, { need: 'enjoyment' });
     treeAt(sim, 6, 0);
-    plannerSystem(sim.world, { ...ctxOf(sim), tick: idleReplanTick(a, sim.tick) });
+    plannerSystem(sim.world, { ...ctxOf(sim), tick: idleReplanTick(sim.world, a, sim.tick) });
 
     expect(sim.world.get(a, Chat)).toMatchObject({ partner: b, kind: 'company' });
     expect(sim.world.get(b, Chat)).toMatchObject({ partner: a, kind: 'company' });

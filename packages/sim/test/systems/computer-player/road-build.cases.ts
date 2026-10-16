@@ -44,8 +44,9 @@ import { layRoad, roadNodeCount, roadNodes } from '../../../src/systems/roads/in
 import { roadSitesByNode } from '../../../src/systems/roads/site-index.js';
 import { placeRoadSite } from '../../../src/systems/roads/sites.js';
 import {
-  IDLE_REPLAN_PERIOD_TICKS,
+  COMPUTER_IDLE_REPLAN_PERIOD_TICKS,
   idleReplanDue,
+  idleReplanPeriodOf,
 } from '../../../src/systems/settlers/planner/idle-replan.js';
 import { aiContent } from '../../fixtures/ai-content.js';
 import {
@@ -300,7 +301,7 @@ describe('road build module (roadBuild)', () => {
     // Finished building approaches no longer hold the builders up: the first one whose idle beat
     // comes claims this site through his ordinary builder drive, so AI must not post another over him.
     const holder = (): Entity | undefined => sim.world.get(newSite, RoadSite).reservation?.builder;
-    for (let i = 0; i < IDLE_REPLAN_PERIOD_TICKS && holder() === undefined; i++) sim.step();
+    for (let i = 0; i < COMPUTER_IDLE_REPLAN_PERIOD_TICKS && holder() === undefined; i++) sim.step();
     const builder = holder();
     if (builder === undefined) throw new Error('no builder claimed the new road site within an idle period');
     expect(sim.world.get(builder, SiteAssignment).site).toBe(newSite);
@@ -315,8 +316,10 @@ describe('road build module (roadBuild)', () => {
     // when it sees the work before an ordinary builder claims it. The post applies on a tick no idle
     // builder re-plans on, since one on its beat claims the site before a higher-id roadster is visited.
     const beatDue = (): boolean =>
-      [...sim.world.query(Settler, IdleStand)].some((e) => idleReplanDue(sim.tick + 1, e));
-    for (let i = 0; i < IDLE_REPLAN_PERIOD_TICKS && beatDue(); i++) sim.step();
+      [...sim.world.query(Settler, IdleStand)].some((e) =>
+        idleReplanDue(sim.tick + 1, e, idleReplanPeriodOf(sim.world, e)),
+      );
+    for (let i = 0; i < COMPUTER_IDLE_REPLAN_PERIOD_TICKS && beatDue(); i++) sim.step();
     const openNode = terrain.nodeAt(FIRST_SITE_X + SITE_SPACING, SITE_ROW);
     placeRoadSite(sim.world, ctxOf(sim, sim.tick), {
       kind: 'placeRoadSite',

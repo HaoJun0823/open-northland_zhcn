@@ -37,16 +37,13 @@ import { positionOfNode, Simulation } from '../../src/index.js';
 import type { NodeId } from '../../src/nav/terrain/index.js';
 import type { ShelterSites } from '../../src/systems/defence/index.js';
 import { collectFarmClaims } from '../../src/systems/settlers/drives/farming/index.js';
-import {
-  IDLE_REPLAN_PERIOD_TICKS,
-  idleBeatOf,
-  wakeIdle,
-} from '../../src/systems/settlers/planner/idle-replan.js';
+import { IDLE_REPLAN_PERIOD_TICKS, wakeIdle } from '../../src/systems/settlers/planner/idle-replan.js';
 import { idleRelease, releaseStaleIntent } from '../../src/systems/settlers/planner/replan.js';
 import { sweepOrder } from '../../src/systems/settlers/planner/sweep.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
+import { idleReplanTick } from '../fixtures/idle-replan.js';
 import { settlerAt } from '../fixtures/settler.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 
@@ -73,7 +70,7 @@ function alarmWithRoom(free: number): ShelterSites {
   return new Map([[ALARMED, [{ entity: 0 as Entity, hx: 0, hy: 0, free }]]]);
 }
 
-/** The sweep's idle beat that lets every idler through. */
+/** The sweep's idle tick that lets every idler through. */
 const EVERY_IDLER = undefined;
 
 function atomic(effect: CurrentAtomicState['effect'], atomicId: number): CurrentAtomicState {
@@ -249,8 +246,8 @@ describe('planner sweep order', () => {
     if (first === undefined || second === undefined || third === undefined || last === undefined) {
       throw new Error('too few idlers');
     }
-    const beat = idleBeatOf(first);
-    const sweep = (shelters: ShelterSites): Entity[] => swept(world, CONTENT, shelters, beat);
+    const due = idleReplanTick(world, first, 0);
+    const sweep = (shelters: ShelterSites): Entity[] => swept(world, CONTENT, shelters, due);
     expect(sweep(NO_SHELTERS)).toEqual([first, last]);
     expect(swept(world, CONTENT, NO_SHELTERS, EVERY_IDLER)).toEqual(idlers);
 
@@ -271,7 +268,7 @@ describe('the beat an idler waits inside a building on', () => {
     const crafter = idler(world);
     world.add(crafter, JobAssignment, { workplace });
     world.add(crafter, Resting, { at: workplace });
-    const onBeat = (e: Entity): Entity[] => swept(world, CONTENT, NO_SHELTERS, idleBeatOf(e));
+    const onBeat = (e: Entity): Entity[] => swept(world, CONTENT, NO_SHELTERS, idleReplanTick(world, e, 0));
     expect(onBeat(workplace)).toEqual([crafter]);
     expect(onBeat(crafter)).toEqual([]);
 

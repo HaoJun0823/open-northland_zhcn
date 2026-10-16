@@ -38,7 +38,7 @@ import { jobCanBuild } from '../atomics/start.js';
 import { isInside, stepOut } from '../indoors.js';
 import { forgetWorkTried, noteWorkTaken } from '../lost-way.js';
 import type { PlannerContext } from '../planner/context.js';
-import { IDLE_REPLAN_PERIOD_TICKS } from '../planner/idle-replan.js';
+import { idleReplanPeriodOf, waitsHoldOnBeat } from '../planner/idle-replan.js';
 import type { PlannerPass } from '../planner/pass.js';
 import { combatOwnsFeet } from '../planner/replan.js';
 import { boundWorkplaceTarget } from '../targets/index.js';
@@ -219,7 +219,10 @@ export function planAdult(pass: PlannerPass, e: Entity, settler: SettlerView, jo
   // Ownership gate, below the needs drives on purpose: hunger, fatigue and piety are soft overrides that
   // still pull the unit away, so a marrying or child-making settler still eats. Engagement is the one
   // member that never gets here, having been answered in place above.
-  if (heldOffEconomy(world, e)) return;
+  if (heldOffEconomy(world, e)) {
+    if (waitsHoldOnBeat(world, e)) pass.idle.stand(e, false);
+    return;
+  }
 
   const plan = plannerContextOf(pass, e, settler, jobType, here, limit);
 
@@ -424,7 +427,17 @@ function standIdle(
   if (!lost && planGraduateWait(world, ctx, terrain, e, plan.here, pass.spacing, plan.limit)) return;
   if (!lost && stepOffHomeDoor(world, ctx, terrain, e, plan.here, pass.spacing)) return;
   if (lost || !deStackIdle(world, terrain, e, hx, hy, pass.spacing)) {
-    planGossipIdle(world, ctx, e, settler, hx, hy, pass.gossipCandidates, IDLE_REPLAN_PERIOD_TICKS, alert);
+    planGossipIdle(
+      world,
+      ctx,
+      e,
+      settler,
+      hx,
+      hy,
+      pass.gossipCandidates,
+      idleReplanPeriodOf(world, e),
+      alert,
+    );
   }
 }
 

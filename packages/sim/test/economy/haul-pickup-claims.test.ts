@@ -32,7 +32,7 @@ function claimOf(sim: Simulation, e: Entity): Entity | undefined {
 
 /** One planner pass on `e`'s idle re-plan tick, so a settler that found nothing before re-plans now. */
 function planDue(sim: Simulation, e: Entity): void {
-  plannerSystem(sim.world, { ...ctxOf(sim), tick: idleReplanTick(e, sim.tick) });
+  plannerSystem(sim.world, { ...ctxOf(sim), tick: idleReplanTick(sim.world, e, sim.tick) });
 }
 
 describe('porters claiming loose ground piles', () => {

@@ -83,7 +83,7 @@ function idlePasses(sim: Simulation, n = 3): void {
 /** One planner pass on the porter's idle re-plan tick, so it reaches the porter rung rather than
  *  waiting out its idle period. */
 function planDue(sim: Simulation, porter: Entity, from = sim.tick): void {
-  plannerSystem(sim.world, { ...ctxOf(sim), tick: idleReplanTick(porter, from) });
+  plannerSystem(sim.world, { ...ctxOf(sim), tick: idleReplanTick(sim.world, porter, from) });
 }
 
 /** The terrain node at cell (x, y)'s anchor - throws when the sim has no map. */

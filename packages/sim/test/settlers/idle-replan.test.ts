@@ -1,25 +1,32 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  AiControl,
+  COMPUTER_MODULE_IDS,
+  computerModuleEnables,
   DeliveryFlag,
+  FamilyDuty,
   IdleStand,
   MoveGoal,
   NeedOrder,
   Owner,
   Position,
   Resource,
+  Resting,
   WorkFlag,
 } from '../../src/components/index.js';
 import { type Entity, World } from '../../src/ecs/world.js';
 import { positionOfNode, Simulation } from '../../src/index.js';
-import { anchorOnlyFootprint, stampResourceFootprintData } from '../../src/systems/index.js';
+import { anchorOnlyFootprint, plannerSystem, stampResourceFootprintData } from '../../src/systems/index.js';
 import * as ladder from '../../src/systems/settlers/drives/ladder.js';
 import {
+  COMPUTER_IDLE_REPLAN_PERIOD_TICKS,
   IDLE_REPLAN_PERIOD_TICKS,
   idleBeatOf,
   idleBeatOfTick,
   idleReplanDue,
 } from '../../src/systems/settlers/planner/idle-replan.js';
 import { testContent } from '../fixtures/content.js';
+import { ctxOf } from '../fixtures/context.js';
 import { settlerAt } from '../fixtures/settler.js';
 import { grassNodeMap } from '../fixtures/terrain.js';
 
@@ -30,6 +37,8 @@ import { grassNodeMap } from '../fixtures/terrain.js';
 
 const VIKING = 1;
 const P0 = 0;
+const HUMAN = IDLE_REPLAN_PERIOD_TICKS;
+const COMPUTER = COMPUTER_IDLE_REPLAN_PERIOD_TICKS;
 const WOODCUTTER = 1; // harvest atomic 24
 const WOOD = 1;
 const CHOP = 24;
@@ -47,6 +56,17 @@ function woodcutterAt(sim: Simulation, hx: number, hy: number): Entity {
   const e = settlerAt(sim, { jobType: WOODCUTTER, tribe: VIKING, position: positionOfNode(hx, hy) });
   sim.world.add(e, Owner, { player: P0 });
   return e;
+}
+
+/** Make `P0` a computer seat, with no module running so nothing but the planner touches its settlers. */
+function computerSeat(sim: Simulation): void {
+  sim.world.add(sim.world.create(), AiControl, {
+    player: P0,
+    modules: computerModuleEnables(Object.fromEntries(COMPUTER_MODULE_IDS.map((id) => [id, false]))),
+    computerEnabled: false,
+    mapAiEnabled: false,
+    difficulty: 'hard',
+  });
 }
 
 function treeAt(sim: Simulation, hx: number, hy: number): Entity {
@@ -75,7 +95,8 @@ describe('idle re-plan cadence', () => {
     const world = new World();
     const idlers = Array.from({ length: span }, () => world.create());
     for (let tick = 0; tick < span; tick++) {
-      for (const e of idlers) expect(idleBeatOf(e) === idleBeatOfTick(tick)).toBe(idleReplanDue(tick, e));
+      for (const e of idlers)
+        expect(idleBeatOf(e, HUMAN) === idleBeatOfTick(tick, HUMAN)).toBe(idleReplanDue(tick, e, HUMAN));
     }
   });
 
@@ -87,14 +108,14 @@ describe('idle re-plan cadence', () => {
 
     const ticks = plannedTicks(sim, idler, WATCH_TICKS);
     expect(ticks.length).toBe(WATCH_TICKS / IDLE_REPLAN_PERIOD_TICKS);
-    for (const tick of ticks) expect(idleReplanDue(tick, idler)).toBe(true);
+    for (const tick of ticks) expect(idleReplanDue(tick, idler, HUMAN)).toBe(true);
   });
 
   it('an idle settler takes up new work on its next due tick, at most one period late', () => {
     const sim = newSim();
     const idler = woodcutterAt(sim, 10, 10);
     sim.step();
-    while (!idleReplanDue(sim.tick, idler)) sim.step();
+    while (!idleReplanDue(sim.tick, idler, HUMAN)) sim.step();
     treeAt(sim, 16, 10); // just after its beat: the longest wait
 
     let waited = 0;
@@ -111,7 +132,7 @@ describe('idle re-plan cadence', () => {
     const sim = newSim();
     const idler = woodcutterAt(sim, 10, 10);
     sim.step();
-    while (idleReplanDue(sim.tick + 1, idler)) sim.step();
+    while (idleReplanDue(sim.tick + 1, idler, HUMAN)) sim.step();
 
     const orderTick = sim.tick + 1; // not its due tick
     sim.enqueueSetup({ kind: 'orderNeed', entity: idler, need: 'enjoyment' });
@@ -131,5 +152,48 @@ describe('idle re-plan cadence', () => {
 
     const ticks = plannedTicks(sim, gatherer, WATCH_TICKS);
     expect(ticks.length).toBe(WATCH_TICKS / IDLE_REPLAN_PERIOD_TICKS);
+  });
+});
+
+describe('a computer seat', () => {
+  it('re-plans an idle settler on its own, slower beat', () => {
+    const sim = newSim();
+    computerSeat(sim);
+    const idler = woodcutterAt(sim, 10, 10);
+    sim.step();
+    expect(sim.world.get(idler, IdleStand)).toEqual({ standing: true });
+
+    const watch = 2 * COMPUTER;
+    const ticks = plannedTicks(sim, idler, watch);
+    expect(ticks.length).toBe(watch / COMPUTER);
+    for (const tick of ticks) expect(idleReplanDue(tick, idler, COMPUTER)).toBe(true);
+  });
+
+  it.each([
+    ['outdoors', false],
+    ['indoors', true],
+  ])('waits a family duty out %s on its beat, where a human seat re-plans it every pass', (_, indoors) => {
+    // Planner passes run by hand, since the family system drops a duty no child order claims.
+    const heldPlans = (computer: boolean): { key: Entity; planned: number[] } => {
+      const sim = newSim();
+      if (computer) computerSeat(sim);
+      const held = woodcutterAt(sim, 10, 10);
+      sim.world.add(held, FamilyDuty, { duty: true });
+      if (indoors) sim.world.add(held, Resting, { at: sim.world.create() });
+      const spy = vi.spyOn(ladder, 'planAdult');
+      const planned: number[] = [];
+      for (let tick = 1; tick <= COMPUTER; tick++) {
+        const before = spy.mock.calls.length;
+        plannerSystem(sim.world, { ...ctxOf(sim), tick });
+        if (spy.mock.calls.length > before) planned.push(tick);
+      }
+      spy.mockRestore();
+      expect(sim.world.tryGet(held, IdleStand)).toEqual(computer ? { standing: false } : undefined);
+      return { key: sim.world.tryGet(held, Resting)?.at ?? held, planned };
+    };
+    expect(heldPlans(false).planned).toHaveLength(COMPUTER);
+    const { key, planned } = heldPlans(true);
+    expect(planned).toHaveLength(2); // the first pass, then its beat
+    expect(idleReplanDue(planned[1] ?? -1, key, COMPUTER)).toBe(true);
   });
 });

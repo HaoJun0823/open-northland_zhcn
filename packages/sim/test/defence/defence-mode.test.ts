@@ -299,7 +299,7 @@ describe('defence mode', () => {
     const farmer = settlerAt(sim, 1, 1, P1, FARMER);
     sim.step(); // no field to work: it stands idle
     expect(sim.world.has(farmer, IdleStand)).toBe(true);
-    while (idleReplanDue(sim.tick + 1, farmer)) sim.step();
+    while (idleReplanDue(sim.tick + 1, farmer, IDLE_REPLAN_PERIOD_TICKS)) sim.step();
 
     sim.enqueueSetup({ kind: 'setDefenceMode', building: tower, enabled: true });
     sim.step(); // not its re-plan tick, but the alarm outranks the wait
@@ -326,9 +326,9 @@ describe('defence mode', () => {
       if (planned.mock.calls.some((args) => args[1] === outside)) plannedTicks.push(sim.tick);
     }
     expect(plannedTicks).toHaveLength(2);
-    for (const tick of plannedTicks) expect(idleReplanDue(tick, outside)).toBe(true);
+    for (const tick of plannedTicks) expect(idleReplanDue(tick, outside, IDLE_REPLAN_PERIOD_TICKS)).toBe(true);
 
-    while (idleReplanDue(sim.tick + 1, outside) || idleReplanDue(sim.tick + 2, outside)) sim.step();
+    while (idleReplanDue(sim.tick + 1, outside, IDLE_REPLAN_PERIOD_TICKS) || idleReplanDue(sim.tick + 2, outside, IDLE_REPLAN_PERIOD_TICKS)) sim.step();
     sim.enqueueSetup({ kind: 'setJob', entity: inside, jobType: SOLDIER }); // drilled mid-alarm: released
     stepUntil(sim, 2, () => shelterOf(sim, outside) === tower);
     expect(shelterOf(sim, outside)).toBe(tower);

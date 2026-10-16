@@ -18,7 +18,7 @@ import { endChat } from '../../social/index.js';
 import { cutOffCheckDue } from '../drives/cut-off.js';
 import { checkCutOff, planAdult, planChild, plannerContextOf, planShelterRung } from '../drives/ladder.js';
 import { dispatchAssistantGrants } from './assistant-grants.js';
-import { idleBeatOfTick, waitsIdle, wakeIdle } from './idle-replan.js';
+import { waitsHoldOnBeat, waitsIdle, wakeIdle } from './idle-replan.js';
 import { navigationPlanner } from './navigation.js';
 import { beginPlannerPass } from './pass.js';
 import { dispatchRecruitArming } from './recruit-arming.js';
@@ -41,15 +41,15 @@ function atomicPlanner(world: World, ctx: SystemContext, terrain: TerrainGraph):
   dispatchRecruitArming(pass);
   dispatchAssistantGrants(pass);
   // Off its beat an idler's visit only runs the standing cut-off check, so that tick visits every idler.
-  const idleBeat = cutOffCheckDue(ctx) ? undefined : idleBeatOfTick(ctx.tick);
-  const sweep = sweepOrder(world, ctx.content, pass.shelters, idleBeat);
+  const sweep = sweepOrder(world, ctx.content, pass.shelters, cutOffCheckDue(ctx) ? undefined : ctx.tick);
   for (let e = sweep.next(); e !== undefined; e = sweep.next()) {
     const idleWait = waitsIdle(world, ctx.tick, e);
     if (idleWait && keepsWaitInside(world, ctx, pass.shelters, e)) continue;
     // Between its beats an idler runs only the shelter rung, and only when an alarm may draw it. One
     // still inside a building runs its whole ladder: an alarm draws it from its wait there, or the wait
-    // no longer holds. Read before the release, which may step it out.
-    const offBeat = idleWait && !world.has(e, Resting);
+    // no longer holds; a hold waited out on the beat keeps it inside instead. Read before the release,
+    // which may step it out.
+    const offBeat = idleWait && (!world.has(e, Resting) || waitsHoldOnBeat(world, e));
     // A busy settler plays its intent out, and is no longer idle; the rest shed what the previous plan
     // left before re-planning.
     if (!releaseStaleIntent(world, ctx, e, pass.farmClaims, pass.supply, pass.shelters)) {

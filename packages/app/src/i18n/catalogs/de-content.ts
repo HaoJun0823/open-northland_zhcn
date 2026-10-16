@@ -445,6 +445,11 @@ export const deContent = {
       summary:
         'Vier bemannte Katapulte stehen paarweise, jedes Paar auf einem Feld, und eine feindliche Hütte ist in Reichweite. Ein Katapult schießt nie aus einem anderen heraus: Jedes übereinanderstehende fährt zuerst auf einen eigenen Platz, erst dann eröffnet die Batterie das Feuer. Schicke mehrere Katapulte auf einen Punkt, um zu sehen, wie sie Abstand halten.',
     },
+    'vehicle-catapult-wall': {
+      title: 'Ein Katapult beschießt einen Ort hinter dem Wall',
+      summary:
+        'Zwei bemannte Katapulte stehen hinter der eigenen Palisade in der voreingestellten Haltung Ignorant. Das erste erhält den Befehl, eine Stelle jenseits des Walls und außerhalb seiner Reichweite zu beschießen: Es fährt auf seiner Seite an den Wall heran und schießt darüber. Das zweite wartet: Wähle es aus und befiehl Position beschießen auf die feindliche Hütte jenseits des Walls, dann rückt es näher, oder auf eine Stelle direkt vor dem Katapult selbst, dann weicht es zurück, bevor es feuert.',
+    },
     school: {
       title: 'Einen Beruf erlernen',
       summary:

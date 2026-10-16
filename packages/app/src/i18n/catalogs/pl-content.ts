@@ -441,6 +441,11 @@ export const plContent = {
       summary:
         'Cztery obsadzone katapulty stoją parami, każda para na jednym polu, a wroga chata jest w zasięgu. Katapulta nigdy nie strzela z wnętrza innej: każda ze stłoczonych najpierw odjeżdża na własne miejsce, dopiero potem bateria otwiera ogień. Wyślij kilka katapult w jeden punkt, aby zobaczyć, jak trzymają odstęp.',
     },
+    'vehicle-catapult-wall': {
+      title: 'Katapulta ostrzeliwuje miejsce za palisadą',
+      summary:
+        'Dwie obsadzone katapulty stoją za własną palisadą w domyślnej postawie Ignorowanie. Pierwsza dostaje rozkaz ostrzelania miejsca za murem, poza swoim zasięgiem: podjeżdża pod mur po swojej stronie i strzela ponad nim. Druga czeka: zaznacz ją i wydaj rozkaz Ostrzelaj miejsce na wrogą chatę za murem, a podjedzie bliżej, albo na punkt tuż przed samą katapultą, a cofnie się, zanim wystrzeli.',
+    },
     school: {
       title: 'Nauka zawodu',
       summary:

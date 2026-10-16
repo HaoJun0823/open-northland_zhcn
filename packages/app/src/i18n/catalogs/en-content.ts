@@ -443,6 +443,11 @@ export const enContent = {
       summary:
         'Four crewed catapults are set down as two pairs, each pair on one spot, with an enemy hut in range. A catapult never fires from inside another: each stacked one first drives out to a spot of its own, then the battery opens fire. Order several catapults onto one spot to watch them keep apart.',
     },
+    'vehicle-catapult-wall': {
+      title: 'A catapult shells a spot over the wall',
+      summary:
+        "Two crewed catapults stand behind the player's own palisade in the default Ignorant stance. The first is ordered to attack a position past the wall and beyond its reach: it drives up to the wall on its own side and fires over it. The second waits: select it and order Attack position on the enemy hut across the wall, and it closes in, or on a spot right in front of the catapult itself, and it backs off before it fires.",
+    },
     school: {
       title: 'Learning a profession',
       summary:

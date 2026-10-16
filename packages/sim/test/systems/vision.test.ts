@@ -282,14 +282,40 @@ describe('stampVision - the world-metric ellipse', () => {
     expect(at(6, 16)).toBe(FOG_STATE.VISIBLE); // 7 rows south = 266 px - in
     expect(at(6, 17)).toBe(FOG_STATE.UNEXPLORED); // 8 rows = 304 px - out
   });
+
+  it('writes exactly the cells the per-cell ellipse test admits, at every radius and grid edge', () => {
+    const w = 23;
+    const h = 31;
+    for (let radius = 0; radius <= 40; radius++) {
+      for (const [cx, cy] of [
+        [0, 0],
+        [11, 15],
+        [22, 30],
+        [-3, 7],
+        [25, 2],
+      ] as const) {
+        const mask = new Uint8Array(w * h);
+        stampVision(mask, w, h, cx, cy, radius, null);
+        const radiusPx = radius * 34;
+        for (let r = 0; r < h; r++) {
+          for (let c = 0; c < w; c++) {
+            const dx = (c - cx) * 68;
+            const dy = (r - cy) * 38;
+            const inside = dx * dx + dy * dy <= radiusPx * radiusPx;
+            expect(mask[r * w + c]).toBe(inside ? FOG_STATE.VISIBLE : FOG_STATE.UNEXPLORED);
+          }
+        }
+      }
+    }
+  });
 });
 
 describe('stamp memo - an eye whose footprint did not change writes nothing', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  /** Counts stamps: the stamp pass acquires the group mask once per eye it stamps. */
+  /** Counts the stamps the pass writes, memoized and repeated footprints aside. */
   function countStamps(): { readonly calls: readonly unknown[] } {
-    return vi.spyOn(FogState.prototype, 'maskFor').mock;
+    return vi.spyOn(FogState.prototype, 'stampSight').mock;
   }
 
   /** Twelve idle civilians of one player in a row, one per two cells, out of idle chat: eyes that stay
@@ -348,6 +374,24 @@ describe('stamp memo - an eye whose footprint did not change writes nothing', ()
     if (mask === undefined) throw new Error('P0 has no mask');
     mask[2 * (sim.fog?.cellsWide ?? 0) + 4] = FOG_STATE.EXPLORED; // the bug the verifier exists to catch
     expect(sim.world.verifyCaches().some((v) => v.startsWith('fog: eye'))).toBe(true);
+  });
+
+  it('eyes sharing a footprint within one pass stamp it once', () => {
+    const sim = simOn(FOG_MODE.CLASSIC_FOG_OF_WAR);
+    const fog = sim.fog;
+    if (fog === undefined) throw new Error('mapless sim');
+    const [a, b, c] = [sim.world.create(), sim.world.create(), sim.world.create()];
+    const stamps = countStamps();
+    fog.beginStampPass(false);
+    expect(fog.stampEye(a, P0, 4, 2, CIVILIAN_VISION_NODES)).toBe(true);
+    expect(fog.stampEye(b, P0, 4, 2, CIVILIAN_VISION_NODES)).toBe(false);
+    expect(fog.stampEye(c, P0, 4, 2, SCOUT_VISION_NODES)).toBe(true); // a wider eye is its own footprint
+    fog.endStampPass();
+    expect(stamps.calls.length).toBe(2);
+    expect(fog.downgradeVisible(P0)).toBe(true);
+    fog.beginStampPass(false);
+    expect(fog.stampEye(b, P0, 4, 2, CIVILIAN_VISION_NODES)).toBe(true); // a new pass stamps afresh
+    fog.endStampPass();
   });
 
   it('fog of war: every eye restamps on every rebuild, since the downgrade lowered its ground', () => {

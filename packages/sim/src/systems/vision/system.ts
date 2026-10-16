@@ -5,6 +5,7 @@ import {
   fogMode,
   fogSettings,
   isValidPlayer,
+  MAX_PLAYERS,
   metContactBits,
   Owner,
   Palisade,
@@ -109,10 +110,20 @@ const EYE_KINDS: readonly Component<unknown>[] = [Settler, Building, Vehicle];
 /** The kinds whose sighting introduces their owner: every owned kind but a signpost and a road site. */
 const MET_KINDS: readonly Component<unknown>[] = [Settler, Building, Vehicle, Palisade];
 
-/** A viewer and the players it has met, hoisted out of the contact pass. */
+/** A viewer, the players it has met and its group's mask, hoisted out of the contact pass. */
 interface ViewerBits {
   readonly viewer: number;
   bits: number;
+  readonly mask: Uint8Array | undefined;
+}
+
+/** The contact pass's viewers plus the owners some viewer other than the owner has yet to meet, so an
+ *  entity whose owner everyone has met costs one bit test. */
+interface ContactPass {
+  readonly viewers: readonly ViewerBits[];
+  readonly cellsWide: number;
+  readonly cellsHigh: number;
+  unmetOwners: number;
 }
 
 /**
@@ -158,9 +169,10 @@ export const visionSystem: System = (world, ctx) => {
   // fog of war no byte ever falls back, so the pass memoizes each eye's footprint.
   fog.beginStampPass(!settings.fogOfWar);
   // An entity of two eye kinds stamps the same footprint twice, which writes nothing new.
+  const radii = eyeRadiiOf(ctx.content);
   for (const kind of EYE_KINDS) {
     for (const e of world.query(kind, Owner, Position)) {
-      const radius = visionRadiusOf(world, ctx.content, e);
+      const radius = visionRadiusOf(world, radii, e);
       if (radius === null) continue;
       const p = world.get(e, Position);
       const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
@@ -176,13 +188,24 @@ export const visionSystem: System = (world, ctx) => {
   // are hoisted out of the loop so a saturated world pays per-pair integer tests only, and an entity of
   // two kinds visited twice meets nobody new; the list is re-read because a stamp may have allocated a group's
   // first mask.
-  const viewerBits: ViewerBits[] = fog
-    .groupsWithMasks()
-    .flatMap((group) =>
-      fog.visionGroupMembers(group).map((viewer) => ({ viewer, bits: metContactBits(world, viewer) })),
-    );
+  const viewers: ViewerBits[] = fog.groupsWithMasks().flatMap((group) =>
+    fog.visionGroupMembers(group).map((viewer) => ({
+      viewer,
+      bits: metContactBits(world, viewer),
+      mask: fog.tryMaskFor(viewer),
+    })),
+  );
+  const contacts: ContactPass = {
+    viewers,
+    cellsWide: fog.cellsWide,
+    cellsHigh: fog.cellsHigh,
+    unmetOwners: 0,
+  };
+  for (let owner = 0; owner < MAX_PLAYERS; owner++) {
+    if (!everyViewerMet(viewers, owner)) contacts.unmetOwners |= 1 << owner;
+  }
   for (const kind of MET_KINDS) {
-    for (const e of world.query(kind, Owner, Position)) meetOwnerOf(world, fog, viewerBits, e);
+    for (const e of world.query(kind, Owner, Position)) meetOwnerOf(world, contacts, e);
   }
 
   fog.activeMode = mode;
@@ -192,45 +215,95 @@ export const visionSystem: System = (world, ctx) => {
   if (changed) fog.generation++;
 };
 
+function everyViewerMet(viewers: readonly ViewerBits[], owner: number): boolean {
+  const ownerBit = 1 << owner;
+  return viewers.every((v) => v.viewer === owner || (v.bits & ownerBit) !== 0);
+}
+
 /** Record every viewer that has explored the cell under `e` as having met its owner. */
-function meetOwnerOf(world: World, fog: FogState, viewerBits: readonly ViewerBits[], e: Entity): void {
+function meetOwnerOf(world: World, contacts: ContactPass, e: Entity): void {
   const owner = world.get(e, Owner).player;
   if (!isValidPlayer(owner)) return; // never meetable - skip before any per-entity work
   const ownerBit = 1 << owner;
-  if (viewerBits.every((v) => v.viewer === owner || (v.bits & ownerBit) !== 0)) return;
+  if ((contacts.unmetOwners & ownerBit) === 0) return;
   const p = world.get(e, Position);
   const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
-  for (const v of viewerBits) {
+  const { cellsWide, cellsHigh } = contacts;
+  if (cx < 0 || cy < 0 || cx >= cellsWide || cy >= cellsHigh) return; // off-grid reads UNEXPLORED
+  const index = cy * cellsWide + cx;
+  for (const v of contacts.viewers) {
     if (v.viewer === owner || (v.bits & ownerBit) !== 0) continue;
-    if (fog.stateAt(v.viewer, cx, cy) >= FOG_STATE.EXPLORED) {
+    // Any byte but UNEXPLORED is at least explored, a revealed one included.
+    if (v.mask !== undefined && v.mask[index] !== FOG_STATE.UNEXPLORED) {
       recordContact(world, v.viewer, owner);
       v.bits |= ownerBit;
     }
   }
+  if (everyViewerMet(contacts.viewers, owner)) contacts.unmetOwners &= ~ownerBit;
+}
+
+/** The per-content lookups behind {@link visionRadiusOf}, so an eye costs a map read, not a content
+ *  walk. */
+interface EyeRadii {
+  readonly content: ContentSet;
+  readonly jobs: Map<number | null, number>;
+  readonly buildings: Map<number, number>;
+  readonly vehicles: Map<number, number>;
+}
+
+const eyeRadiiCache = new WeakMap<ContentSet, EyeRadii>();
+
+function eyeRadiiOf(content: ContentSet): EyeRadii {
+  let radii = eyeRadiiCache.get(content);
+  if (radii === undefined) {
+    radii = { content, jobs: new Map(), buildings: new Map(), vehicles: new Map() };
+    eyeRadiiCache.set(content, radii);
+  }
+  return radii;
 }
 
 /** The vision radius in nodes of one owned entity, or null when it is not an eye. A construction site
  *  sees nothing until it stands (original behavior), while a building under upgrade keeps its sight. */
-function visionRadiusOf(world: World, content: ContentSet, e: Entity): number | null {
+function visionRadiusOf(world: World, radii: EyeRadii, e: Entity): number | null {
+  const { content } = radii;
   const settler = world.tryGet(e, Settler);
   if (settler !== undefined) {
-    const base = visionRadiusForJob(content, settler.jobType);
-    return isScoutJob(content, settler.jobType)
+    const jobType = settler.jobType;
+    let base = radii.jobs.get(jobType);
+    if (base === undefined) {
+      base = visionRadiusForJob(content, jobType);
+      radii.jobs.set(jobType, base);
+    }
+    return base === SCOUT_VISION_NODES && isScoutJob(content, jobType)
       ? base + scoutVisionBonusNodes(world.get(e, SettlerProgress).experience.get(SCOUT_EXPERIENCE_TYPE) ?? 0)
       : base;
   }
   const building = world.tryGet(e, Building);
   if (building !== undefined) {
     if (world.has(e, UnderConstruction) && !world.has(e, Upgrading)) return null;
-    const type = contentIndex(content).buildings.get(building.buildingType);
-    return type?.id === HEADQUARTERS_BUILDING_ID ? HEADQUARTERS_VISION_NODES : BUILDING_VISION_NODES;
+    let radius = radii.buildings.get(building.buildingType);
+    if (radius === undefined) {
+      const type = contentIndex(content).buildings.get(building.buildingType);
+      radius = type?.id === HEADQUARTERS_BUILDING_ID ? HEADQUARTERS_VISION_NODES : BUILDING_VISION_NODES;
+      radii.buildings.set(building.buildingType, radius);
+    }
+    return radius;
   }
   const vehicle = world.tryGet(e, Vehicle);
   if (vehicle !== undefined) {
-    const type = contentIndex(content).vehicles.get(vehicle.vehicleType);
-    if (type === undefined) return CART_VISION_NODES;
-    if (isShipVehicle(type)) return SHIP_VISION_NODES;
-    return isSiegeVehicle(type) ? SIEGE_VISION_NODES : CART_VISION_NODES;
+    let radius = radii.vehicles.get(vehicle.vehicleType);
+    if (radius === undefined) {
+      radius = vehicleVisionRadius(content, vehicle.vehicleType);
+      radii.vehicles.set(vehicle.vehicleType, radius);
+    }
+    return radius;
   }
   return null;
+}
+
+function vehicleVisionRadius(content: ContentSet, vehicleType: number): number {
+  const type = contentIndex(content).vehicles.get(vehicleType);
+  if (type === undefined) return CART_VISION_NODES;
+  if (isShipVehicle(type)) return SHIP_VISION_NODES;
+  return isSiegeVehicle(type) ? SIEGE_VISION_NODES : CART_VISION_NODES;
 }

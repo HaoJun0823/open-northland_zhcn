@@ -1,10 +1,13 @@
 import type { Entity, SimEvent } from '@open-northland/sim';
-import { Container, Mesh, UniformGroup } from 'pixi.js';
+import { Container, Mesh, type Sprite, TextureSource, UniformGroup } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
+import { OVERHEAD_STEP } from '../src/data/scene/overhead-column.js';
+import type { AtlasFrame } from '../src/data/sprites/index.js';
+import { LIFE_HEART_STEPS } from '../src/data/sprites/life-heart-frames.js';
 import { NO_WATER } from '../src/data/terrain/index.js';
 import { TextureCache } from '../src/gpu/texture-cache.js';
 import { WorldMarks, type WorldMarksFrame } from '../src/gpu/world-renderer/world-marks.js';
-import { cameraViewport, makeElevationField } from '../src/index.js';
+import { cameraViewport, makeElevationField, ONE } from '../src/index.js';
 import { entity, snapshotOf } from './support/fixtures.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
@@ -121,6 +124,27 @@ describe('WorldMarks', () => {
     // Without decoded sign art the badge layer draws placeholder squares, into the depth-sorted sprite
     // layer rather than a slot of its own.
     expect(sprites.children).toHaveLength(1);
+    marks.destroy();
+  });
+
+  it('lifts an icon only by the icons under it whose art loaded', () => {
+    const { marks } = marksIn();
+    const bob: AtlasFrame = { x: 0, y: 0, width: 9, height: 9, offsetX: -4, offsetY: -8 };
+    const source = new TextureSource({ width: 9, height: 9 });
+    const at = { id: SETTLER, x: 3 * ONE, y: 4 * ONE };
+    const frame = frameOf({
+      lifeHearts: [{ ...at, colourSlot: 0, life: 1 }],
+      experienceStars: [{ ...at, weaponTier: 1, jobTier: 0 }],
+    });
+    const heartY = (): number => (marks.slots.hearts.children[0] as Sprite).y;
+    marks.setLifeHeartGfx({
+      byPlayer: [{ source, frames: Array.from({ length: LIFE_HEART_STEPS }, () => bob) }],
+    });
+    marks.draw(frame);
+    const besideUndrawnStar = heartY();
+    marks.setExperienceStarGfx({ source, frameByTier: [bob] });
+    marks.draw(frame);
+    expect(besideUndrawnStar - heartY()).toBe(OVERHEAD_STEP.weaponStar);
     marks.destroy();
   });
 

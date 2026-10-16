@@ -27,5 +27,5 @@ const WEAPON_BY_BODY: Readonly<Record<string, WeaponLayout>> = {
 
 /** The weapon layout of a look drawn on `body`, if it has one. */
 export function weaponLayout(body: string): WeaponLayout | undefined {
-  return WEAPON_BY_BODY[body];
+  return WEAPON_BY_BODY[body.replace(/_preview\d+$/, '')];
 }

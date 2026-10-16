@@ -64,7 +64,7 @@ const TEAM_BY_HEAD: Readonly<Record<string, readonly number[]>> = {
 
 /** The armor layout of a look drawn on `body` with `heads`, if it has one. */
 export function armorLayout(body: string, heads: readonly string[]): ArmorLayout | undefined {
-  const layout = ARMOR_BY_BODY[body];
+  const layout = ARMOR_BY_BODY[body.replace(/_preview\d+$/, '')];
   if (layout === undefined) return undefined;
   const headTeam = heads.flatMap((head) => TEAM_BY_HEAD[head] ?? []);
   return headTeam.length === 0 ? layout : { ...layout, team: [...new Set([...layout.team, ...headTeam])] };

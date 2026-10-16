@@ -13,9 +13,6 @@ import { standingPostGrid } from '../standing-posts.js';
 import { worldYOf } from './geometry.js';
 import type { ColliderColumns, MoverColumns, SeparationScratch } from './scratch.js';
 
-/** The census buffer's first size; it doubles whenever the walkers outgrow it. */
-const MIN_ORDER_CAPACITY = 256;
-
 /**
  * Fill this tick's mover columns and node grid, and hand over the post grid when a firm mover needs it.
  * False when nobody is walking - the dormancy exit, since nothing can overlap anything.
@@ -28,24 +25,18 @@ export function collectColliders(
 ): boolean {
   const { movers } = scratch;
   scratch.census++;
-  let walkerCount = 0;
-  for (const e of world.query(PathFollow, Position)) {
-    if (walkerCount === scratch.order.length) scratch.order = grown(scratch.order);
-    scratch.order[walkerCount++] = e;
-  }
+  // Ascending id, held by the world across ticks, so the census neither collects nor sorts the walkers.
+  const walkers = world.canonicalQuery(PathFollow, Position);
   // Before the dormancy exit: a grind ends on arrival, a re-route, or a profession change out of the
   // fighting trades, and none of those walk, so its holder is never a mover.
   for (const e of world.canonicalQuery(Obstructed)) {
     if (!world.has(e, PathFollow) || !hasBodyCollision(world, ctx.content, e)) world.remove(e, Obstructed);
   }
-  // A typed numeric sort runs in place; an array sort with a comparator copied the list every tick.
-  const order = scratch.order.subarray(0, walkerCount).sort();
 
   // Every component a mover's resolve reads is read here once, into its slot.
   let moverCount = 0;
   let firmCount = 0;
-  for (let i = 0; i < walkerCount; i++) {
-    const e = order[i] as Entity;
+  for (const e of walkers) {
     const settler = softColliderSettler(world, e);
     if (settler === undefined) continue;
     const slot = moverCount++;
@@ -109,10 +100,4 @@ export function moverHeading(scratch: SeparationScratch, slot: number): void {
   }
   movers.headingX[slot] = out.hx;
   movers.headingY[slot] = out.hy;
-}
-
-function grown(ids: Int32Array): Int32Array {
-  const next = new Int32Array(Math.max(MIN_ORDER_CAPACITY, ids.length * 2));
-  next.set(ids);
-  return next;
 }

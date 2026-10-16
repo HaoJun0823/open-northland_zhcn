@@ -55,8 +55,6 @@ export interface ScratchPoint {
 
 /** Collections the separation pass refills every tick without reallocating them. */
 export interface SeparationScratch {
-  /** The census's walker ids, sorted in place before they become mover slots. */
-  order: Int32Array;
   readonly movers: MoverColumns;
   /** The posts firm movers resolve against, read only when this census holds a firm mover. */
   posts: StandingPostGrid | undefined;
@@ -84,7 +82,6 @@ export function separationScratch(world: World): SeparationScratch {
   let scratch = scratchByWorld.get(world);
   if (scratch === undefined) {
     scratch = {
-      order: new Int32Array(0),
       movers: {
         ...colliderColumns(),
         firm: [],

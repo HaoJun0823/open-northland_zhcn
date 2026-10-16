@@ -319,7 +319,7 @@ describe('resolveAuthoredPlacements', () => {
       authoredMap(),
     );
     expect(skipped).toBe(1);
-    expect(placements).toEqual([{ kind: 'building', typeId: 30, tribe: 1, x: 2, y: 4, owner: 0 }]);
+    expect(placements).toEqual([{ kind: 'building', level: 0, typeId: 30, tribe: 1, x: 2, y: 4, owner: 0 }]);
   });
 
   it('places a legacy house name as the defined house it stands for, at its own level', () => {

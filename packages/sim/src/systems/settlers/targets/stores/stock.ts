@@ -31,6 +31,7 @@ import {
 import type { TargetBands } from '../bands.js';
 import type { YardTargets } from '../candidates.js';
 import { ACCEPT_ALL, QUALIFIES } from '../cell-index.js';
+import { FetchableStock } from './fetchable-stock.js';
 import { minimumBoundOwner, storageLendable, storageSurplus } from './storage-reserve.js';
 import { yardOffsets } from './yard-layout.js';
 
@@ -247,6 +248,7 @@ export function nearestStoreHolding(
   /** The fetcher's failed-goal veto. */
   avoid?: (cell: NodeId) => boolean,
 ): Entity | null {
+  if (sideLendsNone(bands, world, owner, goodType)) return null;
   return (
     bands
       .holding(goodType)
@@ -272,6 +274,7 @@ export function nearestStoreHoldingAnywhere(
   supply: SupplyTally,
   avoid?: (cell: NodeId) => boolean,
 ): Entity | null {
+  if (sideLendsNone(bands, world, owner, goodType)) return null;
   return (
     bands
       .holding(goodType)
@@ -283,6 +286,18 @@ export function nearestStoreHoldingAnywhere(
         ownedBy(world, owner),
       )?.entity ?? null
   );
+}
+
+/** Whether no store on `owner`'s side, its own or an unowned one, lends a unit of `goodType` past its
+ *  storage minimum, so {@link holdsUnclaimed} admits none of them and a search would sweep the band for
+ *  nothing. An unowned fetcher keeps the search. */
+function sideLendsNone(
+  bands: TargetBands,
+  world: World,
+  owner: number | undefined,
+  goodType: number,
+): boolean {
+  return owner !== undefined && !FetchableStock.of(world, bands.ctx).exceeds(owner, goodType, 0);
 }
 
 /** Only `owner`'s own stores: a neutral pile is nobody's to reach with signposts, so a cut-off verdict

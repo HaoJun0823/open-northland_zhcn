@@ -12,7 +12,7 @@ import {
   Settler,
   type Waypoint,
 } from '../../components/index.js';
-import { type Fixed, fx, ONE, ULP } from '../../core/fixed.js';
+import { type Fixed, fx, ONE, ULP, ZERO } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { DEFAULT_NODE_ROUGHNESS, type NodeId, type TerrainGraph } from '../../nav/terrain/index.js';
 import { HALF_COLUMN, HALF_ROW, worldDistance } from '../../nav/world-metric.js';
@@ -74,10 +74,15 @@ export const movementSystem: System = (world, ctx) => {
     if (!world.has(e, PathFollow)) world.remove(e, AnimalRunning);
   }
   const countTraffic = trafficCounter(world, ctx);
+  // Each walker steps this point and writes Position back only when it moved, so a held turn or a
+  // finished route does not log a write.
+  const p = { x: ZERO, y: ZERO };
   for (const e of world.query(Position, PathFollow)) {
     const pf = world.get(e, PathFollow);
     const stops = world.get(e, PathRoute).waypoints;
-    const p = world.mut(e, Position);
+    const stored = world.get(e, Position);
+    p.x = stored.x;
+    p.y = stored.y;
     syncAnimalGait(world, ctx, e, pf);
     // Wildlife with source `movespeed = 0` has no period component, but stays on the animal fallback
     // rather than inheriting human terrain, fatigue, equipment and hunger rules.
@@ -97,6 +102,11 @@ export const movementSystem: System = (world, ctx) => {
         : period === undefined
           ? walkHumanLeg(world, ctx, e, pf, stops, p, target)
           : walkPeriodicLeg(world, ctx, e, pf, stops, p, target, period);
+      if (p.x !== stored.x || p.y !== stored.y) {
+        const moved = world.mut(e, Position);
+        moved.x = p.x;
+        moved.y = p.y;
+      }
       if (!arrived) break;
       const from = stops[pf.index - 1];
       if (countTraffic !== null && !paced && period === undefined && from !== undefined) {

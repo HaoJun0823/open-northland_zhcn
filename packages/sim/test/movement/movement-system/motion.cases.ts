@@ -85,6 +85,27 @@ describe('movementSystem - constant pace: no ramp, corner loss or brake', () => 
     expect(ticksToArrive(sim, e)).toBe(2 * LAND_STEP_TICKS + 3);
   });
 
+  it('logs a Position write only on the ticks a walker moves, not while it holds a turn', () => {
+    const REVERSAL_TURN_TICKS = 3;
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
+    const e = followerAt(sim, 0, 0, [
+      { x: 0, y: 0 },
+      { x: 0.5, y: 0 },
+      { x: 0, y: 0 },
+    ]);
+    let standingTicks = 0;
+    while (sim.world.has(e, PathFollow)) {
+      const before = { ...sim.world.get(e, Position) };
+      const revision = sim.world.revisionOf(e, Position);
+      sim.step();
+      const after = sim.world.get(e, Position);
+      const moved = after.x !== before.x || after.y !== before.y;
+      expect(sim.world.revisionOf(e, Position) !== revision).toBe(moved);
+      if (!moved) standingTicks++;
+    }
+    expect(standingTicks).toBe(REVERSAL_TURN_TICKS);
+  });
+
   it('fixes a leg cost when the leg starts: a good picked up mid-leg slows the NEXT step', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
     const e = followerAt(sim, 0, 0, [

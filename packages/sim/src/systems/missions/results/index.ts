@@ -6,7 +6,7 @@ import {
   setImportMarker,
   setPlayerBehaviour,
 } from './behaviour.js';
-import { allowCampaignMap, playCampaignVideo, setHouseLandscapeOverlay } from './campaign.js';
+import { allowCampaignMap, playCampaignVideo } from './campaign.js';
 import { setRandomChest } from './chests.js';
 import {
   addGoodsToAnyStock,
@@ -16,7 +16,7 @@ import {
   removeGoodsFromArea,
 } from './goods.js';
 import { damageHousesInArea, healHumansInArea } from './health.js';
-import { placeScriptedHouse, setScriptedHouseLevel } from './houses.js';
+import { placeScriptedHouse, setHouseLandscapeOverlay, setScriptedHouseLevel } from './houses.js';
 import { scriptInfoLine } from './info.js';
 import { editScriptedLandscape } from './landscape.js';
 import {

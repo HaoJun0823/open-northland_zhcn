@@ -15,6 +15,7 @@ export * from './defence.js';
 export * from './economy/index.js';
 export * from './equipment.js';
 export * from './family.js';
+export * from './house-overlays.js';
 export * from './info-lines.js';
 export * from './landscape.js';
 export * from './livestock.js';

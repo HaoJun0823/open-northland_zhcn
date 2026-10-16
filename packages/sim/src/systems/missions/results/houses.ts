@@ -1,4 +1,11 @@
-import { Building, MAX_BUILDING_LEVEL, ownerOf, Position } from '../../../components/index.js';
+import {
+  Building,
+  HOUSE_LANDSCAPE_OVERLAY_SLOTS,
+  HouseLandscapeOverlays,
+  MAX_BUILDING_LEVEL,
+  ownerOf,
+  Position,
+} from '../../../components/index.js';
 import { buildingLevelOf, type ContentIndex, contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { type HalfCellNode, hexDistance, nodeOfPosition } from '../../../nav/halfcell.js';
@@ -153,4 +160,22 @@ function nearestBuildableSpot(
     }
   }
   return best;
+}
+
+export function setHouseLandscapeOverlay(
+  pass: MissionPass,
+  objectId: number,
+  slot: number,
+  active: boolean,
+): void {
+  if (slot < 0 || slot >= HOUSE_LANDSCAPE_OVERLAY_SLOTS) return;
+  for (const entity of missionHouses(pass.world, objectId)) {
+    const previous = pass.world.tryGet(entity, HouseLandscapeOverlays);
+    if (previous?.slots.get(slot) === active) continue;
+    if (previous === undefined) {
+      pass.world.add(entity, HouseLandscapeOverlays, { slots: new Map([[slot, active]]) });
+    } else {
+      pass.world.mut(entity, HouseLandscapeOverlays).slots.set(slot, active);
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { defineComponent, type World } from '../ecs/world.js';
+import type { World } from '../ecs/world.js';
 import { defineWorldSingleton } from '../ecs/world-singleton.js';
 
 export interface CampaignMapUnlock {
@@ -34,11 +34,3 @@ export function requestCampaignVideo(world: World, sequence: number): void {
     state.video = sequence;
   });
 }
-
-/** Original behavior: ten individually switchable landscape slots; unconfirmed on the running original. */
-export const HOUSE_LANDSCAPE_OVERLAY_SLOTS = 10;
-
-/** Explicit script overrides; an absent slot retains the content-defined initial state. */
-export const HouseLandscapeOverlays = defineComponent<{
-  slots: Map<number, boolean>;
-}>('HouseLandscapeOverlays', 'economy');

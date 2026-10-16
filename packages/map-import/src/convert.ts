@@ -63,6 +63,8 @@ export interface ConvertOptions {
   readonly provenance: MapProvenanceKind | ((folder: string) => MapProvenanceKind);
   /** The folder name a map at the tree root goes by, such as the archive's name. */
   readonly rootName?: string;
+  /** The id the map is published under instead of its folder's slug, such as a campaign-scoped one. */
+  readonly id?: string;
   /** Rasterizes the menu minimap from the decoded terrain; without it no minimap is produced. */
   readonly minimap?: (terrain: MapDatTerrainFile) => Promise<Uint8Array | undefined>;
   /** Rewrites the decoded string tables of map `id` before the meta, script and sidecar read them. */
@@ -196,7 +198,7 @@ export async function convertMapFolder(
   const folder = mapFolderOf(tree, key, rootName, options.onWarning ?? (() => {}));
   const report = (stage: ConvertStage): void =>
     options.onProgress?.({ folder: folder.path, index: position.index, total: position.total, stage });
-  const id = mapIdFromFolderName(folder.path.slice(folder.path.lastIndexOf('/') + 1));
+  const id = options.id ?? mapIdFromFolderName(folder.path.slice(folder.path.lastIndexOf('/') + 1));
 
   report('terrain');
   const dat = folder.read([MAP_DAT_FILE]);

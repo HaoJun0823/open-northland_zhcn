@@ -169,7 +169,11 @@ describe('bobsIndexEntries', () => {
 describe('writeListings', () => {
   it('writes every listing at the content root in the shapes the app parses', async () => {
     await outputWith(['body.bear01.atlas.json', 'body.bear01.png']);
-    await writeListings(out, [converted('arena', { script })]);
+    await writeListings(
+      out,
+      [converted('arena', { script })],
+      CampaignIndex.parse({ version: 3, campaigns: [] }),
+    );
     const maps = MapsIndex.parse(JSON.parse(await readFile(join(out, MAPS_INDEX_FILE), 'utf8')));
     const bobs = BobsIndex.parse(JSON.parse(await readFile(join(out, BOBS_INDEX_FILE), 'utf8')));
     const campaigns = CampaignIndex.parse(

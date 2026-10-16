@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
-import { readDataPack } from '../../../scripts/data-pack.mjs';
+import { type CampaignSource, readCampaigns, readDataPack } from '../../../scripts/data-pack.mjs';
 import type { SourceCorrections } from './corrections.js';
 import { walkFiles } from './files.js';
 import type { StringCorrections } from './string-corrections.js';
@@ -123,8 +123,15 @@ export async function collectSourceFilesNamed(roots: SourceRoots, name: string):
   return collectSourceFiles(roots, (rel) => `/${rel}`.endsWith(suffix));
 }
 
-/** Validates a source pack before exposing its base tree to the conversion stages. */
-export async function resolveDataRoot(dataRoot: string): Promise<string> {
-  await readDataPack(dataRoot);
-  return join(dataRoot, 'base');
+/** A validated source pack: the base tree the stages read and the campaigns beside it. */
+export interface DataPack {
+  readonly root: string;
+  readonly base: string;
+  readonly campaigns: readonly CampaignSource[];
+}
+
+/** Validates a source pack before exposing it to the conversion stages. */
+export async function resolveDataPack(dataRoot: string): Promise<DataPack> {
+  const manifest = await readDataPack(dataRoot);
+  return { root: dataRoot, base: join(dataRoot, 'base'), campaigns: await readCampaigns(dataRoot, manifest) };
 }

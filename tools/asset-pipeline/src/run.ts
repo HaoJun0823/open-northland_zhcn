@@ -4,13 +4,14 @@ import { decodePng } from '@open-northland/formats/png';
 import type { Args } from './args.js';
 import { CORRECTIONS_DIR, loadSourceCorrections } from './corrections.js';
 import { errorMessage } from './errors.js';
-import { resolveDataRoot, type SourceRoots } from './roots.js';
+import { resolveDataPack, type SourceRoots } from './roots.js';
 import {
   convertBmdTree,
   convertEffectBmdTree,
   convertShadowBmdTree,
   resolveGraphicsBindings,
 } from './stages/bmd/index.js';
+import { CAMPAIGNS_DIR, convertCampaignStage } from './stages/campaigns.js';
 import { MAPS_DIR, SOUNDS_DIR, TEXTURES_DIR } from './stages/content-tree.js';
 import { convertFontStage } from './stages/fonts.js';
 import { convertGoodsStage } from './stages/goods/index.js';
@@ -37,7 +38,8 @@ import {
 
 /** Runs the full conversion of the base data root into the IR under `args.out`. */
 export async function runPipeline(args: Args): Promise<void> {
-  const data = await resolveDataRoot(args.dataRoot);
+  const pack = await resolveDataPack(args.dataRoot);
+  const data = pack.base;
   const corrections = await loadSourceCorrections(CORRECTIONS_DIR, data);
   const stringCorrections = await loadStringCorrections(STRING_CORRECTIONS_FILE);
   const mapStringCorrections = await loadMapStringCorrections(MAP_STRING_CORRECTIONS_FILE);
@@ -171,6 +173,20 @@ export async function runPipeline(args: Args): Promise<void> {
       `table(s), ${briefings} briefing sidecar(s)) into ${join(args.out, MAPS_DIR)}`,
   );
 
+  // After the base maps: that stage resets `maps/`, and a campaign map must not reuse a base map's id.
+  const campaigns = await convertCampaignStage(
+    roots,
+    pack.root,
+    pack.campaigns,
+    args.out,
+    new Set(terrains.map((map) => map.id)),
+    synthesizeMinimap,
+  );
+  console.log(
+    `[pipeline] campaigns: ${campaigns.index.campaigns.length} campaign(s), ${campaigns.maps.length} map(s) ` +
+      `into ${join(args.out, MAPS_DIR)} and ${join(args.out, CAMPAIGNS_DIR)}`,
+  );
+
   const music = await renderMusicStage(roots, args.out);
   console.log(
     music.skipped !== undefined
@@ -180,7 +196,7 @@ export async function runPipeline(args: Args): Promise<void> {
   );
 
   // Last, so the bobs listing sees every atlas the stages above wrote.
-  await writeListings(args.out, terrains);
+  await writeListings(args.out, [...terrains, ...campaigns.maps], campaigns.index);
   console.log(
     `[pipeline] listings: ${MAPS_INDEX_FILE}, ${BOBS_INDEX_FILE}, ${CAMPAIGNS_INDEX_FILE} into ${args.out}`,
   );
@@ -192,5 +208,5 @@ export async function runPipeline(args: Args): Promise<void> {
     `[pipeline] corrections: ${corrections.list.length} file(s), ${stringCorrections.list.length} string(s), ` +
       `${mapStringCorrections.list.length} map string(s) applied`,
   );
-  assertStaticVerbsKnown(terrains);
+  assertStaticVerbsKnown([...terrains, ...campaigns.maps]);
 }

@@ -6,7 +6,7 @@ export async function syntheticPack(root, extra = {}, campaigns = []) {
   const files = { 'base/rules/types/example.ini': '[synthetic]', ...extra };
   const manifest = {
     format: 'open-northland-data',
-    version: 2,
+    version: 3,
     base: 'base',
     components: [{ id: 'synthetic', kind: 'base', sha256: hash('synthetic') }],
     campaigns,

@@ -1,7 +1,7 @@
 # Asset pipeline contract
 
-The pipeline validates an unpacked source data pack and converts its base tree into local runtime content.
-`docs/DATA-PACK.md` owns the archive and campaign import contract. Campaign gameplay is a separate integration. It runs only under
+The pipeline validates an unpacked source data pack and converts its base tree and campaigns into local
+runtime content. `docs/DATA-PACK.md` owns the archive and campaign contract. It runs only under
 Node: stages read the data and write the output tree through `node:fs` directly, and `src/files.ts`
 holds the shared helpers (parent-creating writes, tolerant `stat`, the file walk). Compression and
 floating-point image work are fine. The sim determinism restrictions do not apply, but root legal,

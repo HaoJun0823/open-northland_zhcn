@@ -2,7 +2,7 @@ import { mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { assertOutStaysInCheckout, parseArgs, resolveArgs } from '../src/args.js';
-import { resolveDataRoot } from '../src/roots.js';
+import { resolveDataPack } from '../src/roots.js';
 import { makeTempDir } from './support/game-tree.js';
 
 describe('parseArgs', () => {
@@ -38,7 +38,7 @@ describe('resolveArgs', () => {
   });
 });
 
-describe('resolveDataRoot', () => {
+describe('resolveDataPack', () => {
   let base: string;
   beforeEach(async () => {
     base = (await makeTempDir('data-root')).path;
@@ -49,23 +49,27 @@ describe('resolveDataRoot', () => {
 
   it('rejects an unpacked directory without a data manifest', async () => {
     await mkdir(join(base, 'extras'), { recursive: true });
-    await expect(resolveDataRoot(base)).rejects.toThrow(/manifest.json/);
+    await expect(resolveDataPack(base)).rejects.toThrow(/manifest.json/);
   });
 
-  it('exposes only the base tree of a valid pack', async () => {
+  it('exposes the base tree and the campaigns of a valid pack', async () => {
     await mkdir(join(base, 'base', 'rules'), { recursive: true });
     await writeFile(
       join(base, 'manifest.json'),
       JSON.stringify({
         format: 'open-northland-data',
-        version: 2,
+        version: 3,
         base: 'base',
         components: [{ id: 'synthetic', kind: 'base', sha256: '0'.repeat(64) }],
         campaigns: [],
         files: [],
       }),
     );
-    await expect(resolveDataRoot(base)).resolves.toBe(join(base, 'base'));
+    await expect(resolveDataPack(base)).resolves.toEqual({
+      root: base,
+      base: join(base, 'base'),
+      campaigns: [],
+    });
   });
 });
 

@@ -59,7 +59,8 @@ export function assertStaticVerbsKnown(maps: readonly MapDatConversion[]): void 
   throw new Error(`[StaticObjects] verbs the decoder does not know: ${list}`);
 }
 
-function summarize(map: ConvertedMap): MapDatConversion {
+/** The run-log and listings summary of one converted map. */
+export function summarizeConversion(map: ConvertedMap): MapDatConversion {
   return {
     id: map.id,
     fingerprint: map.index.fingerprint,
@@ -127,7 +128,7 @@ export async function convertMapDatTree(
     for (const name of mapFileNames(map.id)) await rm(join(outDir, MAPS_DIR, name), { force: true });
     for (const [name, data] of mapFiles(map)) await writeFileWithParents(join(outDir, MAPS_DIR, name), data);
     await writePagePictures(outDir, map.pictures);
-    done.push(summarize(map));
+    done.push(summarizeConversion(map));
   }
   return done;
 }

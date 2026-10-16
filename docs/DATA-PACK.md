@@ -9,17 +9,20 @@ manifest.json
 base/                         source data and explicitly selected animation additions
 campaigns/<campaign-id>/
   campaign.json
+  presentation/               campaign map background, title logos and route overlays (PNG)
+  films/                      silent film pictures and per-language sound tracks (WebM)
   maps/<map-id>/
     world/                    shared terrain and world resources
     mission/                  shared mission files
-    locales/{pl,en,de,ru}/     language-specific text, speech and explicit exceptions
+    locales/{pol,eng,ger,rus}/ language-specific text and speech
 ```
 
 The base tree has these source namespaces:
 
 - `rules/tribes/`, `rules/atomic-animations/`, `rules/types/`, `rules/buildings/` and
   `rules/map-animations/`: readable configuration, owned by the data pack.
-- `maps/community/`: bundled community maps.
+- `maps/community/`: bundled community maps, including any narration the pack adds to their
+  briefings as `sfx/<language>/NNNN.wav` clips.
 - `Data/` and `DataX/`: binary resources and base tables; their internal paths are also stored in
   resource references, so these namespaces retain their source spelling.
 - `Usermaps/`: bundled user maps; `extras/`: supplementary source pictures and legacy scenario files.
@@ -41,41 +44,54 @@ prefixes or symlinks. Names must not collide when case-folded. Files not in the 
 manifest fields are errors. ZIP entries use UTF-8 names, fixed timestamps, and stored or deflated
 compression; ZIP64 is not supported. `scripts/data-pack.mjs` validates this contract.
 
-## Campaign import foundation
+## Campaigns
 
-A campaign has a language-independent id. `campaign.json` has `version: 1`, that `id`, and `maps`.
-Each map has an `id`, a `shared` file mapping, and `locales`. Mapping keys are logical paths consumed
-by the map importer; values are paths relative to `maps/<map-id>/`:
+The pipeline converts every campaign the manifest lists into `content/`: its maps beside the base maps
+and the campaign screen's `campaigns-index.json` ([DATA-FORMAT.md](DATA-FORMAT.md#campaign-manifest)).
+`campaign.json` has `version: 2` and describes one original campaign:
+
+| Field | Meaning |
+| --- | --- |
+| `id`, `campaignId`, `order` | campaign identity, the numeric id its scripts use in `AllowMap`, its place on the campaign screen |
+| `title`, `logo` | per-language title text and optional title artwork under `presentation/` |
+| `background` | the campaign map picture under `presentation/` |
+| `stages` | the selectable stages in play order: the `missionId` slot of the map they open, its point as fractions of the background, and an optional `route` overlay (`file`, `x`, `y`, `width`, `height`) |
+| `movies` | per language an optional `intro` and numbered `videos`; each names the shared silent `video` and this language's `audio` under `films/`, with the picture's `width` and `height`; a language without films is omitted |
+| `maps` | every map of the campaign, submaps included: an `id`, `shared` files and per-language `locales` |
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "id": "example",
+  "campaignId": 3,
+  "order": 1,
+  "title": { "pol": "Przyklad", "eng": "Example" },
+  "background": "presentation/map.png",
+  "stages": [{ "missionId": 10, "x": 0.25, "y": 0.5 }],
+  "movies": {},
   "maps": [{
-    "id": "first",
-    "shared": {
-      "map.dat": "world/map.dat",
-      "mission.inc": "mission/mission.inc"
-    },
+    "id": "campaign_03_01",
+    "shared": { "map.dat": "world/map.dat", "mission.inc": "mission/mission.inc" },
     "locales": {
-      "pl": { "files": { "text/pol/strings.ini": "locales/pl/strings.ini" }, "replace": [] },
-      "en": { "files": { "text/eng/strings.ini": "locales/en/strings.ini" }, "replace": [] }
+      "pol": { "text/pol/strings.ini": "locales/pol/strings.ini", "sfx/pol/0001.wav": "locales/pol/0001.wav" },
+      "eng": { "text/eng/strings.ini": "locales/eng/strings.ini" }
     }
   }]
 }
 ```
 
-Shared values must live under `world/` or `mission/`; locale values under that locale's directory.
-A locale may deliberately replace a shared logical path, but must list that exact key in `replace`.
-Every collision needs a replacement declaration and every declaration must match a collision.
-This accommodates verified script differences without duplicating a world per language. Missing
-languages fail explicitly; they are not replaced with another language silently.
+Mapping keys are the logical paths the map importer reads inside the map folder; values are paths
+under `maps/<map-id>/`. Shared values live under `world/` or `mission/` and never in a language
+folder; a locale's keys live under its own `text/<language>/` or `sfx/<language>/` and its values under
+`locales/<language>/`, so the languages of one map never collide and the pipeline converts them into
+one map. Every map of a campaign carries the same languages, which become the campaign's languages;
+a missing language fails instead of falling back. Presentation and film paths are lower-case, since
+the app fetches them as `/campaigns/<campaign-id>/<path>`.
 
-`readCampaignMap(root, campaignId, mapId, language)` returns logical paths and bytes suitable for
-`treeFromFolder` in `@open-northland/map-import`. It validates the pack first. This is an import
-foundation only: normal base conversion does not install or expose campaign maps, implement campaign
-selection, or promise mission compatibility. Campaign order and progression must come from an
-explicit future gameplay contract, never from sorting filenames.
+A map converts as `<campaign-id>-<map-id>`, so two games' slots never share an id; a clash with a base
+map fails the run. Its `map.cif` must name the campaign's `campaignId`, and each stage's `missionId`
+must be the slot of one of its maps. Campaign order and progression come from these fields and the
+maps' own scripts, never from sorting file names.
 
 ## Publication identity
 

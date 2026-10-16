@@ -10,7 +10,7 @@ content/
   ir.json                 validated rules and presentation bindings
   maps-index.json         one entry per decoded map: name, provenance, fingerprint, lobby seats, listing header
   bobs-index.json         the viewable atlases, for the icon gallery
-  campaigns-index.json    the installed campaigns; empty unless the campaign build replaces it
+  campaigns-index.json    the campaigns the data pack carries; empty when it carries none
   maps/
     <id>.json             decoded terrain
     <id>.meta.json        menu metadata and the map's provenance
@@ -37,8 +37,8 @@ content/
 ## Campaign manifest
 
 `campaigns-index.json` (version 3, `CampaignIndex` in `packages/data`) lists the installed
-campaigns. The base pipeline writes an empty list; a campaign build replaces the file and adds the
-`campaigns/<id>/` tree. Each entry is one original game:
+campaigns. The pipeline writes it from the data pack's campaigns ([DATA-PACK.md](DATA-PACK.md#campaigns))
+with the `campaigns/<id>/` tree. Each entry is one original game:
 
 | Field | Meaning |
 | --- | --- |

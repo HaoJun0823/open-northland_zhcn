@@ -3,7 +3,7 @@ import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { dataPath, readCampaignMap, readDataPack } from '../data-pack.mjs';
+import { dataPath, readCampaigns, readDataPack } from '../data-pack.mjs';
 import { syntheticPack } from './support/data-pack.mjs';
 
 async function temp(t) {
@@ -39,35 +39,99 @@ test('rejects symlinks inside a source tree', async (t) => {
   await assert.rejects(readDataPack(root), /non-regular/);
 });
 
-test('assembles two locales from one shared map and requires explicit script overrides', async (t) => {
-  const root = await temp(t);
+function campaignPack(overrides = {}) {
   const map = {
-    id: 'first',
+    id: 'first_map',
     shared: { 'map.dat': 'world/map.dat', 'mission.inc': 'mission/mission.inc' },
     locales: {
-      pl: { files: { 'text/pol/strings.ini': 'locales/pl/strings.ini' }, replace: [] },
-      en: { files: { 'mission.inc': 'locales/en/mission.inc' }, replace: ['mission.inc'] },
+      pol: { 'text/pol/strings.ini': 'locales/pol/strings.ini', 'sfx/pol/0001.wav': 'locales/pol/0001.wav' },
+      eng: { 'text/eng/strings.ini': 'locales/eng/strings.ini' },
     },
   };
-  const campaign = { version: 1, id: 'synthetic', maps: [map] };
+  const campaign = {
+    version: 2,
+    id: 'synthetic',
+    campaignId: 100,
+    order: 1,
+    title: { pol: 'Syntetyczna', eng: 'Synthetic' },
+    background: 'presentation/map.png',
+    logo: { pol: 'presentation/logo-pol.png' },
+    stages: [{ missionId: 2, x: 0.25, y: 0.5 }],
+    movies: {
+      pol: {
+        videos: [
+          {
+            sequence: 0,
+            video: 'films/video/end.webm',
+            audio: 'films/pol/end.webm',
+            width: 640,
+            height: 480,
+          },
+        ],
+      },
+    },
+    maps: [map],
+    ...overrides,
+  };
   const files = {
     'campaigns/synthetic/campaign.json': JSON.stringify(campaign),
-    'campaigns/synthetic/maps/first/world/map.dat': 'synthetic terrain',
-    'campaigns/synthetic/maps/first/mission/mission.inc': 'shared mission',
-    'campaigns/synthetic/maps/first/locales/pl/strings.ini': 'synthetic translation',
-    'campaigns/synthetic/maps/first/locales/en/mission.inc': 'explicit variant',
+    'campaigns/synthetic/maps/first_map/world/map.dat': 'synthetic terrain',
+    'campaigns/synthetic/maps/first_map/mission/mission.inc': 'shared mission',
+    'campaigns/synthetic/maps/first_map/locales/pol/strings.ini': 'polski',
+    'campaigns/synthetic/maps/first_map/locales/pol/0001.wav': 'glos',
+    'campaigns/synthetic/maps/first_map/locales/eng/strings.ini': 'english',
+    'campaigns/synthetic/presentation/map.png': 'background',
+    'campaigns/synthetic/presentation/logo-pol.png': 'logo',
+    'campaigns/synthetic/films/video/end.webm': 'picture',
+    'campaigns/synthetic/films/pol/end.webm': 'sound',
   };
-  await syntheticPack(root, files, ['synthetic']);
-  const pl = await readCampaignMap(root, 'synthetic', 'first', 'pl');
-  const en = await readCampaignMap(root, 'synthetic', 'first', 'en');
-  assert.equal(pl.get('map.dat').toString(), 'synthetic terrain');
-  assert.deepEqual(pl.get('map.dat'), en.get('map.dat'));
-  assert.equal(pl.get('mission.inc').toString(), 'shared mission');
-  assert.equal(en.get('mission.inc').toString(), 'explicit variant');
-  await assert.rejects(readCampaignMap(root, 'synthetic', 'first', 'de'), /Unavailable/);
-  map.locales.en.replace = [];
-  await syntheticPack(root, { ...files, 'campaigns/synthetic/campaign.json': JSON.stringify(campaign) }, [
-    'synthetic',
-  ]);
-  await assert.rejects(readDataPack(root), /explicitly list/);
+  return { map, campaign, files };
+}
+
+test('reads a campaign with shared map files, language layers, presentation and films', async (t) => {
+  const root = await temp(t);
+  const { files } = campaignPack();
+  const manifest = await syntheticPack(root, files, ['synthetic']);
+  await readDataPack(root);
+  const [campaign] = await readCampaigns(root, manifest);
+  assert.deepEqual(campaign.languages, ['pol', 'eng']);
+  assert.equal(campaign.maps[0].locales.pol['sfx/pol/0001.wav'], 'locales/pol/0001.wav');
+  assert.equal(campaign.movies.pol.videos[0].audio, 'films/pol/end.webm');
+});
+
+test('keeps every language in its own folders and every map in the same languages', async (t) => {
+  const reject = async (mutate, pattern) => {
+    const root = await temp(t);
+    const pack = campaignPack();
+    mutate(pack);
+    await syntheticPack(
+      root,
+      { ...pack.files, 'campaigns/synthetic/campaign.json': JSON.stringify(pack.campaign) },
+      ['synthetic'],
+    );
+    await assert.rejects(readDataPack(root), pattern);
+  };
+  await reject(({ map }) => {
+    map.shared['text/eng/strings.ini'] = 'world/map.dat';
+  }, /shared file in a language folder/);
+  await reject(({ map }) => {
+    map.locales.eng['map.dat'] = 'locales/eng/strings.ini';
+  }, /outside its language folders/);
+  await reject(({ map }) => {
+    map.locales.pol['text/pol/strings.ini'] = 'locales/eng/strings.ini';
+  }, /outside locales\/pol/);
+  await reject(({ campaign, map, files }) => {
+    campaign.maps = [map, { ...map, id: 'second_map', locales: { pol: map.locales.pol } }];
+    for (const [path, bytes] of Object.entries(files))
+      if (path.includes('/first_map/')) files[path.replace('/first_map/', '/second_map/')] = bytes;
+  }, /other languages/);
+  await reject(({ campaign }) => {
+    campaign.background = 'presentation/Map.png';
+  }, /invalid file/);
+  await reject(({ campaign }) => {
+    campaign.logo = { pol: 'presentation/missing.png' };
+  }, /Missing campaign file/);
+  await reject(({ campaign }) => {
+    campaign.version = 1;
+  }, /version/);
 });

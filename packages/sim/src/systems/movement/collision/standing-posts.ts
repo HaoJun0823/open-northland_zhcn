@@ -145,8 +145,9 @@ function rebuild(world: World, content: ContentSet, terrain: TerrainGraph): Post
 /** Re-test `e` and move, add or drop its post to match. */
 function restowPost(world: World, index: PostIndex, e: Entity): void {
   const held = index.byEntity.get(e);
-  const p = world.tryGet(e, Position);
-  if (p === undefined || !isStanding(world, e) || !hasBodyCollision(world, index.content, e)) {
+  // The fighter test first, so a civilian is rejected in two lookups.
+  const p = hasBodyCollision(world, index.content, e) ? world.tryGet(e, Position) : undefined;
+  if (p === undefined || !isStanding(world, e)) {
     if (held !== undefined) {
       unlink(index, held);
       index.byEntity.delete(e);

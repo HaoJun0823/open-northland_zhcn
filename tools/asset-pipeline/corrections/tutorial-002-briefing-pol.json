@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Nagłówek \"HEROES\" przetłumaczony (BOHATEROWIE). Poprawione są także błędy gramatyczne i pisownia. Bjoern chce powiększyć plemię, nie dopiero do niego dołączyć. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny.",
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Nagłówek \"HEROES\" przetłumaczony (BOHATEROWIE). Poprawione są także błędy gramatyczne i pisownia. Bjoern chce powiększyć plemię, nie dopiero do niego dołączyć. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny. Śmierć Bjarniego w tej lekcji daje ponowną próbę; ostrzeżenie o porażce kampanii jest warunkowe.",
   "file": "maps/community/tutorial_002/text/pol/briefings/briefings.txt",
   "sha256": "15e774deaeac29ad3e37a3682bae31133638c9aa2a5bee0ce175bea99a3f05d6",
   "encoding": "windows-1250",
@@ -82,6 +82,16 @@
       "line": 59,
       "from": "Wydaj RAGNĘ za Wikinga o imieniu BJOERN, przydziel im budynek na wybrzeżu i pozwól mieć dziecko.",
       "to": "Ożeń BJOERNA z RAGNĄ. Po ślubie para może zamieszkać w dotychczasowym domu Ragny. Dlatego dopiero po ślubie wybierz Bjoerna i przydziel mu pusty dom na wschodnim wybrzeżu, niedaleko miejsca, w którym stał na początku. Ragna przeprowadzi się razem z nim. Dopiero gdy zamieszkają w tym domu, namów parę na dziecko."
+    },
+    {
+      "line": 90,
+      "from": "Uważaj! Jeśli bohater zginie, twoja misja zakończy się niepowodzeniem!",
+      "to": "Uważaj! W niektórych misjach kampanii śmierć bohatera może oznaczać porażkę. W tym samouczku po śmierci Bjarniego dostaniesz kolejną próbę."
+    },
+    {
+      "line": 113,
+      "from": "W prawdziwej grze, twoja misja zakończyłaby się niepowodzeniem.",
+      "to": "W misji wymagającej przeżycia bohatera oznaczałoby to porażkę."
     }
   ]
 }

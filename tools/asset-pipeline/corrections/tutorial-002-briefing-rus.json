@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Poprawione są także błędy gramatyczne i pisownia. Bjoern chce powiększyć plemię, nie dopiero do niego dołączyć. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny.",
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Poprawione są także błędy gramatyczne i pisownia. Bjoern chce powiększyć plemię, nie dopiero do niego dołączyć. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny. Śmierć Bjarniego w tej lekcji daje ponowną próbę; ostrzeżenie o porażce kampanii jest warunkowe.",
   "file": "maps/community/tutorial_002/text/rus/briefings/briefings.txt",
   "sha256": "ff2404c5f43c3df2712fae57b18207e735a6907a7317bfa62280834085c465b6",
   "encoding": "windows-1251",
@@ -73,6 +73,16 @@
       "line": 47,
       "from": "Дайте БЬЕРНУ новую личность! ",
       "to": "Дайте БЬЕРНУ новую профессию! "
+    },
+    {
+      "line": 90,
+      "from": "Знайте! Если герой погибает, вы провалили свою миссию!",
+      "to": "Будьте осторожны! В некоторых миссиях кампании гибель героя может привести к поражению. В этом обучении после гибели Бьярни вы получите еще одну попытку."
+    },
+    {
+      "line": 113,
+      "from": "В настоящей игре вы бы проиграли.",
+      "to": "В миссии, где герой должен выжить, это означало бы поражение."
     }
   ]
 }

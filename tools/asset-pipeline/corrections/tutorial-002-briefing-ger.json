@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Poprawione są także błędy gramatyczne i pisownia. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny.",
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Poprawione są także błędy gramatyczne i pisownia. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny. Śmierć Bjarniego w tej lekcji daje ponowną próbę; ostrzeżenie o porażce kampanii jest warunkowe.",
   "file": "maps/community/tutorial_002/text/ger/briefings/briefings.txt",
   "sha256": "62ca680a9b5a89c9cadc56f6d6683e60cfd7b42b51fec8503a407977238ae2c7",
   "encoding": "windows-1250",
@@ -78,6 +78,16 @@
       "line": 59,
       "from": "Verheirate RAGNA und den Wikinger, der früher BJÖRN hieß, weise ihnen das Haus am Ufer zu und lass sie ein Kind bekommen.",
       "to": "Verheirate BJOERN und RAGNA. Nach der Hochzeit kann das Paar in Ragnas bisherigem Haus wohnen. Wähle deshalb erst nach der Hochzeit Bjoern aus und weise ihm das leere Haus am östlichen Ufer zu, nahe der Stelle, an der er anfangs stand. Ragna zieht mit ihm um. Lass das Paar erst ein Kind bekommen, wenn beide in diesem Haus wohnen."
+    },
+    {
+      "line": 90,
+      "from": "Gib acht! Stirbt ein Held, ist die Mission gescheitert!",
+      "to": "Gib acht! In manchen Kampagnenmissionen kann der Tod eines Helden zur Niederlage führen. In diesem Tutorial bekommst du einen weiteren Versuch, wenn Bjarni stirbt."
+    },
+    {
+      "line": 113,
+      "from": "Im wirklichen Spiel hättest du die Mission verloren.",
+      "to": "In einer Mission, in der der Held überleben muss, würde das eine Niederlage bedeuten."
     }
   ]
 }

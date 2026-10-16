@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny.",
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny. Śmierć Bjarniego w tej lekcji daje ponowną próbę; ostrzeżenie o porażce kampanii jest warunkowe.",
   "file": "maps/community/tutorial_002/text/eng/briefings/briefings.txt",
   "sha256": "49e81ce03dd855ba663225526b9cf396ed7be9a1eaa25eb0a420a10c32a9f680",
   "encoding": "windows-1250",
@@ -63,6 +63,16 @@
       "line": 59,
       "from": "Marry RAGNA to the Viking who was called BJOERN, assign them the dwelling on the shore and let them have a child.",
       "to": "Marry BJOERN to RAGNA. Marriage may move the couple into Ragna's existing home. After the wedding, select Bjoern and assign him to the empty house on the eastern shore, near where he first stood. Ragna moves with him. Once they live in that house, ask the couple to have a child."
+    },
+    {
+      "line": 90,
+      "from": "Beware! If a hero dies, you have failed your mission!",
+      "to": "Beware! In some campaign missions, a hero's death can mean defeat. In this tutorial, if Bjarni dies, you get another attempt."
+    },
+    {
+      "line": 113,
+      "from": "In the real game, your mission would have failed.",
+      "to": "In a mission that requires the hero to survive, this would mean defeat."
     }
   ]
 }

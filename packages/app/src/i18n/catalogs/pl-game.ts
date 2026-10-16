@@ -543,6 +543,7 @@ export const plGame = {
       carrying: 'niesie',
       towards: 'do {place}',
       idleReasons: {
+        awaitingOrders: 'Czeka na rozkazy',
         outputDestination: {
           noStorage: 'Brak miejsca przyjmującego towar: {good}',
           outOfReach: 'Brak magazynu w zasięgu drogowskazów: {good}. Połącz drogowskazami z magazynem',

@@ -591,6 +591,7 @@ export const deGame = {
       carrying: 'trägt',
       towards: 'Ziel: {place}',
       idleReasons: {
+        awaitingOrders: 'Wartet auf Befehle',
         outputDestination: {
           noStorage: 'Kein Ziel nimmt diese Ware an: {good}',
           outOfReach:

@@ -591,6 +591,7 @@ export const ruGame = {
       carrying: 'несёт',
       towards: 'Пункт назначения: {place}',
       idleReasons: {
+        awaitingOrders: 'Ожидает приказов',
         outputDestination: {
           noStorage: 'Ни один пункт назначения не принимает этот товар: {good}',
           outOfReach:

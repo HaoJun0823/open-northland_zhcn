@@ -197,6 +197,14 @@ function statusDetail(
   const status = ctx.workStatus?.(ent.id);
   if (status === undefined) return idle && role === 'civilian' ? copy.idleReasons.noJob : null;
   if (status.kind === 'crafting') return state === 'working' ? goodLabel(ctx, status.goodType) : null;
+  // A missing economy diagnosis is not a problem for roles that do not operate a trade.
+  if (
+    role !== 'worker' &&
+    role !== 'civilian' &&
+    status.kind === 'unknown' &&
+    status.reason === 'unsupportedWorkplace'
+  )
+    return null;
   return idle ? workStatusDetail(ctx, status) : null;
 }
 
@@ -234,13 +242,16 @@ export function settlerPanelModel(
   const work = settlerWork(ctx, snapshot, comps, progressionGated);
   const trade = foreign ? null : tradePanelModel(ctx, snapshot, ent.id);
   const state = settlerStatus(ctx, snapshot, ent.id, comps);
+  const awaitsOrders = state === 'idle' && ctx.workStatus?.(ent.id)?.kind === 'awaitingOrders';
   const status: SettlerStatusModel = {
     state,
     label: statusLabel(state, isFemale(ent)),
     detail: statusDetail(ctx, ent, state, role, work, trade),
     trouble:
       state === 'lost' ||
-      ((state === 'idle' || state === 'awaitingWorkplace') && (role === 'worker' || role === 'civilian')),
+      (!awaitsOrders &&
+        (state === 'idle' || state === 'awaitingWorkplace') &&
+        (role === 'worker' || role === 'civilian')),
     // Off `LostWay`, not the state, so the jump agrees with the goal the map marks.
     lostGoal: foreign ? null : (lostGoalOf(ent) ?? null),
     carrying: carriedGood(ctx, comps),

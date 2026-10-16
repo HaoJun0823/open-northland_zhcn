@@ -555,6 +555,7 @@ export const enGame = {
       carrying: 'carrying',
       towards: 'to {place}',
       idleReasons: {
+        awaitingOrders: 'Awaiting orders',
         outputDestination: {
           noStorage: 'No destination accepts this good: {good}',
           outOfReach: 'No store within signpost reach: {good}. Link it to a store with signposts',

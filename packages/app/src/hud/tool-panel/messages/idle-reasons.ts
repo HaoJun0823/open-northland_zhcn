@@ -45,6 +45,7 @@ export function idleReasonOf(status: WorkStatus | undefined): IdleReason | null 
     case 'noWorkplace':
     case 'noTool':
     case 'noJob':
+    case 'awaitingOrders':
     case 'crafting':
     case 'workplaceUnderConstruction':
     case 'workplaceOutOfReach':

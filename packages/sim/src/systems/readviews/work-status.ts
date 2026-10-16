@@ -49,6 +49,7 @@ import { constructionSupply } from './construction-supply.js';
 import { gatherWorkStatus } from './gather-work-status.js';
 import { GoodSources } from './good-sources.js';
 import { type HerdHold, herdHoldOf } from './herd-hold.js';
+import { isScoutJob } from './jobs.js';
 import { type StoreReach, storeReach } from './store-reach.js';
 
 export interface MissingWorkInput {
@@ -109,6 +110,8 @@ export type WorkStatus =
   | { readonly kind: 'constructionShort'; readonly goodTypes: readonly number[] }
   | { readonly kind: 'noTool' }
   | { readonly kind: 'noJob' }
+  /** An explorer without a workplace waits for the player's next task. */
+  | { readonly kind: 'awaitingOrders' }
   | { readonly kind: 'workplaceUnderConstruction' }
   /** The worker's own workplace lies beyond its signpost reach, so it stands lost until the network
    *  reaches the building. */
@@ -167,6 +170,7 @@ export function workStatus(world: World, ctx: SystemContext, entity: Entity): Wo
   )
     return { kind: 'nothingToCarry' };
   if (workplace === undefined) {
+    if (isScoutJob(ctx.content, jobType)) return { kind: 'awaitingOrders' };
     const index = contentIndex(ctx.content);
     const requiresWorkshop = [...index.operatorJobsByBuilding].some(
       ([type, jobs]) => jobs.has(jobType) && (index.recipeByProductByBuilding.get(type)?.size ?? 0) > 0,

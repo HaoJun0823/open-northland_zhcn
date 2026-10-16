@@ -18,13 +18,15 @@ const NO_BODY: readonly NodeId[] = [];
 
 interface BuildingBodyCache {
   /** Building MEMBERSHIP generation - a placement or destruction. */
-  readonly membershipGeneration: number;
+  membershipGeneration: number;
   /** Building VALUE generation - a home tier upgrade swaps `buildingType` in place through
    *  {@link World.write}, moving the footprint with no membership change. */
-  readonly valueGeneration: number;
+  valueGeneration: number;
+  /** Position MEMBERSHIP generation - a body is read off the anchor, which only an add or re-add moves. */
+  positionGeneration: number;
   readonly content: ContentSet;
   readonly terrain: TerrainGraph;
-  readonly bodies: Map<Entity, readonly NodeId[]>;
+  bodies: Map<Entity, readonly NodeId[]>;
 }
 
 const bodyCache = new WeakMap<World, BuildingBodyCache>();
@@ -35,10 +37,10 @@ const bodyCache = new WeakMap<World, BuildingBodyCache>();
  * from every face rather than only its door. Falls back to the door node, then the anchor, for a
  * footprint-less building.
  *
- * Derived per world and held across ticks, keyed on the two Building store generations: a building never
- * moves, so nothing else the derivation reads can change under a live key. Never hashed; the registered
- * verifier re-derives every held body, so a change that reaches neither generation surfaces at the tick it
- * happens.
+ * Derived per world and held across ticks. A Building membership change or value write, or a Position
+ * membership change, drops the entity's held body, so construction progress written into one building
+ * leaves every other body held. Never hashed; the registered verifier re-derives every held body, so a
+ * change that reaches none of those journals surfaces at the tick it happens.
  */
 export function buildingBodyNodes(
   world: World,
@@ -64,23 +66,47 @@ export function buildingBodyNodes(
   return nodes;
 }
 
-/** The world's body map at the current Building generations, minting a fresh empty one when either moved. */
+/** The world's body map brought up to the current generations: the entities a journal names since the held
+ *  ones are dropped, and the map starts over when a journal cannot cover the span. */
 function liveBodies(world: World, ctx: MapContext, terrain: TerrainGraph): Map<Entity, readonly NodeId[]> {
   const membershipGeneration = world.componentGeneration(Building);
   const valueGeneration = world.componentValueGeneration(Building);
+  const positionGeneration = world.componentGeneration(Position);
   const cached = bodyCache.get(world);
-  if (
-    cached !== undefined &&
-    cached.terrain === terrain &&
-    cached.content === ctx.content &&
-    cached.membershipGeneration === membershipGeneration &&
-    cached.valueGeneration === valueGeneration
-  ) {
+  if (cached !== undefined && cached.terrain === terrain && cached.content === ctx.content) {
+    if (
+      cached.membershipGeneration !== membershipGeneration ||
+      cached.valueGeneration !== valueGeneration ||
+      cached.positionGeneration !== positionGeneration
+    ) {
+      const bodies = cached.bodies;
+      const drop = (e: Entity): void => {
+        bodies.delete(e);
+      };
+      const replayed =
+        world.replayMembershipSince(Building, cached.membershipGeneration, drop) &&
+        world.replayValueWritesSince(Building, cached.valueGeneration, drop) &&
+        world.replayMembershipSince(Position, cached.positionGeneration, drop);
+      if (!replayed) cached.bodies = new Map();
+      cached.membershipGeneration = membershipGeneration;
+      cached.valueGeneration = valueGeneration;
+      cached.positionGeneration = positionGeneration;
+    }
     return cached.bodies;
   }
+  world.journalMembership(Building);
+  world.journalValueWrites(Building);
+  world.journalMembership(Position);
   const bodies = new Map<Entity, readonly NodeId[]>();
   const content = ctx.content;
-  bodyCache.set(world, { membershipGeneration, valueGeneration, content, terrain, bodies });
+  bodyCache.set(world, {
+    membershipGeneration,
+    valueGeneration,
+    positionGeneration,
+    content,
+    terrain,
+    bodies,
+  });
   world.registerCacheVerifier('combatBuildingBodies', () => verifyBodyCache(world, content, terrain));
   return bodies;
 }
@@ -90,9 +116,10 @@ function verifyBodyCache(world: World, content: ContentSet, terrain: TerrainGrap
   if (cached === undefined || cached.terrain !== terrain || cached.content !== content) return [];
   if (
     cached.membershipGeneration !== world.componentGeneration(Building) ||
-    cached.valueGeneration !== world.componentValueGeneration(Building)
+    cached.valueGeneration !== world.componentValueGeneration(Building) ||
+    cached.positionGeneration !== world.componentGeneration(Position)
   ) {
-    return []; // stale key - the next read mints a fresh map, nothing can consume the held bodies
+    return []; // the next read replays the changes before anything consumes a held body
   }
   const ctx: MapContext = { content, terrain };
   for (const [e, held] of cached.bodies) {

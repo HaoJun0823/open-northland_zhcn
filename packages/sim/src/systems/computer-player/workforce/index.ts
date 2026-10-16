@@ -119,7 +119,7 @@ function runWorkforce(
     genericTarget,
   );
   const force = new SpareForce(pool);
-  const tally = buildStaffingTally(world);
+  const tally = buildStaffingTally(world, player, owned);
   const taken: TakenFlagNodes = new Set();
   const seat: SeatStaffing = { player, owned, supply, profile };
   const ground = collectorGround(world, ctx, player, seat.owned, baseNode);
@@ -269,7 +269,7 @@ function rebuildCrew(
   const seat: SeatStaffing = { player, owned, supply, profile };
   return [
     ...reserveBuilders(world, force, builderJob, profile.builders.opening, ctx),
-    ...staffBuildings(world, ctx, seat, force, buildStaffingTally(world), 'min'),
+    ...staffBuildings(world, ctx, seat, force, buildStaffingTally(world, player, owned), 'min'),
   ];
 }
 

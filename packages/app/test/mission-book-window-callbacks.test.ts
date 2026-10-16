@@ -52,6 +52,7 @@ function voicePlayer(playing: BriefingVoice | null) {
   const stops: number[] = [];
   const player: BriefingVoicePlayer = {
     has: () => true,
+    available: () => true,
     play: () => undefined,
     stop: () => stops.push(stops.length),
     toggle: () => undefined,

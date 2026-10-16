@@ -1169,6 +1169,7 @@ export const deGame = {
       voicePlay: 'Abspielen',
       voicePause: 'Pause',
       voiceSeek: 'Erzählung spulen',
+      voiceUnavailable: 'Erzählung nicht verfügbar',
     },
     residentsWindow: {
       title: 'Untertanen',

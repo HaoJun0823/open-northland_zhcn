@@ -1065,6 +1065,7 @@ export const plGame = {
       voicePlay: 'Odtwórz',
       voicePause: 'Pauza',
       voiceSeek: 'Przewiń narrację',
+      voiceUnavailable: 'Narracja niedostępna',
     },
     residentsWindow: {
       title: 'Poddani',

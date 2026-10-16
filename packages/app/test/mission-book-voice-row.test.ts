@@ -20,6 +20,7 @@ function page(...callbacks: BookPage['callbacks']): BookPage {
 function player(shipped: readonly number[]): BriefingVoicePlayer {
   return {
     has: (voice) => shipped.includes(voice.id),
+    available: () => true,
     play: () => undefined,
     stop: () => undefined,
     toggle: () => undefined,
@@ -46,29 +47,50 @@ describe('chapterVoice', () => {
 
 describe('voiceRowView', () => {
   it('follows its own clip`s line, and reads another clip`s or a page-turn`s stop as not started', () => {
-    expect(voiceRowView({ voice: VOICE, status: 'playing', positionS: 3, durationS: 12 }, VOICE)).toEqual({
+    expect(
+      voiceRowView({ voice: VOICE, status: 'playing', positionS: 3, durationS: 12 }, VOICE, true),
+    ).toEqual({
+      unavailable: false,
       playing: true,
       positionS: 3,
       durationS: 12,
       at: 0.25,
     });
     expect(
-      voiceRowView({ voice: VOICE, status: 'paused', positionS: 6, durationS: 12 }, VOICE),
+      voiceRowView({ voice: VOICE, status: 'paused', positionS: 6, durationS: 12 }, VOICE, true),
     ).toMatchObject({
       playing: false,
       at: 0.5,
     });
     expect(
-      voiceRowView({ voice: VOICE, status: 'waiting', positionS: 0, durationS: 0 }, VOICE),
+      voiceRowView({ voice: VOICE, status: 'waiting', positionS: 0, durationS: 0 }, VOICE, true),
     ).toMatchObject({
       playing: true,
       at: 0,
     });
     const other = { voice: { lang: 'pol', id: 2 }, status: 'playing', positionS: 5, durationS: 9 } as const;
-    expect(voiceRowView(other, VOICE)).toEqual({ playing: false, positionS: 0, durationS: 0, at: 0 });
-    expect(voiceRowView({ voice: null, status: 'idle', positionS: 0, durationS: 0 }, VOICE).playing).toBe(
-      false,
-    );
+    expect(voiceRowView(other, VOICE, true)).toEqual({
+      unavailable: false,
+      playing: false,
+      positionS: 0,
+      durationS: 0,
+      at: 0,
+    });
+    expect(
+      voiceRowView({ voice: null, status: 'idle', positionS: 0, durationS: 0 }, VOICE, true).playing,
+    ).toBe(false);
+  });
+
+  it('shows an unavailable clip as a stopped, disabled row whatever the line', () => {
+    expect(
+      voiceRowView({ voice: VOICE, status: 'playing', positionS: 3, durationS: 12 }, VOICE, false),
+    ).toEqual({
+      unavailable: true,
+      playing: false,
+      positionS: 0,
+      durationS: 0,
+      at: 0,
+    });
   });
 
   it('writes the time as m:ss, an unknown length as dashes', () => {

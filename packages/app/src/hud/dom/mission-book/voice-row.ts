@@ -16,6 +16,8 @@ export interface BriefingVoiceState extends NarrationState {
 export interface BriefingVoicePlayer {
   /** The map ships `voice`'s clip. */
   has(voice: BriefingVoice): boolean;
+  /** `voice` can speak now: sound is on and its clip has not failed to load or play. */
+  available(voice: BriefingVoice): boolean;
   play(voice: BriefingVoice): void;
   stop(): void;
   /** Start `voice` when another or none is current, else pause or resume it. */
@@ -27,6 +29,8 @@ export interface BriefingVoicePlayer {
 
 /** Arrow keys on the seek bar move the narration this far. */
 export const VOICE_KEY_STEP_S = 5;
+/** Page Up and Page Down on the seek bar move it this far. */
+export const VOICE_PAGE_STEP_S = 30;
 const SECONDS_PER_MINUTE = 60;
 
 export const sameVoice = (a: BriefingVoice | null, b: BriefingVoice): boolean =>
@@ -50,6 +54,8 @@ export function chapterVoice(
 
 /** What the player row shows for `voice`: a line of another clip reads as not started. */
 export interface VoiceRowView {
+  /** The clip cannot speak now; the row shows a disabled control. */
+  readonly unavailable: boolean;
   readonly playing: boolean;
   readonly positionS: number;
   /** 0 while the clip's length is unknown. */
@@ -58,10 +64,17 @@ export interface VoiceRowView {
   readonly at: number;
 }
 
-export function voiceRowView(state: BriefingVoiceState, voice: BriefingVoice): VoiceRowView {
-  if (!sameVoice(state.voice, voice)) return { playing: false, positionS: 0, durationS: 0, at: 0 };
+export function voiceRowView(
+  state: BriefingVoiceState,
+  voice: BriefingVoice,
+  available: boolean,
+): VoiceRowView {
+  const unavailable = !available;
+  if (unavailable || !sameVoice(state.voice, voice))
+    return { unavailable, playing: false, positionS: 0, durationS: 0, at: 0 };
   const { status, positionS, durationS } = state;
   return {
+    unavailable,
     playing: status === 'playing' || status === 'waiting',
     positionS,
     durationS,
@@ -75,6 +88,17 @@ export function clockText(seconds: number | null): string {
   const whole = Math.floor(seconds);
   const minutes = Math.floor(whole / SECONDS_PER_MINUTE);
   return `${minutes}:${String(whole % SECONDS_PER_MINUTE).padStart(2, '0')}`;
+}
+
+/** Where a seek bar key moves the line, or null for a key the bar leaves alone. */
+function barStep(key: string, view: VoiceRowView): number | null {
+  if (key === 'ArrowLeft') return view.positionS - VOICE_KEY_STEP_S;
+  if (key === 'ArrowRight') return view.positionS + VOICE_KEY_STEP_S;
+  if (key === 'PageDown') return view.positionS - VOICE_PAGE_STEP_S;
+  if (key === 'PageUp') return view.positionS + VOICE_PAGE_STEP_S;
+  if (key === 'Home') return 0;
+  if (key === 'End') return view.durationS;
+  return null;
 }
 
 const timeText = (view: VoiceRowView): string =>
@@ -116,21 +140,28 @@ export function createVoiceRows(deps: VoiceRowsDeps): VoiceRows {
     const voice = deps.voice();
     return deps.player === null || voice === null
       ? null
-      : { voice, view: voiceRowView(deps.player.state(), voice) };
+      : { voice, view: voiceRowView(deps.player.state(), voice, deps.player.available(voice)) };
   };
 
   const paint = (row: HTMLElement, view: VoiceRowView): void => {
-    row.dataset.state = view.playing ? 'playing' : 'paused';
+    row.dataset.state = view.unavailable ? 'unavailable' : view.playing ? 'playing' : 'paused';
     setStyleVar(row, '--voice-at', view.at.toFixed(4));
-    const toggle = row.querySelector<HTMLElement>('[data-voice-toggle]');
+    const toggle = row.querySelector<HTMLButtonElement>('[data-voice-toggle]');
     if (toggle !== null) {
-      const label = view.playing ? copy.voicePause : copy.voicePlay;
+      const label = view.unavailable
+        ? copy.voiceUnavailable
+        : view.playing
+          ? copy.voicePause
+          : copy.voicePlay;
       setAttribute(toggle, 'aria-label', label);
       setTip(toggle, label);
+      toggle.disabled = view.unavailable;
     }
     const bar = row.querySelector<HTMLElement>('.on-voice__bar');
     const text = timeText(view);
     if (bar !== null) {
+      setAttribute(bar, 'aria-disabled', String(view.unavailable));
+      setAttribute(bar, 'tabindex', view.unavailable ? '-1' : '0');
       setAttribute(bar, 'aria-valuemax', String(Math.round(view.durationS)));
       setAttribute(bar, 'aria-valuenow', String(Math.round(view.positionS)));
       setAttribute(bar, 'aria-valuetext', text);
@@ -154,7 +185,7 @@ export function createVoiceRows(deps: VoiceRowsDeps): VoiceRows {
 
   const toggle = (): void => {
     const voice = deps.voice();
-    if (voice === null || deps.player === null) return;
+    if (voice === null || deps.player === null || !deps.player.available(voice)) return;
     deps.cue('confirm');
     deps.player.toggle(voice);
     shownKey = '';
@@ -172,9 +203,15 @@ export function createVoiceRows(deps: VoiceRowsDeps): VoiceRows {
     bar.setPointerCapture(event.pointerId);
     bar.focus({ preventScroll: true });
     drag = { bar, at: barShare(bar, event.clientX) };
-    bar.closest('.on-voice')?.classList.add('on-voice--drag');
     const row = bar.closest<HTMLElement>('.on-voice');
+    row?.classList.add('on-voice--drag');
     if (row !== null) setStyleVar(row, '--voice-at', drag.at.toFixed(4));
+  };
+  /** Drop a drag without seeking: its row went away, the book closed or the capture was lost. */
+  const dropDrag = (): void => {
+    drag?.bar.closest('.on-voice')?.classList.remove('on-voice--drag');
+    drag = null;
+    shownKey = '';
   };
   const onPointerMove = (event: PointerEvent): void => {
     if (drag === null) return;
@@ -187,27 +224,24 @@ export function createVoiceRows(deps: VoiceRowsDeps): VoiceRows {
   const onPointerUp = (event: PointerEvent): void => {
     if (drag === null) return;
     const { bar, at } = drag;
-    drag = null;
+    dropDrag();
     if (bar.hasPointerCapture(event.pointerId)) bar.releasePointerCapture(event.pointerId);
-    bar.closest('.on-voice')?.classList.remove('on-voice--drag');
     const shown = current();
     if (shown !== null && event.type === 'pointerup') seekTo(shown.voice, at * shown.view.durationS);
-    shownKey = '';
+  };
+  const onLostCapture = (event: PointerEvent): void => {
+    if (drag !== null && event.target === drag.bar) dropDrag();
   };
   const onKeyDown = (event: KeyboardEvent): void => {
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest('.on-voice') == null) return;
     const shown = current();
-    if (shown === null) return;
+    if (shown === null || shown.view.unavailable) return;
     const onBar = target.closest('.on-voice__bar') !== null;
-    let handled = true;
+    const step = onBar ? barStep(event.key, shown.view) : null;
     if (event.key === ' ') toggle();
-    else if (onBar && event.key === 'ArrowLeft') seekTo(shown.voice, shown.view.positionS - VOICE_KEY_STEP_S);
-    else if (onBar && event.key === 'ArrowRight')
-      seekTo(shown.voice, shown.view.positionS + VOICE_KEY_STEP_S);
-    else if (onBar && event.key === 'Home') seekTo(shown.voice, 0);
-    else handled = false;
-    if (!handled) return;
+    else if (step === null) return;
+    else seekTo(shown.voice, step);
     // The map's own keys (camera arrows, pause on Space) stay with the player while it has focus.
     event.preventDefault();
     event.stopPropagation();
@@ -217,12 +251,14 @@ export function createVoiceRows(deps: VoiceRowsDeps): VoiceRows {
   deps.scene.addEventListener('pointermove', onPointerMove);
   deps.scene.addEventListener('pointerup', onPointerUp);
   deps.scene.addEventListener('pointercancel', onPointerUp);
+  deps.scene.addEventListener('lostpointercapture', onLostCapture);
   deps.scene.addEventListener('keydown', onKeyDown);
 
   return {
     markup(): string {
-      // A new row starts unpainted, so the next refresh paints it whatever it showed before.
-      shownKey = '';
+      // A new row starts unpainted, so the next refresh paints it whatever it showed before; a drag on
+      // the row it replaces ends unseeked.
+      dropDrag();
       return `<div class="on-voice" role="group" aria-label="${escapeHtml(copy.voiceLabel)}" data-state="paused">
       <button type="button" class="on-voice__toggle" data-voice-toggle aria-label="${escapeHtml(copy.voicePlay)}">${GLYPHS}</button>
       <div class="on-voice__bar" role="slider" tabindex="0" aria-label="${escapeHtml(copy.voiceSeek)}" data-tip="${escapeHtml(copy.voiceSeek)}" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span class="on-voice__track"><span class="on-voice__fill"></span></span><span class="on-voice__handle"></span></div>
@@ -234,18 +270,22 @@ export function createVoiceRows(deps: VoiceRowsDeps): VoiceRows {
       const shown = current();
       if (shown === null || drag !== null) return;
       const { view } = shown;
-      const key = `${view.playing}:${view.at.toFixed(4)}:${Math.floor(view.positionS)}:${view.durationS}`;
+      const key = `${view.unavailable}:${view.playing}:${view.at.toFixed(4)}:${Math.floor(view.positionS)}:${view.durationS}`;
       if (key === shownKey) return;
       shownKey = key;
       for (const row of rowsIn(spread)) paint(row, view);
     },
-    hide: () => tips.hide(),
+    hide(): void {
+      dropDrag();
+      tips.hide();
+    },
     dispose(): void {
       deps.scene.removeEventListener('click', onClick);
       deps.scene.removeEventListener('pointerdown', onPointerDown);
       deps.scene.removeEventListener('pointermove', onPointerMove);
       deps.scene.removeEventListener('pointerup', onPointerUp);
       deps.scene.removeEventListener('pointercancel', onPointerUp);
+      deps.scene.removeEventListener('lostpointercapture', onLostCapture);
       deps.scene.removeEventListener('keydown', onKeyDown);
       tips.dispose();
       chip.destroy();

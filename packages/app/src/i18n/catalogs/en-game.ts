@@ -1081,6 +1081,7 @@ export const enGame = {
       voicePlay: 'Play',
       voicePause: 'Pause',
       voiceSeek: 'Seek narration',
+      voiceUnavailable: 'Narration unavailable',
     },
     residentsWindow: {
       title: 'Subjects',

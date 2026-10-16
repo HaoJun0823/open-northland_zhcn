@@ -184,6 +184,23 @@ function verifyDiscoveryMemo(world: World, content: ContentSet, memo: DiscoveryM
   return violations;
 }
 
+const discoveryGoods = new WeakMap<ContentSet, Map<number, readonly number[]>>();
+
+/** {@link houseDiscoveryGoods}, kept per content set and house type. */
+function discoveryGoodsOf(content: ContentSet, houseType: number): readonly number[] {
+  let byHouse = discoveryGoods.get(content);
+  if (byHouse === undefined) {
+    byHouse = new Map();
+    discoveryGoods.set(content, byHouse);
+  }
+  let goods = byHouse.get(houseType);
+  if (goods === undefined) {
+    goods = houseDiscoveryGoods(content, houseType);
+    byHouse.set(houseType, goods);
+  }
+  return goods;
+}
+
 function allJobsEnabled(
   world: World,
   ctx: ContentContext,
@@ -270,7 +287,7 @@ export const technologySystem: System = (world, ctx) => {
         )
           continue;
         advanced = discover(entity, owner, tribeId, 'house', row.house) || advanced;
-        for (const good of houseDiscoveryGoods(ctx.content, row.house))
+        for (const good of discoveryGoodsOf(ctx.content, row.house))
           discover(entity, owner, tribeId, 'good', good);
       }
     } while (advanced);

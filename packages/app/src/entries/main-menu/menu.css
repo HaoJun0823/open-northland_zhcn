@@ -780,3 +780,49 @@
   opacity: 0.4;
   box-shadow: none;
 }
+
+/* ---- Modal question (main-menu/confirm.ts) ---- */
+
+.main-menu__dialog-shade {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--u) * 24);
+  background: rgba(6, 10, 16, 0.66);
+}
+
+.main-menu__dialog {
+  box-sizing: border-box;
+  width: min(calc(var(--u) * 640), 100%);
+  padding: calc(var(--u) * 36) calc(var(--u) * 40) calc(var(--u) * 32);
+  background: rgba(12, 20, 32, 0.96);
+  border: 1px solid rgb(var(--accent-rgb) / 0.35);
+  border-radius: 8px;
+  box-shadow: 0 calc(var(--u) * 16) calc(var(--u) * 48) rgba(0, 0, 0, 0.55);
+}
+
+.main-menu__dialog-title {
+  margin: 0 0 calc(var(--u) * 18);
+  font-family: Cinzel, Tinos, serif;
+  font-weight: 700;
+  font-size: calc(var(--u) * 34);
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.main-menu__dialog-message {
+  margin: 0 0 calc(var(--u) * 32);
+  font-size: calc(var(--u) * 22);
+  line-height: 1.45;
+  color: var(--text-body);
+  white-space: pre-line;
+}
+
+.main-menu__dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: calc(var(--u) * 14);
+}

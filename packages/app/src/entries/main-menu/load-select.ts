@@ -1,6 +1,5 @@
 import { bcp47Tag, formatMessage, messages } from '../../i18n/index.js';
 import type { LaunchEntry } from '../../launch.js';
-import { confirmDialog } from '../../view/confirm-dialog.js';
 import { decodeSaveText, type SaveBytes } from '../../view/runtime/save-load/codec.js';
 import { downloadStoredSave } from '../../view/runtime/save-load/controller.js';
 import { evaluateSaveDocument } from '../../view/runtime/save-load/evaluate.js';
@@ -13,6 +12,7 @@ import type { SaveSlotInfo } from '../../view/runtime/save-load/store.js';
 import { browserSaveStore } from '../../view/runtime/save-load/store-browser.js';
 import { worldNameIndex } from '../../view/runtime/save-load/world-names.js';
 import { targetSearch } from '../../view/target-search.js';
+import { menuConfirm } from './confirm.js';
 import type { MenuScreen } from './model.js';
 import { screenHead } from './screen-head.js';
 
@@ -183,10 +183,11 @@ export function loadSelectScreen(open: (screen: MenuScreen) => void, launch: Lau
     run(async () => {
       if (selected === null) return null;
       const slot = selected;
-      const confirmed = await confirmDialog({
+      const confirmed = await menuConfirm(section, {
+        title: listCopy.del,
         message: formatMessage(listCopy.deleteConfirm, { name: slot.name }),
-        confirmLabel: listCopy.del,
-        cancelLabel: listCopy.cancel,
+        confirm: listCopy.del,
+        cancel: listCopy.cancel,
       });
       if (!confirmed) return null;
       try {

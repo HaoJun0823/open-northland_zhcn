@@ -15,7 +15,7 @@ import {
 import { loadMapList } from '../../../content/maps-index.js';
 import { errorText } from '../../../diag/error-text.js';
 import { bcp47Tag, compareLabels, formatMessage, messages, pluralForm } from '../../../i18n/index.js';
-import { confirmDialog } from '../../../view/confirm-dialog.js';
+import { menuConfirm } from '../confirm.js';
 import { node } from '../dom.js';
 import { type MapSelectItem, mapSourceItem } from '../map-select-model.js';
 import { type CardDate, type CatalogueContext, formatCount } from './card.js';
@@ -396,10 +396,11 @@ export function catalogueView(options: CatalogueViewOptions): CatalogueView {
     if (store === null || storageState !== 'ready') return;
     if (localSources.some((source) => source.entryId === entryId)) {
       const copy = text.localImport;
-      const accepted = await confirmDialog({
-        message: `${copy.removeTitle} ${copy.removePrompt}`,
-        confirmLabel: copy.confirmRemove,
-        cancelLabel: copy.keep,
+      const accepted = await menuConfirm(body, {
+        title: copy.removeTitle,
+        message: copy.removePrompt,
+        confirm: copy.confirmRemove,
+        cancel: copy.keep,
       });
       if (!accepted || scope.signal.aborted || storageState !== 'ready') return;
     }

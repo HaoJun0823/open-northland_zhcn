@@ -275,7 +275,14 @@ describe('a seated crafter between its idle beats', () => {
       });
     }
     const ctx = ctxOf(sim);
-    return { sim, mill, offBeat: { ...ctx, tick: idleReplanDue(ctx.tick, mill, IDLE_REPLAN_PERIOD_TICKS) ? ctx.tick + 1 : ctx.tick } };
+    return {
+      sim,
+      mill,
+      offBeat: {
+        ...ctx,
+        tick: idleReplanDue(ctx.tick, mill, IDLE_REPLAN_PERIOD_TICKS) ? ctx.tick + 1 : ctx.tick,
+      },
+    };
   }
 
   /** Sit `e` at its assigned batch, standing through its idle beats. */
@@ -326,7 +333,10 @@ describe('a seated crafter between its idle beats', () => {
       ],
     });
     const ctx = ctxOf(sim);
-    const offBeat = { ...ctx, tick: idleReplanDue(ctx.tick, mill, IDLE_REPLAN_PERIOD_TICKS) ? ctx.tick + 1 : ctx.tick };
+    const offBeat = {
+      ...ctx,
+      tick: idleReplanDue(ctx.tick, mill, IDLE_REPLAN_PERIOD_TICKS) ? ctx.tick + 1 : ctx.tick,
+    };
     world.add(seated, Resting, { at: mill });
     startCraftAtomic(world, offBeat, seated, mill);
     world.add(seated, IdleStand, { standing: false });

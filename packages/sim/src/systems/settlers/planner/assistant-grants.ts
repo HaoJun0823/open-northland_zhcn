@@ -85,7 +85,10 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
   // Stock the ledger counts may lie outside every goods gate of a side, where each due settler's search
   // would sweep its whole reach for nothing; whether any lies in a gate is read once per pass. Keyed by
   // the route limit and the spot's own gate, since their intersection is a fresh object per call.
-  const inGate = new Map<SpatialGate | undefined, Map<SpatialGate | undefined, Map<number, Map<number, boolean>>>>();
+  const inGate = new Map<
+    SpatialGate | undefined,
+    Map<SpatialGate | undefined, Map<number, Map<number, boolean>>>
+  >();
   const mayLieIn = (
     limit: SpatialGate | undefined,
     spot: SpatialGate | undefined,

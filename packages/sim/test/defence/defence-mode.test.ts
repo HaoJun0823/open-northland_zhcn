@@ -326,9 +326,14 @@ describe('defence mode', () => {
       if (planned.mock.calls.some((args) => args[1] === outside)) plannedTicks.push(sim.tick);
     }
     expect(plannedTicks).toHaveLength(2);
-    for (const tick of plannedTicks) expect(idleReplanDue(tick, outside, IDLE_REPLAN_PERIOD_TICKS)).toBe(true);
+    for (const tick of plannedTicks)
+      expect(idleReplanDue(tick, outside, IDLE_REPLAN_PERIOD_TICKS)).toBe(true);
 
-    while (idleReplanDue(sim.tick + 1, outside, IDLE_REPLAN_PERIOD_TICKS) || idleReplanDue(sim.tick + 2, outside, IDLE_REPLAN_PERIOD_TICKS)) sim.step();
+    while (
+      idleReplanDue(sim.tick + 1, outside, IDLE_REPLAN_PERIOD_TICKS) ||
+      idleReplanDue(sim.tick + 2, outside, IDLE_REPLAN_PERIOD_TICKS)
+    )
+      sim.step();
     sim.enqueueSetup({ kind: 'setJob', entity: inside, jobType: SOLDIER }); // drilled mid-alarm: released
     stepUntil(sim, 2, () => shelterOf(sim, outside) === tower);
     expect(shelterOf(sim, outside)).toBe(tower);

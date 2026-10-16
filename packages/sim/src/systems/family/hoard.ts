@@ -1,3 +1,4 @@
+import type { BuildingType, ContentSet } from '@open-northland/data';
 import {
   Building,
   Carrying,
@@ -58,10 +59,6 @@ export function planWomanHoard(
     const inode = interactionNode(world, ctx, home);
     if (inode !== null && !limit.allowsNode(terrain.nodeAtClamped(inode.x, inode.y))) return false;
   }
-  const capacity = homeType.stock.reduce(
-    (sum, slot) => (isFood(ctx, slot.goodType) ? sum + slot.capacity : sum),
-    0,
-  );
   const settler = world.get(e, Settler);
   const p = world.get(e, Position);
   const hereNode = nodeOfPosition(p.x, p.y);
@@ -87,7 +84,7 @@ export function planWomanHoard(
   const owner = ownerOf(world, e);
   const avoid = unreachableGoalVeto(world, ctx, e);
   const foodSource =
-    storedFoodUnits(world, ctx, home) < capacity
+    storedFoodUnits(world, ctx, home) < larderCapacity(ctx, homeType)
       ? externalFood.nearest(hereNode, owner, home, limit, avoid)
       : null;
   const demanded = demandedHomeQualityGoods(world, ctx, e, home);
@@ -98,6 +95,24 @@ export function planWomanHoard(
   supply.stampPickupClaim(e, { source: source.store, goodType: source.goodType, amount: HAUL_LIFT_UNITS });
   fetchFrom(world, ctx, terrain, e, settler, source, hereNode);
   return true;
+}
+
+/** The food units a home type's larder slots hold, kept per content set and building type. */
+const larderCapacities = new WeakMap<ContentSet, Map<BuildingType, number>>();
+
+function larderCapacity(ctx: SystemContext, homeType: BuildingType): number {
+  let byType = larderCapacities.get(ctx.content);
+  if (byType === undefined) {
+    byType = new Map();
+    larderCapacities.set(ctx.content, byType);
+  }
+  let capacity = byType.get(homeType);
+  if (capacity === undefined) {
+    capacity = 0;
+    for (const slot of homeType.stock) if (isFood(ctx, slot.goodType)) capacity += slot.capacity;
+    byType.set(homeType, capacity);
+  }
+  return capacity;
 }
 
 /** The original searches one candidate set containing food and household goods. Reproduce its observable

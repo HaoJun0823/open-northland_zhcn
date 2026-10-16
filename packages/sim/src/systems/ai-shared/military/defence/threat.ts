@@ -285,7 +285,7 @@ export function raidOnTheSettlement(
  * outside it lies past every building's band, since a hex distance is never under the row span nor under
  * the column span less one.
  */
-function raidersNearAny(
+export function raidersNearAny(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,

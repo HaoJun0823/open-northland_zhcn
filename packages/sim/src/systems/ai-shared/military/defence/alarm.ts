@@ -6,7 +6,7 @@ import type { SystemContext } from '../../../context.js';
 import { shelterCapacityOf } from '../../../readviews/index.js';
 import { entityNode } from '../../../spatial/nodes.js';
 import { isBuilt } from '../../seat-roster.js';
-import { nearestRaiderWithin, type Raider, watchBandOf } from './threat.js';
+import { nearestRaiderWithin, type Raider, raidersNearAny, watchBandOf } from './threat.js';
 
 /** Ring and unring the seat's shelters: defence mode goes up on every standing shelter a raider has
  *  closed inside its {@link watchBandOf}, and comes down once the last one is out of it. */
@@ -18,11 +18,12 @@ export function alarmOrders(
   raiders: readonly Raider[],
 ): PlayerCommand[] {
   const commands: PlayerCommand[] = [];
+  const near = raidersNearAny(world, ctx, terrain, owned, raiders);
   for (const e of owned) {
     const building = world.get(e, Building);
     if (shelterCapacityOf(ctx.content, building.buildingType) === 0) continue;
     const up = world.has(e, DefenceMode);
-    const threatened = isBuilt(world, e) && raiders.length > 0 && closedOn(world, ctx, terrain, e, raiders);
+    const threatened = isBuilt(world, e) && near.length > 0 && closedOn(world, ctx, terrain, e, near);
     if (threatened === up) continue;
     commands.push({ kind: 'setDefenceMode', building: e, enabled: threatened });
   }

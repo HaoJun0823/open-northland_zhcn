@@ -1,14 +1,16 @@
-import { type ContentSet, WERESNAKE_TRIBE, WEREWOLF_TRIBE } from '@open-northland/data';
+import type { ContentSet } from '@open-northland/data';
 import {
   computerModuleRuns,
   hasMissionBehaviour,
   isMachinePlayer,
   MISSION_BEHAVIOUR,
+  Person,
   Settler,
   Stance,
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { isFighterJob, isHunterJob, isScoutJob } from './jobs.js';
+import { declaresNoTrades } from './tribes/civilizations.js';
 
 /**
  * The ids are verbatim from `logicdefines.inc` `MILITARY_MODE_{NONE, ATTACK, DEFEND, IGNORE, FLEE}`. The
@@ -50,9 +52,9 @@ export function isMilitaryMode(mode: number): mode is MilitaryMode {
 /**
  * The stance stamped on an owned settler at spawn and on a profession change, until `setStance` overrides
  * it. Original behavior: every human starts in DEFEND, except a weresnake or werewolf fighter, which
- * starts in ATTACK unless its map gives it {@link MISSION_BEHAVIOUR.SPAWNS_DEFENDING}. Approximation:
- * a civilian starts in FLEE and a scout or hunter in IGNORE, the modes this build's orders, flee and
- * hunt rules read.
+ * starts in ATTACK unless its map gives it {@link MISSION_BEHAVIOUR.SPAWNS_DEFENDING}. The monsters are
+ * told by data: a person whose tribe declares no trades. Approximation: a civilian starts in FLEE and a
+ * scout or hunter in IGNORE, the modes this build's orders, flee and hunt rules read.
  */
 export function defaultStance(
   world: World,
@@ -62,8 +64,9 @@ export function defaultStance(
 ): MilitaryMode {
   if (jobType === null) return MILITARY_MODE.FLEE; // a jobless settler or child is a civilian
   if (isFighterJob(content, jobType)) {
-    const { tribe } = world.get(e, Settler);
-    if (tribe === WERESNAKE_TRIBE || tribe === WEREWOLF_TRIBE) {
+    const tribe = world.tryGet(e, Settler)?.tribe;
+    const monster = tribe !== undefined && world.has(e, Person) && declaresNoTrades(content, tribe);
+    if (monster) {
       return hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.SPAWNS_DEFENDING)
         ? MILITARY_MODE.DEFEND
         : MILITARY_MODE.ATTACK;

@@ -1,4 +1,4 @@
-import { WERESNAKE_TRIBE, WEREWOLF_TRIBE } from '@open-northland/data';
+import { type ContentSet, parseContentSet, WERESNAKE_TRIBE, WEREWOLF_TRIBE } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { addPerson, MISSION_BEHAVIOUR, Position, Settler, Stance } from '../../../src/components/index.js';
 import { fx } from '../../../src/core/fixed.js';
@@ -10,6 +10,19 @@ import { defaultStance, MILITARY_MODE } from '../../../src/systems/readviews/ind
 import { spawnSettler } from '../../../src/systems/spawn/index.js';
 import { testContent } from '../../fixtures/content.js';
 import { cell, combatant, ctxOf, grassMap, P0, VIKING, WOODCUTTER } from './support.js';
+
+/** The fixture plus the two monster tribes as the shipped data declares them: records with no trades. */
+function monsterContent(): ContentSet {
+  const base = testContent();
+  return parseContentSet({
+    ...base,
+    tribes: [
+      ...base.tribes,
+      { typeId: WERESNAKE_TRIBE, id: 'weresnake' },
+      { typeId: WEREWOLF_TRIBE, id: 'werewolf' },
+    ],
+  });
+}
 
 describe('stance defaults - the job → military-mode lookup', () => {
   const SOLDIER = 31; // soldier_unarmed
@@ -31,7 +44,8 @@ describe('stance defaults - the job → military-mode lookup', () => {
   }
 
   function spawnedStance(jobType: number, tribe = VIKING, behaviourFlags?: number): number {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(4, 1) });
+    const content = tribe === VIKING ? testContent() : monsterContent();
+    const sim = new Simulation({ seed: 1, content, map: grassMap(4, 1) });
     return sim.world.get(spawn(sim, jobType, tribe, behaviourFlags), Stance).mode;
   }
 
@@ -65,7 +79,7 @@ describe('stance defaults - the job → military-mode lookup', () => {
   });
 
   it('stands a seat’s placed fighters down to DEFEND at their places once the seat is closed', () => {
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 1) });
+    const sim = new Simulation({ seed: 1, content: monsterContent(), map: grassMap(8, 1) });
     const soldier = spawn(sim, SOLDIER, VIKING, undefined, 2);
     const weresnake = spawn(sim, SOLDIER, WERESNAKE_TRIBE, undefined, 4);
     setAiControl(sim.world, ctxOf(sim), CLOSED_SEAT);

@@ -1,16 +1,17 @@
-import { type ContentSet, unitVariantFor } from '@open-northland/data';
+import { type ContentSet, type UnitVariant, unitVariantFor } from '@open-northland/data';
 import {
   Armor,
   bootsDegreeOfUse,
   Carrying,
   Equipment,
+  type EquipmentData,
   MISSION_BEHAVIOUR,
   MissionBehaviour,
   Settler,
   SettlerNeeds,
   Weapon,
 } from '../../components/index.js';
-import { contentIndex } from '../../core/content-index.js';
+import { type ContentIndex, contentIndex } from '../../core/content-index.js';
 import { ONE } from '../../core/fixed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { carriedStepTicksSaved } from '../equipment/index.js';
@@ -131,39 +132,41 @@ export function walkStepModifiersOf(
   const flags = world.tryGet(e, MissionBehaviour)?.flags ?? 0;
   const settler = world.tryGet(e, Settler);
   const needs = world.tryGet(e, SettlerNeeds);
+  const equipment = world.tryGet(e, Equipment);
   const fatigue = needs === undefined ? undefined : needLevel(needs, 'fatigue', tick);
   const index = contentIndex(content);
   const job = settler?.jobType ?? null;
+  const variant = settler === undefined ? undefined : unitVariantFor(content, settler);
   const reduction = settler === undefined ? undefined : index.tribes.get(settler.tribe)?.walkStepReduction;
   return {
-    shoes: hasLiveBoots(world, e),
-    stepTicksSaved: carriedStepTicksSaved(world, content, e),
+    shoes: equipment?.boots != null && hasLiveBoots(world, e),
+    stepTicksSaved: equipment === undefined ? 0 : carriedStepTicksSaved(world, content, e),
     carrying: isCarryingGood(world, e),
     tired: fatigue !== undefined && fatigue >= NEED_DRIVE_THRESHOLD,
     walksSlowly: (flags & MISSION_BEHAVIOUR.WALKS_SLOWLY) !== 0,
     walksFast: (flags & MISSION_BEHAVIOUR.WALKS_FAST) !== 0,
     age: ageClassOfJobId(job === null ? undefined : index.jobs.get(job)?.id),
     tribeReduction:
-      (settler === undefined ? undefined : unitVariantFor(content, settler)?.walkStepReduction) ??
+      variant?.walkStepReduction ??
       (reduction !== undefined && (reduction.jobType === undefined || reduction.jobType === job)
         ? reduction.ticks
         : 0),
     equipmentWeight:
       settler === undefined || isHeroJob(content, job)
         ? 0
-        : equipmentWeight(world, e, content, settler.tribe, job),
+        : equipmentWeight(world, e, index, equipment, settler.tribe, job, variant),
   };
 }
 
 function equipmentWeight(
   world: World,
   e: Entity,
-  content: ContentSet,
+  index: ContentIndex,
+  equipment: Readonly<EquipmentData> | undefined,
   tribe: number,
   job: number | null,
+  variant: UnitVariant | undefined,
 ): number {
-  const index = contentIndex(content);
-  const equipment = world.tryGet(e, Equipment);
   const weaponType = world.tryGet(e, Weapon)?.weaponTypeId;
   const classWeapon = job === null ? undefined : index.weaponsByTribeAndJob.get(tribe)?.get(job);
   // Several weapon classes share a good (sword/saber). Preserve the equipped combat identity;
@@ -174,7 +177,6 @@ function equipmentWeight(
       : equipment?.weapon == null || equipment.weapon.goodType === classWeapon?.goodType
         ? classWeapon
         : index.weaponByTribeAndGoodType.get(tribe)?.get(equipment.weapon.goodType);
-  const variant = unitVariantFor(content, world.get(e, Settler));
   const variantWeapon =
     variant?.weapon !== undefined && (weaponType === undefined || weaponType === classWeapon?.typeId)
       ? index.weaponsByTribeAndTypeId.get(variant.weapon.tribeType)?.get(variant.weapon.typeId)

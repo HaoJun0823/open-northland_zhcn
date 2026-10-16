@@ -114,7 +114,16 @@ export const movementSystem: System = (world, ctx) => {
         countTraffic(e, from.node, target.node);
       }
       if (pf.index + 1 >= stops.length) {
-        if (!paced && period === undefined) chargeNode(world, ctx, e, resistanceAt(ctx.terrain, target));
+        if (!paced && period === undefined) {
+          chargeNode(
+            world,
+            ctx,
+            e,
+            resistanceAt(ctx.terrain, target),
+            hasLiveBoots(world, e),
+            isCarryingGood(world, e),
+          );
+        }
         dropPath(world, e);
         world.remove(e, AnimalRunning);
         break;
@@ -165,9 +174,15 @@ type FollowState = NonNullable<(typeof PathFollow)['__value']>;
 /** The per-node charge: after pace is read at departure, and once at the terminal destination.
  *  Original behavior: pace updates before shoe/food points are spent, and the charge lands before a
  *  new step and when the destination is reached; a pressing need then reaches for a carried draught. */
-function chargeNode(world: World, ctx: SystemContext, e: Entity, resistance: number): void {
-  const carrying = isCarryingGood(world, e);
-  if (hasLiveBoots(world, e)) wearWornBoots(world, ctx, e, resistance, carrying);
+function chargeNode(
+  world: World,
+  ctx: SystemContext,
+  e: Entity,
+  resistance: number,
+  shoes: boolean,
+  carrying: boolean,
+): void {
+  if (shoes) wearWornBoots(world, ctx, e, resistance, carrying);
   else chargeBarefootStep(world, ctx, e, resistance, carrying);
   drinkPressingDraughts(world, ctx, e);
 }
@@ -204,18 +219,15 @@ function walkHumanLeg(
   if (p.x === target.x && p.y === target.y) return true;
   if (pf.legCost === 0) {
     const resistance = departureResistance(ctx.terrain, pf, stops);
-    beginTimedLeg(
-      world.mut(e, PathFollow),
-      stops,
-      p,
-      target,
-      walkStepTicks(resistance, walkStepModifiersOf(world, e, ctx.content, ctx.tick)),
-    );
+    const follow = world.mut(e, PathFollow);
+    const modifiers = walkStepModifiersOf(world, e, ctx.content, ctx.tick);
+    beginTimedLeg(follow, stops, p, target, walkStepTicks(resistance, modifiers));
     // The planned heading is fixed for this leg. Separation can nudge the position across an octant
     // boundary; re-aiming every tick would insert fresh turn holds in the middle of a steady step.
     beginWalkTurn(world, e, pf.legPace === undefined ? (stops[pf.index - 1] ?? p) : p, target);
     if (pf.departureCharged !== true) {
-      chargeNode(world, ctx, e, resistance);
+      // Laying the leg and the turn out writes neither boots nor load, so the modifiers still hold.
+      chargeNode(world, ctx, e, resistance, modifiers.shoes, modifiers.carrying);
       world.mut(e, PathFollow).departureCharged = true;
     }
   }

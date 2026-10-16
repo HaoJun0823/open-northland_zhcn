@@ -10,12 +10,11 @@ import {
 import {
   isWildlife,
   ownerPlayerOf,
-  positionOf,
   type SnapshotEntity,
   settlerJobType,
   workFlagOf,
 } from '../../game/snapshot.js';
-import { entitiesOfIds, entityIdsWith } from '../../game/snapshot-id-index.js';
+import { entityIdsWith } from '../../game/snapshot-id-index.js';
 import type { MinimapFilters, MinimapScope } from './filters.js';
 import { MINIMAP_PLAYER_COLOURS, STANCE_COLOURS, STANCE_SELF_COLOUR } from './palette.js';
 import type { MinimapMark, MinimapStampPart } from './stamps.js';
@@ -44,22 +43,25 @@ export interface MinimapDotContext {
 }
 
 /** The markers of one layer in stamping order, held as raster px so the rims pass and the fills pass
- *  cost no second position or fog lookup. */
+ *  cost no second position or fog lookup. A clear keeps the slots, so a replot writes into the arrays a
+ *  larger picture grew rather than growing them again. */
 class HeldMarks {
   private readonly xs: number[] = [];
   private readonly ys: number[] = [];
   private readonly marks: MinimapMark[] = [];
   private readonly colours: number[] = [];
+  private size = 0;
 
   hold(bx: number, by: number, mark: MinimapMark, colour: number): void {
-    this.xs.push(bx);
-    this.ys.push(by);
-    this.marks.push(mark);
-    this.colours.push(colour);
+    const at = this.size++;
+    this.xs[at] = bx;
+    this.ys[at] = by;
+    this.marks[at] = mark;
+    this.colours[at] = colour;
   }
 
   emit(sink: MinimapDotSink, part: MinimapStampPart): void {
-    for (let i = 0; i < this.xs.length; i++) {
+    for (let i = 0; i < this.size; i++) {
       const bx = this.xs[i];
       const by = this.ys[i];
       const mark = this.marks[i];
@@ -71,15 +73,19 @@ class HeldMarks {
 
   /** Append every held marker to `target` in order, then clear. */
   moveTo(target: HeldMarks): void {
-    this.emit((bx, by, mark, colour) => target.hold(bx, by, mark, colour), 'both');
+    for (let i = 0; i < this.size; i++) {
+      const bx = this.xs[i];
+      const by = this.ys[i];
+      const mark = this.marks[i];
+      const colour = this.colours[i];
+      if (bx !== undefined && by !== undefined && mark !== undefined && colour !== undefined)
+        target.hold(bx, by, mark, colour);
+    }
     this.clear();
   }
 
   clear(): void {
-    this.xs.length = 0;
-    this.ys.length = 0;
-    this.marks.length = 0;
-    this.colours.length = 0;
+    this.size = 0;
   }
 }
 
@@ -136,8 +142,16 @@ export function readMinimapIndexes(snapshot: WorldSnapshot): void {
   for (const name of PLOTTED) entityIdsWith(snapshot, name);
 }
 
-function carriersOf(snapshot: WorldSnapshot, name: (typeof PLOTTED)[number]): EntitySnapshot[] {
-  return entitiesOfIds(snapshot.entities, entityIdsWith(snapshot, name));
+/** Calls `visit` with each carrier of `name`, ascending by id, resolving the held ids one by one. */
+function forEachCarrier(
+  snapshot: WorldSnapshot,
+  name: (typeof PLOTTED)[number],
+  visit: (entity: EntitySnapshot) => void,
+): void {
+  for (const id of entityIdsWith(snapshot, name)) {
+    const entity = entityById(snapshot, id);
+    if (entity !== undefined) visit(entity);
+  }
 }
 
 /**
@@ -173,8 +187,9 @@ export function forEachMinimapDot(
   for (const group of HELD_GROUPS) group.clear();
   // Only currently-visible ground plots an entity; the viewer's own forces always see their own cell.
   const place = (e: SnapshotEntity, mark: MinimapMark, colour: number, group: HeldMarks): void => {
-    const at = positionOf(e);
-    if (at === undefined) return;
+    // Read in place rather than through positionOf, which allocates a point per dot.
+    const at = e.components.Position as { x?: unknown; y?: unknown } | undefined;
+    if (typeof at?.x !== 'number' || typeof at.y !== 'number') return;
     const col = at.x / ONE;
     const row = at.y / ONE;
     if (fog !== null && !fogTileVisible(fog, col, row)) return;
@@ -210,56 +225,56 @@ export function forEachMinimapDot(
     // Few and transient, and like any owned marker they follow the scope and the visible ground, which
     // moves with every sighting; the static laid roads are baked apart. They wear no owner colour, so a
     // hostile one would only clutter the hostile pass.
-    for (const site of carriersOf(snapshot, 'RoadSite')) {
+    forEachCarrier(snapshot, 'RoadSite', (site) => {
       const owner = ownerPlayerOf(site);
       if (owner === undefined || admits(owner)) plot(site, 'roadSite', ROAD_SITE_DOT_COLOUR);
-    }
+    });
     endLayer();
   }
 
   if (layers.signposts) {
-    for (const post of carriersOf(snapshot, 'Signpost')) {
+    forEachCarrier(snapshot, 'Signpost', (post) => {
       const owner = ownerPlayerOf(post);
       if (owner !== undefined && admits(owner)) owned(post, owner, 'signpost', colourOf(owner));
-    }
+    });
     // A delivery flag carries no owner; its gatherer's is the flag's, one gatherer per flag.
-    for (const gatherer of carriersOf(snapshot, 'WorkFlag')) {
+    forEachCarrier(snapshot, 'WorkFlag', (gatherer) => {
       const owner = ownerPlayerOf(gatherer);
       const flagId = workFlagOf(gatherer);
-      if (owner === undefined || flagId === undefined || !admits(owner)) continue;
+      if (owner === undefined || flagId === undefined || !admits(owner)) return;
       const flag = entityById(snapshot, flagId);
       if (flag !== undefined) owned(flag, owner, 'signpost', colourOf(owner));
-    }
+    });
     endLayer();
   }
 
   if (layers.buildings) {
-    for (const building of carriersOf(snapshot, 'Building')) {
+    forEachCarrier(snapshot, 'Building', (building) => {
       const owner = ownerPlayerOf(building);
       if (owner !== undefined && admits(owner)) owned(building, owner, 'building', colourOf(owner));
-    }
+    });
     endLayer();
   }
 
   if (layers.civilians || layers.soldiers || layers.heroes || layers.animals) {
-    for (const settler of carriersOf(snapshot, 'Settler')) {
+    forEachCarrier(snapshot, 'Settler', (settler) => {
       const owner = ownerPlayerOf(settler);
       if (isWildlife(settler)) {
         // Wildlife has no owner and ignores the scope; claimed livestock follows its owner's.
         if (layers.animals && (owner === undefined || admits(owner)))
           plot(settler, 'animal', ANIMAL_DOT_COLOUR);
-        continue;
+        return;
       }
-      if (owner === undefined || !admits(owner)) continue;
+      if (owner === undefined || !admits(owner)) return;
       const job = settlerJobType(settler);
       if (job !== undefined && ctx.isHeroJob(job)) {
         if (layers.heroes) place(settler, 'hero', colourOf(owner), heroes);
-        continue;
+        return;
       }
       const soldier = job !== undefined && ctx.isFighterJob(job);
       if (soldier ? layers.soldiers : layers.civilians)
         owned(settler, owner, soldier ? 'soldier' : 'civilian', colourOf(owner));
-    }
+    });
     endLayer();
   }
 

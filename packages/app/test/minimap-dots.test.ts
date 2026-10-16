@@ -380,3 +380,74 @@ describe('forEachMinimapDot', () => {
     expect(dotsOf([])).toEqual([]);
   });
 });
+
+describe('forEachMinimapDot over a crowded synthetic world', () => {
+  /** Owners 0..3 and the unowned, so every scope, stance and hostile group is exercised. */
+  const OWNERS = 5;
+  const KINDS = 7;
+  const ENTITIES = 700;
+  /** An id stride that leaves room for each gatherer's flag beside it. */
+  const ID_STRIDE = 2;
+  const PINNED_DIGEST = 2242898252;
+
+  function crowd(): Ent[] {
+    const out: Ent[] = [];
+    for (let i = 0; i < ENTITIES; i++) {
+      const id = 1 + i * ID_STRIDE;
+      const x = (i * 3) % MAP_CELLS;
+      const y = (i * 5) % MAP_CELLS;
+      const owner = i % OWNERS;
+      switch (i % KINDS) {
+        case 0:
+          out.push(
+            person(id, owner, x, y, i % 3 === 0 ? SOLDIER_JOB : i % 11 === 0 ? HERO_JOB : CIVILIAN_JOB),
+          );
+          break;
+        case 1:
+          out.push(building(id, owner, x, y));
+          break;
+        case 2:
+          out.push(animal(id, x, y, owner === OWNERS - 1 ? undefined : owner));
+          break;
+        case 3:
+          out.push(vehicle(id, owner, x, y, i % 4 === 0 ? 1 : null));
+          break;
+        case 4:
+          out.push(roadSite(id, owner, x, y));
+          break;
+        case 5:
+          out.push({ id, components: { Signpost: {}, Owner: { player: owner }, ...at(x, y) } });
+          break;
+        default:
+          out.push({ id, components: { ...person(id, owner, x, y).components, WorkFlag: { flag: id + 1 } } });
+          out.push({ id: id + 1, components: at(y, x) });
+      }
+    }
+    return out;
+  }
+
+  /** FNV-1a over every sink call, in order. */
+  function digestOf(overrides: Partial<MinimapDotContext>): number {
+    let h = 0x811c9dc5;
+    const mix = (text: string): void => {
+      for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
+    };
+    const snapshot = snapshotOf(crowd());
+    forEachMinimapDot(snapshot, contextWith(overrides), (bx, by, mark, colour, part) =>
+      mix(`${bx},${by},${mark},${colour},${part};`),
+    );
+    return h;
+  }
+
+  it('plots the same markers in the same order under every scope and colouring', () => {
+    const scopes: readonly MinimapFilters['scope'][] = ['everyone', 'mine', 'friendly', 'hostile'];
+    const digests = scopes.flatMap((scope) => [
+      digestOf({ filters: { ...ALL_LAYERS, scope } }),
+      digestOf({ filters: { ...ALL_LAYERS, scope, colours: 'stance' } }),
+    ]);
+    digests.push(digestOf({ viewer: null }));
+    let h = 0;
+    for (const d of digests) h = (Math.imul(h, 31) + d) >>> 0;
+    expect(h).toBe(PINNED_DIGEST);
+  });
+});

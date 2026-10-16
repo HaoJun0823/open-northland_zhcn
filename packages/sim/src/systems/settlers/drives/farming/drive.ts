@@ -134,6 +134,8 @@ export function planFarmer(plan: PlannerContext, claims: FarmClaims): boolean {
     // is asking.
     fields++;
     if (claims.targets.has(c)) continue;
+    // A growing field further along than the thirstiest so far cannot be picked, so its cell is not resolved.
+    if (crop.stage < crop.stages && crop.stage > thirstyStage) continue;
     const cell = interactionCell(world, ctx, terrain, c, here);
     if (claims.nodes.has(cell)) continue;
     if (unreachableWorkCell(gates, here, cell)) continue;

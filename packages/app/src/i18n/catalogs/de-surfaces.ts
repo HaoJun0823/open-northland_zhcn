@@ -35,7 +35,6 @@ export const deSurfaces = {
       newGame: 'Kartenauswahl',
     },
     screenTitles: {
-      campaign: 'Kampagne',
       multiplayer: 'Mehrspieler',
       newGame: 'Neues Spiel',
       catalogue: 'Kartenkatalog',

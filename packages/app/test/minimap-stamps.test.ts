@@ -15,12 +15,15 @@ const COLOUR = 0x3366cc;
 /** Large enough that each size step crosses a whole raster px even for the smallest mark. */
 const SIZE_TEST_PX_PER_MINIMAP_PX = 5;
 const OWNED_MARKS = ['civilian', 'soldier', 'building', 'vehicle', 'signpost', 'roadSite'] as const;
-const ALL_MARKS = [...OWNED_MARKS, 'animal', 'road'] as const;
+const ALL_MARKS = [...OWNED_MARKS, 'hero', 'animal', 'road'] as const;
+/** Painted colours other than the fill, per mark: a hero wears a gold ring between dark rims. */
+const RIM_COLOURS_OF = (mark: MinimapMark): number =>
+  mark === 'hero' ? 2 : mark === 'animal' || mark === 'road' ? 0 : 1;
 /** FNV-1a 32-bit, to pin the stamped bytes of every mark, zoom, size, offset and part. */
 const FNV_OFFSET = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
 /** The stamped bytes of {@link stampedFingerprint}'s sweep; it moves only with an intended look change. */
-const STAMPED_FINGERPRINT = 0x64deab4e;
+const STAMPED_FINGERPRINT = 0x9c60aa72;
 
 function stamped(
   mark: MinimapMark,
@@ -91,6 +94,24 @@ describe('stampMark', () => {
     expect(painted(soldier, COLOUR)).toBeGreaterThan(painted(stamped('civilian'), COLOUR));
   });
 
+  it('draws a hero as a disc in a gold ring between dark rims, the largest mark', () => {
+    const hero = stamped('hero');
+    expect(colourAt(hero, CENTRE, CENTRE)).toBe(COLOUR);
+    const rims = rimColours(hero);
+    expect(rims.size).toBe(2);
+    expect(rims.has(MARKER_RIM_COLOUR)).toBe(true);
+    // Rim, ring, rim outward from the fill along a radius.
+    const outward = [...Array(SIDE / 2).keys()].map((dx) => colourAt(hero, CENTRE + dx, CENTRE));
+    const bands = outward.filter((colour, i) => colour !== null && colour !== outward[i - 1]);
+    expect(bands).toEqual([
+      COLOUR,
+      MARKER_RIM_COLOUR,
+      [...rims].find((c) => c !== MARKER_RIM_COLOUR),
+      MARKER_RIM_COLOUR,
+    ]);
+    for (const mark of OWNED_MARKS) expect(painted(hero), mark).toBeGreaterThan(painted(stamped(mark)));
+  });
+
   it('rims a vehicle in a pale outline around its own colour', () => {
     const cart = stamped('vehicle');
     expect(colourAt(cart, CENTRE, CENTRE)).toBe(COLOUR);
@@ -132,7 +153,7 @@ describe('stampMark', () => {
   });
 
   it('scales the marker body with the size choice, never the rim', () => {
-    for (const mark of [...OWNED_MARKS, 'animal'] as const) {
+    for (const mark of [...OWNED_MARKS, 'hero', 'animal'] as const) {
       const fills = MINIMAP_MARKER_SIZES.map((size) =>
         painted(stamped(mark, SIZE_TEST_PX_PER_MINIMAP_PX, CENTRE, CENTRE, MARKER_SIZE_SCALES[size]), COLOUR),
       );
@@ -151,7 +172,7 @@ describe('stampMark', () => {
     for (const mark of ALL_MARKS) {
       const tiny = stamped(mark, 0.01, CENTRE, CENTRE, MARKER_SIZE_SCALES.small);
       expect(painted(tiny, COLOUR), mark).toBeGreaterThan(0);
-      if (mark !== 'animal' && mark !== 'road') expect(rimColours(tiny).size, mark).toBe(1);
+      expect(rimColours(tiny).size, mark).toBe(RIM_COLOURS_OF(mark));
       expect(() => stamped(mark, 2, -1, SIDE)).not.toThrow();
     }
     expect(painted(stamped('building', 2, -10, -10))).toBe(0);

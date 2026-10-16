@@ -66,6 +66,7 @@ describe('alarmPoint', () => {
           scale: SCALE,
           filters: DEFAULT_MINIMAP_FILTERS,
           isFighterJob: () => false,
+          isHeroJob: () => false,
           viewer: VIEWER,
           stanceToward: () => 'neutral',
         },

@@ -39,6 +39,7 @@ export const deGame = {
       layers: {
         civilians: 'Zivilisten',
         soldiers: 'Soldaten',
+        heroes: 'Helden',
         buildings: 'Gebäude',
         vehicles: 'Fahrzeuge und Schiffe',
         animals: 'Tiere',
@@ -47,7 +48,8 @@ export const deGame = {
       },
       layerTips: {
         civilians: 'Siedler als kleine Quadrate.',
-        soldiers: 'Soldaten und Helden als Rauten über den Siedlern.',
+        soldiers: 'Soldaten als Rauten über den Siedlern.',
+        heroes: 'Helden als große Kreise im goldenen Ring, über allem anderen.',
         buildings: 'Gebäude und Baustellen als größere Quadrate.',
         vehicles: 'Karren, Katapulte und Schiffe als Quadrate mit hellem Rand.',
         animals: 'Wild- und Nutztiere als helle Punkte.',

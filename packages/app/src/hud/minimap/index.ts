@@ -57,6 +57,7 @@ export interface MinimapOptions {
   readonly filters?: MinimapFilters | undefined;
   readonly onFiltersChange?: ((filters: MinimapFilters) => void) | undefined;
   readonly isFighterJob: (jobType: number) => boolean;
+  readonly isHeroJob: (jobType: number) => boolean;
   /** The seat the view shows, null on a whole-map view. */
   readonly viewer: () => number | null;
   /** The viewer seat's stance toward `owner`. */
@@ -292,6 +293,7 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
           scale: rasterScale,
           filters,
           isFighterJob: opts.isFighterJob,
+          isHeroJob: opts.isHeroJob,
           viewer,
           stanceToward: opts.stanceToward,
           playerColourOf: opts.playerColourOf,

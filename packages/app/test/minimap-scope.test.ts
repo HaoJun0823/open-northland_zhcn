@@ -75,6 +75,7 @@ describe('the owner scope on the plot', () => {
         scale: 1,
         filters: { ...withAllMinimapLayers(DEFAULT_MINIMAP_FILTERS, true), scope },
         isFighterJob: () => false,
+        isHeroJob: () => false,
         viewer: VIEWER,
         stanceToward,
       },

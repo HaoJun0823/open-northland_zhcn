@@ -24,6 +24,7 @@ const MAP_CELLS = 8;
 const BOUNDS = terrainWorldBounds(MAP_CELLS, MAP_CELLS);
 const SCALE = 0.5;
 const SOLDIER_JOB = 31;
+const HERO_JOB = 50;
 const CIVILIAN_JOB = 7;
 const VIEWER = 0;
 const FRIEND = 1;
@@ -60,7 +61,8 @@ function contextWith(overrides: Partial<MinimapDotContext>): MinimapDotContext {
     bounds: BOUNDS,
     scale: SCALE,
     filters: ALL_LAYERS,
-    isFighterJob: (jobType) => jobType === SOLDIER_JOB,
+    isFighterJob: (jobType) => jobType === SOLDIER_JOB || jobType === HERO_JOB,
+    isHeroJob: (jobType) => jobType === HERO_JOB,
     viewer: VIEWER,
     stanceToward: (owner) => STANCES[owner] ?? 'neutral',
     ...overrides,
@@ -212,10 +214,12 @@ describe('forEachMinimapDot', () => {
       animal(5, 5, 5),
       roadSite(6, 0, 5, 6),
       { id: 7, components: { Signpost: {}, Owner: { player: 0 }, ...at(6, 6) } },
+      person(8, 0, 7, 7, HERO_JOB),
     ];
     const markOf: Readonly<Record<MinimapLayer, MinimapMark>> = {
       civilians: 'civilian',
       soldiers: 'soldier',
+      heroes: 'hero',
       buildings: 'building',
       vehicles: 'vehicle',
       animals: 'animal',
@@ -305,6 +309,31 @@ describe('forEachMinimapDot', () => {
       'vehicle',
       'vehicle',
     ]);
+  });
+
+  it('stamps every hero last, over hostile markers and vehicles, in its own disc', () => {
+    const world = [
+      person(1, VIEWER, 1, 1, HERO_JOB),
+      person(2, FOE, 2, 2, HERO_JOB),
+      person(3, FOE, 1, 1, SOLDIER_JOB),
+      vehicle(4, VIEWER, 1, 1),
+    ];
+    expect(partsOf(world)).toEqual([
+      'vehicle:rims',
+      'vehicle:fills',
+      'soldier:rims',
+      'soldier:fills',
+      'hero:rims',
+      'hero:rims',
+      'hero:fills',
+      'hero:fills',
+    ]);
+    expect(dotsOf(world, { filters: only('heroes') })).toEqual([
+      { ...pxAt(1, 1), mark: 'hero', colour: colour(VIEWER) },
+      { ...pxAt(2, 2), mark: 'hero', colour: colour(FOE) },
+    ]);
+    // A hero is no soldier: the soldiers switch alone shows only the soldier.
+    expect(dotsOf(world, { filters: only('soldiers') }).map((dot) => dot.mark)).toEqual(['soldier']);
   });
 
   it("rims a hostile marker over the viewer's fills, so an intruder in the crowd keeps its outline", () => {

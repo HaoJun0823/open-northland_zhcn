@@ -65,6 +65,7 @@ describe('parseStoredSettings', () => {
         layers: {
           civilians: true,
           soldiers: true,
+          heroes: false,
           buildings: false,
           vehicles: true,
           animals: false,

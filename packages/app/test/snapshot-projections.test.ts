@@ -200,6 +200,7 @@ describe('per-tick projections - one walk of the map between them', () => {
           scale: 0.5,
           filters: DEFAULT_MINIMAP_FILTERS,
           isFighterJob: () => false,
+          isHeroJob: () => false,
           viewer: PLAYER,
           stanceToward: () => 'neutral',
         },

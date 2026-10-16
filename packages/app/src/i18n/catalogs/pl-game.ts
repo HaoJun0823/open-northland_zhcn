@@ -34,6 +34,7 @@ export const plGame = {
       layers: {
         civilians: 'Cywile',
         soldiers: 'Żołnierze',
+        heroes: 'Bohaterowie',
         buildings: 'Budynki',
         vehicles: 'Wehikuły',
         animals: 'Zwierzęta',
@@ -42,7 +43,8 @@ export const plGame = {
       },
       layerTips: {
         civilians: 'Osadnicy jako małe kwadraty.',
-        soldiers: 'Żołnierze i bohaterowie jako romby rysowane nad osadnikami.',
+        soldiers: 'Żołnierze jako romby rysowane nad osadnikami.',
+        heroes: 'Bohaterowie jako duże koła w złotej obwódce, rysowane nad wszystkim innym.',
         buildings: 'Budynki i place budowy jako większe kwadraty.',
         vehicles: 'Wozy, katapulty i statki jako kwadraty z jasną obwódką.',
         animals: 'Dzikie zwierzęta i zwierzęta hodowlane jako jasne kropki.',

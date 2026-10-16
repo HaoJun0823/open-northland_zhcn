@@ -33,6 +33,7 @@ export const enGame = {
       layers: {
         civilians: 'Civilians',
         soldiers: 'Soldiers',
+        heroes: 'Heroes',
         buildings: 'Buildings',
         vehicles: 'Vehicles and ships',
         animals: 'Animals',
@@ -41,7 +42,8 @@ export const enGame = {
       },
       layerTips: {
         civilians: 'Settlers, as small squares.',
-        soldiers: 'Soldiers and heroes, as diamonds drawn over the settlers.',
+        soldiers: 'Soldiers, as diamonds drawn over the settlers.',
+        heroes: 'Heroes, as large discs in a gold ring, drawn above everything else.',
         buildings: 'Buildings and construction sites, as larger squares.',
         vehicles: 'Carts, catapults and ships, as squares with a pale rim.',
         animals: 'Wild animals and livestock, as pale dots.',

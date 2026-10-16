@@ -6,6 +6,7 @@ import { MINIMAP_GROUND_MODES, type MinimapGroundMode } from '@open-northland/re
 export const MINIMAP_LAYERS = [
   'civilians',
   'soldiers',
+  'heroes',
   'buildings',
   'vehicles',
   'animals',
@@ -44,6 +45,7 @@ function layersAll(shown: boolean): Record<MinimapLayer, boolean> {
 const DEFAULT_SHOWN_LAYERS: ReadonlySet<MinimapLayer> = new Set<MinimapLayer>([
   'civilians',
   'soldiers',
+  'heroes',
   'buildings',
   'vehicles',
 ]);

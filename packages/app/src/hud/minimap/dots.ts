@@ -35,6 +35,7 @@ export interface MinimapDotContext {
   readonly filters: MinimapFilters;
   /** A soldier or hero trade, read from the running content's job roles. */
   readonly isFighterJob: (jobType: number) => boolean;
+  readonly isHeroJob: (jobType: number) => boolean;
   /** The seat the view shows; null on a whole-map view, where every scope shows every owner. */
   readonly viewer: number | null;
   /** The viewer seat's stance toward `owner`. */
@@ -82,15 +83,16 @@ class HeldMarks {
   }
 }
 
-/** The four stamping groups of a layer and the hostile markers of every layer, kept across walks so a
- *  replot grows no arrays once a game has shown its largest picture; a walk clears them first. One walk
- *  runs at a time. */
+/** The four stamping groups of a layer, the hostile markers of every layer and the heroes, kept across
+ *  walks so a replot grows no arrays once a game has shown its largest picture; a walk clears them first.
+ *  One walk runs at a time. */
 const HELD = {
   plain: new HeldMarks(),
   soldiers: new HeldMarks(),
   hostiles: new HeldMarks(),
   hostileSoldiers: new HeldMarks(),
   allHostiles: new HeldMarks(),
+  heroes: new HeldMarks(),
 } as const;
 const HELD_GROUPS: readonly HeldMarks[] = [
   HELD.plain,
@@ -98,6 +100,7 @@ const HELD_GROUPS: readonly HeldMarks[] = [
   HELD.hostiles,
   HELD.hostileSoldiers,
   HELD.allHostiles,
+  HELD.heroes,
 ];
 
 /** A plotted marker part: raster-px centre `(bx, by)`, its shape, packed `0xRRGGBB` colour and which
@@ -144,7 +147,8 @@ function carriersOf(snapshot: WorldSnapshot, name: (typeof PLOTTED)[number]): En
  * Within a layer soldiers stamp after civilians, and a layer's rims all go under its fills, so a crowd
  * reads as one rimmed blob while a later layer's rims still part it from the one below. Hostile owners'
  * markers leave the layers and stamp after all of them, rims then fills, so an intruder keeps its own rim
- * on top of the viewer's crowd, buildings and vehicles instead of melting into them.
+ * on top of the viewer's crowd, buildings and vehicles instead of melting into them. Heroes stamp last of
+ * all, whoever owns them: losing one loses most games, so no crowd or intruder covers one.
  */
 export function forEachMinimapDot(
   snapshot: WorldSnapshot,
@@ -165,7 +169,7 @@ export function forEachMinimapDot(
       UNKNOWN_PLAYER_DOT_COLOUR
     );
   };
-  const { plain, soldiers, hostiles, hostileSoldiers, allHostiles } = HELD;
+  const { plain, soldiers, hostiles, hostileSoldiers, allHostiles, heroes } = HELD;
   for (const group of HELD_GROUPS) group.clear();
   // Only currently-visible ground plots an entity; the viewer's own forces always see their own cell.
   const place = (e: SnapshotEntity, mark: MinimapMark, colour: number, group: HeldMarks): void => {
@@ -237,7 +241,7 @@ export function forEachMinimapDot(
     endLayer();
   }
 
-  if (layers.civilians || layers.soldiers || layers.animals) {
+  if (layers.civilians || layers.soldiers || layers.heroes || layers.animals) {
     for (const settler of carriersOf(snapshot, 'Settler')) {
       const owner = ownerPlayerOf(settler);
       if (isWildlife(settler)) {
@@ -248,6 +252,10 @@ export function forEachMinimapDot(
       }
       if (owner === undefined || !admits(owner)) continue;
       const job = settlerJobType(settler);
+      if (job !== undefined && ctx.isHeroJob(job)) {
+        if (layers.heroes) place(settler, 'hero', colourOf(owner), heroes);
+        continue;
+      }
       const soldier = job !== undefined && ctx.isFighterJob(job);
       if (soldier ? layers.soldiers : layers.civilians)
         owned(settler, owner, soldier ? 'soldier' : 'civilian', colourOf(owner));
@@ -269,4 +277,7 @@ export function forEachMinimapDot(
   allHostiles.emit(sink, 'rims');
   allHostiles.emit(sink, 'fills');
   allHostiles.clear();
+  heroes.emit(sink, 'rims');
+  heroes.emit(sink, 'fills');
+  heroes.clear();
 }

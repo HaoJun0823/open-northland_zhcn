@@ -71,6 +71,7 @@ const ICONS = {
 const LAYER_ICONS: Readonly<Record<MinimapLayer, string>> = {
   civilians: icon('<circle cx="10" cy="5" r="2.5"/><path d="M5 17v-4a5 5 0 0 1 10 0v4M8 17v-4m4 4v-4"/>'),
   soldiers: icon('<path d="M10 2 4 4.5V9c0 4 2.6 6.6 6 9 3.4-2.4 6-5 6-9V4.5z"/><path d="M10 6v8M7 9h6"/>'),
+  heroes: icon('<path d="M3 15h14M4 15 3 6l4 3 3-5 3 5 4-3-1 9"/>'),
   buildings: icon('<path d="m2 9 8-6 8 6M5 8v9h10V8M8 17v-5h4v5"/>'),
   vehicles: icon('<path d="M2 13h16l-3 4H5zM10 3v10"/><path d="M10 4l5 7h-5"/>'),
   animals: icon(

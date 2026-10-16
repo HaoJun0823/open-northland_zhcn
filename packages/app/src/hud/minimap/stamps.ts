@@ -6,6 +6,7 @@ import { MARKER_RIM_COLOUR } from './palette.js';
 export type MinimapMark =
   | 'civilian'
   | 'soldier'
+  | 'hero'
   | 'building'
   | 'vehicle'
   | 'animal'
@@ -29,6 +30,10 @@ const ANIMAL_HALF = 0.6;
 const ROAD_HALF = 0.75;
 const SIGNPOST_HALF_W = 0.5;
 const SIGNPOST_HALF_H = 1.25;
+/** A hero is a disc in a gold ring between two dark rims, the largest marker on the map. Authored. */
+const HERO_RADIUS = 2;
+const HERO_RING = 1;
+const HERO_RING_COLOUR = 0xffd84a;
 /** The marker size choice as a factor on the authored extents. Approximations. */
 export const MARKER_SIZE_SCALES: Readonly<Record<MinimapMarkerSize, number>> = {
   small: 0.75,
@@ -109,6 +114,17 @@ export function stampMark(
       if (fills) stampDiamond(raster, cx, cy, radius, colour);
       return;
     }
+    case 'hero': {
+      const radius = Math.max(MIN_DIAMOND_RADIUS_PX, HERO_RADIUS * markerScale * pxPerMinimapPx);
+      const ring = Math.max(MIN_RIM_PX, HERO_RING * pxPerMinimapPx);
+      if (rims) {
+        stampDisc(raster, cx, cy, radius + 2 * rim + ring, MARKER_RIM_COLOUR);
+        stampDisc(raster, cx, cy, radius + rim + ring, HERO_RING_COLOUR);
+        stampDisc(raster, cx, cy, radius + rim, MARKER_RIM_COLOUR);
+      }
+      if (fills) stampDisc(raster, cx, cy, radius, colour);
+      return;
+    }
     case 'signpost': {
       const halfW = sizePx(SIGNPOST_HALF_W, markerScale, pxPerMinimapPx);
       const halfH = sizePx(SIGNPOST_HALF_H, markerScale, pxPerMinimapPx);
@@ -144,6 +160,20 @@ function stampDiamond(raster: DotRaster, cx: number, cy: number, radius: number,
   for (let y = y0; y <= y1; y++) {
     const reach = radius - Math.abs(y + 0.5 - cy);
     if (reach < 0) continue;
+    const x0 = Math.max(0, Math.ceil(cx - reach - 0.5));
+    const x1 = Math.min(raster.width - 1, Math.floor(cx + reach - 0.5));
+    for (let x = x0; x <= x1; x++) writePixel(raster, x, y, colour);
+  }
+}
+
+/** Every px whose centre lies within `radius` of `(cx, cy)`, clipped to the buffer. */
+function stampDisc(raster: DotRaster, cx: number, cy: number, radius: number, colour: number): void {
+  const y0 = Math.max(0, Math.floor(cy - radius));
+  const y1 = Math.min(raster.height - 1, Math.ceil(cy + radius));
+  for (let y = y0; y <= y1; y++) {
+    const dy = y + 0.5 - cy;
+    if (Math.abs(dy) > radius) continue;
+    const reach = Math.sqrt(radius * radius - dy * dy);
     const x0 = Math.max(0, Math.ceil(cx - reach - 0.5));
     const x1 = Math.min(raster.width - 1, Math.floor(cx + reach - 0.5));
     for (let x = x0; x <= x1; x++) writePixel(raster, x, y, colour);

@@ -164,6 +164,7 @@ const MINIMAP_CONTEXT: MinimapDotContext = {
   scale: 1,
   filters: withAllMinimapLayers(DEFAULT_MINIMAP_FILTERS, true),
   isFighterJob: () => false,
+  isHeroJob: () => false,
   viewer: 0,
   stanceToward: (owner) => (owner % 2 === 1 ? 'enemy' : 'friend'),
 };

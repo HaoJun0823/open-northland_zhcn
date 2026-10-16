@@ -56,7 +56,7 @@ export function createChest(world: World, content: ContentSet, spec: ChestSpec):
     ...(record !== undefined ? { gfxIndex: record.index } : {}),
   });
   if (spec.landscapeId !== undefined) world.add(e, LandscapeResource, { id: spec.landscapeId });
-  stampResourceFootprintData(world, e, chestFootprint(record));
+  stampResourceFootprintData(world, e, chestFootprint(record), content);
   return e;
 }
 

@@ -6,9 +6,11 @@ import type { World } from '../ecs/world.js';
 
 const contentByWorld = new WeakMap<World, ContentSet>();
 
-/** Bind `world` to `content`; a world already bound keeps its content. */
+/** Bind `world` to `content`. A world binds once: a second, different content would re-key its payloads. */
 export function bindWorldContent(world: World, content: ContentSet): void {
-  if (!contentByWorld.has(world)) contentByWorld.set(world, content);
+  const bound = contentByWorld.get(world);
+  if (bound === undefined) contentByWorld.set(world, content);
+  else if (bound !== content) throw new Error('world is already bound to a different content set');
 }
 
 export function worldContent(world: World): ContentSet {

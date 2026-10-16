@@ -30,6 +30,8 @@ export class SnapshotMirror {
   private current: WorldSnapshot | null = null;
   private lastSequence = 0;
   private dropped: EntitySnapshot[] = [];
+  /** The list places of the entities the delta being applied removes, ascending. */
+  private readonly droppedAt: number[] = [];
 
   /** The tick of the last applied delta; null before the first. */
   get tick(): number | null {
@@ -102,30 +104,42 @@ export class SnapshotMirror {
     return this.current;
   }
 
-  /** Compact the list over the removed ids, from the first one's place; an id the list does not hold is
-   *  an entity created and destroyed inside one delta, and is skipped. */
+  /** Take the removed ids out of the list; an id the list does not hold is an entity created and
+   *  destroyed inside one delta, and is skipped. */
   private drop(removed: readonly number[]): void {
-    const first = removed[0];
-    if (first === undefined) return;
     const list = this.entities;
     const ids = this.ids;
-    const found = searchIds(ids, list.length, first, 0);
-    let write = found >= 0 ? found : -found - 1;
+    const found = this.droppedAt;
+    found.length = 0;
+    let from = 0;
+    for (const id of removed) {
+      const at = searchIds(ids, list.length, id, from);
+      if (at < 0) continue;
+      const entity = list[at] as EntitySnapshot;
+      this.dropped.push(entity);
+      this.byId[id] = undefined;
+      this.indexes.removed(entity);
+      found.push(at);
+      from = at + 1;
+    }
+    if (found.length <= SPLICED_REMOVALS) {
+      // From the back, so the places still to remove keep their index.
+      for (let k = found.length - 1; k >= 0; k--) {
+        const at = found[k] as number;
+        list.splice(at, 1);
+        ids.copyWithin(at, at + 1, list.length + 1);
+      }
+      return;
+    }
+    let write = found[0] as number;
     let next = 0;
     for (let read = write; read < list.length; read++) {
-      const entityId = ids[read] as number;
-      let id = removed[next];
-      while (id !== undefined && id < entityId) id = removed[++next];
-      if (id === entityId) {
-        const entity = list[read] as EntitySnapshot;
-        this.dropped.push(entity);
-        this.byId[entityId] = undefined;
-        this.indexes.removed(entity);
+      if (read === found[next]) {
         next++;
         continue;
       }
       list[write] = list[read] as EntitySnapshot;
-      ids[write++] = entityId;
+      ids[write++] = ids[read] as number;
     }
     list.length = write;
   }
@@ -189,6 +203,10 @@ export class SnapshotMirror {
   }
 }
 
+/** The most removals a delta takes out one by one: `splice` moves the entities above each as one block
+ *  copy, about ten times faster per entity than the compacting pass, which a longer list of removals
+ *  pays once instead of per removal. */
+const SPLICED_REMOVALS = 8;
 /** Room for a small world's ids before the column first doubles. */
 const INITIAL_IDS = 1024;
 

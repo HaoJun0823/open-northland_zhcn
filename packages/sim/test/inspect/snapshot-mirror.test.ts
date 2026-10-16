@@ -390,6 +390,28 @@ describe('snapshot delta stream', () => {
     expect(ids(mirror.snapshot())).toEqual([1]);
   });
 
+  it('removes a few and many entities from anywhere in the list, keeping the rest in order', () => {
+    const sim = new Simulation({ seed: 1, content: testContent() });
+    const made: Entity[] = [];
+    for (let i = 0; i < 40; i++) made.push(bareResource(sim, 1 + (i % 3)));
+    const deltas = sim.snapshotDeltas();
+    const mirror = new SnapshotMirror();
+    mirror.apply(nonNull(deltas.next()));
+    // Two removals go one by one, thirteen in one compacting pass; each stretch also adds an entity.
+    for (const [every, offset] of [
+      [20, 0],
+      [3, 1],
+    ] as const) {
+      const gone = made.filter((_, i) => i % every === offset);
+      for (const id of gone) sim.world.destroy(id);
+      bareResource(sim, 2);
+      mirror.apply(nonNull(deltas.next()));
+      expect(mirror.departed.map((entity) => entity.id)).toEqual(gone);
+      expectSameWorld(mirror.snapshot(), sim.snapshot());
+      expect(mirror.verifyIndexes()).toEqual([]);
+    }
+  });
+
   it('rebuilds after the touched log overflowed, and the mirror follows', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
     const kept = bareResource(sim, 5);

@@ -512,6 +512,15 @@ export const enContent = {
           'A rider from the elders: the ford is marked out for the stockade. Keep the guard inside the ring.',
       },
     },
+    'closing-briefing': {
+      title: 'Closing briefing before the win',
+      summary:
+        'After two seconds the winning rule opens its closing page and declares the win in the same pass. Read the page and close the book: only then does the victory window appear.',
+      pages: {
+        '500':
+          'The elders send word: the valley is ours. Feast tonight, and let the skalds sing of this summer.',
+      },
+    },
     defeat: {
       title: 'Play after defeat',
       summary: 'A failed mission asks to leave the map. Choose “Keep playing” and command the survivors.',

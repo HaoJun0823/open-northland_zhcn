@@ -691,6 +691,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       onMissionHold: (held) => {
         if (held) pauseHolds.hold(PAUSE_HOLDER_MISSION);
         else pauseHolds.release(PAUSE_HOLDER_MISSION);
+        verdict?.setSuspended('missionBook', held);
       },
       pauseStopsClock: !sharedClock,
       onShowOnMap: (target) => {
@@ -1218,10 +1219,10 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         const loss = netPanel.model()?.link.loss ?? null;
         if (loss !== null) {
           systemMenu?.close();
-          verdict?.setSuspended(true);
+          verdict?.setSuspended('linkLost', true);
         }
         screen.refresh(loss);
-        if (loss === null) verdict?.setSuspended(false);
+        if (loss === null) verdict?.setSuspended('linkLost', false);
       };
     }
 

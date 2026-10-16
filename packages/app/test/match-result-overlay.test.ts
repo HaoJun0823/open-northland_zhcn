@@ -205,7 +205,7 @@ it('yields a pending result to connection loss and restores usable input after r
   });
   try {
     h.overlay.announce('defeat');
-    h.overlay.setSuspended(true);
+    h.overlay.setSuspended('linkLost', true);
     lost.refresh({ kind: 'dropped', waitedSinceMs: 0 });
     expect(
       document.querySelector('.on-link-lost')?.closest<HTMLElement>('.on-system-backdrop')?.inert,
@@ -217,7 +217,7 @@ it('yields a pending result to connection loss and restores usable input after r
     h.overlay.finish('undecided');
     expect(h.overlay.isOpen()).toBe(false);
     lost.refresh(null);
-    h.overlay.setSuspended(false);
+    h.overlay.setSuspended('linkLost', false);
     expect(h.overlay.isOpen()).toBe(true);
     expect(h.hud.inert).toBe(true);
     h.body.buttons()[0]?.click();
@@ -226,4 +226,25 @@ it('yields a pending result to connection loss and restores usable input after r
   } finally {
     lost.dispose();
   }
+});
+
+it('waits for the open mission book, so a closing briefing reads before the verdict', () => {
+  const h = setup(false);
+  h.overlay.setSuspended('missionBook', true);
+  h.overlay.onEvents([{ kind: 'playerWon', player: 0 }]);
+  expect(h.overlay.isOpen()).toBe(false);
+  expect(h.pause).not.toHaveBeenCalled();
+  h.overlay.setSuspended('missionBook', false);
+  expect(h.overlay.isOpen()).toBe(true);
+  // A page a later rule delivers takes the screen back, and the verdict returns once it is read.
+  h.overlay.setSuspended('missionBook', true);
+  expect(h.overlay.isOpen()).toBe(false);
+  expect(h.hud.inert).not.toBe(true);
+  h.overlay.setSuspended('linkLost', true);
+  h.overlay.setSuspended('missionBook', false);
+  expect(h.overlay.isOpen()).toBe(false);
+  h.overlay.setSuspended('linkLost', false);
+  expect(h.overlay.isOpen()).toBe(true);
+  h.body.buttons()[0]?.click();
+  expect(h.onContinue).toHaveBeenCalledOnce();
 });

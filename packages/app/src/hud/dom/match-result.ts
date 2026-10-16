@@ -22,13 +22,17 @@ export interface MatchResultDeps {
   readonly onContinue: () => void;
 }
 
+/** What may hold the result window back: a lost link owns the page until it returns, and the
+ *  mission book is read first, so a closing briefing comes before the verdict. */
+export type MatchResultSuspender = 'linkLost' | 'missionBook';
+
 export interface MatchResultOverlay {
   onEvents(events: readonly SimEvent[]): void;
   announce(outcome: MatchOutcome): void;
   finish(outcome: MatchOutcome): void;
   isOpen(): boolean;
-  /** A lost link owns the page until it returns; retain the result without accepting input. */
-  setSuspended(suspended: boolean): void;
+  /** Retain the result without showing it while any suspender holds it. */
+  setSuspended(by: MatchResultSuspender, suspended: boolean): void;
   dispose(): void;
 }
 
@@ -36,7 +40,7 @@ export interface MatchResultOverlay {
 export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOverlay {
   const state = matchResultState();
   let close: (() => void) | null = null;
-  let suspended = false;
+  const suspenders = new Set<MatchResultSuspender>();
   let current: { verdict: MatchOutcome; terminal: boolean } | null = null;
   const hide = (): void => {
     close?.();
@@ -46,7 +50,7 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
   const show = (verdict: MatchOutcome, terminal = false): void => {
     hide();
     current = { verdict, terminal };
-    if (suspended) return;
+    if (suspenders.size > 0) return;
     deps.onOpen();
     const scope = new AbortController();
     const actions = matchResultActions(deps.sharedClock === true, terminal);
@@ -237,11 +241,12 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
       if (state.finish()) show(outcome, true);
     },
     isOpen: () => close !== null,
-    setSuspended(next): void {
-      if (suspended === next) return;
-      suspended = next;
+    setSuspended(by, next): void {
+      if (suspenders.has(by) === next) return;
+      if (next) suspenders.add(by);
+      else suspenders.delete(by);
       if (next) close?.();
-      else if (current !== null) show(current.verdict, current.terminal);
+      else if (suspenders.size === 0 && current !== null) show(current.verdict, current.terminal);
     },
     dispose: hide,
   };

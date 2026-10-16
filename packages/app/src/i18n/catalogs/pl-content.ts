@@ -509,6 +509,15 @@ export const plContent = {
         '501': 'Jeździec od starszyzny: bród wytyczono pod palisadę. Trzymaj straż wewnątrz kręgu.',
       },
     },
+    'closing-briefing': {
+      title: 'Odprawa końcowa przed zwycięstwem',
+      summary:
+        'Po dwóch sekundach zwycięska reguła otwiera stronę końcowej odprawy i w tym samym przebiegu ogłasza wygraną. Przeczytaj stronę i zamknij księgę: dopiero wtedy pojawi się okno zwycięstwa.',
+      pages: {
+        '500':
+          'Starszyzna przysyła wieść: dolina jest nasza. Dziś ucztujemy, a skaldowie niech śpiewają o tym lecie.',
+      },
+    },
     defeat: {
       title: 'Gra po przegranej',
       summary: 'Przegrana misja próbuje opuścić mapę. Wybierz „Graj dalej” i wydawaj rozkazy ocalałym.',

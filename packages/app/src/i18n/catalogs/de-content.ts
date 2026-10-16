@@ -514,6 +514,15 @@ export const deContent = {
           'Ein Reiter bringt Nachricht von den Ältesten: An der Furt ist der Verlauf der Palisade markiert. Lasst die Wache innerhalb des Rings.',
       },
     },
+    'closing-briefing': {
+      title: 'Abschlussbesprechung vor dem Sieg',
+      summary:
+        'Nach zwei Sekunden öffnet die Siegesregel ihre Abschlussseite und erklärt im selben Durchlauf den Sieg. Lies die Seite und schließe das Buch: erst dann erscheint das Siegesfenster.',
+      pages: {
+        '500':
+          'Die Ältesten senden Kunde: Das Tal ist unser. Heute Nacht wird gefeiert, und die Skalden sollen von diesem Sommer singen.',
+      },
+    },
     defeat: {
       title: 'Nach der Niederlage weiterspielen',
       summary:

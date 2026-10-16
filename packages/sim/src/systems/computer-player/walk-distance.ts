@@ -117,26 +117,55 @@ function slotCost(slot: number): Fixed {
 }
 
 /** Pages are allocated only where this bounded flood visits. Indexed costs avoid a pair of per-node
- * Maps without allocating full-map buffers for each resource's small flood. */
+ * Maps without allocating full-map buffers for each resource's small flood. The page directory is a
+ * dense window over the page indices visited, offset by its first one: a plain array stored at an index
+ * far past its length drops into V8's slow dictionary elements, which every relaxation would then pay. */
 class WalkCosts {
-  private readonly pages: Array<Float64Array | undefined> = [];
+  private pages: Array<Float64Array | undefined> = [];
+  /** The page index `pages[0]` holds. */
+  private firstPage = 0;
   settledCount = 0;
 
   /** The page holding `node`'s slot at `node & COST_PAGE_MASK`: its best cost so far, {@link settledSlot}
    *  once settled. */
   page(node: NodeId): Float64Array {
     const index = node >> COST_PAGE_SHIFT;
-    let page = this.pages[index];
-    if (page === undefined) {
-      page = new Float64Array(COST_PAGE_SIZE).fill(UNREACHED_COST);
-      this.pages[index] = page;
-    }
+    const known = this.pageAt(index);
+    if (known !== undefined) return known;
+    const page = new Float64Array(COST_PAGE_SIZE).fill(UNREACHED_COST);
+    this.cover(index);
+    this.pages[index - this.firstPage] = page;
     return page;
   }
 
   settledCost(node: NodeId): Fixed | undefined {
-    const slot = this.pages[node >> COST_PAGE_SHIFT]?.[node & COST_PAGE_MASK];
+    const slot = this.pageAt(node >> COST_PAGE_SHIFT)?.[node & COST_PAGE_MASK];
     return slot !== undefined && slot < 0 ? slotCost(slot) : undefined;
+  }
+
+  private pageAt(index: number): Float64Array | undefined {
+    const at = index - this.firstPage;
+    return at >= 0 && at < this.pages.length ? this.pages[at] : undefined;
+  }
+
+  /** Widen the directory to hold `index`, doubling its span toward the side it grows on so a walk
+   *  spreading row by row re-copies it only a logarithmic number of times. */
+  private cover(index: number): void {
+    const { pages, firstPage } = this;
+    const span = pages.length;
+    if (span === 0) {
+      this.firstPage = index;
+      this.pages = [undefined];
+      return;
+    }
+    if (index >= firstPage && index < firstPage + span) return;
+    const grown = Math.max(span, index < firstPage ? firstPage - index : index - (firstPage + span) + 1);
+    const first = index < firstPage ? Math.max(0, firstPage - 2 * grown) : firstPage;
+    const end = index < firstPage ? firstPage + span : firstPage + span + 2 * grown;
+    const widened = new Array<Float64Array | undefined>(end - first).fill(undefined);
+    for (let i = 0; i < span; i++) widened[firstPage - first + i] = pages[i];
+    this.pages = widened;
+    this.firstPage = first;
   }
 }
 
@@ -175,7 +204,10 @@ export class WalkFlood implements WalkDistances {
   }
 
   /** The mask and version a holder handed this flood out at, or null for a flood nobody holds. */
-  private heldAt: { readonly mask: WalkBlockMask; readonly version: number } | null = null;
+  private heldAt: {
+    readonly mask: WalkBlockMask;
+    readonly version: number;
+  } | null = null;
 
   /**
    * Bind the flood to `mask` at `version` for one pass of asks: a holder resumes it on later passes only

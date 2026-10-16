@@ -1,4 +1,4 @@
-import { unitVariantFor, type WeaponType } from '@open-northland/data';
+import { type ContentSet, unitVariantFor, type WeaponType } from '@open-northland/data';
 import {
   Armor,
   addCurrentAtomic,
@@ -69,6 +69,53 @@ export function attackerWeapon(
   jobType: number | null,
   wornWeaponTypeId?: number,
   scenario = false,
+): WeaponReach | null {
+  const key = armingKey(tribe, jobType, wornWeaponTypeId, scenario);
+  if (key === null) return resolveWeapon(ctx, tribe, jobType, wornWeaponTypeId, scenario);
+  let resolved = armings.get(ctx.content);
+  if (resolved === undefined) {
+    resolved = new Map();
+    armings.set(ctx.content, resolved);
+  }
+  const held = resolved.get(key);
+  if (held !== undefined) return held;
+  const weapon = resolveWeapon(ctx, tribe, jobType, wornWeaponTypeId, scenario);
+  resolved.set(key, weapon);
+  return weapon;
+}
+
+/** Content-keyed: each {@link attackerWeapon} answer by {@link armingKey}, so the per-attacker lookup
+ *  allocates nothing. */
+const armings = new WeakMap<ContentSet, Map<number, WeaponReach | null>>();
+
+/** Each id part of an {@link armingKey} packs into this many values, absent as 0 and id `n` as `n + 1`. Three
+ *  parts and the scenario bit stay below 2^49, an exact double. */
+const ARMING_PART_SPAN = 2 ** 16;
+
+/** One number naming an {@link attackerWeapon} question, or null for an id the packing cannot hold. */
+function armingKey(
+  tribe: number,
+  jobType: number | null,
+  wornWeaponTypeId: number | undefined,
+  scenario: boolean,
+): number | null {
+  const tribePart = armingPart(tribe);
+  const jobPart = jobType === null ? 0 : armingPart(jobType);
+  const wornPart = wornWeaponTypeId === undefined ? 0 : armingPart(wornWeaponTypeId);
+  if (tribePart === null || jobPart === null || wornPart === null) return null;
+  return ((tribePart * ARMING_PART_SPAN + jobPart) * ARMING_PART_SPAN + wornPart) * 2 + (scenario ? 1 : 0);
+}
+
+function armingPart(id: number): number | null {
+  return Number.isInteger(id) && id >= 0 && id < ARMING_PART_SPAN - 1 ? id + 1 : null;
+}
+
+function resolveWeapon(
+  ctx: SystemContext,
+  tribe: number,
+  jobType: number | null,
+  wornWeaponTypeId: number | undefined,
+  scenario: boolean,
 ): WeaponReach | null {
   const index = contentIndex(ctx.content);
   const variant = unitVariantFor(ctx.content, { tribe, jobType, scenario });

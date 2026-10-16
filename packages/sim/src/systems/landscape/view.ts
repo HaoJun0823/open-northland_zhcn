@@ -115,27 +115,90 @@ export function landscapeTypes(terrain: TerrainGraph): ReadonlyMap<number, Scrip
   return authoredLandscapes(terrain).types;
 }
 
+/** The entities standing in for resource-backed placements, kept in step with the store's membership
+ *  journal: a felled tree replays one entity instead of re-reading every resource on the map. */
 interface LiveResources {
-  readonly generation: number;
-  readonly byId: ReadonlyMap<number, readonly Entity[]>;
+  generation: number;
+  /** Buckets in store order; a bucket array is replaced, never edited, so a held one stays valid. */
+  readonly byId: Map<number, readonly Entity[]>;
+  /** The placement id each indexed entity stands for, to find its bucket once its component is gone. */
+  readonly idOf: Map<Entity, number>;
 }
 const liveResources = new WeakMap<World, LiveResources>();
 
-/** The entities standing in for resource-backed placements, by placement id. Re-read when one is
- *  created or reaped, which only a script consumer pays for. */
-export function landscapeResources(world: World): ReadonlyMap<number, readonly Entity[]> {
-  const generation = world.componentGeneration(LandscapeResource);
-  const held = liveResources.get(world);
-  if (held?.generation === generation) return held.byId;
+function indexResources(world: World): LiveResources {
   const byId = new Map<number, Entity[]>();
+  const idOf = new Map<Entity, number>();
   for (const entity of world.query(LandscapeResource)) {
     const id = world.get(entity, LandscapeResource).id;
+    idOf.set(entity, id);
     const held = byId.get(id);
     if (held === undefined) byId.set(id, [entity]);
     else held.push(entity);
   }
-  liveResources.set(world, { generation, byId });
-  return byId;
+  return { generation: world.componentGeneration(LandscapeResource), byId, idOf };
+}
+
+/** Apply one journaled entity: false when its bucket holds another entity too, whose order against it
+ *  only the store knows, so the caller re-reads the store. */
+function replayResource(world: World, live: LiveResources, entity: Entity): boolean {
+  const before = live.idOf.get(entity);
+  const after = world.tryGet(entity, LandscapeResource)?.id;
+  if (before !== undefined && (live.byId.get(before)?.length ?? 0) > 1) return false;
+  if (after !== undefined && after !== before && live.byId.has(after)) return false;
+  if (before === after) return true;
+  if (before !== undefined) {
+    live.byId.delete(before);
+    live.idOf.delete(entity);
+  }
+  if (after !== undefined) {
+    live.byId.set(after, [entity]);
+    live.idOf.set(entity, after);
+  }
+  return true;
+}
+
+/** The entities standing in for resource-backed placements, by placement id. Read again after a
+ *  resource is created or reaped: a map held across that may be stale or patched. */
+export function landscapeResources(world: World): ReadonlyMap<number, readonly Entity[]> {
+  const generation = world.componentGeneration(LandscapeResource);
+  let live = liveResources.get(world);
+  if (live?.generation === generation) return live.byId;
+  if (live !== undefined) {
+    const held = live;
+    let exact = true;
+    const replayed = world.replayMembershipSince(LandscapeResource, held.generation, (entity) => {
+      if (exact) exact = replayResource(world, held, entity);
+    });
+    if (replayed && exact) {
+      held.generation = generation;
+      return held.byId;
+    }
+  }
+  world.journalMembership(LandscapeResource);
+  const fresh = indexResources(world);
+  if (live === undefined) world.registerCacheVerifier('landscapeResources', () => verifyResources(world));
+  live = fresh;
+  liveResources.set(world, live);
+  return live.byId;
+}
+
+/** The {@link landscapeResources} coherence verifier (`verifyCaches`): a cold read of the store must
+ *  hold the same buckets in the same order. */
+function verifyResources(world: World): string[] {
+  const live = liveResources.get(world);
+  if (live === undefined || live.generation !== world.componentGeneration(LandscapeResource)) return [];
+  const fresh = indexResources(world);
+  if (fresh.byId.size !== live.byId.size) {
+    return [`landscapeResources holds ${live.byId.size} ids but re-derived ${fresh.byId.size}`];
+  }
+  for (const [id, entities] of fresh.byId) {
+    const held = live.byId.get(id);
+    if (held === undefined || held.length !== entities.length || held.some((e, k) => e !== entities[k])) {
+      return [`landscapeResources bucket ${id} disagrees with the store`];
+    }
+  }
+  return [];
 }
 
 interface RemovedIds {

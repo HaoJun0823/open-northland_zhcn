@@ -13,7 +13,7 @@ import {
   setLandscape,
   setVertexColors,
 } from '../../src/systems/landscape/edits.js';
-import { landscapeBlocks, landscapesWithin } from '../../src/systems/landscape/view.js';
+import { landscapeBlocks, landscapeResources, landscapesWithin } from '../../src/systems/landscape/view.js';
 import { SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
 import { aiContent } from '../fixtures/ai-content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -336,6 +336,35 @@ describe('script landscape state and blockers', () => {
     sim.world.destroy(resource);
     expect(landscapesWithin(sim.world, terrainOf(sim), POINT, 0)).toHaveLength(0);
     expect(sim.landscapeEdits().removed).toEqual([0]);
+  });
+
+  it('patches the resource index per felled resource and re-reads a shared bucket in store order', () => {
+    const sim = new Simulation({ seed: 1, content: aiContent(), map: map() });
+    const spawn = (landscapeId: number) => {
+      const node = createResourceNode(sim.world, sim.content, {
+        good: 1,
+        x: 8,
+        y: 8,
+        remaining: 5,
+        harvestAtomic: 24,
+        landscapeId,
+      });
+      if (node === null) throw new Error('fixture resource');
+      return node;
+    };
+    const lone = spawn(0);
+    const first = spawn(1);
+    const second = spawn(1);
+    const index = landscapeResources(sim.world);
+    expect(index.get(1)).toEqual([first, second]);
+    sim.world.destroy(lone);
+    const replacement = spawn(2);
+    expect(landscapeResources(sim.world)).toBe(index);
+    expect(index.has(0)).toBe(false);
+    expect(index.get(2)).toEqual([replacement]);
+    sim.world.destroy(first);
+    expect(landscapeResources(sim.world).get(1)).toEqual([second]);
+    expect(sim.world.verifyCaches()).toEqual([]);
   });
 
   it('counts animals globally through the same wild-player ownership seam as area goals', () => {

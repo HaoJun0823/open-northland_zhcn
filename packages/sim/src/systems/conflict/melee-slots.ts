@@ -15,7 +15,7 @@ import { dynamicBlockOverlay } from '../footprint/index.js';
 import { routeStructureBlocks } from '../movement/attack-move-blocks.js';
 import { standingFighterPosts } from '../movement/collision/index.js';
 import { liveStepEnd, stopAtNextNode } from '../movement/nav-state.js';
-import { structureRegionOf } from '../movement/structure-route.js';
+import { structureSameRegion, structureStandable } from '../movement/structure-route.js';
 import { hexNodeDistance } from '../spatial/metric.js';
 import { entityNode } from '../spatial/nodes.js';
 import { encircleBands } from './encircle-bands.js';
@@ -53,9 +53,16 @@ export interface Crowding {
 /** A side that claims a cell: a player, or null for an unowned combatant such as a hostile animal. */
 export type Side = number | null;
 
+/** The first rank still open to the askers standing on one bank; `anchor` is the first such asker's node,
+ *  or null for askers off structural ground. */
+interface BankRanks {
+  readonly anchor: NodeId | null;
+  firstOpen: number;
+}
+
 interface WaitingRanks {
   readonly rows: Map<number, NodeId[]>;
-  readonly firstOpenByBank: Map<number, number>;
+  readonly banks: BankRanks[];
 }
 
 /**
@@ -196,23 +203,33 @@ export class MeleeSlots {
     }
     const remaining = hexNodeDistance(this.terrain, there, cell);
     if (remaining <= 1 || hexNodeDistance(this.terrain, here, cell) >= remaining) return false;
-    const bank = this.bankOf(here, chaser.entity);
-    return bank !== null && this.bankOf(cell, chaser.entity) === bank;
+    return this.sameBank(here, cell, chaser.entity);
   }
 
-  /** Connected ground under structures; bodies only reserve individual slots. */
-  bankOf(cell: NodeId, chaser?: Entity): number | null {
+  /** Whether `cell` lies on the connected ground `here` stands on, around the structures `chaser` routes
+   *  by; bodies only reserve individual slots. */
+  sameBank(here: NodeId, cell: NodeId, chaser?: Entity): boolean {
+    return structureSameRegion(this.world, this.ctx, this.terrain, here, cell, this.structuresFor(chaser));
+  }
+
+  /** Whether `here` is structural ground at all, so {@link sameBank} can hold from it. */
+  hasBank(here: NodeId, chaser?: Entity): boolean {
+    return structureStandable(this.world, this.ctx, this.terrain, here, this.structuresFor(chaser));
+  }
+
+  /** A marching chaser plans around its enemies' gates; any other routes by the walk block alone. */
+  private structuresFor(chaser: Entity | undefined): BlockOverlay | undefined {
     const player =
       chaser !== undefined && this.world.tryGet(chaser, PlayerOrder)?.attackMove !== undefined
         ? this.world.tryGet(chaser, Owner)?.player
         : undefined;
-    if (player === undefined) return structureRegionOf(this.world, this.ctx, this.terrain, cell);
+    if (player === undefined) return undefined;
     let blocked = this.marchBlocks.get(player);
     if (blocked === undefined) {
       blocked = routeStructureBlocks(this.world, this.ctx, this.terrain, chaser);
       this.marchBlocks.set(player, blocked);
     }
-    return structureRegionOf(this.world, this.ctx, this.terrain, cell, blocked);
+    return blocked;
   }
 
   /** Owner rule: fill successive ranks behind a full front. Full rows are skipped collectively for
@@ -229,7 +246,7 @@ export class MeleeSlots {
     const key = `${target.entity}:${weapon.maxRange}:${side}`;
     let ranks = this.waiting.get(key);
     if (ranks === undefined) {
-      ranks = { rows: new Map(), firstOpenByBank: new Map() };
+      ranks = { rows: new Map(), banks: [] };
       this.waiting.set(key, ranks);
     }
     const terrain = this.terrain;
@@ -240,11 +257,12 @@ export class MeleeSlots {
       return distance;
     };
     const distance = reach(here);
-    const bank = this.bankOf(here, chaser) ?? -1;
-    const onBank = (cell: NodeId): boolean => bank < 0 || this.bankOf(cell, chaser) === bank;
+    const banked = this.hasBank(here, chaser);
+    const onBank = (cell: NodeId): boolean => !banked || this.sameBank(here, cell, chaser);
+    const bank = this.bankRanks(ranks, here, banked, chaser, weapon.maxRange + 1);
     const own = [mine.goal, mine.standingOn].filter((cell): cell is NodeId => cell !== undefined);
     const ownRanks = own.map(reach);
-    let firstOpen = ranks.firstOpenByBank.get(bank) ?? weapon.maxRange + 1;
+    let firstOpen = bank.firstOpen;
     const nextRank = (start: number): number => {
       let next = Math.max(start, firstOpen);
       for (const rank of ownRanks) if (rank >= start) next = Math.min(next, rank);
@@ -279,7 +297,7 @@ export class MeleeSlots {
       row.length = kept;
       if (!openOnBank && radius >= firstOpen) {
         firstOpen = radius + 1;
-        ranks.firstOpenByBank.set(bank, firstOpen);
+        bank.firstOpen = firstOpen;
       }
       for (const [i, cell] of own.entries()) {
         if (
@@ -297,6 +315,23 @@ export class MeleeSlots {
       if (best !== undefined) return best;
     }
     return here;
+  }
+
+  /** The ranks of the bank `here` stands on; regions are disjoint, so at most one anchor shares it. */
+  private bankRanks(
+    ranks: WaitingRanks,
+    here: NodeId,
+    banked: boolean,
+    chaser: Entity | undefined,
+    firstOpen: number,
+  ): BankRanks {
+    for (const bank of ranks.banks) {
+      const shared = bank.anchor === null ? !banked : banked && this.sameBank(bank.anchor, here, chaser);
+      if (shared) return bank;
+    }
+    const bank = { anchor: banked ? here : null, firstOpen };
+    ranks.banks.push(bank);
+    return bank;
   }
 
   /**

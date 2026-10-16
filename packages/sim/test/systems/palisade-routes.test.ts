@@ -31,7 +31,7 @@ import { findPath } from '../../src/nav/pathfinding/index.js';
 import { dynamicBlockOverlay } from '../../src/systems/footprint/index.js';
 import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
 import { attackMoveBlocks } from '../../src/systems/movement/attack-move-blocks.js';
-import { structureRegionOf, structureRouteSealed } from '../../src/systems/movement/structure-route.js';
+import { structureRouteSealed, structureSameRegion } from '../../src/systems/movement/structure-route.js';
 import { attackMoveUnit, attackUnit, moveUnit } from '../../src/systems/orders/index.js';
 import { palisadeBarring } from '../../src/systems/palisades/breach.js';
 import { createPalisade } from '../../src/systems/palisades/index.js';
@@ -705,9 +705,7 @@ describe('attack-move planning around open enemy gates', () => {
     const first = plan();
     expect(plan()).toBe(first);
     expect(structureRouteSealed(sim.world, ctxOf(sim), terrain, start, goal, first.blocked)).toBe(true);
-    expect(structureRegionOf(sim.world, ctxOf(sim), terrain, start, first.blocked)).not.toBe(
-      structureRegionOf(sim.world, ctxOf(sim), terrain, goal, first.blocked),
-    );
+    expect(structureSameRegion(sim.world, ctxOf(sim), terrain, start, goal, first.blocked)).toBe(false);
     const steps = vi.spyOn(terrain, 'stepsInto');
     for (let i = 0; i < 100; i++) {
       expect(

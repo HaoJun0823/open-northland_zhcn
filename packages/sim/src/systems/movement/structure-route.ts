@@ -6,39 +6,46 @@ import type { ContentContext } from '../context.js';
 import { walkBlockMask } from '../footprint/walk-block-mask.js';
 import { GroupReachability } from './group-reachability.js';
 
-const regions = new WeakMap<
-  World,
-  {
-    terrain: TerrainGraph;
-    reachability: WeakMap<BlockOverlay, GroupReachability>;
-  }
->();
+/** Overlays the shared regions keep per walk-block version: every answer here is exact whatever is held. */
+const MAX_HELD_OVERLAYS = 8;
 
-function regionsOf(world: World, terrain: TerrainGraph, blocked: BlockOverlay): GroupReachability {
+const regions = new WeakMap<World, { terrain: TerrainGraph; reachability: GroupReachability }>();
+
+function regionsOf(world: World, terrain: TerrainGraph): GroupReachability {
   let held = regions.get(world);
   if (held === undefined || held.terrain !== terrain) {
-    held = { terrain, reachability: new WeakMap() };
+    held = { terrain, reachability: new GroupReachability(terrain, MAX_HELD_OVERLAYS) };
     regions.set(world, held);
   }
-  let reachability = held.reachability.get(blocked);
-  if (reachability === undefined) {
-    reachability = new GroupReachability(terrain);
-    held.reachability.set(blocked, reachability);
-  }
-  return reachability;
+  return held.reachability;
 }
 
-/** The connected ground a combat queue may occupy, including closed gates and other structural blocks. */
-export function structureRegionOf(
+/** Whether a combat queue may occupy `node`: walkable ground outside closed gates and other structural
+ * blocks. */
+export function structureStandable(
   world: World,
   ctx: ContentContext,
   terrain: TerrainGraph,
   node: NodeId,
   blocked?: BlockOverlay,
-): number | null {
+): boolean {
+  blocked ??= walkBlockMask(world, ctx, terrain).levelled();
+  return regionsOf(world, terrain).standable(blocked, node);
+}
+
+/** Whether `a` and `b` are both {@link structureStandable} and joined by connected ground around
+ * structures. */
+export function structureSameRegion(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  a: NodeId,
+  b: NodeId,
+  blocked?: BlockOverlay,
+): boolean {
   const mask = walkBlockMask(world, ctx, terrain);
   blocked ??= mask.levelled();
-  return regionsOf(world, terrain, blocked).regionOf(mask, blocked, node);
+  return regionsOf(world, terrain).sameRegion(mask, blocked, a, b);
 }
 
 /** Exact structural refusals shared by chasers and wall breakers. A closed gate's region is exhausted
@@ -53,7 +60,7 @@ export function structureRouteSealed(
 ): boolean {
   const mask = walkBlockMask(world, ctx, terrain);
   blocked ??= mask.levelled();
-  const reachability = regionsOf(world, terrain, blocked);
+  const reachability = regionsOf(world, terrain);
   if (reachability.unreachable(mask, blocked, start, goal)) return true;
   if (findPath(terrain, start, goal, blocked) !== null) return false;
   reachability.rememberFailure(mask, blocked, start, goal);

@@ -7,10 +7,14 @@ import type { NodeId } from '../../src/nav/terrain/index.js';
 import { stampResourceFootprintData, unstampResourceFootprint } from '../../src/systems/footprint/index.js';
 import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
 import { GroupReachability } from '../../src/systems/movement/group-reachability.js';
-import { structureRegionOf, structureRouteSealed } from '../../src/systems/movement/structure-route.js';
+import {
+  structureRouteSealed,
+  structureSameRegion,
+  structureStandable,
+} from '../../src/systems/movement/structure-route.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
-import { grassNodeMap } from '../fixtures/terrain.js';
+import { grassNodeMap, waterColumnMap } from '../fixtures/terrain.js';
 
 function fixture() {
   const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(100, 40) });
@@ -133,43 +137,37 @@ describe('structural chase refusals', () => {
     const left = terrain.nodeAt(8, 8);
     const right = terrain.nodeAt(80, 8);
     reachability.rememberFailure(mask, mask.levelled(), left, right);
-    expect(reachability.regionOf(mask, mask.levelled(), left)).not.toBe(
-      reachability.regionOf(mask, mask.levelled(), right),
-    );
-    const region = (node: NodeId) => structureRegionOf(sim.world, ctx, terrain, node);
-    const leftRegion = region(left);
-    const rightRegion = region(right);
-    expect(leftRegion).not.toBeNull();
-    expect(rightRegion).not.toBeNull();
-    expect(leftRegion).not.toBe(rightRegion);
+    expect(reachability.sameRegion(mask, mask.levelled(), left, right)).toBe(false);
+    const same = (a: NodeId, b: NodeId) => structureSameRegion(sim.world, ctx, terrain, a, b);
+    expect(same(left, right)).toBe(false);
     const steps = vi.spyOn(terrain, 'stepsInto');
     try {
       for (let y = 1; y < 35; y++) {
-        expect(region(terrain.nodeAt(6, y))).toBe(leftRegion);
-        expect(region(terrain.nodeAt(85, y))).toBe(rightRegion);
+        expect(same(terrain.nodeAt(85, y), right)).toBe(true);
+        expect(same(terrain.nodeAt(6, y), right)).toBe(false);
       }
       expect(steps).not.toHaveBeenCalled();
     } finally {
       steps.mockRestore();
     }
+    for (let y = 1; y < 35; y++) expect(same(terrain.nodeAt(6, y), left)).toBe(true);
     unstampResourceFootprint(sim.world, wall);
-    expect(region(left)).toBe(region(right));
+    expect(same(left, right)).toBe(true);
     stampResourceFootprintData(sim.world, wall, {
       walk: Array.from({ length: 40 }, (_, dy) => ({ dx: 0, dy })),
       build: [],
       work: [],
     });
-    expect(region(left)).not.toBe(region(right));
-    expect(region(terrain.nodeAt(50, 8))).toBeNull();
+    expect(same(left, right)).toBe(false);
+    expect(structureStandable(sim.world, ctx, terrain, terrain.nodeAt(50, 8))).toBe(false);
+    expect(same(terrain.nodeAt(50, 8), right)).toBe(false);
     const restored = restoreSimulation(exportSaveGame(sim), {
       content: sim.content,
       map: grassNodeMap(100, 40),
     });
     const coldTerrain = restored.terrain;
     if (coldTerrain === undefined) throw new Error('missing restored terrain');
-    expect(structureRegionOf(restored.world, ctxOf(restored), coldTerrain, left)).not.toBe(
-      structureRegionOf(restored.world, ctxOf(restored), coldTerrain, right),
-    );
+    expect(structureSameRegion(restored.world, ctxOf(restored), coldTerrain, left, right)).toBe(false);
   });
 
   it('recomputes the same refusals with a cold cache after restoring', () => {
@@ -225,5 +223,111 @@ describe('structural chase refusals', () => {
     } finally {
       steps.mockRestore();
     }
+  });
+});
+
+describe('structural region predicate', () => {
+  it('meets nearby connected ground without exhausting either side', () => {
+    const { terrain, mask, reachability } = fixture();
+    const steps = vi.spyOn(terrain, 'stepsInto');
+    try {
+      expect(
+        reachability.sameRegion(mask, mask.levelled(), terrain.nodeAt(10, 10), terrain.nodeAt(14, 12)),
+      ).toBe(true);
+      // A meeting within a few rings, not a flood of the 49-column bank.
+      expect(steps.mock.calls.length).toBeLessThan(100);
+    } finally {
+      steps.mockRestore();
+    }
+  });
+
+  it('labels the exhausted side of a wall and answers later crossings from it', () => {
+    const { terrain, mask, reachability } = fixture();
+    const blocked = mask.levelled();
+    expect(reachability.sameRegion(mask, blocked, terrain.nodeAt(10, 10), terrain.nodeAt(80, 10))).toBe(
+      false,
+    );
+    const steps = vi.spyOn(terrain, 'stepsInto');
+    try {
+      for (let y = 0; y < 40; y += 3) {
+        expect(reachability.sameRegion(mask, blocked, terrain.nodeAt(4, y), terrain.nodeAt(90, 39 - y))).toBe(
+          false,
+        );
+      }
+      expect(steps).not.toHaveBeenCalled();
+    } finally {
+      steps.mockRestore();
+    }
+  });
+
+  it('refuses a blocked or unwalkable endpoint and ground across a static divide', () => {
+    const { terrain, mask, reachability } = fixture();
+    const blocked = mask.levelled();
+    const open = terrain.nodeAt(10, 10);
+    expect(reachability.standable(blocked, terrain.nodeAt(50, 10))).toBe(false);
+    expect(reachability.sameRegion(mask, blocked, terrain.nodeAt(50, 10), open)).toBe(false);
+    expect(reachability.sameRegion(mask, blocked, open, terrain.nodeAt(50, 10))).toBe(false);
+    expect(reachability.sameRegion(mask, blocked, open, open)).toBe(true);
+
+    const sim = new Simulation({ seed: 1, content: testContent(), map: waterColumnMap(20, 10, 10) });
+    const water = sim.terrain;
+    if (water === undefined) throw new Error('missing terrain');
+    const waterMask = walkBlockMask(sim.world, ctxOf(sim), water);
+    const banks = new GroupReachability(water);
+    const [west, east] = [4, 34].map((x) => water.nodeAt(x, 6));
+    if (west === undefined || east === undefined) throw new Error('missing bank nodes');
+    expect(water.componentOf(west)).not.toBe(water.componentOf(east));
+    const steps = vi.spyOn(water, 'stepsInto');
+    try {
+      expect(banks.sameRegion(waterMask, waterMask.levelled(), west, east)).toBe(false);
+      expect(steps).not.toHaveBeenCalled();
+    } finally {
+      steps.mockRestore();
+    }
+  });
+
+  it('agrees with a full flood under scattered posts', () => {
+    const { terrain, mask } = fixture();
+    let seed = 7;
+    // mulberry32: the same posts and pairs on every run.
+    const next = (bound: number): number => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), seed | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) % bound;
+    };
+    const posts = new Set<NodeId>();
+    for (let i = 0; i < 1200; i++) posts.add(terrain.nodeAt(next(terrain.width), next(terrain.height)));
+    for (let y = 0; y < terrain.height; y++) if (y !== 20) posts.add(terrain.nodeAt(25, y));
+    const blocked = new LayeredBlocks([mask.levelled(), posts]);
+    const flood = new Int32Array(terrain.nodeCount);
+    let label = 0;
+    const steps = terrain.steps.bind(terrain);
+    for (let seedNode = 0; seedNode < terrain.nodeCount; seedNode++) {
+      const node = seedNode as NodeId;
+      if (flood[node] !== 0 || !terrain.isWalkable(node) || blocked.has(node)) continue;
+      label++;
+      flood[node] = label;
+      const queue = [node];
+      for (let cursor = 0; cursor < queue.length; cursor++) {
+        for (const step of steps(queue[cursor] as NodeId, blocked)) {
+          if (flood[step.node] !== 0) continue;
+          flood[step.node] = label;
+          queue.push(step.node);
+        }
+      }
+    }
+    const reachability = new GroupReachability(terrain);
+    let connected = 0;
+    for (let i = 0; i < 400; i++) {
+      const a = terrain.nodeAt(next(terrain.width), next(terrain.height));
+      const b = terrain.nodeAt(next(terrain.width), next(terrain.height));
+      const expected = flood[a] !== 0 && flood[a] === flood[b];
+      if (expected) connected++;
+      expect(reachability.sameRegion(mask, blocked, a, b)).toBe(expected);
+    }
+    // The sample must exercise both answers.
+    expect(connected).toBeGreaterThan(50);
+    expect(connected).toBeLessThan(350);
   });
 });

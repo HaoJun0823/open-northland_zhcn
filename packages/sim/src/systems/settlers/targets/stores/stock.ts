@@ -249,16 +249,17 @@ export function nearestStoreHolding(
   avoid?: (cell: NodeId) => boolean,
 ): Entity | null {
   if (sideLendsNone(bands, world, owner, goodType)) return null;
+  const holders = bands.holding(goodType);
+  // An empty band answers null whatever the gate, so its goods limit is never asked.
+  if (!holders.hasCandidates()) return null;
   return (
-    bands
-      .holding(goodType)
-      .nearest(
-        here,
-        holdsUnclaimed(world, bands.ctx, supply, goodType),
-        bands.goodsGate(here, owner, gate),
-        avoid,
-        sameSideAs(world, owner),
-      )?.entity ?? null
+    holders.nearest(
+      here,
+      holdsUnclaimed(world, bands.ctx, supply, goodType),
+      bands.goodsGate(here, owner, gate),
+      avoid,
+      sameSideAs(world, owner),
+    )?.entity ?? null
   );
 }
 
@@ -326,13 +327,14 @@ function holdsUnclaimed(
   supply: SupplyTally,
   goodType: number,
 ): (store: Entity) => typeof QUALIFIES | null {
-  const surplusByOwner = new Map<number, number>();
+  let surplusByOwner: Map<number, number> | undefined;
   return (store) => {
     const held =
       (accessibleStockAmounts(world, store)?.get(goodType) ?? 0) - supply.reservedAt(store, goodType);
     if (held <= 0) return null;
     const owner = minimumBoundOwner(world, ctx, store, goodType);
     if (owner === undefined) return QUALIFIES;
+    surplusByOwner ??= new Map();
     let surplus = surplusByOwner.get(owner);
     if (surplus === undefined) {
       surplus = storageSurplus(world, ctx, owner, goodType, supply);

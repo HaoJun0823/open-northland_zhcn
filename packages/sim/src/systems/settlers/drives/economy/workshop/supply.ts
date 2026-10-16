@@ -157,10 +157,12 @@ export function nearestMissingInputSource(
     const input = inputs[pick];
     if (input === undefined) return null;
     const goodType = input.goodType;
-    const band =
+    const supplying =
       unsourced?.includes(goodType) === true || sideSuppliesNone(plan, goodType)
         ? null
         : targets.bands.supplying(goodType);
+    // An empty band finds nothing whatever the gate, so its goods limit is never asked.
+    const band = supplying?.hasCandidates() === true ? supplying : null;
     // The workplace never supplies itself; a self-filling house qualifies empty or claimed.
     const source = (e: Entity): Qualified<boolean> | null => {
       if (e === workplace) return null;
@@ -185,7 +187,7 @@ export function nearestMissingInputSource(
       const refills = winner.payload || refillingGoodsOf(world, ctx, store).includes(goodType);
       return { store, goodType, refills };
     }
-    if (band !== null) unsourced?.push(goodType);
+    if (supplying !== null) unsourced?.push(goodType);
     lastIndex = pick;
     lastHave = pickHave;
     lastTarget = pickTarget;

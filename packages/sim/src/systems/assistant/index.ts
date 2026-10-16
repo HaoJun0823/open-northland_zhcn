@@ -6,7 +6,6 @@ import {
   type AssistantCounterValues,
   AssistantRecruit,
   type AssistantRecruitIntent,
-  Building,
   ChildOrder,
   Equipment,
   EquipOrder,
@@ -14,13 +13,13 @@ import {
   JobAssignment,
   Marriage,
   ownerOf,
-  Person,
   Residence,
   Settler,
   TrainingOrder,
 } from '../../components/index.js';
 import { TICKS_PER_SECOND } from '../../core/loop.js';
 import type { Entity, World } from '../../ecs/world.js';
+import { ownedBuildings, ownedSettlers } from '../ai-shared/seat-roster.js';
 import type { System, SystemContext } from '../context.js';
 import { childOrderBlocker } from '../family/children/index.js';
 import { isMarried } from '../family/eligibility.js';
@@ -68,22 +67,32 @@ export const assistantSystem: System = (world, ctx) => {
 };
 
 /** The beat's canonical scans, built lazily and shared across the carriers. Sharing is safe: dispatching
- *  adds orders and bookings, never people or buildings, so the first seat's snapshot still holds for the
- *  last. */
+ *  adds orders and bookings, never people, buildings or owners, so the first seat's snapshot still holds
+ *  for the last. Each list is one seat's, ascending id. */
 interface BeatScans {
-  readonly mothers: () => readonly Entity[];
-  readonly people: () => readonly Entity[];
-  readonly buildings: () => readonly Entity[];
+  readonly mothers: (player: number) => readonly Entity[];
+  readonly people: (player: number) => readonly Entity[];
+  readonly buildings: (player: number) => readonly Entity[];
 }
 
 function beatScans(world: World): BeatScans {
-  let mothers: readonly Entity[] | null = null;
-  let people: readonly Entity[] | null = null;
-  let buildings: readonly Entity[] | null = null;
+  let mothers: Map<number, Entity[]> | null = null;
   return {
-    mothers: () => (mothers ??= world.canonicalQuery(Female, Marriage, Residence)),
-    people: () => (people ??= world.canonicalQuery(Person)),
-    buildings: () => (buildings ??= world.canonicalQuery(Building)),
+    mothers: (player) => {
+      if (mothers === null) {
+        mothers = new Map();
+        for (const woman of world.canonicalQuery(Female, Marriage, Residence)) {
+          const owner = ownerOf(world, woman);
+          if (owner === undefined) continue;
+          const held = mothers.get(owner);
+          if (held === undefined) mothers.set(owner, [woman]);
+          else held.push(woman);
+        }
+      }
+      return mothers.get(player) ?? [];
+    },
+    people: (player) => ownedSettlers(world, player),
+    buildings: (player) => ownedBuildings(world, player),
   };
 }
 
@@ -131,9 +140,8 @@ function dispatchBirths(
     else boysWanted -= 1;
   }
   if (girlsWanted <= 0 && boysWanted <= 0) return;
-  for (const woman of scans.mothers()) {
+  for (const woman of scans.mothers(player)) {
     if (girlsWanted <= 0 && boysWanted <= 0) return;
-    if (ownerOf(world, woman) !== player) continue;
     if (world.has(woman, ChildOrder)) continue; // her own or an earlier booking - one at a time
     if (!mayBearChild(world, woman)) continue;
     if (childOrderBlocker(world, ctx, woman, world.get(woman, Marriage).spouse) !== undefined) continue;
@@ -177,7 +185,7 @@ function dispatchTraining(
   const houses = ownedBarracks(world, ctx, player, scans);
   if (houses.length === 0) return;
 
-  const free = scans.people().filter((e) => isFreeMan(world, e, player));
+  const free = scans.people(player).filter((e) => isFreeMan(world, e, player));
   const candidates = [
     ...free.filter((e) => !isMarried(world, e)),
     ...free.filter((e) => isMarried(world, e)),
@@ -216,7 +224,7 @@ function nextWantedIntent(
 
 /** `player`'s standing barracks, ascending entity id (the deterministic house preference). */
 function ownedBarracks(world: World, ctx: SystemContext, player: number, scans: BeatScans): Entity[] {
-  return scans.buildings().filter((e) => ownerOf(world, e) === player && isBarracks(world, ctx, e));
+  return scans.buildings(player).filter((e) => isBarracks(world, ctx, e));
 }
 
 /** The trade shapes the training dispatcher may draft. Shared with the AI's garrison sizing, so the target

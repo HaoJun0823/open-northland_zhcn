@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { Anger, FarmAnimal, MoveGoal, Position, Resting, StayPoint } from '../../src/components/index.js';
+import {
+  Anger,
+  FarmAnimal,
+  Livestock,
+  MoveGoal,
+  Owner,
+  Position,
+  Resting,
+  StayPoint,
+} from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, positionOfNode, Simulation } from '../../src/index.js';
 import type { TerrainGraph } from '../../src/nav/terrain/index.js';
@@ -53,14 +62,14 @@ describe('grazingFields index', () => {
     expect(fields.keeperAt(terrain.nodeAt(10, 10))).toBe(first);
     expect(fields.keeperAt(terrain.nodeAt(11, 10))).toBeUndefined();
     expect(fields.keeperAt(terrain.nodeAt(12, 10))).toBe(third);
-    expect(fields.grazers).toEqual([first, second, third]);
+    expect(fields.wanderers).toEqual([second]); // wild keepers only hold their spots
 
     sim.world.add(first, MoveGoal, { cell: terrain.nodeAt(2, 2) }); // off the field: second keeps, third yields
     fields = fieldsOf(sim, terrain);
     expect(fields.keeperAt(terrain.nodeAt(10, 10))).toBeUndefined();
     expect(fields.keeperAt(terrain.nodeAt(11, 10))).toBe(second);
     expect(fields.keeperAt(terrain.nodeAt(12, 10))).toBeUndefined();
-    expect(fields.grazers).toEqual([second, third]);
+    expect(fields.wanderers).toEqual([third]);
 
     sim.world.remove(first, MoveGoal);
     moveTo(sim, first, 12, 11); // back beside third: first outranks everyone near it
@@ -78,16 +87,30 @@ describe('grazingFields index', () => {
     expect(fieldsOf(sim, terrain).rangeOf(bear)).toBe(BEAR_RANGE);
 
     sim.world.add(bear, Anger, { until: 100 });
-    expect(fieldsOf(sim, terrain).grazers).toEqual([other]);
+    expect(fieldsOf(sim, terrain).grazes(bear)).toBe(false);
     sim.world.remove(bear, Anger);
     sim.world.add(bear, FarmAnimal, { farm: other, summoner: null });
-    expect(fieldsOf(sim, terrain).grazers).toEqual([bear, other]);
+    expect(fieldsOf(sim, terrain).grazes(bear)).toBe(true);
     sim.world.mut(bear, FarmAnimal).summoner = other;
-    expect(fieldsOf(sim, terrain).grazers).toEqual([other]);
+    expect(fieldsOf(sim, terrain).grazes(bear)).toBe(false);
     sim.world.add(other, Resting, { at: bear });
     expect(fieldsOf(sim, terrain).keeperAt(terrain.nodeAt(14, 14))).toBeUndefined();
     sim.world.destroy(bear);
-    expect(fieldsOf(sim, terrain).grazers).toEqual([]);
+    expect(fieldsOf(sim, terrain).grazes(bear)).toBe(false);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('lists a lone keeper as a wanderer only while it is leashed livestock', () => {
+    const { sim, terrain } = fixture();
+    const bear = bearAt(sim, terrain, 4, 4);
+    expect(fieldsOf(sim, terrain).wanderers).toEqual([]);
+    sim.world.add(bear, Livestock, {});
+    sim.world.add(bear, Owner, { player: 0 });
+    const fields = fieldsOf(sim, terrain);
+    expect(fields.rangeOf(bear)).toBeGreaterThan(0);
+    expect(fields.wanderers).toEqual([bear]);
+    sim.world.remove(bear, Owner);
+    expect(fieldsOf(sim, terrain).wanderers).toEqual([]);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
@@ -99,6 +122,6 @@ describe('grazingFields index', () => {
 
     (fields as unknown as { keeperByNode: Int32Array }).keeperByNode[terrain.nodeAt(10, 10)] = 0;
 
-    expect(sim.world.verifyCaches()).toEqual(['grazingFields: 2 checks disagree with a fresh election']);
+    expect(sim.world.verifyCaches()).toEqual(['grazingFields: 3 checks disagree with a fresh election']);
   });
 });

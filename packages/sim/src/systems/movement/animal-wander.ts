@@ -57,11 +57,12 @@ export const animalWanderSystem: System = (world, ctx) => {
   // This pass's sidestep claims, made only when standers stack.
   let taken: Set<NodeId> | undefined;
 
-  // The grazers are standing animals no other drive holds: not resting in a building, travelling,
-  // mid-atomic, fighting, provoked, ordered, frightened, summoned to a farm door or recruited to a cart.
-  // Only MoveGoal writes happen here, and the index replays them at the next pass.
+  // The wanderers are standing animals no other drive holds (not resting in a building, travelling,
+  // mid-atomic, fighting, provoked, ordered, frightened, summoned to a farm door or recruited to a cart)
+  // that are stacked or leashed livestock. Only MoveGoal writes happen here, and the index replays them
+  // at the next pass.
   const fields = grazingFields(world, ctx.content, terrain);
-  for (const e of fields.grazers) {
+  for (const e of fields.wanderers) {
     // Un-stack before any graze roll: an animal inside another keeper's field steps to the nearest free
     // spot with the leash ignored, since getting off a shared field beats staying strictly inside the
     // territory. The sidestep draws no rng; the `continue` drops this animal's cadence roll for the tick.

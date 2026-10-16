@@ -102,7 +102,9 @@ export function heldByAngerAlone(world: World, e: Entity): boolean {
  * the last one rather than the herd.
  */
 export class GrazingFields {
-  private readonly grazerIds: Entity[] = [];
+  /** Grazers the standing drive can move, ascending id; see {@link wanderers}. */
+  private readonly wandererIds: Entity[] = [];
+  private wandering = new Uint8Array(0);
   private roles = new Uint8Array(0);
   /** Each stander's node, {@link NO_NODE} off the field. */
   private nodes = new Int32Array(0);
@@ -135,9 +137,10 @@ export class GrazingFields {
     this.rebuild();
   }
 
-  /** Standing animals no other drive holds, ascending id: the grazing drive's candidates. */
-  get grazers(): readonly Entity[] {
-    return this.grazerIds;
+  /** The grazers the standing drive can move, ascending id: one stacked off a kept field, or claimed
+   *  livestock with a leash to range over. A wild keeper or a leashless one only holds its spot. */
+  get wanderers(): readonly Entity[] {
+    return this.wandererIds;
   }
 
   /** Whether `e` stands on the field with no other drive holding it. */
@@ -199,10 +202,11 @@ export class GrazingFields {
     this.keepers = new Uint8Array(size);
     this.ranges = new Int32Array(size);
     this.claims = new Uint8Array(size);
+    this.wandering = new Uint8Array(size);
     this.nextOnNode = new Int32Array(size);
     this.firstOnNode.fill(NO_ENTRY);
     this.keeperByNode.fill(NO_ENTRY);
-    this.grazerIds.length = 0;
+    this.wandererIds.length = 0;
     this.dirty.length = 0;
     for (const e of this.world.canonicalQuery(...ANIMAL_MEMBERSHIP)) this.resync(e);
     this.elect();
@@ -224,16 +228,24 @@ export class GrazingFields {
       this.ranges[e] = territoryRangeIn(world, this.content, e);
       this.claims[e] = world.has(e, Livestock) && world.has(e, Owner) ? 1 : 0;
     }
-    const wasGrazing = this.roles[e] === GRAZING;
     this.roles[e] = role;
     if (this.nodes[e] !== (node ?? NO_NODE)) {
       if (this.nodes[e] !== NO_NODE) this.leave(e);
       if (node !== null) this.enter(e, node);
     }
-    if (wasGrazing !== (role === GRAZING)) {
-      if (role === GRAZING) insertSortedById(this.grazerIds, e, idOf);
-      else removeSortedById(this.grazerIds, e, idOf);
-    }
+    this.refreshWandering(e);
+  }
+
+  /** Re-derives whether `e` is a wanderer from its role, keep, claim and range. A keeper owns its node's
+   *  {@link keeperByNode} slot, so a grazer that does not keep stands stacked. */
+  private refreshWandering(e: Entity): void {
+    const wanders =
+      this.roles[e] === GRAZING &&
+      (this.keepers[e] !== 1 || (this.claims[e] === 1 && (this.ranges[e] ?? 0) > 0));
+    if (wanders === (this.wandering[e] === 1)) return;
+    this.wandering[e] = wanders ? 1 : 0;
+    if (wanders) insertSortedById(this.wandererIds, e, idOf);
+    else removeSortedById(this.wandererIds, e, idOf);
   }
 
   private enter(e: Entity, node: NodeId): void {
@@ -260,6 +272,7 @@ export class GrazingFields {
     if (this.keepers[e] !== 1) return;
     this.keepers[e] = 0;
     if (this.keeperByNode[node] === e + 1) this.keeperByNode[node] = NO_ENTRY;
+    this.refreshWandering(e);
     this.markHigherNear(node, e);
   }
 
@@ -276,6 +289,7 @@ export class GrazingFields {
       if (keeps === (this.keepers[e] === 1)) continue;
       this.keepers[e] = keeps ? 1 : 0;
       if (!keeps && this.keeperByNode[node] === e + 1) this.keeperByNode[node] = NO_ENTRY;
+      this.refreshWandering(e);
       this.markHigherNear(node, e);
     }
     dirty.length = 0;
@@ -327,6 +341,7 @@ export class GrazingFields {
     this.keepers = widen(this.keepers, new Uint8Array(size));
     this.ranges = widen(this.ranges, new Int32Array(size));
     this.claims = widen(this.claims, new Uint8Array(size));
+    this.wandering = widen(this.wandering, new Uint8Array(size));
     this.nextOnNode = widen(this.nextOnNode, new Int32Array(size));
   }
 
@@ -336,6 +351,7 @@ export class GrazingFields {
     const world = this.world;
     const fresh = new Map<NodeId, Entity>();
     const grazers: Entity[] = [];
+    const wanderers: Entity[] = [];
     let wrong = 0;
     for (const e of world.canonicalQuery(...ANIMAL_MEMBERSHIP)) {
       if (this.ranges[e] !== territoryRangeIn(world, this.content, e)) wrong++;
@@ -352,7 +368,12 @@ export class GrazingFields {
     }
     for (const [node, keeper] of fresh) if (this.keeperAt(node) !== keeper) wrong++;
     if (this.keeperByNode.reduce((held, k) => (k === NO_ENTRY ? held : held + 1), 0) !== fresh.size) wrong++;
-    if (grazers.length !== this.grazers.length || grazers.some((e, i) => this.grazers[i] !== e)) wrong++;
+    for (const e of grazers) {
+      const stacked = this.keeperAt(this.nodeOf(e)) !== e;
+      if (stacked || (this.claimed(e) && this.rangeOf(e) > 0)) wanderers.push(e);
+    }
+    const held = this.wandererIds;
+    if (wanderers.length !== held.length || wanderers.some((e, i) => held[i] !== e)) wrong++;
     return wrong === 0 ? [] : [`grazingFields: ${wrong} checks disagree with a fresh election`];
   }
 

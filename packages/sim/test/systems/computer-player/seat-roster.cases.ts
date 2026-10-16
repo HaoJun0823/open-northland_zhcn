@@ -105,6 +105,32 @@ describe('the seat rosters', () => {
     ]);
   });
 
+  it('swaps in a fresh list for a seat a change touches, leaving a held list and an untouched seat alone', () => {
+    const world = new World();
+    const first = addPerson(world, SEAT);
+    const rivals = [addPerson(world, RIVAL)];
+    const held = ownedSettlers(world, SEAT);
+    expect(ownedSettlers(world, RIVAL)).toEqual(rivals);
+    const rivalList = ownedSettlers(world, RIVAL);
+
+    const born = addPerson(world, SEAT);
+    world.destroy(first);
+    expect(held).toEqual([first]);
+    expect(ownedSettlers(world, SEAT)).toEqual([born]);
+    expect(ownedSettlers(world, RIVAL)).toBe(rivalList);
+    expect(world.verifyCaches()).toEqual([]);
+  });
+
+  it('inserts a seat member by id wherever the change lands it', () => {
+    const world = new World();
+    const people = [addPerson(world, RIVAL), addPerson(world, SEAT), addPerson(world, RIVAL)];
+    expect(ownedSettlers(world, SEAT)).toHaveLength(1);
+    for (const e of people) world.mut(e, Owner).player = SEAT;
+    expect(ownedSettlers(world, SEAT)).toEqual(people);
+    expect(ownedSettlers(world, RIVAL)).toEqual([]);
+    expect(world.verifyCaches()).toEqual([]);
+  });
+
   it('leaves the world coherent under verifyCaches after a tracked capture', () => {
     const world = new World();
     const taken = addBuilding(world, SEAT);

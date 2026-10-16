@@ -57,14 +57,21 @@ function sameBox(a: TileBox | undefined, b: TileBox | undefined): boolean {
   return a.minX === b.minX && a.minY === b.minY && a.maxX === b.maxX && a.maxY === b.maxY;
 }
 
+/** A mark projection memoized per snapshot and screen box, see {@link memoByScreen}. */
+interface ScreenMemo<T> {
+  (snapshot: WorldSnapshot, viewport?: Viewport): T;
+  /** What the last read of `snapshot` answered, under whatever box, or the whole map's when none did. */
+  readonly latest: (snapshot: WorldSnapshot) => T;
+}
+
 /** {@link memoBySnapshot} for a mark projection that reads only the units under the screen: keyed on the
  *  candidate box too, and no viewport reads the whole map. */
 function memoByScreen<T>(
   build: (snapshot: WorldSnapshot, box: TileBox | undefined) => T,
   versionOf: () => number,
-): (snapshot: WorldSnapshot, viewport?: Viewport) => T {
+): ScreenMemo<T> {
   const memo = new WeakMap<WorldSnapshot, { version: number; box: TileBox | undefined; value: T }>();
-  return (snapshot, viewport) => {
+  const read = (snapshot: WorldSnapshot, viewport?: Viewport): T => {
     const version = versionOf();
     const box = viewport === undefined ? undefined : markTileBox(viewport);
     const hit = memo.get(snapshot);
@@ -73,6 +80,11 @@ function memoByScreen<T>(
     memo.set(snapshot, { version, box, value });
     return value;
   };
+  const latest = (snapshot: WorldSnapshot): T => {
+    const hit = memo.get(snapshot);
+    return hit !== undefined && hit.version === versionOf() ? hit.value : read(snapshot);
+  };
+  return Object.assign(read, { latest });
 }
 
 /** The live selection the heart projection reads, paired with its memo key. */
@@ -111,6 +123,9 @@ export function createSnapshotProjections(
     snapshot: WorldSnapshot,
     viewport?: Viewport,
   ) => ReturnType<typeof computeDoorBadges>;
+  /** The badges the frame last drew over `snapshot`, which are all a click can land on; the whole map's
+   *  before any frame drew it. */
+  readonly drawnDoorBadgesFor: (snapshot: WorldSnapshot) => ReturnType<typeof computeDoorBadges>;
   readonly constructionSignsFor: (snapshot: WorldSnapshot) => ReturnType<typeof computeConstructionSigns>;
   readonly settlerBubblesFor: (snapshot: WorldSnapshot) => ReturnType<typeof computeSettlerBubbles>;
   readonly lifeHeartsFor: (
@@ -173,19 +188,21 @@ export function createSnapshotProjections(
     () => viewer.version() + (hearts.selection?.version() ?? 0),
   );
   const doorBadges: DoorBadgeCache = { held: new Map() };
+  const doorBadgesFor = memoByScreen((snapshot, box) => {
+    const badges = computeDoorBadges(snapshot, buildingInfoOf, roleOf, box, doorBadges);
+    const fog = fogGates.current();
+    return fog === null
+      ? badges
+      : badges.filter((badge) => fogTileVisible(fog, badge.x / ONE, badge.y / ONE));
+  }, viewerVersion);
   return {
     hudModelFor,
     hudFor: memoBySnapshot(
       (snapshot) => layoutHud(hudModelFor(snapshot), hudLabels(seatNameOf)),
       viewerVersion,
     ),
-    doorBadgesFor: memoByScreen((snapshot, box) => {
-      const badges = computeDoorBadges(snapshot, buildingInfoOf, roleOf, box, doorBadges);
-      const fog = fogGates.current();
-      return fog === null
-        ? badges
-        : badges.filter((badge) => fogTileVisible(fog, badge.x / ONE, badge.y / ONE));
-    }, viewerVersion),
+    doorBadgesFor,
+    drawnDoorBadgesFor: doorBadgesFor.latest,
     constructionSignsFor: memoBySnapshot((snapshot) => {
       const signs = computeConstructionSigns(snapshot, buildingInfoOf);
       const fog = fogGates.current();

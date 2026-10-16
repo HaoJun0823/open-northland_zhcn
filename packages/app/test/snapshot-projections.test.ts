@@ -51,6 +51,17 @@ describe('createSnapshotProjections - memoized by snapshot identity', () => {
     expect(held.map((badge) => badge.id)).toEqual([10]);
   });
 
+  it("hands a click the frame's badges of the snapshot, and the whole map's before any frame read it", () => {
+    const { doorBadgesFor, drawnDoorBadgesFor } = projectionsFor();
+    const screenAt = (x: number): Viewport => ({ minX: x, minY: 0, maxX: x + 800, maxY: 600 });
+    const whole = drawnDoorBadgesFor(snap);
+    expect(whole.map((badge) => badge.id)).toEqual([10]);
+    const next = snapshotOf([building(10, HOME_TYPE, 1, 1), settler(1, 0, 10)]);
+    const drawn = doorBadgesFor(next, screenAt(0));
+    expect(drawnDoorBadgesFor(next)).toBe(drawn);
+    expect(drawn).toEqual(whole);
+  });
+
   it('re-reads the summary when a spectator switches seats under a held snapshot, zero for the whole map', () => {
     const viewer = switchableViewerSeat(1);
     const { hudModelFor, hudFor } = createSnapshotProjections(

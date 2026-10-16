@@ -1054,6 +1054,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       hudFor,
       hudModelFor,
       doorBadgesFor,
+      drawnDoorBadgesFor,
       constructionSignsFor,
       settlerBubblesFor,
       lifeHeartsFor,
@@ -1074,7 +1075,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
       selection: { ids: controls.selectedIds, version: controls.selectionVersion },
     });
-    pickableDoorBadges = () => doorBadgesFor(host.snapshot());
+    pickableDoorBadges = () => drawnDoorBadgesFor(host.snapshot());
 
     // The script's markers draw over the world and under every HUD plane.
     const scriptOverlay = new Container();

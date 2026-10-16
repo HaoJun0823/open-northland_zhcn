@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BlockOverlay } from '../../src/nav/block-overlay.js';
 import { hexDistanceBetween, hexNeighboursOf } from '../../src/nav/halfcell.js';
 import {
+  enteredCost,
   floodInspected,
   floodReach,
   reachContains,
@@ -136,6 +137,39 @@ describe('searchReach', () => {
       terrain.syncRoads(1, unread);
       expect(floodReach(terrain, blocked, hx, hy, range).area.cells).toEqual(search.area.cells);
     }
+  });
+
+  it("answers over a spent search's buffers as a fresh flood does", () => {
+    let reused = 0;
+    for (let c = 0; c < CASES; c++) {
+      const next = lcg(c + 300);
+      const roughness = Array.from({ length: MAP_WIDTH * MAP_HEIGHT }, () => next(MAX_ROUGHNESS + 1));
+      const terrain = buildTerrainGraph(testContent(), {
+        resolution: 'half-cell',
+        width: MAP_WIDTH,
+        height: MAP_HEIGHT,
+        typeIds: new Array(MAP_WIDTH * MAP_HEIGHT).fill(GRASS),
+        roughness,
+      });
+      const blockedIds = new Set(Array.from({ length: 400 }, () => next(terrain.nodeCount) as NodeId));
+      const blocked: BlockOverlay = { size: blockedIds.size, has: (n) => blockedIds.has(n) };
+      const range = 1 + next(30);
+      const groundCost = next(2) === 0;
+      const ask = () => [next(MAP_WIDTH), next(MAP_HEIGHT)] as const;
+      const [ax, ay] = ask();
+      const spent = floodReach(terrain, blocked, ax, ay, range, 2 * range, groundCost);
+      const [bx, by] = next(2) === 0 ? [ax, ay] : ask();
+      const again = floodReach(terrain, blocked, bx, by, range, 2 * range, groundCost, undefined, spent);
+      const fresh = floodReach(terrain, blocked, bx, by, range, 2 * range, groundCost);
+      if (again.area.cells === spent.area.cells) reused++;
+      expect(again.area).toEqual(fresh.area);
+      expect(again.searched).toEqual(fresh.searched);
+      for (let y = 0; y < MAP_HEIGHT; y++)
+        for (let x = 0; x < MAP_WIDTH; x++)
+          if (enteredCost(again.costs, x, y) !== enteredCost(fresh.costs, x, y))
+            expect([x, y, enteredCost(again.costs, x, y)]).toEqual([x, y, enteredCost(fresh.costs, x, y)]);
+    }
+    expect(reused).toBeGreaterThan(CASES / 2);
   });
 
   it('follows a road laid after the terrain was built', () => {

@@ -44,18 +44,23 @@ export interface ReachSpan {
   readonly range: number;
   readonly budget: number;
   readonly groundCost: boolean;
+  /** Whether callers read an answer only until they ask its holder again, so a fresh flood may write over
+   *  the answer it replaces. */
+  readonly readOnce: boolean;
 }
 
 export const GOODS_SEARCH_SPAN: ReachSpan = {
   range: GOODS_SEARCH_RANGE_NODES,
   budget: originalReachBudget(GOODS_SEARCH_RANGE_NODES),
   groundCost: true,
+  readOnce: false,
 };
 
 export const SIGNPOST_LINK_SPAN: ReachSpan = {
   range: SIGNPOST_LINK_RANGE_NODES,
   budget: SIGNPOST_LINK_STEPS,
   groundCost: false,
+  readOnce: true,
 };
 
 export interface TerrainReach extends ReachSearch {
@@ -116,7 +121,17 @@ export function terrainReach(
     };
   }
   return {
-    ...floodReach(terrain, mask.levelled(), hx, hy, span.range, span.budget, span.groundCost, targets),
+    ...floodReach(
+      terrain,
+      mask.levelled(),
+      hx,
+      hy,
+      span.range,
+      span.budget,
+      span.groundCost,
+      targets,
+      span.readOnce ? held : undefined,
+    ),
     terrain,
     hx,
     hy,

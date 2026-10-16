@@ -105,8 +105,9 @@ export function reachCovers(
   return true;
 }
 
-/** The cheapest cost of each node a flood entered, row-major over a box holding all of them; every
- *  other node reads {@link NOT_ENTERED}. A flood that never left its start holds the start alone. */
+/** The cheapest cost of each node a flood entered, row-major over a box holding all of them in the first
+ *  `width * height` values; every other node reads {@link NOT_ENTERED}. A flood that never left its start
+ *  holds the start alone. */
 export interface FloodCosts {
   readonly minX: number;
   readonly minY: number;
@@ -179,7 +180,8 @@ export function reachBox(terrain: TerrainGraph, hx: number, hy: number, range: n
  *  entered node's resistance. The marked set is order-independent: a node is marked when
  *  it neighbours any node whose cheapest cost stays under the budget, so the order a bucket is walked in
  *  does not matter. With `targets` the flood stops once it has marked every target it can mark, and the
- *  answer is exact for those targets alone (see {@link reachCovers}). */
+ *  answer is exact for those targets alone (see {@link reachCovers}). The flood writes over the buffers of
+ *  `spent`, a search no one reads again, where they fit. */
 export function floodReach(
   terrain: TerrainGraph,
   blocked: BlockOverlay,
@@ -189,11 +191,13 @@ export function floodReach(
   budget = originalReachBudget(range),
   groundCost = true,
   targets?: ReachTargets,
+  spent?: ReachSearch,
 ): ReachSearch {
   if (budget + CLOSED_OVER_BUDGET >= ENTERED_FLAG) throw new RangeError(`reach budget ${budget} too large`);
   const { minX, maxX, minY, maxY } = reachBox(terrain, hx, hy, range);
   const width = Math.max(0, maxX - minX + 1);
-  const cells = new Uint8Array(width * Math.max(0, maxY - minY + 1));
+  const size = width * Math.max(0, maxY - minY + 1);
+  const cells = spent?.area.cells.length === size ? spent.area.cells.fill(0) : new Uint8Array(size);
   const area = { minX, maxX, minY, maxY, cells };
   const unmoved = {
     area,
@@ -313,19 +317,22 @@ export function floodReach(
   return {
     area,
     searched,
-    costs: enteredCosts(costs, windowX, windowY, side, kept, budget),
+    costs: enteredCosts(costs, windowX, windowY, side, emptyCosts(kept, budget, spent?.costs)),
     complete: pending !== 0,
   };
 }
 
-/** A cost box for `budget` over `box`, every node not entered. */
-function emptyCosts(box: NodeBox, budget: number): FloodCosts {
+/** A cost box for `budget` over `box`, every node not entered, written over `spent`'s values where they
+ *  fit. */
+function emptyCosts(box: NodeBox, budget: number, spent?: FloodCosts): FloodCosts {
   const width = box.maxX - box.minX + 1;
   const height = box.maxY - box.minY + 1;
+  const size = width * height;
   const bytes = budget < BYTE_COST_UNSET;
-  const values = bytes ? new Uint8Array(width * height) : new Uint16Array(width * height);
   const unset = bytes ? BYTE_COST_UNSET : NOT_ENTERED;
-  values.fill(unset);
+  const reusable = spent !== undefined && spent.unset === unset && spent.values.length >= size;
+  const values = reusable ? spent.values : bytes ? new Uint8Array(size) : new Uint16Array(size);
+  values.fill(unset, 0, size);
   return { minX: box.minX, minY: box.minY, width, height, values, unset };
 }
 
@@ -335,20 +342,18 @@ function startOnlyCosts(hx: number, hy: number, budget: number): FloodCosts {
   return costs;
 }
 
-/** The entered costs over `box` from the flood's slots over its window at `(windowX, windowY)`. */
+/** `costs` filled with the entered costs from the flood's slots over its window at `(windowX, windowY)`. */
 function enteredCosts(
   slots: Uint16Array,
   windowX: number,
   windowY: number,
   side: number,
-  box: NodeBox,
-  budget: number,
+  costs: FloodCosts,
 ): FloodCosts {
-  const costs = emptyCosts(box, budget);
   const values = costs.values;
   const { width, height } = costs;
   for (let y = 0; y < height; y++) {
-    const from = (box.minY + y - windowY) * side + box.minX - windowX;
+    const from = (costs.minY + y - windowY) * side + costs.minX - windowX;
     for (let x = 0; x < width; x++) {
       const slot = slots[from + x] as number;
       if ((slot & ENTERED_FLAG) !== 0) values[y * width + x] = slot & ~ENTERED_FLAG;

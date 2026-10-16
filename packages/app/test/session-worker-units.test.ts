@@ -185,6 +185,20 @@ describe('fog posts', () => {
     expect(posts.changed(null)).toBe(false);
   });
 
+  it('tells a changed byte in the word-compared body and in the tail past the last whole word', () => {
+    const posts = new FogPosts();
+    const bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    expect(posts.changed(answer(1, bytes))).toBe(true);
+    expect(posts.changed(answer(2, bytes))).toBe(false);
+    expect(posts.changed(answer(3, bytes.map((b, i) => (i === 5 ? b + 1 : b))))).toBe(true);
+    expect(posts.changed(answer(4, bytes))).toBe(true);
+    expect(posts.changed(answer(5, bytes.map((b, i) => (i === bytes.length - 1 ? b + 1 : b))))).toBe(true);
+    // A view into a larger buffer at an odd offset is compared byte by byte.
+    const odd = new Uint8Array(bytes.length + 1);
+    odd.set(bytes.map((b, i) => (i === bytes.length - 1 ? b + 1 : b)), 1);
+    expect(posts.changed({ ...answer(6, []), mask: odd.subarray(1) })).toBe(false);
+  });
+
   it('posts a seat watched again although its mask did not change meanwhile', () => {
     const posts = new FogPosts();
     const SEAT_A = VIEWER;

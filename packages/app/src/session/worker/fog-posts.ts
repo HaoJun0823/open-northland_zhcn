@@ -32,7 +32,23 @@ function sameFog(a: FogMaskAnswer | null, b: FogMaskAnswer | null): boolean {
   const am = a.mask;
   const bm = b.mask;
   if (am === null || bm === null) return am === bm;
-  if (am.length !== bm.length) return false;
-  for (let i = 0; i < am.length; i++) if (am[i] !== bm[i]) return false;
+  return sameBytes(am, bm);
+}
+
+const WORD_BYTES = Uint32Array.BYTES_PER_ELEMENT;
+
+/** Byte equality compared a 32-bit word at a time where both arrays allow a word view: a viewer's
+ *  mask is a few hundred kilobytes, compared on every fog generation bump. */
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let from = 0;
+  if (a.byteOffset % WORD_BYTES === 0 && b.byteOffset % WORD_BYTES === 0) {
+    const words = Math.floor(a.length / WORD_BYTES);
+    const aw = new Uint32Array(a.buffer, a.byteOffset, words);
+    const bw = new Uint32Array(b.buffer, b.byteOffset, words);
+    for (let i = 0; i < words; i++) if (aw[i] !== bw[i]) return false;
+    from = words * WORD_BYTES;
+  }
+  for (let i = from; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
 }

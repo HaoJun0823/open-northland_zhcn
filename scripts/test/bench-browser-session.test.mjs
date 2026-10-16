@@ -16,11 +16,13 @@ function save(session = {}) {
   };
 }
 
-test('a checkpoint replays as the session its stamp names', () => {
+test('a checkpoint replays as the session its stamp names, watched by the observer', () => {
   const { header, stateHash, params } = checkpointSession(save());
   assert.equal(header.tick, 50002);
   assert.equal(stateHash, 'abc');
-  for (const [key, value] of new URLSearchParams(SEARCH)) assert.equal(params.get(key), value);
+  for (const [key, value] of new URLSearchParams(SEARCH))
+    if (key !== 'player') assert.equal(params.get(key), value);
+  assert.equal(params.get('player'), 'observer');
   assert.equal(params.get('zoom'), '1');
   assert.equal(params.get('fullscreen'), 'off');
 });

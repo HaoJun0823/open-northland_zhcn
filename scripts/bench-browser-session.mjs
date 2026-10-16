@@ -35,9 +35,10 @@ export function overloaded(...loads) {
 }
 
 /**
- * The session search that replays a `bench:map` checkpoint, the one its stamp names, with the header
- * fields a restore checks and the view the browser benchmarks measure. Throws when the save lacks the
- * map, seed, session search or state-hash stamp, or when the search names another map or seed.
+ * The session search that replays a `bench:map` checkpoint, the one its stamp names watched by the
+ * observer, with the header fields a restore checks and the view the browser benchmarks measure. Throws
+ * when the save lacks the map, seed, session search or state-hash stamp, or when the search names
+ * another map or seed.
  */
 export function checkpointSession(save) {
   const header = save?.header;
@@ -53,6 +54,8 @@ export function checkpointSession(save) {
   const params = new URLSearchParams(stamp.search);
   if (params.get('map') !== header.mapId || params.get('seed') !== String(header.seed))
     throw new Error(`The checkpoint's session '?${stamp.search}' names another map or seed than its save`);
+  // A stamped player seat would replay as that seat; the spectator's seat picker watches any one.
+  params.set('player', 'observer');
   params.set('zoom', '1');
   params.set('uiscale', '1');
   params.set('fullscreen', 'off');

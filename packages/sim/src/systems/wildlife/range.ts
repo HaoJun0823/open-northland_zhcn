@@ -2,7 +2,15 @@ import { ANIMAL_FLAG, hasAnimalFlag, Settler, StayPoint, WildHabitat } from '../
 import type { Rng } from '../../core/rng.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
-import { cellOfNode, HEX_DIRECTIONS, hexagonRing, stepHex } from '../../nav/halfcell.js';
+import {
+  cellXOfNode,
+  cellYOfNode,
+  HEX_DIRECTIONS,
+  hexRingHx,
+  hexRingHy,
+  hexRingLength,
+  stepHex,
+} from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import type { GrazingFields } from '../movement/grazing-fields.js';
@@ -58,11 +66,14 @@ export function isGrass(terrain: TerrainGraph, node: NodeId): boolean {
 
 /** The food the grass within 10 map points of `at` holds, 100 per grass point. */
 function grassFoodAt(terrain: TerrainGraph, at: NodeId): number {
+  const x = terrain.xOf(at);
+  const y = terrain.yOf(at);
   let grass = 0;
   for (let r = 0; r <= FOOD_SEARCH_RANGE; r++) {
-    for (const { point } of hexagonRing({ hx: terrain.xOf(at), hy: terrain.yOf(at) }, r)) {
-      if (terrain.inBounds(point.hx, point.hy) && isGrass(terrain, terrain.nodeAt(point.hx, point.hy)))
-        grass++;
+    for (let i = 0; i < hexRingLength(r); i++) {
+      const hx = hexRingHx(x, y, r, i);
+      const hy = hexRingHy(y, r, i);
+      if (terrain.inBounds(hx, hy) && isGrass(terrain, terrain.nodeAt(hx, hy))) grass++;
     }
   }
   return grass * FOOD_PER_GRASS_POINT;
@@ -185,9 +196,13 @@ function nearestRingPoint(
   const island = terrain.componentOf(from);
   let best: NodeId | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
-  for (const { point } of hexagonRing({ hx: terrain.xOf(centre), hy: terrain.yOf(centre) }, radius)) {
-    if (!terrain.inBounds(point.hx, point.hy) || isBorderPoint(terrain, point.hx, point.hy)) continue;
-    const node = terrain.nodeAt(point.hx, point.hy);
+  const x = terrain.xOf(centre);
+  const y = terrain.yOf(centre);
+  for (let i = 0; i < hexRingLength(radius); i++) {
+    const hx = hexRingHx(x, y, radius, i);
+    const hy = hexRingHy(y, radius, i);
+    if (!terrain.inBounds(hx, hy) || isBorderPoint(terrain, hx, hy)) continue;
+    const node = terrain.nodeAt(hx, hy);
     if (!terrain.isWalkable(node) || terrain.componentOf(node) !== island) continue;
     if (best !== null && !isGrass(terrain, node)) continue;
     const distance = hexNodeDistance(terrain, node, from);
@@ -202,7 +217,8 @@ function nearestRingPoint(
 /** Original behavior: the map's rim, two cells in from either side or the bottom and four map-point rows
  *  from the top. */
 function isBorderPoint(terrain: TerrainGraph, x: number, y: number): boolean {
-  const { cx, cy } = cellOfNode(x, y);
+  const cx = cellXOfNode(x, y);
+  const cy = cellYOfNode(y);
   return (
     cx < BORDER_CELLS ||
     cx >= terrain.cellColumns - BORDER_CELLS ||
@@ -218,10 +234,14 @@ function openGroundNear(
   start: NodeId,
   traversal: Traversal,
 ): NodeId | null {
+  const x = terrain.xOf(start);
+  const y = terrain.yOf(start);
   for (let r = 0; r <= BIRTH_GROUND_SEARCH_RANGE; r++) {
-    for (const { point } of hexagonRing({ hx: terrain.xOf(start), hy: terrain.yOf(start) }, r)) {
-      if (!terrain.inBounds(point.hx, point.hy)) continue;
-      const node = terrain.nodeAt(point.hx, point.hy);
+    for (let i = 0; i < hexRingLength(r); i++) {
+      const hx = hexRingHx(x, y, r, i);
+      const hy = hexRingHy(y, r, i);
+      if (!terrain.inBounds(hx, hy)) continue;
+      const node = terrain.nodeAt(hx, hy);
       if (terrain.traversable(node, traversal) && !blocked.has(node)) return node;
     }
   }
@@ -264,9 +284,11 @@ export function nextGrazePoint(
   }
   const island = terrain.componentOf(here);
   for (let r = NEXT_POINT_MIN_DISTANCE; r <= NEXT_POINT_SEARCH_RANGE; r++) {
-    for (const { point } of hexagonRing(origin, r)) {
-      if (!terrain.inBounds(point.hx, point.hy)) continue;
-      const node = terrain.nodeAt(point.hx, point.hy);
+    for (let i = 0; i < hexRingLength(r); i++) {
+      const hx = hexRingHx(origin.hx, origin.hy, r, i);
+      const hy = hexRingHy(origin.hy, r, i);
+      if (!terrain.inBounds(hx, hy)) continue;
+      const node = terrain.nodeAt(hx, hy);
       if (freePoint(ground, node, island, traversal)) return node;
     }
   }
@@ -283,10 +305,14 @@ export function grassNear(
 ): NodeId | null {
   const { terrain } = ground;
   const island = terrain.componentOf(here);
+  const x = terrain.xOf(here);
+  const y = terrain.yOf(here);
   for (let r = 1; r <= range; r++) {
-    for (const { point } of hexagonRing({ hx: terrain.xOf(here), hy: terrain.yOf(here) }, r)) {
-      if (!terrain.inBounds(point.hx, point.hy)) continue;
-      const node = terrain.nodeAt(point.hx, point.hy);
+    for (let i = 0; i < hexRingLength(r); i++) {
+      const hx = hexRingHx(x, y, r, i);
+      const hy = hexRingHy(y, r, i);
+      if (!terrain.inBounds(hx, hy)) continue;
+      const node = terrain.nodeAt(hx, hy);
       if (isGrass(terrain, node) && freePoint(ground, node, island, traversal)) return node;
     }
   }
@@ -301,10 +327,14 @@ export function goAwayPoint(ground: WalkGround, rng: Rng, here: NodeId, traversa
   const { terrain } = ground;
   const island = terrain.componentOf(here);
   const choices: NodeId[] = [];
+  const x = terrain.xOf(here);
+  const y = terrain.yOf(here);
   for (let r = 1; r <= NEXT_POINT_SEARCH_RANGE && choices.length < GO_AWAY_CHOICES; r++) {
-    for (const { point } of hexagonRing({ hx: terrain.xOf(here), hy: terrain.yOf(here) }, r)) {
-      if (!terrain.inBounds(point.hx, point.hy)) continue;
-      const node = terrain.nodeAt(point.hx, point.hy);
+    for (let i = 0; i < hexRingLength(r); i++) {
+      const hx = hexRingHx(x, y, r, i);
+      const hy = hexRingHy(y, r, i);
+      if (!terrain.inBounds(hx, hy)) continue;
+      const node = terrain.nodeAt(hx, hy);
       if (!freePoint(ground, node, island, traversal) || ground.fields.keeperNear(node) !== undefined)
         continue;
       choices.push(node);

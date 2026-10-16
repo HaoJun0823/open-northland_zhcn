@@ -254,8 +254,6 @@ export const HEX_DIRECTIONS: readonly HexDirection[] = [
   'northWest',
   'northEast',
 ];
-const RING_SIDES = HEX_DIRECTIONS;
-const RING_START: HexDirection = 'northWest';
 
 /** The map point one step from `from` in `direction`. */
 export function stepHex(from: HalfCellNode, direction: HexDirection): HalfCellNode {
@@ -277,10 +275,47 @@ export function stepHex(from: HalfCellNode, direction: HexDirection): HalfCellNo
 }
 
 /**
+ * The ring walk of {@link hexagonRing} in doubled columns (`2 * hx + (hy & 1)`, so every step is integral):
+ * each side's first point, in multiples of the radius from the centre, and each side's step. The walk
+ * starts `radius` steps north-west of the centre and turns east, south-east, south-west, west, north-west,
+ * north-east, the order of {@link HEX_DIRECTIONS}.
+ */
+const RING_CORNER_DOUBLED_DX: readonly number[] = [-1, 1, 2, 1, -1, -2];
+const RING_CORNER_DY: readonly number[] = [-1, -1, 0, 1, 1, 0];
+const RING_STEP_DOUBLED_DX: readonly number[] = [2, 1, -1, -2, -1, 1];
+const RING_STEP_DY: readonly number[] = [0, 1, 1, 0, -1, -1];
+const RING_SIDE_COUNT = HEX_DIRECTIONS.length;
+
+/** How many points {@link hexagonRing} yields for `radius`: the centre alone for a radius of 0 or less. */
+export function hexRingLength(radius: number): number {
+  return radius <= 0 ? 1 : RING_SIDE_COUNT * radius;
+}
+
+/** The row of the `index`th point of {@link hexagonRing} around `(hx, hy)`, `index` below
+ *  {@link hexRingLength}; with {@link hexRingHx}, a ring walk that allocates nothing. */
+export function hexRingHy(hy: number, radius: number, index: number): number {
+  if (radius <= 0) return hy;
+  const side = Math.floor(index / radius);
+  return hy + (RING_CORNER_DY[side] ?? 0) * radius + (RING_STEP_DY[side] ?? 0) * (index - side * radius);
+}
+
+/** The column of the `index`th point of {@link hexagonRing} around `(hx, hy)`; see {@link hexRingHy}. */
+export function hexRingHx(hx: number, hy: number, radius: number, index: number): number {
+  if (radius <= 0) return hx;
+  const side = Math.floor(index / radius);
+  const doubled =
+    2 * hx +
+    (hy & 1) +
+    (RING_CORNER_DOUBLED_DX[side] ?? 0) * radius +
+    (RING_STEP_DOUBLED_DX[side] ?? 0) * (index - side * radius);
+  return (doubled - (hexRingHy(hy, radius, index) & 1)) / 2;
+}
+
+/**
  * The map points at hexagon distance `radius` from `centre`, in the original's ring order: a walk
  * that starts `radius` steps north-west of the centre and turns east, south-east, south-west, west,
  * north-west, north-east, `radius` steps a side (reading). `step` counts from 0 on every side. A
- * radius of 0 yields the centre alone.
+ * radius of 0 yields the centre alone. A hot loop walks {@link hexRingHx}/{@link hexRingHy} instead.
  */
 export function* hexagonRing(
   centre: HalfCellNode,
@@ -290,12 +325,9 @@ export function* hexagonRing(
     yield { point: centre, step: 0 };
     return;
   }
-  let at = centre;
-  for (let i = 0; i < radius; i++) at = stepHex(at, RING_START);
-  for (const side of RING_SIDES) {
-    for (let step = 0; step < radius; step++) {
-      yield { point: at, step };
-      at = stepHex(at, side);
-    }
+  const { hx, hy } = centre;
+  for (let i = 0; i < hexRingLength(radius); i++) {
+    const point = { hx: hexRingHx(hx, hy, radius, i), hy: hexRingHy(hy, radius, i) };
+    yield { point, step: i % radius };
   }
 }

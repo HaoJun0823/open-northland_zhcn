@@ -49,12 +49,15 @@ export class BuildingSectors {
 
   /** Whether a player's building stands within `radius` map points of `(x, y)`. */
   anyWithin(x: number, y: number, radius: number): boolean {
-    const first = (v: number): number => Math.max(0, Math.floor((v - radius) / HABITAT_SECTOR_SIZE));
+    const firstX = Math.max(0, Math.floor((x - radius) / HABITAT_SECTOR_SIZE));
+    const firstY = Math.max(0, Math.floor((y - radius) / HABITAT_SECTOR_SIZE));
     const lastX = Math.min(this.columns - 1, Math.floor((x + radius) / HABITAT_SECTOR_SIZE));
     const lastY = Math.min(this.rows - 1, Math.floor((y + radius) / HABITAT_SECTOR_SIZE));
-    for (let sy = first(y); sy <= lastY; sy++) {
-      for (let sx = first(x); sx <= lastX; sx++) {
-        for (const b of this.bySector.get(sy * this.columns + sx) ?? []) {
+    for (let sy = firstY; sy <= lastY; sy++) {
+      for (let sx = firstX; sx <= lastX; sx++) {
+        const standing = this.bySector.get(sy * this.columns + sx);
+        if (standing === undefined) continue;
+        for (const b of standing) {
           const at = this.placed.get(b);
           if (at !== undefined && hexDistanceBetween(at.x, at.y, x, y) <= radius) return true;
         }

@@ -35,11 +35,15 @@ export function ringSearch(
   const traverse = probe.traverse ?? TRAVERSE_ANY;
   const accept = probe.accept;
   const seen = new Set<NodeId>([from]);
-  let frontier: NodeId[] = [from];
+  // One queue holds every ring in turn; `ringStart` and `ringEnd` bound the ring being expanded.
+  const queue: NodeId[] = [from];
+  let ringStart = 0;
+  let ringEnd = queue.length;
   let visited = 0;
-  while (frontier.length > 0 && visited < cap) {
-    const next: NodeId[] = [];
-    for (const cell of frontier) {
+  while (ringStart < ringEnd && visited < cap) {
+    for (let i = ringStart; i < ringEnd; i++) {
+      const cell = queue[i];
+      if (cell === undefined) continue;
       // Only an untraversable start, a click on water, reaches out across ground no step crosses.
       const stepping = terrain.traversable(cell, traversal);
       for (const n of terrain.neighbours(cell)) {
@@ -48,10 +52,11 @@ export function ringSearch(
         seen.add(n);
         visited++;
         if (accept(n)) return n;
-        next.push(n);
+        queue.push(n);
       }
     }
-    frontier = next;
+    ringStart = ringEnd;
+    ringEnd = queue.length;
   }
   return null;
 }

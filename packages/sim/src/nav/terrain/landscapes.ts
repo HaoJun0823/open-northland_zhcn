@@ -77,7 +77,101 @@ export interface ScriptLandscapePlacement {
   readonly resourceBacked?: boolean;
 }
 
+/** Placement fields packed into {@link LandscapePlacements.flags}. */
+const RESOURCE_BACKED_FLAG = 1;
+
+/**
+ * A map's authored placements as columns in file order, index `i` being the file position: a 650x650
+ * map lays some 600k, which as objects would hold ~170 MB. A value that does not fit its column throws,
+ * so a read returns exactly what was laid.
+ */
+export class LandscapePlacements {
+  private readonly ids: Int32Array;
+  private readonly typeIds: Uint16Array;
+  private readonly hxs: Int16Array;
+  private readonly hys: Int16Array;
+  private readonly levels: Int32Array;
+  private readonly flags: Uint8Array;
+  private count = 0;
+
+  constructor(capacity: number) {
+    this.ids = new Int32Array(capacity);
+    this.typeIds = new Uint16Array(capacity);
+    this.hxs = new Int16Array(capacity);
+    this.hys = new Int16Array(capacity);
+    this.levels = new Int32Array(capacity);
+    this.flags = new Uint8Array(capacity);
+  }
+
+  static from(placements: readonly ScriptLandscapePlacement[]): LandscapePlacements {
+    const columns = new LandscapePlacements(placements.length);
+    for (const p of placements) columns.push(p.id, p.typeId, p.hx, p.hy, p.level, p.resourceBacked === true);
+    return columns;
+  }
+
+  get length(): number {
+    return this.count;
+  }
+
+  /** Append a placement; throws once `capacity` is full. */
+  push(id: number, typeId: number, hx: number, hy: number, level: number, resourceBacked: boolean): void {
+    const i = this.count;
+    if (i >= this.ids.length)
+      throw new RangeError(`landscape placements: capacity ${this.ids.length} is full`);
+    this.ids[i] = id;
+    this.typeIds[i] = typeId;
+    this.hxs[i] = hx;
+    this.hys[i] = hy;
+    this.levels[i] = level;
+    this.flags[i] = resourceBacked ? RESOURCE_BACKED_FLAG : 0;
+    if (
+      this.ids[i] !== id ||
+      this.typeIds[i] !== typeId ||
+      this.hxs[i] !== hx ||
+      this.hys[i] !== hy ||
+      this.levels[i] !== level
+    ) {
+      throw new RangeError(
+        `landscape placement ${id} (type ${typeId} at ${hx},${hy} level ${level}) overflows a column`,
+      );
+    }
+    this.count = i + 1;
+  }
+
+  id(i: number): number {
+    return this.ids[i] ?? 0;
+  }
+  typeId(i: number): number {
+    return this.typeIds[i] ?? 0;
+  }
+  hx(i: number): number {
+    return this.hxs[i] ?? 0;
+  }
+  hy(i: number): number {
+    return this.hys[i] ?? 0;
+  }
+  level(i: number): number {
+    return this.levels[i] ?? 0;
+  }
+  resourceBacked(i: number): boolean {
+    return ((this.flags[i] ?? 0) & RESOURCE_BACKED_FLAG) !== 0;
+  }
+
+  /** The placement at file position `i` as a fresh object, `resourceBacked` present only when set. */
+  at(i: number): ScriptLandscapePlacement {
+    const placement = {
+      id: this.id(i),
+      typeId: this.typeId(i),
+      hx: this.hx(i),
+      hy: this.hy(i),
+      level: this.level(i),
+    };
+    return this.resourceBacked(i) ? { ...placement, resourceBacked: true } : placement;
+  }
+}
+
 export interface LandscapeMapInput {
   readonly types: readonly ScriptLandscapeType[];
-  readonly placements: readonly ScriptLandscapePlacement[];
+  /** A map's own placements come as columns; a scene or test may list objects. */
+  readonly placements: readonly ScriptLandscapePlacement[] | LandscapePlacements;
 }

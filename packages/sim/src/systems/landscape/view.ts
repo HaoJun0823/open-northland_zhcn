@@ -2,11 +2,12 @@ import { footprintCellDx } from '@open-northland/data';
 import { LandscapeResource, landscapeEditState, landscapeRevision } from '../../components/landscape.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, hexDistance } from '../../nav/halfcell.js';
-import type {
-  NodeId,
-  ScriptLandscapePlacement,
-  ScriptLandscapeType,
-  TerrainGraph,
+import {
+  LandscapePlacements,
+  type NodeId,
+  type ScriptLandscapePlacement,
+  type ScriptLandscapeType,
+  type TerrainGraph,
 } from '../../nav/terrain/index.js';
 import { countsMatchCells, sameCells } from '../footprint/geometry.js';
 import { placementBlockCells } from './footprint.js';
@@ -14,57 +15,100 @@ import { placementBlockCells } from './footprint.js';
 // The live landscape as a script sees it: the map's authored placements minus the ones a script removed
 // or a resource depleted, plus the script's own additions, every read costing the placements it touches.
 
-/** The map's authored placements, indexed once per terrain: the input is immutable. */
-interface AuthoredLandscapes {
+/** The file position of an id the map never laid. */
+const ABSENT = -1;
+
+/** The map's authored placements, indexed once per terrain: the input is immutable. A placement is
+ *  named by its file position, which also orders an area match whatever node order found it. */
+export class AuthoredLandscapes {
   readonly types: ReadonlyMap<number, ScriptLandscapeType>;
-  readonly byId: ReadonlyMap<number, ScriptLandscapePlacement>;
-  /** Placements by anchor node, each bucket in file order. */
-  readonly atNode: ReadonlyMap<NodeId, readonly ScriptLandscapePlacement[]>;
-  /** File position by id: an area match is reported in file order, whatever node order found it. */
-  readonly order: ReadonlyMap<number, number>;
-  readonly resourceBacked: readonly ScriptLandscapePlacement[];
-  /** The placements whose type holds attach points, in file order. */
-  readonly attaching: readonly ScriptLandscapePlacement[];
+  readonly placements: LandscapePlacements;
   /** One past the highest authored id, where the script's own ids start. */
   readonly nextId: number;
+  /** File position by id, {@link ABSENT} for an id the map skipped: ids are file positions, so dense. */
+  private readonly indexById: Int32Array;
+  /** Placements by anchor node as one list, node `n` owning `[nodeStarts[n], nodeStarts[n + 1])` in
+   *  file order. */
+  private readonly nodeStarts: Int32Array;
+  private readonly nodeEntries: Int32Array;
+  /** The resource-backed placements, and those whose type holds attach points, in file order. */
+  readonly resourceBacked: Int32Array;
+  readonly attaching: Int32Array;
+
+  constructor(terrain: TerrainGraph) {
+    const input = terrain.landscapes?.placements ?? [];
+    const placements = input instanceof LandscapePlacements ? input : LandscapePlacements.from(input);
+    const types = new Map(terrain.landscapes?.types.map((type) => [type.typeId, type]));
+    let nextId = 0;
+    let resourceBacked = 0;
+    let attaching = 0;
+    const nodeStarts = new Int32Array(terrain.nodeCount + 1);
+    for (let i = 0; i < placements.length; i++) {
+      const id = placements.id(i);
+      if (id < 0) throw new RangeError(`authored landscape id ${id} is negative`);
+      nextId = Math.max(nextId, id + 1);
+      if (placements.resourceBacked(i)) resourceBacked++;
+      if ((types.get(placements.typeId(i))?.attach?.length ?? 0) > 0) attaching++;
+      const hx = placements.hx(i);
+      const hy = placements.hy(i);
+      if (!terrain.inBounds(hx, hy)) continue;
+      const slot = terrain.nodeAt(hx, hy) + 1;
+      nodeStarts[slot] = (nodeStarts[slot] ?? 0) + 1;
+    }
+    for (let n = 0; n < terrain.nodeCount; n++)
+      nodeStarts[n + 1] = (nodeStarts[n + 1] ?? 0) + (nodeStarts[n] ?? 0);
+    const fill = nodeStarts.slice(0, terrain.nodeCount);
+    const nodeEntries = new Int32Array(nodeStarts[terrain.nodeCount] ?? 0);
+    const indexById = new Int32Array(nextId).fill(ABSENT);
+    this.resourceBacked = new Int32Array(resourceBacked);
+    this.attaching = new Int32Array(attaching);
+    resourceBacked = 0;
+    attaching = 0;
+    for (let i = 0; i < placements.length; i++) {
+      indexById[placements.id(i)] = i;
+      if (placements.resourceBacked(i)) this.resourceBacked[resourceBacked++] = i;
+      if ((types.get(placements.typeId(i))?.attach?.length ?? 0) > 0) this.attaching[attaching++] = i;
+      const hx = placements.hx(i);
+      const hy = placements.hy(i);
+      if (!terrain.inBounds(hx, hy)) continue;
+      const node = terrain.nodeAt(hx, hy);
+      const slot = fill[node] ?? 0;
+      nodeEntries[slot] = i;
+      fill[node] = slot + 1;
+    }
+    this.types = types;
+    this.placements = placements;
+    this.nextId = nextId;
+    this.indexById = indexById;
+    this.nodeStarts = nodeStarts;
+    this.nodeEntries = nodeEntries;
+  }
+
+  /** The file position of authored `id`, or {@link ABSENT}. */
+  indexOf(id: number): number {
+    return id >= 0 && id < this.indexById.length ? (this.indexById[id] ?? ABSENT) : ABSENT;
+  }
+
+  has(id: number): boolean {
+    return this.indexOf(id) !== ABSENT;
+  }
+
+  /** Visit the placements anchored on `node`, in file order. */
+  forEachAt(node: NodeId, visit: (index: number) => void): void {
+    const end = this.nodeStarts[node + 1] ?? 0;
+    for (let k = this.nodeStarts[node] ?? 0; k < end; k++) visit(this.nodeEntries[k] ?? 0);
+  }
 }
 
 const authoredIndexes = new WeakMap<TerrainGraph, AuthoredLandscapes>();
 
 export function authoredLandscapes(terrain: TerrainGraph): AuthoredLandscapes {
-  const held = authoredIndexes.get(terrain);
-  if (held !== undefined) return held;
-  const placements = terrain.landscapes?.placements ?? [];
-  const byId = new Map<number, ScriptLandscapePlacement>();
-  const atNode = new Map<NodeId, ScriptLandscapePlacement[]>();
-  const order = new Map<number, number>();
-  const resourceBacked: ScriptLandscapePlacement[] = [];
-  const attaching: ScriptLandscapePlacement[] = [];
-  const types = new Map(terrain.landscapes?.types.map((type) => [type.typeId, type]));
-  let nextId = 0;
-  placements.forEach((placement, index) => {
-    byId.set(placement.id, placement);
-    order.set(placement.id, index);
-    nextId = Math.max(nextId, placement.id + 1);
-    if (placement.resourceBacked === true) resourceBacked.push(placement);
-    if ((types.get(placement.typeId)?.attach?.length ?? 0) > 0) attaching.push(placement);
-    if (!terrain.inBounds(placement.hx, placement.hy)) return;
-    const node = terrain.nodeAt(placement.hx, placement.hy);
-    const bucket = atNode.get(node);
-    if (bucket === undefined) atNode.set(node, [placement]);
-    else bucket.push(placement);
-  });
-  const built = {
-    types,
-    byId,
-    atNode,
-    order,
-    resourceBacked,
-    attaching,
-    nextId,
-  };
-  authoredIndexes.set(terrain, built);
-  return built;
+  let held = authoredIndexes.get(terrain);
+  if (held === undefined) {
+    held = new AuthoredLandscapes(terrain);
+    authoredIndexes.set(terrain, held);
+  }
+  return held;
 }
 
 export function landscapeTypes(terrain: TerrainGraph): ReadonlyMap<number, ScriptLandscapeType> {
@@ -112,12 +156,13 @@ function removedIds(world: World): ReadonlySet<number> {
 /** Whether the placement still stands: not removed by a script, and its backing resource, if any, not
  *  yet reaped. `resources` is read lazily, so a decor-only query never pays for the resource index. */
 function standing(
-  placement: ScriptLandscapePlacement,
+  id: number,
+  resourceBacked: boolean,
   removed: ReadonlySet<number>,
   resources: () => ReadonlyMap<number, readonly Entity[]>,
 ): boolean {
-  if (removed.has(placement.id)) return false;
-  return placement.resourceBacked !== true || resources().has(placement.id);
+  if (removed.has(id)) return false;
+  return !resourceBacked || resources().has(id);
 }
 
 /**
@@ -133,31 +178,34 @@ export function landscapesWithin(
 ): ScriptLandscapePlacement[] {
   if (range < 0) return [];
   const authored = authoredLandscapes(terrain);
+  const placements = authored.placements;
   const removed = removedIds(world);
   let resourceIndex: ReadonlyMap<number, readonly Entity[]> | undefined;
   const resources = (): ReadonlyMap<number, readonly Entity[]> => {
     resourceIndex ??= landscapeResources(world);
     return resourceIndex;
   };
-  const found: ScriptLandscapePlacement[] = [];
+  const indexes: number[] = [];
+  const collect = (i: number): void => {
+    if (standing(placements.id(i), placements.resourceBacked(i), removed, resources)) indexes.push(i);
+  };
   const yMin = Math.max(0, point.hy - range);
   const yMax = Math.min(terrain.height - 1, point.hy + range);
   const xMin = Math.max(0, point.hx - range);
   const xMax = Math.min(terrain.width - 1, point.hx + range);
   for (let hy = yMin; hy <= yMax; hy++) {
     for (let hx = xMin; hx <= xMax; hx++) {
-      const bucket = authored.atNode.get(terrain.nodeAt(hx, hy));
-      if (bucket === undefined || hexDistance({ hx, hy }, point) > range) continue;
-      for (const placement of bucket) {
-        if (standing(placement, removed, resources)) found.push(placement);
-      }
+      if (hexDistance({ hx, hy }, point) > range) continue;
+      authored.forEachAt(terrain.nodeAt(hx, hy), collect);
     }
   }
-  if (found.length > 1) {
-    found.sort((a, b) => (authored.order.get(a.id) ?? 0) - (authored.order.get(b.id) ?? 0));
-  }
+  if (indexes.length > 1) indexes.sort((a, b) => a - b);
+  const found = indexes.map((i) => placements.at(i));
   for (const placement of landscapeEditState(world).added) {
-    if (hexDistance(placement, point) <= range && standing(placement, removed, resources)) {
+    if (
+      hexDistance(placement, point) <= range &&
+      standing(placement.id, placement.resourceBacked === true, removed, resources)
+    ) {
       found.push(placement);
     }
   }
@@ -181,17 +229,27 @@ export function landscapeAttachNodes(world: World, terrain: TerrainGraph): Reado
   const authored = authoredLandscapes(terrain);
   const removed = removedIds(world);
   const nodes = new Set<NodeId>();
-  const hold = (placement: ScriptLandscapePlacement): void => {
-    const cells = authored.types.get(placement.typeId)?.attach;
-    if (cells === undefined || !standing(placement, removed, () => landscapeResources(world))) return;
+  const hold = (id: number, typeId: number, hx: number, hy: number, resourceBacked: boolean): void => {
+    const cells = authored.types.get(typeId)?.attach;
+    if (cells === undefined || !standing(id, resourceBacked, removed, () => landscapeResources(world)))
+      return;
     for (const cell of cells) {
-      const hx = placement.hx + footprintCellDx(placement.hy, cell);
-      const hy = placement.hy + cell.dy;
-      if (terrain.inBounds(hx, hy)) nodes.add(terrain.nodeAt(hx, hy));
+      const x = hx + footprintCellDx(hy, cell);
+      const y = hy + cell.dy;
+      if (terrain.inBounds(x, y)) nodes.add(terrain.nodeAt(x, y));
     }
   };
-  for (const placement of authored.attaching) hold(placement);
-  for (const placement of state.added) hold(placement);
+  const placements = authored.placements;
+  for (const i of authored.attaching) {
+    hold(
+      placements.id(i),
+      placements.typeId(i),
+      placements.hx(i),
+      placements.hy(i),
+      placements.resourceBacked(i),
+    );
+  }
+  for (const p of state.added) hold(p.id, p.typeId, p.hx, p.hy, p.resourceBacked === true);
   attachNodeSets.set(world, { revision: state.topologyRevision, resources, nodes });
   return nodes;
 }
@@ -248,21 +306,24 @@ const blockCounts = new WeakMap<World, BlockCounts>();
 function countPlacement(
   counts: BlockCounts,
   types: ReadonlyMap<number, ScriptLandscapeType>,
-  placement: ScriptLandscapePlacement,
+  typeId: number,
+  anchorHx: number,
+  anchorHy: number,
+  level: number,
   delta: 1 | -1,
   changes: LandscapeBlockChange[] | null,
 ): void {
-  const type = types.get(placement.typeId);
+  const type = types.get(typeId);
   if (type === undefined) return;
   const terrain = counts.terrain;
-  const blocks = placementBlockCells(type, placement.level);
+  const blocks = placementBlockCells(type, level);
   for (const [channel, cells, held, members] of [
     ['walk', blocks.walk, counts.walk, counts.walkCells],
     ['build', blocks.build, counts.build, counts.buildCells],
   ] as const) {
     for (const cell of cells) {
-      const hx = placement.hx + footprintCellDx(placement.hy, cell);
-      const hy = placement.hy + cell.dy;
+      const hx = anchorHx + footprintCellDx(anchorHy, cell);
+      const hy = anchorHy + cell.dy;
       if (!terrain.inBounds(hx, hy)) continue;
       const node = terrain.nodeAt(hx, hy);
       const next = (held[node] ?? 0) + delta;
@@ -277,10 +338,29 @@ function countPlacement(
   }
 }
 
-/** Resources maintain their own changing footprints through the gathering lifecycle, so a
- *  resource-backed placement counts nothing here. */
-function countsBlocks(placement: ScriptLandscapePlacement): boolean {
-  return placement.resourceBacked !== true;
+/** Count a script's placement. Resources maintain their own changing footprints through the gathering
+ *  lifecycle, so a resource-backed placement counts nothing here. */
+function countAdded(
+  counts: BlockCounts,
+  types: ReadonlyMap<number, ScriptLandscapeType>,
+  p: ScriptLandscapePlacement,
+  delta: 1 | -1,
+  changes: LandscapeBlockChange[] | null,
+): void {
+  if (p.resourceBacked !== true) countPlacement(counts, types, p.typeId, p.hx, p.hy, p.level, delta, changes);
+}
+
+/** {@link countAdded} for the authored placement at file position `i`. */
+function countAuthored(
+  counts: BlockCounts,
+  authored: AuthoredLandscapes,
+  i: number,
+  delta: 1 | -1,
+  changes: LandscapeBlockChange[] | null,
+): void {
+  const p = authored.placements;
+  if (p.resourceBacked(i)) return;
+  countPlacement(counts, authored.types, p.typeId(i), p.hx(i), p.hy(i), p.level(i), delta, changes);
 }
 
 function freshCounts(world: World, terrain: TerrainGraph): BlockCounts {
@@ -300,9 +380,7 @@ function freshCounts(world: World, terrain: TerrainGraph): BlockCounts {
     retained: [],
   };
   const authored = authoredLandscapes(terrain);
-  for (const placement of terrain.landscapes?.placements ?? []) {
-    if (countsBlocks(placement)) countPlacement(counts, authored.types, placement, 1, null);
-  }
+  for (let i = 0; i < authored.placements.length; i++) countAuthored(counts, authored, i, 1, null);
   blockCounts.set(world, counts);
   world.registerCacheVerifier('landscapeBlocks', () => verifyBlockCounts(world, terrain));
   return counts;
@@ -312,24 +390,35 @@ function freshCounts(world: World, terrain: TerrainGraph): BlockCounts {
 function deriveBlockCells(world: World, terrain: TerrainGraph): { walk: Set<NodeId>; build: Set<NodeId> } {
   const state = landscapeEditState(world);
   const removed = new Set(state.removed);
-  const types = landscapeTypes(terrain);
+  const authored = authoredLandscapes(terrain);
   const walk = new Set<NodeId>();
   const build = new Set<NodeId>();
-  for (const p of [...(terrain.landscapes?.placements ?? []), ...state.added]) {
-    if (!countsBlocks(p) || removed.has(p.id)) continue;
-    const type = types.get(p.typeId);
-    const blocks = type === undefined ? undefined : placementBlockCells(type, p.level);
+  const stamp = (
+    id: number,
+    typeId: number,
+    x: number,
+    y: number,
+    level: number,
+    resourceBacked: boolean,
+  ) => {
+    if (resourceBacked || removed.has(id)) return;
+    const type = authored.types.get(typeId);
+    const blocks = type === undefined ? undefined : placementBlockCells(type, level);
     for (const [cells, target] of [
       [blocks?.walk ?? [], walk],
       [blocks?.build ?? [], build],
     ] as const) {
       for (const cell of cells) {
-        const hx = p.hx + footprintCellDx(p.hy, cell);
-        const hy = p.hy + cell.dy;
+        const hx = x + footprintCellDx(y, cell);
+        const hy = y + cell.dy;
         if (terrain.inBounds(hx, hy)) target.add(terrain.nodeAt(hx, hy));
       }
     }
-  }
+  };
+  const p = authored.placements;
+  for (let i = 0; i < p.length; i++)
+    stamp(p.id(i), p.typeId(i), p.hx(i), p.hy(i), p.level(i), p.resourceBacked(i));
+  for (const a of state.added) stamp(a.id, a.typeId, a.hx, a.hy, a.level, a.resourceBacked === true);
   return { walk, build };
 }
 
@@ -366,22 +455,20 @@ function catchUpCounts(world: World, counts: BlockCounts): void {
   for (const id of state.removed) {
     if (counts.withdrawn.has(id)) continue;
     counts.withdrawn.add(id);
-    const placement = authored.byId.get(id);
-    if (placement !== undefined && countsBlocks(placement)) {
-      countPlacement(counts, authored.types, placement, -1, changes);
-    }
+    const index = authored.indexOf(id);
+    if (index !== ABSENT) countAuthored(counts, authored, index, -1, changes);
   }
   const added = new Set<number>();
   for (const placement of state.added) {
     added.add(placement.id);
     if (counts.stamped.has(placement.id)) continue;
     counts.stamped.set(placement.id, placement);
-    if (countsBlocks(placement)) countPlacement(counts, authored.types, placement, 1, changes);
+    countAdded(counts, authored.types, placement, 1, changes);
   }
   for (const [id, placement] of counts.stamped) {
     if (added.has(id)) continue;
     counts.stamped.delete(id);
-    if (countsBlocks(placement)) countPlacement(counts, authored.types, placement, -1, changes);
+    countAdded(counts, authored.types, placement, -1, changes);
   }
   counts.revision = state.topologyRevision;
   const view: LandscapeBlocks = {
@@ -432,8 +519,10 @@ export function landscapeEdits(world: World, terrain: TerrainGraph | undefined):
     };
   const resources = landscapeResources(world);
   const removed = new Set(state.removed);
-  for (const placement of authoredLandscapes(terrain).resourceBacked) {
-    if (!resources.has(placement.id)) removed.add(placement.id);
+  const authored = authoredLandscapes(terrain);
+  for (const i of authored.resourceBacked) {
+    const id = authored.placements.id(i);
+    if (!resources.has(id)) removed.add(id);
   }
   const tints = new Uint8Array(terrain.cellColumns * terrain.cellRows);
   terrain.copyAuthoredTints(tints);

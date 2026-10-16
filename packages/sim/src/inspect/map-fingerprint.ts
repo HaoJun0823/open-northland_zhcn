@@ -1,6 +1,11 @@
 import { FNV_OFFSET_BASIS, fnvHex, fnvMixWord, terrainGridFingerprint } from '@open-northland/data';
 import { compactLane, type TerrainGraph } from '../nav/terrain/graph.js';
-import type { FishSwarmInput, LandscapeMapInput, TerrainMap } from '../nav/terrain/index.js';
+import {
+  type FishSwarmInput,
+  type LandscapeMapInput,
+  LandscapePlacements,
+  type TerrainMap,
+} from '../nav/terrain/index.js';
 
 /** What {@link mapFingerprint} reads of a map. A lane may be a typed copy holding the same values, which
  *  the digest spells as the array it copies. */
@@ -61,6 +66,30 @@ function asArray(lane: ArrayLike<number> | undefined): readonly number[] | undef
   return lane === undefined || Array.isArray(lane) ? lane : Array.from(lane);
 }
 
+/** Stands in the digest's JSON for a {@link LandscapePlacements}, whose array spelling is then mixed one
+ *  placement at a time: as one string it would hold every placement's JSON at once. */
+const PLACEMENTS_MARK = '\u0000landscape placements\u0000';
+const PLACEMENTS_MARK_JSON = JSON.stringify(PLACEMENTS_MARK);
+
+function mixString(hash: number, text: string): number {
+  let h = hash;
+  for (let i = 0; i < text.length; i++) h = fnvMixWord(h, text.charCodeAt(i));
+  return h;
+}
+
+/** The JSON a placement object spells under the digest's sorted keys, `resourceBacked` only when set. */
+function mixPlacements(hash: number, placements: LandscapePlacements): number {
+  let h = mixString(hash, '[');
+  for (let i = 0; i < placements.length; i++) {
+    const backed = placements.resourceBacked(i) ? '"resourceBacked":true,' : '';
+    h = mixString(
+      h,
+      `${i === 0 ? '' : ','}{"hx":${placements.hx(i)},"hy":${placements.hy(i)},"id":${placements.id(i)},"level":${placements.level(i)},${backed}"typeId":${placements.typeId(i)}}`,
+    );
+  }
+  return mixString(h, ']');
+}
+
 /** Dynamic landscape inputs shape navigation and must match when restoring sparse edits. */
 export function mapFingerprint(map: MapFingerprintInput): string {
   const ground = terrainGridFingerprint(map);
@@ -73,6 +102,7 @@ export function mapFingerprint(map: MapFingerprintInput): string {
     map.tints === undefined
   )
     return ground;
+  let columns: LandscapePlacements | undefined;
   const input = JSON.stringify(
     {
       ground,
@@ -83,12 +113,22 @@ export function mapFingerprint(map: MapFingerprintInput): string {
       tints: asArray(map.tints),
     },
     (_key, value: unknown) => {
+      if (value instanceof LandscapePlacements) {
+        columns = value;
+        return PLACEMENTS_MARK;
+      }
       if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
       return Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
     },
   );
   let hash = FNV_OFFSET_BASIS;
-  for (let i = 0; i < input.length; i++) hash = fnvMixWord(hash, input.charCodeAt(i));
+  const mark = columns === undefined ? -1 : input.indexOf(PLACEMENTS_MARK_JSON);
+  if (columns === undefined || mark < 0) hash = mixString(hash, input);
+  else {
+    hash = mixString(hash, input.slice(0, mark));
+    hash = mixPlacements(hash, columns);
+    hash = mixString(hash, input.slice(mark + PLACEMENTS_MARK_JSON.length));
+  }
   // Mixed raw: a typed array would stringify as an object keyed by index.
   const edges = map.groundEdges ?? [];
   for (let i = 0; i < edges.length; i++) hash = fnvMixWord(hash, edges[i] ?? 0);

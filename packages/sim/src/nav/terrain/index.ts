@@ -1,12 +1,13 @@
 export { DEFAULT_NODE_ROUGHNESS, NO_COMPONENT, ROAD_RESISTANCE, TerrainGraph } from './graph.js';
 export { type LandscapeProps, resolveLandscapeProps } from './landscape-props.js';
-export type {
-  LandscapeGround,
-  LandscapeMapInput,
-  LandscapeRemovalGroup,
-  ResourceSpec,
-  ScriptLandscapePlacement,
-  ScriptLandscapeType,
+export {
+  type LandscapeGround,
+  type LandscapeMapInput,
+  LandscapePlacements,
+  type LandscapeRemovalGroup,
+  type ResourceSpec,
+  type ScriptLandscapePlacement,
+  type ScriptLandscapeType,
 } from './landscapes.js';
 export type { Traversal } from './lattice.js';
 export * from './lattice-distance.js';

@@ -137,7 +137,7 @@ function removePlacements(
       freed.push(...translatedCells(terrain, walk, placement.hx, placement.hy));
     }
   }
-  const authored = authoredLandscapes(terrain).byId;
+  const authored = authoredLandscapes(terrain);
   writeLandscapeEdits(world, (state) => {
     state.topologyRevision++;
     const removed = new Set(state.removed);

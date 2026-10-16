@@ -6,6 +6,7 @@ import {
   TerrainMapFile,
   TrianglePatternType,
 } from '@open-northland/data';
+import { LandscapePlacements } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { TERRAIN_OPEN } from '../src/catalog/terrain.js';
 import type { ContentIr } from '../src/content/ir/rows.js';
@@ -124,7 +125,12 @@ describe('script landscape content', () => {
     const before = JSON.stringify(map);
     const terrain = buildScriptLandscapeTerrain(map, IR);
     expect(terrain.typeIds).toEqual(new Array(16).fill(TERRAIN_OPEN));
-    expect(terrain.landscapes?.placements).toEqual([
+    const placements = terrain.landscapes?.placements ?? [];
+    const listed =
+      placements instanceof LandscapePlacements
+        ? Array.from({ length: placements.length }, (_, i) => placements.at(i))
+        : placements;
+    expect(listed).toEqual([
       { id: 1, typeId: 12, hx: 1, hy: 1, level: 4 },
       { id: 2, typeId: 17, hx: 2, hy: 2, level: 2, resourceBacked: true },
       { id: 3, typeId: 18, hx: 3, hy: 3, level: 1, resourceBacked: true },

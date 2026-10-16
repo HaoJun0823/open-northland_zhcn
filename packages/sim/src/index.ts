@@ -189,10 +189,11 @@ export {
   TerrainGraph,
   type TerrainMap,
 } from './nav/terrain/index.js';
-export type {
-  LandscapeRemovalGroup,
-  ScriptLandscapePlacement,
-  ScriptLandscapeType,
+export {
+  LandscapePlacements,
+  type LandscapeRemovalGroup,
+  type ScriptLandscapePlacement,
+  type ScriptLandscapeType,
 } from './nav/terrain/landscapes.js';
 export { DIAGONAL_STEP, HALF_COLUMN, HALF_ROW, worldDistance } from './nav/world-metric.js';
 export { type DivergenceReport, localizeDivergence } from './replay/localize-divergence.js';

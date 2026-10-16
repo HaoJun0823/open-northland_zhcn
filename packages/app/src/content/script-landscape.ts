@@ -1,11 +1,16 @@
 import { type FootprintCell, fullStateBlockAreaCells, type TerrainMapFile } from '@open-northland/data';
-import type { LandscapeRemovalGroup, ScriptLandscapeType, TerrainMap } from '@open-northland/sim';
+import {
+  LandscapePlacements,
+  type LandscapeRemovalGroup,
+  type ScriptLandscapeType,
+  type TerrainMap,
+} from '@open-northland/sim';
 import { GATHERERS } from '../game/sandbox/ids/index.js';
 import { withRecordDeposit } from '../game/sandbox/map-spawn.js';
 import { resourceSpecFor } from '../game/sandbox/place/index.js';
 import { buildCollisionTerrain } from './collision.js';
 import type { ContentIr } from './ir/rows.js';
-import { forEachPlacement } from './map-placements.js';
+import { forEachPlacement, PLACEMENT_STRIDE } from './map-placements.js';
 import {
   BUSH_WITH_FRUITS_LOGIC_TYPE,
   chestKindByLogicType,
@@ -151,27 +156,22 @@ export function buildScriptLandscapeTerrain(map: TerrainMapFile, ir: ContentIr):
       g.editName === undefined ? [] : [[g.editName, g.index] as const],
     ),
   );
-  const placements: NonNullable<TerrainMap['landscapes']>['placements'][number][] = [];
+  const placements = new LandscapePlacements(
+    objects === undefined ? 0 : Math.floor(objects.placements.length / PLACEMENT_STRIDE),
+  );
   if (objects !== undefined) {
     forEachPlacement(objects.placements, (hx, hy, dictionaryId, id) => {
       const name = objects.types[dictionaryId];
       const typeId = name === undefined ? undefined : idByName.get(name);
       if (typeId === undefined) return;
       const type = typeById.get(typeId);
-      placements.push({
-        id,
-        typeId,
-        hx,
-        hy,
-        level: objects.levels?.[id] ?? 1,
-        ...(type?.resource !== undefined ||
+      const resourceBacked =
+        type?.resource !== undefined ||
         type?.bushGfxIndex !== undefined ||
         type?.chest !== undefined ||
         type?.good !== undefined ||
-        type?.wall !== undefined
-          ? { resourceBacked: true }
-          : {}),
-      });
+        type?.wall !== undefined;
+      placements.push(id, typeId, hx, hy, objects.levels?.[id] ?? 1, resourceBacked);
     });
   }
   return { ...terrain, landscapes: { types, placements } };

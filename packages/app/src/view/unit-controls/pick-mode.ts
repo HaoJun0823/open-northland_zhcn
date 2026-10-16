@@ -36,8 +36,8 @@ const MIDDLE_BUTTON = 1;
 /**
  * Arming one mode replaces whatever was armed; a left or right click, Esc, or a selection change
  * resolves or cancels it, while a middle-button drag scroll leaves it armed. A signpost click waits for
- * a fresh placement verdict and stays armed when refused. The map overview is the one surface that can leave a mode armed: it cannot name the
- * unit or building a picked-target mode wants. Every mode carries the settlers it orders, the ones that
+ * a fresh placement verdict and stays armed when refused. The map overview also leaves picked-target
+ * modes armed: it cannot name the unit or building they want. Every mode carries the settlers it orders, the ones that
  * allowed the order when it was armed, so a mixed selection's order skips the rest.
  */
 export type PickMode =

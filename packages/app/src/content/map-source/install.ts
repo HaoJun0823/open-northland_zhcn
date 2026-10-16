@@ -1,3 +1,4 @@
+import { narratable } from '@open-northland/audio';
 import {
   type CatalogEntry,
   MapBriefing,
@@ -34,10 +35,10 @@ import { type InstalledMapStore, installedMapStore } from './store.js';
 export const MAX_MAP_PICTURE_BYTES = 16 * 1024 * 1024;
 /** One map may contain many pages; their images share a bounded download budget. */
 const MAX_BRIEFING_PICTURES_BYTES = 64 * 1024 * 1024;
-/** One spoken briefing line; the longest shipped one is about a minute of ADPCM, under 2 MB. */
-const MAX_BRIEFING_VOICE_BYTES = 16 * 1024 * 1024;
+/** One spoken briefing line; the longest the original campaigns ship runs about 105 s in 2.3 MB. */
+export const MAX_BRIEFING_VOICE_BYTES = 16 * 1024 * 1024;
 /** A map's spoken lines share one download budget. */
-const MAX_BRIEFING_VOICES_BYTES = 128 * 1024 * 1024;
+export const MAX_BRIEFING_VOICES_BYTES = 128 * 1024 * 1024;
 /** Bounds one in-memory installation, including all maps and their pictures. */
 const MAX_CATALOG_INSTALL_BYTES = 512 * 1024 * 1024;
 
@@ -47,7 +48,8 @@ const PICTURE: MapFileSuffix = '.png';
 const VOICE_EXTENSION = '.wav';
 const HTTP_NOT_FOUND = 404;
 
-/** A plain sidecar or the terrain, a briefing picture the pages require, or a voice a map may lack. */
+/** A plain sidecar or the terrain, a briefing picture the pages require, or a voice a map may lack:
+ *  a listed voice the server lacks, or one the narration would refuse, is installed without it. */
 type SidecarKind = 'document' | 'picture' | 'voice';
 
 export type CatalogInstallFailure = 'notConverted' | 'otherVersion' | 'download' | 'verify';
@@ -118,7 +120,7 @@ function checkSidecar(suffix: MapFileSuffix, bytes: Uint8Array, url: string): vo
     if (!boundedMapPicture(bytes)) throw new CatalogInstallError('verify', `${url} is not a PNG`);
     return;
   }
-  // A voice is a wav the narration decodes when it plays; one that does not decode stays silent.
+  // A voice is a wav the caller keeps only when the narration would play it.
   if (suffix.endsWith(VOICE_EXTENSION)) return;
   const value = json(bytes, url);
   const parsed =
@@ -133,10 +135,16 @@ function checkSidecar(suffix: MapFileSuffix, bytes: Uint8Array, url: string): vo
     throw new CatalogInstallError('verify', `${url} does not match this build`);
 }
 
-/** The catalogue map's listing row as the game lists it: its own id and the catalogue provenance. */
-function installedIndex(entry: CatalogEntry, mapId: string, index: MapsIndexEntry): MapsIndexEntry {
+/** The catalogue map's listing row as the game lists it: its own id, the catalogue provenance and
+ *  the voices actually stored, so a clip that never plays shows neither a player nor a narration mark. */
+function installedIndex(
+  entry: CatalogEntry,
+  mapId: string,
+  index: MapsIndexEntry,
+  voices: readonly MapFileSuffix[],
+): MapsIndexEntry {
   const folder = index.provenance?.folder ?? entry.id;
-  return { ...index, id: mapId, provenance: { kind: 'catalog', folder } };
+  return { ...index, id: mapId, provenance: { kind: 'catalog', folder }, voices: [...voices] };
 }
 
 /**
@@ -215,7 +223,7 @@ export async function installCatalogEntry(
           voices = briefingVoiceSuffixes(briefing).filter((voice) => kept.has(voice));
           total += pictures.length + voices.length;
         }
-        files.set(suffix, bytes);
+        if (kind !== 'voice' || narratable(bytes)) files.set(suffix, bytes);
       }
       if (!signal.aborted) {
         done++;
@@ -262,7 +270,12 @@ export async function installCatalogEntry(
         entryId: entry.id,
         fingerprint,
         irVersion,
-        index: installedIndex(entry, map.mapId, map.index),
+        index: installedIndex(
+          entry,
+          map.mapId,
+          map.index,
+          voices.filter((suffix) => files.has(suffix)),
+        ),
         installedAt,
         size: [...files.values()].reduce((sum, bytes) => sum + bytes.byteLength, 0),
         suffixes,

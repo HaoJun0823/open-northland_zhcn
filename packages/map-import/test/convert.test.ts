@@ -250,7 +250,7 @@ describe('mapFiles', () => {
   });
 
   it('keeps the briefing voices the pages speak and the folder ships, per language', async () => {
-    const wav = latin1('RIFF\x04\0\0\0WAVE');
+    const wav = pcmWav(PCM_16_BIT, [0, 0]);
     const tree = treeOf({
       ...plaintextMap('Voiced'),
       'mission.inc': '[MissionData]\ndebuginfo "Briefing"\nresult "PlayCutscene" 0 1\n',
@@ -273,7 +273,49 @@ describe('mapFiles', () => {
     expect(mapFiles(map).get('voiced.voice-pol-0001.wav')).toBe(wav);
     expect(warnings).toEqual([expect.stringContaining('sfx/eng/0003.wav is not a wav')]);
   });
+
+  it('leaves out a voice the narration could not decode or that holds no sound', async () => {
+    const tree = treeOf({
+      ...plaintextMap('Voiced'),
+      'mission.inc': '[MissionData]\ndebuginfo "Briefing"\nresult "PlayCutscene" 0 1\n',
+      'text/pol/briefings/0000.hlt':
+        '<onscreencallback:2000,1,0>\n<onscreencallback:2000,2,0>\n<onscreencallback:2000,3,0>\n',
+      'text/pol/briefings/briefings.txt': '',
+      'sfx/pol/0001.wav': pcmWav(PCM_24_BIT, [0, 0, 0]),
+      'sfx/pol/0002.wav': pcmWav(PCM_16_BIT, []),
+      'sfx/pol/0003.wav': pcmWav(PCM_8_BIT, [128]),
+    });
+    const warnings: string[] = [];
+    const map = await convertMapFolder(tree, '', {
+      provenance: 'user',
+      rootName: 'Voiced',
+      onWarning: (message) => warnings.push(message),
+    });
+    expect(map.index.voices).toEqual(['.voice-pol-0003.wav']);
+    expect(warnings).toEqual([
+      expect.stringContaining('sfx/pol/0001.wav is not a playable wav'),
+      expect.stringContaining('sfx/pol/0002.wav holds no sound'),
+    ]);
+  });
 });
+
+const PCM_8_BIT = 8;
+const PCM_16_BIT = 16;
+const PCM_24_BIT = 24;
+const WAVE_FORMAT_PCM = 1;
+const MONO = 1;
+const RATE = 22050;
+const FMT_BYTES = 16;
+
+/** A mono PCM wav of `bits` per sample holding `data`. */
+function pcmWav(bits: number, data: readonly number[]): Uint8Array {
+  const u16 = (v: number): string => String.fromCharCode(v & 0xff, (v >>> 8) & 0xff);
+  const u32 = (v: number): string => u16(v & 0xffff) + u16(v >>> 16);
+  const blockAlign = bits / PCM_8_BIT;
+  const fmt = `fmt ${u32(FMT_BYTES)}${u16(WAVE_FORMAT_PCM)}${u16(MONO)}${u32(RATE)}${u32(0)}${u16(blockAlign)}${u16(bits)}`;
+  const body = `WAVE${fmt}data${u32(data.length)}${String.fromCharCode(...data)}`;
+  return latin1(`RIFF${u32(body.length)}${body}`);
+}
 
 describe('treeFromFolder', () => {
   it('reads only the files a conversion knows', async () => {

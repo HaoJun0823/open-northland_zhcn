@@ -21,8 +21,12 @@ import {
   zipOf,
 } from './support/conversion-fixture.js';
 
-/** A RIFF WAVE header with no samples: what the conversion keeps and the store serves as `audio/wav`. */
-const WAV = new Uint8Array([...'RIFF\x04\0\0\0WAVE'].map((c) => c.charCodeAt(0)));
+/** Two silent samples of mono 8-bit PCM at 22050 Hz: a clip the conversion keeps, since the narration
+ *  decodes it, and the store serves as `audio/wav`. */
+const WAV = Uint8Array.from(
+  'RIFF&\0\0\0WAVEfmt \x10\0\0\0\x01\0\x01\0\x22\x56\0\0\0\0\0\0\x01\0\x08\0data\x02\0\0\0\x80\x80',
+  (c) => c.charCodeAt(0),
+);
 
 it('converts, serves and installs briefing pictures and voices for offline use, scoped to their map', async () => {
   const dir = await temporaryDir();

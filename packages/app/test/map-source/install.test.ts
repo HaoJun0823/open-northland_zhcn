@@ -12,6 +12,7 @@ import {
   installAnnouncedCatalogMap,
   installCatalogEntry,
 } from '../../src/content/map-source/index.js';
+import { MAX_BRIEFING_VOICE_BYTES, MAX_BRIEFING_VOICES_BYTES } from '../../src/content/map-source/install.js';
 import {
   API,
   catalogEntry,
@@ -21,6 +22,81 @@ import {
 } from '../support/catalog-maps.js';
 
 const PNG = await encodePng({ width: 1, height: 1, rgba: new Uint8Array([0, 0, 0, 255]) });
+
+const PCM_16_BIT = 16;
+const PCM_24_BIT = 24;
+/** The RIFF id and size, then the canonical 36 bytes of `WAVE`, `fmt ` and the `data` chunk head. */
+const RIFF_HEAD_BYTES = 8;
+const WAV_HEADER_BYTES = 44;
+const WAVE_FORMAT_PCM = 1;
+const MONO = 1;
+const RATE = 22050;
+const FMT_BYTES = 16;
+const BITS_PER_BYTE = 8;
+
+/** A mono PCM wav of `frames` silent samples. */
+function wav(frames: number, bits = PCM_16_BIT): Uint8Array {
+  const dataBytes = frames * (bits / BITS_PER_BYTE);
+  const bytes = new Uint8Array(WAV_HEADER_BYTES + dataBytes);
+  const view = new DataView(bytes.buffer);
+  const ascii = (at: number, text: string): void => {
+    for (const [i, c] of [...text].entries()) view.setUint8(at + i, c.charCodeAt(0));
+  };
+  ascii(0, 'RIFF');
+  view.setUint32(4, bytes.length - RIFF_HEAD_BYTES, true);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, FMT_BYTES, true);
+  view.setUint16(20, WAVE_FORMAT_PCM, true);
+  view.setUint16(22, MONO, true);
+  view.setUint32(24, RATE, true);
+  view.setUint16(32, bits / BITS_PER_BYTE, true);
+  view.setUint16(34, bits, true);
+  ascii(36, 'data');
+  view.setUint32(40, dataBytes, true);
+  return bytes;
+}
+
+/** A body of `size` bytes streamed in one reused chunk, so a test can exceed a cap without holding it. */
+function streamed(size: number): Response {
+  const CHUNK = 1024 * 1024;
+  const chunk = new Uint8Array(CHUNK);
+  let left = size;
+  return new Response(
+    new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (left <= 0) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(left >= CHUNK ? chunk : chunk.subarray(0, left));
+        left -= CHUNK;
+      },
+    }),
+  );
+}
+
+/** An entry whose map's briefing speaks Polish clips `ids` and lists `listed` of them as converted. */
+function voicedEntry(id: string, ids: readonly number[], listed: readonly number[]) {
+  const VOICE_CALLBACK = 2000;
+  const suffix = (clip: number): string => `.voice-pol-${String(clip).padStart(4, '0')}.wav`;
+  const base = catalogEntry(id);
+  if (base.conversion?.verdict !== 'ok') throw new Error('fixture');
+  const entry = {
+    ...base,
+    conversion: {
+      ...base.conversion,
+      maps: base.conversion.maps.map((map) => ({
+        ...map,
+        index: { ...map.index, voices: listed.map(suffix) },
+      })),
+    },
+  };
+  const briefing = {
+    texts: { pol: { '500': ids.map((clip) => ({ kind: 'callback', args: [VOICE_CALLBACK, clip, 0] })) } },
+  };
+  return { entry, briefing, suffix };
+}
 
 function store() {
   const memory = memoryInstalledStorage();
@@ -180,6 +256,59 @@ describe('installing a catalogue entry', () => {
     await expect(
       installCatalogEntry(pending, { api: API, store: target, fetchImpl: catalogServer([]) }),
     ).rejects.toThrow(/no converted maps/);
+    expect(records.size).toBe(0);
+  });
+
+  it('stores only the listed voices the server has and the narration plays, and lists only those', async () => {
+    const { entry, briefing, suffix } = voicedEntry('cn-voiced', [1, 2, 3, 4], [1, 2, 3]);
+    const { store: target, files } = store();
+    const documents = catalogServer([entry], { 'cn-voiced.briefing.json': briefing });
+    const asked: string[] = [];
+    const server: typeof fetch = async (input) => {
+      const url = String(input);
+      if (!url.endsWith('.wav')) return documents(input);
+      asked.push(url.slice(url.lastIndexOf('.voice')));
+      if (url.endsWith(suffix(1))) return new Response(new Uint8Array(wav(4)));
+      if (url.endsWith(suffix(2))) return new Response(new Uint8Array(wav(4, PCM_24_BIT)));
+      return new Response(null, { status: 404 });
+    };
+    const [record] = await installCatalogEntry(entry, { api: API, store: target, fetchImpl: server });
+    expect(asked).toEqual([suffix(1), suffix(2), suffix(3)]);
+    expect(record?.index.voices).toEqual([suffix(1)]);
+    expect(record?.suffixes).toContain(suffix(1));
+    expect(record?.suffixes).not.toContain(suffix(2));
+    expect(files.has(`cn-voiced${suffix(1)}`)).toBe(true);
+    expect(files.has(`cn-voiced${suffix(2)}`)).toBe(false);
+  });
+
+  it('refuses a voice past the clip cap and voices past the map`s budget', async () => {
+    const { entry, briefing } = voicedEntry('cn-loud', [1], [1]);
+    const documents = catalogServer([entry], { 'cn-loud.briefing.json': briefing });
+    const declared: typeof fetch = async (input) =>
+      String(input).endsWith('.wav')
+        ? new Response(new Uint8Array(wav(4)), {
+            headers: { 'content-length': String(MAX_BRIEFING_VOICE_BYTES + 1) },
+          })
+        : documents(input);
+    await expect(
+      installCatalogEntry(entry, { api: API, store: store().store, fetchImpl: declared }),
+    ).rejects.toThrow(/size limit/);
+    const long: typeof fetch = async (input) =>
+      String(input).endsWith('.wav') ? streamed(MAX_BRIEFING_VOICE_BYTES + 1) : documents(input);
+    await expect(
+      installCatalogEntry(entry, { api: API, store: store().store, fetchImpl: long }),
+    ).rejects.toThrow(/size limit/);
+
+    const clips = Math.floor(MAX_BRIEFING_VOICES_BYTES / MAX_BRIEFING_VOICE_BYTES) + 1;
+    const ids = Array.from({ length: clips }, (_, i) => i + 1);
+    const many = voicedEntry('cn-many', ids, ids);
+    const manyDocuments = catalogServer([many.entry], { 'cn-many.briefing.json': many.briefing });
+    const budget: typeof fetch = async (input) =>
+      String(input).endsWith('.wav') ? streamed(MAX_BRIEFING_VOICE_BYTES) : manyDocuments(input);
+    const { store: target, records } = store();
+    await expect(
+      installCatalogEntry(many.entry, { api: API, store: target, fetchImpl: budget }),
+    ).rejects.toThrow(/briefing voices exceed the size limit/);
     expect(records.size).toBe(0);
   });
 

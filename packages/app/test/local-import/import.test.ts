@@ -175,7 +175,11 @@ describe('local conversion and retained sources', () => {
     files['text/pol/briefings/0000.hlt'] = new TextEncoder().encode(
       '<onscreencallback:2000,1,0>\n<picture:$local$\\graphics\\map.pcx>',
     );
-    files['sfx/pol/0001.wav'] = new TextEncoder().encode('RIFF\u0004\u0000\u0000\u0000WAVE');
+    // Two silent samples of mono 8-bit PCM at 22050 Hz, which the narration decodes.
+    files['sfx/pol/0001.wav'] = Uint8Array.from(
+      'RIFF&\0\0\0WAVEfmt \x10\0\0\0\x01\0\x01\0\x22\x56\0\0\0\0\0\0\x01\0\x08\0data\x02\0\0\0\x80\x80',
+      (c) => c.charCodeAt(0),
+    );
     files['text/pol/briefings/graphics/map.pcx'] = encodePcx({
       width: 2,
       height: 1,

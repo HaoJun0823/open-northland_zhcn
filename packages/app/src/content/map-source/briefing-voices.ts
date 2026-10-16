@@ -13,7 +13,13 @@ export interface BriefingVoiceLoader {
 /** Where a narration line plays: the sound driver's narration transport. */
 export type NarrationSink = Pick<
   SoundDriver,
-  'narrate' | 'pauseNarration' | 'resumeNarration' | 'seekNarration' | 'stopNarration' | 'narrationState'
+  | 'narrate'
+  | 'narrationAvailable'
+  | 'pauseNarration'
+  | 'resumeNarration'
+  | 'seekNarration'
+  | 'stopNarration'
+  | 'narrationState'
 >;
 
 const SILENT: BriefingVoiceLoader = { has: () => false, load: async () => null };
@@ -56,7 +62,9 @@ function declaredVoices(
 async function loadClip(path: string, files: typeof fetch): Promise<Uint8Array | null> {
   try {
     const response = await files(path);
-    return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
+    if (response.ok) return new Uint8Array(await response.arrayBuffer());
+    diag.warn('content', 'briefing voice missing', { path, status: response.status });
+    return null;
   } catch (error) {
     diag.warn('content', 'briefing voice unreadable', { path, error: String(error) });
     return null;
@@ -65,33 +73,59 @@ async function loadClip(path: string, files: typeof fetch): Promise<Uint8Array |
 
 const sameVoice = (a: BriefingVoice, b: BriefingVoice): boolean => a.lang === b.lang && a.id === b.id;
 
-/** Speaks one clip at a time into `sink`: a clip that loads after a later play or a stop stays silent. */
+/** The clip the player stands on: its bytes once loaded, and a pause pressed while it still loads. */
+interface Line {
+  readonly voice: BriefingVoice;
+  wav: Uint8Array | null;
+  pauseOnLoad: boolean;
+}
+
+/** Speaks one clip at a time into `sink`: a clip that loads after a later play or a stop stays silent.
+ *  A clip that does not load or that the sink refuses stays unavailable for the world. */
 export function briefingVoicePlayer(voices: BriefingVoiceLoader, sink: NarrationSink) {
   let turn = 0;
-  /** The clip the player stands on; its bytes once loaded. */
-  let current: { readonly voice: BriefingVoice; wav: Uint8Array | null } | null = null;
+  let current: Line | null = null;
+  const refused = new Set<string>();
+
+  const refuse = (line: Line): void => {
+    refused.add(voiceFileSuffix(line.voice));
+    if (current === line) current = null;
+  };
+  const narrate = (line: Line, wav: Uint8Array, paused: boolean): void => {
+    if (!sink.narrate(wav, { paused })) refuse(line);
+  };
 
   const start = (voice: BriefingVoice): void => {
     const mine = ++turn;
-    const line: { readonly voice: BriefingVoice; wav: Uint8Array | null } = { voice, wav: null };
-    current = line;
     sink.stopNarration();
+    if (refused.has(voiceFileSuffix(voice))) {
+      current = null;
+      return;
+    }
+    const line: Line = { voice, wav: null, pauseOnLoad: false };
+    current = line;
     void voices
       .load(voice)
       .then((wav) => {
         if (mine !== turn) return;
         if (wav === null) {
-          current = null;
+          refuse(line);
           return;
         }
         line.wav = wav;
-        sink.narrate(wav);
+        narrate(line, wav, line.pauseOnLoad);
       })
-      .catch((error: unknown) => diag.warn('content', 'briefing voice unplayable', { error: String(error) }));
+      .catch((error: unknown) => {
+        refuse(line);
+        diag.warn('content', 'briefing voice unplayable', { error: String(error) });
+      });
   };
 
   return {
     has: (voice: BriefingVoice): boolean => voices.has(voice),
+    /** Sound is on and `voice`'s clip has not failed to load or play. */
+    available: (voice: BriefingVoice): boolean =>
+      sink.narrationAvailable() && !refused.has(voiceFileSuffix(voice)),
     play: start,
     stop(): void {
       turn++;
@@ -103,10 +137,13 @@ export function briefingVoicePlayer(voices: BriefingVoiceLoader, sink: Narration
         start(voice);
         return;
       }
-      if (current.wav === null) return;
+      if (current.wav === null) {
+        current.pauseOnLoad = !current.pauseOnLoad;
+        return;
+      }
       const { status } = sink.narrationState();
       if (status === 'playing' || status === 'waiting') sink.pauseNarration();
-      else if (status === 'idle') sink.narrate(current.wav);
+      else if (status === 'idle') narrate(current, current.wav, false);
       else sink.resumeNarration();
     },
     seek(voice: BriefingVoice, atS: number): void {
@@ -116,7 +153,12 @@ export function briefingVoicePlayer(voices: BriefingVoiceLoader, sink: Narration
     state(): NarrationState & { readonly voice: BriefingVoice | null } {
       if (current === null) return { voice: null, ...NARRATION_IDLE };
       if (current.wav === null)
-        return { voice: current.voice, status: 'waiting', positionS: 0, durationS: 0 };
+        return {
+          voice: current.voice,
+          status: current.pauseOnLoad ? 'paused' : 'waiting',
+          positionS: 0,
+          durationS: 0,
+        };
       return { voice: current.voice, ...sink.narrationState() };
     },
   };

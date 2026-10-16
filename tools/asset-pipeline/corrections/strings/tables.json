@@ -1118,5 +1118,21 @@
     "from": "Алхимия - Зелье Здоровья",
     "to": "Алхимия - Целебное Зелье",
     "reason": "\"Целебное зелье\" lepiej oddaje miksturę leczniczą niż \"Зелье Здоровья\"."
+  },
+  {
+    "lang": "pol",
+    "table": "misclogic",
+    "id": 14,
+    "from": "Ożeń się",
+    "to": "Zawrzyj małżeństwo",
+    "reason": "Wspólna komenda ślubu musi pasować do kobiety i mężczyzny; forma ożeń się jest męska."
+  },
+  {
+    "lang": "rus",
+    "table": "misclogic",
+    "id": 14,
+    "from": "Обручиться",
+    "to": "Вступить в брак",
+    "reason": "Rozkaz dotyczy zawarcia małżeństwa, a nie jedynie zaręczyn; neutralna forma jest zgodna z etykietą zastępczą."
   }
 ]

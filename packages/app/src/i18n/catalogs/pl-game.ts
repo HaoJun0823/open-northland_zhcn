@@ -1401,7 +1401,7 @@ export const plGame = {
   actionRing: {
     haveGirl: 'Postaraj się o córkę',
     haveBoy: 'Postaraj się o syna',
-    marry: 'Znajdź małżonka',
+    marry: 'Zawrzyj małżeństwo',
     goTo: 'Przejdź we wskazane miejsce',
     changeProfession: 'Wybierz zawód',
     assignWorkArea: 'Wybierz obszar pracy',

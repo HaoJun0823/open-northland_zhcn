@@ -3,6 +3,7 @@ import {
   type MooringProbe,
   type NodeGridAnswer,
   type NodeSetAnswer,
+  nodeGridAccepts,
   nodeSetHas,
   type PalisadeGateProbeResult,
 } from '@open-northland/sim';
@@ -37,6 +38,7 @@ export interface PlacementProbeViews {
 
 /** The placement rules a click decides on: each awaits the host's answer as of now. */
 export interface PlacementClickGates {
+  readonly askPlaceSignpostAt: (col: number, row: number) => Promise<boolean>;
   readonly askPlaceAt: (
     typeId: number,
     tribe: number,
@@ -254,6 +256,12 @@ export function createPlacementGates(
         ? building(typeId, tribe, techWaived, owner)
             .freshAt(col, row)
             .then((verdict) => verdict !== false)
+        : Promise.resolve(false),
+    askPlaceSignpostAt: (col, row) =>
+      fogGates.seesNode(col, row)
+        ? host
+            .signpostProbe(localPlayer, { minHx: col, maxHx: col, minHy: row, maxHy: row })
+            .then((answer) => answer !== null && nodeGridAccepts(answer, col, row))
         : Promise.resolve(false),
     palisadeLineReady: async (gfxIndex, owner, anchor, reach) => {
       await Promise.all([

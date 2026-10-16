@@ -998,6 +998,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       askAttachToVehicle: answers.askAttachToVehicle,
       // The fog gate matches the overlay's, so a dimmed shore in the fog takes no dock click either.
       askMoorAt: placementGates.askMoorAt,
+      askPlaceSignpostAt: placementGates.askPlaceSignpostAt,
       boundsOf: (ref) => {
         const sprite = deps.staticHarvestableSprite?.(ref);
         return sprite === undefined ? renderer.entityBounds(ref) : mapObjectBounds(sprite, host.tick);

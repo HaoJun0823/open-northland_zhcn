@@ -93,6 +93,8 @@ function harness(
     openActions: () => {},
   });
   const pickMode = createPickModeController({
+    askPlaceSignpostAt: async () => true,
+    cue: (cue) => cues.push(cue),
     answered: createAnsweredOrders(),
     snapshot: () => WORLD,
     targets: { ...targets, wildlife },
@@ -255,7 +257,7 @@ describe('a world press on an armed pick mode', () => {
     expect(issued).toHaveLength(1);
   });
 
-  it('queues a Shift press of a walk, attack-move or signpost pick and keeps the mode armed', () => {
+  it('queues a Shift press of a walk, attack-move or signpost pick and keeps the mode armed', async () => {
     const { pickMode, issued } = harness();
     const shiftClick = { ...click(0), shiftKey: true } as MouseEvent;
     const modes = [
@@ -265,7 +267,9 @@ describe('a world press on an armed pick mode', () => {
     ] as const;
     for (const mode of modes) {
       pickMode.arm(mode);
-      expect(pickMode.handleMouseDown(shiftClick)).toBe('ordered');
+      expect(pickMode.handleMouseDown(shiftClick)).toBe(mode.kind === 'signpost' ? 'pending' : 'ordered');
+      await Promise.resolve();
+      await Promise.resolve();
       expect(pickMode.armed()).toEqual(mode);
     }
     expect(issued).toEqual([

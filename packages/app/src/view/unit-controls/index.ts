@@ -216,6 +216,8 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     canAttachToVehicle: opts.canAttachToVehicle,
     canAttachTradeHouse: opts.canAttachTradeHouse,
     askAttachTradeHouse: opts.askAttachTradeHouse,
+    askPlaceSignpostAt: opts.askPlaceSignpostAt,
+    cue,
     answered,
     ...(opts.attachPicksVersion !== undefined ? { answersVersion: opts.attachPicksVersion } : {}),
   });

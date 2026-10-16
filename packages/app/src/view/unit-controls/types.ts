@@ -128,6 +128,8 @@ export interface UnitControlsOptions {
   /** The same rule asked as a click lands, which gates the pick's click and a trader's right-click on a
    *  house; absent, neither puts a house on a route. */
   readonly askAttachTradeHouse?: (trader: number, house: number) => Promise<boolean>;
+  /** Fresh signpost placement verdict for a click; absent refuses the placement. */
+  readonly askPlaceSignpostAt?: (col: number, row: number) => Promise<boolean>;
   /** The sim's vehicle attach rule (`SessionHost.vehiclesAttachableBy`) as its last answer, which lights
    *  the "Assign Vehicle" pick's targets; absent, the pick lights nothing. */
   readonly canAttachToVehicle?: (settler: number, vehicle: number) => boolean;

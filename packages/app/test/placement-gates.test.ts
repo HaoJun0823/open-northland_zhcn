@@ -55,6 +55,33 @@ function openField(): { sim: Simulation; gates: PlacementGates; fog: ReturnType<
 }
 
 describe('placement gates - the ground an enemy army contests', () => {
+  it('asks afresh for signpost clicks instead of trusting the held preview answer', async () => {
+    const { sim, fog } = openField();
+    const host = inlineSessionHost(sim);
+    let allowed = true;
+    const probe = vi.spyOn(host, 'signpostProbe').mockImplementation(async (_player, area) => ({
+      area,
+      accepted: new Uint8Array((area.maxHx - area.minHx + 1) * (area.maxHy - area.minHy + 1)).fill(
+        allowed ? 1 : 0,
+      ),
+      key: String(allowed),
+    }));
+    const gates = createPlacementGates(host, fog, HUMAN_PLAYER);
+    expect(gates.canPlaceSignpostAt(FAR.hx, FAR.hy)).toBe(false);
+    await landed();
+    expect(gates.canPlaceSignpostAt(FAR.hx, FAR.hy)).toBe(true);
+    const previewCalls = probe.mock.calls.length;
+    allowed = false; // No blocker change: the held preview still admits this node.
+    await expect(gates.askPlaceSignpostAt(FAR.hx, FAR.hy)).resolves.toBe(false);
+    expect(probe.mock.calls.length).toBe(previewCalls + 1);
+    allowed = true;
+    await expect(gates.askPlaceSignpostAt(FAR.hx, FAR.hy)).resolves.toBe(true);
+    vi.spyOn(fog, 'seesNode').mockReturnValue(false);
+    const callsBeforeHiddenClick = probe.mock.calls.length;
+    await expect(gates.askPlaceSignpostAt(FAR.hx, FAR.hy)).resolves.toBe(false);
+    expect(probe.mock.calls.length).toBe(callsBeforeHiddenClick);
+  });
+
   it('refuses the click and the ghost beside an enemy soldier, and admits them again once he is gone', async () => {
     const { sim, gates } = openField();
     // Unanswered ground is refused until the host's answer lands.

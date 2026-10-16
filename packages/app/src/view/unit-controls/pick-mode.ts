@@ -10,6 +10,7 @@ import {
   type UnitSelectionCommand,
   type WorldSnapshot,
 } from '@open-northland/sim';
+import { diag } from '../../diag/index.js';
 import { ownerPlayerOf } from '../../game/snapshot.js';
 import { clampTile, nodeBounds, pickTopAt, type Tile } from '../picking.js';
 import { memoBySnapshot } from '../projections/index.js';
@@ -34,7 +35,8 @@ const MIDDLE_BUTTON = 1;
 
 /**
  * Arming one mode replaces whatever was armed; a left or right click, Esc, or a selection change
- * resolves or cancels it, while a middle-button drag scroll leaves it armed. The map overview is the one surface that can leave a mode armed: it cannot name the
+ * resolves or cancels it, while a middle-button drag scroll leaves it armed. A signpost click waits for
+ * a fresh placement verdict and stays armed when refused. The map overview is the one surface that can leave a mode armed: it cannot name the
  * unit or building a picked-target mode wants. Every mode carries the settlers it orders, the ones that
  * allowed the order when it was armed, so a mixed selection's order skips the rest.
  */
@@ -218,6 +220,9 @@ export interface PickModeDeps {
   readonly canAttachTradeHouse?: TradeHouseRule | undefined;
   /** The same rule asked as the pick's click lands, which it orders by; absent, it orders nothing. */
   readonly askAttachTradeHouse?: ((trader: number, house: number) => Promise<boolean>) | undefined;
+  readonly askPlaceSignpostAt?: ((col: number, row: number) => Promise<boolean>) | undefined;
+  /** Feedback for a signpost click whose verdict arrives after the synchronous pointer handler. */
+  readonly cue?: ((cue: UiCue) => void) | undefined;
   /** Where the orders a host answer decides wait for it. */
   readonly answered: AnsweredOrders;
 }
@@ -225,9 +230,10 @@ export interface PickModeDeps {
 /**
  * What a press did to an armed mode, for the caller's click feedback: `ordered` placed the order,
  * `missed` found no target under the press (approximation: the original keeps its tool armed after a
- * miss, this drops it), `calledOff` was any other button. Null when no mode was armed.
+ * miss, this drops it), `pending` awaits a fresh signpost verdict, and `calledOff` was any other button.
+ * An invalid signpost remains armed. Null when no mode was armed.
  */
-export type PickPress = 'ordered' | 'missed' | 'calledOff';
+export type PickPress = 'ordered' | 'missed' | 'calledOff' | 'pending';
 
 /** The GUI click a pick press answers with: an order confirms, a call-off fails, a miss is silent. */
 export function pickPressCue(press: PickPress): UiCue | null {
@@ -237,6 +243,7 @@ export function pickPressCue(press: PickPress): UiCue | null {
     case 'calledOff':
       return 'fail';
     case 'missed':
+    case 'pending':
       return null;
     default: {
       const unreachable: never = press;
@@ -296,10 +303,15 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
   let pickVersion = 0;
   /** The armed mode was kept armed by a queued Shift press rather than armed by the player. */
   let shiftChain = false;
+  type SignpostPress = { readonly target: Tile; readonly queued: boolean; verdict: boolean | null };
+  let pendingSignposts: SignpostPress[] = [];
+  let endSignpostChain = false;
   const setMode = (next: PickMode | null): void => {
     pickMode = next;
     pickVersion++;
     shiftChain = false;
+    pendingSignposts = [];
+    endSignpostChain = false;
     deps.setArmedCursor(next);
   };
   const cancel = (): void => setMode(null);
@@ -374,7 +386,11 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
 
   /** `queued` applies to the {@link QUEUEABLE_MODES}. Vehicles have no queue, so they sit a queued march
    *  out instead of driving ahead of the settlers to each pressed spot. */
-  const resolveSpot = (mode: SpotMode, named: Tile, queued: boolean): boolean => {
+  const resolveSpot = (
+    mode: Exclude<SpotMode, { readonly kind: 'signpost' }>,
+    named: Tile,
+    queued: boolean,
+  ): boolean => {
     const { width, height } = nodeBounds(deps.mapSize);
     const target = clampTile(named, width, height);
     switch (mode.kind) {
@@ -392,17 +408,6 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
           !queued && mode.vehicles.length > 0 && deps.vehicleOrders().issueAttackMove(mode.vehicles, target);
         return marched || marchedVehicles;
       }
-      // Named deviation from the observed original, which erects with a right-click on lit ground: this
-      // places with a left-click and dims blocked ground, matching build placement.
-      case 'signpost':
-        deps.enqueue({
-          kind: 'placeSignpost',
-          entity: mode.scout as Entity,
-          x: target.col,
-          y: target.row,
-          ...(queued ? { queued } : {}),
-        });
-        return true;
       case 'vehicle-destination':
         return deps.vehicleOrders().issueMoveTo(mode.vehicle, target);
       case 'vehicle-dock':
@@ -414,6 +419,61 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
         throw new Error(`unhandled spot pick mode: ${JSON.stringify(unreachable)}`);
       }
     }
+  };
+
+  /** Fresh answers may land in any order; queued presses must still submit in click order. */
+  const resolveSignpostPress = (
+    mode: Extract<SpotMode, { readonly kind: 'signpost' }>,
+    named: Tile,
+    queued: boolean,
+  ): PickPress => {
+    if (!queued) {
+      shiftChain = false;
+      pickVersion++;
+      pendingSignposts = [];
+    }
+    endSignpostChain = false;
+    const version = pickVersion;
+    const { width, height } = nodeBounds(deps.mapSize);
+    const press: SignpostPress = { target: clampTile(named, width, height), queued, verdict: null };
+    pendingSignposts.push(press);
+    const answer = deps.askPlaceSignpostAt?.(press.target.col, press.target.row) ?? Promise.resolve(false);
+    deps.answered.after(
+      answer.catch((error: unknown) => {
+        diag.warn('orders', 'a signpost click went unanswered by the host', { error: String(error) });
+        return false;
+      }),
+      (verdict) => {
+        if (version !== pickVersion || pickMode !== mode) return;
+        press.verdict = verdict;
+        while (pendingSignposts.length > 0 && pendingSignposts[0]?.verdict !== null) {
+          const next = pendingSignposts.shift();
+          if (next === undefined) break;
+          if (!next.verdict) {
+            deps.cue?.('fail');
+            continue;
+          }
+          deps.enqueue({
+            kind: 'placeSignpost',
+            entity: mode.scout as Entity,
+            x: next.target.col,
+            y: next.target.row,
+            ...(next.queued ? { queued: true } : {}),
+          });
+          deps.cue?.('confirm');
+          if (!next.queued && pendingSignposts.length === 0) {
+            cancel();
+            return;
+          }
+          shiftChain = true;
+        }
+        if (pendingSignposts.length === 0 && endSignpostChain) {
+          endSignpostChain = false;
+          if (shiftChain) cancel();
+        }
+      },
+    );
+    return 'pending';
   };
 
   /** Plant the flag of every unit at `named`; one holding a post leaves it first, so the sim, which
@@ -473,7 +533,7 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     if (mode === null || event.button === MIDDLE_BUTTON) return null;
     // A selection change cancels any armed mode, so the selection read at click time is still the one
     // this mode was armed for.
-    cancel();
+    if (mode.kind !== 'signpost' || event.button !== 0) cancel();
     if (event.button !== 0) return 'calledOff'; // any other button just calls the mode off
     // The march engages enemies only, never game, so an attack-move pressed on a wild animal strikes it;
     // the selected vehicles still march to the spot. A queued march only aims at the animal's spot.
@@ -497,6 +557,7 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
   const resolveSpotPress = (mode: SpotMode, target: Tile, shift: boolean): PickPress => {
     const forSettlers = !('units' in mode) || mode.units.length > 0;
     const queued = shift && forSettlers && QUEUEABLE_MODES.has(mode.kind);
+    if (mode.kind === 'signpost') return resolveSignpostPress(mode, target, queued);
     const ordered = resolveSpot(mode, target, queued);
     if (ordered && queued) {
       setMode(mode);
@@ -513,7 +574,7 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
       return 'calledOff';
     }
     if (!isSpotMode(mode)) return null;
-    cancel();
+    if (mode.kind !== 'signpost') cancel();
     return resolveSpotPress(mode, target, shift);
   };
 
@@ -546,7 +607,8 @@ export function createPickModeController(deps: PickModeDeps): PickModeController
     handleMouseDown,
     handleOverviewPress,
     endShiftChain: () => {
-      if (shiftChain) cancel();
+      if (pendingSignposts.length > 0) endSignpostChain = true;
+      else if (shiftChain) cancel();
     },
     highlight: () => highlightFor(deps.snapshot()),
   };

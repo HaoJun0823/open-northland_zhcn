@@ -30,6 +30,3 @@ Run focused mission regressions, the standard gates and real-content checks. Cov
 - An unrelated family's newborn does not satisfy the named couple's child task; their own child does,
   including while indoors and independently of the location where the birth occurred.
 - Save/restore retains the necessary evidence and continues these conditions identically.
-
-The birth-stage check remains a bounded correction, not full parentage verification. Fresh gameplay
-acceptance of corrected lesson002 is still required.

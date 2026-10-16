@@ -4,11 +4,13 @@ import {
   MIN_UI_SCALE,
   REFERENCE_DISPLAY_HEIGHT,
   SMALL_DISPLAY_UI_SCALE,
+  START_WORLD_ZOOM_PER_UI_SCALE,
   startWorldZoomFor,
   UI_SCALE_FACTOR_MAX,
   UI_SCALE_FACTOR_MIN,
   uiScaleFor,
 } from '../src/hud/ui-scale.js';
+import { MIN_ZOOM } from '../src/view/camera/index.js';
 
 const UHD_HEIGHT = 2160;
 const QHD_HEIGHT = 1440;
@@ -54,7 +56,7 @@ describe('uiScaleFor', () => {
   it('keeps the original chrome size on a small display that holds it', () => {
     const laptop = { displayHeight: 768, viewportWidth: 1366, viewportHeight: 768 };
     expect(uiScaleFor(laptop)).toBe(SMALL_DISPLAY_UI_SCALE);
-    expect(startWorldZoomFor(laptop)).toBe(1);
+    expect(startWorldZoomFor(laptop)).toBe(START_WORLD_ZOOM_PER_UI_SCALE);
   });
 
   it('floors at the legibility minimum', () => {
@@ -72,23 +74,25 @@ describe('uiScaleFor', () => {
 });
 
 describe('startWorldZoomFor', () => {
-  it('magnifies the world as much as the HUD base', () => {
-    expect(startWorldZoomFor(maximized(UHD_HEIGHT))).toBe(1.75);
-    expect(startWorldZoomFor(maximized(QHD_HEIGHT))).toBe(uiScaleFor(maximized(QHD_HEIGHT)));
+  it('opens at a fixed share of the HUD base', () => {
+    expect(startWorldZoomFor(maximized(UHD_HEIGHT))).toBeCloseTo(START_WORLD_ZOOM_PER_UI_SCALE * 1.75);
+    expect(startWorldZoomFor(maximized(QHD_HEIGHT))).toBe(
+      START_WORLD_ZOOM_PER_UI_SCALE * uiScaleFor(maximized(QHD_HEIGHT)),
+    );
   });
 
-  it('opens a reference display at 1:1', () => {
+  it('opens a reference display zoomed out from 1:1', () => {
     expect(
       startWorldZoomFor({
         displayHeight: REFERENCE_DISPLAY_HEIGHT,
         viewportWidth: 1920,
         viewportHeight: 1000,
       }),
-    ).toBe(1);
+    ).toBe(START_WORLD_ZOOM_PER_UI_SCALE);
   });
 
-  it('never opens below 1:1 on a small display', () => {
-    expect(startWorldZoomFor({ displayHeight: 900, viewportWidth: 1440, viewportHeight: 860 })).toBe(1);
+  it('stays above the camera zoom-out floor at the smallest HUD scale', () => {
+    expect(START_WORLD_ZOOM_PER_UI_SCALE * MIN_UI_SCALE).toBeGreaterThanOrEqual(MIN_ZOOM);
   });
 });
 

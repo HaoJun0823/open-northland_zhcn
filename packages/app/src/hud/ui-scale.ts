@@ -72,11 +72,14 @@ export function uiScaleFor(view: DisplayView, factor: number = DEFAULT_UI_SCALE_
 }
 
 /**
- * The camera zoom a game opens at: the HUD's base magnification, so the chrome keeps its share of the
- * view on every display. Never below 1:1: a small display shows less world rather than shrinking the art.
+ * Opening world zoom per unit of HUD base scale (owner choice: a magnified start was zoomed out by almost
+ * 2x at once). Stays above the camera's zoom-out floor for every HUD scale down to {@link MIN_UI_SCALE}.
  */
+export const START_WORLD_ZOOM_PER_UI_SCALE = 0.55;
+
+/** The camera zoom a game opens at: a fixed share of the HUD's base magnification, so it follows the display. */
 export function startWorldZoomFor(view: DisplayView): number {
-  return Math.max(1, uiScaleFor(view));
+  return START_WORLD_ZOOM_PER_UI_SCALE * uiScaleFor(view);
 }
 
 /** The display the page is shown on, read live, so a window moved to another monitor follows it. */

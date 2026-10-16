@@ -3,6 +3,8 @@ import {
   infoLinesOf,
   missionBriefingPage,
   missionRecords,
+  ownerOf,
+  Person,
   ScriptedLook,
   ScriptedName,
 } from '../../src/components/index.js';
@@ -11,6 +13,7 @@ import type { Simulation } from '../../src/index.js';
 import { hexDistance } from '../../src/nav/halfcell.js';
 import type { MissionDefinition, MissionResultOp } from '../../src/systems/missions/index.js';
 import { SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
+import { NO_MISSION_ID } from '../../src/systems/missions/targets.js';
 import {
   firingSim,
   LOAD_PASS,
@@ -31,6 +34,7 @@ import {
  */
 
 const OWNER = 0;
+const OTHER_PLAYER = 1;
 const HUMAN = 7;
 const PAGE = 500;
 const STRING = 21;
@@ -199,6 +203,16 @@ describe('SelectHuman and SetHumanName', () => {
       mission: 0,
       opcode: 'SelectHuman',
     });
+  });
+
+  it('id 0 selects the lowest unnumbered human of any player', () => {
+    const sim = firingSim([{ opcode: 'SelectHuman', humanId: NO_MISSION_ID, flag: false }]);
+    spawn(sim, { player: OWNER, missionId: HUMAN });
+    spawn(sim, { player: OTHER_PLAYER, at: FAR });
+    spawn(sim, { player: OWNER });
+    sim.run(LOAD_PASS);
+    const [first] = [...sim.world.query(Person)].filter((e) => ownerOf(sim.world, e) === OTHER_PLAYER);
+    expect(sim.events.current()).toContainEqual({ kind: 'missionSelectHuman', entity: first, select: true });
   });
 
   it('name the first human carrying the id, once, and keep the name through a save', () => {

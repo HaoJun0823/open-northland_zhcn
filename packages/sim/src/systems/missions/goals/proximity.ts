@@ -2,7 +2,6 @@ import {
   Building,
   isAboardVehicle,
   isValidPlayer,
-  MissionObjectId,
   ownerOf,
   Person,
   Position,
@@ -23,8 +22,10 @@ import type { MissionGoalOp } from '../script.js';
 import {
   carriedPoint,
   isMissionAnimal,
+  isUnnumberedHuman,
   missionHouses,
   missionHumans,
+  NO_MISSION_ID,
   ownedBy,
   withinRange,
 } from '../targets.js';
@@ -38,9 +39,6 @@ import { neededMatches } from './count.js';
  * the region index maintains itself against a store generation on the promise that a member never
  * moves, which a walking human breaks, so these goals scan rather than index.
  */
-
-/** The id a placement or spawn authoring none carries, which the index does not hold. */
-const NO_MISSION_ID = 0;
 
 /**
  * Any human with the id stands within `range` of the point, a passenger where its carrier stands.
@@ -58,7 +56,7 @@ export function humansNearPoint(
   };
   if (op.humanId !== NO_MISSION_ID) return missionHumans(world, op.humanId).some(near);
   for (const e of world.query(Person)) {
-    if (!world.has(e, MissionObjectId) && near(e)) return true;
+    if (isUnnumberedHuman(world, e) && near(e)) return true;
   }
   return false;
 }

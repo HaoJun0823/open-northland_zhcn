@@ -99,7 +99,10 @@ simulation step. A headless host must handle this event itself when running mult
 ## Cost
 
 A pass costs the active missions and their goals. An evaluator that addresses mission object ids goes
-through `missionObjects`, never a walk over every entity. A goal that only counts what a player has
+through `missionObjects`, never a walk over every entity. Human id 0 is the exception: it names every
+human never given an id, which is nearly the whole population, so `scriptedHumans` and
+`humansNearPoint` walk the population once per check, like the counting goals. An index of those
+humans would hold the same set and only add upkeep on every spawn and stamp. A goal that only counts what a player has
 standing walks the population once per check and allocates nothing; keep it that way rather than
 sorting or collecting to count. A goal that stamps what it counted must leave an id already held
 alone, or it rebuilds the object index and re-clones its matches every pass. A mission probed by

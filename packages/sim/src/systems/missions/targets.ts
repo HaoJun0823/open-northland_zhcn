@@ -45,7 +45,12 @@ export function missionHumans(world: World, id: number): Entity[] {
 }
 
 /** The id every human carries until a map or a script gives it one; the id index does not hold it. */
-const NO_MISSION_ID = 0;
+export const NO_MISSION_ID = 0;
+
+/** Whether `e` is a human that id {@link NO_MISSION_ID} names: one never given an id, of any player. */
+export function isUnnumberedHuman(world: World, e: Entity): boolean {
+  return world.has(e, Person) && !world.has(e, MissionObjectId);
+}
 
 /**
  * The humans a script line's human id names, ascending by entity id. Original behavior: ids compare
@@ -54,7 +59,7 @@ const NO_MISSION_ID = 0;
  */
 export function scriptedHumans(world: World, id: number): Entity[] {
   if (id !== NO_MISSION_ID) return missionHumans(world, id);
-  return world.canonicalQuery(Person).filter((e) => !world.has(e, MissionObjectId));
+  return world.canonicalQuery(Person).filter((e) => isUnnumberedHuman(world, e));
 }
 
 export function missionHouses(world: World, id: number): Entity[] {

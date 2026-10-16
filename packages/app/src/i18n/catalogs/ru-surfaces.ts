@@ -16,7 +16,7 @@ export const ruSurfaces = {
       multiplayer: 'Сетевая игра',
       catalogue: 'Каталог карт',
       settings: 'Настройки',
-      credits: 'Авторы',
+      credits: 'Информация',
       exit: 'Выйти',
     },
     comingSoon: 'Скоро',
@@ -41,7 +41,7 @@ export const ruSurfaces = {
       lobby: 'Лобби',
       load: 'Загрузить игру',
       settings: 'Настройки',
-      credits: 'О проекте',
+      credits: 'Информация',
     },
     mapSelect: {
       searchPlaceholder: 'Поиск карт…',
@@ -442,18 +442,34 @@ export const ruSurfaces = {
     },
     credits: {
       intro:
-        'Open Northland — независимый движок с открытым исходным кодом для серии стратегий Cultures. Отрисовка и инструменты подготовки ресурсов оригинальной игры созданы с нуля.',
-      sourceLink: 'Исходный код — GitHub',
+        'Open Northland: независимый открытый движок для игр серии Cultures, написанный с нуля. Он воссоздаёт игровой процесс оригинала собственным кодом, используя его графику, звуки и карты.',
+      authorTitle: 'Автор',
+      authorRole: 'дизайн и программирование',
+      contactTitle: 'Контакты',
       reportLink: 'Сообщить об ошибке',
-      teamTitle: 'Команда',
-      teamName: 'Sebastian Nemś',
-      teamRole: 'дизайн и программирование',
+      sourceLink: 'Исходный код',
       thanksTitle: 'Благодарности',
-      thanksFunaticsName: 'Funatics Software',
-      thanksFunaticsDetail: 'за оригинальную серию Cultures, дух которой мы стремимся сохранить.',
-      thanksCommunityName: 'Сообщество CulturesNation.pl',
-      thanksCommunityDetail: 'за многолетнюю поддержку серии, мод CulturesNation и собранные знания об игре.',
-      legal: 'некоммерческий проект, не связанный с правообладателями серии',
+      thanks: {
+        funatics: {
+          name: 'Funatics Software',
+          detail: 'За оригинальную серию Cultures, дух которой мы стремимся сохранить.',
+        },
+        cnmod: {
+          name: 'Создатели CNMod',
+          detail: 'За годы исправлений и развития игры.\nOpen Northland использует данные их мода.',
+        },
+        community: {
+          name: 'Сообщество CulturesNation.pl',
+          detail: 'За многолетнюю поддержку серии и собранные знания об игре.',
+        },
+      },
+      communityTitle: 'Сообщество',
+      discordDetail: 'Вопросы, общение и сообщения об ошибках.',
+      culturesNationDetail: 'Сообщество игроков в Cultures.',
+      license: 'Свободное ПО под лицензией GNU AGPL 3.0 или новее, без каких-либо гарантий.',
+      licenseLink: 'Лицензия',
+      disclaimer:
+        'Cultures и связанные названия принадлежат их владельцам. Некоммерческий проект, не связанный с Funatics Software и другими правообладателями серии.',
     },
   },
   deviceNotice: {

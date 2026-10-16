@@ -17,13 +17,14 @@ describe('backTarget', () => {
 });
 
 describe('MAIN_NAV', () => {
-  it('lists the menu order with multiplayer available and credits hidden', () => {
+  it('lists the menu order with multiplayer available', () => {
     expect(MAIN_NAV.map((item) => item.id)).toEqual([
       'newGame',
       'load',
       'multiplayer',
       'catalogue',
       'settings',
+      'credits',
       'exit',
     ]);
     expect(MAIN_NAV.find((item) => item.id === 'multiplayer')?.kind).toBe('open');
@@ -37,6 +38,7 @@ describe('MAIN_NAV', () => {
       'multiplayer',
       'catalogue',
       'settings',
+      'credits',
     ]);
   });
 });

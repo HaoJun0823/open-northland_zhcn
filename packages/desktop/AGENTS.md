@@ -14,8 +14,8 @@ converted content over the `app://` protocol. The root [`AGENTS.md`](../../AGENT
   (pick/drop/cancel a local file or folder, list records, read a map snapshot, file or retained source,
   commit maps and source together), which the app feature-detects. Keep that bridge narrow, validate
   every IPC argument and sender, and keep sandbox and context isolation on.
-  Saves live in the page's IndexedDB like in a browser. A page link the game opens goes to the
-  system browser, never a second window.
+  Saves live in the page's IndexedDB like in a browser. A page or mail link the game opens goes to
+  the system browser or mail client, never a second window.
 - Serve the app and generated content through `app://` as read-only static files. Installed maps
   use the snapshot IPC: the app's map-source store serves their logical `/maps/` URLs from those
   bytes. The shell owns both installed records and immutable file generations in the profile's

@@ -79,6 +79,9 @@ const reviewedBinaryAssets = new Set([
   'packages/app/public/og-image.jpg',
   'packages/app/public/screenshot-wide.webp',
   'packages/app/src/assets/brand/logo-stacked.webp',
+  // The CulturesNation logo, identifying the about screen's link to that community site; the mark is
+  // CulturesNation's. Source: https://culturesnation.pl/culturesnation-logo.png
+  'packages/app/src/assets/community/culturesnation.webp',
   'packages/desktop/resources/icon.icns',
   'packages/desktop/resources/icon.ico',
   'packages/desktop/resources/icon.png',

@@ -17,7 +17,7 @@ export const plSurfaces = {
       multiplayer: 'Multiplayer',
       catalogue: 'Katalog map',
       settings: 'Ustawienia',
-      credits: 'Twórcy',
+      credits: 'Informacje',
       exit: 'Wyjście',
     },
     comingSoon: 'wkrótce',
@@ -39,7 +39,7 @@ export const plSurfaces = {
       lobby: 'Lobby',
       load: 'Wczytaj grę',
       settings: 'Ustawienia',
-      credits: 'O projekcie',
+      credits: 'Informacje',
     },
     mapSelect: {
       searchPlaceholder: 'Szukaj mapy…',
@@ -401,19 +401,34 @@ export const plSurfaces = {
     },
     credits: {
       intro:
-        'Open Northland to niezależny, otwarty silnik dla gier z serii Cultures: nowy renderer i narzędzia przygotowujące zasoby z oryginalnej gry, budowane od zera.',
-      sourceLink: 'Kod źródłowy - GitHub',
+        'Open Northland to niezależny, otwarty silnik gier z serii Cultures, napisany od zera. Odtwarza rozgrywkę oryginału własnym kodem, korzystając z jego grafik, dźwięków i map.',
+      authorTitle: 'Autor',
+      authorRole: 'projekt i kod',
+      contactTitle: 'Kontakt',
       reportLink: 'Zgłoś błąd',
-      teamTitle: 'Zespół',
-      teamName: 'Sebastian Nemś',
-      teamRole: 'projekt i kod',
+      sourceLink: 'Kod źródłowy',
       thanksTitle: 'Podziękowania',
-      thanksFunaticsName: 'Funatics Software',
-      thanksFunaticsDetail: 'za oryginalną serię Cultures, której klimat prowadzi ten projekt.',
-      thanksCommunityName: 'Społeczność CulturesNation.pl',
-      thanksCommunityDetail:
-        'za lata podtrzymywania serii przy życiu, mod CulturesNation i zebraną wiedzę o grze.',
-      legal: 'projekt niekomercyjny, niezwiązany z posiadaczami praw do serii',
+      thanks: {
+        funatics: {
+          name: 'Funatics Software',
+          detail: 'Za oryginalną serię Cultures, której klimat prowadzi ten projekt.',
+        },
+        cnmod: {
+          name: 'Twórcy CNModa',
+          detail: 'Za lata poprawiania i rozwijania gry.\nOpen Northland korzysta z danych ich moda.',
+        },
+        community: {
+          name: 'Społeczność CulturesNation.pl',
+          detail: 'Za lata podtrzymywania serii przy życiu i zebraną wiedzę o grze.',
+        },
+      },
+      communityTitle: 'Społeczność',
+      discordDetail: 'Pytania, rozmowy i zgłaszanie błędów.',
+      culturesNationDetail: 'Społeczność graczy Cultures.',
+      license: 'Wolne oprogramowanie na licencji GNU AGPL 3.0 lub nowszej, bez żadnej gwarancji.',
+      licenseLink: 'Licencja',
+      disclaimer:
+        'Cultures i powiązane nazwy należą do ich właścicieli. Projekt niekomercyjny, niezwiązany z Funatics Software ani innymi posiadaczami praw do serii.',
     },
   },
   deviceNotice: {

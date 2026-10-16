@@ -29,13 +29,14 @@ export type MainNavItem =
     }
   | { readonly id: 'exit'; readonly kind: 'exit' };
 
-/** Main-screen nav in display order. The credits row is hidden until its screen has real content. */
+/** Main-screen nav in display order. */
 export const MAIN_NAV: readonly MainNavItem[] = [
   { id: 'newGame', kind: 'open' },
   { id: 'load', kind: 'open' },
   { id: 'multiplayer', kind: 'open' },
   { id: 'catalogue', kind: 'open' },
   { id: 'settings', kind: 'open' },
+  { id: 'credits', kind: 'open' },
   { id: 'exit', kind: 'exit' },
 ];
 

@@ -45,11 +45,12 @@ describe('isAppUrl', () => {
 });
 
 describe('links the game opens', () => {
-  it('hands web pages to the system browser and nothing else', () => {
+  it('hands web pages and mail addresses to the system and nothing else', () => {
     expect(externalPageUrl('https://culturesnation.pl/mapy/zatoka')).toBe(
       'https://culturesnation.pl/mapy/zatoka',
     );
     expect(externalPageUrl('http://example.org/a')).toBe('http://example.org/a');
+    expect(externalPageUrl('mailto:contact@opennorthland.org')).toBe('mailto:contact@opennorthland.org');
     expect(externalPageUrl('file:///etc/passwd')).toBeNull();
     expect(externalPageUrl('app://game/index.html')).toBeNull();
     expect(externalPageUrl('javascript:alert(1)')).toBeNull();

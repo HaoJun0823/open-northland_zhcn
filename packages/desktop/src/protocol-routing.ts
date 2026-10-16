@@ -20,10 +20,10 @@ export function routePathOf(host: string, rawPathname: string): string {
   return host === GAME_HOST ? rawPathname : `/${host}${rawPathname}`;
 }
 
-/** The schemes a page a player opens from the game may use; it opens in the system browser. */
-const EXTERNAL_PROTOCOLS: readonly string[] = ['https:', 'http:'];
+/** The schemes a link the game opens may use; the system hands it to the browser or mail client. */
+const EXTERNAL_PROTOCOLS: readonly string[] = ['https:', 'http:', 'mailto:'];
 
-/** The URL to hand the system browser for a link the game opens, or null for anything else. */
+/** The URL to hand the system for a link the game opens, or null for anything else. */
 export function externalPageUrl(url: string): string | null {
   try {
     const parsed = new URL(url);

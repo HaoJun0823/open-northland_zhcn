@@ -17,7 +17,7 @@ export const enSurfaces = {
       multiplayer: 'Multiplayer',
       catalogue: 'Map catalogue',
       settings: 'Settings',
-      credits: 'Credits',
+      credits: 'About',
       exit: 'Exit',
     },
     comingSoon: 'coming soon',
@@ -404,19 +404,35 @@ export const enSurfaces = {
     },
     credits: {
       intro:
-        'Open Northland is an independent, open-source engine for the Cultures strategy series: a new renderer and tooling that prepares the assets from the original game, built from scratch.',
-      sourceLink: 'Source code - GitHub',
+        "Open Northland is an independent, open-source engine for the Cultures series, written from scratch. It recreates the original's gameplay in its own code, using the original graphics, sounds and maps.",
+      authorTitle: 'Author',
+      authorRole: 'design and code',
+      contactTitle: 'Contact',
       reportLink: 'Report a bug',
-      teamTitle: 'Team',
-      teamName: 'Sebastian Nemś',
-      teamRole: 'design and code',
+      sourceLink: 'Source code',
       thanksTitle: 'Thanks',
-      thanksFunaticsName: 'Funatics Software',
-      thanksFunaticsDetail: 'for the original Cultures series, whose spirit guides this project.',
-      thanksCommunityName: 'The CulturesNation.pl community',
-      thanksCommunityDetail:
-        'for keeping the series alive over the years, the CulturesNation mod and the knowledge gathered around the game.',
-      legal: 'a non-commercial project, unaffiliated with the series rights holders',
+      thanks: {
+        funatics: {
+          name: 'Funatics Software',
+          detail: 'For the original Cultures series, whose spirit guides this project.',
+        },
+        cnmod: {
+          name: 'The CNMod creators',
+          detail: "For years of fixing and extending the game.\nOpen Northland plays on their mod's data.",
+        },
+        community: {
+          name: 'The CulturesNation.pl community',
+          detail:
+            'For keeping the series alive over the years and for the knowledge gathered about the game.',
+        },
+      },
+      communityTitle: 'Community',
+      discordDetail: 'Questions, conversations and bug reports.',
+      culturesNationDetail: 'The Cultures player community.',
+      license: 'Free software under the GNU AGPL 3.0 or later, with no warranty.',
+      licenseLink: 'License',
+      disclaimer:
+        'Cultures and related names belong to their owners. A non-commercial project, not affiliated with Funatics Software or any other rights holder of the series.',
     },
   },
   deviceNotice: {

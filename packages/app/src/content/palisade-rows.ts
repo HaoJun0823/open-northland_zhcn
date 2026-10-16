@@ -54,13 +54,31 @@ export function gateCounterpartName(logicId: string, editName: string): string |
 }
 
 /**
+ * Project rule: a one-cell post holds one and a half of its row's pools. Archers all shoot the first wall
+ * on their route, so a post held them for well under half as long as a gate.
+ */
+const POST_STRENGTH = 1.5;
+
+/**
  * How many times a wall graphic holds its row's valency and repair step: once per cell its closed body
- * blocks. Project rule: a gate five cells wide lasts and mends like the five posts it stands in for,
- * instead of falling to the larger squad its longer face admits. Original behavior: every wall and gate
- * graphic holds one `maximumValency` pool, so there a gate falls several times faster than a post.
+ * blocks, and never less than {@link POST_STRENGTH}. Project rule: a gate five cells wide lasts and mends
+ * like the five posts it stands in for, instead of falling to the larger squad its longer face admits.
+ * Original behavior: every wall and gate graphic holds one `maximumValency` pool, so there a gate falls
+ * several times faster than a post.
  */
 export function wallStrengthScale(closedWalk: readonly Readonly<LandscapeBlockArea>[] | undefined): number {
-  return Math.max(1, fullStateBlockAreaCells(closedWalk).length);
+  return Math.max(POST_STRENGTH, fullStateBlockAreaCells(closedWalk).length);
+}
+
+/** A wall row's pool and repair step times `scale`; the step rounds up so mending a post never slows. */
+export function scaledWallRules(
+  rules: { readonly maxHitpoints: number; readonly repairPerStrike: number },
+  scale: number,
+): { readonly maxHitpoints: number; readonly repairPerStrike: number } {
+  return {
+    maxHitpoints: Math.round(rules.maxHitpoints * scale),
+    repairPerStrike: Math.ceil(rules.repairPerStrike * scale),
+  };
 }
 
 /** {@link wallStrengthScale} of every player wall graphic by gfx index; an open gate reads its closed pair. */

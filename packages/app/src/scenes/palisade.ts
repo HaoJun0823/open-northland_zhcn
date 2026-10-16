@@ -28,7 +28,8 @@ import type { SceneDefinition } from './types.js';
  * a wall the map authored below its maximum, unasked.
  * The detached seven-post rosette makes all six source wall-connection directions visible at once.
  *
- * Source basis: readable wall records pin 100 maximum valency and +3 repair progress. Original
+ * Source basis: readable wall records pin 100 maximum valency and +3 repair progress, which a post holds
+ * one and a half times (`wallStrengthScale`). Original
  * behavior: one wood per placed anchor, interpolated posts along three canonical neighbour directions,
  * and the instant conversion of a straight five-wall span into a gate, which lives in
  * `palisadeGateProbe`. The original reserves a segment before travel; the physical visit before its
@@ -53,8 +54,8 @@ export const PALISADE_WORK_SITES = {
   // so an enemy marker beside the work yard would freeze the builders instead of demonstrating them.
   unclaimed: { hx: 44, hy: 12 },
 } as const;
-/** Authored at 70 of 100 valency: ten repair swings. */
-const DAMAGED_YARD_WALL = { hx: 8, hy: 40, valency: 70 } as const;
+/** Authored at 100 of 150 hitpoints: ten repair swings. */
+const DAMAGED_YARD_WALL = { hx: 8, hy: 40, valency: 100 } as const;
 const COMMAND_CHAIN = [
   { hx: 30, hy: 36 },
   { hx: 31, hy: 36 },
@@ -275,9 +276,7 @@ export const palisadeScene: SceneDefinition = {
           completed.length === 2 &&
           completed.every((wall) => {
             const health = sim.world.get(wall, Health);
-            return (
-              sim.world.get(wall, Palisade).built === ONE && health.hitpoints === 100 && health.max === 100
-            );
+            return sim.world.get(wall, Palisade).built === ONE && health.hitpoints === health.max;
           })
         );
       },
@@ -287,7 +286,9 @@ export const palisadeScene: SceneDefinition = {
       predicate: (sim) => {
         const wall = palisadeAt(sim, DAMAGED_YARD_WALL.hx, DAMAGED_YARD_WALL.hy);
         return (
-          wall !== null && !sim.world.has(wall, Damaged) && sim.world.get(wall, Health).hitpoints === 100
+          wall !== null &&
+          !sim.world.has(wall, Damaged) &&
+          sim.world.get(wall, Health).hitpoints === sim.world.get(wall, Health).max
         );
       },
     },

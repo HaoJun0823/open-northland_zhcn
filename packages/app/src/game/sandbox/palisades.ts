@@ -3,6 +3,7 @@ import type { ScriptLandscapeType } from '@open-northland/sim';
 import {
   CLOSED_GATE_LOGIC_ID,
   OPEN_GATE_LOGIC_ID,
+  scaledWallRules,
   WALL_LOGIC_ID,
   wallStrengthScale,
 } from '../../content/palisade-rows.js';
@@ -220,9 +221,13 @@ export function sandboxPalisadeTypes(): ScriptLandscapeType[] {
       build: fullStateBlockAreaCells(record.buildBlockAreas),
       groups: [],
       wall: {
-        maxHitpoints: PALISADE_MAX_HITPOINTS * scale,
-        repairPerStrike:
-          (record.gate === undefined ? PALISADE_REPAIR_PER_STRIKE : GATE_REPAIR_PER_STRIKE) * scale,
+        ...scaledWallRules(
+          {
+            maxHitpoints: PALISADE_MAX_HITPOINTS,
+            repairPerStrike: record.gate === undefined ? PALISADE_REPAIR_PER_STRIKE : GATE_REPAIR_PER_STRIKE,
+          },
+          scale,
+        ),
         construction: [{ goodType: GOOD_WOOD, amount: 1 }],
         ...(record.gate === undefined ? {} : { gate: { ...record.gate } }),
       },

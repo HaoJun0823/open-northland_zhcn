@@ -16,6 +16,7 @@ import {
   gateCounterpartName,
   OPEN_GATE_LOGIC_ID,
   playerWallRows,
+  scaledWallRules,
   wallStrengthScales,
 } from './palisade-rows.js';
 
@@ -124,8 +125,7 @@ export function scriptLandscapeTypes(ir: ContentIr): ScriptLandscapeType[] {
         ? {}
         : {
             wall: {
-              maxHitpoints: wall.maxHitpoints * wallScale,
-              repairPerStrike: wall.repairPerStrike * wallScale,
+              ...scaledWallRules(wall, wallScale),
               construction: woodGoodType === undefined ? [] : [{ goodType: woodGoodType, amount: 1 }],
               ...(counterpartGfxIndex === undefined
                 ? {}

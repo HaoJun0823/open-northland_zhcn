@@ -28,14 +28,14 @@ function segmentAt(sim: Simulation, hx: number, hy: number): Entity {
   return wall;
 }
 
-it('uses the source repair deltas for wall and gate records, once per closed gate cell', () => {
+it('scales the source repair deltas for wall and gate records by their strength', () => {
   const types = sandboxPalisadeTypes();
   expect(
     types.filter((type) => type.wall?.gate !== undefined).map((type) => type.wall?.repairPerStrike),
   ).toEqual([5, 5, 5, 5, 5, 5]);
   expect(
     types.filter((type) => type.wall?.gate === undefined).map((type) => type.wall?.repairPerStrike),
-  ).toEqual([3, 3, 3, 3, 3, 3]);
+  ).toEqual([5, 5, 5, 5, 5, 5]);
 });
 
 it('leaves every position of its scripted ticks but the last to live orders', () => {
@@ -118,7 +118,10 @@ it('claims a segment and fetches its wood in one step, then completes two real s
     (wall): wall is NonNullable<typeof wall> => wall !== null && !sim.world.has(wall, UnderConstruction),
   );
   expect(completed).toHaveLength(2);
-  for (const wall of completed) expect(sim.world.get(wall, Health)).toEqual({ hitpoints: 100, max: 100 });
+  for (const wall of completed) {
+    const health = sim.world.get(wall, Health);
+    expect(health.hitpoints).toBe(health.max);
+  }
 
   const claimed = owned.filter(
     (wall): wall is NonNullable<typeof wall> =>

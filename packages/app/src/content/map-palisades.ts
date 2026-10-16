@@ -41,7 +41,7 @@ export function mapPalisadeSpawns(objects: TerrainObjects, ir: ContentIr): MapPa
         hy,
         placement,
         owner: objects.owners?.[placement] ?? undefined,
-        valency: level === undefined ? undefined : level * (scales.get(gfxIndex) ?? 1),
+        valency: level === undefined ? undefined : Math.round(level * (scales.get(gfxIndex) ?? 1)),
       });
     }
   });

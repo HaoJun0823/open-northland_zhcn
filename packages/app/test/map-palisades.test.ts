@@ -22,6 +22,7 @@ const IR: ContentIr = {
 
 describe('map palisade promotion', () => {
   it('preserves source player zero and high player slots while leaving neutral walls unowned', () => {
+    // A post's authored level scales with its one and a half pools.
     const objects: TerrainObjects = {
       types: ['wall_01'],
       placements: [2, 4, 0, 3, 4, 0, 4, 4, 0],
@@ -30,9 +31,9 @@ describe('map palisade promotion', () => {
     };
 
     expect(mapPalisadeSpawns(objects, IR)).toEqual([
-      { gfxIndex: 691, hx: 2, hy: 4, placement: 0, owner: 0, valency: 100 },
-      { gfxIndex: 691, hx: 3, hy: 4, placement: 1, owner: 12, valency: 40 },
-      { gfxIndex: 691, hx: 4, hy: 4, placement: 2, owner: undefined, valency: 60 },
+      { gfxIndex: 691, hx: 2, hy: 4, placement: 0, owner: 0, valency: 150 },
+      { gfxIndex: 691, hx: 3, hy: 4, placement: 1, owner: 12, valency: 60 },
+      { gfxIndex: 691, hx: 4, hy: 4, placement: 2, owner: undefined, valency: 90 },
     ]);
   });
 
@@ -83,7 +84,7 @@ describe('map palisade promotion', () => {
         y: 4,
         tribe: 1,
         owner: 0,
-        valency: 100,
+        valency: 150,
         landscapeId: 0,
         underConstruction: false,
         force: true,
@@ -95,7 +96,7 @@ describe('map palisade promotion', () => {
         y: 4,
         tribe: 7,
         owner: 12,
-        valency: 40,
+        valency: 60,
         landscapeId: 1,
         underConstruction: false,
         force: true,

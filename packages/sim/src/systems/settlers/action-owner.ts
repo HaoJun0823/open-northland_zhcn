@@ -15,7 +15,7 @@ import type { Component, Entity, World } from '../../ecs/world.js';
 const ERRAND_DIVERTING_MARKERS: readonly Component<unknown>[] = [Engagement, Fleeing, PlayerOrder, Wedding];
 
 /** The markers that hold a settler off the economy ladder. */
-const ECONOMY_HOLD_MARKERS: readonly Component<unknown>[] = [...ERRAND_DIVERTING_MARKERS, FamilyDuty];
+export const ECONOMY_HOLD_MARKERS: readonly Component<unknown>[] = [...ERRAND_DIVERTING_MARKERS, FamilyDuty];
 
 /** The markers whose presence hands a settler to another system: a vehicle seat and the economy holds. */
 export const ACTION_OWNER_MARKERS: readonly Component<unknown>[] = [Rider, ...ECONOMY_HOLD_MARKERS];

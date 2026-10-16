@@ -1,18 +1,15 @@
 import {
   chatHoldsSettler,
-  Engagement,
   FamilyDuty,
-  Fleeing,
   IdleStand,
   isMachinePlayer,
   ownerOf,
-  PlayerOrder,
   Resting,
-  Wedding,
 } from '../../../components/index.js';
 import { TICKS_PER_SECOND } from '../../../core/loop.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { assignedWorkers } from '../../stores/assigned-workers.js';
+import { ECONOMY_HOLD_MARKERS } from '../action-owner.js';
 
 /**
  * How often an idle adult, or one waiting inside a building, re-runs its drive ladder, staggered by the id
@@ -42,11 +39,16 @@ export function waitsHoldOnBeat(world: World, e: Entity): boolean {
   return (
     idleReplanPeriodOf(world, e) === COMPUTER_IDLE_REPLAN_PERIOD_TICKS &&
     (world.has(e, FamilyDuty) || chatHoldsSettler(world, e)) &&
-    !world.has(e, Engagement) &&
-    !world.has(e, Fleeing) &&
-    !world.has(e, PlayerOrder) &&
-    !world.has(e, Wedding)
+    !heldByBeatBlockingHold(world, e)
   );
+}
+
+/** Every economy hold but the family duty: any of them keeps the settler re-planning every tick. */
+const BEAT_BLOCKING_HOLDS = ECONOMY_HOLD_MARKERS.filter((marker) => marker !== FamilyDuty);
+
+function heldByBeatBlockingHold(world: World, e: Entity): boolean {
+  for (const marker of BEAT_BLOCKING_HOLDS) if (world.has(e, marker)) return true;
+  return false;
 }
 
 /** Whether `tick` is one on which an idler keyed on `key` re-plans under `period`. */

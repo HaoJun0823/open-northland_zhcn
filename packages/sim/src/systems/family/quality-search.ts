@@ -19,7 +19,7 @@ import type { SystemContext } from '../context.js';
 import { interactionCell, unclaimedGoodsAt } from '../settlers/targets/index.js';
 import { NodeBuckets } from '../spatial/nodes.js';
 import { accessibleStockAmounts, type SupplyTally } from '../stores/index.js';
-import { CandidateSides } from './food-search.js';
+import { CandidateSides } from './candidate-sides.js';
 
 /**
  * Per-tick searchable view of external stores carrying a configured household-quality good. The

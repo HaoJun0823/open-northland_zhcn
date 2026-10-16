@@ -24,6 +24,7 @@ const byId = (e: Entity): number => e;
  */
 export class FoodSources {
   private readonly ids: Entity[] = [];
+  private shared: readonly Entity[] | null = null;
   private nodeBuckets: NodeBuckets;
   readonly captures: JournaledCaptures<SourceNode>;
 
@@ -43,23 +44,28 @@ export class FoodSources {
         capture: (e) => (isFoodSource(world, content, e) ? anchorNode(world, e) : null),
         apply: (e, node) => {
           insertSortedById(this.ids, e, byId);
+          this.shared = null;
           this.nodeBuckets.insert(e, node.hx, node.hy);
         },
         withdraw: (e, node) => {
           removeSortedById(this.ids, e, byId);
+          this.shared = null;
           this.nodeBuckets.remove(e, node.hx, node.hy);
         },
         clear: () => {
           this.ids.length = 0;
+          this.shared = null;
           this.nodeBuckets = new NodeBuckets(world, []);
         },
       },
     );
   }
 
-  /** Ascending id, the linear scan's tie-break order. Shared: never mutate it. */
+  /** Ascending id, the linear scan's tie-break order: a new array whenever the members change, so a
+   *  consumer may key on its identity. Shared: never mutate it. */
   get candidates(): readonly Entity[] {
-    return this.ids;
+    this.shared ??= this.ids.slice();
+    return this.shared;
   }
 
   get buckets(): NodeBuckets {

@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import { Owner, ownerOf, ownersCompatible, Position, Stockpile } from '../../components/index.js';
+import { ownerOf, ownersCompatible, Position, Stockpile } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition, nodeOfPosition } from '../../nav/halfcell.js';
@@ -10,6 +10,7 @@ import { edibleGoodFormOf, isFoodIn } from '../readviews/index.js';
 import { hasRoom } from '../settlers/drives/economy/store-policy.js';
 import { interactionCell, unclaimedGoodsAt } from '../settlers/targets/index.js';
 import { accessibleStockAmounts, type SupplyTally } from '../stores/index.js';
+import { CandidateSides } from './candidate-sides.js';
 import { type FoodSources, foodSourcesOf } from './food-sources.js';
 
 /**
@@ -167,62 +168,6 @@ function familyFoods(content: ContentSet): readonly number[] {
     familyFoodsByContent.set(content, foods);
   }
   return foods;
-}
-
-/**
- * An ascending-id candidate list split by side: each player's entities merged with the neutral ones, so a
- * scan skips every other player's. Re-split when the list's members differ from the last split's or any
- * {@link Owner} is added, removed or written.
- */
-export class CandidateSides {
-  private readonly byOwner = new Map<number, Entity[]>();
-  private neutral: Entity[] = [];
-  private readonly split: Entity[] = [];
-  private ownerMembership = -1;
-  private ownerValues = -1;
-
-  constructor(private readonly world: World) {}
-
-  /** The `candidates` {@link ownersCompatible} with `owner`, ascending id. */
-  of(candidates: readonly Entity[], owner: number | undefined): readonly Entity[] {
-    if (owner === undefined) return candidates;
-    const membership = this.world.componentGeneration(Owner);
-    const values = this.world.componentValueGeneration(Owner);
-    if (membership !== this.ownerMembership || values !== this.ownerValues || !this.splitFrom(candidates)) {
-      this.resplit(candidates);
-      this.ownerMembership = membership;
-      this.ownerValues = values;
-    }
-    return this.byOwner.get(owner) ?? this.neutral;
-  }
-
-  private splitFrom(candidates: readonly Entity[]): boolean {
-    const { split } = this;
-    if (split.length !== candidates.length) return false;
-    for (let i = 0; i < split.length; i++) if (split[i] !== candidates[i]) return false;
-    return true;
-  }
-
-  private resplit(candidates: readonly Entity[]): void {
-    this.byOwner.clear();
-    this.neutral = [];
-    this.split.length = 0;
-    for (const e of candidates) {
-      this.split.push(e);
-      const owner = ownerOf(this.world, e);
-      if (owner === undefined) {
-        this.neutral.push(e);
-        for (const list of this.byOwner.values()) list.push(e);
-        continue;
-      }
-      let list = this.byOwner.get(owner);
-      if (list === undefined) {
-        list = this.neutral.slice();
-        this.byOwner.set(owner, list);
-      }
-      list.push(e);
-    }
-  }
 }
 
 const sidesByWorld = new WeakMap<World, CandidateSides>();

@@ -60,10 +60,14 @@ export type BuildingDoorInfoOf = (
   entity?: number,
 ) => BuildingDoorInfo | undefined;
 
-/** What one building's badge was made from: the building's own object, its families grouping and each
- *  staff member's id and `Settler` (the job a row reads), so a building whose inputs held keeps its badge. */
+/** The building components a badge reads; a write to any other, such as its stock, keeps the badge. */
+const BADGE_READS = ['Building', 'Owner', 'Position', 'UnderConstruction', 'MakingLove'] as const;
+
+/** What one building's badge was made from: the building's {@link BADGE_READS} components, its families
+ *  grouping and each staff member's id and `Settler` (the job a row reads), so a building whose inputs
+ *  held keeps its badge. */
 interface HeldBadge {
-  readonly building: SnapshotEntity;
+  readonly reads: readonly unknown[];
   readonly families: readonly HomeFamily[] | undefined;
   readonly staff: readonly unknown[];
   readonly badge: DoorBadge | null;
@@ -72,6 +76,12 @@ interface HeldBadge {
 /** The badges last made per building in view, kept across snapshots by one caller. */
 export interface DoorBadgeCache {
   held: Map<number, HeldBadge>;
+}
+
+function sameReads(held: readonly unknown[], building: SnapshotEntity): boolean {
+  let i = 0;
+  for (const name of BADGE_READS) if (held[i++] !== building.components[name]) return false;
+  return true;
 }
 
 function sameStaff(held: readonly unknown[], staff: readonly SnapshotEntity[]): boolean {
@@ -84,8 +94,8 @@ function sameStaff(held: readonly unknown[], staff: readonly SnapshotEntity[]): 
 }
 
 /** The badges of the buildings standing in `box`, ascending by building id; no box reads the whole map.
- *  With `cache`, a building whose own object, families and staff jobs held since the last call keeps
- *  its badge. */
+ *  With `cache`, a building whose read components, families and staff jobs held since the last call
+ *  keeps its badge. */
 export function computeDoorBadges(
   snapshot: WorldSnapshot,
   buildingInfoOf: BuildingDoorInfoOf,
@@ -103,7 +113,7 @@ export function computeDoorBadges(
     const held = cache?.held.get(e.id);
     if (
       held !== undefined &&
-      held.building === e &&
+      sameReads(held.reads, e) &&
       held.families === families &&
       sameStaff(held.staff, staff)
     ) {
@@ -115,7 +125,8 @@ export function computeDoorBadges(
     if (kept !== undefined) {
       const staffKey: unknown[] = [];
       for (const member of staff) staffKey.push(member.id, member.components.Settler);
-      kept.set(e.id, { building: e, families, staff: staffKey, badge });
+      const reads = BADGE_READS.map((name) => e.components[name]);
+      kept.set(e.id, { reads, families, staff: staffKey, badge });
     }
     if (badge !== null) out.push(badge);
   }

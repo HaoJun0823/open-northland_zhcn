@@ -348,4 +348,22 @@ describe('door badge cache', () => {
       computeDoorBadges(snapshotOf([house, turned, stepped]), buildingInfoOf(types), roleOf)[0],
     );
   });
+
+  it('keeps a badge over a write to a component it does not read, and remakes it on one it reads', () => {
+    const types = new Map<number, BuildingDoorInfo>([[7, { footprint: { door: { dx: 0, dy: 2 } } }]]);
+    const cache: DoorBadgeCache = { held: new Map() };
+    const house = building(1, 7, 4, 4);
+    const crafter = settler(2, CRAFTSMAN, 1);
+    const badgesOf = (b: Ent) =>
+      computeDoorBadges(snapshotOf([b, crafter]), buildingInfoOf(types), roleOf, undefined, cache);
+    const [first] = badgesOf(house);
+    const stocked = { ...house, components: { ...house.components, Stock: { goods: [1] } } };
+    expect(badgesOf(stocked)[0]).toBe(first);
+    const owned = { ...stocked, components: { ...stocked.components, Owner: { player: 3 } } };
+    const [remade] = badgesOf(owned);
+    expect(remade).not.toBe(first);
+    expect(remade?.player).toBe(3);
+    const loving = { ...owned, components: { ...owned.components, MakingLove: {} } };
+    expect(badgesOf(loving)[0]?.hearts).toBe(true);
+  });
 });

@@ -66,9 +66,9 @@ export const assistantSystem: System = (world, ctx) => {
   }
 };
 
-/** The beat's canonical scans, built lazily and shared across the carriers. Sharing is safe: dispatching
- *  adds orders and bookings, never people, buildings or owners, so the first seat's snapshot still holds
- *  for the last. Each list is one seat's, ascending id. */
+/** The beat's per-seat lists, each one seat's in ascending id. `mothers` is one scan built on first ask
+ *  and shared across the carriers, which is safe since dispatching adds orders and bookings, never people,
+ *  marriages or owners; `people` and `buildings` read the seat rosters. */
 interface BeatScans {
   readonly mothers: (player: number) => readonly Entity[];
   readonly people: (player: number) => readonly Entity[];

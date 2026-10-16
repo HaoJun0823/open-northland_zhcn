@@ -210,6 +210,7 @@ export const productionSystem: System = (world, ctx) => {
       for (let i = winner + 1; i < spare; i++) next[i - 1] = next[i] as Entity;
       spare--;
     }
+    choices.fill(undefined); // keeps no recipe of this workshop alive past the pass
     if ((world.tryGet(e, Production)?.cycles.length ?? 0) !== running) wakeCrewInside(world, e);
   }
 };

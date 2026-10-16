@@ -24,9 +24,21 @@ const MAP_PARSE_TIMEOUT_MS = 180_000;
 const WOODEN_CHEST_LOGIC_TYPE = 85;
 const MAGICAL_CHEST_LOGIC_TYPE = 86;
 const UNASSIGNED_MOD_CHEST_TYPE = 13;
+/** The chest type the original campaigns author on chests whose reward their script pays. */
+const SCRIPTED_CAMPAIGN_CHEST_TYPE = 100;
+/** The provenance folder the pack's original campaign maps convert from. */
+const PACK_CAMPAIGN_FOLDER_PREFIX = 'campaigns/';
 
 function mapsDir(): string {
   return resolve(contentDir(), 'maps');
+}
+
+/** Whether a decoded map comes from the pack's original campaigns rather than the base tree. */
+function isPackCampaignMap(file: string): boolean {
+  const meta = resolve(mapsDir(), file.replace(/\.json$/, '.meta.json'));
+  if (!existsSync(meta)) return false;
+  const folder = MapMeta.parse(JSON.parse(readFileSync(meta, 'utf8'))).provenance?.folder ?? '';
+  return folder.startsWith(PACK_CAMPAIGN_FOLDER_PREFIX);
 }
 
 /** Decoded map grids: a map id is a dotless slug, so a dotted stem is a sidecar (`.meta.json`,
@@ -125,33 +137,36 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))('decode
   it(
     'every authored vehicle names a type the IR carries, and every crew row sits on one of them',
     async () => {
-      // The corpus: 633 `setvehicle` rows on 57 maps, 23 `attachtovehicle` crews of which 20 board
-      // through `moveintovehicle`. A crew row names its vehicle by the half-cell the `setvehicle`
-      // placed it on, so a coordinate no vehicle stands on would strand the settler.
+      // The corpus per source: maps placing vehicles, their `setvehicle` rows, `attachtovehicle` crews
+      // and the crews boarding through `moveintovehicle`. A crew row names its vehicle by the half-cell
+      // the `setvehicle` placed it on, so a coordinate no vehicle stands on would strand the settler.
       const { real } = await loadContentUnderTest();
       const known = new Set(real.vehicles.flatMap((v) => [v.id, v.name ?? v.id]));
-      let vehicles = 0;
-      let crews = 0;
-      let boarded = 0;
-      let placedMaps = 0;
+      const empty = () => ({ maps: 0, vehicles: 0, crews: 0, boarded: 0 });
+      const counts = { base: empty(), campaigns: empty() };
       for (const [file, map] of parsedMaps()) {
+        const tally = isPackCampaignMap(file) ? counts.campaigns : counts.base;
         const placed = map.entities?.vehicles ?? [];
-        if (placed.length > 0) placedMaps++;
-        vehicles += placed.length;
+        const crews = (map.entities?.humans ?? []).flatMap((h) =>
+          h.boardVehicleAt === undefined ? [] : [h.boardVehicleAt],
+        );
+        if (placed.length > 0) tally.maps++;
+        tally.vehicles += placed.length;
+        tally.crews += crews.length;
+        tally.boarded += crews.filter((crew) => crew.inside).length;
         const unknown = placed.map((v) => v.type).filter((t) => !known.has(t));
         expect(unknown, `map ${file} places vehicle types absent from ir.json`).toEqual([]);
         const spots = new Set(placed.map((v) => `${v.hx},${v.hy}`));
-        for (const human of map.entities?.humans ?? []) {
-          const crew = human.boardVehicleAt;
-          if (crew === undefined) continue;
-          crews++;
-          if (crew.inside) boarded++;
+        for (const crew of crews) {
           expect(spots.has(`${crew.hx},${crew.hy}`), `map ${file} crews a vehicle no setvehicle placed`).toBe(
             true,
           );
         }
       }
-      expect([placedMaps, vehicles, crews, boarded]).toEqual([57, 633, 23, 20]);
+      expect(counts).toEqual({
+        base: { maps: 57, vehicles: 633, crews: 23, boarded: 20 },
+        campaigns: { maps: 32, vehicles: 310, crews: 87, boarded: 42 },
+      });
     },
     MAP_PARSE_TIMEOUT_MS,
   );
@@ -176,9 +191,15 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))('decode
         }
       }
       expect(chests).toBeGreaterThan(0);
-      // Ten mod-map chests author type 13, a row the original lacks as well: they open empty
-      // there too. Any other unknown type is a table gap.
-      expect([...unknown], 'chest types the table does not know').toEqual([UNASSIGNED_MOD_CHEST_TYPE]);
+      // The original's open-chest dispatch hands out types 1 to 96 only; any other type opens empty.
+      // Ten mod-map chests author type 13, a row the original lacks as well. Fifteen chests on five
+      // original campaign maps author 100, which no `chesttypes` table names: their script pays the
+      // reward (wonder-campaign_03_02 adds stone and coin once `ChestNearPos` sees the chest opened).
+      // Any other unknown type is a table gap.
+      expect(
+        [...unknown].sort((a, b) => a - b),
+        'chest types the table does not know',
+      ).toEqual([UNASSIGNED_MOD_CHEST_TYPE, SCRIPTED_CAMPAIGN_CHEST_TYPE]);
     },
     MAP_PARSE_TIMEOUT_MS,
   );

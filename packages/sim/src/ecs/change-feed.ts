@@ -1,33 +1,45 @@
 import type { Component, Entity } from './component.js';
 
-/** Unread entries past which a feed drops them and reports overflow, so a reader that falls behind
- *  rebuilds instead of the feed growing without bound. */
-export const CHANGE_FEED_LIMIT = 4096;
+/** Distinct pending entities past which a feed drops them and reports overflow, so a feed nobody
+ *  drains any more stops growing and a reader that falls this far behind rebuilds. */
+export const CHANGE_FEED_LIMIT = 1 << 16;
 
 /** Entries a fresh feed buffer holds before its first doubling. */
 const INITIAL_FEED_CAPACITY = 64;
 
+/** Entity ids one word of the pending bitset covers. */
+const BITS_PER_WORD = 32;
+const WORD_SHIFT = 5;
+const BIT_MASK = BITS_PER_WORD - 1;
+
 /**
  * The entities whose membership or in-place value in any watched store changed since the last
  * {@link drain}, in one log across the stores, so a view that reads several stores asks one question
- * instead of comparing each store's generation. An immediate repeat of the same entity is dropped.
- * Entries live in two typed buffers that swap on drain and keep their capacity, so a steady writer
- * allocates nothing per tick.
+ * instead of comparing each store's generation. Each pending entity is held once, at its first write
+ * since the last drain: a bitset by entity id drops every later write. Entries live in two typed
+ * buffers that swap on drain and keep their capacity, so a steady writer allocates nothing per tick.
  */
 export class ChangeFeed {
   private entities = new Int32Array(INITIAL_FEED_CAPACITY);
   /** The last drained buffer, emptied and reused by the next drain. */
   private spare = new Int32Array(INITIAL_FEED_CAPACITY);
   private count = 0;
+  /** One bit per entity id, set while the entity is in {@link entities}; grown to the largest id. */
+  private held = new Uint32Array(0);
   private overflowed = false;
 
   record(entity: Entity): void {
+    if (this.overflowed) return;
+    const word = entity >>> WORD_SHIFT;
+    const bit = 1 << (entity & BIT_MASK);
+    if (word >= this.held.length) this.held = grownBits(this.held, word);
+    else if ((this.held[word] as number) & bit) return;
     const count = this.count;
-    if (this.overflowed || (count > 0 && this.entities[count - 1] === entity)) return;
     if (count >= CHANGE_FEED_LIMIT) {
       this.lose();
       return;
     }
+    this.held[word] = (this.held[word] as number) | bit;
     if (count === this.entities.length) this.entities = grown(this.entities);
     this.entities[count] = entity;
     this.count = count + 1;
@@ -35,6 +47,7 @@ export class ChangeFeed {
 
   /** Forget the entries, marking the feed overflowed: its reader can no longer replay them. */
   lose(): void {
+    this.release(this.entities, this.count);
     this.overflowed = true;
     this.count = 0;
   }
@@ -50,22 +63,39 @@ export class ChangeFeed {
     return this.overflowed;
   }
 
-  /** Hand every recorded entity to `consume`, possibly repeated, and empty the feed. Returns true
-   *  instead when entries were lost to an overflow, so the reader must rebuild from the stores. */
+  /** Hand every recorded entity to `consume` once, in first-write order, and empty the feed. A write
+   *  `consume` causes lands in the next drain. Returns true instead when entries were lost to an
+   *  overflow, so the reader must rebuild from the stores. */
   drain(consume: (entity: Entity) => void): boolean {
     const { entities, count, overflowed } = this;
     this.entities = this.spare;
     this.spare = entities;
     this.count = 0;
     this.overflowed = false;
+    this.release(entities, count);
     if (!overflowed) for (let i = 0; i < count; i++) consume(entities[i] as Entity);
     return overflowed;
+  }
+
+  private release(entities: Int32Array, count: number): void {
+    const held = this.held;
+    for (let i = 0; i < count; i++) {
+      const e = entities[i] as number;
+      const word = e >>> WORD_SHIFT;
+      held[word] = (held[word] as number) & ~(1 << (e & BIT_MASK));
+    }
   }
 }
 
 function grown(buffer: Int32Array<ArrayBuffer>): Int32Array<ArrayBuffer> {
   const next = new Int32Array(Math.min(buffer.length * 2, CHANGE_FEED_LIMIT));
   next.set(buffer);
+  return next;
+}
+
+function grownBits(bits: Uint32Array<ArrayBuffer>, word: number): Uint32Array<ArrayBuffer> {
+  const next = new Uint32Array(Math.max(word + 1, bits.length * 2));
+  next.set(bits);
   return next;
 }
 

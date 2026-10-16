@@ -27,19 +27,46 @@ describe('World change feeds', () => {
     w.add(b, Valued, { n: 1 }); // membership of a values-only store is not watched
     w.add(b, Ignored, { n: 1 });
     w.mut(b, Valued).n = 2;
-    w.mut(b, Valued).n = 3; // an immediate repeat is dropped
-    w.destroy(a);
+    w.mut(b, Valued).n = 3;
+    w.destroy(a); // a pending entity is held once, at its first write
     expect(feed.pending).toBe(true);
-    expect(drained(feed)).toEqual([a, b, a]);
+    expect(drained(feed)).toEqual([a, b]);
     expect(feed.pending).toBe(false);
+  });
+
+  it('holds an entity again once drained, and keeps a write made while draining for the next drain', () => {
+    const w = new World();
+    const feed = w.watchChanges([], [Valued]);
+    const a = w.create();
+    const b = w.create();
+    w.add(a, Valued, { n: 1 });
+    w.add(b, Valued, { n: 1 });
+    w.mut(a, Valued).n = 2;
+    w.mut(b, Valued).n = 2;
+    const rewriteA = (e: Entity): void => {
+      if (e === a) w.mut(a, Valued).n = 3;
+    };
+    expect(feed.drain(rewriteA)).toBe(false);
+    expect(drained(feed)).toEqual([a]);
+    w.mut(b, Valued).n = 3;
+    w.mut(a, Valued).n = 4;
+    w.mut(b, Valued).n = 4;
+    expect(drained(feed)).toEqual([b, a]);
   });
 
   it('asks its reader to rebuild after an overflow or a restored store', () => {
     const w = new World();
     const feed = w.watchChanges([Watched], []);
-    for (let i = 0; i <= CHANGE_FEED_LIMIT; i++) w.add(w.create(), Watched, { n: i });
+    const first = w.create();
+    w.add(first, Watched, { n: 0 });
+    for (let i = 1; i < CHANGE_FEED_LIMIT; i++) w.add(w.create(), Watched, { n: i });
+    w.add(first, Watched, { n: -1 }); // a held entity never counts twice toward the limit
+    expect(feed.peek(() => {})).toBe(false);
+    w.add(w.create(), Watched, { n: CHANGE_FEED_LIMIT });
     expect(drained(feed)).toBe('rebuild');
     expect(drained(feed)).toEqual([]);
+    w.add(first, Watched, { n: 0 }); // the overflow released every held entity
+    expect(drained(feed)).toEqual([first]);
 
     const restored = new World();
     const restoredFeed = restored.watchChanges([Watched], []);

@@ -3,8 +3,8 @@ import type { AtomicEffect } from '../../../../core/atomic-effect.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { SystemContext } from '../../../context.js';
 import { homeQualityUseFor, spendHomeQuality } from '../../../family/home-quality.js';
-import { applyNeedUnits, carriesNeeds, mutNeeds } from '../../../lifecycle/needs/index.js';
-import { atomicAnimationByName, atomicClipName, clipFrameAt } from '../../../readviews/animations.js';
+import { applyNeedUnits, mutNeeds, settlerCarriesNeeds } from '../../../lifecycle/needs/index.js';
+import { atomicClip, clipEventFactsOf, clipFrameAt } from '../../../readviews/animations.js';
 import { ATOMIC_EVENT_CHANNEL, jobIgnoresHomeHouse } from '../../../readviews/index.js';
 import { isAtOwnHome } from '../../indoors.js';
 
@@ -20,7 +20,7 @@ const AWAY_REST_DIVISOR = 2;
 
 /**
  * Apply the need events the clip `e` is playing carries at its current frame, for a settler whose bars move
- * at all ({@link carriesNeeds}). Original behavior, for either sign of an event:
+ * at all ({@link settlerCarriesNeeds}). Original behavior, for either sign of an event:
  * - rest counts half away from home ({@link isAtOwnHome}) unless the trade is one `jobtypes.ini` marks
  *   `ignoresHomeHouseFlag`; at home every rest event spends one use of the home's rest furnishing and
  *   counts double when that use was paid;
@@ -35,19 +35,21 @@ export function applyAtomicNeedEvents(
   elapsed: number,
   repeatClip = true,
 ): void {
-  if (!needsEnabled(world) || !carriesNeeds(world, ctx.content, e)) return;
-  const settler = world.get(e, Settler);
-  const clip = atomicClipName(ctx.content, settler, atomic.atomicId);
-  const animation = clip === undefined ? undefined : atomicAnimationByName(ctx.content, clip);
+  if (!needsEnabled(world)) return;
+  const settler = world.tryGet(e, Settler);
+  if (settler === undefined) return;
+  const animation = atomicClip(ctx.content, settler, atomic.atomicId);
   if (animation === undefined) return;
+  // A workshop batch never wraps: a replacement maker may bind a shorter clip.
+  const frame = repeatClip ? clipFrameAt(elapsed, animation.length) : elapsed - 1;
+  if (!clipEventFactsOf(animation).needFrames.has(frame)) return;
+  if (!settlerCarriesNeeds(world, ctx.content, e, settler)) return;
 
   let rest = 0;
   let food = 0;
   let company = 0;
   let piety = 0;
   let atHome: boolean | undefined;
-  // A workshop batch never wraps: a replacement maker may bind a shorter clip.
-  const frame = repeatClip ? clipFrameAt(elapsed, animation.length) : elapsed - 1;
   for (const event of animation.events) {
     if (event.at !== frame) continue;
     const delta = event.value ?? 0;

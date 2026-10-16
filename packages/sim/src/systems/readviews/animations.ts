@@ -148,9 +148,108 @@ export function atomicClipName(
   settler: SettlerIdentity,
   atomicId: number,
 ): string | undefined {
+  return clipBindingFor(content, settler, atomicId).name;
+}
+
+/** The clip {@link atomicClipName} resolves for the settler, or `undefined` when none resolves. */
+export function atomicClip(
+  content: ContentSet,
+  settler: SettlerIdentity,
+  atomicId: number,
+): AtomicAnimation | undefined {
+  return clipBindingFor(content, settler, atomicId).clip;
+}
+
+interface ClipBinding {
+  readonly name: string | undefined;
+  readonly clip: AtomicAnimation | undefined;
+}
+
+/** `tribe -> jobType -> atomicId` memo of the clip join, one table per scenario flag since that flag picks
+ *  the unit variant. */
+type ClipBindingTable = Map<number, Map<number, Map<number, ClipBinding>>>;
+interface ClipBindingTables {
+  readonly plain: ClipBindingTable;
+  readonly scenario: ClipBindingTable;
+}
+const clipBindingTables = new WeakMap<ContentSet, ClipBindingTables>();
+const UNBOUND: ClipBinding = { name: undefined, clip: undefined };
+/** The job key of a settler without a trade; job type ids are nonnegative. */
+const NO_JOB_KEY = -1;
+
+function clipBindingFor(content: ContentSet, settler: SettlerIdentity, atomicId: number): ClipBinding {
+  let tables = clipBindingTables.get(content);
+  if (tables === undefined) {
+    tables = { plain: new Map(), scenario: new Map() };
+    clipBindingTables.set(content, tables);
+  }
+  const table = settler.scenario === true ? tables.scenario : tables.plain;
+  const jobKey = settler.jobType ?? NO_JOB_KEY;
+  let byJob = table.get(settler.tribe);
+  if (byJob === undefined) {
+    byJob = new Map();
+    table.set(settler.tribe, byJob);
+  }
+  let byAtomic = byJob.get(jobKey);
+  if (byAtomic === undefined) {
+    byAtomic = new Map();
+    byJob.set(jobKey, byAtomic);
+  }
+  let binding = byAtomic.get(atomicId);
+  if (binding === undefined) {
+    const name =
+      boundAtomicAnimation(content, settler, atomicId) ??
+      boundAtomicAnimation(content, { tribe: settler.tribe, jobType: CIVILIST_JOB }, atomicId);
+    binding = name === undefined ? UNBOUND : { name, clip: atomicAnimationByName(content, name) };
+    byAtomic.set(atomicId, binding);
+  }
+  return binding;
+}
+
+/** A placeable sound cue of a clip: the atomic tick it fires on and the sound bank's `logicSoundType`. */
+export interface ClipSoundCue {
+  readonly tick: number;
+  readonly soundType: number;
+}
+
+/** The facts the per-tick atomic passes read off a clip, derived once per clip. */
+export interface ClipEventFacts {
+  /** Clip frames carrying a valued rest, hunger, leisure or piety event. */
+  readonly needFrames: ReadonlySet<number>;
+  /** Every valued sound FX event inside the clip's length, in event order. */
+  readonly soundCues: readonly ClipSoundCue[];
+  /** The last atomic tick a negative piety event inside the clip fires on, `0` when the clip has none. */
+  readonly lastPietySpendTick: number;
+}
+
+const clipEventFacts = new WeakMap<AtomicAnimation, ClipEventFacts>();
+
+export function clipEventFactsOf(anim: AtomicAnimation): ClipEventFacts {
+  let facts = clipEventFacts.get(anim);
+  if (facts !== undefined) return facts;
+  const needFrames = new Set<number>();
+  const soundCues: ClipSoundCue[] = [];
+  let lastPietySpendTick = 0;
+  for (const event of anim.events) {
+    const value = event.value ?? 0;
+    if (isNeedChannel(event.type) && value !== 0) needFrames.add(event.at);
+    if (event.at >= anim.length) continue;
+    if (event.type === ATOMIC_EVENT_TYPE_PLAY_SOUND_FX && event.value !== undefined)
+      soundCues.push({ tick: eventTick(event.at), soundType: event.value });
+    if (event.type === ATOMIC_EVENT_CHANNEL.PIETY && value < 0)
+      lastPietySpendTick = Math.max(lastPietySpendTick, eventTick(event.at));
+  }
+  facts = { needFrames, soundCues, lastPietySpendTick };
+  clipEventFacts.set(anim, facts);
+  return facts;
+}
+
+function isNeedChannel(type: number): boolean {
   return (
-    boundAtomicAnimation(content, settler, atomicId) ??
-    boundAtomicAnimation(content, { tribe: settler.tribe, jobType: CIVILIST_JOB }, atomicId)
+    type === ATOMIC_EVENT_CHANNEL.REST ||
+    type === ATOMIC_EVENT_CHANNEL.HUNGER ||
+    type === ATOMIC_EVENT_CHANNEL.LEISURE ||
+    type === ATOMIC_EVENT_CHANNEL.PIETY
   );
 }
 

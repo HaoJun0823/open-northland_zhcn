@@ -1,4 +1,4 @@
-export { carriesNeeds } from './drain-class.js';
+export { carriesNeeds, settlerCarriesNeeds } from './drain-class.js';
 export { drinkPressingDraughts } from './draughts.js';
 export {
   mutNeeds,

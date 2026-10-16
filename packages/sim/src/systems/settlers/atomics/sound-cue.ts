@@ -1,14 +1,13 @@
-import type { AtomicAnimation, AtomicEvent } from '@open-northland/data';
+import type { AtomicAnimation } from '@open-northland/data';
 import { isWildlife, Settler } from '../../../components/index.js';
 import type { AtomicEffect } from '../../../core/atomic-effect.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SystemContext } from '../../context.js';
 import {
-  ATOMIC_EVENT_TYPE_PLAY_SOUND_FX,
   atomicAnimationByName,
-  atomicClipName,
+  atomicClip,
   boundAnimalAtomicAnimation,
-  eventTick,
+  clipEventFactsOf,
 } from '../../readviews/animations.js';
 
 /** The running atomic a cue lookup reads - its join key, its length, and the effect that tells a real
@@ -33,24 +32,19 @@ function soundingClip(
   settler: Entity,
   atomic: SoundingAtomic,
 ): AtomicAnimation | undefined {
-  const s = world.tryGet(settler, Settler);
-  if (s === undefined) return undefined;
   // A craft clip is stretched over its workplace's batch, so its authored cue frames do not line up with
   // the batch clock below and a workshop stays silent rather than sounding early.
   if (atomic.effect?.kind === 'produce') return undefined;
-  const name = isWildlife(world, settler)
-    ? boundAnimalAtomicAnimation(ctx.content, s, atomic.atomicId)
-    : atomicClipName(ctx.content, s, atomic.atomicId);
-  if (name === undefined) return undefined;
-  const anim = atomicAnimationByName(ctx.content, name);
+  const s = world.tryGet(settler, Settler);
+  if (s === undefined) return undefined;
+  let anim: AtomicAnimation | undefined;
+  if (isWildlife(world, settler)) {
+    const name = boundAnimalAtomicAnimation(ctx.content, s, atomic.atomicId);
+    anim = name === undefined ? undefined : atomicAnimationByName(ctx.content, name);
+  } else {
+    anim = atomicClip(ctx.content, s, atomic.atomicId);
+  }
   return anim === undefined || atomic.duration < anim.length ? undefined : anim;
-}
-
-/** Whether `event` is a sound this clip can land: a valued `event <at> 34 <id>` inside its own length. */
-function isPlaceableCue(event: AtomicEvent, anim: AtomicAnimation): boolean {
-  return (
-    event.type === ATOMIC_EVENT_TYPE_PLAY_SOUND_FX && event.value !== undefined && event.at < anim.length
-  );
 }
 
 /** Whether this atomic's clip sounds itself, so no engine-chosen sound is wanted for it. */
@@ -61,13 +55,12 @@ export function atomicClipSounds(
   atomic: SoundingAtomic,
 ): boolean {
   const anim = soundingClip(world, ctx, settler, atomic);
-  if (anim === undefined) return false;
-  return anim.events.some((e) => isPlaceableCue(e, anim));
+  return anim !== undefined && clipEventFactsOf(anim).soundCues.length > 0;
 }
 
 /**
  * Emit the sound cues a settler's running atomic authors on this tick: every `event <at> 34 <id>` row of
- * its clip landing on `elapsed` ({@link eventTick}), carrying `<id>` as the sound bank's `logicSoundType`.
+ * its clip landing on `elapsed` (`eventTick`), carrying `<id>` as the sound bank's `logicSoundType`.
  * A clip authoring no such row is silent.
  */
 export function emitAtomicSoundCues(
@@ -79,9 +72,7 @@ export function emitAtomicSoundCues(
 ): void {
   const anim = soundingClip(world, ctx, settler, atomic);
   if (anim === undefined) return;
-  for (const event of anim.events) {
-    if (!isPlaceableCue(event, anim) || event.value === undefined) continue;
-    if (eventTick(event.at) !== elapsed) continue;
-    ctx.events.emit({ kind: 'atomicSound', entity: settler, soundType: event.value });
+  for (const cue of clipEventFactsOf(anim).soundCues) {
+    if (cue.tick === elapsed) ctx.events.emit({ kind: 'atomicSound', entity: settler, soundType: cue.soundType });
   }
 }

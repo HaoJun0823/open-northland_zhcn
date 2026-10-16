@@ -2,11 +2,17 @@ import type { ByJobTable, SettlerCharacter, SettlerCharacterSet } from '@open-no
 import { ANIMAL_BODY_IMAGELIB } from '../../catalog/animal-roster.js';
 import { BYZANTINE_SPEAR_VARIANTS } from '../../catalog/unit-variants.js';
 import type { WorldTribes } from '../../game/world-tribes.js';
-import { bodySequences, humanSequences, playableSequences, sequencesFor } from '../ir/joins.js';
+import {
+  bodySequences,
+  gfxAtomicProgramsByAction,
+  humanSequences,
+  playableSequences,
+  sequencesFor,
+} from '../ir/joins.js';
 import type { ContentIr } from '../ir/rows.js';
 import { type GoodRef, isAnimalBody } from '../settler-gfx/index.js';
 import { loadLookLayers, resolveAnimalJobLooks, resolveLooks } from './character-looks.js';
-import { type TribeCharacterInputs, tribeAtomicPrograms, tribeCharacters } from './tribe-characters.js';
+import { type TribeCharacterInputs, tribeCharacters } from './tribe-characters.js';
 import { withPlayableCharacters } from './unit-variants.js';
 
 /**
@@ -46,7 +52,7 @@ export async function loadCharacters(
     ]),
   );
 
-  const basePrograms = tribeAtomicPrograms(ir, tribes[0]);
+  const basePrograms = gfxAtomicProgramsByAction(ir, tribes[0]);
   const inputsFor = (tribe: number): TribeCharacterInputs => ({
     looks: looksByTribe.get(tribe) ?? new Map(),
     animalJobs: animalJobsByTribe.get(tribe) ?? new Map(),

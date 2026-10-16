@@ -30,6 +30,57 @@ describe('gfxAtomicProgramsByAction', () => {
     expect(byAction.get(10)?.get('eat')).toEqual({ dirFrames: [[0, 1]], mode: 0 });
     expect(byAction.get(12)?.get('pray')).toEqual({ dirFrames: [[2, 2, 3]], mode: 1 });
   });
+
+  it("carries the length of the clip the tribe binds the record's job and action to, the civilist's where the job binds none", () => {
+    const ir: ContentIr = {
+      gfxAtomics: [
+        { tribe: VIKING, job: 6, action: 10, bodySeq: 'eat', dirFrames: [[0, 1]], mode: 0 },
+        { tribe: VIKING, job: 31, action: 10, bodySeq: 'soldier_eat', dirFrames: [[0, 1]], mode: 0 },
+        { tribe: VIKING, job: 40, action: 10, bodySeq: 'bow_eat', dirFrames: [[0, 1]], mode: 0 },
+        { tribe: VIKING, job: 6, action: 12, bodySeq: 'pray', dirFrames: [[2, 2, 3]], mode: 0 },
+        { tribe: VIKING, job: 40, action: 12, bodySeq: 'bow_pray', dirFrames: [[2, 3]], mode: 0 },
+        { tribe: 2, job: 6, action: 10, bodySeq: 'eat', dirFrames: [[7]], mode: 0 },
+      ],
+      tribes: [
+        {
+          typeId: VIKING,
+          atomicBindings: [
+            { jobType: 6, atomicId: 10, animation: 'civilist_eat' },
+            { jobType: 31, atomicId: 10, animation: 'soldier_eat' },
+            { jobType: 6, atomicId: 12, animation: 'civilist_pray' },
+            { jobType: 40, atomicId: 12, animation: 'bow_pray_unauthored' },
+          ],
+        },
+        { typeId: 2, atomicBindings: [{ jobType: 6, atomicId: 10, animation: 'frank_eat' }] },
+      ],
+      atomicAnimations: [
+        { name: 'civilist_eat', length: 50 },
+        { name: 'soldier_eat', length: 40 },
+        { name: 'frank_eat', length: 60 },
+      ],
+    };
+    const byAction = gfxAtomicProgramsByAction(ir, VIKING);
+    expect(byAction.get(10)?.get('eat')?.ticks).toBe(50);
+    expect(byAction.get(10)?.get('soldier_eat')?.ticks).toBe(40);
+    expect(byAction.get(10)?.get('bow_eat')?.ticks).toBe(50); // job 40 binds none: the civilist's clip
+    expect(byAction.get(12)?.get('pray')).toEqual({ dirFrames: [[2, 2, 3]], mode: 0 }); // no clip length
+    // A bound clip the IR carries no length for runs at the simulation's own default: no civilist fallback.
+    expect(byAction.get(12)?.get('bow_pray')).toEqual({ dirFrames: [[2, 3]], mode: 0 });
+    expect(gfxAtomicProgramsByAction(ir, 2).get(10)?.get('eat')?.ticks).toBe(60);
+    // A tribe's own record for a job carries the clip ticks of the look's first job, an inherited record too.
+    const jobs = [{ typeId: 6 }, { typeId: 31, baseJob: 6 }, { typeId: 40, baseJob: 31 }];
+    const own = tribeJobSeqs({ ...ir, jobs }, VIKING, [31]);
+    expect(own.atomics.get(10)?.map((clip) => [clip.seq, clip.program.ticks])).toEqual([
+      ['soldier_eat', 40],
+      ['eat', 40],
+    ]);
+    const bow = tribeJobSeqs({ ...ir, jobs }, VIKING, [40]);
+    expect(bow.atomics.get(10)?.map((clip) => [clip.seq, clip.program.ticks])).toEqual([
+      ['bow_eat', 50],
+      ['soldier_eat', 50],
+      ['eat', 50],
+    ]);
+  });
 });
 
 describe('gfxWaitProgramsBySeq', () => {

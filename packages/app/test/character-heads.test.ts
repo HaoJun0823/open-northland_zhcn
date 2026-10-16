@@ -82,13 +82,13 @@ describe('headBinding', () => {
   });
 
   it('maps every action variant without changing its order or playback timing', () => {
-    const choices = [{ ...wait, spansAtomic: true }, sleep];
+    const choices = [{ start: SPEAR_WAIT.start, frameLists: [[0, 1, 2]], ticks: 12 }, sleep];
     const head = headBinding(
       { idle: wait, byAtomicChoices: { 81: choices } },
       headClips(BODY, HEADS, SEQUENCES),
     );
     expect(head?.byAtomicChoices?.[81]).toEqual([
-      { ...wait, start: BOW_WAIT.start, spansAtomic: true },
+      { start: BOW_WAIT.start, frameLists: [[0, 1, 2]], ticks: 12 },
       sleep,
     ]);
   });

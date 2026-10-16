@@ -32,18 +32,15 @@ describe('sandbox authored sound cues', () => {
     const chop = clip('viking_collector_harvest_tree');
     expect(chop.length).toBe(30);
     expect(chop.cues).toEqual([{ at: 19, value: AXE }]);
-  });
-
-  it('rescales a cue onto a clip the sandbox runs at its own tick count', () => {
-    // The mushroom pick loops the 19-frame pluck list three times plus a breather, so the sandbox clip is
-    // 72 ticks against the authored 35 - the cue has to travel with it (`event 20 34 9`).
+    // The harvest clips whose frame lists differ in length from the clip still run their authored length:
+    // the 19-entry pluck over 35 ticks (`event 20 34 9`), the 29-entry stonecrushing strike over 23
+    // (`event 16 34 6`). The lists stretch; the cues stay put.
     const pick = clip('viking_collector_harvest_mushroom');
-    expect(pick.length).toBe(72);
-    expect(pick.cues).toEqual([{ at: Math.round((20 * pick.length) / 35), value: AXE }]);
-    // The iron strike borrows the 29-frame stonecrushing list over its authored 23 (`event 16 34 6`).
+    expect(pick.length).toBe(35);
+    expect(pick.cues).toEqual([{ at: 20, value: AXE }]);
     const iron = clip('viking_collector_harvest_iron');
-    expect(iron.length).toBe(29);
-    expect(iron.cues).toEqual([{ at: Math.round((16 * iron.length) / 23), value: 6 }]);
+    expect(iron.length).toBe(23);
+    expect(iron.cues).toEqual([{ at: 16, value: 6 }]);
   });
 
   it('keeps the builder’s knock on the strike frame at the swing’s halved cadence', () => {

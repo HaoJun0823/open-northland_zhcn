@@ -1,3 +1,4 @@
+import { clamp01 } from '../math.js';
 import type { DrawItem, SpriteState } from '../scene/index.js';
 import type { ByJobTable, FrameListAnim, SettlerStateBinding, SpriteFrameRef } from './settler-bindings.js';
 
@@ -142,24 +143,29 @@ function idleChoiceFrame(
   return undefined;
 }
 
-/** Subtick clips accept a fractional presentation clock; original bindings retain integer cadence. */
+/** The facing's list, or undefined for a list the clip authors empty, which holds the pool's frame 0. */
+function facingList(ref: FrameListAnim, facing: number): readonly number[] | undefined {
+  const lists = ref.frameLists;
+  if (lists.length === 0) return undefined;
+  const list = lists[wrap(facing, lists.length)];
+  return list === undefined || list.length === 0 ? undefined : list;
+}
+
+/** Subtick clips accept a fractional presentation clock; original bindings retain integer cadence. A frame
+ *  list steps one entry per tick: wrapped when it loops, else back to its first entry, the stance every list
+ *  opens on, once played through. */
 export function frameOf(ref: SpriteFrameRef, facing: number, clock: number): number {
   if (typeof ref === 'number') return ref;
-  const minimum = 'subtick' in ref && ref.subtick === true ? Number.EPSILON : 1;
-  const ticksPerFrame = Math.max(minimum, ref.ticksPerFrame ?? 1);
-  const step = Math.floor(clock / ticksPerFrame);
-  // A frame list draws pool start + its facing list's entry at the step; an absent list holds frame 0.
   if ('frameLists' in ref) {
-    const lists = ref.frameLists;
-    if (lists.length === 0) return ref.start;
-    const list = lists[wrap(facing, lists.length)];
-    if (list === undefined || list.length === 0) return ref.start;
-    // Past the list's end the sprite returns to the first entry, the tool-ready stance every list
-    // opens on: the stonecrush and shovel lists end mid-motion, and holding their last entry leaves
-    // the digger frozen in half a swing.
+    const list = facingList(ref, facing);
+    if (list === undefined) return ref.start;
+    const step = Math.floor(clock);
     const idx = ref.loop === true ? wrap(step, list.length) : step < list.length ? step : 0;
     return ref.start + (list[idx] ?? 0);
   }
+  const minimum = ref.subtick === true ? Number.EPSILON : 1;
+  const ticksPerFrame = Math.max(minimum, ref.ticksPerFrame ?? 1);
+  const step = Math.floor(clock / ticksPerFrame);
   const dir = wrap(facing, ref.dirs);
   if (ref.frameDurations !== undefined && ref.frameDurations.length > 0) {
     const total = ref.frameDurations.reduce((sum, duration) => sum + duration, 0);
@@ -178,44 +184,52 @@ export function subClipKey(action: number, subId: number): string {
 }
 
 /**
- * The frame of a clip stretched over a window: `progress` runs 0..1 across the whole clip rather than one
- * frame per tick, so one play fills the window whatever its length, and the last frame holds at the end
- * instead of wrapping. Approximation: the authored clip lengths and window lengths agree on no cadence,
- * so the data does not settle the engine's own rule.
+ * The entry of a `count`-entry list `clock` ticks into one `period`-tick play. Original behavior: a
+ * `gfxanimmode 0` list draws entry `floor(clock * count / period)`, so one play of the list fills the
+ * period whatever its length, and the last entry holds from the period's end on.
  */
-function stretchedFrame(ref: SpriteFrameRef, facing: number, progress: number): number {
+function stretchedEntry(count: number, clock: number, period: number): number {
+  return Math.min(count - 1, Math.max(0, Math.floor((clock * count) / period)));
+}
+
+/** The frame of a clip stretched over a `period`-tick window, `clock` ticks in. */
+function stretchedFrame(ref: SpriteFrameRef, facing: number, clock: number, period: number): number {
   if (typeof ref === 'number') return ref;
-  const at = (count: number): number => Math.min(count - 1, Math.max(0, Math.floor(progress * count)));
   if ('frameLists' in ref) {
-    const lists = ref.frameLists;
-    if (lists.length === 0) return ref.start;
-    const list = lists[wrap(facing, lists.length)];
-    if (list === undefined || list.length === 0) return ref.start;
-    return ref.start + (list[at(list.length)] ?? 0);
+    const list = facingList(ref, facing);
+    return list === undefined
+      ? ref.start
+      : ref.start + (list[stretchedEntry(list.length, clock, period)] ?? 0);
   }
   const dir = wrap(facing, ref.dirs);
   if (ref.frameDurations?.length) {
     const total = ref.frameDurations.reduce((sum, hold) => sum + hold, 0);
-    const index = heldStep(ref.frameDurations, Math.max(0, Math.min(1, progress)) * total);
+    const index = heldStep(ref.frameDurations, clamp01(clock / period) * total);
     return ref.start + dir * ref.stride + (ref.frameOrder?.[index] ?? index);
   }
   const cycle = ref.frames ?? ref.stride;
   if (cycle <= 0) return ref.start + dir * ref.stride;
-  return ref.start + dir * ref.stride + at(cycle);
+  return ref.start + dir * ref.stride + stretchedEntry(cycle, clock, period);
 }
 
-/** An action clip's frame `clock` ticks into its atomic: clocked by its cadence, or stretched over a
- *  `duration`-tick atomic when it spans it. */
-function atomicFrame(
+/**
+ * An action clip's frame `elapsed` ticks into an atomic of `duration` ticks. A frame list plays as the
+ * original plays a `gfxanimmode` list: looped one entry per tick, else stretched over its `ticks` (the whole
+ * atomic when it names none), replaying while the atomic runs on and holding its last entry once it ends. A
+ * strip fallback keeps its own cadence.
+ */
+export function atomicFrame(
   ref: SpriteFrameRef,
   facing: number,
-  clock: number,
+  elapsed: number,
   duration: number | undefined,
 ): number {
-  const spans = typeof ref === 'object' && 'frameLists' in ref && ref.spansAtomic === true;
-  return spans && duration !== undefined && duration > 0
-    ? stretchedFrame(ref, facing, clock / duration)
-    : frameOf(ref, facing, clock);
+  if (typeof ref === 'number' || !('frameLists' in ref) || ref.loop === true)
+    return frameOf(ref, facing, elapsed);
+  const period = ref.ticks ?? duration;
+  if (period === undefined || period <= 0) return frameOf(ref, facing, elapsed);
+  const ended = duration !== undefined && elapsed >= duration;
+  return stretchedFrame(ref, facing, ended ? period : elapsed % period, period);
 }
 
 export function movingFrameRef(binding: SettlerStateBinding, item: DrawItem): SpriteFrameRef {
@@ -259,11 +273,11 @@ export function resolveSettlerBobId(
         binding.bySubClip?.[subClipKey(craft.action, craft.subId)] ??
         (craft.subId === 0 ? binding.byAtomic?.[craft.action] : undefined);
       if (ref === undefined) return frameOf(binding.idle, facing, tick); // an unbound clip just stands
-      return stretchedFrame(ref, facing, craft.progress);
+      return stretchedFrame(ref, facing, craft.progress, 1);
     }
     // An action runs on the atomic's own clock. Original behavior: a tick fires a clip's events at its frame
-    // counter and then advances it, and the counter it advanced to draws, so `elapsed` ticks in shows frame
-    // `elapsed` and the starting tick frame 0.
+    // counter and then advances it, and the counter it advanced to draws, so `elapsed` ticks in shows the
+    // frame `elapsed` ticks into the clip and the starting tick frame 0.
     const clock = Math.max(0, item.elapsed ?? 0);
     const choices = item.atomicId === undefined ? undefined : binding.byAtomicChoices?.[item.atomicId];
     if (choices !== undefined && choices.length > 0) {

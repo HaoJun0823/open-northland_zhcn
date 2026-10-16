@@ -125,12 +125,11 @@ export interface DrawItem extends Readonly<StaticDrawFields> {
   readonly state?: SpriteState;
   /** For an `acting` sprite: the numeric atomic id it's executing (the `setatomic` join key). */
   readonly atomicId?: number;
-  /** For an `acting` sprite: whole ticks in its current atomic so far (derived from `AtomicClock`). A
-   *  binding advances one frame per `ticksPerFrame` of these, so every action animates at the same
-   *  cadence. */
+  /** For an `acting` sprite: whole ticks in its current atomic so far (derived from `AtomicClock`), the
+   *  clock its clip plays on. */
   readonly elapsed?: number;
   /** For an `acting` sprite: its current atomic's length in ticks (`CurrentAtomic.duration`), which a
-   *  clip that spans its atomic is stretched over. */
+   *  frame list naming no clip length is stretched over, and at whose end any list holds its last entry. */
   readonly atomicDuration?: number;
   /** For a settler: hauling a good (`Carrying` present). Orthogonal to {@link state}, since a settler
    *  can carry while `moving` or `acting`; the loaded gait replaces the empty-handed one (the

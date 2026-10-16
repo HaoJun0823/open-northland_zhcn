@@ -324,7 +324,6 @@ describe('characterBinding', () => {
       81: {
         start: 2255,
         frameLists: [[], [], [], [], [79, 79, 80], [97, 97, 98], [], []],
-        spansAtomic: true,
       },
     });
   });
@@ -360,10 +359,11 @@ describe('characterBinding', () => {
     const choices = characterBinding(spec, seqs, [], { tribeSeqs, attackPrograms })?.byAtomicChoices?.[
       ATTACK_ATOMIC
     ];
-    expect(choices?.map((clip) => [clip.start, clip.frameLists[0], clip.spansAtomic])).toEqual([
-      [100, [0], true],
-      [200, [1], true],
-      [300, [2], true],
+    // Each take spans the one-hit atomic: none carries clip ticks of its own.
+    expect(choices?.map((clip) => [clip.start, clip.frameLists[0], clip.ticks])).toEqual([
+      [100, [0], undefined],
+      [200, [1], undefined],
+      [300, [2], undefined],
     ]);
   });
 
@@ -406,7 +406,6 @@ describe('characterBinding', () => {
     expect(swing).toEqual({
       start: 2255,
       frameLists: [[2], [3], [4], [5], [0], [1], [7], [6]],
-      spansAtomic: true,
     });
   });
 
@@ -420,6 +419,7 @@ describe('characterBinding', () => {
       ['wait', { name: 'wait', start: 1931, length: 57 }],
       ['eat', { name: 'eat', start: 1530, length: 17 }],
       ['pray', { name: 'pray', start: 1647, length: 120 }],
+      ['hammer', { name: 'hammer', start: 1800, length: 42 }],
     ]);
     const spec = {
       gfxJobs: [6],
@@ -427,21 +427,22 @@ describe('characterBinding', () => {
       atomics: {
         10: { seq: 'eat' },
         12: { seq: 'pray', ticksPerFrame: 2 },
-        22: { seq: 'eat', loop: true },
+        41: { seq: 'hammer', spansAtomic: true },
       },
     } as const;
     const programsByAction = new Map([
-      [10, new Map([['eat', { dirFrames: [[0, 1, 1, 2]], mode: 1 }]])],
-      [12, new Map([['pray', { dirFrames: [[3, 4, 4, 5]], mode: 0 }]])],
-      [22, new Map([['eat', { dirFrames: [[0, 1, 1, 2]], mode: 0 }]])],
+      [10, new Map([['eat', { dirFrames: [[0, 1, 1, 2]], mode: 1, ticks: 50 }]])],
+      [12, new Map([['pray', { dirFrames: [[3, 4, 4, 5]], mode: 0, ticks: 100 }]])],
+      [41, new Map([['hammer', { dirFrames: [[6, 7, 8]], mode: 0, ticks: 15 }]])],
     ]);
-    // The authored list replaces the strip reading entirely; cadence and an explicit long-action loop
-    // still apply, while an ordinary mode-0 record remains one-shot.
+    // The authored list replaces the strip reading entirely, and `ticksPerFrame` with it. A mode-0 record
+    // plays once over its clip's ticks, a mode-1 record wraps, and an action that spans its atomic drops
+    // the clip's ticks for whatever the simulation runs.
     expect(characterBinding(spec, seqs, [], { programsByAction })?.byAtomic).toEqual({
       10: { start: 1530, frameLists: [[0, 1, 1, 2]], loop: true },
       [EAT_CANDY_ATOMIC]: { start: 1530, frameLists: [[0, 1, 1, 2]], loop: true },
-      12: { start: 1647, frameLists: [[3, 4, 4, 5]], ticksPerFrame: 2 },
-      22: { start: 1530, frameLists: [[0, 1, 1, 2]], loop: true },
+      12: { start: 1647, frameLists: [[3, 4, 4, 5]], ticks: 100 },
+      41: { start: 1800, frameLists: [[6, 7, 8]] },
     });
   });
 
@@ -482,7 +483,7 @@ describe('characterBinding', () => {
       characterBinding(CHARACTER_SPECS.civilian, seqs, [], { programsByAction })?.byAtomic?.[
         WELL_DRAW_ATOMIC
       ],
-    ).toEqual({ start: 300, frameLists: [[0, 1, 2]], loop: true });
+    ).toEqual({ start: 300, frameLists: [[0, 1, 2]] });
   });
 
   it('binds the atomics the tribe authors for the job, behind the transcribed clips', () => {
@@ -515,7 +516,7 @@ describe('characterBinding', () => {
           91,
           [
             { seq: 'sword_walk', program: { dirFrames: [[91]] } },
-            { seq: 'empty_pick_up', program: { dirFrames: [[0, 1, 2]] } },
+            { seq: 'empty_pick_up', program: { dirFrames: [[0, 1, 2]], ticks: 20 } },
           ],
         ],
       ]),
@@ -527,8 +528,9 @@ describe('characterBinding', () => {
       // A program-backed tribe record beats a transcribed strip the source authors no frame list for, and
       // plays its own frame lists, not the tribe-wide table's.
       22: { start: 300, frameLists: [[0, 1, 2]] },
-      // An action the spec leaves unnamed binds through the tribe's records, the first drawn one.
-      91: { start: 300, frameLists: [[0, 1, 2]] },
+      // An action the spec leaves unnamed binds through the tribe's records, the first drawn one, over the
+      // ticks of the clip the record's job binds.
+      91: { start: 300, frameLists: [[0, 1, 2]], ticks: 20 },
     });
     // Without the tribe's rows the spec-less action is simply absent.
     expect(characterBinding(spec, seqs, [], { programsByAction })?.byAtomic?.[91]).toBeUndefined();
@@ -819,7 +821,6 @@ describe('characterBinding out-of-row frame lists', () => {
     expect(swing).toEqual({
       start: 425,
       frameLists: [[0], [0], [0], [0], [0, 1], [102, 103], [0], [0]],
-      spansAtomic: true,
     });
   });
 
@@ -845,6 +846,6 @@ describe('characterBinding out-of-row frame lists', () => {
   it('binds a program that stays inside the row without consulting the pool', () => {
     const inRow = new Map([[ATTACK_ATOMIC, new Map([['punch', { dirFrames: [[0, 1]] }]])]]);
     const swing = characterBinding(spec, seqs, [], { programsByAction: inRow })?.byAtomic?.[ATTACK_ATOMIC];
-    expect(swing).toEqual({ start: 425, frameLists: [[0, 1]], spansAtomic: true });
+    expect(swing).toEqual({ start: 425, frameLists: [[0, 1]] });
   });
 });

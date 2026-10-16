@@ -8,9 +8,7 @@ import type {
   SpriteFrameRef,
   SpriteLayer,
 } from '@open-northland/render';
-import { MUSHROOM_HARVEST_ATOMIC } from '../../catalog/atomics.js';
 import { JOB_HEROINE_BOW } from '../../catalog/jobs.js';
-import { diag } from '../../diag/index.js';
 import {
   attackProgramsBySeq,
   carryWalkSeqs,
@@ -38,8 +36,6 @@ import {
   headClips,
   IDLE_ACTIONS,
   isAnimalBody,
-  MUSHROOM_PLUCK_FRAMES,
-  MUSHROOM_PLUCKS_PER_PICK,
   UNARMED_WARRIOR_SPEC,
   WARRIOR_JOBS,
   WARRIOR_SPEC_BY_WEAPON_GOOD_SLUG,
@@ -67,49 +63,6 @@ function feetShiftedAtlas(atlas: SpriteAtlas, shift: number): SpriteAtlas {
   const frames = new Map<number, AtlasFrame>();
   for (const [id, frame] of atlas.frames) frames.set(id, { ...frame, offsetY: frame.offsetY + shift });
   return { ...atlas, frames };
-}
-
-/** One pick bends {@link MUSHROOM_PLUCKS_PER_PICK} times, so the authored one-shot pluck list repeats
- *  back-to-back into a single continuous motion (`HARVEST_TICKS` sizes the atomic to cover the repeats). */
-function repeatMushroomPluck(
-  programsByAction: Map<number, Map<string, GfxAtomicProgram>>,
-  tribe: number,
-): void {
-  const pluck = programsByAction.get(MUSHROOM_HARVEST_ATOMIC);
-  if (pluck === undefined) return;
-  const repeated = new Map(
-    [...pluck].map(([seq, program]) => {
-      for (const list of program.dirFrames) {
-        if (list.length !== MUSHROOM_PLUCK_FRAMES) {
-          // The atomic duration is sized off the pin, so a drifted list would cut or pad the motion.
-          diag.warn(
-            'content',
-            `mushroom pluck list '${seq}' (tribe ${tribe}) is ${list.length} frames; HARVEST_TICKS is sized for ${MUSHROOM_PLUCK_FRAMES}`,
-          );
-        }
-      }
-      return [
-        seq,
-        {
-          ...program,
-          dirFrames: program.dirFrames.map((list) =>
-            Array.from({ length: MUSHROOM_PLUCKS_PER_PICK }, () => list).flat(),
-          ),
-        },
-      ] as const;
-    }),
-  );
-  programsByAction.set(MUSHROOM_HARVEST_ATOMIC, repeated);
-}
-
-/** A tribe's `[gfxanimatomic]` programs as its looks play them, the mushroom pluck repeated. */
-export function tribeAtomicPrograms(
-  ir: ContentIr | null,
-  tribe: number,
-): Map<number, Map<string, GfxAtomicProgram>> {
-  const programsByAction = gfxAtomicProgramsByAction(ir, tribe);
-  repeatMushroomPluck(programsByAction, tribe);
-  return programsByAction;
 }
 
 /** The head overlay's binding when it differs from the body's: the source's head clips, then the walk's
@@ -313,7 +266,7 @@ export function tribeCharacters(
   inputs: TribeCharacterInputs,
   base?: ByJobTable<SettlerCharacter>,
 ): ByJobTable<SettlerCharacter> | undefined {
-  const programsByAction = tribeAtomicPrograms(ir, tribe);
+  const programsByAction = gfxAtomicProgramsByAction(ir, tribe);
   const attackPrograms = attackProgramsBySeq(ir);
   const waitBySeq = gfxWaitProgramsBySeq(ir, tribe);
   const walkLists = gfxWalkFrameLists(ir, tribe);

@@ -86,23 +86,23 @@ export function vehicleAtlasStems(
 export type DrawableFrames = ReadonlyMap<string, ReadonlySet<number>>;
 
 /**
- * A clip as a looping per-facing frame list in the atlas's own id space, or `undefined` when the atlas
- * lacks any frame it names: the row indexes a larger layout than the baked body (the viking big ship's
- * loaded hull addresses `ls_vehicles` bobs its 32-frame `ve_test_ship` never had), and drawing it would
- * put up the placeholder. Dropping it lets the state fall back down the look's chain.
+ * A clip as a per-facing frame list in the atlas's own id space, looping unless it names the `ticks` one
+ * play spans, or `undefined` when the atlas lacks any frame it names: the row indexes a larger layout than
+ * the baked body (the viking big ship's loaded hull addresses `ls_vehicles` bobs its 32-frame
+ * `ve_test_ship` never had), and drawing it would put up the placeholder. Dropping it lets the state fall
+ * back down the look's chain.
  */
 function clipAnim(
   dirFrames: readonly (readonly number[])[],
   drawable: ReadonlySet<number>,
-  ticksPerFrame?: number,
+  ticks?: number,
 ): FrameListAnim | undefined {
   if (dirFrames.every((list) => list.length === 0)) return undefined;
   for (const list of dirFrames) for (const bob of list) if (!drawable.has(bob)) return undefined;
   return {
     start: 0,
     frameLists: frameListsByFacing(dirFrames),
-    loop: true,
-    ...(ticksPerFrame !== undefined ? { ticksPerFrame } : {}),
+    ...(ticks !== undefined ? { ticks } : { loop: true }),
   };
 }
 
@@ -124,12 +124,10 @@ export function vehicleLook(
     const clip = row.clips.find((c) => c.action === action);
     return clip === undefined ? undefined : clipAnim(clip.dirFrames, drawable);
   };
+  // The shot's lists stretch over the attack cadence, as the original plays a `gfxanimmode 0` list.
   const attackClip = row.clips.find((c) => c.action === ATTACK_ATOMIC);
-  const attackFrames = attackClip?.dirFrames.reduce((max, list) => Math.max(max, list.length), 0) ?? 0;
   const attack =
-    attackClip === undefined || attackFrames === 0
-      ? undefined
-      : clipAnim(attackClip.dirFrames, drawable, VEHICLE_ATTACK_TICKS / attackFrames);
+    attackClip === undefined ? undefined : clipAnim(attackClip.dirFrames, drawable, VEHICLE_ATTACK_TICKS);
   let moving: FrameListAnim | undefined;
   let loadedMoving: FrameListAnim | undefined;
   const movingByGood: Record<number, FrameListAnim> = {};

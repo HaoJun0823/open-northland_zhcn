@@ -110,11 +110,11 @@ export interface CharacterSpec {
   /**
    * Atomic id → its action sequence on this body (the `setatomic` join), the viking transcription. An
    * action left unnamed still binds through the tribe's own `[gfxanimatomic]` rows for the look's job
-   * chain. `phaseStart` tunes only the strip fallback, `ticksPerFrame` applies to that and to the authored
-   * frame lists, and `loop` repeats a gesture whose sim action intentionally outlasts one authored
-   * playthrough. `spansAtomic` plays the frame lists once across the running atomic instead, and
-   * `framesFrom` names the action whose frame lists lay out the sequence where the tribe authors none
-   * under this one.
+   * chain. An authored frame list plays as the original plays it, one motion over its clip's length, or
+   * looped where the record says so; `spansAtomic` plays it once across the whole running atomic instead,
+   * for an action the simulation runs for other than the clip's length. `framesFrom` names the action whose
+   * frame lists lay out the sequence where the tribe authors none under this one. `phaseStart` and
+   * `ticksPerFrame` tune only the strip fallback.
    */
   readonly atomics?: Readonly<
     Record<
@@ -124,7 +124,6 @@ export interface CharacterSpec {
         readonly seq: string | readonly string[];
         readonly phaseStart?: number;
         readonly ticksPerFrame?: number;
-        readonly loop?: true;
         readonly spansAtomic?: true;
         readonly framesFrom?: number;
       }
@@ -186,8 +185,9 @@ const OXCART_HEAD_SHIFTS: CartDriveHeadShifts = [
 
 /**
  * The builder's one hammer swing, played whole across each build or repair atomic whatever length the
- * content gives it, so a one-strike road or wall site shows its blow land. Every hammer action lays the
- * swing out with the build-house frame lists, the only ones every tribe authors for it.
+ * simulation gives it (a one-strike road or wall site runs its clip at a slower pace), so every site shows
+ * its blow land. Every hammer action lays the swing out with the build-house frame lists, the only ones
+ * every tribe authors for it.
  */
 const HAMMER_SWING = { seq: HAMMER_SEQ, spansAtomic: true, framesFrom: BUILD_HOUSE_ATOMIC } as const;
 
@@ -216,8 +216,8 @@ const CIVILIAN_ATOMICS = {
   [STORE_PICKUP_ATOMIC]: { seq: PICKUP_SEQ },
   [OPEN_CHEST_ATOMIC]: { seq: PICKUP_SEQ },
   [STORE_PILEUP_ATOMIC]: { seq: PICKUP_SEQ },
-  [WELL_DRAW_ATOMIC]: { seq: ['human_man_fountain_push', PICKUP_SEQ], loop: true },
-  [HIVE_DRAW_ATOMIC]: { seq: PICKUP_SEQ, loop: true },
+  [WELL_DRAW_ATOMIC]: { seq: ['human_man_fountain_push', PICKUP_SEQ] },
+  [HIVE_DRAW_ATOMIC]: { seq: PICKUP_SEQ },
 } as const;
 
 /** Shared spear clips; each material still resolves its own job graphics and animation rows. */

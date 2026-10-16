@@ -25,14 +25,13 @@ const oneFrame = (base: number): FrameListAnim => ({
   frameLists: Array.from({ length: FACINGS }, (_, f) => [base + f]),
   loop: true,
 });
-/** `frames` frames per facing at `base + facing * 100 + step`. */
-const strip = (base: number, frames: number, ticksPerFrame?: number): FrameListAnim => ({
+/** `frames` frames per facing at `base + facing * 100 + step`, looping unless `ticks` names one play's span. */
+const strip = (base: number, frames: number, ticks?: number): FrameListAnim => ({
   start: 0,
   frameLists: Array.from({ length: FACINGS }, (_, f) =>
     Array.from({ length: frames }, (_, i) => base + f * 100 + i),
   ),
-  loop: true,
-  ...(ticksPerFrame !== undefined ? { ticksPerFrame } : {}),
+  ...(ticks !== undefined ? { ticks } : { loop: true }),
 });
 
 const CART_LAYER = 'cr_veh_body_00.goods01';
@@ -57,7 +56,7 @@ const ship: VehicleLook = {
 const catapult: VehicleLook = {
   layer: 'cr_veh_body_00.goods_bow',
   idle: oneFrame(8000),
-  attack: strip(9000, 40, VEHICLE_ATTACK_TICKS / 40),
+  attack: strip(9000, 40, VEHICLE_ATTACK_TICKS),
 };
 const CATAPULT = 5;
 
@@ -137,9 +136,10 @@ describe('resolveVehicleDraw', () => {
     expect(resolveVehicleDraw(binding, item({ typeId: SHIP, facing: 0 }), 0)?.indexed).toBe(false);
   });
 
-  it('loops the catapult shot on the attack cadence while the vehicle attacks, whatever its motion state', () => {
+  it('stretches the catapult shot over the attack cadence while the vehicle attacks, whatever its motion state', () => {
     const attacking = { typeId: CATAPULT, facing: 1, task: 'attacks' as const };
     expect(resolveVehicleDraw(binding, item(attacking), 0)?.bob).toBe(9100);
+    // Entry `12 * 40 / 48` of the 40-frame shot.
     expect(resolveVehicleDraw(binding, item(attacking), 12)?.bob).toBe(9100 + 10);
     expect(
       resolveVehicleDraw(binding, item({ ...attacking, state: 'moving' }), VEHICLE_ATTACK_TICKS - 1)?.bob,

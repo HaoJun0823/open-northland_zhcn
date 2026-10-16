@@ -22,7 +22,7 @@ export interface VehicleLook {
   readonly movingByGood?: Readonly<Record<number, SpriteFrameRef>>;
   /** The drive with any cargo aboard, for a good {@link movingByGood} does not list. */
   readonly loadedMoving?: SpriteFrameRef;
-  /** The catapult's shot (action 81), looped on the attack cadence while the vehicle attacks. */
+  /** The catapult's shot (action 81), played over the attack cadence while the vehicle attacks. */
   readonly attack?: SpriteFrameRef;
   /** A ship: it rides the swell at sea (`gpu/ship-sway.ts`) and lies still moored. */
   readonly afloat?: boolean;

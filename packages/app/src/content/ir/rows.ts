@@ -251,8 +251,16 @@ export interface ContentIr {
   readonly jobs?: readonly { typeId?: number; id?: string; name?: string; baseJob?: number }[];
   /** The `vehicletype` rows, narrowed to the join keys a mission script names a vehicle by. */
   readonly vehicles?: readonly { typeId?: number; id?: string; name?: string; passengerSlots?: number }[];
-  /** `name` is a species join key too: a map's `setanimal` authors the display name (`evil hares`). */
-  readonly tribes?: readonly { typeId?: number; id?: string; name?: string }[];
+  /** `name` is a species join key too: a map's `setanimal` authors the display name (`evil hares`).
+   *  `atomicBindings` is the tribe's `setatomic <job> <atomic> "<animation>"` table. */
+  readonly tribes?: readonly {
+    typeId?: number;
+    id?: string;
+    name?: string;
+    atomicBindings?: readonly { jobType: number; atomicId: number; animation: string }[];
+  }[];
+  /** The `atomicanimations.ini` clips, narrowed to the `length` in ticks each runs for. */
+  readonly atomicAnimations?: readonly { name: string; length: number }[];
   /** The `[jobbasegraphics]` join: which bob sets each `(tribe, job)` human composes. */
   readonly jobGraphics?: readonly JobGraphicsRow[];
   /** The resolved per-`(tribe, vehicleType)` vehicle body, palettes and bob-id frame tables. */

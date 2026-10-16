@@ -27,12 +27,7 @@ export {
   type GoodRef,
   programFrameLists,
 } from './seq-anim.js';
-export {
-  HARVEST_TICKS,
-  IDLE_ACTIONS,
-  MUSHROOM_PLUCK_FRAMES,
-  MUSHROOM_PLUCKS_PER_PICK,
-} from './sequences.js';
+export { HARVEST_TICKS, IDLE_ACTIONS } from './sequences.js';
 export {
   DEFAULT_PALETTE,
   isAnimalBody,

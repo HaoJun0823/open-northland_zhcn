@@ -53,31 +53,18 @@ export const FALLBACK_WALK_WOOD: DirectionalAnim = { start: 4580, dirs: DIRS, st
 // Verified against an owned copy: 1931/57. 57 is not a clean ×8, so the wait plays facing-locked.
 export const FALLBACK_WAIT: DirectionalAnim = { start: 1931, dirs: 1, stride: 57 };
 
-/** How many times one pick plays the `pick_up` pluck list back-to-back. Observed-pace approximation: the
- *  original's 35-tick logic cycle looped the 19-frame list, and one-shot playback reads too fast. */
-export const MUSHROOM_PLUCKS_PER_PICK = 3;
-/** The viking `pick_up` list length (`[gfxanimatomic]` action 32, one facing-locked direction), pinned so
- *  {@link HARVEST_TICKS} stays static content. */
-export const MUSHROOM_PLUCK_FRAMES = 19;
-/** Ticks the picker stands in the ready stance after the last bend. */
-const MUSHROOM_PLUCK_BREATHER_TICKS = 15;
-
 /**
- * Per-good harvest durations in ticks: the `atomicanimations.ini` lengths of the collector's
- * `viking_collector_harvest_*` atomics, except where an entry notes otherwise. One cycle is one authored
- * work motion with its pauses baked in.
+ * Per-good harvest durations in ticks for the fallback catalog: the `atomicanimations.ini` lengths of the
+ * collector's `viking_collector_harvest_*` atomics. One cycle is one authored work motion with its pauses
+ * baked in; the frame list stretches over it however many entries it has.
  */
 export const HARVEST_TICKS: Readonly<Record<number, number>> = {
   [HARVEST_ATOMIC]: 30,
   [STONE_HARVEST_ATOMIC]: 29,
   [CLAY_HARVEST_ATOMIC]: 23,
-  // Iron and gold: the logic length is 23, but their gfx frame list is the shared 29-entry stonecrushing
-  // strike and 23 cuts the swing off mid-follow-through, so the list length wins (approximation).
-  [IRON_HARVEST_ATOMIC]: 29,
-  [GOLD_HARVEST_ATOMIC]: 29,
-  // The pick covers every bend plus a ready-stance breather; the logic length 35 assumed looping playback
-  // (observed pace).
-  [MUSHROOM_HARVEST_ATOMIC]: MUSHROOM_PLUCK_FRAMES * MUSHROOM_PLUCKS_PER_PICK + MUSHROOM_PLUCK_BREATHER_TICKS,
+  [IRON_HARVEST_ATOMIC]: 23,
+  [GOLD_HARVEST_ATOMIC]: 23,
+  [MUSHROOM_HARVEST_ATOMIC]: 35,
 };
 /** The idle actions a resting settler or animal plays clips for: `logicdefines.inc` `IDLE_SHORT_A` (2)
  *  through `IDLE_VERYLONG` (7). */

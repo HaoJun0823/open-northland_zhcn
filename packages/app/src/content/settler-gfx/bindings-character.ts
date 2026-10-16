@@ -101,6 +101,37 @@ function waitListAnim(
 }
 
 /**
+ * A program's lists on `row` as the look plays them: looped where the record says so (`gfxanimmode 1`), else
+ * one play over the clip length the record's binding names, or over the whole atomic for a spec action that
+ * `spansAtomic` or a record bound to no clip.
+ */
+function frameListAnim(
+  row: BobSeqRow,
+  lists: readonly (readonly number[])[],
+  program: GfxAtomicProgram | undefined,
+  action?: NonNullable<CharacterSpec['atomics']>[number],
+): FrameListAnim {
+  const loop = program?.mode === GFX_ANIM_MODE_LOOP;
+  const ticks = action?.spansAtomic === true ? undefined : program?.ticks;
+  return {
+    start: row.start,
+    frameLists: lists,
+    ...(loop ? { loop: true } : ticks !== undefined ? { ticks } : {}),
+  };
+}
+
+/** The base tribe's program for `(atomicId, seq)` without its clip ticks, or undefined when it has none. */
+function borrowedProgram(
+  basePrograms: CharacterGfx['basePrograms'],
+  atomicId: number,
+  seq: string,
+): GfxAtomicProgram | undefined {
+  const base = basePrograms?.get(atomicId)?.get(seq);
+  if (base === undefined) return undefined;
+  return { dirFrames: base.dirFrames, ...(base.mode !== undefined ? { mode: base.mode } : {}) };
+}
+
+/**
  * The indoor craft clips this body carries, keyed by `(action, subId)`. A record naming a sequence some
  * other body owns is skipped, which is what scopes the tribe-wide table to each character. The key omits
  * the job because the source gives each trade its own production actions, so no two collide.
@@ -181,18 +212,14 @@ export function characterBinding(
     const row = seqByName.get(clip.seq);
     if (row === undefined || row.length <= 0) continue;
     // A clip that cannot split into facings borrows the base tribe's program for it rather than playing
-    // through every facing in turn.
+    // through every facing in turn. Its clip ticks are the base tribe's, so the borrowed lists span this
+    // tribe's atomic instead.
     const program =
-      clip.program ?? (row.length % DIRS === 0 ? undefined : basePrograms?.get(atomicId)?.get(clip.seq));
+      clip.program ??
+      (row.length % DIRS === 0 ? undefined : borrowedProgram(basePrograms, atomicId, clip.seq));
     const lists = playableLists(program, row, bodyAtlas);
     if (lists !== undefined) {
-      byAtomic[atomicId] = {
-        start: row.start,
-        frameLists: lists,
-        ...(program?.mode === GFX_ANIM_MODE_LOOP || action?.loop === true ? { loop: true } : {}),
-        ...(action?.ticksPerFrame !== undefined ? { ticksPerFrame: action.ticksPerFrame } : {}),
-        ...(action?.spansAtomic === true ? { spansAtomic: true } : {}),
-      };
+      byAtomic[atomicId] = frameListAnim(row, lists, program, action);
       continue;
     }
     // Strip fallback for a sequence the source authors no frame list for, such as the woman and child
@@ -205,7 +232,6 @@ export function characterBinding(
       ...anim,
       ...(action?.phaseStart !== undefined ? { phaseStart: action.phaseStart } : {}),
       ...(action?.ticksPerFrame !== undefined ? { ticksPerFrame: action.ticksPerFrame } : {}),
-      ...(action?.loop === true ? { loop: true } : {}),
     };
   }
 
@@ -221,10 +247,9 @@ export function characterBinding(
     const program = programsByAction?.get(ATTACK_ATOMIC)?.get(attackSeq);
     const lists = row === undefined ? undefined : playableLists(program, row, bodyAtlas);
     if (row !== undefined && lists !== undefined) {
-      // Original behavior: an attack's `gfxanimmode 0` lists stretch over the swing's atomic, whatever
-      // their own length, so the blow lands on the frame the clip's event names.
-      const swing: FrameListAnim = { start: row.start, frameLists: lists, spansAtomic: true };
-      byAtomic[ATTACK_ATOMIC] = swing;
+      // One play over whatever the simulation runs the swing for, not the clip's own ticks, so a swing run
+      // faster or slower than its clip still lands its blow where the simulation does.
+      byAtomic[ATTACK_ATOMIC] = { start: row.start, frameLists: lists };
     }
   }
 

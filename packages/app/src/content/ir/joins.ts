@@ -1,6 +1,7 @@
 import { type BuildingFootprint, type GfxInHouseProgram, UNLOADED_GOOD_TYPE } from '@open-northland/data';
 import type { HolyFireLookup, InHouseProgramLookup, SpriteAtlas } from '@open-northland/render';
 import { ATTACK_ATOMIC } from '../../catalog/atomics.js';
+import { JOB_CIVILIST } from '../../catalog/jobs.js';
 import { canonicalJobType } from '../../game/sandbox/ids/index.js';
 import { CANONICAL_EDIT_NAME } from '../building-gfx/families.js';
 import type { GoodRef } from '../settler-gfx/index.js';
@@ -234,6 +235,10 @@ export const GFX_ANIM_MODE_LOOP = 1;
 export interface GfxAtomicProgram {
   readonly dirFrames: readonly (readonly number[])[];
   readonly mode?: number;
+  /** The `length` of the `atomicanimations.ini` clip the tribe binds the record's job and action to
+   *  (`setatomic`, the civilist's binding where the job has none): the ticks one play of the lists spans.
+   *  Absent when the tribe binds no clip there. */
+  readonly ticks?: number;
 }
 
 /**
@@ -247,6 +252,7 @@ export function gfxAtomicProgramsByAction(
   tribe: number,
 ): Map<number, Map<string, GfxAtomicProgram>> {
   const byAction = new Map<number, Map<string, GfxAtomicProgram>>();
+  const clipTicks = atomicClipTicks(ir, tribe);
   for (const row of ir?.gfxAtomics ?? []) {
     if (row.tribe !== tribe || row.bodySeq === undefined) continue;
     let bySeq = byAction.get(row.action);
@@ -255,13 +261,40 @@ export function gfxAtomicProgramsByAction(
       byAction.set(row.action, bySeq);
     }
     if (!bySeq.has(row.bodySeq)) {
+      const ticks = clipTicks(row.job, row.action);
       bySeq.set(row.bodySeq, {
         dirFrames: row.dirFrames,
         ...(row.mode !== undefined ? { mode: row.mode } : {}),
+        ...(ticks !== undefined ? { ticks } : {}),
       });
     }
   }
   return byAction;
+}
+
+/**
+ * `(job, action)` → the `length` of the clip `tribe` binds there, resolved as the simulation resolves a
+ * settler's clip: the job's own `setatomic` binding, else the civilist's. Undefined for a job and action the
+ * tribe binds no clip to, or a bound clip the IR carries no length for, which the simulation runs at its own
+ * default length.
+ */
+function atomicClipTicks(
+  ir: ContentIr | null,
+  tribe: number,
+): (job: number, action: number) => number | undefined {
+  const lengthByName = new Map<string, number>();
+  for (const clip of ir?.atomicAnimations ?? []) {
+    if (!lengthByName.has(clip.name) && clip.length > 0) lengthByName.set(clip.name, clip.length);
+  }
+  const bindings = ir?.tribes?.find((row) => row.typeId === tribe)?.atomicBindings ?? [];
+  const nameByBinding = new Map<string, string>();
+  // Last record wins, the original's config-override reading of a repeated `setatomic`.
+  for (const binding of bindings)
+    nameByBinding.set(`${binding.jobType}/${binding.atomicId}`, binding.animation);
+  return (job, action) => {
+    const name = nameByBinding.get(`${job}/${action}`) ?? nameByBinding.get(`${JOB_CIVILIST}/${action}`);
+    return name === undefined ? undefined : lengthByName.get(name);
+  };
 }
 
 /** The wait-atomic ladder (`jobtypes.ini` `allowatomic` 2..7) - the actions a standing body's authored
@@ -449,6 +482,7 @@ export function tribeJobSeqs(ir: ContentIr | null, tribe: number, jobs: readonly
   const attacks: TribeClip[] = [];
   const atomics = new Map<number, TribeClip[]>();
   const heads = new Map<string, string>();
+  const clipTicks = atomicClipTicks(ir, tribe);
   const headNamed = new Set<string>();
   const push = (list: string[], seq: string): void => {
     if (!list.includes(seq)) list.push(seq);
@@ -495,7 +529,11 @@ export function tribeJobSeqs(ir: ContentIr | null, tribe: number, jobs: readonly
         clips = [];
         atomics.set(row.action, clips);
       }
-      clips.push({ seq: row.bodySeq, program });
+      // The clip length of the look's own job, the one the simulation runs: an inherited record keeps its
+      // lists but plays them over the clip the first job binds. Approximation for a look several jobs
+      // share, which plays its first job's lengths.
+      const ticks = clipTicks(jobs[0] ?? row.job, row.action);
+      clips.push({ seq: row.bodySeq, program: ticks === undefined ? program : { ...program, ticks } });
     }
     if (jobWait !== undefined) push(wait, jobWait);
     if (jobAttack !== undefined) push(attack, jobAttack);

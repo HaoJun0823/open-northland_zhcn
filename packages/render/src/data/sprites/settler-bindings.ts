@@ -35,21 +35,22 @@ export interface DirectionalAnim {
 /**
  * The original's `[gfxanimatomic]` `gfxanimframelistdir` binding, for an action whose frames are not a
  * uniform `start + facing*stride` strip: lists differ per facing and author holds inline (a spear windup
- * repeats its first frame), so a list plays verbatim. One-shot by default, since an authored list is one
- * complete motion and only some lists author a trailing rest pad.
+ * repeats its first frame). Original behavior: a `gfxanimmode 0` list is one motion stretched over the
+ * {@link ticks} of its clip, entry `min(floor(elapsed * entries / ticks), entries - 1)`, and a `gfxanimmode
+ * 1` list {@link loop}s one entry per tick.
  */
 export interface FrameListAnim {
   /** Bob id of the pool's frame 0, which the local {@link frameLists} indices add to. */
   readonly start: number;
   /** Per-facing ordered lists of local frame indices into the pool. */
   readonly frameLists: readonly (readonly number[])[];
-  readonly ticksPerFrame?: number;
-  /** Wrap past the last entry instead of returning to the first, for a list driven by the endless free
-   *  tick clock (an idle wait cycle), which would otherwise freeze after one play at world start. */
+  /** Wrap past the last entry, one entry per tick, for a list driven by the endless free tick clock (an
+   *  idle wait cycle) or an action the original loops. */
   readonly loop?: boolean;
-  /** Play the list once across the running atomic, however long the content makes it, instead of at
-   *  {@link ticksPerFrame}: a one-shot swing whose atomic ends mid-list never lands its blow. */
-  readonly spansAtomic?: boolean;
+  /** The ticks one play of the lists spans: the clip's `atomicanimations.ini` `length`. The lists replay
+   *  while the atomic runs on, as the clip's events do, and hold the last entry once it ends. Absent, one
+   *  play spans the whole atomic, however long the simulation runs it. */
+  readonly ticks?: number;
 }
 
 export type SpriteFrameRef = number | DirectionalAnim | FrameListAnim;

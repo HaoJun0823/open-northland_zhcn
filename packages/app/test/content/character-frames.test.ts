@@ -1,4 +1,5 @@
 import {
+  type FrameListAnim,
   frameOf,
   type SettlerCharacter,
   type SettlerStateBinding,
@@ -13,12 +14,18 @@ import {
   BUILD_ROAD_ATOMIC,
   BUILD_WALL_ATOMIC,
   CHEER_ATOMIC,
+  EAT_ATOMIC,
+  IRON_HARVEST_ATOMIC,
+  LISTEN_ATOMIC,
+  SLEEP_ATOMIC,
+  WELL_DRAW_ATOMIC,
 } from '../../src/catalog/atomics.js';
 import {
   JOB_ARCHER,
   JOB_ARCHER_LONG,
   JOB_BUILDER,
   JOB_CIVILIST,
+  JOB_COLLECTOR,
   JOB_HERO_UNARMED,
   JOB_HEROINE_BOW,
   JOB_SOLDIER_BROADSWORD,
@@ -27,6 +34,7 @@ import {
   JOB_SOLDIER_SWORD,
   JOB_SOLDIER_UNARMED,
   JOB_TRADER,
+  JOB_WOMAN,
   SOLDIER_JOB_MAX,
 } from '../../src/catalog/jobs.js';
 import { BYZANTINE_SPEAR_VARIANTS } from '../../src/catalog/unit-variants.js';
@@ -113,11 +121,12 @@ function* clipPairs(
 /** One play of `ref` at `facing`, as the clocks that step it frame by frame. */
 function clocks(ref: SpriteFrameRef, facing: number): number[] {
   if (typeof ref === 'number') return [0];
+  if ('frameLists' in ref) {
+    const entries = ref.frameLists[facing % Math.max(1, ref.frameLists.length)]?.length ?? 1;
+    return Array.from({ length: Math.max(1, entries) }, (_, step) => step);
+  }
   const perFrame = ref.ticksPerFrame ?? 1;
-  const steps =
-    'frameLists' in ref
-      ? (ref.frameLists[facing % Math.max(1, ref.frameLists.length)]?.length ?? 1)
-      : (ref.frameDurations?.reduce((sum, hold) => sum + hold, 0) ?? ref.frames ?? ref.stride);
+  const steps = ref.frameDurations?.reduce((sum, hold) => sum + hold, 0) ?? ref.frames ?? ref.stride;
   return Array.from({ length: Math.max(1, steps) }, (_, step) => step * perFrame);
 }
 
@@ -255,9 +264,9 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
 
   it('binds the civilian wedding jump to the celebration action', () => {
     const table = tables.get(VIKING);
-    expect((table?.byJob[JOB_CIVILIST] ?? table?.default)?.binding.byAtomic?.[CHEER_ATOMIC]).toMatchObject({
+    expect((table?.byJob[JOB_CIVILIST] ?? table?.default)?.binding.byAtomic?.[CHEER_ATOMIC]).toEqual({
       start: 1547,
-      spansAtomic: true,
+      frameLists: [Array.from({ length: 21 }, (_, i) => i)],
     });
   });
 
@@ -280,7 +289,8 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
     expect(short?.byAtomic?.[10]).toMatchObject({ start: 1932 });
     expect(short?.byAtomic?.[11]).toMatchObject({ start: 1932 });
     const sleep = short?.byAtomic?.[8];
-    expect(sleep).toMatchObject({ start: 1986, spansAtomic: true });
+    expect(sleep).toMatchObject({ start: 1986 });
+    expect(sleep).not.toHaveProperty('ticks');
     if (typeof sleep !== 'object' || !('frameLists' in sleep)) throw new Error('missing shortbow nap');
     const frames = sleep.frameLists[0] ?? [];
     expect(frames.slice(0, 21)).toEqual(Array.from({ length: 21 }, (_, i) => i));
@@ -432,10 +442,37 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
         if (swing === undefined || typeof swing === 'number' || !('frameLists' in swing)) {
           throw new Error(`tribe ${tribe} builder binds no hammer frame lists for atomic ${atomic}`);
         }
-        expect(swing.spansAtomic, `tribe ${tribe} atomic ${atomic}`).toBe(true);
+        // Once over whatever the site runs, not over the clip's own 15 ticks: a one-strike site's swing
+        // runs at a slower pace.
+        expect(swing.ticks, `tribe ${tribe} atomic ${atomic}`).toBeUndefined();
         expect(swing, `tribe ${tribe} atomic ${atomic}`).toEqual(house);
       }
     }
+  });
+
+  it('plays each authored action list over the ticks of the clip its job binds, the swing over the atomic', () => {
+    const table = tables.get(VIKING);
+    const longestList = (ref: FrameListAnim): number =>
+      Math.max(...ref.frameLists.map((list) => list.length));
+    const listOf = (job: number, atomic: number): FrameListAnim => {
+      const ref = (table?.byJob[job] ?? table?.default)?.binding.byAtomic?.[atomic];
+      if (ref === undefined || typeof ref === 'number' || !('frameLists' in ref)) {
+        throw new Error(`job ${job} binds no frame lists for atomic ${atomic}`);
+      }
+      return ref;
+    };
+    // `atomicanimations.ini` lengths: the civilist's meal runs 50 ticks under a 30-entry list, its nap 237
+    // under its own 237, the collector's iron strike 23 under the 29-entry stonecrushing list, the woman's
+    // listening 100 on a chat clock the man's 247-tick talk can outlast, the well's push 50.
+    expect(listOf(JOB_CIVILIST, EAT_ATOMIC)).toMatchObject({ ticks: 50 });
+    expect(longestList(listOf(JOB_CIVILIST, EAT_ATOMIC))).toBe(30);
+    expect(listOf(JOB_CIVILIST, SLEEP_ATOMIC)).toMatchObject({ ticks: 237 });
+    expect(listOf(JOB_COLLECTOR, IRON_HARVEST_ATOMIC)).toMatchObject({ ticks: 23 });
+    expect(longestList(listOf(JOB_COLLECTOR, IRON_HARVEST_ATOMIC))).toBe(29);
+    expect(listOf(JOB_WOMAN, LISTEN_ATOMIC)).toMatchObject({ ticks: 100 });
+    expect(listOf(JOB_CIVILIST, WELL_DRAW_ATOMIC)).toMatchObject({ ticks: 50 });
+    expect(listOf(JOB_CIVILIST, WELL_DRAW_ATOMIC).loop).toBeUndefined();
+    expect(listOf(JOB_SOLDIER_SPEAR, ATTACK_ATOMIC).ticks).toBeUndefined();
   });
 
   it('draws a viking carrying stone under the stooped head the source names for it', () => {

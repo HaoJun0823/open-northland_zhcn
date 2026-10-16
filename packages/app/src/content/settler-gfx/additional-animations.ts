@@ -84,7 +84,7 @@ function attackChoices(
       gfx.basePrograms?.get(ATTACK_ATOMIC)?.get(name) ??
       gfx.attackPrograms?.get(name);
     const lists = playableLists(program, row, gfx.bodyAtlas);
-    return lists === undefined ? [] : [{ start: row.start, frameLists: lists, spansAtomic: true }];
+    return lists === undefined ? [] : [{ start: row.start, frameLists: lists }];
   });
 }
 
@@ -112,7 +112,6 @@ function shortbowNeeds(
     out[SLEEP_ATOMIC] = {
       start: sleep.start,
       frameLists: [[...lieDown, ...rest, ...lieDown.slice(0, -1).reverse()]],
-      spansAtomic: true,
     };
   }
   return out;
@@ -186,7 +185,6 @@ export function withAdditionalAnimations(
               start: jump.start,
               // Unbound strip: play the jump once over the civilian celebration's authored duration.
               frameLists: [Array.from({ length: jump.length }, (_, i) => i)],
-              spansAtomic: true,
             },
           }
         : undefined;

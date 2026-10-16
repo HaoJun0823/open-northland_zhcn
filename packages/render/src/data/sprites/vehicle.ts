@@ -1,11 +1,11 @@
 import type { DrawItem } from '../scene/draw-item.js';
 import type { BuildingDraw } from './layered-bindings.js';
-import { DEFAULT_FACING, frameOf } from './settler.js';
+import { atomicFrame, DEFAULT_FACING, frameOf } from './settler.js';
 import type { SpriteFrameRef } from './settler-bindings.js';
 import type { VehicleBinding, VehicleLook } from './vehicle-bindings.js';
 
 /** Ticks per catapult shot: the original's attack cadence is the 48-tick attack clip
- *  (docs/formats/VEHICLES.md "Catapult"), and the render loops the clip on it. */
+ *  (docs/formats/VEHICLES.md "Catapult"), which the render stretches the shot's frame lists over. */
 export const VEHICLE_ATTACK_TICKS = 48;
 
 /** Where in its attack cycle a vehicle is at `tick`: counted from the sim's clip start when the
@@ -49,7 +49,7 @@ export interface VehicleDraw extends BuildingDraw {
 
 /**
  * The frame a vehicle draws, or `null` for a type its tribe and the fallback tribe both lack. An
- * attacking vehicle loops its shot on the attack cadence, a moving one its drive on the gait clock, and a
+ * attacking vehicle plays its shot over the attack cadence, a moving one its drive on the gait clock, and a
  * standing one its wait on the free tick. A ship's sails are furled only while it lies moored.
  */
 export function resolveVehicleDraw(
@@ -66,7 +66,7 @@ export function resolveVehicleDraw(
   const indexed = look.indexed === true;
   let bob: number;
   if (item.task === 'attacks' && look.attack !== undefined) {
-    bob = frameOf(look.attack, facing, attackPhase(tick, item.attackClipStart));
+    bob = atomicFrame(look.attack, facing, attackPhase(tick, item.attackClipStart), undefined);
   } else if (item.state === 'moving') {
     bob = frameOf(vehicleMovingRef(look, item), facing, gaitClock);
   } else {

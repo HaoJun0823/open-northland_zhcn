@@ -144,7 +144,7 @@ describe('the vehicle look join', () => {
     expect(idle.frameLists.every((list) => list.length === 1)).toBe(true);
   });
 
-  it('paces the catapult shot so its 40 frames fill the 48-tick attack cadence', () => {
+  it('stretches the catapult shot so its 40 frames fill the 48-tick attack cadence', () => {
     const look = vehicleLook(
       catapult,
       new Set(['cr_veh_body_00.goods_bow']),
@@ -153,7 +153,8 @@ describe('the vehicle look join', () => {
     const attack = look?.attack;
     if (attack === undefined || typeof attack === 'number' || !('frameLists' in attack))
       throw new Error('shot is a frame list');
-    expect(attack.ticksPerFrame).toBeCloseTo(VEHICLE_ATTACK_TICKS / 40);
+    expect(attack.ticks).toBe(VEHICLE_ATTACK_TICKS);
+    expect(attack.loop).toBeUndefined();
     expect(attack.frameLists[GFX_DIR_TO_FACING[0]]).toHaveLength(40);
   });
 

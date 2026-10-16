@@ -183,8 +183,8 @@ export function animalBinding(
   if (fight?.bodySeq !== undefined) {
     const seq = seqByName.get(fight.bodySeq);
     if (seq !== undefined && seq.length > 0 && fight.dirFrames.length > 0) {
-      // Stretched over the swing's atomic as the original plays a `gfxanimmode 0` list.
-      attack = { start: seq.start, frameLists: frameListsByFacing(fight.dirFrames), spansAtomic: true };
+      // One play over the swing's atomic, which the simulation runs for the clip's length.
+      attack = { start: seq.start, frameLists: frameListsByFacing(fight.dirFrames) };
     }
   }
 

@@ -596,7 +596,7 @@ these choices for the holes:
 - A clip naming a bob the baked body lacks is dropped at load, so the Viking big ship sails on its
   empty hull (`ve_test_ship` holds bobs 0..31); a cart with a wait but no drive stands its wait while
   it moves. Every state falls back down `loaded → unloaded → wait`.
-- The catapult loops its 40-frame shot over the 48-tick attack cadence while `task` is `attacks`;
+- The catapult plays its 40-frame shot once over each 48-tick attack cadence while `task` is `attacks`;
   where in the clip the shot releases is an approximation.
 - The stone in flight, the puff it leaves every tick and the smoke a `createsmoke` weapon raises where
   it lands are the `[particel]` records `Rock` (by `munitiontype`), its `spawnparticelId` and

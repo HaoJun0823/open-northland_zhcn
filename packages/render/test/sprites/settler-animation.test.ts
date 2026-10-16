@@ -338,29 +338,55 @@ describe('resolveSpriteBobId - FrameListAnim (explicit per-direction attack layo
     ).toBe(2000 + 0);
   });
 
-  it('plays a list that spans its atomic once across the atomic, whatever its length', () => {
-    const BUILD = 42;
-    const HAMMER: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2, 3, 4, 5]], spansAtomic: true };
+  /** The entries a list plays over an atomic of `duration` ticks, the completion pose included. */
+  const played = (clip: FrameListAnim, duration: number): number[] => {
     const b: SpriteBindings = {
-      settler: { idle: STAND, byAtomic: { [BUILD]: HAMMER } },
+      settler: { idle: STAND, byAtomic: { [ATTACK]: clip } },
       building: 0,
       resource: 0,
     };
-    const played = (duration: number): number[] =>
-      Array.from({ length: duration }, (_, tick) =>
-        resolveSpriteBobId(
-          {
-            ...settlerItem('acting', { facing: 0, atomicId: BUILD, elapsed: tick }),
-            atomicDuration: duration,
-          },
-          b,
-          0,
-        ),
-      ).map((frame) => (frame ?? 0) - HAMMER.start);
+    return Array.from({ length: duration + 1 }, (_, elapsed) =>
+      resolveSpriteBobId(
+        { ...settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed }), atomicDuration: duration },
+        b,
+        0,
+      ),
+    ).map((frame) => (frame ?? 0) - clip.start);
+  };
+
+  it('plays a list naming no clip length once across the atomic, whatever its length', () => {
+    const HAMMER: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2, 3, 4, 5]] };
     // Entry `elapsed * entries / duration`, as the original plays a `gfxanimmode 0` list: a short atomic
-    // samples the list, a long one holds each entry.
-    expect(played(3)).toEqual([0, 2, 4]);
-    expect(played(12)).toEqual([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5]);
+    // samples the list, a long one holds each entry, and the completion pose holds the last.
+    expect(played(HAMMER, 3)).toEqual([0, 2, 4, 5]);
+    expect(played(HAMMER, 12)).toEqual([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5]);
+  });
+
+  it('stretches a list over its clip ticks, a longer list sampled and a shorter one held per entry', () => {
+    const SKIP: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2, 3, 4, 5, 6, 7]], ticks: 6 };
+    expect(played(SKIP, 6)).toEqual([0, 1, 2, 4, 5, 6, 7]);
+    const HOLD: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2]], ticks: 6 };
+    expect(played(HOLD, 6)).toEqual([0, 0, 1, 1, 2, 2, 2]);
+  });
+
+  it('replays a clip while the atomic outlasts its ticks, then holds its last entry at the end', () => {
+    const NOD: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2, 3]], ticks: 4 };
+    // A listener bound to a 4-tick clip on a 10-tick shared chat clock nods two and a half times.
+    expect(played(NOD, 10)).toEqual([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 3]);
+    // Without a duration (a gallery clock) the replay runs on.
+    const b: SpriteBindings = {
+      settler: { idle: STAND, byAtomic: { [ATTACK]: NOD } },
+      building: 0,
+      resource: 0,
+    };
+    expect(resolveSpriteBobId(settlerItem('acting', { facing: 0, atomicId: ATTACK, elapsed: 9 }), b, 0)).toBe(
+      5000 + 1,
+    );
+  });
+
+  it('keeps one entry per tick for a looping list, whatever the clip ticks or duration say', () => {
+    const WAIT: FrameListAnim = { start: 5000, frameLists: [[0, 1, 2]], loop: true, ticks: 6 };
+    expect(played(WAIT, 4)).toEqual([0, 1, 2, 0, 1]);
   });
 
   it('wraps a facing beyond the list count into the available directions', () => {
@@ -458,7 +484,6 @@ describe('compatible atomic variants', () => {
             [0, 1, 2],
             [10, 11, 12],
           ],
-          spansAtomic: true,
         })),
       },
     };

@@ -103,6 +103,7 @@ describe('string corrections', () => {
     ['a missing reason', [{ ...ENTRY, reason: ' ' }], /reason must say why/],
     ['a non-integer id', [{ ...ENTRY, id: '4' }], /id must be a string id/],
     ['a no-op swap', [{ ...ENTRY, to: RUS_TEXT }], /two different strings/],
+    ['an addition to a GUI table', [{ ...ENTRY, from: null }], /two different strings/],
     ['two entries for one string', [ENTRY, { ...ENTRY, to: 'Ёжики' }], /second entry for rus\/goods\/4/],
   ])('rejects %s', async (_why, entries, message) => {
     await writeEntries(entries);
@@ -172,6 +173,39 @@ describe('map string corrections', () => {
     const meta = JSON.parse(await readFile(join(temp.out, `maps/${MAP_ID}.meta.json`), 'utf8'));
     expect(meta.description).toEqual({ pol: 'Zbuduj dwa ule.' });
     expect(() => corrections.assertApplied()).not.toThrow();
+  });
+
+  it('adds an absent map string before mission descriptions read it, without mutating the input table', async () => {
+    await temp.write(
+      `maps/community/${MAP_ID}/mission.inc`,
+      Buffer.from('[MissionData]\ndebuginfo "home"\ndescription 5\nvisible 1\ngoal "HumansWithHome" 0 2\n'),
+    );
+    const { strings, corrections } = await convertMaps([{ ...MAP_ENTRY, id: 5, from: null }]);
+    expect(strings.pol).toEqual({ 1: 'Zbuduj ul.', 4: 'Inne', 5: MAP_ENTRY.to });
+    const script = JSON.parse(await readFile(join(temp.out, `maps/${MAP_ID}.script.json`), 'utf8'));
+    expect(script.missions[0].description).toBe(MAP_ENTRY.to);
+    expect(script.missions[0].goals[0].values).toEqual(['HumansWithHome', '0', '2']);
+    const input = { 1: 'untouched' };
+    expect(corrections.correct('pol', MAP_ID, input)).toEqual({ 1: 'untouched', 5: MAP_ENTRY.to });
+    expect(input).toEqual({ 1: 'untouched' });
+    expect(() => corrections.assertApplied()).not.toThrow();
+  });
+
+  it.each(['occupied', MAP_ENTRY.to])(
+    'never overwrites an occupied id when adding a map string: %s',
+    async (text) => {
+      await writeFile(file, JSON.stringify([{ ...MAP_ENTRY, id: 5, from: null }]));
+      const corrections = await loadMapStringCorrections(file);
+      const input = { 5: text };
+      expect(corrections.correct('pol', MAP_ID, input)).toEqual(input);
+      expect(() => corrections.assertApplied()).toThrow(/the text is now/);
+    },
+  );
+
+  it('does not invent a missing language table for a map-string addition', async () => {
+    const { strings, corrections } = await convertMaps([{ ...MAP_ENTRY, lang: 'eng', id: 5, from: null }]);
+    expect(strings.eng).toBeUndefined();
+    expect(() => corrections.assertApplied()).toThrow(/never read/);
   });
 
   it.each([

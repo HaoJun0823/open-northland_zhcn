@@ -16,7 +16,7 @@ export const MAP_STRING_CORRECTIONS_FILE = fileURLToPath(
   new URL('../corrections/strings/maps.json', import.meta.url),
 );
 
-/** One display string replaced while the decoded original still reads `from`. */
+/** One display string replaced while it reads `from`, or a missing map string added with `from: null`. */
 export interface StringCorrection {
   /** The text folder, e.g. `rus`. */
   readonly lang: string;
@@ -24,7 +24,7 @@ export interface StringCorrection {
   readonly scope: string;
   /** The string id within that table. */
   readonly id: number;
-  readonly from: string;
+  readonly from: string | null;
   readonly to: string;
   readonly reason: string;
 }
@@ -102,10 +102,12 @@ async function loadCorrections(path: string, kind: CorrectionKind): Promise<Stri
       for (const entry of list) {
         if (entry.lang !== lang || entry.scope !== scope) continue;
         const actual = byId[entry.id];
-        if (actual === entry.from) {
+        const matches = entry.from === null ? !Object.hasOwn(byId, entry.id) : actual === entry.from;
+        if (matches) {
           corrected[entry.id] = entry.to;
           applied.add(entry);
         } else {
+          applied.delete(entry);
           failures.set(
             entry,
             actual === undefined
@@ -162,7 +164,8 @@ function parseStringCorrections(path: string, kind: CorrectionKind, raw: unknown
     const badScope = kind.checkScope(scope);
     if (badScope !== undefined) at(badScope);
     if (typeof id !== 'number' || !Number.isSafeInteger(id) || id < 0) return at('id must be a string id');
-    if (typeof from !== 'string' || typeof to !== 'string' || from === to) {
+    const addsMapString = kind.scopeKey === 'map' && from === null;
+    if ((!addsMapString && typeof from !== 'string') || typeof to !== 'string' || from === to) {
       return at('"from" and "to" must be two different strings');
     }
     if (typeof reason !== 'string' || reason.trim() === '') return at('reason must say why the fix exists');

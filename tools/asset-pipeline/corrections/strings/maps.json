@@ -1,13 +1,5 @@
 [
   {
-    "map": "tutorial_001",
-    "lang": "rus",
-    "id": 3,
-    "from": "НАйдите женщину для него и для окружающих!",
-    "to": "Найдите Кнуту женщину где-нибудь поблизости!",
-    "reason": "Literówka \"НАйдите\", a \"для него и для окружающих\" to błędne tłumaczenie; oryginał każe znaleźć Knutowi kobietę w okolicy."
-  },
-  {
     "map": "tutorial_003",
     "lang": "pol",
     "id": 4,
@@ -222,5 +214,117 @@
     "from": "Улучшить ГОНЧАРНУЮ МАСТЕРСКУЮ 2!",
     "to": "Произведите хотя бы одну единицу ПОСУДЫ в ГОНЧАРНЕ 2!",
     "reason": "Warsztat garncarski 2 produkuje naczynia; celem jest rzeczywista produkcja przynajmniej jednej sztuki, nie niedostępna kolejna rozbudowa."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "rus",
+    "id": 3,
+    "from": "НАйдите женщину для него и для окружающих!",
+    "to": "Найдите Кнуту женщину где-нибудь поблизости!",
+    "reason": "Literówka \"НАйдите\", a \"для него и для окружающих\" to błędne tłumaczenie; oryginał każe znaleźć Knutowi kobietę w okolicy."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "pol",
+    "id": 4,
+    "from": "Wyślij Ljotolfa, Thorbjorna, Kariego, Groa i Ulla do wioski.",
+    "to": "Wyślij Ljotolfa, Thorbjorna, Kariego, Groę i Ullę do wioski.",
+    "reason": "Poprawna odmiana imion w celu misji."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "pol",
+    "id": 98,
+    "from": "Ten samouczek objaśni, jak sterować postaciami oraz inne podstawowe funkcje.",
+    "to": "Ten samouczek objaśni sterowanie postaciami i inne podstawowe funkcje gry.",
+    "reason": "Poprawna składnia opisu samouczka."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "ger",
+    "id": 1,
+    "from": "Gib Knut ein Dach über den Kopf.",
+    "to": "Gib Knut ein Dach über dem Kopf.",
+    "reason": "Poprawny przypadek w wyrażeniu opisującym posiadanie dachu nad głową."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "ger",
+    "id": 98,
+    "from": "In diesen Tutorial wird dir die Steuerung deiner Figuren und andere wesentliche Funktionen erklärt.",
+    "to": "In diesem Tutorial werden dir die Steuerung deiner Figuren und andere wesentliche Funktionen erklärt.",
+    "reason": "Poprawny przypadek i zgodność liczby w opisie samouczka."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "rus",
+    "id": 2,
+    "from": "отправьте Кнута работать на ферму!",
+    "to": "Отправьте Кнута работать на ферму!",
+    "reason": "Wielka litera na początku celu misji."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "rus",
+    "id": 98,
+    "from": "Этот курс обучения расскажет вам как управлять вашими героями.",
+    "to": "Этот курс обучения расскажет вам, как управлять персонажами и пользоваться основными функциями игры.",
+    "reason": "Brakujący przecinek; lekcja dotyczy zwykłych postaci i podstawowych funkcji, nie tylko bohaterów."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "rus",
+    "id": 73,
+    "from": "Торбхорн",
+    "to": "Торбьорн",
+    "reason": "Poprawiona błędna transkrypcja imion; postaci i cel używają pisowni z odprawy."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "rus",
+    "id": 76,
+    "from": "Лхотольф",
+    "to": "Льотолф",
+    "reason": "Poprawiona błędna transkrypcja imion; postaci i cel używają pisowni z odprawy."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "rus",
+    "id": 4,
+    "from": "Пошлите Лхотольфа, Торбхорна, Кари, Гроа и Уллу в деревню.",
+    "to": "Пошлите Льотолфа, Торбьорна, Кари, Гроа и Уллу в деревню.",
+    "reason": "Poprawiona błędna transkrypcja imion; postaci i cel używają pisowni z odprawy."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "pol",
+    "id": 5,
+    "from": null,
+    "to": "Niech Knut i Ulla pobiorą się i zamieszkają razem.",
+    "reason": "Brakujący widoczny cel zadania: małżeństwo Knuta i Ulli oraz wspólny dom."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "eng",
+    "id": 5,
+    "from": null,
+    "to": "Have Knut and Ulla marry and live in the same home.",
+    "reason": "Brakujący widoczny cel zadania: małżeństwo Knuta i Ulli oraz wspólny dom."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "ger",
+    "id": 5,
+    "from": null,
+    "to": "Lass Knut und Ulla heiraten und gemeinsam in einem Haus wohnen.",
+    "reason": "Brakujący widoczny cel zadania: małżeństwo Knuta i Ulli oraz wspólny dom."
+  },
+  {
+    "map": "tutorial_001",
+    "lang": "rus",
+    "id": 5,
+    "from": null,
+    "to": "Пожените Кнута и Уллу и поселите их в одном доме.",
+    "reason": "Brakujący widoczny cel zadania: małżeństwo Knuta i Ulli oraz wspólny dom."
   }
 ]

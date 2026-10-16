@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie anuluje tylko wybór budynku; rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC.",
+  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie anuluje tylko wybór budynku; rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC. Poprawione są także błędy gramatyczne i literówki. Aby spotkać kobietę na południe od farmy, Knut musi do niej podejść. Przesuwanie kamery nie odkrywa mgły wojny.",
   "file": "maps/community/tutorial_001/text/eng/briefings/briefings.txt",
   "sha256": "2c91c98c4a0f7a48942dbbef4d3207a1790cba032593ecb367eae2d218464c5a",
   "encoding": "windows-1250",
@@ -51,6 +51,14 @@
     {
       "from": "By the way: You can cancel an order or deselect a character by left-clicking on any free space on the map.",
       "to": "By the way: You can deselect a character by left-clicking on any free space on the map. An order that waits for you to point at a spot (such as \"Go To\" or erecting a signpost) is cancelled with the right mouse button or the ESC key."
+    },
+    {
+      "from": "If you have selected a group you may need more often, you can save it by pressing the CTRL key and a number key from 0 to 9. To select this group again, all you have to do it press the respective number key. A group can be controlled in the same way as an individual character.",
+      "to": "If you have selected a group you may need more often, you can save it by pressing the CTRL key and a number key from 0 to 9. To select this group again, all you have to do is press the respective number key. A group can be controlled in the same way as an individual character."
+    },
+    {
+      "from": "Find a woman for him in his surroundings!",
+      "to": "Find a woman for him in his surroundings! Select Knut and have him approach the woman south of the farm. If the ground is still hidden by fog, send Knut there to explore it; simply panning the view does not reveal the map."
     }
   ]
 }

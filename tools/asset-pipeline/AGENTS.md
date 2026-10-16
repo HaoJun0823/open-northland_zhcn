@@ -56,6 +56,10 @@ trimmed, with single spaces), our `to` text and a Polish `reason`. The strings s
 only while it still reads `from`, and an entry the run did not apply fails the pipeline the same way,
 so a data release that fixes the text forces its removal.
 
+A map-string entry may use `"from": null` to add a missing id in an existing language table. It applies
+only if that id is absent; an occupied id, even one already reading `to`, fails the correction check.
+It never creates a missing language table. GUI table entries still require an existing `from` string.
+
 `corrections/strings/maps.json` does the same for a map's own strings (`maps/<map>.strings.json`), such
 as mission goals kept in an encrypted `text/<lang>/strings.cif` that no line swap can reach. Each entry
 names `map` (the map id) instead of `table`; the maps stage swaps the decoded text before the meta,

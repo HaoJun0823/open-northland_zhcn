@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie anuluje tylko wybór budynku; rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC.",
+  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie anuluje tylko wybór budynku; rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC. Poprawione są także błędy gramatyczne i literówki. Aby spotkać kobietę na południe od farmy, Knut musi do niej podejść. Przesuwanie kamery nie odkrywa mgły wojny.",
   "file": "maps/community/tutorial_001/text/ger/briefings/briefings.txt",
   "sha256": "f1bcc738ac66d6b14930cc567d91e0e011ba83f8809392f83270ab1c886b3e76",
   "encoding": "windows-1250",
@@ -14,7 +14,7 @@
     },
     {
       "from": "Wenn du mit einem ausgewählten Wikinger einen RECHTSKLICK auf ein Arbeitsgebäude ausführst, beginnt er in diesem Gebäude zu arbeiten und übernimmt auch automatisch den entsprechenden Beruf, sofern er die Fähigkeit besitzt ihn auszuführen. Klickst du mit rechts auf ein Wohngebäude, wird dein Wikinger sich dort einquartieren, insofern eine Wohnung frei ist. Wählst du mit einem Rechtsklick eine unbebaute Stelle, läuft dein Zögling direkt dort hin. Die HINWEISTEXTE am Mauszeiger geben Rückmeldung über die entsprechende Aktion. ",
-      "to": "Wenn du mit einem ausgewählten Wikinger einen RECHTSKLICK auf ein Arbeitsgebäude ausführst, beginnt er in diesem Gebäude zu arbeiten und übernimmt auch automatisch den entsprechenden Beruf, sofern er die Fähigkeit besitzt ihn auszuführen. Klickst du mit rechts auf ein Wohngebäude, wird dein Wikinger sich dort einquartieren, insofern eine Wohnung frei ist. Wählst du mit einem Rechtsklick eine unbebaute Stelle, läuft dein Zögling direkt dort hin. Die Karte am Mauszeiger zeigt dir, über welchem Gebäude oder welcher Figur er sich befindet. "
+      "to": "Wenn du mit einem ausgewählten Wikinger einen RECHTSKLICK auf ein Arbeitsgebäude ausführst, beginnt er in diesem Gebäude zu arbeiten und übernimmt auch automatisch den entsprechenden Beruf, sofern er die Fähigkeit besitzt, ihn auszuführen. Klickst du mit rechts auf ein Wohngebäude, wird dein Wikinger sich dort einquartieren, insofern eine Wohnung frei ist. Wählst du mit einem Rechtsklick eine unbebaute Stelle, läuft dein Zögling direkt dorthin. Die Karte am Mauszeiger zeigt dir, über welchem Gebäude oder welcher Figur er sich befindet. "
     },
     {
       "from": "Möchtest du automatisch scrollen, sobald du mit den Mauszeiger auf den BILDSCHIRMRAND triffst, musst du dieses im OPTIONSMENÜ (F2) einstellen. Dieses findest du über den Button mit den Werkzeugen in der Leiste am linken Bildschirmrand. Drücke dann auf EINGABE und du kannst im mittleren Bereich des Fensters den Scrollmodus einstellen.",
@@ -22,7 +22,7 @@
     },
     {
       "from": "Oftmals ist es leichter und schneller über Tastaturkürzel Befehle auszuführen. Die Tastaturbelegung (F 1) im HILFESYSTEM gibt dir darüber Auskunft.",
-      "to": "Oftmals ist es leichter und schneller über Tastaturkürzel Befehle auszuführen. Die Tastaturbelegung findest du im SPIELMENÜ (ESC) unter Einstellungen, im Reiter Steuerung. Dort kannst du sie auch ändern."
+      "to": "Oftmals ist es leichter und schneller, über Tastaturkürzel Befehle auszuführen. Die Tastaturbelegung findest du im SPIELMENÜ (ESC) unter Einstellungen, im Reiter Steuerung. Dort kannst du sie auch ändern."
     },
     {
       "from": "Eine Gruppe stellst du zusammen, indem du die SHIFT-Taste gedrückt hältst, die gewünschten Wikinger (auf der Karte oder aus jedem beliebigen Fenster) mit der linken Maustaste einzeln anklickst und somit der Gruppe hinzufügen.",
@@ -51,6 +51,38 @@
     {
       "from": "Übrigens: einen Befehl wieder abbrechen oder eine Figur deselektieren kannst du, indem du mit der linken Maustaste auf eine beliebige leere Stelle auf der Landschaft drückst.",
       "to": "Übrigens: eine Figur deselektieren kannst du, indem du mit der linken Maustaste auf eine beliebige leere Stelle auf der Landschaft drückst. Einen Befehl, der auf die Wahl einer Stelle wartet (etwa \"Senden nach\" oder das Aufstellen eines Wegweisers), brichst du mit der rechten Maustaste oder der Taste ESC ab."
+    },
+    {
+      "from": "Dieses Tutorial soll dir einen ersten Überblick über die Benutzerführung geben und wie man sich in der Spielwelt bewegt. Es wird dir die Auswahl und Steuerung deiner Figuren und andere wesentliche Funktionen wie: ",
+      "to": "Dieses Tutorial soll dir einen ersten Überblick über die Benutzerführung geben und zeigen, wie man sich in der Spielwelt bewegt. Es wird dir die Auswahl und Steuerung deiner Figuren und andere wesentliche Funktionen wie: "
+    },
+    {
+      "from": "Knut ist arbeitslos hat den ganzen Tag nichts zu tun. ",
+      "to": "Knut ist arbeitslos und hat den ganzen Tag nichts zu tun. "
+    },
+    {
+      "from": "Wenn du Knut eine Anweisung geben willst, wähle ihn aus und drücke anschließend die Leertaste oder wähle ihn sofort mit einem rechten Maustastenklick aus und es erscheint ein Menü. Mit einem Linksklick auf die Aktionen entscheidest du, ob ein Wikinger einen neuen Beruf ausüben, heiraten, eine Wohnung beziehen, in die Schule gehen oder den Arbeitsplatz und Ausrüstung wechseln soll.",
+      "to": "Wenn du Knut eine Anweisung geben willst, wähle ihn aus und drücke anschließend die Leertaste oder wähle ihn sofort mit einem rechten Maustastenklick aus und es erscheint ein Menü. Mit einem Linksklick auf die Aktionen entscheidest du, ob ein Wikinger einen neuen Beruf ausüben, heiraten, eine Wohnung beziehen, in die Schule gehen oder den Arbeitsplatz und die Ausrüstung wechseln soll."
+    },
+    {
+      "from": "Also: Gib Knut ein Dach über den Kopf und lass ihn als Farmer in der Farm arbeiten!",
+      "to": "Also: Gib Knut ein Dach über dem Kopf und lass ihn als Farmer in der Farm arbeiten!"
+    },
+    {
+      "from": "Drücke die Taste \"l\" auf der Tastatur, um die Spielgeschwindigkeit zu verdoppeln. Drücke nochmals \"l\" um die Spielgeschwindigkeit zu verdreifachen, und nochmals, um die normale Geschwindigkeit wieder herzustellen.",
+      "to": "Drücke die Taste \"l\" auf der Tastatur, um die Spielgeschwindigkeit zu verdoppeln. Drücke nochmals \"l\", um die Spielgeschwindigkeit zu verdreifachen, und nochmals, um die normale Geschwindigkeit wiederherzustellen."
+    },
+    {
+      "from": "Oftmals haben deine Wikinger Probleme mit der Orientierung, dann bietet es sich an, von einem Kundschafter Wegweiser bauen zu lassen, das sich auch wirklich niemand verläuft!",
+      "to": "Oftmals haben deine Wikinger Probleme mit der Orientierung, dann bietet es sich an, von einem Kundschafter Wegweiser bauen zu lassen, damit sich auch wirklich niemand verläuft!"
+    },
+    {
+      "from": "GUT GEMACHT! Knut hat nun ein Dach übern Kopf!",
+      "to": "GUT GEMACHT! Knut hat nun ein Dach überm Kopf!"
+    },
+    {
+      "from": "Suche in der Umgebung nach einer Frau!",
+      "to": "Suche in der Umgebung nach einer Frau! Wähle Knut aus und schicke ihn zu der Frau südlich der Farm. Falls das Gelände noch im Nebel liegt, schicke Knut dorthin, um es zu erkunden; allein das Verschieben des Bildausschnitts deckt die Karte nicht auf."
     }
   ]
 }

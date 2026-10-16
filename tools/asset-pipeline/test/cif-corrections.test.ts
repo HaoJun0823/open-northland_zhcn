@@ -132,4 +132,49 @@ describe('decoded CIF source corrections', () => {
     ]);
     expect(() => corrections.assertApplied()).not.toThrow();
   });
+
+  it('gives the named shared-home step a description and reveals it only when activated', async () => {
+    const named = JSON.parse(
+      await readFile(new URL('../corrections/tutorial-001-marriage-goal.json', import.meta.url), 'utf8'),
+    );
+    // Only the edited properties occupy their pinned positions; the remaining scaffold is synthetic.
+    const lines = Array.from({ length: 67 }, () => ({ level: 2, text: 'unused 0' }));
+    lines[0] = { level: 1, text: 'MissionData' };
+    lines[1] = { level: 2, text: 'debuginfo "found"' };
+    lines[58] = { level: 2, text: 'result "PlayCutscene" 5 1' };
+    lines[59] = { level: 2, text: 'result "ActivateMission" 6' };
+    lines[60] = { level: 1, text: 'MissionData' };
+    lines[61] = { level: 2, text: 'debuginfo "home"' };
+    lines[62] = { level: 2, text: 'description -1' };
+    lines[63] = { level: 2, text: 'goal "HumansWithHome" 0 2' };
+    lines[64] = { level: 2, text: 'result "PlayCutscene" 6 1' };
+    lines[66] = { level: 2, text: 'result "ActivateMission" 7' };
+    const source = buildStringCif(lines);
+    await writeFile(join(data, FILE), source);
+    await writeFile(join(data, 'maps/community/sample/map.dat'), buildMapDat(1, 1, [2, 2, 2, 2]));
+    await writeFile(
+      join(dir, 'lesson.json'),
+      JSON.stringify({
+        ...named,
+        file: FILE,
+        sha256: createHash('sha256').update(source).digest('hex'),
+      }),
+    );
+    const corrections = await loadSourceCorrections(dir, data);
+    const [map] = await convertMapDatTree({ data, corrections }, join(temp.path, 'out'));
+    const [found, home] = map?.script?.missions ?? [];
+    expect(found?.results.map((result) => result.values)).toEqual([
+      ['PlayCutscene', '5', '1'],
+      ['ActivateMission', '6'],
+      ['SetVisible', '6', '1'],
+    ]);
+    expect(home?.descriptionStringId).toBe(5);
+    expect(home?.visible).toBeUndefined();
+    expect(home?.goals.map((goal) => goal.values)).toEqual([['HumansWithHome', '0', '2']]);
+    expect(home?.results.map((result) => result.values)).toEqual([
+      ['PlayCutscene', '6', '1'],
+      ['ActivateMission', '7'],
+    ]);
+    expect(() => corrections.assertApplied()).not.toThrow();
+  });
 });

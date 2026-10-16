@@ -1,0 +1,18 @@
+{
+  "reason": "Etap małżeństwa nie miał opisu ani widocznego celu. Po odnalezieniu Ulli uaktywniony zostaje opisany cel wspólnego zamieszkania; istniejący warunek HumansWithHome pozostaje bez zmian.",
+  "file": "maps/community/tutorial_001/map.cif",
+  "sha256": "e2c874c4bb22868bd88e293327d8df815c88f3c7df8b2be1c1c1f2e094b776ad",
+  "format": "cif",
+  "lines": [
+    {
+      "line": 60,
+      "from": "result \"ActivateMission\" 6",
+      "to": ["result \"ActivateMission\" 6", "result \"SetVisible\" 6 1"]
+    },
+    {
+      "line": 63,
+      "from": "description -1",
+      "to": "description 5"
+    }
+  ]
+}

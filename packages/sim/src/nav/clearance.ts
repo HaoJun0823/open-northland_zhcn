@@ -24,6 +24,8 @@ const SCAN_RADIUS = 2 * REWRITE_RADIUS;
 const MAX_DISC_GENERATION = 2 ** 31 - 1;
 /** Map points in a hexagon disc of the scan radius: `1 + 3 r (r + 1)`. */
 const SCAN_DISC_NODES = 1 + 3 * SCAN_RADIUS * (SCAN_RADIUS + 1);
+/** Breadth-first queue slots a field starts with. */
+const INITIAL_QUEUE_CAPACITY = 1024;
 
 /**
  * Per-node free-size classes over a terrain graph: a node's class is the largest hexagon-disc radius
@@ -43,9 +45,8 @@ const SCAN_DISC_NODES = 1 + 3 * SCAN_RADIUS * (SCAN_RADIUS + 1);
 export class ClearanceField {
   private readonly classes: Uint8Array;
   private readonly distance: Int16Array;
-  /** The breadth-first queue, its first {@link queued} slots live. Never emptied by length, which would
-   *  free its backing store for the next recompute to grow again. */
-  private readonly queue: NodeId[] = [];
+  /** The breadth-first queue, its first {@link queued} slots live; doubles when full. */
+  private queue = new Int32Array(INITIAL_QUEUE_CAPACITY);
   private queued = 0;
   /** The last local recompute's scan disc, its first {@link discSize} slots: its nodes, each stamped with
    *  the generation and its map-point depth from the nearest change, so membership and the rewrite cut
@@ -92,7 +93,6 @@ export class ClearanceField {
   recompute(probe: ClearanceProbe, changed: ReadonlySet<NodeId> | null): void {
     const { graph } = this;
     const distance = this.distance;
-    const queue = this.queue;
     // Past the point where the changes' scan discs outnumber the map, one full pass is the cheaper scan.
     const local = changed !== null && changed.size * SCAN_DISC_NODES < graph.nodeCount;
     if (local) this.markDisc(changed);
@@ -108,7 +108,8 @@ export class ClearanceField {
     }
     // Seeds and discoveries append behind the cursor, so the walk is breadth-first.
     for (let at = 0; at < this.queued; at++) {
-      const current = queue[at] as NodeId;
+      // The queue is read through `this`: an enqueue may replace it with a larger one.
+      const current = (this.queue[at] ?? 0) as NodeId;
       const next = (distance[current] ?? 0) + 1;
       if (next > MAX_CLEARANCE_CLASS) continue;
       const x = graph.xOf(current);
@@ -122,7 +123,7 @@ export class ClearanceField {
         if ((local && discStamps[neighbour] !== scanned) || distance[neighbour] !== UNREACHED) continue;
         if (!probe(neighbour) || graph.componentOf(neighbour) !== component) continue;
         distance[neighbour] = next;
-        queue[this.queued++] = neighbour;
+        this.enqueue(neighbour);
       }
     }
     if (local) {
@@ -139,7 +140,16 @@ export class ClearanceField {
   private seed(node: NodeId, probe: ClearanceProbe): void {
     const hemmed = probe(node) && this.hemmed(node, probe);
     this.distance[node] = hemmed ? 0 : UNREACHED;
-    if (hemmed) this.queue[this.queued++] = node;
+    if (hemmed) this.enqueue(node);
+  }
+
+  private enqueue(node: NodeId): void {
+    if (this.queued === this.queue.length) {
+      const grown = new Int32Array(this.queue.length * 2);
+      grown.set(this.queue);
+      this.queue = grown;
+    }
+    this.queue[this.queued++] = node;
   }
 
   /** Store `node`'s settled class, counting the water class crossings it makes. */

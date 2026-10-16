@@ -20,6 +20,9 @@ const LONG_HEIGHT = 5;
 /** The random laying run on the long strip: lays, and the most roads one lay adds. */
 const RANDOM_LAYS = 60;
 const MAX_LAY = 3;
+/** A grid wide enough that one lay's wavefront outgrows the queues' first allocation. */
+const WIDE_SIDE = 160;
+const WIDE_LAYS = 8;
 
 function grid(width = WIDTH, height = HEIGHT): TerrainGraph {
   const terrain = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(width, height) })
@@ -87,6 +90,24 @@ describe('road distance field', () => {
       roads.push(...added);
       field.lower(added, roads);
       fillRoadDistances(distances, nearestRoads, LONG_WIDTH, LONG_HEIGHT, roads);
+      expect(field.distances).toEqual(distances);
+      expect(field.nearest).toEqual(nearestRoads);
+    }
+  });
+
+  it('lowers like a rebuild when a wavefront outgrows its first queue room', () => {
+    const rng = new Rng(9);
+    const nodeCount = WIDE_SIDE * WIDE_SIDE;
+    const field = new RoadDistanceField(WIDE_SIDE, WIDE_SIDE);
+    const roads: number[] = [];
+    const distances = new Int32Array(nodeCount);
+    const nearestRoads = new Int32Array(nodeCount);
+    field.rebuild(roads);
+    for (let lay = 0; lay < WIDE_LAYS; lay++) {
+      const added = [rng.int(nodeCount)];
+      roads.push(...added);
+      field.lower(added, roads);
+      fillRoadDistances(distances, nearestRoads, WIDE_SIDE, WIDE_SIDE, roads);
       expect(field.distances).toEqual(distances);
       expect(field.nearest).toEqual(nearestRoads);
     }

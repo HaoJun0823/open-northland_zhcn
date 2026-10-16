@@ -21,6 +21,8 @@ const GRASS = 0;
 const WATER = 1;
 const NODE_W = 40;
 const NODE_H = 40;
+/** A map whose banks and edges hem more nodes than the breadth-first queue first holds. */
+const WIDE_CELLS = 80;
 
 /** The definition the field is checked against: the widest disc every point of which is open. */
 function discClass(
@@ -66,6 +68,12 @@ describe('ClearanceField', () => {
     expect(field.classOf(graph.nodeAt(7, 10))).toBe(0); // beside the fence
     expect(field.classOf(graph.nodeAt(30, 30))).toBe(MAX_CLEARANCE_CLASS); // open ground far from anything
     expect(field.classOf(graph.nodeAt(20, 20))).toBe(0); // in the water
+  });
+
+  it('reads the disc radius on a map whose walk outgrows the first queue room', () => {
+    const graph = buildTerrainGraph(testContent(), waterColumnMap(WIDE_CELLS, WIDE_CELLS, WIDE_CELLS / 2));
+    const open = (n: NodeId): boolean => graph.isWalkable(n);
+    expectMatchesDefinition(graph, new ClearanceField(graph, open), open);
   });
 
   it('recomputes a change locally and lands on the fresh build', () => {

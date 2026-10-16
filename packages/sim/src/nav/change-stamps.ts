@@ -2,15 +2,22 @@ import type { NodeArea } from './halfcell.js';
 
 /** Nodes per block side: a reader scans only the blocks that changed since its clock reading. */
 const STAMP_BLOCK_SIZE = 16;
+/** The largest clock offset above {@link NodeChangeStamps.base} an Int32 stamp holds. */
+const MAX_STAMP_OFFSET = 2 ** 31 - 1;
 
 /**
  * The clock reading of every node's latest change, and of each block's latest, so a reader holding an
  * answer from clock reading `since` finds the nodes changed after it without scanning unchanged blocks.
  * The owner advances its clock and stamps every node whose state the readers depend on.
+ *
+ * Stamps hold the clock minus {@link base}. A clock too far past the base rebases: every earlier stamp
+ * then reads as the new base, which a reader holding an older `since` sees as a change. Readers are
+ * caches that recompute on a change, so that over-report costs a recompute and never an answer.
  */
 export class NodeChangeStamps {
-  private readonly nodes: Float64Array;
-  private readonly blocks: Float64Array;
+  private readonly nodes: Int32Array;
+  private readonly blocks: Int32Array;
+  private base = 0;
   private readonly blockColumns: number;
   private readonly blockRows: number;
 
@@ -18,17 +25,19 @@ export class NodeChangeStamps {
     private readonly width: number,
     private readonly height: number,
   ) {
-    this.nodes = new Float64Array(width * height);
+    this.nodes = new Int32Array(width * height);
     this.blockColumns = Math.ceil(width / STAMP_BLOCK_SIZE);
     this.blockRows = Math.ceil(height / STAMP_BLOCK_SIZE);
-    this.blocks = new Float64Array(this.blockColumns * this.blockRows);
+    this.blocks = new Int32Array(this.blockColumns * this.blockRows);
   }
 
   /** Record that `(x, y)` changed at clock reading `clock`, which never decreases between calls. */
   stamp(x: number, y: number, clock: number): void {
-    this.nodes[y * this.width + x] = clock;
+    if (clock - this.base > MAX_STAMP_OFFSET) this.rebase(clock);
+    const offset = clock - this.base;
+    this.nodes[y * this.width + x] = offset;
     this.blocks[Math.floor(y / STAMP_BLOCK_SIZE) * this.blockColumns + Math.floor(x / STAMP_BLOCK_SIZE)] =
-      clock;
+      offset;
   }
 
   /** Whether some node of `area` changed after clock reading `since` and passes `test`. */
@@ -40,18 +49,26 @@ export class NodeChangeStamps {
     const firstColumn = Math.floor(minX / STAMP_BLOCK_SIZE);
     const lastColumn = Math.min(this.blockColumns - 1, Math.floor(maxX / STAMP_BLOCK_SIZE));
     const lastRow = Math.min(this.blockRows - 1, Math.floor(maxY / STAMP_BLOCK_SIZE));
+    const sinceOffset = since - this.base;
     for (let row = Math.floor(minY / STAMP_BLOCK_SIZE); row <= lastRow; row++) {
       for (let column = firstColumn; column <= lastColumn; column++) {
-        if ((this.blocks[row * this.blockColumns + column] as number) <= since) continue;
+        if ((this.blocks[row * this.blockColumns + column] as number) <= sinceOffset) continue;
         const y1 = Math.min(maxY, row * STAMP_BLOCK_SIZE + STAMP_BLOCK_SIZE - 1);
         const x1 = Math.min(maxX, column * STAMP_BLOCK_SIZE + STAMP_BLOCK_SIZE - 1);
         for (let y = Math.max(minY, row * STAMP_BLOCK_SIZE); y <= y1; y++) {
           for (let x = Math.max(minX, column * STAMP_BLOCK_SIZE); x <= x1; x++) {
-            if ((this.nodes[y * this.width + x] as number) > since && test(x, y)) return true;
+            if ((this.nodes[y * this.width + x] as number) > sinceOffset && test(x, y)) return true;
           }
         }
       }
     }
     return false;
+  }
+
+  /** Move the base just under `clock`, flattening every held stamp to the new base. */
+  private rebase(clock: number): void {
+    this.base = clock - 1;
+    this.nodes.fill(0);
+    this.blocks.fill(0);
   }
 }

@@ -30,3 +30,15 @@ export function releaseWidowedParentsOf(world: World, child: Entity): void {
   }
   for (const parent of parents) settleWidowhood(world, parent);
 }
+
+/** {@link releaseWidowedParentsOf} for several children at once: one {@link Marriage} walk collects each
+ *  child's parents in the order that function visits them, for a caller that settles them child by child. */
+export function parentsByChild(world: World, children: readonly Entity[]): Map<Entity, Entity[]> {
+  const byChild = new Map<Entity, Entity[]>();
+  for (const child of children) byChild.set(child, []);
+  for (const e of world.query(Marriage)) {
+    const child = world.get(e, Marriage).child;
+    if (child !== null) byChild.get(child)?.push(e);
+  }
+  return byChild;
+}

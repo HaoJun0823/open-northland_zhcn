@@ -8,9 +8,9 @@
 
 import { Age, Health, Person, Residence, Settler, setSettlerJob } from '../../components/index.js';
 import { TICKS_PER_SECOND } from '../../core/loop.js';
-import type { Entity, World } from '../../ecs/world.js';
+import type { ChangeFeed, Entity, World } from '../../ecs/world.js';
 import type { System } from '../context.js';
-import { releaseWidowedParentsOf } from '../family/widowhood.js';
+import { parentsByChild, releaseWidowedParentsOf, settleWidowhood } from '../family/widowhood.js';
 
 /** The human age-class job ids (`logicdefines.inc` `JOB_TYPE_HUMAN_*`). */
 export const BABY_FEMALE = 1;
@@ -120,10 +120,14 @@ function countGrowthPass(world: World, e: Entity, tick: number): number {
  * Age each {@link Age}-bearing settler one tick and promote it through the non-working life stages. Only a
  * settler born young carries an `Age`, and reaching adulthood removes it, so this is a no-op for every
  * settler spawned already-adult. Graduates are collected first, so no component is removed mid-query.
+ *
+ * A pass reads only the settlers {@link GrowthSchedule} names; for any other the pass is a no-op.
  */
 export const growthSystem: System = (world, ctx) => {
+  const schedule = growthScheduleOf(world);
+  const visits = schedule.take(world, ctx.tick);
   const graduated: Entity[] = [];
-  for (const e of world.query(Age, Person)) {
+  for (const e of visits ?? world.query(Age, Person)) {
     const ticks = countGrowthPass(world, e, ctx.tick);
     const settler = world.get(e, Settler);
     if (ticks >= ADULT_AGE_TICKS) {
@@ -133,7 +137,9 @@ export const growthSystem: System = (world, ctx) => {
     }
     const target = ageClassAt(ticks, isMaleStage(settler.jobType));
     if (target !== settler.jobType) setSettlerJob(world, e, target);
+    schedule.wakeAt(e, ctx.tick + (nextStageAge(ticks) - ticks));
   }
+  const parents = graduated.length > 1 ? parentsByChild(world, graduated) : undefined;
   for (const e of graduated) {
     // A child killed earlier this tick still crosses the age line before CleanupSystem reaps it, and a
     // corpse has no birthday to announce.
@@ -142,9 +148,112 @@ export const growthSystem: System = (world, ctx) => {
     // Authored: a grown child moves out instead of counting as a second family against its parents'
     // `homeSize`. The Age removal above also expires a widowed parent's carve-out.
     world.remove(e, Residence);
-    releaseWidowedParentsOf(world, e);
+    if (parents === undefined) releaseWidowedParentsOf(world, e);
+    else for (const parent of parents.get(e) ?? []) settleWidowhood(world, parent);
   }
+  schedule.settle(ctx.tick);
 };
+
+/** The `Age.ticks` of the next stage line above `ticks`. */
+function nextStageAge(ticks: number): number {
+  return ticks < CHILD_AGE_TICKS ? CHILD_AGE_TICKS : ADULT_AGE_TICKS;
+}
+
+/**
+ * The growing settlers a pass must read: those whose Age, Person or Settler changed since the last pass,
+ * and those reaching a stage line this tick. Between those a settler's age class holds and its stored
+ * Age needs no write, so the pass would change nothing for it.
+ */
+class GrowthSchedule {
+  private readonly feed: ChangeFeed;
+  private readonly due = new Map<number, Entity[]>();
+  private readonly dueOf = new Map<Entity, number>();
+  /** The tick of the last pass this schedule covers, or null when the next pass reads everyone. */
+  private passedTick: number | null = null;
+  private readonly visits: Entity[] = [];
+  private readonly pending = new Set<Entity>();
+  private readonly note = (e: Entity): void => {
+    this.pending.add(e);
+  };
+
+  constructor(world: World) {
+    this.feed = world.watchChanges([Age, Person, Settler], [Age, Settler]);
+  }
+
+  /** The settlers the pass of `tick` reads in the {@link Age} query's order, or null for all of them. */
+  take(world: World, tick: number): readonly Entity[] | null {
+    this.pending.clear();
+    this.visits.length = 0;
+    if (this.passedTick !== tick - 1 || (this.feed.pending && this.feed.drain(this.note))) {
+      // The pass reads everyone and schedules each afresh.
+      this.due.clear();
+      this.dueOf.clear();
+      return null;
+    }
+    const bucket = this.due.get(tick);
+    if (bucket !== undefined) {
+      for (const e of bucket) if (this.dueOf.get(e) === tick) this.pending.add(e);
+      this.due.delete(tick);
+    }
+    for (const e of this.pending) {
+      this.dueOf.delete(e);
+      if (!world.has(e, Age) || !world.has(e, Person)) this.pending.delete(e);
+    }
+    if (this.pending.size === 1) this.visits.push(...this.pending);
+    else if (this.pending.size > 1) {
+      for (const e of world.query(Age, Person)) if (this.pending.has(e)) this.visits.push(e);
+    }
+    return this.visits;
+  }
+
+  wakeAt(e: Entity, tick: number): void {
+    this.dueOf.set(e, tick);
+    const bucket = this.due.get(tick);
+    if (bucket === undefined) this.due.set(tick, [e]);
+    else bucket.push(e);
+  }
+
+  /** Report a growing settler the next pass would skip although its age class is due or off. */
+  verify(world: World): string[] {
+    const passed = this.passedTick;
+    if (passed === null) return [];
+    const written = new Set<Entity>();
+    if (this.feed.peek((e) => written.add(e))) return [];
+    let stale = 0;
+    for (const e of world.query(Age, Person)) {
+      if (written.has(e)) continue;
+      const ticks = ageTicksAt(world.get(e, Age), passed + 1);
+      const due = this.dueOf.get(e);
+      const expected = passed + 1 + (nextStageAge(ticks - 1) - ticks);
+      if (world.get(e, Age).asOf === null || due === undefined || due !== expected) stale++;
+    }
+    return stale === 0 ? [] : [`growthSchedule: ${stale} children are not scheduled at their next stage`];
+  }
+
+  /** Close the pass of `tick`: its own writes are already scheduled, so the feed forgets them. */
+  settle(tick: number): void {
+    if (this.feed.drain(noop)) {
+      this.passedTick = null;
+      return;
+    }
+    this.passedTick = tick;
+  }
+}
+
+const noop = (): void => {};
+
+const schedules = new WeakMap<World, GrowthSchedule>();
+
+function growthScheduleOf(world: World): GrowthSchedule {
+  let schedule = schedules.get(world);
+  if (schedule === undefined) {
+    const created = new GrowthSchedule(world);
+    world.registerCacheVerifier('growthSchedule', () => created.verify(world));
+    schedules.set(world, created);
+    schedule = created;
+  }
+  return schedule;
+}
 
 /**
  * The age-class `jobType` a settler that has lived `ticks`, still short of adulthood, should currently

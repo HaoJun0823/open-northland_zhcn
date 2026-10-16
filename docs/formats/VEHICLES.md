@@ -333,11 +333,13 @@ class test, and lies in a part of the sea the ship can sail into, however far (t
 "Movement"); a ship already on a ring node moors in place and drops any drive under way (approximation: the original ends the order with nothing set); no ring node raises `vehicleNoPath` whether or not the commander is inside; the
 ship moors on the arrival tick with a `vehicleDocked` event (approximation: the tribe binds atomic 84
 to a 12-tick dock clip, which is not played); a goto clears the pending mooring point; any drive that
-was no dock and ends with the commander not inside moors the ship on the first walkable node of its
+was no dock and ends with the commander not inside moors the ship on the first open land node of its
 door ring, with the same event (`moorByShore`, `movement.ts`), and with the commander inside the ship stays
 at sea; unload people on a ship lying unmoored sets the crew down on its door point when that is
-walkable land, else on the first walkable node of the ring around it, and is ignored when neither is
-(`unloadLandingOf`, `crew.ts`); the player's crew panel still disables the button at sea; a dock
+open land, else on the first open land node of the ring around it, and is ignored when neither is
+(`unloadLandingOf`, `crew.ts`); open land is walkable and free of building, resource and landscape
+bodies (`isOpenLand`); the player's crew panel enables the button exactly when that unload would land
+(`Simulation.canUnloadPeople`), so an unmoored ship beside land unloads and one in open water does not; a dock
 walk that loses its route drops the mooring point behind the `vehicleNoPath` note. A sunk ship's
 crew aboard is reaped like any death, so the owner's casualty tallies count it. Deviation (owner's
 choice): a rider still walking to a ship lost at sea, and a cart still driving to it, stand on land

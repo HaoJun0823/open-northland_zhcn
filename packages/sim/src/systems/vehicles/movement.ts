@@ -683,7 +683,7 @@ function moorAtMooring(world: World, ctx: SystemContext, vehicle: Entity): void 
 }
 
 /**
- * A ship ending a drive that was no dock moors by itself when its commander is not aboard and walkable
+ * A ship ending a drive that was no dock moors by itself when its commander is not aboard and open
  * land lies on the ring at its door distance, the first such node in ring order becoming its mooring
  * point; with the commander aboard it stays at sea (original behavior, unconfirmed against the running
  * original).
@@ -695,14 +695,20 @@ function moorByShore(world: World, ctx: SystemContext, terrain: TerrainGraph, ve
   const vector = type?.passengerVector;
   const anchor = vehicleAnchor(world, vehicle);
   if (type === undefined || vector === undefined || anchor === null || !isShipVehicle(type)) return;
+  const blocked = dynamicBlockOverlay(world, ctx, terrain);
   for (const { point } of hexagonRing(anchor, vector.distance)) {
-    if (!terrain.inBounds(point.hx, point.hy) || !terrain.isWalkable(terrain.nodeAt(point.hx, point.hy))) {
-      continue;
-    }
+    if (!isOpenLand(terrain, blocked, point)) continue;
     world.mut(vehicle, Vehicle).mooring = { hx: point.hx, hy: point.hy };
     moorAtMooring(world, ctx, vehicle);
     return;
   }
+}
+
+/** Whether a rider can stand on `point`: walkable land no building, resource or landscape body covers. */
+export function isOpenLand(terrain: TerrainGraph, blocked: BlockOverlay, point: HalfCellNode): boolean {
+  if (!terrain.inBounds(point.hx, point.hy)) return false;
+  const node = terrain.nodeAt(point.hx, point.hy);
+  return terrain.isWalkable(node) && !blocked.has(node);
 }
 
 function commanderAboard(state: VehicleStateView): boolean {

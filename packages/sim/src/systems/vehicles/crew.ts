@@ -31,7 +31,7 @@ import { releaseTowerPost } from '../settlers/drives/tower-post.js';
 import { stepOut } from '../settlers/indoors.js';
 import { endChat } from '../social/gossip/drive.js';
 import { abandonCargoRun } from './cargo.js';
-import { dropHeldGoal, endMarch, vacateSeat } from './movement.js';
+import { dropHeldGoal, endMarch, isOpenLand, vacateSeat } from './movement.js';
 
 // The crew of docs/formats/VEHICLES.md "Crew": who may attach, where a rider boards and leaves, and what
 // a rider gives up when it joins. The boarding drives live in `boarding.ts`.
@@ -237,8 +237,8 @@ const UNLOAD_SHORE_REACH = 1;
 /**
  * Where an unload sets the riders of `vehicle` down. Original behavior (unconfirmed against the running
  * original): unloading needs no mooring, only a door point on land, so a ship lying unmoored unloads onto
- * its door point or the first walkable node beside it; null while neither is land. Any other vehicle
- * lands its riders where {@link landingOf} does.
+ * its door point or the first open land node beside it; null while neither is open land. Any other
+ * vehicle lands its riders where {@link landingOf} does.
  */
 export function unloadLandingOf(world: World, ctx: MapContext, vehicle: Entity): HalfCellNode | null {
   const state = world.tryGet(vehicle, Vehicle);
@@ -248,11 +248,10 @@ export function unloadLandingOf(world: World, ctx: MapContext, vehicle: Entity):
   }
   const door = vehicleDoorNode(world, ctx, vehicle);
   if (door === null) return null;
+  const blocked = dynamicBlockOverlay(world, ctx, terrain);
   for (let radius = 0; radius <= UNLOAD_SHORE_REACH; radius++) {
     for (const { point } of hexagonRing(door, radius)) {
-      if (terrain.inBounds(point.hx, point.hy) && terrain.isWalkable(terrain.nodeAt(point.hx, point.hy))) {
-        return point;
-      }
+      if (isOpenLand(terrain, blocked, point)) return point;
     }
   }
   return null;

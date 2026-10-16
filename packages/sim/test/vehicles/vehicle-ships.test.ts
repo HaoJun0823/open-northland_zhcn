@@ -34,11 +34,17 @@ import {
 } from '../../src/index.js';
 import { stepHex } from '../../src/nav/halfcell.js';
 import { findPath } from '../../src/nav/pathfinding/index.js';
-import { vehicleDoorNode } from '../../src/systems/footprint/index.js';
+import { dynamicBlockOverlay, vehicleDoorNode } from '../../src/systems/footprint/index.js';
 import { vehicleClearance } from '../../src/systems/footprint/vehicle-clearance.js';
 import { removeSettlerSilently } from '../../src/systems/lifecycle/death.js';
 import { SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
-import { boardRider, createVehicle, mooringProbe, removeVehicle } from '../../src/systems/vehicles/index.js';
+import {
+  boardRider,
+  createVehicle,
+  mooringProbe,
+  removeVehicle,
+  unloadLandingOf,
+} from '../../src/systems/vehicles/index.js';
 import { stockVehicleGoods } from '../../src/systems/vehicles/stock.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -167,6 +173,20 @@ function crewedShip(
 function anchorOf(s: Simulation, e: Entity): HalfCellNode {
   const p = s.world.get(e, Position);
   return nodeOfPosition(p.x, p.y);
+}
+
+/** A resource body standing on the one node `at`, the way a tree blocks the walk overlay. */
+function blockNode(s: Simulation, at: HalfCellNode): void {
+  const blocker = s.world.create();
+  s.world.add(blocker, Position, positionOfNode(at.hx, at.hy));
+  s.world.add(blocker, ResourceFootprint, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
+}
+
+/** Cast the ship off where it lies, no mooring point kept. */
+function castOff(s: Simulation, ship: Entity): void {
+  const live = s.world.mut(ship, Vehicle);
+  live.moored = false;
+  live.mooring = null;
 }
 
 function distanceTo(a: HalfCellNode, b: HalfCellNode): number {
@@ -432,12 +452,11 @@ describe('dockVehicle', () => {
     const terrain = s.terrain;
     if (terrain === undefined) throw new Error('map missing');
     const { ship, riders } = crewedShip(s, NEAR_WEST_SHORE_X, MID_ROW, 2);
-    const live = s.world.mut(ship, Vehicle);
-    live.moored = false; // cast off where it lies, its door point at sea one node off the shore
-    live.mooring = null;
+    castOff(s, ship); // its door point at sea one node off the shore
     const door = vehicleDoorNode(s.world, ctxOf(s), ship);
     if (door === null) throw new Error('no door');
     expect(terrain.isWalkable(terrain.nodeAt(door.hx, door.hy))).toBe(false);
+    expect(s.canUnloadPeople(ship)).toBe(true);
     s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship }));
     s.step();
     for (const rider of riders) {
@@ -447,6 +466,42 @@ describe('dockVehicle', () => {
       expect(distanceTo(at, door)).toBeLessThanOrEqual(2); // landed beside the door, then spread a node
     }
     expect(s.world.get(ship, Vehicle).moored).toBe(false);
+  });
+
+  it('refuses to unload an unmoored ship in open water, its crew staying aboard', () => {
+    const s = sim();
+    const { ship, riders } = crewedShip(s, OPEN_WATER_X, MID_ROW);
+    castOff(s, ship);
+    expect(s.canUnloadPeople(ship)).toBe(false);
+    s.enqueue(playerCommand(P0, { kind: 'unloadPeople', vehicle: ship }));
+    s.step();
+    for (const rider of riders) {
+      expect(s.world.has(rider, Rider)).toBe(true);
+      expect(s.world.has(rider, Position)).toBe(false);
+    }
+  });
+
+  it("lands an unmoored ship's crew past a resource standing on the shore, and not at all when it covers the shore", () => {
+    const s = sim();
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('map missing');
+    const { ship } = crewedShip(s, NEAR_WEST_SHORE_X, MID_ROW);
+    castOff(s, ship);
+    const ctx = ctxOf(s);
+    const first = unloadLandingOf(s.world, ctx, ship);
+    if (first === null) throw new Error('no landing beside the door');
+    blockNode(s, first);
+    const second = unloadLandingOf(s.world, ctx, ship);
+    if (second === null) throw new Error('no landing past the blocker');
+    expect(second).not.toEqual(first);
+    expect(dynamicBlockOverlay(s.world, ctx, terrain).has(terrain.nodeAt(second.hx, second.hy))).toBe(false);
+    blockNode(s, second);
+    let rest = unloadLandingOf(s.world, ctx, ship);
+    while (rest !== null) {
+      blockNode(s, rest);
+      rest = unloadLandingOf(s.world, ctx, ship);
+    }
+    expect(s.canUnloadPeople(ship)).toBe(false);
   });
 
   it('stays at sea after a goto to the shore while its commander is aboard', () => {
@@ -479,6 +534,30 @@ describe('dockVehicle', () => {
     expect(terrain.isWalkable(terrain.nodeAt(mooring.hx, mooring.hy))).toBe(true);
     expect(distanceTo(anchorOf(s, ship), mooring)).toBe(DOOR_DISTANCE);
     expect(docked(s)).toEqual([mooring]);
+  });
+
+  it('moors by itself past a resource standing on the first shore node of its door ring', () => {
+    const run = (blocked: HalfCellNode | null): HalfCellNode => {
+      const s = sim();
+      if (blocked !== null) blockNode(s, blocked);
+      const { ship, riders } = crewedShip(s, OPEN_WATER_X, MID_ROW);
+      s.enqueue(playerCommand(P0, { kind: 'moveVehicle', vehicle: ship, x: NEAR_WEST_SHORE_X, y: MID_ROW }));
+      s.run(3);
+      const [rider] = riders;
+      if (rider === undefined) throw new Error('no rider');
+      removeSettlerSilently(s.world, rider);
+      sailOut(s, ship);
+      const mooring = s.world.get(ship, Vehicle).mooring;
+      if (mooring === null) throw new Error('no mooring point');
+      const terrain = s.terrain;
+      if (terrain === undefined) throw new Error('map missing');
+      expect(
+        dynamicBlockOverlay(s.world, ctxOf(s), terrain).has(terrain.nodeAt(mooring.hx, mooring.hy)),
+      ).toBe(false);
+      return mooring;
+    };
+    const open = run(null);
+    expect(run(open)).not.toEqual(open);
   });
 
   it('moors in place when the ship already lies on the ring, ending any drive under way', () => {

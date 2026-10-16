@@ -108,7 +108,8 @@ export function dispatchRecruitArming(pass: PlannerPass): void {
 /**
  * The good types an `intent` recruit may be armed with, strongest first: bare-target damage decides and
  * the good id only breaks a tie. A row needs both a `jobtype` and a `goodtype` to arm anyone, and a
- * `vetoed` good (the seat's {@link AssistantWeaponVetoes}) arms nobody.
+ * `vetoed` good (the seat's {@link AssistantWeaponVetoes}) arms nobody. The list is shared: read it, never
+ * edit it.
  */
 export function armingGoodPreference(
   content: ContentSet,
@@ -116,21 +117,46 @@ export function armingGoodPreference(
   intent: keyof typeof INTENT_WEAPON_CLASS,
   vetoed: readonly number[],
 ): readonly number[] {
+  const all = unvetoedPreference(content, tribe, intent);
+  for (const good of all) {
+    if (vetoed.includes(good)) return all.filter((kept) => !vetoed.includes(kept));
+  }
+  return all;
+}
+
+/** {@link armingGoodPreference} before any veto, per content, tribe and intent: content-static. */
+const preferenceTables = new WeakMap<ContentSet, Map<number, Map<string, readonly number[]>>>();
+
+function unvetoedPreference(
+  content: ContentSet,
+  tribe: number,
+  intent: keyof typeof INTENT_WEAPON_CLASS,
+): readonly number[] {
+  let byTribe = preferenceTables.get(content);
+  if (byTribe === undefined) {
+    byTribe = new Map();
+    preferenceTables.set(content, byTribe);
+  }
+  let byIntent = byTribe.get(tribe);
+  if (byIntent === undefined) {
+    byIntent = new Map();
+    byTribe.set(tribe, byIntent);
+  }
+  const held = byIntent.get(intent);
+  if (held !== undefined) return held;
   const mainType = INTENT_WEAPON_CLASS[intent];
   const rows = content.weapons.filter(
     (w): w is WeaponType & { goodType: number } =>
-      w.tribeType === tribe &&
-      w.mainType === mainType &&
-      w.goodType !== undefined &&
-      w.jobType !== undefined &&
-      !vetoed.includes(w.goodType),
+      w.tribeType === tribe && w.mainType === mainType && w.goodType !== undefined && w.jobType !== undefined,
   );
   rows.sort(
     (a, b) =>
       weaponDamageVsMaterial(b, BARE_TARGET) - weaponDamageVsMaterial(a, BARE_TARGET) ||
       a.goodType - b.goodType,
   );
-  return [...new Set(rows.map((w) => w.goodType))];
+  const goods = [...new Set(rows.map((w) => w.goodType))];
+  byIntent.set(intent, goods);
+  return goods;
 }
 
 /**
@@ -304,7 +330,7 @@ function pickReachableArmor(
   veto: ((cell: NodeId) => boolean) | undefined,
 ): ArmorSource | null {
   const byClass = armorByClass(ctx.content);
-  for (const tier of [ARMOR_MAIN_TYPE.HEAVY, ARMOR_MAIN_TYPE.LIGHT]) {
+  for (const tier of ARMOR_TIERS) {
     const sources: ArmorSource[] = [];
     for (const armor of byClass.get(tier) ?? []) {
       if (armor.goodType === undefined) continue;
@@ -326,6 +352,9 @@ function pickReachableArmor(
   }
   return null;
 }
+
+/** The armor tiers a recruit shops, the heavy before the light fallback. */
+const ARMOR_TIERS = [ARMOR_MAIN_TYPE.HEAVY, ARMOR_MAIN_TYPE.LIGHT] as const;
 
 /** The unarmored damage column (`damagevalue 0`), the strength axis the weapon preference sorts on. */
 const BARE_TARGET = 0;

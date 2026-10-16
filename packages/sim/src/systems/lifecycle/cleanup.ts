@@ -1,6 +1,6 @@
 import { Building, Health, Owner, Palisade, Position, Upgrading, Vehicle } from '../../components/index.js';
 import { eventAt } from '../../core/events.js';
-import type { Entity, World } from '../../ecs/world.js';
+import type { ChangeFeed, Entity, World } from '../../ecs/world.js';
 import { unbindWorkersOf } from '../command/placement.js';
 import type { System, SystemContext } from '../context.js';
 import { scatterSpilledStock, spilledStockOf } from '../economy/goods-spill.js';
@@ -13,6 +13,18 @@ import { reap } from './death.js';
 import { holdRuinSpill } from './ruins.js';
 
 /**
+ * The entities that may hold a drained {@link Health} pool: every Health add or write since the last
+ * pass, plus the drained ones the last pass left alive. A pool reaches 0 only through such a write.
+ */
+interface DrainWatch {
+  readonly feed: ChangeFeed;
+  /** Drained pools the last pass saw but did not destroy. */
+  carried: Entity[];
+}
+
+const watches = new WeakMap<World, DrainWatch>();
+
+/**
  * Destroy every entity whose {@link Health} pool has been drained to 0 and announce it with a
  * `settlerDied` event. Runs last in the schedule, so a hit landed earlier this tick is reaped before
  * anything downstream or the renderer's snapshot can observe a 0-HP entity.
@@ -20,13 +32,7 @@ import { holdRuinSpill } from './ruins.js';
 export const cleanupSystem: System = (world, ctx) => {
   // Collect-then-destroy: never `world.destroy` while iterating the store the scan reads, and in
   // ascending-id order so the `settlerDied` events render consumes are stable.
-  const dead: Entity[] = [];
-  for (const e of world.query(Health)) {
-    // Intentional deviation from the original: a pool left at exactly 0 dies here, where the original's
-    // regeneration lifts a fed person back to 1 before its death check.
-    if (world.get(e, Health).hitpoints <= 0) dead.push(e);
-  }
-  dead.sort((a, b) => a - b);
+  const dead = drainedPools(world);
   for (const e of dead) {
     if (!world.isAlive(e)) continue; // a rider a sinking ship took down earlier in this loop
     // A drained building goes through the demolish path, not the settler-death path: it holds no
@@ -36,7 +42,39 @@ export const cleanupSystem: System = (world, ctx) => {
     else if (world.has(e, Vehicle)) removeVehicle(world, ctx, e, 'destroyed');
     else reap(world, ctx, e);
   }
+  const watch = watches.get(world);
+  if (watch !== undefined) watch.carried = dead.filter((e) => isDrained(world, e));
 };
+
+/** Ascending ids of every entity whose Health pool is at or below 0. */
+function drainedPools(world: World): Entity[] {
+  const dead: Entity[] = [];
+  let watch = watches.get(world);
+  let lost = watch === undefined;
+  if (watch === undefined) {
+    watch = { feed: world.watchChanges([Health], [Health]), carried: [] };
+    watches.set(world, watch);
+  } else {
+    for (const e of watch.carried) if (isDrained(world, e)) dead.push(e);
+    lost = watch.feed.drain((e) => {
+      if (isDrained(world, e) && !dead.includes(e)) dead.push(e);
+    });
+  }
+  if (lost) {
+    dead.length = 0;
+    for (const e of world.query(Health)) {
+      // Intentional deviation from the original: a pool left at exactly 0 dies here, where the original's
+      // regeneration lifts a fed person back to 1 before its death check.
+      if (world.get(e, Health).hitpoints <= 0) dead.push(e);
+    }
+  }
+  return dead.sort((a, b) => a - b);
+}
+
+function isDrained(world: World, e: Entity): boolean {
+  const health = world.isAlive(e) ? world.tryGet(e, Health) : undefined;
+  return health !== undefined && health.hitpoints <= 0;
+}
 
 /**
  * The teardown seam combat razing and the player's `demolish` command share: release every bound settler,

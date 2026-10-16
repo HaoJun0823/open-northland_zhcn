@@ -1,0 +1,18 @@
+{
+  "reason": "Etap narodzin liczy dowolnych cywilów w pobliżu domu, więc może zaliczyć samych dorosłych albo zablokować prawdziwe dziecko urodzone w innym domu. Sprawdza teraz niemowlę dowolnej płci należące do gracza, bez zmiany identyfikatorów postaci. Początkowe niemowlę zostaje wcześniej przekazane innemu graczowi.",
+  "file": "maps/community/tutorial_002/map.cif",
+  "sha256": "cb81d30299837c953256683cec1b118de877f050be33d123dcca31ab9fc47455",
+  "format": "cif",
+  "lines": [
+    {
+      "line": 67,
+      "from": "goal \"HumansWithHome\" 0 6",
+      "to": ["successfullif 1", "goal \"BuildHumans\" 0 \"baby_female\" 1 12345"]
+    },
+    {
+      "line": 68,
+      "from": "goal \"NumberOfCivilainsNearPos\" 0 127 189 20 3",
+      "to": "goal \"BuildHumans\" 0 \"baby_male\" 1 12345"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji.",
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny.",
   "file": "maps/community/tutorial_002/text/eng/briefings/briefings.txt",
   "sha256": "49e81ce03dd855ba663225526b9cf396ed7be9a1eaa25eb0a420a10c32a9f680",
   "encoding": "windows-1250",
@@ -17,7 +17,7 @@
     {
       "line": 49,
       "from": "Start with the NAME. Select Bjoern and click on his name in the character display. A small window will pop up where you can change his name. ",
-      "to": "Start with the NAME. Select Bjoern and click on his name in the character panel in the bottom right corner of the screen. The name turns into a field where you can type his new name and confirm it with ENTER. "
+      "to": "If a character has a “Rename” button beside their name, you can use it to enter a new name and confirm with ENTER. Bjoern's name is fixed in this tutorial, so this exercise changes only his profession. "
     },
     {
       "line": 79,
@@ -43,6 +43,26 @@
       "line": 107,
       "from": "Fight the wolves in the swamp with Bjarni by selecting him and clicking on the animals with the RIGHT MOUSE BUTTON when the tooltip \"Bjarni - Attack animal\" appears!",
       "to": "Fight the wolves in the swamp with Bjarni: select him, click on him with the RIGHT MOUSE BUTTON (or press SPACE), choose the order \"Attack Animal\" from the action menu and click on a wolf with the LEFT MOUSE BUTTON!"
+    },
+    {
+      "line": 24,
+      "from": "He is a woodcutter, and he is happy doing his job. He has a wife and a young child waiting for him at home after work.",
+      "to": "His profession is Extractor, and he gathers wood. He enjoys his work. He has a wife and a young child waiting for him at home after work."
+    },
+    {
+      "line": 45,
+      "from": "He'd like to have a wife as well, to live in a dwelling and add to the Viking tribe. He doesn't like his name and his profession either, and he'd much rather sit and fish all day. ",
+      "to": "He'd like to have a wife as well, to live in a dwelling and add to the Viking tribe. He doesn't like his profession, and he'd much rather sit and fish all day. "
+    },
+    {
+      "line": 47,
+      "from": "Give BJOERN a new identity! ",
+      "to": "Give BJOERN a new profession! "
+    },
+    {
+      "line": 59,
+      "from": "Marry RAGNA to the Viking who was called BJOERN, assign them the dwelling on the shore and let them have a child.",
+      "to": "Marry BJOERN to RAGNA. Marriage may move the couple into Ragna's existing home. After the wedding, select Bjoern and assign him to the empty house on the eastern shore, near where he first stood. Ragna moves with him. Once they live in that house, ask the couple to have a child."
     }
   ]
 }

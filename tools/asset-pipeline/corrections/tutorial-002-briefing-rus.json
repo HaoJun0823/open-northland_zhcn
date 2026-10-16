@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Poprawione są także błędy gramatyczne i pisownia. Bjoern chce powiększyć plemię, nie dopiero do niego dołączyć.",
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Poprawione są także błędy gramatyczne i pisownia. Bjoern chce powiększyć plemię, nie dopiero do niego dołączyć. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny.",
   "file": "maps/community/tutorial_002/text/rus/briefings/briefings.txt",
   "sha256": "ff2404c5f43c3df2712fae57b18207e735a6907a7317bfa62280834085c465b6",
   "encoding": "windows-1251",
@@ -17,7 +17,7 @@
     {
       "line": 49,
       "from": "Начните с ИМЕНИ. Выберите Бьерна и щелкните по его имени на экране персонажа. Появится маленькое окошко, где вы можете изменить его имя. ",
-      "to": "Начните с ИМЕНИ. Выберите Бьерна и щелкните по его имени на панели персонажа в правом нижнем углу экрана. Имя превратится в поле, где вы можете ввести новое имя и подтвердить его клавишей ENTER. "
+      "to": "Если рядом с именем персонажа есть кнопка «Переименовать», с ее помощью можно ввести новое имя и подтвердить его клавишей ENTER. Имя Бьерна в этом обучении изменить нельзя, поэтому здесь вы меняете только его профессию. "
     },
     {
       "line": 79,
@@ -47,12 +47,12 @@
     {
       "line": 45,
       "from": "Он тоже хотел бы иметь жену, жить в доме и присоединиться к племени викингов. Ему не нравится ни свое имя, ни профессия, он бы предпочел целый день сидеть и ловить рыбу. ",
-      "to": "Он тоже хотел бы иметь жену, жить в доме и пополнить племя викингов. Ему не нравятся ни свое имя, ни профессия, он бы предпочел целый день сидеть и ловить рыбу. "
+      "to": "Он тоже хотел бы иметь жену, жить в доме и пополнить племя викингов. Ему не нравится его профессия, он бы предпочел целый день сидеть и ловить рыбу. "
     },
     {
       "line": 59,
       "from": "Выдайте РАГНУ замуж за викинга, которого звали Бьерна, назначьте им жилище на берегу и позвольте завести ребенка.",
-      "to": "Выдайте РАГНУ замуж за викинга, которого раньше звали Бьерном, назначьте им жилище на берегу и позвольте завести ребенка."
+      "to": "Пожените БЬЕРНА и РАГНУ. После свадьбы пара может поселиться в прежнем доме Рагны. Поэтому после свадьбы выберите Бьерна и назначьте ему пустой дом на восточном берегу, недалеко от места, где он стоял вначале. Рагна переедет вместе с ним. Когда они поселятся в этом доме, прикажите паре завести ребенка."
     },
     {
       "line": 70,
@@ -63,6 +63,16 @@
       "line": 76,
       "from": "У ваших викингов такие же потребности, как у настоящих людей. Им нужно есть, спать и говорить, некоторым из них для счастья даже нужна религия. Если у жителей деревни есть потребность, они все сделают, чтобы удовлетворить ее как можно быстрее. Например, если они голодны, то прекратят работать, чтобы найти себе пищу. Если они что-то найдут, то отправятся туда и поедят. Они вернуться к работе только тогда, когда не будут голодными. ",
       "to": "У ваших викингов такие же потребности, как у настоящих людей. Им нужно есть, спать и говорить, некоторым из них для счастья даже нужна религия. Если у жителей деревни есть потребность, они все сделают, чтобы удовлетворить ее как можно быстрее. Например, если они голодны, то прекратят работать, чтобы найти себе пищу. Если они что-то найдут, то отправятся туда и поедят. Они вернутся к работе только тогда, когда не будут голодными. "
+    },
+    {
+      "line": 24,
+      "from": "Он дровосек и с радостью выполняет свою работу. Дома после работы его ждут жена и маленький ребенок.",
+      "to": "Он добытчик и заготавливает древесину. Ему нравится его работа. Дома после работы его ждут жена и маленький ребенок."
+    },
+    {
+      "line": 47,
+      "from": "Дайте БЬЕРНУ новую личность! ",
+      "to": "Дайте БЬЕРНУ новую профессию! "
     }
   ]
 }

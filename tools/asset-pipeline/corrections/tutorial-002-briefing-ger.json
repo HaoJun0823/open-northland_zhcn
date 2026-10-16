@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Poprawione są także błędy gramatyczne i pisownia.",
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Poprawione są także błędy gramatyczne i pisownia. Halldor jest zbieraczem pozyskującym drewno; nazwa zawodu odpowiada etykiecie w panelu postaci. Bjoern zachowuje stałe imię, więc ćwiczenie dotyczy zmiany zawodu; zmiana imienia jest opisana warunkowo, gdy widoczny jest odpowiedni przycisk. Po ślubie trzeba ponownie przydzielić parze pusty dom na wschodnim wybrzeżu, zanim poprosi się o dziecko; para może wcześniej zamieszkać w domu Ragny.",
   "file": "maps/community/tutorial_002/text/ger/briefings/briefings.txt",
   "sha256": "62ca680a9b5a89c9cadc56f6d6683e60cfd7b42b51fec8503a407977238ae2c7",
   "encoding": "windows-1250",
@@ -17,7 +17,7 @@
     {
       "line": 49,
       "from": "Fang mit dem NAMEN an. Wähle Björn dazu aus und klicke auf seinen Namen im Figurenfenster. Es erscheint ein kleines Fenster, in dem du seinen Namen ändern kannst. ",
-      "to": "Fang mit dem NAMEN an. Wähle Björn dazu aus und klicke auf seinen Namen im Figurenfenster unten rechts am Bildschirm. Der Name wird zu einem Eingabefeld, in dem du seinen neuen Namen eintippst und mit ENTER bestätigst. "
+      "to": "Wenn neben dem Namen einer Figur die Schaltfläche „Umbenennen“ verfügbar ist, kannst du damit einen neuen Namen eingeben und mit ENTER bestätigen. Bjoerns Name steht in diesem Tutorial fest; hier änderst du nur seinen Beruf. "
     },
     {
       "line": 79,
@@ -58,6 +58,26 @@
       "line": 61,
       "from": "Beachte: Nicht immer ist das Heiraten eine einfache Sache. Manche Wikinger sind so vertieft in ihre Aufgaben, dass sie die Werbungen eines anderen gar nicht registrieren oder sich gar einen anderen Partner wählen wollen. Falls du einmal Probleme mit zwei vermeintlich Liebenden hast, dann schicke sie zusammen weg, fernab von allen anderen und gib dann mindestens einen der beiden den Heiratsbefehl! ",
       "to": "Beachte: Nicht immer ist das Heiraten eine einfache Sache. Manche Wikinger sind so vertieft in ihre Aufgaben, dass sie die Werbungen eines anderen gar nicht registrieren oder sich gar einen anderen Partner wählen wollen. Falls du einmal Probleme mit zwei vermeintlich Liebenden hast, dann schicke sie zusammen weg, fernab von allen anderen und gib dann mindestens einem der beiden den Heiratsbefehl! "
+    },
+    {
+      "line": 24,
+      "from": "Er ist Holzabbauer und ist glücklich bei seiner Arbeit, hat eine Frau und ein kleines Kind, die zu Hause nach getaner Arbeit auf ihn warten.",
+      "to": "Er ist Abbauer und gewinnt Holz. Er ist glücklich bei seiner Arbeit. Er hat eine Frau und ein kleines Kind, die zu Hause nach getaner Arbeit auf ihn warten."
+    },
+    {
+      "line": 45,
+      "from": "Er würde auch gern eine Frau haben, in einem Haus wohnen und den Wikingerstamm vergrößern. Auch gefallen ihm sein Name und sein Beruf nicht, denn er wäre viel lieber Fischer und würde den ganzen Tag angeln. ",
+      "to": "Er würde auch gern eine Frau haben, in einem Haus wohnen und den Wikingerstamm vergrößern. Auch gefällt ihm sein Beruf nicht, denn er wäre viel lieber Fischer und würde den ganzen Tag angeln. "
+    },
+    {
+      "line": 47,
+      "from": "Gib BJOERN eine neue Identität! ",
+      "to": "Gib BJOERN einen neuen Beruf! "
+    },
+    {
+      "line": 59,
+      "from": "Verheirate RAGNA und den Wikinger, der früher BJÖRN hieß, weise ihnen das Haus am Ufer zu und lass sie ein Kind bekommen.",
+      "to": "Verheirate BJOERN und RAGNA. Nach der Hochzeit kann das Paar in Ragnas bisherigem Haus wohnen. Wähle deshalb erst nach der Hochzeit Bjoern aus und weise ihm das leere Haus am östlichen Ufer zu, nahe der Stelle, an der er anfangs stand. Ragna zieht mit ihm um. Lass das Paar erst ein Kind bekommen, wenn beide in diesem Haus wohnen."
     }
   ]
 }

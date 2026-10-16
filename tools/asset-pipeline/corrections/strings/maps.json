@@ -188,16 +188,16 @@
     "lang": "rus",
     "id": 0,
     "from": "Измените род занятий Бхоерна! Сделайте его рыбаком.",
-    "to": "Дайте Бьерну новое имя! Сделайте его рыбаком.",
-    "reason": "Cel opisuje zmianę imienia i zawodu, tak jak instrukcja lekcji; imię zgodne z tekstem odprawy."
+    "to": "Сделайте Бьерна рыбаком.",
+    "reason": "Bjoern zachowuje stałe imię; zadanie wymaga zmiany zawodu na rybaka."
   },
   {
     "map": "tutorial_002",
     "lang": "rus",
     "id": 2,
     "from": "Пожените рыбака на Рагне и пусть они вместе живут в жилище.",
-    "to": "Жените рыбака на Рагне и пусть они вместе живут в жилище.",
-    "reason": "Poprawna konstrukcja czasownika przy zawieraniu małżeństwa."
+    "to": "Пожените Бьерна и Рагну. После свадьбы назначьте им пустой дом на восточном берегу.",
+    "reason": "Kolejność lekcji: po ślubie para ma zamieszkać w pustym domu na wschodnim wybrzeżu, a dopiero potem mieć dziecko."
   },
   {
     "map": "tutorial_002",
@@ -966,5 +966,85 @@
     "from": "Установи необходимое количество мальчиков 20 в помощнике.",
     "to": "Установи необходимое количество мальчиков в помощнике на 20.",
     "reason": "Poprawny szyk zdania."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "pol",
+    "id": 0,
+    "from": "Nadaj Bjoernowi nową tożsamość! Zrób z niego rybaka.",
+    "to": "Zmień zawód Bjoerna na rybaka.",
+    "reason": "Bjoern zachowuje stałe imię; zadanie wymaga zmiany zawodu na rybaka."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "eng",
+    "id": 0,
+    "from": "Give Bjoern a new identity! Make him a fisherman.",
+    "to": "Change Bjoern's profession to fisherman.",
+    "reason": "Bjoern zachowuje stałe imię; zadanie wymaga zmiany zawodu na rybaka."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "ger",
+    "id": 0,
+    "from": "Gib Bjoern eine neue Identität! Mach ihn zum Fischer.",
+    "to": "Mache Bjoern zum Fischer.",
+    "reason": "Bjoern zachowuje stałe imię; zadanie wymaga zmiany zawodu na rybaka."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "pol",
+    "id": 2,
+    "from": "Ożeń rybaka z Ragną i umieść ich we wspólnym domu.",
+    "to": "Ożeń Bjoerna z Ragną. Po ślubie przydziel im pusty dom na wschodnim wybrzeżu.",
+    "reason": "Kolejność lekcji: po ślubie para ma zamieszkać w pustym domu na wschodnim wybrzeżu, a dopiero potem mieć dziecko."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "pol",
+    "id": 3,
+    "from": "Namów parę na posiadanie dziecka.",
+    "to": "Namów Ragnę i Bjoerna na posiadanie dziecka.",
+    "reason": "Cel dotyczy narodzin dziecka Ragny i Bjoerna, bez dodatkowego warunku położenia rodziny."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "eng",
+    "id": 2,
+    "from": "Marry the fisherman to Ragna and have them live together in a dwelling.",
+    "to": "Marry Bjoern to Ragna. After the wedding, assign them the empty house on the eastern shore.",
+    "reason": "Kolejność lekcji: po ślubie para ma zamieszkać w pustym domu na wschodnim wybrzeżu, a dopiero potem mieć dziecko."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "eng",
+    "id": 3,
+    "from": "Tell the couple to have a child.",
+    "to": "Ask Ragna and Bjoern to have a child.",
+    "reason": "Cel dotyczy narodzin dziecka Ragny i Bjoerna, bez dodatkowego warunku położenia rodziny."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "ger",
+    "id": 2,
+    "from": "Verheirate den Fischer mit Ragna und lasse sie zusammen in einem Haus wohnen.",
+    "to": "Verheirate Bjoern mit Ragna. Weise ihnen nach der Hochzeit das leere Haus am östlichen Ufer zu.",
+    "reason": "Kolejność lekcji: po ślubie para ma zamieszkać w pustym domu na wschodnim wybrzeżu, a dopiero potem mieć dziecko."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "ger",
+    "id": 3,
+    "from": "Lass das Ehepaar ein Kind bekommen.",
+    "to": "Lass Ragna und Bjoern ein Kind bekommen.",
+    "reason": "Cel dotyczy narodzin dziecka Ragny i Bjoerna, bez dodatkowego warunku położenia rodziny."
+  },
+  {
+    "map": "tutorial_002",
+    "lang": "rus",
+    "id": 3,
+    "from": "Прикажите паре завести ребенка.",
+    "to": "Прикажите Рагне и Бьерну завести ребенка.",
+    "reason": "Cel dotyczy narodzin dziecka Ragny i Bjoerna, bez dodatkowego warunku położenia rodziny."
   }
 ]

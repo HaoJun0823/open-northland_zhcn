@@ -299,7 +299,7 @@ export class EngagementSpecs {
     const minDist = weapon.minRange;
     const advanceNear = 0;
     const player = null;
-    const lowPriorityBuildings = (t: Entity): boolean => index.isLowPriorityBuilding(t);
+    const lowPriorityBuildings = this.lowPriority;
     const advanceAccept = this.advanceAccept;
     // An unowned hostile animal advances on what its herd takes up; any other unowned combatant (a scenario
     // civ) swings in place, its search capped at weapon reach.

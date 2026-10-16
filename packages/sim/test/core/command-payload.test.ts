@@ -21,6 +21,14 @@ function parse(command: Record<string, unknown>): unknown {
 }
 
 describe('command payload contracts', () => {
+  it('preserves an optional selected stock good and rejects malformed good ids', () => {
+    const command = { kind: 'debugFillStockpile', target: UNIT, goodType: 1 };
+    expect(parse(command)).toEqual(imported(command));
+    for (const goodType of [1.5, NaN, Infinity, '1']) {
+      expect(() => parse({ ...command, goodType })).toThrow(/command.goodType/);
+    }
+  });
+
   it('accepts an admin health percentage and rejects malformed values or player authority', () => {
     const command = { kind: 'debugSetHealth', target: UNIT, percent: 1 };
     const envelope = { v: 2, origin: 'admin', command };

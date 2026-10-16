@@ -164,6 +164,11 @@ Coordinates are half-cell nodes. Spawn accepts `jobType`, `x`, `y`, `tribe`, `ow
 `weaponTypeId`, `armorClass`, `equipment` and `experience`; script identities and behavior overrides
 are excluded. Health percent is 1–100; needs are 0–100.
 
+Fill-all stock can grant quest items and trigger missions. To prepare one resource, use
+`test.prepare({ kind: 'debugFillStockpile', target: 42, goodType: 3 })`. The optional `goodType`
+fills only that building type's declared slot to capacity, leaving other goods untouched; an
+undeclared good is a no-op. Omitting it retains fill-all behavior.
+
 `events(afterCursor = 0)` returns detached `{ rows, nextCursor, overflow }`. Each row has `cursor`,
 `observedTick` and `event`. The 512-row tail records all delivered mission events, player verdicts,
 existing `*Refused` events and preparation validation failures. The runtime combines events from

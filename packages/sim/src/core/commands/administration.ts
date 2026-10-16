@@ -129,9 +129,9 @@ export type DebugCommand =
       readonly piety?: number;
       readonly enjoyment?: number;
     }
-  /** Fill `target` building's stockpile: every good its type declares a stock slot for is set to that
-   *  slot's `capacity`. A building without a `Stockpile` is a no-op. */
-  | { readonly kind: 'debugFillStockpile'; readonly target: Entity }
+  /** Fill `target` building's declared stock slots to capacity, or only `goodType` when supplied.
+   *  An undeclared good or a building without a `Stockpile` is a no-op. */
+  | { readonly kind: 'debugFillStockpile'; readonly target: Entity; readonly goodType?: number }
   /** Finish `target`'s construction now, regardless of delivered material or builder labor: full
    *  `Health`, marker removed, `buildingFinished` emitted. An already-built building is a no-op. */
   | { readonly kind: 'debugCompleteConstruction'; readonly target: Entity }

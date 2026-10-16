@@ -66,6 +66,15 @@ describe('local mission playtest handle', () => {
     expect(f.playtest?.handle.events().rows).toHaveLength(9);
   });
 
+  it('passes a targeted stock fill through the existing payload parser', () => {
+    const f = fixture();
+    const command = { kind: 'debugFillStockpile', target: 1, goodType: 3 };
+    f.playtest?.handle.prepare(command);
+    expect(f.submitted).toEqual([command]);
+    expect(() => f.playtest?.handle.prepare({ ...command, goodType: Infinity })).toThrow(/goodType/);
+    expect(f.submitted).toHaveLength(1);
+  });
+
   it('accepts the complete preparation whitelist', () => {
     const f = fixture();
     for (const command of [

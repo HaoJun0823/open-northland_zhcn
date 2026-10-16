@@ -246,6 +246,52 @@ describe('debugSetNeeds', () => {
 });
 
 describe('debugFillStockpile', () => {
+  it('fills only a selected declared slot through the admin queue', () => {
+    const sim = fresh();
+    const store = sim.world.create();
+    sim.world.add(store, Building, { buildingType: WORKPLACE, tribe: VIKING, built: ONE, level: 0 });
+    sim.world.add(store, Stockpile, {
+      amounts: new Map([
+        [1, 3],
+        [2, 4],
+        [99, 5],
+      ]),
+    });
+
+    sim.enqueue(adminCommand({ kind: 'debugFillStockpile', target: store, goodType: 1 }));
+    commandSystem(sim.world, nextTickCtxOf(sim));
+
+    expect([...sim.world.get(store, Stockpile).amounts]).toEqual([
+      [1, 20],
+      [2, 4],
+      [99, 5],
+    ]);
+  });
+
+  it('leaves stock and mutation versions unchanged for invalid or undeclared selections', () => {
+    const sim = fresh();
+    const store = sim.world.create();
+    sim.world.add(store, Building, { buildingType: WORKPLACE, tribe: VIKING, built: ONE, level: 0 });
+    sim.world.add(store, Stockpile, {
+      amounts: new Map([
+        [1, 3],
+        [2, 4],
+        [99, 5],
+      ]),
+    });
+    for (const goodType of [99, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1]) {
+      const version = sim.world.mutationVersion;
+      sim.enqueue(adminCommand({ kind: 'debugFillStockpile', target: store, goodType }));
+      commandSystem(sim.world, nextTickCtxOf(sim));
+      expect([...sim.world.get(store, Stockpile).amounts]).toEqual([
+        [1, 3],
+        [2, 4],
+        [99, 5],
+      ]);
+      expect(sim.world.mutationVersion).toBe(version);
+    }
+  });
+
   it("fills every stock slot the building type declares to that slot's capacity", () => {
     const sim = fresh();
     const store = sim.world.create();

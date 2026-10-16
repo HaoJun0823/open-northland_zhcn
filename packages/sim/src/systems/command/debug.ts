@@ -73,8 +73,7 @@ function needFixedFromPct(pct: number): Fixed {
   return fx.mulDiv(ONE, fx.fromInt(clamped), fx.fromInt(100));
 }
 
-/** Set every good the building type declares a stock slot for to that slot's capacity (its "100%"). A
- *  non-building target, one without a {@link Stockpile}, or an unknown type is a no-op. */
+/** Fill declared stock slots, or just the selected good. Invalid selections and targets are no-ops. */
 export function debugFillStockpile(
   world: World,
   ctx: SystemContext,
@@ -84,6 +83,13 @@ export function debugFillStockpile(
   if (building === undefined || !world.has(command.target, Stockpile)) return;
   const type = contentIndex(ctx.content).commandBuildings.get(building.buildingType);
   if (type === undefined) return;
+  if (command.goodType !== undefined) {
+    if (!Number.isSafeInteger(command.goodType)) return;
+    const slot = type.stock.find((slot) => slot.goodType === command.goodType);
+    if (slot === undefined) return;
+    world.mut(command.target, Stockpile).amounts.set(slot.goodType, slot.capacity);
+    return;
+  }
   const stock = world.mut(command.target, Stockpile).amounts;
   for (const slot of type.stock) stock.set(slot.goodType, slot.capacity);
 }

@@ -67,6 +67,7 @@ const SPEC: AdminPanelSpec = {
 
 const WORLD: AdminWorldState = {
   needs: true,
+  bioGround: false,
   fog: { map: 'off', fogOfWar: false },
   geometry: false,
   zoomOut: false,
@@ -91,6 +92,7 @@ function mount(overrides: Partial<AdminPanelHandlers> = {}) {
     onSkills: log('skills'),
     onHealthPercent: log('percent'),
     onNeeds: log('needs'),
+    onBioGround: log('bioGround'),
     onFogMap: log('fogMap'),
     onFogOfWar: log('fogOfWar'),
     onGeometry: log('geometry'),
@@ -182,8 +184,9 @@ describe('admin panel', () => {
   });
 
   it('names the chosen weapon and armor and passes every equipment pick through', () => {
-    const { plane, calls, q } = mount();
+    const { panel, plane, calls, q } = mount();
     plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip')[1]?.click();
+    panel.showArmed({ key: 'soldier', name: 'Sword Soldier · Blue', hint: 'Click the map' });
     const names = (): string[] =>
       [...plane.querySelectorAll('.on-admin__choice-name')].map((name) => name.textContent ?? '');
     expect(names()).toEqual(['Shortsword', 'None']);
@@ -195,7 +198,22 @@ describe('admin panel', () => {
       ...plane.querySelectorAll<HTMLButtonElement>('.on-admin__options .on-segmented button'),
     ].find((b) => b.textContent === copy.skillModes.all);
     all?.click();
-    expect(calls).toEqual(['weapon:31', 'armor:3', 'skills:all']);
+    expect(calls).toEqual(['tool:soldier', 'weapon:31', 'armor:3', 'skills:all']);
+  });
+
+  it('arms the only tool of a group when the group opens or one of its own settings changes', () => {
+    const { panel, plane, calls, q } = mount();
+    const chips = plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip');
+    chips[2]?.click(); // two goods: nothing to arm
+    chips[1]?.click();
+    expect(calls).toEqual(['tool:soldier']);
+    panel.showArmed({ key: 'soldier', name: 'Sword Soldier · Blue', hint: 'Click the map' });
+    q<HTMLButtonElement>('.on-admin__choice[aria-label="Bare hands"]').click();
+    expect(calls).toEqual(['tool:soldier', 'weapon:31']); // already armed: a pick never disarms
+
+    panel.showArmed(null);
+    q<HTMLButtonElement>('.on-admin__choice[aria-label="Chain Mail"]').click();
+    expect(calls).toEqual(['tool:soldier', 'weapon:31', 'armor:3', 'tool:soldier']);
   });
 
   it('reports a pressed tile and shows the armed tool lit in the tiles, the footer and the toggle', () => {
@@ -231,12 +249,14 @@ describe('admin panel', () => {
     const { panel, plane, calls } = mount();
     panel.showWorld(WORLD);
     const switches = [...plane.querySelectorAll<HTMLButtonElement>('.on-switch')];
-    const [needs, fogOfWar] = switches;
+    const [needs, bioGround, fogOfWar] = switches;
     expect(needs?.getAttribute('aria-checked')).toBe('true');
+    expect(bioGround?.getAttribute('aria-checked')).toBe('false');
     expect(fogOfWar?.getAttribute('aria-disabled')).toBe('true');
     fogOfWar?.click();
     needs?.click();
-    expect(calls).toEqual(['needs:false']);
+    bioGround?.click();
+    expect(calls).toEqual(['needs:false', 'bioGround:true']);
 
     panel.showWorld({ ...WORLD, fog: { map: 'classic', fogOfWar: false } });
     expect(fogOfWar?.hasAttribute('aria-disabled')).toBe(false);

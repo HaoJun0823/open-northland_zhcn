@@ -6,6 +6,7 @@ import {
   footprintCellDx,
 } from '@open-northland/data';
 import { landscapeEditState } from '../../../components/landscape.js';
+import { bioGroundWaived } from '../../../components/rules.js';
 import { contentIndex } from '../../../core/content-index.js';
 import type { World } from '../../../ecs/world.js';
 import type { HalfCellNode } from '../../../nav/halfcell.js';
@@ -116,7 +117,7 @@ export function canPlaceBuilding(
 ): boolean {
   const building = contentIndex(ctx.content).buildings.get(buildingType);
   const footprint = building === undefined ? undefined : buildingFootprintFor(building, tribe);
-  const buildOnBioPattern = building?.buildOnBioPattern === true;
+  const buildOnBioPattern = needsBioGround(world, building?.buildOnBioPattern);
   if (footprint === undefined) return canPlaceWithoutFootprint(world, terrain, buildOnBioPattern, x, y);
   return canPlaceAnchor(
     placementBlockerGrid(world, ctx.content, terrain),
@@ -148,6 +149,12 @@ function ownSignpostSlots(terrain: TerrainGraph, posts: readonly HalfCellNode[])
   }
   slotsByPosts.set(posts, slots);
   return slots;
+}
+
+/** Whether a type's `buildOnBioPattern` ground demand applies, which the `BioGroundRules` debug rule
+ *  waives. */
+function needsBioGround(world: World, buildOnBioPattern: boolean | undefined): boolean {
+  return buildOnBioPattern === true && !bioGroundWaived(world);
 }
 
 /** A type without a footprint has no collision model: its anchor only has to lie on the map, on a node no
@@ -188,7 +195,7 @@ export function placementProbe(
 ): PlacementProbe {
   const building = contentIndex(content).buildings.get(buildingType);
   const footprint = building === undefined ? undefined : buildingFootprintFor(building, tribe);
-  const buildOnBioPattern = building?.buildOnBioPattern === true;
+  const buildOnBioPattern = needsBioGround(world, building?.buildOnBioPattern);
   if (footprint === undefined) {
     return { canPlace: (x, y) => canPlaceWithoutFootprint(world, terrain, buildOnBioPattern, x, y) };
   }

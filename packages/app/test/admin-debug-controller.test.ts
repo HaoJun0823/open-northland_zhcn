@@ -140,6 +140,32 @@ describe('debug tools controller', () => {
     });
   });
 
+  it('arms the soldier as its group opens and as a weapon is picked after it was put away', () => {
+    const { handle, plane, press, canvas, sent, option } = mount();
+    handle.toggle.click();
+    const soldiers = [...plane.querySelectorAll<HTMLButtonElement>('.on-admin__chip')].find((chip) =>
+      chip.textContent?.startsWith(copy.groups.soldiers),
+    );
+    soldiers?.click();
+    press(canvas);
+    expect(sent[0]).toMatchObject({ jobType: JOB_SOLDIER_SWORD });
+
+    press(canvas, 2); // a right click puts it away
+    option(copy.weapon, goods.bow_long).click();
+    press(canvas);
+    expect(sent[1]).toMatchObject({ jobType: JOB_ARCHER_LONG });
+  });
+
+  it('enqueues the bio-ground waiver from the world tab', () => {
+    const { handle, plane, sent } = mount();
+    handle.toggle.click();
+    const row = [...plane.querySelectorAll('.on-admin__row')].find(
+      (r) => r.querySelector('b')?.textContent === copy.bioGround,
+    );
+    row?.querySelector<HTMLButtonElement>('.on-switch')?.click();
+    expect(sent).toEqual([{ kind: 'setBioGroundWaived', waived: true }]);
+  });
+
   it('spawns a man with every profession learned only when asked to', () => {
     const { handle, tile, press, canvas, sent, plane } = mount();
     handle.toggle.click();

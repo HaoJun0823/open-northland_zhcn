@@ -374,6 +374,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
     },
   },
   setNeedsEnabled: { required: { enabled: 'boolean' } },
+  setBioGroundWaived: { required: { waived: 'boolean' } },
   setPalisadeGateMode: { required: { palisade: 'integer', mode: { oneOf: GATE_MODES } } },
   setPalisadeGate: { required: { palisade: 'integer', open: 'boolean' } },
   setPlayerPlacementTribes: { required: { player: 'integer', tribes: { arrayOf: 'integer' } } },

@@ -131,6 +131,25 @@ export function setSignpostNavigation(world: World, enabled: boolean): void {
   });
 }
 
+const bioGroundRules = defineWorldSingleton<{ waived: boolean }>('BioGroundRules', 'players', () => ({
+  waived: false,
+}));
+
+/** Whether a `buildOnBioPattern` building (well, hive) may stand on any buildable ground instead of only
+ *  plantable ground. Off by default; a debug rule, the original always demands the ground. The computer
+ *  player's build order still plans those buildings on grass. */
+export const BioGroundRules = bioGroundRules.component;
+
+export function bioGroundWaived(world: World): boolean {
+  return bioGroundRules.read(world).waived;
+}
+
+export function setBioGroundWaived(world: World, waived: boolean): void {
+  bioGroundRules.write(world, (rules) => {
+    rules.waived = waived;
+  });
+}
+
 const progressionRules = defineWorldSingleton<{ professionProgressionEnabled: boolean }>(
   'ProgressionRules',
   'players',

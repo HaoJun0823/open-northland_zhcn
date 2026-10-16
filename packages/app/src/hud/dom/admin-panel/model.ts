@@ -55,6 +55,8 @@ export type FogMapKey = 'off' | 'classic' | 'recon';
 
 export interface AdminWorldState {
   readonly needs: boolean;
+  /** Wells and hives may stand off grass. */
+  readonly bioGround: boolean;
   /** Null without a fog read. */
   readonly fog: { readonly map: FogMapKey; readonly fogOfWar: boolean } | null;
   readonly geometry: boolean;
@@ -94,6 +96,7 @@ export interface AdminPanelHandlers {
   readonly onSkills: (skills: AdminSkills) => void;
   readonly onHealthPercent: (percent: number) => void;
   readonly onNeeds: (enabled: boolean) => void;
+  readonly onBioGround: (waived: boolean) => void;
   readonly onFogMap: (map: FogMapKey) => void;
   readonly onFogOfWar: (enabled: boolean) => void;
   readonly onGeometry: (enabled: boolean) => void;

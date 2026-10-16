@@ -450,7 +450,7 @@ function nextCommand(rng: Rng): Command {
   const y = rng.int(NODE_H);
   // Every roll is an explicit case, so a modulus that drifts past the case list throws below instead
   // of silently dropping a command kind from the stream.
-  const roll = rng.int(76);
+  const roll = rng.int(77);
   switch (roll) {
     case 31:
       // An AI-seat flip: valid players (the AiControl carrier created/updated/destroyed - the
@@ -1074,6 +1074,10 @@ function nextCommand(rng: Rng): Command {
         ...(rng.int(2) === 0 ? { owner: pick(rng, OWNERS) } : {}),
         ...(rng.int(3) === 0 ? { laid: true } : {}),
       };
+    case 76:
+      // The well-and-hive ground waiver: flips the BioGroundRules singleton, which the placement gate and
+      // its memo keys read, so it must hash and replay like any state.
+      return { kind: 'setBioGroundWaived', waived: rng.int(2) === 0 };
     default:
       throw new Error(`fuzz roll ${roll} has no case: widen the switch or the modulus above`);
   }

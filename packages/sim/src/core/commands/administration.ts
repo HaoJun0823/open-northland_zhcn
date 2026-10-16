@@ -45,6 +45,11 @@ export type RulesCommand =
       readonly enabled: boolean;
     }
   | {
+      /** Let wells and hives stand off plantable ground (`BioGroundRules`). Default off. */
+      readonly kind: 'setBioGroundWaived';
+      readonly waived: boolean;
+    }
+  | {
       /**
        * Toggle the profession-progression tech tree globally (`ProgressionRules`): while disabled, the
        * `needfor*` XP thresholds and the `jobEnables` presence graph stop gating civilian jobs and goods.

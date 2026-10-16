@@ -80,6 +80,8 @@ export interface AdminDebugDeps {
   readonly vehicles?: readonly VehicleEntry[];
   /** The sim's live needs rule. */
   readonly needsEnabled?: () => boolean;
+  /** The sim's live waiver of the grass wells and hives stand on. */
+  readonly bioGroundWaived?: () => boolean;
   /** The sim's live fog mode. Absent hides the visibility settings. */
   readonly fogMode?: () => FogMode;
   readonly geometryEnabled: () => boolean;
@@ -143,6 +145,7 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
   let skills: AdminSkills = 'basic';
   // The rules as last requested: a command applies next tick, so the sim's read lags a click.
   let needs = deps.needsEnabled?.() ?? true;
+  let bioGround = deps.bioGroundWaived?.() ?? false;
   let fog: FogSettings | null = fogSettings(deps.fogMode?.() ?? FOG_MODE.OFF);
 
   // A held spawn press keeps dropping at the pointer, following it, until the button comes up.
@@ -155,6 +158,7 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
 
   const worldState = (): AdminWorldState => ({
     needs,
+    bioGround,
     fog: deps.fogMode === undefined ? null : { map: fogMapOf(fog), fogOfWar: fog?.fogOfWar === true },
     geometry: deps.geometryEnabled(),
     zoomOut: deps.zoomOutUnlocked(),
@@ -201,6 +205,7 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
         }
         // A scene's own boot toggle, or the HUD's speed buttons, may have moved these since.
         needs = deps.needsEnabled?.() ?? needs;
+        bioGround = deps.bioGroundWaived?.() ?? bioGround;
         if (deps.fogMode !== undefined) fog = fogSettings(deps.fogMode());
         panel.showWorld(worldState());
       },
@@ -237,6 +242,11 @@ export function mountAdminDebug(deps: AdminDebugDeps): AdminDebugHandle {
       onNeeds: (enabled) => {
         needs = enabled;
         deps.enqueue({ kind: 'setNeedsEnabled', enabled });
+        panel.showWorld(worldState());
+      },
+      onBioGround: (waived) => {
+        bioGround = waived;
+        deps.enqueue({ kind: 'setBioGroundWaived', waived });
         panel.showWorld(worldState());
       },
       onFogMap: (map) => {

@@ -1,6 +1,7 @@
 import { type ContentSet, type FootprintCell, footprintCellDx } from '@open-northland/data';
 import {
   Building,
+  bioGroundWaived,
   DeliveryFlag,
   Palisade,
   Position,
@@ -243,7 +244,7 @@ export function eachBlockerCell(
  * on every facing, task or seat write. The tier swap keeps the OBSTACLE and BUILDING_ZONE cells
  * (`familyBody` and `reserved` are level-chain unions) but moves the UPGRADE_RESERVE ones, which follow
  * each level's own `blocked`. A wall's placement body changes only by a re-add, so its in-place claim
- * and build writes stay out.
+ * and build writes stay out. The `BioGroundRules` waiver changes which ground a well or hive accepts.
  *
  * Exactness rests on buildings and footprinted objects never MOVING once placed, so a stored entity's
  * cells are fixed, and on a vehicle moving only through a `World.mut(e, Vehicle)` write. Completeness
@@ -252,5 +253,5 @@ export function eachBlockerCell(
  * sim decision.
  */
 export function placementBlockerVersion(world: World): string {
-  return `${world.componentGeneration(Building)}.${world.componentValueGeneration(Building)}.${world.componentGeneration(Palisade)}.${world.componentGeneration(ResourceFootprint)}.${world.componentGeneration(Signpost)}.${world.componentGeneration(Vehicle)}.${vehicleAnchorRevision(world)}.${landscapePlacementRevision(world)}`;
+  return `${world.componentGeneration(Building)}.${world.componentValueGeneration(Building)}.${world.componentGeneration(Palisade)}.${world.componentGeneration(ResourceFootprint)}.${world.componentGeneration(Signpost)}.${world.componentGeneration(Vehicle)}.${vehicleAnchorRevision(world)}.${landscapePlacementRevision(world)}.${bioGroundWaived(world) ? 1 : 0}`;
 }

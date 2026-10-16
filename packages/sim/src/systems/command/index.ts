@@ -6,6 +6,7 @@ import {
   endMatchContinuation,
   Settler,
   setAlliedVision,
+  setBioGroundWaived,
   setDiplomacyStance,
   setFogMode,
   setMatchParticipants,
@@ -493,6 +494,9 @@ function applyCommand(
       return;
     case 'setAlliedVision':
       setAlliedVision(world, command.enabled);
+      return;
+    case 'setBioGroundWaived':
+      setBioGroundWaived(world, command.waived);
       return;
     case 'setDiplomacy':
       setDiplomacyStance(world, command.from, command.to, command.state);

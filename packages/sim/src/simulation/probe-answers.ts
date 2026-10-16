@@ -4,6 +4,7 @@
  * live probe the command gates on, so the two cannot disagree.
  */
 import type { ContentSet } from '@open-northland/data';
+import { bioGroundWaived } from '../components/rules.js';
 import type { Entity, World } from '../ecs/world.js';
 import type { HalfCellNode, NodeArea } from '../nav/halfcell.js';
 import type { TerrainGraph } from '../nav/terrain/index.js';
@@ -194,7 +195,7 @@ function footprintGrid(
     footprintGrids.set(world, grids);
   }
   const blockers = placementBlockerGrid(world, content, terrain);
-  const key = `${gridChangeKey(blockers, area, footprintReach(content, buildingType, tribe))}.${signpostNetworkRevision(world)}`;
+  const key = `${gridChangeKey(blockers, area, footprintReach(content, buildingType, tribe))}.${signpostNetworkRevision(world)}.${bioGroundWaived(world) ? 1 : 0}`;
   const slot = `${buildingType}:${tribe ?? ''}:${player ?? ''}:${areaKey(area)}`;
   const held = grids.get(slot);
   if (held !== undefined && held.key === key) return held;

@@ -30,6 +30,7 @@ function mounts(allowWorldEdits: boolean) {
       },
       needsEnabled: () => true,
       fogMode: () => 0,
+      snapshot: () => ({ tick: 0, entities: [] }),
     },
     renderer: { setGeometryDebug: () => undefined },
     cameraCtl: { setZoomOutUnlocked: () => undefined },

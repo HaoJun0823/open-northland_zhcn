@@ -1518,6 +1518,8 @@ export const enGame = {
     },
     needs: 'Settler needs',
     needsHint: 'Hunger, fatigue, faith and leisure. Off, nobody starves mid-test.',
+    bioGround: 'Wells and hives anywhere',
+    bioGroundHint: 'Drops the grass a well or hive must stand on. Every other building rule still applies.',
     fogMap: 'Map',
     fogModes: {
       off: 'Revealed',

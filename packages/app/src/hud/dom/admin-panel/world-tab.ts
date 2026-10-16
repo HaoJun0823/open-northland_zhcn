@@ -39,7 +39,7 @@ export function createWorldTab(
   spec: AdminPanelSpec,
   handlers: Pick<
     AdminPanelHandlers,
-    'onNeeds' | 'onFogMap' | 'onFogOfWar' | 'onGeometry' | 'onZoomOut' | 'onSpeed'
+    'onNeeds' | 'onBioGround' | 'onFogMap' | 'onFogOfWar' | 'onGeometry' | 'onZoomOut' | 'onSpeed'
   >,
 ): WorldTab {
   const copy = messages().admin;
@@ -47,7 +47,12 @@ export function createWorldTab(
 
   let state: AdminWorldState | null = null;
   const needs = createSwitch(copy.needs, '', (next) => handlers.onNeeds(next));
-  root.append(sectionTitled(copy.sections.rules), settingRow(copy.needs, copy.needsHint, needs.element));
+  const bioGround = createSwitch(copy.bioGround, '', (next) => handlers.onBioGround(next));
+  root.append(
+    sectionTitled(copy.sections.rules),
+    settingRow(copy.needs, copy.needsHint, needs.element),
+    settingRow(copy.bioGround, copy.bioGroundHint, bioGround.element),
+  );
 
   const fogOptions: Readonly<Record<FogMapKey, SegmentedOption>> = {
     off: { label: copy.fogModes.off },
@@ -94,6 +99,7 @@ export function createWorldTab(
       if (state !== null && sameWorld(state, next)) return;
       state = next;
       needs.update(next.needs, true);
+      bioGround.update(next.bioGround, true);
       fogMap.update(fogOptions, next.fog?.map ?? null);
       // A revealed map shows everything, so its fog of war has nothing to hide.
       fogOfWar.update(next.fog?.fogOfWar === true, next.fog !== null && next.fog.map !== 'off');
@@ -107,6 +113,7 @@ export function createWorldTab(
 function sameWorld(a: AdminWorldState, b: AdminWorldState): boolean {
   return (
     a.needs === b.needs &&
+    a.bioGround === b.bioGround &&
     a.fog?.map === b.fog?.map &&
     a.fog?.fogOfWar === b.fog?.fogOfWar &&
     a.geometry === b.geometry &&

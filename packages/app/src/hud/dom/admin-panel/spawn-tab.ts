@@ -119,8 +119,14 @@ export function createSpawnTab(
   knobs.append(ownerRow, hitpointsRow);
 
   const options = element('div', 'on-admin__knobs on-admin__options');
-  const weapon = createChoiceStrip(copy.weapon, spec.weapons, spec.weapon, spec.paintGood, handlers.onWeapon);
-  const armor = createChoiceStrip(copy.armor, spec.armors, spec.armor, spec.paintGood, handlers.onArmor);
+  const weapon = createChoiceStrip(copy.weapon, spec.weapons, spec.weapon, spec.paintGood, (value) => {
+    handlers.onWeapon(value);
+    armSoleTool('weapon');
+  });
+  const armor = createChoiceStrip(copy.armor, spec.armors, spec.armor, spec.paintGood, (value) => {
+    handlers.onArmor(value);
+    armSoleTool('armor');
+  });
   const skillsRow = knob('skills', copy.skills);
   const skillOptions = {
     basic: { label: copy.skillModes.basic },
@@ -166,6 +172,7 @@ export function createSpawnTab(
       openGroup = group.id;
       query.value = '';
       paint();
+      armSoleTool();
     });
     chips.append(chip);
     const section = element('section', 'on-admin__group');
@@ -195,6 +202,16 @@ export function createSpawnTab(
       if (tool.goodId !== undefined && frame instanceof HTMLElement)
         spec.paintGood?.(frame, tool.goodId, TILE_ICON_PX);
     });
+  };
+
+  /** An open group with a single tool leaves nothing to pick, so opening it, or setting one of that
+   *  tool's own knobs, arms it. */
+  const armSoleTool = (knob?: AdminKnob): void => {
+    const group = groups.find((view) => view.group.id === openGroup)?.group;
+    const only = group?.tools.length === 1 ? group.tools[0] : undefined;
+    if (only === undefined || only.key === armedKey) return;
+    if (knob !== undefined && !only.knobs.includes(knob)) return;
+    handlers.onTool(only.key);
   };
 
   const armedTool = (): { readonly group: AdminSpawnGroup; readonly tool: AdminTool } | null => {

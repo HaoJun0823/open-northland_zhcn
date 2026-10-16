@@ -1494,6 +1494,8 @@ export const plGame = {
     },
     needs: 'Potrzeby osadników',
     needsHint: 'Głód, zmęczenie, wiara i rozrywka. Wyłączone - nikt nie głoduje w trakcie testu.',
+    bioGround: 'Studnie i pasieki wszędzie',
+    bioGroundHint: 'Wyłącza wymóg trawy pod studnią i pasieką. Reszta zasad budowy obowiązuje.',
     fogMap: 'Mapa',
     fogModes: {
       off: 'Odkryta',

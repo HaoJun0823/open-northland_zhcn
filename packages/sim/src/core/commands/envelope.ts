@@ -150,6 +150,7 @@ export const COMMAND_ISSUER: {
   placeSignpost: 'seat',
   renameSettler: 'seat',
   setAlliedVision: 'trusted',
+  setBioGroundWaived: 'trusted',
   setAssistantCounter: 'seat',
   setAssistantGrant: 'seat',
   setAssistantGrantAudience: 'seat',

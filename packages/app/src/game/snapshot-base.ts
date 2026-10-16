@@ -66,6 +66,14 @@ export function needsRuleEnabled(snapshot: WorldSnapshot): boolean {
   return rules?.needsEnabled !== false;
 }
 
+/** Whether wells and hives may stand off grass: the sim's `BioGroundRules` waiver, off while absent. */
+export function bioGroundRuleWaived(snapshot: WorldSnapshot): boolean {
+  const rules = entitiesWith(snapshot, 'BioGroundRules')[0]?.components.BioGroundRules as
+    | { waived?: unknown }
+    | undefined;
+  return rules?.waived === true;
+}
+
 /**
  * Whether `e` belongs to a computer seat. Its settlers raise no note and float no need bubble: original
  * behavior, the original drops every message a human of a computer-type player sends before it reaches the

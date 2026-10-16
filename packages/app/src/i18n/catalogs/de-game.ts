@@ -1654,6 +1654,9 @@ export const deGame = {
     },
     needs: 'Bedürfnisse der Siedler',
     needsHint: 'Hunger, Müdigkeit, Glaube und Vergnügen. Aus: niemand verhungert mitten im Test.',
+    bioGround: 'Brunnen und Bienenstöcke überall',
+    bioGroundHint:
+      'Hebt die Graspflicht für Brunnen und Bienenstöcke auf. Alle anderen Bauregeln gelten weiter.',
     fogMap: 'Karte',
     fogModes: {
       off: 'Aufgedeckt',

@@ -356,6 +356,35 @@ describe('bio-pattern placement - wells and hives need grass', () => {
     expect(canPlaceBuilding(sim.world, ctxOf(sim), terrain, BIO_HUT, VIKING, 6, 6)).toBe(true);
     expect(placementProbe(sim.world, sim.content, terrain, BIO_HUT, VIKING, []).canPlace(6, 6)).toBe(true);
   });
+
+  it('places it on barren ground while the BioGroundRules waiver is on, and refuses again once it is off', () => {
+    const cells = grassCells(16, 16);
+    cells.typeIds[3 * 16 + 3] = BARREN;
+    const sim = new Simulation({ seed: 1, content: placementContent(), map: halfCellMapFromCells(cells) });
+    const terrain = terrainOf(sim);
+    const anchor = { minHx: 6, minHy: 6, maxHx: 6, maxHy: 6 };
+    // The overlay's cached grid answer, which must rebuild on each flip.
+    const overlayAccepts = (): number | undefined =>
+      sim.placementAnswer(BIO_HUT, anchor, undefined, VIKING, false)?.accepted[0];
+    const versionBefore = sim.placementBlockerVersion();
+    expect(overlayAccepts()).toBe(0);
+
+    sim.enqueueSetup({ kind: 'setBioGroundWaived', waived: true });
+    sim.step();
+    expect(sim.placementBlockerVersion()).not.toBe(versionBefore);
+    expect(overlayAccepts()).toBe(1);
+    expect(placementProbe(sim.world, sim.content, terrain, BIO_HUT, VIKING, []).canPlace(6, 6)).toBe(true);
+
+    sim.enqueueSetup({ kind: 'setBioGroundWaived', waived: false });
+    sim.step();
+    expect(overlayAccepts()).toBe(0);
+    expect(canPlaceBuilding(sim.world, ctxOf(sim), terrain, BIO_HUT, VIKING, 6, 6)).toBe(false);
+
+    sim.enqueueSetup({ kind: 'setBioGroundWaived', waived: true });
+    sim.enqueueSetup({ kind: 'placeBuilding', buildingType: BIO_HUT, x: 6, y: 6, tribe: VIKING });
+    sim.step();
+    expect(buildingsPlaced(sim)).toBe(1);
+  });
 });
 
 describe('forced placement - authored map imports load as-is', () => {

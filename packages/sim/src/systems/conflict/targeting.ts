@@ -38,7 +38,7 @@ import {
   mayHunt,
 } from '../readviews/index.js';
 import { hexNodeDistance } from '../spatial/metric.js';
-import { isManningPost, standsAtPost } from './tower-post.js';
+import { mannedPostOf, standsAtPost } from './tower-post.js';
 import { vehicleWeapon } from './weapons.js';
 
 // The combat targeting relations: who may fight whom, how far a combatant spots an enemy, and what a wild
@@ -306,7 +306,8 @@ export function isValidOrderedTarget(
 export function firingBuildings(world: World, ctx: SystemContext): Set<Entity> {
   const firing = new Set<Entity>();
   for (const e of world.query(Garrison)) {
-    if (isAlive(world, e) && isManningPost(world, ctx, e)) firing.add(world.get(e, Garrison).post);
+    const post = isAlive(world, e) ? mannedPostOf(world, ctx, e) : null;
+    if (post !== null) firing.add(post);
   }
   for (const shelter of shelterOccupancy(world).keys()) {
     if (!isAlive(world, shelter) || !shelterStillHolds(world, ctx, shelter)) continue;

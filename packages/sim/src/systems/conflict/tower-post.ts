@@ -64,10 +64,15 @@ export function standsAtPost(world: World, e: Entity): Entity | null {
 /** Whether `e` is holding its post: standing on it ({@link standsAtPost}) and still entitled to it
  *  ({@link towerPostFor}). */
 export function isManningPost(world: World, ctx: SystemContext, e: Entity): boolean {
+  return mannedPostOf(world, ctx, e) !== null;
+}
+
+/** The post `e` is holding ({@link isManningPost}), or null. */
+export function mannedPostOf(world: World, ctx: SystemContext, e: Entity): Entity | null {
   const post = standsAtPost(world, e);
-  if (post === null) return false;
+  if (post === null) return null;
   const jobType = world.tryGet(e, Settler)?.jobType;
-  return jobType != null && towerPostFor(world, ctx, e, jobType) === post;
+  return jobType != null && towerPostFor(world, ctx, e, jobType) === post ? post : null;
 }
 
 /** A garrison's reach band: a bow's far reach plus {@link TOWER_RANGE_BONUS_NODES}, and no near dead zone

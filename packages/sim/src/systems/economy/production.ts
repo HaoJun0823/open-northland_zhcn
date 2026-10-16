@@ -216,7 +216,10 @@ const choiceScratch: (CycleChoice | undefined)[] = [];
 
 // The indoor display atomic each batch tick pays need events for, rewritten per call: the need pass
 // reads it and keeps nothing.
-const produceEffect: { readonly kind: 'produce'; recipeOutput: number } = { kind: 'produce', recipeOutput: 0 };
+const produceEffect: { readonly kind: 'produce'; recipeOutput: number } = {
+  kind: 'produce',
+  recipeOutput: 0,
+};
 const produceAtomic: { atomicId: number; readonly effect: typeof produceEffect } = {
   atomicId: 0,
   effect: produceEffect,

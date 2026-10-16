@@ -147,7 +147,11 @@ class PathDrain {
     const views = marching ? this.marchingBodiesByPlayer : this.bodiesByPlayer;
     let view = views.get(player);
     if (view === undefined) {
-      view = new ColliderWalkBlocks(structures, this.unitBlocks(), hostileMaskOf(this.hostileMasks(), player));
+      view = new ColliderWalkBlocks(
+        structures,
+        this.unitBlocks(),
+        hostileMaskOf(this.hostileMasks(), player),
+      );
       views.set(player, view);
     }
     return view;

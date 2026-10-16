@@ -1,4 +1,5 @@
 import {
+  Chat,
   CurrentAtomic,
   ownerOf,
   ownersCompatible,
@@ -7,7 +8,7 @@ import {
   UnderConstruction,
 } from '../../../../components/index.js';
 import { type Fixed, fx, ONE } from '../../../../core/fixed.js';
-import type { Entity, World } from '../../../../ecs/world.js';
+import type { ChangeFeed, Entity, World } from '../../../../ecs/world.js';
 import type { SystemContext } from '../../../context.js';
 import { remainingConstructionSteps } from '../../../economy/construction.js';
 import { openRoadSites } from '../../../roads/site-index.js';
@@ -53,6 +54,67 @@ const NEARLY_DONE: Fixed = fx.div(fx.fromInt(2), fx.fromInt(3));
  *  hauler and one more hand stay while the rest go. Owner ruling. */
 const FINISHING_CREW = 2;
 
+/** The site `e`'s running construct atomic swings at, while that atomic holds it. */
+function swingSiteOf(world: World, e: Entity): Entity | undefined {
+  const effect = world.tryGet(e, CurrentAtomic)?.effect;
+  return effect?.kind === 'construct' && atomicHoldsSettler(world, e) ? effect.site : undefined;
+}
+
+/** The sites of the construct atomics that hold their settler, by settler, kept per world from a feed of
+ *  the atomics and the chats that decide whether one holds. */
+class LiveSwings {
+  private readonly siteOf = new Map<Entity, Entity>();
+  private readonly feed: ChangeFeed;
+  private readonly refreshEntity = (e: Entity): void => this.refresh(e);
+
+  private constructor(private readonly world: World) {
+    this.feed = world.watchChanges([CurrentAtomic, Chat], [CurrentAtomic, Chat]);
+    this.rebuild();
+  }
+
+  static of(world: World): LiveSwings {
+    let held = liveSwings.get(world);
+    if (held === undefined) {
+      const created = new LiveSwings(world);
+      world.registerCacheVerifier('constructionSwings', () => created.verify());
+      liveSwings.set(world, created);
+      held = created;
+    }
+    return held;
+  }
+
+  /** The site of every holding swing as of now, once per swinging settler. */
+  sites(): IterableIterator<Entity> {
+    if (this.feed.pending && this.feed.drain(this.refreshEntity)) this.rebuild();
+    return this.siteOf.values();
+  }
+
+  private refresh(e: Entity): void {
+    const site = swingSiteOf(this.world, e);
+    if (site === undefined) this.siteOf.delete(e);
+    else this.siteOf.set(e, site);
+  }
+
+  private rebuild(): void {
+    this.siteOf.clear();
+    for (const e of this.world.query(CurrentAtomic)) this.refresh(e);
+  }
+
+  verify(): string[] {
+    if (this.feed.pending && this.feed.drain(this.refreshEntity)) this.rebuild();
+    let fresh = 0;
+    for (const e of this.world.query(CurrentAtomic)) {
+      const site = swingSiteOf(this.world, e);
+      if (site === undefined) continue;
+      fresh++;
+      if (this.siteOf.get(e) !== site) return ['constructionSwings diverge from a fresh scan'];
+    }
+    return fresh === this.siteOf.size ? [] : ['constructionSwings diverge from a fresh scan'];
+  }
+}
+
+const liveSwings = new WeakMap<World, LiveSwings>();
+
 /** The rank order of one builder's pick: the distinct ranks present, highest first, and each site's. */
 export interface SiteRanking {
   readonly ranks: readonly number[];
@@ -78,15 +140,8 @@ export class ConstructionTaskClaims {
     private readonly ctx: SystemContext,
     private readonly supply: SupplyTally,
   ) {
-    for (const e of world.query(CurrentAtomic)) {
-      const effect = world.get(e, CurrentAtomic).effect;
-      if (
-        effect.kind === 'construct' &&
-        atomicHoldsSettler(world, e) &&
-        world.has(effect.site, UnderConstruction)
-      ) {
-        this.reserveHammer(effect.site);
-      }
+    for (const site of LiveSwings.of(world).sites()) {
+      if (world.has(site, UnderConstruction)) this.reserveHammer(site);
     }
   }
 

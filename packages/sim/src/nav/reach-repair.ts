@@ -62,8 +62,12 @@ export function repairReach(
 const raised: NodeId[] = [];
 const lowered: NodeId[] = [];
 const lost: NodeId[] = [];
+/** Filled by count, like each bucket below, never truncated: they keep their capacity across repairs. */
 const settled: NodeId[] = [];
+let settledCount = 0;
 const buckets: NodeId[][] = [];
+/** Per cost, the end of its bucket's queued nodes. */
+let bucketEnds = new Int32Array(0);
 /** Per cost box slot, the repair generation that dropped its cost. */
 let lostAt = new Uint32Array(0);
 let generation = 0;
@@ -129,11 +133,9 @@ class ReachRepair {
     }
     if (!this.dropLost()) return null;
     for (const node of lost) this.setCost(node, NOT_ENTERED);
-    for (let cost = 0; cost < budget; cost++) {
-      const bucket = buckets[cost];
-      if (bucket === undefined) buckets[cost] = [];
-      else bucket.length = 0;
-    }
+    if (bucketEnds.length < budget) bucketEnds = new Int32Array(budget);
+    bucketEnds.fill(0, 0, budget);
+    for (let cost = buckets.length; cost < budget; cost++) buckets[cost] = [];
     for (const node of lost) if (!this.seed(node)) return null;
     for (const node of lowered) if (!this.seed(node)) return null;
     if (!this.settle()) return null;
@@ -209,25 +211,28 @@ class ReachRepair {
     if (!this.inCostBox(x, y)) return false;
     const node = (y * this.mapWidth + x) as NodeId;
     this.setCost(node, cost);
-    (buckets[cost] as NodeId[]).push(node);
+    const end = bucketEnds[cost] as number;
+    (buckets[cost] as NodeId[])[end] = node;
+    bucketEnds[cost] = end + 1;
     return true;
   }
 
   /** Enter the queued nodes cheapest first, as the flood does, offering each neighbour the step onto it.
    *  Collects every node entered in {@link settled}. */
   private settle(): boolean {
-    settled.length = 0;
+    settledCount = 0;
     const budget = this.question.budget;
     for (let cost = 0; cost < budget; cost++) {
       const bucket = buckets[cost] as NodeId[];
       // Offers land in later buckets, so this one stays fixed while it is walked.
-      for (let i = 0; i < bucket.length; i++) {
+      const end = bucketEnds[cost] as number;
+      for (let i = 0; i < end; i++) {
         const node = bucket[i] as NodeId;
         const x = this.terrain.xOf(node);
         const y = this.terrain.yOf(node);
         if (enteredCost(this.costs, x, y) !== cost) continue;
-        settled.push(node);
-        if (settled.length > MAX_REPAIRED_NODES) return false;
+        settled[settledCount++] = node;
+        if (settledCount > MAX_REPAIRED_NODES) return false;
         const dxs = (y & 1) === 0 ? HEX_DX_EVEN : HEX_DX_ODD;
         for (let k = 0; k < NEIGHBOURS; k++) {
           const nx = x + (dxs[k] as number);
@@ -253,20 +258,21 @@ class ReachRepair {
       area ??= { ...current, cells: current.cells.slice() };
       area.cells[cell] = want;
     };
+    const remarkAround = (node: NodeId): void => {
+      const x = this.terrain.xOf(node);
+      const y = this.terrain.yOf(node);
+      remark(x, y);
+      const dxs = (y & 1) === 0 ? HEX_DX_EVEN : HEX_DX_ODD;
+      for (let k = 0; k < NEIGHBOURS; k++) remark(x + (dxs[k] as number), y + (HEX_DY[k] as number));
+    };
     for (const node of changed) remark(this.terrain.xOf(node), this.terrain.yOf(node));
     let { minHx, maxHx, minHy, maxHy } = this.search.searched;
-    for (const list of [lost, settled]) {
-      for (const node of list) {
-        const x = this.terrain.xOf(node);
-        const y = this.terrain.yOf(node);
-        remark(x, y);
-        const dxs = (y & 1) === 0 ? HEX_DX_EVEN : HEX_DX_ODD;
-        for (let k = 0; k < NEIGHBOURS; k++) remark(x + (dxs[k] as number), y + (HEX_DY[k] as number));
-      }
-    }
+    for (const node of lost) remarkAround(node);
+    for (let i = 0; i < settledCount; i++) remarkAround(settled[i] as NodeId);
     // An entered node inspects its neighbours, one node out on either axis. Lost nodes never shrink this
     // box, but every settled node lies in the cost box, so it grows to one node past that box at most.
-    for (const node of settled) {
+    for (let i = 0; i < settledCount; i++) {
+      const node = settled[i] as NodeId;
       const x = this.terrain.xOf(node);
       const y = this.terrain.yOf(node);
       minHx = Math.min(minHx, Math.max(0, x - 1));
@@ -274,7 +280,7 @@ class ReachRepair {
       minHy = Math.min(minHy, Math.max(0, y - 1));
       maxHy = Math.max(maxHy, Math.min(this.mapHeight - 1, y + 1));
     }
-    if (area === undefined && lost.length === 0 && settled.length === 0) return this.search;
+    if (area === undefined && lost.length === 0 && settledCount === 0) return this.search;
     const searched: NodeArea = { minHx, maxHx, minHy, maxHy };
     return { area: area ?? this.search.area, searched, costs: this.costs, complete: true };
   }

@@ -328,6 +328,66 @@ describe('characterBinding', () => {
     });
   });
 
+  it("rolls a strike among the job's attack records and the numbered takes the body draws", () => {
+    const row = (name: string, start: number) => [name, { name, start, length: 8 }] as const;
+    const seqs = new Map([
+      row('wait', 0),
+      row('sword_attack', 100),
+      row('sword_lunge', 200),
+      row('sword_attack_2', 300),
+      row('spear_attack', 400),
+    ]);
+    const spec = { gfxJobs: [34], waitSeq: 'wait', attack: 'sword_attack' } as const;
+    const program = (frame: number) => ({ dirFrames: [[frame]] });
+    const tribeSeqs = {
+      walk: [],
+      gaits: [],
+      wait: [],
+      attack: ['sword_lunge'],
+      attacks: [
+        { seq: 'sword_lunge', program: program(1) },
+        { seq: 'sword_attack', program: program(0) },
+      ],
+      atomics: new Map(),
+      heads: new Map(),
+    };
+    // Only another tribe's record lays out the second take; the spear strip is another weapon's swing.
+    const attackPrograms = new Map([
+      ['sword_attack_2', program(2)],
+      ['spear_attack', program(3)],
+    ]);
+    const choices = characterBinding(spec, seqs, [], { tribeSeqs, attackPrograms })?.byAtomicChoices?.[
+      ATTACK_ATOMIC
+    ];
+    expect(choices?.map((clip) => [clip.start, clip.frameLists[0], clip.spansAtomic])).toEqual([
+      [100, [0], true],
+      [200, [1], true],
+      [300, [2], true],
+    ]);
+  });
+
+  it("adds the base tribe's attack records only where they name the bound swing", () => {
+    const row = (name: string, start: number) => [name, { name, start, length: 8 }] as const;
+    const seqs = new Map([row('wait', 0), row('punch', 100), row('kick', 200), row('bite', 300)]);
+    const spec = { gfxJobs: [31], waitSeq: 'wait', attack: 'punch' } as const;
+    const clip = (seq: string, frame: number) => ({ seq, program: { dirFrames: [[frame]] } });
+    const tribeSeqs = {
+      walk: [],
+      gaits: [],
+      wait: [],
+      attack: ['punch'],
+      attacks: [clip('punch', 0)],
+      atomics: new Map(),
+      heads: new Map(),
+    };
+    const starts = (baseAttacks: readonly ReturnType<typeof clip>[]) =>
+      characterBinding(spec, seqs, [], { tribeSeqs, baseAttacks })?.byAtomicChoices?.[ATTACK_ATOMIC]?.map(
+        (choice) => choice.start,
+      );
+    expect(starts([clip('punch', 1), clip('kick', 2)])).toEqual([100, 200]);
+    expect(starts([clip('bite', 3)])).toBeUndefined();
+  });
+
   it('reorders a full 8-dir frame-list table from the source <dir> space into facing order', () => {
     const seqs = new Map([
       ['wait', { name: 'wait', start: 1931, length: 57 }],
@@ -444,6 +504,7 @@ describe('characterBinding', () => {
       gaits: [],
       wait: [],
       attack: [],
+      attacks: [],
       heads: new Map(),
       atomics: new Map([
         [10, [{ seq: 'empty_eat', program: { dirFrames: [[0, 1]] } }]],
@@ -563,6 +624,7 @@ describe('characterBinding', () => {
       gaits: ['aggr_walk'],
       wait: [],
       attack: [],
+      attacks: [],
       atomics: new Map(),
       heads: new Map(),
     };

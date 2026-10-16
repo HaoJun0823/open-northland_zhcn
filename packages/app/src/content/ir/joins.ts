@@ -397,6 +397,9 @@ export interface TribeJobSeqs {
   readonly gaits: readonly string[];
   readonly wait: readonly string[];
   readonly attack: readonly string[];
+  /** Every attack record of the nearest job on the chain that authors one, in file order: the set the
+   *  original rolls one swing from at each strike. */
+  readonly attacks: readonly TribeClip[];
   /** Action → the remaining `[gfxanimatomic]` records (no wait, attack or indoor sub-clip). */
   readonly atomics: ReadonlyMap<number, readonly TribeClip[]>;
   /** Body bobseq → the `gfxbobseqhead` the first record naming it overlays, where that is another clip. */
@@ -435,15 +438,15 @@ function clipLookupChain(ir: ContentIr | null, jobs: readonly number[]): number[
  * job plays - the egyptian unarmed soldier is authored on the spear clips, the saracen longbowman on the
  * shortbow's - so a look that cannot draw the transcribed viking clip takes the answer its own tribe gives.
  *
- * Approximation: where a job authors several records for one action, the original rolls among them at
- * each play; here they
- * stay in file order and the consumer plays the first its body draws.
+ * Approximation: where a job authors several records for any other action, the original rolls among them
+ * at each play; here they stay in file order and the consumer plays the first its body draws.
  */
 export function tribeJobSeqs(ir: ContentIr | null, tribe: number, jobs: readonly number[]): TribeJobSeqs {
   const walk: string[] = [];
   const gaits: string[] = [];
   const wait: string[] = [];
   const attack: string[] = [];
+  const attacks: TribeClip[] = [];
   const atomics = new Map<number, TribeClip[]>();
   const heads = new Map<string, string>();
   const headNamed = new Set<string>();
@@ -468,12 +471,15 @@ export function tribeJobSeqs(ir: ContentIr | null, tribe: number, jobs: readonly
     let jobWait: string | undefined;
     let waitIsBase = false;
     let jobAttack: string | undefined;
+    const jobAttacks: TribeClip[] = [];
     for (const row of ir?.gfxAtomics ?? []) {
       if (row.tribe !== tribe || row.job !== job || row.bodySeq === undefined) continue;
       nameHead(row.bodySeq, row.headSeq);
       if (row.subId !== undefined) continue;
+      const program = { dirFrames: row.dirFrames, ...(row.mode !== undefined ? { mode: row.mode } : {}) };
       if (row.action === ATTACK_ATOMIC) {
         jobAttack ??= row.bodySeq;
+        jobAttacks.push({ seq: row.bodySeq, program });
         continue;
       }
       // A wait-ladder record is the base wait candidate and, like any action, its own clip: the sim runs
@@ -489,15 +495,27 @@ export function tribeJobSeqs(ir: ContentIr | null, tribe: number, jobs: readonly
         clips = [];
         atomics.set(row.action, clips);
       }
-      clips.push({
-        seq: row.bodySeq,
-        program: { dirFrames: row.dirFrames, ...(row.mode !== undefined ? { mode: row.mode } : {}) },
-      });
+      clips.push({ seq: row.bodySeq, program });
     }
     if (jobWait !== undefined) push(wait, jobWait);
     if (jobAttack !== undefined) push(attack, jobAttack);
+    if (attacks.length === 0) attacks.push(...jobAttacks);
   }
-  return { walk, gaits, wait, attack, atomics, heads };
+  return { walk, gaits, wait, attack, attacks, atomics, heads };
+}
+
+/** Every tribe's attack frame lists by body bobseq name, first record winning: the layout of a strip a
+ *  tribe draws but binds no record for. */
+export function attackProgramsBySeq(ir: ContentIr | null): Map<string, GfxAtomicProgram> {
+  const bySeq = new Map<string, GfxAtomicProgram>();
+  for (const row of ir?.gfxAtomics ?? []) {
+    if (row.action !== ATTACK_ATOMIC || row.bodySeq === undefined || bySeq.has(row.bodySeq)) continue;
+    bySeq.set(row.bodySeq, {
+      dirFrames: row.dirFrames,
+      ...(row.mode !== undefined ? { mode: row.mode } : {}),
+    });
+  }
+  return bySeq;
 }
 
 /** One tribe's `gfxwalkframelist` per-`<dir>` lists, indexed by walk bobseq name (first record wins). */

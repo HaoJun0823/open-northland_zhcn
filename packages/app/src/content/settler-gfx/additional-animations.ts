@@ -7,25 +7,15 @@ import {
   SLEEP_ATOMIC,
 } from '../../catalog/atomics.js';
 import { JOB_DRUID } from '../../catalog/jobs.js';
+import type { TribeClip } from '../ir/joins.js';
 import type { BobSeqRow } from '../ir/rows.js';
 import type { CharacterGfx } from './bindings-character.js';
 import type { CharacterSpec } from './character-specs.js';
 import { playableLists } from './frame-program.js';
 import { eightDirAnim } from './seq-anim.js';
 
-/** Only bare-handed looks share these action-81 variants; equipment keeps its own attack. */
-const ATTACK_VARIANTS: Readonly<Record<string, readonly string[]>> = {
-  human_man_Civilian_Fight_punch: [
-    'human_man_Civilian_Fight_double_punch',
-    'human_man_Civilian_Fight_dragon_punch',
-    'human_man_Civilian_Fight_high_kick',
-  ],
-  human_man_warrior_empty_punch: [
-    'human_man_warrior_empty_double_punch',
-    'human_man_warrior_empty_dragon_punch',
-    'human_man_warrior_empty_high_kick',
-  ],
-};
+/** A trailing take number: `_attack2` and `_Attack_2` are second takes of `_attack` and `_Attack`. */
+const TAKE_NUMBER = /_?\d+$/;
 
 const BOW_PREFIXES: Readonly<Record<string, string>> = {
   human_man_Warrior_Shortbow_walk: 'human_man_Warrior_Shortbow',
@@ -59,19 +49,42 @@ function authoredClip(
   return undefined;
 }
 
+/**
+ * The swings one strike rolls from. Original behavior: the attack records of the tribe's nearest job, one
+ * picked at random per strike. Approximations: the base tribe's records join where they name the same
+ * bound swing, as the specs transcribe the viking clips, so the frankish and byzantine bare hands roll the
+ * viking punches; a strip the body draws whose name differs from one of them only by a take number joins,
+ * laid out by any tribe's record for it; every take is fitted whole into the one-hit atomic so combat
+ * timing stays the bound swing's.
+ */
 function attackChoices(
-  spec: CharacterSpec,
+  attackSeq: string | undefined,
   sequences: ReadonlyMap<string, BobSeqRow>,
   gfx: CharacterGfx,
 ): readonly FrameListAnim[] {
-  const attack = spec.attack;
-  if (attack === undefined) return [];
-  const variants = ATTACK_VARIANTS[attack];
-  if (variants === undefined) return [];
-  return [attack, ...variants].flatMap((name) => {
-    const clip = authoredClip(name, [ATTACK_ATOMIC], sequences, gfx);
-    // Approximation: fit the complete gesture into the existing one-hit attack, preserving combat timing.
-    return clip === undefined ? [] : [{ ...clip, spansAtomic: true }];
+  if (attackSeq === undefined) return [];
+  const naming = (set: readonly TribeClip[] = []) =>
+    set.some((record) => record.seq === attackSeq) ? set : [];
+  const own = naming(gfx.tribeSeqs?.attacks);
+  const base = naming(gfx.baseAttacks);
+  const names = [attackSeq];
+  for (const { seq } of [...own, ...base]) if (!names.includes(seq)) names.push(seq);
+  const stems = new Set(names.map((name) => name.replace(TAKE_NUMBER, '')));
+  for (const name of sequences.keys()) {
+    if (!names.includes(name) && stems.has(name.replace(TAKE_NUMBER, ''))) names.push(name);
+  }
+  return names.flatMap((name) => {
+    const row = sequences.get(name);
+    if (row === undefined || !hasOwnHeads(row, gfx)) return [];
+    // This tribe's own frame lists first, so a take never swings another tribe's motion where it has its own.
+    const program =
+      own.find((record) => record.seq === name)?.program ??
+      gfx.programsByAction?.get(ATTACK_ATOMIC)?.get(name) ??
+      base.find((record) => record.seq === name)?.program ??
+      gfx.basePrograms?.get(ATTACK_ATOMIC)?.get(name) ??
+      gfx.attackPrograms?.get(name);
+    const lists = playableLists(program, row, gfx.bodyAtlas);
+    return lists === undefined ? [] : [{ start: row.start, frameLists: lists, spansAtomic: true }];
   });
 }
 
@@ -154,13 +167,14 @@ function workAndBabyGestures(
 }
 
 export function withAdditionalAnimations(
+  attackSeq: string | undefined,
   binding: SettlerStateBinding,
   spec: CharacterSpec,
   sequences: ReadonlyMap<string, BobSeqRow>,
   gfx: CharacterGfx,
 ): SettlerStateBinding {
   binding = workAndBabyGestures(binding, spec, sequences, gfx);
-  const choices = attackChoices(spec, sequences, gfx);
+  const choices = attackChoices(attackSeq, sequences, gfx);
   const attacks = choices.length > 1 ? { byAtomicChoices: { [ATTACK_ATOMIC]: choices } } : {};
   const prefix = spec.walkSeq === undefined ? undefined : BOW_PREFIXES[spec.walkSeq];
   if (prefix === undefined) {

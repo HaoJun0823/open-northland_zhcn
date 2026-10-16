@@ -21,8 +21,10 @@ import {
   JOB_CIVILIST,
   JOB_HERO_UNARMED,
   JOB_HEROINE_BOW,
+  JOB_SOLDIER_BROADSWORD,
   JOB_SOLDIER_SPEAR,
   JOB_SOLDIER_SPEAR_WOODEN,
+  JOB_SOLDIER_SWORD,
   JOB_SOLDIER_UNARMED,
   JOB_TRADER,
   SOLDIER_JOB_MAX,
@@ -229,7 +231,7 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
       expect(reached.has(action), action).toBe(true);
   });
 
-  it('makes the additional civilian and unarmed attacks reachable, without changing armed attacks', () => {
+  it('rolls each strike among the attack records and the numbered takes the body draws', () => {
     const table = tables.get(VIKING);
     const starts = (job: number) =>
       (table?.byJob[job] ?? table?.default)?.binding.byAtomicChoices?.[ATTACK_ATOMIC]?.map(
@@ -238,8 +240,17 @@ describe.runIf(hasRealIr())('every settler look draws its head', () => {
     // Pinned bobseq ranges in the supplied animation table.
     expect(starts(JOB_CIVILIST)).toEqual([425, 95, 221, 323]);
     expect(starts(JOB_SOLDIER_UNARMED)).toEqual([998, 632, 758, 877]);
+    expect(starts(JOB_SOLDIER_SWORD)).toEqual([2966, 2864]);
+    expect(starts(JOB_SOLDIER_BROADSWORD)).toEqual([0, 150]);
     expect(starts(JOB_ARCHER)).toBeUndefined();
     expect(starts(JOB_ARCHER_LONG)).toBeUndefined();
+    // The frankish record names only the plain punch; the viking set joins because it names it too.
+    const frank = tables.get(FRANK);
+    expect(
+      (frank?.byJob[JOB_SOLDIER_UNARMED] ?? frank?.default)?.binding.byAtomicChoices?.[ATTACK_ATOMIC]?.map(
+        (clip) => clip.start,
+      ),
+    ).toEqual([998, 632, 758, 877]);
   });
 
   it('binds the civilian wedding jump to the celebration action', () => {

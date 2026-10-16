@@ -234,7 +234,8 @@ export const enContent = {
     },
     'combat-gestures': {
       title: 'Strikes and gestures',
-      summary: 'Civilian, unarmed and archer duels beside resting, eating and sleeping bowmen.',
+      summary:
+        'Civilian, unarmed, sword, broadsword and archer duels beside resting, eating and sleeping bowmen.',
     },
     'flag-yard-layout': {
       title: 'Flag yard piles',

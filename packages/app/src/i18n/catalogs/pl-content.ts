@@ -231,7 +231,8 @@ export const plContent = {
     },
     'combat-gestures': {
       title: 'Ciosy i gesty',
-      summary: 'Pojedynki cywila, wojownika i łuczników; obok odpoczynek, posiłek i sen z łukiem.',
+      summary:
+        'Pojedynki cywila, wojownika, miecznika, wojownika z długim mieczem i łuczników; obok odpoczynek, posiłek i sen z łukiem.',
     },
     'flag-yard-layout': {
       title: 'Sterty przy fladze',

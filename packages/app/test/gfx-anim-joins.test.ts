@@ -143,6 +143,7 @@ describe('tribeJobSeqs', () => {
       },
       { tribe: VIKING, job: SOLDIER, action: CHEST_ACTION, bodySeq: 'soldier_pick_up', dirFrames: [[6]] },
       { tribe: VIKING, job: SOLDIER, action: EAT_ACTION, bodySeq: 'soldier_eat', dirFrames: [[7]] },
+      { tribe: VIKING, job: SOLDIER, action: ATTACK_ACTION, bodySeq: 'soldier_punch', dirFrames: [[11]] },
       { tribe: VIKING, job: CIVILIST, action: EAT_ACTION, bodySeq: 'civilist_eat', dirFrames: [[8]] },
       {
         tribe: VIKING,
@@ -157,13 +158,18 @@ describe('tribeJobSeqs', () => {
     ],
   };
 
-  it('lists one job own unloaded gait, base wait, first attack and every action record ahead of its base jobs', () => {
+  it('lists one job own unloaded gait, base wait, attacks and every action record ahead of its base jobs', () => {
     expect(tribeJobSeqs(ir, VIKING, [LONGBOWMAN])).toEqual({
       walk: ['longbow_walk', 'soldier_walk'],
       gaits: ['longbow_walk', 'soldier_walk'],
       heads: new Map(),
       wait: ['longbow_wait', 'civilist_wait'],
-      attack: ['longbow_attack'],
+      attack: ['longbow_attack', 'soldier_punch'],
+      // The strike rolls only among the nearest authoring job's records, never its base job's.
+      attacks: [
+        { seq: 'longbow_attack', program: { dirFrames: [[2]] } },
+        { seq: 'longbow_attack_2', program: { dirFrames: [[3]] } },
+      ],
       // A job's several records for one action all stay, in file order, each with its own frame lists;
       // the wait ladder's records are actions of their own besides electing the base wait.
       atomics: new Map([
@@ -205,7 +211,15 @@ describe('tribeJobSeqs', () => {
   });
 
   it('omits what the tribe does not author rather than borrowing another job or tribe', () => {
-    const none = { walk: [], gaits: [], wait: [], attack: [], atomics: new Map(), heads: new Map() };
+    const none = {
+      walk: [],
+      gaits: [],
+      wait: [],
+      attack: [],
+      attacks: [],
+      atomics: new Map(),
+      heads: new Map(),
+    };
     expect(tribeJobSeqs(ir, VIKING, [34])).toEqual(none);
     expect(tribeJobSeqs(ir, 3, [LONGBOWMAN])).toEqual(none);
     expect(tribeJobSeqs(null, VIKING, [LONGBOWMAN])).toEqual(none);

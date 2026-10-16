@@ -25,6 +25,6 @@ it('reaches civilian combat, shortbow meals and sleep, and wedding celebration t
       reached.add(`${job}:${action}`);
     }
   }
-  for (const action of ['7:81', '31:81', '40:10', '40:8', '6:17'])
+  for (const action of ['7:81', '31:81', '34:81', '35:81', '40:10', '40:8', '6:17'])
     expect(reached.has(action), action).toBe(true);
 });

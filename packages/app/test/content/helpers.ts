@@ -156,6 +156,7 @@ export function characterTablesUnderTest(
       sequencesByBody,
       sequences: allSequences,
       basePrograms,
+      baseTribe: civilizations[0],
     };
     const table = tribeCharacters(ir, goods, tribe, inputs, base);
     base ??= table;

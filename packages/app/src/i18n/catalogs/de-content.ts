@@ -235,7 +235,7 @@ export const deContent = {
     'combat-gestures': {
       title: 'Schläge und Gesten',
       summary:
-        'Zivilisten, unbewaffnete Soldaten und Bogenschützen duellieren sich neben ruhenden, essenden und schlafenden Bogenschützen.',
+        'Zivilisten, unbewaffnete Soldaten, Schwertkämpfer, Langschwertkämpfer und Bogenschützen duellieren sich neben ruhenden, essenden und schlafenden Bogenschützen.',
     },
     'flag-yard-layout': {
       title: 'Warenhaufen an der Fahne',

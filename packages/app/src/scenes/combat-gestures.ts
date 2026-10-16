@@ -6,6 +6,8 @@ import {
   JOB_ARCHER_LONG,
   JOB_BUILDER,
   JOB_CIVILIST,
+  JOB_SOLDIER_BROADSWORD,
+  JOB_SOLDIER_SWORD,
   JOB_SOLDIER_UNARMED,
   JOB_WOMAN,
 } from '../catalog/jobs.js';
@@ -17,7 +19,19 @@ import type { SceneDefinition } from './types.js';
 
 const { Carrying, CurrentAtomic, Health, Owner, Settler, Stance } = components;
 const HITPOINTS = 1_000_000;
-const DUEL_JOBS = [JOB_BUILDER, JOB_SOLDIER_UNARMED, JOB_ARCHER, JOB_ARCHER_LONG];
+/** The swords roll between two attack takes, so their duels show the variation. */
+const DUEL_JOBS = [
+  JOB_BUILDER,
+  JOB_SOLDIER_UNARMED,
+  JOB_SOLDIER_SWORD,
+  JOB_SOLDIER_BROADSWORD,
+  JOB_ARCHER,
+  JOB_ARCHER_LONG,
+];
+const BOW_JOBS: ReadonlySet<number> = new Set([JOB_ARCHER, JOB_ARCHER_LONG]);
+/** Half-cell nodes between a duel's attacker and target: adjacent for a blow, a few cells for a shot. */
+const MELEE_GAP = 1;
+const BOW_GAP = 9;
 
 function sturdy(sim: Simulation, e: Entity): Entity {
   const health = sim.world.mut(e, Health);
@@ -34,7 +48,7 @@ function build(sim: Simulation): void {
       spawnSettlerAtNode(
         sim,
         JOB_SOLDIER_UNARMED,
-        { hx: from.hx + (i < 2 ? 1 : 9), hy: from.hy },
+        { hx: from.hx + (BOW_JOBS.has(job) ? BOW_GAP : MELEE_GAP), hy: from.hy },
         ENEMY_PLAYER,
       ),
     );
@@ -69,7 +83,7 @@ export const combatGesturesScene: SceneDefinition = {
   id: 'combat-gestures',
   seed: 71,
   needs: true,
-  terrain: grassTerrain(32, 24),
+  terrain: grassTerrain(32, 34),
   build,
   initialZoom: 0.75,
   runTicks: 720,
@@ -84,7 +98,7 @@ export const combatGesturesScene: SceneDefinition = {
         ),
     },
     {
-      label: 'all four duels land blows while every participant survives',
+      label: 'every duel lands blows while every participant survives',
       predicate: (sim) => {
         let woundedTargets = 0;
         for (const e of sim.world.query(Settler, Health, Owner)) {

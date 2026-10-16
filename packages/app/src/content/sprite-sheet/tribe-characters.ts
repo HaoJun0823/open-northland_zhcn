@@ -12,6 +12,7 @@ import { MUSHROOM_HARVEST_ATOMIC } from '../../catalog/atomics.js';
 import { JOB_HEROINE_BOW } from '../../catalog/jobs.js';
 import { diag } from '../../diag/index.js';
 import {
+  attackProgramsBySeq,
   carryWalkSeqs,
   type GfxAtomicProgram,
   gfxAtomicProgramsByAction,
@@ -290,6 +291,8 @@ export interface TribeCharacterInputs {
   readonly sequences: ReadonlyMap<string, BobSeqRow>;
   /** The base tribe's `[gfxanimatomic]` programs, for the clips this tribe authors none for. */
   readonly basePrograms?: ReadonlyMap<number, ReadonlyMap<string, GfxAtomicProgram>>;
+  /** The base tribe, whose attack records for a job also roll where they name this tribe's bound swing. */
+  readonly baseTribe?: number;
 }
 
 /**
@@ -311,6 +314,7 @@ export function tribeCharacters(
   base?: ByJobTable<SettlerCharacter>,
 ): ByJobTable<SettlerCharacter> | undefined {
   const programsByAction = tribeAtomicPrograms(ir, tribe);
+  const attackPrograms = attackProgramsBySeq(ir);
   const waitBySeq = gfxWaitProgramsBySeq(ir, tribe);
   const walkLists = gfxWalkFrameLists(ir, tribe);
   // This civilization's indoor craft clips; each body keeps the ones its own atlas holds sequences for.
@@ -340,6 +344,10 @@ export function tribeCharacters(
         tribeSeqs,
         programsByAction,
         ...(inputs.basePrograms !== undefined ? { basePrograms: inputs.basePrograms } : {}),
+        attackPrograms,
+        ...(inputs.baseTribe !== undefined
+          ? { baseAttacks: tribeJobSeqs(ir, inputs.baseTribe, spec.gfxJobs).attacks }
+          : {}),
         waitBySeq,
         walkLists,
         subClips,

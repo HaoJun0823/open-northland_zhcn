@@ -54,6 +54,7 @@ export async function loadCharacters(
     sequencesByBody,
     sequences,
     basePrograms,
+    baseTribe: tribes[0],
   });
   const baseTable = tribeCharacters(ir, goods, tribes[0], inputsFor(tribes[0]));
   if (baseTable === undefined) return undefined;

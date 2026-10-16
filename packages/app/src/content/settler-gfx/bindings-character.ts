@@ -28,6 +28,10 @@ export interface CharacterGfx {
    *  such as the woman's kiss and the trader's herb picking, which only the vikings author. Approximation:
    *  what the original plays for such a tribe is unconfirmed. */
   readonly basePrograms?: ReadonlyMap<number, ReadonlyMap<string, GfxAtomicProgram>>;
+  /** Every tribe's attack program per body bobseq name, for a variant strip this tribe binds no record for. */
+  readonly attackPrograms?: ReadonlyMap<string, GfxAtomicProgram>;
+  /** The base tribe's attack records for the spec's jobs: the viking transcription's roll set. */
+  readonly baseAttacks?: readonly TribeClip[];
   /** The standing-wait program per wait bobseq name (the `gfxanimmode 1` base wait preferred). */
   readonly waitBySeq?: ReadonlyMap<string, GfxAtomicProgram>;
   /** The `gfxwalkframelist` lists per walk bobseq name. */
@@ -262,6 +266,7 @@ export function characterBinding(
   const cartDrive = cartDriveAnims(spec, seqByName, walkLists, programsByAction, bodyAtlas);
 
   return withAdditionalAnimations(
+    attackSeq,
     {
       idle,
       ...(walk !== undefined ? { moving: walk } : {}),

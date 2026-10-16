@@ -266,9 +266,12 @@ export function resolveSettlerBobId(
     const choices = item.atomicId === undefined ? undefined : binding.byAtomicChoices?.[item.atomicId];
     if (choices !== undefined && choices.length > 0) {
       // Presentation-only variation: stable for the whole action, including facing changes and heads.
-      // Mix the start tick so attacks at a fixed cadence do not always select the same clip.
+      // A full 32-bit finalizer over the start tick, so strikes at a fixed cadence fall into no cycle.
       let seed = (Math.floor(tick) - Math.floor(item.elapsed ?? 0)) ^ Math.imul(item.ref, 0x9e3779b1);
-      seed = Math.imul(seed ^ (seed >>> 16), 0x45d9f3b);
+      seed ^= seed >>> 16;
+      seed = Math.imul(seed, 0x85ebca6b);
+      seed ^= seed >>> 13;
+      seed = Math.imul(seed, 0xc2b2ae35);
       seed = (seed ^ (seed >>> 16)) >>> 0;
       const selected = choices[seed % choices.length];
       if (selected !== undefined) return atomicFrame(selected, facing, clock, item.atomicDuration);

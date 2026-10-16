@@ -115,6 +115,29 @@ describe('building staff readers', () => {
     expect(model.staff?.count?.filled).toBe(1);
   });
 
+  it("releases a tower's posted fighters only, and offers no release on a house without tower seats", () => {
+    const tower = buildingModel(
+      [
+        buildingEntity(1, BUILDING_WATCHTOWER, { components: { DefenceMode: {} } }),
+        { id: 2, components: { Settler: { jobType: JOB_ARCHER }, JobAssignment: { workplace: 1 } } },
+        { id: 3, components: { Settler: { jobType: 0 }, Sheltering: { shelter: 1 }, Resting: { at: 1 } } },
+        { id: 4, components: { Settler: { jobType: JOB_CARRIER }, JobAssignment: { workplace: 1 } } },
+      ],
+      1,
+    );
+    expect(tower.staff?.garrison).toEqual([2]);
+    const empty = buildingModel([buildingEntity(1, BUILDING_WATCHTOWER)], 1);
+    expect(empty.staff?.garrison).toEqual([]);
+    const hq = buildingModel(
+      [
+        buildingEntity(1, BUILDING_HEADQUARTERS),
+        { id: 2, components: { Settler: { jobType: JOB_CARRIER }, JobAssignment: { workplace: 1 } } },
+      ],
+      1,
+    );
+    expect(hq.staff?.garrison).toBeNull();
+  });
+
   it('lists a worker who shelters where it works on its trade line only', () => {
     const model = buildingModel(
       [
@@ -570,6 +593,7 @@ describe('building orders', () => {
     const cues: string[] = [];
     const answers = [false, true];
     const asked: string[] = [];
+    const selected: (readonly number[])[] = [];
     const snapshot = panelSnapshotOf([
       buildingEntity(1, BUILDING_HEADQUARTERS),
       buildingEntity(2, BUILDING_HEADQUARTERS, { components: { Owner: { player: 1 } } }),
@@ -579,6 +603,7 @@ describe('building orders', () => {
       viewer: fixedViewerSeat(HUMAN_PLAYER),
       enqueue: (command) => sent.push(command),
       cue: (cue) => cues.push(cue),
+      selectGroup: (ids) => selected.push(ids),
       confirm: (question) => {
         asked.push(question.message);
         return Promise.resolve(answers.shift() ?? false);
@@ -590,6 +615,8 @@ describe('building orders', () => {
     actions.demolish(1, 'Kwatera');
     actions.setHouseholdGoodUse(HUMAN_PLAYER, 'rest', false);
     actions.setHouseholdGoodUse(1, 'rest', false);
+    actions.releaseGarrison(2, [8]);
+    actions.releaseGarrison(1, [6, 7]);
     await Promise.resolve();
     expect(asked).toEqual([
       formatMessage(copy.demolishQuestion, { name: 'Kwatera' }),
@@ -598,9 +625,12 @@ describe('building orders', () => {
     expect(sent).toEqual([
       { kind: 'setDefenceMode', building: 1 as Entity, enabled: true },
       { kind: 'setHouseholdGoodUse', player: HUMAN_PLAYER, effect: 'rest', allowed: false },
+      { kind: 'unassignWorker', entity: 6 as Entity },
+      { kind: 'unassignWorker', entity: 7 as Entity },
       { kind: 'demolish', building: 1 as Entity },
     ]);
-    expect(cues).toEqual(['confirm', 'fail', 'confirm', 'confirm', 'confirm', 'fail']);
+    expect(selected).toEqual([[6, 7]]);
+    expect(cues).toEqual(['confirm', 'fail', 'confirm', 'confirm', 'confirm', 'fail', 'fail', 'confirm']);
   });
 });
 

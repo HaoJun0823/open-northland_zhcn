@@ -7,7 +7,17 @@ import type {
   StaffPerson,
 } from '../../details-panel/model/index.js';
 import { FIGURE } from '../icons.js';
-import { element, setAttribute, setClass, setDisabled, setHidden, setTip, write } from '../parts/dom.js';
+import {
+  button,
+  element,
+  isDisabled,
+  setAttribute,
+  setClass,
+  setDisabled,
+  setHidden,
+  setTip,
+  write,
+} from '../parts/dom.js';
 import { createFigureWell, type FigureWell, showInWell } from '../parts/figure-well.js';
 import { createSection } from '../parts/section.js';
 import type { BuildingPanelDeps } from './actions.js';
@@ -42,8 +52,9 @@ const LOOK_CLASS: Readonly<Record<PersonLook, string>> = {
 };
 
 /** Workers, Residents or Builders: a line per group (a trade's seats, the sheltering crowd, a
- *  family) with a well per person showing it live, and the filled and declared seats on the rule. A
- *  press on a person selects it; a press on a trade's free seat lists who could take it. */
+ *  family) with a well per person showing it live, and the filled and declared seats on the rule, with
+ *  "Release the garrison" beside them on a tower. A press on a person selects it; a press on a trade's
+ *  free seat lists who could take it. */
 export interface StaffSection {
   readonly element: HTMLElement;
   update(model: BuildingPanelModel): void;
@@ -57,7 +68,14 @@ export function createStaffSection(
   staffOf: (model: BuildingPanelModel) => BuildingStaffModel | null,
 ): StaffSection {
   const count = element('span', 'on-section__count');
-  const title = createSection(count);
+  const release = button('on-more');
+  let shown: { readonly building: number; readonly garrison: readonly number[] } | null = null;
+  release.addEventListener('click', () => {
+    if (shown !== null && !isDisabled(release)) deps.building.releaseGarrison(shown.building, shown.garrison);
+  });
+  const controls = element('span', 'on-section__group');
+  controls.append(count, release);
+  const title = createSection(controls);
   const list = element('div', 'on-staff');
   const root = element('div', '');
   root.append(title.element, list);
@@ -117,6 +135,12 @@ export function createStaffSection(
         return;
       }
       const copy = messages().hud.buildingPanel;
+      const garrison = staff.garrison;
+      shown = garrison === null ? null : { building: model.entityId, garrison };
+      setHidden(release, garrison === null);
+      write(release, copy.releaseGarrison);
+      setDisabled(release, garrison === null || garrison.length === 0);
+      setTip(release, copy.releaseGarrisonTooltip);
       title.update(
         staff.kind === 'residents' ? copy.residents : staff.kind === 'crew' ? copy.crew : copy.workers,
       );

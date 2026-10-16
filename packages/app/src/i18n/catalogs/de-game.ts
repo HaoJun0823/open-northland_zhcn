@@ -1010,6 +1010,8 @@ export const deGame = {
         'Verteidigungsmodus stoppen: Die hier untergebrachten Zivilisten kehren zur Arbeit zurück',
       demolishQuestion: '„{name}“ abreißen?',
       demolishKeep: 'Behalten',
+      releaseGarrison: 'Garnison abziehen',
+      releaseGarrisonTooltip: 'Die Garnison verlässt den Turm und bleibt für den nächsten Befehl ausgewählt',
       tier: 'Stufe {level}',
       status: {
         building: 'Im Bau',

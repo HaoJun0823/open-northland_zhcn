@@ -12,6 +12,7 @@ export interface BuildingPanelHost {
   readonly viewer: ViewerSeat;
   readonly enqueue: (command: PlayerCommand) => void;
   readonly cue: (cue: UiCue) => void;
+  readonly selectGroup: (ids: readonly number[]) => void;
   /** The question a demolition asks first; the in-page dialog unless a test answers it. */
   readonly confirm?: (copy: ConfirmDialogCopy) => Promise<boolean>;
 }
@@ -38,6 +39,10 @@ export function buildingPanelActions(host: BuildingPanelHost): BuildingPanelActi
     setAlarm: order((id, enabled: boolean) =>
       send({ kind: 'setDefenceMode', building: id as Entity, enabled }),
     ),
+    releaseGarrison: order((_id, garrison: readonly number[]) => {
+      for (const entity of garrison) send({ kind: 'unassignWorker', entity: entity as Entity });
+      host.selectGroup(garrison);
+    }),
     setHouseholdGoodUse: (player, effect, allowed) => {
       if (player !== host.viewer.seat()) {
         host.cue('fail');

@@ -52,6 +52,9 @@ export interface BuildingStaffModel {
   readonly kind: 'workers' | 'residents' | 'crew';
   readonly groups: readonly StaffGroup[];
   readonly count: { readonly filled: number; readonly capacity: number } | null;
+  /** The fighters posted at a house with tower seats, which "Release the garrison" sends out; null for
+   *  any other house. */
+  readonly garrison: readonly number[] | null;
 }
 
 const TRAINEES = idsGroupedBy((e) => (isSettler(e) ? trainingHouseOf(e) : undefined), 'trainees', {
@@ -190,6 +193,7 @@ export function siteCrew(
       },
     ],
     count: null,
+    garrison: null,
   };
 }
 
@@ -220,10 +224,22 @@ export function buildingStaff(
         jobType: null,
       };
     });
-    return { kind: 'residents', groups, count: { filled: families.length, capacity: def.homeSize } };
+    return {
+      kind: 'residents',
+      groups,
+      count: { filled: families.length, capacity: def.homeSize },
+      garrison: null,
+    };
   }
   const groups = workerGroups(ctx, snapshot, def, ent.id);
   const posted = groups.reduce((sum, group) => sum + group.people.length, 0);
+  const garrison = hasGarrisonSeat(def)
+    ? groups.flatMap((group) =>
+        group.jobType !== null && workerRoleOf(group.jobType) === 'garrison'
+          ? group.people.map((person) => person.entity)
+          : [],
+      )
+    : null;
   groups.push(...routeGroups(ctx, snapshot, ent));
   // A worker posted here or a trader calling here who shelters here too keeps its trade's line.
   const listed = new Set(groups.flatMap((group) => group.people.map((person) => person.entity)));
@@ -249,8 +265,16 @@ export function buildingStaff(
   }
   if (groups.length === 0) return null;
   const slots = (def?.workers ?? []).reduce((sum, slot) => sum + slot.count, 0);
-  return { kind: 'workers', groups, count: slots > 0 ? { filled: posted, capacity: slots } : null };
+  return {
+    kind: 'workers',
+    groups,
+    count: slots > 0 ? { filled: posted, capacity: slots } : null,
+    garrison,
+  };
 }
+
+const hasGarrisonSeat = (def: BuildingDef | undefined): boolean =>
+  (def?.workers ?? []).some((slot) => workerRoleOf(slot.jobType) === 'garrison');
 
 /** The tower posts manned at `building`, or null for a house with no garrison seat. */
 export function garrisonPosts(
@@ -258,7 +282,7 @@ export function garrisonPosts(
   def: BuildingDef | undefined,
   building: number,
 ): number | null {
-  if (!(def?.workers ?? []).some((slot) => workerRoleOf(slot.jobType) === 'garrison')) return null;
+  if (!hasGarrisonSeat(def)) return null;
   return staffOf(snapshot, building).filter((e) => {
     const jobType = settlerJobType(e);
     return jobType !== undefined && workerRoleOf(jobType) === 'garrison';

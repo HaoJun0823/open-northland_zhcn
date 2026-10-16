@@ -914,6 +914,8 @@ export const plGame = {
       alarmOffTooltip: 'Odwołaj alarm: schronieni wracają do pracy',
       demolishQuestion: 'Zburzyć budynek „{name}”?',
       demolishKeep: 'Zostaw',
+      releaseGarrison: 'Wyprowadź załogę',
+      releaseGarrisonTooltip: 'Załoga opuszcza wieżę i zostaje zaznaczona do następnego rozkazu',
       tier: 'Poziom {level}',
       status: {
         building: 'Budowa',

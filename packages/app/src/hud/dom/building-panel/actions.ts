@@ -13,6 +13,8 @@ export interface BuildingPanelActions {
   /** Ask the player whether to raze the building named `name`, then raze it. */
   readonly demolish: (building: number, name: string) => void;
   readonly setAlarm: (building: number, on: boolean) => void;
+  /** Stand `garrison` down from the tower and select them, so the next click sends them on. */
+  readonly releaseGarrison: (building: number, garrison: readonly number[]) => void;
   /** Allow or forbid a household ware in every home of `player`. */
   readonly setHouseholdGoodUse: (player: number, effect: HouseholdEffect, allowed: boolean) => void;
 }

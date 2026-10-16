@@ -930,6 +930,8 @@ export const enGame = {
       alarmOffTooltip: 'Stop defence mode: the sheltered go back to work',
       demolishQuestion: 'Demolish “{name}”?',
       demolishKeep: 'Keep',
+      releaseGarrison: 'Release the garrison',
+      releaseGarrisonTooltip: 'The garrison leaves the tower and stays selected for its next order',
       tier: 'Level {level}',
       status: {
         building: 'Construction',

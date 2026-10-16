@@ -1005,6 +1005,8 @@ export const ruGame = {
       alarmOffTooltip: 'Выключить режим обороны: укрывшиеся возвращаются к работе',
       demolishQuestion: 'Снести здание «{name}»?',
       demolishKeep: 'Оставить',
+      releaseGarrison: 'Вывести гарнизон',
+      releaseGarrisonTooltip: 'Гарнизон покидает башню и остаётся выбранным для следующего приказа',
       tier: 'Уровень {level}',
       status: {
         building: 'Строительство',

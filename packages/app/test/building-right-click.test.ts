@@ -1,13 +1,14 @@
 import { type ContentSet, lastByTypeId } from '@open-northland/data';
-import type { Command, Entity, Fixed, GroupWorker, WorldSnapshot } from '@open-northland/sim';
-import { components, fx, ONE, Simulation, systems } from '@open-northland/sim';
+import type { Command, Entity, Fixed, GroupWorker, PlayerCommand, WorldSnapshot } from '@open-northland/sim';
+import { components, fx, ONE, playerCommand, Simulation, systems } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { BUILD_HOUSE_ATOMIC } from '../src/catalog/atomics.js';
-import { JOB_BUILDER, JOB_JOINER, JOB_TRADER } from '../src/catalog/jobs.js';
+import { JOB_ARCHER, JOB_BUILDER, JOB_JOINER, JOB_TRADER } from '../src/catalog/jobs.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
 import {
   BUILDING_BARRACKS,
   BUILDING_HOME_00,
+  BUILDING_WATCHTOWER,
   GOOD_STONE,
   GOOD_WOOD,
   sandboxContent,
@@ -154,6 +155,9 @@ async function pressRightClick(
   await new Promise((resolve) => setTimeout(resolve, 0));
   return { issued, ordered };
 }
+
+/** The sandbox watchtower's short-bow seats (`logicworker 40 3`). */
+const TOWER_SHORT_BOW_POSTS = 3;
 
 /** The click itself carries no information here - `toWorld` above pins the world point, and the
  *  controller reads nothing else off the event. Node has no DOM to mint a real one. */
@@ -343,6 +347,29 @@ describe('right-clicking a standing building', () => {
     expect(postedWorkers(await rightClick(sim, group, standing), standing).map((w) => w.entity)).toEqual(
       group,
     );
+  });
+
+  it('mans a second tower from the selection without pulling the first garrison back', async () => {
+    const sim = new Simulation({ seed: 1, content: sandboxContent() });
+    const first = buildingAt(sim, BUILDING_WATCHTOWER, ONE);
+    const second = buildingAt(sim, BUILDING_WATCHTOWER, ONE);
+    const archers = Array.from({ length: 2 * TOWER_SHORT_BOW_POSTS + 1 }, () => settlerAt(sim, JOB_ARCHER));
+    const manAndStep = async (tower: Entity): Promise<void> => {
+      for (const command of await rightClick(sim, archers, tower)) {
+        sim.enqueue(playerCommand(HUMAN_PLAYER, command as PlayerCommand));
+      }
+      sim.step();
+    };
+    const posts = (): (Entity | undefined)[] =>
+      archers.map((e) => sim.world.tryGet(e, components.JobAssignment)?.workplace);
+
+    await manAndStep(first);
+    await manAndStep(second);
+
+    const manned = posts();
+    expect(manned.filter((post) => post === first)).toHaveLength(TOWER_SHORT_BOW_POSTS);
+    expect(manned.filter((post) => post === second)).toHaveLength(TOWER_SHORT_BOW_POSTS);
+    expect(manned.filter((post) => post === undefined)).toHaveLength(1);
   });
 
   it('sends a trade the barracks does not employ to drill there', async () => {

@@ -266,6 +266,7 @@ export async function createUnitChrome(
       viewer: opts.viewer,
       enqueue: opts.enqueue,
       cue: callbacks.cue,
+      selectGroup: callbacks.selectGroup,
     }),
     windows: {
       residentsFor: (jobType) => opts.domHud.centralWindows?.residentsFor(jobType),

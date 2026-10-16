@@ -77,10 +77,19 @@ export function sessionSeatChanges(
   return changes;
 }
 
+/** The flows as they are gathered, before {@link seatFlows} hands them out read-only. */
+interface FlowBuilder {
+  readonly changes: ReadonlyMap<number, SeatChange>;
+  readonly seats: Map<number, SeatChange>;
+  readonly ids: Record<FlowKind, Map<number, readonly SeatChange[]>>;
+  readonly areas: AreaFlow[];
+  readonly played: ReadonlySet<number>;
+}
+
 export function seatFlows(session: Pick<GameSession, 'seats'>, script: SeatScript): SeatFlows {
   const changes = sessionSeatChanges(session, script);
   const played = new Set(session.seats.filter((seat) => seat.mode === 'human').map((seat) => seat.player));
-  const flows: SeatFlows = {
+  const flows: FlowBuilder = {
     changes,
     seats: new Map(changes),
     ids: { human: new Map(), house: new Map(), vehicle: new Map() },
@@ -98,32 +107,31 @@ export function seatFlows(session: Pick<GameSession, 'seats'>, script: SeatScrip
 }
 
 /** A seat the session does not play, whose things may all be staged for a re-tribed seat. */
-function staging(flows: SeatFlows, player: number): boolean {
+function staging(flows: FlowBuilder, player: number): boolean {
   return !flows.played.has(player) && !flows.seats.has(player);
 }
 
 /** `ChangePlayerPlayerId`, followed through chains of seats handed on. */
-function handWholeSeats(flows: SeatFlows, lines: readonly MissionResult[]): void {
-  const seats = flows.seats as Map<number, SeatChange>;
+function handWholeSeats(flows: FlowBuilder, lines: readonly MissionResult[]): void {
   let grew = true;
   while (grew) {
     grew = false;
     for (const op of lines) {
       if (op.opcode !== 'ChangePlayerPlayerId') continue;
-      const change = seats.get(op.otherPlayer);
+      const change = flows.seats.get(op.otherPlayer);
       if (change === undefined || !staging(flows, op.player)) continue;
-      seats.set(op.player, change);
+      flows.seats.set(op.player, change);
       grew = true;
     }
   }
 }
 
 /** The by-id handovers to a receiving seat, and the vehicle ids renumbered onto a handed one. */
-function handIds(flows: SeatFlows, lines: readonly MissionResult[]): void {
+function handIds(flows: FlowBuilder, lines: readonly MissionResult[]): void {
   const hand = (kind: FlowKind, id: number, to: number): void => {
     const change = flows.seats.get(to);
     if (change === undefined || id === NO_MISSION_ID) return;
-    const ids = flows.ids[kind] as Map<number, SeatChange[]>;
+    const ids = flows.ids[kind];
     const seats = ids.get(id) ?? [];
     if (!seats.includes(change)) ids.set(id, [...seats, change]);
   };
@@ -132,7 +140,7 @@ function handIds(flows: SeatFlows, lines: readonly MissionResult[]): void {
     else if (op.opcode === 'ChangeHousesPlayerId') hand('house', op.objectId, op.player);
     else if (op.opcode === 'ChangeVehiclesPlayerId') hand('vehicle', op.vehicleId, op.player);
   }
-  const vehicles = flows.ids.vehicle as Map<number, readonly SeatChange[]>;
+  const vehicles = flows.ids.vehicle;
   let grew = true;
   while (grew) {
     grew = false;
@@ -151,8 +159,7 @@ function handIds(flows: SeatFlows, lines: readonly MissionResult[]): void {
  * within an area or anywhere. Read at the authored places, so a unit that walks into the area later
  * is left to the handover's own check.
  */
-function handAreas(flows: SeatFlows, lines: readonly MissionResult[]): void {
-  const areas = flows.areas as AreaFlow[];
+function handAreas(flows: FlowBuilder, lines: readonly MissionResult[]): void {
   const add = (
     player: number,
     kinds: readonly FlowKind[],
@@ -161,7 +168,7 @@ function handAreas(flows: SeatFlows, lines: readonly MissionResult[]): void {
     changes: readonly SeatChange[] | undefined,
   ): void => {
     if (flows.played.has(player)) return;
-    for (const change of changes ?? []) areas.push({ player, kinds, point, range, change });
+    for (const change of changes ?? []) flows.areas.push({ player, kinds, point, range, change });
   };
   const ALL: readonly FlowKind[] = ['human', 'house', 'vehicle'];
   for (const op of lines) {

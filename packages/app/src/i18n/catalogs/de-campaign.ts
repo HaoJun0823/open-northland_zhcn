@@ -20,6 +20,9 @@ export const deCampaign = {
   storage:
     'Kampagnenfortschritt konnte nicht gespeichert werden. Browserspeicher freigeben und erneut versuchen.',
   retry: 'Erneut versuchen',
+  continueWithoutSaving: 'Ohne Speichern fortfahren',
+  storageUnreadable:
+    'Kampagnenfortschritt konnte in diesem Browser nicht gelesen werden. Die erste Mission ist verfügbar.',
   play: 'Video abspielen',
   skipMovie: 'Video überspringen',
   movieFailed: 'Video konnte nicht geladen werden. Du kannst es überspringen.',

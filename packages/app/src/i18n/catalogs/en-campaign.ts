@@ -19,6 +19,8 @@ export const enCampaign = {
   resetAction: 'Reset progress',
   storage: 'Campaign progress could not be saved. Free browser storage and retry.',
   retry: 'Retry',
+  continueWithoutSaving: 'Continue without saving',
+  storageUnreadable: 'Campaign progress could not be read in this browser. The first mission is available.',
   play: 'Play video',
   skipMovie: 'Skip video',
   movieFailed: 'The video could not be loaded. You can skip it.',

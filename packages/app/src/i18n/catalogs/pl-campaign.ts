@@ -19,6 +19,9 @@ export const plCampaign = {
   storage:
     'Nie udało się zapisać postępu kampanii. Zwolnij miejsce w pamięci przeglądarki i spróbuj ponownie.',
   retry: 'Ponów',
+  continueWithoutSaving: 'Graj dalej bez zapisu',
+  storageUnreadable:
+    'Nie udało się odczytać postępu kampanii w tej przeglądarce. Dostępna jest pierwsza misja.',
   play: 'Odtwórz film',
   skipMovie: 'Pomiń film',
   movieFailed: 'Nie udało się wczytać filmu. Możesz go pominąć.',

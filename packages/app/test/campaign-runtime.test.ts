@@ -1,7 +1,7 @@
 import type { WorldSnapshot } from '@open-northland/sim';
 import { describe, expect, it, vi } from 'vitest';
 import { readCampaignProgress } from '../src/campaign/progress.js';
-import { createCampaignRuntime } from '../src/campaign/runtime.js';
+import { type CampaignFailureRecovery, createCampaignRuntime } from '../src/campaign/runtime.js';
 import { campaignFixture, memoryStorage } from './support/campaign.js';
 
 const ENGLISH_VIDEO = expect.objectContaining({ audio: '/campaigns/test/eng/video-1.webm' });
@@ -22,7 +22,7 @@ function setup(mapId = 'first') {
     resume: vi.fn(),
     play: vi.fn(async () => undefined),
     exit: vi.fn(),
-    failed: vi.fn(),
+    failed: vi.fn<(recovery: CampaignFailureRecovery) => void>(),
     signal: new AbortController().signal,
   };
   return { ...deps, runtime: createCampaignRuntime(deps) };
@@ -88,8 +88,7 @@ describe('campaign handovers', () => {
     t.runtime.events([{ kind: 'missionCampaignUnlock', campaignId: 3, mapId: 20 }], proceed);
     expect(t.runtime.isPending()).toBe(true);
     expect(proceed).toHaveBeenCalledOnce();
-    const retry = t.failed.mock.calls[0]?.[0] as (() => void) | undefined;
-    retry?.();
+    t.failed.mock.calls[0]?.[0].retry();
     expect(readCampaignProgress(t.campaign, t.storage).unlocked).toContain('second');
   });
   it('keeps a failed grant batch for retry before transition', () => {
@@ -101,10 +100,42 @@ describe('campaign handovers', () => {
     t.runtime.events([{ kind: 'missionCampaignUnlock', campaignId: 3, mapId: 20 }], proceed);
     expect(proceed).not.toHaveBeenCalled();
     expect(t.runtime.isPending()).toBe(true);
-    const retry = t.failed.mock.calls[0]?.[0] as (() => void) | undefined;
-    retry?.();
+    t.failed.mock.calls[0]?.[0].retry();
     expect(proceed).toHaveBeenCalledOnce();
     expect(t.runtime.isPending()).toBe(false);
+  });
+  it('drops a failed batch and plays on when the player continues without saving', () => {
+    const t = setup();
+    const proceed = vi.fn();
+    vi.spyOn(t.storage, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    t.runtime.events([{ kind: 'missionCampaignUnlock', campaignId: 3, mapId: 20 }], proceed);
+    expect(t.pause).toHaveBeenCalledOnce();
+    t.failed.mock.calls[0]?.[0].continueWithoutSaving();
+    expect(proceed).toHaveBeenCalledOnce();
+    expect(t.resume).toHaveBeenCalledOnce();
+    expect(t.runtime.isPending()).toBe(false);
+    expect(readCampaignProgress(t.campaign, t.storage).unlocked).toEqual(['first']);
+    t.runtime.events([{ kind: 'missionExit', mission: 1 }], proceed);
+    expect(proceed).toHaveBeenCalledTimes(2);
+  });
+  it('still plays a batch film after continuing without saving its grants', async () => {
+    const t = setup();
+    vi.spyOn(t.storage, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    t.runtime.events(
+      [
+        { kind: 'missionVideo', sequence: 1 },
+        { kind: 'missionCampaignUnlock', campaignId: 3, mapId: 20 },
+      ],
+      vi.fn(),
+    );
+    t.failed.mock.calls[0]?.[0].continueWithoutSaving();
+    await vi.waitFor(() => expect(t.exit).toHaveBeenCalledOnce());
+    expect(t.play).toHaveBeenCalledExactlyOnceWith(ENGLISH_VIDEO);
+    expect(t.failed).toHaveBeenCalledOnce();
   });
   it('completes the campaign when the local seat wins its last stage', () => {
     const t = setup('second');

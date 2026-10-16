@@ -6,6 +6,12 @@ import { completeCampaign, grantCampaignMaps, isFinalCampaignStage } from './pro
 type Grant = { readonly campaignId: number; readonly mapId: number };
 type SavedCampaign = { readonly unlockedMaps: readonly Grant[]; readonly video: number | undefined };
 
+/** The two ways out of a failed progress write: write the same batch again, or drop it and play on. */
+export interface CampaignFailureRecovery {
+  readonly retry: () => void;
+  readonly continueWithoutSaving: () => void;
+}
+
 export interface CampaignRuntimeDeps {
   readonly campaign?: Campaign;
   /** The running mission's text language, which picks the films. */
@@ -19,11 +25,14 @@ export interface CampaignRuntimeDeps {
   /** Plays a script video; `undefined` when the campaign has no film for the sequence. */
   readonly play: (movie: CampaignMovie | undefined) => Promise<void>;
   readonly exit: () => void;
-  readonly failed: (retry: () => void) => void;
+  readonly failed: (recovery: CampaignFailureRecovery) => void;
   readonly signal: AbortSignal;
 }
 
-/** All grants and a completion persist before any handover; a failed write keeps the exact batch for retry. */
+/**
+ * All grants and a completion persist before any handover. A failed write keeps the exact batch for
+ * retry, or drops it when the player continues without saving.
+ */
 export function createCampaignRuntime(deps: CampaignRuntimeDeps): {
   restore(snapshot: WorldSnapshot): void;
   events(events: readonly SimEvent[], proceed: (events: readonly SimEvent[]) => void): void;
@@ -39,16 +48,21 @@ export function createCampaignRuntime(deps: CampaignRuntimeDeps): {
     if (grants.length > 0) grantCampaignMaps(deps.campaign, grants, deps.storage);
     if (complete) completeCampaign(deps.campaign, deps.storage);
   };
-  const finishMovie = (): void => {
+  const finishMovie = (save: boolean): void => {
     if (deps.signal.aborted) return;
-    try {
-      persist(
-        queued.flatMap(({ events }) => events.filter((event) => event.kind === 'missionCampaignUnlock')),
-        queued.some(({ events }) => completes(events)),
-      );
-    } catch {
-      deps.failed(finishMovie);
-      return;
+    if (save) {
+      try {
+        persist(
+          queued.flatMap(({ events }) => events.filter((event) => event.kind === 'missionCampaignUnlock')),
+          queued.some(({ events }) => completes(events)),
+        );
+      } catch {
+        deps.failed({
+          retry: () => finishMovie(true),
+          continueWithoutSaving: () => finishMovie(false),
+        });
+        return;
+      }
     }
     queued.length = 0;
     deps.exit();
@@ -60,15 +74,21 @@ export function createCampaignRuntime(deps: CampaignRuntimeDeps): {
     proceed: () => void,
   ): void => {
     if (deps.signal.aborted) return;
-    const attempt = (): void => {
+    const recovery: CampaignFailureRecovery = {
+      retry: () => attempt(true),
+      continueWithoutSaving: () => attempt(false),
+    };
+    const attempt = (save: boolean): void => {
       if (deps.signal.aborted) return;
-      try {
-        persist(grants, complete);
-      } catch {
-        pending = true;
-        deps.pause();
-        deps.failed(attempt);
-        return;
+      if (save) {
+        try {
+          persist(grants, complete);
+        } catch {
+          pending = true;
+          deps.pause();
+          deps.failed(recovery);
+          return;
+        }
       }
       pending = false;
       if (video === undefined) {
@@ -91,13 +111,14 @@ export function createCampaignRuntime(deps: CampaignRuntimeDeps): {
             : campaignMovies(deps.campaign, deps.language).videos.find((movie) => movie.sequence === video);
         void deps
           .play(movie)
-          .then(finishMovie)
+          .then(() => finishMovie(true))
           .catch(() => {
-            if (!deps.signal.aborted) deps.failed(attempt);
+            if (!deps.signal.aborted)
+              deps.failed({ retry: recovery.retry, continueWithoutSaving: () => finishMovie(false) });
           });
       });
     };
-    attempt();
+    attempt(true);
   };
   const handle = (events: readonly SimEvent[], proceed: (events: readonly SimEvent[]) => void): void => {
     if (deps.signal.aborted) return;

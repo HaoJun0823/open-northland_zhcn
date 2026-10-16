@@ -77,7 +77,9 @@ export const movementSystem: System = (world, ctx) => {
   // Each walker steps this point and writes Position back only when it moved, so a held turn or a
   // finished route does not log a write.
   const p = { x: ZERO, y: ZERO };
+  const write: FollowWrite = { follow: undefined };
   for (const e of world.query(Position, PathFollow)) {
+    write.follow = undefined;
     const pf = world.get(e, PathFollow);
     const stops = world.get(e, PathRoute).waypoints;
     const stored = world.get(e, Position);
@@ -101,8 +103,8 @@ export const movementSystem: System = (world, ctx) => {
       const arrived = paced
         ? stepTowardPoint(p, target, budget)
         : period === undefined
-          ? walkHumanLeg(world, ctx, e, pf, stops, p, target)
-          : walkPeriodicLeg(world, ctx, e, pf, stops, p, target, period);
+          ? walkHumanLeg(world, ctx, e, pf, write, stops, p, target)
+          : walkPeriodicLeg(world, ctx, e, pf, write, stops, p, target, period);
       if (p.x !== stored.x || p.y !== stored.y) {
         const moved = world.mut(e, Position);
         moved.x = p.x;
@@ -128,7 +130,7 @@ export const movementSystem: System = (world, ctx) => {
         world.remove(e, AnimalRunning);
         break;
       }
-      const next = world.mut(e, PathFollow);
+      const next = writableFollow(world, e, write);
       next.index += 1;
       next.legElapsed = 0;
       next.legStartedAt = undefined;
@@ -171,6 +173,17 @@ function syncAnimalGait(
 
 type FollowState = NonNullable<(typeof PathFollow)['__value']>;
 
+/** A walker's {@link PathFollow} write handle for the tick, acquired at its first change, so the tick's
+ *  field updates log one write. */
+interface FollowWrite {
+  follow: FollowState | undefined;
+}
+
+function writableFollow(world: World, e: Entity, write: FollowWrite): FollowState {
+  write.follow ??= world.mut(e, PathFollow);
+  return write.follow;
+}
+
 /** The per-node charge: after pace is read at departure, and once at the terminal destination.
  *  Original behavior: pace updates before shoe/food points are spent, and the charge lands before a
  *  new step and when the destination is reached; a pressing need then reaches for a carried draught. */
@@ -211,6 +224,7 @@ function walkHumanLeg(
   ctx: SystemContext,
   e: Entity,
   pf: Readonly<FollowState>,
+  write: FollowWrite,
   stops: readonly Waypoint[],
   p: { x: Fixed; y: Fixed },
   target: { x: Fixed; y: Fixed },
@@ -219,7 +233,7 @@ function walkHumanLeg(
   if (p.x === target.x && p.y === target.y) return true;
   if (pf.legCost === 0) {
     const resistance = departureResistance(ctx.terrain, pf, stops);
-    const follow = world.mut(e, PathFollow);
+    const follow = writableFollow(world, e, write);
     const modifiers = walkStepModifiersOf(world, e, ctx.content, ctx.tick);
     beginTimedLeg(follow, stops, p, target, walkStepTicks(resistance, modifiers));
     // The planned heading is fixed for this leg. Separation can nudge the position across an octant
@@ -228,20 +242,20 @@ function walkHumanLeg(
     if (pf.departureCharged !== true) {
       // Laying the leg and the turn out writes neither boots nor load, so the modifiers still hold.
       chargeNode(world, ctx, e, resistance, modifiers.shoes, modifiers.carrying);
-      world.mut(e, PathFollow).departureCharged = true;
+      follow.departureCharged = true;
     }
   }
   // Rotate before the first advancing tick as well as later ones. Moving once and only then holding
   // for the rest of a turn made rapid redirects visibly jerk and left the first step facing sideways.
   if (!finishWalkTurn(world, e)) {
     if (pf.legStartedAt !== undefined) {
-      const held = world.mut(e, PathFollow);
+      const held = writableFollow(world, e, write);
       held.legElapsed = pathLegTicks(pf, ctx.tick - 1);
       held.legStartedAt = undefined;
     }
     return false;
   }
-  return advanceTimedLeg(world, ctx, e, pf, p, target, MAX_STEP_PER_TICK);
+  return advanceTimedLeg(world, ctx, e, pf, write, p, target, MAX_STEP_PER_TICK);
 }
 
 function walkPeriodicLeg(
@@ -249,6 +263,7 @@ function walkPeriodicLeg(
   ctx: SystemContext,
   e: Entity,
   pf: Readonly<FollowState>,
+  write: FollowWrite,
   stops: readonly Waypoint[],
   p: { x: Fixed; y: Fixed },
   target: { x: Fixed; y: Fixed },
@@ -256,9 +271,9 @@ function walkPeriodicLeg(
 ): boolean {
   if (pf.legCost === 0) {
     if (p.x === target.x && p.y === target.y) return true;
-    beginTimedLeg(world.mut(e, PathFollow), stops, p, target, period);
+    beginTimedLeg(writableFollow(world, e, write), stops, p, target, period);
   }
-  return advanceTimedLeg(world, ctx, e, pf, p, target);
+  return advanceTimedLeg(world, ctx, e, pf, write, p, target);
 }
 
 function beginTimedLeg(
@@ -283,12 +298,13 @@ function advanceTimedLeg(
   ctx: SystemContext,
   e: Entity,
   pf: Readonly<FollowState>,
+  write: FollowWrite,
   p: { x: Fixed; y: Fixed },
   target: { x: Fixed; y: Fixed },
   maxPerTick?: Fixed,
 ): boolean {
   if (pf.legStartedAt === undefined) {
-    world.mut(e, PathFollow).legStartedAt = ctx.tick - 1 - pf.legElapsed;
+    writableFollow(world, e, write).legStartedAt = ctx.tick - 1 - pf.legElapsed;
   }
   if (pf.legPace !== undefined) {
     return stepTowardPoint(

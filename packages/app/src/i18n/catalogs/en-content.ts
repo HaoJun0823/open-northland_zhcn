@@ -433,6 +433,11 @@ export const enContent = {
       summary:
         'A stockade runs across the map, broken by lanes from west to east: two houses 1, 2, 3 and 4 nodes apart, tree lines with gaps of 1, 2 and 3 nodes, a sparse forest, and bare stockade openings of 2 and 3 nodes. Four catapults, two ox carts and a handcart drive across, some north to south, some back. A catapult fits between houses two nodes apart and through any single tree gap, but not between houses one node apart, where it goes round by the next lane, nor through a stockade opening narrower than three. Carts pass every gap. Select a vehicle and send it through a lane yourself.',
     },
+    'vehicle-catapult-spread': {
+      title: 'Catapults spread before firing',
+      summary:
+        'Four crewed catapults are set down as two pairs, each pair on one spot, with an enemy hut in range. A catapult never fires from inside another: each stacked one first drives out to a spot of its own, then the battery opens fire. Order several catapults onto one spot to watch them keep apart.',
+    },
     school: {
       title: 'Learning a profession',
       summary:

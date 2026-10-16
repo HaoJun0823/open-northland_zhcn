@@ -435,6 +435,11 @@ export const deContent = {
       summary:
         'Eine Palisade zieht sich quer über die Karte, unterbrochen von Durchgängen, die von Westen nach Osten angeordnet sind: je zwei Häuser im Abstand von 1, 2, 3 und 4 Knoten, Baumreihen mit Lücken von 1, 2 und 3 Knoten, ein lichter Wald und freie Palisadenöffnungen von 2 und 3 Knoten. Vier Katapulte, zwei Ochsenkarren und ein Handkarren fahren hindurch, teils von Norden nach Süden, teils zurück. Ein Katapult passt zwischen Häuser mit zwei Knoten Abstand und durch jede einzelne Baumlücke, aber nicht zwischen Häuser mit nur einem Knoten Abstand. Dort weicht es auf den nächsten Durchgang aus. Auch Palisadenöffnungen mit weniger als drei Knoten sind zu eng. Karren passen durch jede Lücke. Wähle ein Fahrzeug aus und schicke es selbst durch einen Durchgang.',
     },
+    'vehicle-catapult-spread': {
+      title: 'Katapulte verteilen sich vor dem Schuss',
+      summary:
+        'Vier bemannte Katapulte stehen paarweise, jedes Paar auf einem Feld, und eine feindliche Hütte ist in Reichweite. Ein Katapult schießt nie aus einem anderen heraus: Jedes übereinanderstehende fährt zuerst auf einen eigenen Platz, erst dann eröffnet die Batterie das Feuer. Schicke mehrere Katapulte auf einen Punkt, um zu sehen, wie sie Abstand halten.',
+    },
     school: {
       title: 'Einen Beruf erlernen',
       summary:

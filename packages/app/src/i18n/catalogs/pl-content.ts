@@ -431,6 +431,11 @@ export const plContent = {
       summary:
         'Przez mapę biegnie palisada z przejściami od zachodu na wschód: dwa domy w odstępie 1, 2, 3 i 4 węzłów, rzędy drzew z lukami 1, 2 i 3 węzłów, rzadki las oraz gołe przerwy w palisadzie na 2 i 3 węzły. Cztery katapulty, dwa zaprzęgi i wózek ręczny przejeżdżają na drugą stronę, jedne z północy na południe, inne z powrotem. Katapulta mieści się między domami oddalonymi o dwa węzły i przez każdą lukę w rzędzie drzew, ale nie między domami oddalonymi o jeden węzeł, gdzie objeżdża sąsiednim przejściem, ani przez przerwę w palisadzie węższą niż trzy. Wozy przejadą każdą luką. Zaznacz wehikuł i sam poślij go przez wybrane przejście.',
     },
+    'vehicle-catapult-spread': {
+      title: 'Katapulty rozjeżdżają się przed strzałem',
+      summary:
+        'Cztery obsadzone katapulty stoją parami, każda para na jednym polu, a wroga chata jest w zasięgu. Katapulta nigdy nie strzela z wnętrza innej: każda ze stłoczonych najpierw odjeżdża na własne miejsce, dopiero potem bateria otwiera ogień. Wyślij kilka katapult w jeden punkt, aby zobaczyć, jak trzymają odstęp.',
+    },
     school: {
       title: 'Nauka zawodu',
       summary:

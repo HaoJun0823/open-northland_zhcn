@@ -19,6 +19,7 @@ import {
 import { collectFarmClaims, type FarmClaims } from '../drives/farming/index.js';
 import { HomewardPosts } from '../drives/lost-guide.js';
 import { collectTargets, hasHaulableOutput, type TargetCandidates } from '../targets/index.js';
+import type { PlannerContextSlot } from './context.js';
 import { IdleStands } from './idle-replan.js';
 import { standsThroughPass } from './replan.js';
 import { PlannerSpacing } from './spacing.js';
@@ -58,6 +59,8 @@ export interface PlannerPass {
   /** Equipment errands that may still search for their store this pass; see
    *  {@link EQUIP_FETCH_SEARCHES_PER_PASS}. */
   readonly equipFetches: { remaining: number };
+  /** The one plan context the ladder hands its drives, made on the pass's first plan. */
+  plan: PlannerContextSlot | undefined;
 }
 
 /**
@@ -100,5 +103,6 @@ export function beginPlannerPass(world: World, ctx: SystemContext, terrain: Terr
     shelters,
     idle: new IdleStands(),
     equipFetches: { remaining: EQUIP_FETCH_SEARCHES_PER_PASS },
+    plan: undefined,
   };
 }

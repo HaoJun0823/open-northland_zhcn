@@ -37,3 +37,7 @@ export interface PlannerContext extends PlannerWorker {
    *  offer it the same idle chat the bottom rung runs. */
   readonly gossipCandidates: GossipCandidates;
 }
+
+/** A {@link PlannerContext} whose per-settler fields the ladder rewrites for each plan, so a pass
+ *  allocates one. A drive must not keep it past the plan it was handed for. */
+export type PlannerContextSlot = { -readonly [K in keyof PlannerContext]: PlannerContext[K] };

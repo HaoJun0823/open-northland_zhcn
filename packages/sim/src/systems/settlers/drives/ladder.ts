@@ -282,7 +282,8 @@ export function planAdult(pass: PlannerPass, e: Entity, settler: SettlerView, jo
   planEconomy(plan, pass, settler, load, hx, hy, alert);
 }
 
-/** The economy context of adult `e` of `jobType` standing on `here` under `limit`, for this pass. */
+/** The economy context of adult `e` of `jobType` standing on `here` under `limit`, for this pass. The
+ *  pass's one {@link PlannerPass.plan} object is rewritten for it, so it is valid until the next call. */
 export function plannerContextOf(
   pass: PlannerPass,
   e: Entity,
@@ -291,22 +292,36 @@ export function plannerContextOf(
   here: NodeId,
   limit: NavigationLimit | null,
 ): PlannerContext {
-  const { world, ctx, terrain } = pass;
-  return {
-    world,
-    ctx,
-    terrain,
-    entity: e,
-    tribe: settler.tribe,
-    jobType,
-    experience: world.get(e, SettlerProgress).experience,
-    owner: ownerOf(world, e),
-    here,
-    targets: pass.targets,
-    supply: pass.supply,
-    limit,
-    gossipCandidates: pass.gossipCandidates,
-  };
+  const { world } = pass;
+  const experience = world.get(e, SettlerProgress).experience;
+  const owner = ownerOf(world, e);
+  const plan = pass.plan;
+  if (plan === undefined) {
+    pass.plan = {
+      world,
+      ctx: pass.ctx,
+      terrain: pass.terrain,
+      entity: e,
+      tribe: settler.tribe,
+      jobType,
+      experience,
+      owner,
+      here,
+      targets: pass.targets,
+      supply: pass.supply,
+      limit,
+      gossipCandidates: pass.gossipCandidates,
+    };
+    return pass.plan;
+  }
+  plan.entity = e;
+  plan.tribe = settler.tribe;
+  plan.jobType = jobType;
+  plan.experience = experience;
+  plan.owner = owner;
+  plan.here = here;
+  plan.limit = limit;
+  return plan;
 }
 
 /**

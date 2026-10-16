@@ -30,6 +30,8 @@ export const HUMAN = 0;
 export const RIVAL = 1;
 export const STONE = 1;
 export const WOOD = 2;
+/** A tool the assistant may hand out, stocked by no store unless a scene puts it there. */
+export const TOOL = 3;
 const IDLE = 0;
 const BUILDER = 7;
 const BUILD_HOUSE_ATOMIC = 39;
@@ -99,6 +101,12 @@ function roadContent() {
       { typeId: 0, id: 'none' },
       { typeId: STONE, id: 'stone' },
       { typeId: WOOD, id: 'wood' },
+      {
+        typeId: TOOL,
+        id: 'tool_wooden',
+        weight: 1,
+        equip: { category: 'tool', wears: true, productionBonusPct: 20, workFactorPct: 125, uses: 100 },
+      },
     ],
     jobs: [
       { typeId: IDLE, id: 'idle' },
@@ -156,6 +164,7 @@ function roadContent() {
         stock: [
           { goodType: STONE, capacity: 20 },
           { goodType: WOOD, capacity: 20 },
+          { goodType: TOOL, capacity: 20 },
         ],
       },
       {

@@ -2,6 +2,7 @@ import type { ContentSet, EquipCategory, EquipClass } from '@open-northland/data
 import {
   AssistantGrants,
   assistantSoldierOnlyGoods,
+  Carrying,
   Equipment,
   type EquipmentData,
   EquipOrder,
@@ -10,6 +11,7 @@ import {
   PickupClaim,
   Position,
   Settler,
+  SiteAssignment,
   Stance,
 } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
@@ -17,6 +19,7 @@ import { TICKS_PER_SECOND } from '../../../core/loop.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { nodeOfPosition } from '../../../nav/halfcell.js';
 import { standsAtPost } from '../../conflict/tower-post.js';
+import { holdsSiteClaim, isSoloSite } from '../../economy/site-claim.js';
 import { CIVILIST_JOB } from '../../lifecycle/ageclass.js';
 import { isFighterJob, isScoutJob, MILITARY_MODE, mayChangeEquipment } from '../../readviews/index.js';
 import { equipFetchLimitFor, type NavigationLimit } from '../../signposts/index.js';
@@ -90,6 +93,9 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     // rung yields to its delivery and sends it for the gear once its hands are free, which is the only
     // moment a busy porter is ever idle.
     if (world.has(e, PickupClaim)) continue;
+    // A builder holding a road or wall site lands its one strike first: the claim keeps every other
+    // builder off that site while he is away.
+    if (holdsSoloSite(world, e)) continue;
     // A DEFEND guard stays on its anchor: the player may send one for gear, but this pass does not walk
     // one off unasked.
     if (world.tryGet(e, Stance)?.mode === MILITARY_MODE.DEFEND) continue;
@@ -132,7 +138,8 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
         group: spec.category,
         slot,
         goodType: spec.goodType,
-        returnTo: here,
+        // A spot on a delivery walk is no place to come back to: the economy re-tasks him at the store.
+        returnTo: (world.tryGet(e, Carrying)?.amount ?? 0) > 0 ? null : here,
         stage: 'acquire',
         issuer: 'assistant-grant',
         queued: [],
@@ -142,6 +149,11 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       break; // one errand per settler; the next beat considers the rest of its slots
     }
   }
+}
+
+function holdsSoloSite(world: World, e: Entity): boolean {
+  const site = world.tryGet(e, SiteAssignment)?.site;
+  return site !== undefined && isSoloSite(world, site) && holdsSiteClaim(world, site, e);
 }
 
 /** Each granting player's specs, strongest first: by content production bonus, then by rated uses (the

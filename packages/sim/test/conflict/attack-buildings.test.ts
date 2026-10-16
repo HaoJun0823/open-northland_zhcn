@@ -551,7 +551,7 @@ describe('warriors attack enemy buildings', () => {
     const soldier = warriorAt(sim, 0, 0, P1);
     buildingAt(sim, 7, 0, FORT, P2, 1_000_000);
     if (sim.terrain === undefined) throw new Error('expected terrain');
-    const steps = vi.spyOn(sim.terrain, 'stepsInto');
+    const steps = vi.spyOn(sim.terrain, 'stepsIntoAt');
     try {
       combatSystem(sim.world, ctxOf(sim));
       expect(sim.world.has(soldier, MoveGoal)).toBe(true);

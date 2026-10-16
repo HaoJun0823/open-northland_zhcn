@@ -884,10 +884,11 @@ function pickByTier(
   y: number,
   tiers: readonly PickTier[] = PICK_TIERS,
 ): { entity: Entity; distance: number } | null {
-  // One filter for every tier: it reads the tier the loop is on.
+  // One filter for every tier, built once per pick: it reads `tier`, which the loop sets before each search.
   let tier: PickTier | undefined;
   const accept = (t: Entity): boolean => tier?.(world, ctx, pass.index, t) === true && spec.accept(t);
-  for (tier of tiers) {
+  for (const next of tiers) {
+    tier = next;
     const found = pass.index.nearestFew(
       x,
       y,

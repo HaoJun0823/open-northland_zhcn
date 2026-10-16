@@ -105,6 +105,7 @@ import { vehicleTightGapScene } from './vehicle-tight-gap.js';
 import { vehicleYardScene } from './vehicle-yard.js';
 import { vehiclesScene } from './vehicles.js';
 import { victoryScene } from './victory.js';
+import { wallRepairScene } from './wall-repair.js';
 import { warehouseScene } from './warehouse.js';
 import { weaponFacingsScene } from './weapon-facings.js';
 import { wildlifeScene } from './wildlife.js';
@@ -137,6 +138,7 @@ export const SCENES: readonly SceneDefinition[] = [
   buildingDamageScene,
   buildingDamageVariantsScene,
   repairScene,
+  wallRepairScene,
   towerDefenceScene,
   attackMoveScene,
   hitAlarmScene,

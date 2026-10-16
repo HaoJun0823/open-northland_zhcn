@@ -287,6 +287,11 @@ export const plContent = {
       summary:
         'Budowniczowie najpierw naprawiają spokojny dom, a bliższy, przy którym trwa walka, zostawiają na później.',
     },
+    'wall-repair': {
+      title: 'Naprawa palisady',
+      summary:
+        'Budowniczowie najpierw naprawiają uszkodzoną bramę, potem palisadę, a dopiero potem biorą się za zaopatrzoną budowę domu.',
+    },
     'road-crew': {
       title: 'Brygada drogowa',
       summary:

@@ -289,6 +289,11 @@ export const enContent = {
       summary:
         'Builders mend a quiet damaged home first and pass over a nearer one while a fight is on beside it.',
     },
+    'wall-repair': {
+      title: 'Wall repair',
+      summary:
+        'Builders mend a damaged gate first, then the walls, and only then turn to a stocked home site.',
+    },
     palisade: {
       title: 'Stockades and gates',
       summary:

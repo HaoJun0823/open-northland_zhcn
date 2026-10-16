@@ -1,6 +1,5 @@
 import {
   BuildMode,
-  Damaged,
   LostWay,
   ownerOf,
   ownersCompatible,
@@ -11,7 +10,7 @@ import {
   UnderConstruction,
 } from '../../../../components/index.js';
 import { ONE } from '../../../../core/fixed.js';
-import type { Entity } from '../../../../ecs/world.js';
+import type { Entity, World } from '../../../../ecs/world.js';
 import type { NodeId } from '../../../../nav/terrain/index.js';
 import { needsRepair } from '../../../economy/repair.js';
 import {
@@ -51,24 +50,24 @@ import { constructionMaterialResolver, type SiteSupplyReach } from './site-suppl
 type MaterialResolver = ReturnType<typeof constructionMaterialResolver>;
 
 /**
- * BUILD - mend the nearest damaged building that is safe to reach, else take the building site of the
- * highest tier (`SITE_TIER`: a few hands finish a supplied or nearly done site before fresh ones are
- * begun) with a task for this builder, the nearest within a tier and its own crew site first among
- * equals, so the ordinary work spreads over the sites by distance. At the site, delivered material is
- * hammered before more is fetched, and a covered site keeps a finishing crew waiting for its last loads.
- * The last builder at a site with a task stays, unless it has no step to hammer there and the site it
- * would go to has nobody. With no task anywhere the builder waits beside a site, unless only its
- * signposts keep it from one. A road or wall run the player started ({@link BuildMode}) goes before all
- * of that. Walls wait while a building site holds a task the builder can do, a damaged wall goes before
- * a new segment, and road sites wait while a building or a wall site holds one. Player pins and
+ * BUILD - mend the nearest damaged gate that is safe to reach, else such a building, else such a wall
+ * segment, else take the building site of the highest tier (`SITE_TIER`: a few hands finish a supplied
+ * or nearly done site before fresh ones are begun) with a task for this builder, the nearest within a
+ * tier and its own crew site first among equals, so the ordinary work spreads over the sites by
+ * distance. At the site, delivered material is hammered before more is fetched, and a covered site keeps
+ * a finishing crew waiting for its last loads. The last builder at a site with a task stays, unless it
+ * has no step to hammer there and the site it would go to has nobody. With no task anywhere the builder
+ * waits beside a site, unless only its signposts keep it from one. A road or wall run the player started
+ * ({@link BuildMode}) goes before all of that. New wall segments wait while a building site holds a task
+ * the builder can do, and road sites wait while a building or a wall site holds one. Player pins and
  * unfinished workplace bindings are strict: their builders stay with that site even while another has
  * work.
  *
  * Source basis: builders recruited to a damaged building and repair ahead of an upgrade are original
  * behavior. Authored: the safety gate, repair outranking all automatic construction work, a crew the
- * builder is already on included, where the original recruits only builders with no site, then walls,
- * then roads last (owner ruling), the site ranking and the finishing crew (owner ruling), and hammering
- * ahead of hauling.
+ * builder is already on included, where the original recruits only builders with no site, the repair
+ * order gates, buildings, walls (owner ruling), new walls after buildings, then roads last (owner
+ * ruling), the site ranking and the finishing crew (owner ruling), and hammering ahead of hauling.
  */
 export function planBuilder(
   plan: PlannerContext,
@@ -196,7 +195,9 @@ export function planBuilder(
     dropAssignment(plan, claims);
   }
 
-  if (repairNearest(plan, spacing, repairs, claims, avoidSite, false)) return true;
+  for (const kind of REPAIR_ORDER) {
+    if (repairNearest(plan, spacing, repairs, claims, avoidSite, kind)) return true;
+  }
 
   // Building sites are taken by tier, then distance, the crew site winning ties, so a crew holds together
   // between equally ranked sites instead of re-ranking every time one hammer atomic completes.
@@ -251,15 +252,6 @@ export function planBuilder(
     return roadCandidates === null ? null : pickRoad(roadCandidates, accepts);
   };
   const everyWall = (): InteractionCellIndex => targets.wallSiteCells;
-
-  // The damaged-wall list is checked first: most passes have none, and `wallsWait` is a site search.
-  if (
-    world.canonicalQuery(Damaged, Palisade, Position).length > 0 &&
-    !wallsWait() &&
-    repairNearest(plan, spacing, repairs, claims, avoidSite, true)
-  ) {
-    return true;
-  }
 
   // A one-builder site is kept while it still has a task and its turn.
   const keptSolo =
@@ -452,19 +444,31 @@ function siteHasTask(
   return (site) => (claims.hasHammerWork(site) || materials.has(site)) && canStandAt(site);
 }
 
+type RepairKind = 'gate' | 'building' | 'wall';
+
+/** The order an automatic builder takes damaged structures in: a broken gate is the hole an attack walks
+ *  through, so it goes first. */
+const REPAIR_ORDER: readonly RepairKind[] = ['gate', 'building', 'wall'];
+
+function repairKindOf(world: World, site: Entity): RepairKind {
+  const wall = world.tryGet(site, Palisade);
+  if (wall === undefined) return 'building';
+  return wall.gate !== null ? 'gate' : 'wall';
+}
+
 /** Start a repair swing at the builder's own repair crew's site while it still qualifies, else at the
- *  nearest damaged one that does: a wall when `walls`, else a building. */
+ *  nearest damaged one of `kind` that does. */
 function repairNearest(
   plan: PlannerContext,
   spacing: PlannerSpacing,
   repairs: RepairCrews,
   claims: ConstructionTaskClaims,
   avoidSite: ((site: Entity) => boolean) | undefined,
-  walls: boolean,
+  kind: RepairKind,
 ): boolean {
   const { world, entity: e, here, targets } = plan;
   const qualifies = (site: Entity): boolean =>
-    world.has(site, Palisade) === walls &&
+    repairKindOf(world, site) === kind &&
     needsRepair(world, site) &&
     repairs.isSafe(site) &&
     builderCanReach(plan, spacing, site) &&
@@ -478,7 +482,7 @@ function repairNearest(
   const site =
     crewSite ??
     nearestBuilderSite(
-      walls ? targets.wallRepairCells : targets.repairSiteCells,
+      kind === 'building' ? targets.repairSiteCells : targets.wallRepairCells,
       world,
       here,
       plan.owner,

@@ -290,6 +290,11 @@ export const deContent = {
       summary:
         'Bauarbeiter reparieren zuerst ein beschädigtes Wohnhaus in ruhiger Lage und lassen ein näher gelegenes aus, solange daneben gekämpft wird.',
     },
+    'wall-repair': {
+      title: 'Palisadenreparatur',
+      summary:
+        'Bauarbeiter reparieren zuerst ein beschädigtes Tor, dann die Palisade und wenden sich erst danach einer versorgten Wohnhausbaustelle zu.',
+    },
     palisade: {
       title: 'Palisaden und Tore',
       summary:

@@ -220,7 +220,7 @@ describe('palisade builders', () => {
     expect(sim.world.has(wall, UnderConstruction)).toBe(false);
   });
 
-  it('mend a damaged wall with the hammer once it is quiet and no house is left to build', () => {
+  it('mend a damaged wall with the hammer once it is quiet', () => {
     const map = grassNodeMap(48, 12);
     const sim = new Simulation({
       seed: 2,
@@ -228,7 +228,6 @@ describe('palisade builders', () => {
       map: { ...map, landscapes: { types: [WALL], placements: [] } },
     });
     buildingAt(sim, STORE, 4, false);
-    const house = buildingAt(sim, HOUSE, 40, true);
     sim.enqueueSetup({
       kind: 'placePalisade',
       gfxIndex: WALL.typeId,
@@ -244,17 +243,13 @@ describe('palisade builders', () => {
     resolveCombatHit(sim.world, ctxOf(sim), sim.world.create(), wall, { damage: 30 }, [], 'melee');
     const hitTick = sim.tick;
 
-    let houseDoneAt: number | null = null;
     let repairTicks = 0;
     while (sim.world.has(wall, Damaged) && sim.tick < hitTick + 6000) {
       sim.step();
-      const atWall = sim.world.tryGet(builder, SiteAssignment)?.site === wall;
-      if (!sim.world.has(house, UnderConstruction)) houseDoneAt ??= sim.tick;
-      if (atWall) {
+      if (sim.world.tryGet(builder, SiteAssignment)?.site === wall) {
         expect(sim.tick - hitTick, 'a crew waits out the calm period').toBeGreaterThanOrEqual(
           REPAIR_CALM_TICKS,
         );
-        expect(houseDoneAt, 'walls wait for the houses').not.toBeNull();
         const swing = sim.world.tryGet(builder, CurrentAtomic);
         if (swing?.effect.kind === 'repair') {
           expect(swing.atomicId).toBe(BUILD_WALL_ATOMIC);
@@ -265,6 +260,73 @@ describe('palisade builders', () => {
     expect(repairTicks).toBeGreaterThan(0);
     expect(sim.world.get(wall, Health).hitpoints).toBe(WALL.wall?.maxHitpoints);
     expect(sim.world.has(wall, UnderConstruction)).toBe(false);
+  });
+
+  it('mend a damaged wall before building a house, even when the house is nearer', () => {
+    const map = grassNodeMap(48, 12);
+    const sim = new Simulation({
+      seed: 2,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL], placements: [] } },
+    });
+    buildingAt(sim, STORE, 4, false);
+    const house = buildingAt(sim, HOUSE, 12, true);
+    sim.enqueueSetup({
+      kind: 'placePalisade',
+      gfxIndex: WALL.typeId,
+      x: 40,
+      y: ROW,
+      tribe: VIKING,
+      owner: HUMAN,
+      valency: 70,
+    });
+    builderAt(sim, 8);
+    sim.step();
+    const [wall] = [...sim.world.query(Palisade)];
+    if (wall === undefined) throw new Error('expected a standing wall');
+
+    for (let tick = 0; tick < 4000 && sim.world.has(wall, Damaged); tick++) {
+      sim.step();
+      expect(sim.world.has(house, UnderConstruction), `the house waits, tick ${tick}`).toBe(true);
+    }
+    expect(sim.world.get(wall, Health).hitpoints).toBe(WALL.wall?.maxHitpoints);
+  });
+
+  it('mend a damaged gate before a damaged house or wall, even when they are nearer', () => {
+    const map = grassNodeMap(64, 12);
+    const sim = new Simulation({
+      seed: 3,
+      content: builderContent(),
+      map: { ...map, landscapes: { types: [WALL, CLOSED_GATE, OPEN_GATE], placements: [] } },
+    });
+    buildingAt(sim, STORE, 4, false);
+    const house = buildingAt(sim, HOUSE, 12, false);
+    sim.world.add(house, Health, { hitpoints: 100, max: 1000 });
+    sim.world.add(house, Damaged, { lastHitTick: null });
+    const place = (gfxIndex: number, x: number): void =>
+      sim.enqueueSetup({
+        kind: 'placePalisade',
+        gfxIndex,
+        x,
+        y: ROW,
+        tribe: VIKING,
+        owner: HUMAN,
+        valency: 50,
+      });
+    place(WALL.typeId, 20);
+    place(CLOSED_GATE.typeId, 50);
+    builderAt(sim, 8);
+    sim.step();
+    const gate = [...sim.world.query(Palisade)].find((e) => sim.world.get(e, Palisade).gate !== null);
+    const wall = [...sim.world.query(Palisade)].find((e) => sim.world.get(e, Palisade).gate === null);
+    if (gate === undefined || wall === undefined) throw new Error('expected a gate and a wall');
+
+    for (let tick = 0; tick < 4000 && sim.world.has(gate, Damaged); tick++) {
+      sim.step();
+      expect(sim.world.get(house, Health).hitpoints, `the house waits, tick ${tick}`).toBe(100);
+      expect(sim.world.get(wall, Health).hitpoints, `the wall waits, tick ${tick}`).toBe(50);
+    }
+    expect(sim.world.get(gate, Health).hitpoints).toBe(GATE_MAX_HITPOINTS);
   });
 
   it('mend a damaged wall before raising a new segment, even when the segment is nearer', () => {

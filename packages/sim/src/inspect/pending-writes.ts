@@ -6,15 +6,12 @@ const DENSE_LIMIT = 1 << 24;
 const INITIAL_CAPACITY = 1024;
 /** A slot whose entity was destroyed after it was logged. */
 const DEAD = -1;
-/** A dense entity's epoch and slot sit side by side, so finding its slot reads one cache line. */
-const MARK_STRIDE = 2;
-const MARK_SLOT = 1;
 /** What an entity never logged wrote; never written to, since its count is 0. */
 const NO_COMPONENTS: Component<unknown>[] = [];
 
 /**
  * The alive entities one delta stream has seen written since its last delta, each with the components
- * it wrote in first-write order. Each entity holds a slot found through a dense, epoch-marked id
+ * it wrote in first-write order. Each entity holds a slot found through a dense, epoch-stamped id
  * array, and the slots and their component lists are reused from delta to delta, so logging a write
  * allocates nothing once the lists have grown.
  */
@@ -28,7 +25,8 @@ export class PendingWrites {
   private count = 0;
   private alive = 0;
   /** Per dense entity id, the epoch it was last logged in and its slot then. */
-  private marks = new Int32Array(INITIAL_CAPACITY * MARK_STRIDE);
+  private stamps = new Int32Array(INITIAL_CAPACITY);
+  private slots = new Int32Array(INITIAL_CAPACITY);
   private readonly sparse = new Map<Entity, number>();
   private epoch = 1;
 
@@ -101,9 +99,8 @@ export class PendingWrites {
   /** The entity's slot in the current epoch, or -1. */
   private slotOf(entity: Entity): number {
     if (entity >= DENSE_LIMIT) return this.sparse.get(entity) ?? -1;
-    const at = entity * MARK_STRIDE;
-    return at < this.marks.length && this.marks[at] === this.epoch
-      ? (this.marks[at + MARK_SLOT] as number)
+    return entity < this.stamps.length && this.stamps[entity] === this.epoch
+      ? (this.slots[entity] as number)
       : -1;
   }
 
@@ -119,10 +116,12 @@ export class PendingWrites {
     if (slot === this.lists.length) this.lists.push([]);
     if (entity >= DENSE_LIMIT) this.sparse.set(entity, slot);
     else {
-      const at = entity * MARK_STRIDE;
-      if (at >= this.marks.length) this.marks = grown(this.marks, at + MARK_STRIDE);
-      this.marks[at] = this.epoch;
-      this.marks[at + MARK_SLOT] = slot;
+      if (entity >= this.stamps.length) {
+        this.stamps = grown(this.stamps, entity + 1);
+        this.slots = grown(this.slots, entity + 1);
+      }
+      this.stamps[entity] = this.epoch;
+      this.slots[entity] = slot;
     }
     return slot;
   }

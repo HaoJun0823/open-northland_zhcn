@@ -76,6 +76,7 @@ export function stampResourceFootprintData(
   resource: Entity,
   footprint: ResourceFootprintData,
 ): void {
+  removeResourceBlockedCacheEntry(world, resource);
   world.add(resource, ResourceFootprint, footprint);
   refreshResourceBlockedCacheEntry(world, resource);
 }
@@ -119,8 +120,8 @@ export function stampResourceFootprintOrFallback(
 /** Remove a resource footprint through the incremental blocked-cell cache before destroying a node. */
 export function unstampResourceFootprint(world: World, resource: Entity): void {
   if (!world.has(resource, ResourceFootprint)) return;
-  world.remove(resource, ResourceFootprint);
   removeResourceBlockedCacheEntry(world, resource);
+  world.remove(resource, ResourceFootprint);
   syncResourceBlockedCacheGeneration(world);
 }
 

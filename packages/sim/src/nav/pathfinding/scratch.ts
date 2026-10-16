@@ -32,6 +32,9 @@ export interface SearchScratch {
   heap: Int32Array;
   /** `g` plus the heuristic of the node in the same heap slot. */
   heapF: Float64Array;
+  /** The `g` of the node in the same heap slot, the order's second key, kept beside `f` so a sift reads
+   *  no per-node slot. */
+  heapG: Float64Array;
   /** The integer deviation from the start-to-goal line of the node in the same heap slot, the
    *  visual-straightness tie-break. A pure function of the node and endpoints, never path-dependent. */
   heapDev: Float64Array;
@@ -60,6 +63,7 @@ function freshScratch(graph: TerrainGraph): SearchScratch {
     heapIdx: new Int32Array(n),
     heap: new Int32Array(heapCapacity),
     heapF: new Float64Array(heapCapacity),
+    heapG: new Float64Array(heapCapacity),
     heapDev: new Float64Array(heapCapacity),
     heapSize: 0,
     steps: new StepBuffer(),

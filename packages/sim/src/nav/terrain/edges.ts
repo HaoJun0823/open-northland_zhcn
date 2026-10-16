@@ -114,11 +114,23 @@ export abstract class TerrainEdges extends TerrainLattice {
     out: StepBuffer,
     traversal: Traversal = 'land',
   ): void {
+    const y = this.yOf(node);
+    this.stepsIntoAt(node, node - y * this.width, y, blocked, out, traversal);
+  }
+
+  /** {@link stepsInto} for a caller that already holds `node`'s column `x` and row `y`. */
+  stepsIntoAt(
+    node: NodeId,
+    x: number,
+    y: number,
+    blocked: BlockOverlay | undefined,
+    out: StepBuffer,
+    traversal: Traversal,
+  ): void {
     // A byte mask is read in place: one array read instead of a call through the overlay interface.
     const bytes = blocked instanceof NodeMask ? blocked.blocked : undefined;
+    const land = traversal === 'land';
     const width = this.width;
-    const x = this.xOf(node);
-    const y = this.yOf(node);
     out.reset();
     const east = x + 1 < width;
     const west = x > 0;
@@ -126,12 +138,12 @@ export abstract class TerrainEdges extends TerrainLattice {
     const twoRows = 2 * width;
     const odd = (y & 1) !== 0;
     const edges = this.edgeMaskAt(node);
-    if (east && (edges & EAST) !== 0 && this.open(node + 1, blocked, bytes, traversal))
+    if (east && (edges & EAST) !== 0 && this.open(node + 1, blocked, bytes, land))
       out.push((node + 1) as NodeId, HALF_COLUMN);
-    if (west && (edges & WEST) !== 0 && this.open(node - 1, blocked, bytes, traversal))
+    if (west && (edges & WEST) !== 0 && this.open(node - 1, blocked, bytes, land))
       out.push((node - 1) as NodeId, HALF_COLUMN);
-    const north = y > 0 && this.open(node - row, blocked, bytes, traversal);
-    const south = y + 1 < this.height && this.open(node + row, blocked, bytes, traversal);
+    const north = y > 0 && this.open(node - row, blocked, bytes, land);
+    const south = y + 1 < this.height && this.open(node + row, blocked, bytes, land);
     const northFar = y >= 2;
     const southFar = y + 2 < this.height;
     // A diagonal is two original edges in one direction, through the node half a row along it; both
@@ -140,36 +152,36 @@ export abstract class TerrainEdges extends TerrainLattice {
       east &&
       northFar &&
       this.twoEdges(edges, odd ? node + 1 - row : node - row, NORTH_EAST) &&
-      this.open(node + 1 - twoRows, blocked, bytes, traversal)
+      this.open(node + 1 - twoRows, blocked, bytes, land)
     ) {
-      if (north || this.open(node + 1 - row, blocked, bytes, traversal))
+      if (north || this.open(node + 1 - row, blocked, bytes, land))
         out.push((node + 1 - twoRows) as NodeId, DIAGONAL_STEP);
     }
     if (
       east &&
       southFar &&
       this.twoEdges(edges, odd ? node + 1 + row : node + row, SOUTH_EAST) &&
-      this.open(node + 1 + twoRows, blocked, bytes, traversal)
+      this.open(node + 1 + twoRows, blocked, bytes, land)
     ) {
-      if (south || this.open(node + 1 + row, blocked, bytes, traversal))
+      if (south || this.open(node + 1 + row, blocked, bytes, land))
         out.push((node + 1 + twoRows) as NodeId, DIAGONAL_STEP);
     }
     if (
       west &&
       southFar &&
       this.twoEdges(edges, odd ? node + row : node - 1 + row, SOUTH_WEST) &&
-      this.open(node - 1 + twoRows, blocked, bytes, traversal)
+      this.open(node - 1 + twoRows, blocked, bytes, land)
     ) {
-      if (south || this.open(node - 1 + row, blocked, bytes, traversal))
+      if (south || this.open(node - 1 + row, blocked, bytes, land))
         out.push((node - 1 + twoRows) as NodeId, DIAGONAL_STEP);
     }
     if (
       west &&
       northFar &&
       this.twoEdges(edges, odd ? node - row : node - 1 - row, NORTH_WEST) &&
-      this.open(node - 1 - twoRows, blocked, bytes, traversal)
+      this.open(node - 1 - twoRows, blocked, bytes, land)
     ) {
-      if (north || this.open(node - 1 - row, blocked, bytes, traversal))
+      if (north || this.open(node - 1 - row, blocked, bytes, land))
         out.push((node - 1 - twoRows) as NodeId, DIAGONAL_STEP);
     }
     // The node straight up or down a half row is the original's NE/SE neighbour on an even row and its
@@ -205,16 +217,16 @@ export abstract class TerrainEdges extends TerrainLattice {
     return (edges & bit) !== 0 && (this.edgeMaskAt(middle) & bit) !== 0;
   }
 
-  /** Whether the in-bounds node id `c` is open to `traversal` and not masked by the dynamic `blocked`
-   *  overlay. */
+  /** Whether the in-bounds node id `c` is open to a land mover (`land`) or a ship and not masked by the
+   *  dynamic `blocked` overlay. */
   private open(
     c: number,
     blocked: BlockOverlay | undefined,
     bytes: Uint8Array | undefined,
-    traversal: Traversal,
+    land: boolean,
   ): boolean {
     const id = c as NodeId;
-    if (!(traversal === 'land' ? this.walkableAt(id) : this.isWater(id))) return false;
+    if (!(land ? this.walkableAt(id) : this.isWater(id))) return false;
     if (bytes !== undefined) return bytes[id] !== 1;
     return !(blocked?.has(id) ?? false);
   }

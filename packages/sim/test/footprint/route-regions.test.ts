@@ -119,7 +119,7 @@ describe('routeRegions', () => {
     expect(regions.unroutable(outside, sealed)).toBe(true);
 
     // A labeled verdict floods nothing, so a flood after progress would mean the labels were dropped.
-    const floods = vi.spyOn(terrain, 'stepsInto');
+    const floods = vi.spyOn(terrain, 'stepsIntoAt');
     sim.world.mut(site, Building).built = ONE;
     expect(regions.unroutable(outside, sealed)).toBe(true);
     expect(floods).not.toHaveBeenCalled();

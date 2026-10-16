@@ -180,7 +180,7 @@ it('shares structural reachability across incoming contenders for a reserved slo
     return e;
   });
   const slots = new MeleeSlots(sim.world, ctxOf(sim), terrain);
-  const steps = vi.spyOn(terrain, 'stepsInto');
+  const steps = vi.spyOn(terrain, 'stepsIntoAt');
   try {
     for (const entity of near)
       expect(slots.isTaken(cell, undefined, undefined, { entity, target })).toBe(false);

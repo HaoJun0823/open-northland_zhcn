@@ -82,10 +82,10 @@ describe('army player routing', () => {
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('army terrain missing');
     let expansions = 0;
-    const stepsInto = terrain.stepsInto.bind(terrain);
-    terrain.stepsInto = (...args) => {
+    const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
+    terrain.stepsIntoAt = (...args) => {
       expansions++;
-      return stepsInto(...args);
+      return stepsIntoAt(...args);
     };
     for (const { entity, x, y } of members)
       sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: x + 240, y }));
@@ -115,10 +115,10 @@ describe('army player routing', () => {
       work: [],
     });
     let expansions = 0;
-    const stepsInto = terrain.stepsInto.bind(terrain);
-    terrain.stepsInto = (...args) => {
+    const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
+    terrain.stepsIntoAt = (...args) => {
       expansions++;
-      return stepsInto(...args);
+      return stepsIntoAt(...args);
     };
     for (const { entity } of members)
       sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: goalX, y: goalY }));
@@ -147,10 +147,10 @@ describe('army player routing', () => {
         posts.push(...enemyLine(sim));
       }
       let expansions = 0;
-      const stepsInto = terrain.stepsInto.bind(terrain);
-      terrain.stepsInto = (...args) => {
+      const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
+      terrain.stepsIntoAt = (...args) => {
         expansions++;
-        return stepsInto(...args);
+        return stepsIntoAt(...args);
       };
       // An attack-move routes through an enemy line, so only a plain move is refused at one.
       const kind = wallKind === 'soldiers' ? 'moveUnit' : 'attackMoveUnit';
@@ -196,10 +196,10 @@ describe('army player routing', () => {
     if (terrain === undefined) throw new Error('army terrain missing');
     enemyLine(sim);
     let expansions = 0;
-    const stepsInto = terrain.stepsInto.bind(terrain);
-    terrain.stepsInto = (...args) => {
+    const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
+    terrain.stepsIntoAt = (...args) => {
       expansions++;
-      return stepsInto(...args);
+      return stepsIntoAt(...args);
     };
     for (const { entity, x, y } of members)
       sim.enqueue(playerCommand(0, { kind: 'attackMoveUnit', entity, x: x + 240, y }));
@@ -241,10 +241,10 @@ describe('army player routing', () => {
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('army terrain missing');
     let expansions = 0;
-    const stepsInto = terrain.stepsInto.bind(terrain);
-    terrain.stepsInto = (...args) => {
+    const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
+    terrain.stepsIntoAt = (...args) => {
       expansions++;
-      return stepsInto(...args);
+      return stepsIntoAt(...args);
     };
     // Every offered route is one more each later member tries to borrow, which expansions do not count.
     let offered = 0;

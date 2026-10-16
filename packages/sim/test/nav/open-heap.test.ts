@@ -18,6 +18,7 @@ function scratchOf(nodeCount: number): SearchScratch {
     heapIdx: new Int32Array(nodeCount),
     heap: new Int32Array(INITIAL_HEAP_CAPACITY),
     heapF: new Float64Array(INITIAL_HEAP_CAPACITY),
+    heapG: new Float64Array(INITIAL_HEAP_CAPACITY),
     heapDev: new Float64Array(INITIAL_HEAP_CAPACITY),
     heapSize: 0,
     steps: new StepBuffer(),
@@ -32,8 +33,7 @@ describe('open heap', () => {
     for (let node = 0; node < NODE_COUNT; node++) {
       const key = { node, f: (node * 31) % F_VALUES, g: (node * 7) % G_VALUES, dev: node % DEV_VALUES };
       keys.push(key);
-      s.g[node] = key.g;
-      heapPush(s, node as NodeId, key.f, key.dev);
+      heapPush(s, node as NodeId, key.f, key.g, key.dev);
     }
     expect(s.heap.length).toBeGreaterThan(INITIAL_HEAP_CAPACITY);
     const expected = [...keys]

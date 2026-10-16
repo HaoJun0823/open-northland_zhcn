@@ -140,7 +140,7 @@ describe('structural chase refusals', () => {
     expect(reachability.sameRegion(mask, mask.levelled(), left, right)).toBe(false);
     const same = (a: NodeId, b: NodeId) => structureSameRegion(sim.world, ctx, terrain, a, b);
     expect(same(left, right)).toBe(false);
-    const steps = vi.spyOn(terrain, 'stepsInto');
+    const steps = vi.spyOn(terrain, 'stepsIntoAt');
     try {
       for (let y = 1; y < 35; y++) {
         expect(same(terrain.nodeAt(85, y), right)).toBe(true);
@@ -197,7 +197,7 @@ describe('structural chase refusals', () => {
     expect(structureRouteSealed(sim.world, ctx, terrain, terrain.nodeAt(4, 4), terrain.nodeAt(70, 4))).toBe(
       true,
     );
-    const steps = vi.spyOn(terrain, 'stepsInto');
+    const steps = vi.spyOn(terrain, 'stepsIntoAt');
     try {
       for (let y = 5; y < 35; y++)
         expect(
@@ -229,7 +229,7 @@ describe('structural chase refusals', () => {
 describe('structural region predicate', () => {
   it('meets nearby connected ground without exhausting either side', () => {
     const { terrain, mask, reachability } = fixture();
-    const steps = vi.spyOn(terrain, 'stepsInto');
+    const steps = vi.spyOn(terrain, 'stepsIntoAt');
     try {
       expect(
         reachability.sameRegion(mask, mask.levelled(), terrain.nodeAt(10, 10), terrain.nodeAt(14, 12)),
@@ -247,7 +247,7 @@ describe('structural region predicate', () => {
     expect(reachability.sameRegion(mask, blocked, terrain.nodeAt(10, 10), terrain.nodeAt(80, 10))).toBe(
       false,
     );
-    const steps = vi.spyOn(terrain, 'stepsInto');
+    const steps = vi.spyOn(terrain, 'stepsIntoAt');
     try {
       for (let y = 0; y < 40; y += 3) {
         expect(reachability.sameRegion(mask, blocked, terrain.nodeAt(4, y), terrain.nodeAt(90, 39 - y))).toBe(
@@ -277,7 +277,7 @@ describe('structural region predicate', () => {
     const [west, east] = [4, 34].map((x) => water.nodeAt(x, 6));
     if (west === undefined || east === undefined) throw new Error('missing bank nodes');
     expect(water.componentOf(west)).not.toBe(water.componentOf(east));
-    const steps = vi.spyOn(water, 'stepsInto');
+    const steps = vi.spyOn(water, 'stepsIntoAt');
     try {
       expect(banks.sameRegion(waterMask, waterMask.levelled(), west, east)).toBe(false);
       expect(steps).not.toHaveBeenCalled();

@@ -21,7 +21,7 @@ import {
   type TerrainGraph,
   type Traversal,
 } from '../terrain/index.js';
-import { heapPopRoot, heapPush, siftUp } from './open-heap.js';
+import { heapDecrease, heapPopRoot, heapPush } from './open-heap.js';
 import { MAX_QUERY_GENERATION, NO_NODE, SETTLED, type SearchScratch, scratchFor } from './scratch.js';
 
 /**
@@ -320,7 +320,7 @@ class ResumableSearch {
     scratch.cameFrom[start] = NO_NODE;
     scratch.heapSize = 0;
     // The start sits on its own line.
-    heapPush(scratch, start, this.heuristic(start, this.startX, this.startY), 0);
+    heapPush(scratch, start, this.heuristic(start, this.startX, this.startY), 0, 0);
   }
 
   /** Whether this search has reached `node`. */
@@ -330,12 +330,13 @@ class ResumableSearch {
 
   /** Settle until a verdict, or return `'aborted'` once this search has settled `maxExplored` in total. */
   advance(maxExplored: number): NodeId[] | 'unreachable' | 'aborted' {
-    const { scratch, graph, goal, blocked, stats, query, traversal } = this;
+    const { scratch, graph, goal, blocked, stats, query, traversal, startX, startY } = this;
     // The heap arrays are read through `scratch`: a push may replace them with larger ones.
     const { stamps, g, cameFrom, heapIdx, steps } = scratch;
     if (scratch.query !== query) throw new Error('a newer search on this scratch overwrote a paused one');
-    const lineHX = this.goalX - this.startX;
-    const lineHY = this.goalY - this.startY;
+    const width = graph.width;
+    const lineHX = this.goalX - startX;
+    const lineHY = this.goalY - startY;
     for (;;) {
       if (scratch.heapSize === 0) return 'unreachable';
       // The heap holds node ids; a typed array only drops the brand.
@@ -348,10 +349,12 @@ class ResumableSearch {
 
       // The popped minimum is closed for good; see LAND_HEURISTIC_WEIGHT for what that costs on land.
       heapIdx[current] = SETTLED;
+      const currentG = scratch.heapG[0] ?? 0;
       heapPopRoot(scratch);
 
-      const currentG = g[current] ?? 0;
-      graph.stepsInto(current, blocked, steps, traversal);
+      const currentY = graph.yOf(current);
+      const rowStart = currentY * width;
+      graph.stepsIntoAt(current, current - rowStart, currentY, blocked, steps, traversal);
       for (let i = 0; i < steps.length; i++) {
         const next = steps.nodeAt(i);
         const discovered = stamps[next] === query;
@@ -362,11 +365,10 @@ class ResumableSearch {
           stamps[next] = query;
           g[next] = tentativeG;
           cameFrom[next] = current;
-          // The column by subtraction is `xOf` exactly, without its second division.
-          const nextY = graph.yOf(next);
-          const nextX = next - nextY * graph.width;
-          const dev = Math.abs((nextX - this.startX) * lineHY - (nextY - this.startY) * lineHX);
-          heapPush(scratch, next, tentativeG + this.heuristic(next, nextX, nextY), dev);
+          const nextY = rowOfStep(next, rowStart, width, currentY);
+          const nextX = next - nextY * width;
+          const dev = Math.abs((nextX - startX) * lineHY - (nextY - startY) * lineHX);
+          heapPush(scratch, next, tentativeG + this.heuristic(next, nextX, nextY), tentativeG, dev);
           continue;
         }
         // A relaxation only decreases the key, so restoring the heap invariant is a sift toward the root.
@@ -375,10 +377,9 @@ class ResumableSearch {
         const index = heapIdx[next] ?? SETTLED;
         const knownG = g[next] ?? 0;
         if (tentativeG >= knownG) continue;
-        scratch.heapF[index] = tentativeG + ((scratch.heapF[index] ?? 0) - knownG);
+        heapDecrease(scratch, index, tentativeG + ((scratch.heapF[index] ?? 0) - knownG), tentativeG);
         g[next] = tentativeG;
         cameFrom[next] = current;
-        siftUp(scratch, index);
       }
     }
   }
@@ -408,6 +409,17 @@ class ResumableSearch {
     const viaRoad = inflated > bounded ? inflated : bounded;
     return viaRoad < overGrass ? viaRoad : overGrass;
   }
+}
+
+/**
+ * The row of `next`, a step from the node on `row` whose row begins at id `rowStart`. A step spans at
+ * most two rows, so comparing against row starts is `yOf` exactly, without its division.
+ */
+function rowOfStep(next: number, rowStart: number, width: number, row: number): number {
+  if (next < rowStart) return next < rowStart - width ? row - 2 : row - 1;
+  const rowEnd = rowStart + width;
+  if (next < rowEnd) return row;
+  return next < rowEnd + width ? row + 1 : row + 2;
 }
 
 /** Walk `cameFrom` back from the goal to the start, returning the path in start→goal order. `cameFrom`

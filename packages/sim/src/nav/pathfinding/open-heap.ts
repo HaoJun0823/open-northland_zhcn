@@ -21,13 +21,21 @@ function better(
 }
 
 /** Append `node` with its open keys and restore the heap order, doubling the heap when it is full. */
-export function heapPush(s: SearchScratch, node: NodeId, f: number, dev: number): void {
+export function heapPush(s: SearchScratch, node: NodeId, f: number, g: number, dev: number): void {
   const index = s.heapSize;
   if (index === s.heap.length) growHeap(s);
   s.heap[index] = node;
   s.heapF[index] = f;
+  s.heapG[index] = g;
   s.heapDev[index] = dev;
   s.heapSize += 1;
+  siftUp(s, index);
+}
+
+/** Lower the keys of the open slot at `index` to `f` and `g`, which never raises it in the order. */
+export function heapDecrease(s: SearchScratch, index: number, f: number, g: number): void {
+  s.heapF[index] = f;
+  s.heapG[index] = g;
   siftUp(s, index);
 }
 
@@ -38,6 +46,7 @@ export function heapPopRoot(s: SearchScratch): void {
   if (last === 0) return;
   s.heap[0] = s.heap[last] ?? 0;
   s.heapF[0] = s.heapF[last] ?? 0;
+  s.heapG[0] = s.heapG[last] ?? 0;
   s.heapDev[0] = s.heapDev[last] ?? 0;
   siftDown(s, 0);
 }
@@ -46,82 +55,90 @@ function growHeap(s: SearchScratch): void {
   const capacity = Math.min(s.heap.length * 2, s.heapIdx.length);
   const heap = new Int32Array(capacity);
   const heapF = new Float64Array(capacity);
+  const heapG = new Float64Array(capacity);
   const heapDev = new Float64Array(capacity);
   heap.set(s.heap);
   heapF.set(s.heapF);
+  heapG.set(s.heapG);
   heapDev.set(s.heapDev);
   s.heap = heap;
   s.heapF = heapF;
+  s.heapG = heapG;
   s.heapDev = heapDev;
 }
 
 /** Move the slot at `heap[start]` toward the root until its parent is no better. */
-export function siftUp(s: SearchScratch, start: number): void {
-  const { heap, heapF, heapDev, heapIdx, g } = s;
+function siftUp(s: SearchScratch, start: number): void {
+  const { heap, heapF, heapG, heapDev, heapIdx } = s;
   if (start >= s.heapSize) return;
   const node = heap[start] ?? 0;
   const f = heapF[start] ?? 0;
+  const g = heapG[start] ?? 0;
   const dev = heapDev[start] ?? 0;
-  const nodeG = g[node] ?? 0;
   let index = start;
   while (index > 0) {
     const parentIndex = (index - 1) >> 1;
     const parent = heap[parentIndex] ?? 0;
     const parentF = heapF[parentIndex] ?? 0;
+    const parentG = heapG[parentIndex] ?? 0;
     const parentDev = heapDev[parentIndex] ?? 0;
-    if (!better(f, nodeG, dev, node, parentF, g[parent] ?? 0, parentDev, parent)) break;
+    if (!better(f, g, dev, node, parentF, parentG, parentDev, parent)) break;
     heap[index] = parent;
     heapF[index] = parentF;
+    heapG[index] = parentG;
     heapDev[index] = parentDev;
     heapIdx[parent] = index;
     index = parentIndex;
   }
   heap[index] = node;
   heapF[index] = f;
+  heapG[index] = g;
   heapDev[index] = dev;
   heapIdx[node] = index;
 }
 
 /** Move the slot at `heap[start]` toward the leaves until neither child beats it. */
 function siftDown(s: SearchScratch, start: number): void {
-  const { heap, heapF, heapDev, heapIdx, g } = s;
+  const { heap, heapF, heapG, heapDev, heapIdx } = s;
   const size = s.heapSize;
   if (start >= size) return;
   const node = heap[start] ?? 0;
   const f = heapF[start] ?? 0;
+  const g = heapG[start] ?? 0;
   const dev = heapDev[start] ?? 0;
-  const nodeG = g[node] ?? 0;
   let index = start;
   for (;;) {
     let childIndex = 2 * index + 1;
     if (childIndex >= size) break;
     let child = heap[childIndex] ?? 0;
     let childF = heapF[childIndex] ?? 0;
+    let childG = heapG[childIndex] ?? 0;
     let childDev = heapDev[childIndex] ?? 0;
-    let childG = g[child] ?? 0;
     const rightIndex = childIndex + 1;
     if (rightIndex < size) {
       const right = heap[rightIndex] ?? 0;
       const rightF = heapF[rightIndex] ?? 0;
+      const rightG = heapG[rightIndex] ?? 0;
       const rightDev = heapDev[rightIndex] ?? 0;
-      const rightG = g[right] ?? 0;
       if (better(rightF, rightG, rightDev, right, childF, childG, childDev, child)) {
         child = right;
         childF = rightF;
-        childDev = rightDev;
         childG = rightG;
+        childDev = rightDev;
         childIndex = rightIndex;
       }
     }
-    if (!better(childF, childG, childDev, child, f, nodeG, dev, node)) break;
+    if (!better(childF, childG, childDev, child, f, g, dev, node)) break;
     heap[index] = child;
     heapF[index] = childF;
+    heapG[index] = childG;
     heapDev[index] = childDev;
     heapIdx[child] = index;
     index = childIndex;
   }
   heap[index] = node;
   heapF[index] = f;
+  heapG[index] = g;
   heapDev[index] = dev;
   heapIdx[node] = index;
 }

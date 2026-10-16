@@ -105,7 +105,7 @@ describe('the stranded-field reclaim sweep', () => {
     const field = fieldAt(sim, farm, 4, 6); // 40 cells west: 80 half-cell nodes of open grass
     const terrain = ctxOf(sim).terrain;
     if (terrain === undefined) throw new Error('mapless sim');
-    const expansions = vi.spyOn(terrain, 'stepsInto');
+    const expansions = vi.spyOn(terrain, 'stepsIntoAt');
 
     driveSweep(sim, 0, STRANDED_FIELD_CHECK_PERIOD_TICKS); // exactly one probe of the field
 

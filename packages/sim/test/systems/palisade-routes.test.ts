@@ -706,7 +706,7 @@ describe('attack-move planning around open enemy gates', () => {
     expect(plan()).toBe(first);
     expect(structureRouteSealed(sim.world, ctxOf(sim), terrain, start, goal, first.blocked)).toBe(true);
     expect(structureSameRegion(sim.world, ctxOf(sim), terrain, start, goal, first.blocked)).toBe(false);
-    const steps = vi.spyOn(terrain, 'stepsInto');
+    const steps = vi.spyOn(terrain, 'stepsIntoAt');
     for (let i = 0; i < 100; i++) {
       expect(
         structureRouteSealed(

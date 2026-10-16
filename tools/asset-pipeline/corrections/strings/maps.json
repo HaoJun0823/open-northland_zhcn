@@ -118,5 +118,109 @@
     "from": "Прикажите своему кузнецу произвести 5 железных инструментов!",
     "to": "Прикажите своему столяру произвести 5 железных инструментов!",
     "reason": "Żelazne narzędzia robi u nas cieśla w stolarni, nie kowal."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "pol",
+    "id": 0,
+    "from": "Wybuduj WARSZTAT GARNCARSKI a kopacz gliny niech pracuje w nim jako GARNCARZ!",
+    "to": "Wybuduj WARSZTAT GARNCARSKI, a kopacz gliny niech pracuje w nim jako GARNCARZ!",
+    "reason": "Brakujący przecinek przed a."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "pol",
+    "id": 9,
+    "from": "Wybuduj KUŹNIĘ, a górnik niech pracujeć w niej jako KOWAL!",
+    "to": "Wybuduj KUŹNIĘ, a górnik niech pracuje w niej jako KOWAL!",
+    "reason": "Literówka w czasowniku."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "eng",
+    "id": 11,
+    "from": "Build a TAILOR'S WORKSHOP have a hunter work as a TAILOR there!",
+    "to": "Build a TAILOR'S WORKSHOP and have a hunter work as a TAILOR there!",
+    "reason": "Brakujący spójnik łączący polecenia."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "ger",
+    "id": 5,
+    "from": "Baue eine SCHREINEREI und weise dem Holzabbauer den Berufs des SCHREINERS und die Schreinerei als Arbeitsstätte zu!",
+    "to": "Baue eine SCHREINEREI und weise dem Holzabbauer den Beruf des SCHREINERS und die Schreinerei als Arbeitsstätte zu!",
+    "reason": "Poprawny przypadek rzeczownika Beruf."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "ger",
+    "id": 10,
+    "from": "Baue die SCHIEDE aus!",
+    "to": "Baue die SCHMIEDE aus!",
+    "reason": "Brakująca litera w nazwie kuźni."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "ger",
+    "id": 15,
+    "from": "Stelle die Produktion des Steinmetz auf MARMOR um!",
+    "to": "Stelle die Produktion des Steinmetzes auf MARMOR um!",
+    "reason": "Poprawny dopełniacz rzeczownika Steinmetz."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "rus",
+    "id": 0,
+    "from": "Постройте ГОНЧАРНУЮ МАСТРЕСКУЮ и направьте туда своего глиномеса как ГОНЧАРА!",
+    "to": "Постройте ГОНЧАРНЮ и назначьте добытчика глины работать в ней ГОНЧАРОМ!",
+    "reason": "Literówka w nazwie warsztatu, właściwy zawód zbieracza i poprawna składnia przydzielenia pracy."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "rus",
+    "id": 9,
+    "from": "Постройте КУЗНИЦУ и направьте рабочего с рудника работать туда как КУЗНЕЦА!",
+    "to": "Постройте КУЗНИЦУ и направьте добытчика руды работать в ней КУЗНЕЦОМ!",
+    "reason": "Poprawna składnia opisu zawodu."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "rus",
+    "id": 98,
+    "from": "Здесь будет представлено технологическое дерево и вы узнаете как улучшать свои здания.",
+    "to": "Здесь будет представлено технологическое дерево, и вы узнаете, как улучшать свои здания.",
+    "reason": "Brakujące przecinki."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "pol",
+    "id": 2,
+    "from": "Ulepsz WARSZTAT GARNCARSKI 2!",
+    "to": "Wyprodukuj co najmniej jedną sztukę NACZYŃ w WARSZTACIE GARNCARSKIM 2!",
+    "reason": "Warsztat garncarski 2 produkuje naczynia; celem jest rzeczywista produkcja przynajmniej jednej sztuki, nie niedostępna kolejna rozbudowa."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "eng",
+    "id": 2,
+    "from": "Upgrade the POTTERY 2!",
+    "to": "Produce at least one unit of CROCKERY in POTTERY 2!",
+    "reason": "Warsztat garncarski 2 produkuje naczynia; celem jest rzeczywista produkcja przynajmniej jednej sztuki, nie niedostępna kolejna rozbudowa."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "ger",
+    "id": 2,
+    "from": "Baue die TÖPFEREI 2 aus!",
+    "to": "Produziere mindestens eine Einheit GESCHIRR in der TÖPFEREI 2!",
+    "reason": "Warsztat garncarski 2 produkuje naczynia; celem jest rzeczywista produkcja przynajmniej jednej sztuki, nie niedostępna kolejna rozbudowa."
+  },
+  {
+    "map": "tutorial_004",
+    "lang": "rus",
+    "id": 2,
+    "from": "Улучшить ГОНЧАРНУЮ МАСТЕРСКУЮ 2!",
+    "to": "Произведите хотя бы одну единицу ПОСУДЫ в ГОНЧАРНЕ 2!",
+    "reason": "Warsztat garncarski 2 produkuje naczynia; celem jest rzeczywista produkcja przynajmniej jednej sztuki, nie niedostępna kolejna rozbudowa."
   }
 ]

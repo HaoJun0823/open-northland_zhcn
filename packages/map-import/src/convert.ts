@@ -7,10 +7,15 @@ import {
   type MapsIndexEntry,
   mapDocumentsFingerprint,
 } from '@open-northland/data';
-import type { CifDecodeBudget, CifDecodeLimits } from '@open-northland/formats/cif';
+import {
+  type CifDecodeBudget,
+  type CifDecodeLimits,
+  type CifLine,
+  decodeCifStringArray,
+} from '@open-northland/formats/cif';
 import type { HypertextBudget } from '@open-northland/formats/hypertext';
 import {
-  cifBytesToSections,
+  cifLinesToSections,
   extractStaticObjects,
   iniBytesToSections,
   type RuleSection,
@@ -69,6 +74,13 @@ export interface ConvertOptions {
   readonly minimap?: (terrain: MapDatTerrainFile) => Promise<Uint8Array | undefined>;
   /** Rewrites the decoded string tables of map `id` before the meta, script and sidecar read them. */
   readonly correctStrings?: (id: string, tables: MapStringTables) => MapStringTables;
+  /** Corrects decoded map.cif properties using its tree path and original bytes, never its published id.
+   * A refusal propagates rather than degrading the map to missing entities or script. */
+  readonly correctCifLines?: (
+    file: string,
+    bytes: Uint8Array,
+    lines: readonly CifLine[],
+  ) => readonly CifLine[];
   readonly onProgress?: (progress: ConvertProgress) => void;
   /** Recoverable problems: an unreadable optional file or layer, which the map then goes without. */
   readonly onWarning?: (message: string) => void;
@@ -143,17 +155,30 @@ function readEntities(
   folder: MapFolder,
   onUnknownVerb: (verb: string) => void,
   cifLimits: CifDecodeLimits,
+  correctCifLines: ConvertOptions['correctCifLines'],
+  cifFile: string,
 ): { cifSections?: readonly RuleSection[]; entities?: MapDatTerrainFile['entities'] } {
   let cifSections: readonly RuleSection[] | undefined;
   let entities: MapDatTerrainFile['entities'];
   const cif = folder.read([MAP_CIF_FILE]);
   if (cif !== undefined) {
+    let lines: readonly CifLine[] | undefined;
     try {
-      cifSections = cifBytesToSections(cif, cifLimits);
-      entities = extractStaticObjects(cifSections, onUnknownVerb);
+      lines = decodeCifStringArray(cif, cifLimits).lines;
     } catch (err) {
       if (err instanceof DecodeLimitError) throw err;
       // Undecodable: the entity layer is skipped.
+    }
+    if (lines !== undefined) {
+      // Corrections fail closed outside the optional-file decoder catch.
+      const corrected = correctCifLines?.(cifFile, cif, lines) ?? lines;
+      try {
+        cifSections = cifLinesToSections(corrected);
+        entities = extractStaticObjects(cifSections, onUnknownVerb);
+      } catch (err) {
+        if (err instanceof DecodeLimitError) throw err;
+        // Keep the optional layer's existing recovery after correction validation succeeded.
+      }
     }
   }
   for (const file of STATIC_OBJECT_FILES) {
@@ -222,7 +247,13 @@ export async function convertMapFolder(
   let authored: ReturnType<typeof readEntities>;
   let stringTables: MapStringTables;
   try {
-    authored = readEntities(folder, (verb) => unknownVerbs.add(verb), cifLimits);
+    authored = readEntities(
+      folder,
+      (verb) => unknownVerbs.add(verb),
+      cifLimits,
+      options.correctCifLines,
+      key === '' ? MAP_CIF_FILE : `${folder.path}/${MAP_CIF_FILE}`,
+    );
     report('strings');
     stringTables = loadMapStringTables(folder, cifLimits);
   } catch (err) {

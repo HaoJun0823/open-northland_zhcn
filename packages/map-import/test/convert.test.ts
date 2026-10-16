@@ -1,11 +1,11 @@
 import { mapDocumentsFingerprint } from '@open-northland/data';
-import { CIF_SLOT_DECODE_UNITS } from '@open-northland/formats/cif';
+import { CIF_SLOT_DECODE_UNITS, type CifLine } from '@open-northland/formats/cif';
 import { encodeMapDat, encodeMapSize, packMapLayer } from '@open-northland/formats/mapdat/index';
 import { encodePcx } from '@open-northland/formats/pcx';
 import { zipSync } from 'fflate';
 import { describe, expect, it, vi } from 'vitest';
 import { encodeC2m } from '../../formats/test/fixtures/c2m.js';
-import { buildCifPool } from '../../formats/test/fixtures/cif.js';
+import { buildCifPool, buildStringCif } from '../../formats/test/fixtures/cif.js';
 import { openZip } from '../src/archives/open.js';
 import { type ConvertProgress, convertMapFolder, convertMapTree } from '../src/convert.js';
 import { MapImportError, type MapImportFailure } from '../src/errors.js';
@@ -391,4 +391,64 @@ it('keeps untrusted briefing limits while explicitly trusted folder and pack con
   const trusted = { provenance: 'mod' as const, limits: NO_IMPORT_LIMITS };
   expect((await convertMapFolder(tree, 'a', trusted)).briefing).toBeDefined();
   expect((await convertMapTree(tree, trusted)).maps).toHaveLength(3);
+});
+
+it('corrects map CIF by source folder path even when the published campaign id is remapped', async () => {
+  const cif = buildStringCif([
+    { level: 1, text: 'MissionData' },
+    { level: 2, text: 'debuginfo "sample"' },
+    { level: 2, text: 'goal "True"' },
+    { level: 1, text: 'StaticObjects' },
+    { level: 2, text: 'sethuman 0 "viking" "civilist" 0 0 1 0' },
+  ]);
+  const tree = treeOf({ 'Campaign/Stage/map.dat': mapDat(), 'Campaign/Stage/map.cif': cif });
+  const hook = vi.fn((file: string, bytes: Uint8Array, lines: readonly CifLine[]) => {
+    expect(file).toBe('Campaign/Stage/map.cif');
+    expect(bytes).toEqual(cif);
+    return lines.map((line) =>
+      line.text === 'goal "True"' ? { ...line, text: 'goal "GoodsGlobal" 0 "crockery" 1' } : line,
+    );
+  });
+  const converted = await convertMapFolder(tree, 'campaign/stage', {
+    provenance: 'mod',
+    id: 'published-stage',
+    correctCifLines: hook,
+  });
+  expect(hook).toHaveBeenCalledOnce();
+  expect(converted.id).toBe('published-stage');
+  expect(converted.script?.missions[0]?.goals[0]?.values).toEqual(['GoodsGlobal', '0', 'crockery', '1']);
+  expect(converted.terrain.entities?.humans).toHaveLength(1);
+});
+
+it('propagates a CIF correction refusal instead of silently dropping optional map layers', async () => {
+  const tree = treeOf({
+    'map.dat': mapDat(),
+    'map.cif': buildStringCif([{ level: 1, text: 'MissionData' }]),
+  });
+  await expect(
+    convertMapFolder(tree, '', {
+      provenance: 'mod',
+      correctCifLines: () => {
+        throw new Error('source correction refused');
+      },
+    }),
+  ).rejects.toThrow('source correction refused');
+});
+
+it('names a root map CIF without the display root name or a leading slash', async () => {
+  const tree = treeOf({
+    'map.dat': mapDat(),
+    'map.cif': buildStringCif([{ level: 1, text: 'MissionData' }]),
+  });
+  const files: string[] = [];
+  await convertMapFolder(tree, '', {
+    provenance: 'user',
+    rootName: 'Display name',
+    id: 'published',
+    correctCifLines: (file, _bytes, lines) => {
+      files.push(file);
+      return lines;
+    },
+  });
+  expect(files).toEqual(['map.cif']);
 });

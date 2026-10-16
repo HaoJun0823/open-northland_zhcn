@@ -42,6 +42,13 @@ A correction the run did not apply fails the pipeline, including after a data re
 file: check whether the data now fixes it, then delete the file or re-pin its hash. Deleting the file
 removes the correction. Behavior differences from the original stay in code and docs, not here.
 
+An encrypted map script can use `"format": "cif"` in its source correction. Its hash still pins the raw
+file bytes. Each edit requires `"line"`, the 1-based position in `decodeCifStringArray(...).lines`,
+and exact ASCII `from`/`to` property text; only level-2 properties can change. The normal map decoder
+applies these edits before any sections are read, without rewriting the binary. Reading the source
+bytes alone does not mark a CIF correction applied. A hash, line or level mismatch fails the run.
+The callback names the source tree's folder path, independent of a map's published id.
+
 `corrections/strings/tables.json` is the one place for display-string fixes in all four languages,
 whether the table ships as `.ini` or `.cif`. Each entry names `lang`, `table` (its key in
 `gui/strings/<lang>.json`), the string `id`, the exact decoded `from` text (game-object names arrive

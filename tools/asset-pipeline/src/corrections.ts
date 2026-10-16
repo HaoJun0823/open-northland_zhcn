@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { CifLine } from '@open-northland/formats/cif';
 
 /** The named fixes to single mod files, one JSON file each; this package's AGENTS.md sets the rules. */
 export const CORRECTIONS_DIR = fileURLToPath(new URL('../corrections/', import.meta.url));
@@ -29,6 +30,8 @@ export interface SourceCorrection {
   /** Mod-root-relative and `/`-separated, matched case-insensitively like every mod path. */
   readonly file: string;
   readonly sha256: string;
+  /** Decoded CIF property lines; absent means the existing plaintext byte edits. */
+  readonly format?: 'cif';
   /** The code page `from` lines are read and `to` lines written in; without one both are printable ASCII. */
   readonly encoding?: string;
   readonly lines: readonly LineEdit[];
@@ -39,11 +42,13 @@ export interface SourceCorrections {
   readonly list: readonly SourceCorrection[];
   /** The bytes at `path`, with the correction naming that mod file applied. */
   read(path: string): Promise<Uint8Array>;
+  /** Correct decoded properties against the original bytes, before any map readers consume them. */
+  correctCifLines(file: string, bytes: Uint8Array, lines: readonly CifLine[]): readonly CifLine[];
   /** Throws naming every correction the run did not apply, and why. */
   assertApplied(): void;
 }
 
-const CORRECTION_KEYS = ['reason', 'file', 'sha256', 'encoding', 'lines'] as const;
+const CORRECTION_KEYS = ['reason', 'file', 'sha256', 'format', 'encoding', 'lines'] as const;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 /** Script lines are printable ASCII, which the latin1 round trip keeps byte for byte. */
 const SCRIPT_LINE = /^[\x20-\x7e]*$/;
@@ -84,11 +89,39 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
       const bytes = await readFile(path);
       const correction = byFile.get(relative(dataRoot, path).split(sep).join('/').toLowerCase());
       if (correction === undefined) return bytes;
+      // A CIF read alone has applied nothing: its decoded properties are corrected by the map reader.
+      if (correction.format === 'cif') return bytes;
       const corrected = applyCorrection(correction, bytes);
       if (typeof corrected === 'string') {
         failures.set(correction.id, corrected);
         return bytes;
       }
+      applied.add(correction.id);
+      return corrected;
+    },
+    correctCifLines(file, bytes, lines) {
+      const correction = byFile.get(file.toLowerCase());
+      if (correction?.format !== 'cif') return lines;
+      const fail = (why: string): never => {
+        applied.delete(correction.id);
+        failures.set(correction.id, why);
+        throw new Error(`correction ${correction.id} (${correction.file}): ${why}`);
+      };
+      const actual = createHash('sha256').update(bytes).digest('hex');
+      if (actual !== correction.sha256) fail(`the file changed (sha256 ${actual}); revisit the correction`);
+      const edits = new Map<number, LineEdit>();
+      for (const edit of correction.lines) {
+        const index = (edit.line ?? 0) - 1;
+        const source = lines[index];
+        if (source?.level !== 2 || source.text !== edit.from)
+          fail(`decoded line ${edit.line} is not the property "${edit.from}"`);
+        if (edits.has(index)) fail(`two edits replace decoded line ${edit.line}`);
+        edits.set(index, edit);
+      }
+      const corrected = lines.flatMap((line, index) => {
+        const edit = edits.get(index);
+        return edit === undefined ? [{ ...line }] : edit.to.map((text) => ({ level: 2, text }));
+      });
       applied.add(correction.id);
       return corrected;
     },
@@ -175,12 +208,15 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
   const record = raw as Record<string, unknown>;
   const unknownKey = Object.keys(record).find((key) => !(CORRECTION_KEYS as readonly string[]).includes(key));
   if (unknownKey !== undefined) fail(`unknown key "${unknownKey}"`);
-  const { reason, file, sha256, encoding, lines } = record;
+  const { reason, file, sha256, format, encoding, lines } = record;
   if (typeof reason !== 'string' || reason.trim() === '') return fail('reason must say why the fix exists');
   if (typeof file !== 'string' || file === '') return fail('file must name a mod file');
   if (typeof sha256 !== 'string' || !SHA256_HEX.test(sha256)) {
     return fail('sha256 must be the lower-case hex digest of the shipped file');
   }
+  if (format !== undefined && format !== 'cif') return fail('"format" is "cif" or absent');
+  if (format === 'cif' && encoding !== undefined)
+    return fail('CIF property edits are ASCII, without "encoding"');
   if (encoding !== undefined && (typeof encoding !== 'string' || !keepsAsciiBytes(encoding))) {
     return fail('"encoding" is a TextDecoder label that reads ASCII bytes as ASCII, or absent');
   }
@@ -215,6 +251,7 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
     if (line !== undefined && (lineNumber === undefined || every !== undefined || section !== undefined)) {
       return fail('"line" is a 1-based line number, without "every" or "section"');
     }
+    if (format === 'cif' && lineNumber === undefined) return fail('CIF edits require an explicit "line"');
     return {
       from,
       to: bytes,
@@ -223,7 +260,15 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
       ...(lineNumber === undefined ? {} : { line: lineNumber }),
     };
   });
-  return { id, reason, file, sha256, ...(encoding === undefined ? {} : { encoding }), lines: edits };
+  return {
+    id,
+    reason,
+    file,
+    sha256,
+    ...(format === undefined ? {} : { format }),
+    ...(encoding === undefined ? {} : { encoding }),
+    lines: edits,
+  };
 }
 
 /**

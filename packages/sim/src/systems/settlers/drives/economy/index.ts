@@ -4,7 +4,7 @@
 
 export { builderWorkBeyondReach, planBuilder } from './builder.js';
 export { ConstructionTaskClaims } from './construction-task-claims.js';
-export { planDelivery, reconcileYardRoute } from './delivery.js';
+export { planDelivery, reconcileYardRoute, yardRouteSettled } from './delivery.js';
 export { planFisher } from './fishing.js';
 export { planGatherer } from './gatherer.js';
 export { planCarrierHaul, planPorter } from './hauling.js';

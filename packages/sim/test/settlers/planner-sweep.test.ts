@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   addCurrentAtomic,
   addWildlife,
+  Carrying,
   Chat,
   type CurrentAtomicState,
+  DeliveryFlag,
   Engagement,
   FamilyDuty,
   FarmTask,
@@ -26,6 +28,7 @@ import {
   UnreachableGoals,
   UnreachableTargets,
   Wedding,
+  WorkFlag,
   YardDeliveryRoute,
 } from '../../src/components/index.js';
 import { ZERO } from '../../src/core/fixed.js';
@@ -112,6 +115,17 @@ function employ(world: World, e: Entity, jobType: number, player: number): Entit
   return e;
 }
 
+/** Send `e` along a whole yard route to a new delivery flag: bound to it, carrying the routed good.
+ *  Returns the flag. */
+function routeToYard(world: World, e: Entity): Entity {
+  const flag = world.create();
+  world.add(flag, DeliveryFlag, {});
+  world.add(e, WorkFlag, { flag, radius: 1 });
+  world.add(e, Carrying, { goodType: PLANK, amount: 1 });
+  world.add(e, YardDeliveryRoute, { flag, goodType: PLANK, goal: GOAL, failed: false });
+  return flag;
+}
+
 function busy(world: World): Entity {
   const e = settler(world);
   addCurrentAtomic(world, e, atomic({ kind: 'move', to: { x: 0, y: 0 } }, WALK_ATOMIC));
@@ -168,6 +182,28 @@ describe('planner sweep order', () => {
     world.add(engaged, Engagement, { repathAt: 0 });
     world.add(supplying, Fleeing, { repathAt: 0, calmUntil: null });
     expect(swept(world, CONTENT, NO_SHELTERS, EVERY_IDLER)).toEqual([failing, engaged, supplying]);
+    expect(world.verifyCaches()).toEqual([]);
+  });
+
+  it('passes by a walker on a whole yard route until its load, binding, flag or walk breaks the route', () => {
+    const world = new World();
+    const [unloaded, rebound, flagless, failing] = [
+      walking(world),
+      walking(world),
+      walking(world),
+      walking(world),
+    ];
+    const flags = [unloaded, rebound, flagless, failing].map((e) => routeToYard(world, e));
+    world.add(failing, PathRequest, { start: GOAL, goal: GOAL, failed: false });
+    expect(swept(world, CONTENT, NO_SHELTERS, EVERY_IDLER)).toEqual([]);
+
+    world.mut(unloaded, Carrying).amount = 0;
+    world.mut(rebound, WorkFlag).flag = rebound;
+    const lostFlag = flags[2];
+    if (lostFlag === undefined) throw new Error('no flag');
+    world.destroy(lostFlag);
+    world.mut(failing, PathRequest).failed = true;
+    expect(swept(world, CONTENT, NO_SHELTERS, EVERY_IDLER)).toEqual([unloaded, rebound, flagless, failing]);
     expect(world.verifyCaches()).toEqual([]);
   });
 
@@ -264,6 +300,9 @@ const MARKERS: Record<string, (world: World, e: Entity) => void> = {
   none: () => {},
   yardRoute: (world, e) =>
     world.add(e, YardDeliveryRoute, { flag: e, goodType: PLANK, goal: GOAL, failed: false }),
+  wholeYardRoute: (world, e) => {
+    routeToYard(world, e);
+  },
   unreachableGoals: (world, e) => world.add(e, UnreachableGoals, { entries: [] }),
   unreachableTargets: (world, e) => world.add(e, UnreachableTargets, { entries: [] }),
   garrison: (world, e) => world.add(e, Garrison, { post: e, returnTo: { x: ZERO, y: ZERO } }),

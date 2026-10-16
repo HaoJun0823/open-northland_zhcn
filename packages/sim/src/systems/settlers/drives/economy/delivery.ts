@@ -33,24 +33,47 @@ import { isBoundToStorageSink } from './store-policy.js';
 export function reconcileYardRoute(world: World, e: Entity): void {
   const route = world.tryGet(e, YardDeliveryRoute);
   if (route === undefined) return;
+  if (!yardRouteHolds(world, e, route)) {
+    world.remove(e, YardDeliveryRoute);
+    return;
+  }
+  if (yardWalkFailed(world, e, route)) {
+    world.mut(e, YardDeliveryRoute).failed = true;
+    clearNavState(world, e);
+  }
+}
+
+/** Whether {@link reconcileYardRoute} keeps `e`'s `route` whole: it reads `e`'s load, work flag and path
+ *  request, and the route flag's {@link DeliveryFlag}. */
+export function yardRouteSettled(world: World, e: Entity): boolean {
+  const route = world.tryGet(e, YardDeliveryRoute);
+  return route === undefined || (yardRouteHolds(world, e, route) && !yardWalkFailed(world, e, route));
+}
+
+function yardRouteHolds(
+  world: World,
+  e: Entity,
+  route: Readonly<{ flag: Entity; goodType: number }>,
+): boolean {
   const load = world.tryGet(e, Carrying);
   const workFlag = world.tryGet(e, WorkFlag);
-  const valid =
+  return (
     load !== undefined &&
     load.amount > 0 &&
     load.goodType === route.goodType &&
     workFlag !== undefined &&
     workFlag.flag === route.flag &&
-    world.has(route.flag, DeliveryFlag);
-  if (!valid) {
-    world.remove(e, YardDeliveryRoute);
-    return;
-  }
+    world.has(route.flag, DeliveryFlag)
+  );
+}
+
+function yardWalkFailed(
+  world: World,
+  e: Entity,
+  route: Readonly<{ goal: NodeId; failed: boolean }>,
+): boolean {
   const request = world.tryGet(e, PathRequest);
-  if (!route.failed && request?.failed === true && request.goal === route.goal) {
-    world.mut(e, YardDeliveryRoute).failed = true;
-    clearNavState(world, e);
-  }
+  return !route.failed && request?.failed === true && request.goal === route.goal;
 }
 
 /** Deposit a carried load, or hold/drop it deterministically when no eligible sink exists. */

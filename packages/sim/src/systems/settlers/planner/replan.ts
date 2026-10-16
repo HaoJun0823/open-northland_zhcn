@@ -1,5 +1,6 @@
 import type { ContentSet } from '@open-northland/data';
 import {
+  Carrying,
   Chat,
   CurrentAtomic,
   chatAtomicRunning,
@@ -29,6 +30,7 @@ import {
   UnreachableGoals,
   UnreachableTargets,
   Wedding,
+  WorkFlag,
   YardDeliveryRoute,
 } from '../../../components/index.js';
 import { TICKS_PER_SECOND } from '../../../core/loop.js';
@@ -45,7 +47,7 @@ import type { SupplyTally } from '../../stores/index.js';
 import { ACTION_OWNER_MARKERS, anotherSystemOwns, divertsErrand } from '../action-owner.js';
 import { atomicHoldsSettler } from '../atomics/busy.js';
 import { topsUpAtHome } from '../drives/at-home.js';
-import { reconcileYardRoute } from '../drives/economy/index.js';
+import { reconcileYardRoute, yardRouteSettled } from '../drives/economy/index.js';
 import { type FarmClaims, releaseFarmTask } from '../drives/farming/index.js';
 import { answerNeedInPlace } from '../drives/needs.js';
 import { planShelter } from '../drives/shelter.js';
@@ -131,9 +133,12 @@ function seeksShelterEnRoute(world: World, ctx: SystemContext, e: Entity, shelte
   );
 }
 
-/** The stores {@link idleRelease} reads: their membership, and the values below. */
+/** The stores {@link idleRelease} reads of the settler: their membership, and the values below. A yard
+ *  route also reads its flag's `DeliveryFlag`, which the sweep watches on the flag. */
 export const RELEASE_IDLE_MEMBERSHIP: readonly Component<unknown>[] = [
   YardDeliveryRoute,
+  Carrying,
+  WorkFlag,
   UnreachableGoals,
   UnreachableTargets,
   Garrison,
@@ -152,7 +157,15 @@ export const RELEASE_IDLE_MEMBERSHIP: readonly Component<unknown>[] = [
   // Engagement, Wedding and FamilyDuty among them.
   ...ACTION_OWNER_MARKERS,
 ];
-export const RELEASE_IDLE_VALUES: readonly Component<unknown>[] = [CurrentAtomic, Chat, PathRequest, Settler];
+export const RELEASE_IDLE_VALUES: readonly Component<unknown>[] = [
+  CurrentAtomic,
+  Chat,
+  PathRequest,
+  Settler,
+  YardDeliveryRoute,
+  Carrying,
+  WorkFlag,
+];
 
 /**
  * Why the sweep's visit of a settler changes nothing: an atomic holds it or it walks a quiet route, so
@@ -165,13 +178,14 @@ export type IdleRelease = 'held' | 'travelling' | 'jobless' | 'idle';
 /**
  * How the sweep's visit of `e` changes nothing, or null when it may: an atomic holds it, or it walks
  * a live route that only a shelter of its owner on alarm diverts ({@link takesCoverFrom}), and it
- * carries nothing {@link releaseStaleIntent} reconciles on the way or the busy branch wakes, an errand
+ * carries nothing {@link releaseStaleIntent} reconciles on the way (a yard route still whole is
+ * nothing) or the busy branch wakes, an errand
  * mattering only under an owner that walks it elsewhere ({@link divertsErrand}); or it has no trade and nothing to shed,
  * which an alarm never draws; or it stands idle carrying nothing that call sheds, or waits inside a
  * building ({@link waitsInside}). Keep in step with that call's early-outs.
  */
 export function idleRelease(world: World, e: Entity): IdleRelease | null {
-  if (world.has(e, YardDeliveryRoute) || world.has(e, UnreachableGoals) || world.has(e, UnreachableTargets)) {
+  if (!yardRouteSettled(world, e) || world.has(e, UnreachableGoals) || world.has(e, UnreachableTargets)) {
     return null;
   }
   if (world.has(e, IdleStand)) return shedsNothing(world, e) || waitsInside(world, e) ? 'idle' : null;

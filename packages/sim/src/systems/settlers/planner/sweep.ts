@@ -1,5 +1,13 @@
 import type { ContentSet } from '@open-northland/data';
-import { Owner, ownerOf, Position, Settler, Sheltering } from '../../../components/index.js';
+import {
+  DeliveryFlag,
+  Owner,
+  ownerOf,
+  Position,
+  Settler,
+  Sheltering,
+  YardDeliveryRoute,
+} from '../../../components/index.js';
 import { indexAboveId, insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import type { ShelterSites } from '../../defence/index.js';
@@ -22,7 +30,8 @@ const byId = (e: Entity): number => e;
  * is the only failed-route recovery a parked creature has; `travellingByOwner` holds the quiet walkers
  * only an alarm can divert, by owner; `idle` holds the idlers whose visit does something only on their
  * re-plan beat, alarm or cut-off check, also split by the beat of {@link beatKeyOf} and by owner. The
- * owner split lets an alarm scan only its owner's settlers. Kept across ticks per world from a change feed.
+ * owner split lets an alarm scan only its owner's settlers. Kept across ticks per world from a change feed,
+ * which also watches the flags of the yard routes passed by, since losing one makes its walkers act.
  */
 class SweepCandidates {
   private readonly acting: Entity[] = [];
@@ -33,6 +42,8 @@ class SweepCandidates {
   /** How each positioned settler is filed, so a change that leaves its release, beat and owner as they
    *  were edits no list, and a re-owned or re-beaten one leaves its old lists. */
   private readonly filed = new Map<Entity, Filing>();
+  /** The passed-by settlers holding a yard route, by the route's flag. */
+  private readonly routedTo = new Map<Entity, Set<Entity>>();
   private readonly feed: ChangeFeed;
   private readonly refreshEntity = (e: Entity): void => this.refresh(e);
   /** List edits so far: a remembered index stays a valid start for a later cursor while this holds
@@ -43,7 +54,7 @@ class SweepCandidates {
 
   constructor(private readonly world: World) {
     this.feed = world.watchChanges(
-      [Settler, Position, Owner, ...RELEASE_IDLE_MEMBERSHIP],
+      [Settler, Position, Owner, DeliveryFlag, ...RELEASE_IDLE_MEMBERSHIP],
       RELEASE_IDLE_VALUES,
     );
     this.rebuild();
@@ -109,11 +120,22 @@ class SweepCandidates {
     const release = positioned ? idleRelease(this.world, e) : undefined;
     const beat = release === 'idle' ? idleBeatOf(beatKeyOf(this.world, e)) : undefined;
     const owner = release === 'travelling' || release === 'idle' ? ownerOf(this.world, e) : undefined;
+    const routeFlag = routeFlagOf(this.world, e, release);
     const filing = this.filed.get(e);
     const priorRelease = filing?.release;
     const priorBeat = filing?.beat;
     const priorOwner = filing?.owner;
-    if (release === priorRelease && beat === priorBeat && owner === priorOwner) return;
+    // A change to a route's flag re-files the walkers it passes by.
+    const routed = this.routedTo.get(e);
+    if (routed !== undefined) for (const walker of [...routed]) this.refresh(walker);
+    if (routeFlag !== filing?.routeFlag) {
+      if (filing?.routeFlag !== undefined) this.unroute(filing.routeFlag, e);
+      if (routeFlag !== undefined) this.route(routeFlag, e);
+    }
+    if (release === priorRelease && beat === priorBeat && owner === priorOwner) {
+      if (filing !== undefined) filing.routeFlag = routeFlag;
+      return;
+    }
     if (release !== priorRelease) {
       if (release === null || priorRelease === null) this.editMember(this.acting, e, release === null);
       if (release === 'idle' || priorRelease === 'idle') this.editMember(this.idle, e, release === 'idle');
@@ -127,12 +149,28 @@ class SweepCandidates {
       if (owner !== undefined) this.editMember(this.ownerListOf(release, owner), e, true);
     }
     if (release === undefined) this.filed.delete(e);
-    else if (filing === undefined) this.filed.set(e, { release, beat, owner });
+    else if (filing === undefined) this.filed.set(e, { release, beat, owner, routeFlag });
     else {
       filing.release = release;
       filing.beat = beat;
       filing.owner = owner;
+      filing.routeFlag = routeFlag;
     }
+  }
+
+  private route(flag: Entity, e: Entity): void {
+    let walkers = this.routedTo.get(flag);
+    if (walkers === undefined) {
+      walkers = new Set();
+      this.routedTo.set(flag, walkers);
+    }
+    walkers.add(e);
+  }
+
+  private unroute(flag: Entity, e: Entity): void {
+    const walkers = this.routedTo.get(flag);
+    walkers?.delete(e);
+    if (walkers?.size === 0) this.routedTo.delete(flag);
   }
 
   /** Insert `e`, which the filing says `ids` lacks, or remove it, which the filing says `ids` holds. */
@@ -154,6 +192,7 @@ class SweepCandidates {
     this.travellingByOwner.clear();
     this.idleByOwner.clear();
     this.filed.clear();
+    this.routedTo.clear();
     for (const beat of this.idleByBeat) beat.length = 0;
     for (const e of this.world.canonicalQuery(Settler, Position)) {
       const release = idleRelease(this.world, e);
@@ -165,7 +204,9 @@ class SweepCandidates {
         this.idlersOn(beat).push(e);
       }
       const owner = release === 'travelling' || release === 'idle' ? ownerOf(this.world, e) : undefined;
-      this.filed.set(e, { release, beat, owner });
+      const routeFlag = routeFlagOf(this.world, e, release);
+      this.filed.set(e, { release, beat, owner, routeFlag });
+      if (routeFlag !== undefined) this.route(routeFlag, e);
       if (owner !== undefined) this.ownerListOf(release, owner).push(e);
     }
   }
@@ -209,6 +250,13 @@ class SweepCandidates {
     if (!sameOwnerLists(byOwner('idle'), this.idleByOwner)) {
       problems.push('plannerSweep idlers by owner diverge from a fresh scan');
     }
+    const routed = all.filter((e) => routeFlagOf(this.world, e, idleRelease(this.world, e)) !== undefined);
+    if (
+      routed.length !== [...this.routedTo.values()].reduce((n, walkers) => n + walkers.size, 0) ||
+      routed.some((e) => !this.routedTo.get(this.world.get(e, YardDeliveryRoute).flag)?.has(e))
+    ) {
+      problems.push('plannerSweep yard-route walkers by flag diverge from a fresh scan');
+    }
     return problems;
   }
 }
@@ -228,17 +276,23 @@ function sameOwnerLists(fresh: Map<number, Entity[]>, held: Map<number, Entity[]
   return [...owners].every((owner) => sameIds(fresh.get(owner) ?? [], held.get(owner) ?? []));
 }
 
+/** The flag of `e`'s yard route when the sweep passes `e` by under `release`, else undefined. */
+function routeFlagOf(world: World, e: Entity, release: IdleRelease | null | undefined): Entity | undefined {
+  return release === null || release === undefined ? undefined : world.tryGet(e, YardDeliveryRoute)?.flag;
+}
+
 function earlier(a: Entity | undefined, b: Entity | undefined): Entity | undefined {
   if (a === undefined) return b;
   return b === undefined || a < b ? a : b;
 }
 
 /** Where {@link SweepCandidates} files one positioned settler: its release, and its idle beat and
- *  owner where its release files it by them. */
+ *  owner where its release files it by them, and the flag of a yard route it is passed by with. */
 interface Filing {
   release: IdleRelease | null;
   beat: number | undefined;
   owner: number | undefined;
+  routeFlag: Entity | undefined;
 }
 
 /** An index into one ascending-id list remembered between asks: while the list holds still and the

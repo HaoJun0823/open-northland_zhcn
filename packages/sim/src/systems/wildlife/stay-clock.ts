@@ -72,8 +72,7 @@ class StayClock {
 
   /** Keep `e` for the next tick: it came due but could not decide yet. */
   wait(e: Entity): void {
-    if (this.waitingCount === this.waiting.length)
-      this.waiting = grown(this.waiting, this.waitingCount + 1);
+    if (this.waitingCount === this.waiting.length) this.waiting = grown(this.waiting, this.waitingCount + 1);
     this.waiting[this.waitingCount++] = e;
   }
 

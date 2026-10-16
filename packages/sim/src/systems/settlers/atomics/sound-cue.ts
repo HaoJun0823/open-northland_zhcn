@@ -73,6 +73,7 @@ export function emitAtomicSoundCues(
   const anim = soundingClip(world, ctx, settler, atomic);
   if (anim === undefined) return;
   for (const cue of clipEventFactsOf(anim).soundCues) {
-    if (cue.tick === elapsed) ctx.events.emit({ kind: 'atomicSound', entity: settler, soundType: cue.soundType });
+    if (cue.tick === elapsed)
+      ctx.events.emit({ kind: 'atomicSound', entity: settler, soundType: cue.soundType });
   }
 }

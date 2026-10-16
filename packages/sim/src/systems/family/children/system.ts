@@ -8,7 +8,7 @@ import {
   Settler,
   Sheltering,
 } from '../../../components/index.js';
-import type { Entity, World } from '../../../ecs/world.js';
+import type { World } from '../../../ecs/world.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
 import { isInside } from '../../settlers/indoors.js';

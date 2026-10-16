@@ -23,7 +23,7 @@ const CONTACT_MISSION = 81;
 const TRIBUTE_MISSION = 82;
 const CONTACT_PAGE = 511;
 const FRANK_SEAT = 5;
-/** The well's story encounter, whose point lies inside a closed wall ring. */
+/** The pigeon chest's story encounter, whose point lies inside a closed wall ring. */
 const ENCOUNTER_MISSION = 22;
 /** The mission that hands the player the win, activated only by a later chain of triggers. */
 const VICTORY_MISSION = 77;
@@ -32,7 +32,7 @@ const MOVEMENT_BUDGET_TICKS = 2400;
 
 /** A real player's opening and reinforcement route; no verdict or mission state is injected. */
 describe.runIf(hasRealIr())('scripted story-map acceptance', () => {
-  it('opens contact briefings and reaches reinforcements across restore, but not the walled well', async () => {
+  it('opens contact briefings and reaches reinforcements across restore, but not the walled pigeon chest', async () => {
     const ir = rawIrUnderTest() as ContentIr;
     const { merge } = await loadContentUnderTest();
     const root = resolve(contentDir(), 'maps');
@@ -106,8 +106,7 @@ describe.runIf(hasRealIr())('scripted story-map acceptance', () => {
     const encounter = sim.missions?.missions[ENCOUNTER_MISSION]?.goals[0];
     if (encounter?.opcode !== 'FindPosByHumans') throw new Error('story encounter source changed');
     expect(encounter.humanId).toBe(goal.humanId);
-    // Original behavior: the well's chest stands inside a closed ring of a friendly player's walls, and
-    // walkers step only between hex neighbours, so nobody reaches it and its story encounter never fires.
+    // The loaded map's friendly wall ring leaves no connected walking route to the chest.
     const approach = playerCommand(0, {
       kind: 'moveUnit',
       entity: hero,

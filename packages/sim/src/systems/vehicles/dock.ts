@@ -20,6 +20,7 @@ import {
   moorVehicle,
   refuseMove,
   startVehicleDrive,
+  vehicleGroundBlocks,
   vehicleWalkBlocks,
 } from './movement.js';
 import { type SeaRegions, seaRegions } from './sea-regions.js';
@@ -78,12 +79,13 @@ export function startDock(
   if (anchor === null || type === undefined) return false;
   const here = terrain.nodeAt(anchor.hx, anchor.hy);
   // After one candidate finds no route, the water the ship can reach is flooded once and only the
-  // candidates in it are searched, instead of a sea-wide search per ring node another ship cut off.
+  // candidates in it are searched, instead of a sea-wide search per ring node out of reach. Other ships
+  // are no wall, as a route passes through them where it cannot go around.
   let reached: Uint8Array | undefined;
   for (const node of dockCandidates(world, ctx, terrain, vehicle, type, anchor, point)) {
     if (reached !== undefined && reached[node] !== REACHED) continue;
     if (node !== here && !startVehicleDrive(world, ctx, terrain, vehicle, node)) {
-      reached ??= reachableWater(terrain, vehicleWalkBlocks(world, ctx, terrain, vehicle, type), here);
+      reached ??= reachableWater(terrain, vehicleGroundBlocks(world, ctx, terrain, vehicle, type), here);
       continue;
     }
     if (node === here) endDrive(world, vehicle); // a goto under way ends here, moored

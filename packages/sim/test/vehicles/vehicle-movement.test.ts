@@ -53,6 +53,7 @@ import {
 } from '../../src/systems/vehicles/index.js';
 import {
   nodeOf,
+  vacateSeat,
   vehicleRestBlocks,
   vehicleRouteTo,
   vehicleWalkBlocks,
@@ -170,6 +171,20 @@ function driveOut(s: Simulation, vehicle: Entity, limit = 400): number {
   }
   return ticks;
 }
+
+/** Step until `vehicle` stands still with no goal held for its crew, returning every refusal on the way. */
+function settle(s: Simulation, vehicle: Entity, limit = 600): string[] {
+  const seen: string[] = [];
+  for (let ticks = 0; ; ticks++) {
+    s.step();
+    seen.push(...refusals(s));
+    if (!s.world.has(vehicle, VehicleDrive) && s.world.get(vehicle, Vehicle).heldGoal === null) return seen;
+    if (ticks > limit) throw new Error('vehicle never settled');
+  }
+}
+
+/** The one row a fence of posts across the map leaves open. */
+const GAP_ROW = 20;
 
 /** A one-node wall post: the walk cell of a resource footprint. */
 function post(s: Simulation, x: number, y: number): Entity {
@@ -644,17 +659,89 @@ describe('moveVehicle', () => {
     order(s, cart, 12, 8);
     s.step();
     for (let y = 0; y < 2 * MAP_CELLS; y++) {
-      if (y !== 20) post(s, 8, y); // a fence with a gap far to the south
+      if (y !== GAP_ROW) post(s, 8, y); // a fence with a gap far to the south
     }
     driveOut(s, cart);
     expect(anchorOf(s, cart)).toEqual({ hx: 12, hy: 8 });
     expect(refusals(s)).toEqual([]);
     order(s, cart, 4, 8);
     s.step();
-    post(s, 8, 20);
+    post(s, 8, GAP_ROW);
     driveOut(s, cart);
     expect(refusals(s)).toEqual([`${cart}:noPath:${P0}`]);
     expect(s.world.has(cart, VehicleDrive)).toBe(false);
+  });
+
+  it('parks beside a goal another vehicle reached first instead of giving up', () => {
+    const s = sim();
+    const first = commanded(s, HANDCART, 16, 8);
+    const second = commanded(s, HANDCART, 4, 8);
+    order(s, first, 20, 8);
+    order(s, second, 20, 8);
+    expect(settle(s, second)).toEqual([]);
+    expect(s.world.has(first, VehicleDrive)).toBe(false);
+    expect(anchorOf(s, first)).toEqual({ hx: 20, hy: 8 });
+    const beside = anchorOf(s, second);
+    expect(hexDistanceBetween(beside.hx, beside.hy, 20, 8)).toBe(1);
+  });
+
+  it('drives through a vehicle that stands in the only gap, as the original passes parked vehicles', () => {
+    const s = sim();
+    for (let y = 0; y < 2 * MAP_CELLS; y++) {
+      if (y !== GAP_ROW) post(s, 8, y);
+    }
+    spawn(s, HANDCART, 8, GAP_ROW);
+    const cart = commanded(s, HANDCART, 4, 8);
+    order(s, cart, 12, 8);
+    expect(settle(s, cart)).toEqual([]);
+    expect(anchorOf(s, cart)).toEqual({ hx: 12, hy: 8 });
+  });
+
+  it('passes a vehicle that parks in the only gap after the route was found', () => {
+    const s = sim();
+    for (let y = 0; y < 2 * MAP_CELLS; y++) {
+      if (y !== GAP_ROW) post(s, 8, y);
+    }
+    const cart = commanded(s, HANDCART, 4, 8);
+    order(s, cart, 12, 8);
+    s.step();
+    spawn(s, HANDCART, 8, GAP_ROW);
+    expect(settle(s, cart)).toEqual([]);
+    expect(anchorOf(s, cart)).toEqual({ hx: 12, hy: 8 });
+  });
+
+  it('starts a held goto beside its goal when another vehicle parked there while the crew boarded', () => {
+    const s = sim();
+    const cart = spawn(s, HANDCART, 12, 6);
+    const scout = spawnSettler(s, 2, 6);
+    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: scout, vehicle: cart }));
+    s.step();
+    order(s, cart, 4, 12);
+    s.step();
+    expect(s.world.get(cart, Vehicle).heldGoal).toEqual({ hx: 4, hy: 12 });
+    spawn(s, HANDCART, 4, 12);
+    expect(settle(s, cart)).toEqual([]);
+    const at = anchorOf(s, cart);
+    expect(hexDistanceBetween(at.hx, at.hy, 4, 12)).toBe(1);
+  });
+
+  it('rolls off a vehicle it was passing through when its commander leaves mid-pass', () => {
+    const s = sim();
+    for (let y = 0; y < 2 * MAP_CELLS; y++) {
+      if (y !== GAP_ROW) post(s, 8, y);
+    }
+    const parked = spawn(s, HANDCART, 8, GAP_ROW);
+    const cart = commanded(s, HANDCART, 4, 8);
+    order(s, cart, 12, 8);
+    for (let tick = 0; !sameNode(anchorOf(s, cart), anchorOf(s, parked)); tick++) {
+      if (tick > CATAPULT_CROSSING_TICKS) throw new Error('the cart never reached the parked one');
+      s.step();
+    }
+    const commander = s.world.get(cart, Vehicle).passengers[0];
+    if (commander === null || commander === undefined) throw new Error('no commander');
+    vacateSeat(s.world, cart, commander.entity);
+    settle(s, cart);
+    expect(sameNode(anchorOf(s, cart), anchorOf(s, parked))).toBe(false);
   });
 
   it('moves the footprint with the vehicle through the walk-block, placement and work-flag caches', () => {

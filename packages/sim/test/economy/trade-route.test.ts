@@ -637,6 +637,25 @@ describe('a trader between its own houses', () => {
     expect(sim.world.get(cart, Vehicle).heldGoal).toBeNull();
   });
 
+  it('parks two carts working one route side by side without the no-path note', () => {
+    const sim = newSim();
+    const near = houseAt(sim, NEAR_X, HUMAN, [[WOOD, PLENTY_OF_WOOD]]);
+    const far = houseAt(sim, FAR_X, HUMAN, [[WOOD, 0]]);
+    const first = traderAt(sim, NEAR_X);
+    const second = traderAt(sim, NEAR_X + 1);
+    woodRoute(sim, first, near, far);
+    woodRoute(sim, second, near, far);
+
+    const refused: string[] = [];
+    for (let tick = 0; tick < RUN_TICKS; tick++) {
+      sim.step();
+      for (const ev of sim.events.current()) if (ev.kind === 'vehicleMoveRefused') refused.push(ev.reason);
+    }
+
+    expect(refused).toEqual([]);
+    expect(stockOf(sim, far, WOOD)).toBe(PLENTY_OF_WOOD);
+  });
+
   it('drives the cart to a stop past the original vehicle walk range and works it', () => {
     const sim = new Simulation({ seed: 3, content: testContent(), map: grassMap(WIDE_MAP_CELLS, MAP_H) });
     sim.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });

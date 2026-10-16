@@ -50,6 +50,7 @@ import { combatSystem } from '../../src/systems/conflict/combat.js';
 import { projectileSystem } from '../../src/systems/conflict/projectile.js';
 import { isFleeThreat } from '../../src/systems/conflict/targeting.js';
 import { UNREACHABLE_TARGET_MEMO_SIZE } from '../../src/systems/conflict/unreachable-targets.js';
+import { stampResourceFootprintData } from '../../src/systems/footprint/index.js';
 import { REGENERATION_HITPOINTS_PER_TICK } from '../../src/systems/lifecycle/needs/index.js';
 import { vehiclesGone } from '../../src/systems/missions/goals/casualties.js';
 import { FIGHT_EXPERIENCE_TYPE } from '../../src/systems/progression/index.js';
@@ -478,7 +479,6 @@ describe('the guard position', () => {
 
   it('moves to where a goto gave up on a route that closed under it', () => {
     const s = sim(strait(40, 12, 16, 32));
-    // A cart, whose one-node body lets another vehicle close its next node.
     const cart = createVehicle(s.world, ctxOf(s), {
       vehicleType: HANDCART,
       x: 4,
@@ -492,18 +492,14 @@ describe('the guard position', () => {
     boardRider(s.world, driver, cart);
     s.enqueue(playerCommand(P1, { kind: 'moveVehicle', vehicle: cart, x: 28, y: 8 }));
     stepToLegEnd(s, cart, 4);
-    // Another cart parks on the next node and the goal moves across the strait: no way leads on.
+    // A post closes the next node and the goal moves across the strait: no way leads on.
     const next = routeAhead(s, cart)[0];
     const drive = s.world.mut(cart, VehicleDrive);
     if (next === undefined) throw new Error('no next node');
     drive.goal = { hx: 70, hy: 8 };
-    createVehicle(s.world, ctxOf(s), {
-      vehicleType: HANDCART,
-      x: next.hx,
-      y: next.hy,
-      tribe: VIKING,
-      owner: P1,
-    });
+    const post = s.world.create();
+    s.world.add(post, Position, positionOfNode(next.hx, next.hy));
+    stampResourceFootprintData(s.world, post, { walk: [{ dx: 0, dy: 0 }], build: [], work: [] });
     const refused = collect(s, 1, ['vehicleMoveRefused']);
     expect(refused.map((ev) => (ev.kind === 'vehicleMoveRefused' ? ev.reason : ''))).toEqual(['noPath']);
     expect(s.world.has(cart, VehicleDrive)).toBe(false);
@@ -668,6 +664,8 @@ describe('the attack-move march', () => {
   const ROADSIDE_HOUSE = { hx: 24, hy: 22 };
   /** Under one stone's structure damage, so the first hit razes it. */
   const FRAIL_HOUSE = 3000;
+  /** Beyond the scan from anywhere on a march from 44 to the goal along row 8. */
+  const FAR_HOUSE = { hx: 2, hy: 22 };
   const MARCH_TICKS = 4000;
 
   function march(s: Simulation, catapult: Entity, attackMove: boolean): void {
@@ -703,6 +701,26 @@ describe('the attack-move march', () => {
     expect(state.march).toBeNull();
     expect(state.attack).toBeNull();
     expect(s.world.get(catapult, Position)).toEqual(positionOfNode(GOAL.hx, GOAL.hy));
+  });
+
+  it('ends beside a goal another catapult reached first, without the no-path note', () => {
+    const s = sim(grass(40, 12));
+    const first = catapultAt(s, 56, 8, P1);
+    const second = catapultAt(s, 44, 8, P1);
+    houseAt(s, FAR_HOUSE.hx, FAR_HOUSE.hy, P2, FRAIL_HOUSE); // out of every scan: keeps the pass awake
+    march(s, first, true);
+    march(s, second, true);
+    s.run(1);
+    expect(s.world.get(second, Vehicle).march?.goal).toEqual(GOAL);
+    const events: SimEvent[] = [];
+    for (let i = 0; i < MARCH_TICKS && s.world.get(second, Vehicle).march !== null; i++) {
+      s.step();
+      events.push(...s.events.current());
+    }
+    expect(events.filter((ev) => ev.kind === 'vehicleMoveRefused')).toEqual([]);
+    expect(s.world.get(second, Vehicle).march).toBeNull();
+    expect(s.world.get(first, Position)).toEqual(positionOfNode(GOAL.hx, GOAL.hy));
+    expect(s.world.get(second, Position)).not.toEqual(positionOfNode(GOAL.hx, GOAL.hy));
   });
 
   it('rejoins the march route the fight cut short instead of routing to the goal anew', () => {

@@ -30,6 +30,7 @@ import {
   crewInside,
   cutRoute,
   endMarch,
+  freeGoal,
   keepMarchRoute,
   refuseMove,
   rejoinMarch,
@@ -162,10 +163,12 @@ function marchOn(
   goal: HalfCellNode,
 ): void {
   if (world.has(e, VehicleDrive)) return;
-  const goalNode = terrain.nodeAtClamped(goal.hx, goal.hy);
+  const aimed = terrain.nodeAtClamped(goal.hx, goal.hy);
+  // A goal another vehicle stands on moves beside it, so a march several vehicles share ends there.
+  const goalNode = freeGoal(world, ctx, terrain, e, aimed);
   if (goalNode !== here) {
-    if (rejoinMarch(world, ctx, terrain, e, goal) || startVehicleDrive(world, ctx, terrain, e, goalNode))
-      return;
+    const rejoined = goalNode === aimed && rejoinMarch(world, ctx, terrain, e, goal);
+    if (rejoined || startVehicleDrive(world, ctx, terrain, e, goalNode)) return;
   }
   endMarch(world, e);
   if (goalNode === here) return;

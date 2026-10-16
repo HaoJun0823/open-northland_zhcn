@@ -30,6 +30,7 @@ import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, System, SystemContext } from '../context.js';
 import {
+  buildingDoorNodes,
   discOffsets,
   dynamicBlockOverlay,
   hexDisc,
@@ -253,6 +254,21 @@ function overlappedDiscs(
  *  vehicle already stands in. */
 type BlockUse = 'rest' | 'transit';
 
+const NO_VEHICLE_CELLS: ReadonlyMap<NodeId, number> = new Map();
+
+/** {@link vehicleWalkBlocks} without the other vehicles' cells: what a route through them is found under
+ *  ({@link vehicleRouteTo}). */
+export function vehicleGroundBlocks(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  vehicle: Entity,
+  type: VehicleType,
+): BlockOverlay {
+  const fits = vehiclePasses(world, ctx, terrain, type);
+  return blocksUnder(world, ctx, terrain, vehicle, fits, 'transit', undefined, NO_VEHICLE_CELLS);
+}
+
 function blocksUnder(
   world: World,
   ctx: ContentContext,
@@ -261,9 +277,9 @@ function blocksUnder(
   fits: (node: NodeId) => boolean,
   use: BlockUse,
   answers?: Map<NodeId, boolean>,
+  vehicles: ReadonlyMap<NodeId, number> = vehicleBlockedCells(world, ctx, terrain),
 ): BlockOverlay {
   const ground = dynamicBlockOverlay(world, ctx, terrain);
-  const vehicles = vehicleBlockedCells(world, ctx, terrain);
   const own = new Set(vehicleFootprintNodes(world, ctx.content, terrain, vehicle));
   const overlapped = use === 'transit' ? overlappedDiscs(world, ctx, terrain, vehicle) : NO_DISCS;
   const coveredByOthers = (node: NodeId): boolean => {
@@ -341,9 +357,9 @@ export function refuseMove(
 }
 
 /**
- * Drive `vehicle` to `goal`, an already snapped node: the route is found now over
- * the vehicle's walk-block and the drive starts its first leg on the next movement pass. False when no
- * route exists. A drive already under way is replaced.
+ * Drive `vehicle` to `goal`, an already snapped node: the route is found now ({@link vehicleRouteTo})
+ * and the drive starts its first leg on the next movement pass. False when no route exists. A drive
+ * already under way is replaced.
  */
 export function startVehicleDrive(
   world: World,
@@ -401,18 +417,20 @@ function deliverRoute(
 }
 
 /**
- * Start the drive to `goal` a held goto found its route for when the crew was asked in: the vehicle has
+ * Start the drive to `aimed` a held goto found its route for when the crew was asked in: the vehicle has
  * stood still since, so the route still leads from its node, and a node that closed meanwhile re-routes
- * at step time. Without such a route, ending at `goal` and leaving from beside the vehicle, the route is
- * found now. False when none exists.
+ * at step time. A goal another vehicle took meanwhile moves beside it ({@link freeGoal}). Without such a
+ * route, ending at the goal and leaving from beside the vehicle, the route is found now. False when none
+ * exists.
  */
 export function startHeldDrive(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
   vehicle: Entity,
-  goal: NodeId,
+  aimed: NodeId,
 ): boolean {
+  const goal = freeGoal(world, ctx, terrain, vehicle, aimed);
   const held = world.tryGet(vehicle, VehicleRoute)?.nodes;
   const anchor = vehicleAnchor(world, vehicle);
   const first = held?.[0];
@@ -429,6 +447,64 @@ export function startHeldDrive(
   castOff(world, vehicle);
   deliverRoute(world, ctx, vehicle, nodeOf(terrain, goal), held);
   return true;
+}
+
+/**
+ * `goal`, or, when another vehicle has come to stand on it since it was chosen, the first node in ring
+ * order around it this vehicle may stand on that is no house's door; `goal` itself when there is none,
+ * and for a docking ship, whose goal is a node of its dock ring. Vehicles sent to one spot, such as
+ * traders' carts at one house, would otherwise give up behind the no-path note as soon as the first one
+ * arrives (this build's choice: the original's vehicles set no blocked bit to give up on).
+ */
+export function freeGoal(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  vehicle: Entity,
+  goal: NodeId,
+): NodeId {
+  if (!otherVehicleCovers(world, ctx, terrain, vehicle, goal)) return goal;
+  if (world.get(vehicle, Vehicle).task === 'docks') return goal;
+  const doors = buildingDoorNodes(world, ctx, terrain);
+  const taken = (node: NodeId): boolean =>
+    doors.has(node) || otherVehicleCovers(world, ctx, terrain, vehicle, node);
+  return snapVehicleTarget(world, ctx, terrain, vehicle, nodeOf(terrain, goal), { exclude: taken }) ?? goal;
+}
+
+/** Whether a vehicle other than `vehicle` covers `node` with its disc, which the walk-block's exemption
+ *  of a vehicle's own cells hides where both discs meet. */
+function otherVehicleCovers(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  vehicle: Entity,
+  node: NodeId,
+): boolean {
+  const cover = vehicleBlockedCells(world, ctx, terrain).get(node) ?? 0;
+  if (cover === 0) return false;
+  return cover > (vehicleFootprintNodes(world, ctx.content, terrain, vehicle).includes(node) ? 1 : 0);
+}
+
+/**
+ * A drive whose next node closed since its route was found. A node only another vehicle closed, on the
+ * way to a goal no other vehicle took, is entered as it stands, as the original's vehicles pass each
+ * other (`enter`, with no search). Otherwise the drive re-routes to its goal, moved beside it when
+ * another vehicle now stands there ({@link freeGoal}): `rerouted` starts the fresh route on the next
+ * tick, `none` gives up.
+ */
+function rerouteAtBlock(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  e: Entity,
+  type: VehicleType,
+  aimed: HalfCellNode,
+  next: NodeId,
+): 'enter' | 'rerouted' | 'none' {
+  const aimedNode = terrain.nodeAtClamped(aimed.hx, aimed.hy);
+  const goal = freeGoal(world, ctx, terrain, e, aimedNode);
+  if (goal === aimedNode && !vehicleGroundBlocks(world, ctx, terrain, e, type).has(next)) return 'enter';
+  return startVehicleDrive(world, ctx, terrain, e, goal) ? 'rerouted' : 'none';
 }
 
 /** End `vehicle`'s drive, its route with it. */
@@ -516,8 +592,14 @@ function routeAhead(world: World, vehicle: Entity): number {
   return Math.max(0, nodes - (world.tryGet(vehicle, VehicleDrive)?.step ?? 0));
 }
 
-/** The nodes a drive from the vehicle's anchor to `goal` would enter, the first next, over the vehicle's
- *  walk-block; null when no route exists. */
+/**
+ * The nodes a drive from the vehicle's anchor to `goal` would enter, the first next; null when no route
+ * exists or another vehicle stands on `goal`. The route keeps out of other vehicles' cells where a way
+ * around them exists and passes through them where none does: the original's parked vehicles set no
+ * blocked bit, and going around is this build's preference, never a wall. The search that ignores
+ * vehicles runs first, so an unreachable goal costs one search, and the one around them runs only when
+ * that route enters another vehicle's cells.
+ */
 export function vehicleRouteTo(
   world: World,
   ctx: SystemContext,
@@ -544,12 +626,18 @@ export function vehicleRouteTo(
   const traversal = vehicleTraversal(type);
   if (traversal === 'water' && start !== goal && !sailsTo(world, ctx, terrain, type, start, goal))
     return null;
+  if (start !== goal && blocked.has(goal)) return null;
   const group = `${world.tryGet(vehicle, Owner)?.player ?? -1}:${traversal}:${type.logicSize}`;
   const borrowed = orders?.borrow(terrain, group, blocked, start, goal, traversal) ?? null;
   if (borrowed !== null) return borrowed.slice(1).map((node) => nodeOf(terrain, node));
-  const path = findPath(terrain, start, goal, blocked, undefined, traversal);
-  if (path !== null) orders?.offer(group, path);
-  return path === null ? null : path.slice(1).map((node) => nodeOf(terrain, node));
+  const pastVehicles = vehicleGroundBlocks(world, ctx, terrain, vehicle, type);
+  const blind = findPath(terrain, start, goal, pastVehicles, undefined, traversal);
+  if (blind === null) return null;
+  const meetsVehicle = blind.some((node, i) => i > 0 && blocked.has(node));
+  const around = meetsVehicle ? findPath(terrain, start, goal, blocked, undefined, traversal) : blind;
+  // Only a route clear of other vehicles is offered: the group joins one under their cells.
+  if (around !== null) orders?.offer(group, around);
+  return (around ?? blind).slice(1).map((node) => nodeOf(terrain, node));
 }
 
 /** Whether `goal` lies in a part of the sea a ship of `type` on `start` can sail into: a lookup that
@@ -768,11 +856,11 @@ function stopAskingCrewIn(world: World, state: VehicleStateView): void {
 
 /**
  * Advance every drive one tick. A leg under way gains its increment and ends once full; a vehicle
- * between legs enters its next node, re-routing when that node closed since the route was found and
- * giving up with `vehicleNoPath` when nothing leads on. Entering a node moves the anchor and footprint
- * there at once, turns a land vehicle to face the step or sets a ship's helm onto it, and shoves the
- * settlers standing inside the footprint (approximation: the original moves its anchor halfway through
- * the leg).
+ * between legs enters its next node, re-routing when that node closed since the route was found
+ * ({@link rerouteAtBlock}) and giving up with `vehicleNoPath` when nothing leads on. Entering a node
+ * moves the anchor and footprint there at once, turns a land vehicle to face the step or sets a ship's
+ * helm onto it, and shoves the settlers standing inside the footprint (approximation: the original
+ * moves its anchor halfway through the leg).
  */
 export const vehicleMovementSystem: System = (world, ctx) => {
   const terrain = ctx.terrain;
@@ -817,16 +905,15 @@ export const vehicleMovementSystem: System = (world, ctx) => {
       continue;
     }
     const nextNode = terrain.nodeAtClamped(next.hx, next.hy);
-    if (vehicleWalkBlocks(world, ctx, terrain, e, type).has(nextNode)) {
-      const goal = terrain.nodeAtClamped(drive.goal.hx, drive.goal.hy);
-      if (!startVehicleDrive(world, ctx, terrain, e, goal)) {
-        endDrive(world, e);
-        refuseMove(world, ctx, e, 'noPath');
-        abandonDock(world, e);
-        if (!settleOutOfGap(world, ctx, terrain, e)) reanchorGuard(world, e);
-      }
-      continue; // the fresh route's first leg starts next tick
+    const blocked = vehicleWalkBlocks(world, ctx, terrain, e, type).has(nextNode);
+    const outcome = blocked ? rerouteAtBlock(world, ctx, terrain, e, type, drive.goal, nextNode) : 'enter';
+    if (outcome === 'none') {
+      endDrive(world, e);
+      refuseMove(world, ctx, e, 'noPath');
+      abandonDock(world, e);
+      if (!settleOutOfGap(world, ctx, terrain, e)) reanchorGuard(world, e);
     }
+    if (outcome !== 'enter') continue; // a fresh route's first leg starts next tick
     const here = terrain.nodeAtClamped(anchor.hx, anchor.hy);
     const period = vehicleMovePeriod(terrain.resistanceAt(here), isSiegeVehicle(type));
     const facing = facingOfStep(anchor, next);
@@ -861,18 +948,22 @@ export const vehicleMovementSystem: System = (world, ctx) => {
 const VEHICLE_SETTLE_RADIUS = 3;
 
 /**
- * A land vehicle whose drive ends on a node it may only pass, given up, halted without its commander or
- * its goal closed meanwhile, drives on to the nearest node it may stand on, so its disc does not seal
- * the gap for other vehicles. True when that drive starts; a player's stop, or no such node in reach,
- * leaves it where it is.
+ * A land vehicle whose drive ends on a node it may only pass, or in another vehicle's cells it was
+ * passing through, given up, halted without its commander or its goal closed meanwhile, drives on to the
+ * nearest node it may stand on, so its disc neither seals the gap for other vehicles nor stands stacked
+ * on one. True when that drive starts; a player's stop, or no such node in reach, leaves it where it is.
  */
 function settleOutOfGap(world: World, ctx: SystemContext, terrain: TerrainGraph, e: Entity): boolean {
   const type = contentIndex(ctx.content).vehicles.get(world.get(e, Vehicle).vehicleType);
   const anchor = vehicleAnchor(world, e);
   if (type === undefined || anchor === null || vehicleTraversal(type) !== 'land') return false;
   const here = terrain.nodeAtClamped(anchor.hx, anchor.hy);
-  if (vehicleStandable(world, ctx, terrain, type.logicSize)(here)) return false;
-  const spot = snapVehicleTarget(world, ctx, terrain, e, anchor, { radius: VEHICLE_SETTLE_RADIUS });
+  const standable = vehicleStandable(world, ctx, terrain, type.logicSize)(here);
+  if (standable && !otherVehicleCovers(world, ctx, terrain, e, here)) return false;
+  const spot = snapVehicleTarget(world, ctx, terrain, e, anchor, {
+    radius: VEHICLE_SETTLE_RADIUS,
+    exclude: (node) => otherVehicleCovers(world, ctx, terrain, e, node),
+  });
   if (spot === null || !startVehicleDrive(world, ctx, terrain, e, spot)) return false;
   // A march that reached its goal is over, so it does not drive back onto a goal that closed.
   const march = world.get(e, Vehicle).march;

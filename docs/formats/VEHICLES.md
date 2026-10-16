@@ -287,8 +287,9 @@ last leg onto its goal (`systems/vehicles/helm.ts`; the values are an approximat
 Deviation (owner's choice): the original steers through the six hexagon directions only, so a vehicle
 heading up or down a column zigzags NE/NW and its N/S frames show only mid-turn; here a vertical
 half-row step faces N or S and the vehicle sails straight on those frames, and a half turn holds 8
-ticks where the original's holds 6; parked vehicles' cells are
-routed around by other vehicles, while settlers walk through them as in the original; the
+ticks where the original's holds 6; other vehicles route around parked vehicles' cells where a
+way around exists and pass through them, as in the original, where none does; settlers walk through
+parked vehicles as in the original; the
 shove happens on entering a node only and sends a settler outside the discs of the whole remaining
 route. Open Northland shoves only owned settlers standing still (the planner's kept occupancy): one
 already walking passes on, and an unowned animal's next wander leg steps it off the disc

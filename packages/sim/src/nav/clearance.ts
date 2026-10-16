@@ -1,5 +1,4 @@
-import { footprintCellDx } from '@open-northland/data';
-import { HEX_NEIGHBOUR_OFFSETS } from './halfcell.js';
+import { HEX_DX_EVEN, HEX_DX_ODD, HEX_DY } from './range-search.js';
 import type { NodeId, TerrainGraph } from './terrain/index.js';
 
 /**
@@ -20,21 +19,28 @@ const UNREACHED = -1;
 const REWRITE_RADIUS = MAX_CLEARANCE_CLASS + 1;
 /** How far a change reaches in the scan: the rewritten disc's radius again beyond it. */
 const SCAN_RADIUS = 2 * REWRITE_RADIUS;
-/** Disc stamps are Int32; on the wrap the stamps clear so no stale slot matches a reused generation. */
-const MAX_DISC_GENERATION = 2 ** 31 - 1;
+/** Disc stamps are Uint16; on the wrap the stamps clear so no stale slot matches a reused generation. */
+const MAX_DISC_GENERATION = 0xffff;
 /** Map points in a hexagon disc of the scan radius: `1 + 3 r (r + 1)`. */
 const SCAN_DISC_NODES = 1 + 3 * SCAN_RADIUS * (SCAN_RADIUS + 1);
-/** Breadth-first queue slots a field starts with. */
+/** Queue and disc slots a field starts with. */
 const INITIAL_QUEUE_CAPACITY = 1024;
+/** Slots a queue or disc may keep after a pass; a larger one, as a whole-map pass grows, is dropped so it
+ *  does not pin a map-sized buffer. */
+const MAX_RETAINED_CAPACITY = 1 << 16;
 
-/** {@link HEX_NEIGHBOUR_OFFSETS} as flat steps per row parity, so the per-node walks index typed arrays. */
-const NEIGHBOUR_DX_EVEN_ROW = Int8Array.from(HEX_NEIGHBOUR_OFFSETS, (c) => footprintCellDx(0, c));
-const NEIGHBOUR_DX_ODD_ROW = Int8Array.from(HEX_NEIGHBOUR_OFFSETS, (c) => footprintCellDx(1, c));
-const NEIGHBOUR_DY = Int8Array.from(HEX_NEIGHBOUR_OFFSETS, (c) => c.dy);
-const NEIGHBOURS = HEX_NEIGHBOUR_OFFSETS.length;
+const NEIGHBOURS = HEX_DY.length;
 
-function neighbourDxOf(y: number): Int8Array {
-  return (y & 1) !== 0 ? NEIGHBOUR_DX_ODD_ROW : NEIGHBOUR_DX_EVEN_ROW;
+function neighbourDxOf(y: number): readonly number[] {
+  return (y & 1) !== 0 ? HEX_DX_ODD : HEX_DX_EVEN;
+}
+
+/** `buffer` with room for one more entry past `used`, doubled when full. */
+function withRoom(buffer: Int32Array, used: number): Int32Array {
+  if (used < buffer.length) return buffer;
+  const grown = new Int32Array(buffer.length * 2);
+  grown.set(buffer);
+  return grown;
 }
 
 /**
@@ -54,16 +60,17 @@ function neighbourDxOf(y: number): Int8Array {
  */
 export class ClearanceField {
   private readonly classes: Uint8Array;
-  private readonly distance: Int16Array;
+  /** Breadth-first distance, -1 to {@link MAX_CLEARANCE_CLASS}. */
+  private readonly distance: Int8Array;
   /** The breadth-first queue, its first {@link queued} slots live; doubles when full. */
-  private queue = new Int32Array(INITIAL_QUEUE_CAPACITY);
+  private queue: Int32Array = new Int32Array(INITIAL_QUEUE_CAPACITY);
   private queued = 0;
   /** The last local recompute's scan disc, its first {@link discSize} slots: its nodes, each stamped with
    *  the generation and its map-point depth from the nearest change, so membership and the rewrite cut
    *  are array reads. */
-  private readonly disc: NodeId[] = [];
+  private disc: Int32Array = new Int32Array(INITIAL_QUEUE_CAPACITY);
   private discSize = 0;
-  private readonly discStamps: Int32Array;
+  private readonly discStamps: Uint16Array;
   private readonly discDepths: Uint8Array;
   private discGeneration = 0;
   /** Per class `k`, how many times a water node's class crossed `k`: went from below it to at least it,
@@ -75,8 +82,8 @@ export class ClearanceField {
     probe: ClearanceProbe,
   ) {
     this.classes = new Uint8Array(graph.nodeCount);
-    this.distance = new Int16Array(graph.nodeCount);
-    this.discStamps = new Int32Array(graph.nodeCount);
+    this.distance = new Int8Array(graph.nodeCount);
+    this.discStamps = new Uint16Array(graph.nodeCount);
     this.discDepths = new Uint8Array(graph.nodeCount);
     this.recompute(probe, null);
   }
@@ -112,7 +119,7 @@ export class ClearanceField {
 
     this.queued = 0;
     if (local) {
-      for (let i = 0; i < discSize; i++) this.seed(disc[i] as NodeId, probe);
+      for (let i = 0; i < discSize; i++) this.seed((disc[i] ?? 0) as NodeId, probe);
     } else {
       for (let node = 0 as NodeId; node < graph.nodeCount; node++) this.seed(node, probe);
     }
@@ -128,7 +135,7 @@ export class ClearanceField {
       const dxs = neighbourDxOf(y);
       for (let i = 0; i < NEIGHBOURS; i++) {
         const nx = x + (dxs[i] ?? 0);
-        const ny = y + (NEIGHBOUR_DY[i] ?? 0);
+        const ny = y + (HEX_DY[i] ?? 0);
         if (!graph.inBounds(nx, ny)) continue;
         const neighbour = graph.nodeAt(nx, ny);
         if ((local && discStamps[neighbour] !== scanned) || distance[neighbour] !== UNREACHED) continue;
@@ -139,12 +146,14 @@ export class ClearanceField {
     }
     if (local) {
       for (let i = 0; i < discSize; i++) {
-        const node = disc[i] as NodeId;
+        const node = (disc[i] ?? 0) as NodeId;
         if ((discDepths[node] ?? SCAN_RADIUS) <= REWRITE_RADIUS) this.write(node, probe);
       }
     } else {
       for (let node = 0 as NodeId; node < graph.nodeCount; node++) this.write(node, probe);
     }
+    if (this.queue.length > MAX_RETAINED_CAPACITY) this.queue = new Int32Array(INITIAL_QUEUE_CAPACITY);
+    if (this.disc.length > MAX_RETAINED_CAPACITY) this.disc = new Int32Array(INITIAL_QUEUE_CAPACITY);
   }
 
   /** Start `node`'s breadth-first distance: 0 and queued for an open node a hemming point touches. */
@@ -155,11 +164,7 @@ export class ClearanceField {
   }
 
   private enqueue(node: NodeId): void {
-    if (this.queued === this.queue.length) {
-      const grown = new Int32Array(this.queue.length * 2);
-      grown.set(this.queue);
-      this.queue = grown;
-    }
+    this.queue = withRoom(this.queue, this.queued);
     this.queue[this.queued++] = node;
   }
 
@@ -185,7 +190,7 @@ export class ClearanceField {
     const dxs = neighbourDxOf(y);
     for (let i = 0; i < NEIGHBOURS; i++) {
       const nx = x + (dxs[i] ?? 0);
-      const ny = y + (NEIGHBOUR_DY[i] ?? 0);
+      const ny = y + (HEX_DY[i] ?? 0);
       if (!graph.inBounds(nx, ny)) return true;
       const neighbour = graph.nodeAt(nx, ny);
       if (!probe(neighbour) || graph.componentOf(neighbour) !== component) return true;
@@ -201,7 +206,7 @@ export class ClearanceField {
    * discs of that radius.
    */
   private markDisc(centres: ReadonlySet<NodeId>): void {
-    const { graph, disc, discStamps, discDepths } = this;
+    const { graph, discStamps, discDepths } = this;
     if (this.discGeneration >= MAX_DISC_GENERATION) {
       discStamps.fill(0);
       this.discGeneration = 0;
@@ -214,11 +219,12 @@ export class ClearanceField {
     centres.forEach((centre) => {
       discStamps[centre] = generation;
       discDepths[centre] = 0;
-      disc[size++] = centre;
+      this.disc = withRoom(this.disc, size);
+      this.disc[size++] = centre;
     });
     // Discoveries append behind the cursor, so `disc` is its own breadth-first queue.
     for (let at = 0; at < size; at++) {
-      const current = disc[at] as NodeId;
+      const current = (this.disc[at] ?? 0) as NodeId;
       const d = discDepths[current] ?? SCAN_RADIUS;
       if (d >= SCAN_RADIUS) continue;
       const x = graph.xOf(current);
@@ -226,13 +232,14 @@ export class ClearanceField {
       const dxs = neighbourDxOf(y);
       for (let i = 0; i < NEIGHBOURS; i++) {
         const nx = x + (dxs[i] ?? 0);
-        const ny = y + (NEIGHBOUR_DY[i] ?? 0);
+        const ny = y + (HEX_DY[i] ?? 0);
         if (!graph.inBounds(nx, ny)) continue;
         const neighbour = graph.nodeAt(nx, ny);
         if (discStamps[neighbour] === generation) continue;
         discStamps[neighbour] = generation;
         discDepths[neighbour] = d + 1;
-        disc[size++] = neighbour;
+        this.disc = withRoom(this.disc, size);
+        this.disc[size++] = neighbour;
       }
     }
     this.discSize = size;

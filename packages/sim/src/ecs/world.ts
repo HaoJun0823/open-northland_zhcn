@@ -8,7 +8,7 @@ import { type CacheVerifier, CacheVerifiers } from './cache-verifier.js';
 import { CanonicalQueries } from './canonical-queries.js';
 import { ChangeFeed, ChangeFeeds } from './change-feed.js';
 import type { Component, DeepReadonly, Entity } from './component.js';
-import { ComponentRevisions } from './component-revisions.js';
+import { ComponentStore, VACANT_SLOT } from './component-store.js';
 import { GenerationJournals } from './generation-journal.js';
 import { QueryIterator } from './query-iterator.js';
 import { TouchedLog } from './touched-log.js';
@@ -36,10 +36,10 @@ export class World {
   private readonly alive = new Set<Entity>();
   /** The per-component entity→value stores, created on first {@link add}. Each store's insertion order is the
    *  query iteration order. */
-  private readonly stores = new Map<Component<unknown>, Map<Entity, unknown>>();
+  private readonly stores = new Map<Component<unknown>, ComponentStore<unknown>>();
   /** The same stores indexed by {@link Component.id}, the per-read lookup; {@link stores} keeps the
    *  query and verifier seams. */
-  private readonly storesById: Array<Map<Entity, unknown> | undefined> = [];
+  private readonly storesById: Array<ComponentStore<unknown> | undefined> = [];
   /** Components in first-registration order: stable, used for canonical hashing/snapshots. */
   private readonly registered: Array<Component<unknown>> = [];
   /** Each component's index into {@link registered} by {@link Component.id}, assigned on first {@link add}. */
@@ -53,7 +53,6 @@ export class World {
   /** Per-component in-place value-write generation (see {@link mut}), separate from the membership
    *  generations above so spatial indexes keyed on add/remove stay unaffected. */
   private readonly componentValueGenerations: Array<number | undefined> = [];
-  private readonly componentRevisions = new ComponentRevisions();
   private readonly membershipJournals = new GenerationJournals();
   private readonly valueJournals = new GenerationJournals();
   private readonly changeFeeds = new ChangeFeeds();
@@ -82,7 +81,6 @@ export class World {
       for (const index of carried) {
         const c = this.registered[index];
         if (c !== undefined && this.storeOf(c)?.delete(entity) === true) {
-          this.componentRevisions.remove(c, entity);
           this.canonicalQueries.left(c, entity);
           this.bumpComponentGeneration(c, entity);
           this.mutations?.componentWritten(c, entity);
@@ -101,9 +99,7 @@ export class World {
   }
 
   add<T>(entity: Entity, component: Component<T>, value: T): T {
-    const store = this.storeOrCreate(component);
-    const entering = !store.has(entity);
-    store.set(entity, value);
+    const entering = this.storeOrCreate(component).set(entity, value);
     if (entering) {
       this.insertMembership(entity, component as Component<unknown>);
       this.canonicalQueries.entered(component as Component<unknown>, entity);
@@ -118,8 +114,7 @@ export class World {
       this.removeMembership(entity, component as Component<unknown>);
       this.canonicalQueries.left(component as Component<unknown>, entity);
       this.bumpComponentGeneration(component as Component<unknown>, entity);
-      // Revision removal and the touch jointly prevent a removed component's cached clone from surviving.
-      this.componentRevisions.remove(component as Component<unknown>, entity);
+      // The removed value's revision leaves with its slot; the touch keeps its cached clone from surviving.
       this.touched.record(entity, component as Component<unknown>, true);
       this.mutations?.componentWritten(component as Component<unknown>, entity);
     }
@@ -161,19 +156,18 @@ export class World {
     if (list.length === 0) this.memberships.delete(entity);
   }
 
-  private storeOf<T>(component: Component<T>): Map<Entity, T> | undefined {
-    return this.storesById[component.id] as Map<Entity, T> | undefined;
+  private storeOf<T>(component: Component<T>): ComponentStore<T> | undefined {
+    return this.storesById[component.id] as ComponentStore<T> | undefined;
   }
 
-  private storeOrCreate<T>(component: Component<T>): Map<Entity, T> {
+  private storeOrCreate<T>(component: Component<T>): ComponentStore<T> {
     let store = this.storeOf(component);
     if (store === undefined) {
-      store = new Map<Entity, T>();
-      this.stores.set(component as Component<unknown>, store as Map<Entity, unknown>);
-      this.storesById[component.id] = store as Map<Entity, unknown>;
+      store = new ComponentStore<T>();
+      this.stores.set(component as Component<unknown>, store as ComponentStore<unknown>);
+      this.storesById[component.id] = store as ComponentStore<unknown>;
       this.registrationIndex[component.id] = this.registered.length;
       this.registered.push(component as Component<unknown>);
-      this.componentRevisions.register(component as Component<unknown>);
     }
     return store;
   }
@@ -186,30 +180,35 @@ export class World {
    * `entity` does not carry `component`.
    */
   mut<T>(entity: Entity, component: Component<T>): T {
-    const v = this.storeOf(component)?.get(entity);
+    const v = this.tryMut(entity, component);
     if (v === undefined) {
       throw new Error(`entity ${entity} has no component ${component.name}`);
     }
-    this.recordValueWrite(component as Component<unknown>, entity);
     return v;
   }
 
   /** {@link mut} for a component the entity may not carry; an absent value logs nothing. */
   tryMut<T>(entity: Entity, component: Component<T>): T | undefined {
-    const v = this.storeOf(component)?.get(entity);
-    if (v !== undefined) this.recordValueWrite(component as Component<unknown>, entity);
+    const store = this.storeOf(component);
+    if (store === undefined) return undefined;
+    const slot = store.slotOf(entity);
+    const v = slot < 0 ? undefined : store.valueAt(slot);
+    if (v === undefined) return undefined;
+    store.setRevisionAt(slot, this.touched.record(entity, component as Component<unknown>, false));
+    this.mutations?.componentWritten(component as Component<unknown>, entity);
+    this.recordValueWrite(component as Component<unknown>, entity);
     return v;
   }
 
+  /** The value-write channels {@link tryMut} logs beside the revision and touch. */
   private recordValueWrite(component: Component<unknown>, entity: Entity): void {
-    this.recordComponentWrite(component, entity);
     this.componentValueGenerations[component.id] = (this.componentValueGenerations[component.id] ?? 0) + 1;
     this.valueJournals.record(component, entity);
     this.changeFeeds.valueWritten(component, entity);
   }
 
   private recordComponentWrite(component: Component<unknown>, entity: Entity, membership = false): void {
-    this.componentRevisions.record(component, entity, this.touched.record(entity, component, membership));
+    this.storeOf(component)?.setRevision(entity, this.touched.record(entity, component, membership));
     this.mutations?.componentWritten(component, entity);
   }
 
@@ -222,7 +221,9 @@ export class World {
   /** The revision of `entity`'s stored `component` value, undefined while it carries none. A fresh value
    *  from every {@link add} and {@link mut}, so a cache keyed on it re-derives after any write. */
   revisionOf(entity: Entity, component: Component<unknown>): number | undefined {
-    return this.componentRevisions.revisionOf(component, entity);
+    const store = this.storeOf(component);
+    const slot = store === undefined ? -1 : store.slotOf(entity);
+    return store === undefined || slot < 0 ? undefined : store.revisionAt(slot);
   }
 
   /** Monotonic version of every entity mutation (`create`/`add`/`remove`/`destroy`/`mut`): the "may the
@@ -288,11 +289,13 @@ export class World {
   lowestEntityWith(component: Component<unknown>): Entity | null {
     const store = this.storeOf(component);
     if (store === undefined || store.size === 0) return null;
-    let best: Entity | null = null;
-    for (const e of store.keys()) {
-      if (best === null || e < best) best = e;
+    let best: number = VACANT_SLOT;
+    const { entities, length } = store;
+    for (let slot = 0; slot < length; slot++) {
+      const e = entities[slot] ?? VACANT_SLOT;
+      if (e !== VACANT_SLOT && (best === VACANT_SLOT || e < best)) best = e;
     }
-    return best;
+    return best === VACANT_SLOT ? null : (best as Entity);
   }
 
   /** The entities carrying every `required` component in ascending id: {@link query} in canonical order,
@@ -371,9 +374,8 @@ export class World {
     }
     const store = this.storeOrCreate(component);
     for (const [entity, value] of entries) {
-      const entering = !store.has(entity);
+      const entering = store.set(entity, value);
       if (entering) this.insertMembership(entity, component);
-      store.set(entity, value);
       // Every stored value carries a revision, or the first component walk over the restored world throws.
       this.recordComponentWrite(component, entity, entering);
     }
@@ -391,12 +393,11 @@ export class World {
     for (const index of carried) {
       const c = this.registered[index];
       if (c === undefined) continue;
-      const v = this.storeOf(c)?.get(entity);
-      const revision = this.componentRevisions.revisionOf(c, entity);
-      if (v === undefined) continue;
-      // Every stored value is revision-stamped by add before this read can observe it.
-      if (revision === undefined) throw new Error(`entity ${entity} has no revision for component ${c.name}`);
-      visit(c.name, v, revision);
+      const store = this.storeOf(c);
+      const slot = store === undefined ? -1 : store.slotOf(entity);
+      const v = slot < 0 ? undefined : store?.valueAt(slot);
+      if (store === undefined || v === undefined) continue;
+      visit(c.name, v, store.revisionAt(slot));
     }
   }
 

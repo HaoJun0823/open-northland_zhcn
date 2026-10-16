@@ -1,7 +1,8 @@
 import { insertSortedById, removeSortedById } from '../core/sorted-id.js';
 import type { Component, Entity } from './component.js';
+import type { ComponentStore } from './component-store.js';
 
-type Stores = ReadonlyMap<Component<unknown>, ReadonlyMap<Entity, unknown>>;
+type Stores = ReadonlyMap<Component<unknown>, ComponentStore<unknown>>;
 
 const NO_ENTITIES: readonly Entity[] = [];
 const entityId = (e: Entity): number => e;
@@ -18,7 +19,7 @@ interface Members {
 /** The entities carrying every required component in ascending id, updated per membership change. */
 interface Joint {
   readonly required: readonly Component<unknown>[];
-  readonly stores: readonly ReadonlyMap<Entity, unknown>[];
+  readonly stores: readonly ComponentStore<unknown>[];
   readonly ids: Entity[];
   shared: Entity[] | null;
 }
@@ -91,7 +92,7 @@ export class CanonicalQueries {
   /** Walks the smallest required member list once and registers the joint with every required component.
    *  Null while a required store does not exist yet. */
   private join(required: readonly Component<unknown>[]): Joint | null {
-    const stores: Array<ReadonlyMap<Entity, unknown>> = [];
+    const stores: Array<ComponentStore<unknown>> = [];
     const tracked: Members[] = [];
     let smallest: Members | null = null;
     for (const c of required) {
@@ -115,7 +116,7 @@ export class CanonicalQueries {
     if (m === undefined) {
       const store = this.stores.get(component);
       if (store === undefined) return null;
-      m = { ids: [...store.keys()].sort((a, b) => a - b), shared: null, joints: [] };
+      m = { ids: store.keys().sort((a, b) => a - b), shared: null, joints: [] };
       this.members.set(component, m);
     }
     return m;
@@ -126,12 +127,12 @@ export class CanonicalQueries {
   verify(): string[] {
     const out: string[] = [];
     for (const [component, m] of this.members) {
-      const fresh = [...(this.stores.get(component)?.keys() ?? [])].sort((a, b) => a - b);
+      const fresh = (this.stores.get(component)?.keys() ?? []).sort((a, b) => a - b);
       out.push(...divergence(component.name, m, fresh));
     }
     for (const joint of this.joints) {
       const [head] = joint.stores;
-      const fresh = [...(head?.keys() ?? [])]
+      const fresh = (head?.keys() ?? [])
         .filter((e) => joint.stores.every((s) => s.has(e)))
         .sort((a, b) => a - b);
       out.push(...divergence(joint.required.map((c) => c.name).join(', '), joint, fresh));
@@ -140,7 +141,7 @@ export class CanonicalQueries {
   }
 }
 
-function carriesAll(stores: readonly ReadonlyMap<Entity, unknown>[], entity: Entity): boolean {
+function carriesAll(stores: readonly ComponentStore<unknown>[], entity: Entity): boolean {
   for (let i = 0; i < stores.length; i++) if (stores[i]?.has(entity) !== true) return false;
   return true;
 }

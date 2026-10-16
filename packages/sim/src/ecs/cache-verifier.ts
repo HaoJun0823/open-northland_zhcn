@@ -1,5 +1,6 @@
 import type { CanonicalQueries } from './canonical-queries.js';
 import type { Component, Entity } from './component.js';
+import type { ComponentStore } from './component-store.js';
 
 /** Re-derives one incrementally-maintained cache from authoritative state and returns a message per
  *  mismatch (empty = coherent). Must be pure over current state. */
@@ -9,7 +10,7 @@ export type CacheVerifier = () => string[];
  *  `canonicalCache` and `canonicalQueries` are the derived views that must reproduce from them. */
 export interface VerifiableStorage {
   readonly alive: ReadonlySet<Entity>;
-  readonly stores: ReadonlyMap<Component<unknown>, ReadonlyMap<Entity, unknown>>;
+  readonly stores: ReadonlyMap<Component<unknown>, ComponentStore<unknown>>;
   readonly registered: readonly Component<unknown>[];
   readonly memberships: ReadonlyMap<Entity, readonly number[]>;
   readonly canonicalCache: readonly Entity[] | null;

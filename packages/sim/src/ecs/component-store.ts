@@ -1,0 +1,190 @@
+import type { Entity } from './component.js';
+
+/** Entity ids per index page; a page exists only while it holds a member, so a component whose members
+ *  sit in a few id ranges stays small. */
+const PAGE_BITS = 8;
+const PAGE_SIZE = 1 << PAGE_BITS;
+const PAGE_MASK = PAGE_SIZE - 1;
+/** Entity ids start at 1, so 0 marks a vacated dense slot; an index page entry holds `slot + 1`. */
+export const VACANT_SLOT = 0;
+const INITIAL_CAPACITY = 8;
+/** Vacated slots are compacted away once they exceed this share of the dense length... */
+const VACANCY_COMPACT_FRACTION = 0.25;
+/** ...and this count, so a small store churning one member does not rebuild on every removal. */
+const VACANCY_COMPACT_MIN = 64;
+/** After a compaction the dense arrays shrink to the live length once they are this many times larger. */
+const SHRINK_FACTOR = 4;
+
+/**
+ * One component's entity-to-value store: a paged entity-to-slot index over dense arrays kept in insertion
+ * order. Iteration visits slots in that order, matching a `Map`'s: a removal vacates its slot and a re-add
+ * appends at the end. Compaction preserves the order and bumps {@link epoch}; every slot carries an
+ * ascending insertion sequence so an open cursor can find its place again ({@link firstSlotAfter}).
+ */
+export class ComponentStore<T> {
+  private readonly pages: Array<Int32Array | undefined> = [];
+  private readonly pageMembers: number[] = [];
+  /** Dense members in insertion order; {@link VACANT_SLOT} marks a vacated slot. */
+  entities = new Int32Array(INITIAL_CAPACITY);
+  /** Insertion sequence per dense slot, ascending across the dense range. */
+  seqs = new Float64Array(INITIAL_CAPACITY);
+  private values: Array<T | undefined> = [];
+  private revisions = new Float64Array(INITIAL_CAPACITY);
+  /** Dense slots in use, vacated ones included. */
+  length = 0;
+  /** Live members. */
+  size = 0;
+  /** Bumped by every compaction, which moves slots under an open cursor. */
+  epoch = 0;
+  private nextSeq = 0;
+
+  /** The dense slot of `entity`, or -1 while it is not a member. */
+  slotOf(entity: Entity): number {
+    const page = this.pages[entity >>> PAGE_BITS];
+    return page === undefined ? -1 : (page[entity & PAGE_MASK] ?? 0) - 1;
+  }
+
+  has(entity: Entity): boolean {
+    const page = this.pages[entity >>> PAGE_BITS];
+    return page !== undefined && page[entity & PAGE_MASK] !== 0;
+  }
+
+  get(entity: Entity): T | undefined {
+    const page = this.pages[entity >>> PAGE_BITS];
+    if (page === undefined) return undefined;
+    const slot = (page[entity & PAGE_MASK] ?? 0) - 1;
+    return slot < 0 ? undefined : this.values[slot];
+  }
+
+  valueAt(slot: number): T | undefined {
+    return this.values[slot];
+  }
+
+  revisionAt(slot: number): number {
+    return this.revisions[slot] ?? 0;
+  }
+
+  /** Records the revision of a member's value; a non-member is ignored. */
+  setRevision(entity: Entity, revision: number): void {
+    const slot = this.slotOf(entity);
+    if (slot >= 0) this.revisions[slot] = revision;
+  }
+
+  setRevisionAt(slot: number, revision: number): void {
+    this.revisions[slot] = revision;
+  }
+
+  /** Stores `value` for `entity`, keeping a member's slot and appending a newcomer; true when it entered. */
+  set(entity: Entity, value: T): boolean {
+    const pageIndex = entity >>> PAGE_BITS;
+    let page = this.pages[pageIndex];
+    if (page === undefined) {
+      page = new Int32Array(PAGE_SIZE);
+      this.pages[pageIndex] = page;
+      this.pageMembers[pageIndex] = 0;
+    }
+    const at = entity & PAGE_MASK;
+    const existing = (page[at] ?? 0) - 1;
+    if (existing >= 0) {
+      this.values[existing] = value;
+      return false;
+    }
+    if (this.length === this.entities.length) this.resize(this.length * 2);
+    const slot = this.length++;
+    this.entities[slot] = entity;
+    this.seqs[slot] = this.nextSeq++;
+    this.revisions[slot] = 0;
+    this.values[slot] = value;
+    page[at] = slot + 1;
+    this.pageMembers[pageIndex] = (this.pageMembers[pageIndex] ?? 0) + 1;
+    this.size++;
+    return true;
+  }
+
+  /** Removes `entity`, vacating its slot; true when it was a member. */
+  delete(entity: Entity): boolean {
+    const pageIndex = entity >>> PAGE_BITS;
+    const page = this.pages[pageIndex];
+    if (page === undefined) return false;
+    const at = entity & PAGE_MASK;
+    const slot = (page[at] ?? 0) - 1;
+    if (slot < 0) return false;
+    page[at] = 0;
+    const left = (this.pageMembers[pageIndex] ?? 0) - 1;
+    this.pageMembers[pageIndex] = left;
+    if (left === 0) this.pages[pageIndex] = undefined;
+    this.entities[slot] = VACANT_SLOT;
+    this.values[slot] = undefined;
+    this.size--;
+    const vacant = this.length - this.size;
+    if (vacant >= VACANCY_COMPACT_MIN && vacant > this.length * VACANCY_COMPACT_FRACTION) this.compact();
+    return true;
+  }
+
+  /** The first dense slot whose insertion sequence exceeds `seq`: where a cursor that last visited `seq`
+   *  resumes after a compaction. */
+  firstSlotAfter(seq: number): number {
+    let lo = 0;
+    let hi = this.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if ((this.seqs[mid] ?? 0) > seq) hi = mid;
+      else lo = mid + 1;
+    }
+    return lo;
+  }
+
+  /** Members in insertion order. */
+  keys(): Entity[] {
+    const out: Entity[] = [];
+    for (let slot = 0; slot < this.length; slot++) {
+      const e = this.entities[slot] ?? VACANT_SLOT;
+      if (e !== VACANT_SLOT) out.push(e as Entity);
+    }
+    return out;
+  }
+
+  /** Members and values in insertion order; values are live. */
+  *entries(): IterableIterator<[Entity, unknown]> {
+    for (let slot = 0; slot < this.length; slot++) {
+      const e = this.entities[slot] ?? VACANT_SLOT;
+      if (e !== VACANT_SLOT) yield [e as Entity, this.values[slot]];
+    }
+  }
+
+  private compact(): void {
+    const { entities, seqs, revisions, values } = this;
+    let to = 0;
+    for (let from = 0; from < this.length; from++) {
+      const e = entities[from] ?? VACANT_SLOT;
+      if (e === VACANT_SLOT) continue;
+      if (to !== from) {
+        entities[to] = e;
+        seqs[to] = seqs[from] ?? 0;
+        revisions[to] = revisions[from] ?? 0;
+        values[to] = values[from];
+        const page = this.pages[e >>> PAGE_BITS];
+        if (page !== undefined) page[e & PAGE_MASK] = to + 1;
+      }
+      to++;
+    }
+    values.length = to;
+    this.length = to;
+    this.epoch++;
+    if (entities.length > INITIAL_CAPACITY && entities.length >= to * SHRINK_FACTOR) {
+      this.resize(Math.max(INITIAL_CAPACITY, to * 2));
+    }
+  }
+
+  private resize(capacity: number): void {
+    const entities = new Int32Array(capacity);
+    entities.set(this.entities.subarray(0, this.length));
+    this.entities = entities;
+    const seqs = new Float64Array(capacity);
+    seqs.set(this.seqs.subarray(0, this.length));
+    this.seqs = seqs;
+    const revisions = new Float64Array(capacity);
+    revisions.set(this.revisions.subarray(0, this.length));
+    this.revisions = revisions;
+  }
+}

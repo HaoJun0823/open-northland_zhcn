@@ -143,8 +143,8 @@ export function anyResourceOfGood(world: World, goodType: number, test: (e: Enti
   return index.somePartition(world, goodType, test);
 }
 
-/** Every resource whose anchor node is exactly `(hx, hy)`. The index's live bucket, so copy it before
- *  destroying members. */
+/** Every resource whose anchor node is exactly `(hx, hy)`. Not a copy (see `RegionIndex.atNode`), so copy
+ *  it before destroying members or calling again. */
 export function resourcesAtNode(world: World, hx: number, hy: number): readonly Entity[] {
   return index.atNode(world, hx, hy);
 }

@@ -87,7 +87,10 @@ function makesVehicles(content: ContentSet, recipes: ReadonlyMap<number, Recipe>
   if (makes === undefined) {
     makes = false;
     for (const good of recipes.keys()) {
-      if (vehicleHouseOfGood(content, good) !== undefined) makes = true;
+      if (vehicleHouseOfGood(content, good) !== undefined) {
+        makes = true;
+        break;
+      }
     }
     vehicleTables.set(recipes, makes);
   }

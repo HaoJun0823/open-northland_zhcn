@@ -24,7 +24,8 @@ export function openedChestsNearNode(world: World, hx: number, hy: number, reach
   return index.near(world, hx, hy, reach);
 }
 
-/** Every opened chest anchored exactly on `(hx, hy)`: the index's live bucket, so copy it before destroying. */
+/** Every opened chest anchored exactly on `(hx, hy)`. Not a copy (see `RegionIndex.atNode`), so copy it
+ *  before destroying or calling again. */
 export function openedChestsAtNode(world: World, hx: number, hy: number): readonly Entity[] {
   return index.atNode(world, hx, hy);
 }

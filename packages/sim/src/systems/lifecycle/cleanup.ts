@@ -55,9 +55,17 @@ function drainedPools(world: World): Entity[] {
     watch = { feed: world.watchChanges([Health], [Health]), carried: [] };
     watches.set(world, watch);
   } else {
-    for (const e of watch.carried) if (isDrained(world, e)) dead.push(e);
+    const seen = new Set<Entity>();
+    for (const e of watch.carried) {
+      if (isDrained(world, e)) {
+        dead.push(e);
+        seen.add(e);
+      }
+    }
     lost = watch.feed.drain((e) => {
-      if (isDrained(world, e) && !dead.includes(e)) dead.push(e);
+      if (seen.has(e) || !isDrained(world, e)) return;
+      dead.push(e);
+      seen.add(e);
     });
   }
   if (lost) {

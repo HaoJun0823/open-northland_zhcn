@@ -20,6 +20,7 @@ import { includesSortedId, insertSortedById, removeSortedById } from '../../../c
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import type { SpatialGate } from '../../../nav/node-circle.js';
+import { intersectReach } from '../../../nav/range-search.js';
 import type { NodeId } from '../../../nav/terrain/index.js';
 import { standsAtPost } from '../../conflict/tower-post.js';
 import { holdsSiteClaim, isSoloSite } from '../../economy/site-claim.js';
@@ -82,21 +83,19 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     return goods;
   };
   // Stock the ledger counts may lie outside every goods gate of a side, where each due settler's search
-  // would sweep its whole reach for nothing; whether any lies in a gate is read once per pass.
-  const inGate = new Map<SpatialGate | undefined, Map<number, Map<number, boolean>>>();
-  const mayLieIn = (area: SpatialGate | undefined, player: number, goodType: number): boolean => {
-    let byPlayer = inGate.get(area);
-    if (byPlayer === undefined) {
-      byPlayer = new Map();
-      inGate.set(area, byPlayer);
-    }
-    let byGood = byPlayer.get(player);
-    if (byGood === undefined) {
-      byGood = new Map();
-      byPlayer.set(player, byGood);
-    }
+  // would sweep its whole reach for nothing; whether any lies in a gate is read once per pass. Keyed by
+  // the route limit and the spot's own gate, since their intersection is a fresh object per call.
+  const inGate = new Map<SpatialGate | undefined, Map<SpatialGate | undefined, Map<number, Map<number, boolean>>>>();
+  const mayLieIn = (
+    limit: SpatialGate | undefined,
+    spot: SpatialGate | undefined,
+    player: number,
+    goodType: number,
+  ): boolean => {
+    const byGood = childOf(childOf(childOf(inGate, limit), spot), player);
     let answer = byGood.get(goodType);
     if (answer === undefined) {
+      const area = intersectReach(limit, spot ?? null);
       answer = storeHoldingMayLieIn(targets.bands, world, area, goodType, player, pass.supply);
       byGood.set(goodType, answer);
     }
@@ -147,8 +146,8 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       if (!stock.exceeds(owner, spec.goodType, underway)) continue;
       route ??= grantRouteFor(pass, e);
       const here = route.here;
-      const area = targets.bands.goodsGate(here, owner, route.limit ?? undefined);
-      if (!mayLieIn(area, owner, spec.goodType)) continue;
+      const spot = targets.bands.goodsGate(here, owner);
+      if (!mayLieIn(route.limit ?? undefined, spot, owner, spec.goodType)) continue;
       const src = nearestStoreHolding(
         targets.bands,
         world,
@@ -175,6 +174,18 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       break; // one errand per settler; the next beat considers the rest of its slots
     }
   }
+}
+
+function childOf<K, ChildKey, ChildValue>(
+  parent: Map<K, Map<ChildKey, ChildValue>>,
+  key: K,
+): Map<ChildKey, ChildValue> {
+  let child = parent.get(key);
+  if (child === undefined) {
+    child = new Map();
+    parent.set(key, child);
+  }
+  return child;
 }
 
 /** A settler's store-search inputs, read once per beat visit: the node he stands on, the signpost network

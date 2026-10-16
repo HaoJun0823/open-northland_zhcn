@@ -1,0 +1,33 @@
+{
+  "reason": "Etap małżeństwa nie miał opisu ani widocznego celu: po odnalezieniu Ulli pokazujemy zadanie wspólnego zamieszkania, zachowując HumansWithHome. Późniejsza wskazówka o drogowskazach czekała na odejście wszystkich gości, choć zagubieni cywile potrzebują drogowskazów, by wyruszyć. Wskazówki nadal uruchamia odejście zwiadowcy, z dotychczasową kolejnością stron i opóźnieniem; cel dotarcia całej piątki do wioski pozostaje bez zmian.",
+  "file": "maps/community/tutorial_001/map.cif",
+  "sha256": "e2c874c4bb22868bd88e293327d8df815c88f3c7df8b2be1c1c1f2e094b776ad",
+  "format": "cif",
+  "lines": [
+    {
+      "line": 60,
+      "from": "result \"ActivateMission\" 6",
+      "to": ["result \"ActivateMission\" 6", "result \"SetVisible\" 6 1"]
+    },
+    {
+      "line": 63,
+      "from": "description -1",
+      "to": "description 5"
+    },
+    {
+      "line": 98,
+      "from": "goal \"FindPosByHumans\" 3 225 135 20",
+      "to": []
+    },
+    {
+      "line": 99,
+      "from": "goal \"FindPosByHumans\" 4 225 135 10",
+      "to": []
+    },
+    {
+      "line": 100,
+      "from": "goal \"FindPosByHumans\" 5 225 135 10",
+      "to": []
+    }
+  ]
+}

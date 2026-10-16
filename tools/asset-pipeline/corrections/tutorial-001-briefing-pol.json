@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie tylko odznacza postać (nie anuluje rozkazu); rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC. Poprawione są także błędy gramatyczne i literówki. Zamieszkanie dotyczy budynku mieszkalnego, nie dowolnego budynku. Aby spotkać kobietę na południe od farmy, Knut musi do niej podejść. Przesuwanie kamery nie odkrywa mgły wojny.",
+  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie tylko odznacza postać (nie anuluje rozkazu); rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC. Poprawione są także błędy gramatyczne i literówki. Zamieszkanie dotyczy budynku mieszkalnego, nie dowolnego budynku. Aby spotkać kobietę na południe od farmy, Knut musi do niej podejść. Przesuwanie kamery nie odkrywa mgły wojny. Przed wymarszem grupa otrzymuje zapowiedź wskazówek o drogowskazach; Kari jest kobietą i jej imię po polsku pozostaje nieodmienne.",
   "file": "maps/community/tutorial_001/text/pol/briefings/briefings.txt",
   "sha256": "ea91c4f5f95c655626285e08e1d5697b2c0413d50f4ca0352b81890a9e5db877",
   "encoding": "windows-1250",
@@ -62,7 +62,7 @@
     },
     {
       "from": "Twoja para Wikingów ma gości! Spotkaj się z Ljotolfem, Thorbjornem, Kari and Groa.",
-      "to": "Twoja para Wikingów ma gości! Odwiedź Ljotolfa, Thorbjorna, Kariego i Groę."
+      "to": "Twoja para Wikingów ma gości! Odwiedź Ljotolfa, Thorbjorna, Kari i Groę."
     },
     {
       "from": "Jeśli wybrałeś grupę, którą będziesz używać częściej, możesz zapisać ją wciskając klawisz CTRL i klawisz z cyfrą od 0 do 9. Aby wybrać tą grupę ponownie, wystarczy że wciśniesz odpowiedni klawisz z cyfrą. Grupa może być kontrolowana w ten sam sposób, co pojedyncza postać.",
@@ -70,7 +70,7 @@
     },
     {
       "from": "Wypróbuj tworzenie grupy. Wyślij Ljotolfa, Thorbjorna, Kari, Groa i Ullę do wioski!",
-      "to": "Wypróbuj tworzenie grupy. Wyślij Ljotolfa, Thorbjorna, Kariego, Groę i Ullę do wioski!"
+      "to": "Wypróbuj tworzenie grupy. Wyślij Ljotolfa, Thorbjorna, Kari, Groę i Ullę do wioski! Grupa może potrzebować drogowskazów ustawionych przez zwiadowcę. Wskazówki pojawią się, gdy zwiadowca wyruszy."
     },
     {
       "from": "Znajdź mu kobietę w okolicy!",

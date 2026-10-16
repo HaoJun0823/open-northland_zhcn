@@ -3,13 +3,15 @@ import {
   BRIEFING_HISTORY_LIMIT,
   deliverMissionBriefing,
   FOG_MODE,
+  MissionObjectId,
   Owner,
   Position,
   Signpost,
 } from '../../src/components/index.js';
-import { playerCommand, positionOfNode } from '../../src/index.js';
+import { playerCommand, positionOfNode, TICKS_PER_SECOND } from '../../src/index.js';
 import { type MissionDefinition, SUCCESSFUL_IF } from '../../src/systems/missions/index.js';
 import { allyVision } from '../fixtures/allies.js';
+import { settlerAt } from '../fixtures/settler.js';
 import {
   loadPassAfter,
   missionSim,
@@ -40,6 +42,62 @@ function mission(definition: Partial<MissionDefinition>): MissionDefinition {
 }
 
 describe('briefing delivery and persistence', () => {
+  it('delivers departure guidance while civilians remain behind, without completing their destination goal', () => {
+    const origin = { hx: 4, hy: 4 };
+    const destination = { hx: 44, hy: 44 };
+    const sim = missionSim([
+      mission({
+        successfullIf: SUCCESSFUL_IF.none,
+        goals: [{ opcode: 'FindPosByHumans', humanId: 6, point: origin, range: 2 }],
+        results: [
+          { opcode: 'PlayCutscene', cutscene: 8, replay: true },
+          { opcode: 'ActivateMission', missionIndex: 1 },
+        ],
+      }),
+      mission({
+        active: false,
+        goals: [{ opcode: 'TimeGone', seconds: 30 }],
+        results: [{ opcode: 'PlayCutscene', cutscene: 9, replay: true }],
+      }),
+      mission({
+        goals: [2, 3, 4, 5, 6].map((humanId) => ({
+          opcode: 'FindPosByHumans',
+          humanId,
+          point: destination,
+          range: 2,
+        })),
+        results: [{ opcode: 'PlayCutscene', cutscene: 10, replay: true }],
+      }),
+    ]);
+    // Stationary people isolate the teaching trigger from routing and the causes of being lost.
+    const residents = [2, 3, 4, 5, 6].map((id) => {
+      const e = settlerAt(sim, { jobType: null, position: positionOfNode(origin.hx, origin.hy) });
+      sim.world.add(e, Owner, { player: OWNER });
+      sim.world.add(e, MissionObjectId, { id });
+      return e;
+    });
+    sim.step();
+    expect(sim.missionBriefingHistory()).toEqual([]);
+    const scout = residents[4];
+    if (scout === undefined) throw new Error('fixture scout missing');
+    Object.assign(sim.world.mut(scout, Position), positionOfNode(destination.hx, destination.hy));
+    sim.run(PASS_TICKS);
+    expect(sim.missionBriefingHistory()).toEqual([8]);
+    const departureTick = sim.missionStatus()[0]?.firstFiredTick;
+    if (departureTick === undefined) throw new Error('departure hint did not fire');
+    // Stop on the tick before the existing timer can be evaluated true.
+    sim.run(departureTick + 30 * TICKS_PER_SECOND - 1 - sim.tick);
+    expect(sim.missionBriefingHistory()).toEqual([8]);
+    sim.run(PASS_TICKS);
+    expect(sim.missionBriefingHistory()).toEqual([8, 9]);
+    expect(sim.missionStatus()[1]?.firstFiredTick).toBeGreaterThanOrEqual(
+      departureTick + 30 * TICKS_PER_SECOND,
+    );
+    expect(sim.missionStatus()[2]).toMatchObject({ active: true, done: false });
+    for (const civilian of residents.slice(0, 4))
+      expect(sim.world.get(civilian, Position)).toEqual(positionOfNode(origin.hx, origin.hy));
+  });
+
   it('ignores a revealed foreign signpost until an inhabitant is discovered, including shared vision', () => {
     const rival = 2;
     const sim = scriptedSim([

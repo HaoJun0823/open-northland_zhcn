@@ -124,8 +124,8 @@
     "lang": "pol",
     "id": 4,
     "from": "Wyślij Ljotolfa, Thorbjorna, Kariego, Groa i Ulla do wioski.",
-    "to": "Wyślij Ljotolfa, Thorbjorna, Kariego, Groę i Ullę do wioski.",
-    "reason": "Poprawna odmiana imion w celu misji."
+    "to": "Wyślij Ljotolfa, Thorbjorna, Kari, Groę i Ullę do wioski.",
+    "reason": "Poprawna odmiana imion w celu misji. Kari jest kobietą; jej imię jest nieodmienne."
   },
   {
     "map": "tutorial_001",

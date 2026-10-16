@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { decodeCifStringArray } from '@open-northland/formats/cif';
+import { type CifLine, decodeCifStringArray } from '@open-northland/formats/cif';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
@@ -20,6 +20,41 @@ const LINES = [
 const bytes = buildStringCif(LINES);
 const digest = createHash('sha256').update(bytes).digest('hex');
 const edit = { line: 3, from: LINES[2]?.text, to: 'goal "GoodsGlobal" 0 "crockery" 1' };
+
+/** Authored scaffold with pinned properties and mission indices, not a copied source map. */
+function guidanceLines(): CifLine[] {
+  const lines = Array.from({ length: 125 }, (): CifLine => ({ level: 2, text: 'unused 0' }));
+  const put = (line: number, text: string, level = 2): void => {
+    lines[line - 1] = { level, text };
+  };
+  for (const line of [1, 5, 9, 13, 17, 51, 61, 68, 82, 94, 104, 109, 120]) put(line, 'MissionData', 1);
+  put(52, 'debuginfo "found"');
+  put(59, 'result "PlayCutscene" 5 1');
+  put(60, 'result "ActivateMission" 6');
+  put(62, 'debuginfo "home"');
+  put(63, 'description -1');
+  put(64, 'goal "HumansWithHome" 0 2');
+  put(65, 'result "PlayCutscene" 6 1');
+  put(67, 'result "ActivateMission" 7');
+  put(96, 'active 1');
+  put(97, 'successfullif 3');
+  for (const [line, id, range] of [
+    [98, 3, 20],
+    [99, 4, 10],
+    [100, 5, 10],
+    [101, 6, 10],
+  ] as const) {
+    put(line, `goal "FindPosByHumans" ${id} 225 135 ${range}`);
+  }
+  put(102, 'result "PlayCutscene" 8 1');
+  put(103, 'result "ActivateMission" 10');
+  put(107, 'goal "TimeGone" 30');
+  put(108, 'result "PlayCutscene" 9 1');
+  put(111, 'active 1');
+  for (let id = 2; id <= 6; id++) put(110 + id, `goal "FindPosByHumans" ${id} 101 288 80`);
+  put(117, 'result "PlayCutscene" 10 1');
+  return lines;
+}
 
 describe('decoded CIF source corrections', () => {
   let temp: TempDir;
@@ -135,20 +170,10 @@ describe('decoded CIF source corrections', () => {
 
   it('gives the named shared-home step a description and reveals it only when activated', async () => {
     const named = JSON.parse(
-      await readFile(new URL('../corrections/tutorial-001-marriage-goal.json', import.meta.url), 'utf8'),
+      await readFile(new URL('../corrections/tutorial-001-mission-guidance.json', import.meta.url), 'utf8'),
     );
     // Only the edited properties occupy their pinned positions; the remaining scaffold is synthetic.
-    const lines = Array.from({ length: 67 }, () => ({ level: 2, text: 'unused 0' }));
-    lines[0] = { level: 1, text: 'MissionData' };
-    lines[1] = { level: 2, text: 'debuginfo "found"' };
-    lines[58] = { level: 2, text: 'result "PlayCutscene" 5 1' };
-    lines[59] = { level: 2, text: 'result "ActivateMission" 6' };
-    lines[60] = { level: 1, text: 'MissionData' };
-    lines[61] = { level: 2, text: 'debuginfo "home"' };
-    lines[62] = { level: 2, text: 'description -1' };
-    lines[63] = { level: 2, text: 'goal "HumansWithHome" 0 2' };
-    lines[64] = { level: 2, text: 'result "PlayCutscene" 6 1' };
-    lines[66] = { level: 2, text: 'result "ActivateMission" 7' };
+    const lines = guidanceLines();
     const source = buildStringCif(lines);
     await writeFile(join(data, FILE), source);
     await writeFile(join(data, 'maps/community/sample/map.dat'), buildMapDat(1, 1, [2, 2, 2, 2]));
@@ -162,7 +187,8 @@ describe('decoded CIF source corrections', () => {
     );
     const corrections = await loadSourceCorrections(dir, data);
     const [map] = await convertMapDatTree({ data, corrections }, join(temp.path, 'out'));
-    const [found, home] = map?.script?.missions ?? [];
+    const found = map?.script?.missions[5];
+    const home = map?.script?.missions[6];
     expect(found?.results.map((result) => result.values)).toEqual([
       ['PlayCutscene', '5', '1'],
       ['ActivateMission', '6'],
@@ -175,6 +201,20 @@ describe('decoded CIF source corrections', () => {
       ['PlayCutscene', '6', '1'],
       ['ActivateMission', '7'],
     ]);
+    const missions = map?.script?.missions;
+    expect(missions?.[9]?.successfullIf).toBe(3);
+    expect(missions?.[9]?.goals.map((goal) => goal.values)).toEqual([
+      ['FindPosByHumans', '6', '225', '135', '10'],
+    ]);
+    expect(missions?.[9]?.results.map((result) => result.values)).toEqual([
+      ['PlayCutscene', '8', '1'],
+      ['ActivateMission', '10'],
+    ]);
+    expect(missions?.[10]?.goals.map((goal) => goal.values)).toEqual([['TimeGone', '30']]);
+    expect(missions?.[10]?.results.map((result) => result.values)).toEqual([['PlayCutscene', '9', '1']]);
+    expect(missions?.[11]?.goals.map((goal) => goal.values)).toEqual(
+      [2, 3, 4, 5, 6].map((id) => ['FindPosByHumans', String(id), '101', '288', '80']),
+    );
     expect(() => corrections.assertApplied()).not.toThrow();
   });
 });

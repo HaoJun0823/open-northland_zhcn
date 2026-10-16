@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie anuluje tylko wybór budynku; rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC. Poprawione są także błędy gramatyczne i literówki. Aby spotkać kobietę na południe od farmy, Knut musi do niej podejść. Przesuwanie kamery nie odkrywa mgły wojny.",
+  "reason": "Samouczek opisuje sterowanie oryginału. U nas: okno misji otwiera przycisk Misja na dolnym pasku lub F1 (nie ma symbolu flagi); menu gry to ESC lub okrągły przycisk w prawym górnym rogu (nie OPCJE pod F2, F1 to nie pomoc), skróty są w Ustawieniach na zakładce Sterowanie; przewijanie przy krawędzi ekranu jest domyślnie włączone (wyłącza się je w Ustawieniach, zakładka Rozgrywka); zaznaczona postać dostaje obwódkę, a nie miga; karta przy kursorze opisuje obiekt, a nie akcję; Shift+klik dodaje i usuwa z grupy (Ctrl tylko w oknie poddanych F2); drogowskaz stawia się lewym przyciskiem, a zablokowany teren jest przyciemniony; menu gry nie ma ponownego rozpoczęcia, ma wczytanie gry. Lewy przycisk na pustym terenie anuluje tylko wybór budynku; rozkaz czekający na wskazanie miejsca (Przejdź, drogowskaz) anuluje prawy przycisk lub ESC. Poprawione są także błędy gramatyczne i literówki. Aby spotkać kobietę na południe od farmy, Knut musi do niej podejść. Przesuwanie kamery nie odkrywa mgły wojny. Przed wymarszem grupa otrzymuje zapowiedź wskazówek o drogowskazach; Kari jest kobietą i jej imię po polsku pozostaje nieodmienne.",
   "file": "maps/community/tutorial_001/text/ger/briefings/briefings.txt",
   "sha256": "f1bcc738ac66d6b14930cc567d91e0e011ba83f8809392f83270ab1c886b3e76",
   "encoding": "windows-1250",
@@ -83,6 +83,10 @@
     {
       "from": "Suche in der Umgebung nach einer Frau!",
       "to": "Suche in der Umgebung nach einer Frau! Wähle Knut aus und schicke ihn zu der Frau südlich der Farm. Falls das Gelände noch im Nebel liegt, schicke Knut dorthin, um es zu erkunden; allein das Verschieben des Bildausschnitts deckt die Karte nicht auf."
+    },
+    {
+      "from": "Probier dies aus. Schicke Ljotolf, Thorbjorn, Kari, Groa und Ulla ins Dorf der Ägypter!",
+      "to": "Probier dies aus. Schicke Ljotolf, Thorbjorn, Kari, Groa und Ulla ins Dorf der Ägypter! Die Gruppe braucht möglicherweise Wegweiser vom Kundschafter. Sobald der Kundschafter aufbricht, folgen weitere Hinweise."
     }
   ]
 }

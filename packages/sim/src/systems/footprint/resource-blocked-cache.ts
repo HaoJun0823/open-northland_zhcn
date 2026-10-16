@@ -142,10 +142,15 @@ export function refreshResourceBlockedCacheEntry(world: World, resource: Entity)
   syncResourceBlockedCacheGeneration(world);
 }
 
-/** Uncount `resource`'s footprint. Call while its ResourceFootprint is still the one counted. */
+/** Uncount `resource`'s footprint, re-reading its walk cells from the live component. A direct store
+ *  write since the last sync may have changed those cells, so a stale cache is dropped instead. */
 export function removeResourceBlockedCacheEntry(world: World, resource: Entity): void {
   const cache = resourceBlockedCache.get(world);
   if (cache === undefined) return;
+  if (cache.generation !== world.componentGeneration(ResourceFootprint)) {
+    resourceBlockedCache.delete(world);
+    return;
+  }
   removeEntry(cache, world, resource);
 }
 
@@ -192,7 +197,8 @@ function verifyResourceBlockedCache(world: World, terrain: TerrainGraph): string
  * The cells standing resource nodes make unwalkable. Built once per world/terrain and maintained by
  * `stampResourceFootprint` / `unstampResourceFootprint`, so clearing a forest mutates just the affected
  * node's cells instead of scanning every resource on the next route. A direct ResourceFootprint store
- * mutation still falls back to a full rebuild.
+ * write falls back to a full rebuild: the next read re-derives, and the next unstamp drops the cache
+ * because removal re-reads the live walk cells, not the ones it counted.
  */
 export function resourceBlockedCells(world: World, terrain: TerrainGraph): ReadonlySet<NodeId> {
   return resourceBlockedLayer(world, terrain).cells;

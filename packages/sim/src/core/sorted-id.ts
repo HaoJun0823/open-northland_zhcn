@@ -17,13 +17,27 @@ function lowerBound<T>(arr: readonly T[], id: number, idOf: (item: T) => number)
   return lo;
 }
 
-/** Splice `item` into ascending-id `arr` at its {@link lowerBound} slot; a new highest id is pushed, since
- *  a splice allocates its removed-items array even when it removes nothing. */
+/** Up to this many items an element-wise shift beats `splice`, which allocates its removed-items array
+ *  even when it removes nothing; past it the native move wins (measured in V8). */
+const MAX_SHIFTED_BY_LOOP = 128;
+
+/** Insert `item` into ascending-id `arr` at its {@link lowerBound} slot. */
 export function insertSortedById<T>(arr: T[], item: T, idOf: (item: T) => number): void {
   const id = idOf(item);
-  const last = arr[arr.length - 1];
-  if (last === undefined || idOf(last) < id) arr.push(item);
-  else arr.splice(lowerBound(arr, id, idOf), 0, item);
+  const length = arr.length;
+  const last = arr[length - 1];
+  if (last === undefined || idOf(last) < id) {
+    arr.push(item);
+    return;
+  }
+  const slot = lowerBound(arr, id, idOf);
+  if (length - slot > MAX_SHIFTED_BY_LOOP) {
+    arr.splice(slot, 0, item);
+    return;
+  }
+  arr.push(last);
+  for (let k = length - 1; k > slot; k--) arr[k] = arr[k - 1] as T;
+  arr[slot] = item;
 }
 
 /** Remove the item with `id` from ascending-id `arr`; returns whether it was present, so the caller can
@@ -32,7 +46,13 @@ export function removeSortedById<T>(arr: T[], id: number, idOf: (item: T) => num
   const i = lowerBound(arr, id, idOf);
   const held = arr[i];
   if (held === undefined || idOf(held) !== id) return false;
-  arr.splice(i, 1);
+  const end = arr.length - 1;
+  if (end - i > MAX_SHIFTED_BY_LOOP) {
+    arr.splice(i, 1);
+    return true;
+  }
+  for (let k = i; k < end; k++) arr[k] = arr[k + 1] as T;
+  arr.pop();
   return true;
 }
 

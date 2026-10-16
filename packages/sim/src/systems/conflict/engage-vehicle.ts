@@ -1,4 +1,4 @@
-import type { WeaponType } from '@open-northland/data';
+import type { VehicleType, WeaponType } from '@open-northland/data';
 import {
   Health,
   Owner,
@@ -34,6 +34,8 @@ import {
   refuseMove,
   rejoinMarch,
   startVehicleDrive,
+  touchesAnotherVehicle,
+  vehicleBodyClear,
   vehicleRestBlocks,
 } from '../vehicles/movement.js';
 import { exploreAround, playerSeesEntity, SIEGE_SHOT_SIGHT_NODES } from '../vision/index.js';
@@ -145,7 +147,7 @@ export function engageVehicle(
     // A find cuts the march short on the node it is crossing, so the next judgement closes or fires.
     if (march !== null) finishLeg(world, e);
   }
-  actOnTarget(world, ctx, terrain, e, stance, weapon, here, target);
+  actOnTarget(world, ctx, terrain, e, type, stance, weapon, here, target);
 }
 
 /** Drive on toward the march's goal once nothing is left to fight; standing on it, the march is over.
@@ -248,16 +250,17 @@ function scanForTarget(
 }
 
 /**
- * Too close backs off to a node inside the band, in range fires (once the vehicle stands), too far
- * closes to a node inside the far reach; a holding vehicle never moves and drops the target instead,
- * and a defending one drops it once its chase has taken it past the leash. An auto target no firing
- * node can be reached for is given up.
+ * Too close backs off to a node inside the band, in range fires (once the vehicle stands, outside every
+ * other vehicle's disc), too far closes to a node inside the far reach; a holding vehicle moves only to
+ * leave another's disc and otherwise drops the target, and a defending one drops it once its chase has
+ * taken it past the leash. An auto target no firing node can be reached for is given up.
  */
 function actOnTarget(
   world: World,
   ctx: SystemContext,
   terrain: TerrainGraph,
   e: Entity,
+  type: VehicleType,
   stance: VehicleStance,
   weapon: { minRange: number; maxRange: number },
   here: NodeId,
@@ -273,7 +276,12 @@ function actOnTarget(
     }
   }
   const dist = hexNodeDistance(terrain, here, targetNode);
-  if (dist >= weapon.minRange && dist <= weapon.maxRange) {
+  const inRange = dist >= weapon.minRange && dist <= weapon.maxRange;
+  // Deviation (owner's choice): a vehicle whose disc shares a cell with another's never fires from there.
+  // It drives apart to a firing node of its own first, in any stance, since a stacked battery would be
+  // too strong; movement alone lets a catapult pass close by another.
+  const stacked = inRange && touchesAnotherVehicle(world, ctx, terrain, e, type);
+  if (inRange && !stacked) {
     if (finishLeg(world, e)) return; // fire once the leg is done
 
     const live = world.mut(e, Vehicle);
@@ -282,13 +290,13 @@ function actOnTarget(
     if (live.attack !== null) live.attack.clipStart = ctx.tick;
     return;
   }
-  if (stance === 'hold') {
+  if (stance === 'hold' && !stacked) {
     dropTarget(world, e);
     return;
   }
   if (world.has(e, VehicleDrive)) return; // the chase leg under way ends before the next judgement
   const band: [number, number] =
-    dist < weapon.minRange
+    dist < weapon.minRange || stacked
       ? [weapon.minRange, weapon.maxRange]
       : [Math.max(weapon.minRange, weapon.maxRange - APPROACH_BAND_DEPTH), weapon.maxRange];
   const goal = firingNode(world, ctx, terrain, e, here, targetNode, band);
@@ -316,9 +324,31 @@ function aimNode(
   return combatTargetNode(world, ctx, terrain, here, target.entity);
 }
 
+/** Where another vehicle's drive will stand: its goal and the radius of the disc it will cover there. */
+interface ClaimedGoal {
+  readonly hx: number;
+  readonly hy: number;
+  readonly radius: number;
+}
+
+/** The goals of every other vehicle under way, so two vehicles leaving one spot pick separate spots. */
+function claimedGoals(world: World, ctx: SystemContext, e: Entity): ClaimedGoal[] {
+  const types = contentIndex(ctx.content).vehicles;
+  const claimed: ClaimedGoal[] = [];
+  for (const other of world.query(VehicleDrive, Vehicle)) {
+    if (other === e) continue;
+    const type = types.get(world.get(other, Vehicle).vehicleType);
+    if (type === undefined) continue;
+    const { goal } = world.get(other, VehicleDrive);
+    claimed.push({ hx: goal.hx, hy: goal.hy, radius: type.logicSize });
+  }
+  return claimed;
+}
+
 /**
  * The node nearest `here` (map points, then node id) that the vehicle may stand on (never a gap it may
- * only pass), lies on its own continent and is `band` map points from `target`. Approximation: the
+ * only pass), where its disc touches no other vehicle's, standing or bound for its drive's goal, lies on
+ * its own continent and is `band` map points from `target`. Approximation: the
  * original walks its own move-point search near the target and floods a radius-5 disc for a firing spot
  * across a continent seam; a target with no such node on this continent is unreachable here too.
  */
@@ -335,6 +365,9 @@ function firingNode(
   const type = contentIndex(ctx.content).vehicles.get(state.vehicleType);
   if (type === undefined) return null;
   const blocked = vehicleRestBlocks(world, ctx, terrain, e, type);
+  const clear = vehicleBodyClear(world, ctx, terrain, e, type);
+  const claimed = claimedGoals(world, ctx, e);
+  const size = type.logicSize;
   const continent = terrain.componentOf(here);
   const t = terrain.coordsOf(target);
   let best: NodeId | null = null;
@@ -350,7 +383,9 @@ function firingNode(
       if (reach < lo || reach > hi) continue;
       const node = terrain.nodeAt(x, y);
       if (terrain.componentOf(node) !== continent || blocked.has(node)) continue;
+      if (claimed.some((goal) => hexDistanceBetween(x, y, goal.hx, goal.hy) <= goal.radius + size)) continue;
       const dist = hexNodeDistance(terrain, here, node);
+      if (dist > bestDist || !clear(node)) continue;
       if (dist < bestDist || (dist === bestDist && best !== null && node < best)) {
         best = node;
         bestDist = dist;

@@ -31,7 +31,9 @@ import {
   checkInvariants,
   exportSaveGame,
   fx,
+  type HalfCellNode,
   halfCellMapFromCells,
+  hexDistanceBetween,
   nodeOfPosition,
   ONE,
   parseSaveGame,
@@ -75,6 +77,8 @@ const GRASS = 0;
 const WATER = 1;
 const HANDCART = 1;
 const CATAPULT = 5;
+/** The fixture catapult's `logicsize`: the hex-disc radius its body covers. */
+const CATAPULT_LOGIC_SIZE = 1;
 const HOME = 3;
 const WALL_TYPE = 1;
 const WALL_HITPOINTS = 100;
@@ -288,6 +292,11 @@ function catapultAt(s: Simulation, hx: number, hy: number, owner: number, skill 
   return e;
 }
 
+function anchorOf(s: Simulation, e: Entity): HalfCellNode {
+  const p = s.world.get(e, Position);
+  return nodeOfPosition(p.x, p.y);
+}
+
 function collect(
   s: Simulation,
   ticks: number,
@@ -363,6 +372,31 @@ describe('catapult stances and scans', () => {
     expect(s.world.has(catapult, VehicleDrive)).toBe(true);
     const hits = collect(s, 400, ['projectileHit']);
     expect(hits.some((ev) => ev.kind === 'projectileHit' && ev.target === house)).toBe(true);
+  });
+
+  it('never fires while touching another catapult: stacked ones drive apart first, holding or not', () => {
+    for (const stance of ['hold', 'attack'] as const) {
+      const s = sim(grass(40, 12));
+      const first = catapultAt(s, 6, 8, P1);
+      const second = catapultAt(s, 6, 8, P1);
+      houseAt(s, 22, 8, P2, TOUGH_HOUSE); // 16 map points east: inside 8..24
+      for (const vehicle of [first, second]) {
+        s.enqueue(playerCommand(P1, { kind: 'setVehicleStance', vehicle, stance }));
+      }
+      const shooters = new Set<Entity>();
+      const refused = collect(s, 400, ['vehicleMoveRefused'], () => {
+        for (const ev of s.events.current()) {
+          if (ev.kind !== 'projectileLaunched') continue;
+          const a = anchorOf(s, first);
+          const b = anchorOf(s, second);
+          // Two discs of this radius share no cell: the bodies do not touch.
+          expect(hexDistanceBetween(a.hx, a.hy, b.hx, b.hy)).toBeGreaterThan(2 * CATAPULT_LOGIC_SIZE);
+          shooters.add(ev.shooter);
+        }
+      });
+      expect(shooters.size).toBe(2);
+      expect(refused).toEqual([]); // each leaves for a spot of its own, so neither drive is turned back
+    }
   });
 
   it('fires the shot at the clip event tick and repeats on the clip cadence', () => {

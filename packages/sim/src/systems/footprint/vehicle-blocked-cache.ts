@@ -3,10 +3,10 @@ import { Position, Vehicle } from '../../components/index.js';
 import type { World } from '../../ecs/world.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext } from '../context.js';
-import { sameCells } from './geometry.js';
 import { vehicleFootprintNodes } from './vehicle-footprint.js';
 
-// The memoized per-world cache of cells standing vehicles cover, which other vehicles may not enter.
+// The memoized per-world cache of cells standing vehicles cover, which other vehicles may not enter,
+// counted per cell so a vehicle's own disc never hides another's cover of the same cell.
 // Keyed on the Vehicle store's membership and value generations: a vehicle stands still until a mover
 // writes it, and that write goes through `World.mut(e, Vehicle)`, which is what keeps the key exact once
 // vehicles move.
@@ -16,19 +16,31 @@ interface VehicleBlockedCache {
   valueGeneration: number;
   readonly content: ContentSet;
   readonly terrain: TerrainGraph;
-  readonly cells: Set<NodeId>;
+  readonly cells: Map<NodeId, number>;
 }
 
 const vehicleBlockedCache = new WeakMap<World, VehicleBlockedCache>();
 
-/** Every standing vehicle's disc. Settlers walk through it, as the original's map attach sets no
- *  blocked bit; only vehicles collide. */
-function deriveVehicleBlockedCells(world: World, content: ContentSet, terrain: TerrainGraph): Set<NodeId> {
-  const blocked = new Set<NodeId>();
+/** Every standing vehicle's disc, as how many discs cover each cell. Settlers walk through it, as the
+ *  original's map attach sets no blocked bit; only vehicles collide. */
+function deriveVehicleBlockedCells(
+  world: World,
+  content: ContentSet,
+  terrain: TerrainGraph,
+): Map<NodeId, number> {
+  const cover = new Map<NodeId, number>();
   for (const e of world.query(Vehicle, Position)) {
-    for (const node of vehicleFootprintNodes(world, content, terrain, e)) blocked.add(node);
+    for (const node of vehicleFootprintNodes(world, content, terrain, e)) {
+      cover.set(node, (cover.get(node) ?? 0) + 1);
+    }
   }
-  return blocked;
+  return cover;
+}
+
+function sameCover(a: ReadonlyMap<NodeId, number>, b: ReadonlyMap<NodeId, number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [cell, count] of a) if (b.get(cell) !== count) return false;
+  return true;
 }
 
 function verifyVehicleBlockedCache(world: World, content: ContentSet, terrain: TerrainGraph): string[] {
@@ -41,21 +53,19 @@ function verifyVehicleBlockedCache(world: World, content: ContentSet, terrain: T
     return [];
   }
   const fresh = deriveVehicleBlockedCells(world, content, terrain);
-  if (!sameCells(cached.cells, fresh)) {
-    return [
-      `vehicleBlockedCells cache holds ${cached.cells.size} cells but re-derived ${fresh.size} - a Vehicle moved outside World.mut`,
-    ];
+  if (!sameCover(cached.cells, fresh)) {
+    return ['vehicleBlockedCells cache disagrees with a fresh derive - a Vehicle moved outside World.mut'];
   }
   return [];
 }
 
-/** The cells standing vehicles cover right now. Derived state, never hashed; the returned set is the
- *  shared cached copy, membership reads only. */
+/** The cells standing vehicles cover right now, each with how many vehicles cover it. Derived state,
+ *  never hashed; the returned map is the shared cached copy, reads only. */
 export function vehicleBlockedCells(
   world: World,
   ctx: ContentContext,
   terrain: TerrainGraph,
-): ReadonlySet<NodeId> {
+): ReadonlyMap<NodeId, number> {
   const membershipGeneration = world.componentGeneration(Vehicle);
   const valueGeneration = world.componentValueGeneration(Vehicle);
   const cached = vehicleBlockedCache.get(world);

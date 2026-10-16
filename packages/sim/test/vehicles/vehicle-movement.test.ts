@@ -13,6 +13,7 @@ import {
   VehicleRoute,
   WALK_DIRECTION,
 } from '../../src/components/index.js';
+import { contentIndex } from '../../src/core/content-index.js';
 import type { Component, Entity } from '../../src/ecs/world.js';
 import {
   checkInvariants,
@@ -50,7 +51,12 @@ import {
   vehicleMovePeriod,
   vehicleProgressPerTick,
 } from '../../src/systems/vehicles/index.js';
-import { nodeOf, vehicleRouteTo, vehicleWalkBlocks } from '../../src/systems/vehicles/movement.js';
+import {
+  nodeOf,
+  vehicleRestBlocks,
+  vehicleRouteTo,
+  vehicleWalkBlocks,
+} from '../../src/systems/vehicles/movement.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
 import { grassCellMap, waterColumnMap } from '../fixtures/terrain.js';
@@ -67,6 +73,8 @@ const P0 = 0;
 const P1 = 1;
 const HANDCART = 1;
 const CATAPULT = 5;
+/** The fixture catapult's `logicsize`: the hex-disc radius its body covers. */
+const CATAPULT_LOGIC_SIZE = 1;
 const SCOUT = 27;
 const MAP_CELLS = 16;
 const GRASS = 0;
@@ -585,6 +593,49 @@ describe('moveVehicle', () => {
     order(s, cart, 20, 8);
     driveOut(s, cart);
     expect(anchorOf(s, cart)).toEqual({ hx: 20, hy: 8 });
+  });
+
+  it("never creeps into another vehicle's cells where its own ring already overlaps them", () => {
+    const s = sim();
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('map missing');
+    const parked = spawn(s, CATAPULT, 10, 8);
+    const catapult = commanded(s, CATAPULT, 8, 8); // two map points off: the two rings share cells
+    const type = contentIndex(s.content).vehicles.get(CATAPULT);
+    if (type === undefined) throw new Error('catapult type missing');
+    const shared = terrain.nodeAt(9, 8);
+    expect(vehicleWalkBlocks(s.world, ctxOf(s), terrain, catapult, type).has(shared)).toBe(true);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      order(s, catapult, 10, 8); // onto the parked one's anchor: the snap and the drive keep it outside
+      driveOut(s, catapult);
+      const at = anchorOf(s, catapult);
+      expect(hexDistanceBetween(at.hx, at.hy, 10, 8)).toBeGreaterThan(CATAPULT_LOGIC_SIZE);
+    }
+    expect(anchorOf(s, parked)).toEqual({ hx: 10, hy: 8 });
+  });
+
+  it("drives a vehicle out of another's cells it was set down in, never deeper", () => {
+    const s = sim();
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('map missing');
+    const parked = spawn(s, CATAPULT, 10, 8);
+    const catapult = commanded(s, CATAPULT, 10, 8); // set down on the same node
+    const type = contentIndex(s.content).vehicles.get(CATAPULT);
+    if (type === undefined) throw new Error('catapult type missing');
+    const ring = terrain.nodeAt(11, 8);
+    expect(vehicleWalkBlocks(s.world, ctxOf(s), terrain, catapult, type).has(ring)).toBe(false);
+    expect(vehicleRestBlocks(s.world, ctxOf(s), terrain, catapult, type).has(ring)).toBe(true);
+    order(s, catapult, 20, 8);
+    const refused: string[] = [];
+    s.step();
+    while (s.world.has(catapult, VehicleDrive)) {
+      refused.push(...refusals(s));
+      s.step();
+    }
+    refused.push(...refusals(s));
+    expect(anchorOf(s, catapult)).toEqual({ hx: 20, hy: 8 });
+    expect(anchorOf(s, parked)).toEqual({ hx: 10, hy: 8 });
+    expect(refused).toEqual([]);
   });
 
   it('re-routes when a blocker closes its route and gives up with the no-path note when nothing leads on', () => {

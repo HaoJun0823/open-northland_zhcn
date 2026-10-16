@@ -67,7 +67,7 @@ export function vehicleFootprintNodes(
  *  shape depends on. A vehicle's footprint is read every combat pass, so the disc is walked once per shape. */
 const discOffsetsByShape = new Map<number, readonly HalfCellNode[]>();
 
-function discOffsets(radius: number, centreRow: number): readonly HalfCellNode[] {
+export function discOffsets(radius: number, centreRow: number): readonly HalfCellNode[] {
   const parity = centreRow & 1;
   const key = radius * 2 + parity;
   let offsets = discOffsetsByShape.get(key);

@@ -18,12 +18,19 @@ import type { Command } from '../../core/commands/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
-import { type HalfCellNode, hexagonRing, hexDistance, positionOfNode } from '../../nav/halfcell.js';
+import {
+  type HalfCellNode,
+  hexagonRing,
+  hexDistance,
+  hexDistanceBetween,
+  positionOfNode,
+} from '../../nav/halfcell.js';
 import { findPath, joinCorridor } from '../../nav/pathfinding/index.js';
 import { ringSearch, STAND_SEARCH_CAP } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext, System, SystemContext } from '../context.js';
 import {
+  discOffsets,
   dynamicBlockOverlay,
   hexDisc,
   vehicleAnchor,
@@ -120,7 +127,9 @@ function vehiclePasses(
 /**
  * The walk-block a vehicle routes under: ground blockers, nodes its size does not pass
  * ({@link vehiclePasses}), and every other vehicle's standing cells. Its own cells are exempt so a
- * catapult can step through its own ring.
+ * catapult can step through its own ring, but never where another vehicle's disc covers them too, or
+ * one vehicle would creep onto another. A vehicle already standing in another's disc may still leave
+ * it over nodes no nearer that vehicle's anchor.
  */
 export function vehicleWalkBlocks(
   world: World,
@@ -129,7 +138,7 @@ export function vehicleWalkBlocks(
   vehicle: Entity,
   type: VehicleType,
 ): BlockOverlay {
-  return blocksUnder(world, ctx, terrain, vehicle, vehiclePasses(world, ctx, terrain, type));
+  return blocksUnder(world, ctx, terrain, vehicle, vehiclePasses(world, ctx, terrain, type), 'transit');
 }
 
 /**
@@ -144,8 +153,105 @@ export function vehicleRestBlocks(
   vehicle: Entity,
   type: VehicleType,
 ): BlockOverlay {
-  return blocksUnder(world, ctx, terrain, vehicle, vehicleStandable(world, ctx, terrain, type.logicSize));
+  const standable = vehicleStandable(world, ctx, terrain, type.logicSize);
+  return blocksUnder(world, ctx, terrain, vehicle, standable, 'rest');
 }
+
+/** Another vehicle's disc that `vehicle`'s anchor stands in, and how far that anchor lies from its centre. */
+interface OverlappedDisc {
+  readonly hx: number;
+  readonly hy: number;
+  readonly radius: number;
+  readonly from: number;
+}
+
+const NO_DISCS: readonly OverlappedDisc[] = [];
+
+/** Whether `vehicle`'s anchor stands inside another vehicle's disc: more than its own disc covers it. */
+export function standsInAnotherVehicle(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  vehicle: Entity,
+): boolean {
+  const anchor = vehicleAnchor(world, vehicle);
+  if (anchor === null || !terrain.inBounds(anchor.hx, anchor.hy)) return false;
+  return (vehicleBlockedCells(world, ctx, terrain).get(terrain.nodeAt(anchor.hx, anchor.hy)) ?? 0) > 1;
+}
+
+/** Whether a vehicle of `radius` standing on `centre` would share a cell with another vehicle's disc,
+ *  given the cells its own disc covers now (`own`, or every one while it stands elsewhere). */
+function sharesCell(
+  terrain: TerrainGraph,
+  cover: ReadonlyMap<NodeId, number>,
+  centre: HalfCellNode,
+  radius: number,
+  own: (node: NodeId) => boolean,
+): boolean {
+  for (const offset of discOffsets(radius, centre.hy)) {
+    const hx = centre.hx + offset.hx;
+    const hy = centre.hy + offset.hy;
+    if (!terrain.inBounds(hx, hy)) continue;
+    const node = terrain.nodeAt(hx, hy);
+    if ((cover.get(node) ?? 0) > (own(node) ? 1 : 0)) return true;
+  }
+  return false;
+}
+
+/** Whether `vehicle`'s disc shares a cell with another vehicle's disc: the two bodies touch. */
+export function touchesAnotherVehicle(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  vehicle: Entity,
+  type: VehicleType,
+): boolean {
+  const anchor = vehicleAnchor(world, vehicle);
+  if (anchor === null) return false;
+  return sharesCell(terrain, vehicleBlockedCells(world, ctx, terrain), anchor, type.logicSize, () => true);
+}
+
+/** Whether `vehicle` standing on a node would keep its disc clear of every other vehicle's disc. Read
+ *  within one decision, like {@link vehicleClearance}. */
+export function vehicleBodyClear(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  vehicle: Entity,
+  type: VehicleType,
+): (node: NodeId) => boolean {
+  const cover = vehicleBlockedCells(world, ctx, terrain);
+  const own = new Set(vehicleFootprintNodes(world, ctx.content, terrain, vehicle));
+  const isOwn = (node: NodeId): boolean => own.has(node);
+  return (node) => !sharesCell(terrain, cover, nodeOf(terrain, node), type.logicSize, isOwn);
+}
+
+/** The other vehicles' discs `vehicle`'s anchor stands in. Walks every vehicle, but only for one already
+ *  inside another's disc, which no drive of an equal or larger vehicle leads into. */
+function overlappedDiscs(
+  world: World,
+  ctx: ContentContext,
+  terrain: TerrainGraph,
+  vehicle: Entity,
+): readonly OverlappedDisc[] {
+  const anchor = vehicleAnchor(world, vehicle);
+  if (anchor === null || !standsInAnotherVehicle(world, ctx, terrain, vehicle)) return NO_DISCS;
+  const types = contentIndex(ctx.content).vehicles;
+  const discs: OverlappedDisc[] = [];
+  for (const other of world.query(Vehicle, Position)) {
+    if (other === vehicle) continue;
+    const centre = vehicleAnchor(world, other);
+    const type = types.get(world.get(other, Vehicle).vehicleType);
+    if (centre === null || type === undefined) continue;
+    const from = hexDistance(anchor, centre);
+    if (from <= type.logicSize) discs.push({ hx: centre.hx, hy: centre.hy, radius: type.logicSize, from });
+  }
+  return discs;
+}
+
+/** `rest` judges a place to stop, `transit` a node to pass, which may also lead out of a disc the
+ *  vehicle already stands in. */
+type BlockUse = 'rest' | 'transit';
 
 function blocksUnder(
   world: World,
@@ -153,16 +259,30 @@ function blocksUnder(
   terrain: TerrainGraph,
   vehicle: Entity,
   fits: (node: NodeId) => boolean,
+  use: BlockUse,
   answers?: Map<NodeId, boolean>,
 ): BlockOverlay {
   const ground = dynamicBlockOverlay(world, ctx, terrain);
   const vehicles = vehicleBlockedCells(world, ctx, terrain);
   const own = new Set(vehicleFootprintNodes(world, ctx.content, terrain, vehicle));
+  const overlapped = use === 'transit' ? overlappedDiscs(world, ctx, terrain, vehicle) : NO_DISCS;
+  const coveredByOthers = (node: NodeId): boolean => {
+    const others = (vehicles.get(node) ?? 0) - (own.has(node) ? 1 : 0);
+    if (others === 0) return false;
+    let leaving = 0;
+    for (const disc of overlapped) {
+      const dist = hexDistanceBetween(terrain.xOf(node), terrain.yOf(node), disc.hx, disc.hy);
+      if (dist > disc.radius) continue;
+      if (dist < disc.from) return true;
+      leaving++;
+    }
+    return leaving < others;
+  };
   return {
     has: (node) => {
       const held = answers?.get(node);
       if (held !== undefined) return held;
-      const answer = ground.has(node) || !fits(node) || (vehicles.has(node) && !own.has(node));
+      const answer = ground.has(node) || !fits(node) || coveredByOthers(node);
       answers?.set(node, answer);
       return answer;
     },
@@ -418,6 +538,7 @@ export function vehicleRouteTo(
     terrain,
     vehicle,
     vehiclePasses(world, ctx, terrain, type),
+    'transit',
     new Map<NodeId, boolean>(),
   );
   const traversal = vehicleTraversal(type);

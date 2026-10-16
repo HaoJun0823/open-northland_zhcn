@@ -8,10 +8,10 @@ export function parseSavedAt(value: unknown): number | null {
   return value;
 }
 
-export function parseContentFingerprint(value: unknown): string | null {
+export function parseContentFingerprint(value: unknown, field = 'contentFingerprint'): string | null {
   if (value === null) return null;
   if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value)) {
-    throw new Error('save.header.contentFingerprint: expected a lowercase SHA-256 digest or null');
+    throw new Error(`save.header.${field}: expected a lowercase SHA-256 digest or null`);
   }
   return value;
 }

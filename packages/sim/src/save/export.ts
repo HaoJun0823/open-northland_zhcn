@@ -1,3 +1,4 @@
+import { jsonFingerprint } from '@open-northland/data';
 import type { CommandEnvelope } from '../core/commands/index.js';
 import { mergeContinuation, type SavedCommand } from '../core/continuation.js';
 import { isPlainRecord, PROTO_KEY, valueShapeName } from '../core/plain-value.js';
@@ -63,7 +64,11 @@ function captureSave(
   // and either would silently restore as disconnected copies.
   const walk: Walk = { seen: new Set<object>(), paths };
   const sections: SaveGameSection[] = [
-    { id: 'entities', nextId: sim.world.nextEntityId, alive: [...sim.world.canonicalEntities()] },
+    {
+      id: 'entities',
+      nextId: sim.world.nextEntityId,
+      alive: [...sim.world.canonicalEntities()],
+    },
   ];
   sim.world.forEachStore((name, entries) => {
     const saved: Array<readonly [number, unknown]> = [];
@@ -106,6 +111,8 @@ function captureSave(
       formatVersion: SAVE_FORMAT_VERSION,
       irVersion: sim.content.manifest.version,
       contentFingerprint: simContentFingerprint(sim.content),
+      missionScriptFingerprint: sim.missions === undefined ? null : jsonFingerprint(sim.missions),
+      mapAiScriptFingerprint: sim.mapAiScript === undefined ? null : jsonFingerprint(sim.mapAiScript),
       savedAt,
       mapId: opts.mapId ?? null,
       mapFingerprint: sim.mapFingerprint ?? null,

@@ -57,6 +57,11 @@ function parsedHeader(value: unknown): SaveGameHeader {
     formatVersion: SAVE_FORMAT_VERSION,
     irVersion: asCount(raw.irVersion, `${at}.irVersion`),
     contentFingerprint: parseContentFingerprint(raw.contentFingerprint),
+    missionScriptFingerprint: parseContentFingerprint(
+      raw.missionScriptFingerprint,
+      'missionScriptFingerprint',
+    ),
+    mapAiScriptFingerprint: parseContentFingerprint(raw.mapAiScriptFingerprint, 'mapAiScriptFingerprint'),
     savedAt: parseSavedAt(raw.savedAt),
     mapId: asNullableString(raw.mapId, `${at}.mapId`),
     mapFingerprint: asNullableString(raw.mapFingerprint, `${at}.mapFingerprint`),

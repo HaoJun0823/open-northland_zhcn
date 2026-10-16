@@ -337,16 +337,16 @@ describe('ai program - one-shots and saves', () => {
         });
     };
     // No script, a script with another slot count, and one with fewer tasks all fit the records badly.
-    expect(restoredWith(null)).toThrow(/AI program/);
+    expect(restoredWith(null)).toThrow(/mapAiScriptFingerprint/);
     expect(
       restoredWith({
         conditions: [{ kind: 'onTime', slot: 1, ticks: AI_HANDLER_ROUND_TICKS }],
         tasks: [{ kind: 'changeDiplomacy', priority: 5, condition: 1, player: FOE, state: 3 }],
       }),
-    ).toThrow(/AI program/);
+    ).toThrow(/mapAiScriptFingerprint/);
     expect(
       restoredWith({ conditions: [{ kind: 'onTime', slot: 0, ticks: AI_HANDLER_ROUND_TICKS }], tasks: [] }),
-    ).toThrow(/AI program/);
+    ).toThrow(/mapAiScriptFingerprint/);
   });
 });
 

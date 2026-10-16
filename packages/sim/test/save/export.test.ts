@@ -77,6 +77,8 @@ describe('exportSaveGame header', () => {
       formatVersion: SAVE_FORMAT_VERSION,
       irVersion: content.manifest.version,
       contentFingerprint: contentFingerprint(content),
+      missionScriptFingerprint: null,
+      mapAiScriptFingerprint: null,
       savedAt: null,
       mapId: 'campaign_01',
       mapFingerprint: sim.mapFingerprint,

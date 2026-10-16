@@ -103,10 +103,10 @@ describe('a self-re-activating mission on a random timer', () => {
     const save = parseSaveGame(JSON.parse(serializeSaveGame(exportSaveGame(live, { mapId: 'loop' }))));
     // The records are positional, so a shorter script - or none at all - would run the saved state
     // against other missions entirely.
-    expect(() => restoreSimulation(save, { content: testContent() })).toThrow(/mission records/);
+    expect(() => restoreSimulation(save, { content: testContent() })).toThrow(/missionScriptFingerprint/);
     expect(() =>
       restoreSimulation(save, { content: testContent(), missions: { missions: LOOP.missions.slice(1) } }),
-    ).toThrow(/mission records/);
+    ).toThrow(/missionScriptFingerprint/);
   });
 });
 

@@ -1,4 +1,4 @@
-import type { ContentSet } from '@open-northland/data';
+import { type ContentSet, jsonFingerprint } from '@open-northland/data';
 import { type MapAiScript, MapAiState, missionRecords, missionStateExists } from '../components/index.js';
 import { assertNever } from '../core/brand.js';
 import { isPlainRecord, PROTO_KEY, valueShapeName } from '../core/plain-value.js';
@@ -43,6 +43,14 @@ export function restoreSimulation(save: SaveGame, opts: RestoreOptions): Simulat
     header.contentFingerprint !== simContentFingerprint(opts.content)
   ) {
     throw new Error('save.header.contentFingerprint: the loaded content differs from the save');
+  }
+  const missionFingerprint = opts.missions === undefined ? null : jsonFingerprint(opts.missions);
+  if (header.missionScriptFingerprint !== missionFingerprint) {
+    throw new Error('save.header.missionScriptFingerprint: the loaded mission script differs from the save');
+  }
+  const aiFingerprint = opts.mapAiScript === undefined ? null : jsonFingerprint(opts.mapAiScript);
+  if (header.mapAiScriptFingerprint !== aiFingerprint) {
+    throw new Error('save.header.mapAiScriptFingerprint: the loaded map AI script differs from the save');
   }
   const sim = new Simulation({
     seed: header.seed,

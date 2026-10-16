@@ -56,26 +56,28 @@ export function wakeCrewInside(world: World, workplace: Entity): void {
 }
 
 /**
- * The adults whose ladder found them nothing to do this pass, settled onto {@link IdleStand} once each
- * ladder run ends. The marker is written only when it changes, so a long-idle settler costs no write.
+ * The verdict of the ladder run in progress: whether it left its adult idle, settled onto
+ * {@link IdleStand} once the run ends. One slot serves the pass, since every drive stands only the
+ * settler being planned. The marker is written only when it changes, so a long-idle settler costs no write.
  */
 export class IdleStands {
-  private readonly stood = new Map<Entity, boolean>();
+  private entity: Entity | undefined;
+  private standing = false;
 
   /** Record that `e`'s ladder left it idle; `standing` says it reached the idle tail. */
   stand(e: Entity, standing: boolean): void {
-    this.stood.set(e, standing);
-  }
-
-  /** Whether `e`'s ladder reached its idle tail this pass. */
-  reachedTail(e: Entity): boolean {
-    return this.stood.get(e) === true;
+    this.entity = e;
+    this.standing = standing;
   }
 
   /** Mark `e` idle after its ladder ran, or wake it when the ladder found it something. */
   settle(world: World, e: Entity): void {
-    const standing = this.stood.get(e);
-    if (standing === undefined) wakeIdle(world, e);
-    else if (world.tryGet(e, IdleStand)?.standing !== standing) world.add(e, IdleStand, { standing });
+    if (this.entity !== e) {
+      wakeIdle(world, e);
+      return;
+    }
+    this.entity = undefined;
+    const standing = this.standing;
+    if (world.tryGet(e, IdleStand)?.standing !== standing) world.add(e, IdleStand, { standing });
   }
 }

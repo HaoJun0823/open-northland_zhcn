@@ -1,5 +1,5 @@
 {
-  "reason": "Odprawa opisuje sterowanie oryginału. U nas: punkty handlowe dodaje się w sekcji Handel okienka kupca (A/B, krzyżyk zdejmuje punkt), nie ma przycisku z szalkami w menu akcji ani przycisku zatrudnienia kupca; kupiec handluje tylko z wozem i przewozi tylko towary wybrane strzałkami w oknie handlu; oferty obcego plemienia to wiersz Handelsangebot (lewa strona: co oddajesz); wóz mieści 15/30 towarów; cel wskazuje się lewym przyciskiem; statkiem steruje się z jego okienka, a nie spacją; statek ładuje tragarz albo dowódca; na wyspę Saracenów musi popłynąć kupiec z wozem.",
+  "reason": "Odprawa opisuje sterowanie oryginału. U nas: punkty handlowe dodaje się w sekcji Handel okienka kupca (A/B, krzyżyk zdejmuje punkt), nie ma przycisku z szalkami w menu akcji ani przycisku zatrudnienia kupca; kupiec handluje tylko z wozem i przewozi tylko towary wybrane strzałkami w oknie handlu; oferty obcego plemienia to wiersz Handelsangebot (lewa strona: co oddajesz); wóz mieści 15/30 towarów; cel wskazuje się lewym przyciskiem; statkiem steruje się z jego okienka, a nie spacją; statek ładuje tragarz albo dowódca; na wyspę Saracenów musi popłynąć kupiec z wozem. Poprawione są też błędy gramatyczne i literówki; wózki mieszczą odpowiednio 15 i 30 towarów, nie przedział ilości.",
   "file": "maps/community/tutorial_005/text/ger/briefings/briefings.txt",
   "sha256": "8af95524c711a2a7c64998044681b708a6c19ce2f1104c206fe8dd678738c15b",
   "encoding": "windows-1250",
@@ -42,7 +42,7 @@
     },
     {
       "from": "Karren sind von großem Vorteil für die Träger und Händler, denn mit ihnen können bis zu 10 Waren bzw. bis zu 20 Waren gleichzeitig transportieren. Damit arbeitet ein Händler wesentlich effektiver. Um den Karren zu benutzen, muss ein Träger bzw. Händler dem Fahrzeug zugewiesen werden, erst dann ist es steuerbar. ",
-      "to": "Karren sind von großem Vorteil für die Träger und Händler, denn mit ihnen können bis zu 15 Waren bzw. bis zu 30 Waren gleichzeitig transportieren. Damit arbeitet ein Händler wesentlich effektiver. Um den Karren zu benutzen, muss ein Träger bzw. Händler dem Fahrzeug zugewiesen werden, erst dann ist es steuerbar. "
+      "to": "Karren sind von großem Vorteil für die Träger und Händler, denn mit ihnen können bis zu 15 Waren bzw. bis zu 30 Waren gleichzeitig transportiert werden. Damit arbeitet ein Händler wesentlich effektiver. Um den Karren zu benutzen, muss ein Träger bzw. Händler dem Fahrzeug zugewiesen werden, erst dann ist es steuerbar. "
     },
     {
       "from": "Dies geschieht über den Aktionsbutton \"Fahrzeug zuweisen\". Wenn du den Button betätigt hast, leuchten die möglichen Fahrzeuge (Schiff, Hand- oder Ochsenkarren) hell auf. Klicke mit der rechten Maustaste auf einen Karren, um dem Wikinger deine Wahl mitzuteilen. ",
@@ -94,7 +94,35 @@
     },
     {
       "from": "Überprüfe ob du dem Händler das nördliche Lagerhaus als Handelshaus 1 und ein anderes Lagerhaus als Handelshaus 2 zugewiesen hast.",
-      "to": "Überprüfe ob du dem Händler das nördliche Lagerhaus als Handelshaus A und ein anderes Lagerhaus als Handelshaus B zugewiesen hast, ob der Händler einen Karren lenkt und ob du im Handelsfenster den Honig mit einem Pfeil ausgewählt hast."
+      "to": "Überprüfe, ob du dem Händler das nördliche Lagerhaus als Handelshaus A und ein anderes Lagerhaus als Handelshaus B zugewiesen hast, ob der Händler einen Karren lenkt und ob du im Handelsfenster den Honig mit einem Pfeil ausgewählt hast."
+    },
+    {
+      "from": "Hier wirst du eingeführt, in den Land und Seehandel mit anderen Völkern, aber auch in die Verwendung des Händlers im eigenen Dorf ...",
+      "to": "Hier wirst du in den Land- und Seehandel mit anderen Völkern eingeführt, aber auch in die Verwendung des Händlers im eigenen Dorf ..."
+    },
+    {
+      "from": "Etwas abseits von deinen Dorf verrichten der Töpfer und der Steinmetz ihre Arbeit. Leider hatten sie vergessen die guten Eisenwerkzeuge mitzunehmen und arbeiten deshalb nicht sehr produktiv... ",
+      "to": "Etwas abseits von deinem Dorf verrichten der Töpfer und der Steinmetz ihre Arbeit. Leider hatten sie vergessen, die guten Eisenwerkzeuge mitzunehmen, und arbeiten deshalb nicht sehr produktiv... "
+    },
+    {
+      "from": "HANDARREN und OCHSENKARREN ",
+      "to": "HANDKARREN und OCHSENKARREN "
+    },
+    {
+      "from": "Zum Fernhandel mit einem anderen dir FREUNDLICH gesonnenen Volk, brauchst du einen gültigen Handelsvertrag und das andere Volk muss ein LAGERHAUS besitzen. Beide Voraussetzungen erfüllt dieses kleine Frankendorf an der Nordküste. Auch müssen deine Händler einem KARREN zugewiesen sein.",
+      "to": "Zum Fernhandel mit einem anderen dir FREUNDLICH gesonnenen Volk brauchst du einen gültigen Handelsvertrag und das andere Volk muss ein LAGERHAUS besitzen. Beide Voraussetzungen erfüllt dieses kleine Frankendorf an der Nordküste. Auch müssen deine Händler einem KARREN zugewiesen sein."
+    },
+    {
+      "from": "In der Zwischenzeit widmen wir uns dem Überseehandel. Manchmal ist es notwendig Schiffe zu beladen, um Waren an ferne Ufer zu bringen... wie zu diesem freundlichen Sarazenendorf.",
+      "to": "In der Zwischenzeit widmen wir uns dem Überseehandel. Manchmal ist es notwendig, Schiffe zu beladen, um Waren an ferne Ufer zu bringen... wie zu diesem freundlichen Sarazenendorf."
+    },
+    {
+      "from": "Willst du mit dem Schiff anlegen, musst du es zuerst ANDOCKEN, denn nur im angedockten Zustand können Wikinger an und von Bord gehen ein Schiff be- und entladen!!! ",
+      "to": "Willst du mit dem Schiff anlegen, musst du es zuerst ANDOCKEN, denn nur im angedockten Zustand können Wikinger an und von Bord gehen und das Schiff be- und entladen!!! "
+    },
+    {
+      "from": "Du hast auch den Handelsvertrag mit den Sarazenen erfüllt und kannst dich jetzt zurecht als großer Händler bezeichnen.",
+      "to": "Du hast auch den Handelsvertrag mit den Sarazenen erfüllt und kannst dich jetzt zu Recht als großer Händler bezeichnen."
     }
   ]
 }

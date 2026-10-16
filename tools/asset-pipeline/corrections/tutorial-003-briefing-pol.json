@@ -1,5 +1,5 @@
 {
-  "reason": "Przycisk budowania nie leży w pasku menu po lewej stronie ekranu: w naszej grze to \"Buduj\", pierwszy z lewej na pasku na dole ekranu (klawisz B bez zmian). Miejsce budowy wskazuje się LEWYM przyciskiem myszy; prawy przycisk odwołuje stawianie budynku.",
+  "reason": "Przycisk budowania nie leży w pasku menu po lewej stronie ekranu: w naszej grze to \"Buduj\", pierwszy z lewej na pasku na dole ekranu (klawisz B bez zmian). Miejsce budowy wskazuje się LEWYM przyciskiem myszy; prawy przycisk odwołuje stawianie budynku. Zbieranie gliny, drewna i kamienia to jeden zawód Zbieracz, a surowiec wybiera się ikoną w panelu postaci. Poprawione są też błędy gramatyczne i literówki. Farmer zdobywa doświadczenie przy pszenicy, nie przy mące. Przerwa w pracy nie dowodzi wyczerpania surowców: potrzeby również przerywają pracę. Ręczne przeniesienie obszaru pracy to nazwany rozkaz i lewy przycisk na wolnym terenie; początkowa flaga powstaje automatycznie przy zbieraczu. Zawód zbieracza może otrzymać dorosły mężczyzna.",
   "file": "maps/community/tutorial_003/text/pol/briefings/briefings.txt",
   "sha256": "fb729f00c69863c2a8087fed0d3a922a6dd1adb1128c41268b177a1b6278a5b6",
   "encoding": "windows-1250",
@@ -7,6 +7,34 @@
     {
       "from": "Teraz kliknij na symbol budynku (ikonka domu z młotkiem), który znajduje się na pasku menu po lewej stronie ekranu, lub wciśnij klawisz \"b\", a następnie wybierz z listy farmę. Grunt pociemnieje za wyjątkiem miejsca, gdzie będzie istniała możliwość wybudowania farmy. Kliknij PRAWYM PRZYCISKIEM MYSZY na jakimkolwiek jasnym miejscu. Twoi budowniczowie sami podejmą pracę na placu budowy. Jeśli jednak zajdzie taka potrzeba, będziesz mógł ich sam przydzielić do konkretnych konstrukcji.",
       "to": "Teraz kliknij przycisk \"Buduj\" (pierwszy z lewej na pasku na dole ekranu) lub wciśnij klawisz \"b\", a następnie wybierz z listy farmę. Grunt pociemnieje za wyjątkiem miejsca, gdzie będzie istniała możliwość wybudowania farmy. Kliknij LEWYM PRZYCISKIEM MYSZY na jakimkolwiek jasnym miejscu. Twoi budowniczowie sami podejmą pracę na placu budowy. Jeśli jednak zajdzie taka potrzeba, będziesz mógł ich sam przydzielić do konkretnych konstrukcji."
+    },
+    {
+      "from": "ZBIERACZE są podstawowymi pracownikami każdego budynku. Na początku będą zbierać glinę, drewno lub kamień. Wraz z osiągnięciem niezbędnego doświadczenia będą zbierać również złoto, rudę żelaza oraz grzyby. ",
+      "to": "ZBIERACZE dostarczają podstawowe surowce do budowy. Na początku będą zbierać glinę, drewno lub kamień. Wraz z osiągnięciem niezbędnego doświadczenia będą zbierać również złoto, rudę żelaza oraz grzyby. "
+    },
+    {
+      "from": "Od chwili, gdy już zdecydowanie będziesz potrzebował zbieraczy, wybierz jednego Wikinga-cywila, wciśnij klawisz SPACJI lub kliknij na nim prawym przyciskiem  myszy i przydziel mu zawód zbiearcza gliny. Powinieneś upewnić się, że na jego obszarze pracy znajduje się dół z gliną tak, aby mógł zacząć ją wydobywać. Jeśli twój zbieracz przestanie pracować w trakcie gry, będzie to oznaczać, że surowce skończyły się. Gdy to nastąpi, po prostu daj mu inną pracę. ",
+      "to": "Ponieważ będziesz potrzebował zbieraczy, wybierz jednego dorosłego Wikinga-mężczyznę, wciśnij klawisz SPACJI lub kliknij na nim prawym przyciskiem myszy, wybierz „Zmień zawód”, a następnie „Zbieracz”. W panelu postaci kliknij ikonę gliny, aby zbierał właśnie ten surowiec. Upewnij się, że na jego obszarze pracy znajduje się dół z gliną. Aby przenieść obszar pracy, wybierz z menu akcji „Przydziel obszar pracy” i kliknij LEWYM przyciskiem myszy na wolnym terenie przy glinie. Jeśli zbieracz przestanie pracować, sprawdź jego potrzeby i obszar pracy. Surowce mogły się wyczerpać; wtedy przenieś obszar pracy lub daj mu inną pracę. "
+    },
+    {
+      "from": "Teraz zatrudnij DRWALA i ZBIERACZA KAMIENI.",
+      "to": "Teraz przydziel dwóm kolejnym Wikingom zawód ZBIERACZA. W panelu jednego kliknij ikonę drewna, a w panelu drugiego ikonę kamienia."
+    },
+    {
+      "from": "Wskazówka: Zbieracze posiadają zawody, które nie wymagają konkretnego miejsca pracy. Tak jak produkowane towary, tak samo możesz zmieniać wydobywane przez nich surowce. Oczywiście pod warunkiem, że robotnik jest dostatecznie doświadczony oraz, że odpowiednie miejsce pracy jest dostępne.",
+      "to": "Wskazówka: Zbieracze posiadają zawody, które nie wymagają konkretnego miejsca pracy. Tak jak produkowane towary, tak samo możesz zmieniać wydobywane przez nich surowce. Oczywiście pod warunkiem, że robotnik jest dostatecznie doświadczony oraz że odpowiednie miejsce pracy jest dostępne."
+    },
+    {
+      "from": "Twoi robotnicy mają kilka różnych, naturalnych POTRZEB. Potrzebują oni jeść, spać, oraz chcą rozmawiać. Płatnerze, którzy wyrabiają zbroje lub broń, potrzebują błogosławieństwa bogów, dlatego też muszą modlić się w regularnych odstępach czasu. ",
+      "to": "Twoi robotnicy mają kilka różnych, naturalnych POTRZEB. Potrzebują oni jeść, spać oraz chcą rozmawiać. Płatnerze, którzy wyrabiają zbroje lub broń, potrzebują błogosławieństwa bogów, dlatego też muszą modlić się w regularnych odstępach czasu. "
+    },
+    {
+      "from": "Jeśli robotnik żyje w przyjemnym DOMU (idealnie, gdyby mógł przylegać do miejsca pracy robotnika), wówczas może odpocząć znacznie lepiej, niż gdyby musiał sypać na dworze.",
+      "to": "Jeśli robotnik żyje w przyjemnym DOMU (idealnie, gdyby mógł przylegać do miejsca pracy robotnika), wówczas może odpocząć znacznie lepiej, niż gdyby musiał sypiać na dworze."
+    },
+    {
+      "from": "Twój farmer jest jedyną osobą posiadającą dostateczne doświadczenie przy pracy z mąką. ",
+      "to": "Twój farmer jest jedyną osobą posiadającą dostateczne doświadczenie przy pracy z pszenicą. "
     }
   ]
 }

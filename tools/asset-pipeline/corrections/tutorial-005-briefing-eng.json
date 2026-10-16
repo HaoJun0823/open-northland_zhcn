@@ -1,5 +1,5 @@
 {
-  "reason": "Odprawa opisuje sterowanie oryginału. U nas: punkty handlowe dodaje się w sekcji Handel okienka kupca (A/B, krzyżyk zdejmuje punkt), nie ma przycisku z szalkami w menu akcji ani przycisku zatrudnienia kupca; kupiec handluje tylko z wozem i przewozi tylko towary wybrane strzałkami w oknie handlu; oferty obcego plemienia to wiersz Offer (lewa strona: co oddajesz); wóz mieści 15/30 towarów; cel wskazuje się lewym przyciskiem; statkiem steruje się z jego okienka, a nie spacją; statek ładuje tragarz albo dowódca; na wyspę Saracenów musi popłynąć kupiec z wozem.",
+  "reason": "Odprawa opisuje sterowanie oryginału. U nas: punkty handlowe dodaje się w sekcji Handel okienka kupca (A/B, krzyżyk zdejmuje punkt), nie ma przycisku z szalkami w menu akcji ani przycisku zatrudnienia kupca; kupiec handluje tylko z wozem i przewozi tylko towary wybrane strzałkami w oknie handlu; oferty obcego plemienia to wiersz Offer (lewa strona: co oddajesz); wóz mieści 15/30 towarów; cel wskazuje się lewym przyciskiem; statkiem steruje się z jego okienka, a nie spacją; statek ładuje tragarz albo dowódca; na wyspę Saracenów musi popłynąć kupiec z wozem. Poprawione są też błędy gramatyczne i literówki; wózki mieszczą odpowiednio 15 i 30 towarów, nie przedział ilości.",
   "file": "maps/community/tutorial_005/text/eng/briefings/briefings.txt",
   "sha256": "85489d80eec2fa7e2b3df707c300184447bc93ccab444253f27a41c7725ebca1",
   "encoding": "utf-8",
@@ -42,7 +42,7 @@
     },
     {
       "from": "Carts are a major advantage for carriers and merchants, because they can carry 10 to 20 goods respectively at the same time. Therefore, they can make a merchant far more effective. To use a cart, a carrier or merchant must be assigned to the vehicle so he can steer it. ",
-      "to": "Carts are a major advantage for carriers and merchants, because they can carry 15 to 30 goods respectively at the same time. Therefore, they can make a merchant far more effective. To use a cart, a carrier or merchant must be assigned to the vehicle so he can steer it. "
+      "to": "Carts are a major advantage for carriers and merchants, because they can carry 15 and 30 goods respectively at the same time. Therefore, they can make a merchant far more effective. To use a cart, a carrier or merchant must be assigned to the vehicle so he can steer it. "
     },
     {
       "from": "This can be done using the action button \"Assign Vehicle\". As soon as you have used this button, the possible vehicles (ship, handcart or ox cart) will light up. Click on one of the carts with the right mouse button to inform the Viking of your choice. ",
@@ -95,6 +95,18 @@
     {
       "from": "Check if you have assigned the northern warehouse to the merchant as trade post 1 and another warehouse as trade post 2.",
       "to": "Check if you have assigned the northern warehouse to the merchant as trade post A and another warehouse as trade post B, if the merchant drives a cart, and if you have chosen the honey with an arrow in the trade window."
+    },
+    {
+      "from": "In the meantime, our merchants can establish new trade relations with a Frankish people ...",
+      "to": "In the meantime, our merchants can establish new trade relations with the Franks ..."
+    },
+    {
+      "from": "To trade with another nation which has a FRIENDLY attitude towards you, you need an effective trade agreement, and the other people must have a WAREHOUSE. Both prerequisites are fulfilled by this tiny Frankish people on the north coast. Your merchants also need to be assigned a CART.",
+      "to": "To trade with another nation which has a FRIENDLY attitude towards you, you need an effective trade agreement, and the other people must have a WAREHOUSE. Both prerequisites are fulfilled by this tiny Frankish village on the north coast. Your merchants also need to be assigned a CART."
+    },
+    {
+      "from": "Trade 10 furniture with the Franks! You will receive 20 gold pieces in exchange.",
+      "to": "Trade 10 pieces of furniture with the Franks! You will receive 20 gold pieces in exchange."
     }
   ]
 }

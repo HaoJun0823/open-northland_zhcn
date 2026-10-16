@@ -1,5 +1,5 @@
 {
-  "reason": "Asystenta otwiera u nas klawisz E albo przycisk \"Asystent\" na dolnym pasku, nie \"A\" ani skrzynka w menu po lewej. Nasza szkoła nie odtwarza bugu ze szkołą (ukończenie nauki nie daje doświadczenia, uczy tylko odblokowanych już zawodów), a samouczek 8 o tym bugu znika z gry. Opisujemy więc odblokowanie zwykłą pracą według tribetypes.ini: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar, zbieracz 10 żelaza lub złota -> kowal (żelazo zbiera zbieracz z 10 gliny lub kamienia). Budynki poziomu 2 wymagają towaru, który odblokowuje 10 wyrobów robotnika w budynku poziomu 1 (kuźnia 2: kolczuga, zakład krawiecki 2: wełniana zbroja, warsztat płatnerski 2: długi łuk, warsztat ciesielski 2: meble), a świątynia druida (zbieracz 10 grzybów -> zbieracz ziół, 10 ziół -> druid). Dopisana nazwa licznika w oknie Asystenta (Synowie, Córki), żeby było wiadomo, co ustawić.",
+  "reason": "Asystenta otwiera u nas klawisz E albo przycisk \"Asystent\" na dolnym pasku, nie \"A\" ani skrzynka w menu po lewej. Nasza szkoła nie odtwarza bugu ze szkołą (ukończenie nauki nie daje doświadczenia, uczy tylko odblokowanych już zawodów), a samouczek 8 o tym bugu znika z gry. Opisujemy więc odblokowanie zwykłą pracą według tribetypes.ini: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar, zbieracz 10 żelaza lub złota -> kowal (żelazo zbiera zbieracz z 10 gliny lub kamienia). Budynki poziomu 2 wymagają towaru, który odblokowuje 10 wyrobów robotnika w budynku poziomu 1 (kuźnia 2: kolczuga, zakład krawiecki 2: wełniana zbroja, warsztat płatnerski 2: długi łuk, warsztat ciesielski 2: meble), a świątynia druida (zbieracz 10 grzybów -> zbieracz ziół, 10 ziół -> druid). Dopisana nazwa licznika w oknie Asystenta (Synowie, Córki), żeby było wiadomo, co ustawić. Poprawione są także błędy gramatyczne, literówki i nazwy interfejsu. Wymagane 10 powtórzeń produkcji oznacza ukończone cykle, nie liczbę wyrobów zwiększaną premiami. Świątynia działa stopniowo, w pobliżu, dla własnych jednostek i tylko ukończona oraz nieuszkodzona. Licznik Córki dotyczy kolejnych narodzin: po 4 kobietach i 5 córkach dalsze 16 daje 25 dorosłych kobiet. Ctrl i przycisk towaru włączają drugi wyrób do produkcji.",
   "file": "maps/community/tutorial_009/text/pol/briefings/briefings.txt",
   "sha256": "b116e9514f8579dc1d332ed8ef2ef9137fac93121bdc11471b11187ed005bb0e",
   "encoding": "windows-1250",
@@ -22,11 +22,11 @@
     },
     {
       "from": "Kiedy skończy, zmień mu zawód na młynarza i wyślij do szkoły, aby nauczył się młynarstwa.",
-      "to": "Kiedy młynarz zmiele 10 worków mąki, odblokuje piekarza. Wybuduj piekarnię 1 (blisko młyna i studni), wyślij cywila do szkoły, aby nauczył się piekarstwa, i przydziel go do piekarni. Piekarnia wymaga kamiennego bloku - to dobry moment, aby wybudować warsztat kamieniarski."
+      "to": "Po ukończeniu 10 cykli produkcji młynarz odblokuje piekarza. Wybuduj piekarnię 1 (blisko młyna i studni), wyślij cywila do szkoły, aby nauczył się piekarstwa, i przydziel go do piekarni. Piekarnia wymaga kamiennego bloku - to dobry moment, aby wybudować warsztat kamieniarski."
     },
     {
       "from": "Kiedy skończy, zmień mu zawód na piekarza i wyślij do szkoły, aby nauczył się piekarstwa.",
-      "to": "Kiedy piekarz upiecze 10 bochenków chleba, odblokuje piwowara, a z nim miód pitny."
+      "to": "Po ukończeniu 10 cykli produkcji piekarz odblokuje piwowara, a z nim miód pitny."
     },
     {
       "from": "Wybudujmy więc następujące budynki:",
@@ -38,7 +38,7 @@
     },
     {
       "from": "W kuźni wykorzystujemy żelazo oraz drewno, dlatego wybuduj teraz “kuźnię 2” w pobliżu złóż żelaza oraz lasu. ",
-      "to": "W kuźni wykorzystujemy żelazo oraz drewno, dlatego stawiaj kuźnie w pobliżu złóż żelaza oraz lasu. Kuźnia 2 odblokuje się, gdy kowal wykuje 10 wyrobów w kuźni 1, dlatego najpierw wybuduj “kuźnię 1” i przydziel do niej kowala, a potem wybuduj “kuźnię 2”."
+      "to": "W kuźni wykorzystujemy żelazo oraz drewno, dlatego stawiaj kuźnie w pobliżu złóż żelaza oraz lasu. Kuźnia 2 odblokuje się, gdy kowal ukończy 10 cykli produkcji w kuźni 1, dlatego najpierw wybuduj “kuźnię 1” i przydziel do niej kowala, a potem wybuduj “kuźnię 2”."
     },
     {
       "from": "PS. Do postawienia kuźni potrzebujemy żelaza, dlatego najpierw wyślij jakiegoś cywila do szkoły, aby nauczył się zbierać żelazo.",
@@ -49,16 +49,16 @@
       "to": [
         "Wybuduj fermę bydła i zakład krawiecki 2. Postaraj się, aby ferma bydła znalazła się w miarę blisko farmy i studni.",
         "",
-        "PS. Zakład krawiecki 2 odblokuje się, gdy krawiec uszyje 10 wyrobów w zakładzie krawieckim 1, dlatego najpierw wybuduj zakład krawiecki 1 i przydziel do niego krawca."
+        "PS. Zakład krawiecki 2 odblokuje się, gdy krawiec ukończy 10 cykli produkcji w zakładzie krawieckim 1, dlatego najpierw wybuduj zakład krawiecki 1 i przydziel do niego krawca."
       ]
     },
     {
       "from": "PS2. Jeżeli warsztat płatnerski 2 jest zablokowany, to użyj bugu ze szkołą: wyślij cywila, aby nauczył się płatnerza i potem ponownie, aby nauczył się płatnerza.",
-      "to": "PS2. Jeżeli warsztat płatnerski 2 jest zablokowany, to najpierw wybuduj warsztat płatnerski 1 i przydziel do niego płatnerza. Gdy wykona w nim 10 wyrobów, odblokuje długi łuk, a z nim warsztat płatnerski 2."
+      "to": "PS2. Jeżeli warsztat płatnerski 2 jest zablokowany, to najpierw wybuduj warsztat płatnerski 1 i przydziel do niego płatnerza. Gdy ukończy w nim 10 cykli produkcji, odblokuje długi łuk, a z nim warsztat płatnerski 2."
     },
     {
       "from": "Wybudujmy więc warsztat ciesielski 2 w pobliżu lasu! Jeżeli jest on zablokowany, to użyj bugu ze szkołą: wyślij cieślę, aby nauczył się ciesielstwa w szkole.",
-      "to": "Wybudujmy więc warsztat ciesielski 2 w pobliżu lasu! Jeżeli jest on zablokowany, to najpierw wybuduj warsztat ciesielski 1 i przydziel do niego cieślę. Gdy wykona w nim 10 wyrobów, odblokuje meble, a z nimi warsztat ciesielski 2."
+      "to": "Wybudujmy więc warsztat ciesielski 2 w pobliżu lasu! Jeżeli jest on zablokowany, to najpierw wybuduj warsztat ciesielski 1 i przydziel do niego cieślę. Gdy ukończy w nim 10 cykli produkcji, odblokuje meble, a z nimi warsztat ciesielski 2."
     },
     {
       "from": "PS2. Jeżeli nie masz odblokowanej świątyni, to użyj bugu ze szkołą. Wyślij cywila, aby nauczył się zbieracza ziół. Następnie ponownie wyślij tegoż zbieracza ziół, aby nauczył się zbieracza ziół.",
@@ -67,6 +67,74 @@
     {
       "from": "Ustaw produkcję dziewczyn na 5.",
       "to": "Ustaw produkcję dziewczyn (licznik „Córki”) na 5."
+    },
+    {
+      "from": "Dobra rozbudowa osady jest NAJWIĘKSZĄ dźwignią, która pozwoli Ci pokonać Twojego przeciwnika. W grze Cultures system bitewny nie jest aż tak rozbudowany jak w innych RTSach. Jeżeli posiadasz znaczącą przewagę liczebną i jakościową (uzbrojenia), to jesteś w stanie wygrać ze swoim przeciwnikiem w bardzo prosty sposób: wysyłając swoje wojsko do jego wioski. Koniec filozofii. Zamiast więc szukać przewag nad swoim przeciwnikiem w postaci uzbrojenia, wież obronnych, taktyk, mikro zarządzania wojskiem i katapultami… szukaj przewagi w rozbudowie osady! Lepsza i szybsza rozbudowa osady od Twojego oponenta jest praktycznie GWARANTEM ZWYCIĘSTWA.",
+      "to": "Dobra rozbudowa osady jest NAJWIĘKSZĄ dźwignią, która pozwoli Ci pokonać Twojego przeciwnika. W grze Cultures system bitewny nie jest aż tak rozbudowany jak w innych RTS-ach. Jeżeli posiadasz znaczącą przewagę liczebną i jakościową (uzbrojenia), to jesteś w stanie wygrać ze swoim przeciwnikiem w bardzo prosty sposób: wysyłając swoje wojsko do jego wioski. Koniec filozofii. Zamiast więc szukać przewag nad swoim przeciwnikiem w postaci uzbrojenia, wież obronnych, taktyk, mikrozarządzania wojskiem i katapultami… szukaj przewagi w rozbudowie osady! Lepsza i szybsza rozbudowa osady od Twojego oponenta jest praktycznie GWARANTEM ZWYCIĘSTWA."
+    },
+    {
+      "from": "Kolejność rozbudowy budynków i poszczególnych akcji zaprezentowana w tym samouczku prawdopodobnie nie jest najszybszą możliwą strategią. Niemniej jednak jest to strategia solidna i bezpieczna, która pozwoli Ci rozbudowywać się lepiej niż większość przeciętnych graczy Culturesa. Jest to strategia bardzo dobra na start i kiedy zdobędziesz w niej wystarczająco doświadczenia, będziesz mógł ją dostosowywać pod siebie.",
+      "to": "Kolejność rozbudowy budynków i poszczególnych akcji zaprezentowana w tym samouczku prawdopodobnie nie jest najszybszą możliwą strategią. Niemniej jednak jest to strategia solidna i bezpieczna, która pozwoli Ci rozbudowywać się lepiej niż większość przeciętnych graczy Culturesa. Jest to strategia bardzo dobra na start i kiedy zdobędziesz w niej wystarczająco dużo doświadczenia, będziesz mógł ją dostosowywać pod siebie."
+    },
+    {
+      "from": "Realizując tą strategię będziemy przechodzić przez następujące etapy:",
+      "to": "Realizując tę strategię, będziemy przechodzić przez następujące etapy:"
+    },
+    {
+      "from": "Zobaczmy do jakich jednostek mamy dostęp na początku… to jest coś od czego powinniśmy zacząć.",
+      "to": "Zobaczmy, do jakich jednostek mamy dostęp na początku… to jest coś, od czego powinniśmy zacząć."
+    },
+    {
+      "from": "Taki zestaw jest bardzo standardowy i uświadczysz go w podobnej formie na WIĘKSZOŚCI map multiplayer. Wyjątkiem tutaj jest rybak. Mamy do niego dostęp, ponieważ mapa na której gramy, to wielka wyspa.",
+      "to": "Taki zestaw jest bardzo standardowy i uświadczysz go w podobnej formie na WIĘKSZOŚCI map multiplayer. Wyjątkiem tutaj jest rybak. Mamy do niego dostęp, ponieważ mapa, na której gramy, to wielka wyspa."
+    },
+    {
+      "from": "Na tym etapie gry nie mamy zbyt wiele opcji do wyboru, ponieważ potrzebujemy doświadczenia praktycznie we wszystkim. Czekamy na zbieraczy, aż zdobędą doświadczenie. Ale nie będziemy stali bezczynnie! Za chwilę wybudujemy farmę i domki dla naszych kobiet. Ale najpierw zastanówmy się jak powinniśmy rozdzielić naszych 6 wolnych cywili.",
+      "to": "Na tym etapie gry nie mamy zbyt wiele opcji do wyboru, ponieważ potrzebujemy doświadczenia praktycznie we wszystkim. Czekamy na zbieraczy, aż zdobędą doświadczenie. Ale nie będziemy stali bezczynnie! Za chwilę wybudujemy farmę i domki dla naszych kobiet. Ale najpierw zastanówmy się, jak powinniśmy rozdzielić naszych 6 wolnych cywili."
+    },
+    {
+      "from": "To, ile domków należy wybudować, zależy od tego ile kobiet masz na start oraz jak dużo pożywienia znajduje się na początku gry.",
+      "to": "To, ile domków należy wybudować, zależy od tego, ile kobiet masz na start oraz jak dużo pożywienia znajduje się na początku gry."
+    },
+    {
+      "from": "5 domów warto postawić jeżeli mamy na start dużo jedzenia w kwaterze albo bliski dostęp do ryb.",
+      "to": "5 domów warto postawić, jeżeli mamy na start dużo jedzenia w kwaterze albo bliski dostęp do ryb."
+    },
+    {
+      "from": "Głodówka (brak żywności w Twojej wiosce) dzieli się na 2 rodzaje: lekka i masowa. Lekka głodówka, to parę głodujących robotników. Zwykle możemy ją pokonać wysyłając głodujących ludzi do pobliskiego lasu z krzakami owocowymi. Jednak miej się na baczności. Ta głodówka może być zwiastunem czegoś groźniejszego: MASOWEJ GŁODÓWKI.",
+      "to": "Głodówka (brak żywności w Twojej wiosce) dzieli się na 2 rodzaje: lekka i masowa. Lekka głodówka to parę głodujących robotników. Zwykle możemy ją pokonać, wysyłając głodujących ludzi do pobliskiego lasu z krzakami owocowymi. Jednak miej się na baczności. Ta głodówka może być zwiastunem czegoś groźniejszego: MASOWEJ GŁODÓWKI."
+    },
+    {
+      "from": "Masowa głodówka to moment w którym pod Twoją piekarnią grasuje banda głodujących ludzi. Ludzie są tak głodni, że nawet odmawiają picia miodów pitnych - interesuje ich tylko chleb. Piekarz nie wyrabia z produkcją. Budowniczowie już są zbyt głodni, aby postawić nową piekarnię. Fatalna sytuacja. W skrócie: przegrałeś rozgrywkę multiplayer (jeżeli akurat grałeś walkę z innym graczem).",
+      "to": "Masowa głodówka to moment, w którym pod Twoją piekarnią grasuje banda głodujących ludzi. Głodni ludzie szukają jedzenia, ale zapasy chleba szybko się kończą. Piekarz nie wyrabia z produkcją. Budowniczowie już są zbyt głodni, aby postawić nową piekarnię. Fatalna sytuacja. W skrócie: przegrałeś rozgrywkę multiplayer (jeżeli akurat grałeś walkę z innym graczem)."
+    },
+    {
+      "from": "PS. Nie zapomnij włączyć automatycznego brania miodów pitnych dla cywili i żołnierzy w asystencie! Inaczej całe nasze wysiłki pójdą na marne.",
+      "to": "PS. Nie zapomnij włączyć automatycznego brania miodów pitnych dla cywili i żołnierzy w asystencie! Inaczej wszystkie nasze wysiłki pójdą na marne."
+    },
+    {
+      "from": "*Aby ustawić naprzemienną produkcję 2 towarów, należy wybrać jeden towar do nieskończonej produkcji, a następnie kliknąć minus przy drugim towarze.",
+      "to": "*Aby produkować dwa towary na przemian bez limitu, kliknij ikonę pierwszego towaru w panelu pracownika, a następnie przytrzymaj Ctrl i kliknij ikonę drugiego. Przy obu licznikach pojawi się znak nieskończoności."
+    },
+    {
+      "from": "A po co świątynię skoro nasi wikingowie mają kwaterę główną do modlenia się? Ponieważ świątynia NIE TYLKO pozwala uzupełnić potrzebę religii, ale również zwiększa HP jednostek z 5000 do 7500! Jest to bardzo duży bonus, dlatego świątynia jest budynkiem KONIECZNYM do postawienia podczas walk multiplayer.",
+      "to": "A po co świątynię, skoro nasi wikingowie mają kwaterę główną do modlenia się? Ukończona, nieuszkodzona świątynia zaspokaja potrzebę religii i stopniowo podnosi punkty życia własnych jednostek w pobliżu do 150% zwykłego limitu — na przykład z 5000 do 7500! Jest to bardzo duży bonus, dlatego świątynia jest budynkiem KONIECZNYM do postawienia podczas walk multiplayer."
+    },
+    {
+      "from": "Ustaw w asystencie wymaganą liczbę dziewczynek na 20.",
+      "to": "Po urodzeniu 5 córek z wcześniejszego etapu ustaw licznik „Córki” na 16: początkowe 4 kobiety, 5 wcześniejszych córek i 16 nowych dadzą łącznie 25 kobiet, gdy córki dorosną. Licznik określa liczbę kolejnych narodzin, nie docelową liczbę kobiet."
+    },
+    {
+      "from": "Oczywiście przydzielanie kobietom domów i wydawanie ich za mąż, to jest zadanie na najbliższe 10-15 minut, ponieważ kobiety rodzą się i dorastają w różnym czasie. Niech będzie to Twoje poboczne zajęcie na najbliższy czas. Gdy tylko asystent osiągnie 0 w liczbie wymaganych dziewczynek, wznów produkcję chłopców. Więcej kobiet już nie będziemy potrzebować.",
+      "to": "Oczywiście przydzielanie kobietom domów i wydawanie ich za mąż to jest zadanie na najbliższe 10-15 minut, ponieważ kobiety rodzą się i dorastają w różnym czasie. Niech będzie to Twoje poboczne zajęcie na najbliższy czas. Gdy tylko asystent osiągnie 0 w liczbie wymaganych dziewczynek, wznów produkcję chłopców. Więcej kobiet już nie będziemy potrzebować."
+    },
+    {
+      "from": "Udało nam się wyszkolić pierwszych żołnierzy. Dalsza produkcja przebiega w taki sam sposób: jedyne co robimy to co jakiś czas uzupełniamy asystenta. Dzięki całej pracy, którą wykonaliśmy wcześniej, mamy teraz dostęp do żywności, broni, pancerzy, butów i wszystkich potrzebnych surowców.",
+      "to": "Udało nam się wyszkolić pierwszych żołnierzy. Dalsza produkcja przebiega w taki sam sposób: jedyne, co robimy, to co jakiś czas uzupełniamy asystenta. Dzięki całej pracy, którą wykonaliśmy wcześniej, mamy teraz dostęp do żywności, broni, pancerzy, butów i wszystkich potrzebnych surowców."
+    },
+    {
+      "from": "Są to rzeczy istotne, jednak zdecydowanie mniej ważne od wszystkiego co zrobiliśmy do tej pory. Jeżeli jesteś w stanie rozbudować wioskę do obecnego momentu lepiej i szybciej niż Twój przeciwnik, to jesteś na prostej drodze do zwycięstwa. Skup cały swój wysiłek na dojściu do obecnego etapu w jak najszybszy sposób, a osiągniesz najlepsze rezultaty.",
+      "to": "Są to rzeczy istotne, jednak zdecydowanie mniej ważne od wszystkiego, co zrobiliśmy do tej pory. Jeżeli jesteś w stanie rozbudować wioskę do obecnego momentu lepiej i szybciej niż Twój przeciwnik, to jesteś na prostej drodze do zwycięstwa. Skup cały swój wysiłek na dojściu do obecnego etapu w jak najszybszy sposób, a osiągniesz najlepsze rezultaty."
     }
   ]
 }

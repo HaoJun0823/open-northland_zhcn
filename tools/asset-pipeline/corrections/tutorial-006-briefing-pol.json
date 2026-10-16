@@ -1,5 +1,5 @@
 {
-  "reason": "U nas tragarza, zwiadowcę i kupca wysyła się do koszar przyciskiem \"Przydziel miejsce nauki\" (prawy klik na koszarach zatrudnia tragarza jako tragarza koszar); każdy dorosły mężczyzna poza bohaterami może się tam szkolić, trening nic nie kosztuje i nie daje doświadczenia (żołnierze zdobywają je w walce). Ekwipunek daje się też klawiszem I i polami w panelu osadnika. Katapultę robi warsztat ciesielski 4, a wehikuł wybiera się lewym kliknięciem. Wszystkich żołnierzy zaznacza klawisz M, grupę buduje się SHIFT. Tryb ignorowania nie wstrzymuje jedzenia i snu. Do wieży przydziela się tylko łuczników (koszary i magazyn główny nie biorą żołnierzy). Okno dyplomacji otwiera przycisk Dyplomacja na dolnym pasku i pokazuje listę plemion, nie mapę; trybut płaci się przyciskiem Zapłać. Plemię nie staje się wrogie od ataku, bo atakować można tylko wroga; komputer odpowiada na ustawiony stosunek.",
+  "reason": "U nas tragarza, zwiadowcę i kupca wysyła się do koszar przyciskiem \"Przydziel miejsce nauki\" (prawy klik na koszarach zatrudnia tragarza jako tragarza koszar); każdy dorosły mężczyzna poza bohaterami może się tam szkolić, trening nic nie kosztuje i nie daje doświadczenia (żołnierze zdobywają je w walce). Ekwipunek daje się też klawiszem I i polami w panelu osadnika. Katapultę robi warsztat ciesielski 4, a wehikuł wybiera się lewym kliknięciem. Wszystkich żołnierzy zaznacza klawisz M, grupę buduje się SHIFT. Tryb ignorowania nie wstrzymuje jedzenia i snu. Do wieży przydziela się tylko łuczników (koszary i magazyn główny nie biorą żołnierzy). Okno dyplomacji otwiera przycisk Dyplomacja na dolnym pasku i pokazuje listę plemion, nie mapę; trybut płaci się przyciskiem Zapłać. Plemię nie staje się wrogie od ataku, bo atakować można tylko wroga; komputer odpowiada na ustawiony stosunek. Poprawione są też błędy gramatyczne, literówki i nazwy przycisków. Zwykli żołnierze nie są klasą bohaterów; ekwipunek wybiera się przez pola w panelu i listę. Długi miecz jest mniej skuteczny przeciw zbroi płytowej niż przeszywnicy, ale zadaje jej obrażenia. Cel konfliktu dopuszcza walkę i pokojowe rozwiązanie. Większy zasięg włóczni porównuje się z krótkim mieczem; długi miecz ma taki sam zasięg jak włócznie.",
   "file": "maps/community/tutorial_006/text/pol/briefings/briefings.txt",
   "sha256": "427451ab1a423916ff5ad4c7484314b3fe6a16a12f645dcc950af61dbbbdc0e2",
   "encoding": "windows-1250",
@@ -14,7 +14,7 @@
     },
     {
       "from": "Każdy Wiking płci męskiej - poza tragarzami, kupcami i bohaterami - może zostać przydzielony do koszar i wytrenowany. Gdy tylko Wiking przybędzie do koszar, zostanie automatycznie wytrenowany na żołnierza. Opuści koszary jako wytrenowany żołnierz, ale bez jakiejkolwiek broni czy pancerza. Wciąż musisz dać mu je (przez akcję w menu opcji \"Zmień Ekwipunek \" lub przez jego zakładkę EKWIPUNEK)",
-      "to": "Każdy dorosły Wiking płci męskiej - poza bohaterami - może zostać przydzielony do koszar i wytrenowany. Gdy tylko Wiking przybędzie do koszar, zostanie automatycznie wytrenowany na żołnierza. Opuści koszary jako wytrenowany żołnierz, ale bez jakiejkolwiek broni czy pancerza. Wciąż musisz dać mu je (przez akcję \"Zmień Ekwipunek\" w menu akcji, klawiszem I lub przez pola ekwipunku w jego panelu)"
+      "to": "Każdy dorosły Wiking płci męskiej - poza bohaterami - może zostać przydzielony do koszar i wytrenowany. Gdy tylko Wiking przybędzie do koszar, zostanie automatycznie wytrenowany na żołnierza. Opuści koszary jako wytrenowany żołnierz, ale bez jakiejkolwiek broni czy pancerza. Wciąż musisz dać mu je (przez akcję \"Zmień Ekwipunek\" w menu akcji, klawiszem I lub przez pola ekwipunku w jego panelu)."
     },
     {
       "from": "Jeśli wyślesz ponownie żołnierzy do koszar, zostaną wytrenowani raz jeszcze. ",
@@ -26,11 +26,11 @@
     },
     {
       "from": "Żołnierze i bohaterowie mogą obsadzać katapulty, które są niezwykle skuteczne w atakach na budynki. Katapulty są produkowane przez warsztat płatnerski 2. Żołnierz lub bohater musi zostać przydzielony do wehikułu aby sterować nim. ",
-      "to": "Żołnierze i bohaterowie mogą obsadzać katapulty, które są niezwykle skuteczne w atakach na budynki. Katapulty są produkowane przez warsztat ciesielski 4. Żołnierz lub bohater musi zostać przydzielony do wehikułu aby sterować nim. "
+      "to": "Żołnierze i bohaterowie mogą obsadzać katapulty, które są niezwykle skuteczne w atakach na budynki. Katapulty są produkowane przez warsztat ciesielski 4. Żołnierz lub bohater musi zostać przydzielony do wehikułu, aby sterować nim. "
     },
     {
       "from": "Użyj przycisku akcji \"Przydziel Wehikuł\" aby przydzielić katapultę do Wikinga. Gdy tylko klikniesz na przycisk, dostępne katapulty podświetlą się. Kliknij prawym przyciskiem myszy na katapulcie, aby poinformować Wikinga o swoim wyborze.",
-      "to": "Użyj przycisku akcji \"Przydziel Wehikuł\" aby przydzielić katapultę do Wikinga. Gdy tylko klikniesz na przycisk, dostępne katapulty podświetlą się. Kliknij lewym przyciskiem myszy na katapulcie, aby poinformować Wikinga o swoim wyborze."
+      "to": "Użyj przycisku akcji \"Przydziel Wehikuł\", aby przydzielić katapultę do Wikinga. Gdy tylko klikniesz na przycisk, dostępne katapulty podświetlą się. Kliknij lewym przyciskiem myszy na katapulcie, aby poinformować Wikinga o swoim wyborze."
     },
     {
       "from": "Kilku żołnierzy wybiera się w ten sam sposób, co Wikingów. Przez DWUKROTNE KLIKNIĘCIE lewym przyciskiem myszy, możesz wybrać wszystkich żołnierzy tego samego typu. Podwójne kliknięcie na jednym z twoich włóczników, na przykład, spowoduje wybranie wszystkich włóczników na pewnym obszarze. Możesz również wybrać wszystkich żołnierzy w zasięgu wzroku poprzez przycisk wyboru w oknie podmiotowym, leżącym w dolnym, prawym rogu. ",
@@ -46,7 +46,7 @@
     },
     {
       "from": "Używając przycisku akcji \"Przydziel Miejsce Pracy \", możesz wysłać swoich żołnierzy do koszar, ustawić łuczników w wieży obronnej lub w magazynie głównym. Będą oni bronić tego budynku w przypadku ataku. Zamiast używać tego przycisku, możesz również przydzielić wybranego żołnierza przez kliknięcie prawym przyciskiem myszy na żądanym budynku.",
-      "to": "Używając przycisku akcji \"Przydziel Miejsce Pracy \", możesz ustawić łuczników w wieży obronnej. Będą oni bronić tego budynku w przypadku ataku. Zamiast używać tego przycisku, możesz również przydzielić wybranego łucznika przez kliknięcie prawym przyciskiem myszy na wieży."
+      "to": "Używając przycisku akcji \"Przydziel Miejsce Pracy\", możesz ustawić łuczników w wieży obronnej. Będą oni bronić tego budynku w przypadku ataku. Zamiast używać tego przycisku, możesz również przydzielić wybranego łucznika przez kliknięcie prawym przyciskiem myszy na wieży."
     },
     {
       "from": "Otwórz okno dyplomacji, klikając na przycisku po lewej stronie ekranu, lub wciskając klawisz F5. Mapa ogólna wyświetli wszystkie nacje, które zostały już przez ciebie odkryte. ",
@@ -63,6 +63,75 @@
     {
       "from": "Gdy tylko plemię jest zaatakowane, jego stosunek do atakującego staje się wrogi, nawet jeśli przedtem był nastawiony przyjaźnie.",
       "to": "Twoi żołnierze zaatakują tylko plemię, wobec którego ustawisz wrogi stosunek. Plemię kierowane przez komputer odpowiada wtedy tym samym i staje się wrogie, nawet jeśli przedtem było nastawione przyjaźnie."
+    },
+    {
+      "from": "Twoje plemię Wikingów jest w zasadzie bardzo pokojowo nastawione. Ale jeśli wrogie plemiona przyniosą im ciężkie czasy, wówczas twoi ludzie powinni wiedzieć jak walczyć ...",
+      "to": "Twoje plemię Wikingów jest w zasadzie bardzo pokojowo nastawione. Ale jeśli wrogie plemiona przyniosą im ciężkie czasy, wówczas twoi ludzie powinni wiedzieć, jak walczyć ..."
+    },
+    {
+      "from": "Każdy z Wikingów potrafi się bronić bardzo dobrze. Nawet kobiety oprzeć się nadciągającemu wrogowi walcząc pięściami. Jednakże, jeśli zaangażujesz się w wojnę lub zostaniesz zaatakowany przez wyborową grupę, będziesz potrzebował grupy dzielnych bohaterów ...",
+      "to": "Każdy z Wikingów potrafi się bronić bardzo dobrze. Nawet kobiety mogą oprzeć się nadciągającemu wrogowi, walcząc pięściami. Jednakże jeśli zaangażujesz się w wojnę lub zostaniesz zaatakowany przez wyborową grupę, będziesz potrzebował grupy dzielnych wojowników ..."
+    },
+    {
+      "from": "A o to są twoi bohaterowie!",
+      "to": "A oto twoi żołnierze!"
+    },
+    {
+      "from": "Włócznicy przystosowani tylko do walki z bliska i osiągają najlepsze rezultaty, jeśli kilku z nich walczy razem przeciwko jednemu celowi. Ich broń ma większy zasięg niż wojowników walczących mieczem.",
+      "to": "Włócznicy są przystosowani tylko do walki z bliska i osiągają najlepsze rezultaty, jeśli kilku z nich walczy razem przeciwko jednemu celowi. Ich broń ma większy zasięg niż krótkie miecze."
+    },
+    {
+      "from": "Gdy twój Wikingowie mają bronić się efektywnie, lub jeśli planujesz atak, będziesz potrzebował żołnierzy. Żołnierze muszą być rekrutowani i trenowani w koszarach. Koszary muszą być konstruowane przez twoich budowniczych tak samo jak każda inna budowla.",
+      "to": "Gdy twoi Wikingowie mają bronić się efektywnie lub jeśli planujesz atak, będziesz potrzebował żołnierzy. Żołnierze muszą być rekrutowani i trenowani w koszarach. Koszary muszą być konstruowane przez twoich budowniczych tak samo jak każda inna budowla.",
+      "every": true
+    },
+    {
+      "from": "Aby wyposażyć Wikinga, wybierz go i daj mu przedmioty w liście ekwipunku przez indywidualne przyciski. Aby wyposażyć grupę żołnierzy, zaleca się wybrać ich wszystkich i nacisnąć klawisz SPACJI, następnie wybrać przycisk \"ZMIEŃ EKWIPUNEK\" (przedstawiający duży i mały młotek). Z tą funkcją możesz w prosty sposób wyposażyć całe armie! ",
+      "to": "Aby wyposażyć Wikinga, wybierz go, kliknij pole ekwipunku w jego panelu i wybierz przedmiot z listy. Aby wyposażyć grupę żołnierzy, zaleca się wybrać ich wszystkich i nacisnąć klawisz SPACJI, następnie wybrać przycisk \"ZMIEŃ EKWIPUNEK\" (przedstawiający duży i mały młotek). Z tą funkcją możesz w prosty sposób wyposażyć całe armie! "
+    },
+    {
+      "from": "W magazynie obok koszar powinna być wystarczająca ilość broni i zbroi. Użyj ich do stworzenia 5 żołnierzy - szermierzy, 5 żołnierzy - łuczników z długimi łukami, oraz 5 żołnierzy - włóczników z drewnianym włóczniami!",
+      "to": "W magazynie obok koszar powinna być wystarczająca ilość broni i zbroi. Wyposaż 5 żołnierzy w krótkie miecze, 5 w długie łuki, a 5 w drewniane włócznie!"
+    },
+    {
+      "from": "Twoi żołnierze mogą być wyposażeni w zbroje, które będą ich chroniły. Dostępne typy zbroi to: przeszywnica, skórzana zbroja, kolczuga i zbroja płytowa. Nie każda zbroja jest efektywna przeciwko każdej broni: np. długi miecz niewiele zdziała przeciwko zbroi płytowej, ale jest za to niezwykle efektywny przeciwko przeszywnicy ... ",
+      "to": "Twoi żołnierze mogą być wyposażeni w zbroje, które będą ich chroniły. Dostępne typy zbroi to: przeszywnica, skórzana zbroja, kolczuga i zbroja płytowa. Nie każda zbroja jest efektywna przeciwko każdej broni: np. długi miecz jest mniej skuteczny przeciwko zbroi płytowej niż przeciwko przeszywnicy ... "
+    },
+    {
+      "from": "Pozwól na Regenerację: Ta funkcja pozwala żołnierzom zaspokoić ich potrzeby, takie jak głód czy sen. ",
+      "to": "Zezwól na regenerację: Ta funkcja pozwala żołnierzom zaspokoić ich potrzeby, takie jak głód czy sen. "
+    },
+    {
+      "from": "Tryb obrony: Żołnierze atakują zbliżającego się wroga automatycznie. Bronią się również gdy tylko zostaną zaatakowani. Jeśli w pobliżu toczą się walki, wówczas pospieszą tam, aby wspomóc swoich towarzyszy.",
+      "to": "Tryb obrony: Żołnierze atakują zbliżającego się wroga automatycznie. Bronią się również, gdy tylko zostaną zaatakowani. Jeśli w pobliżu toczą się walki, wówczas pospieszą tam, aby wspomóc swoich towarzyszy."
+    },
+    {
+      "from": "Zdobyłeś placówkę. Na nieszczęście, nie wiesz jak położona na południu wioska Saracenów zareaguje na tą konfrontację! Dlatego, powinieneś zbudować trochę fortyfikacji, aby być bezpiecznym. ",
+      "to": "Zdobyłeś placówkę. Na nieszczęście, nie wiesz, jak położona na południu wioska Saracenów zareaguje na tę konfrontację! Dlatego powinieneś zbudować trochę fortyfikacji, aby być bezpiecznym. "
+    },
+    {
+      "from": "Aby zabezpieczyć swoją wioskę, możesz nakazać swoim budowniczym wybudować klika potężnych wież strażniczych, palisad oraz bram. ",
+      "to": "Aby zabezpieczyć swoją wioskę, możesz nakazać swoim budowniczym wybudować kilka potężnych wież strażniczych, palisad oraz bram. "
+    },
+    {
+      "from": "Wybuduj tutaj 2 wieże obronne! Znajdź sposób, by podbić Saracenów.",
+      "to": "Wybuduj tutaj 2 wieże obronne! Znajdź sposób rozwiązania konfliktu z Saracenami."
+    },
+    {
+      "from": "Neutralność oznacza, że obie strony są całkiem szczęśliwe z swojej sytuacji. Nie kłócą się ze sobą i nie walczą, ale również nie handlują ze sobą.",
+      "to": "Neutralność oznacza, że obie strony są całkiem szczęśliwe ze swojej sytuacji. Nie kłócą się ze sobą i nie walczą, ale również nie handlują ze sobą."
+    },
+    {
+      "from": "Jeśli wymagane towary są dostępne w twoich magazynach, kliknij lewym przyciskiem myszy na właściwym przycisku. Towary zostaną natychmiast usunięte z magazynu i wręczone innemu plemieniu. Ostatnie nastawienie do ciebie ulegnie zmianie natychmiast.",
+      "to": "Jeśli wymagane towary są dostępne w twoich magazynach, kliknij lewym przyciskiem myszy na właściwym przycisku. Towary zostaną natychmiast usunięte z magazynu i wręczone innemu plemieniu. Nastawienie tego plemienia do ciebie ulegnie zmianie natychmiast."
+    },
+    {
+      "from": "BRILLIANT!",
+      "to": "WSPANIALE!"
+    },
+    {
+      "from": "Masz prawdziwy talent jako wojownik! Jednakże, powinieneś na serio popracować nad swoją gotowością do znajdywania pokojowych rozwiązań ... ;0)",
+      "to": "Masz prawdziwy talent jako wojownik! Jednakże powinieneś na serio popracować nad swoją gotowością do znajdowania pokojowych rozwiązań ... ;0)"
     }
   ]
 }

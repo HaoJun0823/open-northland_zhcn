@@ -1,5 +1,5 @@
 {
-  "reason": "W naszej grze (dane CulturesNation) część opisu się nie zgadza: mikstury wymagają grzybów, wody, ziół i monet (bez oleju i złota) i warzy je druid w rozbudowanej chatce alchemika; amulety wyrabia mincerz w mennicy; żelazne narzędzia robi cieśla, nie kowal; misę na olej ma dopiero Dom 3 i olej trzeba dopuścić w panelu domu. Zamiast okna z symbolem skrzyni jest okno Asystenta (E), a zamiast żółtych przycisków wolne pola torby w panelu postaci. Nie mamy okna pomocy ani tabeli skuteczności broni, więc dopisek o niej znika; po tym samouczku jest jeszcze samouczek 8 PRO, więc to nie są wszystkie samouczki, tylko wszystkie podstawowe.",
+  "reason": "W naszej grze (dane CulturesNation) część opisu się nie zgadza: mikstury wymagają grzybów, wody, ziół i monet (bez oleju i złota) i warzy je druid w rozbudowanej chatce alchemika; amulety wyrabia mincerz w mennicy; żelazne narzędzia robi cieśla, nie kowal; misę na olej ma dopiero Dom 3 i olej trzeba dopuścić w panelu domu. Zamiast okna z symbolem skrzyni jest okno Asystenta (E), a zamiast żółtych przycisków wolne pola torby w panelu postaci. Nie mamy okna pomocy ani tabeli skuteczności broni, więc dopisek o niej znika; po tym samouczku jest jeszcze samouczek 8 PRO, więc to nie są wszystkie samouczki, tylko wszystkie podstawowe. Poprawione są także błędy gramatyczne i literówki. Amulet precyzji ma 20% szansy na podwojenie obrażeń. Komunikat śmierci bohatera ostrzega warunkowo o kampanii, nie kończy tego samouczka porażką.",
   "file": "maps/community/tutorial_007/text/pol/briefings/briefings.txt",
   "sha256": "fb876741f16e9bf6417403a9aa3fdced06906d54bd1205c8a79277d18754efbc",
   "encoding": "windows-1250",
@@ -22,7 +22,7 @@
     },
     {
       "from": "Żelazne narzędzia podnoszą produktywność pracownika jeszcze bardziej, niż drewniane. Innymi słowy, produkcja pracownika jest jeszcze większa. Narzędzia z żelaza są wyrabiane przez kowala.",
-      "to": "Żelazne narzędzia podnoszą produktywność pracownika jeszcze bardziej, niż drewniane. Innymi słowy, produkcja pracownika jest jeszcze większa. Narzędzia z żelaza wyrabia cieśla z drewna i żelaza w rozbudowanym warsztacie ciesielskim."
+      "to": "Żelazne narzędzia podnoszą produktywność pracownika jeszcze bardziej niż drewniane. Innymi słowy, produkcja pracownika jest jeszcze większa. Narzędzia z żelaza wyrabia cieśla z drewna i żelaza w rozbudowanym warsztacie ciesielskim."
     },
     {
       "from": "Niech kowal wykona narzędzia z żelaza i rozda je mieszkańcom, używając tej samej procedury jak z narzędziami z drewna!",
@@ -39,6 +39,62 @@
     {
       "from": "Jeśli kończyłeś samouczki po kolei, to teraz masz je wszystkie świetnie opanowane! ",
       "to": "Jeśli kończyłeś samouczki po kolei, to teraz masz wszystkie podstawowe samouczki świetnie opanowane! "
+    },
+    {
+      "from": "Oprócz małżeństw i domów, na szczęście, produktywność i umiejętności twoich Wikingów mogą wpływać również tak zwane dodatkowe przedmioty.",
+      "to": "Dodatkowe przedmioty, podobnie jak małżeństwo i dom, wpływają na szczęście, produktywność i umiejętności twoich Wikingów."
+    },
+    {
+      "from": "Skrzynie zawierają zwykle rzadkie i użyteczne przedmioty, takie jak mikstury lub amulety. W niektórych przypadkach mogą kryć również zezwolenia na wzniesienie budowli!. Krąży również pogłoska, że niektóre skrzynie po otwarciu okazują się zawierać dzikie bestie i ludzi ...",
+      "to": "Skrzynie zawierają zwykle rzadkie i użyteczne przedmioty, takie jak mikstury lub amulety. W niektórych przypadkach mogą kryć również zezwolenia na wzniesienie budowli! Krąży również pogłoska, że niektóre skrzynie po otwarciu okazują się zawierać dzikie bestie i ludzi ..."
+    },
+    {
+      "from": "Aby otworzyć skrzynię, wybierz Wikinga i przesuń wskaźnik myszy nad skrzynię. Zobaczysz wskazówkę \"Otwórz Skrzynię \". Potwierdź klikając prawym przyciskiem myszy. ",
+      "to": "Aby otworzyć skrzynię, wybierz Wikinga i przesuń wskaźnik myszy nad skrzynię. Zobaczysz wskazówkę \"Otwórz Skrzynię\". Potwierdź, klikając prawym przyciskiem myszy. "
+    },
+    {
+      "from": "Występują: MIKSTURY WZMACNIAJĄCE, które zaspokajają głód; MIKSTURY WYTRZYMAŁOŚCI, które chronią twoich Wikingów przez zmęczeniem, oraz MIKSTURY LECZNICZE, które leczą rany. ",
+      "to": "Występują: MIKSTURY ODŻYWCZE, które zaspokajają głód; MIKSTURY WYTRZYMAŁOŚCI, które chronią twoich Wikingów przed zmęczeniem, oraz MIKSTURY LECZNICZE, które leczą rany. "
+    },
+    {
+      "from": "Amulet wzmocnienia chroni noszącego przed głodem, amulet wytrzymałości powoduje, że noszący go nie zapada w sen, amulet siły dodaje odwagi i męstwa noszącemu, oraz zwiększa jego siłę ataku o 50 procent. Amulet obrony osłabia siłę ataków dzikich bestii i nieprzyjaciół, amulet precyzji ma 20 procent szansy na zwiększenie siły noszącego w ataku na zwierzęta i wrogów, a amulet wiatru pozwala noszącemu szybciej się poruszać. ",
+      "to": "Odżywczy amulet chroni noszącego przed głodem, amulet wytrzymałości powoduje, że noszący go nie zapada w sen, amulet siły dodaje odwagi i męstwa noszącemu oraz zwiększa jego siłę ataku o 50 procent. Amulet obrony osłabia siłę ataków dzikich bestii i nieprzyjaciół, amulet precyzji ma 20 procent szansy na podwojenie obrażeń zadawanych przez noszącego w ataku na zwierzęta i wrogów, a amulet wiatru pozwala noszącemu szybciej się poruszać. "
+    },
+    {
+      "from": "Z jednej strony, broń i zbroje mogą być produkowane przez plemię twoich Wikingów; z drugiej zaś strony, mogą one być zabrane innym wojownikom w bitwie - każdy pokonany wojownik zostawia swoja broń, zbroję oraz nie zużyte napoje i amulety. Możesz użyć ich, aby wyposażyć swoich Wikingów-wojowników. ",
+      "to": "Z jednej strony, broń i zbroje mogą być produkowane przez plemię twoich Wikingów; z drugiej zaś strony, mogą one być zabrane innym wojownikom w bitwie - każdy pokonany wojownik zostawia swoją broń, zbroję oraz niezużyte napoje i amulety. Możesz użyć ich, aby wyposażyć swoich Wikingów-wojowników. "
+    },
+    {
+      "from": "Szczęśliwie zakończyłeś konfrontację z rabusiami! Teraz możesz przeszukać mapę za dodatkowymi skrzyniami i ekwipunkiem ... ",
+      "to": "Szczęśliwie zakończyłeś konfrontację z rabusiami! Teraz możesz przeszukać mapę w poszukiwaniu dodatkowych skrzyń i ekwipunku ... "
+    },
+    {
+      "from": " ... ale na razie wróć do swojej cywilnej populacji, ponieważ możesz się również mocno przyczynić dla ich dobrobytu:",
+      "to": " ... ale na razie wróć do swojej cywilnej populacji, ponieważ możesz się również mocno przyczynić do ich dobrobytu:"
+    },
+    {
+      "from": "Naczynia umożliwiają kobietom Wikingów poprawić przygotowane przez nie posiłki, oraz podwoić ich wartości pokarmowe!",
+      "to": "Naczynia pozwalają kobietom Wikingów ulepszać przygotowywane posiłki i podwajać ich wartość odżywczą!"
+    },
+    {
+      "from": "Naczynia są produkowane przez w warsztacie garncarskim.",
+      "to": "Naczynia są produkowane w warsztacie garncarskim."
+    },
+    {
+      "from": "Każdy bosy Wiking oddałby prawie wszystko za parę butów, tak aby uczynić chodzenie znacznie przyjemniejszym. Wiking noszacy buty może chodzić znacznie szybciej i zużywa mniej energii, co oznacza, że nie robi się tak szybko głodny i zmęczony. Buty sa produkowane w zakładzie krawieckim.",
+      "to": "Każdy bosy Wiking oddałby prawie wszystko za parę butów, tak aby uczynić chodzenie znacznie przyjemniejszym. Wiking noszący buty może chodzić znacznie szybciej i zużywa mniej energii, co oznacza, że nie robi się tak szybko głodny i zmęczony. Buty są produkowane w zakładzie krawieckim."
+    },
+    {
+      "from": "Niech druid wyprodukuje 5 jednostek oleju i zabierz go do kwatery głównej!",
+      "to": "Niech druid wyprodukuje 5 jednostek oliwy i zabierz go do kwatery głównej!"
+    },
+    {
+      "from": "Możesz powtórzyć je oddzielnie aby odświeżyć swoją wiedzę o mechanizmach gry w dowolnym czasie. ",
+      "to": "Możesz powtórzyć je oddzielnie, aby odświeżyć swoją wiedzę o mechanizmach gry w dowolnym czasie. "
+    },
+    {
+      "from": "Heroizm czy beztroska? Gdy zmarł Bjarni, bogowie płakali ... bez tego bohatera, cel misji pozostanie dla ciebie nieosiągalny i będziesz zmuszony rozpocząć wszystko od początku! ",
+      "to": "Heroizm czy beztroska? Gdy zmarł Bjarni, bogowie płakali ... W kampanii utrata bohatera może oznaczać porażkę i konieczność rozpoczęcia misji od nowa! "
     }
   ]
 }

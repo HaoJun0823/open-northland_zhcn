@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji.",
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Poprawione są także błędy gramatyczne i pisownia.",
   "file": "maps/community/tutorial_002/text/ger/briefings/briefings.txt",
   "sha256": "62ca680a9b5a89c9cadc56f6d6683e60cfd7b42b51fec8503a407977238ae2c7",
   "encoding": "windows-1250",
@@ -27,7 +27,7 @@
     {
       "line": 86,
       "from": "Es gibt aber auch Wikinger, die sich von deiner Zivilbevölkerung unterscheiden: sie sind stärker und schneller als die normalen Wikinger, haben keinen Hunger und müssen nicht schlafen. Sie üben auch keinen Beruf aus, denn sie sind vom Beruf aus HELD. Ihr Aufklärungsradius entspricht dem eines Kundschafters. Helden leben meist ein einsames Leben und es gibt nicht allzu viele auf der weiten Welt, aber einer begleitet dich von Beginn an. Das ist BJARNI - der Sohn eines geachteten Wikingerkönigs der alten Zeit. ",
-      "to": "Es gibt aber auch Wikinger, die sich von deiner Zivilbevölkerung unterscheiden: sie sind stärker und schneller als die normalen Wikinger, haben keinen Hunger und müssen nicht schlafen. Sie üben auch keinen Beruf aus, denn sie sind vom Beruf aus HELD. Ihr Aufklärungsradius ist fast so groß wie der eines Kundschafters. Helden leben meist ein einsames Leben und es gibt nicht allzu viele auf der weiten Welt, aber einer begleitet dich von Beginn an. Das ist BJARNI - der Sohn eines geachteten Wikingerkönigs der alten Zeit. "
+      "to": "Es gibt aber auch Wikinger, die sich von deiner Zivilbevölkerung unterscheiden: sie sind stärker und schneller als die normalen Wikinger, haben keinen Hunger und müssen nicht schlafen. Sie üben auch keinen Beruf aus, denn sie sind von Beruf HELD. Ihr Aufklärungsradius ist fast so groß wie der eines Kundschafters. Helden leben meist ein einsames Leben und es gibt nicht allzu viele auf der weiten Welt, aber einer begleitet dich von Beginn an. Das ist BJARNI - der Sohn eines geachteten Wikingerkönigs der alten Zeit. "
     },
     {
       "line": 92,
@@ -43,6 +43,21 @@
       "line": 107,
       "from": "Bekämpfe mit Bjarni die Wölfe im Sumpf, indem du ihn auswählst und mit der RECHTEN MAUSTASTE auf die Tiere klickst, wenn im Tooltip \"Bjarni - Greife Tier an\" erscheint!",
       "to": "Bekämpfe mit Bjarni die Wölfe im Sumpf: Wähle ihn aus, klicke ihn mit der RECHTEN MAUSTASTE an (oder drücke die LEERTASTE), wähle im Aktionsmenü den Befehl \"Greife Tier an\" und klicke mit der LINKEN MAUSTASTE auf einen Wolf!"
+    },
+    {
+      "line": 7,
+      "from": "Hier werden dir die individuellen Fähigkeiten und Attribute einer einzelnen Figur näher gebracht, wie:",
+      "to": "Hier werden dir die individuellen Fähigkeiten und Attribute einer einzelnen Figur nähergebracht, wie:"
+    },
+    {
+      "line": 30,
+      "from": "Dies ist Gunnhild. Sie ist die glückliche Frau an Halldors Seite und beide haben gemeinsam ein kleines Mädchen, namens Grimmhild...",
+      "to": "Dies ist Gunnhild. Sie ist die glückliche Frau an Halldors Seite und beide haben gemeinsam ein kleines Mädchen namens Grimmhild..."
+    },
+    {
+      "line": 61,
+      "from": "Beachte: Nicht immer ist das Heiraten eine einfache Sache. Manche Wikinger sind so vertieft in ihre Aufgaben, dass sie die Werbungen eines anderen gar nicht registrieren oder sich gar einen anderen Partner wählen wollen. Falls du einmal Probleme mit zwei vermeintlich Liebenden hast, dann schicke sie zusammen weg, fernab von allen anderen und gib dann mindestens einen der beiden den Heiratsbefehl! ",
+      "to": "Beachte: Nicht immer ist das Heiraten eine einfache Sache. Manche Wikinger sind so vertieft in ihre Aufgaben, dass sie die Werbungen eines anderen gar nicht registrieren oder sich gar einen anderen Partner wählen wollen. Falls du einmal Probleme mit zwei vermeintlich Liebenden hast, dann schicke sie zusammen weg, fernab von allen anderen und gib dann mindestens einem der beiden den Heiratsbefehl! "
     }
   ]
 }

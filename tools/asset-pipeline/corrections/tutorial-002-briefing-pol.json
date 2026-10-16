@@ -1,5 +1,5 @@
 {
-  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Nagłówek \"HEROES\" przetłumaczony (BOHATEROWIE).",
+  "reason": "Samouczek opisuje interfejs oryginału. U nas: najechanie na postać pokazuje kartę z imieniem i zawodem, a rodzinę, dom i pracę widać w panelu postaci (nic nie miga); imię zmienia się w polu w panelu postaci; wiadomości są w lewym górnym rogu z pieczęcią czerwoną, pomarańczową lub zieloną, a wszystkie usuwa Shift + prawy przycisk; okno poddanych to F2 albo przycisk Poddani na dolnym pasku; bohater widzi nieco mniej niż zwiadowca; prawy przycisk na dzikim zwierzęciu tylko prowadzi tam postać, atak to rozkaz \"Zaatakuj zwierzę\" z menu akcji. Nagłówek \"HEROES\" przetłumaczony (BOHATEROWIE). Poprawione są także błędy gramatyczne i pisownia. Bjoern chce powiększyć plemię, nie dopiero do niego dołączyć.",
   "file": "maps/community/tutorial_002/text/pol/briefings/briefings.txt",
   "sha256": "15e774deaeac29ad3e37a3682bae31133638c9aa2a5bee0ce175bea99a3f05d6",
   "encoding": "windows-1250",
@@ -47,6 +47,31 @@
     {
       "from": "HEROES",
       "to": "BOHATEROWIE"
+    },
+    {
+      "line": 24,
+      "from": "Jest drwalem i jest szczęśliwy wykonując swoją pracę. Ma żonę i małe dziecko, którzy oczekują na niego w domu, aż powróci z pracy.",
+      "to": "Jest drwalem i jest szczęśliwy, wykonując swoją pracę. Ma żonę i małe dziecko, którzy oczekują na niego w domu, aż powróci z pracy."
+    },
+    {
+      "line": 30,
+      "from": "To jest Gunnhilda. Jest szczęśliwą kobietą, żyjącą u boku Halldora. Para ta posiada córeczkę o imienu Grimmhild ...",
+      "to": "To jest Gunnhilda. Jest szczęśliwą kobietą, żyjącą u boku Halldora. Para ta posiada córeczkę o imieniu Grimmhild ..."
+    },
+    {
+      "line": 45,
+      "from": "Chciałby mieć żonę, mieszkać w domu i przyłączyć się do plemienia Wikingów. Nie lubi swojego imienia, jak również swojej pracy i o wiele bardziej wolałby przez cały dzień siedzieć i łowić ryby. ",
+      "to": "Chciałby mieć żonę, mieszkać w domu i powiększyć plemię Wikingów. Nie lubi swojego imienia, jak również swojej pracy i o wiele bardziej wolałby przez cały dzień siedzieć i łowić ryby. "
+    },
+    {
+      "line": 70,
+      "from": "Każdy z twoich Wikingów, nawet małe, nowonarodzone dziecko, ma pewien zasób ENERGII ŻYCIOWEJ. Energia ta może zmniejszać się w wyniku GŁODU lub odniesienia RAN. Gdy tylko niekorzystna sytuacja zmieni się, energia postaci zacznie się powoli regenerować - zakładając oczywiście, że Wiking jest wciąż żywy. Żaden z Twoich wikingów nie może umrzeć ze starości!",
+      "to": "Każdy z twoich Wikingów, nawet małe, nowo narodzone dziecko, ma pewien zasób ENERGII ŻYCIOWEJ. Energia ta może zmniejszać się w wyniku GŁODU lub odniesienia RAN. Gdy tylko niekorzystna sytuacja zmieni się, energia postaci zacznie się powoli regenerować - zakładając oczywiście, że Wiking jest wciąż żywy. Żaden z Twoich wikingów nie może umrzeć ze starości!"
+    },
+    {
+      "line": 77,
+      "from": "Powinieneś upewnić się, że twoi Wikingowie mogą szybko zaspokoić swoje potrzeby, tak aby mogli posuwać się do przodu ze swoja pracą. ",
+      "to": "Powinieneś upewnić się, że twoi Wikingowie mogą szybko zaspokoić swoje potrzeby, tak aby mogli posuwać się do przodu ze swoją pracą. "
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "reason": "W naszej grze (dane CulturesNation) część opisu się nie zgadza: mikstury wymagają grzybów, wody, ziół i monet (bez oleju i złota) i warzy je druid w rozbudowanej chatce alchemika; amulety wyrabia mincerz w mennicy; żelazne narzędzia robi cieśla, nie kowal; misę na olej ma dopiero Dom 3 i olej trzeba dopuścić w panelu domu. Zamiast okna z symbolem skrzyni jest okno Asystenta (E), a zamiast żółtych przycisków wolne pola torby w panelu postaci. Nazwy rozkazów poprawione na brzmienie z gry (\"Öffne Truhe\", \"Wechsele Ausrüstung\"). Nie mamy okna pomocy ani tabeli skuteczności broni, więc dopisek o niej znika; po tym samouczku jest jeszcze samouczek 8 PRO, więc to nie są wszystkie samouczki, tylko wszystkie podstawowe.",
+  "reason": "W naszej grze (dane CulturesNation) część opisu się nie zgadza: mikstury wymagają grzybów, wody, ziół i monet (bez oleju i złota) i warzy je druid w rozbudowanej chatce alchemika; amulety wyrabia mincerz w mennicy; żelazne narzędzia robi cieśla, nie kowal; misę na olej ma dopiero Dom 3 i olej trzeba dopuścić w panelu domu. Zamiast okna z symbolem skrzyni jest okno Asystenta (E), a zamiast żółtych przycisków wolne pola torby w panelu postaci. Nazwy rozkazów poprawione na brzmienie z gry (\"Öffne Truhe\", \"Wechsele Ausrüstung\"). Nie mamy okna pomocy ani tabeli skuteczności broni, więc dopisek o niej znika; po tym samouczku jest jeszcze samouczek 8 PRO, więc to nie są wszystkie samouczki, tylko wszystkie podstawowe. Poprawione są także błędy gramatyczne i literówki. Amulet precyzji ma 20% szansy na podwojenie obrażeń. Komunikat śmierci bohatera ostrzega warunkowo o kampanii, nie kończy tego samouczka porażką.",
   "file": "maps/community/tutorial_007/text/ger/briefings/briefings.txt",
   "sha256": "e3984e5c6b34c934373fe1d033e53c832eaddfbdbd72e4b1c7c6caeb5dda9b86",
   "encoding": "windows-1250",
@@ -10,7 +10,7 @@
     },
     {
       "from": "Wenn du die Tränke nicht in Kisten findest, aber sie trotzdem benötigst, müssen sie vom Druiden in der großen Alchemistenhütte hergestellt werden. Für die Herstellung dieser werden nicht nur Pilze und Öl gebraucht, sondern auch Wasser und Kräuter. Für geheime und höchst seltenen Zutaten benötigt der Druide zusätzlich Gold. Alle Wikinger, bis auf Frauen und Helden können mit diesen Versorgungs-, Heil-, und Kampftränken ausgestattet werden. Die kleinen Tränke können sie 2-mal benutzen, die großen Tränke 5-mal. Danach sind sie verbraucht.",
-      "to": "Wenn du die Tränke nicht in Kisten findest, aber sie trotzdem benötigst, müssen sie vom Druiden in der großen Alchemistenhütte hergestellt werden. Für die Herstellung dieser werden Pilze, Wasser und Kräuter gebraucht. Für geheime und höchst seltenen Zutaten benötigt der Druide zusätzlich Münzen. Alle Wikinger, bis auf Frauen und Helden können mit diesen Versorgungs-, Heil-, und Kampftränken ausgestattet werden. Die kleinen Tränke können sie 2-mal benutzen, die großen Tränke 5-mal. Danach sind sie verbraucht."
+      "to": "Wenn du die Tränke nicht in Kisten findest, aber sie trotzdem benötigst, müssen sie vom Druiden in der großen Alchemistenhütte hergestellt werden. Für die Herstellung dieser werden Pilze, Wasser und Kräuter gebraucht. Für geheime und höchst seltene Zutaten benötigt der Druide zusätzlich Münzen. Alle Wikinger bis auf Frauen und Helden können mit diesen Versorgungs-, Heil- und Kampftränken ausgestattet werden. Die kleinen Tränke können sie 2-mal benutzen, die großen Tränke 5-mal. Danach sind sie verbraucht."
     },
     {
       "from": "Rüste deine Wikingersoldaten mit den Tränken aus, indem du alle - bis auf BJARNI! - als Gruppe auswählst und die Leertaste betätigst. Wähle das Menü \"WECHSLE AUSRÜSTUNG\" und weise ihnen die Tränke zu! Auch kannst du jedem Einzelnen sagen, wie viele Tränke er von einer Sorte nehmen soll, indem du im Figurenmenü jedes Einzelnen die runden gelben Button betätigst. Dadurch öffnet sich ebenfalls das Ausrüstungsmenü. ",
@@ -18,7 +18,7 @@
     },
     {
       "from": "Sie können nicht hergestellt, nur gefunden oder im Tausch mit anderen Völkern erworben werden. Alle männlichen Wikinger, bis auf Helden, können mit Amuletten ausgestattet werden. Sie verleihen dem Träger bestimmte Eigenschaften und verbrauchen sich nie. Es gibt verschieden Arten der Amulette:",
-      "to": "Sie werden vom Münzmacher in der Münzpräge aus Eisen, Gold und einer weiteren Ware hergestellt, die für jede Amulettart eine andere ist. Man kann sie auch finden oder im Tausch mit anderen Völkern erwerben. Alle männlichen Wikinger, bis auf Helden, können mit Amuletten ausgestattet werden. Sie verleihen dem Träger bestimmte Eigenschaften und verbrauchen sich nie. Es gibt verschieden Arten der Amulette:"
+      "to": "Sie werden vom Münzmacher in der Münzpräge aus Eisen, Gold und einer weiteren Ware hergestellt, die für jede Amulettart eine andere ist. Man kann sie auch finden oder im Tausch mit anderen Völkern erwerben. Alle männlichen Wikinger, bis auf Helden, können mit Amuletten ausgestattet werden. Sie verleihen dem Träger bestimmte Eigenschaften und verbrauchen sich nie. Es gibt verschiedene Arten der Amulette:"
     },
     {
       "from": "Lass vom Schreiner 5 Holzwerkzeuge herstellen und verteile sie an die Bevölkerung, indem du im Extra Menü (der Button mit dem Kistensymbol) den Befehl \"immer Holzwerkzeug an Zivilisten vereilen\" AN schaltest!",
@@ -30,7 +30,7 @@
     },
     {
       "from": "Lass vom Schmied Eisenwerkzeuge herstellen und verteile sie an die Bevölkerung, indem du vorgehst, wie bei den Holzwerkzeugen!",
-      "to": "Lass vom Schreiner Eisenwerkzeuge herstellen und verteile sie an die Bevölkerung, indem du vorgehst, wie bei den Holzwerkzeugen (Schalter \"Eisenwerkzeug\")!"
+      "to": "Lass vom Schreiner Eisenwerkzeuge herstellen und verteile sie an die Bevölkerung, indem du vorgehst wie bei den Holzwerkzeugen (Schalter \"Eisenwerkzeug\")!"
     },
     {
       "from": "Außen an jedem Wohngebäude befindet sich eine Metallschale, die eine Frau mit Öl füllen und daran das Heilige Feuer entzünden kann. Wenn diese bläuliche Flamme brennt, kann der Mann zu Hause beten. Sein Bedarf an Religion wird dort vollständig gedeckt! Öl wird vom Druiden hergestellt. ",
@@ -43,6 +43,54 @@
     {
       "from": "Nun hast du, wenn du der Reihe nach vorgegangen bist, alle Tutorials perfekt bestanden! ",
       "to": "Nun hast du, wenn du der Reihe nach vorgegangen bist, alle Grundlagen-Tutorials perfekt bestanden! "
+    },
+    {
+      "from": "Es gibt auch Dinge außer Wohnhäuser und Ehepartner, mit denen sich ein Wikinger ausrüsten kann und die direkten Einfluss auf seine Bedürfnisbefriedigung, seine Produktivität oder seine Fähigkeiten haben - die so genannten Bonusgegenstände.",
+      "to": "Es gibt auch Dinge außer Wohnhäusern und Ehepartnern, mit denen sich ein Wikinger ausrüsten kann und die direkten Einfluss auf seine Bedürfnisbefriedigung, seine Produktivität oder seine Fähigkeiten haben - die so genannten Bonusgegenstände."
+    },
+    {
+      "from": "Es gibt NAHRUNGSTRÄNKE, die den Hunger stillen;  WACHTRÄNKE die vor Müdigkeit schützen und HEILTRÄNKE, die Verletzungen lindern. ",
+      "to": "Es gibt NAHRUNGSTRÄNKE, die den Hunger stillen;  WACHTRÄNKE, die vor Müdigkeit schützen und HEILTRÄNKE, die Verletzungen lindern. "
+    },
+    {
+      "from": "Gut du hast alle Kisten mit Tränken gefunden!",
+      "to": "Gut, du hast alle Kisten mit Tränken gefunden!"
+    },
+    {
+      "from": "Begib dich, nachdem du deine Soldaten mit Tränken ausgestattet hast zur Sarazenenoase südlich von hier! Dort wirst du geheimnisvolle Amulette finden!",
+      "to": "Begib dich, nachdem du deine Soldaten mit Tränken ausgestattet hast, zur Sarazenenoase südlich von hier! Dort wirst du geheimnisvolle Amulette finden!"
+    },
+    {
+      "from": "Ein Nahrungsamulett schützt den Träger vor Hunger, ein Wachbleibamulett vor Müdigkeit, ein Stärkeamulett verleiht den Träger Mut und Tapferkeit und erhöht die Stärke des Trägers beim Angriff um 50 Prozent, ein Verteidigungsamulett schwächt Angriffe wilder Tiere und feindlicher Völker ab, ein Trefferamulett verstärkt mit einer Wahrscheinlichkeit von 20 Prozent die Stärke des Trägers bei Angriffen auf wilde Tiere und Feinde um 100 Prozent und ",
+      "to": "Ein Nahrungsamulett schützt den Träger vor Hunger, ein Wachbleibamulett vor Müdigkeit, ein Stärkeamulett verleiht dem Träger Mut und Tapferkeit und erhöht die Stärke des Trägers beim Angriff um 50 Prozent, ein Verteidigungsamulett schwächt Angriffe wilder Tiere und feindlicher Völker ab, ein Trefferamulett verstärkt mit einer Wahrscheinlichkeit von 20 Prozent die Stärke des Trägers bei Angriffen auf wilde Tiere und Feinde um 100 Prozent und "
+    },
+    {
+      "from": "mit einem Windamulett verleiht kann sich der Träger schneller fortbewegen. ",
+      "to": "mit einem Windamulett kann sich der Träger schneller fortbewegen. "
+    },
+    {
+      "from": "Finde alle sechs Amulette im Sarazenendorf und rüste deinen Wikingersoldaten mit Amuletten aus, indem du vorgehst, wie bei den Tränken.",
+      "to": "Finde alle sechs Amulette im Sarazenendorf und rüste deine Wikingersoldaten mit Amuletten aus, indem du vorgehst wie bei den Tränken."
+    },
+    {
+      "from": "GUT! Du hast alle Amulette im Sarazenendorf gefunden! Wenn du mit offenen Augen durch das Dorf inspiziert hast, müssten dir auch einige Waffen aufgefallen sein. ",
+      "to": "GUT! Du hast alle Amulette im Sarazenendorf gefunden! Wenn du das Dorf mit offenen Augen erkundet hast, müssten dir auch einige Waffen aufgefallen sein. "
+    },
+    {
+      "from": "Probier dies aus! Unweit nördlich von hier, treiben fünf Räuber ihr Unwesen, die oft über das Sarazenendorf herfallen und auch eine Bedrohung für dein Dorf darstellen können. Stelle sie und nutze ihre Ausrüstungsgegenstände!",
+      "to": "Probier dies aus! Unweit nördlich von hier treiben fünf Räuber ihr Unwesen, die oft über das Sarazenendorf herfallen und auch eine Bedrohung für dein Dorf darstellen können. Stelle sie und nutze ihre Ausrüstungsgegenstände!"
+    },
+    {
+      "from": "Jeder barfüssige Wikinger freut sich über ein paar Schuhe, denn diese machen das Laufen angenehmer. Ein Wikinger mit Schuhen läuft schneller und verliert beim Laufen weniger Energie, sodass er nicht so schnell hungrig bzw. müde wird. Schuhe werden in der Näherei hergestellt.",
+      "to": "Jeder barfüßige Wikinger freut sich über ein Paar Schuhe, denn diese machen das Laufen angenehmer. Ein Wikinger mit Schuhen läuft schneller und verliert beim Laufen weniger Energie, sodass er nicht so schnell hungrig bzw. müde wird. Schuhe werden in der Näherei hergestellt."
+    },
+    {
+      "from": "Lass vom Druiden 5 Öl herstellen und bringe sie ins Haupthaus!",
+      "to": "Lass vom Druiden 5 Einheiten Öl herstellen und bringe sie ins Haupthaus!"
+    },
+    {
+      "from": "Heldenmut oder Leichtsinn? Als Bjarni starb, weinten die Götter... Ohne diesen Held wäre dir in den Kampagnen das Ende verborgen geblieben und du hättest von vorne beginnen müssen! ",
+      "to": "Heldenmut oder Leichtsinn? Als Bjarni starb, weinten die Götter... In einer Kampagne kann der Verlust eines Helden eine Niederlage bedeuten, sodass du die Mission neu beginnen musst! "
     }
   ]
 }

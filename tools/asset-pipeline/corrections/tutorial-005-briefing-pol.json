@@ -1,5 +1,5 @@
 {
-  "reason": "Odprawa opisuje sterowanie oryginału. U nas: punkty handlowe dodaje się w sekcji Handel okienka kupca (A/B, krzyżyk zdejmuje punkt), nie ma przycisku z szalkami w menu akcji ani przycisku zatrudnienia kupca; kupiec handluje tylko z wozem i przewozi tylko towary wybrane strzałkami w oknie handlu (bez wyboru nic nie jedzie); oferty obcego plemienia to wiersz Oferta (lewa strona: co oddajesz); wóz mieści 15/30 towarów; cel wskazuje się lewym przyciskiem; statkiem steruje się z jego okienka (Płyń do, Zacumuj, Ładownia, Rozładuj wszystko), a nie spacją; statek ładuje tragarz albo dowódca; na wyspę Saracenów musi popłynąć kupiec z wozem.",
+  "reason": "Odprawa opisuje sterowanie oryginału. U nas: punkty handlowe dodaje się w sekcji Handel okienka kupca (A/B, krzyżyk zdejmuje punkt), nie ma przycisku z szalkami w menu akcji ani przycisku zatrudnienia kupca; kupiec handluje tylko z wozem i przewozi tylko towary wybrane strzałkami w oknie handlu (bez wyboru nic nie jedzie); oferty obcego plemienia to wiersz Oferta (lewa strona: co oddajesz); wóz mieści 15/30 towarów; cel wskazuje się lewym przyciskiem; statkiem steruje się z jego okienka (Płyń do, Zacumuj, Ładownia, Rozładuj wszystko), a nie spacją; statek ładuje tragarz albo dowódca; na wyspę Saracenów musi popłynąć kupiec z wozem. Poprawione są też błędy gramatyczne i literówki; wózki mieszczą odpowiednio 15 i 30 towarów, nie przedział ilości.",
   "file": "maps/community/tutorial_005/text/pol/briefings/briefings.txt",
   "sha256": "d117df12dbeaf280ade0faa26301f36a68fd68638288059935f40c724110b8f2",
   "encoding": "windows-1250",
@@ -10,7 +10,7 @@
     },
     {
       "from": "Pierwszą rzeczą którą musisz zrobić, jest wyznaczenie dwóch PUNKTÓW HANDLOWYCH. Aby to zrobić, dla każdego punktu handlowego kliknij na ekranie postaci na małym, okrągłym przycisku obok \"Punkt Handlowy\", kliknij na przycisku z szalkami w menu akcji kupca, a następnie kliknij na odpowiedni punkt handlowy. Tak jak z jakimkolwiek robotnikiem, możesz przydzielić kupca do punktu handlowego przez kliknięcie prawym przyciskiem myszy.",
-      "to": "Pierwszą rzeczą którą musisz zrobić, jest wyznaczenie dwóch PUNKTÓW HANDLOWYCH. Aby to zrobić, dla każdego punktu handlowego kliknij w sekcji HANDEL na \"Dodaj punkt handlowy\", a następnie kliknij na odpowiedni, podświetlony budynek. Możesz też przydzielić zaznaczonego kupca do punktu handlowego, klikając prawym przyciskiem myszy na budynek."
+      "to": "Pierwszą rzeczą, którą musisz zrobić, jest wyznaczenie dwóch PUNKTÓW HANDLOWYCH. Aby to zrobić, dla każdego punktu handlowego kliknij w sekcji HANDEL na \"Dodaj punkt handlowy\", a następnie kliknij na odpowiedni, podświetlony budynek. Możesz też przydzielić zaznaczonego kupca do punktu handlowego, klikając prawym przyciskiem myszy na budynek."
     },
     {
       "from": "Przydziel kupca do dwóch magazynów.",
@@ -38,11 +38,11 @@
     },
     {
       "from": "Wybierz Thorfinna, Lodina lub Ariego, następnie przydziel północny magazyn jako punkt handlowy 1, a południowy magazyn w warsztacie garncarskim jako punkt handlowy 2! (Jeśli chcesz wybrać inny punkt handlowy, wybierz przycisk \"Usuń Punkt Handlowy \", a następnie kliknij na punkt handlowy, którego więcej nie potrzebujesz, aby go odznaczyć. Po tym wybierz inny.)",
-      "to": "Wybierz Thorfinna, Lodina lub Ariego, następnie przydziel północny magazyn jako punkt handlowy A, a południowy magazyn w warsztacie garncarskim jako punkt handlowy B! (Jeśli chcesz wybrać inny punkt handlowy, kliknij krzyżyk obok punktu handlowego, którego więcej nie potrzebujesz, w sekcji HANDEL okienka kupca. Po tym wybierz inny.)"
+      "to": "Wybierz Thorfinna, Lodina lub Ariego, następnie przydziel północny magazyn jako punkt handlowy A, a południowy magazyn przy warsztacie garncarskim jako punkt handlowy B! (Jeśli chcesz wybrać inny punkt handlowy, kliknij krzyżyk obok punktu handlowego, którego więcej nie potrzebujesz, w sekcji HANDEL okienka kupca. Po tym wybierz inny.)"
     },
     {
       "from": "Wozy są ważnym usprawnieniem dla tragarzy i kupców, ponieważ mogą przenosić od 10 do 20 towarów odpowiednio w tym samym czasie. Dlatego, czynią one kupców znacznie bardziej efektywnymi. Aby użyć wozu, tragarz lub kupiec musi zostać przydzielony do pojazdu, aby mógł nim kierować. ",
-      "to": "Wozy są ważnym usprawnieniem dla tragarzy i kupców, ponieważ mogą przenosić od 15 do 30 towarów odpowiednio w tym samym czasie. Dlatego, czynią one kupców znacznie bardziej efektywnymi. Aby użyć wozu, tragarz lub kupiec musi zostać przydzielony do pojazdu, aby mógł nim kierować. "
+      "to": "Wozy są ważnym usprawnieniem dla tragarzy i kupców, ponieważ mogą przewozić odpowiednio 15 i 30 towarów w tym samym czasie. Dlatego czynią one kupców znacznie bardziej efektywnymi. Aby użyć wozu, tragarz lub kupiec musi zostać przydzielony do pojazdu, aby mógł nim kierować. "
     },
     {
       "from": "Może to być zrobione przez użycie przycisku akcji \"Przydziel Pojazd\". Gdy tylko użyjesz tego przycisku, dostępne pojazdy (okręt, wózek ręczny lub wóz zaprzęgowy) zostaną podświetlone. Kliknij prawym przyciskiem myszy na jeden z wozów, aby poinformować Wikinga o twoim wyborze. ",
@@ -95,6 +95,22 @@
     {
       "from": "Sprawdź, czy przydzieliłeś kupcowi północny magazyn jako punkt handlowy 1, a inny magazyn jako punkt handlowy 2.",
       "to": "Sprawdź, czy przydzieliłeś kupcowi północny magazyn jako punkt handlowy A, a inny magazyn jako punkt handlowy B, czy kupiec kieruje wozem i czy w oknie handlu wybrałeś strzałką miód."
+    },
+    {
+      "from": "Weź do magazynu 5 jednostek METALOWYCH NARZĘDZI! ",
+      "to": "Weź do magazynu 5 jednostek ŻELAZNYCH NARZĘDZI! "
+    },
+    {
+      "from": "Niech jeden kupiec weźmie metalowe narzędzia do magazynów Clayma i Stoniego!",
+      "to": "Niech jeden kupiec dostarczy żelazne narzędzia do magazynu garncarza i kamieniarza!"
+    },
+    {
+      "from": "Aby handlować z inną nacją, która ma PRZYJAZNE nastawienie do ciebie, potrzebujesz faktycznej zgody na handel, a inni ludzie musza posiadać MAGAZYN. Obydwa warunki są spełnione przez Franków zamieszkujących północne wybrzeże. Twoi kupcy muszą mieć przydzielony WÓZ.",
+      "to": "Aby handlować z inną nacją, która ma PRZYJAZNE nastawienie do ciebie, potrzebujesz faktycznej zgody na handel, a inni ludzie muszą posiadać MAGAZYN. Obydwa warunki są spełnione przez Franków zamieszkujących północne wybrzeże. Twoi kupcy muszą mieć przydzielony WÓZ."
+    },
+    {
+      "from": "Rzućmy okiem na handel morski. Czasami będziesz potrzebował załadować statki, aby przewieźć towary do odległych krajów ... ja np. ta przyjazna wioska Saracenów.",
+      "to": "Rzućmy okiem na handel morski. Czasami będziesz potrzebował załadować statki, aby przewieźć towary w odległe miejsca — na przykład do tej przyjaznej wioski Saracenów."
     }
   ]
 }

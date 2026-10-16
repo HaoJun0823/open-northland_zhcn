@@ -1,5 +1,5 @@
 {
-  "reason": "W naszej grze (dane CulturesNation) część opisu się nie zgadza: mikstury wymagają grzybów, wody, ziół i monet (bez oleju i złota) i warzy je druid w rozbudowanej chatce alchemika; amulety wyrabia mincerz w mennicy; żelazne narzędzia robi cieśla, nie kowal; misę na olej ma dopiero Dom 3 i olej trzeba dopuścić w panelu domu. Zamiast okna z symbolem skrzyni jest okno Asystenta (E), a zamiast żółtych przycisków wolne pola torby w panelu postaci. Nie mamy okna pomocy ani tabeli skuteczności broni, więc dopisek o niej znika; po tym samouczku jest jeszcze samouczek 8 PRO, więc to nie są wszystkie samouczki, tylko wszystkie podstawowe.",
+  "reason": "W naszej grze (dane CulturesNation) część opisu się nie zgadza: mikstury wymagają grzybów, wody, ziół i monet (bez oleju i złota) i warzy je druid w rozbudowanej chatce alchemika; amulety wyrabia mincerz w mennicy; żelazne narzędzia robi cieśla, nie kowal; misę na olej ma dopiero Dom 3 i olej trzeba dopuścić w panelu domu. Zamiast okna z symbolem skrzyni jest okno Asystenta (E), a zamiast żółtych przycisków wolne pola torby w panelu postaci. Nie mamy okna pomocy ani tabeli skuteczności broni, więc dopisek o niej znika; po tym samouczku jest jeszcze samouczek 8 PRO, więc to nie są wszystkie samouczki, tylko wszystkie podstawowe. Poprawione są także błędy gramatyczne i literówki. Amulet precyzji ma 20% szansy na podwojenie obrażeń. Komunikat śmierci bohatera ostrzega warunkowo o kampanii, nie kończy tego samouczka porażką.",
   "file": "maps/community/tutorial_007/text/eng/briefings/briefings.txt",
   "sha256": "6ebe19483669a056975c53f1333da82596a536a4e2d4a25eb878be19e5fb9ade",
   "encoding": "windows-1250",
@@ -39,6 +39,18 @@
     {
       "from": "If you have completed the tutorials in sequence, you have now perfectly mastered them all! ",
       "to": "If you have completed the tutorials in sequence, you have now perfectly mastered all the basic tutorials! "
+    },
+    {
+      "from": "A nourishing amulet prevents the bearer from starving, an amulet of stamina keeps the bearer awake, an amulet of strength gives the bearer courage and bravery and increases his strength in an attack by 50 percent, an amulet of defence weakens the blow of attacks by wild beasts and enemies, an amulet of precision has a 20 percent chance of increasing the bearer's strength in an attack on animals and enemies, and ",
+      "to": "A nourishing amulet prevents the bearer from starving, an amulet of stamina keeps the bearer awake, an amulet of strength gives the bearer courage and bravery and increases his strength in an attack by 50 percent, an amulet of defence weakens the blow of attacks by wild beasts and enemies, an amulet of precision has a 20 percent chance of doubling the damage dealt by the bearer in an attack on animals and enemies, and "
+    },
+    {
+      "from": "Have the druid produce 5 oil and take it to the headquarters!",
+      "to": "Have the druid produce 5 units of oil and take it to the headquarters!"
+    },
+    {
+      "from": "Heroism or carelessness? When Bjarni died the gods were crying ... without this hero, the outcome of this mission would have remained hidden to you and you would have had to start all over again! ",
+      "to": "Heroism or carelessness? When Bjarni died the gods were crying ... In a campaign, losing a hero can mean defeat and having to restart the mission! "
     }
   ]
 }

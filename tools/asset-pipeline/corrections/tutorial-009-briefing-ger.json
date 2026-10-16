@@ -1,5 +1,5 @@
 {
-  "reason": "Asystenta otwiera u nas klawisz E albo przycisk \"Asystent\" na dolnym pasku, nie \"A\" ani skrzynka w menu po lewej. Nasza szkoła nie odtwarza bugu ze szkołą (ukończenie nauki nie daje doświadczenia, uczy tylko odblokowanych już zawodów), a samouczek 8 o tym bugu znika z gry. Opisujemy więc odblokowanie zwykłą pracą według tribetypes.ini: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar, zbieracz 10 żelaza lub złota -> kowal (żelazo zbiera zbieracz z 10 gliny lub kamienia). Budynki poziomu 2 wymagają towaru, który odblokowuje 10 wyrobów robotnika w budynku poziomu 1 (kuźnia 2: kolczuga, zakład krawiecki 2: wełniana zbroja, warsztat płatnerski 2: długi łuk, warsztat ciesielski 2: meble), a świątynia druida (zbieracz 10 grzybów -> zbieracz ziół, 10 ziół -> druid). Dopisana nazwa licznika w oknie Asystenta (Synowie, Córki), żeby było wiadomo, co ustawić.",
+  "reason": "Asystenta otwiera u nas klawisz E albo przycisk \"Asystent\" na dolnym pasku, nie \"A\" ani skrzynka w menu po lewej. Nasza szkoła nie odtwarza bugu ze szkołą (ukończenie nauki nie daje doświadczenia, uczy tylko odblokowanych już zawodów), a samouczek 8 o tym bugu znika z gry. Opisujemy więc odblokowanie zwykłą pracą według tribetypes.ini: farmer 10 zboża -> młynarz, młynarz 10 mąki -> piekarz, piekarz 10 chleba -> piwowar, zbieracz 10 żelaza lub złota -> kowal (żelazo zbiera zbieracz z 10 gliny lub kamienia). Budynki poziomu 2 wymagają towaru, który odblokowuje 10 wyrobów robotnika w budynku poziomu 1 (kuźnia 2: kolczuga, zakład krawiecki 2: wełniana zbroja, warsztat płatnerski 2: długi łuk, warsztat ciesielski 2: meble), a świątynia druida (zbieracz 10 grzybów -> zbieracz ziół, 10 ziół -> druid). Dopisana nazwa licznika w oknie Asystenta (Synowie, Córki), żeby było wiadomo, co ustawić. Poprawione są także błędy gramatyczne, literówki i nazwy interfejsu. Wymagane 10 powtórzeń produkcji oznacza ukończone cykle, nie liczbę wyrobów zwiększaną premiami. Świątynia działa stopniowo, w pobliżu, dla własnych jednostek i tylko ukończona oraz nieuszkodzona. Licznik Córki dotyczy kolejnych narodzin: po 4 kobietach i 5 córkach dalsze 16 daje 25 dorosłych kobiet. Ctrl i przycisk towaru włączają drugi wyrób do produkcji.",
   "file": "maps/community/tutorial_009/text/ger/briefings/briefings.txt",
   "sha256": "bbfaaf49c695848c0f4ff5baf2297f93b66e9a8aca3bdee5c31aa8992850b4dd",
   "encoding": "windows-1250",
@@ -22,11 +22,11 @@
     },
     {
       "from": "Nach Abschluss machst du ihn zum Müller, schickst ihn in die Schule, um erneut Müller zu lernen.",
-      "to": "Hat der Müller 10 Säcke Mehl gemahlen, schaltet er den Bäcker frei. Baue eine Bäckerei 1 nahe Mühle und Brunnen, schicke einen Zivilisten in die Schule, um Bäcker zu lernen, und weise ihn der Bäckerei zu. Die Bäckerei braucht Steinblöcke, baue also eine Steinmetzhütte 1."
+      "to": "Hat der Müller 10 Produktionszyklen abgeschlossen, schaltet er den Bäcker frei. Baue eine Bäckerei 1 nahe Mühle und Brunnen, schicke einen Zivilisten in die Schule, um Bäcker zu lernen, und weise ihn der Bäckerei zu. Die Bäckerei braucht Steinblöcke, baue also eine Steinmetzhütte 1."
     },
     {
       "from": "Dann machst du ihn zum Bäcker und wiederholst dieselbe Prozedur.",
-      "to": "Hat der Bäcker 10 Brote gebacken, schaltet er den Braumeister frei und damit den Met."
+      "to": "Hat der Bäcker 10 Produktionszyklen abgeschlossen, schaltet er den Braumeister frei und damit den Met."
     },
     {
       "from": "Jetzt bauen wir:",
@@ -38,7 +38,7 @@
     },
     {
       "from": "Baue eine Schmiede 2 nahe an Eisenvorkommen und Wald.",
-      "to": "Baue die Schmieden nahe an Eisenvorkommen und Wald. Die Schmiede 2 wird frei, sobald ein Schmied in der Schmiede 1 zehn Waren hergestellt hat. Baue also zuerst eine Schmiede 1, weise ihr einen Schmied zu und baue dann die Schmiede 2."
+      "to": "Baue die Schmieden nahe an Eisenvorkommen und Wald. Die Schmiede 2 wird frei, sobald ein Schmied in der Schmiede 1 zehn Produktionszyklen abgeschlossen hat. Baue also zuerst eine Schmiede 1, weise ihr einen Schmied zu und baue dann die Schmiede 2."
     },
     {
       "from": "PS: Für die Schmiede brauchst du Eisen als Rohstoff – schicke Zivilisten in die Schule, um Abbauer: Eisen zu lernen.",
@@ -47,18 +47,18 @@
     {
       "from": "Platziere die Viehzüchterei nahe einer Farm und Brunnen.",
       "to": [
-        "Platziere die Viehzüchterei nahe einer Farm und Brunnen.",
+        "Platziere die Viehzüchterei nahe einer Farm und einem Brunnen.",
         "",
-        "PS: Die Näherei 2 wird frei, sobald ein Näher in der Näherei 1 zehn Waren hergestellt hat. Baue also zuerst eine Näherei 1 und weise ihr einen Näher zu."
+        "PS: Die Näherei 2 wird frei, sobald ein Näher in der Näherei 1 zehn Produktionszyklen abgeschlossen hat. Baue also zuerst eine Näherei 1 und weise ihr einen Näher zu."
       ]
     },
     {
       "from": "PS2: Wenn die Waffenhütte 2 noch gesperrt ist, nutze den Schulfehler: Den Zivilist zur Schule schicken, Waffenbauer (Kurzbogen) lernen, dann nochmal.",
-      "to": "PS2: Wenn die Waffenhütte 2 noch gesperrt ist, baue zuerst eine Waffenhütte 1 und weise ihr einen Waffenbauer zu. Hat er dort 10 Waren hergestellt, schaltet er den Langbogen frei und damit die Waffenhütte 2."
+      "to": "PS2: Wenn die Waffenhütte 2 noch gesperrt ist, baue zuerst eine Waffenhütte 1 und weise ihr einen Waffenbauer zu. Hat er dort 10 Produktionszyklen abgeschlossen, schaltet er den Langbogen frei und damit die Waffenhütte 2."
     },
     {
       "from": "Wenn gesperrt: Schulfehler mit Schreiner (Holzwerkzeug) anwenden.",
-      "to": "Wenn gesperrt: Baue zuerst eine Schreinerei 1 und weise ihr einen Schreiner zu. Hat er dort 10 Waren hergestellt, schaltet er Möbel frei und damit die Schreinerei 2."
+      "to": "Wenn gesperrt: Baue zuerst eine Schreinerei 1 und weise ihr einen Schreiner zu. Hat er dort 10 Produktionszyklen abgeschlossen, schaltet er Möbel frei und damit die Schreinerei 2."
     },
     {
       "from": "PS2: Wenn der Tempel gesperrt ist: Schulfehler mit dem Kräutergärtner anwenden.",
@@ -67,6 +67,98 @@
     {
       "from": "Setze Mädchenproduktion auf 5.  ",
       "to": "Setze Mädchenproduktion (Zähler „Töchter“) auf 5.  "
+    },
+    {
+      "from": "In diesem Tutorial lernst du wie du dein Dorf in optimaler Reihenfolge aufbaust, um Hungersnöte zu vermeiden und deine Armee schneller und effizienter zu produzieren. Und darum geht es bei RTS-Spielen – mehr Truppen zu produzieren als dein Gegner.",
+      "to": "In diesem Tutorial lernst du, wie du dein Dorf in optimaler Reihenfolge aufbaust, um Hungersnöte zu vermeiden und deine Armee schneller und effizienter zu produzieren. Und darum geht es bei RTS-Spielen – mehr Truppen zu produzieren als dein Gegner."
+    },
+    {
+      "from": "Die Reihenfolge des Aufbaus und der Aktionen in diesem Tutorial ist wahrscheinlich nicht die wirklich allerschnellste Strategie. Sie ist aber solide, sicher und erlaubt dir besser zu expandieren als die meisten durchschnittlichen Cultures-Spieler. Ein guter Anfang, den du später an deinen Stil anpassen kannst.",
+      "to": "Die Reihenfolge des Aufbaus und der Aktionen in diesem Tutorial ist wahrscheinlich nicht die wirklich allerschnellste Strategie. Sie ist aber solide, sicher und erlaubt dir, besser zu expandieren als die meisten durchschnittlichen Cultures-Spieler. Ein guter Anfang, den du später an deinen Stil anpassen kannst."
+    },
+    {
+      "from": "Eine gute Dorfentwicklung ist DER GRÖSSTE Vorteil, der dir hilft deinen Gegner zu besiegen. In Cultures ist das Kampfsystem nicht so ausgefeilt wie in anderen RTS-Spielen. Wenn du einen zahlen- und ausrüstungsmäßigen Vorteil hast gewinnst du ganz einfach, indem du deine Armee auf sein Dorf schickst. Punkt. Statt Waffen, Verteidigungstürme, Taktiken oder Mikromanagement zu optimieren, suche deinen Vorteil in der Dorfentwicklung! Ein besser und schneller entwickeltes Dorf ist praktisch eine SIEGERGARANTIE.",
+      "to": "Eine gute Dorfentwicklung ist DER GRÖSSTE Vorteil, der dir hilft, deinen Gegner zu besiegen. In Cultures ist das Kampfsystem nicht so ausgefeilt wie in anderen RTS-Spielen. Wenn du einen zahlen- und ausrüstungsmäßigen Vorteil hast, gewinnst du ganz einfach, indem du deine Armee auf sein Dorf schickst. Punkt. Statt Waffen, Verteidigungstürme, Taktiken oder Mikromanagement zu optimieren, suche deinen Vorteil in der Dorfentwicklung! Ein besser und schneller entwickeltes Dorf ist praktisch eine SIEGERGARANTIE."
+    },
+    {
+      "from": "Die hier vorgestellte Strategie ermöglicht dir innerhalb einer Stunde 20–40 Soldaten zu haben und Hungersnöte zu vermeiden. Je mehr Erfahrung du hast, desto bessere Ergebnisse erzielst du. Wir zielen hier nicht auf exaktes Timing – es geht ums Lernen.",
+      "to": "Die hier vorgestellte Strategie ermöglicht dir, innerhalb einer Stunde 20–40 Soldaten zu haben und Hungersnöte zu vermeiden. Je mehr Erfahrung du hast, desto bessere Ergebnisse erzielst du. Wir zielen hier nicht auf exaktes Timing – es geht ums Lernen."
+    },
+    {
+      "from": "Weise deine Zivilisten folgende Berufe zu:",
+      "to": "Weise deinen Zivilisten folgende Berufe zu:"
+    },
+    {
+      "from": "Die Zivilisten sind ihre Berufe zugewiesen – jetzt ran an die Arbeit.",
+      "to": "Den Zivilisten sind ihre Berufe zugewiesen – jetzt ran an die Arbeit."
+    },
+    {
+      "from": "Methode 2 (gut) – benutze den „Assistenten“. Dieser wurde in *Das Achte Weltwunder* eingeführt und erleichtert das Management.",
+      "to": "Methode 2 (gut) – benutze den „Assistenten“. Dieser wurde in Das Achte Weltwunder eingeführt und erleichtert das Management."
+    },
+    {
+      "from": "Ab jetzt gebären die Frauen automatisch solange Jungen bis die 20 erreicht sind.",
+      "to": "Ab jetzt gebären die Frauen automatisch so lange Jungen, bis die 20 erreicht sind."
+    },
+    {
+      "from": "Die Schule braucht Backsteine. Baue zuerst eine Töpferei, mache deinen Lehmabbauer zum Töpfer und schicke ihn dann die Schule.",
+      "to": "Die Schule braucht Backsteine. Baue zuerst eine Töpferei, mache deinen Lehmabbauer zum Töpfer und baue dann die Schule."
+    },
+    {
+      "from": "PS: Wenn dein Lehmabbauer die Töpferei noch nicht freigeschaltet hat, musst du noch etwas abwarwten.",
+      "to": "PS: Wenn dein Lehmabbauer die Töpferei noch nicht freigeschaltet hat, musst du noch etwas abwarten."
+    },
+    {
+      "from": "Eine massive Hungersnot ist schlimmer als eine normale Hungersnot. Letztere kann man mit Beeren beheben, aber eine massive Hungersnot zeigt sich darin, dass Horden hungriger Leute die Bäckerei umlagern. Sie wollen Brot, aber der Bäcker schafft es nicht genug nachzuproduzieren. Bauarbeiter sind außerdem zu hungrig, um eine neue Bäckerei zu bauen. Katastrophe. Das Spiel ist verloren (bei PvP).",
+      "to": "Eine massive Hungersnot ist schlimmer als eine normale Hungersnot. Letztere kann man mit Beeren beheben, aber eine massive Hungersnot zeigt sich darin, dass Horden hungriger Leute die Bäckerei umlagern. Sie wollen Brot, aber der Bäcker schafft es nicht, genug nachzuproduzieren. Bauarbeiter sind außerdem zu hungrig, um eine neue Bäckerei zu bauen. Katastrophe. Das Spiel ist verloren (bei PvP)."
+    },
+    {
+      "from": "Glücklicherweise ist das einfach. Wir brauchen eine volle Bäckerei und eine Brauerei. Eine Brauerei mit 2 Arbeitern, einem Träger, einem Brunnen und einem Bienenstock ist GARANTIE für Sicherheit. Die Brauerei ist extrem wichtig – sie produziert Met, ein Getränk aus Wasser und Honig, das Hunger und Ausdauer auffüllt. Arbeiter mit Met arbeiten länger ohne Pause und holen sich automatisch Nachschub.",
+      "to": "Glücklicherweise ist das einfach. Wir brauchen eine volle Bäckerei und eine Brauerei. Eine Brauerei mit 2 Arbeitern, einem Träger, einem Brunnen und einem Bienenstock ist eine GARANTIE für Sicherheit. Die Brauerei ist extrem wichtig – sie produziert Met, ein Getränk aus Wasser und Honig, das Hunger und Ausdauer auffüllt. Arbeiter mit Met arbeiten länger ohne Pause und holen sich automatisch Nachschub."
+    },
+    {
+      "from": "Platziere die Bäckerei nahe der Mühle und Brunnen, die Brauerei nahe dem Brunnen und Bienenstock.",
+      "to": "Platziere die Bäckerei nahe der Mühle und dem Brunnen, die Brauerei nahe dem Brunnen und dem Bienenstock."
+    },
+    {
+      "from": "Baue 3 Häuser Typ 3 (Baue am besten die bestehen einfach aus).",
+      "to": "Baue 3 Häuser Typ 3 (Baue am besten die bestehenden Häuser einfach aus)."
+    },
+    {
+      "from": "PS: Vergiss nicht, automatische die Met-Ausrüstung für Zivilisten und Soldaten einzuschalten.",
+      "to": "PS: Vergiss nicht, die automatische Met-Ausrüstung für Zivilisten und Soldaten einzuschalten."
+    },
+    {
+      "from": "Nachdem eine gute Nahrungsproduktion sichergestellt ist und die Bevölkerung wächst denkt man oft: Lass uns Kasernen bauen. Falsch! Soldaten ohne Waffen sind nur halb so viel wert. Zuerst richten wir die Waffenproduktion ein, dann kommen die Kasernen.",
+      "to": "Nachdem eine gute Nahrungsproduktion sichergestellt ist und die Bevölkerung wächst, denkt man oft: Lass uns Kasernen bauen. Falsch! Soldaten ohne Waffen sind nur halb so viel wert. Zuerst richten wir die Waffenproduktion ein, dann kommen die Kasernen."
+    },
+    {
+      "from": "*Um für zwei Waren unendliche Produktion einzustellen klicke bei Ware 1 auf den Kreis und bei Ware 2 auf minus!",
+      "to": "*Um zwei Waren abwechselnd ohne Begrenzung zu produzieren, klicke im Figurenfenster auf das Symbol der ersten Ware. Halte dann Strg gedrückt und klicke auf das Symbol der zweiten Ware. Beide Zähler zeigen das Unendlichkeitszeichen."
+    },
+    {
+      "from": "Jetzt die Kaserne und einen Tempel bauen. Ein Tempel erhöht die HP eines Soldaten von 5000 auf 7500 – wichtiger Bonus, daher absolute Pflicht.",
+      "to": "Jetzt die Kaserne und einen Tempel bauen. Ein fertiggestellter, unbeschädigter Tempel stillt das Religionsbedürfnis und erhöht die Lebenspunkte eigener Einheiten in seiner Nähe allmählich auf bis zu 150% ihres normalen Limits — zum Beispiel von 5000 auf 7500. Ein wichtiger Bonus, daher sollte der Tempel nicht fehlen."
+    },
+    {
+      "from": "Setze Jungen im Assistenten auf 0, Mädchen auf 20.",
+      "to": "Setze Jungen im Assistenten auf 0. Sobald die 5 Töchter der früheren Phase geboren sind, setze den Zähler „Töchter“ auf 16: Zusammen mit den ursprünglichen 4 Frauen und den 5 früheren Töchtern sind das 25 Frauen, wenn die Mädchen erwachsen sind. Der Zähler bestimmt weitere Geburten, nicht die gewünschte Gesamtzahl der Frauen."
+    },
+    {
+      "from": "Im Assistenten Jungen UND Soldaten (Bogenschützen, Schwertkämpfer, Speerträger) auf 10 setzen.",
+      "to": "Halte im Assistenten die Jungenanzahl bei 20 und setze die Zähler für Bogenschützen und Schwertkämpfer auf jeweils 10."
+    },
+    {
+      "from": "Ende des Tutorial. Hier sind deine Hausaufgaben:",
+      "to": "Ende des Tutorials. Hier sind deine Hausaufgaben:"
+    },
+    {
+      "from": "1) Besiege deinen Gegner auf der anderen Insel.",
+      "to": "1) Besiege deinen Gegner auf der anderen Seite der Insel."
+    },
+    {
+      "from": "Viel Erfolg und bis zum nächsten Mal zukünftiger Champion!",
+      "to": "Viel Erfolg und bis zum nächsten Mal, zukünftiger Champion!"
     }
   ]
 }

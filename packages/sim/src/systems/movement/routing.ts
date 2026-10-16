@@ -66,9 +66,10 @@ export const pathfindingSystem: System = (world, ctx) => {
 };
 
 /**
- * One world's request-serving state, emptied at each drain so no view or claim outlives its tick. Kept
- * per world so a routing tick reuses its maps instead of minting them; the group helpers are built
- * fresh, and only by a drain that serves a group order.
+ * One world's request-serving state, emptied at each drain so no view or claim is read past its tick
+ * (the last context and memo stay referenced until the next drain). Kept per world so a routing tick
+ * reuses its maps instead of minting them; the group helpers are built fresh, and only by a drain that
+ * serves a group order.
  */
 class PathDrain {
   // Walk-block overlays, built lazily so only a tick that actually routes pays for them. The standing-unit

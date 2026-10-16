@@ -63,15 +63,14 @@ class LiveHarvests {
 
   verify(): string[] {
     this.catchUp();
-    const fresh = new Set<Entity>();
+    const fresh = new Map<Entity, number>();
     for (const e of this.world.query(Settler, CurrentAtomic)) {
       const node = harvestedNode(this.world, e);
-      if (node !== undefined) fresh.add(node);
+      if (node !== undefined) fresh.set(node, (fresh.get(node) ?? 0) + 1);
     }
-    const held = [...this.workers.keys()];
-    return fresh.size === held.length && held.every((node) => fresh.has(node))
-      ? []
-      : ['harvestClaims live harvests diverge from a fresh scan'];
+    let same = fresh.size === this.workers.size;
+    for (const [node, count] of this.workers) if (fresh.get(node) !== count) same = false;
+    return same ? [] : ['harvestClaims live harvests diverge from a fresh scan'];
   }
 }
 

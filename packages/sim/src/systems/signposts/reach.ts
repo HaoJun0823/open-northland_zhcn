@@ -415,10 +415,10 @@ class GoodsSearchLimit implements SpatialGate {
     if (known !== UNASKED) return known === CAUGHT;
     const posts = this.nearbyPosts[i] as readonly SignpostSite[];
     let caught = false;
-    if (this.local === undefined && this.markable(this.hx, this.hy)) {
+    if (this.local === undefined && this.floodMayEnter(this.hx, this.hy)) {
       const { world, content, terrain } = this;
       for (const p of posts) {
-        if (!this.markable(p.hx, p.hy)) continue;
+        if (!this.floodMayEnter(p.hx, p.hy)) continue;
         if (reachContains(postReach(world, content, terrain, p.entity, p.hx, p.hy), this.hx, this.hy)) {
           caught = true;
           break;
@@ -433,7 +433,7 @@ class GoodsSearchLimit implements SpatialGate {
   }
 
   /** Whether a goods flood can mark node `(x, y)` and start from it: unblocked, with nonzero resistance. */
-  private markable(x: number, y: number): boolean {
+  private floodMayEnter(x: number, y: number): boolean {
     const terrain = this.terrain;
     if (!terrain.inBounds(x, y)) return false;
     const node = terrain.nodeAt(x, y);

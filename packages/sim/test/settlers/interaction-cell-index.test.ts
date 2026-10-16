@@ -25,14 +25,23 @@ import {
 // on a stone, so their cell is the stone's work cell) past the small-list threshold, on a map wider than
 // the ring cap, under random filters, gates, vetoes and owner sides.
 
-const MAP_CELLS_W = 64;
-const MAP_CELLS_H = 40;
-const NODES_W = MAP_CELLS_W * 2;
-const NODES_H = MAP_CELLS_H * 2;
-const STONES = 40;
-const PILES = 260;
-const HUTS = 110;
+interface Layout {
+  readonly cellsW: number;
+  readonly cellsH: number;
+  readonly stones: number;
+  readonly piles: number;
+  readonly huts: number;
+}
+
+const SMALL: Layout = { cellsW: 64, cellsH: 40, stones: 40, piles: 260, huts: 110 };
+/** Many search blocks wide and sparse, so the searches past the ring cap cross several blocks. */
+const WIDE: Layout = { cellsW: 200, cellsH: 150, stones: 60, piles: 220, huts: 120 };
+const NODES_W = SMALL.cellsW * 2;
+const NODES_H = SMALL.cellsH * 2;
 const QUERIES = 400;
+/** Manhattan offsets of a probe from its lone target: from a few nodes inside the ring cap to past it. */
+const RING_CAP_PROBE_MIN = 40;
+const RING_CAP_PROBE_SPAN = 30;
 const PLAYERS = 3;
 
 /** A deterministic LCG, so a failure replays. */
@@ -51,22 +60,24 @@ function hutAt(sim: Simulation, x: number, y: number): Entity {
   return e;
 }
 
-function world(seed: number) {
-  const sim = mappedSim(grassMap(MAP_CELLS_W, MAP_CELLS_H));
+function world(seed: number, layout: Layout = SMALL) {
+  const nodesW = layout.cellsW * 2;
+  const nodesH = layout.cellsH * 2;
+  const sim = mappedSim(grassMap(layout.cellsW, layout.cellsH));
   const terrain = terrainOf(sim);
   const roll = rng(seed);
   const stones: Array<{ x: number; y: number }> = [];
-  for (let i = 0; i < STONES; i++) {
-    const at = { x: 2 + roll(NODES_W - 4), y: 2 + roll(NODES_H - 4) };
+  for (let i = 0; i < layout.stones; i++) {
+    const at = { x: 2 + roll(nodesW - 4), y: 2 + roll(nodesH - 4) };
     placeResource(sim, STONE, STONE_ATOMIC, at.x, at.y);
     stones.push(at);
   }
-  for (let i = 0; i < PILES; i++) {
+  for (let i = 0; i < layout.piles; i++) {
     const stone = roll(4) === 0 ? stones[roll(stones.length)] : undefined;
-    const at = stone ?? { x: roll(NODES_W), y: roll(NODES_H) };
+    const at = stone ?? { x: roll(nodesW), y: roll(nodesH) };
     placeGroundDrop(sim, STONE, 1, at.x, at.y);
   }
-  for (let i = 0; i < HUTS; i++) hutAt(sim, 1 + roll(NODES_W - 2), roll(NODES_H - 2));
+  for (let i = 0; i < layout.huts; i++) hutAt(sim, 1 + roll(nodesW - 2), roll(nodesH - 2));
   const candidates = sim.world.canonicalQuery(Position);
   for (const e of candidates) {
     const player = roll(PLAYERS + 1);
@@ -119,7 +130,7 @@ function linearWinner(
   );
 }
 
-/** Random queries: sparse acceptance so some searches run past the ring cap into the far fallback, and
+/** Random queries: sparse acceptance so some searches run past the ring cap into the block search, and
  *  an optional box gate, cell veto and owner side, each also ranked from a random origin. */
 function checkQueries(
   sim: Simulation,
@@ -130,27 +141,29 @@ function checkQueries(
   const terrain = terrainOf(sim);
   const xOf = (n: NodeId) => terrain.xOf(n);
   const yOf = (n: NodeId) => terrain.yOf(n);
+  const nodesW = terrain.width;
+  const nodesH = terrain.height;
   for (let q = 0; q < QUERIES; q++) {
-    const here = terrain.nodeAt(roll(NODES_W), roll(NODES_H));
+    const here = terrain.nodeAt(roll(nodesW), roll(nodesH));
     const keep = [1, 2, 7, 40][roll(4)] ?? 1;
     const salt = roll(1000);
     const accept = (e: Entity): Qualified<number> | null =>
       (e * 31 + salt) % keep === 0 ? { payload: e } : null;
     let gate: SpatialGate | undefined;
     if (roll(3) === 0) {
-      const x = roll(NODES_W);
-      const y = roll(NODES_H);
-      // Half the boxes span past the ring cap, so the far fallback runs under a gate too.
+      const x = roll(nodesW);
+      const y = roll(nodesH);
+      // Half the boxes span past the ring cap, so the block search runs under a gate too.
       const [w, h] = roll(2) === 0 ? [30, 20] : [90, 60];
       gate = boxGate(x - roll(w), x + roll(w), y - roll(h), y + roll(h), xOf, yOf);
     }
-    const avoidCell = roll(2) === 0 ? terrain.nodeAt(roll(NODES_W), roll(NODES_H)) : undefined;
+    const avoidCell = roll(2) === 0 ? terrain.nodeAt(roll(nodesW), roll(nodesH)) : undefined;
     const avoid = avoidCell === undefined ? undefined : (cell: NodeId) => (cell & 3) === (avoidCell & 3);
     const onSide = roll(2) === 0 ? sameSideAs(sim.world, roll(PLAYERS)) : undefined;
 
     const expected = linearWinner(sim, candidates, here, accept, gate, avoid, onSide);
     expect(index.nearest(here, accept, gate, avoid, onSide), `query ${q}`).toEqual(expected);
-    const rank = terrain.nodeAt(roll(NODES_W), roll(NODES_H));
+    const rank = terrain.nodeAt(roll(nodesW), roll(nodesH));
     expect(index.nearest(here, accept, gate, avoid, onSide, rank), `ranked query ${q}`).toEqual(
       linearWinner(sim, candidates, here, accept, gate, avoid, onSide, rank),
     );
@@ -169,6 +182,32 @@ describe('InteractionCellIndex', () => {
   it.each([1, 2, 3])('picks the linear scan winner for loose and door candidates alike (seed %i)', (seed) => {
     const { sim, candidates, roll, index } = world(seed);
     checkQueries(sim, index, candidates, roll);
+  });
+
+  it.each([7, 8])('picks the linear scan winner across many search blocks (seed %i)', (seed) => {
+    const { sim, candidates, roll, index } = world(seed, WIDE);
+    checkQueries(sim, index, candidates, roll);
+  });
+
+  it.each([9, 10])('finds a lone candidate just past the ring cap (seed %i)', (seed) => {
+    const { sim, terrain, candidates, roll, index } = world(seed, WIDE);
+    for (let q = 0; q < QUERIES; q++) {
+      const target = candidates[roll(candidates.length)] as Entity;
+      const cell = interactionCell(sim.world, ctxOf(sim), terrain, target, terrain.nodeAt(0, 0));
+      // Offsets straddling the cap, so a search that drops the nodes right past it misses the target.
+      const offset = RING_CAP_PROBE_MIN + roll(RING_CAP_PROBE_SPAN);
+      const dx = roll(offset + 1);
+      const sx = roll(2) === 0 ? 1 : -1;
+      const sy = roll(2) === 0 ? 1 : -1;
+      const x = terrain.xOf(cell) + sx * dx;
+      const y = terrain.yOf(cell) + sy * (offset - dx);
+      if (!terrain.inBounds(x, y)) continue;
+      const here = terrain.nodeAt(x, y);
+      const accept = (e: Entity): Qualified<number> | null => (e === target ? { payload: e } : null);
+      expect(index.nearest(here, accept), `query ${q}`).toEqual(
+        linearWinner(sim, candidates, here, accept, undefined, undefined, undefined),
+      );
+    }
   });
 
   it.each([4, 5])(

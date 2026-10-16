@@ -13,9 +13,9 @@ import { NodeBuckets } from '../../spatial/nodes.js';
 import { interactionCell } from './workplaces.js';
 
 /**
- * Greatest Manhattan ring radius (half-cell nodes) the interaction-cell ring search expands to before
- * falling back to a full linear scan. Performance bound only: the fallback picks the same winner.
- * Approximation, not a decoded distance.
+ * Greatest Manhattan ring radius (half-cell nodes) the interaction-cell ring search sweeps tile by tile
+ * before the block-level search takes the farther nodes. Performance bound only: both pick the same
+ * winner. Approximation, not a decoded distance.
  */
 const NEAREST_RING_MAX_RADIUS = 48;
 
@@ -85,18 +85,25 @@ class AxisSpan {
 /** Nodes per side of a {@link CellGrid} tile, a power of two. */
 const TILE_SHIFT = 3;
 const TILE_SIZE = 1 << TILE_SHIFT;
+/** Nodes per side of a {@link CellGrid} block, the coarse level a search past the ring cap walks: eight
+ *  tiles, a power of two. */
+const BLOCK_SHIFT = TILE_SHIFT + 3;
+const BLOCK_SIZE = 1 << BLOCK_SHIFT;
 /** Packs a node or a tile into one key; coordinates stay below it on every map. */
 const GRID_KEY_STRIDE = 1 << 16;
 
 /** Candidates bucketed by node coordinates, with the span of the occupied nodes so a search never
- *  expands past the farthest bucket, and the occupied nodes of each square tile so a search reads only
- *  occupied nodes, nearest tiles first. */
+ *  expands past the farthest bucket, the occupied nodes of each square tile so a search reads only
+ *  occupied nodes, nearest tiles first, and the occupied tiles of each block for a search past the ring
+ *  cap. */
 class CellGrid {
   private readonly buckets: NodeBuckets;
   private readonly xs = new AxisSpan();
   private readonly ys = new AxisSpan();
   /** Each tile's occupied nodes as packed keys, ascending. */
   private readonly tiles = new Map<number, number[]>();
+  /** Each block's occupied tiles as packed keys, ascending. */
+  private readonly blocks = new Map<number, number[]>();
   /** Occupied nodes. */
   size = 0;
 
@@ -112,6 +119,13 @@ class CellGrid {
       if (nodes === undefined) {
         nodes = [];
         this.tiles.set(tile, nodes);
+        const block = (x >> BLOCK_SHIFT) * GRID_KEY_STRIDE + (y >> BLOCK_SHIFT);
+        let tiles = this.blocks.get(block);
+        if (tiles === undefined) {
+          tiles = [];
+          this.blocks.set(block, tiles);
+        }
+        insertSortedById(tiles, tile, nodeKey);
       }
       insertSortedById(nodes, x * GRID_KEY_STRIDE + y, nodeKey);
     }
@@ -129,7 +143,15 @@ class CellGrid {
       const nodes = this.tiles.get(tile);
       if (nodes !== undefined) {
         removeSortedById(nodes, x * GRID_KEY_STRIDE + y, nodeKey);
-        if (nodes.length === 0) this.tiles.delete(tile);
+        if (nodes.length === 0) {
+          this.tiles.delete(tile);
+          const block = (x >> BLOCK_SHIFT) * GRID_KEY_STRIDE + (y >> BLOCK_SHIFT);
+          const tiles = this.blocks.get(block);
+          if (tiles !== undefined) {
+            removeSortedById(tiles, tile, nodeKey);
+            if (tiles.length === 0) this.blocks.delete(block);
+          }
+        }
       }
     }
     this.xs.remove(x);
@@ -178,6 +200,74 @@ class CellGrid {
         const distance = Math.abs(nx - x) + Math.abs(ny - y);
         if (distance > maxRadius || distance - slack > bound) continue;
         bound = visit(nx, ny, distance, this.buckets.at(nx, ny));
+      }
+    }
+  }
+
+  /**
+   * {@link nearestFirst} for the occupied nodes past Manhattan `near` and within `maxRadius` of `(x,y)`,
+   * block by block in order of each block's least distance, skipping a block that misses `box`, the node
+   * box a winner must lie within `slack` of. `bound` is the distance a winner found before already holds.
+   */
+  farFirst(
+    x: number,
+    y: number,
+    near: number,
+    maxRadius: number,
+    slack: number,
+    box: NodeBox | undefined,
+    bound: number,
+    visit: (nx: number, ny: number, distance: number, bucket: readonly Entity[]) => number,
+  ): void {
+    // Call-local, since a visit may search this grid again.
+    const blockTiles: (readonly number[])[] = [];
+    const blockDistances: number[] = [];
+    const blockOrder: number[] = [];
+    this.blocks.forEach((tiles, key) => {
+      const bx = Math.floor(key / GRID_KEY_STRIDE);
+      const by = key - bx * GRID_KEY_STRIDE;
+      const minX = bx << BLOCK_SHIFT;
+      const minY = by << BLOCK_SHIFT;
+      const least = spanGap(x, minX, BLOCK_SIZE) + spanGap(y, minY, BLOCK_SIZE);
+      if (least > maxRadius || least - slack > bound) return;
+      if (box !== undefined && !squareNearBox(box, minX, minY, BLOCK_SIZE, slack)) return;
+      blockOrder.push(blockTiles.length);
+      blockTiles.push(tiles);
+      blockDistances.push(least);
+    });
+    blockOrder.sort((a, b) => (blockDistances[a] as number) - (blockDistances[b] as number));
+    const tileNodes: (readonly number[])[] = [];
+    const tileDistances: number[] = [];
+    const tileOrder: number[] = [];
+    for (const i of blockOrder) {
+      if ((blockDistances[i] as number) - slack > bound) return;
+      tileNodes.length = 0;
+      tileDistances.length = 0;
+      tileOrder.length = 0;
+      for (const tile of blockTiles[i] as readonly number[]) {
+        const tx = Math.floor(tile / GRID_KEY_STRIDE);
+        const ty = tile - tx * GRID_KEY_STRIDE;
+        const minX = tx << TILE_SHIFT;
+        const minY = ty << TILE_SHIFT;
+        const least = spanGap(x, minX, TILE_SIZE) + spanGap(y, minY, TILE_SIZE);
+        if (least > maxRadius || least - slack > bound) continue;
+        if (spanReach(x, minX, TILE_SIZE) + spanReach(y, minY, TILE_SIZE) <= near) continue;
+        const nodes = this.tiles.get(tile);
+        if (nodes === undefined) continue; // a block lists only occupied tiles
+        tileOrder.push(tileNodes.length);
+        tileNodes.push(nodes);
+        tileDistances.push(least);
+      }
+      tileOrder.sort((a, b) => (tileDistances[a] as number) - (tileDistances[b] as number));
+      for (const j of tileOrder) {
+        if ((tileDistances[j] as number) - slack > bound) break;
+        for (const key of tileNodes[j] as readonly number[]) {
+          const nx = Math.floor(key / GRID_KEY_STRIDE);
+          const ny = key - nx * GRID_KEY_STRIDE;
+          const distance = Math.abs(nx - x) + Math.abs(ny - y);
+          if (distance <= near || distance > maxRadius || distance - slack > bound) continue;
+          bound = visit(nx, ny, distance, this.buckets.at(nx, ny));
+        }
       }
     }
   }
@@ -323,8 +413,8 @@ export class InteractionCellIndex {
 
   /**
    * The nearest candidate to `here` that `accept` qualifies, by the `(distance, cell-id, entity-id)` order,
-   * or null when none does. `accept` must be side-effect-free: a ring miss re-runs it on the linear
-   * fallback, which picks the identical winner.
+   * or null when none does. `accept` must be side-effect-free: which candidates a search asks, and in
+   * what order, depends on the index's layout, never the winner.
    */
   nearest<P>(
     here: NodeId,
@@ -383,9 +473,23 @@ export class InteractionCellIndex {
     if (gate !== undefined) reach = Math.min(reach, boundsReach(gate, hx, hy));
     const maxRadius = Math.min(NEAREST_RING_MAX_RADIUS, reach);
     const best = this.ringNearest(here, rank, maxRadius, accept, gate, avoid, onSide);
-    // An exhaustive sweep proves a null; otherwise the ring cap stopped short and the full scan decides.
+    // An exhaustive sweep proves a null; otherwise the ring cap stopped short and the blocks past it decide.
     if (best !== null || reach <= NEAREST_RING_MAX_RADIUS) return best;
-    return this.linearNearest(this.doorList, here, accept, gate, avoid, onSide, rank);
+    let far: NearestByCell<P> | null = null;
+    this.doors.farFirst(
+      hx,
+      hy,
+      maxRadius,
+      reach,
+      0,
+      gate?.bounds,
+      Number.POSITIVE_INFINITY,
+      (x, y, d, bucket) => {
+        far = this.pickInRing(x, y, d, bucket, here, accept, gate, avoid, onSide, far);
+        return far?.distance ?? Number.POSITIVE_INFINITY;
+      },
+    );
+    return far;
   }
 
   /** The nearest door-bucketed candidate within Manhattan `maxRadius` of `rank`, or null, by the
@@ -448,7 +552,7 @@ export class InteractionCellIndex {
   /**
    * The nearest loose candidate that could beat `bound`, a distance some other winner already holds, or
    * null. A node `d` from `rank` holds candidates at least `d - slack` from it, so the sweep ends once
-   * that exceeds the best exact distance; a cap short of that falls back to the candidates beyond it.
+   * that exceeds the best exact distance; a cap short of that hands the farther nodes to the block search.
    */
   private looseNearest<P>(
     here: NodeId,
@@ -483,18 +587,26 @@ export class InteractionCellIndex {
     // Past the cap only nodes farther than `maxRadius` remain, and none can beat a bound short of it.
     if (reach <= NEAREST_RING_MAX_RADIUS || Math.min(bound, best?.distance ?? bound) + slack < maxRadius)
       return best;
-    for (let i = 0; i < this.looseList.length; i++) {
-      const e = this.looseList[i];
-      const node = e === undefined ? undefined : this.looseNode.get(e);
-      if (e === undefined || node === undefined) continue; // every listed candidate has a node
-      const x = terrain.xOf(node);
-      const y = terrain.yOf(node);
-      const d = Math.abs(x - hx) + Math.abs(y - hy);
-      if (d <= maxRadius) continue; // the rings weighed it already
-      if (d - slack > Math.min(bound, best?.distance ?? bound)) continue; // cannot come nearer
-      if (gate !== undefined && !nearBox(gate.bounds, x, y, slack)) continue; // no gate-passing cell in slack
-      best = this.weighLoose(e, here, rank, accept, gate, avoid, onSide, best);
-    }
+    const box = gate?.bounds;
+    grid.farFirst(
+      hx,
+      hy,
+      maxRadius,
+      reach,
+      slack,
+      box,
+      Math.min(bound, best?.distance ?? bound),
+      (x, y, _d, bucket) => {
+        // No gate-passing cell lies within slack of a node off the gate's box.
+        if (box === undefined || nearBox(box, x, y, slack)) {
+          for (let j = 0; j < bucket.length; j++) {
+            const e = bucket[j];
+            if (e !== undefined) best = this.weighLoose(e, here, rank, accept, gate, avoid, onSide, best);
+          }
+        }
+        return Math.min(bound, best?.distance ?? bound);
+      },
+    );
     return best;
   }
 
@@ -562,8 +674,8 @@ export class InteractionCellIndex {
     return !regions.standable(cell) || regions.unroutable(here, cell);
   }
 
-  /** The exact linear scan the rings accelerate, for a short list or a door ring's out-of-range
-   *  fallback: {@link nearestByCell}'s loop and tie-break, resolving each candidate's cell in place. */
+  /** The exact linear scan the rings accelerate, for a short list: {@link nearestByCell}'s loop and
+   *  tie-break, resolving each candidate's cell in place. */
   private linearNearest<P>(
     list: readonly Entity[],
     here: NodeId,
@@ -610,6 +722,27 @@ export class InteractionCellIndex {
  *  exempt. */
 function vetoed(avoid: ((cell: NodeId) => boolean) | undefined, here: NodeId, cell: NodeId): boolean {
   return avoid !== undefined && cell !== here && avoid(cell);
+}
+
+/** The gap along one axis from `v` to the span `[min, min + size - 1]`, 0 inside it. */
+function spanGap(v: number, min: number, size: number): number {
+  return Math.max(0, min - v, v - (min + size - 1));
+}
+
+/** The farthest any coordinate of the span `[min, min + size - 1]` lies from `v` along one axis. */
+function spanReach(v: number, min: number, size: number): number {
+  return Math.max(v - min, min + size - 1 - v);
+}
+
+/** Whether the square of side `size` from `(minX, minY)` holds a node within `slack` of `box` on both
+ *  axes. */
+function squareNearBox(box: NodeBox, minX: number, minY: number, size: number, slack: number): boolean {
+  return (
+    minX + size - 1 >= box.minX - slack &&
+    minX <= box.maxX + slack &&
+    minY + size - 1 >= box.minY - slack &&
+    minY <= box.maxY + slack
+  );
 }
 
 /** Whether `(x, y)` lies within `slack` of `box` on both axes, as a node within Manhattan `slack` of a

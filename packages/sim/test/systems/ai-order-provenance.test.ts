@@ -236,8 +236,9 @@ describe('accepted AI order ownership', () => {
     sim.world.add(entity, Stance, { mode: MILITARY_MODE.ATTACK, anchorCell: null });
     apply(aiCommand(PLAYER, { ...move, kind: 'attackMoveUnit', x: 44 }, 'military'));
     const destination = sim.world.get(entity, MoveGoal).cell;
+    // The attack-move leaves the anchor unset, so the destination is never stored as a place to return to.
+    expect(sim.world.get(entity, Stance).anchorCell).toBeNull();
     disable();
-    expect(sim.world.get(entity, Stance).anchorCell).not.toBe(destination);
     for (let tick = 0; tick < 8; tick++) sim.step();
     expect(sim.world.tryGet(entity, MoveGoal)?.cell).not.toBe(destination);
     expect(sim.world.has(entity, PlayerOrder)).toBe(false);

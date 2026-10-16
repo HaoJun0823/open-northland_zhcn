@@ -8,6 +8,7 @@ import {
   Resource,
   Stance,
   Stockpile,
+  seatPassenger,
 } from '../../../src/components/index.js';
 import { fx, ONE } from '../../../src/core/fixed.js';
 import { Simulation } from '../../../src/index.js';
@@ -20,8 +21,13 @@ import {
   stampResourceFootprintData,
 } from '../../../src/systems/index.js';
 import { MILITARY_MODE } from '../../../src/systems/readviews/index.js';
+import { boardRider, createVehicle } from '../../../src/systems/vehicles/index.js';
 import { testContent } from '../../fixtures/content.js';
 import { setNeeds } from '../../fixtures/settler.js';
+
+const CART = 5; // the fixture's vehicle type the boarding case seats the enemy in
+const VIKING_TRIBE = 1;
+
 import {
   cell,
   combatant,
@@ -66,6 +72,31 @@ describe('DEFEND - hold an anchor, don’t chase past the leash', () => {
     const distToAnchor = Math.abs((g?.x ?? 0) - (a?.x ?? 0)) + Math.abs((g?.y ?? 0) - (a?.y ?? 0));
     expect(distToAnchor).toBeLessThanOrEqual(DEFEND_LEASH_NODES); // the chase stayed within the leash
     expect(enemy).toBeDefined();
+  });
+
+  it('drops a held enemy that boarded a vehicle, which leaves it with no position to measure the leash from', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(30, 1) });
+    const ctx = ctxOf(sim);
+    const guard = combatant(sim, 10, 0, P0, MILITARY_MODE.DEFEND);
+    sim.world.mut(guard, Stance).anchorCell = cell(sim, 10, 0);
+    const enemy = combatant(sim, 13, 0, P1, MILITARY_MODE.IGNORE);
+    combatSystem(sim.world, ctx);
+    expect(sim.world.get(guard, Engagement).target).toBe(enemy);
+
+    const vehicle = createVehicle(sim.world, ctx, {
+      vehicleType: CART,
+      tribe: VIKING_TRIBE,
+      x: 20,
+      y: 0,
+      owner: P1,
+    });
+    if (vehicle === null || !seatPassenger(sim.world, vehicle, enemy))
+      throw new Error('setup: no vehicle seat');
+    boardRider(sim.world, enemy, vehicle);
+    expect(sim.world.has(enemy, Position)).toBe(false);
+
+    expect(() => combatSystem(sim.world, ctx)).not.toThrow();
+    expect(sim.world.tryGet(guard, Engagement)?.target).not.toBe(enemy);
   });
 
   it('over a run past a nearby enemy, the defender stays within the leash of its anchor', () => {

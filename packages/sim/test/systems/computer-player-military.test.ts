@@ -659,7 +659,7 @@ describe('military module - the campaign', () => {
     expect(run(sim, PATIENT_SEED, rebuilt + WAVE_GATHER_TICKS)).not.toEqual([]);
   });
 
-  it('puts a man off the fighter default back on the attack for the march', () => {
+  it('turns a defending man to attack for the march', () => {
     const sim = bandSim(WAVE_MIN_SOLDIERS);
     for (const e of seatBand(sim)) sim.world.add(e, Stance, { mode: MILITARY_MODE.DEFEND, anchorCell: null });
 

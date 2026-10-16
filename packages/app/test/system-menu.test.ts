@@ -214,6 +214,24 @@ describe('system menu navigation', () => {
     expect(saveLoad.releaseForcedPause).toHaveBeenCalledOnce();
   });
 
+  it('reports a page closing once, back through the menu, and not on dispose', () => {
+    const { menu } = mount();
+    const onClosed = vi.fn();
+    menu.openPage('load', onClosed);
+    key('Escape');
+    expect(menu.isOpen()).toBe(true);
+    expect(onClosed).not.toHaveBeenCalled();
+    key('Escape');
+    expect(menu.isOpen()).toBe(false);
+    expect(onClosed).toHaveBeenCalledOnce();
+    menu.toggle();
+    menu.toggle();
+    expect(onClosed).toHaveBeenCalledOnce();
+    menu.openPage('load', onClosed);
+    menu.dispose();
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+
   it('cancels a hidden key capture when the settings close', async () => {
     const { menu, settings } = mount();
     menu.toggle();

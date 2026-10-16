@@ -20,6 +20,8 @@ export interface MatchResultDeps {
   readonly setCameraSuspended: (suspended: boolean) => void;
   readonly onQuit: () => void;
   readonly onContinue: () => void;
+  /** Opens the load page from a defeat; `back` shows the result again when it closes without loading. */
+  readonly onLoad?: (back: () => void) => void;
 }
 
 /** What may hold the result window back: a lost link owns the page until it returns, and the
@@ -42,9 +44,12 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
   let close: (() => void) | null = null;
   const suspenders = new Set<MatchResultSuspender>();
   let current: { verdict: MatchOutcome; terminal: boolean } | null = null;
+  // The result set aside while the load page is open; cleared when anything else replaces it.
+  let awayToLoad: { verdict: MatchOutcome; terminal: boolean } | null = null;
   const hide = (): void => {
     close?.();
     current = null;
+    awayToLoad = null;
   };
 
   const show = (verdict: MatchOutcome, terminal = false): void => {
@@ -163,7 +168,23 @@ export function createMatchResultOverlay(deps: MatchResultDeps): MatchResultOver
         });
     });
     const row = line('div', 'on-result__actions', '');
-    row.append(resume, quit);
+    row.append(resume);
+    const onLoad = deps.onLoad;
+    if (onLoad !== undefined && verdict === 'defeat') {
+      row.append(
+        button(copy.loadGame, GLYPH.book, () => {
+          const away = { verdict, terminal };
+          hide();
+          awayToLoad = away;
+          onLoad(() => {
+            if (awayToLoad !== away) return;
+            awayToLoad = null;
+            show(away.verdict, away.terminal);
+          });
+        }),
+      );
+    }
+    row.append(quit);
     frame.body.append(row);
     const inert = new Map<HTMLElement, boolean>();
     for (const child of document.body.children) {

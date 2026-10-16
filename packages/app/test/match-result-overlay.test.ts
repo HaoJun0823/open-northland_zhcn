@@ -12,7 +12,11 @@ afterEach(() => {
   document.body.replaceChildren();
   vi.unstubAllGlobals();
 });
-function setup(sharedClock: boolean, ranking: () => readonly MatchRank[] = () => []) {
+function setup(
+  sharedClock: boolean,
+  ranking: () => readonly MatchRank[] = () => [],
+  onLoad?: (back: () => void) => void,
+) {
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -38,6 +42,7 @@ function setup(sharedClock: boolean, ranking: () => readonly MatchRank[] = () =>
     hud: { element: hud, currentScale: () => 1 },
     onOpen: vi.fn(),
     setCameraSuspended: vi.fn(),
+    ...(onLoad !== undefined ? { onLoad } : {}),
   });
   overlays.push(overlay);
   const body = {
@@ -247,4 +252,34 @@ it('waits for the open mission book, so a closing briefing reads before the verd
   expect(h.overlay.isOpen()).toBe(true);
   h.body.buttons()[0]?.click();
   expect(h.onContinue).toHaveBeenCalledOnce();
+});
+
+it('offers loading after a local defeat and returns to the result when the load page closes', () => {
+  const loadPage: { back?: () => void } = {};
+  const openLoad = (back: () => void): void => {
+    loadPage.back = back;
+  };
+  const won = setup(false, () => [], openLoad);
+  won.overlay.announce('victory');
+  expect(won.body.buttons()).toHaveLength(2);
+  won.overlay.dispose();
+
+  const h = setup(false, () => [], openLoad);
+  h.overlay.announce('defeat');
+  const copy = messages().hud;
+  expect(h.body.buttons().map((button) => button.textContent)).toEqual([
+    copy.matchContinue,
+    copy.loadGame,
+    copy.returnToMenu,
+  ]);
+  h.body.buttons()[1]?.click();
+  expect(h.overlay.isOpen()).toBe(false);
+  expect(h.onContinue).not.toHaveBeenCalled();
+  expect(h.resume).toHaveBeenCalledOnce();
+  loadPage.back?.();
+  expect(h.overlay.isOpen()).toBe(true);
+  expect(h.pause).toHaveBeenCalledTimes(2);
+  h.overlay.dispose();
+  loadPage.back?.();
+  expect(h.overlay.isOpen()).toBe(false);
 });

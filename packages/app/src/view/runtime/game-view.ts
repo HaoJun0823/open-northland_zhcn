@@ -774,6 +774,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
         pause: () => pauseHolds.hold(PAUSE_HOLDER_VERDICT),
         resume: () => pauseHolds.release(PAUSE_HOLDER_VERDICT),
         onQuit: quitToMenu,
+        ...(sharedClock ? {} : { onLoad: (back) => systemMenu?.openPage('load', back) }),
         onContinue: () => {
           if (sharedClock) {
             watching = true;

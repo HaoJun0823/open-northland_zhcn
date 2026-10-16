@@ -17,7 +17,8 @@ export type SystemMenuPage = 'save' | 'load';
 export interface SystemMenu {
   toggle(): void;
   close(): void;
-  openPage(page: SystemMenuPage): void;
+  /** `onClosed` runs once when the menu next closes, unless it is disposed first. */
+  openPage(page: SystemMenuPage, onClosed?: () => void): void;
   isOpen(): boolean;
   dispose(): void;
 }
@@ -61,6 +62,7 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
   let previousFocus: Element | null = null;
   let returnFocus: HTMLButtonElement | null = null;
   let activePanel: HTMLElement = frame.element;
+  let onClosed: (() => void) | null = null;
   const inert = new Map<HTMLElement, boolean>();
   const pages: MenuPageView[] = [];
   const hidePanels = (): void => {
@@ -82,6 +84,9 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
     for (const [element, prior] of inert) element.inert = prior;
     inert.clear();
     if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    const closed = onClosed;
+    onClosed = null;
+    closed?.();
   };
   const pageDeps = {
     plane: plane.element,
@@ -239,12 +244,14 @@ export function createSystemMenu(deps: SystemMenuDeps): SystemMenu {
       else hide();
     },
     close: hide,
-    openPage(page): void {
+    openPage(page, closed): void {
       if (page === 'load' && deps.canLoad === false) return;
       if (backdrop.hidden) show();
+      if (closed !== undefined) onClosed = closed;
       showPanel(page === 'save' ? savePanel : loadPanel, page === 'save' ? save : load);
     },
     dispose(): void {
+      onClosed = null;
       hide();
       scope.abort();
       resize.disconnect();

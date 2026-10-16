@@ -16,7 +16,11 @@ import {
   harvestFromNode,
   PICKUP_STROKES_PER_UNIT,
 } from '../../../src/systems/settlers/atomics/effects/goods/harvest.js';
-import { resourceHarvestAtomics, resourceOfGoodAtNode, resourcesNearNode } from '../../../src/systems/spatial/resources.js';
+import {
+  resourceHarvestAtomics,
+  resourceOfGoodAtNode,
+  resourcesNearNode,
+} from '../../../src/systems/spatial/resources.js';
 import { testContent } from '../../fixtures/content.js';
 import { nextTickCtxOf } from '../../fixtures/context.js';
 import { settlerAt } from '../../fixtures/settler.js';

@@ -184,7 +184,8 @@ export class ComponentStore<T> {
     for (let slot = 0; slot < this.denseLength; slot++) {
       const e = this.denseEntities[slot] ?? VACANT_SLOT;
       if (e !== VACANT_SLOT) yield [e as Entity, this.values[slot] as T];
-      if (this.compactions !== epoch) throw new Error('ComponentStore.entries: store compacted during the walk');
+      if (this.compactions !== epoch)
+        throw new Error('ComponentStore.entries: store compacted during the walk');
     }
   }
 

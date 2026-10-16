@@ -1,6 +1,7 @@
 import { deserialize, serialize } from 'node:v8';
 import {
   cloneEvents,
+  clonePlain,
   diffSnapshots,
   MirrorTruth,
   type SignpostReachView,
@@ -74,18 +75,9 @@ class TimedMirror {
  * The cost of the snapshot delta path a worker host pays per posted batch, done as `serve.ts` does it:
  * taking the delta off a stream that carries no events, cloning the events of a tick held back for a
  * later batch, reading and diffing the world facts, the structured clone `postMessage` makes of the
- * whole batch message (V8's serializer, split into the worker's serialize and the main thread's
- * deserialize), and applying the delta to a mirror, beside its serialized size. Sampled outside the
- * timed tick, so the tick table stays the sim's. One mirror holds no index, a second the indexes the
- * runtime's frame reads (`FRAME_INDEX_READERS`), so the per-delta difference is the main thread's index
- * upkeep; `split` adds a mirror per reader beside a bare control. Each mirror applies its own
- * deserialized copy, in an order that rotates per delta. At each window's end it checks the
- * mirror against a rebuild taken off a stream of its own, which reads the live world without filling
- * `Simulation.snapshot()`'s clone cache (a filled cache makes every later take pay per touched entity,
- * which a worker never does), checks the indexes against a fresh walk, and times a structured clone of
- * that full snapshot for the comparison the delta replaces. With `digest`, the deltas carry the
- * `debug=diag` truth digest, so the take figure includes its fold, and the mirror side's check is
- * sampled as `truth`.
+ * whole batch message (the worker's serialize and the main thread's deserialize), and applying the
+ * delta to a bare mirror and to one holding the runtime frame's indexes, whose difference is the main
+ * thread's index upkeep. Sampled outside the timed tick, so the tick table stays the sim's.
  */
 export class MirrorProbe {
   private readonly deltas;
@@ -309,16 +301,17 @@ function receivedDelta(bytes: Buffer): SnapshotDelta {
   return message.batch.delta;
 }
 
-/** The live world as a rebuild of a stream opened and closed for it: read off the world itself, so it
- *  leaves the clone cache `Simulation.snapshot()` fills empty. */
+/** The live world cloned straight off its component stores, sharing no encoder with the delta path and
+ *  leaving the clone cache `Simulation.snapshot()` fills empty. */
 function liveSnapshot(sim: Simulation): WorldSnapshot {
-  const stream = sim.snapshotDeltas();
-  const rebuild = stream.next();
-  stream.close();
-  if (rebuild === null) throw new Error('a fresh delta stream opens with a rebuild');
-  const mirror = new SnapshotMirror();
-  mirror.apply(rebuild);
-  return mirror.snapshot();
+  const entities = sim.world.canonicalEntities().map((id) => {
+    const components: Record<string, unknown> = {};
+    sim.world.forEachComponent(id, (name, value) => {
+      components[name] = clonePlain(value);
+    });
+    return { id, components };
+  });
+  return { tick: sim.tick, entities, events: cloneEvents(sim.events.current()) };
 }
 
 function us(samples: readonly number[]): string {

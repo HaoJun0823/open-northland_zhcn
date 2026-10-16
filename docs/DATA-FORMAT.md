@@ -34,6 +34,25 @@ content/
 `packages/data` validates the listings and sidecars the app reads; file names referenced from
 `ir.json` are lower-cased like the references.
 
+## Campaign manifest
+
+`campaigns-index.json` (version 3, `CampaignIndex` in `packages/data`) lists the installed
+campaigns. The base pipeline writes an empty list; a campaign build replaces the file and adds the
+`campaigns/<id>/` tree. Each entry is one original game:
+
+| Field | Meaning |
+| --- | --- |
+| `id`, `campaignId`, `order` | campaign identity, the numeric id its scripts use in `AllowMap`, and its place on the campaign screen |
+| `languages` | the text languages every map of the campaign carries; the app plays the UI language, else English, else the first listed, and texts, artwork and films fall back the same way |
+| `title`, `logo` | per-language title text and optional title artwork |
+| `maps[]` | the campaign's maps with the numeric mission id their scripts unlock; submaps belong to maps but are never stages |
+| `background`, `stages[]` | the background picture and the stages in play order; a stage names its map id, per-language title, its point on the background and an optional `route`, the dotted path drawn into it from the previous stage, all as fractions of the background |
+| `movies` | per language: an optional `intro` and numbered `videos`, of which sequence 0 is the finale; a language without films is omitted |
+
+A film has `url`, the silent picture every language shares (`campaigns/<id>/video/<stem>.webm`),
+and `audio`, this language's sound track (`campaigns/<id>/<language>/<stem>.webm`, cut to the
+picture's length), plus the picture's `width` and `height`. The player plays the picture muted and keeps the track within 0.1 s of it.
+
 ## Input formats
 
 The [source data pack](DATA-PACK.md) carries every file the stages read. Corpus counts in the documentation use an

@@ -1082,37 +1082,26 @@ emit another `missionCampaignUnlock`. `Mission quit and play video` retains the 
 emits `missionVideo` on each request. It does not discard later results or triggers in the same pass.
 Both outputs survive save/load; loading does not re-emit them. A host must read retained state on
 restore as well as live events, scope identifiers to the source pack, persist unlocks outside a
-single world (including child worlds), and resolve the film for that pack and locale. The local app persists those unlocks automatically under campaign identity, one progress per
-campaign whatever language or civilization played it, before forwarding exits or submap transitions. Campaign scripts follow `MissionWon` with their won page, their
-`AllowMap` some seconds later and `Exit`, so on a campaign map a victory opens no result panel and
-the script's `Exit` leaves the map even after a verdict. A local win on the campaign's last stage, or
-the recovery action past it, marks the campaign completed in the same progress. The campaign screen
-exposes available missions, a confirmed alpha recovery action, and replay buttons for the intro and,
-once completed, the finale; no stage launch plays a film, and it has no save/load controls. Movies stop the worker at the requesting tick
-boundary and play centred on black without upscaling. Restoring a pending movie replays it.
-Campaign presentation and stage order come from the validated `campaigns-index.json` manifest
-(version 3, `CampaignIndex` in `packages/data`). Each original game is one campaign with an `order`
-on the campaign screen; its maps exist once, carry the text languages in `languages`, and texts
-(`title`, stage titles), title artwork (`logo`) and films (`movies`, per language: optional `intro`,
-numbered `videos`, of which sequence 0 is the finale) are per language. A film names the silent
-picture every language shares (`url`, `campaigns/<campaign>/video/<stem>.webm`) and this language's
-sound track (`audio`, `campaigns/<campaign>/<language>/<stem>.webm`, cut to the picture's length);
-the player plays the picture muted and keeps the track within 0.1 s of it. A stage may carry a `route`, the dotted path drawn into it from
-the previous stage, placed as fractions of the background. The campaign plays in the UI language,
-else English, else its first language; texts, artwork and films fall back the same way. A mission launch is `?map=<id>&missions=on&lang=<language>`, plus
-`tribe=<id>` when the person picks a civilization for their own seat; map AIs keep theirs,
-sub-missions keep the choice, and a save replays the civilization its own entry names. What the
-script hands that seat follows [the seat rule](#seats-played-as-another-civilization).
+single world (including child worlds), and resolve the film for that pack and locale. Campaign
+scripts follow `MissionWon` with their won page, their `AllowMap` some seconds later and `Exit`, so
+on a campaign map a victory opens no result panel and the script's `Exit` leaves the map even after
+a verdict. Movies stop the worker at the requesting tick boundary; restoring a pending movie replays
+it. The app owns the campaign screen, film playback and progress persistence; the manifest format
+(`campaigns-index.json`) is in [DATA-FORMAT.md](../DATA-FORMAT.md#campaign-manifest). A mission
+launch is `?map=<id>&missions=on&lang=<language>`, plus `tribe=<id>` when the person picks a
+civilization for their own seat; map AIs keep theirs, sub-missions keep the choice, and a save
+replays the civilization its own entry names. What the script hands that seat follows
+[the seat rule](#seats-played-as-another-civilization).
 
-`SetHouseOverlayState` writes `HouseLandscapeOverlays` on every house with the authored object id.
-Slots 0 through 9 retain independent true/false overrides; missing slots leave the initial state to
-content. Other slot numbers are ignored. The ten-slot bound is a reading of original behavior,
-not confirmed against the running original. The overrides are saved, hashed and exposed through
-snapshots. The `gfxoverlaylandscape` rows bind each slot to named landscape frames and pixel offsets;
-the renderer draws enabled slots over the completed building body, preserving the frozen mask in fog.
-Missing overrides default to off. Animated overlays use the existing two-tick frame cadence, an
-approximation, and do not reproduce individual landscape timing or shadows. Repeated identical writes
-do not invalidate a component. Save format 102 includes these campaign and overlay outputs.
+`SetHouseOverlayState` writes the house landscape overlay slots of every house with the authored
+object id. Slots 0 through 9 retain independent true/false overrides; a missing slot is off. Other
+slot numbers are ignored. The ten-slot bound is a reading of original behavior, not confirmed against
+the running original. The overrides are saved, hashed and exposed through snapshots. The
+`gfxoverlaylandscape` rows bind each slot to named landscape frames and pixel offsets at the house's
+level; the renderer draws enabled slots over the completed building body, preserving the frozen mask
+in fog. Animated overlays use the existing two-tick frame cadence, an approximation, and do not
+reproduce individual landscape timing or shadows. Repeated identical writes do not invalidate a
+component.
 
 ## Seats played as another civilization
 

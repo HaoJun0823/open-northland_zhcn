@@ -5339,6 +5339,15 @@ body.on-drag-scroll * {
   color: var(--book-red);
   transition: background-color 0.12s;
 }
+.on-hud .on-voice[data-state="unavailable"] {
+  opacity: 0.45;
+}
+.on-hud .on-voice__toggle:disabled {
+  cursor: default;
+}
+.on-hud .on-voice__toggle:disabled:hover {
+  background: none;
+}
 .on-hud .on-voice__toggle:hover {
   background: #8d754933;
 }

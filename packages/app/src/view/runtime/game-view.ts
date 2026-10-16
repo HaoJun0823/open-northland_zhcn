@@ -871,7 +871,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
             );
           },
           exit: quitToMenu,
-          failed: (retry) => campaignFailureDialog(retry, lifetime.signal),
+          failed: (recovery) => campaignFailureDialog(recovery, lifetime.signal),
           signal: lifetime.signal,
         })
       : null;

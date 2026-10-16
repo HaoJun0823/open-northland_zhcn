@@ -171,8 +171,8 @@ export function nearestHarvestableFor(
  * The nearest {@link GroundDrop} pile across `lists` whose good `pick` selects, with its Manhattan
  * distance. Every `targets.groundDrops` entry already carries GroundDrop+Stockpile+Position, so the scan
  * re-checks no markers. The good `pick` returns then faces the work-cell reachability, signpost and
- * sealed-pocket gates. A pile may sit in several lists: each list is ascending-id and the winners merge
- * by the scan's total order, so the pick matches one scan over their sorted union.
+ * sealed-pocket gates. Piles are resolved nearest node first under the scan's total order, so a pile
+ * listed twice is harmless and the pick matches one scan over the lists' sorted union.
  */
 function nearestDropFor(
   plan: PlannerContext,
@@ -201,11 +201,18 @@ function nearestDropFor(
     if (cell === undefined) return null;
     return { cell, payload: good };
   };
-  let best: NearestByCell<number> | null = null;
+  // A pile's stance is the node itself, a free neighbour, or the work cell of a resource standing on it.
+  const anchors = new AnchorRanking(
+    terrain.xOf(here),
+    terrain.yOf(here),
+    contentIndex(ctx.content).maxResourceWorkOffset,
+    ADMIT_ANY_ANCHOR,
+  );
   for (let i = 0; i < lists.length; i++) {
     const piles = lists[i];
-    if (piles !== undefined) best = nearerOf(best, nearestByCell(terrain, piles, here, resolve));
+    if (piles !== undefined) anchors.addList(world, piles);
   }
+  const best = anchors.fold(terrain, here, null, resolve);
   return best === null
     ? null
     : { pile: best.entity, goodType: best.payload, cell: best.cell, dist: best.distance };
@@ -329,12 +336,12 @@ class AnchorRanking {
   }
 
   /** Fold the added candidates into `best`, ranked from `rank`, and forget them. */
-  fold(
+  fold<P>(
     terrain: TerrainGraph,
     rank: NodeId,
-    best: NearestByCell<null> | null,
-    resolve: (e: Entity) => CellMatch<null> | null,
-  ): NearestByCell<null> | null {
+    best: NearestByCell<P> | null,
+    resolve: (e: Entity) => CellMatch<P> | null,
+  ): NearestByCell<P> | null {
     const keys = anchorKeys.subarray(0, this.count).sort();
     this.count = 0;
     for (let i = 0; i < keys.length; i++) {
@@ -347,12 +354,14 @@ class AnchorRanking {
         entity: e,
         cell: match.cell,
         distance: manhattan(terrain, rank, match.cell),
-        payload: null,
+        payload: match.payload,
       });
     }
     return best;
   }
 }
+
+const ADMIT_ANY_ANCHOR = (): boolean => true;
 
 /**
  * The {@link AnchorRanking} winner over every resource of the `atomics`, read in boxes around `origin`

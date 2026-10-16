@@ -140,6 +140,24 @@ describe('pile scan', () => {
     expect(nearestCollectablePileFor(plan)?.pile).toBe(leather);
   });
 
+  it('takes a pile lying farther whose stance under a standing tree is nearer', () => {
+    const sim = newSim();
+    const offset = contentIndex(sim.content).maxResourceWorkOffset;
+    const [hx, hy, out] = [4, 10, 12];
+    pileAt(sim, hx + out, hy, WOOD); // stood on where it lies
+    // Lies past the first pile, but the tree it lies under is worked `offset` nodes back towards the seeker.
+    resourceAt(sim, hx + out - 1 + offset, hy, WOOD, CHOP, [{ dx: -offset, dy: 0 }]);
+    const underTree = pileAt(sim, hx + out - 1 + offset, hy, WOOD);
+    const plan = planFor(sim, WOODCUTTER, hx, hy);
+
+    expect(nearestCollectablePileFor(plan)).toEqual({
+      pile: underTree,
+      goodType: WOOD,
+      cell: node(sim, hx + out - 1, hy),
+      dist: out - 1,
+    });
+  });
+
   it('a flag gatherer reads only the piles it dug itself', () => {
     const sim = newSim();
     const plan = planFor(sim, WOODCUTTER, 4, 10);

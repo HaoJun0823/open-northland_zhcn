@@ -27,6 +27,16 @@ const SCAN_DISC_NODES = 1 + 3 * SCAN_RADIUS * (SCAN_RADIUS + 1);
 /** Breadth-first queue slots a field starts with. */
 const INITIAL_QUEUE_CAPACITY = 1024;
 
+/** {@link HEX_NEIGHBOUR_OFFSETS} as flat steps per row parity, so the per-node walks index typed arrays. */
+const NEIGHBOUR_DX_EVEN_ROW = Int8Array.from(HEX_NEIGHBOUR_OFFSETS, (c) => footprintCellDx(0, c));
+const NEIGHBOUR_DX_ODD_ROW = Int8Array.from(HEX_NEIGHBOUR_OFFSETS, (c) => footprintCellDx(1, c));
+const NEIGHBOUR_DY = Int8Array.from(HEX_NEIGHBOUR_OFFSETS, (c) => c.dy);
+const NEIGHBOURS = HEX_NEIGHBOUR_OFFSETS.length;
+
+function neighbourDxOf(y: number): Int8Array {
+  return (y & 1) !== 0 ? NEIGHBOUR_DX_ODD_ROW : NEIGHBOUR_DX_EVEN_ROW;
+}
+
 /**
  * Per-node free-size classes over a terrain graph: a node's class is the largest hexagon-disc radius
  * around it whose every map point is in bounds, open (`probe`) and in the node's own static
@@ -115,9 +125,10 @@ export class ClearanceField {
       const x = graph.xOf(current);
       const y = graph.yOf(current);
       const component = graph.componentOf(current);
-      for (const offset of HEX_NEIGHBOUR_OFFSETS) {
-        const nx = x + footprintCellDx(y, offset);
-        const ny = y + offset.dy;
+      const dxs = neighbourDxOf(y);
+      for (let i = 0; i < NEIGHBOURS; i++) {
+        const nx = x + (dxs[i] ?? 0);
+        const ny = y + (NEIGHBOUR_DY[i] ?? 0);
         if (!graph.inBounds(nx, ny)) continue;
         const neighbour = graph.nodeAt(nx, ny);
         if ((local && discStamps[neighbour] !== scanned) || distance[neighbour] !== UNREACHED) continue;
@@ -171,9 +182,10 @@ export class ClearanceField {
     const x = graph.xOf(node);
     const y = graph.yOf(node);
     const component = graph.componentOf(node);
-    for (const offset of HEX_NEIGHBOUR_OFFSETS) {
-      const nx = x + footprintCellDx(y, offset);
-      const ny = y + offset.dy;
+    const dxs = neighbourDxOf(y);
+    for (let i = 0; i < NEIGHBOURS; i++) {
+      const nx = x + (dxs[i] ?? 0);
+      const ny = y + (NEIGHBOUR_DY[i] ?? 0);
       if (!graph.inBounds(nx, ny)) return true;
       const neighbour = graph.nodeAt(nx, ny);
       if (!probe(neighbour) || graph.componentOf(neighbour) !== component) return true;
@@ -188,7 +200,7 @@ export class ClearanceField {
    * node's least distance to a centre, so the nodes within any radius are the union of the per-centre
    * discs of that radius.
    */
-  private markDisc(centres: Iterable<NodeId>): void {
+  private markDisc(centres: ReadonlySet<NodeId>): void {
     const { graph, disc, discStamps, discDepths } = this;
     if (this.discGeneration >= MAX_DISC_GENERATION) {
       discStamps.fill(0);
@@ -196,13 +208,14 @@ export class ClearanceField {
     }
     this.discGeneration += 1;
     const generation = this.discGeneration;
+    // A set is already distinct, so every centre takes a slot; `forEach` walks it without an iterator result
+    // per entry.
     let size = 0;
-    for (const centre of centres) {
-      if (discStamps[centre] === generation) continue;
+    centres.forEach((centre) => {
       discStamps[centre] = generation;
       discDepths[centre] = 0;
       disc[size++] = centre;
-    }
+    });
     // Discoveries append behind the cursor, so `disc` is its own breadth-first queue.
     for (let at = 0; at < size; at++) {
       const current = disc[at] as NodeId;
@@ -210,9 +223,10 @@ export class ClearanceField {
       if (d >= SCAN_RADIUS) continue;
       const x = graph.xOf(current);
       const y = graph.yOf(current);
-      for (const offset of HEX_NEIGHBOUR_OFFSETS) {
-        const nx = x + footprintCellDx(y, offset);
-        const ny = y + offset.dy;
+      const dxs = neighbourDxOf(y);
+      for (let i = 0; i < NEIGHBOURS; i++) {
+        const nx = x + (dxs[i] ?? 0);
+        const ny = y + (NEIGHBOUR_DY[i] ?? 0);
         if (!graph.inBounds(nx, ny)) continue;
         const neighbour = graph.nodeAt(nx, ny);
         if (discStamps[neighbour] === generation) continue;

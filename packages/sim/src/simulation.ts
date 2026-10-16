@@ -46,7 +46,7 @@ import { Rng } from './core/rng.js';
 import { type Entity, World } from './ecs/world.js';
 import { checkInvariants as _checkInvariants, type Invariant as _Invariant } from './harness/invariants.js';
 import { type HouseholdGoodPolicyView, householdGoodPolicyView } from './inspect/household-policy.js';
-import { mapFingerprint } from './inspect/map-fingerprint.js';
+import { type MapFingerprintInput, mapFingerprint, mapFingerprintInput } from './inspect/map-fingerprint.js';
 import {
   type HomeQualityView,
   homeQualityView,
@@ -198,7 +198,9 @@ export class Simulation {
   /** The map's `[AIData]` rows, the AI program system's content input; an immutable input like
    *  `missions`. */
   readonly mapAiScript?: MapAiScript;
-  private readonly map?: TerrainMap;
+  /** The map's identity inputs, over the terrain's own lanes where they match, so the map's arrays are
+   *  not held for a digest only a save or a load reads. */
+  private readonly mapIdentity?: MapFingerprintInput;
   private mapFingerprintMemo?: string;
   /** Null until {@link setSyncDigest} turns the digest on; while set it is the world's mutation sink. */
   private digest: SyncDigestRecorder | null = null;
@@ -226,8 +228,9 @@ export class Simulation {
     if (opts.missions !== undefined) this.missions = opts.missions;
     if (opts.mapAiScript !== undefined) this.mapAiScript = opts.mapAiScript;
     if (opts.map !== undefined) {
-      this.map = opts.map;
-      this.terrain = buildTerrainGraph(opts.content, opts.map);
+      const typeIds = Int32Array.from(opts.map.typeIds);
+      this.terrain = buildTerrainGraph(opts.content, opts.map, typeIds);
+      this.mapIdentity = mapFingerprintInput(opts.map, this.terrain, typeIds);
       this.fog = new FogState(this.terrain, this.world);
     }
   }
@@ -238,8 +241,8 @@ export class Simulation {
    * first read: a whole-grid walk that only a save, a load, or a diagnostic ever needs.
    */
   get mapFingerprint(): string | undefined {
-    if (this.map === undefined) return undefined;
-    this.mapFingerprintMemo ??= mapFingerprint(this.map);
+    if (this.mapIdentity === undefined) return undefined;
+    this.mapFingerprintMemo ??= mapFingerprint(this.mapIdentity);
     return this.mapFingerprintMemo;
   }
 

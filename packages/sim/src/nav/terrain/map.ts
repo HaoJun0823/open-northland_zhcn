@@ -111,11 +111,15 @@ export function halfCellMapFromCells(map: CellTerrainMap): TerrainMap {
  * terrain map. The per-type props are resolved once here, so a per-node lookup during a tick is one map
  * hit instead of a scan of the content table.
  */
-export function buildTerrainGraph(content: ContentSet, map: TerrainMap): TerrainGraph {
+export function buildTerrainGraph(
+  content: ContentSet,
+  map: TerrainMap,
+  /** `map.typeIds` already copied, for a caller that shares the lane; the graph never writes it. */
+  typeIds: Int32Array = Int32Array.from(map.typeIds),
+): TerrainGraph {
   const props = new Map<number, LandscapeProps>();
   for (const t of content.landscape) props.set(t.typeId, resolveLandscapeProps(t));
 
-  const typeIds = Int32Array.from(map.typeIds);
   // A typeId with no matching LandscapeType means a bad map and IR pairing; fail rather than silently
   // treating those nodes as blocking.
   for (const id of typeIds) {

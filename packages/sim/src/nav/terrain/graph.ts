@@ -44,6 +44,41 @@ export const ROAD_RESISTANCE = 1;
  */
 const MIN_ROUTE_RESISTANCE = ROAD_RESISTANCE;
 
+/** Resistance values a node's Uint8 resistance lanes can hold. */
+const RESISTANCE_VALUES = 2 ** 8;
+
+function routeWeightOf(resistance: number): Fixed {
+  return fx.fromInt(resistance < MIN_ROUTE_RESISTANCE ? MIN_ROUTE_RESISTANCE : resistance);
+}
+
+/** {@link routeWeightOf} per resistance, so the route search reads a weight off a byte lane. */
+const ROUTE_WEIGHT_BY_RESISTANCE: readonly Fixed[] = Array.from(
+  { length: RESISTANCE_VALUES },
+  (_, resistance) => routeWeightOf(resistance),
+);
+
+/** The widest value each unsigned typed lane holds, narrowest first. */
+const UINT8_MAX = 2 ** 8 - 1;
+const UINT16_MAX = 2 ** 16 - 1;
+const UINT32_MAX = 2 ** 32 - 1;
+
+/**
+ * `values` in the narrowest unsigned typed array that holds every one exactly, or `values` itself when
+ * one is negative or fractional. A decoded lane holds non-negative integers, a byte or two each, where a
+ * JS array spends a full slot on every one.
+ */
+export function compactLane(values: ArrayLike<number>): ArrayLike<number> {
+  let max = 0;
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i] ?? -1;
+    if (!Number.isInteger(v) || v < 0 || v > UINT32_MAX) return values;
+    if (v > max) max = v;
+  }
+  if (max <= UINT8_MAX) return Uint8Array.from(values);
+  if (max <= UINT16_MAX) return Uint16Array.from(values);
+  return Uint32Array.from(values);
+}
+
 /** The road revision of a graph no road network has been mirrored into yet; world revisions start at 0. */
 const UNSYNCED_ROAD_REVISION = -1;
 
@@ -62,6 +97,11 @@ export interface ComponentBox {
  */
 export class TerrainGraph extends TerrainEdges {
   private readonly components: Int32Array;
+  /** The original `lmco` continent id per node, the authored key fish swarms are matched on; the
+   *  movers compare {@link componentOf} instead. */
+  readonly waterContinents: ArrayLike<number> | undefined;
+  /** Original cell-resolution elevation lane, row-major over {@link cellColumns}. */
+  private readonly elevation: ArrayLike<number> | undefined;
   /** Indexed by component label; built on the first ask, since the components never change. */
   private componentBoxes: readonly ComponentBox[] | null = null;
   /** Per-node `lmpr` roughness, or undefined for the uniform default. */
@@ -80,9 +120,9 @@ export class TerrainGraph extends TerrainEdges {
   private roadDistances: RoadDistanceField | undefined;
   /** The connected road networks, allocated with the first road. */
   private roadNetworks: RoadNetworks | undefined;
-  /** Per-node land route weight: the node's resistance, at least {@link MIN_ROUTE_RESISTANCE}, as a
-   *  multiple of ONE. */
-  private readonly routeWeights: Fixed[];
+  /** Per-node resistance the land route search weighs a step onto the node by, through
+   *  {@link ROUTE_WEIGHT_BY_RESISTANCE}. */
+  private readonly routeResistances: Uint8Array;
   /** Per-node {@link resistanceAt} on walkable ground and 0 where a walker never stands, the one read a
    *  range search makes per inspected node. */
   private readonly entryResistances: Uint8Array;
@@ -97,11 +137,9 @@ export class TerrainGraph extends TerrainEdges {
     props: ReadonlyMap<number, LandscapeProps>,
     readonly landscapes?: LandscapeMapInput,
     groundKinds?: readonly number[],
-    /** The original `lmco` continent id per node, the authored key fish swarms are matched on; the
-     *  movers compare {@link componentOf} instead. */
-    readonly waterContinents?: readonly number[],
+    waterContinents?: readonly number[],
     roughness?: readonly number[],
-    readonly elevation?: readonly number[],
+    elevation?: readonly number[],
     tints?: readonly number[],
     groundEdges?: ArrayLike<number>,
   ) {
@@ -112,14 +150,15 @@ export class TerrainGraph extends TerrainEdges {
     if (roughness !== undefined && roughness.length !== this.nodeCount) {
       throw new Error(`roughness lane has ${roughness.length} nodes, expected ${this.nodeCount}`);
     }
+    this.waterContinents = waterContinents === undefined ? undefined : compactLane(waterContinents);
     this.roughness = roughness === undefined ? undefined : Uint8Array.from(roughness);
     this.roads = new Uint8Array(this.nodeCount);
-    this.routeWeights = new Array<Fixed>(this.nodeCount);
+    this.routeResistances = new Uint8Array(this.nodeCount);
     this.entryResistances = new Uint8Array(this.nodeCount);
     this.resistanceStamps = new NodeChangeStamps(width, height);
     for (let i = 0; i < this.nodeCount; i++) {
       const node = i as NodeId;
-      this.routeWeights[node] = routeWeightOf(this.roughnessAt(node));
+      this.routeResistances[node] = this.roughnessAt(node);
       this.entryResistances[node] = this.isWalkable(node) ? this.roughnessAt(node) : 0;
     }
     this.cellColumns = Math.ceil(width / 2);
@@ -132,6 +171,7 @@ export class TerrainGraph extends TerrainEdges {
       throw new Error(`vertex colour lane has ${tints.length} cells, expected ${cellCount}`);
     }
     this.authoredTints = tints === undefined ? undefined : Uint8Array.from(tints);
+    this.elevation = elevation === undefined ? undefined : compactLane(elevation);
     this.components = this.computeComponents();
   }
 
@@ -215,7 +255,9 @@ export class TerrainGraph extends TerrainEdges {
    * on even steps it only shifts every route between two fixed ends by a constant. Ships sail unweighted.
    */
   routeWeightAt(node: NodeId, traversal: Traversal): Fixed {
-    return traversal === 'land' ? (this.routeWeights[node] ?? ONE) : ONE;
+    if (traversal !== 'land') return ONE;
+    const resistance = this.routeResistances[node];
+    return resistance === undefined ? ONE : (ROUTE_WEIGHT_BY_RESISTANCE[resistance] ?? ONE);
   }
 
   /** The world road revision the lanes mirror; {@link UNSYNCED_ROAD_REVISION} before the first sync. */
@@ -273,7 +315,7 @@ export class TerrainGraph extends TerrainEdges {
   private setRoad(node: NodeId, road: boolean): void {
     this.checkedSlot(this.roads, node);
     this.roads[node] = road ? 1 : 0;
-    this.routeWeights[node] = routeWeightOf(road ? ROAD_RESISTANCE : this.roughnessAt(node));
+    this.routeResistances[node] = road ? ROAD_RESISTANCE : this.roughnessAt(node);
     const resistance = this.isWalkable(node) ? this.resistanceAt(node) : 0;
     if (this.entryResistances[node] !== resistance) {
       this.entryResistances[node] = resistance;
@@ -366,8 +408,4 @@ export class TerrainGraph extends TerrainEdges {
     }
     return components;
   }
-}
-
-function routeWeightOf(resistance: number): Fixed {
-  return fx.fromInt(resistance < MIN_ROUTE_RESISTANCE ? MIN_ROUTE_RESISTANCE : resistance);
 }

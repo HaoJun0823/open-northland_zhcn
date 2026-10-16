@@ -1394,57 +1394,6 @@ export const GUI_FRAMES = [
 
 export type GuiFrameName = (typeof GUI_FRAMES)[number]['name'];
 
-/** Named indices so HUD call sites do not inline a frame number. */
-export const GUI_FRAME = {
-  knot_corner_bl: 0,
-  knot_corner_br: 1,
-  knot_corner_tl: 2,
-  knot_corner_tr: 3,
-  window_border_bottom: 5,
-  window_border_right: 6,
-  window_border_top: 7,
-  window_border_left: 8,
-  resource_icon_dark_lump: 29,
-  resource_icon_round_stone: 30,
-  tool_button_buildings: 42,
-  tool_button_population: 43,
-  tool_button_diplomacy: 44,
-  tool_button_extras: 45,
-  tool_button_mission: 46,
-  tool_button_options: 47,
-  tool_button_help: 48,
-  speed_button: 49,
-  tool_button_statistics: 50,
-  tool_panel_background: 51,
-  speed_button_x2: 52,
-  speed_button_x3: 53,
-  speed_button_paused: 54,
-  minimap_frame: 55,
-  tool_button_tech_tree: 56,
-  message_priority_frame: 63,
-  message_priority_button: 64,
-  message_priority_button_important: 65,
-  message_priority_button_only_important: 66,
-  message_note_low: 67,
-  message_note_medium: 68,
-  message_note_high: 69,
-  message_window_bg: 70,
-  message_icon_skull: 87,
-  message_icon_handshake: 88,
-  message_icon_house: 89,
-  message_icon_swords: 90,
-  message_icon_chest: 91,
-  order_go_to: 107,
-  overview_toggle_button: 145,
-  resource_icon_herb: 150,
-  resource_icon_pickaxes: 152,
-  resource_icon_gold_bars: 153,
-  resource_icon_tree: 155,
-  house_plate: 157,
-  bar_frame_96: 165,
-  stock_tab_0: 170,
-} as const;
-
 /** The stock window's tab strip: `stock_tab_0`..`stock_tab_7` are consecutive frames on the sheet. */
 export const STOCK_TAB_COUNT = 8;
 

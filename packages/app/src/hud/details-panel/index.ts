@@ -10,7 +10,6 @@ export type {
   VehiclePanelModel,
 } from './model/index.js';
 export {
-  barTone,
   buildUnitPanelModel,
   equipmentRows,
   remainingPct,

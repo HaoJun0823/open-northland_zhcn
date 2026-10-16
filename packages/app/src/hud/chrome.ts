@@ -30,10 +30,6 @@ const SCROLL_THUMB = 0x6b5836;
 const CLOSE_X_COLOR = 0xd8ccb0;
 const CLOSE_BOX_ALPHA = 0.3;
 
-/** Hover highlight tint + strength over a flat button, row, or tab. */
-export const HOVER_TINT = 0xffffff;
-export const HOVER_ALPHA = 0.16;
-
 /** One scaled bevel line width (design px → screen px, floored to a visible minimum). */
 const bevelLine = (scale: number): number => Math.max(1, Math.round(scale));
 

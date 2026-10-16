@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   GUI_ATLAS_FRAME_COUNT,
-  GUI_FRAME,
   GUI_FRAMES,
   type GuiFrameMeta,
   type GuiFrameName,
@@ -61,13 +60,6 @@ describe('gui-atlas-map', () => {
       for (const state of frame.states ?? []) {
         expect(names.has(state)).toBe(true);
       }
-    }
-  });
-
-  it('keeps the GUI_FRAME named constants in lock-step with the catalog', () => {
-    for (const [name, index] of Object.entries(GUI_FRAME)) {
-      expect(GUI_FRAMES[index]?.name).toBe(name);
-      expect(guiFrameIndex(name as GuiFrameName)).toBe(index);
     }
   });
 

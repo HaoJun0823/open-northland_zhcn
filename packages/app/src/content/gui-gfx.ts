@@ -2,7 +2,7 @@ import { HypertextBook } from '@open-northland/data';
 import type { SpriteLayer, TextureSource } from '@open-northland/render';
 import { diag } from '../diag/index.js';
 import { loadLayer } from './ir/load.js';
-import { fetchImageData, fetchJsonOrNull, loadTextureIfPresent } from './net.js';
+import { fetchJsonOrNull, loadTextureIfPresent } from './net.js';
 
 /**
  * GUI content bindings for the pipeline's `gui` stage outputs. Atlases and the palette LUT ride the
@@ -73,36 +73,6 @@ export function loadGuiWindowIndexed(): Promise<SpriteLayer> {
  */
 export function loadGuiPaletteLut(): Promise<TextureSource | undefined> {
   return loadTextureIfPresent(`/bobs/${GUI_PALETTE_LUT_STEM}.png`);
-}
-
-/**
- * The decoded level→colour ramp of the original `bar_hitpoints.pcx` palette, as 256 packed `0xRRGGBB`
- * entries: red `#ff0000` at index 0 (empty) → orange → yellow-green `#d4ff4b` at 255 (full), the decoded
- * evidence that a bar's colour follows its level. The exact original draw behavior is not established, so
- * the panel's reading (fill colour = `ramp[level]`, one colour per bar) is a named approximation. Every
- * stat gauge uses this ramp rather than the sibling `bar_standart`, which stays green until ~15%.
- */
-export type GuiBarRamp = readonly number[];
-
-/**
- * Read the `bar_hitpoints` LUT row CPU-side and pack its 256 RGB entries. `undefined` when the LUT is
- * absent or unreadable, so the bars fall back to their flat banded colours.
- */
-export async function loadGuiBarRamp(): Promise<GuiBarRamp | undefined> {
-  const image = await fetchImageData(`/bobs/${GUI_PALETTE_LUT_STEM}.png`);
-  if (image === null) return undefined;
-  const rowIndex = guiPaletteRow('bar_hitpoints');
-  // A stale LUT baked before this palette was appended is shorter than the row index, and reading past it
-  // would sample transparent black.
-  if (rowIndex >= image.height) return undefined;
-  const { data, width } = image;
-  const base = rowIndex * width * 4;
-  const colors: number[] = [];
-  for (let x = 0; x < width; x++) {
-    const o = base + x * 4;
-    colors.push(((data[o] ?? 0) << 16) | ((data[o + 1] ?? 0) << 8) | (data[o + 2] ?? 0));
-  }
-  return colors;
 }
 
 /** Original GUI bitmap fills copied/converted from `Data/gui/bitmaps/*.pcx` by the pipeline. */

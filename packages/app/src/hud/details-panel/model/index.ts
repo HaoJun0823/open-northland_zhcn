@@ -22,7 +22,7 @@ import { type GroupPanelModel, groupPanelModel } from './group.js';
 import { type SettlerPanelModel, settlerPanelModel } from './settler-panel.js';
 import { type VehiclePanelModel, vehiclePanelModel } from './vehicle.js';
 
-export { type BarTone, barTone, type PanelBar, remainingPct } from './bars.js';
+export { type PanelBar, remainingPct } from './bars.js';
 export {
   type BuildingOfferModel,
   type BuildingOrdersModel,

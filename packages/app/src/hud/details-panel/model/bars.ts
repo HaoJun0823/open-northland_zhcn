@@ -28,18 +28,6 @@ export function healthBar(ent: SnapshotEntity): PanelBar | null {
   };
 }
 
-export type BarTone = 'ok' | 'warn' | 'critical';
-const BAR_WARN_BELOW_PCT = 50;
-const BAR_CRITICAL_BELOW_PCT = 25;
-
-/** Banding for the no-`content/` fallback only; the thresholds are an approximation, since with content
- *  the decoded `GuiBarRamp` colours the gauge instead. */
-export function barTone(pct: number): BarTone {
-  if (pct < BAR_CRITICAL_BELOW_PCT) return 'critical';
-  if (pct < BAR_WARN_BELOW_PCT) return 'warn';
-  return 'ok';
-}
-
 function clampPct(n: number): number {
   return Math.max(0, Math.min(100, Math.round(n)));
 }

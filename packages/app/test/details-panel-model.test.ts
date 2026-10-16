@@ -56,7 +56,6 @@ import {
 import { num } from '../src/game/snapshot.js';
 import { fixedViewerSeat } from '../src/game/viewer-seat.js';
 import {
-  barTone,
   buildUnitPanelModel,
   remainingPct,
   type SettlerPanelModel,
@@ -1035,15 +1034,6 @@ describe('selection details panel model', () => {
       if (model.kind !== 'settler') throw new Error('expected a settler model');
       expect(model.workplace?.remove === true, `settler ${id}`).toBe(offered);
     }
-  });
-
-  it('bands a bar level into green/orange/red tones at the named thresholds', () => {
-    expect(barTone(100)).toBe('ok');
-    expect(barTone(50)).toBe('ok'); // ≥50 stays green
-    expect(barTone(49)).toBe('warn');
-    expect(barTone(25)).toBe('warn'); // ≥25 stays orange
-    expect(barTone(24)).toBe('critical');
-    expect(barTone(0)).toBe('critical');
   });
 
   it('lists every collector resource in the Produkcja section with its counter', () => {

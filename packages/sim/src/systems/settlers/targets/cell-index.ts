@@ -1,4 +1,4 @@
-import { Building, Palisade, Position, Stockpile } from '../../../components/index.js';
+import { Building, Owner, ownerOf, Palisade, Position, Stockpile } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import { insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
 import type { Entity, World } from '../../../ecs/world.js';
@@ -55,6 +55,51 @@ export interface CellMatch<P> extends Qualified<P> {
 
 const entityId = (e: Entity): number => e;
 
+/** One candidate set's lists and grids: every candidate of an index, or one owner side's share. */
+class CandidateSet {
+  readonly doors: CellGrid;
+  readonly doorList: Entity[] = [];
+  readonly looseList: Entity[] = [];
+  /** Built by the first loose ring search, then kept current by the index's edits. */
+  looseGrid: CellGrid | null = null;
+
+  constructor(world: World) {
+    this.doors = new CellGrid(world);
+  }
+
+  addDoor(e: Entity, x: number, y: number): void {
+    insertSortedById(this.doorList, e, entityId);
+    this.doors.add(e, x, y);
+  }
+
+  removeDoor(e: Entity, x: number, y: number): void {
+    removeSortedById(this.doorList, e, entityId);
+    this.doors.remove(e, x, y);
+  }
+
+  addLoose(e: Entity, x: number, y: number): void {
+    insertSortedById(this.looseList, e, entityId);
+    this.looseGrid?.add(e, x, y);
+  }
+
+  removeLoose(e: Entity, x: number, y: number): void {
+    removeSortedById(this.looseList, e, entityId);
+    this.looseGrid?.remove(e, x, y);
+  }
+
+  /** A member, or undefined for an empty set. */
+  any(): Entity | undefined {
+    return this.doorList[0] ?? this.looseList[0];
+  }
+}
+
+/** The side key of an unowned candidate; a player's key is its slot. */
+const NEUTRAL_SIDE = -1;
+
+function sideKeyOf(world: World, e: Entity): number {
+  return ownerOf(world, e) ?? NEUTRAL_SIDE;
+}
+
 /**
  * A spatial index over an economy candidate list, answering "nearest candidate to `here` passing
  * `accept`" by the `(distance, cell-id, entity-id)` order as a bounded node-ring search. Built per tick
@@ -65,17 +110,30 @@ const entityId = (e: Entity): number => e;
  * within the content's largest work-cell offset of that node, so the loose ring runs that slack past the
  * best exact distance. `nearest` merges both winners, so the result matches a full linear scan for any
  * candidate mix.
+ *
+ * A side-filtered query searches only the sides its filter admits: the candidates split by owner on the
+ * first such query and kept current from the Owner journals. Each side's winner merges by the same total
+ * order, so skipping a rejected side's candidates wholesale cannot change the pick.
  */
 export class InteractionCellIndex {
-  private doors: CellGrid;
-  private readonly doorList: Entity[] = [];
+  private all: CandidateSet;
   // Doors resolved once when indexed, so no scan re-derives a building's door per query.
   private readonly doorCell = new Map<Entity, NodeId>();
-  private readonly looseList: Entity[] = [];
   /** Each loose candidate's own node, the key it is bucketed by. */
   private readonly looseNode = new Map<Entity, NodeId>();
-  /** Built by the first loose ring search, then kept current by {@link add} and {@link remove}. */
-  private looseGrid: CellGrid | null = null;
+  /** The candidates by owner side; null until the first side-filtered query. */
+  private sides: Map<number, CandidateSet> | null = null;
+  /** The side each candidate is filed under while {@link sides} is kept. */
+  private readonly sideOf = new Map<Entity, number>();
+  /** The Owner membership and value-write generations {@link sides} is current to. */
+  private ownerMembership = 0;
+  private ownerValues = 0;
+  private readonly refileSide = (e: Entity): void => {
+    const filed = this.sideOf.get(e);
+    if (filed === undefined || filed === sideKeyOf(this.world, e)) return;
+    this.dropFromSide(e, filed);
+    this.fileInSide(e);
+  };
   /** Greatest Manhattan offset (half-cell nodes) of a loose candidate's interaction cell from its own
    *  node: a free neighbour, or the work cell of a resource standing on the same node. */
   private readonly slack: number;
@@ -87,7 +145,7 @@ export class InteractionCellIndex {
     candidates: readonly Entity[] = [],
   ) {
     this.slack = contentIndex(ctx.content).maxResourceWorkOffset;
-    this.doors = new CellGrid(world);
+    this.all = new CandidateSet(world);
     for (const e of candidates) this.add(e);
   }
 
@@ -97,47 +155,45 @@ export class InteractionCellIndex {
     const cell = interactionCellOf(world, this.ctx, terrain, e);
     if (cell !== null) {
       this.doorCell.set(e, cell);
-      insertSortedById(this.doorList, e, entityId);
-      this.doors.add(e, terrain.xOf(cell), terrain.yOf(cell));
-      return;
+      this.all.addDoor(e, terrain.xOf(cell), terrain.yOf(cell));
+    } else {
+      const p = world.get(e, Position);
+      const node = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+      this.looseNode.set(e, node);
+      this.all.addLoose(e, terrain.xOf(node), terrain.yOf(node));
     }
-    const p = world.get(e, Position);
-    const node = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
-    this.looseNode.set(e, node);
-    insertSortedById(this.looseList, e, entityId);
-    this.looseGrid?.add(e, terrain.xOf(node), terrain.yOf(node));
+    if (this.sides !== null) this.fileInSide(e);
   }
 
   /** Drop `e` from the key {@link add} filed it under; a no-op for an entity not indexed. */
   remove(e: Entity): void {
+    const side = this.sideOf.get(e);
+    if (side !== undefined) this.dropFromSide(e, side);
     const { terrain } = this;
     const cell = this.doorCell.get(e);
     if (cell !== undefined) {
       this.doorCell.delete(e);
-      removeSortedById(this.doorList, e, entityId);
-      this.doors.remove(e, terrain.xOf(cell), terrain.yOf(cell));
+      this.all.removeDoor(e, terrain.xOf(cell), terrain.yOf(cell));
       return;
     }
     const node = this.looseNode.get(e);
     if (node === undefined) return;
     this.looseNode.delete(e);
-    removeSortedById(this.looseList, e, entityId);
-    this.looseGrid?.remove(e, terrain.xOf(node), terrain.yOf(node));
+    this.all.removeLoose(e, terrain.xOf(node), terrain.yOf(node));
   }
 
   /** Forget every candidate. */
   clear(): void {
-    this.doors = new CellGrid(this.world);
-    this.doorList.length = 0;
+    this.all = new CandidateSet(this.world);
     this.doorCell.clear();
-    this.looseList.length = 0;
     this.looseNode.clear();
-    this.looseGrid = null;
+    this.sides = null;
+    this.sideOf.clear();
   }
 
   /** Whether the seeker-independent candidate filter admitted anything. */
   hasCandidates(): boolean {
-    return this.doorList.length > 0 || this.looseList.length > 0;
+    return this.all.any() !== undefined;
   }
 
   /** How far, in Manhattan half-cell nodes, a candidate's interaction cell may lie from the node
@@ -151,29 +207,42 @@ export class InteractionCellIndex {
    *  at its own node, up to {@link filedSlack} from its interaction cell. */
   anyFiledIn(area: (x: number, y: number) => boolean, accept: (e: Entity) => boolean): boolean {
     const { terrain } = this;
-    for (const e of this.doorList) {
+    for (const e of this.all.doorList) {
       const cell = this.doorCell.get(e);
       if (cell !== undefined && area(terrain.xOf(cell), terrain.yOf(cell)) && accept(e)) return true;
     }
-    for (const e of this.looseList) {
+    for (const e of this.all.looseList) {
       const node = this.looseNode.get(e);
       if (node !== undefined && area(terrain.xOf(node), terrain.yOf(node)) && accept(e)) return true;
     }
     return false;
   }
 
-  /** A mismatch message per candidate `fresh` keys differently, for a cache verifier. */
+  /** A mismatch message per candidate `fresh` keys differently, or this index files under a stale side,
+   *  for a cache verifier. */
   divergence(fresh: InteractionCellIndex): string[] {
     const out: string[] = [];
     const differs = (a: readonly Entity[], b: readonly Entity[]): boolean =>
       a.length !== b.length || a.some((e, i) => e !== b[i]);
-    if (differs(this.doorList, fresh.doorList)) out.push('door candidates differ');
-    if (differs(this.looseList, fresh.looseList)) out.push('loose candidates differ');
+    if (differs(this.all.doorList, fresh.all.doorList)) out.push('door candidates differ');
+    if (differs(this.all.looseList, fresh.all.looseList)) out.push('loose candidates differ');
     for (const [e, cell] of fresh.doorCell) {
       if (this.doorCell.get(e) !== cell) out.push(`candidate ${e} is filed at a stale door`);
     }
     for (const [e, node] of fresh.looseNode) {
       if (this.looseNode.get(e) !== node) out.push(`candidate ${e} is filed at a stale node`);
+    }
+    if (this.sides !== null) {
+      this.syncSides();
+      for (const list of [this.all.doorList, this.all.looseList]) {
+        for (const e of list) {
+          const side = this.sides.get(sideKeyOf(this.world, e));
+          const listed = side !== undefined && (side.doorList.includes(e) || side.looseList.includes(e));
+          if (!listed || this.sideOf.get(e) !== sideKeyOf(this.world, e)) {
+            out.push(`candidate ${e} is filed under a stale side`);
+          }
+        }
+      }
     }
     return out;
   }
@@ -190,14 +259,21 @@ export class InteractionCellIndex {
     gate?: SpatialGate,
     /** Rejects cells this seeker's own routes just failed on. `here` is exempt; never bounds the sweep. */
     avoid?: (cell: NodeId) => boolean,
-    /** Rejects a candidate owned by another player, per entity rather than per cell. */
+    /** Rejects a candidate owned by another player. It must read nothing but the candidate's
+     *  {@link Owner}, as {@link sameSideAs} does: a search asks it once per owner side. */
     onSide?: (e: Entity) => boolean,
     /** The ranking origin, a flag centre for a carrier working outward from its flag; `here` stays the
      *  route start the interaction cell, sealing and veto are judged from. */
     rank: NodeId = here,
   ): NearestByCell<P> | null {
-    const door = this.doorNearest(here, rank, accept, gate, avoid, onSide);
-    return nearerOf(door, this.looseNearest(here, rank, accept, gate, avoid, onSide, door?.distance));
+    const sets = this.setsOn(onSide);
+    let door: NearestByCell<P> | null = null;
+    for (const set of sets) door = nearerOf(door, this.doorNearest(set, here, rank, accept, gate, avoid));
+    let best = door;
+    for (const set of sets) {
+      best = nearerOf(best, this.looseNearest(set, here, rank, accept, gate, avoid, best?.distance));
+    }
+    return best;
   }
 
   /** The {@link nearest} winner among the door-bucketed candidates, for an `accept` that only a building
@@ -209,7 +285,11 @@ export class InteractionCellIndex {
     avoid?: (cell: NodeId) => boolean,
     onSide?: (e: Entity) => boolean,
   ): NearestByCell<P> | null {
-    return this.doorNearest(here, here, accept, gate, avoid, onSide);
+    let best: NearestByCell<P> | null = null;
+    for (const set of this.setsOn(onSide)) {
+      best = nearerOf(best, this.doorNearest(set, here, here, accept, gate, avoid));
+    }
+    return best;
   }
 
   /** The {@link nearest} winner among the candidates without a door: the building-less ones. */
@@ -220,30 +300,109 @@ export class InteractionCellIndex {
     avoid?: (cell: NodeId) => boolean,
     onSide?: (e: Entity) => boolean,
   ): NearestByCell<P> | null {
-    return this.looseNearest(here, here, accept, gate, avoid, onSide);
+    // Typed by assertion: reassigned in the loop, so flow narrowing must not pin it to null.
+    let best = null as NearestByCell<P> | null;
+    for (const set of this.setsOn(onSide)) {
+      best = nearerOf(best, this.looseNearest(set, here, here, accept, gate, avoid, best?.distance));
+    }
+    return best;
+  }
+
+  /** The candidate sets a query filtered by `onSide` searches: every candidate when it admits every side,
+   *  else the sides it admits. */
+  private setsOn(onSide: ((e: Entity) => boolean) | undefined): readonly CandidateSet[] {
+    if (onSide === undefined) return [this.all];
+    const sides = this.syncSides();
+    const admitted: CandidateSet[] = [];
+    sides.forEach((set) => {
+      const member = set.any();
+      if (member !== undefined && onSide(member)) admitted.push(set);
+    });
+    return admitted.length === sides.size ? [this.all] : admitted;
+  }
+
+  /** {@link sides}, split on first use and caught up to the Owner writes since. */
+  private syncSides(): Map<number, CandidateSet> {
+    const { world } = this;
+    const membership = world.componentGeneration(Owner);
+    const values = world.componentValueGeneration(Owner);
+    if (this.sides !== null && membership === this.ownerMembership && values === this.ownerValues) {
+      return this.sides;
+    }
+    const replayed =
+      this.sides !== null &&
+      world.replayMembershipSince(Owner, this.ownerMembership, this.refileSide) &&
+      world.replayValueWritesSince(Owner, this.ownerValues, this.refileSide);
+    if (!replayed) {
+      world.journalMembership(Owner);
+      world.journalValueWrites(Owner);
+      this.sides = new Map();
+      this.sideOf.clear();
+      for (const e of this.all.doorList) this.fileInSide(e);
+      for (const e of this.all.looseList) this.fileInSide(e);
+    }
+    this.ownerMembership = membership;
+    this.ownerValues = values;
+    return this.sides as Map<number, CandidateSet>;
+  }
+
+  /** File indexed `e` under its owner's side. */
+  private fileInSide(e: Entity): void {
+    const sides = this.sides;
+    if (sides === null) return;
+    const key = sideKeyOf(this.world, e);
+    let set = sides.get(key);
+    if (set === undefined) {
+      set = new CandidateSet(this.world);
+      sides.set(key, set);
+    }
+    this.sideOf.set(e, key);
+    const { terrain } = this;
+    const cell = this.doorCell.get(e);
+    if (cell !== undefined) {
+      set.addDoor(e, terrain.xOf(cell), terrain.yOf(cell));
+      return;
+    }
+    const node = this.looseNode.get(e);
+    if (node !== undefined) set.addLoose(e, terrain.xOf(node), terrain.yOf(node));
+  }
+
+  /** Drop `e` from side `key`, forgetting the side once empty. */
+  private dropFromSide(e: Entity, key: number): void {
+    this.sideOf.delete(e);
+    const set = this.sides?.get(key);
+    if (set === undefined) return;
+    const { terrain } = this;
+    const cell = this.doorCell.get(e);
+    if (cell !== undefined) set.removeDoor(e, terrain.xOf(cell), terrain.yOf(cell));
+    else {
+      const node = this.looseNode.get(e);
+      if (node !== undefined) set.removeLoose(e, terrain.xOf(node), terrain.yOf(node));
+    }
+    if (set.any() === undefined) this.sides?.delete(key);
   }
 
   private doorNearest<P>(
+    set: CandidateSet,
     here: NodeId,
     rank: NodeId,
     accept: (e: Entity) => Qualified<P> | null,
     gate: SpatialGate | undefined,
     avoid: ((cell: NodeId) => boolean) | undefined,
-    onSide: ((e: Entity) => boolean) | undefined,
   ): NearestByCell<P> | null {
-    if (this.doors.size <= RING_MIN_BUCKETS) {
-      return this.linearNearest(this.doorList, here, accept, gate, avoid, onSide, rank);
+    if (set.doors.size <= RING_MIN_BUCKETS) {
+      return this.linearNearest(set.doorList, here, accept, gate, avoid, rank);
     }
     const hx = this.terrain.xOf(rank);
     const hy = this.terrain.yOf(rank);
-    let reach = this.doors.reach(hx, hy);
+    let reach = set.doors.reach(hx, hy);
     if (gate !== undefined) reach = Math.min(reach, boundsReach(gate, hx, hy));
     const maxRadius = Math.min(NEAREST_RING_MAX_RADIUS, reach);
-    const best = this.ringNearest(here, rank, maxRadius, accept, gate, avoid, onSide);
+    const best = this.ringNearest(set.doors, here, rank, maxRadius, accept, gate, avoid);
     // An exhaustive sweep proves a null; otherwise the ring cap stopped short and the blocks past it decide.
     if (best !== null || reach <= NEAREST_RING_MAX_RADIUS) return best;
     let far: NearestByCell<P> | null = null;
-    this.doors.farFirst(
+    set.doors.farFirst(
       hx,
       hy,
       maxRadius,
@@ -252,7 +411,7 @@ export class InteractionCellIndex {
       gate?.bounds,
       Number.POSITIVE_INFINITY,
       (x, y, d, bucket) => {
-        far = this.pickInRing(x, y, d, bucket, here, accept, gate, avoid, onSide, far);
+        far = this.pickInRing(x, y, d, bucket, here, accept, gate, avoid, far);
         return far?.distance ?? Number.POSITIVE_INFINITY;
       },
     );
@@ -262,25 +421,19 @@ export class InteractionCellIndex {
   /** The nearest door-bucketed candidate within Manhattan `maxRadius` of `rank`, or null, by the
    *  `(distance, cell-id, entity-id)` order. */
   private ringNearest<P>(
+    doors: CellGrid,
     here: NodeId,
     rank: NodeId,
     maxRadius: number,
     accept: (e: Entity) => Qualified<P> | null,
     gate: SpatialGate | undefined,
     avoid: ((cell: NodeId) => boolean) | undefined,
-    onSide: ((e: Entity) => boolean) | undefined,
   ): NearestByCell<P> | null {
     let best: NearestByCell<P> | null = null;
-    this.doors.nearestFirst(
-      this.terrain.xOf(rank),
-      this.terrain.yOf(rank),
-      maxRadius,
-      0,
-      (x, y, d, bucket) => {
-        best = this.pickInRing(x, y, d, bucket, here, accept, gate, avoid, onSide, best);
-        return best?.distance ?? Number.POSITIVE_INFINITY;
-      },
-    );
+    doors.nearestFirst(this.terrain.xOf(rank), this.terrain.yOf(rank), maxRadius, 0, (x, y, d, bucket) => {
+      best = this.pickInRing(x, y, d, bucket, here, accept, gate, avoid, best);
+      return best?.distance ?? Number.POSITIVE_INFINITY;
+    });
     return best;
   }
 
@@ -296,7 +449,6 @@ export class InteractionCellIndex {
     accept: (e: Entity) => Qualified<P> | null,
     gate: SpatialGate | undefined,
     avoid: ((cell: NodeId) => boolean) | undefined,
-    onSide: ((e: Entity) => boolean) | undefined,
     best: NearestByCell<P> | null,
   ): NearestByCell<P> | null {
     if (bucket.length === 0) return best;
@@ -309,7 +461,6 @@ export class InteractionCellIndex {
     for (let i = 0; i < bucket.length; i++) {
       const e = bucket[i];
       if (e === undefined) continue; // i < length, so only for the type
-      if (onSide !== undefined && !onSide(e)) continue; // another player's candidate
       const hit = accept(e);
       if (hit !== null) return { entity: e, cell, distance, payload: hit.payload };
     }
@@ -322,19 +473,19 @@ export class InteractionCellIndex {
    * that exceeds the best exact distance; a cap short of that hands the farther nodes to the block search.
    */
   private looseNearest<P>(
+    set: CandidateSet,
     here: NodeId,
     rank: NodeId,
     accept: (e: Entity) => Qualified<P> | null,
     gate: SpatialGate | undefined,
     avoid: ((cell: NodeId) => boolean) | undefined,
-    onSide: ((e: Entity) => boolean) | undefined,
     bound = Number.POSITIVE_INFINITY,
   ): NearestByCell<P> | null {
-    if (this.looseList.length <= RING_MIN_BUCKETS) {
-      return this.linearNearest(this.looseList, here, accept, gate, avoid, onSide, rank);
+    if (set.looseList.length <= RING_MIN_BUCKETS) {
+      return this.linearNearest(set.looseList, here, accept, gate, avoid, rank);
     }
     const { terrain, slack } = this;
-    const grid = this.gridOfLoose();
+    const grid = this.gridOfLoose(set);
     const hx = terrain.xOf(rank);
     const hy = terrain.yOf(rank);
     let reach = grid.reach(hx, hy);
@@ -347,7 +498,7 @@ export class InteractionCellIndex {
     grid.nearestFirst(hx, hy, maxRadius, slack, (_x, _y, _d, bucket) => {
       for (let j = 0; j < bucket.length; j++) {
         const e = bucket[j];
-        if (e !== undefined) best = this.weighLoose(e, here, rank, accept, gate, avoid, onSide, best);
+        if (e !== undefined) best = this.weighLoose(e, here, rank, accept, gate, avoid, best);
       }
       return Math.min(bound, best?.distance ?? bound);
     });
@@ -368,7 +519,7 @@ export class InteractionCellIndex {
         if (box === undefined || nearBox(box, x, y, slack)) {
           for (let j = 0; j < bucket.length; j++) {
             const e = bucket[j];
-            if (e !== undefined) best = this.weighLoose(e, here, rank, accept, gate, avoid, onSide, best);
+            if (e !== undefined) best = this.weighLoose(e, here, rank, accept, gate, avoid, best);
           }
         }
         return Math.min(bound, best?.distance ?? bound);
@@ -377,19 +528,19 @@ export class InteractionCellIndex {
     return best;
   }
 
-  private gridOfLoose(): CellGrid {
-    if (this.looseGrid === null) {
+  private gridOfLoose(set: CandidateSet): CellGrid {
+    if (set.looseGrid === null) {
       const { terrain } = this;
       const grid = new CellGrid(this.world);
-      const list = this.looseList;
+      const list = set.looseList;
       for (let i = 0; i < list.length; i++) {
         const e = list[i];
         const node = e === undefined ? undefined : this.looseNode.get(e);
         if (e !== undefined && node !== undefined) grid.add(e, terrain.xOf(node), terrain.yOf(node));
       }
-      this.looseGrid = grid;
+      set.looseGrid = grid;
     }
-    return this.looseGrid;
+    return set.looseGrid;
   }
 
   /** `best`, or loose candidate `e` when it qualifies and precedes `best` in the total order. */
@@ -400,10 +551,8 @@ export class InteractionCellIndex {
     accept: (e: Entity) => Qualified<P> | null,
     gate: SpatialGate | undefined,
     avoid: ((cell: NodeId) => boolean) | undefined,
-    onSide: ((e: Entity) => boolean) | undefined,
     best: NearestByCell<P> | null,
   ): NearestByCell<P> | null {
-    if (onSide !== undefined && !onSide(e)) return best; // another player's candidate
     const hit = accept(e);
     if (hit === null) return best;
     if (this.gatedOutLoose(gate, e)) return best;
@@ -449,8 +598,7 @@ export class InteractionCellIndex {
     accept: (e: Entity) => Qualified<P> | null,
     gate: SpatialGate | undefined,
     avoid: ((cell: NodeId) => boolean) | undefined,
-    onSide: ((e: Entity) => boolean) | undefined,
-    rank: NodeId = here,
+    rank: NodeId,
   ): NearestByCell<P> | null {
     const { world, ctx, terrain } = this;
     let bestEntity: Entity | undefined;
@@ -461,7 +609,6 @@ export class InteractionCellIndex {
     for (let i = 0; i < list.length; i++) {
       const e = list[i];
       if (e === undefined) continue;
-      if (onSide !== undefined && !onSide(e)) continue; // another player's candidate
       const hit = accept(e);
       if (hit === null) continue;
       const door = this.doorCell.get(e);

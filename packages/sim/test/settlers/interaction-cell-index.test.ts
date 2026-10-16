@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Building, Owner, Position, sameSideAs } from '../../src/components/index.js';
 import { contentIndex } from '../../src/core/content-index.js';
+import { GENERATION_JOURNAL_LIMIT } from '../../src/ecs/generation-journal.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { ONE, positionOfNode, type Simulation } from '../../src/index.js';
 import type { SpatialGate } from '../../src/nav/node-circle.js';
@@ -39,6 +40,8 @@ const WIDE: Layout = { cellsW: 200, cellsH: 150, stones: 60, piles: 220, huts: 1
 const NODES_W = SMALL.cellsW * 2;
 const NODES_H = SMALL.cellsH * 2;
 const QUERIES = 400;
+/** Owner changes between two rounds of queries, short of the journal window. */
+const OWNER_HANDOVERS = 40;
 /** Manhattan offsets of a probe from its lone target: from a few nodes inside the ring cap to past it. */
 const RING_CAP_PROBE_MIN = 40;
 const RING_CAP_PROBE_SPAN = 30;
@@ -228,6 +231,24 @@ describe('InteractionCellIndex', () => {
       checkQueries(sim, live, kept, roll);
     },
   );
+
+  it.each([11, 12])('keeps its owner sides current as candidates change hands (seed %i)', (seed) => {
+    const { sim, terrain, ctx, candidates, roll, index } = world(seed);
+    checkQueries(sim, index, candidates, roll); // splits the sides
+    for (const handovers of [1, OWNER_HANDOVERS, GENERATION_JOURNAL_LIMIT + 1]) {
+      for (let i = 0; i < handovers; i++) {
+        const e = candidates[roll(candidates.length)] as Entity;
+        const player = roll(PLAYERS + 1);
+        const owned = sim.world.has(e, Owner);
+        if (player === PLAYERS) {
+          if (owned) sim.world.remove(e, Owner);
+        } else if (owned && roll(2) === 0) sim.world.mut(e, Owner).player = player; // an in-place write
+        else sim.world.add(e, Owner, { player });
+      }
+      checkQueries(sim, index, candidates, roll);
+      expect(index.divergence(new InteractionCellIndex(sim.world, ctx, terrain, candidates))).toEqual([]);
+    }
+  });
 
   it('rejects a loose pile its gate rules out near its node without resolving its cell', () => {
     const { sim, terrain, ctx, candidates, roll } = world(6);

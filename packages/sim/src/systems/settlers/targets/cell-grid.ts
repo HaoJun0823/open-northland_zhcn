@@ -1,7 +1,6 @@
-import { insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
-import type { Entity, World } from '../../../ecs/world.js';
+import { indexAboveId, insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
+import type { Entity } from '../../../ecs/world.js';
 import type { NodeBox } from '../../../nav/node-circle.js';
-import { NodeBuckets } from '../../spatial/nodes.js';
 
 /** Candidate counts per coordinate along one axis, so the span tightens once an edge coordinate empties. */
 class AxisSpan {
@@ -42,63 +41,68 @@ const BLOCK_SIZE = 1 << BLOCK_SHIFT;
 /** Packs a node or a tile into one key; coordinates stay below it on every map. */
 const GRID_KEY_STRIDE = 1 << 16;
 
+/** An occupied node: its packed key and its candidates, ascending-id. */
+interface GridNode {
+  readonly key: number;
+  readonly entities: Entity[];
+}
+
 /** Candidates bucketed by node coordinates, with the span of the occupied nodes so a search never
  *  expands past the farthest bucket, the occupied nodes of each square tile so a search reads only
  *  occupied nodes, nearest tiles first, and the occupied tiles of each block for a search past the ring
  *  cap. */
 export class CellGrid {
-  private readonly buckets: NodeBuckets;
   private readonly xs = new AxisSpan();
   private readonly ys = new AxisSpan();
-  /** Each tile's occupied nodes as packed keys, ascending. */
-  private readonly tiles = new Map<number, number[]>();
+  /** Each tile's occupied nodes, ascending by key. */
+  private readonly tiles = new Map<number, GridNode[]>();
   /** Each block's occupied tiles as packed keys, ascending. */
   private readonly blocks = new Map<number, number[]>();
   /** Occupied nodes. */
   size = 0;
 
-  constructor(world: World) {
-    this.buckets = new NodeBuckets(world, []);
-  }
-
   add(e: Entity, x: number, y: number): void {
-    if (this.buckets.at(x, y).length === 0) {
-      this.size++;
-      const tile = (x >> TILE_SHIFT) * GRID_KEY_STRIDE + (y >> TILE_SHIFT);
-      let nodes = this.tiles.get(tile);
-      if (nodes === undefined) {
-        nodes = [];
-        this.tiles.set(tile, nodes);
-        const block = (x >> BLOCK_SHIFT) * GRID_KEY_STRIDE + (y >> BLOCK_SHIFT);
-        let tiles = this.blocks.get(block);
-        if (tiles === undefined) {
-          tiles = [];
-          this.blocks.set(block, tiles);
-        }
-        insertSortedById(tiles, tile, nodeKey);
+    const tile = (x >> TILE_SHIFT) * GRID_KEY_STRIDE + (y >> TILE_SHIFT);
+    let nodes = this.tiles.get(tile);
+    if (nodes === undefined) {
+      nodes = [];
+      this.tiles.set(tile, nodes);
+      const block = (x >> BLOCK_SHIFT) * GRID_KEY_STRIDE + (y >> BLOCK_SHIFT);
+      let tiles = this.blocks.get(block);
+      if (tiles === undefined) {
+        tiles = [];
+        this.blocks.set(block, tiles);
       }
-      insertSortedById(nodes, x * GRID_KEY_STRIDE + y, nodeKey);
+      insertSortedById(tiles, tile, tileKey);
     }
-    this.buckets.insert(e, x, y);
+    const key = x * GRID_KEY_STRIDE + y;
+    const at = nodes[indexAboveId(nodes, key - 1, nodeKeyOf)];
+    if (at?.key === key) insertSortedById(at.entities, e, entityId);
+    else {
+      insertSortedById(nodes, { key, entities: [e] }, nodeKeyOf);
+      this.size++;
+    }
     this.xs.add(x);
     this.ys.add(y);
   }
 
   /** Drop `e`, which {@link add} placed at `(x,y)`. */
   remove(e: Entity, x: number, y: number): void {
-    this.buckets.remove(e, x, y);
-    if (this.buckets.at(x, y).length === 0) {
-      this.size--;
-      const tile = (x >> TILE_SHIFT) * GRID_KEY_STRIDE + (y >> TILE_SHIFT);
-      const nodes = this.tiles.get(tile);
-      if (nodes !== undefined) {
-        removeSortedById(nodes, x * GRID_KEY_STRIDE + y, nodeKey);
+    const tile = (x >> TILE_SHIFT) * GRID_KEY_STRIDE + (y >> TILE_SHIFT);
+    const nodes = this.tiles.get(tile);
+    const key = x * GRID_KEY_STRIDE + y;
+    const at = nodes?.[indexAboveId(nodes, key - 1, nodeKeyOf)];
+    if (nodes !== undefined && at?.key === key) {
+      removeSortedById(at.entities, e, entityId);
+      if (at.entities.length === 0) {
+        removeSortedById(nodes, key, nodeKeyOf);
+        this.size--;
         if (nodes.length === 0) {
           this.tiles.delete(tile);
           const block = (x >> BLOCK_SHIFT) * GRID_KEY_STRIDE + (y >> BLOCK_SHIFT);
           const tiles = this.blocks.get(block);
           if (tiles !== undefined) {
-            removeSortedById(tiles, tile, nodeKey);
+            removeSortedById(tiles, tile, tileKey);
             if (tiles.length === 0) this.blocks.delete(block);
           }
         }
@@ -121,7 +125,7 @@ export class CellGrid {
     visit: (nx: number, ny: number, distance: number, bucket: readonly Entity[]) => number,
   ): void {
     // Call-local, since a visit may search this grid again.
-    const tileNodes: (readonly number[])[] = [];
+    const tileNodes: (readonly GridNode[])[] = [];
     const tileDistances: number[] = [];
     const tileOrder: number[] = [];
     const minTx = Math.max(0, x - maxRadius) >> TILE_SHIFT;
@@ -144,12 +148,12 @@ export class CellGrid {
     let bound = Number.POSITIVE_INFINITY;
     for (const i of tileOrder) {
       if ((tileDistances[i] as number) - slack > bound) return;
-      for (const key of tileNodes[i] as readonly number[]) {
-        const nx = Math.floor(key / GRID_KEY_STRIDE);
-        const ny = key - nx * GRID_KEY_STRIDE;
+      for (const node of tileNodes[i] as readonly GridNode[]) {
+        const nx = Math.floor(node.key / GRID_KEY_STRIDE);
+        const ny = node.key - nx * GRID_KEY_STRIDE;
         const distance = Math.abs(nx - x) + Math.abs(ny - y);
         if (distance > maxRadius || distance - slack > bound) continue;
-        bound = visit(nx, ny, distance, this.buckets.at(nx, ny));
+        bound = visit(nx, ny, distance, node.entities);
       }
     }
   }
@@ -186,7 +190,7 @@ export class CellGrid {
       blockDistances.push(least);
     });
     blockOrder.sort((a, b) => (blockDistances[a] as number) - (blockDistances[b] as number));
-    const tileNodes: (readonly number[])[] = [];
+    const tileNodes: (readonly GridNode[])[] = [];
     const tileDistances: number[] = [];
     const tileOrder: number[] = [];
     for (const i of blockOrder) {
@@ -211,20 +215,15 @@ export class CellGrid {
       tileOrder.sort((a, b) => (tileDistances[a] as number) - (tileDistances[b] as number));
       for (const j of tileOrder) {
         if ((tileDistances[j] as number) - slack > bound) break;
-        for (const key of tileNodes[j] as readonly number[]) {
-          const nx = Math.floor(key / GRID_KEY_STRIDE);
-          const ny = key - nx * GRID_KEY_STRIDE;
+        for (const node of tileNodes[j] as readonly GridNode[]) {
+          const nx = Math.floor(node.key / GRID_KEY_STRIDE);
+          const ny = node.key - nx * GRID_KEY_STRIDE;
           const distance = Math.abs(nx - x) + Math.abs(ny - y);
           if (distance <= near || distance > maxRadius || distance - slack > bound) continue;
-          bound = visit(nx, ny, distance, this.buckets.at(nx, ny));
+          bound = visit(nx, ny, distance, node.entities);
         }
       }
     }
-  }
-
-  /** Node `(x,y)`'s candidates, ascending-id. */
-  at(x: number, y: number): readonly Entity[] {
-    return this.buckets.at(x, y);
   }
 
   /** The ring radius from `(x,y)` covering every bucket, or -1 when there is none. */
@@ -235,7 +234,9 @@ export class CellGrid {
   }
 }
 
-const nodeKey = (key: number): number => key;
+const tileKey = (key: number): number => key;
+const nodeKeyOf = (node: GridNode): number => node.key;
+const entityId = (e: Entity): number => e;
 
 /** The gap along one axis from `v` to the span `[min, min + size - 1]`, 0 inside it. */
 function spanGap(v: number, min: number, size: number): number {

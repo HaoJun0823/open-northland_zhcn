@@ -57,15 +57,11 @@ const entityId = (e: Entity): number => e;
 
 /** One candidate set's lists and grids: every candidate of an index, or one owner side's share. */
 class CandidateSet {
-  readonly doors: CellGrid;
+  readonly doors = new CellGrid();
   readonly doorList: Entity[] = [];
   readonly looseList: Entity[] = [];
   /** Built by the first loose ring search, then kept current by the index's edits. */
   looseGrid: CellGrid | null = null;
-
-  constructor(world: World) {
-    this.doors = new CellGrid(world);
-  }
 
   addDoor(e: Entity, x: number, y: number): void {
     insertSortedById(this.doorList, e, entityId);
@@ -145,7 +141,7 @@ export class InteractionCellIndex {
     candidates: readonly Entity[] = [],
   ) {
     this.slack = contentIndex(ctx.content).maxResourceWorkOffset;
-    this.all = new CandidateSet(world);
+    this.all = new CandidateSet();
     for (const e of candidates) this.add(e);
   }
 
@@ -184,7 +180,7 @@ export class InteractionCellIndex {
 
   /** Forget every candidate. */
   clear(): void {
-    this.all = new CandidateSet(this.world);
+    this.all = new CandidateSet();
     this.doorCell.clear();
     this.looseNode.clear();
     this.sides = null;
@@ -353,7 +349,7 @@ export class InteractionCellIndex {
     const key = sideKeyOf(this.world, e);
     let set = sides.get(key);
     if (set === undefined) {
-      set = new CandidateSet(this.world);
+      set = new CandidateSet();
       sides.set(key, set);
     }
     this.sideOf.set(e, key);
@@ -531,7 +527,7 @@ export class InteractionCellIndex {
   private gridOfLoose(set: CandidateSet): CellGrid {
     if (set.looseGrid === null) {
       const { terrain } = this;
-      const grid = new CellGrid(this.world);
+      const grid = new CellGrid();
       const list = set.looseList;
       for (let i = 0; i < list.length; i++) {
         const e = list[i];

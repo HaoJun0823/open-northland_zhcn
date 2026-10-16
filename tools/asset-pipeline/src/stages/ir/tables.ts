@@ -133,7 +133,8 @@ export async function extractIniTables(roots: SourceRoots, sources: readonly Ini
     foldOverlay(buildingGraphicsOverlays.footprints, extractBuildingFootprints(sections));
   }
 
-  // Houses only the base table defines join after every rule source, filling what no rule row described.
+  // Houses only the base table defines join after every rule source, stamped `base`. Each keeps the base
+  // `LogicType`, which a rule record may define as another house: there its rows serve only the by-name join.
   const baseHouses = await loadBaseOnlyHouseRecords(roots, ruleHouses);
   pushHouseVisuals(baseHouses, { file: BASE_BUILDING_GRAPHICS_FILE, layer: 'base' });
   fillOverlay(buildingGraphicsOverlays.constructionCosts, extractConstructionCosts(baseHouses));

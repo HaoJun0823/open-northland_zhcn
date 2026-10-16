@@ -1,7 +1,7 @@
 import { PLACED_GARRISON_MASTS, type PlacedGarrisonMast } from '../../catalog/building-tweaks.js';
 import type { WorldTribes } from '../../game/world-tribes.js';
 import type { BuildingBobRow, BuildingFlagPointRow, ContentIr } from '../ir/rows.js';
-import { CANONICAL_EDIT_NAME, rowsByType } from './families.js';
+import { CANONICAL_EDIT_NAME, perTypeHouseRows, rowsByType } from './families.js';
 
 /** A building's marker anchor in screen px from its bob draw anchor, +y down. */
 export interface FlagPoint {
@@ -23,7 +23,7 @@ type MastRow = BuildingFlagPointRow & Pick<PlacedGarrisonMast, 'behindFrom'>;
  * with no row keeps the caller's derived fallback anchor.
  */
 export function flagPointByType(ir: ContentIr | null, tribeId: number): ReadonlyMap<number, FlagPoint> {
-  return pointsByType(ir?.buildingFlagPoints, tribeId);
+  return pointsByType(perTypeHouseRows(ir)?.buildingFlagPoints, tribeId);
 }
 
 /**
@@ -36,8 +36,9 @@ export function soldierFlagPointByType(
   ir: ContentIr | null,
   tribeId: number,
 ): ReadonlyMap<number, MastPoint> {
-  const authored = ir?.buildingSoldierFlagPoints ?? [];
-  return pointsByType([...authored, ...placedMastRows(ir?.buildingBobs ?? [], authored)], tribeId);
+  const perType = perTypeHouseRows(ir);
+  const authored = perType?.buildingSoldierFlagPoints ?? [];
+  return pointsByType([...authored, ...placedMastRows(perType?.buildingBobs ?? [], authored)], tribeId);
 }
 
 /** A mast row per level of each tower record the catalog places a mast on, unless the record's

@@ -4,6 +4,7 @@ import {
   buildingFamiliesFor,
   candidateFamilies,
   DEFAULT_BUILDING_FAMILY,
+  flagPointByType,
   HOUSE_BOB,
   referencedFamilyLayers,
   VIKING_HOUSE01_BOBS,
@@ -154,5 +155,66 @@ describe('referencedFamilyLayers', () => {
       buildingBinding(withLoser, [SARACEN], candidateFamilies(withLoser, [SARACEN])),
     );
     expect(layers.has('ls_houses_beduines.house_saracen01')).toBe(false);
+  });
+});
+
+describe('base-only house records on a rule-defined type', () => {
+  // The base `saracen palace` keeps the base table's LogicType 7, where the mod defines the saracen
+  // market; a base-only record on a type no rule record defines fills it.
+  const MARKET = 7;
+  const UNRULED = 77;
+  const PALACE = 'saracen palace';
+  const base = { source: { layer: 'base' as const } };
+  const mod = { source: { layer: 'mod' as const } };
+  const saracen = { bmd: SARACEN_BMD, paletteName: 'house_saracen01' };
+  const colliding: ContentIr = {
+    buildingBobs: [
+      bob(SARACEN, MARKET, 50, { ...saracen, ...mod }),
+      bob(SARACEN, MARKET, 40, { ...saracen, ...base, editName: PALACE }),
+      bob(SARACEN, UNRULED, 60, { ...saracen, ...base }),
+    ],
+    constructionLayers: [
+      {
+        tribeId: SARACEN,
+        typeId: MARKET,
+        level: 0,
+        upgrade: false,
+        stackIdx: 0,
+        ...saracen,
+        bobId: 52,
+        fromPct: 0,
+        toPct: 100,
+        ...mod,
+      },
+      {
+        tribeId: SARACEN,
+        typeId: MARKET,
+        level: 0,
+        upgrade: false,
+        stackIdx: 0,
+        ...saracen,
+        bobId: 30,
+        fromPct: 0,
+        toPct: 100,
+        ...base,
+        editName: PALACE,
+      },
+    ],
+    buildingFlagPoints: [
+      { tribeId: SARACEN, typeId: MARKET, level: 0, x: -91, y: 63, ...base, editName: PALACE },
+      { tribeId: SARACEN, typeId: UNRULED, level: 0, x: 5, y: 6, ...base },
+    ],
+  };
+
+  it('keeps the rule record in every per-type lane and fills only the uncovered type', () => {
+    const saracenTables = buildingBinding(colliding, [SARACEN], candidateFamilies(colliding, [SARACEN]))
+      .byTribe?.[SARACEN];
+    const layer = 'ls_houses_saracen.house_saracen01';
+    expect(saracenTables?.byType[MARKET]).toEqual({ layer, bob: 50 });
+    expect(saracenTables?.constructionByType?.[MARKET]?.map((stage) => stage.bob)).toEqual([52]);
+    expect(saracenTables?.byType[UNRULED]).toEqual({ layer, bob: 60 });
+    const flags = flagPointByType(colliding, SARACEN);
+    expect(flags.has(MARKET)).toBe(false);
+    expect(flags.get(UNRULED)).toEqual({ x: 5, y: 6 });
   });
 });

@@ -1,5 +1,5 @@
 import type { BuildingBobRef } from '@open-northland/render';
-import type { BuildingBobRow } from '../ir/rows.js';
+import type { BuildingBobRow, ContentIr } from '../ir/rows.js';
 
 /**
  * The decoded tree atlas bound to the `resource` kind - `ls_trees.bmd` recoloured with the `tree_yew01`
@@ -149,6 +149,40 @@ export const CANONICAL_EDIT_NAME: Readonly<Record<number, string>> = {
 function bmdBasename(bmd: string): string {
   const slash = bmd.lastIndexOf('/');
   return slash === -1 ? bmd : bmd.slice(slash + 1);
+}
+
+/** The source layer the pipeline stamps on a record only the base house table defines. */
+const BASE_LAYER = 'base';
+
+interface HouseRow {
+  readonly tribeId: number;
+  readonly typeId: number;
+  readonly source?: { readonly layer: string } | undefined;
+}
+
+const houseKey = (row: HouseRow): string => `${row.tribeId}:${row.typeId}`;
+
+/**
+ * The IR the per-type reductions read. A base-only `[GfxHouse]` record keeps the base table's
+ * `LogicType`, which the mod gives a different house wherever a rule record defines that
+ * `(tribe, typeId)` (the base `saracen palace` lands on the mod's saracen market); there its rows
+ * serve only the by-name authored join, in every lane.
+ */
+export function perTypeHouseRows(ir: ContentIr | null): ContentIr | null {
+  if (ir === null) return null;
+  const ruled = new Set<string>();
+  for (const row of ir.buildingBobs ?? []) if (row.source?.layer !== BASE_LAYER) ruled.add(houseKey(row));
+  const keep = <T extends HouseRow>(rows: readonly T[] | undefined): readonly T[] =>
+    (rows ?? []).filter((row) => row.source?.layer !== BASE_LAYER || !ruled.has(houseKey(row)));
+  return {
+    ...ir,
+    buildingBobs: keep(ir.buildingBobs),
+    constructionLayers: keep(ir.constructionLayers),
+    buildingOverlays: keep(ir.buildingOverlays),
+    buildingLandscapeOverlays: keep(ir.buildingLandscapeOverlays),
+    buildingFlagPoints: keep(ir.buildingFlagPoints),
+    buildingSoldierFlagPoints: keep(ir.buildingSoldierFlagPoints),
+  };
 }
 
 /** Group a decoded gfx-join's rows by typeId for one tribe. Insertion order is preserved so the per-type

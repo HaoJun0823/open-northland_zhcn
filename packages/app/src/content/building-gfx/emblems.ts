@@ -1,5 +1,5 @@
 import type { BuildingBobRow, ContentIr } from '../ir/rows.js';
-import { canonicalBuildingRow } from './families.js';
+import { canonicalBuildingRow, perTypeHouseRows } from './families.js';
 
 /** The building whose sprite stands for a civilization in the menus: every civilization founds one. */
 const EMBLEM_BUILDING = 'headquarters';
@@ -19,8 +19,9 @@ export function tribeEmblemRows(
   const typeId = ir.buildings?.find((row) => row.id === EMBLEM_BUILDING)?.typeId;
   const emblems = new Map<number, BuildingBobRow>();
   if (typeId === undefined) return emblems;
+  const bodies = perTypeHouseRows(ir)?.buildingBobs ?? [];
   for (const tribe of tribes) {
-    const row = canonicalBuildingRow(ir.buildingBobs ?? [], tribe, typeId);
+    const row = canonicalBuildingRow(bodies, tribe, typeId);
     if (row !== undefined) emblems.set(tribe, row);
   }
   return emblems;

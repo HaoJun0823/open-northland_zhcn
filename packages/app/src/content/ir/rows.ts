@@ -8,6 +8,7 @@ import type {
   LandscapeAttachArea,
   LandscapeBlockArea,
   ParticleGfx,
+  Provenance,
   SoundBank,
   TerrainPattern,
   TrianglePatternType,
@@ -74,6 +75,9 @@ export interface IrGoodRow {
   readonly landscapeType?: number;
 }
 
+/** A `[GfxHouse]` row's source layer: `base` marks a record only the base house table defines. */
+type HouseRowSource = Pick<Provenance, 'layer'>;
+
 /** One `[GfxHouse]` `LogicType`→`GfxBobId` row. */
 export interface BuildingBobRow {
   readonly tribeId: number;
@@ -85,6 +89,7 @@ export interface BuildingBobRow {
   readonly paletteName: string;
   readonly bobId: number;
   readonly editName?: string;
+  readonly source?: HouseRowSource;
 }
 
 /** One `[GfxHouse]` `GfxBobConstructionLayer` row. */
@@ -100,6 +105,7 @@ export interface ConstructionLayerRow {
   readonly fromPct: number;
   readonly toPct: number;
   readonly editName?: string;
+  readonly source?: HouseRowSource;
 }
 
 /** One `[GfxHouse]` type-4 `GfxOverlay` row - a finished building's animated state overlay (the mill
@@ -116,6 +122,7 @@ export interface BuildingOverlayRow {
   readonly bmd: string;
   readonly paletteName: string;
   readonly editName?: string;
+  readonly source?: HouseRowSource;
 }
 
 /** One `[GfxHouse]` `GfxFlagPoint` row - where the original plants the building's sign chain.
@@ -127,6 +134,7 @@ export interface BuildingFlagPointRow {
   readonly x: number;
   readonly y: number;
   readonly editName?: string;
+  readonly source?: HouseRowSource;
 }
 
 /** One `[GfxLandscape]` state's frame list. */

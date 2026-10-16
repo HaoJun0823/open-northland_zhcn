@@ -9,7 +9,7 @@ function editNameOf(record: RuleSection): string | undefined {
 /**
  * The base `[GfxHouse]` records whose exact `EditName` no rule record defines. The rule record wins a
  * name both tables define; a name only the base defines (a house the mod dropped that original maps
- * still place) keeps its base record.
+ * still place) keeps its base record, whose `LogicType` the mod may give a different house.
  */
 export function baseOnlyHouseRecords(
   base: readonly RuleSection[],

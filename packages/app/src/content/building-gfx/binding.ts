@@ -17,6 +17,7 @@ import {
   buildingLevelRefsByType,
   DEFAULT_BUILDING_FAMILY,
   HOUSE_BOB,
+  perTypeHouseRows,
   skinSlotCount,
   VIKING_HOUSE01_BOBS,
   VIKING_TRIBE,
@@ -75,9 +76,10 @@ export function buildingBinding(
   tribes: WorldTribes,
   families: readonly BuildingFamily[],
 ): BuildingTypeBinding {
-  const base = tribeTables(ir, tribes[0], families);
+  const perType = perTypeHouseRows(ir);
+  const base = tribeTables(perType, tribes[0], families);
   const byTribe: Record<number, BuildingTribeTables> = { [tribes[0]]: base };
-  for (const tribe of tribes) byTribe[tribe] ??= tribeTables(ir, tribe, families);
+  for (const tribe of tribes) byTribe[tribe] ??= tribeTables(perType, tribe, families);
   const upgradeTargetByType: Record<number, number> = {};
   for (const b of ir?.buildings ?? []) {
     if (b.typeId !== undefined && b.upgradeTarget !== undefined)

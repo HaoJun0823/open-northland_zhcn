@@ -155,8 +155,10 @@ export function hexDistanceBetween(ahx: number, ahy: number, bhx: number, bhy: n
   const dx = bhx - ahx;
   const rows = Math.abs(bhy - ahy);
   let columns = Math.abs(dx);
-  if (rows % 2 !== 0 && (bhy % 2 === 0 ? dx > 0 : dx < 0)) columns--;
-  return rows + Math.max(0, columns - Math.floor(rows / 2));
+  // Integer coordinates: `& 1` is the row parity for negative rows too, and `>> 1` floors the
+  // non-negative span, without `%`'s and `Math.floor`'s double paths.
+  if ((rows & 1) !== 0 && ((bhy & 1) === 0 ? dx > 0 : dx < 0)) columns--;
+  return rows + Math.max(0, columns - (rows >> 1));
 }
 
 /** The six map-point headings, numbered as the original numbers them (its walk directions' first six). */

@@ -49,6 +49,29 @@ describe('the half-cell map-point distance', () => {
     expect(hexDistance(a, { hx: 10, hy: 14 })).toBe(11);
   });
 
+  it('reads row parity and the free columns the same on negative, off-map coordinates', () => {
+    // The `%`/`Math.floor` form, whose remainder carries the dividend's sign.
+    const remainderForm = (ahx: number, ahy: number, bhx: number, bhy: number): number => {
+      const dx = bhx - ahx;
+      const rows = Math.abs(bhy - ahy);
+      let columns = Math.abs(dx);
+      if (rows % 2 !== 0 && (bhy % 2 === 0 ? dx > 0 : dx < 0)) columns--;
+      return rows + Math.max(0, columns - Math.floor(rows / 2));
+    };
+    const span = 7;
+    let mismatches = 0;
+    for (let ahx = -span; ahx <= span; ahx++) {
+      for (let ahy = -span; ahy <= span; ahy++) {
+        for (let bhx = -span; bhx <= span; bhx++) {
+          for (let bhy = -span; bhy <= span; bhy++) {
+            if (hexDistanceBetween(ahx, ahy, bhx, bhy) !== remainderForm(ahx, ahy, bhx, bhy)) mismatches++;
+          }
+        }
+      }
+    }
+    expect(mismatches).toBe(0);
+  });
+
   it('reads one to each lattice neighbour of hexNeighboursOf, from either row parity', () => {
     for (const [hx, hy] of [
       [10, 10],

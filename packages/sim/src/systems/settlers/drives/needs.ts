@@ -9,6 +9,7 @@ import {
   Settler,
   type SettlerIdentity,
   SettlerNeeds,
+  type SettlerNeedsView,
 } from '../../../components/index.js';
 import type { Fixed } from '../../../core/fixed.js';
 import type { Entity, World } from '../../../ecs/world.js';
@@ -85,11 +86,10 @@ function maySeek(world: World, e: Entity, ordered: NeedKind | undefined, need: N
   return ordered === need || !world.has(e, NoRegeneration);
 }
 
-/** The hunger and fatigue bars once carried draughts have answered them. */
-function barsAfterDraughts(world: World, ctx: SystemContext, e: Entity): { hunger: Fixed; fatigue: Fixed } {
+/** The settler's bars once carried draughts have answered them; read each with {@link needLevel}. */
+function needsAfterDraughts(world: World, ctx: SystemContext, e: Entity): SettlerNeedsView {
   drinkPressingDraughts(world, ctx, e);
-  const needs = world.get(e, SettlerNeeds);
-  return { hunger: needLevel(needs, 'hunger', ctx.tick), fatigue: needLevel(needs, 'fatigue', ctx.tick) };
+  return world.get(e, SettlerNeeds);
 }
 
 /**
@@ -111,14 +111,15 @@ export function answerNeedInPlace(
   if (orderedNeed(world, e) === 'piety' && !jobCanPray(ctx.content.jobs, settler.jobType))
     world.remove(e, NeedOrder);
   const ordered = orderedNeed(world, e);
-  const bars = barsAfterDraughts(world, ctx, e);
-  if (pressing(bars.hunger, ordered, 'hunger')) {
+  const needs = needsAfterDraughts(world, ctx, e);
+  const fatigue = needLevel(needs, 'fatigue', ctx.tick);
+  if (pressing(needLevel(needs, 'hunger', ctx.tick), ordered, 'hunger')) {
     const seek = maySeek(world, e, ordered, 'hunger');
     if (seek && eatCarried(world, ctx, e, settler, world.tryGet(e, Carrying))) return true;
     if (seek && eatAtPost(world, ctx, e, settler)) return true;
     if (seek) settleUnservedNeedForAi(world, ctx.tick, e, 'hunger');
   }
-  if (pressing(bars.fatigue, ordered, 'fatigue') && maySeek(world, e, ordered, 'fatigue')) {
+  if (pressing(fatigue, ordered, 'fatigue') && maySeek(world, e, ordered, 'fatigue')) {
     settleUnservedNeedForAi(world, ctx.tick, e, 'fatigue');
   }
   return false;
@@ -176,22 +177,24 @@ export function planNeeds(
   if (orderedNeed(world, e) === 'piety' && !jobCanPray(ctx.content.jobs, settler.jobType))
     world.remove(e, NeedOrder);
   const ordered = orderedNeed(world, e);
-  const bars = barsAfterDraughts(world, ctx, e);
+  const needs = needsAfterDraughts(world, ctx, e);
+  const hunger = needLevel(needs, 'hunger', ctx.tick);
+  const fatigue = needLevel(needs, 'fatigue', ctx.tick);
   if (
-    pressing(bars.hunger, ordered, 'hunger') &&
+    pressing(hunger, ordered, 'hunger') &&
     seekMeal(
       world,
       ctx,
       e,
       { terrain, settler, here, load, targets, supply, limit, onAlert },
-      bars.hunger,
+      hunger,
       ordered,
     )
   ) {
     return true;
   }
 
-  if (pressing(bars.fatigue, ordered, 'fatigue')) {
+  if (pressing(fatigue, ordered, 'fatigue')) {
     if (maySeek(world, e, ordered, 'fatigue') && !onAlert()) {
       if (sleepAtPost(world, ctx, e, settler)) return true;
       if (sleepAtHome(world, ctx, terrain, e, settler, here, limit)) return true;
@@ -337,7 +340,7 @@ function seekMeal(
  */
 export function planMealBreak(world: World, ctx: SystemContext, e: Entity, meal: MealSearch): boolean {
   if (!carriesNeeds(world, ctx.content, e)) return false;
-  const { hunger } = barsAfterDraughts(world, ctx, e);
+  const hunger = needLevel(needsAfterDraughts(world, ctx, e), 'hunger', ctx.tick);
   return hunger > NEED_SATED_THRESHOLD && seekMeal(world, ctx, e, meal, hunger, orderedNeed(world, e));
 }
 

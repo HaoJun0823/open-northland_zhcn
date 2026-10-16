@@ -3,7 +3,12 @@ import type { SettlerIdentity } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import { atomicClipName } from './animations.js';
 
-const cache = new WeakMap<ContentSet, Map<string, number | undefined>>();
+/** Answers by good, per scenario flag, tribe and trade: nested so a lookup builds no key. */
+type ByGood = Map<number, number | undefined>;
+type ByTrade = Map<number | null, ByGood>;
+type ByTribe = Map<number, ByTrade>;
+
+const cache = new WeakMap<ContentSet, { readonly scenario: ByTribe; readonly regular: ByTribe }>();
 
 /** Prefer the good's declared atomic when bound. If the trade cannot bind it, use its unique allowed
  * `setatomic` clip ending in `_produce_<good id>`. This naming-based repair is an approximation of the
@@ -13,13 +18,33 @@ export function productionAtomic(
   settler: SettlerIdentity,
   goodType: number,
 ): number | undefined {
-  let byMaker = cache.get(content);
-  if (byMaker === undefined) {
-    byMaker = new Map();
-    cache.set(content, byMaker);
+  let byFlag = cache.get(content);
+  if (byFlag === undefined) {
+    byFlag = { scenario: new Map(), regular: new Map() };
+    cache.set(content, byFlag);
   }
-  const key = `${settler.scenario === true}:${settler.tribe}:${settler.jobType}:${goodType}`;
-  if (byMaker.has(key)) return byMaker.get(key);
+  const byTribe = settler.scenario === true ? byFlag.scenario : byFlag.regular;
+  let byTrade = byTribe.get(settler.tribe);
+  if (byTrade === undefined) {
+    byTrade = new Map();
+    byTribe.set(settler.tribe, byTrade);
+  }
+  let byGood = byTrade.get(settler.jobType);
+  if (byGood === undefined) {
+    byGood = new Map();
+    byTrade.set(settler.jobType, byGood);
+  }
+  if (byGood.has(goodType)) return byGood.get(goodType);
+  const atomic = resolveProductionAtomic(content, settler, goodType);
+  byGood.set(goodType, atomic);
+  return atomic;
+}
+
+function resolveProductionAtomic(
+  content: ContentSet,
+  settler: SettlerIdentity,
+  goodType: number,
+): number | undefined {
   const index = contentIndex(content);
   const good = index.goods.get(goodType);
   let atomic = good?.atomics.produce;
@@ -30,6 +55,5 @@ export function productionAtomic(
     );
     if (matches.length === 1) atomic = matches[0];
   }
-  byMaker.set(key, atomic);
   return atomic;
 }

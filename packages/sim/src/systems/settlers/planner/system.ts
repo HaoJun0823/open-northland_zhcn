@@ -22,7 +22,7 @@ import { idleBeatOfTick, waitsIdle, wakeIdle } from './idle-replan.js';
 import { navigationPlanner } from './navigation.js';
 import { beginPlannerPass } from './pass.js';
 import { dispatchRecruitArming } from './recruit-arming.js';
-import { releaseStaleIntent, standsThroughPass, takesCoverFrom } from './replan.js';
+import { keepsWaitInside, releaseStaleIntent, takesCoverFrom } from './replan.js';
 import { sweepOrder } from './sweep.js';
 
 /** The atomic pass runs before {@link navigationPlanner}, so a goal it sets is routed in the same tick
@@ -44,11 +44,12 @@ function atomicPlanner(world: World, ctx: SystemContext, terrain: TerrainGraph):
   const idleBeat = cutOffCheckDue(ctx) ? undefined : idleBeatOfTick(ctx.tick);
   const sweep = sweepOrder(world, ctx.content, pass.shelters, idleBeat);
   for (let e = sweep.next(); e !== undefined; e = sweep.next()) {
-    if (standsThroughPass(world, ctx, pass.shelters, e)) continue;
+    const idleWait = waitsIdle(world, ctx.tick, e);
+    if (idleWait && keepsWaitInside(world, ctx, pass.shelters, e)) continue;
     // Between its beats an idler runs only the shelter rung, and only when an alarm may draw it. One
     // still inside a building runs its whole ladder: an alarm draws it from its wait there, or the wait
     // no longer holds. Read before the release, which may step it out.
-    const offBeat = waitsIdle(world, ctx.tick, e) && !world.has(e, Resting);
+    const offBeat = idleWait && !world.has(e, Resting);
     // A busy settler plays its intent out, and is no longer idle; the rest shed what the previous plan
     // left before re-planning.
     if (!releaseStaleIntent(world, ctx, e, pass.farmClaims, pass.supply, pass.shelters)) {

@@ -239,7 +239,17 @@ export function standsThroughPass(
   shelters: ShelterSites,
   e: Entity,
 ): boolean {
-  if (!waitsIdle(world, ctx.tick, e) || !waitsInside(world, e)) return false;
+  return waitsIdle(world, ctx.tick, e) && keepsWaitInside(world, ctx, shelters, e);
+}
+
+/** {@link standsThroughPass} for `e` already known to wait idle off its beat. */
+export function keepsWaitInside(
+  world: World,
+  ctx: SystemContext,
+  shelters: ShelterSites,
+  e: Entity,
+): boolean {
+  if (!waitsInside(world, e)) return false;
   return shelters.size === 0 || world.has(e, Sheltering) || !takesCoverFrom(world, ctx.content, e, shelters);
 }
 
@@ -303,8 +313,10 @@ export function releaseStaleIntent(
     if (world.tryGet(e, Resting)?.at === world.get(e, Sheltering).shelter) clearNavState(world, e);
   }
   // A non-atomic owner has diverted this settler from its errand. Release its promises before a combat,
-  // flight or player-order route hits the travel early-out below.
-  if (hasErrand(world, e) && divertsErrand(world, e)) supply.releaseErrands(e);
+  // flight or player-order route hits the travel early-out below. Nothing below stamps an errand, so one
+  // without any has none to release at the end either.
+  const errand = hasErrand(world, e);
+  if (errand && divertsErrand(world, e)) supply.releaseErrands(e);
   // Fresh read - reconcileYardRoute may have cleared the request.
   const request = world.tryGet(e, PathRequest);
   if (request?.failed === true && !ownsFailedRoute(world, e)) {
@@ -337,6 +349,6 @@ export function releaseStaleIntent(
   // pastime chat's clip is shed with the chat once a drive takes the settler.
   if (!inPastimeChat(world, e)) removeCurrentAtomic(world, e);
   // Releasing through the tally keeps its counts in lockstep with the store.
-  supply.releaseErrands(e);
+  if (errand) supply.releaseErrands(e);
   return true;
 }

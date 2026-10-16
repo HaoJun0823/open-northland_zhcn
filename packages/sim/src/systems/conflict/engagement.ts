@@ -649,13 +649,14 @@ function heldOrPicked(
     heldTarget !== undefined && world.isAlive(heldTarget) && hold.keep(heldTarget)
       ? focusedOn(world, ctx, terrain, here, heldTarget)
       : null;
-  const asker: Asker | null = hold.contact
-    ? {
+  const asker = hold.contact
+    ? askerOf(
+        pass,
         here,
-        side: world.tryGet(self, Owner)?.player ?? null,
-        band: hold.band,
-        mine: { goal: world.tryGet(self, MoveGoal)?.cell, standingOn: here },
-      }
+        world.tryGet(self, Owner)?.player ?? null,
+        hold.band,
+        world.tryGet(self, MoveGoal)?.cell,
+      )
     : null;
   if (
     held !== null &&
@@ -711,6 +712,31 @@ interface Asker {
   readonly side: Side;
   readonly band: WeaponBand;
   readonly mine: OwnClaims;
+}
+
+/** The pass's one {@link Asker}, refilled per melee fighter: no rung keeps it past the fighter's turn. */
+export interface AskerScratch {
+  here: NodeId;
+  side: Side;
+  band: WeaponBand;
+  readonly mine: { goal: NodeId | undefined; standingOn: NodeId | undefined };
+}
+
+function askerOf(
+  pass: CombatPass,
+  here: NodeId,
+  side: Side,
+  band: WeaponBand,
+  goal: NodeId | undefined,
+): Asker {
+  pass.asker ??= { here, side, band, mine: { goal, standingOn: here } };
+  const asker = pass.asker;
+  asker.here = here;
+  asker.side = side;
+  asker.band = band;
+  asker.mine.goal = goal;
+  asker.mine.standingOn = here;
+  return asker;
 }
 
 /** How many walk steps a fighter takes between two looks for a nearer enemy. Original behavior. */
@@ -856,13 +882,16 @@ function pickByTier(
   y: number,
   tiers: readonly PickTier[] = PICK_TIERS,
 ): { entity: Entity; distance: number } | null {
-  for (const tier of tiers) {
+  // One filter for every tier: it reads the tier the loop is on.
+  let tier: PickTier | undefined;
+  const accept = (t: Entity): boolean => tier?.(world, ctx, pass.index, t) === true && spec.accept(t);
+  for (tier of tiers) {
     const found = pass.index.nearestFew(
       x,
       y,
       spec.minDist,
       spec.searchRadius,
-      (t) => tier(world, ctx, pass.index, t) && spec.accept(t),
+      accept,
       PICK_CANDIDATES,
       spec.player,
       PICK_SPREAD_NODES,
@@ -905,8 +934,10 @@ function leastCrowded(
 
 /** The place of `t` in {@link PICK_TIERS}, one past the last for a target of no listed kind. */
 function tierRank(world: World, ctx: SystemContext, index: CombatIndex, t: Entity): number {
-  const rank = PICK_TIERS.findIndex((tier) => tier(world, ctx, index, t));
-  return rank < 0 ? PICK_TIERS.length : rank;
+  for (let rank = 0; rank < PICK_TIERS.length; rank++) {
+    if (PICK_TIERS[rank]?.(world, ctx, index, t) === true) return rank;
+  }
+  return PICK_TIERS.length;
 }
 
 /** An enemy in reach from a node, or null: what a fighter standing behind a full front asks of the free

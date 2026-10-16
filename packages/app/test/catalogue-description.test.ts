@@ -21,7 +21,9 @@ describe('decodeEntities', () => {
   });
 
   it('decodes text the upstream escaped more than once', () => {
-    expect(decodeEntities('test tak zwanej &amp;quot;Massive War&amp;quot;')).toBe('test tak zwanej "Massive War"');
+    expect(decodeEntities('test tak zwanej &amp;quot;Massive War&amp;quot;')).toBe(
+      'test tak zwanej "Massive War"',
+    );
     expect(decodeEntities('Emil &amp;amp;amp;amp; Mikulus, D&amp;#39;uppa')).toBe("Emil & Mikulus, D'uppa");
   });
 });

@@ -25,11 +25,7 @@ export const plSurfaces = {
     fullscreenPrompt: 'Włącz pełny ekran',
     originalGame: {
       message: 'Do gry potrzebna jest zainstalowana jedna z gier:',
-      games: [
-        'Cultures 2: Bramy Asgardu',
-        'Cultures: Northland',
-        'Cultures - 8th Wonder of the World',
-      ],
+      games: ['Cultures 2: Bramy Asgardu', 'Cultures: Northland', 'Cultures - 8th Wonder of the World'],
       pick: 'Wskaż folder gry',
       checking: 'Sprawdzam folder…',
       notRecognized: 'W tym folderze nie ma danych gry Cultures',

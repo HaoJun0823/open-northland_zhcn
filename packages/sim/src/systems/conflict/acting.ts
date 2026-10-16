@@ -42,6 +42,7 @@ import type { CombatIndex } from './combat-index.js';
 import { asleepOnDuty } from './engage-combatant.js';
 import { DEFEND_RADIUS_NODES } from './engagement.js';
 import { ANIMAL_AGGRO_RADIUS_NODES, SIGHT_RADIUS_NODES, wildPursuit } from './targeting.js';
+import { mannedPostOf, TOWER_RANGE_BONUS_NODES } from './tower-post.js';
 import { attackerWeapon } from './weapons.js';
 
 /**
@@ -60,16 +61,26 @@ export function mayEngage(
   // A sleeper in the open reads the battle front; any other clip holds its settler out of the pass.
   if (asleepOnDuty(world, e)) return true;
   if (atomicHoldsSettler(world, e)) return false;
+  // A plain move order benches the unit, and so does an attack-move resting after a refused chase.
   const order = world.tryGet(e, PlayerOrder);
-  if (order !== undefined) return order.attackMove !== undefined; // a plain move order benches the unit
+  const march = order?.attackMove;
+  if (order !== undefined && (march === undefined || ctx.tick < march.blockedUntil)) return false;
+  const marching = order !== undefined;
   const settler = world.get(e, Settler);
   // A hunter's prey search is never presence-gated, and it keeps its own rest and lock.
   if (isHunterJob(ctx.content, settler.jobType)) return true;
-  if (world.has(e, Garrison)) return true; // a manned post searches at tower reach
+  const garrisoned = world.has(e, Garrison);
   const owner = world.tryGet(e, Owner);
-  const mode = owner === undefined ? null : stanceMode(world, ctx.content, e, settler.jobType);
-  // Only the flee drive runs ahead of the rung that leaves a walker to the drive that sent it.
-  if (mode !== MILITARY_MODE.FLEE && isTravelling(world, e)) return false;
+  if (garrisoned && owner === undefined) return true;
+  // An attack-move march acts under ATTACK whatever its stance, as the ladder's own acting mode does.
+  const mode =
+    owner === undefined
+      ? null
+      : marching
+        ? MILITARY_MODE.ATTACK
+        : stanceMode(world, ctx.content, e, settler.jobType);
+  // Only the flee drive and a march run ahead of the rung that leaves a walker to the drive that sent it.
+  if (!marching && mode !== MILITARY_MODE.FLEE && isTravelling(world, e)) return false;
   const here = entityNode(world, terrain, e);
   const x = terrain.xOf(here);
   const y = terrain.yOf(here);
@@ -81,6 +92,10 @@ export function mayEngage(
     if (pursuit.kind !== 'search') return pursuit.kind !== 'idle';
     const { center } = pursuit;
     return index.civsWithin(terrain.xOf(center), terrain.yOf(center), ANIMAL_AGGRO_RADIUS_NODES);
+  }
+  // A manned post searches its weapon's reach raised by the tower, and neither flees nor walks back.
+  if (garrisoned && mannedPostOf(world, ctx, e) !== null) {
+    return index.othersWithin(owner.player, x, y, reachOf(world, ctx, e) + TOWER_RANGE_BONUS_NODES);
   }
   // The flee drive and every owned search stay inside this, bar a guard's search further out.
   let radius = Math.max(SIGHT_RADIUS_NODES, DEFEND_RADIUS_NODES);
@@ -107,7 +122,6 @@ export const READY_MEMBERSHIP: readonly Component<unknown>[] = [
   Fleeing,
   HuntFocus,
   UnreachableTargets,
-  PlayerOrder,
   Garrison,
   Stance,
   CurrentAtomic,
@@ -118,7 +132,7 @@ export const READY_MEMBERSHIP: readonly Component<unknown>[] = [
   PathRoute,
   Stranded,
 ];
-export const READY_VALUES: readonly Component<unknown>[] = [Owner, Stance, PlayerOrder, CurrentAtomic];
+export const READY_VALUES: readonly Component<unknown>[] = [Owner, Stance, CurrentAtomic];
 
 /**
  * Whether combatant `e` might pass {@link mayEngage} wherever it stands: every `true` that function returns
@@ -127,14 +141,15 @@ export const READY_VALUES: readonly Component<unknown>[] = [Owner, Stance, Playe
  */
 export function readyAnywhere(world: World, content: ContentSet, e: Entity): boolean {
   if (holdsLadderState(world, e)) return true;
-  // A sleeper in the open; one asleep on its tower holds a Garrison.
-  if (world.tryGet(e, CurrentAtomic)?.effect.kind === 'sleep' && !world.has(e, Resting)) return true;
-  if (world.tryGet(e, PlayerOrder)?.attackMove !== undefined) return true;
+  // A sleeper in the open, or one asleep on its tower.
+  const garrisoned = world.has(e, Garrison);
+  if (world.tryGet(e, CurrentAtomic)?.effect.kind === 'sleep' && (garrisoned || !world.has(e, Resting)))
+    return true;
   const settler = world.get(e, Settler);
-  if (isHunterJob(content, settler.jobType) || world.has(e, Garrison)) return true;
+  if (isHunterJob(content, settler.jobType)) return true;
   const owner = world.tryGet(e, Owner);
   if (owner === undefined) {
-    return !isAnimalTribe(content, settler.tribe) || isAggressiveAnimal(content, settler.tribe);
+    return garrisoned || !isAnimalTribe(content, settler.tribe) || isAggressiveAnimal(content, settler.tribe);
   }
   // Outside the player slots it holds no bit the presence test could find it by.
   if (!isValidPlayer(owner.player)) return true;
@@ -150,12 +165,12 @@ export function readyAnywhere(world: World, content: ContentSet, e: Entity): boo
 const presenceBounds = new WeakMap<ContentSet, number>();
 
 /** The widest radius (map points) {@link mayEngage}'s presence test asks for an owned unit: the sight and
- *  defend radii, and the reach of any weapon a guard may hold. */
+ *  defend radii, and the reach of any weapon a guard or a manned post may hold. */
 export function presenceBound(content: ContentSet): number {
   let bound = presenceBounds.get(content);
   if (bound === undefined) {
     bound = Math.max(SIGHT_RADIUS_NODES, DEFEND_RADIUS_NODES);
-    for (const weapon of content.weapons) bound = Math.max(bound, weapon.maxRange);
+    for (const weapon of content.weapons) bound = Math.max(bound, weapon.maxRange + TOWER_RANGE_BONUS_NODES);
     presenceBounds.set(content, bound);
   }
   return bound;

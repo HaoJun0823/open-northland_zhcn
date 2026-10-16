@@ -1,7 +1,11 @@
+import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
+  Building,
+  Garrison,
   Health,
   MoveGoal,
+  Owner,
   PlayerOrder,
   Position,
   Settler,
@@ -11,7 +15,7 @@ import {
   setSettlerJob,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { ONE, Simulation } from '../../src/index.js';
+import { cellAnchorNode, fx, ONE, Simulation } from '../../src/index.js';
 import { mayEngage } from '../../src/systems/conflict/acting.js';
 import { BattleFront } from '../../src/systems/conflict/battle-alert.js';
 import { CombatIndex } from '../../src/systems/conflict/combat-index.js';
@@ -19,6 +23,8 @@ import { engageCandidates } from '../../src/systems/conflict/engage-candidates.j
 import { engageCombatant } from '../../src/systems/conflict/engage-combatant.js';
 import { MeleeSlots } from '../../src/systems/conflict/melee-slots.js';
 import type { CombatPass } from '../../src/systems/conflict/pass.js';
+import { TOWER_RANGE_BONUS_NODES } from '../../src/systems/conflict/tower-post.js';
+import { attackMoveUnit } from '../../src/systems/orders/index.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { testContent } from '../fixtures/content.js';
 import { BEAR, BOAR, COW, DEER, fighterAtNode, HUNTER } from './combat-system/support.js';
@@ -56,6 +62,88 @@ function mixedScene(): Simulation {
   return sim;
 }
 
+const VIKING = 1;
+const SOLDIER_JOB = 31;
+const TOWER_TYPE = 92;
+const BOW_TYPE = 20;
+const ARROW_MUNITION = 1;
+/** A bow whose tower reach passes the sight radius, so only the post's own reach covers its search. */
+const POST_BOW_RANGE = 30;
+const POST_BOW_MIN_RANGE = 2;
+const TOWER_HITPOINTS = 1_000_000;
+
+/** The fixture content with a tower posting the soldier class, armed with {@link POST_BOW_RANGE}. */
+function postContent(): ContentSet {
+  const base = testContent();
+  return parseContentSet({
+    ...base,
+    buildings: [
+      ...base.buildings,
+      {
+        typeId: TOWER_TYPE,
+        id: 'tower',
+        kind: 'tower',
+        workers: [{ jobType: SOLDIER_JOB, count: 1 }],
+        footprint: { blocked: [{ dx: 0, dy: 0 }], door: { dx: 2, dy: 0 } },
+      },
+    ],
+    weapons: [
+      ...base.weapons,
+      {
+        typeId: BOW_TYPE,
+        id: 'test_post_bow',
+        tribeType: VIKING,
+        jobType: SOLDIER_JOB,
+        munitionType: ARROW_MUNITION,
+        speed: 8,
+        minRange: POST_BOW_MIN_RANGE,
+        maxRange: POST_BOW_RANGE,
+        damage: { '0': 40 },
+      },
+    ],
+  });
+}
+
+/** A P0 tower at visual cell (x, y) with a soldier sent to man it. */
+function mannedTower(sim: Simulation, x: number, y: number): Entity {
+  const tower = sim.world.create();
+  sim.world.add(tower, Position, { x: fx.fromInt(x), y: fx.fromInt(y) });
+  sim.world.add(tower, Building, { buildingType: TOWER_TYPE, tribe: VIKING, built: ONE, level: 0 });
+  sim.world.add(tower, Health, { hitpoints: TOWER_HITPOINTS, max: TOWER_HITPOINTS });
+  sim.world.add(tower, Owner, { player: P0 });
+  const n = cellAnchorNode(x - 2, y);
+  const soldier = combatantAtNode(sim, n.hx, n.hy, P0, MILITARY_MODE.DEFEND, { jobType: SOLDIER_JOB });
+  sim.enqueueSetup({ kind: 'assignWorker', entity: soldier, building: tower, jobPriority: [SOLDIER_JOB] });
+  return soldier;
+}
+
+/** Order `e` to fight its way to visual cell (x, y). */
+function marchTo(sim: Simulation, e: Entity, x: number, y: number): void {
+  const n = cellAnchorNode(x, y);
+  attackMoveUnit(sim.world, ctxOf(sim), { kind: 'attackMoveUnit', entity: e, x: n.hx, y: n.hy });
+}
+
+/** A manned tower an enemy column marches past bystanders toward, a quiet manned tower and a quiet march
+ *  far off. */
+function postsAndMarches(): { sim: Simulation; soldiers: readonly Entity[] } {
+  const sim = new Simulation({ seed: 7, content: postContent(), map: grassMap(64, 64) });
+  setDiplomacyStance(sim.world, P0, P1, 'enemy');
+  setDiplomacyStance(sim.world, P1, P0, 'enemy');
+  const soldiers = [mannedTower(sim, 20, 20), mannedTower(sim, 50, 50)];
+  for (let i = 0; i < 3; i++) {
+    const n = cellAnchorNode(45, 18 + 2 * i);
+    marchTo(sim, combatantAtNode(sim, n.hx, n.hy, P1, MILITARY_MODE.ATTACK), 5, 18 + 2 * i);
+  }
+  // Bystanders beside the column's road, which it acquires on the walk.
+  for (let i = 0; i < 2; i++) {
+    const n = cellAnchorNode(36 + 2 * i, 26);
+    combatantAtNode(sim, n.hx, n.hy, P0, MILITARY_MODE.IGNORE);
+  }
+  const far = cellAnchorNode(5, 58);
+  marchTo(sim, combatantAtNode(sim, far.hx, far.hy, P0, MILITARY_MODE.DEFEND), 30, 58);
+  return { sim, soldiers };
+}
+
 /** Every combatant the filter skips this tick, run through the ladder on a freshly built pass. */
 function skippedLeaveNoTrace(sim: Simulation): number {
   const ctx = ctxOf(sim);
@@ -73,6 +161,11 @@ function skippedLeaveNoTrace(sim: Simulation): number {
   for (const e of skipped) engageCombatant(sim.world, ctx, terrain, pass, e);
   expect(sim.hashState()).toBe(before);
   return skipped.length;
+}
+
+/** Whether `soldier` stands manning its post now. */
+function onPost(sim: Simulation, soldier: Entity): boolean {
+  return sim.world.has(soldier, Garrison);
 }
 
 /** Every combatant left out of this tick's candidates, each refused by the filter on a freshly built pass. */
@@ -145,5 +238,21 @@ describe('combat pass - who may engage', () => {
       sim.step();
     }
     expect(skipped).toBeGreaterThan(TICKS); // the quiet village and the grazing herd are skipped
+  });
+
+  it('gates a manned post and an attack-move by presence at the tower reach and sight', () => {
+    expect(POST_BOW_RANGE + TOWER_RANGE_BONUS_NODES).toBeGreaterThan(18); // past the sight radius
+    const { sim, soldiers } = postsAndMarches();
+    let skipped = 0;
+    let manned = 0;
+    for (let t = 0; t < TICKS; t++) {
+      skipped += skippedLeaveNoTrace(sim);
+      outsideCandidatesRefused(sim);
+      sim.step();
+      expect(sim.world.verifyCaches()).toEqual([]);
+      for (const soldier of soldiers) if (onPost(sim, soldier)) manned++;
+    }
+    expect(manned).toBeGreaterThan(TICKS); // both towers were held for most of the run
+    expect(skipped).toBeGreaterThan(TICKS); // the quiet post and the far march are skipped
   });
 });

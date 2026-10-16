@@ -9,7 +9,7 @@ import {
   Stockpile,
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { nodeOfPosition } from '../../nav/halfcell.js';
+import { nodeHxOfPosition, nodeHyOfPosition, nodeOfPosition } from '../../nav/halfcell.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { interactionNode } from '../footprint/index.js';
@@ -125,12 +125,12 @@ function nearerSource(
 ): { store: Entity; goodType: number } | null {
   if (a === null) return b;
   if (b === null) return a;
-  const rank = (source: { store: Entity }): readonly [number, number] => {
-    const p = world.get(source.store, Position);
-    const node = nodeOfPosition(p.x, p.y);
-    return [Math.abs(node.hx - from.hx) + Math.abs(node.hy - from.hy), source.store];
-  };
-  const ar = rank(a);
-  const br = rank(b);
-  return ar[0] < br[0] || (ar[0] === br[0] && ar[1] <= br[1]) ? a : b;
+  const da = distanceTo(world, from, a.store);
+  const db = distanceTo(world, from, b.store);
+  return da < db || (da === db && a.store <= b.store) ? a : b;
+}
+
+function distanceTo(world: World, from: { hx: number; hy: number }, store: Entity): number {
+  const p = world.get(store, Position);
+  return Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.y) - from.hy);
 }

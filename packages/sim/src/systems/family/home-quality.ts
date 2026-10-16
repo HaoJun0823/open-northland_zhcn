@@ -1,4 +1,4 @@
-import type { HomeQualityEffect, HomeQualityUse } from '@open-northland/data';
+import type { ContentSet, GoodType, HomeQualityEffect, HomeQualityUse } from '@open-northland/data';
 import {
   Building,
   DEFAULT_HOUSEHOLD_GOOD_POLICY,
@@ -25,12 +25,26 @@ export function homeQualityUse(ctx: ContentContext, goodType: number): HomeQuali
   return contentIndex(ctx.content).goods.get(goodType)?.homeQuality;
 }
 
+/** The goods configured as household wares, in content order. */
+type HouseholdWare = GoodType & { readonly homeQuality: HomeQualityUse };
+const householdWares = new WeakMap<ContentSet, readonly HouseholdWare[]>();
+
+function householdWaresOf(content: ContentSet): readonly HouseholdWare[] {
+  let wares = householdWares.get(content);
+  if (wares === undefined) {
+    wares = content.goods.filter((good): good is HouseholdWare => good.homeQuality !== undefined);
+    householdWares.set(content, wares);
+  }
+  return wares;
+}
+
 /** The first configured ware serving `effect`, in content order. */
 export function homeQualityUseFor(
   ctx: ContentContext,
   effect: HomeQualityEffect,
 ): HomeQualityUse | undefined {
-  for (const good of ctx.content.goods) if (good.homeQuality?.effect === effect) return good.homeQuality;
+  for (const good of householdWaresOf(ctx.content))
+    if (good.homeQuality.effect === effect) return good.homeQuality;
   return undefined;
 }
 
@@ -140,11 +154,10 @@ export function demandedHomeQualityGoods(
   if (identity === undefined) return EMPTY_GOODS;
   const owner = ownerOf(world, settler);
   const level = world.tryGet(home, Building)?.level ?? 0;
-  const out = new Set<number>();
-  for (const good of ctx.content.goods) {
+  let out: Set<number> | undefined;
+  for (const good of householdWaresOf(ctx.content)) {
     const use = good.homeQuality;
     if (
-      use === undefined ||
       !homeQualityAllowed(world, home, use.effect) ||
       homeQualityValue(world, home, use.effect) >= use.fetchBelow
     )
@@ -153,9 +166,10 @@ export function demandedHomeQualityGoods(
     // level, so the threshold is content-owned beside the rest of the policy.
     if (level < use.minimumHomeLevel) continue;
     if (!goodEnabled(world, ctx, owner, identity.tribe, good.typeId)) continue;
+    out ??= new Set<number>();
     out.add(good.typeId);
   }
-  return out;
+  return out ?? EMPTY_GOODS;
 }
 
 /** The home currently containing `settler`, if it is its own residence. */

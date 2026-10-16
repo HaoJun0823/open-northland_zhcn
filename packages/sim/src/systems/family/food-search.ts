@@ -1,6 +1,6 @@
 import { ownerOf, ownersCompatible, Position, Stockpile } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { nodeOfPosition } from '../../nav/halfcell.js';
+import { nodeHxOfPosition, nodeHyOfPosition, nodeOfPosition } from '../../nav/halfcell.js';
 import type { SpatialGate } from '../../nav/node-circle.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
@@ -116,14 +116,17 @@ export class ExternalFoodIndex {
     accept: (e: Entity) => boolean,
     swept: number,
   ): Entity | null {
-    let best: { store: Entity; dist: number } | null = null;
+    let best: Entity | null = null;
+    let bestDist = 0;
     for (const e of candidates) {
       const p = this.world.get(e, Position);
-      const node = nodeOfPosition(p.x, p.y);
-      const dist = Math.abs(node.hx - from.hx) + Math.abs(node.hy - from.hy);
-      if (dist <= swept || (best !== null && dist >= best.dist)) continue;
-      if (accept(e)) best = { store: e, dist };
+      const dist = Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.y) - from.hy);
+      if (dist <= swept || (best !== null && dist >= bestDist)) continue;
+      if (accept(e)) {
+        best = e;
+        bestDist = dist;
+      }
     }
-    return best?.store ?? null;
+    return best;
   }
 }

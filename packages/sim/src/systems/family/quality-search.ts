@@ -12,7 +12,7 @@ import { contentIndex } from '../../core/content-index.js';
 import { insertSortedById, removeSortedById } from '../../core/sorted-id.js';
 import { JournaledCaptures } from '../../ecs/journaled-captures.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { nodeOfPosition } from '../../nav/halfcell.js';
+import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { SpatialGate } from '../../nav/node-circle.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
@@ -78,15 +78,19 @@ export class ExternalQualityIndex {
     accept: (e: Entity) => boolean,
     swept: number,
   ): Entity | null {
-    let best: { store: Entity; distance: number } | null = null;
+    let best: Entity | null = null;
+    let bestDistance = 0;
     for (const store of this.candidates) {
       const p = this.world.get(store, Position);
-      const node = nodeOfPosition(p.x, p.y);
-      const distance = Math.abs(node.hx - from.hx) + Math.abs(node.hy - from.hy);
-      if (distance <= swept || (best !== null && distance >= best.distance)) continue;
-      if (accept(store)) best = { store, distance };
+      const distance =
+        Math.abs(nodeHxOfPosition(p.x, p.y) - from.hx) + Math.abs(nodeHyOfPosition(p.y) - from.hy);
+      if (distance <= swept || (best !== null && distance >= bestDistance)) continue;
+      if (accept(store)) {
+        best = store;
+        bestDistance = distance;
+      }
     }
-    return best?.store ?? null;
+    return best;
   }
 
   private bucketed(): NodeBuckets {

@@ -2,7 +2,6 @@ import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import {
   Building,
-  Garrison,
   Health,
   MoveGoal,
   Owner,
@@ -23,7 +22,7 @@ import { engageCandidates } from '../../src/systems/conflict/engage-candidates.j
 import { engageCombatant } from '../../src/systems/conflict/engage-combatant.js';
 import { MeleeSlots } from '../../src/systems/conflict/melee-slots.js';
 import type { CombatPass } from '../../src/systems/conflict/pass.js';
-import { TOWER_RANGE_BONUS_NODES } from '../../src/systems/conflict/tower-post.js';
+import { isManningPost, TOWER_RANGE_BONUS_NODES } from '../../src/systems/conflict/tower-post.js';
 import { attackMoveUnit } from '../../src/systems/orders/index.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
 import { testContent } from '../fixtures/content.js';
@@ -163,9 +162,9 @@ function skippedLeaveNoTrace(sim: Simulation): number {
   return skipped.length;
 }
 
-/** Whether `soldier` stands manning its post now. */
+/** Whether `soldier` stands manning its post now: on the tower and still entitled to it. */
 function onPost(sim: Simulation, soldier: Entity): boolean {
-  return sim.world.has(soldier, Garrison);
+  return isManningPost(sim.world, ctxOf(sim), soldier);
 }
 
 /** Every combatant left out of this tick's candidates, each refused by the filter on a freshly built pass. */

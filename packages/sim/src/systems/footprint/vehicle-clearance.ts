@@ -314,7 +314,8 @@ function fitMemoOf(terrain: TerrainGraph): FitMemo {
  * cell counts as wall, which also covers the wall joint seals. Deviation from the original, whose class
  * test admits no overlap: the catapult squeezes between trees and houses like a settler walking by.
  * Allocation-free and memoized per predicate, since an A* search asks it for every neighbour it relaxes;
- * an older predicate read after a newer one was made loses memo hits, never answers. Read within one
+ * an older predicate read after a newer one was made loses memo hits, never answers, while fewer than
+ * 65535 newer ones are made in its life: the Uint16 epoch then wraps onto its own. Read within one
  * decision, like {@link vehicleClearance}.
  */
 export function landVehicleFits(

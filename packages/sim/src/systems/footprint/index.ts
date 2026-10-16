@@ -50,8 +50,6 @@ export { resourceBlockedCells } from './resource-blocked-cache.js';
 export {
   contentFootprintCells,
   footprintCellsOf,
-  resourceFootprintCells,
-  resourceFootprintFromLandscapeGfx,
   tryFootprintCellsOf,
 } from './resource-footprint-cells.js';
 export {

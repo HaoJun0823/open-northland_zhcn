@@ -77,7 +77,8 @@ function mixString(hash: number, text: string): number {
   return h;
 }
 
-/** The JSON a placement object spells under the digest's sorted keys, `resourceBacked` only when set. */
+/** The JSON a placement object spells under the digest's sorted keys, `resourceBacked` only when set.
+ *  Columns and object lists digest alike only while no object list spells `resourceBacked: false`. */
 function mixPlacements(hash: number, placements: LandscapePlacements): number {
   let h = mixString(hash, '[');
   for (let i = 0; i < placements.length; i++) {

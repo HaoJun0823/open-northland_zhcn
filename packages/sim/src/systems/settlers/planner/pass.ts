@@ -1,7 +1,7 @@
 import { Position, Stockpile } from '../../../components/index.js';
-import type { World } from '../../../ecs/world.js';
+import type { Entity, World } from '../../../ecs/world.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
-import { BattleFront } from '../../conflict/battle-alert.js';
+import { BattleFront, holdsGround } from '../../conflict/battle-alert.js';
 import type { SystemContext } from '../../context.js';
 import { collectShelters, type ShelterSites } from '../../defence/index.js';
 import { ExternalFoodIndex } from '../../family/food-search.js';
@@ -59,8 +59,36 @@ export interface PlannerPass {
   /** Equipment errands that may still search for their store this pass; see
    *  {@link EQUIP_FETCH_SEARCHES_PER_PASS}. */
   readonly equipFetches: { remaining: number };
+  readonly alert: PlanAlert;
   /** The one plan context the ladder hands its drives, made on the pass's first plan. */
   plan: PlannerContextSlot | undefined;
+}
+
+/** The battle alert of the settler being planned, memoized per plan; one function serves the pass. */
+export class PlanAlert {
+  private entity: Entity | undefined;
+  private answer: boolean | undefined;
+
+  constructor(
+    private readonly world: World,
+    private readonly ctx: SystemContext,
+    private readonly front: BattleFront,
+  ) {}
+
+  /** Whether {@link holdsGround} holds the settler of the last {@link PlanAlert.of} call. */
+  private readonly ask = (): boolean => {
+    if (this.answer === undefined && this.entity !== undefined) {
+      this.answer = holdsGround(this.world, this.ctx, this.entity, this.front);
+    }
+    return this.answer === true;
+  };
+
+  /** The alert question for `e`'s plan, valid until the next call. */
+  of(e: Entity): () => boolean {
+    this.entity = e;
+    this.answer = undefined;
+    return this.ask;
+  }
 }
 
 /**
@@ -103,6 +131,7 @@ export function beginPlannerPass(world: World, ctx: SystemContext, terrain: Terr
     shelters,
     idle: new IdleStands(),
     equipFetches: { remaining: EQUIP_FETCH_SEARCHES_PER_PASS },
+    alert: new PlanAlert(world, ctx, front),
     plan: undefined,
   };
 }

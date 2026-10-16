@@ -21,7 +21,6 @@ import {
 import type { Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import type { NodeId } from '../../../nav/terrain/index.js';
-import { holdsGround } from '../../conflict/battle-alert.js';
 import { standsAtPost } from '../../conflict/tower-post.js';
 import { jobCanHarvest } from '../../economy/work-flag.js';
 import { planWomanHoard } from '../../family/hoard.js';
@@ -173,8 +172,7 @@ export function planAdult(pass: PlannerPass, e: Entity, settler: SettlerView, jo
   // The battle alert: a rear rank neither lies down nor wanders off while the front rank fights. Asked at
   // most once per settler per tick, and only by a rung whose answer it changes, which each rung does after
   // its own cheap refusals - the presence sweep behind it is the pass's one expensive read.
-  let alerted: boolean | undefined;
-  const alert = (): boolean => (alerted ??= holdsGround(world, ctx, e, pass.front));
+  const alert = pass.alert.of(e);
 
   // Hunger took the settler off its orders: it eats and nothing else, and once the hunger rung has
   // nothing left to do the break ends and the orders resume next tick, the settler standing until then.

@@ -60,6 +60,7 @@ afterEach(() => {
 function openWindow(
   rows: () => readonly ResidentRow[],
   selected: ReadonlySet<number> = new Set(),
+  onSelect: (ids: readonly number[], show: boolean) => void = () => undefined,
 ): { list: HTMLElement; query: HTMLInputElement } {
   const plane = document.createElement('div');
   document.body.append(plane);
@@ -70,7 +71,7 @@ function openWindow(
     canBecome: () => false,
     trades: [],
     selection: { ids: () => new Set(selected), version: () => 0 },
-    onSelect: () => undefined,
+    onSelect,
     cue: () => undefined,
   });
   window.toggle();
@@ -95,6 +96,48 @@ const padPx = (list: HTMLElement): number =>
   );
 
 describe('residents list', () => {
+  it.each([
+    ['contextmenu', { ctrlKey: true }],
+    ['click', { ctrlKey: true }],
+    ['click', { metaKey: true }],
+  ] as const)('adds and removes a row with %s %j while leaving the window open', (type, modifiers) => {
+    const selected = new Set([1]);
+    const onSelect = vi.fn((ids: readonly number[]) => {
+      selected.clear();
+      for (const id of ids) selected.add(id);
+    });
+    const { list } = openWindow(() => people(3), selected, onSelect);
+    const row = list.querySelectorAll('.on-res-row')[1];
+    if (row === undefined) throw new Error('second resident missing');
+    row.dispatchEvent(new MouseEvent(type, { bubbles: true, ...modifiers }));
+    expect(onSelect).toHaveBeenLastCalledWith([1, 2], false);
+    expect(window?.isOpen()).toBe(true);
+    row.dispatchEvent(new MouseEvent(type, { bubbles: true, ...modifiers }));
+    expect(onSelect).toHaveBeenLastCalledWith([1], false);
+    expect(window?.isOpen()).toBe(true);
+    expect(document.querySelectorAll('.on-res-hint kbd')[1]?.textContent).toBe('Ctrl/Cmd');
+  });
+
+  it('ignores an ordinary right-click on a row', () => {
+    const onSelect = vi.fn();
+    const { list } = openWindow(() => people(3), new Set([1]), onSelect);
+    list
+      .querySelector('.on-res-row')
+      ?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, button: 2 }));
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(window?.isOpen()).toBe(true);
+  });
+
+  it('adds all shown residents with the macOS Ctrl context-menu gesture', () => {
+    const onSelect = vi.fn();
+    openWindow(() => people(3), new Set([99]), onSelect);
+    document
+      .querySelector('.on-res-all')
+      ?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, ctrlKey: true }));
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith([99, 1, 2, 3], false);
+    expect(window?.isOpen()).toBe(true);
+  });
+
   it('attaches only the rows around the visible strip and keeps the whole list scroll height', () => {
     const rows = people(PEOPLE);
     const { list } = openWindow(() => rows);

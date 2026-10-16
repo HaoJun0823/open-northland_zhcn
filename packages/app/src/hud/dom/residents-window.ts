@@ -31,7 +31,7 @@ import type { ToolWindow } from '../tool-panel/window-shell.js';
 import type { ChoiceGroup } from './choice-window.js';
 import { type GoodIconPainter, goodIconMarkup } from './good-art.js';
 import { GLYPH, RESIDENTS_TOKEN } from './icons.js';
-import { button, element, setAttribute, setHidden, setValue, write } from './parts/dom.js';
+import { button, element, onPress, setAttribute, setHidden, setValue, write } from './parts/dom.js';
 import { type DropdownEntry, type DropdownHandle, dropdownControl } from './parts/dropdown.js';
 import { quietTextField } from './parts/text-field.js';
 import { professionChoices } from './profession-choices.js';
@@ -120,7 +120,7 @@ interface RowView {
   shown: string;
 }
 
-/** Cmd stands in for Ctrl, whose click opens the context menu on macOS. */
+/** Ctrl and Cmd both toggle; onPress also takes the context-menu event macOS sends for Ctrl click. */
 const gestureOf = (event: MouseEvent): PickGesture =>
   pickGestureOf({ range: event.shiftKey, toggle: event.ctrlKey || event.metaKey });
 
@@ -307,7 +307,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
   const foot = element(
     'footer',
     'on-res-foot',
-    `<span class="on-res-hint"><kbd></kbd> <span></span> · <kbd>Ctrl</kbd> <span></span> · <kbd>Shift</kbd> <span></span></span><span class="on-res-picked"></span>`,
+    `<span class="on-res-hint"><kbd></kbd> <span></span> · <kbd>Ctrl/Cmd</kbd> <span></span> · <kbd>Shift</kbd> <span></span></span><span class="on-res-picked"></span>`,
   );
   const [hintClick] = foot.querySelectorAll('kbd');
   const hintTexts = foot.querySelectorAll('.on-res-hint > span');
@@ -361,7 +361,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     select(pickedGroup(gesture, id, deps.selection.ids(), shownIds, anchor), gesture === 'show');
   };
   // Pressed plain, the button selects the listed people and closes; with a modifier it adds them.
-  selectShown.addEventListener('click', (event) => {
+  onPress(selectShown, (event) => {
     if (shownIds.length === 0) return;
     if (gestureOf(event) === 'show') select(shownIds, true);
     else select([...new Set([...deps.selection.ids(), ...shownIds])], false);
@@ -387,7 +387,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     const [trade, goods] = profession.children;
     if (!(trade instanceof HTMLElement) || !(goods instanceof HTMLElement))
       throw new Error('residents: job cell');
-    control.addEventListener('click', (event) => pickRow(id, event));
+    onPress(control, (event) => pickRow(id, event));
     item.append(control);
     return {
       item,

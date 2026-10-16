@@ -26,6 +26,7 @@ import { DEFAULT_FACING, vehicleAfloat, vehicleLookFor } from '../../data/sprite
 import type { ElevationField } from '../../data/terrain/index.js';
 import type { WindSway } from '../../data/weather/climate.js';
 import { BuildingDamage, type FallenBody } from '../building-damage/building-damage.js';
+import { DepthSortedLayer, drawLayerOf } from '../depth-sorted-layer.js';
 import { PalettedQuad } from '../paletted-sprite/index.js';
 import type { PixelArtScaler } from '../pixel-art-registry.js';
 import { PLOT_BOUNDS, type PlanRoadTextures } from '../plan-road.js';
@@ -391,10 +392,15 @@ export class SpritePool {
     if (!continuous) pe.motion.tick = -1;
     if (heldAttached && pe.boundsFrame === pe.lastSeen) pe.boundsFrame = this.frameId - 1;
     const emphasis = this.presentItemAt(pe, item, frame, continuous);
-    if (!pe.attached || pe.container.parent !== this.layerFor(item)) {
-      this.layerFor(item).addChild(pe.container);
+    const layer = this.layerFor(item);
+    if (!pe.attached || drawLayerOf(pe.container) !== layer) {
+      layer.addChild(pe.container);
       pe.attached = true;
       this.attached.add(pe);
+    } else if (layer instanceof DepthSortedLayer) {
+      // Entities at one exact depth paint in the order this pass visits them, without the band
+      // rebuild a re-add costs.
+      layer.rearrive(pe.container);
     }
     pe.lastSeen = this.frameId;
     if (item.portraitOnly === true) {

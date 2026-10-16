@@ -92,7 +92,7 @@ describe('depth sorted layer', () => {
     expect(layer.renderGroup.structureDidChange).toBe(false);
   });
 
-  it('matches Pixi’s single stable sort through adds, removals, re-adds and band crossings', () => {
+  it('matches Pixi’s single stable sort through adds, removals, re-adds, re-arrivals and band crossings', () => {
     const next = random(7);
     const layer = new DepthSortedLayer();
     layer.isRenderGroup = true;
@@ -119,6 +119,10 @@ describe('depth sorted layer', () => {
         } else if (attached && roll < 0.1) {
           layer.addChild(child);
           flat.add(child);
+        } else if (attached && roll < 0.2) {
+          if (next() < 0.5) child.zIndex = depth();
+          layer.rearrive(child);
+          flat.add(child);
         } else if (attached && roll < 0.4) {
           child.zIndex = depth();
         }
@@ -131,6 +135,22 @@ describe('depth sorted layer', () => {
       const counts = layer.children.map((band) => band.children.length);
       expect(counts.every((count) => count > 0)).toBe(true);
     }
+  });
+
+  it('keeps a band’s instructions when its children re-arrive in their painter order', () => {
+    const { layer, children } = layerWith([5, 5, 5, 7]);
+    const [a, b, c, d] = children;
+    if (a === undefined || b === undefined || c === undefined || d === undefined)
+      throw new Error('missing children');
+    settle(layer);
+    for (const child of [b, c, d]) layer.rearrive(child);
+    layer.sortChildren();
+    expect(layer.entries()).toEqual([a, b, c, d]);
+    expect(bandOf(a).renderGroup.structureDidChange).toBe(false);
+    layer.rearrive(a);
+    layer.sortChildren();
+    expect(layer.entries()).toEqual([b, c, a, d]);
+    expect(bandOf(a).renderGroup.structureDidChange).toBe(true);
   });
 
   it('sorts on its render group’s onRender pass, before the structure check', () => {

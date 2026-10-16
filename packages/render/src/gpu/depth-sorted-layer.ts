@@ -28,17 +28,38 @@ const bandDepthChanged: Container['depthOfChildModified'] = function (this: Cont
   else ordinaryDepthChanged.call(this);
 };
 
+/** When a child last arrived in its layer, added or {@link DepthSortedLayer.rearrive}d, by the layer's
+ *  arrival count. */
+const ARRIVAL: unique symbol = Symbol('arrival');
+type ArrivalHost = Container & { [ARRIVAL]?: number };
+
+/** The tie key of a child that arrived before the running sort: below every arrival, so it keeps its
+ *  place ahead of them and, by the merge's stability, among its own. */
+const SETTLED = -1;
+
+/** A child's order among children of one exact depth in a sort that began at arrival `sortFrom`: a
+ *  settled child keeps its place, then this sort's arrivals follow in arrival order, as Pixi's stable
+ *  sort orders children appended since its last sort. */
+function tieOf(child: Container | undefined, sortFrom: number): number {
+  const arrival = (child as ArrivalHost | undefined)?.[ARRIVAL] ?? SETTLED;
+  return arrival >= sortFrom ? arrival : SETTLED;
+}
+
 /** Scratch the merge sort reuses across bands and frames. */
 class SortScratch {
   entries: (Container | undefined)[] = [];
   depths = new Float64Array(0);
   merged = new Float64Array(0);
+  ties = new Float64Array(0);
+  mergedTies = new Float64Array(0);
 
   reserve(n: number): void {
     if (n <= this.depths.length) return;
     const capacity = Math.max(n, this.depths.length * 2);
     this.depths = new Float64Array(capacity);
     this.merged = new Float64Array(capacity);
+    this.ties = new Float64Array(capacity);
+    this.mergedTies = new Float64Array(capacity);
   }
 
   clear(n: number): void {
@@ -83,19 +104,31 @@ class DepthBand extends Container {
       super.collectRenderablesSimple(instructionSet, renderer, layer);
   }
 
-  /** Stable merge by depth; invalidates this band's instructions only when its painter order changed. */
-  sortByDepth(scratch: SortScratch): void {
+  /** Stable merge by depth, then by arrival since `sortFrom` (see {@link tieOf}); invalidates this band's
+   *  instructions only when its painter order changed. */
+  sortByDepth(scratch: SortScratch, sortFrom: number): void {
     const children = this.children;
     const n = children.length;
     scratch.reserve(n);
     const depths = scratch.depths;
-    for (let i = 0; i < n; i++) depths[i] = children[i]?.zIndex ?? 0;
+    const ties = scratch.ties;
+    for (let i = 0; i < n; i++) {
+      const child = children[i];
+      depths[i] = child?.zIndex ?? 0;
+      ties[i] = tieOf(child, sortFrom);
+    }
+    const before = (a: number, b: number): boolean => {
+      const da = depths[a] ?? 0;
+      const db = depths[b] ?? 0;
+      return da < db || (da === db && (ties[a] ?? 0) <= (ties[b] ?? 0));
+    };
     let ordered = true;
-    for (let i = 1; i < n && ordered; i++) ordered = (depths[i - 1] ?? 0) <= (depths[i] ?? 0);
+    for (let i = 1; i < n && ordered; i++) ordered = before(i - 1, i);
     if (ordered) return;
     const entries = scratch.entries;
     const merged = scratch.merged;
-    // Stable merge preserves insertion order at identical depths, as Pixi's stable sort does.
+    const mergedTies = scratch.mergedTies;
+    // Stable merge preserves the order of settled children at one depth, as Pixi's stable sort does.
     for (let width = 1; width < n; width *= 2) {
       for (let start = 0; start < n; start += width * 2) {
         const mid = Math.min(n, start + width),
@@ -103,21 +136,29 @@ class DepthBand extends Container {
         let left = start,
           right = mid;
         for (let i = start; i < end; i++) {
-          const takeLeft = left < mid && (right >= end || (depths[left] ?? 0) <= (depths[right] ?? 0));
+          const takeLeft = left < mid && (right >= end || before(left, right));
           const from = takeLeft ? left++ : right++;
           entries[i] = children[from];
           merged[i] = depths[from] ?? 0;
+          mergedTies[i] = ties[from] ?? 0;
         }
       }
       for (let i = 0; i < n; i++) {
         const child = entries[i];
         if (child !== undefined) children[i] = child;
         depths[i] = merged[i] ?? 0;
+        ties[i] = mergedTies[i] ?? 0;
       }
     }
     scratch.clear(n);
     this.renderGroup.structureDidChange = true;
   }
+}
+
+/** The container `child` draws in: the layer of a depth band, else its parent. */
+export function drawLayerOf(child: Container): Container | null {
+  const parent = child.parent;
+  return parent instanceof DepthBand ? parent.layer : parent;
 }
 
 /** A child leaving its band for the one its new depth files into. */
@@ -141,9 +182,9 @@ export class DepthSortedLayer extends Container {
   private readonly bands = new Map<number, DepthBand>();
   private readonly spareBands: DepthBand[] = [];
   private readonly unsorted = new Set<DepthBand>();
-  /** Arrival order of the children added since the last sort, for a fresh child changing band. */
-  private readonly arrivals = new Map<Container, number>();
+  /** Arrivals so far; children that arrived since {@link sortFrom} order by it among equal depths. */
   private arrivalCount = 0;
+  private sortFrom = 0;
   private readonly scratch = new SortScratch();
   /** Draws the still entries of each band from a retained mesh; absent, Pixi batches every entry. */
   stills: StillBandCollector | null = null;
@@ -162,11 +203,22 @@ export class DepthSortedLayer extends Container {
       if (child.parent instanceof DepthBand && child.parent.layer === this) child.parent.removeChild(child);
       const band = this.bandAt(bandIndexOf(child.zIndex));
       band.addChild(child);
-      this.arrivals.set(child, this.arrivalCount++);
+      (child as ArrivalHost)[ARRIVAL] = this.arrivalCount++;
       this.queueSort(band);
     }
     // Pixi's contract: the first argument. Indexing a generic array cannot prove it exists.
     return children[0] as U[0];
+  }
+
+  /**
+   * Paint `child`, a child of this layer, as if removed and added again: after every child of its exact
+   * depth that arrived before, without the band rebuild a removal and an add cost.
+   */
+  rearrive(child: Container): void {
+    const band = child.parent;
+    if (!(band instanceof DepthBand) || band.layer !== this) return;
+    (child as ArrivalHost)[ARRIVAL] = this.arrivalCount++;
+    this.queueSort(band);
   }
 
   override removeChild<U extends ContainerChild[]>(...children: U): U[0] {
@@ -219,14 +271,14 @@ export class DepthSortedLayer extends Container {
         this.retire(band);
         continue;
       }
-      band.sortByDepth(this.scratch);
+      band.sortByDepth(this.scratch, this.sortFrom);
       band.freshFrom = band.children.length;
       band.risen = 0;
     }
     // The moves above re-queue the bands they touched, all of them sorted by now.
     this.unsorted.clear();
     this.sortDirty = false;
-    this.arrivals.clear();
+    this.sortFrom = this.arrivalCount;
   };
 
   override destroy(options?: Parameters<Container['destroy']>[0]): void {
@@ -261,11 +313,11 @@ export class DepthSortedLayer extends Container {
     const band = this.bandAt(bandIndexOf(child.zIndex));
     if (!touched.includes(band)) touched.push(band);
     if (fresh) {
-      const seq = this.arrivals.get(child) ?? this.arrivalCount;
+      const seq = (child as ArrivalHost)[ARRIVAL] ?? this.arrivalCount;
       let at = band.freshFrom;
       while (at < band.children.length) {
         const other = band.children[at];
-        if (other !== undefined && (this.arrivals.get(other) ?? 0) > seq) break;
+        if (other !== undefined && ((other as ArrivalHost)[ARRIVAL] ?? 0) > seq) break;
         at++;
       }
       band.addChildAt(child, at);

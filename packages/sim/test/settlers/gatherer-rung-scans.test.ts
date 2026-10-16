@@ -38,9 +38,13 @@ const STONE = 4;
 const MEAT = 21;
 const LEATHER = 22; // harvested with the same atomic as meat
 const CHOP = 24;
+const MINE = 25;
 const CUT_CADAVER = 33;
 
 afterEach(() => vi.restoreAllMocks());
+
+/** The farthest winner the growing-box edge sweep places, past several doublings of the first box. */
+const EDGE_SWEEP_MAX = 140;
 
 function newSim(): Simulation {
   return new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(48, 32) });
@@ -255,5 +259,101 @@ describe('collector signpost stance boundary', () => {
     const rng = sim.rng.getState();
     expect(nearestHarvestableFor(confined)).toEqual({ entity: tree, cell: far, dist: 7 });
     expect(sim.rng.getState()).toEqual(rng);
+  });
+});
+
+describe('harvest scan sources', () => {
+  /** A deterministic LCG, so a failure replays. */
+  function rng(seed: number): (n: number) => number {
+    let s = seed >>> 0;
+    return (n) => {
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      return s % n;
+    };
+  }
+
+  const WIDE_W = 400;
+  const WIDE_H = 300;
+  const TREES = 260;
+  const QUERIES = 300;
+  /** Gate half-widths: a small gate is searched in its region box, a wide one in growing boxes. */
+  const SMALL_GATE = { min: 20, span: 40 };
+  const WIDE_GATE = { min: 150, span: 100 };
+  const AREA_RADIUS = { min: 10, span: 60 };
+
+  it.each([1, 2, 3])(
+    'the growing-box, region-box and list searches pick the full scan winner (seed %i)',
+    (seed) => {
+      const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(WIDE_W, WIDE_H) });
+      const roll = rng(seed);
+      const offset = contentIndex(sim.content).maxResourceWorkOffset;
+      const trees: Entity[] = [];
+      for (let i = 0; i < TREES; i++) {
+        const dx = roll(2 * offset + 1) - offset;
+        const dy = (roll(2) === 0 ? 1 : -1) * roll(offset - Math.abs(dx) + 1);
+        const x = offset + roll(WIDE_W - 2 * offset);
+        const y = offset + roll(WIDE_H - 2 * offset);
+        // Clusters and lone trees alike, so some searches end in the first box and some cross the map.
+        const work = roll(3) === 0 ? anchorOnlyFootprint().work : [{ dx, dy }];
+        trees.push(resourceAt(sim, x, y, roll(5) === 0 ? STONE : WOOD, roll(5) === 0 ? MINE : CHOP, work));
+      }
+      const base = planFor(sim, WOODCUTTER, 0, 0);
+      for (let q = 0; q < QUERIES; q++) {
+        const here = node(sim, roll(WIDE_W), roll(WIDE_H));
+        // Sparse on odd queries, so their searches run past the first boxes.
+        const exclude = new Set(trees.filter(() => (q % 2 === 0 ? roll(4) === 0 : roll(16) !== 0)));
+        let plan: PlannerContext = { ...base, here };
+        if (roll(3) === 0) {
+          const [cx, cy] = [roll(WIDE_W), roll(WIDE_H)];
+          const size = roll(2) === 0 ? SMALL_GATE : WIDE_GATE;
+          const half = size.min + roll(size.span);
+          const bounds = { minX: cx - half, maxX: cx + half, minY: cy - half, maxY: cy + half };
+          const allowsNode = (cell: NodeId): boolean => {
+            const x = cell % WIDE_W;
+            const y = Math.floor(cell / WIDE_W);
+            return x >= bounds.minX && x <= bounds.maxX && y >= bounds.minY && y <= bounds.maxY;
+          };
+          plan = { ...plan, limit: { bounds, allowsNode } };
+        }
+        const area =
+          roll(4) === 0
+            ? {
+                center: node(sim, roll(WIDE_W), roll(WIDE_H)),
+                radius: AREA_RADIUS.min + roll(AREA_RADIUS.span),
+              }
+            : undefined;
+        const opts = {
+          exclude,
+          ...(area === undefined ? {} : roll(2) === 0 ? { area } : { within: area }),
+        };
+        const full = nearestHarvestableFor(plan, { ...opts, diagnostic: { eligibleInArea: false } });
+        expect(nearestHarvestableFor(plan, opts), `query ${q}`).toEqual(full);
+        expect(
+          nearestHarvestableFor(plan, { ...opts, candidates: plan.targets.resources }),
+          `listed query ${q}`,
+        ).toEqual(full);
+      }
+    },
+  );
+});
+
+describe('growing-box harvest search edges', () => {
+  it('reaches past a box for a work cell nearer than the winner inside it', () => {
+    const offset = contentIndex(testContent()).maxResourceWorkOffset;
+    const [ox, oy] = [2, 2];
+    const missed: number[] = [];
+    // Every distance across the first box edges: the winner inside a box sits `k` out, and a node anchored
+    // just past it is worked from a cell one node nearer.
+    for (let k = offset + 1; k <= EDGE_SWEEP_MAX; k++) {
+      const sim = new Simulation({
+        seed: 1,
+        content: testContent(),
+        map: grassNodeMap(EDGE_SWEEP_MAX + 2 * offset + 4, 6),
+      });
+      resourceAt(sim, ox + k, oy, WOOD, CHOP);
+      const nearer = resourceAt(sim, ox + k - 1 + offset, oy, WOOD, CHOP, [{ dx: -offset, dy: 0 }]);
+      if (nearestHarvestableFor(planFor(sim, WOODCUTTER, ox, oy))?.entity !== nearer) missed.push(k);
+    }
+    expect(missed).toEqual([]);
   });
 });

@@ -100,6 +100,17 @@ export interface RegionIndex<Extra, Capture> {
     keep?: (capture: Capture) => boolean,
     skipReach?: number,
   ): Entity[];
+  /** The members {@link near} lists, handed to `visit` with their anchor node in no particular order,
+   *  for a caller that ranks them itself. */
+  visitNear(
+    world: World,
+    hx: number,
+    hy: number,
+    reach: number,
+    visit: (e: Entity, hx: number, hy: number) => void,
+    keep?: (capture: Capture) => boolean,
+    skipReach?: number,
+  ): void;
   /** Whether any indexed entity inside the same box passes `test`. Unordered and first-hit, which a pure
    *  existence question does not need. `keep` skips a member by its capture before `test` reads it. */
   someNear(
@@ -268,6 +279,44 @@ function bucketsInBox(buckets: RegionBuckets<unknown>, hx: number, hy: number, r
   return true;
 }
 
+/** Hand `visit` every member of `buckets` whose anchor lies in the box `reach` nodes around `(hx, hy)`
+ *  and past the inner box `skipReach`, and whose capture `keep` admits. A box wider than the occupied
+ *  regions walks those regions instead of probing every region it spans. */
+function visitBox<Capture>(
+  buckets: RegionBuckets<Capture>,
+  hx: number,
+  hy: number,
+  reach: number,
+  visit: (e: Entity, hx: number, hy: number) => void,
+  keep: ((capture: Capture) => boolean) | undefined,
+  skipReach: number | undefined,
+): void {
+  const { minRx, maxRx, minRy, maxRy } = boxRegionRange(hx, hy, reach);
+  const visitBucket = (bucket: readonly RegionMember<Capture>[]): void => {
+    for (const m of bucket) {
+      if (!inBox(m, hx, hy, reach) || (keep !== undefined && !keep(m.capture))) continue;
+      if (skipReach === undefined || !inBox(m, hx, hy, skipReach)) visit(m.e, m.hx, m.hy);
+    }
+  };
+  if ((maxRx - minRx + 1) * (maxRy - minRy + 1) > buckets.size) {
+    buckets.forEach((bucket, key) => {
+      const rx = Math.floor(key / REGION_KEY_STRIDE);
+      const ry = key % REGION_KEY_STRIDE;
+      if (rx < minRx || rx > maxRx || ry < minRy || ry > maxRy) return;
+      if (skipReach !== undefined && regionInBox(rx, ry, hx, hy, skipReach)) return;
+      visitBucket(bucket);
+    });
+    return;
+  }
+  for (let rx = minRx; rx <= maxRx; rx++) {
+    for (let ry = minRy; ry <= maxRy; ry++) {
+      if (skipReach !== undefined && regionInBox(rx, ry, hx, hy, skipReach)) continue;
+      const bucket = buckets.get(regionKey(rx, ry));
+      if (bucket !== undefined) visitBucket(bucket);
+    }
+  }
+}
+
 interface NearestFold {
   best: Entity | null;
   distance: number;
@@ -428,25 +477,15 @@ function buildRegionIndex<Extra, Capture>(
     },
     extra: (world) => memo.read(world).extra,
     near: (world, hx, hy, reach, keep, skipReach) => {
-      const index = memo.read(world);
-      const { minRx, maxRx, minRy, maxRy } = boxRegionRange(hx, hy, reach);
       const out: Entity[] = [];
-      for (let rx = minRx; rx <= maxRx; rx++) {
-        for (let ry = minRy; ry <= maxRy; ry++) {
-          if (skipReach !== undefined && regionInBox(rx, ry, hx, hy, skipReach)) continue;
-          const bucket = index.byRegion.get(regionKey(rx, ry));
-          if (bucket === undefined) continue;
-          for (const m of bucket) {
-            if (!inBox(m, hx, hy, reach) || (keep !== undefined && !keep(m.capture))) continue;
-            if (skipReach === undefined || !inBox(m, hx, hy, skipReach)) out.push(m.e);
-          }
-        }
-      }
+      visitBox(memo.read(world).byRegion, hx, hy, reach, (e) => out.push(e), keep, skipReach);
       // Each region list is ascending, but concatenating across regions is not, and a nearest-scan's
       // first-wins tie-break depends on the canonical ascending-id order.
       out.sort((a, b) => a - b);
       return out;
     },
+    visitNear: (world, hx, hy, reach, visit, keep, skipReach) =>
+      visitBox(memo.read(world).byRegion, hx, hy, reach, visit, keep, skipReach),
     boxHoldsAll: (world, hx, hy, reach) => bucketsInBox(memo.read(world).byRegion, hx, hy, reach),
     atNode: (world, hx, hy) => {
       const state = memo.read(world);

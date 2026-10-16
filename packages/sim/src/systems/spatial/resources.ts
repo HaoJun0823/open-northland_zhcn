@@ -85,6 +85,28 @@ export function resourcesNearNode(
   );
 }
 
+/** The resources {@link resourcesNearNode} lists, handed to `visit` with their anchor node in no
+ *  particular order. */
+export function forEachResourceNear(
+  world: World,
+  hx: number,
+  hy: number,
+  reach: number,
+  visit: (e: Entity, hx: number, hy: number) => void,
+  atomics?: ReadonlySet<number>,
+  skipReach?: number,
+): void {
+  index.visitNear(
+    world,
+    hx,
+    hy,
+    reach,
+    visit,
+    atomics === undefined ? undefined : (atomic) => atomics.has(atomic),
+    skipReach,
+  );
+}
+
 /** Whether the box `reach` nodes around `(hx, hy)` provably holds every resource on the map. */
 export function resourceBoxHoldsAll(world: World, hx: number, hy: number, reach: number): boolean {
   return index.boxHoldsAll(world, hx, hy, reach);

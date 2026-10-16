@@ -1,14 +1,19 @@
 import { HarvestedBy, Position, Resource, Stockpile } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
-import type { Entity } from '../../../ecs/world.js';
+import type { Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
-import type { NodeId } from '../../../nav/terrain/index.js';
+import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import { positionedStanceCells, resourceStanceCells } from '../../footprint/index.js';
 import { resourceApproachCells } from '../../footprint/interaction.js';
 import { needSubjectOf, settlerMeetsNeed } from '../../progression/index.js';
 import { goodsSearchLimitAt } from '../../signposts/reach.js';
 import { manhattan } from '../../spatial/metric.js';
-import { anyHarvestAtomicPresent, resourcesNearNode } from '../../spatial/resources.js';
+import {
+  anyHarvestAtomicPresent,
+  forEachResourceNear,
+  resourceBoxHoldsAll,
+  resourcesNearNode,
+} from '../../spatial/resources.js';
 import { lowestStockedGood } from '../../stores/index.js';
 import type { PlannerContext } from '../planner/context.js';
 import { type CellMatch, type NearestByCell, nearerOf, nearestByCell } from './cell-index.js';
@@ -77,14 +82,14 @@ export function nearestHarvestableFor(
   const boundY = bound === undefined ? 0 : terrain.coordsOf(bound.center).y;
   // A bounded scan reads only the resources of the job's atomics whose anchor lies in the bound's box,
   // widened by the content's max work-cell offset so every node whose work cell could pass the radius
-  // test is included. The same filter/rank loop over an ascending-id superset picks the identical winner.
-  let scanned: readonly Entity[] | undefined;
+  // test is included. A confined roaming scan reads the region box around the allowed area, which covers
+  // every anchor whose work cell could pass the gate; an allowed box spanning most of the map is searched
+  // in growing boxes around the origin instead, as an unconfined one is. Each is a superset of the
+  // candidates that can win, ranked by the same total order, so every source picks the identical winner.
+  let box: { readonly x: number; readonly y: number; readonly reach: number } | undefined;
   if (bound !== undefined) {
-    scanned = resourcesNearNode(world, boundX, boundY, anchorReach, allowed);
+    box = { x: boundX, y: boundY, reach: anchorReach };
   } else if (gate !== undefined) {
-    // A confined roaming scan: the region box around the allowed area covers every anchor whose work
-    // cell could pass the gate, the same superset argument as the bounded path. Guarded, because an
-    // allowed box spanning most of the map makes the pre-sorted canonical list the cheaper superset.
     const b = gate.bounds;
     const boxW = Math.min(b.maxX, terrain.width - 1) - Math.max(b.minX, 0) + 1;
     const boxH = Math.min(b.maxY, terrain.height - 1) - Math.max(b.minY, 0) + 1;
@@ -92,11 +97,9 @@ export function nearestHarvestableFor(
       const cx = Math.floor((b.minX + b.maxX) / 2);
       const cy = Math.floor((b.minY + b.maxY) / 2);
       const half = Math.max(cx - b.minX, b.maxX - cx, cy - b.minY, b.maxY - cy);
-      scanned = resourcesNearNode(world, cx, cy, half + maxWorkOffset, allowed);
+      box = { x: cx, y: cy, reach: half + maxWorkOffset };
     }
   }
-  if (opts.candidates !== undefined) scanned = opts.candidates;
-  scanned ??= targets.resources;
   // Built on the first candidate that reaches the stance check, so a scan nothing qualifies for builds none.
   let passes: ((cell: NodeId) => boolean) | undefined;
   const subject = needSubjectOf(world, plan.entity);
@@ -140,16 +143,26 @@ export function nearestHarvestableFor(
     if (cell === undefined) return null;
     return { cell, payload: null };
   };
-  // A diagnostic reports on every candidate, so it walks the whole list; a pick resolves nearest-first.
-  const best =
-    opts.diagnostic !== undefined
-      ? nearestByCell(terrain, scanned, origin, (e) => {
-          const p = world.tryGet(e, Position);
-          if (p === undefined || !anchorInBound(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y)))
-            return null;
-          return resolve(e);
-        })
-      : nearestFromAnchors(plan, scanned, origin, maxWorkOffset, anchorInBound, resolve);
+  const anchors = new AnchorRanking(terrain.xOf(origin), terrain.yOf(origin), maxWorkOffset, anchorInBound);
+  let best: NearestByCell<null> | null;
+  if (opts.diagnostic !== undefined) {
+    // A diagnostic reports on every candidate, so it walks the whole ascending-id list.
+    const scanned =
+      opts.candidates ??
+      (box === undefined ? targets.resources : resourcesNearNode(world, box.x, box.y, box.reach, allowed));
+    best = nearestByCell(terrain, scanned, origin, (e) => {
+      const p = world.tryGet(e, Position);
+      if (p === undefined || !anchorInBound(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y))) return null;
+      return resolve(e);
+    });
+  } else if (opts.candidates !== undefined) {
+    best = anchors.addList(world, opts.candidates).fold(terrain, origin, null, resolve);
+  } else if (box !== undefined) {
+    forEachResourceNear(world, box.x, box.y, box.reach, anchors.add, allowed);
+    best = anchors.fold(terrain, origin, null, resolve);
+  } else {
+    best = nearestInGrowingBoxes(world, terrain, origin, allowed, anchors, resolve);
+  }
   // No same-side gate: a standing Resource is never Owner-stamped, so the test would always pass.
   return best === null ? null : { entity: best.entity, cell: best.cell, dist: best.distance };
 }
@@ -272,51 +285,99 @@ export function nearestOwnDropFor(
 /** Candidate sort keys: an anchor's lower-bound distance in the high part, the entity id in the low. */
 let anchorKeys = new Float64Array(0);
 const ENTITY_KEY_SPAN = 2 ** 31;
+const INITIAL_ANCHOR_KEYS = 64;
+
+/** Half-width in nodes of the first box {@link nearestInGrowingBoxes} searches, doubled per miss. */
+const FIRST_SEARCH_BOX_REACH = 32;
 
 /**
- * {@link nearestByCell}'s winner over the positioned candidates of ascending-id `list` whose anchor
- * `anchorAdmits`, resolving them nearest anchor first and stopping once no unresolved anchor can come
- * nearer. A work cell lies at most `maxWorkOffset` Manhattan nodes from its anchor, so the anchor
- * distance less that offset bounds the candidate's distance from below. Ties keep the scan's
- * `(distance, cell, entity)` order.
+ * {@link nearestByCell}'s winner over candidates whose anchor `anchorAdmits`, resolved nearest anchor
+ * first and stopping once no unresolved anchor can come nearer. A work cell lies at most `maxWorkOffset`
+ * Manhattan nodes from its anchor, so the anchor distance less that offset bounds the candidate's
+ * distance from below. Ties keep the scan's `(distance, cell, entity)` order, so the winner does not
+ * depend on the order candidates are added in. Keys live in a module scratch: one ranking at a time.
  */
-function nearestFromAnchors(
-  plan: Pick<PlannerContext, 'world' | 'terrain'>,
-  list: readonly Entity[],
-  rank: NodeId,
-  maxWorkOffset: number,
-  anchorAdmits: (hx: number, hy: number) => boolean,
+class AnchorRanking {
+  private count = 0;
+
+  constructor(
+    private readonly ox: number,
+    private readonly oy: number,
+    readonly maxWorkOffset: number,
+    private readonly anchorAdmits: (hx: number, hy: number) => boolean,
+  ) {}
+
+  readonly add = (e: Entity, hx: number, hy: number): void => {
+    if (!this.anchorAdmits(hx, hy)) return;
+    if (this.count === anchorKeys.length) {
+      const grown = new Float64Array(Math.max(INITIAL_ANCHOR_KEYS, anchorKeys.length * 2));
+      grown.set(anchorKeys);
+      anchorKeys = grown;
+    }
+    const lowerBound = Math.max(0, Math.abs(hx - this.ox) + Math.abs(hy - this.oy) - this.maxWorkOffset);
+    anchorKeys[this.count++] = lowerBound * ENTITY_KEY_SPAN + e;
+  };
+
+  /** Add the positioned members of `list`. */
+  addList(world: World, list: readonly Entity[]): this {
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      const p = e === undefined ? undefined : world.tryGet(e, Position);
+      if (e !== undefined && p !== undefined) this.add(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+    }
+    return this;
+  }
+
+  /** Fold the added candidates into `best`, ranked from `rank`, and forget them. */
+  fold(
+    terrain: TerrainGraph,
+    rank: NodeId,
+    best: NearestByCell<null> | null,
+    resolve: (e: Entity) => CellMatch<null> | null,
+  ): NearestByCell<null> | null {
+    const keys = anchorKeys.subarray(0, this.count).sort();
+    this.count = 0;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i] ?? 0;
+      const e = (key % ENTITY_KEY_SPAN) as Entity;
+      if (best !== null && (key - e) / ENTITY_KEY_SPAN > best.distance) break;
+      const match = resolve(e);
+      if (match === null) continue;
+      best = nearerOf(best, {
+        entity: e,
+        cell: match.cell,
+        distance: manhattan(terrain, rank, match.cell),
+        payload: null,
+      });
+    }
+    return best;
+  }
+}
+
+/**
+ * The {@link AnchorRanking} winner over every resource of the `atomics`, read in boxes around `origin`
+ * that double until one holds every resource or the winner's distance: an anchor outside a box of
+ * half-width `reach` lies more than `reach` Manhattan nodes away, so no candidate past it comes nearer
+ * than `reach` less the work-cell offset.
+ */
+function nearestInGrowingBoxes(
+  world: World,
+  terrain: TerrainGraph,
+  origin: NodeId,
+  atomics: ReadonlySet<number>,
+  anchors: AnchorRanking,
   resolve: (e: Entity) => CellMatch<null> | null,
 ): NearestByCell<null> | null {
-  const { world, terrain } = plan;
-  const ox = terrain.xOf(rank);
-  const oy = terrain.yOf(rank);
-  if (anchorKeys.length < list.length) anchorKeys = new Float64Array(list.length);
-  let count = 0;
-  for (let i = 0; i < list.length; i++) {
-    const e = list[i];
-    const p = e === undefined ? undefined : world.tryGet(e, Position);
-    if (e === undefined || p === undefined) continue;
-    const hx = nodeHxOfPosition(p.x, p.y);
-    const hy = nodeHyOfPosition(p.y);
-    if (!anchorAdmits(hx, hy)) continue;
-    anchorKeys[count++] =
-      Math.max(0, Math.abs(hx - ox) + Math.abs(hy - oy) - maxWorkOffset) * ENTITY_KEY_SPAN + e;
-  }
-  const keys = anchorKeys.subarray(0, count).sort();
+  const ox = terrain.xOf(origin);
+  const oy = terrain.yOf(origin);
+  const maxWorkOffset = anchors.maxWorkOffset;
   let best: NearestByCell<null> | null = null;
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i] ?? 0;
-    const e = (key % ENTITY_KEY_SPAN) as Entity;
-    if (best !== null && (key - e) / ENTITY_KEY_SPAN > best.distance) break;
-    const match = resolve(e);
-    if (match === null) continue;
-    best = nearerOf(best, {
-      entity: e,
-      cell: match.cell,
-      distance: manhattan(terrain, rank, match.cell),
-      payload: null,
-    });
+  let inner: number | undefined;
+  for (let reach = FIRST_SEARCH_BOX_REACH; ; reach *= 2) {
+    forEachResourceNear(world, ox, oy, reach, anchors.add, atomics, inner);
+    best = anchors.fold(terrain, origin, best, resolve);
+    if (best !== null && reach - maxWorkOffset >= best.distance) return best;
+    if (resourceBoxHoldsAll(world, ox, oy, reach)) return best;
+    inner = reach;
   }
-  return best;
 }

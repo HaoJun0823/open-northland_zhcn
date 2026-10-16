@@ -112,10 +112,10 @@ describe('IncrementalScene', () => {
     snapshot = advance(
       mirror,
       [
-        moved(4, 2, 5, heap(3, 9)),
-        moved(7, 3, 3, heap(5, 1)),
-        moved(6, 4, 3, tree(1)),
         moved(1, 2, 2, SETTLER),
+        moved(4, 2, 5, heap(3, 9)),
+        moved(6, 4, 3, tree(1)),
+        moved(7, 3, 3, heap(5, 1)),
       ],
       [3],
     );

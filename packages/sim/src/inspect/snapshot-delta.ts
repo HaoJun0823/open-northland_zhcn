@@ -462,7 +462,12 @@ export function deltaValues(delta: SnapshotDelta): unknown[] {
 /** Store a delta listed by entity by column, the shape a stream emits. */
 export function packSnapshotDelta(delta: EntitySnapshotDelta): SnapshotDelta {
   const columns = new DeltaColumns();
+  let previous = -1;
   for (const entry of delta.touched) {
+    if (entry.id <= previous) {
+      throw new Error(`snapshot delta : touched entity  after , must ascend`);
+    }
+    previous = entry.id;
     columns.begin(entry.id);
     for (const name in entry.components) columns.write(name, entry.components[name]);
     for (const name of entry.removed) columns.drop(name);

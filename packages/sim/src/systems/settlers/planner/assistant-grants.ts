@@ -16,7 +16,8 @@ import {
 } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import { TICKS_PER_SECOND } from '../../../core/loop.js';
-import type { Entity, World } from '../../../ecs/world.js';
+import { includesSortedId, insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
+import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import type { NodeId } from '../../../nav/terrain/index.js';
 import { standsAtPost } from '../../conflict/tower-post.js';
@@ -66,7 +67,8 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
   const grants = collectGrantSpecs(pass);
   if (grants.size === 0) return; // no player granted anything: the pass costs one empty query
   // Manual orders are included, so the assistant also respects a unit the player already sent someone after.
-  const inFlight = equipFetchesUnderway(world);
+  // Read at the first settler that passes the gates, before this pass stamps any errand.
+  let inFlight: Map<number, Map<number, number>> | undefined;
   const stock = FetchableStock.of(world, ctx);
   // Each granting player's soldiers-only goods, read once per pass rather than per settler.
   const limits = new Map<number, readonly number[]>();
@@ -105,6 +107,7 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     const toolless = !toolHelpsJob(ctx.content, jobType);
     const soldiersOnly = fighter ? NO_LIMITS : soldiersOnlyOf(owner);
 
+    inFlight ??= equipFetchesUnderway(world);
     let tally = inFlight.get(owner);
     if (tally === undefined) {
       tally = new Map();
@@ -277,24 +280,78 @@ export function freeSlotFor(eq: EquipmentData | undefined, spec: GrantSpec): num
   return free;
 }
 
-const NO_SETTLERS: readonly Entity[] = [];
 const NO_LIMITS: readonly number[] = [];
 
-/** The settlers bucketed by scan beat, for each settler roster a world has served: rebuilt only when a
- *  settler is born or dies, so a tick visits its own beat's slice instead of the whole roster. */
-const beatsByRoster = new WeakMap<readonly Entity[], readonly (readonly Entity[])[]>();
+const byId = (e: Entity): number => e;
 
-/** The settlers, ascending-id, whose grant beat falls on `tick`: those with `(e + tick) % period === 0`. */
-function dueThisBeat(world: World, tick: number): readonly Entity[] {
-  const roster = world.canonicalQuery(Settler);
-  let beats = beatsByRoster.get(roster);
-  if (beats === undefined) {
-    const built: Entity[][] = Array.from({ length: ASSISTANT_SCAN_PERIOD_TICKS }, () => []);
-    for (const e of roster) built[e % ASSISTANT_SCAN_PERIOD_TICKS]?.push(e);
-    beats = built;
-    beatsByRoster.set(roster, beats);
+/** The beat of the scan period `e` is considered on. */
+function grantBeatOf(e: Entity): number {
+  return e % ASSISTANT_SCAN_PERIOD_TICKS;
+}
+
+/** The settlers bucketed by scan beat, ascending id, kept per world from a feed of settler births and
+ *  deaths, so a tick visits its own beat's slice instead of the whole roster. */
+class GrantBeats {
+  private readonly beats: Entity[][] = Array.from({ length: ASSISTANT_SCAN_PERIOD_TICKS }, () => []);
+  private readonly feed: ChangeFeed;
+  private readonly refreshEntity = (e: Entity): void => this.refresh(e);
+
+  constructor(private readonly world: World) {
+    this.feed = world.watchChanges([Settler], []);
+    this.rebuild();
   }
-  const beat =
-    (ASSISTANT_SCAN_PERIOD_TICKS - (tick % ASSISTANT_SCAN_PERIOD_TICKS)) % ASSISTANT_SCAN_PERIOD_TICKS;
-  return beats[beat] ?? NO_SETTLERS;
+
+  /** The settlers, ascending-id, whose grant beat falls on `tick`: those with `(e + tick) % period === 0`. */
+  due(tick: number): readonly Entity[] {
+    if (this.feed.pending && this.feed.drain(this.refreshEntity)) this.rebuild();
+    return this.beatOf(
+      (ASSISTANT_SCAN_PERIOD_TICKS - (tick % ASSISTANT_SCAN_PERIOD_TICKS)) % ASSISTANT_SCAN_PERIOD_TICKS,
+    );
+  }
+
+  private refresh(e: Entity): void {
+    const beat = this.beatOf(grantBeatOf(e));
+    const wanted = this.world.has(e, Settler);
+    if (wanted === includesSortedId(beat, e, byId)) return;
+    if (wanted) insertSortedById(beat, e, byId);
+    else removeSortedById(beat, e, byId);
+  }
+
+  private rebuild(): void {
+    for (const beat of this.beats) beat.length = 0;
+    for (const e of this.world.canonicalQuery(Settler)) this.beatOf(grantBeatOf(e)).push(e);
+  }
+
+  private beatOf(beat: number): Entity[] {
+    const settlers = this.beats[beat];
+    if (settlers === undefined) throw new Error(`assistantGrants: no scan beat ${beat}`);
+    return settlers;
+  }
+
+  verify(): string[] {
+    if (this.feed.pending && this.feed.drain(this.refreshEntity)) this.rebuild();
+    const problems: string[] = [];
+    const fresh = this.beats.map((): Entity[] => []);
+    for (const e of this.world.canonicalQuery(Settler)) fresh[grantBeatOf(e)]?.push(e);
+    this.beats.forEach((held, beat) => {
+      const want = fresh[beat] ?? [];
+      if (held.length !== want.length || held.some((e, i) => want[i] !== e)) {
+        problems.push(`assistantGrants settlers on beat ${beat} diverge from a fresh scan`);
+      }
+    });
+    return problems;
+  }
+}
+
+const grantBeats = new WeakMap<World, GrantBeats>();
+
+function dueThisBeat(world: World, tick: number): readonly Entity[] {
+  let held = grantBeats.get(world);
+  if (held === undefined) {
+    const created = new GrantBeats(world);
+    world.registerCacheVerifier('assistantGrantBeats', () => created.verify());
+    grantBeats.set(world, created);
+    held = created;
+  }
+  return held.due(tick);
 }

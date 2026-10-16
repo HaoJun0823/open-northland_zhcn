@@ -258,6 +258,22 @@ describe('setAssistantGrant - the per-player grant list', () => {
 });
 
 describe('assistant auto-equip - dispatch and reservation', () => {
+  it('keeps its scan beats in step with settlers born and dying', () => {
+    const sim = freshSim();
+    pileAt(sim, 8, 3, SHOES, 1, HUMAN_PLAYER);
+    grant(sim, SHOES);
+    const first = ownedSettler(sim, 2, 3);
+    sim.run(1);
+    const born = ownedSettler(sim, 3, 3);
+    sim.world.destroy(first);
+    sim.run(1);
+    expect(sim.world.verifyCaches()).toEqual([]);
+    sim.world.destroy(born);
+    ownedSettler(sim, 4, 3);
+    sim.run(1);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
   it('dresses a settler with a free slot from a reachable pile, unprompted', () => {
     const sim = freshSim();
     const settler = ownedSettler(sim, 2, 2);

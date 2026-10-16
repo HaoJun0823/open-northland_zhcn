@@ -182,7 +182,9 @@ function repairHeld(
 /** Each signpost's reach per span, the link pass's and the goods search's. */
 const postReaches = new WeakMap<World, Map<ReachSpan, Map<Entity, TerrainReach>>>();
 
-/** {@link terrainReach} from signpost `post` standing on `(hx, hy)`, kept per post until it falls. */
+/** {@link terrainReach} from signpost `post` standing on `(hx, hy)`, kept per post until it falls. Under a
+ *  {@link ReachSpan.readOnce} span the answer holds only until the next call for the same post and span,
+ *  whose flood may write over its buffers: read it at the call site, never keep it. */
 export function postTerrainReach(
   world: World,
   content: ContentSet,

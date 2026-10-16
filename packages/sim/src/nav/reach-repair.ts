@@ -264,7 +264,8 @@ class ReachRepair {
         for (let k = 0; k < NEIGHBOURS; k++) remark(x + (dxs[k] as number), y + (HEX_DY[k] as number));
       }
     }
-    // An entered node inspects its neighbours, one node out on either axis.
+    // An entered node inspects its neighbours, one node out on either axis. Lost nodes never shrink this
+    // box, but every settled node lies in the cost box, so it grows to one node past that box at most.
     for (const node of settled) {
       const x = this.terrain.xOf(node);
       const y = this.terrain.yOf(node);

@@ -34,6 +34,10 @@ export { OBSTRUCTED_MAX_REROUTES, OBSTRUCTED_PROGRESS_FLOOR, OBSTRUCTED_REROUTE_
  */
 const UNIT_SEPARATION_RADIUS: Fixed = fx.div(fx.fromInt(13), fx.fromInt(50));
 
+/** `fx.isqrt(d) >= UNIT_SEPARATION_RADIUS` exactly when `d * ONE` reaches this raw square, so a pair out
+ *  of reach is rejected before taking its root. */
+const UNIT_SEPARATION_RADIUS_SQUARED_SCALED = UNIT_SEPARATION_RADIUS * UNIT_SEPARATION_RADIUS;
+
 /**
  * The per-tick cap on the soft mover-vs-mover push, below the reference walker's per-tick advance so a
  * walker brushed by passing traffic still makes net progress every tick; {@link SOFT_PUSH_PACE_SHARE}
@@ -194,8 +198,9 @@ function resolveMoverPush(
     // Scale the row difference before rounding, as worldDistance does. Subtracting rounded world Y
     // positions instead would change fractional-row distances by an ulp.
     const dwy = fx.mul(fx.sub(y[other] ?? ZERO, startY), ROW_STEP);
-    const dist = fx.isqrt(fx.add(fx.mul(dwx, dwx), fx.mul(dwy, dwy)));
-    if (dist >= UNIT_SEPARATION_RADIUS) continue;
+    const squared = fx.add(fx.mul(dwx, dwx), fx.mul(dwy, dwy));
+    if (squared * ONE >= UNIT_SEPARATION_RADIUS_SQUARED_SCALED) continue;
+    const dist = fx.isqrt(squared);
     const n = entity[other] ?? 0;
     const half = fx.div(fx.sub(UNIT_SEPARATION_RADIUS, dist), fx.fromInt(2));
     const otherWY = wy[other] ?? ZERO;

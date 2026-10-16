@@ -12,6 +12,7 @@ import {
   PlayerOrder,
   Position,
   Residence,
+  removeCurrentAtomic,
   Settler,
   Upgrading,
   Wedding,
@@ -180,6 +181,7 @@ function haulFood(
       startDrop(world, ctx, woman); // free her hands of a non-food load first
       return;
     }
+    removeCurrentAtomic(world, woman); // see enterHome
     deliverHome(world, ctx, terrain, woman, womanView, home, hereNode);
     return;
   }
@@ -207,6 +209,7 @@ function haulFood(
     goodType: source.goodType,
     amount: HAUL_LIFT_UNITS,
   });
+  removeCurrentAtomic(world, woman); // see enterHome
   fetchFrom(world, ctx, terrain, woman, womanView, source, hereNode);
 }
 
@@ -269,6 +272,9 @@ function enterHome(
   if (!isDrivable(world, e)) return;
   // Shed a workplace rest marker so the walk home is visible; the arrival re-stamps it at the home.
   stepOut(world, e);
+  // A clip left on a drivable settler holds nothing (a workshop's craft display), but plays on and
+  // slides along the walk unless it is shed with the rest marker.
+  removeCurrentAtomic(world, e);
   if (terrain === undefined) {
     stepIn(world, e, home);
     return;

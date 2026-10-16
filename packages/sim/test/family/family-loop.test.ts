@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   Age,
   AssistantChildOrder,
+  addCurrentAtomic,
   Building,
   Carrying,
   CHILD_FOOD_UNITS,
@@ -13,6 +14,7 @@ import {
   MakingLove,
   Marriage,
   MoveGoal,
+  PathFollow,
   PickupClaim,
   Position,
   Residence,
@@ -76,6 +78,9 @@ const WAREHOUSE = 7;
 const GRASS = 0;
 /** The eat slot (`setatomic <job> 10`), and the one `event 3 2 +4000` meal its clip pays out. */
 const EAT_ATOMIC = 10;
+/** Any craft clip id: the test stamps the display itself, so no binding is read. */
+const CRAFT_ATOMIC = 46;
+const CRAFT_CLIP_TICKS = 1000;
 const MEAL = needBar(4000);
 
 function familyContent(): ContentSet {
@@ -434,6 +439,39 @@ describe('e2e: marriage → household → child (full step schedule)', () => {
     );
     expect(foodBeforeSession).toBe(CHILD_FOOD_UNITS);
     expect(larder()).toBe(0);
+  });
+
+  it('calls the husband home off a craft clip, which stops instead of playing along the walk', () => {
+    const { sim, woman, man, home } = familySim(3);
+    sim.world.add(woman(), Marriage, { spouse: man(), child: null });
+    sim.world.add(man(), Marriage, { spouse: woman(), child: null });
+    sim.enqueueSetup({ kind: 'assignHouse', entity: woman(), house: home() });
+    sim.enqueueSetup({ kind: 'makeChild', entity: woman(), child: 'female' });
+    sim.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });
+    sim.step();
+    sim.world.mut(home(), Stockpile).amounts.set(FOOD, CHILD_FOOD_UNITS);
+    runUntil(sim, () => sim.world.tryGet(woman(), Resting)?.at === home(), 600, 'wife waits inside');
+    // A workshop's craft display holds nothing, so the family pass may take him off it.
+    addCurrentAtomic(sim.world, man(), {
+      atomicId: CRAFT_ATOMIC,
+      duration: CRAFT_CLIP_TICKS,
+      effect: { kind: 'produce', recipeOutput: FOOD },
+      targetEntity: null,
+      targetTile: null,
+    });
+    let walked = false;
+    runUntil(
+      sim,
+      () => {
+        const walking = sim.world.has(man(), PathFollow);
+        walked ||= walking;
+        expect(walking && sim.world.has(man(), CurrentAtomic)).toBe(false);
+        return sim.world.tryGet(man(), Resting)?.at === home();
+      },
+      600,
+      'husband walks home',
+    );
+    expect(walked).toBe(true);
   });
 
   it('a hungry wife short of the child cost eats her home meal indoors, not popped out to haul', () => {

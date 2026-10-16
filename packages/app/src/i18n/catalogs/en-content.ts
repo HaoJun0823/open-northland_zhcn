@@ -619,6 +619,11 @@ export const enContent = {
     signposts: {
       title: 'Signposts',
       summary: 'A scout erects a signpost; settlers work only within the connected signpost network.',
+      stages: {
+        erectOnTheMove: 'Signpost on the move',
+        walkEast: 'Send the scout east',
+        erectBehind: 'Erect a signpost behind the scout',
+      },
     },
     family: {
       title: 'Marriage and children',

@@ -616,6 +616,11 @@ export const plContent = {
     signposts: {
       title: 'Drogowskazy',
       summary: 'Zwiadowca stawia drogowskaz; osadnicy pracują tylko w zasięgu połączonej sieci drogowskazów.',
+      stages: {
+        erectOnTheMove: 'Drogowskaz w marszu',
+        walkEast: 'Wyślij zwiadowcę na wschód',
+        erectBehind: 'Przybij drogowskaz za zwiadowcą',
+      },
     },
     family: {
       title: 'Śluby i dzieci',

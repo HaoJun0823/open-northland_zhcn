@@ -624,6 +624,11 @@ export const deContent = {
       title: 'Wegweiser',
       summary:
         'Ein Kundschafter errichtet einen Wegweiser. Siedler arbeiten nur innerhalb des zusammenhängenden Wegweisernetzes.',
+      stages: {
+        erectOnTheMove: 'Wegweiser im Lauf',
+        walkEast: 'Kundschafter nach Osten schicken',
+        erectBehind: 'Wegweiser hinter dem Kundschafter errichten',
+      },
     },
     family: {
       title: 'Heirat und Kinder',

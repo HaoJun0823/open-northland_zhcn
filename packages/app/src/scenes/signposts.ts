@@ -1,11 +1,12 @@
-import type { Entity, Simulation } from '@open-northland/sim';
-import { cellAnchorNode, components, fx, reachContains, systems } from '@open-northland/sim';
+import type { Entity, Simulation, WorldSnapshot } from '@open-northland/sim';
+import { cellAnchorNode, components, fx, nodeOfPosition, reachContains, systems } from '@open-northland/sim';
 import { grassTerrain } from '../catalog/buildings.js';
 import { JOB_COLLECTOR, JOB_SCOUT } from '../catalog/jobs.js';
 import { TERRAIN_IMPASSABLE } from '../catalog/terrain.js';
 import { ENEMY_PLAYER, HUMAN_PLAYER } from '../game/rules.js';
 import { GATHERERS, placeResourceNode, spawnSettlerDirect } from '../game/sandbox/index.js';
-import type { SceneDefinition } from './types.js';
+import { positionOf, settlerJobType } from '../game/snapshot-base.js';
+import type { SceneDefinition, StageOrder } from './types.js';
 
 const MAP_W = 128;
 const MAP_H = 16;
@@ -26,6 +27,12 @@ const ENEMY_POST = { x: 90, y: 4 } as const;
 const COLLECTOR = { x: 4, y: 4 } as const;
 const NEAR_TREE = { x: 50, y: 6 } as const;
 const FAR_TREE = { x: 110, y: 2 } as const;
+/** The stretch between CHAIN_B and LONE_POST, past both posts' spacing: the scout walks east along it
+ *  and erects a post behind itself mid-walk, the order that once swung the hammer on the move. */
+const SCOUT_WALK_TO = { x: 66, y: 8 } as const;
+const ERECT_BEHIND_STAGE = { x: 52, y: 8 } as const;
+/** Tiles behind the walking scout: on a node it has just crossed, so the walk turns back to it. */
+const ERECT_BEHIND_TILES = 1;
 /** Walk ~48 tiles + fell the near tree over ten cadenced strokes, with margin. */
 const RUN_TICKS = 4000;
 /** Frames the collector's whole trip: the chain, the near tree and the lone post in one screen. */
@@ -70,6 +77,30 @@ function build(sim: Simulation): void {
   sim.enqueueSetup({ kind: 'placeSignpost', entity: scout, x: erectNode.hx, y: erectNode.hy });
 }
 
+/** The scout and the node it stands on, read off the stage's snapshot. */
+function scoutNode(snapshot: WorldSnapshot): { id: Entity; hx: number; hy: number } | null {
+  for (const e of snapshot.entities) {
+    if (settlerJobType(e) !== JOB_SCOUT) continue;
+    const p = positionOf(e);
+    return p === undefined ? null : { id: e.id as Entity, ...nodeOfPosition(p.x, p.y) };
+  }
+  return null;
+}
+
+function walkScoutEast(snapshot: WorldSnapshot): StageOrder[] {
+  const scout = scoutNode(snapshot);
+  if (scout === null) return [];
+  const goal = cellAnchorNode(SCOUT_WALK_TO.x, SCOUT_WALK_TO.y);
+  return [{ by: 'viewer', command: { kind: 'moveUnit', entity: scout.id, x: goal.hx, y: goal.hy } }];
+}
+
+function erectBehindScout(snapshot: WorldSnapshot): StageOrder[] {
+  const scout = scoutNode(snapshot);
+  if (scout === null) return [];
+  const x = scout.hx - 2 * ERECT_BEHIND_TILES;
+  return [{ by: 'viewer', command: { kind: 'placeSignpost', entity: scout.id, x, y: scout.hy } }];
+}
+
 export const signpostsScene: SceneDefinition = {
   id: 'signposts',
   seed: 11,
@@ -77,6 +108,17 @@ export const signpostsScene: SceneDefinition = {
   build,
   runTicks: RUN_TICKS,
   initialZoom: INITIAL_ZOOM,
+  stages: [
+    {
+      id: 'erectOnTheMove',
+      focus: ERECT_BEHIND_STAGE,
+      zoom: 1,
+      actions: [
+        { label: 'walkEast', kind: 'orders', orders: walkScoutEast },
+        { label: 'erectBehind', kind: 'orders', orders: erectBehindScout },
+      ],
+    },
+  ],
   checks: [
     {
       label: 'network goods coverage excludes the water beside the connected posts',

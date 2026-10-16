@@ -12,6 +12,7 @@ import type { Command } from '../../core/commands/index.js';
 import type { World } from '../../ecs/world.js';
 import { nodeOfPosition } from '../../nav/halfcell.js';
 import type { System, SystemContext } from '../context.js';
+import { isTravelling } from '../movement/nav-state.js';
 import { atomicDuration } from '../readviews/animations.js';
 import { isScoutJob } from '../readviews/index.js';
 import { canPlaceSignpost } from '../signposts/index.js';
@@ -87,22 +88,22 @@ export const signpostOrderSystem: System = (world, ctx) => {
       world.remove(e, ErectSignpostOrder); // a need drive took over - the order is abandoned
       continue;
     }
+    if (world.has(e, PlayerOrder)) continue; // still walking the order out
+    world.remove(e, ErectSignpostOrder);
+    // A walker's position truncates onto the goal node up to a step short of its centre, so only a scout
+    // standing still proves arrival; a swing begun on the move slides along the rest of the step.
+    if (isTravelling(world, e)) continue; // a failed walk finishing its step - autonomy resumes
     const p = world.get(e, Position);
     const here = nodeOfPosition(p.x, p.y);
-    if (terrain.nodeAt(here.hx, here.hy) === goal) {
-      world.remove(e, ErectSignpostOrder);
-      if (!canPlaceSignpost(world, ctx, terrain, goal, owner.player)) continue; // spot became illegal
-      const c = terrain.coordsOf(goal);
-      addCurrentAtomic(world, e, {
-        atomicId: BUILD_GUIDE_ATOMIC_ID,
-        duration: atomicDuration(ctx.content, settler, BUILD_GUIDE_ATOMIC_ID),
-        effect: { kind: 'erectSignpost', x: c.x, y: c.y },
-        targetEntity: null,
-        targetTile: { x: c.x, y: c.y },
-      });
-      continue;
-    }
-    if (world.has(e, PlayerOrder)) continue; // still walking the order out
-    world.remove(e, ErectSignpostOrder); // walk failed or was superseded - return to autonomy
+    if (terrain.nodeAt(here.hx, here.hy) !== goal) continue; // walk failed or was superseded
+    if (!canPlaceSignpost(world, ctx, terrain, goal, owner.player)) continue; // spot became illegal
+    const c = terrain.coordsOf(goal);
+    addCurrentAtomic(world, e, {
+      atomicId: BUILD_GUIDE_ATOMIC_ID,
+      duration: atomicDuration(ctx.content, settler, BUILD_GUIDE_ATOMIC_ID),
+      effect: { kind: 'erectSignpost', x: c.x, y: c.y },
+      targetEntity: null,
+      targetTile: { x: c.x, y: c.y },
+    });
   }
 };

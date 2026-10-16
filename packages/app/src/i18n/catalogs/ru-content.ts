@@ -612,6 +612,11 @@ export const ruContent = {
     signposts: {
       title: 'Знаки',
       summary: 'Разведчик ставит знак; поселенцы работают только в пределах связанной сети знаков.',
+      stages: {
+        erectOnTheMove: 'Знак на ходу',
+        walkEast: 'Отправить разведчика на восток',
+        erectBehind: 'Поставить знак за разведчиком',
+      },
     },
     family: {
       title: 'Брак и дети',

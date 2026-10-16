@@ -132,6 +132,18 @@ const splitHalvesPaired: Invariant = (world) => {
   return out;
 };
 
+/** A running atomic is an in-place action: a walker that keeps its route while one plays slides along it
+ *  in the action's clip. */
+const atomicStandsStill: Invariant = (world) => {
+  const out: string[] = [];
+  for (const e of world.query(CurrentAtomic)) {
+    if (world.has(e, PathFollow)) {
+      out.push(`entity ${e}: atomic ${world.get(e, CurrentAtomic).atomicId} runs while following a path`);
+    }
+  }
+  return out;
+};
+
 /** A vehicle's route lives with its drive or its goto held for the crew, and a kept march route with its
  *  march, so neither outlives what it was found for into saves and hashes. */
 const vehicleRoutesOwned: Invariant = (world) => {
@@ -154,6 +166,7 @@ export const CORE_INVARIANTS: readonly Invariant[] = [
   preyHoldWithinEngagement,
   personhoodMatchesTribe,
   splitHalvesPaired,
+  atomicStandsStill,
   vehicleRoutesOwned,
   cachesCoherent,
   playerPlacementRulesValid,

@@ -19,6 +19,7 @@ import {
 import { aiCommand, type CommandEnvelope, playerCommand } from '../../src/core/commands/index.js';
 import { fx, positionOfNode, Simulation } from '../../src/index.js';
 import { commandSystem } from '../../src/systems/command/index.js';
+import { clearNavState } from '../../src/systems/movement/nav-state.js';
 import { setAiControl } from '../../src/systems/orders/ai.js';
 import { suspendWalkForMeal } from '../../src/systems/orders/meal-break.js';
 import { sendUnit } from '../../src/systems/orders/movement.js';
@@ -99,6 +100,7 @@ describe('accepted AI order ownership', () => {
       }
       if (phase === 'hammer') {
         sim.world.add(entity, Position, positionOfNode(post.x, post.y));
+        clearNavState(sim.world, entity); // the walk arrived
         sim.world.remove(entity, PlayerOrder);
         signpostOrderSystem(sim.world, ctx);
         expect(sim.world.get(entity, CurrentAtomic).effect.kind).toBe('erectSignpost');

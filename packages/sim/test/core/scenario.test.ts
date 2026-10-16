@@ -7,6 +7,7 @@ const WOODCUTTER = 1;
 const VIKING = 1;
 /** The fixture's bear - an animal tribe (it carries an `animaltypes` record). */
 const BEAR = 10;
+const BUILD_GUIDE = 43;
 
 /**
  * INTEGRATION + GAME-LEVEL (e2e) examples. These run the whole deterministic sim headless via the
@@ -88,6 +89,24 @@ describe('e2e game-level: scenario harness', () => {
     expect(sim.checkInvariants()).toEqual([
       `entity ${walker}: PathFollow without a PathRoute`,
       `entity ${clock}: AtomicClock without a CurrentAtomic`,
+    ]);
+  });
+
+  it('the standing-atomic invariant names an action played along a walk', () => {
+    const sim = new Simulation({ seed: 1, content: testContent() });
+    const walker = sim.world.create();
+    sim.world.add(walker, components.PathRoute, { waypoints: [] });
+    sim.world.add(walker, components.PathFollow, { index: 0, legElapsed: 0, legCost: 0 });
+    components.addCurrentAtomic(sim.world, walker, {
+      atomicId: BUILD_GUIDE,
+      duration: 1,
+      effect: { kind: 'idle' },
+      targetEntity: null,
+      targetTile: null,
+    });
+
+    expect(sim.checkInvariants()).toEqual([
+      `entity ${walker}: atomic ${BUILD_GUIDE} runs while following a path`,
     ]);
   });
 

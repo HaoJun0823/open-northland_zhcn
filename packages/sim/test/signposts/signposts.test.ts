@@ -5,6 +5,7 @@ import {
   ErectSignpostOrder,
   FOG_MODE,
   Owner,
+  PathFollow,
   PathRequest,
   PlayerOrder,
   Position,
@@ -104,6 +105,38 @@ describe('placeSignpost - the scout erects a guidepost', () => {
     expect(posts.length).toBe(1);
     const p = sim.world.get(posts[0] as Entity, Position);
     expect(fx.toInt(p.x)).toBe(8); // node (16,4) = tile (8,2)
+  });
+
+  // Position truncation puts a westbound walker on the goal node a step short of its centre, and a mid-walk
+  // order first finishes the step it is on, away from the goal.
+  it.each([
+    { name: 'arriving from the east', start: 10, walkTo: null },
+    { name: 'ordered mid-walk past the goal', start: 2, walkTo: 30 },
+  ])('the scout stands still on the goal centre for the whole swing ($name)', ({ start, walkTo }) => {
+    const sim = freshSim();
+    const scout = makeUnit(sim, start, 2, SCOUT);
+    const GOAL = { x: 12, y: 4 };
+    if (walkTo !== null) {
+      sim.enqueueSetup({ kind: 'moveUnit', entity: scout, x: walkTo, y: 4 });
+      // Under way east, mid-step just past the goal node's tile.
+      for (let t = 0; t < 200 && sim.world.get(scout, Position).x <= fx.fromInt(GOAL.x / 2 + 1); t++)
+        sim.step();
+      expect(sim.world.has(scout, PathFollow)).toBe(true);
+    }
+    sim.enqueueSetup({ kind: 'placeSignpost', entity: scout, ...GOAL });
+    const swingAt: { x: number; y: number }[] = [];
+    for (let t = 0; t < 400 && signposts(sim).length === 0; t++) {
+      sim.step();
+      if (sim.world.tryGet(scout, CurrentAtomic)?.atomicId !== BUILD_GUIDE_ATOMIC_ID) continue;
+      expect(sim.world.has(scout, PathFollow)).toBe(false);
+      const p = sim.world.get(scout, Position);
+      swingAt.push({ x: p.x, y: p.y });
+    }
+    expect(signposts(sim).length).toBe(1);
+    // Node (12,4) is tile (6,2): the swing plays on that exact centre from its first tick.
+    expect(new Set(swingAt.map((p) => `${p.x},${p.y}`))).toEqual(
+      new Set([`${fx.fromInt(6)},${fx.fromInt(2)}`]),
+    );
   });
 
   it('a signpost walk whose route fails drops the errand without reporting the scout lost', () => {

@@ -72,6 +72,9 @@ interface PostIndex extends UnitWalkBlocks, StandingPostGrid {
   readonly playerAt: Map<NodeId, number>;
   postTotal: number;
   readonly totalByPlayer: Map<number, number>;
+  /** The feed consumers, made once so a read allocates no closure. */
+  readonly restow: (e: Entity) => void;
+  readonly restowStanding: (e: Entity) => void;
 }
 
 const indexes = new WeakMap<World, PostIndex>();
@@ -83,14 +86,10 @@ function postIndex(world: World, content: ContentSet, terrain: TerrainGraph): Po
   if (held === undefined || held.content !== content || held.terrain !== terrain) {
     return rebuild(world, content, terrain);
   }
-  const restow = (e: Entity): void => restowPost(world, held, e);
-  if (held.feed.drain(restow)) return rebuild(world, content, terrain);
-  const moved = (e: Entity): void => {
-    if (held.standingIds[e] === 1) restow(e);
-  };
-  if (held.moves.drain(moved)) return rebuild(world, content, terrain);
+  if (held.feed.drain(held.restow)) return rebuild(world, content, terrain);
+  if (held.moves.drain(held.restowStanding)) return rebuild(world, content, terrain);
   const trades = settlerTradeLog(world, 'standingPosts');
-  for (const e of trades) restow(e);
+  for (const e of trades) restowPost(world, held, e);
   trades.clear();
   return held;
 }
@@ -132,6 +131,10 @@ function rebuild(world: World, content: ContentSet, terrain: TerrainGraph): Post
     offMap: [],
     playerAt: new Map(),
     totalByPlayer: new Map(),
+    restow: (e) => restowPost(world, index, e),
+    restowStanding: (e) => {
+      if (index.standingIds[e] === 1) restowPost(world, index, e);
+    },
   };
   for (const e of ownedFighters(world, content)) restowPost(world, index, e);
   if (held === undefined) world.registerCacheVerifier('standingPosts', () => verifyIndex(world));

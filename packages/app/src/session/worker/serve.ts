@@ -1,6 +1,7 @@
 import type { SessionDriver } from '@open-northland/lockstep';
 import {
   cloneEvents,
+  FOG_MODE,
   MS_PER_TICK,
   type SimEvent,
   type Simulation,
@@ -476,10 +477,14 @@ export class ServedSession<E> {
     };
   }
 
+  /** Moves only when the seat's own fog could have: another vision group's rebuild leaves it be, so
+   *  the seat's mask is neither copied nor compared then. */
   private fogKey(): string {
     if (this.fogSeat === null) return 'none';
-    const view = this.sim.fogView(this.fogSeat);
-    return view === null ? 'off' : `${view.player}:${view.generation}`;
+    const fog = this.sim.fog;
+    const mode = this.sim.fogMode();
+    if (fog === undefined || mode === FOG_MODE.OFF) return 'off';
+    return `${this.fogSeat}:${mode}:${fog.viewGeneration(this.fogSeat)}`;
   }
 
   /** The seat's masks when they or the seat changed since the last post, else null. */

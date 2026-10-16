@@ -458,6 +458,46 @@ describe('fog generation - bumps only when a mask byte or the mode changed', () 
   });
 });
 
+describe("view generation - moves only with the viewer's own group", () => {
+  function viewGeneration(sim: Simulation, player: number): number {
+    const fog = sim.fog;
+    if (fog === undefined) throw new Error('mapless sim');
+    return fog.viewGeneration(player);
+  }
+
+  it("another player's new ground bumps the global generation but not the viewer's", () => {
+    const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
+    unit(sim, 2, 2, P0);
+    const other = unit(sim, 30, 2, P1);
+    sim.run(1);
+    const mine = viewGeneration(sim, P0);
+    const global = sim.fog?.generation;
+    teleport(sim, other, 44, 6);
+    sim.run(VISION_CADENCE_TICKS);
+    expect(sim.fog?.generation).not.toBe(global);
+    expect(viewGeneration(sim, P0)).toBe(mine);
+    expect(viewGeneration(sim, P1)).toBeGreaterThan(mine);
+  });
+
+  it("the viewer's new ground, a regroup and a switch OFF each move it", () => {
+    const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
+    const e = unit(sim, 2, 2, P0);
+    unit(sim, 30, 2, P1);
+    sim.run(1);
+    let seen = viewGeneration(sim, P0);
+    teleport(sim, e, 16, 2);
+    sim.run(VISION_CADENCE_TICKS);
+    expect(viewGeneration(sim, P0)).toBeGreaterThan(seen);
+    seen = viewGeneration(sim, P0);
+    sim.fog?.setVisionGroups([[P0, P1]]);
+    expect(viewGeneration(sim, P0)).toBeGreaterThan(seen);
+    seen = viewGeneration(sim, P0);
+    sim.enqueueSetup({ kind: 'setFogMode', mode: FOG_MODE.OFF });
+    sim.run(1);
+    expect(viewGeneration(sim, P0)).toBeGreaterThan(seen);
+  });
+});
+
 describe('fog modes - update rules over the per-player mask', () => {
   it('is the product of the two settings, OFF apart: every pair composes a mode that reads back', () => {
     expect(fogSettings(FOG_MODE.OFF)).toBeNull();

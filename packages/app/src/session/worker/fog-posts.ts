@@ -1,9 +1,9 @@
 import type { FogMaskAnswer } from '@open-northland/sim';
 
 /**
- * The viewer's fog as the runtime last received it. The sim's fog generation counts every vision
- * group's changes, so most of its bumps leave the viewer's own mask as it was; posting those would
- * copy the mask across and have every fog reader on the main thread rebuild for nothing.
+ * The viewer's fog as the runtime last received it. A change to the viewer's group can still leave
+ * the mask as it was (a downgrade the same rebuild's stamps raise back); posting it would copy the
+ * mask across and have every fog reader on the main thread rebuild for nothing.
  */
 export class FogPosts {
   /** A copy of the last mask passed on, since a posted mask's buffer is transferred away; undefined
@@ -38,7 +38,7 @@ function sameFog(a: FogMaskAnswer | null, b: FogMaskAnswer | null): boolean {
 const WORD_BYTES = Uint32Array.BYTES_PER_ELEMENT;
 
 /** Byte equality compared a 32-bit word at a time where both arrays allow a word view: a viewer's
- *  mask is a few hundred kilobytes, compared on every fog generation bump. */
+ *  mask is a few hundred kilobytes, compared whenever the viewer's group changed. */
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let from = 0;

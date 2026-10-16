@@ -106,6 +106,13 @@ export class FogState {
   /** Bumped by every write that changes a mask byte or the mode; the sim's contested ground and the
    *  render layers key their caches on it, so a missed bump serves a stale read. Never hashed. */
   generation = 0;
+  /** The source of {@link viewGeneration}'s marks: bumped per mark, so each mark exceeds every earlier
+   *  one. Never hashed. */
+  private markCount = 0;
+  /** vision group → the mark of its mask's last byte change or allocation. */
+  private readonly groupMarks = new Map<number, number>();
+  /** The mark of the last change that regroups or drops masks wholesale (a regroup, a reset). */
+  private tableMark = 0;
   /** The mode the last completed rebuild ran under; a change forces an off-cadence rebuild. */
   activeMode: FogMode = FOG_MODE.OFF;
   /** Tick of the last rebuild, -1 before the first. */
@@ -232,12 +239,27 @@ export class FogState {
       this.startFolding();
     }
     this.generation++;
+    this.tableMark = ++this.markCount;
     return true;
   }
 
   /** The vision group `player` reads and writes: the lowest member of its shared group, else itself. */
   visionGroupOf(player: number): number {
     return this.groupIndex[player] ?? player;
+  }
+
+  /**
+   * A counter that moves whenever `player`'s view could have changed: its group's mask bytes, the
+   * mask's allocation, or the group table. Unlike {@link generation}, another group's change leaves it
+   * be. Never hashed; comparable only for one player, since two players can read the same value.
+   */
+  viewGeneration(player: number): number {
+    return Math.max(this.tableMark, this.groupMarks.get(this.visionGroupOf(player)) ?? 0);
+  }
+
+  /** Record that `group`'s mask changed, for {@link viewGeneration}. */
+  private markGroup(group: number): void {
+    this.groupMarks.set(group, ++this.markCount);
   }
 
   /** The players sharing `player`'s vision group, ascending; a group nobody joined holds its own
@@ -270,6 +292,7 @@ export class FogState {
     if (mask === undefined) {
       mask = new Uint8Array(this.cellsWide * this.cellsHigh);
       this.masks.set(group, mask);
+      this.markGroup(group);
     }
     return mask;
   }
@@ -297,6 +320,7 @@ export class FogState {
     if (owner !== group) throw new Error(`fog mask for group ${group}: that player shares group ${owner}`);
     this.masks.set(group, mask);
     this.eyeStamps.clear();
+    this.markGroup(group);
     const fold = this.foldOfGroup(group);
     if (fold !== null) fold.value = 0;
     for (let r = 0; r < this.cellsHigh; r++) {
@@ -319,6 +343,7 @@ export class FogState {
     this.visibleBounds.clear();
     this.folds?.clear();
     this.generation++;
+    this.tableMark = ++this.markCount;
   }
 
   /** Open a stamp pass. `memo` (only without fog of war, where no byte falls back) skips an eye whose
@@ -363,6 +388,7 @@ export class FogState {
     const rect = stampVision(mask, this.cellsWide, this.cellsHigh, cx, cy, radius, this.foldOfGroup(group));
     if (rect === null) return false;
     this.mergeGroupBounds(group, rect.minC, rect.maxC, rect.minR, rect.maxR);
+    if (rect.wrote) this.markGroup(group);
     return rect.wrote;
   }
 
@@ -441,7 +467,9 @@ export class FogState {
         changed = true;
       }
     }
-    if (changed) this.generation++;
+    if (!changed) return;
+    this.markGroup(group);
+    this.generation++;
   }
 
   /** Mark the whole grid {@link REVEALED_BYTE} for `player`'s group (a script's whole-map `ExploreArea`). */
@@ -457,7 +485,9 @@ export class FogState {
       if (fold !== null) foldCellChange(fold, i, previous, REVEALED_BYTE);
       changed = true;
     }
-    if (changed) this.generation++;
+    if (!changed) return;
+    this.markGroup(group);
+    this.generation++;
   }
 
   /** Downgrade every VISIBLE byte of vision group `group` to EXPLORED, scanning only the
@@ -482,6 +512,7 @@ export class FogState {
       }
     }
     this.visibleBounds.delete(group);
+    if (lowered) this.markGroup(group);
     return lowered;
   }
 

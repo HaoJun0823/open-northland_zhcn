@@ -73,6 +73,10 @@ export interface GarrisonArms {
   readonly pendingVetoes: readonly number[];
   /** The classes a draft splits over ({@link draftingClasses}), judged once, for the first man asked about. */
   classesFor(barracks: Entity, next: Entity): readonly AssistantRecruitIntent[];
+  /** The seat's {@link bachelorSurplus}, counted once for the floor and the draft. */
+  surplus(): number;
+  /** The seat's {@link armyOnHand}, counted once for the floor and the draft. */
+  onHand(): number;
 }
 
 export function garrisonArms(
@@ -86,11 +90,21 @@ export function garrisonArms(
   // The vetoes land a tick later, so this decision's draft already judges the arms without them.
   const judged = [...vetoed, ...pendingVetoes];
   let classes: readonly AssistantRecruitIntent[] | undefined;
+  let surplus: number | undefined;
+  let onHand: number | undefined;
   return {
     pendingVetoes,
     classesFor: (barracks, next) => {
       classes ??= draftingClasses(world, ctx, player, barracks, next, judged);
       return classes;
+    },
+    surplus: () => {
+      surplus ??= bachelorSurplus(world, ctx, player);
+      return surplus;
+    },
+    onHand: () => {
+      onHand ??= armyOnHand(world, ctx, player);
+      return onHand;
     },
   };
 }
@@ -118,13 +132,13 @@ export function claimArmyFloor(
   if (barracks === null) return [];
   if (ctx.tick < peaceEndsAt(world, player) - ARMY_FLOOR_LEAD_TICKS) return [];
   // The seat's own roster settles the draftable count before the enemies' rosters are walked.
-  const surplus = bachelorSurplus(world, ctx, player);
+  const surplus = arms.surplus();
   if (surplus <= 0) return [];
   const floor = Math.max(
     ARMY_FLOOR_MIN,
     shareOf(strongestEnemyStrength(world, ctx, player), profile.army.floorShare),
   );
-  const missing = draftCeiling(profile, floor) - armyOnHand(world, ctx, player);
+  const missing = draftCeiling(profile, floor) - arms.onHand();
   const claim = Math.min(missing, surplus);
   if (claim <= 0) return [];
   const next = force.remaining().find((e) => isDraftable(world, e));
@@ -253,10 +267,8 @@ function standingOrder(
   const booked = bookedByIntent(world, ctx, player);
   for (const intent of GARRISON_INTENTS) wants.set(intent, booked.get(intent) ?? 0);
 
-  const headroom = profile.army.draftToCap
-    ? profile.army.cap - armyOnHand(world, ctx, player)
-    : Number.POSITIVE_INFINITY;
-  const allowance = Math.max(0, Math.min(draftable.length, bachelorSurplus(world, ctx, player), headroom));
+  const headroom = profile.army.draftToCap ? profile.army.cap - arms.onHand() : Number.POSITIVE_INFINITY;
+  const allowance = Math.max(0, Math.min(draftable.length, arms.surplus(), headroom));
   const next = draftable[0];
   if (allowance === 0 || next === undefined) return wants; // nobody to draft: the classes need no probe
   const drafting = arms.classesFor(barracks, next);

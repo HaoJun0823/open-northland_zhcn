@@ -14,6 +14,11 @@ closed. A second session exported a small early save successfully, then the brow
 29 seconds. A completed download alone therefore does not establish a passing export check. No
 JavaScript error was recorded before either closure.
 
+A separate dedicated profile using installed Chrome 155.0.8059.80 completed an early tutorial002
+export, remained alive for over eight minutes of ordinary interactions, and imported/restored the
+exported save through the normal UI. The restored simulation resumed normally. This is one bounded
+passing comparison, not yet a reproducible cause or proof that all exports are stable.
+
 ## Scope
 
 Investigate the actual export path in `view/runtime/save-load/controller.ts` and `file-access.ts`,

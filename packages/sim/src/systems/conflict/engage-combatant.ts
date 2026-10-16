@@ -106,9 +106,10 @@ export function engageCombatant(
   if (!dozing && atomicHoldsSettler(world, e)) return;
   // `blockedUntil` rests an attack-move's aggression after a chase that could not route: it walks as a
   // plain move until then.
-  const march = world.tryGet(e, PlayerOrder)?.attackMove;
+  const playerOrder = world.tryGet(e, PlayerOrder);
+  const march = playerOrder?.attackMove;
   const marching = march !== undefined && ctx.tick >= march.blockedUntil;
-  if (suppressedByMoveOrder(world, e, marching)) return;
+  if (suppressedByMoveOrder(world, e, playerOrder !== undefined, marching)) return;
 
   // Sheltering inside a building on alarm sits the fight out: the building fires for its people
   // (`shelter-fire.ts`), and an order to attack from inside it has nothing to act on.
@@ -186,7 +187,7 @@ export function engageCombatant(
   const specs = pass.specs;
   const spec = specs.forUnit(e, here, stance, attacker, weapon);
   const moving = travelling && !arrivedAtGoal(world, e, terrain);
-  const found = resolveTarget(world, ctx, terrain, pass, e, here, spec, weapon, moving);
+  const found = resolveTarget(world, ctx, terrain, pass, e, here, spec, weapon, moving, travelling);
   if (found === null) {
     // Nothing to strike yet, but a fight near enough to stand to still gets it up. A guard's walk back to
     // its anchor waits for the next pass.
@@ -274,8 +275,8 @@ function orderedToSleep(world: World, e: Entity): boolean {
 
 /** A live player move order suppresses all auto-behavior en route, engage and flee alike; it dies on
  *  arrival. An attack-move `marching` order is the exception - that walk exists to keep fighting along it. */
-function suppressedByMoveOrder(world: World, e: Entity, marching: boolean): boolean {
-  return !marching && world.has(e, PlayerOrder) && !world.has(e, AttackOrder);
+function suppressedByMoveOrder(world: World, e: Entity, ordered: boolean, marching: boolean): boolean {
+  return !marching && ordered && !world.has(e, AttackOrder);
 }
 
 /** The mode an owned combatant acts under: its own {@link Stance}, or ATTACK for the duration of an

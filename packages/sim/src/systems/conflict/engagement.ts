@@ -17,7 +17,6 @@ import {
 import type { Entity, World } from '../../ecs/world.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
-import { isTravelling } from '../movement/nav-state.js';
 import { REFERENCE_STEP_TICKS } from '../movement/system.js';
 import {
   isAnimalTribe,
@@ -417,7 +416,8 @@ export interface EngageSpec {
  * turn aside to a higher-ranked enemy ({@link asideFromOrder}). Otherwise the nearest target `spec.accept`
  * admits within `[spec.minDist, spec.searchRadius]`, with the `spec.lowPriority` tier searched only when the
  * primary tier finds nothing in sight. `moving` is the swing gate's own reading of whether the unit still
- * walks, so the held enemy is weighed against its neighbours on exactly the ticks a swing could start.
+ * walks, so the held enemy is weighed against its neighbours on exactly the ticks a swing could start;
+ * `travelling` is whether it holds navigation state, which nothing between the caller's read and here changes.
  */
 export function resolveTarget(
   world: World,
@@ -429,6 +429,7 @@ export function resolveTarget(
   spec: EngageSpec,
   weapon: WeaponBand,
   moving: boolean,
+  travelling: boolean,
 ): { target: Entity; dist: number } | null {
   const { index } = pass;
   // The engage ladder already dropped an order whose target died or stopped being hostile this tick. An
@@ -469,7 +470,7 @@ export function resolveTarget(
     return focusedOn(world, ctx, terrain, here, order.target);
   }
   if (spec.hold !== undefined) {
-    return heldOrPicked(world, ctx, terrain, pass, self, here, spec, spec.hold, moving);
+    return heldOrPicked(world, ctx, terrain, pass, self, here, spec, spec.hold, moving, travelling);
   }
   const x = terrain.xOf(spec.searchCenter ?? here);
   const y = terrain.yOf(spec.searchCenter ?? here);
@@ -643,6 +644,7 @@ function heldOrPicked(
   spec: EngageSpec,
   hold: NonNullable<EngageSpec['hold']>,
   moving: boolean,
+  travelling: boolean,
 ): { target: Entity; dist: number } | null {
   const heldTarget = world.tryGet(self, Engagement)?.target;
   const held =
@@ -663,7 +665,7 @@ function heldOrPicked(
     heldTarget !== undefined &&
     !isPriorityCombatTarget(world, ctx, heldTarget, pass.index.firingNow)
   ) {
-    const striking = !isTravelling(world, self) && withinBand(hold.band, held.dist);
+    const striking = !travelling && withinBand(hold.band, held.dist);
     const priority = priorityTargetToTurnTo(
       world,
       ctx,
@@ -678,7 +680,7 @@ function heldOrPicked(
     );
     if (priority !== null) return priority;
   }
-  if (held !== null && heldTarget !== undefined && !rescanDue(world, ctx, self, held.dist, hold.band)) {
+  if (held !== null && heldTarget !== undefined && !rescanDue(ctx, self, travelling, held.dist, hold.band)) {
     if (asker === null || moving || !withinBand(hold.band, held.dist)) return held;
     return lessCrowdedInReach(world, ctx, terrain, pass, spec, asker, heldTarget) ?? held;
   }
@@ -757,13 +759,13 @@ export const RESCAN_PERIOD_TICKS = RESCAN_WALK_STEPS * REFERENCE_STEP_TICKS;
  * of standing idle beside it.
  */
 function rescanDue(
-  world: World,
   ctx: SystemContext,
   self: Entity,
+  travelling: boolean,
   heldDist: number,
   band: WeaponBand,
 ): boolean {
-  if (isTravelling(world, self)) return onStride(ctx.tick, self, RESCAN_PERIOD_TICKS);
+  if (travelling) return onStride(ctx.tick, self, RESCAN_PERIOD_TICKS);
   if (withinBand(band, heldDist)) return false;
   return onStride(ctx.tick, self, REPATH_CADENCE);
 }

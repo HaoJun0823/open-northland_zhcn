@@ -1,6 +1,5 @@
 import { terrainWorldBounds } from '@open-northland/render';
 import { describe, expect, it } from 'vitest';
-import { panelBottomInset, panelRect } from '../src/hud/details-panel/layout/shared.js';
 import { minimapLayout, minimapPanelWidth } from '../src/hud/minimap/model.js';
 import { NAV_BEAM_H, NAV_BEAM_W, navBeamRect } from '../src/hud/nav-beam.js';
 import {
@@ -101,17 +100,6 @@ describe('central window region', () => {
     expect(bottomReserveFor(SCREEN, 1, { x: 10, w: 900 }, minimap)).toEqual(minimap);
     expect(bottomReserveFor(SCREEN, 1, { x: 10, w: 100 }, null)).toBeNull();
     expect(bottomReserveFor(SCREEN, 1, { x: 1000, w: 100 }, minimap)).toBeNull();
-  });
-});
-
-describe('selection panel and the beam', () => {
-  it('stands on the beam only where the beam reaches under its column', () => {
-    expect(panelBottomInset(SCREEN, 1)).toBe(0);
-    // Narrower than the 1076 px where the beam's right edge reaches the panel's column.
-    const narrow = { width: 960, height: 540 };
-    expect(panelBottomInset(narrow, 1)).toBe(NAV_BEAM_H);
-    expect(panelRect(100, narrow, 1).y).toBe(540 - NAV_BEAM_H - 100 - 6);
-    expect(panelRect(100, SCREEN, 1).y).toBe(720 - 100 - 6);
   });
 });
 

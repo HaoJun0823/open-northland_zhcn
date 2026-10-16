@@ -156,7 +156,8 @@ export const enGame = {
     demolishSignpost: 'Tear down this signpost',
     palisade: 'Stockade',
     gate: 'Gate',
-    gatePanel: {
+    palisadePanel: {
+      finished: 'Finished',
       mode: 'Gate mode',
       open: 'Open',
       closed: 'Closed',

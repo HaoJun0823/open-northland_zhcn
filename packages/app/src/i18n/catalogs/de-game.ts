@@ -175,7 +175,8 @@ export const deGame = {
     demolishSignpost: 'Diesen Wegweiser abreißen',
     palisade: 'Palisade',
     gate: 'Tor',
-    gatePanel: {
+    palisadePanel: {
+      finished: 'Fertig',
       mode: 'Tormodus',
       open: 'Offen',
       closed: 'Geschlossen',

@@ -153,7 +153,8 @@ export const plGame = {
     demolishSignpost: 'Wyburz ten drogowskaz',
     palisade: 'Palisada',
     gate: 'Brama palisady',
-    gatePanel: {
+    palisadePanel: {
+      finished: 'Ukończona',
       mode: 'Tryb bramy',
       open: 'Otwarte',
       closed: 'Zamknięte',

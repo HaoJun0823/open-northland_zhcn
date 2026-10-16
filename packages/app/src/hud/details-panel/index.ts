@@ -1,4 +1,4 @@
-/** The bottom-right selection details panel. */
+/** The selection details model the bottom-right DOM panels show. */
 
 export type {
   EquipSlotRef,
@@ -16,4 +16,4 @@ export {
   remainingPct,
 } from './model/index.js';
 export type { PortraitBox, UnitPanel } from './panel.js';
-export { mountUnitPanel } from './panel.js';
+export { createUnitPanel } from './panel.js';

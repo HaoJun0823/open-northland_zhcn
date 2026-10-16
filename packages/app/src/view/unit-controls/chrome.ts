@@ -6,16 +6,16 @@ import { holdsHaulFlagPost } from '../../game/snapshot.js';
 import { technologyReason } from '../../game/technology.js';
 import type { ActionOrderId } from '../../hud/action-ring/index.js';
 import {
-  mountUnitPanel,
+  createUnitPanel,
   type PortraitBox,
   type UnitPanel,
   type UnitPanelModelContext,
 } from '../../hud/details-panel/index.js';
 import { createBuildingPanel } from '../../hud/dom/building-panel/view.js';
-import { createGatePanel } from '../../hud/dom/gate-panel.js';
 import { createGoodIconPainter } from '../../hud/dom/good-art.js';
 import { createGroupPanel } from '../../hud/dom/group-panel/view.js';
 import { createHoverCard } from '../../hud/dom/hover-card.js';
+import { createPalisadePanel } from '../../hud/dom/palisade-panel.js';
 import type { ClientRect } from '../../hud/dom/portrait-hole.js';
 import { createSettlerPanel } from '../../hud/dom/settler-panel/view.js';
 import { createSignpostPanel } from '../../hud/dom/signpost-panel.js';
@@ -60,7 +60,6 @@ const UNANSWERED_STATUS: UnlockStatus = {
 };
 
 interface MountedUnitChrome {
-  readonly panel: UnitPanel;
   readonly actions: SettlerActions;
   dispose(): void;
 }
@@ -88,8 +87,8 @@ export interface UnitChromeHandle {
   readonly modelContext: UnitPanelModelContext;
   panel(): UnitPanel;
   actions(): SettlerActions;
-  /** The live cutouts' boxes on the canvas: the selection's (a DOM panel's frame, else the Pixi
-   *  panel's), then the trade window's houses while it is open. */
+  /** The live cutouts' boxes on the canvas: the selection panel's, then the trade window's houses while
+   *  it is open. */
   portraits(): readonly PortraitBox[];
   /** True over any details panel or the trade window. */
   claimsPointer(clientX: number, clientY: number): boolean;
@@ -276,7 +275,7 @@ export async function createUnitChrome(
     },
     buildingPeers: (building) => buildingPeers(opts.snapshot(), building),
   });
-  const gatePanel = createGatePanel({
+  const palisadePanel = createPalisadePanel({
     plane: opts.domHud.plane,
     tooltip: panelChip,
     close: () => settlerActions.clearSelection(),
@@ -287,6 +286,10 @@ export async function createUnitChrome(
     demolish: (id) => {
       callbacks.cue('confirm');
       opts.enqueue({ kind: 'demolishPalisade', palisade: id as Entity });
+    },
+    cancelRoadSite: (id) => {
+      callbacks.cue('confirm');
+      opts.enqueue({ kind: 'cancelRoadSite', roadSite: id as Entity });
     },
   });
   const signpostPanel = createSignpostPanel({
@@ -404,27 +407,19 @@ export async function createUnitChrome(
     ...(opts.diplomacyStance !== undefined ? { diplomacyStance: opts.diplomacyStance } : {}),
   };
 
-  const mountPanel = (uiscale: number): Promise<UnitPanel> =>
-    mountUnitPanel({
-      ...modelContext,
-      app: opts.app,
-      canvas: opts.canvas,
-      uiscale,
-      lang: opts.lang,
-      backingScale: (canvas) => screenScale(canvas, opts.app.renderer.resolution),
-      ...(opts.panelAnswersVersion !== undefined ? { answersVersion: opts.panelAnswersVersion } : {}),
-      onUiCue: callbacks.cue,
-      onDemolishPalisade: (id) => opts.enqueue({ kind: 'demolishPalisade', palisade: id as Entity }),
-      onCancelRoadSite: (id) => opts.enqueue({ kind: 'cancelRoadSite', roadSite: id as Entity }),
-      onModel: (model) => {
-        settlerPanel.update(model);
-        vehiclePanel.update(model);
-        buildingPanel.update(model);
-        groupPanel.update(model);
-        gatePanel.update(model);
-        signpostPanel.update(model);
-      },
-    });
+  const panel = createUnitPanel({
+    ...modelContext,
+    screen: () => opts.app.screen,
+    ...(opts.panelAnswersVersion !== undefined ? { answersVersion: opts.panelAnswersVersion } : {}),
+    onModel: (model) => {
+      settlerPanel.update(model);
+      vehiclePanel.update(model);
+      buildingPanel.update(model);
+      groupPanel.update(model);
+      palisadePanel.update(model);
+      signpostPanel.update(model);
+    },
+  });
 
   const mountActions = (uiscale: number): Promise<SettlerActions> =>
     mountSettlerActions({
@@ -454,22 +449,8 @@ export async function createUnitChrome(
     });
 
   const mount = async (uiscale: number): Promise<MountedUnitChrome> => {
-    const panel = await mountPanel(uiscale);
-    let actions: SettlerActions;
-    try {
-      actions = await mountActions(uiscale);
-    } catch (error: unknown) {
-      panel.dispose();
-      throw error;
-    }
-    return {
-      panel,
-      actions,
-      dispose(): void {
-        panel.dispose();
-        actions.dispose();
-      },
-    };
+    const actions = await mountActions(uiscale);
+    return { actions, dispose: () => actions.dispose() };
   };
 
   let hudHidden = false;
@@ -484,13 +465,13 @@ export async function createUnitChrome(
   groupPanel.warm();
   const mounts = createReplaceableMount(await mount(opts.uiscale ?? 1), mount, (next, previous) => {
     const snapshot = opts.snapshot();
-    next.panel.render(snapshot, panelIds());
+    panel.render(snapshot, panelIds());
     next.actions.restore(previous.actions.state());
     next.actions.update(opts.camera(), snapshot);
   });
   return {
     modelContext,
-    panel: () => mounts.current().panel,
+    panel: () => panel,
     actions: () => mounts.current().actions,
     portraits,
     claimsPointer: (x, y) =>
@@ -498,10 +479,9 @@ export async function createUnitChrome(
       vehiclePanel.claims(x, y) ||
       buildingPanel.claims(x, y) ||
       groupPanel.claims(x, y) ||
-      gatePanel.claims(x, y) ||
+      palisadePanel.claims(x, y) ||
       signpostPanel.claims(x, y) ||
-      tradeWindow.claims(x, y) ||
-      mounts.current().panel.claimsPointer(x, y),
+      tradeWindow.claims(x, y),
     browse: (step) => settlerPanel.browse(step) || vehiclePanel.browse(step) || buildingPanel.browse(step),
     upgradeBuilding: () => buildingPanel.upgrade(),
     closeWindow: () => {
@@ -516,7 +496,7 @@ export async function createUnitChrome(
       tradeWindow.refresh();
       settlerPanel.refresh();
       vehiclePanel.refresh();
-      gatePanel.refreshTip();
+      palisadePanel.refreshTip();
       buildingPanel.refresh();
       groupPanel.refresh();
       signpostPanel.refresh();
@@ -539,11 +519,10 @@ export async function createUnitChrome(
       if (!focusMemo.has(id)) focusMemo = new Set([id]);
       return focusMemo;
     },
-    renderPanel: (snapshot) => mounts.current().panel.render(snapshot, panelIds()),
+    renderPanel: (snapshot) => panel.render(snapshot, panelIds()),
     setHudHidden: (hidden) => {
       hudHidden = hidden;
-      const { panel, actions } = mounts.current();
-      if (hidden) actions.close();
+      if (hidden) mounts.current().actions.close();
       panel.render(opts.snapshot(), panelIds());
     },
     setUiScale: (uiscale) => {
@@ -562,7 +541,7 @@ export async function createUnitChrome(
       vehiclePanel.dispose();
       buildingPanel.dispose();
       groupPanel.dispose();
-      gatePanel.dispose();
+      palisadePanel.dispose();
       signpostPanel.dispose();
       hoverCard.dispose();
       panelChip.destroy();

@@ -346,8 +346,6 @@ export async function createUnitControls(opts: UnitControlsOptions): Promise<Uni
     // The HUD claims its own clicks before any world picking. The ring's buttons take their own presses;
     // its claim below keeps one that lands on a button's rounded edge off the world.
     if (opts.claimPointer?.(e.clientX, e.clientY) === true) return;
-    // The details panel routes its buttons through the same claim, so no panel-owned listener races this one.
-    if (chrome.panel().handleMouseDown(e.clientX, e.clientY, e.button)) return;
     if (chrome.actions().claimsPointer(e.clientX, e.clientY)) return;
     const pick = pickMode.handleMouseDown(e);
     if (pick !== null) {

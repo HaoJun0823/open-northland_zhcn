@@ -175,7 +175,8 @@ export const ruGame = {
     demolishSignpost: 'Снести этот знак',
     palisade: 'Частокол',
     gate: 'Ворота частокола',
-    gatePanel: {
+    palisadePanel: {
+      finished: 'Готов',
       mode: 'Режим ворот',
       open: 'Открыты',
       closed: 'Закрыты',

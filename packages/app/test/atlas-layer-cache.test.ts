@@ -2,10 +2,8 @@ import type { TextureSource } from 'pixi.js';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 /**
- * The house and building-family atlases are loaded by both the world sprite sheet
- * (`content/sprite-sheet/human-sheet.ts`, with shadow twins) and the details panel's building previews
- * (`hud/details-panel/assets.ts`, without), so `content/ir/load.ts` caches the atlas BODY per stem and composes
- * the shadow on top - keying on `(stem, shadowStem)` would dedupe neither call site.
+ * One atlas can be asked for with its shadow twin and without it, so `content/ir/load.ts` caches the atlas
+ * BODY per stem and composes the shadow on top - keying on `(stem, shadowStem)` would dedupe neither call.
  *
  * Pixi's `Assets` already dedupes the `<stem>.png` upload by URL. What the cache removes is the manifest
  * fetch + frame indexing and, for a `build: true` atlas, a second CPU readback of the `<stem>.build.png`
@@ -158,7 +156,7 @@ describe('the decoded atlas layer cache', { timeout: IR_LOADER_TIMEOUT_MS }, () 
     // The shadow fails IMMEDIATELY at the network level while the body's 404 arrives a tick later. This
     // is the one case that pins the ordering: the body is awaited FIRST, so its `MissingAtlasError` is
     // what the caller sees. Racing the two would surface the shadow's error instead, and the callers
-    // that degrade on a missing atlas (`hud/details-panel/assets.ts`, `content/objects.ts`) rethrow
+    // that degrade on a missing atlas (`content/objects.ts`) rethrow
     // anything else - a partial `content/` would hard-fail rather than fall back.
     vi.stubGlobal('fetch', ((input: RequestInfo | URL) =>
       String(input) === `/bobs/${SHADOW_STEM}.atlas.json`

@@ -35,6 +35,7 @@ import { DEFAULT_UNIT_RESPONSES, gateResponse, type UnitResponses } from '../dat
 import type { WeatherSoundInput } from '../data/weather/mix.js';
 import {
   type AudioEngineOptions,
+  type NarrationCue,
   type NarrationState,
   type SoundPreloadReport,
   WebAudioEngine,
@@ -287,10 +288,15 @@ export class SoundDriver {
     this.engine.fire(this.decide([shot], this.engine.clock));
   }
 
-  /** Speak a briefing page's narration from `fromS`, cutting the one still speaking (see
-   *  {@link WebAudioEngine.playNarration}). */
-  narrate(wav: Uint8Array, fromS = 0): void {
-    this.engine.playNarration(wav, fromS);
+  /** Speak a briefing page's narration as `cue` says, cutting the one still speaking; false when the
+   *  clip is refused (see {@link WebAudioEngine.playNarration}). */
+  narrate(wav: Uint8Array, cue: NarrationCue = {}): boolean {
+    return this.engine.playNarration(wav, cue);
+  }
+
+  /** Narration can speak: sound is on. */
+  narrationAvailable(): boolean {
+    return this.engine.narrationAvailable;
   }
 
   pauseNarration(): void {

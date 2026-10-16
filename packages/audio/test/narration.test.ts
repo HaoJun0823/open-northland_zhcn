@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CLICK_FREE_RAMP_S, VOICE_DUCK_DIP_S, VOICE_MUSIC_DUCK_DB, WebAudioEngine } from '../src/index.js';
 import { FakeContext, type FakeGain } from './helpers/fake-audio.js';
 import { mixerGraph } from './helpers/mixer-graph.js';
@@ -83,19 +83,52 @@ describe('narration', () => {
     expect(second?.stoppedAt).toBe(CLICK_FREE_RAMP_S);
   });
 
-  it('stays silent for bytes that are no wav', async () => {
+  it('stays silent for bytes that are no wav, and says it refused them', async () => {
     const { engine, ctx } = await running();
     const before = ctx.sources.length;
-    engine.playNarration(new Uint8Array([1, 2, 3]));
+    expect(engine.playNarration(new Uint8Array([1, 2, 3]))).toBe(false);
     expect(ctx.sources.length).toBe(before);
+    expect(engine.playNarration(clip(1))).toBe(true);
   });
 
-  it('stays silent while muted', async () => {
+  it('stays silent while muted, and reports narration unavailable until sound returns', async () => {
     const { engine, ctx } = await running();
+    expect(engine.narrationAvailable).toBe(true);
     engine.setEnabled(false);
+    expect(engine.narrationAvailable).toBe(false);
     const before = ctx.sources.length;
-    engine.playNarration(clip(1));
+    expect(engine.playNarration(clip(1))).toBe(true);
     expect(ctx.sources.length).toBe(before);
+    engine.setEnabled(true);
+    expect(engine.narrationAvailable).toBe(true);
+  });
+
+  it('decodes each clip once, a refused one included', async () => {
+    const atClipRate = (spy: { mock: { calls: [number, number, number][] } }): number =>
+      spy.mock.calls.filter(([, , rate]) => rate === RATE).length;
+    const { engine, ctx } = await running();
+    const built = vi.spyOn(ctx, 'createBuffer');
+    const wav = clip(2);
+    engine.playNarration(wav);
+    engine.playNarration(clip(1));
+    engine.playNarration(wav);
+    expect(atClipRate(built)).toBe(2);
+    expect(ctx.sources.at(-1)?.buffer).toBe(ctx.sources.at(-3)?.buffer);
+
+    const refusing = new RefusingContext();
+    const { engine: refused } = await running(refusing);
+    const asked = vi.spyOn(refusing, 'createBuffer');
+    expect(refused.playNarration(wav)).toBe(false);
+    expect(refused.playNarration(wav)).toBe(false);
+    expect(atClipRate(asked)).toBe(1);
+  });
+
+  it('starts a line held paused when the cue asks', async () => {
+    const { engine, ctx } = await running();
+    const before = ctx.sources.length;
+    engine.playNarration(clip(3), { paused: true });
+    expect(ctx.sources).toHaveLength(before);
+    expect(engine.narrationState()).toEqual({ status: 'paused', positionS: 0, durationS: 3 });
   });
 
   it('waits for the gesture that starts audio, unless a stop comes first', async () => {
@@ -220,7 +253,7 @@ describe('narration', () => {
 
     it('starts from the asked offset and stops to idle', async () => {
       const { engine, ctx } = await running();
-      engine.playNarration(clip(3), 1);
+      engine.playNarration(clip(3), { fromS: 1 });
       expect(lastSource(ctx).startOffset).toBe(1);
       engine.stopNarration();
       expect(engine.narrationState().status).toBe('idle');

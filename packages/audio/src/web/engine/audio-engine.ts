@@ -35,7 +35,7 @@ import {
 import { AmbientMixer } from './ambient-mixer.js';
 import { BusDuck, type DuckHold } from './bus-duck.js';
 import { MusicPlayer } from './music-player.js';
-import { NARRATION_IDLE, Narration, type NarrationState } from './narration.js';
+import { NARRATION_IDLE, Narration, type NarrationCue, type NarrationState } from './narration.js';
 import { CLICK_FREE_RAMP_S, rampParam } from './ramps.js';
 import { type PreloadSample, SampleCache, type SamplePreloadReport } from './sample-cache.js';
 import { WeatherSoundscape } from './weather-soundscape.js';
@@ -455,16 +455,20 @@ export class WebAudioEngine {
     playing.source.stop(ctx.currentTime + CLICK_FREE_RAMP_S);
   }
 
-  /** Speak the `wav` on the `ui` bus from `fromS`, cutting the narration still speaking. Before a
-   *  gesture has started audio it waits for that gesture; muted or closed, it stays silent. */
-  playNarration(wav: Uint8Array, fromS = 0): void {
+  /** Speak the `wav` on the `ui` bus as `cue` says, cutting the narration still speaking. Before a
+   *  gesture has started audio it waits for that gesture; muted or closed, it stays silent. False when
+   *  the live context refused the clip: it does not decode, or the context cannot hold it. */
+  playNarration(wav: Uint8Array, { fromS = 0, paused = false }: NarrationCue = {}): boolean {
     this.pendingNarration = null;
-    if (this.canPlay()) {
-      this.narration?.play(wav, { fromS });
-      return;
-    }
+    if (this.canPlay()) return this.narration?.play(wav, { fromS, paused }) ?? true;
     this.narration?.stop();
-    if (this.enabled && !this.closed) this.pendingNarration = { wav, fromS, paused: false };
+    if (this.narrationAvailable) this.pendingNarration = { wav, fromS, paused };
+    return true;
+  }
+
+  /** Narration can speak: sound is on and the engine not closed. */
+  get narrationAvailable(): boolean {
+    return this.enabled && !this.closed;
   }
 
   pauseNarration(): void {

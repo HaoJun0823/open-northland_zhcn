@@ -1,4 +1,4 @@
-import { decodeWav } from '@open-northland/formats/wav';
+import { decodeWav, inspectWav } from '@open-northland/formats/wav';
 import { VOICE_MUSIC_DUCK_DB } from '../../data/mixer.js';
 import type { BusDuck, DuckHold } from './bus-duck.js';
 import { CLICK_FREE_RAMP_S, rampParam } from './ramps.js';
@@ -47,6 +47,9 @@ interface Line {
  */
 export class Narration {
   private line: Line | null = null;
+  /** Each clip decodes once: a replay or a page's return reuses its buffer, a refused clip its refusal.
+   *  Keyed by the bytes, which the briefing loader keeps once per clip and world. */
+  private readonly buffers = new WeakMap<Uint8Array, AudioBuffer | null>();
 
   constructor(
     private readonly ctx: BaseAudioContext,
@@ -54,12 +57,14 @@ export class Narration {
     private readonly musicDuck: BusDuck | null,
   ) {}
 
-  play(wav: Uint8Array, { fromS = 0, paused = false }: NarrationCue = {}): void {
+  /** Start `wav`, or stay silent and answer false when it does not decode. */
+  play(wav: Uint8Array, { fromS = 0, paused = false }: NarrationCue = {}): boolean {
     this.stop();
-    const buffer = bufferOf(this.ctx, wav);
-    if (buffer === null) return;
+    const buffer = this.bufferOf(wav);
+    if (buffer === null) return false;
     this.line = { buffer, offsetS: clampTo(fromS, buffer.duration), speaking: null, ended: false };
     if (!paused) this.resume();
+    return true;
   }
 
   /** Hold the line where it stands. */
@@ -103,6 +108,14 @@ export class Narration {
     return { status, positionS: this.positionOf(line), durationS: line.buffer.duration };
   }
 
+  private bufferOf(wav: Uint8Array): AudioBuffer | null {
+    const known = this.buffers.get(wav);
+    if (known !== undefined) return known;
+    const buffer = decodedBuffer(this.ctx, wav);
+    this.buffers.set(wav, buffer);
+    return buffer;
+  }
+
   private positionOf(line: Line): number {
     const at =
       line.speaking === null ? line.offsetS : line.offsetS + this.ctx.currentTime - line.speaking.startedAt;
@@ -140,10 +153,20 @@ export class Narration {
   }
 }
 
+/** Whether the narration decodes `wav` to sound, read from its header alone. A context may still
+ *  refuse a decoded clip it cannot hold. */
+export function narratable(wav: Uint8Array): boolean {
+  try {
+    return inspectWav(wav).frames > 0;
+  } catch {
+    return false;
+  }
+}
+
 const clampTo = (atS: number, durationS: number): number => Math.min(durationS, Math.max(0, atS));
 
 /** The clip as an audio buffer, or null when it does not decode or the context refuses its format. */
-function bufferOf(ctx: BaseAudioContext, wav: Uint8Array): AudioBuffer | null {
+function decodedBuffer(ctx: BaseAudioContext, wav: Uint8Array): AudioBuffer | null {
   try {
     const clip = decodeWav(wav);
     const frames = clip.channels[0]?.length ?? 0;

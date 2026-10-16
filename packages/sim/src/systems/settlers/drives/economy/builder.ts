@@ -82,7 +82,6 @@ export function planBuilder(
     dropAssignment(plan, claims);
     return false;
   }
-  const materials = constructionMaterialResolver(plan, spacing, { confined: supply });
   // A pinned, bound or run site was chosen past the confinement, so its material is too.
   const orderedMaterials = (): MaterialResolver => constructionMaterialResolver(plan, spacing);
 
@@ -118,6 +117,7 @@ export function planBuilder(
     return true;
   }
 
+  const materials = constructionMaterialResolver(plan, spacing, { confined: supply });
   const avoidSite = unreachableSiteStand(
     world,
     ctx,

@@ -223,13 +223,22 @@ export class GroupReachability {
   private groupsOf(blocked: BlockOverlay): OverlayGroups {
     const held = this.overlays.get(blocked);
     if (held !== undefined) return held;
-    if (this.overlays.size >= this.maxOverlays) this.forget();
+    if (this.overlays.size >= this.maxOverlays) this.evictOldest();
     const fresh = {
       groups: this.spare.pop() ?? new Int32Array(this.terrain.nodeCount),
       base: this.nextGroup,
     };
     this.overlays.set(blocked, fresh);
     return fresh;
+  }
+
+  /** Drop the overlay held longest; the groups the others learned this version stay. */
+  private evictOldest(): void {
+    for (const [blocked, held] of this.overlays) {
+      this.overlays.delete(blocked);
+      this.spare.push(held.groups);
+      return;
+    }
   }
 
   private stamps(): SearchStamps {

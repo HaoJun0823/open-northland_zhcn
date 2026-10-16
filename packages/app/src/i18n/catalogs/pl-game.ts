@@ -912,6 +912,7 @@ export const plGame = {
       knowledgeTooltip: 'Wiedza: {name}',
       alarmOnTooltip: 'Bij na alarm: cywile w pobliżu chowają się tutaj',
       alarmOffTooltip: 'Odwołaj alarm: schronieni wracają do pracy',
+      demolishTitle: 'Zburz budynek',
       demolishQuestion: 'Zburzyć budynek „{name}”?',
       demolishKeep: 'Zostaw',
       releaseGarrison: 'Wyprowadź załogę',

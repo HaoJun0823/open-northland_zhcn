@@ -928,6 +928,7 @@ export const enGame = {
       knowledgeTooltip: 'Knowledge: {name}',
       alarmOnTooltip: 'Start defence mode: nearby civilians shelter here',
       alarmOffTooltip: 'Stop defence mode: the sheltered go back to work',
+      demolishTitle: 'Demolish building',
       demolishQuestion: 'Demolish “{name}”?',
       demolishKeep: 'Keep',
       releaseGarrison: 'Release the garrison',

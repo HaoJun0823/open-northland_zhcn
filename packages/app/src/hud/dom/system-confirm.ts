@@ -75,3 +75,28 @@ export function createSystemConfirm(plane: HTMLElement) {
     },
   };
 }
+
+/** A system confirm over the game HUD, where no menu owns the keyboard. While it is open it takes
+ *  every key, so none reaches the game's bindings; Escape declines and Tab cycles its buttons. */
+export function createHudConfirm(plane: HTMLElement): (copy: SystemConfirmCopy) => Promise<boolean> {
+  const confirm = createSystemConfirm(plane);
+  return (copy) => {
+    // One listener per question: a question replacing an open one must not lose its keys when the
+    // replaced one settles.
+    const onKey = (event: KeyboardEvent): void => {
+      event.stopPropagation();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        confirm.cancel();
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        const buttons = [...plane.querySelectorAll<HTMLButtonElement>('.on-system-confirm button')];
+        const at = buttons.findIndex((button) => button.matches(':focus'));
+        const next = event.shiftKey ? (at <= 0 ? buttons.length : at) - 1 : (at + 1) % buttons.length;
+        buttons[next]?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return confirm.open(copy).finally(() => document.removeEventListener('keydown', onKey, true));
+  };
+}

@@ -1003,6 +1003,7 @@ export const ruGame = {
       knowledgeTooltip: 'Знания: {name}',
       alarmOnTooltip: 'Включить режим обороны: ближайшие гражданские укрываются здесь',
       alarmOffTooltip: 'Выключить режим обороны: укрывшиеся возвращаются к работе',
+      demolishTitle: 'Снести здание',
       demolishQuestion: 'Снести здание «{name}»?',
       demolishKeep: 'Оставить',
       releaseGarrison: 'Вывести гарнизон',

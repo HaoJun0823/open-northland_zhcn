@@ -1008,6 +1008,7 @@ export const deGame = {
       alarmOnTooltip: 'Verteidigungsmodus starten: Zivilisten in der Nähe suchen hier Schutz',
       alarmOffTooltip:
         'Verteidigungsmodus stoppen: Die hier untergebrachten Zivilisten kehren zur Arbeit zurück',
+      demolishTitle: 'Gebäude abreißen',
       demolishQuestion: '„{name}“ abreißen?',
       demolishKeep: 'Behalten',
       releaseGarrison: 'Garnison abziehen',

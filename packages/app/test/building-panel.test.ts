@@ -605,7 +605,7 @@ describe('building orders', () => {
       cue: (cue) => cues.push(cue),
       selectGroup: (ids) => selected.push(ids),
       confirm: (question) => {
-        asked.push(question.message);
+        asked.push(`${question.title}: ${question.message}`);
         return Promise.resolve(answers.shift() ?? false);
       },
     });
@@ -618,10 +618,8 @@ describe('building orders', () => {
     actions.releaseGarrison(2, [8]);
     actions.releaseGarrison(1, [6, 7]);
     await Promise.resolve();
-    expect(asked).toEqual([
-      formatMessage(copy.demolishQuestion, { name: 'Kwatera' }),
-      formatMessage(copy.demolishQuestion, { name: 'Kwatera' }),
-    ]);
+    const question = `${copy.demolishTitle}: ${formatMessage(copy.demolishQuestion, { name: 'Kwatera' })}`;
+    expect(asked).toEqual([question, question]);
     expect(sent).toEqual([
       { kind: 'setDefenceMode', building: 1 as Entity, enabled: true },
       { kind: 'setHouseholdGoodUse', player: HUMAN_PLAYER, effect: 'rest', allowed: false },

@@ -1,12 +1,18 @@
 import { deserialize, serialize } from 'node:v8';
 import {
+  cloneEvents,
   diffSnapshots,
   MirrorTruth,
   type SignpostReachView,
+  type SimEvent,
   type Simulation,
   type SnapshotDelta,
+  SnapshotDeltaStream,
   SnapshotMirror,
+  type WorldSnapshot,
 } from '@open-northland/sim';
+import { changedFacts, readWorldFacts } from '../src/session/worker/facts.js';
+import type { FromWorker, TickBatch, TickRecord, WorldFacts } from '../src/session/worker/protocol.js';
 import { type AppFrameIndexReader, FRAME_INDEX_READERS } from '../src/view/projections/frame-indexes.js';
 import { DeltaBreakdown } from './mirror-breakdown.js';
 import { percentile } from './report/index.js';
@@ -18,6 +24,7 @@ const US_PER_MS = 1000;
 const HUD_SEAT = 0;
 /** The longest batch a parity run draws: a worker delivers up to a few ticks per frame. */
 const PARITY_MAX_TICKS_PER_DELTA = 7;
+const NO_EVENTS: readonly SimEvent[] = [];
 
 export interface MirrorProbeOptions {
   /** Ticks per delta, the batching a worker does when several ticks reach one frame. */
@@ -64,16 +71,21 @@ class TimedMirror {
 }
 
 /**
- * The cost of the snapshot delta path a worker host pays per posted delta: taking it, the structured
- * clone `postMessage` makes (V8's serializer, split into the worker's serialize and the main thread's
- * deserialize), and applying it to a mirror, beside its serialized size. Sampled outside the timed
- * tick, so the tick table stays the sim's. One mirror holds no index, a second the indexes the
+ * The cost of the snapshot delta path a worker host pays per posted batch, done as `serve.ts` does it:
+ * taking the delta off a stream that carries no events, cloning the events of a tick held back for a
+ * later batch, reading and diffing the world facts, the structured clone `postMessage` makes of the
+ * whole batch message (V8's serializer, split into the worker's serialize and the main thread's
+ * deserialize), and applying the delta to a mirror, beside its serialized size. Sampled outside the
+ * timed tick, so the tick table stays the sim's. One mirror holds no index, a second the indexes the
  * runtime's frame reads (`FRAME_INDEX_READERS`), so the per-delta difference is the main thread's index
  * upkeep; `split` adds a mirror per reader beside a bare control. Each mirror applies its own
  * deserialized copy, in an order that rotates per delta. At each window's end it checks the
- * mirror against the live snapshot, the indexes against a fresh walk, and clones a full snapshot once
- * for the comparison the delta replaces. With `digest`, the deltas carry the `debug=diag` truth
- * digest, so the take figure includes its fold, and the mirror side's check is sampled as `truth`.
+ * mirror against a rebuild taken off a stream of its own, which reads the live world without filling
+ * `Simulation.snapshot()`'s clone cache (a filled cache makes every later take pay per touched entity,
+ * which a worker never does), checks the indexes against a fresh walk, and times a structured clone of
+ * that full snapshot for the comparison the delta replaces. With `digest`, the deltas carry the
+ * `debug=diag` truth digest, so the take figure includes its fold, and the mirror side's check is
+ * sampled as `truth`.
  */
 export class MirrorProbe {
   private readonly deltas;
@@ -86,6 +98,13 @@ export class MirrorProbe {
   /** A parity run's batch draw; any fixed sequence covers the spans. */
   private batchSeed = 1;
   private takeUs: number[] = [];
+  private eventsUs: number[] = [];
+  private factsUs: number[] = [];
+  /** The tick records the batch in the making carries, as `TickOutbox` holds them. */
+  private records: TickRecord[] = [];
+  /** The event cloning of the ticks the batch in the making holds. */
+  private heldEventsUs = 0;
+  private lastFacts: WorldFacts;
   private serializeUs: number[] = [];
   private deserializeUs: number[] = [];
   private truthUs: number[] = [];
@@ -99,7 +118,18 @@ export class MirrorProbe {
     private readonly sim: Simulation,
     private readonly options: MirrorProbeOptions,
   ) {
-    this.deltas = sim.snapshotDeltas({ digest: options.digest });
+    // Without the events, as the worker opens it: each tick record carries its own.
+    this.deltas = new SnapshotDeltaStream(
+      {
+        world: sim.world,
+        get tick() {
+          return sim.tick;
+        },
+        events: { current: () => NO_EVENTS },
+      },
+      { digest: options.digest },
+    );
+    this.lastFacts = readWorldFacts(sim);
     this.truth = options.digest ? new MirrorTruth() : null;
     this.breakdown = options.breakdown ? new DeltaBreakdown() : null;
     // The seat's reach as the host answers it: the same view until the sim's reach changes.
@@ -118,30 +148,58 @@ export class MirrorProbe {
   /** Call after every step. */
   tick(): void {
     this.ticksSinceDelta++;
-    if (this.ticksSinceDelta >= this.ticksThisDelta) this.deliver();
+    const posts = this.ticksSinceDelta >= this.ticksThisDelta;
+    const events = this.sim.events.current();
+    const t0 = performance.now();
+    // Posted now, the live list goes into the post's clone; held back, it must outlive the next step.
+    this.records.push({
+      tick: this.sim.tick,
+      events: posts ? events : cloneEvents(events),
+      simMs: 0,
+      diagnostics: null,
+    });
+    this.heldEventsUs += (performance.now() - t0) * US_PER_MS;
+    if (posts) this.deliver();
   }
 
   /** Take, carry and apply the delta of the ticks since the last one. */
   private deliver(): void {
     this.ticksSinceDelta = 0;
     this.ticksThisDelta = this.nextBatch();
+    const ticks = this.records;
+    this.records = [];
+    const last = ticks[ticks.length - 1];
     const t0 = performance.now();
     const delta = this.deltas.next();
     const t1 = performance.now();
-    if (delta === null) return;
-    const bytes = serialize(delta);
+    if (delta === null || last === undefined) return;
+    const facts = readWorldFacts(this.sim);
+    const changed = changedFacts(this.lastFacts, facts);
+    this.lastFacts = facts;
+    const tFacts = performance.now();
+    const batch: TickBatch = {
+      delta: { ...delta, events: last.events },
+      ticks,
+      facts: changed,
+      fog: null,
+      droppedTicks: 0,
+      spans: null,
+      leadTicks: ticks.length,
+    };
+    const message: FromWorker<unknown> = { kind: 'ticks', batch };
+    const bytes = serialize(message);
     const t2 = performance.now();
-    const received = deserialize(bytes) as SnapshotDelta;
+    const received = receivedDelta(bytes);
     const t3 = performance.now();
     if (this.breakdown !== null && this.bare.mirror.tick !== null) {
-      this.breakdown.add(deserialize(bytes) as SnapshotDelta, this.bare.mirror.snapshot());
+      this.breakdown.add(receivedDelta(bytes), this.bare.mirror.snapshot());
     }
     // Each mirror applies a copy of its own, as fresh from the deserializer as the runtime's, in an order
     // that rotates per delta: a mirror applying first runs measurably slower.
     const mirrors = [this.bare, this.indexed, ...this.split];
     for (let i = 0; i < mirrors.length; i++) {
       const mirror = mirrors[(i + this.deltaCount) % mirrors.length];
-      mirror?.apply(mirror === this.bare ? received : (deserialize(bytes) as SnapshotDelta));
+      mirror?.apply(mirror === this.bare ? received : receivedDelta(bytes));
     }
     this.deltaCount++;
     if (this.options.parity) this.indexed.verify();
@@ -153,7 +211,10 @@ export class MirrorProbe {
         throw new Error(`mirror digest parted from the world: ${JSON.stringify(mismatch)}`);
     }
     this.takeUs.push((t1 - t0) * US_PER_MS);
-    this.serializeUs.push((t2 - t1) * US_PER_MS);
+    this.eventsUs.push(this.heldEventsUs);
+    this.heldEventsUs = 0;
+    this.factsUs.push((tFacts - t1) * US_PER_MS);
+    this.serializeUs.push((t2 - tFacts) * US_PER_MS);
     this.deserializeUs.push((t3 - t2) * US_PER_MS);
     this.touched.push(delta.touched.length + delta.removed.length);
     let components = delta.valueKinds.length;
@@ -167,7 +228,7 @@ export class MirrorProbe {
   windowLines(): string[] {
     // A batch the window cut short delivers now, so the mirror compares at the live tick.
     if (this.ticksSinceDelta > 0) this.deliver();
-    const live = this.sim.snapshot();
+    const live = liveSnapshot(this.sim);
     const mirrored = this.bare.mirror.snapshot();
     const diff = diffSnapshots(mirrored, live);
     if (
@@ -193,11 +254,13 @@ export class MirrorProbe {
         `components/delta p50 ${percentile(this.components, 50).toFixed(0)} ` +
         `p95 ${percentile(this.components, 95).toFixed(0)}  delta KB p50 ${percentile(this.kilobytes, 50).toFixed(1)} ` +
         `p95 ${percentile(this.kilobytes, 95).toFixed(1)}  take µs ${us(this.takeUs)}  ` +
-        `serialize µs ${us(this.serializeUs)}  deserialize µs ${us(this.deserializeUs)}  ` +
+        `events µs ${us(this.eventsUs)}  facts µs ${us(this.factsUs)}  ` +
+        `serialize µs ${us(this.serializeUs)}  worker seam µs ${us(this.seamUs())}  ` +
+        `deserialize µs ${us(this.deserializeUs)}  ` +
         `apply bare µs ${us(this.bare.applyUs)}  with the frame's indexes µs ${us(this.indexed.applyUs)}  ` +
         `upkeep p50 µs ${upkeepUs(this.indexed.applyUs, this.bare.applyUs).toFixed(0)}  ` +
         (this.truth === null ? '' : `truth µs ${us(this.truthUs)}  `) +
-        `full snapshot clone ${fullCloneMs.toFixed(0)} ms`,
+        `full snapshot structured clone, off the per-tick path, ${fullCloneMs.toFixed(0)} ms`,
     ];
     const [control, ...readers] = this.split;
     if (control !== undefined) {
@@ -209,6 +272,8 @@ export class MirrorProbe {
     if (this.breakdown !== null) lines.push(...this.breakdown.lines());
     for (const mirror of [this.bare, this.indexed, ...this.split]) mirror.applyUs = [];
     this.takeUs = [];
+    this.eventsUs = [];
+    this.factsUs = [];
     this.serializeUs = [];
     this.deserializeUs = [];
     this.truthUs = [];
@@ -216,6 +281,13 @@ export class MirrorProbe {
     this.components = [];
     this.kilobytes = [];
     return lines;
+  }
+
+  /** Per batch, everything the worker spends on it beyond the step: take, events, facts, serialize. */
+  private seamUs(): number[] {
+    return this.takeUs.map(
+      (take, i) => take + (this.eventsUs[i] ?? 0) + (this.factsUs[i] ?? 0) + (this.serializeUs[i] ?? 0),
+    );
   }
 
   private nextBatch(): number {
@@ -228,6 +300,24 @@ export class MirrorProbe {
     this.batchSeed = x >>> 0;
     return (this.batchSeed % PARITY_MAX_TICKS_PER_DELTA) + 1;
   }
+}
+
+function receivedDelta(bytes: Buffer): SnapshotDelta {
+  const message = deserialize(bytes) as FromWorker<unknown>;
+  if (message.kind !== 'ticks') throw new Error(`the probe posted a ${message.kind} message`);
+  return message.batch.delta;
+}
+
+/** The live world as a rebuild of a stream opened and closed for it: read off the world itself, so it
+ *  leaves the clone cache `Simulation.snapshot()` fills empty. */
+function liveSnapshot(sim: Simulation): WorldSnapshot {
+  const stream = sim.snapshotDeltas();
+  const rebuild = stream.next();
+  stream.close();
+  if (rebuild === null) throw new Error('a fresh delta stream opens with a rebuild');
+  const mirror = new SnapshotMirror();
+  mirror.apply(rebuild);
+  return mirror.snapshot();
 }
 
 function us(samples: readonly number[]): string {

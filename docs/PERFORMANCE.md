@@ -94,7 +94,7 @@ Real-map mirror controls:
 
 | Variable | Effect |
 | --- | --- |
-| `ON_BENCH_MIRROR=on` | Time delta creation, V8 serialization/deserialization, mirror/index application and size; check parity at each window end |
+| `ON_BENCH_MIRROR=on` | Time the worker seam as `serve.ts` pays it (delta take, event clones, facts, V8 serialization of the batch), deserialization, mirror/index application and size; check parity at each window end |
 | `ON_BENCH_MIRROR_BATCH` | Ticks per delta; default 1 |
 | `ON_BENCH_MIRROR_SPLIT=on` | Measure each frame index reader against a bare mirror |
 | `ON_BENCH_MIRROR_PARITY=on` | Vary deltas from 1–7 ticks and check indexes after each delta |

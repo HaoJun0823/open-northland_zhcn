@@ -45,9 +45,10 @@ const TWO: Fixed = fx.fromInt(2);
  */
 export function staggerShift(row: Fixed): Fixed {
   // `fx.wrap(row, TWO)` inlined: the low bits of row's two's complement, in [0, TWO) for negative rows
-  // too. The wave is a non-negative int32, so `>> 1` is exactly `fx.div(wave, TWO)`.
+  // too. The wave is a non-negative int32, so `>> 1` is exactly `fx.div(wave, TWO)`. Branch-free, as a
+  // fractional row's parity half is unpredictable.
   const m = row & (TWO - 1);
-  return ((m <= ONE ? m : TWO - m) >> 1) as Fixed;
+  return ((ONE - Math.abs(m - ONE)) >> 1) as Fixed;
 }
 
 /** A position's world X in column units: its column plus the stagger shift of its fractional row. */

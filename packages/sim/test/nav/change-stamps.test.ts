@@ -17,6 +17,21 @@ describe('NodeChangeStamps', () => {
     expect(stamps.anyChangedSince(WHOLE, 6, (x, y) => x !== 3 || y !== 4)).toBe(false);
   });
 
+  it('tests only the changed nodes, in row order, and skips the unchanged rows of a changed block', () => {
+    const stamps = new NodeChangeStamps(SIDE, SIDE);
+    stamps.stamp(9, 5, 3);
+    stamps.stamp(2, 5, 4);
+    stamps.stamp(4, 1, 5);
+    stamps.stamp(30, 33, 6);
+    const tested: string[] = [];
+    const record = (x: number, y: number): boolean => {
+      tested.push(`${x},${y}`);
+      return false;
+    };
+    expect(stamps.anyChangedSince(WHOLE, 3, record)).toBe(false);
+    expect(tested).toEqual(['4,1', '2,5', '30,33']);
+  });
+
   it('keeps exact readings for clocks past Int32 and over-reports only older readers', () => {
     const stamps = new NodeChangeStamps(SIDE, SIDE);
     stamps.stamp(1, 1, 1);

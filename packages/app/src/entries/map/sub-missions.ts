@@ -17,8 +17,9 @@ type Transition = Extract<SimEvent, { kind: 'missionSubMission' }>['transition']
 type Inputs = Pick<MapWorldOptions, 'ir' | 'content'> & { readonly params: URLSearchParams };
 
 /**
- * The maps a sub-mission of `currentMapId` may start: the other maps of its catalogue entry when it is
- * an installed catalogue map, the shipped maps otherwise, so two packs' campaign ids never collide.
+ * The maps a sub-mission of `currentMapId` may start: the running campaign's maps when
+ * `campaignMapIds` is given, else the other maps of its catalogue entry when it is an installed
+ * catalogue map, else the shipped maps, so two packs' campaign ids never collide.
  */
 export function subMissionPool(
   sources: readonly MapSource[],

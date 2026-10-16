@@ -185,6 +185,10 @@ that room with **Rejoin game** and **Leave room** instead of relaunching the gam
 Use separate browser profiles/private windows for two independent players. The default endpoint is
 not deployed by the repository. For a local relay, enter `ws://127.0.0.1:8765`.
 
+`?menu=campaign` opens the **Campaign** tab of **New Game**; `?menu=campaign&campaign=<id>` also
+selects the campaign with that `campaigns-index.json` id. The menu reads `campaign` once and drops it
+from the address, so a later visit to the tab keeps the player's own choice.
+
 To serve an isolated generated content tree with Vite, set `ON_CONTENT_DIR` to an absolute path or a
 path relative to the checkout. This is the same override the content test runner accepts.
 

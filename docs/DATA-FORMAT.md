@@ -27,6 +27,8 @@ content/
   gui-bitmaps/            window and button fills
   goods/                  decoded goods art
   terrain-palettes/       the vertex colour palette map scripts index
+  campaigns/<id>/         the files campaigns-index.json names: map backgrounds, title logos, route
+                          overlays, silent film pictures and each language's sound track
 ```
 
 `packages/data` validates the listings and sidecars the app reads; file names referenced from

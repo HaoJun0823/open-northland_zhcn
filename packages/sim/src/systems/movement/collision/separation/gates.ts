@@ -32,24 +32,18 @@ export class SeparationGates {
     this.hostile = undefined;
   }
 
-  /** Whether `e` stands inside its own player's calm zone. */
-  isGhost(e: Entity): boolean {
+  /** Whether half-cell node `(hx, hy)` lies inside one of `player`'s calm zones. */
+  isGhost(player: number, hx: number, hy: number): boolean {
     this.zones ??= calmZonesByPlayer(this.world, this.terrain);
-    const p = this.world.get(e, Position);
-    const hx = nodeHxOfPosition(p.x, p.y);
-    const hy = nodeHyOfPosition(p.y);
-    return (
-      this.terrain.inBounds(hx, hy) &&
-      this.zones.has(this.world.get(e, Owner).player, this.terrain.nodeAt(hx, hy))
-    );
+    return this.terrain.inBounds(hx, hy) && this.zones.has(player, this.terrain.nodeAt(hx, hy));
   }
 
-  /** Keep the first `count` of `posts` that block `e`, in order; returns the new count. An enemy's post
-   *  blocks it anywhere; its own side's and its allies' only on `goal`, so it walks through them but never
-   *  comes to rest on one. */
-  keepBlockingPosts(e: Entity, goal: NodeId | undefined, posts: Entity[], count: number): number {
+  /** Keep the first `count` of `posts` that block a mover of `player`, in order; returns the new count. An
+   *  enemy's post blocks it anywhere; its own side's and its allies' only on `goal`, so it walks through
+   *  them but never comes to rest on one. */
+  keepBlockingPosts(player: number, goal: NodeId | undefined, posts: Entity[], count: number): number {
     this.hostile ??= hostilePlayerMasks(this.world);
-    const hostile = hostileMaskOf(this.hostile, this.world.get(e, Owner).player);
+    const hostile = hostileMaskOf(this.hostile, player);
     let kept = 0;
     for (let i = 0; i < count; i++) {
       const post = posts[i];

@@ -31,6 +31,8 @@ export interface ColliderColumns {
 export interface MoverColumns extends ColliderColumns {
   /** A firm collider: an owned fighter. */
   readonly firm: boolean[];
+  /** PathFollow's leg cost in ticks, 0 until the leg starts. */
+  readonly legCost: number[];
   readonly hasTarget: boolean[];
   readonly targetX: Fixed[];
   readonly targetY: Fixed[];
@@ -86,6 +88,7 @@ export function separationScratch(world: World): SeparationScratch {
       movers: {
         ...colliderColumns(),
         firm: [],
+        legCost: [],
         hasTarget: [],
         targetX: [],
         targetY: [],

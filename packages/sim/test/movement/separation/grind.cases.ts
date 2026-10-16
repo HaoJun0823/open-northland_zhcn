@@ -12,6 +12,7 @@ import {
 import { fx } from '../../../src/core/fixed.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { halfCellMapFromCells, Simulation } from '../../../src/index.js';
+import type { TerrainGraph } from '../../../src/nav/terrain/index.js';
 import { drainPathRequests, dropPath, pathfindingSystem } from '../../../src/systems/index.js';
 import {
   OBSTRUCTED_MAX_REROUTES,
@@ -22,9 +23,14 @@ import { testContent } from '../../fixtures/content.js';
 import { ctxOf } from '../../fixtures/context.js';
 import { GRASS, nodeOf, orderTo, P0, P1, SOLDIER, settlerAt, sim, WATER, wallAt } from './support.js';
 
-const FIRM = true;
 const NOT_GHOST = false;
 const FIRM_NEAR = true;
+
+/** One grind-window update for a firm `runner` held among firm bodies, as the separation pass runs it. */
+function grindPass(s: Simulation, terrain: TerrainGraph, runner: Entity): void {
+  const legCost = s.world.tryGet(runner, PathFollow)?.legCost ?? 0;
+  updateObstruction(s.world, terrain, runner, legCost, NOT_GHOST, FIRM_NEAR);
+}
 /** A tick budget already spent, so only a group member could still start a route. */
 const SPENT_BUDGET = 0;
 /** Ticks a fresh walk runs before the restart test shoves it: past its turn, partway along a leg. */
@@ -46,7 +52,7 @@ function wedge(s: Simulation, runner: Entity, ticks: number): { asks: number[]; 
     at.y = held.y;
     const facing = s.world.mut(runner, WalkFacing);
     facing.direction = facing.target;
-    updateObstruction(s.world, terrain, runner, FIRM, NOT_GHOST, FIRM_NEAR);
+    grindPass(s, terrain, runner);
     if (!s.world.has(runner, MoveGoal)) return { asks, stoodDown: tick };
     if (s.world.tryGet(runner, PathRequest)?.grind === true) asks.push(tick);
     pathfindingSystem(s.world, ctxOf(s));
@@ -141,7 +147,7 @@ describe('unit body collision - grind reroutes', () => {
     const facing = s.world.mut(runner, WalkFacing);
     facing.direction = facing.target;
     for (let tick = 0; tick < OBSTRUCTED_REROUTE_TICKS; tick++) {
-      updateObstruction(s.world, terrain, runner, FIRM, NOT_GHOST, FIRM_NEAR);
+      grindPass(s, terrain, runner);
     }
     expect(s.world.get(runner, PathRequest).grind).toBe(true);
 
@@ -162,7 +168,7 @@ describe('unit body collision - grind reroutes', () => {
     const facing = s.world.mut(runner, WalkFacing);
     facing.direction = facing.target;
     for (let tick = 0; tick < OBSTRUCTED_REROUTE_TICKS; tick++) {
-      updateObstruction(s.world, terrain, runner, FIRM, NOT_GHOST, FIRM_NEAR);
+      grindPass(s, terrain, runner);
     }
     drainPathRequests(s.world, ctxOf(s), terrain, SPENT_BUDGET);
     // The crowd gives way while the ask waits: the walker passes a stop and is midway on its next leg.

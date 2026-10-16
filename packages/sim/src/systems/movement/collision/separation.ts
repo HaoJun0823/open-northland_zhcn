@@ -1,4 +1,4 @@
-import { Position } from '../../../components/index.js';
+import { Owner, Position } from '../../../components/index.js';
 import { type Fixed, fx, ONE, ZERO } from '../../../core/fixed.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { positionXOfWorld } from '../../../nav/halfcell.js';
@@ -101,29 +101,33 @@ export const separationSystem: System = (world, ctx) => {
     }
     // The mover's own slot sits in its own node's list; neighbours are the rest.
     moverCount = dropSlot(nearMovers, moverCount, slot);
+    let player: number | undefined;
     if (postCount > 0) {
+      player = world.get(e, Owner).player;
       const goal =
         movers.hasGoal[slot] === true
           ? gates.nodeAt(movers.goalX[slot] ?? ZERO, movers.goalY[slot] ?? ZERO)
           : undefined;
-      postCount = gates.keepBlockingPosts(e, goal, nearPosts, postCount);
+      postCount = gates.keepBlockingPosts(player, goal, nearPosts, postCount);
     }
     if (moverCount === 0 && postCount === 0) {
       if (isFirm) clearGrind(world, e);
       continue;
     }
     // A firm mover in its own town drops to the soft tier: no post resolve and no grind.
-    const ghost = isFirm && gates.isGhost(e);
+    const ghost = isFirm && gates.isGhost(player ?? world.get(e, Owner).player, nodeHx, nodeHy);
 
     resolveMoverPush(scratch, slot, moverCount, push);
     if (push.x !== ZERO || push.y !== ZERO) capToOwnPace(push, walkPacePerTick(world, ctx, e));
 
-    const p = world.get(e, Position);
-    candidate.x = p.x;
-    candidate.y = p.y;
+    // The census Position: no earlier mover's resolve writes this one's.
+    const px = movers.x[slot] ?? ZERO;
+    const py = movers.y[slot] ?? ZERO;
+    candidate.x = px;
+    candidate.y = py;
     if (push.x !== ZERO || push.y !== ZERO) {
-      const y = gridYOf(fx.add(worldYOf(p.y), push.y));
-      candidate.x = positionXOfWorld(fx.add(worldX(p.x, p.y), push.x), y);
+      const y = gridYOf(fx.add(movers.worldY[slot] ?? ZERO, push.y));
+      candidate.x = positionXOfWorld(fx.add(movers.worldX[slot] ?? ZERO, push.x), y);
       candidate.y = y;
     }
 
@@ -132,21 +136,23 @@ export const separationSystem: System = (world, ctx) => {
 
     // Drop the offending axis, then the whole displacement: the walker's own path point always stands.
     // Mut only on a landed displacement, so a crowd standing in equilibrium does not churn the touched log.
-    if (candidate.x !== p.x || candidate.y !== p.y) {
+    if (candidate.x !== px || candidate.y !== py) {
       if (gates.allowsLanding(candidate.x, candidate.y)) {
         const moved = world.mut(e, Position);
         moved.x = candidate.x;
         moved.y = candidate.y;
-      } else if (gates.allowsLanding(candidate.x, p.y)) {
+      } else if (gates.allowsLanding(candidate.x, py)) {
         world.mut(e, Position).x = candidate.x;
-      } else if (gates.allowsLanding(p.x, candidate.y)) {
+      } else if (gates.allowsLanding(px, candidate.y)) {
         world.mut(e, Position).y = candidate.y;
       }
     }
 
     // Only a firm mover outside its calm zone keeps a grind window, so only it pays the neighbour scan.
-    const firmNear = isFirm && !ghost && (postCount > 0 || someFirm(movers, nearMovers, moverCount));
-    updateObstruction(world, terrain, e, isFirm, ghost, firmNear);
+    if (isFirm) {
+      const firmNear = !ghost && (postCount > 0 || someFirm(movers, nearMovers, moverCount));
+      updateObstruction(world, terrain, e, movers.legCost[slot] ?? 0, ghost, firmNear);
+    }
   }
 };
 

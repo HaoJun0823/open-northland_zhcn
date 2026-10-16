@@ -1,11 +1,4 @@
-import {
-  MoveGoal,
-  Obstructed,
-  PathFollow,
-  PathRequest,
-  Position,
-  WalkFacing,
-} from '../../../../components/index.js';
+import { MoveGoal, Obstructed, PathRequest, Position, WalkFacing } from '../../../../components/index.js';
 import { type Fixed, fx, ULP } from '../../../../core/fixed.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
@@ -49,27 +42,21 @@ function restartWindow(
 }
 
 /**
- * Maintain the firm-body grind window after collision resolution. Soft movers never grind; a firm
- * mover in its own calm zone or without a post or firm mover in reach (`firmNear`) clears the window.
- * Otherwise each low-progress window asks for a route around the blockers unless a hold is still being
- * waited out, and a bounded run of windows drops the whole navigation goal.
+ * Maintain a firm mover's grind window after collision resolution; soft movers never grind. In its own
+ * calm zone (`ghost`), without a post or firm mover in reach (`firmNear`), or turning on a started leg
+ * (`legCost`, PathFollow's), it clears the window. Otherwise each low-progress window asks for a route
+ * around the blockers unless a hold is still being waited out, and a bounded run of windows drops the
+ * whole navigation goal.
  */
 export function updateObstruction(
   world: World,
   terrain: TerrainGraph,
   entity: Entity,
-  isFirm: boolean,
+  legCost: number,
   ghost: boolean,
   firmNear: boolean,
 ): void {
-  if (!isFirm) return;
-  const cost = world.tryGet(entity, PathFollow)?.legCost ?? 0;
-  const facing = world.tryGet(entity, WalkFacing);
-  if (cost > 0 && facing !== undefined && facing.direction !== facing.target) {
-    clearGrind(world, entity);
-    return;
-  }
-  if (ghost || !firmNear) {
+  if (ghost || !firmNear || (legCost > 0 && isTurning(world, entity))) {
     clearGrind(world, entity);
     return;
   }
@@ -86,7 +73,7 @@ export function updateObstruction(
     });
   obstruction.ticks += 1;
   const sinceAnchor = worldDistance(obstruction.x, obstruction.y, position.x, position.y);
-  const pacedFloor = cost > 0 ? fx.div(HALF_ROW, fx.fromInt(cost * 3)) : OBSTRUCTED_PROGRESS_FLOOR;
+  const pacedFloor = legCost > 0 ? fx.div(HALF_ROW, fx.fromInt(legCost * 3)) : OBSTRUCTED_PROGRESS_FLOOR;
   const floor =
     pacedFloor < ULP ? ULP : pacedFloor < OBSTRUCTED_PROGRESS_FLOOR ? pacedFloor : OBSTRUCTED_PROGRESS_FLOOR;
   if (sinceAnchor >= fx.mul(floor, fx.fromInt(obstruction.ticks))) {
@@ -110,6 +97,11 @@ export function updateObstruction(
   obstruction.x = position.x;
   obstruction.y = position.y;
   obstruction.reroutes += 1;
+}
+
+function isTurning(world: World, entity: Entity): boolean {
+  const facing = world.tryGet(entity, WalkFacing);
+  return facing !== undefined && facing.direction !== facing.target;
 }
 
 /**

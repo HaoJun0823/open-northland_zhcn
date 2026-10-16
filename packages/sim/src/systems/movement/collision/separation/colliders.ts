@@ -1,11 +1,4 @@
-import {
-  Engagement,
-  Obstructed,
-  PathFollow,
-  PathRoute,
-  Position,
-  Settler,
-} from '../../../../components/index.js';
+import { Engagement, Obstructed, PathFollow, PathRoute, Position } from '../../../../components/index.js';
 import { type Fixed, ZERO } from '../../../../core/fixed.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js';
@@ -14,7 +7,7 @@ import { worldX } from '../../../../nav/world-metric.js';
 import type { SystemContext } from '../../../context.js';
 import { isFighterJob } from '../../../readviews/index.js';
 import { writeLegHeading } from '../../stepping.js';
-import { hasSoftCollision } from '../bodies.js';
+import { softColliderSettler } from '../bodies.js';
 import { hasBodyCollision } from '../owned-fighters.js';
 import { standingPostGrid } from '../standing-posts.js';
 import { worldYOf } from './geometry.js';
@@ -35,34 +28,38 @@ export function collectColliders(
 ): boolean {
   const { movers } = scratch;
   scratch.census++;
-  let moverCount = 0;
+  let walkerCount = 0;
   for (const e of world.query(PathFollow, Position)) {
-    if (!hasSoftCollision(world, e)) continue;
-    if (moverCount === scratch.order.length) scratch.order = grown(scratch.order);
-    scratch.order[moverCount++] = e;
+    if (walkerCount === scratch.order.length) scratch.order = grown(scratch.order);
+    scratch.order[walkerCount++] = e;
   }
   // Before the dormancy exit: a grind ends on arrival, a re-route, or a profession change out of the
   // fighting trades, and none of those walk, so its holder is never a mover.
   for (const e of world.canonicalQuery(Obstructed)) {
     if (!world.has(e, PathFollow) || !hasBodyCollision(world, ctx.content, e)) world.remove(e, Obstructed);
   }
-  movers.count = moverCount;
-  if (moverCount === 0) return false;
   // A typed numeric sort runs in place; an array sort with a comparator copied the list every tick.
-  const order = scratch.order.subarray(0, moverCount).sort();
+  const order = scratch.order.subarray(0, walkerCount).sort();
 
+  // Every component a mover's resolve reads is read here once, into its slot.
+  let moverCount = 0;
   let firmCount = 0;
-  for (let slot = 0; slot < moverCount; slot++) {
-    const e = order[slot] as Entity;
+  for (let i = 0; i < walkerCount; i++) {
+    const e = order[i] as Entity;
+    const settler = softColliderSettler(world, e);
+    if (settler === undefined) continue;
+    const slot = moverCount++;
     const p = world.get(e, Position);
     place(movers, slot, e, p.x, p.y);
-    // `hasBodyCollision` with its Owner and Settler checks already passed by `hasSoftCollision`.
-    const firm = isFighterJob(ctx.content, world.get(e, Settler).jobType);
+    // `hasBodyCollision` with its Owner and Settler checks already passed by `softColliderSettler`.
+    const firm = isFighterJob(ctx.content, settler.jobType);
     movers.firm[slot] = firm;
     if (firm) firmCount++;
-    // Both present by the movers query above.
+    // Both present by the walkers query above.
+    const follow = world.get(e, PathFollow);
+    movers.legCost[slot] = follow.legCost;
     const waypoints = world.get(e, PathRoute).waypoints;
-    const target = waypoints[world.get(e, PathFollow).index];
+    const target = waypoints[follow.index];
     movers.hasTarget[slot] = target !== undefined;
     movers.targetX[slot] = target?.x ?? ZERO;
     movers.targetY[slot] = target?.y ?? ZERO;
@@ -72,6 +69,8 @@ export function collectColliders(
     movers.goalY[slot] = goal?.y ?? ZERO;
     movers.engaged[slot] = world.has(e, Engagement);
   }
+  movers.count = moverCount;
+  if (moverCount === 0) return false;
   movers.grid.fill(terrain, moverCount, movers.hx, movers.hy);
 
   // Read once per census: posts never walk, so the resolve cannot move one, and a mover the grind halts

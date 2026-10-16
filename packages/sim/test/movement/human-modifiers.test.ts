@@ -90,18 +90,24 @@ describe('human turning', () => {
     const terrain = sim.terrain;
     if (terrain === undefined) throw new Error('mapped sim expected');
     const POST_IN_REACH = true;
-    sim.world.mut(e, PathFollow).legCost = 200;
+    const NOT_GHOST = false;
+    const HEAVY_LEG_COST = 200;
+    const grindPass = (): void => {
+      const legCost = sim.world.tryGet(e, PathFollow)?.legCost ?? 0;
+      updateObstruction(sim.world, terrain, e, legCost, NOT_GHOST, POST_IN_REACH);
+    };
+    sim.world.mut(e, PathFollow).legCost = HEAVY_LEG_COST;
     for (let i = 0; i < 12; i++) {
       sim.world.mut(e, Position).x = fx.fromFloat(i / 400);
-      updateObstruction(sim.world, terrain, e, true, false, POST_IN_REACH);
+      grindPass();
     }
     expect(sim.world.has(e, PathFollow)).toBe(true);
     expect(sim.world.get(e, Obstructed).reroutes).toBe(0);
     sim.world.mut(e, WalkFacing).target = 3;
-    for (let i = 0; i < 5; i++) updateObstruction(sim.world, terrain, e, true, false, POST_IN_REACH);
+    for (let i = 0; i < 5; i++) grindPass();
     expect(sim.world.has(e, PathFollow)).toBe(true); // holding for a turn is not an obstruction
     sim.world.mut(e, WalkFacing).direction = 3;
-    for (let i = 0; i < 4; i++) updateObstruction(sim.world, terrain, e, true, false, POST_IN_REACH);
+    for (let i = 0; i < 4; i++) grindPass();
     expect(sim.world.has(e, PathFollow)).toBe(false);
     expect(sim.world.get(e, Obstructed).reroutes).toBe(1);
   });

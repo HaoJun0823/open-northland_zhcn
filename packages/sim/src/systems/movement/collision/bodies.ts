@@ -1,4 +1,12 @@
-import { Building, Owner, PathFollow, PathRequest, Position, Settler } from '../../../components/index.js';
+import {
+  Building,
+  Owner,
+  PathFollow,
+  PathRequest,
+  Position,
+  Settler,
+  type SettlerView,
+} from '../../../components/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
@@ -20,11 +28,13 @@ import { settlerTraversal } from '../traversal.js';
 const CALM_ZONE_RADIUS_NODES = 8;
 
 /**
- * Whether `e` takes part in soft mover-vs-mover separation: any owned settler, fighter or civilian. The Owner
- * gate keeps unowned fixtures and goldens byte-identical.
+ * `e`'s Settler when it takes part in soft mover-vs-mover separation: any owned settler, fighter or
+ * civilian, else undefined. The Owner gate keeps unowned fixtures and goldens byte-identical.
  */
-export function hasSoftCollision(world: World, e: Entity): boolean {
-  return world.has(e, Owner) && world.has(e, Settler) && settlerTraversal(world, e) === 'land';
+export function softColliderSettler(world: World, e: Entity): SettlerView | undefined {
+  if (!world.has(e, Owner)) return undefined;
+  const settler = world.tryGet(e, Settler);
+  return settler !== undefined && settlerTraversal(world, e) === 'land' ? settler : undefined;
 }
 
 /** Whether `e` is standing for collision purposes: not walking and not waiting on a live route, since a

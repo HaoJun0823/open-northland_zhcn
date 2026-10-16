@@ -265,6 +265,19 @@ describe('CommandSystem - command authority', () => {
     expect(sim.commands.log).toHaveLength(1);
   });
 
+  it('keeps an authored level to setup, off a seat placement', () => {
+    const sim = fresh();
+    setPlayerPlacementTribes(sim.world, sim.content, MINE, [VIKING]);
+    const placement = { kind: 'placeBuilding' as const, buildingType: SAWMILL, x: 4, y: 4, tribe: VIKING };
+    const seat = (command: object) =>
+      authorizedCommand(sim.world, parseCommandEnvelope({ v: 2, origin: 'player', player: MINE, command }));
+    expect(seat(placement)).toBeDefined();
+    expect(seat({ ...placement, level: 2 })).toBeUndefined();
+    expect(authorizedCommand(sim.world, setupCommand({ ...placement, level: 2 }))).toMatchObject({
+      level: 2,
+    });
+  });
+
   it('holds an AI seat to the same rule as a human seat', () => {
     const sim = fresh();
     const theirUnit = settlerFor(sim, THEIRS, 2);

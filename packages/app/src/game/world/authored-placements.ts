@@ -37,6 +37,8 @@ export type AuthoredPlacement =
       goods?: { good: number; amount: number }[];
       /** The `sethouse` mission object id, the handle the map's script addresses this house by. */
       missionId?: number;
+      /** The `sethouse` level, the record level the house was joined at. */
+      level?: number;
     }
   | {
       kind: 'human';
@@ -170,6 +172,7 @@ export function resolveAuthoredPlacements(
       ...(components.isValidPlayer(b.player) ? { owner: b.player } : {}),
       ...(goods.length > 0 ? { goods } : {}),
       ...(b.missionId !== undefined ? { missionId: b.missionId } : {}),
+      level: b.level,
     });
     const kind = joins.buildingKind(hit.typeId);
     if (kind !== undefined) kindByAnchor.set(key, kind);

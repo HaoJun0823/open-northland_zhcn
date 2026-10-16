@@ -49,8 +49,8 @@ describe('view building models', () => {
       ir([{ tribeId: VIKING, typeId: 1, x: 10, y: 11 }]),
       [VIKING],
       new Map([
-        [4, { typeId: 1, tribe: VIKING, body: 20, flagPoint: { x: 20, y: 21 } }],
-        [5, { typeId: 1, tribe: VIKING, body: 30 }],
+        [4, { typeId: 1, tribe: VIKING, level: 0, body: 20, flagPoint: { x: 20, y: 21 } }],
+        [5, { typeId: 1, tribe: VIKING, level: 0, body: 30 }],
       ]),
     );
     expect(infoOf(1, VIKING, 4)?.flagPoint).toEqual({ x: 20, y: 21 });

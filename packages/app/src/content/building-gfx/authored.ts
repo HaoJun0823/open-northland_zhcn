@@ -29,6 +29,7 @@ export function authoredBuildingSheet(
     {
       readonly typeId: number;
       readonly tribe: number;
+      readonly level: number;
       readonly body: BuildingBobRef;
       readonly landscapeOverlays?: readonly BuildingLandscapeOverlayRef[];
       readonly flagPoint?: { readonly x: number; readonly y: number };
@@ -63,7 +64,9 @@ export function authoredBuildingSheet(
     byEntity.set(entity.id, {
       typeId: placement.typeId,
       tribe: placement.tribe,
-      landscapeOverlays: landscapeOverlayRefs(ir, placement.tribe, row.editName)[placement.typeId] ?? [],
+      level: row.level,
+      landscapeOverlays:
+        landscapeOverlayRefs(ir, placement.tribe, row.editName)[placement.typeId]?.[row.level] ?? [],
       body: isDefault ? row.bobId : { layer: stem, bob: row.bobId },
       ...(row.flagPoint !== undefined ? { flagPoint: row.flagPoint } : {}),
     });

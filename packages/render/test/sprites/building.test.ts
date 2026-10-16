@@ -46,6 +46,11 @@ describe('resolveSpriteBobId - per-type building binding', () => {
   });
 });
 
+/** The wonders' own tribe, and a map-placed home of it the authored-level case draws. */
+const WONDER_TRIBE = 5;
+const HOME = 6;
+const AUTHORED_HOME = 4;
+
 describe('resolveBuildingDraw - layer-qualified (multi-.bmd) building binding', () => {
   function building(typeId?: number): DrawItem {
     return drawItem('building', typeId !== undefined ? { typeId } : {});
@@ -97,6 +102,37 @@ describe('resolveBuildingDraw - layer-qualified (multi-.bmd) building binding', 
     expect(resolveBuildingDraw(staged, at(1))).toEqual({ bob: 5 });
     expect(resolveBuildingDraw(staged, at(3))).toEqual({ bob: 0 });
     expect(resolveBuildingDraw(staged, at(1, VIKING))).toEqual({ bob: 9 });
+  });
+
+  it("keeps a map-placed wonder's authored body at its own level and draws another level's stage", () => {
+    const WONDER = 47;
+    const TOP_STAGE = 2;
+    const AUTHORED_REF = 3;
+    const authored: BuildingTypeBinding = {
+      byType: { [WONDER]: 0, [HOME]: 41 },
+      byTypeLevel: { [WONDER]: { 0: 1, 1: 5, [TOP_STAGE]: 0 } },
+      byEntity: new Map([
+        [
+          AUTHORED_REF,
+          { typeId: WONDER, tribe: WONDER_TRIBE, level: TOP_STAGE, body: { layer: 'map', bob: 7 } },
+        ],
+        [
+          AUTHORED_HOME,
+          { typeId: HOME, tribe: WONDER_TRIBE, level: TOP_STAGE, body: { layer: 'map', bob: 8 } },
+        ],
+      ]),
+      default: 11,
+    };
+    const at = (ref: number, typeId: number, level: number): DrawItem =>
+      drawItem('building', { ref, typeId, level, tribe: WONDER_TRIBE });
+    expect(resolveBuildingDraw(authored, at(AUTHORED_REF, WONDER, TOP_STAGE))).toEqual({
+      layer: 'map',
+      bob: 7,
+    });
+    // A scripted level change rebuilt it at level 0: that stage's body, not the authored top stage.
+    expect(resolveBuildingDraw(authored, at(AUTHORED_REF, WONDER, 0))).toEqual({ bob: 1 });
+    // A type drawing one body at every level keeps its authored body whatever its level reads.
+    expect(resolveBuildingDraw(authored, at(AUTHORED_HOME, HOME, 0))).toEqual({ layer: 'map', bob: 8 });
   });
 
   it('agrees with resolveSpriteBobId on the bob id (the bob is the resolver split-out)', () => {

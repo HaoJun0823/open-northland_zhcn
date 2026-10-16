@@ -148,6 +148,9 @@ interface AuthoredPlaceBuildingFields {
   /** The {@link import('../../components/mission.js').MissionObjectId} to stamp; omit for a house no
    *  mission addresses. */
   readonly missionId?: number;
+  /** A decoded map's `sethouse` level. It stands only on a type whose `[GfxHouse]` record draws it above
+   *  the type's own rung (a wonder's stage); any other type keeps its rung. */
+  readonly level?: number;
 }
 
 /** A `placeBuilding` a seat issues: the authored-setup options are unrepresentable. */

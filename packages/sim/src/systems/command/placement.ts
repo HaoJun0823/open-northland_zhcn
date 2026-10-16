@@ -117,6 +117,7 @@ export function placeBuilding(
     underConstruction: paper === undefined && command.underConstruction === true,
     fillStock: paper === undefined ? command.fillStock === true : paper.kind === 'placeStockedHouse',
     initialGoods: command.initialGoods,
+    level: command.level,
   });
 }
 
@@ -132,6 +133,8 @@ export interface BuildingSpec {
   readonly underConstruction: boolean;
   readonly fillStock: boolean;
   readonly initialGoods?: readonly { readonly good: number; readonly amount: number }[] | undefined;
+  /** An authored level, kept when the type's record draws it above the type's rung. */
+  readonly level?: number | undefined;
 }
 
 /**
@@ -150,8 +153,12 @@ export function assembleBuilding(
   // The anchor is a half-cell node; its Position is the node's fractional tile coords.
   world.add(e, Position, positionOfNode(spec.x, spec.y));
   const built = underConstruction ? fx.fromInt(0) : ONE;
-  // A higher tier placed outright (a map's house, a script's) stands on its rung of the chain.
-  const level = buildingLevelOf(contentIndex(ctx.content), spec.buildingType);
+  // A higher tier placed outright (a map's house, a script's) stands on its rung of the chain, and a map's
+  // wonder on the stage its record draws.
+  const index = contentIndex(ctx.content);
+  const rung = buildingLevelOf(index, spec.buildingType);
+  const drawnTop = index.buildingTopLevel.get(spec.buildingType) ?? rung;
+  const level = spec.level !== undefined && spec.level > rung && spec.level <= drawnTop ? spec.level : rung;
   world.add(e, Building, { buildingType: spec.buildingType, tribe: spec.tribe, built, level });
   const amounts = new Map<number, number>();
   const hitpoints = buildingHitpointsFor(type, spec.tribe);

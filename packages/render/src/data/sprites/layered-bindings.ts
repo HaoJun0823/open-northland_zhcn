@@ -30,9 +30,13 @@ export interface BuildingSkinTables {
    * for it, rises its next tier's construction stack around the old body instead.
    */
   readonly upgradeByType?: Readonly<Record<number, readonly ConstructionLayerRef[]>>;
+  /** The `[GfxHouse]` `GfxLandscapeOverlay` slots a script switches, per type and then per level: a
+   *  record lists them for one level, such as the lighthouse fire on its finished top stage. */
+  readonly landscapeOverlaysByType?: Readonly<
+    Record<number, Readonly<Record<number, readonly BuildingLandscapeOverlayRef[]>>>
+  >;
   /** The `[GfxHouse]` type-4 `GfxOverlay` table. The original lists overlays only for the finished body,
    *  so a building under construction draws none. */
-  readonly landscapeOverlaysByType?: Readonly<Record<number, readonly BuildingLandscapeOverlayRef[]>>;
   readonly overlayByType?: Readonly<Record<number, BuildingOverlayRef>>;
 }
 
@@ -51,21 +55,25 @@ export interface BuildingTribeTables extends BuildingSkinTables {
  * resolves through the base tables, and a type absent everywhere draws `default`.
  */
 export interface BuildingTypeBinding extends BuildingTribeTables {
-  /** Authored body choices bound once at map boot. Type and tribe guards retire a choice on upgrade. */
-  readonly byEntity?: ReadonlyMap<
-    number,
-    {
-      readonly typeId: number;
-      readonly tribe: number;
-      readonly body: BuildingBobRef;
-      readonly landscapeOverlays?: readonly BuildingLandscapeOverlayRef[];
-      readonly flagPoint?: { readonly x: number; readonly y: number };
-    }
-  >;
+  /** Authored body choices bound once at map boot. Type and tribe guards retire a choice on upgrade, and
+   *  a level the tables draw apart from the authored `level` retires it after a scripted level change. */
+  readonly byEntity?: ReadonlyMap<number, AuthoredBuildingDraw>;
   readonly default: BuildingBobRef;
   readonly byTribe?: Readonly<Record<number, BuildingTribeTables>>;
   /** Each upgradable type's next tier (`upgradeTarget`), shared by every tribe like the typeId space. */
   readonly upgradeTargetByType?: Readonly<Record<number, number>>;
+}
+
+/** One map-placed building's authored `[GfxHouse]` record, joined by its map name and level. */
+export interface AuthoredBuildingDraw {
+  readonly typeId: number;
+  readonly tribe: number;
+  /** The record level the authored body draws. */
+  readonly level: number;
+  readonly body: BuildingBobRef;
+  /** The record's landscape overlay slots at its `level`. */
+  readonly landscapeOverlays?: readonly BuildingLandscapeOverlayRef[];
+  readonly flagPoint?: { readonly x: number; readonly y: number };
 }
 
 export interface BuildingOverlayRef {

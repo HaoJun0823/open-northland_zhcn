@@ -26,6 +26,7 @@ describe('resolveAuthoredPlacements', () => {
     expect(placements).toEqual([
       {
         kind: 'building',
+        level: 0,
         typeId: 30,
         tribe: 1,
         x: 8,
@@ -34,7 +35,7 @@ describe('resolveAuthoredPlacements', () => {
         missionId: 70,
         goods: [{ good: 4, amount: 3 }],
       },
-      { kind: 'building', typeId: 30, tribe: 1, x: 2, y: 2, owner: 2, missionId: 70 },
+      { kind: 'building', level: 0, typeId: 30, tribe: 1, x: 2, y: 2, owner: 2, missionId: 70 },
     ]);
   });
 
@@ -49,6 +50,7 @@ describe('resolveAuthoredPlacements', () => {
     expect(placements).toEqual([
       {
         kind: 'building',
+        level: 0,
         typeId: 30,
         tribe: 1,
         x: 8,
@@ -59,7 +61,7 @@ describe('resolveAuthoredPlacements', () => {
           { good: 9, amount: 3 },
         ],
       },
-      { kind: 'building', typeId: 31, tribe: 1, x: 0, y: 0 }, // no owner: player out of range
+      { kind: 'building', level: 1, typeId: 31, tribe: 1, x: 0, y: 0 }, // no owner: player out of range
       { kind: 'human', jobType: 7, tribe: 1, x: 3, y: 5, owner: 0 },
     ]);
     expect(skipped).toBe(3);
@@ -295,7 +297,16 @@ describe('resolveAuthoredPlacements', () => {
     const { placements, droppedGoods } = resolveAuthoredPlacements(entities, AUTHORED_ROWS, authoredMap());
     expect(droppedGoods).toBe(0);
     expect(placements).toEqual([
-      { kind: 'building', typeId: 30, tribe: 1, x: 8, y: 4, owner: 0, goods: [{ good: 4, amount: 5 }] },
+      {
+        kind: 'building',
+        level: 0,
+        typeId: 30,
+        tribe: 1,
+        x: 8,
+        y: 4,
+        owner: 0,
+        goods: [{ good: 4, amount: 5 }],
+      },
       { kind: 'human', jobType: 7, tribe: 1, x: 3, y: 5, owner: 0 },
     ]);
   });
@@ -361,7 +372,7 @@ describe('resolveAuthoredPlacements', () => {
     };
     const { placements } = resolveAuthoredPlacements(entities, AUTHORED_ROWS, authoredMap());
     expect(placements).toEqual([
-      { kind: 'building', typeId: 30, tribe: 1, x: 8, y: 4, owner: 0, missionId: 1000 },
+      { kind: 'building', level: 0, typeId: 30, tribe: 1, x: 8, y: 4, owner: 0, missionId: 1000 },
       { kind: 'human', jobType: 7, tribe: 1, x: 3, y: 5, owner: 0, missionId: 200, behaviourFlags: 8 },
       { kind: 'human', jobType: 7, tribe: 1, x: 4, y: 5, owner: 0 },
     ]);

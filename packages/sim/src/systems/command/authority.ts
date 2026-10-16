@@ -173,7 +173,8 @@ function hasAuthoredOptions(
     command.ignoreTechnology !== undefined ||
     command.fillStock !== undefined ||
     command.initialGoods !== undefined ||
-    command.missionId !== undefined
+    command.missionId !== undefined ||
+    command.level !== undefined
   );
 }
 

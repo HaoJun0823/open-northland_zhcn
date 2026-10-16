@@ -1,5 +1,6 @@
 import type { DrawItem } from '../scene/index.js';
 import type {
+  AuthoredBuildingDraw,
   BuildingBobRef,
   BuildingDraw,
   BuildingLandscapeOverlayRef,
@@ -81,15 +82,28 @@ function byTypeFor<T>(
 /** An unmapped or type-less item falls back to `default`, so a sparse table is always total. */
 export function resolveBuildingDraw(binding: number | BuildingTypeBinding, item: DrawItem): BuildingDraw {
   if (typeof binding === 'number') return { bob: binding };
-  const authored = binding.byEntity?.get(item.ref);
-  if (authored !== undefined && authored.typeId === item.typeId && authored.tribe === item.tribe) {
-    return unwrapBobRef(authored.body);
-  }
+  const authored = authoredDrawOf(binding, item);
+  if (authored !== undefined) return unwrapBobRef(authored.body);
   return unwrapBobRef(
     bodyAtLevel(tablesFor(binding, item), item) ??
       bodyAtLevel(skinFor(binding, item.ref), item) ??
       binding.default,
   );
+}
+
+/** The item's authored body choice while it still applies: the same type and tribe, and no level its
+ *  tables draw apart from the authored one, as a wonder stands at after a scripted level change. */
+function authoredDrawOf(binding: BuildingTypeBinding, item: DrawItem): AuthoredBuildingDraw | undefined {
+  const authored = binding.byEntity?.get(item.ref);
+  if (authored === undefined || authored.typeId !== item.typeId || authored.tribe !== item.tribe) {
+    return undefined;
+  }
+  const { typeId, level } = item;
+  if (typeId === undefined || level === undefined || level === authored.level) return authored;
+  const own = tablesFor(binding, item).byTypeLevel?.[typeId]?.[level];
+  return (own ?? skinFor(binding, item.ref).byTypeLevel?.[typeId]?.[level]) === undefined
+    ? authored
+    : undefined;
 }
 
 /** One table set's body for the item's type, at its level when the set draws that level apart; the level
@@ -320,6 +334,12 @@ export function resolveCraftFxDraw(
 }
 
 const NO_LANDSCAPE_OVERLAYS: readonly BuildingLandscapeOverlayRef[] = [];
+
+/** The level a building item without a `Building.level` stands at: its type's first tier. */
+const FIRST_LEVEL = 0;
+
+/** The landscape overlay slots the item's body draws at its level: the authored record's while its body
+ *  applies, else its type's. */
 export function buildingLandscapeOverlays(
   binding: number | BuildingTypeBinding,
   item: DrawItem,
@@ -331,13 +351,8 @@ export function buildingLandscapeOverlays(
     !item.landscapeOverlayMask
   )
     return NO_LANDSCAPE_OVERLAYS;
-  const authored = binding.byEntity?.get(item.ref);
-  if (
-    authored !== undefined &&
-    authored.typeId === item.typeId &&
-    authored.tribe === item.tribe &&
-    authored.landscapeOverlays !== undefined
-  )
-    return authored.landscapeOverlays;
-  return byTypeFor(binding, item, (tables) => tables.landscapeOverlaysByType) ?? NO_LANDSCAPE_OVERLAYS;
+  const authored = authoredDrawOf(binding, item)?.landscapeOverlays;
+  if (authored !== undefined) return authored;
+  const byLevel = byTypeFor(binding, item, (tables) => tables.landscapeOverlaysByType);
+  return byLevel?.[item.level ?? FIRST_LEVEL] ?? NO_LANDSCAPE_OVERLAYS;
 }

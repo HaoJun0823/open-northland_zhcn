@@ -306,6 +306,7 @@ const COMMAND_PAYLOAD: { readonly [K in Command['kind']]: PayloadSpec<Extract<Co
       ignoreTechnology: 'boolean',
       fillStock: 'boolean',
       initialGoods: { arrayOf: { fields: { required: { good: 'integer', amount: 'integer' } } } },
+      level: 'integer',
       paper: PAPER,
     },
   },

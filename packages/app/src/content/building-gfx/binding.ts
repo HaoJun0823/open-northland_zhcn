@@ -121,8 +121,9 @@ export function referencedFamilyLayers(binding: BuildingTypeBinding): Set<string
     ]) {
       for (const stage of stack) if (stage.layer !== undefined) layers.add(stage.layer);
     }
-    for (const overlays of Object.values(tables.landscapeOverlaysByType ?? {}))
-      for (const overlay of overlays) layers.add(overlay.layer);
+    for (const byLevel of Object.values(tables.landscapeOverlaysByType ?? {})) {
+      for (const overlay of Object.values(byLevel).flat()) layers.add(overlay.layer);
+    }
     for (const overlay of Object.values<BuildingOverlayRef>(tables.overlayByType ?? {})) {
       if (overlay.layer !== undefined) layers.add(overlay.layer);
     }

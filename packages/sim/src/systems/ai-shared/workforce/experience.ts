@@ -56,8 +56,57 @@ export function tradeExperience(world: World, ctx: SystemContext, e: Entity): nu
 }
 
 /** Order `staff` most experienced first by `rank`, ascending entity id on ties, so a cap over the list
- *  keeps the veterans and the kept set never depends on iteration order. */
+ *  keeps the veterans and the kept set never depends on iteration order. Sorts in place through reused
+ *  scratch, since a library sort copies the list on every call. */
 export function byExperience(staff: Entity[], rank: (e: Entity) => number): Entity[] {
-  const ranks = new Map(staff.map((e) => [e, rank(e)]));
-  return staff.sort((a, b) => (ranks.get(b) ?? 0) - (ranks.get(a) ?? 0) || a - b);
+  const n = staff.length;
+  if (n < 2) return staff;
+  const { ranks, entities, spareRanks, spareEntities } = sortScratch;
+  for (let i = 0; i < n; i++) {
+    const e = staff[i] as Entity;
+    entities[i] = e;
+    ranks[i] = rank(e);
+  }
+  // Bottom-up merge sort between the two scratch pairs; the comparison is a total order, so the result
+  // matches any correct sort.
+  let fromRanks = ranks;
+  let fromEntities = entities;
+  let toRanks = spareRanks;
+  let toEntities = spareEntities;
+  for (let width = 1; width < n; width *= 2) {
+    for (let lo = 0; lo < n; lo += 2 * width) {
+      const mid = Math.min(lo + width, n);
+      const hi = Math.min(lo + 2 * width, n);
+      let a = lo;
+      let b = mid;
+      for (let k = lo; k < hi; k++) {
+        const takeA =
+          b >= hi ||
+          (a < mid &&
+            ((fromRanks[a] as number) > (fromRanks[b] as number) ||
+              ((fromRanks[a] as number) === (fromRanks[b] as number) &&
+                (fromEntities[a] as Entity) < (fromEntities[b] as Entity))));
+        const from = takeA ? a++ : b++;
+        toRanks[k] = fromRanks[from] as number;
+        toEntities[k] = fromEntities[from] as Entity;
+      }
+    }
+    const ranksDone = fromRanks;
+    fromRanks = toRanks;
+    toRanks = ranksDone;
+    const entitiesDone = fromEntities;
+    fromEntities = toEntities;
+    toEntities = entitiesDone;
+  }
+  for (let i = 0; i < n; i++) staff[i] = fromEntities[i] as Entity;
+  return staff;
 }
+
+/** Scratch for {@link byExperience}, grown to the longest list sorted; only its first `n` slots mean
+ *  anything during a call. */
+const sortScratch = {
+  ranks: [] as number[],
+  entities: [] as Entity[],
+  spareRanks: [] as number[],
+  spareEntities: [] as Entity[],
+};

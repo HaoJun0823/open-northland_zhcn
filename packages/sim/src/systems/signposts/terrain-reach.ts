@@ -35,10 +35,6 @@ export function signpostMask(world: World, content: ContentSet, terrain: Terrain
   return walkBlockMask(world, ctx, terrain);
 }
 
-export function signpostTerrainKey(world: World, content: ContentSet, terrain: TerrainGraph): string {
-  return `${signpostMask(world, content, terrain).version}:${terrain.mirroredRoadRevision}`;
-}
-
 /** A range search's hex range and what it spends: ground resistance, or steps without `groundCost`. */
 export interface ReachSpan {
   readonly range: number;
@@ -227,8 +223,14 @@ export function warmPostReaches(world: World, content: ContentSet, terrain: Terr
   }
 }
 
+/** The signpost membership generation each world's post reaches were last pruned at. */
+const prunedAt = new WeakMap<World, number>();
+
 /** Forget the reaches of posts no longer alive. */
 export function dropFallenPostReaches(world: World): void {
+  const generation = world.componentGeneration(Signpost);
+  if (prunedAt.get(world) === generation) return;
+  prunedAt.set(world, generation);
   for (const held of postReaches.get(world)?.values() ?? []) {
     for (const post of held.keys()) if (!world.isAlive(post)) held.delete(post);
   }

@@ -79,7 +79,7 @@ function keysCurrent(world: World, keys: NetworkKeys): boolean {
   );
 }
 
-function buildNetwork(world: World): ReadonlyMap<number, readonly SignpostSite[]> {
+function buildNetwork(world: World): Map<number, readonly SignpostSite[]> {
   // Collect per player in canonical (ascending entity id) order - group labels derive from ids, so the
   // result is independent of store insertion history.
   const perPlayer = new Map<number, { entity: Entity; hx: number; hy: number; links: readonly Entity[] }[]>();
@@ -153,7 +153,9 @@ function refreshedMemo(world: World): NetworkMemo {
     cached.keys = keys;
     return cached;
   }
-  const memo = { keys, revision: (cached?.revision ?? 0) + 1, byPlayer: buildNetwork(world) };
+  const byPlayer = buildNetwork(world);
+  if (cached !== undefined) keepUnchangedPlayers(cached.byPlayer, byPlayer);
+  const memo = { keys, revision: (cached?.revision ?? 0) + 1, byPlayer };
   networkMemo.set(world, memo);
   if (!verifierRegistered.has(world)) {
     verifierRegistered.add(world);
@@ -162,7 +164,37 @@ function refreshedMemo(world: World): NetworkMemo {
   return memo;
 }
 
-/** The current signpost network, rebuilt only when a signpost rises, falls, relinks or changes hands. */
+/** Swaps into `fresh` the `previous` list of every player whose posts did not move, so a player's list
+ *  keeps its identity across rebuilds another player caused, and the caches keyed on it survive. */
+function keepUnchangedPlayers(
+  previous: ReadonlyMap<number, readonly SignpostSite[]>,
+  fresh: Map<number, readonly SignpostSite[]>,
+): void {
+  for (const [player, sites] of fresh) {
+    const was = previous.get(player);
+    if (was !== undefined && sameSites(was, sites)) fresh.set(player, was);
+  }
+}
+
+function sameSites(a: readonly SignpostSite[], b: readonly SignpostSite[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i] as SignpostSite;
+    const y = b[i] as SignpostSite;
+    if (x.entity !== y.entity || x.hx !== y.hx || x.hy !== y.hy || x.group !== y.group) return false;
+  }
+  return true;
+}
+
+/** The posts `player` holds in `network`, the shared empty list for a player with none. */
+function sitesOf(network: NetworkMemo, player: number): readonly SignpostSite[] {
+  return network.byPlayer.get(player) ?? NO_SITES;
+}
+
+const NO_SITES: readonly SignpostSite[] = [];
+
+/** The current signpost network, rebuilt only when a signpost rises, falls, relinks or changes hands. A
+ *  player whose posts did not move keeps his list object. */
 export function signpostNetwork(world: World): ReadonlyMap<number, readonly SignpostSite[]> {
   return refreshedMemo(world).byPlayer;
 }
@@ -398,7 +430,7 @@ class CaughtPosts {
   private readonly near = new Map<number, PostCoverage>();
 
   constructor(
-    private readonly posts: readonly SignpostSite[],
+    readonly posts: readonly SignpostSite[],
     private readonly range: number,
   ) {
     this.bounds = unionNodeBoxes(posts.map((s) => hexNodeBox(s.hx, s.hy, range)));
@@ -466,38 +498,61 @@ function paintCoverage(
   return cells;
 }
 
-/** The shared {@link CaughtPosts} of one network revision, keyed by player, range and the ascending
- *  caught groups. */
-interface CaughtPostsMemo {
-  readonly revision: number;
-  readonly byCatch: Map<string, CaughtPosts>;
+/**
+ * One player's shared {@link CaughtPosts}, keyed by range and the ascending caught groups, valid while his
+ * post list is `sites`. When his posts move, the previous catches stay on as `stale`: a catch whose posts
+ * are still the same entities on the same nodes keeps its painted coverage.
+ */
+interface PlayerCatches {
+  sites: readonly SignpostSite[];
+  byCatch: Map<string, CaughtPosts>;
+  stale: Map<string, CaughtPosts> | undefined;
 }
 
-const caughtPostsMemo = new WeakMap<World, CaughtPostsMemo>();
+const caughtPostsMemo = new WeakMap<World, Map<number, PlayerCatches>>();
 
 function sharedCaughtPosts(
   world: World,
-  revision: number,
   player: number,
   range: number,
-  posts: readonly SignpostSite[],
+  sites: readonly SignpostSite[],
   groups: readonly number[],
 ): CaughtPosts {
-  let memo = caughtPostsMemo.get(world);
-  if (memo === undefined || memo.revision !== revision) {
-    memo = { revision, byCatch: new Map() };
-    caughtPostsMemo.set(world, memo);
+  let byPlayer = caughtPostsMemo.get(world);
+  if (byPlayer === undefined) {
+    byPlayer = new Map();
+    caughtPostsMemo.set(world, byPlayer);
   }
-  const key = `${player}:${range}:${groups.join(',')}`;
-  let caught = memo.byCatch.get(key);
+  let catches = byPlayer.get(player);
+  if (catches === undefined) {
+    catches = { sites, byCatch: new Map(), stale: undefined };
+    byPlayer.set(player, catches);
+  } else if (catches.sites !== sites) {
+    // A list nobody read a catch from leaves the older catches standing in for it.
+    if (catches.byCatch.size > 0) catches.stale = catches.byCatch;
+    catches.byCatch = new Map();
+    catches.sites = sites;
+  }
+  const key = `${range}:${groups.join(',')}`;
+  let caught = catches.byCatch.get(key);
   if (caught === undefined) {
-    caught = new CaughtPosts(
-      posts.filter((s) => groups.includes(s.group)),
-      range,
-    );
-    memo.byCatch.set(key, caught);
+    const posts = sites.filter((s) => groups.includes(s.group));
+    const was = catches.stale?.get(key);
+    caught = was !== undefined && samePostNodes(was.posts, posts) ? was : new CaughtPosts(posts, range);
+    catches.byCatch.set(key, caught);
   }
   return caught;
+}
+
+/** Whether `a` and `b` list the same posts on the same nodes: all a coverage bitmap is painted from. */
+function samePostNodes(a: readonly SignpostSite[], b: readonly SignpostSite[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i] as SignpostSite;
+    const y = b[i] as SignpostSite;
+    if (x.entity !== y.entity || x.hx !== y.hx || x.hy !== y.hy) return false;
+  }
+  return true;
 }
 
 /** A spot's confinement: the walk range around the spot itself, inclusive, plus whatever its caught
@@ -542,14 +597,14 @@ export function networkLimitAt(
   range = WALK_RANGE_NODES,
 ): NavigationLimit | null {
   if (!signpostNavigationEnabled(world)) return null;
-  const network = refreshedMemo(world);
-  const spots = spotLimitsOf(world, terrain, network.revision);
-  const key = spotKey(player, range, hx, hy);
+  const sites = sitesOf(refreshedMemo(world), player);
+  const spots = spotLimitsOf(world, terrain, player, sites);
+  const key = spotKey(range, hx, hy);
   if (key !== null) {
     const held = spots.limits.get(key);
     if (held !== undefined) return held;
   }
-  const limit = deriveNetworkLimit(terrain, world, network, player, hx, hy, range);
+  const limit = deriveNetworkLimit(terrain, world, sites, player, hx, hy, range);
   if (key !== null) {
     if (spots.limits.size >= SPOT_LIMIT_MEMO_CAP) spots.limits.clear();
     spots.limits.set(key, limit);
@@ -560,57 +615,67 @@ export function networkLimitAt(
 function deriveNetworkLimit(
   terrain: TerrainGraph,
   world: World,
-  network: NetworkMemo,
+  posts: readonly SignpostSite[],
   player: number,
   hx: number,
   hy: number,
   range: number,
 ): SignpostConfinement {
-  const posts = network.byPlayer.get(player) ?? [];
   // A post is caught when it stands inside the range and on ground the spot connects to; a caught post
-  // opens its whole group.
+  // opens its whole group. Kept ascending as found.
   const here = componentAt(terrain, hx, hy);
   const groups: number[] = [];
   for (const s of posts) {
     if (groups.includes(s.group)) continue;
     if (hexDistanceBetween(hx, hy, s.hx, s.hy) >= range) continue;
     if (here !== null && componentAt(terrain, s.hx, s.hy) !== here) continue;
-    groups.push(s.group);
+    let at = groups.length;
+    while (at > 0 && (groups[at - 1] as number) > s.group) at--;
+    groups.splice(at, 0, s.group);
   }
-  groups.sort((a, b) => a - b);
-  const caught =
-    groups.length === 0 ? null : sharedCaughtPosts(world, network.revision, player, range, posts, groups);
+  const caught = groups.length === 0 ? null : sharedCaughtPosts(world, player, range, posts, groups);
   return new SignpostConfinement(terrain, hx, hy, range, caught);
 }
 
-/** One network revision's spot limits, shared by every settler that plans from the same spot: a limit
- *  is a pure function of the spot, the player, the range and the network. */
+/** One player's spot limits, shared by every settler of his that plans from the same spot: a limit is a
+ *  pure function of the spot, the range and his posts, so it holds while his list is `sites`. */
 interface SpotLimits {
   readonly terrain: TerrainGraph;
-  readonly revision: number;
+  readonly sites: readonly SignpostSite[];
   readonly limits: Map<number, SignpostConfinement>;
 }
 
-/** Spots held per revision before the memo starts over, bounding it on a long-lived network. */
+/** Spots held per player before his memo starts over, bounding it on a long-lived network. */
 const SPOT_LIMIT_MEMO_CAP = 8192;
 /** Exclusive bounds of the fields {@link spotKey} packs. */
 const SPOT_COORD_SPAN = 1 << 14;
 const SPOT_RANGE_SPAN = 1 << 8;
 
-const spotLimitMemos = new WeakMap<World, SpotLimits>();
+const spotLimitMemos = new WeakMap<World, Map<number, SpotLimits>>();
 
-function spotLimitsOf(world: World, terrain: TerrainGraph, revision: number): SpotLimits {
-  let memo = spotLimitMemos.get(world);
-  if (memo === undefined || memo.revision !== revision || memo.terrain !== terrain) {
-    memo = { terrain, revision, limits: new Map() };
-    spotLimitMemos.set(world, memo);
+function spotLimitsOf(
+  world: World,
+  terrain: TerrainGraph,
+  player: number,
+  sites: readonly SignpostSite[],
+): SpotLimits {
+  let byPlayer = spotLimitMemos.get(world);
+  if (byPlayer === undefined) {
+    byPlayer = new Map();
+    spotLimitMemos.set(world, byPlayer);
+  }
+  let memo = byPlayer.get(player);
+  if (memo === undefined || memo.sites !== sites || memo.terrain !== terrain) {
+    memo = { terrain, sites, limits: new Map() };
+    byPlayer.set(player, memo);
   }
   return memo;
 }
 
-/** The spot's memo key, or null for one outside the packable span, which is derived afresh. */
-function spotKey(player: number, range: number, hx: number, hy: number): number | null {
-  if (player < 0 || range < 0 || range >= SPOT_RANGE_SPAN) return null;
+/** The spot's memo key within its player's memo, or null for one outside the packable span, which is
+ *  derived afresh. */
+function spotKey(range: number, hx: number, hy: number): number | null {
+  if (range < 0 || range >= SPOT_RANGE_SPAN) return null;
   if (hx < 0 || hy < 0 || hx >= SPOT_COORD_SPAN || hy >= SPOT_COORD_SPAN) return null;
-  return ((player * SPOT_RANGE_SPAN + range) * SPOT_COORD_SPAN + hx) * SPOT_COORD_SPAN + hy;
+  return (range * SPOT_COORD_SPAN + hx) * SPOT_COORD_SPAN + hy;
 }

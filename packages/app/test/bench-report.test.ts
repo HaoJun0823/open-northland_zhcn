@@ -262,12 +262,11 @@ describe('formatReport', () => {
         kind: 'realMap',
         mapId: 'magiczny_las_12_players',
         machineSeats: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-        progression: true,
-        needs: null,
+        session: 'map=magiczny_las_12_players&player=observer&seed=7&progression=on',
       },
     } as Parameters<typeof summarize>[2];
     expect(formatReport(summarize(new Map(), [], realMap))).toContain(
-      'map benchmark - magiczny_las_12_players, AI seats 0-12, progression on',
+      'map benchmark - magiczny_las_12_players, AI seats 0-12, ?map=magiczny_las_12_players&player=observer&seed=7&progression=on',
     );
   });
 

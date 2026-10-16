@@ -18,8 +18,9 @@ import { publishReport, reportFrom } from './run.js';
  * Needs generated content. `scripts/bench-map.mjs` hard-fails without it rather than skipping, so a
  * run that measured nothing cannot be mistaken for a clean one.
  *
- * Knobs (env, all optional): `ON_BENCH_MAP`, `ON_BENCH_SEATS` (a count or a comma list),
- * `ON_BENCH_PROGRESSION` and `ON_BENCH_NEEDS` (`on`/`off`), `ON_BENCH_TICKS`, `ON_BENCH_WARMUP`,
+ * Knobs (env, all optional): `ON_BENCH_SESSION` (a browser URL or its query, the whole session) or
+ * the per-field `ON_BENCH_MAP`, `ON_BENCH_SEATS` (a count or a comma list), `ON_BENCH_TRIBES`,
+ * `ON_BENCH_SEED`, `ON_BENCH_PROGRESSION` and `ON_BENCH_NEEDS` (`on`/`off`), `ON_BENCH_TICKS`, `ON_BENCH_WARMUP`,
  * `ON_BENCH_WINDOWS`, `ON_BENCH_SYNC_DIGEST` (fold the per-tick sync digest, the lockstep session's
  * cost), `ON_BENCH_MIRROR` (sample the snapshot delta path, see `mirror-probe.ts`) with
  * `ON_BENCH_MIRROR_BATCH` (ticks per delta, default 1), `ON_BENCH_MIRROR_DIGEST` (carry the truth digest),
@@ -82,10 +83,9 @@ async function main(): Promise<void> {
     measurement,
     world: {
       kind: 'realMap',
-      mapId: knobs.mapId,
+      mapId: knobs.session.mapId,
       machineSeats: world.machineSeats,
-      progression: knobs.progression,
-      needs: knobs.needs,
+      session: knobs.session.search,
       mapCells: world.mapCells,
       settlersAtStart: measurement.settlersAtStart,
       settlersAtEnd: measurement.settlersAtEnd,
@@ -104,9 +104,9 @@ async function main(): Promise<void> {
   // reported in the window table rather than checked: that depends on the tick count, so a check
   // would fail an honest short diagnostic run instead of catching a broken world.
   if (report.systems.length === 0) throw new Error('the measured ticks ran no systems');
-  if (report.world.settlersAtStart === 0) throw new Error(`${knobs.mapId} started with no settlers`);
+  if (report.world.settlersAtStart === 0) throw new Error(`${knobs.session.mapId} started with no settlers`);
   if ((report.windows.at(-1)?.population.resourceNodes ?? 0) === 0) {
-    throw new Error(`${knobs.mapId} ended with no resource nodes`);
+    throw new Error(`${knobs.session.mapId} ended with no resource nodes`);
   }
 }
 

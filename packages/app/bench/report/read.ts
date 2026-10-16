@@ -28,6 +28,7 @@ function isBenchReport(value: unknown, bad: (why: string) => never): value is Be
   }
   if (world.kind === 'realMap' && !Array.isArray(world.machineSeats))
     return bad('missing world.machineSeats[]');
+  if (world.kind === 'realMap' && typeof world.session !== 'string') return bad('missing world.session');
   if (!isRecord(world.mapCells) || typeof world.mapCells.width !== 'number') {
     return bad('missing world.mapCells');
   }

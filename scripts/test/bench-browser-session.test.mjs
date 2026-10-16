@@ -2,34 +2,40 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { cameraAt, checkpointSession, MAX_LOAD_PER_CPU, overloaded } from '../bench-browser-session.mjs';
 
+const SEARCH =
+  'map=krwawa_rzeka&player=overseer&tribes=1:2&difficulty=1:hard&computer=1,2&seed=7&fog=classic&needs=off';
+
 function save(session = {}) {
   return {
     header: {
       mapId: 'krwawa_rzeka',
       tick: 50002,
       seed: 7,
-      session: { machineSeats: [1, 2], stateHash: 'abc', ...session },
+      session: { search: SEARCH, stateHash: 'abc', ...session },
     },
   };
 }
 
-test('a checkpoint replays as an observer session over its computer seats', () => {
-  const { header, stateHash, params } = checkpointSession(save({ tribes: '1:2', needs: false }));
+test('a checkpoint replays as the session its stamp names', () => {
+  const { header, stateHash, params } = checkpointSession(save());
   assert.equal(header.tick, 50002);
   assert.equal(stateHash, 'abc');
-  assert.equal(params.get('map'), 'krwawa_rzeka');
-  assert.equal(params.get('player'), 'observer');
-  assert.equal(params.get('computer'), '1,2');
-  assert.equal(params.get('seed'), '7');
-  assert.equal(params.get('tribes'), '1:2');
-  assert.equal(params.get('needs'), 'off');
-  assert.equal(params.get('progression'), null);
+  for (const [key, value] of new URLSearchParams(SEARCH)) assert.equal(params.get(key), value);
+  assert.equal(params.get('zoom'), '1');
+  assert.equal(params.get('fullscreen'), 'off');
 });
 
-test('a checkpoint without seats or a state hash is refused', () => {
+test('a checkpoint without a session search or state hash, or with another map, is refused', () => {
   assert.throws(() => checkpointSession(save({ stateHash: undefined })), /bench:map checkpoint/);
-  assert.throws(() => checkpointSession(save({ machineSeats: [16] })), /bench:map checkpoint/);
+  assert.throws(
+    () => checkpointSession(save({ search: undefined, machineSeats: [1, 2] })),
+    /bench:map checkpoint/,
+  );
   assert.throws(() => checkpointSession({}), /bench:map checkpoint/);
+  assert.throws(
+    () => checkpointSession(save({ search: SEARCH.replace('krwawa_rzeka', 'oczy_weza') })),
+    /another map or seed/,
+  );
 });
 
 test('a camera centres the point in the window at its scale', () => {

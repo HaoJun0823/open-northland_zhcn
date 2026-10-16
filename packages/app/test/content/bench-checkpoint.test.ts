@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
+  type BenchSession,
   benchSession,
   type MapBenchWorldOptions,
   mapBenchWorld,
@@ -27,21 +28,20 @@ const AFTER_TICKS = 5;
 /** Absolute ticks for the marks, past the boot ticks a fresh world stands at. */
 const MARKS = [10, 16] as const;
 const SEED = 7;
-/** Seat 0 played as another civilization than the map authors for it. */
-const RETRIBED = '0:2';
+/** Seat 0 under AI, watched by an observer. */
+const BASE_SEARCH = `map=${MAP_ID}&player=observer&computer=0&seed=${SEED}`;
 const [FIRST_MARK, LAST_MARK] = MARKS;
 
 const dir = mkdtempSync(join(tmpdir(), 'on-bench-checkpoint-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
+function session(search: string): BenchSession {
+  return benchSession(new URLSearchParams(search));
+}
+
 function options(overrides: Partial<MapBenchWorldOptions> = {}): MapBenchWorldOptions {
   return {
-    mapId: MAP_ID,
-    seats: [0],
-    tribes: '',
-    seed: SEED,
-    progression: null,
-    needs: null,
+    session: session(BASE_SEARCH),
     syncDigest: false,
     checkpointPath: join(dir, 'world.checkpoint'),
     skipTicks: SKIP_TICKS,
@@ -75,22 +75,66 @@ describe.runIf(hasRealIr())('benchmark map checkpoint', () => {
     expect(restored.sim.hashState()).toBe(built.sim.hashState());
   });
 
-  it('refuses a checkpoint taken on another map, seed, other seats, tribes or rules', async () => {
+  it('refuses a checkpoint taken on another map, seed or session, naming both sessions', async () => {
     await mapBenchWorld(options(), 0);
-    await expect(mapBenchWorld(options({ seed: SEED + 1 }), 0)).rejects.toThrow(/seed 7, not 8/);
-    await expect(mapBenchWorld(options({ tribes: RETRIBED }), 0)).rejects.toThrow(/tribes '', not '0:2'/);
-    await expect(mapBenchWorld(options({ seats: [0, 1] }), 0)).rejects.toThrow(/AI seats 0,6, not 0-1,6/);
-    await expect(mapBenchWorld(options({ progression: true }), 0)).rejects.toThrow(
-      /progression the map default, not on/,
+    const other = (search: string) => options({ session: session(search) });
+    const written = options().session.search;
+    const reseeded = BASE_SEARCH.replace(`seed=${SEED}`, `seed=${SEED + 1}`);
+    await expect(mapBenchWorld(other(reseeded), 0)).rejects.toThrow(/seed 7, not 8/);
+    for (const search of [
+      `${BASE_SEARCH}&tribes=0:2`,
+      BASE_SEARCH.replace('computer=0', 'computer=0,1'),
+      `${BASE_SEARCH}&progression=on`,
+      `${BASE_SEARCH}&difficulty=0:hard`,
+    ]) {
+      const asked = other(search).session.search;
+      expect(asked).not.toBe(written);
+      await expect(mapBenchWorld(other(search), 0)).rejects.toThrow(
+        `holds session '?${written}', not '?${asked}'`,
+      );
+    }
+    const otherMap = options({ session: session(BASE_SEARCH.replace(MAP_ID, 'specjalna_forteca')) });
+    await expect(mapBenchWorld(otherMap, 0)).rejects.toThrow(/map 'magiczny_las', not 'specjalna_forteca'/);
+  });
+
+  it('stamps the session a browser URL names, difficulty included, and refuses an older stamp', async () => {
+    const hard = options({
+      session: session(`lang=pol&${BASE_SEARCH}&difficulty=0:hard&weathermode=map`),
+      checkpointPath: join(dir, 'hard.checkpoint'),
+    });
+    await mapBenchWorld(hard, 0);
+    const save = JSON.parse(readFileSync(join(dir, 'hard.checkpoint'), 'utf8'));
+    expect(save.header.session.search).toBe(hard.session.search);
+    expect(hard.session.search.split('&')).toEqual(
+      expect.arrayContaining(['difficulty=0:hard', 'weathermode=map', 'fog=classic']),
     );
-    await expect(mapBenchWorld(options({ mapId: 'specjalna_forteca' }), 0)).rejects.toThrow(
-      /map 'magiczny_las', not 'specjalna_forteca'/,
+    expect((await mapBenchWorld(hard, 0)).source).toBe('checkpoint');
+
+    const { search: _search, ...older } = save.header.session;
+    const olderPath = join(dir, 'older.checkpoint');
+    writeFileSync(
+      olderPath,
+      JSON.stringify({
+        ...save,
+        header: {
+          ...save.header,
+          session: { ...older, machineSeats: [0, 6], tribes: '', progression: null, needs: null },
+        },
+      }),
+    );
+    await expect(mapBenchWorld({ ...hard, checkpointPath: olderPath }, 0)).rejects.toThrow(
+      `${olderPath} carries no benchmark stamp this tool reads`,
     );
   });
 
   it('writes one checkpoint per mark, each restoring to the continuous run at that tick', async () => {
     const base = join(dir, 'marks.checkpoint');
-    const marked = options({ checkpointPath: base, skipTicks: 0, checkpointMarks: MARKS, needs: true });
+    const marked = options({
+      session: session(`${BASE_SEARCH}&needs=on`),
+      checkpointPath: base,
+      skipTicks: 0,
+      checkpointMarks: MARKS,
+    });
     const continuous = await mapBenchWorld(marked, LAST_MARK);
     const hashAt = new Map<number, string>();
     while (continuous.sim.tick < LAST_MARK) {
@@ -140,8 +184,8 @@ describe.runIf(hasRealIr())('benchmark map checkpoint', () => {
   it('prints a session whose assistants are the AI seats it builds, also without seat 0', () => {
     // The bench grants assistants to its AI seats alone; the session it names must do the same, which
     // an overseer's claim on seat 0 would not.
-    const session = benchSession(options({ seats: [1] }));
-    expect(sessionRoles(session, []).assistantSeats).toEqual([1, MAP_COMPUTER_SEAT]);
-    expect(sessionRoles(session, []).matchParticipants).toEqual([1, MAP_COMPUTER_SEAT]);
+    const { game } = session(BASE_SEARCH.replace('computer=0', 'computer=1'));
+    expect(sessionRoles(game, []).assistantSeats).toEqual([1, MAP_COMPUTER_SEAT]);
+    expect(sessionRoles(game, []).matchParticipants).toEqual([1, MAP_COMPUTER_SEAT]);
   });
 });

@@ -26,6 +26,7 @@ These run plain Node over compiled packages, without a test runner. `bench:sim`,
 ```bash
 npm run bench:map
 ON_BENCH_MAP=magiczny_las ON_BENCH_TICKS=50000 npm run bench:map
+ON_BENCH_SESSION='?map=piec_dolin&player=overseer&difficulty=0:hard,1:hard&computer=0,1&seed=144792704&weathermode=map' npm run bench:map
 ```
 
 Requires generated content; `ON_CONTENT_DIR` selects another directory. The benchmark uses the
@@ -33,6 +34,7 @@ same map world builder and seat rules as the browser, including the map's reserv
 
 | Variable | Meaning |
 | --- | --- |
+| `ON_BENCH_SESSION` | A browser URL or its query, parsed as the `?map=` entry parses it; replaces the map, seat, seed, tribe and rule knobs below, which must then be unset. Fog defaults to `classic`, seed to 7 |
 | `ON_BENCH_MAP` | Map id; default `magiczny_las` |
 | `ON_BENCH_SEATS` | Computer seats: count `n` means `0..n-1` (default 6); a comma list names seats; `n,` selects only seat `n` |
 | `ON_BENCH_SEED` | Seed; default 7 |
@@ -68,8 +70,8 @@ ON_BENCH_CHECKPOINT=/tmp/late.checkpoint ON_BENCH_SKIP=40000 npm run bench:profi
 ```
 
 The first run builds the world, skips ticks and saves it. Later runs restore it before measuring.
-Warm-up still applies because restored caches are cold. Map, seed, seats, tribes, rules, IR version
-and restored state hash must match.
+Warm-up still applies because restored caches are cold. Map, seed, the canonical session search
+(seats, tribes, difficulty, rules), IR version and restored state hash must match.
 
 `ON_BENCH_CHECKPOINTS` saves extra checkpoints at absolute ticks. Writes are outside tick timings,
 but their allocations affect GC measurements. Example:
@@ -124,7 +126,8 @@ npm run bench:compare -- before.json after.json
 ```
 
 Without arguments, compares the two latest compatible reports in untracked `bench-out/`.
-It rejects different worlds/report formats and reports changed state hashes as behavior changes.
+It rejects different worlds/report formats, including real-map runs of different canonical sessions,
+and reports changed state hashes as behavior changes.
 
 ## Browser benchmark
 

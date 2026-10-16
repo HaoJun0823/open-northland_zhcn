@@ -69,17 +69,9 @@ export function formatSeats(seats: readonly number[], separator = ','): string {
   return runs.length === 0 ? 'none' : runs.join(separator);
 }
 
-function ruleLabel(name: string, value: boolean | null): string {
-  return value === null ? '' : `, ${name} ${value ? 'on' : 'off'}`;
-}
-
-/** The session a real-map run played: its AI seats and the rule overrides that change the world. */
+/** The session a real-map run played: its AI seats and its canonical search. */
 export function realMapSession(world: Extract<BenchWorld, { kind: 'realMap' }>): string {
-  return (
-    `AI seats ${formatSeats(world.machineSeats)}` +
-    ruleLabel('progression', world.progression) +
-    ruleLabel('needs', world.needs)
-  );
+  return `AI seats ${formatSeats(world.machineSeats)}, ?${world.session}`;
 }
 
 export function worldIdentity(world: BenchWorld): string {

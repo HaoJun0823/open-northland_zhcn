@@ -38,8 +38,7 @@ function report(overrides: Partial<BenchReport> = {}): BenchReport {
       kind: 'realMap',
       mapId: 'magiczny_las',
       machineSeats: [0, 1, 2, 3, 4, 5, 6],
-      progression: null,
-      needs: null,
+      session: 'map=magiczny_las&player=observer&computer=0,1,2,3,4,5&seed=7&fog=classic',
       mapCells: { width: 240, height: 190 },
       settlersAtStart: 628,
       settlersAtEnd: 628,
@@ -108,12 +107,12 @@ describe('compareReports refuses', () => {
     expect(() => compareReports(report(), other)).toThrow(/different worlds/);
   });
 
-  it('the same map under other AI seats or other rules', () => {
+  it('the same map under other AI seats or another session', () => {
     const world = report().world as Extract<BenchReport['world'], { kind: 'realMap' }>;
     const fewer = report({ world: { ...world, machineSeats: [0, 1, 6] } });
     expect(() => compareReports(report(), fewer)).toThrow(/AI seats 0-6.*AI seats 0-1,6/);
-    const needs = report({ world: { ...world, needs: true } });
-    expect(() => compareReports(report(), needs)).toThrow(/needs on/);
+    const harder = report({ world: { ...world, session: `${world.session}&difficulty=0:hard` } });
+    expect(() => compareReports(report(), harder)).toThrow(/different worlds.*difficulty=0:hard/);
   });
 
   it('two different run lengths', () => {
@@ -199,10 +198,13 @@ describe('readReport', () => {
   it('names the file and the missing field rather than failing later on undefined', () => {
     expect(() =>
       readReport(
-        { version: BENCH_REPORT_VERSION, world: { kind: 'realMap', machineSeats: [] } },
+        { version: BENCH_REPORT_VERSION, world: { kind: 'realMap', machineSeats: [], session: '' } },
         'stale.json',
       ),
     ).toThrow(/stale\.json is not a benchmark report: missing world\.mapCells/);
+    const world = report().world as Extract<BenchReport['world'], { kind: 'realMap' }>;
+    const sessionless = { ...report(), world: { ...world, session: undefined } };
+    expect(() => readReport(sessionless, 'stale.json')).toThrow(/missing world\.session/);
     const noTicks = { ...report(), ticks: undefined };
     expect(() => readReport(noTicks, 'stale.json')).toThrow(/missing ticks\.measured/);
     expect(() => readReport('not json', 'x.json')).toThrow(/x\.json is not a benchmark report/);

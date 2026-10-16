@@ -2,7 +2,7 @@
 
 /** The report layout the reader accepts; a layout change bumps it, and a report of any other version is
  *  refused rather than read. */
-export const BENCH_REPORT_VERSION = 5;
+export const BENCH_REPORT_VERSION = 6;
 
 /** One system's cost across a measured segment. `sharePct` is its share of the summed per-system
  *  time - the scale-invariant number a regression check can compare across machines. */
@@ -60,9 +60,9 @@ export type BenchWorld =
       /** Every seat the session runs under AI, ascending: the requested seats plus the map's own
        *  computer seats, which the browser session runs whatever `?computer=` lists. */
       readonly machineSeats: readonly number[];
-      /** The session's `?progression=` / `?needs=` overrides; null keeps the map's own rule. */
-      readonly progression: boolean | null;
-      readonly needs: boolean | null;
+      /** The session's canonical search (`BenchSession.search`): runs of different difficulties,
+       *  tribes or rules never compare. */
+      readonly session: string;
     });
 
 /** Garbage collection inside one window, from V8's `gc` performance entries. */

@@ -12,7 +12,7 @@ import {
 } from '@open-northland/sim';
 import { realMapWorldOfSession } from '../test/content/real-map-world.js';
 import { boolEnv, intEnv, intListEnv } from './knobs.js';
-import { benchSession, mapBenchKnobs, mapBenchWorld, worldSourceLines } from './map-world.js';
+import { mapBenchKnobs, mapBenchWorld, worldSourceLines } from './map-world.js';
 
 /**
  * Restore parity - `npm run bench:parity`. A client joining a session restores a save and builds every
@@ -147,12 +147,12 @@ function digestDetail(sim: Simulation, recorded: Recording, expected: string, di
 async function main(): Promise<void> {
   const knobs = mapBenchKnobs(DEFAULT_TICKS);
   const ticks = intEnv('ON_BENCH_TICKS', DEFAULT_TICKS, HASH_STRIDE);
-  const session = benchSession(knobs);
+  const { mapId, game: session } = knobs.session;
 
   if (boolEnv('ON_BENCH_PARITY_FRESH')) {
-    const first = await realMapWorldOfSession(knobs.mapId, session);
+    const first = await realMapWorldOfSession(mapId, session);
     const recorded = stepRecording(first.sim, ticks, new Set(), () => {});
-    const second = await realMapWorldOfSession(knobs.mapId, session);
+    const second = await realMapWorldOfSession(mapId, session);
     const diverged = firstDivergence(second.sim, recorded);
     console.log(
       diverged === null
@@ -195,7 +195,7 @@ async function main(): Promise<void> {
   let failures = 0;
   for (const [tick, text] of [...recorded.saves].sort((a, b) => a[0] - b[0])) {
     const save = parseSaveGame(JSON.parse(text));
-    const { sim } = await realMapWorldOfSession(knobs.mapId, session, { save });
+    const { sim } = await realMapWorldOfSession(mapId, session, { save });
     const diverged = firstDivergence(sim, recorded);
     const label = extra.has(tick) ? ' (heavy-tick restore)' : '';
     console.log(

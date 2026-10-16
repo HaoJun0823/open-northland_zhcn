@@ -17,8 +17,6 @@ export async function openBenchPage(browser) {
 }
 /** A window whose one-minute load per CPU exceeds this at either boundary is void. */
 export const MAX_LOAD_PER_CPU = 1.5;
-/** The seat range a checkpoint stamp may name. */
-const SEAT_LIMIT = 16;
 /** Buildings this close on screen count toward a dense view: about half the window each way. */
 const DENSE_REACH = { x: 650, y: 380 };
 /** A restore of a late-game checkpoint can take minutes on a loaded machine. */
@@ -37,8 +35,9 @@ export function overloaded(...loads) {
 }
 
 /**
- * The observer session search that replays a `bench:map` checkpoint, with the header fields a restore
- * checks. Throws when the save lacks the map, seed, computer seats or state-hash stamp.
+ * The session search that replays a `bench:map` checkpoint, the one its stamp names, with the header
+ * fields a restore checks and the view the browser benchmarks measure. Throws when the save lacks the
+ * map, seed, session search or state-hash stamp, or when the search names another map or seed.
  */
 export function checkpointSession(save) {
   const header = save?.header;
@@ -47,24 +46,16 @@ export function checkpointSession(save) {
     !header?.mapId ||
     !Number.isInteger(header.tick) ||
     !Number.isInteger(header.seed) ||
-    !Array.isArray(stamp?.machineSeats) ||
-    !stamp.machineSeats.every((seat) => Number.isInteger(seat) && seat >= 0 && seat < SEAT_LIMIT) ||
+    typeof stamp?.search !== 'string' ||
     typeof stamp.stateHash !== 'string'
   )
-    throw new Error('Input must be a bench:map checkpoint carrying map, seed, AI seats and stateHash');
-  const params = new URLSearchParams({
-    map: header.mapId,
-    player: 'observer',
-    computer: stamp.machineSeats.join(','),
-    seed: String(header.seed),
-    fog: 'classic',
-    zoom: '1',
-    uiscale: '1',
-    fullscreen: 'off',
-  });
-  if (typeof stamp.tribes === 'string' && stamp.tribes !== '') params.set('tribes', stamp.tribes);
-  for (const key of ['progression', 'needs'])
-    if (typeof stamp[key] === 'boolean') params.set(key, stamp[key] ? 'on' : 'off');
+    throw new Error('Input must be a bench:map checkpoint carrying map, seed, session search and stateHash');
+  const params = new URLSearchParams(stamp.search);
+  if (params.get('map') !== header.mapId || params.get('seed') !== String(header.seed))
+    throw new Error(`The checkpoint's session '?${stamp.search}' names another map or seed than its save`);
+  params.set('zoom', '1');
+  params.set('uiscale', '1');
+  params.set('fullscreen', 'off');
   return { header, stateHash: stamp.stateHash, params };
 }
 

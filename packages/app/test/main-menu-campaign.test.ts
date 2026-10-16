@@ -2,6 +2,7 @@ import { Campaign } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { RECOMMENDED_CAMPAIGN_TRIBE } from '../src/campaign/launch.js';
 import {
+  completeCampaign,
   hasCampaignProgress,
   readCampaignProgress,
   resetCampaignProgress,
@@ -152,7 +153,7 @@ describe('campaign screen reset', () => {
     const storage = memoryStorage();
     expect(hasCampaignProgress(campaign, readCampaignProgress(campaign, storage))).toBe(false);
     skipCampaignStage(campaign, storage);
-    skipCampaignStage(campaign, storage);
+    completeCampaign(campaign, storage);
     const before = readCampaignProgress(campaign, storage);
     expect(hasCampaignProgress(campaign, before)).toBe(true);
     expect(campaignFilms(campaign, 'pol', before).finale).toEqual(FINALE);

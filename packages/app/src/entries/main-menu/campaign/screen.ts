@@ -5,7 +5,7 @@ import { campaignLanguage, campaignLogo, localizedText } from '../../../campaign
 import { type MovieLabels, type MusicSilencer, playCampaignMovie } from '../../../campaign/movie.js';
 import {
   type CampaignProgress,
-  canSkipCampaignStage,
+  campaignProgressKey,
   hasCampaignProgress,
   nextCampaignStage,
   readCampaignProgress,
@@ -17,6 +17,7 @@ import { createSystemConfirm, type SystemConfirmCopy } from '../../../hud/dom/sy
 import { displayViewOf, uiScaleFor } from '../../../hud/ui-scale.js';
 import { currentLocale, messages } from '../../../i18n/index.js';
 import type { LaunchEntry } from '../../../launch.js';
+import { replaceEntryUrl } from '../../../view/navigation-guard.js';
 import { targetSearch } from '../../../view/target-search.js';
 import { node } from '../dom.js';
 import type { MountedScreen } from '../model.js';
@@ -44,6 +45,53 @@ function viewerStorage(): Storage | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** The URL parameter that opens one campaign's tab, next to `?menu=campaign`. */
+const CAMPAIGN_PARAM = 'campaign';
+
+type ProgressStorage = Pick<Storage, 'getItem' | 'setItem'>;
+
+/** Reads as no saved progress: the first stage alone. */
+const NO_PROGRESS: ProgressStorage = { getItem: () => null, setItem: () => undefined };
+
+/** Stands in for missing window storage, so a write fails the same way a blocked one does. */
+const NO_STORAGE: ProgressStorage = {
+  getItem: () => {
+    throw new Error('Window storage is unavailable');
+  },
+  setItem: () => {
+    throw new Error('Window storage is unavailable');
+  },
+};
+
+/** The deep-linked campaign, read once and dropped from the address, so a remount keeps the viewer's choice. */
+function takeRequestedCampaign(): string | null {
+  const url = new URL(window.location.href);
+  const requested = url.searchParams.get(CAMPAIGN_PARAM);
+  if (requested === null) return null;
+  url.searchParams.delete(CAMPAIGN_PARAM);
+  replaceEntryUrl(url);
+  return requested;
+}
+
+/** Where focus sat in the tab, by what it names rather than by node, so a re-render can put it back. */
+type FocusPlace = { readonly selector: string; readonly index: number };
+
+function focusPlace(section: HTMLElement): FocusPlace | undefined {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || !section.contains(active)) return undefined;
+  const mapId = active.dataset.mapId;
+  if (mapId !== undefined) return { selector: `[data-map-id="${CSS.escape(mapId)}"]`, index: 0 };
+  const name = active.classList.item(0);
+  if (name === null) return undefined;
+  const selector = `${active.tagName.toLowerCase()}.${CSS.escape(name)}`;
+  return { selector, index: [...section.querySelectorAll(selector)].indexOf(active) };
+}
+
+function restoreFocus(section: HTMLElement, place: FocusPlace | undefined): void {
+  if (place === undefined) return;
+  section.querySelectorAll<HTMLElement>(place.selector)[place.index]?.focus();
 }
 
 /** The campaign's title artwork, or its localized title where there is none or it fails to load. */
@@ -111,6 +159,7 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
   const scope = new AbortController();
   const copy = messages().campaign;
   const storage = viewerStorage();
+  const progressStorage: ProgressStorage = storage ?? NO_STORAGE;
   const section = node('div', 'campaign-screen');
   const tabs = node('div', 'campaign-screen__campaigns');
   tabs.setAttribute('role', 'group');
@@ -155,12 +204,14 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
     renderTabs();
     const language = campaignLanguage(campaign, currentLocale());
     let progress: CampaignProgress;
+    let readable = true;
     try {
-      progress = readCampaignProgress(campaign, localStorage);
+      progress = readCampaignProgress(campaign, progressStorage);
+      if (status.textContent === copy.storageUnreadable) status.textContent = '';
     } catch {
-      status.textContent = copy.storage;
-      body.replaceChildren();
-      return;
+      readable = false;
+      progress = readCampaignProgress(campaign, NO_PROGRESS);
+      status.textContent = copy.storageUnreadable;
     }
     const stages = unlockedStages(campaign, progress);
     if (!stages.some(({ stage }) => stage.mapId === selected)) selected = stages.at(-1)?.stage.mapId;
@@ -200,6 +251,7 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
     const rows = stages.map(({ stage, number }) => {
       const row = node('button', 'campaign-screen__mission');
       row.type = 'button';
+      row.dataset.mapId = stage.mapId;
       row.append(
         node('span', 'campaign-screen__mission-number', String(number)),
         node('span', 'campaign-screen__mission-title', localizedText(stage.title, language)),
@@ -217,23 +269,18 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
 
     const start = node('button', 'main-menu__primary campaign-screen__start', copy.start);
     start.type = 'button';
+    // The menu holds every screen while the mission loads and gives input back if the load fails.
     start.addEventListener('click', () => {
       const mapId = selected;
-      if (mapId === undefined || busy) return;
-      setBusy(true);
-      const run = async (): Promise<void> => {
-        const chosen = launchTribe(tribe);
-        const query = campaignMissionQuery(
-          chosen === undefined ? { mapId, language } : { mapId, language, tribe: chosen },
-        );
-        if (!scope.signal.aborted) await launch(targetSearch(query));
-      };
-      void run().catch(() => {
-        if (scope.signal.aborted) return;
-        setBusy(false);
-        status.textContent = copy.storage;
-        show(campaign);
-      });
+      if (mapId === undefined || busy || asking) return;
+      const chosen = launchTribe(tribe);
+      launch(
+        targetSearch(
+          campaignMissionQuery(
+            chosen === undefined ? { mapId, language } : { mapId, language, tribe: chosen },
+          ),
+        ),
+      );
     });
 
     side.append(heading, list, start);
@@ -242,7 +289,7 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
     mapColumn.append(map.root, tribeChoice.root);
     const asideFoot = node('div', 'campaign-screen__aside-foot');
 
-    if (hasCampaignProgress(campaign, progress)) {
+    if (readable && hasCampaignProgress(campaign, progress)) {
       const reset = node('button', 'campaign-screen__reset', copy.reset);
       reset.type = 'button';
       reset.addEventListener('click', () => {
@@ -255,7 +302,7 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
           asking = false;
           if (!accepted || scope.signal.aborted) return;
           try {
-            resetCampaignProgress(campaign, localStorage);
+            resetCampaignProgress(campaign, progressStorage);
           } catch {
             status.textContent = copy.storage;
             return;
@@ -270,7 +317,7 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
       asideFoot.append(reset);
     }
 
-    if (canSkipCampaignStage(campaign, progress)) {
+    if (readable && nextCampaignStage(campaign, progress) !== undefined) {
       const skip = node('button', 'campaign-screen__skip', copy.skip);
       skip.type = 'button';
       skip.addEventListener('click', () => {
@@ -289,8 +336,8 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
           if (!accepted || scope.signal.aborted) return;
           let next: string | undefined;
           try {
-            next = nextCampaignStage(campaign, readCampaignProgress(campaign, localStorage));
-            skipCampaignStage(campaign, localStorage);
+            next = nextCampaignStage(campaign, readCampaignProgress(campaign, progressStorage));
+            skipCampaignStage(campaign, progressStorage);
           } catch {
             status.textContent = copy.storage;
             return;
@@ -331,12 +378,13 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
     .then((loaded) => {
       if (scope.signal.aborted) return;
       campaigns = loaded;
-      const requested = new URLSearchParams(window.location.search).get('campaign');
+      const requested = takeRequestedCampaign();
       const campaign = initialCampaign(campaigns, requested, readChosenCampaign(storage));
       if (campaign === undefined) {
         status.textContent = copy.empty;
         return;
       }
+      if (campaign.id === requested) rememberChosenCampaign(storage, campaign.id);
       show(campaign);
     })
     .catch(() => {
@@ -344,8 +392,13 @@ export function campaignTabBody(launch: LaunchEntry, silenceMusic: MusicSilencer
     });
   window.addEventListener(
     'storage',
-    () => {
-      if (current !== undefined && !busy && !asking) show(current);
+    (event) => {
+      if (current === undefined || busy || asking) return;
+      // A null key is another tab clearing all of this site's storage.
+      if (event.key !== null && event.key !== campaignProgressKey(current)) return;
+      const place = focusPlace(section);
+      show(current);
+      restoreFocus(section, place);
     },
     { signal: scope.signal },
   );

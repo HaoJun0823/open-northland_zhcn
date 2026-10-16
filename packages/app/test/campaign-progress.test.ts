@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { movieSize } from '../src/campaign/movie.js';
 import {
   campaignProgressKey,
-  canSkipCampaignStage,
   completeCampaign,
   grantCampaignMaps,
   hasCampaignProgress,
+  nextCampaignStage,
   readCampaignProgress,
   resetCampaignProgress,
   skipCampaignStage,
@@ -52,20 +52,15 @@ describe('campaign progression', () => {
     expect(skipCampaignStage(campaign, storage).unlocked).toEqual(['first', 'second']);
     expect(skipCampaignStage(campaign, storage).unlocked).toEqual(['first', 'second']);
   });
-  it('completes the campaign once the skip passes the last stage, keeping its grants', () => {
+  it('has nothing to skip to once every stage is unlocked and never completes the campaign', () => {
     const campaign = campaignFixture();
     const storage = memoryStorage();
-    expect(readCampaignProgress(campaign, storage).completed).toBe(false);
     skipCampaignStage(campaign, storage);
     const last = readCampaignProgress(campaign, storage);
     expect(last).toEqual({ unlocked: ['first', 'second'], completed: false });
-    expect(canSkipCampaignStage(campaign, last)).toBe(true);
-    const done = skipCampaignStage(campaign, storage);
-    expect(done).toEqual({ unlocked: ['first', 'second'], completed: true });
-    expect(readCampaignProgress(campaign, storage)).toEqual(done);
-    expect(canSkipCampaignStage(campaign, done)).toBe(false);
-    grantCampaignMaps(campaign, [{ campaignId: 3, mapId: 20 }], storage);
-    expect(readCampaignProgress(campaign, storage).completed).toBe(true);
+    expect(nextCampaignStage(campaign, last)).toBeUndefined();
+    expect(skipCampaignStage(campaign, storage)).toEqual(last);
+    expect(readCampaignProgress(campaign, storage)).toEqual(last);
   });
   it('reads anything but a literal true as not completed', () => {
     const campaign = campaignFixture();

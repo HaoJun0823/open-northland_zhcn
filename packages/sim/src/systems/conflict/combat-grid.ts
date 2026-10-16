@@ -166,9 +166,10 @@ const grids = new WeakMap<World, CombatGrid>();
 
 /**
  * The per-world cell grid under the combat tick's target index. Buildings form a layer held across ticks,
- * rebuilt only when a building is placed, removed, retyped, re-owned or gains or loses its Position or Health
- * pool. Units form a layer kept across ticks from a change feed, so a build costs the units that moved, joined,
- * left or changed owner, tribe or Anger. Vehicles and the firing marks are appended each build on top.
+ * updated for each building placed, removed, retyped or gaining or losing its Position or Health pool, and
+ * rebuilt when one is re-owned. Units form a layer kept across ticks from a change feed, so a build costs
+ * the units that moved, joined, left or changed owner, tribe or Anger. Vehicles and the firing marks are
+ * appended each build on top.
  * A building's hitpoints are not a key: one felled this tick stays in the layer until cleanup removes it,
  * which only over-counts the presence tallies, and every target filter already rejects a dead target. The
  * cells hold owner bits only, never a stance, so a diplomacy change needs no rebuild. Derived state, never
@@ -213,6 +214,8 @@ export class CombatGrid {
   /** The cells whose neighbourhood holds an undiscounted member or two owners. */
   private readonly strangerCells = new Set<CoarseCell>();
   private readonly bandScans: BandScan[] = [];
+  private readonly changedScratch: Entity[] = [];
+  private readonly touchedScratch: CoarseCell[] = [];
 
   constructor(
     readonly terrain: TerrainGraph,
@@ -229,21 +232,24 @@ export class CombatGrid {
    *  the grid ready for this build's admissions. */
   startBuild(world: World, ctx: SystemContext): void {
     for (const scan of this.bandScans) scan.valid = false;
-    if (!this.buildingsCurrent(world)) {
-      this.rebuildBuildings(world, ctx);
-    } else {
-      for (const cell of this.builtCells) {
-        cell.bodies.count = cell.bodyBase;
-        cell.buildTotal = 0;
-        cell.buildUndiscounted = 0;
-        cell.buildOwnerMask = 0;
-        cell.buildThreatMask = 0;
-        cell.buildThreatUndiscounted = 0;
-        cell.countedLast = null;
-        cell.builtOn = false;
-        this.refresh(cell);
-      }
-      this.builtCells.length = 0;
+    for (const cell of this.builtCells) {
+      cell.bodies.count = cell.bodyBase;
+      cell.buildTotal = 0;
+      cell.buildUndiscounted = 0;
+      cell.buildOwnerMask = 0;
+      cell.buildThreatMask = 0;
+      cell.buildThreatUndiscounted = 0;
+      cell.countedLast = null;
+      cell.builtOn = false;
+      this.refresh(cell);
+    }
+    this.builtCells.length = 0;
+    const changed = this.changedBuildings(world);
+    if (changed === null) this.rebuildBuildings(world, ctx);
+    else {
+      if (changed.length > 0) this.updateBuildings(world, ctx, changed);
+      this.stampGenerations(world);
+      this.buildingValueGeneration = world.componentValueGeneration(Building);
     }
     this.syncUnits(world, ctx.tick);
   }
@@ -340,15 +346,6 @@ export class CombatGrid {
     return scan;
   }
 
-  /** Whether the layer still holds for `world`, advancing the held generations past the changes that
-   *  touched no building so the next check replays only newer ones. */
-  private buildingsCurrent(world: World): boolean {
-    if (this.buildingsChanged(world)) return false;
-    this.stampGenerations(world);
-    this.buildingValueGeneration = world.componentValueGeneration(Building);
-    return true;
-  }
-
   /** Record the {@link LAYER_STORES} membership generations the layer is now current at. */
   private stampGenerations(world: World): void {
     if (this.generations === null) this.generations = [];
@@ -359,31 +356,79 @@ export class CombatGrid {
     }
   }
 
-  /** Whether a building joined, left, changed type or owner, or gained or lost a layer store since the last
-   *  build. Pure, so the verifier asks it too. */
-  private buildingsChanged(world: World): boolean {
+  /**
+   * The entities to re-admit to the building layer since the last build, ascending and each once: every
+   * building that joined, left, changed type or gained or lost a layer store. Null when the layer must be
+   * rebuilt instead: before the first build, past a journal's window, or after an Owner write. Pure, so the
+   * verifier asks it too; the list lives until the next call.
+   */
+  private changedBuildings(world: World): readonly Entity[] | null {
     const generations = this.generations;
-    if (generations === null) return true;
+    if (generations === null) return null;
+    const changed = this.changedScratch;
+    changed.length = 0;
+    const note = (e: Entity): void => {
+      if (this.buildings.has(e) || isLayerMember(world, e)) changed.push(e);
+    };
     for (let i = 0; i < LAYER_STORES.length; i++) {
       const store = LAYER_STORES[i];
       const since = generations[i];
-      if (store === undefined || since === undefined) return true;
+      if (store === undefined || since === undefined) return null;
       if (world.componentGeneration(store) === since) continue;
-      const changed = world.membershipDeltasSince(store, since);
-      if (changed === null) return true;
-      for (const e of changed) if (this.buildings.has(e) || isLayerMember(world, e)) return true;
+      if (!world.replayMembershipSince(store, since, note)) return null;
     }
     // No system writes an Owner in place today; one that does rebuilds rather than going unseen.
-    if (world.componentValueGeneration(Owner) !== this.ownerValueGeneration) return true;
+    if (world.componentValueGeneration(Owner) !== this.ownerValueGeneration) return null;
     // A Building value write is mostly construction progress; only a type swap moves a body.
     if (world.componentValueGeneration(Building) !== this.buildingValueGeneration) {
-      const written = world.valueWritesSince(Building, this.buildingValueGeneration);
-      for (const e of written ?? this.buildings.keys()) {
+      const retyped = (e: Entity): void => {
         const held = this.buildings.get(e);
-        if (held !== undefined && world.tryGet(e, Building)?.buildingType !== held.type) return true;
+        if (held !== undefined && world.tryGet(e, Building)?.buildingType !== held.type) changed.push(e);
+      };
+      if (!world.replayValueWritesSince(Building, this.buildingValueGeneration, retyped)) {
+        this.buildings.forEach((_, e) => {
+          retyped(e);
+        });
       }
     }
-    return false;
+    if (changed.length > 1) {
+      changed.sort((a, b) => a - b);
+      let kept = 1;
+      for (let i = 1; i < changed.length; i++) {
+        const e = changed[i] as Entity;
+        if (e !== changed[kept - 1]) changed[kept++] = e;
+      }
+      changed.length = kept;
+    }
+    return changed;
+  }
+
+  /** Drop each of `changed` from the building layer and admit it again if it still belongs, leaving every
+   *  other building's entries in place. The build share must already be cleared. */
+  private updateBuildings(world: World, ctx: SystemContext, changed: readonly Entity[]): void {
+    const touched = this.touchedScratch;
+    touched.length = 0;
+    for (const b of changed) {
+      const held = this.buildings.get(b);
+      if (held !== undefined) {
+        for (const cell of held.cells) {
+          dropBodies(cell, b);
+          touched.push(cell);
+        }
+        this.buildings.delete(b);
+        this.lowPriority.delete(b);
+      }
+      if (isLayerMember(world, b)) {
+        for (const cell of this.admitBuilding(world, ctx, b).cells) {
+          cell.bodyBase = cell.bodies.count;
+          touched.push(cell);
+        }
+      }
+    }
+    for (const cell of touched) {
+      tallyBase(cell);
+      this.refresh(cell);
+    }
   }
 
   /** Re-admit every building, clearing this build's share with the old layer; the units stay. */
@@ -406,27 +451,12 @@ export class CombatGrid {
     this.buildings.clear();
     this.lowPriority.clear();
     for (const b of world.query(Building, Health, Position)) {
-      const entry = buildingEntry(world, ctx, this.terrain, b);
-      const cells: CoarseCell[] = [];
-      const cellNodes: number[] = [];
-      for (const node of entry.nodes) {
-        const x = this.terrain.xOf(node);
-        const y = this.terrain.yOf(node);
-        const cell = this.cellFor(x, y);
-        push(cell.bodies, b, x, y, entry.bit);
-        const at = cells.indexOf(cell);
-        if (at >= 0) {
-          cellNodes[at] = (cellNodes[at] ?? 0) + 1;
-          continue;
-        }
-        cells.push(cell);
-        cellNodes.push(1);
+      const { cells, bit } = this.admitBuilding(world, ctx, b);
+      for (const cell of cells) {
         cell.baseTotal++;
-        if (entry.bit !== 0) cell.baseOwnerMask |= entry.bit;
+        if (bit !== 0) cell.baseOwnerMask |= bit;
         else cell.baseUndiscounted++;
       }
-      this.buildings.set(b, { ...entry, cells, cellNodes });
-      if (isLowPriorityBuildingTarget(world, ctx, b)) this.lowPriority.add(b);
     }
     for (const cell of this.cells) {
       if (cell === undefined) continue;
@@ -436,6 +466,31 @@ export class CombatGrid {
     this.stampGenerations(world);
     this.buildingValueGeneration = world.componentValueGeneration(Building);
     this.ownerValueGeneration = world.componentValueGeneration(Owner);
+  }
+
+  /** Append building `b` at each of its nodes to the building layer and hold its entry, which it returns.
+   *  The base tallies of the cells it spans are the caller's. */
+  private admitBuilding(world: World, ctx: SystemContext, b: Entity): HeldBuilding {
+    const entry = buildingEntry(world, ctx, this.terrain, b);
+    const cells: CoarseCell[] = [];
+    const cellNodes: number[] = [];
+    for (const node of entry.nodes) {
+      const x = this.terrain.xOf(node);
+      const y = this.terrain.yOf(node);
+      const cell = this.cellFor(x, y);
+      push(cell.bodies, b, x, y, entry.bit);
+      const at = cells.indexOf(cell);
+      if (at >= 0) {
+        cellNodes[at] = (cellNodes[at] ?? 0) + 1;
+        continue;
+      }
+      cells.push(cell);
+      cellNodes.push(1);
+    }
+    const held = { ...entry, cells, cellNodes };
+    this.buildings.set(b, held);
+    if (isLowPriorityBuildingTarget(world, ctx, b)) this.lowPriority.add(b);
+    return held;
   }
 
   /** Replay the unit feeds onto the unit layer, or re-admit every unit when a feed lost entries. An Anger
@@ -603,8 +658,8 @@ export class CombatGrid {
 
   /** The `verifyCaches` tripwire: a layer no journaled change calls stale must match a fresh derivation. */
   verify(world: World): string[] {
-    // A seen change rebuilds at the next build, before any query reads the layer.
-    if (this.buildingsChanged(world)) return [];
+    // A seen change is applied at the next build, before any query reads the layer.
+    if (this.changedBuildings(world)?.length !== 0) return [];
     const ctx = { content: this.content, terrain: this.terrain };
     let live = 0;
     for (const b of world.query(Building, Health, Position)) {
@@ -625,6 +680,37 @@ export class CombatGrid {
     }
     if (live !== this.buildings.size) {
       return [`combatBuildingLayer holds ${this.buildings.size} buildings but re-derived ${live}`];
+    }
+    return this.verifyBaseTallies();
+  }
+
+  /** Every cell's building share against its held buildings, counted once per cell each. */
+  private verifyBaseTallies(): string[] {
+    const fresh = new Map<CoarseCell, BaseTally>();
+    this.buildings.forEach((held) => {
+      held.cells.forEach((cell, i) => {
+        let tally = fresh.get(cell);
+        if (tally === undefined) {
+          tally = emptyBaseTally();
+          fresh.set(cell, tally);
+        }
+        tally.total++;
+        tally.nodes += held.cellNodes[i] ?? 0;
+        if (held.bit !== 0) tally.ownerMask |= held.bit;
+        else tally.undiscounted++;
+      });
+    });
+    for (const cell of this.cells) {
+      if (cell === undefined) continue;
+      const tally = fresh.get(cell) ?? emptyBaseTally();
+      if (
+        cell.bodyBase !== tally.nodes ||
+        cell.baseTotal !== tally.total ||
+        cell.baseUndiscounted !== tally.undiscounted ||
+        cell.baseOwnerMask !== tally.ownerMask
+      ) {
+        return [`combatBuildingLayer cell ${cell.index} building tallies drifted from its buildings`];
+      }
     }
     return [];
   }
@@ -799,6 +885,59 @@ function wildClassOf(
   const anger = world.tryGet(e, Anger);
   if (anger !== undefined && tick < anger.until) return 'hostile';
   return world.tryGet(e, Engagement)?.target !== undefined ? 'hostile' : 'passive';
+}
+
+/** Remove every entry of `e` from `cell`'s building share, keeping the others in order. */
+function dropBodies(cell: CoarseCell, e: Entity): void {
+  const list = cell.bodies;
+  let kept = 0;
+  for (let i = 0; i < cell.bodyBase; i++) {
+    const member = list.members[i];
+    if (member === e || member === undefined) continue;
+    if (kept !== i) {
+      list.members[kept] = member;
+      list.x[kept] = list.x[i] ?? 0;
+      list.y[kept] = list.y[i] ?? 0;
+      list.bit[kept] = list.bit[i] ?? 0;
+    }
+    kept++;
+  }
+  list.count = kept;
+  cell.bodyBase = kept;
+}
+
+/** Re-count `cell`'s building share from its entries: a building's nodes in one cell sit together, so each
+ *  run of one member is one building. */
+function tallyBase(cell: CoarseCell): void {
+  const { members, bit } = cell.bodies;
+  let total = 0;
+  let undiscounted = 0;
+  let ownerMask = 0;
+  let last: Entity | undefined;
+  for (let i = 0; i < cell.bodyBase; i++) {
+    const member = members[i];
+    if (member === last) continue;
+    last = member;
+    total++;
+    const memberBit = bit[i] ?? 0;
+    if (memberBit !== 0) ownerMask |= memberBit;
+    else undiscounted++;
+  }
+  cell.baseTotal = total;
+  cell.baseUndiscounted = undiscounted;
+  cell.baseOwnerMask = ownerMask;
+}
+
+/** A cell's building share as {@link CombatGrid.verify} re-derives it. */
+interface BaseTally {
+  total: number;
+  undiscounted: number;
+  ownerMask: number;
+  nodes: number;
+}
+
+function emptyBaseTally(): BaseTally {
+  return { total: 0, undiscounted: 0, ownerMask: 0, nodes: 0 };
 }
 
 function memberList(): MemberList {

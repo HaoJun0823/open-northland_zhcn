@@ -62,7 +62,7 @@ export interface GrantSpec {
 }
 
 export function dispatchAssistantGrants(pass: PlannerPass): void {
-  const { world, ctx, terrain, targets } = pass;
+  const { world, ctx, targets } = pass;
   const grants = collectGrantSpecs(pass);
   if (grants.size === 0) return; // no player granted anything: the pass costs one empty query
   // Manual orders are included, so the assistant also respects a unit the player already sent someone after.

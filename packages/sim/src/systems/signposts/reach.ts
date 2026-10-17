@@ -347,8 +347,9 @@ function spotKey(terrain: TerrainGraph, player: number, hx: number, hy: number):
  */
 class GoodsSearchLimit implements SpatialGate {
   readonly bounds: NodeBox;
-  /** Per nearby group, whether the own search catches it, once asked. */
-  private readonly caught: Uint8Array;
+  /** Per nearby group, whether the own search catches it, once asked; made on the first ask, since most
+   *  rebased limits are never asked. */
+  private caught: Uint8Array | undefined;
   private local: ReachArea | undefined;
   /** The reach versions and epoch the limit was built under, and the world mutation version it was last
    *  confirmed at. */
@@ -371,7 +372,6 @@ class GoodsSearchLimit implements SpatialGate {
     this.versions = cache.versions;
     this.epoch = cache.epoch;
     this.confirmedAt = world.mutationVersion;
-    this.caught = new Uint8Array(groups.nearby.length);
     this.bounds = groups.bounds;
   }
 
@@ -456,6 +456,7 @@ class GoodsSearchLimit implements SpatialGate {
 
   /** Whether the own search marks a post of nearby group `i`. */
   private catches(i: number): boolean {
+    this.caught ??= new Uint8Array(this.groups.nearby.length);
     const known = this.caught[i];
     if (known !== UNASKED) return known === CAUGHT;
     const posts = this.groups.nearbyPosts[i] as readonly SignpostSite[];

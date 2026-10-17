@@ -192,7 +192,7 @@ describe('restoreSimulation continuation', () => {
     expect(serializeSaveGame(exportSaveGame(restored))).toBe(bytes);
   });
 
-  it('rebuilds a PathFollow with every key in its factory order, absent ones undefined', () => {
+  it('rebuilds PathFollow and Position records in their live key order, absent keys undefined', () => {
     const sim = new Simulation({ seed: 1, content: testContent() });
     const e = sim.world.create();
     const LEG_STARTED_AT = 7;
@@ -200,12 +200,14 @@ describe('restoreSimulation continuation', () => {
     sim.world.add(e, PathFollow, pathFollowRecord({ index: 1, legElapsed: 0, legCost: LEG_COST }));
     sim.world.mut(e, PathFollow).legStartedAt = LEG_STARTED_AT;
     sim.world.add(e, PathRoute, { waypoints: [] });
+    sim.world.add(e, Position, positionOfNode(1, 1));
     const { bytes, save } = throughBytes(sim);
     const restored = restoreSimulation(save, { content: testContent() });
     const follow = restored.world.get(e, PathFollow);
     expect(Object.keys(follow)).toEqual(Object.keys(sim.world.get(e, PathFollow)));
     expect(follow).toEqual({ index: 1, legStartedAt: LEG_STARTED_AT, legElapsed: 0, legCost: LEG_COST });
     expect(serializeSaveGame(exportSaveGame(restored))).toBe(bytes);
+    expect(Object.keys(restored.world.get(e, Position))).toEqual(Object.keys(positionOfNode(1, 1)));
   });
 
   it('rebuilds a Map component field as a live Map in its saved insertion order', () => {

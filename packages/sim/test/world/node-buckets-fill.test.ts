@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Position } from '../../src/components/index.js';
 import { type Entity, World } from '../../src/ecs/world.js';
 import { positionOfNode } from '../../src/index.js';
-import { NodeBuckets } from '../../src/systems/spatial/nodes.js';
+import { NodeBuckets, OCCUPANCY_MAX_SLOTS } from '../../src/systems/spatial/nodes.js';
 
 /**
  * How a {@link NodeBuckets} bucket comes to hold ascending ids - the order every ring search's first-match
@@ -103,6 +103,27 @@ describe('NodeBuckets fill order', () => {
         }
       }
     }
+  });
+
+  it('still finds a node whose occupancy slot another node shares after that node empties', () => {
+    const world = new World();
+    const kept = world.create();
+    const moved = world.create();
+    const buckets = new NodeBuckets(world, []);
+    // A y offset of the largest filter size lands in the same slot at every filter size.
+    const twin = { x: NODE.x, y: NODE.y + OCCUPANCY_MAX_SLOTS };
+    buckets.insert(kept, NODE.x, NODE.y);
+    buckets.insert(moved, twin.x, twin.y);
+    buckets.remove(moved, twin.x, twin.y);
+
+    expect(buckets.at(NODE.x, NODE.y)).toEqual([kept]);
+    expect(buckets.at(twin.x, twin.y)).toEqual([]);
+    expect(buckets.nearest(NODE.x, NODE.y, 0, 1, () => true)).toEqual({ entity: kept, distance: 0 });
+
+    buckets.insert(moved, twin.x, twin.y);
+    buckets.remove(kept, NODE.x, NODE.y);
+    expect(buckets.at(twin.x, twin.y)).toEqual([moved]);
+    expect(buckets.nearest(twin.x, twin.y, 0, 1, () => true)).toEqual({ entity: moved, distance: 0 });
   });
 });
 

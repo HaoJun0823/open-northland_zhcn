@@ -281,7 +281,7 @@ export function nearestOwnDropFor(
   plan: PlannerContext,
 ): { pile: Entity; goodType: number; cell: NodeId; dist: number } | null {
   const { world, entity: gatherer, targets } = plan;
-  const own = targets.groundDropsByHarvester.get(gatherer);
+  const own = targets.ownDropsOf(gatherer);
   if (own === undefined) return null;
   return nearestDropFor(plan, [own], (e) => {
     const mark = world.tryGet(e, HarvestedBy);

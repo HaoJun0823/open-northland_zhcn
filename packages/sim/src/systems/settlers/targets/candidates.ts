@@ -12,6 +12,7 @@ import {
   UnderConstruction,
 } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
+import { includesSortedId } from '../../../core/sorted-id.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { BlockOverlay } from '../../../nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
@@ -23,6 +24,7 @@ import { InteractionCellIndex } from './cell-index.js';
 import { constructionSiteCells } from './construction-site-cells.js';
 import { cropsByFarm } from './crops-by-farm.js';
 import { fieldZones, type NodeMembership } from './field-zones.js';
+import { harvesterMarks } from './harvester-marks.js';
 import { roadSiteCells as roadSiteCellsOf } from './road-site-cells.js';
 import { stockpileCells } from './stockpile-cells.js';
 import { SinkAvailability } from './stores/sinks.js';
@@ -71,8 +73,9 @@ export interface TargetCandidates {
   /** {@link groundDrops} under every good each pile holds, ascending-id, so a scan for one good never
    *  visits the others. A superset for the pass: a ground drop only ever loses goods. */
   readonly groundDropsByGood: ReadonlyMap<number, readonly Entity[]>;
-  /** {@link groundDrops} carrying a {@link HarvestedBy} mark, under the harvester it names, ascending-id. */
-  readonly groundDropsByHarvester: ReadonlyMap<Entity, readonly Entity[]>;
+  /** The {@link groundDrops} whose {@link HarvestedBy} mark names `harvester`, ascending-id, or undefined
+   *  for none. */
+  ownDropsOf(harvester: Entity): readonly Entity[] | undefined;
   /** Sown fields grouped by the {@link Crop.farm} that owns them, each list ascending-id, so a farmer
    *  reads only its own farm's fields instead of the settlement's whole crop list. */
   readonly cropsByFarm: ReadonlyMap<Entity, readonly Entity[]>;
@@ -133,7 +136,7 @@ class TickTargets implements TargetCandidates {
   private wallRepairCellsMemo: InteractionCellIndex | undefined;
   private zones: NodeMembership | undefined;
   private groundDropsByGoodMemo: Map<number, Entity[]> | undefined;
-  private groundDropsByHarvesterMemo: Map<Entity, Entity[]> | undefined;
+  private harvesterMarksMemo: ReadonlyMap<Entity, readonly Entity[]> | undefined;
 
   constructor(
     private readonly world: World,
@@ -221,19 +224,19 @@ class TickTargets implements TargetCandidates {
     return this.groundDropsByGoodMemo;
   }
 
-  get groundDropsByHarvester(): ReadonlyMap<Entity, readonly Entity[]> {
-    if (this.groundDropsByHarvesterMemo === undefined) {
-      const byHarvester = new Map<Entity, Entity[]>();
-      const { world, groundDrops } = this;
-      for (let i = 0; i < groundDrops.length; i++) {
-        const pile = groundDrops[i];
-        if (pile === undefined) continue;
-        const mark = world.tryGet(pile, HarvestedBy);
-        if (mark !== undefined) pushTo(byHarvester, mark.by, pile);
+  ownDropsOf(harvester: Entity): readonly Entity[] | undefined {
+    // Caught up on the pass's first ask, like the views above, and narrowed to the drops of the pass start.
+    this.harvesterMarksMemo ??= harvesterMarks(this.world);
+    const marked = this.harvesterMarksMemo.get(harvester);
+    if (marked === undefined) return undefined;
+    const drops = this.groundDrops;
+    for (let i = 0; i < marked.length; i++) {
+      if (!includesSortedId(drops, marked[i] as Entity, entityId)) {
+        const standing = marked.filter((e) => includesSortedId(drops, e, entityId));
+        return standing.length === 0 ? undefined : standing;
       }
-      this.groundDropsByHarvesterMemo = byHarvester;
     }
-    return this.groundDropsByHarvesterMemo;
+    return marked;
   }
 
   get cropsByFarm(): ReadonlyMap<Entity, readonly Entity[]> {
@@ -250,6 +253,8 @@ class TickTargets implements TargetCandidates {
     return new InteractionCellIndex(this.world, this.ctx, this.terrain, candidates);
   }
 }
+
+const entityId = (e: Entity): number => e;
 
 function pushTo<K>(lists: Map<K, Entity[]>, key: K, e: Entity): void {
   const list = lists.get(key);

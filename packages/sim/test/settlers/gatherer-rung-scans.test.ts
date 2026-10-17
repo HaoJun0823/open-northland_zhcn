@@ -167,7 +167,7 @@ describe('pile scan', () => {
     const own = pileAt(sim, 12, 10, WOOD);
     sim.world.add(own, HarvestedBy, { by: plan.entity });
     const fresh = { ...plan, targets: collectTargets(sim.world, plan.ctx, plan.terrain) };
-    void fresh.targets.groundDropsByHarvester;
+    void fresh.targets.ownDropsOf(plan.entity);
     const get = vi.spyOn(sim.world, 'get');
     const tryGet = vi.spyOn(sim.world, 'tryGet');
 

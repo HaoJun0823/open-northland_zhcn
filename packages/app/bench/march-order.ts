@@ -167,12 +167,15 @@ function issueMarch(sim: Simulation, knobs: MarchKnobs): { lines: string[]; marc
   const target = knobs.target ?? farthestEnemyHeadquarters(sim, seat, selectedCentre);
   if (target === null) throw new Error(`march: seat ${seat} has no enemy headquarters to aim at`);
 
+  // The slot query a click sends the sim worker, outside the tick: timed here since no system meter sees it.
+  const slotsStartMs = performance.now();
   const groups =
     sim.formationSlots(
       target,
       selected.map(([e]) => e),
       MILITARY_ROW_SPACING,
     ) ?? [];
+  const slotsMs = performance.now() - slotsStartMs;
   const marchers: Marcher[] = [];
   for (const group of groups) {
     if (group.commandedVehicle !== undefined) continue;
@@ -200,7 +203,7 @@ function issueMarch(sim: Simulation, knobs: MarchKnobs): { lines: string[]; marc
     lines: [
       `march: seat ${seat} (${army.length} fighters) sends ${marchers.length} of ${selected.length} selected ` +
         `from node ${selectedCentre.hx},${selectedCentre.hy} to ${target.hx},${target.hy} ` +
-        `(${distance} nodes), applying at tick ${knobs.applyTick}`,
+        `(${distance} nodes), applying at tick ${knobs.applyTick}; slot query ${slotsMs.toFixed(1)} ms`,
     ],
   };
 }

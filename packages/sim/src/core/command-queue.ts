@@ -12,6 +12,9 @@ export type LoggedCommand = CommandEnvelope & {
   readonly sequence: number;
 };
 
+/** Logged commands per sealed chunk of the replay log. */
+const LOG_CHUNK_ENTRIES = 256;
+
 /** An envelope held for the tick it was stamped for, ordered within that tick by `sequence`. */
 interface ScheduledEnvelope {
   readonly envelope: CommandEnvelope;
@@ -29,7 +32,12 @@ export class CommandQueue {
   private pending: CommandEnvelope[] = [];
   private scheduled: ScheduledEnvelope[] = [];
   private continuation: SavedCommand[] = [];
-  private readonly applied: LoggedCommand[] = [];
+  /** The replay log as JSON text: whole chunks of {@link LOG_CHUNK_ENTRIES} entries, each one array
+   *  text, then the entries of the open chunk. A long session logs thousands of commands an hour and
+   *  nothing in the run reads them back, so they are held as a few strings rather than as objects
+   *  every collection walks. */
+  private readonly sealedLog: string[] = [];
+  private openLog: string[] = [];
   private nextSequence = 0;
   private late = 0;
   /** Target tick → the sequences already claimed for it, dropped once that tick drains. */
@@ -161,7 +169,8 @@ export class CommandQueue {
       this.pending.length > 0 ||
       this.scheduled.length > 0 ||
       this.continuation.length > 0 ||
-      this.applied.length > 0 ||
+      this.sealedLog.length > 0 ||
+      this.openLog.length > 0 ||
       this.nextSequence !== 0
     ) {
       throw new Error('CommandQueue.restore: the queue is already in use');
@@ -187,13 +196,25 @@ export class CommandQueue {
   }
 
   /** Append a command to the log and give it the run's next sequence (CommandSystem-only, after it
-   *  admits or rejects it). */
+   *  admits or rejects it). Commands are plain data by contract, so the JSON text keeps all of one. */
   record(applyTick: number, envelope: CommandEnvelope): void {
-    this.applied.push({ ...envelope, applyTick, sequence: this.nextSequence++ });
+    const entry: LoggedCommand = { ...envelope, applyTick, sequence: this.nextSequence++ };
+    this.openLog.push(JSON.stringify(entry));
+    if (this.openLog.length === LOG_CHUNK_ENTRIES) {
+      this.sealedLog.push(`[${this.openLog.join(',')}]`);
+      this.openLog = [];
+    }
   }
 
-  /** The append-only replay log, strictly ascending in `(applyTick, sequence)`. Read-only to consumers. */
+  /** The append-only replay log, strictly ascending in `(applyTick, sequence)`, decoded afresh on every
+   *  read: a diagnostics or replay seam, never a per-tick one. */
   get log(): readonly LoggedCommand[] {
-    return this.applied;
+    // The text is this queue's own serialization of logged entries, not untrusted input.
+    const out: LoggedCommand[] = [];
+    for (const chunk of this.sealedLog) {
+      for (const entry of JSON.parse(chunk) as LoggedCommand[]) out.push(entry);
+    }
+    for (const text of this.openLog) out.push(JSON.parse(text) as LoggedCommand);
+    return out;
   }
 }

@@ -1,0 +1,18 @@
+{
+  "reason": "Strona 515 otwiera się po wyjściu z krypty, z której wychodzi tylko kapłan Kain (strona krypty i cel 51 mówią o Kainie, a Bain jest w niewoli u Seldżuków), ale we wszystkich wersjach każe eskortować Baina. Strona 523 każe płynąć na północny wschód do obozu Seldżuków, który leży na północnym zachodzie mapy (cel 59 i odsłaniany obszar przy 60,147). Poprawiamy imię i kierunek.",
+  "file": "maps/community/Mroczny_Swiat/text/ger/briefings/briefings.txt",
+  "sha256": "035348113f10d9c386260cabb5ac1a7c57730ceeaa590a29e7f86603562b40ec",
+  "encoding": "windows-1252",
+  "lines": [
+    {
+      "line": 198,
+      "from": "Eskortieren wir Priester Bain zum Großen Heiligtum des Lichts im Südosten.",
+      "to": "Eskortieren wir Priester Kain zum Großen Heiligtum des Lichts im Südosten."
+    },
+    {
+      "line": 300,
+      "from": "Segel setzen, Kurs: Nordosten.",
+      "to": "Segel setzen, Kurs: Nordwesten."
+    }
+  ]
+}

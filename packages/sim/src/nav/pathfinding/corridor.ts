@@ -47,7 +47,7 @@ export function joinCorridor(
   if (typeof onto === 'string' || !isHop(graph, onto)) return null;
   const off = findPathWithin(graph, exit.node, goal, blocked, stats, CORRIDOR_LEG_MAX_EXPLORED, traversal);
   if (typeof off === 'string' || !isHop(graph, off)) return null;
-  return withoutLoops([...onto, ...corridor.slice(entry.index + 1, exit.index), ...off]);
+  return joinedLegs(onto, lattice, corridor, entry.index + 1, exit.index, off);
 }
 
 /**
@@ -85,6 +85,8 @@ interface CorridorLattice {
   readonly maxX: number;
   readonly minY: number;
   readonly maxY: number;
+  /** No node repeats, so no stretch of the corridor holds a loop of its own. */
+  readonly loopFree: boolean;
 }
 
 /** Keyed by the corridor array, which a caller never mutates once routed. */
@@ -93,6 +95,7 @@ const lattices = new WeakMap<readonly NodeId[], CorridorLattice>();
 function corridorLattice(graph: TerrainGraph, corridor: readonly NodeId[]): CorridorLattice {
   const held = lattices.get(corridor);
   if (held !== undefined) return held;
+  const seen = new Set<NodeId>();
   const xs = new Int32Array(corridor.length);
   const ys = new Int32Array(corridor.length);
   let minX = Number.POSITIVE_INFINITY,
@@ -102,6 +105,7 @@ function corridorLattice(graph: TerrainGraph, corridor: readonly NodeId[]): Corr
   for (let i = 0; i < corridor.length; i++) {
     const node = corridor[i];
     if (node === undefined) continue;
+    seen.add(node);
     const x = graph.xOf(node),
       y = graph.yOf(node);
     xs[i] = x;
@@ -111,7 +115,7 @@ function corridorLattice(graph: TerrainGraph, corridor: readonly NodeId[]): Corr
     minY = Math.min(minY, y);
     maxY = Math.max(maxY, y);
   }
-  const lattice = { xs, ys, minX, maxX, minY, maxY };
+  const lattice = { xs, ys, minX, maxX, minY, maxY, loopFree: seen.size === corridor.length };
   lattices.set(corridor, lattice);
   return lattice;
 }
@@ -147,6 +151,35 @@ function nearestStop(
     bestDistance = distance;
   }
   return best;
+}
+
+/**
+ * {@link withoutLoops} of `onto`, `corridor[from..to)` and `off`. The searched legs are loop-free, so when
+ * the corridor is too and no node lies in two parts, the joined route is their plain concatenation and
+ * the long corridor stretch is never indexed.
+ */
+function joinedLegs(
+  onto: readonly NodeId[],
+  lattice: CorridorLattice,
+  corridor: readonly NodeId[],
+  from: number,
+  to: number,
+  off: readonly NodeId[],
+): NodeId[] {
+  const legs = new Set<NodeId>(onto);
+  let shared = !lattice.loopFree || off.some((node) => legs.has(node));
+  for (const node of off) legs.add(node);
+  for (let i = from; i < to && !shared; i++) {
+    const node = corridor[i];
+    shared = node !== undefined && legs.has(node);
+  }
+  const joined = [...onto];
+  for (let i = from; i < to; i++) {
+    const node = corridor[i];
+    if (node !== undefined) joined.push(node);
+  }
+  for (const node of off) joined.push(node);
+  return shared ? withoutLoops(joined) : joined;
 }
 
 /** `path` with every revisit cut back to the node's first visit, so a hop that crosses the corridor

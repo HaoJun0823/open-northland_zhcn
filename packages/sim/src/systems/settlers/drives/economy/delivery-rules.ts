@@ -193,6 +193,9 @@ function toNeedingConstructionSite(
           ? QUALIFIES
           : null,
       area.gate,
+      undefined,
+      // Another player's sites are never in need of this load, so their side is skipped whole.
+      sameSideAs(world, owner),
     )?.entity ?? null
   );
 }

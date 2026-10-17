@@ -1,5 +1,5 @@
 import { PRAYER_SITE } from '@open-northland/data';
-import { ownerOf, ownersCompatible, sameSideAs } from '../../../../components/index.js';
+import { sameSideAs } from '../../../../components/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import { hexDistanceBetween } from '../../../../nav/halfcell.js';
 import type { SpatialGate } from '../../../../nav/node-circle.js';
@@ -69,15 +69,15 @@ export function nearestBuilderSite(
   /** Additional side-effect-free task qualification for builder allocation. */
   acceptsSite: (site: Entity) => boolean = () => true,
 ): Entity | null {
-  // `gate` is the builder's signpost confinement: a site outside its allowed area is left unbuilt.
+  // `gate` is the builder's signpost confinement: a site outside its allowed area is left unbuilt. Another
+  // side's sites are skipped whole by the side split.
   return (
     index.nearest(
       here,
-      (e) =>
-        ownersCompatible(owner, ownerOf(world, e)) && avoidSite?.(e) !== true && acceptsSite(e)
-          ? QUALIFIES
-          : null,
+      (e) => (avoidSite?.(e) !== true && acceptsSite(e) ? QUALIFIES : null),
       gate,
+      undefined,
+      sameSideAs(world, owner),
     )?.entity ?? null
   );
 }

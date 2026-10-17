@@ -8,6 +8,7 @@ import {
   Position,
   ReplantMisses,
   Resource,
+  type ResourceFootprintCells,
   Settler,
   WorkFlag,
 } from '../../components/index.js';
@@ -189,15 +190,36 @@ function mayWorkInside(world: World, limit: NavigationLimit, r: Entity): boolean
   if (limit.mayAllowNear === undefined || footprint === undefined || p === undefined) return true;
   const ax = nodeHxOfPosition(p.x, p.y);
   const ay = nodeHyOfPosition(p.y);
-  let reach = NEIGHBOUR_REACH;
-  for (const cell of footprint.work) {
-    reach = Math.max(reach, Math.abs(footprintCellDx(ay, cell)) + Math.abs(cell.dy));
-  }
-  return limit.mayAllowNear(ax, ay, reach);
+  return limit.mayAllowNear(ax, ay, workReachOf(footprint, ay));
 }
 
 /** A work cell's farthest fallback from its anchor: a 4-neighbour. */
 const NEIGHBOUR_REACH = 1;
+
+/** Per shared footprint, its work reach on an even and an odd anchor row: a work cell's x offset
+ *  shifts with the anchor row's parity, nothing else about the anchor. */
+const workReaches = new WeakMap<ResourceFootprintCells, readonly [number, number]>();
+
+/** The farthest of `footprint`'s work cells and the 4-neighbours from an anchor on row `ay`. */
+function workReachOf(footprint: ResourceFootprintCells, ay: number): number {
+  let reaches = workReaches.get(footprint);
+  if (reaches === undefined) {
+    reaches = [workReachOnRow(footprint, EVEN_ROW), workReachOnRow(footprint, ODD_ROW)];
+    workReaches.set(footprint, reaches);
+  }
+  return (ay & 1) === 0 ? reaches[0] : reaches[1];
+}
+
+const EVEN_ROW = 0;
+const ODD_ROW = 1;
+
+function workReachOnRow(footprint: ResourceFootprintCells, ay: number): number {
+  let reach = NEIGHBOUR_REACH;
+  for (const cell of footprint.work) {
+    reach = Math.max(reach, Math.abs(footprintCellDx(ay, cell)) + Math.abs(cell.dy));
+  }
+  return reach;
+}
 
 /** Whether a live resource of `goods` that `workable` accepts stands within the band of `flagNode`: one
  *  bounded box query, so a gatherer whose flag already stands by his work pays no wider search. */

@@ -290,8 +290,20 @@ export class TerrainLayer {
     return this.field;
   }
 
-  /** A bounded minimum zoom keeps the visible-block count small even fully zoomed out. */
+  /** A bounded minimum zoom keeps the visible-block count small even fully zoomed out. A repeat of
+   *  the last cull's box only re-meshes the road blocks laid since, as every block shows as it did. */
   cull(vp: Viewport): void {
+    const last = this.culled;
+    if (
+      last !== null &&
+      last.minX === vp.minX &&
+      last.minY === vp.minY &&
+      last.maxX === vp.maxX &&
+      last.maxY === vp.maxY
+    ) {
+      this.roads?.meshVisible();
+      return;
+    }
     for (const chunk of this.chunks) {
       chunk.container.visible = aabbIntersects(vp, chunk);
       this.roads?.cullChunk(chunk);
@@ -313,6 +325,7 @@ export class TerrainLayer {
   }
 
   destroy(): void {
+    this.culled = null;
     this.roads?.destroy();
     this.roads = null;
     this.vertexColors.clear();

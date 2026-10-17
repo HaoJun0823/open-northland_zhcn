@@ -46,19 +46,35 @@ export function craftablePoolInto(
 ): number {
   const subject = needSubjectOf(world, operator);
   const selection = world.tryGet(operator, ProductionCounters);
+  const goods = productsOfRecipes(recipes);
   let size = 0;
   let lockedLive = false;
-  for (const good of recipes.keys()) {
+  for (let i = 0; i < goods.length; i++) {
+    const good = goods[i] as number;
     if (productionCountOf(selection, good) <= 0) continue;
     if (settlerMeetsNeed(world, ctx, subject, 'good', good)) out[size++] = good;
     else lockedLive = true;
   }
   if (size > 0 || !lockedLive) return size;
-  for (const good of recipes.keys()) {
+  for (let i = 0; i < goods.length; i++) {
+    const good = goods[i] as number;
     if (settlerMeetsNeed(world, ctx, subject, 'good', good)) out[size++] = good;
   }
   return size;
 }
+
+/** The products of `recipes` in recipe order, listed once per content recipe map: walking the map's key
+ *  iterator would allocate a step result per product per operator per tick. A map whose size moved since
+ *  is listed again. */
+function productsOfRecipes(recipes: ReadonlyMap<number, Recipe>): readonly number[] {
+  const held = productsByRecipes.get(recipes);
+  if (held !== undefined && held.length === recipes.size) return held;
+  const goods = [...recipes.keys()];
+  productsByRecipes.set(recipes, goods);
+  return goods;
+}
+
+const productsByRecipes = new WeakMap<ReadonlyMap<number, Recipe>, readonly number[]>();
 
 /** The product an operator's rotation takes next: `good` at `index` into its craftable `pool`. */
 export interface RotationPick {

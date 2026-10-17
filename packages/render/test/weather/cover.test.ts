@@ -19,6 +19,16 @@ function fieldOf(rain: number, snow: number, sand: number, lyingSnow = 0): Weath
   };
 }
 
+/** A two-sector field, `[rain, snow, sand]` for each sector in turn. */
+function gridOf(amounts: readonly number[]): WeatherField {
+  return { sectorsX: 2, sectorsY: 1, amounts: Float32Array.from(amounts), any: amounts.some((a) => a > 0) };
+}
+
+const TEXEL_BYTES = 4;
+const BYTE_MAX = 255;
+/** Long enough for a light rain to melt the snow and the ground to settle. */
+const MELT_RUN_SECONDS = 1800;
+
 /** Advance `cover` from `from` to `to` game seconds in steps of `step`. */
 function runSteps(cover: WeatherCover, from: number, to: number, step: number): void {
   for (let t = from + step; t <= to + step / 2; t += step) cover.advance(t);
@@ -201,5 +211,52 @@ describe('weather cover', () => {
     jump.advance(gap);
     expect(Math.abs(fine.sector(0).wet - jump.sector(0).wet)).toBeLessThan(STEP_TOLERANCE);
     expect(Math.abs(fine.sector(0).snow - jump.sector(0).snow)).toBeLessThan(STEP_TOLERANCE);
+  });
+
+  it('leaves a dry sector alone, so its neighbour steps as on a map of its own', () => {
+    const pair = new WeatherCover();
+    const alone = new WeatherCover();
+    pair.setField(gridOf([0, 0.5, 0, 0, 0, 0]));
+    alone.setField(fieldOf(0, 0.5, 0));
+    pair.advance(0);
+    alone.advance(0);
+    pair.setField(gridOf([LIGHT_RAIN, 0, 0, 0, 0, 0]));
+    alone.setField(fieldOf(LIGHT_RAIN, 0, 0));
+    for (let t = 1 / 60; t <= MELT_RUN_SECONDS; t += 1 / 60) expect(pair.advance(t)).toBe(alone.advance(t));
+    expect(pair.sector(0)).toEqual(alone.sector(0));
+    expect([...pair.texels().subarray(0, TEXEL_BYTES)]).toEqual([...alone.texels()]);
+    expect([...pair.texels().subarray(TEXEL_BYTES)]).toEqual([0, 0, 0, 0]);
+  });
+
+  it('reports a change exactly when a texel byte or the any flag moves, and keeps every byte current', () => {
+    const cover = new WeatherCover();
+    const rains = [0.3, 0, 0.1, 0];
+    cover.setField(gridOf([0, 0.4, 0, 0, 0, 0.1]));
+    cover.advance(0);
+    let shown = cover.texels().slice();
+    let any = cover.any;
+    let reported = 0;
+    for (let t = 1 / 60, phase = 0; t <= MELT_RUN_SECONDS; t += 1 / 60) {
+      if (t > (phase + 1) * (MELT_RUN_SECONDS / rains.length)) {
+        phase++;
+        cover.setField(gridOf([rains[phase] ?? 0, 0, 0, 0, 0, 0.1]));
+      }
+      const changed = cover.advance(t);
+      const texels = cover.texels();
+      expect(changed).toBe(cover.any !== any || texels.some((byte, i) => byte !== shown[i]));
+      if (!changed) continue;
+      reported++;
+      shown = texels.slice();
+      any = cover.any;
+      for (let i = 0; i < 2; i++) {
+        const { wet, snow, dust } = cover.sector(i);
+        const rain = i === 0 ? (rains[phase] ?? 0) : 0;
+        const expected = [wet, snow, dust, coverEquilibrium(rain, 0, 0).wet].map((v) =>
+          Math.round(v * BYTE_MAX),
+        );
+        expect([...texels.subarray(i * TEXEL_BYTES, (i + 1) * TEXEL_BYTES)]).toEqual(expected);
+      }
+    }
+    expect(reported).toBeGreaterThan(0);
   });
 });

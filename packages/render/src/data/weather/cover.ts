@@ -48,6 +48,9 @@ export const COVER_SNAP_SECONDS = 600;
 const SETTLE_EPSILON = 1 / 512;
 
 const BYTE_MAX = 255;
+/** RGBA: wet, snow and dust, then the rain falling in alpha. */
+const COVER_TEXEL_BYTES = 4;
+const RAIN_FALLING_BYTE = 3;
 
 /** A cover amount's response to a field amount: linear onset easing into saturation. */
 function response(amount: number, saturating: number): number {
@@ -87,13 +90,25 @@ function blend(dt: number, seconds: number): number {
 /**
  * The per-sector ground cover of one map, advanced by game seconds. Call {@link setField} on every
  * field change and {@link advance} once per frame; {@link texels} is the GPU upload.
+ *
+ * A step walks only the sectors still moving. One that sits exactly on its target would step to itself
+ * with no gap until the field changes, so skipping it changes no sector, texel or settle test.
  */
 export class WeatherCover {
   private field: WeatherField | null = null;
   private wet = new Float32Array(0);
   private snow = new Float32Array(0);
   private dust = new Float32Array(0);
-  private readonly out = { data: new Uint8Array(0) };
+  private data = new Uint8Array(0);
+  /** Ascending sector indexes a step still integrates; the first {@link movingCount} are live. */
+  private moving = new Int32Array(0);
+  private movingCount = 0;
+  /** Sectors showing any cover, so {@link any} needs no walk. */
+  private showing = 0;
+  /** A field arrived since the last step: its rain is not in the texels' alpha yet. */
+  private alphaStale = false;
+  /** A texel byte changed since the last {@link advance} reported. */
+  private texelsChanged = false;
   /** Game seconds of the last step; null until the first {@link advance} after a field arrives. */
   private stepped: number | null = null;
   private settled = true;
@@ -110,7 +125,7 @@ export class WeatherCover {
 
   /** True while any sector shows any cover. */
   get any(): boolean {
-    return this.wet.some((v) => v > 0) || this.snow.some((v) => v > 0) || this.dust.some((v) => v > 0);
+    return this.showing > 0;
   }
 
   /**
@@ -131,9 +146,12 @@ export class WeatherCover {
       return;
     }
     this.settled = false;
+    this.alphaStale = true;
+    this.movingCount = this.moving.length;
+    for (let i = 0; i < this.movingCount; i++) this.moving[i] = i;
   }
 
-  /** Jump every sector to the current field's equilibrium. */
+  /** Jump every sector to the current field's equilibrium and rewrite every texel. */
   private snapToEquilibrium(): void {
     const field = this.field;
     if (field === null) return;
@@ -145,11 +163,20 @@ export class WeatherCover {
       this.dust[i] = t.dust;
     }
     this.settled = true;
+    this.movingCount = 0;
+    this.alphaStale = false;
+    this.showing = 0;
+    for (let i = 0; i < this.wet.length; i++) {
+      if (this.shows(i)) this.showing++;
+      if (this.writeCoverTexel(i)) this.texelsChanged = true;
+      if (this.writeAlphaTexel(field, i)) this.texelsChanged = true;
+    }
   }
 
   /**
    * Bring the cover up to `gameSeconds`, in {@link COVER_STEP_SECONDS} steps. Returns true when the
-   * cover changed since the last call, so the caller re-uploads {@link texels} only then.
+   * texels or {@link any} changed since the last call, so the caller re-uploads {@link texels} only
+   * then.
    */
   advance(gameSeconds: number): boolean {
     const field = this.field;
@@ -165,12 +192,18 @@ export class WeatherCover {
     if (dt < COVER_STEP_SECONDS) return false;
     this.stepped = gameSeconds;
     if (this.settled) return false;
+    this.texelsChanged = false;
+    const shownBefore = this.showing > 0;
+    if (this.alphaStale) {
+      this.alphaStale = false;
+      for (let i = 0; i < this.wet.length; i++) if (this.writeAlphaTexel(field, i)) this.texelsChanged = true;
+    }
     const steps = Math.ceil(dt / COVER_MAX_STEP_SECONDS);
     for (let s = 0; s < steps && !this.settled; s++) this.step(field, dt / steps);
-    return true;
+    return this.texelsChanged || this.showing > 0 !== shownBefore;
   }
 
-  /** One integration step of `dt` game seconds over every sector. */
+  /** One integration step of `dt` game seconds over every moving sector. */
   private step(field: WeatherField, dt: number): void {
     const wetRise = blend(dt, WET_RISE_SECONDS);
     const wetDry = blend(dt, WET_DRY_SECONDS);
@@ -181,21 +214,45 @@ export class WeatherCover {
     const dustWash = blend(dt, DUST_WASH_SECONDS);
     const dustSettle = blend(dt, DUST_SETTLE_SECONDS);
     const t = this.target;
+    const { moving, wet: wets, snow: snows, dust: dusts, data } = this;
+    let kept = 0;
     let gap = 0;
-    for (let i = 0; i < this.wet.length; i++) {
-      const snow = this.snow[i] ?? 0;
+    let changed = false;
+    for (let k = 0; k < this.movingCount; k++) {
+      const i = moving[k] ?? 0;
+      const snow = snows[i] ?? 0;
       this.writeTarget(field, i, snow);
+      const wet = wets[i] ?? 0;
+      const dust = dusts[i] ?? 0;
+      // On its target the sector's step is the identity with no gap, now and until the field changes.
+      if (t.wet === wet && t.snow === snow && t.dust === dust) continue;
+      moving[kept++] = i;
       const rain = field.amounts[i * KIND_COUNT + RAIN] ?? 0;
-      const wet = this.wet[i] ?? 0;
-      const dust = this.dust[i] ?? 0;
       const nextWet = wet + (t.wet - wet) * (t.wet > wet ? wetRise : wetDry);
       const snowShare = t.snow > snow ? snowBuild : rain > 0 ? snowRainMelt : snowMelt;
       const nextSnow = snow + (t.snow - snow) * snowShare;
       const dustShare = t.dust > dust ? dustRise : rain > 0 ? dustWash : dustSettle;
       const nextDust = dust + (t.dust - dust) * dustShare;
-      this.wet[i] = nextWet;
-      this.snow[i] = nextSnow;
-      this.dust[i] = nextDust;
+      // The stored values are the f32 roundings, which the texels and the show test read.
+      const storedWet = Math.fround(nextWet);
+      const storedSnow = Math.fround(nextSnow);
+      const storedDust = Math.fround(nextDust);
+      wets[i] = storedWet;
+      snows[i] = storedSnow;
+      dusts[i] = storedDust;
+      const shownBefore = wet > 0 || snow > 0 || dust > 0;
+      const shown = storedWet > 0 || storedSnow > 0 || storedDust > 0;
+      if (shown !== shownBefore) this.showing += shown ? 1 : -1;
+      const base = i * COVER_TEXEL_BYTES;
+      const wetByte = Math.round(storedWet * BYTE_MAX);
+      const snowByte = Math.round(storedSnow * BYTE_MAX);
+      const dustByte = Math.round(storedDust * BYTE_MAX);
+      if (data[base] !== wetByte || data[base + 1] !== snowByte || data[base + 2] !== dustByte) {
+        data[base] = wetByte;
+        data[base + 1] = snowByte;
+        data[base + 2] = dustByte;
+        changed = true;
+      }
       gap = Math.max(
         gap,
         Math.abs(t.wet - nextWet),
@@ -203,25 +260,43 @@ export class WeatherCover {
         Math.abs(t.dust - nextDust),
       );
     }
+    this.movingCount = kept;
+    if (changed) this.texelsChanged = true;
     if (gap < SETTLE_EPSILON) this.snapToEquilibrium();
   }
 
   /** RGBA8 per sector (r wet, g snow, b dust, a how hard rain falls there now), row-major like
-   *  `weatherFieldTexels`: texel centres sit on sector centres. The returned buffer is reused by the
-   *  next call. */
+   *  `weatherFieldTexels`: texel centres sit on sector centres. The buffer is kept current and reused. */
   texels(): Uint8Array {
-    const count = this.wet.length;
-    const amounts = this.field?.amounts;
-    if (this.out.data.length !== count * 4) this.out.data = new Uint8Array(count * 4);
-    const data = this.out.data;
-    for (let i = 0; i < count; i++) {
-      data[i * 4] = Math.round((this.wet[i] ?? 0) * BYTE_MAX);
-      data[i * 4 + 1] = Math.round((this.snow[i] ?? 0) * BYTE_MAX);
-      data[i * 4 + 2] = Math.round((this.dust[i] ?? 0) * BYTE_MAX);
-      const rain = amounts?.[i * KIND_COUNT + RAIN] ?? 0;
-      data[i * 4 + 3] = Math.round(response(rain, RAIN_SATURATING_AMOUNT) * BYTE_MAX);
-    }
-    return data;
+    return this.data;
+  }
+
+  private shows(i: number): boolean {
+    return (this.wet[i] ?? 0) > 0 || (this.snow[i] ?? 0) > 0 || (this.dust[i] ?? 0) > 0;
+  }
+
+  /** Writes sector `i`'s cover bytes; true when one changed. */
+  private writeCoverTexel(i: number): boolean {
+    const data = this.data;
+    const base = i * COVER_TEXEL_BYTES;
+    const wet = Math.round((this.wet[i] ?? 0) * BYTE_MAX);
+    const snow = Math.round((this.snow[i] ?? 0) * BYTE_MAX);
+    const dust = Math.round((this.dust[i] ?? 0) * BYTE_MAX);
+    if (data[base] === wet && data[base + 1] === snow && data[base + 2] === dust) return false;
+    data[base] = wet;
+    data[base + 1] = snow;
+    data[base + 2] = dust;
+    return true;
+  }
+
+  /** Writes sector `i`'s rain-falling byte; true when it changed. */
+  private writeAlphaTexel(field: WeatherField, i: number): boolean {
+    const alpha = i * COVER_TEXEL_BYTES + RAIN_FALLING_BYTE;
+    const rain = field.amounts[i * KIND_COUNT + RAIN] ?? 0;
+    const value = Math.round(response(rain, RAIN_SATURATING_AMOUNT) * BYTE_MAX);
+    if (this.data[alpha] === value) return false;
+    this.data[alpha] = value;
+    return true;
   }
 
   /** Sector `i`'s cover as `[wet, snow, dust]`, for tests and diagnostics. */
@@ -257,6 +332,11 @@ export class WeatherCover {
     this.wet = new Float32Array(count);
     this.snow = new Float32Array(count);
     this.dust = new Float32Array(count);
+    this.data = new Uint8Array(count * COVER_TEXEL_BYTES);
+    this.moving = new Int32Array(count);
+    this.movingCount = 0;
+    this.showing = 0;
+    this.alphaStale = false;
     this.stepped = null;
   }
 }

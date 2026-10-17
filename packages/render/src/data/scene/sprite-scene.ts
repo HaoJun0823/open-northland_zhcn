@@ -17,6 +17,7 @@ import {
 } from '../projection/index.js';
 import type { ElevationField } from '../terrain/index.js';
 import { pushEffectItems, pushGhostItems } from './collect-fields.js';
+import { CullAnchors } from './cull-anchors.js';
 import type { SpriteDepthOrder } from './depth-order.js';
 import { type MutableSpriteDrawItem, type SpriteDrawItem, unsetDrawField } from './draw-item.js';
 import { DrawList } from './draw-list.js';
@@ -199,6 +200,11 @@ function exposedBoxes(view: Viewport, previous: Viewport): Viewport[] {
  */
 export class IncrementalScene {
   statics: readonly SpriteDrawItem[] = [];
+  /** The last build's other items, sorted like the draw list, and the snapshot they were emitted from:
+   *  a pan over that same snapshot keeps the ones the new view still shows instead of emitting them. */
+  others: readonly SpriteDrawItem[] = [];
+  othersSnapshot: WorldSnapshot | null = null;
+  readonly anchors = new CullAnchors();
   inputs: StaticInputs | null = null;
   touched: TouchedIds | null = null;
   /** Whether the last build spliced the run rather than rebuilding it. */
@@ -206,6 +212,9 @@ export class IncrementalScene {
 
   clear(): void {
     this.statics = [];
+    this.others = [];
+    this.othersSnapshot = null;
+    this.anchors.reset();
     this.inputs = null;
     this.touched = null;
   }
@@ -216,14 +225,18 @@ function drawOrder(a: SpriteDrawItem, b: SpriteDrawItem): number {
   return a.depth - b.depth || a.ref - b.ref;
 }
 
-/** Two runs sorted by {@link drawOrder} merged into one, as sorting their union would order it: the
- *  left run's items carry `leftKept` flags, the right run's are emitted, and the merged order's flags go
- *  to `kept`. */
-function mergeFlagged(
+/** Where a merge carries the kept flags: the left run's per item, and the merged order's to write. */
+interface MergeFlags {
+  readonly leftKept: Uint8Array;
+  readonly kept: Uint8Array;
+}
+
+/** Two runs sorted by {@link drawOrder} merged into one, as sorting their union would order it. With
+ *  `flags`, the left run's items carry their `leftKept` flag into `kept` and the right run's carry 0. */
+function mergeSorted(
   left: readonly SpriteDrawItem[],
-  leftKept: Uint8Array,
   right: readonly SpriteDrawItem[],
-  kept: Uint8Array,
+  flags?: MergeFlags,
 ): SpriteDrawItem[] {
   const out = new Array<SpriteDrawItem>(left.length + right.length);
   let i = 0;
@@ -233,11 +246,11 @@ function mergeFlagged(
     const a = left[i];
     const b = right[j];
     if (a !== undefined && (b === undefined || drawOrder(a, b) <= 0)) {
-      kept[k] = leftKept[i] ?? 0;
+      if (flags !== undefined) flags.kept[k] = flags.leftKept[i] ?? 0;
       out[k++] = a;
       i++;
     } else if (b !== undefined) {
-      kept[k] = 0;
+      if (flags !== undefined) flags.kept[k] = 0;
       out[k++] = b;
       j++;
     }
@@ -312,7 +325,9 @@ function collectScene(
   };
 
   memo?.begin(elevation, playerColourOf);
-  const emit = (entity: EntitySnapshot, indexed: boolean): void => {
+  const anchors = incremental?.anchors;
+  /** `shownBefore`: the last build's view over this same snapshot, whose entities it already decided. */
+  const emit = (entity: EntitySnapshot, indexed: boolean, shownBefore?: Viewport): void => {
     // Drawn by the retained static layer instead, or not yet - skip before paying for a classify.
     if (staticRefs?.has(entity.id) || withheldRefs?.has(entity.id)) return;
     const isPortrait =
@@ -360,6 +375,7 @@ function collectScene(
     const tileX = craft?.tileX ?? drawn?.x ?? pos.x / ONE;
     const tileY = craft?.tileY ?? drawn?.y ?? pos.y / ONE;
     const screen = tileToScreen(tileX, tileY);
+    if (shownBefore !== undefined && isVisible(shownBefore, screen.x, screen.y)) return;
     const record = isPortrait ? undefined : memo?.remember(entity, kind, tileX, tileY, screen);
     // Culls on the drawn anchor; the caller pre-inflates the box to cover a tall sprite's extent, so a
     // building straddling the edge still draws.
@@ -381,6 +397,7 @@ function collectScene(
         : kind === 'vehicle'
           ? vehiclePose(components)
           : STANDING_POSE);
+    const firstPushed = list.size;
     const item = assembleItem(build, entity, kind, tileX, tileY, screen, pose);
     if (record !== undefined) record.item = item;
     // Being choreographed excuses only the indoor hiding: the portrait frames the worker at his craft
@@ -406,6 +423,12 @@ function collectScene(
       liveVehicles.add(entity.id);
     }
     list.push(item);
+    if (anchors !== undefined && !isSelfContainedKind(kind)) {
+      for (let i = firstPushed; i < list.size; i++) {
+        const pushed = list.at(i);
+        if (pushed !== undefined) anchors.record(pushed, screen.x, screen.y);
+      }
+    }
   };
 
   const touched = incremental === undefined ? undefined : touchedIdsOf(snapshot);
@@ -449,14 +472,40 @@ function collectScene(
   let keptFlags: Uint8Array | undefined;
   let releasedStatics: ReadonlySet<number> | undefined;
   if (splices && viewport !== undefined && touched !== undefined && incremental !== undefined) {
-    // The kinds rebuilt every build, then the self-contained entities the deltas touched since.
-    const count = collectRebuiltPositioned(snapshot, anchorTileBox(viewport), rebuiltCandidates);
-    for (let i = 0; i < count; i++) {
-      const entity = rebuiltCandidates[i];
-      if (entity !== undefined) emit(entity, true);
-    }
     const previous = incremental.inputs;
     const withheld = withheldChanges(previous?.withheldRefs, withheldRefs);
+    const viewMoved = previous !== null && !sameView(previous, viewport);
+    // Over an unchanged snapshot the other kinds' items stand too: a pan keeps those the new view still
+    // shows and emits only the entities its uncovered strips bring in.
+    const keptOthers =
+      viewMoved && incremental.othersSnapshot === snapshot && touched.ids.size === 0 && withheld.size === 0
+        ? keepShownOthers(incremental, viewport, collected)
+        : undefined;
+    if (keptOthers !== undefined && previous !== null) {
+      for (const item of keptOthers) {
+        if (item.kind !== 'vehicle') continue;
+        liveVehicles ??= new Set();
+        liveVehicles.add(item.ref);
+      }
+      const seen = new Set<number>();
+      for (const box of exposedBoxes(viewport, previous)) {
+        const count = collectRebuiltPositioned(snapshot, anchorTileBox(box), rebuiltCandidates);
+        for (let i = 0; i < count; i++) {
+          const entity = rebuiltCandidates[i];
+          if (entity === undefined || seen.has(entity.id)) continue;
+          seen.add(entity.id);
+          emit(entity, true, previous);
+        }
+      }
+    } else {
+      incremental.anchors.reset();
+      // The kinds rebuilt every build, then the self-contained entities the deltas touched since.
+      const count = collectRebuiltPositioned(snapshot, anchorTileBox(viewport), rebuiltCandidates);
+      for (let i = 0; i < count; i++) {
+        const entity = rebuiltCandidates[i];
+        if (entity !== undefined) emit(entity, true);
+      }
+    }
     const emitTouched = (id: number): void => {
       const entity = entityById(snapshot, id);
       const kind = entity === undefined ? null : classify(entity.components);
@@ -464,7 +513,6 @@ function collectScene(
     };
     for (const id of touched.ids) emitTouched(id);
     for (const id of withheld) if (!touched.ids.has(id)) emitTouched(id);
-    const viewMoved = previous !== null && !sameView(previous, viewport);
     if (viewMoved) {
       emitExposedStatics(snapshot, viewport, previous, memo, (entity) => {
         if (!touched.ids.has(entity.id) && !withheld.has(entity.id)) emit(entity, true);
@@ -473,10 +521,16 @@ function collectScene(
     if (ghosts !== undefined) pushGhostItems(list, ghosts, viewport, elevation, liveVehicles, playerColourOf);
     const emittedItems = list.finish();
     const fresh: SpriteDrawItem[] = [];
-    const others: SpriteDrawItem[] = [];
+    let others: SpriteDrawItem[] = [];
     for (const item of emittedItems) (isStaticItem(item) ? fresh : others).push(item);
-    if (order !== undefined) order.sort(others);
+    if (keptOthers !== undefined) {
+      // The depth order keeps the ranks of the last full sort; a pan's few new items sort apart.
+      others.sort(drawOrder);
+      others = mergeSorted(keptOthers, others);
+      incremental.anchors.compact(others);
+    } else if (order !== undefined) order.sort(others);
     else others.sort(drawOrder);
+    incremental.others = others;
     fresh.sort(drawOrder);
     // Most deltas touch no self-contained entity under the view: the run stands as it was. A static
     // item's cull point is its own anchor, so the run keeps an item exactly when the view still shows it.
@@ -493,10 +547,13 @@ function collectScene(
     const staticKept = new Uint8Array(keptRun.length + fresh.length);
     let statics: readonly SpriteDrawItem[] = keptRun;
     if (fresh.length === 0) staticKept.fill(1);
-    else statics = mergeFlagged(keptRun, new Uint8Array(keptRun.length).fill(1), fresh, staticKept);
+    else {
+      const leftKept = new Uint8Array(keptRun.length).fill(1);
+      statics = mergeSorted(keptRun, fresh, { leftKept, kept: staticKept });
+    }
     incremental.statics = statics;
     keptFlags = new Uint8Array(statics.length + others.length);
-    items = mergeFlagged(statics, staticKept, others, keptFlags);
+    items = mergeSorted(statics, others, { leftKept: staticKept, kept: keptFlags });
     // An item the view no longer shows releases its hold too, so the pool detaches its sprite.
     const released = new Set(touched.ids);
     for (const id of withheld) released.add(id);
@@ -508,6 +565,7 @@ function collectScene(
     liveRefs = ghosts === undefined ? positioned : { has: (ref) => positioned.has(ref) || ghosts.has(ref) };
     incremental.spliced = true;
   } else {
+    anchors?.reset();
     const emitted = emitEntities(snapshot, opts, collected, emit);
     if (ghosts !== undefined) pushGhostItems(list, ghosts, viewport, elevation, liveVehicles, playerColourOf);
     liveRefs = ghosts === undefined ? emitted : { has: (ref) => emitted.has(ref) || ghosts.has(ref) };
@@ -517,17 +575,37 @@ function collectScene(
     else items.sort(drawOrder);
     if (incremental !== undefined) {
       incremental.statics = inputs === null ? [] : items.filter(isStaticItem);
+      incremental.others = inputs === null ? [] : items.filter((item) => !isStaticItem(item));
       incremental.spliced = false;
     }
   }
   if (incremental !== undefined) {
     incremental.inputs = inputs;
     incremental.touched = touched ?? null;
+    incremental.othersSnapshot = inputs === null ? null : snapshot;
     touched?.ids.clear();
   }
   return keptFlags === undefined || releasedStatics === undefined
     ? { items, liveRefs }
     : { items, liveRefs, kept: keptFlags, releasedStatics };
+}
+
+/**
+ * The last build's other items whose cull anchors `view` still shows, minus the fog ghosts, which every
+ * build draws afresh. The extra items' synthetic refs answer live only while collected.
+ */
+function keepShownOthers(
+  incremental: IncrementalScene,
+  view: Viewport,
+  collected: Set<number>,
+): SpriteDrawItem[] {
+  const kept: SpriteDrawItem[] = [];
+  for (const item of incremental.others) {
+    if (item.ghost === true || !incremental.anchors.shownIn(item, view)) continue;
+    kept.push(item);
+    if (item.ref < 0) collected.add(item.ref);
+  }
+  return kept;
 }
 
 /**

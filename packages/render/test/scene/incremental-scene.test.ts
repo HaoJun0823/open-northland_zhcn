@@ -151,6 +151,46 @@ describe('IncrementalScene', () => {
     expect(incremental.spliced).toBe(true);
   });
 
+  it('keeps the other kinds across a pan over the same snapshot as from scratch', () => {
+    const town: EntitySnapshot[] = [];
+    let id = 1;
+    for (let x = 0; x < 30; x += 3) {
+      for (let y = 0; y < 60; y += 4) {
+        town.push(entity(id++, x, y, SETTLER), entity(id++, x + 1, y + 1, tree(1)));
+      }
+    }
+    town.push(
+      entity(id++, 6, 8, { Signpost: { links: [id] }, Owner: { player: 1 } }),
+      entity(id++, 10, 8, { Signpost: { links: [id - 2] }, Owner: { player: 1 } }),
+      entity(id++, 12, 14, {
+        Vehicle: { vehicleType: 2, tribe: 1, task: 'none', facing: 0, passengers: [null], vehicles: [] },
+      }),
+    );
+    const mirror = mirrorOf(town);
+    const incremental = new IncrementalScene();
+    const order = new SpriteDepthOrder();
+    const memo = new SceneItemMemo();
+    const ghosts = ghostSourceOf([{ ref: 900, kind: 'building', tileX: 9, tileY: 12, typeId: 7 }]);
+    const options = (viewport: Viewport): SpriteSceneOptions => ({ viewport, ghosts });
+    const snapshot = mirror.snapshot();
+    collectSpriteScene(snapshot, options(VIEW), order, memo, incremental);
+    const views: Viewport[] = [
+      { minX: -150, minY: -200, maxX: 950, maxY: 600 },
+      { minX: -170, minY: -120, maxX: 930, maxY: 680 },
+      { minX: 300, minY: 200, maxX: 800, maxY: 600 },
+      { minX: -400, minY: -300, maxX: 1400, maxY: 1000 },
+      { minX: 200, minY: 100, maxX: 1300, maxY: 900 },
+      VIEW,
+    ];
+    for (const viewport of views) {
+      const scene = collectSpriteScene(snapshot, options(viewport), order, memo, incremental);
+      expect(incremental.spliced).toBe(true);
+      expect(scene.items).toEqual(collectSpriteScene(snapshot, options(viewport)).items);
+      for (const item of scene.items) expect(scene.liveRefs.has(item.ref)).toBe(true);
+    }
+    expect(collectSpriteScene(snapshot, options(VIEW)).items.some((item) => item.ref < 0)).toBe(true);
+  });
+
   it('keeps every self-contained kind across pans as a build from scratch draws it', () => {
     const kinds: readonly Record<string, unknown>[] = [
       tree(1),

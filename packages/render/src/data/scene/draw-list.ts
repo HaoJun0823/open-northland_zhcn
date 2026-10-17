@@ -19,6 +19,16 @@ export class DrawList {
     this.count++;
   }
 
+  /** Items pushed since {@link begin}. */
+  get size(): number {
+    return this.count;
+  }
+
+  /** The item pushed `index`-th since {@link begin}. */
+  at(index: number): MutableSpriteDrawItem | undefined {
+    return index < this.count ? this.items[index] : undefined;
+  }
+
   /** The build's items, trimmed to those pushed. */
   finish(): MutableSpriteDrawItem[] {
     this.items.length = this.count;

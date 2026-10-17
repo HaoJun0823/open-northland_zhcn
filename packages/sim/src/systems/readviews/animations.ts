@@ -168,7 +168,9 @@ interface ClipBinding {
 /** The clip join memo, one flat table per content set keyed by {@link clipBindingKey}: the atomic passes
  *  ask it for every running clip each tick, so one lookup replaces a walk down nested tables. */
 const clipBindingTables = new WeakMap<ContentSet, Map<number, ClipBinding>>();
-/** The table of the content set asked last, so a pass over one world skips the weak-map lookup. */
+/** The table of the content set asked last, so a pass over one world skips the weak-map lookup. These
+ *  strong references keep that content set and its table alive until another set is asked, so the last
+ *  one outlives its simulation for the module's lifetime. */
 let lastClipContent: ContentSet | undefined;
 let lastClipTable: Map<number, ClipBinding> | undefined;
 const UNBOUND: ClipBinding = { name: undefined, clip: undefined };

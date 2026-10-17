@@ -201,7 +201,7 @@ const NEIGHBOUR_REACH = 1;
 const workReaches = new WeakMap<ResourceFootprintCells, readonly [number, number]>();
 
 /** The farthest of `footprint`'s work cells and the 4-neighbours from an anchor on row `ay`. */
-function workReachOf(footprint: ResourceFootprintCells, ay: number): number {
+export function workReachOf(footprint: ResourceFootprintCells, ay: number): number {
   let reaches = workReaches.get(footprint);
   if (reaches === undefined) {
     reaches = [workReachOnRow(footprint, EVEN_ROW), workReachOnRow(footprint, ODD_ROW)];

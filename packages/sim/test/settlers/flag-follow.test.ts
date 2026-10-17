@@ -15,6 +15,7 @@ import {
   FLAG_FOLLOW_CHECK_PERIOD_TICKS,
   FOLLOW_FLAG_BAND,
   REPLANT_RETRY_EVERY_CHECKS,
+  workReachOf,
 } from '../../src/systems/assistant/flag-follow.js';
 import { anchorOnlyFootprint, stampResourceFootprintData } from '../../src/systems/index.js';
 import { SYSTEM_ORDER } from '../../src/systems/schedule.js';
@@ -222,5 +223,19 @@ describe('assistant flag follow', () => {
     sim.enqueueSetup({ kind: 'setAssistantMoveFlags', player: PLAYER, enabled: false });
     runTicks(sim, 1);
     expect(sim.assistantMovesFlags(PLAYER)).toBe(false);
+  });
+});
+
+describe('flag follow work reach', () => {
+  it('shifts an odd-row work cell half a node to +x, so each anchor row parity keeps its own reach', () => {
+    const EVEN_ANCHOR_ROW = 4;
+    const ODD_ANCHOR_ROW = 5;
+    // An odd dy lands on the other row parity: from an odd anchor row its x offset grows by one.
+    const east = { walk: [], build: [], work: [{ dx: 2, dy: 1 }] };
+    const west = { walk: [], build: [], work: [{ dx: -2, dy: 1 }] };
+    expect(workReachOf(east, ODD_ANCHOR_ROW)).toBe(4);
+    expect(workReachOf(east, EVEN_ANCHOR_ROW)).toBe(3);
+    expect(workReachOf(west, EVEN_ANCHOR_ROW)).toBe(3);
+    expect(workReachOf(west, ODD_ANCHOR_ROW)).toBe(2);
   });
 });

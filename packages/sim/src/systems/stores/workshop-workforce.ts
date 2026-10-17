@@ -431,7 +431,8 @@ function swapRemove<T>(list: T[], at: number): void {
 }
 
 /** Brings the held index up to date, then compares it with a fresh derivation: a missed dependency
- *  shows up as a binding the journals never re-derived. */
+ *  shows up as a binding the journals never re-derived. Peeks the source feed, leaving the load checks
+ *  to the next snapshot. */
 function verifyIndex(world: World): string[] {
   const last = indexes.get(world);
   if (last === undefined) return [];
@@ -445,10 +446,13 @@ function verifyIndex(world: World): string[] {
       return [`workshopWorkforce holds a stale binding for settler ${e}`];
     }
   }
-  retakeSourceChecks(world, held);
+  // A source pending in the feed is re-taken by the next snapshot; an overflowed feed re-takes every one.
+  const pendingSources = new Set<Entity>();
+  const sourcesLost = sourceFeedOf(world).peek((source) => pendingSources.add(source));
   for (const [e, binding] of held.bindings) {
     const load = binding.load;
-    if (load !== null && load.holds !== sourceHolds(world, held.ctx, load)) {
+    if (load === null || sourcesLost || (load.source !== null && pendingSources.has(load.source))) continue;
+    if (load.holds !== sourceHolds(world, held.ctx, load)) {
       return [`workshopWorkforce holds a stale source check for settler ${e}`];
     }
   }

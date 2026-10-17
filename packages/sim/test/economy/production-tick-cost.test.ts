@@ -10,6 +10,7 @@ import {
   SupplyRun,
   setSettlerJob,
   setStockAmount,
+  Upgrading,
 } from '../../src/components/index.js';
 import type { Entity, World } from '../../src/ecs/world.js';
 import { fx, Simulation } from '../../src/index.js';
@@ -168,6 +169,44 @@ describe('workshopWorkforce', () => {
     expect(workshopWorkforce(sim.world, ctx).incomingOf(shop, WOOD)).toBe(0);
     setStockAmount(sim.world, store, WOOD, 1);
     expect(workshopWorkforce(sim.world, ctx).incomingOf(shop, WOOD)).toBe(1);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  /** A carpenter fetching one wood for a bakehouse from a headquarters holding one, after a snapshot. */
+  function fetchFromStore(sim: Simulation): { shop: Entity; store: Entity } {
+    const shop = buildingAt(sim, BAKEHOUSE, 0, 0);
+    const store = buildingAt(sim, HEADQUARTERS, 4, 0, [[WOOD, 1]]);
+    const baker = settlerAt(sim, 0, 0, CARPENTER, shop);
+    sim.world.add(baker, SupplyRun, { site: shop, goodType: WOOD, amount: 1 });
+    sim.world.add(baker, PickupClaim, { source: store, goodType: WOOD, amount: 1 });
+    expect(workshopWorkforce(sim.world, ctxOf(sim)).incomingOf(shop, WOOD)).toBe(1);
+    return { shop, store };
+  }
+
+  it('verifies a changed source without re-taking its check for the snapshot in hand', () => {
+    const sim = new Simulation({ seed: 1, content: technologyContent(), map: grassMap(8, 1) });
+    const { shop, store } = fetchFromStore(sim);
+    const snapshot = workshopWorkforce(sim.world, ctxOf(sim));
+    setStockAmount(sim.world, store, WOOD, 0);
+    expect(sim.world.verifyCaches()).toEqual([]);
+    expect(snapshot.incomingOf(shop, WOOD)).toBe(1);
+    expect(workshopWorkforce(sim.world, ctxOf(sim)).incomingOf(shop, WOOD)).toBe(0);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('drops a fetched load whose source starts an upgrade', () => {
+    const sim = new Simulation({ seed: 1, content: technologyContent(), map: grassMap(8, 1) });
+    const { shop, store } = fetchFromStore(sim);
+    sim.world.add(store, Upgrading, { savedStock: new Map(), seeded: new Map() });
+    expect(workshopWorkforce(sim.world, ctxOf(sim)).incomingOf(shop, WOOD)).toBe(0);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('drops a fetched load whose source is destroyed', () => {
+    const sim = new Simulation({ seed: 1, content: technologyContent(), map: grassMap(8, 1) });
+    const { shop, store } = fetchFromStore(sim);
+    sim.world.destroy(store);
+    expect(workshopWorkforce(sim.world, ctxOf(sim)).incomingOf(shop, WOOD)).toBe(0);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 

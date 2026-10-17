@@ -61,6 +61,13 @@ const PLANK_LEN = 11;
 const PLANK_THICK = 2.6;
 const PLANKS_PER_WRECK = 3;
 
+/** A pile's node and the terrain lift its blood surface was last registered with; the surface is
+ *  re-registered only when the node is minted or the ground under it moves. */
+interface BoneNode {
+  readonly container: Container;
+  lift: number;
+}
+
 /**
  * Bones and wreckage at their ground anchors. Bone piles are saved sim state read off the snapshot and
  * faded here by age, so a loaded game shows the bones it was saved with; like the land's objects they show
@@ -73,7 +80,7 @@ export class CombatEffectsLayer {
   private wrecks: readonly WreckMark[] = [];
   private readonly wreckNodes = new Map<WreckMark, Container>();
   private readonly drawnWrecks = new Set<WreckMark>();
-  private readonly boneNodes = new Map<number, Container>();
+  private readonly boneNodes = new Map<number, BoneNode>();
   private readonly drawnBones = new Set<number>();
   /** Reused query output for the piles near the screen. */
   private readonly candidates: EntitySnapshot[] = [];
@@ -134,23 +141,24 @@ export class CombatEffectsLayer {
       if (alpha <= 0) continue;
       if (fogExplored !== undefined && !fogExplored((pile.hx - rowStagger(pile.hy / 2)) / 2, pile.hy / 2))
         continue;
-      const node = this.placeMark(pile.hx, pile.hy, elevation, viewport, this.boneNodes.get(pile.id), () =>
+      let held = this.boneNodes.get(pile.id);
+      const lift = terrainLiftAtNode(elevation, pile.hx, pile.hy);
+      const node = this.placeMark(pile.hx, pile.hy, lift, viewport, held?.container, () =>
         this.makeMark(this.bones, pile.id, drawBones),
       );
       if (node === undefined) continue;
+      if (held === undefined) {
+        held = { container: node, lift: Number.NaN };
+        this.boneNodes.set(pile.id, held);
+      }
       const sprite = node.children[0];
-      if (sprite instanceof BloodSurfaceSprite)
-        this.surface?.(
-          sprite,
-          pile.id,
-          (pile.hy * TILE_HALF_H) / 2,
-          terrainLiftAtNode(elevation, pile.hx, pile.hy),
-        );
-      this.boneNodes.set(pile.id, node);
+      if (held.lift !== lift && sprite instanceof BloodSurfaceSprite)
+        this.surface?.(sprite, pile.id, (pile.hy * TILE_HALF_H) / 2, lift);
+      held.lift = lift;
       node.alpha = alpha;
       this.drawnBones.add(pile.id);
     }
-    retireUndrawn(this.boneNodes, this.drawnBones, (node) => node.destroy({ children: true }));
+    retireUndrawn(this.boneNodes, this.drawnBones, (bone) => bone.container.destroy({ children: true }));
   }
 
   /** Reposition and fade every live wreck mark, hiding off-screen ones, and retire nodes whose mark
@@ -161,7 +169,8 @@ export class CombatEffectsLayer {
       const alpha = wreckAlpha(mark, tick);
       if (alpha <= 0) continue; // retired below, since it never enters `drawnWrecks`
       const held = this.wreckNodes.get(mark);
-      const node = this.placeMark(mark.hx, mark.hy, elevation, viewport, held, () =>
+      const lift = terrainLiftAtNode(elevation, mark.hx, mark.hy);
+      const node = this.placeMark(mark.hx, mark.hy, lift, viewport, held, () =>
         this.makeMark(this.wreck, mark.seed, drawPlanks),
       );
       if (node === undefined) {
@@ -175,18 +184,18 @@ export class CombatEffectsLayer {
     retireUndrawn(this.wreckNodes, this.drawnWrecks, (node) => node.destroy({ children: true }));
   }
 
-  /** The node of a mark at node `(hx, hy)` shown at its lifted feet point, minted on first sight;
-   *  `undefined` when that point is off screen. */
+  /** The node of a mark at node `(hx, hy)` shown at its feet point lifted by `lift`, minted on first
+   *  sight; `undefined` when that point is off screen. */
   private placeMark(
     hx: number,
     hy: number,
-    elevation: ElevationField,
+    lift: number,
     viewport: Viewport,
     held: Container | undefined,
     mint: () => Container,
   ): Container | undefined {
     const x = hx * TILE_HALF_W;
-    const feetY = (hy * TILE_HALF_H) / 2 - terrainLiftAtNode(elevation, hx, hy);
+    const feetY = (hy * TILE_HALF_H) / 2 - lift;
     if (!isVisible(viewport, x, feetY)) return undefined;
     const node = held ?? mint();
     if (held === undefined) this.groundContainer.addChild(node);

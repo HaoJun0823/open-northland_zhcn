@@ -1,4 +1,5 @@
 import { type Entity, packSnapshotDelta, type SimEvent, SnapshotMirror } from '@open-northland/sim';
+import { TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import {
   BONES_LIFETIME_TICKS,
@@ -9,6 +10,7 @@ import {
   WRECK_LIFETIME_TICKS,
 } from '../src/data/effects/index.js';
 import { CombatEffectsLayer } from '../src/gpu/overlays/effects-layer.js';
+import { TextureCache } from '../src/gpu/texture-cache.js';
 import { cameraViewport, makeElevationField } from '../src/index.js';
 import { snapshotOf } from './support/fixtures.js';
 
@@ -25,6 +27,10 @@ const wrecked = (ruins: { hx: number; hy: number }[], entity = 9): SimEvent => (
 
 /** Tiles past any map, so a box of this reach holds the whole world. */
 const MAP_REACH = 1 << 12;
+
+/** A raised map around the test piles. */
+const RAISED_SIDE = 32;
+const RAISED_HEIGHT = 40;
 
 const pile = (id: number, tick: number) => ({ id, components: { BonePile: { hx: 8, hy: 10, tick } } });
 
@@ -77,6 +83,35 @@ describe('bone piles', () => {
     layer.setBonesFade(false);
     layer.draw({ snapshot, elevation: flat, viewport, renderTime: BONES_LIFETIME_TICKS * 10 });
     expect(layer.groundContainer.children[0]?.alpha).toBe(1);
+    layer.destroy();
+  });
+
+  it("registers a pile's blood surface when its node is minted and when the ground under it moves", () => {
+    const lifts: number[] = [];
+    const layer = new CombatEffectsLayer((_sprite, _id, _groundY, lift) => lifts.push(lift));
+    const frame = { x: 0, y: 0, width: 8, height: 8, offsetX: -4, offsetY: -8 };
+    layer.setBonesGfx({
+      source: new TextureSource({ width: 8, height: 8 }),
+      frames: [frame],
+      textures: new TextureCache(),
+      scale: 1,
+    });
+    const snapshot = snapshotOf([pile(2, 0)]);
+    for (const renderTime of [0, 1, 2]) layer.draw({ snapshot, elevation: flat, viewport, renderTime });
+    expect(lifts).toEqual([0]);
+    const raised = makeElevationField(
+      new Array<number>(RAISED_SIDE * RAISED_SIDE).fill(RAISED_HEIGHT),
+      RAISED_SIDE,
+      RAISED_SIDE,
+    );
+    layer.draw({ snapshot, elevation: raised, viewport, renderTime: 3 });
+    layer.draw({ snapshot, elevation: raised, viewport, renderTime: 4 });
+    expect(lifts).toHaveLength(2);
+    expect(lifts[1]).not.toBe(0);
+    // A pile that left the screen comes back as a new node, registered again.
+    layer.draw({ snapshot: snapshotOf([]), elevation: raised, viewport, renderTime: 5 });
+    layer.draw({ snapshot, elevation: raised, viewport, renderTime: 6 });
+    expect(lifts).toHaveLength(3);
     layer.destroy();
   });
 

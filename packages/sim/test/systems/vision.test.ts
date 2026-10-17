@@ -388,6 +388,82 @@ describe('stamp memo - an eye whose footprint did not change writes nothing', ()
     expect(rawState(sim, P1, 0, 2)).toBe(FOG_STATE.VISIBLE);
   });
 
+  /** A standing owned building of `buildingType` on cell (x, 2). */
+  function house(sim: Simulation, x: number, buildingType: number): Entity {
+    const e = sim.world.create();
+    sim.world.add(e, Position, { x: fx.fromInt(x), y: fx.fromInt(2) });
+    sim.world.add(e, Owner, { player: P0 });
+    sim.world.add(e, Building, { buildingType, tribe: VIKING, built: ONE, level: 0 });
+    return e;
+  }
+
+  it('CLASSIC: a partial rebuild starts the sight of a finished construction site', () => {
+    const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
+    crowd(sim);
+    const site = house(sim, 40, SAWMILL);
+    sim.world.add(site, UnderConstruction, { labor: fx.fromInt(0) });
+    sim.run(1 + VISION_CADENCE_TICKS);
+    expect(rawState(sim, P0, 40, 2)).toBe(FOG_STATE.UNEXPLORED);
+    expect(sim.world.verifyCaches()).toEqual([]);
+    sim.world.remove(site, UnderConstruction);
+    sim.run(VISION_CADENCE_TICKS);
+    expect(rawState(sim, P0, 40, 2)).toBe(FOG_STATE.VISIBLE);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('CLASSIC: a partial rebuild widens a house whose upgrade changed its type', () => {
+    const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
+    const hall = house(sim, 4, SAWMILL);
+    sim.run(1 + VISION_CADENCE_TICKS);
+    // 13 cells (26 nodes) east: beyond a house's eye, inside a headquarters'.
+    expect(rawState(sim, P0, 17, 2)).toBe(FOG_STATE.UNEXPLORED);
+    sim.world.mut(hall, Building).buildingType = HEADQUARTERS;
+    sim.run(VISION_CADENCE_TICKS);
+    expect(rawState(sim, P0, 17, 2)).toBe(FOG_STATE.VISIBLE);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('CLASSIC: a partial rebuild widens a still scout that gained experience', () => {
+    const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
+    const scout = unit(sim, 4, 4, P0, { jobType: SCOUT_JOB });
+    sim.run(1 + VISION_CADENCE_TICKS);
+    // A bare experience write skips the progress note the technology verifier wants; only fog is checked.
+    const fogViolations = (): string[] => sim.world.verifyCaches().filter((v) => v.startsWith('fog:'));
+    sim.world.mut(scout, SettlerProgress).experience.set(SCOUT_EXPERIENCE_TYPE, 100);
+    expect(fogViolations()).toEqual([]); // pending in the feed, so not yet a stale memo
+    sim.run(VISION_CADENCE_TICKS);
+    expect(rawState(sim, P0, 19, 4)).toBe(FOG_STATE.VISIBLE);
+    expect(fogViolations()).toEqual([]);
+  });
+
+  it('CLASSIC: a partial rebuild forgets a destroyed eye', () => {
+    const sim = simOn(FOG_MODE.CLASSIC);
+    const eyes = crowd(sim);
+    sim.run(1 + VISION_CADENCE_TICKS);
+    const fallen = eyes[0];
+    if (fallen === undefined) throw new Error('crowd is empty');
+    sim.world.destroy(fallen);
+    sim.run(VISION_CADENCE_TICKS);
+    const memoized: Entity[] = [];
+    sim.fog?.forEachMemoizedEye((e) => memoized.push(e));
+    expect(memoized).not.toContain(fallen);
+    expect(memoized.length).toBe(eyes.length - 1);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('the cache verifier reports an eye footprint change no feed reported', () => {
+    const sim = simOn(FOG_MODE.CLASSIC);
+    const eyes = crowd(sim);
+    sim.run(1 + VISION_CADENCE_TICKS);
+    const mover = eyes[0];
+    if (mover === undefined) throw new Error('crowd is empty');
+    // A write past `mut`, which no feed hears: the bug the verifier exists for.
+    Reflect.set(sim.world.get(mover, Position), 'y', fx.fromInt(6));
+    expect(sim.world.verifyCaches()).toContain(
+      `fog: eye ${mover} has no memo for its footprint, a change no feed reported`,
+    );
+  });
+
   it('CLASSIC: the open-block counts follow stamps and reveals, and the verifier catches a stale one', () => {
     const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
     const eyes = crowd(sim);
@@ -403,6 +479,17 @@ describe('stamp memo - an eye whose footprint did not change writes nothing', ()
     if (mask === undefined) throw new Error('P0 has no mask');
     mask[2 * (sim.fog?.cellsWide ?? 0) + 4] = FOG_STATE.EXPLORED; // a lowered byte the counts missed
     expect(sim.world.verifyCaches()).toContain(`fog: group ${P0} holds stale open blocks`);
+  });
+
+  it('CLASSIC: a whole-map reveal keeps the open-block counts, all closed', () => {
+    const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
+    crowd(sim);
+    sim.run(1 + VISION_CADENCE_TICKS);
+    const fog = sim.fog;
+    if (fog === undefined) throw new Error('mapless sim');
+    fog.revealAll(P0);
+    expect((Reflect.get(fog, 'openBlocks') as Map<number, unknown>).has(P0)).toBe(true);
+    expect(sim.world.verifyCaches()).toEqual([]);
   });
 
   it('eyes sharing a footprint within one pass stamp it once', () => {

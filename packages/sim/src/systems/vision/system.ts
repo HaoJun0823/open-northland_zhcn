@@ -170,6 +170,7 @@ export const visionSystem: System = (world, ctx) => {
   // fog of war no byte ever falls back, so the pass memoizes each eye's footprint, and while that memo
   // holds every eye it visits only the entities whose footprint may have changed.
   const memoizing = !settings.fogOfWar;
+  verifyEyeMemoOf(world, fog, ctx.content);
   const changedEyes = eyeChangesOf(world).take(memoizing, fog.eyeMemo);
   fog.beginStampPass(memoizing, changedEyes !== null);
   // An entity of two eye kinds stamps the same footprint twice, which writes nothing new.
@@ -225,6 +226,59 @@ export const visionSystem: System = (world, ctx) => {
   // ground among them, re-reads the masks on a bump, and a quiet Classic rebuild writes nothing.
   if (changed) fog.generation++;
 };
+
+/** The fog and content the eye-memo verifier of a world reads, updated by each rebuild. */
+interface EyeMemoSubject {
+  fog: FogState;
+  content: ContentSet;
+}
+
+const eyeMemoSubjects = new WeakMap<World, EyeMemoSubject>();
+
+/** Register `world`'s eye-memo verifier once, and point it at this rebuild's fog and content. */
+function verifyEyeMemoOf(world: World, fog: FogState, content: ContentSet): void {
+  const held = eyeMemoSubjects.get(world);
+  if (held !== undefined) {
+    held.fog = fog;
+    held.content = content;
+    return;
+  }
+  const subject: EyeMemoSubject = { fog, content };
+  eyeMemoSubjects.set(world, subject);
+  world.registerCacheVerifier('fogEyeMemo', () => verifyEyeMemo(world, subject));
+}
+
+/**
+ * While the next rebuild would visit only changed eyes, every live eye not pending in the change feeds
+ * must hold a memo matching its current footprint, and nothing else may hold one: a footprint change no
+ * feed reported would never be stamped. Peeks the feeds, so it changes nothing.
+ */
+function verifyEyeMemo(world: World, { fog, content }: EyeMemoSubject): string[] {
+  const changes = eyeChangesOf(world);
+  if (!changes.replays(fog.eyeMemo)) return [];
+  const pending = new Set<Entity>();
+  if (changes.peek((e) => pending.add(e))) return [];
+  const violations: string[] = [];
+  const radii = eyeRadiiOf(content);
+  const eyes = new Set<Entity>();
+  for (const kind of EYE_KINDS) {
+    for (const e of world.query(kind, Owner, Position)) {
+      if (pending.has(e) || eyes.has(e)) continue;
+      const radius = visionRadiusOf(world, radii, e);
+      if (radius === null) continue;
+      eyes.add(e);
+      const p = world.get(e, Position);
+      const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+      if (!fog.holdsEyeStamp(e, world.get(e, Owner).player, cx, cy, radius)) {
+        violations.push(`fog: eye ${e} has no memo for its footprint, a change no feed reported`);
+      }
+    }
+  }
+  fog.forEachMemoizedEye((e) => {
+    if (!eyes.has(e) && !pending.has(e)) violations.push(`fog: entity ${e} holds an eye memo but is no eye`);
+  });
+  return violations;
+}
 
 /** Whether `e` is alive, owned, positioned and of an eye kind: one the full stamp pass visits. */
 function isOwnedEyeKind(world: World, e: Entity): boolean {

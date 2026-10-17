@@ -146,9 +146,9 @@ export class FogState {
   private readonly passFootprints = new Map<number, number>();
   /** Moves as each stamp pass opens and closes. */
   private footprintEpoch = 0;
-  /** vision group → its mask's {@link OpenBlocks}, kept only without fog of war, where every stamp
-   *  closes cells and only a script's reveal or a reset reopens any. A writer that would open cells
-   *  drops the group's entry instead, and the next memoizing stamp recounts it. */
+  /** vision group → its mask's {@link OpenBlocks}, counted only by a memoizing stamp. Stamps and reveals
+   *  only close cells and keep the counts; a writer that can reopen one (a downgrade, a restore, a
+   *  regroup, a reset) drops the group's entry instead, and the next memoizing stamp recounts it. */
   private readonly openBlocks = new Map<number, OpenBlocks>();
 
   constructor(terrain: TerrainGraph, world: World) {
@@ -368,8 +368,8 @@ export class FogState {
   }
 
   /** Open a stamp pass. `memo` (only without fog of war, where no byte falls back) skips an eye whose
-   *  footprint is unchanged since its last stamp, and {@link endStampPass} forgets the eyes the pass did
-   *  not see. */
+   *  footprint is unchanged since its last stamp. A full pass then has {@link endStampPass} forget the
+   *  eyes it did not see; a `partial` one visits only changed eyes and keeps every other memo. */
   beginStampPass(memo: boolean, partial = false): void {
     this.memoStamps = memo;
     this.partialPass = memo && partial;
@@ -444,6 +444,25 @@ export class FogState {
    *  reads the same value as at the last memo pass. */
   get eyeMemo(): number {
     return this.eyeMemoEpoch;
+  }
+
+  /** Whether `eye`'s memoized footprint is `player`'s group on cell (cx, cy) with `radius`; reads only. */
+  holdsEyeStamp(eye: Entity, player: number, cx: number, cy: number, radius: number): boolean {
+    const held = this.eyeStamps.get(eye);
+    return (
+      held !== undefined &&
+      held.group === this.visionGroupOf(player) &&
+      held.cx === cx &&
+      held.cy === cy &&
+      held.radius === radius
+    );
+  }
+
+  /** Visit every entity holding a memoized footprint. */
+  forEachMemoizedEye(visit: (eye: Entity) => void): void {
+    this.eyeStamps.forEach((_, eye) => {
+      visit(eye);
+    });
   }
 
   /** Drop `eye`'s memoized footprint: it is no longer an eye. */
@@ -561,7 +580,7 @@ export class FogState {
       if (fold !== null) foldCellChange(fold, i, previous, REVEALED_BYTE);
       changed = true;
     }
-    this.openBlocks.delete(group);
+    this.openBlocks.get(group)?.closeAll(); // every byte is revealed now, so nothing is raisable
     if (!changed) return;
     this.markGroup(group);
     this.generation++;

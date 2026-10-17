@@ -59,6 +59,18 @@ export class EyeChanges {
     this.memoAt = memoizing ? memo : -1;
     return replay ? this.changed : null;
   }
+
+  /** Whether the next memoizing rebuild under `memo` would visit only changed eyes. */
+  replays(memo: number): boolean {
+    return this.memoAt === memo;
+  }
+
+  /** Hand every pending entity to `visit` without draining, for a verifier; true instead when a feed
+   *  lost entries, so the next rebuild visits every eye. */
+  peek(visit: (entity: Entity) => void): boolean {
+    const identityLost = this.identity.peek(visit);
+    return this.moves.peek(visit) || identityLost;
+  }
 }
 
 const byWorld = new WeakMap<World, EyeChanges>();

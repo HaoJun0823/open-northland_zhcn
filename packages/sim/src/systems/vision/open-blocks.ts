@@ -29,6 +29,11 @@ export class OpenBlocks {
     this.counts[block] = (this.counts[block] ?? 0) - 1;
   }
 
+  /** No cell is raisable any more. */
+  closeAll(): void {
+    this.counts.fill(0);
+  }
+
   /** Whether no cell of the inclusive in-grid cell box is raisable. */
   closed(minC: number, maxC: number, minR: number, maxR: number): boolean {
     const bcLo = minC >> BLOCK_SHIFT;

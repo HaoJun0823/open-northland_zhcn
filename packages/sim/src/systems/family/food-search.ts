@@ -2,7 +2,7 @@ import type { ContentSet } from '@open-northland/data';
 import { ownerOf, ownersCompatible, Position, Stockpile } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition, nodeOfPosition } from '../../nav/halfcell.js';
+import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { SpatialGate } from '../../nav/node-circle.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
@@ -10,7 +10,6 @@ import { edibleGoodFormOf, isFoodIn } from '../readviews/index.js';
 import { hasRoom } from '../settlers/drives/economy/store-policy.js';
 import { interactionCell, unclaimedGoodsAt } from '../settlers/targets/index.js';
 import { accessibleStockAmounts, type SupplyTally } from '../stores/index.js';
-import { CandidateSides } from './candidate-sides.js';
 import { type FoodSources, foodSourcesOf } from './food-sources.js';
 
 /**
@@ -35,6 +34,7 @@ const RING_MIN_CANDIDATES = 256;
  */
 export class ExternalFoodIndex {
   private readonly sources: FoodSources;
+  private readonly roomy: number[] = [];
 
   constructor(
     private readonly world: World,
@@ -84,12 +84,14 @@ export class ExternalFoodIndex {
 
   /** The candidates `owner` may haul from, ascending id; `accept` still checks the side. */
   private onSide(owner: number | undefined): readonly Entity[] {
-    return foodSourceSides(this.world).of(this.sources.candidates, owner);
+    return this.sources.onSide(owner);
   }
 
-  /** The family foods, ascending, that `home`'s larder has room for. */
-  private foodsWithRoomAt(home: Entity): number[] {
-    const roomy: number[] = [];
+  /** The family foods, ascending, that `home`'s larder has room for: one scratch list, valid until the
+   *  next query. */
+  private foodsWithRoomAt(home: Entity): readonly number[] {
+    const roomy = this.roomy;
+    roomy.length = 0;
     for (const goodType of familyFoods(this.ctx.content)) {
       if (hasRoom(this.world, this.ctx, home, goodType)) roomy.push(goodType);
     }
@@ -128,8 +130,7 @@ export class ExternalFoodIndex {
   private inArea(e: Entity, gate: SpatialGate | null): boolean {
     if (gate === null || this.terrain === undefined) return true;
     const p = this.world.get(e, Position);
-    const node = nodeOfPosition(p.x, p.y);
-    return gate.allowsNode(this.terrain.nodeAtClamped(node.hx, node.hy));
+    return gate.allowsNode(this.terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y)));
   }
 
   /** The strictly-nearer pick over the ascending-id candidates beyond Manhattan distance `swept`. The
@@ -167,15 +168,4 @@ function familyFoods(content: ContentSet): readonly number[] {
     familyFoodsByContent.set(content, foods);
   }
   return foods;
-}
-
-const sidesByWorld = new WeakMap<World, CandidateSides>();
-
-function foodSourceSides(world: World): CandidateSides {
-  let sides = sidesByWorld.get(world);
-  if (sides === undefined) {
-    sides = new CandidateSides(world);
-    sidesByWorld.set(world, sides);
-  }
-  return sides;
 }

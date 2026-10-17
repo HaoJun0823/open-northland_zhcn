@@ -162,7 +162,8 @@ describe('foodSourcesOf', () => {
     const SEEKER = 0;
     const RIVAL = 1;
     const SPREAD_NODES = 300;
-    for (const count of [100, 400]) {
+    // About half are the rival's: the larger count leaves the seeker's side past the ring threshold.
+    for (const count of [100, 700]) {
       const sim = new Simulation({ seed: 1, content: foodContent() });
       const home = storeAt(sim, 0, FOOD, 0, HOME);
       let state = count;
@@ -216,6 +217,7 @@ describe('foodSourcesOf', () => {
     expect(search()).toBe(near);
     sim.world.remove(near, Owner);
     expect(search()).toBe(near);
+    expect(sim.world.verifyCaches()).toEqual([]);
   });
 
   it("offers only a food the seeker's larder has room for", () => {

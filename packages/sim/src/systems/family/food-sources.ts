@@ -1,21 +1,29 @@
 import type { ContentSet } from '@open-northland/data';
-import { Building, Position, Stockpile, UnderConstruction, Upgrading } from '../../components/index.js';
+import {
+  Building,
+  Owner,
+  ownerOf,
+  Position,
+  Stockpile,
+  UnderConstruction,
+  Upgrading,
+} from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
-import { insertSortedById, removeSortedById } from '../../core/sorted-id.js';
 import { JournaledCaptures } from '../../ecs/journaled-captures.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import { edibleGoodFormOf, isFoodIn } from '../readviews/index.js';
 import { NodeBuckets } from '../spatial/nodes.js';
 import { accessibleStockAmounts } from '../stores/index.js';
+import { SidedCandidates, sidesMatch } from './candidate-sides.js';
 
-/** A food source's anchor node, captured so a withdrawal finds its bucket after the store is gone. */
+/** A food source's anchor node and owner, captured so a withdrawal finds its bucket and side after the
+ *  store is gone. */
 interface SourceNode {
   readonly hx: number;
   readonly hy: number;
+  readonly owner: number | undefined;
 }
-
-const byId = (e: Entity): number => e;
 
 /**
  * Every stockpile holding a unit that reaches a family as an edible, except a home, whose larder feeds
@@ -23,8 +31,7 @@ const byId = (e: Entity): number => e;
  * begins, so it holds still while that pass plans, and a store never moves while it holds stock.
  */
 export class FoodSources {
-  private readonly ids: Entity[] = [];
-  private shared: readonly Entity[] | null = null;
+  private readonly sides = new SidedCandidates();
   private nodeBuckets: NodeBuckets;
   readonly captures: JournaledCaptures<SourceNode>;
 
@@ -36,36 +43,36 @@ export class FoodSources {
     this.captures = new JournaledCaptures<SourceNode>(
       world,
       {
-        membership: [Stockpile, Position, Building, Upgrading, UnderConstruction],
-        values: [Stockpile, Building, Upgrading],
+        membership: [Stockpile, Position, Building, Upgrading, UnderConstruction, Owner],
+        values: [Stockpile, Building, Upgrading, Owner],
       },
       () => world.canonicalQuery(Stockpile, Position),
       {
         capture: (e) => (isFoodSource(world, content, e) ? anchorNode(world, e) : null),
         apply: (e, node) => {
-          insertSortedById(this.ids, e, byId);
-          this.shared = null;
+          this.sides.insert(e, node.owner);
           this.nodeBuckets.insert(e, node.hx, node.hy);
         },
         withdraw: (e, node) => {
-          removeSortedById(this.ids, e, byId);
-          this.shared = null;
+          this.sides.remove(e, node.owner);
           this.nodeBuckets.remove(e, node.hx, node.hy);
         },
         clear: () => {
-          this.ids.length = 0;
-          this.shared = null;
+          this.sides.clear();
           this.nodeBuckets = new NodeBuckets(world, []);
         },
       },
     );
   }
 
-  /** Ascending id, the linear scan's tie-break order: a new array whenever the members change, so a
-   *  consumer may key on its identity. Shared: never mutate it. */
+  /** Ascending id, the linear scan's tie-break order. Live: read it within one query, never write it. */
   get candidates(): readonly Entity[] {
-    this.shared ??= this.ids.slice();
-    return this.shared;
+    return this.sides.all;
+  }
+
+  /** The sources `owner` may haul from, ascending id; see {@link SidedCandidates.of}. */
+  onSide(owner: number | undefined): readonly Entity[] {
+    return this.sides.of(owner);
   }
 
   get buckets(): NodeBuckets {
@@ -77,8 +84,10 @@ export class FoodSources {
     const fresh = this.world
       .canonicalQuery(Stockpile, Position)
       .filter((e) => isFoodSource(this.world, this.content, e));
-    const same = fresh.length === this.ids.length && fresh.every((e, i) => e === this.ids[i]);
+    const held = this.candidates;
+    const same = fresh.length === held.length && fresh.every((e, i) => e === held[i]);
     if (!same) return ['familyFoodSources disagree with a fresh store scan'];
+    if (!sidesMatch(this.world, fresh, this.sides)) return ['familyFoodSources hold a store on a stale side'];
     for (const e of fresh) {
       const node = anchorNode(this.world, e);
       if (!this.nodeBuckets.at(node.hx, node.hy).includes(e)) {
@@ -108,7 +117,7 @@ export function foodSourcesOf(world: World, content: ContentSet): FoodSources {
 
 function anchorNode(world: World, e: Entity): SourceNode {
   const p = world.get(e, Position);
-  return { hx: nodeHxOfPosition(p.x, p.y), hy: nodeHyOfPosition(p.y) };
+  return { hx: nodeHxOfPosition(p.x, p.y), hy: nodeHyOfPosition(p.y), owner: ownerOf(world, e) };
 }
 
 function isFoodSource(world: World, content: ContentSet, e: Entity): boolean {

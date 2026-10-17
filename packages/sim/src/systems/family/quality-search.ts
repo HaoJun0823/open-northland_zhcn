@@ -1,6 +1,7 @@
 import type { ContentSet } from '@open-northland/data';
 import {
   Building,
+  Owner,
   ownerOf,
   ownersCompatible,
   Position,
@@ -9,7 +10,6 @@ import {
   Upgrading,
 } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
-import { insertSortedById, removeSortedById } from '../../core/sorted-id.js';
 import { JournaledCaptures } from '../../ecs/journaled-captures.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
@@ -19,7 +19,7 @@ import type { SystemContext } from '../context.js';
 import { interactionCell, unclaimedGoodsAt } from '../settlers/targets/index.js';
 import { NodeBuckets } from '../spatial/nodes.js';
 import { accessibleStockAmounts, type SupplyTally } from '../stores/index.js';
-import { CandidateSides } from './candidate-sides.js';
+import { SidedCandidates, sidesMatch } from './candidate-sides.js';
 
 /**
  * Per-tick searchable view of external stores carrying a configured household-quality good. The
@@ -73,7 +73,7 @@ export class ExternalQualityIndex {
 
   /** The candidates `owner` may take from, ascending id; `accept` still checks the side. */
   private onSide(owner: number | undefined): readonly Entity[] {
-    return qualitySourceSides(this.world).of(this.candidates, owner);
+    return this.sources.onSide(owner);
   }
 
   /** The strictly-nearer pick over the ascending-id candidates beyond Manhattan distance `swept`. The
@@ -149,51 +149,60 @@ function isQualitySource(world: World, content: ContentSet, e: Entity): boolean 
   return lowestQualityGood(world, content, e) !== null;
 }
 
-const byId = (e: Entity): number => e;
+/** A quality source's owner, captured so a withdrawal finds its side after the store is gone. */
+interface SourceSide {
+  readonly owner: number | undefined;
+}
 
 /** One world's quality sources in ascending id, kept across ticks and caught up by {@link qualitySources}. */
 class QualitySources {
-  private readonly ids: Entity[] = [];
+  private readonly sides = new SidedCandidates();
   private shared: readonly Entity[] | null = null;
   /** Buckets of the list they were last filled from, refilled only when a different list is searched. */
   private readonly buckets: NodeBuckets;
   private bucketed: readonly Entity[] | null = null;
-  readonly captures: JournaledCaptures<true>;
+  readonly captures: JournaledCaptures<SourceSide>;
 
   constructor(
     private readonly world: World,
     readonly content: ContentSet,
   ) {
     this.buckets = new NodeBuckets(world, []);
-    this.captures = new JournaledCaptures<true>(
+    this.captures = new JournaledCaptures<SourceSide>(
       world,
       {
-        membership: [Stockpile, Position, Building, Upgrading, UnderConstruction],
-        values: [Stockpile, Building, Upgrading],
+        membership: [Stockpile, Position, Building, Upgrading, UnderConstruction, Owner],
+        values: [Stockpile, Building, Upgrading, Owner],
       },
       () => world.canonicalQuery(Stockpile, Position),
       {
-        capture: (e) => (isQualitySource(world, content, e) ? true : null),
-        apply: (e) => {
-          insertSortedById(this.ids, e, byId);
+        capture: (e) => (isQualitySource(world, content, e) ? { owner: ownerOf(world, e) } : null),
+        apply: (e, side) => {
+          this.sides.insert(e, side.owner);
           this.shared = null;
         },
-        withdraw: (e) => {
-          removeSortedById(this.ids, e, byId);
+        withdraw: (e, side) => {
+          this.sides.remove(e, side.owner);
           this.shared = null;
         },
         clear: () => {
-          this.ids.length = 0;
+          this.sides.clear();
           this.shared = null;
         },
       },
     );
   }
 
-  /** The sources as of the last catch-up, shared. */
+  /** The sources as of the last catch-up, shared: a new array whenever the members change, so the
+   *  buckets may key on its identity. */
   list(): readonly Entity[] {
-    this.shared ??= this.ids.slice();
+    this.shared ??= this.sides.all.slice();
     return this.shared;
+  }
+
+  /** The sources `owner` may take from, ascending id; see {@link SidedCandidates.of}. */
+  onSide(owner: number | undefined): readonly Entity[] {
+    return this.sides.of(owner);
   }
 
   /** `list`'s entities by node; `list` is one {@link list} returned. */
@@ -212,22 +221,12 @@ class QualitySources {
       .canonicalQuery(Stockpile, Position)
       .filter((e) => isQualitySource(this.world, this.content, e));
     const same = fresh.length === held.length && fresh.every((e, i) => e === held[i]);
-    return same ? [] : ['qualitySources disagree with a fresh store scan'];
+    if (!same) return ['qualitySources disagree with a fresh store scan'];
+    return sidesMatch(this.world, fresh, this.sides) ? [] : ['qualitySources hold a store on a stale side'];
   }
 }
 
 const sourcesByWorld = new WeakMap<World, QualitySources>();
-const sidesByWorld = new WeakMap<World, CandidateSides>();
-
-function qualitySourceSides(world: World): CandidateSides {
-  let sides = sidesByWorld.get(world);
-  if (sides === undefined) {
-    sides = new CandidateSides(world);
-    sidesByWorld.set(world, sides);
-  }
-  return sides;
-}
-
 /** The world's quality sources, caught up to the live world. */
 export function qualitySources(world: World, content: ContentSet): QualitySources {
   let held = sourcesByWorld.get(world);

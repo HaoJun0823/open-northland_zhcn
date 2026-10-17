@@ -3,17 +3,19 @@
 // the pipeline's source and map-string corrections, and refreshes its maps-index.json row. This is
 // the fast path for checking a correction on the map it fixes: a full `npm run build:content`
 // converts every map and all other lanes. Campaign maps come from the campaigns stage and need the
-// full build.
+// full build. Only the map's own files and index row change: `ir.json` keeps the map headers the full
+// build decoded, which the app does not read at runtime. Validating the pack re-hashes its inventory,
+// a few seconds.
 //
 // Usage: node scripts/convert-map.mjs <map id> [--content <dir>] [--data-root <unpacked pack>]
 //   --content    the content directory to write (default: ON_CONTENT_DIR or content/). It must be
 //                this checkout's own copy: the shared primary content is refused from a worktree.
-//   --data-root  the unpacked data pack (default: .cache/data/unpacked of this checkout, else of the
-//                primary checkout).
+//   --data-root  the unpacked data pack (default: ON_DATA_ROOT, else .cache/data/unpacked of this
+//                checkout, else of the primary checkout).
 // Needs the workspace built (npx tsc --build).
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { readFile, realpath, writeFile } from 'node:fs/promises';
+import { readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { contentDir, repoRoot } from './content-dir.mjs';
 import { readDataPack } from './data-pack.mjs';
@@ -79,7 +81,7 @@ async function ownContentDir() {
   if (real !== checkout && !real.startsWith(checkout + sep)) {
     throw new Error(
       `${requested} resolves to ${real}, outside this checkout. A worktree writes its own copy: ` +
-        `rm -f content && cp -Rc "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/content" content`,
+        `rm -f content && cp -R "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/content" content`,
     );
   }
   return real;
@@ -173,19 +175,41 @@ const map = await mapImport.convertMapFolder(tree, key, {
 });
 if (map.id !== mapId) throw new Error(`folder ${folder} converted to id ${map.id}, not ${mapId}`);
 
-const same = (a, b) => a.length === b.length && a.every((byte, i) => byte === b[i]);
+// Only this map's sources were read, so only the corrections naming them can have applied.
+const missed = [
+  ...corrections.unapplied().filter((row) => sourceCorrections.some((own) => own.id === row.id)),
+  ...mapStringCorrections
+    .unapplied()
+    .filter(({ entry }) => entry.scope === mapId)
+    .map(({ entry, why }) => ({ id: `strings/maps.json ${entry.lang}/${entry.id}`, file: entry.scope, why })),
+];
+if (missed.length > 0) {
+  console.error(`[convert-map] corrections naming ${mapId} did not apply; fix or delete them:`);
+  for (const { id, file, why } of missed) console.error(`  ${id} (${file}): ${why}`);
+  process.exit(1);
+}
+
+const emitted = mapImport.mapFiles(map);
 const changed = [];
 const unchanged = [];
-for (const [name, bytes] of mapImport.mapFiles(map)) {
+for (const [name, data] of emitted) {
   const target = join(content, MAPS_DIR, name);
-  const before = existsSync(target) ? new Uint8Array(readFileSync(target)) : null;
-  if (before !== null && same(before, bytes)) {
+  const after = Buffer.from(data);
+  const existed = existsSync(target);
+  if (existed && readFileSync(target).equals(after)) {
     unchanged.push(name);
     continue;
   }
-  await writeFile(target, bytes);
-  changed.push(before === null ? `${name} (new)` : name);
+  await writeFile(target, after);
+  changed.push(existed ? name : `${name} (new)`);
 }
+// A sidecar the new conversion no longer emits (a picture, a voice, a briefing) would stay served.
+const removed = (await readdir(join(content, MAPS_DIR))).filter(
+  (name) =>
+    (mapImport.mapFileNames(map.id).includes(name) || name.startsWith(`${map.id}.voice`)) &&
+    !emitted.has(name),
+);
+for (const name of removed) await rm(join(content, MAPS_DIR, name));
 await pipeline.pictures.writePagePictures(content, map.pictures);
 
 const indexPath = join(content, MAPS_INDEX_FILE);
@@ -200,6 +224,7 @@ await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`);
 
 console.log(`[convert-map] wrote ${changed.length} changed file(s): ${changed.join(', ') || 'none'}`);
 console.log(`[convert-map] unchanged: ${unchanged.join(', ') || 'none'}`);
+if (removed.length > 0) console.log(`[convert-map] removed stale: ${removed.join(', ')}`);
 console.log(
   `[convert-map] ${MAPS_INDEX_FILE} row ${at >= 0 ? 'replaced' : 'added'}; fingerprint ${map.index.fingerprint}`,
 );

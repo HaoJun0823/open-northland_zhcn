@@ -66,6 +66,7 @@ describe('source corrections', () => {
     const corrections = await loadSourceCorrections(dir, mod);
 
     expect(Buffer.from(await corrections.read(path)).toString('latin1')).toContain(SWAP[0]?.from);
+    expect(corrections.unapplied().map(({ id }) => id)).toEqual(['swap']);
     expect(() => corrections.assertApplied()).toThrow(/swap \(.*ai\.inc\): the file changed/);
   });
 

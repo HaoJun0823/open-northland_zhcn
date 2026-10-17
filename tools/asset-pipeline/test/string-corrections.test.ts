@@ -92,6 +92,7 @@ describe('string corrections', () => {
     await writeEntries([entry]);
     const { rus, corrections } = await convertRus();
     expect(rus.goods?.[GOOD_ID]).toBe(RUS_TEXT);
+    expect(corrections.unapplied().map(({ entry: { id } }) => id)).toEqual([entry.id]);
     expect(() => corrections.assertApplied()).toThrow(message);
   });
 

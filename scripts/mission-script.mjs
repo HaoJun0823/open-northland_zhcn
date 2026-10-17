@@ -90,7 +90,6 @@ function formatLine(phase, line, decode) {
   else if (!supported[phase].has(opcode)) mark = ' [UNSUPPORTED in this build]';
   let note = '';
   if (opcode === 'PlayCutscene') note = quoted(pageTitle(op.cutscene));
-  if (opcode === 'SetInfoText' || opcode === 'ShowMessage') note = quoted(text(op.stringId));
   if (opcode === 'SetHumanName') note = quoted(text(op.stringId));
   return `${opcode} ${parts.join(' ')}${note}${mark}`;
 }

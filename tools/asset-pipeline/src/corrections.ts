@@ -44,8 +44,17 @@ export interface SourceCorrections {
   read(path: string): Promise<Uint8Array>;
   /** Correct decoded properties against the original bytes, before any map readers consume them. */
   correctCifLines(file: string, bytes: Uint8Array, lines: readonly CifLine[]): readonly CifLine[];
+  /** Every correction the reads so far did not apply, and why; a run that read only part of the data
+   *  filters it to the files it read. */
+  unapplied(): readonly UnappliedCorrection[];
   /** Throws naming every correction the run did not apply, and why. */
   assertApplied(): void;
+}
+
+export interface UnappliedCorrection {
+  readonly id: string;
+  readonly file: string;
+  readonly why: string;
 }
 
 const CORRECTION_KEYS = ['reason', 'file', 'sha256', 'format', 'encoding', 'lines'] as const;
@@ -83,8 +92,19 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
 
   const applied = new Set<string>();
   const failures = new Map<string, string>();
+  const unapplied = (): UnappliedCorrection[] =>
+    list
+      .filter((correction) => !applied.has(correction.id))
+      .map((correction) => ({
+        id: correction.id,
+        file: correction.file,
+        why:
+          failures.get(correction.id) ??
+          'never read: the mod lacks the file, or its stage reads it without readSourceFile',
+      }));
   return {
     list,
+    unapplied,
     async read(path) {
       const bytes = await readFile(path);
       const correction = byFile.get(relative(dataRoot, path).split(sep).join('/').toLowerCase());
@@ -126,12 +146,7 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
       return corrected;
     },
     assertApplied() {
-      const problems = list
-        .filter((correction) => !applied.has(correction.id))
-        .map(
-          (correction) =>
-            `${correction.id} (${correction.file}): ${failures.get(correction.id) ?? 'never read: the mod lacks the file, or its stage reads it without readSourceFile'}`,
-        );
+      const problems = unapplied().map(({ id, file, why }) => `${id} (${file}): ${why}`);
       if (problems.length > 0) {
         throw new Error(
           `corrections not applied; update or delete them in ${dir}:\n  ${problems.join('\n  ')}`,

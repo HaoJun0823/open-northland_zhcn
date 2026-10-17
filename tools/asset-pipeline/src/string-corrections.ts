@@ -34,8 +34,16 @@ export interface StringCorrections {
   readonly list: readonly StringCorrection[];
   /** `byId` with every correction naming `lang`/`scope` applied where the text still matches. */
   correct(lang: string, scope: string, byId: Readonly<Record<number, string>>): Record<number, string>;
+  /** Every correction the tables decoded so far did not take, and why; a run that decoded only part
+   *  of the data filters it to the scopes it decoded. */
+  unapplied(): readonly UnappliedStringCorrection[];
   /** Throws naming every correction the run did not apply, and why. */
   assertApplied(): void;
+}
+
+export interface UnappliedStringCorrection {
+  readonly entry: StringCorrection;
+  readonly why: string;
 }
 
 /** What one corrections file keys its entries by besides `lang` and `id`. */
@@ -95,8 +103,18 @@ async function loadCorrections(path: string, kind: CorrectionKind): Promise<Stri
 
   const applied = new Set<StringCorrection>();
   const failures = new Map<StringCorrection, string>();
+  const unapplied = (): UnappliedStringCorrection[] =>
+    list
+      .filter((entry) => !applied.has(entry))
+      .map((entry) => ({
+        entry,
+        why:
+          failures.get(entry) ??
+          `never read: the data lacks that ${kind.scopeKey} or language, or no stage decodes it`,
+      }));
   return {
     list,
+    unapplied,
     correct(lang, scope, byId) {
       const corrected: Record<number, string> = { ...byId };
       for (const entry of list) {
@@ -119,12 +137,9 @@ async function loadCorrections(path: string, kind: CorrectionKind): Promise<Stri
       return corrected;
     },
     assertApplied() {
-      const problems = list
-        .filter((entry) => !applied.has(entry))
-        .map(
-          (entry) =>
-            `${entry.lang}/${entry.scope}/${entry.id} ${JSON.stringify(entry.from)}: ${failures.get(entry) ?? `never read: the data lacks that ${kind.scopeKey} or language, or no stage decodes it`}`,
-        );
+      const problems = unapplied().map(
+        ({ entry, why }) => `${entry.lang}/${entry.scope}/${entry.id} ${JSON.stringify(entry.from)}: ${why}`,
+      );
       if (problems.length > 0) {
         throw new Error(
           `string corrections not applied; update or delete them in ${path}:\n  ${problems.join('\n  ')}`,

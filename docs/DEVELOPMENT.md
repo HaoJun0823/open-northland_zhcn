@@ -153,7 +153,7 @@ goal texts, the pages its results open and, with `--pages`, every briefing page.
 generated sidecars, so corrections are included. `npm run map:convert -- <map id>` re-converts one
 base map from the unpacked pack through the corrections into this checkout's own `content/` and
 refreshes its `maps-index.json` row; it refuses a shared primary content directory, so a worktree
-first clones it (`cp -Rc <primary>/content content`). Campaign maps need the full `build:content`.
+first clones it (`cp -R <primary>/content content`; `cp -Rc` clones in seconds on APFS). Campaign maps need the full `build:content`.
 Both need the workspace built (`npx tsc --build`).
 
 ## Browser entries

@@ -56,10 +56,14 @@ export interface BootedMap {
   readonly entry: string;
 }
 
-/** The world the `?map=` entry boots from `search`, scripts on. */
+/** Repeatable default: a search without a seed would draw one, and a failing probe could not be replayed. */
+const DEFAULT_SEED = 7;
+
+/** The world the `?map=` entry boots from `search`, scripts on, seeded. */
 export async function bootMap(search: string): Promise<BootedMap> {
   const params = new URLSearchParams(search);
   if (!params.has('missions')) params.set('missions', 'on');
+  if (!params.has('seed')) params.set('seed', String(DEFAULT_SEED));
   const mapId = mapIdParam(params);
   if (mapId === null) throw new Error(`the search names no map: ${search}`);
   const entry = `?${params}`;
@@ -199,7 +203,7 @@ export function buildingsOf(sim: Simulation, player: number, buildingSlug?: stri
   const type = buildingSlug === undefined ? undefined : buildingType(sim, buildingSlug);
   return [...sim.world.query(components.Building)].filter((entity) => {
     const building = sim.world.get(entity, components.Building);
-    if (building.built !== ONE || components.ownerOf(sim.world, entity) !== player) return false;
+    if (building.built < ONE || components.ownerOf(sim.world, entity) !== player) return false;
     return type === undefined || building.buildingType === type;
   });
 }
@@ -335,9 +339,15 @@ export function raze(
   for (const building of buildings) order(sim, owner, { kind: 'demolish', building });
 }
 
+export interface PlaceOptions {
+  /** Place through the trusted command past the player's technology and script gates, finished at once. */
+  readonly ignoreGate?: boolean;
+}
+
 /**
- * Places a building through the seat command on the first site near the point the placement rule
- * accepts, then completes its construction as builders would. Returns the building.
+ * Places a building on the first site near the point the seat's placement rule accepts, then completes
+ * its construction as builders would. A site the rule accepts only without the player's building gate
+ * is refused with that reason unless `ignoreGate` asks for the trusted placement. Returns the building.
  */
 export function placeFinished(
   sim: Simulation,
@@ -346,9 +356,21 @@ export function placeFinished(
   buildingSlug: string,
   hx: number,
   hy: number,
+  options: PlaceOptions = {},
 ): Entity {
   const type = buildingType(sim, buildingSlug);
   const tribe = tribeOf(sim, player);
+  const gated = sim.placementProbe(type, player, tribe, options.ignoreGate !== true);
+  if (gated === null) throw new Error('the world has no terrain');
+  const site = siteNear(sim, (x, y) => gated.canPlace(x, y), hx, hy);
+  if (site === undefined) {
+    const open = sim.placementProbe(type, player, tribe, false);
+    const why =
+      open !== null && siteNear(sim, (x, y) => open.canPlace(x, y), hx, hy) !== undefined
+        ? `player ${player} may not build ${buildingSlug} yet (technology or script gate); pass ignoreGate to force it`
+        : `no site near ${hx},${hy} accepts ${buildingSlug}`;
+    throw new Error(why);
+  }
   const owned = (): Set<Entity> =>
     new Set(
       [...sim.world.query(components.Building)].filter(
@@ -358,6 +380,42 @@ export function placeFinished(
       ),
     );
   const before = owned();
+  if (options.ignoreGate === true) {
+    admin(sim, {
+      kind: 'placeBuilding',
+      buildingType: type,
+      x: site.hx,
+      y: site.hy,
+      tribe,
+      owner: player,
+      ignoreTechnology: true,
+      underConstruction: false,
+    });
+  } else {
+    order(sim, player, { kind: 'placeBuilding', buildingType: type, x: site.hx, y: site.hy, tribe });
+  }
+  run(sim, log, 1);
+  const added = [...owned()].find((entity) => !before.has(entity));
+  if (added === undefined)
+    throw new Error(`placing ${buildingSlug} at ${site.hx},${site.hy} for player ${player} was refused`);
+  if (options.ignoreGate !== true) {
+    admin(sim, { kind: 'debugCompleteConstruction', target: added });
+    run(sim, log, 1);
+  }
+  force(
+    log,
+    `place ${buildingSlug} at ${site.hx},${site.hy} for player ${player}${options.ignoreGate === true ? ' past its gate' : ''}, finished t=${sim.tick}`,
+  );
+  return added;
+}
+
+/** The first node in growing square rings around the point, on the half-cell parity of the point, that `accepts`. */
+function siteNear(
+  sim: Simulation,
+  accepts: (x: number, y: number) => boolean,
+  hx: number,
+  hy: number,
+): HalfCellNode | undefined {
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('the world has no terrain');
   for (let ring = 0; ring < 60; ring += 2) {
@@ -366,22 +424,11 @@ export function placeFinished(
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
         const x = hx + dx;
         const y = hy + dy;
-        if (!terrain.inBounds(x, y)) continue;
-        order(sim, player, { kind: 'placeBuilding', buildingType: type, x, y, tribe });
-        run(sim, log, 1);
-        const added = [...owned()].find((entity) => !before.has(entity));
-        if (added === undefined) continue;
-        admin(sim, { kind: 'debugCompleteConstruction', target: added });
-        run(sim, log, 1);
-        force(
-          log,
-          `place ${buildingSlug} at ${x},${y} for player ${player}, construction completed t=${sim.tick}`,
-        );
-        return added;
+        if (terrain.inBounds(x, y) && accepts(x, y)) return { hx: x, hy: y };
       }
     }
   }
-  throw new Error(`no accepted site for ${buildingSlug} near ${hx},${hy}`);
+  return undefined;
 }
 
 /** Fills one good's slot of a building to capacity, or every slot without `goodSlug`; a porter's stand-in. */

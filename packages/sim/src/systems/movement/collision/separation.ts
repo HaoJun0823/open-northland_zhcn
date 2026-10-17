@@ -95,7 +95,7 @@ export const separationSystem: System = (world, ctx) => {
     // around the mover's own node. Posts matter only to a firm mover.
     const postGrid = isFirm ? posts : undefined;
     // The mover's own slot sits in its own node's list; neighbours are the rest.
-    const moverCount = movers.grid.collectAround(nodeHx, nodeHy, slot, nearMovers);
+    const moverCount = movers.grid.collectAround(slot, nearMovers);
     let postCount = 0;
     if (postGrid !== undefined) {
       for (let dx = -1; dx <= 1; dx++) {

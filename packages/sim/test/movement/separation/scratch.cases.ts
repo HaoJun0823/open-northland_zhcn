@@ -46,21 +46,33 @@ describe('unit body collision - scratch lifetime', () => {
     expect(collected(grid, 0, 0)).toEqual([1]);
   });
 
-  it('collects a node block in node order without the asking slot, inside and on the lattice edge', () => {
+  it('collects the node block around a slot in node order without the slot, inside and on the lattice edge', () => {
     const terrain = sim().terrain;
     if (terrain === undefined) throw new Error('the separation fixture is mapped');
     const grid = new SlotGrid();
-    const around = (x: number, y: number, skip: number): number[] => {
+    const around = (slot: number): number[] => {
       const out: number[] = [];
-      out.length = grid.collectAround(x, y, skip, out);
+      out.length = grid.collectAround(slot, out);
       return out;
     };
+    // The node after the first occupancy word's last bit, one row down, so the block above (x, 2) spans
+    // two words.
+    const wordEdge = 32 - terrain.width;
+    const hx = [3, 2, 4, 3, 5, 0, 8, 8, 10, wordEdge, wordEdge - 1];
+    const hy = [2, 3, 1, 2, 2, 0, 4, 4, 2, 1, 2];
 
-    grid.fill(terrain, 6, [3, 2, 4, 3, 5, 0], [2, 3, 1, 2, 2, 0]);
-    expect(around(3, 2, 0)).toEqual([1, 3, 2]);
-    expect(around(4, 2, 2)).toEqual([0, 3, 4]);
-    expect(around(0, 0, 5)).toEqual([]);
-    expect(around(1, 1, 1)).toEqual([5]);
+    grid.fill(terrain, hx.length, hx, hy);
+    expect(around(0)).toEqual([1, 3, 2]);
+    expect(around(3)).toEqual([1, 0, 2]);
+    expect(around(2)).toEqual([0, 3, 4]);
+    expect(around(5)).toEqual([]);
+    expect(around(6)).toEqual([7]);
+    expect(around(7)).toEqual([6]);
+    expect(around(8)).toEqual([]);
+    expect(around(10)).toEqual([9]);
+
+    grid.fill(terrain, 1, [3], [2]);
+    expect(around(0)).toEqual([]);
   });
 
   it('re-kinds a collider whose trade or owner changes and one created after the first read', () => {

@@ -266,7 +266,10 @@ export function nearestStoreHolding(
 }
 
 /** {@link nearestStoreHolding} under `goodsGate`, the fetcher's gate already met with the goods-search
- *  limit at `here` ({@link TargetBands.goodsGate}), for a caller that reads that gate once for many goods. */
+ *  limit at `here` ({@link TargetBands.goodsGate}), for a caller that reads that gate once for many goods.
+ *  An owned fetcher's field is first narrowed to the side's lending stores filed near the gate, as
+ *  {@link storeHoldingMayLieIn} tests them, and a few are scanned exactly instead of sweeping every ring
+ *  of the gate: such a search mostly finds nothing. */
 export function nearestStoreHoldingWithin(
   bands: TargetBands,
   world: World,
@@ -280,8 +283,50 @@ export function nearestStoreHoldingWithin(
   if (sideLendsNone(bands, world, owner, goodType)) return null;
   const holders = bands.holding(goodType);
   if (!holders.hasCandidates()) return null;
-  return nearestHolderIn(bands, holders, world, here, goodType, owner, supply, goodsGate, avoid);
+  if (owner === undefined) {
+    return nearestHolderIn(bands, holders, world, here, goodType, owner, supply, goodsGate, avoid);
+  }
+  const lends = holdsUnclaimed(world, bands.ctx, supply, goodType);
+  const field = lendersFiledNear(holders, owner, goodsGate, lends);
+  if (field === null) {
+    return nearestHolderIn(bands, holders, world, here, goodType, owner, supply, goodsGate, avoid);
+  }
+  if (field.length === 0) return null;
+  return holders.nearestAmong(field, here, lends, goodsGate, avoid)?.entity ?? null;
 }
+
+/** Past this many lending stores near a gate, a narrowed store search sweeps the rings instead. A
+ *  performance knob with an identical winner, the ring search's bucket threshold. */
+const NARROWED_FIELD_MAX = 64;
+/** {@link lendersFiledNear}'s list, reused; valid until its next call. */
+const narrowedField: Entity[] = [];
+
+/** `owner`'s side's stores filed near enough to `area` to be reached in it that `lends` passes, ascending
+ *  id, or null past {@link NARROWED_FIELD_MAX}. Every store a search under `area` with `lends` could pick
+ *  is in it. */
+function lendersFiledNear(
+  holders: InteractionCellIndex,
+  owner: number,
+  area: SpatialGate | undefined,
+  lends: (store: Entity) => typeof QUALIFIES | null,
+): readonly Entity[] | null {
+  const filed = holders.filedOnSide(owner);
+  const slack = holders.filedSlack;
+  const bounded = area?.mayAllowNear !== undefined;
+  narrowedField.length = 0;
+  for (let i = 0; i < filed.length; i += FILED_STRIDE) {
+    if (bounded && area?.mayAllowNear?.(filed[i + 1] as number, filed[i + 2] as number, slack) !== true) {
+      continue;
+    }
+    const store = filed[i] as Entity;
+    if (lends(store) === null) continue;
+    if (narrowedField.length === NARROWED_FIELD_MAX) return null;
+    narrowedField.push(store);
+  }
+  return narrowedField.sort(ascendingId);
+}
+
+const ascendingId = (a: Entity, b: Entity): number => a - b;
 
 function nearestHolderIn(
   bands: TargetBands,

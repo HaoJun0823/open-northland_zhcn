@@ -170,6 +170,10 @@ function checkQueries(
 
     const expected = linearWinner(sim, candidates, here, accept, gate, avoid, onSide);
     expect(index.nearest(here, accept, gate, avoid, onSide), `query ${q}`).toEqual(expected);
+    const field = candidates
+      .filter((e) => (onSide === undefined || onSide(e)) && accept(e) !== null)
+      .sort((a, b) => a - b);
+    expect(index.nearestAmong(field, here, accept, gate, avoid), `narrowed query ${q}`).toEqual(expected);
     const rank = terrain.nodeAt(roll(nodesW), roll(nodesH));
     expect(index.nearest(here, accept, gate, avoid, onSide, rank), `ranked query ${q}`).toEqual(
       linearWinner(sim, candidates, here, accept, gate, avoid, onSide, rank),

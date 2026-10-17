@@ -348,6 +348,18 @@ export class InteractionCellIndex {
     return best;
   }
 
+  /** The {@link nearest} winner when every candidate it could pick is in `field`, ascending-id candidates
+   *  of this index: one exact scan, for a caller that already narrowed the field to a few. */
+  nearestAmong<P>(
+    field: readonly Entity[],
+    here: NodeId,
+    accept: (e: Entity) => Qualified<P> | null,
+    gate?: SpatialGate,
+    avoid?: (cell: NodeId) => boolean,
+  ): NearestByCell<P> | null {
+    return this.linearNearest(field, here, accept, gate, avoid, here, Number.POSITIVE_INFINITY);
+  }
+
   /** The {@link nearest} winner among the door-bucketed candidates, for an `accept` that only a building
    *  can pass. */
   nearestDoor<P>(

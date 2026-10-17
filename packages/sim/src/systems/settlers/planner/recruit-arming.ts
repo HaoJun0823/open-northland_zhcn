@@ -236,7 +236,6 @@ function dispatchWeaponFetch(
       route = fetchRouteFor(pass, e, owner);
       gate = targets.bands.goodsGate(route.here, owner, route.limit ?? undefined);
     }
-    if (!storeHoldingMayLieIn(targets.bands, world, goodType, owner, pass.supply, gate)) continue;
     const src = nearestStoreHoldingWithin(
       targets.bands,
       world,

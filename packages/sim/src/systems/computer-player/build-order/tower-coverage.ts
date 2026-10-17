@@ -73,42 +73,49 @@ function coverageCentres(
 }
 
 /**
- * The nodes the coverage must reach that lie outside every coverage circle, lazily, so a status read
- * stops at the first. A tower covers every owned building (canonical ascending id). A store covers what
- * fills it: the seat's workplaces, so a far production cluster has somewhere to unload, and then its
- * gatherers' work flags (canonical settler order), where the mined and quarried goods pile up; homes and
- * towers pass, since a tower rings the settlement's edge and would pull warehouses out to it.
+ * The first node the coverage must reach that lies outside every coverage circle and that `found` takes,
+ * or null: each uncovered node is offered in turn, so a status read stops at the first. A tower covers
+ * every owned building (canonical ascending id). A store covers what fills it: the seat's workplaces, so a
+ * far production cluster has somewhere to unload, and then its gatherers' work flags (canonical settler
+ * order), where the mined and quarried goods pile up; homes and towers pass, since a tower rings the
+ * settlement's edge and would pull warehouses out to it.
  */
-export function* uncoveredTargets(
+export function firstUncovered<T>(
   world: World,
   ctx: SystemContext,
   player: number,
   owned: readonly Entity[],
   coverage: Coverage,
-): Generator<HalfCellNode> {
+  found: (target: HalfCellNode) => T | null,
+): T | null {
   const index = contentIndex(ctx.content);
   const centres = coverageCentres(world, ctx, player, owned, coverage);
-  const covered = (node: HalfCellNode): boolean =>
-    centres.some((c) => withinNodeRadius(c.hx, c.hy, node.hx, node.hy, coverage.radius));
+  const offer = (e: Entity): T | null => {
+    const node = anchorNodeOf(world, e);
+    if (node === null) return null;
+    for (const c of centres) if (withinNodeRadius(c.hx, c.hy, node.hx, node.hy, coverage.radius)) return null;
+    return found(node);
+  };
   for (const e of owned) {
     if (
       coverage.by === 'store' &&
       index.buildings.get(world.get(e, Building).buildingType)?.kind !== 'workplace'
     )
       continue;
-    const node = anchorNodeOf(world, e);
-    if (node !== null && !covered(node)) yield node;
+    const hit = offer(e);
+    if (hit !== null) return hit;
   }
-  if (coverage.by === 'tower') return;
+  if (coverage.by === 'tower') return null;
   for (const e of ownedSettlers(world, player)) {
     const flag = liveWorkFlag(world, e);
     if (flag === undefined) continue;
-    const node = anchorNodeOf(world, flag.flag);
-    if (node !== null && !covered(node)) yield node;
+    const hit = offer(flag.flag);
+    if (hit !== null) return hit;
   }
+  return null;
 }
 
-/** Whether the seat stands covered: no {@link uncoveredTargets}. */
+/** Whether the seat stands covered: no node is left outside the coverage ({@link firstUncovered}). */
 export function seatCovered(
   world: World,
   ctx: SystemContext,
@@ -116,8 +123,10 @@ export function seatCovered(
   owned: readonly Entity[],
   coverage: Coverage,
 ): boolean {
-  return uncoveredTargets(world, ctx, player, owned, coverage).next().done === true;
+  return firstUncovered(world, ctx, player, owned, coverage, uncovered) === null;
 }
+
+const uncovered = (): true => true;
 
 /**
  * The search for the next covering building, built once a coverage entry: a tower is seeded just past the

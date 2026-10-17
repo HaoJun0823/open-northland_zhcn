@@ -41,7 +41,7 @@ import {
 } from './progress.js';
 import { type Siege, seatSiege } from './siege.js';
 import { StalledSearches } from './stalled-searches.js';
-import { coverageOf, coverageSpotSearch, uncoveredTargets } from './tower-coverage.js';
+import { coverageOf, coverageSpotSearch, firstUncovered } from './tower-coverage.js';
 import { upgradeKeepsSupply } from './upgrade-supply.js';
 
 export * from './entries.js';
@@ -415,11 +415,8 @@ function coverageCommand(
     underFire,
     reserveGrass,
   );
-  for (const target of uncoveredTargets(world, ctx, player, owned, coverage)) {
-    const spot = spotFor(target);
-    if (spot !== null) return siteCommand(type, spot, tribe, player);
-  }
-  return null;
+  const spot = firstUncovered(world, ctx, player, owned, coverage, spotFor);
+  return spot === null ? null : siteCommand(type, spot, tribe, player);
 }
 
 /**

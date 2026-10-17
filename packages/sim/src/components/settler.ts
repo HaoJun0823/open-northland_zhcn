@@ -193,6 +193,7 @@ export function settlerProgressLog(world: World): Set<Entity> {
 export type SettlerTradeReader =
   | 'workshopWorkforce'
   | 'ownedFighters'
+  | 'colliderKinds'
   | 'combatReady'
   | 'gossipCandidates'
   | 'tribeUnlocks'

@@ -1,5 +1,6 @@
+import { ANIMAL_WATER_TRIBES } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { Owner, PathFollow, setSettlerJob } from '../../../src/components/index.js';
+import { Owner, PathFollow, Person, setSettlerJob, setSettlerTribe } from '../../../src/components/index.js';
 import type { SystemContext } from '../../../src/systems/index.js';
 import {
   colliderKinds,
@@ -13,6 +14,10 @@ import { SlotGrid } from '../../../src/systems/movement/collision/separation/slo
 import { P0, SOLDIER, settlerAt, sim, WOODCUTTER, walkStraightTo } from './support.js';
 
 const OFF_LATTICE = -1;
+/** Bits per occupancy word of the slot grid. */
+const WORD_BITS = 32;
+/** A wildlife tribe that swims, so a member without a Person is no land collider. */
+const WATER_TRIBE = [...ANIMAL_WATER_TRIBES][0] ?? 0;
 
 function collected(grid: SlotGrid, x: number, y: number): number[] {
   const out: number[] = [];
@@ -57,7 +62,8 @@ describe('unit body collision - scratch lifetime', () => {
     };
     // The node after the first occupancy word's last bit, one row down, so the block above (x, 2) spans
     // two words.
-    const wordEdge = 32 - terrain.width;
+    expect(terrain.width).toBeLessThan(WORD_BITS);
+    const wordEdge = WORD_BITS - terrain.width;
     const hx = [3, 2, 4, 3, 5, 0, 8, 8, 10, wordEdge, wordEdge - 1];
     const hy = [2, 3, 1, 2, 2, 0, 4, 4, 2, 1, 2];
 
@@ -87,6 +93,23 @@ describe('unit body collision - scratch lifetime', () => {
     expect(kindOf(worker)).toBe(NOT_A_COLLIDER);
     const late = settlerAt(s, 4, 2, SOLDIER, P0);
     expect(kindOf(late)).toBe(FIRM_COLLIDER);
+    s.world.destroy(late);
+    expect(kindOf(late)).toBe(NOT_A_COLLIDER);
+    expect(s.world.verifyCaches()).toEqual([]);
+  });
+
+  it('re-kinds a water-tribe settler as it gains and loses its Person', () => {
+    const s = sim();
+    const swimmer = settlerAt(s, 2, 2, WOODCUTTER, P0);
+    const kindOf = (e: number): number => colliderKinds(s.world, s.content)[e] ?? NOT_A_COLLIDER;
+    setSettlerTribe(s.world, swimmer, WATER_TRIBE);
+    expect(kindOf(swimmer)).toBe(SOFT_COLLIDER); // a Person walks on land whatever its tribe
+
+    s.world.remove(swimmer, Person);
+    expect(kindOf(swimmer)).toBe(NOT_A_COLLIDER);
+    expect(s.world.verifyCaches()).toEqual([]);
+    s.world.add(swimmer, Person, { person: true });
+    expect(kindOf(swimmer)).toBe(SOFT_COLLIDER);
     expect(s.world.verifyCaches()).toEqual([]);
   });
 

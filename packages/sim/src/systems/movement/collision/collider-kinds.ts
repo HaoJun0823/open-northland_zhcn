@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import { Owner, Person, Settler } from '../../../components/index.js';
+import { Owner, Person, Settler, settlerTradeLog } from '../../../components/index.js';
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import { isFighterJob } from '../../readviews/index.js';
 import { softColliderSettler } from './bodies.js';
@@ -11,9 +11,9 @@ export const FIRM_COLLIDER = 2;
 type ColliderKind = typeof NOT_A_COLLIDER | typeof SOFT_COLLIDER | typeof FIRM_COLLIDER;
 
 /**
- * Every entity's collider kind by id, kept across ticks. The kind reads Owner and Person membership and the
- * Settler's tribe and trade, all of which the feed names, so a read re-tests only the entities changed
- * since the last one.
+ * Every entity's collider kind by id, kept across ticks. The kind reads Owner, Settler and Person
+ * membership, which the feed names, and the Settler's tribe and trade, whose write paths report to the
+ * trade log, so a read re-tests only the entities changed since the last one.
  */
 interface KindIndex {
   readonly content: ContentSet;
@@ -37,13 +37,17 @@ export function colliderKinds(world: World, content: ContentSet): Uint8Array {
   const held = indexes.get(world);
   if (held === undefined || held.content !== content) return rebuild(world, content).kinds;
   if (held.feed.drain(held.restow)) return rebuild(world, content).kinds;
+  const trades = settlerTradeLog(world, 'colliderKinds');
+  for (const e of trades) held.restow(e);
+  trades.clear();
   return held.kinds;
 }
 
 function rebuild(world: World, content: ContentSet): KindIndex {
   const held = indexes.get(world);
-  const feed = held?.feed ?? world.watchChanges([Owner, Settler, Person], [Settler]);
+  const feed = held?.feed ?? world.watchChanges([Owner, Settler, Person], []);
   feed.drain(() => {});
+  settlerTradeLog(world, 'colliderKinds').clear();
   const index: KindIndex = {
     content,
     feed,

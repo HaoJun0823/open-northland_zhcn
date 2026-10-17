@@ -70,7 +70,10 @@ function place(columns: ColliderColumns, slot: number, e: Entity, x: Fixed, y: F
 /**
  * Mover `slot`'s route goal and combat status, captured on the census's first ask. Only an aligned
  * overlapping pair and a firm mover's post test read them, and a mover's own resolve meets each pair before
- * its grind bookkeeping can rewrite its route, so a late capture reads what the census would have.
+ * its grind bookkeeping can rewrite its route, so a late capture reads what the census would have. That
+ * holds only while the pair tests are symmetric: a lower id whose grind stands it down must have met every
+ * higher-id partner that later asks for its columns. The neighbour block, the squared distance (exact
+ * negation, `fx.mul` truncating toward zero) and the alignment dot product all are.
  */
 export function moverGoal(world: World, scratch: SeparationScratch, slot: number): void {
   const movers: MoverColumns = scratch.movers;

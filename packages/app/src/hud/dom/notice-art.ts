@@ -65,6 +65,8 @@ export function createNoticeArt(): NoticeArt | null {
   const loaded = image.decode().catch(() => {
     failed = true;
   });
+  // A battle raises the same few cards over and over; each glyph and tint is read back and recoloured once.
+  const cells = new Map<string, ImageData>();
   return {
     paint: (canvas, glyph, tint, onFail) => {
       const index = atlas.names.indexOf(glyph);
@@ -74,22 +76,27 @@ export function createNoticeArt(): NoticeArt | null {
       const draw = (): void => {
         const ctx = canvas.getContext('2d');
         if (ctx === null) return;
-        const column = index % atlas.columns;
-        const row = Math.floor(index / atlas.columns);
-        ctx.clearRect(0, 0, atlas.cell, atlas.cell);
-        ctx.drawImage(
-          image,
-          column * atlas.cell,
-          row * atlas.cell,
-          atlas.cell,
-          atlas.cell,
-          0,
-          0,
-          atlas.cell,
-          atlas.cell,
-        );
-        const cell = ctx.getImageData(0, 0, atlas.cell, atlas.cell);
-        recolourKey(cell.data, tint);
+        const key = `${glyph}:${tint}`;
+        let cell = cells.get(key);
+        if (cell === undefined) {
+          const column = index % atlas.columns;
+          const row = Math.floor(index / atlas.columns);
+          ctx.clearRect(0, 0, atlas.cell, atlas.cell);
+          ctx.drawImage(
+            image,
+            column * atlas.cell,
+            row * atlas.cell,
+            atlas.cell,
+            atlas.cell,
+            0,
+            0,
+            atlas.cell,
+            atlas.cell,
+          );
+          cell = ctx.getImageData(0, 0, atlas.cell, atlas.cell);
+          recolourKey(cell.data, tint);
+          cells.set(key, cell);
+        }
         ctx.putImageData(cell, 0, 0);
       };
       void loaded.then(() => (failed ? onFail() : draw()));

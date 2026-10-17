@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PLAYER_SWATCH_COLORS } from '../src/catalog/roster.js';
 import { noticeTint, recolourKey } from '../src/hud/dom/notice-art.js';
 
@@ -45,5 +45,51 @@ describe('noticeTint', () => {
     expect(noticeTint(1, () => 4)).toBe(PLAYER_SWATCH_COLORS[4]);
     expect(noticeTint(null)).toBe(noticeTint(null, () => 4));
     expect(PLAYER_SWATCH_COLORS).not.toContain(noticeTint(null));
+  });
+});
+
+describe('notice art painting', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.doUnmock('../src/content/ui-foundation.js');
+  });
+
+  it('reads back and recolours a glyph once per tint, then repaints the stored cell', async () => {
+    vi.resetModules();
+    vi.doMock('../src/content/ui-foundation.js', () => ({
+      uiFoundationArt: () => ({
+        manifest: { notices: { names: ['skull', 'sword'], columns: 2, cell: 2 } },
+        noticesUrl: 'notices.png',
+      }),
+    }));
+    vi.stubGlobal(
+      'Image',
+      class {
+        src = '';
+        decode = (): Promise<void> => Promise.resolve();
+      },
+    );
+    const { createNoticeArt } = await import('../src/hud/dom/notice-art.js');
+    const art = createNoticeArt();
+    const reads = vi.fn(() => ({ data: new Uint8ClampedArray([255, 0, 255, 255]) }));
+    const puts: unknown[] = [];
+    const canvas = (): HTMLCanvasElement =>
+      ({
+        width: 0,
+        height: 0,
+        getContext: () => ({
+          clearRect: () => undefined,
+          drawImage: () => undefined,
+          getImageData: reads,
+          putImageData: (cell: unknown) => puts.push(cell),
+        }),
+      }) as unknown as HTMLCanvasElement;
+    for (const tint of [TINT, TINT, 0x00ff00]) art?.paint(canvas(), 'skull', tint, () => undefined);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(reads).toHaveBeenCalledTimes(2);
+    expect(puts).toHaveLength(3);
+    expect(puts[1]).toBe(puts[0]);
+    expect(puts[2]).not.toBe(puts[0]);
   });
 });

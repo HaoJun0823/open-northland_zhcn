@@ -45,7 +45,7 @@ same map world builder and seat rules as the browser, including the map's reserv
 | `ON_BENCH_SYNC_DIGEST` | Include per-tick network digest cost |
 | `ON_BENCH_ASSERTS=on` | Enable fixed-point overflow checks; default off, matching production |
 | `ON_BENCH_JSON` | Report destination; default under `bench-out/` |
-| `ON_BENCH_MARCH_TICK` | Absolute tick a player's group attack-move applies on: `ON_BENCH_MARCH_COUNT` fighters (default 300; `0` is the control run without the order) of `ON_BENCH_MARCH_SEAT` (default the seat with most fighters) sent to `ON_BENCH_MARCH_TARGET` (`hx,hy`; default the farthest enemy headquarters); prints order, march (`ON_BENCH_MARCH_PHASE` ticks, default 1500) and after-march phases |
+| `ON_BENCH_MARCH_TICK` | Absolute tick a player's group attack-move applies on: `ON_BENCH_MARCH_COUNT` fighters (default 300; `0` is the control run without the order) of `ON_BENCH_MARCH_SEAT` (default the seat with most fighters) sent to `ON_BENCH_MARCH_TARGET` (`hx,hy`; default the farthest headquarters of a seat at war with it); `ON_BENCH_MARCH_SPAWN` fighters (default 0) join that army from `ON_BENCH_MARCH_SPAWN_LEAD` ticks (default 300) before the order, copying its fighters' kit; prints order, wake (50 ticks), march (`ON_BENCH_MARCH_PHASE` ticks, default 1500) and after-march phases |
 
 Reports include system mean/median/p95/max, tick quantiles, entity counts, GC pauses, heap/RSS and
 the ten slowest ticks. Rank occasional work by its mean: a system's median can be zero despite real cost.

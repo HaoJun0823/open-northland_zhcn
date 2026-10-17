@@ -4,7 +4,7 @@ import {
   terrainWorldBounds,
   tileToScreen,
 } from '@open-northland/render';
-import { FOG_STATE } from '@open-northland/sim';
+import { FOG_MODE, FOG_STATE, fogViewOfMask } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { PLAYER_COLOR_COUNT, PLAYER_SWATCH_COLORS } from '../src/catalog/roster.js';
 import {
@@ -16,6 +16,7 @@ import {
   minimapToWorld,
   pointOverMinimap,
   pointOverMinimapHole,
+  refillChangedFogCells,
   stampDot,
   viewportRectOnMinimap,
   visibleMinimapRect,
@@ -467,5 +468,43 @@ describe('fillFogMask', () => {
     expect(rgba[3]).toBe(FOG_UNEXPLORED_ALPHA);
     fillFogMask({ cellsWide: 1, cellsHigh: 1, stateAt: () => FOG_STATE.VISIBLE }, rgba);
     expect(Array.from(rgba)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('rewrites only the changed cells of a mask copy into the picture a full fill writes', () => {
+    const wide = 5;
+    const high = 3;
+    const view = (mask: number[]) =>
+      fogViewOfMask({
+        player: 0,
+        mode: FOG_MODE.CLASSIC,
+        cellsWide: wide,
+        cellsHigh: high,
+        generation: 0,
+        mask: Uint8Array.from(mask),
+      });
+    const before = view([0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2]);
+    const after = view([0, 1, 2, 2, 1, 2, 0, 0, 2, 0, 1, 2, 1, 1, 2]);
+    const refilled = new Uint8Array(wide * high * 4);
+    fillFogMask(before, refilled);
+    const full = new Uint8Array(refilled.length);
+    fillFogMask(after, full);
+
+    expect(
+      refillChangedFogCells(
+        after,
+        before.cells ?? new Uint8Array(),
+        after.cells ?? new Uint8Array(),
+        refilled,
+      ),
+    ).toBe(true);
+    expect(Array.from(refilled)).toEqual(Array.from(full));
+    expect(
+      refillChangedFogCells(
+        after,
+        after.cells ?? new Uint8Array(),
+        after.cells ?? new Uint8Array(),
+        refilled,
+      ),
+    ).toBe(false);
   });
 });

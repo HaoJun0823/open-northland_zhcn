@@ -4,7 +4,7 @@ import {
   type Viewport,
   type WorldBounds,
 } from '@open-northland/render';
-import { FOG_STATE } from '@open-northland/sim';
+import { FOG_STATE, scanChangedBytes } from '@open-northland/sim';
 import { contains, type Rect } from '../geometry.js';
 import { navBeamRect } from '../nav-beam.js';
 import { SELECTION_PANEL_W } from '../regions.js';
@@ -256,30 +256,51 @@ export interface FogCells {
  *  explored map emerges from darkness against the frame's wood rather than from a hole. A tuned look. */
 export const FOG_UNEXPLORED_TINT = 0x1a1713;
 
-/**
- * Write one premultiplied fog mask into `rgba` (`cellsWide × cellsHigh`, row-major, 4 bytes/px): the
- * alpha graded by state with the render layer's alphas, explored ground dimmed by black and unexplored
- * ground covered in {@link FOG_UNEXPLORED_TINT}.
- */
+const RGBA = 4;
+
+/** The premultiplied mask pixel of one fog state: alpha graded with the render layer's alphas, explored
+ *  ground dimmed by black and unexplored ground covered in {@link FOG_UNEXPLORED_TINT}. */
+function writeFogPixel(rgba: Uint8Array, cell: number, state: number): void {
+  const o = cell * RGBA;
+  const unexplored = state !== FOG_STATE.VISIBLE && state !== FOG_STATE.EXPLORED;
+  rgba[o] = unexplored ? FOG_TINT_R : 0;
+  rgba[o + 1] = unexplored ? FOG_TINT_G : 0;
+  rgba[o + 2] = unexplored ? FOG_TINT_B : 0;
+  rgba[o + 3] =
+    state === FOG_STATE.VISIBLE
+      ? 0
+      : state === FOG_STATE.EXPLORED
+        ? FOG_EXPLORED_ALPHA
+        : FOG_UNEXPLORED_ALPHA;
+}
+
+const premultipliedTint = (shift: number): number =>
+  Math.round((((FOG_UNEXPLORED_TINT >> shift) & 0xff) * FOG_UNEXPLORED_ALPHA) / 0xff);
+const FOG_TINT_R = premultipliedTint(2 * BYTE_BITS);
+const FOG_TINT_G = premultipliedTint(BYTE_BITS);
+const FOG_TINT_B = premultipliedTint(0);
+
+/** Write one premultiplied fog mask into `rgba` (`cellsWide × cellsHigh`, row-major, 4 bytes/px). */
 export function fillFogMask(fog: FogCells, rgba: Uint8Array): void {
-  const premultiplied = (channel: number): number => Math.round((channel * FOG_UNEXPLORED_ALPHA) / 0xff);
-  const tintR = premultiplied((FOG_UNEXPLORED_TINT >> 16) & 0xff);
-  const tintG = premultiplied((FOG_UNEXPLORED_TINT >> 8) & 0xff);
-  const tintB = premultiplied(FOG_UNEXPLORED_TINT & 0xff);
   for (let r = 0; r < fog.cellsHigh; r++) {
-    for (let c = 0; c < fog.cellsWide; c++) {
-      const state = fog.stateAt(c, r);
-      const o = (r * fog.cellsWide + c) * 4;
-      const unexplored = state !== FOG_STATE.VISIBLE && state !== FOG_STATE.EXPLORED;
-      rgba[o] = unexplored ? tintR : 0;
-      rgba[o + 1] = unexplored ? tintG : 0;
-      rgba[o + 2] = unexplored ? tintB : 0;
-      rgba[o + 3] =
-        state === FOG_STATE.VISIBLE
-          ? 0
-          : state === FOG_STATE.EXPLORED
-            ? FOG_EXPLORED_ALPHA
-            : FOG_UNEXPLORED_ALPHA;
-    }
+    for (let c = 0; c < fog.cellsWide; c++) writeFogPixel(rgba, r * fog.cellsWide + c, fog.stateAt(c, r));
   }
+}
+
+/** Rewrite the mask pixels of the cells whose bytes differ between the mask copies `before` and `after`
+ *  (`fog`'s), read under one mode, where equal bytes read equal states; false when nothing changed. */
+export function refillChangedFogCells(
+  fog: FogCells,
+  before: Uint8Array,
+  after: Uint8Array,
+  rgba: Uint8Array,
+): boolean {
+  let changed = false;
+  scanChangedBytes(before, after, (cell) => {
+    const c = cell % fog.cellsWide;
+    writeFogPixel(rgba, cell, fog.stateAt(c, (cell - c) / fog.cellsWide));
+    changed = true;
+    return true;
+  });
+  return changed;
 }

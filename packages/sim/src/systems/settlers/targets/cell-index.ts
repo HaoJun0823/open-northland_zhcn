@@ -352,12 +352,14 @@ export class InteractionCellIndex {
    *  of this index: one exact scan, for a caller that already narrowed the field to a few. */
   nearestAmong<P>(
     field: readonly Entity[],
+    /** The leading entries of `field` that form it. */
+    count: number,
     here: NodeId,
     accept: (e: Entity) => Qualified<P> | null,
     gate?: SpatialGate,
     avoid?: (cell: NodeId) => boolean,
   ): NearestByCell<P> | null {
-    return this.linearNearest(field, here, accept, gate, avoid, here, Number.POSITIVE_INFINITY);
+    return this.linearNearest(field, here, accept, gate, avoid, here, Number.POSITIVE_INFINITY, count);
   }
 
   /** The {@link nearest} winner among the door-bucketed candidates, for an `accept` that only a building
@@ -693,6 +695,7 @@ export class InteractionCellIndex {
     avoid: ((cell: NodeId) => boolean) | undefined,
     rank: NodeId,
     bound: number,
+    count = list.length,
   ): NearestByCell<P> | null {
     const { world, ctx, terrain } = this;
     let bestEntity: Entity | undefined;
@@ -700,7 +703,7 @@ export class InteractionCellIndex {
     let bestNode: NodeId | undefined;
     let bestDist = Number.POSITIVE_INFINITY;
     let bestCell = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < list.length; i++) {
+    for (let i = 0; i < count; i++) {
       const e = list[i];
       if (e === undefined) continue;
       const door = this.doorCell.get(e);

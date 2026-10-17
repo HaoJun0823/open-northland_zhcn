@@ -286,50 +286,67 @@ export function nearestStoreHoldingWithin(
   if (owner === undefined) {
     return nearestHolderIn(bands, holders, world, here, goodType, owner, supply, goodsGate, avoid);
   }
+  const near = narrowedField;
+  let count = storesFiledNear(holders, owner, goodsGate);
+  // Mostly none: the stock lies outside the gate, and the search ends before its filter is made.
+  if (count === 0) return null;
   const lends = holdsUnclaimed(world, bands.ctx, supply, goodType);
-  const field = lendersFiledNear(holders, owner, goodsGate, lends);
-  if (field === null) {
+  let lenders = 0;
+  for (let i = 0; i < count; i++) {
+    const store = near[i] as Entity;
+    if (lends(store) !== null) near[lenders++] = store;
+  }
+  count = lenders;
+  if (count === 0) return null;
+  if (count > NARROWED_FIELD_MAX) {
     return nearestHolderIn(bands, holders, world, here, goodType, owner, supply, goodsGate, avoid);
   }
-  if (field.length === 0) return null;
-  return holders.nearestAmong(field, here, lends, goodsGate, avoid)?.entity ?? null;
+  sortAscending(near, count);
+  return holders.nearestAmong(near, count, here, lends, goodsGate, avoid)?.entity ?? null;
 }
 
 /** Past this many lending stores near a gate, a narrowed store search sweeps the rings instead. A
  *  performance knob with an identical winner, the ring search's bucket threshold. */
 const NARROWED_FIELD_MAX = 64;
-/** {@link lendersFiledNear}'s list, reused; valid until its next call. */
+/** {@link storesFiledNear}'s list, reused at a count rather than a length, so its storage stays put. */
 const narrowedField: Entity[] = [];
 
-/** `owner`'s side's stores filed near enough to `area` to be reached in it that `lends` passes, ascending
- *  id, or null past {@link NARROWED_FIELD_MAX}. Every store a search under `area` with `lends` could pick
- *  is in it. */
-function lendersFiledNear(
+/** Fill {@link narrowedField} with `owner`'s side's stores filed near enough to `area` to be reached in it,
+ *  as {@link storeHoldingMayLieIn} tests them, and return their count: every store a search under `area`
+ *  could pick is among them. */
+function storesFiledNear(
   holders: InteractionCellIndex,
   owner: number,
   area: SpatialGate | undefined,
-  lends: (store: Entity) => typeof QUALIFIES | null,
-): readonly Entity[] | null {
+): number {
   const filed = holders.filedOnSide(owner);
   const slack = holders.filedSlack;
   const bounded = area?.mayAllowNear !== undefined;
   const box = area?.bounds;
-  narrowedField.length = 0;
+  let count = 0;
   for (let i = 0; i < filed.length; i += FILED_STRIDE) {
     const x = filed[i + 1] as number;
     const y = filed[i + 2] as number;
     // No allowed node lies within `slack` of a node that far off the gate's box: the cheap test first.
     if (box !== undefined && !nearBox(box, x, y, slack)) continue;
     if (bounded && area?.mayAllowNear?.(x, y, slack) !== true) continue;
-    const store = filed[i] as Entity;
-    if (lends(store) === null) continue;
-    if (narrowedField.length === NARROWED_FIELD_MAX) return null;
-    narrowedField.push(store);
+    narrowedField[count++] = filed[i] as Entity;
   }
-  return narrowedField.sort(ascendingId);
+  return count;
 }
 
-const ascendingId = (a: Entity, b: Entity): number => a - b;
+/** Sort the first `count` ids of `list` ascending in place, by insertion: a short run. */
+function sortAscending(list: Entity[], count: number): void {
+  for (let i = 1; i < count; i++) {
+    const e = list[i] as Entity;
+    let j = i - 1;
+    while (j >= 0 && (list[j] as Entity) > e) {
+      list[j + 1] = list[j] as Entity;
+      j--;
+    }
+    list[j + 1] = e;
+  }
+}
 
 function nearestHolderIn(
   bands: TargetBands,

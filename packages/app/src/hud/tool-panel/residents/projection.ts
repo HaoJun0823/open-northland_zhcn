@@ -3,21 +3,19 @@ import { entityById, systems, type WorldSnapshot } from '@open-northland/sim';
 import { JOB_CIVILIST, JOB_IDLE } from '../../../catalog/jobs.js';
 import { settlerName } from '../../../game/character-names/index.js';
 import {
-  actorsOf,
   buildingTypeOf,
   childAgeYearsOf,
   isAdult,
   isBoundByMarriage,
   isFemale,
   isMarrying,
-  isSettler,
   isWildlife,
   marriageOf,
   num,
-  ownerPlayerOf,
   residenceHomeOf,
   type SnapshotEntity,
   settlerJobType,
+  settlersOwnedBy,
   workFlagOf,
   workplaceOf,
 } from '../../../game/snapshot.js';
@@ -142,8 +140,8 @@ const postedTradesByContent = new WeakMap<ContentSet, ReadonlySet<number>>();
 
 /**
  * The seat's people as the residents window lists them, in snapshot order: humans the local player
- * owns, so animals, vehicles and other seats' people stay out. One walk over the snapshot's actors;
- * pull it only while the window is open.
+ * owns, so animals, vehicles and other seats' people stay out. One walk over the seat's settlers off the
+ * owner index; pull it only while the window is open.
  */
 export function residentRows(snapshot: WorldSnapshot, ctx: ResidentsProjectionContext): ResidentRow[] {
   let postedTrades = postedTradesByContent.get(ctx.content);
@@ -153,8 +151,8 @@ export function residentRows(snapshot: WorldSnapshot, ctx: ResidentsProjectionCo
   }
   const nameCtx = { jobs: ctx.content.jobs, mapText: ctx.mapText };
   const rows: ResidentRow[] = [];
-  for (const ent of actorsOf(snapshot)) {
-    if (!isSettler(ent) || isWildlife(ent) || ownerPlayerOf(ent) !== ctx.localPlayer) continue;
+  for (const ent of settlersOwnedBy(snapshot, ctx.localPlayer)) {
+    if (isWildlife(ent)) continue;
     const jobType = settlerJobType(ent) ?? null;
     const kind = residentKindOf(ctx.content, ent, jobType);
     const workplace = workplaceOf(ent);

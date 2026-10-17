@@ -22,6 +22,7 @@ import {
   canPlaceSignpost,
   SCOUT_EXPERIENCE_TYPE,
   signpostNetwork,
+  signpostNetworkRevision,
 } from '../../src/systems/index.js';
 import { FOG_STATE } from '../../src/systems/vision/index.js';
 import { testContent } from '../fixtures/content.js';
@@ -332,6 +333,20 @@ describe('signpostNetwork - connected groups', () => {
     const post = stampPost(sim, 2, 2, 0);
     expect(signpostNetwork(sim.world).get(0)?.length).toBe(1);
     sim.world.add(post, Owner, { player: 1 });
+    expect(signpostNetwork(sim.world).get(0)).toBeUndefined();
+    expect(signpostNetwork(sim.world).get(1)?.length).toBe(1);
+  });
+
+  it('keeps its revision while only non-post owners change, then follows a post handed over after them', () => {
+    const sim = freshSim();
+    const post = stampPost(sim, 2, 2, 0);
+    const revision = signpostNetworkRevision(sim.world);
+    const unit = makeUnit(sim, 10, 2, WOODCUTTER);
+    sim.world.add(unit, Owner, { player: 1 });
+    expect(signpostNetworkRevision(sim.world)).toBe(revision);
+    sim.world.add(unit, Owner, { player: 0 });
+    sim.world.add(post, Owner, { player: 1 });
+    expect(signpostNetworkRevision(sim.world)).not.toBe(revision);
     expect(signpostNetwork(sim.world).get(0)).toBeUndefined();
     expect(signpostNetwork(sim.world).get(1)?.length).toBe(1);
   });

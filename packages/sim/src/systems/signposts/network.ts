@@ -142,6 +142,23 @@ function ownersUnchanged(world: World, byPlayer: ReadonlyMap<number, readonly Si
   return listed === world.canonicalQuery(Signpost, Position, Owner).length;
 }
 
+/** Whether the Owner journal replays every change since generation `since` and none touched an entity
+ *  holding a signpost: posts hold their owners, and no post gained or lost one. */
+function noPostOwnerMoved(world: World, since: number): boolean {
+  journalWorld = world;
+  postOwnerMoved = false;
+  const replayed = world.replayMembershipSince(Owner, since, notePostOwner);
+  journalWorld = undefined;
+  return replayed && !postOwnerMoved;
+}
+
+/** The world {@link notePostOwner} reads, set only while {@link noPostOwnerMoved} replays. */
+let journalWorld: World | undefined;
+let postOwnerMoved = false;
+function notePostOwner(entity: Entity): void {
+  if (journalWorld?.has(entity, Signpost)) postOwnerMoved = true;
+}
+
 function refreshedMemo(world: World): NetworkMemo {
   const cached = networkMemo.get(world);
   if (cached !== undefined && keysCurrent(world, cached.keys)) return cached;
@@ -150,11 +167,12 @@ function refreshedMemo(world: World): NetworkMemo {
     cached !== undefined &&
     cached.keys.membership === keys.membership &&
     cached.keys.values === keys.values &&
-    ownersUnchanged(world, cached.byPlayer)
+    (noPostOwnerMoved(world, cached.keys.owners) || ownersUnchanged(world, cached.byPlayer))
   ) {
     cached.keys = keys;
     return cached;
   }
+  world.journalMembership(Owner);
   const byPlayer = buildNetwork(world);
   if (cached !== undefined) keepUnchangedPlayers(cached.byPlayer, byPlayer);
   const memo = { keys, revision: (cached?.revision ?? 0) + 1, byPlayer };
@@ -389,12 +407,15 @@ export function spotsReaching(
   const range = walkRangeOf(content, jobType);
   const posts = refreshedMemo(world).byPlayer.get(player) ?? [];
   const serving = servingPosts(terrain, posts, goals, range);
+  // Indexed loops: the test runs per candidate spot, and an array iterator here is not always elided.
   return (hx, hy) => {
-    for (const goal of goals) {
+    for (let i = 0; i < goals.length; i++) {
+      const goal = goals[i] as NodeId;
       if (hexDistanceBetween(hx, hy, terrain.xOf(goal), terrain.yOf(goal)) <= range + slack) return true;
     }
     const here = slack === 0 ? componentAt(terrain, hx, hy) : null;
-    for (const s of serving) {
+    for (let i = 0; i < serving.length; i++) {
+      const s = serving[i] as SignpostSite;
       if (
         hexDistanceBetween(hx, hy, s.hx, s.hy) < range + slack &&
         (here === null || componentAt(terrain, s.hx, s.hy) === here)

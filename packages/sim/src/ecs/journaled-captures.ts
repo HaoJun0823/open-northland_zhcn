@@ -1,9 +1,13 @@
 import type { Component, Entity } from './component.js';
 import type { World } from './world.js';
 
-/** Entity ids below this are stamped in a dense array, a higher one in a set. */
-const DENSE_STAMP_LIMIT = 1 << 24;
-const INITIAL_STAMPS = 1024;
+/** Entity ids below this are marked in a dense bitset, a higher one in a set. */
+const DENSE_MARK_LIMIT = 1 << 24;
+/** Entity ids one word of the bitset covers. */
+const BITS_PER_WORD = 32;
+const WORD_SHIFT = 5;
+const BIT_MASK = BITS_PER_WORD - 1;
+const INITIAL_MARK_WORDS = 32;
 
 /** What a derived view does with one entity's capture. */
 export interface CaptureOps<C> {
@@ -37,16 +41,18 @@ export class JournaledCaptures<C> {
    *  list's first `touchedCount` entries, the list keeping its storage across catch-ups. */
   private readonly touchedOrder: Entity[] = [];
   private touchedCount = 0;
-  /** Per entity id, the catch-up that last listed it; a clear and a regrown set would allocate per
-   *  catch-up. An id past {@link DENSE_STAMP_LIMIT} (only a crafted save can name one) uses the set. */
-  private stamps = new Int32Array(INITIAL_STAMPS);
+  /** One bit per entity id, set while the entity is listed: a bit rather than a per-id stamp, since the
+   *  ids ever allocated, not the live entities, size it. Cleared through the list after each catch-up.
+   *  An id past {@link DENSE_MARK_LIMIT} (only a crafted save can name one) uses the set. */
+  private marks = new Uint32Array(INITIAL_MARK_WORDS);
   private readonly sparseTouched = new Set<Entity>();
-  private epoch = 0;
   private readonly touch = (e: Entity): void => {
-    if (e < DENSE_STAMP_LIMIT) {
-      if (e >= this.stamps.length) this.growStamps(e);
-      if (this.stamps[e] === this.epoch) return;
-      this.stamps[e] = this.epoch;
+    if (e < DENSE_MARK_LIMIT) {
+      const word = e >>> WORD_SHIFT;
+      const bit = 1 << (e & BIT_MASK);
+      if (word >= this.marks.length) this.growMarks(word);
+      if ((this.marks[word] as number) & bit) return;
+      this.marks[word] = (this.marks[word] as number) | bit;
     } else {
       if (this.sparseTouched.has(e)) return;
       this.sparseTouched.add(e);
@@ -70,9 +76,6 @@ export class JournaledCaptures<C> {
 
   catchUp(): void {
     const { world, inputs, touchedOrder } = this;
-    this.epoch++;
-    this.touchedCount = 0;
-    this.sparseTouched.clear();
     // Indexed: a frozen input list would cost a `for...of` an iterator result per component.
     for (let i = 0; i < inputs.membership.length; i++) {
       const c = inputs.membership[i] as Component<unknown>;
@@ -80,6 +83,7 @@ export class JournaledCaptures<C> {
       const now = world.componentGeneration(c);
       if (now === held) continue;
       if (!world.replayMembershipSince(c, held, this.touch)) {
+        this.untouchAll();
         this.rebuild();
         return;
       }
@@ -91,21 +95,35 @@ export class JournaledCaptures<C> {
       const now = world.componentValueGeneration(c);
       if (now === held) continue;
       if (!world.replayValueWritesSince(c, held, this.touch)) {
+        this.untouchAll();
         this.rebuild();
         return;
       }
       this.valueGens.set(c, now);
     }
     for (let i = 0; i < this.touchedCount; i++) this.refresh(touchedOrder[i] as Entity);
-    this.touchedCount = 0;
+    this.untouchAll();
   }
 
-  private growStamps(e: Entity): void {
-    let length = this.stamps.length * 2;
-    while (length <= e) length *= 2;
-    const grown = new Int32Array(Math.min(length, DENSE_STAMP_LIMIT));
-    grown.set(this.stamps);
-    this.stamps = grown;
+  /** Empty the list, clearing the bit of every entity on it. */
+  private untouchAll(): void {
+    const { marks, touchedOrder } = this;
+    for (let i = 0; i < this.touchedCount; i++) {
+      const e = touchedOrder[i] as number;
+      if (e >= DENSE_MARK_LIMIT) continue;
+      const word = e >>> WORD_SHIFT;
+      marks[word] = (marks[word] as number) & ~(1 << (e & BIT_MASK));
+    }
+    this.touchedCount = 0;
+    this.sparseTouched.clear();
+  }
+
+  private growMarks(word: number): void {
+    let length = this.marks.length * 2;
+    while (length <= word) length *= 2;
+    const grown = new Uint32Array(length);
+    grown.set(this.marks);
+    this.marks = grown;
   }
 
   private rebuild(): void {

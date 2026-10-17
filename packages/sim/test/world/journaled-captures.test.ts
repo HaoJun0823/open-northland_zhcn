@@ -72,4 +72,24 @@ describe('journaled captures', () => {
     expect(v.rebuilds()).toBe(before + 1);
     expect(v.total()).toBe(GENERATION_JOURNAL_LIMIT);
   });
+
+  it('lists an entity again in a later catch-up, also after one that rebuilt', () => {
+    const world = new World();
+    const e = world.create();
+    world.add(e, Held, { n: 0 });
+    world.add(e, Weight, { kg: 1 });
+    const v = weighed(world);
+    // The membership replay lists e before the value journal's gap forces the rebuild.
+    world.remove(e, Held);
+    world.add(e, Held, { n: 1 });
+    for (let i = 0; i <= GENERATION_JOURNAL_LIMIT; i++) world.mut(e, Weight).kg = i;
+    v.view.catchUp();
+    v.refreshed.length = 0;
+    world.mut(e, Weight).kg = 3;
+    v.view.catchUp();
+    world.mut(e, Weight).kg = 4;
+    v.view.catchUp();
+    expect(v.refreshed).toEqual([e, e]);
+    expect(v.total()).toBe(4);
+  });
 });

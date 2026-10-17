@@ -19,6 +19,7 @@ import {
   type Texture,
   type TextureSource,
   type ViewContainer,
+  WebGLRenderer,
 } from 'pixi.js';
 import { surfaceOf } from './blood-surface.js';
 import {
@@ -95,6 +96,42 @@ export function routeWorldBatches(renderer: Renderer): void {
   };
 }
 
+const lutBoundPipes = new WeakSet<object>();
+
+/**
+ * A paletted world batch lists its LUT in every slot between its pages and the LUT's own, so the list has
+ * no holes; no element samples those slots, so its draw binds only the pages and the LUT, and the slots a
+ * neighbouring batch's pages hold stay bound. Idempotent per renderer.
+ *
+ * Undocumented Pixi behaviour, verified on pixi.js 8.21, re-verify on a bump: the WebGL batch adaptor
+ * binds every slot below `batch.textures.count` before it draws and reads the list nowhere else.
+ */
+export function bindWorldBatchPagesAndLut(renderer: Renderer): void {
+  // WebGPU builds a bind group from the whole list instead of binding slot by slot.
+  if (!(renderer instanceof WebGLRenderer)) return;
+  const pipe = renderer.renderPipes.batch;
+  if (lutBoundPipes.has(pipe)) return;
+  lutBoundPipes.add(pipe);
+  const execute = pipe.execute.bind(pipe);
+  pipe.execute = (batch: Batch) => {
+    const batcher: unknown = batch.batcher;
+    const binding = isWorldBatcher(batcher) ? batcher.lutBinding(batch) : null;
+    if (binding === null) {
+      execute(batch);
+      return;
+    }
+    const textures = batch.textures;
+    const listed = textures.count;
+    renderer.texture.bind(binding.lut, binding.slot);
+    textures.count = binding.pages;
+    try {
+      execute(batch);
+    } finally {
+      textures.count = listed;
+    }
+  };
+}
+
 /** Vertex layout: Pixi's six (x, y, u, v, colour, textureIdAndRound) + element flags + frame UV box. */
 export const WORLD_VERTEX_SIZE = 17;
 const STRIDE = WORLD_VERTEX_SIZE * 4;
@@ -134,10 +171,24 @@ function glowOf(element: BatchableElement): boolean {
   return renderable !== null && 'glow' in renderable && renderable.glow === true;
 }
 
+/** A paletted world batch's LUT, the slot it is listed at, and the page slots listed below it. */
+interface LutBinding {
+  lut: TextureSource;
+  slot: number;
+  pages: number;
+}
+interface WorldBatcherApi extends Batcher {
+  /** Where `batch` lists its LUT, or null for a batch without one; valid until the next call. */
+  lutBinding(batch: Batch): LutBinding | null;
+}
 /** The batcher class, its geometry and shaders are defined on first install, not at import, so a
  *  test that mocks `pixi.js` can still load this module. */
-type WorldBatcherClass = new (options: BatcherOptions) => Batcher;
+type WorldBatcherClass = new (options: BatcherOptions) => WorldBatcherApi;
 let worldBatcherClass: WorldBatcherClass | undefined;
+
+function isWorldBatcher(batcher: unknown): batcher is WorldBatcherApi {
+  return worldBatcherClass !== undefined && batcher instanceof worldBatcherClass;
+}
 
 /** The world vertex layout over `attributeBuffer`, drawn through `indexBuffer`: the geometry a world batch
  *  or anything else drawing through the world batch program binds. */
@@ -165,6 +216,8 @@ export function worldBatchGeometry(attributeBuffer: Buffer, indexBuffer: Buffer)
 }
 
 function defineWorldBatcher(): WorldBatcherClass {
+  /** The one {@link LutBinding} every batcher answers with, minted by the first answer. */
+  let lutBinding: LutBinding | undefined;
   const worldBatchIndices = (): Buffer =>
     new Buffer({
       data: new Uint32Array(1),
@@ -352,8 +405,18 @@ function defineWorldBatcher(): WorldBatcherClass {
       return palettedFlags(element);
     }
 
+    lutBinding(batch: Batch): LutBinding | null {
+      const lut = batch.textures.textures[this.lutSlot];
+      if (lut === null || lut === undefined || batch.textures.ids[lut.uid] !== this.lutSlot) return null;
+      lutBinding ??= { lut, slot: 0, pages: 0 };
+      lutBinding.lut = lut;
+      lutBinding.slot = this.lutSlot;
+      lutBinding.pages = this.pageCount(batch);
+      return lutBinding;
+    }
+
     /** Pages the batch lists: every slot below the LUT, which also fills the gap up to its own slot so
-     *  Pixi binds a texture at each. */
+     *  the list has no holes. */
     private pageCount(batch: Batch): number {
       const { textures, ids, count } = batch.textures;
       const lut = textures[this.lutSlot];
@@ -426,6 +489,9 @@ function defineWorldBatcher(): WorldBatcherClass {
       return true;
     }
 
+    /** Pixi lists a batch's pages in the order its elements first use them, contiguous from slot 0,
+     *  which `bindWorldBatchPagesAndLut` relies on. Keeping a page in one slot across batches cut binds
+     *  by a third but cost 2 to 13% GPU time. */
     override break(instructionSet: InstructionSet): void {
       this.breaking = true;
       try {
@@ -442,8 +508,8 @@ function defineWorldBatcher(): WorldBatcherClass {
       this.paletted.length = 0;
     }
 
-    /** Lists `lut` at the batch's LUT slot, filling the page slots up to it with the LUT as well so Pixi
-     *  binds every listed slot; false when the batch already holds another LUT. */
+    /** Lists `lut` at the batch's LUT slot, filling the page slots up to it with the LUT as well so the
+     *  list has no holes; false when the batch already holds another LUT. */
     private bindLut(batch: Batch, lut: TextureSource): boolean {
       const textures = batch.textures;
       const slot = this.lutSlot;

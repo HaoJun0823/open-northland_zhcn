@@ -1,25 +1,33 @@
 import {
+  Batch,
   type BatchableSprite,
+  type Batcher,
+  BatcherPipe,
+  BatchTextureArray,
   Container,
   type DefaultBatchableQuadElement,
+  GlBatchAdaptor,
   InstructionSet,
   Rectangle,
   type Renderer,
   Sprite,
   Texture,
   TextureSource,
+  WebGLRenderer,
 } from 'pixi.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { bloodSurface } from '../src/gpu/blood-surface.js';
 import {
   markPalettedTexture,
   markShadowTexture,
+  palettedLutOf,
   setPixelArtMagnification,
   setWorldShadowStyle,
 } from '../src/gpu/pixel-art-registry.js';
 import { DEFAULT_SHADOW_STYLE } from '../src/gpu/shadow-style.js';
 import { OutlineSprite, SelectionSprite } from '../src/gpu/sprite-selection-effect.js';
 import {
+  bindWorldBatchPagesAndLut,
   installWorldBatcher,
   routeWorldBatches,
   WORLD_ATTRIBUTE_OFFSETS,
@@ -268,7 +276,7 @@ describe('world batcher palette LUT', () => {
     batcher.destroy();
   });
 
-  it('fills the page slots below the LUT with the LUT, so every bound slot names a texture', () => {
+  it('fills the page slots below the LUT with the LUT, so the list has no holes', () => {
     const WorldBatcher = installWorldBatcher();
     // Three page slots plus the LUT's.
     const batcher = new WorldBatcher({ maxTextures: PAGES_AND_LUT + 2 });
@@ -292,6 +300,84 @@ describe('world batcher palette LUT', () => {
     expect(batcher.checkAndUpdateTexture(element, barn)).toBe(true);
     expect([textures?.count, element._textureId, textures?.textures[2]]).toEqual([4, 2, barn.source]);
     batcher.destroy();
+  });
+
+  /** Pixi's own WebGL batch pipe and adaptor over a renderer that records texture binds and draws. */
+  function recordingPipe() {
+    const bound: [TextureSource, number][] = [];
+    const drawn: number[] = [];
+    const renderer = Object.create(WebGLRenderer.prototype) as WebGLRenderer;
+    Object.assign(renderer, {
+      runners: { contextChange: { add: () => undefined } },
+      state: { set: () => undefined },
+      texture: { bind: (source: TextureSource, slot: number) => bound.push([source, slot]) },
+      geometry: { draw: (_topology: string, size: number) => drawn.push(size) },
+    });
+    const pipe = new BatcherPipe(renderer, new GlBatchAdaptor());
+    Object.assign(renderer, { renderPipes: { batch: pipe } });
+    bindWorldBatchPagesAndLut(renderer);
+    // A batch after the first of its batcher; the first also binds the shader and geometry.
+    const draw = (batch: Batch) => {
+      batch.action = 'renderBatch';
+      renderer.renderPipes.batch.execute(batch);
+    };
+    return { bound, drawn, draw };
+  }
+
+  function builtBatch(
+    maxTextures: number,
+    textures: readonly Texture[],
+  ): { batch: Batch; destroy: () => void } {
+    const WorldBatcher = installWorldBatcher();
+    const batcher = new WorldBatcher({ maxTextures });
+    batcher.begin();
+    for (const texture of textures)
+      batcher.add(quad(texture, palettedLutOf(texture) === undefined ? undefined : 1));
+    batcher.break(new InstructionSet());
+    return { batch: batcher.batches[0] as Batch, destroy: () => batcher.destroy() };
+  }
+
+  it('binds only the pages and the LUT of a paletted batch, leaving the filled slots as they were', () => {
+    const lut = new TextureSource({ width: 256, height: 4 });
+    const walker = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    markPalettedTexture(walker, lut);
+    const { batch, destroy } = builtBatch(PAGES_AND_LUT + 2, [walker]);
+    const { bound, drawn, draw } = recordingPipe();
+    draw(batch);
+    expect(bound).toEqual([
+      [lut, 3],
+      [walker.source, 0],
+    ]);
+    expect(drawn).toEqual([batch.size]);
+    expect(batch.textures.count).toBe(4);
+    destroy();
+  });
+
+  it('binds every listed slot of a plain world batch and of a batch from another batcher', () => {
+    const house = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    const barn = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    const { batch, destroy } = builtBatch(PAGES_AND_LUT + 2, [house, barn]);
+    const { bound, draw } = recordingPipe();
+    draw(batch);
+    expect(bound).toEqual([
+      [house.source, 0],
+      [barn.source, 1],
+    ]);
+
+    // Another batcher's repeat of its last page is an ordinary listed slot, bound like the rest.
+    const other = new Batch();
+    other.batcher = { name: 'default' } as Batcher;
+    other.textures = new BatchTextureArray();
+    for (const source of [house.source, barn.source, barn.source])
+      other.textures.textures[other.textures.count++] = source;
+    bound.length = 0;
+    draw(other);
+    expect(bound).toEqual([
+      [house.source, 0],
+      [barn.source, 1],
+      [barn.source, 2],
+    ]);
+    destroy();
   });
 
   it('flags a glowing paletted element beside its row', () => {

@@ -388,22 +388,48 @@ export function spotsReaching(
   if (!signpostNavigationEnabled(world) || !confinedJob(content, jobType)) return null;
   const range = walkRangeOf(content, jobType);
   const posts = refreshedMemo(world).byPlayer.get(player) ?? [];
-  const covers = (s: SignpostSite): boolean =>
-    goals.some((goal) => hexDistanceBetween(s.hx, s.hy, terrain.xOf(goal), terrain.yOf(goal)) < range);
-  const groups = new Set(posts.filter(covers).map((s) => s.group));
-  const serving = posts.filter((s) => groups.has(s.group));
+  const serving = servingPosts(terrain, posts, goals, range);
   return (hx, hy) => {
     for (const goal of goals) {
       if (hexDistanceBetween(hx, hy, terrain.xOf(goal), terrain.yOf(goal)) <= range + slack) return true;
     }
     const here = slack === 0 ? componentAt(terrain, hx, hy) : null;
-    return serving.some(
-      (s) =>
+    for (const s of serving) {
+      if (
         hexDistanceBetween(hx, hy, s.hx, s.hy) < range + slack &&
-        (here === null || componentAt(terrain, s.hx, s.hy) === here),
-    );
+        (here === null || componentAt(terrain, s.hx, s.hy) === here)
+      )
+        return true;
+    }
+    return false;
   };
 }
+
+/** The posts of every group with a post strictly inside `range` of one of `goals`, in network order. */
+function servingPosts(
+  terrain: TerrainGraph,
+  posts: readonly SignpostSite[],
+  goals: readonly NodeId[],
+  range: number,
+): readonly SignpostSite[] {
+  groupScratch.length = 0;
+  for (const s of posts) {
+    if (groupScratch.includes(s.group)) continue;
+    for (const goal of goals) {
+      if (hexDistanceBetween(s.hx, s.hy, terrain.xOf(goal), terrain.yOf(goal)) < range) {
+        groupScratch.push(s.group);
+        break;
+      }
+    }
+  }
+  if (groupScratch.length === 0) return NO_SITES;
+  const serving: SignpostSite[] = [];
+  for (const s of posts) if (groupScratch.includes(s.group)) serving.push(s);
+  return serving;
+}
+
+/** The group labels {@link servingPosts} collects; a goal set catches a handful, so a scan beats a set. */
+const groupScratch: number[] = [];
 
 /** Whether signposts confine `jobType`. The original routes soldiers, heroes, scouts, hunters and druids
  *  over its global walk sectors instead. */

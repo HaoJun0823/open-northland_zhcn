@@ -43,6 +43,7 @@ import {
   AI_SEAT_SLOT_STEP_TICKS,
   COMPUTER_DECISION_INTERVAL_TICKS,
   MAP_AI_PEACE_ARCHERS_PER_CLASS,
+  MAP_AI_SEAT_SLOT_STEP_TICKS,
   MILITARY_DECISION_PHASE,
   militaryModule,
   THREAT_STAND_DOWN_MARGIN_NODES,
@@ -69,8 +70,10 @@ const VIKING = 1;
 /** Another tribe than the archers' own. */
 const FRANK = VIKING + 1;
 const SEAT = 2;
-/** The seat's first settlement-defence decision: its slot plus the military phase. */
-const SEAT_DEFENCE_TICK = SEAT * AI_SEAT_SLOT_STEP_TICKS + MILITARY_DECISION_PHASE;
+/** The seat's first settlement-defence decision, its slot plus the military phase, while a computer
+ *  controller runs it and while the map AI alone does. */
+const CONTROLLED_DEFENCE_TICK = SEAT * AI_SEAT_SLOT_STEP_TICKS + MILITARY_DECISION_PHASE;
+const MAP_AI_DEFENCE_TICK = SEAT * MAP_AI_SEAT_SLOT_STEP_TICKS + MILITARY_DECISION_PHASE;
 const FOE = 3;
 const HQ_TYPE = 1;
 const BARRACKS_TYPE = 12;
@@ -664,7 +667,7 @@ function dispatchedCampSortie(): { sim: Simulation; defender: Entity; raider: En
   sim.enqueueSetup({ kind: 'setAiControl', player: SEAT, enabled: true, computerEnabled: false });
   sim.enqueueSetup({ kind: 'setStance', entity: raider, mode: MILITARY_MODE.IGNORE });
   sim.step();
-  settlementDefenceSystem(sim.world, { ...ctxOf(sim), tick: SEAT_DEFENCE_TICK, commands: sim.commands });
+  settlementDefenceSystem(sim.world, { ...ctxOf(sim), tick: MAP_AI_DEFENCE_TICK, commands: sim.commands });
   expect(sim.world.has(defender, MapAiDefence)).toBe(true);
   sim.step();
   expect(sim.world.get(defender, AiOrder).source).toBe('settlement-defence');
@@ -687,7 +690,7 @@ describe('map camp defence pursuit leash', () => {
     const [defender] = spawn(sim, 1, { x: SEAT_HQ.x, y: SEAT_HQ.y + 6 }, SPEARMAN);
     if (defender === undefined) throw new Error('missing defender');
     const raider = standOff(sim, hq, watchOf(sim), SPEARMAN);
-    const ctx = { ...ctxOf(sim), tick: SEAT_DEFENCE_TICK, commands: sim.commands };
+    const ctx = { ...ctxOf(sim), tick: CONTROLLED_DEFENCE_TICK, commands: sim.commands };
     setAiControl(sim.world, ctx, { kind: 'setAiControl', player: SEAT, enabled: true });
     settlementDefenceSystem(sim.world, ctx);
     commandSystem(sim.world, ctx);
@@ -706,7 +709,8 @@ describe('map camp defence pursuit leash', () => {
     expect(sim.world.has(defender, AiOrder)).toBe(false);
     expect(sim.world.get(defender, Stance).mode).toBe(MILITARY_MODE.IGNORE);
     sim.world.add(raider, Position, positionOfNode(SEAT_HQ.x + watchOf(sim), SEAT_HQ.y));
-    const next = SEAT_DEFENCE_TICK + COMPUTER_DECISION_INTERVAL_TICKS;
+    // The controller is off now, so the seat's defence is back on the map-AI slot.
+    const next = MAP_AI_DEFENCE_TICK + COMPUTER_DECISION_INTERVAL_TICKS;
     settlementDefenceSystem(sim.world, { ...ctx, tick: next });
     commandSystem(sim.world, { ...ctx, tick: next });
     expect(sim.world.get(defender, AiOrder).source).toBe('settlement-defence');

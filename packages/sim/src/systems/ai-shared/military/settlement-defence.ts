@@ -204,7 +204,7 @@ export const settlementDefenceSystem: System = (world, ctx) => {
   const seats: { readonly player: number; readonly mapAiEnabled: boolean }[] = [];
   for (const e of world.query(AiControl)) {
     const seat = world.get(e, AiControl);
-    if (militaryDecisionDue(ctx.tick, seat.player)) seats.push(seat);
+    if (militaryDecisionDue(ctx.tick, seat.player, seat.computerEnabled)) seats.push(seat);
   }
   seats.sort((a, b) => a.player - b.player);
   for (const seat of seats) {

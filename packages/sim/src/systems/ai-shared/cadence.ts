@@ -9,19 +9,24 @@ import type { World } from '../../ecs/world.js';
 export const COMPUTER_DECISION_INTERVAL_TICKS = 48;
 
 /**
- * How far apart consecutive seats' decision slots lie, in ticks (authored, a performance trade): every
- * player slot gets a slot of its own, and a seat's dear modules (the workforce, the build order, the
- * military at phases 0, 1 and 5 of `computer-player/index.ts`) never share a tick with another seat's:
- * a tick holds one of them and at most one of the light ones (the roads, the scout, the population).
+ * How far apart consecutive computer-controlled seats' decision slots lie, in ticks (authored, a
+ * performance trade): every player slot gets a slot of its own, and no two seats' dear modules share a
+ * tick (pinned by the computer-player tests).
  */
 export const AI_SEAT_SLOT_STEP_TICKS = 3;
 
-/** Whether `tick` is one of `player`'s strategic decisions. */
+/** The slot step of a map-AI-only seat's defence decision (authored): a scripted map's defence keeps its
+ *  own timing whatever spread the computer seats use. Coprime with the interval, so every seat gets a slot
+ *  of its own. */
+export const MAP_AI_SEAT_SLOT_STEP_TICKS = 7;
+
+/** Whether `tick` is one of `player`'s strategic decisions, for a seat a computer controller runs. */
 export function computerDecisionDue(tick: number, player: number): boolean {
-  return (
-    tick % COMPUTER_DECISION_INTERVAL_TICKS ===
-    (player * AI_SEAT_SLOT_STEP_TICKS) % COMPUTER_DECISION_INTERVAL_TICKS
-  );
+  return slotDue(tick, player, AI_SEAT_SLOT_STEP_TICKS);
+}
+
+function slotDue(tick: number, player: number, step: number): boolean {
+  return tick % COMPUTER_DECISION_INTERVAL_TICKS === (player * step) % COMPUTER_DECISION_INTERVAL_TICKS;
 }
 
 /** The index of the decision interval `tick` falls in: a seat's decisions count up by one, since its
@@ -76,6 +81,9 @@ export function handlerTurn(tick: number): number {
 /** Defence shares the existing military decision slot; it runs before the campaign. */
 export const MILITARY_DECISION_PHASE = 5;
 
-export function militaryDecisionDue(tick: number, player: number): boolean {
-  return computerDecisionDue(tick - MILITARY_DECISION_PHASE, player);
+/** Whether `tick` is `player`'s defence decision: on the computer slot while a computer controller runs
+ *  the seat (`computerControllerRuns`), on the map-AI slot otherwise. */
+export function militaryDecisionDue(tick: number, player: number, controllerRuns: boolean): boolean {
+  const step = controllerRuns ? AI_SEAT_SLOT_STEP_TICKS : MAP_AI_SEAT_SLOT_STEP_TICKS;
+  return slotDue(tick - MILITARY_DECISION_PHASE, player, step);
 }

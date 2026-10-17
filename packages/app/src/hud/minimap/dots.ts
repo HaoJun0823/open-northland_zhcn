@@ -120,6 +120,8 @@ export type MinimapDotSink = (
   part: MinimapStampPart,
 ) => void;
 
+type SettlerMark = Extract<MinimapMark, 'civilian' | 'soldier' | 'hero'>;
+
 /** Whether an owned marker of `owner` passes the scope as seen from `viewer`. */
 export function scopeAdmits(
   scope: MinimapScope,
@@ -170,18 +172,47 @@ export function forEachMinimapDot(
   sink: MinimapDotSink,
 ): void {
   const { layers, scope } = ctx.filters;
-  const { fog, bounds, scale, viewer, stanceToward } = ctx;
+  const { fog, bounds, scale, viewer } = ctx;
+  // A walk meets a handful of owners and trades thousands of times over, so each answer is asked once.
+  const stances = new Map<number, DiplomacyState>();
+  const stanceToward = (owner: number): DiplomacyState => {
+    let stance = stances.get(owner);
+    if (stance === undefined) {
+      stance = ctx.stanceToward(owner);
+      stances.set(owner, stance);
+    }
+    return stance;
+  };
   const admits = (owner: number): boolean => scopeAdmits(scope, owner, viewer, stanceToward);
   const hostile = (owner: number): boolean =>
     viewer !== null && owner !== viewer && stanceToward(owner) === 'enemy';
   // Without a seat there is no stance to paint, so a whole-map view keeps the team colours.
   const byStance = ctx.filters.colours === 'stance' && viewer !== null;
-  const colourOf = (player: number): number => {
+  const playerColour = (player: number): number => {
     if (byStance) return player === viewer ? STANCE_SELF_COLOUR : STANCE_COLOURS[stanceToward(player)];
     return (
       MINIMAP_PLAYER_COLOURS[(ctx.playerColourOf?.(player) ?? player) % MINIMAP_PLAYER_COLOURS.length] ??
       UNKNOWN_PLAYER_DOT_COLOUR
     );
+  };
+  const colours = new Map<number, number>();
+  const colourOf = (player: number): number => {
+    let colour = colours.get(player);
+    if (colour === undefined) {
+      colour = playerColour(player);
+      colours.set(player, colour);
+    }
+    return colour;
+  };
+  const roles = new Map<number, SettlerMark>();
+  const roleOf = (job: number | undefined): SettlerMark => {
+    if (job === undefined) return 'civilian';
+    let role = roles.get(job);
+    if (role === undefined) {
+      role = ctx.isHeroJob(job) ? 'hero' : ctx.isFighterJob(job) ? 'soldier' : 'civilian';
+      roles.set(job, role);
+    }
+    return role;
   };
   const { plain, soldiers, hostiles, hostileSoldiers, allHostiles, heroes } = HELD;
   for (const group of HELD_GROUPS) group.clear();
@@ -266,12 +297,12 @@ export function forEachMinimapDot(
         return;
       }
       if (owner === undefined || !admits(owner)) return;
-      const job = settlerJobType(settler);
-      if (job !== undefined && ctx.isHeroJob(job)) {
+      const role = roleOf(settlerJobType(settler));
+      if (role === 'hero') {
         if (layers.heroes) place(settler, 'hero', colourOf(owner), heroes);
         return;
       }
-      const soldier = job !== undefined && ctx.isFighterJob(job);
+      const soldier = role === 'soldier';
       if (soldier ? layers.soldiers : layers.civilians)
         owned(settler, owner, soldier ? 'soldier' : 'civilian', colourOf(owner));
     });

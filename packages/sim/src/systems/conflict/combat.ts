@@ -63,8 +63,9 @@ export const combatSystem: System = (world, ctx) => {
   // Every combatant stays a target, but only one that may act runs the ladder. Candidates come in ascending
   // id, so a tie-break lands on the same winner. A closer chaser may release a farther ally's slot
   // reservation; the ally keeps its enemy and asks for another approach.
-  for (const e of engageCandidates(world, ctx, pass.index)) {
-    if (!mayEngage(world, ctx, terrain, pass.index, e)) continue;
+  const ready = engageCandidates(world, ctx, pass.index);
+  for (const e of ready.candidates) {
+    if (!mayEngage(world, ctx, terrain, pass.index, e, ready.nearStranger(e))) continue;
     engageCombatant(world, ctx, terrain, pass, e);
     rallyFollowers(world, ctx, terrain, e);
   }

@@ -24,7 +24,7 @@ import {
   Weapon,
 } from '../../components/index.js';
 import type { Component, Entity, World } from '../../ecs/world.js';
-import type { TerrainGraph } from '../../nav/terrain/index.js';
+import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { isTravelling } from '../movement/nav-state.js';
 import {
@@ -48,7 +48,9 @@ import { attackerWeapon } from './weapons.js';
 /**
  * Whether `e` may act in this combat pass. False proves `engageCombatant` would leave it with no write and
  * no draw: every rung it reaches either returns or drops state it does not hold, and the target search
- * finds nothing. Asked in the pass's own order, so it reads each unit as the ladder would.
+ * finds nothing. Asked in the pass's own order, so it reads each unit as the ladder would. `nearStranger`
+ * false says the index's `unitsNearStrangers` did not list `e`, so an owned unit in a player slot fails
+ * every presence test without asking it.
  */
 export function mayEngage(
   world: World,
@@ -56,6 +58,7 @@ export function mayEngage(
   terrain: TerrainGraph,
   index: CombatIndex,
   e: Entity,
+  nearStranger = true,
 ): boolean {
   if (holdsLadderState(world, e)) return true;
   // A sleeper in the open reads the battle front; any other clip holds its settler out of the pass.
@@ -82,8 +85,6 @@ export function mayEngage(
   // Only the flee drive and a march run ahead of the rung that leaves a walker to the drive that sent it.
   if (!marching && mode !== MILITARY_MODE.FLEE && isTravelling(world, e)) return false;
   const here = entityNode(world, terrain, e);
-  const x = terrain.xOf(here);
-  const y = terrain.yOf(here);
   if (owner === undefined || mode === null) {
     if (!isAnimalTribe(ctx.content, settler.tribe)) return true; // a scenario civ's search is ungated
     // A passive animal stands down; a provoked one holds Anger.
@@ -93,6 +94,13 @@ export function mayEngage(
     const { center } = pursuit;
     return index.civsWithin(terrain.xOf(center), terrain.yOf(center), ANIMAL_AGGRO_RADIUS_NODES);
   }
+  if (!nearStranger && isValidPlayer(owner.player)) {
+    // Every search below finds nothing, so only a guard off its anchor acts, and not from a manned post.
+    if (!guardsAnchor(ctx.content, mode, settler.jobType) || !awayFromAnchor(world, e, here)) return false;
+    return !garrisoned || mannedPostOf(world, ctx, e) === null;
+  }
+  const x = terrain.xOf(here);
+  const y = terrain.yOf(here);
   // A manned post searches its weapon's reach raised by the tower, and neither flees nor walks back.
   if (garrisoned && mannedPostOf(world, ctx, e) !== null) {
     return index.othersWithin(owner.player, x, y, reachOf(world, ctx, e) + TOWER_RANGE_BONUS_NODES);
@@ -102,8 +110,7 @@ export function mayEngage(
   const reachGuard = mode === MILITARY_MODE.IGNORE && isFighterJob(ctx.content, settler.jobType);
   if (guardsAnchor(ctx.content, mode, settler.jobType)) {
     // With nothing to fight, a guard walks back to its anchor and drops its route state.
-    const anchor = world.tryGet(e, Stance)?.anchorCell ?? here;
-    if (anchor !== here || world.has(e, PathRoute) || world.has(e, Stranded)) return true;
+    if (awayFromAnchor(world, e, here)) return true;
     if (reachGuard) radius = Math.max(radius, reachOf(world, ctx, e));
   }
   return index.othersWithin(owner.player, x, y, radius);
@@ -179,6 +186,12 @@ export function presenceBound(content: ContentSet): number {
 /** Whether a unit under `mode` holds a guard's anchor: DEFEND, or IGNORE on a fighter. */
 function guardsAnchor(content: ContentSet, mode: MilitaryMode, jobType: number | null): boolean {
   return mode === MILITARY_MODE.DEFEND || (mode === MILITARY_MODE.IGNORE && isFighterJob(content, jobType));
+}
+
+/** Whether guard `e` standing on `here` has a walk back to its anchor to make or route state to drop. */
+function awayFromAnchor(world: World, e: Entity, here: NodeId): boolean {
+  const anchor = world.tryGet(e, Stance)?.anchorCell ?? here;
+  return anchor !== here || world.has(e, PathRoute) || world.has(e, Stranded);
 }
 
 /** Whether `e` holds state the engage ladder resolves, re-checks or reaps whoever stands near it. */

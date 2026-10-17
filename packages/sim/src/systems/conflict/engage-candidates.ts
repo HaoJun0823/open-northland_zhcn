@@ -85,10 +85,11 @@ function readyUnitsOf(world: World, content: ContentSet): ReadyUnits {
  * the kept ready set. Every other combatant proves `mayEngage` false. Read after the queued alarms are
  * answered, since an alarm hands its answerers ladder state.
  */
-export function engageCandidates(world: World, ctx: SystemContext, index: CombatIndex): readonly Entity[] {
+export function engageCandidates(world: World, ctx: SystemContext, index: CombatIndex): EngageCandidates {
   const scratch = candidateScratchOf(world);
   const { candidates } = scratch;
   let count = index.unitsNearStrangers(presenceBound(ctx.content), candidates, 0);
+  scratch.markNear(count);
   readyUnitsOf(world, ctx.content)
     .sync(world)
     .forEach((e) => {
@@ -106,25 +107,61 @@ export function engageCandidates(world: World, ctx: SystemContext, index: Combat
     if (kept === 0 || candidates[kept - 1] !== id) candidates[kept++] = id;
   }
   candidates.length = kept;
-  return candidates;
+  return scratch;
 }
 
-/** The buffers one pass's candidate list is gathered and sorted in, reused across passes: the returned
- *  list lives until the next pass asks. */
-interface CandidateScratch {
-  readonly candidates: Entity[];
-  sorted: Uint32Array;
+/** One pass's candidates, and which of them the index listed near a stranger. Lives until the next pass. */
+export interface EngageCandidates {
+  /** Ascending by id. */
+  readonly candidates: readonly Entity[];
+  /** Whether the index listed owned unit `e` near a stranger. One in a player slot it did not list proves
+   *  every `othersWithin` test up to the presence bound false. */
+  nearStranger(e: Entity): boolean;
 }
+
+/** The last epoch before the near marks are cleared and counting restarts. */
+const MAX_NEAR_EPOCH = 0xffffffff;
 
 /** Ids the sort buffer holds before its first growth. */
 const INITIAL_SORT_CAPACITY = 256;
+
+/** The buffers one pass's candidate list is gathered and sorted in, reused across passes. */
+class CandidateScratch implements EngageCandidates {
+  readonly candidates: Entity[] = [];
+  sorted = new Uint32Array(INITIAL_SORT_CAPACITY);
+  /** {@link nearEpoch} on each unit the running pass's index listed near a stranger, by entity id. */
+  private nearMarks = new Uint32Array(0);
+  private nearEpoch = 0;
+
+  /** Mark the first `count` candidates, the index's near-stranger listing, for this pass. */
+  markNear(count: number): void {
+    if (this.nearEpoch === MAX_NEAR_EPOCH) {
+      this.nearMarks.fill(0);
+      this.nearEpoch = 0;
+    }
+    const epoch = ++this.nearEpoch;
+    for (let i = 0; i < count; i++) {
+      const e = this.candidates[i] as Entity;
+      if (e >= this.nearMarks.length) {
+        const grown = new Uint32Array(Math.max(e + 1, 2 * this.nearMarks.length));
+        grown.set(this.nearMarks);
+        this.nearMarks = grown;
+      }
+      this.nearMarks[e] = epoch;
+    }
+  }
+
+  nearStranger(e: Entity): boolean {
+    return this.nearMarks[e] === this.nearEpoch;
+  }
+}
 
 const candidateScratches = new WeakMap<World, CandidateScratch>();
 
 function candidateScratchOf(world: World): CandidateScratch {
   let scratch = candidateScratches.get(world);
   if (scratch === undefined) {
-    scratch = { candidates: [], sorted: new Uint32Array(INITIAL_SORT_CAPACITY) };
+    scratch = new CandidateScratch();
     candidateScratches.set(world, scratch);
   }
   return scratch;

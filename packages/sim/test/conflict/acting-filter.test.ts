@@ -167,16 +167,23 @@ function onPost(sim: Simulation, soldier: Entity): boolean {
   return isManningPost(sim.world, ctxOf(sim), soldier);
 }
 
-/** Every combatant left out of this tick's candidates, each refused by the filter on a freshly built pass. */
+/** Every combatant left out of this tick's candidates, each refused by the filter on a freshly built pass;
+ *  every candidate answered alike with and without the index's near-stranger listing. */
 function outsideCandidatesRefused(sim: Simulation): number {
   const ctx = ctxOf(sim);
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('the scene has a map');
   const index = new CombatIndex(sim.world, ctx, terrain);
-  const candidates = new Set(engageCandidates(sim.world, ctx, index));
+  const ready = engageCandidates(sim.world, ctx, index);
+  const candidates = new Set(ready.candidates);
   let outside = 0;
   for (const e of sim.world.canonicalQuery(Settler, Health, Position)) {
-    if (candidates.has(e)) continue;
+    if (candidates.has(e)) {
+      expect(mayEngage(sim.world, ctx, terrain, index, e, ready.nearStranger(e))).toBe(
+        mayEngage(sim.world, ctx, terrain, index, e),
+      );
+      continue;
+    }
     outside++;
     expect(mayEngage(sim.world, ctx, terrain, index, e)).toBe(false);
   }

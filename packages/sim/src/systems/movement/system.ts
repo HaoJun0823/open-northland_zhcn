@@ -94,6 +94,10 @@ export const movementSystem: System = (world, ctx) => {
     const facing = world.tryGet(e, WalkFacing);
     p.x = stored.x;
     p.y = stored.y;
+    // Whether the walker stands on its stop, read this early so the stop's fetch overlaps the reads
+    // below. A human's leg is the one reader and runs once, on the first pass, before anything moves p.
+    const first = stops[pf.index];
+    const onFirstStop = first !== undefined && first.x === p.x && first.y === p.y;
     const wild = isWildlife(world, e);
     if (wild) syncAnimalGait(world, ctx, e, pf);
     // Wildlife with source `movespeed = 0` has no period component, but stays on the animal fallback
@@ -112,7 +116,7 @@ export const movementSystem: System = (world, ctx) => {
       const arrived = paced
         ? stepAlongLeg(p, target, leg, budget)
         : period === undefined
-          ? walkHumanLeg(world, ctx, e, pf, write, stops, p, target, facing)
+          ? walkHumanLeg(world, ctx, e, pf, write, stops, p, target, facing, onFirstStop)
           : walkPeriodicLeg(world, ctx, e, pf, write, stops, p, target, period);
       if (p.x !== stored.x || p.y !== stored.y) {
         const moved = world.mut(e, Position);
@@ -239,9 +243,11 @@ function walkHumanLeg(
   p: { x: Fixed; y: Fixed },
   target: { x: Fixed; y: Fixed },
   facing: Readonly<WalkFacingState> | undefined,
+  onTarget: boolean,
 ): boolean {
-  // A redirect onto the current centre ends even a held turn without inventing another heading.
-  if (p.x === target.x && p.y === target.y) return true;
+  // A redirect onto the current centre (`onTarget`: p is on `target`) ends even a held turn without
+  // inventing another heading.
+  if (onTarget) return true;
   let turn = facing;
   if (pf.legCost === 0) {
     const resistance = departureResistance(ctx.terrain, pf, stops);

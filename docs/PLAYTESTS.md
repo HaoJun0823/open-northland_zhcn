@@ -32,7 +32,7 @@ does not reach them.
 
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `asgard-campaign_01_01` | GRENLANDIA | 3h/3ai | – | – |  |
+| `asgard-campaign_01_01` | GRENLANDIA | 3h/3ai | ok (`asgard-01-01-playthrough.test.ts`) | ok | played in Polish, mead economy by ordinary orders, voyage and Normandy unlock; Bjarni's death covered; briefing typo corrections; Build window refreshes while paused |
 | `asgard-campaign_01_02_sub` | NORMANDIA - zadanie dodatkowe | 2h/5ai | – | – | sub-mission |
 | `asgard-campaign_01_02` | NORMANDIA | 1h/8ai | – | – |  |
 | `asgard-campaign_01_03` | ANGLIA | 2h/7ai | – | – |  |

@@ -2,10 +2,7 @@ import { Position } from '../../components/index.js';
 import { ChangeFeed } from '../../ecs/change-feed.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
-
-/** The held `hx` of an entity without a Position: the Int32 minimum, which no node's `hx` reaches. An
- *  off-map entity's node is negative, so no smaller sentinel is safe. */
-const NO_NODE = -(2 ** 31);
+import { HeldNodes, NO_NODE } from './held-nodes.js';
 
 /** The read side of a {@link NodeMoves} subscription: a {@link ChangeFeed} of node changes. */
 export interface NodeMoveFeed {
@@ -24,22 +21,20 @@ export interface NodeMoveFeed {
 class NodeMoves {
   private readonly writes: ChangeFeed;
   private readonly subscribers: ChangeFeed[] = [];
-  /** Each entity's node at the last pass by id, {@link NO_NODE} in `hxs` for one without a Position. */
-  private hxs = new Int32Array(0);
-  private hys = new Int32Array(0);
+  /** Each entity's node at the last pass, {@link NO_NODE} for one without a Position. */
+  private readonly nodes = new HeldNodes();
   /** The pump's per-write consumer, a field rather than a method so the drain calls it directly. */
   private readonly compare = (e: Entity): void => {
     const p = this.world.tryGet(e, Position);
-    if (e >= this.hxs.length) this.grow(e);
     let hx = NO_NODE;
     let hy = 0;
     if (p !== undefined) {
       hx = nodeHxOfPosition(p.x, p.y);
       hy = nodeHyOfPosition(p.y);
     }
-    if (this.hxs[e] === hx && this.hys[e] === hy) return;
-    this.hxs[e] = hx;
-    this.hys[e] = hy;
+    const nodes = this.nodes;
+    if (nodes.hx(e) === hx && nodes.hy(e) === hy) return;
+    nodes.set(e, hx, hy, this.world.nextEntityId);
     const subscribers = this.subscribers;
     for (let i = 0; i < subscribers.length; i++) subscribers[i]?.record(e);
   };
@@ -66,23 +61,12 @@ class NodeMoves {
     }
   }
 
-  private grow(e: Entity): void {
-    const size = Math.max(this.world.nextEntityId, e + 1, 2 * this.hxs.length);
-    const hxs = new Int32Array(size).fill(NO_NODE);
-    hxs.set(this.hxs);
-    const hys = new Int32Array(size);
-    hys.set(this.hys);
-    this.hxs = hxs;
-    this.hys = hys;
-  }
-
   private resync(): void {
-    this.hxs = new Int32Array(this.world.nextEntityId).fill(NO_NODE);
-    this.hys = new Int32Array(this.world.nextEntityId);
+    const idLimit = this.world.nextEntityId;
+    this.nodes.reset(idLimit);
     for (const e of this.world.query(Position)) {
       const p = this.world.get(e, Position);
-      this.hxs[e] = nodeHxOfPosition(p.x, p.y);
-      this.hys[e] = nodeHyOfPosition(p.y);
+      this.nodes.set(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y), idLimit);
     }
   }
 
@@ -90,16 +74,16 @@ class NodeMoves {
    *  as a stale subscriber index. */
   verify(): string[] {
     this.pump();
-    for (let e = 0; e < this.hxs.length; e++) {
+    for (let e = 0; e < this.nodes.size; e++) {
       const p = this.world.tryGet(e as Entity, Position);
       const hx = p === undefined ? NO_NODE : nodeHxOfPosition(p.x, p.y);
       const hy = p === undefined ? 0 : nodeHyOfPosition(p.y);
-      if (this.hxs[e] !== hx || (p !== undefined && this.hys[e] !== hy)) {
+      if (this.nodes.hx(e as Entity) !== hx || (p !== undefined && this.nodes.hy(e as Entity) !== hy)) {
         return [`nodeMoves holds a stale node for entity ${e}`];
       }
     }
     for (const e of this.world.query(Position)) {
-      if (e >= this.hxs.length) return [`nodeMoves never held positioned entity ${e}`];
+      if (e >= this.nodes.size) return [`nodeMoves never held positioned entity ${e}`];
     }
     return [];
   }

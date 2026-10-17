@@ -1,58 +1,74 @@
 import { Position, Settler } from '../../components/index.js';
 import type { ChangeFeed, Entity, World } from '../../ecs/world.js';
-import { nodeOfPosition } from '../../nav/halfcell.js';
+import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
+import { HeldNodes, NO_NODE } from '../spatial/held-nodes.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../spatial/node-moves.js';
 import { NodeBuckets } from '../spatial/nodes.js';
 
-interface SettlerNodes {
-  readonly membership: ChangeFeed;
-  readonly moves: NodeMoveFeed;
-  readonly nodes: Map<Entity, { hx: number; hy: number }>;
+/** Shared occupancy for gate retries and evictions. Only changed memberships and node crossings
+ * update buckets; fractional steps within the same node leave the index alone. The bucketed nodes are
+ * held in typed columns, so catching up on a backlog of moves allocates nothing. */
+class SettlerNodes {
+  private readonly membership: ChangeFeed;
+  private readonly moves: NodeMoveFeed;
+  /** Each settler's bucketed node, {@link NO_NODE} for an entity not bucketed. */
+  private readonly nodes = new HeldNodes();
   readonly buckets: NodeBuckets;
+  /** The drains' consumer, a field so the feeds call it directly. */
+  private readonly resync = (e: Entity): void => {
+    const world = this.world;
+    const p = world.has(e, Settler) ? world.tryGet(e, Position) : undefined;
+    let hx = NO_NODE;
+    let hy = 0;
+    if (p !== undefined) {
+      hx = nodeHxOfPosition(p.x, p.y);
+      hy = nodeHyOfPosition(p.y);
+    }
+    const nodes = this.nodes;
+    const heldX = nodes.hx(e);
+    const heldY = nodes.hy(e);
+    if (heldX === hx && heldY === hy) return;
+    if (heldX !== NO_NODE) this.buckets.remove(e, heldX, heldY);
+    nodes.set(e, hx, hy, world.nextEntityId);
+    if (hx !== NO_NODE) this.buckets.insert(e, hx, hy);
+  };
+
+  constructor(private readonly world: World) {
+    this.membership = world.watchChanges([Settler, Position], []);
+    this.moves = watchNodeMoves(world);
+    this.buckets = new NodeBuckets(world, []);
+    this.rebuild();
+  }
+
+  catchUp(): NodeBuckets {
+    const membershipLost = this.membership.drain(this.resync);
+    const movesLost = this.moves.drain(this.resync);
+    if (membershipLost || movesLost) this.rebuild();
+    return this.buckets;
+  }
+
+  private rebuild(): void {
+    const world = this.world;
+    const entities = world.canonicalQuery(Settler, Position);
+    const idLimit = world.nextEntityId;
+    this.buckets.refill(world, entities);
+    this.nodes.reset(idLimit);
+    for (const e of entities) {
+      const p = world.get(e, Position);
+      this.nodes.set(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y), idLimit);
+    }
+  }
 }
 const indexes = new WeakMap<World, SettlerNodes>();
 
-/** Shared occupancy for gate retries and evictions. Only changed memberships and node crossings
- * update buckets; fractional steps within the same node leave the index alone. */
 export function settlersByNode(world: World): NodeBuckets {
   let index = indexes.get(world);
   if (index === undefined) {
-    index = {
-      membership: world.watchChanges([Settler, Position], []),
-      moves: watchNodeMoves(world),
-      nodes: new Map(),
-      buckets: new NodeBuckets(world, []),
-    };
+    index = new SettlerNodes(world);
     indexes.set(world, index);
-    rebuild(world, index);
     world.registerCacheVerifier('settlerNodes', () => verify(world));
   }
-  const resync = (e: Entity): void => {
-    const held = index.nodes.get(e);
-    const p = world.has(e, Settler) ? world.tryGet(e, Position) : undefined;
-    const next = p === undefined ? undefined : nodeOfPosition(p.x, p.y);
-    if (held?.hx === next?.hx && held?.hy === next?.hy) return;
-    if (held !== undefined) index.buckets.remove(e, held.hx, held.hy);
-    if (next === undefined) index.nodes.delete(e);
-    else {
-      index.nodes.set(e, next);
-      index.buckets.insert(e, next.hx, next.hy);
-    }
-  };
-  const membershipLost = index.membership.drain(resync);
-  const movesLost = index.moves.drain(resync);
-  if (membershipLost || movesLost) rebuild(world, index);
-  return index.buckets;
-}
-
-function rebuild(world: World, index: SettlerNodes): void {
-  const entities = world.canonicalQuery(Settler, Position);
-  index.buckets.refill(world, entities);
-  index.nodes.clear();
-  for (const e of entities) {
-    const p = world.get(e, Position);
-    index.nodes.set(e, nodeOfPosition(p.x, p.y));
-  }
+  return index.catchUp();
 }
 
 function verify(world: World): string[] {

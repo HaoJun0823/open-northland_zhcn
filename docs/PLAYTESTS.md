@@ -51,7 +51,7 @@ does not reach them.
 
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `northland-campaign_02_01` | PLAGA | 1h/7ai | issues | issues | played in Polish; win, unlock of stage 2, hero and village defeats, defence and large-attack routes, save/restore; Miguel's gold goal and Polish defeat page corrected; open: [village frees itself](tickets/sim/plaga-village-frees-itself.md) |
+| `northland-campaign_02_01` | PLAGA | 1h/7ai | ok | ok | played in Polish; win, unlock of stage 2, hero and village defeats, defence and large-attack routes, save/restore; Miguel's gold goal and Polish defeat page corrected; without orders the village kills 57 of the 92 snakes and holds, so the main goal needs the player |
 | `northland-campaign_02_02_sub` | TRZY ŻYCZENIA - WIELKA KLĘSKA GŁODU | 1h/1ai | – | – | sub-mission |
 | `northland-campaign_02_02` | WIELKA KLĘSKA GŁODU | 1h/6ai | – | – |  |
 | `northland-campaign_02_03` | STARZY PRZYJACIELE | 1h/4ai | – | – |  |

@@ -1046,5 +1046,13 @@
     "from": "Прикажите паре завести ребенка.",
     "to": "Прикажите Рагне и Бьерну завести ребенка.",
     "reason": "Cel dotyczy narodzin dziecka Ragny i Bjoerna, bez dodatkowego warunku położenia rodziny."
+  },
+  {
+    "map": "asgard-campaign_01_01",
+    "lang": "pol",
+    "id": 5,
+    "from": "Zapłać za Drakkar 10 garnców miodu pitnego.",
+    "to": "Zapłać za Drakkar 10 dzbanów miodu pitnego.",
+    "reason": "Cel i danina mówiły o garncach, a strony briefingu o dzbanach miodu pitnego; ujednolicone do dzbanów."
   }
 ]

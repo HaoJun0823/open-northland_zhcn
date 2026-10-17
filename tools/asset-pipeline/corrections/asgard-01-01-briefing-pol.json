@@ -1,0 +1,40 @@
+{
+  "reason": "Literówki w polskim briefingu (udzielic, pochawalił, gdy ż, młynarezem, rozpocząc, szept Norm, brak kropki). Polecenie wypłynięcia nie mówiło, że na pokład musi wejść Bjarni; bez niego rejs kończy się ostrzeżeniem, a pozostałe języki mówią to wprost.",
+  "file": "campaigns/asgard/campaign_01_01/text/pol/briefings/briefings.txt",
+  "sha256": "cc058a47d5899a70a85bad6fac2a17eed02e1f5720826f3fd2741763d94cf1b4",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Ma mądrość nie wystarczy do rozwiązania twojego problemu, mogę udzielic ci jednak kilku rad. Musisz zdobyć okręt i wraz z najodważniejszymi ludźmi z twojej wioski udać się na Wyspę Norland, gdzie w kamiennym kręgu najgłębszego krateru spotkasz Norny - boginie przędące nić przeznaczenia. Tylko one mogą odpowiedzieć na wszystkie twoje pytania.",
+      "to": "Ma mądrość nie wystarczy do rozwiązania twojego problemu, mogę udzielić ci jednak kilku rad. Musisz zdobyć okręt i wraz z najodważniejszymi ludźmi z twojej wioski udać się na Wyspę Norland, gdzie w kamiennym kręgu najgłębszego krateru spotkasz Norny - boginie przędące nić przeznaczenia. Tylko one mogą odpowiedzieć na wszystkie twoje pytania."
+    },
+    {
+      "from": "Hoirio z Vikingthorpe był sławny - konstruował wspaniałe okręty. Musimy jednak zebrać wynagrodzenie, jakiego zażądał za swe usługi",
+      "to": "Hoirio z Vikingthorpe był sławny - konstruował wspaniałe okręty. Musimy jednak zebrać wynagrodzenie, jakiego zażądał za swe usługi."
+    },
+    {
+      "from": "Obejmij ster Drakkara i wypłyń na południe.",
+      "to": "Wyślij Bjarniego na pokład Drakkara i wypłyń na południe."
+    },
+    {
+      "from": "Moi towarzysze powiedzieli później, że nie słyszeli żadnego dźwięku, ale ja słyszałem szept Norm aż nadto dokładnie:",
+      "to": "Moi towarzysze powiedzieli później, że nie słyszeli żadnego dźwięku, ale ja słyszałem szept Norn aż nadto dokładnie:"
+    },
+    {
+      "from": "\"Dobra robota,\" pochawalił druid. \"Teraz rozkaż budowniczym wzniesienie zagrody.\"",
+      "to": "\"Dobra robota,\" pochwalił druid. \"Teraz rozkaż budowniczym wzniesienie zagrody.\""
+    },
+    {
+      "from": "\"Budowniczowie mogą teraz wznieść młyn - najlepiej w pobliżu farmy, gdy ż produkowane na niej zboże posłuży do produkcji mąki.\"",
+      "to": "\"Budowniczowie mogą teraz wznieść młyn - najlepiej w pobliżu farmy, gdyż produkowane na niej zboże posłuży do produkcji mąki.\""
+    },
+    {
+      "from": "Nakazałem mu pracę w piekarni, nowym młynarezem mianowałem farmera, a jednemu z cywili nakazałem uprawę roli. Cykl produkcyjny nie może zostać przerwany!",
+      "to": "Nakazałem mu pracę w piekarni, nowym młynarzem mianowałem farmera, a jednemu z cywili nakazałem uprawę roli. Cykl produkcyjny nie może zostać przerwany!"
+    },
+    {
+      "from": "\"Pilnuj warzenia miodu pitnego - jak już będziesz miał 10 dzbanów, to będziesz mógł zapłacić budowniczemu okrętów za jego usługi i rozpocząc podróż na wyspę Norn!\"",
+      "to": "\"Pilnuj warzenia miodu pitnego - jak już będziesz miał 10 dzbanów, to będziesz mógł zapłacić budowniczemu okrętów za jego usługi i rozpocząć podróż na wyspę Norn!\""
+    }
+  ]
+}

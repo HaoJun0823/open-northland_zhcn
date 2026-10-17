@@ -1,0 +1,11 @@
+{
+  "reason": "Literówka w niemieckim tytule strony budowniczego okrętów: BOTTSBAUER zamiast BOOTSBAUER.",
+  "file": "campaigns/asgard/campaign_01_01/text/ger/briefings/briefings.txt",
+  "sha256": "cbff240b5d51167214e8f80ba2f33d8761beed625c4e9704f87584da8486f39d",
+  "lines": [
+    {
+      "from": "DER BOTTSBAUER",
+      "to": "DER BOOTSBAUER"
+    }
+  ]
+}

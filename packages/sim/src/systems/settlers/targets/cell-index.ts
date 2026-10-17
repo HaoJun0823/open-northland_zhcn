@@ -214,6 +214,20 @@ export class InteractionCellIndex {
     return false;
   }
 
+  /** Append the filed node of every candidate passing `accept` to `xy` as an `x, y` pair, for a caller that
+   *  asks {@link anyFiledIn} of many areas under one accept. */
+  filedNodesInto(accept: (e: Entity) => boolean, xy: number[]): void {
+    const { terrain } = this;
+    for (const e of this.all.doorList) {
+      const cell = this.doorCell.get(e);
+      if (cell !== undefined && accept(e)) xy.push(terrain.xOf(cell), terrain.yOf(cell));
+    }
+    for (const e of this.all.looseList) {
+      const node = this.looseNode.get(e);
+      if (node !== undefined && accept(e)) xy.push(terrain.xOf(node), terrain.yOf(node));
+    }
+  }
+
   /** A mismatch message per candidate `fresh` keys differently, or this index files under a stale side,
    *  for a cache verifier. */
   divergence(fresh: InteractionCellIndex): string[] {

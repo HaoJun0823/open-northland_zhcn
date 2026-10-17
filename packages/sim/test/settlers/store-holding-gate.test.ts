@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Position, Stockpile } from '../../src/components/index.js';
 import { positionOfNode } from '../../src/nav/halfcell.js';
 import { Simulation } from '../../src/simulation.js';
-import { collectTargets, storeHoldingMayLieIn } from '../../src/systems/settlers/targets/index.js';
+import { collectTargets, LendingStores } from '../../src/systems/settlers/targets/index.js';
 import { signpostLinksSystem } from '../../src/systems/signposts/links.js';
 import { createSignpost } from '../../src/systems/signposts/placement.js';
 import { collectSupplyTally } from '../../src/systems/stores/index.js';
@@ -29,7 +29,7 @@ describe('a store search inside a goods gate', () => {
     const mayLie = (): boolean => {
       const { bands } = collectTargets(sim.world, ctxOf(sim), terrain);
       const area = bands.goodsGate(here, PLAYER);
-      return storeHoldingMayLieIn(bands, sim.world, area, GOOD, PLAYER, collectSupplyTally(sim.world));
+      return LendingStores.of(bands, sim.world, GOOD, PLAYER, collectSupplyTally(sim.world)).mayLieIn(area);
     };
     expect(mayLie()).toBe(false);
 

@@ -113,3 +113,9 @@ export function equipFetchesUnderway(world: World): Map<number, Map<number, numb
   for (const [owner, held] of tallyOf(world).byOwner) if (held.size > 0) byOwner.set(owner, new Map(held));
   return byOwner;
 }
+
+/** {@link equipFetchesUnderway} without the copy: the live totals, which the next read of either brings up
+ *  to date, so a caller stamping errands keeps its own count of them until it is done reading. */
+export function equipFetchesHeld(world: World): ReadonlyMap<number, ReadonlyMap<number, number>> {
+  return tallyOf(world).byOwner;
+}

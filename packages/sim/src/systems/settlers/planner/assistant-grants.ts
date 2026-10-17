@@ -19,7 +19,6 @@ import { TICKS_PER_SECOND } from '../../../core/loop.js';
 import { includesSortedId, insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
-import type { SpatialGate } from '../../../nav/node-circle.js';
 import { intersectReach } from '../../../nav/range-search.js';
 import type { NodeId } from '../../../nav/terrain/index.js';
 import { standsAtPost } from '../../conflict/tower-post.js';
@@ -28,8 +27,8 @@ import { CIVILIST_JOB } from '../../lifecycle/ageclass.js';
 import { isFighterJob, isScoutJob, MILITARY_MODE, mayChangeEquipment } from '../../readviews/index.js';
 import { equipFetchLimitFor, type NavigationLimit } from '../../signposts/index.js';
 import { anotherSystemOwns } from '../action-owner.js';
-import { equipFetchesUnderway } from '../drives/equip-fetches.js';
-import { FetchableStock, nearestStoreHolding, storeHoldingMayLieIn } from '../targets/index.js';
+import { equipFetchesHeld } from '../drives/equip-fetches.js';
+import { FetchableStock, LendingStores, nearestStoreHolding } from '../targets/index.js';
 import { unreachableGoalVeto } from '../unreachable-goals.js';
 import { wakeIdle } from './idle-replan.js';
 import type { PlannerPass } from './pass.js';
@@ -69,8 +68,10 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
   const grants = collectGrantSpecs(pass);
   if (grants.size === 0) return; // no player granted anything: the pass costs one empty query
   // Manual orders are included, so the assistant also respects a unit the player already sent someone after.
-  // Read at the first settler that passes the gates, before this pass stamps any errand.
-  let inFlight: Map<number, Map<number, number>> | undefined;
+  // Read at the first settler that passes the gates, before this pass stamps any errand, and not read again
+  // while it stamps them: the errands stamped here are counted apart.
+  let underwayAtStart: ReadonlyMap<number, ReadonlyMap<number, number>> | undefined;
+  const stampedHere = new PlayerGoodCounts();
   const stock = FetchableStock.of(world, ctx);
   // Each granting player's soldiers-only goods, read once per pass rather than per settler.
   const limits = new Map<number, readonly number[]>();
@@ -83,26 +84,20 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     return goods;
   };
   // Stock the ledger counts may lie outside every goods gate of a side, where each due settler's search
-  // would sweep its whole reach for nothing; whether any lies in a gate is read once per pass. Keyed by
-  // the route limit and the spot's own gate, since their intersection is a fresh object per call.
-  const inGate = new Map<
-    SpatialGate | undefined,
-    Map<SpatialGate | undefined, Map<number, Map<number, boolean>>>
-  >();
-  const mayLieIn = (
-    limit: SpatialGate | undefined,
-    spot: SpatialGate | undefined,
-    player: number,
-    goodType: number,
-  ): boolean => {
-    const byGood = childOf(childOf(childOf(inGate, limit), spot), player);
-    let answer = byGood.get(goodType);
-    if (answer === undefined) {
-      const area = intersectReach(limit, spot ?? null);
-      answer = storeHoldingMayLieIn(targets.bands, world, area, goodType, player, pass.supply);
-      byGood.set(goodType, answer);
+  // would sweep its whole reach for nothing; the stores a side's search could take are read once per pass.
+  const lending = new Map<number, Map<number, LendingStores>>();
+  const lendingStoresOf = (player: number, goodType: number): LendingStores => {
+    let byGood = lending.get(player);
+    if (byGood === undefined) {
+      byGood = new Map();
+      lending.set(player, byGood);
     }
-    return answer;
+    let stores = byGood.get(goodType);
+    if (stores === undefined) {
+      stores = LendingStores.of(targets.bands, world, goodType, player, pass.supply);
+      byGood.set(goodType, stores);
+    }
+    return stores;
   };
 
   for (const e of dueThisBeat(world, ctx.tick)) {
@@ -131,12 +126,8 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     const toolless = !toolHelpsJob(ctx.content, jobType);
     const soldiersOnly = fighter ? NO_LIMITS : soldiersOnlyOf(owner);
 
-    inFlight ??= equipFetchesUnderway(world);
-    let tally = inFlight.get(owner);
-    if (tally === undefined) {
-      tally = new Map();
-      inFlight.set(owner, tally);
-    }
+    underwayAtStart ??= equipFetchesHeld(world);
+    const heldAtStart = underwayAtStart.get(owner);
     const eq = world.tryGet(e, Equipment);
     // Resolved once, and only when a grant has both a free slot and spare stock.
     let route: GrantRoute | undefined;
@@ -145,12 +136,17 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       if (soldiersOnly.includes(spec.goodType)) continue; // kept for the fighters
       const slot = freeSlotFor(eq, spec);
       if (slot === null) continue;
-      const underway = tally.get(spec.goodType) ?? 0;
+      const underway = (heldAtStart?.get(spec.goodType) ?? 0) + stampedHere.of(owner, spec.goodType);
       if (!stock.exceeds(owner, spec.goodType, underway)) continue;
       route ??= grantRouteFor(pass, e);
       const here = route.here;
       const spot = targets.bands.goodsGate(here, owner);
-      if (!mayLieIn(route.limit ?? undefined, spot, owner, spec.goodType)) continue;
+      if (
+        !lendingStoresOf(owner, spec.goodType).mayLieIn(
+          intersectReach(route.limit ?? undefined, spot ?? null),
+        )
+      )
+        continue;
       const src = nearestStoreHolding(
         targets.bands,
         world,
@@ -173,22 +169,10 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
         queued: [],
       });
       wakeIdle(world, e); // planned onto the errand this pass
-      tally.set(spec.goodType, underway + 1);
+      stampedHere.add(owner, spec.goodType);
       break; // one errand per settler; the next beat considers the rest of its slots
     }
   }
-}
-
-function childOf<K, ChildKey, ChildValue>(
-  parent: Map<K, Map<ChildKey, ChildValue>>,
-  key: K,
-): Map<ChildKey, ChildValue> {
-  let child = parent.get(key);
-  if (child === undefined) {
-    child = new Map();
-    parent.set(key, child);
-  }
-  return child;
 }
 
 /** A settler's store-search inputs, read once per beat visit: the node he stands on, the signpost network
@@ -319,6 +303,24 @@ export function freeSlotFor(eq: EquipmentData | undefined, spec: GrantSpec): num
 }
 
 const NO_LIMITS: readonly number[] = [];
+
+/** Units counted per player and good, made only for the pairs counted. */
+class PlayerGoodCounts {
+  private readonly byPlayer = new Map<number, Map<number, number>>();
+
+  of(player: number, goodType: number): number {
+    return this.byPlayer.get(player)?.get(goodType) ?? 0;
+  }
+
+  add(player: number, goodType: number): void {
+    let byGood = this.byPlayer.get(player);
+    if (byGood === undefined) {
+      byGood = new Map();
+      this.byPlayer.set(player, byGood);
+    }
+    byGood.set(goodType, (byGood.get(goodType) ?? 0) + 1);
+  }
+}
 
 const byId = (e: Entity): number => e;
 

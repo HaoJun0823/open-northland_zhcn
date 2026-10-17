@@ -264,32 +264,49 @@ export function nearestStoreHolding(
 }
 
 /**
- * Whether {@link nearestStoreHolding} may find a store inside `area`, the search's goods gate: false
- * proves it finds none, since no store of the fetcher's side lending a unit is filed near enough to the
- * area to be reached in it. One pass over the good's stores, where a missed search sweeps every ring.
+ * Whether {@link nearestStoreHolding} may find a store of one good inside an area, the search's goods
+ * gate, asked of many areas under one pass's claims: false proves the search finds none, since no store
+ * of the fetcher's side lending a unit is filed near enough to the area to be reached in it. The stores
+ * the search could take are read once, so each area costs one test per such store, where a missed search
+ * sweeps every ring.
  */
-export function storeHoldingMayLieIn(
-  bands: TargetBands,
-  world: World,
-  area: SpatialGate | undefined,
-  goodType: number,
-  owner: number | undefined,
-  supply: SupplyTally,
-): boolean {
-  if (sideLendsNone(bands, world, owner, goodType)) return false;
-  const holders = bands.holding(goodType);
-  if (!holders.hasCandidates()) return false;
-  const slack = holders.filedSlack;
-  const near =
-    area?.mayAllowNear === undefined
-      ? ANYWHERE
-      : (hx: number, hy: number): boolean => area.mayAllowNear?.(hx, hy, slack) ?? true;
-  const lends = holdsUnclaimed(world, bands.ctx, supply, goodType);
-  const onSide = sameSideAs(world, owner);
-  return holders.anyFiledIn(near, (store) => onSide(store) && lends(store) !== null);
-}
+export class LendingStores {
+  private static readonly none = new LendingStores(0, []);
 
-const ANYWHERE = (): boolean => true;
+  private constructor(
+    /** How far a store's interaction cell may lie from the node it is filed at. */
+    private readonly slack: number,
+    /** The filed nodes of the stores, as `x, y` pairs. */
+    private readonly xy: readonly number[],
+  ) {}
+
+  static of(
+    bands: TargetBands,
+    world: World,
+    goodType: number,
+    owner: number | undefined,
+    supply: SupplyTally,
+  ): LendingStores {
+    if (sideLendsNone(bands, world, owner, goodType)) return LendingStores.none;
+    const holders = bands.holding(goodType);
+    if (!holders.hasCandidates()) return LendingStores.none;
+    const lends = holdsUnclaimed(world, bands.ctx, supply, goodType);
+    const onSide = sameSideAs(world, owner);
+    const xy: number[] = [];
+    holders.filedNodesInto((store) => onSide(store) && lends(store) !== null, xy);
+    return xy.length === 0 ? LendingStores.none : new LendingStores(holders.filedSlack, xy);
+  }
+
+  mayLieIn(area: SpatialGate | undefined): boolean {
+    const { xy, slack } = this;
+    if (xy.length === 0) return false;
+    if (area?.mayAllowNear === undefined) return true;
+    for (let i = 0; i < xy.length; i += 2) {
+      if (area.mayAllowNear(xy[i] as number, xy[i + 1] as number, slack)) return true;
+    }
+    return false;
+  }
+}
 
 /** {@link nearestStoreHolding} with no signpost or goods-search gate, over `owner`'s own stores alone:
  *  the store a fetcher would reach if nothing guided it, asked only to tell work beyond the signposts from

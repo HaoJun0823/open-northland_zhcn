@@ -1,6 +1,7 @@
 import { Application, Assets, type Texture, type TextureSource } from 'pixi.js';
 import { registerDamagePageUploader } from './building-damage/atlas.js';
 import { registerHumanPaletteUploader } from './human-palette-lut.js';
+import { inheritParentGroupUniforms } from './inherited-group-uniforms.js';
 import { markPixelArtSource } from './pixel-art-registry.js';
 
 /**
@@ -38,6 +39,7 @@ export async function createPixiApp(
   registerDamagePageUploader();
   const app = new Application();
   await app.init({ canvas, width, height, ...APP_OPTIONS });
+  inheritParentGroupUniforms(app.renderer);
   return app;
 }
 
@@ -121,6 +123,7 @@ export async function createWindowPixiApp(
     resolution: windowResolutionFor(window.devicePixelRatio || 1, resolutionScale),
     autoDensity: true, // CSS-size the canvas to the logical size, so client px stay 1:1 with screen px
   });
+  inheritParentGroupUniforms(app.renderer);
   watchBackingResolution(app, resolutionScale);
   leaveCursorToCss(app.renderer.events);
   return app;

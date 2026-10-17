@@ -7,6 +7,7 @@ class FakeApplication {
     resize: mocks.resize,
     runners: { destroy: { add: (hook: { destroy(): void }) => mocks.destroys.push(hook) } },
     events: { cursorStyles: { default: 'inherit' } },
+    renderPipes: { renderGroup: { execute: () => undefined } },
   };
   async init() {}
 }

@@ -33,8 +33,8 @@ export function collectColliders(
     if (!world.has(e, PathFollow) || !hasBodyCollision(world, ctx.content, e)) world.remove(e, Obstructed);
   }
 
-  // The node grid needs every mover's Position; the route state only a mover with company reads is
-  // captured on first ask by `moverRoute`.
+  // The node grid needs every mover's Position; the route state only an overlapping pair reads is
+  // captured on first ask by `moverHeading` and `moverGoal`.
   let moverCount = 0;
   let firmCount = 0;
   for (const e of walkers) {
@@ -69,24 +69,18 @@ function place(columns: ColliderColumns, slot: number, e: Entity, x: Fixed, y: F
 }
 
 /**
- * Capture mover `slot`'s leg, route goal and combat status into its columns on the census's first ask. A
- * firm mover's own resolve asks before its grind bookkeeping can rewrite its route, a soft mover has no
- * grind, and no other mover's resolve writes either, so a late capture reads what the census would have.
+ * Mover `slot`'s route goal and combat status, captured on the census's first ask. Only an aligned
+ * overlapping pair and a firm mover's post test read them, and a mover's own resolve meets each pair before
+ * its grind bookkeeping can rewrite its route, so a late capture reads what the census would have.
  */
-export function moverRoute(world: World, scratch: SeparationScratch, slot: number): void {
+export function moverGoal(world: World, scratch: SeparationScratch, slot: number): void {
   const movers: MoverColumns = scratch.movers;
-  if (movers.routeCensus[slot] === scratch.census) return;
-  movers.routeCensus[slot] = scratch.census;
+  if (movers.goalCensus[slot] === scratch.census) return;
+  movers.goalCensus[slot] = scratch.census;
   const e = movers.entity[slot];
   if (e === undefined) return; // a census slot, so only for the type
-  // Both present by the census's walkers query.
-  const follow = world.get(e, PathFollow);
-  movers.legCost[slot] = follow.legCost;
+  // Present by the census's walkers query.
   const waypoints = world.get(e, PathRoute).waypoints;
-  const target = waypoints[follow.index];
-  movers.hasTarget[slot] = target !== undefined;
-  movers.targetX[slot] = target?.x ?? ZERO;
-  movers.targetY[slot] = target?.y ?? ZERO;
   const goal = waypoints[waypoints.length - 1];
   movers.hasGoal[slot] = goal !== undefined;
   movers.goalX[slot] = goal?.x ?? ZERO;
@@ -94,20 +88,24 @@ export function moverRoute(world: World, scratch: SeparationScratch, slot: numbe
   movers.engaged[slot] = world.has(e, Engagement);
 }
 
-/** Mover `slot`'s unit world heading toward its leg target, zero without one; derived once per census. */
+/** Mover `slot`'s unit world heading toward its leg target, zero without one; derived once per census, on
+ *  the same first-ask terms as {@link moverGoal}. */
 export function moverHeading(world: World, scratch: SeparationScratch, slot: number): void {
   const movers: MoverColumns = scratch.movers;
   if (movers.headingCensus[slot] === scratch.census) return;
   movers.headingCensus[slot] = scratch.census;
-  moverRoute(world, scratch, slot);
+  const e = movers.entity[slot];
+  if (e === undefined) return; // a census slot, so only for the type
+  // Both present by the census's walkers query.
+  const target = world.get(e, PathRoute).waypoints[world.get(e, PathFollow).index];
   const out = scratch.heading;
-  if (movers.hasTarget[slot] === true) {
+  if (target !== undefined) {
     const from = scratch.headingFrom;
     const to = scratch.headingTo;
     from.x = movers.x[slot] ?? ZERO;
     from.y = movers.y[slot] ?? ZERO;
-    to.x = movers.targetX[slot] ?? ZERO;
-    to.y = movers.targetY[slot] ?? ZERO;
+    to.x = target.x;
+    to.y = target.y;
     writeLegHeading(from, to, out);
   } else {
     out.hx = ZERO;

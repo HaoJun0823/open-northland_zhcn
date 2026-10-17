@@ -24,26 +24,19 @@ export interface ColliderColumns {
 
 /**
  * Each mover's pre-separation state, so a pair's two halves read the same values whatever the processing
- * order. The route columns, from `legCost` to `engaged`, are captured on first ask before the grind
- * bookkeeping can drop the mover's PathFollow, and only for a firm mover with company or a mover in an
- * overlapping pair. The unit heading toward the leg target is derived on first ask, since only a mover in
- * an overlapping pair reads one.
+ * order. The heading and goal columns are filled on first ask (`moverHeading`, `moverGoal`), since only a
+ * mover in an overlapping pair reads them.
  */
 export interface MoverColumns extends ColliderColumns {
   /** A firm collider: an owned fighter. */
   readonly firm: boolean[];
-  /** PathFollow's leg cost in ticks, 0 until the leg starts. */
-  readonly legCost: number[];
-  readonly hasTarget: boolean[];
-  readonly targetX: Fixed[];
-  readonly targetY: Fixed[];
-  /** Final route destination and combat status, captured before any mover's grind bookkeeping. */
+  /** Final route destination and combat status. */
   readonly hasGoal: boolean[];
   readonly goalX: Fixed[];
   readonly goalY: Fixed[];
   readonly engaged: boolean[];
-  /** The census whose route columns the slot holds; any other value means not captured yet. */
-  readonly routeCensus: number[];
+  /** The census whose goal columns the slot holds; any other value means not captured yet. */
+  readonly goalCensus: number[];
   readonly headingX: Fixed[];
   readonly headingY: Fixed[];
   /** The census whose heading the slot holds; any other value means not derived yet. */
@@ -88,15 +81,11 @@ export function separationScratch(world: World): SeparationScratch {
       movers: {
         ...colliderColumns(),
         firm: [],
-        legCost: [],
-        hasTarget: [],
-        targetX: [],
-        targetY: [],
         hasGoal: [],
         goalX: [],
         goalY: [],
         engaged: [],
-        routeCensus: [],
+        goalCensus: [],
         headingX: [],
         headingY: [],
         headingCensus: [],

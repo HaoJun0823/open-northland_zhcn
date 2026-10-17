@@ -1,11 +1,11 @@
-import { Owner, Position } from '../../../components/index.js';
+import { Owner, PathFollow, Position } from '../../../components/index.js';
 import { type Fixed, fx, ONE, ZERO } from '../../../core/fixed.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { positionXOfWorld } from '../../../nav/halfcell.js';
 import { ROW_STEP, worldDistance, worldX } from '../../../nav/world-metric.js';
 import type { System } from '../../context.js';
 import { REFERENCE_PACE_PER_TICK, walkPacePerTick } from '../system.js';
-import { collectColliders, moverHeading, moverRoute } from './separation/colliders.js';
+import { collectColliders, moverGoal, moverHeading } from './separation/colliders.js';
 import { SeparationGates } from './separation/gates.js';
 import { gridYOf, worldYOf } from './separation/geometry.js';
 import {
@@ -108,12 +108,10 @@ export const separationSystem: System = (world, ctx) => {
       if (isFirm) clearGrind(world, e);
       continue;
     }
-    // A firm mover's grind can rewrite its route below, so it captures first; a soft mover's route holds
-    // all pass and is captured only when an overlapping pair reads it.
-    if (isFirm) moverRoute(world, scratch, slot);
     let player: number | undefined;
     if (postCount > 0) {
       player = world.get(e, Owner).player;
+      moverGoal(world, scratch, slot);
       const goal =
         movers.hasGoal[slot] === true
           ? gates.nodeAt(movers.goalX[slot] ?? ZERO, movers.goalY[slot] ?? ZERO)
@@ -161,7 +159,8 @@ export const separationSystem: System = (world, ctx) => {
     // Only a firm mover outside its calm zone keeps a grind window, so only it pays the neighbour scan.
     if (isFirm) {
       const firmNear = !ghost && (postCount > 0 || someFirm(movers, nearMovers, moverCount));
-      updateObstruction(world, terrain, e, movers.legCost[slot] ?? 0, ghost, firmNear);
+      // The census's PathFollow: only this mover's own grind below rewrites it.
+      updateObstruction(world, terrain, e, world.get(e, PathFollow).legCost, ghost, firmNear);
     }
   }
 };
@@ -211,6 +210,8 @@ function resolveMoverPush(
     if ((startHX !== ZERO || startHY !== ZERO) && (otherHX !== ZERO || otherHY !== ZERO)) {
       const alignment = fx.add(fx.mul(startHX, otherHX), fx.mul(startHY, otherHY));
       if (alignment >= CONVOY_ALIGNMENT_MIN) {
+        moverGoal(world, scratch, slot);
+        moverGoal(world, scratch, other);
         const ahead = fx.add(
           fx.mul(fx.sub(otherWX, startWX), startHX),
           fx.mul(fx.sub(otherWY, startWY), startHY),

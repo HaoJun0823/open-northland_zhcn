@@ -112,7 +112,7 @@ const hud = (tick: number, wood: number): HudLayout => ({
 });
 
 describe('stats window controller', () => {
-  it('rebuilds only when a tally row changes, and remakes the tick run alone on a tick', () => {
+  it('remakes only the runs of the rows that changed', () => {
     const { ctx, made } = stubContext();
     const stats = createStatsWindow({ ctx, container: new Container() });
 
@@ -132,8 +132,8 @@ describe('stats window controller', () => {
     expect(made.at(-1)).toBe('Tribe 1 · tick 2');
     const reticked = made.length;
 
-    stats.refresh(() => hud(3, 6)); // a tally changed
-    expect(made.length).toBeGreaterThan(reticked + 1);
+    stats.refresh(() => hud(3, 6)); // the tick and a tally changed: their two runs
+    expect(made.slice(reticked)).toEqual(['Tribe 1 · tick 3', 'wood: 6']);
   });
 
   it('pulls the HUD read-view only while open', () => {

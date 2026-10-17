@@ -11,8 +11,6 @@ import { createWindowShell, type ToolWindow } from './window-shell.js';
 const STATS_WIDTH = 150;
 /** Title text inset (design px). */
 const TITLE_INSET_Y = 2;
-/** Index of `layoutHud`'s volatile tick row, excluded from the change key. */
-const TICK_ROW = 0;
 /** The window title's row in the decoded `miscwindow` strings. */
 const STATS_TITLE_STRING_ID = 180;
 
@@ -32,8 +30,9 @@ export function createStatsWindow(deps: StatsWindowDeps): StatsWindow {
   const { scale } = ctx;
   const shell = createWindowShell(deps.container);
 
+  /** The screen and row count the frame was drawn for, and each row's text as its run shows it. */
   let key = '';
-  let tickText = '';
+  let shownRows: string[] = [];
   let rect: Rect | null = null;
 
   /** Centred in the window region; a sheet taller than the region lifts so its foot clears the beam. */
@@ -78,19 +77,24 @@ export function createStatsWindow(deps: StatsWindowDeps): StatsWindow {
       shell.container.addChild(run.container);
       shell.runs.push(run);
     }
-    tickText = rows[TICK_ROW] ?? '';
+    shownRows = [...rows];
     place();
   };
 
-  /** Swap the tick row's run alone: the tally runs and the frame stay as they are. */
-  const retick = (text: string): void => {
-    const at = TICK_ROW + 1; // after the title run
-    const run = ctx.makeText(text, 'white');
-    shell.runs[at]?.destroy();
-    shell.runs[at] = run;
-    shell.container.addChild(run.container);
-    tickText = text;
-    place();
+  /** Swap the runs of the rows whose text changed alone: the other runs and the frame stay as they are. */
+  const rewrite = (rows: readonly string[]): void => {
+    let changed = false;
+    rows.forEach((text, row) => {
+      if (shownRows[row] === text) return;
+      const at = row + 1; // after the title run
+      const run = ctx.makeText(text, 'white');
+      shell.runs[at]?.destroy();
+      shell.runs[at] = run;
+      shell.container.addChild(run.container);
+      shownRows[row] = text;
+      changed = true;
+    });
+    if (changed) place();
   };
 
   const close = (): void => {
@@ -116,20 +120,16 @@ export function createStatsWindow(deps: StatsWindowDeps): StatsWindow {
     },
     refresh: (hudFor): void => {
       if (!shell.isOpen()) return;
-      const hud = hudFor();
-      // The tick advances every frame, so keying on it would rebuild every glyph mesh each frame; a
-      // tick alone remakes its own run.
-      let next = `${screenKey()}|`;
-      for (let i = TICK_ROW + 1; i < hud.rows.length; i++) {
-        next += `${hud.rows[i]?.text}|`;
-      }
+      const rows = hudFor().rows.map((r) => r.text);
+      // The tick and the tallies move every tick on a busy map, so a changed row remakes its own run;
+      // only a new screen or row count draws the sheet again.
+      const next = `${screenKey()}|${rows.length}`;
       if (next !== key) {
         key = next;
-        rebuild(hud.rows.map((r) => r.text));
+        rebuild(rows);
         return;
       }
-      const tick = hud.rows[TICK_ROW]?.text ?? '';
-      if (tick !== tickText) retick(tick);
+      rewrite(rows);
     },
   };
 }

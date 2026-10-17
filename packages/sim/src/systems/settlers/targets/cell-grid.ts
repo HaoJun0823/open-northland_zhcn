@@ -44,20 +44,20 @@ const GRID_KEY_STRIDE = 1 << 16;
 /** Packs a ranked list entry's distance above its insertion index; every index stays below it. */
 const RANK_INDEX_SPAN = 2 ** 24;
 const INITIAL_RANK_KEYS = 64;
+/** Lists at most this long sort by insertion in place; longer ones through a typed-array view. */
+const INSERTION_SORT_MAX = 32;
 
 /** Lists ranked by a least distance, ties in insertion order, reused across searches. */
 class RankedLists<T> {
   private readonly items: (T | undefined)[] = [];
   private keys = new Float64Array(INITIAL_RANK_KEYS);
-  private count = 0;
-  /** The sorted keys of the last {@link sort}. */
-  sorted: Float64Array = this.keys.subarray(0, 0);
+  /** Entries pushed since the last {@link reset}; after {@link sort} their keys run ascending. */
+  count = 0;
 
   /** Empty the lists, dropping the items so the module scratch does not pin a finished world's grid. */
   reset(): void {
     this.items.fill(undefined, 0, this.count);
     this.count = 0;
-    this.sorted = this.keys.subarray(0, 0);
   }
 
   push(item: T, distance: number): void {
@@ -71,8 +71,28 @@ class RankedLists<T> {
     this.count++;
   }
 
+  /** Sort the keys in place: a short run by insertion, which needs no view of the backing store. Keys are
+   *  distinct, so both sorts give the one ascending order. */
   sort(): void {
-    this.sorted = this.keys.subarray(0, this.count).sort();
+    const { keys, count } = this;
+    if (count > INSERTION_SORT_MAX) {
+      keys.subarray(0, count).sort();
+      return;
+    }
+    for (let i = 1; i < count; i++) {
+      const key = keys[i] as number;
+      let j = i - 1;
+      while (j >= 0 && (keys[j] as number) > key) {
+        keys[j + 1] = keys[j] as number;
+        j--;
+      }
+      keys[j + 1] = key;
+    }
+  }
+
+  /** The `i`th key in ascending order after {@link sort}. */
+  keyAt(i: number): number {
+    return this.keys[i] as number;
   }
 
   itemOf(key: number): T {
@@ -207,10 +227,9 @@ export class CellGrid {
       }
     }
     tiles.sort();
-    const order = tiles.sorted;
     let bound = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < order.length; i++) {
-      const key = order[i] as number;
+    for (let i = 0; i < tiles.count; i++) {
+      const key = tiles.keyAt(i);
       if (rankDistanceOf(key) - slack > bound) return;
       for (const node of tiles.itemOf(key)) {
         const nx = Math.floor(node.key / GRID_KEY_STRIDE);
@@ -275,9 +294,8 @@ export class CellGrid {
       blocks.push(tiles, least);
     });
     blocks.sort();
-    const blockOrder = blocks.sorted;
-    for (let i = 0; i < blockOrder.length; i++) {
-      const blockKey = blockOrder[i] as number;
+    for (let i = 0; i < blocks.count; i++) {
+      const blockKey = blocks.keyAt(i);
       if (rankDistanceOf(blockKey) - slack > bound) return;
       ranked.reset();
       for (const tile of blocks.itemOf(blockKey)) {
@@ -293,9 +311,8 @@ export class CellGrid {
         ranked.push(nodes, least);
       }
       ranked.sort();
-      const tileOrder = ranked.sorted;
-      for (let j = 0; j < tileOrder.length; j++) {
-        const rankedKey = tileOrder[j] as number;
+      for (let j = 0; j < ranked.count; j++) {
+        const rankedKey = ranked.keyAt(j);
         if (rankDistanceOf(rankedKey) - slack > bound) break;
         for (const node of ranked.itemOf(rankedKey)) {
           const nx = Math.floor(node.key / GRID_KEY_STRIDE);

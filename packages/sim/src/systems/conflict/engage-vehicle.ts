@@ -18,18 +18,13 @@ import {
 import { contentIndex } from '../../core/content-index.js';
 import { TICKS_PER_SECOND } from '../../core/loop.js';
 import type { Entity, World } from '../../ecs/world.js';
-import {
-  type HalfCellNode,
-  hexDistanceBetween,
-  nodeHxOfPosition,
-  nodeHyOfPosition,
-  positionOfNode,
-} from '../../nav/halfcell.js';
+import { type HalfCellNode, hexDistanceBetween, positionOfNode } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
 import { FIGHT_EXPERIENCE_TYPE } from '../progression/index.js';
 import { isAreaWeapon } from '../readviews/index.js';
 import { hexNodeDistance } from '../spatial/metric.js';
+import { entityNode } from '../spatial/nodes.js';
 import { facingOfStep } from '../vehicles/helm.js';
 import {
   crewInside,
@@ -105,11 +100,9 @@ export function engageVehicle(
     return;
   }
   const type = contentIndex(ctx.content).vehicles.get(state.vehicleType);
-  const p = world.tryGet(e, Position);
-  if (type === undefined || p === undefined) return;
+  if (type === undefined || !world.has(e, Position)) return;
   const identity = vehicleIdentity(type, state.tribe);
-  // The vehicle's anchor node, read without minting it.
-  const here = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  const here = entityNode(world, terrain, e);
 
   if (state.attack !== null && state.attack.clipStart !== null) {
     const elapsed = ctx.tick - state.attack.clipStart;

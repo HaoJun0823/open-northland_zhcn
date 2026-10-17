@@ -18,10 +18,15 @@ import {
 import { contentIndex } from '../../core/content-index.js';
 import { TICKS_PER_SECOND } from '../../core/loop.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { type HalfCellNode, hexDistanceBetween, positionOfNode } from '../../nav/halfcell.js';
+import {
+  type HalfCellNode,
+  hexDistanceBetween,
+  nodeHxOfPosition,
+  nodeHyOfPosition,
+  positionOfNode,
+} from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
-import { vehicleAnchor } from '../footprint/index.js';
 import { FIGHT_EXPERIENCE_TYPE } from '../progression/index.js';
 import { isAreaWeapon } from '../readviews/index.js';
 import { hexNodeDistance } from '../spatial/metric.js';
@@ -100,10 +105,11 @@ export function engageVehicle(
     return;
   }
   const type = contentIndex(ctx.content).vehicles.get(state.vehicleType);
-  const anchor = vehicleAnchor(world, e);
-  if (type === undefined || anchor === null) return;
-  const identity: SettlerIdentity = { tribe: state.tribe, jobType: type.jobId };
-  const here = terrain.nodeAtClamped(anchor.hx, anchor.hy);
+  const p = world.tryGet(e, Position);
+  if (type === undefined || p === undefined) return;
+  const identity = vehicleIdentity(type, state.tribe);
+  // The vehicle's anchor node, read without minting it.
+  const here = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
 
   if (state.attack !== null && state.attack.clipStart !== null) {
     const elapsed = ctx.tick - state.attack.clipStart;
@@ -232,12 +238,9 @@ function scanForTarget(
   const y = terrain.yOf(centre);
   const owner = world.tryGet(e, Owner);
   if (owner !== undefined && !pass.index.othersWithin(owner.player, x, y, maxDist)) return held;
-  const givenUp = givenUpTargetVeto(world, ctx, e);
-  const accept = (t: Entity): boolean =>
-    givenUp?.(t) !== true &&
-    isValidTarget(world, ctx, e, identity, t) &&
-    (owner === undefined || playerSeesEntity(world, ctx.fog, owner.player, t));
-  const found = pass.index.nearest(x, y, minDist, maxDist, accept, owner?.player ?? null, 'hex');
+  pass.vehicleScan ??= new VehicleScan(world, ctx);
+  const scan = pass.vehicleScan.aim(e, identity, owner?.player, givenUpTargetVeto(world, ctx, e));
+  const found = pass.index.nearest(x, y, minDist, maxDist, scan.accept, owner?.player ?? null, 'hex');
   if (found === null) return held;
   if (held !== null && held.kind === 'entity') {
     if (held.entity === found.entity) return held;
@@ -250,6 +253,55 @@ function scanForTarget(
     if (heldDist <= found.distance) return held;
   }
   return { kind: 'entity', entity: found.entity };
+}
+
+/** One pass's vehicle scan filter, re-aimed per vehicle so a scan allocates no closure: the nearest valid,
+ *  seen target the vehicle has not given up on. */
+export class VehicleScan {
+  private e = 0 as Entity;
+  private identity: SettlerIdentity = { tribe: 0, jobType: null };
+  private player: number | undefined;
+  private givenUp: ((t: Entity) => boolean) | undefined;
+
+  constructor(
+    private readonly world: World,
+    private readonly ctx: SystemContext,
+  ) {}
+
+  readonly accept = (t: Entity): boolean =>
+    this.givenUp?.(t) !== true &&
+    isValidTarget(this.world, this.ctx, this.e, this.identity, t) &&
+    (this.player === undefined || playerSeesEntity(this.world, this.ctx.fog, this.player, t));
+
+  aim(
+    e: Entity,
+    identity: SettlerIdentity,
+    player: number | undefined,
+    givenUp: ((t: Entity) => boolean) | undefined,
+  ): this {
+    this.e = e;
+    this.identity = identity;
+    this.player = player;
+    this.givenUp = givenUp;
+    return this;
+  }
+}
+
+/** Content-keyed: the identity a vehicle type's crew fights as, per tribe, so a pass mints none. */
+const vehicleIdentities = new WeakMap<VehicleType, Map<number, SettlerIdentity>>();
+
+function vehicleIdentity(type: VehicleType, tribe: number): SettlerIdentity {
+  let byTribe = vehicleIdentities.get(type);
+  if (byTribe === undefined) {
+    byTribe = new Map();
+    vehicleIdentities.set(type, byTribe);
+  }
+  let identity = byTribe.get(tribe);
+  if (identity === undefined) {
+    identity = { tribe, jobType: type.jobId };
+    byTribe.set(tribe, identity);
+  }
+  return identity;
 }
 
 /**

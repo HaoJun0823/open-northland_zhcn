@@ -1,5 +1,6 @@
 import type { BattleFront } from './battle-alert.js';
 import type { CombatIndex } from './combat-index.js';
+import type { VehicleScan } from './engage-vehicle.js';
 import type { AskerScratch, CombatantStance, EngagementSpecs } from './engagement.js';
 import type { MeleeSlots } from './melee-slots.js';
 
@@ -13,6 +14,7 @@ export interface CombatPass {
   /** The stance of the combatant being resolved, refilled per combatant: no rung keeps it past its call. */
   readonly stance: Mutable<CombatantStance>;
   asker?: AskerScratch;
+  vehicleScan?: VehicleScan;
 }
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };

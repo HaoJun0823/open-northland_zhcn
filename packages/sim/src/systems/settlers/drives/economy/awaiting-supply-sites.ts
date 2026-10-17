@@ -1,3 +1,4 @@
+import type { ContentSet } from '@open-northland/data';
 import { Palisade, Position, RoadSite, UnderConstruction } from '../../../../components/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
@@ -27,48 +28,66 @@ export function soloSitesAwaitingSupply(
     heldByWorld.set(world, byKind);
   }
   let held = byKind.get(kind);
-  if (held === undefined || held.terrain !== terrain) {
-    const created = new AwaitingSupplySites(world, ctx, terrain);
+  if (held === undefined || held.terrain !== terrain || held.content !== ctx.content) {
+    const created = new AwaitingSupplySites(
+      world,
+      ctx.content,
+      terrain,
+      kind === 'wall' ? Palisade : RoadSite,
+    );
     byKind.set(kind, created);
     world.registerCacheVerifier(`soloSitesAwaitingSupply:${kind}`, () =>
       created.divergence().map((m) => `soloSitesAwaitingSupply ${kind}: ${m}`),
     );
     held = created;
   }
-  return held.sync(inbound, kind === 'wall' ? Palisade : RoadSite);
+  return held.sync(inbound);
 }
 
 class AwaitingSupplySites {
   private readonly index: InteractionCellIndex;
+  private readonly ctx: MapContext;
   /** Each filed site and the read that last found it awaiting supply. */
   private readonly filedAt = new Map<Entity, number>();
   private reads = 0;
 
   constructor(
     private readonly world: World,
-    private readonly ctx: MapContext,
+    readonly content: ContentSet,
     readonly terrain: TerrainGraph,
+    private readonly component: typeof Palisade | typeof RoadSite,
   ) {
-    this.index = new InteractionCellIndex(world, ctx, terrain);
+    this.ctx = { content, terrain };
+    this.index = new InteractionCellIndex(world, this.ctx, terrain);
   }
 
-  /** A mismatch per site the index files differently from a fresh index over the sites it holds. */
+  /** A mismatch per site the index files differently from a fresh index over the filed sites still unfinished.
+   *  A site finished or destroyed since the last read stays filed until the next one drops it. */
   divergence(): string[] {
-    const filed = [...this.filedAt.keys()].sort((a, b) => a - b);
-    return this.index.divergence(new InteractionCellIndex(this.world, this.ctx, this.terrain, filed));
+    const filed: Entity[] = [];
+    const pending = new Set<Entity>();
+    for (const site of this.filedAt.keys()) {
+      if (this.unfinished(site)) filed.push(site);
+      else pending.add(site);
+    }
+    filed.sort((a, b) => a - b);
+    return this.index.divergence(
+      new InteractionCellIndex(this.world, this.ctx, this.terrain, filed),
+      pending,
+    );
   }
 
-  sync(
-    inbound: ReadonlyMap<Entity, unknown>,
-    component: typeof Palisade | typeof RoadSite,
-  ): InteractionCellIndex | null {
-    const { world, index, filedAt } = this;
+  private unfinished(site: Entity): boolean {
+    const { world } = this;
+    return world.has(site, this.component) && world.has(site, UnderConstruction) && world.has(site, Position);
+  }
+
+  sync(inbound: ReadonlyMap<Entity, unknown>): InteractionCellIndex | null {
+    const { index, filedAt } = this;
     const read = ++this.reads;
     let awaiting = 0;
     inbound.forEach((_goods, site) => {
-      if (!world.has(site, component) || !world.has(site, UnderConstruction) || !world.has(site, Position)) {
-        return;
-      }
+      if (!this.unfinished(site)) return;
       if (!filedAt.has(site)) index.add(site);
       filedAt.set(site, read);
       awaiting++;

@@ -63,6 +63,8 @@ export interface CellMatch<P> extends Qualified<P> {
 
 const entityId = (e: Entity): number => e;
 
+const NONE_PENDING: ReadonlySet<Entity> = new Set();
+
 /** One candidate set's lists and grids: every candidate of an index, or one owner side's share. */
 class CandidateSet {
   readonly doors = new CellGrid();
@@ -287,12 +289,15 @@ export class InteractionCellIndex {
     return filed;
   }
 
-  /** A mismatch message per candidate `fresh` keys differently, or this index files under a stale side,
-   *  for a cache verifier. */
-  divergence(fresh: InteractionCellIndex): string[] {
+  /** A mismatch message per candidate `fresh` keys differently or this index files under a stale side, and
+   *  per stale side read it would serve, for a cache verifier. `pending` candidates, ones the owner drops on
+   *  its next update, are left out of the comparison. */
+  divergence(fresh: InteractionCellIndex, pending: ReadonlySet<Entity> = NONE_PENDING): string[] {
     const out: string[] = [];
-    const differs = (a: readonly Entity[], b: readonly Entity[]): boolean =>
-      a.length !== b.length || a.some((e, i) => e !== b[i]);
+    const differs = (a: readonly Entity[], b: readonly Entity[]): boolean => {
+      const kept = pending.size === 0 ? a : a.filter((e) => !pending.has(e));
+      return kept.length !== b.length || kept.some((e, i) => e !== b[i]);
+    };
     if (differs(this.all.doorList, fresh.all.doorList)) out.push('door candidates differ');
     if (differs(this.all.looseList, fresh.all.looseList)) out.push('loose candidates differ');
     for (const [e, cell] of fresh.doorCell) {
@@ -305,6 +310,7 @@ export class InteractionCellIndex {
       this.syncSides();
       for (const list of [this.all.doorList, this.all.looseList]) {
         for (const e of list) {
+          if (pending.has(e)) continue;
           const side = this.sides.get(sideKeyOf(this.world, e));
           const listed = side !== undefined && (side.doorList.includes(e) || side.looseList.includes(e));
           if (!listed || this.sideOf.get(e) !== sideKeyOf(this.world, e)) {
@@ -312,6 +318,14 @@ export class InteractionCellIndex {
           }
         }
       }
+    }
+    for (const [owner, held] of [...this.sideFiled]) {
+      if (held.revision !== this.revision) continue;
+      this.sideFiled.delete(owner);
+      const reread = this.filedOnSide(owner);
+      this.sideFiled.set(owner, held);
+      const same = reread.length === held.filed.length && reread.every((v, i) => v === held.filed[i]);
+      if (!same) out.push(`side read of owner ${owner} is stale`);
     }
     return out;
   }

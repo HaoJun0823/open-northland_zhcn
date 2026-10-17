@@ -65,4 +65,39 @@ describe('soloSitesAwaitingSupply - the staging index kept across reads', () => 
       }
     }
   });
+
+  it('verifies clean while a filed site destroyed since the last read waits to be dropped', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassCellMap(MAP_CELLS, MAP_CELLS) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('fixture map missing');
+    const ctx = ctxOf(sim);
+    const inbound = new Map<Entity, unknown>();
+    const sites: Entity[] = [];
+    for (let i = 0; i < DESTROY_SITES; i++) {
+      const site = sim.world.create();
+      sim.world.add(site, Position, positionOfNode(i * 3, i * 2));
+      sim.world.add(site, RoadSite, {
+        tribe: VIKING,
+        construction: [{ goodType: WOOD, amount: 1 }],
+        reservation: null,
+      });
+      sim.world.add(site, UnderConstruction, { labor: fx.fromInt(0) });
+      sim.world.add(site, Owner, { player: i % PLAYERS });
+      inbound.set(site, null);
+      sites.push(site);
+    }
+    const held = soloSitesAwaitingSupply(sim.world, ctx, terrain, inbound, 'road');
+    if (held === null) throw new Error('no index over the filed sites');
+    held.filedOnSide(0);
+    const [destroyed] = sites;
+    if (destroyed === undefined) throw new Error('no site to destroy');
+    sim.world.destroy(destroyed);
+
+    expect(sim.world.verifyCaches()).toEqual([]);
+    inbound.delete(destroyed);
+    soloSitesAwaitingSupply(sim.world, ctx, terrain, inbound, 'road');
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
 });
+
+const DESTROY_SITES = 4;

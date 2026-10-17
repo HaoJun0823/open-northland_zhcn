@@ -10,8 +10,9 @@ export class NodeList {
     this.nodes[this.length++] = node;
   }
 
-  /** The node at `i`, which must lie below {@link length}. */
+  /** The node at `i`; a slot at or past {@link length} holds a stale node and is refused. */
   at(i: number): NodeId {
+    if (i >= this.length) throw new RangeError(`NodeList.at(${i}) past length ${this.length}`);
     return this.nodes[i] as NodeId;
   }
 

@@ -104,20 +104,30 @@ interface Doors {
   readonly feed: ChangeFeed;
   readonly entries: Map<Entity, { player: number; hx: number; hy: number }>;
   revision: number;
+  /** What the last read resolved doors against; the verifier re-derives with the same pair. */
+  content: ContentSet;
+  terrain: TerrainGraph;
 }
 const doorCaches = new WeakMap<World, Doors>();
 function doorsOf(world: World, content: ContentSet, terrain: TerrainGraph): Doors {
   let held = doorCaches.get(world);
   if (held === undefined) {
-    held = {
-      // Buildings never move, so a Position value feed would only record every walker on every step.
+    const made: Doors = {
+      // A placed building never changes Position (only humans and vehicles teleport), so a Position
+      // value feed would only record every walker on every step; the verifier below guards the rule.
       feed: world.watchChanges([Building, Position, Owner], [Building, Owner]),
       entries: new Map(),
       revision: 0,
+      content,
+      terrain,
     };
-    held.feed.lose();
-    doorCaches.set(world, held);
+    made.feed.lose();
+    doorCaches.set(world, made);
+    world.registerCacheVerifier('signpostDoors', () => verifyDoors(world, made));
+    held = made;
   }
+  held.content = content;
+  held.terrain = terrain;
   const state = held;
   const update = (id: Entity): void => {
     const old = state.entries.get(id);
@@ -139,6 +149,34 @@ function doorsOf(world: World, content: ContentSet, terrain: TerrainGraph): Door
     for (const id of ids) update(id);
   }
   return state;
+}
+
+/** Every owned building's door must match its entry unless a change of it awaits the next read. */
+function verifyDoors(world: World, doors: Doors): string[] {
+  const pending = new Set<Entity>();
+  if (doors.feed.peek((id) => pending.add(id))) return [];
+  const ctx = { content: doors.content, terrain: doors.terrain };
+  const problems: string[] = [];
+  const seen = new Set<Entity>();
+  for (const id of world.query(Building, Position, Owner)) {
+    seen.add(id);
+    if (pending.has(id)) continue;
+    const door = interactionNode(world, ctx, id);
+    const player = world.get(id, Owner).player;
+    const entry = doors.entries.get(id);
+    if (door === null) {
+      if (entry !== undefined) problems.push(`signpostDoors lists building ${id} without a door`);
+    } else if (entry === undefined || entry.player !== player || entry.hx !== door.x || entry.hy !== door.y) {
+      problems.push(
+        `signpostDoors holds a stale door for building ${id} (player ${player} at ${door.x},${door.y})`,
+      );
+    }
+  }
+  for (const id of doors.entries.keys()) {
+    if (!seen.has(id) && !pending.has(id))
+      problems.push(`signpostDoors lists ${id}, which is no owned building`);
+  }
+  return problems;
 }
 
 export function signpostReachKey(world: World, content: ContentSet, terrain: TerrainGraph): string {
@@ -506,8 +544,8 @@ interface LimitSpot {
 /** What a spot's limit derives from the signpost network alone. */
 interface LimitGroups {
   readonly bounds: NodeBox;
-  /** {@link bounds} with the hex range's box left off the map edge: a node outside it lies neither inside
-   *  the hex range nor inside a nearby group's bounds. */
+  /** The hex range's box, not clamped to the map, joined with each nearby group's bounds: a node outside
+   *  it lies neither inside the hex range nor inside a nearby group's bounds. */
   readonly reaches: NodeBox;
   /** Every group with a post inside the hex range: the ones the search may catch. */
   readonly nearby: readonly GroupCoverage[];

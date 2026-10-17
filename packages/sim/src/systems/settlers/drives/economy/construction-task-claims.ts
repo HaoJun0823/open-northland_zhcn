@@ -8,6 +8,7 @@ import {
   UnderConstruction,
 } from '../../../../components/index.js';
 import { type Fixed, fx, ONE } from '../../../../core/fixed.js';
+import { JournaledCaptures } from '../../../../ecs/journaled-captures.js';
 import type { ChangeFeed, Entity, World } from '../../../../ecs/world.js';
 import type { SystemContext } from '../../../context.js';
 import { remainingConstructionSteps } from '../../../economy/construction.js';
@@ -83,10 +84,10 @@ class LiveSwings {
     return held;
   }
 
-  /** The site of every holding swing as of now, once per swinging settler. */
-  sites(): IterableIterator<Entity> {
+  /** Visit the site of every holding swing as of now, once per swinging settler. */
+  eachSite(visit: (site: Entity) => void): void {
     if (this.feed.pending && this.feed.drain(this.refreshEntity)) this.rebuild();
-    return this.siteOf.values();
+    this.siteOf.forEach(visit);
   }
 
   private refresh(e: Entity): void {
@@ -115,6 +116,62 @@ class LiveSwings {
 
 const liveSwings = new WeakMap<World, LiveSwings>();
 
+/** Builders per site, one per {@link SiteAssignment}, kept per world from the assignment journals, so a
+ *  pass pays for the assignments that moved since the last one. */
+class SiteCrews {
+  readonly bySite = new Map<Entity, number>();
+  private readonly captures: JournaledCaptures<Entity>;
+
+  private constructor(private readonly world: World) {
+    const count = (site: Entity, by: number): void => {
+      const crew = (this.bySite.get(site) ?? 0) + by;
+      if (crew > 0) this.bySite.set(site, crew);
+      else this.bySite.delete(site);
+    };
+    this.captures = new JournaledCaptures<Entity>(
+      world,
+      { membership: [SiteAssignment], values: [SiteAssignment] },
+      () => world.query(SiteAssignment),
+      {
+        capture: (e) => world.tryGet(e, SiteAssignment)?.site ?? null,
+        apply: (_e, site) => count(site, 1),
+        withdraw: (_e, site) => count(site, -1),
+        clear: () => this.bySite.clear(),
+      },
+    );
+  }
+
+  /** `world`'s crews as of now; live, valid until the next call. */
+  static of(world: World): ReadonlyMap<Entity, number> {
+    let held = siteCrews.get(world);
+    if (held === undefined) {
+      const created = new SiteCrews(world);
+      world.registerCacheVerifier('siteCrews', () => created.verify());
+      siteCrews.set(world, created);
+      held = created;
+    } else {
+      held.captures.catchUp();
+    }
+    return held.bySite;
+  }
+
+  private verify(): string[] {
+    this.captures.catchUp();
+    const fresh = new Map<Entity, number>();
+    for (const e of this.world.query(SiteAssignment)) {
+      const site = this.world.get(e, SiteAssignment).site;
+      fresh.set(site, (fresh.get(site) ?? 0) + 1);
+    }
+    if (fresh.size !== this.bySite.size) return ['siteCrews hold another set of sites than a fresh scan'];
+    for (const [site, crew] of fresh) {
+      if (this.bySite.get(site) !== crew) return [`siteCrews count site ${site} unlike a fresh scan`];
+    }
+    return [];
+  }
+}
+
+const siteCrews = new WeakMap<World, SiteCrews>();
+
 /** The rank order of one builder's pick: the distinct ranks present, highest first, and each site's. */
 export interface SiteRanking {
   readonly ranks: readonly number[];
@@ -132,7 +189,9 @@ export class ConstructionTaskClaims {
   private readonly stepCapacityBySite = new Map<Entity, number>();
   private readonly deliveredBySite = new Map<Entity, Fixed>();
   private readonly materialsPresentBySite = new Map<Entity, boolean>();
-  private crews: Map<Entity, number> | null = null;
+  /** The crews as the assignments stood at the pass's first question, and this pass's moves over them. */
+  private crews: ReadonlyMap<Entity, number> | null = null;
+  private crewMoves: Map<Entity, number> | undefined;
   private walls: SoloSiteSurvey | undefined;
 
   constructor(
@@ -140,9 +199,9 @@ export class ConstructionTaskClaims {
     private readonly ctx: SystemContext,
     private readonly supply: SupplyTally,
   ) {
-    for (const site of LiveSwings.of(world).sites()) {
+    LiveSwings.of(world).eachSite((site) => {
       if (world.has(site, UnderConstruction)) this.reserveHammer(site);
-    }
+    });
   }
 
   /** Whether at least one already-delivered step remains unclaimed. */
@@ -157,7 +216,7 @@ export class ConstructionTaskClaims {
 
   /** Builders assigned to `site`, one walking in or hauling for it included, with this pass's moves. */
   crewSize(site: Entity): number {
-    return this.crewSizes().get(site) ?? 0;
+    return this.crewMoves?.get(site) ?? this.crewSizes().get(site) ?? 0;
   }
 
   /** `site`'s {@link SITE_TIER} as the crews and claims stand now, for `builder`'s pick: its own place in
@@ -215,14 +274,10 @@ export class ConstructionTaskClaims {
    *  Counts not yet taken need no update: they are read off the assignments as they stand when first
    *  asked. */
   moveCrew(from: Entity | undefined, to: Entity | undefined): void {
-    const crews = this.crews;
-    if (crews === null || from === to) return;
-    if (from !== undefined) {
-      const left = (crews.get(from) ?? 0) - 1;
-      if (left > 0) crews.set(from, left);
-      else crews.delete(from);
-    }
-    if (to !== undefined) crews.set(to, (crews.get(to) ?? 0) + 1);
+    if (this.crews === null || from === to) return;
+    this.crewMoves ??= new Map();
+    if (from !== undefined) this.crewMoves.set(from, Math.max(0, this.crewSize(from) - 1));
+    if (to !== undefined) this.crewMoves.set(to, this.crewSize(to) + 1);
   }
 
   /** Claim one usable step for this planner pass. */
@@ -272,16 +327,11 @@ export class ConstructionTaskClaims {
     return { hammerable, missing: [...missing] };
   }
 
-  /** Builders per site, counted on the first question of the pass. */
-  private crewSizes(): Map<Entity, number> {
-    if (this.crews !== null) return this.crews;
-    const crews = new Map<Entity, number>();
-    for (const builder of this.world.query(SiteAssignment)) {
-      const site = this.world.get(builder, SiteAssignment).site;
-      crews.set(site, (crews.get(site) ?? 0) + 1);
-    }
-    this.crews = crews;
-    return crews;
+  /** Builders per site as they stood at the first question of the pass: the held crews are not caught up
+   *  again until the next pass, so this pass's moves count only through {@link crewMoves}. */
+  private crewSizes(): ReadonlyMap<Entity, number> {
+    this.crews ??= SiteCrews.of(this.world);
+    return this.crews;
   }
 
   private reserveHammer(site: Entity): void {

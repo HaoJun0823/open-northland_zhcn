@@ -49,6 +49,13 @@ applies these edits before any sections are read, without rewriting the binary. 
 bytes alone does not mark a CIF correction applied. A hash, line or level mismatch fails the run.
 The callback names the source tree's folder path, independent of a map's published id.
 
+A `map.dat` correction uses `"format": "mapdat"` and lists `objects` instead of `lines`: each edit names
+a half-cell node `hx`/`hy`, the object it holds now (`from`) and the one it gets (`to`), each `null` or
+`{"type": <EditName>, "level": <lmlv>, "owner": <lmlp slot or null>}`. The hash pins the raw file; the
+map converter edits the decoded landscape objects, never the binary, and a node holding anything but
+`from`, a node off the map or a `to` type the map does not already place fails the run. Use it for a
+misplaced or missing authored object, such as a gap in a wall line.
+
 `corrections/strings/tables.json` is the one place for display-string fixes in all four languages,
 whether the table ships as `.ini` or `.cif`. Each entry names `lang`, `table` (its key in
 `gui/strings/<lang>.json`), the string `id`, the exact decoded `from` text (game-object names arrive

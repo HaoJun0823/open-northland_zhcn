@@ -66,7 +66,12 @@ async function convertCampaignMap(
     id: campaignMapId(campaign.id, map.id),
     provenance: 'mod',
     limits: NO_IMPORT_LIMITS,
-    ...(roots.corrections === undefined ? {} : { correctCifLines: roots.corrections.correctCifLines }),
+    ...(roots.corrections === undefined
+      ? {}
+      : {
+          correctCifLines: roots.corrections.correctCifLines,
+          correctObjects: roots.corrections.correctObjects,
+        }),
     ...(synthesizeMinimap === undefined ? {} : { minimap: synthesizeMinimap }),
     ...(stringCorrections === undefined
       ? {}

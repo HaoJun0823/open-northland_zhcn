@@ -11,6 +11,7 @@ import { type ConvertProgress, convertMapFolder, convertMapTree } from '../src/c
 import { MapImportError, type MapImportFailure } from '../src/errors.js';
 import { mapFiles } from '../src/files.js';
 import { DEFAULT_IMPORT_LIMITS, NO_IMPORT_LIMITS } from '../src/limits.js';
+import type { MapDatTerrainFile } from '../src/terrain/index.js';
 import { treeFromFolder } from '../src/tree.js';
 import { latin1, treeOf } from './support/folder.js';
 import { mapDat, plaintextMap, under } from './support/maps.js';
@@ -451,4 +452,31 @@ it('names a root map CIF without the display root name or a leading slash', asyn
     },
   });
   expect(files).toEqual(['map.cif']);
+});
+
+it('corrects the decoded landscape objects by the map.dat tree path before the terrain is served', async () => {
+  const dat = mapDat();
+  const tree = treeOf({ 'Campaign/Stage/map.dat': dat });
+  const objects = { types: ['wall_02'], placements: [1, 1, 0], levels: [100], owners: [5] };
+  const hook = vi.fn((file: string, bytes: Uint8Array, terrain: MapDatTerrainFile) => {
+    expect(file).toBe('Campaign/Stage/map.dat');
+    expect(bytes).toEqual(dat);
+    expect(terrain.objects).toBeUndefined();
+    return objects;
+  });
+  const converted = await convertMapFolder(tree, 'campaign/stage', {
+    provenance: 'mod',
+    id: 'published-stage',
+    correctObjects: hook,
+  });
+  expect(hook).toHaveBeenCalledOnce();
+  expect(converted.terrain.objects).toEqual(objects);
+  await expect(
+    convertMapFolder(tree, 'campaign/stage', {
+      provenance: 'mod',
+      correctObjects: () => {
+        throw new Error('source correction refused');
+      },
+    }),
+  ).rejects.toThrow('source correction refused');
 });

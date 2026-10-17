@@ -111,7 +111,12 @@ export async function convertMapDatTree(
         {
           provenance: mapProvenanceKind,
           limits: NO_IMPORT_LIMITS,
-          ...(roots.corrections === undefined ? {} : { correctCifLines: roots.corrections.correctCifLines }),
+          ...(roots.corrections === undefined
+            ? {}
+            : {
+                correctCifLines: roots.corrections.correctCifLines,
+                correctObjects: roots.corrections.correctObjects,
+              }),
           ...(synthesizeMinimap === undefined ? {} : { minimap: synthesizeMinimap }),
           ...(stringCorrections === undefined
             ? {}

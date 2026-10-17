@@ -169,6 +169,7 @@ const map = await mapImport.convertMapFolder(tree, key, {
   provenance: pipeline.provenance.mapProvenanceKind,
   limits: mapImport.NO_IMPORT_LIMITS,
   correctCifLines: corrections.correctCifLines,
+  correctObjects: corrections.correctObjects,
   minimap: synthesizeMinimap,
   correctStrings: (id, tables) => pipeline.strings.correctMapStrings(mapStringCorrections, id, tables),
   onWarning: (message) => console.warn(`[convert-map] ${message}`),

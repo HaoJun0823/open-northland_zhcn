@@ -81,6 +81,13 @@ export interface ConvertOptions {
     bytes: Uint8Array,
     lines: readonly CifLine[],
   ) => readonly CifLine[];
+  /** Corrects the decoded terrain's landscape objects using the map.dat's tree path and original bytes,
+   * before the terrain is served. A refusal propagates like a CIF correction's. */
+  readonly correctObjects?: (
+    file: string,
+    bytes: Uint8Array,
+    terrain: MapDatTerrainFile,
+  ) => MapDatTerrainFile['objects'];
   readonly onProgress?: (progress: ConvertProgress) => void;
   /** Recoverable problems: an unreadable optional file or layer, which the map then goes without. */
   readonly onWarning?: (message: string) => void;
@@ -225,15 +232,23 @@ export async function convertMapFolder(
     options.onProgress?.({ folder: folder.path, index: position.index, total: position.total, stage });
   const id = options.id ?? mapIdFromFolderName(folder.path.slice(folder.path.lastIndexOf('/') + 1));
 
+  // A source file by its tree path, the key corrections name it by.
+  const sourceFile = (name: string): string => (key === '' ? name : `${folder.path}/${name}`);
+
   report('terrain');
   const dat = folder.read([MAP_DAT_FILE]);
+  if (dat === undefined) throw new MapImportError('decode-failed', `${folder.rel}: no ${MAP_DAT_FILE}`);
   let terrain: MapDatTerrainFile;
   try {
-    if (dat === undefined) throw new Error(`no ${MAP_DAT_FILE}`);
     terrain = mapDatToTerrain(dat, (message) => folder.warn(message), limits.cells);
   } catch (err) {
     if (err instanceof DecodeLimitError) throw limitFailure(err, folder.rel);
     throw new MapImportError('decode-failed', `${folder.rel}: ${errorMessage(err)}`);
+  }
+  if (options.correctObjects !== undefined) {
+    const { objects: _decoded, ...rest } = terrain;
+    const objects = options.correctObjects(sourceFile(MAP_DAT_FILE), dat, terrain);
+    terrain = objects === undefined ? rest : { ...rest, objects };
   }
 
   report('entities');
@@ -252,7 +267,7 @@ export async function convertMapFolder(
       (verb) => unknownVerbs.add(verb),
       cifLimits,
       options.correctCifLines,
-      key === '' ? MAP_CIF_FILE : `${folder.path}/${MAP_CIF_FILE}`,
+      sourceFile(MAP_CIF_FILE),
     );
     report('strings');
     stringTables = loadMapStringTables(folder, cifLimits);

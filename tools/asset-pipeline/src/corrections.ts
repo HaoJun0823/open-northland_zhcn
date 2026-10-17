@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MAP_PLAYER_SLOTS } from '@open-northland/data';
 import type { CifLine } from '@open-northland/formats/cif';
+import type { MapDatTerrainFile } from '@open-northland/map-import';
 
 /** The named fixes to single mod files, one JSON file each; this package's AGENTS.md sets the rules. */
 export const CORRECTIONS_DIR = fileURLToPath(new URL('../corrections/', import.meta.url));
@@ -22,20 +24,46 @@ interface LineEdit {
   readonly line?: number;
 }
 
-/** A fix to the mod file `file`, applied only while its bytes still hash to `sha256`. */
-export interface SourceCorrection {
+/** One placed landscape object: its `[GfxLandscape]` `EditName`, `lmlv` level and `lmlp` owner (null neutral). */
+export interface MapObject {
+  readonly type: string;
+  readonly level: number;
+  readonly owner: number | null;
+}
+
+/** The object at half-cell node `hx,hy` changed from `from` to `to`; null on either side is no object. */
+interface ObjectEdit {
+  readonly hx: number;
+  readonly hy: number;
+  readonly from: MapObject | null;
+  readonly to: MapObject | null;
+}
+
+interface CorrectionHeader {
   /** The correction's file name without `.json`. */
   readonly id: string;
   readonly reason: string;
   /** Mod-root-relative and `/`-separated, matched case-insensitively like every mod path. */
   readonly file: string;
   readonly sha256: string;
-  /** Decoded CIF property lines; absent means the existing plaintext byte edits. */
+}
+
+/** Line swaps: plaintext byte edits, or decoded CIF property lines with `format: 'cif'`. */
+interface LineCorrection extends CorrectionHeader {
   readonly format?: 'cif';
   /** The code page `from` lines are read and `to` lines written in; without one both are printable ASCII. */
   readonly encoding?: string;
   readonly lines: readonly LineEdit[];
 }
+
+/** Edits to a `map.dat`'s decoded landscape objects. */
+interface ObjectCorrection extends CorrectionHeader {
+  readonly format: 'mapdat';
+  readonly objects: readonly ObjectEdit[];
+}
+
+/** A fix to the mod file `file`, applied only while its bytes still hash to `sha256`. */
+export type SourceCorrection = LineCorrection | ObjectCorrection;
 
 /** One pipeline run's corrections, and which of them its reads applied. */
 export interface SourceCorrections {
@@ -45,6 +73,8 @@ export interface SourceCorrections {
   read(path: string, file?: string): Promise<Uint8Array>;
   /** Correct decoded properties against the original bytes, before any map readers consume them. */
   correctCifLines(file: string, bytes: Uint8Array, lines: readonly CifLine[]): readonly CifLine[];
+  /** Correct a map.dat's decoded landscape objects against its original bytes. */
+  correctObjects(file: string, bytes: Uint8Array, terrain: MapDatTerrainFile): MapDatTerrainFile['objects'];
   /** Every correction the reads so far did not apply, and why; a run that read only part of the data
    *  filters it to the files it read. */
   unapplied(): readonly UnappliedCorrection[];
@@ -58,7 +88,11 @@ export interface UnappliedCorrection {
   readonly why: string;
 }
 
-const CORRECTION_KEYS = ['reason', 'file', 'sha256', 'format', 'encoding', 'lines'] as const;
+const CORRECTION_KEYS = ['reason', 'file', 'sha256', 'format', 'encoding', 'lines', 'objects'] as const;
+const OBJECT_EDIT_KEYS = ['hx', 'hy', 'from', 'to'] as const;
+const MAP_OBJECT_KEYS = ['type', 'level', 'owner'] as const;
+/** `lmlv` is a byte lane. */
+const MAX_LEVEL = 0xff;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 /** Script lines are printable ASCII, which the latin1 round trip keeps byte for byte. */
 const SCRIPT_LINE = /^[\x20-\x7e]*$/;
@@ -103,6 +137,17 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
           failures.get(correction.id) ??
           'never read: the mod lacks the file, or its stage reads it without readSourceFile',
       }));
+  /** A refusal for `correction` that fails the run, after checking that `bytes` still hash to its pin. */
+  const refuse = (correction: SourceCorrection, bytes: Uint8Array): ((why: string) => never) => {
+    const fail = (why: string): never => {
+      applied.delete(correction.id);
+      failures.set(correction.id, why);
+      throw new Error(`correction ${correction.id} (${correction.file}): ${why}`);
+    };
+    const actual = createHash('sha256').update(bytes).digest('hex');
+    if (actual !== correction.sha256) fail(`the file changed (sha256 ${actual}); revisit the correction`);
+    return fail;
+  };
   return {
     list,
     unapplied,
@@ -110,8 +155,8 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
       const bytes = await readFile(path);
       const correction = byFile.get(file.toLowerCase());
       if (correction === undefined) return bytes;
-      // A CIF read alone has applied nothing: its decoded properties are corrected by the map reader.
-      if (correction.format === 'cif') return bytes;
+      // A CIF or map.dat read alone has applied nothing: the map reader corrects the decoded values.
+      if (correction.format !== undefined) return bytes;
       const corrected = applyCorrection(correction, bytes);
       if (typeof corrected === 'string') {
         failures.set(correction.id, corrected);
@@ -123,13 +168,7 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
     correctCifLines(file, bytes, lines) {
       const correction = byFile.get(file.toLowerCase());
       if (correction?.format !== 'cif') return lines;
-      const fail = (why: string): never => {
-        applied.delete(correction.id);
-        failures.set(correction.id, why);
-        throw new Error(`correction ${correction.id} (${correction.file}): ${why}`);
-      };
-      const actual = createHash('sha256').update(bytes).digest('hex');
-      if (actual !== correction.sha256) fail(`the file changed (sha256 ${actual}); revisit the correction`);
+      const fail = refuse(correction, bytes);
       const edits = new Map<number, LineEdit>();
       for (const edit of correction.lines) {
         const index = (edit.line ?? 0) - 1;
@@ -146,6 +185,13 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
       applied.add(correction.id);
       return corrected;
     },
+    correctObjects(file, bytes, terrain) {
+      const correction = byFile.get(file.toLowerCase());
+      if (correction?.format !== 'mapdat') return terrain.objects;
+      const corrected = applyObjectEdits(correction.objects, terrain, refuse(correction, bytes));
+      applied.add(correction.id);
+      return corrected;
+    },
     assertApplied() {
       const problems = unapplied().map(({ id, file, why }) => `${id} (${file}): ${why}`);
       if (problems.length > 0) {
@@ -157,8 +203,56 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
   };
 }
 
+/**
+ * The terrain's objects with `edits` applied, still in row-major half-cell order; the terrain is not
+ * mutated. Each edit names a node on the map, its `from` describes what the node holds now, and its `to`
+ * names an object type the map already places, so a misspelt name cannot pass as applied.
+ */
+function applyObjectEdits(
+  edits: readonly ObjectEdit[],
+  { width, height, objects }: MapDatTerrainFile,
+  fail: (why: string) => never,
+): MapDatTerrainFile['objects'] {
+  if (objects === undefined) return fail('the map has no landscape objects');
+  const { types, placements, levels, owners } = objects;
+  if (levels === undefined || owners === undefined) return fail('the map lacks its lmlv or lmlp lane');
+  const at = new Map<string, MapObject & { readonly hx: number; readonly hy: number }>();
+  for (let i = 0; i < placements.length / 3; i++) {
+    const [hx, hy, typeIndex] = placements.slice(i * 3, i * 3 + 3) as [number, number, number];
+    const type = types[typeIndex] ?? fail(`placement ${i} names no type`);
+    at.set(`${hx},${hy}`, { hx, hy, type, level: levels[i] ?? 0, owner: owners[i] ?? null });
+  }
+  for (const { hx, hy, from, to } of edits) {
+    const node = `${hx},${hy}`;
+    if (hx >= width * 2 || hy >= height * 2)
+      fail(`half-cell (${node}) lies outside the ${width}x${height} map`);
+    if (to !== null && !types.includes(to.type)) fail(`the map places no "${to.type}"`);
+    const held = at.get(node) ?? null;
+    if (!sameObject(held, from))
+      fail(`half-cell (${node}) holds ${describeObject(held)}, not ${describeObject(from)}`);
+    if (to === null) at.delete(node);
+    else at.set(node, { hx, hy, ...to });
+  }
+  const sorted = [...at.values()].sort((a, b) => a.hy - b.hy || a.hx - b.hx);
+  return {
+    types: [...types],
+    placements: sorted.flatMap(({ hx, hy, type }) => [hx, hy, types.indexOf(type)]),
+    levels: sorted.map(({ level }) => level),
+    owners: sorted.map(({ owner }) => owner),
+  };
+}
+
+function describeObject(object: MapObject | null): string {
+  return object === null ? 'no object' : `${object.type} level ${object.level} owner ${object.owner}`;
+}
+
+function sameObject(held: MapObject | null, expected: MapObject | null): boolean {
+  if (held === null || expected === null) return held === expected;
+  return held.type === expected.type && held.level === expected.level && held.owner === expected.owner;
+}
+
 /** The corrected bytes, or why the correction no longer fits the file. */
-function applyCorrection(correction: SourceCorrection, bytes: Uint8Array): Uint8Array | string {
+function applyCorrection(correction: LineCorrection, bytes: Uint8Array): Uint8Array | string {
   const actual = createHash('sha256').update(bytes).digest('hex');
   if (actual !== correction.sha256) {
     return `the file changed (sha256 ${actual}); check whether the mod now fixes it`;
@@ -224,13 +318,19 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
   const record = raw as Record<string, unknown>;
   const unknownKey = Object.keys(record).find((key) => !(CORRECTION_KEYS as readonly string[]).includes(key));
   if (unknownKey !== undefined) fail(`unknown key "${unknownKey}"`);
-  const { reason, file, sha256, format, encoding, lines } = record;
+  const { reason, file, sha256, format, encoding, lines, objects } = record;
   if (typeof reason !== 'string' || reason.trim() === '') return fail('reason must say why the fix exists');
   if (typeof file !== 'string' || file === '') return fail('file must name a mod file');
   if (typeof sha256 !== 'string' || !SHA256_HEX.test(sha256)) {
     return fail('sha256 must be the lower-case hex digest of the shipped file');
   }
-  if (format !== undefined && format !== 'cif') return fail('"format" is "cif" or absent');
+  if (format === 'mapdat') {
+    if (encoding !== undefined || lines !== undefined)
+      return fail('a map.dat correction lists only "objects"');
+    return { id, reason, file, sha256, format, objects: parseObjectEdits(objects, fail) };
+  }
+  if (objects !== undefined) return fail('"objects" needs "format": "mapdat"');
+  if (format !== undefined && format !== 'cif') return fail('"format" is "cif", "mapdat" or absent');
   if (format === 'cif' && encoding !== undefined)
     return fail('CIF property edits are ASCII, without "encoding"');
   if (encoding !== undefined && (typeof encoding !== 'string' || !keepsAsciiBytes(encoding))) {
@@ -285,6 +385,54 @@ function parseCorrection(id: string, raw: unknown): SourceCorrection {
     ...(encoding === undefined ? {} : { encoding }),
     lines: edits,
   };
+}
+
+function parseObjectEdits(raw: unknown, fail: (why: string) => never): ObjectEdit[] {
+  if (!Array.isArray(raw) || raw.length === 0) return fail('objects must list at least one edit');
+  const nodes = new Set<string>();
+  return raw.map((edit: unknown): ObjectEdit => {
+    const record =
+      objectWithKeys(edit, OBJECT_EDIT_KEYS) ?? fail('each object edit has "hx", "hy", "from", "to"');
+    const { hx, hy } = record;
+    if (!isIntUpTo(hx, Number.MAX_SAFE_INTEGER) || !isIntUpTo(hy, Number.MAX_SAFE_INTEGER)) {
+      return fail('"hx" and "hy" are half-cell node coordinates');
+    }
+    const node = `${hx},${hy}`;
+    if (nodes.has(node)) fail(`two object edits name half-cell (${node})`);
+    nodes.add(node);
+    const from = parseMapObject(record.from, fail);
+    const to = parseMapObject(record.to, fail);
+    if (sameObject(from, to)) fail(`the edit at half-cell (${node}) changes nothing`);
+    return { hx, hy, from, to };
+  });
+}
+
+function parseMapObject(raw: unknown, fail: (why: string) => never): MapObject | null {
+  if (raw === null) return null;
+  const record = objectWithKeys(raw, MAP_OBJECT_KEYS);
+  const valid =
+    record !== undefined &&
+    typeof record.type === 'string' &&
+    record.type !== '' &&
+    isIntUpTo(record.level, MAX_LEVEL) &&
+    (record.owner === null || isIntUpTo(record.owner, MAP_PLAYER_SLOTS - 1));
+  if (!valid)
+    return fail(
+      `an object is null or {"type", "level" 0..${MAX_LEVEL}, "owner" 0..${MAP_PLAYER_SLOTS - 1} or null}`,
+    );
+  return { type: record.type as string, level: record.level as number, owner: record.owner as number | null };
+}
+
+/** `raw` as a record holding exactly `keys`, or undefined. */
+function objectWithKeys(raw: unknown, keys: readonly string[]): Record<string, unknown> | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const record = raw as Record<string, unknown>;
+  const present = Object.keys(record);
+  return present.length === keys.length && keys.every((key) => key in record) ? record : undefined;
+}
+
+function isIntUpTo(value: unknown, max: number): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max;
 }
 
 /**

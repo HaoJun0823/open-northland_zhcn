@@ -88,9 +88,14 @@ export function attackerWeapon(
  *  allocates nothing. */
 const armings = new WeakMap<ContentSet, Map<number, WeaponReach | null>>();
 
-/** Each id part of an {@link armingKey} packs into this many values, absent as 0 and id `n` as `n + 1`. Three
- *  parts and the scenario bit stay below 2^49, an exact double. */
-const ARMING_PART_SPAN = 2 ** 16;
+/** The values each part of an {@link armingKey} packs into, absent as 0 and id `n` as `n + 1`. The tribe,
+ *  job and worn weapon spans and the scenario bit multiply to 2^30, V8's small-integer range
+ *  (`core/small-integer.ts`), so the map stores every key unboxed. Content ids sit far below each span; a
+ *  larger one resolves uncached. */
+const ARMING_TRIBE_SPAN = 2 ** 9;
+const ARMING_JOB_SPAN = 2 ** 10;
+const ARMING_WORN_SPAN = 2 ** 10;
+const ARMING_SCENARIO_SPAN = 2;
 
 /** One number naming an {@link attackerWeapon} question, or null for an id the packing cannot hold. */
 function armingKey(
@@ -99,15 +104,18 @@ function armingKey(
   wornWeaponTypeId: number | undefined,
   scenario: boolean,
 ): number | null {
-  const tribePart = armingPart(tribe);
-  const jobPart = jobType === null ? 0 : armingPart(jobType);
-  const wornPart = wornWeaponTypeId === undefined ? 0 : armingPart(wornWeaponTypeId);
+  const tribePart = armingPart(tribe, ARMING_TRIBE_SPAN);
+  const jobPart = jobType === null ? 0 : armingPart(jobType, ARMING_JOB_SPAN);
+  const wornPart = wornWeaponTypeId === undefined ? 0 : armingPart(wornWeaponTypeId, ARMING_WORN_SPAN);
   if (tribePart === null || jobPart === null || wornPart === null) return null;
-  return ((tribePart * ARMING_PART_SPAN + jobPart) * ARMING_PART_SPAN + wornPart) * 2 + (scenario ? 1 : 0);
+  return (
+    ((tribePart * ARMING_JOB_SPAN + jobPart) * ARMING_WORN_SPAN + wornPart) * ARMING_SCENARIO_SPAN +
+    (scenario ? 1 : 0)
+  );
 }
 
-function armingPart(id: number): number | null {
-  return Number.isInteger(id) && id >= 0 && id < ARMING_PART_SPAN - 1 ? id + 1 : null;
+function armingPart(id: number, span: number): number | null {
+  return Number.isInteger(id) && id >= 0 && id < span - 1 ? id + 1 : null;
 }
 
 function resolveWeapon(

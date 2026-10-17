@@ -75,6 +75,35 @@ describe('World.canonicalQuery', () => {
     expect(w.canonicalQuery(P, Q)).toEqual([other]);
   });
 
+  it('keeps serving the same list when changes since the last query cancel out', () => {
+    const w = new World();
+    const [a, b] = [w.create(), w.create()];
+    for (const e of [a, b]) w.add(e, P, { n: 0 });
+    const held = w.canonicalQuery(P);
+    w.remove(a, P);
+    w.add(a, P, { n: 1 });
+    w.destroy(w.create());
+    expect(w.canonicalQuery(P)).toBe(held);
+    expect(held).toEqual([a, b]);
+  });
+
+  it('bounds the changes a list nobody queries any more keeps pending', () => {
+    const w = new World();
+    const e = w.create();
+    w.add(e, P, { n: 0 });
+    w.canonicalQuery(P);
+    for (let i = 0; i < 10_000; i++) {
+      w.remove(e, P);
+      w.add(e, P, { n: i });
+    }
+    const members = Reflect.get(Reflect.get(w, 'canonicalQueries'), 'members') as Map<
+      unknown,
+      { pending: Entity[] }
+    >;
+    expect(members.get(P)?.pending.length).toBeLessThanOrEqual(100);
+    expect(w.canonicalQuery(P)).toEqual([e]);
+  });
+
   it('verifyCaches reports a reader that edited a shared list', () => {
     const w = new World();
     const e = w.create();
@@ -83,8 +112,8 @@ describe('World.canonicalQuery', () => {
     (w.canonicalQuery(P) as Entity[]).push(99 as Entity);
     (w.canonicalQuery(P, Q) as Entity[]).pop();
     expect(w.verifyCaches()).toEqual([
-      'canonicalQuery(CanonicalQueryP) shared list was edited by a reader',
-      'canonicalQuery(CanonicalQueryP, CanonicalQueryQ) shared list was edited by a reader',
+      "canonicalQuery(CanonicalQueryP) diverges from the stores - a missed change or a reader's edit",
+      "canonicalQuery(CanonicalQueryP, CanonicalQueryQ) diverges from the stores - a missed change or a reader's edit",
     ]);
   });
 
@@ -113,6 +142,8 @@ describe('World.canonicalQuery', () => {
       { ids: Entity[] }
     >;
     members.get(P)?.ids.push(99 as Entity);
-    expect(w.verifyCaches()).toEqual(['canonicalQuery(CanonicalQueryP) diverges from the stores']);
+    expect(w.verifyCaches()).toEqual([
+      "canonicalQuery(CanonicalQueryP) diverges from the stores - a missed change or a reader's edit",
+    ]);
   });
 });

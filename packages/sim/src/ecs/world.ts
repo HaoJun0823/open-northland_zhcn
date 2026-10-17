@@ -81,7 +81,7 @@ export class World {
       for (const index of carried) {
         const c = this.registered[index];
         if (c !== undefined && this.storeOf(c)?.delete(entity) === true) {
-          this.canonicalQueries.left(c, entity);
+          this.canonicalQueries.changed(c, entity);
           this.bumpComponentGeneration(c, entity);
           this.mutations?.componentWritten(c, entity);
         }
@@ -102,7 +102,7 @@ export class World {
     const entering = this.storeOrCreate(component).set(entity, value);
     if (entering) {
       this.insertMembership(entity, component as Component<unknown>);
-      this.canonicalQueries.entered(component as Component<unknown>, entity);
+      this.canonicalQueries.changed(component as Component<unknown>, entity);
     }
     this.bumpComponentGeneration(component as Component<unknown>, entity);
     this.recordComponentWrite(component as Component<unknown>, entity, entering);
@@ -112,7 +112,7 @@ export class World {
   remove<T>(entity: Entity, component: Component<T>): void {
     if (this.storeOf(component)?.delete(entity)) {
       this.removeMembership(entity, component as Component<unknown>);
-      this.canonicalQueries.left(component as Component<unknown>, entity);
+      this.canonicalQueries.changed(component as Component<unknown>, entity);
       this.bumpComponentGeneration(component as Component<unknown>, entity);
       // The removed value's revision leaves with its slot; the touch keeps its cached clone from surviving.
       this.touched.record(entity, component as Component<unknown>, true);

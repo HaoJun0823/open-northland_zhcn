@@ -53,6 +53,8 @@ export function hexHeadingOfWalk(direction: WalkDirection): HexHeading {
 
 type Point = { readonly x: Fixed; readonly y: Fixed };
 
+type WalkFacingView = { readonly direction: WalkDirection; readonly target: WalkDirection };
+
 /** The screen octant heading from `from` toward `to`; undefined when the two coincide. */
 export function headingToward(from: Point, to: Point): WalkDirection | undefined {
   if (from.x === to.x && from.y === to.y) return undefined;
@@ -103,9 +105,9 @@ export function faceToward(world: World, e: Entity, from: Point, to: Point): voi
   }
 }
 
-/** The last turn tick also advances the step accumulator; earlier turn ticks hold it. */
-export function finishWalkTurn(world: World, e: Entity): boolean {
-  const facing = world.tryGet(e, WalkFacing);
+/** The last turn tick also advances the step accumulator; earlier turn ticks hold it. `facing` is `e`'s
+ *  current {@link WalkFacing}. */
+export function finishWalkTurn(world: World, e: Entity, facing: WalkFacingView | undefined): boolean {
   if (facing === undefined || facing.direction === facing.target) return true;
   const next = nextWalkDirection(facing.direction, facing.target);
   world.mut(e, WalkFacing).direction = next;

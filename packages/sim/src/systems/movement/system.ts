@@ -10,6 +10,7 @@ import {
   Position,
   pathLegTicks,
   Settler,
+  WalkFacing,
   type Waypoint,
 } from '../../components/index.js';
 import { type Fixed, fx, ONE, ULP, ZERO } from '../../core/fixed.js';
@@ -89,6 +90,8 @@ export const movementSystem: System = (world, ctx) => {
     const pf = world.get(e, PathFollow);
     const stops = world.get(e, PathRoute).waypoints;
     const stored = world.get(e, Position);
+    // Read with the other components so its fetch overlaps theirs; a leg start re-reads it after turning.
+    const facing = world.tryGet(e, WalkFacing);
     p.x = stored.x;
     p.y = stored.y;
     const wild = isWildlife(world, e);
@@ -109,7 +112,7 @@ export const movementSystem: System = (world, ctx) => {
       const arrived = paced
         ? stepAlongLeg(p, target, leg, budget)
         : period === undefined
-          ? walkHumanLeg(world, ctx, e, pf, write, stops, p, target)
+          ? walkHumanLeg(world, ctx, e, pf, write, stops, p, target, facing)
           : walkPeriodicLeg(world, ctx, e, pf, write, stops, p, target, period);
       if (p.x !== stored.x || p.y !== stored.y) {
         const moved = world.mut(e, Position);
@@ -178,6 +181,7 @@ function syncAnimalGait(
 }
 
 type FollowState = NonNullable<(typeof PathFollow)['__value']>;
+type WalkFacingState = NonNullable<(typeof WalkFacing)['__value']>;
 
 /** A walker's {@link PathFollow} write handle for the tick, acquired at its first change, so the tick's
  *  field updates log one write. */
@@ -234,9 +238,11 @@ function walkHumanLeg(
   stops: readonly Waypoint[],
   p: { x: Fixed; y: Fixed },
   target: { x: Fixed; y: Fixed },
+  facing: Readonly<WalkFacingState> | undefined,
 ): boolean {
   // A redirect onto the current centre ends even a held turn without inventing another heading.
   if (p.x === target.x && p.y === target.y) return true;
+  let turn = facing;
   if (pf.legCost === 0) {
     const resistance = departureResistance(ctx.terrain, pf, stops);
     const follow = writableFollow(world, e, write);
@@ -250,10 +256,11 @@ function walkHumanLeg(
       chargeNode(world, ctx, e, resistance, modifiers.shoes, modifiers.carrying);
       follow.departureCharged = true;
     }
+    turn = world.tryGet(e, WalkFacing);
   }
   // Rotate before the first advancing tick as well as later ones. Moving once and only then holding
   // for the rest of a turn made rapid redirects visibly jerk and left the first step facing sideways.
-  if (!finishWalkTurn(world, e)) {
+  if (!finishWalkTurn(world, e, turn)) {
     if (pf.legStartedAt !== undefined) {
       const held = writableFollow(world, e, write);
       held.legElapsed = pathLegTicks(pf, ctx.tick - 1);

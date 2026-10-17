@@ -458,8 +458,8 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
           openKey,
         );
       }
-      // The figures are painted into their cards every frame, so they move as the map's settlers do and
-      // stay part of the card. A paused sim holds the tick, so they hold their frame with it.
+      // The figures are asked for every frame and repainted when their picture changes, so they move as
+      // the map's settlers do and stay part of the card. A paused sim holds the tick and their frame.
       const { slots, box } = column.figures();
       figures.render(snapshot, slots, box, snapshot.tick, alpha, unpictured);
     },

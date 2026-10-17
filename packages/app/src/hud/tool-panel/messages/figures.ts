@@ -1,8 +1,9 @@
-import type { DrawItem, ResolvedLayer, SpriteSheet } from '@open-northland/render';
+import type { ResolvedLayer, SpriteSheet } from '@open-northland/render';
 import type { WorldSnapshot } from '@open-northland/sim';
 import { CanvasContexts } from '../../figures/canvas-contexts.js';
-import type { FigureFrames } from '../../figures/figure-frames.js';
+import type { FigureFrameImage, FigureFrames } from '../../figures/figure-frames.js';
 import { FigureScene } from '../../figures/figure-scene.js';
+import { type DrawKey, sameDrawKey, writeDrawKey } from '../../figures/live-figures.js';
 import { type FigureBounds, growFigureBounds, vehicleFit } from '../../figures/vehicle-fit.js';
 
 /** The figure's map-px multiplier on its thumbnail, and how far above the thumbnail's bottom edge its
@@ -29,6 +30,12 @@ export function feetLine(
   return Math.min(Math.max(usual, centred), height - THUMB_FEET_INSET_MIN * pixelScale);
 }
 
+interface FigurePlace {
+  readonly zoom: number;
+  readonly feetX: number;
+  readonly feetY: number;
+}
+
 /** One card's figure canvas, the settler or vehicle it shows and how much of the card's height the fan leaves
  *  uncovered (design px, the card's whole height when the cards fit). */
 export interface NoticeFigureSlot {
@@ -45,15 +52,24 @@ export interface NoticeFigureBox {
 }
 
 /**
- * The settlers and vehicles drawn on their cards' thumbnails: each card's own canvas, painted every frame
- * from the sprite sheet with the map's presentation (motion, atomics, gait), so the figure is part of the
- * card and moves with it. Without a sprite sheet the canvases stay clear and the cards still work.
+ * The settlers and vehicles drawn on their cards' thumbnails: each card's own canvas, painted from the
+ * sprite sheet with the map's presentation (motion, atomics, gait) whenever its picture changes, so the
+ * figure is part of the card and moves with it. Without a sprite sheet the canvases stay clear and the
+ * cards still work.
  */
 export class NoticeFigures {
   private readonly scene: FigureScene;
   /** Each shown vehicle's box over every frame it has drawn, so its fit holds still as it animates. */
   private readonly vehicleBounds = new Map<number, FigureBounds>();
   private readonly contexts = new CanvasContexts();
+  /** The slot list last painted and its subjects, so an unchanged list costs no allocation. */
+  private shownSlots: readonly NoticeFigureSlot[] = [];
+  private subjects: readonly number[] = [];
+  private live: ReadonlySet<number> = new Set();
+  /** What each canvas shows, so a frame that would paint the same picture leaves it alone. */
+  private readonly shown = new WeakMap<HTMLCanvasElement, DrawKey>();
+  private readonly images: (FigureFrameImage | null)[] = [];
+  private readonly key: DrawKey = [];
 
   /** `frames` is the sheet's recoloured-frame cache, shared with every other figure painter. */
   constructor(
@@ -75,53 +91,77 @@ export class NoticeFigures {
     alpha: number,
     unpictured: (slot: NoticeFigureSlot) => void,
   ): void {
-    const items = this.scene.items(
-      snapshot,
-      slots.map((s) => s.entity),
-    );
+    if (slots !== this.shownSlots) {
+      this.shownSlots = slots;
+      this.subjects = slots.map((s) => s.entity);
+      this.live = new Set(this.subjects);
+      this.scene.keepOnly(this.live);
+      for (const entity of this.vehicleBounds.keys())
+        if (!this.live.has(entity)) this.vehicleBounds.delete(entity);
+    }
+    const items = this.scene.items(snapshot, this.subjects);
     const width = Math.max(1, Math.round(box.width * box.pixelScale));
     const height = Math.max(1, Math.round(box.height * box.pixelScale));
     const { pixelScale } = box;
-    const live = new Set<number>();
     for (const slot of slots) {
-      live.add(slot.entity);
-      const ctx = this.contexts.sized(slot.canvas, width, height);
+      const { canvas } = slot;
+      // A resize clears the canvas.
+      if (canvas.width !== width || canvas.height !== height) this.shown.delete(canvas);
+      const ctx = this.contexts.sized(canvas, width, height);
       if (ctx === null) continue;
+      const item = this.sheet === undefined ? undefined : items.get(slot.entity);
+      if (this.sheet !== undefined && item === undefined) unpictured(slot);
+      const layers = item === undefined ? null : this.scene.layers(item, tick, alpha);
+      const place =
+        item === undefined || layers === null
+          ? null
+          : item.kind === 'vehicle'
+            ? this.vehicleFit(slot, layers, width, height, pixelScale)
+            : this.settlerPlace(slot, layers, width, height, pixelScale);
+      if (item === undefined || layers === null || place === null) {
+        if (this.shown.delete(canvas)) ctx.clearRect(0, 0, width, height);
+        continue;
+      }
+      this.frames.resolve(layers, item, this.images);
+      writeDrawKey(this.key, layers, this.images, place.zoom, place.feetX, place.feetY);
+      let shown = this.shown.get(canvas);
+      if (shown !== undefined && sameDrawKey(shown, this.key)) continue;
       ctx.clearRect(0, 0, width, height);
-      if (this.sheet === undefined) continue;
-      const item = items.get(slot.entity);
-      if (item === undefined) {
-        unpictured(slot);
-        continue;
+      this.frames.paint(ctx, layers, this.images, place.zoom, place.feetX, place.feetY);
+      if (shown === undefined) {
+        shown = [];
+        this.shown.set(canvas, shown);
       }
-      const layers = this.scene.layers(item, tick, alpha);
-      if (layers === null) continue;
-      if (item.kind === 'vehicle') {
-        this.drawVehicle(ctx, slot, item, layers, width, height, pixelScale);
-        continue;
-      }
-      const zoom = THUMB_ZOOM * pixelScale;
-      const feetX = width / 2;
-      const feetY = feetLine(layers, height, slot.visible * pixelScale, zoom, pixelScale);
-      this.frames.draw(ctx, layers, item, zoom, feetX, feetY);
+      shown.length = 0;
+      shown.push(...this.key);
     }
-    this.scene.keepOnly(live);
-    for (const entity of this.vehicleBounds.keys()) if (!live.has(entity)) this.vehicleBounds.delete(entity);
   }
 
-  private drawVehicle(
-    ctx: CanvasRenderingContext2D,
+  private settlerPlace(
     slot: NoticeFigureSlot,
-    item: DrawItem,
     layers: readonly ResolvedLayer[],
     width: number,
     height: number,
     pixelScale: number,
-  ): void {
+  ): FigurePlace {
+    const zoom = THUMB_ZOOM * pixelScale;
+    return {
+      zoom,
+      feetX: width / 2,
+      feetY: feetLine(layers, height, slot.visible * pixelScale, zoom, pixelScale),
+    };
+  }
+
+  private vehicleFit(
+    slot: NoticeFigureSlot,
+    layers: readonly ResolvedLayer[],
+    width: number,
+    height: number,
+    pixelScale: number,
+  ): FigurePlace | null {
     const bounds = growFigureBounds(this.vehicleBounds.get(slot.entity) ?? null, layers);
-    if (bounds === null) return;
+    if (bounds === null) return null;
     this.vehicleBounds.set(slot.entity, bounds);
-    const fit = vehicleFit(bounds, width, height, slot.visible * pixelScale, pixelScale);
-    this.frames.draw(ctx, layers, item, fit.zoom, fit.feetX, fit.feetY);
+    return vehicleFit(bounds, width, height, slot.visible * pixelScale, pixelScale);
   }
 }

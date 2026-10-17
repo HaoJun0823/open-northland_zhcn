@@ -32,15 +32,34 @@ const RECOLOUR_MS_PER_PAINT = 0.3;
 const FIRST_PICTURE_MS_PER_PAINT = 4;
 
 /** A drawn picture's placement, then per layer its image, scale, offset and opacity. */
-type DrawKey = (FigureFrameImage | number | null)[];
+export type DrawKey = (FigureFrameImage | number | null)[];
 
 interface ShownFigure {
   readonly entity: number;
   readonly key: DrawKey;
 }
 
-function sameKey(a: DrawKey, b: DrawKey): boolean {
+export function sameDrawKey(a: DrawKey, b: DrawKey): boolean {
   return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+/** `key` becomes what {@link FigureFrames.paint} of `images` for `layers` at this placement draws: an
+ *  equal key paints the same pixels. */
+export function writeDrawKey(
+  key: DrawKey,
+  layers: readonly ResolvedLayer[],
+  images: readonly (FigureFrameImage | null)[],
+  zoom: number,
+  feetX: number,
+  feetY: number,
+): void {
+  key.length = 0;
+  key.push(zoom, feetX, feetY);
+  for (let index = 0; index < layers.length; index++) {
+    const layer = layers[index];
+    if (layer === undefined) continue;
+    key.push(images[index] ?? null, layer.scale, layer.dx ?? 0, layer.dy ?? 0, layer.glow ?? 1);
+  }
 }
 
 /** No slot: painting it drops every presentation track, so a panel shown again starts afresh. */
@@ -151,14 +170,8 @@ export class LiveFigures {
       return shown === undefined ? 'waiting' : 'deferred';
     }
     const key = this.key;
-    key.length = 0;
-    key.push(place.zoom, place.feetX, place.feetY);
-    for (let index = 0; index < layers.length; index++) {
-      const layer = layers[index];
-      if (layer === undefined) continue;
-      key.push(this.images[index] ?? null, layer.scale, layer.dx ?? 0, layer.dy ?? 0, layer.glow ?? 1);
-    }
-    if (shown !== undefined && sameKey(shown.key, key)) return 'drawn';
+    writeDrawKey(key, layers, this.images, place.zoom, place.feetX, place.feetY);
+    if (shown !== undefined && sameDrawKey(shown.key, key)) return 'drawn';
     ctx.clearRect(0, 0, width, height);
     this.frames.paint(ctx, layers, this.images, place.zoom, place.feetX, place.feetY);
     if (shown === undefined) {

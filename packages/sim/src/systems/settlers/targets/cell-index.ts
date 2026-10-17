@@ -113,6 +113,8 @@ function sideKeyOf(world: World, e: Entity): number {
  */
 export class InteractionCellIndex {
   private all: CandidateSet;
+  /** {@link all} alone, the sets an unfiltered query searches, kept so a query allocates no list. */
+  private allSets: readonly CandidateSet[];
   // Doors resolved once when indexed, so no scan re-derives a building's door per query.
   private readonly doorCell = new Map<Entity, NodeId>();
   /** Each loose candidate's own node, the key it is bucketed by. */
@@ -142,6 +144,7 @@ export class InteractionCellIndex {
   ) {
     this.slack = contentIndex(ctx.content).maxResourceWorkOffset;
     this.all = new CandidateSet();
+    this.allSets = [this.all];
     for (const e of candidates) this.add(e);
   }
 
@@ -181,6 +184,7 @@ export class InteractionCellIndex {
   /** Forget every candidate. */
   clear(): void {
     this.all = new CandidateSet();
+    this.allSets = [this.all];
     this.doorCell.clear();
     this.looseNode.clear();
     this.sides = null;
@@ -214,17 +218,26 @@ export class InteractionCellIndex {
     return false;
   }
 
-  /** Append the filed node of every candidate passing `accept` to `xy` as an `x, y` pair, for a caller that
-   *  asks {@link anyFiledIn} of many areas under one accept. */
-  filedNodesInto(accept: (e: Entity) => boolean, xy: number[]): void {
+  /** Hand `out` the filed node of every candidate on a side `onSide` admits that passes `accept`, for a
+   *  caller that asks {@link anyFiledIn} of many areas under one accept. `onSide` reads only the
+   *  candidate's {@link Owner}, as in {@link nearest}, so a rejected side is skipped whole. */
+  filedNodesInto(
+    accept: (e: Entity) => boolean,
+    onSide: ((e: Entity) => boolean) | undefined,
+    out: (x: number, y: number) => void,
+  ): void {
     const { terrain } = this;
-    for (const e of this.all.doorList) {
-      const cell = this.doorCell.get(e);
-      if (cell !== undefined && accept(e)) xy.push(terrain.xOf(cell), terrain.yOf(cell));
-    }
-    for (const e of this.all.looseList) {
-      const node = this.looseNode.get(e);
-      if (node !== undefined && accept(e)) xy.push(terrain.xOf(node), terrain.yOf(node));
+    const sets = this.setsOn(onSide);
+    for (let s = 0; s < sets.length; s++) {
+      const set = sets[s] as CandidateSet;
+      for (const e of set.doorList) {
+        const cell = this.doorCell.get(e);
+        if (cell !== undefined && accept(e)) out(terrain.xOf(cell), terrain.yOf(cell));
+      }
+      for (const e of set.looseList) {
+        const node = this.looseNode.get(e);
+        if (node !== undefined && accept(e)) out(terrain.xOf(node), terrain.yOf(node));
+      }
     }
   }
 
@@ -324,14 +337,14 @@ export class InteractionCellIndex {
   /** The candidate sets a query filtered by `onSide` searches: every candidate when it admits every side,
    *  else the sides it admits. */
   private setsOn(onSide: ((e: Entity) => boolean) | undefined): readonly CandidateSet[] {
-    if (onSide === undefined) return [this.all];
+    if (onSide === undefined) return this.allSets;
     const sides = this.syncSides();
     const admitted: CandidateSet[] = [];
     sides.forEach((set) => {
       const member = set.any();
       if (member !== undefined && onSide(member)) admitted.push(set);
     });
-    return admitted.length === sides.size ? [this.all] : admitted;
+    return admitted.length === sides.size ? this.allSets : admitted;
   }
 
   /** {@link sides}, split on first use and caught up to the Owner writes since. */

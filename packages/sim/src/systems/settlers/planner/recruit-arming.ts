@@ -20,6 +20,7 @@ import {
 } from '../../../components/index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { nodeOfPosition } from '../../../nav/halfcell.js';
+import type { SpatialGate } from '../../../nav/node-circle.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
 import type { SystemContext } from '../../context.js';
 import { buildingBlockedCells } from '../../footprint/index.js';
@@ -42,6 +43,7 @@ import {
   FetchableStock,
   interactionCell,
   nearestStoreHolding,
+  nearestStoreHoldingWithin,
   PassLendingStores,
   storeYieldsGood,
   type TargetCandidates,
@@ -227,21 +229,26 @@ function dispatchWeaponFetch(
 ): void {
   const { world, ctx, targets } = pass;
   let route: FetchRoute | undefined;
+  // The route's signpost network met with the goods-search limit at its node, read once for every row.
+  let gate: SpatialGate | undefined;
   const vetoed = playerGoodList(world, AssistantWeaponVetoes, owner);
   for (const goodType of armingGoodPreference(ctx.content, settler.tribe, intent, vetoed)) {
     // Read once per pass: an earlier dispatch's claim leaves it a superset, which only lets a search run.
     const lending = lendingStores.of(owner, goodType);
     if (lending.none) continue; // no store of the side lends this row; the route is not worth resolving
-    route ??= fetchRouteFor(pass, e, owner);
-    if (!lending.mayLieIn(targets.bands.goodsGate(route.here, owner, route.limit ?? undefined))) continue;
-    const src = nearestStoreHolding(
+    if (route === undefined) {
+      route = fetchRouteFor(pass, e, owner);
+      gate = targets.bands.goodsGate(route.here, owner, route.limit ?? undefined);
+    }
+    if (!lending.mayLieIn(gate)) continue;
+    const src = nearestStoreHoldingWithin(
       targets.bands,
       world,
       route.here,
       goodType,
       owner,
       pass.supply,
-      route.limit ?? undefined,
+      gate,
       route.veto,
     );
     if (src === null) continue; // nothing reachable holds this row; a weaker one still may

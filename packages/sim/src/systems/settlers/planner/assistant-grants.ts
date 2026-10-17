@@ -19,16 +19,16 @@ import { TICKS_PER_SECOND } from '../../../core/loop.js';
 import { includesSortedId, insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
-import { intersectReach } from '../../../nav/range-search.js';
+import type { SpatialGate } from '../../../nav/node-circle.js';
 import type { NodeId } from '../../../nav/terrain/index.js';
 import { standsAtPost } from '../../conflict/tower-post.js';
 import { holdsSiteClaim, isSoloSite } from '../../economy/site-claim.js';
 import { CIVILIST_JOB } from '../../lifecycle/ageclass.js';
 import { isFighterJob, isScoutJob, MILITARY_MODE, mayChangeEquipment } from '../../readviews/index.js';
-import { equipFetchLimitFor, type NavigationLimit } from '../../signposts/index.js';
+import { equipFetchLimitFor } from '../../signposts/index.js';
 import { anotherSystemOwns } from '../action-owner.js';
 import { equipFetchesHeld } from '../drives/equip-fetches.js';
-import { FetchableStock, nearestStoreHolding, PassLendingStores } from '../targets/index.js';
+import { FetchableStock, nearestStoreHoldingWithin, PassLendingStores } from '../targets/index.js';
 import { unreachableGoalVeto } from '../unreachable-goals.js';
 import { wakeIdle } from './idle-replan.js';
 import type { PlannerPass } from './pass.js';
@@ -125,19 +125,17 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       if (slot === null) continue;
       const underway = (heldAtStart?.get(spec.goodType) ?? 0) + stampedHere.of(owner, spec.goodType);
       if (!stock.exceeds(owner, spec.goodType, underway)) continue;
-      route ??= grantRouteFor(pass, e);
+      route ??= grantRouteFor(pass, e, owner);
       const here = route.here;
-      const spot = targets.bands.goodsGate(here, owner);
-      if (!lending.of(owner, spec.goodType).mayLieIn(intersectReach(route.limit ?? undefined, spot ?? null)))
-        continue;
-      const src = nearestStoreHolding(
+      if (!lending.of(owner, spec.goodType).mayLieIn(route.gate)) continue;
+      const src = nearestStoreHoldingWithin(
         targets.bands,
         world,
         here,
         spec.goodType,
         owner,
         pass.supply,
-        route.limit ?? undefined,
+        route.gate,
         route.veto,
       );
       if (src === null) continue; // nothing reachable through this settler's signpost network
@@ -158,21 +156,22 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
   }
 }
 
-/** A settler's store-search inputs, read once per beat visit: the node he stands on, the signpost network
- *  around him and the goals he cannot reach. */
+/** A settler's store-search inputs, read once per beat visit: the node he stands on, his signpost network
+ *  met with the goods-search limit there, and the goals he cannot reach. */
 interface GrantRoute {
   readonly here: NodeId;
-  readonly limit: NavigationLimit | null;
+  readonly gate: SpatialGate | undefined;
   readonly veto: ((cell: NodeId) => boolean) | undefined;
 }
 
-function grantRouteFor(pass: PlannerPass, e: Entity): GrantRoute {
+function grantRouteFor(pass: PlannerPass, e: Entity, owner: number): GrantRoute {
   const { world, ctx, terrain } = pass;
   const limit = equipFetchLimitFor(world, ctx.content, terrain, e);
   const p = world.get(e, Position);
+  const here = terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
   return {
-    here: terrain.nodeAtClamped(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y)),
-    limit,
+    here,
+    gate: pass.targets.bands.goodsGate(here, owner, limit ?? undefined),
     veto: unreachableGoalVeto(world, ctx, e),
   };
 }

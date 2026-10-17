@@ -30,7 +30,7 @@ import {
 } from '../../../stores/index.js';
 import type { TargetBands } from '../bands.js';
 import type { YardTargets } from '../candidates.js';
-import { ACCEPT_ALL, QUALIFIES } from '../cell-index.js';
+import { ACCEPT_ALL, type InteractionCellIndex, QUALIFIES } from '../cell-index.js';
 import { FetchableStock } from './fetchable-stock.js';
 import { minimumBoundOwner, storageLendable, storageSurplus } from './storage-reserve.js';
 import { yardOffsets } from './yard-layout.js';
@@ -252,15 +252,74 @@ export function nearestStoreHolding(
   const holders = bands.holding(goodType);
   // An empty band answers null whatever the gate, so its goods limit is never asked.
   if (!holders.hasCandidates()) return null;
+  return nearestHolderIn(
+    bands,
+    holders,
+    world,
+    here,
+    goodType,
+    owner,
+    supply,
+    bands.goodsGate(here, owner, gate),
+    avoid,
+  );
+}
+
+/** {@link nearestStoreHolding} under `goodsGate`, the fetcher's gate already met with the goods-search
+ *  limit at `here` ({@link TargetBands.goodsGate}), for a caller that reads that gate once for many goods. */
+export function nearestStoreHoldingWithin(
+  bands: TargetBands,
+  world: World,
+  here: NodeId,
+  goodType: number,
+  owner: number | undefined,
+  supply: SupplyTally,
+  goodsGate: SpatialGate | undefined,
+  avoid?: (cell: NodeId) => boolean,
+): Entity | null {
+  if (sideLendsNone(bands, world, owner, goodType)) return null;
+  const holders = bands.holding(goodType);
+  if (!holders.hasCandidates()) return null;
+  return nearestHolderIn(bands, holders, world, here, goodType, owner, supply, goodsGate, avoid);
+}
+
+function nearestHolderIn(
+  bands: TargetBands,
+  holders: InteractionCellIndex,
+  world: World,
+  here: NodeId,
+  goodType: number,
+  owner: number | undefined,
+  supply: SupplyTally,
+  goodsGate: SpatialGate | undefined,
+  avoid: ((cell: NodeId) => boolean) | undefined,
+): Entity | null {
   return (
     holders.nearest(
       here,
       holdsUnclaimed(world, bands.ctx, supply, goodType),
-      bands.goodsGate(here, owner, gate),
+      goodsGate,
       avoid,
       sameSideAs(world, owner),
     )?.entity ?? null
   );
+}
+
+/** Filed-node slots the {@link LendingStores} build scratch starts with: `x, y` per store. */
+const INITIAL_LENDING_SLOTS = 256;
+/** The filed nodes a {@link LendingStores} build collects before it copies them out at their count. */
+let lendingScratch = new Int32Array(INITIAL_LENDING_SLOTS);
+let lendingUsed = 0;
+
+function collectLending(x: number, y: number): void {
+  if (lendingUsed + 2 > lendingScratch.length) {
+    const grown = new Int32Array(lendingScratch.length * 2);
+    grown.set(lendingScratch);
+    lendingScratch = grown;
+  }
+  lendingScratch[lendingUsed] = x;
+  lendingScratch[lendingUsed + 1] = y;
+  lendingUsed += 2;
 }
 
 /**
@@ -271,13 +330,13 @@ export function nearestStoreHolding(
  * sweeps every ring.
  */
 export class LendingStores {
-  private static readonly EMPTY = new LendingStores(0, []);
+  private static readonly EMPTY = new LendingStores(0, new Int32Array(0));
 
   private constructor(
     /** How far a store's interaction cell may lie from the node it is filed at. */
     private readonly slack: number,
     /** The filed nodes of the stores, as `x, y` pairs. */
-    private readonly xy: readonly number[],
+    private readonly xy: Int32Array,
   ) {}
 
   static of(
@@ -291,10 +350,11 @@ export class LendingStores {
     const holders = bands.holding(goodType);
     if (!holders.hasCandidates()) return LendingStores.EMPTY;
     const lends = holdsUnclaimed(world, bands.ctx, supply, goodType);
-    const onSide = sameSideAs(world, owner);
-    const xy: number[] = [];
-    holders.filedNodesInto((store) => onSide(store) && lends(store) !== null, xy);
-    return xy.length === 0 ? LendingStores.EMPTY : new LendingStores(holders.filedSlack, xy);
+    lendingUsed = 0;
+    holders.filedNodesInto((store) => lends(store) !== null, sameSideAs(world, owner), collectLending);
+    return lendingUsed === 0
+      ? LendingStores.EMPTY
+      : new LendingStores(holders.filedSlack, lendingScratch.slice(0, lendingUsed));
   }
 
   /** Whether no store at all could be taken, whatever the area. */

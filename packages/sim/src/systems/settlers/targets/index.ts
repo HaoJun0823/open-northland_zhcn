@@ -21,6 +21,7 @@ export {
   nearestStoreFor,
   nearestStoreHolding,
   nearestStoreHoldingAnywhere,
+  nearestStoreHoldingWithin,
   nearestWorkplaceOutput,
   PassLendingStores,
   storageBelowMinimum,

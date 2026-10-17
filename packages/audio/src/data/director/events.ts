@@ -161,9 +161,15 @@ interface EmitterFacts {
   readonly screams: ReadonlyMap<number, string>;
 }
 
-/** The positions, owners and scream groups of exactly the `needed` entities, by per-id binary search: the
- *  emitter set follows the busy population now that every working settler cues its own animation. */
-function emitterFacts(snapshot: WorldSnapshot, index: SoundIndex, needed: ReadonlySet<number>): EmitterFacts {
+/** The positions and owners of exactly the `needed` entities, and the scream groups of the `victims`
+ *  among them: the emitter set follows the busy population now that every working settler cues its own
+ *  animation. */
+function emitterFacts(
+  snapshot: WorldSnapshot,
+  index: SoundIndex,
+  needed: ReadonlySet<number>,
+  victims: ReadonlySet<number>,
+): EmitterFacts {
   const tiles = new Map<number, TilePoint>();
   const owners = new Map<number, number>();
   const screams = new Map<number, string>();
@@ -174,6 +180,7 @@ function emitterFacts(snapshot: WorldSnapshot, index: SoundIndex, needed: Readon
     if (tile !== null) tiles.set(id, tile);
     const owner = entityOwner(e.components);
     if (owner !== undefined) owners.set(id, owner);
+    if (!victims.has(id)) continue;
     const scream = humanVoicesOf(index, e)?.scream;
     if (scream !== undefined) screams.set(id, scream);
   }
@@ -261,6 +268,7 @@ export function eventOneShots(input: DirectorInput): OneShot[] {
   // on-screen and entity-placed events need.
   const pending: Pending[] = [];
   const neededIds = new Set<number>();
+  const victims = new Set<number>();
   for (const ev of events) {
     if ((ev.kind === 'playerWon' || ev.kind === 'playerDefeated') && ev.notificationAlreadySent === true)
       continue;
@@ -274,6 +282,7 @@ export function eventOneShots(input: DirectorInput): OneShot[] {
       const scream = screamPending(ev, spatial);
       if (scream !== null) {
         neededIds.add(scream.victim);
+        victims.add(scream.victim);
         pending.push(scream);
       }
     }
@@ -351,7 +360,7 @@ export function eventOneShots(input: DirectorInput): OneShot[] {
   }
   // Pass 2: place the entity events and spatialise every pending one (off-screen or position-less →
   // silent); the fog hides only a cue already on screen.
-  const facts = neededIds.size > 0 ? emitterFacts(snapshot, index, neededIds) : null;
+  const facts = neededIds.size > 0 ? emitterFacts(snapshot, index, neededIds, victims) : null;
   for (const p of pending) {
     if (p.kind === 'stinger' && p.ownerEntity !== null) {
       const owner = facts?.owners.get(p.ownerEntity);

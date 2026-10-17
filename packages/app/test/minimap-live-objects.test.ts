@@ -72,10 +72,9 @@ describe('minimap standing objects', () => {
       standing(2, GOOD_IRON, 10, 8),
       standing(3, GOOD_WHEAT, 6, 6),
     ]);
-    expect(standingObjects(snapshot, FEATURES)).toEqual({
-      types: MINIMAP_OBJECT_TYPES,
-      placements: [4, 4, FOREST_TYPE, 10, 8, IRON_TYPE],
-    });
+    const objects = standingObjects(snapshot, FEATURES);
+    expect(objects.types).toEqual(MINIMAP_OBJECT_TYPES);
+    expect(Array.from(objects.placements)).toEqual([4, 4, FOREST_TYPE, 10, 8, IRON_TYPE]);
   });
 
   it('places a node once per resource standing on it', () => {
@@ -84,7 +83,7 @@ describe('minimap standing objects', () => {
       standing(2, GOOD_IRON, 10, 8),
       standing(3, GOOD_WOOD, 4, 4),
     ]);
-    expect(standingObjects(snapshot, FEATURES).placements).toEqual([
+    expect(Array.from(standingObjects(snapshot, FEATURES).placements)).toEqual([
       4,
       4,
       FOREST_TYPE,
@@ -124,7 +123,7 @@ describe('minimap standing objects', () => {
     };
     const planted = advance();
     const before = standingNodesRevision(planted, features);
-    const [, , type, ...more] = standingObjects(planted, features).placements;
+    const [, , type, ...more] = Array.from(standingObjects(planted, features).placements);
     expect([type, more]).toEqual([FOREST_TYPE, []]);
     let felled = false;
     for (let tick = 0; tick < MAX_FELL_TICKS && !felled; tick++) {
@@ -134,7 +133,7 @@ describe('minimap standing objects', () => {
     expect(felled).toBe(true);
     const after = mirror.snapshot();
     expect(standingNodesRevision(after, features)).toBeGreaterThan(before);
-    expect(standingObjects(after, features).placements).toEqual([]);
+    expect(Array.from(standingObjects(after, features).placements)).toEqual([]);
     expect(mirror.verifyIndexes()).toEqual([]);
   });
 });
@@ -152,7 +151,7 @@ describe('minimap seen standing objects', () => {
     expect(seen.refresh(both, fog)).toBe(true);
     const felled = snapshotOf([standing(2, GOOD_WOOD, FAR.hx, FAR.hy)]);
     expect(seen.refresh(felled, fog)).toBe(true);
-    expect(seen.objects().placements).toEqual([FAR.hx, FAR.hy, FOREST_TYPE]);
+    expect(Array.from(seen.objects().placements)).toEqual([FAR.hx, FAR.hy, FOREST_TYPE]);
   });
 
   it('keeps a tree felled in an explored but hidden cell until the cell is seen', () => {
@@ -162,13 +161,20 @@ describe('minimap seen standing objects', () => {
     seen.refresh(both, hiding);
     const felled = snapshotOf([standing(1, GOOD_WOOD, NEAR.hx, NEAR.hy)]);
     expect(seen.refresh(felled, hiding)).toBe(false);
-    expect(seen.objects().placements).toEqual([NEAR.hx, NEAR.hy, FOREST_TYPE, FAR.hx, FAR.hy, FOREST_TYPE]);
+    expect(Array.from(seen.objects().placements)).toEqual([
+      NEAR.hx,
+      NEAR.hy,
+      FOREST_TYPE,
+      FAR.hx,
+      FAR.hy,
+      FOREST_TYPE,
+    ]);
     expect(seen.stale(felled, hiding)).toBe(false);
 
     const seeing = fogSeeing([nearCell, farCell], 2);
     expect(seen.stale(felled, seeing)).toBe(true);
     expect(seen.refresh(felled, seeing)).toBe(true);
-    expect(seen.objects().placements).toEqual([NEAR.hx, NEAR.hy, FOREST_TYPE]);
+    expect(Array.from(seen.objects().placements)).toEqual([NEAR.hx, NEAR.hy, FOREST_TYPE]);
     expect(seen.stale(felled, fogSeeing([nearCell], 3))).toBe(false);
   });
 
@@ -177,6 +183,6 @@ describe('minimap seen standing objects', () => {
     seen.refresh(both, fogSeeing([], 1));
     const replanted = snapshotOf([standing(3, GOOD_IRON, FAR.hx, FAR.hy)]);
     expect(seen.refresh(replanted, null)).toBe(true);
-    expect(seen.objects().placements).toEqual([FAR.hx, FAR.hy, IRON_TYPE]);
+    expect(Array.from(seen.objects().placements)).toEqual([FAR.hx, FAR.hy, IRON_TYPE]);
   });
 });

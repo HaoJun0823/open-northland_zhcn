@@ -28,10 +28,11 @@ export function minimapFeatureOfGood(goodId: string): MinimapFeature | undefined
   return FEATURE_OF_GOOD.get(goodId);
 }
 
-/** The placed objects as the decoded map stores them: flat `[hx, hy, typeIndex]` half-cell triples. */
+/** The placed objects as the decoded map stores them: flat `[hx, hy, typeIndex]` half-cell triples. A
+ *  typed array crosses to a bake worker as one copy, where a long number array is cloned item by item. */
 export interface MinimapObjects {
   readonly types: readonly string[];
-  readonly placements: readonly number[];
+  readonly placements: ArrayLike<number>;
 }
 
 /** The `MinimapScene` lanes placed objects fill. */

@@ -211,12 +211,11 @@ export function createSeenStandingObjects(
       return changed;
     },
     objects: () => {
-      // Sized up front: a forest of standing nodes would otherwise grow the list through every doubling.
       let standingTotal = 0;
       for (const goodType of featureOfGoodType.keys()) {
         for (const standing of seen.get(goodType)?.values() ?? []) standingTotal += standing;
       }
-      const placements = new Array<number>(standingTotal * PLACEMENT_STRIDE);
+      const placements = new Int32Array(standingTotal * PLACEMENT_STRIDE);
       let at = 0;
       for (const [goodType, feature] of featureOfGoodType) {
         const nodes = seen.get(goodType);

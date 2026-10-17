@@ -22,9 +22,12 @@ import {
   Rng,
   Simulation,
 } from '../../../src/index.js';
-import { COMPUTER_DECISION_INTERVAL_TICKS } from '../../../src/systems/ai-shared/cadence.js';
+import {
+  COMPUTER_DECISION_INTERVAL_TICKS,
+  WORKFORCE_EVERY_DECISIONS,
+} from '../../../src/systems/ai-shared/cadence.js';
 import { DEFAULT_BUILD_ORDER, workforceModule } from '../../../src/systems/computer-player/index.js';
-import { FLAG_RELOCATE_EVERY_DECISIONS } from '../../../src/systems/computer-player/workforce/collectors/upkeep.js';
+import { FLAG_RELOCATE_EVERY_RUNS } from '../../../src/systems/computer-player/workforce/collectors/upkeep.js';
 import type { SystemContext } from '../../../src/systems/index.js';
 import { createSignpost, stampResourceFootprintData } from '../../../src/systems/index.js';
 import { WEAPON_MAIN_TYPE } from '../../../src/systems/readviews/index.js';
@@ -43,10 +46,8 @@ export const SEAT = 2;
 /** A tick of the first decision round after zero on which `holder`'s collector flag is re-aimed. The round
  *  is judged by decision alone, so a module run directly needs no seat slot. */
 export function flagRelocationTick(holder: Entity): number {
-  return (
-    COMPUTER_DECISION_INTERVAL_TICKS *
-    (FLAG_RELOCATE_EVERY_DECISIONS - (holder % FLAG_RELOCATE_EVERY_DECISIONS))
-  );
+  const run = FLAG_RELOCATE_EVERY_RUNS - (holder % FLAG_RELOCATE_EVERY_RUNS);
+  return COMPUTER_DECISION_INTERVAL_TICKS * WORKFORCE_EVERY_DECISIONS * run;
 }
 
 /** The decision just before `holder`'s {@link flagRelocationTick}, an ordinary one for his flag. */

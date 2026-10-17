@@ -9,7 +9,7 @@ export {
   WOOD_OVER_STONE_NODES,
 } from './allocate.js';
 export { COLLECTOR_WORKSHOP_BY_GOOD_ID, collectorAnchors } from './anchor.js';
-export { FLAG_RELOCATE_EVERY_DECISIONS, REPLANT_MISSES_BEFORE_RETIRE } from './upkeep.js';
+export { FLAG_RELOCATE_EVERY_RUNS, REPLANT_MISSES_BEFORE_RETIRE } from './upkeep.js';
 export {
   CIVILIANS_PER_CLEARING_COLLECTOR,
   CLEAR_GROUND_FROM_NODES,

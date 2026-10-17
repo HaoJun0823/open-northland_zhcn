@@ -20,6 +20,25 @@ export function computerDecisionDue(tick: number, player: number): boolean {
   );
 }
 
+/** The index of the decision interval `tick` falls in: a seat's decisions count up by one, since its
+ *  slot lies inside the interval. */
+export function decisionIndex(tick: number): number {
+  return Math.floor(tick / COMPUTER_DECISION_INTERVAL_TICKS);
+}
+
+/**
+ * Every how many of a seat's decisions its workforce allocator runs (authored, a performance trade): the
+ * allocator is the dearest module of a late settlement, and hires, staffing and the flag upkeep lose
+ * little at an 8 s beat. Defence and the army's orders keep the full cadence.
+ */
+export const WORKFORCE_EVERY_DECISIONS = 2;
+
+/** Whether a module that runs every `every` decisions runs on `player`'s decision at `tick`. The beat is
+ *  offset by the seat, so the seats split each slow module's decisions between them. */
+export function moduleBeatDue(tick: number, player: number, every: number): boolean {
+  return (decisionIndex(tick) + player) % every === 0;
+}
+
 /**
  * The scripted handlers' round-robin. Original behavior: each seat's handler gets one
  * turn per 60 ticks, seat `p` on tick `3p` of the round, with the round's index as its turn number.

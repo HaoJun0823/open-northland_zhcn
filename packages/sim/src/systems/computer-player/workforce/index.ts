@@ -13,6 +13,7 @@ import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import { type HalfCellNode, nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
+import { WORKFORCE_EVERY_DECISIONS } from '../../ai-shared/cadence.js';
 import { anchorNodeOf } from '../../ai-shared/node-geometry.js';
 import { ownedBuildings, ownedSettlers } from '../../ai-shared/seat-roster.js';
 import {
@@ -387,5 +388,6 @@ export function workforceModule(order: readonly BuildOrderEntry[]): ComputerModu
   return {
     id: 'collectResources',
     run: (world, ctx, player) => runWorkforce(world, ctx, player, order),
+    everyDecisions: WORKFORCE_EVERY_DECISIONS,
   };
 }

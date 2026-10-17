@@ -2,7 +2,7 @@ import { CurrentAtomic } from '../../../../components/index.js';
 import type { PlayerCommand } from '../../../../core/commands/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { HalfCellNode } from '../../../../nav/halfcell.js';
-import { COMPUTER_DECISION_INTERVAL_TICKS } from '../../../ai-shared/cadence.js';
+import { decisionIndex, WORKFORCE_EVERY_DECISIONS } from '../../../ai-shared/cadence.js';
 import { anchorNodeOf } from '../../../ai-shared/node-geometry.js';
 import { FOLLOW_FLAG_BAND, forgetReplantMisses, replantMissesAt } from '../../../assistant/flag-follow.js';
 import type { SystemContext } from '../../../context.js';
@@ -17,15 +17,16 @@ import { claimFlagNode, nodeDistance, replantSpot, type TakenFlagNodes } from '.
 import type { CollectorGround } from './allocate.js';
 import type { WantedGood } from './wanted-goods.js';
 
-/** Every how many of a seat's decisions a collector flag is re-aimed at the nearest live resource
- *  (authored). 30 decisions is about two minutes at the base clock. */
-export const FLAG_RELOCATE_EVERY_DECISIONS = 30;
+/** Every how many of a seat's workforce runs a collector flag is re-aimed at the nearest live resource
+ *  (authored). 15 runs of the allocator's beat are about two minutes at the base clock. */
+export const FLAG_RELOCATE_EVERY_RUNS = 15;
 
-/** Whether this tick's decision re-aims `holder`'s flag. Each holder's round is offset by his id, so a
- *  seat's holders pay the re-aim over the whole round instead of all on one decision. */
+/** Whether this tick's workforce run re-aims `holder`'s flag. The runs are counted on the allocator's
+ *  beat, so each holder's turn comes whichever half of the decisions his seat runs on. Each holder's round
+ *  is offset by his id, so a seat's holders pay the re-aim over the whole round instead of all on one run. */
 export function flagRelocateDue(ctx: SystemContext, holder: Entity): boolean {
-  const decision = Math.floor(ctx.tick / COMPUTER_DECISION_INTERVAL_TICKS);
-  return (decision + holder) % FLAG_RELOCATE_EVERY_DECISIONS === 0;
+  const run = Math.floor(decisionIndex(ctx.tick) / WORKFORCE_EVERY_DECISIONS);
+  return (run + holder) % FLAG_RELOCATE_EVERY_RUNS === 0;
 }
 
 /** How many re-plant searches in a row may find nothing before a holder whose patch is worked out

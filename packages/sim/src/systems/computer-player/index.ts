@@ -2,7 +2,7 @@ import { AiControl, type ComputerModuleId, computerModuleRuns } from '../../comp
 import { isPlayerDead } from '../../components/match.js';
 import { aiCommand, type PlayerCommand } from '../../core/commands/index.js';
 import type { World } from '../../ecs/world.js';
-import { computerDecisionDue } from '../ai-shared/cadence.js';
+import { computerDecisionDue, moduleBeatDue } from '../ai-shared/cadence.js';
 import type { System, SystemContext } from '../context.js';
 import { catchUpSeatStock } from '../stores/index.js';
 import { buildOrderModule, DEFAULT_BUILD_ORDER } from './build-order/index.js';
@@ -38,6 +38,9 @@ type ComputerDecision = (world: World, ctx: SystemContext, player: number) => re
 export interface ComputerModule {
   readonly id: ComputerModuleId;
   readonly run: ComputerDecision;
+  /** Every how many of the seat's decisions the module runs ({@link moduleBeatDue}); every one when
+   *  absent. */
+  readonly everyDecisions?: number;
 }
 
 /**
@@ -83,8 +86,9 @@ export function runComputerModules(
   for (const seat of seats) {
     for (let phase = 0; phase < modules.length; phase++) {
       const module = modules[phase];
-      if (module === undefined || !computerDecisionDue(ctx.tick - phase * COMPUTER_MODULE_PHASE_TICKS, seat))
-        continue;
+      const slot = ctx.tick - phase * COMPUTER_MODULE_PHASE_TICKS;
+      if (module === undefined || !computerDecisionDue(slot, seat)) continue;
+      if (module.everyDecisions !== undefined && !moduleBeatDue(slot, seat, module.everyDecisions)) continue;
       // The authority gate would refuse a dead seat's orders anyway; skipping keeps them out of the log.
       if (isPlayerDead(world, seat)) continue;
       if (!computerModuleRuns(world, seat, module.id)) continue;

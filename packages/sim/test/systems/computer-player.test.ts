@@ -12,10 +12,11 @@ import {
   type ComputerModule,
   computerDecisionDue,
   runComputerModules,
+  WORKFORCE_EVERY_DECISIONS,
 } from '../../src/systems/computer-player/index.js';
 import { outfitGrantOrders } from '../../src/systems/computer-player/military/outfit.js';
 import {
-  FLAG_RELOCATE_EVERY_DECISIONS,
+  FLAG_RELOCATE_EVERY_RUNS,
   flagRelocateDue,
 } from '../../src/systems/computer-player/workforce/collectors/upkeep.js';
 import type { SystemContext } from '../../src/systems/index.js';
@@ -382,16 +383,41 @@ describe('computerPlayerSystem - cadence, stagger, and module gates', () => {
     }
   });
 
-  it('re-aims each collector flag once a round, spreading consecutive holders over its decisions', () => {
-    const HOLDERS = 2 * FLAG_RELOCATE_EVERY_DECISIONS;
-    const dueByDecision: number[] = [];
-    for (let decision = 0; decision < FLAG_RELOCATE_EVERY_DECISIONS; decision++) {
-      const ctx = ctxAt(decision * COMPUTER_DECISION_INTERVAL_TICKS, new CommandQueue());
+  it('re-aims each collector flag once a round of workforce runs, spreading consecutive holders over them', () => {
+    const HOLDERS = 2 * FLAG_RELOCATE_EVERY_RUNS;
+    const dueByRun: number[] = [];
+    for (let run = 0; run < FLAG_RELOCATE_EVERY_RUNS; run++) {
+      const tick = run * WORKFORCE_EVERY_DECISIONS * COMPUTER_DECISION_INTERVAL_TICKS;
+      const ctx = ctxAt(tick, new CommandQueue());
       let due = 0;
       for (let holder = 0; holder < HOLDERS; holder++) if (flagRelocateDue(ctx, holder as Entity)) due++;
-      dueByDecision.push(due);
+      dueByRun.push(due);
     }
-    expect(dueByDecision).toEqual(new Array(FLAG_RELOCATE_EVERY_DECISIONS).fill(2));
+    expect(dueByRun).toEqual(new Array(FLAG_RELOCATE_EVERY_RUNS).fill(2));
+  });
+
+  it('runs the workforce on every other decision of a seat, the seats splitting the beats', () => {
+    const world = worldWithSeats(0, 1);
+    const commands = new CommandQueue();
+    const runs: Array<{ decision: number; player: number }> = [];
+    const workforce: ComputerModule = {
+      id: 'collectResources',
+      everyDecisions: WORKFORCE_EVERY_DECISIONS,
+      run: (_w, ctx, player) => {
+        runs.push({ decision: Math.floor(ctx.tick / COMPUTER_DECISION_INTERVAL_TICKS), player });
+        return [];
+      },
+    };
+    const DECISIONS = 4;
+    for (let tick = 0; tick < DECISIONS * COMPUTER_DECISION_INTERVAL_TICKS; tick++) {
+      runComputerModules(world, ctxAt(tick, commands), [workforce]);
+    }
+    expect(runs).toEqual([
+      { decision: 0, player: 0 },
+      { decision: 1, player: 1 },
+      { decision: 2, player: 0 },
+      { decision: 3, player: 1 },
+    ]);
   });
 
   it('gives a non-flagged player zero AI decisions', () => {

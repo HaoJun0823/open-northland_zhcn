@@ -4,8 +4,10 @@ import {
   Carrying,
   discoverTechnology,
   JobAssignment,
+  PickupClaim,
   Position,
   Production,
+  SupplyRun,
   setSettlerJob,
   setStockAmount,
 } from '../../src/components/index.js';
@@ -22,6 +24,7 @@ import {
   CARPENTER,
   ctxOf,
   grassMap,
+  HEADQUARTERS,
   PLANK,
   SAWMILL,
   settlerAt,
@@ -148,6 +151,23 @@ describe('workshopWorkforce', () => {
 
     sim.world.remove(first, JobAssignment);
     expect(workshopWorkforce(sim.world, ctx).operatorsAt(shop)).toEqual([]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it("re-takes a fetched load's source check only at a snapshot after the source changed", () => {
+    const sim = new Simulation({ seed: 1, content: technologyContent(), map: grassMap(8, 1) });
+    const shop = buildingAt(sim, BAKEHOUSE, 0, 0);
+    const store = buildingAt(sim, HEADQUARTERS, 4, 0, [[WOOD, 1]]);
+    const baker = settlerAt(sim, 0, 0, CARPENTER, shop);
+    sim.world.add(baker, SupplyRun, { site: shop, goodType: WOOD, amount: 1 });
+    sim.world.add(baker, PickupClaim, { source: store, goodType: WOOD, amount: 1 });
+    const ctx = ctxOf(sim);
+    const snapshot = workshopWorkforce(sim.world, ctx);
+    setStockAmount(sim.world, store, WOOD, 0);
+    expect(snapshot.incomingOf(shop, WOOD)).toBe(1); // the source held the wood at the snapshot
+    expect(workshopWorkforce(sim.world, ctx).incomingOf(shop, WOOD)).toBe(0);
+    setStockAmount(sim.world, store, WOOD, 1);
+    expect(workshopWorkforce(sim.world, ctx).incomingOf(shop, WOOD)).toBe(1);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 

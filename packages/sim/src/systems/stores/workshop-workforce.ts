@@ -11,10 +11,11 @@ import {
   SupplyRun,
   settlerTradeLog,
   UnderConstruction,
+  Upgrading,
 } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
 import { insertSortedById, removeSortedById } from '../../core/sorted-id.js';
-import type { Component, Entity, World } from '../../ecs/world.js';
+import type { ChangeFeed, Component, Entity, World } from '../../ecs/world.js';
 import type { SystemContext } from '../context.js';
 import { ACTION_OWNER_MARKERS, anotherSystemOwns } from '../settlers/action-owner.js';
 import { boundWorkplaceTarget } from '../settlers/targets/workplaces.js';
@@ -29,6 +30,8 @@ interface BoundLoad {
   readonly goodType: number;
   readonly amount: number;
   readonly source: Entity | null;
+  /** {@link sourceHolds}, re-taken whenever a store it reads changes on the source. */
+  holds: boolean;
 }
 
 /** What one employed settler adds to its workplace, before the stock checks a snapshot applies. */
@@ -53,6 +56,8 @@ interface WorkforceIndex {
   /** Operators per workplace, ascending id. */
   readonly crews: Map<Entity, Entity[]>;
   readonly loadsAt: Map<Entity, WorkplaceLoads>;
+  /** The fetched loads by pickup source, unordered, so a changed source re-takes its loads alone. */
+  readonly loadsFrom: Map<Entity, BoundLoad[]>;
   readonly untracked: Set<Entity>;
   /** Bumped by every catch-up that re-derives a settler, so a snapshot can tell its crews went stale. */
   epoch: number;
@@ -65,13 +70,14 @@ interface WorkforceIndex {
   readonly markSettler: (e: Entity) => void;
   readonly markCrew: (workplace: Entity) => void;
   readonly resyncDirty: (e: Entity) => void;
+  readonly retakeSource: (source: Entity) => void;
 }
 
 /** The loads bound for one workplace in parallel columns, unordered: an inbound read sums them. */
 interface WorkplaceLoads {
   readonly settlers: Entity[];
   readonly loads: BoundLoad[];
-  /** Per load, the snapshot serial it last counted at. */
+  /** Per load, the snapshot serial it last counted at, stamped by {@link WorkshopWorkforce.shelveInbound}. */
   readonly counted: number[];
   /** The snapshot serial the loads' shelf checks were last taken at. */
   shelved: number;
@@ -91,10 +97,15 @@ const SETTLER_MEMBERSHIP: readonly Component<unknown>[] = [
 const SETTLER_VALUES: readonly Component<unknown>[] = [Chat, PathRequest, Carrying, SupplyRun, PickupClaim];
 const WORKPLACE_MEMBERSHIP: readonly Component<unknown>[] = [Building, UnderConstruction, Position];
 const WORKPLACE_VALUES: readonly Component<unknown>[] = [Building];
+// Everything sourceHolds reads on a pickup source.
+const SOURCE_MEMBERSHIP: readonly Component<unknown>[] = [Stockpile, Upgrading, UnderConstruction, Building];
+const SOURCE_VALUES: readonly Component<unknown>[] = [Stockpile, Upgrading, Building];
 const MEMBERSHIP_JOURNALS = [...SETTLER_MEMBERSHIP, ...WORKPLACE_MEMBERSHIP];
 const VALUE_JOURNALS = [...SETTLER_VALUES, ...WORKPLACE_VALUES];
 
 const indexes = new WeakMap<World, WorkforceIndex>();
+/** Per world, the pickup sources changed since the last snapshot re-took their loads' {@link sourceHolds}. */
+const sourceFeeds = new WeakMap<World, ChangeFeed>();
 const NO_CREW: readonly Entity[] = [];
 const idOf = (e: Entity): number => e;
 
@@ -108,10 +119,10 @@ export function workshopWorkforce(world: World, ctx: SystemContext): WorkshopWor
 
 /**
  * A phase-local snapshot of the employed settlers: each workshop's crew and its inbound loads. A load
- * counts while its pickup source holds the good, checked for every load at construction, and while the
- * workplace has shelf room for it, checked at the workplace's first inbound read (see
- * {@link shelveInbound}). The checks are stamped on the index, so inbound reads last until the next
- * snapshot.
+ * counts while its pickup source holds the good, as of construction, which re-takes that check for the
+ * loads whose source changed since the last snapshot, and while the workplace has shelf room for it,
+ * checked at the workplace's first inbound read (see {@link shelveInbound}). The checks are stamped on
+ * the index, so inbound reads last until the next snapshot.
  */
 export class WorkshopWorkforce {
   private readonly epoch: number;
@@ -123,14 +134,8 @@ export class WorkshopWorkforce {
     private readonly index: WorkforceIndex,
   ) {
     this.epoch = index.epoch;
-    const serial = ++index.snapshots;
-    this.serial = serial;
-    index.loadsAt.forEach((column) => {
-      const { loads, counted } = column;
-      for (let i = 0; i < loads.length; i++) {
-        counted[i] = sourceHolds(world, ctx, loads[i] as BoundLoad) ? serial : NOT_COUNTED;
-      }
-    });
+    this.serial = ++index.snapshots;
+    retakeSourceChecks(world, index);
   }
 
   operatorsAt(workplace: Entity): readonly Entity[] {
@@ -151,9 +156,8 @@ export class WorkshopWorkforce {
     column.shelved = serial;
     const { loads, counted } = column;
     for (let i = 0; i < loads.length; i++) {
-      if (counted[i] === serial && !shelfTakes(this.world, this.ctx, workplace, loads[i] as BoundLoad)) {
-        counted[i] = NOT_COUNTED;
-      }
+      const load = loads[i] as BoundLoad;
+      counted[i] = load.holds && shelfTakes(this.world, this.ctx, workplace, load) ? serial : NOT_COUNTED;
     }
   }
 
@@ -179,8 +183,34 @@ export class WorkshopWorkforce {
   }
 }
 
+const ignoreEntity = (_e: Entity): void => {};
+
 /** A {@link WorkplaceLoads.counted} stamp no snapshot serial takes. */
 const NOT_COUNTED = 0;
+
+/** Bring every load's {@link BoundLoad.holds} up to its source's live state: the loads of the sources
+ *  the feed names, or every load when the feed overflowed. */
+function retakeSourceChecks(world: World, index: WorkforceIndex): void {
+  const feed = sourceFeedOf(world);
+  if (!feed.pending) return;
+  if (feed.drain(index.retakeSource)) {
+    index.loadsFrom.forEach((loads) => {
+      for (let i = 0; i < loads.length; i++) {
+        const load = loads[i] as BoundLoad;
+        load.holds = sourceHolds(world, index.ctx, load);
+      }
+    });
+  }
+}
+
+function sourceFeedOf(world: World): ChangeFeed {
+  let feed = sourceFeeds.get(world);
+  if (feed === undefined) {
+    feed = world.watchChanges(SOURCE_MEMBERSHIP, SOURCE_VALUES);
+    sourceFeeds.set(world, feed);
+  }
+  return feed;
+}
 
 /** Whether a pickup leg's source still holds the good, on its arrival tick too, before the planner
  *  starts the pickup there, or refills it, since its fetcher waits there for the unit; a carried load
@@ -215,9 +245,11 @@ function deriveBinding(world: World, ctx: SystemContext, e: Entity): Binding | n
   const run = world.tryGet(e, SupplyRun);
   const claim = world.tryGet(e, PickupClaim);
   let load: BoundLoad | null = null;
-  if (carried !== undefined) load = { goodType: carried.goodType, amount: carried.amount, source: null };
-  else if (run !== undefined && run.site === workplace && claim !== undefined) {
-    load = { goodType: run.goodType, amount: run.amount, source: claim.source };
+  if (carried !== undefined) {
+    load = { goodType: carried.goodType, amount: carried.amount, source: null, holds: true };
+  } else if (run !== undefined && run.site === workplace && claim !== undefined) {
+    load = { goodType: run.goodType, amount: run.amount, source: claim.source, holds: false };
+    load.holds = sourceHolds(world, ctx, load);
   }
   if (load !== null && !recipeConsumes(mergedRecipeOf(world, ctx, workplace)?.inputs, load.goodType)) {
     load = null;
@@ -273,6 +305,8 @@ function rebuild(world: World, ctx: SystemContext): WorkforceIndex {
   for (const component of MEMBERSHIP_JOURNALS) world.journalMembership(component);
   for (const component of VALUE_JOURNALS) world.journalValueWrites(component);
   settlerTradeLog(world, 'workshopWorkforce').clear();
+  // Derived below from live state, so the changes it names so far are already taken.
+  sourceFeedOf(world).drain(ignoreEntity);
   const index = deriveIndex(world, ctx, (indexes.get(world)?.epoch ?? 0) + 1);
   indexes.set(world, index);
   return index;
@@ -287,6 +321,7 @@ function deriveIndex(world: World, ctx: SystemContext, epoch: number): Workforce
     bindings: new Map(),
     crews: new Map(),
     loadsAt: new Map(),
+    loadsFrom: new Map(),
     untracked: new Set(),
     epoch,
     snapshots: 0,
@@ -299,6 +334,14 @@ function deriveIndex(world: World, ctx: SystemContext, epoch: number): Workforce
       for (let i = 0; i < workers.length; i++) dirty.add(workers[i] as Entity);
     },
     resyncDirty: (e) => resync(world, index.ctx, index, e),
+    retakeSource: (source) => {
+      const loads = index.loadsFrom.get(source);
+      if (loads === undefined) return;
+      for (let i = 0; i < loads.length; i++) {
+        const load = loads[i] as BoundLoad;
+        load.holds = sourceHolds(world, index.ctx, load);
+      }
+    },
   };
   noteGenerations(world, index);
   for (const e of world.canonicalQuery(JobAssignment, Settler)) resync(world, ctx, index, e);
@@ -319,7 +362,7 @@ function resync(world: World, ctx: SystemContext, index: WorkforceIndex, e: Enti
   const held = index.bindings.get(e);
   if (held !== undefined) {
     index.bindings.delete(e);
-    if (held.load !== null) dropLoader(index, held.workplace, e);
+    if (held.load !== null) dropLoader(index, held.workplace, e, held.load);
     const crew = held.operator ? index.crews.get(held.workplace) : undefined;
     if (crew !== undefined && removeSortedById(crew, e, idOf) && crew.length === 0) {
       index.crews.delete(held.workplace);
@@ -337,6 +380,12 @@ function resync(world: World, ctx: SystemContext, index: WorkforceIndex, e: Enti
   if (binding === null) return;
   index.bindings.set(e, binding);
   if (binding.load !== null) {
+    const source = binding.load.source;
+    if (source !== null) {
+      const fetched = index.loadsFrom.get(source);
+      if (fetched === undefined) index.loadsFrom.set(source, [binding.load]);
+      else fetched.push(binding.load);
+    }
     const column = index.loadsAt.get(binding.workplace);
     if (column === undefined) {
       index.loadsAt.set(binding.workplace, {
@@ -357,7 +406,13 @@ function resync(world: World, ctx: SystemContext, index: WorkforceIndex, e: Enti
   else insertSortedById(crew, e, idOf);
 }
 
-function dropLoader(index: WorkforceIndex, workplace: Entity, e: Entity): void {
+function dropLoader(index: WorkforceIndex, workplace: Entity, e: Entity, load: BoundLoad): void {
+  const fetched = load.source === null ? undefined : index.loadsFrom.get(load.source);
+  const from = fetched === undefined ? -1 : fetched.indexOf(load);
+  if (fetched !== undefined && from >= 0) {
+    if (fetched.length === 1) index.loadsFrom.delete(load.source as Entity);
+    else swapRemove(fetched, from);
+  }
   const column = index.loadsAt.get(workplace);
   const at = column === undefined ? -1 : column.settlers.indexOf(e);
   if (column === undefined || at < 0) return;
@@ -388,6 +443,13 @@ function verifyIndex(world: World): string[] {
   for (const [e, binding] of fresh.bindings) {
     if (!sameBinding(binding, held.bindings.get(e))) {
       return [`workshopWorkforce holds a stale binding for settler ${e}`];
+    }
+  }
+  retakeSourceChecks(world, held);
+  for (const [e, binding] of held.bindings) {
+    const load = binding.load;
+    if (load !== null && load.holds !== sourceHolds(world, held.ctx, load)) {
+      return [`workshopWorkforce holds a stale source check for settler ${e}`];
     }
   }
   for (const [workplace, crew] of fresh.crews) {

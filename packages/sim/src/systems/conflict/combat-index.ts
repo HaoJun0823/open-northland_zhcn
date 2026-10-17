@@ -30,6 +30,9 @@ import { vehicleWeapon } from './weapons.js';
  *  id. Entity ids stay below 2^32 and distances below 2^21, so the key is an exact double. */
 const CANDIDATE_ID_SPAN = 2 ** 32;
 
+/** Every {@link playerBit} at once. */
+const ALL_PLAYER_BITS = ~0;
+
 /** The index each world's latest combat pass built, which the shots landing after it read. */
 const passIndexes = new WeakMap<World, CombatIndex>();
 
@@ -310,12 +313,20 @@ export class CombatIndex {
     let count = at;
     for (const cell of this.grid.strangerCellsWithin(radius)) {
       const { units, nearMask, nearUndiscounted } = cell;
+      // The owners here the neighbourhood holds a stranger for, decided once per owner rather than per unit.
+      let listed = ALL_PLAYER_BITS;
+      if (!nearUndiscounted) {
+        listed = 0;
+        for (let owners = cell.unitOwnerMask; owners !== 0; owners &= owners - 1) {
+          const bit = owners & -owners;
+          if ((nearMask & hostileMaskOf(this.hostileMasks, playerOfBit(bit))) !== 0) listed |= bit;
+        }
+        if (listed === 0) continue;
+      }
       for (let i = 0; i < units.count; i++) {
         const unit = units.members[i];
         const bit = units.bit[i] ?? 0;
-        if (unit === undefined || bit === 0) continue;
-        if (nearUndiscounted || (nearMask & hostileMaskOf(this.hostileMasks, playerOfBit(bit))) !== 0)
-          out[count++] = unit;
+        if (unit !== undefined && (bit & listed) !== 0) out[count++] = unit;
       }
     }
     return count;

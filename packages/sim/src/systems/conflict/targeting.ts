@@ -361,8 +361,10 @@ function forEachFiringBuilding(
   mark: (b: Entity) => void,
 ): void {
   for (const e of world.query(Garrison)) {
+    // A post already marked needs no second man: skip him before reading where he stands.
+    if (marked(world.get(e, Garrison).post)) continue;
     const post = standsAtPost(world, e);
-    if (post === null || marked(post) || !isAlive(world, e)) continue;
+    if (post === null || !isAlive(world, e)) continue;
     if (holdsPost(world, ctx, e, post)) mark(post);
   }
   for (const shelter of shelterOccupancy(world).keys()) {

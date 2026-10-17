@@ -257,7 +257,7 @@ export class InteractionCellIndex {
 
   /** The candidates on `owner`'s side ({@link sameSideAs}: its own and unowned ones), each as its entity
    *  and filed node in {@link FILED_STRIDE} slots, for a caller that tests many areas against them. Kept
-   *  until the candidates or their sides change. */
+   *  until the candidates or their sides change: the array is the memo itself, read it and never write it. */
   filedOnSide(owner: number): Int32Array {
     const sides = this.syncSides();
     const held = this.sideFiled.get(owner);

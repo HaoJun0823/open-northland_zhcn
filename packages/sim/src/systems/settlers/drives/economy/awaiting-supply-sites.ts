@@ -28,8 +28,12 @@ export function soloSitesAwaitingSupply(
   }
   let held = byKind.get(kind);
   if (held === undefined || held.terrain !== terrain) {
-    held = new AwaitingSupplySites(world, ctx, terrain);
-    byKind.set(kind, held);
+    const created = new AwaitingSupplySites(world, ctx, terrain);
+    byKind.set(kind, created);
+    world.registerCacheVerifier(`soloSitesAwaitingSupply:${kind}`, () =>
+      created.divergence().map((m) => `soloSitesAwaitingSupply ${kind}: ${m}`),
+    );
+    held = created;
   }
   return held.sync(inbound, kind === 'wall' ? Palisade : RoadSite);
 }
@@ -42,10 +46,16 @@ class AwaitingSupplySites {
 
   constructor(
     private readonly world: World,
-    ctx: MapContext,
+    private readonly ctx: MapContext,
     readonly terrain: TerrainGraph,
   ) {
     this.index = new InteractionCellIndex(world, ctx, terrain);
+  }
+
+  /** A mismatch per site the index files differently from a fresh index over the sites it holds. */
+  divergence(): string[] {
+    const filed = [...this.filedAt.keys()].sort((a, b) => a - b);
+    return this.index.divergence(new InteractionCellIndex(this.world, this.ctx, this.terrain, filed));
   }
 
   sync(

@@ -51,30 +51,34 @@ const INSERTION_SORT_MAX = 32;
 class RankedLists<T> {
   private readonly items: (T | undefined)[] = [];
   private keys = new Float64Array(INITIAL_RANK_KEYS);
+  private size = 0;
+
   /** Entries pushed since the last {@link reset}; after {@link sort} their keys run ascending. */
-  count = 0;
+  get count(): number {
+    return this.size;
+  }
 
   /** Empty the lists, dropping the items so the module scratch does not pin a finished world's grid. */
   reset(): void {
-    this.items.fill(undefined, 0, this.count);
-    this.count = 0;
+    this.items.fill(undefined, 0, this.size);
+    this.size = 0;
   }
 
   push(item: T, distance: number): void {
-    if (this.count === this.keys.length) {
+    if (this.size === this.keys.length) {
       const grown = new Float64Array(this.keys.length * 2);
       grown.set(this.keys);
       this.keys = grown;
     }
-    this.items[this.count] = item;
-    this.keys[this.count] = distance * RANK_INDEX_SPAN + this.count;
-    this.count++;
+    this.items[this.size] = item;
+    this.keys[this.size] = distance * RANK_INDEX_SPAN + this.size;
+    this.size++;
   }
 
   /** Sort the keys in place: a short run by insertion, which needs no view of the backing store. Keys are
    *  distinct, so both sorts give the one ascending order. */
   sort(): void {
-    const { keys, count } = this;
+    const { keys, size: count } = this;
     if (count > INSERTION_SORT_MAX) {
       keys.subarray(0, count).sort();
       return;

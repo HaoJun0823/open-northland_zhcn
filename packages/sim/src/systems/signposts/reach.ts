@@ -421,6 +421,9 @@ class GoodsSearchLimit implements SpatialGate {
    *  widened by `radius`; a group's coverage is ruled out by its bounds widened the same way. */
   mayAllowNear(x: number, y: number, radius: number): boolean {
     this.confirmKey();
+    const near = this.groups.reaches;
+    if (x < near.minX - radius || x > near.maxX + radius || y < near.minY - radius || y > near.maxY + radius)
+      return false;
     if (hexDistanceBetween(this.hx, this.hy, x, y) < GOODS_SEARCH_RANGE_NODES + radius) return true;
     const nearby = this.groups.nearby;
     for (let i = 0; i < nearby.length; i++) {
@@ -487,6 +490,9 @@ class GoodsSearchLimit implements SpatialGate {
 /** What a spot's limit derives from the signpost network alone. */
 interface LimitGroups {
   readonly bounds: NodeBox;
+  /** {@link bounds} with the hex range's box left off the map edge: a node outside it lies neither inside
+   *  the hex range nor inside a nearby group's bounds. */
+  readonly reaches: NodeBox;
   /** Every group with a post inside the hex range: the ones the search may catch. */
   readonly nearby: readonly GroupCoverage[];
   /** Per {@link nearby} group, its posts inside the hex range. */
@@ -509,6 +515,10 @@ function limitGroups(
   const nearby: GroupCoverage[] = [];
   const nearbyPosts: SignpostSite[][] = [];
   let { minX, maxX, minY, maxY } = own;
+  let nearMinX = hx - range + 1;
+  let nearMaxX = hx + range - 1;
+  let nearMinY = hy - range + 1;
+  let nearMaxY = hy + range - 1;
   for (let i = 0; i < end; i++) {
     const p = postScratch[i] as SignpostSite & { player: number };
     if (p.player !== player || hexDistanceBetween(hx, hy, p.hx, p.hy) >= range) continue;
@@ -526,8 +536,17 @@ function limitGroups(
     if (b.maxX > maxX) maxX = b.maxX;
     if (b.minY < minY) minY = b.minY;
     if (b.maxY > maxY) maxY = b.maxY;
+    if (b.minX < nearMinX) nearMinX = b.minX;
+    if (b.maxX > nearMaxX) nearMaxX = b.maxX;
+    if (b.minY < nearMinY) nearMinY = b.minY;
+    if (b.maxY > nearMaxY) nearMaxY = b.maxY;
   }
-  return { bounds: { minX, maxX, minY, maxY }, nearby, nearbyPosts };
+  return {
+    bounds: { minX, maxX, minY, maxY },
+    reaches: { minX: nearMinX, maxX: nearMaxX, minY: nearMinY, maxY: nearMaxY },
+    nearby,
+    nearbyPosts,
+  };
 }
 
 /** The posts {@link limitGroups} last collected; slots past its end hold stale entries. */

@@ -7,7 +7,7 @@ import {
   nodeHyOfPosition,
   positionOfNode,
 } from '../../src/nav/halfcell.js';
-import { intersectReach, reachContains, searchReach } from '../../src/nav/range-search.js';
+import { intersectReach, reachBox, reachContains, searchReach } from '../../src/nav/range-search.js';
 import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
 import { Simulation } from '../../src/simulation.js';
 import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
@@ -211,6 +211,29 @@ describe('goods search limit', () => {
     const moved = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
     expect(moved?.sites).not.toBe(first?.sites);
     expect(expectLimitMatchesRule(sim, terrain, 0, 20, 30)).toBeGreaterThan(0);
+  });
+
+  it('rules a neighbourhood out by hex distance and group bounds alone, off the map edge too', () => {
+    const { sim, terrain } = navigableSim(240, 100);
+    const [px, py] = [30, 3];
+    createSignpost(sim.world, terrain, terrain.nodeAt(px, py), 0, sim.content);
+    signpostLinksSystem(sim.world, ctxOf(sim));
+    const [hx, hy] = [4, 2];
+    const limit = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, hx, hy);
+    if (limit?.mayAllowNear === undefined) throw new Error('a goods search limit answers neighbourhoods');
+    const group = reachBox(terrain, px, py, RANGE);
+    const RADIUS = 3;
+    const MARGIN = RANGE + 2 * RADIUS;
+    for (let y = -MARGIN; y < MARGIN; y++)
+      for (let x = -MARGIN; x < group.maxX + MARGIN; x++) {
+        const expected =
+          hexDistanceBetween(hx, hy, x, y) < RANGE + RADIUS ||
+          (x >= group.minX - RADIUS &&
+            x <= group.maxX + RADIUS &&
+            y >= group.minY - RADIUS &&
+            y <= group.maxY + RADIUS);
+        expect(limit.mayAllowNear(x, y, RADIUS), `(${x}, ${y})`).toBe(expected);
+      }
   });
 
   it('keeps a signpost confinement and a goods search sound when one gate rules a neighbourhood out', () => {

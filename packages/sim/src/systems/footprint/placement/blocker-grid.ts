@@ -102,9 +102,10 @@ type StampField =
 const FIELD_BITS = 3;
 const FIELD_MASK = (1 << FIELD_BITS) - 1;
 
-/** One entity's stamped slots, each `slot << FIELD_BITS | field`: one typed array per held blocker
- *  rather than a list per channel, since every standing resource on the map holds one. */
-type StampedSlots = Int32Array;
+/** One entity's stamped slots, each `slot << FIELD_BITS | field`: one exact-length list per held blocker
+ *  rather than a list per channel, since every standing resource on the map holds one. A plain list of
+ *  small integers costs less per entity than a typed array and its buffer. */
+type StampedSlots = readonly number[];
 
 /** The scripted landscape layer the grid currently holds: the blocks view it last applied (a read
  *  after script edits mints the next one, naming the cells they changed), plus the forbidden nodes,
@@ -293,7 +294,7 @@ function captureSlots(grid: PlacementGrid, run: (visit: BlockerVisit) => void): 
     if (x < 0 || y < 0 || x >= w || y >= h) return; // off-map cells are never stamped (see PlacementGrid)
     captureScratch.push(((y * w + x) << FIELD_BITS) | field);
   });
-  return Int32Array.from(captureScratch);
+  return captureScratch.slice();
 }
 
 function rebuildGrid(

@@ -23,7 +23,7 @@ import { summarizeSegment } from './report/index.js';
  *
  * `ON_BENCH_MARCH_SPAWN` fighters join the seat's army from `ON_BENCH_MARCH_SPAWN_LEAD` ticks before the
  * order, through the debug panel's `spawnSettler` command, copying the seat's own fighters' class and kit
- * onto the formation slots round the army's centre.
+ * (weapon, armor and worn equipment, all fresh) onto free formation slots round the army's centre.
  *
  * `ON_BENCH_MARCH_COUNT=0` is the control run: no order, the same spawn and phase table.
  */
@@ -184,30 +184,40 @@ function armyNodes(sim: Simulation, army: readonly Entity[]): Map<Entity, HalfCe
   return nodes;
 }
 
+/** A worn item as the spawn command takes it: the good alone, so a copy starts unworn. */
+const freshItem = (slot: { readonly goodType: number } | null): { goodType: number } | null =>
+  slot === null ? null : { goodType: slot.goodType };
+
 /**
  * Enqueues up to `count` fighters for `seat`'s army, on the slots a click at the army's centre would give
- * its original fighters, so no spawn lands on a building, a resource or a standing settler. Each copies
- * the class, tribe and kit of those fighters in turn, ascending id. Returns how many it enqueued: the
+ * its original fighters, less the nodes those fighters stand on (the click treats them as movers), so no
+ * spawn lands on a building, a resource or a standing settler. Each copies the class, tribe, weapon,
+ * armor and worn equipment of those fighters in turn, ascending id. Returns how many it enqueued: the
  * caller repeats it next tick, once these stand in the world, until the count is met.
  */
 function spawnFighters(sim: Simulation, army: readonly Entity[], seat: number, count: number): number {
-  const centre = centroid([...armyNodes(sim, army).values()]);
+  const nodes = armyNodes(sim, army);
+  const centre = centroid([...nodes.values()]);
+  const standing = new Set([...nodes.values()].map(({ hx, hy }) => `${hx},${hy}`));
   const groups = sim.formationSlots(centre, army, MILITARY_ROW_SPACING) ?? [];
-  const slots = groups.flatMap((group) => (group.commandedVehicle === undefined ? group.slots : []));
+  const slots = groups
+    .flatMap((group) => (group.commandedVehicle === undefined ? group.slots : []))
+    .filter(({ hx, hy }) => !standing.has(`${hx},${hy}`));
   const spawned = Math.min(count, slots.length);
   for (let i = 0; i < spawned; i++) {
     const template = army[i % army.length];
     const at = slots[i];
     if (template === undefined || at === undefined) break;
-    const settler = sim.world.get(template, Settler);
+    const { jobType, tribe } = sim.world.get(template, Settler);
+    if (jobType === null) throw new Error(`march: fighter ${template} has no job to copy`);
     const weapon = sim.world.tryGet(template, Weapon);
     const armor = sim.world.tryGet(template, Armor);
     const kit = sim.world.tryGet(template, Equipment);
     sim.enqueue(
       adminCommand({
         kind: 'spawnSettler',
-        jobType: settler.jobType ?? 0,
-        tribe: settler.tribe,
+        jobType,
+        tribe,
         owner: seat,
         x: at.hx,
         y: at.hy,
@@ -217,8 +227,11 @@ function spawnFighters(sim: Simulation, army: readonly Entity[], seat: number, c
           ? {}
           : {
               equipment: {
-                weapon: kit.weapon === null ? null : { goodType: kit.weapon.goodType },
-                armor: kit.armor === null ? null : { goodType: kit.armor.goodType },
+                boots: freshItem(kit.boots),
+                tool: freshItem(kit.tool),
+                weapon: freshItem(kit.weapon),
+                armor: freshItem(kit.armor),
+                misc: kit.misc.map(freshItem),
               },
             }),
       }),

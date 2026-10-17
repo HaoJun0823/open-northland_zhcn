@@ -123,11 +123,15 @@ export interface PathFollowState {
   bootsDegree?: Fixed | undefined;
 }
 
+/** Every {@link PathFollowState} key required, an optional one present as undefined, so a key added to the
+ *  state cannot be left out of {@link pathFollowRecord}. */
+type CompletePathFollow = { [K in keyof PathFollowState]-?: PathFollowState[K] };
+
 /** A {@link PathFollow} record with every key present in one order, so routed and restored walkers share
  *  one hidden class and the movement pass's reads stay monomorphic. An undefined key hashes and saves as
  *  absent, so the shape is invisible to state. */
 export function pathFollowRecord(follow: Readonly<PathFollowState>): PathFollowState {
-  return {
+  const record: CompletePathFollow = {
     index: follow.index,
     legStartedAt: follow.legStartedAt,
     legElapsed: follow.legElapsed,
@@ -136,6 +140,7 @@ export function pathFollowRecord(follow: Readonly<PathFollowState>): PathFollowS
     departureCharged: follow.departureCharged,
     bootsDegree: follow.bootsDegree,
   };
+  return record;
 }
 
 /** Executed movement ticks, excluding any pending or held turn ticks. */

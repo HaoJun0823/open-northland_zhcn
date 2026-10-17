@@ -65,9 +65,17 @@ function probeOf(world: World, ctx: ContentContext, terrain: TerrainGraph): Clea
   return (node) => (terrain.isWalkable(node) || terrain.isWater(node)) && !blocked.has(node);
 }
 
+/** Hex steps from a wall cell, a building door or a gate passage within which the joint seals it makes or
+ *  moves lie: a seal is a corner beside a joint's wall cell, and an opening on one corner pushes it onto
+ *  the other, two steps away. */
+const SEAL_REACH = 2;
+
 /** Every cell whose walk-block membership `e` can decide: a building's body plus its door (the door
- *  carve-out), a wall's whole placement body (its joint seals lie beside it, inside the recompute reach),
- *  or a resource's walk cells. Empty for a positionless or footprint-less entity. */
+ *  carve-out) and the nodes within {@link SEAL_REACH} of the door, where a joint seal it opens moves; a
+ *  wall's whole placement body and the nodes within that reach of it, where its joint seals lie; or a
+ *  resource's walk cells. The recompute rewrites only the classes within the cap of these, so
+ *  every node whose probe a change can flip must be listed. Empty for a positionless or footprint-less
+ *  entity. */
 function blockerCellsOf(world: World, content: ContentSet, terrain: TerrainGraph, e: Entity): NodeId[] {
   const p = world.tryGet(e, Position);
   if (p === undefined) return [];
@@ -76,25 +84,51 @@ function blockerCellsOf(world: World, content: ContentSet, terrain: TerrainGraph
   if (building !== undefined) {
     const footprint = buildingFootprintOf(content, building.buildingType, building.tribe);
     if (footprint === undefined) return [];
-    const cells = translatedCells(terrain, footprint.blocked, hx, hy);
+    const cells = new Set(translatedCells(terrain, footprint.blocked, hx, hy));
     const door = footprint.door;
     if (door !== undefined) {
       const doorX = hx + footprintCellDx(hy, door);
-      if (terrain.inBounds(doorX, hy + door.dy)) cells.push(terrain.nodeAt(doorX, hy + door.dy));
+      if (terrain.inBounds(doorX, hy + door.dy)) {
+        addRings(terrain, cells, [terrain.nodeAt(doorX, hy + door.dy)], SEAL_REACH);
+      }
     }
-    return cells;
+    return [...cells];
   }
   const wall = world.tryGet(e, Palisade);
   if (wall !== undefined) {
-    return [
-      ...new Set([
-        ...translatedCells(terrain, wall.placementWalk, hx, hy),
-        ...translatedCells(terrain, wall.walk, hx, hy),
-      ]),
+    const cells = new Set<NodeId>();
+    const body = [
+      ...translatedCells(terrain, wall.placementWalk, hx, hy),
+      ...translatedCells(terrain, wall.walk, hx, hy),
     ];
+    addRings(terrain, cells, body, SEAL_REACH);
+    return [...cells];
   }
   const resource = tryFootprintCellsOf(world, e);
   return resource === undefined ? [] : translatedCells(terrain, resource.walk, hx, hy);
+}
+
+/** Add `from` and every node within `reach` hex steps of it to `cells`. */
+function addRings(terrain: TerrainGraph, cells: Set<NodeId>, from: readonly NodeId[], reach: number): void {
+  let frontier = [...from];
+  for (const node of frontier) cells.add(node);
+  for (let step = 0; step < reach; step++) {
+    const next: NodeId[] = [];
+    for (const node of frontier) {
+      const x = terrain.xOf(node);
+      const y = terrain.yOf(node);
+      for (const offset of HEX_NEIGHBOUR_OFFSETS) {
+        const nx = x + footprintCellDx(y, offset);
+        const ny = y + offset.dy;
+        if (!terrain.inBounds(nx, ny)) continue;
+        const neighbour = terrain.nodeAt(nx, ny);
+        if (cells.has(neighbour)) continue;
+        cells.add(neighbour);
+        next.push(neighbour);
+      }
+    }
+    frontier = next;
+  }
 }
 
 /** Replay one journal entry into `changed`: the cells the entity held and the cells it holds now. */

@@ -1,4 +1,4 @@
-export { type CorridorEntry, corridorGap, joinCorridor } from './corridor.js';
+export { type CorridorEntry, corridorBoxGap, corridorGap, joinCorridor } from './corridor.js';
 export {
   FLOOD_GUARD_MAX_EXPLORED,
   findPath,
@@ -8,4 +8,4 @@ export {
   RACE_SLICE_EXPLORED,
   type SearchStats,
 } from './find-path.js';
-export { NodeMarks, nodeMarksOf } from './node-marks.js';
+export { nodeMarksOf } from './node-marks.js';

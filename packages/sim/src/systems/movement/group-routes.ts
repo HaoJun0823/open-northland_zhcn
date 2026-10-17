@@ -2,6 +2,7 @@ import { type Fixed, fx, ULP, ZERO } from '../../core/fixed.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import {
   type CorridorEntry,
+  corridorBoxGap,
   corridorGap,
   joinCorridor,
   type SearchStats,
@@ -93,7 +94,7 @@ export class GroupRoutes {
       );
       if (joined !== null) return this.lanes.departEarly(blocked, joined, goal, route.meanWeight);
     }
-    const nearest = this.nearestRoute(blocked, start);
+    const nearest = this.nearestRoute(blocked, start, goal);
     if (nearest === undefined) return null;
     const boarded = joinCorridor(
       this.terrain,
@@ -109,13 +110,16 @@ export class GroupRoutes {
     return boarded === null ? null : this.lanes.departEarly(blocked, boarded, goal, nearest.meanWeight);
   }
 
-  /** The route under `blocked` with a node nearest `start`, the first offered on a tie. A failed boarding
-   *  costs a capped search, so a member tries only this one before searching alone. */
-  private nearestRoute(blocked: BlockOverlay, start: NodeId): GroupRoute | undefined {
+  /** The route under `blocked` with a node nearest `start` among those passing within the group's area of
+   *  `goal`, the first offered on a tie. A failed boarding costs a capped search, so a member tries only
+   *  this one before searching alone. */
+  private nearestRoute(blocked: BlockOverlay, start: NodeId, goal: NodeId): GroupRoute | undefined {
     let nearest: GroupRoute | undefined;
     let nearestGap = BOARDING_HOP_NODES + 1;
     for (const route of this.routes) {
       if (route.blocked !== blocked) continue;
+      // A route passing nowhere near the goal, another order's, could never let the member off by it.
+      if (corridorBoxGap(this.terrain, route.path, goal) > GROUP_AREA_RADIUS_NODES) continue;
       const gap = corridorGap(this.terrain, route.path, start);
       if (gap < nearestGap) {
         nearest = route;

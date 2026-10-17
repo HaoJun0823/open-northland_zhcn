@@ -59,6 +59,24 @@ export function joinCorridor(
   return joinedLegs(graph, onto, lattice, corridor, board.index + 1, exit.index, off);
 }
 
+/** Manhattan half-cell nodes from `node` to `corridor`'s bounding box, 0 inside it: no corridor node lies
+ *  nearer. */
+export function corridorBoxGap(graph: TerrainGraph, corridor: readonly NodeId[], node: NodeId): number {
+  return manhattanOutside(corridorLattice(graph, corridor), graph.xOf(node), graph.yOf(node));
+}
+
+/** {@link nearestStop} over a corridor's cached lattice: the unblocked node at or after `from` nearest
+ *  `target`, the earliest on a tie. */
+export function nearestCorridorStop(
+  graph: TerrainGraph,
+  corridor: readonly NodeId[],
+  target: NodeId,
+  from: number,
+  blocked: BlockOverlay,
+): { readonly index: number; readonly node: NodeId } | undefined {
+  return nearestStop(graph, corridorLattice(graph, corridor), corridor, target, from, blocked);
+}
+
 /** Manhattan half-cell nodes from `node` to the nearest node of `corridor`. */
 export function corridorGap(graph: TerrainGraph, corridor: readonly NodeId[], node: NodeId): number {
   const { xs, ys } = corridorLattice(graph, corridor);
@@ -102,6 +120,13 @@ interface CorridorStop {
 /** Corridor nodes per block whose bounding box lets {@link nearestStop} skip the block whole. Authored:
  *  a block spans at most twice this many lattice steps, short against a march and long against a scan. */
 const STOP_BLOCK_NODES = 32;
+
+/** A block's box fields, in order, within {@link CorridorLattice.blocks}. */
+const BLOCK_MIN_X = 0;
+const BLOCK_MAX_X = 1;
+const BLOCK_MIN_Y = 2;
+const BLOCK_MAX_Y = 3;
+const BLOCK_FIELDS = 4;
 
 /** A corridor's node coordinates and bounding boxes, read once per corridor rather than per joining walker. */
 interface CorridorLattice {
@@ -162,10 +187,10 @@ function corridorLattice(graph: TerrainGraph, corridor: readonly NodeId[]): Corr
       if (y > bMaxY) bMaxY = y;
     }
     const at = block * BLOCK_FIELDS;
-    blocks[at] = bMinX;
-    blocks[at + 1] = bMaxX;
-    blocks[at + 2] = bMinY;
-    blocks[at + 3] = bMaxY;
+    blocks[at + BLOCK_MIN_X] = bMinX;
+    blocks[at + BLOCK_MAX_X] = bMaxX;
+    blocks[at + BLOCK_MIN_Y] = bMinY;
+    blocks[at + BLOCK_MAX_Y] = bMaxY;
   }
   const lattice = {
     xs,
@@ -188,8 +213,6 @@ function manhattanOutside(lattice: CorridorLattice, x: number, y: number): numbe
   const dy = Math.max(0, lattice.minY - y, y - lattice.maxY);
   return dx + dy;
 }
-
-const BLOCK_FIELDS = 4;
 
 /** No corridor index: {@link nearestStop} has found no stop yet. */
 const NO_STOP = -1;
@@ -222,8 +245,8 @@ function nearestStop(
   for (let index = from; index < corridor.length; ) {
     if (best !== NO_STOP && index % STOP_BLOCK_NODES === 0) {
       const at = (index / STOP_BLOCK_NODES) * BLOCK_FIELDS;
-      const ax = Math.max(0, (blocks[at] ?? 0) - x, x - (blocks[at + 1] ?? 0));
-      const ay = Math.max(0, (blocks[at + 2] ?? 0) - y, y - (blocks[at + 3] ?? 0));
+      const ax = Math.max(0, (blocks[at + BLOCK_MIN_X] ?? 0) - x, x - (blocks[at + BLOCK_MAX_X] ?? 0));
+      const ay = Math.max(0, (blocks[at + BLOCK_MIN_Y] ?? 0) - y, y - (blocks[at + BLOCK_MAX_Y] ?? 0));
       if (latticeOffsetFloor(ax, ay) >= bestDistance) {
         index += STOP_BLOCK_NODES;
         continue;

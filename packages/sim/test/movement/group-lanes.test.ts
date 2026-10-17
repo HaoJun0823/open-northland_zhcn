@@ -189,4 +189,34 @@ describe('army route lanes', () => {
     const path = routes.borrow(blocked, terrain.nodeAt(0, 110), terrain.nodeAt(299, 110), { explored: 0 });
     expect(path).toHaveLength(300);
   });
+  it("boards the route of a member's own order, not another order's road passing nearer", () => {
+    const width = 400;
+    const height = 160;
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassNodeMap(width, height) });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('missing terrain');
+    const blocked = new NodeMask(terrain.nodeCount);
+    // A wall between the two orders' roads, open only at the far end of the map.
+    const wallY = 60;
+    for (let x = 0; x < width - 10; x++) blocked.set(terrain.nodeAt(x, wallY), true);
+    // A spur below it that B's road rounds at its foot, so no straight lane runs to B's slots.
+    const spurX = 200;
+    const spurFoot = 145;
+    for (let y = wallY + 1; y <= spurFoot; y++) blocked.set(terrain.nodeAt(spurX, y), true);
+    const routes = new GroupRoutes(terrain);
+    // Order A marches above the wall, order B below it, both searched in one drain under one view.
+    const orderA = findPath(terrain, terrain.nodeAt(4, 4), terrain.nodeAt(340, 8), blocked);
+    const orderB = findPath(terrain, terrain.nodeAt(4, 150), terrain.nodeAt(340, 140), blocked);
+    if (orderA === null || orderB === null) throw new Error('missing order routes');
+    routes.offer(blocked, orderA);
+    routes.offer(blocked, orderB);
+    // A member of B just below the wall: A's road lies nearer it, beyond the wall, and nowhere near its slot.
+    const goal = terrain.nodeAt(344, 140);
+    const route = routes.borrow(blocked, terrain.nodeAt(4, 66), goal, { explored: 0 });
+    if (route === null) throw new Error('the member found no route to ride');
+    expect(route.at(-1)).toBe(goal);
+    expect(route.every((node) => terrain.yOf(node) > wallY)).toBe(true);
+    const roadB = new Set(orderB);
+    expect(route.filter((node) => roadB.has(node)).length).toBeGreaterThan(route.length / 2);
+  });
 });

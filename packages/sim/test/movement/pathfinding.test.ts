@@ -3,10 +3,11 @@ import {
   buildTerrainGraph,
   findPath,
   type NodeId,
+  Rng,
   type TerrainGraph,
   type TerrainMap,
 } from '../../src/index.js';
-import { latticeOffsetFloor } from '../../src/nav/pathfinding/corridor.js';
+import { latticeOffsetFloor, nearestCorridorStop } from '../../src/nav/pathfinding/corridor.js';
 import {
   FLOOD_GUARD_MAX_EXPLORED,
   findPathWithin,
@@ -14,7 +15,7 @@ import {
   POCKET_PROBE_MAX_EXPLORED,
   RACE_SLICE_EXPLORED,
 } from '../../src/nav/pathfinding/index.js';
-import { latticeOffsetDistance } from '../../src/nav/terrain/index.js';
+import { latticeOffsetDistance, StepBuffer } from '../../src/nav/terrain/index.js';
 import { testContent } from '../fixtures/content.js';
 
 /**
@@ -478,6 +479,40 @@ describe('latticeOffsetFloor', () => {
     for (let ax = 0; ax <= span; ax++) {
       for (let ay = 0; ay <= span; ay++)
         expect(latticeOffsetFloor(ax, ay)).toBeLessThanOrEqual(nearest[ax]?.[ay] ?? 0);
+    }
+  });
+});
+
+describe('nearestCorridorStop', () => {
+  it('skips corridor blocks exactly as a linear scan picks', () => {
+    const g = open(120, 120);
+    const rng = new Rng(11);
+    for (let trial = 0; trial < 40; trial++) {
+      // A random walk of lattice steps, long enough for several blocks.
+      const corridor: NodeId[] = [g.nodeAt(60, 60)];
+      const steps = new StepBuffer();
+      while (corridor.length < 64 + rng.int(200)) {
+        const at = corridor.at(-1) ?? g.nodeAt(60, 60);
+        g.stepsInto(at, undefined, steps);
+        corridor.push(steps.nodeAt(rng.int(steps.length)));
+      }
+      const blocked = new Set<NodeId>(corridor.filter(() => rng.int(4) === 0));
+      const target = g.nodeAt(rng.int(120), rng.int(120));
+      const from = rng.int(corridor.length);
+      let expected: { index: number; node: NodeId } | undefined;
+      let best = 0;
+      for (let index = from; index < corridor.length; index++) {
+        const node = corridor[index];
+        if (node === undefined || blocked.has(node)) continue;
+        const distance = latticeOffsetDistance(
+          Math.abs(g.xOf(target) - g.xOf(node)),
+          Math.abs(g.yOf(target) - g.yOf(node)),
+        );
+        if (expected !== undefined && distance >= best) continue;
+        expected = { index, node };
+        best = distance;
+      }
+      expect(nearestCorridorStop(g, corridor, target, from, blocked)).toEqual(expected);
     }
   });
 });

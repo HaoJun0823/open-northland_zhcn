@@ -1,5 +1,6 @@
 import type { BlockOverlay } from './block-overlay.js';
 import { hexDistanceBetween, type NodeArea } from './halfcell.js';
+import { NodeList } from './node-list.js';
 import {
   enteredCost,
   type FloodCosts,
@@ -46,7 +47,7 @@ export function repairReach(
   terrain: TerrainGraph,
   blocked: BlockOverlay,
   question: ReachQuestion,
-  changed: readonly NodeId[],
+  changed: NodeList,
 ): ReachSearch | null {
   const { hx, hy } = question;
   const start = terrain.inBounds(hx, hy) ? terrain.nodeAt(hx, hy) : undefined;
@@ -59,9 +60,9 @@ export function repairReach(
 }
 
 /** Scratch shared by every repair and emptied before use; a repair runs no other repair. */
-const raised: NodeId[] = [];
-const lowered: NodeId[] = [];
-const lost: NodeId[] = [];
+const raised = new NodeList();
+const lowered = new NodeList();
+const lost = new NodeList();
 /** Filled by count, like each bucket below, never truncated: they keep their capacity across repairs. */
 const settled: NodeId[] = [];
 let settledCount = 0;
@@ -72,12 +73,17 @@ let bucketEnds = new Int32Array(0);
 let lostAt = new Uint32Array(0);
 let generation = 0;
 const MAX_GENERATION = 0xffffffff;
+/** Per area cell, the repair generation that last recomputed its mark: a mark reads only final costs, so
+ *  one recomputation per repair answers for every neighbour that asks it again. */
+let remarkedAt = new Uint32Array(0);
 
 class ReachRepair {
   private readonly resistances: Uint8Array;
   private readonly mapWidth: number;
   private readonly mapHeight: number;
   private readonly costs: FloodCosts;
+  /** The search's area with the marks {@link remarked} moved, copied on the first move. */
+  private remarkedArea: ReachArea | undefined;
 
   constructor(
     private readonly search: ReachSearch,
@@ -94,9 +100,10 @@ class ReachRepair {
   /** Whether a stopped search still marks only what the full flood marks: each changed node it entered
    *  is open and costs no more than its recorded cost through its entered neighbours, so every entered
    *  node keeps a path under the budget, and each changed node it marks is open. */
-  staysSound(changed: readonly NodeId[]): boolean {
+  staysSound(changed: NodeList): boolean {
     const { hx, hy } = this.question;
-    for (const node of changed) {
+    for (let i = 0; i < changed.length; i++) {
+      const node = changed.at(i);
       const x = this.terrain.xOf(node);
       const y = this.terrain.yOf(node);
       if (x === hx && y === hy) continue;
@@ -108,11 +115,12 @@ class ReachRepair {
     return true;
   }
 
-  complete(changed: readonly NodeId[]): ReachSearch | null {
+  complete(changed: NodeList): ReachSearch | null {
     const { hx, hy, budget } = this.question;
-    raised.length = 0;
-    lowered.length = 0;
-    for (const node of changed) {
+    raised.clear();
+    lowered.clear();
+    for (let i = 0; i < changed.length; i++) {
+      const node = changed.at(i);
       const x = this.terrain.xOf(node);
       const y = this.terrain.yOf(node);
       // The start's own step never counts, and its open state was compared already.
@@ -132,12 +140,12 @@ class ReachRepair {
       else if (step < was) lowered.push(node);
     }
     if (!this.dropLost()) return null;
-    for (const node of lost) this.setCost(node, NOT_ENTERED);
+    for (let i = 0; i < lost.length; i++) this.setCost(lost.at(i), NOT_ENTERED);
     if (bucketEnds.length < budget) bucketEnds = new Int32Array(budget);
     bucketEnds.fill(0, 0, budget);
     for (let cost = buckets.length; cost < budget; cost++) buckets[cost] = [];
-    for (const node of lost) if (!this.seed(node)) return null;
-    for (const node of lowered) if (!this.seed(node)) return null;
+    for (let i = 0; i < lost.length; i++) if (!this.seed(lost.at(i))) return null;
+    for (let i = 0; i < lowered.length; i++) if (!this.seed(lowered.at(i))) return null;
     if (!this.settle()) return null;
     return this.remarked(changed);
   }
@@ -145,15 +153,17 @@ class ReachRepair {
   /** Collect in {@link lost} every entered node whose costs all ran through a raised node: the raised
    *  ones, and each node whose every cheapest entered neighbour is lost. False past the repair bound. */
   private dropLost(): boolean {
-    lost.length = 0;
+    lost.clear();
     if (generation === MAX_GENERATION) {
       lostAt.fill(0);
+      remarkedAt.fill(0);
       generation = 0;
     }
     generation++;
     const boxSize = this.costs.width * this.costs.height;
     if (lostAt.length < boxSize) lostAt = new Uint32Array(boxSize);
-    for (const node of raised) {
+    for (let r = 0; r < raised.length; r++) {
+      const node = raised.at(r);
       const slot = this.slotOf(this.terrain.xOf(node), this.terrain.yOf(node));
       if (lostAt[slot] === generation) continue;
       lostAt[slot] = generation;
@@ -162,7 +172,7 @@ class ReachRepair {
     const { hx, hy } = this.question;
     for (let i = 0; i < lost.length; i++) {
       if (lost.length > MAX_REPAIRED_NODES) return false;
-      const node = lost[i] as NodeId;
+      const node = lost.at(i);
       const x = this.terrain.xOf(node);
       const y = this.terrain.yOf(node);
       const cost = enteredCost(this.costs, x, y);
@@ -247,28 +257,18 @@ class ReachRepair {
 
   /** The search with marks recomputed where an entered state or an open state moved: the changed nodes,
    *  and the lost and settled nodes with their neighbours. */
-  private remarked(changed: readonly NodeId[]): ReachSearch {
-    let area: ReachArea | undefined;
-    const remark = (x: number, y: number): void => {
-      const current = area ?? this.search.area;
-      if (x < current.minX || x > current.maxX || y < current.minY || y > current.maxY) return;
-      const cell = (y - current.minY) * (current.maxX - current.minX + 1) + x - current.minX;
-      const want = this.marks(x, y) ? MARKED : 0;
-      if (current.cells[cell] === want) return;
-      area ??= { ...current, cells: current.cells.slice() };
-      area.cells[cell] = want;
-    };
-    const remarkAround = (node: NodeId): void => {
-      const x = this.terrain.xOf(node);
-      const y = this.terrain.yOf(node);
-      remark(x, y);
-      const dxs = (y & 1) === 0 ? HEX_DX_EVEN : HEX_DX_ODD;
-      for (let k = 0; k < NEIGHBOURS; k++) remark(x + (dxs[k] as number), y + (HEX_DY[k] as number));
-    };
-    for (const node of changed) remark(this.terrain.xOf(node), this.terrain.yOf(node));
+  private remarked(changed: NodeList): ReachSearch {
+    this.remarkedArea = undefined;
+    const held = this.search.area;
+    const areaSize = (held.maxX - held.minX + 1) * (held.maxY - held.minY + 1);
+    if (remarkedAt.length < areaSize) remarkedAt = new Uint32Array(areaSize);
+    for (let i = 0; i < changed.length; i++) {
+      const node = changed.at(i);
+      this.remark(this.terrain.xOf(node), this.terrain.yOf(node));
+    }
     let { minHx, maxHx, minHy, maxHy } = this.search.searched;
-    for (const node of lost) remarkAround(node);
-    for (let i = 0; i < settledCount; i++) remarkAround(settled[i] as NodeId);
+    for (let i = 0; i < lost.length; i++) this.remarkAround(lost.at(i));
+    for (let i = 0; i < settledCount; i++) this.remarkAround(settled[i] as NodeId);
     // An entered node inspects its neighbours, one node out on either axis. Lost nodes never shrink this
     // box, but every settled node lies in the cost box, so it grows to one node past that box at most.
     for (let i = 0; i < settledCount; i++) {
@@ -280,9 +280,32 @@ class ReachRepair {
       minHy = Math.min(minHy, Math.max(0, y - 1));
       maxHy = Math.max(maxHy, Math.min(this.mapHeight - 1, y + 1));
     }
+    const area = this.remarkedArea;
     if (area === undefined && lost.length === 0 && settledCount === 0) return this.search;
     const searched: NodeArea = { minHx, maxHx, minHy, maxHy };
     return { area: area ?? this.search.area, searched, costs: this.costs, complete: true };
+  }
+
+  /** Recompute `(x, y)`'s mark, copying the area on its first moved mark. */
+  private remark(x: number, y: number): void {
+    const current = this.remarkedArea ?? this.search.area;
+    if (x < current.minX || x > current.maxX || y < current.minY || y > current.maxY) return;
+    const cell = (y - current.minY) * (current.maxX - current.minX + 1) + x - current.minX;
+    if (remarkedAt[cell] === generation) return;
+    remarkedAt[cell] = generation;
+    const want = this.marks(x, y) ? MARKED : 0;
+    if (current.cells[cell] === want) return;
+    const area = this.remarkedArea ?? { ...current, cells: current.cells.slice() };
+    this.remarkedArea = area;
+    area.cells[cell] = want;
+  }
+
+  private remarkAround(node: NodeId): void {
+    const x = this.terrain.xOf(node);
+    const y = this.terrain.yOf(node);
+    this.remark(x, y);
+    const dxs = (y & 1) === 0 ? HEX_DX_EVEN : HEX_DX_ODD;
+    for (let k = 0; k < NEIGHBOURS; k++) this.remark(x + (dxs[k] as number), y + (HEX_DY[k] as number));
   }
 
   /** The flood's mark rule: the start, and every open node in range next to an entered node. */

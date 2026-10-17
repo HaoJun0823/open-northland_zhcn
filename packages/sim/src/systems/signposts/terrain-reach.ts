@@ -8,6 +8,7 @@ import {
 } from '../../components/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { type NodeArea, nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
+import { NodeList } from '../../nav/node-list.js';
 import {
   floodInspected,
   floodReach,
@@ -142,7 +143,7 @@ export function terrainReach(
 /** Read nodes a held search takes in a repair before a fresh flood is the cheaper answer. */
 const MAX_REPAIRED_CHANGES = 256;
 /** The read nodes whose blocker or resistance changed since the held search being checked last held. */
-const changedScratch: NodeId[] = [];
+const changedScratch = new NodeList();
 /** The search {@link listRead} checks and its map width, set only while a check runs. */
 let checkedSearch: ReachSearch | undefined;
 let checkedWidth = 0;
@@ -160,7 +161,7 @@ function repairHeld(
   mask: WalkBlockMask,
   terrain: TerrainGraph,
 ): TerrainReach | ReachSearch | null {
-  changedScratch.length = 0;
+  changedScratch.clear();
   checkedSearch = held;
   checkedWidth = terrain.width;
   const overflow =

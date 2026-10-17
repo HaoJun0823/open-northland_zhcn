@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BlockOverlay } from '../../src/nav/block-overlay.js';
+import { NodeList } from '../../src/nav/node-list.js';
 import {
   enteredCost,
   floodInspected,
@@ -109,6 +110,12 @@ function readOnly(search: ReachSearch, terrain: TerrainGraph, changed: readonly 
   return changed.filter((n) => floodInspected(search, terrain.xOf(n), terrain.yOf(n)));
 }
 
+function nodeList(nodes: readonly NodeId[]): NodeList {
+  const list = new NodeList();
+  for (const node of nodes) list.push(node);
+  return list;
+}
+
 function expectSameFlood(terrain: TerrainGraph, repaired: ReachSearch, fresh: ReachSearch): void {
   expect(repaired.complete).toBe(true);
   expect(repaired.area.cells).toEqual(fresh.area.cells);
@@ -149,7 +156,7 @@ describe('repairReach', () => {
         const changed = flip(g, next, q.hx, q.hy);
         const listed = round % 2 === 0 ? readOnly(held, terrain, changed) : changed;
         const before = held.area;
-        const result = repairReach(held, terrain, blocked, q, listed);
+        const result = repairReach(held, terrain, blocked, q, nodeList(listed));
         const fresh = flood();
         if (result === null) {
           held = fresh;
@@ -186,7 +193,7 @@ describe('repairReach', () => {
       let held = flood();
       for (let round = 0; round < ROUNDS; round++) {
         const changed = readOnly(held, terrain, flip(g, next, hx, hy));
-        const result = repairReach(held, terrain, blocked, q, changed);
+        const result = repairReach(held, terrain, blocked, q, nodeList(changed));
         if (result === null || result.complete) {
           held = result ?? flood();
           continue;
@@ -234,6 +241,6 @@ describe('repairReach', () => {
     expect(
       reachContains(floodReach(terrain, blocked, hx, hy, range, q.budget, true).area, target.hx, target.hy),
     ).toBe(false);
-    expect(repairReach(held, terrain, blocked, q, lifted)).toBeNull();
+    expect(repairReach(held, terrain, blocked, q, nodeList(lifted))).toBeNull();
   });
 });

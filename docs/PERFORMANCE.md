@@ -200,6 +200,11 @@ median and includes WebGL calls, selection/inset counts and adapter. Load, visib
 checks apply here too. Missing supported GPU readings or incomplete selections fail the scenario.
 Read milliseconds only from an idle machine; WebGL call counts remain useful under load.
 
+A hand-rolled throughput loop (many `renderer.update(frame)` calls between two `readPixels`) must
+call `gl.flush()` once per frame, as a real present does. Without it, ANGLE over Metal stacks the
+frames into one command buffer that runs about 50% slower, and anything that switches the render
+target (a filter, Pixi's `useBackBuffer`) breaks the stack up and looks like a saving it is not.
+
 ## Render comparisons
 
 Capture both versions with the same paused checkpoint:

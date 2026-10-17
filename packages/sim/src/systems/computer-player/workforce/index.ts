@@ -244,7 +244,8 @@ function collectorGround(
   const { limit } = flags;
   const origin = terrain.nodeAtClamped(baseNode.hx, baseNode.hy);
   const maxWorkOffset = contentIndex(ctx.content).maxResourceWorkOffset;
-  const epoch = workableVerdicts.open();
+  const verdicts = workableVerdictsOf(world);
+  const epoch = verdicts.open();
   const judge =
     limit === null
       ? (e: Entity): boolean => reachable(e) && unsealed(e)
@@ -254,7 +255,7 @@ function collectorGround(
           limit.allowsNode(interactionCell(world, ctx, terrain, e, origin)) &&
           unsealed(e);
   // Every test reads state the decision cannot change, so each resource is judged once per decision.
-  const workable = (e: Entity): boolean => workableVerdicts.judged(e, epoch, judge);
+  const workable = (e: Entity): boolean => verdicts.judged(e, epoch, judge);
   return { anchors: collectorAnchors(world, ctx, owned, baseNode), baseNode, flags, workable };
 }
 
@@ -302,7 +303,17 @@ class DecisionVerdicts {
   }
 }
 
-const workableVerdicts = new DecisionVerdicts();
+/** Per world, so two simulations in one process never read each other's stamps. */
+const workableVerdicts = new WeakMap<World, DecisionVerdicts>();
+
+function workableVerdictsOf(world: World): DecisionVerdicts {
+  let verdicts = workableVerdicts.get(world);
+  if (verdicts === undefined) {
+    verdicts = new DecisionVerdicts();
+    workableVerdicts.set(world, verdicts);
+  }
+  return verdicts;
+}
 
 /**
  * What a baseless seat runs instead of the ladder: the builder reserve, then minimum staffing. The

@@ -4,7 +4,6 @@ import {
   ownerOf,
   ownersCompatible,
   Palisade,
-  Position,
   RoadSite,
   SiteAssignment,
   UnderConstruction,
@@ -34,7 +33,7 @@ import {
 import type { PlannerContext } from '../../planner/context.js';
 import type { PlannerSpacing } from '../../planner/spacing.js';
 import {
-  InteractionCellIndex,
+  type InteractionCellIndex,
   interactionCell,
   nearestBuilderSite,
   unreachableSiteStand,
@@ -42,6 +41,7 @@ import {
 import { unreachableGoalVeto } from '../../unreachable-goals.js';
 import { cutOffCheckDue } from '../cut-off.js';
 import { claimWorkCell } from '../spacing.js';
+import { soloSitesAwaitingSupply } from './awaiting-supply-sites.js';
 import type { ConstructionTaskClaims, SiteRanking } from './construction-task-claims.js';
 import { type RepairCrews, startRepair } from './repair.js';
 import { boundConstructionSite } from './site-staff.js';
@@ -305,8 +305,8 @@ export function planBuilder(
     const staging =
       nearestInTurn(
         (candidate) => plan.supply.hasInbound(candidate) && canStandAt(candidate),
-        () => soloSitesAwaitingSupply(plan, 'wall'),
-        () => soloSitesAwaitingSupply(plan, 'road'),
+        () => soloSitesAwaitingSupply(world, ctx, terrain, plan.supply.inbound, 'wall'),
+        () => soloSitesAwaitingSupply(world, ctx, terrain, plan.supply.inbound, 'road'),
       ) ??
       (crewSite !== null && !world.has(crewSite, RoadSite) && canStandAt(crewSite) && inTurn(crewSite)
         ? crewSite
@@ -494,20 +494,6 @@ function repairNearest(
   repairs.join(site, e);
   stampAssignment(plan, claims, site, false);
   return true;
-}
-
-/** The wall segments or road sites a live supply errand is bringing material to, indexed like
- *  `TargetCandidates.wallSiteCells`, or null for none. */
-function soloSitesAwaitingSupply(plan: PlannerContext, kind: 'wall' | 'road'): InteractionCellIndex | null {
-  const { world, ctx, terrain } = plan;
-  const component = kind === 'wall' ? Palisade : RoadSite;
-  const sites: Entity[] = [];
-  for (const site of plan.supply.inbound.keys()) {
-    if (world.has(site, component) && world.has(site, UnderConstruction) && world.has(site, Position)) {
-      sites.push(site);
-    }
-  }
-  return sites.length === 0 ? null : new InteractionCellIndex(world, ctx, terrain, sites);
 }
 
 /** The site a road or wall run keeps working: its current one while that is still an unfinished site of

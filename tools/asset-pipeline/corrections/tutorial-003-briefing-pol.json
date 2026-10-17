@@ -35,6 +35,10 @@
     {
       "from": "Twój farmer jest jedyną osobą posiadającą dostateczne doświadczenie przy pracy z mąką. ",
       "to": "Twój farmer jest jedyną osobą posiadającą dostateczne doświadczenie przy pracy z pszenicą. "
+    },
+    {
+      "from": "Daj dwóm z twoich Wikingów pracę drwala i zbieracza kamieni.",
+      "to": "Daj dwóm kolejnym Wikingom zawód zbieracza: jeden niech zbiera drewno, a drugi kamienie."
     }
   ]
 }

@@ -23,6 +23,10 @@
     {
       "from": "Now employ a WOODCUTTER and a STONE COLLECTOR.",
       "to": "Now give two more Vikings the EXTRACTOR profession. In one character panel, click the wood icon; in the other, click the stone icon."
+    },
+    {
+      "from": "Give two of your Vikings the job of a woodcutter and a stone collector respectively.",
+      "to": "Give two more Vikings the extractor profession: have one collect wood and the other stone."
     }
   ]
 }

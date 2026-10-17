@@ -83,6 +83,42 @@ describe('NodeBuckets fill order', () => {
     }
   });
 
+  it('answers after a refill that grew the occupancy filter and one that shrank back below it', () => {
+    const world = new World();
+    const entities: Entity[] = [];
+    for (let i = 0; i < GROWN_ENTITY_COUNT; i++) entities.push(world.create());
+    const reused = new NodeBuckets(world, []);
+    // One entity per node, enough nodes to double the smallest filter, then a few nodes, then many again.
+    const distinct = (i: number): { x: number; y: number } => ({
+      x: i % GROWN_ROW,
+      y: 2 * Math.floor(i / GROWN_ROW),
+    });
+    const rounds: ReadonlyArray<{
+      entities: readonly Entity[];
+      place: (i: number) => { x: number; y: number };
+    }> = [
+      { entities, place: distinct },
+      { entities: entities.slice(0, 3), place: (i) => ({ x: i, y: 0 }) },
+      { entities, place: (i) => distinct(GROWN_ENTITY_COUNT - 1 - i) },
+    ];
+    for (const round of rounds) {
+      round.entities.forEach((e, i) => {
+        const node = round.place(i);
+        world.add(e, Position, positionOfNode(node.x, node.y));
+      });
+      reused.refill(world, round.entities);
+      const fresh = new NodeBuckets(world, round.entities);
+
+      expect(snapshot(reused)).toEqual(snapshot(fresh));
+      for (let x = -1; x <= GROWN_ROW; x++) {
+        for (let y = -1; y <= GROWN_SPAN_Y; y++) expect(reused.at(x, y)).toEqual(fresh.at(x, y));
+      }
+      expect(reused.nearest(0, 0, 0, GROWN_SPAN_Y, () => true)).toEqual(
+        fresh.nearest(0, 0, 0, GROWN_SPAN_Y, () => true),
+      );
+    }
+  });
+
   it('answers every node like a plain node map through moves that empty and refill nodes', () => {
     const world = new World();
     const buckets = new NodeBuckets(world, []);
@@ -130,6 +166,11 @@ describe('NodeBuckets fill order', () => {
 /** Enough single-entity moves to empty, reuse and re-key buckets many times over. */
 const MOVE_STEPS = 60;
 const ENTITY_COUNT = 12;
+/** Distinct nodes past the point where the smallest occupancy filter doubles (a quarter of its 64 slots). */
+const GROWN_ENTITY_COUNT = 40;
+const GROWN_ROW = 8;
+/** The greatest half-row the grown rounds reach, plus one. */
+const GROWN_SPAN_Y = 2 * Math.ceil(GROWN_ENTITY_COUNT / GROWN_ROW);
 /** Wide enough that the spread round lands most entities on nodes the clustered rounds never used. */
 const SPREAD = 11;
 

@@ -1,4 +1,4 @@
-import { fx } from '../../core/fixed.js';
+import { type Fixed, fx } from '../../core/fixed.js';
 import type { BlockOverlay } from '../block-overlay.js';
 import {
   latticeOffsetDistance,
@@ -98,16 +98,24 @@ interface CorridorStop {
   readonly node: NodeId;
 }
 
-/** A corridor's node coordinates and bounding box, read once per corridor rather than per joining walker. */
+/** Corridor nodes per block whose bounding box lets {@link nearestStop} skip the block whole. Authored:
+ *  a block spans at most twice this many lattice steps, short against a march and long against a scan. */
+const STOP_BLOCK_NODES = 32;
+
+/** A corridor's node coordinates and bounding boxes, read once per corridor rather than per joining walker. */
 interface CorridorLattice {
   readonly xs: Int32Array;
   readonly ys: Int32Array;
+  /** Per {@link STOP_BLOCK_NODES} block: min x, max x, min y, max y. */
+  readonly blocks: Int32Array;
   readonly minX: number;
   readonly maxX: number;
   readonly minY: number;
   readonly maxY: number;
   /** No node repeats, so no stretch of the corridor holds a loop of its own. */
   readonly loopFree: boolean;
+  /** Each node's index, exact when {@link loopFree}. */
+  readonly indexOf: ReadonlyMap<NodeId, number>;
 }
 
 /** Keyed by the corridor array, which a caller never mutates once routed. */
@@ -116,7 +124,7 @@ const lattices = new WeakMap<readonly NodeId[], CorridorLattice>();
 function corridorLattice(graph: TerrainGraph, corridor: readonly NodeId[]): CorridorLattice {
   const held = lattices.get(corridor);
   if (held !== undefined) return held;
-  const seen = new Set<NodeId>();
+  const indexOf = new Map<NodeId, number>();
   const xs = new Int32Array(corridor.length);
   const ys = new Int32Array(corridor.length);
   let minX = Number.POSITIVE_INFINITY,
@@ -126,7 +134,7 @@ function corridorLattice(graph: TerrainGraph, corridor: readonly NodeId[]): Corr
   for (let i = 0; i < corridor.length; i++) {
     const node = corridor[i];
     if (node === undefined) continue;
-    seen.add(node);
+    if (!indexOf.has(node)) indexOf.set(node, i);
     const x = graph.xOf(node),
       y = graph.yOf(node);
     xs[i] = x;
@@ -136,7 +144,39 @@ function corridorLattice(graph: TerrainGraph, corridor: readonly NodeId[]): Corr
     minY = Math.min(minY, y);
     maxY = Math.max(maxY, y);
   }
-  const lattice = { xs, ys, minX, maxX, minY, maxY, loopFree: seen.size === corridor.length };
+  const blocks = new Int32Array(Math.ceil(corridor.length / STOP_BLOCK_NODES) * BLOCK_FIELDS);
+  for (let block = 0; block * STOP_BLOCK_NODES < corridor.length; block++) {
+    const first = block * STOP_BLOCK_NODES;
+    const last = Math.min(corridor.length, first + STOP_BLOCK_NODES);
+    let bMinX = xs[first] ?? 0,
+      bMaxX = bMinX,
+      bMinY = ys[first] ?? 0,
+      bMaxY = bMinY;
+    for (let i = first + 1; i < last; i++) {
+      const x = xs[i] ?? 0,
+        y = ys[i] ?? 0;
+      if (x < bMinX) bMinX = x;
+      if (x > bMaxX) bMaxX = x;
+      if (y < bMinY) bMinY = y;
+      if (y > bMaxY) bMaxY = y;
+    }
+    const at = block * BLOCK_FIELDS;
+    blocks[at] = bMinX;
+    blocks[at + 1] = bMaxX;
+    blocks[at + 2] = bMinY;
+    blocks[at + 3] = bMaxY;
+  }
+  const lattice = {
+    xs,
+    ys,
+    blocks,
+    minX,
+    maxX,
+    minY,
+    maxY,
+    loopFree: indexOf.size === corridor.length,
+    indexOf,
+  };
   lattices.set(corridor, lattice);
   return lattice;
 }
@@ -148,8 +188,20 @@ function manhattanOutside(lattice: CorridorLattice, x: number, y: number): numbe
   return dx + dy;
 }
 
+const BLOCK_FIELDS = 4;
+
+/**
+ * A lower bound on {@link latticeOffsetDistance} over every offset at least `ax` half-columns and `ay`
+ * half-rows: the distance grows with either offset except from an odd half-row count to the next even
+ * one, so the even count at or below `ay` bounds the rest.
+ */
+export function latticeOffsetFloor(ax: number, ay: number): Fixed {
+  return latticeOffsetDistance(ax, ay - (ay & 1));
+}
+
 /** The unblocked corridor node at or after index `from` nearest `target`, the earliest on a tie. Only a
- *  node nearer than the best so far is asked of `blocked`: an overlay's answers are pure. */
+ *  node nearer than the best so far is asked of `blocked`: an overlay's answers are pure. A block whose
+ *  box lies no nearer than the best so far holds no such node and is skipped whole. */
 function nearestStop(
   graph: TerrainGraph,
   lattice: CorridorLattice,
@@ -160,15 +212,25 @@ function nearestStop(
 ): CorridorStop | undefined {
   const x = graph.xOf(target);
   const y = graph.yOf(target);
-  const { xs, ys } = lattice;
+  const { xs, ys, blocks } = lattice;
   let best: CorridorStop | undefined;
   let bestDistance = fx.fromInt(0);
-  for (let index = from; index < corridor.length; index++) {
+  for (let index = from; index < corridor.length; ) {
+    if (best !== undefined && index % STOP_BLOCK_NODES === 0) {
+      const at = (index / STOP_BLOCK_NODES) * BLOCK_FIELDS;
+      const ax = Math.max(0, (blocks[at] ?? 0) - x, x - (blocks[at + 1] ?? 0));
+      const ay = Math.max(0, (blocks[at + 2] ?? 0) - y, y - (blocks[at + 3] ?? 0));
+      if (latticeOffsetFloor(ax, ay) >= bestDistance) {
+        index += STOP_BLOCK_NODES;
+        continue;
+      }
+    }
     const distance = latticeOffsetDistance(Math.abs(x - (xs[index] ?? 0)), Math.abs(y - (ys[index] ?? 0)));
-    if (best !== undefined && distance >= bestDistance) continue;
     const node = corridor[index];
+    index++;
+    if (best !== undefined && distance >= bestDistance) continue;
     if (node === undefined || blocked.has(node)) continue;
-    best = { index, node };
+    best = { index: index - 1, node };
     bestDistance = distance;
   }
   return best;
@@ -177,7 +239,7 @@ function nearestStop(
 /**
  * {@link withoutLoops} of `onto`, `corridor[from..to)` and `off`. The searched legs are loop-free, so when
  * the corridor is too and no node lies in two parts, the joined route is their plain concatenation and
- * the long corridor stretch is never indexed.
+ * the long corridor stretch is never indexed; the legs' nodes are looked up in the corridor's own index.
  */
 function joinedLegs(
   onto: readonly NodeId[],
@@ -190,9 +252,10 @@ function joinedLegs(
   const legs = new Set<NodeId>(onto);
   let shared = !lattice.loopFree || off.some((node) => legs.has(node));
   for (const node of off) legs.add(node);
-  for (let i = from; i < to && !shared; i++) {
-    const node = corridor[i];
-    shared = node !== undefined && legs.has(node);
+  for (const node of legs) {
+    if (shared) break;
+    const at = lattice.indexOf.get(node);
+    shared = at !== undefined && at >= from && at < to;
   }
   const joined = [...onto];
   for (let i = from; i < to; i++) {

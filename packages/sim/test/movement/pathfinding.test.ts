@@ -6,6 +6,7 @@ import {
   type TerrainGraph,
   type TerrainMap,
 } from '../../src/index.js';
+import { latticeOffsetFloor } from '../../src/nav/pathfinding/corridor.js';
 import {
   FLOOD_GUARD_MAX_EXPLORED,
   findPathWithin,
@@ -13,6 +14,7 @@ import {
   POCKET_PROBE_MAX_EXPLORED,
   RACE_SLICE_EXPLORED,
 } from '../../src/nav/pathfinding/index.js';
+import { latticeOffsetDistance } from '../../src/nav/terrain/index.js';
 import { testContent } from '../fixtures/content.js';
 
 /**
@@ -456,6 +458,27 @@ describe('findPath - deterministic tie-breaking', () => {
       { x: 2, y: 3 },
       { x: 3, y: 3 },
     ]);
+  });
+});
+
+describe('latticeOffsetFloor', () => {
+  it('bounds the lattice distance of every offset at least as far on both axes', () => {
+    const span = 60;
+    const reach = 2 * span;
+    // nearest[ax][ay]: the least distance over every offset at least (ax, ay), within reach.
+    const nearest: number[][] = [];
+    for (let ax = reach; ax >= 0; ax--) {
+      const row: number[] = [];
+      for (let ay = reach; ay >= 0; ay--) {
+        const here = latticeOffsetDistance(ax, ay);
+        row[ay] = Math.min(here, row[ay + 1] ?? here, nearest[ax + 1]?.[ay] ?? here);
+      }
+      nearest[ax] = row;
+    }
+    for (let ax = 0; ax <= span; ax++) {
+      for (let ay = 0; ay <= span; ay++)
+        expect(latticeOffsetFloor(ax, ay)).toBeLessThanOrEqual(nearest[ax]?.[ay] ?? 0);
+    }
   });
 });
 

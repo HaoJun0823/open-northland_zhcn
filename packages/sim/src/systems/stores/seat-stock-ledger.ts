@@ -19,10 +19,14 @@ import {
   seatStockFrom,
 } from './seat-stock.js';
 
+/** Units by good as flat `good, amount` pairs, each good once. A capture refills the list of the capture
+ *  it replaces, so a settler picking up and dropping goods allocates nothing. */
+type Units = number[];
+
 /** An owned entity's units: its pile, the stock it keeps aside while upgrading, the unit in its hands. */
 interface OwnedUnits {
-  readonly player: number;
-  readonly units: ReadonlyMap<number, number>;
+  player: number;
+  readonly units: Units;
 }
 
 /** An owned building or signpost standing on the map. */
@@ -36,7 +40,7 @@ interface Anchor {
 interface Heap {
   readonly node: HalfCellNode;
   readonly bucket: number;
-  readonly units: ReadonlyMap<number, number>;
+  readonly units: Units;
   seats: readonly number[];
 }
 
@@ -90,7 +94,7 @@ class SeatStockLedger {
       { membership: [Stockpile, Owner, Position], values: [Stockpile] },
       () => world.query(Stockpile),
       {
-        capture: (e) => heapOf(world, e),
+        capture: (e, spent) => heapOf(world, e, spent),
         apply: (e, heap) => {
           bucketOf(this.heapBuckets, heap.bucket).set(e, heap);
           heap.seats = this.seatsReaching(heap.node);
@@ -116,7 +120,7 @@ class SeatStockLedger {
       },
       () => world.query(Owner),
       {
-        capture: (e) => ownedUnitsOf(world, e),
+        capture: (e, spent) => ownedUnitsOf(world, e, spent),
         apply: (_, owned) => this.fold(this.ownedTotals, owned.player, owned.units, 1),
         withdraw: (_, owned) => this.fold(this.ownedTotals, owned.player, owned.units, -1),
         clear: () => {
@@ -195,13 +199,16 @@ class SeatStockLedger {
     }
   }
 
-  private fold(totals: SeatTotals, player: number, units: ReadonlyMap<number, number>, sign: 1 | -1): void {
+  private fold(totals: SeatTotals, player: number, units: Units, sign: 1 | -1): void {
     let seat = totals.get(player);
     if (seat === undefined) {
       seat = new Map();
       totals.set(player, seat);
     }
-    for (const [good, amount] of units) seat.set(good, (seat.get(good) ?? 0) + sign * amount);
+    for (let i = 0; i < units.length; i += 2) {
+      const good = units[i] as number;
+      seat.set(good, (seat.get(good) ?? 0) + sign * (units[i + 1] as number));
+    }
     this.revision++;
   }
 
@@ -251,26 +258,54 @@ function anchorOf(world: World, e: Entity): Anchor | null {
   return { player, node, bucket: reachBucketOf(node.hx, node.hy) };
 }
 
-function heapOf(world: World, e: Entity): Heap | null {
+function heapOf(world: World, e: Entity, spent: Heap | undefined): Heap | null {
   if (world.has(e, Owner)) return null;
   const stock = world.tryGet(e, Stockpile);
   const p = world.tryGet(e, Position);
   if (stock === undefined || p === undefined) return null;
   const node = nodeOfPosition(p.x, p.y);
-  return { node, bucket: reachBucketOf(node.hx, node.hy), units: new Map(stock.amounts), seats: [] };
+  const units = spent?.units ?? [];
+  units.length = 0;
+  addAllUnits(units, stock.amounts);
+  return { node, bucket: reachBucketOf(node.hx, node.hy), units, seats: [] };
 }
 
-function ownedUnitsOf(world: World, e: Entity): OwnedUnits | null {
+function ownedUnitsOf(world: World, e: Entity, spent: OwnedUnits | undefined): OwnedUnits | null {
   const player = world.tryGet(e, Owner)?.player;
   if (player === undefined) return null;
   const pile = world.tryGet(e, Stockpile)?.amounts;
   const saved = world.tryGet(e, Upgrading)?.savedStock;
   const carried = world.tryGet(e, Carrying);
   if (pile === undefined && saved === undefined && carried === undefined) return null;
-  const units = new Map(pile);
-  for (const [good, amount] of saved ?? []) units.set(good, (units.get(good) ?? 0) + amount);
-  if (carried !== undefined) units.set(carried.goodType, (units.get(carried.goodType) ?? 0) + carried.amount);
-  return { player, units };
+  const owned = spent ?? { player, units: [] };
+  owned.player = player;
+  owned.units.length = 0;
+  if (pile !== undefined) addAllUnits(owned.units, pile);
+  if (saved !== undefined) addAllUnits(owned.units, saved);
+  if (carried !== undefined) addUnits(owned.units, carried.goodType, carried.amount);
+  return owned;
+}
+
+function addUnits(units: Units, good: number, amount: number): void {
+  for (let i = 0; i < units.length; i += 2) {
+    if (units[i] === good) {
+      units[i + 1] = (units[i + 1] as number) + amount;
+      return;
+    }
+  }
+  units.push(good, amount);
+}
+
+/** The list {@link addEntry} adds to: `forEach` with one shared callback walks a map without the pair an
+ *  entry iterator allocates per good, or a closure per call. */
+let addTarget: Units = [];
+const IDLE_TARGET = addTarget;
+const addEntry = (amount: number, good: number): void => addUnits(addTarget, good, amount);
+
+function addAllUnits(units: Units, amounts: ReadonlyMap<number, number>): void {
+  addTarget = units;
+  amounts.forEach(addEntry);
+  addTarget = IDLE_TARGET;
 }
 
 function bucketOf<T>(buckets: Map<number, Map<Entity, T>>, key: number): Map<Entity, T> {

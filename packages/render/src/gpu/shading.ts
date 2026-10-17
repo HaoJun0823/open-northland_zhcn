@@ -61,28 +61,35 @@ const TERRAIN_SAMPLE = `
       // Catmull-Rom bicubic magnification (a published reconstruction filter): sharper than the
       // sampler's bilinear, with its ringing at hard edges clamped to the premultiplied range rather
       // than removed. Bounded to the tile so a neighbour never bleeds in; fades into bilinear as
-      // texels reach pixel size.
+      // texels reach pixel size. Along each axis the two inner texels share one linear tap placed
+      // between them by their weights, so nine taps carry the sixteen-texel sum; the clamp keeps every
+      // tap on or between texel centres inside the tile, which keeps that identity at its edges.
       vec2 p = vUV * size - 0.5;
       vec2 f = fract(p);
-      vec2 base = (floor(p) + 0.5) / size;
+      vec2 base = floor(p) + 0.5;
       vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
       vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
       vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
       vec2 w3 = f * f * (-0.5 + 0.5 * f);
-      vec4 sum = vec4(0.0);
-      for (int j = -1; j <= 2; j++) {
-        float wy = j == -1 ? w0.y : j == 0 ? w1.y : j == 1 ? w2.y : w3.y;
-        vec4 row = vec4(0.0);
-        for (int i = -1; i <= 2; i++) {
-          float wx = i == -1 ? w0.x : i == 0 ? w1.x : i == 1 ? w2.x : w3.x;
-          vec2 uv = clamp(base + vec2(float(i), float(j)) / size, low, high);
-          row += wx * textureLod(uTexture, uv, 0.0);
-        }
-        sum += wy * row;
-      }
+      vec2 inner = w1 + w2;
+      vec2 t0 = clamp((base - 1.0) / size, low, high);
+      vec2 t1 = clamp((base + w2 / inner) / size, low, high);
+      vec2 t2 = clamp((base + 2.0) / size, low, high);
+      vec4 sum = w0.y * (w0.x * textureLod(uTexture, vec2(t0.x, t0.y), 0.0)
+                       + inner.x * textureLod(uTexture, vec2(t1.x, t0.y), 0.0)
+                       + w3.x * textureLod(uTexture, vec2(t2.x, t0.y), 0.0))
+               + inner.y * (w0.x * textureLod(uTexture, vec2(t0.x, t1.y), 0.0)
+                       + inner.x * textureLod(uTexture, vec2(t1.x, t1.y), 0.0)
+                       + w3.x * textureLod(uTexture, vec2(t2.x, t1.y), 0.0))
+               + w3.y * (w0.x * textureLod(uTexture, vec2(t0.x, t2.y), 0.0)
+                       + inner.x * textureLod(uTexture, vec2(t1.x, t2.y), 0.0)
+                       + w3.x * textureLod(uTexture, vec2(t2.x, t2.y), 0.0));
       vec4 bicubic = clamp(sum, vec4(0.0), vec4(1.0));
       bicubic.rgb = min(bicubic.rgb, vec3(bicubic.a));
-      return mix(bicubic, texture(uTexture, vUV), smoothstep(${BICUBIC_FULL_FOOTPRINT.toFixed(4)}, 1.0, footprint));
+      float blend = smoothstep(${BICUBIC_FULL_FOOTPRINT.toFixed(4)}, 1.0, footprint);
+      // The bilinear tap is skipped where it carries no weight; the page has one level, so an explicit
+      // level 0 samples what the implicit one did.
+      return blend > 0.0 ? mix(bicubic, textureLod(uTexture, vUV, 0.0), blend) : bicubic;
     }
     // Bound the footprint at strong minification: the four taps cannot represent arbitrarily many texels.
     float radius = ${MINIFY_TAP_RADIUS_PX.toFixed(4)} * min(1.0, ${MINIFY_MAX_FOOTPRINT.toFixed(4)} / footprint);

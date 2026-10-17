@@ -10,6 +10,7 @@ import { ChangeFeed, ChangeFeeds } from './change-feed.js';
 import type { Component, DeepReadonly, Entity } from './component.js';
 import { ComponentStore, VACANT_SLOT } from './component-store.js';
 import { GenerationJournals } from './generation-journal.js';
+import { EntityMemberships } from './memberships.js';
 import { QueryIterator } from './query-iterator.js';
 import { TouchedLog } from './touched-log.js';
 
@@ -44,9 +45,9 @@ export class World {
   private readonly registered: Array<Component<unknown>> = [];
   /** Each component's index into {@link registered} by {@link Component.id}, assigned on first {@link add}. */
   private readonly registrationIndex: Array<number | undefined> = [];
-  /** Per-entity carried components as ascending registration indices, so a component walk visits the
-   *  entity's own components in registration order instead of probing every registered store. */
-  private readonly memberships = new Map<Entity, number[]>();
+  /** Per-entity carried components as registration indices, so a component walk visits the entity's own
+   *  components in registration order instead of probing every registered store. */
+  private readonly memberships = new EntityMemberships();
   /** Per-component membership (add/remove/destroy) generation by {@link Component.id}, used by derived
    *  caches that depend on a component store. */
   private readonly componentGenerations: Array<number | undefined> = [];
@@ -76,18 +77,16 @@ export class World {
   }
 
   destroy(entity: Entity): void {
-    const carried = this.memberships.get(entity);
-    if (carried !== undefined) {
-      for (const index of carried) {
-        const c = this.registered[index];
-        if (c !== undefined && this.storeOf(c)?.delete(entity) === true) {
-          this.canonicalQueries.changed(c, entity);
-          this.bumpComponentGeneration(c, entity);
-          this.mutations?.componentWritten(c, entity);
-        }
+    const memberships = this.memberships;
+    for (let index = memberships.next(entity, -1); index >= 0; index = memberships.next(entity, index)) {
+      const c = this.registered[index];
+      if (c !== undefined && this.storeOf(c)?.delete(entity) === true) {
+        this.canonicalQueries.changed(c, entity);
+        this.bumpComponentGeneration(c, entity);
+        this.mutations?.componentWritten(c, entity);
       }
-      this.memberships.delete(entity);
     }
+    memberships.clear(entity);
     this.alive.delete(entity);
     this.canonicalCache = null;
     this.touched.record(entity);
@@ -122,38 +121,12 @@ export class World {
 
   private insertMembership(entity: Entity, component: Component<unknown>): void {
     const index = this.registrationIndex[component.id];
-    if (index === undefined) return; // unreachable: storeOrCreate registered the component
-    let list = this.memberships.get(entity);
-    if (list === undefined) {
-      list = [];
-      this.memberships.set(entity, list);
-    }
-    // Ascending insert keeps the walk in registration order; components register early, so the tail
-    // scan is short. Shifted in place, since a splice allocates its removed-items array.
-    let at = list.length;
-    list.push(index);
-    while (at > 0) {
-      const before = list[at - 1];
-      if (before === undefined || before < index) break;
-      list[at] = before;
-      at--;
-    }
-    list[at] = index;
+    if (index !== undefined) this.memberships.add(entity, index);
   }
 
   private removeMembership(entity: Entity, component: Component<unknown>): void {
     const index = this.registrationIndex[component.id];
-    const list = index === undefined ? undefined : this.memberships.get(entity);
-    if (index === undefined || list === undefined) return;
-    const at = list.indexOf(index);
-    if (at >= 0) {
-      for (let i = at + 1; i < list.length; i++) {
-        const next = list[i];
-        if (next !== undefined) list[i - 1] = next;
-      }
-      list.pop();
-    }
-    if (list.length === 0) this.memberships.delete(entity);
+    if (index !== undefined) this.memberships.remove(entity, index);
   }
 
   private storeOf<T>(component: Component<T>): ComponentStore<T> | undefined {
@@ -390,9 +363,8 @@ export class World {
   /** Visit an entity's components in registration order and O(carried components), without allocating.
    *  The revision changes only when this stored value is added or acquired through {@link mut}. */
   forEachComponent(entity: Entity, visit: (name: string, value: unknown, revision: number) => void): void {
-    const carried = this.memberships.get(entity);
-    if (carried === undefined) return;
-    for (const index of carried) {
+    const memberships = this.memberships;
+    for (let index = memberships.next(entity, -1); index >= 0; index = memberships.next(entity, index)) {
       const c = this.registered[index];
       if (c === undefined) continue;
       const store = this.storeOf(c);

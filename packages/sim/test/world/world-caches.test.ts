@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { EntityMemberships } from '../../src/ecs/memberships.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { defineComponent, World } from '../../src/ecs/world.js';
 
@@ -111,16 +112,14 @@ describe('World cache coherence', () => {
     expect(w.verifyCaches()).toEqual([]);
     // Both report branches, from a state no public seam can produce: a store entry no list names, then
     // a listed index the entity does not carry.
-    const memberships = Reflect.get(w, 'memberships') as Map<Entity, number[]>;
-    memberships.delete(e);
+    const memberships = Reflect.get(w, 'memberships') as EntityMemberships;
+    memberships.remove(e, 0);
     expect(w.verifyCaches()).toEqual(['entity 1 carries CacheA but its membership list misses it']);
 
     // The list-side branch: an index the entity does not carry.
-    memberships.set(e, [0, 7]);
+    memberships.add(e, 0);
+    memberships.add(e, 7);
     expect(w.verifyCaches()).toEqual(['entity 1 lists component index 7 it does not carry']);
-
-    memberships.set(e, [0, 0]);
-    expect(w.verifyCaches()).toEqual(['entity 1 membership list is not ascending at index 0']);
   });
 
   it('verifyCaches reports the canonical memo, then memberships, then registered verifiers', () => {
@@ -130,7 +129,7 @@ describe('World cache coherence', () => {
     w.canonicalEntities();
     w.registerCacheVerifier('registered', () => ['registered says stale']);
     Reflect.set(w, 'canonicalCache', Object.freeze([999 as Entity]));
-    (Reflect.get(w, 'memberships') as Map<Entity, number[]>).delete(e);
+    (Reflect.get(w, 'memberships') as EntityMemberships).clear(e);
     // A registered verifier can never preempt the World's own two checks.
     expect(w.verifyCaches()).toEqual([
       "canonicalEntities cache diverges at index 0: cached 999, alive 1 - a stale memo or a reader's edit",

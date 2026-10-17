@@ -1,6 +1,7 @@
 import type { CanonicalQueries } from './canonical-queries.js';
 import type { Component, Entity } from './component.js';
 import type { ComponentStore } from './component-store.js';
+import type { EntityMemberships } from './memberships.js';
 
 /** Re-derives one incrementally-maintained cache from authoritative state and returns a message per
  *  mismatch (empty = coherent). Must be pure over current state. */
@@ -12,7 +13,7 @@ export interface VerifiableStorage {
   readonly alive: ReadonlySet<Entity>;
   readonly stores: ReadonlyMap<Component<unknown>, ComponentStore<unknown>>;
   readonly registered: readonly Component<unknown>[];
-  readonly memberships: ReadonlyMap<Entity, readonly number[]>;
+  readonly memberships: Pick<EntityMemberships, 'has' | 'forEachCarried'>;
   readonly canonicalCache: readonly Entity[] | null;
   readonly canonicalQueries: CanonicalQueries;
 }
@@ -36,30 +37,25 @@ export class CacheVerifiers {
   }
 }
 
-/** Re-derive the per-entity membership lists from the stores: every store entry must be listed, every
- *  listed index must be stored, and lists must ascend (registration order). */
+/** Re-derive the per-entity memberships from the stores: every store entry must be listed and every
+ *  listed index must be stored. */
 function verifyMemberships({ registered, stores, memberships }: VerifiableStorage): string[] {
   const out: string[] = [];
   registered.forEach((component, index) => {
     const store = stores.get(component);
     if (store === undefined) return;
     for (const e of store.keys()) {
-      if (memberships.get(e)?.includes(index) !== true) {
+      if (!memberships.has(e, index)) {
         out.push(`entity ${e} carries ${component.name} but its membership list misses it`);
       }
     }
   });
-  for (const [e, list] of memberships) {
-    let previous = -1;
-    for (const index of list) {
-      const component = registered[index];
-      if (component === undefined || stores.get(component)?.has(e) !== true) {
-        out.push(`entity ${e} lists component index ${index} it does not carry`);
-      }
-      if (index <= previous) out.push(`entity ${e} membership list is not ascending at index ${index}`);
-      previous = index;
+  memberships.forEachCarried((e, index) => {
+    const component = registered[index];
+    if (component === undefined || stores.get(component)?.has(e) !== true) {
+      out.push(`entity ${e} lists component index ${index} it does not carry`);
     }
-  }
+  });
   return out;
 }
 

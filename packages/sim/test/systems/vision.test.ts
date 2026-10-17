@@ -376,6 +376,23 @@ describe('stamp memo - an eye whose footprint did not change writes nothing', ()
     expect(sim.world.verifyCaches().some((v) => v.startsWith('fog: eye'))).toBe(true);
   });
 
+  it('CLASSIC: the open-block counts follow stamps and reveals, and the verifier catches a stale one', () => {
+    const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
+    const eyes = crowd(sim);
+    sim.run(1 + VISION_CADENCE_TICKS);
+    const mover = eyes[0];
+    if (mover === undefined) throw new Error('crowd is empty');
+    teleport(sim, mover, 40, 4); // fresh ground: the stamp must still write past the closed blocks
+    sim.fog?.revealArea(P0, { hx: 60, hy: 8 }, 3);
+    sim.run(VISION_CADENCE_TICKS);
+    expect(rawState(sim, P0, 40, 4)).toBe(FOG_STATE.VISIBLE);
+    expect(sim.world.verifyCaches()).toEqual([]);
+    const mask = sim.fog?.tryMaskFor(P0);
+    if (mask === undefined) throw new Error('P0 has no mask');
+    mask[2 * (sim.fog?.cellsWide ?? 0) + 4] = FOG_STATE.EXPLORED; // a lowered byte the counts missed
+    expect(sim.world.verifyCaches()).toContain(`fog: group ${P0} holds stale open blocks`);
+  });
+
   it('eyes sharing a footprint within one pass stamp it once', () => {
     const sim = simOn(FOG_MODE.CLASSIC_FOG_OF_WAR);
     const fog = sim.fog;

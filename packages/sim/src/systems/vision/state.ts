@@ -4,6 +4,7 @@ import { SMALL_INTEGER_SPAN } from '../../core/small-integer.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, hexDistanceBetween } from '../../nav/halfcell.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
+import { OpenBlocks } from './open-blocks.js';
 
 /** The tri-state visibility values a read returns. Order matters: a higher state shows more, so
  *  "at least explored" is `>= EXPLORED`, and render and minimap key off these exact values. */
@@ -140,6 +141,10 @@ export class FogState {
   private readonly passFootprints = new Map<number, number>();
   /** Moves as each stamp pass opens and closes. */
   private footprintEpoch = 0;
+  /** vision group → its mask's {@link OpenBlocks}, kept only without fog of war, where every stamp
+   *  closes cells and only a script's reveal or a reset reopens any. A writer that would open cells
+   *  drops the group's entry instead, and the next memoizing stamp recounts it. */
+  private readonly openBlocks = new Map<number, OpenBlocks>();
 
   constructor(terrain: TerrainGraph, world: World) {
     // The terrain graph is the 2W×2H half-cell lattice; cells quarter it (ceil for odd safety).
@@ -149,6 +154,7 @@ export class FogState {
     // fuzz harness's `cachesCoherent` invariant.
     world.registerCacheVerifier('fogVisibleBounds', () => this.verifyVisibleBounds());
     world.registerCacheVerifier('fogEyeStamps', () => this.verifyEyeStamps());
+    world.registerCacheVerifier('fogOpenBlocks', () => this.verifyOpenBlocks());
   }
 
   /** Start maintaining the mask folds, seeded from the masks as they stand: one walk, so a session that
@@ -241,6 +247,7 @@ export class FogState {
     this.visibleBounds.clear();
     for (const [key, box] of bounds) this.visibleBounds.set(key, box);
     this.eyeStamps.clear();
+    this.openBlocks.clear();
     if (this.folds !== null) {
       this.folds = null;
       this.startFolding();
@@ -327,6 +334,7 @@ export class FogState {
     if (owner !== group) throw new Error(`fog mask for group ${group}: that player shares group ${owner}`);
     this.masks.set(group, mask);
     this.eyeStamps.clear();
+    this.openBlocks.delete(group);
     this.markGroup(group);
     const fold = this.foldOfGroup(group);
     if (fold !== null) fold.value = 0;
@@ -345,6 +353,7 @@ export class FogState {
    *  generation bumps once. */
   reset(): void {
     this.eyeStamps.clear();
+    this.openBlocks.clear();
     if (this.masks.size === 0) return;
     this.masks.clear();
     this.visibleBounds.clear();
@@ -406,6 +415,7 @@ export class FogState {
       radius,
       this.foldOfGroup(group),
       stampScratch,
+      this.memoStamps ? this.openBlocksOf(group, mask) : null,
     );
     if (rect === null) return false;
     this.mergeGroupBounds(group, rect.minC, rect.maxC, rect.minR, rect.maxR);
@@ -445,6 +455,27 @@ export class FogState {
     return false;
   }
 
+  /** `group`'s {@link OpenBlocks}, counted from `mask` when not held. */
+  private openBlocksOf(group: number, mask: Uint8Array): OpenBlocks {
+    let blocks = this.openBlocks.get(group);
+    if (blocks === undefined) {
+      blocks = this.countOpenBlocks(mask);
+      this.openBlocks.set(group, blocks);
+    }
+    return blocks;
+  }
+
+  private countOpenBlocks(mask: Uint8Array): OpenBlocks {
+    const blocks = new OpenBlocks(this.cellsWide, this.cellsHigh);
+    for (let r = 0; r < this.cellsHigh; r++) {
+      const base = r * this.cellsWide;
+      for (let c = 0; c < this.cellsWide; c++) {
+        if (raisable(mask[base + c] ?? FOG_STATE.UNEXPLORED)) blocks.open(c, r);
+      }
+    }
+    return blocks;
+  }
+
   /** Merge a stamp's touched cell rect into `group`'s may-hold-VISIBLE box (see visibleBounds). */
   private mergeGroupBounds(group: number, minC: number, maxC: number, minR: number, maxR: number): void {
     const b = this.visibleBounds.get(group);
@@ -473,6 +504,7 @@ export class FogState {
     const group = this.visionGroupOf(player);
     const mask = this.maskOfGroup(group);
     const fold = this.foldOfGroup(group);
+    const blocks = this.openBlocks.get(group);
     let changed = false;
     const rLo = Math.max(0, (point.hy - range) >> 1);
     const rHi = Math.min(this.cellsHigh - 1, (point.hy + range) >> 1);
@@ -485,6 +517,7 @@ export class FogState {
         if (previous === REVEALED_BYTE || !cellWithinRange(point, range, c, r)) continue;
         mask[i] = REVEALED_BYTE;
         if (fold !== null) foldCellChange(fold, i, previous, REVEALED_BYTE);
+        if (blocks !== undefined && raisable(previous)) blocks.close(c, r);
         changed = true;
       }
     }
@@ -506,6 +539,7 @@ export class FogState {
       if (fold !== null) foldCellChange(fold, i, previous, REVEALED_BYTE);
       changed = true;
     }
+    this.openBlocks.delete(group);
     if (!changed) return;
     this.markGroup(group);
     this.generation++;
@@ -516,6 +550,7 @@ export class FogState {
    *  it lowered any byte. */
   downgradeVisible(group: number): boolean {
     this.eyeStamps.clear();
+    this.openBlocks.delete(group);
     const b = this.visibleBounds.get(group);
     if (b === undefined) return false;
     let lowered = false;
@@ -579,6 +614,19 @@ export class FogState {
         violations.push(
           `fog: eye ${eye} memo at (${stamp.cx}, ${stamp.cy}) is not in group ${stamp.group}'s mask`,
         );
+      }
+    }
+    return violations;
+  }
+
+  /** Verify every held {@link OpenBlocks} against a recount of its group's mask: a block counted closed
+   *  while a cell in it is raisable would skip a stamp that must write. */
+  verifyOpenBlocks(): string[] {
+    const violations: string[] = [];
+    for (const [group, blocks] of this.openBlocks) {
+      const mask = this.masks.get(group);
+      if (mask === undefined || !blocks.equals(this.countOpenBlocks(mask))) {
+        violations.push(`fog: group ${group} holds stale open blocks`);
       }
     }
     return violations;
@@ -679,6 +727,7 @@ export function stampVision(
   radiusNodes: number,
   fold: FogFold | null,
   out: StampRect = { minC: 0, maxC: 0, minR: 0, maxR: 0, wrote: false },
+  open: OpenBlocks | null = null,
 ): StampRect | null {
   const radiusPx = radiusNodes * NODE_STEP_PX;
   const radiusSq = radiusPx * radiusPx;
@@ -689,6 +738,12 @@ export function stampVision(
   const cLo = Math.max(0, cx - dcMax);
   const cHi = Math.min(cellsWide - 1, cx + dcMax);
   if (rLo > rHi || cLo > cHi) return null;
+  out.minC = cLo;
+  out.maxC = cHi;
+  out.minR = rLo;
+  out.maxR = rHi;
+  out.wrote = false;
+  if (open?.closed(cLo, cHi, rLo, rHi) === true) return out;
   let wrote = false;
   for (let r = rLo; r <= rHi; r++) {
     const dyPx = (r - cy) * ROW_STEP_PX;
@@ -698,18 +753,20 @@ export function stampVision(
     for (let c = Math.max(cLo, cx - span); c <= rowHi; c++) {
       const index = base + c;
       const previous = mask[index] ?? FOG_STATE.UNEXPLORED;
-      if (previous === FOG_STATE.VISIBLE || previous === REVEALED_BYTE) continue;
+      if (!raisable(previous)) continue;
       mask[index] = FOG_STATE.VISIBLE;
       wrote = true;
       if (fold !== null) foldCellChange(fold, index, previous, FOG_STATE.VISIBLE);
+      open?.close(c, r);
     }
   }
-  out.minC = cLo;
-  out.maxC = cHi;
-  out.minR = rLo;
-  out.maxR = rHi;
   out.wrote = wrote;
   return out;
+}
+
+/** Whether a stamp raises a cell holding mask byte `byte`: neither in sight nor revealed. */
+function raisable(byte: number): boolean {
+  return byte !== FOG_STATE.VISIBLE && byte !== REVEALED_BYTE;
 }
 
 /** The clamped cell rect a {@link stampVision} touched, and whether it raised any byte. */

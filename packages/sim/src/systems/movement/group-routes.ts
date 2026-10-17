@@ -120,6 +120,8 @@ export class GroupRoutes {
       if (route.blocked !== blocked) continue;
       // A route passing nowhere near the goal, another order's, could never let the member off by it.
       if (corridorBoxGap(this.terrain, route.path, goal) > GROUP_AREA_RADIUS_NODES) continue;
+      // The box gap bounds the node gap from below, so a route it already rules out skips the node scan.
+      if (corridorBoxGap(this.terrain, route.path, start) >= nearestGap) continue;
       const gap = corridorGap(this.terrain, route.path, start);
       if (gap < nearestGap) {
         nearest = route;

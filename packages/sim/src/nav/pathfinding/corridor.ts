@@ -66,7 +66,8 @@ export function corridorBoxGap(graph: TerrainGraph, corridor: readonly NodeId[],
 }
 
 /** {@link nearestStop} over a corridor's cached lattice: the unblocked node at or after `from` nearest
- *  `target`, the earliest on a tie. */
+ *  `target`, the earliest on a tie. A test seam: it pins the block skip against a linear scan, which the
+ *  outcome of {@link joinCorridor} cannot isolate. */
 export function nearestCorridorStop(
   graph: TerrainGraph,
   corridor: readonly NodeId[],

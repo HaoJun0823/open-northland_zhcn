@@ -28,8 +28,8 @@ export interface CorridorEntry {
  * off the corridor node nearest `goal`. Not the lowest-cost route, only one within the two hops of it.
  * Returns `null` when either nearest node lies more than its hop (Manhattan half-cell nodes) away,
  * when either hop fails, runs past its settle cap or is no straight hop, or when the two nearest nodes
- * leave no stretch of corridor to share. `entry` widens the boarding side alone; by default both sides
- * take `maxHopNodes` and {@link CORRIDOR_LEG_MAX_EXPLORED}.
+ * leave no stretch of corridor to share. `entry` widens the boarding side and `exit` the side off the
+ * corridor; by default both take `maxHopNodes` and {@link CORRIDOR_LEG_MAX_EXPLORED}.
  */
 export function joinCorridor(
   graph: TerrainGraph,
@@ -41,6 +41,7 @@ export function joinCorridor(
   maxHopNodes: number,
   traversal: Traversal = 'land',
   entry: CorridorEntry = { hopNodes: maxHopNodes, legMaxExplored: CORRIDOR_LEG_MAX_EXPLORED },
+  exit: CorridorEntry = { hopNodes: maxHopNodes, legMaxExplored: CORRIDOR_LEG_MAX_EXPLORED },
 ): NodeId[] | null {
   const lattice = corridorLattice(graph, corridor);
   // No corridor node lies nearer `start` in Manhattan nodes than the corridor's bounding box does.
@@ -48,14 +49,14 @@ export function joinCorridor(
   // Only the corridor's own start can be blocked, by the walker-exempt rule; no hop may end there.
   const board = nearestStop(graph, lattice, corridor, start, 0, blocked);
   if (board === undefined || manhattanNodes(graph, start, board.node) > entry.hopNodes) return null;
-  const exit = nearestStop(graph, lattice, corridor, goal, board.index, blocked);
-  if (exit === undefined || exit.index === board.index) return null;
-  if (manhattanNodes(graph, exit.node, goal) > maxHopNodes) return null;
+  const alight = nearestStop(graph, lattice, corridor, goal, board.index, blocked);
+  if (alight === undefined || alight.index === board.index) return null;
+  if (manhattanNodes(graph, alight.node, goal) > exit.hopNodes) return null;
   const onto = findPathWithin(graph, start, board.node, blocked, stats, entry.legMaxExplored, traversal);
   if (typeof onto === 'string' || !isHop(graph, onto)) return null;
-  const off = findPathWithin(graph, exit.node, goal, blocked, stats, CORRIDOR_LEG_MAX_EXPLORED, traversal);
+  const off = findPathWithin(graph, alight.node, goal, blocked, stats, exit.legMaxExplored, traversal);
   if (typeof off === 'string' || !isHop(graph, off)) return null;
-  return joinedLegs(onto, lattice, corridor, board.index + 1, exit.index, off);
+  return joinedLegs(onto, lattice, corridor, board.index + 1, alight.index, off);
 }
 
 /** Manhattan half-cell nodes from `node` to the nearest node of `corridor`. */

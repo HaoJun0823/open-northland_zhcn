@@ -24,6 +24,8 @@ const WIDTH = 400;
 const HEIGHT = 96;
 const WALL_X = 120;
 const GAP_Y = 76;
+/** Nodes a member's route must share with the route it rides. */
+const SHARED_STRETCH_NODES = 100;
 
 function reportRouting(scenario: string, orders: number, expansions: number, elapsedMs?: number): void {
   if (process.env.ON_ARMY_ROUTING_REPORT === 'on')
@@ -328,24 +330,21 @@ describe('army player routing', () => {
         });
       }
     }
-    let offered = 0;
-    const offer = GroupRoutes.prototype.offer;
-    GroupRoutes.prototype.offer = function (this: GroupRoutes, ...args) {
-      offered++;
-      return offer.apply(this, args);
-    };
     sim.enqueue(
       playerCommand(0, {
         kind: 'attackMoveUnitGroup',
         members: members.map(({ entity, goal }) => ({ entity, x: terrain.xOf(goal), y: terrain.yOf(goal) })),
       }),
     );
-    try {
-      sim.step();
-    } finally {
-      GroupRoutes.prototype.offer = offer;
+    sim.step();
+    const [leader] = members;
+    if (leader === undefined) throw new Error('band missing');
+    const leaderRoute = new Set(sim.world.get(leader.entity, PathRoute).waypoints.map(({ node }) => node));
+    // The far band rides the leaders' searched corridor from the gap on.
+    for (const { entity } of members.slice(bandSize)) {
+      const shared = sim.world.get(entity, PathRoute).waypoints.filter(({ node }) => leaderRoute.has(node));
+      expect(shared.length).toBeGreaterThan(SHARED_STRETCH_NODES);
     }
-    expect(offered).toBe(1);
     for (const { entity, goal } of members) {
       expect(sim.world.has(entity, PathRequest)).toBe(false);
       const route = sim.world.get(entity, PathRoute).waypoints;
@@ -426,5 +425,72 @@ describe('army player routing', () => {
       // The band rides its own leader's searched route rather than searching one each.
       expect(route.filter((node) => farLeaderRoute.has(node)).length).toBeGreaterThan(route.length / 2);
     }
+  });
+  it("rides the leaders' corridor to a slot beyond the shared area instead of searching alone", () => {
+    const width = 500;
+    const height = 160;
+    const typeIds = new Array<number>(width * height).fill(0);
+    const wallX = 200;
+    const gapRows = { from: 150, to: 154 };
+    for (let y = 0; y < height; y++) if (y < gapRows.from || y > gapRows.to) typeIds[y * width + wallX] = 1;
+    const map: TerrainMap = { resolution: 'half-cell', width, height, typeIds };
+    const route = (farSlot: boolean): { expansions: number; routes: NodeId[][]; goals: NodeId[] } => {
+      const sim = new Simulation({ seed: 7, content: testContent(), map });
+      const terrain = sim.terrain;
+      if (terrain === undefined) throw new Error('army terrain missing');
+      let expansions = 0;
+      const stepsIntoAt = terrain.stepsIntoAt.bind(terrain);
+      terrain.stepsIntoAt = (...args) => {
+        expansions++;
+        return stepsIntoAt(...args);
+      };
+      const bandSize = 10;
+      const members: { entity: Entity; goal: NodeId }[] = [];
+      for (let i = 0; i < bandSize + (farSlot ? 1 : 0); i++) {
+        const entity = sim.world.create();
+        sim.world.add(entity, Position, positionOfNode(4 + i * 2, 4));
+        addPerson(sim.world, entity, {
+          tribe: 1,
+          jobType: 31,
+          hunger: fx.fromInt(0),
+          fatigue: fx.fromInt(0),
+          piety: fx.fromInt(0),
+          enjoyment: fx.fromInt(0),
+        });
+        sim.world.add(entity, Owner, { player: 0 });
+        sim.world.add(entity, WalkFacing, { direction: WALK_DIRECTION.E, target: WALK_DIRECTION.E });
+        // The last slot lies a hundred nodes past the leaders' slots, beyond the short join's reach.
+        const goalX = i < bandSize ? 340 + i * 2 : 440;
+        members.push({ entity, goal: terrain.nodeAt(goalX, 8) });
+      }
+      sim.enqueue(
+        playerCommand(0, {
+          kind: 'attackMoveUnitGroup',
+          members: members.map(({ entity, goal }) => ({
+            entity,
+            x: terrain.xOf(goal),
+            y: terrain.yOf(goal),
+          })),
+        }),
+      );
+      sim.step();
+      return {
+        expansions,
+        routes: members.map(({ entity }) =>
+          sim.world.get(entity, PathRoute).waypoints.map(({ node }) => node),
+        ),
+        goals: members.map(({ goal }) => goal),
+      };
+    };
+    const band = route(false);
+    const withFarSlot = route(true);
+    withFarSlot.routes.forEach((nodes, i) => {
+      expect(nodes.at(-1)).toBe(withFarSlot.goals[i]);
+    });
+    const leaderRoute = new Set(withFarSlot.routes[0]);
+    const farRoute = withFarSlot.routes.at(-1) ?? [];
+    expect(farRoute.filter((node) => leaderRoute.has(node)).length).toBeGreaterThan(SHARED_STRETCH_NODES);
+    // Its ride costs a fraction of the leader's search through the gap, not a search of its own.
+    expect(withFarSlot.expansions - band.expansions).toBeLessThan(band.expansions / 4);
   });
 });

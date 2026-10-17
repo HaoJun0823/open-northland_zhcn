@@ -464,22 +464,30 @@ class CaughtPosts {
   }
 }
 
+/** Nodes one coverage word holds: a bit each, since a player keeps a coverage per caught group set and
+ *  radius while his posts stand, thousands of them on a late map. */
+const BITS_PER_WORD = 32;
+const WORD_SHIFT = 5;
+const BIT_MASK = BITS_PER_WORD - 1;
+const ALL_BITS = ~0;
+
 /** Every node strictly inside hex `range` of one of `posts`, as a bitmap over their bounding box. */
 class PostCoverage {
   private readonly bounds: NodeBox;
   private readonly width: number;
-  private readonly cells: Uint8Array;
+  private readonly words: Uint32Array;
 
   constructor(posts: readonly SignpostSite[], range: number) {
     this.bounds = unionNodeBoxes(posts.map((s) => hexNodeBox(s.hx, s.hy, range)));
     this.width = this.bounds.maxX - this.bounds.minX + 1;
-    this.cells = paintCoverage(posts, range, this.bounds, this.width);
+    this.words = paintCoverage(posts, range, this.bounds, this.width);
   }
 
   has(x: number, y: number): boolean {
     const { minX, maxX, minY, maxY } = this.bounds;
     if (x < minX || x > maxX || y < minY || y > maxY) return false;
-    return this.cells[(y - minY) * this.width + (x - minX)] === 1;
+    const cell = (y - minY) * this.width + (x - minX);
+    return ((this.words[cell >>> WORD_SHIFT] as number) & (1 << (cell & BIT_MASK))) !== 0;
   }
 }
 
@@ -491,9 +499,9 @@ function paintCoverage(
   range: number,
   bounds: NodeBox,
   width: number,
-): Uint8Array {
+): Uint32Array {
   const { minX, maxY, minY } = bounds;
-  const cells = new Uint8Array(width * (maxY - minY + 1));
+  const words = new Uint32Array(Math.ceil((width * (maxY - minY + 1)) / BITS_PER_WORD));
   for (const s of posts) {
     for (let y = s.hy - range + 1; y < s.hy + range; y++) {
       const rows = Math.abs(y - s.hy);
@@ -502,10 +510,26 @@ function paintCoverage(
       const west = oddRows && y % 2 !== 0 ? lim : lim - 1;
       const east = oddRows && y % 2 === 0 ? lim : lim - 1;
       const rowStart = (y - minY) * width - minX;
-      cells.fill(1, rowStart + s.hx - west, rowStart + s.hx + east + 1);
+      setBits(words, rowStart + s.hx - west, rowStart + s.hx + east + 1);
     }
   }
-  return cells;
+  return words;
+}
+
+/** Set the bits `from` up to, not including, `to`. */
+function setBits(words: Uint32Array, from: number, to: number): void {
+  if (from >= to) return;
+  const first = from >>> WORD_SHIFT;
+  const last = (to - 1) >>> WORD_SHIFT;
+  const head = ALL_BITS << (from & BIT_MASK);
+  const tail = ALL_BITS >>> (BIT_MASK - ((to - 1) & BIT_MASK));
+  if (first === last) {
+    words[first] = (words[first] as number) | (head & tail);
+    return;
+  }
+  words[first] = (words[first] as number) | head;
+  words.fill(ALL_BITS >>> 0, first + 1, last);
+  words[last] = (words[last] as number) | tail;
 }
 
 /**

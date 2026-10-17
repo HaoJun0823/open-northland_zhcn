@@ -65,8 +65,8 @@ const SPOT_REACH_CAP = 1024;
 /** Limits per cache generation, so at most twice this many are held: about the distinct spots a late
  *  15-seat game asks within a few hundred ticks. A limit is a few references over a held local search and
  *  shared group coverages, so this bounds the local searches limits keep alive past {@link SPOT_REACH_CAP}.
- *  Measured on the 15-seat piec_dolin bench, 2000 ticks from tick 90000: heap at end 554 MB and RSS peak
- *  1171 MB, against 573 MB and 1503 MB with one 1024-limit map wiped per reach key. */
+ *  Measured on the 15-seat piec_dolin bench, 2000 ticks from tick 90000: heap at end 554 MB, RSS peak
+ *  1171 MB. */
 const LIMIT_GENERATION_CAP = 4096;
 
 /**

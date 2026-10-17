@@ -114,11 +114,11 @@ function boundBreederFarm(
   if (!buildingWorkerJobs(world, ctx, farm).has(jobType)) return null;
   if (!workplaceStaffable(world, ctx, ownerOf(world, farm), tribe, building.buildingType)) return null;
   const atomics = jobAtomics(ctx, jobType);
-  const breeds = [...breedableSpeciesOf(world, ctx, farm)].some((good) => {
+  for (const good of breedableSpeciesOf(world, ctx, farm)) {
     const produce = contentProduceAtomic(ctx, good);
-    return produce !== null && atomics.has(produce);
-  });
-  return breeds ? farm : null;
+    if (produce !== null && atomics.has(produce)) return farm;
+  }
+  return null;
 }
 
 /** The species goods `farm` has a breeding recipe for. */
@@ -157,10 +157,13 @@ function adoptStray(plan: PlannerContext, farm: Entity): boolean {
   if (owner === undefined) return false;
   // One herd count per species up front: the rows are a fact about the farm, not about each candidate.
   const room = new Map<number, boolean>();
+  let anyRoom = false;
   for (const good of breedableSpeciesOf(world, ctx, farm)) {
-    room.set(good, hasRoomForAnother(world, ctx, farm, good));
+    const roomy = hasRoomForAnother(world, ctx, farm, good);
+    room.set(good, roomy);
+    anyRoom ||= roomy;
   }
-  if (![...room.values()].some(Boolean)) return false;
+  if (!anyRoom) return false;
   const door = interactionCell(world, ctx, terrain, farm);
   const side = terrain.componentOf(door);
   let best: Entity | null = null;

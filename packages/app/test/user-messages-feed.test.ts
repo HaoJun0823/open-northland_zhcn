@@ -76,6 +76,18 @@ describe('message feed', () => {
     expect(feed.add(family('noFood'), TICK + 5, TEXT)).toBe('accepted');
   });
 
+  it('tells a worker refusal at another building or for another reason from the standing one', () => {
+    const feed = createMessageFeed();
+    const refused = (building: number, reason: 'full' | 'experience'): PendingMessage =>
+      pending(USER_MESSAGE_TYPE.workerRefused, undefined, { jobType: 19, refusal: { building, reason } });
+    expect(feed.add(refused(10, 'experience'), TICK, TEXT)).toBe('accepted');
+    expect(feed.add(refused(10, 'experience'), TICK + 5, TEXT)).toBe('duplicate');
+    expect(feed.add(refused(11, 'experience'), TICK + 5, TEXT)).toBe('accepted');
+    expect(feed.add(refused(11, 'full'), TICK + 5, TEXT)).toBe('accepted');
+    expect(feed.remove(1, TICK + 6)).toBe(true);
+    expect(feed.add(refused(12, 'experience'), TICK + 7, TEXT)).toBe('accepted');
+  });
+
   it('keeps subject-less messages apart by who they are about', () => {
     const feed = createMessageFeed();
     const death = (entity: number): PendingMessage =>

@@ -145,6 +145,7 @@ export class MessageRaiser {
         goodType: null,
         technologies: null,
         jobType,
+        refusal: { building: building.id, reason },
       },
       () => {
         const named = this.naming.settler(e, this.snapshot);

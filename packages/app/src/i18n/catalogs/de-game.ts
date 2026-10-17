@@ -2083,12 +2083,11 @@ export const deGame = {
       },
       full: {
         notOffered:
-          '{name} hat nicht den Beruf, den {building} braucht. Klicke mit der rechten Maustaste auf das Gebäude, um den Beruf zu wechseln und dort zu arbeiten.',
-        full: '{name}: {building} hat keine freie Arbeitsstelle mehr. Gib eine Stelle frei oder baue ein weiteres solches Gebäude.',
-        locked:
-          '{name}: Die Arbeit hier ({building}) ist noch nicht verfügbar. Der Beruf muss erst entdeckt werden.',
+          '{name} hat nicht den passenden Beruf für dieses Gebäude ({building}). Klicke mit der rechten Maustaste auf das Gebäude, um den Beruf zu wechseln und dort zu arbeiten.',
+        full: '{name}: Hier ({building}) ist keine Stelle mehr frei. Gib eine Stelle frei oder baue ein weiteres solches Gebäude.',
+        locked: '{name}: Die Arbeit hier ({building}) ist für dein Volk noch nicht verfügbar.',
         experience:
-          '{name} hat zu wenig Erfahrung für diesen Beruf: {profession}. Schicke jemand Erfahreneren oder lass zuerst im Beruf arbeiten, der ihn freischaltet.',
+          '{name} hat zu wenig Erfahrung für diesen Beruf: {profession}. Schicke jemanden mit mehr Erfahrung oder lass diese Person zuerst in dem Beruf arbeiten, der ihn freischaltet.',
       },
     },
   },

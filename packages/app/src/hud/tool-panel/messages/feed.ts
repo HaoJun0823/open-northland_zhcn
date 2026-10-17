@@ -137,7 +137,8 @@ function identityKey(m: PendingMessage): string {
     m.technologies === null
       ? ''
       : m.technologies.map((technology) => `${technology.kind}:${technology.typeId}`).join(',');
-  return `${m.type}|${subjectKey(m.subject, m.about)}|${m.goodType ?? ''}|${m.jobType ?? ''}|${technologies}|${m.familyWait ?? ''}|${stance}`;
+  const refusal = m.refusal === undefined ? '' : `${m.refusal.building}:${m.refusal.reason}`;
+  return `${m.type}|${subjectKey(m.subject, m.about)}|${m.goodType ?? ''}|${m.jobType ?? ''}|${technologies}|${m.familyWait ?? ''}|${stance}|${refusal}`;
 }
 
 /** The facts outside the identity a standing note's text reads: a state note's good, since its identity

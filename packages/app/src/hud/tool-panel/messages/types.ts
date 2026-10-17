@@ -1,4 +1,4 @@
-import type { DiplomacyState, HalfCellNode } from '@open-northland/sim';
+import type { DiplomacyState, HalfCellNode, WorkerRefusalReason } from '@open-northland/sim';
 import type { ChildOrderWait } from '../../../game/snapshot.js';
 import type { MessageText } from './text.js';
 
@@ -167,6 +167,9 @@ export interface PendingMessage {
   /** An idle note's reason, null while the sim names none; not part of the identity, a new one rewords
    *  the standing note. */
   readonly idle?: IdleReason | null;
+  /** A refused worker order's workplace and reason, part of the identity: a refusal at another building
+   *  or for another reason is news, not a repeat. */
+  readonly refusal?: { readonly building: number; readonly reason: WorkerRefusalReason };
   /** A stance note's new stance, part of the identity: a later stance replaces the seat's earlier note. */
   readonly stance?: DiplomacyState;
   /** An attack note's area so far; not part of the identity, since every new hit updates it. */

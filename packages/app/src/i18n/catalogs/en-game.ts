@@ -1930,11 +1930,11 @@ export const enGame = {
       },
       full: {
         notOffered:
-          '{name} lacks the trade {building} needs. Right-click the building to change trade and take up work there.',
-        full: '{name}: {building} has no free workplace left. Free a post or build another one.',
-        locked: '{name}: work here ({building}) is not available yet. Its trade must be discovered first.',
+          '{name} lacks the trade this building ({building}) needs. Right-click the building to change trade and take up work there.',
+        full: '{name}: no post is free here ({building}). Free one or build another such building.',
+        locked: '{name}: work here ({building}) is not available to your tribe yet.',
         experience:
-          '{name} lacks the experience for this trade: {profession}. Send someone more experienced, or first let them work in the trade that unlocks it.',
+          '{name} lacks the experience for this trade: {profession}. Send someone more experienced, or have this settler first work in the trade that unlocks it.',
       },
     },
   },

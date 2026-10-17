@@ -180,6 +180,26 @@ describe('a workplace pick armed for a group', () => {
     expect(workerGroupAt(snapshot, 10, [1, 3], byType)?.map((w) => w.entity)).toEqual([1, 3]);
   });
 
+  it('sends only the members it offers a trade when a red workplace offers one', () => {
+    const miller: Ent = {
+      id: 4,
+      components: { Settler: { tribe: PRIMARY_TRIBE, jobType: 19 }, Owner: { player: HUMAN_PLAYER } },
+    };
+    const snapshot = snapshotOf([
+      coinMaker(1, 10),
+      coinMaker(2, 10),
+      coinMaker(3, 11),
+      miller,
+      mint(10),
+      mint(11),
+    ]);
+    expect(computeAssignHighlight(snapshot, [3, 4], byType)).toContainEqual({ id: 10, ok: false });
+    // The coin maker's full slot is the refusal to tell, not the unemployed miller's missing trade.
+    expect(workerGroupAt(snapshot, 10, [3, 4], byType)).toEqual([
+      { entity: 3, jobPriority: [rebaseSlotJob(COIN_MAKER)] },
+    ]);
+  });
+
   it('sends a member of another trade to a red workplace with no trade to try', () => {
     const miller: Ent = {
       id: 4,

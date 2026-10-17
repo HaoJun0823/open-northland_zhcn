@@ -154,9 +154,9 @@ export function computeAssignHighlight(
 
 /**
  * The members a click on one building posts, each with the building's slots for its trade, or null for a
- * building the highlight leaves untinted. On a green building every member it offers its trade goes along
- * and the sim picks who is seated against its current staffing. A red building still takes the whole
- * side's selection, so the sim's refusal tells the player why.
+ * building the highlight leaves untinted. Every member the building offers its trade goes along and the sim
+ * picks who is seated against its current staffing. A red building that offers no member's trade still
+ * takes the side's selection, so the sim's refusal tells the player why.
  */
 export function workerGroupAt(
   snapshot: WorldSnapshot,
@@ -171,12 +171,12 @@ export function workerGroupAt(
   if (!candidate) return null;
   const slots = slotsOf(building, buildingsByType);
   const team = ownerKeyOf(building);
-  const workers: GroupWorker[] = [];
-  for (const settler of settlers) {
-    const jobPriority = tradeSlotsOf(settlerJobType(settler), slots);
-    if (ownerKeyOf(settler) === team && (jobPriority.length > 0 || !ok)) {
-      workers.push({ entity: settler.id as Entity, jobPriority });
-    }
-  }
-  return workers;
+  const side = settlers
+    .filter((settler) => ownerKeyOf(settler) === team)
+    .map((settler) => ({
+      entity: settler.id as Entity,
+      jobPriority: tradeSlotsOf(settlerJobType(settler), slots),
+    }));
+  const offered = side.filter((worker) => worker.jobPriority.length > 0);
+  return offered.length > 0 || ok ? offered : side;
 }

@@ -1898,10 +1898,9 @@ export const plGame = {
       },
       full: {
         notOffered:
-          '{name} nie ma zawodu, którego potrzebuje {building}. Kliknij budynek prawym przyciskiem myszy: osadnik zmieni zawód i podejmie tam pracę.',
+          '{name} nie ma zawodu, którego potrzebuje ten budynek ({building}). Kliknij budynek prawym przyciskiem myszy, aby zmienić zawód i podjąć tam pracę.',
         full: '{name}: {building} nie ma już wolnych miejsc pracy. Zwolnij któreś miejsce albo zbuduj drugi taki budynek.',
-        locked:
-          '{name}: praca tutaj ({building}) nie jest jeszcze dostępna. Ten zawód trzeba najpierw odkryć.',
+        locked: '{name}: praca tutaj ({building}) nie jest jeszcze dostępna dla twojego plemienia.',
         experience:
           '{name} ma za mało doświadczenia na ten zawód: {profession}. Wyślij kogoś bardziej doświadczonego albo niech najpierw popracuje w zawodzie, który go odblokowuje.',
       },

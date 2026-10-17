@@ -21,6 +21,7 @@ import { canonicalResources } from '../../spatial/resources.js';
 import { TargetBands } from './bands.js';
 import { InteractionCellIndex } from './cell-index.js';
 import { constructionSiteCells } from './construction-site-cells.js';
+import { cropsByFarm } from './crops-by-farm.js';
 import { fieldZones, type NodeMembership } from './field-zones.js';
 import { roadSiteCells as roadSiteCellsOf } from './road-site-cells.js';
 import { stockpileCells } from './stockpile-cells.js';
@@ -125,7 +126,7 @@ class TickTargets implements TargetCandidates {
   readonly yard: YardTargets;
   private resourcesMemo: readonly Entity[] | undefined;
   private sites: SiteSplit | undefined;
-  private cropsByFarmMemo: Map<Entity, Entity[]> | undefined;
+  private cropsByFarmMemo: ReadonlyMap<Entity, readonly Entity[]> | undefined;
   private wallSiteCellsMemo: InteractionCellIndex | undefined;
   private roadSiteCellsMemo: InteractionCellIndex | undefined;
   private repairSiteCellsMemo: InteractionCellIndex | undefined;
@@ -236,19 +237,7 @@ class TickTargets implements TargetCandidates {
   }
 
   get cropsByFarm(): ReadonlyMap<Entity, readonly Entity[]> {
-    if (this.cropsByFarmMemo === undefined) {
-      // Grouped from the canonical list, so each farm's fields stay ascending-id and the farmer's
-      // tie-break picks the same field a whole-world scan would.
-      const byFarm = new Map<Entity, Entity[]>();
-      const crops = this.world.canonicalQuery(Crop, Position);
-      for (let i = 0; i < crops.length; i++) {
-        const crop = crops[i];
-        if (crop === undefined) continue;
-        const farm = this.world.get(crop, Crop).farm;
-        if (farm !== null) pushTo(byFarm, farm, crop);
-      }
-      this.cropsByFarmMemo = byFarm;
-    }
+    this.cropsByFarmMemo ??= cropsByFarm(this.world);
     return this.cropsByFarmMemo;
   }
 

@@ -1,0 +1,12 @@
+{
+  "reason": "Strona porażki 17 otwiera się, gdy zginie gracz 1, czyli saraceńska wioska Hatschiego, albo sam gracz. Polska wersja mówi, że węże unicestwiły Bizantyjczyków, choć Bizantyjczycy (gracz 3) nie mają z tą porażką nic wspólnego; angielska, niemiecka i rosyjska mówią o „całym ludzie”. Tłumaczymy jak w pozostałych językach.",
+  "file": "campaigns/northland/campaign_02_01/text/pol/briefings/briefings.txt",
+  "sha256": "73b8c5509e35e72a849e1e5f7281cd41e5266dbbc0d10bbcabb06d8db09f8d95",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Nieszczęście! Wężowe plemię unicestwiło Bizantyjczyków! Twoim Wikingom nie udało się okiełznać plagi węży...",
+      "to": "Nieszczęście! Cały lud padł ofiarą wężowego plemienia! Twoim Wikingom nie udało się okiełznać plagi węży..."
+    }
+  ]
+}

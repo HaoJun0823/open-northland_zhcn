@@ -1,0 +1,18 @@
+{
+  "reason": "Po spotkaniu Miguela odprawa (strona 13) każe znaleźć złotą górę i dostarczyć mu 20 sztuk złota, a cel 15 „Dostarcz Miguelowi 20 sztuk złota” ma swój tekst, ale skrypt nigdy go nie pokazuje: spotkanie odsłania tylko cel złotej góry (16), a odnalezienie góry ustawia cel 15 jako niewidoczny. Gracz nie widzi w księdze zadania, o które prosi Miguel, i może przeoczyć trybut. Spotkanie odsłania teraz oba cele, a znalezienie góry już nie ukrywa dostawy złota.",
+  "file": "campaigns/northland/campaign_02_01/map.cif",
+  "sha256": "dd9f0df68aaad60660649a8209997cb22640abaf0fdaad138fe28e54812c693b",
+  "format": "cif",
+  "lines": [
+    {
+      "line": 155,
+      "from": "result \"SetVisible\" 16 1",
+      "to": ["result \"SetVisible\" 16 1", "result \"SetVisible\" 15 1"]
+    },
+    {
+      "line": 173,
+      "from": "result \"SetVisible\" 15 0",
+      "to": []
+    }
+  ]
+}

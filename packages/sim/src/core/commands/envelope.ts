@@ -241,19 +241,33 @@ function seatOwned(command: PlayerCommand, player: number): PlayerCommand {
 }
 
 /**
- * Commands are plain serializable data by contract, so anything else in a payload throws rather than
- * being silently flattened into the replay log. The accumulator is prototype-less because a
- * `JSON.parse`d payload can carry an own `__proto__` key, which an object literal would apply as a
- * prototype instead of copying - and the authority gate reads `owner`/`player` with `in`.
+ * Commands are plain JSON data by contract - the wire a multiplayer command crosses and the replay log
+ * both carry them as JSON - so the copy takes exactly what JSON keeps: a non-finite number or an
+ * undefined list member throws, `-0` becomes `0` and a record field holding `undefined` is left out.
+ * The accumulator is prototype-less because a `JSON.parse`d payload can carry an own `__proto__` key,
+ * which an object literal would apply as a prototype instead of copying - and the authority gate reads
+ * `owner`/`player` with `in`.
  */
 function clonePlainData<T>(value: T): T {
   if (value === null || value === undefined) return value;
-  if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') return value;
-  if (Array.isArray(value)) return value.map((member: unknown) => clonePlainData(member)) as T;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error(`command payload holds the non-finite number ${value}`);
+    return (value === 0 ? 0 : value) as T;
+  }
+  if (typeof value === 'string' || typeof value === 'boolean') return value;
+  if (Array.isArray(value)) {
+    return value.map((member: unknown) => {
+      if (member === undefined) throw new Error('command payload holds an undefined list member');
+      return clonePlainData(member);
+    }) as T;
+  }
   if (!isPlainRecord(value)) {
     throw new Error(`command payload holds a non-serializable ${valueShapeName(value)}`);
   }
   const out = Object.create(null) as Record<string, unknown>;
-  for (const key of Object.keys(value)) out[key] = clonePlainData(value[key]);
+  for (const key of Object.keys(value)) {
+    const field = value[key];
+    if (field !== undefined) out[key] = clonePlainData(field);
+  }
   return out as T;
 }

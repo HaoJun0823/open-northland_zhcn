@@ -196,7 +196,8 @@ export class CommandQueue {
   }
 
   /** Append a command to the log and give it the run's next sequence (CommandSystem-only, after it
-   *  admits or rejects it). Commands are plain data by contract, so the JSON text keeps all of one. */
+   *  admits or rejects it). The envelope's payload went through `ownedEnvelope`, which keeps only what JSON
+   *  keeps, so the text decodes to an equal entry. */
   record(applyTick: number, envelope: CommandEnvelope): void {
     const entry: LoggedCommand = { ...envelope, applyTick, sequence: this.nextSequence++ };
     this.openLog.push(JSON.stringify(entry));

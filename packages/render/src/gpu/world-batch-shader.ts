@@ -80,6 +80,11 @@ function textureChain(maxTextures: number, slot: string, call: (index: number) =
   return lines.join('\n');
 }
 
+/** Taps one fragment gathers at most: xBR's window, or four 2x2 minification windows. */
+const TAP_COUNT = 16;
+/** Taps in one 2x2 window. */
+const SUB_WINDOW_TAPS = 4;
+
 /** A GLSL float literal: a whole number still needs its decimal point. */
 const glslFloat = (value: number): string => value.toFixed(6);
 
@@ -94,7 +99,7 @@ const float SHADOW_MAX_ALPHA = ${glslFloat(shadow.maxAlpha)};
 const vec3 SHADOW_TINT = vec3(${red}, ${green}, ${blue});`,
     // A silhouette carries coverage only, so the element's own colour contributes nothing but its
     // alpha.
-    output: /* glsl */ `if (hasFlag(WORLD_FLAG_SHADOW)) {
+    output: /* glsl */ `if (hasFlag(flags, WORLD_FLAG_SHADOW)) {
     float shadowAlpha = min(outColor.a * SHADOW_ALPHA_GAIN, SHADOW_MAX_ALPHA) * vColor.a;
     finalColor = vec4(SHADOW_TINT * shadowAlpha, shadowAlpha);
   } else {
@@ -152,30 +157,19 @@ const float MINIFY_TAP_OFFSET = 0.25;
 const float MINIFY_TAP_WEIGHT = 0.25;${shading.declarations}
 ${BLOOD_COAT_GLSL}
 ${BLOOD_SURFACE_GLSL}
-// Resolved once per fragment: the bound page's size, the element's flags and its palette row.
-vec2 texSize;
-// The sample point's screen-space uv derivatives, taken where control flow is uniform.
-vec2 uvDx;
-vec2 uvDy;
-int flags;
-bool paletted;
-int lutRow;
-
 // The texels one fragment blends, read in one pass over the sampler chain: xBR's neighbourhood of the
 // sample point's corner, one 2x2 at the sample point, or the four 2x2 windows of a paletted element's
 // minification taps. A tap outside the element's frame is transparent, and a paletted tap resolves its
-// colour before any blend, so the magnifiers blend colours, never indices. Every read of taps after the
-// gather indexes it by a constant: Direct3D keeps a runtime-indexed local array in slow scratch memory.
-const int TAP_COUNT = 16;
-const int SUB_WINDOW_TAPS = 4;
+// colour before any blend, so the magnifiers blend colours, never indices. The arrays and the rest of
+// the per-fragment state are locals of main: as globals, which ANGLE gathers into one struct passed by
+// reference to every function, the program measured slower on Metal for every fragment it draws,
+// gathering or not. The fetch stays a loop and the resolve mostly one: spelled out in full they
+// multiplied the compile time.
+const int TAP_COUNT = ${TAP_COUNT};
+const int SUB_WINDOW_TAPS = ${SUB_WINDOW_TAPS};
 const int WINDOW_TAPS = ${XBR_NEIGHBOURS.length};
-ivec2 tapAt[TAP_COUNT];
-vec4 taps[TAP_COUNT];
-// The taps laid out and gathered, from the first.
-int tapCount;
-ivec2 windowStep;
 
-bool hasFlag(int bit) {
+bool hasFlag(int flags, int bit) {
   return (flags & bit) != 0;
 }
 
@@ -183,7 +177,7 @@ bool hasFlag(int bit) {
 // mipmaps keeps them. The other modes sample off the viewport's edge of the frame and pass the
 // fragment's own uv derivatives explicitly: a sample with implicit derivatives inside this chain may
 // make Direct3D's compiler flatten it into a sample from every slot (unverified on that hardware).
-vec4 sampleTexture(vec2 uv) {
+vec4 sampleTexture(vec2 uv, vec2 uvDx, vec2 uvDy) {
 ${textureChain(maxTextures, 'vTextureId', (i) => (MODE_NAMES[mode] === 'off' ? `return texture(uTextures[${i}], uv);` : `return textureGrad(uTextures[${i}], uv, uvDx, uvDy);`))}
 }
 
@@ -191,50 +185,23 @@ ivec2 textureSizeOf() {
 ${textureChain(maxTextures, 'vTextureId', (i) => `return textureSize(uTextures[${i}], 0);`)}
 }
 
-// Direct3D inlines every function into each branch it is called from, so the page is chosen once per
-// fragment and the one chain reads every tap; a tap-by-tap chain compiled for minutes there.
-void fetchTaps() {
-${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < TAP_COUNT; k++) { if (k < tapCount) taps[k] = texelFetch(uTextures[${i}], tapAt[k], 0); }`)}
-}
-
 // A paletted texel's red is its palette index, read exactly (an interpolated index names another colour).
-vec3 paletteColour(float red) {
+vec3 paletteColour(float red, int lutRow) {
   return texelFetch(uTextures[LUT_SLOT], ivec2(int(floor(red * PALETTE_INDEX_MAX + 0.5)), lutRow), 0).rgb;
 }
 
-void gatherTaps() {
-  fetchTaps();
-  // A fixed trip count with a guarded body, so the compiler unrolls the loop and every taps index
-  // stays a constant; a data-dependent exit could leave the array runtime-indexed.
-  for (int k = 0; k < TAP_COUNT; k++) {
-    if (k >= tapCount) continue;
-    vec2 uv = (vec2(tapAt[k]) + 0.5) / texSize;
-    if (any(lessThan(uv, vFrame.xy)) || any(greaterThanEqual(uv, vFrame.zw))) {
-      taps[k] = vec4(0.0);
-    } else if (paletted) {
-      taps[k] = vec4(paletteColour(taps[k].r) * taps[k].a, taps[k].a);
-    }
-  }
+// A tap outside the element's frame is transparent; a paletted tap resolves its colour here.
+vec4 resolvedTap(vec4 tap, ivec2 at, vec2 texSize, bool paletted, int lutRow) {
+  vec2 uv = (vec2(at) + 0.5) / texSize;
+  if (any(lessThan(uv, vFrame.xy)) || any(greaterThanEqual(uv, vFrame.zw))) return vec4(0.0);
+  return paletted ? vec4(paletteColour(tap.r, lutRow) * tap.a, tap.a) : tap;
 }
 
 ${PIXEL_ART_MAGNIFY_CORE_GLSL}
 
-// xBR's window: the neighbourhood of p's corner in XbrNeighbours order, along the magnifiers' own
-// mirroring step.
-void layoutWindow(vec2 p) {
-  ivec2 centre = ivec2(floor(p));
-  windowStep = magnifyWindowStep(fract(p));
-  tapCount = WINDOW_TAPS;
-${XBR_NEIGHBOURS.map(([name, dx, dy], k) => `  tapAt[${k}] = centre + windowStep * ivec2(${dx}, ${dy}); // ${name}`).join('\n')}
-}
-
-XbrNeighbours windowNeighbours() {
-  return XbrNeighbours(${XBR_NEIGHBOURS.map((_, k) => `taps[${k}]`).join(', ')});
-}
-
 // magnifySharp over the window: its 2x2 is e, f, h and i, which run against the texel axes along a
 // negative step, so the blend takes them in reverse there.
-vec4 windowSharp(XbrNeighbours n, vec2 p, float texelsPerPixel) {
+vec4 windowSharp(XbrNeighbours n, vec2 p, float texelsPerPixel, ivec2 windowStep) {
   vec2 w = magnifySharpWeights(p, texelsPerPixel);
   bvec2 forward = greaterThan(windowStep, ivec2(0));
   vec4 top = forward.x ? mix(n.e, n.f, w.x) : mix(n.f, n.e, w.x);
@@ -242,22 +209,15 @@ vec4 windowSharp(XbrNeighbours n, vec2 p, float texelsPerPixel) {
   return forward.y ? mix(top, bottom, w.y) : mix(bottom, top, w.y);
 }
 
-// A 2x2 window at p's bilinear base, in the order blendTaps reads it.
-void layoutBilinearTaps(int first, vec2 p) {
-  ivec2 base = ivec2(floor(p - 0.5));
-  tapAt[first] = base;
-  tapAt[first + 1] = base + ivec2(1, 0);
-  tapAt[first + 2] = base + ivec2(0, 1);
-  tapAt[first + 3] = base + ivec2(1, 1);
-}
-
+// A 2x2 window at p's bilinear base from tap first on, in the order BLEND_TAPS reads it.
+#define LAYOUT_BILINEAR_TAPS(first, p) { ivec2 base = ivec2(floor((p) - 0.5)); tapAt[first] = base; tapAt[first + 1] = base + ivec2(1, 0); tapAt[first + SUB_WINDOW_TAPS / 2] = base + ivec2(0, 1); tapAt[first + SUB_WINDOW_TAPS / 2 + 1] = base + ivec2(1, 1); }
 // The blend of a 2x2 window by weights f, as magnifyBlend weights its taps; fract(p - 0.5) is bilinear.
-vec4 blendTaps(int first, vec2 f) {
-  return mix(mix(taps[first], taps[first + 1], f.x),
-             mix(taps[first + SUB_WINDOW_TAPS / 2], taps[first + SUB_WINDOW_TAPS / 2 + 1], f.x), f.y);
-}
+#define BLEND_TAPS(first, f) mix(mix(taps[first], taps[first + 1], (f).x), mix(taps[first + SUB_WINDOW_TAPS / 2], taps[first + SUB_WINDOW_TAPS / 2 + 1], (f).x), (f).y)
 
 void main(void) {
+  vec2 texSize = vec2(0.0);
+  vec2 uvDx = vec2(0.0);
+  vec2 uvDy = vec2(0.0);
   vec2 p = vec2(0.0);
   float texelsPerPixel = 0.0;
   vec2 uvFootprint = vec2(0.0);
@@ -278,30 +238,30 @@ void main(void) {
     vec2 stampUV = WORLD_MAGNIFY > 0.5
       ? clamp(vUV, vFrame.xy + 0.5 / texSize, vFrame.zw - 0.5 / texSize)
       : vUV;
-    float coverage = sampleTexture(stampUV).a;
+    float coverage = sampleTexture(stampUV, uvDx, uvDy).a;
     finalColor = vec4(vColor.rgb * coverage, vColor.a * coverage);
     return;
   }
-  flags = int(vFlags);
-  paletted = hasFlag(WORLD_FLAG_PALETTED);
-  lutRow = flags >> WORLD_LUT_ROW_SHIFT;
+  int flags = int(vFlags);
+  bool paletted = hasFlag(flags, WORLD_FLAG_PALETTED);
+  int lutRow = flags >> WORLD_LUT_ROW_SHIFT;
   bool magnified = texelsPerPixel < 1.0;
   // A paletted element always resolves through its LUT; a plain one only when its page is magnified.
-  bool filtered = WORLD_MAGNIFY > 0.5 && (paletted || hasFlag(WORLD_FLAG_MAGNIFY));
+  bool filtered = WORLD_MAGNIFY > 0.5 && (paletted || hasFlag(flags, WORLD_FLAG_MAGNIFY));
   vec4 outColor;
   if (!filtered || (!paletted && magnified && WORLD_MAGNIFY < 1.5)) {
-    vec4 texel = sampleTexture(vUV);
-    outColor = paletted ? vec4(paletteColour(texel.r) * texel.a, texel.a) : texel;
+    vec4 texel = sampleTexture(vUV, uvDx, uvDy);
+    outColor = paletted ? vec4(paletteColour(texel.r, lutRow) * texel.a, texel.a) : texel;
   } else if (!paletted && !magnified) {
     // Minified: a 2x2 footprint over the sampler's own filter reduces sparkle, clamped to the frame.
     // Not a mipmap substitute at extreme zoom-out: sampling cost is deliberately bounded.
     vec2 footprint = max(uvFootprint - 1.0 / texSize, vec2(0.0)) * MINIFY_TAP_OFFSET;
     vec2 low = vFrame.xy + 0.5 / texSize;
     vec2 high = vFrame.zw - 0.5 / texSize;
-    outColor = MINIFY_TAP_WEIGHT * (sampleTexture(clamp(vUV - footprint, low, high))
-                     + sampleTexture(clamp(vUV + vec2(footprint.x, -footprint.y), low, high))
-                     + sampleTexture(clamp(vUV + vec2(-footprint.x, footprint.y), low, high))
-                     + sampleTexture(clamp(vUV + footprint, low, high)));
+    outColor = MINIFY_TAP_WEIGHT * (sampleTexture(clamp(vUV - footprint, low, high), uvDx, uvDy)
+                     + sampleTexture(clamp(vUV + vec2(footprint.x, -footprint.y), low, high), uvDx, uvDy)
+                     + sampleTexture(clamp(vUV + vec2(-footprint.x, footprint.y), low, high), uvDx, uvDy)
+                     + sampleTexture(clamp(vUV + footprint, low, high), uvDx, uvDy));
   } else {
     // xBR's window, or one 2x2 at the sample point for sharp and for a paletted element with
     // magnification off for its page size, else four 2x2 spread over the minified footprint. Only
@@ -314,35 +274,50 @@ void main(void) {
     vec2 p1 = (vUV + vec2(footprint.x, -footprint.y)) * texSize;
     vec2 p2 = (vUV + vec2(-footprint.x, footprint.y)) * texSize;
     vec2 p3 = (vUV + footprint) * texSize;
-    tapCount = TAP_COUNT;
+    ivec2 tapAt[TAP_COUNT];
+    vec4 taps[TAP_COUNT];
+    int tapCount = TAP_COUNT;
+    ivec2 windowStep = ivec2(0);
     if (xbr) {
-      layoutWindow(p);
+      // xBR's window: the neighbourhood of p's corner in XbrNeighbours order, along the magnifiers'
+      // own mirroring step.
+      ivec2 centre = ivec2(floor(p));
+      windowStep = magnifyWindowStep(fract(p));
+      tapCount = WINDOW_TAPS;
+${XBR_NEIGHBOURS.map(([name, dx, dy], k) => `      tapAt[${k}] = centre + windowStep * ivec2(${dx}, ${dy}); // ${name}`).join('\n')}
     } else if (sharp || single) {
       tapCount = SUB_WINDOW_TAPS;
-      layoutBilinearTaps(0, p);
+      LAYOUT_BILINEAR_TAPS(0, p)
     } else {
-      layoutBilinearTaps(0, p0);
-      layoutBilinearTaps(SUB_WINDOW_TAPS, p1);
-      layoutBilinearTaps(2 * SUB_WINDOW_TAPS, p2);
-      layoutBilinearTaps(3 * SUB_WINDOW_TAPS, p3);
+      LAYOUT_BILINEAR_TAPS(0, p0)
+      LAYOUT_BILINEAR_TAPS(SUB_WINDOW_TAPS, p1)
+      LAYOUT_BILINEAR_TAPS(2 * SUB_WINDOW_TAPS, p2)
+      LAYOUT_BILINEAR_TAPS(3 * SUB_WINDOW_TAPS, p3)
     }
-    gatherTaps();
+    // Direct3D inlines every function into each branch it is called from, so the page is chosen once
+    // per fragment and this one chain reads every tap; a tap-by-tap chain compiled for minutes there.
+${textureChain(maxTextures, 'vTextureId', (i) => `for (int k = 0; k < TAP_COUNT; k++) { if (k < tapCount) taps[k] = texelFetch(uTextures[${i}], tapAt[k], 0); }`)}
+    // The one 2x2 most gathers take resolves at literal indices, which measured faster; the rest loop.
+${Array.from({ length: SUB_WINDOW_TAPS }, (_, k) => `    taps[${k}] = resolvedTap(taps[${k}], tapAt[${k}], texSize, paletted, lutRow);`).join('\n')}
+    for (int k = SUB_WINDOW_TAPS; k < TAP_COUNT; k++) {
+      if (k < tapCount) taps[k] = resolvedTap(taps[k], tapAt[k], texSize, paletted, lutRow);
+    }
     if (xbr) {
-      XbrNeighbours n = windowNeighbours();
-      outColor = magnifyXbrCorner(n, windowSharp(n, p, texelsPerPixel), p, texelsPerPixel);
+      XbrNeighbours n = XbrNeighbours(${XBR_NEIGHBOURS.map((_, k) => `taps[${k}]`).join(', ')});
+      outColor = magnifyXbrCorner(n, windowSharp(n, p, texelsPerPixel, windowStep), p, texelsPerPixel);
     } else if (sharp) {
-      outColor = blendTaps(0, magnifySharpWeights(p, texelsPerPixel));
+      outColor = BLEND_TAPS(0, magnifySharpWeights(p, texelsPerPixel));
     } else if (single) {
-      outColor = blendTaps(0, fract(p - 0.5));
+      outColor = BLEND_TAPS(0, fract(p - 0.5));
     } else {
-      outColor = MINIFY_TAP_WEIGHT * (blendTaps(0, fract(p0 - 0.5))
-                       + blendTaps(SUB_WINDOW_TAPS, fract(p1 - 0.5))
-                       + blendTaps(2 * SUB_WINDOW_TAPS, fract(p2 - 0.5))
-                       + blendTaps(3 * SUB_WINDOW_TAPS, fract(p3 - 0.5)));
+      outColor = MINIFY_TAP_WEIGHT * (BLEND_TAPS(0, fract(p0 - 0.5))
+                       + BLEND_TAPS(SUB_WINDOW_TAPS, fract(p1 - 0.5))
+                       + BLEND_TAPS(2 * SUB_WINDOW_TAPS, fract(p2 - 0.5))
+                       + BLEND_TAPS(3 * SUB_WINDOW_TAPS, fract(p3 - 0.5)));
     }
   }
-  if (paletted && hasFlag(WORLD_FLAG_GLOW)) {
-    outColor = vec4(paletteColour(GLOW_PALETTE_INDEX / PALETTE_INDEX_MAX), 1.0) * outColor.a;
+  if (paletted && hasFlag(flags, WORLD_FLAG_GLOW)) {
+    outColor = vec4(paletteColour(GLOW_PALETTE_INDEX / PALETTE_INDEX_MAX, lutRow), 1.0) * outColor.a;
   }
   if (vBlood > 0.0 && outColor.a > 0.0) {
     vec2 bodyUV = (vUV - vFrame.xy) / max(vFrame.zw - vFrame.xy, vec2(0.000001));

@@ -2,10 +2,11 @@
 import type { GameSession } from '@open-northland/lockstep';
 import { RelayRefusal } from '@open-northland/net-client';
 import type { ServerMessage } from '@open-northland/net-protocol';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { messages } from '../../src/i18n/index.js';
 import type { FailureSource, HostedRelayedWorld, NetWorldPort } from '../../src/net/connection.js';
 import type { NetworkHandover } from '../../src/net/handover.js';
+import * as startRoster from '../../src/view/net/start-roster.js';
 
 const mocks = vi.hoisted(() => ({
   assemble: vi.fn(),
@@ -24,10 +25,11 @@ vi.mock('../../src/entries/map/boot.js', () => ({
 }));
 vi.mock('../../src/view/fullscreen.js', () => ({ bindDisplayMode: vi.fn() }));
 vi.mock('../../src/entries/relay/net-hud.js', () => ({ mountNetHud: mocks.mountHud }));
-vi.mock('../../src/view/net/start-roster.js', async (original) => ({
-  ...(await original<typeof import('../../src/view/net/start-roster.js')>()),
-  mountStartRoster: () => ({ update: vi.fn(), dispose: vi.fn() }),
-}));
+
+beforeEach(() => {
+  vi.spyOn(startRoster, 'mountStartRoster').mockReturnValue({ update: vi.fn(), dispose: vi.fn() });
+});
+afterEach(() => vi.restoreAllMocks());
 
 import { renderNetworkGame } from '../../src/entries/relay/network-game.js';
 

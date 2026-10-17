@@ -232,7 +232,11 @@ describe('shared gate control', () => {
     const vehicle = [...sim.world.query(Vehicle)][0];
     if (vehicle === undefined) throw new Error('vehicle missing');
     expect(isOpen(sim, gate)).toBe(false);
-    const restored = restoreSimulation(exportSaveGame(sim), { content: sim.content, map: MAP });
+    const restored = restoreSimulation(exportSaveGame(sim), {
+      content: sim.content,
+      map: MAP,
+      ...(sim.mapAiScript === undefined ? {} : { mapAiScript: sim.mapAiScript }),
+    });
     expect(restored.world.get(gate, GateControl).mode).toBe('automatic');
     expect(isOpen(restored, gate)).toBe(false);
     expect(restored.hashState()).toBe(sim.hashState());

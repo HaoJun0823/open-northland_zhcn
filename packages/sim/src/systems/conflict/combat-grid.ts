@@ -11,7 +11,7 @@ import {
   Settler,
 } from '../../components/index.js';
 import type { ChangeFeed, Component, Entity, World } from '../../ecs/world.js';
-import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
+import { type HalfCellNode, nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { MapContext, SystemContext } from '../context.js';
 import { isAggressiveAnimal, isAnimalTribe, isLowPriorityBuildingTarget } from '../readviews/index.js';
@@ -199,7 +199,10 @@ export class CombatGrid {
   private readonly cols: number;
   private readonly rows: number;
   private readonly cells: (CoarseCell | undefined)[];
+  /** The cells this build touched, the first {@link builtCount} live: a count rather than a length reset,
+   *  which would drop the backing store and regrow it every build. */
   private readonly builtCells: CoarseCell[] = [];
+  private builtCount = 0;
   private readonly buildings = new Map<Entity, HeldBuilding>();
   /** Members on the deprioritized siege tier, classified by type when the layer is built. */
   private readonly lowPriority = new Set<Entity>();
@@ -214,7 +217,9 @@ export class CombatGrid {
   private unitsBuilt = false;
   /** The coarse cells the stranger neighbourhood spans each way; null until first asked. */
   private nearCells: number | null = null;
+  /** The first {@link nearDirtyCount} are live, as {@link builtCells} counts its own. */
   private readonly nearDirtyCells: CoarseCell[] = [];
+  private nearDirtyCount = 0;
   /** The cells whose neighbourhood holds an undiscounted member or two owners. */
   private readonly strangerCells = new Set<CoarseCell>();
   private readonly bandScans: BandScan[] = [];
@@ -237,7 +242,8 @@ export class CombatGrid {
    *  the grid ready for this build's admissions. */
   startBuild(world: World, ctx: SystemContext): void {
     for (const scan of this.bandScans) scan.valid = false;
-    for (const cell of this.builtCells) {
+    for (let i = 0; i < this.builtCount; i++) {
+      const cell = this.builtCells[i] as CoarseCell;
       cell.bodies.count = cell.bodyBase;
       cell.buildTotal = 0;
       cell.buildUndiscounted = 0;
@@ -248,7 +254,7 @@ export class CombatGrid {
       cell.builtOn = false;
       this.refresh(cell);
     }
-    this.builtCells.length = 0;
+    this.builtCount = 0;
     const changed = this.changedBuildings(world);
     if (changed === null) this.rebuildBuildings(world, ctx);
     else {
@@ -259,12 +265,21 @@ export class CombatGrid {
     this.syncUnits(world, ctx.tick);
   }
 
-  /** Append moving body `e` (a vehicle) at each of its nodes for this build; an armed one threatens there
-   *  as a firing building does, an unarmed one no more than a plain building. */
-  admitBody(e: Entity, nodes: readonly NodeId[], bit: number, armed: boolean): void {
-    for (const node of nodes) {
-      const x = this.terrain.xOf(node);
-      const y = this.terrain.yOf(node);
+  /** Append moving body `e` (a vehicle) for this build at each on-map node of the disc `offsets` spans
+   *  around node (hx, hy); an armed one threatens there as a firing building does, an unarmed one no more
+   *  than a plain building. */
+  admitBody(
+    e: Entity,
+    hx: number,
+    hy: number,
+    offsets: readonly HalfCellNode[],
+    bit: number,
+    armed: boolean,
+  ): void {
+    for (const offset of offsets) {
+      const x = hx + offset.hx;
+      const y = hy + offset.hy;
+      if (!this.terrain.inBounds(x, y)) continue;
       const cell = this.touchForBuild(this.cellFor(x, y));
       push(cell.bodies, e, x, y, bit);
       if (cell.countedLast !== e) {
@@ -317,7 +332,8 @@ export class CombatGrid {
       this.nearCells = reach;
       for (const cell of this.cells) if (cell !== undefined) this.markNearDirty(cell);
     }
-    for (const cell of this.nearDirtyCells) {
+    for (let i = 0; i < this.nearDirtyCount; i++) {
+      const cell = this.nearDirtyCells[i] as CoarseCell;
       const { nearMask, nearUndiscounted } = this.nearOf(cell, reach);
       cell.nearMask = nearMask;
       cell.nearUndiscounted = nearUndiscounted;
@@ -325,7 +341,7 @@ export class CombatGrid {
       if (nearUndiscounted || (nearMask & (nearMask - 1)) !== 0) this.strangerCells.add(cell);
       else this.strangerCells.delete(cell);
     }
-    this.nearDirtyCells.length = 0;
+    this.nearDirtyCount = 0;
     return this.strangerCells;
   }
 
@@ -452,7 +468,7 @@ export class CombatGrid {
       cell.countedLast = null;
       cell.builtOn = false;
     }
-    this.builtCells.length = 0;
+    this.builtCount = 0;
     this.buildings.clear();
     this.lowPriority.clear();
     for (const b of world.query(Building, Health, Position)) {
@@ -648,7 +664,7 @@ export class CombatGrid {
         const near = this.cells[y * this.cols + x];
         if (near === undefined || near.nearDirty) continue;
         near.nearDirty = true;
-        this.nearDirtyCells.push(near);
+        this.nearDirtyCells[this.nearDirtyCount++] = near;
       }
     }
   }
@@ -833,7 +849,7 @@ export class CombatGrid {
   private touchForBuild(cell: CoarseCell): CoarseCell {
     if (!cell.builtOn) {
       cell.builtOn = true;
-      this.builtCells.push(cell);
+      this.builtCells[this.builtCount++] = cell;
     }
     return cell;
   }
@@ -876,7 +892,7 @@ export class CombatGrid {
       this.cells[i] = cell;
       if (this.nearCells !== null) {
         cell.nearDirty = true;
-        this.nearDirtyCells.push(cell);
+        this.nearDirtyCells[this.nearDirtyCount++] = cell;
       }
     }
     return cell;

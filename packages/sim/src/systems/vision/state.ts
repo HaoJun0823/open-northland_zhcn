@@ -133,6 +133,11 @@ export class FogState {
   private readonly eyeStamps = new Map<Entity, EyeStamp>();
   /** The stamp pass counter {@link EyeStamp.pass} is checked against when pruning eyes that are gone. */
   private stampPass = 0;
+  /** Bumped whenever {@link eyeStamps} is dropped wholesale, so a caller replaying only the eyes that
+   *  changed can tell the memo still holds every other eye. */
+  private eyeMemoEpoch = 0;
+  /** Whether the open pass visits only changed eyes, so it must not prune the eyes it did not see. */
+  private partialPass = false;
   /** Whether the open stamp pass memoizes footprints (see {@link beginStampPass}). */
   private memoStamps = false;
   /** Per (group, cell, radius) footprint, the {@link footprintEpoch} it was last stamped in: stamps only
@@ -246,7 +251,7 @@ export class FogState {
     }
     this.visibleBounds.clear();
     for (const [key, box] of bounds) this.visibleBounds.set(key, box);
-    this.eyeStamps.clear();
+    this.forgetEyeStamps();
     this.openBlocks.clear();
     if (this.folds !== null) {
       this.folds = null;
@@ -333,7 +338,7 @@ export class FogState {
     const owner = this.visionGroupOf(group);
     if (owner !== group) throw new Error(`fog mask for group ${group}: that player shares group ${owner}`);
     this.masks.set(group, mask);
-    this.eyeStamps.clear();
+    this.forgetEyeStamps();
     this.openBlocks.delete(group);
     this.markGroup(group);
     const fold = this.foldOfGroup(group);
@@ -352,7 +357,7 @@ export class FogState {
   /** Drop every mask (fog switched OFF): exploration history resets, the shared-vision table stays,
    *  generation bumps once. */
   reset(): void {
-    this.eyeStamps.clear();
+    this.forgetEyeStamps();
     this.openBlocks.clear();
     if (this.masks.size === 0) return;
     this.masks.clear();
@@ -365,8 +370,9 @@ export class FogState {
   /** Open a stamp pass. `memo` (only without fog of war, where no byte falls back) skips an eye whose
    *  footprint is unchanged since its last stamp, and {@link endStampPass} forgets the eyes the pass did
    *  not see. */
-  beginStampPass(memo: boolean): void {
+  beginStampPass(memo: boolean, partial = false): void {
     this.memoStamps = memo;
+    this.partialPass = memo && partial;
     this.stampPass++;
     this.footprintEpoch++;
     if (this.passFootprints.size >= FOOTPRINT_MEMO_CAP) this.passFootprints.clear();
@@ -423,15 +429,31 @@ export class FogState {
     return rect.wrote;
   }
 
-  /** Close a stamp pass: a memoizing pass forgets the eyes it did not see (destroyed, disowned or no
-   *  longer eyes). */
+  /** Close a stamp pass: a memoizing pass over every eye forgets the eyes it did not see (destroyed,
+   *  disowned or no longer eyes); a partial pass leaves that to {@link forgetEye}. */
   endStampPass(): void {
     this.footprintEpoch++;
-    if (!this.memoStamps) return;
+    if (!this.memoStamps || this.partialPass) return;
     // `forEach`, not `for...of`: an entry iterator allocates a pair per eye.
     this.eyeStamps.forEach((stamp, eye, stamps) => {
       if (stamp.pass !== this.stampPass) stamps.delete(eye);
     });
+  }
+
+  /** The counter of wholesale memo drops: a memo pass may visit only the eyes that changed while it
+   *  reads the same value as at the last memo pass. */
+  get eyeMemo(): number {
+    return this.eyeMemoEpoch;
+  }
+
+  /** Drop `eye`'s memoized footprint: it is no longer an eye. */
+  forgetEye(eye: Entity): void {
+    this.eyeStamps.delete(eye);
+  }
+
+  private forgetEyeStamps(): void {
+    this.eyeStamps.clear();
+    this.eyeMemoEpoch++;
   }
 
   /**
@@ -549,7 +571,7 @@ export class FogState {
    *  may-hold-VISIBLE box and then clearing it. Byte-identical to a full-mask scan. Returns whether
    *  it lowered any byte. */
   downgradeVisible(group: number): boolean {
-    this.eyeStamps.clear();
+    this.forgetEyeStamps();
     this.openBlocks.delete(group);
     const b = this.visibleBounds.get(group);
     if (b === undefined) return false;

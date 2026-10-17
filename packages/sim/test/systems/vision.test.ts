@@ -376,6 +376,18 @@ describe('stamp memo - an eye whose footprint did not change writes nothing', ()
     expect(sim.world.verifyCaches().some((v) => v.startsWith('fog: eye'))).toBe(true);
   });
 
+  it('CLASSIC: a rebuild that visits only changed eyes still follows a change of owner', () => {
+    const sim = simOn(FOG_MODE.CLASSIC);
+    const eyes = crowd(sim);
+    sim.run(1 + 2 * VISION_CADENCE_TICKS);
+    const turncoat = eyes[0];
+    if (turncoat === undefined) throw new Error('crowd is empty');
+    expect(rawState(sim, P1, 0, 2)).toBe(FOG_STATE.UNEXPLORED);
+    sim.world.mut(turncoat, Owner).player = P1;
+    sim.run(VISION_CADENCE_TICKS);
+    expect(rawState(sim, P1, 0, 2)).toBe(FOG_STATE.VISIBLE);
+  });
+
   it('CLASSIC: the open-block counts follow stamps and reveals, and the verifier catches a stale one', () => {
     const sim = simOn(FOG_MODE.CLASSIC, 48, 8);
     const eyes = crowd(sim);

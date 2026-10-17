@@ -34,6 +34,7 @@ import {
   isSiegeVehicle,
 } from '../readviews/index.js';
 import { alliedVisionGroups } from './allies.js';
+import { eyeChangesOf } from './eye-changes.js';
 import { cellOfNode } from './gates.js';
 import { FOG_STATE, type FogState } from './state.js';
 
@@ -166,17 +167,27 @@ export const visionSystem: System = (world, ctx) => {
   }
 
   // Stamp pass: writes are idempotent and commutative, so query order needs no canonical sort. Without
-  // fog of war no byte ever falls back, so the pass memoizes each eye's footprint.
-  fog.beginStampPass(!settings.fogOfWar);
+  // fog of war no byte ever falls back, so the pass memoizes each eye's footprint, and while that memo
+  // holds every eye it visits only the entities whose footprint may have changed.
+  const memoizing = !settings.fogOfWar;
+  const changedEyes = eyeChangesOf(world).take(memoizing, fog.eyeMemo);
+  fog.beginStampPass(memoizing, changedEyes !== null);
   // An entity of two eye kinds stamps the same footprint twice, which writes nothing new.
   const radii = eyeRadiiOf(ctx.content);
-  for (const kind of EYE_KINDS) {
-    for (const e of world.query(kind, Owner, Position)) {
-      const radius = visionRadiusOf(world, radii, e);
-      if (radius === null) continue;
-      const p = world.get(e, Position);
-      const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
-      if (fog.stampEye(e, world.get(e, Owner).player, cx, cy, radius)) changed = true;
+  if (changedEyes === null) {
+    for (const kind of EYE_KINDS) {
+      for (const e of world.query(kind, Owner, Position)) {
+        const radius = visionRadiusOf(world, radii, e);
+        if (radius !== null && stampEyeOf(world, fog, e, radius)) changed = true;
+      }
+    }
+  } else {
+    // One visit per entity: a second kind's visit would find its footprint memoized.
+    for (let i = 0; i < changedEyes.length; i++) {
+      const e = changedEyes[i] as Entity;
+      const radius = isOwnedEyeKind(world, e) ? visionRadiusOf(world, radii, e) : null;
+      if (radius === null) fog.forgetEye(e);
+      else if (stampEyeOf(world, fog, e, radius)) changed = true;
     }
   }
   fog.endStampPass();
@@ -214,6 +225,21 @@ export const visionSystem: System = (world, ctx) => {
   // ground among them, re-reads the masks on a bump, and a quiet Classic rebuild writes nothing.
   if (changed) fog.generation++;
 };
+
+/** Whether `e` is alive, owned, positioned and of an eye kind: one the full stamp pass visits. */
+function isOwnedEyeKind(world: World, e: Entity): boolean {
+  if (!world.isAlive(e) || !world.has(e, Owner) || !world.has(e, Position)) return false;
+  for (let i = 0; i < EYE_KINDS.length; i++)
+    if (world.has(e, EYE_KINDS[i] as Component<unknown>)) return true;
+  return false;
+}
+
+/** Stamp the sight of eye `e`, owned and positioned, `radius` nodes wide; whether a byte rose. */
+function stampEyeOf(world: World, fog: FogState, e: Entity, radius: number): boolean {
+  const p = world.get(e, Position);
+  const { cx, cy } = cellOfNode(nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
+  return fog.stampEye(e, world.get(e, Owner).player, cx, cy, radius);
+}
 
 function everyViewerMet(viewers: readonly ViewerBits[], owner: number): boolean {
   const ownerBit = 1 << owner;

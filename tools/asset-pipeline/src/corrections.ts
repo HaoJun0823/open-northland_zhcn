@@ -40,8 +40,9 @@ export interface SourceCorrection {
 /** One pipeline run's corrections, and which of them its reads applied. */
 export interface SourceCorrections {
   readonly list: readonly SourceCorrection[];
-  /** The bytes at `path`, with the correction naming that mod file applied. */
-  read(path: string): Promise<Uint8Array>;
+  /** The bytes at `path`, with the correction naming that mod file applied. `file` names a source
+   *  outside the data root by its map tree path instead, as a campaign map's files are. */
+  read(path: string, file?: string): Promise<Uint8Array>;
   /** Correct decoded properties against the original bytes, before any map readers consume them. */
   correctCifLines(file: string, bytes: Uint8Array, lines: readonly CifLine[]): readonly CifLine[];
   /** Every correction the reads so far did not apply, and why; a run that read only part of the data
@@ -105,9 +106,9 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
   return {
     list,
     unapplied,
-    async read(path) {
+    async read(path, file = relative(dataRoot, path).split(sep).join('/')) {
       const bytes = await readFile(path);
-      const correction = byFile.get(relative(dataRoot, path).split(sep).join('/').toLowerCase());
+      const correction = byFile.get(file.toLowerCase());
       if (correction === undefined) return bytes;
       // A CIF read alone has applied nothing: its decoded properties are corrected by the map reader.
       if (correction.format === 'cif') return bytes;

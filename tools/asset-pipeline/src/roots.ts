@@ -23,9 +23,10 @@ export interface SourceRoots {
   readonly mapStringCorrections?: StringCorrections;
 }
 
-/** Reads a data file as the run sees it, through the corrections that name it. */
-export function readSourceFile(roots: SourceRoots, path: string): Promise<Uint8Array> {
-  return roots.corrections?.read(path) ?? readFile(path);
+/** Reads a data file as the run sees it, through the corrections that name it: by its data-relative
+ *  path, or by `file` for a source outside the data root (a campaign map's tree path). */
+export function readSourceFile(roots: SourceRoots, path: string, file?: string): Promise<Uint8Array> {
+  return roots.corrections?.read(path, file) ?? readFile(path);
 }
 
 /** One source file found under the root. */

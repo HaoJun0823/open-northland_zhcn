@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, rm } from 'node:fs/promises';
+import { copyFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import {
   type Campaign,
@@ -18,7 +18,7 @@ import {
 } from '@open-northland/map-import';
 import type { CampaignFilmSource, CampaignSource } from '../../../../scripts/data-pack.mjs';
 import { writeFileWithParents } from '../files.js';
-import type { SourceRoots } from '../roots.js';
+import { readSourceFile, type SourceRoots } from '../roots.js';
 import { correctMapStrings } from '../string-corrections.js';
 import { MAPS_DIR } from './content-tree.js';
 import { writePagePictures } from './hypertext-pictures.js';
@@ -56,7 +56,7 @@ async function convertCampaignMap(
     for (const [logical, source] of Object.entries(files)) sources.set(`${folder}/${logical}`, source);
   const tree = await treeFromFolder(
     sources.keys(),
-    (rel) => readFile(join(mapDir, sources.get(rel) ?? rel)),
+    (rel) => readSourceFile(roots, join(mapDir, sources.get(rel) ?? rel), rel),
     NO_IMPORT_LIMITS,
   );
   const [key, ...others] = findMapFolders(tree);
@@ -66,6 +66,7 @@ async function convertCampaignMap(
     id: campaignMapId(campaign.id, map.id),
     provenance: 'mod',
     limits: NO_IMPORT_LIMITS,
+    ...(roots.corrections === undefined ? {} : { correctCifLines: roots.corrections.correctCifLines }),
     ...(synthesizeMinimap === undefined ? {} : { minimap: synthesizeMinimap }),
     ...(stringCorrections === undefined
       ? {}

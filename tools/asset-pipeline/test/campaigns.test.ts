@@ -1,10 +1,12 @@
-import { readFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { MapMeta } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
 import type { CampaignSource } from '../../../scripts/data-pack.mjs';
+import { loadSourceCorrections } from '../src/corrections.js';
 import { writeFileWithParents } from '../src/files.js';
 import { campaignMapId, convertCampaignStage } from '../src/stages/campaigns.js';
 import { makeTempDir } from './support/game-tree.js';
@@ -125,6 +127,31 @@ describe('convertCampaignStage', () => {
     expect(await readFile(join(out, 'campaigns', CAMPAIGN, 'films/pol/end.webm'), 'utf8')).toBe(
       'films/pol/end.webm',
     );
+  });
+
+  it('applies a source correction named by the map tree path, whatever the pack folder holds it', async () => {
+    const shipped = '[text]\nstringn 0 "Pierwsza wyprawa"\n';
+    const corrections = join(root, 'corrections');
+    await mkdir(corrections);
+    await writeFile(
+      join(corrections, 'name.json'),
+      JSON.stringify({
+        reason: 'test',
+        file: `campaigns/${CAMPAIGN}/${MAP}/text/pol/strings.ini`,
+        sha256: createHash('sha256').update(shipped).digest('hex'),
+        lines: [{ from: 'stringn 0 "Pierwsza wyprawa"', to: 'stringn 0 "Druga wyprawa"' }],
+      }),
+    );
+    const roots = {
+      data: join(pack, 'base'),
+      corrections: await loadSourceCorrections(corrections, join(pack, 'base')),
+    };
+    await convertCampaignStage(roots, pack, [source()], out, new Set());
+
+    const id = campaignMapId(CAMPAIGN, MAP);
+    const meta = MapMeta.parse(JSON.parse(await readFile(join(out, 'maps', `${id}.meta.json`), 'utf8')));
+    expect(meta.name).toEqual({ pol: 'Druga wyprawa', eng: 'First voyage' });
+    expect(() => roots.corrections.assertApplied()).not.toThrow();
   });
 
   it('refuses a campaign map whose id a base map uses, or a map of another campaign slot', async () => {

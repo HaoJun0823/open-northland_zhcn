@@ -49,7 +49,7 @@ interface CorrectionHeader {
 }
 
 /** Line swaps: plaintext byte edits, or decoded CIF property lines with `format: 'cif'`. */
-interface LineCorrection extends CorrectionHeader {
+export interface LineCorrection extends CorrectionHeader {
   readonly format?: 'cif';
   /** The code page `from` lines are read and `to` lines written in; without one both are printable ASCII. */
   readonly encoding?: string;

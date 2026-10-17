@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
-import { CORRECTIONS_DIR, loadSourceCorrections, type SourceCorrection } from '../src/corrections.js';
+import { CORRECTIONS_DIR, type LineCorrection, loadSourceCorrections } from '../src/corrections.js';
 import { readSourceFile } from '../src/roots.js';
 import { extractIniTables } from '../src/stages/ir/tables.js';
 import { convertMapDatTree } from '../src/stages/maps/index.js';
@@ -268,7 +268,7 @@ describe('source corrections', () => {
   it('arms the death watcher once for every recruitment route without changing other results', async () => {
     const correction = JSON.parse(
       await readFile(join(CORRECTIONS_DIR, 'wielkie-sprzatanie-bjarni-death-watch.json'), 'utf8'),
-    ) as Pick<SourceCorrection, 'reason' | 'file' | 'sha256' | 'lines'>;
+    ) as Pick<LineCorrection, 'reason' | 'file' | 'sha256' | 'lines'>;
     const activate = 'result "ActivateMission" 74';
     const routes = [0, 101, 102, 103].map((human) =>
       [
@@ -317,7 +317,7 @@ describe('source corrections', () => {
   it('runs the quarry reveal and counts army 566 in the victory over Zohanowaty', async () => {
     const correction = JSON.parse(
       await readFile(join(CORRECTIONS_DIR, 'boso-przez-swiat-mission-script.json'), 'utf8'),
-    ) as Pick<SourceCorrection, 'reason' | 'file' | 'sha256' | 'lines'>;
+    ) as Pick<LineCorrection, 'reason' | 'file' | 'sha256' | 'lines'>;
     const shipped = [
       '[MissionData]',
       'description -1',

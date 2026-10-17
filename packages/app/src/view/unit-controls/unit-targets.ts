@@ -166,18 +166,25 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
     };
   };
 
-  const itemHits = (item: DrawItem, kind: UnitTargetKind | 'signpost', wx: number, wy: number): boolean => {
-    const box = deps.boundsOf?.(item.ref);
-    if (
-      !containsTargetPoint(kind, item.x, item.y, box, wx, wy, kind === 'roadsite' ? ROAD_PLOT_PICK_MARGIN : 0)
-    )
-      return false;
-    return kind === 'signpost' || !usesPixels(kind) || (deps.pixelHitOf?.(item.ref, wx, wy) ?? true);
-  };
+  const boxHits = (item: DrawItem, kind: UnitTargetKind | 'signpost', wx: number, wy: number): boolean =>
+    containsTargetPoint(
+      kind,
+      item.x,
+      item.y,
+      deps.boundsOf?.(item.ref),
+      wx,
+      wy,
+      kind === 'roadsite' ? ROAD_PLOT_PICK_MARGIN : 0,
+    );
+  const pixelsHit = (item: DrawItem, kind: UnitTargetKind | 'signpost', wx: number, wy: number): boolean =>
+    kind === 'signpost' || !usesPixels(kind) || (deps.pixelHitOf?.(item.ref, wx, wy) ?? true);
 
+  /** Visits the owned pickable items of `kind`; `under` filters on geometry first, so a point query reads
+   *  the entities of the items under the point alone. */
   const visitOwned = (
     kind: UnitTargetKind | 'all' | undefined,
     visit: (item: DrawItem, kind: UnitTargetKind) => boolean,
+    under?: (item: DrawItem, kind: UnitTargetKind) => boolean,
   ): boolean => {
     const snapshot = deps.snapshot();
     for (const item of deps.drawnItems()) {
@@ -185,6 +192,7 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
       if (itemKind === null) continue;
       if (kind === undefined ? itemKind === 'vehicle' : kind !== 'all' && itemKind !== kind) continue;
       if (!isHitTarget(item)) continue;
+      if (under !== undefined && !under(item, itemKind)) continue;
       const entity = entityById(snapshot, item.ref);
       if (entity === undefined || !pickableOwner(ownerPlayerOf(entity)) || isLivestock(entity)) continue;
       if (visit(item, itemKind)) return true;
@@ -205,13 +213,20 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
 
   /** The flag's bounds follow terrain lift; its selection proxy is its settler. A site's flag answers on
    *  its own pixels only, so the ring or plot it stands in still selects the site. */
-  const visitFlags = (visit: (target: Pickable) => boolean): boolean => {
+  const visitFlags = (
+    visit: (target: Pickable) => boolean,
+    at?: { readonly x: number; readonly y: number },
+  ): boolean => {
     const snapshot = deps.snapshot();
     const player = pickableSeat(deps.viewer) ?? 'any';
     const siteFlagHitOf = deps.siteFlagHitOf;
     for (const item of deps.drawnItems()) {
       if (!isHitTarget(item)) continue;
+      const claimedSite = item.palisadeSite === 'claimed' || item.roadSite === 'claimed';
+      if (item.isFlag !== true && (siteFlagHitOf === undefined || !claimedSite)) continue;
       const box = deps.boundsOf?.(item.ref);
+      // A flag stands for its settler, so it hits as a settler's box would.
+      if (at !== undefined && !containsTargetPoint('settler', item.x, item.y, box, at.x, at.y)) continue;
       if (item.isFlag === true) {
         const gatherer = flagHolderOf(snapshot, item.ref, player);
         if (gatherer !== undefined && visit({ ref: gatherer, x: item.x, y: item.y, kind: 'settler', box }))
@@ -227,10 +242,14 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
     return false;
   };
 
-  const visitSignposts = (visit: (item: DrawItem) => boolean): boolean => {
+  const visitSignposts = (
+    visit: (item: DrawItem) => boolean,
+    under?: (item: DrawItem) => boolean,
+  ): boolean => {
     const snapshot = deps.snapshot();
     for (const item of deps.drawnItems()) {
       if (item.kind !== 'signpost' || item.ref <= 0 || !isHitTarget(item)) continue;
+      if (under !== undefined && !under(item)) continue;
       if (!pickableOwner(ownerOfRef(snapshot, item.ref))) continue;
       if (visit(item)) return true;
     }
@@ -246,9 +265,18 @@ export function createUnitTargets(deps: UnitTargetsDeps): UnitTargets & Selectio
       });
       return out;
     },
-    hasOwnedAt: (wx, wy) => visitOwned('all', (item, kind) => itemHits(item, kind, wx, wy)),
-    hasFlagAt: (wx, wy) => visitFlags((target) => hitsTarget(target, wx, wy)),
-    hasSignpostAt: (wx, wy) => visitSignposts((item) => itemHits(item, 'signpost', wx, wy)),
+    hasOwnedAt: (wx, wy) =>
+      visitOwned(
+        'all',
+        (item, kind) => pixelsHit(item, kind, wx, wy),
+        (item, kind) => boxHits(item, kind, wx, wy),
+      ),
+    hasFlagAt: (wx, wy) => visitFlags((target) => hitsTarget(target, wx, wy), { x: wx, y: wy }),
+    hasSignpostAt: (wx, wy) =>
+      visitSignposts(
+        () => true,
+        (item) => boxHits(item, 'signpost', wx, wy),
+      ),
 
     buildings(): Pickable[] {
       const out: Pickable[] = [];

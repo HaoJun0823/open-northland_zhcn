@@ -1893,7 +1893,7 @@ export const plGame = {
       short: {
         notOffered: 'Nie ten zawód',
         full: 'Brak miejsc',
-        locked: 'Praca nieodkryta',
+        locked: 'Praca zamknięta',
         experience: 'Za mało wprawy',
       },
       full: {

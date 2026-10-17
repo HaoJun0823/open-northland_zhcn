@@ -237,7 +237,7 @@ describe('notice text', () => {
       'Bjorn: Młyn nie ma już wolnych miejsc pracy. Zwolnij któreś miejsce albo zbuduj drugi taki budynek.',
     );
     expect(refused('notOffered').full).toContain('nie ma zawodu, którego potrzebuje ten budynek (Młyn).');
-    expect(refused('locked').short).toBe('Praca nieodkryta');
+    expect(refused('locked').short).toBe('Praca zamknięta');
   });
 
   it.each(COPIES)('words every idle reason in %s, and a worker the sim gives none', (_lang, copy) => {

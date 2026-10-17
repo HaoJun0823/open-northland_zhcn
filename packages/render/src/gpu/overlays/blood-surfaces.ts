@@ -16,6 +16,9 @@ const MAX_FACADE_DRIFT = 24;
 const MAX_CONTACT_HEIGHT = 32;
 const GROUND_CONTACT_HEIGHT = 6;
 const BUCKET_PX = 64;
+/** Bucket rows stay far inside half this stride on any map, so a column and row pack into one exact key. */
+const BUCKET_KEY_STRIDE = 2 ** 21;
+const bucketKey = (x: number, y: number): number => x * BUCKET_KEY_STRIDE + y;
 
 interface Candidate {
   readonly surface: BloodSurface;
@@ -23,6 +26,26 @@ interface Candidate {
   readonly scale: number;
   readonly frontY: number;
   readonly contactTop: number;
+}
+/** A contact proxy and the transform, bounds and surface fields it was derived from. */
+interface CachedCandidate {
+  readonly candidate: Candidate;
+  readonly keys: readonly number[];
+  readonly a: number;
+  readonly b: number;
+  readonly c: number;
+  readonly d: number;
+  readonly tx: number;
+  readonly ty: number;
+  readonly minX: number;
+  readonly minY: number;
+  readonly maxX: number;
+  readonly maxY: number;
+  readonly groundY: number;
+  readonly lift: number;
+  readonly flat: boolean;
+  readonly facade: boolean;
+  readonly clipY: number;
 }
 export interface SurfaceContact {
   readonly surface: BloodSurface;
@@ -49,7 +72,9 @@ interface Stain {
 
 /** Contact discovery runs only for a fresh visible burst; ageing visits the capped stained set. */
 export class BloodSurfaces {
-  private readonly buckets = new Map<string, Candidate[]>();
+  private readonly buckets = new Map<number, Candidate[]>();
+  private readonly stack: Matrix[] = [];
+  private readonly candidates = new WeakMap<BloodSurface, CachedCandidate>();
   private groundY = 0;
   private readonly stains = new Map<object | number, Stain>();
   private readonly identities = new WeakMap<BloodSurface, object | number>();
@@ -75,31 +100,69 @@ export class BloodSurfaces {
     this.groundY = groundY;
     for (const root of roots) {
       root.sortChildren();
-      this.collect(root, new Matrix());
+      this.stackAt(0).identity();
+      this.collect(root, 0);
     }
   }
 
-  private collect(node: Container, parent: Matrix): void {
+  /** The reused matrix of walk depth `depth`; a node's matrix stays intact while its subtree reuses deeper ones. */
+  private stackAt(depth: number): Matrix {
+    let matrix = this.stack[depth];
+    if (matrix === undefined) {
+      matrix = new Matrix();
+      this.stack[depth] = matrix;
+    }
+    return matrix;
+  }
+
+  private collect(node: Container, depth: number): void {
     if (!node.visible || !node.renderable || node.alpha <= 0) return;
+    const parent = this.stackAt(depth);
     const surface = surfaceOf(node);
     // Roots carry the camera, so only their children's transforms enter world-space contacts.
     for (const child of node.children) {
       if (child.children.length === 0 && surfaceOf(child)?.enabled !== true) continue;
       child.updateLocalTransform();
-      this.collect(child, parent.clone().append(child.localTransform));
+      this.stackAt(depth + 1)
+        .copyFrom(parent)
+        .append(child.localTransform);
+      this.collect(child, depth + 1);
     }
     if (surface === undefined || !surface.enabled || !(node instanceof Sprite)) return;
+    const cached = this.candidateOf(surface, parent, node.bounds);
+    if (cached === undefined) return;
+    const { candidate, keys } = cached;
+    for (const key of keys) {
+      const bucket = this.buckets.get(key);
+      if (bucket === undefined) this.buckets.set(key, [candidate]);
+      else bucket.push(candidate);
+    }
+  }
+
+  /** Still scenery keeps its transform between bursts, so its contact proxy is rebuilt only on change. */
+  private candidateOf(
+    surface: BloodSurface,
+    parent: Matrix,
+    bounds: { readonly minX: number; readonly minY: number; readonly maxX: number; readonly maxY: number },
+  ): CachedCandidate | undefined {
+    const known = this.candidates.get(surface);
+    if (known !== undefined && sameInputs(known, surface, parent, bounds)) return known;
     const scale = Math.sqrt(Math.abs(parent.a * parent.d - parent.b * parent.c));
-    if (scale <= 0) return;
-    const bounds = node.bounds;
-    const corners = [
-      parent.apply({ x: bounds.minX, y: bounds.minY }),
-      parent.apply({ x: bounds.maxX, y: bounds.minY }),
-      parent.apply({ x: bounds.maxX, y: bounds.maxY }),
-      parent.apply({ x: bounds.minX, y: bounds.maxY }),
-    ];
-    const top = Math.min(...corners.map((p) => p.y));
-    const bottom = Math.max(...corners.map((p) => p.y));
+    if (scale <= 0) {
+      this.candidates.delete(surface);
+      return undefined;
+    }
+    const { a, b, c, d, tx, ty } = parent;
+    const x0 = a * bounds.minX + c * bounds.minY + tx;
+    const y0 = b * bounds.minX + d * bounds.minY + ty;
+    const x1 = a * bounds.maxX + c * bounds.minY + tx;
+    const y1 = b * bounds.maxX + d * bounds.minY + ty;
+    const x2 = a * bounds.maxX + c * bounds.maxY + tx;
+    const y2 = b * bounds.maxX + d * bounds.maxY + ty;
+    const x3 = a * bounds.minX + c * bounds.maxY + tx;
+    const y3 = b * bounds.minX + d * bounds.maxY + ty;
+    const top = Math.min(y0, y1, y2, y3);
+    const bottom = Math.max(y0, y1, y2, y3);
     // A building anchor lies inside its footprint. Its front footing comes from the body bounds;
     // only a shallow lower band receives blood, keeping entrance awnings and roofs out of the proxy.
     const frontY = surface.facade ? Math.max(surface.groundY, bottom + surface.lift - 8) : surface.groundY;
@@ -107,19 +170,35 @@ export class BloodSurfaces {
       ? top + (bottom - top) * surface.clipY
       : surface.groundY - surface.lift - (surface.flat ? GROUND_CONTACT_HEIGHT : MAX_CONTACT_HEIGHT);
     const candidate = { surface, inverse: parent.clone().invert(), scale, frontY, contactTop };
-    const minX = Math.floor(Math.min(...corners.map((p) => p.x)) / BUCKET_PX);
-    const maxX = Math.floor(Math.max(...corners.map((p) => p.x)) / BUCKET_PX);
+    const minX = Math.floor(Math.min(x0, x1, x2, x3) / BUCKET_PX);
+    const maxX = Math.floor(Math.max(x0, x1, x2, x3) / BUCKET_PX);
     const minY = Math.floor(top / BUCKET_PX);
     const maxY = Math.floor(
       (bottom + (surface.facade ? MAX_ROW_DISTANCE + MAX_FACADE_DRIFT : 0)) / BUCKET_PX,
     );
-    for (let y = minY; y <= maxY; y++)
-      for (let x = minX; x <= maxX; x++) {
-        const key = `${x},${y}`;
-        const bucket = this.buckets.get(key);
-        if (bucket === undefined) this.buckets.set(key, [candidate]);
-        else bucket.push(candidate);
-      }
+    const keys: number[] = [];
+    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) keys.push(bucketKey(x, y));
+    const cached = {
+      candidate,
+      keys,
+      a,
+      b,
+      c,
+      d,
+      tx,
+      ty,
+      minX: bounds.minX,
+      minY: bounds.minY,
+      maxX: bounds.maxX,
+      maxY: bounds.maxY,
+      groundY: surface.groundY,
+      lift: surface.lift,
+      flat: surface.flat,
+      facade: surface.facade,
+      clipY: surface.clipY,
+    };
+    this.candidates.set(surface, cached);
+    return cached;
   }
 
   trace(drop: BloodDrop, x: number, y: number, groundY = this.groundY): SurfaceContact | undefined {
@@ -135,7 +214,7 @@ export class BloodSurfaces {
       bloodDroplet(drop, age, pose);
       point.set(x + pose.x, y + pose.y);
       const candidates = this.buckets.get(
-        `${Math.floor(point.x / BUCKET_PX)},${Math.floor(point.y / BUCKET_PX)}`,
+        bucketKey(Math.floor(point.x / BUCKET_PX), Math.floor(point.y / BUCKET_PX)),
       );
       if (candidates === undefined) continue;
       for (let i = candidates.length - 1; i >= 0; i--) {
@@ -287,6 +366,31 @@ export class BloodSurfaces {
       if (spot !== undefined && tick - spot.tick >= BLOOD_LIFETIME_TICKS) stain.spots.splice(i, 1);
     }
   }
+}
+
+function sameInputs(
+  known: CachedCandidate,
+  surface: BloodSurface,
+  m: Matrix,
+  bounds: { readonly minX: number; readonly minY: number; readonly maxX: number; readonly maxY: number },
+): boolean {
+  return (
+    known.a === m.a &&
+    known.b === m.b &&
+    known.c === m.c &&
+    known.d === m.d &&
+    known.tx === m.tx &&
+    known.ty === m.ty &&
+    known.minX === bounds.minX &&
+    known.minY === bounds.minY &&
+    known.maxX === bounds.maxX &&
+    known.maxY === bounds.maxY &&
+    known.groundY === surface.groundY &&
+    known.lift === surface.lift &&
+    known.flat === surface.flat &&
+    known.facade === surface.facade &&
+    known.clipY === surface.clipY
+  );
 }
 
 function splashTurn(angle: number): number {

@@ -99,6 +99,60 @@ describe('blood meeting scenery', () => {
     root.destroy({ children: true });
   });
 
+  it('rebuilds a reused contact proxy when its transform, frame, anchor or footing changes', () => {
+    vi.spyOn(masks, 'alphaMaskOf').mockReturnValue(solid);
+    const root = new Container();
+    const parent = root.addChild(new Container());
+    const s = sprite(parent);
+    const surfaces = new BloodSurfaces();
+    surfaces.prepare([root], 0);
+    const first = surfaces.trace(drop, 0, 0);
+    expect(first?.surface.sprite).toBe(s);
+    surfaces.prepare([root], 0);
+    expect(surfaces.trace(drop, 0, 0)).toEqual(first);
+    parent.position.set(400, 0);
+    surfaces.prepare([root], 0);
+    expect(surfaces.trace(drop, 0, 0)).toBeUndefined();
+    expect(surfaces.trace(drop, 400, 0)?.surface.sprite).toBe(s);
+    parent.position.set(0, 0);
+    s.scale.set(2);
+    surfaces.prepare([root], 0);
+    expect(surfaces.trace(drop, 0, 0)?.radius).toBeLessThan(first?.radius ?? 0);
+    bloodSurface(s, 200);
+    surfaces.prepare([root], 0);
+    expect(surfaces.trace(drop, 0, 0)).toBeUndefined();
+    // Every later step must match a walk with no reused proxy, and differ from the step before it.
+    const fresh = (): ReturnType<BloodSurfaces['trace']> => {
+      const uncached = new BloodSurfaces();
+      uncached.prepare([root], 0);
+      return uncached.trace(drop, 0, 0);
+    };
+    s.scale.set(1);
+    // A facade's footing and contact band come from its drawn bounds and lift, so a stale proxy shows.
+    const step = (change: () => void): ReturnType<BloodSurfaces['trace']> => {
+      change();
+      surfaces.prepare([root], 0);
+      const contact = surfaces.trace(drop, 0, 0);
+      expect(contact).toEqual(fresh());
+      return contact;
+    };
+    const facade = step(() => bloodSurface(s, 0, { facade: true }));
+    expect(facade).toBeDefined();
+    // Lifted, its front footing moves behind the drop's row.
+    expect(step(() => bloodSurface(s, 0, { facade: true, lift: 30 }))).toBeUndefined();
+    expect(step(() => bloodSurface(s, 0, { facade: true }))).toEqual(facade);
+    expect(step(() => s.anchor.set(0, 1))).not.toEqual(facade);
+    expect(step(() => s.anchor.set(0, 0))).toEqual(facade);
+    const taller = new Texture({ source: s.texture.source, frame: new Rectangle(0, 0, 32, 64) });
+    expect(
+      step(() => {
+        s.texture = taller;
+        bloodSurface(s, 0, { facade: true });
+      }),
+    ).not.toEqual(facade);
+    root.destroy({ children: true });
+  });
+
   it('accumulates bounded spots, dries, survives a bone remint and clears immediately', () => {
     const root = new Container();
     const s = sprite(root);

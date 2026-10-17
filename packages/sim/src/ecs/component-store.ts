@@ -1,16 +1,13 @@
+import { BIT_MASK, WORD_SHIFT } from '../core/bit-words.js';
 import type { Entity } from './component.js';
 
 /** Entity ids per index page. A page takes an index block only while it holds a member, so a component
  *  whose members sit in a few id ranges stays small; an emptied block is reused by the next new page.
  *  Ids are never recycled, so a long game scatters a store's members over every page of the id space:
  *  a small page keeps the blocks those scattered members take close to their own count. */
-const PAGE_BITS = 6;
+export const PAGE_BITS = 6;
 export const PAGE_SIZE = 1 << PAGE_BITS;
 const PAGE_MASK = PAGE_SIZE - 1;
-/** Index entries one word of the membership bitset covers. */
-const BITS_PER_WORD = 32;
-const WORD_SHIFT = 5;
-const BIT_MASK = BITS_PER_WORD - 1;
 /** Entity ids start at 1, so 0 marks a vacated dense slot; an index entry holds `slot + 1`. */
 export const VACANT_SLOT = 0;
 /** A page table entry holds `block + 1`; this marks a page without a block. */

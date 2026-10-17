@@ -1,3 +1,4 @@
+import { BIT_MASK, WORD_SHIFT } from '../core/bit-words.js';
 import type { Component, Entity } from './component.js';
 
 /** Distinct pending entities past which a feed drops them and reports overflow, so a feed nobody
@@ -6,11 +7,6 @@ export const CHANGE_FEED_LIMIT = 1 << 16;
 
 /** Entries a fresh feed buffer holds before its first doubling. */
 const INITIAL_FEED_CAPACITY = 64;
-
-/** Entity ids one word of the pending bitset covers. */
-const BITS_PER_WORD = 32;
-const WORD_SHIFT = 5;
-const BIT_MASK = BITS_PER_WORD - 1;
 
 /**
  * The entities whose membership or in-place value in any watched store changed since the last

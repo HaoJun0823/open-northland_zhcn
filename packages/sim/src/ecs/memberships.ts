@@ -1,14 +1,11 @@
+import { BIT_MASK, WORD_SHIFT } from '../core/bit-words.js';
 import type { Entity } from './component.js';
+import { PAGE_BITS } from './component-store.js';
 
-/** Entity ids per page, as in the component stores: a page takes a block of masks only while one of its
- *  entities carries a component, and an emptied block is reused by the next new page. */
-const PAGE_BITS = 6;
+/** A page of {@link PAGE_BITS} ids, as in the component stores, takes a block of masks only while one of
+ *  its entities carries a component; an emptied block is reused by the next new page. */
 const PAGE_SIZE = 1 << PAGE_BITS;
 const PAGE_MASK = PAGE_SIZE - 1;
-/** Registration indices one mask word covers. */
-const BITS_PER_WORD = 32;
-const WORD_SHIFT = 5;
-const BIT_MASK = BITS_PER_WORD - 1;
 /** A page table entry holds `block + 1`; this marks a page without a block. */
 const NO_BLOCK = 0;
 const NOT_CARRIED = -1;

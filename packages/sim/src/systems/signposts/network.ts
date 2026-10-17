@@ -10,6 +10,7 @@ import {
   signpostNavigationEnabled,
   WALK_RANGE_NODES,
 } from '../../components/index.js';
+import { BIT_MASK, BITS_PER_WORD, WORD_SHIFT } from '../../core/bit-words.js';
 import { contentIndex } from '../../core/content-index.js';
 import { SMALL_INTEGER_SPAN } from '../../core/small-integer.js';
 import type { Entity, World } from '../../ecs/world.js';
@@ -464,14 +465,11 @@ class CaughtPosts {
   }
 }
 
-/** Nodes one coverage word holds: a bit each, since a player keeps a coverage per caught group set and
- *  radius while his posts stand, thousands of them on a late map. */
-const BITS_PER_WORD = 32;
-const WORD_SHIFT = 5;
-const BIT_MASK = BITS_PER_WORD - 1;
+/** Every set bit of a word. */
 const ALL_BITS = ~0;
 
-/** Every node strictly inside hex `range` of one of `posts`, as a bitmap over their bounding box. */
+/** Every node strictly inside hex `range` of one of `posts`, as a bitmap over their bounding box: a bit
+ *  per node, since a player keeps a coverage per caught group set and radius while his posts stand. */
 class PostCoverage {
   private readonly bounds: NodeBox;
   private readonly width: number;

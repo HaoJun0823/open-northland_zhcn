@@ -1,12 +1,9 @@
+import { BIT_MASK, WORD_SHIFT } from '../core/bit-words.js';
 import type { Component, Entity } from './component.js';
 import type { World } from './world.js';
 
 /** Entity ids below this are marked in a dense bitset, a higher one in a set. */
 const DENSE_MARK_LIMIT = 1 << 24;
-/** Entity ids one word of the bitset covers. */
-const BITS_PER_WORD = 32;
-const WORD_SHIFT = 5;
-const BIT_MASK = BITS_PER_WORD - 1;
 const INITIAL_MARK_WORDS = 32;
 
 /** What a derived view does with one entity's capture. */

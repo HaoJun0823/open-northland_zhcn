@@ -1,3 +1,4 @@
+import { BIT_MASK, BITS_PER_WORD, WORD_SHIFT } from '../../../../core/bit-words.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 
 /** Marks an empty list head or the end of a node's list; slots are stored one-based. */
@@ -9,11 +10,6 @@ const BLOCK_SIDE = 3;
 /** A block row's three occupancy bits, and the two beside its centre node. */
 const ROW_BITS = 0b111;
 const SIDE_BITS = 0b101;
-
-/** Node bits per occupancy word. */
-const WORD_SHIFT = 5;
-const WORD_BITS = 1 << WORD_SHIFT;
-const BIT_MASK = WORD_BITS - 1;
 
 /**
  * Collider slots grouped by half-cell node, rebuilt every tick: a list head per terrain node plus one link
@@ -132,7 +128,7 @@ export class SlotGrid {
     const word = first >>> WORD_SHIFT;
     const bit = first & BIT_MASK;
     let bits = (this.occupied[word] ?? 0) >>> bit;
-    if (bit > WORD_BITS - BLOCK_SIDE) bits |= (this.occupied[word + 1] ?? 0) << (WORD_BITS - bit);
+    if (bit > BITS_PER_WORD - BLOCK_SIDE) bits |= (this.occupied[word + 1] ?? 0) << (BITS_PER_WORD - bit);
     return bits & ROW_BITS;
   }
 
@@ -143,7 +139,7 @@ export class SlotGrid {
       this.width = terrain.width;
       this.height = terrain.height;
       this.head = new Int32Array(terrain.nodeCount);
-      this.occupied = new Uint32Array(Math.ceil(terrain.nodeCount / WORD_BITS));
+      this.occupied = new Uint32Array(Math.ceil(terrain.nodeCount / BITS_PER_WORD));
       this.filled = 0;
       return;
     }

@@ -40,6 +40,23 @@ describe('unit body collision - scratch lifetime', () => {
     expect(collected(grid, 0, 0)).toEqual([1]);
   });
 
+  it('collects a node block in node order without the asking slot, inside and on the lattice edge', () => {
+    const terrain = sim().terrain;
+    if (terrain === undefined) throw new Error('the separation fixture is mapped');
+    const grid = new SlotGrid();
+    const around = (x: number, y: number, skip: number): number[] => {
+      const out: number[] = [];
+      out.length = grid.collectAround(x, y, skip, out);
+      return out;
+    };
+
+    grid.fill(terrain, 6, [3, 2, 4, 3, 5, 0], [2, 3, 1, 2, 2, 0]);
+    expect(around(3, 2, 0)).toEqual([1, 3, 2]);
+    expect(around(4, 2, 2)).toEqual([0, 3, 4]);
+    expect(around(0, 0, 5)).toEqual([]);
+    expect(around(1, 1, 1)).toEqual([5]);
+  });
+
   it('refills the mover columns in ascending id and drops a mover that stopped', () => {
     const s = sim();
     const terrain = s.terrain;

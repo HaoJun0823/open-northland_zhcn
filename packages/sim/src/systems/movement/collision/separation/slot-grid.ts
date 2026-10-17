@@ -3,6 +3,9 @@ import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 /** Marks an empty list head or the end of a node's list; slots are stored one-based. */
 const NO_SLOT = 0;
 
+/** Nodes per side of the block {@link SlotGrid.collectAround} scans: the node and its eight neighbours. */
+const BLOCK_SIDE = 3;
+
 /**
  * Collider slots grouped by half-cell node, rebuilt every tick: a list head per terrain node plus one link
  * per slot, so a lookup is two array reads where a keyed bucket map hashed every probe. Each node's list is
@@ -69,6 +72,31 @@ export class SlotGrid {
     return count;
   }
 
+  /**
+   * Append the slots on the 3x3 node block around `(x, y)` to `out` from index 0, except `skip`, node by
+   * node in `collect`'s column-major order (x outer, y inner), and return the count. A block wholly on the
+   * lattice reads its heads directly; one touching an edge goes node by node.
+   */
+  collectAround(x: number, y: number, skip: number, out: number[]): number {
+    let count = 0;
+    if (x < 1 || y < 1 || x + 1 >= this.width || y + 1 >= this.height) {
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) count = this.collect(x + dx, y + dy, out, count);
+      }
+      return dropSlot(out, count, skip);
+    }
+    const { head, next, width } = this;
+    const skipLink = skip + 1;
+    for (let column = x - 1; column <= x + 1; column++) {
+      for (let node = (y - 1) * width + column, row = 0; row < BLOCK_SIDE; row++, node += width) {
+        for (let s = head[node] ?? NO_SLOT; s !== NO_SLOT; s = next[s - 1] ?? NO_SLOT) {
+          if (s !== skipLink) out[count++] = s - 1;
+        }
+      }
+    }
+    return count;
+  }
+
   /** Empty the previous fill's lists, re-sizing the heads when the terrain changed. */
   private clear(terrain: TerrainGraph): void {
     if (terrain !== this.terrain) {
@@ -84,4 +112,14 @@ export class SlotGrid {
       if (node >= 0) this.head[node] = NO_SLOT;
     }
   }
+}
+
+/** Remove `slot` from the first `count` entries of `list`, keeping their order; returns the new count. */
+function dropSlot(list: number[], count: number, slot: number): number {
+  let kept = 0;
+  for (let i = 0; i < count; i++) {
+    const n = list[i] ?? slot;
+    if (n !== slot) list[kept++] = n;
+  }
+  return kept;
 }

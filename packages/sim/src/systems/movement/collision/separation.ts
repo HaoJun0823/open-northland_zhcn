@@ -94,17 +94,16 @@ export const separationSystem: System = (world, ctx) => {
     // The radius is below both bucket pitches, so every body within reach lives in the 3x3 node block
     // around the mover's own node. Posts matter only to a firm mover.
     const postGrid = isFirm ? posts : undefined;
-    let moverCount = 0;
+    // The mover's own slot sits in its own node's list; neighbours are the rest.
+    const moverCount = movers.grid.collectAround(nodeHx, nodeHy, slot, nearMovers);
     let postCount = 0;
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        moverCount = movers.grid.collect(nodeHx + dx, nodeHy + dy, nearMovers, moverCount);
-        if (postGrid !== undefined)
+    if (postGrid !== undefined) {
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
           postCount = postGrid.collect(nodeHx + dx, nodeHy + dy, nearPosts, postCount);
+        }
       }
     }
-    // The mover's own slot sits in its own node's list; neighbours are the rest.
-    moverCount = dropSlot(nearMovers, moverCount, slot);
     let player: number | undefined;
     if (postCount > 0) {
       player = world.get(e, Owner).player;
@@ -159,16 +158,6 @@ export const separationSystem: System = (world, ctx) => {
     }
   }
 };
-
-/** Remove `slot` from the first `count` entries of `list`, keeping their order; returns the new count. */
-function dropSlot(list: number[], count: number, slot: number): number {
-  let kept = 0;
-  for (let i = 0; i < count; i++) {
-    const n = list[i] ?? slot;
-    if (n !== slot) list[kept++] = n;
-  }
-  return kept;
-}
 
 /**
  * The soft tier: this mover's mover-vs-mover push for the tick, written to `push` in world axes. Read from

@@ -79,6 +79,7 @@ describe('WorldRenderer scene light', () => {
     const gpu = {
       resolution: 1,
       renderPipes: { batch: { addToBatch: () => undefined } },
+      runners: { contextChange: { add: () => undefined, remove: () => undefined } },
       render: () => undefined,
       extract: { pixels: () => ({ pixels: new Uint8Array(0) }) },
     };

@@ -7,34 +7,51 @@ import {
   Texture,
   type TextureSource,
 } from 'pixi.js';
-import { aabbIntersects, isVisible, TILE_HALF_W, type Viewport } from '../../data/projection/index.js';
+import { isVisible, TILE_HALF_W, type Viewport } from '../../data/projection/index.js';
 import type { Camera } from '../../data/projection/iso.js';
 import type { AtlasFrame } from '../../data/sprites/atlas.js';
 import { TERRAIN_CHUNK_TILES } from '../terrain/index.js';
 import { type GroundWave, groundWaveFrameAt } from './ground-wave.js';
 import { type GroundWaveFilter, makeGroundWaveFilter } from './ground-wave-filter.js';
 
-/** Waves are culled in square blocks of the terrain chunk's horizontal pitch before their anchors. */
+/** Waves are indexed in square blocks of the terrain chunk's horizontal pitch by their anchors, the
+ *  point the cull tests, so a frame looks up only the blocks under the view. */
 const BLOCK_PX = TERRAIN_CHUNK_TILES * TILE_HALF_W * 2;
+/** Blocks on one row are this many keys apart, more than any map has columns. */
+const BLOCK_ROW_STRIDE = 1 << 16;
 
-function blockKey(wave: GroundWave): string {
-  return `${Math.floor(wave.x / BLOCK_PX)},${Math.floor(wave.y / BLOCK_PX)}`;
-}
+const blockOf = (px: number): number => Math.floor(px / BLOCK_PX);
+const blockKeyAt = (column: number, row: number): number => row * BLOCK_ROW_STRIDE + column;
+const blockKey = (wave: GroundWave): number => blockKeyAt(blockOf(wave.x), blockOf(wave.y));
 
 interface WaveBlock {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
+  /** Blocks draw in the order their first wave was placed, so overlapping waves keep their order. */
+  readonly order: number;
   readonly waves: GroundWave[];
+}
+
+const byPlacement = (a: WaveBlock, b: WaveBlock): number => a.order - b.order;
+
+/** What the last lift map was drawn from; the same inputs draw the same map. */
+interface LiftInputs {
+  tick: number;
+  offsetX: number;
+  offsetY: number;
+  zoom: number;
+  screenW: number;
+  screenH: number;
+  resolution: number;
+  /** Bumped by every {@link GroundWaveLayer.set} and {@link GroundWaveLayer.remove}. */
+  revision: number;
 }
 
 /**
  * The shore waves. Original behavior: after the ground and the static landscape objects are drawn and
  * before creatures, each wave's current bob copies, for every written texel of value `v`, the pixel `v`
  * rows below it into its place, so the ground under the wave rises by 1 to 6 px while settlers stay put. Here the visible
- * waves render into a screen-sized lift map each frame and a filter on the ground container applies
- * it. Approximations: overlapping waves take the last drawn value instead of chaining their copies,
+ * waves render into a screen-sized lift map, redrawn when the tick, the camera, the screen or the waves
+ * change, and a filter on the ground container applies it. Approximations: overlapping waves take the
+ * last drawn value instead of chaining their copies,
  * and static landscape objects, which the original lifts with the ground, stay put.
  */
 export class GroundWaveLayer {
@@ -42,23 +59,37 @@ export class GroundWaveLayer {
   private readonly root = new Container();
   private readonly view = new Container();
   private readonly sprites: Sprite[] = [];
-  private readonly blocks = new Map<string, WaveBlock>();
+  private readonly blocks = new Map<number, WaveBlock>();
+  /** This frame's blocks in view, in placement order. */
+  private readonly inView: WaveBlock[] = [];
+  private revision = 0;
+  /** Null until a map is drawn, and after a frame without one. */
+  private drawnFrom: LiftInputs | null = null;
   private readonly textures = new Map<AtlasFrame, Texture>();
   private map: RenderTexture | null = null;
   private waveFilter: GroundWaveFilter | null = null;
   private applied = false;
+
+  /** A restored GL context brings the lift map back blank, so the next frame draws it again. */
+  private readonly onContextChange = {
+    contextChange: (): void => {
+      this.drawnFrom = null;
+    },
+  };
 
   constructor(
     private readonly renderer: Renderer,
     private readonly ground: Container,
   ) {
     this.root.addChild(this.view);
+    renderer.runners.contextChange.add(this.onContextChange);
   }
 
   /** Call once per map. */
   set(waves: readonly GroundWave[]): void {
     this.blocks.clear();
     this.dropTextures();
+    this.revision++;
     for (const wave of waves) {
       if (wave.frames.length === 0) continue;
       // The frames hold values, not colours: a filtered sample would invent lifts between them.
@@ -66,17 +97,10 @@ export class GroundWaveLayer {
       const key = blockKey(wave);
       let block = this.blocks.get(key);
       if (block === undefined) {
-        block = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity, waves: [] };
+        block = { order: this.blocks.size, waves: [] };
         this.blocks.set(key, block);
       }
       block.waves.push(wave);
-      for (const frame of wave.frames) {
-        const top = wave.y - (wave.lift ?? 0) + frame.offsetY;
-        block.minX = Math.min(block.minX, wave.x + frame.offsetX);
-        block.maxX = Math.max(block.maxX, wave.x + frame.offsetX + frame.width);
-        block.minY = Math.min(block.minY, top);
-        block.maxY = Math.max(block.maxY, top + frame.height);
-      }
     }
   }
 
@@ -85,12 +109,13 @@ export class GroundWaveLayer {
     const waves = this.blocks.get(blockKey(wave))?.waves;
     const index = waves?.indexOf(wave) ?? -1;
     if (index >= 0) waves?.splice(index, 1);
+    this.revision++;
   }
 
   /**
    * Render this frame's lift map and put the filter on the ground, or take it off when no wave is on
-   * screen or `enabled` is false. With any wave on screen the frame pays a screen-sized ground pass
-   * and lift-map render on top of the per-wave sprite updates.
+   * screen or `enabled` is false. With any wave on screen the frame pays a screen-sized ground pass,
+   * and a lift-map render whenever the tick, the camera, the screen or the waves changed since the last.
    */
   update(
     vp: Viewport,
@@ -100,10 +125,12 @@ export class GroundWaveLayer {
     tick: number,
     enabled: boolean,
   ): void {
+    const zoom = camera.scale ?? 1;
+    const resolution = this.renderer.resolution;
+    if (enabled && this.unchanged(tick, camera, zoom, screenW, screenH, resolution)) return;
     let drawn = 0;
     if (enabled) {
-      for (const block of this.blocks.values()) {
-        if (!aabbIntersects(vp, block)) continue;
+      for (const block of this.blocksInView(vp)) {
         for (const wave of block.waves) {
           if (!isVisible(vp, wave.x, wave.y)) continue;
           const frame = groundWaveFrameAt(wave, tick);
@@ -121,19 +148,66 @@ export class GroundWaveLayer {
       if (sprite !== undefined) sprite.visible = false;
     }
     if (drawn === 0) {
+      this.drawnFrom = null;
       this.setApplied(false);
       return;
     }
-    const zoom = camera.scale ?? 1;
     this.view.scale.set(zoom);
     this.view.position.set(camera.offsetX, camera.offsetY);
     const retired = this.map;
     const map = this.mapSized(screenW, screenH);
     this.renderer.render({ container: this.root, target: map, clear: true });
-    this.filterFor(map).bind(map.source, screenW, screenH, zoom, this.renderer.resolution);
+    this.filterFor(map).bind(map.source, screenW, screenH, zoom, resolution);
     // Only once the filter samples the new map: a bound texture destroyed under a shader is a Pixi warning.
     if (retired !== null && retired !== map) retired.destroy(true);
     this.setApplied(true);
+    this.drawnFrom = {
+      tick,
+      offsetX: camera.offsetX,
+      offsetY: camera.offsetY,
+      zoom,
+      screenW,
+      screenH,
+      resolution,
+      revision: this.revision,
+    };
+  }
+
+  /** True when the lift map on the ground was drawn from these same inputs. */
+  private unchanged(
+    tick: number,
+    camera: Camera,
+    zoom: number,
+    screenW: number,
+    screenH: number,
+    resolution: number,
+  ): boolean {
+    const last = this.drawnFrom;
+    return (
+      last !== null &&
+      last.tick === tick &&
+      last.offsetX === camera.offsetX &&
+      last.offsetY === camera.offsetY &&
+      last.zoom === zoom &&
+      last.screenW === screenW &&
+      last.screenH === screenH &&
+      last.resolution === resolution &&
+      last.revision === this.revision
+    );
+  }
+
+  /** The blocks whose square holds the view, in placement order. */
+  private blocksInView(vp: Viewport): readonly WaveBlock[] {
+    const inView = this.inView;
+    inView.length = 0;
+    if (this.blocks.size === 0) return inView;
+    for (let row = blockOf(vp.minY); row <= blockOf(vp.maxY); row++) {
+      for (let column = blockOf(vp.minX); column <= blockOf(vp.maxX); column++) {
+        const block = this.blocks.get(blockKeyAt(column, row));
+        if (block !== undefined) inView.push(block);
+      }
+    }
+    return inView.sort(byPlacement);
   }
 
   /** The lift map is framed on the main camera, so another view of the world draws the ground unlifted. */
@@ -142,6 +216,8 @@ export class GroundWaveLayer {
   }
 
   destroy(): void {
+    this.renderer.runners.contextChange.remove(this.onContextChange);
+    this.drawnFrom = null;
     this.setApplied(false);
     this.blocks.clear();
     this.dropTextures();

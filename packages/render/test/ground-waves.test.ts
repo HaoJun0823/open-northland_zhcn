@@ -18,9 +18,24 @@ function wave(phase = 0): GroundWave {
   return { x: 0, y: 0, source: Texture.WHITE.source, frames: [FRAME_0, FRAME_1], phase };
 }
 
-function fakeRenderer(): { renderer: Renderer; render: ReturnType<typeof vi.fn> } {
+function fakeRenderer(): {
+  renderer: Renderer;
+  render: ReturnType<typeof vi.fn>;
+  restoreContext: () => void;
+} {
   const render = vi.fn();
-  return { renderer: { resolution: 1, render } as unknown as Renderer, render };
+  const listeners = new Set<{ contextChange: () => void }>();
+  const contextChange = {
+    add: (listener: { contextChange: () => void }) => listeners.add(listener),
+    remove: (listener: { contextChange: () => void }) => listeners.delete(listener),
+  };
+  return {
+    renderer: { resolution: 1, render, runners: { contextChange } } as unknown as Renderer,
+    render,
+    restoreContext: () => {
+      for (const listener of listeners) listener.contextChange();
+    },
+  };
 }
 
 describe('groundWaveFrameAt', () => {
@@ -48,6 +63,54 @@ describe('GroundWaveLayer', () => {
     layer.update(WIDE, CAMERA, SCREEN, SCREEN, 2, false);
     expect(ground.filters).toBeNull();
     expect(render).toHaveBeenCalledTimes(1);
+  });
+
+  it('redraws the lift map only when the tick, the camera, the screen or the waves change', () => {
+    const { renderer, render } = fakeRenderer();
+    const layer = new GroundWaveLayer(renderer, new Container());
+    const waves = [wave(), { ...wave(), x: 40 }];
+    layer.set(waves);
+    layer.update(WIDE, CAMERA, SCREEN, SCREEN, 0, true);
+    layer.update(WIDE, CAMERA, SCREEN, SCREEN, 0, true);
+    expect(render).toHaveBeenCalledTimes(1);
+    layer.update(WIDE, CAMERA, SCREEN, SCREEN, 1, true);
+    layer.update(WIDE, { ...CAMERA, offsetX: 1 }, SCREEN, SCREEN, 1, true);
+    layer.update(WIDE, { ...CAMERA, offsetX: 1 }, SCREEN, SCREEN / 2, 1, true);
+    layer.remove(waves[1] as GroundWave);
+    layer.update(WIDE, { ...CAMERA, offsetX: 1 }, SCREEN, SCREEN / 2, 1, true);
+    expect(render).toHaveBeenCalledTimes(5);
+  });
+
+  it('draws the lift map again after the GL context was restored, although nothing else changed', () => {
+    const { renderer, render, restoreContext } = fakeRenderer();
+    const layer = new GroundWaveLayer(renderer, new Container());
+    layer.set([wave()]);
+    layer.update(WIDE, CAMERA, SCREEN, SCREEN, 0, true);
+    restoreContext();
+    layer.update(WIDE, CAMERA, SCREEN, SCREEN, 0, true);
+    expect(render).toHaveBeenCalledTimes(2);
+    layer.destroy();
+    restoreContext();
+  });
+
+  it('draws the waves of the blocks under the view in placement order, whatever their position', () => {
+    const { renderer, render } = fakeRenderer();
+    const layer = new GroundWaveLayer(renderer, new Container());
+    // The first wave placed lies in a block to the right of the second's, which sits left of the origin.
+    const right = 3000;
+    const left = -100;
+    layer.set([
+      { ...wave(), x: right },
+      { ...wave(), x: left },
+    ]);
+    layer.update({ minX: -1000, minY: -1000, maxX: 4000, maxY: 1000 }, CAMERA, SCREEN, SCREEN, 0, true);
+    expect(render).toHaveBeenCalledTimes(1);
+    const root = render.mock.calls[0]?.[0].container as Container;
+    const drawn = root.children[0]?.children.filter((sprite) => sprite.visible) ?? [];
+    expect(drawn.map((sprite) => sprite.x)).toEqual([right + FRAME_0.offsetX, left + FRAME_0.offsetX]);
+
+    layer.update({ minX: right + 1, minY: -1, maxX: right + 2, maxY: 1 }, CAMERA, SCREEN, SCREEN, 1, true);
+    expect(root.children[0]?.children.filter((sprite) => sprite.visible)).toHaveLength(0);
   });
 
   it('stops lifting the ground once its only wave is removed', () => {

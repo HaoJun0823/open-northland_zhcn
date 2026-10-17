@@ -1,5 +1,6 @@
 import {
   Building,
+  isValidPlayer,
   Owner,
   PathFollow,
   PathRequest,
@@ -74,10 +75,15 @@ class ZonesMemo implements CalmZones {
   ownerValueGeneration = 0;
   readonly anchors = new Map<Entity, ZoneAnchor>();
   readonly cover = new Map<number, Map<NodeId, number>>();
+  /** Per node, the slot bits of the players whose zones cover it: {@link cover}'s answer in one read. */
+  readonly coveringPlayers: Uint16Array;
 
-  constructor(readonly terrain: TerrainGraph) {}
+  constructor(readonly terrain: TerrainGraph) {
+    this.coveringPlayers = new Uint16Array(terrain.nodeCount);
+  }
 
   has(player: number, node: NodeId): boolean {
+    if (isValidPlayer(player)) return ((this.coveringPlayers[node] ?? 0) & (1 << player)) !== 0;
     return this.cover.get(player)?.has(node) ?? false;
   }
 
@@ -100,6 +106,7 @@ class ZonesMemo implements CalmZones {
   rebuild(world: World): void {
     this.anchors.clear();
     this.cover.clear();
+    this.coveringPlayers.fill(0);
     this.revision++;
     for (const b of world.query(Building, Position)) this.reanchor(world, b);
     this.settle(world);
@@ -151,7 +158,8 @@ class ZonesMemo implements CalmZones {
 
   /** Add (`1`) or lift (`-1`) one building's Manhattan diamond from its player's cover. */
   private stamp(anchor: ZoneAnchor, delta: 1 | -1): void {
-    const { terrain } = this;
+    const { terrain, coveringPlayers } = this;
+    const bit = isValidPlayer(anchor.player) ? 1 << anchor.player : 0;
     let cover = this.cover.get(anchor.player);
     if (cover === undefined) {
       cover = new Map();
@@ -167,7 +175,11 @@ class ZonesMemo implements CalmZones {
         const count = (cover.get(node) ?? 0) + delta;
         if (count === 0) cover.delete(node);
         else cover.set(node, count);
-        if (count === 0 || (delta === 1 && count === 1)) this.revision++;
+        if (count === 0 || (delta === 1 && count === 1)) {
+          this.revision++;
+          const bits = coveringPlayers[node] ?? 0;
+          coveringPlayers[node] = count === 0 ? bits & ~bit : bits | bit;
+        }
       }
     }
     if (cover.size === 0) this.cover.delete(anchor.player);
@@ -188,6 +200,7 @@ const zonesMemo = new WeakMap<World, ZonesMemo>();
 
 function sameCover(a: ZonesMemo, b: ZonesMemo): boolean {
   if (a.cover.size !== b.cover.size) return false;
+  if (a.coveringPlayers.some((bits, node) => bits !== b.coveringPlayers[node])) return false;
   for (const [player, cover] of a.cover) {
     const other = b.cover.get(player);
     if (other === undefined || other.size !== cover.size) return false;

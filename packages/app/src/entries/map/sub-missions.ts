@@ -1,14 +1,13 @@
-import { mapLobbySlots } from '@open-northland/data';
+import { type MapScript, mapLobbySlots } from '@open-northland/data';
 import { localPlayerOf } from '@open-northland/lockstep';
 import { exportSaveGame, type SaveGame, type SimEvent } from '@open-northland/sim';
 import { campaignForMap, loadCampaigns } from '../../campaign/catalog.js';
 import { loadMapScript, loadTerrainMap } from '../../content/map-loader.js';
 import { loadMapSources, type MapSource, mapFetch } from '../../content/map-source/index.js';
-import { sessionMapScript } from '../../game/seat-tribes.js';
+import { type SessionMapScript, sessionMapScript } from '../../game/seat-tribes.js';
 import { onOffParam } from '../../game/session-rules.js';
 import { mapSession } from '../../game/session-url.js';
 import { sessionWorldOptions } from '../../game/session-world.js';
-import { mapScriptWorld } from '../../game/world/mission-script.js';
 import { relaunchSearch } from '../../view/runtime/save-load/relaunch.js';
 import { SCENE_TOKEN_PREFIX } from '../../view/runtime/save-load/world-names.js';
 import { buildMapWorld, type MapWorldOptions, restoreMapWorld } from './world.js';
@@ -47,9 +46,21 @@ export async function validateSavedMap(inputs: Inputs, save: SaveGame): Promise<
   if (map === null || source === null || inputs.ir === null)
     throw new Error('Saved map content is unavailable');
   restoreMapWorld(
-    { map, ir: inputs.ir, content: inputs.content, script: mapScriptWorld(source, inputs.ir) },
+    { map, ir: inputs.ir, content: inputs.content, script: savedScriptWorld(source, inputs.ir, save) },
     save,
   );
+}
+
+/** The script as the relaunch of `save` resolves it: seated by the session its own entry records, since a
+ *  chosen nation can rewrite the missions the save's fingerprint names. */
+function savedScriptWorld(
+  source: MapScript,
+  ir: NonNullable<Inputs['ir']>,
+  save: SaveGame,
+): SessionMapScript['world'] {
+  const search = relaunchSearch(save.header) ?? '';
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  return sessionMapScript(mapSession(params, mapLobbySlots(source)), source, ir).world;
 }
 
 export function mapSubMissionLoader(
@@ -92,7 +103,7 @@ export function mapSubMissionLoader(
       throw new Error(`Sub-mission ${target}: map or script is unavailable`);
     if (parent !== undefined) {
       if (relaunchSearch(parent.header) === null) throw new Error('Parent mission cannot be relaunched');
-      restoreMapWorld({ map, script: mapScriptWorld(source, ir), ir, content }, parent);
+      restoreMapWorld({ map, script: savedScriptWorld(source, ir, parent), ir, content }, parent);
       return parent;
     }
     const params = new URLSearchParams(inputs.params);

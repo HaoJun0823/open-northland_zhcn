@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ContentIr } from '../../src/content/ir/rows.js';
 import * as mapLoader from '../../src/content/map-loader.js';
 import * as mapIndex from '../../src/content/maps-index.js';
-import { mapSubMissionLoader } from '../../src/entries/map/sub-missions.js';
+import { mapSubMissionLoader, validateSavedMap } from '../../src/entries/map/sub-missions.js';
 import { buildMapWorldFromInputs } from '../../src/entries/map/world-inputs.js';
 import { sessionSeating } from '../../src/game/seat-tribes.js';
 import { mapSession } from '../../src/game/session-url.js';
@@ -85,7 +85,10 @@ describe.runIf(hasRealIr())(`${PARENT} played as franks through its sub-mission`
     sim.run(OPENING_TICKS);
     const parentSave = exportSaveGame(sim, { mapId: PARENT, entry: `?${entry}` });
 
-    const load = mapSubMissionLoader({ ir, content: { content: sim.content }, params });
+    const inputs = { ir, content: { content: sim.content }, params };
+    // Loading a save from the in-game panel checks it against the script its own entry seats.
+    await expect(validateSavedMap(inputs, parentSave)).resolves.toBeUndefined();
+    const load = mapSubMissionLoader(inputs);
     const child = await load(
       { kind: 'start', ...CHILD_CAMPAIGN, mapId: CHILD_CAMPAIGN.missionId, mission: 0 },
       parentSave,

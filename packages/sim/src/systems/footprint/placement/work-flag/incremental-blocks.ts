@@ -17,11 +17,11 @@ import { workFlagMoveCount } from './flag-moves.js';
  *  one's contribution standing. */
 interface BlockedRefcounts {
   readonly counts: Uint16Array;
-  readonly blocked: CountedBlocks;
+  readonly blocked: PositiveCountOverlay;
 }
 
 /** The {@link BlockOverlay} over a count array: a node is blocked while its count is positive. */
-class CountedBlocks implements BlockOverlay {
+class PositiveCountOverlay implements BlockOverlay {
   size = 0;
   constructor(private readonly counts: Uint16Array) {}
   has(node: NodeId): boolean {
@@ -92,9 +92,9 @@ function refreshMarkerLayer(world: World, state: IncrementalBlocks): void {
 }
 
 function rebuildState(world: World, content: ContentSet, terrain: TerrainGraph): IncrementalBlocks {
-  // The refcounts the journal stamps into are the ones the state below hands out - same Map and Set.
+  // The refcounts the journal stamps into are the ones the state below hands out.
   const counts = new Uint16Array(terrain.nodeCount);
-  const refs: BlockedRefcounts = { counts, blocked: new CountedBlocks(counts) };
+  const refs: BlockedRefcounts = { counts, blocked: new PositiveCountOverlay(counts) };
   const journal = startBlockerJournal(world, {
     capture: (w, store, e) => blockedCellsOf(w, content, terrain, store, e),
     apply: (cells) => addCells(refs, cells),
@@ -178,7 +178,8 @@ function verifyBlocksMemo(world: World, content: ContentSet, terrain: TerrainGra
   if (state === undefined || state.content !== content || state.terrain !== terrain) return [];
   if (!isFresh(world, state)) return []; // a pending catch-up - the next read applies it
   const fresh = rederiveBlockedCells(world, content, terrain);
-  if (countsMatchCells(state.counts, fresh)) return [];
+  // Matching counts and cells with the held size proves the hand-kept positive-node counter too.
+  if (countsMatchCells(state.counts, fresh) && state.blocked.size === fresh.size) return [];
   return [
     `workFlagPlacementBlocks holds ${state.blocked.size} nodes but re-derived ${fresh.size} - an incremental delta missed a blocker change`,
   ];

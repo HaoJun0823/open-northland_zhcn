@@ -34,10 +34,10 @@ const BLOCKS_WORK_FLAG: Record<BlockerChannel, boolean> = {
   [UPGRADE_RESERVE]: false,
 };
 
-/** The entity's blocked nodes under `run`'s visitor - the shared channel/bounds filter of every capturer. */
 /** The nodes one capture collects before they are copied into its own array. */
 const captureScratch: NodeId[] = [];
 
+/** The entity's blocked nodes under `run`'s visitor - the shared channel/bounds filter of every capturer. */
 function captureCells(terrain: TerrainGraph, run: (visit: BlockerVisit) => void): BlockedCells {
   captureScratch.length = 0;
   run((x, y, channel) => {

@@ -1,5 +1,6 @@
 import type { ContentSet } from '@open-northland/data';
 import { landscapeEditState } from '../../../components/landscape.js';
+import { assertNever } from '../../../core/brand.js';
 import type { World } from '../../../ecs/world.js';
 import type { NodeArea } from '../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../nav/terrain/index.js';
@@ -174,7 +175,7 @@ function tallyChange(grid: PlacementGrid, slot: number): void {
 }
 
 /** The count array of a stamp field, or null for {@link ANCHOR_FIELD}. */
-function fieldCounts(grid: PlacementGrid, field: number): Uint16Array | null {
+function fieldCounts(grid: PlacementGrid, field: StampField): Uint16Array | null {
   switch (field) {
     case OBSTACLE_FIELD:
       return grid.obstacle;
@@ -186,8 +187,10 @@ function fieldCounts(grid: PlacementGrid, field: number): Uint16Array | null {
       return grid.buildingZone;
     case UPGRADE_RESERVE_FIELD:
       return grid.upgradeReserve;
-    default:
+    case ANCHOR_FIELD:
       return null;
+    default:
+      return assertNever(field);
   }
 }
 
@@ -197,7 +200,8 @@ function applySlots(grid: PlacementGrid, slots: StampedSlots, delta: number): vo
   for (let i = 0; i < slots.length; i++) {
     const code = slots[i] as number;
     const slot = code >>> FIELD_BITS;
-    const counts = fieldCounts(grid, code & FIELD_MASK);
+    // Codes are written only by captureSlots, from a StampField.
+    const counts = fieldCounts(grid, (code & FIELD_MASK) as StampField);
     if (counts !== null) counts[slot] = (counts[slot] ?? 0) + delta;
     tallyChange(grid, slot);
   }
@@ -238,29 +242,8 @@ function liveLandscapeLayer(world: World, terrain: TerrainGraph): LandscapeLayer
   };
 }
 
-/** The grid field a channel's counts live in; RESOURCE_ANCHOR and MARKER block no building, so they have
- *  none. The shared channel routing of every capture and full stamp. */
-function channelField(
-  channel: BlockerChannel,
-): 'obstacle' | 'exclusion' | 'palisadeBody' | 'buildingZone' | 'upgradeReserve' | null {
-  switch (channel) {
-    case OBSTACLE:
-      return 'obstacle';
-    case EXCLUSION:
-      return 'exclusion';
-    case PALISADE_BODY:
-      return 'palisadeBody';
-    case BUILDING_ZONE:
-      return 'buildingZone';
-    case UPGRADE_RESERVE:
-      return 'upgradeReserve';
-    case RESOURCE_ANCHOR:
-    case MARKER:
-      return null;
-  }
-}
-
-/** The stamp field of a channel's slots; MARKER is stamped nowhere. */
+/** The stamp field of a channel's slots; MARKER is stamped nowhere. The shared channel routing of every
+ *  capture and full stamp. */
 function channelStampField(channel: BlockerChannel): StampField | null {
   switch (channel) {
     case OBSTACLE:
@@ -388,10 +371,11 @@ function stampBlockerGrid(world: World, content: ContentSet, grid: PlacementGrid
   const h = grid.terrain.height;
   applyLandscapeLayer(grid, liveLandscapeLayer(world, grid.terrain), STAMP);
   eachBlockerCell(world, content, (x, y, channel) => {
-    const field = channelField(channel);
+    const field = channelStampField(channel);
     if (field === null) return;
     if (x < 0 || y < 0 || x >= w || y >= h) return; // off-map cells are never stamped (see PlacementGrid)
-    const counts = grid[field];
+    const counts = fieldCounts(grid, field);
+    if (counts === null) return;
     const slot = y * w + x;
     counts[slot] = (counts[slot] ?? 0) + STAMP;
   });

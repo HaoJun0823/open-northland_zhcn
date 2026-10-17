@@ -30,7 +30,7 @@ import {
 } from '../../../stores/index.js';
 import type { TargetBands } from '../bands.js';
 import type { YardTargets } from '../candidates.js';
-import { ACCEPT_ALL, type InteractionCellIndex, QUALIFIES } from '../cell-index.js';
+import { ACCEPT_ALL, FILED_STRIDE, type InteractionCellIndex, QUALIFIES } from '../cell-index.js';
 import { FetchableStock } from './fetchable-stock.js';
 import { minimumBoundOwner, storageLendable, storageSurplus } from './storage-reserve.js';
 import { yardOffsets } from './yard-layout.js';
@@ -305,101 +305,36 @@ function nearestHolderIn(
   );
 }
 
-/** Filed-node slots the {@link LendingStores} build scratch starts with: `x, y` per store. */
-const INITIAL_LENDING_SLOTS = 256;
-/** The filed nodes a {@link LendingStores} build collects before it copies them out at their count. */
-let lendingScratch = new Int32Array(INITIAL_LENDING_SLOTS);
-let lendingUsed = 0;
-
-function collectLending(x: number, y: number): void {
-  if (lendingUsed + 2 > lendingScratch.length) {
-    const grown = new Int32Array(lendingScratch.length * 2);
-    grown.set(lendingScratch);
-    lendingScratch = grown;
-  }
-  lendingScratch[lendingUsed] = x;
-  lendingScratch[lendingUsed + 1] = y;
-  lendingUsed += 2;
-}
-
 /**
- * Whether {@link nearestStoreHolding} may find a store of one good inside an area, the search's goods
- * gate, asked of many areas under one pass's claims: false proves the search finds none, since no store
- * of the fetcher's side lending a unit is filed near enough to the area to be reached in it. The stores
- * the search could take are read once, so each area costs one test per such store, where a missed search
- * sweeps every ring.
+ * Whether {@link nearestStoreHolding} may find a store of one good inside `area`, the search's goods gate,
+ * or anywhere for none: false proves the search finds none, since no store of the fetcher's side filed
+ * near enough to the area to be reached in it lends a unit now. The side's filed stores are kept until
+ * the band changes, so an area costs one test per such store, and a store's stock only for one near it,
+ * where a missed search sweeps every ring.
  */
-export class LendingStores {
-  private static readonly EMPTY = new LendingStores(0, new Int32Array(0));
-
-  private constructor(
-    /** How far a store's interaction cell may lie from the node it is filed at. */
-    private readonly slack: number,
-    /** The filed nodes of the stores, as `x, y` pairs. */
-    private readonly xy: Int32Array,
-  ) {}
-
-  static of(
-    bands: TargetBands,
-    world: World,
-    goodType: number,
-    owner: number | undefined,
-    supply: SupplyTally,
-  ): LendingStores {
-    if (sideLendsNone(bands, world, owner, goodType)) return LendingStores.EMPTY;
-    const holders = bands.holding(goodType);
-    if (!holders.hasCandidates()) return LendingStores.EMPTY;
-    const lends = holdsUnclaimed(world, bands.ctx, supply, goodType);
-    lendingUsed = 0;
-    holders.filedNodesInto((store) => lends(store) !== null, sameSideAs(world, owner), collectLending);
-    return lendingUsed === 0
-      ? LendingStores.EMPTY
-      : new LendingStores(holders.filedSlack, lendingScratch.slice(0, lendingUsed));
-  }
-
-  /** Whether no store at all could be taken, whatever the area. */
-  get none(): boolean {
-    return this.xy.length === 0;
-  }
-
-  mayLieIn(area: SpatialGate | undefined): boolean {
-    const { xy, slack } = this;
-    if (xy.length === 0) return false;
-    if (area?.mayAllowNear === undefined) return true;
-    for (let i = 0; i < xy.length; i += 2) {
-      if (area.mayAllowNear(xy[i] as number, xy[i + 1] as number, slack)) return true;
+export function storeHoldingMayLieIn(
+  bands: TargetBands,
+  world: World,
+  goodType: number,
+  owner: number,
+  supply: SupplyTally,
+  area: SpatialGate | undefined,
+): boolean {
+  if (sideLendsNone(bands, world, owner, goodType)) return false;
+  const holders = bands.holding(goodType);
+  if (!holders.hasCandidates()) return false;
+  const filed = holders.filedOnSide(owner);
+  const slack = holders.filedSlack;
+  const bounded = area?.mayAllowNear !== undefined;
+  let lends: ((store: Entity) => typeof QUALIFIES | null) | undefined;
+  for (let i = 0; i < filed.length; i += FILED_STRIDE) {
+    if (bounded && area?.mayAllowNear?.(filed[i + 1] as number, filed[i + 2] as number, slack) !== true) {
+      continue;
     }
-    return false;
+    lends ??= holdsUnclaimed(world, bands.ctx, supply, goodType);
+    if (lends(filed[i] as Entity) !== null) return true;
   }
-}
-
-/**
- * {@link LendingStores} per player and good, read once per planner pass. A pass only claims units, so a set
- * read earlier in it is a superset of a fresh one: it may let a search run that finds nothing, never skip
- * one that would find a store.
- */
-export class PassLendingStores {
-  private readonly byPlayer = new Map<number, Map<number, LendingStores>>();
-
-  constructor(
-    private readonly bands: TargetBands,
-    private readonly world: World,
-    private readonly supply: SupplyTally,
-  ) {}
-
-  of(player: number, goodType: number): LendingStores {
-    let byGood = this.byPlayer.get(player);
-    if (byGood === undefined) {
-      byGood = new Map();
-      this.byPlayer.set(player, byGood);
-    }
-    let stores = byGood.get(goodType);
-    if (stores === undefined) {
-      stores = LendingStores.of(this.bands, this.world, goodType, player, this.supply);
-      byGood.set(goodType, stores);
-    }
-    return stores;
-  }
+  return false;
 }
 
 /** {@link nearestStoreHolding} with no signpost or goods-search gate, over `owner`'s own stores alone:

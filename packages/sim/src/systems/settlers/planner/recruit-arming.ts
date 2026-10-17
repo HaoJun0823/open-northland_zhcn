@@ -44,7 +44,7 @@ import {
   interactionCell,
   nearestStoreHolding,
   nearestStoreHoldingWithin,
-  PassLendingStores,
+  storeHoldingMayLieIn,
   storeYieldsGood,
   type TargetCandidates,
 } from '../targets/index.js';
@@ -65,7 +65,6 @@ export function dispatchRecruitArming(pass: PlannerPass): void {
   const { world, ctx } = pass;
   const recruits = world.canonicalQuery(AssistantRecruit);
   if (recruits.length === 0) return; // no bookings: the pass costs one empty query
-  let lending: PassLendingStores | undefined;
 
   for (const e of recruits) {
     if ((e + ctx.tick) % ASSISTANT_SCAN_PERIOD_TICKS !== 0) continue;
@@ -96,8 +95,7 @@ export function dispatchRecruitArming(pass: PlannerPass): void {
         world.remove(e, AssistantRecruit);
         continue;
       }
-      lending ??= new PassLendingStores(pass.targets.bands, world, pass.supply);
-      dispatchWeaponFetch(pass, lending, e, settler, booking.intent, booking.barracks, owner);
+      dispatchWeaponFetch(pass, e, settler, booking.intent, booking.barracks, owner);
       continue;
     }
     // The fallback armor outing: the weapon errand normally chains the armor at the store, so this
@@ -220,7 +218,6 @@ export function approachNode(world: World, ctx: SystemContext, terrain: TerrainG
 /** Send the recruit for the strongest reachable weapon of its intent's class it qualifies for. */
 function dispatchWeaponFetch(
   pass: PlannerPass,
-  lendingStores: PassLendingStores,
   e: Entity,
   settler: SettlerIdentity,
   intent: keyof typeof INTENT_WEAPON_CLASS,
@@ -233,14 +230,13 @@ function dispatchWeaponFetch(
   let gate: SpatialGate | undefined;
   const vetoed = playerGoodList(world, AssistantWeaponVetoes, owner);
   for (const goodType of armingGoodPreference(ctx.content, settler.tribe, intent, vetoed)) {
-    // Read once per pass: an earlier dispatch's claim leaves it a superset, which only lets a search run.
-    const lending = lendingStores.of(owner, goodType);
-    if (lending.none) continue; // no store of the side lends this row; the route is not worth resolving
+    // No store of the side lends this row: the route is not worth resolving.
+    if (!storeHoldingMayLieIn(targets.bands, world, goodType, owner, pass.supply, undefined)) continue;
     if (route === undefined) {
       route = fetchRouteFor(pass, e, owner);
       gate = targets.bands.goodsGate(route.here, owner, route.limit ?? undefined);
     }
-    if (!lending.mayLieIn(gate)) continue;
+    if (!storeHoldingMayLieIn(targets.bands, world, goodType, owner, pass.supply, gate)) continue;
     const src = nearestStoreHoldingWithin(
       targets.bands,
       world,

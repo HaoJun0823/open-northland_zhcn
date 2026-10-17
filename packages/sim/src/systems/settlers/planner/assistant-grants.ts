@@ -28,7 +28,7 @@ import { isFighterJob, isScoutJob, MILITARY_MODE, mayChangeEquipment } from '../
 import { equipFetchLimitFor } from '../../signposts/index.js';
 import { anotherSystemOwns } from '../action-owner.js';
 import { equipFetchesHeld } from '../drives/equip-fetches.js';
-import { FetchableStock, nearestStoreHoldingWithin, PassLendingStores } from '../targets/index.js';
+import { FetchableStock, nearestStoreHoldingWithin, storeHoldingMayLieIn } from '../targets/index.js';
 import { unreachableGoalVeto } from '../unreachable-goals.js';
 import { wakeIdle } from './idle-replan.js';
 import type { PlannerPass } from './pass.js';
@@ -83,9 +83,6 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
     }
     return goods;
   };
-  // Stock the ledger counts may lie outside every goods gate of a side, where each due settler's search
-  // would sweep its whole reach for nothing; the stores a side's search could take are read once per pass.
-  const lending = new PassLendingStores(targets.bands, world, pass.supply);
 
   for (const e of dueThisBeat(world, ctx.tick)) {
     if (!world.has(e, Position)) continue; // the pass plans positioned settlers only
@@ -127,7 +124,10 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       if (!stock.exceeds(owner, spec.goodType, underway)) continue;
       route ??= grantRouteFor(pass, e, owner);
       const here = route.here;
-      if (!lending.of(owner, spec.goodType).mayLieIn(route.gate)) continue;
+      // Stock the ledger counts may lie outside every goods gate of a side, where the search would sweep
+      // the settler's whole reach for nothing.
+      if (!storeHoldingMayLieIn(targets.bands, world, spec.goodType, owner, pass.supply, route.gate))
+        continue;
       const src = nearestStoreHoldingWithin(
         targets.bands,
         world,

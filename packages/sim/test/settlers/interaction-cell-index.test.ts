@@ -7,6 +7,7 @@ import { ONE, positionOfNode, type Simulation } from '../../src/index.js';
 import type { SpatialGate } from '../../src/nav/node-circle.js';
 import type { NodeId } from '../../src/nav/terrain/index.js';
 import {
+  FILED_STRIDE,
   InteractionCellIndex,
   nearestByCell,
   type Qualified,
@@ -253,6 +254,37 @@ describe('InteractionCellIndex', () => {
       expect(index.divergence(new InteractionCellIndex(sim.world, ctx, terrain, candidates))).toEqual([]);
     }
   });
+
+  it.each([15, 16])(
+    'keeps its per-side filed candidates current through edits and handovers (seed %i)',
+    (seed) => {
+      const { sim, terrain, ctx, candidates, roll, index } = world(seed);
+      /** A side's filed candidates as sorted `entity@x,y` keys, so the read order does not matter. */
+      const filedKeys = (from: InteractionCellIndex, player: number): string[] => {
+        const filed = from.filedOnSide(player);
+        const keys: string[] = [];
+        for (let i = 0; i < filed.length; i += FILED_STRIDE)
+          keys.push(`${filed[i]}@${filed[i + 1]},${filed[i + 2]}`);
+        return keys.sort();
+      };
+      const live = [...candidates];
+      for (let round = 0; round < PLAYERS * 2; round++) {
+        for (let player = 0; player < PLAYERS; player++) {
+          const fresh = new InteractionCellIndex(sim.world, ctx, terrain, live);
+          expect(filedKeys(index, player), `round ${round} player ${player}`).toEqual(
+            filedKeys(fresh, player),
+          );
+        }
+        // A candidate leaves on even rounds; on odd ones only owners change, which the index learns from
+        // the Owner journals alone. Each must reach the held reads.
+        if (round % 2 === 0) index.remove(live.splice(roll(live.length), 1)[0] as Entity);
+        const handed = live[roll(live.length)] as Entity;
+        sim.world.add(handed, Owner, { player: roll(PLAYERS) });
+        const freed = live[roll(live.length)] as Entity;
+        if (sim.world.has(freed, Owner)) sim.world.remove(freed, Owner);
+      }
+    },
+  );
 
   it.each([13, 14])(
     "asks a short list's gate only for a candidate that beats the best so far (seed %i)",

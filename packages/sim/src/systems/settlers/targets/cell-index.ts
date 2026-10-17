@@ -1,4 +1,12 @@
-import { Building, Owner, ownerOf, Palisade, Position, Stockpile } from '../../../components/index.js';
+import {
+  Building,
+  Owner,
+  ownerOf,
+  Palisade,
+  Position,
+  Stockpile,
+  sameSideAs,
+} from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
 import { insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
 import type { Entity, World } from '../../../ecs/world.js';
@@ -89,6 +97,27 @@ class CandidateSet {
   }
 }
 
+/** Slots per candidate of an {@link InteractionCellIndex.filedOnSide} read: its entity, then its filed
+ *  node's `x, y`. */
+export const FILED_STRIDE = 3;
+/** Candidates the {@link InteractionCellIndex.filedOnSide} scratch starts with room for. */
+const INITIAL_FILED_CANDIDATES = 128;
+/** The candidates a side read collects before it copies them out at their count. */
+let filedScratch = new Int32Array(INITIAL_FILED_CANDIDATES * FILED_STRIDE);
+let filedUsed = 0;
+
+function collectFiled(e: Entity, x: number, y: number): void {
+  if (filedUsed + FILED_STRIDE > filedScratch.length) {
+    const grown = new Int32Array(filedScratch.length * 2);
+    grown.set(filedScratch);
+    filedScratch = grown;
+  }
+  filedScratch[filedUsed] = e;
+  filedScratch[filedUsed + 1] = x;
+  filedScratch[filedUsed + 2] = y;
+  filedUsed += FILED_STRIDE;
+}
+
 /** The side key of an unowned candidate; a player's key is its slot. */
 const NEUTRAL_SIDE = -1;
 
@@ -131,7 +160,12 @@ export class InteractionCellIndex {
     if (filed === undefined || filed === sideKeyOf(this.world, e)) return;
     this.dropFromSide(e, filed);
     this.fileInSide(e);
+    this.revision++;
   };
+  /** Moves on every edit of the candidates or their sides, so a memo over them knows when to re-read. */
+  private revision = 0;
+  /** {@link filedOnSide} per owner, with the revision it was read at. */
+  private readonly sideFiled = new Map<number, { readonly revision: number; readonly filed: Int32Array }>();
   /** Greatest Manhattan offset (half-cell nodes) of a loose candidate's interaction cell from its own
    *  node: a free neighbour, or the work cell of a resource standing on the same node. */
   private readonly slack: number;
@@ -150,6 +184,7 @@ export class InteractionCellIndex {
 
   /** Index positioned `e` by its door, or by its own node when its cell depends on the seeker. */
   add(e: Entity): void {
+    this.revision++;
     const { world, terrain } = this;
     const cell = interactionCellOf(world, this.ctx, terrain, e);
     if (cell !== null) {
@@ -166,6 +201,7 @@ export class InteractionCellIndex {
 
   /** Drop `e` from the key {@link add} filed it under; a no-op for an entity not indexed. */
   remove(e: Entity): void {
+    this.revision++;
     const side = this.sideOf.get(e);
     if (side !== undefined) this.dropFromSide(e, side);
     const { terrain } = this;
@@ -183,6 +219,7 @@ export class InteractionCellIndex {
 
   /** Forget every candidate. */
   clear(): void {
+    this.revision++;
     this.all = new CandidateSet();
     this.allSets = [this.all];
     this.doorCell.clear();
@@ -218,27 +255,36 @@ export class InteractionCellIndex {
     return false;
   }
 
-  /** Hand `out` the filed node of every candidate on a side `onSide` admits that passes `accept`, for a
-   *  caller that asks {@link anyFiledIn} of many areas under one accept. `onSide` reads only the
-   *  candidate's {@link Owner}, as in {@link nearest}, so a rejected side is skipped whole. */
-  filedNodesInto(
-    accept: (e: Entity) => boolean,
-    onSide: ((e: Entity) => boolean) | undefined,
-    out: (x: number, y: number) => void,
-  ): void {
+  /** The candidates on `owner`'s side ({@link sameSideAs}: its own and unowned ones), each as its entity
+   *  and filed node in {@link FILED_STRIDE} slots, for a caller that tests many areas against them. Kept
+   *  until the candidates or their sides change. */
+  filedOnSide(owner: number): Int32Array {
+    const sides = this.syncSides();
+    const held = this.sideFiled.get(owner);
+    if (held !== undefined && held.revision === this.revision) return held.filed;
+    const onSide = sameSideAs(this.world, owner);
     const { terrain } = this;
-    const sets = this.setsOn(onSide);
-    for (let s = 0; s < sets.length; s++) {
-      const set = sets[s] as CandidateSet;
-      for (const e of set.doorList) {
+    filedUsed = 0;
+    const visit = (set: CandidateSet): void => {
+      const { doorList, looseList } = set;
+      for (let i = 0; i < doorList.length; i++) {
+        const e = doorList[i] as Entity;
         const cell = this.doorCell.get(e);
-        if (cell !== undefined && accept(e)) out(terrain.xOf(cell), terrain.yOf(cell));
+        if (cell !== undefined) collectFiled(e, terrain.xOf(cell), terrain.yOf(cell));
       }
-      for (const e of set.looseList) {
+      for (let i = 0; i < looseList.length; i++) {
+        const e = looseList[i] as Entity;
         const node = this.looseNode.get(e);
-        if (node !== undefined && accept(e)) out(terrain.xOf(node), terrain.yOf(node));
+        if (node !== undefined) collectFiled(e, terrain.xOf(node), terrain.yOf(node));
       }
-    }
+    };
+    sides.forEach((set) => {
+      const member = set.any();
+      if (member !== undefined && onSide(member)) visit(set);
+    });
+    const filed = filedScratch.slice(0, filedUsed);
+    this.sideFiled.set(owner, { revision: this.revision, filed });
+    return filed;
   }
 
   /** A mismatch message per candidate `fresh` keys differently, or this index files under a stale side,
@@ -365,6 +411,7 @@ export class InteractionCellIndex {
       world.journalValueWrites(Owner);
       sides = new Map();
       this.sides = sides;
+      this.revision++;
       this.sideOf.clear();
       for (const e of this.all.doorList) this.fileInSide(e);
       for (const e of this.all.looseList) this.fileInSide(e);

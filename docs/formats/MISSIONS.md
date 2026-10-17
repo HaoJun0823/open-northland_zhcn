@@ -487,10 +487,11 @@ bars, so they neither fall nor refill.
 
 Original behavior: bit 12 stops only shoe wear; a barefoot step checks bit 0 instead.
 
-Bit 10 appears in the corpus with no known effect; this build ignores it. Bit 18 appears in mask
-272507. Bits 8 and 18 are read from the original's behavior and not yet confirmed against the
-running original. The original
-ORs 0x1800 plus bits 0 and 6 into every hero it creates, and bit 7 into all but the Frankish heroine.
+Original behavior: bit 10 only skips repainting the human in its player's colours when the
+renderer is asked to; play is unaffected, and this build ignores it. Bit 18 appears in mask 272507.
+Bits 8, 10 and 18 are read from the original's behavior and not yet confirmed against the running
+original; which event asks for that repaint is unknown. The original ORs 0x1800 plus bits 0 and 6
+into every hero it creates, and bit 7 into all but the Frankish heroine.
 Corpus masks: `sethuman` mostly 0, then 272507, 8315, 64; `SetPlayerBehaviourFlag` mostly 512,
 131200, 16384, 8192; `SetHumanBehaviourFlag` mostly 32, 512, 33, 128, 8.
 
@@ -1239,7 +1240,7 @@ behavior (a reading, the same in the owned 2001 copy; not timed against the runn
 
 ## Open questions
 
-- Behaviour bit 10 and the animal behaviour value.
+- The animal behaviour value.
 - Readings above may not match the owned 2001 build; it has not been checked for the check period,
   the tick reset, `SelectHuman`'s flag, the load-time job seeding or a death turning off the AI.
 

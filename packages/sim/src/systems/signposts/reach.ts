@@ -8,9 +8,9 @@ import {
 } from '../../components/index.js';
 import type { ChangeFeed } from '../../ecs/change-feed.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { TileBuckets } from '../../inspect/tile-buckets.js';
+import { type TileBox, TileBuckets } from '../../inspect/tile-buckets.js';
 import { hexDistanceBetween } from '../../nav/halfcell.js';
-import { type NodeBox, type SpatialGate, unionNodeBoxes } from '../../nav/node-circle.js';
+import type { NodeBox, SpatialGate } from '../../nav/node-circle.js';
 import { type ReachArea, reachBox, reachContains } from '../../nav/range-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import { interactionNode } from '../footprint/interaction.js';
@@ -41,9 +41,9 @@ interface ReachCache {
   readonly epoch: number;
   readonly spots: Map<number, TerrainReach>;
   readonly network: NetworkReach;
-  /** Kept while the network holds: a limit built under older mask, road or door versions is rebased onto
-   *  the current ones, sharing its network-derived groups. */
-  readonly limits: Map<number, GoodsSearchLimit>;
+  /** Kept across every version: a limit built under older versions is rebased onto the current ones,
+   *  sharing its network-derived groups while its player's posts did not move. */
+  readonly limits: GenerationalCache<GoodsSearchLimit>;
   readonly views: Map<number, SignpostReachView>;
   /** The world mutation version {@link versions} were last confirmed at; no version moves without a write. */
   confirmedAt: number;
@@ -62,9 +62,41 @@ interface NetworkReach {
 /** Local searches held, about (2 * range - 1)^2 bytes each: enough that a settler re-planning from the
  *  spot it stands on finds its search again a scan beat later. */
 const SPOT_REACH_CAP = 1024;
-/** Limits held per reach key. A limit is a few references over a held local search and shared group
- *  coverages, so this bounds the local searches limits keep alive past {@link SPOT_REACH_CAP}. */
-const LIMIT_CAP = 1024;
+/** Limits per cache generation, so at most twice this many are held: about the distinct spots a late
+ *  15-seat game asks within a few hundred ticks. A limit is a few references over a held local search and
+ *  shared group coverages, so this bounds the local searches limits keep alive past {@link SPOT_REACH_CAP}. */
+const LIMIT_GENERATION_CAP = 4096;
+
+/**
+ * A bounded memo keeping what was asked within the last two generations of `cap` insertions: a read
+ * promotes an old entry, and a full young generation retires the old one whole. Unlike a recency-ordered
+ * map, a hit neither deletes nor reinserts, so reads churn no hash table.
+ */
+class GenerationalCache<V> {
+  private young = new Map<number, V>();
+  private old = new Map<number, V>();
+
+  constructor(private readonly cap: number) {}
+
+  get(key: number): V | undefined {
+    const recent = this.young.get(key);
+    if (recent !== undefined) return recent;
+    const aged = this.old.get(key);
+    if (aged !== undefined) this.set(key, aged);
+    return aged;
+  }
+
+  /** A stale copy left in the old generation is shadowed by the young one until it retires. */
+  set(key: number, value: V): void {
+    if (this.young.size >= this.cap && !this.young.has(key)) {
+      const retired = this.old;
+      this.old = this.young;
+      retired.clear();
+      this.young = retired;
+    }
+    this.young.set(key, value);
+  }
+}
 
 interface Doors {
   readonly feed: ChangeFeed;
@@ -158,7 +190,7 @@ function cacheOf(world: World, content: ContentSet, terrain: TerrainGraph): Reac
       spots: held?.spots ?? new Map(),
       network,
       views: new Map(),
-      limits: held?.network === network ? held.limits : new Map(),
+      limits: held?.limits ?? new GenerationalCache(LIMIT_GENERATION_CAP),
       confirmedAt: mutation,
     };
     caches.set(world, cache);
@@ -247,35 +279,24 @@ export function goodsSearchLimitAt(
 ): GoodsSearchLimit | null {
   if (!signpostNavigationEnabled(world) || player === undefined) return null;
   const cache = cacheOf(world, content, terrain);
-  const build = (): GoodsSearchLimit =>
-    new GoodsSearchLimit(
-      world,
-      content,
-      terrain,
-      cache,
-      hx,
-      hy,
-      limitGroups(world, content, terrain, cache, player, hx, hy),
-    );
   const key = spotKey(player, hx, hy);
-  if (key === null) return build();
-  // Re-inserted on every read, so the map runs least recently asked first and eviction drops the oldest.
-  const limits = cache.limits;
-  const held = limits.get(key);
-  if (held !== undefined) {
-    limits.delete(key);
-    const current = held.builtUnder(cache) ? held : held.rebased(cache);
-    limits.set(key, current);
-    return current;
-  }
-  if (limits.size >= LIMIT_CAP) {
-    for (const oldest of limits.keys()) {
-      limits.delete(oldest);
-      break;
-    }
-  }
-  const made = build();
-  limits.set(key, made);
+  const held = key === null ? undefined : cache.limits.get(key);
+  if (held?.builtUnder(cache)) return held;
+  const sites = signpostNetwork(world).get(player);
+  const made =
+    held !== undefined && held.sites === sites
+      ? held.rebased(cache)
+      : new GoodsSearchLimit(
+          world,
+          content,
+          terrain,
+          cache,
+          hx,
+          hy,
+          sites,
+          limitGroups(world, content, terrain, cache, player, hx, hy),
+        );
+  if (key !== null) cache.limits.set(key, made);
   return made;
 }
 
@@ -341,6 +362,9 @@ class GoodsSearchLimit implements SpatialGate {
     cache: ReachCache,
     private readonly hx: number,
     private readonly hy: number,
+    /** The player's network list the groups derive from; the network keeps a list's identity while its
+     *  posts stay put, so an unchanged list keeps the groups valid. */
+    readonly sites: readonly SignpostSite[] | undefined,
     private readonly groups: LimitGroups,
   ) {
     this.versions = cache.versions;
@@ -355,10 +379,19 @@ class GoodsSearchLimit implements SpatialGate {
     return this.versions === cache.versions;
   }
 
-  /** This spot's limit under `cache`'s versions, for a cache whose network this limit's groups came from:
-   *  the groups depend on the network alone, while the searches and catches are asked afresh. */
+  /** This spot's limit under `cache`'s versions, for a network still listing {@link sites}: the groups
+   *  depend on the player's posts alone, while the searches and catches are asked afresh. */
   rebased(cache: ReachCache): GoodsSearchLimit {
-    return new GoodsSearchLimit(this.world, this.content, this.terrain, cache, this.hx, this.hy, this.groups);
+    return new GoodsSearchLimit(
+      this.world,
+      this.content,
+      this.terrain,
+      cache,
+      this.hx,
+      this.hy,
+      this.sites,
+      this.groups,
+    );
   }
 
   allowsNode(node: NodeId): boolean {
@@ -477,34 +510,43 @@ function limitGroups(
 ): LimitGroups {
   const range = GOODS_SEARCH_RANGE_NODES;
   const own = reachBox(terrain, hx, hy, range);
-  const groups = new Map<number, SignpostSite[]>();
-  for (const p of postsWithin(cache, own)) {
+  const end = cache.network.sites.collect(tileBoxOf(own), postScratch);
+  // Groups in the order their first post was collected; a spot catches a handful, so a scan beats a map.
+  const nearby: GroupCoverage[] = [];
+  const nearbyPosts: SignpostSite[][] = [];
+  let { minX, maxX, minY, maxY } = own;
+  for (let i = 0; i < end; i++) {
+    const p = postScratch[i] as SignpostSite & { player: number };
     if (p.player !== player || hexDistanceBetween(hx, hy, p.hx, p.hy) >= range) continue;
-    const members = groups.get(p.group);
-    if (members === undefined) groups.set(p.group, [p]);
-    else members.push(p);
+    let g = 0;
+    while (g < nearby.length && (nearbyPosts[g] as SignpostSite[])[0]?.group !== p.group) g++;
+    if (g < nearby.length) {
+      (nearbyPosts[g] as SignpostSite[]).push(p);
+      continue;
+    }
+    const coverage = coverageOf(world, content, terrain, cache, p.group);
+    nearby.push(coverage);
+    nearbyPosts.push([p]);
+    const b = coverage.bounds;
+    if (b.minX < minX) minX = b.minX;
+    if (b.maxX > maxX) maxX = b.maxX;
+    if (b.minY < minY) minY = b.minY;
+    if (b.maxY > maxY) maxY = b.maxY;
   }
-  const nearby = [...groups.keys()].map((group) => coverageOf(world, content, terrain, cache, group));
-  return {
-    bounds: unionNodeBoxes([own, ...nearby.map((g) => g.bounds)]),
-    nearby,
-    nearbyPosts: [...groups.values()],
-  };
+  return { bounds: { minX, maxX, minY, maxY }, nearby, nearbyPosts };
 }
+
+/** The posts {@link limitGroups} last collected; slots past its end hold stale entries. */
+const postScratch: (SignpostSite & { player: number })[] = [];
 
 /** {@link GoodsSearchLimit} per nearby group states: not asked yet, caught, or not caught. */
 const UNASKED = 0;
 const CAUGHT = 1;
 const MISSED = 2;
 
-/** The posts filed in the tiles over a node box, a superset of those inside it. */
-function postsWithin(cache: ReachCache, box: NodeBox): (SignpostSite & { player: number })[] {
-  return cache.network.sites.within({
-    minX: box.minX / 2,
-    maxX: box.maxX / 2,
-    minY: box.minY / 2,
-    maxY: box.maxY / 2,
-  });
+/** The tile box over a node box, whose buckets file a superset of the posts inside it. */
+function tileBoxOf(box: NodeBox): TileBox {
+  return { minX: box.minX / 2, maxX: box.maxX / 2, minY: box.minY / 2, maxY: box.maxY / 2 };
 }
 
 /** A group's coverage, kept while the network holds. */

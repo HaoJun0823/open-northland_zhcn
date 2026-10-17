@@ -177,6 +177,21 @@ describe('goods search limit', () => {
     expectLimitMatchesRule(sim, terrain, 0, 20, 30);
   });
 
+  it("answers as a fresh limit after another player's post moved the network", () => {
+    const { sim, terrain } = navigableSim(240, 100);
+    createSignpost(sim.world, terrain, terrain.nodeAt(40, 30), 0, sim.content);
+    createSignpost(sim.world, terrain, terrain.nodeAt(70, 30), 0, sim.content);
+    signpostLinksSystem(sim.world, ctxOf(sim));
+    const before = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
+    const ownPosts = signpostNetwork(sim.world).get(0);
+    createSignpost(sim.world, terrain, terrain.nodeAt(50, 60), 1, sim.content);
+    signpostLinksSystem(sim.world, ctxOf(sim));
+    expect(signpostNetwork(sim.world).get(0)).toBe(ownPosts);
+    const after = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
+    expect(after).not.toBe(before);
+    expect(expectLimitMatchesRule(sim, terrain, 0, 20, 30)).toBeGreaterThan(0);
+  });
+
   it('keeps a signpost confinement and a goods search sound when one gate rules a neighbourhood out', () => {
     const { sim, terrain } = navigableSim(240, 100);
     createSignpost(sim.world, terrain, terrain.nodeAt(40, 30), 0, sim.content);

@@ -1,9 +1,7 @@
 import { Crop, Position } from '../../../components/index.js';
-import { insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
+import { insertSortedById, ownId, removeSortedById } from '../../../core/sorted-id.js';
 import { JournaledCaptures } from '../../../ecs/journaled-captures.js';
 import type { Entity, World } from '../../../ecs/world.js';
-
-const entityId = (e: Entity): number => e;
 
 /**
  * The positioned sown fields grouped by the farm that sowed them, each group ascending-id, kept across
@@ -24,12 +22,12 @@ class FarmFields {
         apply: (e, farm) => {
           const fields = this.byFarm.get(farm);
           if (fields === undefined) this.byFarm.set(farm, [e]);
-          else insertSortedById(fields, e, entityId);
+          else insertSortedById(fields, e, ownId);
         },
         withdraw: (e, farm) => {
           const fields = this.byFarm.get(farm);
           if (fields === undefined) return;
-          removeSortedById(fields, e, entityId);
+          removeSortedById(fields, e, ownId);
           if (fields.length === 0) this.byFarm.delete(farm);
         },
         clear: () => this.byFarm.clear(),

@@ -1,9 +1,7 @@
 import { HarvestedBy } from '../../../components/index.js';
-import { insertSortedById, removeSortedById } from '../../../core/sorted-id.js';
+import { insertSortedById, ownId, removeSortedById } from '../../../core/sorted-id.js';
 import { JournaledCaptures } from '../../../ecs/journaled-captures.js';
 import type { Entity, World } from '../../../ecs/world.js';
-
-const entityId = (e: Entity): number => e;
 
 /**
  * The entities carrying a {@link HarvestedBy} mark, grouped by the harvester it names, each group
@@ -24,12 +22,12 @@ class HarvesterMarks {
         apply: (e, harvester) => {
           const marked = this.byHarvester.get(harvester);
           if (marked === undefined) this.byHarvester.set(harvester, [e]);
-          else insertSortedById(marked, e, entityId);
+          else insertSortedById(marked, e, ownId);
         },
         withdraw: (e, harvester) => {
           const marked = this.byHarvester.get(harvester);
           if (marked === undefined) return;
-          removeSortedById(marked, e, entityId);
+          removeSortedById(marked, e, ownId);
           if (marked.length === 0) this.byHarvester.delete(harvester);
         },
         clear: () => this.byHarvester.clear(),

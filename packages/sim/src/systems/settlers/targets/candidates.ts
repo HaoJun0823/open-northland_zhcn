@@ -11,7 +11,7 @@ import {
   UnderConstruction,
 } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
-import { includesSortedId } from '../../../core/sorted-id.js';
+import { includesSortedId, ownId } from '../../../core/sorted-id.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { BlockOverlay } from '../../../nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../../nav/terrain/index.js';
@@ -228,8 +228,8 @@ class TickTargets implements TargetCandidates {
     if (marked === undefined) return undefined;
     const drops = this.groundDrops;
     for (let i = 0; i < marked.length; i++) {
-      if (!includesSortedId(drops, marked[i] as Entity, entityId)) {
-        const standing = marked.filter((e) => includesSortedId(drops, e, entityId));
+      if (!includesSortedId(drops, marked[i] as Entity, ownId)) {
+        const standing = marked.filter((e) => includesSortedId(drops, e, ownId));
         return standing.length === 0 ? undefined : standing;
       }
     }
@@ -250,8 +250,6 @@ class TickTargets implements TargetCandidates {
     return new InteractionCellIndex(this.world, this.ctx, this.terrain, candidates);
   }
 }
-
-const entityId = (e: Entity): number => e;
 
 function pushTo<K>(lists: Map<K, Entity[]>, key: K, e: Entity): void {
   const list = lists.get(key);

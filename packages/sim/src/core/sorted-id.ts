@@ -4,6 +4,9 @@
  * earns its keep when an old id re-enters a list.
  */
 
+/** The id of an item that is its own id, such as an entity, for a list of the ids themselves. */
+export const ownId = (id: number): number => id;
+
 /** The first index of ascending `arr` whose id (per `idOf`) is ≥ `id`. */
 function lowerBound<T>(arr: readonly T[], id: number, idOf: (item: T) => number): number {
   let lo = 0;

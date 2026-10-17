@@ -147,6 +147,15 @@ Coverage does not prove successful execution, correct name joins, or map complet
 Fresh maps execute their scripts automatically. `?missions=off` disables execution for diagnostics;
 loading a save preserves its stored mission rules.
 
+`npm run mission:script -- <map id> [--lang pol] [--pages] [--mission <n>]` prints one map's script as
+the game runs it: every mission with decoded goals and results, opcodes this build cannot run marked,
+goal texts, the pages its results open and, with `--pages`, every briefing page. It reads the
+generated sidecars, so corrections are included. `npm run map:convert -- <map id>` re-converts one
+base map from the unpacked pack through the corrections into this checkout's own `content/` and
+refreshes its `maps-index.json` row; it refuses a shared primary content directory, so a worktree
+first clones it (`cp -Rc <primary>/content content`). Campaign maps need the full `build:content`.
+Both need the workspace built (`npx tsc --build`).
+
 ## Browser entries
 
 See [Browser entries](BROWSER-DEVELOPMENT.md#browser-entries).

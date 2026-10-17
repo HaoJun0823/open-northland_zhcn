@@ -51,6 +51,8 @@
     "check:docs": "node scripts/check-docs.mjs",
     "diag": "node scripts/diag-bundle.mjs",
     "missions:coverage": "tsc --build && node scripts/mission-coverage.mjs",
+    "mission:script": "node scripts/mission-script.mjs",
+    "map:convert": "node scripts/convert-map.mjs",
     "tickets:list": "node scripts/list-tickets.mjs",
     "desktop": "npm run build && npm run start --workspace @open-northland/desktop",
     "desktop:dist": "npm run build && npm run dist --workspace @open-northland/desktop",

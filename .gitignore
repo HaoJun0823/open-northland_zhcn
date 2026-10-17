@@ -80,3 +80,6 @@ npm-debug.log*
 
 # Source data cache and transactional content builds
 /.cache/
+
+# Per-map mission playtest probes agents write for one session (docs/TESTING.md "Mission playtests").
+/packages/app/test/content/playtest/local/

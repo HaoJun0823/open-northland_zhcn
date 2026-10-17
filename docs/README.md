@@ -21,6 +21,7 @@ Other references:
 - [`PERFORMANCE.md`](PERFORMANCE.md): profiling and benchmark commands
 - [`BUILDING.md`](BUILDING.md): builds, packaging and images
 - [`SCENES.md`](SCENES.md): acceptance scenes for tests and human review
+- [`PLAYTESTS.md`](PLAYTESTS.md): which maps a mission playtest has driven to the end, and what it found
 - [`NETWORK.md`](NETWORK.md): multiplayer protocol, lockstep and server
 - [`GRAPHICS.md`](GRAPHICS.md): first-launch hardware defaults, effect costs and calibration limits
 - [`LEGAL.md`](LEGAL.md): game-data, licensing, trademark rules, and acceptable evidence

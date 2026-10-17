@@ -323,6 +323,35 @@ layout changes. It reads the unpacked data pack at `ON_DATA_ROOT`, `.cache/data/
 Tests must skip cleanly when local content is deliberately unavailable. Synthetic fixtures remain the
 committed regression tests.
 
+## Mission playtests
+
+A mission playtest drives one real map's script to its end and reports what a player would meet on
+the way: goals that do not fire, results the build cannot run, briefings that promise what the script
+does not do. The headless layer is `packages/app/test/content/playtest/drive.ts`: it boots the
+`?map=` world the way the entry does, steps it, sends the player's own seat commands for what a
+playthrough plays and the replayable admin commands for what it forces (a teleport instead of a long
+walk, a spawned army instead of a trained one, a filled store instead of porters), and logs every
+forced step. `tutorial-001-playthrough.test.ts` beside it is the template and the regression.
+
+A session writes its probe for one map under the gitignored
+`packages/app/test/content/playtest/local/` and runs it alone:
+
+```bash
+npx vitest run --project=content packages/app/test/content/playtest/local/<map>.test.ts
+```
+
+A probe reports with `missionTable`, `pagesOpened`, `problems` and the log's `forced` list, and
+round-trips a save mid-run with `saveRoundTrip`. It proves the script's chain and the engine's
+handling of it, not the fidelity of a mechanic or what the screen shows; the browser pass in
+[BROWSER-DEVELOPMENT.md](BROWSER-DEVELOPMENT.md#mission-playtest-preparation) owns those. Sub-mission
+transitions are not driven headlessly yet; play them in the browser.
+
+The map's script is read with `npm run mission:script -- <map id>`, and a correction to it is checked
+on a re-converted map with `npm run map:convert -- <map id>` ([DEVELOPMENT.md](DEVELOPMENT.md#local-game-content)).
+A probe that proves a map worth keeping as a regression moves out of `local/` into the playtest
+folder with a name of its own. [PLAYTESTS.md](PLAYTESTS.md) lists every map's status; a session
+updates its row in the commit that closes the session.
+
 ## Visual and audio checks
 
 Use the deterministic screenshot harness for a stable scene input:

@@ -72,6 +72,48 @@ describe('delta columns from live values', () => {
   });
 });
 
+describe('delta column element types', () => {
+  const deltaOf = (columns: DeltaColumns): SnapshotDelta => ({
+    ...columns.columns(),
+    tick: 0,
+    sequence: 0,
+    rebuild: false,
+    removed: [],
+    events: [],
+  });
+
+  it('carry 32-bit integer numbers in an Int32Array and any other in a Float64Array', () => {
+    const whole = columnsOf((columns) => columns.writeLive('P', { x: 2 ** 31 - 1, y: -(2 ** 31), on: true }));
+    expect(whole.numbers).toBeInstanceOf(Int32Array);
+    for (const odd of [2 ** 31, 0.5, -0]) {
+      const columns = new DeltaColumns();
+      columns.begin(ENTITY);
+      columns.writeLive('P', { x: 1, y: odd });
+      columns.end();
+      const delta = deltaOf(columns);
+      expect(delta.numbers).toBeInstanceOf(Float64Array);
+      expect(deltaValues(delta)).toStrictEqual([{ x: 1, y: odd }]);
+    }
+  });
+
+  it('widen the per-entity and per-value columns once an entry passes 16 bits', () => {
+    const narrow = columnsOf((columns) => columns.writeLive('P', { x: 1 }));
+    expect(narrow.valueKinds).toBeInstanceOf(Int16Array);
+    expect(narrow.changeOf).toBeInstanceOf(Int16Array);
+    // Each entity writes a component of its own, so the change entries pass 16 bits.
+    const CHANGES = 1 << 15;
+    const columns = new DeltaColumns();
+    for (let id = 1; id <= CHANGES + 1; id++) {
+      columns.begin(id);
+      columns.writeLive(`C${id}`, 7);
+      columns.end();
+    }
+    const wide = deltaOf(columns);
+    expect(wide.changeOf).toBeInstanceOf(Int32Array);
+    expect(wide.changeOf[CHANGES]).toBe(CHANGES);
+  });
+});
+
 describe('delta shapes', () => {
   it('lends its column storage to one delta at a time, each delta keeping its own copy', () => {
     const shapes = new DeltaShapes();

@@ -10,7 +10,7 @@ import { clonePlain } from './plain-clone.js';
  * all numbers, booleans, strings or null, which travels as numbers and strings under a key list sent
  * once (`deltaValues` rebuilds it). The
  * per-entity and per-value columns are typed arrays, which a structured clone copies as bytes where it
- * writes and reads a plain array element by element.
+ * writes and reads a plain array element by element, each in the narrowest element type its entries fit.
  */
 export interface SnapshotDelta {
   /** The tick the delta brings a mirror to. */
@@ -25,19 +25,20 @@ export interface SnapshotDelta {
    *  within int32: the save caps them there. */
   readonly touched: Int32Array;
   /** Per `touched` entity, its entry in `changes`. */
-  readonly changeOf: Int32Array;
+  readonly changeOf: SmallIntColumn;
   /** The distinct changes the touched entities made. An entity the base did not hold writes all of
    *  its components. */
   readonly changes: readonly EntityChange[];
   /** Per written component, per `touched` entity in turn and in its change's `written` order: the
    *  entry of `recordKeys` its value is a record of, or {@link WHOLE_VALUE}. */
-  readonly valueKinds: Int32Array;
+  readonly valueKinds: SmallIntColumn;
   /** The key lists of the records whose fields are all scalars. */
   readonly recordKeys: readonly (readonly string[])[];
   /** Per `recordKeys` entry, one {@link FIELD} character per key: how its field travels. */
   readonly recordFields: readonly string[];
-  /** Those records' number and boolean fields, record after record, each in its key list's order. */
-  readonly numbers: Float64Array;
+  /** Those records' number and boolean fields, record after record, each in its key list's order: 32-bit
+   *  integers, as fixed-point state is, unless one of them is not. */
+  readonly numbers: Int32Array | Float64Array;
   /** Those records' string fields, in the same order. */
   readonly strings: readonly string[];
   /** The other written values, fresh clones, in turn. */
@@ -50,6 +51,12 @@ export interface SnapshotDelta {
   /** The world at `tick` as a stream opened with `digest` folds it, for `MirrorTruth` to compare. */
   readonly digest?: DeltaDigest;
 }
+
+/** A column of small integers: 16-bit while every entry fits, which halves its bytes on the wire. */
+export type SmallIntColumn = Int16Array | Int32Array;
+
+const INT16_MIN = -0x8000;
+const INT16_MAX = 0x7fff;
 
 /** A {@link SnapshotDelta.valueKinds} entry for a value carried whole in `values`. */
 export const WHOLE_VALUE = -1;
@@ -131,6 +138,23 @@ class IntColumn {
   taken(): Int32Array {
     return this.items.slice(0, this.count);
   }
+
+  /** {@link taken} in 16 bits when every entry fits. */
+  takenSmall(): SmallIntColumn {
+    const { items, count } = this;
+    for (let i = 0; i < count; i++) {
+      const item = items[i] as number;
+      if (item < INT16_MIN || item > INT16_MAX) return this.taken();
+    }
+    const small = new Int16Array(count);
+    small.set(items.subarray(0, count));
+    return small;
+  }
+}
+
+/** Whether `value` survives a trip through an `Int32Array`; -0 does not, and the digest tells it apart. */
+function isInt32(value: number): boolean {
+  return (value | 0) === value && (value !== 0 || 1 / value > 0);
 }
 
 /** A scalar record's keys in order and how each field travels; interned per stream, so its entry in a
@@ -221,6 +245,8 @@ export class DeltaColumns {
   private readonly recordKeys: (readonly string[])[] = [];
   private readonly recordFields: string[] = [];
   private numberCount = 0;
+  /** No number pushed so far needs more than an `Int32Array` holds. */
+  private int32Numbers = true;
   private readonly strings: string[] = [];
   private readonly values: unknown[] = [];
   private readonly epoch: number;
@@ -300,15 +326,23 @@ export class DeltaColumns {
   columns(): Pick<SnapshotDelta, DeltaColumnFields> {
     return {
       touched: this.touched.taken(),
-      changeOf: this.changeOf.taken(),
+      changeOf: this.changeOf.takenSmall(),
       changes: this.changes,
-      valueKinds: this.valueKinds.taken(),
+      valueKinds: this.valueKinds.takenSmall(),
       recordKeys: this.recordKeys,
       recordFields: this.recordFields,
-      numbers: this.shapes.numbers.slice(0, this.numberCount),
+      numbers: this.takenNumbers(),
       strings: this.strings,
       values: this.values,
     };
+  }
+
+  private takenNumbers(): Int32Array | Float64Array {
+    const numbers = this.shapes.numbers.subarray(0, this.numberCount);
+    if (!this.int32Numbers) return numbers.slice();
+    const narrow = new Int32Array(this.numberCount);
+    narrow.set(numbers);
+    return narrow;
   }
 
   /** Push the fields of a record whose fields are all scalars and answer its key list's entry, or answer
@@ -418,6 +452,7 @@ export class DeltaColumns {
       grown.set(numbers);
       this.shapes.numbers = numbers = grown;
     }
+    if (this.int32Numbers && !isInt32(field)) this.int32Numbers = false;
     numbers[this.numberCount++] = field;
   }
 }
@@ -465,7 +500,9 @@ export function packSnapshotDelta(delta: EntitySnapshotDelta): SnapshotDelta {
   let previous = -1;
   for (const entry of delta.touched) {
     if (entry.id <= previous) {
-      throw new Error(`snapshot delta : touched entity  after , must ascend`);
+      throw new Error(
+        `snapshot delta ${delta.sequence}: touched entity ${entry.id} after ${previous}, must ascend`,
+      );
     }
     previous = entry.id;
     columns.begin(entry.id);

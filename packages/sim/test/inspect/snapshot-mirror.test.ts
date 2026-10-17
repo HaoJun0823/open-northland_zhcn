@@ -300,8 +300,8 @@ describe('snapshot delta stream', () => {
     for (const node of nodes.reverse()) sim.world.mut(node, Resource).remaining = 1;
     const { touched, changeOf, valueKinds } = nonNull(deltas.next());
     expect(touched).toBeInstanceOf(Int32Array);
-    expect(changeOf).toBeInstanceOf(Int32Array);
-    expect(valueKinds).toBeInstanceOf(Int32Array);
+    expect(changeOf).toBeInstanceOf(Int16Array);
+    expect(valueKinds).toBeInstanceOf(Int16Array);
     expect([...touched]).toEqual([...nodes].reverse());
   });
 

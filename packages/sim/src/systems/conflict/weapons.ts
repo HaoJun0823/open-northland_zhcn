@@ -14,6 +14,7 @@ import {
   type WalkDirection,
 } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
+import { SMALL_INTEGER_SPAN } from '../../core/small-integer.js';
 import type { Entity, World } from '../../ecs/world.js';
 import type { SystemContext } from '../context.js';
 import { headingToward } from '../movement/turning.js';
@@ -89,13 +90,15 @@ export function attackerWeapon(
 const armings = new WeakMap<ContentSet, Map<number, WeaponReach | null>>();
 
 /** The values each part of an {@link armingKey} packs into, absent as 0 and id `n` as `n + 1`. The tribe,
- *  job and worn weapon spans and the scenario bit multiply to 2^30, V8's small-integer range
- *  (`core/small-integer.ts`), so the map stores every key unboxed. Content ids sit far below each span; a
- *  larger one resolves uncached. */
+ *  job and worn weapon spans and the scenario bit multiply to {@link SMALL_INTEGER_SPAN}, so the map stores
+ *  every key unboxed. Content ids sit far below each span; a larger one resolves uncached. */
 const ARMING_TRIBE_SPAN = 2 ** 9;
 const ARMING_JOB_SPAN = 2 ** 10;
 const ARMING_WORN_SPAN = 2 ** 10;
 const ARMING_SCENARIO_SPAN = 2;
+if (ARMING_TRIBE_SPAN * ARMING_JOB_SPAN * ARMING_WORN_SPAN * ARMING_SCENARIO_SPAN !== SMALL_INTEGER_SPAN) {
+  throw new Error('the arming key spans must multiply to the small-integer range');
+}
 
 /** One number naming an {@link attackerWeapon} question, or null for an id the packing cannot hold. */
 function armingKey(

@@ -68,6 +68,8 @@ export class TextureCache {
   private readonly topCache = new Map<AtlasFrame, Map<number, Texture>>();
   /** Reveal bakes per frame, keyed by quantised threshold. */
   private readonly revealCache = new Map<AtlasFrame, Map<number, RevealBake>>();
+  /** {@link unmagnified} twins, keyed by the view they copy. */
+  private readonly unmagnifiedTwins = new Map<Texture, Texture>();
 
   /** Views of a texture's frame grown by a margin of texels on every side, keyed by that texture, then
    *  by the margin. A view goes when its texture does. */
@@ -254,6 +256,17 @@ export class TextureCache {
     return this.pages;
   }
 
+  /** A twin of a view served here, on the same page and frame but without the magnification mark: the
+   *  world shader reads it with one plain sampler tap, no magnifier. */
+  unmagnified(texture: Texture): Texture {
+    let twin = this.unmagnifiedTwins.get(texture);
+    if (twin === undefined) {
+      twin = new Texture({ source: texture.source, frame: texture.frame.clone() });
+      this.unmagnifiedTwins.set(texture, twin);
+    }
+    return twin;
+  }
+
   /**
    * A view of `frame` with its top `hiddenTop` pixels cropped off, for the bottom-up construction reveal.
    * `hiddenTop` is an integer pixel count in the frame's own source space, clamped to the frame. The
@@ -392,6 +405,8 @@ export class TextureCache {
       for (const tex of byRows.values()) tex.destroy();
     }
     this.topCache.clear();
+    for (const twin of this.unmagnifiedTwins.values()) twin.destroy();
+    this.unmagnifiedTwins.clear();
     this.pages.clear();
     for (const byThreshold of this.revealCache.values()) {
       for (const bake of byThreshold.values()) bake.texture.destroy(true);

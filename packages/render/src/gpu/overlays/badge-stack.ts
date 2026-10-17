@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite } from 'pixi.js';
 import type { TextureCache } from '../texture-cache.js';
+import { worldBatched } from '../world-batcher.js';
 import {
   type BuildingSignSheet,
   chainedFrame,
@@ -39,7 +40,8 @@ const HOUSEHOLD_COLOR: Readonly<Record<HouseholdKind, number>> = {
   family: 0xffd24d, // gold
 };
 /** A door badge stack from the decoded sign art: one player-coloured sign sprite per row, chained
- *  upward from the anchor. */
+ *  upward from the anchor. The signs draw in the world batch of the sprites around them, unmagnified:
+ *  the world shader reads them with one plain sampler tap, no magnifier. */
 export function makeSignStack(
   rows: readonly DoorBadgeRow[],
   textures: TextureCache,
@@ -51,7 +53,7 @@ export function makeSignStack(
     const kind = signKindOf(row.role);
     const base = sheet.frameByKind[kind];
     const frame = drawn === 0 ? base : chainedFrame(kind, base);
-    const s = new Sprite(textures.get(sheet.source, frame));
+    const s = worldBatched(new Sprite(textures.unmagnified(textures.get(sheet.source, frame))));
     s.position.set(frame.offsetX, -(drawn * SIGN_STEP) + frame.offsetY);
     c.addChild(s);
     drawn++;

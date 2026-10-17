@@ -113,6 +113,23 @@ describe('TextureCache.adopt', () => {
   });
 });
 
+describe('TextureCache.unmagnified', () => {
+  it('serves one twin per view, on the same page and frame, without the magnification mark', () => {
+    const page = new TextureSource({ width: 64, height: 64 });
+    markPixelArtSource(page);
+    const cache = new TextureCache();
+    const view = cache.get(page, FRAME);
+    const twin = cache.unmagnified(view);
+    expect(isMagnifiedTexture(view)).toBe(true);
+    expect(isMagnifiedTexture(twin)).toBe(false);
+    expect([twin.source, twin.frame]).toEqual([view.source, view.frame]);
+    expect(cache.unmagnified(view)).toBe(twin);
+    cache.clear();
+    expect(twin.destroyed).toBe(true);
+    expect(page.destroyed).toBe(false);
+  });
+});
+
 describe('TextureCache.clear', () => {
   it('destroys the cached textures, not just the map entries', () => {
     // A Pixi Texture registers a `resize` listener on its source, so the app-owned atlas page keeps every

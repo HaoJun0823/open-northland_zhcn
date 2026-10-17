@@ -13,7 +13,9 @@ import {
   SIGN_BASE_BELOW,
   signRowAt,
 } from '../src/gpu/overlays/sign-gfx.js';
+import { isMagnifiedTexture, markPixelArtSource } from '../src/gpu/pixel-art-registry.js';
 import { TextureCache } from '../src/gpu/texture-cache.js';
+import { isWorldBatched } from '../src/gpu/world-batcher.js';
 import { makeElevationField, ONE, tileToScreen } from '../src/index.js';
 
 const workers = (craftsmen: number, carriers: number, gatherers = 0): DoorBadgeRow[] => [
@@ -293,6 +295,20 @@ describe('BadgeLayer (decoded sign art)', () => {
     expect(stack.position.y).toBe(anchor.y);
   });
 
+  it('batches the signs with the world sprites, unmagnified', () => {
+    const { layer, root } = layerIn();
+    const s = sheet();
+    markPixelArtSource(s.source);
+    layer.setGfx({ byPlayer: [s], textures: new TextureCache() });
+    layer.draw([badge(1, 3, 5, workers(2, 0))]);
+    const signs = (root.children[0] as Container).children as Sprite[];
+    expect(signs).toHaveLength(2);
+    for (const sign of signs) {
+      expect(isWorldBatched(sign)).toBe(true);
+      expect(isMagnifiedTexture(sign.texture)).toBe(false);
+    }
+  });
+
   it('offsets the stack by the badge dx/dy - the GfxFlagPoint pixel anchor', () => {
     const { layer, root } = layerIn();
     layer.setGfx({ byPlayer: [sheet()], textures: new TextureCache() });
@@ -365,6 +381,17 @@ describe('BadgeLayer (garrison flag)', () => {
     expect(flag?.position.x).toBe(anchor.x + MAST.dx); // the mast, not the post the chain stands on
     expect(flag?.zIndex).toBe(screenDepth(anchor.x, anchor.y, 'building') + SIGN_DEPTH_EPS);
     expect(flag?.zIndex).toBe(chain?.zIndex);
+  });
+
+  it('batches the flag with the world sprites, unmagnified', () => {
+    const { layer, root } = layerIn();
+    const { sheet: s } = garrisonSheet();
+    markPixelArtSource(s.source);
+    layer.setGfx({ byPlayer: [s], textures: new TextureCache() });
+    layer.draw([manned(1, 3, 5, 2)]);
+    const flag = flagOf(root, 3, 5)?.children[0] as Sprite;
+    expect(isWorldBatched(flag)).toBe(true);
+    expect(isMagnifiedTexture(flag.texture)).toBe(false);
   });
 
   it('draws the star record its post earned, and keeps flying the top one past it', () => {

@@ -2,6 +2,7 @@ import { Container, Graphics, Sprite } from 'pixi.js';
 import { clamp } from '../../data/math.js';
 import { type AtlasFrame, type WaveLoop, waveFrameAt } from '../../data/sprites/index.js';
 import type { TextureCache } from '../texture-cache.js';
+import { worldBatched } from '../world-batcher.js';
 import type { BuildingSignSheet } from './sign-gfx.js';
 
 /**
@@ -70,13 +71,14 @@ export function makeGarrisonFlag(
   }
   const { source } = sheet;
   // Each sprite carries its rows' own draw offset, so the nodes the layer positions stay the mast foot.
-  const front = new Sprite();
+  // World-batched and unmagnified: the world shader reads the flag with one plain sampler tap, no magnifier.
+  const front = worldBatched(new Sprite());
   const node = new Container();
   node.addChild(front);
   let back: Sprite | undefined;
   let behind: Container | undefined;
   if (behindFrom !== undefined) {
-    back = new Sprite();
+    back = worldBatched(new Sprite());
     behind = new Container();
     behind.addChild(back);
   }
@@ -88,14 +90,15 @@ export function makeGarrisonFlag(
         : clamp(Math.round(behindFrom - frame.offsetY), 0, frame.height);
     front.visible = cut > 0;
     if (cut > 0) {
-      front.texture =
-        cut === frame.height ? textures.get(source, frame) : textures.topRows(source, frame, cut);
+      front.texture = textures.unmagnified(
+        cut === frame.height ? textures.get(source, frame) : textures.topRows(source, frame, cut),
+      );
       front.position.set(frame.offsetX, frame.offsetY);
     }
     if (back === undefined) return;
     back.visible = cut < frame.height;
     if (cut < frame.height) {
-      back.texture = textures.cropped(source, frame, cut);
+      back.texture = textures.unmagnified(textures.cropped(source, frame, cut));
       back.position.set(frame.offsetX, frame.offsetY + cut);
     }
   };

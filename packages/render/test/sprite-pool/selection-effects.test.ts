@@ -3,12 +3,12 @@ import { expect, it } from 'vitest';
 import { PalettedSprite } from '../../src/gpu/paletted-sprite/index.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
 import { SelectionEffects } from '../../src/gpu/sprite-pool/selection-effects.js';
-import { SelectionSprite } from '../../src/gpu/sprite-selection-effect.js';
+import { OutlineSprite, SelectionSprite } from '../../src/gpu/sprite-selection-effect.js';
 import { TextureCache } from '../../src/gpu/texture-cache.js';
 import { syntheticHumanLut } from '../support/human-palettes.js';
 import { useHeadlessShaderContext } from '../support/shader-context.js';
 
-it('outlines the visible body, excludes shadows, and releases stamps when the style changes', () => {
+it('outlines the visible body, excludes shadows, and releases the outline when the style changes', () => {
   const textures = new TextureCache();
   const effects = new SelectionEffects(textures);
   const pe = createPooled('building', undefined);
@@ -22,21 +22,25 @@ it('outlines the visible body, excludes shadows, and releases stamps when the st
   pe.container.addChild(shadow, body);
   effects.update(pe, 'outline', 1, 0);
   const outline = pe.container.children[0];
-  expect(outline?.children).toHaveLength(16);
-  expect(outline?.children[0]?.position.x).toBeCloseTo(14);
-  expect(outline?.children[0]?.scale.x).toBe(2);
+  // One quad per pass over the one visible body, the dark keyline under the ivory core.
+  expect(outline?.children).toHaveLength(2);
   const dark = outline?.children[0];
-  const ivory = outline?.children[8];
-  expect(dark).toBeInstanceOf(SelectionSprite);
-  expect(ivory).toBeInstanceOf(SelectionSprite);
-  if (!(dark instanceof SelectionSprite) || !(ivory instanceof SelectionSprite))
+  const ivory = outline?.children[1];
+  if (!(dark instanceof OutlineSprite) || !(ivory instanceof OutlineSprite))
     throw new Error('Missing outline');
   expect(dark.tint).toBe(0x14211b);
   expect(ivory.tint).toBe(0xf2e8c9);
-  expect(ivory.position.x).toBeCloseTo(13.25);
+  expect(dark.bodyTexture).toBe(Texture.WHITE);
+  // A body texel spans 2 units, so a reach of 2 grows the quad by one texel on every side.
+  expect([dark.texture.frame.x, dark.texture.frame.width]).toEqual([-1, 3]);
+  expect(dark.position.x).toBeCloseTo(10);
+  expect(dark.position.y).toBeCloseTo(-32);
+  expect(dark.scale.x).toBe(2);
+  expect(Array.from(dark.reachUv, (v) => v + 0)).toEqual([1, 0, 0, 1]);
+  expect(Array.from(ivory.reachUv, (v) => v + 0)).toEqual([0.625, 0, 0, 0.625]);
   effects.update(pe, 'outline', 2, 0);
   expect(pe.container.children[0]).toBe(outline);
-  expect(outline?.children[0]?.position.x).toBeCloseTo(13);
+  expect(Array.from(dark.reachUv, (v) => v + 0)).toEqual([0.5, 0, 0, 0.5]);
   // Hidden for an inset by alpha, so the band's structure (and its instructions) stays as it was.
   effects.setVisible(false);
   expect(outline?.visible).toBe(true);
@@ -62,7 +66,7 @@ it('outlines the visible body, excludes shadows, and releases stamps when the st
 
 useHeadlessShaderContext();
 
-it('fades the old building tier outline with its body and resets opacity when stamps are reused', () => {
+it('fades the old building tier outline with its body and resets opacity when quads are reused', () => {
   const textures = new TextureCache();
   const effects = new SelectionEffects(textures);
   const pe = createPooled('building', undefined);
@@ -74,13 +78,13 @@ it('fades the old building tier outline with its body and resets opacity when st
   effects.update(pe, 'outline', 1, 0);
   const outline = pe.container.children[0];
   if (outline === undefined) throw new Error('Missing outline');
-  expect(outline.children).toHaveLength(16);
+  expect(outline.children).toHaveLength(2);
   for (const alpha of [0.5, 0.1, 0, 1]) {
     body.alpha = alpha;
     effects.update(pe, 'outline', 1, 0);
     expect(pe.container.children[0]).toBe(outline);
     const visible = outline.children.filter((stamp) => stamp.visible);
-    expect(visible).toHaveLength(alpha === 0 ? 0 : 16);
+    expect(visible).toHaveLength(alpha === 0 ? 0 : 2);
     for (const stamp of visible) expect(stamp.alpha).toBe(alpha);
   }
   effects.clear(pe);
@@ -88,15 +92,56 @@ it('fades the old building tier outline with its body and resets opacity when st
   textures.clear();
 });
 
+/** `quad` laid over the mesh's own corners: texel (u, v) of the body frame sits `margin` texels into
+ *  the grown frame, and one reach step in uv moves a body texel by exactly the reach on screen. */
+function expectOverMesh(
+  quad: OutlineSprite,
+  body: PalettedSprite,
+  frame: { width: number; height: number },
+  reach: number,
+  page: number,
+): void {
+  const margin = (quad.texture.frame.width - frame.width) / 2;
+  expect(Number.isInteger(margin)).toBe(true);
+  quad.updateLocalTransform();
+  const m = quad.localTransform;
+  const corners = body.geometry.positions;
+  const texels = [
+    [0, 0],
+    [frame.width, 0],
+    [frame.width, frame.height],
+    [0, frame.height],
+  ];
+  for (const [i, [u = 0, v = 0]] of texels.entries()) {
+    const px = corners[2 * i] ?? 0;
+    const py = corners[2 * i + 1] ?? 0;
+    expect(m.a * (u + margin) + m.c * (v + margin) + m.tx).toBeCloseTo(3 + 2 * (px + 0.1 * py));
+    expect(m.b * (u + margin) + m.d * (v + margin) + m.ty).toBeCloseTo(4 + 2 * py);
+  }
+  const step = (du: number, dv: number) => [m.a * du + m.c * dv, m.b * du + m.d * dv];
+  const [xStepX = 0, xStepY = 0] = step((quad.reachUv[0] ?? 0) * page, (quad.reachUv[1] ?? 0) * page);
+  const [yStepX = 0, yStepY = 0] = step((quad.reachUv[2] ?? 0) * page, (quad.reachUv[3] ?? 0) * page);
+  expect(xStepX).toBeCloseTo(reach);
+  expect(xStepY).toBeCloseTo(0);
+  expect(yStepX).toBeCloseTo(0);
+  expect(yStepY).toBeCloseTo(reach);
+  // The grown quad reaches past every texel a tap can land on.
+  expect(Math.hypot(quad.reachUv[0] ?? 0, quad.reachUv[1] ?? 0) * page).toBeLessThanOrEqual(margin);
+  expect(Math.hypot(quad.reachUv[2] ?? 0, quad.reachUv[3] ?? 0) * page).toBeLessThanOrEqual(margin);
+}
+
+const PAGE = 32;
+
 it('keeps vehicle outlines out of linear atlas sampling and follows mesh origin and shear', () => {
   const textures = new TextureCache();
   const effects = new SelectionEffects(textures);
   const lut = syntheticHumanLut();
   const pe = createPooled('vehicle', lut);
   if (!pe.paletted) throw new Error('Expected an indexed vehicle');
-  const source = new TextureSource({ width: 32, height: 32, scaleMode: 'nearest' });
+  const source = new TextureSource({ width: PAGE, height: PAGE, scaleMode: 'nearest' });
   const body = new PalettedSprite(lut.source, lut.colours);
-  body.setFrame(source, { x: 0, y: 0, width: 16, height: 24, offsetX: -8, offsetY: -24 }, 32, 32);
+  const frame = { x: 0, y: 0, width: 16, height: 24, offsetX: -8, offsetY: -24 };
+  body.setFrame(source, frame, PAGE, PAGE);
   body.artScale = 2;
   body.artDx = 3;
   body.artDy = 4;
@@ -105,12 +150,10 @@ it('keeps vehicle outlines out of linear atlas sampling and follows mesh origin 
   pe.container.addChild(body);
   effects.update(pe, 'outline', 0.75, 0);
   expect(textures.pageSources().has(source)).toBe(false);
-  const outline = pe.container.children[0];
-  const stamp = outline?.children[0];
-  expect(stamp?.position.x).toBeCloseTo(3 + (-8 - 2.4) * 2 + 2 / 0.75);
-  expect(stamp?.position.y).toBeCloseTo(4 - 24 * 2);
-  stamp?.updateLocalTransform();
-  expect(stamp?.localTransform.c).toBeCloseTo(0.2);
+  const quad = pe.container.children[0]?.children[0];
+  if (!(quad instanceof OutlineSprite)) throw new Error('Missing outline quad');
+  expect(quad.bodyTexture.frame.width).toBe(frame.width);
+  expectOverMesh(quad, body, frame, 2 / 0.75, PAGE);
   effects.clear(pe);
   pe.container.destroy({ children: true });
   textures.clear();
@@ -124,10 +167,10 @@ it("lays a tilted frame's vehicle outline over the mesh's own turned corners", (
   const lut = syntheticHumanLut();
   const pe = createPooled('vehicle', lut);
   if (!pe.paletted) throw new Error('Expected an indexed vehicle');
-  const source = new TextureSource({ width: 32, height: 32, scaleMode: 'nearest' });
+  const source = new TextureSource({ width: PAGE, height: PAGE, scaleMode: 'nearest' });
   const body = new PalettedSprite(lut.source, lut.colours);
   const frame = { x: 0, y: 0, width: 16, height: 24, offsetX: -8, offsetY: -24, tilt: 0.4 };
-  body.setFrame(source, frame, 32, 32);
+  body.setFrame(source, frame, PAGE, PAGE);
   body.artScale = 2;
   body.artDx = 3;
   body.artDy = 4;
@@ -135,25 +178,13 @@ it("lays a tilted frame's vehicle outline over the mesh's own turned corners", (
   pe.sprites.push(body);
   pe.container.addChild(body);
   effects.update(pe, 'outline', 0.75, 0);
-  const stamp = pe.container.children[0]?.children[0];
-  if (stamp === undefined) throw new Error('Missing outline stamp');
-  stamp.updateLocalTransform();
-  const m = stamp.localTransform;
-  // The first stamp sits one outline radius to the right of the body.
-  const radiusX = 2 / 0.75;
-  const corners = body.geometry.positions;
-  const texels = [
-    [0, 0],
-    [frame.width, 0],
-    [frame.width, frame.height],
-    [0, frame.height],
-  ];
-  for (const [i, [u = 0, v = 0]] of texels.entries()) {
-    const px = corners[2 * i] ?? 0;
-    const py = corners[2 * i + 1] ?? 0;
-    expect(m.a * u + m.c * v + m.tx - radiusX).toBeCloseTo(3 + 2 * (px + 0.1 * py));
-    expect(m.b * u + m.d * v + m.ty).toBeCloseTo(4 + 2 * py);
-  }
+  const outline = pe.container.children[0];
+  const dark = outline?.children[0];
+  const ivory = outline?.children[1];
+  if (!(dark instanceof OutlineSprite) || !(ivory instanceof OutlineSprite))
+    throw new Error('Missing outline');
+  expectOverMesh(dark, body, frame, 2 / 0.75, PAGE);
+  expectOverMesh(ivory, body, frame, 1.25 / 0.75, PAGE);
   effects.clear(pe);
   pe.container.destroy({ children: true });
   textures.clear();

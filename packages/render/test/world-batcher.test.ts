@@ -18,7 +18,7 @@ import {
   setWorldShadowStyle,
 } from '../src/gpu/pixel-art-registry.js';
 import { DEFAULT_SHADOW_STYLE } from '../src/gpu/shadow-style.js';
-import { SelectionSprite } from '../src/gpu/sprite-selection-effect.js';
+import { OutlineSprite, SelectionSprite } from '../src/gpu/sprite-selection-effect.js';
 import {
   installWorldBatcher,
   routeWorldBatches,
@@ -112,6 +112,50 @@ describe('world batcher element flags', () => {
     batcher.packQuadAttributes(element, floats, new Uint32Array(floats.buffer), 0, 0);
     const at = WORLD_ATTRIBUTE_OFFSETS.aFrame / 4;
     expect(Array.from(floats.slice(at, at + 4))).toEqual([2 / 8, 4 / 8, 6 / 8, 6 / 8]);
+    batcher.destroy();
+    source.destroy();
+  });
+
+  it("packs an outline quad's body frame and reach, and clears the reach for the next plain sprite", () => {
+    const source = new TextureSource({ width: 8, height: 8 });
+    const WorldBatcher = installWorldBatcher();
+    const batcher = new WorldBatcher({ maxTextures: PAGES_AND_LUT });
+    const floats = new Float32Array(WORLD_VERTEX_SIZE * 4);
+    const outline = new OutlineSprite();
+    outline.bodyTexture = new Texture({ source, frame: new Rectangle(2, 4, 4, 2) });
+    // The grown view reaches past the body's frame onto its atlas neighbours.
+    outline.texture = new Texture({ source, frame: new Rectangle(1, 3, 6, 4) });
+    outline.setReach(0.25, 0, 0, 0.5);
+    const element = (renderable: SelectionSprite) =>
+      ({
+        texture: renderable.texture,
+        renderable,
+        transform: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 },
+        bounds: { minX: 0, minY: 0, maxX: 1, maxY: 1 },
+        color: 0xffffffff,
+        roundPixels: 0,
+      }) as unknown as DefaultBatchableQuadElement;
+    const frameAt = WORLD_ATTRIBUTE_OFFSETS.aFrame / 4;
+    const splashAt = WORLD_ATTRIBUTE_OFFSETS.aSplashes / 4;
+    batcher.packQuadAttributes(element(outline), floats, new Uint32Array(floats.buffer), 0, 0);
+    for (let i = 0; i < 4; i++) {
+      const vertex = i * WORLD_VERTEX_SIZE;
+      expect(Array.from(floats.slice(vertex + frameAt, vertex + frameAt + 4))).toEqual([
+        2 / 8,
+        4 / 8,
+        6 / 8,
+        6 / 8,
+      ]);
+      expect(Array.from(floats.slice(vertex + splashAt, vertex + splashAt + 4))).toEqual([0.25, 0, 0, 0.5]);
+    }
+    batcher.packQuadAttributes(
+      element(new SelectionSprite(Texture.WHITE)),
+      floats,
+      new Uint32Array(floats.buffer),
+      0,
+      0,
+    );
+    expect(Array.from(floats.slice(splashAt, splashAt + 4))).toEqual([0, 0, 0, 0]);
     batcher.destroy();
     source.destroy();
   });

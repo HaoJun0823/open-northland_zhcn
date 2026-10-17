@@ -21,6 +21,23 @@ export const WORLD_LUT_ROW_SHIFT = 4;
  * colour is that step of the owner's `Player NN` ramp.
  */
 export const GLOW_PALETTE_INDEX = 170;
+/** `aSelection` values that draw a selection outline in its colour over the body's coverage alone: an
+ *  offset copy of the body, or one quad grown past the body that gathers its coverage at every
+ *  {@link OUTLINE_DIRECTIONS} offset. */
+export const SELECTION_STAMP = -1;
+export const SELECTION_OUTLINE = -2;
+const DIAGONAL = Math.SQRT1_2;
+/** The unit offsets an outline spreads the body's coverage along, scaled by the outline's reach. */
+export const OUTLINE_DIRECTIONS = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [DIAGONAL, DIAGONAL],
+  [-DIAGONAL, DIAGONAL],
+  [DIAGONAL, -DIAGONAL],
+  [-DIAGONAL, -DIAGONAL],
+] as const;
 /** Texture slots each batch keeps free for the palette LUT its paletted elements read. */
 export const LUT_SLOTS = 1;
 /** Slots the batch program is compiled for at most; Pixi passes the device's limit, which desktop GL
@@ -155,7 +172,12 @@ const float SINGLE_TAP_FOOTPRINT = 0.000001;
 /** Each of the four minification taps sits a quarter of the footprint out from the sample point, and
  *  they average evenly: four taps cannot cover more, so the spread stops there. */
 const float MINIFY_TAP_OFFSET = 0.25;
-const float MINIFY_TAP_WEIGHT = 0.25;${shading.declarations}
+const float MINIFY_TAP_WEIGHT = 0.25;
+const float SELECTION_OUTLINE = ${SELECTION_OUTLINE}.0;
+// An outline quad reads the body's coverage where each offset copy would draw this fragment;
+// vSplashes carries the uv step per unit offset in x and y.
+const int OUTLINE_TAPS = ${OUTLINE_DIRECTIONS.length};
+const vec2 OUTLINE_DIRECTIONS[OUTLINE_TAPS] = vec2[OUTLINE_TAPS](${OUTLINE_DIRECTIONS.map(([x, y]) => `vec2(${glslFloat(x)}, ${glslFloat(y)})`).join(', ')});${shading.declarations}
 ${BLOOD_COAT_GLSL}
 ${BLOOD_SURFACE_GLSL}
 // The texels one fragment blends, read in one pass over the sampler chain: xBR's neighbourhood of the
@@ -184,6 +206,10 @@ ${textureChain(maxTextures, 'vTextureId', (i) => (MODE_NAMES[mode] === 'off' ? `
 
 ivec2 textureSizeOf() {
 ${textureChain(maxTextures, 'vTextureId', (i) => `return textureSize(uTextures[${i}], 0);`)}
+}
+
+vec2 outlineUV(int k) {
+  return vUV - OUTLINE_DIRECTIONS[k].x * vSplashes.xy - OUTLINE_DIRECTIONS[k].y * vSplashes.zw;
 }
 
 // A paletted texel's red is its palette index, read exactly (an interpolated index names another colour).
@@ -233,12 +259,26 @@ void main(void) {
     uvDy = dFdy(vUV);
   }
   if (vSelection < 0.0) {
-    // A selection outline stamp draws its colour over the body's coverage alone, which one plain tap
-    // gives: no palette, magnifier or minification taps. On a magnified (linearly filtered) page the
-    // tap stays half a texel inside the frame, as the body's gather does, so no neighbour bleeds in.
-    vec2 stampUV = WORLD_MAGNIFY > 0.5
-      ? clamp(vUV, vFrame.xy + 0.5 / texSize, vFrame.zw - 0.5 / texSize)
-      : vUV;
+    // A selection outline draws its colour over the body's coverage alone, which plain taps give: no
+    // palette, magnifier or minification taps. On a magnified (linearly filtered) page a tap stays half
+    // a texel inside the frame, as the body's gather does, so no neighbour bleeds in.
+    vec2 stampLow = WORLD_MAGNIFY > 0.5 ? vFrame.xy + 0.5 / texSize : vFrame.xy;
+    vec2 stampHigh = WORLD_MAGNIFY > 0.5 ? vFrame.zw - 0.5 / texSize : vFrame.zw;
+    if (vSelection < SELECTION_OUTLINE + 0.5) {
+      // The union of the offset copies blended over one another: a copy covers this fragment only
+      // where its quad, the body's frame moved by its offset, does.
+      float uncovered = 1.0;
+      for (int k = 0; k < OUTLINE_TAPS; k++) {
+        vec2 uv = outlineUV(k);
+        float tap = sampleTexture(WORLD_MAGNIFY > 0.5 ? clamp(uv, stampLow, stampHigh) : uv, uvDx, uvDy).a;
+        bool inside = all(greaterThanEqual(uv, vFrame.xy)) && all(lessThan(uv, vFrame.zw));
+        uncovered *= 1.0 - (inside ? vColor.a * tap : 0.0);
+      }
+      float alpha = 1.0 - uncovered;
+      finalColor = vColor.a > 0.0 ? vec4(vColor.rgb * (alpha / vColor.a), alpha) : vec4(0.0);
+      return;
+    }
+    vec2 stampUV = WORLD_MAGNIFY > 0.5 ? clamp(vUV, stampLow, stampHigh) : vUV;
     float coverage = sampleTexture(stampUV, uvDx, uvDy).a;
     finalColor = vec4(vColor.rgb * coverage, vColor.a * coverage);
     return;

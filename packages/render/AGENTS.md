@@ -58,8 +58,9 @@ optimises, so a fragment shader's cost there is its body after inlining, not its
 each branch of a sampler if-chain compiles once per branch; that shape took minutes to compile on
 Windows and froze the game at the loading screen while Metal compiled it in milliseconds, and a chain
 walked once per magnifier tap still compiled for tens of seconds there. Gather every tap a fragment
-reads in one pass over the chain, as `gpu/world-batch-shader.ts` does, and keep xBR and the other
-magnifiers out of per-slot code. `test/shader-budget.test.ts` bounds the inlined texture operations
+reads in one pass over the chain, as `gpu/world-batch-shader.ts` does for a body's magnifier taps,
+and keep xBR and the other magnifiers out of per-slot code. Its selection outline walks the chain once
+per coverage tap (eight plain taps), a cost the budget below and the Windows compile check bound. `test/shader-budget.test.ts` bounds the inlined texture operations
 of every program; a new GL program or generated variant joins `gpu/shader-catalog.ts` in the same
 commit so the budget and the Windows compile check (`npm run test:shaders`) see it.
 

@@ -1,23 +1,12 @@
-import { Container, Matrix } from 'pixi.js';
+import { Container, Matrix, type ObservablePoint, type Texture } from 'pixi.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import { PalettedSprite } from '../paletted-sprite/index.js';
 import { type SelectionStyle, selectionLight } from '../selection-style.js';
-import { SelectionGraphics, SelectionSprite } from '../sprite-selection-effect.js';
+import { OutlineSprite, SelectionGraphics } from '../sprite-selection-effect.js';
 import type { TextureCache } from '../texture-cache.js';
+import { OUTLINE_DIRECTIONS, SELECTION_STAMP } from '../world-batch-shader.js';
 import { worldBatched } from '../world-batcher.js';
 import type { PooledEntity } from './pooled-entity.js';
-
-const DIAGONAL = Math.SQRT1_2;
-const OFFSETS = [
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-  [DIAGONAL, DIAGONAL],
-  [-DIAGONAL, DIAGONAL],
-  [DIAGONAL, -DIAGONAL],
-  [-DIAGONAL, -DIAGONAL],
-] as const;
 
 // Artistic choice: a narrow ivory core and a dark outer keyline for changing terrain contrast.
 // Draw each pass over the whole body before the next; individual layers must not border one another.
@@ -26,10 +15,10 @@ const OUTLINE_PASSES = [
   { radius: 1.25, colour: undefined },
 ] as const;
 
-/** Silhouette stamps sit behind the complete body, so overlapping layers leave no internal outlines.
+/** Outline quads sit behind the complete body, so overlapping layers leave no internal outlines.
  * They use the world batch and the existing atlas alpha, without filters or per-entity render targets. */
 export class SelectionEffects {
-  private readonly outlines = new Map<PooledEntity, Container<SelectionSprite | SelectionGraphics>>();
+  private readonly outlines = new Map<PooledEntity, Container<OutlineSprite | SelectionGraphics>>();
   private readonly transform = new Matrix();
   private readonly lit = new Map<PooledEntity, number>();
 
@@ -57,67 +46,54 @@ export class SelectionEffects {
     }
     let outline = this.outlines.get(pe);
     if (outline === undefined) {
-      outline = new Container<SelectionSprite | SelectionGraphics>();
+      outline = new Container<OutlineSprite | SelectionGraphics>();
       this.outlines.set(pe, outline);
       pe.container.addChildAt(outline, 0);
     }
     let count = 0;
     for (const pass of OUTLINE_PASSES) {
-      const { radius } = pass;
+      const reach = pass.radius / zoom;
       const colour = pass.colour ?? outlineColour;
       for (let i = 0; i < pe.sprites.length; i++) {
         const body = pe.sprites[i];
         if (body === undefined || !body.visible || body.alpha === 0 || (!pe.paletted && pe.pickExempt[i]))
           continue;
         if ('glow' in body && body.glow === true) continue;
-        for (const [dx, dy] of OFFSETS) {
-          let stamp = outline.children[count++];
-          if (!(stamp instanceof SelectionSprite)) {
-            stamp?.destroy();
-            stamp = worldBatched(new SelectionSprite());
-            stamp.selectionEffect = -1;
-            outline.addChildAt(stamp, count - 1);
+        const quad = outlineQuadAt(outline, count++);
+        if (quad.tint !== colour) quad.tint = colour;
+        quad.alpha = body.alpha;
+        let texture: Texture;
+        if (body instanceof PalettedSprite) {
+          const frame = body.frame;
+          const source = body.frameSource;
+          if (frame === undefined || source === undefined) {
+            quad.visible = false;
+            continue;
           }
-          if (stamp.tint !== colour) stamp.tint = colour;
-          stamp.alpha = body.alpha;
-          if (body instanceof PalettedSprite) {
-            const frame = body.frame;
-            const source = body.frameSource;
-            if (frame === undefined || source === undefined) {
-              stamp.visible = false;
-              continue;
-            }
-            stamp.texture = this.textures.castSilhouette(source, frame);
-            meshFrameTransform(this.transform, body, frame);
-          } else {
-            stamp.texture = body.texture;
-            body.updateLocalTransform();
-            this.transform.copyFrom(body.localTransform);
-            stamp.anchor.copyFrom(body.anchor);
-          }
-          // Offset before placing, so a stamp whose body held still writes the values it already has and
-          // Pixi repacks nothing.
-          this.transform.tx += (dx * radius) / zoom;
-          this.transform.ty += (dy * radius) / zoom;
-          stamp.setFromMatrix(this.transform);
-          stamp.visible = true;
+          texture = this.textures.castSilhouette(source, frame);
+          meshFrameTransform(this.transform, body, frame);
+        } else {
+          texture = body.texture;
+          body.updateLocalTransform();
+          frameTransform(this.transform, body.localTransform, body.anchor, texture);
         }
+        this.place(quad, texture, reach);
       }
       if (pe.placeholder?.visible === true && pe.placeholder.alpha > 0) {
-        for (const [dx, dy] of OFFSETS) {
+        for (const [dx, dy] of OUTLINE_DIRECTIONS) {
           let stamp = outline.children[count++];
           if (!(stamp instanceof SelectionGraphics)) {
             stamp?.destroy();
             stamp = worldBatched(new SelectionGraphics({ context: pe.placeholder.context }));
-            stamp.selectionEffect = -1;
+            stamp.selectionEffect = SELECTION_STAMP;
             outline.addChildAt(stamp, count - 1);
           }
           if (stamp.tint !== colour) stamp.tint = colour;
           stamp.alpha = pe.placeholder.alpha;
           pe.placeholder.updateLocalTransform();
           this.transform.copyFrom(pe.placeholder.localTransform);
-          this.transform.tx += (dx * radius) / zoom;
-          this.transform.ty += (dy * radius) / zoom;
+          this.transform.tx += dx * reach;
+          this.transform.ty += dy * reach;
           stamp.setFromMatrix(this.transform);
           stamp.visible = true;
         }
@@ -127,6 +103,35 @@ export class SelectionEffects {
       const stamp = outline.children[i];
       if (stamp !== undefined) stamp.visible = false;
     }
+  }
+
+  /**
+   * Lay `quad` over the body texels {@link transform} places, grown by whole texels past `reach` (outline
+   * container units) on every side, and give it the uv step of one unit of reach along each axis. A body
+   * texel stands `scale` units or more across, the transform's smaller singular value.
+   */
+  private place(quad: OutlineSprite, body: Texture, reach: number): void {
+    const { a, b, c, d, tx, ty } = this.transform;
+    const det = a * d - b * c;
+    if (det === 0) {
+      quad.visible = false;
+      return;
+    }
+    const sum = (a * a + b * b + c * c + d * d) / 2;
+    const scale = Math.sqrt(sum - Math.sqrt(Math.max(0, sum * sum - det * det)));
+    const margin = Math.ceil(reach / scale);
+    quad.bodyTexture = body;
+    quad.texture = this.textures.grownView(body, margin);
+    // The inverse transform takes a reach step to texels; a texel is a fixed uv step on the page.
+    const { uvs, frame } = body;
+    const uPerTexel = (uvs.x1 - uvs.x0) / frame.width;
+    const vPerTexel = (uvs.y3 - uvs.y0) / frame.height;
+    const step = reach / det;
+    quad.setReach(d * step * uPerTexel, -b * step * vPerTexel, -c * step * uPerTexel, a * step * vPerTexel);
+    this.transform.tx = tx - margin * (a + c);
+    this.transform.ty = ty - margin * (b + d);
+    quad.setFromMatrix(this.transform);
+    quad.visible = true;
   }
 
   /** Portrait and map insets borrow the world without its selection emphasis. The outlines go to zero
@@ -160,6 +165,35 @@ export class SelectionEffects {
     outline.destroy({ children: true });
     this.outlines.delete(pe);
   }
+}
+
+/** The outline quad at `index` among `outline`'s children, minted over whatever stood there. */
+function outlineQuadAt(outline: Container<OutlineSprite | SelectionGraphics>, index: number): OutlineSprite {
+  const held = outline.children[index];
+  if (held instanceof OutlineSprite) return held;
+  held?.destroy();
+  const quad = worldBatched(new OutlineSprite());
+  outline.addChildAt(quad, index);
+  return quad;
+}
+
+/** `out` set to `local`'s placement of `texture`'s frame texels, from the quad Pixi lays a sprite on. */
+function frameTransform(out: Matrix, local: Matrix, anchor: ObservablePoint, texture: Texture): Matrix {
+  const { orig, trim, frame } = texture;
+  const width = trim?.width ?? orig.width;
+  const height = trim?.height ?? orig.height;
+  const left = (trim?.x ?? 0) - anchor.x * orig.width;
+  const top = (trim?.y ?? 0) - anchor.y * orig.height;
+  const sx = width / frame.width;
+  const sy = height / frame.height;
+  return out.set(
+    local.a * sx,
+    local.b * sx,
+    local.c * sy,
+    local.d * sy,
+    local.a * left + local.c * top + local.tx,
+    local.b * left + local.d * top + local.ty,
+  );
 }
 
 /**

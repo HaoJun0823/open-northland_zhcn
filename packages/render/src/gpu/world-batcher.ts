@@ -30,7 +30,12 @@ import {
 } from './pixel-art-registry.js';
 import { glProgramFor } from './program-source.js';
 import type { ShadowStyle } from './shadow-style.js';
-import { spriteBloodEffect, spriteSelectionEffect } from './sprite-selection-effect.js';
+import {
+  type OutlineSprite,
+  outlineOf,
+  spriteBloodEffect,
+  spriteSelectionEffect,
+} from './sprite-selection-effect.js';
 import { WorldAttributeBuffer } from './world-attribute-buffer.js';
 import {
   LUT_SLOTS,
@@ -244,6 +249,17 @@ function defineWorldBatcher(): WorldBatcherClass {
     packing.minV = Math.min(y0, y1, y2, y3);
     packing.maxU = Math.max(x0, x1, x2, x3);
     packing.maxV = Math.max(y0, y1, y2, y3);
+  }
+
+  /** An outline quad grows past its body: its taps stay inside the body's frame, and its reach rides in
+   *  the splash slot, which a silhouette never reads. */
+  function packOutline(outline: OutlineSprite): void {
+    const { x0, y0, x1, y1, x2, y2, x3, y3 } = outline.bodyTexture.uvs;
+    packing.minU = Math.min(x0, x1, x2, x3);
+    packing.minV = Math.min(y0, y1, y2, y3);
+    packing.maxU = Math.max(x0, x1, x2, x3);
+    packing.maxV = Math.max(y0, y1, y2, y3);
+    packing.splashes = outline.reachUv;
   }
 
   /** Write one vertex after its transformed position; returns the next vertex's index. */
@@ -483,6 +499,8 @@ function defineWorldBatcher(): WorldBatcherClass {
       if (surface?.enabled === true && surface.facade) packing.blood = -surface.clipY;
       packing.splashes = surface?.enabled === true ? surface.packed : undefined;
       beginElement(texture, textureIdAndRound, element.color, this.flagsOf(element));
+      const outline = outlineOf(renderableOf(element));
+      if (outline !== null) packOutline(outline);
       const { a, b, c, d, tx, ty } = element.transform;
       const { minX, minY, maxX, maxY } = element.bounds;
       const uvs = texture.uvs;

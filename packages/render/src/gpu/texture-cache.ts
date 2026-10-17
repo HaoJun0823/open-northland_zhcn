@@ -69,6 +69,10 @@ export class TextureCache {
   /** Reveal bakes per frame, keyed by quantised threshold. */
   private readonly revealCache = new Map<AtlasFrame, Map<number, RevealBake>>();
 
+  /** Views of a texture's frame grown by a margin of texels on every side, keyed by that texture, then
+   *  by the margin. A view goes when its texture does. */
+  private readonly grown = new Map<Texture, Map<number, Texture>>();
+
   /** Bumps whenever a bind of unchanged layers would pick other textures: a shadow or ground switch or
    *  a page sampling flip. A bake a budget turned away does not bump it: see {@link deferrals}. */
   get textureRevision(): number {
@@ -152,6 +156,32 @@ export class TextureCache {
       byRows.set(kept, tex);
     }
     return tex;
+  }
+
+  /** `texture`'s frame grown by `margin` texels on every side, over the same page: a selection outline's
+   *  quad around its body. The grown frame may reach past the page; nothing samples it there. */
+  grownView(texture: Texture, margin: number): Texture {
+    let byMargin = this.grown.get(texture);
+    if (byMargin === undefined) {
+      byMargin = new Map();
+      this.grown.set(texture, byMargin);
+      texture.once('destroy', this.dropGrown, this);
+    }
+    let view = byMargin.get(margin);
+    if (view === undefined) {
+      const { x, y, width, height } = texture.frame;
+      view = new Texture({
+        source: texture.source,
+        frame: new Rectangle(x - margin, y - margin, width + 2 * margin, height + 2 * margin),
+      });
+      byMargin.set(margin, view);
+    }
+    return view;
+  }
+
+  private dropGrown(texture: Texture): void {
+    for (const view of this.grown.get(texture)?.values() ?? []) view.destroy();
+    this.grown.delete(texture);
   }
 
   /** A frame of a palette-indexed sheet, marked to draw through `lut` in the world batch shader. Each
@@ -347,6 +377,11 @@ export class TextureCache {
       for (const tex of byRows.values()) tex.destroy();
     }
     this.casts.clear();
+    for (const [texture, byMargin] of this.grown) {
+      texture.off('destroy', this.dropGrown, this);
+      for (const view of byMargin.values()) view.destroy();
+    }
+    this.grown.clear();
     for (const tex of this.paletteIndexed.values()) tex.destroy();
     this.paletteIndexed.clear();
     for (const byTop of this.cropCache.values()) {

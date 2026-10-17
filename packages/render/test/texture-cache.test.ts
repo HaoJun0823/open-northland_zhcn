@@ -37,6 +37,25 @@ describe('TextureCache.cropped', () => {
   });
 });
 
+describe('TextureCache.grownView', () => {
+  it('grows the frame on every side over the same page, keeps one view per margin and drops them with their texture', () => {
+    const cache = new TextureCache();
+    const body = cache.castSilhouette(SOURCE, FRAME);
+    const view = cache.grownView(body, 3);
+    expect(view.source).toBe(SOURCE);
+    expect([view.frame.x, view.frame.y, view.frame.width, view.frame.height]).toEqual([7, 17, 36, 46]);
+    expect(cache.grownView(body, 3)).toBe(view);
+    expect(cache.grownView(body, 4)).not.toBe(view);
+    const baked = new Texture({ source: SOURCE });
+    const bakedView = cache.grownView(baked, 1);
+    baked.destroy();
+    expect(bakedView.destroyed).toBe(true);
+    expect(cache.grownView(new Texture({ source: SOURCE }), 1)).not.toBe(bakedView);
+    cache.clear();
+    expect(view.destroyed).toBe(true);
+  });
+});
+
 describe('TextureCache.revealed', () => {
   const TIMES: BuildTimeSheet = { width: 64, height: 64, values: new Uint8Array(64 * 64) };
 

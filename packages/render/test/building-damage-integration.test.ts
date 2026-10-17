@@ -6,7 +6,7 @@ import type { ElevationField } from '../src/data/terrain/index.js';
 import * as drawable from '../src/gpu/drawable-resource.js';
 import { CollapseLayer } from '../src/gpu/overlays/collapse-layer.js';
 import { type PoolFrame, SpritePool } from '../src/gpu/sprite-pool/index.js';
-import { SelectionSprite } from '../src/gpu/sprite-selection-effect.js';
+import { OutlineSprite, SelectionSprite } from '../src/gpu/sprite-selection-effect.js';
 import type { SpriteSheet } from '../src/gpu/sprite-sheet.js';
 import { TextureCache } from '../src/gpu/texture-cache.js';
 import { entity, snapshotOf } from './support/fixtures.js';
@@ -58,19 +58,19 @@ function frame(hitpoints: number | null, tick: number): PoolFrame {
   };
 }
 
-/** The selected body's stamps must follow its current texture before the next world render. */
+/** The selected body's outline quads must follow its current texture before the next world render. */
 function selectedTexture(layer: Container): Texture {
   const house = layer.children[0];
   if (house === undefined) throw new Error('Missing selected house');
   const body = house.children.find((child) => child instanceof SelectionSprite);
   if (!(body instanceof SelectionSprite)) throw new Error('Missing building body');
   const outline = house.children[0];
-  expect(outline?.children).toHaveLength(16);
-  for (const stamp of outline?.children ?? []) {
-    expect(stamp).toBeInstanceOf(SelectionSprite);
-    if (!(stamp instanceof SelectionSprite)) throw new Error('Missing outline stamp');
-    expect(stamp.texture).toBe(body.texture);
-    expect(stamp.texture.destroyed).toBe(false);
+  expect(outline?.children).toHaveLength(2);
+  for (const quad of outline?.children ?? []) {
+    if (!(quad instanceof OutlineSprite)) throw new Error('Missing outline quad');
+    expect(quad.bodyTexture).toBe(body.texture);
+    expect(quad.texture.source).toBe(body.texture.source);
+    expect(quad.texture.destroyed).toBe(false);
   }
   return body.texture;
 }

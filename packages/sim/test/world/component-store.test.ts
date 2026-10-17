@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Entity } from '../../src/ecs/component.js';
-import { ComponentStore, PAGE_SIZE } from '../../src/ecs/component-store.js';
+import { ComponentStore } from '../../src/ecs/component-store.js';
+import { PAGE_SIZE } from '../../src/ecs/paged-blocks.js';
 import { QueryIterator } from '../../src/ecs/query-iterator.js';
 import { defineComponent, World } from '../../src/ecs/world.js';
 
@@ -209,7 +210,7 @@ describe('ComponentStore compaction', () => {
       store.set(1 as Entity, tick);
       store.delete(1 as Entity);
     }
-    expect(Reflect.get(store, 'blockCount')).toBe(1);
+    expect((Reflect.get(store, 'index') as Int32Array).length).toBe(PAGE_SIZE);
   });
 
   it('hands an emptied block to the next new page with every entry vacant', () => {
@@ -226,6 +227,17 @@ describe('ComponentStore compaction', () => {
       );
     }
     expect(store.has(first)).toBe(false);
+  });
+
+  it('stores and walks far-apart ids beside a low one', () => {
+    const store = new ComponentStore<number>();
+    const ids = [1, 10_000_000, 0x7fff0000] as Entity[];
+    for (const [i, e] of ids.entries()) store.set(e, i);
+    expect(store.keys()).toEqual(ids);
+    for (const [i, e] of ids.entries()) expect(store.get(e)).toBe(i);
+    expect(store.delete(ids[1] as Entity)).toBe(true);
+    expect(store.has(ids[1] as Entity)).toBe(false);
+    expect(store.get(ids[2] as Entity)).toBe(2);
   });
 });
 

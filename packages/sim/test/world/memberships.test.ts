@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Entity } from '../../src/ecs/component.js';
 import { EntityMemberships } from '../../src/ecs/memberships.js';
-
-/** Entity ids per page of the membership masks. */
-const PAGE_ENTITIES = 64;
+import { PAGE_SIZE } from '../../src/ecs/paged-blocks.js';
 
 function carried(m: EntityMemberships, e: Entity): number[] {
   const out: number[] = [];
@@ -43,9 +41,31 @@ describe('entity memberships', () => {
     m.add(far, 2);
     expect(carried(m, far)).toEqual([2]);
     expect(carried(m, 1 as Entity)).toEqual([]);
-    const pageStart = far - (far % PAGE_ENTITIES);
-    for (let e = pageStart; e < pageStart + PAGE_ENTITIES; e++) {
+    const pageStart = far - (far % PAGE_SIZE);
+    for (let e = pageStart; e < pageStart + PAGE_SIZE; e++) {
       if (e !== far) expect(carried(m, e as Entity)).toEqual([]);
     }
+  });
+
+  it('removing an index the entity does not carry keeps its neighbour block', () => {
+    const m = new EntityMemberships();
+    const kept = 2 as Entity;
+    const neighbour = (kept + 1) as Entity;
+    const nextPage = (kept + PAGE_SIZE) as Entity;
+    m.add(kept, 1);
+    m.remove(neighbour, 1);
+    m.add(nextPage, 0);
+    expect(carried(m, kept)).toEqual([1]);
+    expect(carried(m, nextPage)).toEqual([0]);
+  });
+
+  it('carries far-apart ids beside a low one', () => {
+    const m = new EntityMemberships();
+    const ids = [1, 10_000_000, 0x7fff0000] as Entity[];
+    for (const [i, e] of ids.entries()) m.add(e, i);
+    for (const [i, e] of ids.entries()) expect(carried(m, e)).toEqual([i]);
+    const pairs: Array<[number, number]> = [];
+    m.forEachCarried((e, i) => pairs.push([e, i]));
+    expect(pairs).toEqual(ids.map((e, i) => [e, i]));
   });
 });

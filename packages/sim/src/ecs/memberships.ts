@@ -1,13 +1,7 @@
 import { BIT_MASK, WORD_SHIFT } from '../core/bit-words.js';
 import type { Entity } from './component.js';
-import { PAGE_BITS } from './component-store.js';
+import { NO_BLOCK, PAGE_BITS, PAGE_MASK, PAGE_SIZE, PagedBlocks } from './paged-blocks.js';
 
-/** A page of {@link PAGE_BITS} ids, as in the component stores, takes a block of masks only while one of
- *  its entities carries a component; an emptied block is reused by the next new page. */
-const PAGE_SIZE = 1 << PAGE_BITS;
-const PAGE_MASK = PAGE_SIZE - 1;
-/** A page table entry holds `block + 1`; this marks a page without a block. */
-const NO_BLOCK = 0;
 const NOT_CARRIED = -1;
 
 /**
@@ -18,23 +12,18 @@ const NOT_CARRIED = -1;
  */
 export class EntityMemberships {
   private stride = 1;
-  /** Page number to `block + 1`, {@link NO_BLOCK} while no entity of the page carries a component. */
-  private pageTable = new Int32Array(0);
+  /** A page holds a block of masks while one of its entities carries a component; a block counts those
+   *  entities. */
+  private readonly blocks = new PagedBlocks((capacity) => this.growBlocks(capacity));
   /** {@link PAGE_SIZE} masks of {@link stride} words per block. */
   private masks = new Uint32Array(0);
-  /** Per block, its entities carrying at least one component. */
-  private blockEntities = new Int32Array(0);
-  private blockCount = 0;
-  private readonly freeBlocks: number[] = [];
 
   add(entity: Entity, index: number): void {
     const word = index >>> WORD_SHIFT;
     if (word >= this.stride) this.widen(word + 1);
-    const at = this.maskOrAllocate(entity);
-    if (this.isEmpty(at)) {
-      const block = (this.pageTable[entity >>> PAGE_BITS] as number) - 1;
-      this.blockEntities[block] = (this.blockEntities[block] as number) + 1;
-    }
+    const block = this.blocks.acquire(entity >>> PAGE_BITS);
+    const at = ((block << PAGE_BITS) | (entity & PAGE_MASK)) * this.stride;
+    if (this.isEmpty(at)) this.blocks.retain(block);
     this.masks[at + word] = (this.masks[at + word] as number) | (1 << (index & BIT_MASK));
   }
 
@@ -42,7 +31,10 @@ export class EntityMemberships {
     const at = this.maskOf(entity);
     const word = index >>> WORD_SHIFT;
     if (at === NOT_CARRIED || word >= this.stride) return;
-    this.masks[at + word] = (this.masks[at + word] as number) & ~(1 << (index & BIT_MASK));
+    const bit = 1 << (index & BIT_MASK);
+    const mask = this.masks[at + word] as number;
+    if ((mask & bit) === 0) return;
+    this.masks[at + word] = mask & ~bit;
     if (this.isEmpty(at)) this.release(entity);
   }
 
@@ -80,24 +72,21 @@ export class EntityMemberships {
 
   /** Every carried (entity, index) pair, for the cache verifier. */
   forEachCarried(visit: (entity: Entity, index: number) => void): void {
-    for (let page = 0; page < this.pageTable.length; page++) {
-      if (this.pageTable[page] === NO_BLOCK) continue;
+    this.blocks.forEachPage((page) => {
       for (let offset = 0; offset < PAGE_SIZE; offset++) {
         const entity = ((page << PAGE_BITS) | offset) as Entity;
         for (let index = this.next(entity, -1); index >= 0; index = this.next(entity, index)) {
           visit(entity, index);
         }
       }
-    }
+    });
   }
 
   /** The first mask word of `entity`, or {@link NOT_CARRIED} while its page holds no block. */
   private maskOf(entity: Entity): number {
-    const page = entity >>> PAGE_BITS;
-    if (page >= this.pageTable.length) return NOT_CARRIED;
-    const block = this.pageTable[page] as number;
+    const block = this.blocks.blockOf(entity >>> PAGE_BITS);
     if (block === NO_BLOCK) return NOT_CARRIED;
-    return (((block - 1) << PAGE_BITS) | (entity & PAGE_MASK)) * this.stride;
+    return ((block << PAGE_BITS) | (entity & PAGE_MASK)) * this.stride;
   }
 
   private isEmpty(at: number): boolean {
@@ -108,42 +97,13 @@ export class EntityMemberships {
   /** `entity` carries nothing any more: its block loses an entity, and an emptied block is freed. */
   private release(entity: Entity): void {
     const page = entity >>> PAGE_BITS;
-    const block = (this.pageTable[page] as number) - 1;
-    const left = (this.blockEntities[block] as number) - 1;
-    this.blockEntities[block] = left;
-    if (left === 0) {
-      this.pageTable[page] = NO_BLOCK;
-      this.freeBlocks.push(block);
-    }
+    this.blocks.release(page, this.blocks.blockOf(page));
   }
 
-  private maskOrAllocate(entity: Entity): number {
-    const page = entity >>> PAGE_BITS;
-    if (page >= this.pageTable.length) {
-      const table = new Int32Array(Math.max(page + 1, this.pageTable.length * 2));
-      table.set(this.pageTable);
-      this.pageTable = table;
-    }
-    let block = (this.pageTable[page] as number) - 1;
-    if (block < 0) {
-      block = this.freeBlocks.pop() ?? this.newBlock();
-      this.pageTable[page] = block + 1;
-    }
-    return ((block << PAGE_BITS) | (entity & PAGE_MASK)) * this.stride;
-  }
-
-  private newBlock(): number {
-    const block = this.blockCount++;
-    if (this.blockCount > this.blockEntities.length) {
-      const blocks = Math.max(1, this.blockEntities.length * 2);
-      const entities = new Int32Array(blocks);
-      entities.set(this.blockEntities);
-      this.blockEntities = entities;
-      const masks = new Uint32Array(blocks * PAGE_SIZE * this.stride);
-      masks.set(this.masks);
-      this.masks = masks;
-    }
-    return block;
+  private growBlocks(capacity: number): void {
+    const masks = new Uint32Array(capacity * PAGE_SIZE * this.stride);
+    masks.set(this.masks);
+    this.masks = masks;
   }
 
   /** Re-lay every mask at `stride` words, keeping its bits. */

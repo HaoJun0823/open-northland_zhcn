@@ -17,9 +17,10 @@ import { slottedGoods } from '../../../stores/index.js';
 import { acceptsGood, canStoreGood, takesDeposits } from './stock.js';
 
 /** The goods one store accepts, per producer mode; `storage` is the subset left with producers excluded. */
+/** Refilled in place when its store is re-captured, so a stock change allocates no new lists. */
 interface SinkCapture {
-  readonly ordinary: readonly number[];
-  readonly storage: readonly number[];
+  readonly ordinary: number[];
+  readonly storage: number[];
 }
 
 const NO_SINKS: ReadonlySet<Entity> = new Set();
@@ -56,7 +57,7 @@ export class StoreSinks {
       },
       () => world.canonicalQuery(Stockpile, Position),
       {
-        capture: (e) => sinkCaptureOf(world, content, e),
+        capture: (e, spent) => sinkCaptureOf(world, content, e, spent),
         apply: (e, c) => {
           for (const good of c.ordinary) membersOf(this.ordinary, good).add(e);
           for (const good of c.storage) membersOf(this.storage, good).add(e);
@@ -116,22 +117,34 @@ export class StoreSinks {
 
 const ledgers = new WeakMap<World, StoreSinks>();
 
-function sinkCaptureOf(world: World, ctx: ContentContext, e: Entity): SinkCapture | null {
+function sinkCaptureOf(
+  world: World,
+  ctx: ContentContext,
+  e: Entity,
+  spent: SinkCapture | undefined,
+): SinkCapture | null {
   if (!takesDeposits(world, e)) return null;
-  const ordinary: number[] = [];
-  const storage: number[] = [];
+  const capture = spent ?? { ordinary: [], storage: [] };
+  const { ordinary, storage } = capture;
+  ordinary.length = 0;
+  storage.length = 0;
   for (const good of depositCandidates(world, ctx, e)) {
     if (!acceptsGood(world, ctx, e, good, false)) continue;
     ordinary.push(good);
     if (acceptsGood(world, ctx, e, good, true)) storage.push(good);
   }
-  return ordinary.length === 0 ? null : { ordinary, storage };
+  return ordinary.length === 0 ? null : capture;
 }
 
+/** {@link depositCandidates}' scratch set: a capture reads it to the end before the next fills it. */
+const candidateScratch = new Set<number>();
+
 /** Every good a deposit may shelve in one of `store`'s slots: a slotted good, or a dish whose edible form
- *  is slotted, the two ways {@link bankedSlot} resolves a nonzero slot. */
-function depositCandidates(world: World, ctx: ContentContext, store: Entity): Set<number> {
-  const goods = new Set<number>();
+ *  is slotted, the two ways {@link bankedSlot} resolves a nonzero slot. The shared scratch set, valid until
+ *  the next call. */
+function depositCandidates(world: World, ctx: ContentContext, store: Entity): ReadonlySet<number> {
+  const goods = candidateScratch;
+  goods.clear();
   for (const slot of slottedGoods(world, ctx, store)) {
     goods.add(slot);
     for (const good of edibleClassOf(ctx.content, slot)) goods.add(good);

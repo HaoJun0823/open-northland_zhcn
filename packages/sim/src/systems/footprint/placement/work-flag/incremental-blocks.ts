@@ -3,7 +3,7 @@ import { DeliveryFlag, Position } from '../../../../components/index.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { BlockOverlay } from '../../../../nav/block-overlay.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
-import { sameCells } from '../../geometry.js';
+import { countsMatchCells } from '../../geometry.js';
 import { type BlockerJournal, startBlockerJournal } from '../blocker-journal.js';
 import { type BlockedCells, blockedCellsOf, markerNode, rederiveBlockedCells } from './blocker-cells.js';
 import { workFlagMoveCount } from './flag-moves.js';
@@ -12,10 +12,21 @@ import { workFlagMoveCount } from './flag-moves.js';
 // ../work-flag's placement queries, over the shared replay of ../blocker-journal.ts, with its marker
 // layer, rebuild and coherence verifier.
 
-/** Node → standing contribution count; `blocked` holds exactly the keys with a positive count. */
+/** Per node, its standing contribution count; `blocked` answers a positive count and its size is the
+ *  number of such nodes. Counts rather than flags so withdrawing one blocker leaves an overlapping
+ *  one's contribution standing. */
 interface BlockedRefcounts {
-  readonly counts: Map<NodeId, number>;
-  readonly blocked: Set<NodeId>;
+  readonly counts: Uint16Array;
+  readonly blocked: CountedBlocks;
+}
+
+/** The {@link BlockOverlay} over a count array: a node is blocked while its count is positive. */
+class CountedBlocks implements BlockOverlay {
+  size = 0;
+  constructor(private readonly counts: Uint16Array) {}
+  has(node: NodeId): boolean {
+    return (this.counts[node] ?? 0) > 0;
+  }
 }
 
 /**
@@ -39,24 +50,21 @@ function addCells(refs: BlockedRefcounts, cells: BlockedCells): void {
   for (const node of cells) addNode(refs, node);
 }
 
-function addNode(refs: BlockedRefcounts, node: NodeId): void {
-  const next = (refs.counts.get(node) ?? 0) + 1;
-  refs.counts.set(node, next);
-  if (next === 1) refs.blocked.add(node);
+function addNode(refs: BlockedRefcounts, node: number): void {
+  const next = (refs.counts[node] ?? 0) + 1;
+  refs.counts[node] = next;
+  if (next === 1) refs.blocked.size++;
 }
 
 function removeCells(refs: BlockedRefcounts, cells: BlockedCells): void {
   for (const node of cells) removeNode(refs, node);
 }
 
-function removeNode(refs: BlockedRefcounts, node: NodeId): void {
-  const next = (refs.counts.get(node) ?? 0) - 1;
-  if (next <= 0) {
-    refs.counts.delete(node);
-    refs.blocked.delete(node);
-  } else {
-    refs.counts.set(node, next);
-  }
+function removeNode(refs: BlockedRefcounts, node: number): void {
+  const held = refs.counts[node] ?? 0;
+  if (held === 0) return;
+  refs.counts[node] = held - 1;
+  if (held === 1) refs.blocked.size--;
 }
 
 /** Re-diff the marker layer against the DeliveryFlag store - flags are the one blocker that MOVES (an
@@ -85,7 +93,8 @@ function refreshMarkerLayer(world: World, state: IncrementalBlocks): void {
 
 function rebuildState(world: World, content: ContentSet, terrain: TerrainGraph): IncrementalBlocks {
   // The refcounts the journal stamps into are the ones the state below hands out - same Map and Set.
-  const refs: BlockedRefcounts = { counts: new Map(), blocked: new Set() };
+  const counts = new Uint16Array(terrain.nodeCount);
+  const refs: BlockedRefcounts = { counts, blocked: new CountedBlocks(counts) };
   const journal = startBlockerJournal(world, {
     capture: (w, store, e) => blockedCellsOf(w, content, terrain, store, e),
     apply: (cells) => addCells(refs, cells),
@@ -153,7 +162,7 @@ export function workFlagPlacementBlocks(
  *  the difference. */
 function blocksWithout(state: IncrementalBlocks, ignored: NodeId): BlockOverlay {
   return {
-    has: (node) => (state.counts.get(node) ?? 0) > (node === ignored ? 1 : 0),
+    has: (node) => (state.counts[node] ?? 0) > (node === ignored ? 1 : 0),
     // Over-counts by the withheld node; `BlockOverlay` asks only that 0 mean empty, which holds
     // because `blocked` is exactly the positive-count keys.
     get size() {
@@ -169,7 +178,7 @@ function verifyBlocksMemo(world: World, content: ContentSet, terrain: TerrainGra
   if (state === undefined || state.content !== content || state.terrain !== terrain) return [];
   if (!isFresh(world, state)) return []; // a pending catch-up - the next read applies it
   const fresh = rederiveBlockedCells(world, content, terrain);
-  if (sameCells(state.blocked, fresh)) return [];
+  if (countsMatchCells(state.counts, fresh)) return [];
   return [
     `workFlagPlacementBlocks holds ${state.blocked.size} nodes but re-derived ${fresh.size} - an incremental delta missed a blocker change`,
   ];

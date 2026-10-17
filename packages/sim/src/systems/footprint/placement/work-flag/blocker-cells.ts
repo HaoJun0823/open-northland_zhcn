@@ -19,8 +19,8 @@ import {
 
 // Which nodes a blocker denies a work flag - ../blockers.ts channels projected onto this one rule.
 
-/** One blocker's blocked nodes, in bounds. */
-export type BlockedCells = readonly NodeId[];
+/** One blocker's blocked nodes, in bounds: a typed array, since every standing resource holds one. */
+export type BlockedCells = Int32Array;
 
 /** Every channel but the margin zones, which stay open ground for a flag. Exhaustive over
  *  {@link BlockerChannel}, so a channel added later must state its own answer here. */
@@ -35,12 +35,15 @@ const BLOCKS_WORK_FLAG: Record<BlockerChannel, boolean> = {
 };
 
 /** The entity's blocked nodes under `run`'s visitor - the shared channel/bounds filter of every capturer. */
+/** The nodes one capture collects before they are copied into its own array. */
+const captureScratch: NodeId[] = [];
+
 function captureCells(terrain: TerrainGraph, run: (visit: BlockerVisit) => void): BlockedCells {
-  const cells: NodeId[] = [];
+  captureScratch.length = 0;
   run((x, y, channel) => {
-    if (BLOCKS_WORK_FLAG[channel] && terrain.inBounds(x, y)) cells.push(terrain.nodeAt(x, y));
+    if (BLOCKS_WORK_FLAG[channel] && terrain.inBounds(x, y)) captureScratch.push(terrain.nodeAt(x, y));
   });
-  return cells;
+  return Int32Array.from(captureScratch);
 }
 
 /** The nodes `store`'s contribution for `e` denies a flag - the per-entity slice the incremental state

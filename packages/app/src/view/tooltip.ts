@@ -56,27 +56,49 @@ export function createTooltip(opts: { readonly zIndex?: number } = {}): Tooltip 
   document.body.appendChild(el);
   let shownText = '';
   let visible = false;
+  // The chip's size follows its text alone, so it is measured when the text or the visibility changes
+  // rather than forcing a layout on every frame the chip follows the cursor.
+  let width = 0;
+  let height = 0;
+  let measured = false;
+  let placedLeft = '';
+  let placedTop = '';
   return {
     show(clientX, clientY, text): void {
       if (text !== shownText) {
         el.textContent = text;
         shownText = text;
+        measured = false;
       }
       if (!visible) {
         el.style.display = 'block';
         visible = true;
+        measured = false;
       }
-      // Clamped after the text is set and the chip shown, so the measured width is the final one.
+      // Measured after the text is set and the chip shown, so the width is the final one.
+      if (!measured) {
+        width = el.offsetWidth;
+        height = el.offsetHeight;
+        measured = true;
+      }
       const { left, top } = chipPlacement(
         clientX,
         clientY,
-        el.offsetWidth,
-        el.offsetHeight,
+        width,
+        height,
         window.innerWidth,
         window.innerHeight,
       );
-      el.style.left = `${left}px`;
-      el.style.top = `${top}px`;
+      const leftPx = `${left}px`;
+      const topPx = `${top}px`;
+      if (leftPx !== placedLeft) {
+        el.style.left = leftPx;
+        placedLeft = leftPx;
+      }
+      if (topPx !== placedTop) {
+        el.style.top = topPx;
+        placedTop = topPx;
+      }
     },
     hide(): void {
       if (visible) {

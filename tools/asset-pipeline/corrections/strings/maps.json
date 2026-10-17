@@ -1054,5 +1054,37 @@
     "from": "Zapłać za Drakkar 10 garnców miodu pitnego.",
     "to": "Zapłać za Drakkar 10 dzbanów miodu pitnego.",
     "reason": "Cel i danina mówiły o garncach, a strony briefingu o dzbanach miodu pitnego; ujednolicone do dzbanów."
+  },
+  {
+    "map": "wonder-campaign_03_01",
+    "lang": "pol",
+    "id": 1,
+    "from": "Załóż mała osadę.",
+    "to": "Załóż małą osadę: farmę, młyn, piekarnię, studnię i warsztat garncarski.",
+    "reason": "Skrypt zalicza osadę dopiero za farmę, młyn, piekarnię, studnię i warsztat garncarski, a cel nie mówi, jakie budynki postawić; nazwy jak w menu budowy. Po polsku także literówka \"mała\" zamiast \"małą\"."
+  },
+  {
+    "map": "wonder-campaign_03_01",
+    "lang": "eng",
+    "id": 1,
+    "from": "Establish a small settlement.",
+    "to": "Establish a small settlement: a farm, a mill, a bakery, a well and a pottery.",
+    "reason": "Skrypt zalicza osadę dopiero za farmę, młyn, piekarnię, studnię i warsztat garncarski, a cel nie mówi, jakie budynki postawić; nazwy jak w menu budowy. Po polsku także literówka \"mała\" zamiast \"małą\"."
+  },
+  {
+    "map": "wonder-campaign_03_01",
+    "lang": "ger",
+    "id": 1,
+    "from": "Baue eine kleine Siedlung auf.",
+    "to": "Baue eine kleine Siedlung auf: Farm, Mühle, Bäckerei, Brunnen und Töpferei.",
+    "reason": "Skrypt zalicza osadę dopiero za farmę, młyn, piekarnię, studnię i warsztat garncarski, a cel nie mówi, jakie budynki postawić; nazwy jak w menu budowy. Po polsku także literówka \"mała\" zamiast \"małą\"."
+  },
+  {
+    "map": "wonder-campaign_03_01",
+    "lang": "rus",
+    "id": 1,
+    "from": "Заложите небольшое поселение.",
+    "to": "Заложите небольшое поселение: ферму, мельницу, пекарню, колодец и гончарню.",
+    "reason": "Skrypt zalicza osadę dopiero za farmę, młyn, piekarnię, studnię i warsztat garncarski, a cel nie mówi, jakie budynki postawić; nazwy jak w menu budowy. Po polsku także literówka \"mała\" zamiast \"małą\"."
   }
 ]

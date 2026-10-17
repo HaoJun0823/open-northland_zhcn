@@ -23,12 +23,12 @@ import { SidedCandidates, sidesMatch } from './candidate-sides.js';
 
 /**
  * Per-tick searchable view of external stores carrying a configured household-quality good. The
- * candidates are the ones stocked when the view is made. Their node buckets are kept while the list is
+ * candidates are the ones stocked at the last catch-up of the shared sources, which only a new view makes.
+ * Their node buckets are kept while the list is
  * unchanged, which holds because a positioned stockpile never moves in place (`spatial/stockpiles.ts`).
  */
 export class ExternalQualityIndex {
   private readonly sources: QualitySources;
-  private readonly candidates: readonly Entity[];
 
   constructor(
     private readonly world: World,
@@ -37,7 +37,6 @@ export class ExternalQualityIndex {
     private readonly supply: SupplyTally,
   ) {
     this.sources = qualitySources(world, ctx.content);
-    this.candidates = this.sources.list();
   }
 
   nearest(
@@ -100,7 +99,7 @@ export class ExternalQualityIndex {
   }
 
   private bucketed(): NodeBuckets {
-    return this.sources.bucketsOf(this.candidates);
+    return this.sources.bucketsOf(this.sources.list());
   }
 
   /** The lowest demanded good `store` holds a unit of that no walker has claimed. */

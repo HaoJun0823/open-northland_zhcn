@@ -25,6 +25,11 @@ export class SidedCandidates {
     return this.byOwner.get(owner) ?? this.neutral;
   }
 
+  /** The players holding a side list of their own. */
+  owners(): IterableIterator<number> {
+    return this.byOwner.keys();
+  }
+
   insert(e: Entity, owner: number | undefined): void {
     insertSortedById(this.members, e, byId);
     if (owner === undefined) {
@@ -63,6 +68,7 @@ export class SidedCandidates {
 export function sidesMatch(world: World, fresh: readonly Entity[], sides: SidedCandidates): boolean {
   const owners = new Set<number | undefined>([undefined]);
   for (const e of fresh) owners.add(ownerOf(world, e));
+  for (const owner of sides.owners()) owners.add(owner);
   for (const owner of owners) {
     const want = fresh.filter((e) => ownersCompatible(owner, ownerOf(world, e)));
     const held = sides.of(owner);

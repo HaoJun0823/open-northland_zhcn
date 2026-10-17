@@ -110,7 +110,8 @@ function doorsOf(world: World, content: ContentSet, terrain: TerrainGraph): Door
   let held = doorCaches.get(world);
   if (held === undefined) {
     held = {
-      feed: world.watchChanges([Building, Position, Owner], [Building, Position, Owner]),
+      // Buildings never move, so a Position value feed would only record every walker on every step.
+      feed: world.watchChanges([Building, Position, Owner], [Building, Owner]),
       entries: new Map(),
       revision: 0,
     };

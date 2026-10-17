@@ -112,12 +112,17 @@ function answerAlarm(
   index: CombatIndex,
   alarm: Alarm,
 ): void {
-  const key = `${alarm.player}:${alarm.attacker}`;
-  const { answered } = tickAlarms(world, ctx.tick);
-  if (answered.has(key) || !world.has(alarm.attacker, Position)) return;
-  answered.add(key);
+  if (!world.has(alarm.attacker, Position)) return;
+  // A victim that answers alone spends no circle, so a later victim of the same shot still raises one.
+  const alone = hasMissionBehaviour(world, alarm.victim, MISSION_BEHAVIOUR.BLOW_RAISES_NO_ALARM);
+  if (!alone) {
+    const key = `${alarm.player}:${alarm.attacker}`;
+    const { answered } = tickAlarms(world, ctx.tick);
+    if (answered.has(key)) return;
+    answered.add(key);
+  }
   const from = entityNode(world, terrain, alarm.attacker);
-  const answering = hasMissionBehaviour(world, alarm.victim, MISSION_BEHAVIOUR.BLOW_RAISES_NO_ALARM)
+  const answering = alone
     ? [{ entity: alarm.victim, distance: 0 }]
     : index.ownedWithin(
         alarm.player,

@@ -162,6 +162,21 @@ describe('hit alarm - a blow alarms the struck person side', () => {
     expect(held(s, defender)).toBeUndefined();
   });
 
+  it('still alarms for a second victim of the same shot after a victim that raises no alarm', () => {
+    const s = sim();
+    const { victim, attacker } = struck(s);
+    stampMissionBehaviour(s.world, victim, MISSION_BEHAVIOUR.BLOW_RAISES_NO_ALARM);
+    const second = unit(s, VICTIM_AT + 1, P0, MILITARY_MODE.FLEE, WOMAN);
+    const comrade = unit(s, VICTIM_AT + 1 + PAST_SIGHT, P0, MILITARY_MODE.ATTACK);
+    combatSystem(s.world, ctxOf(s));
+
+    resolveCombatHit(s.world, ctxOf(s), attacker, victim, BLOW, [], 'projectile');
+    expect(held(s, comrade)).toBeUndefined();
+    resolveCombatHit(s.world, ctxOf(s), attacker, second, BLOW, [], 'projectile');
+
+    expect(held(s, comrade)).toBe(attacker);
+  });
+
   it('never runs a soldier, whatever its stance, and holds a civilian set to ATTACK or DEFEND', () => {
     const s = sim();
     const { victim, attacker } = struck(s);

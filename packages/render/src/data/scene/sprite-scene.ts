@@ -134,6 +134,7 @@ interface StaticInputs {
   readonly elevation: ElevationField | undefined;
   readonly staticRefs: ReadonlySet<number> | undefined;
   readonly staticCount: number;
+  /** Not compared: a build splices the refs it gained or lost (see {@link withheldChanges}). */
   readonly withheldRefs: ReadonlySet<number> | undefined;
   readonly fogVisible: SpriteSceneOptions['fogVisible'];
   readonly fogEpoch: number | undefined;
@@ -149,7 +150,6 @@ function sameStaticInputs(a: StaticInputs, b: StaticInputs): boolean {
     a.elevation === b.elevation &&
     a.staticRefs === b.staticRefs &&
     a.staticCount === b.staticCount &&
-    a.withheldRefs === b.withheldRefs &&
     a.fogVisible === b.fogVisible &&
     a.fogEpoch === b.fogEpoch &&
     a.playerColourOf === b.playerColourOf
@@ -208,6 +208,22 @@ function mergeFlagged(
     }
   }
   return out;
+}
+
+const NO_REFS: ReadonlySet<number> = new Set();
+
+/** The refs one withheld set holds and the other does not: the entities whose items a build that
+ *  splices across the change must emit again, as if a delta touched them. Each owner change hands a new
+ *  set, so equal identity means no change. */
+function withheldChanges(
+  before: ReadonlySet<number> | undefined,
+  after: ReadonlySet<number> | undefined,
+): ReadonlySet<number> {
+  if (before === after) return NO_REFS;
+  const changed = new Set<number>();
+  for (const ref of before ?? NO_REFS) if (after?.has(ref) !== true) changed.add(ref);
+  for (const ref of after ?? NO_REFS) if (before?.has(ref) !== true) changed.add(ref);
+  return changed;
 }
 
 /** Whether a build keeps `item` in its static run: exactly the items the touch log answers for, so only
@@ -402,11 +418,14 @@ function collectScene(
       const entity = rebuiltCandidates[i];
       if (entity !== undefined) emit(entity, true);
     }
-    for (const id of touched.ids) {
+    const withheld = withheldChanges(incremental.inputs?.withheldRefs, withheldRefs);
+    const emitTouched = (id: number): void => {
       const entity = entityById(snapshot, id);
       const kind = entity === undefined ? null : classify(entity.components);
       if (entity !== undefined && kind !== null && isSelfContainedKind(kind)) emit(entity, true);
-    }
+    };
+    for (const id of touched.ids) emitTouched(id);
+    for (const id of withheld) if (!touched.ids.has(id)) emitTouched(id);
     if (ghosts !== undefined) pushGhostItems(list, ghosts, viewport, elevation, liveVehicles, playerColourOf);
     const emittedItems = list.finish();
     const fresh: SpriteDrawItem[] = [];
@@ -417,9 +436,9 @@ function collectScene(
     fresh.sort(drawOrder);
     // Most deltas touch no self-contained entity under the view: the run stands as it was.
     const keptRun =
-      touched.ids.size === 0
+      touched.ids.size === 0 && withheld.size === 0
         ? incremental.statics
-        : incremental.statics.filter((i) => !touched.ids.has(i.ref));
+        : incremental.statics.filter((i) => !touched.ids.has(i.ref) && !withheld.has(i.ref));
     const staticKept = new Uint8Array(keptRun.length + fresh.length);
     let statics: readonly SpriteDrawItem[] = keptRun;
     if (fresh.length === 0) staticKept.fill(1);
@@ -427,7 +446,9 @@ function collectScene(
     incremental.statics = statics;
     keptFlags = new Uint8Array(statics.length + others.length);
     items = mergeFlagged(statics, staticKept, others, keptFlags);
-    touchedStatics = new Set(touched.ids);
+    const released = new Set(touched.ids);
+    for (const id of withheld) released.add(id);
+    touchedStatics = released;
     const positioned: LiveRefs = {
       has: (ref) => collected.has(ref) || (isPositioned(snapshot, ref) && staticRefs?.has(ref) !== true),
     };

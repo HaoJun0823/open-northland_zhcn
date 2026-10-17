@@ -197,17 +197,40 @@ describe('IncrementalScene', () => {
     expect(items).toEqual(scratch(snapshot, { staticRefs }));
   });
 
-  it('rebuilds the run when a presentation withholds an entity', () => {
+  it('splices the entities a presentation withholds and hands back', () => {
     const mirror = mirrorOf([entity(1, 1, 1, SETTLER), entity(2, 3, 2, tree(1)), entity(3, 4, 4, tree(2))]);
     const { incremental, build, scratch } = buildLoop();
     build(mirror.snapshot());
     build(advance(mirror, [moved(1, 2, 1, SETTLER)]));
     const withheld = { withheldRefs: new Set([3]) };
-    const snapshot = advance(mirror, [moved(1, 2, 2, SETTLER)]);
-    const items = build(snapshot, withheld);
-    expect(incremental.spliced).toBe(false);
-    expect(items.map((item) => item.ref)).not.toContain(3);
-    expect(items).toEqual(scratch(snapshot, withheld));
+    let snapshot = advance(mirror, [moved(1, 2, 2, SETTLER)]);
+    let scene = build(snapshot, withheld);
+    expect(incremental.spliced).toBe(true);
+    expect(scene.map((item) => item.ref)).not.toContain(3);
+    expect(scene).toEqual(scratch(snapshot, withheld));
+    const swapped = { withheldRefs: new Set([2]) };
+    snapshot = advance(mirror, [moved(1, 3, 3, SETTLER)]);
+    scene = build(snapshot, swapped);
+    expect(incremental.spliced).toBe(true);
+    expect(scene.map((item) => item.ref)).toContain(3);
+    expect(scene.map((item) => item.ref)).not.toContain(2);
+    expect(scene).toEqual(scratch(snapshot, swapped));
+  });
+
+  it('names the entities a withheld set gained or lost among the touched statics', () => {
+    const mirror = mirrorOf([entity(1, 1, 1, SETTLER), entity(2, 3, 2, tree(1)), entity(3, 4, 4, tree(2))]);
+    const incremental = new IncrementalScene();
+    const options = (withheldRefs?: ReadonlySet<number>) => ({ viewport: VIEW, withheldRefs });
+    collectSpriteScene(mirror.snapshot(), options(new Set([2])), undefined, undefined, incremental);
+    const scene = collectSpriteScene(
+      advance(mirror, [moved(1, 2, 1, SETTLER)]),
+      options(new Set([3])),
+      undefined,
+      undefined,
+      incremental,
+    );
+    expect(incremental.spliced).toBe(true);
+    expect([...(scene.touchedStatics ?? [])].sort()).toEqual([2, 3]);
   });
 
   it('matches a build from scratch across a mirror rebuild', () => {

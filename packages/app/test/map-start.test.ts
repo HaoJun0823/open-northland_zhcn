@@ -5,7 +5,7 @@ import { type Ent, snapshotOf } from './support/snapshot.js';
 
 /**
  * Headless coverage for the start-camera focus ladder (`?map=` opens on the player's start, not the
- * corner). Each rung - human settlers → human buildings → any entity → map centre - is pinned
+ * corner). Each rung - human settlers → human vehicles → human buildings → any entity → map centre - is pinned
  * here. `mapStartFocus` is pure over a `WorldSnapshot`; positions
  * are fixed-point visual-tile coords, so `fx.fromInt(col/row)` builds a synthetic snapshot that reads back
  * as the plain tile coord (`fx.toFloat`).
@@ -17,7 +17,7 @@ const ENEMY = 1;
 /** A snapshot entity at tile `(col,row)`; `kind` sets the marker component, `owner` its `Owner.player`. */
 function entity(
   id: number,
-  kind: 'settler' | 'building' | 'resource',
+  kind: 'settler' | 'building' | 'vehicle' | 'resource',
   col: number,
   row: number,
   owner?: number,
@@ -25,6 +25,7 @@ function entity(
   const components: Record<string, unknown> = { Position: { x: fx.fromInt(col), y: fx.fromInt(row) } };
   if (kind === 'settler') components.Settler = {};
   if (kind === 'building') components.Building = { buildingType: 1 };
+  if (kind === 'vehicle') components.Vehicle = { vehicleType: 3 };
   if (owner !== undefined) components.Owner = { player: owner };
   return { id, components };
 }
@@ -55,6 +56,20 @@ describe('mapStartFocus', () => {
       256,
     );
     expect(focus).toEqual({ x: 20, y: 10 });
+  });
+
+  it('frames the human ship when its whole crew is aboard', () => {
+    // A boarded crew carries no Position, so a ship-only start has no settler to centre on.
+    const focus = mapStartFocus(
+      snapshotOf([
+        { id: 1, components: { Settler: {}, Owner: { player: HUMAN } } },
+        entity(2, 'vehicle', 240, 9, HUMAN),
+        entity(3, 'building', 100, 100, HUMAN),
+      ]),
+      256,
+      256,
+    );
+    expect(focus).toEqual({ x: 240, y: 9 });
   });
 
   it('falls back to ANY placed entity on a foreign-owned-only map', () => {

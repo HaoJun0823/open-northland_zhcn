@@ -1,11 +1,19 @@
 import { fx, type WorldSnapshot } from '@open-northland/sim';
 import { HUMAN_PLAYER } from './rules.js';
-import { isBuilding, isSettler, ownerPlayerOf, positionOf, type SnapshotEntity } from './snapshot.js';
+import {
+  isBuilding,
+  isSettler,
+  isVehicle,
+  ownerPlayerOf,
+  positionOf,
+  type SnapshotEntity,
+} from './snapshot.js';
 
 /**
  * The starting camera focus: the visual-tile `(col, row)` a decoded map opens centred on. Settlers rank
  * above buildings because a scenario scatters the player's own objective buildings across the whole map,
- * dragging a buildings-only centroid off the actual start.
+ * dragging a buildings-only centroid off the actual start. The player's vehicles come next: a crew
+ * aboard a ship has no position of its own, so a ship-only start frames the ship.
  *
  * Named approximation: the original authors an explicit `misc.inc` `[misc_startpositions]`
  * `startposition <slot> <x> <y>`, but only about 8 of the 125 maps ship it, so it is not extracted.
@@ -38,6 +46,7 @@ export function mapStartFocus(
   };
   return (
     centroidOf((e) => isSettler(e) && ownerPlayerOf(e) === localPlayer) ??
+    centroidOf((e) => isVehicle(e) && ownerPlayerOf(e) === localPlayer) ??
     centroidOf((e) => isBuilding(e) && ownerPlayerOf(e) === localPlayer) ??
     centroidOf((e) => isSettler(e) || isBuilding(e)) ?? { x: mapWidth / 2, y: mapHeight / 2 }
   );

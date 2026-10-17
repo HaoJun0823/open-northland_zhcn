@@ -2,18 +2,17 @@
 
 **Area:** app, sim, render · **Priority:** P2
 
-Eight imported maps completed loading and advanced at least 360 simulation ticks while retaining a
+Seven imported maps completed loading and advanced at least 360 simulation ticks while retaining a
 blank initial view, without a JavaScript error. Reproduction cases:
 
 - Shadow of Imperial Glory: main map and Shadow of Imperial GlorySub1.
 - Stealing the Heart: sub1, sub2 and Sub3.
 - Battle for Antiochia: folder Battle for Antiohia.
-- BOSO PRZEZ ŚWIAT: Zoham_3, displayed as ZATOKA ADEŃSKA.
 - MZ1-Okup-Zejtar.
 
 The audit used seed 7 and the first visible claimable seat (otherwise player 0). Several cases have
-no player-0-owned entities and unconsumed capitalized mission fields. Zoham_3 instead has a player-0
-ship and three passengers. A single shared cause is not established.
+no player-0-owned entities and unconsumed capitalized mission fields. A single shared cause is not
+established.
 
 ## Scope
 
@@ -27,7 +26,7 @@ ship and three passengers. A single shared cause is not established.
 
 ## Verify
 
-Each of the eight cases has either a demonstrated playable supported start or a clear explanation
+Each of the seven cases has either a demonstrated playable supported start or a clear explanation
 and UI treatment of its campaign prerequisite. Check screenshots and owned/visible state after
-closing any mission book, not only loader disappearance or tick advancement. Include a ship-only
-start and an automatic submap transition in focused regression coverage.
+closing any mission book, not only loader disappearance or tick advancement. Include an automatic
+submap transition in focused regression coverage.

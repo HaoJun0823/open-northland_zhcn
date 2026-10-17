@@ -1,4 +1,4 @@
-import { Health, Position, Settler, Vehicle } from '../../components/index.js';
+import { Health, Position, Vehicle } from '../../components/index.js';
 import type { System } from '../context.js';
 import { mayEngage } from './acting.js';
 import { BattleFront } from './battle-alert.js';
@@ -26,7 +26,7 @@ export { vehicleWeapon } from './weapons.js';
 /**
  * CombatSystem - the combat loop's decision stage: for each combatant, pick who to fight and either swing at
  * an enemy in reach or advance on one spotted but out of reach. The AtomicSystem's `attack` effect lands the
- * hit and the CleanupSystem reaps the felled. A combatant is a {@link Settler} carrying a {@link Health}
+ * hit and the CleanupSystem reaps the felled. A combatant is a `Settler` carrying a {@link Health}
  * pool, so the system is inert on non-combat settlers.
  *
  * The dormancy gate decides in one cheap pass whether any hostile pair or lingering combat state exists, so
@@ -41,9 +41,7 @@ export const combatSystem: System = (world, ctx) => {
   if (ctx.terrain === undefined) return; // mapless sim: no cells to measure reach over
   const terrain = ctx.terrain;
 
-  // The dormancy gate is order-independent; it walks the kept canonical list, which hands out no iterator
-  // result per combatant as the raw query's store iterator does.
-  if (!combatPossible(world, ctx, world.canonicalQuery(Settler, Health, Position))) {
+  if (!combatPossible(world, ctx)) {
     holdDormantTick(world, ctx.tick);
     return;
   }

@@ -194,6 +194,33 @@ export function viewportRectOnMinimap(layout: MinimapLayout, bounds: WorldBounds
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
+/** Whether a `Uint32Array` over RGBA bytes holds red in its low byte, as on every common platform. */
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+const BYTE_BITS = 8;
+const OPAQUE_ALPHA = 0xff;
+
+/** `0xRRGGBB` as the opaque RGBA pixel a `Uint32Array` over the raster's bytes stores. */
+export function opaquePixelWord(colour: number): number {
+  const r = (colour >> (2 * BYTE_BITS)) & 0xff;
+  const g = (colour >> BYTE_BITS) & 0xff;
+  const b = colour & 0xff;
+  return LITTLE_ENDIAN
+    ? ((OPAQUE_ALPHA << (3 * BYTE_BITS)) | (b << (2 * BYTE_BITS)) | (g << BYTE_BITS) | r) >>> 0
+    : ((r << (3 * BYTE_BITS)) | (g << (2 * BYTE_BITS)) | (b << BYTE_BITS) | OPAQUE_ALPHA) >>> 0;
+}
+
+const WORDS = new WeakMap<Uint8Array, Uint32Array>();
+
+/** One word per RGBA pixel over `rgba`'s bytes, so a stamp writes a pixel in one store, not four. */
+export function pixelWordsOf(rgba: Uint8Array): Uint32Array {
+  let words = WORDS.get(rgba);
+  if (words === undefined) {
+    words = new Uint32Array(rgba.buffer, rgba.byteOffset, rgba.byteLength / Uint32Array.BYTES_PER_ELEMENT);
+    WORDS.set(rgba, words);
+  }
+  return words;
+}
+
 /**
  * Stamp one opaque dot centred on `cx, cy` into an RGBA raster, clipped to
  * the buffer edges. Stamping into one retained buffer avoids a Graphics rebuild, which would
@@ -212,18 +239,10 @@ export function stampDot(
   const y0 = Math.max(0, Math.round(cy - half));
   const x1 = Math.min(pxW, Math.round(cx + half));
   const y1 = Math.min(pxH, Math.round(cy + half));
-  const r = (colour >> 16) & 0xff;
-  const g = (colour >> 8) & 0xff;
-  const b = colour & 0xff;
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
-      const o = (y * pxW + x) * 4;
-      rgba[o] = r;
-      rgba[o + 1] = g;
-      rgba[o + 2] = b;
-      rgba[o + 3] = 0xff;
-    }
-  }
+  const words = pixelWordsOf(rgba);
+  const word = opaquePixelWord(colour);
+  for (let y = y0; y < y1; y++)
+    for (let at = y * pxW + x0, end = y * pxW + x1; at < end; at++) words[at] = word;
 }
 
 /** The `FogView` slice the mask raster reads. */

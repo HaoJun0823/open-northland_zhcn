@@ -1,5 +1,5 @@
 import type { MinimapMarkerSize } from './filters.js';
-import { stampDot } from './model.js';
+import { opaquePixelWord, pixelWordsOf, stampDot } from './model.js';
 import { MARKER_RIM_COLOUR } from './palette.js';
 
 /** The marker shapes the dot raster stamps, one per kind of plotted thing. */
@@ -145,16 +145,10 @@ function stampSquare(raster: DotRaster, cx: number, cy: number, half: number, co
   stampDot(raster.rgba, raster.width, raster.height, cx, cy, half, colour);
 }
 
-function writePixel(raster: DotRaster, x: number, y: number, colour: number): void {
-  const o = (y * raster.width + x) * 4;
-  raster.rgba[o] = (colour >> 16) & 0xff;
-  raster.rgba[o + 1] = (colour >> 8) & 0xff;
-  raster.rgba[o + 2] = colour & 0xff;
-  raster.rgba[o + 3] = 0xff;
-}
-
 /** Every px whose centre lies within L1 distance `radius` of `(cx, cy)`, clipped to the buffer. */
 function stampDiamond(raster: DotRaster, cx: number, cy: number, radius: number, colour: number): void {
+  const words = pixelWordsOf(raster.rgba);
+  const word = opaquePixelWord(colour);
   const y0 = Math.max(0, Math.floor(cy - radius));
   const y1 = Math.min(raster.height - 1, Math.ceil(cy + radius));
   for (let y = y0; y <= y1; y++) {
@@ -162,12 +156,14 @@ function stampDiamond(raster: DotRaster, cx: number, cy: number, radius: number,
     if (reach < 0) continue;
     const x0 = Math.max(0, Math.ceil(cx - reach - 0.5));
     const x1 = Math.min(raster.width - 1, Math.floor(cx + reach - 0.5));
-    for (let x = x0; x <= x1; x++) writePixel(raster, x, y, colour);
+    for (let at = y * raster.width + x0, end = y * raster.width + x1; at <= end; at++) words[at] = word;
   }
 }
 
 /** Every px whose centre lies within `radius` of `(cx, cy)`, clipped to the buffer. */
 function stampDisc(raster: DotRaster, cx: number, cy: number, radius: number, colour: number): void {
+  const words = pixelWordsOf(raster.rgba);
+  const word = opaquePixelWord(colour);
   const y0 = Math.max(0, Math.floor(cy - radius));
   const y1 = Math.min(raster.height - 1, Math.ceil(cy + radius));
   for (let y = y0; y <= y1; y++) {
@@ -176,7 +172,7 @@ function stampDisc(raster: DotRaster, cx: number, cy: number, radius: number, co
     const reach = Math.sqrt(radius * radius - dy * dy);
     const x0 = Math.max(0, Math.ceil(cx - reach - 0.5));
     const x1 = Math.min(raster.width - 1, Math.floor(cx + reach - 0.5));
-    for (let x = x0; x <= x1; x++) writePixel(raster, x, y, colour);
+    for (let at = y * raster.width + x0, end = y * raster.width + x1; at <= end; at++) words[at] = word;
   }
 }
 
@@ -193,7 +189,8 @@ function stampRect(
   const y0 = Math.max(0, Math.round(cy - halfH));
   const x1 = Math.min(raster.width, Math.round(cx + halfW));
   const y1 = Math.min(raster.height, Math.round(cy + halfH));
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) writePixel(raster, x, y, colour);
-  }
+  const words = pixelWordsOf(raster.rgba);
+  const word = opaquePixelWord(colour);
+  for (let y = y0; y < y1; y++)
+    for (let at = y * raster.width + x0, end = y * raster.width + x1; at < end; at++) words[at] = word;
 }

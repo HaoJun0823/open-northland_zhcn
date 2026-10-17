@@ -149,8 +149,9 @@ const int WORLD_LUT_ROW_SHIFT = ${WORLD_LUT_ROW_SHIFT};
 const int LUT_SLOT = ${lutSlotOf(maxTextures)};
 // One texel per 8-bit palette index across a LUT row.
 const float PALETTE_INDEX_MAX = 255.0;
-// Below this uv footprint a paletted sample is magnified, so the minification taps would coincide.
-const float PALETTED_MIN_FOOTPRINT = 0.000001;
+// Below this uv footprint the four minification taps nearly coincide, under 0.01 texel apart, so one
+// tap stands for them: at worst about 1/255 off at a hard edge within a hair of one texel per pixel.
+const float SINGLE_TAP_FOOTPRINT = 0.000001;
 /** Each of the four minification taps sits a quarter of the footprint out from the sample point, and
  *  they average evenly: four taps cannot cover more, so the spread stops there. */
 const float MINIFY_TAP_OFFSET = 0.25;
@@ -248,16 +249,20 @@ void main(void) {
   bool magnified = texelsPerPixel < 1.0;
   // A paletted element always resolves through its LUT; a plain one only when its page is magnified.
   bool filtered = WORLD_MAGNIFY > 0.5 && (paletted || hasFlag(flags, WORLD_FLAG_MAGNIFY));
+  // A minified plain page spreads four sampler taps over its footprint against sparkle, clamped to the
+  // frame; where they nearly coincide, at one texel per pixel as most of the world is at zoom 1, one tap
+  // stands in.
+  vec2 footprint = max(uvFootprint - 1.0 / texSize, vec2(0.0)) * MINIFY_TAP_OFFSET;
+  bool single = max(footprint.x, footprint.y) < SINGLE_TAP_FOOTPRINT;
+  bool minified = filtered && !paletted && !magnified;
+  vec2 low = vFrame.xy + 0.5 / texSize;
+  vec2 high = vFrame.zw - 0.5 / texSize;
   vec4 outColor;
-  if (!filtered || (!paletted && magnified && WORLD_MAGNIFY < 1.5)) {
-    vec4 texel = sampleTexture(vUV, uvDx, uvDy);
+  if (!filtered || (!paletted && magnified && WORLD_MAGNIFY < 1.5) || (minified && single)) {
+    vec4 texel = sampleTexture(minified ? clamp(vUV, low, high) : vUV, uvDx, uvDy);
     outColor = paletted ? vec4(paletteColour(texel.r, lutRow) * texel.a, texel.a) : texel;
-  } else if (!paletted && !magnified) {
-    // Minified: a 2x2 footprint over the sampler's own filter reduces sparkle, clamped to the frame.
+  } else if (minified) {
     // Not a mipmap substitute at extreme zoom-out: sampling cost is deliberately bounded.
-    vec2 footprint = max(uvFootprint - 1.0 / texSize, vec2(0.0)) * MINIFY_TAP_OFFSET;
-    vec2 low = vFrame.xy + 0.5 / texSize;
-    vec2 high = vFrame.zw - 0.5 / texSize;
     outColor = MINIFY_TAP_WEIGHT * (sampleTexture(clamp(vUV - footprint, low, high), uvDx, uvDy)
                      + sampleTexture(clamp(vUV + vec2(footprint.x, -footprint.y), low, high), uvDx, uvDy)
                      + sampleTexture(clamp(vUV + vec2(-footprint.x, footprint.y), low, high), uvDx, uvDy)
@@ -268,8 +273,6 @@ void main(void) {
     // the taps a path blends are gathered.
     bool xbr = magnified && WORLD_MAGNIFY > 2.5;
     bool sharp = magnified && WORLD_MAGNIFY > 1.5 && !xbr;
-    vec2 footprint = max(uvFootprint - 1.0 / texSize, vec2(0.0)) * MINIFY_TAP_OFFSET;
-    bool single = max(footprint.x, footprint.y) < PALETTED_MIN_FOOTPRINT;
     vec2 p0 = (vUV - footprint) * texSize;
     vec2 p1 = (vUV + vec2(footprint.x, -footprint.y)) * texSize;
     vec2 p2 = (vUV + vec2(-footprint.x, footprint.y)) * texSize;

@@ -27,8 +27,8 @@ const DEFAULT_BACKENDS = { win32: 'd3d11', darwin: 'metal' };
  * set 60 to 110 s between runs, on shaders real hardware plays fine; the batch shader that walked
  * the sampler chain in every magnifier tap took 31 to 64 s, and the one that froze 0.2.1 held eight
  * times its inlined work. Metal finishes the set within seconds. SwiftShader links in milliseconds and
- * compiles in its JIT at the first draw instead: on an M2 Pro the first draws sum to 36 s, the
- * paletted sprite program's 4.5 s and the 32-slot batch programs' 3 s the longest. A budget is a
+ * compiles in its JIT at the first draw instead: on an M2 Pro the first draws sum to 43 to 46 s, the
+ * paletted sprite program's 4.6 s and the 32-slot batch programs' 3.4 to 3.6 s the longest. A budget is a
  * tripwire against that order of growth over a runner that varies twofold, not a frame budget.
  */
 const BACKEND_LIMITS = {

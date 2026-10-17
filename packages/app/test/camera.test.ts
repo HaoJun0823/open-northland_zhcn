@@ -1,5 +1,5 @@
 import { type Camera, tileToScreen } from '@open-northland/render';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   cameraCenteredOnTile,
   cameraCenteredOnWorld,
@@ -44,6 +44,63 @@ describe('screenScale', () => {
 
   it('guards a zero-size CSS box (hidden canvas) with a neutral 1:1 scale', () => {
     expect(screenScale(fakeCanvas(2560, 1600, 0, 0), 2)).toMatchObject({ sx: 1, sy: 1 });
+  });
+
+  describe('on a watched canvas', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    /** A canvas whose box reads count, under a resize observer and window the test drives. */
+    function watchedCanvas() {
+      const observers: (() => void)[] = [];
+      const windowListeners = new Map<string, () => void>();
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(callback: () => void) {
+            observers.push(callback);
+          }
+          observe(): void {}
+        },
+      );
+      vi.stubGlobal('window', {
+        addEventListener: (type: string, listener: () => void) => windowListeners.set(type, listener),
+      });
+      const box = { width: 1280, height: 800 };
+      let reads = 0;
+      const canvas = {
+        width: 1280,
+        height: 800,
+        getBoundingClientRect: () => {
+          reads++;
+          return { ...box, left: 0, top: 0 } as DOMRect;
+        },
+      } as unknown as HTMLCanvasElement;
+      return { canvas, box, reads: () => reads, observers, windowListeners };
+    }
+
+    it('measures the box once until the canvas resizes, the window resizes or scrolls', () => {
+      const { canvas, reads, observers, windowListeners } = watchedCanvas();
+      screenScale(canvas, 1);
+      screenScale(canvas, 1);
+      expect(reads()).toBe(1);
+      for (const invalidate of [observers[0], windowListeners.get('resize'), windowListeners.get('scroll')]) {
+        invalidate?.();
+        screenScale(canvas, 1);
+        screenScale(canvas, 1);
+      }
+      expect(reads()).toBe(4);
+    });
+
+    it('measures again when the backing store changes size before the observer reports', () => {
+      const { canvas, box, reads } = watchedCanvas();
+      expect(screenScale(canvas, 1)).toMatchObject({ sx: 1, sy: 1 });
+      canvas.width = 640;
+      box.width = 640;
+      expect(screenScale(canvas, 1)).toMatchObject({ sx: 1, sy: 1 });
+      expect(reads()).toBe(2);
+    });
   });
 });
 

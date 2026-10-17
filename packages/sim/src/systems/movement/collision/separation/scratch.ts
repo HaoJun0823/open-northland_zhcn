@@ -25,9 +25,9 @@ export interface ColliderColumns {
 /**
  * Each mover's pre-separation state, so a pair's two halves read the same values whatever the processing
  * order. The route columns, from `legCost` to `engaged`, are captured on first ask before the grind
- * bookkeeping can drop the mover's PathFollow, and only for a mover with a neighbour or post in reach. The
- * unit heading toward the leg target is derived on first ask, since only a mover in an overlapping pair
- * reads one.
+ * bookkeeping can drop the mover's PathFollow, and only for a firm mover with company or a mover in an
+ * overlapping pair. The unit heading toward the leg target is derived on first ask, since only a mover in
+ * an overlapping pair reads one.
  */
 export interface MoverColumns extends ColliderColumns {
   /** A firm collider: an owned fighter. */

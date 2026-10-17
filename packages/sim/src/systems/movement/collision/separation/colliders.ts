@@ -70,8 +70,8 @@ function place(columns: ColliderColumns, slot: number, e: Entity, x: Fixed, y: F
 
 /**
  * Capture mover `slot`'s leg, route goal and combat status into its columns on the census's first ask. A
- * mover's own resolve asks before its grind bookkeeping can rewrite its route, and no other mover's
- * resolve writes it, so a late capture reads what the census would have.
+ * firm mover's own resolve asks before its grind bookkeeping can rewrite its route, a soft mover has no
+ * grind, and no other mover's resolve writes either, so a late capture reads what the census would have.
  */
 export function moverRoute(world: World, scratch: SeparationScratch, slot: number): void {
   const movers: MoverColumns = scratch.movers;

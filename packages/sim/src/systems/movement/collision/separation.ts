@@ -108,7 +108,9 @@ export const separationSystem: System = (world, ctx) => {
       if (isFirm) clearGrind(world, e);
       continue;
     }
-    moverRoute(world, scratch, slot);
+    // A firm mover's grind can rewrite its route below, so it captures first; a soft mover's route holds
+    // all pass and is captured only when an overlapping pair reads it.
+    if (isFirm) moverRoute(world, scratch, slot);
     let player: number | undefined;
     if (postCount > 0) {
       player = world.get(e, Owner).player;

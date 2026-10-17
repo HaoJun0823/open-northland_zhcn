@@ -24,7 +24,7 @@ import {
 } from '../../src/components/index.js';
 import { fx, ONE } from '../../src/core/fixed.js';
 import type { Entity } from '../../src/ecs/world.js';
-import { cellAnchorNode, fogViewOfMask, Simulation } from '../../src/index.js';
+import { cellAnchorNode, fogViewOfMask, Simulation, scanChangedBytes } from '../../src/index.js';
 import { FLEE_CHECK_STRIDE_TICKS } from '../../src/systems/conflict/flee.js';
 import { SIGHT_RADIUS_NODES } from '../../src/systems/conflict/targeting.js';
 import { SCOUT_EXPERIENCE_TYPE } from '../../src/systems/progression/index.js';
@@ -974,5 +974,29 @@ describe('fog mask answer - the view a reader on another thread rebuilds', () =>
     const sim = simOn(FOG_MODE.OFF, W, H);
     sim.run(1);
     expect(sim.fogMaskAnswer(P0)).toBeNull();
+  });
+});
+
+describe('scanChangedBytes', () => {
+  const changedOf = (a: Uint8Array, b: Uint8Array, limit = Number.POSITIVE_INFINITY): number[] => {
+    const found: number[] = [];
+    scanChangedBytes(a, b, (index) => {
+      found.push(index);
+      return found.length < limit;
+    });
+    return found;
+  };
+
+  it('visits each differing byte in order, word-aligned or not, and stops when asked', () => {
+    const before = new Uint8Array(11);
+    const after = before.slice();
+    for (const index of [0, 3, 4, 9, 10]) after[index] = 1;
+    expect(changedOf(before, after)).toEqual([0, 3, 4, 9, 10]);
+    // A view one byte into its buffer takes the byte-by-byte path.
+    const shifted = new Uint8Array(12);
+    shifted.set(after, 1);
+    expect(changedOf(before, shifted.subarray(1))).toEqual([0, 3, 4, 9, 10]);
+    expect(changedOf(before, after, 2)).toEqual([0, 3]);
+    expect(changedOf(before, before.slice())).toEqual([]);
   });
 });

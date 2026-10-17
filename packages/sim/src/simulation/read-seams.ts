@@ -24,6 +24,10 @@ export interface FogView {
   readonly generation: number;
   /** The viewer's effective `FOG_STATE` at a cell, with a RECON map's known-terrain mapping applied. */
   readonly stateAt: (cellX: number, cellY: number) => number;
+  /** The mask bytes {@link stateAt} reads, row-major one per cell, when the view holds a copy nothing
+   *  writes to; absent over live state. Under one mode equal bytes read equal states, so a reader can
+   *  diff two views' bytes and re-read only the cells that differ. */
+  readonly cells?: Uint8Array;
 }
 
 /** Null for a mapless sim. */
@@ -116,5 +120,6 @@ export function fogViewOfMask(answer: FogMaskAnswer): FogView {
     generation: answer.generation,
     stateAt: (cellX: number, cellY: number) =>
       viewedFogState(maskFogState(mask, cellsWide, cellsHigh, cellX, cellY), mode),
+    ...(mask !== undefined && mask.length === cellsWide * cellsHigh ? { cells: mask } : {}),
   };
 }

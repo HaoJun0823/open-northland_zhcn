@@ -1,4 +1,4 @@
-import type { FogMaskAnswer } from '@open-northland/sim';
+import { type FogMaskAnswer, scanChangedBytes } from '@open-northland/sim';
 
 /**
  * The viewer's fog as the runtime last received it. A change to the viewer's group can still leave
@@ -35,20 +35,13 @@ function sameFog(a: FogMaskAnswer | null, b: FogMaskAnswer | null): boolean {
   return sameBytes(am, bm);
 }
 
-const WORD_BYTES = Uint32Array.BYTES_PER_ELEMENT;
-
-/** Byte equality compared a 32-bit word at a time where both arrays allow a word view: a viewer's
- *  mask is a few hundred kilobytes, compared whenever the viewer's group changed. */
+/** Byte equality of two masks, compared whenever the viewer's group changed. */
 function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
-  let from = 0;
-  if (a.byteOffset % WORD_BYTES === 0 && b.byteOffset % WORD_BYTES === 0) {
-    const words = Math.floor(a.length / WORD_BYTES);
-    const aw = new Uint32Array(a.buffer, a.byteOffset, words);
-    const bw = new Uint32Array(b.buffer, b.byteOffset, words);
-    for (let i = 0; i < words; i++) if (aw[i] !== bw[i]) return false;
-    from = words * WORD_BYTES;
-  }
-  for (let i = from; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
+  let same = true;
+  scanChangedBytes(a, b, () => {
+    same = false;
+    return false;
+  });
+  return same;
 }

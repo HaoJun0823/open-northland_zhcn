@@ -6,6 +6,7 @@ import {
   type FogView,
   fogSettings,
   positionedWithin,
+  scanChangedBytes,
   TILE_BUCKET_SIZE,
   type TileBox,
   TileBuckets,
@@ -115,13 +116,13 @@ interface MutableTileBox {
 }
 
 /**
- * The viewer's memory, maintained per fog change. A mask rebuild is diffed per cell against the last
- * view's states - the fog view carries no changed-cell list, so this pass costs the cell count per
- * generation, never the entity count. A cell turning VISIBLE forgets its records, since the live entities
- * draw there; a cell leaving VISIBLE captures the ghost-kind entities standing in it now. Approximation:
- * the memory freezes at the update that lost sight, up to one vision cadence after the last generation
- * that still saw the cell, so a static that changed or died in that span is remembered as it stands at
- * the loss. A draw query walks only the records under its box.
+ * The viewer's memory, maintained per fog change. A mask rebuild is diffed against the last view: by
+ * comparing the two views' mask bytes a word at a time when both carry them, else state by state, so
+ * this pass costs the cell count per generation, never the entity count. A cell turning VISIBLE forgets
+ * its records, since the live entities draw there; a cell leaving VISIBLE captures the ghost-kind
+ * entities standing in it now. Approximation: the memory freezes at the update that lost sight, up to
+ * one vision cadence after the last generation that still saw the cell, so a static that changed or died
+ * in that span is remembered as it stands at the loss. A draw query walks only the records under its box.
  *
  * The memory is one seat's. A fresh view (the first update, one after `clear`, or a seat switch) only
  * records the cell states: what that seat saw before was never recorded here, so its explored ground
@@ -136,6 +137,8 @@ export class FogGhostStore implements GhostSource {
   private readonly refsByCell = new Map<number, Set<number>>();
   /** The last view's `FOG_STATE` per cell, row-major. */
   private states = new Uint8Array(0);
+  /** The mask bytes {@link states} were read from, when the view carried them. */
+  private lastCells: Uint8Array | undefined;
   private cellsWide = 0;
   private cellsHigh = 0;
   private lastGeneration = -1;
@@ -167,6 +170,7 @@ export class FogGhostStore implements GhostSource {
     this.lastGeneration = -1;
     this.lastPlayer = null;
     this.lastMode = null;
+    this.lastCells = undefined;
     this.reconSeeded = false;
     if (this.records.size === 0) return;
     this.records.clear();
@@ -195,6 +199,7 @@ export class FogGhostStore implements GhostSource {
     if (!fresh && !remapped && this.pendingAdopt.size === 0) return;
     if (fresh) this.startView(view);
     else if (remapped) this.diffCells(snapshot, view, staticRefs, elevation);
+    this.lastCells = view.cells;
 
     if (fogSettings(view.mode)?.terrainKnown !== true) this.reconSeeded = false;
     else if (!this.reconSeeded) {
@@ -254,17 +259,27 @@ export class FogGhostStore implements GhostSource {
   ): void {
     const leaving = this.leavingCells;
     let changed = false;
-    for (let cy = 0; cy < this.cellsHigh; cy++) {
-      for (let cx = 0; cx < this.cellsWide; cx++) {
-        const cell = cy * this.cellsWide + cx;
-        const now = view.stateAt(cx, cy);
-        const was = this.states[cell];
-        if (now === was) continue;
-        this.states[cell] = now;
-        changed = true;
-        if (now === FOG_STATE.VISIBLE) this.forgetCell(cell);
-        else if (was === FOG_STATE.VISIBLE) leaving.add(cell);
-      }
+    const diffCell = (cell: number): void => {
+      const cx = cell % this.cellsWide;
+      const now = view.stateAt(cx, (cell - cx) / this.cellsWide);
+      const was = this.states[cell];
+      if (now === was) return;
+      this.states[cell] = now;
+      changed = true;
+      if (now === FOG_STATE.VISIBLE) this.forgetCell(cell);
+      else if (was === FOG_STATE.VISIBLE) leaving.add(cell);
+    };
+    const before = this.lastCells;
+    const after = view.cells;
+    // Under the same mode only the cells whose bytes moved can read otherwise.
+    if (before !== undefined && after !== undefined && view.mode === this.lastMode) {
+      scanChangedBytes(before, after, (cell) => {
+        diffCell(cell);
+        return true;
+      });
+    } else {
+      const cellCount = this.cellsWide * this.cellsHigh;
+      for (let cell = 0; cell < cellCount; cell++) diffCell(cell);
     }
     // A cell moving between EXPLORED and UNEXPLORED changes what draws without touching a record.
     if (changed) this.contentVersion++;

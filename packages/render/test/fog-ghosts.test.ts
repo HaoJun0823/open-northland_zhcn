@@ -1,4 +1,4 @@
-import { FOG_MODE, FOG_STATE, positionOfNode } from '@open-northland/sim';
+import { FOG_MODE, FOG_STATE, fogViewOfMask, positionOfNode } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { FogGhostStore } from '../src/data/fog/index.js';
 import { fogCellOfTile } from '../src/data/fog/mask.js';
@@ -284,6 +284,43 @@ describe('FogGhostStore', () => {
     expect(store.version).not.toBe(remembered);
     store.update(snapshotOf([HOUSE]), viewOf(new Map([[HOUSE_CELL, FOG_STATE.EXPLORED]]), 3));
     expect(drawn(store)).toEqual([]);
+  });
+
+  it('diffs a view carrying its mask bytes exactly as one read cell by cell', () => {
+    const cellsWide = 13;
+    const cellsHigh = 6;
+    const statics = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) =>
+      entity(
+        10 + i,
+        (i * 5) % cellsWide,
+        2 * (i % 3),
+        i % 2 === 0
+          ? { Resource: { goodType: 3 } }
+          : {
+              Building: { buildingType: 7, tribe: 1, built: ONE, level: 0 },
+            },
+      ),
+    );
+    const snapshot = snapshotOf(statics);
+    const byBytes = new FogGhostStore();
+    const byCells = new FogGhostStore();
+    const states = [FOG_STATE.UNEXPLORED, FOG_STATE.EXPLORED, FOG_STATE.VISIBLE];
+    let seed = 7;
+    for (let generation = 1; generation <= 12; generation++) {
+      const mask = new Uint8Array(cellsWide * cellsHigh);
+      for (let i = 0; i < mask.length; i++) {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        mask[i] = states[seed % states.length] ?? FOG_STATE.UNEXPLORED;
+      }
+      const answer = { player: 0, mode: FOG_MODE.CLASSIC_FOG_OF_WAR, cellsWide, cellsHigh, generation, mask };
+      const view = fogViewOfMask(answer);
+      expect(view.cells).toBe(mask);
+      const { cells: _cells, ...cellByCell } = view;
+      byBytes.update(snapshot, view);
+      byCells.update(snapshot, cellByCell);
+      expect(drawn(byBytes)).toEqual(drawn(byCells));
+    }
+    expect(drawn(byBytes).length).toBeGreaterThan(0);
   });
 
   it('a cell leaving sight captures only the statics standing in it', () => {

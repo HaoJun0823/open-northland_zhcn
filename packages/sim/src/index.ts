@@ -226,6 +226,7 @@ export {
   serializeSaveGame,
   withSaveContinuation,
 } from './save/index.js';
+export { scanChangedBytes } from './simulation/changed-bytes.js';
 // The idle-adult job key of the HUD population tally: a façade read view, not a system.
 export { IDLE_JOB } from './simulation/hud.js';
 export {

@@ -5,14 +5,15 @@ import {
   diplomacyStance,
   Garrison,
   Health,
+  MAX_PLAYERS,
   Owner,
   Person,
   Position,
   Settler,
   Weapon,
 } from '../../../../components/index.js';
-import type { Entity, World } from '../../../../ecs/world.js';
-import { hexDistanceBetween } from '../../../../nav/halfcell.js';
+import type { ChangeFeed, Entity, World } from '../../../../ecs/world.js';
+import { hexDistanceBetween, nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 import { SIGHT_RADIUS_NODES } from '../../../conflict/targeting.js';
 import { garrisonReach, isManningPost, standsAtPost } from '../../../conflict/tower-post.js';
@@ -96,7 +97,8 @@ export function watchBandOf(world: World, ctx: SystemContext, building: Entity):
  * garrison parked within reach of this seat's edge would otherwise hold the town in cover forever.
  *
  * Not fog-gated, like the campaign's own target scan: an alarm behind the fog would ring only once the
- * town had been walked into. One scan a tick per seat, shared by every reader in that tick.
+ * town had been walked into. One scan a tick per seat, shared by every reader in that tick. The list is
+ * rewritten in place by the seat's next rescan: read it within the decision, never keep it.
  */
 export function seatRaiders(
   world: World,
@@ -110,17 +112,14 @@ export function seatRaiders(
     scans = new Map();
     raiderScans.set(world, scans);
   }
-  const held = scans.get(player);
+  let held = scans.get(player);
   if (held === undefined) {
-    const raiders = enemiesAmong(world, fighters.fighters, player, NO_RAIDERS);
-    scans.set(player, { stamp: fighters.stamp, content: ctx.content, raiders });
-    return raiders;
+    held = { stamp: fighters.stamp - 1, raiders: [] };
+    scans.set(player, held);
   }
-  if (held.stamp !== fighters.stamp || held.content !== ctx.content) {
-    const previous = held.content === ctx.content ? held.raiders : NO_RAIDERS;
-    held.raiders = enemiesAmong(world, fighters.fighters, player, previous);
+  if (held.stamp !== fighters.stamp) {
+    enemiesAmong(world, fighters.fighters, player, held.raiders);
     held.stamp = fighters.stamp;
-    held.content = ctx.content;
   }
   return held.raiders;
 }
@@ -129,13 +128,10 @@ export function seatRaiders(
  *  military module both read a seat's raiders in its decision tick. Derived read-state, never hashed. */
 interface RaiderScan {
   stamp: number;
-  content: SystemContext['content'];
-  raiders: readonly Raider[];
+  readonly raiders: Raider[];
 }
 
 const raiderScans = new WeakMap<World, Map<number, RaiderScan>>();
-
-const NO_RAIDERS: readonly Raider[] = [];
 
 /** A live, unposted fighter of any seat, read once for every seat's {@link seatRaiders}: the raider record
  *  a seat's list hands out, with the owner the stance test reads. A rescan keeps the previous record of a
@@ -148,21 +144,43 @@ interface LooseFighter extends Raider {
  * The map's loose fighters under one scan key, ascending id, rebuilt in place. `fighters` never leaves this
  * module, so a rescan writes into `spare` and swaps the two lists. `stamp` moves on every rescan, for the
  * seat scans read off it. Derived read-state, never hashed.
+ *
+ * A rescan re-derives only the men the feeds saw change, and every posted man, whose post test also reads
+ * the tower's own position: `records[e]` is `e`'s last derivation, null when he was no loose fighter, and
+ * `dirty[e]` says what was written since ({@link STALE}, {@link MOVED}).
  */
 interface LooseFighterScan {
   readonly key: number[];
   stamp: number;
   content: SystemContext['content'];
   terrain: TerrainGraph;
+  /** The context of the last rescan, for the cache verifier's fresh derivation. */
+  ctx: SystemContext;
   fighters: LooseFighter[];
   spare: LooseFighter[];
+  readonly records: (LooseFighter | null | undefined)[];
+  dirty: Uint8Array;
+  /** Every write to a {@link RECORD_STORES} store but a Position value write. */
+  readonly feed: ChangeFeed;
+  /** Position value writes: a man who only walked keeps his reach and owner. */
+  readonly moves: ChangeFeed;
 }
+
+/** {@link LooseFighterScan.dirty}: nothing written since the record, some write the record reads, or a
+ *  Position value write alone. */
+const CURRENT = 0;
+const STALE = 1;
+const MOVED = 2;
 
 const looseFighterScans = new WeakMap<World, LooseFighterScan>();
 
 /** Every store the scan reads, membership and in-place writes: a man born, killed, moved, re-owned,
  *  re-jobbed, re-armed or posted, or a stance changed, starts a fresh scan. */
 const SCAN_STORES = [Person, Owner, Position, Health, Settler, Weapon, Garrison, DiplomacyRules] as const;
+
+/** The stores one man's {@link LooseFighter} record is derived from: a write to any re-derives his. */
+const RECORD_STORES = [Person, Owner, Position, Health, Settler, Weapon, Garrison] as const;
+const RECORD_VALUE_STORES = [Person, Owner, Health, Settler, Weapon, Garrison] as const;
 
 /** Writes the live {@link SCAN_STORES} generations into `key`. */
 function fillKey(world: World, key: number[]): void {
@@ -183,48 +201,128 @@ function keyIsCurrent(world: World, key: readonly number[]): boolean {
   return true;
 }
 
-const NO_FIGHTERS: readonly LooseFighter[] = [];
-
 function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph): LooseFighterScan {
   let scan = looseFighterScans.get(world);
   if (scan === undefined) {
-    scan = { key: [], stamp: 0, content: ctx.content, terrain, fighters: [], spare: [] };
+    scan = {
+      key: [],
+      stamp: 0,
+      content: ctx.content,
+      terrain,
+      ctx,
+      fighters: [],
+      spare: [],
+      records: [],
+      dirty: new Uint8Array(0),
+      feed: world.watchChanges(RECORD_STORES, RECORD_VALUE_STORES),
+      moves: world.watchChanges([], [Position]),
+    };
     looseFighterScans.set(world, scan);
+    world.registerCacheVerifier('looseFighters', () => verifyLooseFighters(world));
   } else if (scan.content === ctx.content && scan.terrain === terrain && keyIsCurrent(world, scan.key)) {
     return scan;
   }
   fillKey(world, scan.key);
-  const previous = scan.content === ctx.content && scan.terrain === terrain ? scan.fighters : NO_FIGHTERS;
+  const held = scan;
+  const overflowed =
+    held.feed.drain((e) => {
+      if (e >= held.dirty.length) held.dirty = grownFlags(held.dirty, e);
+      held.dirty[e] = STALE;
+    }) ||
+    held.moves.drain((e) => {
+      if (e >= held.dirty.length) held.dirty = grownFlags(held.dirty, e);
+      if (held.dirty[e] === CURRENT) held.dirty[e] = MOVED;
+    });
+  if (overflowed || scan.content !== ctx.content || scan.terrain !== terrain) {
+    scan.records.length = 0;
+    // The other feed may still hold entries; a cleared record re-derives whatever they name.
+    held.feed.drain(() => {});
+    held.moves.drain(() => {});
+  }
+  const { records, dirty } = scan;
   const fighters = scan.spare;
-  let p = 0;
   let n = 0;
   // The owned-fighter index holds every owned settler of a fighting trade, ascending id: the fighters among
   // the people, without a walk over every civilian.
   for (const e of ownedFighters(world, ctx.content)) {
-    if (!world.has(e, Person) || !world.has(e, Position)) continue;
-    if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) continue;
-    if (standsAtPost(world, e) !== null) continue;
-    const at = entityNode(world, terrain, e);
-    const x = terrain.xOf(at);
-    const y = terrain.yOf(at);
-    const component = terrain.componentOf(at);
-    const reach = Math.max(weaponReach(world, ctx, e), SIGHT_RADIUS_NODES);
-    const owner = world.get(e, Owner).player;
-    // Both lists ascend by id, so the previous record of `e`, if any, is at or past `p`.
-    while (p < previous.length && (previous[p] as LooseFighter).entity < e) p++;
-    const was = previous[p];
-    fighters[n++] =
-      was !== undefined && sameFighter(was, e, owner, x, y, component, reach)
-        ? was
-        : { entity: e, target: e, x, y, component, reach, owner };
+    let record = records[e];
+    const written = e < dirty.length ? (dirty[e] as number) : CURRENT;
+    if (record === undefined || written === STALE || world.has(e, Garrison)) {
+      record = looseFighterOf(world, ctx, terrain, e, record ?? null);
+      records[e] = record;
+    } else if (written === MOVED && record !== null) {
+      // Unposted and still standing, so only his place can have changed.
+      record = placed(world, terrain, record);
+      records[e] = record;
+    }
+    if (written !== CURRENT) dirty[e] = CURRENT;
+    if (record !== null) fighters[n++] = record;
   }
   fighters.length = n;
   scan.spare = scan.fighters;
   scan.fighters = fighters;
   scan.content = ctx.content;
   scan.terrain = terrain;
+  scan.ctx = ctx;
   scan.stamp++;
   return scan;
+}
+
+/** `e`'s loose-fighter record, or null when he is dead, placeless or standing at a post. `was`, his last
+ *  record, is handed back when nothing it holds changed, so a standing army costs no allocation. */
+function looseFighterOf(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  e: Entity,
+  was: LooseFighter | null,
+): LooseFighter | null {
+  if (!world.has(e, Person) || !world.has(e, Position)) return null;
+  if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) return null;
+  if (standsAtPost(world, e) !== null) return null;
+  const p = world.get(e, Position);
+  const x = terrain.clampX(nodeHxOfPosition(p.x, p.y));
+  const y = terrain.clampY(nodeHyOfPosition(p.y));
+  const component = terrain.componentOf(terrain.nodeAtClamped(x, y));
+  const reach = Math.max(weaponReach(world, ctx, e), SIGHT_RADIUS_NODES);
+  const owner = world.get(e, Owner).player;
+  return was !== null && sameFighter(was, e, owner, x, y, component, reach)
+    ? was
+    : { entity: e, target: e, x, y, component, reach, owner };
+}
+
+/** `was` at its man's current node: the same record when he stands where it says. */
+function placed(world: World, terrain: TerrainGraph, was: LooseFighter): LooseFighter {
+  const p = world.get(was.entity, Position);
+  const x = terrain.clampX(nodeHxOfPosition(p.x, p.y));
+  const y = terrain.clampY(nodeHyOfPosition(p.y));
+  const component = terrain.componentOf(terrain.nodeAtClamped(x, y));
+  return x === was.x && y === was.y && component === was.component ? was : { ...was, x, y, component };
+}
+
+function grownFlags(flags: Uint8Array, index: number): Uint8Array {
+  const next = new Uint8Array(Math.max(index + 1, flags.length * 2));
+  next.set(flags);
+  return next;
+}
+
+/** Compares a current scan with a fresh derivation of every owned fighter. */
+function verifyLooseFighters(world: World): string[] {
+  const scan = looseFighterScans.get(world);
+  if (scan === undefined || !keyIsCurrent(world, scan.key)) return [];
+  const fresh: LooseFighter[] = [];
+  for (const e of ownedFighters(world, scan.content)) {
+    const record = looseFighterOf(world, scan.ctx, scan.terrain, e, null);
+    if (record !== null) fresh.push(record);
+  }
+  const listed = scan.fighters;
+  const same =
+    listed.length === fresh.length &&
+    listed.every((f, i) => {
+      const g = fresh[i];
+      return g !== undefined && sameFighter(f, g.entity, g.owner, g.x, g.y, g.component, g.reach);
+    });
+  return same ? [] : [`looseFighters lists ${listed.length} fighters but a fresh scan finds ${fresh.length}`];
 }
 
 function sameFighter(
@@ -246,51 +344,36 @@ function sameFighter(
   );
 }
 
-/**
- * The `fighters` whose player would engage `player`, in their order: an allied army walking past must not
- * hold the town in alarm. Returns `previous` itself when it already lists exactly these records, and
- * otherwise a list allocated once at its final length.
- */
+/** Rewrites `raiders` in place to the `fighters` whose player would engage `player`, in their order: an
+ *  allied army walking past must not hold the town in alarm. */
 function enemiesAmong(
   world: World,
   fighters: readonly LooseFighter[],
   player: number,
-  previous: readonly Raider[],
-): readonly Raider[] {
-  stanceCount = 0;
+  raiders: Raider[],
+): void {
+  stanceOf.fill(UNREAD);
   let count = 0;
-  let same = true;
   for (const fighter of fighters) {
-    if (!engages(world, fighter.owner, player)) continue;
-    if (same && previous[count] !== fighter) same = false;
-    count++;
+    if (engages(world, fighter.owner, player)) raiders[count++] = fighter;
   }
-  if (same && count === previous.length) return previous;
-  const raiders = new Array<Raider>(count);
-  let i = 0;
-  for (const fighter of fighters) {
-    if (engages(world, fighter.owner, player)) raiders[i++] = fighter;
-  }
-  return raiders;
+  raiders.length = count;
 }
 
-/** The stances {@link enemiesAmong} has read this call, a few owners at most: owner `stanceOwners[i]`
- *  is an enemy when `stanceEnemy[i]`. Only the first `stanceCount` slots are live. */
-const stanceOwners: number[] = [];
-const stanceEnemy: boolean[] = [];
-let stanceCount = 0;
+/** {@link enemiesAmong}'s stances this call, by owner slot: {@link UNREAD}, or 1 for an enemy and 0 not. */
+const stanceOf = new Int8Array(MAX_PLAYERS);
+const UNREAD = -1;
 
 /** Whether `owner`'s fighters are `player`'s raiders, the stance read once per owner per call. */
 function engages(world: World, owner: number, player: number): boolean {
   if (owner === player) return false;
-  for (let i = 0; i < stanceCount; i++) {
-    if (stanceOwners[i] === owner) return stanceEnemy[i] as boolean;
+  if (owner < 0 || owner >= MAX_PLAYERS) return diplomacyStance(world, owner, player) === 'enemy';
+  let stance = stanceOf[owner] as number;
+  if (stance === UNREAD) {
+    stance = diplomacyStance(world, owner, player) === 'enemy' ? 1 : 0;
+    stanceOf[owner] = stance;
   }
-  const enemy = diplomacyStance(world, owner, player) === 'enemy';
-  stanceOwners[stanceCount] = owner;
-  stanceEnemy[stanceCount] = enemy;
-  stanceCount++;
-  return enemy;
+  return stance === 1;
 }
 
 /** The weapon `e` fights with and its reach band, or null for an unarmed man. */
@@ -330,21 +413,40 @@ export function enemyPosts(
     const tower = standsAtPost(world, e);
     const held = heldWeapon(world, ctx, e);
     if (tower === null || held === null || held.maxRange === 0) continue;
-    const at = terrain.coordsOf(entityNode(world, terrain, e));
-    posts.push({ tower, target: tower, x: at.x, y: at.y, reach: garrisonReach(held).maxRange });
+    const at = entityNode(world, terrain, e);
+    posts.push({
+      tower,
+      target: tower,
+      x: terrain.xOf(at),
+      y: terrain.yOf(at),
+      reach: garrisonReach(held).maxRange,
+    });
   }
   return posts;
 }
 
-/** The {@link EnemyFire} of every shooter, loose or posted, whatever ground he stands on: a bow shoots
- *  across water. Reach counts map points, as the bow does. */
-export function enemyFire(shooters: readonly Shooter[]): EnemyFire {
+/** The {@link EnemyFire} of every shooter in `shooters` and `more`, loose or posted, whatever ground he
+ *  stands on: a bow shoots across water. Reach counts map points, as the bow does. Two lists, so the
+ *  map's raiders are not copied to join the posts. */
+export function enemyFire(shooters: readonly Shooter[], more: readonly Shooter[] = NO_SHOOTERS): EnemyFire {
   const within = (s: Shooter, x: number, y: number, extra: number): boolean =>
     hexDistanceBetween(s.x, s.y, x, y) <= s.reach + extra;
   return {
-    reaches: (x, y, span) => shooters.some((s) => within(s, x, y, span)),
-    around: (x, y, radius, span) => enemyFire(shooters.filter((s) => within(s, x, y, radius + span))),
+    reaches: (x, y, span) => anyWithin(shooters, x, y, span) || anyWithin(more, x, y, span),
+    around: (x, y, radius, span) => {
+      const near: Shooter[] = [];
+      for (const s of shooters) if (within(s, x, y, radius + span)) near.push(s);
+      for (const s of more) if (within(s, x, y, radius + span)) near.push(s);
+      return enemyFire(near);
+    },
   };
+}
+
+const NO_SHOOTERS: readonly Shooter[] = [];
+
+function anyWithin(shooters: readonly Shooter[], x: number, y: number, extra: number): boolean {
+  for (const s of shooters) if (hexDistanceBetween(s.x, s.y, x, y) <= s.reach + extra) return true;
+  return false;
 }
 
 /**

@@ -81,7 +81,7 @@ export function rebuildOrders(
   const crew = people.map((e) => terrain.coordsOf(entityNode(world, terrain, e)));
   const crewWithin = (x: number, y: number, radius: number): boolean =>
     crew.some((at) => hexDistanceBetween(at.x, at.y, x, y) <= radius);
-  const fire = enemyFire([...raiders, ...enemyPosts(world, ctx, terrain, seat)]);
+  const fire = enemyFire(raiders, enemyPosts(world, ctx, terrain, seat));
   // One acceptor per type and tribe: each walks every building of the world to set up.
   const acceptors = new Map<string, SpotAcceptor>();
   const commands: PlayerCommand[] = [];

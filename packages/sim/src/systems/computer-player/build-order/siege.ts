@@ -36,6 +36,6 @@ export function seatSiege(
   const raiders = seatRaiders(world, ctx, terrain, player);
   return {
     attacked: raidOnTheSettlement(world, ctx, terrain, owned, raiders) !== null,
-    underFire: enemyFire([...raiders, ...enemyPosts(world, ctx, terrain, player)]),
+    underFire: enemyFire(raiders, enemyPosts(world, ctx, terrain, player)),
   };
 }

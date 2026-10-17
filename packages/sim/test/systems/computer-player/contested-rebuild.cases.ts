@@ -1,6 +1,13 @@
 import { footprintCellDx } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { AttackOrder, Building, DefenceMode, Position, Settler } from '../../../src/components/index.js';
+import {
+  AttackOrder,
+  Building,
+  DefenceMode,
+  Health,
+  Position,
+  Settler,
+} from '../../../src/components/index.js';
 import type { Command } from '../../../src/core/commands/index.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { fx, positionOfNode, Simulation, type TerrainMap } from '../../../src/index.js';
@@ -284,21 +291,29 @@ describe('build-order module - rebuilding under the enemy', () => {
     // The build order and the military module both read the seat's raiders in its decision tick.
     expect(seatRaiders(sim.world, ctx, terrain, SEAT)).toBe(first);
     // A man moving is a value write on his Position, one of the stores the scan reads: the same content
-    // and tick read it afresh, with his new place.
+    // and tick read it afresh, with his new place. The seat's list is rewritten in place.
     const [raider] = first;
     if (raider === undefined) throw new Error('setup: no raider scanned');
     const at = sim.world.mut(raider.entity, Position);
     at.x = fx.add(at.x, fx.fromInt(1));
     const moved = seatRaiders(sim.world, ctx, terrain, SEAT);
-    expect(moved).not.toBe(first);
     expect(moved).toHaveLength(1);
+    expect(moved[0]).not.toBe(raider);
     expect(moved[0]?.x).not.toBe(raider.x);
     // A man spawning is a membership change, read afresh the same way.
     spawnAt(sim, { x: FAR_CORNER.x + 6, y: FAR_CORNER.y }, BOWMAN);
     sim.step();
-    const next = seatRaiders(sim.world, ctxOf(sim), terrain, SEAT);
-    expect(next).not.toBe(moved);
-    expect(next).toHaveLength(2);
+    const later = ctxOf(sim);
+    const both = seatRaiders(sim.world, later, terrain, SEAT);
+    expect(both).toHaveLength(2);
+    // A wound is a value write on his Health, re-read for him alone: a man at no hitpoints drops out.
+    const [wounded, standing] = both;
+    if (wounded === undefined || standing === undefined) throw new Error('setup: two raiders scanned');
+    sim.world.mut(wounded.entity, Health).hitpoints = 0;
+    const left = seatRaiders(sim.world, later, terrain, SEAT);
+    expect(left).toEqual([standing]);
+    expect(left[0]).toBe(standing);
+    expect(sim.world.verifyCaches()).toEqual([]);
   });
 
   it('gives a loose raider at least his sight as reach, since he advances on what he sees', () => {

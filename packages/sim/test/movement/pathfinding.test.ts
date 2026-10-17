@@ -460,6 +460,14 @@ describe('joinCorridor - a group member borrowing a routed corridor', () => {
     expect(isWalkablePath(g, joined ?? [], new Set())).toBe(true);
   });
 
+  it('refuses a member whose start lies farther than the hop from every corridor node', () => {
+    const g = open(160, 60);
+    const far = g.nodeAt(80, LEAD_ROW + NEAR + 2);
+    expect(
+      joinCorridor(g, lead(g), far, g.nodeAt(148, LEAD_ROW), new Set<NodeId>(), { explored: 0 }, NEAR),
+    ).toBeNull();
+  });
+
   it('refuses a corridor it could only reach round a wall, so the member routes alone', () => {
     // The corridor node nearest the start lies across a wall: reaching it means walking to the wall's
     // end and back, then along the corridor past the start again.

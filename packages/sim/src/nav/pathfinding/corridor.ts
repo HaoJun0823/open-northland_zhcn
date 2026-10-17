@@ -1,7 +1,7 @@
 import { fx } from '../../core/fixed.js';
 import type { BlockOverlay } from '../block-overlay.js';
 import {
-  latticeDistanceTo,
+  latticeOffsetDistance,
   type NodeId,
   nodeLatticeDistance,
   type TerrainGraph,
@@ -34,10 +34,13 @@ export function joinCorridor(
   maxHopNodes: number,
   traversal: Traversal = 'land',
 ): NodeId[] | null {
+  const lattice = corridorLattice(graph, corridor);
+  // No corridor node lies nearer `start` in Manhattan nodes than the corridor's bounding box does.
+  if (manhattanOutside(lattice, graph.xOf(start), graph.yOf(start)) > maxHopNodes) return null;
   // Only the corridor's own start can be blocked, by the walker-exempt rule; no hop may end there.
-  const entry = nearestStop(graph, corridor, start, 0, blocked);
+  const entry = nearestStop(graph, lattice, corridor, start, 0, blocked);
   if (entry === undefined || manhattanNodes(graph, start, entry.node) > maxHopNodes) return null;
-  const exit = nearestStop(graph, corridor, goal, entry.index, blocked);
+  const exit = nearestStop(graph, lattice, corridor, goal, entry.index, blocked);
   if (exit === undefined || exit.index === entry.index) return null;
   if (manhattanNodes(graph, exit.node, goal) > maxHopNodes) return null;
   const onto = findPathWithin(graph, start, entry.node, blocked, stats, CORRIDOR_LEG_MAX_EXPLORED, traversal);
@@ -74,9 +77,57 @@ interface CorridorStop {
   readonly node: NodeId;
 }
 
-/** The unblocked corridor node at or after index `from` nearest `target`, the earliest on a tie. */
+/** A corridor's node coordinates and bounding box, read once per corridor rather than per joining walker. */
+interface CorridorLattice {
+  readonly xs: Int32Array;
+  readonly ys: Int32Array;
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minY: number;
+  readonly maxY: number;
+}
+
+/** Keyed by the corridor array, which a caller never mutates once routed. */
+const lattices = new WeakMap<readonly NodeId[], CorridorLattice>();
+
+function corridorLattice(graph: TerrainGraph, corridor: readonly NodeId[]): CorridorLattice {
+  const held = lattices.get(corridor);
+  if (held !== undefined) return held;
+  const xs = new Int32Array(corridor.length);
+  const ys = new Int32Array(corridor.length);
+  let minX = Number.POSITIVE_INFINITY,
+    maxX = Number.NEGATIVE_INFINITY,
+    minY = Number.POSITIVE_INFINITY,
+    maxY = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < corridor.length; i++) {
+    const node = corridor[i];
+    if (node === undefined) continue;
+    const x = graph.xOf(node),
+      y = graph.yOf(node);
+    xs[i] = x;
+    ys[i] = y;
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+  const lattice = { xs, ys, minX, maxX, minY, maxY };
+  lattices.set(corridor, lattice);
+  return lattice;
+}
+
+/** Manhattan nodes from (x, y) to the corridor's bounding box, 0 inside it. */
+function manhattanOutside(lattice: CorridorLattice, x: number, y: number): number {
+  const dx = Math.max(0, lattice.minX - x, x - lattice.maxX);
+  const dy = Math.max(0, lattice.minY - y, y - lattice.maxY);
+  return dx + dy;
+}
+
+/** The unblocked corridor node at or after index `from` nearest `target`, the earliest on a tie. Only a
+ *  node nearer than the best so far is asked of `blocked`: an overlay's answers are pure. */
 function nearestStop(
   graph: TerrainGraph,
+  lattice: CorridorLattice,
   corridor: readonly NodeId[],
   target: NodeId,
   from: number,
@@ -84,16 +135,17 @@ function nearestStop(
 ): CorridorStop | undefined {
   const x = graph.xOf(target);
   const y = graph.yOf(target);
+  const { xs, ys } = lattice;
   let best: CorridorStop | undefined;
   let bestDistance = fx.fromInt(0);
-  corridor.forEach((node, index) => {
-    if (index < from || blocked.has(node)) return;
-    const distance = latticeDistanceTo(graph, x, y, node);
-    if (best === undefined || distance < bestDistance) {
-      best = { index, node };
-      bestDistance = distance;
-    }
-  });
+  for (let index = from; index < corridor.length; index++) {
+    const distance = latticeOffsetDistance(Math.abs(x - (xs[index] ?? 0)), Math.abs(y - (ys[index] ?? 0)));
+    if (best !== undefined && distance >= bestDistance) continue;
+    const node = corridor[index];
+    if (node === undefined || blocked.has(node)) continue;
+    best = { index, node };
+    bestDistance = distance;
+  }
   return best;
 }
 

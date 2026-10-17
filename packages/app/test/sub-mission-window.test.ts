@@ -19,7 +19,7 @@ function setup() {
   gameListeners.push(gameKeys);
   const buttons = (): string[] =>
     [...plane.querySelectorAll('.on-system-confirm__actions button')].map((b) => b.textContent ?? '');
-  return { plane, gameKeys, buttons, note: openSubMissionWindow(1) };
+  return { plane, gameKeys, buttons, note: openSubMissionWindow(1, 'start') };
 }
 
 const press = (key: string): void => {
@@ -43,6 +43,13 @@ it('holds the paused game under an undismissable loading note', () => {
   expect(h.plane.querySelector('.on-system-confirm')).toBeNull();
   press('a');
   expect(h.gameKeys).toHaveBeenCalledOnce();
+});
+
+it('names the way back to the parent map as a return, not a next mission', () => {
+  openSubMissionWindow(1, 'end');
+  const dialog = document.body.querySelector('[role="alertdialog"]');
+  expect(dialog?.textContent).toContain(copy.returnTitle);
+  expect(dialog?.textContent).not.toContain(copy.title);
 });
 
 it('turns a failure into staying or a retry, the retry focused', () => {

@@ -3,6 +3,7 @@ import {
   parseSaveGame,
   type SaveGame,
   type SimEvent,
+  type SubMissionTransition,
   serializeSaveGame,
 } from '@open-northland/sim';
 import { diag } from '../../diag/index.js';
@@ -14,7 +15,6 @@ import { clearPendingLoad, storePendingLoad } from './save-load/pending-store.js
 import { relaunchSearch } from './save-load/relaunch.js';
 import type { SavedView } from './save-load/view-state.js';
 
-export type SubMissionTransition = Extract<SimEvent, { kind: 'missionSubMission' }>['transition'];
 export type PrepareSubMission = (transition: SubMissionTransition, current: SaveGame) => Promise<SaveGame>;
 
 export interface SubMissionDeps {
@@ -66,7 +66,7 @@ export function createSubMissions(deps: SubMissionDeps): {
     };
     // Let the frame finish reading its renderer before the handover disposes it.
     const attempt = (): void => {
-      const dialog = openSubMissionWindow(deps.hudScale());
+      const dialog = openSubMissionWindow(deps.hudScale(), event.transition.kind);
       void run()
         .then(() => dialog.dispose())
         .catch(async (err: unknown) => {

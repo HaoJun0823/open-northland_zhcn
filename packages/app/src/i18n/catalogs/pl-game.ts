@@ -1,6 +1,7 @@
 export const plGame = {
   subMission: {
     title: 'Następna misja',
+    returnTitle: 'Powrót do misji',
     stay: 'Pozostań na tej mapie',
     loading: 'Wczytywanie misji…',
     failed:

@@ -79,6 +79,7 @@ export {
   eventNode,
   type SimEvent,
   type SimEventKind,
+  type SubMissionTransition,
   type WorkerRefusalReason,
 } from './core/events.js';
 export { type Fixed, fx, ONE } from './core/fixed.js';

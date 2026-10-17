@@ -1,6 +1,7 @@
 export const ruGame = {
   subMission: {
     title: 'Следующая миссия',
+    returnTitle: 'Возвращение к миссии',
     stay: 'Остаться на этой карте',
     loading: 'Загрузка миссии…',
     failed:

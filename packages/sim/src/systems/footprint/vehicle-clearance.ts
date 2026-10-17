@@ -8,7 +8,7 @@ import { HEX_NEIGHBOUR_OFFSETS, hexDistanceBetween, nodeOfPosition } from '../..
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext } from '../context.js';
 import { type LandscapeBlocks, landscapeBlocks } from '../landscape/view.js';
-import { buildingBlockedCells } from './building-blocked-cache.js';
+import { buildingBlockedCells, walkBodyOf } from './building-blocked-cache.js';
 import { buildingFootprintOf, translatedCells } from './geometry.js';
 import { resourceBlockedCells } from './resource-blocked-cache.js';
 import { tryFootprintCellsOf } from './resource-footprint-cells.js';
@@ -70,8 +70,8 @@ function probeOf(world: World, ctx: ContentContext, terrain: TerrainGraph): Clea
  *  the other, two steps away. */
 const SEAL_REACH = 2;
 
-/** Every cell whose walk-block membership `e` can decide: a building's body plus its door (the door
- *  carve-out) and the nodes within {@link SEAL_REACH} of the door, where a joint seal it opens moves; a
+/** Every cell whose walk-block membership `e` can decide: a building's body plus its door passage (the
+ *  carve-out) and the nodes within {@link SEAL_REACH} of any passage cell, where a joint seal it opens moves; a
  *  wall's whole placement body and the nodes within that reach of it, where its joint seals lie; or a
  *  resource's walk cells. The recompute rewrites only the classes within the cap of these, so
  *  every node whose probe a change can flip must be listed. Empty for a positionless or footprint-less
@@ -84,15 +84,9 @@ function blockerCellsOf(world: World, content: ContentSet, terrain: TerrainGraph
   if (building !== undefined) {
     const footprint = buildingFootprintOf(content, building.buildingType, building.tribe);
     if (footprint === undefined) return [];
-    const cells = new Set(translatedCells(terrain, footprint.blocked, hx, hy));
-    const door = footprint.door;
-    if (door !== undefined) {
-      const doorX = hx + footprintCellDx(hy, door);
-      if (terrain.inBounds(doorX, hy + door.dy)) {
-        addRings(terrain, cells, [terrain.nodeAt(doorX, hy + door.dy)], SEAL_REACH);
-      }
-    }
-    return [...cells];
+    const { body, passage } = walkBodyOf(terrain, footprint, hx, hy);
+    addRings(terrain, body, passage, SEAL_REACH);
+    return [...body];
   }
   const wall = world.tryGet(e, Palisade);
   if (wall !== undefined) {

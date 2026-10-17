@@ -94,7 +94,7 @@ interface BuildingPick {
     byType: ReadonlyMap<number, BuildingType>,
     canTrade: TradeHouseRule,
   ) => BuildingHighlightItem[];
-  /** The orders a click on `building` issues, empty when that building refuses every settler; null for
+  /** The orders a click on `building` issues, empty when it orders nothing; null for
    *  the trade-house pick, whose click asks the sim first. */
   readonly orders:
     | ((
@@ -117,7 +117,7 @@ const BUILDING_PICKS: Readonly<Record<BuildingPickKind, BuildingPick>> = {
     // This mode places each settler's current trade only; it never re-trades.
     orders: (snapshot, settlers, building, byType) => {
       const workers = workerGroupAt(snapshot, building, settlers, byType);
-      return workers === null
+      return workers === null || workers.length === 0
         ? []
         : [{ kind: 'assignWorkerGroup', building: building as Entity, members: workers }];
     },

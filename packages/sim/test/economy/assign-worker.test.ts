@@ -295,3 +295,91 @@ describe('assignWorker - bind an owned settler to a chosen building', () => {
     expect(sim.world.has(worker, JobAssignment)).toBe(false);
   });
 });
+
+describe('assignWorker - a refusal names its reason', () => {
+  const refusals = (sim: Simulation) => sim.events.current().filter((ev) => ev.kind === 'workerRefused');
+
+  it('emits nothing when the settler is seated', () => {
+    const sim = new Simulation({ seed: 1, content: testContent() });
+    assignWorker(sim.world, ctxOf(sim), assign(settler(sim), placeBuilding(sim, SAWMILL, 5, 5)));
+
+    expect(refusals(sim)).toEqual([]);
+  });
+
+  it('names the trade whose experience the settler lacks', () => {
+    const sim = new Simulation({ seed: 1, content: testContent() });
+    gateCarpenter(sim);
+    const mill = placeBuilding(sim, SAWMILL, 5, 5);
+    const fresh = settler(sim);
+
+    assignWorker(sim.world, ctxOf(sim), assign(fresh, mill));
+
+    expect(refusals(sim)).toEqual([
+      {
+        kind: 'workerRefused',
+        entity: fresh,
+        building: mill,
+        player: HUMAN,
+        reason: 'experience',
+        jobType: CARPENTER,
+      },
+    ]);
+  });
+
+  it('reports a full workplace', () => {
+    const sim = new Simulation({ seed: 1, content: testContent() });
+    const mill = placeBuilding(sim, SAWMILL, 5, 5);
+    assignWorker(sim.world, ctxOf(sim), assign(settler(sim), mill));
+    const second = settler(sim);
+
+    assignWorker(sim.world, ctxOf(sim), assign(second, mill));
+
+    expect(refusals(sim)).toMatchObject([{ entity: second, reason: 'full', jobType: CARPENTER }]);
+  });
+
+  it('prefers the trade that passed more gates: an unearned craft over a full hauler slot', () => {
+    const sim = new Simulation({ seed: 1, content: testContent() });
+    gateCarpenter(sim);
+    const mill = placeBuilding(sim, TWIN_MILL, 5, 5);
+    const order = (e: Entity): AssignWorkerCommand => ({
+      kind: 'assignWorker',
+      entity: e,
+      building: mill,
+      jobPriority: [CARRIER, CARPENTER],
+    });
+    assignWorker(sim.world, ctxOf(sim), order(settler(sim))); // takes the one carrier slot
+    const fresh = settler(sim);
+
+    assignWorker(sim.world, ctxOf(sim), order(fresh));
+
+    expect(refusals(sim)).toMatchObject([{ entity: fresh, reason: 'experience', jobType: CARPENTER }]);
+  });
+
+  it("reports a building that offers none of the order's trades", () => {
+    const sim = new Simulation({ seed: 1, content: testContent() });
+    const mill = placeBuilding(sim, SAWMILL, 5, 5);
+    const worker = settler(sim);
+
+    assignWorker(sim.world, ctxOf(sim), {
+      kind: 'assignWorker',
+      entity: worker,
+      building: mill,
+      jobPriority: [],
+    });
+
+    expect(refusals(sim)).toMatchObject([{ entity: worker, reason: 'notOffered', jobType: null }]);
+  });
+
+  it('reports a trade the map has not allowed as locked, not as missing experience', () => {
+    const sim = new Simulation({ seed: 1, content: testContent() });
+    const mill = placeBuilding(sim, SAWMILL, 5, 5);
+    const worker = settler(sim);
+    const tribe = sim.content.tribes[0];
+    if (tribe === undefined) throw new Error('fixture has no tribe');
+    tribe.permissions = { job: [WOODCUTTER], house: [SAWMILL], good: [] }; // the sawmill, but not its trade
+
+    assignWorker(sim.world, ctxOf(sim), assign(worker, mill));
+
+    expect(refusals(sim)).toMatchObject([{ entity: worker, reason: 'locked', jobType: CARPENTER }]);
+  });
+});

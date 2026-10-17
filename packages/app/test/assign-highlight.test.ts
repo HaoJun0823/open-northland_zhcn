@@ -62,9 +62,9 @@ describe('tradeSlotsOf - the slots that seat a current trade', () => {
 /**
  * The snapshot-level projection over real sandbox content - the functions the view actually calls. The
  * key invariant: the highlight verdict (`computeAssignHighlight`, what the player sees green) and the click
- * resolver (`workerGroupAt`, what a click posts) must agree building-for-building, so a green
- * building never silently cancels the click and a red one never binds. Both read one verdict; this
- * proves they stay in lockstep over a live world.
+ * resolver (`workerGroupAt`, what a click posts) must agree building-for-building, so a green building
+ * posts the settler in a trade it offers and a red one still sends the order the sim refuses with a reason.
+ * Both read one verdict; this proves they stay in lockstep over a live world.
  */
 describe('computeAssignHighlight / workerGroupAt over sandbox content', () => {
   it('highlights own candidate buildings and the green/red verdict matches what a click would bind', () => {
@@ -88,10 +88,11 @@ describe('computeAssignHighlight / workerGroupAt over sandbox content', () => {
     const items = computeAssignHighlight(snapshot, [settler.id], buildingsByType);
     expect(items.length).toBeGreaterThan(0); // some own building employs someone
 
-    // Lockstep: for every highlighted building, `ok` iff the click resolver would post the settler there.
+    // Lockstep: every highlighted building takes the click, and a green one offers the settler a trade.
     for (const item of items) {
       const workers = workerGroupAt(snapshot, item.id, [settler.id], buildingsByType);
-      expect(item.ok).toBe(workers !== null);
+      expect(workers).not.toBeNull();
+      if (item.ok) expect(workers?.[0]?.jobPriority.length).toBeGreaterThan(0);
     }
     // At least one candidate is green (the settler's trade has an open slot somewhere) and the resolver
     // posts the settler there under a real job id.
@@ -165,16 +166,28 @@ describe('a workplace pick armed for a group', () => {
     },
   });
 
-  it('reds a workplace whose matching slot is full, with no fallback to another trade', () => {
+  it('reds a workplace whose matching slot is full, and still sends the order the sim refuses', () => {
     const snapshot = snapshotOf([coinMaker(1, 10), coinMaker(2, 10), coinMaker(3), mint(10)]);
     expect(computeAssignHighlight(snapshot, [3], byType)).toEqual([{ id: 10, ok: false }]);
-    expect(workerGroupAt(snapshot, 10, [3], byType)).toBeNull();
+    expect(workerGroupAt(snapshot, 10, [3], byType)).toEqual([
+      { entity: 3, jobPriority: [rebaseSlotJob(COIN_MAKER)] },
+    ]);
   });
 
   it('reds a full workplace a selected member already works at', () => {
     const snapshot = snapshotOf([coinMaker(1, 10), coinMaker(2, 10), coinMaker(3), mint(10)]);
     expect(computeAssignHighlight(snapshot, [1, 3], byType)).toEqual([{ id: 10, ok: false }]);
-    expect(workerGroupAt(snapshot, 10, [1, 3], byType)).toBeNull();
+    expect(workerGroupAt(snapshot, 10, [1, 3], byType)?.map((w) => w.entity)).toEqual([1, 3]);
+  });
+
+  it('sends a member of another trade to a red workplace with no trade to try', () => {
+    const miller: Ent = {
+      id: 4,
+      components: { Settler: { tribe: PRIMARY_TRIBE, jobType: 19 }, Owner: { player: HUMAN_PLAYER } },
+    };
+    const snapshot = snapshotOf([miller, mint(10)]);
+    expect(computeAssignHighlight(snapshot, [4], byType)).toEqual([{ id: 10, ok: false }]);
+    expect(workerGroupAt(snapshot, 10, [4], byType)).toEqual([{ entity: 4, jobPriority: [] }]);
   });
 
   it('greens a workplace for the unemployed members and posts every member it offers a trade', () => {

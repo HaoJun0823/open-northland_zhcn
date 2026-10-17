@@ -1921,6 +1921,22 @@ export const enGame = {
         unknown: '{building}: production has stopped. Select the workshop: its panel shows why.',
       },
     },
+    workerRefused: {
+      short: {
+        notOffered: 'Wrong trade',
+        full: 'No free post',
+        locked: 'Work locked',
+        experience: 'Lacks experience',
+      },
+      full: {
+        notOffered:
+          '{name} lacks the trade {building} needs. Right-click the building to change trade and take up work there.',
+        full: '{name}: {building} has no free workplace left. Free a post or build another one.',
+        locked: '{name}: work here ({building}) is not available yet. Its trade must be discovered first.',
+        experience:
+          '{name} lacks the experience for this trade: {profession}. Send someone more experienced, or first let them work in the trade that unlocks it.',
+      },
+    },
   },
   net: {
     defaultNick: 'Player',

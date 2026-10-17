@@ -136,13 +136,30 @@ describe.runIf(hasRealIr())('tutorial_003 playthrough', () => {
       // Page 11: the miller becomes the baker, the farmer the new miller, a fresh hand takes the farm.
       const bakery = only(buildingsOf(sim, PLAYER, 'work_bakery_00'), 'bakery');
       const freshHand = civilist(sim);
-      expect(sim.canChooseJob(freshHand, jobType(sim, 'miller'))).toBe(false);
       order(sim, PLAYER, {
         kind: 'assignWorker',
         entity: firstFarmer,
         building: bakery,
         jobPriority: [jobType(sim, 'baker')],
       });
+      // A hand without farm work behind him is refused the free mill, and told why.
+      order(sim, PLAYER, {
+        kind: 'assignWorker',
+        entity: freshHand,
+        building: mill,
+        jobPriority: [jobType(sim, 'miller')],
+      });
+      run(sim, log, 1);
+      expect(eventsOfKind(log, 'workerRefused')).toEqual([
+        {
+          kind: 'workerRefused',
+          entity: freshHand,
+          building: mill,
+          player: PLAYER,
+          reason: 'experience',
+          jobType: jobType(sim, 'miller'),
+        },
+      ]);
       order(sim, PLAYER, {
         kind: 'assignWorker',
         entity: secondFarmer,

@@ -202,6 +202,12 @@ export function galleryMessages(
         raiseShortage(raiser, naming, house, gallery.goodType);
       continue;
     }
+    if (name === 'workerRefused') {
+      // A full workplace is the one reason that names no trade the seat may not know yet.
+      const e = nextPerson(people);
+      if (e !== undefined && house !== undefined) raiser.refusedWorker(e, house, 'full', null);
+      continue;
+    }
     if (name === 'settlementAttacked') {
       if (house !== undefined) raiseFightRow(type, house, true);
       continue;

@@ -1,4 +1,10 @@
-import { type DiplomacyState, nodeOfPosition, type Paper, type WorldSnapshot } from '@open-northland/sim';
+import {
+  type DiplomacyState,
+  nodeOfPosition,
+  type Paper,
+  type WorkerRefusalReason,
+  type WorldSnapshot,
+} from '@open-northland/sim';
 import { type ChildOrderWait, num, positionOf, type SnapshotEntity } from '../../../game/snapshot.js';
 import { idleNoteType } from './idle-reasons.js';
 import type { MessageText, MessageTextParts, NamedSettler } from './text.js';
@@ -113,6 +119,46 @@ export class MessageRaiser {
           goodName: null,
           stanceName: null,
           training: { course, profession: this.naming.technology('job', jobType) ?? '' },
+        });
+      },
+    );
+  }
+
+  /**
+   * A worker order `building` refused `e` for `reason`, about trade `jobType` (null when none). One note per
+   * building and reason in a pass: a group order refused alike names its first member.
+   */
+  refusedWorker(
+    e: SnapshotEntity,
+    building: SnapshotEntity,
+    reason: WorkerRefusalReason,
+    jobType: number | null,
+  ): void {
+    const type = USER_MESSAGE_TYPE.workerRefused;
+    this.raise(
+      `${type}|building:${building.id}|${reason}`,
+      {
+        type,
+        subject: { kind: 'settler', entity: e.id },
+        at: nodeOf(e),
+        about: null,
+        goodType: null,
+        technologies: null,
+        jobType,
+      },
+      () => {
+        const named = this.naming.settler(e, this.snapshot);
+        return this.naming.text(type, {
+          subjectName: named.name,
+          jobLabel: named.jobLabel,
+          female: named.female,
+          goodName: null,
+          stanceName: null,
+          refusal: {
+            reason,
+            building: this.naming.building(building),
+            profession: jobType === null ? '' : (this.naming.technology('job', jobType) ?? ''),
+          },
         });
       },
     );

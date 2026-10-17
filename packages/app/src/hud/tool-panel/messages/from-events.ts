@@ -471,6 +471,14 @@ export function messagesFromEvents(
         if (e !== undefined) raiser.vehicle(CREW_REFUSAL_MESSAGE[ev.reason], e);
         break;
       }
+      case 'workerRefused': {
+        const e = ownedPerson(ev.entity);
+        const building = entityById(snapshot, ev.building);
+        if (e !== undefined && building !== undefined) {
+          raiser.refusedWorker(e, building, ev.reason, ev.jobType);
+        }
+        break;
+      }
       case 'riderRefused': {
         const e = ownedPerson(ev.entity);
         if (e !== undefined) raiser.settler(RIDER_REFUSAL_MESSAGE[ev.reason], e);

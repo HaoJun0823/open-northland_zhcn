@@ -1,3 +1,4 @@
+import type { WorkerRefusalReason } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { idleNoteType } from '../src/hud/tool-panel/messages/idle-reasons.js';
 import {
@@ -42,6 +43,7 @@ function partsFor(name: UserMessageTypeName, female: boolean): MessageTextParts 
     technologySections: { jobs: ['Młynarz'], goods: [], houses: [], vehicles: [] },
     training: { course: 'school', profession: 'Młynarz' },
     stall: 'noInputSource',
+    refusal: { reason: 'experience', building: 'Młyn', profession: 'Młynarz' },
     ...(name === 'familyBlocked'
       ? { family: { wait: 'livesApart', partner: { name: 'Olaf', jobLabel: 'Zwiadowca', female: false } } }
       : {}),
@@ -67,6 +69,8 @@ function shortLines(copy: NoticeCopy): Map<string, Set<string>> {
     lines.set(`family:${wait}`, new Set([line]));
   for (const [reason, line] of Object.entries(copy.productionStalled.short))
     lines.set(`stall:${reason}`, new Set([line]));
+  for (const [reason, line] of Object.entries(copy.workerRefused.short))
+    lines.set(`refusal:${reason}`, new Set([line]));
   return lines;
 }
 
@@ -217,6 +221,23 @@ describe('notice text', () => {
     expect(stall('unknown').full).toBe(
       'Młyn: produkcja stoi. Zaznacz warsztat: jego panel pokaże przyczynę.',
     );
+  });
+
+  it('words a refused worker order by its reason, naming the workplace and the trade', () => {
+    const refused = (reason: WorkerRefusalReason) =>
+      compose(pl.userMessages, 'workerRefused', {
+        ...BARE,
+        refusal: { reason, building: 'Młyn', profession: 'Młynarz' },
+      });
+    expect(refused('experience')).toEqual({
+      short: 'Za mało wprawy',
+      full: 'Bjorn ma za mało doświadczenia na ten zawód: Młynarz. Wyślij kogoś bardziej doświadczonego albo niech najpierw popracuje w zawodzie, który go odblokowuje.',
+    });
+    expect(refused('full').full).toBe(
+      'Bjorn: Młyn nie ma już wolnych miejsc pracy. Zwolnij któreś miejsce albo zbuduj drugi taki budynek.',
+    );
+    expect(refused('notOffered').full).toContain('nie ma zawodu, którego potrzebuje Młyn.');
+    expect(refused('locked').short).toBe('Praca nieodkryta');
   });
 
   it.each(COPIES)('words every idle reason in %s, and a worker the sim gives none', (_lang, copy) => {

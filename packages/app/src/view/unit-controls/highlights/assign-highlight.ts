@@ -22,7 +22,7 @@ import {
  * The pure snapshot projection behind the assign-a-workplace button and its green or red building tint.
  * The button places each member's current profession and never re-trades them, so a building greens when
  * a worker slot matches a member's trade canonically and still has room. The sim keeps enforcing its own
- * XP gate on each member's `assignWorker`.
+ * XP gate on each member's `assignWorker`, and names the reason it refuses one.
  */
 
 /** A building type's worker slots. */
@@ -153,9 +153,10 @@ export function computeAssignHighlight(
 }
 
 /**
- * The members a click on one building posts, each with the building's slots for its trade, or null when
- * the highlight reds it, so a red building cancels the click. Every member the building offers its trade
- * goes along; the sim picks who is seated against its current staffing.
+ * The members a click on one building posts, each with the building's slots for its trade, or null for a
+ * building the highlight leaves untinted. On a green building every member it offers its trade goes along
+ * and the sim picks who is seated against its current staffing. A red building still takes the whole
+ * side's selection, so the sim's refusal tells the player why.
  */
 export function workerGroupAt(
   snapshot: WorldSnapshot,
@@ -166,13 +167,14 @@ export function workerGroupAt(
   const building = entityById(snapshot, buildingId);
   if (building === undefined) return null;
   const settlers = settlersIn(snapshot, settlerIds);
-  if (!workplaceVerdict(snapshot, building, crewOf(settlers), buildingsByType).ok) return null;
+  const { candidate, ok } = workplaceVerdict(snapshot, building, crewOf(settlers), buildingsByType);
+  if (!candidate) return null;
   const slots = slotsOf(building, buildingsByType);
   const team = ownerKeyOf(building);
   const workers: GroupWorker[] = [];
   for (const settler of settlers) {
     const jobPriority = tradeSlotsOf(settlerJobType(settler), slots);
-    if (ownerKeyOf(settler) === team && jobPriority.length > 0) {
+    if (ownerKeyOf(settler) === team && (jobPriority.length > 0 || !ok)) {
       workers.push({ entity: settler.id as Entity, jobPriority });
     }
   }

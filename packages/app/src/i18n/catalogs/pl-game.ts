@@ -1889,6 +1889,23 @@ export const plGame = {
         unknown: '{building}: produkcja stoi. Zaznacz warsztat: jego panel pokaże przyczynę.',
       },
     },
+    workerRefused: {
+      short: {
+        notOffered: 'Nie ten zawód',
+        full: 'Brak miejsc',
+        locked: 'Praca nieodkryta',
+        experience: 'Za mało wprawy',
+      },
+      full: {
+        notOffered:
+          '{name} nie ma zawodu, którego potrzebuje {building}. Kliknij budynek prawym przyciskiem myszy: osadnik zmieni zawód i podejmie tam pracę.',
+        full: '{name}: {building} nie ma już wolnych miejsc pracy. Zwolnij któreś miejsce albo zbuduj drugi taki budynek.',
+        locked:
+          '{name}: praca tutaj ({building}) nie jest jeszcze dostępna. Ten zawód trzeba najpierw odkryć.',
+        experience:
+          '{name} ma za mało doświadczenia na ten zawód: {profession}. Wyślij kogoś bardziej doświadczonego albo niech najpierw popracuje w zawodzie, który go odblokowuje.',
+      },
+    },
   },
   net: {
     defaultNick: 'Gracz',

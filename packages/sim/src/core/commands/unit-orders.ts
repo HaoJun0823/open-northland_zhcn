@@ -241,6 +241,7 @@ export type UnitOrderCommand =
        * Employ one owned settler at `building`: bind it to that workplace and set its `jobType` to the
        * open worker slot it qualifies for. The only way a settler becomes employed. A workplace beyond
        * the settler's signpost reach still binds; the settler stands lost until the network reaches it.
+       * Refused with `workerRefused` when the building has no trade for the settler.
        */
       readonly kind: 'assignWorker';
       readonly entity: Entity;

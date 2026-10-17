@@ -12,8 +12,9 @@ import type { MessageText } from './text.js';
  * the two attack notes report one fight area each, and has a worker report each product it failed to
  * make where `productionStalled` reports the workshop once, with the reason, and raises no word about a
  * building site short of a material (`constructionStarved`) and gives scouts no landmass-wide sweep to
- * report the end of (`explorationFinished`). `settingsNeedRestart` reports the player's own settings
- * change that waits for the map's next start, not anything in the world.
+ * report the end of (`explorationFinished`). `workerRefused` says why a worker order seated nobody.
+ * `settingsNeedRestart` reports the player's own settings change that waits for the map's next start, not
+ * anything in the world.
  */
 export const USER_MESSAGE_TYPE = {
   lostWithoutSignposts: 0x03,
@@ -56,6 +57,7 @@ export const USER_MESSAGE_TYPE = {
   constructionStarved: 0x84,
   explorationFinished: 0x85,
   settingsNeedRestart: 0x86,
+  workerRefused: 0x87,
 } as const;
 
 export type UserMessageTypeName = keyof typeof USER_MESSAGE_TYPE;
@@ -154,8 +156,8 @@ export interface PendingMessage {
   readonly technologies: readonly MessageTechnology[] | null;
   /** The building type an unlock note pictures in place of its settler; absent when it opens none. */
   readonly building?: number;
-  /** The subject settler's trade when the message was raised, or the trade a course taught; part of the
-   *  identity. */
+  /** The subject settler's trade when the message was raised, the trade a course taught, or the trade a
+   *  worker order was refused; part of the identity. */
   readonly jobType: number | null;
   /** A family note's reason, part of its identity: a new reason retires the old note and raises its own. */
   readonly familyWait?: ChildOrderWait;

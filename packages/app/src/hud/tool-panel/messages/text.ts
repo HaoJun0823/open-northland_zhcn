@@ -1,3 +1,4 @@
+import type { WorkerRefusalReason } from '@open-northland/sim';
 import type { ChildOrderWait } from '../../../game/snapshot.js';
 import { bcp47Tag, formatMessage, type Messages, pluralForm } from '../../../i18n/index.js';
 import { shortageTradeOf } from './idle-reasons.js';
@@ -15,9 +16,12 @@ export type NoticeCopy = Messages['userMessages'];
 /** A catalog line, or a pair whose wording agrees with a settler subject's sex. */
 type CopyLine = string | { readonly he: string; readonly she: string };
 
-/** The types worded by the per-type tables; `familyBlocked`, `productionStalled` and `cannotFindGood`
- *  have their own table per reason. */
-type TabledTypeName = Exclude<UserMessageTypeName, 'familyBlocked' | 'productionStalled' | 'cannotFindGood'>;
+/** The types worded by the per-type tables; `familyBlocked`, `productionStalled`, `cannotFindGood` and
+ *  `workerRefused` have their own table per reason. */
+type TabledTypeName = Exclude<
+  UserMessageTypeName,
+  'familyBlocked' | 'productionStalled' | 'cannotFindGood' | 'workerRefused'
+>;
 
 const TYPE_NAME_BY_ID: ReadonlyMap<UserMessageType, UserMessageTypeName> = new Map(
   (Object.keys(USER_MESSAGE_TYPE) as UserMessageTypeName[]).map((name) => [USER_MESSAGE_TYPE[name], name]),
@@ -59,6 +63,12 @@ export interface MessageTextParts {
   /** Why a `nothingToDo` or `cannotFindGood` note's worker stands idle, null while the sim names no
    *  reason; `goodName` lists the named goods it is about, null for none. */
   readonly idle?: IdleReason | null;
+  /** Why a `workerRefused` note's worker order seated nobody, the workplace and the trade it names. */
+  readonly refusal?: {
+    readonly reason: WorkerRefusalReason;
+    readonly building: string;
+    readonly profession: string;
+  };
   /** What holds a `familyBlocked` note's child order, and the spouse it names. */
   readonly family?: { readonly wait: ChildOrderWait; readonly partner: NamedSettler | null };
   /** What an attack note's fight has hit, and the named seats and creatures that struck. */
@@ -200,6 +210,15 @@ export function composeMessageText(
     return {
       short: formatMessage(copy.productionStalled.short[parts.stall], values),
       full: formatMessage(copy.productionStalled.full[parts.stall], values),
+    };
+  }
+  if (name === 'workerRefused') {
+    if (parts.refusal === undefined) throw new Error('user-messages: a workerRefused note needs its reason');
+    const { reason, building, profession } = parts.refusal;
+    const refused = { ...values, building, profession };
+    return {
+      short: formatMessage(copy.workerRefused.short[reason], refused),
+      full: formatMessage(copy.workerRefused.full[reason], refused),
     };
   }
   if (name === 'nothingToDo' || name === 'cannotFindGood') {

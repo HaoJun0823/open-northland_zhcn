@@ -2074,6 +2074,23 @@ export const deGame = {
           '{building}: Die Produktion steht still. Wähle die Werkstatt aus: Ihr Fenster zeigt den Grund.',
       },
     },
+    workerRefused: {
+      short: {
+        notOffered: 'Falscher Beruf',
+        full: 'Stellen belegt',
+        locked: 'Arbeit gesperrt',
+        experience: 'Zu unerfahren',
+      },
+      full: {
+        notOffered:
+          '{name} hat nicht den Beruf, den {building} braucht. Klicke mit der rechten Maustaste auf das Gebäude, um den Beruf zu wechseln und dort zu arbeiten.',
+        full: '{name}: {building} hat keine freie Arbeitsstelle mehr. Gib eine Stelle frei oder baue ein weiteres solches Gebäude.',
+        locked:
+          '{name}: Die Arbeit hier ({building}) ist noch nicht verfügbar. Der Beruf muss erst entdeckt werden.',
+        experience:
+          '{name} hat zu wenig Erfahrung für diesen Beruf: {profession}. Schicke jemand Erfahreneren oder lass zuerst im Beruf arbeiten, der ihn freischaltet.',
+      },
+    },
   },
   net: {
     defaultNick: 'Spieler',

@@ -575,6 +575,36 @@ describe('user messages from sim events', () => {
     ]);
   });
 
+  it("raises one note per building and reason for the seat's refused workers, none for another seat", () => {
+    const snap = snapshot(50, [
+      { id: 1, player: LOCAL, kind: 'building' },
+      { id: 2, player: LOCAL, kind: 'person' },
+      { id: 3, player: LOCAL, kind: 'person' },
+      { id: 4, player: ENEMY, kind: 'person' },
+    ]);
+    const refused = (entity: number, player: number, reason: 'full' | 'experience'): SimEvent => ({
+      kind: 'workerRefused',
+      entity: e(entity),
+      building: e(1),
+      player,
+      reason,
+      jobType: 19,
+    });
+    const out = run(
+      [
+        refused(4, ENEMY, 'experience'),
+        refused(2, LOCAL, 'experience'),
+        refused(3, LOCAL, 'experience'),
+        refused(3, LOCAL, 'full'),
+      ],
+      snap,
+    );
+    expect(out.map((m) => [m.type, m.subject, m.jobType])).toEqual([
+      [USER_MESSAGE_TYPE.workerRefused, { kind: 'settler', entity: e(2) }, 19],
+      [USER_MESSAGE_TYPE.workerRefused, { kind: 'settler', entity: e(3) }, 19],
+    ]);
+  });
+
   it('ignores events with no message in the original, a birth among them', () => {
     const snap = snapshot(50, [
       { id: 1, player: LOCAL, kind: 'building' },

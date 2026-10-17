@@ -1,7 +1,9 @@
 import { Building, ownerOf, ownersCompatible, Settler } from '../../../components/index.js';
 import { contentIndex } from '../../../core/content-index.js';
+import type { WorkerRefusalReason } from '../../../core/events.js';
 import type { Entity, World } from '../../../ecs/world.js';
 import type { SystemContext } from '../../context.js';
+import { typeAllowed } from '../../progression/availability.js';
 import {
   jobEnabled,
   type NeedSubject,
@@ -23,6 +25,20 @@ export interface OpeningsQuery extends NeedSubject {
   readonly jobType: number | null;
 }
 
+/** A worker order's outcome at one building: the trade it seats the settler in, or why it seats nobody. */
+export type WorkerOpening =
+  | { readonly jobType: number }
+  | { readonly refused: WorkerRefusalReason; readonly jobType: number | null };
+
+/** The gates a trade passes in {@link workerOpening}'s order; a refusal names the furthest one reached. */
+const GATE_RANK: Readonly<Record<WorkerRefusalReason | 'garrison', number>> = {
+  notOffered: 0,
+  full: 1,
+  garrison: 2,
+  locked: 3,
+  experience: 4,
+};
+
 /**
  * Select the first offered, understaffed trade the worker qualifies for. Catalogs with explicit house
  * requirements separate construction discovery from staffing; a newly chosen trade must be known to
@@ -36,33 +52,66 @@ export function openWorkerJobFromList(
   building: Entity,
   jobPriority: readonly number[],
 ): number | null {
+  const opening = workerOpening(query, building, jobPriority);
+  return 'refused' in opening ? null : opening.jobType;
+}
+
+/** {@link openWorkerJobFromList} with the reason it seats nobody, read off the gate that refused. */
+export function workerOpening(
+  query: OpeningsQuery,
+  building: Entity,
+  jobPriority: readonly number[],
+): WorkerOpening {
   const { world, ctx, tribe } = query;
   const b = world.tryGet(building, Building);
-  if (b === undefined) return null;
-  if (!ownersCompatible(query.owner, ownerOf(world, building))) return null; // another player's workplace
+  // Another player's workplace offers this settler nothing.
+  if (b === undefined || !ownersCompatible(query.owner, ownerOf(world, building))) {
+    return { refused: 'notOffered', jobType: null };
+  }
   if (!query.authored && !workplaceStaffable(world, ctx, ownerOf(world, building), tribe, b.buildingType))
-    return null;
+    return { refused: 'locked', jobType: null };
   const offered = buildingWorkerJobs(world, ctx, building);
   // Under a technology table the trade is the gate a workplace's post reads, not the house.
   const tradeGated = contentIndex(ctx.content).tribes.get(tribe)?.technology !== undefined;
+  let refused: WorkerRefusalReason = 'notOffered';
+  let refusedJob: number | null = null;
+  let reached = -1;
+  const refuse = (gate: keyof typeof GATE_RANK, jobType: number): void => {
+    if (GATE_RANK[gate] <= reached) return;
+    reached = GATE_RANK[gate];
+    refused = gate === 'garrison' ? 'notOffered' : gate;
+    refusedJob = gate === 'garrison' ? null : jobType;
+  };
   for (const jobType of jobPriority) {
     if (!offered.has(jobType)) continue;
-    if (!jobUnderstaffed(query, building, jobType)) continue;
-    if (!garrisonPostOpenTo(query, jobType)) continue;
+    if (!jobUnderstaffed(query, building, jobType)) {
+      refuse('full', jobType);
+      continue;
+    }
+    if (!garrisonPostOpenTo(query, jobType)) {
+      refuse('garrison', jobType);
+      continue;
+    }
     const alreadyHoldsTrade = query.jobType === jobType;
     if (
       tradeGated &&
       !query.authored &&
       !alreadyHoldsTrade &&
       !jobEnabled(world, ctx, query.owner, tribe, jobType)
-    )
+    ) {
+      refuse('locked', jobType);
       continue;
+    }
     // A bow soldier's `needforjob 40 5 69` reads a fight track only fighting accrues, so re-gating a
     // settler already in the trade would leave every tower post unmannable.
-    if (!alreadyHoldsTrade && !settlerMeetsNeed(world, ctx, query, 'job', jobType)) continue;
-    return jobType;
+    if (!alreadyHoldsTrade && !settlerMeetsNeed(world, ctx, query, 'job', jobType)) {
+      // The need gate also reads the map's permission table, which is a lock rather than experience.
+      refuse(typeAllowed(world, ctx, query.owner, tribe, 'job', jobType) ? 'experience' : 'locked', jobType);
+      continue;
+    }
+    return { jobType };
   }
-  return null;
+  return { refused, jobType: refusedJob };
 }
 
 /**

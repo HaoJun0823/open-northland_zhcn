@@ -25,8 +25,8 @@ import type { SystemContext } from '../../context.js';
 import {
   applyTradeChange,
   bindEmployment,
-  openWorkerJobFromList,
   releaseEmployment,
+  workerOpening,
 } from '../../economy/jobs/index.js';
 import { builderCrewSize, needsRepair, repairCrewLimit } from '../../economy/repair.js';
 import { releaseSiteClaim } from '../../economy/site-claim.js';
@@ -92,7 +92,8 @@ export function reidleAsJob(world: World, ctx: SystemContext, e: Entity, jobType
  * Assign one owned settler to work at a specific `building` - see the command doc. Resolves the building's
  * open worker job in the command's `jobPriority` order, re-idles the settler as that job, and binds it to
  * the building. The priority expresses the RTS intent of a tradesman first and a hauler as fallback, so a
- * settler that has not earned the trade's `needforjob` repeats falls through to the hauler slot.
+ * settler that has not earned the trade's `needforjob` repeats falls through to the hauler slot. An order
+ * that seats nobody says why through `workerRefused`.
  */
 export function assignWorker(
   world: World,
@@ -105,12 +106,13 @@ export function assignWorker(
   if (!world.isAlive(b) || !world.has(b, Building)) return;
   const settler = world.get(e, Settler);
   const progress = world.get(e, SettlerProgress);
-  const jobType = openWorkerJobFromList(
+  const owner = ownerOf(world, e);
+  const opening = workerOpening(
     {
       world,
       ctx,
       tribe: settler.tribe,
-      owner: ownerOf(world, e),
+      owner,
       experience: progress.experience,
       learned: progress.learned,
       jobType: settler.jobType,
@@ -118,7 +120,18 @@ export function assignWorker(
     b,
     command.jobPriority,
   );
-  if (jobType === null) return;
+  if ('refused' in opening) {
+    ctx.events.emit({
+      kind: 'workerRefused',
+      entity: e,
+      building: b,
+      player: owner ?? null,
+      reason: opening.refused,
+      jobType: opening.jobType,
+    });
+    return;
+  }
+  const { jobType } = opening;
 
   world.remove(e, JobAssignment); // drop any prior binding before re-binding to the chosen building
   reidleAsJob(world, ctx, e, jobType);

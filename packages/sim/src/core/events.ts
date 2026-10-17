@@ -6,6 +6,14 @@ import { type HalfCellNode, nodeOfPosition } from '../nav/halfcell.js';
 import type { Fixed } from './fixed.js';
 
 /**
+ * Why a worker order seats nobody, by the first gate its best trade failed: the building offers none of
+ * the order's trades or none open to this settler's class (`notOffered`), every slot is taken (`full`),
+ * the player's technology does not open the trade or building yet (`locked`), or the settler lacks the
+ * trade's `needforjob` experience (`experience`).
+ */
+export type WorkerRefusalReason = 'notOffered' | 'full' | 'locked' | 'experience';
+
+/**
  * One-shot things that happened during a tick, exposed read-only on the snapshot for render and audio.
  * Never delivered by callback: a callback could mutate sim state and break determinism.
  */
@@ -91,6 +99,19 @@ export type SimEvent =
       readonly entity: Entity;
       readonly player: number | null;
       readonly reason: 'cannotEnter' | 'cannotLeave';
+    }
+  | {
+      /**
+       * A worker order found no trade at `building` the settler may take. `jobType` is the trade the
+       * refusal is about: of the order's trades, the one that passed the most gates; null for
+       * `notOffered` and for a building whose type the tribe may not staff yet.
+       */
+      readonly kind: 'workerRefused';
+      readonly entity: Entity;
+      readonly building: Entity;
+      readonly player: number | null;
+      readonly reason: WorkerRefusalReason;
+      readonly jobType: number | null;
     }
   | { readonly kind: 'buildingFinished'; readonly entity: Entity }
   | {

@@ -100,10 +100,6 @@ export const separationSystem: System = (world, ctx) => {
       postGrid === undefined
         ? 0
         : postGrid.collectAround(nodeHx, nodeHy, nearPosts, nearPostPlayers, nearPostNodes);
-    if (moverCount === 0 && postCount === 0) {
-      if (isFirm) clearGrind(world, e);
-      continue;
-    }
     let player: number | undefined;
     if (postCount > 0) {
       player = world.get(e, Owner).player;

@@ -60,14 +60,6 @@ function boundFarmTarget(
   return { farm: b, spec };
 }
 
-/** What the field loop reads of a {@link Crop}. */
-interface FieldView {
-  readonly goodType: number;
-  readonly farm: Entity | null;
-  readonly stage: number;
-  readonly stages: number;
-}
-
 const NO_FIELDS: readonly Entity[] = [];
 
 /**
@@ -127,23 +119,31 @@ export function planFarmer(plan: PlannerContext, claims: FarmClaims): boolean {
   let thirstyStage = Number.POSITIVE_INFINITY;
   let thirstyCell = 0 as NodeId;
   let thirstyDist = Number.POSITIVE_INFINITY;
-  const consider = (c: Entity, crop: FieldView): void => {
-    if (crop.goodType !== spec.goodType) return;
+  // The farm's own fields, then the map's unowned ones around it, walked as one run without joining them.
+  const own = targets.cropsByFarm.get(farm) ?? NO_FIELDS;
+  const anchorCoords = terrain.coordsOf(anchor);
+  const near = resourcesNearNode(world, anchorCoords.x, anchorCoords.y, spec.farming.fieldRadius);
+  for (let i = 0, count = own.length + near.length; i < count; i++) {
+    const owned = i < own.length;
+    const c = (owned ? own[i] : near[i - own.length]) as Entity;
+    const crop = owned ? world.get(c, Crop) : world.tryGet(c, Crop);
+    if (crop === undefined || (!owned && crop.farm !== null)) continue;
+    if (crop.goodType !== spec.goodType) continue;
     if (crop.farm === null) {
       const cp = world.get(c, Position);
       const cn = nodeOfPosition(cp.x, cp.y);
       const cropNode = terrain.nodeAtClamped(cn.hx, cn.hy);
-      if (manhattan(terrain, anchor, cropNode) > spec.farming.fieldRadius) return;
+      if (manhattan(terrain, anchor, cropNode) > spec.farming.fieldRadius) continue;
     }
     // Counted before the reachability gate: the plot cap is a fact about the farm, not about which farmer
     // is asking.
     fields++;
-    if (claims.targets.has(c)) return;
+    if (claims.targets.has(c)) continue;
     // A growing field further along than the thirstiest so far cannot be picked, so its cell is not resolved.
-    if (crop.stage < crop.stages && crop.stage > thirstyStage) return;
+    if (crop.stage < crop.stages && crop.stage > thirstyStage) continue;
     const cell = interactionCell(world, ctx, terrain, c, here);
-    if (claims.nodes.has(cell)) return;
-    if (unreachableWorkCell(gates, here, cell)) return;
+    if (claims.nodes.has(cell)) continue;
+    if (unreachableWorkCell(gates, here, cell)) continue;
     const dist = manhattan(terrain, here, cell);
     if (crop.stage >= crop.stages) {
       if (closer(dist, cell, ripeDist, ripeCell)) {
@@ -160,19 +160,6 @@ export function planFarmer(plan: PlannerContext, claims: FarmClaims): boolean {
       thirstyDist = dist;
       thirstyCell = cell;
     }
-  };
-  // The farm's own fields, then the map's unowned ones around it, without joining the lists.
-  const own = targets.cropsByFarm.get(farm) ?? NO_FIELDS;
-  for (let i = 0; i < own.length; i++) {
-    const c = own[i] as Entity;
-    consider(c, world.get(c, Crop));
-  }
-  const anchorCoords = terrain.coordsOf(anchor);
-  const near = resourcesNearNode(world, anchorCoords.x, anchorCoords.y, spec.farming.fieldRadius);
-  for (let i = 0; i < near.length; i++) {
-    const c = near[i] as Entity;
-    const crop = world.tryGet(c, Crop);
-    if (crop?.farm === null) consider(c, crop);
   }
 
   // Any store that could take the crop: the farm's own slot, or a warehouse the delivery rung overflows to.

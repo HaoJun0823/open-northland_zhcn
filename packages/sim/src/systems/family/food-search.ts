@@ -21,10 +21,11 @@ import { type FoodSources, foodSourcesOf } from './food-sources.js';
 const RING_MAX_RADIUS = 48;
 
 /**
- * Candidate count at or below which {@link ExternalFoodIndex.nearest} goes straight to the linear scan.
- * Performance knob with an identical winner: the ring and the linear scan share the
- * (distance, entity-id) order. A full sweep reads about 2 * {@link RING_MAX_RADIUS}^2 nodes, more than
- * a few hundred candidates judged nearest-first.
+ * Count of the seeker's own side's candidates at or below which {@link ExternalFoodIndex.nearest} goes
+ * straight to the linear scan over that side. Performance knob with an identical winner: the ring and the
+ * linear scan share the (distance, entity-id) order, and the ring rejects every other side's candidate. A
+ * full sweep reads about 2 * {@link RING_MAX_RADIUS}^2 nodes, more than a few hundred candidates judged
+ * nearest-first.
  */
 const RING_MIN_CANDIDATES = 256;
 
@@ -70,13 +71,11 @@ export class ExternalFoodIndex {
       this.liftableFood(e, roomy) !== null &&
       this.inArea(e, gate) &&
       !this.standRetired(e, from, avoid);
-    const hit =
-      candidates.length <= RING_MIN_CANDIDATES
-        ? null
-        : buckets.nearest(from.hx, from.hy, 0, RING_MAX_RADIUS, accept);
+    const side = this.onSide(owner);
+    const ringed = side.length > RING_MIN_CANDIDATES;
+    const hit = ringed ? buckets.nearest(from.hx, from.hy, 0, RING_MAX_RADIUS, accept) : null;
     // A ring sweep that missed rejected every candidate inside its radius already.
-    const swept = candidates.length <= RING_MIN_CANDIDATES ? -1 : RING_MAX_RADIUS;
-    const store = hit?.entity ?? this.linearNearest(this.onSide(owner), from, accept, swept);
+    const store = hit?.entity ?? this.linearNearest(side, from, accept, ringed ? RING_MAX_RADIUS : -1);
     if (store === null) return null;
     const goodType = this.liftableFood(store, roomy);
     // A null here would mean a mid-pass mutation drained the winner: fail the query rather than guess.

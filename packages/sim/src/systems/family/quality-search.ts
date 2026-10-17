@@ -60,13 +60,12 @@ export class ExternalQualityIndex {
       if (cell !== null && cell !== here && avoid?.(cell) === true) return false;
       return true;
     };
-    const hit =
-      this.candidates.length <= RING_MIN_CANDIDATES
-        ? null
-        : this.bucketed().nearest(from.hx, from.hy, 0, RING_MAX_RADIUS, accept);
+    // The ring rejects every other side's candidate, so a small side is judged faster by the linear scan.
+    const side = this.onSide(owner);
+    const ringed = side.length > RING_MIN_CANDIDATES;
+    const hit = ringed ? this.bucketed().nearest(from.hx, from.hy, 0, RING_MAX_RADIUS, accept) : null;
     // A ring sweep that missed rejected every candidate inside its radius already.
-    const swept = this.candidates.length <= RING_MIN_CANDIDATES ? -1 : RING_MAX_RADIUS;
-    const store = hit?.entity ?? this.linearNearest(this.onSide(owner), from, accept, swept);
+    const store = hit?.entity ?? this.linearNearest(side, from, accept, ringed ? RING_MAX_RADIUS : -1);
     if (store === null) return null;
     const goodType = this.lowestDemanded(store, demanded);
     return goodType === null ? null : { store, goodType };

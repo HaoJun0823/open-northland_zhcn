@@ -29,6 +29,8 @@ import { entityNode } from '../../../spatial/nodes.js';
 export interface Raider extends Shooter {
   readonly entity: Entity;
   readonly component: number;
+  /** What an attack on his fire strikes: the man himself. */
+  readonly target: Entity;
 }
 
 /** An enemy fighter's node and reach: how far from it his swing or shot lands, in Manhattan nodes. A loose
@@ -43,6 +45,8 @@ export interface Shooter {
 /** A {@link Shooter} holding an enemy tower post, with the tower he shoots from. */
 export interface PostedShooter extends Shooter {
   readonly tower: Entity;
+  /** What an attack on his fire strikes: the tower. */
+  readonly target: Entity;
 }
 
 /** The enemy's fire over the map, narrowed to the shooters a search can meet before it runs its test. */
@@ -212,7 +216,7 @@ function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph):
     fighters[n++] =
       was !== undefined && sameFighter(was, e, owner, x, y, component, reach)
         ? was
-        : { entity: e, x, y, component, reach, owner };
+        : { entity: e, target: e, x, y, component, reach, owner };
   }
   fighters.length = n;
   scan.spare = scan.fighters;
@@ -327,7 +331,7 @@ export function enemyPosts(
     const held = heldWeapon(world, ctx, e);
     if (tower === null || held === null || held.maxRange === 0) continue;
     const at = terrain.coordsOf(entityNode(world, terrain, e));
-    posts.push({ tower, x: at.x, y: at.y, reach: garrisonReach(held).maxRange });
+    posts.push({ tower, target: tower, x: at.x, y: at.y, reach: garrisonReach(held).maxRange });
   }
   return posts;
 }

@@ -504,14 +504,12 @@ function fireOver(
   player: number,
   wave: Wave,
 ): readonly Fire[] {
-  const fire: Fire[] = enemyPosts(world, ctx, terrain, player).map((post) => ({
-    ...post,
-    target: post.tower,
-  }));
+  // A fresh list per call, so the raiders join it in place.
+  const fire: Fire[] = enemyPosts(world, ctx, terrain, player);
   const { hx, hy } = wave.centre;
   for (const raider of seatRaiders(world, ctx, terrain, player)) {
     const near = Math.abs(raider.x - hx) + Math.abs(raider.y - hy) <= CHARGE_RADIUS_NODES + raider.reach;
-    if (near && isRangedFighter(world, ctx, raider.entity)) fire.push({ ...raider, target: raider.entity });
+    if (near && isRangedFighter(world, ctx, raider.entity)) fire.push(raider);
   }
   return fire;
 }

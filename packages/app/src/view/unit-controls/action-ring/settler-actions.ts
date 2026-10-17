@@ -9,6 +9,7 @@ import {
   actionRingScale,
   layoutActionRing,
 } from '../../../hud/action-ring/index.js';
+import { setHidden } from '../../../hud/dom/parts/dom.js';
 import { HUD_DOM_Z } from '../../../hud/dom/root.js';
 import { clientToScreen, screenScale } from '../../camera/index.js';
 import { el } from '../../overlay.js';
@@ -66,7 +67,7 @@ export async function mountSettlerActions(opts: SettlerActionsOptions): Promise<
 
   const layer = el('div', LAYER_STYLE);
   layer.className = 'on-ring';
-  layer.hidden = true;
+  setHidden(layer, true);
   const cleanup: Array<() => void> = [() => layer.remove()];
   try {
     document.body.append(layer);
@@ -146,7 +147,7 @@ export async function mountSettlerActions(opts: SettlerActionsOptions): Promise<
       mode = 'closed';
       anchor = null; // no anchor means no open session, and this is the only place `closed` is entered
       menu = null;
-      layer.hidden = true;
+      setHidden(layer, true);
       hideTransient();
     };
 
@@ -173,7 +174,7 @@ export async function mountSettlerActions(opts: SettlerActionsOptions): Promise<
     const update = (camera: Camera, snapshot: WorldSnapshot): void => {
       const centre = mode === 'closed' ? null : opts.selectionCentre(snapshot);
       if (centre === null) {
-        layer.hidden = true;
+        setHidden(layer, true);
         layout = EMPTY_LAYOUT;
         selectedIds = [];
         anchor = null;
@@ -200,7 +201,7 @@ export async function mountSettlerActions(opts: SettlerActionsOptions): Promise<
           picker.refresh();
         }
         // Keep the ring hidden under the DOM list window.
-        layer.hidden = true;
+        setHidden(layer, true);
         layout = EMPTY_LAYOUT;
         visuals.hideAll();
         return;
@@ -224,7 +225,7 @@ export async function mountSettlerActions(opts: SettlerActionsOptions): Promise<
         anchor.leftBound ?? 0,
       );
       visuals.placeLayout(layout, screenScale(canvas, app.renderer.resolution));
-      layer.hidden = false;
+      setHidden(layer, false);
     };
 
     // Click routing is order-independent: unit-controls asks `claimsPointer` before world picking.
@@ -276,7 +277,7 @@ export async function mountSettlerActions(opts: SettlerActionsOptions): Promise<
         menu = null;
         restoredJobs = mode === 'jobs';
         restoredPickerScrollTop = state.pickerScrollTop;
-        layer.hidden = true;
+        setHidden(layer, true);
         layout = EMPTY_LAYOUT;
         visuals.hideAll();
         hideTransient();

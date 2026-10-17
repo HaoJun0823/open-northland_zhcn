@@ -3,6 +3,7 @@ import type { GuiArt } from '../../../content/gui-art.js';
 import type { UiString } from '../../../content/gui-gfx.js';
 import type { ActionCommand, ActionRingLayout } from '../../../hud/action-ring/index.js';
 import { actionLabel } from '../../../hud/action-ring/labels.js';
+import { setHidden } from '../../../hud/dom/parts/dom.js';
 import { canvasToClient, type ScreenScale } from '../../../hud/geometry.js';
 import { bakeIconPage, type IconPage } from './icon-page.js';
 
@@ -117,7 +118,7 @@ export function createActionRingVisuals(deps: ActionRingVisualsDeps): ActionRing
 
   let pass = 0;
   const hideAll = (): void => {
-    for (const v of visuals) v.button.hidden = true;
+    for (const v of visuals) setHidden(v.button, true);
   };
 
   return {
@@ -128,7 +129,7 @@ export function createActionRingVisuals(deps: ActionRingVisualsDeps): ActionRing
         const v = visualByCommand.get(placed.command);
         if (v === undefined) return;
         v.shownIn = pass;
-        v.button.hidden = false;
+        setHidden(v.button, false);
         const { rect } = placed;
         const from = canvasToClient(screen, rect.x, rect.y);
         const to = canvasToClient(screen, rect.x + rect.w, rect.y + rect.h);
@@ -148,7 +149,7 @@ export function createActionRingVisuals(deps: ActionRingVisualsDeps): ActionRing
         style.zIndex = String(index);
         if (v.glyph !== null) paintGlyph(v.glyph, v.command.icon, clientPerPx);
       });
-      for (const v of visuals) if (v.shownIn !== pass) v.button.hidden = true;
+      for (const v of visuals) if (v.shownIn !== pass) setHidden(v.button, true);
     },
     hideAll,
     dispose(): void {

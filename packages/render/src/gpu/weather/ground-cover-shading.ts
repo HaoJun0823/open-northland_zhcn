@@ -242,20 +242,27 @@ const f = (value: number): string => value.toFixed(4);
 
 /** Value noise, the transition jitter and the snow drift mask, shared by the ground and the decor. */
 const COVER_NOISE = `
-  float coverHash(ivec2 p) {
-    uvec2 q = uvec2(p) * uvec2(1597334673u, 3812015801u);
+  const uvec2 COVER_HASH_SCALE = uvec2(1597334673u, 3812015801u);
+  // The hash of a cell from its scaled coordinates q = uvec2(cell) * COVER_HASH_SCALE.
+  float coverHashScaled(uvec2 q) {
     uint n = (q.x ^ q.y) * 1597334673u;
     return float(n >> 8) * (1.0 / 16777216.0);
+  }
+  float coverHash(ivec2 p) {
+    return coverHashScaled(uvec2(p) * COVER_HASH_SCALE);
   }
   float coverNoise(vec2 p) {
     vec2 i = floor(p);
     vec2 t = fract(p);
     t = t * t * (3.0 - 2.0 * t);
-    ivec2 c = ivec2(i);
-    float a = coverHash(c);
-    float b = coverHash(c + ivec2(1, 0));
-    float d = coverHash(c + ivec2(0, 1));
-    float e = coverHash(c + ivec2(1, 1));
+    // uint arithmetic wraps, so the next cell's scaled coordinate is this one's plus the scale: six
+    // integer multiplies per lookup instead of twelve, bit for bit the same.
+    uvec2 q = uvec2(ivec2(i)) * COVER_HASH_SCALE;
+    uvec2 next = q + COVER_HASH_SCALE;
+    float a = coverHashScaled(q);
+    float b = coverHashScaled(uvec2(next.x, q.y));
+    float d = coverHashScaled(uvec2(q.x, next.y));
+    float e = coverHashScaled(next);
     return mix(mix(a, b, t.x), mix(d, e, t.x), t.y);
   }
   float coverFbm(vec2 p) {

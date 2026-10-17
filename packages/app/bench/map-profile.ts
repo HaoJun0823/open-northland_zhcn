@@ -2,6 +2,7 @@
 import './sim-asserts.js';
 import { intEnv, stringEnv } from './knobs.js';
 import { knobRecord, mapBenchKnobs, mapBenchWorld, worldSourceLines } from './map-world.js';
+import { marchKnobRecord, marchKnobs, marchProbe } from './march-order.js';
 import { measureWindows } from './measure.js';
 import {
   captureAllocationProfile,
@@ -21,6 +22,9 @@ import { benchOutDir, type ProfileKind, storeProfile } from './store.js';
  * which function inside it burns the time. Both views cover the same ticks here, so they can be
  * read against each other. `ON_BENCH_PROFILE=alloc` samples allocations instead of CPU: which
  * function makes the garbage the window's GC columns pay for.
+ *
+ * The `ON_BENCH_MARCH_*` knobs (see `march-order.ts`) profile a group attack-move; start the profile
+ * at the order with `ON_BENCH_WARMUP` so the march fills the sampled ticks.
  *
  * Pair it with `ON_BENCH_CHECKPOINT`/`ON_BENCH_SKIP` (see `map-world.ts`) to profile late-game ticks
  * without rebuilding the settlement for every attempt; `ON_BENCH_CHECKPOINT` may name a mark file a
@@ -77,9 +81,14 @@ async function main(): Promise<void> {
   const startMs = performance.now();
   const world = await mapBenchWorld(knobs, knobs.warmupTicks + knobs.measuredTicks);
   for (const line of worldSourceLines(world, knobs)) console.log(line);
+  const marching = marchKnobs();
+  const march = marching === null ? null : marchProbe(world.sim, marching, world.startTick);
 
   // Warm up outside the profile: cold-start tiering would otherwise dominate the sample counts.
-  for (let i = 0; i < knobs.warmupTicks; i++) world.sim.step();
+  for (let i = 0; i < knobs.warmupTicks; i++) {
+    world.sim.step();
+    march?.afterStep();
+  }
 
   const {
     raw,
@@ -90,6 +99,7 @@ async function main(): Promise<void> {
       warmupTicks: 0,
       measuredTicks: knobs.measuredTicks,
       windows: PROFILE_WINDOWS,
+      ...(march === null ? {} : { afterTick: march.afterStep }),
     }),
   );
 
@@ -105,7 +115,7 @@ async function main(): Promise<void> {
       settlersAtEnd: measured.settlersAtEnd,
       buildings: measured.buildings,
     },
-    knobs: { ...knobRecord(knobs), ON_BENCH_PROFILE: kind },
+    knobs: { ...knobRecord(knobs), ...marchKnobRecord(marching), ON_BENCH_PROFILE: kind },
     ticks: { warmup: knobs.warmupTicks, measured: knobs.measuredTicks },
     stateHash: world.sim.hashState(),
     startedAtMs,
@@ -117,6 +127,7 @@ async function main(): Promise<void> {
   console.log(`${formatReport(report)}\n`);
   console.log(`${kind} profile written to ${written}`);
   console.log(`state hash: ${report.stateHash}\n`);
+  if (march !== null) for (const line of march.report(measured)) console.log(line);
 
   if (summary.functions.length === 0 || summary.sampled === 0) {
     throw new Error('the profiler sampled nothing over the measured ticks');

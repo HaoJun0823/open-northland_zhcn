@@ -2,6 +2,7 @@
 import './sim-asserts.js';
 import { boolEnv, intEnv } from './knobs.js';
 import { knobRecord, mapBenchKnobs, mapBenchWorld, worldSourceLines } from './map-world.js';
+import { marchKnobRecord, marchKnobs, marchProbe } from './march-order.js';
 import { measureWindows } from './measure.js';
 import { MirrorProbe } from './mirror-probe.js';
 import type { BenchWindow } from './report/index.js';
@@ -26,7 +27,8 @@ import { publishReport, reportFrom } from './run.js';
  * `ON_BENCH_MIRROR_BATCH` (ticks per delta, default 1), `ON_BENCH_MIRROR_DIGEST` (carry the truth digest),
  * `ON_BENCH_MIRROR_SPLIT` (time each frame index reader), `ON_BENCH_MIRROR_PARITY` (random batches,
  * indexes checked per delta) and `ON_BENCH_MIRROR_BREAKDOWN` (what the deltas are made of),
- * `ON_BENCH_CHECKPOINT`, `ON_BENCH_SKIP` and `ON_BENCH_CHECKPOINTS` (see `map-world.ts`),
+ * `ON_BENCH_CHECKPOINT`, `ON_BENCH_SKIP` and `ON_BENCH_CHECKPOINTS` (see `map-world.ts`), the
+ * `ON_BENCH_MARCH_*` group attack-move (see `march-order.ts`),
  * `ON_BENCH_JSON=<path>` (write the machine-readable report).
  */
 
@@ -54,6 +56,8 @@ async function main(): Promise<void> {
   const startMs = performance.now();
   const world = await mapBenchWorld(knobs, knobs.warmupTicks + knobs.measuredTicks);
   for (const line of worldSourceLines(world, knobs)) console.log(line);
+  const marching = marchKnobs();
+  const march = marching === null ? null : marchProbe(world.sim, marching, world.startTick);
   const mirror = boolEnv('ON_BENCH_MIRROR')
     ? new MirrorProbe(world.sim, {
         ticksPerDelta: intEnv('ON_BENCH_MIRROR_BATCH', 1, 1),
@@ -75,6 +79,7 @@ async function main(): Promise<void> {
     },
     afterTick: () => {
       world.afterStep();
+      march?.afterStep();
       mirror?.tick();
     },
   });
@@ -91,7 +96,7 @@ async function main(): Promise<void> {
       settlersAtEnd: measurement.settlersAtEnd,
       buildings: measurement.buildings,
     },
-    knobs: { ...knobRecord(knobs), ON_BENCH_WINDOWS: `${windows}` },
+    knobs: { ...knobRecord(knobs), ...marchKnobRecord(marching), ON_BENCH_WINDOWS: `${windows}` },
     ticks: { warmup: knobs.warmupTicks, measured: knobs.measuredTicks },
     stateHash: world.sim.hashState(),
     startedAtMs,
@@ -99,6 +104,7 @@ async function main(): Promise<void> {
   });
 
   publishReport(report);
+  if (march !== null) for (const line of march.report(measurement)) console.log(line);
 
   // The run must have profiled a populated map with work to do. Whether the settlement GREW is
   // reported in the window table rather than checked: that depends on the tick count, so a check

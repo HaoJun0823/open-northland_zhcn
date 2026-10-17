@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { PathFollow } from '../../../src/components/index.js';
+import { Owner, PathFollow, setSettlerJob } from '../../../src/components/index.js';
 import type { SystemContext } from '../../../src/systems/index.js';
+import {
+  colliderKinds,
+  FIRM_COLLIDER,
+  NOT_A_COLLIDER,
+  SOFT_COLLIDER,
+} from '../../../src/systems/movement/collision/collider-kinds.js';
 import { collectColliders } from '../../../src/systems/movement/collision/separation/colliders.js';
 import { separationScratch } from '../../../src/systems/movement/collision/separation/scratch.js';
 import { SlotGrid } from '../../../src/systems/movement/collision/separation/slot-grid.js';
-import { P0, settlerAt, sim, WOODCUTTER, walkStraightTo } from './support.js';
+import { P0, SOLDIER, settlerAt, sim, WOODCUTTER, walkStraightTo } from './support.js';
 
 const OFF_LATTICE = -1;
 
@@ -55,6 +61,21 @@ describe('unit body collision - scratch lifetime', () => {
     expect(around(4, 2, 2)).toEqual([0, 3, 4]);
     expect(around(0, 0, 5)).toEqual([]);
     expect(around(1, 1, 1)).toEqual([5]);
+  });
+
+  it('re-kinds a collider whose trade or owner changes and one created after the first read', () => {
+    const s = sim();
+    const worker = settlerAt(s, 2, 2, WOODCUTTER, P0);
+    const kindOf = (e: number): number => colliderKinds(s.world, s.content)[e] ?? NOT_A_COLLIDER;
+    expect(kindOf(worker)).toBe(SOFT_COLLIDER);
+
+    setSettlerJob(s.world, worker, SOLDIER);
+    expect(kindOf(worker)).toBe(FIRM_COLLIDER);
+    s.world.remove(worker, Owner);
+    expect(kindOf(worker)).toBe(NOT_A_COLLIDER);
+    const late = settlerAt(s, 4, 2, SOLDIER, P0);
+    expect(kindOf(late)).toBe(FIRM_COLLIDER);
+    expect(s.world.verifyCaches()).toEqual([]);
   });
 
   it('refills the mover columns in ascending id and drops a mover that stopped', () => {

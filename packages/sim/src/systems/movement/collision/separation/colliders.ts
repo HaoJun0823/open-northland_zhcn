@@ -5,9 +5,8 @@ import { nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js'
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 import { worldX } from '../../../../nav/world-metric.js';
 import type { SystemContext } from '../../../context.js';
-import { isFighterJob } from '../../../readviews/index.js';
 import { writeLegHeading } from '../../stepping.js';
-import { softColliderSettler } from '../bodies.js';
+import { colliderKinds, FIRM_COLLIDER, NOT_A_COLLIDER } from '../collider-kinds.js';
 import { hasBodyCollision } from '../owned-fighters.js';
 import { standingPostGrid } from '../standing-posts.js';
 import { worldYOf } from './geometry.js';
@@ -37,14 +36,14 @@ export function collectColliders(
   // captured on first ask by `moverHeading` and `moverGoal`.
   let moverCount = 0;
   let firmCount = 0;
+  const kinds = colliderKinds(world, ctx.content);
   for (const e of walkers) {
-    const settler = softColliderSettler(world, e);
-    if (settler === undefined) continue;
+    const kind = kinds[e] ?? NOT_A_COLLIDER;
+    if (kind === NOT_A_COLLIDER) continue;
     const slot = moverCount++;
     const p = world.get(e, Position);
     place(movers, slot, e, p.x, p.y);
-    // `hasBodyCollision` with its Owner and Settler checks already passed by `softColliderSettler`.
-    const firm = isFighterJob(ctx.content, settler.jobType);
+    const firm = kind === FIRM_COLLIDER;
     movers.firm[slot] = firm;
     if (firm) firmCount++;
   }

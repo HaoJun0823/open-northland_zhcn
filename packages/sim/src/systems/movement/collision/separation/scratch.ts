@@ -60,6 +60,9 @@ export interface SeparationScratch {
   /** Per-mover neighbour mover slots and post ids, valid up to the counts the resolve keeps beside them. */
   readonly nearMovers: number[];
   readonly nearPosts: Entity[];
+  /** Each collected post's owner and node, beside `nearPosts` until the blocking filter compacts it. */
+  readonly nearPostPlayers: number[];
+  readonly nearPostNodes: number[];
   readonly push: ScratchPoint;
   readonly candidate: ScratchPoint;
   /** Argument holders for the heading derivation, so it allocates no point. */
@@ -95,6 +98,8 @@ export function separationScratch(world: World): SeparationScratch {
       census: 0,
       nearMovers: [],
       nearPosts: [],
+      nearPostPlayers: [],
+      nearPostNodes: [],
       push: { x: ZERO, y: ZERO },
       candidate: { x: ZERO, y: ZERO },
       headingFrom: { x: ZERO, y: ZERO },

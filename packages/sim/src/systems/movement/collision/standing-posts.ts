@@ -37,7 +37,16 @@ export interface StandingPostGrid {
   /** Append the posts on node `(hx, hy)`, on or off the lattice, to `out` from index `at` in ascending
    *  id, and return the new count. Valid until the next read of the index. */
   collect(hx: number, hy: number, out: Entity[], at: number): number;
+  /**
+   * Write the posts on the 3x3 node block around `(hx, hy)` to `out` from index 0, as nine `collect` calls
+   * in column-major order (x outer, y inner) would, with each post's owner in `players` and its node in
+   * `nodes` ({@link OFF_LATTICE_NODE} off the map); returns the count. Valid until the next read.
+   */
+  collectAround(hx: number, hy: number, out: Entity[], players: number[], nodes: number[]): number;
 }
+
+/** The node {@link StandingPostGrid.collectAround} reports for a post standing off the lattice. */
+export const OFF_LATTICE_NODE = -1;
 
 /** One standing owned fighter, linked into its node's list so a shared node can name its highest id. */
 interface Post {
@@ -118,6 +127,7 @@ function rebuild(world: World, content: ContentSet, terrain: TerrainGraph): Post
   }
   const index: PostIndex = {
     collect: (hx, hy, out, at) => collectPosts(index, hx, hy, out, at),
+    collectAround: (hx, hy, out, players, nodes) => collectPostsAround(index, hx, hy, out, players, nodes),
     content,
     terrain,
     feed,
@@ -261,6 +271,39 @@ function collectPosts(index: PostIndex, hx: number, hy: number, out: Entity[], a
     return count;
   }
   for (const post of index.offMap) if (post.hx === hx && post.hy === hy) out[count++] = post.entity;
+  return count;
+}
+
+function collectPostsAround(
+  index: PostIndex,
+  hx: number,
+  hy: number,
+  out: Entity[],
+  players: number[],
+  nodes: number[],
+): number {
+  const { terrain, posts } = index;
+  let count = 0;
+  for (let x = hx - 1; x <= hx + 1; x++) {
+    for (let y = hy - 1; y <= hy + 1; y++) {
+      if (!terrain.inBounds(x, y)) {
+        for (const post of index.offMap) {
+          if (post.hx !== x || post.hy !== y) continue;
+          out[count] = post.entity;
+          players[count] = post.player;
+          nodes[count++] = OFF_LATTICE_NODE;
+        }
+        continue;
+      }
+      const node = terrain.nodeAt(x, y);
+      if (posts[node] === 0) continue;
+      for (let post = index.byNode.get(node); post !== undefined; post = post.next) {
+        out[count] = post.entity;
+        players[count] = post.player;
+        nodes[count++] = node;
+      }
+    }
+  }
   return count;
 }
 

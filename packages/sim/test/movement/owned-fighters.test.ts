@@ -11,6 +11,7 @@ import type { Fixed } from '../../src/core/fixed.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { positionOfNode, type Simulation } from '../../src/index.js';
 import {
+  OFF_LATTICE_NODE,
   ownedFighters,
   type StandingPostGrid,
   standingFighterPosts,
@@ -146,6 +147,25 @@ describe('ownedFighters index', () => {
     expect(postsAt(grid, 8, 2)).toEqual([]);
     expect(postsAt(grid, OFF_LATTICE, 2)).toEqual([stray]);
     expect(s.world.verifyCaches()).toEqual([]);
+  });
+
+  it('collects a node block with every post owner and node, in the order nine node collects give', () => {
+    const s = sim();
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('fixture map missing');
+    const stray = settlerAt(s, 0, 2, SOLDIER, P0);
+    const centre = settlerAt(s, 0, 2, SOLDIER, P1);
+    const east = settlerAt(s, 1, 3, SOLDIER, P0);
+    settlerAt(s, 4, 2, SOLDIER, P1);
+    s.world.mut(stray, Position).x = positionOfNode(OFF_LATTICE, 2).x;
+
+    const out: Entity[] = [];
+    const players: number[] = [];
+    const nodes: number[] = [];
+    const count = gridOf(s).collectAround(0, 2, out, players, nodes);
+    expect(out.slice(0, count)).toEqual([stray, centre, east]);
+    expect(players.slice(0, count)).toEqual([P0, P1, P0]);
+    expect(nodes.slice(0, count)).toEqual([OFF_LATTICE_NODE, terrain.nodeAt(0, 2), terrain.nodeAt(1, 3)]);
   });
 
   it('reports a post that moved past the change feed to the cache verifier', () => {

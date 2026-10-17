@@ -1,4 +1,4 @@
-import { hostileMaskOf, hostilePlayerMasks, Owner, Position } from '../../../../components/index.js';
+import { hostileMaskOf, hostilePlayerMasks } from '../../../../components/index.js';
 import type { Fixed } from '../../../../core/fixed.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { BlockOverlay } from '../../../../nav/block-overlay.js';
@@ -8,6 +8,10 @@ import type { SystemContext } from '../../../context.js';
 import { dynamicBlockOverlay } from '../../../footprint/index.js';
 import { type CalmZones, calmZonesByPlayer } from '../bodies.js';
 import { playerSlotBit } from '../standing-posts.js';
+
+/** A player id outside every slot, so its slot bit is zero; only for the type, as every listed post has
+ *  an owner. */
+const NO_PLAYER = -1;
 
 /** The tick's gates, built on first ask so a tick where no pair interacts builds none. {@link reset} them
  *  every tick: the caches are snapshots, so a held answer would keep approving displacements onto ground
@@ -38,28 +42,27 @@ export class SeparationGates {
     return this.terrain.inBounds(hx, hy) && this.zones.has(player, this.terrain.nodeAt(hx, hy));
   }
 
-  /** Keep the first `count` of `posts` that block a mover of `player`, in order; returns the new count. An
-   *  enemy's post blocks it anywhere; its own side's and its allies' only on `goal`, so it walks through
-   *  them but never comes to rest on one. */
-  keepBlockingPosts(player: number, goal: NodeId | undefined, posts: Entity[], count: number): number {
+  /** Keep the first `count` of `posts`, owned by `players` and standing on `nodes`, that block a mover of
+   *  `player`, in order; returns the new count. An enemy's post blocks it anywhere; its own side's and its
+   *  allies' only on `goal`, so it walks through them but never comes to rest on one. */
+  keepBlockingPosts(
+    player: number,
+    goal: NodeId | undefined,
+    posts: Entity[],
+    players: readonly number[],
+    nodes: readonly number[],
+    count: number,
+  ): number {
     this.hostile ??= hostilePlayerMasks(this.world);
     const hostile = hostileMaskOf(this.hostile, player);
     let kept = 0;
     for (let i = 0; i < count; i++) {
       const post = posts[i];
       if (post === undefined) continue;
-      const onGoal = goal !== undefined && this.nodeOf(post) === goal;
-      if ((hostile & playerSlotBit(this.world.get(post, Owner).player)) !== 0 || onGoal) {
-        posts[kept++] = post;
-      }
+      const onGoal = goal !== undefined && nodes[i] === goal;
+      if ((hostile & playerSlotBit(players[i] ?? NO_PLAYER)) !== 0 || onGoal) posts[kept++] = post;
     }
     return kept;
-  }
-
-  /** The lattice node `e` stands on, undefined off the map. */
-  nodeOf(e: Entity): NodeId | undefined {
-    const p = this.world.get(e, Position);
-    return this.nodeAt(p.x, p.y);
   }
 
   nodeAt(x: Fixed, y: Fixed): NodeId | undefined {

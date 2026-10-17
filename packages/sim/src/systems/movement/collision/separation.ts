@@ -79,7 +79,7 @@ export const separationSystem: System = (world, ctx) => {
   const scratch = separationScratch(world);
   // Nobody walking, so nothing can overlap anything.
   if (!collectColliders(world, ctx, terrain, scratch)) return;
-  const { movers, posts, nearMovers, nearPosts, push, candidate } = scratch;
+  const { movers, posts, nearMovers, nearPosts, nearPostPlayers, nearPostNodes, push, candidate } = scratch;
   scratch.gates ??= new SeparationGates(world, ctx, terrain);
   const gates = scratch.gates;
   gates.reset(ctx, terrain);
@@ -96,14 +96,10 @@ export const separationSystem: System = (world, ctx) => {
     const postGrid = isFirm ? posts : undefined;
     // The mover's own slot sits in its own node's list; neighbours are the rest.
     const moverCount = movers.grid.collectAround(slot, nearMovers);
-    let postCount = 0;
-    if (postGrid !== undefined) {
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          postCount = postGrid.collect(nodeHx + dx, nodeHy + dy, nearPosts, postCount);
-        }
-      }
-    }
+    let postCount =
+      postGrid === undefined
+        ? 0
+        : postGrid.collectAround(nodeHx, nodeHy, nearPosts, nearPostPlayers, nearPostNodes);
     if (moverCount === 0 && postCount === 0) {
       if (isFirm) clearGrind(world, e);
       continue;
@@ -116,7 +112,7 @@ export const separationSystem: System = (world, ctx) => {
         movers.hasGoal[slot] === true
           ? gates.nodeAt(movers.goalX[slot] ?? ZERO, movers.goalY[slot] ?? ZERO)
           : undefined;
-      postCount = gates.keepBlockingPosts(player, goal, nearPosts, postCount);
+      postCount = gates.keepBlockingPosts(player, goal, nearPosts, nearPostPlayers, nearPostNodes, postCount);
     }
     if (moverCount === 0 && postCount === 0) {
       if (isFirm) clearGrind(world, e);

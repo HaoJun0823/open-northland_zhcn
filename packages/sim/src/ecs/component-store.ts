@@ -5,6 +5,10 @@ import type { Entity } from './component.js';
 const PAGE_BITS = 8;
 export const PAGE_SIZE = 1 << PAGE_BITS;
 const PAGE_MASK = PAGE_SIZE - 1;
+/** Index entries one word of the membership bitset covers. */
+const BITS_PER_WORD = 32;
+const WORD_SHIFT = 5;
+const BIT_MASK = BITS_PER_WORD - 1;
 /** Entity ids start at 1, so 0 marks a vacated dense slot; an index entry holds `slot + 1`. */
 export const VACANT_SLOT = 0;
 /** A page table entry holds `block + 1`; this marks a page without a block. */
@@ -33,6 +37,9 @@ export class ComponentStore<T> {
   private pageTable = new Int32Array(0);
   /** {@link PAGE_SIZE} entries per block, each `slot + 1` or {@link VACANT_SLOT}. */
   private index = new Int32Array(0);
+  /** One bit per {@link index} entry, set while it holds a slot: `has` reads this, 32 times denser than
+   *  the index, so a membership probe touches fewer cache lines. */
+  private memberBits = new Uint32Array(0);
   private blockMembers = new Int32Array(0);
   private blockCount = 0;
   /** Emptied, all-zero blocks, reused before the index grows. */
@@ -86,9 +93,9 @@ export class ComponentStore<T> {
     const table = this.pageTable;
     if (page >= table.length) return false;
     const block = table[page] as number;
-    return (
-      block !== NO_BLOCK && this.index[((block - 1) << PAGE_BITS) | (entity & PAGE_MASK)] !== VACANT_SLOT
-    );
+    if (block === NO_BLOCK) return false;
+    const at = ((block - 1) << PAGE_BITS) | (entity & PAGE_MASK);
+    return ((this.memberBits[at >>> WORD_SHIFT] as number) & (1 << (at & BIT_MASK))) !== 0;
   }
 
   get(entity: Entity): T | undefined {
@@ -132,6 +139,8 @@ export class ComponentStore<T> {
     this.revisions[slot] = 0;
     this.values[slot] = value;
     this.index[at] = slot + 1;
+    this.memberBits[at >>> WORD_SHIFT] =
+      (this.memberBits[at >>> WORD_SHIFT] as number) | (1 << (at & BIT_MASK));
     const block = at >>> PAGE_BITS;
     this.blockMembers[block] = (this.blockMembers[block] as number) + 1;
     this.liveSize++;
@@ -148,6 +157,8 @@ export class ComponentStore<T> {
     const slot = (this.index[at] as number) - 1;
     if (slot < 0) return false;
     this.index[at] = VACANT_SLOT;
+    this.memberBits[at >>> WORD_SHIFT] =
+      (this.memberBits[at >>> WORD_SHIFT] as number) & ~(1 << (at & BIT_MASK));
     const left = (this.blockMembers[block] as number) - 1;
     this.blockMembers[block] = left;
     if (left === 0) {
@@ -244,6 +255,9 @@ export class ComponentStore<T> {
       const members = new Int32Array(blocks);
       members.set(this.blockMembers);
       this.blockMembers = members;
+      const bits = new Uint32Array((blocks << PAGE_BITS) >>> WORD_SHIFT);
+      bits.set(this.memberBits);
+      this.memberBits = bits;
       const index = new Int32Array(blocks << PAGE_BITS);
       index.set(this.index);
       this.index = index;

@@ -124,7 +124,90 @@ describe('IncrementalScene', () => {
     expect(build(snapshot)).toEqual(fromScratch(snapshot));
   });
 
-  it('rebuilds the run from scratch when the view moves', () => {
+  it('splices across a pan or zoom, keeping the run under the new view', () => {
+    const forest: EntitySnapshot[] = [];
+    let id = 1;
+    for (let x = 0; x < 30; x += 2) for (let y = 0; y < 60; y += 3) forest.push(entity(id++, x, y, tree(1)));
+    forest.push(entity(id++, 5, 5, SETTLER), entity(id++, 20, 40, heap(3, 4)));
+    const mirror = mirrorOf(forest);
+    const { incremental, build, scratch } = buildLoop();
+    const views: Viewport[] = [
+      VIEW,
+      { minX: -150, minY: -200, maxX: 950, maxY: 600 }, // right
+      { minX: -170, minY: -120, maxX: 930, maxY: 680 }, // left and down
+      { minX: 0, minY: 0, maxX: 500, maxY: 400 }, // zoom in
+      { minX: -400, minY: -300, maxX: 1400, maxY: 1000 }, // zoom out
+    ];
+    let snapshot = mirror.snapshot();
+    build(snapshot);
+    for (const viewport of views) {
+      expect(build(snapshot, { viewport })).toEqual(scratch(snapshot, { viewport }));
+      expect(incremental.spliced).toBe(true);
+    }
+    // A delta while the view moves: a tree in the uncovered strip is felled as it comes into view.
+    snapshot = advance(mirror, [{ id: 2, components: { Stump: { goodType: 1 } }, removed: ['Resource'] }]);
+    const panned = { viewport: { minX: -300, minY: -200, maxX: 800, maxY: 600 } };
+    expect(build(snapshot, panned)).toEqual(scratch(snapshot, panned));
+    expect(incremental.spliced).toBe(true);
+  });
+
+  it('keeps every self-contained kind across pans as a build from scratch draws it', () => {
+    const kinds: readonly Record<string, unknown>[] = [
+      tree(1),
+      { Stump: { goodType: 1 } },
+      { BerryBush: { berries: 3 } },
+      { Chest: {} },
+      heap(3, 4),
+      { GroundDrop: {}, Stockpile: { goodType: 2, amount: 1 } },
+      { FishSwarm: { count: 5 } },
+      { DeliveryFlag: {} },
+    ];
+    const statics: EntitySnapshot[] = [];
+    let id = 1;
+    for (let x = 0; x < 30; x++) {
+      for (let y = 0; y < 50; y += 3) statics.push(entity(id, x, y, kinds[id++ % kinds.length] ?? {}));
+    }
+    const mirror = mirrorOf(statics);
+    const { incremental, build, scratch } = buildLoop();
+    const snapshot = mirror.snapshot();
+    build(snapshot);
+    const views: Viewport[] = [
+      { minX: -100, minY: -150, maxX: 1000, maxY: 650 },
+      { minX: 37, minY: 11, maxX: 1137, maxY: 811 },
+      { minX: 500, minY: 400, maxX: 1300, maxY: 1100 },
+      { minX: -300, minY: -300, maxX: 2200, maxY: 2000 },
+    ];
+    const drawnKinds = new Set<string>();
+    for (const viewport of views) {
+      const items = build(snapshot, { viewport });
+      expect(incremental.spliced).toBe(true);
+      expect(items).toEqual(scratch(snapshot, { viewport }));
+      for (const item of items) drawnKinds.add(item.kind);
+    }
+    expect([...drawnKinds].sort()).toEqual(
+      ['berrybush', 'chest', 'fish', 'grounddrop', 'resource', 'stockpile', 'stump'].sort(),
+    );
+  });
+
+  it('releases the kept items a pan leaves behind', () => {
+    const mirror = mirrorOf([entity(1, 1, 1, SETTLER), entity(2, 1, 2, tree(1)), entity(3, 10, 4, tree(2))]);
+    const incremental = new IncrementalScene();
+    const snapshot = mirror.snapshot();
+    const left = { minX: -200, minY: -200, maxX: 300, maxY: 600 };
+    collectSpriteScene(snapshot, { viewport: left }, undefined, undefined, incremental);
+    const scene = collectSpriteScene(
+      snapshot,
+      { viewport: { ...left, minX: 200, maxX: 900 } },
+      undefined,
+      undefined,
+      incremental,
+    );
+    expect(incremental.spliced).toBe(true);
+    expect(scene.items.map((item) => item.ref)).toEqual([3]);
+    expect([...(scene.releasedStatics ?? [])]).toEqual([2]);
+  });
+
+  it('rebuilds the run from scratch when the view jumps clear of the last one', () => {
     const mirror = mirrorOf([entity(1, 1, 1, SETTLER), entity(2, 3, 2, tree(1))]);
     const incremental = new IncrementalScene();
     const snapshot = mirror.snapshot();
@@ -132,7 +215,7 @@ describe('IncrementalScene', () => {
     const next = advance(mirror, [moved(1, 2, 1, SETTLER)]);
     collectSpriteScene(
       next,
-      { viewport: { ...VIEW, minX: VIEW.minX + 1 } },
+      { viewport: { minX: 5000, minY: 5000, maxX: 6000, maxY: 6000 } },
       undefined,
       undefined,
       incremental,
@@ -217,7 +300,7 @@ describe('IncrementalScene', () => {
     expect(scene).toEqual(scratch(snapshot, swapped));
   });
 
-  it('names the entities a withheld set gained or lost among the touched statics', () => {
+  it('names the entities a withheld set gained or lost among the released statics', () => {
     const mirror = mirrorOf([entity(1, 1, 1, SETTLER), entity(2, 3, 2, tree(1)), entity(3, 4, 4, tree(2))]);
     const incremental = new IncrementalScene();
     const options = (withheldRefs?: ReadonlySet<number>) => ({ viewport: VIEW, withheldRefs });
@@ -230,7 +313,7 @@ describe('IncrementalScene', () => {
       incremental,
     );
     expect(incremental.spliced).toBe(true);
-    expect([...(scene.touchedStatics ?? [])].sort()).toEqual([2, 3]);
+    expect([...(scene.releasedStatics ?? [])].sort()).toEqual([2, 3]);
   });
 
   it('matches a build from scratch across a mirror rebuild', () => {

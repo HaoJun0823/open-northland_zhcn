@@ -1,7 +1,20 @@
 import { UNLOADED_GOOD_TYPE } from '@open-northland/data';
-import { type EntitySnapshot, entityById, isPositioned, type WorldSnapshot } from '@open-northland/sim';
+import {
+  collectPositioned,
+  type EntitySnapshot,
+  entityById,
+  isPositioned,
+  type WorldSnapshot,
+} from '@open-northland/sim';
 import type { GhostSource } from '../fog/index.js';
-import { isVisible, ONE, tileToScreen, type Viewport } from '../projection/index.js';
+import {
+  isVisible,
+  ONE,
+  tileToScreen,
+  tileToScreenX,
+  tileToScreenY,
+  type Viewport,
+} from '../projection/index.js';
 import type { ElevationField } from '../terrain/index.js';
 import { pushEffectItems, pushGhostItems } from './collect-fields.js';
 import type { SpriteDepthOrder } from './depth-order.js';
@@ -32,11 +45,11 @@ export interface SpriteScene {
    *  newest snapshot. */
   readonly liveRefs: LiveRefs;
   /** Present on a spliced build: per item of {@link items}, 1 for a self-contained item kept from the
-   *  last build (its entity untouched since), 0 for an item this build emitted. */
+   *  last build (its entity untouched since and still in view), 0 for an item this build emitted. */
   readonly kept?: Uint8Array;
-  /** Present on a spliced build: the self-contained entities the deltas touched since the last build,
-   *  whose kept items it dropped. */
-  readonly touchedStatics?: ReadonlySet<number>;
+  /** Present on a spliced build: the self-contained entities whose last-build items it dropped, because
+   *  a delta touched them, their withheld state changed, or they left the view. */
+  readonly releasedStatics?: ReadonlySet<number>;
 }
 
 /** Every field accepts an explicit `undefined` so callers can pass through their own optionals. */
@@ -141,12 +154,9 @@ interface StaticInputs {
   readonly playerColourOf: SpriteSceneOptions['playerColourOf'];
 }
 
+/** Everything but the view box: a build across a pan or zoom keeps the run under the new box. */
 function sameStaticInputs(a: StaticInputs, b: StaticInputs): boolean {
   return (
-    a.minX === b.minX &&
-    a.minY === b.minY &&
-    a.maxX === b.maxX &&
-    a.maxY === b.maxY &&
     a.elevation === b.elevation &&
     a.staticRefs === b.staticRefs &&
     a.staticCount === b.staticCount &&
@@ -156,11 +166,36 @@ function sameStaticInputs(a: StaticInputs, b: StaticInputs): boolean {
   );
 }
 
+function sameView(a: Viewport, b: Viewport): boolean {
+  return a.minX === b.minX && a.minY === b.minY && a.maxX === b.maxX && a.maxY === b.maxY;
+}
+
+function boxesOverlap(a: Viewport, b: Viewport): boolean {
+  return a.minX <= b.maxX && b.minX <= a.maxX && a.minY <= b.maxY && b.minY <= a.maxY;
+}
+
+/** The parts of `view` outside the overlapping `previous` box, as up to four boxes (left and right full
+ *  height, then top and bottom between them): where a pan or zoom shows ground the last build did not. */
+function exposedBoxes(view: Viewport, previous: Viewport): Viewport[] {
+  const out: Viewport[] = [];
+  const { minX, minY, maxX, maxY } = view;
+  if (minX < previous.minX) out.push({ minX, minY, maxX: Math.min(maxX, previous.minX), maxY });
+  if (maxX > previous.maxX) out.push({ minX: Math.max(minX, previous.maxX), minY, maxX, maxY });
+  const innerMinX = Math.max(minX, previous.minX);
+  const innerMaxX = Math.min(maxX, previous.maxX);
+  if (minY < previous.minY)
+    out.push({ minX: innerMinX, minY, maxX: innerMaxX, maxY: Math.min(maxY, previous.minY) });
+  if (maxY > previous.maxY)
+    out.push({ minX: innerMinX, minY: Math.max(minY, previous.maxY), maxX: innerMaxX, maxY });
+  return out;
+}
+
 /**
- * A scene build's self-contained items (`SceneItemMemo`'s kinds), kept across builds of one view as a
- * run sorted like the draw list: a build re-emits only the entities a delta touched and the kinds that
- * read more than their own entity, and merges them into the run instead of emitting every entity under
- * the view again. Held by one build loop; the touch log it drains is shared by the snapshot lineage.
+ * A scene build's self-contained items (`SceneItemMemo`'s kinds), kept across builds whose views
+ * overlap as a run sorted like the draw list: a build re-emits only the entities a delta touched, those
+ * a pan or zoom uncovered and the kinds that read more than their own entity, and merges them into the
+ * run instead of emitting every entity under the view again. Held by one build loop; the touch log it
+ * drains is shared by the snapshot lineage.
  */
 export class IncrementalScene {
   statics: readonly SpriteDrawItem[] = [];
@@ -226,14 +261,15 @@ function withheldChanges(
   return changed;
 }
 
-/** Whether a build keeps `item` in its static run: exactly the items the touch log answers for, so only
- *  these may stand unvisited between builds. */
+/** Whether a build keeps `item` in its static run: exactly the items a spliced build's released statics
+ *  answer for, so only these may stand unvisited between builds. */
 export function isStaticItem(item: SpriteDrawItem): boolean {
   return item.kind !== 'craftfx' && isSelfContainedKind(item.kind) && item.ghost !== true;
 }
 
-/** Reused query output of the incremental build. */
+/** Reused query outputs of the incremental build. */
 const rebuiltCandidates: EntitySnapshot[] = [];
+const exposedCandidates: EntitySnapshot[] = [];
 
 function collectScene(
   snapshot: WorldSnapshot,
@@ -405,12 +441,13 @@ function collectScene(
     inputs !== null &&
     incremental.inputs !== null &&
     incremental.touched === touched &&
-    sameStaticInputs(incremental.inputs, inputs);
+    sameStaticInputs(incremental.inputs, inputs) &&
+    boxesOverlap(incremental.inputs, inputs);
 
   let liveRefs: LiveRefs;
   let items: SpriteDrawItem[];
   let keptFlags: Uint8Array | undefined;
-  let touchedStatics: ReadonlySet<number> | undefined;
+  let releasedStatics: ReadonlySet<number> | undefined;
   if (splices && viewport !== undefined && touched !== undefined && incremental !== undefined) {
     // The kinds rebuilt every build, then the self-contained entities the deltas touched since.
     const count = collectRebuiltPositioned(snapshot, anchorTileBox(viewport), rebuiltCandidates);
@@ -418,7 +455,8 @@ function collectScene(
       const entity = rebuiltCandidates[i];
       if (entity !== undefined) emit(entity, true);
     }
-    const withheld = withheldChanges(incremental.inputs?.withheldRefs, withheldRefs);
+    const previous = incremental.inputs;
+    const withheld = withheldChanges(previous?.withheldRefs, withheldRefs);
     const emitTouched = (id: number): void => {
       const entity = entityById(snapshot, id);
       const kind = entity === undefined ? null : classify(entity.components);
@@ -426,6 +464,12 @@ function collectScene(
     };
     for (const id of touched.ids) emitTouched(id);
     for (const id of withheld) if (!touched.ids.has(id)) emitTouched(id);
+    const viewMoved = previous !== null && !sameView(previous, viewport);
+    if (viewMoved) {
+      emitExposedStatics(snapshot, viewport, previous, memo, (entity) => {
+        if (!touched.ids.has(entity.id) && !withheld.has(entity.id)) emit(entity, true);
+      });
+    }
     if (ghosts !== undefined) pushGhostItems(list, ghosts, viewport, elevation, liveVehicles, playerColourOf);
     const emittedItems = list.finish();
     const fresh: SpriteDrawItem[] = [];
@@ -434,11 +478,18 @@ function collectScene(
     if (order !== undefined) order.sort(others);
     else others.sort(drawOrder);
     fresh.sort(drawOrder);
-    // Most deltas touch no self-contained entity under the view: the run stands as it was.
+    // Most deltas touch no self-contained entity under the view: the run stands as it was. A static
+    // item's cull point is its own anchor, so the run keeps an item exactly when the view still shows it.
+    const left: number[] = [];
     const keptRun =
-      touched.ids.size === 0 && withheld.size === 0
+      touched.ids.size === 0 && withheld.size === 0 && !viewMoved
         ? incremental.statics
-        : incremental.statics.filter((i) => !touched.ids.has(i.ref) && !withheld.has(i.ref));
+        : incremental.statics.filter((i) => {
+            if (touched.ids.has(i.ref) || withheld.has(i.ref)) return false;
+            if (!viewMoved || isVisible(viewport, i.x, i.y)) return true;
+            left.push(i.ref);
+            return false;
+          });
     const staticKept = new Uint8Array(keptRun.length + fresh.length);
     let statics: readonly SpriteDrawItem[] = keptRun;
     if (fresh.length === 0) staticKept.fill(1);
@@ -446,9 +497,11 @@ function collectScene(
     incremental.statics = statics;
     keptFlags = new Uint8Array(statics.length + others.length);
     items = mergeFlagged(statics, staticKept, others, keptFlags);
+    // An item the view no longer shows releases its hold too, so the pool detaches its sprite.
     const released = new Set(touched.ids);
     for (const id of withheld) released.add(id);
-    touchedStatics = released;
+    for (const id of left) released.add(id);
+    releasedStatics = released;
     const positioned: LiveRefs = {
       has: (ref) => collected.has(ref) || (isPositioned(snapshot, ref) && staticRefs?.has(ref) !== true),
     };
@@ -472,9 +525,45 @@ function collectScene(
     incremental.touched = touched ?? null;
     touched?.ids.clear();
   }
-  return keptFlags === undefined || touchedStatics === undefined
+  return keptFlags === undefined || releasedStatics === undefined
     ? { items, liveRefs }
-    : { items, liveRefs, kept: keptFlags, touchedStatics };
+    : { items, liveRefs, kept: keptFlags, releasedStatics };
+}
+
+/**
+ * Hand `emit` each self-contained entity whose anchor the last build's `previous` box did not show but
+ * `view` may: one position query per exposed strip, so a pan pays for the ground it uncovers.
+ */
+function emitExposedStatics(
+  snapshot: WorldSnapshot,
+  view: Viewport,
+  previous: Viewport,
+  memo: SceneItemMemo | undefined,
+  emit: (entity: EntitySnapshot) => void,
+): void {
+  const seen = new Set<number>();
+  for (const box of exposedBoxes(view, previous)) {
+    const count = collectPositioned(snapshot, anchorTileBox(box), exposedCandidates);
+    for (let i = 0; i < count; i++) {
+      const entity = exposedCandidates[i];
+      if (entity === undefined || seen.has(entity.id)) continue;
+      seen.add(entity.id);
+      const known = memo?.get(entity);
+      const kind = known?.kind ?? classify(entity.components);
+      if (kind === null || !isSelfContainedKind(kind)) continue;
+      // A self-contained kind draws on its own Position, the anchor its cull reads.
+      let x = known?.screen.x;
+      let y = known?.screen.y;
+      if (x === undefined || y === undefined) {
+        const pos = readPosition(entity.components);
+        if (pos === null) continue;
+        x = tileToScreenX(pos.x / ONE, pos.y / ONE);
+        y = tileToScreenY(pos.y / ONE);
+      }
+      if (!isVisible(previous, x, y)) emit(entity);
+    }
+  }
+  exposedCandidates.length = 0;
 }
 
 /** Offset a choreographed worker from its house's anchor and give it the pose its program calls for. The

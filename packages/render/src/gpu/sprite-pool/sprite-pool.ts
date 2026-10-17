@@ -409,8 +409,9 @@ export class SpritePool {
       this.passHasPortrait = true;
     }
     const still = !emphasis && this.holdsStill(pe, item);
-    // Only a static-run item may stand unvisited: the touch log names it when a delta changes or removes
-    // it. Any other kind is rebuilt every build, and only a visit notices it left the draw list.
+    // Only a static-run item may stand unvisited: the scene names it among its released statics when a
+    // delta touches it, its withheld state changes or it leaves the view. Any other kind is rebuilt every
+    // build, and only a visit notices it left the draw list.
     pe.held = still && isStaticItem(item) ? this.holdGeneration : -1;
     (item as unknown as HoldMarked)[HELD] = pe.held;
     if (!still && index >= 0) {
@@ -422,7 +423,7 @@ export class SpritePool {
   /**
    * Release every hold when something a held entity draws from changed without its draw item changing
    * (a bind input, the wind or motion setting, the highlight, the selection style, a full scene build),
-   * and each one whose entity a delta touched.
+   * and each one the scene released: touched by a delta, withheld or handed back, or out of view.
    */
   private reviseHolds(scene: SpriteScene, frame: PoolFrame): void {
     if (
@@ -438,7 +439,7 @@ export class SpritePool {
       this.holdHighlight = frame.highlight;
       this.holdStyle = frame.selectionStyle;
     }
-    for (const ref of scene.touchedStatics ?? NO_REFS) {
+    for (const ref of scene.releasedStatics ?? NO_REFS) {
       const pe = this.pool.get(ref);
       if (pe !== undefined) pe.held = -1;
     }

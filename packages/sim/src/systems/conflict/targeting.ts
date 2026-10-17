@@ -38,6 +38,7 @@ import {
   mayHunt,
 } from '../readviews/index.js';
 import { hexNodeDistance } from '../spatial/metric.js';
+import { EpochMarks } from './epoch-marks.js';
 import { holdsPost, standsAtPost } from './tower-post.js';
 import { vehicleWeapon } from './weapons.js';
 
@@ -320,37 +321,24 @@ export function firingBuildings(world: World, ctx: SystemContext): Set<Entity> {
  *  steady garrison costs no set growth per pass. The set changes in place at each {@link refresh}. */
 export class HeldFiringBuildings {
   private readonly firing = new Set<Entity>();
-  /** {@link epoch} on each building found firing by the running refresh, indexed by entity id. */
-  private marks = new Uint32Array(0);
-  private epoch = 0;
-  private readonly marked = (b: Entity): boolean => this.marks[b] === this.epoch;
+  /** The buildings found firing by the running refresh. */
+  private readonly marks = new EpochMarks();
+  private readonly marked = (b: Entity): boolean => this.marks.has(b);
   private readonly mark = (b: Entity): void => {
-    if (b >= this.marks.length) {
-      const grown = new Uint32Array(Math.max(b + 1, 2 * this.marks.length));
-      grown.set(this.marks);
-      this.marks = grown;
-    }
-    this.marks[b] = this.epoch;
+    this.marks.mark(b);
     this.firing.add(b);
   };
   private readonly dropStale = (b: Entity): void => {
-    if (this.marks[b] !== this.epoch) this.firing.delete(b);
+    if (!this.marks.has(b)) this.firing.delete(b);
   };
 
   refresh(world: World, ctx: SystemContext): ReadonlySet<Entity> {
-    if (this.epoch === MAX_FIRING_EPOCH) {
-      this.marks.fill(0);
-      this.epoch = 0;
-    }
-    this.epoch++;
+    this.marks.begin();
     forEachFiringBuilding(world, ctx, this.marked, this.mark);
     this.firing.forEach(this.dropStale);
     return this.firing;
   }
 }
-
-/** The last epoch before the firing marks are cleared and counting restarts. */
-const MAX_FIRING_EPOCH = 0xffffffff;
 
 /** Hand each building able to shoot this tick to `mark` once. `marked` answers whether this sweep already
  *  marked one, so a tower several men stand on is checked for the first of them only. */

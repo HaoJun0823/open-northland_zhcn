@@ -163,14 +163,14 @@ export class CombatIndex {
     const scan = this.bandScan(fromX, fromY, minDist, maxDist, seeker, metric);
     const { keys, count } = scan;
     // A member admitted at several nodes recurs at a larger distance; a rejection holds for all of them.
-    beginMeetings(scan);
+    scan.met.begin();
     this.depth++;
     try {
       for (let i = 0; i < count; i++) {
         const key = keys[i] ?? 0;
         const distance = Math.floor(key / CANDIDATE_ID_SPAN);
         const entity = (key - distance * CANDIDATE_ID_SPAN) as Entity;
-        if (!firstMeeting(scan, entity)) continue;
+        if (!scan.met.firstMark(entity)) continue;
         if (accept(entity)) return { entity, distance };
       }
       return null;
@@ -202,7 +202,7 @@ export class CombatIndex {
     const { keys, count } = scan;
     const found: { entity: Entity; distance: number }[] = [];
     let lastRing = maxDist;
-    beginMeetings(scan);
+    scan.met.begin();
     this.depth++;
     try {
       for (let i = 0; i < count && found.length < limit; i++) {
@@ -210,7 +210,7 @@ export class CombatIndex {
         const distance = Math.floor(key / CANDIDATE_ID_SPAN);
         if (distance > lastRing) break;
         const entity = (key - distance * CANDIDATE_ID_SPAN) as Entity;
-        if (!firstMeeting(scan, entity)) continue;
+        if (!scan.met.firstMark(entity)) continue;
         if (!accept(entity)) continue;
         found.push({ entity, distance });
         lastRing = Math.min(lastRing, distance + tailRings);
@@ -277,13 +277,13 @@ export class CombatIndex {
     }
     const keys = scan.keys.subarray(0, count);
     keys.sort();
-    beginMeetings(scan);
+    scan.met.begin();
     const found: { entity: Entity; distance: number }[] = [];
     for (let i = 0; i < count; i++) {
       const key = keys[i] ?? 0;
       const distance = Math.floor(key / CANDIDATE_ID_SPAN);
       const entity = (key - distance * CANDIDATE_ID_SPAN) as Entity;
-      if (firstMeeting(scan, entity)) found.push({ entity, distance });
+      if (scan.met.firstMark(entity)) found.push({ entity, distance });
     }
     return found;
   }
@@ -524,28 +524,4 @@ function boxCellRange(
     cy0: coarseOf(hy - radius),
     cy1: coarseOf(hy + radius),
   };
-}
-
-/** The last epoch before a scan's member marks are cleared and counting restarts. */
-const MAX_MET_EPOCH = 0xffffffff;
-
-/** Start a query's member marks on `scan`. */
-function beginMeetings(scan: BandScan): void {
-  if (scan.metEpoch === MAX_MET_EPOCH) {
-    scan.met.fill(0);
-    scan.metEpoch = 0;
-  }
-  scan.metEpoch++;
-}
-
-/** Whether the running query over `scan` meets `e` for the first time, marking it met. */
-function firstMeeting(scan: BandScan, e: Entity): boolean {
-  if (e >= scan.met.length) {
-    const grown = new Uint32Array(Math.max(e + 1, 2 * scan.met.length));
-    grown.set(scan.met);
-    scan.met = grown;
-  }
-  if (scan.met[e] === scan.metEpoch) return false;
-  scan.met[e] = scan.metEpoch;
-  return true;
 }

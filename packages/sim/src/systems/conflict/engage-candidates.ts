@@ -5,6 +5,7 @@ import type { SystemContext } from '../context.js';
 import { presenceBound, READY_MEMBERSHIP, READY_VALUES, readyAnywhere } from './acting.js';
 import { isCombatant } from './combat-grid.js';
 import type { CombatIndex } from './combat-index.js';
+import { EpochMarks } from './epoch-marks.js';
 
 /**
  * The combatants {@link readyAnywhere} passes, kept per world from a change feed over the stores it reads,
@@ -119,9 +120,6 @@ export interface EngageCandidates {
   nearStranger(e: Entity): boolean;
 }
 
-/** The last epoch before the near marks are cleared and counting restarts. */
-const MAX_NEAR_EPOCH = 0xffffffff;
-
 /** Ids the sort buffer holds before its first growth. */
 const INITIAL_SORT_CAPACITY = 256;
 
@@ -129,30 +127,17 @@ const INITIAL_SORT_CAPACITY = 256;
 class CandidateScratch implements EngageCandidates {
   readonly candidates: Entity[] = [];
   sorted = new Uint32Array(INITIAL_SORT_CAPACITY);
-  /** {@link nearEpoch} on each unit the running pass's index listed near a stranger, by entity id. */
-  private nearMarks = new Uint32Array(0);
-  private nearEpoch = 0;
+  /** The units the running pass's index listed near a stranger. */
+  private readonly near = new EpochMarks();
 
   /** Mark the first `count` candidates, the index's near-stranger listing, for this pass. */
   markNear(count: number): void {
-    if (this.nearEpoch === MAX_NEAR_EPOCH) {
-      this.nearMarks.fill(0);
-      this.nearEpoch = 0;
-    }
-    const epoch = ++this.nearEpoch;
-    for (let i = 0; i < count; i++) {
-      const e = this.candidates[i] as Entity;
-      if (e >= this.nearMarks.length) {
-        const grown = new Uint32Array(Math.max(e + 1, 2 * this.nearMarks.length));
-        grown.set(this.nearMarks);
-        this.nearMarks = grown;
-      }
-      this.nearMarks[e] = epoch;
-    }
+    this.near.begin();
+    for (let i = 0; i < count; i++) this.near.mark(this.candidates[i] as Entity);
   }
 
   nearStranger(e: Entity): boolean {
-    return this.nearMarks[e] === this.nearEpoch;
+    return this.near.has(e);
   }
 }
 

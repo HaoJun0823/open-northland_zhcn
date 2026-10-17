@@ -17,6 +17,7 @@ import type { MapContext, SystemContext } from '../context.js';
 import { isAggressiveAnimal, isAnimalTribe, isLowPriorityBuildingTarget } from '../readviews/index.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../spatial/node-moves.js';
 import { entityNode } from '../spatial/nodes.js';
+import { EpochMarks } from './epoch-marks.js';
 import { buildingBodyNodes } from './target-node.js';
 
 /** Coarse cell edge (half-cell nodes). A sight- or defend-radius query (≤ ~20 nodes) spans three or four
@@ -136,10 +137,9 @@ export interface BandScan {
   seeker: number | null;
   count: number;
   keys: Float64Array;
-  /** {@link metEpoch} on each member the running query over this scan has met, indexed by entity id and
-   *  grown on demand, so a member recurring at a further node is skipped without a per-query set. */
-  met: Uint32Array;
-  metEpoch: number;
+  /** The members the running query over this scan has met, so a member recurring at a further node is
+   *  skipped without a per-query set. */
+  readonly met: EpochMarks;
 }
 
 /** A building as the layer admitted it, for the staleness checks and the verifier. */
@@ -359,8 +359,7 @@ export class CombatGrid {
         seeker: null,
         count: 0,
         keys: new Float64Array(BAND_SCAN_INITIAL_KEYS),
-        met: new Uint32Array(0),
-        metEpoch: 0,
+        met: new EpochMarks(),
       };
       this.bandScans[depth] = scan;
     }

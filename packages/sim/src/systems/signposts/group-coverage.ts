@@ -18,6 +18,10 @@ const MAX_X = 1;
 const MIN_Y = 2;
 const MAX_Y = 3;
 
+function sameBox(a: ReachArea, b: ReachArea): boolean {
+  return a.minX === b.minX && a.maxX === b.maxX && a.minY === b.minY && a.maxY === b.maxY;
+}
+
 /** The union of the fresh posts' read boxes a scan lists changes over. */
 const scanArea = { minHx: 0, maxHx: 0, minHy: 0, maxHy: 0 };
 /** The changes a scan lists and then marks its posts by. */
@@ -176,9 +180,30 @@ export class GroupCoverage {
     this.readBoxes[at + MIN_Y] = found.searched.minHy;
     this.readBoxes[at + MAX_Y] = found.searched.maxHy;
     if (found.area === held) return;
-    if (held !== undefined) this.count(held, -1);
-    this.count(found.area, 1);
+    if (held !== undefined && sameBox(held, found.area)) this.recount(held, found.area);
+    else {
+      if (held !== undefined) this.count(held, -1);
+      this.count(found.area, 1);
+    }
     this.held[i] = found.area;
+  }
+
+  /** Move the counts from `was` to `now` over the box both share, touching only the cells that moved: a
+   *  repaired search keeps its box and moves a few marks. */
+  private recount(was: ReachArea, now: ReachArea): void {
+    const areaWidth = now.maxX - now.minX + 1;
+    const { minX, minY } = this.bounds;
+    const counts = this.counts;
+    const before = was.cells;
+    const after = now.cells;
+    for (let y = now.minY; y <= now.maxY; y++) {
+      const from = (y - now.minY) * areaWidth;
+      const to = (y - minY) * this.width + now.minX - minX;
+      for (let x = 0; x < areaWidth; x++) {
+        const moved = (after[from + x] as number) - (before[from + x] as number);
+        if (moved !== 0) counts[to + x] = (counts[to + x] as number) + moved;
+      }
+    }
   }
 
   /** Add `sign` times each node `area` marks to the counts. */

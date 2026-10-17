@@ -2,6 +2,8 @@ import type { ContentSet } from '@open-northland/data';
 import {
   AssistantRecruit,
   CARRIER_WALK_RANGE_NODES,
+  hasMissionBehaviour,
+  MISSION_BEHAVIOUR,
   Owner,
   ownerOf,
   Position,
@@ -272,8 +274,9 @@ const limitMemo = new WeakMap<World, LimitMemo>();
 
 /**
  * The navigation limit confining settler `e`, or null when it is unlimited: signpost navigation off, a
- * mapless sim, a non-settler or unowned target, or an exempt job. The `signpostNavigationEnabled` toggle
- * is read live on every call, since an in-place rules flip bumps no generation, so it needs no memo slot.
+ * mapless sim, a non-settler or unowned target, an exempt job, or a human whose script behaviour lifts the
+ * walk range. The `signpostNavigationEnabled` toggle is read live on every call, since an in-place rules
+ * flip bumps no generation, so it needs no memo slot.
  */
 export function navigationLimitFor(
   world: World,
@@ -282,6 +285,7 @@ export function navigationLimitFor(
   e: Entity,
 ): NavigationLimit | null {
   if (!signpostNavigationEnabled(world)) return null;
+  if (hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.UNLIMITED_WALK_RANGE)) return null;
   const settler = world.tryGet(e, Settler);
   const owner = world.tryGet(e, Owner);
   const p = world.tryGet(e, Position);

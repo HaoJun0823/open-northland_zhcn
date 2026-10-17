@@ -26,6 +26,8 @@ export const MISSION_BEHAVIOUR = {
   JOB_LOCKED: 1 << 6,
   /** The import marker `SetImportHumanFlag` writes; drawn on the human, no rule reads it. */
   IMPORTED: 1 << 7,
+  /** Walks anywhere, as soldiers and scouts do: no signpost confinement. */
+  UNLIMITED_WALK_RANGE: 1 << 8,
   /** Earns no experience for the work it does. */
   NO_JOB_EXPERIENCE: 1 << 11,
   /** Walking does not consume shoe condition; barefoot food drain is independent. */
@@ -38,6 +40,8 @@ export const MISSION_BEHAVIOUR = {
   SPAWNS_DEFENDING: 1 << 16,
   /** Walks faster than its trade would. */
   WALKS_FAST: 1 << 17,
+  /** Does not age: a baby or child keeps its stage while the bit is set. */
+  AGELESS: 1 << 18,
   /** Drawn with the owner-coloured glow a hero wears; no rule reads it. */
   GLOWS: 1 << 19,
 } as const;

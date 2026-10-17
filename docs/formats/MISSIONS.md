@@ -470,6 +470,7 @@ the encoding). Bits with a known effect (reading; each is a hypothesis to confir
 | 5 | 32 | not player-controllable: no command set, ignored by send-to; the scripted AI never lists it as a soldier |
 | 6 | 64 | cannot change job |
 | 7 | 128 | import marker (drawn on the human) |
+| 8 | 256 | unlimited walk range: a civilian walks anywhere, as a soldier or scout does, past the signpost confinement |
 | 9 | 512 | walks at half speed |
 | 11 | 2048 | earns no job experience |
 | 12 | 4096 | shoes do not wear while walking; does not protect barefoot food reserves |
@@ -478,6 +479,7 @@ the encoding). Bits with a known effect (reading; each is a hypothesis to confir
 | 15 | 32768 | a hit does not spread to nearby units |
 | 16 | 65536 | a weresnake or werewolf starts defensive instead of aggressive; every other human starts defensive anyway |
 | 17 | 131072 | walks faster |
+| 18 | 262144 | does not age: a baby or child keeps its age while the bit is set, and ages on from there once it clears |
 | 19 | 524288 | drawn with the owner-coloured glow a hero wears, except on the Frankish heroine slot |
 
 Bit 0 acts twice: urgent needs skip such a human, and animation events never change its four need
@@ -485,7 +487,9 @@ bars, so they neither fall nor refill.
 
 Original behavior: bit 12 stops only shoe wear; a barefoot step checks bit 0 instead.
 
-Bits 8, 10 and 18 appear in the corpus (bit 18 in mask 272507) with no known effect. The original
+Bit 10 appears in the corpus with no known effect; this build ignores it. Bit 18 appears in mask
+272507. Bits 8 and 18 are read from the original's behavior and not yet confirmed against the
+running original. The original
 ORs 0x1800 plus bits 0 and 6 into every hero it creates, and bit 7 into all but the Frankish heroine.
 Corpus masks: `sethuman` mostly 0, then 272507, 8315, 64; `SetPlayerBehaviourFlag` mostly 512,
 131200, 16384, 8192; `SetHumanBehaviourFlag` mostly 32, 512, 33, 128, 8.
@@ -1235,7 +1239,7 @@ behavior (a reading, the same in the owned 2001 copy; not timed against the runn
 
 ## Open questions
 
-- Behaviour bits 8, 10, 18 and the animal behaviour value.
+- Behaviour bit 10 and the animal behaviour value.
 - Readings above may not match the owned 2001 build; it has not been checked for the check period,
   the tick reset, `SelectHuman`'s flag, the load-time job seeding or a death turning off the AI.
 

@@ -10,6 +10,7 @@ import {
   type ComputerModuleId,
   CurrentAtomic,
   LostWay,
+  MISSION_BEHAVIOUR,
   MoveGoal,
   Owner,
   PlayerOrder,
@@ -20,6 +21,7 @@ import {
   SettlerNeeds,
   SettlerProgress,
   Stockpile,
+  setMissionBehaviour,
   stampOwner,
   WALK_RANGE_NODES,
 } from '../../src/components/index.js';
@@ -194,6 +196,20 @@ describe('setSignpostNavigation + moveUnit - the confinement rule', () => {
     // The hunter never gets lost, like the scout (design rule, user-specified) - its range is bounded
     // by its own work flag instead of the signpost network.
     expect(ordered(sim, hunter)).toBe(true);
+  });
+
+  it('ON: a civilian with the unlimited walk range bit walks anywhere, and is confined again once it clears', () => {
+    const sim = confinedSim();
+    const u = ownedUnit(sim, 2, 2, CIVILIST);
+    setMissionBehaviour(sim.world, u, MISSION_BEHAVIOUR.UNLIMITED_WALK_RANGE, true);
+    sim.enqueueSetup({ kind: 'moveUnit', entity: u, x: 220, y: 4 });
+    sim.step();
+    expect(ordered(sim, u)).toBe(true);
+
+    setMissionBehaviour(sim.world, u, MISSION_BEHAVIOUR.UNLIMITED_WALK_RANGE, false);
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('no terrain');
+    expect(navigationLimitFor(sim.world, sim.content, terrain, u)).not.toBeNull();
   });
 
   it('ON: a caught signpost group extends the walkable area to the range around each post', () => {

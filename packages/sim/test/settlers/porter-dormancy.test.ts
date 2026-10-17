@@ -3,9 +3,11 @@ import {
   addPerson,
   Building,
   JobAssignment,
+  MISSION_BEHAVIOUR,
   MoveGoal,
   Position,
   Stockpile,
+  setMissionBehaviour,
   setStockAmount,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
@@ -157,6 +159,33 @@ describe('porter dormancy', () => {
     markPorterDormant(plan);
     expect(porterDormant(plan)).toBe(true);
     bindHaulFlag(sim.world, porter, { x: fx.fromInt(5), y: fx.fromInt(0) }); // a position write only
+    expect(porterDormant(plan)).toBe(false);
+  });
+
+  it("invalidates a dormant pickup scan when a script lifts the porter's walk range", () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(6, 1) });
+    const hq = hqAt(sim, 5, 0);
+    const porter = porterAt(sim, 0, 0, hq);
+    if (sim.terrain === undefined) throw new Error('mapped fixture');
+    const ctx = ctxOf(sim);
+    const plan: PlannerContext = {
+      world: sim.world,
+      ctx,
+      terrain: sim.terrain,
+      entity: porter,
+      here: anchorCell(sim, 0, 0),
+      tribe: VIKING,
+      jobType: CARRIER,
+      experience: new Map(),
+      owner: undefined,
+      limit: null,
+      targets: collectTargets(sim.world, ctx, sim.terrain),
+      supply: collectSupplyTally(sim.world),
+      gossipCandidates: new GossipCandidates(sim.world, sim.content),
+    };
+    markPorterDormant(plan);
+    expect(porterDormant(plan)).toBe(true);
+    setMissionBehaviour(sim.world, porter, MISSION_BEHAVIOUR.UNLIMITED_WALK_RANGE, true);
     expect(porterDormant(plan)).toBe(false);
   });
 

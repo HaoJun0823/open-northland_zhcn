@@ -6,7 +6,17 @@
  * promotion.
  */
 
-import { Age, Health, Person, Residence, Settler, setSettlerJob } from '../../components/index.js';
+import {
+  Age,
+  Health,
+  hasMissionBehaviour,
+  MISSION_BEHAVIOUR,
+  MissionBehaviour,
+  Person,
+  Residence,
+  Settler,
+  setSettlerJob,
+} from '../../components/index.js';
 import { TICKS_PER_SECOND } from '../../core/loop.js';
 import type { ChangeFeed, Entity, World } from '../../ecs/world.js';
 import type { System } from '../context.js';
@@ -116,6 +126,16 @@ function countGrowthPass(world: World, e: Entity, tick: number): number {
   return counted.ticks;
 }
 
+/** Stop `e`'s age at what it was before the pass of `tick`: an unanchored age no longer advances, and the
+ *  pass that finds the ageless bit cleared anchors it again. */
+function holdAge(world: World, e: Entity, tick: number): void {
+  const age = world.get(e, Age);
+  if (age.asOf === null) return;
+  const held = world.mut(e, Age);
+  held.ticks = ageTicksAt(age, tick - 1);
+  held.asOf = null;
+}
+
 /**
  * Age each {@link Age}-bearing settler one tick and promote it through the non-working life stages. Only a
  * settler born young carries an `Age`, and reaching adulthood removes it, so this is a no-op for every
@@ -128,6 +148,11 @@ export const growthSystem: System = (world, ctx) => {
   const visits = schedule.take(world, ctx.tick);
   const graduated: Entity[] = [];
   for (const e of visits ?? world.query(Age, Person)) {
+    // Original behavior: a human with the ageless bit adds nothing to its age.
+    if (hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.AGELESS)) {
+      holdAge(world, e, ctx.tick);
+      continue;
+    }
     const ticks = countGrowthPass(world, e, ctx.tick);
     const settler = world.get(e, Settler);
     if (ticks >= ADULT_AGE_TICKS) {
@@ -160,9 +185,9 @@ function nextStageAge(ticks: number): number {
 }
 
 /**
- * The growing settlers a pass must read: those whose Age, Person or Settler changed since the last pass,
- * and those reaching a stage line this tick. Between those a settler's age class holds and its stored
- * Age needs no write, so the pass would change nothing for it.
+ * The growing settlers a pass must read: those whose Age, Person, Settler or behaviour mask changed since
+ * the last pass, and those reaching a stage line this tick. Between those a settler's age class holds and
+ * its stored Age needs no write, so the pass would change nothing for it.
  */
 class GrowthSchedule {
   private readonly feed: ChangeFeed;
@@ -177,7 +202,10 @@ class GrowthSchedule {
   };
 
   constructor(world: World) {
-    this.feed = world.watchChanges([Age, Person, Settler], [Age, Settler]);
+    this.feed = world.watchChanges(
+      [Age, Person, Settler, MissionBehaviour],
+      [Age, Settler, MissionBehaviour],
+    );
   }
 
   /** The settlers the pass of `tick` reads in the {@link Age} query's order, or null for all of them. */
@@ -222,6 +250,10 @@ class GrowthSchedule {
     let stale = 0;
     for (const e of world.query(Age, Person)) {
       if (written.has(e)) continue;
+      if (hasMissionBehaviour(world, e, MISSION_BEHAVIOUR.AGELESS)) {
+        if (world.get(e, Age).asOf !== null) stale++;
+        continue;
+      }
       const ticks = ageTicksAt(world.get(e, Age), passed + 1);
       const due = this.dueOf.get(e);
       const expected = passed + 1 + (nextStageAge(ticks - 1) - ticks);

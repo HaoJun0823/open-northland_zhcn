@@ -3,7 +3,9 @@ import {
   DeliveryFlag,
   GroundDrop,
   HaulFlag,
+  hasMissionBehaviour,
   JobAssignment,
+  MISSION_BEHAVIOUR,
   Owner,
   ownerOf,
   PickupClaim,
@@ -57,6 +59,8 @@ interface DormantEntry {
   /** The confinement toggle at the failed scan; its rules singleton is written in place with no generation
    *  bump, so the toggle is compared directly. */
   readonly confined: boolean;
+  /** The porter's unlimited-walk-range bit, which lifts its confinement. */
+  readonly unlimitedRange: boolean;
 }
 
 interface PorterDormancy {
@@ -111,6 +115,7 @@ function entryFor(plan: PlannerContext): DormantEntry {
     workplace: world.get(entity, JobAssignment).workplace,
     flagNode: flag === undefined ? null : entityNode(world, plan.terrain, flag.flag),
     confined: signpostNavigationEnabled(world),
+    unlimitedRange: hasMissionBehaviour(world, entity, MISSION_BEHAVIOUR.UNLIMITED_WALK_RANGE),
   };
 }
 
@@ -123,7 +128,8 @@ function sameEntry(a: DormantEntry, b: DormantEntry): boolean {
     a.owner === b.owner &&
     a.workplace === b.workplace &&
     a.flagNode === b.flagNode &&
-    a.confined === b.confined
+    a.confined === b.confined &&
+    a.unlimitedRange === b.unlimitedRange
   );
 }
 

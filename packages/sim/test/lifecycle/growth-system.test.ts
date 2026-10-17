@@ -1,6 +1,15 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { Age, addPerson, Health, Position, Residence, Settler } from '../../src/components/index.js';
+import {
+  Age,
+  addPerson,
+  Health,
+  MISSION_BEHAVIOUR,
+  Position,
+  Residence,
+  Settler,
+  setMissionBehaviour,
+} from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, Simulation, TICKS_PER_SECOND } from '../../src/index.js';
 import {
@@ -164,6 +173,32 @@ describe('GrowthSystem - non-working settlers mature into workers', () => {
     run(sim, ADULT_AGE_TICKS * 2);
     expect(sim.world.get(adult, Settler).jobType).toBe(6); // unchanged
     expect(sim.world.has(adult, Age)).toBe(false);
+  });
+
+  it('holds an ageless child at its age, and resumes from there once the bit clears', () => {
+    const sim = new Simulation({ seed: 1, content: growthContent() });
+    const boy = bornSettler(sim, CHILD_MALE, CHILD_AGE_TICKS);
+    setMissionBehaviour(sim.world, boy, MISSION_BEHAVIOUR.AGELESS, true);
+    sim.run(ADULT_AGE_TICKS);
+    expect(sim.world.get(boy, Settler).jobType).toBe(CHILD_MALE);
+    expect(sim.world.get(boy, Age)).toEqual({ ticks: CHILD_AGE_TICKS, asOf: null });
+
+    run(sim, 10);
+    setMissionBehaviour(sim.world, boy, MISSION_BEHAVIOUR.AGELESS, false);
+    sim.run(ADULT_AGE_TICKS - CHILD_AGE_TICKS - 1);
+    expect(sim.world.get(boy, Settler).jobType).toBe(CHILD_MALE);
+    sim.run(1);
+    expect(sim.world.get(boy, Settler).jobType).toBe(CIVILIST_JOB);
+  });
+
+  it('stops an anchored age where the ageless bit finds it', () => {
+    const sim = new Simulation({ seed: 1, content: growthContent() });
+    const girl = bornSettler(sim, CHILD_FEMALE, CHILD_AGE_TICKS);
+    sim.run(100);
+    setMissionBehaviour(sim.world, girl, MISSION_BEHAVIOUR.AGELESS, true);
+    sim.run(ADULT_AGE_TICKS);
+    expect(sim.world.get(girl, Settler).jobType).toBe(CHILD_FEMALE);
+    expect(sim.world.get(girl, Age)).toEqual({ ticks: CHILD_AGE_TICKS + 100, asOf: null });
   });
 
   it('is deterministic: two runs from the same seed hash-equal across the full maturation', () => {

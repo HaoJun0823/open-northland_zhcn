@@ -181,7 +181,7 @@ export function containsTargetPoint(
 }
 
 /** Whether `a` is drawn over `b`: the larger screen `y` is drawn last, tie-broken by the higher entity id. */
-export function drawnInFront(a: Pickable, b: Pickable): boolean {
+export function drawnInFront(a: Pick<Pickable, 'y' | 'ref'>, b: Pick<Pickable, 'y' | 'ref'>): boolean {
   return a.y > b.y || (a.y === b.y && a.ref > b.ref);
 }
 

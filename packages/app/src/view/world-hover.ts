@@ -1,5 +1,5 @@
 import type { ContentSet } from '@open-northland/data';
-import type { Camera, WorldRenderer } from '@open-northland/render';
+import type { Camera, EntityBounds, WorldRenderer } from '@open-northland/render';
 import { type ChestKind, entityById, type WorldSnapshot } from '@open-northland/sim';
 import type { UiString } from '../content/gui-gfx.js';
 import {
@@ -19,7 +19,7 @@ import type {
   VehicleHoverModel,
 } from '../hud/hover-card/model.js';
 import { messages } from '../i18n/index.js';
-import { hitsTarget, isHitTarget, type Pickable, pickTopAt, screenToWorld } from './picking.js';
+import { containsTargetPoint, drawnInFront, isHitTarget, screenToWorld } from './picking.js';
 import { createTooltip } from './tooltip.js';
 
 /**
@@ -86,12 +86,34 @@ type HoverInfo =
 /** The targets that open the card rather than a chip. */
 type CardKind = 'building' | 'settler' | 'vehicle' | 'palisade';
 
-/** The hit targets of one drawn frame, people apart: a settler answers the cursor before whatever it
- *  stands on or in front of. */
-interface HoverTargets {
-  readonly people: Pickable[];
-  readonly rest: Pickable[];
+/** A drawn item the hover may name, as its frame drew it: `box` is its bounds then. Whether its entity
+ *  takes the hover is read only once the pointer lands on it. */
+interface HoverCandidate {
+  ref: number;
+  x: number;
+  y: number;
+  kind: HoverCandidateKind;
+  box: EntityBounds | undefined;
+  goodType: number;
+  fill: number;
 }
+
+type HoverCandidateKind = 'settler' | 'building' | 'palisade' | 'chest' | 'vehicle' | 'pile';
+
+/** What the pointer is over: the frontmost person, else the frontmost other target, and whether the
+ *  target the hover holds is still one of them. */
+interface HoverHits {
+  person: HoverCandidate | null;
+  personInfo: HoverInfo | undefined;
+  rest: HoverCandidate | null;
+  restInfo: HoverInfo | undefined;
+  heldInfo: HoverInfo | undefined;
+}
+
+const SETTLER_INFO: HoverInfo = { kind: 'settler' };
+const BUILDING_INFO: HoverInfo = { kind: 'building' };
+const PALISADE_INFO: HoverInfo = { kind: 'palisade' };
+const VEHICLE_INFO: HoverInfo = { kind: 'vehicle' };
 
 export function createWorldHover(opts: WorldHoverOptions): WorldHover {
   const tooltip = createTooltip();
@@ -101,89 +123,123 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
     return screenToWorld(opts.camera(), p.x, p.y);
   };
 
-  // The drawn list is culled to the viewport, so the hit-target cache keys on the camera as well as
-  // the tick.
-  let hoverKey = '';
-  let hoverTargets: HoverTargets = { people: [], rest: [] };
-  const hoverInfo = new Map<number, HoverInfo>();
-  const hoverTargetsFor = (snap: WorldSnapshot): HoverTargets => {
+  // The drawn list is culled to the viewport, so the candidates key on the camera as well as the tick.
+  // They are copied once per key into retained slots; the entity reads wait for a point that hits one.
+  let candidatesKey = '';
+  const candidates: HoverCandidate[] = [];
+  let candidateCount = 0;
+  const candidateSlot = (): HoverCandidate => {
+    let slot = candidates[candidateCount];
+    if (slot === undefined) {
+      slot = { ref: 0, x: 0, y: 0, kind: 'settler', box: undefined, goodType: 0, fill: 0 };
+      candidates.push(slot);
+    }
+    candidateCount++;
+    return slot;
+  };
+  const collectCandidates = (snap: WorldSnapshot): void => {
     const cam = opts.camera();
     const key = `${snap.tick}:${cam.offsetX}:${cam.offsetY}:${cam.scale ?? 1}`;
-    if (key === hoverKey) return hoverTargets;
-    hoverKey = key;
-    hoverTargets = { people: [], rest: [] };
-    hoverInfo.clear();
-    const pixelHitOf = opts.pixelHitOf;
+    if (key === candidatesKey) return;
+    candidatesKey = key;
+    candidateCount = 0;
     for (const it of opts.renderer.drawnItems()) {
       if (!isHitTarget(it)) continue;
-      if (it.kind === 'settler') {
-        const entity = entityById(snap, it.ref);
-        // Wildlife and livestock draw as settlers too, and neither has a name or a trade to show.
-        if (entity === undefined || !isSettler(entity) || isWildlife(entity)) continue;
-        hoverTargets.people.push({
-          ref: it.ref,
-          x: it.x,
-          y: it.y,
-          kind: 'settler',
-          box: opts.renderer.entityBounds(it.ref),
-        });
-        hoverInfo.set(it.ref, { kind: 'settler' });
-        continue;
-      }
-      if (it.kind === 'building' || it.kind === 'palisade') {
-        if (it.kind === 'palisade') {
-          const entity = entityById(snap, it.ref);
-          if (entity === undefined || !opts.wallHovers(entity)) continue;
-        }
-        hoverTargets.rest.push({
-          ref: it.ref,
-          x: it.x,
-          y: it.y,
-          kind: it.kind,
-          box: opts.renderer.entityBounds(it.ref),
-          ...(pixelHitOf !== undefined
-            ? { pixelHit: (wx: number, wy: number) => pixelHitOf(it.ref, wx, wy) }
-            : {}),
-        });
-        hoverInfo.set(it.ref, { kind: it.kind });
-        continue;
-      }
-      if (it.kind === 'chest') {
-        const entity = entityById(snap, it.ref);
-        const chestKind = entity === undefined ? undefined : chestKindOf(entity);
-        if (chestKind === undefined) continue;
-        hoverTargets.rest.push({
-          ref: it.ref,
-          x: it.x,
-          y: it.y,
-          kind: 'chest',
-          box: opts.renderer.entityBounds(it.ref),
-        });
-        hoverInfo.set(it.ref, { kind: 'chest', chestKind });
-        continue;
-      }
-      if (it.kind === 'vehicle') {
-        const entity = entityById(snap, it.ref);
-        if (entity === undefined || !isVehicle(entity)) continue;
-        hoverTargets.rest.push({
-          ref: it.ref,
-          x: it.x,
-          y: it.y,
-          kind: 'vehicle',
-          box: opts.renderer.entityBounds(it.ref),
-          ...(pixelHitOf !== undefined
-            ? { pixelHit: (wx: number, wy: number) => pixelHitOf(it.ref, wx, wy) }
-            : {}),
-        });
-        hoverInfo.set(it.ref, { kind: 'vehicle' });
-        continue;
-      }
-      if (it.kind !== 'stockpile' && it.kind !== 'grounddrop') continue;
-      if (it.goodType === undefined) continue; // an empty delivery flag - nothing to name
-      hoverTargets.rest.push({ ref: it.ref, x: it.x, y: it.y, box: opts.renderer.entityBounds(it.ref) });
-      hoverInfo.set(it.ref, { kind: 'pile', goodType: it.goodType, amount: it.fill ?? 0 });
+      let kind: HoverCandidateKind;
+      if (
+        it.kind === 'settler' ||
+        it.kind === 'building' ||
+        it.kind === 'palisade' ||
+        it.kind === 'chest' ||
+        it.kind === 'vehicle'
+      )
+        kind = it.kind;
+      else if ((it.kind === 'stockpile' || it.kind === 'grounddrop') && it.goodType !== undefined)
+        kind = 'pile'; // an empty delivery flag names nothing
+      else continue;
+      const slot = candidateSlot();
+      slot.ref = it.ref;
+      slot.x = it.x;
+      slot.y = it.y;
+      slot.kind = kind;
+      slot.box = opts.renderer.entityBounds(it.ref);
+      slot.goodType = it.goodType ?? 0;
+      slot.fill = it.fill ?? 0;
     }
-    return hoverTargets;
+  };
+
+  /** What `c` shows when its entity takes the hover, else undefined. */
+  const infoOf = (snap: WorldSnapshot, c: HoverCandidate): HoverInfo | undefined => {
+    switch (c.kind) {
+      case 'settler': {
+        const entity = entityById(snap, c.ref);
+        // Wildlife and livestock draw as settlers too, and neither has a name or a trade to show.
+        return entity === undefined || !isSettler(entity) || isWildlife(entity) ? undefined : SETTLER_INFO;
+      }
+      case 'building':
+        return BUILDING_INFO;
+      case 'palisade': {
+        const entity = entityById(snap, c.ref);
+        return entity === undefined || !opts.wallHovers(entity) ? undefined : PALISADE_INFO;
+      }
+      case 'chest': {
+        const entity = entityById(snap, c.ref);
+        const chestKind = entity === undefined ? undefined : chestKindOf(entity);
+        return chestKind === undefined ? undefined : { kind: 'chest', chestKind };
+      }
+      case 'vehicle': {
+        const entity = entityById(snap, c.ref);
+        return entity === undefined || !isVehicle(entity) ? undefined : VEHICLE_INFO;
+      }
+      case 'pile':
+        return { kind: 'pile', goodType: c.goodType, amount: c.fill };
+    }
+  };
+
+  /** Whether `c` is under world point (`wx`, `wy`): in its box, a pile and a person by the settler box,
+   *  and on a solid texel of a building, wall or vehicle. */
+  const under = (c: HoverCandidate, wx: number, wy: number): boolean => {
+    const boxKind = c.kind === 'pile' ? 'settler' : c.kind;
+    if (!containsTargetPoint(boxKind, c.x, c.y, c.box, wx, wy)) return false;
+    const pixelHitOf = opts.pixelHitOf;
+    const pixels = c.kind === 'building' || c.kind === 'palisade' || c.kind === 'vehicle';
+    return !pixels || pixelHitOf === undefined || (pixelHitOf(c.ref, wx, wy) ?? true);
+  };
+
+  const hits: HoverHits = {
+    person: null,
+    personInfo: undefined,
+    rest: null,
+    restInfo: undefined,
+    heldInfo: undefined,
+  };
+  const hitsAt = (snap: WorldSnapshot, wx: number, wy: number, held: number | null): HoverHits => {
+    collectCandidates(snap);
+    hits.person = null;
+    hits.personInfo = undefined;
+    hits.rest = null;
+    hits.restInfo = undefined;
+    hits.heldInfo = undefined;
+    for (let i = 0; i < candidateCount; i++) {
+      const c = candidates[i];
+      if (c === undefined) continue;
+      const person = c.kind === 'settler';
+      const best = person ? hits.person : hits.rest;
+      if (best !== null && !drawnInFront(c, best) && c.ref !== held) continue;
+      if (!under(c, wx, wy)) continue;
+      const info = infoOf(snap, c);
+      if (info === undefined) continue;
+      if (c.ref === held) hits.heldInfo = info;
+      if (best !== null && !drawnInFront(c, best)) continue;
+      if (person) {
+        hits.person = c;
+        hits.personInfo = info;
+      } else {
+        hits.rest = c;
+        hits.restInfo = info;
+      }
+    }
+    return hits;
   };
 
   // The card's model is rebuilt only when the target, the tick or `modelVersion` changes; the frames in
@@ -236,10 +292,6 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
     if (moved) restAt = { x: clientX, y: clientY, camera: { ...camera } };
     return moved;
   };
-  const stillUnder = (targets: HoverTargets, ref: number, wx: number, wy: number): boolean =>
-    targets.people.some((t) => t.ref === ref && hitsTarget(t, wx, wy)) ||
-    targets.rest.some((t) => t.ref === ref && hitsTarget(t, wx, wy));
-
   const hideCard = (): void => {
     restingOn = null;
     opts.card.hide();
@@ -264,12 +316,13 @@ export function createWorldHover(opts: WorldHoverOptions): WorldHover {
         return;
       }
       const w = toWorld(p.clientX, p.clientY);
-      const targets = hoverTargetsFor(snap);
-      const keep =
-        !pointerMoved(p.clientX, p.clientY) && held !== null && stillUnder(targets, held, w.x, w.y);
-      const ref = keep ? held : (pickTopAt(targets.people, w.x, w.y) ?? pickTopAt(targets.rest, w.x, w.y));
+      const moved = pointerMoved(p.clientX, p.clientY);
+      const found = hitsAt(snap, w.x, w.y, held);
+      const keep = !moved && held !== null && found.heldInfo !== undefined;
+      const top = found.person ?? found.rest;
+      const ref = keep ? held : (top?.ref ?? null);
+      const info = keep ? found.heldInfo : found.person !== null ? found.personInfo : found.restInfo;
       held = ref;
-      const info = ref === null ? undefined : hoverInfo.get(ref);
       if (info === undefined || ref === null) {
         hideAll();
         return;

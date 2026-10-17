@@ -290,14 +290,16 @@ export function goodsSearchLimitAt(
     held !== undefined && held.sites === sites
       ? held.rebased(cache)
       : new GoodsSearchLimit(
-          world,
-          content,
-          terrain,
+          {
+            world,
+            content,
+            terrain,
+            hx,
+            hy,
+            sites,
+            groups: limitGroups(world, content, terrain, cache, player, hx, hy),
+          },
           cache,
-          hx,
-          hy,
-          sites,
-          limitGroups(world, content, terrain, cache, player, hx, hy),
         );
   if (key !== null) cache.limits.set(key, made);
   return made;
@@ -338,7 +340,6 @@ export function goodsSearchCatchAt(
  * rather than mix two worlds, since a client restored from a snapshot would resolve it differently.
  */
 class GoodsSearchLimit implements SpatialGate {
-  readonly bounds: NodeBox;
   /** Per nearby group, whether the own search catches it, once asked; made on the first ask, since most
    *  rebased limits are never asked. */
   private caught: Uint8Array | undefined;
@@ -350,21 +351,23 @@ class GoodsSearchLimit implements SpatialGate {
   private confirmedAt: number;
 
   constructor(
-    private readonly world: World,
-    private readonly content: ContentSet,
-    private readonly terrain: TerrainGraph,
+    /** What the limit asks about, shared by every limit rebased from it. */
+    private readonly spot: LimitSpot,
     cache: ReachCache,
-    private readonly hx: number,
-    private readonly hy: number,
-    /** The player's network list the groups derive from; the network keeps a list's identity while its
-     *  posts stay put, so an unchanged list keeps the groups valid. */
-    readonly sites: readonly SignpostSite[] | undefined,
-    private readonly groups: LimitGroups,
   ) {
     this.versions = cache.versions;
     this.epoch = cache.epoch;
-    this.confirmedAt = world.mutationVersion;
-    this.bounds = groups.bounds;
+    this.confirmedAt = spot.world.mutationVersion;
+  }
+
+  get bounds(): NodeBox {
+    return this.spot.groups.bounds;
+  }
+
+  /** The player's network list the groups derive from; the network keeps a list's identity while its
+   *  posts stay put, so an unchanged list keeps the groups valid. */
+  get sites(): readonly SignpostSite[] | undefined {
+    return this.spot.sites;
   }
 
   /** Whether the limit answers under `cache`'s current versions as built. */
@@ -375,26 +378,17 @@ class GoodsSearchLimit implements SpatialGate {
   /** This spot's limit under `cache`'s versions, for a network still listing {@link sites}: the groups
    *  depend on the player's posts alone, while the searches and catches are asked afresh. */
   rebased(cache: ReachCache): GoodsSearchLimit {
-    return new GoodsSearchLimit(
-      this.world,
-      this.content,
-      this.terrain,
-      cache,
-      this.hx,
-      this.hy,
-      this.sites,
-      this.groups,
-    );
+    return new GoodsSearchLimit(this.spot, cache);
   }
 
   allowsNode(node: NodeId): boolean {
     this.confirmKey();
-    const x = this.terrain.xOf(node);
-    const y = this.terrain.yOf(node);
-    const inRange = hexDistanceBetween(this.hx, this.hy, x, y) < GOODS_SEARCH_RANGE_NODES;
+    const x = this.spot.terrain.xOf(node);
+    const y = this.spot.terrain.yOf(node);
+    const inRange = hexDistanceBetween(this.spot.hx, this.spot.hy, x, y) < GOODS_SEARCH_RANGE_NODES;
     if (!inRange && !this.nearbyCovers(x, y)) return false;
     if (this.local !== undefined && reachContains(this.local, x, y)) return true;
-    const nearby = this.groups.nearby;
+    const nearby = this.spot.groups.nearby;
     for (let i = 0; i < nearby.length; i++)
       if ((nearby[i] as GroupCoverage).covers(x, y, this.epoch) && this.catches(i)) return true;
     // The own flood marks nothing outside the hex range.
@@ -404,13 +398,16 @@ class GoodsSearchLimit implements SpatialGate {
   /** The flood-free half of {@link allowsNode}: inside the hex range or under a caught group. */
   catchesNode(node: NodeId): boolean {
     this.confirmKey();
-    const x = this.terrain.xOf(node);
-    const y = this.terrain.yOf(node);
-    return hexDistanceBetween(this.hx, this.hy, x, y) < GOODS_SEARCH_RANGE_NODES || this.nearbyCovers(x, y);
+    const x = this.spot.terrain.xOf(node);
+    const y = this.spot.terrain.yOf(node);
+    return (
+      hexDistanceBetween(this.spot.hx, this.spot.hy, x, y) < GOODS_SEARCH_RANGE_NODES ||
+      this.nearbyCovers(x, y)
+    );
   }
 
   private nearbyCovers(x: number, y: number): boolean {
-    const nearby = this.groups.nearby;
+    const nearby = this.spot.groups.nearby;
     for (let i = 0; i < nearby.length; i++)
       if ((nearby[i] as GroupCoverage).covers(x, y, this.epoch)) return true;
     return false;
@@ -421,11 +418,11 @@ class GoodsSearchLimit implements SpatialGate {
    *  widened by `radius`; a group's coverage is ruled out by its bounds widened the same way. */
   mayAllowNear(x: number, y: number, radius: number): boolean {
     this.confirmKey();
-    const near = this.groups.reaches;
+    const near = this.spot.groups.reaches;
     if (x < near.minX - radius || x > near.maxX + radius || y < near.minY - radius || y > near.maxY + radius)
       return false;
-    if (hexDistanceBetween(this.hx, this.hy, x, y) < GOODS_SEARCH_RANGE_NODES + radius) return true;
-    const nearby = this.groups.nearby;
+    if (hexDistanceBetween(this.spot.hx, this.spot.hy, x, y) < GOODS_SEARCH_RANGE_NODES + radius) return true;
+    const nearby = this.spot.groups.nearby;
     for (let i = 0; i < nearby.length; i++) {
       const b = (nearby[i] as GroupCoverage).bounds;
       if (x >= b.minX - radius && x <= b.maxX + radius && y >= b.minY - radius && y <= b.maxY + radius)
@@ -436,31 +433,39 @@ class GoodsSearchLimit implements SpatialGate {
 
   /** Throws once a world write moved the reach key since the limit was built. */
   private confirmKey(): void {
-    const version = this.world.mutationVersion;
+    const version = this.spot.world.mutationVersion;
     if (version === this.confirmedAt) return;
-    if (!versionsHold(this.versions, this.world, this.content, this.terrain)) {
+    if (!versionsHold(this.versions, this.spot.world, this.spot.content, this.spot.terrain)) {
       throw new Error('goods search limit asked after the signpost reach key moved; ask a fresh limit');
     }
     this.confirmedAt = version;
   }
 
   private ownSearch(): ReachArea {
-    this.local ??= goodsReachAt(this.world, this.content, this.terrain, this.hx, this.hy);
+    this.local ??= goodsReachAt(
+      this.spot.world,
+      this.spot.content,
+      this.spot.terrain,
+      this.spot.hx,
+      this.spot.hy,
+    );
     return this.local;
   }
 
   /** Whether the own search marks a post of nearby group `i`. */
   private catches(i: number): boolean {
-    this.caught ??= new Uint8Array(this.groups.nearby.length);
+    this.caught ??= new Uint8Array(this.spot.groups.nearby.length);
     const known = this.caught[i];
     if (known !== UNASKED) return known === CAUGHT;
-    const posts = this.groups.nearbyPosts[i] as readonly SignpostSite[];
+    const posts = this.spot.groups.nearbyPosts[i] as readonly SignpostSite[];
     let caught = false;
-    if (this.local === undefined && this.floodMayEnter(this.hx, this.hy)) {
-      const { world, content, terrain } = this;
+    if (this.local === undefined && this.floodMayEnter(this.spot.hx, this.spot.hy)) {
+      const { world, content, terrain } = this.spot;
       for (const p of posts) {
         if (!this.floodMayEnter(p.hx, p.hy)) continue;
-        if (reachContains(postReach(world, content, terrain, p.entity, p.hx, p.hy), this.hx, this.hy)) {
+        if (
+          reachContains(postReach(world, content, terrain, p.entity, p.hx, p.hy), this.spot.hx, this.spot.hy)
+        ) {
           caught = true;
           break;
         }
@@ -475,16 +480,27 @@ class GoodsSearchLimit implements SpatialGate {
 
   /** Whether a goods flood can mark node `(x, y)` and start from it: unblocked, with nonzero resistance. */
   private floodMayEnter(x: number, y: number): boolean {
-    const terrain = this.terrain;
+    const terrain = this.spot.terrain;
     if (!terrain.inBounds(x, y)) return false;
     const node = terrain.nodeAt(x, y);
     // A walkable node's flood entry resistance is its resistanceAt; any other node's is zero.
     return (
       terrain.isWalkable(node) &&
       terrain.resistanceAt(node) !== 0 &&
-      !signpostMask(this.world, this.content, terrain).has(node)
+      !signpostMask(this.spot.world, this.spot.content, terrain).has(node)
     );
   }
+}
+
+/** A limit's spot and what it derives from the signpost network alone, kept across rebases. */
+interface LimitSpot {
+  readonly world: World;
+  readonly content: ContentSet;
+  readonly terrain: TerrainGraph;
+  readonly hx: number;
+  readonly hy: number;
+  readonly sites: readonly SignpostSite[] | undefined;
+  readonly groups: LimitGroups;
 }
 
 /** What a spot's limit derives from the signpost network alone. */

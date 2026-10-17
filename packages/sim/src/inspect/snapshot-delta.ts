@@ -182,6 +182,10 @@ interface ChangeStep {
   readonly layouts: RecordLayout[];
   /** The change that ends here, the same names in every delta. */
   entityChange: EntityChange | null;
+  /** The last name written at this step and the step it led to, which the next entity here usually
+   *  writes too: met without hashing the name. */
+  nextName: string | null;
+  nextStep: ChangeStep | null;
 }
 
 const NO_EPOCH = 0;
@@ -197,6 +201,8 @@ function changeStep(): ChangeStep {
     lastLayout: null,
     layouts: [],
     entityChange: null,
+    nextName: null,
+    nextStep: null,
   };
 }
 
@@ -224,6 +230,15 @@ export class DeltaShapes {
       steps.set(name, step);
       this.steps++;
     }
+    return step;
+  }
+
+  /** The step writing `name` leads to from `from`. */
+  writtenAfter(from: ChangeStep, name: string): ChangeStep {
+    if (from.nextName === name && from.nextStep !== null) return from.nextStep;
+    const step = this.stepAfter(from.written, name);
+    from.nextName = name;
+    from.nextStep = step;
     return step;
   }
 
@@ -287,7 +302,7 @@ export class DeltaColumns {
    *  Either way the columns end as {@link write} of the clone leaves them. */
   readonly writeLive = (name: string, value: unknown): void => {
     this.written[this.writtenCount++] = name;
-    this.step = this.shapes.stepAfter(this.step.written, name);
+    this.step = this.shapes.writtenAfter(this.step, name);
     const kind = isPlainRecord(value) ? this.scalarRecordKind(this.step, value, true) : WHOLE_VALUE;
     this.valueKinds.push(kind);
     // A field that fails the scalar test fails it in the clone too, so the clone needs no second look.
@@ -297,7 +312,7 @@ export class DeltaColumns {
   /** Write a detached value, kept as the delta's own unless its fields are all scalars. */
   write(name: string, value: unknown): void {
     this.written[this.writtenCount++] = name;
-    this.step = this.shapes.stepAfter(this.step.written, name);
+    this.step = this.shapes.writtenAfter(this.step, name);
     const kind = this.scalarRecordKind(this.step, value, false);
     this.valueKinds.push(kind);
     if (kind === WHOLE_VALUE) this.values.push(value);
@@ -352,9 +367,13 @@ export class DeltaColumns {
   private scalarRecordKind(step: ChangeStep, value: unknown, skipUndefined: boolean): number {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return WHOLE_VALUE;
     const record = value as Record<string, unknown>;
-    const numberStart = this.numberCount;
     const stringStart = this.strings.length;
     const last = step.lastLayout;
+    // The number column and its count stay in locals for the loop and are stored back once the record
+    // is taken: a record that turns out not to be scalar leaves them as they were.
+    let numbers = this.shapes.numbers;
+    let numberCount = this.numberCount;
+    let int32Numbers = this.int32Numbers;
     // While the record repeats the step's last layout, its keys and kinds are that layout's; the scratch
     // lists are filled only once it parts from it.
     let matched = last === null ? 0 : -1;
@@ -363,10 +382,13 @@ export class DeltaColumns {
       const field = record[key];
       let kind: number;
       if (typeof field === 'number') {
-        this.pushNumber(field);
+        if (numberCount === numbers.length) numbers = this.growNumbers();
+        if (int32Numbers && !isInt32(field)) int32Numbers = false;
+        numbers[numberCount++] = field;
         kind = NUMBER_KIND;
       } else if (typeof field === 'boolean') {
-        this.pushNumber(field ? 1 : 0);
+        if (numberCount === numbers.length) numbers = this.growNumbers();
+        numbers[numberCount++] = field ? 1 : 0;
         kind = BOOLEAN_KIND;
       } else if (typeof field === 'string') {
         this.strings.push(field);
@@ -375,7 +397,6 @@ export class DeltaColumns {
       else if (field === undefined && skipUndefined) continue;
       else kind = -1;
       if (kind < 0 || key === PROTO_KEY) {
-        this.numberCount = numberStart;
         this.strings.length = stringStart;
         return WHOLE_VALUE;
       }
@@ -392,6 +413,8 @@ export class DeltaColumns {
       }
       count++;
     }
+    this.numberCount = numberCount;
+    this.int32Numbers = int32Numbers;
     let layout: RecordLayout;
     if (last !== null && matched < 0 && last.keys.length === count) layout = last;
     else {
@@ -445,15 +468,12 @@ export class DeltaColumns {
     return layout;
   }
 
-  private pushNumber(field: number): void {
-    let numbers = this.shapes.numbers;
-    if (this.numberCount === numbers.length) {
-      const grown = new Float64Array(numbers.length * 2);
-      grown.set(numbers);
-      this.shapes.numbers = numbers = grown;
-    }
-    if (this.int32Numbers && !isInt32(field)) this.int32Numbers = false;
-    numbers[this.numberCount++] = field;
+  /** The number column doubled, its entries kept. */
+  private growNumbers(): Float64Array<ArrayBuffer> {
+    const grown = new Float64Array(this.shapes.numbers.length * 2);
+    grown.set(this.shapes.numbers);
+    this.shapes.numbers = grown;
+    return grown;
   }
 }
 

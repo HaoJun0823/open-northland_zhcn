@@ -28,7 +28,7 @@ import { summarizeSegment } from './report/index.js';
  * `ON_BENCH_MARCH_COUNT=0` is the control run: no order, the same spawn and phase table.
  */
 
-const { Armor, Building, Equipment, Owner, Position, Settler, PathFollow, Weapon } = components;
+const { Armor, Building, Equipment, Owner, Position, Settler, PathFollow, PathRoute, Weapon } = components;
 
 const DEFAULT_MARCH_MEMBERS = 300;
 /** Ticks after the order counted as the march; the rest of the run is arrival and combat. */
@@ -288,16 +288,24 @@ function marcherStatus(sim: Simulation, marchers: readonly Marcher[]): string {
   let alive = 0;
   let walking = 0;
   const distances: number[] = [];
+  const stopsLeft: number[] = [];
   for (const { entity, slot } of marchers) {
     if (!sim.world.isAlive(entity)) continue;
     alive++;
-    if (sim.world.has(entity, PathFollow)) walking++;
+    const follow = sim.world.tryGet(entity, PathFollow);
+    if (follow !== undefined) {
+      walking++;
+      stopsLeft.push((sim.world.tryGet(entity, PathRoute)?.waypoints.length ?? 0) - follow.index);
+    }
     const node = nodeOf(sim, entity);
     if (node !== null) distances.push(Math.sqrt(squaredDistance(node, slot)));
   }
-  distances.sort((a, b) => a - b);
-  const median = distances[Math.floor(distances.length / 2)] ?? 0;
-  return `alive ${alive}/${marchers.length}, walking ${walking}, median ${median.toFixed(0)} nodes from slot`;
+  const median = (values: number[]): number =>
+    values.sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 0;
+  return (
+    `alive ${alive}/${marchers.length}, walking ${walking}, median ${median(distances).toFixed(0)} nodes ` +
+    `from slot, ${median(stopsLeft)} route stops left`
+  );
 }
 
 export interface MarchProbe {

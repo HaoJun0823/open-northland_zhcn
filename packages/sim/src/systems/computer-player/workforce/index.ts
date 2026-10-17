@@ -1,14 +1,18 @@
 import {
   assistantMovesFlags,
+  Building,
   CurrentAtomic,
   ErectSignpostOrder,
   JobAssignment,
   PlayerOrder,
+  Position,
   UnderConstruction,
 } from '../../../components/index.js';
 import type { PlayerCommand } from '../../../core/commands/index.js';
+import { contentIndex } from '../../../core/content-index.js';
 import type { Entity, World } from '../../../ecs/world.js';
-import type { HalfCellNode } from '../../../nav/halfcell.js';
+import { type HalfCellNode, nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
+import type { TerrainGraph } from '../../../nav/terrain/index.js';
 import { anchorNodeOf } from '../../ai-shared/node-geometry.js';
 import { ownedBuildings, ownedSettlers } from '../../ai-shared/seat-roster.js';
 import {
@@ -23,7 +27,7 @@ import { isMarried } from '../../family/eligibility.js';
 import { scoutJobType } from '../../readviews/index.js';
 import { atomicHoldsSettler } from '../../settlers/atomics/busy.js';
 import { interactionCell } from '../../settlers/targets/index.js';
-import { networkLimitAt } from '../../signposts/index.js';
+import { type NavigationLimit, networkLimitAt } from '../../signposts/index.js';
 import { seatBaseOf } from '../base.js';
 import { type BuildOrderEntry, entryStatuses } from '../build-order/index.js';
 import { type ComputerProfile, computerProfileOf, profileBuildOrder } from '../difficulty.js';
@@ -237,16 +241,67 @@ function collectorGround(
   );
   const unsealed = unsealedResourceTest(world, ctx, flags, baseNode);
   const { limit } = flags;
-  const workable =
+  const origin = terrain.nodeAtClamped(baseNode.hx, baseNode.hy);
+  const maxWorkOffset = contentIndex(ctx.content).maxResourceWorkOffset;
+  const epoch = workableVerdicts.open();
+  const judge =
     limit === null
       ? (e: Entity): boolean => reachable(e) && unsealed(e)
-      : (e: Entity): boolean => {
-          if (!reachable(e)) return false;
-          const origin = terrain.nodeAtClamped(baseNode.hx, baseNode.hy);
-          return limit.allowsNode(interactionCell(world, ctx, terrain, e, origin)) && unsealed(e);
-        };
+      : (e: Entity): boolean =>
+          mayWorkInside(world, terrain, limit, e, maxWorkOffset) &&
+          reachable(e) &&
+          limit.allowsNode(interactionCell(world, ctx, terrain, e, origin)) &&
+          unsealed(e);
+  // Every test reads state the decision cannot change, so each resource is judged once per decision.
+  const workable = (e: Entity): boolean => workableVerdicts.judged(e, epoch, judge);
   return { anchors: collectorAnchors(world, ctx, owned, baseNode), baseNode, flags, workable };
 }
+
+/** False only when `limit` provably refuses `e`'s work cell: a resource's work cell lies at most
+ *  `maxWorkOffset` Manhattan nodes from its anchor, so an anchor with nothing allowed that near has none
+ *  inside. A building's door can lie farther out, and is judged by the full test. */
+function mayWorkInside(
+  world: World,
+  terrain: TerrainGraph,
+  limit: NavigationLimit,
+  e: Entity,
+  maxWorkOffset: number,
+): boolean {
+  if (limit.mayAllowNear === undefined || world.has(e, Building)) return true;
+  const p = world.tryGet(e, Position);
+  if (p === undefined) return true;
+  const hx = nodeHxOfPosition(p.x, p.y);
+  const hy = nodeHyOfPosition(p.y);
+  return !terrain.inBounds(hx, hy) || limit.mayAllowNear(hx, hy, maxWorkOffset);
+}
+
+/** Verdicts per entity id, each valid only for the decision that stamped it: `stamps[e]` is that
+ *  decision's epoch shifted left by one, plus the verdict. Derived read-state, never hashed. */
+class DecisionVerdicts {
+  private stamps = new Float64Array(0);
+  private epochs = 0;
+
+  /** A fresh epoch: no stamp of an earlier one matches it. */
+  open(): number {
+    return ++this.epochs;
+  }
+
+  judged(e: Entity, epoch: number, judge: (e: Entity) => boolean): boolean {
+    if (e >= this.stamps.length) {
+      const next = new Float64Array(Math.max(e + 1, this.stamps.length * 2));
+      next.set(this.stamps);
+      this.stamps = next;
+    }
+    const stamp = this.stamps[e] as number;
+    const base = epoch * 2;
+    if (stamp === base || stamp === base + 1) return stamp === base + 1;
+    const verdict = judge(e);
+    this.stamps[e] = base + (verdict ? 1 : 0);
+    return verdict;
+  }
+}
+
+const workableVerdicts = new DecisionVerdicts();
 
 /**
  * What a baseless seat runs instead of the ladder: the builder reserve, then minimum staffing. The

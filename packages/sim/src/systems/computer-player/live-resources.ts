@@ -37,9 +37,11 @@ export type WorkableTest = (e: Entity) => boolean;
  *  nearest itself, so a partly buried one can still pass here. A node without a footprint is workable. */
 export function workableResourceTest(world: World, ctx: SystemContext, terrain: TerrainGraph): WorkableTest {
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
-  return (e) =>
-    !world.has(e, ResourceFootprint) ||
-    resourceStanceCells(world, ctx, terrain, e).some((cell) => !blocked.has(cell));
+  return (e) => {
+    if (!world.has(e, ResourceFootprint)) return true;
+    for (const cell of resourceStanceCells(world, ctx, terrain, e)) if (!blocked.has(cell)) return true;
+    return false;
+  };
 }
 
 /**

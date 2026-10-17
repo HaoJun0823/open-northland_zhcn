@@ -4483,8 +4483,6 @@ body.on-drag-scroll * {
   --roster-row: 46px;
   --roster-health: #9fcf72;
   --roster-hunger: #74aee6;
-  /* The wells' offsets measure against the grid, which tells the painter which are in view. */
-  position: relative;
   display: grid;
   grid-template-columns: repeat(8, 32px);
   grid-auto-rows: var(--roster-row);
@@ -4502,6 +4500,11 @@ body.on-drag-scroll * {
 }
 .on-hud .on-roster--more {
   mask-image: linear-gradient(#000 calc(100% - 14px), transparent);
+}
+/* Stands for the rows of wells scrolled out of reach (members.ts), whole rows wide. */
+.on-hud .on-roster__pad {
+  grid-column: 1 / -1;
+  pointer-events: none;
 }
 .on-hud .on-seat-well.on-roster__well {
   width: 32px;

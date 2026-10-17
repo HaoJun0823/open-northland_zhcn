@@ -28,7 +28,27 @@ const VEHICLE_SPAN = 2;
 const MEAD_BADGE_PX = 11;
 const COMPACT_MEAD_BADGE_PX = 8;
 
-/** The rows `members` fill in grid order: a vehicle that would cross the row's end starts the next. */
+/** Grid rows attached beyond each edge of the roster's view, so a wheel turn shows built wells at once. */
+const ROW_MARGIN = 2;
+
+/** Each member's grid row in order: a vehicle that would cross the row's end starts the next. */
+export function rosterRowsOf(members: readonly GroupMemberModel[], columns: number): number[] {
+  const rows: number[] = [];
+  let row = -1;
+  let free = 0;
+  for (const member of members) {
+    const span = member.look === 'vehicle' ? VEHICLE_SPAN : 1;
+    if (span > free) {
+      row += 1;
+      free = columns;
+    }
+    free -= span;
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** The rows `members` fill in grid order, counted as {@link rosterRowsOf} places them. */
 export function rosterRows(members: readonly GroupMemberModel[], columns: number): number {
   let rows = 0;
   let free = 0;
@@ -41,6 +61,34 @@ export function rosterRows(members: readonly GroupMemberModel[], columns: number
     free -= span;
   }
   return rows;
+}
+
+/** The rows a placement from {@link rosterRowsOf} fills. */
+function rowsFilled(rowOf: readonly number[]): number {
+  return rowOf.length === 0 ? 0 : (rowOf[rowOf.length - 1] as number) + 1;
+}
+
+/** A grid row's height and the gap under it, in design px. */
+export interface RosterPitch {
+  readonly row: number;
+  readonly gap: number;
+}
+
+/** The rows a roster scrolled to `scrollTop` shows at least in part, `viewRows` tall, first and last;
+ *  the arithmetic of a row's offset against the scroll box, so no frame reads the layout. */
+export function rowsInView(
+  pitch: RosterPitch,
+  viewRows: number,
+  scrollTop: number,
+): { readonly first: number; readonly last: number } {
+  const step = pitch.row + pitch.gap;
+  // Unstyled (the roster is not on the page yet): every row counts as shown.
+  if (step <= 0) return { first: 0, last: Number.MAX_SAFE_INTEGER };
+  const bottom = scrollTop + viewRows * pitch.row + Math.max(0, viewRows - 1) * pitch.gap;
+  // A row shows when its top is above the view's bottom and its bottom below the view's top.
+  const first = Math.max(0, Math.floor((scrollTop - pitch.row) / step) + 1);
+  const last = Math.ceil(bottom / step) - 1;
+  return { first, last };
 }
 
 /** Ms a press waits for a second one before it selects the member alone, so a double press can bring the
@@ -84,6 +132,8 @@ export interface MemberRoster {
   update(members: readonly GroupMemberModel[], group: readonly GroupMemberModel[]): void;
   /** The rows the whole group fills, the most the grid needs in any tab. */
   groupRows(): number;
+  /** Show `rows` grid rows; the rest of the members scroll. */
+  setRows(rows: number): void;
   /** The wells in view, for the panel's figure painter; re-measured only after a scroll, a relist or a
    *  resize. */
   figureSlots(): readonly FigureSlot[];
@@ -96,14 +146,33 @@ export interface MemberRoster {
   reset(): void;
 }
 
+/**
+ * The roster holds a well only for the members in and near its view, between two spacers that span the
+ * rows above and below, so the grid keeps the whole list's scroll height while a big army costs the
+ * page, its style passes and its hit tests a few rows of wells. Each spacer spans whole rows, so the
+ * attached wells take the grid places they would take in the full list.
+ */
 export function createMemberRoster(
   onMember: (member: GroupMemberModel, press: MemberPress) => void,
   icons: GoodIconPainter,
 ): MemberRoster {
   const root = element('div', 'on-roster');
+  const padTop = element('i', 'on-roster__pad');
+  const padBottom = element('i', 'on-roster__pad');
+  /** The wells built for members still in the group, attached or not. */
   const wells = new Map<number, RosterWell>();
   const slots = new FigureWellSlots();
-  let order: readonly RosterWell[] = [];
+  /** The tab's members in grid order, each one's row, and the rows they fill. */
+  let listed: readonly GroupMemberModel[] = [];
+  let rowOf: readonly number[] = [];
+  let listedRows = 0;
+  /** The attached rows, both ends inclusive. */
+  let attached = { first: 0, last: -1 };
+  let viewRows = 0;
+  let scrollTop = 0;
+  /** The next relist reads the box's scroll, which a hidden roster lost; otherwise scrolls keep it. */
+  let rescroll = true;
+  let pitch: RosterPitch | null = null;
   let shownKey = '';
   let inView: readonly FigureWell[] = [];
   let stale = true;
@@ -134,6 +203,36 @@ export function createMemberRoster(
       }, SELECT_ONLY_DELAY_MS),
     };
   };
+
+  /** Write the well's bars, badge and tooltip when its member's shown values changed. */
+  const writeWell = (entry: RosterWell): void => {
+    const { well, member } = entry;
+    if (entry.shown !== null && sameShown(entry.shown, member)) return;
+    entry.shown = member;
+    const copy = messages().hud.groupPanel;
+    const hud = messages().hud;
+    const { healthPct, hungerPct } = member;
+    setClass(well.node, 'on-roster__well--no-health', healthPct === null);
+    setClass(well.node, 'on-roster__well--no-hunger', hungerPct === null);
+    if (healthPct !== null) setStyleVar(well.node, '--health', `${healthPct}%`);
+    if (hungerPct !== null) setStyleVar(well.node, '--hunger', `${hungerPct}%`);
+    entry.mead.hidden = !member.carriesMead;
+    const frame = member.carriesMead && !entry.meadPainted && entry.mead.querySelector('.on-good__frame');
+    if (frame instanceof HTMLElement) {
+      entry.meadPainted = true;
+      icons(frame, MEAD_GOOD_ID, compact ? COMPACT_MEAD_BADGE_PX : MEAD_BADGE_PX);
+    }
+    const meters = [
+      ...(healthPct === null ? [] : [formatMessage(copy.memberMeter, { label: hud.health, pct: healthPct })]),
+      ...(hungerPct === null ? [] : [formatMessage(copy.memberMeter, { label: hud.hunger, pct: hungerPct })]),
+    ];
+    const who = formatMessage(copy.memberTooltip, { name: member.name, type: member.kindLabel });
+    setTip(
+      well.node,
+      [who, ...(meters.length === 0 ? [] : [meters.join(' · ')]), copy.memberHint].join('\n'),
+    );
+  };
+
   const wellOf = (member: GroupMemberModel): RosterWell => {
     const known = wells.get(member.id);
     if (known !== undefined) {
@@ -164,14 +263,70 @@ export function createMemberRoster(
     });
     showInWell(well, member.id);
     wells.set(member.id, entry);
+    writeWell(entry);
     return entry;
   };
-  const updateMore = (): void => {
-    setClass(root, 'on-roster--more', root.scrollTop + root.clientHeight < root.scrollHeight - 1);
+
+  /** The grid's row pitch from its styles, read again when the well size changes; not kept while the
+   *  roster is off the page and unstyled. */
+  const pitchOf = (): RosterPitch => {
+    if (pitch !== null) return pitch;
+    const style = getComputedStyle(root);
+    const read = {
+      row: Number.parseFloat(style.gridAutoRows) || 0,
+      gap: Number.parseFloat(style.rowGap) || 0,
+    };
+    if (read.row > 0) pitch = read;
+    return read;
   };
+  /** The scroll a list of `listedRows` rows can hold: a shorter list clamps it, as the browser does. */
+  const heightOf = (rows: number): number => {
+    const { row, gap } = pitchOf();
+    return rows * row + Math.max(0, rows - 1) * gap;
+  };
+  const clampedScroll = (): number =>
+    Math.min(scrollTop, Math.max(0, heightOf(listedRows) - heightOf(viewRows)));
+  const updateMore = (): void => {
+    setClass(root, 'on-roster--more', clampedScroll() + heightOf(viewRows) < heightOf(listedRows) - 1);
+  };
+  const spanRows = (pad: HTMLElement, rows: number): HTMLElement | null => {
+    if (rows <= 0) return null;
+    pad.style.gridRow = `span ${rows}`;
+    return pad;
+  };
+
+  /** Attach the wells of the rows in and near the view; `relisted` lays them again although the rows
+   *  held. */
+  const attach = (relisted: boolean): void => {
+    const view = rowsInView(pitchOf(), viewRows, clampedScroll());
+    const first = Math.max(0, view.first - ROW_MARGIN);
+    const last = Math.min(listedRows - 1, view.last + ROW_MARGIN);
+    if (!relisted && first === attached.first && last === attached.last) return;
+    attached = { first, last };
+    const nodes: HTMLElement[] = [];
+    const top = spanRows(padTop, first);
+    if (top !== null) nodes.push(top);
+    listed.forEach((member, index) => {
+      const row = rowOf[index] as number;
+      if (row >= first && row <= last) nodes.push(wellOf(member).well.node);
+    });
+    const bottom = spanRows(padBottom, listedRows - last - 1);
+    if (bottom !== null) nodes.push(bottom);
+    // Laying a well again drops its focus; hand it back without moving the scroll.
+    const focused = document.activeElement;
+    root.replaceChildren(...nodes);
+    if (focused instanceof HTMLElement && focused !== document.activeElement && root.contains(focused))
+      focused.focus({ preventScroll: true });
+    // A well detached under the cursor gets no mouseleave, so its hover ends here.
+    if (hovered !== null && !root.contains(wells.get(hovered)?.well.node ?? null)) hovered = null;
+    stale = true;
+  };
+
   root.addEventListener(
     'scroll',
     () => {
+      scrollTop = root.scrollTop;
+      attach(false);
       stale = true;
       updateMore();
     },
@@ -181,7 +336,6 @@ export function createMemberRoster(
   return {
     element: root,
     update(members, group): void {
-      const copy = messages().hud.groupPanel;
       const key = members.map((member) => member.id).join(',');
       const nextCompact = group.length > ROSTER_COMPACT_ABOVE;
       groupRows = rosterRows(group, nextCompact ? COMPACT_COLUMNS : ROSTER_COLUMNS);
@@ -189,15 +343,24 @@ export function createMemberRoster(
         // A well's figure fit is fixed when it is made, so the other size starts from new wells.
         compact = nextCompact;
         setClass(root, 'on-roster--compact', compact);
+        pitch = null;
         settle();
         hovered = null;
         for (const entry of wells.values()) entry.well.node.remove();
         wells.clear();
         shownKey = '';
       }
-      order = members.map(wellOf);
+      listed = members;
+      const hud = messages().hud;
+      // Another language words every tooltip anew.
+      if (hud !== shownCopy) {
+        shownCopy = hud;
+        for (const entry of wells.values()) entry.shown = null;
+      }
       if (key !== shownKey) {
         shownKey = key;
+        if (rescroll) scrollTop = root.scrollTop;
+        rescroll = false;
         const live = new Set(members.map((member) => member.id));
         for (const [id, entry] of wells) {
           if (live.has(id)) continue;
@@ -206,57 +369,40 @@ export function createMemberRoster(
           entry.well.node.remove();
           wells.delete(id);
         }
-        root.replaceChildren(...order.map((entry) => entry.well.node));
-        stale = true;
+        rowOf = rosterRowsOf(members, compact ? COMPACT_COLUMNS : ROSTER_COLUMNS);
+        listedRows = rowsFilled(rowOf);
+        // A shorter list clamps the box's scroll; the next rows follow the clamped offset.
+        scrollTop = clampedScroll();
+        attach(true);
+        updateMore();
       }
-      const hud = messages().hud;
-      // Another language words every tooltip anew.
-      if (hud !== shownCopy) {
-        shownCopy = hud;
-        for (const entry of wells.values()) entry.shown = null;
+      for (const member of members) {
+        const entry = wells.get(member.id);
+        if (entry === undefined) continue;
+        entry.member = member;
+        writeWell(entry);
       }
-      for (const entry of order) {
-        const { well, member } = entry;
-        if (entry.shown !== null && sameShown(entry.shown, member)) continue;
-        entry.shown = member;
-        const { healthPct, hungerPct } = member;
-        setClass(well.node, 'on-roster__well--no-health', healthPct === null);
-        setClass(well.node, 'on-roster__well--no-hunger', hungerPct === null);
-        if (healthPct !== null) setStyleVar(well.node, '--health', `${healthPct}%`);
-        if (hungerPct !== null) setStyleVar(well.node, '--hunger', `${hungerPct}%`);
-        entry.mead.hidden = !member.carriesMead;
-        const frame = member.carriesMead && !entry.meadPainted && entry.mead.querySelector('.on-good__frame');
-        if (frame instanceof HTMLElement) {
-          entry.meadPainted = true;
-          icons(frame, MEAD_GOOD_ID, compact ? COMPACT_MEAD_BADGE_PX : MEAD_BADGE_PX);
-        }
-        const meters = [
-          ...(healthPct === null
-            ? []
-            : [formatMessage(copy.memberMeter, { label: hud.health, pct: healthPct })]),
-          ...(hungerPct === null
-            ? []
-            : [formatMessage(copy.memberMeter, { label: hud.hunger, pct: hungerPct })]),
-        ];
-        const who = formatMessage(copy.memberTooltip, { name: member.name, type: member.kindLabel });
-        setTip(
-          well.node,
-          [who, ...(meters.length === 0 ? [] : [meters.join(' · ')]), copy.memberHint].join('\n'),
-        );
-      }
-      updateMore();
     },
     groupRows: () => groupRows,
+    setRows(rows): void {
+      if (rows === viewRows) return;
+      viewRows = rows;
+      setStyleVar(root, '--roster-rows', String(rows));
+      attach(false);
+      stale = true;
+      updateMore();
+    },
     figureSlots(): readonly FigureSlot[] {
       if (stale) {
         stale = false;
-        const top = root.scrollTop;
-        const bottom = top + root.clientHeight;
-        inView = order
-          .filter(
-            ({ well }) => well.node.offsetTop < bottom && well.node.offsetTop + well.node.offsetHeight > top,
-          )
-          .map(({ well }) => well);
+        const view = rowsInView(pitchOf(), viewRows, clampedScroll());
+        const shown: FigureWell[] = [];
+        listed.forEach((member, index) => {
+          const row = rowOf[index] as number;
+          const entry = row >= view.first && row <= view.last ? wells.get(member.id) : undefined;
+          if (entry !== undefined) shown.push(entry.well);
+        });
+        inView = shown;
       }
       return slots.of(inView);
     },
@@ -269,6 +415,9 @@ export function createMemberRoster(
     reset(): void {
       settle();
       hovered = null;
+      // A hidden roster loses its scroll, so the next showing lays the list again from the box's own.
+      shownKey = '';
+      rescroll = true;
     },
   };
 }

@@ -7,7 +7,7 @@ import {
   type UnitPanelModel,
 } from '../../details-panel/model/index.js';
 import { type FigureSlot, NO_FIGURE_SLOTS } from '../../figures/live-figures.js';
-import { button, setHidden, setStyleVar, setTip, write } from '../parts/dom.js';
+import { button, setHidden, setTip, write } from '../parts/dom.js';
 import { createSection } from '../parts/section.js';
 import { createSelectionPanel, type SelectionHeadModel } from '../selection-panel.js';
 import type { GroupPanelDeps } from './actions.js';
@@ -167,7 +167,7 @@ export function createGroupPanel(deps: GroupPanelDeps): GroupPanel {
     const needed = Math.max(1, roster.groupRows());
     for (const rows of ROSTER_ROWS) {
       if (rows > needed) continue;
-      setStyleVar(roster.element, '--roster-rows', String(rows));
+      roster.setRows(rows);
       if (frame.overflow() === 0) break;
     }
     roster.invalidate();

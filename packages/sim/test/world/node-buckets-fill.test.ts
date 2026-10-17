@@ -82,8 +82,32 @@ describe('NodeBuckets fill order', () => {
       );
     }
   });
+
+  it('answers every node like a plain node map through moves that empty and refill nodes', () => {
+    const world = new World();
+    const buckets = new NodeBuckets(world, []);
+    const held = new Map<Entity, { x: number; y: number }>();
+    const entities: Entity[] = [];
+    for (let i = 0; i < ENTITY_COUNT; i++) entities.push(world.create());
+    for (let step = 0; step < MOVE_STEPS; step++) {
+      const e = entities[(step * 5) % ENTITY_COUNT] as Entity;
+      const from = held.get(e);
+      if (from !== undefined) buckets.remove(e, from.x, from.y);
+      const to = { x: (step * 7) % SPREAD, y: (step * 3) % SPREAD };
+      buckets.insert(e, to.x, to.y);
+      held.set(e, to);
+      for (let x = 0; x < SPREAD; x++) {
+        for (let y = 0; y < SPREAD; y++) {
+          const expected = entities.filter((c) => held.get(c)?.x === x && held.get(c)?.y === y);
+          expect(buckets.at(x, y)).toEqual(expected);
+        }
+      }
+    }
+  });
 });
 
+/** Enough single-entity moves to empty, reuse and re-key buckets many times over. */
+const MOVE_STEPS = 60;
 const ENTITY_COUNT = 12;
 /** Wide enough that the spread round lands most entities on nodes the clustered rounds never used. */
 const SPREAD = 11;

@@ -27,6 +27,17 @@ function packedNodeKey(x: number, y: number): number {
   return x * NODE_KEY_STRIDE + y;
 }
 
+/** Occupancy filter slots: a power of two, so a node hashes to one by a mask. 2^14 16-bit counters keep a
+ *  refill's clear cheap and leave a few thousand occupied nodes a low false-hit rate. */
+const OCCUPANCY_SLOTS = 1 << 14;
+const OCCUPANCY_MASK = OCCUPANCY_SLOTS - 1;
+/** Odd multiplier spreading neighbouring columns across the filter. */
+const OCCUPANCY_X_MULTIPLIER = 0x9e3779b1;
+
+function occupancySlot(x: number, y: number): number {
+  return (Math.imul(x, OCCUPANCY_X_MULTIPLIER) + y) & OCCUPANCY_MASK;
+}
+
 /** Stale buckets kept for reuse beyond this many times the live ones are dropped on the next refill. */
 const STALE_BUCKET_RATIO = 4;
 
@@ -57,6 +68,9 @@ export class NodeBuckets {
   private liveCount = 0;
   /** Buckets {@link remove} emptied, re-keyed by the next node {@link insert} opens. */
   private readonly spare: NodeBucket[] = [];
+  /** Non-empty current buckets per hashed node, so a ring search reads a zero for most empty nodes instead
+   *  of missing in the map. A non-zero slot may still be another node's. */
+  private readonly occupied = new Uint16Array(OCCUPANCY_SLOTS);
 
   constructor(world: World, entities: readonly Entity[]) {
     this.refill(world, entities);
@@ -69,6 +83,7 @@ export class NodeBuckets {
    */
   refill(world: World, entities: readonly Entity[]): void {
     this.fill++;
+    this.occupied.fill(0);
     if (this.byNode.size > STALE_BUCKET_RATIO * this.liveCount) this.dropStale();
     this.liveCount = 0;
     for (let i = 0; i < entities.length; i++) {
@@ -103,6 +118,7 @@ export class NodeBuckets {
       bucket.fill = this.fill;
       bucket.count = 0;
       this.live[this.liveCount++] = bucket;
+      this.occupy(x, y, 1);
     }
     return bucket;
   }
@@ -125,8 +141,14 @@ export class NodeBuckets {
     return bucket;
   }
 
+  private occupy(x: number, y: number, delta: 1 | -1): void {
+    const slot = occupancySlot(x, y);
+    this.occupied[slot] = (this.occupied[slot] as number) + delta;
+  }
+
   /** Node (x,y)'s bucket when the current fill wrote it. */
   private current(x: number, y: number): NodeBucket | undefined {
+    if (this.occupied[occupancySlot(x, y)] === 0) return undefined;
     const bucket = this.byNode.get(packedNodeKey(x, y));
     return bucket?.fill === this.fill ? bucket : undefined;
   }
@@ -146,6 +168,7 @@ export class NodeBuckets {
     }
     const { entities } = bucket;
     if (bucket.count === 0) {
+      this.occupy(x, y, 1);
       // Overwrite the stale slot rather than empty the array, which would free its backing store.
       if (entities.length === 0) entities.push(e);
       else {
@@ -166,6 +189,7 @@ export class NodeBuckets {
     if (bucket.count === 1) {
       if (bucket.entities[0] !== e) return;
       bucket.count = 0;
+      this.occupy(x, y, -1);
       this.byNode.delete(packedNodeKey(x, y));
       this.spare.push(bucket);
       return;

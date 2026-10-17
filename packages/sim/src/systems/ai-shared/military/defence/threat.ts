@@ -16,7 +16,7 @@ import type { ChangeFeed, Entity, World } from '../../../../ecs/world.js';
 import { hexDistanceBetween, nodeHxOfPosition, nodeHyOfPosition } from '../../../../nav/halfcell.js';
 import type { TerrainGraph } from '../../../../nav/terrain/index.js';
 import { SIGHT_RADIUS_NODES } from '../../../conflict/targeting.js';
-import { garrisonReach, isManningPost, standsAtPost } from '../../../conflict/tower-post.js';
+import { garrisonReach, mannedPostOf, standsAtPost } from '../../../conflict/tower-post.js';
 import { attackerWeapon } from '../../../conflict/weapons.js';
 import type { SystemContext } from '../../../context.js';
 import { ownedFighters } from '../../../movement/collision/owned-fighters.js';
@@ -147,7 +147,8 @@ interface LooseFighter extends Raider {
  *
  * A rescan re-derives only the men the feeds saw change, and every posted man, whose post test also reads
  * the tower's own position: `records[e]` is `e`'s last derivation, null when he was no loose fighter, and
- * `dirty[e]` says what was written since ({@link STALE}, {@link MOVED}).
+ * `flags[e]` says what was written since ({@link STALE}, {@link MOVED}) and whether he held a post then
+ * ({@link POSTED}): the Garrison marker's membership is a written store, so the bit cannot go stale.
  */
 interface LooseFighterScan {
   readonly key: number[];
@@ -159,18 +160,18 @@ interface LooseFighterScan {
   fighters: LooseFighter[];
   spare: LooseFighter[];
   readonly records: (LooseFighter | null | undefined)[];
-  dirty: Uint8Array;
+  flags: Uint8Array;
   /** Every write to a {@link RECORD_STORES} store but a Position value write. */
   readonly feed: ChangeFeed;
   /** Position value writes: a man who only walked keeps his reach and owner. */
   readonly moves: ChangeFeed;
 }
 
-/** {@link LooseFighterScan.dirty}: nothing written since the record, some write the record reads, or a
- *  Position value write alone. */
-const CURRENT = 0;
+/** {@link LooseFighterScan.flags} bits: some write the record reads, a Position value write, and a
+ *  Garrison marker at the last derivation. */
 const STALE = 1;
 const MOVED = 2;
+const POSTED = 4;
 
 const looseFighterScans = new WeakMap<World, LooseFighterScan>();
 
@@ -213,7 +214,7 @@ function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph):
       fighters: [],
       spare: [],
       records: [],
-      dirty: new Uint8Array(0),
+      flags: new Uint8Array(0),
       feed: world.watchChanges(RECORD_STORES, RECORD_VALUE_STORES),
       moves: world.watchChanges([], [Position]),
     };
@@ -224,38 +225,41 @@ function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph):
   }
   fillKey(world, scan.key);
   const held = scan;
-  const overflowed =
-    held.feed.drain((e) => {
-      if (e >= held.dirty.length) held.dirty = grownFlags(held.dirty, e);
-      held.dirty[e] = STALE;
-    }) ||
-    held.moves.drain((e) => {
-      if (e >= held.dirty.length) held.dirty = grownFlags(held.dirty, e);
-      if (held.dirty[e] === CURRENT) held.dirty[e] = MOVED;
-    });
+  const mark = (e: Entity, bit: number): void => {
+    if (e >= held.flags.length) held.flags = grownFlags(held.flags, e);
+    held.flags[e] = (held.flags[e] as number) | bit;
+  };
+  const overflowed = held.feed.drain((e) => mark(e, STALE)) || held.moves.drain((e) => mark(e, MOVED));
   if (overflowed || scan.content !== ctx.content || scan.terrain !== terrain) {
     scan.records.length = 0;
     // The other feed may still hold entries; a cleared record re-derives whatever they name.
     held.feed.drain(() => {});
     held.moves.drain(() => {});
   }
-  const { records, dirty } = scan;
+  const { records } = scan;
   const fighters = scan.spare;
   let n = 0;
   // The owned-fighter index holds every owned settler of a fighting trade, ascending id: the fighters among
   // the people, without a walk over every civilian.
   for (const e of ownedFighters(world, ctx.content)) {
     let record = records[e];
-    const written = e < dirty.length ? (dirty[e] as number) : CURRENT;
-    if (record === undefined || written === STALE || world.has(e, Garrison)) {
+    const flags = e < scan.flags.length ? (scan.flags[e] as number) : 0;
+    if (record === undefined || (flags & (STALE | POSTED)) !== 0) {
       record = looseFighterOf(world, ctx, terrain, e, record ?? null);
       records[e] = record;
-    } else if (written === MOVED && record !== null) {
+      const posted = world.has(e, Garrison) ? POSTED : 0;
+      if (posted !== flags) {
+        if (e >= scan.flags.length) scan.flags = grownFlags(scan.flags, e);
+        scan.flags[e] = posted;
+      }
+    } else if (flags !== 0) {
       // Unposted and still standing, so only his place can have changed.
-      record = placed(world, terrain, record);
-      records[e] = record;
+      if (record !== null) {
+        record = placed(world, terrain, record);
+        records[e] = record;
+      }
+      scan.flags[e] = 0;
     }
-    if (written !== CURRENT) dirty[e] = CURRENT;
     if (record !== null) fighters[n++] = record;
   }
   fighters.length = n;
@@ -396,7 +400,8 @@ function weaponReach(world: World, ctx: SystemContext, e: Entity): number {
 /**
  * Every enemy fighter manning a tower post, with the post's boosted reach: the fortification the raider
  * scan leaves out, which still shoots a site raised inside its band. Read off the garrison markers, so
- * the walk is over the few posted men, not over every person.
+ * the walk is over the few posted men, not over every person. A fresh list per call, of records kept per
+ * man while his tower, node and reach stand.
  */
 export function enemyPosts(
   world: World,
@@ -404,26 +409,38 @@ export function enemyPosts(
   terrain: TerrainGraph,
   player: number,
 ): PostedShooter[] {
+  let kept = postRecords.get(world);
+  if (kept === undefined) {
+    kept = new Map();
+    postRecords.set(world, kept);
+  }
+  stanceOf.fill(UNREAD);
   const posts: PostedShooter[] = [];
   for (const e of world.query(Garrison)) {
     const owner = world.tryGet(e, Owner)?.player;
-    if (owner === undefined || owner === player || diplomacyStance(world, owner, player) !== 'enemy')
-      continue;
-    if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0 || !isManningPost(world, ctx, e)) continue;
-    const tower = standsAtPost(world, e);
+    if (owner === undefined || !engages(world, owner, player)) continue;
+    if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) continue;
+    const tower = mannedPostOf(world, ctx, e);
+    if (tower === null) continue;
     const held = heldWeapon(world, ctx, e);
-    if (tower === null || held === null || held.maxRange === 0) continue;
+    if (held === null || held.maxRange === 0) continue;
     const at = entityNode(world, terrain, e);
-    posts.push({
-      tower,
-      target: tower,
-      x: terrain.xOf(at),
-      y: terrain.yOf(at),
-      reach: garrisonReach(held).maxRange,
-    });
+    const x = terrain.xOf(at);
+    const y = terrain.yOf(at);
+    const reach = garrisonReach(held).maxRange;
+    let post = kept.get(e);
+    if (post === undefined || post.tower !== tower || post.x !== x || post.y !== y || post.reach !== reach) {
+      post = { tower, target: tower, x, y, reach };
+      kept.set(e, post);
+    }
+    posts.push(post);
   }
   return posts;
 }
+
+/** Each posted man's last {@link PostedShooter}, handed out again while it still describes him. An entry
+ *  outlives its man: entity ids are never reused, so a stale one costs memory only. Never hashed. */
+const postRecords = new WeakMap<World, Map<Entity, PostedShooter>>();
 
 /** The {@link EnemyFire} of every shooter in `shooters` and `more`, loose or posted, whatever ground he
  *  stands on: a bow shoots across water. Reach counts map points, as the bow does. Two lists, so the

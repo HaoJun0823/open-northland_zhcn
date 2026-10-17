@@ -130,7 +130,7 @@ does not reach them.
 | `kraina_starych_bohaterow` | KRAINA STARYCH BOHATERÓW | 1h/7ai | – | – |  |
 | `kraina_starych_bohaterow_sub1` | Grobowiec Starożytnych | 1h/3ai | – | – | sub-mission |
 | `kraina_starych_bohaterow_sub2` | Pokonać Nieśmiertelnego | 1h/4ai | – | – | sub-mission |
-| `mroczny_swiat` | MROCZNY ŚWIAT | 1h/11ai | – | – |  |
+| `mroczny_swiat` | MROCZNY ŚWIAT | 1h/11ai | ok | ok | played in Polish to the win with all four sub-missions; every side encounter, both Alibaba routes and the hero-death defeat driven; forced: the settlement, the Seljuk ransom gold and 277 of Mrok's 301 warriors; fixed hero needs and a crowd boarding livelock; Kain and north-west briefing corrections in four languages |
 | `mroczny_swiat_sub1` | MROCZNY ŚWIAT: PROLOG | 2h/1ai | – | – | sub-mission |
 | `mroczny_swiat_sub2` | MROCZNY ŚWIAT: KRYPTA | 1h/1ai | – | – | sub-mission |
 | `mroczny_swiat_sub3` | MROCZNY ŚWIAT | 1h/1ai | – | – | sub-mission |

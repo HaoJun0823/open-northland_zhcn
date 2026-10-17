@@ -43,7 +43,8 @@ interface CorrectionHeader {
   /** The correction's file name without `.json`. */
   readonly id: string;
   readonly reason: string;
-  /** Mod-root-relative and `/`-separated, matched case-insensitively like every mod path. */
+  /** Mod-root-relative, or a campaign map's tree path `campaigns/<campaign>/<map>/<logical path>`;
+   *  `/`-separated and matched case-insensitively like every mod path. */
   readonly file: string;
   readonly sha256: string;
 }

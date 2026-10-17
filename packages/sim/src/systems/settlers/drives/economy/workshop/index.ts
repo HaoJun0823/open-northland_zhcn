@@ -211,7 +211,7 @@ export function planProducer(
 
   // Supply reads the operator's own recipe rotation, so a coin-pinned minter fetches for its own ware
   // first; an operator that has earned no product here keeps the whole-shop view.
-  const supply = own.length === 0 ? recipe : mergeRecipes(own);
+  const supply = own.length === 0 ? recipe : mergedRotation(own);
 
   const source = nearestMissingInputSource(plan, workplace, supply, OWN_SHORTFALL, undefined, unsourced);
   if (source !== null) {
@@ -224,6 +224,34 @@ export function planProducer(
   if (haulWorkplaceOutput(plan, workplace)) return;
   // A craftsman without a seat adds no production at the door, so it may loiter beside it.
   loiterByDoor(plan, workplace, spacing, false);
+}
+
+/** A node of {@link mergedRotation}'s memo: the merge of the recipe run that led here, and the runs that
+ *  extend it by one recipe. */
+interface RotationMerge {
+  merged: Recipe | undefined;
+  readonly longer: WeakMap<Recipe, RotationMerge>;
+}
+
+const rotationMerges = new WeakMap<Recipe, RotationMerge>();
+
+/** {@link mergeRecipes} of an operator's rotation, memoized by its content-owned recipes in order, so a
+ *  producer's every plan does not rebuild the same union. */
+function mergedRotation(own: readonly Recipe[]): Recipe {
+  let level = rotationMerges;
+  let node: RotationMerge | undefined;
+  for (let i = 0; i < own.length; i++) {
+    const recipe = own[i] as Recipe;
+    node = level.get(recipe);
+    if (node === undefined) {
+      node = { merged: undefined, longer: new WeakMap() };
+      level.set(recipe, node);
+    }
+    level = node.longer;
+  }
+  if (node === undefined) return mergeRecipes(own);
+  node.merged ??= mergeRecipes(own);
+  return node.merged;
 }
 
 /**

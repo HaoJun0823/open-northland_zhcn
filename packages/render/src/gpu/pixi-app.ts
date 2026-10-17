@@ -1,4 +1,5 @@
 import { Application, Assets, type Texture, type TextureSource } from 'pixi.js';
+import { registerDamagePageUploader } from './building-damage/atlas.js';
 import { registerHumanPaletteUploader } from './human-palette-lut.js';
 import { markPixelArtSource } from './pixel-art-registry.js';
 
@@ -34,6 +35,7 @@ export async function createPixiApp(
   height: number,
 ): Promise<Application> {
   registerHumanPaletteUploader();
+  registerDamagePageUploader();
   const app = new Application();
   await app.init({ canvas, width, height, ...APP_OPTIONS });
   return app;
@@ -107,6 +109,7 @@ export async function createWindowPixiApp(
 ): Promise<Application> {
   const resolutionScale = options?.resolutionScale ?? 1;
   registerHumanPaletteUploader();
+  registerDamagePageUploader();
   const app = new Application();
   await app.init({
     canvas,

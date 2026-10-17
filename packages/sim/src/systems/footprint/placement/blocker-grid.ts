@@ -82,17 +82,29 @@ export function gridChangeKey(grid: PlacementGrid, area: NodeArea, reach: number
   return `${changes.epoch}.${sum}`;
 }
 
-/** One entity's stamped slots per channel. */
-interface StampedSlots {
-  readonly obstacle: readonly number[];
-  readonly exclusion: readonly number[];
-  readonly palisadeBody: readonly number[];
-  readonly buildingZone: readonly number[];
-  readonly upgradeReserve: readonly number[];
-  /** RESOURCE_ANCHOR slots: counted nowhere, but a change there is tallied, since the road and wall
-   *  ground rule reads the resources anchored on a node. */
-  readonly anchors: readonly number[];
-}
+/** The grid count array a stamped slot lands in, or ANCHOR_FIELD: a RESOURCE_ANCHOR slot, counted
+ *  nowhere, but a change there is tallied, since the road and wall ground rule reads the resources
+ *  anchored on a node. */
+const OBSTACLE_FIELD = 0;
+const EXCLUSION_FIELD = 1;
+const PALISADE_BODY_FIELD = 2;
+const BUILDING_ZONE_FIELD = 3;
+const UPGRADE_RESERVE_FIELD = 4;
+const ANCHOR_FIELD = 5;
+type StampField =
+  | typeof OBSTACLE_FIELD
+  | typeof EXCLUSION_FIELD
+  | typeof PALISADE_BODY_FIELD
+  | typeof BUILDING_ZONE_FIELD
+  | typeof UPGRADE_RESERVE_FIELD
+  | typeof ANCHOR_FIELD;
+/** Low bits of a stamp code holding its field; the slot sits above them. */
+const FIELD_BITS = 3;
+const FIELD_MASK = (1 << FIELD_BITS) - 1;
+
+/** One entity's stamped slots, each `slot << FIELD_BITS | field`: one typed array per held blocker
+ *  rather than a list per channel, since every standing resource on the map holds one. */
+type StampedSlots = Int32Array;
 
 /** The scripted landscape layer the grid currently holds: the blocks view it last applied (a read
  *  after script edits mints the next one, naming the cells they changed), plus the forbidden nodes,
@@ -160,13 +172,34 @@ function tallyChange(grid: PlacementGrid, slot: number): void {
   changes.revisions[region] = (changes.revisions[region] ?? 0) + 1;
 }
 
+/** The count array of a stamp field, or null for {@link ANCHOR_FIELD}. */
+function fieldCounts(grid: PlacementGrid, field: number): Uint16Array | null {
+  switch (field) {
+    case OBSTACLE_FIELD:
+      return grid.obstacle;
+    case EXCLUSION_FIELD:
+      return grid.exclusion;
+    case PALISADE_BODY_FIELD:
+      return grid.palisadeBody;
+    case BUILDING_ZONE_FIELD:
+      return grid.buildingZone;
+    case UPGRADE_RESERVE_FIELD:
+      return grid.upgradeReserve;
+    default:
+      return null;
+  }
+}
+
+/** `delta` onto each stamped slot's count, tallying every slot's region; counts and tallies are sums,
+ *  so the order the slots come in does not matter. */
 function applySlots(grid: PlacementGrid, slots: StampedSlots, delta: number): void {
-  addCounts(grid, grid.obstacle, slots.obstacle, delta);
-  addCounts(grid, grid.exclusion, slots.exclusion, delta);
-  addCounts(grid, grid.palisadeBody, slots.palisadeBody, delta);
-  addCounts(grid, grid.buildingZone, slots.buildingZone, delta);
-  addCounts(grid, grid.upgradeReserve, slots.upgradeReserve, delta);
-  for (const slot of slots.anchors) tallyChange(grid, slot);
+  for (let i = 0; i < slots.length; i++) {
+    const code = slots[i] as number;
+    const slot = code >>> FIELD_BITS;
+    const counts = fieldCounts(grid, code & FIELD_MASK);
+    if (counts !== null) counts[slot] = (counts[slot] ?? 0) + delta;
+    tallyChange(grid, slot);
+  }
 }
 
 function applyLandscapeLayer(grid: PlacementGrid, layer: LandscapeLayer, delta: number): void {
@@ -206,7 +239,9 @@ function liveLandscapeLayer(world: World, terrain: TerrainGraph): LandscapeLayer
 
 /** The grid field a channel's counts live in; RESOURCE_ANCHOR and MARKER block no building, so they have
  *  none. The shared channel routing of every capture and full stamp. */
-function channelField(channel: BlockerChannel): Exclude<keyof StampedSlots, 'anchors'> | null {
+function channelField(
+  channel: BlockerChannel,
+): 'obstacle' | 'exclusion' | 'palisadeBody' | 'buildingZone' | 'upgradeReserve' | null {
   switch (channel) {
     case OBSTACLE:
       return 'obstacle';
@@ -224,25 +259,41 @@ function channelField(channel: BlockerChannel): Exclude<keyof StampedSlots, 'anc
   }
 }
 
+/** The stamp field of a channel's slots; MARKER is stamped nowhere. */
+function channelStampField(channel: BlockerChannel): StampField | null {
+  switch (channel) {
+    case OBSTACLE:
+      return OBSTACLE_FIELD;
+    case EXCLUSION:
+      return EXCLUSION_FIELD;
+    case PALISADE_BODY:
+      return PALISADE_BODY_FIELD;
+    case BUILDING_ZONE:
+      return BUILDING_ZONE_FIELD;
+    case UPGRADE_RESERVE:
+      return UPGRADE_RESERVE_FIELD;
+    case RESOURCE_ANCHOR:
+      return ANCHOR_FIELD;
+    case MARKER:
+      return null;
+  }
+}
+
+/** The codes one capture collects before they are copied into its own array. */
+const captureScratch: number[] = [];
+
 /** The slots `run`'s (cell, channel) pairs occupy, bounds-filtered as every capture is. */
 function captureSlots(grid: PlacementGrid, run: (visit: BlockerVisit) => void): StampedSlots {
   const w = grid.terrain.width;
   const h = grid.terrain.height;
-  const slots: { [K in keyof StampedSlots]: number[] } = {
-    obstacle: [],
-    exclusion: [],
-    palisadeBody: [],
-    buildingZone: [],
-    upgradeReserve: [],
-    anchors: [],
-  };
+  captureScratch.length = 0;
   run((x, y, channel) => {
-    const field = channel === RESOURCE_ANCHOR ? 'anchors' : channelField(channel);
+    const field = channelStampField(channel);
     if (field === null) return;
     if (x < 0 || y < 0 || x >= w || y >= h) return; // off-map cells are never stamped (see PlacementGrid)
-    slots[field].push(y * w + x);
+    captureScratch.push(((y * w + x) << FIELD_BITS) | field);
   });
-  return slots;
+  return Int32Array.from(captureScratch);
 }
 
 function rebuildGrid(

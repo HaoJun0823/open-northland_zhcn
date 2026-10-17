@@ -16,6 +16,7 @@ import { BloodHistory } from '../src/data/effects/blood-history.js';
 import { screenDepth } from '../src/data/scene/index.js';
 import { NO_WATER } from '../src/data/terrain/index.js';
 import { BloodSurfaceSprite, bloodSurface } from '../src/gpu/blood-surface.js';
+import { GROUND_QUAD_DATA_FLOATS, GROUND_QUAD_INDICES } from '../src/gpu/overlays/blood-ground.js';
 import { type BloodFrame, BloodLayer } from '../src/gpu/overlays/blood-layer.js';
 import * as alphaMasks from '../src/gpu/sprite-pool/alpha-mask.js';
 import { cameraViewport, makeElevationField, TILE_HALF_W } from '../src/index.js';
@@ -458,23 +459,29 @@ it('keeps GPU buffers untouched through small pans and offscreen impacts with th
 
 useHeadlessShaderContext();
 
-it('reserves GPU capacity and keeps indices uploaded when visible marks grow within it', () => {
+it("uploads only the new marks' quads and the draw order when visible marks grow within capacity", () => {
   const layer = new BloodLayer(new Container());
   layer.ingest([hit()], 0);
   draw(layer, 50);
   const mesh = groundMesh(layer);
   const index = mesh.geometry.indexBuffer;
   if (index === undefined) throw new Error('missing indices');
-  const capacity = index.data.byteLength;
+  const data = mesh.geometry.getBuffer('aUV');
+  const capacity = data.data.byteLength;
   const count = mesh.geometry.indexCount;
-  const updated = vi.fn();
-  index.on('update', updated);
-  index.on('change', updated);
+  const resized = vi.fn();
+  data.on('change', resized);
+  index.on('change', resized);
   layer.ingest([hit(3, 3, 5)], 51);
   draw(layer, 52);
   expect(mesh.geometry.indexCount).toBeGreaterThan(count);
-  expect(index.data.byteLength).toBe(capacity);
-  expect(updated).not.toHaveBeenCalled();
+  expect(data.data.byteLength).toBe(capacity);
+  expect(resized).not.toHaveBeenCalled();
+  // The first mark's quads stay where they were uploaded; only the second mark's go up.
+  expect(data._updateOffset).toBe(
+    (count / GROUND_QUAD_INDICES) * GROUND_QUAD_DATA_FLOATS * Float32Array.BYTES_PER_ELEMENT,
+  );
+  expect(index._updateSize).toBe(mesh.geometry.indexCount * Uint32Array.BYTES_PER_ELEMENT);
   layer.destroy();
 });
 

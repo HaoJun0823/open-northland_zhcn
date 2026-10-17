@@ -30,7 +30,14 @@ import {
 } from '../../../stores/index.js';
 import type { TargetBands } from '../bands.js';
 import type { YardTargets } from '../candidates.js';
-import { ACCEPT_ALL, FILED_STRIDE, type InteractionCellIndex, nearBox, QUALIFIES } from '../cell-index.js';
+import {
+  ACCEPT_ALL,
+  FILED_STRIDE,
+  type InteractionCellIndex,
+  nearBox,
+  QUALIFIES,
+  RING_MIN_BUCKETS,
+} from '../cell-index.js';
 import { FetchableStock } from './fetchable-stock.js';
 import { minimumBoundOwner, storageLendable, storageSurplus } from './storage-reserve.js';
 import { yardOffsets } from './yard-layout.js';
@@ -298,16 +305,14 @@ export function nearestStoreHoldingWithin(
   }
   count = lenders;
   if (count === 0) return null;
-  if (count > NARROWED_FIELD_MAX) {
+  // Past the ring search's own linear threshold its rings answer, with the identical winner.
+  if (count > RING_MIN_BUCKETS) {
     return nearestHolderIn(bands, holders, world, here, goodType, owner, supply, goodsGate, avoid);
   }
   sortAscending(near, count);
   return holders.nearestAmong(near, count, here, lends, goodsGate, avoid)?.entity ?? null;
 }
 
-/** Past this many lending stores near a gate, a narrowed store search sweeps the rings instead. A
- *  performance knob with an identical winner, the ring search's bucket threshold. */
-const NARROWED_FIELD_MAX = 64;
 /** {@link storesFiledNear}'s list, reused at a count rather than a length, so its storage stays put. */
 const narrowedField: Entity[] = [];
 

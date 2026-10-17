@@ -31,7 +31,7 @@ const NEAREST_RING_MAX_RADIUS = 48;
  * Bucket count at or below which `nearest` skips the ring sweep for the linear scan, which a confined
  * search that often misses finishes sooner. Performance knob with an identical winner. Approximation.
  */
-const RING_MIN_BUCKETS = 64;
+export const RING_MIN_BUCKETS = 64;
 
 /** A scan winner, carrying whatever its `accept` derived on the way so the caller never re-derives it. */
 export interface NearestByCell<P = null> {

@@ -229,14 +229,14 @@ export type NavigationLimit = SpatialGate;
 
 /** One settler's memoized limit plus every input it derives from. Each input is re-checked on read, so a
  *  stale entry can never be served and the memo needs no coherence verifier. `terrain` and `content` are
- *  per-world constants, so they need no slot. */
+ *  per-world constants, so they need no slot. Rewritten in place when the settler moves. */
 interface LimitMemoEntry {
-  readonly hx: number;
-  readonly hy: number;
-  readonly player: number;
-  readonly jobType: number | null;
-  readonly networkRevision: number;
-  readonly limit: NavigationLimit | null;
+  hx: number;
+  hy: number;
+  player: number;
+  jobType: number | null;
+  networkRevision: number;
+  limit: NavigationLimit | null;
 }
 
 interface LimitMemo {
@@ -286,6 +286,15 @@ export function navigationLimitFor(
     return held.limit;
   }
   const limit = computeNavigationLimit(world, content, terrain, settler.jobType, owner.player, hx, hy);
+  if (held !== undefined) {
+    held.hx = hx;
+    held.hy = hy;
+    held.player = owner.player;
+    held.jobType = settler.jobType;
+    held.networkRevision = networkRevision;
+    held.limit = limit;
+    return limit;
+  }
   if (memo.entries.size >= memo.sweepAt) sweepDeadEntries(world, memo);
   memo.entries.set(e, {
     hx,
@@ -599,7 +608,7 @@ export function networkLimitAt(
   if (!signpostNavigationEnabled(world)) return null;
   const sites = sitesOf(refreshedMemo(world), player);
   const spots = spotLimitsOf(world, terrain, player, sites);
-  const key = spotKey(range, hx, hy);
+  const key = spotKey(terrain, range, hx, hy);
   if (key !== null) {
     const held = spots.limits.get(key);
     if (held !== undefined) return held;
@@ -647,9 +656,8 @@ interface SpotLimits {
 
 /** Spots held per player before his memo starts over, bounding it on a long-lived network. */
 const SPOT_LIMIT_MEMO_CAP = 8192;
-/** Exclusive bounds of the fields {@link spotKey} packs. */
-const SPOT_COORD_SPAN = 1 << 14;
-const SPOT_RANGE_SPAN = 1 << 8;
+/** Exclusive bound of a {@link spotKey}: V8's small-integer range, so a lookup boxes no heap number. */
+const SPOT_KEY_SPAN = 1 << 30;
 
 const spotLimitMemos = new WeakMap<World, Map<number, SpotLimits>>();
 
@@ -672,10 +680,10 @@ function spotLimitsOf(
   return memo;
 }
 
-/** The spot's memo key within its player's memo, or null for one outside the packable span, which is
- *  derived afresh. */
-function spotKey(range: number, hx: number, hy: number): number | null {
-  if (range < 0 || range >= SPOT_RANGE_SPAN) return null;
-  if (hx < 0 || hy < 0 || hx >= SPOT_COORD_SPAN || hy >= SPOT_COORD_SPAN) return null;
-  return (range * SPOT_COORD_SPAN + hx) * SPOT_COORD_SPAN + hy;
+/** The spot's memo key within its player's memo, or null for one off the terrain or past the packable
+ *  span, which is derived afresh. */
+function spotKey(terrain: TerrainGraph, range: number, hx: number, hy: number): number | null {
+  if (range < 0 || hx < 0 || hy < 0 || hx >= terrain.width || hy >= terrain.height) return null;
+  const key = (range * terrain.height + hy) * terrain.width + hx;
+  return key < SPOT_KEY_SPAN ? key : null;
 }

@@ -241,7 +241,7 @@ export function goodsReachAt(
   hy: number,
 ): ReachArea {
   const cache = cacheOf(world, content, terrain);
-  const key = spotKey(0, hx, hy);
+  const key = spotKey(terrain, 0, hx, hy);
   const held = key === null ? undefined : cache.spots.get(key);
   const found = terrainReach(world, content, terrain, hx, hy, GOODS_SEARCH_SPAN, held);
   if (key === null) return found.area;
@@ -279,7 +279,7 @@ export function goodsSearchLimitAt(
 ): GoodsSearchLimit | null {
   if (!signpostNavigationEnabled(world) || player === undefined) return null;
   const cache = cacheOf(world, content, terrain);
-  const key = spotKey(player, hx, hy);
+  const key = spotKey(terrain, player, hx, hy);
   const held = key === null ? undefined : cache.limits.get(key);
   if (held?.builtUnder(cache)) return held;
   const sites = signpostNetwork(world).get(player);
@@ -319,14 +319,15 @@ export function goodsSearchCatchAt(
   return { bounds: limit.bounds, allowsNode: (node) => limit.catchesNode(node) };
 }
 
-/** Exclusive bound of each field {@link spotKey} packs. */
-const SPOT_KEY_SPAN = 1 << 16;
+/** Exclusive bound of a {@link spotKey}: V8's small-integer range, so a lookup boxes no heap number. */
+const SPOT_KEY_SPAN = 1 << 30;
 
-/** A player's spot as one number, or null outside the packable span, which is answered uncached. */
-function spotKey(player: number, hx: number, hy: number): number | null {
-  if (player < 0 || player >= SPOT_KEY_SPAN || hx < 0 || hy < 0 || hx >= SPOT_KEY_SPAN || hy >= SPOT_KEY_SPAN)
-    return null;
-  return (player * SPOT_KEY_SPAN + hy) * SPOT_KEY_SPAN + hx;
+/** A player's spot on the terrain as one small integer, or null off the terrain or past the packable
+ *  span, which is answered uncached. */
+function spotKey(terrain: TerrainGraph, player: number, hx: number, hy: number): number | null {
+  if (player < 0 || hx < 0 || hy < 0 || hx >= terrain.width || hy >= terrain.height) return null;
+  const key = (player * terrain.height + hy) * terrain.width + hx;
+  return key < SPOT_KEY_SPAN ? key : null;
 }
 
 /**

@@ -32,17 +32,27 @@ function soundingClip(
   settler: Entity,
   atomic: SoundingAtomic,
 ): AtomicAnimation | undefined {
+  const s = world.tryGet(settler, Settler);
+  if (s === undefined) return undefined;
+  return soundingClipOf(world, ctx, settler, atomic, atomicClip(ctx.content, s, atomic.atomicId));
+}
+
+/** {@link soundingClip} for a settler whose {@link atomicClip} is already resolved as `clip`. */
+function soundingClipOf(
+  world: World,
+  ctx: SystemContext,
+  settler: Entity,
+  atomic: SoundingAtomic,
+  clip: AtomicAnimation | undefined,
+): AtomicAnimation | undefined {
   // A craft clip is stretched over its workplace's batch, so its authored cue frames do not line up with
   // the batch clock below and a workshop stays silent rather than sounding early.
   if (atomic.effect?.kind === 'produce') return undefined;
-  const s = world.tryGet(settler, Settler);
-  if (s === undefined) return undefined;
-  let anim: AtomicAnimation | undefined;
+  let anim = clip;
   if (isWildlife(world, settler)) {
+    const s = world.get(settler, Settler);
     const name = boundAnimalAtomicAnimation(ctx.content, s, atomic.atomicId);
     anim = name === undefined ? undefined : atomicAnimationByName(ctx.content, name);
-  } else {
-    anim = atomicClip(ctx.content, s, atomic.atomicId);
   }
   return anim === undefined || atomic.duration < anim.length ? undefined : anim;
 }
@@ -61,7 +71,7 @@ export function atomicClipSounds(
 /**
  * Emit the sound cues a settler's running atomic authors on this tick: every `event <at> 34 <id>` row of
  * its clip landing on `elapsed` (`eventTick`), carrying `<id>` as the sound bank's `logicSoundType`.
- * A clip authoring no such row is silent.
+ * A clip authoring no such row is silent. `clip` is the settler's resolved {@link atomicClip}.
  */
 export function emitAtomicSoundCues(
   world: World,
@@ -69,8 +79,9 @@ export function emitAtomicSoundCues(
   settler: Entity,
   atomic: SoundingAtomic,
   elapsed: number,
+  clip: AtomicAnimation | undefined,
 ): void {
-  const anim = soundingClip(world, ctx, settler, atomic);
+  const anim = soundingClipOf(world, ctx, settler, atomic, clip);
   if (anim === undefined) return;
   for (const cue of clipEventFactsOf(anim).soundCues) {
     if (cue.tick === elapsed)

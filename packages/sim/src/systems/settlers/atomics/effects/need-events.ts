@@ -1,4 +1,5 @@
-import { needsEnabled, Residence, Settler } from '../../../../components/index.js';
+import type { AtomicAnimation } from '@open-northland/data';
+import { needsEnabled, Residence, Settler, type SettlerView } from '../../../../components/index.js';
 import type { AtomicEffect } from '../../../../core/atomic-effect.js';
 import type { Entity, World } from '../../../../ecs/world.js';
 import type { SystemContext } from '../../../context.js';
@@ -38,7 +39,27 @@ export function applyAtomicNeedEvents(
   if (!needsEnabled(world)) return;
   const settler = world.tryGet(e, Settler);
   if (settler === undefined) return;
-  const animation = atomicClip(ctx.content, settler, atomic.atomicId);
+  applyClipNeedEvents(
+    world,
+    ctx,
+    e,
+    settler,
+    atomicClip(ctx.content, settler, atomic.atomicId),
+    elapsed,
+    repeatClip,
+  );
+}
+
+/** {@link applyAtomicNeedEvents} for a pass that has checked needs are on and resolved the settler's clip. */
+export function applyClipNeedEvents(
+  world: World,
+  ctx: SystemContext,
+  e: Entity,
+  settler: SettlerView,
+  animation: AtomicAnimation | undefined,
+  elapsed: number,
+  repeatClip = true,
+): void {
   if (animation === undefined) return;
   // A workshop batch never wraps: a replacement maker may bind a shorter clip.
   const frame = repeatClip ? clipFrameAt(elapsed, animation.length) : elapsed - 1;

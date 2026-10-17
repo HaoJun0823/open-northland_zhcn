@@ -165,45 +165,59 @@ interface ClipBinding {
   readonly clip: AtomicAnimation | undefined;
 }
 
-/** `tribe -> jobType -> atomicId` memo of the clip join, one table per scenario flag since that flag picks
- *  the unit variant. */
-type ClipBindingTable = Map<number, Map<number, Map<number, ClipBinding>>>;
-interface ClipBindingTables {
-  readonly plain: ClipBindingTable;
-  readonly scenario: ClipBindingTable;
-}
-const clipBindingTables = new WeakMap<ContentSet, ClipBindingTables>();
+/** The clip join memo, one flat table per content set keyed by {@link clipBindingKey}: the atomic passes
+ *  ask it for every running clip each tick, so one lookup replaces a walk down nested tables. */
+const clipBindingTables = new WeakMap<ContentSet, Map<number, ClipBinding>>();
 const UNBOUND: ClipBinding = { name: undefined, clip: undefined };
-/** The job key of a settler without a trade; job type ids are nonnegative. */
-const NO_JOB_KEY = -1;
+/** Exclusive bounds of the packed key's fields; an identity outside them is joined unmemoized. The job
+ *  field holds `jobType + 1`, so a settler without a trade packs as 0. */
+const CLIP_KEY_TRIBE_SPAN = 1 << 8;
+const CLIP_KEY_JOB_SPAN = 1 << 10;
+const CLIP_KEY_ATOMIC_SPAN = 1 << 11;
+/** The scenario flag's two values, the unit variant it picks. */
+const CLIP_KEY_SCENARIO_SPAN = 2;
+
+/** The flat memo key of a settler's clip join, or -1 when a field falls outside its span. */
+function clipBindingKey(settler: SettlerIdentity, atomicId: number): number {
+  const { tribe } = settler;
+  const job = settler.jobType === null ? 0 : settler.jobType + 1;
+  if (
+    tribe < 0 ||
+    tribe >= CLIP_KEY_TRIBE_SPAN ||
+    (settler.jobType !== null && settler.jobType < 0) ||
+    job >= CLIP_KEY_JOB_SPAN ||
+    atomicId < 0 ||
+    atomicId >= CLIP_KEY_ATOMIC_SPAN ||
+    !Number.isInteger(atomicId)
+  )
+    return -1;
+  const scenario = settler.scenario === true ? 1 : 0;
+  return (
+    ((atomicId * CLIP_KEY_JOB_SPAN + job) * CLIP_KEY_TRIBE_SPAN + tribe) * CLIP_KEY_SCENARIO_SPAN + scenario
+  );
+}
 
 function clipBindingFor(content: ContentSet, settler: SettlerIdentity, atomicId: number): ClipBinding {
-  let tables = clipBindingTables.get(content);
-  if (tables === undefined) {
-    tables = { plain: new Map(), scenario: new Map() };
-    clipBindingTables.set(content, tables);
+  const key = clipBindingKey(settler, atomicId);
+  if (key < 0) return joinClipBinding(content, settler, atomicId);
+  let table = clipBindingTables.get(content);
+  if (table === undefined) {
+    table = new Map();
+    clipBindingTables.set(content, table);
   }
-  const table = settler.scenario === true ? tables.scenario : tables.plain;
-  const jobKey = settler.jobType ?? NO_JOB_KEY;
-  let byJob = table.get(settler.tribe);
-  if (byJob === undefined) {
-    byJob = new Map();
-    table.set(settler.tribe, byJob);
-  }
-  let byAtomic = byJob.get(jobKey);
-  if (byAtomic === undefined) {
-    byAtomic = new Map();
-    byJob.set(jobKey, byAtomic);
-  }
-  let binding = byAtomic.get(atomicId);
+  let binding = table.get(key);
   if (binding === undefined) {
-    const name =
-      boundAtomicAnimation(content, settler, atomicId) ??
-      boundAtomicAnimation(content, { tribe: settler.tribe, jobType: CIVILIST_JOB }, atomicId);
-    binding = name === undefined ? UNBOUND : { name, clip: atomicAnimationByName(content, name) };
-    byAtomic.set(atomicId, binding);
+    binding = joinClipBinding(content, settler, atomicId);
+    table.set(key, binding);
   }
   return binding;
+}
+
+function joinClipBinding(content: ContentSet, settler: SettlerIdentity, atomicId: number): ClipBinding {
+  const name =
+    boundAtomicAnimation(content, settler, atomicId) ??
+    boundAtomicAnimation(content, { tribe: settler.tribe, jobType: CIVILIST_JOB }, atomicId);
+  return name === undefined ? UNBOUND : { name, clip: atomicAnimationByName(content, name) };
 }
 
 /** A placeable sound cue of a clip: the atomic tick it fires on and the sound bank's `logicSoundType`. */

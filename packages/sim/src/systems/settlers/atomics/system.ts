@@ -4,13 +4,15 @@ import {
   CurrentAtomic,
   DeferredOrder,
   HarvestFocus,
+  needsEnabled,
   Resting,
   removeCurrentAtomic,
+  Settler,
 } from '../../../components/index.js';
 import type { Entity } from '../../../ecs/world.js';
 import type { System } from '../../context.js';
-import { religionAllowsAtomic } from '../../lifecycle/needs/religion.js';
-import { eventTick } from '../../readviews/animations.js';
+import { religionAllowsClip } from '../../lifecycle/needs/religion.js';
+import { atomicClip, eventTick } from '../../readviews/animations.js';
 import { prayerSiteAvailable } from '../../readviews/prayer-sites.js';
 import { applyEffect } from './effects/apply.js';
 import {
@@ -21,7 +23,7 @@ import {
 } from './effects/combat/index.js';
 import { advanceFishingAtomic } from './effects/goods/fishing.js';
 import { continuesHarvest } from './effects/goods/index.js';
-import { applyAtomicNeedEvents } from './effects/need-events.js';
+import { applyClipNeedEvents } from './effects/need-events.js';
 import { applyAtomicStockEvents } from './effects/stock-events.js';
 import { continuesPrayer } from './prayer.js';
 import { emitAtomicSoundCues } from './sound-cue.js';
@@ -38,6 +40,8 @@ export const atomicSystem: System = (world, ctx) => {
   // A blow's reaction is collected so the loop never touches the CurrentAtomic store it iterates;
   // self-removal on completion stays the only membership change, which Map iteration tolerates.
   const pendingReactions: PendingHitReaction[] = [];
+  // A rule only a command changes, so it holds for the whole pass.
+  const needsOn = needsEnabled(world);
   for (const e of world.query(CurrentAtomic)) {
     let clock = world.get(e, AtomicClock);
     if ('pendingElapsed' in clock) {
@@ -57,7 +61,14 @@ export const atomicSystem: System = (world, ctx) => {
     const duration = Math.max(1, running.duration);
     const workshopDisplay =
       running.effect.kind === 'produce' && world.tryGet(e, Resting)?.at === running.targetEntity;
-    if (!workshopDisplay && !religionAllowsAtomic(world, ctx, e, running.atomicId, elapsed - 1)) {
+    let settler = world.tryGet(e, Settler);
+    let clip = settler === undefined ? undefined : atomicClip(ctx.content, settler, running.atomicId);
+    if (
+      needsOn &&
+      !workshopDisplay &&
+      settler !== undefined &&
+      !religionAllowsClip(world, ctx, e, settler, clip, elapsed - 1)
+    ) {
       removeCurrentAtomic(world, e);
       continue;
     }
@@ -77,11 +88,15 @@ export const atomicSystem: System = (world, ctx) => {
       const lunge = running.effect.lunge;
       if (lunge?.frames.some((frame) => eventTick(frame) === elapsed))
         lungeForward(world, ctx, e, lunge.direction);
+      // A blow may have rewritten the striker's identity, so its clip is joined again.
+      settler = world.tryGet(e, Settler);
+      clip = settler === undefined ? undefined : atomicClip(ctx.content, settler, running.atomicId);
     }
 
-    if (!workshopDisplay) applyAtomicNeedEvents(world, ctx, e, running, elapsed);
+    if (needsOn && !workshopDisplay && settler !== undefined)
+      applyClipNeedEvents(world, ctx, e, settler, clip, elapsed);
     applyAtomicStockEvents(world, ctx, e, running, elapsed);
-    emitAtomicSoundCues(world, ctx, e, running, elapsed);
+    emitAtomicSoundCues(world, ctx, e, running, elapsed, clip);
 
     if (elapsed < duration) continue;
     const atomic = world.mut(e, CurrentAtomic);

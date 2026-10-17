@@ -269,8 +269,14 @@ export const signpostLinksSystem: System = (world, ctx) => {
   incomingStart.fill(0, 0, posts.length + 1);
   fillPostSlots(posts);
   let named = 0;
+  // A reused pass whose posts all found the lists they found before writes what it wrote then: no
+  // signpost was written since, or the network revision would have moved.
+  let moved = !reuse;
   for (let i = 0; i < posts.length; i++) {
-    const linked = passLinks(world, terrain, ctx.content, layout, posts[i] as Entity, reuse);
+    const post = posts[i] as Entity;
+    const before = layout.found.get(post)?.links;
+    const linked = passLinks(world, terrain, ctx.content, layout, post, reuse);
+    if (linked !== before) moved = true;
     outgoing[i] = linked;
     for (const other of linked) {
       const at = postIndex(other);
@@ -279,6 +285,19 @@ export const signpostLinksSystem: System = (world, ctx) => {
       named++;
     }
   }
+  if (moved) mergeLinks(world, posts, named);
+  outgoing.fill(NO_LINKS, 0, posts.length);
+  for (const post of posts) postSlots[post] = 0;
+  // Settling links moves the network revision, so the layout is read after it.
+  layout.mask = signpostMask(world, ctx.content, terrain).version;
+  layout.roads = terrain.mirroredRoadRevision;
+  layout.network = signpostNetworkRevision(world);
+  layouts.set(world, layout);
+};
+
+/** Write each post's links: its own {@link outgoing} list merged with the posts naming it, `named` names
+ *  counted per post in {@link incomingStart}. */
+function mergeLinks(world: World, posts: readonly Entity[], named: number): void {
   for (let i = 0; i < posts.length; i++)
     incomingStart[i + 1] = (incomingStart[i + 1] as number) + (incomingStart[i] as number);
   if (incoming.length < named) incoming = new Int32Array(named);
@@ -300,14 +319,7 @@ export const signpostLinksSystem: System = (world, ctx) => {
       world.mut(post, Signpost).links = mergedScratch.slice(0, count);
     from = to;
   }
-  outgoing.fill(NO_LINKS, 0, posts.length);
-  for (const post of posts) postSlots[post] = 0;
-  // Settling links moves the network revision, so the layout is read after it.
-  layout.mask = signpostMask(world, ctx.content, terrain).version;
-  layout.roads = terrain.mirroredRoadRevision;
-  layout.network = signpostNetworkRevision(world);
-  layouts.set(world, layout);
-};
+}
 
 /** Index each post of the ascending list `posts` in {@link postSlots}. */
 function fillPostSlots(posts: readonly Entity[]): void {

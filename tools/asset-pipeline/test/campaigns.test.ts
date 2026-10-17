@@ -164,6 +164,39 @@ describe('convertCampaignStage', () => {
     ).rejects.toThrow(/names campaign 100, not 7/);
   });
 
+  it('reads a campaign map.cif through the decoded CIF correction naming its folder', async () => {
+    const lines = [
+      { level: 1, text: 'logiccontrol' },
+      { level: 2, text: 'mapsize 2 1' },
+      { level: 1, text: 'logiccontrolend' },
+      { level: 1, text: 'misc_maptype' },
+      { level: 2, text: `mapcampaignid ${CAMPAIGN_SLOT} ${MISSION_SLOT}` },
+      { level: 1, text: 'MissionData' },
+      { level: 2, text: 'result "PlayCutscene" 100 1' },
+    ];
+    const cif = buildStringCif(lines);
+    await writeFileWithParents(join(pack, 'campaigns', CAMPAIGN, 'maps', MAP, 'world/map.cif'), cif);
+    const dir = join(root, 'corrections');
+    await mkdir(dir);
+    await writeFile(
+      join(dir, 'page.json'),
+      JSON.stringify({
+        reason: 'synthetic missing page',
+        file: `campaigns/${CAMPAIGN}/${MAP}/map.cif`,
+        sha256: createHash('sha256').update(cif).digest('hex'),
+        format: 'cif',
+        lines: [{ line: 7, from: 'result "PlayCutscene" 100 1', to: 'result "PlayCutscene" 500 1' }],
+      }),
+    );
+    const data = join(pack, 'base');
+    const corrections = await loadSourceCorrections(dir, data);
+    const result = await convertCampaignStage({ data, corrections }, pack, [source()], out, new Set());
+    expect(result.maps[0]?.script?.missions[0]?.results).toEqual([
+      { key: 'result', values: ['PlayCutscene', '500', '1'] },
+    ]);
+    expect(() => corrections.assertApplied()).not.toThrow();
+  });
+
   it('refuses a stage whose mission no map of the campaign holds', async () => {
     const stages = [{ missionId: MISSION_SLOT + 1, x: 0, y: 0 }];
     await expect(

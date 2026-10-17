@@ -1,0 +1,18 @@
+{
+  "reason": "Śmierć Norberta lub Maniego w Świętej Komnacie otwiera strony 100 i 200, których briefing tej mapy nie ma w żadnym języku; ta mapa trzyma oba teksty pod numerami 500 (Norbert) i 600 (Mani), tak jak pozostałe dwie podmisje. Bez korekty porażka otwiera pustą księgę.",
+  "file": "campaigns/saga/campaign_04_01_sub3/map.cif",
+  "sha256": "092cbdf540c2cd6cb2c529836f58a6681da6696c6bf80eaf06569f7e022cb82d",
+  "format": "cif",
+  "lines": [
+    {
+      "line": 173,
+      "from": "result \"PlayCutscene\" 100 1",
+      "to": "result \"PlayCutscene\" 500 1"
+    },
+    {
+      "line": 183,
+      "from": "result \"PlayCutscene\" 200 1",
+      "to": "result \"PlayCutscene\" 600 1"
+    }
+  ]
+}

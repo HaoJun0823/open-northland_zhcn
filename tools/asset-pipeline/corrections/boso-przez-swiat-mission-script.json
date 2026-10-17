@@ -1,0 +1,9 @@
+{
+  "reason": "Dwie literówki w skrypcie misji. W misji 52 nazwa ExploreArea zaczyna się apostrofem zamiast cudzysłowu, więc odsłonięcie kamieniołomu (478,54), do którego zaraz każe się udać kolejny cel, w ogóle się nie wykonuje. W misji 83 (Pokonaj wszystkie wojska Zohanowatego) cel HumansDied wskazuje id 556, którego nie nosi nikt na mapie, więc jest spełniony od razu, a armia 566 (żołnierze gracza 5 wysłani pod piramidę w misjach 79-82) nie liczy się do zwycięstwa. Poprawiamy cudzysłów i id na 566.",
+  "file": "maps/community/Boso_Przez_Swiat/mission.inc",
+  "sha256": "8cd88b4035197f8df0db66270ea511d3da1170d350fbf25d6e9505c8fc0296b6",
+  "lines": [
+    { "from": "result 'ExploreArea\" 0 478 54 8", "to": "result \"ExploreArea\" 0 478 54 8" },
+    { "from": "goal \"HumansDied\" 556", "to": "goal \"HumansDied\" 566" }
+  ]
+}

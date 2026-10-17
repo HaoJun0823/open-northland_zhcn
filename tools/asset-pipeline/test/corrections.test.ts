@@ -314,6 +314,38 @@ describe('source corrections', () => {
     expect(() => corrections.assertApplied()).not.toThrow();
   });
 
+  it('runs the quarry reveal and counts army 566 in the victory over Zohanowaty', async () => {
+    const correction = JSON.parse(
+      await readFile(join(CORRECTIONS_DIR, 'boso-przez-swiat-mission-script.json'), 'utf8'),
+    ) as Pick<SourceCorrection, 'reason' | 'file' | 'sha256' | 'lines'>;
+    const shipped = [
+      '[MissionData]',
+      'description -1',
+      'goal "IsMissionDone" 51',
+      'result \'ExploreArea" 0 478 54 8',
+      'result "SendHuman" 104 474 63',
+      '[MissionData]',
+      'description -1',
+      'goal "HumansDied" 556',
+      'goal "HumansDied" 567',
+      'result "RemoveHumans" 104',
+      '',
+    ].join('\r\n');
+    const folder = dirname(correction.file);
+    await writeMod(`${folder}/map.dat`, buildMapDat(1, 1, [2, 2, 2, 2]));
+    await writeMod(correction.file, shipped);
+    await writeCorrection('boso', { ...correction, sha256: sha256(shipped) });
+    const corrections = await loadSourceCorrections(dir, mod);
+    const [map] = await convertMapDatTree({ data: mod, corrections }, join(temp.path, 'out'));
+    const [quarry, victory] = map?.script?.missions ?? [];
+    expect(quarry?.results[0]).toEqual({ key: 'result', values: ['ExploreArea', '0', '478', '54', '8'] });
+    expect(victory?.goals.map((goal) => goal.values)).toEqual([
+      ['HumansDied', '566'],
+      ['HumansDied', '567'],
+    ]);
+    expect(() => corrections.assertApplied()).not.toThrow();
+  });
+
   it('parses every committed correction', async () => {
     await expect(loadSourceCorrections(CORRECTIONS_DIR, mod)).resolves.toBeDefined();
   });

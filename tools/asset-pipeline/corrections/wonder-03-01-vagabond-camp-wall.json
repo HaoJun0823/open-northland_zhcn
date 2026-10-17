@@ -1,0 +1,18 @@
+{
+  "reason": "We wschodnim murze obozu włóczęgów brakuje jednego słupka palisady (rząd 275 między słupkami 566,274 i 566,276); w oryginalnych danych to przejście też jest otwarte, więc bohaterowie wchodzą do Sostratosa bez otwierania bramy, okupu ani walki. Świadomie odchodzimy od danych i dostawiamy brakujący słupek wall_02 włóczęgów (gracz 5), taki jak sąsiednie.",
+  "file": "campaigns/wonder/campaign_03_01/map.dat",
+  "sha256": "e403b81e6c4e686014183287a5611404516c4afecc4b9262311ed63a236a1a59",
+  "format": "mapdat",
+  "objects": [
+    {
+      "hx": 566,
+      "hy": 275,
+      "from": null,
+      "to": {
+        "type": "wall_02",
+        "level": 100,
+        "owner": 5
+      }
+    }
+  ]
+}

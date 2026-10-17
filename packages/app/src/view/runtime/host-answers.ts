@@ -108,6 +108,8 @@ export interface HostAnswers {
     readonly attachPicks: () => number;
     readonly jobChoices: () => number;
     readonly mission: () => number;
+    /** The construction window: availability, nations and papers. */
+    readonly construction: () => number;
   };
   /** Resolves once no read is in flight, for a consumer that must not start on an unanswered read. */
   readonly settled: () => Promise<void>;
@@ -259,6 +261,7 @@ export function createHostAnswers(host: SessionHost, tribeOf: (player: number) =
       attachPicks: () => tradeHouses.version + vehicles.version,
       jobChoices: () => jobChoices.version,
       mission: () => pages.version + missionEntities.version,
+      construction: () => availabilities.version + tribeLists.version + papers.version,
     },
     settled: () => Promise.all(caches.map((held) => held.settled())).then(() => undefined),
     dispose: () => {

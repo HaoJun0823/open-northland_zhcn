@@ -68,6 +68,9 @@ export interface ConstructionWindowDeps {
   /** The nations the seat may build houses of, its own first; read once a tick. More than one shows
    *  the nation switch. */
   readonly buildTribes: () => readonly number[];
+  /** Bumped when one of the answers above changes. They land after the frame that asked, and a paused
+   *  world brings no new model, so the listing follows this too. */
+  readonly answersVersion: () => number;
   /** The building whose body stands for a nation on the switch; absent, the nation's initial does. */
   readonly emblemType?: number;
   readonly onPick: (typeId: number, tribe: number) => void;
@@ -633,10 +636,11 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
     }
   };
 
-  // The tick is what moves availability, papers and stocks, so the listing follows the model and
-  // a frame between ticks costs nothing.
+  // The tick moves availability, papers and stocks, and their answers land a frame or more later, so the
+  // listing follows the model and the answers' version; a frame that moves neither costs nothing.
   let model: HudModel | null = null;
   let shownModel: HudModel | null = null;
+  let shownAnswers = -1;
   const relist = (): void => {
     if (layoutCards()) showCategory(state.category);
   };
@@ -652,8 +656,10 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
     if (window.isOpen()) relistTribe();
   };
   const present = (): void => {
-    if (model === shownModel) return;
+    const answers = deps.answersVersion();
+    if (model === shownModel && answers === shownAnswers) return;
     shownModel = model;
+    shownAnswers = answers;
     layoutNations();
     relist();
     layoutPapers();

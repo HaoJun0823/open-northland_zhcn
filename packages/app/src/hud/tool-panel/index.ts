@@ -154,6 +154,8 @@ export interface ToolPanelOptions {
   readonly tribe: number;
   /** The nations the seat may build houses of, its own first; the construction window reads it a tick. */
   readonly buildTribes: () => readonly number[];
+  /** Bumped when an answer the construction window reads changes: availability, nations or papers. */
+  readonly constructionAnswersVersion: () => number;
   /** The building whose body stands for a nation on the construction window's switch. */
   readonly nationEmblemType?: number;
   /** The player slot a placed building is owned by. */
@@ -649,6 +651,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
           buildingLabel: (typeId) => labelByType.get(typeId) ?? `#${typeId}`,
           homeTribe: opts.tribe,
           buildTribes: opts.buildTribes,
+          answersVersion: opts.constructionAnswersVersion,
           ...(opts.nationEmblemType !== undefined ? { emblemType: opts.nationEmblemType } : {}),
           onPick: seam.onPick,
           tools: CONSTRUCTION_TOOLS.filter(toolOffered),

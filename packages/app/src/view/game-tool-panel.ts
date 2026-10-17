@@ -116,6 +116,7 @@ export interface GameToolPanelDeps {
   readonly tribe: number;
   /** The nations the seat may build houses of, its own first. */
   readonly buildTribes: () => readonly number[];
+  readonly constructionAnswersVersion: () => number;
   /** The building whose body stands for a nation on the construction window's switch. */
   readonly nationEmblemType?: number;
   /** The player a placed building is owned by. */
@@ -304,6 +305,7 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
       bindings: deps.bindings,
       tribe: deps.tribe,
       buildTribes: deps.buildTribes,
+      constructionAnswersVersion: deps.constructionAnswersVersion,
       ...(deps.nationEmblemType !== undefined ? { nationEmblemType: deps.nationEmblemType } : {}),
       owner: deps.owner,
       viewer: deps.viewer,

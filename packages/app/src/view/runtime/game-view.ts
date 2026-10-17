@@ -689,6 +689,7 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       bindings: keyBindings,
       tribe: seatTribeOf(localPlayer),
       buildTribes: () => answers.buildTribes(viewerPlayer()),
+      constructionAnswersVersion: answers.versions.construction,
       ...(nationEmblemType !== undefined ? { nationEmblemType } : {}),
       owner: localPlayer,
       viewer,

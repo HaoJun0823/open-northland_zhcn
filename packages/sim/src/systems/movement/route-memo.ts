@@ -171,7 +171,9 @@ export class RouteMemo {
     entry.tick = tick;
     entry.path = path === null ? null : path.slice();
     entry.explored = stats.explored - before;
-    if (entry.asked.length < log.count) entry.asked = new Int32Array(log.codes.length);
+    // Sized from this search's own log, not the shared log's capacity: one wide search would otherwise
+    // hand every later entry that outgrows its array the widest search's footprint.
+    if (entry.asked.length < log.count) entry.asked = new Int32Array(askCapacity(log.count));
     entry.asked.set(log.codes.subarray(0, log.count));
     entry.askedCount = log.count;
     this.entries.set(e, entry);
@@ -206,6 +208,14 @@ export class RouteMemo {
     }
     return problems;
   }
+}
+
+/** The smallest power of two holding `count` asks, at least the log's first allocation, so a walker whose
+ *  searches widen a little each time does not reallocate on every one. */
+function askCapacity(count: number): number {
+  let capacity = ASK_LOG_INITIAL_CAPACITY;
+  while (capacity < count) capacity *= 2;
+  return capacity;
 }
 
 function answersHold(entry: MemoEntry, blocked: BlockOverlay): boolean {

@@ -110,7 +110,7 @@ does not reach them.
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `blekiny_nurt` | BŁĘKITNY NURT | 1h/4ai | – | – |  |
-| `boso_przez_swiat` | BOSO PRZEZ ŚWIAT | 1h/15ai | – | – |  |
+| `boso_przez_swiat` | BOSO PRZEZ ŚWIAT | 1h/15ai | ok | wip | main chain to `MissionWon` with 26 forced steps (economy, armies, ship legs, the pyramid battle), hero and pyramid defeat, side tributes, every sub-mission map to `EndSubMission`; script typo correction; browser: four-language briefing, sub2 and sub5 round trips from saves, sub3 opening; the sub3→sub4 chain was not played in the browser |
 | `boso_przez_swiat_sub2` | LOCHY AL-MUKALLAH | 1h/4ai | – | – | sub-mission |
 | `boso_przez_swiat_sub3` | ZATOKA ADEŃSKA | 1h/0ai | – | – | sub-mission |
 | `boso_przez_swiat_sub4` | PODWODNA JASKINIA | 1h/1ai | – | – | sub-mission |

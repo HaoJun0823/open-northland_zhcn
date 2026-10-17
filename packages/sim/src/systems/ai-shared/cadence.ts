@@ -8,9 +8,13 @@ import type { World } from '../../ecs/world.js';
  */
 export const COMPUTER_DECISION_INTERVAL_TICKS = 48;
 
-/** How far apart consecutive seats' decision slots lie, in ticks (authored). Coprime with the interval,
- *  so every seat below 48 gets a slot of its own, and seats 0-6 land at least six ticks apart. */
-const AI_SEAT_SLOT_STEP_TICKS = 7;
+/**
+ * How far apart consecutive seats' decision slots lie, in ticks (authored, a performance trade): every
+ * player slot gets a slot of its own, and a seat's dear modules (the workforce, the build order, the
+ * military at phases 0, 1 and 5 of `computer-player/index.ts`) never share a tick with another seat's:
+ * a tick holds one of them and at most one of the light ones (the roads, the scout, the population).
+ */
+export const AI_SEAT_SLOT_STEP_TICKS = 3;
 
 /** Whether `tick` is one of `player`'s strategic decisions. */
 export function computerDecisionDue(tick: number, player: number): boolean {

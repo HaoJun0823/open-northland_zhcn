@@ -1,11 +1,12 @@
 import { type ContentSet, parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { AiControl, aiControlEntity, isMachinePlayer } from '../../src/components/index.js';
+import { AiControl, aiControlEntity, isMachinePlayer, MAX_PLAYERS } from '../../src/components/index.js';
 import { CommandQueue } from '../../src/core/command-queue.js';
 import { PersonalNames } from '../../src/core/personal-names.js';
 import { type Entity, World } from '../../src/ecs/world.js';
 import { EventBuffer, Rng, replay, Simulation, stepReplaying } from '../../src/index.js';
 import {
+  AI_SEAT_SLOT_STEP_TICKS,
   COMPUTER_DECISION_INTERVAL_TICKS,
   COMPUTER_MODULE_PHASE_TICKS,
   COMPUTER_MODULES,
@@ -298,7 +299,7 @@ describe('computerPlayerSystem - cadence, stagger, and module gates', () => {
     for (let tick = 1; tick <= 2 * COMPUTER_DECISION_INTERVAL_TICKS; tick++) {
       runComputerModules(world, ctxAt(tick, commands), [stub]);
     }
-    const OTHER_SEAT_SLOT = 35; // (5 × 7) mod 48
+    const OTHER_SEAT_SLOT = 15; // 5 × 3
     expect(calls).toEqual([
       { tick: OTHER_SEAT_SLOT, player: OTHER_SEAT },
       { tick: COMPUTER_DECISION_INTERVAL_TICKS, player: 0 },
@@ -308,11 +309,9 @@ describe('computerPlayerSystem - cadence, stagger, and module gates', () => {
     expect(commands.pendingCount).toBe(calls.length); // every returned command was enqueued
   });
 
-  it('keeps seven seats at least six ticks apart around the interval', () => {
-    const SEATS = 7;
-    const MIN_GAP_TICKS = 6;
+  it('gives every player slot a decision slot of its own, evenly spaced around the interval', () => {
     const slots: number[] = [];
-    for (let player = 0; player < SEATS; player++) {
+    for (let player = 0; player < MAX_PLAYERS; player++) {
       const due = [];
       for (let tick = 0; tick < COMPUTER_DECISION_INTERVAL_TICKS; tick++)
         if (computerDecisionDue(tick, player)) due.push(tick);
@@ -323,7 +322,7 @@ describe('computerPlayerSystem - cadence, stagger, and module gates', () => {
     const gaps = slots.map(
       (slot, i) => (slots[i + 1] ?? COMPUTER_DECISION_INTERVAL_TICKS + (slots[0] ?? 0)) - slot,
     );
-    expect(Math.min(...gaps)).toBe(MIN_GAP_TICKS);
+    expect(new Set(gaps)).toEqual(new Set([AI_SEAT_SLOT_STEP_TICKS]));
   });
 
   it('skips a disabled module for the seat that disabled it and runs it for the rest', () => {
@@ -358,14 +357,14 @@ describe('computerPlayerSystem - cadence, stagger, and module gates', () => {
     expect(houseRuns).toEqual([OTHER_SEAT, 0]);
   });
 
-  it('runs each module of a decision on its own tick, no two of seven seats sharing one', () => {
-    const SEATS = 7;
-    const world = worldWithSeats(...Array.from({ length: SEATS }, (_, player) => player));
+  it("never runs two seats' dear modules on one tick, and at most one light module beside one", () => {
+    const world = worldWithSeats(...Array.from({ length: MAX_PLAYERS }, (_, player) => player));
     const commands = new CommandQueue();
+    const DEAR: readonly string[] = ['collectResources', 'houseBuild', 'military'];
     const runs: Array<{ tick: number; player: number; module: number }> = [];
     const modules = COMPUTER_MODULES.map(
-      (_, module): ComputerModule => ({
-        id: 'houseBuild',
+      (real, module): ComputerModule => ({
+        id: real.id,
         run: (_w, ctx, player) => {
           runs.push({ tick: ctx.tick, player, module });
           return [];
@@ -375,11 +374,17 @@ describe('computerPlayerSystem - cadence, stagger, and module gates', () => {
     for (let tick = COMPUTER_DECISION_INTERVAL_TICKS; tick < 2 * COMPUTER_DECISION_INTERVAL_TICKS; tick++) {
       runComputerModules(world, ctxAt(tick, commands), modules);
     }
-    expect(runs).toHaveLength(SEATS * modules.length);
-    expect(new Set(runs.map((run) => run.tick)).size).toBe(runs.length);
+    // OTHER_SEAT ships its military module disabled.
+    expect(runs).toHaveLength(MAX_PLAYERS * modules.length - 1);
+    const byTick = new Map<number, string[]>();
     for (const run of runs) {
       const slot = run.tick - run.module * COMPUTER_MODULE_PHASE_TICKS;
       expect(computerDecisionDue(slot, run.player)).toBe(true);
+      byTick.set(run.tick, [...(byTick.get(run.tick) ?? []), COMPUTER_MODULES[run.module]?.id ?? '']);
+    }
+    for (const ids of byTick.values()) {
+      expect(ids.filter((id) => DEAR.includes(id)).length).toBeLessThanOrEqual(1);
+      expect(ids.filter((id) => !DEAR.includes(id)).length).toBeLessThanOrEqual(1);
     }
   });
 

@@ -1,6 +1,11 @@
 import { type Fixed, fx, ULP, ZERO } from '../../core/fixed.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
-import { type CorridorEntry, joinCorridor, type SearchStats } from '../../nav/pathfinding/index.js';
+import {
+  type CorridorEntry,
+  corridorGap,
+  joinCorridor,
+  type SearchStats,
+} from '../../nav/pathfinding/index.js';
 import { type NodeId, nodeLatticeDistance, type TerrainGraph } from '../../nav/terrain/index.js';
 import { GroupLanes } from './group-lanes.js';
 
@@ -19,9 +24,9 @@ export const SHARED_ROUTE_MIN_NODES = 96;
 
 /**
  * How far (Manhattan half-cell nodes) a member standing beyond {@link GROUP_AREA_RADIUS_NODES} of every
- * shared route may still board one whose end lies by its goal, instead of its own search the length of
- * the march: an army spread over a settlement converges on its leaders' road rather than each loose band
- * routing alone. Authored: covers a seat's spread-out army.
+ * shared route may still board the nearest one whose end lies by its goal, instead of its own search the
+ * length of the march: an army spread over a settlement converges on its leaders' road rather than each
+ * loose band routing alone. Authored: covers a seat's spread-out army.
  */
 const BOARDING_HOP_NODES = 256;
 
@@ -38,10 +43,11 @@ interface GroupRoute {
 
 /**
  * One tick's group-move routes. The lowest-id member routes in full. Others prefer independently
- * checked straight lanes, then parallel obstacle detours, then short joins to that corridor, and finally a
- * longer boarding leg onto it from beyond the group's area.
- * Every member routes in the same tick. A group has no id of its own: compatible terrain resistance
- * and the walk overlay are what permit sharing.
+ * checked straight lanes, then parallel obstacle detours, then short joins to that corridor, and finally
+ * one longer boarding leg onto the shared route nearest them. A member no route serves searches alone and
+ * offers its route, so full searches count the army's separate bands, not its members. Every member
+ * routes in the same tick. A group has no id of its own: compatible terrain resistance and the walk
+ * overlay are what permit sharing.
  */
 export class GroupRoutes {
   private readonly routes: GroupRoute[] = [];
@@ -87,22 +93,36 @@ export class GroupRoutes {
       );
       if (joined !== null) return this.lanes.departEarly(blocked, joined, goal, route.meanWeight);
     }
+    const nearest = this.nearestRoute(blocked, start);
+    if (nearest === undefined) return null;
+    const boarded = joinCorridor(
+      this.terrain,
+      nearest.path,
+      start,
+      goal,
+      blocked,
+      stats,
+      GROUP_AREA_RADIUS_NODES,
+      'land',
+      BOARDING,
+    );
+    return boarded === null ? null : this.lanes.departEarly(blocked, boarded, goal, nearest.meanWeight);
+  }
+
+  /** The route under `blocked` with a node nearest `start`, the first offered on a tie. A failed boarding
+   *  costs a capped search, so a member tries only this one before searching alone. */
+  private nearestRoute(blocked: BlockOverlay, start: NodeId): GroupRoute | undefined {
+    let nearest: GroupRoute | undefined;
+    let nearestGap = BOARDING_HOP_NODES + 1;
     for (const route of this.routes) {
       if (route.blocked !== blocked) continue;
-      const boarded = joinCorridor(
-        this.terrain,
-        route.path,
-        start,
-        goal,
-        blocked,
-        stats,
-        GROUP_AREA_RADIUS_NODES,
-        'land',
-        BOARDING,
-      );
-      if (boarded !== null) return this.lanes.departEarly(blocked, boarded, goal, route.meanWeight);
+      const gap = corridorGap(this.terrain, route.path, start);
+      if (gap < nearestGap) {
+        nearest = route;
+        nearestGap = gap;
+      }
     }
-    return null;
+    return nearest;
   }
 
   /** Offer a member's own full route to the rest of its group. */

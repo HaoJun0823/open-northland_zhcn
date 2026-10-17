@@ -358,4 +358,73 @@ describe('army player routing', () => {
       expect(centres.every(({ node }) => terrain.isWalkable(node))).toBe(true);
     }
   });
+  it('routes a band whose boarding leg is refused alone, and its own band joins that route', () => {
+    const width = 400;
+    const height = 160;
+    const typeIds = new Array<number>(width * height).fill(0);
+    // A wall between the leaders' road and the far band, open only at the map's far end, so the far band's
+    // leg onto the leaders' corridor is no straight hop and boarding refuses it.
+    const wallY = 60;
+    const gapColumns = { from: 390, to: 394 };
+    for (let x = 0; x < width; x++)
+      if (x < gapColumns.from || x > gapColumns.to) typeIds[wallY * width + x] = 1;
+    const map: TerrainMap = { resolution: 'half-cell', width, height, typeIds };
+    const sim = new Simulation({ seed: 7, content: testContent(), map });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('army terrain missing');
+    const bandSize = 10;
+    const bandRows = [4, 120];
+    const targetX = 340;
+    const targetY = 8;
+    const members: { entity: Entity; goal: NodeId }[] = [];
+    for (const row of bandRows) {
+      for (let i = 0; i < bandSize; i++) {
+        const entity = sim.world.create();
+        sim.world.add(entity, Position, positionOfNode(4 + i * 2, row));
+        addPerson(sim.world, entity, {
+          tribe: 1,
+          jobType: 31,
+          hunger: fx.fromInt(0),
+          fatigue: fx.fromInt(0),
+          piety: fx.fromInt(0),
+          enjoyment: fx.fromInt(0),
+        });
+        sim.world.add(entity, Owner, { player: 0 });
+        sim.world.add(entity, WalkFacing, { direction: WALK_DIRECTION.E, target: WALK_DIRECTION.E });
+        members.push({
+          entity,
+          goal: terrain.nodeAt(
+            targetX + (members.length % bandSize) * 2,
+            targetY + 2 * Math.floor(members.length / bandSize),
+          ),
+        });
+      }
+    }
+    sim.enqueue(
+      playerCommand(0, {
+        kind: 'attackMoveUnitGroup',
+        members: members.map(({ entity, goal }) => ({ entity, x: terrain.xOf(goal), y: terrain.yOf(goal) })),
+      }),
+    );
+    sim.step();
+    const routeNodes = (entity: Entity): NodeId[] =>
+      sim.world.get(entity, PathRoute).waypoints.map(({ node }) => node);
+    for (const { entity, goal } of members) {
+      expect(sim.world.has(entity, PathRequest)).toBe(false);
+      expect(routeNodes(entity).at(-1)).toBe(goal);
+    }
+    const farBand = members.slice(bandSize);
+    const [farLeader] = farBand;
+    if (farLeader === undefined) throw new Error('far band missing');
+    const farLeaderRoute = new Set(routeNodes(farLeader.entity));
+    for (const { entity } of farBand) {
+      const route = routeNodes(entity);
+      // Through the gap, never across the wall.
+      expect(route.some((node) => terrain.yOf(node) === wallY && terrain.xOf(node) >= gapColumns.from)).toBe(
+        true,
+      );
+      // The band rides its own leader's searched route rather than searching one each.
+      expect(route.filter((node) => farLeaderRoute.has(node)).length).toBeGreaterThan(route.length / 2);
+    }
+  });
 });

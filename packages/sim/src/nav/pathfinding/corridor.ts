@@ -58,6 +58,19 @@ export function joinCorridor(
   return joinedLegs(onto, lattice, corridor, board.index + 1, exit.index, off);
 }
 
+/** Manhattan half-cell nodes from `node` to the nearest node of `corridor`. */
+export function corridorGap(graph: TerrainGraph, corridor: readonly NodeId[], node: NodeId): number {
+  const { xs, ys } = corridorLattice(graph, corridor);
+  const x = graph.xOf(node);
+  const y = graph.yOf(node);
+  let gap = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < xs.length; i++) {
+    const d = Math.abs(x - (xs[i] ?? 0)) + Math.abs(y - (ys[i] ?? 0));
+    if (d < gap) gap = d;
+  }
+  return gap;
+}
+
 /**
  * Whether `leg` walks at most twice the straight lattice distance between its ends. A leg that has to go
  * round a wall to reach its stop drags the walker away from its own way and back, a detour its own search

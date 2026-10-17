@@ -4,11 +4,16 @@ import {
   AttackOrder,
   Building,
   DefenceMode,
+  Garrison,
   Health,
+  Owner,
   Position,
   Settler,
+  Weapon,
 } from '../../../src/components/index.js';
+import { setSettlerJob } from '../../../src/components/settler.js';
 import type { Command } from '../../../src/core/commands/index.js';
+import { CHANGE_FEED_LIMIT } from '../../../src/ecs/change-feed.js';
 import type { Entity } from '../../../src/ecs/world.js';
 import { fx, positionOfNode, Simulation, type TerrainMap } from '../../../src/index.js';
 import { hexDistanceBetween } from '../../../src/nav/halfcell.js';
@@ -73,6 +78,10 @@ const FAR_CORNER = { x: 2, y: 2 };
 const SEAM_MAP = { width: 32, height: 16, column: 22 };
 /** East of the seam, well inside the mill's watch band. */
 const FAR_BANK = { x: 50, y: 16 };
+/** A foe tower's spot in the far corner, outside every watch band of the seat's buildings. */
+const FAR_CORNER_TOWER = { x: 8, y: 8 };
+/** Where the filler entities of the overflow case stand; nothing reads them. */
+const ORIGIN_POSITION = { x: fx.fromInt(0), y: fx.fromInt(0) };
 /** Long enough for a posted archer to walk the few nodes to his tower and step inside. */
 const WALK_IN_TICKS = 200;
 /** The far reach of the fixture's bowman, read off his weapon row. */
@@ -419,5 +428,75 @@ describe('build-order module - rebuilding under the enemy', () => {
 
     for (const man of band) sim.world.destroy(man);
     expect(placementOf(coverage.run(sim.world, ctxOf(sim), SEAT))?.buildingType).toBe(TOWER_TYPE);
+  });
+});
+
+describe("the seat's raider scan, kept in step with every write it reads", () => {
+  /** The seat's raiders as entity ids, read under the one context a case keeps, so the scan's records
+   *  survive between reads. */
+  function raidersOf(sim: Simulation, ctx: ReturnType<typeof ctxOf>): Entity[] {
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('setup: the fixture map builds no terrain graph');
+    return seatRaiders(sim.world, ctx, terrain, SEAT).map((r) => r.entity);
+  }
+
+  it('drops a man handed over to the seat and takes him back when he is handed back', () => {
+    const sim = razedBakerySim();
+    const raider = onlyOne(spawnAt(sim, FAR_CORNER, SPEARMAN));
+    const ctx = ctxOf(sim);
+    expect(raidersOf(sim, ctx)).toEqual([raider]);
+    sim.world.mut(raider, Owner).player = SEAT;
+    expect(raidersOf(sim, ctx)).toEqual([]);
+    sim.world.mut(raider, Owner).player = FOE;
+    expect(raidersOf(sim, ctx)).toEqual([raider]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('re-reads a re-jobbed or re-armed man', () => {
+    const sim = razedBakerySim();
+    const raider = onlyOne(spawnAt(sim, FAR_CORNER, SPEARMAN));
+    const ctx = ctxOf(sim);
+    expect(raidersOf(sim, ctx)).toEqual([raider]);
+    setSettlerJob(sim.world, raider, CIVILIST);
+    expect(raidersOf(sim, ctx)).toEqual([]);
+    setSettlerJob(sim.world, raider, BOWMAN);
+    expect(raidersOf(sim, ctx)).toEqual([raider]);
+    const bow = attackerWeapon(ctx, VIKING, BOWMAN);
+    if (bow === null) throw new Error('setup: the fixture bowman is unarmed');
+    sim.world.add(raider, Weapon, { weaponTypeId: bow.weapon.typeId });
+    expect(raidersOf(sim, ctx)).toEqual([raider]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('drops a man while he holds a post, takes him once he leaves it or its tower is razed', () => {
+    const sim = razedBakerySim();
+    const archer = mannedFoeTower(sim, FAR_CORNER_TOWER);
+    const tower = standsAtPost(sim.world, archer);
+    if (tower === null) throw new Error('setup: the archer holds no post');
+    const ctx = ctxOf(sim);
+    expect(raidersOf(sim, ctx)).toEqual([]);
+    const held = sim.world.get(archer, Garrison);
+    sim.world.remove(archer, Garrison);
+    expect(raidersOf(sim, ctx)).toEqual([archer]);
+    sim.world.add(archer, Garrison, { post: held.post, returnTo: held.returnTo });
+    expect(raidersOf(sim, ctx)).toEqual([]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+    razeBuilding(sim.world, ctx, tower);
+    expect(raidersOf(sim, ctx)).toEqual([archer]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('rebuilds from the stores after its feed overflows', () => {
+    const sim = razedBakerySim();
+    const raider = onlyOne(spawnAt(sim, FAR_CORNER, SPEARMAN));
+    const ctx = ctxOf(sim);
+    expect(raidersOf(sim, ctx)).toEqual([raider]);
+    // More distinct writes than a feed holds between two scans, then a write the scan must still see.
+    for (let i = 0; i <= CHANGE_FEED_LIMIT; i++) sim.world.add(sim.world.create(), Position, ORIGIN_POSITION);
+    sim.world.mut(raider, Owner).player = SEAT;
+    expect(raidersOf(sim, ctx)).toEqual([]);
+    sim.world.mut(raider, Owner).player = FOE;
+    expect(raidersOf(sim, ctx)).toEqual([raider]);
+    expect(sim.world.verifyCaches()).toEqual([]);
   });
 });

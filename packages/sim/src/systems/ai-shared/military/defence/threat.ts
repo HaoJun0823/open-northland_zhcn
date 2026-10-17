@@ -231,17 +231,20 @@ function looseFighters(world: World, ctx: SystemContext, terrain: TerrainGraph):
   };
   const overflowed = held.feed.drain((e) => mark(e, STALE)) || held.moves.drain((e) => mark(e, MOVED));
   if (overflowed || scan.content !== ctx.content || scan.terrain !== terrain) {
-    scan.records.length = 0;
+    scan.records.fill(undefined);
     // The other feed may still hold entries; a cleared record re-derives whatever they name.
     held.feed.drain(() => {});
     held.moves.drain(() => {});
   }
   const { records } = scan;
+  const roster = ownedFighters(world, ctx.content);
+  const last = roster[roster.length - 1];
+  if (last !== undefined && last >= records.length) growRecords(records, last);
   const fighters = scan.spare;
   let n = 0;
   // The owned-fighter index holds every owned settler of a fighting trade, ascending id: the fighters among
   // the people, without a walk over every civilian.
-  for (const e of ownedFighters(world, ctx.content)) {
+  for (const e of roster) {
     let record = records[e];
     const flags = e < scan.flags.length ? (scan.flags[e] as number) : 0;
     if (record === undefined || (flags & (STALE | POSTED)) !== 0) {
@@ -304,6 +307,13 @@ function placed(world: World, terrain: TerrainGraph, was: LooseFighter): LooseFi
   return x === was.x && y === was.y && component === was.component ? was : { ...was, x, y, component };
 }
 
+/** Extends `records` with empty slots past `index`, doubling, so the list stays a packed array rather than
+ *  one first written at a high id. */
+function growRecords(records: (LooseFighter | null | undefined)[], index: number): void {
+  const length = Math.max(index + 1, records.length * 2);
+  for (let i = records.length; i < length; i++) records.push(undefined);
+}
+
 function grownFlags(flags: Uint8Array, index: number): Uint8Array {
   const next = new Uint8Array(Math.max(index + 1, flags.length * 2));
   next.set(flags);
@@ -320,13 +330,22 @@ function verifyLooseFighters(world: World): string[] {
     if (record !== null) fresh.push(record);
   }
   const listed = scan.fighters;
-  const same =
-    listed.length === fresh.length &&
-    listed.every((f, i) => {
-      const g = fresh[i];
-      return g !== undefined && sameFighter(f, g.entity, g.owner, g.x, g.y, g.component, g.reach);
-    });
-  return same ? [] : [`looseFighters lists ${listed.length} fighters but a fresh scan finds ${fresh.length}`];
+  const length = Math.max(listed.length, fresh.length);
+  for (let i = 0; i < length; i++) {
+    const f = listed[i];
+    const g = fresh[i];
+    if (
+      f !== undefined &&
+      g !== undefined &&
+      sameFighter(f, g.entity, g.owner, g.x, g.y, g.component, g.reach)
+    )
+      continue;
+    const entity = g?.entity ?? f?.entity;
+    return [
+      `looseFighters differs from a fresh scan at entity ${entity}: listed ${JSON.stringify(f)}, fresh ${JSON.stringify(g)}`,
+    ];
+  }
+  return [];
 }
 
 function sameFighter(
@@ -419,11 +438,12 @@ export function enemyPosts(
   for (const e of world.query(Garrison)) {
     const owner = world.tryGet(e, Owner)?.player;
     if (owner === undefined || !engages(world, owner, player)) continue;
-    if ((world.tryGet(e, Health)?.hitpoints ?? 0) <= 0) continue;
-    const tower = mannedPostOf(world, ctx, e);
-    if (tower === null) continue;
-    const held = heldWeapon(world, ctx, e);
-    if (held === null || held.maxRange === 0) continue;
+    const tower = (world.tryGet(e, Health)?.hitpoints ?? 0) > 0 ? mannedPostOf(world, ctx, e) : null;
+    const held = tower === null ? null : heldWeapon(world, ctx, e);
+    if (tower === null || held === null || held.maxRange === 0) {
+      kept.delete(e);
+      continue;
+    }
     const at = entityNode(world, terrain, e);
     const x = terrain.xOf(at);
     const y = terrain.yOf(at);
@@ -438,8 +458,8 @@ export function enemyPosts(
   return posts;
 }
 
-/** Each posted man's last {@link PostedShooter}, handed out again while it still describes him. An entry
- *  outlives its man: entity ids are never reused, so a stale one costs memory only. Never hashed. */
+/** Each posted man's last {@link PostedShooter}, handed out again while it still describes him, and dropped
+ *  once a read finds him holding no post. Never hashed. */
 const postRecords = new WeakMap<World, Map<Entity, PostedShooter>>();
 
 /** The {@link EnemyFire} of every shooter in `shooters` and `more`, loose or posted, whatever ground he

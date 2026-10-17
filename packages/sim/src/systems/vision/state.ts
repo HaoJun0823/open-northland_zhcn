@@ -23,6 +23,8 @@ const MASK_BYTE_COUNT = REVEALED_BYTE + 1;
 
 /** Radii below this pack into a per-pass footprint key; a larger one simply stamps undeduplicated. */
 const FOOTPRINT_RADIUS_SPAN = 1024;
+/** V8's small-integer range: a footprint key below it is stored and looked up unboxed. */
+const SMALL_INTEGER_SPAN = 2 ** 30;
 
 /** Every player its own vision group: the dense player → group table before any alliance. */
 function ownGroups(): number[] {
@@ -373,10 +375,13 @@ export class FogState {
       radius >= 0 &&
       radius < FOOTPRINT_RADIUS_SPAN
     ) {
-      // Exact while MAX_PLAYERS * FOOTPRINT_RADIUS_SPAN * cellsHigh * cellsWide stays below 2^53.
-      const key = ((group * FOOTPRINT_RADIUS_SPAN + radius) * this.cellsHigh + cy) * this.cellsWide + cx;
-      if (this.passFootprints.has(key)) return false;
-      this.passFootprints.add(key);
+      // Radius leads, so the common short sights keep the key a small integer that no lookup boxes; a
+      // key past that range only skips the dedup, as a repeated stamp raises no byte anyway.
+      const key = ((radius * MAX_PLAYERS + group) * this.cellsHigh + cy) * this.cellsWide + cx;
+      if (key < SMALL_INTEGER_SPAN) {
+        if (this.passFootprints.has(key)) return false;
+        this.passFootprints.add(key);
+      }
     }
     return this.stampSight(player, cx, cy, radius);
   }
@@ -387,7 +392,16 @@ export class FogState {
   stampSight(player: number, cx: number, cy: number, radius: number): boolean {
     const group = this.visionGroupOf(player);
     const mask = this.maskOfGroup(group);
-    const rect = stampVision(mask, this.cellsWide, this.cellsHigh, cx, cy, radius, this.foldOfGroup(group));
+    const rect = stampVision(
+      mask,
+      this.cellsWide,
+      this.cellsHigh,
+      cx,
+      cy,
+      radius,
+      this.foldOfGroup(group),
+      stampScratch,
+    );
     if (rect === null) return false;
     this.mergeGroupBounds(group, rect.minC, rect.maxC, rect.minR, rect.maxR);
     if (rect.wrote) this.markGroup(group);
@@ -659,7 +673,8 @@ export function stampVision(
   cy: number,
   radiusNodes: number,
   fold: FogFold | null,
-): { minC: number; maxC: number; minR: number; maxR: number; wrote: boolean } | null {
+  out: StampRect = { minC: 0, maxC: 0, minR: 0, maxR: 0, wrote: false },
+): StampRect | null {
   const radiusPx = radiusNodes * NODE_STEP_PX;
   const radiusSq = radiusPx * radiusPx;
   const dcMax = Math.floor(radiusPx / CELL_STEP_PX);
@@ -684,5 +699,22 @@ export function stampVision(
       if (fold !== null) foldCellChange(fold, index, previous, FOG_STATE.VISIBLE);
     }
   }
-  return { minC: cLo, maxC: cHi, minR: rLo, maxR: rHi, wrote };
+  out.minC = cLo;
+  out.maxC = cHi;
+  out.minR = rLo;
+  out.maxR = rHi;
+  out.wrote = wrote;
+  return out;
 }
+
+/** The clamped cell rect a {@link stampVision} touched, and whether it raised any byte. */
+export interface StampRect {
+  minC: number;
+  maxC: number;
+  minR: number;
+  maxR: number;
+  wrote: boolean;
+}
+
+/** The rect every live stamp writes into and reads back before the next one. */
+const stampScratch: StampRect = { minC: 0, maxC: 0, minR: 0, maxR: 0, wrote: false };

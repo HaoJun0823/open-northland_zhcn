@@ -68,8 +68,8 @@ does not reach them.
 
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `wonder-campaign_03_01` | LATARNIA MORSKA Z FAROS | 2h/6ai | – | – |  |
-| `wonder-campaign_03_01_sub` | ŚWIĘTY OGIEŃ | 1h/3ai | – | – | sub-mission |
+| `wonder-campaign_03_01` | LATARNIA MORSKA Z FAROS | 2h/6ai | ok | ok | played in Polish; goods-first and Sostratos-first routes, vagabonds paid or fought, Viking tribute, hero and Sostratos deaths, unlock of stage 2; economy, stores and the long walks forced; fighter commander restocking a ship got lost (fixed); Polish briefing and settlement goal text corrected; the vagabond camp's east wall has a one-node gap in the map's own block lane |
+| `wonder-campaign_03_01_sub` | ŚWIĘTY OGIEŃ | 1h/3ai | – | ok | sub-mission; entered and left from the parent in the browser, guard fight and walks forced |
 | `wonder-campaign_03_02` | WISZĄCE OGRODY SEMIRAMIDY  | 1h/6ai | – | – |  |
 | `wonder-campaign_03_02_sub` | PODZIEMNE KORYTARZE  | 1h/4ai | – | – | sub-mission |
 | `wonder-campaign_03_03` | KOLOS Z RODOS  | 1h/14ai | – | – |  |

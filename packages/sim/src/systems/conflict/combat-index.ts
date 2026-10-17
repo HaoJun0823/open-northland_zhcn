@@ -262,25 +262,28 @@ export class CombatIndex {
   ): readonly { entity: Entity; distance: number }[] {
     const bit = playerBit(player);
     if (bit === 0) return [];
-    const keys: number[] = [];
+    // This depth's band scan holds the keys, so the next band query here scans afresh.
+    const scan = this.grid.bandScanAt(this.depth);
+    scan.valid = false;
+    let count = 0;
     const { cx0, cx1, cy0, cy1 } = boxCellRange(fromX, fromY, maxDist);
     for (let cx = cx0; cx <= cx1; cx++) {
       for (let cy = cy0; cy <= cy1; cy++) {
         const cell = this.grid.cellAt(cx, cy);
         if (cell === undefined || (cell.ownerMask & bit) === 0) continue;
-        appendOwned(keys, cell.bodies, bit, fromX, fromY, maxDist, metric);
-        appendOwned(keys, cell.units, bit, fromX, fromY, maxDist, metric);
+        count = appendOwned(scan, count, cell.bodies, bit, fromX, fromY, maxDist, metric);
+        count = appendOwned(scan, count, cell.units, bit, fromX, fromY, maxDist, metric);
       }
     }
-    keys.sort((a, b) => a - b);
-    const seen = new Set<Entity>();
+    const keys = scan.keys.subarray(0, count);
+    keys.sort();
+    beginMeetings(scan);
     const found: { entity: Entity; distance: number }[] = [];
-    for (const key of keys) {
+    for (let i = 0; i < count; i++) {
+      const key = keys[i] ?? 0;
       const distance = Math.floor(key / CANDIDATE_ID_SPAN);
       const entity = (key - distance * CANDIDATE_ID_SPAN) as Entity;
-      if (seen.has(entity)) continue;
-      seen.add(entity);
-      found.push({ entity, distance });
+      if (firstMeeting(scan, entity)) found.push({ entity, distance });
     }
     return found;
   }
@@ -441,14 +444,17 @@ function appendBand(
         ? hexDistanceBetween(fromX, fromY, mx, my)
         : Math.abs(mx - fromX) + Math.abs(my - fromY);
     if (distance < minDist || distance > maxDist) continue;
-    if (n === scan.keys.length) {
-      const grown = new Float64Array(scan.keys.length * 2);
-      grown.set(scan.keys);
-      scan.keys = grown;
-    }
+    if (n === scan.keys.length) growKeys(scan);
     scan.keys[n++] = distance * CANDIDATE_ID_SPAN + (members[i] ?? 0);
   }
   return n;
+}
+
+/** Double `scan`'s key buffer, keeping its keys. */
+function growKeys(scan: BandScan): void {
+  const grown = new Float64Array(scan.keys.length * 2);
+  grown.set(scan.keys);
+  scan.keys = grown;
 }
 
 /** Whether `accept` takes a member of `list` that {@link appendBand} would key for the same band. */
@@ -478,16 +484,19 @@ function anyInBand(
   return false;
 }
 
-/** Push to `keys` every member of `list` owned by `bit` within `maxDist` of (fromX, fromY). */
+/** Append to `scan` from `count` every member of `list` owned by `bit` within `maxDist` of (fromX, fromY),
+ *  growing its key buffer as needed; returns the new count. */
 function appendOwned(
-  keys: number[],
+  scan: BandScan,
+  count: number,
   list: MemberList,
   bit: number,
   fromX: number,
   fromY: number,
   maxDist: number,
   metric: SearchMetric,
-): void {
+): number {
+  let n = count;
   for (let i = 0; i < list.count; i++) {
     if (list.bit[i] !== bit) continue;
     const mx = list.x[i] ?? 0;
@@ -496,8 +505,11 @@ function appendOwned(
       metric === 'hex'
         ? hexDistanceBetween(fromX, fromY, mx, my)
         : Math.abs(mx - fromX) + Math.abs(my - fromY);
-    if (distance <= maxDist) keys.push(distance * CANDIDATE_ID_SPAN + (list.members[i] ?? 0));
+    if (distance > maxDist) continue;
+    if (n === scan.keys.length) growKeys(scan);
+    scan.keys[n++] = distance * CANDIDATE_ID_SPAN + (list.members[i] ?? 0);
   }
+  return n;
 }
 
 /** The inclusive coarse-cell range covering the box `radius` nodes around (hx, hy). */

@@ -3,12 +3,9 @@ import { Age, Person, Position, Settler, settlerTradeLog } from '../../../compon
 import type { ChangeFeed, Entity, World } from '../../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../../nav/halfcell.js';
 import { isFighterJob } from '../../readviews/index.js';
+import { HeldNodes, NO_NODE } from '../../spatial/held-nodes.js';
 import { type NodeMoveFeed, watchNodeMoves } from '../../spatial/node-moves.js';
 import { NodeBuckets } from '../../spatial/nodes.js';
-
-/** The held `hx` of an entity that is not a candidate: the Int32 minimum, which no node's `hx` reaches. An
- *  off-map settler's node is negative, so no smaller sentinel is safe. */
-const NOT_HELD = -(2 ** 31);
 
 /**
  * The world's settlers statically able to gossip, bucketed by node and kept across ticks from change
@@ -17,10 +14,9 @@ const NOT_HELD = -(2 ** 31);
  */
 class ChatEligible {
   readonly buckets: NodeBuckets;
-  /** Each candidate's node by entity id, {@link NOT_HELD} in `hxs` for the rest: the move feed asks this
-   *  for every walker each tick. */
-  private hxs = new Int32Array(0);
-  private hys = new Int32Array(0);
+  /** Each candidate's node, {@link NO_NODE} for the rest: the move feed asks this for every walker each
+   *  tick. */
+  private readonly nodes = new HeldNodes();
   /** Adds and removals of the stores eligibility reads. */
   private readonly membership: ChangeFeed;
   /** Node changes, which move a held candidate but never change who is one. */
@@ -57,7 +53,7 @@ class ChatEligible {
 
   /** Runs after the membership and job changes, so only a held entity can be a candidate. */
   private move(e: Entity): void {
-    if ((this.hxs[e] ?? NOT_HELD) === NOT_HELD) return;
+    if (this.nodes.hx(e) === NO_NODE) return;
     const p = this.world.tryGet(e, Position);
     // A removal after the write, which the membership feed carries.
     if (p === undefined) return;
@@ -65,42 +61,28 @@ class ChatEligible {
   }
 
   private hold(e: Entity, hx: number, hy: number): void {
-    const heldX = this.hxs[e] ?? NOT_HELD;
-    const heldY = this.hys[e] ?? 0;
+    const heldX = this.nodes.hx(e);
+    const heldY = this.nodes.hy(e);
     if (heldX === hx && heldY === hy) return;
-    if (heldX !== NOT_HELD) this.buckets.remove(e, heldX, heldY);
+    if (heldX !== NO_NODE) this.buckets.remove(e, heldX, heldY);
     this.buckets.insert(e, hx, hy);
-    if (e >= this.hxs.length) this.grow(e);
-    this.hxs[e] = hx;
-    this.hys[e] = hy;
+    this.nodes.set(e, hx, hy, this.world.nextEntityId);
   }
 
   private release(e: Entity): void {
-    const heldX = this.hxs[e] ?? NOT_HELD;
-    if (heldX === NOT_HELD) return;
-    this.buckets.remove(e, heldX, this.hys[e] ?? 0);
-    this.hxs[e] = NOT_HELD;
-  }
-
-  private grow(e: Entity): void {
-    const size = Math.max(this.world.nextEntityId, e + 1, 2 * this.hxs.length);
-    const hxs = new Int32Array(size).fill(NOT_HELD);
-    hxs.set(this.hxs);
-    const hys = new Int32Array(size);
-    hys.set(this.hys);
-    this.hxs = hxs;
-    this.hys = hys;
+    const heldX = this.nodes.hx(e);
+    if (heldX === NO_NODE) return;
+    this.buckets.remove(e, heldX, this.nodes.hy(e));
+    this.nodes.set(e, NO_NODE, 0, this.world.nextEntityId);
   }
 
   private rebuild(): void {
-    this.hxs.fill(NOT_HELD);
+    this.nodes.clear();
     const candidates = freshCandidates(this.world, this.content);
     this.buckets.refill(this.world, candidates);
     for (const e of candidates) {
       const p = this.world.get(e, Position);
-      if (e >= this.hxs.length) this.grow(e);
-      this.hxs[e] = nodeHxOfPosition(p.x, p.y);
-      this.hys[e] = nodeHyOfPosition(p.y);
+      this.nodes.set(e, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y), this.world.nextEntityId);
     }
   }
 

@@ -16,6 +16,11 @@ export class HeldNodes {
     this.hys = new Int32Array(idLimit);
   }
 
+  /** Forget every node, keeping the columns' size. */
+  clear(): void {
+    this.hxs.fill(NO_NODE);
+  }
+
   get size(): number {
     return this.hxs.length;
   }

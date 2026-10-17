@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   Building,
   Health,
+  isValidPlayer,
   MoveGoal,
   Owner,
   PlayerOrder,
@@ -15,6 +16,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { cellAnchorNode, fx, ONE, Simulation } from '../../src/index.js';
+import type { TerrainGraph } from '../../src/nav/terrain/index.js';
 import { mayEngage } from '../../src/systems/conflict/acting.js';
 import { BattleFront } from '../../src/systems/conflict/battle-alert.js';
 import { CombatIndex } from '../../src/systems/conflict/combat-index.js';
@@ -25,6 +27,7 @@ import type { CombatPass } from '../../src/systems/conflict/pass.js';
 import { isManningPost, TOWER_RANGE_BONUS_NODES } from '../../src/systems/conflict/tower-post.js';
 import { attackMoveUnit } from '../../src/systems/orders/index.js';
 import { MILITARY_MODE } from '../../src/systems/readviews/index.js';
+import { entityNode } from '../../src/systems/spatial/nodes.js';
 import { testContent } from '../fixtures/content.js';
 import { BEAR, BOAR, COW, DEER, fighterAtNode, HUNTER } from './combat-system/support.js';
 import { cell, combatantAtNode, ctxOf, grassMap, P0, P1 } from './stances/support.js';
@@ -167,9 +170,16 @@ function onPost(sim: Simulation, soldier: Entity): boolean {
   return isManningPost(sim.world, ctxOf(sim), soldier);
 }
 
+/** How the owned candidates the index did not list near a stranger answered: the filter's skip path. */
+interface FarAnswers {
+  acted: number;
+  refused: number;
+}
+
 /** Every combatant left out of this tick's candidates, each refused by the filter on a freshly built pass;
- *  every candidate answered alike with and without the index's near-stranger listing. */
-function outsideCandidatesRefused(sim: Simulation): number {
+ *  every candidate answered alike with and without the index's near-stranger listing, the unlisted owned
+ *  ones tallied into `far`. */
+function outsideCandidatesRefused(sim: Simulation, far: FarAnswers = { acted: 0, refused: 0 }): number {
   const ctx = ctxOf(sim);
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('the scene has a map');
@@ -179,9 +189,13 @@ function outsideCandidatesRefused(sim: Simulation): number {
   let outside = 0;
   for (const e of sim.world.canonicalQuery(Settler, Health, Position)) {
     if (candidates.has(e)) {
-      expect(mayEngage(sim.world, ctx, terrain, index, e, ready.nearStranger(e))).toBe(
-        mayEngage(sim.world, ctx, terrain, index, e),
-      );
+      const answer = mayEngage(sim.world, ctx, terrain, index, e);
+      expect(mayEngage(sim.world, ctx, terrain, index, e, ready.nearStranger(e))).toBe(answer);
+      const owner = sim.world.tryGet(e, Owner);
+      if (!ready.nearStranger(e) && owner !== undefined && isValidPlayer(owner.player)) {
+        if (answer) far.acted++;
+        else far.refused++;
+      }
       continue;
     }
     outside++;
@@ -213,14 +227,20 @@ describe('combat pass - who may engage', () => {
   it('draws every combatant the filter lets act among the candidates, and leaves the quiet ones out', () => {
     const sim = mixedScene();
     const stir = quietRecruits(sim);
+    // A guard standing on its anchor stays ready, so it is drawn far from any stranger and refused there.
+    const settled = combatantAtNode(sim, 52, 110, P0, MILITARY_MODE.DEFEND);
+    sim.world.mut(settled, Stance).anchorCell = entityNode(sim.world, terrainOf(sim), settled);
     let outside = 0;
+    const far: FarAnswers = { acted: 0, refused: 0 };
     for (let t = 0; t < TICKS; t++) {
       if (t === TICKS / 2) stir();
-      outside += outsideCandidatesRefused(sim);
+      outside += outsideCandidatesRefused(sim, far);
       sim.step();
       expect(sim.world.verifyCaches()).toEqual([]);
     }
     expect(outside).toBeGreaterThan(TICKS); // the quiet village and the grazing herd are never drawn
+    expect(far.acted).toBeGreaterThan(0); // the far guard walking back to its moved anchor
+    expect(far.refused).toBeGreaterThan(0);
   });
 
   it('the verifiers flag a readiness or a position written around the tracked seams', () => {
@@ -262,3 +282,8 @@ describe('combat pass - who may engage', () => {
     expect(skipped).toBeGreaterThan(TICKS); // the quiet post and the far march are skipped
   });
 });
+
+function terrainOf(sim: Simulation): TerrainGraph {
+  if (sim.terrain === undefined) throw new Error('the scene has a map');
+  return sim.terrain;
+}

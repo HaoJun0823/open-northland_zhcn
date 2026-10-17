@@ -263,16 +263,17 @@ export class CellGrid {
     const blocks = blockLists[depth];
     const ranked = tileLists[depth];
     blocks.reset();
-    for (const [key, tiles] of this.blocks) {
+    // forEach, since a `for...of` over the map allocates an entry pair and an iterator result per block.
+    this.blocks.forEach((tiles, key) => {
       const bx = Math.floor(key / GRID_KEY_STRIDE);
       const by = key - bx * GRID_KEY_STRIDE;
       const minX = bx << BLOCK_SHIFT;
       const minY = by << BLOCK_SHIFT;
       const least = spanGap(x, minX, BLOCK_SIZE) + spanGap(y, minY, BLOCK_SIZE);
-      if (least > maxRadius || least - slack > bound) continue;
-      if (box !== undefined && !squareNearBox(box, minX, minY, BLOCK_SIZE, slack)) continue;
+      if (least > maxRadius || least - slack > bound) return;
+      if (box !== undefined && !squareNearBox(box, minX, minY, BLOCK_SIZE, slack)) return;
       blocks.push(tiles, least);
-    }
+    });
     blocks.sort();
     const blockOrder = blocks.sorted;
     for (let i = 0; i < blockOrder.length; i++) {

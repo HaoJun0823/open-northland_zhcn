@@ -202,14 +202,14 @@ describe('ComponentStore compaction', () => {
     expect(store.size).toBe(2);
   });
 
-  it('a lone member toggled every tick reuses its emptied index page', () => {
+  it('a lone member toggled every tick reuses its emptied index block', () => {
     const toggles = 10_000;
     const native = globalThis.Int32Array;
-    let pageAllocations = 0;
+    let blockAllocations = 0;
     class CountingInt32Array extends native {
       constructor(...args: [length: number]) {
         super(...args);
-        if (args[0] === PAGE_SIZE) pageAllocations++;
+        if (args[0] === PAGE_SIZE) blockAllocations++;
       }
     }
     globalThis.Int32Array = CountingInt32Array as Int32ArrayConstructor;
@@ -222,7 +222,23 @@ describe('ComponentStore compaction', () => {
     } finally {
       globalThis.Int32Array = native;
     }
-    expect(pageAllocations).toBe(1);
+    expect(blockAllocations).toBe(1);
+  });
+
+  it('hands an emptied block to the next new page with every entry vacant', () => {
+    const store = new ComponentStore<number>();
+    const first = 1 as Entity;
+    const far = (first + PAGE_SIZE * 3) as Entity;
+    store.set(first, 1);
+    store.delete(first);
+    store.set(far, 2);
+    expect(store.get(far)).toBe(2);
+    for (let offset = 1; offset < PAGE_SIZE; offset++) {
+      expect(store.has(((far & ~(PAGE_SIZE - 1)) + offset) as Entity)).toBe(
+        offset === (far & (PAGE_SIZE - 1)),
+      );
+    }
+    expect(store.has(first)).toBe(false);
   });
 });
 

@@ -1,13 +1,14 @@
 import type { Entity } from './component.js';
 
-/** Entity ids per index page; a page exists only while it holds a member, so a component whose members
- *  sit in a few id ranges stays small. One emptied page is kept spare, so a lone member toggled every
- *  tick does not reallocate its page per add. */
+/** Entity ids per index page. A page takes an index block only while it holds a member, so a component
+ *  whose members sit in a few id ranges stays small; an emptied block is reused by the next new page. */
 const PAGE_BITS = 8;
 export const PAGE_SIZE = 1 << PAGE_BITS;
 const PAGE_MASK = PAGE_SIZE - 1;
-/** Entity ids start at 1, so 0 marks a vacated dense slot; an index page entry holds `slot + 1`. */
+/** Entity ids start at 1, so 0 marks a vacated dense slot; an index entry holds `slot + 1`. */
 export const VACANT_SLOT = 0;
+/** A page table entry holds `block + 1`; this marks a page without a block. */
+const NO_BLOCK = 0;
 const MIN_ENTITY = 1;
 /** The largest id an `Int32Array` dense slot holds. */
 const MAX_ENTITY = 0x7fffffff;
@@ -21,15 +22,21 @@ const SHRINK_FACTOR = 4;
 
 /**
  * One component's entity-to-value store: a paged entity-to-slot index over dense arrays kept in insertion
- * order. Iteration visits slots in that order, matching a `Map`'s: a removal vacates its slot and a re-add
- * appends at the end. Compaction preserves the order and bumps {@link epoch}; every slot carries an
- * ascending insertion sequence so an open cursor can find its place again ({@link firstSlotAfter}).
+ * order. The index blocks share one buffer behind a page table, so a lookup reads two typed arrays the
+ * store owns rather than a typed array object per page. Iteration visits slots in insertion order, like a
+ * `Map`: a removal vacates its slot and a re-add appends at the end. Compaction preserves the order and
+ * bumps {@link epoch}; every slot carries an ascending insertion sequence so an open cursor can find its
+ * place again ({@link firstSlotAfter}).
  */
 export class ComponentStore<T> {
-  private readonly pages: Array<Int32Array | undefined> = [];
-  private readonly pageMembers: number[] = [];
-  /** An emptied, all-zero page reused by the next page allocation. */
-  private sparePage: Int32Array | undefined;
+  /** Page number to `block + 1`, {@link NO_BLOCK} while the page holds no member. */
+  private pageTable = new Int32Array(0);
+  /** {@link PAGE_SIZE} entries per block, each `slot + 1` or {@link VACANT_SLOT}. */
+  private index = new Int32Array(0);
+  private blockMembers = new Int32Array(0);
+  private blockCount = 0;
+  /** Emptied, all-zero blocks, reused before the index grows. */
+  private readonly freeBlocks: number[] = [];
   private denseEntities = new Int32Array(INITIAL_CAPACITY);
   private denseSeqs = new Float64Array(INITIAL_CAPACITY);
   private values: Array<T | undefined> = [];
@@ -66,19 +73,26 @@ export class ComponentStore<T> {
 
   /** The dense slot of `entity`, or -1 while it is not a member. */
   slotOf(entity: Entity): number {
-    const page = this.pages[entity >>> PAGE_BITS];
-    return page === undefined ? -1 : (page[entity & PAGE_MASK] ?? 0) - 1;
+    const page = entity >>> PAGE_BITS;
+    const table = this.pageTable;
+    if (page >= table.length) return -1;
+    const block = table[page] as number;
+    if (block === NO_BLOCK) return -1;
+    return (this.index[((block - 1) << PAGE_BITS) | (entity & PAGE_MASK)] as number) - 1;
   }
 
   has(entity: Entity): boolean {
-    const page = this.pages[entity >>> PAGE_BITS];
-    return page !== undefined && page[entity & PAGE_MASK] !== 0;
+    const page = entity >>> PAGE_BITS;
+    const table = this.pageTable;
+    if (page >= table.length) return false;
+    const block = table[page] as number;
+    return (
+      block !== NO_BLOCK && this.index[((block - 1) << PAGE_BITS) | (entity & PAGE_MASK)] !== VACANT_SLOT
+    );
   }
 
   get(entity: Entity): T | undefined {
-    const page = this.pages[entity >>> PAGE_BITS];
-    if (page === undefined) return undefined;
-    const slot = (page[entity & PAGE_MASK] ?? 0) - 1;
+    const slot = this.slotOf(entity);
     return slot < 0 ? undefined : this.values[slot];
   }
 
@@ -105,16 +119,8 @@ export class ComponentStore<T> {
     if (entity < MIN_ENTITY || entity > MAX_ENTITY) {
       throw new RangeError(`ComponentStore.set: entity ${entity} is outside ${MIN_ENTITY}..${MAX_ENTITY}`);
     }
-    const pageIndex = entity >>> PAGE_BITS;
-    let page = this.pages[pageIndex];
-    if (page === undefined) {
-      page = this.sparePage ?? new Int32Array(PAGE_SIZE);
-      this.sparePage = undefined;
-      this.pages[pageIndex] = page;
-      this.pageMembers[pageIndex] = 0;
-    }
-    const at = entity & PAGE_MASK;
-    const existing = (page[at] ?? 0) - 1;
+    const at = this.indexEntryOrAllocate(entity);
+    const existing = (this.index[at] as number) - 1;
     if (existing >= 0) {
       this.values[existing] = value;
       return false;
@@ -125,26 +131,28 @@ export class ComponentStore<T> {
     this.denseSeqs[slot] = this.nextSeq++;
     this.revisions[slot] = 0;
     this.values[slot] = value;
-    page[at] = slot + 1;
-    this.pageMembers[pageIndex] = (this.pageMembers[pageIndex] ?? 0) + 1;
+    this.index[at] = slot + 1;
+    const block = at >>> PAGE_BITS;
+    this.blockMembers[block] = (this.blockMembers[block] as number) + 1;
     this.liveSize++;
     return true;
   }
 
   /** Removes `entity`, vacating its slot; true when it was a member. */
   delete(entity: Entity): boolean {
-    const pageIndex = entity >>> PAGE_BITS;
-    const page = this.pages[pageIndex];
-    if (page === undefined) return false;
-    const at = entity & PAGE_MASK;
-    const slot = (page[at] ?? 0) - 1;
+    const page = entity >>> PAGE_BITS;
+    if (page >= this.pageTable.length) return false;
+    const block = (this.pageTable[page] as number) - 1;
+    if (block < 0) return false;
+    const at = (block << PAGE_BITS) | (entity & PAGE_MASK);
+    const slot = (this.index[at] as number) - 1;
     if (slot < 0) return false;
-    page[at] = 0;
-    const left = (this.pageMembers[pageIndex] ?? 0) - 1;
-    this.pageMembers[pageIndex] = left;
+    this.index[at] = VACANT_SLOT;
+    const left = (this.blockMembers[block] as number) - 1;
+    this.blockMembers[block] = left;
     if (left === 0) {
-      this.pages[pageIndex] = undefined;
-      this.sparePage = page;
+      this.pageTable[page] = NO_BLOCK;
+      this.freeBlocks.push(block);
     }
     this.denseEntities[slot] = VACANT_SLOT;
     this.values[slot] = undefined;
@@ -200,8 +208,8 @@ export class ComponentStore<T> {
         seqs[to] = seqs[from] ?? 0;
         revisions[to] = revisions[from] ?? 0;
         values[to] = values[from];
-        const page = this.pages[e >>> PAGE_BITS];
-        if (page !== undefined) page[e & PAGE_MASK] = to + 1;
+        const block = (this.pageTable[e >>> PAGE_BITS] as number) - 1;
+        if (block >= 0) this.index[(block << PAGE_BITS) | (e & PAGE_MASK)] = to + 1;
       }
       to++;
     }
@@ -211,6 +219,36 @@ export class ComponentStore<T> {
     if (entities.length > INITIAL_CAPACITY && entities.length >= to * SHRINK_FACTOR) {
       this.resize(Math.max(INITIAL_CAPACITY, to * 2));
     }
+  }
+
+  /** The index entry of `entity`, taking a block for its page first when it has none. */
+  private indexEntryOrAllocate(entity: Entity): number {
+    const page = entity >>> PAGE_BITS;
+    if (page >= this.pageTable.length) {
+      const table = new Int32Array(Math.max(page + 1, this.pageTable.length * 2));
+      table.set(this.pageTable);
+      this.pageTable = table;
+    }
+    let block = (this.pageTable[page] as number) - 1;
+    if (block < 0) {
+      block = this.freeBlocks.pop() ?? this.newBlock();
+      this.pageTable[page] = block + 1;
+    }
+    return (block << PAGE_BITS) | (entity & PAGE_MASK);
+  }
+
+  private newBlock(): number {
+    const block = this.blockCount++;
+    if (this.blockCount > this.blockMembers.length) {
+      const blocks = Math.max(1, this.blockMembers.length * 2);
+      const members = new Int32Array(blocks);
+      members.set(this.blockMembers);
+      this.blockMembers = members;
+      const index = new Int32Array(blocks << PAGE_BITS);
+      index.set(this.index);
+      this.index = index;
+    }
+    return block;
   }
 
   private resize(capacity: number): void {

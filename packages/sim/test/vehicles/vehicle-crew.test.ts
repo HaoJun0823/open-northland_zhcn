@@ -9,6 +9,7 @@ import {
   Position,
   Rider,
   Settler,
+  StandIn,
   Vehicle,
   VehicleDrive,
   VehicleRoute,
@@ -32,7 +33,9 @@ import {
   serializeSaveGame,
   type TerrainMap,
 } from '../../src/index.js';
+import { stepHex } from '../../src/nav/halfcell.js';
 import { removeSettlerSilently } from '../../src/systems/lifecycle/death.js';
+import { clearNavState } from '../../src/systems/movement/nav-state.js';
 import { boardCrew, createVehicle, stockVehicleGoods } from '../../src/systems/vehicles/index.js';
 import { type VehicleWorkFilter, vehiclesAtWork } from '../../src/systems/vehicles/registry.js';
 import { testContent } from '../fixtures/content.js';
@@ -480,6 +483,28 @@ describe('boarding', () => {
     expect(s.world.get(carrier, Rider).boarding).toBe(false);
     s.run(CARRIER_WALK_TICKS);
     expect(seatOf(s, cart, carrier)?.inside).toBe(false); // a carrier waits by the door unasked
+  });
+
+  it('boards a rider the router stood in beside the door, with the door empty', () => {
+    const s = sim();
+    const ship = spawn(s, SHIP_SMALL, 22, 8);
+    const door = s.vehicleView(ship)?.door;
+    if (door === undefined || door === null) throw new Error('the ship spawned with no door');
+    const beside = stepHex(door, 'west');
+    const soldier = spawnSettler(s, beside.hx, beside.hy, SOLDIER);
+    attach(s, soldier, ship);
+    // A crowd took the door when this rider routed to it: the router sent it to a free neighbour, where
+    // it has arrived.
+    const terrain = s.terrain;
+    if (terrain === undefined) throw new Error('no terrain');
+    clearNavState(s.world, soldier);
+    s.world.add(soldier, StandIn, {
+      goal: terrain.nodeAt(door.hx, door.hy),
+      at: terrain.nodeAt(beside.hx, beside.hy),
+    });
+    s.enqueue(playerCommand(P0, { kind: 'boardVehicle', entity: soldier }));
+    boardOut(s, ship, soldier, 2);
+    expect(s.world.has(soldier, Position)).toBe(false);
   });
 
   it('boardVehicle steps a rider standing on the door in without a goto', () => {

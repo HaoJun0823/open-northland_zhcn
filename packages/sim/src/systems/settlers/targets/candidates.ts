@@ -20,6 +20,7 @@ import { dynamicBlockOverlay } from '../../footprint/index.js';
 import { canonicalResources } from '../../spatial/resources.js';
 import { TargetBands } from './bands.js';
 import { InteractionCellIndex } from './cell-index.js';
+import { constructionSiteCells } from './construction-site-cells.js';
 import { fieldZones, type NodeMembership } from './field-zones.js';
 import { roadSiteCells as roadSiteCellsOf } from './road-site-cells.js';
 import { stockpileCells } from './stockpile-cells.js';
@@ -47,7 +48,8 @@ export interface TargetCandidates {
    *  empty list. A vehicle house's hidden site is not among them: only the workshop worker raising it
    *  crews it. */
   readonly constructionSites: readonly Entity[];
-  /** {@link constructionSites} as a ring index keyed by interaction cell, for the nearest-site picks. */
+  /** {@link constructionSites} as a ring index keyed by interaction cell, for the nearest-site picks. Kept
+   *  across ticks and caught up with the site lists. */
   readonly constructionSiteCells: InteractionCellIndex;
   /** Unfinished wall segments, indexed apart from {@link constructionSiteCells}: builders take them only
    *  once no building site is left, and only a segment's own builder supplies it. */
@@ -88,11 +90,12 @@ export interface TargetCandidates {
 interface SiteSplit {
   readonly construction: readonly Entity[];
   readonly vehicle: Entity[];
+  readonly cells: InteractionCellIndex;
 }
 
 /** The construction sites split into the vehicle sites and the rest; the rest is the shared canonical
  *  list itself while no vehicle site stands. */
-function splitVehicleSites(world: World, ctx: SystemContext): SiteSplit {
+function splitVehicleSites(world: World, ctx: SystemContext): Omit<SiteSplit, 'cells'> {
   const sites = world.canonicalQuery(UnderConstruction, Building, Position);
   const index = contentIndex(ctx.content);
   const isVehicleSite = (e: Entity): boolean =>
@@ -123,7 +126,6 @@ class TickTargets implements TargetCandidates {
   private resourcesMemo: readonly Entity[] | undefined;
   private sites: SiteSplit | undefined;
   private cropsByFarmMemo: Map<Entity, Entity[]> | undefined;
-  private constructionSiteCellsMemo: InteractionCellIndex | undefined;
   private wallSiteCellsMemo: InteractionCellIndex | undefined;
   private roadSiteCellsMemo: InteractionCellIndex | undefined;
   private repairSiteCellsMemo: InteractionCellIndex | undefined;
@@ -157,8 +159,12 @@ class TickTargets implements TargetCandidates {
     return this.resourcesMemo;
   }
 
+  /** The site lists and the held site index, caught up together so the index holds the listed sites. */
   private siteSplit(): SiteSplit {
-    this.sites ??= splitVehicleSites(this.world, this.ctx);
+    this.sites ??= {
+      ...splitVehicleSites(this.world, this.ctx),
+      cells: constructionSiteCells(this.world, this.ctx.content, this.terrain),
+    };
     return this.sites;
   }
 
@@ -171,8 +177,7 @@ class TickTargets implements TargetCandidates {
   }
 
   get constructionSiteCells(): InteractionCellIndex {
-    this.constructionSiteCellsMemo ??= this.indexOver(this.siteSplit().construction);
-    return this.constructionSiteCellsMemo;
+    return this.siteSplit().cells;
   }
 
   get wallSiteCells(): InteractionCellIndex {

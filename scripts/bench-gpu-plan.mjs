@@ -75,7 +75,7 @@ export function scenarioSettings(entry) {
   const settings = Object.fromEntries(ENHANCEMENT_SETTINGS.map((key) => [key, entry.enhancements]));
   settings.enhancedSampling = entry.magnifier !== 'off';
   if (entry.magnifier !== 'off') settings.pixelArtScaler = entry.magnifier;
-  return { ...settings, fpsCounter: true, soundEnabled: false, edgeScrollEnabled: false };
+  return { ...settings, fpsCounter: true, soundEnabled: true, edgeScrollEnabled: false };
 }
 
 function positiveNumber(text, name, integer) {

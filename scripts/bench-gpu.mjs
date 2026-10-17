@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { countGlCalls, guardCamera } from './bench-browser-profile.mjs';
 import {
+  BENCH_BROWSER_ARGS,
   cameraAt,
   checkpointSession,
   densestBuildings,
@@ -12,6 +13,7 @@ import {
   openBenchPage,
   overloaded,
   restoreCheckpoint,
+  unlockAudio,
   VIEWPORT,
   verifyDevServer,
 } from './bench-browser-session.mjs';
@@ -248,7 +250,7 @@ try {
   const previewUrl = new URL(`?${params}`, options.origin);
   progress('verifying development server and content');
   metadata.preview = await verifyDevServer(previewUrl);
-  browser = await chromium.launch({ headless: false, args: ['--mute-audio'] });
+  browser = await chromium.launch({ headless: false, args: BENCH_BROWSER_ARGS });
   page = await openBenchPage(browser);
   page.on('pageerror', (e) => metadata.errors.push(e.message));
   page.on('console', (m) => {
@@ -268,6 +270,10 @@ try {
     });
     const unapplied = Object.keys(settings).filter((key) => stored[key] !== settings[key]);
     if (unapplied.length > 0) throw new Error(`Settings did not apply: ${unapplied}`);
+    const audio = (await unlockAudio(page)) ? 'audible' : 'no sound bank';
+    if (metadata.audio !== undefined && metadata.audio !== audio)
+      throw new Error(`Audio changed between scenarios: ${metadata.audio} then ${audio} at ${scenario.id}`);
+    metadata.audio = audio;
     if (dense === null) {
       dense = (await densestBuildings(page)).point;
       const gpu = await page.evaluate(async () => {

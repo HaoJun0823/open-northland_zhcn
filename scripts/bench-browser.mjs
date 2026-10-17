@@ -11,6 +11,7 @@ import {
   throttleCpu,
 } from './bench-browser-profile.mjs';
 import {
+  BENCH_BROWSER_ARGS,
   cameraAt,
   checkpointSession,
   densestBuildings,
@@ -18,6 +19,7 @@ import {
   openBenchPage,
   overloaded,
   restoreCheckpoint,
+  unlockAudio,
   VIEWPORT,
   verifyDevServer,
 } from './bench-browser-session.mjs';
@@ -94,7 +96,7 @@ const progress = (message) => {
 try {
   progress('verifying development server and content');
   metadata.preview = await verifyDevServer(previewUrl);
-  browser = await chromium.launch({ headless: false, args: ['--mute-audio'] });
+  browser = await chromium.launch({ headless: false, args: BENCH_BROWSER_ARGS });
   const browserSession = await browser.newBrowserCDPSession();
   const system = await browserSession.send('SystemInfo.getInfo');
   page = await openBenchPage(browser);
@@ -117,6 +119,7 @@ try {
       settings: { fpsLimit: null },
     });
     progress(`restored tick ${restored.tick}, state hash verified`);
+    metadata.audio = (await unlockAudio(page)) ? 'audible' : 'no sound bank';
     if (watchedSeat !== null)
       await page.evaluate((seat) => {
         const watch = window.__opennorthland.watchSeat;
@@ -193,6 +196,7 @@ try {
         hidden: document.hidden,
         startMs: performance.now(),
         startTick: window.__opennorthland.host.tick,
+        startAudioFrames: window.__opennorthland.audioStats()?.frames ?? null,
       };
       const visibility = () => {
         if (document.hidden) window.__rafProbe.hidden = true;
@@ -233,6 +237,11 @@ try {
         startTick: window.__rafProbe.startTick,
         endTick: window.__opennorthland.host.tick,
         perf: await window.__opennorthland.perf(),
+        // Frames the sound driver decided while audible in this window; null without a sound bank.
+        audioFrames:
+          window.__rafProbe.startAudioFrames === null
+            ? null
+            : window.__opennorthland.audioStats().frames - window.__rafProbe.startAudioFrames,
         gl: window.__glCalls.report(),
         raf: {
           frames: samples.length,
@@ -277,6 +286,7 @@ try {
         raf: result.raf,
         delivered: result.perf.throughput.deliveredSpeed,
         simMsPerTick: result.perf.window.simMsPerTick,
+        audioFrames: result.audioFrames,
         worker: result.worker,
       }),
     );

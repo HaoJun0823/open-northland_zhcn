@@ -143,6 +143,7 @@ export async function profileBrowser({ page, cameras, restore, seconds, output, 
       const p = {
         startMs: performance.now(),
         startTick: d.host.tick,
+        startAudioFrames: d.audioStats()?.frames ?? null,
         frames: 0,
         hidden: document.hidden,
         stop: false,
@@ -176,6 +177,10 @@ export async function profileBrowser({ page, cameras, restore, seconds, output, 
         endTick: window.__opennorthland.host.tick,
         frames: p.frames,
         perf: await window.__opennorthland.perf(),
+        audioFrames:
+          p.startAudioFrames === null
+            ? null
+            : window.__opennorthland.audioStats().frames - p.startAudioFrames,
         hidden: document.hidden,
         camera: window.__opennorthland.cameraCtl.camera(),
       };

@@ -9,6 +9,28 @@ import { skipOriginalGameGate } from './original-game-gate.mjs';
 /** The browser benchmarks' window, at device scale 1. */
 export const VIEWPORT = { width: 1440, height: 900 };
 
+/** Muted, yet free to start audio without a real gesture, so every window pays the sound driver's work
+ *  as a player's game does. */
+export const BENCH_BROWSER_ARGS = ['--mute-audio', '--autoplay-policy=no-user-gesture-required'];
+/** The gesture the game's audio start listens for: a modifier the game only tracks while held, so a
+ *  press and release selects and orders nothing. */
+const AUDIO_UNLOCK_KEY = 'Shift';
+const AUDIO_UNLOCK_TIMEOUT_MS = 10000;
+
+/**
+ * Start the restored session's audio and wait until the sound driver decides frames. False for a
+ * session without a sound bank; throws when a driver stays silent, as a muted setting would leave it.
+ */
+export async function unlockAudio(page) {
+  const hasDriver = await page.evaluate(() => window.__opennorthland.audioStats() !== null);
+  if (!hasDriver) return false;
+  await page.keyboard.press(AUDIO_UNLOCK_KEY);
+  await page.waitForFunction(() => window.__opennorthland.audioStats().frames > 0, null, {
+    timeout: AUDIO_UNLOCK_TIMEOUT_MS,
+  });
+  return true;
+}
+
 /** A bench page at device scale 1 that skips the original-game gate, which would otherwise hold `?map=`. */
 export async function openBenchPage(browser) {
   const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });

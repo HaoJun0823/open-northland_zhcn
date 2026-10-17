@@ -140,7 +140,11 @@ npm run bench:browser -- bench-out/late.t100000.checkpoint http://127.0.0.1:5174
 Arguments: checkpoint, origin, output directory (default `bench-out/browser`), seconds per window
 (default 15). The probe verifies checkout/content and restores the checkpoint hash before each window.
 It uses muted headed Chromium at 1440×900, device scale 1, fullscreen off, no frame cap and five seconds
-of warm-up, with the pointer resting over the middle of the world so each window pays the hover the same way. Input is blocked while measuring.
+of warm-up, with the pointer resting over the middle of the world so each window pays the hover the same
+way. Input is blocked while measuring. Audio runs as in a player's game: Chromium stays muted but may
+start audio without a gesture, a press of Shift (a modifier the game only tracks while held, so it selects
+and orders nothing) starts the sound driver after each restore, and each window reports the frames it
+decided as `audioFrames`. `bench:gpu` does the same with sound on.
 
 | Variable | Effect |
 | --- | --- |

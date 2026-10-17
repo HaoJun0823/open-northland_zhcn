@@ -219,23 +219,70 @@ export class GroupLanes {
         tail = candidate;
       }
     }
-    return tail === null ? route : this.stitch(route.slice(0, high + 1), tail);
+    return tail === null ? route : this.stitch(route, tail, high + 1);
   }
 
-  /** A connector may meet the corridor before its endpoint. Drop that loop while preserving every
-   * legal edge; the cached corridor itself is never mutated. */
-  private stitch(prefix: readonly NodeId[], tail: readonly NodeId[]): NodeId[] {
-    const index = new Map(prefix.map((node, i) => [node, i]));
-    let prefixEnd = prefix.length,
+  /** `prefix[0..end)` then `tail`. A connector may meet the corridor before its endpoint. Drop that loop
+   * while preserving every legal edge; the cached corridor itself is never mutated. */
+  private stitch(prefix: readonly NodeId[], tail: readonly NodeId[], end = prefix.length): NodeId[] {
+    const marks = prefixMarksOf(this.terrain);
+    const mark = marks.next();
+    // The last index of each prefix node, as a node may repeat.
+    for (let i = 0; i < end; i++) {
+      const node = prefix[i];
+      if (node === undefined) continue;
+      marks.stamps[node] = mark;
+      marks.indices[node] = i;
+    }
+    let prefixEnd = end,
       tailStart = 0;
     for (let i = 0; i < tail.length; i++) {
       const node = tail[i];
-      const seen = node === undefined ? undefined : index.get(node);
-      if (seen !== undefined) {
-        prefixEnd = seen + 1;
-        tailStart = i + 1;
-      }
+      if (node === undefined || marks.stamps[node] !== mark) continue;
+      prefixEnd = (marks.indices[node] ?? 0) + 1;
+      tailStart = i + 1;
     }
-    return [...prefix.slice(0, prefixEnd), ...tail.slice(tailStart)];
+    const joined = prefix.slice(0, prefixEnd);
+    for (let i = tailStart; i < tail.length; i++) {
+      const node = tail[i];
+      if (node !== undefined) joined.push(node);
+    }
+    return joined;
   }
+}
+
+/** The largest stamp before the marks wrap and are cleared. */
+const MAX_MARK = 0x7fffffff;
+
+/** Per-node prefix marks for one terrain, so stitching a long corridor indexes it without a map. Stitches
+ *  run synchronously, so every lane checker over the terrain shares them. */
+class PrefixMarks {
+  readonly stamps: Int32Array;
+  readonly indices: Int32Array;
+  private mark = 0;
+
+  constructor(nodeCount: number) {
+    this.stamps = new Int32Array(nodeCount);
+    this.indices = new Int32Array(nodeCount);
+  }
+
+  next(): number {
+    if (this.mark === MAX_MARK) {
+      this.stamps.fill(0);
+      this.mark = 0;
+    }
+    this.mark += 1;
+    return this.mark;
+  }
+}
+
+const marksByTerrain = new WeakMap<TerrainGraph, PrefixMarks>();
+
+function prefixMarksOf(terrain: TerrainGraph): PrefixMarks {
+  let marks = marksByTerrain.get(terrain);
+  if (marks === undefined) {
+    marks = new PrefixMarks(terrain.nodeCount);
+    marksByTerrain.set(terrain, marks);
+  }
+  return marks;
 }

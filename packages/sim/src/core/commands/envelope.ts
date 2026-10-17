@@ -242,8 +242,9 @@ function seatOwned(command: PlayerCommand, player: number): PlayerCommand {
 
 /**
  * Commands are plain JSON data by contract - the wire a multiplayer command crosses and the replay log
- * both carry them as JSON - so the copy takes exactly what JSON keeps: a non-finite number or an
- * undefined list member throws, `-0` becomes `0` and a record field holding `undefined` is left out.
+ * both carry them as JSON - so the copy keeps exactly what JSON keeps, and a local command is judged
+ * the same way a replayed one is: a non-finite number and an undefined list member become `null`,
+ * `-0` becomes `0` and a record field holding `undefined` is left out.
  * The accumulator is prototype-less because a `JSON.parse`d payload can carry an own `__proto__` key,
  * which an object literal would apply as a prototype instead of copying - and the authority gate reads
  * `owner`/`player` with `in`.
@@ -251,15 +252,12 @@ function seatOwned(command: PlayerCommand, player: number): PlayerCommand {
 function clonePlainData<T>(value: T): T {
   if (value === null || value === undefined) return value;
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new Error(`command payload holds the non-finite number ${value}`);
+    if (!Number.isFinite(value)) return null as T;
     return (value === 0 ? 0 : value) as T;
   }
   if (typeof value === 'string' || typeof value === 'boolean') return value;
   if (Array.isArray(value)) {
-    return value.map((member: unknown) => {
-      if (member === undefined) throw new Error('command payload holds an undefined list member');
-      return clonePlainData(member);
-    }) as T;
+    return value.map((member: unknown) => (member === undefined ? null : clonePlainData(member))) as T;
   }
   if (!isPlainRecord(value)) {
     throw new Error(`command payload holds a non-serializable ${valueShapeName(value)}`);

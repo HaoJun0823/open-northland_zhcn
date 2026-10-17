@@ -31,7 +31,7 @@ export class CollapseLayer {
   private readonly nodes = new Map<string, CollapseNode>();
   private readonly seen = new Set<string>();
   private readonly covers: Viewport[] = [];
-  private collapses: BuildingCollapse[] = [];
+  private collapses: readonly BuildingCollapse[] = [];
   private readonly masks = new DamageAtlas();
   private readonly revealBox = createLayerDrawBox();
   private dustArt: DamageEffectTextures | undefined;

@@ -61,7 +61,10 @@ export function foldBuildingCollapses(
   active: readonly BuildingCollapse[],
   events: readonly SimEvent[],
   tick: number,
-): BuildingCollapse[] {
+): readonly BuildingCollapse[] {
+  // A frame with no event and no collapse settling hands the list back as it stands.
+  if (events.length === 0 && !active.some((c) => tick - c.spawnTick >= COLLAPSE_LIFETIME_TICKS))
+    return active;
   const next = active.filter((c) => tick - c.spawnTick < COLLAPSE_LIFETIME_TICKS);
   for (const ev of events) {
     if (ev.kind !== 'buildingDestroyed' || ev.at === undefined) continue;

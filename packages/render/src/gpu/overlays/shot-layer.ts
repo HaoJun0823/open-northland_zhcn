@@ -50,6 +50,8 @@ export class ShotLayer {
 
   /** Raise the smoke of every siege shot that came down this frame. */
   ingest(events: readonly SimEvent[], tick: number): void {
+    // Most frames land no shot and retire no smoke; they keep the list as it stands.
+    if (events.length === 0 && !this.smokes.some((s) => tick - s.spawnTick >= s.lifetime)) return;
     const live = this.smokes.filter((s) => tick - s.spawnTick < s.lifetime);
     for (const ev of events) {
       if (ev.kind !== 'groundBurst' || ev.smokeTicks === undefined) continue;

@@ -200,7 +200,8 @@ const NEIGHBOUR_REACH = 1;
  *  shifts with the anchor row's parity, nothing else about the anchor. */
 const workReaches = new WeakMap<ResourceFootprintCells, readonly [number, number]>();
 
-/** The farthest of `footprint`'s work cells and the 4-neighbours from an anchor on row `ay`. */
+/** The farthest of `footprint`'s work cells and the 4-neighbours from an anchor on row `ay`. Exported for
+ *  its row-parity test, which no public path isolates: the reach only pre-filters a limit's search. */
 export function workReachOf(footprint: ResourceFootprintCells, ay: number): number {
   let reaches = workReaches.get(footprint);
   if (reaches === undefined) {

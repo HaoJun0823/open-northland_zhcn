@@ -37,10 +37,10 @@ export function decisionIndex(tick: number): number {
 
 /**
  * Every how many of a seat's decisions its workforce allocator runs (authored, a performance trade): the
- * allocator is the dearest module of a late settlement. Everything it decides moves to an 8 s beat: hires,
- * staffing, the flag upkeep, the army floor and the garrison drafts, and its per-decision limits (one
- * collector post per good, the post ramp) now apply once per run. The settlement defence and the
- * military module's orders keep the 4 s beat.
+ * allocator is the dearest module of a late settlement. Hires, staffing, the flag upkeep, the army floor
+ * and the garrison drafts run on this 8 s beat, and the allocator's limits (one collector post per good,
+ * the post ramp) count per run. The settlement defence and the military module's orders run on every
+ * decision, the 4 s beat.
  */
 export const WORKFORCE_EVERY_DECISIONS = 2;
 

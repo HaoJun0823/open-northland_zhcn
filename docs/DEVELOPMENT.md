@@ -50,7 +50,9 @@ npm run dev:verify -- 'http://127.0.0.1:5175/?map=magiczny_las'
 ```
 
 Use the client's persistent terminal/background process support and keep its PID and log path.
-Install dependencies with `npm ci` in each worktree; shared `node_modules` can resolve workspace
+Give each worktree its own `node_modules`: on APFS, `cp -c -R "$primary_root/node_modules" node_modules`
+clones the primary checkout's tree without using extra disk space, then `npm install` applies any
+lockfile difference; elsewhere run `npm ci`. A shared or symlinked `node_modules` resolves workspace
 imports to another checkout. Vite rejects workspace imports outside this checkout's `src/` trees.
 Development serves source directly; compiling `dist/` does not fix a wrong preview.
 

@@ -43,7 +43,9 @@ interface JointNode {
  * its first canonical query on and a joint from its first query; untracked components pay nothing on
  * add/remove. A membership change only notes the entity; the next query re-checks the noted entities
  * against the stores and merges them in one pass, which also makes the new list readers get. Lists are
- * not frozen: `readonly` types and {@link verify} catch a reader that edits one.
+ * not frozen: a reader that edits one corrupts it for every later caller until a membership change
+ * replaces it. `readonly` types and {@link verify} catch such an edit; verify settles first, so a missed
+ * `changed` for an entity that is already pending is repaired silently rather than reported.
  */
 export class CanonicalQueries {
   private readonly members = new Map<Component<unknown>, Members>();
@@ -149,23 +151,26 @@ function settle(list: SortedIds): void {
   const { pending, ids } = list;
   if (pending.length === 0) return;
   pending.sort(ascending);
-  const merged: Entity[] = [];
-  let moved = false;
+  // Built at the first pending entity whose membership moved, copying the unchanged prefix then.
+  let merged: Entity[] | null = null;
   let at = 0;
   let previous: Entity | undefined;
   for (let i = 0; i < pending.length; i++) {
     const e = pending[i] as Entity;
     if (e === previous) continue;
     previous = e;
-    while (at < ids.length && (ids[at] as Entity) < e) merged.push(ids[at++] as Entity);
+    while (at < ids.length && (ids[at] as Entity) < e) {
+      if (merged !== null) merged.push(ids[at] as Entity);
+      at++;
+    }
     const held = at < ids.length && ids[at] === e;
     if (held) at++;
     const member = carriesAll(list.stores, e);
-    if (member) merged.push(e);
-    if (member !== held) moved = true;
+    if (merged === null && member !== held) merged = ids.slice(0, held ? at - 1 : at);
+    if (member && merged !== null) merged.push(e);
   }
   pending.length = 0;
-  if (!moved) return;
+  if (merged === null) return;
   while (at < ids.length) merged.push(ids[at++] as Entity);
   list.ids = merged;
 }

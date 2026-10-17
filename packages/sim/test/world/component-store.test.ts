@@ -204,26 +204,12 @@ describe('ComponentStore compaction', () => {
 
   it('a lone member toggled every tick reuses its emptied index block', () => {
     const toggles = 10_000;
-    // Only a new index block allocates the store's membership bitset; dense-array resizes do not.
-    const native = globalThis.Uint32Array;
-    let blockAllocations = 0;
-    class CountingUint32Array extends native {
-      constructor(...args: [length: number]) {
-        super(...args);
-        if (args[0] > 0) blockAllocations++;
-      }
+    const store = new ComponentStore<number>();
+    for (let tick = 0; tick < toggles; tick++) {
+      store.set(1 as Entity, tick);
+      store.delete(1 as Entity);
     }
-    globalThis.Uint32Array = CountingUint32Array as Uint32ArrayConstructor;
-    try {
-      const store = new ComponentStore<number>();
-      for (let tick = 0; tick < toggles; tick++) {
-        store.set(1 as Entity, tick);
-        store.delete(1 as Entity);
-      }
-    } finally {
-      globalThis.Uint32Array = native;
-    }
-    expect(blockAllocations).toBe(1);
+    expect(Reflect.get(store, 'blockCount')).toBe(1);
   });
 
   it('hands an emptied block to the next new page with every entry vacant', () => {

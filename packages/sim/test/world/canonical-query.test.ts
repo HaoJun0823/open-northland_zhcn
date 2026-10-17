@@ -40,6 +40,47 @@ describe('World.canonicalQuery', () => {
     }
   });
 
+  it('matches a sorted query when lists settle between rare queries and stay snapshots', () => {
+    const w = new World();
+    const rng = new Rng(11);
+    const entities: Entity[] = [];
+    const components = [P, Q, R];
+    const queryEvery = 150;
+    const held: Array<{ list: readonly Entity[]; copy: Entity[] }> = [];
+    const hold = (list: readonly Entity[]): readonly Entity[] => {
+      held.push({ list, copy: [...list] });
+      return list;
+    };
+    let jointSettledInsideNote = false;
+    const joints = Reflect.get(Reflect.get(w, 'canonicalQueries'), 'joints') as Array<{
+      pending: Entity[];
+    }>;
+    for (let step = 0; step < 3000; step++) {
+      const pendingBefore = joints.map((j) => j.pending.length);
+      const roll = rng.int(10);
+      if (roll < 2 || entities.length === 0) {
+        entities.push(w.create());
+      } else {
+        const e = entities[rng.int(entities.length)];
+        const c = components[rng.int(components.length)];
+        if (e === undefined || c === undefined || !w.isAlive(e)) continue;
+        if (roll === 2) w.destroy(e);
+        else if (roll < 5) w.remove(e, c);
+        else w.add(e, c, { n: step });
+      }
+      if (step % queryEvery === 0) {
+        expect(hold(w.canonicalQuery(P))).toEqual(sortedQuery(w, P));
+        expect(hold(w.canonicalQuery(Q, P))).toEqual(sortedQuery(w, Q, P));
+        expect(hold(w.canonicalQuery(P, Q, R))).toEqual(sortedQuery(w, P, Q, R));
+      } else if (joints.some((j, i) => j.pending.length < (pendingBefore[i] ?? 0))) {
+        jointSettledInsideNote = true;
+      }
+    }
+    expect(jointSettledInsideNote).toBe(true);
+    expect(w.verifyCaches()).toEqual([]);
+    for (const { list, copy } of held) expect(list).toEqual(copy);
+  });
+
   it('keeps ascending order when an older entity re-enters a store', () => {
     const w = new World();
     const [a, b, c] = [w.create(), w.create(), w.create()];

@@ -1,8 +1,10 @@
 import type { Entity } from './component.js';
 
 /** Entity ids per index page. A page takes an index block only while it holds a member, so a component
- *  whose members sit in a few id ranges stays small; an emptied block is reused by the next new page. */
-const PAGE_BITS = 8;
+ *  whose members sit in a few id ranges stays small; an emptied block is reused by the next new page.
+ *  Ids are never recycled, so a long game scatters a store's members over every page of the id space:
+ *  a small page keeps the blocks those scattered members take close to their own count. */
+const PAGE_BITS = 6;
 export const PAGE_SIZE = 1 << PAGE_BITS;
 const PAGE_MASK = PAGE_SIZE - 1;
 /** Index entries one word of the membership bitset covers. */

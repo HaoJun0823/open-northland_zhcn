@@ -4,6 +4,7 @@ import {
   Engagement,
   Fleeing,
   Health,
+  MISSION_BEHAVIOUR,
   MoveGoal,
   Owner,
   PathRequest,
@@ -13,6 +14,7 @@ import {
   removeCurrentAtomic,
   Stance,
   setDiplomacyStance,
+  stampMissionBehaviour,
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { positionOfNode, Simulation } from '../../src/index.js';
@@ -143,6 +145,21 @@ describe('hit alarm - a blow alarms the struck person side', () => {
     expect(s.world.has(far, Fleeing)).toBe(false);
     expect(s.world.has(ignoring, Engagement)).toBe(false);
     expect(s.world.has(ignoring, Fleeing)).toBe(false);
+  });
+
+  it('rouses no one else for a blow on a person whose map marks blows as raising no alarm', () => {
+    const s = sim();
+    const { victim, attacker } = struck(s);
+    stampMissionBehaviour(s.world, victim, MISSION_BEHAVIOUR.BLOW_RAISES_NO_ALARM);
+    const comrade = unit(s, VICTIM_AT + PAST_SIGHT, P0, MILITARY_MODE.ATTACK);
+    const defender = unit(s, VICTIM_AT + PAST_SIGHT + 1, P0, MILITARY_MODE.DEFEND);
+
+    resolveCombatHit(s.world, ctxOf(s), attacker, victim, BLOW, [], 'melee');
+    combatSystem(s.world, ctxOf(s));
+
+    expect(runsEast(s, victim, VICTIM_AT)).toBe(true);
+    expect(held(s, comrade)).toBeUndefined();
+    expect(held(s, defender)).toBeUndefined();
   });
 
   it('never runs a soldier, whatever its stance, and holds a civilian set to ATTACK or DEFEND', () => {

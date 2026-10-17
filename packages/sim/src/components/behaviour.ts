@@ -34,6 +34,8 @@ export const MISSION_BEHAVIOUR = {
   SHOES_DO_NOT_WEAR: 1 << 12,
   /** A wild animal looking for a victim passes over it. */
   HIDDEN_FROM_ANIMALS: 1 << 13,
+  /** A blow on it rouses no one else of its side; it still answers the blow itself. */
+  BLOW_RAISES_NO_ALARM: 1 << 15,
   /** Walks at half pace. */
   WALKS_SLOWLY: 1 << 9,
   /** A weresnake or werewolf spawns in DEFEND instead of ATTACK. */

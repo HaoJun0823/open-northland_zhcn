@@ -1,6 +1,8 @@
 import {
   CurrentAtomic,
   Engagement,
+  hasMissionBehaviour,
+  MISSION_BEHAVIOUR,
   Owner,
   Person,
   Position,
@@ -93,7 +95,8 @@ export function answerQueuedAlarms(
 /**
  * The side's answer to one alarm. Original behavior: a soldier or hero under ATTACK or DEFEND turns on the
  * attacker the way a struck one does, and under any other stance does nothing; everyone else near enough,
- * the struck person first of all, runs from the attacker whatever its stance ({@link runsFromBlows}).
+ * the struck person first of all, runs from the attacker whatever its stance ({@link runsFromBlows}). A
+ * struck person with {@link MISSION_BEHAVIOUR.BLOW_RAISES_NO_ALARM} answers alone.
  *
  * Intentional deviations: a civilian the player set to ATTACK or DEFEND stays, as that setting says. A tick
  * answers each (player, attacker) pair once, around its first victim, so a second victim of the same area
@@ -114,15 +117,16 @@ function answerAlarm(
   if (answered.has(key) || !world.has(alarm.attacker, Position)) return;
   answered.add(key);
   const from = entityNode(world, terrain, alarm.attacker);
-  const x = terrain.xOf(alarm.node);
-  const y = terrain.yOf(alarm.node);
-  for (const { entity, distance } of index.ownedWithin(
-    alarm.player,
-    x,
-    y,
-    ALARM_SOLDIER_RADIUS_NODES,
-    'hex',
-  )) {
+  const answering = hasMissionBehaviour(world, alarm.victim, MISSION_BEHAVIOUR.BLOW_RAISES_NO_ALARM)
+    ? [{ entity: alarm.victim, distance: 0 }]
+    : index.ownedWithin(
+        alarm.player,
+        terrain.xOf(alarm.node),
+        terrain.yOf(alarm.node),
+        ALARM_SOLDIER_RADIUS_NODES,
+        'hex',
+      );
+  for (const { entity, distance } of answering) {
     if (!world.has(entity, Person) || indoors(world, entity)) continue;
     const settler = world.get(entity, Settler);
     const mode = stanceMode(world, ctx.content, entity, settler.jobType);

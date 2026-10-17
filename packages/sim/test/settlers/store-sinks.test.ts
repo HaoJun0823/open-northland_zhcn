@@ -29,6 +29,8 @@ import { testContent } from '../fixtures/content.js';
 
 /** testContent's HQ wood slot. */
 const HQ_WOOD_CAPACITY = 150;
+/** testContent's kitchen wood slot, its only input. */
+const KITCHEN_WOOD_CAPACITY = 10;
 const ORDINARY = false;
 const STORAGE_ONLY = true;
 
@@ -68,6 +70,21 @@ describe('StoreSinks - the per-good delivery sink ledger kept across ticks', () 
 
     sim.world.destroy(granary);
     expect(sinksOf(sim, WHEAT)).toEqual([]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+
+  it('drops a store whose accepted goods shrink to none and files it again once one reopens', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(16, 4) });
+    const kitchen = buildingAt(sim, KITCHEN, 4, 0);
+    expect(sinksOf(sim, WOOD)).toEqual([kitchen]);
+
+    setStockAmount(sim.world, kitchen, WOOD, KITCHEN_WOOD_CAPACITY);
+    expect(sinksOf(sim, WOOD)).toEqual([]);
+    expect(sim.world.verifyCaches()).toEqual([]);
+    setStockAmount(sim.world, kitchen, WOOD, KITCHEN_WOOD_CAPACITY - 1);
+    expect(sinksOf(sim, WOOD)).toEqual([kitchen]);
+    setStockAmount(sim.world, kitchen, WOOD, KITCHEN_WOOD_CAPACITY);
+    expect(sinksOf(sim, WOOD)).toEqual([]);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 

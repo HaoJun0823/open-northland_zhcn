@@ -1,3 +1,4 @@
+import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { Building, Owner, Position, UnderConstruction } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
@@ -10,6 +11,28 @@ import { grassCellMap as grassMap } from '../fixtures/terrain.js';
 const HEADQUARTERS = 1;
 const VIKING = 1;
 const PLAYER = 0;
+/** A vehicle house added to testContent: its site is raised by the workshop worker alone. */
+const VEHICLE_YARD = 900;
+const HANDCART = 1;
+const WOOD = 1;
+
+function yardContent() {
+  const base = testContent();
+  return parseContentSet({
+    ...base,
+    buildings: [
+      ...base.buildings,
+      {
+        typeId: VEHICLE_YARD,
+        id: 'handcart_yard',
+        kind: 'vehicle',
+        vehicleType: HANDCART,
+        construction: [{ goodType: WOOD, amount: 1 }],
+        hitpoints: 100,
+      },
+    ],
+  });
+}
 
 function siteAt(sim: Simulation, x: number, y: number): Entity {
   const e = sim.world.create();
@@ -21,7 +44,7 @@ function siteAt(sim: Simulation, x: number, y: number): Entity {
 }
 
 function fixture() {
-  const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(16, 8) });
+  const sim = new Simulation({ seed: 1, content: yardContent(), map: grassMap(16, 8) });
   const terrain = sim.terrain;
   if (terrain === undefined) throw new Error('fixture map missing');
   const pass = () => collectTargets(sim.world, ctxOf(sim), terrain);
@@ -53,5 +76,31 @@ describe('constructionSiteCells - the planner site index kept across ticks', () 
     const accept = (e: Entity) => (e === late ? { payload: null } : null);
     expect(targets.constructionSiteCells.nearest(here, accept)).toBeNull();
     expect(pass().constructionSiteCells.nearest(here, accept)?.entity).toBe(late);
+  });
+
+  it('moves a site between the served and the vehicle lists when its type changes in place', () => {
+    const { sim, pass } = fixture();
+    const site = siteAt(sim, 6, 3);
+    const here = sim.terrain?.nodeAt(6, 6);
+    if (here === undefined) throw new Error('fixture map missing');
+    const any = () => ({ payload: null });
+    const first = pass();
+    expect(first.constructionSites).toEqual([site]);
+    expect(first.vehicleSites).toEqual([]);
+
+    sim.world.mut(site, Building).buildingType = VEHICLE_YARD;
+    const asYard = pass();
+    expect(asYard.constructionSiteCells).toBe(first.constructionSiteCells);
+    expect(asYard.constructionSites).toEqual([]);
+    expect(asYard.vehicleSites).toEqual([site]);
+    expect(asYard.constructionSiteCells.nearest(here, any)).toBeNull();
+    expect(sim.world.verifyCaches()).toEqual([]);
+
+    sim.world.mut(site, Building).buildingType = HEADQUARTERS;
+    const back = pass();
+    expect(back.constructionSites).toEqual([site]);
+    expect(back.vehicleSites).toEqual([]);
+    expect(back.constructionSiteCells.nearest(here, any)?.entity).toBe(site);
+    expect(sim.world.verifyCaches()).toEqual([]);
   });
 });

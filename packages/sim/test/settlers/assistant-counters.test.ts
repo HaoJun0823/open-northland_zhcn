@@ -51,6 +51,7 @@ import { stampPost } from '../signposts/support.js';
 
 const VIKING = 1;
 const PLAYER = 0;
+const OTHER_PLAYER = 1;
 const CIVILIST = 6;
 const WOODCUTTER = 1;
 const CARRIER = 24;
@@ -535,6 +536,19 @@ describe('the training queue', () => {
       3000,
       'armed once allowed',
     );
+  });
+
+  it("takes its own side's weaker sword over a stronger one only another player holds", () => {
+    const sim = trainSim();
+    barracksAt(sim, 6, 3);
+    const recruit = settlerAt(sim, CIVILIST, 3, 3);
+    const foreign = pileAt(sim, 8, 3, new Map([[SWORD_LONG_GOOD, 1]]));
+    sim.world.add(foreign, Owner, { player: OTHER_PLAYER });
+    pileAt(sim, 10, 3, new Map([[SWORD_SHORT_GOOD, 1]]));
+
+    setCounter(sim, 'trainSword', 1);
+    runUntil(sim, () => sim.world.get(recruit, Settler).jobType === SWORDSMAN_SHORT, 3000, 'swordsman');
+    expect(sim.world.get(foreign, Stockpile).amounts.get(SWORD_LONG_GOOD)).toBe(1);
   });
 
   it('demotes a swordsman back to the unarmed base when the sword comes off', () => {

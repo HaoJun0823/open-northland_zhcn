@@ -28,7 +28,7 @@ import { isFighterJob, isScoutJob, MILITARY_MODE, mayChangeEquipment } from '../
 import { equipFetchLimitFor, type NavigationLimit } from '../../signposts/index.js';
 import { anotherSystemOwns } from '../action-owner.js';
 import { equipFetchesHeld } from '../drives/equip-fetches.js';
-import { FetchableStock, LendingStores, nearestStoreHolding } from '../targets/index.js';
+import { FetchableStock, nearestStoreHolding, PassLendingStores } from '../targets/index.js';
 import { unreachableGoalVeto } from '../unreachable-goals.js';
 import { wakeIdle } from './idle-replan.js';
 import type { PlannerPass } from './pass.js';
@@ -85,20 +85,7 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
   };
   // Stock the ledger counts may lie outside every goods gate of a side, where each due settler's search
   // would sweep its whole reach for nothing; the stores a side's search could take are read once per pass.
-  const lending = new Map<number, Map<number, LendingStores>>();
-  const lendingStoresOf = (player: number, goodType: number): LendingStores => {
-    let byGood = lending.get(player);
-    if (byGood === undefined) {
-      byGood = new Map();
-      lending.set(player, byGood);
-    }
-    let stores = byGood.get(goodType);
-    if (stores === undefined) {
-      stores = LendingStores.of(targets.bands, world, goodType, player, pass.supply);
-      byGood.set(goodType, stores);
-    }
-    return stores;
-  };
+  const lending = new PassLendingStores(targets.bands, world, pass.supply);
 
   for (const e of dueThisBeat(world, ctx.tick)) {
     if (!world.has(e, Position)) continue; // the pass plans positioned settlers only
@@ -141,11 +128,7 @@ export function dispatchAssistantGrants(pass: PlannerPass): void {
       route ??= grantRouteFor(pass, e);
       const here = route.here;
       const spot = targets.bands.goodsGate(here, owner);
-      if (
-        !lendingStoresOf(owner, spec.goodType).mayLieIn(
-          intersectReach(route.limit ?? undefined, spot ?? null),
-        )
-      )
+      if (!lending.of(owner, spec.goodType).mayLieIn(intersectReach(route.limit ?? undefined, spot ?? null)))
         continue;
       const src = nearestStoreHolding(
         targets.bands,

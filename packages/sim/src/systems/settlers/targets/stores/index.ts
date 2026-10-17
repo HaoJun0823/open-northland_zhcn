@@ -7,6 +7,7 @@ export {
   nearestStoreFor,
   nearestStoreHolding,
   nearestStoreHoldingAnywhere,
+  PassLendingStores,
   storeYieldsGood,
   strandedPile,
   unclaimedGoodsAt,

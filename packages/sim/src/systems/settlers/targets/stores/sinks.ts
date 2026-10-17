@@ -16,8 +16,8 @@ import { edibleClassOf } from '../../../readviews/food.js';
 import { slottedGoods } from '../../../stores/index.js';
 import { acceptsGood, canStoreGood, takesDeposits } from './stock.js';
 
-/** The goods one store accepts, per producer mode; `storage` is the subset left with producers excluded. */
-/** Refilled in place when its store is re-captured, so a stock change allocates no new lists. */
+/** The goods one store accepts, per producer mode; `storage` is the subset left with producers excluded.
+ *  Refilled in place when its store is re-captured, so a stock change allocates no new lists. */
 interface SinkCapture {
   readonly ordinary: number[];
   readonly storage: number[];

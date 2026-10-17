@@ -2,6 +2,9 @@ import type { Simulation } from '../simulation.js';
 import { foodSourcesOf } from '../systems/family/food-sources.js';
 import { qualitySources } from '../systems/family/quality-search.js';
 import { unitWalkBlocks } from '../systems/movement/collision/standing-posts.js';
+import { constructionSiteCells } from '../systems/settlers/targets/construction-site-cells.js';
+import { cropsByFarm } from '../systems/settlers/targets/crops-by-farm.js';
+import { harvesterMarks } from '../systems/settlers/targets/harvester-marks.js';
 import { stockpileCells } from '../systems/settlers/targets/stockpile-cells.js';
 import { FetchableStock } from '../systems/settlers/targets/stores/fetchable-stock.js';
 import { StoreSinks } from '../systems/settlers/targets/stores/sinks.js';
@@ -26,9 +29,12 @@ export function warmRestoredWorld(sim: Simulation): void {
   resourceHarvestAtomics(world);
   resourceOfGoodAtNode(world, 0, 0, 0);
   stockpilesAtNode(world, 0, 0);
+  cropsByFarm(world);
+  harvesterMarks(world);
   if (terrain === undefined) return;
   warmPostReaches(world, content, terrain);
   unitWalkBlocks(world, content, terrain);
   yardOccupancy(world, terrain);
   stockpileCells(world, content, terrain);
+  constructionSiteCells(world, content, terrain);
 }

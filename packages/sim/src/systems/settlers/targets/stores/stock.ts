@@ -271,7 +271,7 @@ export function nearestStoreHolding(
  * sweeps every ring.
  */
 export class LendingStores {
-  private static readonly none = new LendingStores(0, []);
+  private static readonly EMPTY = new LendingStores(0, []);
 
   private constructor(
     /** How far a store's interaction cell may lie from the node it is filed at. */
@@ -287,14 +287,14 @@ export class LendingStores {
     owner: number | undefined,
     supply: SupplyTally,
   ): LendingStores {
-    if (sideLendsNone(bands, world, owner, goodType)) return LendingStores.none;
+    if (sideLendsNone(bands, world, owner, goodType)) return LendingStores.EMPTY;
     const holders = bands.holding(goodType);
-    if (!holders.hasCandidates()) return LendingStores.none;
+    if (!holders.hasCandidates()) return LendingStores.EMPTY;
     const lends = holdsUnclaimed(world, bands.ctx, supply, goodType);
     const onSide = sameSideAs(world, owner);
     const xy: number[] = [];
     holders.filedNodesInto((store) => onSide(store) && lends(store) !== null, xy);
-    return xy.length === 0 ? LendingStores.none : new LendingStores(holders.filedSlack, xy);
+    return xy.length === 0 ? LendingStores.EMPTY : new LendingStores(holders.filedSlack, xy);
   }
 
   /** Whether no store at all could be taken, whatever the area. */
@@ -310,6 +310,35 @@ export class LendingStores {
       if (area.mayAllowNear(xy[i] as number, xy[i + 1] as number, slack)) return true;
     }
     return false;
+  }
+}
+
+/**
+ * {@link LendingStores} per player and good, read once per planner pass. A pass only claims units, so a set
+ * read earlier in it is a superset of a fresh one: it may let a search run that finds nothing, never skip
+ * one that would find a store.
+ */
+export class PassLendingStores {
+  private readonly byPlayer = new Map<number, Map<number, LendingStores>>();
+
+  constructor(
+    private readonly bands: TargetBands,
+    private readonly world: World,
+    private readonly supply: SupplyTally,
+  ) {}
+
+  of(player: number, goodType: number): LendingStores {
+    let byGood = this.byPlayer.get(player);
+    if (byGood === undefined) {
+      byGood = new Map();
+      this.byPlayer.set(player, byGood);
+    }
+    let stores = byGood.get(goodType);
+    if (stores === undefined) {
+      stores = LendingStores.of(this.bands, this.world, goodType, player, this.supply);
+      byGood.set(goodType, stores);
+    }
+    return stores;
   }
 }
 

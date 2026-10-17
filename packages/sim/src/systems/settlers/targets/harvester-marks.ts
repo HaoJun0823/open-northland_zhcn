@@ -41,19 +41,26 @@ class HarvesterMarks {
     this.captures.catchUp();
   }
 
+  /** Compares every group, order included, with a fresh grouping of the ascending marks. */
   verify(): string[] {
     this.catchUp();
-    let marks = 0;
-    const problems: string[] = [];
+    const fresh = new Map<Entity, Entity[]>();
     for (const e of this.world.canonicalQuery(HarvestedBy)) {
-      marks++;
       const by = this.world.get(e, HarvestedBy).by;
-      if (this.byHarvester.get(by)?.includes(e) !== true)
-        problems.push(`harvesterMarks lost the mark on ${e}`);
+      const marked = fresh.get(by);
+      if (marked === undefined) fresh.set(by, [e]);
+      else marked.push(e);
     }
-    let held = 0;
-    for (const marked of this.byHarvester.values()) held += marked.length;
-    if (held !== marks) problems.push('harvesterMarks holds another number of marks than the store');
+    const problems: string[] = [];
+    if (fresh.size !== this.byHarvester.size)
+      problems.push(
+        `harvesterMarks holds ${this.byHarvester.size} harvesters but the store has ${fresh.size}`,
+      );
+    for (const [by, marked] of fresh) {
+      const held = this.byHarvester.get(by);
+      if (held?.length !== marked.length || !held.every((e, i) => e === marked[i]))
+        problems.push(`harvesterMarks holds a stale group for harvester ${by}`);
+    }
     return problems;
   }
 }

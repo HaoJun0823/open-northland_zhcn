@@ -1,4 +1,3 @@
-import { BUILDING_KIND } from '@open-northland/data';
 import {
   Building,
   Crop,
@@ -21,7 +20,7 @@ import { dynamicBlockOverlay } from '../../footprint/index.js';
 import { canonicalResources } from '../../spatial/resources.js';
 import { TargetBands } from './bands.js';
 import { InteractionCellIndex } from './cell-index.js';
-import { constructionSiteCells } from './construction-site-cells.js';
+import { constructionSiteCells, isServedConstructionSite } from './construction-site-cells.js';
 import { cropsByFarm } from './crops-by-farm.js';
 import { fieldZones, type NodeMembership } from './field-zones.js';
 import { harvesterMarks } from './harvester-marks.js';
@@ -101,11 +100,9 @@ interface SiteSplit {
  *  list itself while no vehicle site stands. */
 function splitVehicleSites(world: World, ctx: SystemContext): Omit<SiteSplit, 'cells'> {
   const sites = world.canonicalQuery(UnderConstruction, Building, Position);
-  const index = contentIndex(ctx.content);
-  const isVehicleSite = (e: Entity): boolean =>
-    index.buildings.get(world.get(e, Building).buildingType)?.kind === BUILDING_KIND.vehicle;
-  const vehicle = sites.filter(isVehicleSite);
-  return { construction: vehicle.length === 0 ? sites : sites.filter((e) => !isVehicleSite(e)), vehicle };
+  const served = (e: Entity): boolean => isServedConstructionSite(world, ctx.content, e);
+  const vehicle = sites.filter((e) => !served(e));
+  return { construction: vehicle.length === 0 ? sites : sites.filter(served), vehicle };
 }
 
 /** Snapshot the planner's canonical target categories once for the tick.

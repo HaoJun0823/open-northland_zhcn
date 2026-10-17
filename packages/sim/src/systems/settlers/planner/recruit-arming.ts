@@ -41,8 +41,8 @@ import { INTENT_WEAPON_CLASS } from '../atomics/effects/goods/weapon-class.js';
 import {
   FetchableStock,
   interactionCell,
-  LendingStores,
   nearestStoreHolding,
+  PassLendingStores,
   storeYieldsGood,
   type TargetCandidates,
 } from '../targets/index.js';
@@ -63,6 +63,7 @@ export function dispatchRecruitArming(pass: PlannerPass): void {
   const { world, ctx } = pass;
   const recruits = world.canonicalQuery(AssistantRecruit);
   if (recruits.length === 0) return; // no bookings: the pass costs one empty query
+  let lending: PassLendingStores | undefined;
 
   for (const e of recruits) {
     if ((e + ctx.tick) % ASSISTANT_SCAN_PERIOD_TICKS !== 0) continue;
@@ -93,7 +94,8 @@ export function dispatchRecruitArming(pass: PlannerPass): void {
         world.remove(e, AssistantRecruit);
         continue;
       }
-      dispatchWeaponFetch(pass, e, settler, booking.intent, booking.barracks, owner);
+      lending ??= new PassLendingStores(pass.targets.bands, world, pass.supply);
+      dispatchWeaponFetch(pass, lending, e, settler, booking.intent, booking.barracks, owner);
       continue;
     }
     // The fallback armor outing: the weapon errand normally chains the armor at the store, so this
@@ -216,6 +218,7 @@ export function approachNode(world: World, ctx: SystemContext, terrain: TerrainG
 /** Send the recruit for the strongest reachable weapon of its intent's class it qualifies for. */
 function dispatchWeaponFetch(
   pass: PlannerPass,
+  lendingStores: PassLendingStores,
   e: Entity,
   settler: SettlerIdentity,
   intent: keyof typeof INTENT_WEAPON_CLASS,
@@ -226,8 +229,8 @@ function dispatchWeaponFetch(
   let route: FetchRoute | undefined;
   const vetoed = playerGoodList(world, AssistantWeaponVetoes, owner);
   for (const goodType of armingGoodPreference(ctx.content, settler.tribe, intent, vetoed)) {
-    // Read per row: each dispatch claims its unit, so the stores lending one change within the pass.
-    const lending = LendingStores.of(targets.bands, world, goodType, owner, pass.supply);
+    // Read once per pass: an earlier dispatch's claim leaves it a superset, which only lets a search run.
+    const lending = lendingStores.of(owner, goodType);
     if (lending.none) continue; // no store of the side lends this row; the route is not worth resolving
     route ??= fetchRouteFor(pass, e, owner);
     if (!lending.mayLieIn(targets.bands.goodsGate(route.here, owner, route.limit ?? undefined))) continue;

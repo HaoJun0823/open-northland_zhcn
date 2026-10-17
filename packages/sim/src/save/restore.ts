@@ -1,8 +1,19 @@
 import { type ContentSet, jsonFingerprint } from '@open-northland/data';
-import { type MapAiScript, MapAiState, missionRecords, missionStateExists } from '../components/index.js';
+import {
+  type MapAiScript,
+  MapAiState,
+  missionRecords,
+  missionStateExists,
+  PathFollow,
+  type PathFollowState,
+  Position,
+  type PositionState,
+  pathFollowRecord,
+  positionRecord,
+} from '../components/index.js';
 import { assertNever } from '../core/brand.js';
 import { isPlainRecord, PROTO_KEY, valueShapeName } from '../core/plain-value.js';
-import { componentByName } from '../ecs/component.js';
+import { type Component, componentByName } from '../ecs/component.js';
 import type { Entity } from '../ecs/world.js';
 import type { TerrainMap } from '../nav/terrain/index.js';
 import { Simulation } from '../simulation.js';
@@ -137,15 +148,24 @@ function assertMapAiScriptMatches(sim: Simulation, mapAiScript: MapAiScript | un
   }
 }
 
+/** Hot stores whose restored records are rebuilt in the key order live code writes them. A record
+ *  materialized key by key takes another hidden class than a live object literal, and the movement and
+ *  separation passes would read restored and live records polymorphically for as long as both live. */
+const RECORD_FACTORIES = new Map<Component<unknown>, (value: unknown) => unknown>([
+  [PathFollow, (value) => pathFollowRecord(value as PathFollowState)],
+  [Position, (value) => positionRecord(value as PositionState)],
+]);
+
 function restoreStore(sim: Simulation, section: ComponentSection): void {
   const component = componentByName(section.name);
   if (component === undefined) {
     throw new Error(`save.sections: unknown component '${section.name}'`);
   }
-  const entries = section.entries.map(
-    ([entity, value]) =>
-      [entity as Entity, materializedValue(value, `component:${section.name}/${entity}`)] as const,
-  );
+  const factory = RECORD_FACTORIES.get(component);
+  const entries = section.entries.map(([entity, value]) => {
+    const materialized = materializedValue(value, `component:${section.name}/${entity}`);
+    return [entity as Entity, factory === undefined ? materialized : factory(materialized)] as const;
+  });
   sim.world.restoreStore(component, entries);
 }
 

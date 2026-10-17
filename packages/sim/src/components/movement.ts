@@ -3,7 +3,17 @@ import { defineComponent, type Entity, type World } from '../ecs/world.js';
 import type { NodeId } from '../nav/terrain/index.js';
 
 /** World position in fixed-point tile units. */
-export const Position = defineComponent<{ x: Fixed; y: Fixed }>('Position', 'movement');
+export const Position = defineComponent<PositionState>('Position', 'movement');
+
+export interface PositionState {
+  x: Fixed;
+  y: Fixed;
+}
+
+/** A {@link Position} record in the `{ x, y }` literal shape the live code writes. */
+export function positionRecord(position: Readonly<PositionState>): PositionState {
+  return { x: position.x, y: position.y };
+}
 
 /**
  * A herd membership: the {@link Entity} leading the pack this animal belongs to, stamped on every member of
@@ -101,7 +111,9 @@ export interface Waypoint {
  * `bootsDegree` is the worn boots' degree of use as this walk's steps wore them, ahead of
  * `Equipment.boots` until the walk ends, so a step leaves the equipment record unwritten.
  */
-export const PathFollow = defineComponent<{
+export const PathFollow = defineComponent<PathFollowState>('PathFollow', 'movement');
+
+export interface PathFollowState {
   index: number;
   legStartedAt?: number | undefined;
   legElapsed: number;
@@ -109,7 +121,22 @@ export const PathFollow = defineComponent<{
   legPace?: Fixed | undefined;
   departureCharged?: true | undefined;
   bootsDegree?: Fixed | undefined;
-}>('PathFollow', 'movement');
+}
+
+/** A {@link PathFollow} record with every key present in one order, so routed and restored walkers share
+ *  one hidden class and the movement pass's reads stay monomorphic. An undefined key hashes and saves as
+ *  absent, so the shape is invisible to state. */
+export function pathFollowRecord(follow: Readonly<PathFollowState>): PathFollowState {
+  return {
+    index: follow.index,
+    legStartedAt: follow.legStartedAt,
+    legElapsed: follow.legElapsed,
+    legCost: follow.legCost,
+    legPace: follow.legPace,
+    departureCharged: follow.departureCharged,
+    bootsDegree: follow.bootsDegree,
+  };
+}
 
 /** Executed movement ticks, excluding any pending or held turn ticks. */
 export function pathLegTicks(

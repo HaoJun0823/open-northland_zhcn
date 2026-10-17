@@ -13,6 +13,7 @@ import {
   PathRoute,
   PlayerOrder,
   Position,
+  pathFollowRecord,
   pathLegTicks,
   StandIn,
   Stranded,
@@ -422,14 +423,18 @@ export function drainPathRequests(
     world.add(e, PathRoute, { waypoints });
     routeBoundsOf(terrain, waypoints);
     endGrindHold(world, e);
-    world.add(e, PathFollow, {
-      index,
-      legElapsed: activeCost > 0 && previous !== undefined ? pathLegTicks(previous, ctx.tick - 1) : 0,
-      legCost: activeCost,
-      legPace: oldPace,
-      departureCharged: previous?.departureCharged,
-      bootsDegree: previous?.bootsDegree,
-    });
+    world.add(
+      e,
+      PathFollow,
+      pathFollowRecord({
+        index,
+        legElapsed: activeCost > 0 && previous !== undefined ? pathLegTicks(previous, ctx.tick - 1) : 0,
+        legCost: activeCost,
+        legPace: oldPace,
+        departureCharged: previous?.departureCharged,
+        bootsDegree: previous?.bootsDegree,
+      }),
+    );
     const firstTarget = waypoints[index];
     if (position !== undefined && firstTarget !== undefined && world.has(e, WalkFacing)) {
       beginWalkTurn(world, e, position, firstTarget);

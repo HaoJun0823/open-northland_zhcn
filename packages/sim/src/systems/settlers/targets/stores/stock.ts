@@ -30,7 +30,7 @@ import {
 } from '../../../stores/index.js';
 import type { TargetBands } from '../bands.js';
 import type { YardTargets } from '../candidates.js';
-import { ACCEPT_ALL, FILED_STRIDE, type InteractionCellIndex, QUALIFIES } from '../cell-index.js';
+import { ACCEPT_ALL, FILED_STRIDE, type InteractionCellIndex, nearBox, QUALIFIES } from '../cell-index.js';
 import { FetchableStock } from './fetchable-stock.js';
 import { minimumBoundOwner, storageLendable, storageSurplus } from './storage-reserve.js';
 import { yardOffsets } from './yard-layout.js';
@@ -313,11 +313,14 @@ function lendersFiledNear(
   const filed = holders.filedOnSide(owner);
   const slack = holders.filedSlack;
   const bounded = area?.mayAllowNear !== undefined;
+  const box = area?.bounds;
   narrowedField.length = 0;
   for (let i = 0; i < filed.length; i += FILED_STRIDE) {
-    if (bounded && area?.mayAllowNear?.(filed[i + 1] as number, filed[i + 2] as number, slack) !== true) {
-      continue;
-    }
+    const x = filed[i + 1] as number;
+    const y = filed[i + 2] as number;
+    // No allowed node lies within `slack` of a node that far off the gate's box: the cheap test first.
+    if (box !== undefined && !nearBox(box, x, y, slack)) continue;
+    if (bounded && area?.mayAllowNear?.(x, y, slack) !== true) continue;
     const store = filed[i] as Entity;
     if (lends(store) === null) continue;
     if (narrowedField.length === NARROWED_FIELD_MAX) return null;

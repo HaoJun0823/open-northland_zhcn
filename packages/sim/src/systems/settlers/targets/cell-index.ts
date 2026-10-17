@@ -744,7 +744,7 @@ function vetoed(avoid: ((cell: NodeId) => boolean) | undefined, here: NodeId, ce
 
 /** Whether `(x, y)` lies within `slack` of `box` on both axes, as a node within Manhattan `slack` of a
  *  node of the box does. */
-function nearBox(box: NodeBox, x: number, y: number, slack: number): boolean {
+export function nearBox(box: NodeBox, x: number, y: number, slack: number): boolean {
   return x >= box.minX - slack && x <= box.maxX + slack && y >= box.minY - slack && y <= box.maxY + slack;
 }
 

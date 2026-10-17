@@ -176,19 +176,34 @@ export function plannedOperators(ctx: SystemContext, type: BuildingType): number
   return operators;
 }
 
-/** A workplace type's row at the decision's tick, over the default plan. */
-function rowPlan(
-  ctx: SystemContext,
-  type: BuildingType,
-): { readonly plan: BuildingStaffing; readonly gateFloor: number } {
+interface RowPlan {
+  readonly plan: BuildingStaffing;
+  readonly gateFloor: number;
+}
+
+/** A workplace type's row at the decision's tick, over the default plan. Shared, never edited. */
+function rowPlan(ctx: SystemContext, type: BuildingType): RowPlan {
+  let plans = rowPlansByType.get(type);
+  if (plans === undefined) {
+    plans = { early: deriveRowPlan(type, false), late: deriveRowPlan(type, true) };
+    rowPlansByType.set(type, plans);
+  }
+  return ctx.tick >= LATE_GAME_FROM_TICKS ? plans.late : plans.early;
+}
+
+function deriveRowPlan(type: BuildingType, lateGame: boolean): RowPlan {
   const { productGated: _, late, ...row } = STAFFING_BY_BUILDING_ID[type.id] ?? {};
   const { gateFloor, ...tiers } = {
     gateFloor: DEFAULT_GATE_FLOOR,
     ...row,
-    ...(late !== undefined && ctx.tick >= LATE_GAME_FROM_TICKS ? late : {}),
+    ...(late !== undefined && lateGame ? late : {}),
   };
   return { plan: { ...DEFAULT_WORKPLACE_STAFFING, ...tiers }, gateFloor };
 }
+
+/** {@link rowPlan} per content building type, before and from the late game: the rows are authored
+ *  constants, so the plans are content-static. */
+const rowPlansByType = new WeakMap<BuildingType, { readonly early: RowPlan; readonly late: RowPlan }>();
 
 /**
  * One building's plan this decision, or null for the kinds the allocator never staffs: homes, towers and
@@ -333,7 +348,9 @@ function rawGoodShort(
   type: BuildingType,
   holdsCarrier: boolean,
 ): boolean {
-  return rawGoodsServedBy(ctx.content, type).some((good) => seat.supply.isShort(good, !holdsCarrier));
+  for (const good of rawGoodsServedBy(ctx.content, type))
+    if (seat.supply.isShort(good, !holdsCarrier)) return true;
+  return false;
 }
 
 /** The collected goods, in {@link COLLECTED_GOOD_IDS} order, whose own workshop `type` is or upgrades

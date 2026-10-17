@@ -360,50 +360,70 @@ export function tuneCraftCounters(
   }
   for (const { type, plan, crew, workplaces } of crews.values()) {
     const products = productsOf(ctx, type);
-    const produced = new Set(products);
-    const toGoods = (ids: readonly string[]): readonly number[] =>
-      [
-        ...new Set(
-          ids
-            .map((id) => goodTypeByContentId(ctx.content, id)?.typeId)
-            .filter((g): g is number => g !== undefined && produced.has(g)),
-        ),
-      ].sort((a, b) => a - b);
     const { seats } = plan;
-    const recipeProducts = [...(index.recipeByProductByBuilding.get(type.typeId)?.keys() ?? [])].sort(
-      (a, b) => a - b,
-    );
+    const recipeProducts = recipeProductsOf(ctx, type);
     const current = crew.map((e) => selectedGoods(world.tryGet(e, ProductionCounters), recipeProducts));
     const listed: (readonly number[])[] = [];
     const free: number[] = []; // the crew members off any opening run
-    for (const [seat, workplace] of workplaces.entries()) {
-      const opening = openingRun(world, ctx, workplace, type);
+    for (let seat = 0; seat < workplaces.length; seat++) {
+      const opening = openingRun(world, ctx, workplaces[seat] as Entity, type);
       if (opening !== null) {
-        listed.push(toGoods([opening]));
+        listed.push(goodsOf(ctx, products, [opening]));
         continue;
       }
       free.push(seat);
       listed.push(
-        toGoods(
+        goodsOf(
+          ctx,
+          products,
           crew.length === 1 && plan.alone !== undefined
             ? plan.alone
             : seatProducts(ctx, supply, fleetOf, current[seat] ?? [], seats[seat % seats.length] ?? []),
         ),
       );
     }
-    const sink = toGoods(plan.sink ?? []);
+    const sink = goodsOf(ctx, products, plan.sink ?? []);
     // The whole crew, since a seat of its own may work the sink's goods, as the crockery seat does.
     const sinking = free.length > 0 && free.every((seat) => sameGoods(current[seat] ?? [], sink));
     if (sink.length > 0 && sinkHolds(supply, products, sinking)) for (const seat of free) listed[seat] = sink;
     else shortFirst(supply, gamePhase(ctx.tick), products, free, listed, current);
-    for (const [seat, e] of crew.entries()) {
+    for (let seat = 0; seat < crew.length; seat++) {
       const goods = listed[seat] ?? [];
       if (goods.length === 0 || sameGoods(current[seat] ?? [], goods)) continue;
-      commands.push({ kind: 'setProductionGoods', entity: e, goods });
+      commands.push({ kind: 'setProductionGoods', entity: crew[seat] as Entity, goods });
     }
   }
   return commands;
 }
+
+/** The goods named by content `ids` that the type makes (`products`), each once, ascending. */
+function goodsOf(ctx: SystemContext, products: readonly number[], ids: readonly string[]): number[] {
+  const goods: number[] = [];
+  for (const id of ids) {
+    const good = goodTypeByContentId(ctx.content, id)?.typeId;
+    if (good !== undefined && products.includes(good) && !goods.includes(good)) goods.push(good);
+  }
+  return goods.sort((a, b) => a - b);
+}
+
+/** The goods a workplace type's recipes make, ascending: the products a selection counter can name. */
+function recipeProductsOf(ctx: SystemContext, type: BuildingType): readonly number[] {
+  let byType = recipeProductsByContent.get(ctx.content);
+  if (byType === undefined) {
+    byType = new Map();
+    recipeProductsByContent.set(ctx.content, byType);
+  }
+  let products = byType.get(type.typeId);
+  if (products === undefined) {
+    const recipes = contentIndex(ctx.content).recipeByProductByBuilding.get(type.typeId);
+    products = [...(recipes?.keys() ?? [])].sort((a, b) => a - b);
+    byType.set(type.typeId, products);
+  }
+  return products;
+}
+
+/** {@link recipeProductsOf} per content and building type id: content-static, shared, never edited. */
+const recipeProductsByContent = new WeakMap<ContentSet, Map<number, readonly number[]>>();
 
 /** The goods a workplace type makes, ascending: its recipes' outputs and the field-farmed goods it
  *  produces without a recipe, as the farm's grain. */
@@ -469,8 +489,8 @@ function shortFirst(
     const lines = supply.lines(good);
     const surplus = supply.surplus(good);
     if (lines === undefined || surplus === undefined) continue;
-    const extra = plentiful.filter((seat) => !sameGoods(listed[seat] ?? [], [good]));
-    const holders = extra.filter((seat) => sameGoods(current[seat] ?? [], [good]));
+    const extra = plentiful.filter((seat) => !onlyGood(listed[seat], good));
+    const holders = extra.filter((seat) => onlyGood(current[seat], good));
     if (!supply.isUnder(good, holders.length > 0 ? hold : hire)) continue;
     const seats = Math.min(Math.ceil((lines[hold] - surplus) / lines.unit), SHORT_PRODUCT_SEATS);
     const others = extra.filter((seat) => !holders.includes(seat)).reverse();
@@ -509,6 +529,11 @@ export function craftGlutPending(
 
 function sameGoods(a: readonly number[], b: readonly number[]): boolean {
   return a.length === b.length && a.every((g, i) => g === b[i]);
+}
+
+/** Whether `goods` lists `good` alone. */
+function onlyGood(goods: readonly number[] | undefined, good: number): boolean {
+  return goods !== undefined && goods.length === 1 && goods[0] === good;
 }
 
 /**

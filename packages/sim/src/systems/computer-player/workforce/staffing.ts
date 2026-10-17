@@ -162,6 +162,12 @@ export function releaseSurplusOperators(
   );
 }
 
+/** One trade's staff at a workplace, in the canonical settler walk's order. */
+interface StaffRow {
+  readonly job: number;
+  readonly staff: Entity[];
+}
+
 /**
  * Hand back as builders each built building's staff of the `role` trades beyond the plan's `keep` count,
  * per trade. The most experienced on the trade's general track keep their posts, the lowest id on a tie,
@@ -180,25 +186,32 @@ function releaseSurplus(
   if (builderJob === null) return [];
   const index = contentIndex(ctx.content);
   // Insertion follows the canonical settler walk, so the kept posts and the command order are deterministic.
-  const staffByWorkplace = new Map<Entity, Map<number, Entity[]>>();
+  // A workplace employs a trade or two, so its staff rows are a list scanned by job.
+  const workplaces: Entity[] = [];
+  const staffByWorkplace = new Map<Entity, StaffRow[]>();
   for (const e of ownedSettlers(world, seat.player)) {
     const workplace = world.tryGet(e, JobAssignment)?.workplace;
     const job = world.get(e, Settler).jobType;
     if (workplace === undefined || job === null || !role(job)) continue;
-    const byJob = staffByWorkplace.get(workplace) ?? new Map<number, Entity[]>();
-    staffByWorkplace.set(workplace, byJob);
-    const staff = byJob.get(job);
-    if (staff === undefined) byJob.set(job, [e]);
-    else staff.push(e);
+    let rows = staffByWorkplace.get(workplace);
+    if (rows === undefined) {
+      rows = [];
+      staffByWorkplace.set(workplace, rows);
+      workplaces.push(workplace);
+    }
+    let r = 0;
+    while (r < rows.length && (rows[r] as StaffRow).job !== job) r++;
+    if (r < rows.length) (rows[r] as StaffRow).staff.push(e);
+    else rows.push({ job, staff: [e] });
   }
   const commands: PlayerCommand[] = [];
-  for (const [workplace, byJob] of staffByWorkplace) {
+  for (const workplace of workplaces) {
     if (!isBuilt(world, workplace)) continue;
     const type = index.buildings.get(world.get(workplace, Building).buildingType);
     if (type === undefined) continue;
     const plan = buildingStaffing(world, ctx, seat, workplace, type, heldAt(ctx, tally, workplace));
     if (plan === null) continue;
-    for (const [job, staff] of byJob) {
+    for (const { job, staff } of staffByWorkplace.get(workplace) ?? []) {
       const kept = keep(plan, type);
       if (staff.length <= kept) continue;
       for (const e of byExperience(staff, experienceRank(world, ctx, job)).slice(kept)) {

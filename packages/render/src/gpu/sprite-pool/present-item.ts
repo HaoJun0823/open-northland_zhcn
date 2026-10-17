@@ -206,8 +206,9 @@ export function presentItem(
   return layers;
 }
 
-/** Whether this present repeats the track's last one (see {@link TickPresent}), whose layers it returns. */
-function repeatsInTick(
+/** Whether a present of `item` would repeat the track's last one (see {@link TickPresent}) and return
+ *  its layers unchanged. */
+export function repeatsInTick(
   track: PresentationTrack,
   item: DrawItem,
   tick: number,

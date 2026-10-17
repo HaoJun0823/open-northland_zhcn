@@ -54,6 +54,7 @@ import {
 import type { EntityBounds, PooledEntity } from './pooled-entity.js';
 import { PortraitSubject } from './portrait-subject.js';
 import { presentEntity } from './present-entity.js';
+import { repeatsInTick } from './present-item.js';
 import { reconcileSprites } from './reconcile.js';
 import { resolvesWithoutClock } from './resolve-layers.js';
 import { SpriteSceneCache } from './scene-cache.js';
@@ -552,10 +553,11 @@ export class SpritePool {
 
   /**
    * Present and bind `pe` for this frame, unless what it last bound on the previous frame still stands:
-   * the same inputs keep it without a present, as does an equal item that resolves without a clock under
-   * the same bind inputs, and a present under the same bind inputs keeps it when it resolved exactly
-   * what was bound, as a new tick does for most of a still town. A construction site always binds: its
-   * eased reveal moves every frame, and a reveal bake left unbound may be evicted.
+   * the same inputs keep it without a present, even under a frame alpha its present would repeat in, as
+   * does an equal item that resolves without a clock under the same bind inputs, and a present under the
+   * same bind inputs keeps it when it resolved exactly what was bound, as a new tick does for most of a
+   * still town. A construction site always binds: its eased reveal moves every frame, and a reveal bake
+   * left unbound may be evicted.
    */
   private presentPooled(pe: PooledEntity, item: DrawItem, frame: PoolFrame, continuous: boolean): void {
     const stamp = pe.bound;
@@ -563,7 +565,8 @@ export class SpritePool {
     const steady = continuous && pe.reveal === undefined;
     if (
       steady &&
-      stamp.alpha === frame.alpha &&
+      (stamp.alpha === frame.alpha ||
+        repeatsInTick(pe, item, frame.tick, frame.alpha, this.sheet, frame.environmentMotion === true)) &&
       stamp.holds(item, this.epoch.current, highlight) &&
       this.binder.paletteHolds(pe, item)
     ) {

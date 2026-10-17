@@ -49,7 +49,10 @@ const WAVE_HERO_IDS = [133, 134];
 /** The mask every line of the wave carries: needs frozen (bit 0) and not player-controllable (5). */
 const WAVE_BEHAVIOUR = 33;
 const HERO_BEHAVIOUR =
-  components.MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR | components.MISSION_BEHAVIOUR.NO_JOB_EXPERIENCE;
+  components.MISSION_BEHAVIOUR.NEEDS_FROZEN |
+  components.MISSION_BEHAVIOUR.JOB_LOCKED |
+  components.MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR |
+  components.MISSION_BEHAVIOUR.NO_JOB_EXPERIENCE;
 
 function mapsDir(): string {
   return resolve(contentDir(), 'maps');

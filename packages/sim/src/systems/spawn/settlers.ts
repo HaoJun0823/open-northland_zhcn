@@ -62,8 +62,14 @@ const IDLE_JOB_TYPE = 0;
  *  shod pace from its first step. */
 const HERO_SHOES_GOOD = 'shoes';
 /** Original behavior: every hero is created with these behaviour bits beside its spawn's own mask, so its
- *  shoes never wear and its fighting never improves; a script may clear them. */
-const HERO_BEHAVIOUR = MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR | MISSION_BEHAVIOUR.NO_JOB_EXPERIENCE;
+ *  needs never change, its job is fixed, its shoes never wear and its fighting never improves; a script
+ *  may clear them. The original also sets the import bit (7) on most heroes; it is left out because this
+ *  build draws that bit as the import marker. */
+const HERO_BEHAVIOUR =
+  MISSION_BEHAVIOUR.NEEDS_FROZEN |
+  MISSION_BEHAVIOUR.JOB_LOCKED |
+  MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR |
+  MISSION_BEHAVIOUR.NO_JOB_EXPERIENCE;
 
 /**
  * Assemble a settler entity from a {@link SettlerSpec}, or return null for an unknown job id or an animal

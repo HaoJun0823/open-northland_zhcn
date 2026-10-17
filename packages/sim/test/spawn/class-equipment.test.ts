@@ -79,7 +79,7 @@ describe('createSettler hero equipment', () => {
     expect(world.get(hero, Armor)).toEqual({ armorClass: HERO_ARMOR });
   });
 
-  it('puts every hero in new shoes that never wear, beside the spawn mask', () => {
+  it('puts every hero in new shoes that never wear, with frozen needs and a fixed job, beside the spawn mask', () => {
     const world = new World();
     const PASSIVE = MISSION_BEHAVIOUR.PASSIVE;
     const hero = createSettler(
@@ -93,7 +93,11 @@ describe('createSettler hero equipment', () => {
 
     expect(world.get(hero, Equipment).boots).toEqual({ goodType: SHOES_GOOD, degreeOfUse: 0 });
     expect(world.get(hero, MissionBehaviour).flags).toBe(
-      PASSIVE | MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR | MISSION_BEHAVIOUR.NO_JOB_EXPERIENCE,
+      PASSIVE |
+        MISSION_BEHAVIOUR.NEEDS_FROZEN |
+        MISSION_BEHAVIOUR.JOB_LOCKED |
+        MISSION_BEHAVIOUR.SHOES_DO_NOT_WEAR |
+        MISSION_BEHAVIOUR.NO_JOB_EXPERIENCE,
     );
 
     const soldier = createSettler(

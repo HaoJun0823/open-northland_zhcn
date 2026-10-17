@@ -24,9 +24,10 @@ export interface ColliderColumns {
 
 /**
  * Each mover's pre-separation state, so a pair's two halves read the same values whatever the processing
- * order. The leg target is captured at census time: the grind bookkeeping drops an earlier-processed
- * mover's PathFollow mid-loop. The unit heading toward it is derived on first ask, since only a mover in an
- * overlapping pair reads one.
+ * order. The route columns, from `legCost` to `engaged`, are captured on first ask before the grind
+ * bookkeeping can drop the mover's PathFollow, and only for a mover with a neighbour or post in reach. The
+ * unit heading toward the leg target is derived on first ask, since only a mover in an overlapping pair
+ * reads one.
  */
 export interface MoverColumns extends ColliderColumns {
   /** A firm collider: an owned fighter. */
@@ -41,6 +42,8 @@ export interface MoverColumns extends ColliderColumns {
   readonly goalX: Fixed[];
   readonly goalY: Fixed[];
   readonly engaged: boolean[];
+  /** The census whose route columns the slot holds; any other value means not captured yet. */
+  readonly routeCensus: number[];
   readonly headingX: Fixed[];
   readonly headingY: Fixed[];
   /** The census whose heading the slot holds; any other value means not derived yet. */
@@ -93,6 +96,7 @@ export function separationScratch(world: World): SeparationScratch {
         goalX: [],
         goalY: [],
         engaged: [],
+        routeCensus: [],
         headingX: [],
         headingY: [],
         headingCensus: [],

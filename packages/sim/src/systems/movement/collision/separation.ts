@@ -5,7 +5,7 @@ import { positionXOfWorld } from '../../../nav/halfcell.js';
 import { ROW_STEP, worldDistance, worldX } from '../../../nav/world-metric.js';
 import type { System } from '../../context.js';
 import { REFERENCE_PACE_PER_TICK, walkPacePerTick } from '../system.js';
-import { collectColliders, moverHeading } from './separation/colliders.js';
+import { collectColliders, moverHeading, moverRoute } from './separation/colliders.js';
 import { SeparationGates } from './separation/gates.js';
 import { gridYOf, worldYOf } from './separation/geometry.js';
 import {
@@ -104,6 +104,11 @@ export const separationSystem: System = (world, ctx) => {
         }
       }
     }
+    if (moverCount === 0 && postCount === 0) {
+      if (isFirm) clearGrind(world, e);
+      continue;
+    }
+    moverRoute(world, scratch, slot);
     let player: number | undefined;
     if (postCount > 0) {
       player = world.get(e, Owner).player;
@@ -120,7 +125,7 @@ export const separationSystem: System = (world, ctx) => {
     // A firm mover in its own town drops to the soft tier: no post resolve and no grind.
     const ghost = isFirm && gates.isGhost(player ?? world.get(e, Owner).player, nodeHx, nodeHy);
 
-    const pushMagnitude = resolveMoverPush(scratch, slot, moverCount, push);
+    const pushMagnitude = resolveMoverPush(world, scratch, slot, moverCount, push);
     if (push.x !== ZERO || push.y !== ZERO) capToOwnPace(push, pushMagnitude, walkPacePerTick(world, ctx, e));
 
     // The census Position: no earlier mover's resolve writes this one's.
@@ -166,6 +171,7 @@ export const separationSystem: System = (world, ctx) => {
  * Returns the written push's magnitude.
  */
 function resolveMoverPush(
+  world: World,
   scratch: SeparationScratch,
   slot: number,
   moverCount: number,
@@ -193,8 +199,8 @@ function resolveMoverPush(
     const n = entity[other] ?? 0;
     const half = fx.div(fx.sub(UNIT_SEPARATION_RADIUS, dist), fx.fromInt(2));
     const otherWY = wy[other] ?? ZERO;
-    moverHeading(scratch, slot);
-    moverHeading(scratch, other);
+    moverHeading(world, scratch, slot);
+    moverHeading(world, scratch, other);
     const startHX = headingX[slot] ?? ZERO;
     const startHY = headingY[slot] ?? ZERO;
     const otherHX = headingX[other] ?? ZERO;

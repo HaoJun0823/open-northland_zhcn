@@ -2,8 +2,8 @@ import { terrainWorldBounds } from '@open-northland/render';
 import { positionOfNode } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import { ALARM_MS, alarmFrame, alarmPoint } from '../src/hud/minimap/alarms.js';
-import { forEachMinimapDot } from '../src/hud/minimap/dots.js';
 import { DEFAULT_MINIMAP_FILTERS } from '../src/hud/minimap/filters.js';
+import { forEachMinimapDot } from './support/minimap-plot.js';
 import { snapshotOf } from './support/snapshot.js';
 
 const MAP_CELLS = 8;

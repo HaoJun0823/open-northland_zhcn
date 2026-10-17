@@ -13,7 +13,7 @@ import type { MapOverlayControls } from '../map-overlays.js';
 import { createAlarmLayer } from './alarms.js';
 import { createWorkerMinimapBaker } from './bake.js';
 import { createMinimapChrome } from './chrome.js';
-import { forEachMinimapDot, type MinimapDotContext, type MinimapDotSink } from './dots.js';
+import { MinimapDotPlot, type MinimapDotSink } from './dots.js';
 import {
   DEFAULT_MINIMAP_FILTERS,
   type MinimapFilters,
@@ -41,6 +41,10 @@ const NO_GOALS: readonly GoalNode[] = [];
 
 /** Under the map while the DOM backing loads: the dark wood of the frames' backing. */
 const BACKDROP_COLOUR = 0x2a2018;
+/** Wall-clock ms a frame may spend walking a dot plot. A late map's plot costs several ms on a fast
+ *  machine and several times that on a weak one, so it spreads over frames into a back raster and shows
+ *  whole when done, instead of stalling the frame that starts it. */
+const DOT_PLOT_MS_PER_FRAME = 1;
 
 export interface MinimapOptions {
   readonly overlays?: MapOverlayControls;
@@ -141,6 +145,8 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
   const dotsW = Math.max(1, Math.round(raster.w));
   const dotsH = Math.max(1, Math.round(raster.h));
   const pixels = new Uint8Array(dotsW * dotsH * 4);
+  /** The raster a plot under way stamps into; it replaces the shown one when the plot completes. */
+  const plotted = new Uint8Array(pixels.length);
   const texture = new Texture({
     source: new BufferImageSource({
       resource: pixels,
@@ -253,7 +259,10 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
     },
   });
   const claimDotReplot = createDotReplotGate(() => performance.now());
-  const dotRaster = { rgba: pixels, width: dotsW, height: dotsH };
+  const plot = new MinimapDotPlot();
+  /** The seat the plot under way reads its fog and scope for. */
+  let plotSeat: number | null = null;
+  const dotRaster = { rgba: plotted, width: dotsW, height: dotsH };
   const stampScale = (): number => uiScale / world.scale.x;
   const stamp: MinimapDotSink = (x, y, mark, colour, part) =>
     stampMark(dotRaster, x, y, mark, colour, stampScale(), MARKER_SIZE_SCALES[filters.markerSize], part);
@@ -284,10 +293,14 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
         hasSeat = viewer !== null;
         chrome.setState({ zoom, size, filters, hasSeat });
       }
-      if (claimDotReplot(snapshot, fog?.player ?? viewer) || dirtyDots) {
-        roads.draw(snapshot, fog, filters.layers.roads, stampScale());
-        pixels.fill(0);
-        const context: MinimapDotContext = {
+      const seat = fog?.player ?? viewer;
+      // A spectator's seat switch changes the scope, colours and fog a plot under way was started with.
+      if (plot.pending() && seat !== plotSeat) dirtyDots = true;
+      // A changed view starts over at once; otherwise a plot under way walks on before the gate is asked.
+      if (dirtyDots || (!plot.pending() && claimDotReplot(snapshot, seat))) {
+        plotSeat = seat;
+        plotted.fill(0);
+        plot.start({
           fog,
           bounds,
           scale: rasterScale,
@@ -297,10 +310,13 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
           viewer,
           stanceToward: opts.stanceToward,
           playerColourOf: opts.playerColourOf,
-        };
-        forEachMinimapDot(snapshot, context, stamp);
-        texture.source.update();
+        });
         dirtyDots = false;
+      }
+      if (plot.pending() && plot.step(snapshot, stamp, performance.now() + DOT_PLOT_MS_PER_FRAME)) {
+        roads.draw(snapshot, fog, filters.layers.roads, stampScale());
+        pixels.set(plotted);
+        texture.source.update();
       }
       alarms.draw(performance.now(), stampScale());
       const rect = viewportRectOnMinimap(

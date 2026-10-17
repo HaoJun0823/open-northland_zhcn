@@ -5,6 +5,7 @@ import {
   entitiesWith,
   entityById,
   type FogView,
+  indexOfEntity,
   type WorldSnapshot,
 } from '@open-northland/sim';
 import {
@@ -42,6 +43,9 @@ export interface MinimapDotContext {
   readonly playerColourOf?: ((player: number) => number) | undefined;
 }
 
+/** Carriers walked or markers stamped between two reads of the clock while a step has a deadline. */
+const DEADLINE_STRIDE = 64;
+
 /** The markers of one layer in stamping order, held as raster px so the rims pass and the fills pass
  *  cost no second position or fog lookup. A clear keeps the slots, so a replot writes into the arrays a
  *  larger picture grew rather than growing them again. */
@@ -60,8 +64,12 @@ class HeldMarks {
     this.colours[at] = colour;
   }
 
-  emit(sink: MinimapDotSink, part: MinimapStampPart): void {
-    for (let i = 0; i < this.size; i++) {
+  /** Send the held markers from index `from` on to `sink`, stopping between two once `performance.now()`
+   *  passes `deadline`; answers the index to resume from, the held count once all went. */
+  emit(sink: MinimapDotSink, part: MinimapStampPart, from = 0, deadline = Number.POSITIVE_INFINITY): number {
+    const timed = deadline !== Number.POSITIVE_INFINITY;
+    for (let i = from; i < this.size; i++) {
+      if (timed && i > from && (i - from) % DEADLINE_STRIDE === 0 && performance.now() > deadline) return i;
       const bx = this.xs[i];
       const by = this.ys[i];
       const mark = this.marks[i];
@@ -69,6 +77,11 @@ class HeldMarks {
       if (bx !== undefined && by !== undefined && mark !== undefined && colour !== undefined)
         sink(bx, by, mark, colour, part);
     }
+    return this.size;
+  }
+
+  get count(): number {
+    return this.size;
   }
 
   /** Append every held marker to `target` in order, then clear. */
@@ -88,26 +101,6 @@ class HeldMarks {
     this.size = 0;
   }
 }
-
-/** The four stamping groups of a layer, the hostile markers of every layer and the heroes, kept across
- *  walks so a replot grows no arrays once a game has shown its largest picture; a walk clears them first.
- *  One walk runs at a time. */
-const HELD = {
-  plain: new HeldMarks(),
-  soldiers: new HeldMarks(),
-  hostiles: new HeldMarks(),
-  hostileSoldiers: new HeldMarks(),
-  allHostiles: new HeldMarks(),
-  heroes: new HeldMarks(),
-} as const;
-const HELD_GROUPS: readonly HeldMarks[] = [
-  HELD.plain,
-  HELD.soldiers,
-  HELD.hostiles,
-  HELD.hostileSoldiers,
-  HELD.allHostiles,
-  HELD.heroes,
-];
 
 /** A plotted marker part: raster-px centre `(bx, by)`, its shape, packed `0xRRGGBB` colour and which
  *  part to paint; each layer sends every rim, then every fill. Loose primitives keep the sink itself
@@ -144,80 +137,302 @@ export function readMinimapIndexes(snapshot: WorldSnapshot): void {
   for (const name of PLOTTED) entityIdsWith(snapshot, name);
 }
 
-/** Calls `visit` with each carrier of `name`, ascending by id, resolving the held ids one by one. */
-function forEachCarrier(
-  snapshot: WorldSnapshot,
-  name: (typeof PLOTTED)[number],
-  visit: (entity: EntitySnapshot) => void,
-): void {
-  for (const id of entityIdsWith(snapshot, name)) {
-    const entity = entityById(snapshot, id);
-    if (entity !== undefined) visit(entity);
+/** The carrier walks of a plot, bottom to top; a walk that ends a layer stamps it. The signpost layer
+ *  walks the posts, then the gatherers' delivery flags. */
+const WALKS = ['roadSites', 'signposts', 'flags', 'buildings', 'settlers', 'vehicles'] as const;
+type Walk = (typeof WALKS)[number];
+/** One stage of a plot: a carrier walk, one part of a held group sent to the sink, or the end of a layer,
+ *  which clears its groups and moves its hostile markers to the pass after every layer. */
+type PlotStage =
+  | { readonly kind: 'walk'; readonly walk: Walk }
+  | { readonly kind: 'emit'; readonly group: HeldMarks; readonly part: 'rims' | 'fills' }
+  | { readonly kind: 'settle' };
+
+const ENDS_LAYER: Readonly<Record<Walk, boolean>> = {
+  roadSites: true,
+  signposts: false,
+  flags: true,
+  buildings: true,
+  settlers: true,
+  vehicles: true,
+};
+
+/** The first index of ascending `ids` holding an id of at least `id`. */
+function firstIdFrom(ids: readonly number[], id: number): number {
+  let lo = 0;
+  let hi = ids.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if ((ids[mid] as number) < id) lo = mid + 1;
+    else hi = mid;
   }
+  return lo;
 }
 
 /**
- * Plot the enabled layers of `snapshot` in the ground raster's px, bottom to top: road sites, signposts
- * and flags, buildings, animals and people, vehicles. Each layer walks only its own component index, so
- * a replot costs the plotted entities, never the whole entity list. Laid roads are the road layer's.
- * Within a layer soldiers stamp after civilians, and a layer's rims all go under its fills, so a crowd
- * reads as one rimmed blob while a later layer's rims still part it from the one below. Hostile owners'
- * markers leave the layers and stamp after all of them, rims then fills, so an intruder keeps its own rim
- * on top of the viewer's crowd, buildings and vehicles instead of melting into them. Heroes stamp last of
- * all, whoever owns them: losing one loses most games, so no crowd or intruder covers one.
+ * Plots the enabled layers in the ground raster's px, bottom to top: road sites, signposts and flags,
+ * buildings, animals and people, vehicles. Each layer walks only its own component index, so a plot costs
+ * the plotted entities, never the whole entity list. Laid roads are the road layer's. Within a layer
+ * soldiers stamp after civilians, and a layer's rims all go under its fills, so a crowd reads as one
+ * rimmed blob while a later layer's rims still part it from the one below. Hostile owners' markers leave
+ * the layers and stamp after all of them, rims then fills, so an intruder keeps its own rim on top of the
+ * viewer's crowd, buildings and vehicles instead of melting into them. Heroes stamp last of all, whoever
+ * owns them: losing one loses most games, so no crowd or intruder covers one.
+ *
+ * A plot may run over several steps, each walking on by id from where the last stopped, so a big map's
+ * plot spreads over frames instead of stalling one; each carrier is read once, off the snapshot of the
+ * step that reaches it. The held markers keep their slots across plots, so a replot grows no arrays once
+ * a game has shown its largest picture.
  */
-export function forEachMinimapDot(
-  snapshot: WorldSnapshot,
-  ctx: MinimapDotContext,
-  sink: MinimapDotSink,
-): void {
-  const { layers, scope } = ctx.filters;
-  const { fog, bounds, scale, viewer } = ctx;
+export class MinimapDotPlot {
+  private readonly plain = new HeldMarks();
+  private readonly soldiers = new HeldMarks();
+  private readonly hostiles = new HeldMarks();
+  private readonly hostileSoldiers = new HeldMarks();
+  private readonly allHostiles = new HeldMarks();
+  private readonly heroes = new HeldMarks();
   // A walk meets a handful of owners and trades thousands of times over, so each answer is asked once.
-  const stances = new Map<number, DiplomacyState>();
-  const stanceToward = (owner: number): DiplomacyState => {
-    let stance = stances.get(owner);
+  private readonly stances = new Map<number, DiplomacyState>();
+  private readonly colours = new Map<number, number>();
+  private readonly roles = new Map<number, SettlerMark>();
+  private ctx: MinimapDotContext | null = null;
+  private stages: readonly PlotStage[] = [];
+  /** The stage under way, and where in it the next step resumes: the least id a walk has yet to read,
+   *  the next held marker an emit sends. */
+  private stage = 0;
+  private resumeAt = 0;
+
+  /** Begin a plot under `ctx`, dropping any plot under way. */
+  start(ctx: MinimapDotContext): void {
+    this.ctx = ctx;
+    this.stages = this.stagesFor(ctx.filters.layers);
+    this.stage = 0;
+    this.resumeAt = 0;
+    this.stances.clear();
+    this.colours.clear();
+    this.roles.clear();
+    for (const group of [
+      this.plain,
+      this.soldiers,
+      this.hostiles,
+      this.hostileSoldiers,
+      this.allHostiles,
+      this.heroes,
+    ])
+      group.clear();
+  }
+
+  /** Whether a started plot has walks or stamps left. */
+  pending(): boolean {
+    return this.ctx !== null;
+  }
+
+  /**
+   * Walk on through `snapshot` and send each layer it finishes to `sink`; past `deadline`
+   * (`performance.now()`) the step stops between two carriers or two markers. True once the whole plot
+   * has gone to the sink.
+   */
+  step(snapshot: WorldSnapshot, sink: MinimapDotSink, deadline = Number.POSITIVE_INFINITY): boolean {
+    const ctx = this.ctx;
+    if (ctx === null) return true;
+    for (; this.stage < this.stages.length; this.stage++, this.resumeAt = 0) {
+      const stage = this.stages[this.stage] as PlotStage;
+      if (stage.kind === 'walk') {
+        if (!this.walkOn(ctx, stage.walk, snapshot, deadline)) return false;
+      } else if (stage.kind === 'emit') {
+        this.resumeAt = stage.group.emit(sink, stage.part, this.resumeAt, deadline);
+        if (this.resumeAt < stage.group.count) return false;
+      } else {
+        this.plain.clear();
+        this.soldiers.clear();
+        this.hostiles.moveTo(this.allHostiles);
+        this.hostileSoldiers.moveTo(this.allHostiles);
+      }
+    }
+    this.allHostiles.clear();
+    this.heroes.clear();
+    this.ctx = null;
+    return true;
+  }
+
+  /** The stages of a plot of `layers`: each enabled layer's walks, its rims under its fills and plain
+   *  markers under soldiers; then every layer's hostile markers, then the heroes. */
+  private stagesFor(layers: MinimapFilters['layers']): PlotStage[] {
+    const stages: PlotStage[] = [];
+    const emit = (group: HeldMarks, part: 'rims' | 'fills'): void => {
+      stages.push({ kind: 'emit', group, part });
+    };
+    for (const walk of WALKS) {
+      if (!this.walkEnabled(walk, layers)) continue;
+      stages.push({ kind: 'walk', walk });
+      if (!ENDS_LAYER[walk]) continue;
+      emit(this.plain, 'rims');
+      emit(this.soldiers, 'rims');
+      emit(this.plain, 'fills');
+      emit(this.soldiers, 'fills');
+      stages.push({ kind: 'settle' });
+    }
+    emit(this.allHostiles, 'rims');
+    emit(this.allHostiles, 'fills');
+    emit(this.heroes, 'rims');
+    emit(this.heroes, 'fills');
+    return stages;
+  }
+
+  private walkEnabled(walk: Walk, layers: MinimapFilters['layers']): boolean {
+    switch (walk) {
+      case 'roadSites':
+        return layers.roads;
+      case 'signposts':
+      case 'flags':
+        return layers.signposts;
+      case 'buildings':
+        return layers.buildings;
+      case 'settlers':
+        return layers.civilians || layers.soldiers || layers.heroes || layers.animals;
+      case 'vehicles':
+        return layers.vehicles;
+    }
+  }
+
+  /** Visit `walk`'s carriers from the least unread id on; false when the deadline cut it. */
+  private walkOn(ctx: MinimapDotContext, walk: Walk, snapshot: WorldSnapshot, deadline: number): boolean {
+    const timed = deadline !== Number.POSITIVE_INFINITY;
+    if (walk === 'vehicles') {
+      const vehicles = entitiesWith(snapshot, 'Vehicle');
+      const from = indexOfEntity(vehicles, this.resumeAt);
+      for (let at = from < 0 ? -from - 1 : from, n = 0; at < vehicles.length; at++, n++) {
+        const vehicle = vehicles[at] as EntitySnapshot;
+        if (timed && n % DEADLINE_STRIDE === 0 && n > 0 && performance.now() > deadline) {
+          this.resumeAt = vehicle.id;
+          return false;
+        }
+        this.visit(ctx, walk, snapshot, vehicle);
+      }
+      return true;
+    }
+    const ids = entityIdsWith(snapshot, CARRIER[walk]);
+    for (let at = firstIdFrom(ids, this.resumeAt), n = 0; at < ids.length; at++, n++) {
+      const id = ids[at] as number;
+      if (timed && n % DEADLINE_STRIDE === 0 && n > 0 && performance.now() > deadline) {
+        this.resumeAt = id;
+        return false;
+      }
+      const entity = entityById(snapshot, id);
+      if (entity !== undefined) this.visit(ctx, walk, snapshot, entity);
+    }
+    return true;
+  }
+
+  private visit(ctx: MinimapDotContext, walk: Walk, snapshot: WorldSnapshot, e: SnapshotEntity): void {
+    const { layers } = ctx.filters;
+    const owner = ownerPlayerOf(e);
+    switch (walk) {
+      case 'roadSites':
+        // Few and transient, and like any owned marker they follow the scope and the visible ground,
+        // which moves with every sighting; the static laid roads are baked apart. They wear no owner
+        // colour, so a hostile one would only clutter the hostile pass.
+        if (owner === undefined || this.admits(ctx, owner))
+          this.place(ctx, e, 'roadSite', ROAD_SITE_DOT_COLOUR, this.plain);
+        return;
+      case 'signposts':
+      case 'buildings':
+        if (owner !== undefined && this.admits(ctx, owner))
+          this.owned(
+            ctx,
+            e,
+            owner,
+            walk === 'buildings' ? 'building' : 'signpost',
+            this.colourOf(ctx, owner),
+          );
+        return;
+      case 'flags': {
+        // A delivery flag carries no owner; its gatherer's is the flag's, one gatherer per flag.
+        const flagId = workFlagOf(e);
+        if (owner === undefined || flagId === undefined || !this.admits(ctx, owner)) return;
+        const flag = entityById(snapshot, flagId);
+        if (flag !== undefined) this.owned(ctx, flag, owner, 'signpost', this.colourOf(ctx, owner));
+        return;
+      }
+      case 'settlers': {
+        if (isWildlife(e)) {
+          // Wildlife has no owner and ignores the scope; claimed livestock follows its owner's.
+          if (layers.animals && (owner === undefined || this.admits(ctx, owner)))
+            this.place(ctx, e, 'animal', ANIMAL_DOT_COLOUR, this.plain);
+          return;
+        }
+        if (owner === undefined || !this.admits(ctx, owner)) return;
+        const role = this.roleOf(ctx, settlerJobType(e));
+        if (role === 'hero') {
+          if (layers.heroes) this.place(ctx, e, 'hero', this.colourOf(ctx, owner), this.heroes);
+          return;
+        }
+        const soldier = role === 'soldier';
+        if (soldier ? layers.soldiers : layers.civilians)
+          this.owned(ctx, e, owner, soldier ? 'soldier' : 'civilian', this.colourOf(ctx, owner));
+        return;
+      }
+      case 'vehicles': {
+        // A vehicle a ship carries stands nowhere on the map.
+        const carrier = (e.components.Vehicle as { carrier?: unknown }).carrier ?? null;
+        if (owner !== undefined && carrier === null && this.admits(ctx, owner))
+          this.owned(ctx, e, owner, 'vehicle', this.colourOf(ctx, owner));
+        return;
+      }
+    }
+  }
+
+  private stanceToward(ctx: MinimapDotContext, owner: number): DiplomacyState {
+    let stance = this.stances.get(owner);
     if (stance === undefined) {
       stance = ctx.stanceToward(owner);
-      stances.set(owner, stance);
+      this.stances.set(owner, stance);
     }
     return stance;
-  };
-  const admits = (owner: number): boolean => scopeAdmits(scope, owner, viewer, stanceToward);
-  const hostile = (owner: number): boolean =>
-    viewer !== null && owner !== viewer && stanceToward(owner) === 'enemy';
-  // Without a seat there is no stance to paint, so a whole-map view keeps the team colours.
-  const byStance = ctx.filters.colours === 'stance' && viewer !== null;
-  const playerColour = (player: number): number => {
-    if (byStance) return player === viewer ? STANCE_SELF_COLOUR : STANCE_COLOURS[stanceToward(player)];
-    return (
-      MINIMAP_PLAYER_COLOURS[(ctx.playerColourOf?.(player) ?? player) % MINIMAP_PLAYER_COLOURS.length] ??
-      UNKNOWN_PLAYER_DOT_COLOUR
-    );
-  };
-  const colours = new Map<number, number>();
-  const colourOf = (player: number): number => {
-    let colour = colours.get(player);
+  }
+
+  private admits(ctx: MinimapDotContext, owner: number): boolean {
+    return scopeAdmits(ctx.filters.scope, owner, ctx.viewer, (player) => this.stanceToward(ctx, player));
+  }
+
+  private hostile(ctx: MinimapDotContext, owner: number): boolean {
+    return ctx.viewer !== null && owner !== ctx.viewer && this.stanceToward(ctx, owner) === 'enemy';
+  }
+
+  private colourOf(ctx: MinimapDotContext, player: number): number {
+    let colour = this.colours.get(player);
     if (colour === undefined) {
-      colour = playerColour(player);
-      colours.set(player, colour);
+      // Without a seat there is no stance to paint, so a whole-map view keeps the team colours.
+      if (ctx.filters.colours === 'stance' && ctx.viewer !== null)
+        colour = player === ctx.viewer ? STANCE_SELF_COLOUR : STANCE_COLOURS[this.stanceToward(ctx, player)];
+      else
+        colour =
+          MINIMAP_PLAYER_COLOURS[(ctx.playerColourOf?.(player) ?? player) % MINIMAP_PLAYER_COLOURS.length] ??
+          UNKNOWN_PLAYER_DOT_COLOUR;
+      this.colours.set(player, colour);
     }
     return colour;
-  };
-  const roles = new Map<number, SettlerMark>();
-  const roleOf = (job: number | undefined): SettlerMark => {
+  }
+
+  private roleOf(ctx: MinimapDotContext, job: number | undefined): SettlerMark {
     if (job === undefined) return 'civilian';
-    let role = roles.get(job);
+    let role = this.roles.get(job);
     if (role === undefined) {
       role = ctx.isHeroJob(job) ? 'hero' : ctx.isFighterJob(job) ? 'soldier' : 'civilian';
-      roles.set(job, role);
+      this.roles.set(job, role);
     }
     return role;
-  };
-  const { plain, soldiers, hostiles, hostileSoldiers, allHostiles, heroes } = HELD;
-  for (const group of HELD_GROUPS) group.clear();
-  // Only currently-visible ground plots an entity; the viewer's own forces always see their own cell.
-  const place = (e: SnapshotEntity, mark: MinimapMark, colour: number, group: HeldMarks): void => {
+  }
+
+  /** Only currently-visible ground plots an entity; the viewer's own forces always see their own cell. */
+  private place(
+    ctx: MinimapDotContext,
+    e: SnapshotEntity,
+    mark: MinimapMark,
+    colour: number,
+    group: HeldMarks,
+  ): void {
+    const { fog, bounds, scale } = ctx;
     // Read in place rather than through positionOf, which allocates a point per dot.
     const at = e.components.Position as { x?: unknown; y?: unknown } | undefined;
     if (typeof at?.x !== 'number' || typeof at.y !== 'number') return;
@@ -230,100 +445,32 @@ export function forEachMinimapDot(
       mark,
       colour,
     );
-  };
-  const plot = (e: SnapshotEntity, mark: MinimapMark, colour: number): void => place(e, mark, colour, plain);
-  const owned = (e: SnapshotEntity, owner: number, mark: MinimapMark, colour: number): void => {
+  }
+
+  private owned(
+    ctx: MinimapDotContext,
+    e: SnapshotEntity,
+    owner: number,
+    mark: MinimapMark,
+    colour: number,
+  ): void {
     const soldier = mark === 'soldier';
-    place(
-      e,
-      mark,
-      colour,
-      hostile(owner) ? (soldier ? hostileSoldiers : hostiles) : soldier ? soldiers : plain,
-    );
-  };
-  const endLayer = (): void => {
-    plain.emit(sink, 'rims');
-    soldiers.emit(sink, 'rims');
-    plain.emit(sink, 'fills');
-    soldiers.emit(sink, 'fills');
-    plain.clear();
-    soldiers.clear();
-    hostiles.moveTo(allHostiles);
-    hostileSoldiers.moveTo(allHostiles);
-  };
-
-  if (layers.roads) {
-    // Few and transient, and like any owned marker they follow the scope and the visible ground, which
-    // moves with every sighting; the static laid roads are baked apart. They wear no owner colour, so a
-    // hostile one would only clutter the hostile pass.
-    forEachCarrier(snapshot, 'RoadSite', (site) => {
-      const owner = ownerPlayerOf(site);
-      if (owner === undefined || admits(owner)) plot(site, 'roadSite', ROAD_SITE_DOT_COLOUR);
-    });
-    endLayer();
+    const group = this.hostile(ctx, owner)
+      ? soldier
+        ? this.hostileSoldiers
+        : this.hostiles
+      : soldier
+        ? this.soldiers
+        : this.plain;
+    this.place(ctx, e, mark, colour, group);
   }
-
-  if (layers.signposts) {
-    forEachCarrier(snapshot, 'Signpost', (post) => {
-      const owner = ownerPlayerOf(post);
-      if (owner !== undefined && admits(owner)) owned(post, owner, 'signpost', colourOf(owner));
-    });
-    // A delivery flag carries no owner; its gatherer's is the flag's, one gatherer per flag.
-    forEachCarrier(snapshot, 'WorkFlag', (gatherer) => {
-      const owner = ownerPlayerOf(gatherer);
-      const flagId = workFlagOf(gatherer);
-      if (owner === undefined || flagId === undefined || !admits(owner)) return;
-      const flag = entityById(snapshot, flagId);
-      if (flag !== undefined) owned(flag, owner, 'signpost', colourOf(owner));
-    });
-    endLayer();
-  }
-
-  if (layers.buildings) {
-    forEachCarrier(snapshot, 'Building', (building) => {
-      const owner = ownerPlayerOf(building);
-      if (owner !== undefined && admits(owner)) owned(building, owner, 'building', colourOf(owner));
-    });
-    endLayer();
-  }
-
-  if (layers.civilians || layers.soldiers || layers.heroes || layers.animals) {
-    forEachCarrier(snapshot, 'Settler', (settler) => {
-      const owner = ownerPlayerOf(settler);
-      if (isWildlife(settler)) {
-        // Wildlife has no owner and ignores the scope; claimed livestock follows its owner's.
-        if (layers.animals && (owner === undefined || admits(owner)))
-          plot(settler, 'animal', ANIMAL_DOT_COLOUR);
-        return;
-      }
-      if (owner === undefined || !admits(owner)) return;
-      const role = roleOf(settlerJobType(settler));
-      if (role === 'hero') {
-        if (layers.heroes) place(settler, 'hero', colourOf(owner), heroes);
-        return;
-      }
-      const soldier = role === 'soldier';
-      if (soldier ? layers.soldiers : layers.civilians)
-        owned(settler, owner, soldier ? 'soldier' : 'civilian', colourOf(owner));
-    });
-    endLayer();
-  }
-
-  if (layers.vehicles) {
-    for (const vehicle of entitiesWith(snapshot, 'Vehicle')) {
-      const owner = ownerPlayerOf(vehicle);
-      // A vehicle a ship carries stands nowhere on the map.
-      const carrier = (vehicle.components.Vehicle as { carrier?: unknown }).carrier ?? null;
-      if (owner !== undefined && carrier === null && admits(owner))
-        owned(vehicle, owner, 'vehicle', colourOf(owner));
-    }
-    endLayer();
-  }
-
-  allHostiles.emit(sink, 'rims');
-  allHostiles.emit(sink, 'fills');
-  allHostiles.clear();
-  heroes.emit(sink, 'rims');
-  heroes.emit(sink, 'fills');
-  heroes.clear();
 }
+
+/** The component each id walk reads its carriers from. */
+const CARRIER: Readonly<Record<Exclude<Walk, 'vehicles'>, (typeof PLOTTED)[number]>> = {
+  roadSites: 'RoadSite',
+  signposts: 'Signpost',
+  flags: 'WorkFlag',
+  buildings: 'Building',
+  settlers: 'Settler',
+};

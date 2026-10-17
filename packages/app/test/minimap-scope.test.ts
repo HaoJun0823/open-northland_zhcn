@@ -1,13 +1,14 @@
 import { terrainWorldBounds } from '@open-northland/render';
 import { type DiplomacyState, fx } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
-import { forEachMinimapDot, scopeAdmits } from '../src/hud/minimap/dots.js';
+import { scopeAdmits } from '../src/hud/minimap/dots.js';
 import {
   DEFAULT_MINIMAP_FILTERS,
   type MinimapScope,
   withAllMinimapLayers,
 } from '../src/hud/minimap/filters.js';
 import type { MinimapMark } from '../src/hud/minimap/stamps.js';
+import { forEachMinimapDot } from './support/minimap-plot.js';
 import { type Ent, snapshotOf } from './support/snapshot.js';
 
 const VIEWER = 0;

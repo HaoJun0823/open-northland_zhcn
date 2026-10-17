@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { workerRoleOf } from '../src/game/sandbox/index.js';
 import { trainingOccupancyOf } from '../src/game/snapshot.js';
 import { fixedViewerSeat, switchableViewerSeat } from '../src/game/viewer-seat.js';
-import { forEachMinimapDot } from '../src/hud/minimap/dots.js';
 import { DEFAULT_MINIMAP_FILTERS } from '../src/hud/minimap/filters.js';
 import { createFogGates, createSnapshotProjections } from '../src/view/projections/index.js';
+import { forEachMinimapDot } from './support/minimap-plot.js';
 import {
   building,
   type Ent,

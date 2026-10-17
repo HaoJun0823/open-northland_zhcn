@@ -3,8 +3,8 @@ import { type DiplomacyState, FOG_MODE, FOG_STATE, type FogView, fx } from '@ope
 import { describe, expect, it } from 'vitest';
 import {
   ANIMAL_DOT_COLOUR,
-  forEachMinimapDot,
   type MinimapDotContext,
+  MinimapDotPlot,
   ROAD_SITE_DOT_COLOUR,
 } from '../src/hud/minimap/dots.js';
 import {
@@ -15,6 +15,7 @@ import {
 } from '../src/hud/minimap/filters.js';
 import { MINIMAP_PLAYER_COLOURS, STANCE_COLOURS, STANCE_SELF_COLOUR } from '../src/hud/minimap/palette.js';
 import type { MinimapMark } from '../src/hud/minimap/stamps.js';
+import { forEachMinimapDot } from './support/minimap-plot.js';
 import { type Ent, idLookupVisits, snapshotOf, visitCountingSnapshot } from './support/snapshot.js';
 
 /** Every layer on, so a plot test sees each kind; the shipped default hides the clutter layers. */
@@ -449,5 +450,106 @@ describe('forEachMinimapDot over a crowded synthetic world', () => {
     let h = 0;
     for (const d of digests) h = (Math.imul(h, 31) + d) >>> 0;
     expect(h).toBe(PINNED_DIGEST);
+  });
+});
+
+describe('MinimapDotPlot', () => {
+  /** Every owner, stance, kind and layer a plot sorts, several deadline strides of each. */
+  function crowd(): Ent[] {
+    const ents: Ent[] = [];
+    let id = 1;
+    const players = [VIEWER, FRIEND, FOE];
+    for (let n = 0; n < 150; n++) {
+      const player = players[n % players.length] ?? VIEWER;
+      const x = n % MAP_CELLS;
+      const y = (n * 3) % MAP_CELLS;
+      ents.push(
+        person(id++, player, x, y, n % 5 === 0 ? SOLDIER_JOB : n % 37 === 0 ? HERO_JOB : CIVILIAN_JOB),
+      );
+      if (n % 4 === 0) ents.push(building(id++, player, y, x));
+      if (n % 9 === 0) ents.push(animal(id++, x, x));
+      if (n % 11 === 0) ents.push(vehicle(id++, player, y, y));
+      if (n % 13 === 0) ents.push(roadSite(id++, player, x, 1));
+    }
+    return ents;
+  }
+  const record =
+    (out: string[]) => (bx: number, by: number, mark: MinimapMark, colour: number, part: string) =>
+      out.push(`${bx},${by},${mark},${colour},${part}`);
+
+  it('stamps over many deadline-cut steps exactly what one whole plot stamps', () => {
+    const snapshot = snapshotOf(crowd());
+    const ctx = contextWith({});
+    const whole: string[] = [];
+    forEachMinimapDot(snapshot, ctx, record(whole));
+
+    const plot = new MinimapDotPlot();
+    const stepped: string[] = [];
+    plot.start(ctx);
+    let steps = 0;
+    // A deadline already passed stops each step after one stride of carriers.
+    while (!plot.step(snapshot, record(stepped), Number.NEGATIVE_INFINITY)) steps++;
+
+    expect(steps).toBeGreaterThan(1);
+    expect(plot.pending()).toBe(false);
+    expect(stepped).toEqual(whole);
+  });
+
+  it('drops a plot under way when started again', () => {
+    const snapshot = snapshotOf(crowd());
+    const plot = new MinimapDotPlot();
+    plot.start(contextWith({}));
+    expect(plot.step(snapshot, () => {}, Number.NEGATIVE_INFINITY)).toBe(false);
+
+    const ctx = contextWith({ filters: only('buildings') });
+    const whole: string[] = [];
+    forEachMinimapDot(snapshot, ctx, record(whole));
+    const restarted: string[] = [];
+    plot.start(ctx);
+    expect(plot.step(snapshot, record(restarted))).toBe(true);
+    expect(restarted).toEqual(whole);
+  });
+
+  it('reads each carrier once, off the snapshot of the step that reaches it, when the world moves mid-plot', () => {
+    // Settlers stand one to a column, so a stamp's place names its settler.
+    const FIRST = 20;
+    const LAST = 219;
+    const ids = Array.from({ length: LAST - FIRST + 1 }, (_, n) => FIRST + n);
+    const MOVED_ROW = 2;
+    const before = snapshotOf(ids.map((id) => person(id, VIEWER, id, 0)));
+    // The first step stops after one stride of carriers: past the low ids changed below, short of the high.
+    const [movedLow, removedLow, movedHigh, removedHigh, addedLow, addedHigh] = [20, 23, 210, 215, 5, 1000];
+    const after = snapshotOf(
+      [
+        ...ids
+          .filter((id) => id !== removedLow && id !== removedHigh)
+          .map((id) => person(id, VIEWER, id, id === movedLow || id === movedHigh ? MOVED_ROW : 0)),
+        person(addedLow, VIEWER, addedLow, 0),
+        person(addedHigh, VIEWER, addedHigh, 0),
+      ].sort((a, b) => a.id - b.id),
+    );
+    const settlerAt = new Map<string, string>();
+    for (const id of [...ids, addedLow, addedHigh]) {
+      for (const row of [0, MOVED_ROW]) {
+        const { bx, by } = pxAt(id, row);
+        settlerAt.set(`${bx},${by}`, `${id}@${row}`);
+      }
+    }
+    const stamped: string[] = [];
+    const plot = new MinimapDotPlot();
+    plot.start(contextWith({ filters: only('civilians') }));
+    expect(plot.step(before, () => {}, Number.NEGATIVE_INFINITY)).toBe(false);
+    expect(
+      plot.step(after, (bx, by, _mark, _colour, part) => {
+        if (part === 'fills') stamped.push(settlerAt.get(`${bx},${by}`) ?? `unknown ${bx},${by}`);
+      }),
+    ).toBe(true);
+
+    const expected = [
+      ...ids.filter((id) => id !== removedHigh).map((id) => `${id}@${id === movedHigh ? MOVED_ROW : 0}`),
+      `${addedHigh}@0`,
+    ];
+    expect([...stamped].sort()).toEqual([...expected].sort());
+    expect(new Set(stamped).size).toBe(stamped.length);
   });
 });

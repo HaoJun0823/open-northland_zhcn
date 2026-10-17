@@ -39,7 +39,7 @@ import {
 import { entitiesUnder, idsGroupedBy, idsWhere } from '../src/game/snapshot-id-index.js';
 import { buildingPeersOf, ownedBuildingsOfType } from '../src/hud/details-panel/model/building.js';
 import { raisingCrew, shelteringIn } from '../src/hud/details-panel/model/building-staff.js';
-import { forEachMinimapDot, type MinimapDotContext } from '../src/hud/minimap/dots.js';
+import type { MinimapDotContext } from '../src/hud/minimap/dots.js';
 import { DEFAULT_MINIMAP_FILTERS, withAllMinimapLayers } from '../src/hud/minimap/filters.js';
 import { restingBuildingsOf } from '../src/hud/tool-panel/messages/workshop-stalls.js';
 import { createSceneSim, getScene } from '../src/scenes/index.js';
@@ -50,6 +50,7 @@ import { computeLifeHearts, type LifeHeartInputs } from '../src/view/projections
 import { computeSettlerBubbles } from '../src/view/projections/settler-bubbles.js';
 import { ownRoadSiteAt } from '../src/view/runtime/own-road-sites.js';
 import { builderSitesOf } from '../src/view/unit-controls/highlights/own-building-picks.js';
+import { forEachMinimapDot } from './support/minimap-plot.js';
 
 /**
  * The snapshot readers answer from indexes a mirror maintains per delta. After every delta each one must

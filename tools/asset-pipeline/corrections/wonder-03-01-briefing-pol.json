@@ -1,0 +1,48 @@
+{
+  "reason": "Błędy polszczyzny w briefingu pierwszej misji kampanii Ósmy Cud Świata: odmiana (\"przy budowie\", \"swojego największego dzieła\", \"zaniechają\", \"stawiać drogowskazów\", \"na tę misję\"), pisownia (\"Nilu\", \"Allahowi\"), spacja przed kropką i niegramatyczny nagłówek \"WSPARCIE LUDNOŚCI ZYSKAŁO!\". Po zapłaceniu trybutu skrypt przekazuje graczowi całą wioskę Wikingów (gracz 4), co angielska i niemiecka wersja opisują jako przejęcie wioski; polska mówiła tylko o nawiązaniu kontaktu.",
+  "file": "campaigns/wonder/campaign_03_01/text/pol/briefings/briefings.txt",
+  "sha256": "96b6b7e56b1a9b4c8970ed34b966b17ad33f22ea6913cad0abc0ce2f88ee231f",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Podczas gdy linie frontu biegnące przy Piramidach z Giza są bronione przez Bizantyjczyków, Egipcjan i Saracenów, to do twoich Wikingów, z pomocą najpotężniejszych żyjących obecnie herosów, będzie należało uratowanie Latarni Morskiej z Aleksandrii od zawalenia się .",
+      "to": "Podczas gdy linie frontu biegnące przy Piramidach z Giza są bronione przez Bizantyjczyków, Egipcjan i Saracenów, to do twoich Wikingów, z pomocą najpotężniejszych żyjących obecnie herosów, będzie należało uratowanie Latarni Morskiej z Aleksandrii od zawalenia się."
+    },
+    {
+      "from": "Architekt SOSTRATOS, który zna się doskonale na swojej robocie, wydaje niezbędne instrukcje przy budowy Latarni. ",
+      "to": "Architekt SOSTRATOS, który zna się doskonale na swojej robocie, wydaje niezbędne instrukcje przy budowie Latarni. "
+    },
+    {
+      "from": "Inni Wikingowie również osiedlili się na tych żyznych równinach wzdłuż nilu. ",
+      "to": "Inni Wikingowie również osiedlili się na tych żyznych równinach wzdłuż Nilu. "
+    },
+    {
+      "from": "WSPARCIE LUDNOŚCI ZYSKAŁO!",
+      "to": "ZYSKALIŚMY WSPARCIE LUDNOŚCI!"
+    },
+    {
+      "from": "Nawiązaliśmy kontakt z inną wioską Wikingów, a ich żołnierze również byli chętni, aby wesprzeć nas w bitwie.",
+      "to": "Ich wioska przeszła pod nasze dowództwo, a jej żołnierze również byli chętni, aby wesprzeć nas w bitwie."
+    },
+    {
+      "from": "Ludzie gór widząc, że nie mogą wygrać z naszą siłą i taktyką, ostatecznie poddają się i niechętnie pozwalają nam zabrać ich złoto i zaniechują górnictwa.",
+      "to": "Ludzie gór widząc, że nie mogą wygrać z naszą siłą i taktyką, ostatecznie poddają się i niechętnie pozwalają nam zabrać ich złoto i zaniechają górnictwa."
+    },
+    {
+      "from": "\"Mój biedny chłopiec! Znaleźliście go już? Jest architektem jak ja i właśnie zajmował się umacnianiem swojej największego dzieła, Latarni morskiej z Aleksandrii. Czego bym nie dał, aby odzyskać go z powrotem! Musiał zostać porwany! Ktokolwiek go odnajdzie i uwolni, otrzyma cenną nagrodę!\" ",
+      "to": "\"Mój biedny chłopiec! Znaleźliście go już? Jest architektem jak ja i właśnie zajmował się umacnianiem swojego największego dzieła, Latarni morskiej z Aleksandrii. Czego bym nie dał, aby odzyskać go z powrotem! Musiał zostać porwany! Ktokolwiek go odnajdzie i uwolni, otrzyma cenną nagrodę!\" "
+    },
+    {
+      "from": "\"Och mój biedny chłopiec! Ty jesteś tym, który go odnalazł! Niech Allachowi będą dzięki! Weź te wspaniałe amulety!\"",
+      "to": "\"Och mój biedny chłopiec! Ty jesteś tym, który go odnalazł! Niech Allahowi będą dzięki! Weź te wspaniałe amulety!\""
+    },
+    {
+      "from": "Jeśli potrzeba, wybuduj DODATKOWY magazyn. I nie zapomnij stawiać drogowskazy wzdłuż szlaku handlowego!",
+      "to": "Jeśli potrzeba, wybuduj DODATKOWY magazyn. I nie zapomnij stawiać drogowskazów wzdłuż szlaku handlowego!"
+    },
+    {
+      "from": "Pewnego dnia MANI chce zostać bohaterem, takim jak Cyra i Bjarni. Ale jest wciąż za mały na tą misję!",
+      "to": "Pewnego dnia MANI chce zostać bohaterem, takim jak Cyra i Bjarni. Ale jest wciąż za mały na tę misję!"
+    }
+  ]
+}

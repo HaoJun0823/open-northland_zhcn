@@ -305,6 +305,36 @@ describe('debugFillStockpile', () => {
     for (const [goodType, capacity] of WORKPLACE_STOCK) expect(amounts.get(goodType)).toBe(capacity);
   });
 
+  it("delivers a construction site's bill rather than the finished building's stock slots", () => {
+    const base = testContent();
+    const bill = [
+      { goodType: 1, amount: 2 },
+      { goodType: 2, amount: 3 },
+    ];
+    const sim = new Simulation({
+      seed: 1,
+      content: {
+        ...base,
+        buildings: base.buildings.map((b) => (b.typeId === WORKPLACE ? { ...b, construction: bill } : b)),
+      },
+    });
+    const site = sim.world.create();
+    sim.world.add(site, Building, { buildingType: WORKPLACE, tribe: VIKING, built: fx.fromInt(0), level: 0 });
+    sim.world.add(site, UnderConstruction, { labor: fx.fromInt(0) });
+    sim.world.add(site, Stockpile, { amounts: new Map([[2, 1]]) });
+
+    sim.enqueue(adminCommand({ kind: 'debugFillStockpile', target: site, goodType: 2 }));
+    commandSystem(sim.world, nextTickCtxOf(sim));
+    expect([...sim.world.get(site, Stockpile).amounts]).toEqual([[2, 3]]);
+
+    sim.enqueue(adminCommand({ kind: 'debugFillStockpile', target: site }));
+    commandSystem(sim.world, nextTickCtxOf(sim));
+    expect([...sim.world.get(site, Stockpile).amounts].sort((a, b) => a[0] - b[0])).toEqual([
+      [1, 2],
+      [2, 3],
+    ]);
+  });
+
   it('a non-building target is a no-op', () => {
     const sim = fresh();
     const settler = settlerWithNeeds(sim, fx.fromInt(0));

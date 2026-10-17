@@ -5,6 +5,7 @@ import {
   Settler,
   SettlerNeeds,
   Stockpile,
+  UnderConstruction,
   Upgrading,
   Vehicle,
 } from '../../components/index.js';
@@ -16,6 +17,7 @@ import type { SystemContext } from '../context.js';
 import { clearRepairedDamage, markShortPool } from '../economy/repair.js';
 import { mutNeeds } from '../lifecycle/needs/levels.js';
 import { teleportHuman } from '../orders/teleport.js';
+import { constructionBillOf } from '../stores/construction.js';
 
 // The `debug*` commands are real commands, logged and replayed like any other, so each is a no-op on a
 // target of the wrong kind rather than a throw.
@@ -73,7 +75,11 @@ function needFixedFromPct(pct: number): Fixed {
   return fx.mulDiv(ONE, fx.fromInt(clamped), fx.fromInt(100));
 }
 
-/** Fill declared stock slots, or just the selected good. Invalid selections and targets are no-ops. */
+/**
+ * Fill declared stock slots, or just the selected good. A construction site's stockpile is its delivered
+ * material, so a site gets its construction bill instead: every line, or the selected good's line.
+ * Invalid selections and targets are no-ops.
+ */
 export function debugFillStockpile(
   world: World,
   ctx: SystemContext,
@@ -83,15 +89,18 @@ export function debugFillStockpile(
   if (building === undefined || !world.has(command.target, Stockpile)) return;
   const type = contentIndex(ctx.content).commandBuildings.get(building.buildingType);
   if (type === undefined) return;
-  if (command.goodType !== undefined) {
-    if (!Number.isSafeInteger(command.goodType)) return;
-    const slot = type.stock.find((slot) => slot.goodType === command.goodType);
-    if (slot === undefined) return;
-    world.mut(command.target, Stockpile).amounts.set(slot.goodType, slot.capacity);
-    return;
-  }
+  const slots = world.has(command.target, UnderConstruction)
+    ? constructionBillOf(world, ctx, command.target).map((line) => ({
+        goodType: line.goodType,
+        capacity: line.amount,
+      }))
+    : type.stock;
+  if (command.goodType !== undefined && !Number.isSafeInteger(command.goodType)) return;
+  const selected =
+    command.goodType === undefined ? slots : slots.filter((slot) => slot.goodType === command.goodType);
+  if (selected.length === 0) return;
   const stock = world.mut(command.target, Stockpile).amounts;
-  for (const slot of type.stock) stock.set(slot.goodType, slot.capacity);
+  for (const slot of selected) stock.set(slot.goodType, slot.capacity);
 }
 
 /** Teleport a human onto walkable ground; any other target, or an off-map or unwalkable node, is a

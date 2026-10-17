@@ -1,7 +1,7 @@
 import { Container, Rectangle, Texture, TextureSource } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BLOOD_LIFETIME_TICKS, type BloodDrop } from '../src/data/effects/blood.js';
-import { BloodSurfaceSprite, bloodSurface, surfaceOf } from '../src/gpu/blood-surface.js';
+import { BloodSurfaceSprite, bloodSurface, setBloodless, surfaceOf } from '../src/gpu/blood-surface.js';
 import { DepthSortedLayer } from '../src/gpu/depth-sorted-layer.js';
 import { BloodSurfaces, MAX_BLOOD_SURFACES } from '../src/gpu/overlays/blood-surfaces.js';
 import * as masks from '../src/gpu/sprite-pool/alpha-mask.js';
@@ -150,6 +150,21 @@ describe('blood meeting scenery', () => {
         bloodSurface(s, 0, { facade: true });
       }),
     ).not.toEqual(facade);
+    root.destroy({ children: true });
+  });
+
+  it('skips the subtree of a container marked bloodless', () => {
+    vi.spyOn(masks, 'alphaMaskOf').mockReturnValue(solid);
+    const root = new Container();
+    const body = root.addChild(new Container());
+    const s = sprite(body);
+    const surfaces = new BloodSurfaces();
+    setBloodless(body, true);
+    surfaces.prepare([root], 0);
+    expect(surfaces.trace(drop, 0, 0)).toBeUndefined();
+    setBloodless(body, false);
+    surfaces.prepare([root], 0);
+    expect(surfaces.trace(drop, 0, 0)?.surface.sprite).toBe(s);
     root.destroy({ children: true });
   });
 

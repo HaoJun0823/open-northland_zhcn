@@ -1,7 +1,13 @@
 import { type Container, Matrix, Point, Sprite } from 'pixi.js';
 import { BLOOD_LIFETIME_TICKS, type BloodDrop, bloodDroplet, smoothUnit } from '../../data/effects/blood.js';
 import type { BloodPalette } from '../../data/effects/blood-appearance.js';
-import { type BloodSurface, type BloodSurfaceSprite, bloodSurface, surfaceOf } from '../blood-surface.js';
+import {
+  type BloodSurface,
+  type BloodSurfaceSprite,
+  bloodSurface,
+  isBloodless,
+  surfaceOf,
+} from '../blood-surface.js';
 import { alphaMaskOf, maskSolidAt } from '../sprite-pool/alpha-mask.js';
 
 /** Authored presentation budgets, in world pixels and simulation ticks; no 3D collision is implied. */
@@ -121,6 +127,7 @@ export class BloodSurfaces {
     const surface = surfaceOf(node);
     // Roots carry the camera, so only their children's transforms enter world-space contacts.
     for (const child of node.children) {
+      if (isBloodless(child)) continue;
       if (child.children.length === 0 && surfaceOf(child)?.enabled !== true) continue;
       child.updateLocalTransform();
       this.stackAt(depth + 1)

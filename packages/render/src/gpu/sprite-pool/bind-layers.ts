@@ -4,7 +4,7 @@ import { clamp } from '../../data/math.js';
 import { cameraScreenX, cameraScreenY, snapToDevicePixels } from '../../data/projection/index.js';
 import type { DrawItem } from '../../data/scene/index.js';
 import { type AtlasFrame, buildTimeThreshold, type SpriteKind } from '../../data/sprites/index.js';
-import { type BloodSurface, bloodSurface, detachBloodSurface } from '../blood-surface.js';
+import { type BloodSurface, bloodSurface, detachBloodSurface, setBloodless } from '../blood-surface.js';
 import { PalettedQuad, PalettedSprite } from '../paletted-sprite/index.js';
 import { DEFAULT_PIXEL_ART_SCALER } from '../pixel-art-registry.js';
 import { mintPlanRoad, PLOT_BOUNDS, type PlanRoadTextures } from '../plan-road.js';
@@ -34,6 +34,15 @@ import {
 import type { ResolvedLayer } from './resolved-layer.js';
 import type { PoolFrame } from './sprite-pool.js';
 import { vehicleBodyRow, vehiclePalette } from './vehicle-palette.js';
+
+/** Bodies that move or fly never take a splash; their pooled containers hold no blood surface. */
+const BLOODLESS_KINDS: ReadonlySet<DrawItem['kind']> = new Set<DrawItem['kind']>([
+  'settler',
+  'fish',
+  'projectile',
+  'craftfx',
+  'vehicle',
+]);
 
 export type BindFrame = Pick<
   PoolFrame,
@@ -155,6 +164,7 @@ export class LayerBinder {
     frameId: number,
   ): void {
     if (pe.damageBodies !== undefined) pe.damageBodies.length = 0;
+    setBloodless(pe.container, BLOODLESS_KINDS.has(item.kind));
     let buildingBlood: WeakMap<AtlasFrame, BloodSurface> | undefined;
     if (!pe.paletted && item.kind === 'building') {
       buildingBlood = this.buildingBlood.get(pe);
@@ -269,11 +279,7 @@ export class LayerBinder {
           layer.cast !== true &&
           layer.boundsExempt !== true &&
           (layer.groundFoot === undefined || layer.groundFoot === 'body') &&
-          item.kind !== 'settler' &&
-          item.kind !== 'fish' &&
-          item.kind !== 'projectile' &&
-          item.kind !== 'craftfx' &&
-          item.kind !== 'vehicle';
+          !BLOODLESS_KINDS.has(item.kind);
         if (buildingBlood === undefined || receivesBlood) {
           const surface = bloodSurface(
             spr,

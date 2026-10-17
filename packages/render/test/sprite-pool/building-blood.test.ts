@@ -2,7 +2,7 @@ import { TextureSource } from 'pixi.js';
 import { expect, it } from 'vitest';
 import { BLOOD_LIFETIME_TICKS } from '../../src/data/effects/blood.js';
 import type { DrawItem } from '../../src/data/scene/index.js';
-import { surfaceOf } from '../../src/gpu/blood-surface.js';
+import { isBloodless, surfaceOf } from '../../src/gpu/blood-surface.js';
 import { BloodSurfaces } from '../../src/gpu/overlays/blood-surfaces.js';
 import { LayerBinder } from '../../src/gpu/sprite-pool/bind-layers.js';
 import { createPooled } from '../../src/gpu/sprite-pool/pooled-entity.js';
@@ -116,3 +116,14 @@ it.each([false, true])(
     }
   },
 );
+
+it('marks a moving body bloodless and a building not, so the contact walk skips only the bodies', () => {
+  const binder = new LayerBinder(new TextureCache(), undefined);
+  const frame = { camera: { offsetX: 0, offsetY: 0 }, screenW: 800, screenH: 600 };
+  const settler = createPooled('settler', undefined);
+  binder.bind(settler, { kind: 'settler', ref: 1, x: 0, y: 0, depth: 0 }, null, frame, 0);
+  expect(isBloodless(settler.container)).toBe(true);
+  const house = createPooled('building', undefined);
+  binder.bind(house, { kind: 'building', ref: 2, x: 0, y: 0, depth: 0, typeId: 13 }, null, frame, 0);
+  expect(isBloodless(house.container)).toBe(false);
+});

@@ -23,6 +23,17 @@ export interface BloodSurface {
 }
 
 const surfaces = new WeakMap<object, BloodSurface>();
+const bloodless = new WeakSet<object>();
+
+/** Mark a container whose every sprite refuses blood, so the contact walk skips its whole subtree. */
+export function setBloodless(container: object, refuses: boolean): void {
+  if (refuses) bloodless.add(container);
+  else bloodless.delete(container);
+}
+
+export function isBloodless(node: object): boolean {
+  return bloodless.has(node);
+}
 
 /** A pooled slot is about to draw another layer. Pending contacts keep the detached receiver. */
 export function detachBloodSurface(sprite: BloodSurfaceSprite): void {

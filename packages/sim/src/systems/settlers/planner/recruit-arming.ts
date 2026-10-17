@@ -41,6 +41,7 @@ import { INTENT_WEAPON_CLASS } from '../atomics/effects/goods/weapon-class.js';
 import {
   FetchableStock,
   interactionCell,
+  LendingStores,
   nearestStoreHolding,
   storeYieldsGood,
   type TargetCandidates,
@@ -225,7 +226,11 @@ function dispatchWeaponFetch(
   let route: FetchRoute | undefined;
   const vetoed = playerGoodList(world, AssistantWeaponVetoes, owner);
   for (const goodType of armingGoodPreference(ctx.content, settler.tribe, intent, vetoed)) {
+    // Read per row: each dispatch claims its unit, so the stores lending one change within the pass.
+    const lending = LendingStores.of(targets.bands, world, goodType, owner, pass.supply);
+    if (lending.none) continue; // no store of the side lends this row; the route is not worth resolving
     route ??= fetchRouteFor(pass, e, owner);
+    if (!lending.mayLieIn(targets.bands.goodsGate(route.here, owner, route.limit ?? undefined))) continue;
     const src = nearestStoreHolding(
       targets.bands,
       world,

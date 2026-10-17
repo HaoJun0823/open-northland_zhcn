@@ -297,6 +297,11 @@ export class LendingStores {
     return xy.length === 0 ? LendingStores.none : new LendingStores(holders.filedSlack, xy);
   }
 
+  /** Whether no store at all could be taken, whatever the area. */
+  get none(): boolean {
+    return this.xy.length === 0;
+  }
+
   mayLieIn(area: SpatialGate | undefined): boolean {
     const { xy, slack } = this;
     if (xy.length === 0) return false;

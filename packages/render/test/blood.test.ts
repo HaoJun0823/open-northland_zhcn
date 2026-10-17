@@ -5,6 +5,7 @@ import {
   BLOOD_AIR_TICKS,
   BLOOD_LIFETIME_TICKS,
   type BloodDropPose,
+  type BloodMark,
   bloodDroplet,
   bloodDrops,
   MAX_BLOOD_MARKS,
@@ -17,7 +18,7 @@ import { NO_WATER } from '../src/data/terrain/index.js';
 import { BloodSurfaceSprite, bloodSurface } from '../src/gpu/blood-surface.js';
 import { type BloodFrame, BloodLayer } from '../src/gpu/overlays/blood-layer.js';
 import * as alphaMasks from '../src/gpu/sprite-pool/alpha-mask.js';
-import { cameraViewport, makeElevationField } from '../src/index.js';
+import { cameraViewport, makeElevationField, TILE_HALF_W } from '../src/index.js';
 import { snapshotOf } from './support/fixtures.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
@@ -151,6 +152,33 @@ describe('blood event history', () => {
     history.expire(21 + BLOOD_LIFETIME_TICKS);
     expect(history.size).toBe(0);
     expect(removed).toHaveBeenCalledTimes(1000 + MAX_BLOOD_MARKS + 101);
+  });
+});
+
+describe('blood history query', () => {
+  it('returns the marks in a view oldest first, both for a few and for most of the battlefield', () => {
+    const history = new BloodHistory(() => undefined);
+    // Alternate marks between a far-east and a far-west bucket, so the bucket walk meets every even
+    // mark before any odd one.
+    const SPREAD = 64;
+    const NODE_COLUMNS = 8;
+    for (let i = 0; i < SPREAD; i++) {
+      const k = Math.floor(i / 2);
+      const hx = (i % 2 === 0 ? 4000 : 8) + (k % NODE_COLUMNS);
+      history.ingest([hit(i, 3, hx, Math.floor(k / NODE_COLUMNS))], i);
+    }
+    // A small cluster split over two neighbouring buckets, the newer marks in the western one.
+    const CLUSTER = 6;
+    for (let j = 0; j < CLUSTER; j++)
+      history.ingest([hit(SPREAD + j, 3, (j % 2 === 0 ? 2008 : 2000) + j, 0)], SPREAD + j);
+    const targets = (marks: readonly BloodMark[]): number[] => marks.map((mark) => mark.target);
+    const ids = (from: number, count: number): number[] => Array.from({ length: count }, (_, i) => from + i);
+    const out: BloodMark[] = [];
+    history.query({ minX: -1000, minY: -1000, maxX: 200000, maxY: 2000 }, 0, out);
+    expect(targets(out)).toEqual(ids(0, SPREAD + CLUSTER));
+    expect(out).toEqual(history.values());
+    history.query({ minX: 2000 * TILE_HALF_W, minY: -100, maxX: 2015 * TILE_HALF_W, maxY: 100 }, 0, out);
+    expect(targets(out)).toEqual(ids(SPREAD, CLUSTER));
   });
 });
 

@@ -13,6 +13,7 @@ export class BloodHistory {
   private readonly live = new Map<BloodMark, number>();
   private readonly perNode = new Map<string, Set<BloodMark>>();
   private buckets = new TileBuckets<BloodMark>();
+  private readonly wanted = new Set<BloodMark>();
   private nextId = 0;
   revision = 0;
 
@@ -75,7 +76,18 @@ export class BloodHistory {
       },
       out,
     );
-    out.sort((a, b) => (this.live.get(a) ?? 0) - (this.live.get(b) ?? 0));
+    // Ids follow insertion, so walking the live list in order sorts a large share of it for free.
+    if (out.length * Math.log2(out.length + 1) < this.live.size) {
+      out.sort((a, b) => (this.live.get(a) ?? 0) - (this.live.get(b) ?? 0));
+      return;
+    }
+    const wanted = this.wanted;
+    wanted.clear();
+    for (const mark of out) wanted.add(mark);
+    let n = 0;
+    for (const mark of this.live.keys()) if (wanted.has(mark)) out[n++] = mark;
+    out.length = n;
+    wanted.clear();
   }
 
   clear(): void {

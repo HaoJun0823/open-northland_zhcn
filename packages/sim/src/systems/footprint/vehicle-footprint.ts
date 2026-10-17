@@ -7,6 +7,8 @@ import {
   HEX_DIRECTIONS,
   hexagonRing,
   hexDistance,
+  nodeHxOfPosition,
+  nodeHyOfPosition,
   nodeOfPosition,
   stepHex,
 } from '../../nav/halfcell.js';
@@ -49,18 +51,34 @@ export function vehicleFootprintNodes(
   terrain: TerrainGraph,
   e: Entity,
 ): NodeId[] {
-  const vehicle = world.tryGet(e, Vehicle);
-  const anchor = vehicleAnchor(world, e);
-  if (vehicle === undefined || anchor === null) return [];
-  const type = contentIndex(content).vehicles.get(vehicle.vehicleType);
-  if (type === undefined) return [];
   const nodes: NodeId[] = [];
-  for (const offset of discOffsets(type.logicSize, anchor.hy)) {
-    const hx = anchor.hx + offset.hx;
-    const hy = anchor.hy + offset.hy;
-    if (terrain.inBounds(hx, hy)) nodes.push(terrain.nodeAt(hx, hy));
-  }
+  forEachVehicleFootprintNode(world, content, terrain, e, (hx, hy) => {
+    nodes.push(terrain.nodeAt(hx, hy));
+  });
   return nodes;
+}
+
+/** {@link vehicleFootprintNodes} handed to `visit` node by node, allocating nothing. */
+export function forEachVehicleFootprintNode(
+  world: World,
+  content: ContentSet,
+  terrain: TerrainGraph,
+  e: Entity,
+  visit: (hx: number, hy: number) => void,
+): void {
+  const vehicle = world.tryGet(e, Vehicle);
+  const p = world.tryGet(e, Position);
+  if (vehicle === undefined || p === undefined) return;
+  const type = contentIndex(content).vehicles.get(vehicle.vehicleType);
+  if (type === undefined) return;
+  // The anchor node, read without minting it.
+  const anchorHx = nodeHxOfPosition(p.x, p.y);
+  const anchorHy = nodeHyOfPosition(p.y);
+  for (const offset of discOffsets(type.logicSize, anchorHy)) {
+    const hx = anchorHx + offset.hx;
+    const hy = anchorHy + offset.hy;
+    if (terrain.inBounds(hx, hy)) visit(hx, hy);
+  }
 }
 
 /** {@link hexDisc} as offsets from its centre, per radius and centre-row parity, the only two things its

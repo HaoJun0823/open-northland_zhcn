@@ -11,7 +11,7 @@ import {
   Settler,
 } from '../../components/index.js';
 import type { ChangeFeed, Component, Entity, World } from '../../ecs/world.js';
-import { type HalfCellNode, nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
+import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { MapContext, SystemContext } from '../context.js';
 import { isAggressiveAnimal, isAnimalTribe, isLowPriorityBuildingTarget } from '../readviews/index.js';
@@ -265,33 +265,33 @@ export class CombatGrid {
     this.syncUnits(world, ctx.tick);
   }
 
-  /** Append moving body `e` (a vehicle) for this build at each on-map node of the disc `offsets` spans
-   *  around node (hx, hy); an armed one threatens there as a firing building does, an unarmed one no more
-   *  than a plain building. */
-  admitBody(
-    e: Entity,
-    hx: number,
-    hy: number,
-    offsets: readonly HalfCellNode[],
-    bit: number,
-    armed: boolean,
-  ): void {
-    for (const offset of offsets) {
-      const x = hx + offset.hx;
-      const y = hy + offset.hy;
-      if (!this.terrain.inBounds(x, y)) continue;
-      const cell = this.touchForBuild(this.cellFor(x, y));
-      push(cell.bodies, e, x, y, bit);
-      if (cell.countedLast !== e) {
-        cell.countedLast = e;
-        cell.buildTotal++;
-        if (bit !== 0) cell.buildOwnerMask |= bit;
-        else cell.buildUndiscounted++;
-      }
-      if (armed) addBuildThreat(cell, bit);
-      this.refresh(cell);
-    }
+  /** The node visitor that appends moving body `e` (a vehicle) at each node it is handed for this build; an
+   *  armed one threatens there as a firing building does, an unarmed one no more than a plain building.
+   *  One visitor serves every body, re-aimed by each call, so admitting a body allocates nothing. */
+  bodyAdmitter(e: Entity, bit: number, armed: boolean): (x: number, y: number) => void {
+    this.body = e;
+    this.bodyBit = bit;
+    this.bodyArmed = armed;
+    return this.admitBodyNode;
   }
+
+  private body = 0 as Entity;
+  private bodyBit = 0;
+  private bodyArmed = false;
+  private readonly admitBodyNode = (x: number, y: number): void => {
+    const e = this.body;
+    const bit = this.bodyBit;
+    const cell = this.touchForBuild(this.cellFor(x, y));
+    push(cell.bodies, e, x, y, bit);
+    if (cell.countedLast !== e) {
+      cell.countedLast = e;
+      cell.buildTotal++;
+      if (bit !== 0) cell.buildOwnerMask |= bit;
+      else cell.buildUndiscounted++;
+    }
+    if (this.bodyArmed) addBuildThreat(cell, bit);
+    this.refresh(cell);
+  };
 
   /** Mark held building `b` as able to fire this build, in the threat tallies of the cells its body spans. */
   admitFiring(b: Entity): void {

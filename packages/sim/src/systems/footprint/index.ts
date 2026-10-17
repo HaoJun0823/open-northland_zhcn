@@ -66,6 +66,7 @@ export { ROUTE_REGION_POCKET_CAP, routeRegions } from './route-regions.js';
 export { vehicleBlockedCells } from './vehicle-blocked-cache.js';
 export {
   discOffsets,
+  forEachVehicleFootprintNode,
   hexDisc,
   vehicleAnchor,
   vehicleDoorNode,

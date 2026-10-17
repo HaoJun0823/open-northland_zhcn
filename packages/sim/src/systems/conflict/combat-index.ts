@@ -7,12 +7,11 @@ import {
   Position,
   Vehicle,
 } from '../../components/index.js';
-import { contentIndex } from '../../core/content-index.js';
 import type { Entity, World } from '../../ecs/world.js';
-import { hexDistanceBetween, nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
+import { hexDistanceBetween } from '../../nav/halfcell.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
 import type { SystemContext } from '../context.js';
-import { discOffsets } from '../footprint/index.js';
+import { forEachVehicleFootprintNode } from '../footprint/index.js';
 import {
   type BandScan,
   type CoarseCell,
@@ -117,23 +116,15 @@ export class CombatIndex {
     const firing = heldFiringOf(world).refresh(world, ctx);
     for (const b of firing) this.grid.admitFiring(b);
     this.firing = firing;
-    // A vehicle moves, so it joins per build rather than in a held layer, over its footprint disc.
-    const vehicleTypes = contentIndex(ctx.content).vehicles;
+    // A vehicle moves, so it joins per build rather than in a held layer.
     for (const v of world.query(Vehicle, Health, Position)) {
-      const state = world.get(v, Vehicle);
-      const type = vehicleTypes.get(state.vehicleType);
-      if (type === undefined) continue;
-      const p = world.get(v, Position);
-      const hy = nodeHyOfPosition(p.y);
       const owner = world.tryGet(v, Owner);
-      this.grid.admitBody(
+      const admit = this.grid.bodyAdmitter(
         v,
-        nodeHxOfPosition(p.x, p.y),
-        hy,
-        discOffsets(type.logicSize, hy),
         owner === undefined ? 0 : playerBit(owner.player),
-        vehicleWeapon(ctx, state) !== null,
+        vehicleWeapon(ctx, world.get(v, Vehicle)) !== null,
       );
+      forEachVehicleFootprintNode(world, ctx.content, terrain, v, admit);
     }
   }
 

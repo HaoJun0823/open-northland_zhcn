@@ -223,8 +223,7 @@ class PathDrain {
     const path = viaMemo
       ? memoPath(this.memo, e, this.ctx.tick, start, goal, player, overlay, spent, this.goalSlice)
       : resolvePath(this.terrain, start, goal, overlay, spent, traversal, this.goalSlice);
-    // A searched route is offered; of the borrowed ones only a wide ride is (`GroupRoutes.borrow`), since
-    // offering every borrowed one grows the list each member tries.
+    // Only a searched route is offered: offering borrowed ones grows the list each member tries.
     if (path !== null && groupRoutes !== undefined) groupRoutes.offer(overlay, path);
     if (path === null && group && mask !== undefined && !overlay.has(goal)) {
       this.groupReachability ??= new GroupReachability(this.terrain);

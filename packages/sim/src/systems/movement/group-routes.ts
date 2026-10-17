@@ -23,15 +23,14 @@ export const GROUP_AREA_RADIUS_NODES = 48;
 export const SHARED_ROUTE_MIN_NODES = 96;
 
 /**
- * How far (Manhattan half-cell nodes) a member the short joins could not serve may stand from the nearest
- * shared route, and its goal from that route, and still ride it instead of its own search the length of
- * the march: an army spread over a settlement converges on its leaders' road rather than each loose band
- * routing alone, and a wide formation's far slots leave that road where it passes nearest. Authored:
- * covers a seat's spread-out army and a thousand-man formation.
+ * How far (Manhattan half-cell nodes) a member standing beyond {@link GROUP_AREA_RADIUS_NODES} of every
+ * shared route may still board the nearest one whose end lies by its goal, instead of its own search the
+ * length of the march: an army spread over a settlement converges on its leaders' road rather than each
+ * loose band routing alone. Authored: covers a seat's spread-out army.
  */
 const BOARDING_HOP_NODES = 256;
 
-/** The settle cap of each search onto or off that route. Authored: a fraction of a cross-map search. */
+/** The settle cap of the search onto that route. Authored: a fraction of a cross-map search. */
 const BOARDING_LEG_MAX_EXPLORED = 8192;
 
 const BOARDING: CorridorEntry = { hopNodes: BOARDING_HOP_NODES, legMaxExplored: BOARDING_LEG_MAX_EXPLORED };
@@ -45,12 +44,10 @@ interface GroupRoute {
 /**
  * One tick's group-move routes. The lowest-id member routes in full. Others prefer independently
  * checked straight lanes, then parallel obstacle detours, then short joins to that corridor, and finally
- * one wide ride on the shared route nearest them, with longer legs on and off it. A wide ride is offered
- * like a searched route, so the members whose slots lie near its end join it with short legs, and a
- * member no route serves searches alone and offers its route: full searches and wide rides count the
- * army's separate bands and the formation's far corners, not its members. Every member routes in the
- * same tick. A group has no id of its own: compatible terrain resistance and the walk overlay are what
- * permit sharing.
+ * one longer boarding leg onto the shared route nearest them. A member no route serves searches alone and
+ * offers its route, so full searches count the army's separate bands, not its members. Every member
+ * routes in the same tick. A group has no id of its own: compatible terrain resistance and the walk
+ * overlay are what permit sharing.
  */
 export class GroupRoutes {
   private readonly routes: GroupRoute[] = [];
@@ -108,15 +105,12 @@ export class GroupRoutes {
       GROUP_AREA_RADIUS_NODES,
       'land',
       BOARDING,
-      BOARDING,
     );
-    if (boarded === null) return null;
-    this.offer(blocked, boarded);
-    return this.lanes.departEarly(blocked, boarded, goal, nearest.meanWeight);
+    return boarded === null ? null : this.lanes.departEarly(blocked, boarded, goal, nearest.meanWeight);
   }
 
-  /** The route under `blocked` with a node nearest `start`, the first offered on a tie. A failed wide ride
-   *  costs up to two capped searches, so a member tries only this one before searching alone. */
+  /** The route under `blocked` with a node nearest `start`, the first offered on a tie. A failed boarding
+   *  costs a capped search, so a member tries only this one before searching alone. */
   private nearestRoute(blocked: BlockOverlay, start: NodeId): GroupRoute | undefined {
     let nearest: GroupRoute | undefined;
     let nearestGap = BOARDING_HOP_NODES + 1;

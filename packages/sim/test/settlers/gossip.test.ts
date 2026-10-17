@@ -292,6 +292,54 @@ describe('gossip candidate index', () => {
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
+  it('picks the nearest accepted candidate in range, lower id on a tie, as a full scan does', () => {
+    const SPREAD = 40;
+    const RANGES = [
+      [1, 2],
+      [1, 12],
+      [0, 32],
+    ] as const;
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(24, 24) });
+    let state = 7;
+    const next = (bound: number): number => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state % bound;
+    };
+    // Off-map nodes and block edges included: a node may lie a few past either border.
+    const place = (e: Entity): void => {
+      const at = positionOfNode(next(SPREAD) - 4, next(SPREAD) - 4);
+      sim.world.mut(e, Position).x = at.x;
+      sim.world.mut(e, Position).y = at.y;
+    };
+    const settlers: Entity[] = [];
+    for (let i = 0; i < 60; i++) {
+      const e = gossiper(sim, 0, 0, MILD);
+      place(e);
+      settlers.push(e);
+    }
+    for (let round = 0; round < 3; round++) {
+      const candidates = new GossipCandidates(sim.world, sim.content).ensure();
+      for (let q = 0; q < 50; q++) {
+        const fromX = next(SPREAD) - 4;
+        const fromY = next(SPREAD) - 4;
+        const [minDist, maxDist] = RANGES[next(RANGES.length)] ?? RANGES[0];
+        const keep = 1 + next(3);
+        const accept = (e: Entity): boolean => e % keep === 0;
+        let best: { e: Entity; d: number } | null = null;
+        for (const e of settlers) {
+          const p = sim.world.get(e, Position);
+          const node = nodeOfPosition(p.x, p.y);
+          const d = Math.abs(node.hx - fromX) + Math.abs(node.hy - fromY);
+          if (d < minDist || d > maxDist || !accept(e)) continue;
+          if (best === null || d < best.d || (d === best.d && e < best.e)) best = { e, d };
+        }
+        expect(candidates.nearest(fromX, fromY, minDist, maxDist, accept)).toBe(best?.e ?? null);
+      }
+      for (const e of settlers) if (next(2) === 0) place(e);
+      expect(sim.world.verifyCaches()).toEqual([]);
+    }
+  });
+
   it('holds the candidates as of its first search for the rest of the pass', () => {
     const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(8, 4) });
     const a = gossiper(sim, 1, 0, MILD);

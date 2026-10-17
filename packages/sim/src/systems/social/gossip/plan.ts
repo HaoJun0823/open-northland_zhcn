@@ -168,12 +168,12 @@ export function planGossipSeek(
     buckets.nearest(hx, hy, CHAT_PARTNER_MIN_DIST_NODES, CHAT_SEEK_RADIUS_NODES, chatting) ??
     buckets.nearest(hx, hy, CHAT_PARTNER_MIN_DIST_NODES, CHAT_SEEK_RADIUS_NODES, grabbable);
   if (found === null) return false;
-  if (world.has(found.entity, Chat)) {
+  if (world.has(found, Chat)) {
     // Its old partner goes into the breather; it goes straight into company.
-    endChat(world, ctx.tick, found.entity);
-    world.remove(found.entity, ChatCooldown);
+    endChat(world, ctx.tick, found);
+    world.remove(found, ChatCooldown);
   }
-  startChat(world, e, found.entity, 'company');
+  startChat(world, e, found, 'company');
   return true;
 }
 
@@ -219,7 +219,7 @@ export function planGossipIdle(
   const buckets = candidates.ensure();
   const beside = buckets.nearest(hx, hy, CHAT_PARTNER_MIN_DIST_NODES, CHAT_IDLE_MAX_RING, idleBeside);
   if (beside !== null) {
-    startChat(world, e, beside.entity, 'pastime');
+    startChat(world, e, beside, 'pastime');
     return true;
   }
   // A lost settler keeps its stand, where its note sends the player, so it walks to no partner.
@@ -229,6 +229,6 @@ export function planGossipIdle(
   }
   const distant = buckets.nearest(hx, hy, CHAT_PARTNER_MIN_DIST_NODES, CHAT_IDLE_WALK_RADIUS_NODES, idle);
   if (distant === null) return false;
-  startChat(world, e, distant.entity, 'pastime');
+  startChat(world, e, distant, 'pastime');
   return true;
 }

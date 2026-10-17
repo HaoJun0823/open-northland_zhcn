@@ -321,3 +321,67 @@ describe('animal calls', () => {
     expect(shots.map((s) => s.files)).toEqual([['generic/sheep01.wav']]);
   });
 });
+
+describe('idle chatter of a borrowing tribe', () => {
+  const SARACEN = 1;
+  const EGYPT = 30;
+  const lent = buildSoundIndex(
+    bank,
+    [],
+    [],
+    [],
+    [
+      { typeId: SARACEN, id: 'saracen' },
+      { typeId: EGYPT, id: 'egypt' },
+    ],
+  );
+  const egyptian: WorldSnapshot = {
+    tick: 10,
+    entities: [
+      {
+        id: 2,
+        components: { Position: here, Settler: { tribe: EGYPT }, Person: person, Owner: { player: LOCAL } },
+      },
+    ],
+    events: [],
+  };
+
+  it("natters through the lender's pool, so a borrowing tribe is counted like its lender", () => {
+    const shots = directAudio({
+      events: [],
+      snapshot: egyptian,
+      camera,
+      canvasW: CANVAS_W,
+      canvasH: CANVAS_H,
+      index: lent,
+      bindings,
+      localPlayer: LOCAL,
+      chatter: { drawn: () => [2], ticks: 1, random: scripted(0, 0, 0.5, 0.5) },
+    }).oneShots;
+    expect(shots.map((s) => s.files)).toEqual([['generic/m 01.wav']]);
+  });
+
+  it('stays quiet for a tribe with no voices of its own and no lender', () => {
+    const stranger: WorldSnapshot = {
+      ...egyptian,
+      entities: [
+        {
+          id: 2,
+          components: { Position: here, Settler: { tribe: 31 }, Person: person, Owner: { player: LOCAL } },
+        },
+      ],
+    };
+    const shots = directAudio({
+      events: [],
+      snapshot: stranger,
+      camera,
+      canvasW: CANVAS_W,
+      canvasH: CANVAS_H,
+      index: lent,
+      bindings,
+      localPlayer: LOCAL,
+      chatter: { drawn: () => [2], ticks: 1, random: scripted(0, 0, 0.5, 0.5) },
+    }).oneShots;
+    expect(shots).toHaveLength(0);
+  });
+});

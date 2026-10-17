@@ -1,10 +1,9 @@
-import { type AnimalCall, type HumanVoices, VOICE_CLASSES } from '@open-northland/data';
+import { type AnimalCall, type HumanVoices, VOICE_CLASSES, type VoiceClass } from '@open-northland/data';
 import { entityById, type WorldSnapshot } from '@open-northland/sim';
 import { groupFiles, poolGain, type SoundIndex } from '../bank.js';
-import { creatureTribe, entityOwner, entityTile, isPerson } from '../snapshot.js';
+import { creatureTribe, entityOwner, entityTile, isPerson, voiceClassOf } from '../snapshot.js';
 import { computeSpatial } from '../spatial.js';
 import type { ChatterInput, DirectorInput, Lane, OneShot } from '../types.js';
-import { humanVoicesOf } from '../voices.js';
 import { groupAnswerShots, selectionShots } from './group-answer.js';
 
 /**
@@ -63,7 +62,9 @@ interface Voiced<T> {
  */
 interface ChatterTally {
   readonly pools: readonly Voiced<HumanVoices>[];
-  readonly poolOf: ReadonlyMap<HumanVoices, number[]>;
+  /** Tribe → voice class → the id list of the pool its people natter in, resolved once per index so
+   *  counting a person costs one lookup; a borrowing tribe shares its lender's list. */
+  readonly speakersOf: ReadonlyMap<number, Partial<Record<VoiceClass, number[]>>>;
   readonly herds: readonly Voiced<AnimalCall>[];
   readonly herdOf: ReadonlyMap<number, number[]>;
 }
@@ -91,9 +92,19 @@ function tallyFor(index: SoundIndex): ChatterTally {
     const files = groupFiles(index, call.group);
     if (files !== undefined) herds.push({ source: call, files, ids: [] });
   }
+  const poolOf = new Map(pools.map((pool) => [pool.source, pool.ids]));
+  const speakersOf = new Map<number, Partial<Record<VoiceClass, number[]>>>();
+  for (const [tribe, byClass] of index.humanVoices) {
+    const lists: Partial<Record<VoiceClass, number[]>> = {};
+    for (const [voiceClass, voices] of byClass) {
+      const ids = poolOf.get(voices);
+      if (ids !== undefined) lists[voiceClass] = ids;
+    }
+    speakersOf.set(tribe, lists);
+  }
   const tally: ChatterTally = {
     pools,
-    poolOf: new Map(pools.map((pool) => [pool.source, pool.ids])),
+    speakersOf,
     herds,
     herdOf: new Map(herds.map((herd) => [herd.source.tribe, herd.ids])),
   };
@@ -122,8 +133,7 @@ function tallyDrawn(
     if (tribe === undefined) continue;
     if (isPerson(e.components)) {
       if (localPlayer === undefined || entityOwner(e.components) !== localPlayer) continue;
-      const voices = humanVoicesOf(index, e);
-      if (voices !== undefined) tally.poolOf.get(voices)?.push(id);
+      tally.speakersOf.get(tribe)?.[voiceClassOf(e.components)]?.push(id);
     } else {
       tally.herdOf.get(tribe)?.push(id);
     }

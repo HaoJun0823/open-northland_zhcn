@@ -299,7 +299,7 @@ describe('computerPlayerSystem - cadence, stagger, and module gates', () => {
     for (let tick = 1; tick <= 2 * COMPUTER_DECISION_INTERVAL_TICKS; tick++) {
       runComputerModules(world, ctxAt(tick, commands), [stub]);
     }
-    const OTHER_SEAT_SLOT = 15; // 5 × 3
+    const OTHER_SEAT_SLOT = OTHER_SEAT * AI_SEAT_SLOT_STEP_TICKS;
     expect(calls).toEqual([
       { tick: OTHER_SEAT_SLOT, player: OTHER_SEAT },
       { tick: COMPUTER_DECISION_INTERVAL_TICKS, player: 0 },
@@ -423,6 +423,9 @@ describe('computerPlayerSystem - cadence, stagger, and module gates', () => {
       { decision: 2, player: 0 },
       { decision: 3, player: 1 },
     ]);
+    // The shipped allocator carries the stride the stub stands in for.
+    const shipped = COMPUTER_MODULES.find((module) => module.id === 'collectResources');
+    expect(shipped?.everyDecisions).toBe(WORKFORCE_EVERY_DECISIONS);
   });
 
   it('gives a non-flagged player zero AI decisions', () => {

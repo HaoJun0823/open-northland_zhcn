@@ -1,9 +1,27 @@
 import { parseContentSet } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
-import { Building, Position, Stockpile, UnderConstruction, Upgrading } from '../../src/components/index.js';
+import {
+  Building,
+  Palisade,
+  Position,
+  Stockpile,
+  UnderConstruction,
+  Upgrading,
+} from '../../src/components/index.js';
 import { GENERATION_JOURNAL_LIMIT } from '../../src/ecs/generation-journal.js';
-import { type Fixed, fx, ONE, positionOfNode, Simulation } from '../../src/index.js';
-import { buildingBlockedLayer, buildingOpenings } from '../../src/systems/footprint/building-blocked-cache.js';
+import {
+  type Entity,
+  type Fixed,
+  fx,
+  ONE,
+  positionOfNode,
+  type ScriptLandscapeType,
+  Simulation,
+} from '../../src/index.js';
+import {
+  buildingBlockedLayer,
+  buildingOpenings,
+} from '../../src/systems/footprint/building-blocked-cache.js';
 import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
 import { buildingBlockedCells, constructionSystem } from '../../src/systems/index.js';
 import { TEST_MANIFEST } from '../fixtures/content.js';
@@ -124,6 +142,68 @@ describe('building blocked layer', () => {
   });
 });
 
+describe('building blocked layer - walls and joint seals', () => {
+  it('follows a wall, a gate swap and a door flipping a joint seal, level with a fresh carve', () => {
+    const sim = mappedSim(palisadeMap());
+    const terrain = terrainOf(sim);
+    const layer = buildingBlockedLayer(sim.world, ctxOf(sim), terrain);
+    const mask = walkBlockMask(sim.world, ctxOf(sim), terrain);
+    const node = (x: number, y: number) => terrain.nodeAt(x, y);
+    /** Settles the layer, then checks it and the mask against fresh derives. */
+    const settled = (): void => {
+      buildingBlockedLayer(sim.world, ctxOf(sim), terrain);
+      expect(sim.world.verifyCaches()).toEqual([]);
+      for (const cell of layer.cells) expect(mask.has(cell)).toBe(true);
+    };
+    const wallAt = (x: number, y: number, gfxIndex = WALL.typeId): Entity => {
+      sim.enqueueSetup({ kind: 'placePalisade', gfxIndex, x, y, tribe: VIKING, underConstruction: false });
+      sim.step();
+      const placed = [...sim.world.query(Palisade)].sort((a, b) => b - a)[0];
+      if (placed === undefined) throw new Error('the palisade stands');
+      return placed;
+    };
+
+    // Two walls on a slanted joint: the step between them is sealed at the corner below the first.
+    wallAt(SEAL_WALL.x, SEAL_WALL.y);
+    const partner = wallAt(SEAL_WALL.x - 1, SEAL_WALL.y + 1);
+    settled();
+    expect(mask.has(node(SEAL_WALL.x, SEAL_WALL.y))).toBe(true);
+    expect(mask.has(node(ODD_CORNER.x, ODD_CORNER.y))).toBe(true);
+    expect(mask.has(node(EVEN_CORNER.x, EVEN_CORNER.y))).toBe(false);
+
+    // A door on the sealed corner keeps it open, so the seal moves to the other corner.
+    const hut = sim.world.create();
+    sim.world.add(hut, Position, positionOfNode(ODD_CORNER.x + 1, ODD_CORNER.y));
+    sim.world.add(hut, Building, { buildingType: HUT, tribe: VIKING, built: ONE, level: 0 });
+    settled();
+    expect(mask.has(node(ODD_CORNER.x, ODD_CORNER.y))).toBe(false);
+    expect(mask.has(node(EVEN_CORNER.x, EVEN_CORNER.y))).toBe(true);
+
+    sim.world.destroy(hut);
+    settled();
+    expect(mask.has(node(ODD_CORNER.x, ODD_CORNER.y))).toBe(true);
+    expect(mask.has(node(EVEN_CORNER.x, EVEN_CORNER.y))).toBe(false);
+
+    sim.world.destroy(partner);
+    settled();
+    expect(mask.has(node(ODD_CORNER.x, ODD_CORNER.y))).toBe(false);
+
+    // A closed gate blocks its whole run; opened, it keeps only the outer posts.
+    const gate = wallAt(GATE.x, GATE.y, CLOSED_GATE.typeId);
+    settled();
+    expect(mask.has(node(GATE.x, GATE.y))).toBe(true);
+    sim.enqueueSetup({ kind: 'setPalisadeGate', palisade: gate, open: true });
+    sim.step();
+    settled();
+    expect(mask.has(node(GATE.x, GATE.y))).toBe(false);
+    expect(mask.has(node(GATE.x + 2, GATE.y))).toBe(true);
+    sim.enqueueSetup({ kind: 'setPalisadeGate', palisade: gate, open: false });
+    sim.step();
+    settled();
+    expect(mask.has(node(GATE.x, GATE.y))).toBe(true);
+  });
+});
+
 describe('building cells index', () => {
   it('re-stamps only the changed building and matches a fresh carve', () => {
     const { sim, home } = twoTierHome();
@@ -228,4 +308,42 @@ function twoTierHome() {
     seeded: new Map<number, number>(),
   });
   return { sim, home, growth: terrainOf(sim).nodeAt(6, 5), door: terrainOf(sim).nodeAt(5, 7) };
+}
+
+/** A wall on an even row: its slanted joint partner stands one row down and one node west. */
+const SEAL_WALL = { x: 8, y: 8 };
+/** The joint's corners: the seal goes below the wall unless that corner is a building opening. */
+const ODD_CORNER = { x: 8, y: 9 };
+const EVEN_CORNER = { x: 7, y: 8 };
+const GATE = { x: 20, y: 20 };
+
+const WALL_STATS = { maxHitpoints: 100, repairPerStrike: 1, construction: [{ goodType: STONE, amount: 1 }] };
+const WALL: ScriptLandscapeType = {
+  typeId: 691,
+  walk: [{ dx: 0, dy: 0 }],
+  build: [{ dx: 0, dy: 0 }],
+  groups: [],
+  wall: WALL_STATS,
+};
+const GATE_RUN = [-2, -1, 0, 1, 2].map((dx) => ({ dx, dy: 0 }));
+const CLOSED_GATE: ScriptLandscapeType = {
+  typeId: 696,
+  walk: GATE_RUN,
+  build: GATE_RUN,
+  groups: [],
+  wall: { ...WALL_STATS, gate: { open: false, counterpartGfxIndex: 700 } },
+};
+const OPEN_GATE: ScriptLandscapeType = {
+  typeId: 700,
+  walk: [
+    { dx: -2, dy: 0 },
+    { dx: 2, dy: 0 },
+  ],
+  build: GATE_RUN,
+  groups: [],
+  wall: { ...WALL_STATS, gate: { open: true, counterpartGfxIndex: 696 } },
+};
+
+function palisadeMap() {
+  return { ...grassNodeMap(32, 32), landscapes: { types: [WALL, CLOSED_GATE, OPEN_GATE], placements: [] } };
 }

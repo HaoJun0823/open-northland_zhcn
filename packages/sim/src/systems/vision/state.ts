@@ -1,5 +1,6 @@
 import { FOG_MODE, type FogMode, MAX_PLAYERS } from '../../components/index.js';
 import { intSqrt } from '../../core/fixed.js';
+import { SMALL_INTEGER_SPAN } from '../../core/small-integer.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { type HalfCellNode, hexDistanceBetween } from '../../nav/halfcell.js';
 import type { TerrainGraph } from '../../nav/terrain/index.js';
@@ -25,8 +26,6 @@ const MASK_BYTE_COUNT = REVEALED_BYTE + 1;
 const FOOTPRINT_RADIUS_SPAN = 1024;
 /** Footprints the stamp memo holds before a pass opening drops them all: a few passes of a crowded map. */
 const FOOTPRINT_MEMO_CAP = 1 << 16;
-/** V8's small-integer range: a footprint key below it is stored and looked up unboxed. */
-const SMALL_INTEGER_SPAN = 2 ** 30;
 
 /** Every player its own vision group: the dense player → group table before any alliance. */
 function ownGroups(): number[] {

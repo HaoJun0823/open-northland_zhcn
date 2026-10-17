@@ -63,12 +63,12 @@ export function craftablePoolInto(
   return size;
 }
 
-/** The products of `recipes` in recipe order, listed once per content recipe map: walking the map's key
- *  iterator would allocate a step result per product per operator per tick. A map whose size moved since
- *  is listed again. */
+/** The products of `recipes` in recipe order, listed once per content recipe map, which never changes
+ *  after load: walking the map's key iterator would allocate a step result per product per operator per
+ *  tick. */
 function productsOfRecipes(recipes: ReadonlyMap<number, Recipe>): readonly number[] {
   const held = productsByRecipes.get(recipes);
-  if (held !== undefined && held.length === recipes.size) return held;
+  if (held !== undefined) return held;
   const goods = [...recipes.keys()];
   productsByRecipes.set(recipes, goods);
   return goods;

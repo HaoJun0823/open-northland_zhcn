@@ -15,7 +15,7 @@ import { type ReachArea, reachBox, reachContains } from '../../nav/range-search.
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import { interactionNode } from '../footprint/interaction.js';
 import { GroupCoverage } from './group-coverage.js';
-import { type SignpostSite, signpostNetwork, signpostNetworkRevision } from './network.js';
+import { type SignpostSite, signpostNetwork, signpostNetworkRevision, spotKey } from './network.js';
 import {
   dropFallenPostReaches,
   GOODS_SEARCH_SPAN,
@@ -64,7 +64,9 @@ interface NetworkReach {
 const SPOT_REACH_CAP = 1024;
 /** Limits per cache generation, so at most twice this many are held: about the distinct spots a late
  *  15-seat game asks within a few hundred ticks. A limit is a few references over a held local search and
- *  shared group coverages, so this bounds the local searches limits keep alive past {@link SPOT_REACH_CAP}. */
+ *  shared group coverages, so this bounds the local searches limits keep alive past {@link SPOT_REACH_CAP}.
+ *  Measured on the 15-seat piec_dolin bench, 2000 ticks from tick 90000: heap at end 554 MB and RSS peak
+ *  1171 MB, against 573 MB and 1503 MB with one 1024-limit map wiped per reach key. */
 const LIMIT_GENERATION_CAP = 4096;
 
 /**
@@ -72,7 +74,7 @@ const LIMIT_GENERATION_CAP = 4096;
  * promotes an old entry, and a full young generation retires the old one whole. Unlike a recency-ordered
  * map, a hit neither deletes nor reinserts, so reads churn no hash table.
  */
-class GenerationalCache<V> {
+export class GenerationalCache<V> {
   private young = new Map<number, V>();
   private old = new Map<number, V>();
 
@@ -317,17 +319,6 @@ export function goodsSearchCatchAt(
   const limit = goodsSearchLimitAt(world, content, terrain, player, hx, hy);
   if (limit === null) return null;
   return { bounds: limit.bounds, allowsNode: (node) => limit.catchesNode(node) };
-}
-
-/** Exclusive bound of a {@link spotKey}: V8's small-integer range, so a lookup boxes no heap number. */
-const SPOT_KEY_SPAN = 1 << 30;
-
-/** A player's spot on the terrain as one small integer, or null off the terrain or past the packable
- *  span, which is answered uncached. */
-function spotKey(terrain: TerrainGraph, player: number, hx: number, hy: number): number | null {
-  if (player < 0 || hx < 0 || hy < 0 || hx >= terrain.width || hy >= terrain.height) return null;
-  const key = (player * terrain.height + hy) * terrain.width + hx;
-  return key < SPOT_KEY_SPAN ? key : null;
 }
 
 /**

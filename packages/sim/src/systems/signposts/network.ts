@@ -11,6 +11,7 @@ import {
   WALK_RANGE_NODES,
 } from '../../components/index.js';
 import { contentIndex } from '../../core/content-index.js';
+import { SMALL_INTEGER_SPAN } from '../../core/small-integer.js';
 import type { Entity, World } from '../../ecs/world.js';
 import {
   hexDistanceBetween,
@@ -656,8 +657,6 @@ interface SpotLimits {
 
 /** Spots held per player before his memo starts over, bounding it on a long-lived network. */
 const SPOT_LIMIT_MEMO_CAP = 8192;
-/** Exclusive bound of a {@link spotKey}: V8's small-integer range, so a lookup boxes no heap number. */
-const SPOT_KEY_SPAN = 1 << 30;
 
 const spotLimitMemos = new WeakMap<World, Map<number, SpotLimits>>();
 
@@ -680,10 +679,11 @@ function spotLimitsOf(
   return memo;
 }
 
-/** The spot's memo key within its player's memo, or null for one off the terrain or past the packable
- *  span, which is derived afresh. */
-function spotKey(terrain: TerrainGraph, range: number, hx: number, hy: number): number | null {
-  if (range < 0 || hx < 0 || hy < 0 || hx >= terrain.width || hy >= terrain.height) return null;
-  const key = (range * terrain.height + hy) * terrain.width + hx;
-  return key < SPOT_KEY_SPAN ? key : null;
+/** A spot on the terrain under a non-negative `lead` (a range, a player) as one small integer, so a memo
+ *  lookup boxes no heap number; null off the terrain or past that span, for the caller to answer
+ *  uncached. */
+export function spotKey(terrain: TerrainGraph, lead: number, hx: number, hy: number): number | null {
+  if (lead < 0 || hx < 0 || hy < 0 || hx >= terrain.width || hy >= terrain.height) return null;
+  const key = (lead * terrain.height + hy) * terrain.width + hx;
+  return key < SMALL_INTEGER_SPAN ? key : null;
 }

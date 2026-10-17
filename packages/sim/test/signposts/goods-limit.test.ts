@@ -15,7 +15,7 @@ import { layRoad, liftRoad } from '../../src/systems/roads/index.js';
 import { signpostLinksSystem } from '../../src/systems/signposts/links.js';
 import { networkLimitAt, signpostNetwork } from '../../src/systems/signposts/network.js';
 import { createSignpost, razeSignpost } from '../../src/systems/signposts/placement.js';
-import { goodsReachAt, goodsSearchLimitAt } from '../../src/systems/signposts/reach.js';
+import { GenerationalCache, goodsReachAt, goodsSearchLimitAt } from '../../src/systems/signposts/reach.js';
 import { warmPostReaches } from '../../src/systems/signposts/terrain-reach.js';
 import { testContent } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -189,6 +189,27 @@ describe('goods search limit', () => {
     expect(signpostNetwork(sim.world).get(0)).toBe(ownPosts);
     const after = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
     expect(after).not.toBe(before);
+    expect(expectLimitMatchesRule(sim, terrain, 0, 20, 30)).toBeGreaterThan(0);
+  });
+
+  it("rebases a held limit across another player's post, then builds anew once an own post moves", () => {
+    const { sim, terrain } = navigableSim(240, 100);
+    createSignpost(sim.world, terrain, terrain.nodeAt(40, 30), 0, sim.content);
+    const moving = createSignpost(sim.world, terrain, terrain.nodeAt(70, 30), 0, sim.content);
+    signpostLinksSystem(sim.world, ctxOf(sim));
+    const first = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
+    createSignpost(sim.world, terrain, terrain.nodeAt(50, 60), 1, sim.content);
+    signpostLinksSystem(sim.world, ctxOf(sim));
+    const rebased = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
+    expect(rebased).not.toBe(first);
+    expect(rebased?.sites).toBe(first?.sites);
+    expect(expectLimitMatchesRule(sim, terrain, 0, 20, 30)).toBeGreaterThan(0);
+
+    razeSignpost(sim.world, moving);
+    createSignpost(sim.world, terrain, terrain.nodeAt(60, 36), 0, sim.content);
+    signpostLinksSystem(sim.world, ctxOf(sim));
+    const moved = goodsSearchLimitAt(sim.world, sim.content, terrain, 0, 20, 30);
+    expect(moved?.sites).not.toBe(first?.sites);
     expect(expectLimitMatchesRule(sim, terrain, 0, 20, 30)).toBeGreaterThan(0);
   });
 
@@ -486,5 +507,31 @@ describe('held goods reach', () => {
     const roadOut = goodsReachAt(sim.world, sim.content, terrain, hx, hy);
     expect(roadOut.cells).toEqual(fresh().cells);
     expect(reachContains(roadOut, hx - 30, hy)).toBe(true);
+  });
+});
+
+describe('generational cache', () => {
+  const CAP = 2;
+
+  it('retires the old generation whole once the young one fills, keeping what a read promoted', () => {
+    const cache = new GenerationalCache<string>(CAP);
+    cache.set(1, 'a');
+    cache.set(2, 'b');
+    cache.set(3, 'c'); // young full: {1, 2} turns old, {3} is young
+    expect(cache.get(1)).toBe('a'); // promoted into the young generation, which is now full
+    cache.set(4, 'd'); // retires {1, 2}; the promoted 1 lives on in the new old generation
+    expect(cache.get(2)).toBeUndefined();
+    expect(cache.get(1)).toBe('a');
+    expect(cache.get(3)).toBe('c');
+    expect(cache.get(4)).toBe('d');
+  });
+
+  it('answers a rewritten key with the young value over a stale old copy', () => {
+    const cache = new GenerationalCache<string>(CAP);
+    cache.set(1, 'old');
+    cache.set(2, 'b');
+    cache.set(3, 'c'); // {1, 2} turns old
+    cache.set(1, 'new');
+    expect(cache.get(1)).toBe('new');
   });
 });

@@ -266,7 +266,7 @@ function heapOf(world: World, e: Entity, spent: Heap | undefined): Heap | null {
   const node = nodeOfPosition(p.x, p.y);
   const units = spent?.units ?? [];
   units.length = 0;
-  addAllUnits(units, stock.amounts);
+  pushAllUnits(units, stock.amounts);
   return { node, bucket: reachBucketOf(node.hx, node.hy), units, seats: [] };
 }
 
@@ -280,8 +280,11 @@ function ownedUnitsOf(world: World, e: Entity, spent: OwnedUnits | undefined): O
   const owned = spent ?? { player, units: [] };
   owned.player = player;
   owned.units.length = 0;
-  if (pile !== undefined) addAllUnits(owned.units, pile);
-  if (saved !== undefined) addAllUnits(owned.units, saved);
+  if (pile !== undefined) pushAllUnits(owned.units, pile);
+  if (saved !== undefined) {
+    if (pile === undefined) pushAllUnits(owned.units, saved);
+    else addAllUnits(owned.units, saved);
+  }
   if (carried !== undefined) addUnits(owned.units, carried.goodType, carried.amount);
   return owned;
 }
@@ -296,15 +299,26 @@ function addUnits(units: Units, good: number, amount: number): void {
   units.push(good, amount);
 }
 
-/** The list {@link addEntry} adds to: `forEach` with one shared callback walks a map without the pair an
- *  entry iterator allocates per good, or a closure per call. */
+/** The list {@link addEntry} and {@link pushEntry} add to: `forEach` with one shared callback walks a map
+ *  without the pair an entry iterator allocates per good, or a closure per call. */
 let addTarget: Units = [];
 const IDLE_TARGET = addTarget;
 const addEntry = (amount: number, good: number): void => addUnits(addTarget, good, amount);
+const pushEntry = (amount: number, good: number): void => {
+  addTarget.push(good, amount);
+};
 
+/** Merge `amounts` into `units`, one scan of `units` per good. */
 function addAllUnits(units: Units, amounts: ReadonlyMap<number, number>): void {
   addTarget = units;
   amounts.forEach(addEntry);
+  addTarget = IDLE_TARGET;
+}
+
+/** {@link addAllUnits} into an empty `units`: a map's goods are unique, so each is appended unscanned. */
+function pushAllUnits(units: Units, amounts: ReadonlyMap<number, number>): void {
+  addTarget = units;
+  amounts.forEach(pushEntry);
   addTarget = IDLE_TARGET;
 }
 

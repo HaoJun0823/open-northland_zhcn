@@ -16,6 +16,7 @@ import { type HalfCellNode, hexDistance } from '../../../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../../../nav/terrain/index.js';
 import { isRangedFighter, weaponMix } from '../../../ai-shared/military/census.js';
 import { enemyPosts, seatRaiders } from '../../../ai-shared/military/defence/index.js';
+import type { Raider } from '../../../ai-shared/military/defence/threat.js';
 import { anchorCentroid } from '../../../ai-shared/node-geometry.js';
 import type { SystemContext } from '../../../context.js';
 import { vehicleAnchor } from '../../../footprint/index.js';
@@ -507,9 +508,9 @@ function fireOver(
     ...post,
     target: post.tower,
   }));
+  const { hx, hy } = wave.centre;
   for (const raider of seatRaiders(world, ctx, terrain, player)) {
-    const near =
-      manhattanOf({ hx: raider.x, hy: raider.y }, wave.centre) <= CHARGE_RADIUS_NODES + raider.reach;
+    const near = Math.abs(raider.x - hx) + Math.abs(raider.y - hy) <= CHARGE_RADIUS_NODES + raider.reach;
     if (near && isRangedFighter(world, ctx, raider.entity)) fire.push({ ...raider, target: raider.entity });
   }
   return fire;
@@ -563,17 +564,21 @@ function chargePoint(
   const standing = nearestMemberNode(world, terrain, wave.centre, wave.members);
   if (standing === null) return null;
   const reachable = terrain.componentOf(standing);
+  const { hx, hy } = wave.centre;
   let near = 0;
-  let best: { at: HalfCellNode; distance: number } | null = null;
+  let best: Raider | null = null;
+  let bestDistance = 0;
   for (const raider of seatRaiders(world, ctx, terrain, player)) {
     if (raider.component !== reachable) continue;
-    const at = { hx: raider.x, hy: raider.y };
-    const distance = manhattanOf(at, wave.centre);
+    const distance = Math.abs(raider.x - hx) + Math.abs(raider.y - hy);
     if (distance > CHARGE_RADIUS_NODES) continue;
     near++;
-    if (best === null || distance < best.distance) best = { at, distance };
+    if (best === null || distance < bestDistance) {
+      best = raider;
+      bestDistance = distance;
+    }
   }
-  return near >= threshold && best !== null ? best.at : null;
+  return near >= threshold && best !== null ? { hx: best.x, hy: best.y } : null;
 }
 
 /** Everybody onto the enemy body: the men into the ring around `point` as a wave marches on its objective,

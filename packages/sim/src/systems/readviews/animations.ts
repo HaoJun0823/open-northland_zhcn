@@ -168,6 +168,9 @@ interface ClipBinding {
 /** The clip join memo, one flat table per content set keyed by {@link clipBindingKey}: the atomic passes
  *  ask it for every running clip each tick, so one lookup replaces a walk down nested tables. */
 const clipBindingTables = new WeakMap<ContentSet, Map<number, ClipBinding>>();
+/** The table of the content set asked last, so a pass over one world skips the weak-map lookup. */
+let lastClipContent: ContentSet | undefined;
+let lastClipTable: Map<number, ClipBinding> | undefined;
 const UNBOUND: ClipBinding = { name: undefined, clip: undefined };
 /** Exclusive bounds of the packed key's fields; an identity outside them is joined unmemoized. The job
  *  field holds `jobType + 1`, so a settler without a trade packs as 0. */
@@ -200,11 +203,13 @@ function clipBindingKey(settler: SettlerIdentity, atomicId: number): number {
 function clipBindingFor(content: ContentSet, settler: SettlerIdentity, atomicId: number): ClipBinding {
   const key = clipBindingKey(settler, atomicId);
   if (key < 0) return joinClipBinding(content, settler, atomicId);
-  let table = clipBindingTables.get(content);
+  let table = content === lastClipContent ? lastClipTable : clipBindingTables.get(content);
   if (table === undefined) {
     table = new Map();
     clipBindingTables.set(content, table);
   }
+  lastClipContent = content;
+  lastClipTable = table;
   let binding = table.get(key);
   if (binding === undefined) {
     binding = joinClipBinding(content, settler, atomicId);

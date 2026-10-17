@@ -74,6 +74,9 @@ export const RACE_SLICE_EXPLORED = 256;
  * foundation just appeared can step off the footprint. It can never step back in.
  *
  * `stats` accumulates settled nodes, including the goal-side search's; the early-out answers settle nothing.
+ * `goalSliceExplored` is the goal side's share of each race round, {@link RACE_SLICE_EXPLORED} by default.
+ * It moves only the settle count, never the answer: the forward search's settle order is the same however
+ * it is paused, and either side's verdict is exact.
  */
 export function findPath(
   graph: TerrainGraph,
@@ -82,6 +85,7 @@ export function findPath(
   blocked?: BlockOverlay,
   stats?: SearchStats,
   traversal: Traversal = 'land',
+  goalSliceExplored = RACE_SLICE_EXPLORED,
 ): NodeId[] | null {
   if (!graph.traversable(start, traversal) || !graph.traversable(goal, traversal)) return null;
   // Already-there wins over the overlay, consistent with the blocked-start exemption.
@@ -113,7 +117,7 @@ export function findPath(
   if (guarded !== 'aborted') return pathOf(guarded);
   for (;;) {
     const goalSide = reverse.advance(
-      Math.min(reverse.explored + RACE_SLICE_EXPLORED, GOAL_EXHAUST_MAX_EXPLORED),
+      Math.min(reverse.explored + goalSliceExplored, GOAL_EXHAUST_MAX_EXPLORED),
     );
     if (goalSide === 'unreachable') return null;
     if (goalSide === 'reachable' || reverse.explored >= GOAL_EXHAUST_MAX_EXPLORED) {

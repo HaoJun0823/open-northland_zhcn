@@ -24,7 +24,7 @@ import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
 import { positionOfNode, positionXOfNode, positionXOfWorld, positionYOfNode } from '../../nav/halfcell.js';
 import { nearestUnblockedNode } from '../../nav/nearest.js';
-import { findPath, type SearchStats } from '../../nav/pathfinding/index.js';
+import { findPath, RACE_SLICE_EXPLORED, type SearchStats } from '../../nav/pathfinding/index.js';
 import type { NodeId, TerrainGraph, Traversal } from '../../nav/terrain/index.js';
 import { ROW_STEP, worldDistance, worldX } from '../../nav/world-metric.js';
 import type { System, SystemContext } from '../context.js';
@@ -53,6 +53,14 @@ import { beginWalkTurn } from './turning.js';
  * routes where possible. Approximation: a tick-time guard, not data-pinned.
  */
 const PATHFINDING_NODE_BUDGET_PER_TICK = 16384;
+
+/**
+ * The goal side's race slice once the tick's budget is spent, when only player orders still route. Past
+ * the budget a settle count cuts nobody, so these searches trade the cost of refuting a sealed goal
+ * (the forward side floods four times the pocket's size) for a long open route's (a quarter of its
+ * remainder in goal-side settles rather than all of it). Authored.
+ */
+const OVER_BUDGET_GOAL_SLICE_EXPLORED = RACE_SLICE_EXPLORED / 4;
 
 /**
  * Drains pending path requests into followable paths, lowest entity id first until the tick's node budget
@@ -92,6 +100,8 @@ class PathDrain {
   private groupRoutes: GroupRoutes | undefined;
   private groupReachability: GroupReachability | undefined;
   readonly spent: SearchStats = { explored: 0 };
+  /** The goal-side race slice of the request being served. */
+  goalSlice = RACE_SLICE_EXPLORED;
 
   constructor(
     private readonly world: World,
@@ -112,6 +122,7 @@ class PathDrain {
   /** Drops every view and claim the drain built, so the next drain starts as a fresh one would. */
   reset(): void {
     this.spent.explored = 0;
+    this.goalSlice = RACE_SLICE_EXPLORED;
     this.mask = undefined;
     this.dynamic = undefined;
     this.units = undefined;
@@ -210,8 +221,8 @@ class PathDrain {
     const borrowed = groupRoutes === undefined ? null : groupRoutes.borrow(overlay, start, goal, spent);
     if (borrowed !== null) return borrowed;
     const path = viaMemo
-      ? memoPath(this.memo, e, this.ctx.tick, start, goal, player, overlay, spent)
-      : resolvePath(this.terrain, start, goal, overlay, spent, traversal);
+      ? memoPath(this.memo, e, this.ctx.tick, start, goal, player, overlay, spent, this.goalSlice)
+      : resolvePath(this.terrain, start, goal, overlay, spent, traversal, this.goalSlice);
     // Only a searched route is offered: offering borrowed ones grows the list each member tries.
     if (path !== null && groupRoutes !== undefined) groupRoutes.offer(overlay, path);
     if (path === null && group && mask !== undefined && !overlay.has(goal)) {
@@ -261,6 +272,7 @@ export function drainPathRequests(
     const playerOrdered = world.has(e, PlayerOrder);
     const overBudget = spent.explored >= nodeBudget;
     if (overBudget && !playerOrdered) continue;
+    drain.goalSlice = overBudget ? OVER_BUDGET_GOAL_SLICE_EXPLORED : RACE_SLICE_EXPLORED;
     const req = world.get(e, PathRequest);
     if (req.failed) continue;
     if (req.grind && movedSinceGrindAsk(world, terrain, e, req.start)) {
@@ -581,9 +593,10 @@ function memoPath(
   player: number,
   blocked: BlockOverlay,
   stats: SearchStats,
+  goalSlice: number,
 ): NodeId[] | null {
   if (!isValidNodeId(memo.terrain, start) || !isValidNodeId(memo.terrain, goal)) return null;
-  return memo.route(e, tick, start, goal, player, blocked, stats);
+  return memo.route(e, tick, start, goal, player, blocked, stats, goalSlice);
 }
 
 /** Run A* for a request; an off-grid `start` or `goal` reads as no route. */
@@ -594,7 +607,8 @@ function resolvePath(
   blocked: BlockOverlay,
   stats: SearchStats,
   traversal: Traversal,
+  goalSlice: number,
 ): NodeId[] | null {
   if (!isValidNodeId(terrain, start) || !isValidNodeId(terrain, goal)) return null;
-  return findPath(terrain, start, goal, blocked, stats, traversal);
+  return findPath(terrain, start, goal, blocked, stats, traversal, goalSlice);
 }

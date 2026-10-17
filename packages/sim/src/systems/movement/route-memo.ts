@@ -1,6 +1,6 @@
 import type { Entity, World } from '../../ecs/world.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
-import { findPath, type SearchStats } from '../../nav/pathfinding/index.js';
+import { findPath, RACE_SLICE_EXPLORED, type SearchStats } from '../../nav/pathfinding/index.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 
 /**
@@ -21,6 +21,8 @@ interface MemoEntry {
   view: number;
   emptyOverlay: boolean;
   roadRevision: number;
+  /** The search's goal-side race slice, which its settle count depends on. */
+  goalSlice: number;
   tick: number;
   path: readonly NodeId[] | null;
   explored: number;
@@ -119,7 +121,8 @@ export class RouteMemo {
   /**
    * {@link findPath} over land for `e` under `blocked`, whose answers must depend only on `view` and the
    * world within the tick. A replayable repeat returns the held path and charges `stats` the settles its
-   * search took, so a budget keyed on them cuts where a fresh search would.
+   * search took, so a budget keyed on them cuts where a fresh search would; a search under another
+   * `goalSlice` settles differently, so only the same slice replays.
    */
   route(
     e: Entity,
@@ -129,6 +132,7 @@ export class RouteMemo {
     view: number,
     blocked: BlockOverlay,
     stats: SearchStats,
+    goalSlice: number = RACE_SLICE_EXPLORED,
   ): NodeId[] | null {
     const emptyOverlay = blocked.size === 0;
     const roadRevision = this.terrain.mirroredRoadRevision;
@@ -140,6 +144,7 @@ export class RouteMemo {
       held.view === view &&
       held.emptyOverlay === emptyOverlay &&
       held.roadRevision === roadRevision &&
+      held.goalSlice === goalSlice &&
       answersHold(held, blocked)
     ) {
       held.tick = tick;
@@ -149,7 +154,7 @@ export class RouteMemo {
     const log = this.log;
     log.begin(blocked);
     const before = stats.explored;
-    const path = findPath(this.terrain, start, goal, log, stats);
+    const path = findPath(this.terrain, start, goal, log, stats, 'land', goalSlice);
     log.inner = undefined;
     const entry = held ?? {
       start,
@@ -157,6 +162,7 @@ export class RouteMemo {
       view,
       emptyOverlay,
       roadRevision,
+      goalSlice,
       tick,
       path: null,
       explored: 0,
@@ -168,6 +174,7 @@ export class RouteMemo {
     entry.view = view;
     entry.emptyOverlay = emptyOverlay;
     entry.roadRevision = roadRevision;
+    entry.goalSlice = goalSlice;
     entry.tick = tick;
     entry.path = path === null ? null : path.slice();
     entry.explored = stats.explored - before;
@@ -197,7 +204,7 @@ export class RouteMemo {
       if (entry.roadRevision !== this.terrain.mirroredRoadRevision) continue;
       const replay = new LogReplay(entry);
       const stats: SearchStats = { explored: 0 };
-      const path = findPath(this.terrain, entry.start, entry.goal, replay, stats);
+      const path = findPath(this.terrain, entry.start, entry.goal, replay, stats, 'land', entry.goalSlice);
       const samePath =
         path === null || entry.path === null
           ? path === entry.path

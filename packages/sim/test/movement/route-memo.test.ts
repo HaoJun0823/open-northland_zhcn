@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Entity } from '../../src/ecs/world.js';
 import { findPath, Simulation } from '../../src/index.js';
 import type { BlockOverlay } from '../../src/nav/block-overlay.js';
-import type { SearchStats } from '../../src/nav/pathfinding/index.js';
+import { RACE_SLICE_EXPLORED, type SearchStats } from '../../src/nav/pathfinding/index.js';
 import { scratchFor } from '../../src/nav/pathfinding/scratch.js';
 import type { NodeId, TerrainGraph } from '../../src/nav/terrain/index.js';
 import { ROUTE_MEMO_TICKS, type RouteMemo, routeMemoOf } from '../../src/systems/movement/route-memo.js';
@@ -68,6 +68,24 @@ function fresh(f: Fixture): { path: NodeId[] | null; explored: number } {
 const searches = (f: Fixture): number => scratchFor(f.terrain, 'forward').query;
 
 describe('route memo', () => {
+  it('replays a search only under the goal-side slice it ran with', () => {
+    const f = fixture();
+    const quarterSlice = RACE_SLICE_EXPLORED / 4;
+    const stats: SearchStats = { explored: 0 };
+    const first = f.memo.route(f.walker, TICK, f.start, f.goal, PLAYER, f.blocked, stats, quarterSlice);
+    expect(f.memo.verify()).toEqual([]);
+    const before = searches(f);
+    const again: SearchStats = { explored: 0 };
+    expect(f.memo.route(f.walker, TICK + 1, f.start, f.goal, PLAYER, f.blocked, again, quarterSlice)).toEqual(
+      first,
+    );
+    expect(searches(f)).toBe(before);
+    expect(again.explored).toBe(stats.explored);
+    // Another slice is another search: the memo answers it fresh.
+    expect(route(f, TICK + 2)).toEqual(fresh(f));
+    expect(searches(f)).toBeGreaterThan(before);
+  });
+
   it('serves a repeat whose asked nodes answer alike, charging the settles without a search', () => {
     const f = fixture();
     const first = route(f, TICK);

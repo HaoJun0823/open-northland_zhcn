@@ -5,7 +5,7 @@ import type { NodeArea } from '../../nav/halfcell.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext } from '../context.js';
 import { type LandscapeBlocks, landscapeBlocks } from '../landscape/view.js';
-import { buildingBlockedLayer } from './building-blocked-cache.js';
+import { buildingBlockedLayer, takeBuildingBlockFlips } from './building-blocked-cache.js';
 import { resourceBlockedLayer, takeResourceBlockFlips } from './resource-blocked-cache.js';
 
 // The union of the building, resource and landscape walk-block layers as one byte per node, levelled
@@ -116,31 +116,22 @@ export class WalkBlockMask implements BlockOverlay {
     const landscape = landscapeBlocks(world, terrain);
     const changed = this.changed;
     changed.length = 0;
+    // Both logs drain on every levelling, so a reread leaves neither holding flips it already covered.
+    const resourcesTracked = takeResourceBlockFlips(world, terrain, changed);
+    const buildingsTracked = takeBuildingBlockFlips(world, terrain, changed);
     const tracked =
-      takeResourceBlockFlips(world, terrain, changed) &&
+      resourcesTracked &&
+      buildingsTracked &&
       held !== null &&
       held.resource === resource &&
-      landscapeChangesSince(held.landscape, landscape, changed);
-    if (
-      held !== null &&
-      tracked &&
       held.building === building &&
-      held.landscape === landscape &&
-      changed.length === 0
-    ) {
-      return;
-    }
+      landscapeChangesSince(held.landscape, landscape, changed);
+    if (held !== null && tracked && held.landscape === landscape && changed.length === 0) return;
     const layers: WalkBlockLayers = { building, resource, landscape };
     this.layers = layers;
     if (held === null || !tracked) {
       this.reread(layers);
       return;
-    }
-    const heldBuildings = held.building.cells;
-    const buildings = building.cells;
-    if (heldBuildings !== buildings) {
-      for (const node of heldBuildings) if (!buildings.has(node)) changed.push(node);
-      for (const node of buildings) if (!heldBuildings.has(node)) changed.push(node);
     }
     if (changed.length === 0) return;
     const overlay = layersOverlay(layers);

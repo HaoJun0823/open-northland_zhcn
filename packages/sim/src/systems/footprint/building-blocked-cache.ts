@@ -11,18 +11,45 @@ import { standingWallCells, wallJointSeals } from './wall-joints.js';
 // The memoized per-world cache of cells standing buildings make unwalkable, plus its coherence verifier -
 // the building twin of ./resource-blocked-cache.ts.
 
+/**
+ * The building bodies with the walls and their joint seals, kept per world and terrain: a building change
+ * re-settles the nodes the {@link BuildingCellsIndex} flipped, and a wall or door change those its wall
+ * cells gained or lost, so the cells are edited in place rather than copied per change.
+ */
 interface BuildingBlockedCache extends CountedCells {
-  /** The {@link BuildingCellsIndex} revision the cells were derived at. */
-  readonly buildingRevision: number;
+  /** The {@link BuildingCellsIndex} revision the cells were settled at. */
+  buildingRevision: number;
+  /** The index's openings revision the {@link seals} were derived at. */
+  openingsRevision: number;
   /** Palisade and PalisadeBlocking membership generations: a wall or a shut gate blocks its walk cells.
    *  Its cells and gate state change only by a re-add; the in-place writes are a claim and build progress. */
-  readonly palisadeMembershipGeneration: number;
-  readonly palisadeBlockingGeneration: number;
+  palisadeMembershipGeneration: number;
+  palisadeBlockingGeneration: number;
   readonly content: ContentSet;
   readonly terrain: TerrainGraph;
   readonly cells: Set<NodeId>;
-  /** 1 on {@link cells}, else 0. One array per world and terrain, restamped by each rebuild. */
+  /** 1 on {@link cells}, else 0. */
   readonly counts: Uint16Array;
+  /** What {@link buildingBlockedCells} hands out: a view minted per settle, whose identity keys the
+   *  caches over it as a fresh set did. */
+  view: ReadonlySet<NodeId>;
+  /** The standing walls' cells, as of the palisade generations. */
+  walls: ReadonlySet<NodeId>;
+  /** The wall joint seals, as of the palisade generations and the openings revision. */
+  seals: ReadonlySet<NodeId>;
+  /** The nodes that entered or left {@link cells} since {@link takeBuildingBlockFlips} last drained them,
+   *  for its one reader; a node may repeat. Past {@link FLIP_LOG_CAP} entries the log is dropped and
+   *  marked lost, so a cache nobody drains stays bounded. */
+  readonly flips: NodeId[];
+  flipsLost: boolean;
+}
+
+const FLIP_LOG_CAP = 8192;
+
+function logFlip(log: NodeId[], node: NodeId): boolean {
+  if (log.length >= FLIP_LOG_CAP) return false;
+  log.push(node);
+  return true;
 }
 
 const buildingBlockedCache = new WeakMap<World, BuildingBlockedCache>();
@@ -170,7 +197,7 @@ function deriveBuildingCells(world: World, content: ContentSet, terrain: Terrain
 }
 
 /** Walls go in after the door subtraction, so an authored overlap cannot punch a door-shaped hole through
- *  a palisade. */
+ *  a palisade. The verifier's fresh derivation of {@link BuildingBlockedCache.cells}. */
 function withWalls(world: World, terrain: TerrainGraph, buildings: BuildingCells): Set<NodeId> {
   const blocked = new Set(buildings.blocked);
   const walls = standingWallCells(world, terrain);
@@ -224,6 +251,12 @@ class BuildingCellsIndex implements BuildingCells {
   readonly openings = new Set<NodeId>();
   /** Moves whenever {@link blocked} or {@link openings} changes, and on every full re-stamp. */
   revision = 0;
+  /** Moves whenever {@link openings} changes, and on every full re-stamp. */
+  openingsRevision = 0;
+  /** The nodes that entered or left {@link blocked} since {@link takeBlockedFlips} last drained them, for
+   *  its one reader, the blocked layer; a node may repeat. */
+  private readonly blockedFlips: NodeId[] = [];
+  private blockedFlipsLost = true;
   private membershipGeneration = 0;
   private valueGeneration = 0;
   private readonly bodyCounts: Uint16Array;
@@ -283,6 +316,19 @@ class BuildingCellsIndex implements BuildingCells {
     this.membershipGeneration = world.componentGeneration(Building);
     this.valueGeneration = world.componentValueGeneration(Building);
     this.revision++;
+    this.openingsRevision++;
+    this.blockedFlips.length = 0;
+    this.blockedFlipsLost = true;
+  }
+
+  /** Move the nodes {@link blocked} gained or lost since the previous call into `into`, returning false
+   *  when a full re-stamp or an overflowing log came in between, so the reader must re-read the set. */
+  takeBlockedFlips(into: NodeId[]): boolean {
+    const kept = !this.blockedFlipsLost;
+    if (kept) for (let i = 0; i < this.blockedFlips.length; i++) into.push(this.blockedFlips[i] as NodeId);
+    this.blockedFlips.length = 0;
+    this.blockedFlipsLost = false;
+    return kept;
   }
 
   /** Move `e`'s stamp to the body its live building carves, keeping a body whose footprint and anchor
@@ -326,6 +372,7 @@ class BuildingCellsIndex implements BuildingCells {
       if (count > 0) this.openings.add(cell);
       else this.openings.delete(cell);
       this.revision++;
+      this.openingsRevision++;
     }
   }
 
@@ -335,6 +382,10 @@ class BuildingCellsIndex implements BuildingCells {
     if (blocked) this.blocked.add(cell);
     else this.blocked.delete(cell);
     this.revision++;
+    if (!this.blockedFlipsLost && !logFlip(this.blockedFlips, cell)) {
+      this.blockedFlips.length = 0;
+      this.blockedFlipsLost = true;
+    }
   }
 }
 
@@ -394,7 +445,7 @@ function verifyBuildingBlockedCache(world: World, content: ContentSet, terrain: 
     cached.buildingRevision !== index.revision ||
     !palisadesUnchanged(world, cached)
   ) {
-    return []; // stale key - the next read rebuilds, nothing can consume the old cells
+    return []; // stale key - the next read settles, nothing can consume the old cells
   }
   const fresh = withWalls(world, terrain, deriveBuildingCells(world, content, terrain));
   if (!sameCells(cached.cells, fresh)) {
@@ -420,16 +471,16 @@ function verifyBuildingBlockedCache(world: World, content: ContentSet, terrain: 
  *
  * Derived state, never hashed. Memoized per world on the Building store's membership generation, the
  * buildings' types and the wall membership generations, so building progress, a wall claim and a wall's
- * build keep it. A rebuild returns a new set, so its identity keys dependent caches. The returned set is
- * the SHARED cached copy: membership reads only. A set union and a door subtraction, neither with a pick,
- * so store-iteration order cannot change it.
+ * build keep it. Each change hands out a new view over the live cells, so its identity keys dependent
+ * caches; read it, never keep it past a building or wall change. A set union and a door subtraction,
+ * neither with a pick, so store-iteration order cannot change it.
  */
 export function buildingBlockedCells(
   world: World,
   ctx: ContentContext,
   terrain: TerrainGraph,
 ): ReadonlySet<NodeId> {
-  return buildingBlockedLayer(world, ctx, terrain).cells;
+  return blockedCache(world, ctx, terrain).view;
 }
 
 /** The nodes a building's body covers, its doors and walls left out. The shared cached set:
@@ -444,39 +495,154 @@ export function buildingBodyCells(
 
 /** {@link buildingBlockedCells} with its per-node counts, for the dynamic overlay. */
 export function buildingBlockedLayer(world: World, ctx: ContentContext, terrain: TerrainGraph): CountedCells {
+  return blockedCache(world, ctx, terrain);
+}
+
+/** `world`'s blocked layer on `terrain`, settled now. */
+function blockedCache(world: World, ctx: ContentContext, terrain: TerrainGraph): BuildingBlockedCache {
   const buildings = buildingCells(world, ctx.content, terrain);
-  const cached = buildingBlockedCache.get(world);
-  if (
-    cached !== undefined &&
-    cached.terrain === terrain &&
-    cached.content === ctx.content &&
-    cached.buildingRevision === buildings.revision &&
-    palisadesUnchanged(world, cached)
-  ) {
-    return cached;
+  const cache = buildingBlockedCache.get(world);
+  if (cache === undefined || cache.terrain !== terrain || cache.content !== ctx.content) {
+    const cells = new Set<NodeId>();
+    const created: BuildingBlockedCache = {
+      buildingRevision: -1,
+      openingsRevision: -1,
+      palisadeMembershipGeneration: -1,
+      palisadeBlockingGeneration: -1,
+      content: ctx.content,
+      terrain,
+      cells,
+      counts: new Uint16Array(terrain.nodeCount),
+      view: new CellsView(cells),
+      walls: NO_NODES,
+      seals: NO_NODES,
+      flips: [],
+      flipsLost: true,
+    };
+    buildingBlockedCache.set(world, created);
+    world.registerCacheVerifier('buildingBlockedCells', () =>
+      verifyBuildingBlockedCache(world, ctx.content, terrain),
+    );
+    settleLayer(world, terrain, buildings, created, false);
+    return created;
+  }
+  if (cache.buildingRevision === buildings.revision && palisadesUnchanged(world, cache)) return cache;
+  settleLayer(world, terrain, buildings, cache, true);
+  return cache;
+}
+
+const NO_NODES: ReadonlySet<NodeId> = new Set();
+
+/** A read-only window on a live node set. */
+class CellsView implements ReadonlySet<NodeId> {
+  constructor(private readonly cells: ReadonlySet<NodeId>) {}
+
+  get size(): number {
+    return this.cells.size;
   }
 
-  const cells = withWalls(world, terrain, buildings);
-  let counts: Uint16Array;
-  if (cached?.terrain === terrain) {
-    counts = cached.counts;
-    for (const cell of cached.cells) counts[cell] = 0;
-  } else {
-    counts = new Uint16Array(terrain.nodeCount);
+  has(node: NodeId): boolean {
+    return this.cells.has(node);
   }
-  for (const cell of cells) counts[cell] = 1;
-  const cache: BuildingBlockedCache = {
-    buildingRevision: buildings.revision,
-    palisadeMembershipGeneration: world.componentGeneration(Palisade),
-    palisadeBlockingGeneration: world.componentGeneration(PalisadeBlocking),
-    content: ctx.content,
-    terrain,
-    cells,
-    counts,
-  };
-  buildingBlockedCache.set(world, cache);
-  world.registerCacheVerifier('buildingBlockedCells', () =>
-    verifyBuildingBlockedCache(world, ctx.content, terrain),
-  );
-  return cache;
+
+  values(): SetIterator<NodeId> {
+    return this.cells.values();
+  }
+
+  keys(): SetIterator<NodeId> {
+    return this.cells.keys();
+  }
+
+  entries(): SetIterator<[NodeId, NodeId]> {
+    return this.cells.entries();
+  }
+
+  [Symbol.iterator](): SetIterator<NodeId> {
+    return this.cells.values();
+  }
+
+  forEach(visit: (value: NodeId, key: NodeId, set: ReadonlySet<NodeId>) => void): void {
+    for (const node of this.cells) visit(node, node, this);
+  }
+}
+
+/** Scratch: the nodes one settle re-tests. */
+const settleNodes: NodeId[] = [];
+
+/** Bring `cache` level with the building index and the walls: the nodes the index flipped and those the
+ *  re-derived walls and seals gained or lost, or every node when the index lost its flips or the cache
+ *  never `settled` before. */
+function settleLayer(
+  world: World,
+  terrain: TerrainGraph,
+  buildings: BuildingCellsIndex,
+  cache: BuildingBlockedCache,
+  settled: boolean,
+): void {
+  const nodes = settleNodes;
+  nodes.length = 0;
+  const tracked = buildings.takeBlockedFlips(nodes) && settled;
+  const palisadesMoved = !palisadesUnchanged(world, cache);
+  if (palisadesMoved || !tracked || cache.openingsRevision !== buildings.openingsRevision) {
+    const standing = standingWallCells(world, terrain);
+    if (palisadesMoved || !tracked) {
+      const walls = new Set(standing.walls);
+      listDifference(cache.walls, walls, nodes);
+      cache.walls = walls;
+    }
+    const seals = wallJointSeals(terrain, standing, standing.walls, buildings.openings);
+    listDifference(cache.seals, seals, nodes);
+    cache.seals = seals;
+  }
+  if (tracked) {
+    for (let i = 0; i < nodes.length; i++) settleNode(cache, buildings, nodes[i] as NodeId);
+  } else {
+    for (const node of cache.cells) cache.counts[node] = 0;
+    cache.cells.clear();
+    for (const node of buildings.blocked) settleNode(cache, buildings, node);
+    for (const node of cache.walls) settleNode(cache, buildings, node);
+    for (const node of cache.seals) settleNode(cache, buildings, node);
+    cache.flips.length = 0;
+    cache.flipsLost = true;
+  }
+  nodes.length = 0;
+  cache.view = new CellsView(cache.cells);
+  cache.buildingRevision = buildings.revision;
+  cache.openingsRevision = buildings.openingsRevision;
+  cache.palisadeMembershipGeneration = world.componentGeneration(Palisade);
+  cache.palisadeBlockingGeneration = world.componentGeneration(PalisadeBlocking);
+}
+
+/** Append to `into` every node in exactly one of `held` and `fresh`. */
+function listDifference(held: ReadonlySet<NodeId>, fresh: ReadonlySet<NodeId>, into: NodeId[]): void {
+  for (const node of held) if (!fresh.has(node)) into.push(node);
+  for (const node of fresh) if (!held.has(node)) into.push(node);
+}
+
+/** Set `node`'s membership to the union of the building bodies, the walls and the seals, logging a flip. */
+function settleNode(cache: BuildingBlockedCache, buildings: BuildingCellsIndex, node: NodeId): void {
+  const blocked = buildings.blocked.has(node) || cache.walls.has(node) || cache.seals.has(node);
+  if (blocked === cache.cells.has(node)) return;
+  if (blocked) cache.cells.add(node);
+  else cache.cells.delete(node);
+  cache.counts[node] = blocked ? 1 : 0;
+  if (!cache.flipsLost && !logFlip(cache.flips, node)) {
+    cache.flips.length = 0;
+    cache.flipsLost = true;
+  }
+}
+
+/**
+ * Move the nodes {@link buildingBlockedLayer}'s cells gained or lost since the previous call into `into`,
+ * returning false when the log was dropped in between or no layer exists, so the reader must re-read the
+ * whole layer. One reader per world: the walk-block mask's levelling.
+ */
+export function takeBuildingBlockFlips(world: World, terrain: TerrainGraph, into: NodeId[]): boolean {
+  const cache = buildingBlockedCache.get(world);
+  if (cache === undefined || cache.terrain !== terrain) return false;
+  const kept = !cache.flipsLost;
+  if (kept) for (let i = 0; i < cache.flips.length; i++) into.push(cache.flips[i] as NodeId);
+  cache.flips.length = 0;
+  cache.flipsLost = false;
+  return kept;
 }

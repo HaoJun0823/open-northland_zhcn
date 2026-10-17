@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { Building, Position, Stockpile, UnderConstruction, Upgrading } from '../../src/components/index.js';
 import { GENERATION_JOURNAL_LIMIT } from '../../src/ecs/generation-journal.js';
 import { type Fixed, fx, ONE, positionOfNode, Simulation } from '../../src/index.js';
-import { buildingOpenings } from '../../src/systems/footprint/building-blocked-cache.js';
+import { buildingBlockedLayer, buildingOpenings } from '../../src/systems/footprint/building-blocked-cache.js';
+import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
 import { buildingBlockedCells, constructionSystem } from '../../src/systems/index.js';
 import { TEST_MANIFEST } from '../fixtures/content.js';
 import { ctxOf } from '../fixtures/context.js';
@@ -100,6 +101,25 @@ describe('buildingBlockedCells memo', () => {
     // The same write through the seam - logged, so the next read rebuilds.
     sim.world.mut(home, Building).buildingType = HOME_L;
     buildingBlockedCells(sim.world, ctxOf(sim), terrainOf(sim));
+    expect(sim.world.verifyCaches()).toEqual([]);
+  });
+});
+
+describe('building blocked layer', () => {
+  it('edits one live set and hands the walk mask the nodes that flipped', () => {
+    const sim = mappedSim();
+    const terrain = terrainOf(sim);
+    const layer = buildingBlockedLayer(sim.world, ctxOf(sim), terrain);
+    const mask = walkBlockMask(sim.world, ctxOf(sim), terrain);
+    const body = terrain.nodeAt(ANCHOR.x, ANCHOR.y);
+    const hut = sim.world.create();
+    sim.world.add(hut, Position, positionOfNode(ANCHOR.x, ANCHOR.y));
+    sim.world.add(hut, Building, { buildingType: HUT, tribe: VIKING, built: ONE, level: 0 });
+    expect(mask.has(body)).toBe(true);
+    expect(buildingBlockedLayer(sim.world, ctxOf(sim), terrain).cells).toBe(layer.cells);
+    sim.world.destroy(hut);
+    expect(mask.has(body)).toBe(false);
+    expect(layer.cells.size).toBe(0);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 });

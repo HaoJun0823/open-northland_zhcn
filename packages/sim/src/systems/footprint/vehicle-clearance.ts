@@ -8,11 +8,11 @@ import { HEX_NEIGHBOUR_OFFSETS, hexDistanceBetween, nodeOfPosition } from '../..
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { ContentContext } from '../context.js';
 import { type LandscapeBlocks, landscapeBlocks } from '../landscape/view.js';
-import { dynamicBlockOverlay } from './blocked.js';
 import { buildingBlockedCells } from './building-blocked-cache.js';
 import { buildingFootprintOf, translatedCells } from './geometry.js';
 import { resourceBlockedCells } from './resource-blocked-cache.js';
 import { tryFootprintCellsOf } from './resource-footprint-cells.js';
+import { walkBlockMask } from './walk-block-mask.js';
 import { standingWallCells } from './wall-joints.js';
 
 // The per-world free-size classes vehicles stand by and ships route by, over the ground walk-block
@@ -58,8 +58,10 @@ const ignoreChange = (): void => {};
 /** A wall's gate swing and finish re-add `Palisade` or `PalisadeBlocking`, so membership journals see them. */
 const SOURCES: readonly Component<unknown>[] = [Building, ResourceFootprint, Palisade, PalisadeBlocking];
 
+/** The probe over the walk-block mask as levelled now: a recompute writes no entity, so it stays current
+ *  for the pass that reads it. */
 function probeOf(world: World, ctx: ContentContext, terrain: TerrainGraph): ClearanceProbe {
-  const blocked = dynamicBlockOverlay(world, ctx, terrain);
+  const blocked = walkBlockMask(world, ctx, terrain).levelled();
   return (node) => (terrain.isWalkable(node) || terrain.isWater(node)) && !blocked.has(node);
 }
 

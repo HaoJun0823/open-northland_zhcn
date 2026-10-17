@@ -94,11 +94,11 @@ describe('ClearanceField', () => {
     };
     field.recompute(counted, new Set([first]));
     expectMatchesDefinition(graph, field, open);
-    // Local: the scan reaches 2 * (cap + 1) rings around the change, a few hundred nodes of a 1600-node
-    // map, and each is probed a bounded number of times.
-    const scanRing = 2 * (MAX_CLEARANCE_CLASS + 1);
+    // Local: the scan reaches cap + 1 rings around the change, a few hundred nodes of a 1600-node map,
+    // and each is probed once.
+    const scanRing = MAX_CLEARANCE_CLASS + 1;
     const scanNodes = hexDisc({ hx: 20, hy: 20 }, scanRing).length;
-    expect(probes).toBeLessThan(scanNodes * 9);
+    expect(probes).toBe(scanNodes);
     expect(scanNodes).toBeLessThan(graph.nodeCount);
 
     wall.add(second);
@@ -153,4 +153,43 @@ describe('ClearanceField', () => {
       expect(revision, `class ${k + 1}`).toBeGreaterThan(built[k] ?? 0);
     expectMatchesDefinition(graph, field, open);
   });
+
+  it('lands every batch of a long run of local recomputes on the fresh build, on land and water', () => {
+    // 30x30 cells, a water column at cell 12: two banks and a strait, so posts hem across components.
+    const graph = buildTerrainGraph(testContent(), waterColumnMap(30, 30, 12));
+    const blocked = new Set<NodeId>();
+    const open = (n: NodeId): boolean => (graph.isWalkable(n) || graph.isWater(n)) && !blocked.has(n);
+    const field = new ClearanceField(graph, open);
+    // A fixed Lehmer walk, exact in doubles, so the run is the same on every machine.
+    let state = RANDOM_SEED;
+    const nextNode = (): NodeId => {
+      state = (state * LEHMER_MULTIPLIER) % LEHMER_MODULUS;
+      return (state % graph.nodeCount) as NodeId;
+    };
+    for (let batch = 0; batch < RANDOM_BATCHES; batch++) {
+      const changed = new Set<NodeId>();
+      for (let i = 0; i <= batch % RANDOM_BATCH_SPREAD; i++) {
+        const node = nextNode();
+        if (blocked.has(node)) blocked.delete(node);
+        else blocked.add(node);
+        changed.add(node);
+      }
+      field.recompute(open, changed);
+      const fresh = new ClearanceField(graph, open);
+      for (let node = 0; node < graph.nodeCount; node++) {
+        const id = node as NodeId;
+        if (field.classOf(id) !== fresh.classOf(id)) {
+          expect.fail(`batch ${batch}: node ${node} holds ${field.classOf(id)}, fresh ${fresh.classOf(id)}`);
+        }
+      }
+    }
+  });
 });
+
+const RANDOM_SEED = 12345;
+const LEHMER_MULTIPLIER = 48271;
+const LEHMER_MODULUS = 2 ** 31 - 1;
+/** Batches the random run recomputes, each checked against a fresh build. */
+const RANDOM_BATCHES = 120;
+/** A batch toggles 1 to this many posts, so discs overlap and edges clip them. */
+const RANDOM_BATCH_SPREAD = 6;

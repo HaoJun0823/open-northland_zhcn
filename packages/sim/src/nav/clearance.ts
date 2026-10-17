@@ -15,10 +15,12 @@ export type ClearanceProbe = (node: NodeId) => boolean;
 /** The class of a node no open node hemmed in within the cap, and of a node that is not open itself. */
 const UNREACHED = -1;
 
-/** How far a change reaches in the result: a node's class depends on the points this close to it. */
-const REWRITE_RADIUS = MAX_CLEARANCE_CLASS + 1;
-/** How far a change reaches in the scan: the rewritten disc's radius again beyond it. */
-const SCAN_RADIUS = 2 * REWRITE_RADIUS;
+/** How far a change reaches in the result: a hemming point d steps from a node caps its class at d - 1,
+ *  so past the cap's own distance none moves a class. */
+const REWRITE_RADIUS = MAX_CLEARANCE_CLASS;
+/** How far a local recompute scans: the rewritten disc and the ring just past it, whose nodes keep their
+ *  classes and seed the walk inward with them. */
+const SCAN_RADIUS = REWRITE_RADIUS + 1;
 /** Disc stamps are Uint16; on the wrap the stamps clear so no stale slot matches a reused generation. */
 const MAX_DISC_GENERATION = 0xffff;
 /** Map points in a hexagon disc of the scan radius: `1 + 3 r (r + 1)`. */
@@ -30,6 +32,8 @@ const INITIAL_QUEUE_CAPACITY = 1024;
 const MAX_RETAINED_CAPACITY = 1 << 16;
 
 const NEIGHBOURS = HEX_DY.length;
+/** A node's {@link ClearanceField} neighbour bits when every neighbour is on the map and of its component. */
+const ALL_JOINED = (1 << NEIGHBOURS) - 1;
 
 function neighbourDxOf(y: number): readonly number[] {
   return (y & 1) !== 0 ? HEX_DX_ODD : HEX_DX_EVEN;
@@ -55,16 +59,28 @@ function withRoom(buffer: Int32Array, used: number): Int32Array {
  * distance grows by one per ring inward. A hemming point at hexagon distance d from a node puts an open
  * node of distance d-1 on the shortest walk toward it, so the breadth-first distance is exactly the
  * disc radius. {@link recompute} over a region redoes only that region: a node's class depends on the
- * points within `MAX_CLEARANCE_CLASS + 1` of it, so a change at a point reaches twice that far in the
- * scan and once that far in the result.
+ * points within {@link MAX_CLEARANCE_CLASS} of it, so a change rewrites the nodes that close to it, and
+ * the ring one step farther, whose classes the change cannot reach, seeds the walk into them at the
+ * distance it holds. `probe` is read once per scanned node.
  */
 export class ClearanceField {
   private readonly classes: Uint8Array;
   /** Breadth-first distance, -1 to {@link MAX_CLEARANCE_CLASS}. */
   private readonly distance: Int8Array;
-  /** The breadth-first queue, its first {@link queued} slots live; doubles when full. */
-  private queue: Int32Array = new Int32Array(INITIAL_QUEUE_CAPACITY);
-  private queued = 0;
+  /** The probe's answer per scanned node, read once per pass: 1 open, 0 not. */
+  private readonly open: Uint8Array;
+  /** Per node, bit i set when its i-th neighbour (in `HEX_DY` order) is on the map and of its static
+   *  component, so the hot loops test neither. Static, like the components. */
+  private readonly joined: Uint8Array;
+  /** Per row parity, even then odd, the node-id step to each neighbour. */
+  private readonly steps: readonly [Int32Array, Int32Array];
+  /** The breadth-first walk's nodes per distance below the cap, the first {@link levelSizes} slots of each
+   *  live; a node at the cap leads nowhere, so it is never queued. */
+  private readonly levels: Int32Array[] = Array.from(
+    { length: MAX_CLEARANCE_CLASS },
+    () => new Int32Array(INITIAL_QUEUE_CAPACITY),
+  );
+  private readonly levelSizes = new Int32Array(MAX_CLEARANCE_CLASS);
   /** The last local recompute's scan disc, its first {@link discSize} slots: its nodes, each stamped with
    *  the generation and its map-point depth from the nearest change, so membership and the rewrite cut
    *  are array reads. */
@@ -83,6 +99,13 @@ export class ClearanceField {
   ) {
     this.classes = new Uint8Array(graph.nodeCount);
     this.distance = new Int8Array(graph.nodeCount);
+    this.open = new Uint8Array(graph.nodeCount);
+    const { width } = graph;
+    this.steps = [
+      Int32Array.from(HEX_DX_EVEN, (dx, i) => (HEX_DY[i] ?? 0) * width + dx),
+      Int32Array.from(HEX_DX_ODD, (dx, i) => (HEX_DY[i] ?? 0) * width + dx),
+    ];
+    this.joined = joinedNeighbours(graph);
     this.discStamps = new Uint16Array(graph.nodeCount);
     this.discDepths = new Uint8Array(graph.nodeCount);
     this.recompute(probe, null);
@@ -102,76 +125,107 @@ export class ClearanceField {
   }
 
   /**
-   * Recompute the classes of every node within `MAX_CLEARANCE_CLASS + 1` of `changed`, or of the whole
-   * map for null. The scan region reaches twice as far so every hemming point that can decide a
-   * rewritten class is inside it; the breadth-first walk stays inside the scan region, which is
-   * exact because a shortest walk of length at most the cap from a rewritten node never leaves it.
+   * Recompute the classes of every node within {@link MAX_CLEARANCE_CLASS} of `changed`, or of the whole
+   * map for null. The ring one step past that keeps its classes, which no change reached, and enters the
+   * walk at them: any walk out of the rewritten disc crosses that ring, so the distances inside come out
+   * as a whole-map walk would leave them.
    */
   recompute(probe: ClearanceProbe, changed: ReadonlySet<NodeId> | null): void {
-    const { graph } = this;
-    const distance = this.distance;
+    const { graph, open } = this;
     // Past the point where the changes' scan discs outnumber the map, one full pass is the cheaper scan.
     const local = changed !== null && changed.size * SCAN_DISC_NODES < graph.nodeCount;
-    if (local) this.markDisc(changed);
-    const { disc, discStamps, discDepths } = this;
-    const discSize = this.discSize;
-    const scanned = this.discGeneration;
-
-    this.queued = 0;
+    this.levelSizes.fill(0);
     if (local) {
-      for (let i = 0; i < discSize; i++) this.seed((disc[i] ?? 0) as NodeId, probe);
-    } else {
-      for (let node = 0 as NodeId; node < graph.nodeCount; node++) this.seed(node, probe);
-    }
-    // Seeds and discoveries append behind the cursor, so the walk is breadth-first.
-    for (let at = 0; at < this.queued; at++) {
-      // The queue is read through `this`: an enqueue may replace it with a larger one.
-      const current = (this.queue[at] ?? 0) as NodeId;
-      const next = (distance[current] ?? 0) + 1;
-      if (next > MAX_CLEARANCE_CLASS) continue;
-      const x = graph.xOf(current);
-      const y = graph.yOf(current);
-      const component = graph.componentOf(current);
-      const dxs = neighbourDxOf(y);
-      for (let i = 0; i < NEIGHBOURS; i++) {
-        const nx = x + (dxs[i] ?? 0);
-        const ny = y + (HEX_DY[i] ?? 0);
-        if (!graph.inBounds(nx, ny)) continue;
-        const neighbour = graph.nodeAt(nx, ny);
-        if ((local && discStamps[neighbour] !== scanned) || distance[neighbour] !== UNREACHED) continue;
-        if (!probe(neighbour) || graph.componentOf(neighbour) !== component) continue;
-        distance[neighbour] = next;
-        this.enqueue(neighbour);
-      }
-    }
-    if (local) {
+      this.markDisc(changed);
+      const { disc, discDepths } = this;
+      const discSize = this.discSize;
       for (let i = 0; i < discSize; i++) {
         const node = (disc[i] ?? 0) as NodeId;
-        if ((discDepths[node] ?? SCAN_RADIUS) <= REWRITE_RADIUS) this.write(node, probe);
+        open[node] = probe(node) ? 1 : 0;
+      }
+      for (let i = 0; i < discSize; i++) {
+        const node = (disc[i] ?? 0) as NodeId;
+        if ((discDepths[node] ?? SCAN_RADIUS) <= REWRITE_RADIUS) this.seed(node);
+        else this.seedFromHeld(node);
+      }
+      this.walk(true);
+      for (let i = 0; i < discSize; i++) {
+        const node = (disc[i] ?? 0) as NodeId;
+        if ((discDepths[node] ?? SCAN_RADIUS) <= REWRITE_RADIUS) this.write(node);
       }
     } else {
-      for (let node = 0 as NodeId; node < graph.nodeCount; node++) this.write(node, probe);
+      for (let node = 0 as NodeId; node < graph.nodeCount; node++) open[node] = probe(node) ? 1 : 0;
+      for (let node = 0 as NodeId; node < graph.nodeCount; node++) this.seed(node);
+      this.walk(false);
+      for (let node = 0 as NodeId; node < graph.nodeCount; node++) this.write(node);
     }
-    if (this.queue.length > MAX_RETAINED_CAPACITY) this.queue = new Int32Array(INITIAL_QUEUE_CAPACITY);
+    for (let level = 0; level < MAX_CLEARANCE_CLASS; level++) {
+      if ((this.levels[level]?.length ?? 0) > MAX_RETAINED_CAPACITY) {
+        this.levels[level] = new Int32Array(INITIAL_QUEUE_CAPACITY);
+      }
+    }
     if (this.disc.length > MAX_RETAINED_CAPACITY) this.disc = new Int32Array(INITIAL_QUEUE_CAPACITY);
   }
 
-  /** Start `node`'s breadth-first distance: 0 and queued for an open node a hemming point touches. */
-  private seed(node: NodeId, probe: ClearanceProbe): void {
-    const hemmed = probe(node) && this.hemmed(node, probe);
-    this.distance[node] = hemmed ? 0 : UNREACHED;
-    if (hemmed) this.enqueue(node);
+  /** Walk the queued levels outward in distance order, settling each node the first time a level reaches
+   *  it: open, of the walking node's component, unsettled, and in the rewritten disc of a `local` pass. */
+  private walk(local: boolean): void {
+    const { graph, distance, open, joined, steps, discStamps, discDepths, levels, levelSizes } = this;
+    const { width } = graph;
+    const scanned = this.discGeneration;
+    for (let level = 0; level < MAX_CLEARANCE_CLASS; level++) {
+      const next = level + 1;
+      // The level's queue is read through `levels`: a discovery one level up may replace that queue only.
+      const queue = levels[level] as Int32Array;
+      const size = levelSizes[level] ?? 0;
+      for (let at = 0; at < size; at++) {
+        const current = queue[at] ?? 0;
+        const bits = joined[current] ?? 0;
+        const step = steps[Math.floor(current / width) & 1] as Int32Array;
+        for (let i = 0; i < NEIGHBOURS; i++) {
+          if ((bits & (1 << i)) === 0) continue;
+          const neighbour = (current + (step[i] ?? 0)) as NodeId;
+          if (local && (discStamps[neighbour] !== scanned || (discDepths[neighbour] ?? 0) > REWRITE_RADIUS)) {
+            continue;
+          }
+          if (distance[neighbour] !== UNREACHED || open[neighbour] === 0) continue;
+          distance[neighbour] = next;
+          this.enqueue(next, neighbour);
+        }
+      }
+    }
   }
 
-  private enqueue(node: NodeId): void {
-    this.queue = withRoom(this.queue, this.queued);
-    this.queue[this.queued++] = node;
+  /** Start a rewritten `node`'s breadth-first distance: 0 and queued for an open node a hemming point
+   *  touches. */
+  private seed(node: NodeId): void {
+    const hemmed = this.open[node] === 1 && this.hemmed(node);
+    this.distance[node] = hemmed ? 0 : UNREACHED;
+    if (hemmed) this.enqueue(0, node);
+  }
+
+  /** Enter a node of the ring past the rewritten disc at the distance its held class records: below the
+   *  cap the two agree, and at the cap it leads nowhere. Not open, it leads nowhere either. */
+  private seedFromHeld(node: NodeId): void {
+    const held = this.classes[node] ?? 0;
+    const leads = this.open[node] === 1 && held < MAX_CLEARANCE_CLASS;
+    this.distance[node] = leads ? held : UNREACHED;
+    if (leads) this.enqueue(held, node);
+  }
+
+  private enqueue(level: number, node: NodeId): void {
+    if (level >= MAX_CLEARANCE_CLASS) return;
+    const size = this.levelSizes[level] ?? 0;
+    const queue = withRoom(this.levels[level] as Int32Array, size);
+    this.levels[level] = queue;
+    queue[size] = node;
+    this.levelSizes[level] = size + 1;
   }
 
   /** Store `node`'s settled class, counting the water class crossings it makes. */
-  private write(node: NodeId, probe: ClearanceProbe): void {
+  private write(node: NodeId): void {
     const d = this.distance[node] ?? UNREACHED;
-    const value = !probe(node) ? 0 : d === UNREACHED ? MAX_CLEARANCE_CLASS : d;
+    const value = this.open[node] === 0 ? 0 : d === UNREACHED ? MAX_CLEARANCE_CLASS : d;
     const held = this.classes[node] ?? 0;
     if (held === value) return;
     this.classes[node] = value;
@@ -182,18 +236,12 @@ export class ClearanceField {
   }
 
   /** Whether an open node touches a hemming map point: off the map, not open, or of another component. */
-  private hemmed(node: NodeId, probe: ClearanceProbe): boolean {
-    const { graph } = this;
-    const x = graph.xOf(node);
-    const y = graph.yOf(node);
-    const component = graph.componentOf(node);
-    const dxs = neighbourDxOf(y);
+  private hemmed(node: NodeId): boolean {
+    if (this.joined[node] !== ALL_JOINED) return true;
+    const { open } = this;
+    const step = this.steps[Math.floor(node / this.graph.width) & 1] as Int32Array;
     for (let i = 0; i < NEIGHBOURS; i++) {
-      const nx = x + (dxs[i] ?? 0);
-      const ny = y + (HEX_DY[i] ?? 0);
-      if (!graph.inBounds(nx, ny)) return true;
-      const neighbour = graph.nodeAt(nx, ny);
-      if (!probe(neighbour) || graph.componentOf(neighbour) !== component) return true;
+      if (open[node + (step[i] ?? 0)] === 0) return true;
     }
     return false;
   }
@@ -244,4 +292,25 @@ export class ClearanceField {
     }
     this.discSize = size;
   }
+}
+
+/** Each node's neighbour bits: bit i set when its i-th neighbour is on the map and of its component. */
+function joinedNeighbours(graph: TerrainGraph): Uint8Array {
+  const { width, height } = graph;
+  const joined = new Uint8Array(graph.nodeCount);
+  for (let y = 0; y < height; y++) {
+    const dxs = neighbourDxOf(y);
+    for (let x = 0; x < width; x++) {
+      const node = graph.nodeAt(x, y);
+      const component = graph.componentOf(node);
+      let bits = 0;
+      for (let i = 0; i < NEIGHBOURS; i++) {
+        const nx = x + (dxs[i] ?? 0);
+        const ny = y + (HEX_DY[i] ?? 0);
+        if (graph.inBounds(nx, ny) && graph.componentOf(graph.nodeAt(nx, ny)) === component) bits |= 1 << i;
+      }
+      joined[node] = bits;
+    }
+  }
+  return joined;
 }

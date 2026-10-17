@@ -1,4 +1,5 @@
 import type { BlockOverlay } from '../../nav/block-overlay.js';
+import { NodeList } from '../../nav/node-list.js';
 import { type NodeId, StepBuffer, type TerrainGraph } from '../../nav/terrain/index.js';
 import type { WalkBlockMask } from '../footprint/walk-block-mask.js';
 
@@ -44,15 +45,17 @@ export class GroupReachability {
   private readonly spare: Int32Array[] = [];
   private version = -1;
   private nextGroup = 1;
-  /** The first group id of the current version; the union-find slots below are indexed from it. */
+  /** The first group id of the current version; the union-find slots below are indexed from it, filled
+   *  by {@link groupCount} and never truncated, so a new version reuses their capacity. */
   private firstGroup = 1;
+  private groupCount = 0;
   private readonly parent: number[] = [];
   private readonly complete: boolean[] = [];
   /** The search side that last reached each group, so meeting another side's group proves a connection. */
   private readonly reachedBy: number[] = [];
   private nextSide = 0;
-  private readonly fromStart: NodeId[] = [];
-  private readonly fromGoal: NodeId[] = [];
+  private readonly fromStart = new NodeList();
+  private readonly fromGoal = new NodeList();
   private readonly steps = new StepBuffer();
   private searchStamps?: SearchStamps;
 
@@ -112,15 +115,15 @@ export class GroupReachability {
     const sideStart = ++this.nextSide;
     const sideGoal = ++this.nextSide;
     const { fromStart, fromGoal } = this;
-    fromStart.length = 0;
-    fromGoal.length = 0;
+    fromStart.clear();
+    fromGoal.clear();
     fromStart.push(a);
     fromGoal.push(b);
     stamps.seen[a] = seenStart;
     stamps.seen[b] = seenGoal;
     this.reach(held, a, sideStart, sideGoal);
     this.reach(held, b, sideGoal, sideStart);
-    let complete: readonly NodeId[] | undefined;
+    let complete: NodeList | undefined;
     for (let cursor = 0; ; cursor++) {
       if (
         this.expand(held, blocked, fromStart, cursor, seenStart, seenGoal, sideStart, sideGoal) ||
@@ -149,15 +152,15 @@ export class GroupReachability {
   private expand(
     held: OverlayGroups,
     blocked: BlockOverlay,
-    queue: NodeId[],
+    queue: NodeList,
     cursor: number,
     seenMine: number,
     seenOther: number,
     sideMine: number,
     sideOther: number,
   ): boolean {
-    const node = queue[cursor];
-    if (node === undefined) throw new Error('group region queue missing a node');
+    if (cursor >= queue.length) throw new Error('group region queue missing a node');
+    const node = queue.at(cursor);
     const seen = this.stamps().seen;
     this.terrain.stepsInto(node, blocked, this.steps);
     for (let i = 0; i < this.steps.length; i++) {
@@ -183,8 +186,9 @@ export class GroupReachability {
     return false;
   }
 
-  private join(held: OverlayGroups, nodes: readonly NodeId[], group: number): void {
-    for (const node of nodes) {
+  private join(held: OverlayGroups, queue: NodeList, group: number): void {
+    for (let i = 0; i < queue.length; i++) {
+      const node = queue.at(i);
       const prior = this.groupAt(held, node);
       if (prior !== 0 && prior !== group) this.parent[prior - this.firstGroup] = group;
       held.groups[node] = group;
@@ -193,9 +197,10 @@ export class GroupReachability {
 
   private newGroup(complete: boolean): number {
     const group = this.nextGroup++;
-    this.parent.push(group);
-    this.complete.push(complete);
-    this.reachedBy.push(0);
+    const slot = this.groupCount++;
+    this.parent[slot] = group;
+    this.complete[slot] = complete;
+    this.reachedBy[slot] = 0;
     return group;
   }
 
@@ -206,7 +211,7 @@ export class GroupReachability {
     const first = this.firstGroup;
     let group = written;
     for (;;) {
-      const up = this.parent[group - first];
+      const up = group - first < this.groupCount ? this.parent[group - first] : undefined;
       if (up === undefined) throw new Error('group region missing its parent');
       if (up === group) return group;
       // Path halving keeps later finds short without a second pass.
@@ -267,9 +272,7 @@ export class GroupReachability {
       this.nextGroup = 1;
     }
     this.firstGroup = this.nextGroup;
-    this.parent.length = 0;
-    this.complete.length = 0;
-    this.reachedBy.length = 0;
+    this.groupCount = 0;
     this.nextSide = 0;
   }
 }

@@ -90,7 +90,7 @@ does not reach them.
 
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `saga-campaign_04_01` | PRZYGODA W KRAINIE SMOKÓW | 3h/5ai | – | – |  |
+| `saga-campaign_04_01` | PRZYGODA W KRAINIE SMOKÓW | 3h/5ai | ok | ok | played in Polish with its three sub-missions; both cake routes, Napalians healed or beaten, hero deaths, save/restore in parent and sub-map, next-stage unlock; the boy now walks to his sister and the children stay young (behaviour bits 8 and 18); holy-hall death pages corrected; four-language page text compared |
 | `saga-campaign_04_01_sub1` | POD MORZEM | 1h/1ai | – | – | sub-mission |
 | `saga-campaign_04_01_sub2` | POD MORZEM | 1h/2ai | – | – | sub-mission |
 | `saga-campaign_04_01_sub3` | ŚWIĘTA KOMNATA KAMIENNYCH SMOKÓW | 1h/4ai | – | – | sub-mission |

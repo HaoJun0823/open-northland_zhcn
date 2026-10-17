@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fogWashGeometry } from '../src/data/fog/index.js';
+import { fogWashGeometry, fogWashIndices } from '../src/data/fog/index.js';
 import { TILE_HALF_H, TILE_HALF_W } from '../src/data/projection/index.js';
 import { elevationLiftPerUnit, makeElevationField, projectNode } from '../src/data/terrain/index.js';
 
@@ -36,7 +36,6 @@ describe('fogWashGeometry', () => {
       u: 1.5 / TEX,
       v: 1.5 / TEX,
     });
-    expect(flat.indices.length).toBe(3 * 3 * 6);
   });
 
   it('lifts each vertex with the ground mesh under it, so a hill keeps its own cells lit', () => {
@@ -59,5 +58,79 @@ describe('fogWashGeometry', () => {
         expect(vertex(geometry, i, j).y ?? 0).toBeGreaterThanOrEqual(vertex(geometry, i, j - 1).y ?? 0);
       }
     }
+  });
+});
+
+describe('fogWashIndices', () => {
+  /** RGBA texels of a `TEX`-wide texture with the band's texels at the given alphas, row-major. */
+  function texels(alphas: readonly number[][]): Uint8Array {
+    const bytes = new Uint8Array(TEX * TEX * 4);
+    for (const [y, row] of alphas.entries())
+      for (const [x, alpha] of row.entries()) bytes[(y * TEX + x) * 4 + 3] = alpha;
+    return bytes;
+  }
+  /** The grid quads the indices draw, as `i,j` of their first vertex. */
+  function quads(indices: Uint32Array): string[] {
+    const out: string[] = [];
+    for (let k = 0; k < indices.length; k += 6) {
+      const a = indices[k] ?? 0;
+      out.push(`${a % COLS},${Math.floor(a / COLS)}`);
+    }
+    return out;
+  }
+
+  it('draws every quad over a fogged band', () => {
+    expect(
+      fogWashIndices(
+        2,
+        2,
+        texels([
+          [90, 90],
+          [90, 90],
+        ]),
+        TEX,
+      ).length,
+    ).toBe(3 * 3 * 6);
+  });
+
+  it('leaves out the quads whose four corner texels are clear, including the outer ring', () => {
+    // Only texel (1, 1) washes: the quads touching its vertex (2, 2) draw, the rest sample clear texels.
+    expect(
+      quads(
+        fogWashIndices(
+          2,
+          2,
+          texels([
+            [0, 0],
+            [0, 90],
+          ]),
+          TEX,
+        ),
+      ),
+    ).toEqual(['1,1', '2,1', '1,2', '2,2']);
+    expect(
+      fogWashIndices(
+        2,
+        2,
+        texels([
+          [0, 0],
+          [0, 0],
+        ]),
+        TEX,
+      ).length,
+    ).toBe(0);
+  });
+
+  it('keeps the two triangles of a drawn quad', () => {
+    const indices = fogWashIndices(
+      2,
+      2,
+      texels([
+        [90, 0],
+        [0, 0],
+      ]),
+      TEX,
+    );
+    expect(Array.from(indices.subarray(0, 6))).toEqual([0, 1, COLS, 1, COLS + 1, COLS]);
   });
 });

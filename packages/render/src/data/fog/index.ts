@@ -8,4 +8,10 @@ export {
   fogTileExplored,
   fogTileVisible,
 } from './mask.js';
-export { type FogWashGeometry, fogWashGeometry } from './wash-mesh.js';
+export {
+  ALPHA_BYTE,
+  type FogWashGeometry,
+  fogWashGeometry,
+  fogWashIndices,
+  TEXEL_BYTES,
+} from './wash-mesh.js';

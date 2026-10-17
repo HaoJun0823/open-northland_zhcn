@@ -1,5 +1,5 @@
 import { FOG_STATE } from '@open-northland/sim';
-import { BindGroup } from 'pixi.js';
+import { BindGroup, type Mesh } from 'pixi.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FogLayer } from '../src/gpu/overlays/fog-layer.js';
 import { fogViewOf } from './support/fixtures.js';
@@ -36,6 +36,24 @@ describe('FogLayer', () => {
     expect(source?.pixelHeight).toBe(layer.mask.texH);
     expect(layer.mask.texW).toBeGreaterThanOrEqual(layer.mask.bandW);
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('swaps the drawn quads on a new mask over the same band, keeping the geometry', () => {
+    const layer = new FogLayer();
+    layer.update(VIEW, SMALL_VIEWPORT);
+    const mesh = layer.container.children[0] as Mesh;
+    const geometry = mesh.geometry;
+    const drawn = geometry.indices.length;
+    // Watching more of the band leaves fewer fogged corners, so fewer quads draw.
+    const watched = new Map<string, number>();
+    for (let x = 0; x < 12; x++) for (let y = 0; y < 12; y++) watched.set(`${x},${y}`, FOG_STATE.VISIBLE);
+    layer.update(
+      { ...VIEW, ...fogViewOf(watched, 2), cellsWide: MAP_CELLS, cellsHigh: MAP_CELLS },
+      SMALL_VIEWPORT,
+    );
+    expect(mesh.geometry).toBe(geometry);
+    expect(geometry.indices.length).toBeLessThan(drawn);
+    expect(geometry.indices.length).toBeGreaterThan(0);
   });
 
   it('leaves a shader that still binds the wash with a live resource on teardown', () => {

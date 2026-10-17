@@ -1,6 +1,13 @@
 import { FOG_STATE, type FogView } from '@open-northland/sim';
 import { BufferImageSource, Container, Mesh, MeshGeometry, Texture, type TextureSource } from 'pixi.js';
-import { FOG_EXPLORED_ALPHA, FOG_UNEXPLORED_ALPHA, fogWashGeometry } from '../../data/fog/index.js';
+import {
+  ALPHA_BYTE,
+  FOG_EXPLORED_ALPHA,
+  FOG_UNEXPLORED_ALPHA,
+  fogWashGeometry,
+  fogWashIndices,
+  TEXEL_BYTES,
+} from '../../data/fog/index.js';
 import { TILE_HALF_H, TILE_HALF_W, type Viewport, visibleTileRange } from '../../data/projection/index.js';
 import type { ElevationField } from '../../data/terrain/index.js';
 import { destroyMeshChildren } from '../mesh-teardown.js';
@@ -15,7 +22,7 @@ import { destroyMeshChildren } from '../mesh-teardown.js';
  * One texel per cell, drawn by a vertex grid lifted with the terrain (`fogWashGeometry`) and sampled
  * with linear filtering: the GPU's bilinear interpolation spreads each state transition across a whole
  * cell (~68 px), which is what melts the mask into a soft, grid-free gradient. The alphas are tuned by
- * eye.
+ * eye. Only the quads with a fogged corner draw, so watched ground costs no fill.
  */
 
 /** Cells beyond the visible band the wash also covers, so its edge never shows during a pan. */
@@ -108,7 +115,7 @@ export class FogLayer {
       const rowBase = j * this.texW;
       for (let i = 0; i < bandW; i++) {
         const state = view.stateAt(band.minCol + i, band.minRow + j);
-        buf[(rowBase + i) * 4 + 3] =
+        buf[(rowBase + i) * TEXEL_BYTES + ALPHA_BYTE] =
           state === FOG_STATE.VISIBLE
             ? 0
             : state === FOG_STATE.EXPLORED
@@ -118,11 +125,17 @@ export class FogLayer {
     }
     texture.source.update();
     const geometryKey = `${bandKey}:${this.texW}x${this.texH}:${this.elevationVersion}`;
+    const indices = fogWashIndices(bandW, bandH, buf, this.texW);
     if (geometryKey !== this.geometryKey) {
       const previous = this.mesh.geometry;
-      this.mesh.geometry = new MeshGeometry(fogWashGeometry(band, this.texW, this.texH, elevation));
+      this.mesh.geometry = new MeshGeometry({
+        ...fogWashGeometry(band, this.texW, this.texH, elevation),
+        indices,
+      });
       previous.destroy();
       this.geometryKey = geometryKey;
+    } else {
+      this.mesh.geometry.indices = indices;
     }
     this.mesh.texture = texture;
     // The flat box a sampling shader maps the band to: texel (i, j) centres on cell (minCol+i, minRow+j)

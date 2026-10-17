@@ -7,8 +7,12 @@ export interface FogWashGeometry {
   readonly positions: Float32Array;
   /** Normalized to the whole texture, `[u0, v0, …]`. */
   readonly uvs: Float32Array;
-  readonly indices: Uint32Array;
 }
+
+/** RGBA bytes per texel; a texel's alpha is its last byte. */
+export const TEXEL_BYTES = 4;
+export const ALPHA_BYTE = 3;
+const INDICES_PER_QUAD = 6;
 
 /**
  * One vertex per texel centre, cell (c, r) at `(2c·TILE_HALF_W, r·TILE_HALF_H)` raised by the terrain's
@@ -20,7 +24,8 @@ export interface FogWashGeometry {
  * The x lattice ignores the odd-row half-cell stagger (a named approximation, invisible under a
  * cell-wide gradient), so the lift is read where the terrain row actually passes that x. Where a slope
  * rises toward the viewer faster than a row step, a column's vertices are held at the row above instead
- * of folding back over it, so overlapping strips never stack the wash's alpha.
+ * of folding back over it, so overlapping strips never stack the wash's alpha. {@link fogWashIndices}
+ * names the quads drawn.
  */
 export function fogWashGeometry(
   band: TileRange,
@@ -50,10 +55,33 @@ export function fogWashGeometry(
       uvs[v + 1] = (texelY + 0.5) / texH;
     }
   }
-  const indices = new Uint32Array((cols - 1) * (rows - 1) * 6);
+  return { positions, uvs };
+}
+
+/**
+ * The triangles of {@link fogWashGeometry}'s grid over the band's `bandW x bandH` texels that darken
+ * anything. Each quad spans its corners' texel centres, so linear filtering samples those four texels
+ * alone: a quad whose four are clear washes nothing and is left out. `texels` is the texture's RGBA
+ * bytes, `rowTexels` texels a row.
+ */
+export function fogWashIndices(
+  bandW: number,
+  bandH: number,
+  texels: Uint8Array,
+  rowTexels: number,
+): Uint32Array {
+  const cols = bandW + 2;
+  const rows = bandH + 2;
+  const alphaAt = (i: number, j: number): number => {
+    const x = Math.min(Math.max(i - 1, 0), bandW - 1);
+    const y = Math.min(Math.max(j - 1, 0), bandH - 1);
+    return texels[(y * rowTexels + x) * TEXEL_BYTES + ALPHA_BYTE] ?? 0;
+  };
+  const indices = new Uint32Array((cols - 1) * (rows - 1) * INDICES_PER_QUAD);
   let k = 0;
   for (let j = 0; j < rows - 1; j++) {
     for (let i = 0; i < cols - 1; i++) {
+      if (alphaAt(i, j) + alphaAt(i + 1, j) + alphaAt(i, j + 1) + alphaAt(i + 1, j + 1) === 0) continue;
       const a = j * cols + i;
       const b = a + 1;
       const c = a + cols;
@@ -66,5 +94,5 @@ export function fogWashGeometry(
       indices[k++] = c;
     }
   }
-  return { positions, uvs, indices };
+  return indices.subarray(0, k);
 }

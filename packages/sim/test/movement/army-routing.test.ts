@@ -14,7 +14,7 @@ import {
 } from '../../src/components/index.js';
 import type { Entity } from '../../src/ecs/world.js';
 import { fx, playerCommand, positionOfNode, Simulation, type TerrainMap } from '../../src/index.js';
-import { StepBuffer } from '../../src/nav/terrain/index.js';
+import { type NodeId, StepBuffer } from '../../src/nav/terrain/index.js';
 import { stampResourceFootprintData } from '../../src/systems/footprint/index.js';
 import { GroupRoutes } from '../../src/systems/movement/group-routes.js';
 import { testContent } from '../fixtures/content.js';
@@ -284,6 +284,78 @@ describe('army player routing', () => {
       });
       expect(centres.every(({ node }) => terrain.isWalkable(node))).toBe(true);
       expect(sim.world.get(entity, PathFollow).legCost).toBeGreaterThan(0);
+    }
+  });
+
+  it("boards a band standing beyond the shared area onto the leaders' corridor instead of searching", () => {
+    const width = 400;
+    const height = 160;
+    const typeIds = new Array<number>(width * height).fill(0);
+    // A wall whose one gap lies far below the march, so no member walks a straight or shifted lane.
+    const wallX = 200;
+    const gapRows = { from: 150, to: 154 };
+    for (let y = 0; y < height; y++) if (y < gapRows.from || y > gapRows.to) typeIds[y * width + wallX] = 1;
+    const map: TerrainMap = { resolution: 'half-cell', width, height, typeIds };
+    const sim = new Simulation({ seed: 7, content: testContent(), map });
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('army terrain missing');
+    const bandSize = 10;
+    // The far band stands well past GROUP_AREA_RADIUS_NODES of the leaders' road but within boarding.
+    const bandRows = [4, 120];
+    const targetX = 340;
+    const targetY = 8;
+    const members: { entity: Entity; goal: NodeId }[] = [];
+    for (const row of bandRows) {
+      for (let i = 0; i < bandSize; i++) {
+        const entity = sim.world.create();
+        sim.world.add(entity, Position, positionOfNode(4 + i * 2, row));
+        addPerson(sim.world, entity, {
+          tribe: 1,
+          jobType: 31,
+          hunger: fx.fromInt(0),
+          fatigue: fx.fromInt(0),
+          piety: fx.fromInt(0),
+          enjoyment: fx.fromInt(0),
+        });
+        sim.world.add(entity, Owner, { player: 0 });
+        sim.world.add(entity, WalkFacing, { direction: WALK_DIRECTION.E, target: WALK_DIRECTION.E });
+        members.push({
+          entity,
+          goal: terrain.nodeAt(
+            targetX + (members.length % bandSize) * 2,
+            targetY + 2 * Math.floor(members.length / bandSize),
+          ),
+        });
+      }
+    }
+    let offered = 0;
+    const offer = GroupRoutes.prototype.offer;
+    GroupRoutes.prototype.offer = function (this: GroupRoutes, ...args) {
+      offered++;
+      return offer.apply(this, args);
+    };
+    sim.enqueue(
+      playerCommand(0, {
+        kind: 'attackMoveUnitGroup',
+        members: members.map(({ entity, goal }) => ({ entity, x: terrain.xOf(goal), y: terrain.yOf(goal) })),
+      }),
+    );
+    try {
+      sim.step();
+    } finally {
+      GroupRoutes.prototype.offer = offer;
+    }
+    expect(offered).toBe(1);
+    for (const { entity, goal } of members) {
+      expect(sim.world.has(entity, PathRequest)).toBe(false);
+      const route = sim.world.get(entity, PathRoute).waypoints;
+      expect(route.at(-1)?.node).toBe(goal);
+      // Diagonal interpolation stops also carry a pacing node; only lattice centres are route nodes.
+      const centres = route.filter((stop) => {
+        const at = positionOfNode(terrain.xOf(stop.node), terrain.yOf(stop.node));
+        return stop.x === at.x && stop.y === at.y;
+      });
+      expect(centres.every(({ node }) => terrain.isWalkable(node))).toBe(true);
     }
   });
 });

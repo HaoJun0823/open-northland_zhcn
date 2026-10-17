@@ -94,12 +94,6 @@ export class ChatCandidates {
     return best;
   }
 
-  /** The candidates on node `(x, y)`, ascending id: an inspection read. */
-  at(x: number, y: number): Entity[] {
-    const list = this.blocks.get(blockKey(x, y)) ?? [];
-    return list.filter((e) => this.nodes.hx(e) === x && this.nodes.hy(e) === y).sort((a, b) => a - b);
-  }
-
   private refresh(e: Entity): void {
     const p = isCandidate(this.world, this.content, e) ? this.world.tryGet(e, Position) : undefined;
     if (p === undefined) this.release(e);

@@ -19,6 +19,7 @@ import type { Entity } from '../../src/ecs/world.js';
 import { type Fixed, fx, ONE, Simulation } from '../../src/index.js';
 import { nodeOfPosition, nodesAdjacent, positionOfNode } from '../../src/nav/halfcell.js';
 import { CHAT_COOLDOWN_TICKS, gossipSystem, plannerSystem } from '../../src/systems/index.js';
+import type { ChatCandidates } from '../../src/systems/social/gossip/candidates.js';
 import { GossipCandidates } from '../../src/systems/social/index.js';
 import { testContent } from '../fixtures/content.js';
 import { idleReplanTick } from '../fixtures/idle-replan.js';
@@ -246,12 +247,23 @@ describe('gossip initiation (planner rungs)', () => {
   });
 });
 
+/** The candidates `candidates` holds on node `(x, y)`, ascending id: a search of range 0 that rejects
+ *  every one is asked about each of them. */
+function onNode(candidates: ChatCandidates, x: number, y: number): Entity[] {
+  const seen: Entity[] = [];
+  candidates.nearest(x, y, 0, 0, (e) => {
+    seen.push(e);
+    return false;
+  });
+  return seen.sort((a, b) => a - b);
+}
+
 describe('gossip candidate index', () => {
   /** The candidate entities at `e`'s node as a pass sees them. */
   function bucketOf(candidates: GossipCandidates, sim: Simulation, e: Entity): readonly Entity[] {
     const at = sim.world.get(e, Position);
     const node = nodeOfPosition(at.x, at.y);
-    return candidates.ensure().at(node.hx, node.hy);
+    return onNode(candidates.ensure(), node.hx, node.hy);
   }
 
   it('follows spawns, moves, job changes, ageing and deaths between passes', () => {
@@ -287,8 +299,8 @@ describe('gossip candidate index', () => {
     sim.world.mut(b, Position).y = positionOfNode(0, -1).y;
 
     const next = new GossipCandidates(sim.world, sim.content).ensure();
-    expect(next.at(-1, 5)).toEqual([a]);
-    expect(next.at(0, -1)).toEqual([b]);
+    expect(onNode(next, -1, 5)).toEqual([a]);
+    expect(onNode(next, 0, -1)).toEqual([b]);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
@@ -349,7 +361,7 @@ describe('gossip candidate index', () => {
 
     sim.world.mut(a, Position).y = fx.fromInt(2);
 
-    expect(pass.ensure().at(before.hx, before.hy)).toEqual([a]);
+    expect(onNode(pass.ensure(), before.hx, before.hy)).toEqual([a]);
     expect(bucketOf(new GossipCandidates(sim.world, sim.content), sim, a)).toEqual([a]);
   });
 });

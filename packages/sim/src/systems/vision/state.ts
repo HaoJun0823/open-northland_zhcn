@@ -23,6 +23,8 @@ const MASK_BYTE_COUNT = REVEALED_BYTE + 1;
 
 /** Radii below this pack into a per-pass footprint key; a larger one simply stamps undeduplicated. */
 const FOOTPRINT_RADIUS_SPAN = 1024;
+/** Footprints the stamp memo holds before a pass opening drops them all: a few passes of a crowded map. */
+const FOOTPRINT_MEMO_CAP = 1 << 16;
 /** V8's small-integer range: a footprint key below it is stored and looked up unboxed. */
 const SMALL_INTEGER_SPAN = 2 ** 30;
 
@@ -133,9 +135,12 @@ export class FogState {
   private stampPass = 0;
   /** Whether the open stamp pass memoizes footprints (see {@link beginStampPass}). */
   private memoStamps = false;
-  /** The (group, cell, radius) footprints the open stamp pass already stamped: stamps only raise
-   *  bytes, so a second eye on the same footprint writes nothing until the pass closes. */
-  private readonly passFootprints = new Set<number>();
+  /** Per (group, cell, radius) footprint, the {@link footprintEpoch} it was last stamped in: stamps only
+   *  raise bytes, so a second eye on a footprint of the open pass writes nothing until the pass closes.
+   *  An epoch moves where a set would be cleared, so the table keeps its storage from pass to pass. */
+  private readonly passFootprints = new Map<number, number>();
+  /** Moves as each stamp pass opens and closes. */
+  private footprintEpoch = 0;
 
   constructor(terrain: TerrainGraph, world: World) {
     // The terrain graph is the 2W×2H half-cell lattice; cells quarter it (ceil for odd safety).
@@ -355,7 +360,8 @@ export class FogState {
   beginStampPass(memo: boolean): void {
     this.memoStamps = memo;
     this.stampPass++;
-    this.passFootprints.clear();
+    this.footprintEpoch++;
+    if (this.passFootprints.size >= FOOTPRINT_MEMO_CAP) this.passFootprints.clear();
   }
 
   /**
@@ -379,8 +385,8 @@ export class FogState {
       // key past that range only skips the dedup, as a repeated stamp raises no byte anyway.
       const key = ((radius * MAX_PLAYERS + group) * this.cellsHigh + cy) * this.cellsWide + cx;
       if (key < SMALL_INTEGER_SPAN) {
-        if (this.passFootprints.has(key)) return false;
-        this.passFootprints.add(key);
+        if (this.passFootprints.get(key) === this.footprintEpoch) return false;
+        this.passFootprints.set(key, this.footprintEpoch);
       }
     }
     return this.stampSight(player, cx, cy, radius);
@@ -411,7 +417,7 @@ export class FogState {
   /** Close a stamp pass: a memoizing pass forgets the eyes it did not see (destroyed, disowned or no
    *  longer eyes). */
   endStampPass(): void {
-    this.passFootprints.clear();
+    this.footprintEpoch++;
     if (!this.memoStamps) return;
     // `forEach`, not `for...of`: an entry iterator allocates a pair per eye.
     this.eyeStamps.forEach((stamp, eye, stamps) => {

@@ -556,7 +556,16 @@ function startIsAhead(position: { x: Fixed; y: Fixed }, waypoints: readonly Wayp
  * neighbour there, an odd-row node half a column to +x of this lattice's (`hexNeighboursOf`).
  */
 function pathToWaypoints(terrain: TerrainGraph, path: ReadonlyArray<NodeId>): Waypoint[] {
-  const waypoints: Waypoint[] = [];
+  // Sized up front: a march's route holds a thousand stops, and growing it doubles what it allocates.
+  let diagonals = 0;
+  for (let i = 1; i < path.length; i++) {
+    const from = path[i - 1];
+    const to = path[i];
+    if (from !== undefined && to !== undefined && Math.abs(terrain.yOf(to) - terrain.yOf(from)) === 2)
+      diagonals++;
+  }
+  const waypoints = new Array<Waypoint>(path.length + diagonals);
+  let count = 0;
   let prevX = 0;
   let prevY = 0;
   for (let i = 0; i < path.length; i++) {
@@ -571,16 +580,17 @@ function pathToWaypoints(terrain: TerrainGraph, path: ReadonlyArray<NodeId>): Wa
       const rowY = fx.fromInt((prevY + y) / 4);
       const midWorldX = fx.div(fx.fromInt(prevX + x), fx.fromInt(4));
       const midX = x > prevX ? prevX + (prevY & 1) : prevX + (prevY & 1) - 1;
-      waypoints.push({
+      waypoints[count++] = {
         x: positionXOfWorld(midWorldX, rowY),
         y: rowY,
         node: terrain.nodeAt(midX, (prevY + y) / 2),
-      });
+      };
     }
-    waypoints.push({ x: positionXOfNode(x, y), y: positionYOfNode(y), node });
+    waypoints[count++] = { x: positionXOfNode(x, y), y: positionYOfNode(y), node };
     prevX = x;
     prevY = y;
   }
+  waypoints.length = count;
   return waypoints;
 }
 

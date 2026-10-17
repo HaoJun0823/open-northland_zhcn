@@ -8,6 +8,7 @@ import {
   type Traversal,
 } from '../terrain/index.js';
 import { findPathWithin, type SearchStats } from './find-path.js';
+import { nodeMarksOf } from './node-marks.js';
 
 /**
  * The settle cap of each short search on or off a shared corridor. A leg that needs more is no short
@@ -56,7 +57,7 @@ export function joinCorridor(
   if (typeof onto === 'string' || !isHop(graph, onto)) return null;
   const off = findPathWithin(graph, alight.node, goal, blocked, stats, exit.legMaxExplored, traversal);
   if (typeof off === 'string' || !isHop(graph, off)) return null;
-  return joinedLegs(onto, lattice, corridor, board.index + 1, alight.index, off);
+  return joinedLegs(graph, onto, lattice, corridor, board.index + 1, alight.index, off);
 }
 
 /** Manhattan half-cell nodes from `node` to the nearest node of `corridor`. */
@@ -191,6 +192,9 @@ function manhattanOutside(lattice: CorridorLattice, x: number, y: number): numbe
 
 const BLOCK_FIELDS = 4;
 
+/** No corridor index: {@link nearestStop} has found no stop yet. */
+const NO_STOP = -1;
+
 /**
  * A lower bound on {@link latticeOffsetDistance} over every offset at least `ax` half-columns and `ay`
  * half-rows: the distance grows with either offset except from an odd half-row count to the next even
@@ -214,10 +218,10 @@ function nearestStop(
   const x = graph.xOf(target);
   const y = graph.yOf(target);
   const { xs, ys, blocks } = lattice;
-  let best: CorridorStop | undefined;
+  let best = NO_STOP;
   let bestDistance = fx.fromInt(0);
   for (let index = from; index < corridor.length; ) {
-    if (best !== undefined && index % STOP_BLOCK_NODES === 0) {
+    if (best !== NO_STOP && index % STOP_BLOCK_NODES === 0) {
       const at = (index / STOP_BLOCK_NODES) * BLOCK_FIELDS;
       const ax = Math.max(0, (blocks[at] ?? 0) - x, x - (blocks[at + 1] ?? 0));
       const ay = Math.max(0, (blocks[at + 2] ?? 0) - y, y - (blocks[at + 3] ?? 0));
@@ -229,12 +233,13 @@ function nearestStop(
     const distance = latticeOffsetDistance(Math.abs(x - (xs[index] ?? 0)), Math.abs(y - (ys[index] ?? 0)));
     const node = corridor[index];
     index++;
-    if (best !== undefined && distance >= bestDistance) continue;
+    if (best !== NO_STOP && distance >= bestDistance) continue;
     if (node === undefined || blocked.has(node)) continue;
-    best = { index: index - 1, node };
+    best = index - 1;
     bestDistance = distance;
   }
-  return best;
+  const node = corridor[best];
+  return node === undefined ? undefined : { index: best, node };
 }
 
 /**
@@ -243,6 +248,7 @@ function nearestStop(
  * the long corridor stretch is never indexed; the legs' nodes are looked up in the corridor's own index.
  */
 function joinedLegs(
+  graph: TerrainGraph,
   onto: readonly NodeId[],
   lattice: CorridorLattice,
   corridor: readonly NodeId[],
@@ -250,36 +256,43 @@ function joinedLegs(
   to: number,
   off: readonly NodeId[],
 ): NodeId[] {
-  const legs = new Set<NodeId>(onto);
-  let shared = !lattice.loopFree || off.some((node) => legs.has(node));
-  for (const node of off) legs.add(node);
-  for (const node of legs) {
-    if (shared) break;
+  const onStretch = (node: NodeId): boolean => {
     const at = lattice.indexOf.get(node);
-    shared = at !== undefined && at >= from && at < to;
-  }
-  const joined = [...onto];
+    return at !== undefined && at >= from && at < to;
+  };
+  const legs = new Set<NodeId>(onto);
+  const shared =
+    !lattice.loopFree || off.some((node) => legs.has(node)) || onto.some(onStretch) || off.some(onStretch);
+  const joined = new Array<NodeId>(onto.length + (to - from) + off.length);
+  let at = 0;
+  for (const node of onto) joined[at++] = node;
   for (let i = from; i < to; i++) {
     const node = corridor[i];
-    if (node !== undefined) joined.push(node);
+    if (node !== undefined) joined[at++] = node;
   }
-  for (const node of off) joined.push(node);
-  return shared ? withoutLoops(joined) : joined;
+  for (const node of off) joined[at++] = node;
+  joined.length = at;
+  return shared ? withoutLoops(graph, joined) : joined;
 }
 
 /** `path` with every revisit cut back to the node's first visit, so a hop that crosses the corridor
  *  elsewhere never walks out and back. Neighbours stay lattice neighbours. */
-function withoutLoops(path: readonly NodeId[]): NodeId[] {
+function withoutLoops(graph: TerrainGraph, path: readonly NodeId[]): NodeId[] {
+  const marks = nodeMarksOf(graph);
+  const kept = marks.next();
   const out: NodeId[] = [];
-  const indexOf = new Map<NodeId, number>();
-  for (const node of path) {
-    const seen = indexOf.get(node);
-    if (seen === undefined) {
-      indexOf.set(node, out.length);
+  for (let i = 0; i < path.length; i++) {
+    const node = path[i];
+    if (node === undefined) continue;
+    if (marks.stamps[node] !== kept) {
+      marks.stamps[node] = kept;
+      marks.values[node] = out.length;
       out.push(node);
       continue;
     }
-    for (const dropped of out.splice(seen + 1)) indexOf.delete(dropped);
+    const cut = (marks.values[node] ?? 0) + 1;
+    for (let j = cut; j < out.length; j++) marks.stamps[out[j] ?? 0] = 0;
+    out.length = cut;
   }
   return out;
 }

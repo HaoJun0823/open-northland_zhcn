@@ -8,3 +8,4 @@ export {
   RACE_SLICE_EXPLORED,
   type SearchStats,
 } from './find-path.js';
+export { NodeMarks, nodeMarksOf } from './node-marks.js';

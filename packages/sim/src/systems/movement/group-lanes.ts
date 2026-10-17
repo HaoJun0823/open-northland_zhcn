@@ -1,5 +1,6 @@
 import type { Fixed } from '../../core/fixed.js';
 import type { BlockOverlay } from '../../nav/block-overlay.js';
+import { nodeMarksOf } from '../../nav/pathfinding/index.js';
 import { latticeDistanceTo, type NodeId, StepBuffer, type TerrainGraph } from '../../nav/terrain/index.js';
 import { HALF_COLUMN, HALF_ROW } from '../../nav/world-metric.js';
 
@@ -225,21 +226,21 @@ export class GroupLanes {
   /** `prefix[0..end)` then `tail`. A connector may meet the corridor before its endpoint. Drop that loop
    * while preserving every legal edge; the cached corridor itself is never mutated. */
   private stitch(prefix: readonly NodeId[], tail: readonly NodeId[], end = prefix.length): NodeId[] {
-    const marks = prefixMarksOf(this.terrain);
+    const marks = nodeMarksOf(this.terrain);
     const mark = marks.next();
     // The last index of each prefix node, as a node may repeat.
     for (let i = 0; i < end; i++) {
       const node = prefix[i];
       if (node === undefined) continue;
       marks.stamps[node] = mark;
-      marks.indices[node] = i;
+      marks.values[node] = i;
     }
     let prefixEnd = end,
       tailStart = 0;
     for (let i = 0; i < tail.length; i++) {
       const node = tail[i];
       if (node === undefined || marks.stamps[node] !== mark) continue;
-      prefixEnd = (marks.indices[node] ?? 0) + 1;
+      prefixEnd = (marks.values[node] ?? 0) + 1;
       tailStart = i + 1;
     }
     const joined = prefix.slice(0, prefixEnd);
@@ -249,40 +250,4 @@ export class GroupLanes {
     }
     return joined;
   }
-}
-
-/** The largest stamp before the marks wrap and are cleared. */
-const MAX_MARK = 0x7fffffff;
-
-/** Per-node prefix marks for one terrain, so stitching a long corridor indexes it without a map. Stitches
- *  run synchronously, so every lane checker over the terrain shares them. */
-class PrefixMarks {
-  readonly stamps: Int32Array;
-  readonly indices: Int32Array;
-  private mark = 0;
-
-  constructor(nodeCount: number) {
-    this.stamps = new Int32Array(nodeCount);
-    this.indices = new Int32Array(nodeCount);
-  }
-
-  next(): number {
-    if (this.mark === MAX_MARK) {
-      this.stamps.fill(0);
-      this.mark = 0;
-    }
-    this.mark += 1;
-    return this.mark;
-  }
-}
-
-const marksByTerrain = new WeakMap<TerrainGraph, PrefixMarks>();
-
-function prefixMarksOf(terrain: TerrainGraph): PrefixMarks {
-  let marks = marksByTerrain.get(terrain);
-  if (marks === undefined) {
-    marks = new PrefixMarks(terrain.nodeCount);
-    marksByTerrain.set(terrain, marks);
-  }
-  return marks;
 }

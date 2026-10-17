@@ -26,6 +26,8 @@ const [checkpoint, origin, output = 'bench-out/browser', secondsText = '15'] = p
 if (!checkpoint || !origin || process.argv.length > 6)
   throw new Error('usage: npm run bench:browser -- checkpoint origin [output-dir] [window-seconds]');
 const seconds = Number(secondsText);
+/** Where the pointer rests while a window measures: the middle of the world view. */
+const POINTER_REST = { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
 const mode = process.env.ON_BENCH_BROWSER_MODE ?? 'all';
 if (!['all', 'baseline', 'profile'].includes(mode))
   throw new Error('ON_BENCH_BROWSER_MODE must be all, baseline or profile');
@@ -175,6 +177,9 @@ try {
       },
       { camera: cameras[cameraName], speed },
     );
+    // A player's pointer rests over the world, so every window pays the hover's cost the same way
+    // instead of whatever the OS cursor happens to cover.
+    await page.mouse.move(POINTER_REST.x, POINTER_REST.y);
     await page.waitForTimeout(5000);
     progress(`measuring ${cameraName} x${speed}${suffix} for ${seconds}s`);
     const loadAtStart = machineLoad();

@@ -6,6 +6,7 @@ import {
   Position,
   Rider,
   Settler,
+  Stance,
   Stockpile,
   Vehicle,
   VehicleDrive,
@@ -49,6 +50,7 @@ const HANDCART_SLOTS = 15;
 const CARRIER = 24;
 const SCOUT = 27;
 const TRADER = 25;
+const SOLDIER = 31;
 const HEADQUARTERS = 1;
 const WOOD = 1;
 const PLANK = 2;
@@ -272,6 +274,37 @@ describe('the commander as cargo hand', () => {
 
     expect(line(s, cart, WOOD)).toEqual({ current: 2, wanted: 2, reserved: 2 });
     expect(s.world.has(trader, Carrying)).toBe(false);
+  });
+
+  it('anchors a fighter commander where it steps out, so the trip does not end in a walk to where it boarded', () => {
+    const content = testContent();
+    const soldierCrew = {
+      ...content,
+      vehicles: content.vehicles.map((v) =>
+        v.typeId === HANDCART ? { ...v, passengerJobs: [...v.passengerJobs, SOLDIER] } : v,
+      ),
+    };
+    const s = new Simulation({ seed: 3, content: soldierCrew, map: grassNodeMap(MAP_NODES, MAP_NODES) });
+    s.enqueueSetup({ kind: 'setNeedsEnabled', enabled: false });
+    const cart = spawnCart(s);
+    const hq = placeHq(s, SOURCE_AT);
+    const soldier = spawnSettler(s, 22, 20, SOLDIER);
+    s.enqueue(playerCommand(P0, { kind: 'attachToVehicle', entity: soldier, vehicle: cart }));
+    s.step();
+    boardRider(s.world, soldier, cart);
+    // Where it boarded before the vehicle carried it here.
+    const boardedAt = s.terrain?.nodeAtClamped(CART_AT.hx, CART_AT.hy + 80) ?? null;
+    s.world.mut(soldier, Stance).anchorCell = boardedAt;
+    want(s, cart, WOOD, 2);
+
+    expect(s.world.has(soldier, Position)).toBe(true);
+    const anchor = s.world.get(soldier, Stance).anchorCell;
+    expect(anchor).not.toBe(boardedAt);
+    s.run(TRIP_TICKS * 2);
+
+    expect(line(s, cart, WOOD)).toEqual({ current: 2, wanted: 2, reserved: 2 });
+    expect(s.world.get(hq, Stockpile).amounts.get(WOOD)).toBe(10 - 2);
+    expect(s.world.get(soldier, Stance).anchorCell).toBe(anchor);
   });
 
   it('takes no food out of a home', () => {

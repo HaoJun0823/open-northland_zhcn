@@ -9,8 +9,6 @@ const LISTED_COMPONENTS = 16;
 const LISTED_FIELDS = 4;
 /** What V8's serializer writes around any value: subtracted so a value's figure is its own bytes. */
 const SERIALIZED_ENVELOPE_BYTES = serialize(null).byteLength;
-/** A numeric record travels as its fields in the delta's Float64Array. */
-const BYTES_PER_NUMBER = 8;
 
 interface ComponentTally {
   writes: number;
@@ -41,7 +39,7 @@ export class DeltaBreakdown {
         const value = entry.components[name];
         const tally = this.tallyOf(name);
         tally.writes++;
-        tally.bytes += valueBytes(value);
+        tally.bytes += valueBytes(value, delta.numbers.BYTES_PER_ELEMENT);
         if (held === undefined) {
           tally.created++;
           continue;
@@ -103,9 +101,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** The bytes the delta spends on the value: a record of numbers as its fields, anything else as V8
- *  serializes it. */
-function valueBytes(value: unknown): number {
+/** The bytes the delta spends on the value: a record of numbers as its fields in the delta's number
+ *  column, anything else as V8 serializes it. */
+function valueBytes(value: unknown, bytesPerNumber: number): number {
   if (isRecord(value)) {
     let numbers = 0;
     let numeric = true;
@@ -116,7 +114,7 @@ function valueBytes(value: unknown): number {
       }
       numbers++;
     }
-    if (numeric) return numbers * BYTES_PER_NUMBER;
+    if (numeric) return numbers * bytesPerNumber;
   }
   return serialize(value).byteLength - SERIALIZED_ENVELOPE_BYTES;
 }

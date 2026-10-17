@@ -377,7 +377,7 @@ export function marchProbe(sim: Simulation, knobs: MarchKnobs, startTick: number
       console.log(line);
     }
   };
-  if (sim.tick === knobs.applyTick - 1) afterStep();
+  afterStep();
 
   const report = (measurement: Measurement): readonly string[] => {
     const last = measurement.firstTick + measurement.tickSamples.length - 1;

@@ -33,8 +33,8 @@ does not reach them.
 | Map | Name | Seats | Headless | Browser | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `asgard-campaign_01_01` | GRENLANDIA | 3h/3ai | ok (`asgard-01-01-playthrough.test.ts`) | ok | played in Polish, mead economy by ordinary orders, voyage and Normandy unlock; Bjarni's death covered; briefing typo corrections; Build window refreshes while paused |
-| `asgard-campaign_01_02_sub` | NORMANDIA - zadanie dodatkowe | 2h/5ai | – | – | sub-mission |
-| `asgard-campaign_01_02` | NORMANDIA | 1h/8ai | – | – |  |
+| `asgard-campaign_01_02_sub` | NORMANDIA - zadanie dodatkowe | 2h/5ai | ok | ok | sub-mission; escort in hops under the civilian walk range, valley battle partly forced; catapult capture, reinforcements and princess death covered; Polish typo corrections |
+| `asgard-campaign_01_02` | NORMANDIA | 1h/8ai | ok | ok | played in Polish: informant, both letter orders, valley entry, sub-mission and return, ransom and battle endings, unlock of England; Bjarni's death covered; tribute stock and the last of the battle forced; script corrections (informant goal, early victory page, waiting-princess reminder), briefing fixes (prince east of the town, Papers tab); the cave mouth's floor is sealed by the map's own stones, so the valley entry is reached in front of the rocks |
 | `asgard-campaign_01_03` | ANGLIA | 2h/7ai | – | – |  |
 | `asgard-campaign_01_04_sub` | ITALIA - zadanie dodatkowe | 1h/0ai | – | – | sub-mission |
 | `asgard-campaign_01_04` | ITALIA | 2h/5ai | – | – |  |

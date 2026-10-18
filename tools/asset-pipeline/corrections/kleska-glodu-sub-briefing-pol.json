@@ -1,0 +1,12 @@
+{
+  "reason": "Strona 9 podmisji TRZY ŻYCZENIA otwiera się, gdy ktoś wciąż stoi na przycisku, choć duch czeka na następne pytanie. Angielska, niemiecka i rosyjska wersja każą zejść z przycisków; polska każe przesunąć kursor myszy poniżej przycisków, czego gra nie sprawdza. Tłumaczymy jak w pozostałych językach.",
+  "file": "campaigns/northland/campaign_02_02_sub/text/pol/briefings/briefings.txt",
+  "sha256": "a30f8a78ac0943a4a49715df2bb5ce8a721ce5819dcf024a3dd78c1700ee7043",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Musisz przesunąć kursor myszy poniżej przycisków, w przeciwnym razie duch nie przemówi!",
+      "to": "Musisz zejść z przycisków, w przeciwnym razie duch nie przemówi!"
+    }
+  ]
+}

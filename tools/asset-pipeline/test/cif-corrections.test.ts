@@ -132,19 +132,20 @@ describe('decoded CIF source corrections', () => {
     expect(() => corrections.assertApplied()).not.toThrow();
   });
 
-  it('keeps the named lesson correction gated on crockery in both the overall and individual goal', async () => {
+  it('gates the named lesson on crockery in both goals and counts handcarts as vehicles', async () => {
     const named = JSON.parse(
-      await readFile(new URL('../corrections/tutorial-004-pottery.json', import.meta.url), 'utf8'),
+      await readFile(new URL('../corrections/tutorial-004-mission-script.json', import.meta.url), 'utf8'),
     );
-    // An authored scaffold, not a copied map: only the two stale goal properties occupy their pinned
+    // An authored scaffold, not a copied map: only the three stale goal properties occupy their pinned
     // decoded positions. Re-pin this synthetic file's bytes while exercising the committed edits.
-    const lines = Array.from({ length: 178 }, () => ({ level: 2, text: 'description -1' }));
+    const lines = Array.from({ length: 205 }, () => ({ level: 2, text: 'description -1' }));
     lines[0] = { level: 1, text: 'MissionData' };
     lines[1] = { level: 2, text: 'debuginfo "summary"' };
     lines[18] = { level: 2, text: 'goal "BuildHouses" 0 "work pottery 02" 1 0' };
     lines[174] = { level: 1, text: 'MissionData' };
     lines[175] = { level: 2, text: 'debuginfo "product"' };
     lines[177] = { level: 2, text: 'goal "BuildHouses" 0 "work pottery 02" 1 0' };
+    lines[204] = { level: 2, text: 'goal "GoodsGlobal" 0 "handcart" 1' };
     const source = buildStringCif(lines);
     await writeFile(join(data, FILE), source);
     await writeFile(join(data, 'maps/community/sample/map.dat'), buildMapDat(1, 1, [2, 2, 2, 2]));
@@ -163,7 +164,10 @@ describe('decoded CIF source corrections', () => {
         ['BuildHouses', '0', 'work pottery 01', '1', '0'],
         ['GoodsGlobal', '0', 'crockery', '1'],
       ],
-      [['GoodsGlobal', '0', 'crockery', '1']],
+      [
+        ['GoodsGlobal', '0', 'crockery', '1'],
+        ['BuildVehicles', '0', 'handcart', '1', '0'],
+      ],
     ]);
     expect(() => corrections.assertApplied()).not.toThrow();
   });

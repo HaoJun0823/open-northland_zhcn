@@ -70,8 +70,8 @@ does not reach them.
 | --- | --- | --- | --- | --- | --- |
 | `wonder-campaign_03_01` | LATARNIA MORSKA Z FAROS | 2h/6ai | ok | ok | played in Polish; goods-first and Sostratos-first routes, vagabonds paid or fought, Viking tribute, hero and Sostratos deaths, unlock of stage 2; economy, stores and the long walks forced; fighter commander restocking a ship got lost (fixed); Polish briefing and settlement goal text corrected; the missing post in the vagabond camp's east wall corrected |
 | `wonder-campaign_03_01_sub` | ŚWIĘTY OGIEŃ | 1h/3ai | – | ok | sub-mission; entered and left from the parent in the browser, guard fight and walks forced |
-| `wonder-campaign_03_02` | WISZĄCE OGRODY SEMIRAMIDY  | 1h/6ai | – | – |  |
-| `wonder-campaign_03_02_sub` | PODZIEMNE KORYTARZE  | 1h/4ai | – | – | sub-mission |
+| `wonder-campaign_03_02` | WISZĄCE OGRODY SEMIRAMIDY  | 1h/6ai | ok | ok | played in Polish; win across a save, unlock of stage 3, tribute and fight routes for the women (the fight breaks the robbers' gate and pen wall), hero and women defeats, Kobul, chests, catapults, magic fields; economy, wells and stores forced; slot-5 info line, tunnel refusal after the women's return and Polish page 4 corrected |
+| `wonder-campaign_03_02_sub` | PODZIEMNE KORYTARZE  | 1h/4ai | issues | issues | sub-mission; scripted chain to the end transition passes, fight forced; the heroes slip past the closed gate 4 and win at once: [diagonal wall joints](tickets/sim/diagonal-step-cuts-landscape-wall-joints.md) |
 | `wonder-campaign_03_03` | KOLOS Z RODOS  | 1h/14ai | – | – |  |
 | `wonder-campaign_03_03_sub1` | KOLOS - SEKRETNE PRZEJŚCIE | 1h/1ai | – | – | sub-mission |
 | `wonder-campaign_03_03_sub2` | KOLOS - SEKRETNE PRZEJŚCIE | 1h/1ai | – | – | sub-mission |

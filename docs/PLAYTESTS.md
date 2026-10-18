@@ -94,7 +94,7 @@ does not reach them.
 | `saga-campaign_04_01_sub1` | POD MORZEM | 1h/1ai | – | – | sub-mission |
 | `saga-campaign_04_01_sub2` | POD MORZEM | 1h/2ai | – | – | sub-mission |
 | `saga-campaign_04_01_sub3` | ŚWIĘTA KOMNATA KAMIENNYCH SMOKÓW | 1h/4ai | – | – | sub-mission |
-| `saga-campaign_04_02` | MROCZNY LAS | 1h/2ai | – | – |  |
+| `saga-campaign_04_02` | MROCZNY LAS | 1h/2ai | issues | issues | played in Polish with both sub-missions (sub-map 2 also standalone headless); Pyro dug free, crystal, honey tribute, wool trade with Rzepakówna's store, hero and Pyro deaths, camp goal, save/restore in parent and sub-map, next-stage unlock; a move click into a sealed pocket now stops at its edge; page 14 points south to Pyro in all four languages; forced: economy, trader, collectors at Pyro; open: [dragons lock themselves in](tickets/sim/darkwood-dragons-lock-themselves-in.md) |
 | `saga-campaign_04_02_sub1` | CIEMNO CHOĆ OKO WYKOL | 1h/0ai | – | – | sub-mission |
 | `saga-campaign_04_02_sub2` | CIEMNO CHOĆ OKO WYKOL | 1h/3ai | – | – | sub-mission |
 | `saga-campaign_04_03` | WIELKA PRZEPROWADZKA | 1h/7ai | – | – |  |

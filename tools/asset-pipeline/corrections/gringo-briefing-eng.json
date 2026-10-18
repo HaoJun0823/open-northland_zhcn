@@ -1,0 +1,12 @@
+{
+  "reason": "Literówka w nagłówku angielskiej strony 514: \"GODSWARTH\" zamiast \"GODSWRATH\", jak przywódca Franków nazywa się w całej angielskiej wersji (26 razy).",
+  "file": "maps/community/Gringo/text/eng/briefings/briefings.txt",
+  "sha256": "464bed4f76e4961dbdb28984163fc06cfa85de7e7cf82eaeda55e60bbce2de29",
+  "lines": [
+    {
+      "line": 487,
+      "from": "GODSWARTH FREED!",
+      "to": "GODSWRATH FREED!"
+    }
+  ]
+}

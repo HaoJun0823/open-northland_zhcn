@@ -1,0 +1,32 @@
+{
+  "reason": "W niemieckiej wersji odprawy nazywają przywódcę Franków Bożygniewem (21 razy), a jego imię postaci, nazwa jego plemienia i cztery cele mówią o nim \"Gottes Grimm\", więc gracz nie wie, że chodzi o tę samą osobę. Ujednolicamy na Bożygniew, jak w odprawach i w pozostałych językach.",
+  "file": "maps/community/Gringo/text/ger/strings.ini",
+  "sha256": "701640bfe0f0776fa9cb03eccd242cc29e3af05887f3ed3323cbefcee8b5532d",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "stringn 52 \"Gottes Grimm Franken\"",
+      "to": "stringn 52 \"Bożygniews Franken\""
+    },
+    {
+      "from": "stringn 103 \"Gottes Grimm\"",
+      "to": "stringn 103 \"Bożygniew\""
+    },
+    {
+      "from": "stringn 39 \"Töte die Gefängniswächter und befreie Gottes Grimm\"",
+      "to": "stringn 39 \"Töte die Gefängniswächter und befreie Bożygniew\""
+    },
+    {
+      "from": "stringn 40 \"Führe Gottes Grimm zum Dorf der Franken\"",
+      "to": "stringn 40 \"Führe Bożygniew zum Dorf der Franken\""
+    },
+    {
+      "from": "stringn 41 \"Schicke Gottes Grimm zum Kloster im Südwesten\"",
+      "to": "stringn 41 \"Schicke Bożygniew zum Kloster im Südwesten\""
+    },
+    {
+      "from": "stringn 43 \"Warte, bis Gottes Grimms Boten von ihrer Mission zurückkehren\"",
+      "to": "stringn 43 \"Warte, bis Bożygniews Boten von ihrer Mission zurückkehren\""
+    }
+  ]
+}

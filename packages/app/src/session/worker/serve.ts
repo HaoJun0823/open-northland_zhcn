@@ -426,17 +426,18 @@ export class ServedSession<E> {
     this.owedMs -= ms;
   }
 
-  /** After every step, the driver's or `run`'s: record the tick and post it if the runtime has room. */
-  private readonly stepped = (): void => {
+  /** After every step, the driver's or `run`'s: record the tick and post it if the runtime has room.
+   *  Returns whether the tick stopped the session for the app to swap the world or play a video. */
+  private readonly stepped = (): boolean => {
     this.steppedTicks++;
     const simMs = performance.now() - this.stepStartMs;
     const { sim } = this;
     const tick = sim.tick;
     const events = sim.events.current();
-    if (
+    const stops =
       this.options.pauseOnSubMission &&
-      events.some((event) => event.kind === 'missionSubMission' || event.kind === 'missionVideo')
-    ) {
+      events.some((event) => event.kind === 'missionSubMission' || event.kind === 'missionVideo');
+    if (stops) {
       this.driver.setPaused(true);
       this.halt();
     }
@@ -453,6 +454,7 @@ export class ServedSession<E> {
     });
     this.recordedTick = tick;
     this.stepStartMs = performance.now();
+    return stops;
   };
 
   /** The records as one batch, its delta taken now: a delta is taken only for ticks a batch carries,
@@ -568,7 +570,8 @@ export class ServedSession<E> {
   }
 
   /** Step outside the session clock, paused or not. A command submitted while the run yields applies
-   *  at the tick the session gave it. */
+   *  at the tick the session gave it. The run ends early at a tick that stops the clock, so it never
+   *  steps the world past a sub-mission hand-off. */
   private async run(offClock: OffClockRun, ticks: number): Promise<void> {
     if (this.broken) throw new Error(BROKEN_SESSION_MESSAGE);
     this.running = true;
@@ -579,7 +582,7 @@ export class ServedSession<E> {
         for (let i = 0; i < slice; i++) {
           this.stepStartMs = performance.now();
           offClock.step();
-          this.stepped();
+          if (this.stepped()) return;
         }
         done += slice;
         if (done < ticks) await yieldToMessages();

@@ -126,7 +126,7 @@ A running game exposes `window.__opennorthland`:
 | --- | --- |
 | `host.tick`, `host.snapshot()` | Read the current drawn state |
 | `await host.hashState()` | Hash and its tick |
-| `await host.run(ticks)` | Step a paused session |
+| `await host.run(ticks)` | Step a paused session; a run ends early on the tick a sub-mission starts or ends or a mission video plays |
 | `await setPaused(true)`, `setSpeed(1)` | Pause or set a baseline speed |
 | `resetPerf()`, `await perf()` | Start a measurement window and read its report |
 | `audioStats()` | Sound counts; compare two reads |

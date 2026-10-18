@@ -125,8 +125,8 @@ does not reach them.
 | `cn_5` | CULTURESNATION: OKTAGON | 1h/1ai | – | – |  |
 | `cn_6` | CULTURESNATION: KWATERA GŁÓWNA | 1h/1ai | – | – |  |
 | `demo_mainmenu_10` | CULTURESNATION: PROLOG | 1h/2ai | – | – |  |
-| `gringo` | GRINGO WŚRÓD DZIKICH PLEMION | 1h/13ai | – | – |  |
-| `gringo_sub` | GRINGO - BITWA NA DZIKIM PUSTKOWIU | 1h/3ai | – | – | sub-mission |
+| `gringo` | GRINGO WŚRÓD DZIKICH PLEMION | 1h/13ai | ok | ok | played in Polish; every main and side objective, hero and temple defeats, save/restore; the prison palisade broken by right-click, Habibi's boats, tribute and tunnel routes; forced: the miners' battle, the prison guards, both raid defences, Zohan's fortress, the weresnakes and the temple defence, each lost or out of reach by straight assault; browser segments loaded from headless saves (prison, temple countdown, sub-mission round trip to the victory); German Bożygniew naming and English page 514 heading corrected |
+| `gringo_sub` | GRINGO - BITWA NA DZIKIM PUSTKOWIU | 1h/3ai | ok | ok | sub-mission; the battle is forced: by straight assault the 247-strong army loses to 486, and the map has no loss branch |
 | `kraina_starych_bohaterow` | KRAINA STARYCH BOHATERÓW | 1h/7ai | – | – |  |
 | `kraina_starych_bohaterow_sub1` | Grobowiec Starożytnych | 1h/3ai | – | – | sub-mission |
 | `kraina_starych_bohaterow_sub2` | Pokonać Nieśmiertelnego | 1h/4ai | – | – | sub-mission |

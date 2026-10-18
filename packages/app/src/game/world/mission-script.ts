@@ -101,7 +101,7 @@ export function resolveMissionScript(
         successfullIf: mission.successfullIf ?? 0,
         active: mission.active ?? false,
         visible: mission.visible ?? false,
-        // The corpus writes `-1` for "no goal text"; the loader's own default of 0 would name string 0.
+        // The corpus writes `-1` for "no goal text".
         ...(description !== undefined && description >= 0 ? { description } : {}),
         goals: mission.goals.map((line) => resolveNames(decodeMissionGoal(line, warn), joins, dropped)),
         results: mission.results.map((line) => resolveNames(decodeMissionResult(line, warn), joins, dropped)),

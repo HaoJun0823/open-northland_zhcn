@@ -64,6 +64,11 @@ goal "HumansDied" 100
 goal "PlayerSeen" 0 2
 result "MissionWon" 0
 esult "AddTributeGoods" 15 "coin" 40
+
+[MissionData]
+debuginfo "goal 0"
+visible 1
+goal "True"
 `;
 
   it('types the roster, diplomacy and mission headers; keeps opcodes lossless', () => {
@@ -111,7 +116,7 @@ esult "AddTributeGoods" 15 "coin" 40
       { missionId: 769, giveGood: 43, giveAmount: 1, takeGood: 34, takeAmount: 4 },
       { missionId: 900, giveGood: 4, giveAmount: 4, takeGood: 54, takeAmount: 1 },
     ]);
-    expect(script?.missions).toHaveLength(2);
+    expect(script?.missions).toHaveLength(3);
     expect(script?.missions[0]).toMatchObject({
       debugName: 'StartText',
       descriptionStringId: 300,
@@ -130,6 +135,8 @@ esult "AddTributeGoods" 15 "coin" 40
       successfullIf: 2,
       other: [{ key: 'esult', values: ['AddTributeGoods', '15', 'coin', '40'] }],
     });
+    // The editor leaves out `description` for string 0, the map's first goal text.
+    expect(script?.missions[2]).toMatchObject({ debugName: 'goal 0', descriptionStringId: 0, visible: true });
   });
 
   it('decodes the packed map.cif skin (macros already resolved to logicdefines codes)', () => {

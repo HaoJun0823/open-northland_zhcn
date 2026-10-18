@@ -40,7 +40,7 @@ reading). Keys (corpus; defaults are a reading):
 | Key | Meaning | Default |
 | --- | --- | --- |
 | `debuginfo "<text>"` | editor name, kept to 30 characters | empty |
-| `description <stringId>` | goal text shown in the mission window; the corpus writes `-1` for none | 0 |
+| `description <stringId>` | goal text shown in the mission window; the corpus writes `-1` for none and never writes `0`: a trigger without the line reads string 0, the map's first goal text | 0 |
 | `active 0\|1` | active at load; an active mission takes the load counter (1) as its activation | 0 |
 | `visible 0\|1` | listed in the mission window | 0 |
 | `successfullif 0..3` | how many goals must hold: 0 all, 1 at least one, 2 at least half (rounded up), 3 none; any other value means always | 0 |

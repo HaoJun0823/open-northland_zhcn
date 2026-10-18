@@ -469,9 +469,20 @@ function aiSection(sec: RuleSection, out: MapAiSeat[]): void {
   }
 }
 
+/**
+ * The goal text id of a trigger without a `description` line. The corpus writes `-1` for no text and
+ * never writes `description 0`; a trigger without the line reads string 0, the map's first goal text.
+ */
+const DEFAULT_DESCRIPTION_STRING_ID = 0;
+
 /** One repeated `MissionData` section as a trigger: typed header scalars, lossless goal/result lines. */
 function mission(sec: RuleSection): MapScript['missions'][number] {
-  const out: MapScript['missions'][number] = { goals: [], results: [], other: [] };
+  const out: MapScript['missions'][number] = {
+    descriptionStringId: DEFAULT_DESCRIPTION_STRING_ID,
+    goals: [],
+    results: [],
+    other: [],
+  };
   for (const p of sec.props) {
     switch (p.key) {
       case 'debuginfo':

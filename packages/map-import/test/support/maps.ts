@@ -12,7 +12,8 @@ export function plaintextMap(name: string): Record<string, string | Uint8Array> 
     'player.inc':
       '[playerdata]\nplayer 0 #PLAYER_TYPE_HUMAN #TRIBE_TYPE_HUMAN_VIKING #PLAYER_COLOR_ID_BLUE\n' +
       'player 1 #PLAYER_TYPE_AI #TRIBE_TYPE_HUMAN_FRANK #PLAYER_COLOR_ID_RED\n',
-    'mission.inc': '[MissionData]\ndebuginfo "Win"\ngoal "PlayerDied" 1\nresult "MissionWon" 0\n',
+    'mission.inc':
+      '[MissionData]\ndebuginfo "Win"\ndescription -1\ngoal "PlayerDied" 1\nresult "MissionWon" 0\n',
     'text/pol/strings.ini': `[text]\nstring "${name}"\nstring "Opis"\n`,
   };
 }

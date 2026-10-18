@@ -4,7 +4,6 @@ import { hasRealIr } from '../helpers.js';
 import {
   bootMap,
   buildingsOf,
-  buildingType,
   createLog,
   eventsOfKind,
   expectFired,
@@ -16,6 +15,7 @@ import {
   type PlaytestLog,
   pagesOpened,
   personsOf,
+  placeSiteNear,
   problems,
   run,
   SECOND,
@@ -32,27 +32,8 @@ const COLLECTORS = [1, 2, 3];
 const PAGES = [0, 1, 12, 4, 6, 5, 2, 15, 19, 16, 13, 7, 3, 17, 8, 9, 14, 18];
 const TIMEOUT_MS = 900_000;
 
-/** A construction site ordered through the seat command on the first node near `at` the seat may build on. */
 function site(sim: Simulation, log: PlaytestLog, slug: string, at: { hx: number; hy: number }): void {
-  const type = buildingType(sim, slug);
-  const probe = sim.placementProbe(type, PLAYER, TRIBE, true);
-  if (probe === null) throw new Error('no terrain');
-  for (let ring = 0; ring < 60; ring += 2)
-    for (let dy = -ring; dy <= ring; dy += 2)
-      for (let dx = -ring; dx <= ring; dx += 2) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
-        if (!probe.canPlace(at.hx + dx, at.hy + dy)) continue;
-        order(sim, PLAYER, {
-          kind: 'placeBuilding',
-          buildingType: type,
-          x: at.hx + dx,
-          y: at.hy + dy,
-          tribe: TRIBE,
-        });
-        run(sim, log, 1);
-        return;
-      }
-  throw new Error(`no site for ${slug} near ${at.hx},${at.hy}`);
+  placeSiteNear(sim, log, PLAYER, TRIBE, slug, at);
 }
 
 /** Steps until the seat stands a finished building of `slug`. */

@@ -232,6 +232,40 @@ export function order(sim: Simulation, player: number, command: PlayerCommand): 
   sim.enqueue(playerCommand(player, command));
 }
 
+/** The site search steps two half-cell nodes, one cell, at a time. */
+const SITE_STRIDE = 2;
+const SITE_SEARCH_RINGS = 60;
+
+/** A construction site ordered through the seat command on the first node near `at` the seat may build on. */
+export function placeSiteNear(
+  sim: Simulation,
+  log: PlaytestLog,
+  player: number,
+  tribe: number,
+  slug: string,
+  at: HalfCellNode,
+): void {
+  const type = buildingType(sim, slug);
+  const probe = sim.placementProbe(type, player, tribe, true);
+  if (probe === null) throw new Error('the world has no terrain');
+  for (let ring = 0; ring < SITE_SEARCH_RINGS; ring += SITE_STRIDE)
+    for (let dy = -ring; dy <= ring; dy += SITE_STRIDE)
+      for (let dx = -ring; dx <= ring; dx += SITE_STRIDE) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+        if (!probe.canPlace(at.hx + dx, at.hy + dy)) continue;
+        order(sim, player, {
+          kind: 'placeBuilding',
+          buildingType: type,
+          x: at.hx + dx,
+          y: at.hy + dy,
+          tribe,
+        });
+        run(sim, log, 1);
+        return;
+      }
+  throw new Error(`no site for ${slug} near ${at.hx},${at.hy}`);
+}
+
 /** Orders every listed settler to walk to the node. */
 export function walkTo(
   sim: Simulation,

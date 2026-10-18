@@ -14,6 +14,7 @@ import {
   type PlaytestLog,
   pagesOpened,
   personsOf,
+  placeSiteNear,
   problems,
   run,
   SECOND,
@@ -36,27 +37,8 @@ function retrain(sim: Simulation, log: PlaytestLog, who: Entity, jobSlug: string
   run(sim, log, 1);
 }
 
-/** A construction site ordered through the seat command on the first node near `at` the seat may build on. */
 function site(sim: Simulation, log: PlaytestLog, slug: string, at: { hx: number; hy: number }): void {
-  const type = buildingType(sim, slug);
-  const probe = sim.placementProbe(type, PLAYER, TRIBE, true);
-  if (probe === null) throw new Error('no terrain');
-  for (let ring = 0; ring < 60; ring += 2)
-    for (let dy = -ring; dy <= ring; dy += 2)
-      for (let dx = -ring; dx <= ring; dx += 2) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
-        if (!probe.canPlace(at.hx + dx, at.hy + dy)) continue;
-        order(sim, PLAYER, {
-          kind: 'placeBuilding',
-          buildingType: type,
-          x: at.hx + dx,
-          y: at.hy + dy,
-          tribe: TRIBE,
-        });
-        run(sim, log, 1);
-        return;
-      }
-  throw new Error(`no site for ${slug} near ${at.hx},${at.hy}`);
+  placeSiteNear(sim, log, PLAYER, TRIBE, slug, at);
 }
 
 function only(entities: readonly Entity[], what: string): Entity {

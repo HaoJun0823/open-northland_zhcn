@@ -1,0 +1,24 @@
+{
+  "reason": "Książę czeka przy ruinach na wschód od Ratyzbony (Ratingen), około 70 węzłów za ostatnimi domami osady, a strona po spotkaniu księżniczki kazała go szukać na zachód od niej. Informator i obszar odsłaniany przez skrypt wskazują właściwe miejsce. Strona o skrzyniach Norn odsyłała do okna 'Dodatki' z ikoną skrzyni po lewej stronie ekranu; u nas papiery ze skrzyń są na karcie 'Papiery' okna 'Budowanie', a 'Dodatki' to sekcja Asystenta (rosyjska wersja już tak mówi). Literówki: \"wprawdze\", \"Książe\" i podwójna spacja.",
+  "file": "campaigns/asgard/campaign_01_02/text/pol/briefings/briefings.txt",
+  "sha256": "39fb4018c081f4f1134715347363cb53396961fa3f07b60d0c9f10af89f0f623",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Dostarcz list księciu. Znajdziesz go na zachód od Ratyzbony, dużej normańskiej osady na południowym zachodzie.",
+      "to": "Dostarcz list księciu. Znajdziesz go na wschód od Ratyzbony, dużej normańskiej osady na południowym zachodzie."
+    },
+    {
+      "from": "Wyboru i użycia zwojów dokonujesz w oknie 'Dodatki' (ikona skrzyni z lewej strony ekranu).",
+      "to": "Zwoje wybierasz i używasz na karcie 'Papiery' w oknie 'Budowanie' (przycisk 'Buduj' na dolnym pasku)."
+    },
+    {
+      "from": "Napotkaliśmy obozowisko obcych Wikingów.  Źle nas tam przyjęto - ci wojownicy przybyli z północy w nadziei wielkich grabieży. To wprawdze nasi krajanie, ale nie mieliśmy praktycznie nic wspólnego z tą bandycką zbieraniną.",
+      "to": "Napotkaliśmy obozowisko obcych Wikingów. Źle nas tam przyjęto - ci wojownicy przybyli z północy w nadziei wielkich grabieży. To wprawdzie nasi krajanie, ale nie mieliśmy praktycznie nic wspólnego z tą bandycką zbieraniną."
+    },
+    {
+      "from": "Nagle jednak z oddali dało się usłyszeć dźwięk rogu. Książe Normanów dotrzymał słowa i wsparł nas w godzinie największej próby.",
+      "to": "Nagle jednak z oddali dało się usłyszeć dźwięk rogu. Książę Normanów dotrzymał słowa i wsparł nas w godzinie największej próby."
+    }
+  ]
+}

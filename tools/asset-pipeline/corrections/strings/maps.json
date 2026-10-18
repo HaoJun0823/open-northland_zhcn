@@ -1086,5 +1086,21 @@
     "from": "Заложите небольшое поселение.",
     "to": "Заложите небольшое поселение: ферму, мельницу, пекарню, колодец и гончарню.",
     "reason": "Skrypt zalicza osadę dopiero za farmę, młyn, piekarnię, studnię i warsztat garncarski, a cel nie mówi, jakie budynki postawić; nazwy jak w menu budowy. Po polsku także literówka \"mała\" zamiast \"małą\"."
+  },
+  {
+    "map": "asgard-campaign_01_02",
+    "lang": "pol",
+    "id": 101,
+    "from": "Normański książe",
+    "to": "Normański książę",
+    "reason": "Literówka w imieniu postaci: \"książe\" zamiast \"książę\"."
+  },
+  {
+    "map": "asgard-campaign_01_02_sub",
+    "lang": "pol",
+    "id": 102,
+    "from": "Książe",
+    "to": "Książę",
+    "reason": "Literówka w imieniu postaci: \"Książe\" zamiast \"Książę\"."
   }
 ]

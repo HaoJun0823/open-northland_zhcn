@@ -1,0 +1,43 @@
+{
+  "reason": "Informator mówi, by odszukać księcia, i odsłania jego okolicę, lecz skrypt pokazuje wtedy cel „Odszukaj księżniczkę” (misja 7), bo misja księcia (8) nie ma tekstu; dostaje teraz tekst „Odszukaj księcia.” i to ją pokazuje informator, a odnalezienie najpierw księżniczki chowa go (skrypt pokazuje wtedy własny cel „Odszukaj księcia.”). Misja 28 („WYGRALIŚMY!” z normańskimi przyjaciółmi) była aktywna od startu, choć aktywuje ją dopiero atak na bandytów (16): wybicie żołnierzy neutralnych bandytów na początku pokazywało stronę zwycięstwa i po weselu kończyło mapę bez bitwy. Przypomnienie „Księżniczka czeka na ciebie przy wejściu do doliny” (55) startowało dopiero po dotarciu do wejścia i 4 sekundy później gasło, więc nigdy się nie pokazywało; startuje teraz, gdy księżniczka wyrusza do doliny.",
+  "file": "campaigns/asgard/campaign_01_02/map.cif",
+  "sha256": "6f2bef2aa59c341722f74403642466c0aa5b93f4f95d73d622c04c450439ba53",
+  "format": "cif",
+  "lines": [
+    {
+      "line": 66,
+      "from": "result \"SetVisible\" 7 0",
+      "to": ["result \"SetVisible\" 7 0", "result \"SetVisible\" 8 0"]
+    },
+    {
+      "line": 74,
+      "from": "description -1",
+      "to": "description 15"
+    },
+    {
+      "line": 92,
+      "from": "result \"ActivateMission\" 11",
+      "to": ["result \"ActivateMission\" 11", "result \"ActivateMission\" 55"]
+    },
+    {
+      "line": 105,
+      "from": "result \"ActivateMission\" 11",
+      "to": ["result \"ActivateMission\" 11", "result \"ActivateMission\" 55"]
+    },
+    {
+      "line": 117,
+      "from": "result \"ActivateMission\" 55",
+      "to": []
+    },
+    {
+      "line": 310,
+      "from": "active 1",
+      "to": []
+    },
+    {
+      "line": 369,
+      "from": "result \"SetVisible\" 7 1",
+      "to": "result \"SetVisible\" 8 1"
+    }
+  ]
+}

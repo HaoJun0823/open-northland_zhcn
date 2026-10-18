@@ -1,0 +1,16 @@
+{
+  "reason": "Literówki w polskim briefingu misji dodatkowej: \"na podobna okazję\" zamiast \"na podobną okazję\" i \"Książe\" zamiast \"Książę\".",
+  "file": "campaigns/asgard/campaign_01_02_sub/text/pol/briefings/briefings.txt",
+  "sha256": "c13de851eaa3e179a395659b52ab2de7a79ecafdccb3a8fac2e16b163f624b6d",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Wygląda na to, że tak jedni jak i drudzy od lat czekali na podobna okazję do zaszkodzenia miejscowemu monarsze!",
+      "to": "Wygląda na to, że tak jedni jak i drudzy od lat czekali na podobną okazję do zaszkodzenia miejscowemu monarsze!"
+    },
+    {
+      "from": "Zawiodłeś! Książe nie żyje! Zaufał ci, a ty go opuściłeś - zarówno Frankowie jak i Normanowie obarczają cię odpowiedzialnością za tę śmierć!",
+      "to": "Zawiodłeś! Książę nie żyje! Zaufał ci, a ty go opuściłeś - zarówno Frankowie jak i Normanowie obarczają cię odpowiedzialnością za tę śmierć!"
+    }
+  ]
+}

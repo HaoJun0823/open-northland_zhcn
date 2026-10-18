@@ -1,0 +1,12 @@
+{
+  "reason": "Książę czeka przy ruinach na wschód od Ratyzbony (Ratingen), około 70 węzłów za ostatnimi domami osady, a strona po spotkaniu księżniczki kazała go szukać na zachód od niej. Informator i obszar odsłaniany przez skrypt wskazują właściwe miejsce.",
+  "file": "campaigns/asgard/campaign_01_02/text/rus/briefings/briefings.txt",
+  "sha256": "6b04bb2f13d81584490f7b8ec1e952fb599b3e4fa0ee605c67330154ae063455",
+  "encoding": "windows-1251",
+  "lines": [
+    {
+      "from": "Отнесите письмо принцу. Он к западу от Ратингена, большого норманнского города на юго-западе.",
+      "to": "Отнесите письмо принцу. Он к востоку от Ратингена, большого норманнского города на юго-западе."
+    }
+  ]
+}

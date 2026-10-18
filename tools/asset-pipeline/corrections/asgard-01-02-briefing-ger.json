@@ -1,0 +1,16 @@
+{
+  "reason": "Książę czeka przy ruinach na wschód od Ratyzbony (Ratingen), około 70 węzłów za ostatnimi domami osady, a strona po spotkaniu księżniczki kazała go szukać na zachód od niej. Informator i obszar odsłaniany przez skrypt wskazują właściwe miejsce. Strona o skrzyniach Norn odsyłała do okna 'Dodatki' z ikoną skrzyni po lewej stronie ekranu; u nas papiery ze skrzyń są na karcie 'Papiery' okna 'Budowanie', a 'Dodatki' to sekcja Asystenta (rosyjska wersja już tak mówi).",
+  "file": "campaigns/asgard/campaign_01_02/text/ger/briefings/briefings.txt",
+  "sha256": "2092005cd448197126568ade608a024f2864e907e91b0425177a30fc33e7b64e",
+  "encoding": "windows-1252",
+  "lines": [
+    {
+      "from": "Bringe den Brief zum Prinzen. Er hält sich westlich von Ratingen auf, jener großen Normannenstadt im Südwesten.",
+      "to": "Bringe den Brief zum Prinzen. Er hält sich östlich von Ratingen auf, jener großen Normannenstadt im Südwesten."
+    },
+    {
+      "from": "Über das Extras-Fenster (das Kistensymbol am linken Bildschirmrand) kannst du die einzelnen Schriftrollen auswählen und sofort einsetzen.",
+      "to": "Über den Reiter \"Briefe\" im Fenster \"Bau\" kannst du die einzelnen Schriftrollen auswählen und sofort einsetzen."
+    }
+  ]
+}

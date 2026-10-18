@@ -1,0 +1,12 @@
+{
+  "reason": "Strona 4 otwiera się dopiero po wybudowaniu 9 studni i dostarczeniu towarów, a polska wersja zaczyna się od „Musimy wybudować studnie i dostarczyć wymagane towary”, jakby to było jeszcze do zrobienia. Angielska, niemiecka i rosyjska mówią, że studnie już stoją, a towary są na miejscu. Tłumaczymy jak w pozostałych językach.",
+  "file": "campaigns/wonder/campaign_03_02/text/pol/briefings/briefings.txt",
+  "sha256": "7157c2ad12fa25f1aeaa5e769fd896736bc1c24eed39d4fe49efeb69d6ef7cd4",
+  "encoding": "windows-1250",
+  "lines": [
+    {
+      "from": "Musimy wybudować studnie i dostarczyć wymagane towary na miejsce budowy. Nie zabrało wiele czasu, gdy fundamenty zostały położone. ",
+      "to": "Wybudowaliśmy studnie i dostarczyliśmy wymagane towary na miejsce budowy. Niedługo potem położono fundamenty. "
+    }
+  ]
+}

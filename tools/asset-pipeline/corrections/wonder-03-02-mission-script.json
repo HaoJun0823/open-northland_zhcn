@@ -1,0 +1,18 @@
+{
+  "reason": "Dwie usterki skryptu Wiszących Ogrodów. Po pierwszym poziomie cudu misja 5 wpisuje licznik bydła do wiersza informacyjnego 5, którego nie ma (wiersze to 0-4), a kilka linii dalej wpisuje ten sam licznik do wiersza 2; pierwszy wpis tylko zgłasza błąd, więc go usuwamy. Misja 9 przy wejściu do podziemnych korytarzy pokazuje stronę 15 „Nie masz pozwolenia na wejście… Idź i pomóż plemieniu pasterzy” i zostaje aktywna przez całą mapę, więc gracz, który przychodzi po uwolnieniu kobiet, dostaje tę odmowę tuż przed wejściem do korytarzy. Powrót kobiet (misja 25) wyłącza teraz misję 9.",
+  "file": "campaigns/wonder/campaign_03_02/map.cif",
+  "sha256": "65837cb5a7e35f7354404df76bc0463b118b70298c842c5c24521dbdf98dafa5",
+  "format": "cif",
+  "lines": [
+    {
+      "line": 79,
+      "from": "result \"InfoCountAnimalsInArea\" 0 5 27 \"cattle\" 488 123 70 0",
+      "to": []
+    },
+    {
+      "line": 280,
+      "from": "result \"ActivateMission\" 10",
+      "to": ["result \"DeactivateMission\" 9", "result \"ActivateMission\" 10"]
+    }
+  ]
+}

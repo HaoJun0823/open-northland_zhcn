@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CurrentAtomic,
   GroundDrop,
+  LostWay,
   MoveGoal,
   Owner,
   PathRequest,
@@ -21,6 +22,7 @@ import {
   resourceBlockedCells,
   resourceFootprintForGood,
   resourceWorkCell,
+  routeRegions,
   stampResourceFootprint,
   unstampResourceFootprint,
 } from '../../src/systems/index.js';
@@ -290,6 +292,37 @@ describe('resource footprints', () => {
 
     sim.run(30);
     expect(sim.world.get(worker, Position).x).toBeGreaterThan(startX); // walked toward the tree, not frozen
+  });
+
+  it('sends a unit ORDERED into a resource-sealed pocket to the pocket edge on its own side', () => {
+    // Larger than the route-region pocket cap, so only the ringed node proves a pocket.
+    const sim = mappedSim(grassMap(30, 20));
+    const terrain = terrainOf(sim);
+    const from = terrain.nodeAt(4, 20);
+    const worker = placeWoodcutter(sim, 4, 20);
+    sim.world.add(worker, Owner, { player: VIKING });
+    const pocket = terrain.nodeAt(30, 20);
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const node = terrain.nodeAt(30 + dx, 20 + dy);
+        if (node !== pocket && terrain.isWalkable(node))
+          placeResource(sim, WOOD, WOOD_ATOMIC, 30 + dx, 20 + dy);
+      }
+    }
+    expect(routeRegions(sim.world, ctxOf(sim), terrain).unroutable(from, pocket)).toBe(true);
+    const startX = sim.world.get(worker, Position).x;
+
+    sim.enqueueSetup({ kind: 'moveUnit', entity: worker, x: 30, y: 20 }); // the free node inside the ring
+    sim.step();
+
+    const goal = sim.world.get(worker, MoveGoal).cell;
+    expect(routeRegions(sim.world, ctxOf(sim), terrain).unroutable(from, goal)).toBe(false);
+    expect(Math.abs(terrain.xOf(goal) - 30)).toBeLessThanOrEqual(4); // at the ring, not somewhere far
+    expect(Math.abs(terrain.yOf(goal) - 20)).toBeLessThanOrEqual(4);
+
+    sim.run(60);
+    expect(sim.world.has(worker, LostWay)).toBe(false);
+    expect(sim.world.get(worker, Position).x).toBeGreaterThan(startX);
   });
 
   it('leaves an ordered goal on open ground exactly where the player clicked (no snap)', () => {

@@ -32,9 +32,10 @@ import {
 import type { Command } from '../../core/commands/index.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nearestUnblockedNode } from '../../nav/nearest.js';
+import { ringSearch } from '../../nav/ring-search.js';
 import type { NodeId, TerrainGraph } from '../../nav/terrain/index.js';
 import type { System, SystemContext } from '../context.js';
-import { dynamicBlockOverlay } from '../footprint/index.js';
+import { dynamicBlockOverlay, ROUTE_REGION_POCKET_CAP, routeRegions } from '../footprint/index.js';
 import { isTravelling, onNodeCentre, stopAtNextNode } from '../movement/nav-state.js';
 import { breakThroughWall } from '../palisades/breach.js';
 import { atomicHoldsSettler } from '../settlers/atomics/busy.js';
@@ -73,6 +74,31 @@ export function reachableMoveGoal(
   const blocked = dynamicBlockOverlay(world, ctx, terrain);
   if (terrain.isWalkable(clicked) && !blocked.has(clicked)) return clicked;
   return nearestUnblockedNode(terrain, clicked, blocked) ?? clicked;
+}
+
+/**
+ * {@link reachableMoveGoal} for a walker standing on `from`: a goal proven to lie in another region than
+ * the walker's (a spot ringed by deposits, the far side of a closed gate, or open ground seen from a
+ * walker sealed in itself) moves to the nearest node not proven apart from the walker, so the unit walks
+ * up to the barrier instead of failing the route and wandering off lost. A goal with no such node within
+ * the search is kept. Approximation of the original's click handling.
+ */
+function walkerSideMoveGoal(
+  world: World,
+  ctx: SystemContext,
+  terrain: TerrainGraph,
+  clicked: NodeId,
+  from: NodeId,
+): NodeId {
+  const goal = reachableMoveGoal(world, ctx, terrain, clicked);
+  const regions = routeRegions(world, ctx, terrain);
+  if (!regions.unroutable(from, goal)) return goal;
+  // Authored cost guard: the visits count blocked nodes too, so this reaches out about nine cells, past
+  // a pocket and a thin wall but not through a thick one.
+  const outside = ringSearch(terrain, clicked, 2 * ROUTE_REGION_POCKET_CAP, {
+    accept: (node) => regions.standable(node) && !regions.unroutable(from, node),
+  });
+  return outside ?? goal;
 }
 
 /**
@@ -136,7 +162,13 @@ function startPlayerWalk(
     return false;
   }
 
-  const goal = reachableMoveGoal(world, ctx, terrain, terrain.nodeAtClamped(command.x, command.y));
+  const clicked = terrain.nodeAtClamped(command.x, command.y);
+  // A plain move order re-aims, a player's or an AI's: a script names its spot, and an attack-move
+  // breaches the wall.
+  const goal =
+    confined && command.kind === 'moveUnit'
+      ? walkerSideMoveGoal(world, ctx, terrain, clicked, entityNode(world, terrain, e))
+      : reachableMoveGoal(world, ctx, terrain, clicked);
   // Signpost confinement: a civilian ordered beyond its allowed area doesn't know the way, so the order is
   // refused and the unit stays put. Approximation: the original starts the walk and lets its guided
   // pathfinder fail it, raising the same "lost" note.

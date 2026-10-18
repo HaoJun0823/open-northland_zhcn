@@ -1,0 +1,11 @@
+{
+  "reason": "Drugi starzec (strona 14) mówi, że leśne zwierzęta biegną „na północ stąd”, do miejsca, skąd dochodzą jęki. To uwięziony ognisty smok Pyro (strona 9, misja 5), a leży on około 100 węzłów na południe od starca; na północy jest tylko dom Korozuba. Błąd jest we wszystkich czterech językach. Zmieniamy kierunek na południe, żeby wskazówka prowadziła do smoka.",
+  "file": "campaigns/saga/campaign_04_02/text/eng/briefings/briefings.txt",
+  "sha256": "cd2c9f54f3e02e44fe70399098c94fb21983d4294cf18430f6417e24084b2c7a",
+  "lines": [
+    {
+      "from": "\"A terrible earthquake set the rocks moving. Ever since, all the animals of the forest have been running to a spot north of here. A soft wailing keeps drifting from there into the forest, day and night. Surely nobody has come to harm?\"",
+      "to": "\"A terrible earthquake set the rocks moving. Ever since, all the animals of the forest have been running to a spot south of here. A soft wailing keeps drifting from there into the forest, day and night. Surely nobody has come to harm?\""
+    }
+  ]
+}

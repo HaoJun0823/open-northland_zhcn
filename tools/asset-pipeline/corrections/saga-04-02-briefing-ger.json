@@ -1,0 +1,12 @@
+{
+  "reason": "Drugi starzec (strona 14) mówi, że leśne zwierzęta biegną „na północ stąd”, do miejsca, skąd dochodzą jęki. To uwięziony ognisty smok Pyro (strona 9, misja 5), a leży on około 100 węzłów na południe od starca; na północy jest tylko dom Korozuba. Błąd jest we wszystkich czterech językach. Zmieniamy kierunek na południe, żeby wskazówka prowadziła do smoka.",
+  "file": "campaigns/saga/campaign_04_02/text/ger/briefings/briefings.txt",
+  "sha256": "0da10a1ac9315b5dd13abc128f35b45698f9292bae73377e7f1ea6e64cd0c128",
+  "encoding": "windows-1252",
+  "lines": [
+    {
+      "from": "\"Ein furchtbares Erdbeben brachte die Steine zum Wandern. Seit diesem Vorfall laufen alle Tier des Waldes zu einer Stelle nördlich von hier. Von dort dringen leise Klagelaute unablässlich in den Wald. Es wird doch nicht jemanden etwas passiert sein?\"",
+      "to": "\"Ein furchtbares Erdbeben brachte die Steine zum Wandern. Seit diesem Vorfall laufen alle Tier des Waldes zu einer Stelle südlich von hier. Von dort dringen leise Klagelaute unablässlich in den Wald. Es wird doch nicht jemanden etwas passiert sein?\""
+    }
+  ]
+}

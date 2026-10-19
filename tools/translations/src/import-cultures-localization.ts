@@ -11,6 +11,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { OVERLAY_LANGUAGES } from '@open-northland/data';
+import { TRANSLATIONS_ROOT } from '@open-northland/translations';
 import { formatReport } from './import/report.js';
 import { GLOSSARY_FILE, importCulturesLocalization } from './import/run.js';
 
@@ -77,6 +78,7 @@ async function main(): Promise<void> {
     source,
     dataRoot: resolve(baseDir, values['data-root']),
     corrections: CORRECTIONS_DIR,
+    translations: TRANSLATIONS_ROOT,
   });
   for (const file of result.files)
     await writeText(join(out, file.path), `${JSON.stringify(file.value, null, 2)}\n`);

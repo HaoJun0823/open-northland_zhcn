@@ -42,6 +42,8 @@ export interface ImportOptions {
   readonly dataRoot: string;
   /** The asset pipeline's corrections folder, whose German fixes the report names. */
   readonly corrections: string;
+  /** The translations folder, whose German map overlays the report names like corrections. */
+  readonly translations: string;
 }
 
 /** How many of the localization's German entries equal ours, of the keys both carry. */
@@ -159,7 +161,7 @@ async function importBook(
 export async function importCulturesLocalization(options: ImportOptions): Promise<ImportResult> {
   const textRoot = join(options.source, ...TEXT_DIR);
   const baseRoot = join(options.dataRoot, PACK_BASE);
-  const corrections = await readGermanCorrections(options.corrections);
+  const corrections = await readGermanCorrections(options.corrections, options.translations);
   const maps = await importMaps(options.source, options.dataRoot, corrections);
   const files: OverlayFile[] = [...maps.files];
   const tables: TableResult[] = [];

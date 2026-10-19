@@ -90,7 +90,7 @@ function translateLanguage(
     markupMismatches: translation.markupMismatches,
     retagged: translation.retagged,
     unframed: translation.unframed,
-    corrected: correctedMapKeys(corrections, map.id, basis, translation),
+    corrected: correctedMapKeys(corrections, map, basis, translation),
   };
   if (result.strings + result.blocks === 0) return { result };
   const overlay = MapOverlay.parse({

@@ -19,11 +19,25 @@ const TARGET_LANGUAGE = 'cht';
 const MAPS_DIR = 'maps';
 const JSON_INDENT = 2;
 
+/** Mainland quotation marks become the corner brackets Taiwan text uses; OpenCC leaves punctuation alone. */
+const QUOTATION_MARKS: readonly (readonly [string, string])[] = [
+  ['\u201c', '「'],
+  ['\u201d', '」'],
+  ['\u2018', '『'],
+  ['\u2019', '』'],
+];
+
+function traditionalPunctuation(text: string): string {
+  return QUOTATION_MARKS.reduce((out, [from, to]) => out.replaceAll(from, to), text);
+}
+
 /** Converts the prose of each value; hypertext tags and markers carry no Chinese, so converting the
  *  whole value is safe. */
 export function deriveTraditional(source: MapOverlay, convert: (text: string) => string): MapOverlay {
   const mapValues = (record: Readonly<Record<string, string>>): Record<string, string> =>
-    Object.fromEntries(Object.entries(record).map(([key, value]) => [key, convert(value)]));
+    Object.fromEntries(
+      Object.entries(record).map(([key, value]) => [key, traditionalPunctuation(convert(value))]),
+    );
   return MapOverlay.parse({
     version: source.version,
     map: source.map,

@@ -47,6 +47,12 @@ describe('deriveTraditionalMaps', () => {
     expect(twin.basis).toEqual(overlay('fjord', '').basis);
   });
 
+  it('turns mainland quotation marks into corner brackets', async () => {
+    await write('chs', `${DIGEST}.json`, overlay('fjord', '他说：“走吧，‘现在’就走。”'));
+    await deriveTraditionalMaps(root, convert);
+    expect((await read('cht', `${DIGEST}.json`)).strings['0']).toBe('他说：「走吧，『现在』就走。」');
+  });
+
   it('rewrites a derived twin but keeps an imported or hand-written one', async () => {
     await write('chs', `${DIGEST}.json`, overlay('fjord', '简'));
     await write('cht', `${DIGEST}.json`, overlay('fjord', 'stale', 'chs'));

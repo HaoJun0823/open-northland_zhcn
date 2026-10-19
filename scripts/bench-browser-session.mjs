@@ -7,7 +7,7 @@ import { verifyPreview } from '../packages/app/scripts/dev-verify.mjs';
 import { repoRoot } from './content-dir.mjs';
 import { skipOriginalGameGate } from './original-game-gate.mjs';
 
-/** The previous render pass's window, which the reference numbers in docs/PERFORMANCE.md use. */
+/** The window unless `ON_BENCH_VIEWPORT` names another; numbers compare only at one window size. */
 const DEFAULT_VIEWPORT = { width: 1440, height: 900 };
 
 /** `ON_BENCH_VIEWPORT`'s `WxH`, or the default window when unset. */
@@ -28,13 +28,11 @@ const windowPosition = process.env.ON_BENCH_WINDOW_POSITION;
 if (windowPosition !== undefined && !/^-?\d+,-?\d+$/.test(windowPosition))
   throw new Error('ON_BENCH_WINDOW_POSITION must be x,y');
 
+const WINDOW_POSITION_ARGS = windowPosition === undefined ? [] : [`--window-position=${windowPosition}`];
+
 /** Muted, yet free to start audio without a real gesture, so every window pays the sound driver's work
  *  as a player's game does. */
-export const BENCH_BROWSER_ARGS = [
-  '--mute-audio',
-  '--autoplay-policy=no-user-gesture-required',
-  ...(windowPosition === undefined ? [] : [`--window-position=${windowPosition}`]),
-];
+const BENCH_BROWSER_ARGS = ['--mute-audio', '--autoplay-policy=no-user-gesture-required'];
 /** The gesture the game's audio start listens for: a modifier the game only tracks while held, so a
  *  press and release selects and orders nothing. */
 const AUDIO_UNLOCK_KEY = 'Shift';
@@ -55,13 +53,15 @@ export async function unlockAudio(page) {
 }
 
 /**
- * Playwright's own Chromium, or with `ON_BENCH_CDP=<http://host:port>` a running Chromium reached over
- * the DevTools protocol, such as Windows Chrome driven from WSL. A connected browser keeps the flags it
- * was started with, so it needs `args` of its own; closing it closes only the pages opened here.
+ * Playwright's own Chromium, a headed one at `ON_BENCH_WINDOW_POSITION`, or with
+ * `ON_BENCH_CDP=<http://host:port>` a running Chromium reached over the DevTools protocol, such as
+ * Windows Chrome driven from WSL. A connected browser keeps the flags and the window position it was
+ * started with, so it needs `args` of its own; closing it closes only the pages opened here.
  */
 export function openBenchBrowser({ args = BENCH_BROWSER_ARGS, headless = false } = {}) {
   const endpoint = process.env.ON_BENCH_CDP;
-  return endpoint ? chromium.connectOverCDP(endpoint) : chromium.launch({ headless, args });
+  if (endpoint) return chromium.connectOverCDP(endpoint);
+  return chromium.launch({ headless, args: headless ? args : [...args, ...WINDOW_POSITION_ARGS] });
 }
 
 /** What a report names as its browser: the version, and the DevTools endpoint when one was reached. */

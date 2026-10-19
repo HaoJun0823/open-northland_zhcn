@@ -158,7 +158,6 @@ decided as `audioFrames`. `bench:gpu` does the same with sound on.
 | `ON_BENCH_BROWSER_CPU_THROTTLE` | DevTools main-thread slowdown; workers are not throttled |
 | `ON_BENCH_BROWSER_SEAT` | Watch a seat with its fog and HUD |
 | `ON_BENCH_BROWSER_WORKER_PROFILE=1` | Profile the worker per baseline window; use a separate unprofiled run for timings |
-| `ON_BENCH_WINDOW_POSITION` | `x,y` screen position of the browser window (every browser benchmark), to keep it on a display nobody works on; a covered window keeps its frame rate, a minimized one does not |
 
 The default matrix covers dense views paused and at ×1/×3/×10, wide views paused and at ×3/×10,
 zoom 0.7/0.5 at ×3, an empty view and a repeated dense ×3 window.
@@ -179,14 +178,15 @@ Failures retain completed results before closing the browser.
 
 | Variable | Effect |
 | --- | --- |
-| `ON_BENCH_VIEWPORT` | Window as `WxH` at device scale 1; default `1440x900`, the size earlier numbers were taken at |
+| `ON_BENCH_VIEWPORT` | Window as `WxH` at device scale 1; default `1440x900`. Numbers compare only at one size |
+| `ON_BENCH_WINDOW_POSITION` | `x,y` screen position of a headed browser window, to keep it on a display nobody works on; a covered window keeps its frame rate, a minimized one does not |
 | `ON_BENCH_CDP` | DevTools endpoint, e.g. `http://127.0.0.1:9333`, of a running Chromium to drive instead of launching Playwright's |
 
-A browser reached over CDP keeps the flags it started with, so start it windowed with a fresh profile,
-`--mute-audio` and `--autoplay-policy=no-user-gesture-required`, plus the ANGLE backend to measure
-(`--use-gl=angle --use-angle=d3d11` for Windows Chrome driven from WSL). Its load is outside the load
-gate's host, which then reads only the dev server and the script; the report says so and names the
-browser version and endpoint beside the adapter.
+A browser reached over CDP keeps the flags and window position it started with, so start it windowed
+with a fresh profile, `--mute-audio` and `--autoplay-policy=no-user-gesture-required`, plus the ANGLE
+backend to measure (`--use-gl=angle --use-angle=d3d11` for Windows Chrome driven from WSL). Its load is
+outside the load gate's host, which then reads only the dev server and the script; the report says so
+and names the browser version and endpoint beside the adapter.
 
 ### Reading frame metrics
 

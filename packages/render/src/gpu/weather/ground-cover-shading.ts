@@ -536,12 +536,11 @@ export const DECOR_COVER_FRAGMENT_DECLARATIONS = `
   ${SNOW_CAP}
 
   // What a snowed decor texel's cap reads off its page at UV uv: the alpha of the three rows above it,
-  // nearest first, and the mean alpha beside it; returns the page texels per screen px there.
-  vec2 decorSnowTaps(vec2 uv, out vec3 above, out float sides) {
+  // nearest first, and the mean alpha beside it; returns the page's size in texels. dx and dy are uv's
+  // derivatives, taken before the page chain.
+  vec2 decorSnowTaps(vec2 uv, vec2 dx, vec2 dy, out vec3 above, out float sides) {
     vec2 size = vec2(textureSize(uTexture, 0));
     vec2 texel = 1.0 / size;
-    vec2 dx = dFdx(uv);
-    vec2 dy = dFdy(uv);
     // The page keeps a one-texel transparent gutter round every frame, so a row further up counts only
     // while the rows between are filled: past a clear row it could be a neighbour frame.
     above = vec3(textureGrad(uTexture, uv - vec2(0.0, texel.y), dx, dy).a, 0.0, 0.0);
@@ -549,8 +548,7 @@ export const DECOR_COVER_FRAGMENT_DECLARATIONS = `
     if (above.y > 0.0) above.z = textureGrad(uTexture, uv - vec2(0.0, 3.0 * texel.y), dx, dy).a;
     sides = 0.5 * (textureGrad(uTexture, uv - vec2(texel.x, 0.0), dx, dy).a
       + textureGrad(uTexture, uv + vec2(texel.x, 0.0), dx, dy).a);
-    // vSnow is flat across the quad, so the branch around this call keeps derivatives defined.
-    return fwidth(uv * size);
+    return size;
   }
 
   // Snow a decor texel (premultiplied rgb) from its taps: a soft cap on its top surfaces and upper

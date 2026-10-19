@@ -32,8 +32,8 @@ describe('terrain shader gating', () => {
     expect(fragment).toContain('if (uEnhancedWater > 0.5)');
     expect(fragment).not.toMatch(/[,*+-]\s*uEnhancedWater/);
     expect(fragment).not.toMatch(/uEnhancedWater\s*[*+]/);
-    // The sampling gate has to return before the derivatives, or the baseline pays for them anyway.
-    expect(fragment.indexOf('uEnhancedSampling < 0.5')).toBeLessThan(fragment.indexOf('dFdx('));
+    // The sampling gate has to return before the filter's page size, or the baseline pays for it anyway.
+    expect(fragment.indexOf('uEnhancedSampling < 0.5')).toBeLessThan(fragment.indexOf('textureSize('));
     layer.destroy();
     source.destroy();
   });

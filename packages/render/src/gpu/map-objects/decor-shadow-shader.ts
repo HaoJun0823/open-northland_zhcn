@@ -102,10 +102,11 @@ ${pageSamplerDeclarations()}
     return coverage;
   }
 
-  vec4 shadeShadow(sampler2D uTexture) {
+  // dx and dy are vUV's derivatives, taken before the page chain (see pageChain).
+  vec4 shadeShadow(sampler2D uTexture, vec2 dx, vec2 dy) {
     // Atlas pages load at resolution 1, so the page's pixel size is the size the UVs were divided by.
     vec2 texel = vUV * vec2(textureSize(uTexture, 0));
-    float authored = textureGrad(uTexture, vUV, dFdx(vUV), dFdy(vUV)).a;
+    float authored = textureGrad(uTexture, vUV, dx, dy).a;
     bool inFrame = all(greaterThanEqual(texel, vFrame.xy)) && all(lessThan(texel, vFrame.zw));
     float coverage = uShadowSoft > 0.5 ? softCoverage(uTexture, texel) : (inFrame ? authored : 0.0);
     float alpha = min(coverage * uShadowAlpha.x, uShadowAlpha.y);
@@ -113,7 +114,9 @@ ${pageSamplerDeclarations()}
   }
 
   void main(void) {
-${pageChain('finalColor = shadeShadow(uPage$);')}
+    vec2 uvDx = dFdx(vUV);
+    vec2 uvDy = dFdy(vUV);
+${pageChain('finalColor = shadeShadow(uPage$, uvDx, uvDy);')}
   }
 `;
 

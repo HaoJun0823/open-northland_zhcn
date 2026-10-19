@@ -50,16 +50,12 @@ const TERRAIN_SAMPLE = `
   flat in vec4 vSampleBounds;
   uniform float uEnhancedSampling;
   uniform float uManualSampling;
-  vec4 sampleTerrain() {
-    // Both gates are uniforms, so this branch is uniform across the draw and the derivatives below
-    // stay well defined. Returning first keeps the baseline path to a single sampler fetch: a
-    // single-level page reads its level, a mipmapped one passes its derivatives (see pageChain).
+  // dx and dy are vUV's derivatives, which the caller takes before any page branch (see pageChain).
+  vec4 sampleTerrain(vec2 dx, vec2 dy) {
+    // Both gates are uniforms. Returning first keeps the baseline path to a single sampler fetch.
     if (uEnhancedSampling < 0.5 || uManualSampling < 0.5)
-      return uManualSampling > 0.5 ? textureLod(uTexture, vUV, 0.0)
-        : textureGrad(uTexture, vUV, dFdx(vUV), dFdy(vUV));
+      return textureGrad(uTexture, vUV, dx, dy);
     vec2 size = vec2(textureSize(uTexture, 0));
-    vec2 dx = dFdx(vUV);
-    vec2 dy = dFdy(vUV);
     float footprint = max(length(dx * size), length(dy * size));
     vec2 centre = (vSampleBounds.xy + vSampleBounds.zw) * 0.5;
     vec2 low = min(vSampleBounds.xy + 0.5 / size, centre);
@@ -181,11 +177,14 @@ const glslVec3 = (rgb: readonly [number, number, number]): string =>
  *  parameter instead. */
 function withPageParameter(glsl: string): string {
   return glsl
-    .replace('vec4 sampleTerrain() {', 'vec4 sampleTerrain(sampler2D uTexture) {')
+    .replace(
+      'vec4 sampleTerrain(vec2 dx, vec2 dy) {',
+      'vec4 sampleTerrain(sampler2D uTexture, vec2 dx, vec2 dy) {',
+    )
     .replace('vec3 groundNeighbourhood() {', 'vec3 groundNeighbourhood(sampler2D uTexture) {')
     .replace(
-      'vec2 decorSnowTaps(vec2 uv, out vec3 above, out float sides) {',
-      'vec2 decorSnowTaps(sampler2D uTexture, vec2 uv, out vec3 above, out float sides) {',
+      'vec2 decorSnowTaps(vec2 uv, vec2 dx, vec2 dy, out vec3 above, out float sides) {',
+      'vec2 decorSnowTaps(sampler2D uTexture, vec2 uv, vec2 dx, vec2 dy, out vec3 above, out float sides) {',
     );
 }
 
@@ -270,9 +269,9 @@ ${pageSamplerDeclarations()}
 
   // Everything that reads the fragment's page: its texel and, where snow lies, the neighbourhood the
   // snow classifies the ground by. Only this runs inside the page chain, so the shading compiles once.
-  vec4 pageTexel(sampler2D uTexture, bool snowed, out vec3 near) {
+  vec4 pageTexel(sampler2D uTexture, bool snowed, vec2 dx, vec2 dy, out vec3 near) {
     near = snowed ? groundNeighbourhood(uTexture) : vec3(0.0);
-    return sampleTerrain(uTexture);
+    return sampleTerrain(uTexture, dx, dy);
   }
 
   // cover is the weather cover already kept off the water; zero while the cover is off.
@@ -324,9 +323,11 @@ ${pageSamplerDeclarations()}
       cover = texture(uCoverTex, vCoverUV);
       cover.rgb *= 1.0 - clamp(vWater.x, 0.0, 1.0);
     }
+    vec2 uvDx = dFdx(vUV);
+    vec2 uvDy = dFdy(vUV);
     vec4 texel;
     vec3 near;
-${pageChain('texel = pageTexel(uPage$, cover.g > 0.0, near);')}
+${pageChain('texel = pageTexel(uPage$, cover.g > 0.0, uvDx, uvDy, near);')}
     finalColor = shadeGround(texel, cover, near);
   }
 `;
@@ -374,23 +375,27 @@ ${pageSamplerDeclarations()}
   out vec4 finalColor;
   ${withPageParameter(DECOR_COVER_FRAGMENT_DECLARATIONS)}
 
-  // Everything that reads the fragment's page; only this runs inside the page chain, so the snow
-  // shading after it compiles once.
-  vec4 decorPage(sampler2D uTexture, out vec2 footprint, out vec3 above, out float sides) {
-    footprint = vec2(0.0);
+  // Everything that reads the fragment's page, given vUV's derivatives dx and dy taken before the page
+  // chain; only this runs inside the chain, so the snow shading after it compiles once.
+  vec4 decorPage(sampler2D uTexture, vec2 dx, vec2 dy, out vec2 pageSize, out vec3 above, out float sides) {
+    pageSize = vec2(0.0);
     above = vec3(0.0);
     sides = 0.0;
     // vSnow is 0 unless the cover switch is on, so a dry map keeps its single fetch.
-    if (vSnow > 0.0) footprint = decorSnowTaps(uTexture, vUV, above, sides);
-    return textureGrad(uTexture, vUV, dFdx(vUV), dFdy(vUV));
+    if (vSnow > 0.0) pageSize = decorSnowTaps(uTexture, vUV, dx, dy, above, sides);
+    return textureGrad(uTexture, vUV, dx, dy);
   }
 
   void main(void) {
+    vec2 uvDx = dFdx(vUV);
+    vec2 uvDy = dFdy(vUV);
     vec4 texel;
-    vec2 footprint;
+    vec2 pageSize;
     vec3 above;
     float sides;
-${pageChain('texel = decorPage(uPage$, footprint, above, sides);')}
+${pageChain('texel = decorPage(uPage$, uvDx, uvDy, pageSize, above, sides);')}
+    // Page texels per screen px, taken after the chain; zero on a dry map.
+    vec2 footprint = fwidth(vUV * pageSize);
     if (vSnow > 0.0) texel.rgb = decorSnow(texel.rgb, texel.a, footprint, above, sides, vBrightness);
     finalColor = vec4(texel.rgb * vBrightness, texel.a) * uColor;
   }
@@ -517,7 +522,7 @@ const COLOR_FRAGMENT = `#version 300 es
   out vec4 finalColor;
   ${TERRAIN_SAMPLE}
   void main(void) {
-    vec4 texel = sampleTerrain();
+    vec4 texel = sampleTerrain(dFdx(vUV), dFdy(vUV));
     finalColor = vec4(texel.rgb * vVertexColor, texel.a) * uColor;
   }
 `;

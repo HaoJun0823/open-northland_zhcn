@@ -308,12 +308,22 @@ describe('world batcher palette LUT', () => {
   function recordingPipe() {
     const bound: [TextureSource, number][] = [];
     const drawn: number[] = [];
+    /** The twin slot mask each upload carried, with the program current at the time. */
+    const uploads: { slots: number; program: unknown }[] = [];
+    let program: unknown = null;
     const renderer = Object.create(WebGLRenderer.prototype) as WebGLRenderer;
     Object.assign(renderer, {
       runners: { contextChange: { add: () => undefined } },
       state: { set: () => undefined },
       texture: { bind: (source: TextureSource, slot: number) => bound.push([source, slot]) },
       geometry: { draw: (_topology: string, size: number) => drawn.push(size) },
+      shader: {
+        bind: (shader: { glProgram: unknown }) => {
+          program = shader.glProgram;
+        },
+        updateUniformGroup: (group: { uniforms: { uTwinSlots?: number } }) =>
+          uploads.push({ slots: group.uniforms.uTwinSlots ?? -1, program }),
+      },
     });
     const pipe = new BatcherPipe(renderer, new GlBatchAdaptor());
     Object.assign(renderer, { renderPipes: { batch: pipe } });
@@ -323,7 +333,7 @@ describe('world batcher palette LUT', () => {
       batch.action = 'renderBatch';
       renderer.renderPipes.batch.execute(batch);
     };
-    return { bound, drawn, draw };
+    return { bound, drawn, draw, uploads };
   }
 
   function builtBatch(
@@ -428,6 +438,40 @@ describe('world batcher palette LUT', () => {
       [house.source, 0],
     ]);
     expect(still.textures.textures[0]).toBe(house.source);
+    destroy();
+    twin.destroy();
+  });
+
+  it('hands the prescaled program a bit for each slot a twin stands in, with that program current', () => {
+    const house = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    const barn = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    const twin = new TextureSource({ width: 16, height: 16 });
+    const { batch, destroy } = builtBatch(PAGES_AND_LUT + 2, [house, barn]);
+    // A still-mesh draw of the same program uploads its own slots, not the world batch's. Its shader is
+    // the world batcher's current one, as the still mesh's is.
+    const still = new Batch();
+    still.batcher = {
+      name: 'stillMesh',
+      get shader() {
+        return batch.batcher.shader;
+      },
+    } as unknown as Batcher;
+    still.textures = new BatchTextureArray();
+    still.textures.textures[still.textures.count++] = barn.source;
+    const { draw, uploads } = recordingPipe();
+    setPixelArtMagnification('xbrz');
+    setPrescaledPage(barn.source, twin);
+    try {
+      draw(batch);
+      draw(still);
+      expect(uploads).toEqual([
+        { slots: 0b10, program: batch.batcher.shader?.glProgram },
+        { slots: 0b1, program: batch.batcher.shader?.glProgram },
+      ]);
+    } finally {
+      setPrescaledPage(barn.source, null);
+      setPixelArtMagnification('off');
+    }
     destroy();
     twin.destroy();
   });

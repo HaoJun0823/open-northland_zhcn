@@ -2,6 +2,7 @@ import { BLOOD_COAT_GLSL } from './blood-coat-shader.js';
 import { BLOOD_SURFACE_GLSL } from './blood-surface-shader.js';
 import { PIXEL_ART_MAGNIFY_CORE_GLSL, XBR_NEIGHBOURS } from './pixel-art-magnify.js';
 import { WORLD_MAGNIFY_MODES, type WorldMagnifyModeName } from './pixel-art-registry.js';
+import { PRESCALE_FACTOR } from './prescale/prescale-pass.js';
 import type { GlslProgramSource } from './program-source.js';
 import { type ShadowStyle, shadowTintChannels } from './shadow-style.js';
 
@@ -146,8 +147,19 @@ export function worldBatchProgramSource(
   };
 }
 
+/** The prescaled program reads which slots hold a twin, so a frame keeps its page's texel scale. */
+const TWIN_SLOTS_GLSL = /* glsl */ `
+// One bit per slot that holds a prescaled twin, set per draw; highp holds all 32 slots.
+uniform highp int uTwinSlots;
+const float PRESCALE_FACTOR = ${glslFloat(PRESCALE_FACTOR)};
+// Twin texels per page texel in this fragment's slot.
+float pageTexelScale() {
+  return ((uTwinSlots >> int(vTextureId + 0.5)) & 1) == 1 ? PRESCALE_FACTOR : 1.0;
+}`;
+
 export function worldBatchFragment(maxTextures: number, mode: number, shadow: ShadowStyle | null): string {
   const shading = shadowShadingGlsl(shadow);
+  const prescaled = mode === WORLD_MAGNIFY_MODES.prescaled;
   return /* glsl */ `#version 300 es
 precision highp float;
 in vec4 vColor;
@@ -164,7 +176,7 @@ uniform sampler2D uTextures[${maxTextures}];
 // 4 prescaled: plain pages arrive at twice their texels and magnify sharp, paletted ones take xbr
 const float WORLD_MAGNIFY = ${mode}.0;
 const float MAGNIFY_XBR = ${WORLD_MAGNIFY_MODES.xbr}.0;
-const float MAGNIFY_PRESCALED = ${WORLD_MAGNIFY_MODES.prescaled}.0;
+const float MAGNIFY_PRESCALED = ${WORLD_MAGNIFY_MODES.prescaled}.0;${prescaled ? TWIN_SLOTS_GLSL : ''}
 const int WORLD_FLAG_MAGNIFY = ${WORLD_FLAG_MAGNIFY};
 const int WORLD_FLAG_SHADOW = ${WORLD_FLAG_SHADOW};
 const int WORLD_FLAG_PALETTED = ${WORLD_FLAG_PALETTED};
@@ -373,7 +385,7 @@ ${Array.from({ length: SUB_WINDOW_TAPS }, (_, k) => `    taps[${k}] = resolvedTa
   }
   if (vSplashes.w != 0.0 && outColor.a > 0.0) {
     if (WORLD_MAGNIFY < 0.5) texSize = vec2(textureSizeOf());
-    vec2 size = max((vFrame.zw - vFrame.xy) * texSize, vec2(1.0));
+    vec2 size = max((vFrame.zw - vFrame.xy) * texSize${prescaled ? ' / pageTexelScale()' : ''}, vec2(1.0));
     vec2 uv = (vUV - vFrame.xy) / max(vFrame.zw - vFrame.xy, vec2(0.000001));
     // Negative coat data is a facade cutoff: crop the imprint, never shrink the entire splash.
     if (uv.y >= max(0.0, -vBlood)) {

@@ -18,6 +18,7 @@ import {
   Shader,
   type Texture,
   type TextureSource,
+  UniformGroup,
   type ViewContainer,
   WebGLRenderer,
 } from 'pixi.js';
@@ -31,6 +32,7 @@ import {
   palettedLutOf,
   pixelArtMagnifyMode,
   prescaledPageOf,
+  WORLD_MAGNIFY_MODES,
   worldShadowStyle,
 } from './pixel-art-registry.js';
 import { glProgramFor } from './program-source.js';
@@ -108,6 +110,11 @@ const listedPages: (TextureSource | undefined)[] = [];
  *  built the draw (the world batcher, or the still mesh's retained draws). */
 const worldBatchShaders = new WeakSet<Shader>();
 
+/** The prescaled program's per-draw uniform: one bit per slot that holds a twin, so the shader can
+ *  read a frame in its page's own texels. */
+type TwinSlotsUniforms = UniformGroup<{ uTwinSlots: { value: number; type: 'i32' } }>;
+const twinSlotsOf = new WeakMap<Shader, TwinSlotsUniforms>();
+
 /**
  * A paletted world batch lists its LUT in every slot between its pages and the LUT's own, so the list has
  * no holes; no element samples those slots, so its draw binds only the pages and the LUT, and the slots a
@@ -140,6 +147,16 @@ export function bindWorldBatchPagesAndLut(renderer: Renderer): void {
       twins && (hasPrescaledPages() || isCollectingDrawnPages())
         ? swapInPrescaledPages(textures.textures, listed)
         : 0;
+    const twinSlots = twins ? twinSlotsOf.get(shader) : undefined;
+    if (twinSlots !== undefined) {
+      if (twinSlots.uniforms.uTwinSlots !== swaps) {
+        twinSlots.uniforms.uTwinSlots = swaps;
+        twinSlots.update();
+      }
+      // The program must be current for the upload; a batch that starts a run binds it again, unsynced.
+      renderer.shader.bind(shader, true);
+      renderer.shader.updateUniformGroup(twinSlots);
+    }
     if (binding !== null) {
       renderer.texture.bind(binding.lut, binding.slot);
       textures.count = binding.pages;
@@ -316,11 +333,19 @@ function defineWorldBatcher(): WorldBatcherClass {
     const key = `${maxTextures}:${mode}:${shading}`;
     let shader = shaders.get(key);
     if (shader === undefined) {
+      const twinSlots: TwinSlotsUniforms | null =
+        mode === WORLD_MAGNIFY_MODES.prescaled
+          ? new UniformGroup({ uTwinSlots: { value: 0, type: 'i32' } })
+          : null;
       shader = new Shader({
         glProgram: glProgramFor(worldBatchProgramSource(maxTextures, mode, shadow)),
-        resources: { batchSamplers: getBatchSamplersUniformGroup(maxTextures) },
+        resources: {
+          batchSamplers: getBatchSamplersUniformGroup(maxTextures),
+          ...(twinSlots === null ? {} : { twinSlots }),
+        },
       });
       worldBatchShaders.add(shader);
+      if (twinSlots !== null) twinSlotsOf.set(shader, twinSlots);
       shaders.set(key, shader);
     }
     lastShader = {

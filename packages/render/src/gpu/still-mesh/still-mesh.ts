@@ -63,9 +63,14 @@ const INITIAL_BAND_INDICES = 1024;
  * Quad packs a run of mesh children must save per frame, on average, before it draws from the mesh: a
  * run costs two draws every frame (its own and the Pixi batch it splits), about what Pixi spends packing
  * two quads on a rebuild. A run qualifies when its quads times its band's rebuilds per frame reach this.
- * Measured in one session alternating the settings, magiczny_las t100000 with the walkers meshed, x3:
- * 0, 1, 2 and 4 drew within noise of each other at zoom 0.35 and 1, unthrottled and at 4x CPU throttle,
- * while 0, which never hands a quiet band back to Pixi, drew 511 calls paused at zoom 0.35 against 414.
+ * Measured in one session alternating the settings, x3 at 1440x900:
+ * - Held stills only, magiczny_las t120000, 4x CPU throttle: 2 beat 8 and 16 at zoom 0.35 (`app.render`
+ *   25.9 ms against 26.2 and 27.3) and stayed within noise of no mesh at zoom 1.
+ * - With the walkers meshed, magiczny_las t100000, two 4 s phases each: `app.render` at zoom 0.35 and 4x
+ *   was 40.4, 42.1, 36.7 and 40.3 ms for 0, 1, 2 and 4, within the phases' spread, and 3.36 to 3.45 ms
+ *   unthrottled. Paused at zoom 0.35, 0, which never hands a quiet band back to Pixi, drew 511 calls; 1, 2
+ *   and 4 drew 412 to 415.
+ * 2 stays: it beat the larger payoffs, and no smaller one measured better.
  */
 const RUN_PAYOFF = 2;
 /** Weight of the latest rebuild interval in a band's running estimate. */

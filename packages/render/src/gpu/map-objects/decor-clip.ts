@@ -11,7 +11,9 @@ import type { AtlasFrame } from '../../data/sprites/index.js';
  * `aClip` is `(entry, count, start, scale)`: the clip's first table entry; its frame count, negative for
  * a clip that plays once and 0 for a quad drawn as written; a loop's phase or a one-shot's first tick;
  * and the object's scale, negative while the viewer does not watch its cell, which shows the frame of
- * tick 0 as the original freezes animation in fog.
+ * tick 0, as the layer freezes animation on ground the viewer does not watch. A mirrored object's
+ * negative scale would read as the opposite flag; no producer writes one. `uDecorTick` is a float,
+ * exact to 2^24 ticks, about 16 days of play.
  */
 
 /** Texels one table entry takes: the quad's rectangle, its UV rectangle, its frame's texel bounds. */

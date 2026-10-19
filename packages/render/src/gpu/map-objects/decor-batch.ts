@@ -11,11 +11,12 @@ import { type DecorShadowUniforms, makeDecorShadowShader } from './decor-shadow-
 import { type MapObjectSprite, objectFrameAt, objectFrameIndexAt } from './map-object-sprite.js';
 
 /**
- * Flat ground decor batched into per-block quad meshes, a block's pages sharing its draw calls. Translucency rides in the atlas texture's own alpha channel; there is no per-object
- * opacity. An object's cast shadow batches the same way from its silhouette page, into a container the
- * layer draws under every decor body, in quads the soft edge's reach wider than their frames. An animated
- * quad of a paged mesh picks its frame on the GPU (`decor-clip.ts`); one of a plain mesh is rewritten here
- * as the play-head moves.
+ * Flat ground decor batched into per-block quad meshes, a block's pages sharing its draw calls.
+ * Translucency rides in the atlas texture's own alpha channel; there is no per-object opacity. An
+ * object's cast shadow batches the same way from its silhouette page, into a container the layer draws
+ * under every decor body, in quads the soft edge's reach wider than their frames. An animated quad of a
+ * paged mesh picks its frame on the GPU (`decor-clip.ts`); one of a plain mesh is rewritten here as the
+ * play-head moves.
  */
 
 /** Which of an object's two index-paired frame lists a batch draws. */
@@ -40,8 +41,10 @@ const VERTICES_PER_QUAD = 4;
 /** `aFrame` is a vec4 per vertex: the frame's min and max texel corner. */
 const FRAME_BOUND_FLOATS = 4;
 const FRAME_FLOATS_PER_QUAD = FRAME_BOUND_FLOATS * VERTICES_PER_QUAD;
-/** `aAnchor` is a vec2 per vertex: the object's drawn feet anchor, for its weather cover. Built on every
- *  map, weather or not: 32 bytes per shaded quad, measured at about 2.3 MB on magiczny_las. */
+/** `aAnchor` is a vec2 per vertex: the object's drawn feet, which the weather cover reads and an animated
+ *  quad places its clip frames by. Every quad of a paged mesh carries it and `aClip`, 32 and 64 bytes a
+ *  quad, weather or not: magiczny_las has 88,710 such quads, 2.7 and 5.4 MB, held on the GPU and again in
+ *  the CPU copy. */
 const ANCHOR_FLOATS = 2;
 
 /** What a quad write fills: a batch's buffers, and the page size its UVs divide by. `frameBounds`

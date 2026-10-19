@@ -66,8 +66,8 @@ off interleaved; the ×3 frame timer is too bimodal for a sub-millisecond option
   chain, an explicit level or `texelFetch`; see `pageChain` and the shader-budget test) rests on one
   Windows measurement: on an Intel UHD 770 at 1920x1080, in the densest town of `magiczny_las` (six
   hard AI, tick 100000), `magnify-off-z1` drew in 14.38 ms against 11.02 ms for `magnify-bilinear-z1`
-  with the world batch's off mode still reading with implicit derivatives. Run that pair with
-  `npm run bench:gpu` on Direct3D before and after the explicit reads. If off does not come down to
-  bilinear or below, hoisting out of the chain is not the cause, and the rule and its test are to be
-  revisited.
+  with the world batch's off mode still reading with implicit derivatives. The same pair after the
+  explicit reads, same machine and view: `magnify-off-z1` 10.43 ms, `magnify-off-z2` 14.89 to 9.42 ms,
+  bilinear unchanged at 11.03 and 12.04 ms, so hoisting out of the chain was the cause and the rule
+  stands. A change to a sampler chain repeats that pair with `npm run bench:gpu` on Direct3D.
 - `npm run check`, `npm run build`, `npm test`.

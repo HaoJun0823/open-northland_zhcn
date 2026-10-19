@@ -42,6 +42,7 @@ HD 4000 match tier 1. These are tested library outputs, not performance measurem
 | Option | Work it adds | Measured cost |
 | --- | --- | --- |
 | xBR / enhanced sampling | Multi-tap sprite/palette sampling and edge arithmetic; also enhanced terrain sampling and building minification. Cost depends on covered pixels, DPR and zoom. | See the magnifier scenarios of `npm run bench:gpu` |
+| xBRZ / Super-xBR / MMPX | One GPU redraw of each plain page a view draws at twice its size, at most 4 Mi texels a frame, then the twins' memory: up to a 1.5 GiB budget against 433 MB for the pages themselves on `magiczny_las` late game. Characters, flat decor (trees, rocks, grass), construction sites and damage overlays keep xBR, terrain filtering or the sharp path. | See the magnifier scenarios of `npm run bench:gpu`; a dense 1440×900 view holds 1.45 GB of twins |
 | Enhanced shadows | Cached blur baking and uploads; flat decor uses a 6×6 sampling footprint. | None at zoom 1; on is cheaper than off below zoom 1 and on a DPR 2 display (14% of the frame there), because a soft bake samples once where the authored silhouette goes through the magnifier |
 | Weather | Screen-covering procedural atmosphere, precipitation, ground reactions and cover updates. | See the weather scenarios of `npm run bench:gpu` |
 | Environment motion | Per-frame vegetation updates; visible shore waves also require a screen-sized lift map and ground filter. | No GPU cost above noise, shore waves in view included |

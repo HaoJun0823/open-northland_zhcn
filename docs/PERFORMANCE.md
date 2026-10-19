@@ -240,6 +240,19 @@ A hand-rolled throughput loop (many `renderer.update(frame)` calls between two `
 call `gl.flush()` once per frame, as a real present does. Without it, ANGLE over Metal stacks the
 frames into one command buffer that runs about 50% slower, and anything that switches the render
 target (a filter, Pixi's `useBackBuffer`) breaks the stack up and looks like a saving it is not.
+Time such a loop on the wall clock, from a drained GPU (`readPixels`) to a final drain, with enough
+GPU work per frame that the CPU never waits on it. Timer queries do not fit a loop: one query around
+it counts the GPU's idle gaps, and on Apple GPUs a query per frame overlaps the neighbouring frames' work
+and grows along the run (about 4 ms at the first frame and 17-20 ms by the twentieth, where the
+app's own meter read about 9 ms).
+
+At ×3 on the M2, `perf().gpu.ms` holds one of two clock modes for seconds at a time, about 3.5 ms apart
+in a dense view, so a setting that costs well under a millisecond only shows as a paired on/off delta
+within one mode; a paused, GPU-bound loop as above is steadier for a per-setting cost.
+
+Playwright's default headless browser renders on SwiftShader, far below a real frame rate; launching
+with `channel: 'chromium'` runs Chromium's new headless mode on the real GPU, which suits counts and
+pixel captures of a probe that should not open a window.
 
 ## HUD benchmark
 

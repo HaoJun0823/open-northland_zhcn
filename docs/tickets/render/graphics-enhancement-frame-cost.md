@@ -1,44 +1,44 @@
-# Reduce measured graphics enhancement and presentation costs
+# Reduce the remaining graphics enhancement costs
 
 **Area:** render · **Focus:** performance · **Priority:** P2
 
-Enhanced sampling is most of the GPU frame: on `magiczny_las` at t80000 the main stage takes about
-5.5 ms at zoom 1 with it on and 2.0 ms with it off (M2 Pro, GPU timer query around the main Pixi
-stage), and the sprite layer about 3.3 ms of that. Improve measured frame cost and Direct3D compile
-time across hardware without changing simulation speed, population or gameplay rules.
+The per-option costs are in the [graphics defaults' cost basis](../../GRAPHICS.md#cost-basis): on an
+M2 Pro the screen-sized ones are building grounding (about 8% of a dense town's GPU frame at zoom 1) and
+render scale or DPR above 1, which magnifies every sprite through xBR. Improve frame cost and Direct3D
+compile time without changing simulation speed, population, gameplay rules or the default pictures.
 
 ## Scope
 
-Measure first, then fix only what the numbers justify, interleaving the sides as `docs/DEVELOPMENT.md`
-describes.
+Measure first, then fix only what the numbers justify. GPU milliseconds per option come from a paused,
+GPU-bound render loop timed on the wall clock with the option on and off interleaved
+(`docs/PERFORMANCE.md`, GPU benchmark); the ×3 frame timer is too bimodal for a sub-millisecond option.
 
 - **Direct3D compile time of the paged meshes** (`gpu/shading.ts`, `gpu/map-objects/decor-shadow-shader.ts`,
-  `gpu/page-samplers.ts`). ANGLE over Direct3D 11 inlines every function, and `pageChain` inlines a
-  mesh's whole shading once per page slot: `shaded-terrain` (bicubic 16 taps, 4 minify taps and the
-  cover neighbourhood, 248 inlined texture operations) and `decor-shadow` (36 blur fetches, 304) now
-  compile as long as the world batch program on the GitHub runner's WARP device, 7 to 9 s each at
-  that runner's pace, where `npm run test:shaders -- --angle=d3d11` records them. The boot's warm-up
-  links them off the main thread, so the cost is first-start time, not a freeze. Fewer page slots on
-  Direct3D or one `sampler2DArray` for same-sized pages would cut the chain; measure with the
-  Direct3D check before and after.
-- **Paletted ship mesh size query** (`gpu/paletted-sprite/shader.ts`). The mesh re-reads `textureSize`
-  on every tap, and the world batch's `textureSizeOf` walks the chain once per fragment; the page size
-  could ride a vertex attribute.
+  `gpu/page-samplers.ts`). `pageChain` inlines a mesh's whole shading once per page slot (8):
+  `shaded-terrain` 192 and `decor-shadow` 304 inlined texture operations by the shader-budget estimator,
+  which compiled 7 to 9 s each on the GitHub runner's WARP device. The boot's warm-up links them off the
+  main thread, so the cost is first-start time. Fewer slots on Direct3D or one `sampler2DArray` for
+  same-sized pages would cut the chain; measure with `npm run test:shaders -- --angle=d3d11` before and
+  after.
+- **Grounded building overlays** (`gpu/ground-foot/`, `gpu/texture-cache.ts`). In the densest
+  `magiczny_las` town at zoom 1 the shade and cover overlays add about 2.0 Mpx of quads over 11.7 Mpx of
+  other world sprites and cost 0.20 ms of a 2.4 ms GPU-bound frame (the sunk bodies cost nothing
+  measurable). Each overlay is its own texture (60 + 60 in that view) and every overlay fragment pays the
+  world program's magnifier preamble although it samples once. Only 17-20% of the overlay quads'
+  texels have any alpha; cutting each band of four rows to its non-transparent span plus a texel of
+  margin keeps about 42% of the area, so drawing an overlay as a few band quads or a small batched mesh
+  would roughly halve the cost with identical pixels. The overlays bind in the sprite pool's layer
+  binding and in `gpu/map-objects/tall-blocks.ts`.
+- **World batch page size per fragment** (`gpu/world-batch-shader.ts`). With any magnifier on,
+  `textureSizeOf()` walks the sampler chain once per fragment, plain fragments included; the page size
+  could ride a vertex attribute. The program's prologue belongs with the magnifier work, so measure it
+  there (the paletted mesh's per-tap query is now one query per fragment).
 - **Four-tap minify at zoom 1 and below.** A minified fragment samples four clamped taps, which land
   on one point when the footprint is under a texel. At zoom 1 rounding sends some unscaled sprites to
   the xBR magnifier and others to the minifier, and which one can change with any rebuild of the shader.
   Taking every footprint within 0.001 of one texel per pixel through a single 1:1 tap makes zoom 1
   deterministic and cheaper but moves about 1% of the zoom-1 pixels; it needs an owner ruling on the
   pictures before it lands.
-- **Baseline vertex cost** (`gpu/world-batcher.ts`). `WORLD_VERTEX_SIZE` is 12 floats against Pixi's 6,
-  so every world quad uploads 192 bytes instead of 96, and the packer does a WeakMap and up to two
-  WeakSet lookups and a frame box per packed element with every enhancement off. `aFrame` is read only by
-  the magnify and minify branches.
-- **Per-frame churn with environment motion on** (`gpu/map-objects/map-object-layer.ts`). `motionTime`
-  is `tick + alpha`, so the frame-identical early-out never fires and every visible swaying tall object
-  rebinds each frame, including its shadow sprite. Confirm it is affordable on a forested map.
-- **Flat decor shadow fill** (`gpu/map-objects/decor-shadow-shader.ts`). The blur is 36 texel fetches per
-  fragment. Settle it on a named decor-dense map.
 - **Per-frame allocation** (`gpu/sprite-pool`, `data/scene`). At t80000, x3, the main thread allocated
   about 600 KB per frame in the dense view and 770 KB in the widest (allocation sampling with collected
   objects, before the still-frame and combat-mark changes). The render share: the pool's `reconcile`
@@ -49,13 +49,11 @@ describes.
 
 ## Verify
 
-- A numbered before/after on one real map at x3, each enhancement on and off, with the GPU timer query
-  of the browser benchmark's profile mode and the load average reported.
-- `npm run bench:browser` draw, texture-bind and upload counts (`gl`) for a town view with enhanced
-  shadows on and off.
-- Allocation sampling (`HeapProfiler.startSampling` with collected objects) at x3 on the same map.
-- Paused screenshots compared pixel by pixel: the default render stays byte-identical to the control
-  capture unless an owner ruling accepts the change.
+- The GPU-bound on/off loop for grounding (and any other option a change touches) at zoom 1 and 0.5,
+  before and after, with the paired per-cycle deltas reported.
+- Paused screenshots compared pixel by pixel (`npm run bench:browser-shots`): identical to the control
+  capture unless an owner ruling accepts the change. The dev FPS readout in the top bar differs between
+  captures on a loaded machine; read the world.
 - `npm run test:shaders -- --angle=d3d11` on Windows or through the CI workflow's `shaders` input,
-  before and after.
+  before and after, for the paged meshes.
 - `npm run check`, `npm run build`, `npm test`.

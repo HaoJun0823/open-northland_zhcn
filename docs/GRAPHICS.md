@@ -39,23 +39,24 @@ HD 4000 match tier 1. These are tested library outputs, not performance measurem
 
 ## Cost basis
 
-| Option | Work it adds |
-| --- | --- |
-| xBR / enhanced sampling | Multi-tap sprite/palette sampling and edge arithmetic; also enhanced terrain sampling and building minification. Cost depends on covered pixels, DPR and zoom. |
-| Enhanced shadows | Cached blur baking and uploads; flat decor uses a 6×6 sampling footprint. |
-| Weather | Screen-covering procedural atmosphere, precipitation, ground reactions and cover updates. |
-| Environment motion | Per-frame vegetation updates; visible shore waves also require a screen-sized lift map and ground filter. |
-| Enhanced water | Terrain shader animation and glint arithmetic; shore waves are owned by environment motion. |
-| Building grounding / damage | Cached source-pixel analysis, baking and uploads; extra overlays or detailed smoke/flame/debris sprites. |
-| Post effects | One screen-covering vignette sprite, not a separate render of the world. |
-| Blood | Combat-event history and visible spray/stain rendering; not a constant full-screen workload. |
-| Bone fading | Age-based opacity. Disabling it retains piles indefinitely. |
+| Option | Work it adds | Measured cost |
+| --- | --- | --- |
+| xBR / enhanced sampling | Multi-tap sprite/palette sampling and edge arithmetic; also enhanced terrain sampling and building minification. Cost depends on covered pixels, DPR and zoom. | See the magnifier scenarios of `npm run bench:gpu` |
+| Enhanced shadows | Cached blur baking and uploads; flat decor uses a 6×6 sampling footprint. | None at zoom 1; on is cheaper than off below zoom 1 and on a DPR 2 display (14% of the frame there), because a soft bake samples once where the authored silhouette goes through the magnifier |
+| Weather | Screen-covering procedural atmosphere, precipitation, ground reactions and cover updates. | See the weather scenarios of `npm run bench:gpu` |
+| Environment motion | Per-frame vegetation updates; visible shore waves also require a screen-sized lift map and ground filter. | No GPU cost above noise, shore waves in view included |
+| Enhanced water | Terrain shader animation and glint arithmetic; shore waves are owned by environment motion. | No GPU cost above noise |
+| Building grounding / damage | Cached source-pixel analysis, baking and uploads; extra overlays or detailed smoke/flame/debris sprites. | Grounding: about 8% of a dense town's GPU frame at zoom 1, all of it the shade and cover overlays' fill; damage: none above noise without fires in view |
+| Post effects | One screen-covering vignette sprite, not a separate render of the world. | Under 1% of the GPU frame |
+| Blood | Combat-event history and visible spray/stain rendering; not a constant full-screen workload. | CPU only: about 0.6 ms a frame at ×3 in a battle, mostly the contact walk of fresh bursts |
+| Bone fading | Age-based opacity. Disabling it retains piles indefinitely. | No cost above noise |
+| Render scale | Every world pixel at the scale squared, and at zoom 1 every sprite magnified. | 1.5 costs about 3.6 times the frame and 2 about 6.5 times; a DPR 2 display at scale 1 about 7 times |
 
-These are implementation costs, not per-option timing measurements. The existing
-[graphics cost task](tickets/render/graphics-enhancement-frame-cost.md) records one useful sampling
-comparison: M2 Pro, `magiczny_las`, tick 80000, zoom 1, approximately 5.5 ms main-stage GPU time with
-enhanced sampling versus 2.0 ms without. It does not validate the tier-to-settings mapping or quantify
-weather and blood. Weak-device weather defaults are precautionary.
+The measured column comes from an M2 Pro at 1440×900 with every other option on, `magiczny_las`
+(six hard AI) and `piec_dolin` (fifteen) at tick 100000: GPU time of a paused, GPU-bound render loop
+with the option on against off, interleaved, and renderer CPU time at ×3. It ranks the options; it does
+not predict a weak GPU's milliseconds, validate the tier-to-settings mapping or quantify weather.
+Weak-device weather defaults are precautionary.
 
 ## Detection and calibration
 

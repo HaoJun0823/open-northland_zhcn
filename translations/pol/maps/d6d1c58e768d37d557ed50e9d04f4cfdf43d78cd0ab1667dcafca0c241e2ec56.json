@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "map": "w_oku_niepewnosci",
+  "basis": {
+    "lang": "pol",
+    "digest": "abd1f3d752815622e3b5135971213124cc87090e3ccf3d4fcd7b6faebd1a30ae"
+  },
+  "strings": {
+    "98": "Rozbuduj się w tej żyznej krainie i zawrzyj sojusz z pozostałymi mieszkańcami lub podbij ich!"
+  },
+  "briefings": {}
+}

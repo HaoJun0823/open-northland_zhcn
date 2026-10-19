@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "map": "upadek_krola_sub",
+  "basis": {
+    "lang": "pol",
+    "digest": "7147935d3c7a06018bedb669a72f89dbaf3d5f92bea9d1a81718b0b9e49311e5"
+  },
+  "strings": {
+    "53": "Strażnicy"
+  },
+  "briefings": {}
+}

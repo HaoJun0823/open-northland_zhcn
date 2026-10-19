@@ -17,6 +17,7 @@
     { "path": "packages/ownership" },
     { "path": "packages/desktop" },
     { "path": "tools/asset-pipeline" },
+    { "path": "tools/translations" },
     { "path": "packages/art-contracts" }
   ]
 }

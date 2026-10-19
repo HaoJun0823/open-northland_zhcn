@@ -1,0 +1,135 @@
+import type { MapSourceText } from './map-source-text.js';
+import {
+  adoptSourceTags,
+  briefingBody,
+  GERMAN_COLUMN,
+  hasText,
+  type LocalizationMap,
+  normalizeWhitespace,
+  tagGaps,
+} from './map-xml.js';
+
+/** One language column of a localization map, keyed as our basis text keys it. */
+export interface MapTranslation {
+  readonly strings: Record<string, string>;
+  readonly briefings: Record<string, string>;
+  /** Translated ids and labels our basis text lacks, left out. */
+  readonly unknown: readonly string[];
+  /** Kept entries whose goal prefix, placeholders or tag names differ from the basis text. */
+  readonly markupMismatches: readonly string[];
+  /** Blocks whose tag arguments differed from the basis text and were taken from it. */
+  readonly retagged: readonly string[];
+}
+
+const GOAL_PREFIX = '@';
+/** A printf conversion such as `%d`, `%s` or `%2.1f`. */
+const PLACEHOLDER = /%(?:\d+\$)?[-+ #0]*\d*(?:\.\d+)?[a-zA-Z]/g;
+function isBlank(text: string | undefined): boolean {
+  return text === undefined || text.trim() === '';
+}
+
+function sorted(values: Iterable<string>): string {
+  return [...values].sort().join(' ');
+}
+
+function stringMarkupDiffers(source: string, translated: string): boolean {
+  return (
+    source.startsWith(GOAL_PREFIX) !== translated.startsWith(GOAL_PREFIX) ||
+    sorted(source.match(PLACEHOLDER) ?? []) !== sorted(translated.match(PLACEHOLDER) ?? [])
+  );
+}
+
+/**
+ * Takes one language column of `map` for the ids and labels `basis` carries: strings verbatim, block
+ * bodies rebuilt in `briefings.txt` syntax with the basis block's tag arguments and tag gaps. Empty
+ * entries are skipped, so the reader falls back to the source text for them.
+ */
+export function translateMap(map: LocalizationMap, column: string, basis: MapSourceText): MapTranslation {
+  const strings: Record<string, string> = {};
+  const briefings: Record<string, string> = {};
+  const unknown: string[] = [];
+  const markupMismatches: string[] = [];
+  const retagged: string[] = [];
+  for (const [id, byColumn] of map.strings) {
+    const text = byColumn.get(column);
+    if (text === undefined || isBlank(text)) continue;
+    const source = basis.strings[id];
+    if (source === undefined) {
+      unknown.push(`string ${id}`);
+      continue;
+    }
+    strings[id] = text;
+    if (stringMarkupDiffers(source, text)) markupMismatches.push(`string ${id}`);
+  }
+  for (const [label, byColumn] of map.briefings) {
+    const nodes = byColumn.get(column);
+    if (nodes === undefined || !hasText(nodes)) continue;
+    const source = basis.briefings[label];
+    if (source === undefined) {
+      unknown.push(`block ${label}`);
+      continue;
+    }
+    const adopted = adoptSourceTags(nodes, source);
+    briefings[label] = briefingBody(adopted?.nodes ?? nodes, tagGaps(source));
+    if (adopted === undefined) markupMismatches.push(`block ${label}`);
+    else if (adopted.retagged) retagged.push(`block ${label}`);
+  }
+  return { strings, briefings, unknown, markupMismatches, retagged };
+}
+
+/** How the XML's German column compares with our basis text: the proof the body rebuild is sound. */
+export interface GermanRoundTrip {
+  readonly strings: {
+    readonly total: number;
+    readonly equal: number;
+    /** Ids whose German differs from ours, or that we lack. */
+    readonly mismatches: readonly string[];
+    /** Ids our German has and the XML lacks, which keep our German in every overlay. */
+    readonly untranslated: readonly string[];
+  };
+  readonly blocks: {
+    readonly total: number;
+    /** Rebuilt bodies equal to ours character for character. */
+    readonly exact: number;
+    /** Rebuilt bodies equal to ours once whitespace is normalised. */
+    readonly normalized: number;
+    /** Labels whose rebuilt body differs from ours even after normalising, or that we lack. */
+    readonly mismatches: readonly string[];
+  };
+}
+
+export function germanRoundTrip(map: LocalizationMap, basis: MapSourceText): GermanRoundTrip {
+  let stringTotal = 0;
+  let stringEqual = 0;
+  const stringMismatches: string[] = [];
+  for (const [id, byColumn] of map.strings) {
+    const text = byColumn.get(GERMAN_COLUMN);
+    if (isBlank(text)) continue;
+    stringTotal++;
+    if (basis.strings[id] === text) stringEqual++;
+    else stringMismatches.push(id);
+  }
+  const untranslated = Object.keys(basis.strings).filter((id) => !map.strings.has(id));
+  let blockTotal = 0;
+  let exact = 0;
+  let normalized = 0;
+  const mismatches: string[] = [];
+  for (const [label, byColumn] of map.briefings) {
+    const nodes = byColumn.get(GERMAN_COLUMN);
+    if (nodes === undefined || !hasText(nodes)) continue;
+    blockTotal++;
+    const source = basis.briefings[label];
+    if (source === undefined) {
+      mismatches.push(label);
+      continue;
+    }
+    const body = briefingBody(nodes, tagGaps(source));
+    if (body === source) exact++;
+    if (normalizeWhitespace(body) === normalizeWhitespace(source)) normalized++;
+    else mismatches.push(label);
+  }
+  return {
+    strings: { total: stringTotal, equal: stringEqual, mismatches: stringMismatches, untranslated },
+    blocks: { total: blockTotal, exact, normalized, mismatches },
+  };
+}

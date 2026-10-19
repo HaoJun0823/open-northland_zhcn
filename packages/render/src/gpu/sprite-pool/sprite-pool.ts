@@ -478,11 +478,11 @@ export class SpritePool {
     return style !== undefined;
   }
 
-  /** Whether `container` is a pooled entity held still with its sprites as bound: what the sprite layer
-   *  may draw from its still mesh. Paletted layers re-place with the camera, so they never qualify. */
-  isHeld(container: Container): boolean {
+  /** Whether `container` is a pooled entity the sprite layer may draw from its retained mesh: any but a
+   *  vehicle drawing its self-placing paletted meshes, which the world batch cannot pack. */
+  meshable(container: Container): boolean {
     const pe = (container as PooledContainer)[POOLED];
-    return pe !== undefined && pe.held === this.holdGeneration && pe.attached && !pe.paletted;
+    return pe?.attached === true && !(pe.paletted && pe.kind === 'vehicle');
   }
 
   /** Whether `pe` draws the same whatever the frame alpha: what a still frame may leave untouched. */

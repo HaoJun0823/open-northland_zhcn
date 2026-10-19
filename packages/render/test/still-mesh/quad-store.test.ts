@@ -4,6 +4,10 @@ import { QUAD_FLOATS, QuadStore, VERTICES_PER_QUAD } from '../../src/gpu/still-m
 import { WORLD_ATTRIBUTE_OFFSETS, WORLD_VERTEX_SIZE } from '../../src/gpu/world-batcher.js';
 
 const QUAD_BYTES = QUAD_FLOATS * Float32Array.BYTES_PER_ELEMENT;
+/** The store's block of slots of one temperature. */
+const BLOCK = 64;
+/** Uploads one flush makes at most. */
+const RANGE_LIMIT = 64;
 const TEXTURE_WORD = WORLD_ATTRIBUTE_OFFSETS.aTextureIdAndRound / Uint32Array.BYTES_PER_ELEMENT;
 /** A packed `aTextureIdAndRound` word: the round flag below the texture slot. */
 const textureWord = (slot: number, round: number): number => (slot << 16) | round;
@@ -33,17 +37,41 @@ describe('QuadStore', () => {
   });
 
   it('grows keeping every packed quad, and uploads all of it once', () => {
-    const store = new QuadStore(2);
+    const store = new QuadStore(BLOCK);
     const first = store.allocate();
     store.f32[QuadStore.start(first)] = 7;
-    store.allocate();
-    store.allocate();
-    expect(store.capacity).toBe(4);
+    for (let i = 1; i <= BLOCK; i++) store.allocate();
+    expect(store.capacity).toBe(2 * BLOCK);
     expect(store.f32[QuadStore.start(first)]).toBe(7);
     expect(store.buffer.data).toBe(store.f32);
     store.markDirty(first);
-    expect(flushed(store)).toEqual([[0, 4]]);
+    expect(flushed(store)).toEqual([[0, 2 * BLOCK]]);
     expect(flushed(store)).toEqual([]);
+  });
+
+  it('keeps hot and cold quads in blocks of their own, each slot returning to its own', () => {
+    const store = new QuadStore(4 * BLOCK);
+    const cold = [store.allocate(), store.allocate()];
+    const hot = [store.allocate(true), store.allocate(true)];
+    expect(cold.map((slot) => store.isHot(slot))).toEqual([false, false]);
+    expect(hot.map((slot) => store.isHot(slot))).toEqual([true, true]);
+    expect(Math.floor((hot[0] ?? 0) / BLOCK)).not.toBe(Math.floor((cold[0] ?? 0) / BLOCK));
+    store.release(hot[1] ?? -1);
+    expect(store.allocate()).not.toBe(hot[1]);
+    expect(store.allocate(true)).toBe(hot[1]);
+  });
+
+  it('moves a quad to another slot, to upload there', () => {
+    const store = new QuadStore(2 * BLOCK);
+    const from = store.allocate();
+    const to = store.allocate(true);
+    for (let i = 0; i < QUAD_FLOATS; i++) store.f32[QuadStore.start(from) + i] = i + 1;
+    flushed(store);
+    store.move(from, to);
+    expect([...store.f32.slice(QuadStore.start(to), QuadStore.start(to) + QUAD_FLOATS)]).toEqual(
+      Array.from({ length: QUAD_FLOATS }, (_, i) => i + 1),
+    );
+    expect(flushed(store)).toEqual([[to, 1]]);
   });
 
   it('merges nearby dirty slots into one range and keeps distant ones apart', () => {
@@ -57,13 +85,23 @@ describe('QuadStore', () => {
     ]);
   });
 
-  it('uploads the union once the ranges grow too many', () => {
-    const quads = 512;
-    const store = new QuadStore(quads);
-    for (let i = 0; i < quads; i++) store.allocate();
+  it('joins the ranges the smallest gaps part once they grow too many', () => {
+    const spacing = 40;
+    const store = new QuadStore((RANGE_LIMIT + 2) * spacing);
+    for (let i = 0; i < store.capacity; i++) store.allocate();
     flushed(store);
-    for (let slot = 0; slot < quads; slot += 20) store.markDirty(slot);
-    expect(flushed(store)).toEqual([[0, 501]]);
+    // One single dirty quad more than the limit, evenly spaced but for the last, half as far from the one
+    // before it: one join brings them to the limit.
+    const slots = Array.from({ length: RANGE_LIMIT + 1 }, (_, i) => i * spacing);
+    const nearSlot = (RANGE_LIMIT - 1) * spacing + spacing / 2;
+    slots[RANGE_LIMIT] = nearSlot;
+    for (const slot of slots) store.markDirty(slot);
+    const ranges = flushed(store);
+    expect(ranges).toHaveLength(RANGE_LIMIT);
+    expect(ranges.at(-1)).toEqual([(RANGE_LIMIT - 1) * spacing, spacing / 2 + 1]);
+    expect(ranges.slice(0, RANGE_LIMIT - 1)).toEqual(
+      Array.from({ length: RANGE_LIMIT - 1 }, (_, i) => [i * spacing, 1]),
+    );
   });
 
   it('retargets a quad to another texture slot, keeping its round flag and the rest of it', () => {

@@ -158,7 +158,7 @@ export class WorldRenderer {
       opts?.planRoads,
     );
     const pool = this.pool;
-    this.spriteLayer.stills = new StillSpriteMesh((child) => pool.isHeld(child));
+    this.spriteLayer.stills = new StillSpriteMesh((child) => pool.meshable(child));
     this.marks = new WorldMarks(
       this.spriteLayer,
       this.textureCache,

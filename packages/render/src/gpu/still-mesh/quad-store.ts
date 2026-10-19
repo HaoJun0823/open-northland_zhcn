@@ -9,11 +9,18 @@ const ROUND_MASK = 0xffff;
 /** World-vertex floats one quad slot holds. */
 export const QUAD_FLOATS = VERTICES_PER_QUAD * WORLD_VERTEX_SIZE;
 const QUAD_BYTES = QUAD_FLOATS * Float32Array.BYTES_PER_ELEMENT;
-const INITIAL_QUADS = 1024;
+/** Slots a block holds. A block serves quads of one temperature, so the quads repacked every few frames
+ *  gather in a few blocks and upload as a few short ranges instead of spanning the whole store. */
+const BLOCK_QUADS = 64;
+const INITIAL_QUADS = 16 * BLOCK_QUADS;
 /** Dirty slots this close are uploaded as one range: a few idle quads re-sent cost less than a call. */
 const MERGE_GAP_QUADS = 8;
-/** Past this many separate ranges a flush uploads their union in one call. */
-const MAX_RANGES = 16;
+/** Uploads a flush makes at most: past this many ranges it merges the ones the smallest gaps part. With
+ *  the moving settlers in the mesh, magiczny_las t100000 at zoom 0.35 and 4x CPU throttle sent 2.0 MB a
+ *  frame at 16 ranges, 1.1 MB at 64 and 0.75 MB at 128, of 0.54 MB actually repacked. */
+const MAX_RANGES = 64;
+const COLD = 0;
+const HOT = 1;
 
 /** Upload `size` bytes of `buffer` from `offset` to the GPU now. */
 export type ByteUploader = (buffer: Buffer, offset: number, size: number) => void;
@@ -21,13 +28,17 @@ export type ByteUploader = (buffer: Buffer, offset: number, size: number) => voi
 /**
  * World-vertex quads in stable slots of one growable attribute buffer, which every band geometry of the
  * still mesh shares. A slot keeps its place while its sprite stays meshed, so a band rebuild rewrites
- * indices, not vertices; only the slots whose sprite changed are packed and uploaded again.
+ * indices, not vertices; only the slots whose sprite changed are packed and uploaded again. Slots come in
+ * blocks of one temperature: a hot quad, one its owner repacks every few frames, takes a hot block's slot.
  */
 export class QuadStore {
   f32: Float32Array;
   u32: Uint32Array;
   readonly buffer: Buffer;
-  private readonly free: number[] = [];
+  /** Free slots per temperature, the most recently released last. */
+  private readonly free: [number[], number[]] = [[], []];
+  /** Per block of {@link BLOCK_QUADS} slots: {@link COLD} or {@link HOT}. */
+  private temperatures = new Uint8Array(0);
   private highWater = 0;
   private readonly dirty: number[] = [];
   /** Whether a growth swapped the data since the last flush; the next upload then sends all of it. */
@@ -50,19 +61,43 @@ export class QuadStore {
 
   /** Slots in use. */
   get size(): number {
-    return this.highWater - this.free.length;
+    return this.highWater - this.free[COLD].length - this.free[HOT].length;
   }
 
-  /** A free slot, the most recently released first. */
-  allocate(): number {
-    const reused = this.free.pop();
+  /** A free slot of a block of the asked temperature, the most recently released first. */
+  allocate(hot = false): number {
+    const free = this.free[hot ? HOT : COLD];
+    const reused = free.pop();
     if (reused !== undefined) return reused;
-    if (this.highWater === this.capacity) this.grow();
-    return this.highWater++;
+    while (this.highWater + BLOCK_QUADS > this.capacity) this.grow();
+    const first = this.highWater;
+    this.highWater += BLOCK_QUADS;
+    const block = first / BLOCK_QUADS;
+    if (block >= this.temperatures.length) {
+      const grown = new Uint8Array(Math.max(block + 1, this.temperatures.length * 2));
+      grown.set(this.temperatures);
+      this.temperatures = grown;
+    }
+    this.temperatures[block] = hot ? HOT : COLD;
+    // The block's lowest slot first: it fills upwards, as a fresh store did.
+    for (let slot = this.highWater - 1; slot > first; slot--) free.push(slot);
+    return first;
   }
 
   release(slot: number): void {
-    this.free.push(slot);
+    this.free[this.isHot(slot) ? HOT : COLD].push(slot);
+  }
+
+  /** Whether `slot` lies in a hot block. */
+  isHot(slot: number): boolean {
+    return this.temperatures[Math.floor(slot / BLOCK_QUADS)] === HOT;
+  }
+
+  /** Copy slot `from`'s quad into slot `to`, to upload with the next flush. */
+  move(from: number, to: number): void {
+    const start = QuadStore.start(from);
+    this.f32.copyWithin(QuadStore.start(to), start, start + QUAD_FLOATS);
+    this.markDirty(to);
   }
 
   /** The float index a slot's first vertex starts at. */
@@ -105,15 +140,10 @@ export class QuadStore {
     }
     ranges.push(first, last);
     this.dirty.length = 0;
-    if (ranges.length / 2 > MAX_RANGES) {
-      const from = ranges[0] ?? 0;
-      const to = ranges[ranges.length - 1] ?? from;
-      upload(this.buffer, from * QUAD_BYTES, (to - from + 1) * QUAD_BYTES);
-      return;
-    }
-    for (let i = 0; i < ranges.length; i += 2) {
-      const from = ranges[i] ?? 0;
-      const to = ranges[i + 1] ?? from;
+    const merged = ranges.length / 2 > MAX_RANGES ? mergeClosest(ranges, MAX_RANGES) : ranges;
+    for (let i = 0; i < merged.length; i += 2) {
+      const from = merged[i] ?? 0;
+      const to = merged[i + 1] ?? from;
       upload(this.buffer, from * QUAD_BYTES, (to - from + 1) * QUAD_BYTES);
     }
   }
@@ -130,4 +160,21 @@ export class QuadStore {
     this.buffer.data = f32;
     this.grown = true;
   }
+}
+
+/**
+ * `ranges` (first, last pairs, ascending) joined across their smallest gaps until at most `limit` remain:
+ * the fewest idle quads re-sent for that many uploads. Equal gaps join together, so a few fewer may remain.
+ */
+function mergeClosest(ranges: readonly number[], limit: number): number[] {
+  const gaps: number[] = [];
+  for (let i = 2; i < ranges.length; i += 2) gaps.push((ranges[i] ?? 0) - (ranges[i - 1] ?? 0));
+  const joins = gaps.length - (limit - 1);
+  const widest = [...gaps].sort((a, b) => a - b)[joins - 1] ?? 0;
+  const merged: number[] = [ranges[0] ?? 0, ranges[1] ?? 0];
+  for (let i = 2; i < ranges.length; i += 2) {
+    if ((gaps[i / 2 - 1] ?? 0) <= widest) merged[merged.length - 1] = ranges[i + 1] ?? 0;
+    else merged.push(ranges[i] ?? 0, ranges[i + 1] ?? 0);
+  }
+  return merged;
 }

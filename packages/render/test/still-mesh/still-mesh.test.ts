@@ -14,6 +14,7 @@ import {
 } from 'pixi.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DepthSortedLayer } from '../../src/gpu/depth-sorted-layer.js';
+import { markPalettedTexture } from '../../src/gpu/pixel-art-registry.js';
 import type { DrawTable } from '../../src/gpu/still-mesh/draw-table.js';
 import { QUAD_FLOATS, QuadStore, VERTICES_PER_QUAD } from '../../src/gpu/still-mesh/quad-store.js';
 import { INDICES_PER_QUAD, quietRebuildAfter, StillSpriteMesh } from '../../src/gpu/still-mesh/still-mesh.js';
@@ -117,7 +118,8 @@ interface Harness {
   meshDraws(): number;
   /** The texture tables of the last frame's mesh draws, in painter order. */
   drawTables(): DrawTable[];
-
+  /** The LUT each of the last frame's mesh draws binds past its pages, as its batcher names it. */
+  drawLuts(): (TextureSource | null)[];
   /** The buffer uploads of the last frame. */
   uploads(): number;
   /** Sprites Pixi batched from an out-of-date record so far. */
@@ -157,12 +159,14 @@ function harness(runPayoff = 0): Harness {
   layer.stills = mesh;
   let draws = 0;
   let tables: DrawTable[] = [];
+  let luts: (TextureSource | null)[] = [];
   const h: Harness = {
     layer,
     mesh,
     held,
     meshDraws: () => draws,
     drawTables: () => tables,
+    drawLuts: () => luts,
     uploads: () => uploads.count,
     stale,
     frame() {
@@ -175,6 +179,7 @@ function harness(runPayoff = 0): Harness {
       const drawn: Container[] = [];
       draws = 0;
       tables = [];
+      luts = [];
       for (const band of layer.renderGroup.instructionSet.instructions.slice(
         0,
         layer.renderGroup.instructionSet.instructionSize,
@@ -187,12 +192,17 @@ function harness(runPayoff = 0): Harness {
             start?: number;
             size?: number;
             textures?: DrawTable;
-            batcher?: { indices: Uint32Array; geometry: unknown };
+            batcher?: {
+              indices: Uint32Array;
+              geometry: unknown;
+              lutBinding(batch: unknown): { lut: TextureSource } | null;
+            };
           };
           if (instruction.renderPipeId === 'pixiBatch') drawn.push(...(instruction.sprites ?? []));
           else if (instruction.batcher !== undefined && instruction.start !== undefined) {
             draws++;
             if (instruction.textures !== undefined) tables.push(instruction.textures);
+            luts.push(instruction.batcher.lutBinding(instruction)?.lut ?? null);
             // The batch pipe reads the geometry as it binds a draw.
             void instruction.batcher.geometry;
             const indices = instruction.batcher.indices;
@@ -242,6 +252,17 @@ function painterOrder(layer: DepthSortedLayer): Container[] {
   };
   for (const band of layer.children) walk(band);
   return out;
+}
+
+/** Two palette LUTs a paletted frame can read. */
+const palettes = [new TextureSource({ width: 256, height: 2 }), new TextureSource({ width: 256, height: 2 })];
+/** A frame of `page` drawn through palette LUT `lut`, as a character's frames are. */
+function palettedOn(page: number, lut: number): Texture {
+  const texture = textureOn(page);
+  const source = palettes[lut];
+  if (source === undefined) throw new Error(`no palette ${lut}`);
+  markPalettedTexture(texture, source);
+  return texture;
 }
 
 /** The meshed quad of `sprite`. */
@@ -363,20 +384,70 @@ describe('StillSpriteMesh', () => {
     expect(h.stale).toEqual([]);
   });
 
-  it('points a quad at its page’s new slot when a rebuild lists the pages in another order', () => {
+  it('keeps a quad’s texture slot when a rebuild lists new pages ahead of it', () => {
     const h = harness();
     const later = entity(h.layer, 5, 2);
     h.held.add(later);
     h.frame();
     const body = later.children[1] as Sprite;
     const before = quadOf(h, body).textureId;
-    // A still in front takes the first slots.
+    // A still in front brings pages of its own.
     h.held.add(entity(h.layer, 1, 6));
     expect(h.frame()).toEqual(painterOrder(h.layer));
     const quad = quadOf(h, body);
-    expect(quad.textureId).not.toBe(before);
+    expect(quad.textureId).toBe(before);
+    expect(quad.table?.textures[quad.textureId]).toBe(body.texture.source);
+  });
+
+  it('points a quad at its page’s slot in the draw a rebuild moves it to', () => {
+    const h = harness();
+    const fillers = [];
+    h.held.add(entity(h.layer, 0, 0));
+    for (let p = 1; p < DRAW_PAGES - 1; p += 2) fillers.push(entity(h.layer, 1 + p / 100, p));
+    for (const filler of fillers) h.held.add(filler);
+    const late = entity(h.layer, 30, DRAW_PAGES + 1);
+    h.held.add(late);
+    h.frame();
+    expect(h.meshDraws()).toBe(2);
+    // One filler leaves: the late one fits the first draw's table, in the slots the filler freed.
+    const gone = fillers.at(-1);
+    if (gone === undefined) throw new Error('expected a filler');
+    h.layer.removeChild(gone);
+    expect(h.frame()).toEqual(painterOrder(h.layer));
+    expect(h.meshDraws()).toBe(1);
+    const body = late.children[1] as Sprite;
+    const quad = quadOf(h, body);
     expect(quad.table?.textures[quad.textureId]).toBe(body.texture.source);
     expect(packedOf(h, body)).toEqual(freshPack(h, body));
+  });
+
+  it('draws paletted quads through their draw’s LUT, one LUT a draw', () => {
+    const h = harness();
+    const [first, middle, last] = [0, 1, 2].map((i) => entity(h.layer, i)) as [
+      Container,
+      Container,
+      Container,
+    ];
+    const humans = [first, middle, last];
+    for (const human of humans) {
+      for (const sprite of human.children as Sprite[]) sprite.texture = palettedOn(0, 0);
+      h.held.add(human);
+    }
+    h.frame();
+    expect(h.mesh.quadCount).toBe(6);
+    expect(h.meshDraws()).toBe(1);
+    expect(h.drawLuts()).toEqual([palettes[0]]);
+    // The middle one now reads another palette: three draws, each binding its own LUT.
+    for (const sprite of middle.children as Sprite[]) sprite.texture = palettedOn(0, 1);
+    entity(h.layer, 10);
+    expect(h.frame()).toEqual(painterOrder(h.layer));
+    expect(h.mesh.quadCount).toBe(6);
+    expect(h.drawLuts()).toEqual([palettes[0], palettes[1], palettes[0]]);
+    // A plain still's draw binds no LUT.
+    for (const human of humans) h.held.delete(human);
+    h.held.add(entity(h.layer, 20));
+    h.frame();
+    expect(h.drawLuts()).toEqual([null]);
   });
 
   it('applies several deltas between two frames without dropping or doubling a sprite', () => {

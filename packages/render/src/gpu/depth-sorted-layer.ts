@@ -94,7 +94,7 @@ class DepthBand extends Container {
     });
   }
 
-  /** The layer's still mesh, when set, collects this band: its still runs draw from the mesh. */
+  /** The layer's still mesh, when set, collects this band: its runs of pooled entries draw from the mesh. */
   override collectRenderablesSimple(
     instructionSet: InstructionSet,
     renderer: Renderer,
@@ -186,7 +186,7 @@ export class DepthSortedLayer extends Container {
   private arrivalCount = 0;
   private sortFrom = 0;
   private readonly scratch = new SortScratch();
-  /** Draws the still entries of each band from a retained mesh; absent, Pixi batches every entry. */
+  /** Draws the pooled entries of each band from a retained mesh; absent, Pixi batches every entry. */
   stills: StillBandCollector | null = null;
 
   constructor() {

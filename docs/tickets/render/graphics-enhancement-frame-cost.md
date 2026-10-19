@@ -6,7 +6,7 @@ Enhanced sampling is most of the GPU frame: on `magiczny_las` at t80000 the main
 5.5 ms at zoom 1 with it on and 2.0 ms with it off (M2 Pro, GPU timer query around the main Pixi
 stage), and the sprite layer about 3.3 ms of that. Improve measured frame cost and Direct3D compile
 time across hardware without changing simulation speed, population or gameplay rules. The tick-frame
-CPU cost of the sprite layer is [tick-frame-cost.md](tick-frame-cost.md), not this ticket.
+CPU cost of animated decor is [tick-frame-cost.md](tick-frame-cost.md), not this ticket.
 
 ## Scope
 

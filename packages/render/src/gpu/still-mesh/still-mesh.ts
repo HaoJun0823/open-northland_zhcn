@@ -19,10 +19,14 @@ import {
   ViewContainer,
   type WebGLRenderer,
 } from 'pixi.js';
-import { palettedLutOf, worldShadowStyle } from '../pixel-art-registry.js';
+import { worldShadowStyle } from '../pixel-art-registry.js';
+import { LUT_SLOTS } from '../world-batch-shader.js';
 import {
   installWorldBatcher,
   isWorldBatched,
+  type LutBinding,
+  type LutListingBatcher,
+  lutSlotOf,
   WORLD_VERTEX_SIZE,
   worldBatchGeometry,
 } from '../world-batcher.js';
@@ -30,17 +34,17 @@ import { DrawTable, type TableQuad } from './draw-table.js';
 import { type ByteUploader, QuadStore, VERTICES_PER_QUAD } from './quad-store.js';
 
 /**
- * The still sprites of the depth-sorted layer, drawn from one retained mesh instead of Pixi's batches.
+ * The pooled sprites of the depth-sorted layer, drawn from one retained mesh instead of Pixi's batches.
  *
- * A band rebuild walks its children in painter order as Pixi would. A child the owner calls still has its
+ * A band rebuild walks its children in painter order as Pixi would. A child the owner offers has its
  * sprites' quads in stable slots of a shared attribute buffer: the rebuild writes only their indices, and
- * each maximal run of still children between two others becomes one draw of the world batch program,
+ * each maximal run of such children between two others becomes one draw of the world batch program,
  * placed in the band's instructions where Pixi's own batches of that run would have been. A run's draws
- * split where its pages outgrow one draw's texture list, as Pixi's batches do; a rebuild that moves a
- * quad to another texture slot rewrites only that slot's id. A meshed sprite's batch record names this
- * mesh as its batcher, so Pixi's own update path (a transform, tint or texture change between rebuilds)
- * repacks its slot in place, and a page that does not fit asks Pixi for a rebuild exactly as a full batch
- * does. Packed quads upload once per render, as the first mesh draw binds.
+ * split where its pages or palette LUT outgrow one draw's texture list, as Pixi's batches do; a rebuild
+ * that moves a quad to another texture slot rewrites only that slot's id. A meshed sprite's batch record
+ * names this mesh as its batcher, so Pixi's own update path (a transform, tint, palette row or texture
+ * change between rebuilds) repacks its slot in place, and a page that does not fit asks Pixi for a rebuild
+ * exactly as a full batch does. Packed quads upload once per render, as the first mesh draw binds.
  *
  * Undocumented Pixi behaviour, verified on pixi.js 8.21, re-verify on a bump: a render group root collects
  * through `collectRenderablesSimple`; the sprite pipe's `_getGpuSprite` and `_updateBatchableSprite` mint
@@ -56,11 +60,12 @@ const DISPLAYED = 0b111;
 export const INDICES_PER_QUAD = 6;
 const INITIAL_BAND_INDICES = 1024;
 /**
- * Quad packs a run of still children must save per frame, on average, before it draws from the mesh: a
+ * Quad packs a run of mesh children must save per frame, on average, before it draws from the mesh: a
  * run costs two draws every frame (its own and the Pixi batch it splits), about what Pixi spends packing
  * two quads on a rebuild. A run qualifies when its quads times its band's rebuilds per frame reach this.
- * Measured in one session alternating the settings, magiczny_las t120000, x3, 4x CPU throttle: 2 beat 8
- * and 16 at zoom 0.35 (render 25.9 ms against 26.2 and 27.3) and stayed within noise of no mesh at zoom 1.
+ * Measured in one session alternating the settings, magiczny_las t100000 with the walkers meshed, x3:
+ * 0, 1, 2 and 4 drew within noise of each other at zoom 0.35 and 1, unthrottled and at 4x CPU throttle,
+ * while 0, which never hands a quiet band back to Pixi, drew 511 calls paused at zoom 0.35 against 414.
  */
 const RUN_PAYOFF = 2;
 /** Weight of the latest rebuild interval in a band's running estimate. */
@@ -68,6 +73,11 @@ const INTERVAL_WEIGHT = 0.25;
 /** A band's estimated frames between rebuilds before it has rebuilt: it meshes nothing until its own
  *  rebuilds show it is worth it. */
 const INITIAL_INTERVAL = 64;
+/** A quad its last two packs came at most this many renders apart is hot: it moves to a hot block of the
+ *  store at its band's next rebuild, so the quads repacked every few frames upload together. */
+const HOT_REPACK_RENDERS = 16;
+/** A quad left unpacked this long is cold again, and moves back at its band's next rebuild. */
+const COOL_RENDERS = 240;
 
 /** A band's interval estimate after a rebuild `elapsed` renders after its last. */
 function nextInterval(interval: number, elapsed: number): number {
@@ -91,11 +101,11 @@ export function quietRebuildAfter(interval: number, quads: number, runPayoff: nu
   while (runPays(quads, nextInterval(interval, elapsed), runPayoff)) elapsed++;
   return elapsed;
 }
-/** A displayed child's place in a rebuild: drawn by Pixi, or a still candidate for the mesh. */
+/** A displayed child's place in a rebuild: drawn by Pixi, or a candidate for the mesh. */
 const PIXI = 0;
-const STILL = 1;
+const MESH = 1;
 const HIDDEN = 2;
-/** The member record a still child carries, keyed off the container itself to spare a map lookup per
+/** The member record a meshed child carries, keyed off the container itself to spare a map lookup per
  *  child per rebuild. */
 const MEMBER: unique symbol = Symbol('still mesh member');
 type MemberHost = Container & { [MEMBER]?: Member };
@@ -109,7 +119,11 @@ interface SpritePipeInternals {
 interface MeshQuad extends TableQuad {
   readonly sprite: Sprite;
   readonly element: BatchableSprite;
-  readonly slot: number;
+  /** Moves between the store's cold and hot blocks only as its band rebuilds, which rewrites its index. */
+  slot: number;
+  /** The renders it was last packed on, and the one before. */
+  packFrame: number;
+  previousPackFrame: number;
   /** The sprite's change ticks when its quad was last packed. */
   containerTick: number;
   viewTick: number;
@@ -119,7 +133,7 @@ interface MeshQuad extends TableQuad {
   live: boolean;
 }
 
-/** A still child of a band and the quads of its drawn sprites, in Pixi's collect order. */
+/** A meshed child of a band and the quads of its drawn sprites, in Pixi's collect order. */
 interface Member {
   readonly container: Container;
   quads: MeshQuad[];
@@ -143,15 +157,11 @@ function displayed(c: Container, layer: RenderLayer): boolean {
   );
 }
 
-/** A texture the world batch draws through its page alone, with the plain blend: what a slot carries. */
+/** A texture the world batch draws through its page, and a paletted one through its LUT, with the plain
+ *  blend: what a slot carries. */
 function meshableTexture(texture: Texture): boolean {
   const source: TextureSource | null = texture.source;
-  return (
-    source !== null &&
-    !source.destroyed &&
-    palettedLutOf(texture) === undefined &&
-    getAdjustedBlendModeBlend('normal', source) === 'normal'
-  );
+  return source !== null && !source.destroyed && getAdjustedBlendModeBlend('normal', source) === 'normal';
 }
 
 /** A plain world-batched sprite Pixi packs as one quad of the world batch. */
@@ -183,7 +193,7 @@ function plainContainer(child: Container): boolean {
  * draws its last rebuild placed. The batcher is the record every meshed sprite of the band names, so
  * Pixi's updates reach the mesh; its geometry and shader are what the band's draws bind.
  */
-class BandStills extends Batcher {
+class BandStills extends Batcher implements LutListingBatcher {
   override name = 'stillMesh';
   protected override vertexSize = WORLD_VERTEX_SIZE;
   declare geometry: Geometry;
@@ -207,15 +217,18 @@ class BandStills extends Batcher {
    *  estimate would leave even that run to Pixi. */
   largestRun = 0;
   quietFrame = Number.POSITIVE_INFINITY;
-  /** Per child of the running rebuild: {@link PIXI}, {@link STILL} or {@link HIDDEN}. */
+  /** Per child of the running rebuild: {@link PIXI}, {@link MESH} or {@link HIDDEN}. */
   classes = new Uint8Array(0);
-  /** Pages a table of the band took on, each watched for its destruction. */
+  /** Pages and LUTs a table of the band took on, each watched for its destruction. */
   private readonly watched = new Set<TextureSource>();
   private readonly watch = (source: TextureSource): void => {
     if (this.watched.has(source)) return;
     this.watched.add(source);
     source.once('destroy', this.pageDied, this);
   };
+  /** Where a draw binds its table's LUT: past every page slot. */
+  private readonly lutSlot: number;
+  private binding: LutBinding | null = null;
 
   constructor(
     readonly band: Container,
@@ -228,6 +241,7 @@ class BandStills extends Batcher {
       attributesInitialSize: 4,
       indicesInitialSize: INDICES_PER_QUAD,
     });
+    this.lutSlot = lutSlotOf(packer.maxTextures + LUT_SLOTS);
     this.bandIndices = new Buffer({
       data: this.indices,
       label: 'still-mesh-indices',
@@ -256,7 +270,8 @@ class BandStills extends Batcher {
     this.tableCount = 0;
   }
 
-  /** An empty table for the quads from here on, after the ones the running rebuild filled. */
+  /** The next table for the quads from here on, after the ones the running rebuild filled: the one in
+   *  that place last rebuild, so its pages keep their slots where they still fit. */
   openTable(): DrawTable {
     let table = this.tables[this.tableCount];
     if (table === undefined) {
@@ -264,11 +279,25 @@ class BandStills extends Batcher {
       this.tables.push(table);
     }
     this.tableCount++;
-    table.clear();
+    table.begin();
     return table;
   }
 
-  /** A destroyed page must leave the tables before the band draws again. */
+  /** End the rebuild's fill of every table it used. */
+  finishTables(): void {
+    for (let i = 0; i < this.tableCount; i++) this.tables[i]?.finish();
+  }
+
+  lutBinding(batch: Batch): LutBinding | null {
+    const table = batch.textures;
+    if (!(table instanceof DrawTable) || table.lut === null) return null;
+    this.binding ??= { lut: table.lut, slot: this.lutSlot, pages: 0 };
+    this.binding.lut = table.lut;
+    this.binding.pages = table.count;
+    return this.binding;
+  }
+
+  /** A destroyed page or LUT must leave the tables before the band draws again. */
   private pageDied(source: TextureSource): void {
     this.watched.delete(source);
     this.band.renderGroup.structureDidChange = true;
@@ -335,17 +364,20 @@ export class StillSpriteMesh implements StillBandCollector {
   private shading = worldShadowStyle() !== null;
   /** Renders so far, the clock of the bands' rebuild rates. */
   private frame = 0;
+  /** {@link reshape}'s scratch list of the sprites Pixi would collect. */
+  private readonly reshaped: Sprite[] = [];
   private readonly upload: ByteUploader = (buffer, offset, size) => {
     buffer.update(size, offset);
     this.renderer?.buffer.updateBuffer(buffer);
   };
 
   /**
-   * @param still whether the owner holds `child` still, so its sprites may draw from the mesh.
+   * @param offered whether the owner offers `child` to the mesh, whose sprites then draw from it where
+   *   they can.
    * @param runPayoff the quad packs per frame a run must save to draw from the mesh ({@link RUN_PAYOFF}).
    */
   constructor(
-    private readonly still: (child: Container) => boolean,
+    private readonly offered: (child: Container) => boolean,
     private readonly runPayoff = RUN_PAYOFF,
   ) {}
 
@@ -398,7 +430,7 @@ export class StillSpriteMesh implements StillBandCollector {
       const child = children[i];
       const kind = classes[i];
       if (child === undefined || kind === HIDDEN) continue;
-      let member = kind === STILL ? this.meshMember(state, child, layer) : null;
+      let member = kind === MESH ? this.meshMember(state, child, layer) : null;
       if (member !== null && state.table?.fits(member.quads) !== true) {
         // The run so far draws through the full table; the member starts the next draw on a fresh one.
         this.closeRun(state, instructionSet, renderer, runStart);
@@ -428,6 +460,7 @@ export class StillSpriteMesh implements StillBandCollector {
       state.indexCount = at;
     }
     this.closeRun(state, instructionSet, renderer, runStart);
+    state.finishTables();
     for (const member of previous)
       if (member.band === state && member.build !== state.build) this.drop(member);
     previous.length = 0;
@@ -478,9 +511,9 @@ export class StillSpriteMesh implements StillBandCollector {
     const quad = this.quads.get(element);
     const store = this.store;
     if (quad === undefined || !quad.live || store === null || this.packer === null) return;
-    // A sprite changing under a child no longer held is moving: its band rebuilds and hands it to Pixi.
+    // A sprite changing under a child the owner no longer offers: its band rebuilds and hands it to Pixi.
     const owner = quad.sprite.parent;
-    if (owner === null || !this.still(owner)) state.band.renderGroup.structureDidChange = true;
+    if (owner === null || !this.offered(owner)) state.band.renderGroup.structureDidChange = true;
     this.packer.packQuadAttributes(
       quad.element,
       store.f32,
@@ -490,6 +523,8 @@ export class StillSpriteMesh implements StillBandCollector {
     );
     quad.containerTick = quad.sprite._didContainerChangeTick;
     quad.viewTick = quad.sprite._didViewChangeTick;
+    quad.previousPackFrame = quad.packFrame;
+    quad.packFrame = this.frame;
     store.markDirty(quad.slot);
   }
 
@@ -524,8 +559,8 @@ export class StillSpriteMesh implements StillBandCollector {
   }
 
   /**
-   * Sort `children` into Pixi's and the mesh's for this rebuild: a still child joins the mesh only within
-   * a run of still children whose quads, at the band's rebuild rate, pay for the run's draws.
+   * Sort `children` into Pixi's and the mesh's for this rebuild: an offered child joins the mesh only
+   * within a run of offered children whose quads, at the band's rebuild rate, pay for the run's draws.
    */
   private classify(state: BandStills, children: readonly MemberHost[], layer: RenderLayer): void {
     const elapsed = state.lastBuildFrame < 0 ? INITIAL_INTERVAL : this.frame - state.lastBuildFrame;
@@ -537,22 +572,22 @@ export class StillSpriteMesh implements StillBandCollector {
     for (let i = 0; i < n; i++) {
       const child = children[i];
       classes[i] =
-        child === undefined || !displayed(child, layer) ? HIDDEN : this.still(child) ? STILL : PIXI;
+        child === undefined || !displayed(child, layer) ? HIDDEN : this.offered(child) ? MESH : PIXI;
     }
     // A hidden child adds nothing to the instructions, so it does not split a run.
     state.largestRun = 0;
     for (let i = 0; i < n; ) {
-      if (classes[i] !== STILL) {
+      if (classes[i] !== MESH) {
         i++;
         continue;
       }
       let end = i;
       let quads = 0;
       for (; end < n && classes[end] !== PIXI; end++)
-        if (classes[end] === STILL) quads += children[end]?.children.length ?? 0;
+        if (classes[end] === MESH) quads += children[end]?.children.length ?? 0;
       if (runPays(quads, state.interval, this.runPayoff))
         state.largestRun = Math.max(state.largestRun, quads);
-      else for (let k = i; k < end; k++) if (classes[k] === STILL) classes[k] = PIXI;
+      else for (let k = i; k < end; k++) if (classes[k] === MESH) classes[k] = PIXI;
       i = end;
     }
   }
@@ -604,14 +639,16 @@ export class StillSpriteMesh implements StillBandCollector {
       };
       child[MEMBER] = member;
     }
-    // A container change moves every sprite of it, so all its quads repack.
+    // A child added or removed moves the view tick and may change the sprites; a transform, tint or alpha
+    // change moves the container tick, which moves every sprite of it, so all its quads repack.
+    const regrouped = member.band === null || member.viewTick !== child._didViewChangeTick;
     const moved =
-      member.band === null ||
-      member.containerTick !== child._didContainerChangeTick ||
-      member.viewTick !== child._didViewChangeTick ||
-      member.shading !== this.shading;
-    if ((moved || !this.shapeHolds(member, layer)) && !this.reshape(member, layer))
-      return this.reject(state, member);
+      regrouped || member.containerTick !== child._didContainerChangeTick || member.shading !== this.shading;
+    const shaped = regrouped
+      ? this.reshape(member, layer)
+      : (plainContainer(child) && child.groupBlendMode === 'normal' && this.shapeHolds(member, layer)) ||
+        this.reshape(member, layer);
+    if (!shaped) return this.reject(state, member);
     member.moved = moved;
     return member;
   }
@@ -632,6 +669,9 @@ export class StillSpriteMesh implements StillBandCollector {
         !member.moved &&
         quad.containerTick === sprite._didContainerChangeTick &&
         quad.viewTick === sprite._didViewChangeTick;
+      if (this.frame - quad.packFrame > COOL_RENDERS) this.settle(quad, false, current);
+      else if (quad.packFrame - quad.previousPackFrame <= HOT_REPACK_RENDERS)
+        this.settle(quad, true, current);
       if (!current) this.pack(state, quad, id);
       else if (quad.textureId !== id) {
         store.retarget(quad.slot, id);
@@ -673,7 +713,8 @@ export class StillSpriteMesh implements StillBandCollector {
   /** Match `member`'s quads to the sprites Pixi would collect of it now; false if one cannot be meshed. */
   private reshape(member: Member, layer: RenderLayer): boolean {
     if (!plainContainer(member.container)) return false;
-    const sprites: Sprite[] = [];
+    const sprites = this.reshaped;
+    sprites.length = 0;
     for (const sprite of member.container.children) {
       if (!displayed(sprite, layer)) continue;
       if (!meshableSprite(sprite)) return false;
@@ -698,9 +739,13 @@ export class StillSpriteMesh implements StillBandCollector {
         slot: store.allocate(),
         containerTick: Number.NaN,
         viewTick: Number.NaN,
+        packFrame: Number.NEGATIVE_INFINITY,
+        previousPackFrame: Number.NEGATIVE_INFINITY,
         table: null,
         textureId: -1,
         live: true,
+        lutTexture: null,
+        lut: undefined,
       };
       this.quads.set(quad.element, quad);
       kept.push(quad);
@@ -708,6 +753,18 @@ export class StillSpriteMesh implements StillBandCollector {
     for (const quad of member.quads) if (!kept.includes(quad)) this.free(quad);
     member.quads = kept;
     return true;
+  }
+
+  /** Move `quad` to a block of the given temperature unless it is in one, carrying its packed data along
+   *  when it `keeps` it rather than packing afresh. */
+  private settle(quad: MeshQuad, hot: boolean, keeps: boolean): void {
+    const store = this.store;
+    if (store === null || store.isHot(quad.slot) === hot) return;
+    const slot = store.allocate(hot);
+    if (keeps) store.move(quad.slot, slot);
+    store.release(quad.slot);
+    quad.slot = slot;
+    quad.element._attributeStart = QuadStore.start(slot);
   }
 
   private pack(state: BandStills, quad: MeshQuad, textureId: number): void {
@@ -725,6 +782,8 @@ export class StillSpriteMesh implements StillBandCollector {
     quad.textureId = textureId;
     quad.containerTick = quad.sprite._didContainerChangeTick;
     quad.viewTick = quad.sprite._didViewChangeTick;
+    quad.previousPackFrame = quad.packFrame;
+    quad.packFrame = this.frame;
     store.markDirty(quad.slot);
   }
 

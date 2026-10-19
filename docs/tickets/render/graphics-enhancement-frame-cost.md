@@ -16,7 +16,7 @@ GPU-bound render loop timed on the wall clock with the option on and off interle
 - **Direct3D compile time of the paged meshes** (`gpu/shading.ts`, `gpu/map-objects/decor-shadow-shader.ts`,
   `gpu/page-samplers.ts`). The terrain and decor shading run once after `pageChain`; what it still
   inlines once per page slot (8) is each mesh's sampling path: the terrain's bicubic and four-tap minify
-  taps (`shaded-terrain` 186 inlined texture operations by the shader-budget estimator) and the decor
+  taps (`shaded-terrain` 178 inlined texture operations by the shader-budget estimator) and the decor
   shadow's whole shading with its soft blur (`decor-shadow` 304). Before that restructure the paged
   meshes compiled 7 to 9 s each on the GitHub runner's WARP device; the boot's warm-up links them off the
   main thread, so the cost is first-start time. Fewer slots on Direct3D or one `sampler2DArray` for
@@ -60,4 +60,12 @@ GPU-bound render loop timed on the wall clock with the option on and off interle
   captures on a loaded machine; read the world.
 - `npm run test:shaders -- --angle=d3d11` on Windows or through the CI workflow's `shaders` input,
   before and after, for the paged meshes.
+- The Direct3D sampling rule (a page in a sampler chain is read with derivatives taken before the
+  chain, an explicit level or `texelFetch`; see `pageChain` and the shader-budget test) rests on one
+  Windows measurement: on an Intel UHD 770 at 1920x1080, in the densest town of `magiczny_las` (six
+  hard AI, tick 100000), `magnify-off-z1` drew in 14.38 ms against 11.02 ms for `magnify-bilinear-z1`
+  with the world batch's off mode still reading with implicit derivatives. Run that pair with
+  `npm run bench:gpu` on Direct3D before and after the explicit reads. If off does not come down to
+  bilinear or below, hoisting out of the chain is not the cause, and the rule and its test are to be
+  revisited.
 - `npm run check`, `npm run build`, `npm test`.

@@ -261,8 +261,15 @@ ${pageSamplerDeclarations()}
   ${withPageParameter(TERRAIN_SAMPLE)}
   ${withPageParameter(COVER_FRAGMENT_DECLARATIONS)}
 
-  vec4 shadeGround(sampler2D uTexture) {
-    vec4 texel = sampleTerrain(uTexture);
+  // Everything that reads the fragment's page: its texel and, where snow lies, the neighbourhood the
+  // snow classifies the ground by. Only this runs inside the page chain, so the shading compiles once.
+  vec4 pageTexel(sampler2D uTexture, bool snowed, out vec3 near) {
+    near = snowed ? groundNeighbourhood(uTexture) : vec3(0.0);
+    return sampleTerrain(uTexture);
+  }
+
+  // cover is the weather cover already kept off the water; zero while the cover is off.
+  vec4 shadeGround(vec4 texel, vec4 cover, vec3 near) {
     float lane = texture(uBrightnessTex, vBrightnessUV).r * ${(255 / BRIGHTNESS_NEUTRAL).toFixed(8)};
     // Water shimmer: a second travelling wave glints the shaded water surface (0 on land).
     float shimmer = sin(uWave.x * ${WAVE_SHIMMER_RADIANS_PER_TICK.toFixed(8)}
@@ -296,20 +303,24 @@ ${pageSamplerDeclarations()}
         * mix(vec3(1.0), ${glslVec3(WATER_DEEP_TINT)}, deep);
       texel.rgb = mix(vec3(luma), texel.rgb, saturation) * tint;
     }
-    // Weather cover keeps off the water surface; the uniform gate keeps a dry map's arithmetic as it was.
-    if (uCover > 0.5) {
-      vec4 cover = texture(uCoverTex, vCoverUV);
-      cover.rgb *= 1.0 - clamp(vWater.x, 0.0, 1.0);
-      // Bare cover (dry ground in view of weather, open water) leaves the texel as it is.
-      if (cover.r + cover.g + cover.b > 0.0)
-        texel.rgb = weatherCover(texel.rgb, texel.a, lane, cover, cover.g > 0.0 ? groundNeighbourhood(uTexture) : vec3(0.0));
-    }
+    // Bare cover (dry ground in view of weather, open water) leaves the texel as it is.
+    if (uCover > 0.5 && cover.r + cover.g + cover.b > 0.0)
+      texel.rgb = weatherCover(texel.rgb, texel.a, lane, cover, near);
     // Unclamped multiply: > 1 brightens (the lane's 128..255 half); the FB write clamps per channel.
     return vec4(texel.rgb * lane * vVertexColor, texel.a) * uColor;
   }
 
   void main(void) {
-${pageChain('finalColor = shadeGround(uPage$);')}
+    // Weather cover keeps off the water surface; the uniform gate keeps a dry map's arithmetic as it was.
+    vec4 cover = vec4(0.0);
+    if (uCover > 0.5) {
+      cover = texture(uCoverTex, vCoverUV);
+      cover.rgb *= 1.0 - clamp(vWater.x, 0.0, 1.0);
+    }
+    vec4 texel;
+    vec3 near;
+${pageChain('texel = pageTexel(uPage$, cover.g > 0.0, near);')}
+    finalColor = shadeGround(texel, cover, near);
   }
 `;
 

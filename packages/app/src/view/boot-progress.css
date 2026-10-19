@@ -1,6 +1,6 @@
-/* The boot card (view/boot-progress.ts). Deliberately the main menu's vocabulary - the settlement the
-   last menu visit showed, serif, carved-wood frame and gold - so menu → loading → game reads as one
-   screen rather than three. */
+/* The boot card (view/boot-progress.ts): the still the last menu visit showed, behind a carved-wood
+   frame and a gold bar. Text uses the menu's body face (--font-body, fonts.css), so the type stays the
+   same from the menu through loading into the game. */
 
 .boot-card {
   --boot-cream: #ead8aa;
@@ -14,7 +14,7 @@
   gap: clamp(14px, 2.4vh, 22px);
   padding: 24px;
   color: var(--boot-cream);
-  font-family: Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--font-body);
   /* Two scrims: a centre pool so the bar and label keep their contrast against whatever the backdrop
      happens to show, and a vignette dropping the edges. Both heavier than the menu's, which only had to
      stay behind opaque panels. The still sits above the static art, so a still that fails to load
@@ -36,7 +36,7 @@
     var(--boot-backdrop) center 48% / cover;
 }
 
-/* The menu's loom weave, so the art keeps the same woven-cloth texture the player just left. */
+/* A faint woven-cloth texture over the art. */
 .boot-card::before {
   position: absolute;
   inset: 0;
@@ -45,7 +45,6 @@
   background: repeating-linear-gradient(8deg, rgba(255, 235, 181, 0.018) 0 1px, transparent 1px 5px);
 }
 
-/* The carved frame around the bar - the menu's language-switch panel, widened. */
 .boot-card__frame {
   position: relative;
   box-sizing: border-box;
@@ -80,7 +79,6 @@
   animation: boot-card-sheen 1.8s linear infinite;
 }
 
-/* The fill is the menu's selected-entry gradient, so "done" reads in the same gold as "chosen". */
 .boot-card__bar {
   width: 0;
   height: 100%;
@@ -212,7 +210,7 @@
     inset 0 1px rgba(255, 233, 180, 0.12),
     0 10px 28px rgba(0, 0, 0, 0.6);
   color: #ead8aa;
-  font-family: Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  font-family: var(--font-body);
   transform: translateX(-50%);
   animation: boot-tip-in 600ms ease-out 200ms both;
 }

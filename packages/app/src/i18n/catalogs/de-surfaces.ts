@@ -261,8 +261,9 @@ export const deSurfaces = {
       pixelArtFilterXbr: 'xBR',
       pixelArtFilterXbrz: 'xBRZ',
       pixelArtFilterSuperXbr: 'Super-xBR',
+      pixelArtFilterMmpx: 'MMPX',
       pixelArtFilterTip:
-        'Legt fest, wie die Originalgrafiken vergrößert werden. xBR glättet diagonale Kanten, xBRZ und Super-xBR zeichnen die Grafik einmal in doppelter Auflösung neu und zeigen sie scharf, wobei Figuren bei xBR bleiben (Super-xBR glättet Kanten weicher), Scharf erhält ganze Pixel und glättet nur deren Ränder, Weich zeichnet das Bild weich. Alle Filter glätten außerdem die Pixelsprünge von Kamera und Figuren, verbessern die Geländefilterung und erhalten beim Herauszoomen mehr Gebäudedetails. Aus zeigt die Grafik ungefiltert mit ganzen Pixeln.',
+        'Legt fest, wie die Originalgrafiken vergrößert werden. xBR glättet diagonale Kanten, xBRZ, Super-xBR und MMPX zeichnen die Grafik einmal in doppelter Auflösung neu und zeigen sie scharf, wobei Figuren bei xBR bleiben (Super-xBR glättet Kanten weicher, MMPX behält die Originalfarben), Scharf erhält ganze Pixel und glättet nur deren Ränder, Weich zeichnet das Bild weich. Alle Filter glätten außerdem die Pixelsprünge von Kamera und Figuren, verbessern die Geländefilterung und erhalten beim Herauszoomen mehr Gebäudedetails. Aus zeigt die Grafik ungefiltert mit ganzen Pixeln.',
       softShadows: 'Verbesserte Schatten',
       softShadowsTip:
         'Verstärkt und glättet die Schatten von Gebäuden, Bäumen und Dekorationen. Siedler und Tiere werfen Schatten ihrer eigenen Umrisse, ausgerichtet nach derselben Lichtquelle wie die Gebäude. Aus verwendet die Originalschatten.',

@@ -9,6 +9,7 @@ import {
 } from 'pixi.js';
 import { type PrescaledScaler, setPrescaledPage } from '../pixel-art-registry.js';
 import { type GlslProgramSource, glProgramFor } from '../program-source.js';
+import { MMPX_2X_SOURCE } from './mmpx-2x.js';
 import { PRESCALE_FACTOR } from './prescale-pass.js';
 import { SUPER_XBR_PASS0_SOURCE, SUPER_XBR_PASS1_SOURCE, SUPER_XBR_PASS2_SOURCE } from './super-xbr-2x.js';
 import { XBRZ_2X_SOURCE } from './xbrz-2x.js';
@@ -29,6 +30,7 @@ export const PRESCALE_RECIPES: Readonly<Record<PrescaledScaler, readonly Prescal
     { program: SUPER_XBR_PASS1_SOURCE, scale: PRESCALE_FACTOR, inputs: { uPage: 'page', uPass0: 0 } },
     { program: SUPER_XBR_PASS2_SOURCE, scale: PRESCALE_FACTOR, inputs: { uPass1: 1 } },
   ],
+  mmpx: [{ program: MMPX_2X_SOURCE, scale: PRESCALE_FACTOR, inputs: { uPage: 'page' } }],
 };
 
 /** Pages prescaled per frame, so switching a scaler on spreads its work over frames instead of

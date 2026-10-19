@@ -89,7 +89,7 @@ describe('page prescaler', () => {
     const { renderer } = recordingRenderer();
     prescaler = new PagePrescaler(renderer);
     const source = page(8, 8);
-    prescaler.setScaler('xbrz');
+    prescaler.setScaler('mmpx');
     prescaler.update(cacheOf([source]));
     expect(hasPrescaledPages()).toBe(true);
     source.destroy();

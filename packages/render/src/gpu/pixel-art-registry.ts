@@ -8,7 +8,7 @@ import type { ShadowStyle } from './shadow-style.js';
  * paletted character keeps xBR there, since an index image cannot be rescaled.
  */
 export const SHADER_SCALERS = ['bilinear', 'sharp', 'xbr'] as const;
-export const PRESCALED_SCALERS = ['xbrz', 'superxbr'] as const;
+export const PRESCALED_SCALERS = ['xbrz', 'superxbr', 'mmpx'] as const;
 export const PIXEL_ART_SCALERS = [...SHADER_SCALERS, ...PRESCALED_SCALERS] as const;
 export type PixelArtScaler = (typeof PIXEL_ART_SCALERS)[number];
 export type PrescaledScaler = (typeof PRESCALED_SCALERS)[number];
@@ -38,6 +38,7 @@ const MAGNIFY_MODES: Readonly<Record<WorldMagnification, number>> = {
   xbr: WORLD_MAGNIFY_MODES.xbr,
   xbrz: WORLD_MAGNIFY_MODES.prescaled,
   superxbr: WORLD_MAGNIFY_MODES.prescaled,
+  mmpx: WORLD_MAGNIFY_MODES.prescaled,
 };
 
 /**

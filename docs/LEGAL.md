@@ -69,6 +69,8 @@ license notice and says what was changed:
   file's linking exception names MAME only and gives this project nothing.
 - `packages/render/src/gpu/prescale/super-xbr-2x.ts`, from
   `xbr/shaders/super-xbr/super-xbr-pass{0,1,2}.glsl`: Copyright (c) 2015 Hyllian, MIT license.
+- `packages/render/src/gpu/prescale/mmpx-2x.ts`, from `scalenx/shaders/mmpx.glsl`: Copyright 2020
+  Morgan McGuire and Mara Gagiu, MIT license.
 
 ## Names and trademarks
 

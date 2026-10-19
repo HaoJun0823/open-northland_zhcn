@@ -117,6 +117,7 @@ export function graphicsSettingsRows(
     xbr: text.pixelArtFilterXbr,
     xbrz: text.pixelArtFilterXbrz,
     superxbr: text.pixelArtFilterSuperXbr,
+    mmpx: text.pixelArtFilterMmpx,
   };
   const filter = segControl<FilterChoice>(
     FILTER_CHOICES.map((id) => ({ id, label: filterLabels[id] })),

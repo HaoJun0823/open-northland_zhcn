@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { jsonFingerprint } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { convertMapTree, MAP_FILE_SUFFIXES, mapFiles, openArchive } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -340,6 +341,30 @@ describe('ConversionService', () => {
     const filedLater = await restart(await overlaysFor(other, 'inna', { cht: { '0': '其他' } }));
     expect(filedLater.converted).toEqual([otherEntry]);
     expect(files.requests).toEqual([fileUrl(ENTRY), fileUrl(otherEntry)]);
+  });
+
+  it('refuses a manifest of another layout and converts again from the kept archive', async () => {
+    files.serve(ENTRY, zipOf(under('Wyspa', plaintextMap('Wyspa'))));
+    const first = await harness(dir, files, { irVersion: IR_VERSION });
+    first.service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await first.service.idle();
+    const manifest = join(converted(), 'conversion.json');
+    // Each would read as current if accepted: no overlay is loaded, and none hashes to this.
+    const noOverlays = jsonFingerprint({});
+    const refusals: ((stored: Record<string, unknown>) => Record<string, unknown>)[] = [
+      ({ overlays: _overlays, ...stored }) => ({ ...stored, version: Number(stored.version) - 1 }),
+      ({ overlays: _overlays, ...stored }) => stored,
+      (stored) => ({ ...stored, overlays: { wyspa: noOverlays } }),
+    ];
+    for (const refuse of refusals) {
+      await writeFile(manifest, JSON.stringify(refuse(JSON.parse(await readFile(manifest, 'utf8')))));
+      const restarted = await harness(dir, files, { irVersion: IR_VERSION });
+      restarted.service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+      await restarted.service.idle();
+      expect(restarted.events.filter(({ event }) => event === 'conversion done')).toHaveLength(1);
+      expect(restarted.served(ENTRY).conversion?.verdict).toBe('ok');
+    }
+    expect(files.requests).toEqual([fileUrl(ENTRY)]);
   });
 
   it('removes another IR version on start and converts again from the kept archive', async () => {

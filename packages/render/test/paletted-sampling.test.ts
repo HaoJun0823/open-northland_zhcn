@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PALETTED_SAMPLING_MODES, palettedSamplingOf } from '../src/gpu/paletted-sprite/shader.js';
-import { PRESCALED_SCALERS, SHADER_SCALERS } from '../src/gpu/pixel-art-registry.js';
+import { PIXEL_ART_SCALERS, prescaledScalerOf } from '../src/gpu/pixel-art-registry.js';
 
 // The sprite setter needs a GL test context, so the browser preview covers it; this pins the
 // uniform contract the shader reads.
@@ -12,7 +12,7 @@ describe('paletted sampling modes', () => {
   });
 
   it('keeps a shader scaler and gives a prescaled one xBR, since an indexed atlas cannot be redrawn', () => {
-    for (const scaler of SHADER_SCALERS) expect(palettedSamplingOf(scaler)).toBe(scaler);
-    for (const scaler of PRESCALED_SCALERS) expect(palettedSamplingOf(scaler)).toBe('xbr');
+    for (const scaler of PIXEL_ART_SCALERS)
+      expect(palettedSamplingOf(scaler)).toBe(prescaledScalerOf(scaler) === null ? scaler : 'xbr');
   });
 });

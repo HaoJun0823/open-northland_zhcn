@@ -8,7 +8,7 @@ import {
   PRESCALED_SCALERS,
   type PrescaledScaler,
   prescaledScalerOf,
-  WORLD_MAGNIFY_MODES,
+  WORLD_MAGNIFY_MODE_NUMBERS,
   type WorldMagnification,
   worldMagnifyModeNumber,
 } from './pixel-art-registry.js';
@@ -61,7 +61,7 @@ function weatherPrograms(): readonly GlslProgramSource[] {
 export function shaderCatalog(): readonly GlslProgramSource[] {
   const entries: GlslProgramSource[] = [];
   for (const maxTextures of WORLD_BATCH_TEXTURE_LIMITS) {
-    for (const mode of Object.values(WORLD_MAGNIFY_MODES)) {
+    for (const mode of WORLD_MAGNIFY_MODE_NUMBERS) {
       for (const shadow of [null, DEFAULT_SHADOW_STYLE]) {
         entries.push(worldBatchProgramSource(maxTextures, mode, shadow));
       }

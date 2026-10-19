@@ -7,7 +7,7 @@ import type { ShadowStyle } from './shadow-style.js';
  * twice its size once, on the GPU, and the world batch samples that page through the sharp path; a
  * paletted character keeps xBR there, since an index image cannot be rescaled.
  */
-export const SHADER_SCALERS = ['bilinear', 'sharp', 'xbr'] as const;
+const SHADER_SCALERS = ['bilinear', 'sharp', 'xbr'] as const;
 export const PRESCALED_SCALERS = ['xbrz', 'superxbr', 'mmpx'] as const;
 export const PIXEL_ART_SCALERS = [...SHADER_SCALERS, ...PRESCALED_SCALERS] as const;
 export type PixelArtScaler = (typeof PIXEL_ART_SCALERS)[number];
@@ -29,8 +29,25 @@ export type WorldMagnification = PixelArtScaler | 'off';
 
 /** The world batch program's compile-time modes. Every prescaled scaler shares one: the program reads
  *  whichever page it is handed, and only the prescaler differs. */
-export const WORLD_MAGNIFY_MODES = { off: 0, bilinear: 1, sharp: 2, xbr: 3, prescaled: 4 } as const;
-export type WorldMagnifyModeName = keyof typeof WORLD_MAGNIFY_MODES;
+const WORLD_MAGNIFY_MODE_NAMES = ['off', 'bilinear', 'sharp', 'xbr', 'prescaled'] as const;
+export type WorldMagnifyModeName = (typeof WORLD_MAGNIFY_MODE_NAMES)[number];
+export const WORLD_MAGNIFY_MODES: Readonly<Record<WorldMagnifyModeName, number>> = {
+  off: 0,
+  bilinear: 1,
+  sharp: 2,
+  xbr: 3,
+  prescaled: 4,
+};
+
+/** The name a program reports for a compile-time mode. */
+export function worldMagnifyModeName(mode: number): WorldMagnifyModeName | undefined {
+  return WORLD_MAGNIFY_MODE_NAMES.find((name) => WORLD_MAGNIFY_MODES[name] === mode);
+}
+
+/** Every compile-time mode once, for the catalogue that compiles them all. */
+export const WORLD_MAGNIFY_MODE_NUMBERS: readonly number[] = WORLD_MAGNIFY_MODE_NAMES.map(
+  (name) => WORLD_MAGNIFY_MODES[name],
+);
 const MAGNIFY_MODES: Readonly<Record<WorldMagnification, number>> = {
   off: WORLD_MAGNIFY_MODES.off,
   bilinear: WORLD_MAGNIFY_MODES.bilinear,

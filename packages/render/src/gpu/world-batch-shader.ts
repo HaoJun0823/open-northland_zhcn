@@ -1,7 +1,7 @@
 import { BLOOD_COAT_GLSL } from './blood-coat-shader.js';
 import { BLOOD_SURFACE_GLSL } from './blood-surface-shader.js';
 import { PIXEL_ART_MAGNIFY_CORE_GLSL, XBR_NEIGHBOURS } from './pixel-art-magnify.js';
-import { WORLD_MAGNIFY_MODES, type WorldMagnifyModeName } from './pixel-art-registry.js';
+import { WORLD_MAGNIFY_MODES, worldMagnifyModeName } from './pixel-art-registry.js';
 import { PRESCALE_FACTOR } from './prescale/prescale-pass.js';
 import type { GlslProgramSource } from './program-source.js';
 import { type ShadowStyle, shadowTintChannels } from './shadow-style.js';
@@ -127,13 +127,6 @@ const vec3 SHADOW_TINT = vec3(${red}, ${green}, ${blue});`,
   };
 }
 
-/** The name a program reports for a compile-time mode. */
-function modeName(mode: number): WorldMagnifyModeName | undefined {
-  return (Object.keys(WORLD_MAGNIFY_MODES) as WorldMagnifyModeName[]).find(
-    (name) => WORLD_MAGNIFY_MODES[name] === mode,
-  );
-}
-
 /** The batch program for a texture limit, magnification mode and shadow style. */
 export function worldBatchProgramSource(
   maxTextures: number,
@@ -141,7 +134,7 @@ export function worldBatchProgramSource(
   shadow: ShadowStyle | null,
 ): GlslProgramSource {
   return {
-    name: `world-batch/textures${maxTextures}/${modeName(mode) ?? mode}/${shadow === null ? 'no-shadow' : 'shadow'}`,
+    name: `world-batch/textures${maxTextures}/${worldMagnifyModeName(mode) ?? mode}/${shadow === null ? 'no-shadow' : 'shadow'}`,
     vertex: WORLD_BATCH_VERTEX,
     fragment: worldBatchFragment(maxTextures, mode, shadow),
   };

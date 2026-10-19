@@ -80,9 +80,12 @@ float blowCloth(vec2 uv, inout float index) {
   return 1.0 + uClothWave.z * cos(wave);
 }
 
+// The bound atlas's size in texels, queried once per fragment at the top of main rather than once per
+// magnifier tap. The query, not uAtlasSize: a GUI atlas can be larger than the size its frames name.
+vec2 atlasSize;
+
 vec4 resolvedTexel(ivec2 pixel) {
-  ivec2 size = textureSize(uTexture, 0);
-  vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
+  vec2 uv = (vec2(pixel) + 0.5) / atlasSize;
   // The frame boundary is transparent, not the next packed bob or the atlas's edge colour.
   if (any(lessThan(uv, uFrameUV.xy)) || any(greaterThanEqual(uv, uFrameUV.zw))) return vec4(0.0);
   vec4 t = texelFetch(uTexture, pixel, 0);
@@ -96,7 +99,7 @@ vec4 resolvedTexel(ivec2 pixel) {
 ${PIXEL_ART_MAGNIFY_GLSL}
 
 vec4 resolvedBilinear(vec2 uv) {
-  return magnifyBilinear(uv * vec2(textureSize(uTexture, 0)));
+  return magnifyBilinear(uv * atlasSize);
 }
 
 void main(void) {
@@ -105,7 +108,8 @@ void main(void) {
   // allocating per-player RGBA atlases. Not a mipmap substitute at extreme zoom-out: sampling cost
   // is deliberately bounded. The tint and the cloth wave ride along.
   if (uSampling.x > 0.5 && uColorKey.x < 0.5 && uSilhouette.w < 0.5) {
-    vec2 size = vec2(textureSize(uTexture, 0));
+    atlasSize = vec2(textureSize(uTexture, 0));
+    vec2 size = atlasSize;
     vec2 p = vUV * size;
     float texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
     if (texelsPerPixel < 1.0 && uSampling.x > 1.5) {

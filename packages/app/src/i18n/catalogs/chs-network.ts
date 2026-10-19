@@ -14,7 +14,7 @@ export const chsNetwork = {
   connect: '连接',
   disconnect: '断开连接',
   connecting: '正在连接…',
-  connected: '已以 {nick} 的身份连接',
+  connected: '已连接，昵称为 {nick}',
   reconnecting: '连接已断开，正在重新连接…',
   rooms: '房间',
   refresh: '刷新',
@@ -41,6 +41,6 @@ export const chsNetwork = {
   left: '你已离开房间。',
   retry: '重试',
   saveInvalid: '此存档不能用于这张多人地图。',
-  missingMap: '缺少这张地图。创建者只能分发用户地图和模组地图。',
+  missingMap: '缺少这张地图。房间创建者只能分发用户地图和模组地图。',
   starting: '正在启动联机游戏…',
 } as const;

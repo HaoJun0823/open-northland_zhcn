@@ -21,8 +21,8 @@ export const chtCampaign = {
   storageUnreadable: '無法在此瀏覽器中讀取戰役進度。目前可進行第一個任務。',
   play: '播放影片',
   skipMovie: '跳過影片',
-  movieFailed: '無法載入影片。你可以略過它。',
-  seekMovie: '影片位置',
+  movieFailed: '影片無法載入，可以直接跳過。',
+  seekMovie: '影片進度',
   watchIntro: '觀看開場',
   watchFinale: '觀看結局',
 } as const;

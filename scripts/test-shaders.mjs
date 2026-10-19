@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 // Compiles every GL program in the shader catalogue through one ANGLE backend in headless Chromium,
-// draws once with each, and fails on a compile or link error, a slow program at compile or at its
-// first draw, or a renderer that is not the backend asked for (docs/TESTING.md "Shader compile
-// check"). Needs no game content.
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+// or a running one reached with --cdp, draws once with each, and fails on a compile or link error, a
+// slow program at compile or at its first draw, or a renderer that is not the backend asked for
+// (docs/TESTING.md "Shader compile check"). Needs no game content.
+import { mkdir, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
@@ -49,9 +47,10 @@ const EXIT_USAGE = 2;
 function usage(message) {
   console.error(`test:shaders: ${message}`);
   console.error(
-    'usage: npm run test:shaders -- [--angle=d3d11|metal|swiftshader] [--max-ms=N] [--max-total-ms=N] [--relink] [--json=path] [--dump-translated=dir]\n' +
+    'usage: npm run test:shaders -- [--angle=d3d11|metal|swiftshader] [--max-ms=N] [--max-total-ms=N] [--relink] [--json=path] [--dump-translated=dir] [--cdp=url]\n' +
       "  --max-ms bounds a program's compile and link, and separately its first draw; --max-total-ms their sum\n" +
-      "  --dump-translated writes each program's backend source (HLSL on d3d11) to dir",
+      "  --dump-translated writes each program's backend source (HLSL on d3d11) to dir\n" +
+      '  --cdp drives a running Chromium at that DevTools endpoint, started fresh with the --angle backend',
   );
   process.exit(EXIT_USAGE);
 }
@@ -76,6 +75,8 @@ try {
       'dump-translated': { type: 'string' },
       // Links every program a second time in another context, timing the browser's program cache.
       relink: { type: 'boolean', default: false },
+      // A browser already running with the backend's flags, e.g. Windows Chrome driven from WSL.
+      cdp: { type: 'string' },
     },
     strict: true,
   }).values;
@@ -84,6 +85,7 @@ try {
 }
 const backend = parsed.angle;
 const relink = parsed.relink;
+const cdpEndpoint = parsed.cdp;
 const expectedRenderer = BACKEND_RENDERERS[backend];
 if (expectedRenderer === undefined)
   usage(`unknown --angle '${backend}'; known: ${Object.keys(BACKEND_RENDERERS).join(', ')}`);
@@ -108,7 +110,9 @@ function withTimeout(promise, ms, describeTimeout) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-async function bundleProbePage(dir) {
+/** The probe's browser bundle, injected into a blank page so a browser on another machine needs no path
+ *  to this one's files. */
+async function bundleProbe() {
   const { outputFiles } = await build({
     entryPoints: [resolve(repoRoot, 'scripts/shader-probe/probe.ts')],
     bundle: true,
@@ -118,11 +122,7 @@ async function bundleProbePage(dir) {
     write: false,
     logLevel: 'silent',
   });
-  const [bundle] = outputFiles;
-  await writeFile(join(dir, 'probe.js'), bundle.contents);
-  const page = join(dir, 'index.html');
-  await writeFile(page, '<!doctype html><meta charset="utf-8"><script src="probe.js"></script>\n');
-  return pathToFileURL(page).href;
+  return outputFiles[0].text;
 }
 
 /** A program's compile and link plus its first draw. */
@@ -216,19 +216,24 @@ async function writeTranslated(result) {
   await writeFile(`${base}.frag.txt`, translated.fragment);
 }
 
-async function probe(pageUrl, failures) {
-  const browser = await chromium.launch({
+function openBrowser() {
+  if (cdpEndpoint !== undefined) return chromium.connectOverCDP(cdpEndpoint);
+  return chromium.launch({
     channel: 'chromium',
     headless: true,
     args: ['--mute-audio', '--use-gl=angle', `--use-angle=${backend}`, '--ignore-gpu-blocklist'],
   });
+}
+
+async function probe(probeSource, failures) {
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage();
     const pageErrors = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     const device = await withTimeout(
       (async () => {
-        await page.goto(pageUrl);
+        await page.addScriptTag({ content: probeSource });
         if (pageErrors.length > 0) throw new Error(`the probe page failed to load: ${pageErrors.join('; ')}`);
         return page.evaluate(() => globalThis.shaderProbe.describe());
       })(),
@@ -238,7 +243,7 @@ async function probe(pageUrl, failures) {
     const { programNames, ...context } = device;
     const report = {
       backend,
-      browser: `Chromium ${browser.version()}`,
+      browser: `Chromium ${browser.version()}${cdpEndpoint === undefined ? '' : ` over CDP at ${cdpEndpoint}`}`,
       platform: `${process.platform} ${process.arch}`,
       ...context,
       totalMs: 0,
@@ -287,14 +292,8 @@ async function probe(pageUrl, failures) {
 }
 
 if (translatedDir !== undefined) await mkdir(translatedDir, { recursive: true });
-const dir = await mkdtemp(join(tmpdir(), 'on-shader-probe-'));
 const failures = [];
-let report = null;
-try {
-  report = await probe(await bundleProbePage(dir), failures);
-} finally {
-  await rm(dir, { recursive: true, force: true });
-}
+const report = await probe(await bundleProbe(), failures);
 if (report !== null) {
   printReport(report);
   failures.push(...failuresOf(report));

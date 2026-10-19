@@ -201,12 +201,17 @@ on to link the renderer's programs without a second compile, so CI passes it on 
 `--dump-translated=<dir>` writes each program's source as the backend compiles it (HLSL on Direct3D,
 MSL on Metal) through `WEBGL_debug_shaders`, so a Windows run shows whether FXC got a sampler chain
 it must flatten.
+`--cdp=<endpoint>` drives a Chromium already running at that DevTools endpoint instead of launching
+one, such as Windows Chrome reached from WSL. Start it fresh for the run, with a new profile,
+`--use-gl=angle --use-angle=<backend> --disable-gpu-shader-disk-cache`: a browser that has compiled
+these programs before answers from its program cache and times nothing.
 
 ```bash
 npm run test:shaders                              # d3d11 on Windows, metal on macOS, else swiftshader
 npm run test:shaders -- --angle=swiftshader --json=shaders.json
 npm run test:shaders -- --angle=d3d11 --relink    # second column: the cached relink
 npm run test:shaders -- --dump-translated=hlsl    # one .vert.txt and .frag.txt per program
+npm run test:shaders -- --angle=d3d11 --cdp=http://127.0.0.1:9333   # a running Windows Chrome
 gh workflow run ci.yml --ref <branch> -f shaders=true
 ```
 

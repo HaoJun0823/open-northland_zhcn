@@ -24,7 +24,8 @@ const BANNER_STYLE = [
   'padding:14px 18px',
   'background:rgba(46,16,12,0.96)',
   'color:#e8dcc0',
-  'font:14px/1.4 ui-serif,Georgia,serif',
+  // The token with a system fallback: the banner must still read when the stylesheet never loaded.
+  'font:14px/1.4 var(--font-body,ui-serif,Georgia,serif)',
   'border:1px solid rgba(160,84,64,0.8)',
   'border-radius:8px',
   'box-shadow:0 8px 32px rgba(0,0,0,0.5)',

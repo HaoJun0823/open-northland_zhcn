@@ -109,8 +109,9 @@ original-art path complete without a pack.
 
 ## In-game HUD panels
 
-Windows and panels are DOM components in `src/hud/dom/`. `hud/dom/foundation.css` is the one source of
-palette, typography, spacing and states; a new shared pattern goes there and is checked against the
+Windows and panels are DOM components in `src/hud/dom/`. `src/fonts.css` owns the typefaces and the
+type tokens (`--font-body`, `--font-title`, `--font-caps`); `hud/dom/foundation.css` is the one source
+of palette, type sizes, spacing and states. A new shared pattern goes there and is checked against the
 panels already using it.
 
 - A new or redesigned panel starts from the real models, commands and content. Its concrete design

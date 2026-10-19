@@ -92,6 +92,7 @@ test('layers fold their repaints over the window, most repainted first', () => {
   assert.equal(layers.top[0].owner, 'nav');
   assert.equal(layers.top[0].paintsPerFrame, 1);
   assert.equal(layers.paintedPerFrame, 1);
+  assert.deepEqual(layers.byOwner, { 'nav Overlap': 1, 'div ': 1, '(none) ': 1 });
 });
 
 const named = (thread, process, ids) => [

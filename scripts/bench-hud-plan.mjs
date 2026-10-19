@@ -130,9 +130,15 @@ export function foldLayers(after, before, frames) {
       frames === 0 ? 0 : ((layer.paintCount ?? 0) - (paintsBefore.get(layer.layerId) ?? 0)) / frames,
   }));
   rows.sort((a, b) => b.paintsPerFrame - a.paintsPerFrame);
+  const owners = {};
+  for (const row of rows) {
+    const owner = `${row.owner ?? '(none)'} ${row.reasons.join('|')}`;
+    owners[owner] = (owners[owner] ?? 0) + 1;
+  }
   return {
     count: after.length,
     drawing: after.filter((layer) => layer.drawsContent).length,
+    byOwner: Object.fromEntries(Object.entries(owners).sort((a, b) => b[1] - a[1])),
     paintedPerFrame: rows.reduce((sum, row) => sum + row.paintsPerFrame, 0),
     top: rows.slice(0, 12),
   };

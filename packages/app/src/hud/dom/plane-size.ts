@@ -4,32 +4,62 @@ export interface PlaneSize {
   readonly height: number;
 }
 
+type PlaneListener = (size: PlaneSize) => void;
+
+interface Watch {
+  size: PlaneSize;
+  readonly listeners: Set<PlaneListener>;
+}
+
 /**
  * Each plane's size, kept by one observer: the windows and the notice column ask for it every frame,
- * where reading the plane's client box would lay out whatever the frame's HUD writes had changed. A
- * plane taken off the page reports a zero box and is forgotten then.
+ * where reading the plane's client box would lay out whatever the frame's HUD writes had changed. The
+ * observer reports after the layout that resized the plane and before that frame paints, so what its
+ * listeners place there shows in that frame. A plane taken off the page reports a zero box and is
+ * forgotten then.
  */
-const sizes = new Map<HTMLElement, PlaneSize>();
+const watches = new Map<HTMLElement, Watch>();
 let observer: ResizeObserver | null = null;
 
 const measure = (plane: HTMLElement): PlaneSize => ({ width: plane.clientWidth, height: plane.clientHeight });
 
-export function planeSize(plane: HTMLElement): PlaneSize {
-  const known = sizes.get(plane);
-  if (known !== undefined) return known;
-  const size = measure(plane);
-  // A page without the observer (a test document) reads the box each time.
-  if (typeof ResizeObserver === 'undefined') return size;
-  sizes.set(plane, size);
-  observer ??= new ResizeObserver((entries) => {
-    for (const { target } of entries) {
-      if (!(target instanceof HTMLElement)) continue;
-      if (!target.isConnected) {
-        observer?.unobserve(target);
-        sizes.delete(target);
-      } else sizes.set(target, measure(target));
+function onResized(entries: readonly ResizeObserverEntry[]): void {
+  for (const { target } of entries) {
+    if (!(target instanceof HTMLElement)) continue;
+    const watch = watches.get(target);
+    if (watch === undefined) continue;
+    if (!target.isConnected) {
+      observer?.unobserve(target);
+      watches.delete(target);
+      continue;
     }
-  });
+    watch.size = measure(target);
+    for (const listener of [...watch.listeners]) listener(watch.size);
+  }
+}
+
+/** The plane's watch, started on the first ask; null on a page without the observer (a test document). */
+function watchOf(plane: HTMLElement): Watch | null {
+  const known = watches.get(plane);
+  if (known !== undefined) return known;
+  if (typeof ResizeObserver === 'undefined') return null;
+  const watch: Watch = { size: measure(plane), listeners: new Set() };
+  watches.set(plane, watch);
+  observer ??= new ResizeObserver(onResized);
   observer.observe(plane);
-  return size;
+  return watch;
+}
+
+export function planeSize(plane: HTMLElement): PlaneSize {
+  return watchOf(plane)?.size ?? measure(plane);
+}
+
+/** Run `listener` with the plane's new size each time the observer reports it; the answer stops it. */
+export function onPlaneResize(plane: HTMLElement, listener: PlaneListener): () => void {
+  const watch = watchOf(plane);
+  if (watch === null) return () => undefined;
+  watch.listeners.add(listener);
+  return () => {
+    watch.listeners.delete(listener);
+  };
 }

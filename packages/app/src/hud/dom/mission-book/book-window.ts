@@ -13,7 +13,7 @@ import { navBeamRect } from '../../nav-beam.js';
 import { NOTICE_COLUMN, TOP_BAR_HEIGHT } from '../../regions.js';
 import { GLYPH } from '../icons.js';
 import { escapeHtml, setClass, setHidden } from '../parts/dom.js';
-import { planeSize } from '../plane-size.js';
+import { onPlaneResize, planeSize } from '../plane-size.js';
 import type { ClientRect } from '../portrait-hole.js';
 import { WINDOW_KNOT } from '../symbols.js';
 import { shownCallbacks } from './callbacks.js';
@@ -595,6 +595,10 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
   const relayout = (): void => {
     if (!scene.hidden) layout();
   };
+  // A change of the plane's size places the book before the frame that resized the plane paints.
+  const stopPlacing = onPlaneResize(deps.plane, () => {
+    if (!scene.hidden && place()) relayout();
+  });
 
   const onClick = (event: MouseEvent): void => {
     const target = event.target instanceof Element ? event.target : null;
@@ -733,6 +737,7 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
     dispose(): void {
       if (turning !== null) clearTimeout(turning);
       resizes.disconnect();
+      stopPlacing();
       underlay.dispose();
       voiceRows.dispose();
       window.removeEventListener('resize', onResize);

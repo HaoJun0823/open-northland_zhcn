@@ -3,7 +3,7 @@ import type { ScreenSize } from '../nav-beam.js';
 import { centralWindowBox } from '../regions.js';
 import { GLYPH } from './icons.js';
 import { minimapReserve } from './minimap-reserve.js';
-import { planeSize } from './plane-size.js';
+import { onPlaneResize, planeSize } from './plane-size.js';
 import { WINDOW_ORNAMENTS } from './symbols.js';
 
 export interface HudWindowSpec {
@@ -104,8 +104,10 @@ export type CentralWindowWidth = number | ((screen: ScreenSize, overlay: Rect | 
 
 /**
  * The one placement every central window uses, applied only when the box moved. The caller runs it
- * per frame and on open; it answers whether the window moved, for an owner that repaints against the
- * new box. A width chosen per screen is written onto the element with the box.
+ * per frame and on open; it answers whether the window moved since the last ask, for an owner that
+ * repaints against the new box. A change of the plane's size places the window from the plane's
+ * observer, before the frame that resized the plane paints. A width chosen per screen is written onto
+ * the element with the box.
  */
 export function centralWindowPlacer(
   window: HudWindow,
@@ -113,7 +115,9 @@ export function centralWindowPlacer(
   width: CentralWindowWidth,
 ): () => boolean {
   let placed = '';
-  return () => {
+  /** Placed by the observer since the owner last asked. */
+  let moved = false;
+  const place = (): boolean => {
     if (!window.isOpen()) return false;
     const screen = planeSize(plane);
     const overlay = minimapReserve(plane);
@@ -126,5 +130,15 @@ export function centralWindowPlacer(
     window.place(box.x, box.y);
     window.element.style.maxHeight = `${box.maxHeight}px`;
     return true;
+  };
+  const stop = onPlaneResize(plane, () => {
+    // A window taken off the plane stops listening.
+    if (!window.element.isConnected) stop();
+    else if (place()) moved = true;
+  });
+  return () => {
+    const now = place() || moved;
+    moved = false;
+    return now;
   };
 }

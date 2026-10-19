@@ -157,19 +157,31 @@ const isFile = (path: string): Promise<boolean> =>
     () => false,
   );
 
-/** Whether `path` holds a map overlay written against another basis digest than `digest`. */
-async function holdsOtherText(path: string, digest: string): Promise<boolean> {
+/** The overlay in `path`, or undefined when there is none or it does not read as one. */
+async function existingOverlay(path: string): Promise<MapOverlay | undefined> {
   try {
-    return (await readOverlayFile('maps', path)).basis.digest !== digest;
+    return await readOverlayFile('maps', path);
   } catch {
-    return false;
+    return undefined;
   }
 }
 
+/** Where `writeMapOverlay` put an overlay, or would have without `force`. */
+export interface WrittenOverlay {
+  readonly file: string;
+  readonly written: boolean;
+  /** The file carries the basis prefix: the plain name holds another map's text, or the variant
+   *  exists already. */
+  readonly variant: boolean;
+  /** The plain file's `map` alias when it was written against other text than this overlay's. */
+  readonly otherTextOf: string | undefined;
+}
+
 /**
- * Writes `overlay` to `<out>/<lang>/maps/<digest>.json`, or to the variant name that adds its basis
- * prefix when that file holds an overlay of a copy with other text or the variant exists already.
- * Refuses to replace an existing file unless `force` is on.
+ * Writes `overlay` to `<out>/<lang>/maps/<digest>.json`. It takes the variant name that adds its basis
+ * prefix when that variant exists already, or when the plain file holds the overlay of another map
+ * (another `map` alias) with other text. A plain file of the same map with other text is this map's
+ * overlay of its older text. Refuses to replace an existing file unless `force` is on.
  */
 export async function writeMapOverlay(
   out: string,
@@ -177,21 +189,24 @@ export async function writeMapOverlay(
   digest: string,
   overlay: MapOverlay,
   force: boolean,
-): Promise<{ readonly file: string; readonly written: boolean; readonly variant: boolean }> {
+): Promise<WrittenOverlay> {
   const dir = join(out, lang, 'maps');
-  const plain = join(dir, `${mapOverlayFileId(digest)}.json`);
+  const plainFile = join(dir, `${mapOverlayFileId(digest)}.json`);
   const variantFile = join(dir, `${mapOverlayFileId(digest, overlay.basis.digest)}.json`);
-  const variant = (await isFile(variantFile)) || (await holdsOtherText(plain, overlay.basis.digest));
-  const file = variant ? variantFile : plain;
+  const plain = await existingOverlay(plainFile);
+  const otherTextOf =
+    plain !== undefined && plain.basis.digest !== overlay.basis.digest ? plain.map : undefined;
+  const variant = (await isFile(variantFile)) || (otherTextOf !== undefined && otherTextOf !== overlay.map);
+  const file = variant ? variantFile : plainFile;
   await mkdir(dir, { recursive: true });
   try {
     await writeFile(file, `${JSON.stringify(overlay, null, 2)}\n`, { flag: force ? 'w' : 'wx' });
   } catch (err) {
     if (err instanceof Error && 'code' in err && err.code === 'EEXIST')
-      return { file, written: false, variant };
+      return { file, written: false, variant, otherTextOf };
     throw err;
   }
-  return { file, written: true, variant };
+  return { file, written: true, variant, otherTextOf };
 }
 
 const USAGE =
@@ -241,9 +256,17 @@ async function main(): Promise<void> {
       continue;
     }
     const { folder, digest, overlay } = skeleton;
-    const { file, written, variant } = await writeMapOverlay(out, lang, digest, overlay, values.force);
+    const { file, written, variant, otherTextOf } = await writeMapOverlay(
+      out,
+      lang,
+      digest,
+      overlay,
+      values.force,
+    );
+    const olderText = !variant && otherTextOf !== undefined;
     if (!written) {
-      console.error(`${folder}: refused, ${file} exists; --force replaces it`);
+      const older = olderText ? `, written against older ${overlay.basis.lang} text of this map` : '';
+      console.error(`${folder}: refused, ${file} exists${older}; --force replaces it`);
       process.exitCode = 1;
       continue;
     }
@@ -251,10 +274,13 @@ async function main(): Promise<void> {
       overlay.basis.lang === lang
         ? `an edit template of the ${lang} text: edit the values to change and delete the rest`
         : `a skeleton for ${lang} from the ${overlay.basis.lang} text: replace each value with its translation, delete the rest`;
-    const copy = variant
-      ? ', a variant: another copy of this map.dat with other text has the plain name'
-      : '';
-    console.log(`${folder}: wrote ${file}${copy}, ${entryCount(overlay)}; ${what}`);
+    const name =
+      variant && otherTextOf !== undefined
+        ? `, a variant: the plain name holds the overlay of ${otherTextOf}, which ships other text`
+        : olderText
+          ? ', replacing the overlay of older text'
+          : '';
+    console.log(`${folder}: wrote ${file}${name}, ${entryCount(overlay)}; ${what}`);
   }
 }
 

@@ -155,9 +155,9 @@ describe('writeMapOverlay', () => {
     const forced = await writeMapOverlay(out, 'chs', fjord.digest, fjord.overlay, true);
 
     expect([first, kept, forced]).toEqual([
-      { file: path, written: true, variant: false },
-      { file: path, written: false, variant: false },
-      { file: path, written: true, variant: false },
+      { file: path, written: true, variant: false, otherTextOf: undefined },
+      { file: path, written: false, variant: false, otherTextOf: undefined },
+      { file: path, written: true, variant: false, otherTextOf: undefined },
     ]);
     expect(keptText).toBe('{}');
     expect(MapOverlay.parse(JSON.parse(await readFile(path, 'utf8')))).toEqual(fjord.overlay);
@@ -179,10 +179,10 @@ describe('writeMapOverlay', () => {
         results.push(await writeMapOverlay(out, 'chs', digest, overlay, false));
 
     expect(results).toEqual([
-      { file: file(fjord.digest), written: true, variant: false },
-      { file: file(variant), written: true, variant: true },
-      { file: file(fjord.digest), written: false, variant: false },
-      { file: file(variant), written: false, variant: true },
+      { file: file(fjord.digest), written: true, variant: false, otherTextOf: undefined },
+      { file: file(variant), written: true, variant: true, otherTextOf: 'fjord' },
+      { file: file(fjord.digest), written: false, variant: false, otherTextOf: undefined },
+      { file: file(variant), written: false, variant: true, otherTextOf: 'fjord' },
     ]);
     const overlays = await loadTranslationOverlays(out);
     expect(overlays.maps.get(fjord.digest)?.get('chs')).toEqual([wariant.overlay, fjord.overlay]);
@@ -192,6 +192,26 @@ describe('writeMapOverlay', () => {
       file: file(variant),
       written: false,
       variant: true,
+      otherTextOf: undefined,
     });
+  });
+
+  it('keeps the plain name for the same map whose text changed, replacing it only when forced', async () => {
+    const { skeletons } = await skeletonsOf(await putDownload(), { lang: 'chs' });
+    const fjord = skeletons.find((skeleton) => skeleton.kind === 'skeleton');
+    if (fjord?.kind !== 'skeleton') throw new Error('no skeleton');
+    const out = join(dir, 'translations');
+    const path = join(out, 'chs', 'maps', `${fjord.digest}.json`);
+    const older = { ...fjord.overlay, basis: { ...fjord.overlay.basis, digest: 'c'.repeat(64) } };
+    await writeMapOverlay(out, 'chs', fjord.digest, older, false);
+
+    const kept = await writeMapOverlay(out, 'chs', fjord.digest, fjord.overlay, false);
+    const replaced = await writeMapOverlay(out, 'chs', fjord.digest, fjord.overlay, true);
+
+    expect([kept, replaced]).toEqual([
+      { file: path, written: false, variant: false, otherTextOf: 'fjord' },
+      { file: path, written: true, variant: false, otherTextOf: 'fjord' },
+    ]);
+    expect(MapOverlay.parse(JSON.parse(await readFile(path, 'utf8')))).toEqual(fjord.overlay);
   });
 });

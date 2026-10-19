@@ -63,8 +63,9 @@ values still equal to the source text.
 
 `npm run translations:skeleton -- <archive or folder> --lang <lang>` writes `<lang>/maps/<digest>.json`
 for each map it holds, every value the basis text: replace each in place and delete the ones left
-untranslated, which fall back to the source anyway. A copy whose `map.dat` already has an overlay of
-other text gets the variant name; a copy with the same text is reported as served by that file.
+untranslated, which fall back to the source anyway. When the plain file holds another map's overlay
+(another `map` alias) of other text, the skeleton takes the variant name; when it holds this map's
+overlay of older text, `--force` replaces it. Copies with the same text share one file.
 
 The catalogue API loads the overlays when it starts and converts again each catalogue entry whose
 maps gained, changed or lost an overlay, so an overlay reaches catalogue maps with the next API image

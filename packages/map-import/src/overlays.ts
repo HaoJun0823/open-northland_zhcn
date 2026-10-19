@@ -42,7 +42,7 @@ export type MapOverlayOutcome =
   | { readonly lang: Language; readonly status: 'redundant' | 'refused' }
   | { readonly lang: Language; readonly status: 'ambiguous'; readonly candidates: readonly OverlayBasis[] };
 
-/** The overlays a map takes, and what became of every overlay filed under it. */
+/** The overlays a map takes, and what became of each language's overlays filed under it. */
 export interface MapOverlayPlan {
   readonly applied: ReadonlyMap<Language, MapOverlay>;
   readonly outcomes: readonly MapOverlayOutcome[];

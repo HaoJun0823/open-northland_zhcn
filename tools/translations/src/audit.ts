@@ -420,7 +420,7 @@ async function main(): Promise<void> {
   const scope =
     dataRoot === undefined
       ? `schema and layout only: no unpacked pack at ${looked.join(' or ')} (ON_DATA_ROOT)`
-      : `checked against ${dataRoot}; ${report.unmatchedMaps} map overlay(s) name no map of the pack`;
+      : `checked against ${dataRoot}; ${report.unmatchedMaps} map overlay(s) no map of the pack takes`;
   console.log(
     `check:translations - ${report.files} overlay file(s), ${report.errors.length} error(s), ` +
       `${report.warnings.length} warning(s); ${scope}`,

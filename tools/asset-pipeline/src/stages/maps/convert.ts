@@ -51,7 +51,7 @@ export interface MapDatConversion {
   readonly unknownStaticVerbs: readonly string[];
   /** The raw `map.dat`'s SHA-256, the name its translation overlays are filed under. */
   readonly datDigest: string;
-  /** What became of each translation overlay filed under `datDigest`. */
+  /** What became of each language's translation overlays filed under `datDigest`. */
   readonly overlays: readonly MapOverlayOutcome[];
 }
 

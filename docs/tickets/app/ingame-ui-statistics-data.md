@@ -2,7 +2,7 @@
 
 **Area:** app, sim · **Focus:** in-game UI redesign · **Priority:** P2
 
-`hud/tool-panel/stats-window.ts` shows diagnostic summaries, not historical series. The original's
+`hud/dom/statistics-window.ts` shows current totals, not historical series. The original's
 statistics have People, Professions, Buildings, Building List (sites in parentheses), Goods
 (production history, food included), Miscellaneous (marriages, births, deaths) and Cemetery
 (deceased heroes), over 1, 2, 5 or 10 hours of game time, persisted in saves.

@@ -2,7 +2,6 @@ import type { UiCue } from '@open-northland/audio';
 import type { HypertextBook } from '@open-northland/data';
 import type {
   BuildingHighlightItem,
-  HudLayout,
   HudModel,
   MapViewFrame,
   MapViewTarget,
@@ -19,7 +18,7 @@ import type {
   SimEvent,
   WorldSnapshot,
 } from '@open-northland/sim';
-import { type Application, Container, Texture } from 'pixi.js';
+import { type Application, Texture } from 'pixi.js';
 import { professionDefForJob } from '../../catalog/professions.js';
 import {
   type GuiBitmapName,
@@ -63,6 +62,7 @@ import { createPlacementStrip } from '../dom/placement-strip.js';
 import { planeSize } from '../dom/plane-size.js';
 import type { ClientRect } from '../dom/portrait-hole.js';
 import { createResidentsWindow } from '../dom/residents-window.js';
+import { createStatisticsWindow } from '../dom/statistics-window.js';
 import { createHudSystemBar, type SpeedBarLook } from '../dom/system-bar.js';
 import type { CentralWindows } from '../dom/trade-window/window.js';
 import { FigureFrames } from '../figures/figure-frames.js';
@@ -340,9 +340,8 @@ export interface ToolPanelController {
   lineStarts(): LitNodes | null;
   /** The gate tool's lit spans; null outside the gate tool. */
   gateSites(): GateSites | null;
-  /** Per-frame hook: the tick's model feeds the summary bar; the layout over it arrives as an accessor
-   *  so a closed window never lays it out. */
-  update(hudFor: () => HudLayout, model: HudModel): void;
+  /** Per-frame hook: the tick's model feeds the summary bar and the windows that show its figures. */
+  update(model: HudModel): void;
   /** The world views the open mission book shows this frame; read after {@link update}. */
   mapViews(): readonly MapViewFrame[];
   /** Per-frame hook for the notification column: this frame's unfiltered sim events, the snapshot
@@ -445,8 +444,8 @@ function navEntries(): readonly HudNavEntry<NavEntryId>[] {
   }));
 }
 
-/** Mount the tool panel: the legacy pop-ups on the app stage and the shell regions on the DOM plane.
- *  Async because it loads the optional decoded GUI art and font. */
+/** Mount the tool panel's shell regions and windows on the DOM plane. Async because it loads the
+ *  optional decoded GUI art and font. */
 export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelController> {
   const { app, canvas, enqueue, plane, network } = opts;
   const layout = buildToolPanelLayout(opts.uiscale);
@@ -456,18 +455,11 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
 
   const labelByType = opts.buildingLabels;
 
-  const root = new Container();
-  root.zIndex = 1000;
-  app.stage.addChild(root);
-  const windowContainer = new Container();
-  root.addChild(windowContainer);
-
   const domParts: { dispose(): void }[] = [];
   let input: ToolPanelInput | null = null;
   const disposeAll = (): void => {
     input?.dispose();
     for (const part of domParts.splice(0).reverse()) part.dispose();
-    root.destroy({ children: true });
   };
   try {
     const uiString = uiStringLookup(strings);
@@ -578,8 +570,6 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
     const figureFrames = new FigureFrames(opts.sheet);
     const residentFigures = new LiveFigures(opts.sheet, figureFrames, opts.playerColourOf);
     const windows = createToolWindows({
-      ctx,
-      container: windowContainer,
       pendingWindow: (id) => {
         const window = createPendingWindow(plane, {
           title: shellCopy.nav[id],
@@ -691,6 +681,16 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
           cue: ctx.cue,
         });
         window.onDismiss(() => focusOwner?.('assistant'));
+        return window;
+      },
+      statisticsWindow: () => {
+        const window = createStatisticsWindow({
+          plane,
+          art: paintedIcon('statistics', TITLE_ART_PX),
+          jobLabel: (jobType) => opts.technologyName('job', jobType),
+          goodLabel: opts.goodLabel,
+        });
+        window.onDismiss(() => focusOwner?.('statistics'));
         return window;
       },
       heldPaper,
@@ -1014,11 +1014,11 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       activeLine: () => placement.activeLine(),
       lineStarts: () => placement.lineStarts(),
       gateSites: () => placement.gateSites(),
-      update(hudFor, model): void {
+      update(model): void {
         systemBar.update(model);
         speed.refresh();
-        windows.presentStocks(model);
-        windows.refresh(hudFor);
+        windows.presentModel(model);
+        windows.refresh();
         const open = windows.openId();
         nav.setActive(open === null ? null : navEntryForWindow(open));
         nav.setMarked('mission', windows.mission.unread(), messages().hud.missionBook.beamMark);

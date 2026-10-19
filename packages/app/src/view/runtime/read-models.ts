@@ -44,8 +44,6 @@ export interface ViewReadModelDeps {
   readonly tribes: WorldTribes;
   /** Owner slot → team-colour slot for the life hearts; absent = identity. */
   readonly playerColourOf?: ((player: number) => number) | undefined;
-  /** Owner slot → the roster's authored seat name for the stats header; absent = the slot id. */
-  readonly seatNameOf?: ((player: number) => string | undefined) | undefined;
   /** The selection the life-heart projection reads; absent = nothing selected. */
   readonly selection?: HeartSelection | undefined;
 }
@@ -137,7 +135,6 @@ export async function createViewReadModels(deps: ViewReadModelDeps): Promise<Vie
         selection: deps.selection,
         starRules: experienceStarRules(host.content),
       },
-      deps.seatNameOf,
       deps.signpostReach,
       deps.inventoryVersion,
     ),

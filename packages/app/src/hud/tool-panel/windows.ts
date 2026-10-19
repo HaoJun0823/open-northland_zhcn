@@ -1,22 +1,20 @@
-import type { HudLayout, HudModel } from '@open-northland/render';
+import type { HudModel } from '@open-northland/render';
 import type { Paper } from '@open-northland/sim';
-import type { Container } from 'pixi.js';
 import type { AssistantWindow } from '../dom/assistant-window/index.js';
 import type { ConstructionWindow } from '../dom/construction-window.js';
 import type { DiplomacyWindow } from '../dom/diplomacy-window/index.js';
 import type { MissionBook, MissionWindowState } from '../dom/mission-book/index.js';
 import type { NetworkWindow } from '../dom/network-window.js';
 import type { ResidentsWindow } from '../dom/residents-window.js';
+import type { StatisticsWindow } from '../dom/statistics-window.js';
 import type { ConstructionWindowState, MenuBuildingEntry } from './building-menu.js';
-import type { PanelContext } from './context.js';
 import type { HeldPaperController } from './held-paper.js';
 import type { PendingWindow } from './pending-window.js';
 import type { BuildingPick } from './placement.js';
 import type { ResidentsWindowState } from './residents/rows.js';
-import { createStatsWindow } from './stats-window.js';
 import type { ClickModifiers, ToolWindow } from './window-shell.js';
 
-/** The central windows in mount order, which is the legacy pop-ups' draw order. */
+/** The central windows in mount order. */
 const MOUNT_ORDER = [
   'menu',
   'assistant',
@@ -44,7 +42,7 @@ const NO_WINDOW: ToolWindow = {
 
 interface ToolWindowEntry {
   readonly window: ToolWindow;
-  readonly perFrame: (hudFor: () => HudLayout) => void;
+  readonly perFrame: () => void;
 }
 
 /** What the registry hands the construction window's factory: the entries and the presses the
@@ -57,9 +55,6 @@ export interface ConstructionWindowSeam {
 }
 
 export interface ToolWindowsDeps {
-  readonly ctx: PanelContext;
-  /** Every pop-up mounts its own container under this one; child order is draw order. */
-  readonly container: Container;
   /** The pending note window for an entry without contents yet, mounted on the DOM plane. */
   readonly pendingWindow: (id: PendingWindowId) => PendingWindow;
   /** The construction window, mounted on the DOM plane. */
@@ -68,6 +63,8 @@ export interface ToolWindowsDeps {
   readonly residentsWindow: () => ResidentsWindow;
   /** The assistant window, mounted on the DOM plane. */
   readonly assistantWindow: () => AssistantWindow;
+  /** The statistics window, mounted on the DOM plane. */
+  readonly statisticsWindow: () => StatisticsWindow;
   /** The mission book with its goal slip, mounted on the DOM plane. */
   readonly missionBook: () => MissionBook;
   /** The network window, mounted on the DOM plane in a relayed game only; absent, its entry stays
@@ -99,9 +96,11 @@ export interface ToolWindows {
   /** Scroll a list under the point; true when an open pop-up owns the wheel there, even with nothing
    *  to scroll. */
   handleWheel(x: number, y: number, deltaY: number): boolean;
-  refresh(hudFor: () => HudLayout): void;
-  /** The tick's stock figures, for the construction window's cost marks and the assistant's stock. */
-  presentStocks(model: HudModel): void;
+  /** Once a frame: re-place the open windows and redraw what changed. */
+  refresh(): void;
+  /** The tick's figures, for the construction window's cost marks, the assistant's stock and the
+   *  statistics. */
+  presentModel(model: HudModel): void;
   state(): ToolWindowsState;
   restore(state: ToolWindowsState): void;
   dispose(): void;
@@ -118,8 +117,8 @@ export interface ToolWindowsState {
 }
 
 export function createToolWindows(deps: ToolWindowsDeps): ToolWindows {
-  const { ctx, container, heldPaper } = deps;
-  const stats = createStatsWindow({ ctx, container });
+  const { heldPaper } = deps;
+  const stats = deps.statisticsWindow();
   const diplomacy = deps.diplomacyWindow();
   const residents = deps.residentsWindow();
   const assistant = deps.assistantWindow();
@@ -152,7 +151,7 @@ export function createToolWindows(deps: ToolWindowsDeps): ToolWindows {
   const entries: Readonly<Record<ToolWindowId, ToolWindowEntry>> = {
     menu: { window: menu, perFrame: () => menu.place() },
     assistant: { window: assistant, perFrame: () => assistant.refresh() },
-    stats: { window: stats, perFrame: (hudFor) => stats.refresh(hudFor) },
+    stats: { window: stats, perFrame: () => stats.place() },
     diplomacy: { window: diplomacy, perFrame: () => diplomacy.refresh() },
     residents: { window: residents, perFrame: () => residents.refresh() },
     knowledge: { window: knowledge, perFrame: () => knowledge.place() },
@@ -181,13 +180,14 @@ export function createToolWindows(deps: ToolWindowsDeps): ToolWindows {
       if (top === null) return false;
       return true;
     },
-    refresh: (hudFor): void => {
+    refresh: (): void => {
       if (heldPaper.held() !== null && !menu.isOpen()) heldPaper.cancel();
-      for (const e of mounted) e.perFrame(hudFor);
+      for (const e of mounted) e.perFrame();
     },
-    presentStocks: (model) => {
+    presentModel: (model) => {
       menu.update(model);
       assistant.update(model);
+      stats.update(model);
     },
     state: () => ({
       openIds: MOUNT_ORDER.filter((id) => entries[id].window.isOpen()),
@@ -216,6 +216,7 @@ export function createToolWindows(deps: ToolWindowsDeps): ToolWindows {
       menu.dispose();
       residents.dispose();
       assistant.dispose();
+      stats.dispose();
       diplomacy.dispose();
       knowledge.dispose();
       mission.dispose();

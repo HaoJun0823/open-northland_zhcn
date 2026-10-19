@@ -3,7 +3,6 @@ import type { SessionDriver } from '@open-northland/lockstep';
 import {
   cameraViewport,
   type DrawItem,
-  type HudLayout,
   type HudModel,
   SPRITE_CULL_MARGIN,
   type Viewport,
@@ -84,9 +83,8 @@ export interface FrameLoopDeps {
   readonly litOverlayFrame: ReturnType<typeof makeLitOverlaySource>;
   /** The mooring-spot band probe, live while a ship's dock pick is armed. */
   readonly dockOverlayFrame: ReturnType<typeof makeDockOverlaySource>;
-  /** Memoized by snapshot identity, so it rebuilds per tick rather than per RAF. */
-  readonly hudFor: (snap: WorldSnapshot) => HudLayout;
-  /** The same per-tick aggregation behind {@link hudFor}, for its figures rather than its layout. */
+  /** The seat's per-tick HUD figures, memoized by snapshot identity, so it rebuilds per tick rather
+   *  than per RAF. */
   readonly hudModelFor: (snap: WorldSnapshot) => HudModel;
   /** Memoized by snapshot identity and the screen, and fog-filtered. */
   readonly doorBadgesFor: (snap: WorldSnapshot, viewport?: Viewport) => ReturnType<typeof computeDoorBadges>;
@@ -156,7 +154,6 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
     signpostOverlayFrame,
     litOverlayFrame,
     dockOverlayFrame,
-    hudFor,
     hudModelFor,
     doorBadgesFor,
     constructionSignsFor,
@@ -288,9 +285,7 @@ export function startFrameLoop(loop: FrameLoopDeps): RafLoop {
       fogView === null
         ? frameEvents
         : frameEvents.filter((ev) => !('at' in ev) || fogGates.seesNode(ev.at.hx, ev.at.hy));
-    // Before the renderer's render: the panel's screen-space sprites carry the canvas resolution in
-    // their shader.
-    toolPanel.controller.update(() => hudFor(snap), hudModelFor(snap));
+    toolPanel.controller.update(hudModelFor(snap));
     // An open briefing's map pictures, painted over the window during `renderer.update`.
     renderer.setMapViews(toolPanel.controller.mapViews());
     // Unfiltered: the notes are the seat's own affairs, and its own settler in the fog still starves.

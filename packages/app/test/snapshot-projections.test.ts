@@ -32,8 +32,8 @@ describe('createSnapshotProjections - memoized by snapshot identity', () => {
   const snap = snapshotOf([building(10, HOME_TYPE, 1, 1), settler(1, 0, 10)]);
 
   it('returns the identical reference for the same snapshot, a fresh one for the next', () => {
-    const { hudFor, doorBadgesFor } = projectionsFor();
-    expect(hudFor(snap)).toBe(hudFor(snap));
+    const { hudModelFor, doorBadgesFor } = projectionsFor();
+    expect(hudModelFor(snap)).toBe(hudModelFor(snap));
     expect(doorBadgesFor(snap)).toBe(doorBadgesFor(snap));
 
     const next = snapshotOf([building(10, HOME_TYPE, 1, 1)]); // a new tick's snapshot - a new instance
@@ -64,7 +64,7 @@ describe('createSnapshotProjections - memoized by snapshot identity', () => {
 
   it('re-reads the summary when a spectator switches seats under a held snapshot, zero for the whole map', () => {
     const viewer = switchableViewerSeat(1);
-    const { hudModelFor, hudFor } = createSnapshotProjections(
+    const { hudModelFor } = createSnapshotProjections(
       viewer,
       () => undefined,
       workerRoleOf,
@@ -77,12 +77,10 @@ describe('createSnapshotProjections - memoized by snapshot identity', () => {
     });
     const world = snapshotOf([person(1, 0), person(2, 1), person(3, 1)]);
     expect(hudModelFor(world)).toMatchObject({ player: 1, population: 2 });
-    expect(hudFor(world)).toBe(hudFor(world));
-    const seatOneLayout = hudFor(world);
+    expect(hudModelFor(world)).toBe(hudModelFor(world));
 
     viewer.watch(0);
     expect(hudModelFor(world)).toMatchObject({ player: 0, population: 1 }); // same snapshot instance
-    expect(hudFor(world)).not.toBe(seatOneLayout);
 
     viewer.watch(null);
     expect(hudModelFor(world)).toEqual({

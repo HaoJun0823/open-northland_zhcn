@@ -20,6 +20,7 @@ import { stubMissionBook } from './support/mission-book-stub.js';
 import { stubPendingWindow } from './support/pending-window-stub.js';
 import { stubPlacementStrip } from './support/placement-strip-stub.js';
 import { stubResidentsWindow } from './support/residents-window-stub.js';
+import { stubStatisticsWindow } from './support/statistics-window-stub.js';
 
 const SCREEN = { width: 1280, height: 720 };
 const BUILDING_JOINERY = 23;
@@ -51,10 +52,10 @@ function stubContext(): PanelContext {
   return ctx;
 }
 
-/** The window registry plus the held placement the mount wires, over a stubbed context (no Pixi text). */
+/** The window registry plus the held placement the mount wires, over a stubbed context and DOM-less
+ *  windows. */
 function mountSurfaces() {
   const ctx = stubContext();
-  const container = new Container();
   const strip = stubPlacementStrip();
   let windows: ToolWindows | null = null;
   const placement = createPlacementController({
@@ -71,8 +72,6 @@ function mountSurfaces() {
   });
   let menu: ConstructionWindowStub | null = null;
   windows = createToolWindows({
-    ctx,
-    container,
     pendingWindow: stubPendingWindow,
     residentsWindow: stubResidentsWindow,
     constructionWindow: (seam) => {
@@ -81,6 +80,7 @@ function mountSurfaces() {
     },
     buildings: [{ typeId: BUILDING_JOINERY, label: 'Joinery', kind: 'workplace', cost: [], trades: [] }],
     assistantWindow: stubAssistantWindow,
+    statisticsWindow: stubStatisticsWindow,
     heldPaper: createHeldPaperController(ctx, strip),
     diplomacyWindow: stubDiplomacyWindow,
     missionBook: stubMissionBook,

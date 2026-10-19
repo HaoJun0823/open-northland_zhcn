@@ -1542,7 +1542,6 @@ export const ruGame = {
       wholeMap: 'Вся карта',
     },
     stats: {
-      seatTick: '{seat} · такт {tick}',
       playerTick: 'Игрок {player} · такт {tick}',
       tick: 'Такт {tick}',
       population: 'Население: {population}',
@@ -1551,6 +1550,14 @@ export const ruGame = {
       idle: 'без дела',
       job: 'профессия {jobType}',
       good: 'товар {goodType}',
+    },
+    statisticsWindow: {
+      population: 'Население',
+      professions: 'Профессии',
+      stocks: 'Запасы',
+      idle: 'Без дела',
+      other: 'Прочие',
+      none: 'Нет',
     },
   },
   actionRing: {

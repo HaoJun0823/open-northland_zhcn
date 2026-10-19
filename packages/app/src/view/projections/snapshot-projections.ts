@@ -1,12 +1,4 @@
-import {
-  buildHud,
-  emptyHud,
-  fogTileVisible,
-  type HudLayout,
-  type HudModel,
-  layoutHud,
-  ONE,
-} from '@open-northland/render';
+import { buildHud, emptyHud, fogTileVisible, type HudModel, ONE } from '@open-northland/render';
 import { anchorTileBox, type Viewport } from '@open-northland/render/data';
 import type { SignpostReachView } from '@open-northland/sim';
 import { TILE_BUCKET_SIZE, type TileBox, type WorldSnapshot } from '@open-northland/sim';
@@ -16,7 +8,6 @@ import { computeConstructionSigns } from './construction-signs.js';
 import { type BuildingDoorInfoOf, computeDoorBadges, type DoorBadgeCache } from './door-badges.js';
 import { computeExperienceStars, type ExperienceStarInputs } from './experience-stars.js';
 import type { FogGates } from './fog-gates.js';
-import { hudLabels } from './hud-labels.js';
 import { computeLifeHearts, type LifeHeartInputs } from './life-hearts.js';
 import { computeSettlerBubbles } from './settler-bubbles.js';
 
@@ -104,20 +95,18 @@ export interface HeartProjectionInputs extends Omit<LifeHeartInputs, 'selected'>
 }
 
 /** The snapshot read projections the frame loop shares across HUD/render consumers; `viewer` is the
- *  seat the HUD aggregates count for, and `seatNameOf` names it in the panel header. */
+ *  seat the HUD aggregates count for. */
 export function createSnapshotProjections(
   viewer: ViewerSeat,
   buildingInfoOf: BuildingDoorInfoOf,
   roleOf: (jobType: number) => WorkerRole,
   fogGates: FogGates,
   hearts: HeartProjectionInputs,
-  seatNameOf?: (player: number) => string | undefined,
   signpostReach?: (player: number) => SignpostReachView | null,
   inventoryVersion?: () => number,
 ): {
-  /** The panel's own aggregates, shared with any consumer needing a figure rather than its layout. */
+  /** The seat's HUD figures: the summary bar's, the construction window's and the statistics'. */
   readonly hudModelFor: (snapshot: WorldSnapshot) => HudModel;
-  readonly hudFor: (snapshot: WorldSnapshot) => HudLayout;
   /** `viewport` is the sprites' cull box: only buildings whose badges can draw there are read. */
   readonly doorBadgesFor: (
     snapshot: WorldSnapshot,
@@ -197,10 +186,6 @@ export function createSnapshotProjections(
   }, viewerVersion);
   return {
     hudModelFor,
-    hudFor: memoBySnapshot(
-      (snapshot) => layoutHud(hudModelFor(snapshot), hudLabels(seatNameOf)),
-      viewerVersion,
-    ),
     doorBadgesFor,
     drawnDoorBadgesFor: doorBadgesFor.latest,
     constructionSignsFor: memoBySnapshot((snapshot) => {

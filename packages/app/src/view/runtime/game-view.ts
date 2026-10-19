@@ -1052,7 +1052,6 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       signpostOverlayFrame,
       litOverlayFrame,
       dockOverlayFrame,
-      hudFor,
       hudModelFor,
       doorBadgesFor,
       drawnDoorBadgesFor,
@@ -1073,7 +1072,6 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       fogGates,
       tribes: deps.tribes ?? [PRIMARY_TRIBE],
       ...(deps.playerColourOf !== undefined ? { playerColourOf: deps.playerColourOf } : {}),
-      ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
       selection: { ids: controls.selectedIds, version: controls.selectionVersion },
     });
     pickableDoorBadges = () => drawnDoorBadgesFor(host.snapshot());
@@ -1364,7 +1362,6 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       signpostOverlayFrame,
       litOverlayFrame,
       dockOverlayFrame,
-      hudFor,
       hudModelFor,
       doorBadgesFor,
       constructionSignsFor,

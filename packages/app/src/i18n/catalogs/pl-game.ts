@@ -1387,7 +1387,6 @@ export const plGame = {
       wholeMap: 'Cała mapa',
     },
     stats: {
-      seatTick: '{seat} · krok {tick}',
       playerTick: 'Gracz {player} · krok {tick}',
       tick: 'Krok {tick}',
       population: 'Populacja: {population}',
@@ -1396,6 +1395,14 @@ export const plGame = {
       idle: 'bezrobotni',
       job: 'zawód {jobType}',
       good: 'towar {goodType}',
+    },
+    statisticsWindow: {
+      population: 'Populacja',
+      professions: 'Zawody',
+      stocks: 'Zapasy',
+      idle: 'Bezrobotni',
+      other: 'Inni',
+      none: 'Brak',
     },
   },
   // Project-authored labels for a checkout without the optional game text tables.

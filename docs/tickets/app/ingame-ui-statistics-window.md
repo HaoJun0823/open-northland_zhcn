@@ -4,8 +4,8 @@
 
 **Blocked by:** [statistics-data](ingame-ui-statistics-data.md)
 
-The diagnostic stats popup (`hud/tool-panel/stats-window.ts`) cannot answer the player's economic
-questions. The data ticket supplies the series contract and the reviewed view definitions.
+The statistics window (`hud/dom/statistics-window.ts`) lists current totals only, which cannot answer
+the player's economic questions. The data ticket supplies the series contract and the reviewed view definitions.
 
 ## Scope
 

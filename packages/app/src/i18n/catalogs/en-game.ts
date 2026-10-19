@@ -1409,7 +1409,6 @@ export const enGame = {
       wholeMap: 'Whole map',
     },
     stats: {
-      seatTick: '{seat} · tick {tick}',
       playerTick: 'Player {player} · tick {tick}',
       tick: 'Tick {tick}',
       population: 'Population: {population}',
@@ -1418,6 +1417,14 @@ export const enGame = {
       idle: 'idle',
       job: 'job {jobType}',
       good: 'good {goodType}',
+    },
+    statisticsWindow: {
+      population: 'Population',
+      professions: 'Professions',
+      stocks: 'Stocks',
+      idle: 'Idle',
+      other: 'Others',
+      none: 'None',
     },
   },
   // Project-authored labels for a checkout without the optional game text tables.

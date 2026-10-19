@@ -1547,7 +1547,6 @@ export const deGame = {
       wholeMap: 'Ganze Karte',
     },
     stats: {
-      seatTick: '{seat} · Tick {tick}',
       playerTick: 'Spieler {player} · Tick {tick}',
       tick: 'Tick {tick}',
       population: 'Bevölkerung: {population}',
@@ -1556,6 +1555,14 @@ export const deGame = {
       idle: 'untätig',
       job: 'Beruf {jobType}',
       good: 'Ware {goodType}',
+    },
+    statisticsWindow: {
+      population: 'Bevölkerung',
+      professions: 'Berufe',
+      stocks: 'Vorräte',
+      idle: 'Untätig',
+      other: 'Sonstige',
+      none: 'Keine',
     },
   },
   actionRing: {

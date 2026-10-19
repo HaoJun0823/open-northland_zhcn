@@ -1,5 +1,4 @@
 import type { UiCue } from '@open-northland/audio';
-import type { HudLayout } from '@open-northland/render';
 import type { Command, Entity, Paper } from '@open-northland/sim';
 import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
@@ -19,7 +18,6 @@ import {
   PALISADE_LINE_MAX_EDGES,
 } from '../src/hud/tool-panel/placement.js';
 import { INITIAL_RESIDENTS_STATE, NO_RESIDENT_FILTERS } from '../src/hud/tool-panel/residents/rows.js';
-import { createStatsWindow } from '../src/hud/tool-panel/stats-window.js';
 import { createToolWindows } from '../src/hud/tool-panel/windows.js';
 import { formatMessage, messages } from '../src/i18n/index.js';
 import { stubAssistantWindow } from './support/assistant-window-stub.js';
@@ -29,12 +27,12 @@ import { stubMissionBook } from './support/mission-book-stub.js';
 import { stubPendingWindow } from './support/pending-window-stub.js';
 import { stubPlacementStrip } from './support/placement-strip-stub.js';
 import { stubResidentsWindow } from './support/residents-window-stub.js';
+import { stubStatisticsWindow } from './support/statistics-window-stub.js';
 
 /**
- * Headless tests for the tool-panel WINDOW CONTROLLERS (registry / stats / placement) over a
- * stubbed {@link PanelContext} and a DOM-less construction window. These pin the input-routing
- * contracts the mount relies on (claim regions, close-on-inside, the paper flow) and the stats
- * change-key guard (a tick-only change remakes only the tick run - the per-frame perf contract).
+ * Headless tests for the tool-panel WINDOW CONTROLLERS (registry / placement) over a stubbed
+ * {@link PanelContext} and DOM-less windows. These pin the contracts the mount relies on: one central
+ * window at a time, the paper flow and the placement clicks.
  */
 
 const SCREEN = { width: 800, height: 600 };
@@ -88,98 +86,14 @@ const BUILDINGS: readonly MenuBuildingEntry[] = [
   { typeId: 23, label: 'Joinery', kind: 'workplace', cost: [], trades: [] },
 ];
 
-/** The stats window's width, which `stats-window.ts` keeps private (design px). */
-const STATS_WIDTH = 150;
-
-/** Where a pop-up `width` screen px wide opens: centred in the window region the layout resolves for
- *  the stub screen (the shared origin rule of every controller). */
-function windowOrigin(ctx: PanelContext, width: number): { x: number; y: number } {
-  return ctx.layout.windowOrigin(ctx.screen(), width);
-}
-
-/** The stats window's origin; its content-sized sheet is far shorter than the region, so no lift. */
-const statsOrigin = (ctx: PanelContext): { x: number; y: number } =>
-  windowOrigin(ctx, STATS_WIDTH * ctx.scale);
-
-/** A HUD read-view: the volatile `tick` row the stats window excludes from its change key, then a tally. */
-const hud = (tick: number, wood: number): HudLayout => ({
-  width: 100,
-  height: 40,
-  rows: [
-    { x: 0, y: 0, text: `Tribe 1 · tick ${tick}` },
-    { x: 0, y: 12, text: `wood: ${wood}` },
-  ],
-});
-
-describe('stats window controller', () => {
-  it('remakes only the runs of the rows that changed', () => {
-    const { ctx, made } = stubContext();
-    const stats = createStatsWindow({ ctx, container: new Container() });
-
-    stats.refresh(() => hud(1, 5));
-    expect(made).toHaveLength(0); // closed → no build
-
-    stats.toggle();
-    stats.refresh(() => hud(1, 5));
-    const builtOnce = made.length;
-    expect(builtOnce).toBeGreaterThan(0); // first open refresh builds title + rows
-
-    stats.refresh(() => hud(1, 5)); // the same frame again: nothing to make
-    expect(made).toHaveLength(builtOnce);
-
-    stats.refresh(() => hud(2, 5)); // only the tick advanced: its run alone, not the tallies
-    expect(made).toHaveLength(builtOnce + 1);
-    expect(made.at(-1)).toBe('Tribe 1 · tick 2');
-    const reticked = made.length;
-
-    stats.refresh(() => hud(3, 6)); // the tick and a tally changed: their two runs
-    expect(made.slice(reticked)).toEqual(['Tribe 1 · tick 3', 'wood: 6']);
-  });
-
-  it('pulls the HUD read-view only while open', () => {
-    const { ctx } = stubContext();
-    const stats = createStatsWindow({ ctx, container: new Container() });
-    let builds = 0;
-    const pull = (): HudLayout => {
-      builds++;
-      return hud(1, 5);
-    };
-
-    stats.refresh(pull);
-    stats.refresh(pull);
-    expect(builds).toBe(0); // the frame must not pay buildHud's entity scan for a closed window
-
-    stats.toggle();
-    stats.refresh(pull);
-    expect(builds).toBe(1);
-  });
-
-  it('claims only the drawn rect while open, and a click inside closes it', () => {
-    const { ctx } = stubContext();
-    const stats = createStatsWindow({ ctx, container: new Container() });
-    stats.toggle();
-    stats.refresh(() => hud(1, 5));
-
-    // The drawn rect's origin mirrors the controller's own formula; probe just inside it.
-    const x = statsOrigin(ctx).x + 1;
-    const y = statsOrigin(ctx).y + 1;
-    expect(stats.claims(x, y)).toBe(true);
-    expect(stats.handleClick(x, y)).toBe(true);
-    expect(stats.isOpen()).toBe(false);
-    expect(stats.claims(x, y)).toBe(false);
-  });
-});
-
 describe('tool windows registry', () => {
   function mountWindows(buildings: readonly MenuBuildingEntry[] = BUILDINGS) {
     const { ctx } = stubContext();
     const picks: BuildingPick[] = [];
-    const container = new Container();
     let menu: ConstructionWindowStub | null = null;
+    const stats = stubStatisticsWindow();
     const heldPaper = createHeldPaperController(ctx, stubPlacementStrip());
     const windows = createToolWindows({
-      ctx,
-      container,
       buildings,
       pendingWindow: stubPendingWindow,
       residentsWindow: stubResidentsWindow,
@@ -188,13 +102,14 @@ describe('tool windows registry', () => {
         return menu;
       },
       assistantWindow: stubAssistantWindow,
+      statisticsWindow: () => stats,
       heldPaper,
       diplomacyWindow: stubDiplomacyWindow,
       missionBook: stubMissionBook,
       onPickBuilding: (pick) => picks.push(pick),
     });
     if (menu === null) throw new Error('the registry did not mount the construction window');
-    return { ctx, windows, picks, container, heldPaper, menu: menu as ConstructionWindowStub };
+    return { windows, picks, heldPaper, stats, menu: menu as ConstructionWindowStub };
   }
 
   it('a house plan goes straight to placement; a place-any plan is held for the next catalogue pick, which spends it once', () => {
@@ -232,7 +147,7 @@ describe('tool windows registry', () => {
     firstBuildingLocked = false;
     menu.seam.onPickPaper(anyPlan, VIKING);
     menu.toggle();
-    windows.refresh(() => hud(1, 0));
+    windows.refresh();
     expect(heldPaper.isActive()).toBe(false);
     menu.toggle();
     menu.seam.onPick(BUILDINGS[0]?.typeId ?? 0, VIKING);
@@ -272,11 +187,12 @@ describe('tool windows registry', () => {
     expect(windows.openId()).toBe('knowledge');
   });
 
-  it("hands the tick's stocks to the construction window and carries its state through a remount", () => {
-    const { windows, menu } = mountWindows();
+  it("hands the tick's figures to the construction and statistics windows and carries the catalogue's state through a remount", () => {
+    const { windows, menu, stats } = mountWindows();
     const model = { tick: 1, player: 0, population: 0, jobs: [], stocks: [] };
-    windows.presentStocks(model);
+    windows.presentModel(model);
     expect(menu.models).toEqual([model]);
+    expect(stats.models).toEqual([model]);
 
     menu.toggle();
     menu.restore({
@@ -326,48 +242,13 @@ describe('tool windows registry', () => {
     expect(again.windows.state().residents).toEqual(saved.residents);
   });
 
-  it('claims a point only while a pop-up is open under it', () => {
-    const { ctx, windows } = mountWindows();
-    const inside = { x: statsOrigin(ctx).x + 1, y: statsOrigin(ctx).y + 1 };
-
-    expect(windows.claims(inside.x, inside.y)).toBe(false); // all closed → the world keeps the point
-    windows.byId.stats.toggle();
-    windows.refresh(() => hud(1, 5));
-    expect(windows.claims(inside.x, inside.y)).toBe(true);
-    expect(windows.claims(SCREEN.width - 1, SCREEN.height - 1)).toBe(false);
-    // The construction window lives on the DOM plane, which routes its own presses.
-    windows.byId.menu.toggle();
-    expect(windows.claims(SCREEN.width - 1, SCREEN.height - 1)).toBe(false);
-  });
-
-  it('consumes the wheel over any open pop-up, list or not', () => {
-    const { ctx, windows } = mountWindows();
-    const overStats = {
-      x: statsOrigin(ctx).x + 1,
-      y: statsOrigin(ctx).y + 1,
-    };
-    expect(windows.handleWheel(overStats.x, overStats.y, 120)).toBe(false); // closed → the camera zooms
-
-    windows.byId.stats.toggle();
-    windows.refresh(() => hud(1, 5));
-    // The statistics window has no scrollable list, but the wheel must not page the document behind it.
-    expect(windows.handleWheel(overStats.x, overStats.y, 120)).toBe(true);
-  });
-
-  it('pulls the HUD read-view in the per-frame pass only for an open window', () => {
+  it('claims no canvas point and no wheel: every central window routes its own input on the DOM plane', () => {
     const { windows } = mountWindows();
-    let builds = 0;
-    const pull = (): HudLayout => {
-      builds++;
-      return hud(1, 5);
-    };
-
-    windows.refresh(pull);
-    expect(builds).toBe(0); // a closed statistics window must not cost the frame its entity scan
-
     windows.byId.stats.toggle();
-    windows.refresh(pull);
-    expect(builds).toBe(1);
+    windows.refresh();
+    expect(windows.openId()).toBe('stats');
+    expect(windows.claims(SCREEN.width / 2, SCREEN.height / 2)).toBe(false);
+    expect(windows.handleWheel(SCREEN.width / 2, SCREEN.height / 2, 120)).toBe(false);
   });
 });
 

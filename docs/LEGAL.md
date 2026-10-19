@@ -67,6 +67,8 @@ license notice and says what was changed:
   work, and the combined program is distributed under the AGPL-3.0. Distributing Open Northland under
   any other license, a later AGPL version included, requires removing or replacing this file. The
   file's linking exception names MAME only and gives this project nothing.
+- `packages/render/src/gpu/prescale/super-xbr-2x.ts`, from
+  `xbr/shaders/super-xbr/super-xbr-pass{0,1,2}.glsl`: Copyright (c) 2015 Hyllian, MIT license.
 
 ## Names and trademarks
 

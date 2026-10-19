@@ -189,6 +189,7 @@ const PALETTED_SAMPLING_OF: Readonly<Record<PixelArtScaler, PalettedSampling>> =
   sharp: 'sharp',
   xbr: 'xbr',
   xbrz: 'xbr',
+  superxbr: 'xbr',
 };
 
 export function palettedSamplingOf(scaler: PixelArtScaler): PalettedSampling {

@@ -10,6 +10,7 @@ import {
 import { type PrescaledScaler, setPrescaledPage } from '../pixel-art-registry.js';
 import { type GlslProgramSource, glProgramFor } from '../program-source.js';
 import { PRESCALE_FACTOR } from './prescale-pass.js';
+import { SUPER_XBR_PASS0_SOURCE, SUPER_XBR_PASS1_SOURCE, SUPER_XBR_PASS2_SOURCE } from './super-xbr-2x.js';
 import { XBRZ_2X_SOURCE } from './xbrz-2x.js';
 
 /** One draw of a prescale recipe: its program, its target's size in page texels, and the sampler each
@@ -23,6 +24,11 @@ export interface PrescalePass {
 /** The passes each prescaled scaler draws; the last one's output is the page's twin. */
 export const PRESCALE_RECIPES: Readonly<Record<PrescaledScaler, readonly PrescalePass[]>> = {
   xbrz: [{ program: XBRZ_2X_SOURCE, scale: PRESCALE_FACTOR, inputs: { uPage: 'page' } }],
+  superxbr: [
+    { program: SUPER_XBR_PASS0_SOURCE, scale: 1, inputs: { uPage: 'page' } },
+    { program: SUPER_XBR_PASS1_SOURCE, scale: PRESCALE_FACTOR, inputs: { uPage: 'page', uPass0: 0 } },
+    { program: SUPER_XBR_PASS2_SOURCE, scale: PRESCALE_FACTOR, inputs: { uPass1: 1 } },
+  ],
 };
 
 /** Pages prescaled per frame, so switching a scaler on spreads its work over frames instead of

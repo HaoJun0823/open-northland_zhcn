@@ -1,7 +1,7 @@
 import { type Renderer, TextureSource, WebGLRenderer } from 'pixi.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { hasPrescaledPages, prescaledPageOf } from '../src/gpu/pixel-art-registry.js';
-import { PagePrescaler } from '../src/gpu/prescale/page-prescaler.js';
+import { PagePrescaler, PRESCALE_RECIPES } from '../src/gpu/prescale/page-prescaler.js';
 import { PRESCALE_FACTOR } from '../src/gpu/prescale/prescale-pass.js';
 import { useHeadlessShaderContext } from './support/shader-context.js';
 
@@ -59,6 +59,16 @@ describe('page prescaler', () => {
     // Nothing new and nothing pending: no further draw.
     prescaler.update(cacheOf(pages));
     expect(targets).toHaveLength(2);
+  });
+
+  it("draws every pass of a scaler's recipe and keeps only the last as the twin", () => {
+    const { renderer, targets } = recordingRenderer();
+    prescaler = new PagePrescaler(renderer);
+    const source = page(4, 4);
+    prescaler.setScaler('superxbr');
+    prescaler.update(cacheOf([source]));
+    expect(targets).toHaveLength(PRESCALE_RECIPES.superxbr.length);
+    expect(prescaledPageOf(source)?.pixelWidth).toBe(4 * PRESCALE_FACTOR);
   });
 
   it('leaves a page whose twin would outgrow the largest texture, and withdraws every twin on a switch', () => {

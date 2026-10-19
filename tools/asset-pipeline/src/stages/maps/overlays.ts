@@ -36,6 +36,7 @@ export function summarizeMapOverlays(maps: readonly MapDatConversion[], filed: R
           refused++;
           break;
         case 'ambiguous':
+        case 'outdated':
           ambiguous++;
           break;
       }

@@ -39,7 +39,7 @@ export interface MapOverlaySource {
  */
 export type MapOverlayOutcome =
   | { readonly lang: Language; readonly status: 'applied'; readonly stale: boolean }
-  | { readonly lang: Language; readonly status: 'redundant' | 'refused' }
+  | { readonly lang: Language; readonly status: 'redundant' | 'refused' | 'outdated' }
   | { readonly lang: Language; readonly status: 'ambiguous'; readonly candidates: readonly OverlayBasis[] };
 
 /** The overlays a map takes, and what became of each language's overlays filed under it. */
@@ -140,18 +140,28 @@ export async function readMapSourceText(tree: MapTree, key: string): Promise<Map
 }
 
 /**
- * The overlay of one language a map takes among `candidates`, those filed under its `map.dat`: the one
- * whose `basis.digest` is `sourceDigest` of its basis language, else the only one, which is then stale.
- * Undefined when several were filed and none matches, since none can be told to be this map's.
+ * The overlay of language `lang` a map takes among `candidates`, those filed under its `map.dat`: the
+ * one whose `basis.digest` is `sourceDigest` of its basis language, else the only one, which is then
+ * stale. Undefined when several were filed and none matches, since none can be told to be this map's,
+ * and for an edit (an overlay in its basis language) whose basis changed: applied as the fallback, it
+ * would give a copy that ships no `lang` text a fragment of that language.
  */
 export function selectMapOverlay(
+  lang: Language,
   candidates: readonly MapOverlay[],
   sourceDigest: (lang: SourceLanguage) => string,
 ): { readonly overlay: MapOverlay; readonly stale: boolean } | undefined {
   const matching = candidates.find((overlay) => sourceDigest(overlay.basis.lang) === overlay.basis.digest);
   if (matching !== undefined) return { overlay: matching, stale: false };
   const [only, ...others] = candidates;
-  return only === undefined || others.length > 0 ? undefined : { overlay: only, stale: true };
+  if (only === undefined || others.length > 0 || only.basis.lang === lang) return undefined;
+  return { overlay: only, stale: true };
+}
+
+/** Whether `candidates` of `lang` are one edit of that language, which only an exact basis match applies. */
+function isOutdatedEdit(lang: Language, candidates: readonly MapOverlay[]): boolean {
+  const [only, ...others] = candidates;
+  return only !== undefined && others.length === 0 && only.basis.lang === lang;
 }
 
 /** A basis as a warning names it: its language and the digest prefix a variant file name carries. */
@@ -194,7 +204,12 @@ export function planMapOverlays(
       outcomes.push({ lang, status: 'refused' });
       continue;
     }
-    const selected = selectMapOverlay(candidates, digestOf);
+    const selected = selectMapOverlay(lang, candidates, digestOf);
+    if (selected === undefined && isOutdatedEdit(lang, candidates)) {
+      folder.warn(`translation overlay ${lang} left out: the edit's ${lang} basis text changed`);
+      outcomes.push({ lang, status: 'outdated' });
+      continue;
+    }
     if (selected === undefined) {
       folder.warn(
         `translation overlay ${lang} left out: none of the ${candidates.length} filed under its map.dat ` +

@@ -250,13 +250,18 @@ test('--if-stale keeps a tree stamped with the pinned archive and current IR ver
   const dir = await mkdtemp(join(tmpdir(), 'content-stamp-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const outDir = join(dir, 'content');
-  const stamp = { archiveSha256: pinnedSha256, irVersion: await currentIrVersion() };
+  const stamp = {
+    archiveSha256: pinnedSha256,
+    irVersion: await currentIrVersion(),
+    translations: 'a'.repeat(64),
+  };
   assert.equal(await contentIsCurrent(outDir, stamp), false);
   await mkdir(outDir);
   await writeFile(join(outDir, 'ir.json'), '{}');
   await writeFile(join(outDir, 'build-stamp.json'), JSON.stringify(stamp));
   assert.equal(await contentIsCurrent(outDir, stamp), true);
   assert.equal(await contentIsCurrent(outDir, { ...stamp, irVersion: stamp.irVersion + 1 }), false);
+  assert.equal(await contentIsCurrent(outDir, { ...stamp, translations: 'b'.repeat(64) }), false);
 
   const logs = [];
   const mustNotFetch = () => {

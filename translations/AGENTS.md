@@ -45,8 +45,9 @@ digits of its `basis.digest` to the name. The `map` field is a readable alias, n
 - `basis` records the language and the digest of the decoded source text the overlay was written
   against. A changed source under an unchanged overlay is an audit warning, not a build failure.
 - A map takes, per language, the overlay of its `map.dat` whose `basis.digest` matches its own text
-  in the basis language. Without a match, the only overlay of that language applies, reported stale;
-  among several, none applies. A variant name's prefix must begin its `basis.digest`, and two files
+  in the basis language. Without a match, the only translation of that language applies, reported
+  stale; among several, none applies; an edit (an overlay in its own basis language) applies only on
+  a match, since applied elsewhere it would give a copy that ships no such text a fragment of it. A variant name's prefix must begin its `basis.digest`, and two files
   of one language and `map.dat` with the same basis digest fail the load.
 - Imported overlays are never edited by hand: fix them upstream and re-import. `SOURCES.md` names the
   upstream commit. The project's own overlays are edited in place.

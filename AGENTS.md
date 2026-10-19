@@ -182,3 +182,4 @@ Load the relevant file when working in that area:
 - `packages/desktop/AGENTS.md`
 - `packages/ownership/AGENTS.md`
 - `tools/asset-pipeline/AGENTS.md`
+- `translations/AGENTS.md`

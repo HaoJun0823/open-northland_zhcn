@@ -2,25 +2,30 @@ import {
   type Campaign,
   type CampaignLanguageMovies,
   type CampaignMovie,
+  LANGUAGE_INFO,
   type LocalizedText,
   MAP_TEXT_LANGUAGES,
   type MapTextLanguage,
 } from '@open-northland/data';
 import { type Locale, mapTextLanguage } from '../i18n/index.js';
 
-/** Campaign content falls back to English, then to the first language it has. */
+/** Campaign content with none of the reader's languages falls back to English, then to the first it has. */
 const FALLBACK_LANGUAGE: MapTextLanguage = 'eng';
 const NO_MOVIES: CampaignLanguageMovies = { videos: [] };
 /** The script video the last stage's win requests; the shipped campaigns have no other. */
 const FINALE_SEQUENCE = 0;
 
+/** The reader's language, else the first of its registry fallbacks the content carries, else English,
+ *  else the first language it has. */
 function fallbackLanguage(
   present: readonly MapTextLanguage[],
   requested: MapTextLanguage,
 ): MapTextLanguage | undefined {
-  if (present.includes(requested)) return requested;
-  if (present.includes(FALLBACK_LANGUAGE)) return FALLBACK_LANGUAGE;
-  return present[0];
+  const own = [requested, ...(LANGUAGE_INFO[requested].fallbacks ?? [])];
+  return (
+    own.find((language) => present.includes(language)) ??
+    (present.includes(FALLBACK_LANGUAGE) ? FALLBACK_LANGUAGE : present[0])
+  );
 }
 
 function presentIn(record: Partial<Record<MapTextLanguage, unknown>>): MapTextLanguage[] {

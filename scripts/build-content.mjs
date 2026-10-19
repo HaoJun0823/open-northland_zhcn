@@ -2,9 +2,10 @@
 /** Download or reuse data.zip, validate it, and replace generated content after conversion succeeds. */
 
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { createWriteStream, existsSync } from 'node:fs';
-import { cp, lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { Readable, Transform } from 'node:stream';
@@ -209,12 +210,39 @@ export async function currentIrVersion(source = IR_VERSION_SOURCE) {
   return Number(match[1]);
 }
 
-/** True when the tree carries a stamp naming the pinned archive and the current IR version. */
+const TRANSLATIONS_DIR = resolve(repoRoot, 'translations');
+
+/** One digest over every overlay file's path and bytes, so an edited or added overlay makes the tree stale. */
+export async function translationsDigest(dir = TRANSLATIONS_DIR) {
+  const hash = createHash('sha256');
+  let entries;
+  try {
+    entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  } catch {
+    return hash.digest('hex');
+  }
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    .map((entry) => join(entry.parentPath ?? entry.path, entry.name))
+    .sort();
+  for (const file of files) {
+    hash.update(file.slice(dir.length));
+    hash.update(await readFile(file));
+  }
+  return hash.digest('hex');
+}
+
+/** True when the tree carries a stamp naming the pinned archive, the current IR version and the
+ *  translation overlays it was built with. */
 export async function contentIsCurrent(outDir, stamp) {
   if (!existsSync(join(outDir, 'ir.json'))) return false;
   try {
     const found = JSON.parse(await readFile(join(outDir, BUILD_STAMP_NAME), 'utf8'));
-    return found.archiveSha256 === stamp.archiveSha256 && found.irVersion === stamp.irVersion;
+    return (
+      found.archiveSha256 === stamp.archiveSha256 &&
+      found.irVersion === stamp.irVersion &&
+      found.translations === stamp.translations
+    );
   } catch {
     return false;
   }
@@ -411,7 +439,11 @@ export async function main({
   const ifStale = args.includes(IF_STALE_FLAG);
   if (args.some((arg) => arg !== IF_STALE_FLAG))
     throw new Error(`build:content takes only ${IF_STALE_FLAG}; set ON_DATA_ZIP in .env for local data`);
-  const stamp = { archiveSha256: ARCHIVE_SHA256, irVersion: await currentIrVersion() };
+  const stamp = {
+    archiveSha256: ARCHIVE_SHA256,
+    irVersion: await currentIrVersion(),
+    translations: await translationsDigest(),
+  };
   if (ifStale && (await contentIsCurrent(outDir, stamp))) {
     log(`${outDir} is current`);
     return;

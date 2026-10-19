@@ -9,6 +9,8 @@ describe('campaign language', () => {
   it('plays in the UI language, else English, else the first one the campaign has', () => {
     expect(campaignLanguage(campaign, 'pol')).toBe('pol');
     expect(campaignLanguage(campaign, 'ger')).toBe('eng');
+    expect(campaignLanguage({ languages: ['pol', 'eng', 'chs'] }, 'cht')).toBe('chs');
+    expect(campaignLanguage({ languages: ['pol', 'eng'] }, 'cht')).toBe('eng');
     expect(campaignLanguage({ languages: ['rus', 'pol'] }, 'ger')).toBe('rus');
   });
   it('falls back the same way for texts, title artwork and films', () => {

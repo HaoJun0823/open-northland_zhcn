@@ -286,6 +286,7 @@ function auditMapOverlays(
       continue;
     }
     const selected = selectMapOverlay(
+      lang,
       files.map(({ overlay }) => overlay),
       (basisLang) => textDigest(map, basisLang),
     );

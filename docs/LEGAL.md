@@ -28,9 +28,11 @@ serve as a committed copy of the imported text table. Ordinary shared vocabulary
 
 Third-party translations: fan translations are imported as JSON overlays under `translations/`, with
 each set's license and provenance recorded in [`translations/SOURCES.md`](../translations/SOURCES.md).
-An overlay holds only the translated text keyed by string id or block label, so the repository still
-carries no original text. An overlay in a source language is the project's edit of a community map's
-text, never of a campaign map's. The one exception is `translations/glossary.csv`: beside each Chinese term it
+An overlay holds only the translated text keyed by string id or block label. An overlay in a source
+language is the project's edit of a community map's text, never of a campaign map's; its edited
+passages are the project's wording, and for the mod's bundled tutorials, whose maps come from the
+original game, those passages rework the original's lines the way the pipeline corrections they
+replace did. The one exception is `translations/glossary.csv`: beside each Chinese term it
 keeps the German, English and Polish term it translates (names of characters, places, objects and maps).
 
 Tests use synthetic fixtures created for this project. A test or pull request must not contain an

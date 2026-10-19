@@ -295,3 +295,16 @@ describe('convertMapFolder with copies of one map.dat that ship other text', () 
     ]);
   });
 });
+
+describe('convertMapFolder with an edit whose basis text changed', () => {
+  it('leaves the edit out instead of giving the map a fragment of that language', async () => {
+    const pol = await overlay({
+      basis: { lang: 'pol', digest: '0'.repeat(64) },
+      strings: { '0': 'Wyprawa na polnoc' },
+    });
+    const { map, warnings } = await convert(briefedMap(), new Map([['pol', [pol]]]));
+    expect(map.strings?.pol).toEqual({ '0': 'Wyprawa', '1': 'Opis' });
+    expect(map.overlays).toEqual([{ lang: 'pol', status: 'outdated' }]);
+    expect(warnings).toEqual([expect.stringContaining('translation overlay pol left out: the edit')]);
+  });
+});

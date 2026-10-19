@@ -7,7 +7,7 @@ import { writeFileWithParents } from '../files.js';
 // The output tree is served as static files, so each directory's name is the URL root the app fetches
 // it at, and every file inside is lower-cased because the IR's references are.
 
-/** Bob atlases plus the player, GUI and font colour LUTs. */
+/** Bob atlases plus the player and GUI colour LUTs. */
 export const BOBS_DIR = 'bobs';
 /** Ground texture pages and transition overlays. */
 export const TEXTURES_DIR = 'textures';

@@ -10,7 +10,7 @@ The repository contains no file from a *Cultures* installation and no decoded co
 `content/` may be tracked, file types only the original game carries are rejected, and every tracked
 image, font, or 3D-model file must be a reviewed project asset. Review covers
 what the check cannot see, such as a probe dump or a capture in a text format. Decoded maps,
-graphics, rules, fonts, and audio are written under the ignored `content/` directory and never
+graphics, rules, and audio are written under the ignored `content/` directory and never
 committed. The one exception is a pipeline correction: it quotes the few script command lines it
 replaces in one mod file, so the pipeline can check that they still match, and never carries prose
 such as briefing or dialogue text.

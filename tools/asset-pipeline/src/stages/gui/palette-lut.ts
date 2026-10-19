@@ -16,8 +16,8 @@ interface GuiPaletteSource {
 
 /**
  * The GUI colorization palettes in LUT-row order, row index = array index. The in-game HUD element palettes
- * from `Data/gui/palettes/` (`font_*` belongs to the font step, `campaignmap`/`campaignbuttons`/`menu_remap`
- * are menu art), then `gui_bubbles`. `packages/app/src/content/gui-gfx.ts` mirrors this order: append,
+ * from `Data/gui/palettes/` (`font_*` colour the bitmap fonts, which are not converted,
+ * `campaignmap`/`campaignbuttons`/`menu_remap` are menu art), then `gui_bubbles`. `packages/app/src/content/gui-gfx.ts` mirrors this order: append,
  * never reorder, or the app's row indices drift.
  */
 const GUI_PALETTES: readonly GuiPaletteSource[] = [

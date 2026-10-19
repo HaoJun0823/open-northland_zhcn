@@ -13,7 +13,6 @@ import {
 } from './stages/bmd/index.js';
 import { CAMPAIGNS_DIR, convertCampaignStage } from './stages/campaigns.js';
 import { MAPS_DIR, SOUNDS_DIR, TEXTURES_DIR } from './stages/content-tree.js';
-import { convertFontStage } from './stages/fonts.js';
 import { convertGoodsStage } from './stages/goods/index.js';
 import { convertGuiStage } from './stages/gui/index.js';
 import { HYPERTEXT_PICTURES_DIR } from './stages/gui/paths.js';
@@ -101,12 +100,6 @@ export async function runPipeline(args: Args): Promise<void> {
       `${gui.strings.map((s) => `${s.lang}:${s.tables}t/${s.strings}s`).join(' ') || 'no strings'}, ` +
       `${gui.history.map((h) => `${h.lang}:${h.pages}p`).join(' ') || 'no history'}, ` +
       `${gui.cursors} cursor(s) into ${join(args.out, 'gui')}`,
-  );
-
-  const fonts = await convertFontStage(roots, args.out);
-  console.log(
-    `[pipeline] fonts: ${fonts.fonts} font(s) (${fonts.glyphs} glyphs), ` +
-      `${fonts.colors}-colour LUT into ${join(args.out, 'gui', 'fonts')}`,
   );
 
   const goods = await convertGoodsStage(roots, args.out);

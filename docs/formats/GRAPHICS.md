@@ -1,7 +1,7 @@
 # Graphics containers
 
-Open Northland decodes the original palette-indexed pictures, sprite animations, bitmap fonts, and
-cursor resources into local browser-ready content.
+Open Northland decodes the original palette-indexed pictures, sprite animations and cursor resources
+into local browser-ready content.
 
 ## PCX pictures
 
@@ -18,7 +18,7 @@ The game's stored 256-color palette body is 1,024 bytes: 256 entries in `B, G, R
 PCX palette trailers instead store three-byte `R, G, B` entries. The pipeline keeps those layouts
 separate and converts both to a common RGBA representation.
 
-GUI elements, fonts, and some building families use palette lookup textures rather than duplicated
+GUI elements and some building families use palette lookup textures rather than duplicated
 RGBA atlases; human bobs keep raw palette indices and draw through per-human palettes.
 
 A human draws its body and head bobs through two palettes, each starting from the base its
@@ -60,9 +60,12 @@ placement, and round trips. Real visual validation compares decoded frames in th
 
 ## Bitmap fonts (`.fnt`)
 
-A font file wraps a bob manager with a small font header. Character byte `c` addresses bob
-`c - 0x20`. Metrics are derived from each glyph's stored rectangle and draw offset; empty slots have
-zero extent. The content layer keeps the byte-oriented codepage associated with the consuming language.
+A font file wraps a bob manager with a 16-byte font header: the storable id `0x3F5` and its version,
+an unknown word, and a word observed as the nominal pixel size (8, 10 and 12 for `font08`, `font10`
+and `font12`). The nested bob manager (id `0x3F4`) follows. Character byte `c` addresses bob
+`c - 0x20`, and a space advances by bob `0x49`. Metrics are derived from each glyph's stored rectangle
+and draw offset; empty slots have zero extent. The interface draws in its own typefaces, so no stage
+converts these files.
 
 ## Windows cursors (`.cur`)
 
@@ -71,5 +74,5 @@ pipeline preserves the original cursor for CSS use and emits a PNG preview plus 
 
 ## Local output
 
-Decoded atlases, indexed textures, palette lookup tables, font metrics, cursors, and manifests are
-written under `content/`. None of those generated files belongs in Git.
+Decoded atlases, indexed textures, palette lookup tables, cursors, and manifests are written under
+`content/`. None of those generated files belongs in Git.

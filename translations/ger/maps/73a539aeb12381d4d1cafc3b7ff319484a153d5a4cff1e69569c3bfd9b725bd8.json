@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "map": "mroczny_swiat",
+  "basis": {
+    "lang": "ger",
+    "digest": "3f83ea5edda14f6f255406cbe7810dab00a436d9260884a223f8d8f735093e75"
+  },
+  "strings": {},
+  "briefings": {
+    "515": "Eskortieren wir Priester Kain zum Großen Heiligtum des Lichts im Südosten.\n\n<usericon:1,408,446>",
+    "523": "<font:$local$\\fonts\\fonthead16bld.fnt>\nNACHRICHT VON PRIESTER KAIN\n<font:$local$\\fonts\\font12.fnt>\n\nWir erhielten einen Brief von Priester Kain, in dem er uns mitteilte, dass sich die Gerüchte bestätigt haben: Sein Bruder Bain wurde in einem Käfig der Seldschuken gefunden. In dieser Region sind sie für ihren Sklavenhandel bekannt und sehen in Bain nur Profit – vermutlich wissen sie nicht, wie wichtig er als Priester ist.\nSie sollten uns keine größeren Probleme bereiten und Bain für eine angemessene Menge Gold verkaufen.\nWir sollten uns jetzt zu ihnen begeben und nach dem Preis fragen.\nSegel setzen, Kurs: Nordwesten.\n\n<usericon:1,56,131>\n"
+  }
+}

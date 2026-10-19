@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "map": "tutorial_003",
+  "basis": {
+    "lang": "eng",
+    "digest": "4a20f9b5fcb3bbc15537acbc4ac1317ca83064134a1e5fb22a256d9c09f119a2"
+  },
+  "strings": {
+    "0": "Give one Viking the extractor profession and select clay for him to collect.",
+    "1": "Give two more Vikings the extractor profession: have one collect wood and the other stone.",
+    "2": "Now turn two of your idle Vikings into builders!",
+    "4": "Have one of your people join the farm as a farmer and wait until he has gained enough experience to unlock the miller."
+  },
+  "briefings": {
+    "00": "This tutorial deals with the basic principles of the game, such as the exploitation of raw materials, the erection of buildings and basic food procurement.\n\nEXTRACTORS supply the basic resources for construction. At the beginning they collect clay, wood or stone. With the necessary experience, they can also extract gold, ore and mushrooms. \nSince you'll need extractors, select one of your adult male Vikings, press SPACE or right-click him, choose \"Change Profession\", then \"Extractor\". In his character panel, click the clay icon to make him collect that resource. Make sure a clay pit is within his work area. To move the work area, choose \"Assign Work Area\" from the action menu and LEFT-click free ground near the clay. If your extractor stops working, check his needs and work area. The resources may have run out; in that case, move the work area or give him a different job. \n\nTurn a Viking into a CLAY-WORKER!",
+    "01": "GOOD!\n\nNow give two more Vikings the EXTRACTOR profession. In one character panel, click the wood icon; in the other, click the stone icon.\n\nHint: Extractors have professions that don't involve specific work places. You can change the raw materials they extract as well as the goods that are produced, provided that the worker is experienced enough and that the respective work place is available.\n\nGive two more Vikings the extractor profession: have one collect wood and the other stone.",
+    "03": "That's it! Now you have some busy builders. \nYou can only build a farm if the clay-worker has extracted enough clay. \n\n<usericon:1,250,175>\n\nClick the \"Build\" button (the first one on the left of the bar at the bottom of the screen) or press \"b\" on your keyboard, then select the farm from the list. The ground will then darken, except where it is possible to erect a farm. Click with the LEFT MOUSE BUTTON on any light location of your choice. Your builders will pick a building site to work at on their own, but you can also assign them to particular constructions if necessary.\n\nHave your builders construct a FARM!",
+    "09": "Your future baker will need water to bake his bread. \n\n<usericon:1,231,199>\n\nBuild a well close to the place where you will build your bakery later on. There is still room directly in front of the headquarters. It's a nice spot and you can save building space for your really big buildings.\n\n\nBuild a WELL."
+  }
+}

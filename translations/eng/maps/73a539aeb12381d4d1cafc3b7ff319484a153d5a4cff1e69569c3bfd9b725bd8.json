@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "map": "mroczny_swiat",
+  "basis": {
+    "lang": "eng",
+    "digest": "1917e56085bea51b660455a9b0b0ee6667de5729ddd9069ee214c54d32ee5ea9"
+  },
+  "strings": {},
+  "briefings": {
+    "515": "Let’s escort Priest Kain to the Great Sanctuary of Light in the southeast.\n\n<usericon:1,408,446>\n",
+    "523": "<font:$local$\\fonts\\fonthead16bld.fnt>\nMESSAGE FROM PRIEST KAIN\n<font:$local$\\fonts\\font12.fnt>\n\nWe received a letter from Priest Kain confirming the rumors — his brother Bain was found in a Seljuk cage. In this region, they’re known for slave trading and see Bain only as profit, likely unaware of his importance as a priest.\n\nThey shouldn’t cause us too much trouble and may sell Bain for the right price in gold.\n\nWe should head there and ask for the price.\n\nRaise the sails — course: northwest.\n\n<usericon:1,56,131>\n"
+  }
+}

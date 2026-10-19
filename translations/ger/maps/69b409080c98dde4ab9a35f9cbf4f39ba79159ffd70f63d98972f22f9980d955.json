@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "map": "gringo",
+  "basis": {
+    "lang": "ger",
+    "digest": "a67570151579e4b8440325a74d31bf5ebe4b53aa5ef96d4a882f94cd78eef404"
+  },
+  "strings": {
+    "39": "Töte die Gefängniswächter und befreie Bożygniew",
+    "40": "Führe Bożygniew zum Dorf der Franken",
+    "41": "Schicke Bożygniew zum Kloster im Südwesten",
+    "43": "Warte, bis Bożygniews Boten von ihrer Mission zurückkehren",
+    "52": "Bożygniews Franken",
+    "103": "Bożygniew"
+  },
+  "briefings": {}
+}

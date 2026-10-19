@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "map": "gringo",
+  "basis": {
+    "lang": "eng",
+    "digest": "7b5737d38d0542b82364e2485ee837cb8c4272037950cd81a4eb8f9dc8604541"
+  },
+  "strings": {},
+  "briefings": {
+    "514": "<font:$local$\\fonts\\fonthead16bld.fnt>\nGODSWRATH FREED!\n<font:$local$\\fonts\\font12.fnt>\n\n<picture:$local$\\graphics\\bozy.pcx>\n\n\"Dammit... I had to wait a long time for you, fools. But finally. Let’s get out of here before more of those ragheads show up.\"\n\n<picture:$local$\\graphics\\korzen.pcx>\n\n\"I’m glad to see you too.\"\n\n<picture:$local$\\graphics\\bozy.pcx>\n\n\"Korzen-San? How many years has it been? Never mind... We’ll talk in my village.\"\n\n...\n\nReturn to the boat. Take Godswrath to the Frankish village.\n"
+  }
+}

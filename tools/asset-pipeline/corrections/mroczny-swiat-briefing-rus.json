@@ -1,5 +1,5 @@
 {
-  "reason": "Wersja rosyjska ma dwa tłumaczenia bloków 523-525. Odprawa czyta tylko pierwsze, a w nich brakuje zmiany czcionki na nagłówek i tytułu strony 525 (BAIN). Usuwamy początki pierwszych kopii, żeby wygrały pełniejsze drugie. Strona 515 otwiera się po wyjściu z krypty, z której wychodzi tylko kapłan Kain (strona krypty i cel 51 mówią o Kainie, a Bain jest w niewoli u Seldżuków), ale także po rosyjsku każe eskortować Baina. Strona 523 każe płynąć na północny wschód do obozu Seldżuków, który leży na północnym zachodzie mapy (cel 59 i odsłaniany obszar przy 60,147). Poprawiamy imię i kierunek.",
+  "reason": "Wersja rosyjska ma dwa tłumaczenia bloków 523-525. Odprawa czyta tylko pierwsze, a w nich brakuje zmiany czcionki na nagłówek i tytułu strony 525 (BAIN). Usuwamy początki pierwszych kopii, żeby wygrały pełniejsze drugie. Imię Kaina na stronie 515 i kierunek na stronie 523 poprawia rosyjska nakładka tej mapy w translations/rus/maps/.",
   "file": "maps/community/Mroczny_Swiat/text/rus/briefings/briefings.txt",
   "sha256": "b9849cea530cfd235462fe4be85cf8d3aa0f9263bb1698ea0a635a1fd54a5653",
   "encoding": "windows-1251",
@@ -18,16 +18,6 @@
       "line": 355,
       "from": "[blockstart:525]",
       "to": []
-    },
-    {
-      "line": 208,
-      "from": "Эскортируем священника Баина в Великое Святилище Света на юго-востоке.",
-      "to": "Эскортируем священника Каина в Великое Святилище Света на юго-востоке."
-    },
-    {
-      "line": 370,
-      "from": "Паруса на мачту, направление: северо-восток.",
-      "to": "Паруса на мачту, направление: северо-запад."
     }
   ]
 }

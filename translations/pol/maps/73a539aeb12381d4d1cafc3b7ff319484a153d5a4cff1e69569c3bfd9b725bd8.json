@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "map": "mroczny_swiat",
+  "basis": {
+    "lang": "pol",
+    "digest": "1f595503ca68c888f70520a5b61aaec930272e77a285cb743f397939cf8896e1"
+  },
+  "strings": {},
+  "briefings": {
+    "515": "Odeskortujmy kapłana Kaina do Wielkiego Sanktuarium Światła na południowym wschodzie.\n\n<usericon:1,408,446>\n",
+    "523": "<font:$local$\\fonts\\fonthead16bld.fnt>\nWIADOMOŚĆ OD KAPŁANA KAINA\n<font:$local$\\fonts\\font12.fnt>\n\nDostaliśmy list od kapłana Kaina, w którym poinformował nas, że plotki się potwiedziły i jego brat Bain został odnaleziony w klatce Seldżuków. W tym rejonie są znani z handlu niewolnikami i widzą w Bainie wyłącznie zysk, prawdopodbnie nie mają pojęcia jak ważnym jest kapłanem.\nPowinni nie przysporzyć nam więszych problemów i sprzedać Baina za odpowiednią ilość złota.\nPowinniśmy się teraz do nich udać i zapytać o cenę.\nŻagle na maszt, kierunek: północny zachód.\n\n<usericon:1,56,131>\n"
+  }
+}

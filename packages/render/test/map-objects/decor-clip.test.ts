@@ -83,6 +83,19 @@ describe('decor clip table', () => {
     expect(table.source.height).toBe(2);
     expect(table.texels(gap)[0]).toEqual([0, 0, 8, 8]);
   });
+
+  it('writes a pose without a frame empty over what a cleared table listed before', () => {
+    const table = new DecorClipTable();
+    const page = new TextureSource({ width: 64, height: 32 });
+    table.entryOf({ frames: [FRAME_0, FRAME_1], page, margin: 0 }, 2);
+    table.clear();
+    const gap = table.entryOf({ frames: [FRAME_0, undefined], page, margin: 2 }, 2);
+    expect(table.texels(gap + 1)).toEqual([
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+      [0, 0, 0, 0],
+    ]);
+  });
 });
 
 describe('GPU-played decor', () => {

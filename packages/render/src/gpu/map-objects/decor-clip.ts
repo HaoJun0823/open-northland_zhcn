@@ -184,10 +184,14 @@ export class DecorClipTable {
   }
 
   private write(entry: number, frame: AtlasFrame | undefined, page: TextureSource, margin: number): void {
-    // A pose without a frame keeps zeros: a rectangle of no width collapses its quad.
-    if (frame === undefined) return;
     const at = entry * ENTRY_TEXELS * RGBA;
     const data = this.data;
+    // A pose without a frame writes zeros, over whatever an earlier map listed there: a rectangle of no
+    // width collapses its quad.
+    if (frame === undefined) {
+      data.fill(0, at, at + ENTRY_TEXELS * RGBA);
+      return;
+    }
     data.set(
       [
         frame.offsetX - margin,

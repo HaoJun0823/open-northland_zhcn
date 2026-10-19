@@ -1,20 +1,20 @@
-import type { MapTextLanguage } from '@open-northland/data';
+import { LANGUAGE_INFO, LANGUAGES, type Language, type MapTextLanguage } from '@open-northland/data';
+import { chs } from './chs.js';
+import { cht } from './cht.js';
 import { de } from './de.js';
 import { en, type Messages } from './en.js';
 import { pl } from './pl.js';
 import { ru } from './ru.js';
 
-export const LOCALE_CODES = ['pol', 'eng', 'ger', 'rus'] as const;
+/** Every UI language ships a catalog, so the locales are the registry's languages. */
+export const LOCALE_CODES = LANGUAGES;
 
-export type Locale = (typeof LOCALE_CODES)[number];
-
-/** The BCP-47 primary subtag each shipped catalog claims. */
-const LOCALE_TAGS: Readonly<Record<Locale, string>> = { pol: 'pl', eng: 'en', ger: 'de', rus: 'ru' };
+export type Locale = Language;
 
 /** Where a preferred language with no shipped catalog lands. */
 const FALLBACK_LOCALE: Locale = 'eng';
 
-const LOCALES: Readonly<Record<Locale, Messages>> = { pol: pl, eng: en, ger: de, rus: ru };
+const LOCALES: Readonly<Record<Locale, Messages>> = { pol: pl, eng: en, ger: de, rus: ru, chs, cht };
 let activeLocale: Locale | undefined;
 
 /** Display names that replace authored catalog entries, keyed as each catalog table keys them. */
@@ -77,11 +77,56 @@ export function isLocale(value: unknown): value is Locale {
   return LOCALE_CODES.some((code) => code === value);
 }
 
+/** The language, script and region subtags of a BCP-47 tag, lowercased; the rest is ignored. */
+interface TagParts {
+  readonly language: string;
+  readonly script: string | undefined;
+  readonly region: string | undefined;
+}
+
+const SCRIPT_SUBTAG = /^[a-z]{4}$/;
+const REGION_SUBTAG = /^(?:[a-z]{2}|\d{3})$/;
+
+function tagParts(tag: string): TagParts {
+  const [language = '', second, third] = tag.toLowerCase().split(/[-_]/);
+  const script = second !== undefined && SCRIPT_SUBTAG.test(second) ? second : undefined;
+  const regionSlot = script === undefined ? second : third;
+  const region = regionSlot !== undefined && REGION_SUBTAG.test(regionSlot) ? regionSlot : undefined;
+  return { language, script, region };
+}
+
+const CHINESE = 'zh';
+const SIMPLIFIED_HAN = 'hans';
+const TRADITIONAL_HAN = 'hant';
+/** Regions whose Chinese is written in Traditional characters (CLDR likely subtags); a Chinese tag with
+ *  no script reads Simplified elsewhere and without a region. */
+const TRADITIONAL_CHINESE_REGIONS: ReadonlySet<string> = new Set(['tw', 'hk', 'mo']);
+
+function likelyScript({ language, script, region }: TagParts): string | undefined {
+  if (script !== undefined || language !== CHINESE) return script;
+  return region !== undefined && TRADITIONAL_CHINESE_REGIONS.has(region) ? TRADITIONAL_HAN : SIMPLIFIED_HAN;
+}
+
+const CATALOG_TAGS: readonly (readonly [Locale, TagParts])[] = LOCALE_CODES.map((code) => [
+  code,
+  tagParts(LANGUAGE_INFO[code].tag),
+]);
+
+/** The catalog whose tag `tag` asks for: the same language and, where a catalog names a script, the
+ *  script the tag names or implies. */
+function localeOfTag(tag: string): Locale | undefined {
+  const wanted = tagParts(tag);
+  const script = likelyScript(wanted);
+  return CATALOG_TAGS.find(
+    ([, claimed]) =>
+      claimed.language === wanted.language && (claimed.script === undefined || claimed.script === script),
+  )?.[0];
+}
+
 /** The first shipped catalog claimed by `preferred` (BCP-47 tags, most wanted first). */
 export function resolveLocale(preferred: readonly string[]): Locale {
   for (const tag of preferred) {
-    const primary = tag.toLowerCase().split('-')[0];
-    const match = LOCALE_CODES.find((code) => LOCALE_TAGS[code] === primary);
+    const match = localeOfTag(tag);
     if (match !== undefined) return match;
   }
   return FALLBACK_LOCALE;
@@ -97,14 +142,16 @@ export function defaultLocale(): Locale {
   return resolveLocale(preferredLanguages());
 }
 
-/** Accepts either spelling, the locale code or the bare tag; anything else takes the default. */
+/** Accepts the locale code or a language tag (`pl`, `zh-Hant`, a bare `zh`); anything else takes the
+ *  default. */
 export function localeParam(params: URLSearchParams): Locale {
   const value = params.get('lang')?.toLowerCase();
-  return LOCALE_CODES.find((code) => code === value || LOCALE_TAGS[code] === value) ?? defaultLocale();
+  if (value === undefined) return defaultLocale();
+  return LOCALE_CODES.find((code) => code === value) ?? localeOfTag(value) ?? defaultLocale();
 }
 
 export function bcp47Tag(locale: Locale = currentLocale()): string {
-  return LOCALE_TAGS[locale];
+  return LANGUAGE_INFO[locale].tag;
 }
 
 const labelCollators = new Map<string, Intl.Collator>();

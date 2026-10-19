@@ -10,6 +10,15 @@ describe('leavePromptFor', () => {
     expect(leavePromptFor(`${PAGE}?lang=RUS`, 'en-US').stay).toBe('Вернуться в игру');
   });
 
+  it('tells Simplified from Traditional Chinese by script, else by region', () => {
+    expect(leavePromptFor(`${PAGE}?lang=chs`, 'en-US').leave).toBe('关闭');
+    expect(leavePromptFor(`${PAGE}?lang=zh-Hant`, 'en-US').leave).toBe('關閉');
+    expect(leavePromptFor(`${PAGE}?lang=zh`, 'en-US').leave).toBe('关闭');
+    expect(leavePromptFor(PAGE, 'zh-TW').leave).toBe('關閉');
+    expect(leavePromptFor(PAGE, 'zh-Hans-HK').leave).toBe('关闭');
+    expect(leavePromptFor(PAGE, 'zh-CN').leave).toBe('关闭');
+  });
+
   it('falls back to the system language, then to English', () => {
     expect(leavePromptFor(PAGE, 'pl-PL').leave).toBe('Zamknij');
     expect(leavePromptFor(PAGE, 'fr-FR').leave).toBe('Close');
@@ -21,7 +30,7 @@ describe('leavePromptFor', () => {
   });
 
   it('offers a stay and a leave answer in every language', () => {
-    for (const lang of ['pol', 'eng', 'ger', 'rus']) {
+    for (const lang of ['pol', 'eng', 'ger', 'rus', 'chs', 'cht']) {
       const prompt = leavePromptFor(`${PAGE}?lang=${lang}`, 'en');
       expect(prompt.leave).not.toBe(prompt.stay);
       expect(prompt.message.length).toBeGreaterThan(10);

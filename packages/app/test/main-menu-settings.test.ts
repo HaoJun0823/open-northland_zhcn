@@ -20,7 +20,7 @@ beforeEach(() => vi.stubGlobal('navigator', { languages: ['pl-PL'] }));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('parseStoredSettings', () => {
-  it.each(['ger', 'rus'] as const)('retains a stored %s language choice', (language) => {
+  it.each(['ger', 'rus', 'chs', 'cht'] as const)('retains a stored %s language choice', (language) => {
     expect(parseStoredSettings(JSON.stringify({ language })).language).toBe(language);
   });
   it('falls back to defaults for an empty store, garbage, or a non-object', () => {
@@ -228,8 +228,10 @@ describe('parseStoredSettings', () => {
   it('starts a player with nothing stored in the browser language, English when it ships no catalog', () => {
     vi.stubGlobal('navigator', { languages: ['en-GB'] });
     expect(parseStoredSettings(null).language).toBe('eng');
-    vi.stubGlobal('navigator', { languages: ['zh-CN'] });
+    vi.stubGlobal('navigator', { languages: ['ja-JP'] });
     expect(parseStoredSettings(null).language).toBe('eng');
+    vi.stubGlobal('navigator', { languages: ['zh-CN'] });
+    expect(parseStoredSettings(null).language).toBe('chs');
     vi.stubGlobal('navigator', { languages: ['pl'] });
     expect(parseStoredSettings(null).language).toBe('pol');
   });

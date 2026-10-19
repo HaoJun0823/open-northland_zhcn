@@ -9,11 +9,23 @@ export interface LeavePrompt {
   readonly stay: string;
 }
 
-const LOCALE_CODES = ['pol', 'eng', 'ger', 'rus'] as const;
+const LOCALE_CODES = ['pol', 'eng', 'ger', 'rus', 'chs', 'cht'] as const;
 type LocaleCode = (typeof LOCALE_CODES)[number];
 
-/** The app's `?lang=` spellings: its own code or the language tag. */
-const LOCALE_TAGS: Readonly<Record<LocaleCode, string>> = { pol: 'pl', eng: 'en', ger: 'de', rus: 'ru' };
+/** Each locale's primary language subtag; the two Chinese locales share theirs and split by script. */
+const LANGUAGE_SUBTAGS: Readonly<Record<LocaleCode, string>> = {
+  pol: 'pl',
+  eng: 'en',
+  ger: 'de',
+  rus: 'ru',
+  chs: 'zh',
+  cht: 'zh',
+};
+
+const CHINESE = 'zh';
+/** A Chinese tag that names Traditional script, or no script and a region that writes it (CLDR likely
+ *  subtags); every other Chinese tag reads Simplified, as in the app. */
+const TRADITIONAL_CHINESE = /^zh-(?:hant|tw|hk|mo)(?:-|$)/;
 
 const FALLBACK: LocaleCode = 'eng';
 
@@ -42,12 +54,29 @@ const PROMPTS: Readonly<Record<LocaleCode, LeavePrompt>> = {
     leave: 'Закрыть',
     stay: 'Вернуться в игру',
   },
+  chs: {
+    title: 'Open Northland',
+    message: '要关闭游戏吗？未保存的进度将会丢失。',
+    leave: '关闭',
+    stay: '返回游戏',
+  },
+  cht: {
+    title: 'Open Northland',
+    message: '要關閉遊戲嗎？未儲存的進度將會遺失。',
+    leave: '關閉',
+    stay: '返回遊戲',
+  },
 };
 
+/** The app's `?lang=` spellings: its own code or a language tag. */
 function localeOf(value: string | null | undefined): LocaleCode | undefined {
-  const wanted = value?.toLowerCase();
+  const wanted = value?.toLowerCase().replaceAll('_', '-');
   if (wanted === undefined) return undefined;
-  return LOCALE_CODES.find((code) => code === wanted || LOCALE_TAGS[code] === wanted);
+  const code = LOCALE_CODES.find((locale) => locale === wanted);
+  if (code !== undefined) return code;
+  const language = wanted.split('-')[0];
+  if (language === CHINESE) return TRADITIONAL_CHINESE.test(wanted) ? 'cht' : 'chs';
+  return LOCALE_CODES.find((locale) => LANGUAGE_SUBTAGS[locale] === language);
 }
 
 /** The page's `?lang=` wins, as it does in the app; the system language stands in when it has none. */
@@ -58,6 +87,6 @@ export function leavePromptFor(pageUrl: string, systemLocale: string): LeaveProm
   } catch {
     // A page that has not loaded yet has no address worth reading.
   }
-  const locale = localeOf(lang) ?? localeOf(systemLocale.split('-')[0]) ?? FALLBACK;
+  const locale = localeOf(lang) ?? localeOf(systemLocale) ?? FALLBACK;
   return PROMPTS[locale];
 }

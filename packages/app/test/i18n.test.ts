@@ -29,16 +29,28 @@ describe('locale detection', () => {
     expect(resolveLocale(['pl-PL'])).toBe('pol');
     expect(resolveLocale(['en-GB'])).toBe('eng');
     expect(resolveLocale(['PL'])).toBe('pol');
-    expect(resolveLocale(['zh-CN', 'pl-PL', 'en'])).toBe('pol');
+    expect(resolveLocale(['ja-JP', 'pl-PL', 'en'])).toBe('pol');
   });
 
   it('falls back to English when no preference has a catalog', () => {
-    expect(resolveLocale(['zh-CN'])).toBe('eng');
+    expect(resolveLocale(['ja-JP'])).toBe('eng');
+    expect(resolveLocale(['sr-Latn-RS'])).toBe('eng');
     expect(resolveLocale([])).toBe('eng');
   });
 
+  it('tells Simplified from Traditional Chinese by script, else by region', () => {
+    for (const tag of ['zh', 'zh-Hans', 'zh-CN', 'zh-SG', 'zh-Hans-HK', 'zh_CN']) {
+      expect(resolveLocale([tag]), tag).toBe('chs');
+    }
+    for (const tag of ['zh-Hant', 'zh-TW', 'zh-HK', 'zh-MO', 'zh-Hant-CN', 'ZH-tw']) {
+      expect(resolveLocale([tag]), tag).toBe('cht');
+    }
+  });
+
   it('reads the default from the browser preference list', () => {
-    browserLanguages(['zh-CN', 'pl-PL']);
+    browserLanguages(['zh-TW', 'pl-PL']);
+    expect(defaultLocale()).toBe('cht');
+    browserLanguages(['ja-JP', 'pl-PL']);
     expect(defaultLocale()).toBe('pol');
     browserLanguages(['de-DE']);
     expect(defaultLocale()).toBe('ger');
@@ -57,6 +69,16 @@ describe('application locale', () => {
     expect(localeParam(new URLSearchParams('lang=pl'))).toBe('pol');
     expect(localeParam(new URLSearchParams('lang=eng'))).toBe('eng');
     expect(localeParam(new URLSearchParams('lang=en'))).toBe('eng');
+  });
+
+  it('accepts the Chinese codes and script tags, a bare zh as Simplified', () => {
+    browserLanguages(['pl-PL']);
+    expect(localeParam(new URLSearchParams('lang=chs'))).toBe('chs');
+    expect(localeParam(new URLSearchParams('lang=cht'))).toBe('cht');
+    expect(localeParam(new URLSearchParams('lang=zh-hans'))).toBe('chs');
+    expect(localeParam(new URLSearchParams('lang=zh-Hant'))).toBe('cht');
+    expect(localeParam(new URLSearchParams('lang=zh'))).toBe('chs');
+    expect(localeParam(new URLSearchParams('lang=xx'))).toBe('pol');
   });
 
   it('drives hand-authored profession and building labels from one active locale', () => {
@@ -83,10 +105,12 @@ describe('application locale', () => {
   });
 });
 
-describe('German and Russian catalogs', () => {
+describe('translated catalogs', () => {
   it.each([
     ['ger', 'de', 'de-AT'],
     ['rus', 'ru', 'ru-RU'],
+    ['chs', 'zh-Hans', 'zh-CN'],
+    ['cht', 'zh-Hant', 'zh-TW'],
   ] as const)('recognizes %s in preferences, URLs and document language', (locale, tag, regional) => {
     expect(resolveLocale([regional, 'en-US'])).toBe(locale);
     expect(localeParam(new URLSearchParams({ lang: locale }))).toBe(locale);
@@ -106,7 +130,7 @@ describe('German and Russian catalogs', () => {
   const placeholders = (text: string): string[] =>
     [...text.matchAll(/\{[A-Za-z][A-Za-z0-9]*\}|%(?:\d+\$)?[sdiuf]/g)].map((m) => m[0]).sort();
 
-  it.each(['ger', 'rus'] as const)(
+  it.each(['ger', 'rus', 'chs', 'cht'] as const)(
     '%s translates every entry and preserves interpolation tokens',
     (locale) => {
       const source = leaves(messages('eng'));

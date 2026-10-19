@@ -21,7 +21,7 @@ import {
   unlockedStages,
 } from '../src/entries/main-menu/campaign/model.js';
 import { NOT_ON_ROUTE, routeOrder } from '../src/entries/main-menu/campaign/route-order.js';
-import { messages } from '../src/i18n/index.js';
+import { LOCALE_CODES, messages } from '../src/i18n/index.js';
 import { campaignFixture, memoryStorage } from './support/campaign.js';
 
 const ROUTE = { url: '/campaigns/test/route-2.png', x: 0.2, y: 0.3, width: 0.3, height: 0.3 };
@@ -126,8 +126,6 @@ describe('campaign screen films', () => {
 });
 
 describe('campaign screen reset', () => {
-  const LOCALES = ['pol', 'eng', 'ger', 'rus'] as const;
-
   it('asks in Polish with the campaign title, Cancel first', () => {
     expect(campaignResetQuestion(messages('pol').campaign, 'Asgard')).toEqual({
       title: 'Zresetuj postęp kampanii',
@@ -139,7 +137,7 @@ describe('campaign screen reset', () => {
   });
 
   it('names the campaign in every catalog', () => {
-    for (const locale of LOCALES) {
+    for (const locale of LOCALE_CODES) {
       const question = campaignResetQuestion(messages(locale).campaign, 'Asgard');
       expect(question.title, locale).not.toBe('');
       expect(question.confirm, locale).not.toBe('');

@@ -85,6 +85,12 @@ export interface PlainPooledEntity extends PooledEntityBase {
 
 export type PooledEntity = PalettedPooledEntity | PlainPooledEntity;
 
+/** Whether the sprite layer may draw `pe` from its retained mesh: any attached entity but a vehicle whose
+ *  paletted layers are self-placing meshes, which the world batch cannot pack. */
+export function meshablePooled(pe: PooledEntity): boolean {
+  return pe.attached && !(pe.paletted && pe.kind === 'vehicle');
+}
+
 /** A fresh, empty pooled entity; sprites and placeholder grow lazily, and a `palette` makes it the
  *  paletted (team-coloured) variant. */
 export function createPooled(kind: SpriteKind, palette: PaletteLut | undefined): PooledEntity {

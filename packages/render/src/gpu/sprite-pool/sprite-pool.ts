@@ -51,7 +51,7 @@ import {
   type ShipAfloat,
   siteFlagHit,
 } from './pick.js';
-import type { EntityBounds, PooledEntity } from './pooled-entity.js';
+import { type EntityBounds, meshablePooled, type PooledEntity } from './pooled-entity.js';
 import { PortraitSubject } from './portrait-subject.js';
 import { presentEntity } from './present-entity.js';
 import { repeatsInTick } from './present-item.js';
@@ -478,11 +478,11 @@ export class SpritePool {
     return style !== undefined;
   }
 
-  /** Whether `container` is a pooled entity the sprite layer may draw from its retained mesh: any but a
-   *  vehicle drawing its self-placing paletted meshes, which the world batch cannot pack. */
+  /** Whether `container` is a pooled entity the sprite layer may draw from its retained mesh
+   *  ({@link meshablePooled}). */
   meshable(container: Container): boolean {
     const pe = (container as PooledContainer)[POOLED];
-    return pe?.attached === true && !(pe.paletted && pe.kind === 'vehicle');
+    return pe !== undefined && meshablePooled(pe);
   }
 
   /** Whether `pe` draws the same whatever the frame alpha: what a still frame may leave untouched. */

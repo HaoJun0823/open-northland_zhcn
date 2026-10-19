@@ -54,3 +54,8 @@ ours. Update the commit above when importing a newer one.
 Overlays the project wrote itself, edited in place:
 
 - `chs/campaigns/` and `cht/campaigns/`: the four campaign titles.
+- `glossary.csv` rows without a `ger` value: the names and terms of the community maps, written for
+  the project's own translation of those maps.
+- `chs/maps/` files for community maps the import did not cover: the project's translation from the
+  Polish text, machine-translated with the glossary and edited by a reviewer; unreviewed by a native
+  speaker. Their `cht/maps/` twins are OpenCC conversions (`npm run translations:derive-cht`).

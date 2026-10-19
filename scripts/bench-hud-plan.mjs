@@ -3,7 +3,6 @@
 const USAGE = 'usage: npm run bench:hud -- checkpoint origin [output-dir] [window-seconds]';
 const DEFAULT_OUTPUT = 'bench-out/hud';
 const DEFAULT_SECONDS = 5;
-const DEFAULT_VIEWPORT = { width: 1440, height: 900 };
 /** The seat whose HUD the scenarios show: a spectator watching the whole map has no residents, notices or
  *  counters of its own. */
 const DEFAULT_SEAT = 0;
@@ -59,13 +58,7 @@ function positiveNumber(text, name) {
   return value;
 }
 
-function parseViewport(text) {
-  const match = /^(\d+)x(\d+)$/.exec(text);
-  if (match === null) throw new Error('ON_BENCH_HUD_VIEWPORT must be WIDTHxHEIGHT, e.g. 1920x1080');
-  return { width: Number(match[1]), height: Number(match[2]) };
-}
-
-/** `argv` without node and script; the environment picks scenarios, window size, seat, trace and profile. */
+/** `argv` without node and script; the environment picks scenarios, seat, trace, profile and an A/B. */
 export function parseHudBenchArgs(argv, env = {}) {
   const [checkpoint, origin, output = DEFAULT_OUTPUT, secondsText] = argv;
   if (!checkpoint || !origin || argv.length > 4) throw new Error(USAGE);
@@ -84,8 +77,6 @@ export function parseHudBenchArgs(argv, env = {}) {
     origin: url,
     output,
     seconds: secondsText === undefined ? DEFAULT_SECONDS : positiveNumber(secondsText, 'window seconds'),
-    viewport:
-      env.ON_BENCH_HUD_VIEWPORT === undefined ? DEFAULT_VIEWPORT : parseViewport(env.ON_BENCH_HUD_VIEWPORT),
     seat,
     trace: ['1', 'keep'].includes(env.ON_BENCH_HUD_TRACE) || env.ON_BENCH_HUD_INVALIDATIONS === '1',
     keepTraces: env.ON_BENCH_HUD_TRACE === 'keep',

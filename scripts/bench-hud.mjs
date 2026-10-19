@@ -19,6 +19,7 @@ import {
   overloaded,
   restoreCheckpoint,
   unlockAudio,
+  VIEWPORT,
   verifyDevServer,
 } from './bench-browser-session.mjs';
 import {
@@ -41,7 +42,8 @@ import { skipOriginalGameGate } from './original-game-gate.mjs';
  */
 
 const options = parseHudBenchArgs(process.argv.slice(2), process.env);
-const { seconds, output, viewport } = options;
+const { seconds, output } = options;
+const viewport = VIEWPORT;
 /** Panels settle, first figures paint and the hover card rises within this. */
 const WARM_MS = 3000;
 const FAILURE_SHOT_TIMEOUT_MS = 10000;

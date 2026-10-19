@@ -15,11 +15,10 @@ const ORIGIN = 'http://127.0.0.1:5174';
 const MAIN = { pid: 1, tid: 10 };
 const VIZ = { pid: 2, tid: 20 };
 
-test('arguments default the output, window, view and seat', () => {
+test('arguments default the output, window and seat', () => {
   const options = parseHudBenchArgs(['late.checkpoint', ORIGIN]);
   assert.equal(options.output, 'bench-out/hud');
   assert.equal(options.seconds, 5);
-  assert.deepEqual(options.viewport, { width: 1440, height: 900 });
   assert.equal(options.seat, 0);
   assert.equal(options.trace, false);
   assert.equal(options.abCss, null);
@@ -27,10 +26,9 @@ test('arguments default the output, window, view and seat', () => {
   assert.equal(options.scenarios.length, hudScenarios().length);
 });
 
-test('the environment picks scenarios, the view, the seat and the trace', () => {
+test('the environment picks scenarios, the seat and the trace', () => {
   const options = parseHudBenchArgs(['late.checkpoint', ORIGIN, 'out', '3'], {
     ON_BENCH_HUD_SCENARIOS: 'settler,none',
-    ON_BENCH_HUD_VIEWPORT: '1920x1080',
     ON_BENCH_HUD_SEAT: '2',
     ON_BENCH_HUD_INVALIDATIONS: '1',
   });
@@ -38,17 +36,15 @@ test('the environment picks scenarios, the view, the seat and the trace', () => 
     options.scenarios.map((entry) => entry.id),
     ['none', 'settler'],
   );
-  assert.deepEqual(options.viewport, { width: 1920, height: 1080 });
   assert.equal(options.seat, 2);
   assert.equal(options.seconds, 3);
   // The invalidations ride on a trace.
   assert.equal(options.trace, true);
 });
 
-test('arguments refuse unknown scenarios, a bad view and a bad seat', () => {
+test('arguments refuse unknown scenarios and a bad seat', () => {
   assert.throws(() => parseHudBenchArgs(['late.checkpoint']), /usage/);
   assert.throws(() => parseHudBenchArgs(['c', ORIGIN], { ON_BENCH_HUD_SCENARIOS: 'nope' }), /Unknown/);
-  assert.throws(() => parseHudBenchArgs(['c', ORIGIN], { ON_BENCH_HUD_VIEWPORT: '1920' }), /WIDTHxHEIGHT/);
   assert.throws(() => parseHudBenchArgs(['c', ORIGIN], { ON_BENCH_HUD_SEAT: '-1' }), /seat/);
 });
 

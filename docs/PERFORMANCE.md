@@ -236,7 +236,7 @@ target (a filter, Pixi's `useBackBuffer`) breaks the stack up and looks like a s
 
 ```bash
 npm run bench:hud -- bench-out/late.t100000.checkpoint http://127.0.0.1:5174 bench-out/hud 5
-ON_BENCH_HUD_VIEWPORT=1920x1080 ON_BENCH_HUD_TRACE=1 npm run bench:hud -- <checkpoint> <origin>
+ON_BENCH_VIEWPORT=1920x1080 ON_BENCH_HUD_TRACE=1 npm run bench:hud -- <checkpoint> <origin>
 ```
 
 Arguments: checkpoint, origin, output directory (default `bench-out/hud`), seconds per window (default
@@ -257,7 +257,6 @@ display, so compositor and frame-pacing readings need the headed run (with `ON_B
 | Variable | Effect |
 | --- | --- |
 | `ON_BENCH_HUD_SCENARIOS` | Comma-separated scenario ids |
-| `ON_BENCH_HUD_VIEWPORT` | Window size, e.g. `1920x1080`; default `1440x900`, device scale 1 |
 | `ON_BENCH_HUD_SEAT` | The watched seat; default 0 |
 | `ON_BENCH_HUD_TRACE=1` | A 3 s trace after each window: the renderer's frame phases, the compositor, raster and the GPU process per frame; `keep` also writes the whole trace as `<scenario>.trace.json` (about 100 MB) |
 | `ON_BENCH_HUD_INVALIDATIONS=1` | The trace also names what restyles, relayouts and repaints (node, cause, script frame), with a census of running CSS animations |

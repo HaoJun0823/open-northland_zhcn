@@ -26,7 +26,7 @@ import {
 } from '@open-northland/map-import';
 import { type CampaignSource, parseDataManifest, readCampaigns } from '../../../scripts/data-pack.mjs';
 
-/** One map of the pack, as its overlays are checked against it. */
+/** One map of the pack and the text it ships. */
 export interface PackMap {
   /** The lower-cased folder of a base map, or `campaigns/<campaign>/<map>`. */
   readonly folder: string;

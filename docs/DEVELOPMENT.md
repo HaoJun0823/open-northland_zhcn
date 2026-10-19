@@ -180,8 +180,9 @@ the unpacked pack at `ON_DATA_ROOT` (by default `.cache/data/unpacked` of this c
 primary checkout) it also warns about overlays whose basis text changed since the pack shipped it,
 translations into a language the pack ships, string ids, labels and type ids the source lacks,
 source-language overlays on maps that refuse them, values whose goal prefix, placeholders or tags
-differ from the source, and values still equal to the source text: an unfinished skeleton. The pipeline log's `[pipeline] translations:` lines count the overlays each run
-applied, left out or found stale.
+differ from the source, and values still equal to the source text: an unfinished skeleton. The
+pipeline log's `[pipeline] translations:` lines count the overlays each run applied, left out or found
+stale.
 
 ```bash
 npm run translations:skeleton -- path/to/map.rar --lang chs

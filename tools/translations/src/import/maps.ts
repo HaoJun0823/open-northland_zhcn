@@ -113,7 +113,8 @@ function translateLanguage(
  * Matches every map XML to the pack's maps by `map.dat` MD5 and turns each match into one map overlay
  * per overlay language, named by the `map.dat` SHA-256. When several XMLs match one `map.dat`, the one
  * whose German column fits our German text best is taken. When several pack maps ship that `map.dat`,
- * the overlay is written against the first one's German text: the upstream has one text per map.
+ * the overlay is written against the first one's German text, a campaign map's before a base map's:
+ * the upstream has one text per map and translates the original campaigns.
  */
 export async function importMaps(
   source: string,
@@ -121,9 +122,13 @@ export async function importMaps(
   corrections: GermanCorrections,
 ): Promise<MapImport> {
   const xmls = await readXmls(source);
+  const all = [...packMaps.values()].flat();
+  const campaignFirst = [
+    ...all.filter((map) => map.campaign !== undefined),
+    ...all.filter((map) => map.campaign === undefined),
+  ];
   const byMd5 = new Map<string, readonly PackMap[]>();
-  for (const copies of packMaps.values())
-    for (const map of copies) byMd5.set(map.datMd5, [...(byMd5.get(map.datMd5) ?? []), map]);
+  for (const map of campaignFirst) byMd5.set(map.datMd5, [...(byMd5.get(map.datMd5) ?? []), map]);
 
   const unmatched: string[] = [];
   const deprecated: string[] = [];

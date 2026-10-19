@@ -154,7 +154,8 @@ async function importBook(
 
 /**
  * Converts a CulturesGameLocalization checkout into overlay files against the pack's German text:
- * map overlays, the game-object name tables, the history book and the glossary.
+ * map overlays, the game-object name tables, the history book and the glossary. A pack without a
+ * readable German object table fails the run, since every table overlay is written against one.
  */
 export async function importCulturesLocalization(options: ImportOptions): Promise<ImportResult> {
   const textRoot = join(options.source, ...TEXT_DIR);

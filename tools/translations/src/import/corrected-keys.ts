@@ -1,8 +1,13 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { GAME_OBJECT_TABLES } from '@open-northland/asset-pipeline/sources';
+import { campaignMapId, GAME_OBJECT_TABLES } from '@open-northland/asset-pipeline/sources';
 import { MAP_DAT_FILE, type MapLanguageText, mapIdFromPath } from '@open-northland/map-import';
-import { loadTranslationOverlays, type MapOverlaysByDigest } from '@open-northland/translations';
+import {
+  listDirectory,
+  MapOverlayFiling,
+  type MapOverlaysByDigest,
+  readOverlayFile,
+} from '@open-northland/translations';
 import { BASIS_LANGUAGE } from './columns.js';
 
 /**
@@ -17,7 +22,7 @@ export interface GermanCorrections {
   readonly mapStrings: ReadonlyMap<string, ReadonlySet<string>>;
   /** Replaced `briefings.txt` lines by our map id. */
   readonly briefingLines: ReadonlyMap<string, ReadonlySet<string>>;
-  /** The translations folder's map overlays, whose German edits (`translations/ger/maps/`) count. */
+  /** The German map overlays (`translations/ger/maps/`), the project's edits of the basis text. */
   readonly overlays: MapOverlaysByDigest;
 }
 
@@ -30,6 +35,8 @@ const COMMUNITY_PREFIX = ['maps', 'community'];
 const CAMPAIGN_PREFIX = 'campaigns';
 const BRIEFINGS_FILE = 'briefings.txt';
 const STRINGS_FILE = 'strings.ini';
+const MAP_OVERLAYS_DIR = 'maps';
+const OVERLAY_EXTENSION = '.json';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -49,8 +56,23 @@ function correctedMap(file: string): { readonly id: string; readonly name: strin
   if (parts[0] === COMMUNITY_PREFIX[0] && parts[1] === COMMUNITY_PREFIX[1] && parts[2] !== undefined)
     return { id: mapIdFromPath(`${parts.slice(0, 3).join('/')}/${MAP_DAT_FILE}`), name };
   if (parts[0] === CAMPAIGN_PREFIX && parts[1] !== undefined && parts[2] !== undefined)
-    return { id: `${parts[1]}-${parts[2]}`, name };
+    return { id: campaignMapId(parts[1], parts[2]), name };
   return undefined;
+}
+
+/** The German map overlays of the translations folder `translations`, filed as the loader files them;
+ *  the other languages' files, which the run may be about to regenerate, are not read. */
+async function readGermanOverlays(translations: string): Promise<MapOverlaysByDigest> {
+  const dir = join(translations, BASIS_LANGUAGE, MAP_OVERLAYS_DIR);
+  const filing = new MapOverlayFiling();
+  for (const entry of await listDirectory(dir)) {
+    if (!entry.isFile() || !entry.name.endsWith(OVERLAY_EXTENSION)) continue;
+    const path = join(dir, entry.name);
+    const name = entry.name.slice(0, -OVERLAY_EXTENSION.length);
+    const refusal = filing.file(BASIS_LANGUAGE, name, await readOverlayFile('maps', path));
+    if (refusal !== undefined) throw new Error(`${path}: ${refusal}`);
+  }
+  return filing.maps;
 }
 
 async function readJson(path: string): Promise<unknown> {
@@ -90,8 +112,7 @@ export async function readGermanCorrections(dir: string, translations: string): 
       if (id !== undefined) add(mapStrings, map.id, id);
     }
   }
-  const { maps: overlays } = await loadTranslationOverlays(translations);
-  return { tables, mapStrings, briefingLines, overlays };
+  return { tables, mapStrings, briefingLines, overlays: await readGermanOverlays(translations) };
 }
 
 /**

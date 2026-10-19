@@ -6,8 +6,6 @@ import { WORLD_ATTRIBUTE_OFFSETS, WORLD_VERTEX_SIZE } from '../../src/gpu/world-
 const QUAD_BYTES = QUAD_FLOATS * Float32Array.BYTES_PER_ELEMENT;
 /** The store's block of slots of one temperature. */
 const BLOCK = 64;
-/** Uploads one flush makes at most. */
-const RANGE_LIMIT = 64;
 const TEXTURE_WORD = WORLD_ATTRIBUTE_OFFSETS.aTextureIdAndRound / Uint32Array.BYTES_PER_ELEMENT;
 /** A packed `aTextureIdAndRound` word: the round flag below the texture slot. */
 const textureWord = (slot: number, round: number): number => (slot << 16) | round;
@@ -74,34 +72,13 @@ describe('QuadStore', () => {
     expect(flushed(store)).toEqual([[to, 1]]);
   });
 
-  it('merges nearby dirty slots into one range and keeps distant ones apart', () => {
-    const store = new QuadStore(64);
-    for (let i = 0; i < 64; i++) store.allocate();
+  it('uploads every dirty slot in one span, from the lowest to the highest', () => {
+    const store = new QuadStore(BLOCK);
+    for (let i = 0; i < BLOCK; i++) store.allocate();
     flushed(store);
-    for (const slot of [3, 5, 4, 40]) store.markDirty(slot);
-    expect(flushed(store)).toEqual([
-      [3, 3],
-      [40, 1],
-    ]);
-  });
-
-  it('joins the ranges the smallest gaps part once they grow too many', () => {
-    const spacing = 40;
-    const store = new QuadStore((RANGE_LIMIT + 2) * spacing);
-    for (let i = 0; i < store.capacity; i++) store.allocate();
-    flushed(store);
-    // One single dirty quad more than the limit, evenly spaced but for the last, half as far from the one
-    // before it: one join brings them to the limit.
-    const slots = Array.from({ length: RANGE_LIMIT + 1 }, (_, i) => i * spacing);
-    const nearSlot = (RANGE_LIMIT - 1) * spacing + spacing / 2;
-    slots[RANGE_LIMIT] = nearSlot;
-    for (const slot of slots) store.markDirty(slot);
-    const ranges = flushed(store);
-    expect(ranges).toHaveLength(RANGE_LIMIT);
-    expect(ranges.at(-1)).toEqual([(RANGE_LIMIT - 1) * spacing, spacing / 2 + 1]);
-    expect(ranges.slice(0, RANGE_LIMIT - 1)).toEqual(
-      Array.from({ length: RANGE_LIMIT - 1 }, (_, i) => [i * spacing, 1]),
-    );
+    for (const slot of [40, 3, 5, 4]) store.markDirty(slot);
+    expect(flushed(store)).toEqual([[3, 38]]);
+    expect(flushed(store)).toEqual([]);
   });
 
   it('retargets a quad to another texture slot, keeping its round flag and the rest of it', () => {

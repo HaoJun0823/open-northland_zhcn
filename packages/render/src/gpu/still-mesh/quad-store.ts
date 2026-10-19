@@ -10,15 +10,9 @@ const ROUND_MASK = 0xffff;
 export const QUAD_FLOATS = VERTICES_PER_QUAD * WORLD_VERTEX_SIZE;
 const QUAD_BYTES = QUAD_FLOATS * Float32Array.BYTES_PER_ELEMENT;
 /** Slots a block holds. A block serves quads of one temperature, so the quads repacked every few frames
- *  gather in a few blocks and upload as a few short ranges instead of spanning the whole store. */
+ *  gather in a few blocks and the span a flush uploads stays short of the whole store. */
 const BLOCK_QUADS = 64;
 const INITIAL_QUADS = 16 * BLOCK_QUADS;
-/** Dirty slots this close are uploaded as one range: a few idle quads re-sent cost less than a call. */
-const MERGE_GAP_QUADS = 8;
-/** Uploads a flush makes at most: past this many ranges it merges the ones the smallest gaps part. With
- *  the moving settlers in the mesh, magiczny_las t100000 at zoom 0.35 and 4x CPU throttle sent 2.0 MB a
- *  frame at 16 ranges, 1.1 MB at 64 and 0.75 MB at 128, of 0.54 MB actually repacked. */
-const MAX_RANGES = 64;
 const COLD = 0;
 const HOT = 1;
 
@@ -40,7 +34,9 @@ export class QuadStore {
   /** Per block of {@link BLOCK_QUADS} slots: {@link COLD} or {@link HOT}. */
   private temperatures = new Uint8Array(0);
   private highWater = 0;
-  private readonly dirty: number[] = [];
+  /** The lowest and highest slot packed since the last flush; none while the first exceeds the last. */
+  private dirtyFirst = Number.POSITIVE_INFINITY;
+  private dirtyLast = Number.NEGATIVE_INFINITY;
   /** Whether a growth swapped the data since the last flush; the next upload then sends all of it. */
   private grown = false;
 
@@ -106,7 +102,8 @@ export class QuadStore {
   }
 
   markDirty(slot: number): void {
-    this.dirty.push(slot);
+    if (slot < this.dirtyFirst) this.dirtyFirst = slot;
+    if (slot > this.dirtyLast) this.dirtyLast = slot;
   }
 
   /** Point a slot's quad at another texture slot of its draw, keeping the rest of it as packed. */
@@ -118,34 +115,26 @@ export class QuadStore {
     this.markDirty(slot);
   }
 
-  /** Upload every slot packed since the last flush, merged into a few byte ranges. */
+  /**
+   * Upload every slot packed since the last flush as one byte range, from the lowest such slot to the
+   * highest. One call, not one per run of slots: ANGLE's Metal backend answers a partial upload of a buffer
+   * the GPU may still read by moving the buffer to a fresh allocation and copying the rest of it there, so
+   * each call costs a copy of the whole store. Measured on magiczny_las t100000 at zoom 0.35, x3,
+   * 1920x1080: 62 calls a frame into the 8.5 MB store took the GPU frame from 6 to 20 ms, one span of
+   * 2.5 MB kept it at 6.
+   */
   flush(upload: ByteUploader): void {
+    const first = this.dirtyFirst;
+    const last = this.dirtyLast;
+    this.dirtyFirst = Number.POSITIVE_INFINITY;
+    this.dirtyLast = Number.NEGATIVE_INFINITY;
     if (this.grown) {
       this.grown = false;
-      this.dirty.length = 0;
       upload(this.buffer, 0, this.f32.byteLength);
       return;
     }
-    if (this.dirty.length === 0) return;
-    const slots = this.dirty.sort((a, b) => a - b);
-    const ranges: number[] = [];
-    let first = slots[0] ?? 0;
-    let last = first;
-    for (const slot of slots) {
-      if (slot - last > MERGE_GAP_QUADS) {
-        ranges.push(first, last);
-        first = slot;
-      }
-      last = slot;
-    }
-    ranges.push(first, last);
-    this.dirty.length = 0;
-    const merged = ranges.length / 2 > MAX_RANGES ? mergeClosest(ranges, MAX_RANGES) : ranges;
-    for (let i = 0; i < merged.length; i += 2) {
-      const from = merged[i] ?? 0;
-      const to = merged[i + 1] ?? from;
-      upload(this.buffer, from * QUAD_BYTES, (to - from + 1) * QUAD_BYTES);
-    }
+    if (first > last) return;
+    upload(this.buffer, first * QUAD_BYTES, (last - first + 1) * QUAD_BYTES);
   }
 
   destroy(): void {
@@ -160,21 +149,4 @@ export class QuadStore {
     this.buffer.data = f32;
     this.grown = true;
   }
-}
-
-/**
- * `ranges` (first, last pairs, ascending) joined across their smallest gaps until at most `limit` remain:
- * the fewest idle quads re-sent for that many uploads. Equal gaps join together, so a few fewer may remain.
- */
-function mergeClosest(ranges: readonly number[], limit: number): number[] {
-  const gaps: number[] = [];
-  for (let i = 2; i < ranges.length; i += 2) gaps.push((ranges[i] ?? 0) - (ranges[i - 1] ?? 0));
-  const joins = gaps.length - (limit - 1);
-  const widest = [...gaps].sort((a, b) => a - b)[joins - 1] ?? 0;
-  const merged: number[] = [ranges[0] ?? 0, ranges[1] ?? 0];
-  for (let i = 2; i < ranges.length; i += 2) {
-    if ((gaps[i / 2 - 1] ?? 0) <= widest) merged[merged.length - 1] = ranges[i + 1] ?? 0;
-    else merged.push(ranges[i] ?? 0, ranges[i + 1] ?? 0);
-  }
-  return merged;
 }

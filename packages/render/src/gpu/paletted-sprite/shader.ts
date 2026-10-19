@@ -80,8 +80,11 @@ float blowCloth(vec2 uv, inout float index) {
   return 1.0 + uClothWave.z * cos(wave);
 }
 
-// The bound atlas's size in texels, queried once per fragment at the top of main rather than once per
-// magnifier tap. The query, not uAtlasSize: a GUI atlas can be larger than the size its frames name.
+// The bound atlas's size in texels, set by main's magnified path before any tap reads it. The query,
+// not uAtlasSize: a GUI atlas can be larger than the size its frames name. The shared magnifier calls
+// MAGNIFY_FETCH with a texel alone, so the size reaches resolvedTexel as a global. ANGLE hands a mutable
+// global to every function by reference, which slowed the world batch on Metal; this mesh draws only
+// vehicles and GUI art, few fragments.
 vec2 atlasSize;
 
 vec4 resolvedTexel(ivec2 pixel) {
@@ -109,15 +112,14 @@ void main(void) {
   // is deliberately bounded. The tint and the cloth wave ride along.
   if (uSampling.x > 0.5 && uColorKey.x < 0.5 && uSilhouette.w < 0.5) {
     atlasSize = vec2(textureSize(uTexture, 0));
-    vec2 size = atlasSize;
-    vec2 p = vUV * size;
+    vec2 p = vUV * atlasSize;
     float texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
     if (texelsPerPixel < 1.0 && uSampling.x > 1.5) {
       // Magnified: the mode's own edge treatment. Both converge on bilinear as texels reach pixel size.
       finalColor = uSampling.x > 2.5 ? magnifyXbr(p, texelsPerPixel) : magnifySharp(p, texelsPerPixel);
       return;
     }
-    vec2 footprint = max(fwidth(vUV) - 1.0 / size, vec2(0.0)) * 0.25;
+    vec2 footprint = max(fwidth(vUV) - 1.0 / atlasSize, vec2(0.0)) * 0.25;
     if (max(footprint.x, footprint.y) < 0.000001) {
       finalColor = resolvedBilinear(vUV);
       return;

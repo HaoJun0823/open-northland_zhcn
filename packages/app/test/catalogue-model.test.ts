@@ -377,9 +377,10 @@ describe('catalogue query', () => {
   const run = (patch: Partial<CatalogueQuery>, among: readonly CatalogueRow[] = rows) =>
     ids(queryRows(among, { ...DEFAULT_CATALOGUE_QUERY, ...patch }, compare));
 
-  it('orders by each sort, the most downloaded first by default', () => {
+  it('orders by each sort, the newest first by default', () => {
     const playable = rows.slice(0, 3);
-    expect(run({}, playable)).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
+    expect(run({}, playable)).toEqual(run({ sort: 'newest' }, playable));
+    expect(run({ sort: 'downloaded' }, playable)).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
     expect(run({ sort: 'liked' }, playable)).toEqual(['cn-dolina', 'cn-burza', 'cn-atak']);
     expect(run({ sort: 'newest' }, playable)).toEqual(['cn-atak', 'cn-dolina', 'cn-burza']);
     expect(run({ sort: 'updated' }, playable)).toEqual(['cn-burza', 'cn-atak', 'cn-dolina']);

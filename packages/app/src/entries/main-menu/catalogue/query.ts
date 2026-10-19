@@ -57,7 +57,7 @@ export interface CatalogueQuery {
 
 export const DEFAULT_CATALOGUE_QUERY: CatalogueQuery = {
   text: '',
-  sort: 'downloaded',
+  sort: 'newest',
   kind: 'all',
   seriesOnly: false,
   players: null,

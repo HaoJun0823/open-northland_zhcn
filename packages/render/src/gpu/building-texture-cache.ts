@@ -169,6 +169,15 @@ export class BuildingTextureCache {
     }
   }
 
+  /** Bakes made so far. */
+  get size(): number {
+    return this.textures.size;
+  }
+
+  *bakedSources(): Generator<TextureSource> {
+    for (const texture of this.textures.values()) yield texture.source;
+  }
+
   clear(): void {
     for (const texture of this.textures.values()) texture.destroy(true);
     this.textures.clear();

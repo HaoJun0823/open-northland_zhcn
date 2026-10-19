@@ -5,10 +5,14 @@ import { BLOOD_GROUND_SOURCE } from './overlays/blood-ground-shader.js';
 import { DISMANTLE_SOURCE } from './overlays/dismantle-shader.js';
 import { PALETTED_SPRITE_SOURCE } from './paletted-sprite/shader.js';
 import {
-  WORLD_MAGNIFICATIONS,
+  PRESCALED_SCALERS,
+  type PrescaledScaler,
+  prescaledScalerOf,
+  WORLD_MAGNIFY_MODES,
   type WorldMagnification,
   worldMagnifyModeNumber,
 } from './pixel-art-registry.js';
+import { PRESCALE_RECIPES } from './prescale/page-prescaler.js';
 import type { GlslProgramSource } from './program-source.js';
 import { SHADED_DECOR_SOURCE, SHADED_TERRAIN_SOURCE, TINTED_TERRAIN_SOURCE } from './shading.js';
 import { DEFAULT_SHADOW_STYLE, type ShadowStyle } from './shadow-style.js';
@@ -57,19 +61,25 @@ function weatherPrograms(): readonly GlslProgramSource[] {
 export function shaderCatalog(): readonly GlslProgramSource[] {
   const entries: GlslProgramSource[] = [];
   for (const maxTextures of WORLD_BATCH_TEXTURE_LIMITS) {
-    for (const magnification of WORLD_MAGNIFICATIONS) {
+    for (const mode of Object.values(WORLD_MAGNIFY_MODES)) {
       for (const shadow of [null, DEFAULT_SHADOW_STYLE]) {
-        entries.push(worldBatchProgramSource(maxTextures, worldMagnifyModeNumber(magnification), shadow));
+        entries.push(worldBatchProgramSource(maxTextures, mode, shadow));
       }
     }
   }
   entries.push(
+    ...PRESCALED_SCALERS.flatMap((scaler) => prescalePrograms(scaler)),
     ...unconditionalPrograms(),
     BLOOD_GROUND_SOURCE,
     GROUND_WAVE_FILTER_SOURCE,
     ...weatherPrograms(),
   );
   return entries;
+}
+
+/** The programs a prescaled scaler redraws its pages with. */
+function prescalePrograms(scaler: PrescaledScaler): readonly GlslProgramSource[] {
+  return PRESCALE_RECIPES[scaler].map((pass) => pass.program);
 }
 
 /** The settings that decide which programs a world can draw with. */
@@ -90,8 +100,10 @@ export function bootShaderPrograms(
   selection: ShaderSelection,
 ): readonly GlslProgramSource[] {
   const slots = Math.min(maxBatchTextures, WORLD_BATCH_MAX_TEXTURES);
+  const prescaled = selection.magnification === 'off' ? null : prescaledScalerOf(selection.magnification);
   return [
     worldBatchProgramSource(slots, worldMagnifyModeNumber(selection.magnification), selection.shadow),
+    ...(prescaled === null ? [] : prescalePrograms(prescaled)),
     ...unconditionalPrograms(),
     ...(selection.blood ? [BLOOD_GROUND_SOURCE] : []),
     ...(selection.groundWaves ? [GROUND_WAVE_FILTER_SOURCE] : []),

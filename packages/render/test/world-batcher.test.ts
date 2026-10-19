@@ -22,6 +22,7 @@ import {
   markShadowTexture,
   palettedLutOf,
   setPixelArtMagnification,
+  setPrescaledPage,
   setWorldShadowStyle,
 } from '../src/gpu/pixel-art-registry.js';
 import { DEFAULT_SHADOW_STYLE } from '../src/gpu/shadow-style.js';
@@ -222,6 +223,7 @@ describe('world batcher element flags', () => {
 });
 
 describe('world batcher palette LUT', () => {
+  useHeadlessShaderContext();
   /** A quad element as Pixi's sprite pipe hands it over, drawing `texture` through `lutRow`. */
   function quad(texture: Texture, lutRow?: number, glow = false) {
     return {
@@ -378,6 +380,56 @@ describe('world batcher palette LUT', () => {
       [barn.source, 2],
     ]);
     destroy();
+  });
+
+  it("binds a page's prescaled twin in its slot for the draw, and lists the page again after it", () => {
+    const house = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    const barn = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    const twin = new TextureSource({ width: 16, height: 16 });
+    const { batch, destroy } = builtBatch(PAGES_AND_LUT + 2, [house, barn]);
+    const { bound, draw } = recordingPipe();
+    setPrescaledPage(barn.source, twin);
+    try {
+      draw(batch);
+    } finally {
+      setPrescaledPage(barn.source, null);
+    }
+    expect(bound).toEqual([
+      [house.source, 0],
+      [twin, 1],
+    ]);
+    expect(batch.textures.textures.slice(0, 2)).toEqual([house.source, barn.source]);
+    destroy();
+    twin.destroy();
+  });
+
+  it('swaps twins into a draw another batcher builds with the world program, as the still mesh does', () => {
+    const house = new Texture({ source: new TextureSource({ width: 8, height: 8 }) });
+    const twin = new TextureSource({ width: 16, height: 16 });
+    const { batch, destroy } = builtBatch(PAGES_AND_LUT + 2, [house]);
+    const still = new Batch();
+    still.batcher = { name: 'stillMesh', shader: batch.batcher.shader } as unknown as Batcher;
+    still.textures = new BatchTextureArray();
+    still.textures.textures[still.textures.count++] = house.source;
+    const other = new Batch();
+    other.batcher = { name: 'default' } as Batcher;
+    other.textures = new BatchTextureArray();
+    other.textures.textures[other.textures.count++] = house.source;
+    const { bound, draw } = recordingPipe();
+    setPrescaledPage(house.source, twin);
+    try {
+      draw(still);
+      draw(other);
+    } finally {
+      setPrescaledPage(house.source, null);
+    }
+    expect(bound).toEqual([
+      [twin, 0],
+      [house.source, 0],
+    ]);
+    expect(still.textures.textures[0]).toBe(house.source);
+    destroy();
+    twin.destroy();
   });
 
   it('flags a glowing paletted element beside its row', () => {

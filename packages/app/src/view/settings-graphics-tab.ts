@@ -17,7 +17,7 @@ import { type FpsLimit, type MenuSettings, RENDER_SCALE_MAX, RENDER_SCALE_MIN } 
 type FpsChoice = 'fps30' | 'fps60' | 'screen';
 const RENDER_SCALE_STEP = 0.25;
 
-/** The art filter's four choices: `off` is the enhancement disabled, the other three name its scaler. */
+/** The art filter's choices: `off` is the enhancement disabled, the others name its scaler. */
 export type FilterChoice = PixelArtScaler | 'off';
 export const FILTER_CHOICES: readonly FilterChoice[] = ['off', ...PIXEL_ART_SCALERS];
 
@@ -115,6 +115,7 @@ export function graphicsSettingsRows(
     bilinear: text.pixelArtFilterSoft,
     sharp: text.pixelArtFilterSharp,
     xbr: text.pixelArtFilterXbr,
+    xbrz: text.pixelArtFilterXbrz,
   };
   const filter = segControl<FilterChoice>(
     FILTER_CHOICES.map((id) => ({ id, label: filterLabels[id] })),

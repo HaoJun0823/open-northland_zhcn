@@ -1,5 +1,6 @@
 import { MeshGeometry, Shader, type TextureSource } from 'pixi.js';
 import { PIXEL_ART_MAGNIFY_GLSL } from '../pixel-art-magnify.js';
+import type { PixelArtScaler } from '../pixel-art-registry.js';
 import type { GlslProgramSource } from '../program-source.js';
 
 const VERTEX = `#version 300 es
@@ -180,6 +181,19 @@ export const PALETTED_SAMPLING_MODES: Readonly<Record<PalettedSampling, number>>
   sharp: 2,
   xbr: 3,
 };
+
+/** The sampling a world scaler gives an indexed atlas: a prescaled scaler cannot redraw palette indices,
+ *  so its paletted sprites keep xBR. */
+const PALETTED_SAMPLING_OF: Readonly<Record<PixelArtScaler, PalettedSampling>> = {
+  bilinear: 'bilinear',
+  sharp: 'sharp',
+  xbr: 'xbr',
+  xbrz: 'xbr',
+};
+
+export function palettedSamplingOf(scaler: PixelArtScaler): PalettedSampling {
+  return PALETTED_SAMPLING_OF[scaler];
+}
 
 /** A unit quad's index buffer; positions and UVs are rewritten per frame by the sprite's `setFrame`. */
 const QUAD_INDICES = new Uint32Array([0, 1, 2, 0, 2, 3]);

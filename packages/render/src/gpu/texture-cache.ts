@@ -61,6 +61,8 @@ export class TextureCache {
    *  magnification mark. */
   private readonly paletteIndexed = new Map<AtlasFrame, Texture>();
   private readonly pages = new Set<TextureSource>();
+  /** The silhouette pages among {@link pages}: coverage only, so a prescaler leaves them. */
+  private readonly shadowPages = new Set<TextureSource>();
   /** Bottom-kept views of a frame, keyed by how many top pixels are hidden. Nested so the primary
    *  frame→texture cache above stays a clean 1:1. */
   private readonly cropCache = new Map<AtlasFrame, Map<number, Texture>>();
@@ -129,6 +131,7 @@ export class TextureCache {
   getShadow(source: TextureSource, frame: AtlasFrame): Texture {
     const texture =
       (this.useSoftShadows ? this.softShadows.get(source, frame) : null) ?? this.get(source, frame);
+    this.shadowPages.add(source);
     markShadowTexture(texture);
     return texture;
   }
@@ -254,6 +257,20 @@ export class TextureCache {
    *  sampling toggle cannot reach an indexed sheet, whose palette indices must stay nearest-sampled. */
   pageSources(): ReadonlySet<TextureSource> {
     return this.pages;
+  }
+
+  /** The pages and enhanced building bakes a page prescaler redraws: the body pages and the bakes cut
+   *  from them, never a silhouette page. */
+  *prescalableSources(): Generator<TextureSource> {
+    for (const page of this.pages) if (!this.shadowPages.has(page)) yield page;
+    yield* this.buildings.bakedSources();
+    yield* this.groundedEnhanced.bakedSources();
+  }
+
+  /** Grows whenever {@link prescalableSources} may have gained a member: pages and bakes only grow
+   *  until {@link clear}. */
+  get prescalableRevision(): number {
+    return this.pages.size + this.buildings.size + this.groundedEnhanced.size;
   }
 
   /** A twin of a view served here, on the same page and frame but without the magnification mark: the
@@ -408,6 +425,7 @@ export class TextureCache {
     for (const twin of this.unmagnifiedTwins.values()) twin.destroy();
     this.unmagnifiedTwins.clear();
     this.pages.clear();
+    this.shadowPages.clear();
     for (const byThreshold of this.revealCache.values()) {
       for (const bake of byThreshold.values()) bake.texture.destroy(true);
     }

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WEATHER_KINDS } from '../src/data/weather/types.js';
 import { GROUND_WAVE_FILTER_SOURCE } from '../src/gpu/ground-waves/ground-wave-filter.js';
 import { BLOOD_GROUND_SOURCE } from '../src/gpu/overlays/blood-ground-shader.js';
+import { PRESCALED_SCALERS } from '../src/gpu/pixel-art-registry.js';
+import { XBRZ_2X_SOURCE } from '../src/gpu/prescale/xbrz-2x.js';
 import { bootShaderPrograms, type ShaderSelection, shaderCatalog } from '../src/gpu/shader-catalog.js';
 import {
   type LinkingContext,
@@ -152,10 +154,20 @@ describe('boot shader programs', () => {
     expect(nothing.every((name) => everything.includes(name))).toBe(true);
   });
 
+  it("adds a prescaled scaler's passes beside the prescaled batch variant", () => {
+    const names = namesOf(bootShaderPrograms(16, { ...EVERY_EFFECT, magnification: 'xbrz' }));
+    expect(names[0]).toBe('world-batch/textures16/prescaled/shadow');
+    expect(names).toContain(XBRZ_2X_SOURCE.name);
+    expect(namesOf(bootShaderPrograms(16, EVERY_EFFECT))).not.toContain(XBRZ_2X_SOURCE.name);
+  });
+
   it('picks only programs the catalog lists, and every fixed one under some settings', () => {
     const catalog = new Set(namesOf(shaderCatalog()));
+    const prescaled = PRESCALED_SCALERS.map((magnification) => ({ ...EVERY_EFFECT, magnification }));
     const picked = new Set(
-      [EVERY_EFFECT, NO_EFFECT].flatMap((selection) => namesOf(bootShaderPrograms(16, selection))),
+      [EVERY_EFFECT, NO_EFFECT, ...prescaled].flatMap((selection) =>
+        namesOf(bootShaderPrograms(16, selection)),
+      ),
     );
     for (const name of picked) expect(catalog.has(name)).toBe(true);
     const fixed = [...catalog].filter((name) => !name.startsWith('world-batch/'));

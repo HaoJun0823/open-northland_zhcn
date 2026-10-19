@@ -41,8 +41,9 @@ import {
   PortraitInsetLayer,
   type SettlerBubbleGfx,
 } from '../overlays/index.js';
-import { setPixelArtMagnification, setWorldShadowStyle } from '../pixel-art-registry.js';
+import { prescaledScalerOf, setPixelArtMagnification, setWorldShadowStyle } from '../pixel-art-registry.js';
 import { PLOT_BOUNDS } from '../plan-road.js';
+import { PagePrescaler, type PrescaleStats } from '../prescale/page-prescaler.js';
 import { DEFAULT_SELECTION_STYLE, type SelectionStyle } from '../selection-style.js';
 import { worldShaderSettings } from '../shader-warmup.js';
 import { DEFAULT_SHADOW_STYLE } from '../shadow-style.js';
@@ -116,6 +117,7 @@ export class WorldRenderer {
   /** The depth bands one portrait inset hid, reused across insets and frames. */
   private readonly insetBands: Container[] = [];
   private readonly mapViews: MapViewLayer;
+  private readonly prescaler: PagePrescaler;
 
   private readonly viewSmoothing: boolean;
   /** What the ground last drew of the road network. */
@@ -131,6 +133,7 @@ export class WorldRenderer {
     routeWorldBatches(app.renderer);
     bindWorldBatchPagesAndLut(app.renderer);
     this.app = app;
+    this.prescaler = new PagePrescaler(app.renderer);
     this.weatherSky = new WeatherSky(app.renderer);
     const gl = 'gl' in app.renderer ? app.renderer.gl : undefined;
     if (gl !== undefined) opts?.sheet?.palette?.fitTo(gl.getParameter(gl.MAX_TEXTURE_SIZE) as number);
@@ -232,6 +235,7 @@ export class WorldRenderer {
     const { magnification, shadow } = worldShaderSettings(next);
     setWorldShadowStyle(shadow);
     setPixelArtMagnification(magnification);
+    this.prescaler.setScaler(next.enhancedSampling ? prescaledScalerOf(next.pixelArtScaler) : null);
     this.terrain.setEnhancedSampling(next.enhancedSampling);
     this.terrain.setEnhancedWater(next.enhancedWater);
     this.mapObjects.setEnvironmentMotion(next.environmentMotion);
@@ -409,6 +413,7 @@ export class WorldRenderer {
 
   update(frame: WorldFrame): void {
     this.textureCache.beginFrame();
+    this.prescaler.update(this.textureCache);
     const {
       snapshot,
       tick = 0,
@@ -677,6 +682,12 @@ export class WorldRenderer {
     this.worldLayer.destroy({ children: true });
     this.hud.destroy();
     this.chrome.destroy();
+    this.prescaler.clear();
     this.textureCache.clear();
+  }
+
+  /** The prescaled scaler's twins: how many, how many wait, and their texture memory. */
+  prescaleStats(): PrescaleStats {
+    return this.prescaler.stats();
   }
 }

@@ -63,7 +63,7 @@ Keep the map and camera fixed for comparisons. Include zoom 2 and a zoomed-out p
 
 | Setting | Visible effect and limits |
 | --- | --- |
-| Original art filter (`enhancedSampling`, `pixelArtScaler`) | `xbr` smooths pixel-art edges; `sharp` preserves texel interiors; `bilinear` uses linear sampling. Also filters original terrain and finished buildings. HUD icons keep their own sampling. |
+| Original art filter (`enhancedSampling`, `pixelArtScaler`) | `xbr` smooths pixel-art edges; `sharp` preserves texel interiors; `bilinear` uses linear sampling. `xbrz` redraws each plain atlas page at twice its size on the GPU when chosen (`renderer.prescaleStats()` reports the pages and their memory) and sample it sharp; paletted characters keep `xbr`. Also filters original terrain and finished buildings. HUD icons keep their own sampling. |
 | Enhanced shadows (`softShadows`) | Softens silhouettes and adds projected character/animal shadows. Cache failures keep hard shadows. Flat decor retains its authored shadow under either setting. |
 | Enhanced water (`enhancedWater`) | Crossing swells, stronger colors and a moving glint on deep water |
 | Environment motion (`environmentMotion`) | Interpolates fish and adds tree motion. Static-layer vegetation moves; harvested/restored objects in the sprite pool do not. |

@@ -1,6 +1,7 @@
 import { BLOOD_COAT_GLSL } from './blood-coat-shader.js';
 import { BLOOD_SURFACE_GLSL } from './blood-surface-shader.js';
 import { PIXEL_ART_MAGNIFY_CORE_GLSL, XBR_NEIGHBOURS } from './pixel-art-magnify.js';
+import { WORLD_MAGNIFY_MODES, type WorldMagnifyModeName } from './pixel-art-registry.js';
 import type { GlslProgramSource } from './program-source.js';
 import { type ShadowStyle, shadowTintChannels } from './shadow-style.js';
 
@@ -125,8 +126,12 @@ const vec3 SHADOW_TINT = vec3(${red}, ${green}, ${blue});`,
   };
 }
 
-/** The mode names the shader checks and the program names report; index = the compile-time mode. */
-const MODE_NAMES = ['off', 'bilinear', 'sharp', 'xbr'] as const;
+/** The name a program reports for a compile-time mode. */
+function modeName(mode: number): WorldMagnifyModeName | undefined {
+  return (Object.keys(WORLD_MAGNIFY_MODES) as WorldMagnifyModeName[]).find(
+    (name) => WORLD_MAGNIFY_MODES[name] === mode,
+  );
+}
 
 /** The batch program for a texture limit, magnification mode and shadow style. */
 export function worldBatchProgramSource(
@@ -135,7 +140,7 @@ export function worldBatchProgramSource(
   shadow: ShadowStyle | null,
 ): GlslProgramSource {
   return {
-    name: `world-batch/textures${maxTextures}/${MODE_NAMES[mode] ?? mode}/${shadow === null ? 'no-shadow' : 'shadow'}`,
+    name: `world-batch/textures${maxTextures}/${modeName(mode) ?? mode}/${shadow === null ? 'no-shadow' : 'shadow'}`,
     vertex: WORLD_BATCH_VERTEX,
     fragment: worldBatchFragment(maxTextures, mode, shadow),
   };
@@ -155,8 +160,11 @@ flat in float vBlood;
 flat in vec4 vSplashes;
 out vec4 finalColor;
 uniform sampler2D uTextures[${maxTextures}];
-// 0 off (Pixi's default sampling) / 1 sampler filter + frame-clamped minification / 2 sharp / 3 xbr
+// 0 off (Pixi's default sampling) / 1 sampler filter + frame-clamped minification / 2 sharp / 3 xbr /
+// 4 prescaled: plain pages arrive at twice their texels and magnify sharp, paletted ones take xbr
 const float WORLD_MAGNIFY = ${mode}.0;
+const float MAGNIFY_XBR = ${WORLD_MAGNIFY_MODES.xbr}.0;
+const float MAGNIFY_PRESCALED = ${WORLD_MAGNIFY_MODES.prescaled}.0;
 const int WORLD_FLAG_MAGNIFY = ${WORLD_FLAG_MAGNIFY};
 const int WORLD_FLAG_SHADOW = ${WORLD_FLAG_SHADOW};
 const int WORLD_FLAG_PALETTED = ${WORLD_FLAG_PALETTED};
@@ -308,7 +316,7 @@ void main(void) {
     // xBR's window, or one 2x2 at the sample point for sharp and for a paletted element with
     // magnification off for its page size, else four 2x2 spread over the minified footprint. Only
     // the taps a path blends are gathered.
-    bool xbr = magnified && WORLD_MAGNIFY > 2.5;
+    bool xbr = magnified && (WORLD_MAGNIFY == MAGNIFY_XBR || (WORLD_MAGNIFY == MAGNIFY_PRESCALED && paletted));
     bool sharp = magnified && WORLD_MAGNIFY > 1.5 && !xbr;
     vec2 p0 = (vUV - footprint) * texSize;
     vec2 p1 = (vUV + vec2(footprint.x, -footprint.y)) * texSize;

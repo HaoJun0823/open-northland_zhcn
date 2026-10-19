@@ -1,14 +1,20 @@
 import { Texture, TextureSource } from 'pixi.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  hasPrescaledPages,
   isMagnifiedTexture,
   isShadowTexture,
   markMagnifiedTexture,
   markPixelArtSource,
   markShadowTexture,
+  PRESCALED_SCALERS,
   pixelArtMagnifyMode,
+  prescaledPageOf,
+  prescaledScalerOf,
   setPixelArtMagnification,
+  setPrescaledPage,
   setWorldShadowStyle,
+  WORLD_MAGNIFY_MODES,
   worldShadowStyle,
 } from '../src/gpu/pixel-art-registry.js';
 import { DEFAULT_SHADOW_STYLE } from '../src/gpu/shadow-style.js';
@@ -50,6 +56,30 @@ describe('pixel-art registry', () => {
     expect(pixelArtMagnifyMode()).toBe(1);
     setPixelArtMagnification('off');
     expect(pixelArtMagnifyMode()).toBe(0);
+  });
+
+  it('compiles every prescaled scaler into one world mode, which only the prescaler tells apart', () => {
+    for (const scaler of PRESCALED_SCALERS) {
+      setPixelArtMagnification(scaler);
+      expect(pixelArtMagnifyMode()).toBe(WORLD_MAGNIFY_MODES.prescaled);
+      expect(prescaledScalerOf(scaler)).toBe(scaler);
+    }
+    expect(prescaledScalerOf('xbr')).toBeNull();
+  });
+
+  it('lends a page its prescaled twin until the twin is withdrawn', () => {
+    const page = new TextureSource({ width: 8, height: 8 });
+    const twin = new TextureSource({ width: 16, height: 16 });
+    expect(hasPrescaledPages()).toBe(false);
+    setPrescaledPage(page, twin);
+    setPrescaledPage(page, twin); // a repeat registers one twin, not two
+    expect(prescaledPageOf(page)).toBe(twin);
+    expect(hasPrescaledPages()).toBe(true);
+    setPrescaledPage(page, null);
+    expect(prescaledPageOf(page)).toBeUndefined();
+    expect(hasPrescaledPages()).toBe(false);
+    page.destroy();
+    twin.destroy();
   });
 
   it('shades only marked textures, and only while a shadow style is set', () => {

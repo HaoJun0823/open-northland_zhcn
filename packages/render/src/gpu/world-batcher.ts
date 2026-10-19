@@ -23,10 +23,12 @@ import {
 } from 'pixi.js';
 import { surfaceOf } from './blood-surface.js';
 import {
+  hasPrescaledPages,
   isMagnifiedTexture,
   isShadowTexture,
   palettedLutOf,
   pixelArtMagnifyMode,
+  prescaledPageOf,
   worldShadowStyle,
 } from './pixel-art-registry.js';
 import { glProgramFor } from './program-source.js';
@@ -98,11 +100,18 @@ export function routeWorldBatches(renderer: Renderer): void {
 
 const lutBoundPipes = new WeakSet<object>();
 
+/** The pages a batch listed where their prescaled twins stood in for one draw, by slot. */
+const listedPages: (TextureSource | undefined)[] = [];
+/** Every world batch program's shader: a draw through one samples pages a twin may stand in for, whoever
+ *  built the draw (the world batcher, or the still mesh's retained draws). */
+const worldBatchShaders = new WeakSet<Shader>();
+
 /**
  * A paletted world batch lists its LUT in every slot between its pages and the LUT's own, so the list has
  * no holes; no element samples those slots, so its draw binds only the pages and the LUT, and the slots a
  * neighbouring batch's pages hold stay bound. Any batcher that names its batches' LUT binding draws this
- * way, the still mesh's bands among them. Idempotent per renderer.
+ * way, the still mesh's bands among them. A draw through a world batch program binds each listed page's
+ * prescaled twin in the page's place, whichever batcher built it. Idempotent per renderer.
  *
  * Undocumented Pixi behaviour, verified on pixi.js 8.21, re-verify on a bump: the WebGL batch adaptor
  * binds every slot below `batch.textures.count` before it draws and reads the list nowhere else.
@@ -117,20 +126,48 @@ export function bindWorldBatchPagesAndLut(renderer: Renderer): void {
   pipe.execute = (batch: Batch) => {
     const batcher: unknown = batch.batcher;
     const binding = listsLut(batcher) ? batcher.lutBinding(batch) : null;
-    if (binding === null) {
+    const shader = batch.batcher.shader;
+    const twins = shader !== undefined && worldBatchShaders.has(shader);
+    if (binding === null && !twins) {
       execute(batch);
       return;
     }
     const textures = batch.textures;
     const listed = textures.count;
-    renderer.texture.bind(binding.lut, binding.slot);
-    textures.count = binding.pages;
+    const swaps = twins && hasPrescaledPages() ? swapInPrescaledPages(textures.textures, listed) : 0;
+    if (binding !== null) {
+      renderer.texture.bind(binding.lut, binding.slot);
+      textures.count = binding.pages;
+    }
     try {
       execute(batch);
     } finally {
       textures.count = listed;
+      if (swaps > 0) restoreListedPages(textures.textures, listed);
     }
   };
+}
+
+/** Puts each listed page's prescaled twin in its slot, keeping the page in {@link listedPages}; how many. */
+function swapInPrescaledPages(slots: TextureSource[], count: number): number {
+  let swaps = 0;
+  for (let slot = 0; slot < count; slot++) {
+    const page = slots[slot];
+    const twin = page === undefined ? undefined : prescaledPageOf(page);
+    listedPages[slot] = twin === undefined ? undefined : page;
+    if (twin === undefined) continue;
+    slots[slot] = twin;
+    swaps++;
+  }
+  return swaps;
+}
+
+function restoreListedPages(slots: TextureSource[], count: number): void {
+  for (let slot = 0; slot < count; slot++) {
+    const page = listedPages[slot];
+    if (page !== undefined) slots[slot] = page;
+    listedPages[slot] = undefined;
+  }
 }
 
 /** Vertex layout: Pixi's six (x, y, u, v, colour, textureIdAndRound) + element flags + frame UV box. */
@@ -272,6 +309,7 @@ function defineWorldBatcher(): WorldBatcherClass {
         glProgram: glProgramFor(worldBatchProgramSource(maxTextures, mode, shadow)),
         resources: { batchSamplers: getBatchSamplersUniformGroup(maxTextures) },
       });
+      worldBatchShaders.add(shader);
       shaders.set(key, shader);
     }
     lastShader = {

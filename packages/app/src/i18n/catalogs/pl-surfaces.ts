@@ -220,8 +220,9 @@ export const plSurfaces = {
       pixelArtFilterSoft: 'Miękki',
       pixelArtFilterSharp: 'Ostry',
       pixelArtFilterXbr: 'xBR',
+      pixelArtFilterXbrz: 'xBRZ',
       pixelArtFilterTip:
-        'Sposób powiększania oryginalnej grafiki pikselowej. xBR prowadzi skośne krawędzie jako gładkie linie, Ostry zostawia całe piksele i wygładza tylko ich granice, Miękki rozmywa obraz. Każdy filtr usuwa też skoki kamery i postaci o cały piksel, dokładniej filtruje teren i poprawia detal budynków przy oddaleniu. Wyłączony rysuje grafikę bez filtra, w pełnych pikselach.',
+        'Sposób powiększania oryginalnej grafiki pikselowej. xBR prowadzi skośne krawędzie jako gładkie linie, xBRZ raz przerysowuje grafikę w podwójnej rozdzielczości i pokazuje ją ostro, a postacie zostają przy xBR, Ostry zostawia całe piksele i wygładza tylko ich granice, Miękki rozmywa obraz. Każdy filtr usuwa też skoki kamery i postaci o cały piksel, dokładniej filtruje teren i poprawia detal budynków przy oddaleniu. Wyłączony rysuje grafikę bez filtra, w pełnych pikselach.',
       softShadows: 'Ulepszone cienie',
       softShadowsTip:
         'Pogłębia i zmiękcza cienie budynków, drzew i dekoracji. Osadnicy i zwierzęta rzucają cień własnej sylwetki, pochylony zgodnie ze światłem budynków. Po wyłączeniu zostają cienie oryginału.',

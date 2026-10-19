@@ -1,19 +1,43 @@
 import type { Texture, TextureSource } from 'pixi.js';
 import type { ShadowStyle } from './shadow-style.js';
 
-/** How original pixel art magnifies under enhanced sampling; `bilinear` is the sampler's own filter. */
-export const PIXEL_ART_SCALERS = ['bilinear', 'sharp', 'xbr'] as const;
+/**
+ * How original pixel art magnifies under enhanced sampling; `bilinear` is the sampler's own filter. The
+ * shader scalers run per fragment at any zoom. A prescaled scaler redraws every plain atlas page at
+ * twice its size once, on the GPU, and the world batch samples that page through the sharp path; a
+ * paletted character keeps xBR there, since an index image cannot be rescaled.
+ */
+export const SHADER_SCALERS = ['bilinear', 'sharp', 'xbr'] as const;
+export const PRESCALED_SCALERS = ['xbrz'] as const;
+export const PIXEL_ART_SCALERS = [...SHADER_SCALERS, ...PRESCALED_SCALERS] as const;
 export type PixelArtScaler = (typeof PIXEL_ART_SCALERS)[number];
+export type PrescaledScaler = (typeof PRESCALED_SCALERS)[number];
 export const DEFAULT_PIXEL_ART_SCALER: PixelArtScaler = 'xbr';
 
 /** A stored scaler name; `null` for anything else. */
 export function parsePixelArtScaler(raw: unknown): PixelArtScaler | null {
   return PIXEL_ART_SCALERS.find((scaler) => scaler === raw) ?? null;
 }
+
+/** The page prescaler `scaler` runs, or `null` for a shader scaler. */
+export function prescaledScalerOf(scaler: PixelArtScaler): PrescaledScaler | null {
+  return PRESCALED_SCALERS.find((prescaled) => prescaled === scaler) ?? null;
+}
+
 /** `off` is enhanced sampling disabled: world sprites sample exactly as Pixi's default batcher. */
 export type WorldMagnification = PixelArtScaler | 'off';
-export const WORLD_MAGNIFICATIONS: readonly WorldMagnification[] = ['off', ...PIXEL_ART_SCALERS];
-const MAGNIFY_MODES: Readonly<Record<WorldMagnification, number>> = { off: 0, bilinear: 1, sharp: 2, xbr: 3 };
+
+/** The world batch program's compile-time modes. Every prescaled scaler shares one: the program reads
+ *  whichever page it is handed, and only the prescaler differs. */
+export const WORLD_MAGNIFY_MODES = { off: 0, bilinear: 1, sharp: 2, xbr: 3, prescaled: 4 } as const;
+export type WorldMagnifyModeName = keyof typeof WORLD_MAGNIFY_MODES;
+const MAGNIFY_MODES: Readonly<Record<WorldMagnification, number>> = {
+  off: WORLD_MAGNIFY_MODES.off,
+  bilinear: WORLD_MAGNIFY_MODES.bilinear,
+  sharp: WORLD_MAGNIFY_MODES.sharp,
+  xbr: WORLD_MAGNIFY_MODES.xbr,
+  xbrz: WORLD_MAGNIFY_MODES.prescaled,
+};
 
 /**
  * Atlas pages loaded as authored pixel art, and the textures the world's caches mint from them. A
@@ -55,6 +79,29 @@ export function pixelArtMagnifyMode(): number {
 /** The compile-time mode number the world batch shader takes for `mode`. */
 export function worldMagnifyModeNumber(mode: WorldMagnification): number {
   return MAGNIFY_MODES[mode];
+}
+
+/**
+ * A page's prescaled twin, which the world batch binds in its place: the same layout at twice the
+ * texels, so every frame's UVs still hold and only the texel size the shader reads changes.
+ */
+const prescaledPages = new WeakMap<TextureSource, TextureSource>();
+/** Twins registered now, so a batch skips the lookup while none exist. */
+let prescaledPageCount = 0;
+
+export function setPrescaledPage(page: TextureSource, prescaled: TextureSource | null): void {
+  const had = prescaledPages.has(page);
+  if (prescaled === null) prescaledPages.delete(page);
+  else prescaledPages.set(page, prescaled);
+  prescaledPageCount += (prescaled === null ? 0 : 1) - (had ? 1 : 0);
+}
+
+export function hasPrescaledPages(): boolean {
+  return prescaledPageCount > 0;
+}
+
+export function prescaledPageOf(page: TextureSource): TextureSource | undefined {
+  return prescaledPages.get(page);
 }
 
 /**

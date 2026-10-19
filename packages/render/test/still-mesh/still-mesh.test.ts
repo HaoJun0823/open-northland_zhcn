@@ -45,8 +45,9 @@ interface Recorded {
   readonly sprites?: readonly Container[];
 }
 
-/** A Pixi batch as the fake batch pipe records it: the sprites, in packing order. */
-function fakeRenderer(uploads: { count: number }): Renderer {
+/** A Pixi batch as the fake batch pipe records it: the sprites, in packing order. Sprites batched with a
+ *  record naming another texture than their own land in `stale`. */
+function fakeRenderer(uploads: { count: number }, stale: Container[]): Renderer {
   let pending: Container[] = [];
   const fakeBatcher = { updateElement: () => {}, checkAndUpdateTexture: () => true };
   const flush = (instructionSet: InstructionSet): void => {
@@ -71,7 +72,9 @@ function fakeRenderer(uploads: { count: number }): Renderer {
         },
         addToBatch: (element: BatchableElement & { renderable: Container }) => {
           element._batcher = fakeBatcher as never;
-          pending.push(element.renderable);
+          const renderable = element.renderable;
+          if (renderable instanceof Sprite && element.texture !== renderable.texture) stale.push(renderable);
+          pending.push(renderable);
         },
         break: flush,
         buildEnd: flush,
@@ -111,6 +114,8 @@ interface Harness {
   meshDraws(): number;
   /** The buffer uploads of the last frame. */
   uploads(): number;
+  /** Sprites Pixi batched from an out-of-date record so far. */
+  readonly stale: readonly Container[];
 }
 
 const harnesses: Harness[] = [];
@@ -129,7 +134,8 @@ interface MeshInternals {
 /** A harness meshing every run whatever it saves, or at the given payoff. */
 function harness(runPayoff = 0): Harness {
   const uploads = { count: 0 };
-  const renderer = fakeRenderer(uploads);
+  const stale: Container[] = [];
+  const renderer = fakeRenderer(uploads, stale);
   const system = new RenderGroupSystem(renderer) as unknown as {
     _updateRenderGroups(group: Container['renderGroup']): void;
   };
@@ -145,6 +151,7 @@ function harness(runPayoff = 0): Harness {
     held,
     meshDraws: () => draws,
     uploads: () => uploads.count,
+    stale,
     frame() {
       uploads.count = 0;
       system._updateRenderGroups(layer.renderGroup);
@@ -300,6 +307,8 @@ describe('StillSpriteMesh', () => {
     h.frame();
     (tree.children[1] as Sprite).texture = textureOn(MAX_BATCH_TEXTURES + 2);
     expect(h.frame()).toEqual(painterOrder(h.layer));
+    // Pixi batches the sprite with its new frame, not the one its meshed record last drew.
+    expect(h.stale).toEqual([]);
   });
 
   it('applies several deltas between two frames without dropping or doubling a sprite', () => {

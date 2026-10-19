@@ -610,14 +610,16 @@ export class StillSpriteMesh implements StillBandCollector {
     const settled = !moved && member.band === state && member.tableEpoch === state.tableEpoch;
     for (const quad of member.quads) {
       const sprite = quad.sprite;
-      // Pixi clears this as it collects a view, so the sprite's next change notifies the group again.
-      if (sprite.didViewUpdate) sprite.didViewUpdate = false;
       const current =
         quad.containerTick === sprite._didContainerChangeTick && quad.viewTick === sprite._didViewChangeTick;
-      if (settled && current) continue;
-      const id = state.pageSlot(sprite.texture.source);
-      if (id === null) return this.reject(state, member);
-      if (!settled || !current || quad.textureId !== id) this.pack(state, quad, id);
+      if (!(settled && current)) {
+        const id = state.pageSlot(sprite.texture.source);
+        // Still flagged, so Pixi's collect refreshes the sprite's record from its new view.
+        if (id === null) return this.reject(state, member);
+        this.pack(state, quad, id);
+      }
+      // Pixi clears this as it collects a view, so the sprite's next change notifies the group again.
+      if (sprite.didViewUpdate) sprite.didViewUpdate = false;
     }
     member.band = state;
     member.build = state.build;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PIXEL_ART_MAGNIFY_GLSL } from '../src/gpu/pixel-art-magnify.js';
 import { shaderCatalog } from '../src/gpu/shader-catalog.js';
-import { fragmentCost } from './support/glsl-cost.js';
+import { expandedSource, fragmentCost, functionDefinitions } from './support/glsl-cost.js';
 
 /**
  * Texture operations a fragment shader may hold once every function is inlined. The catalogue's
@@ -29,10 +29,12 @@ const PAGED_PROGRAM_CALL_BUDGETS: Readonly<Record<string, number>> = {
 const REGRESSION_SLOTS = 16;
 
 /** A fragment shader that picks its page through an if-chain on a varying: the world batch's
- *  `uTextures[]`, or a paged mesh's `uPage<n>`, handed to its functions as `uTexture`. */
-const SAMPLER_CHAIN = /\buTextures\[|\buniform\s+sampler2D\s+uPage0\b/;
-/** A read of a chain's page with implicit derivatives. */
-const IMPLICIT_PAGE_SAMPLE = /\btexture(?:Offset|Proj|ProjOffset)?\s*\(\s*(?:uTextures\[|uPage\d|uTexture\b)/;
+ *  `uTextures[]`, or a paged mesh's `uPage<n>`, which its functions take as a sampler parameter. */
+const SAMPLER_CHAIN = /\buTextures\s*\[|\buniform\s+sampler2D\s+uPage0\b/;
+/** GLSL ES 3.00 reads whose level comes from implicit derivatives, with the sampler they read. */
+const IMPLICIT_LOD_READ =
+  /\b(?:texture|textureOffset|textureProj|textureProjOffset)\s*\(\s*([A-Za-z_]\w*)\s*(\[)?/g;
+const DERIVATIVE = /\b(?:dFdx|dFdy|fwidth)\s*\(/;
 
 const catalogue = shaderCatalog();
 
@@ -82,15 +84,64 @@ describe('fragment texture-operation budget', () => {
 });
 
 describe('sampler chains', () => {
-  // Direct3D's compiler may hoist an implicit-derivative sample out of the chain's branches, which
-  // fetches every page for each fragment.
-  it('read a page only with explicit derivatives, an explicit level or texelFetch', () => {
-    const implicit = catalogue
-      .filter((entry) => SAMPLER_CHAIN.test(entry.fragment) && IMPLICIT_PAGE_SAMPLE.test(entry.fragment))
-      .map((entry) => entry.name);
-    expect(implicit).toEqual([]);
+  // Direct3D's compiler may move a gradient operation out of the chain's branches, and an
+  // implicit-derivative read with it, which fetches every page for each fragment.
+  it('read a page only with derivatives taken before the chain, an explicit level or texelFetch', () => {
+    const violations = catalogue.flatMap((entry) =>
+      chainViolations(entry.fragment).map((violation) => `${entry.name}: ${violation}`),
+    );
+    expect(violations).toEqual([]);
+  });
+
+  it('catches a read through a macro or a renamed parameter, and a derivative inside a page function', () => {
+    const fetch =
+      '#define FETCH(page, uv) texture(page, uv)\nvec4 shade(sampler2D page) { return FETCH(page, vUV); }';
+    const derivative = 'vec4 shade(sampler2D page) { return textureGrad(page, vUV, dFdx(vUV), dFdy(vUV)); }';
+    const clean = 'vec4 shade(sampler2D page, vec2 dx, vec2 dy) { return textureGrad(page, vUV, dx, dy); }';
+    expect(chainViolations(pagedShader(fetch, 'shade(uPage$)'))).toEqual(['implicit read of page']);
+    expect(chainViolations(pagedShader(derivative, 'shade(uPage$)'))).toEqual(['derivative in shade']);
+    expect(chainViolations(pagedShader(clean, 'shade(uPage$, dFdx(vUV), dFdy(vUV))'))).toEqual([]);
   });
 });
+
+/** Implicit-derivative reads of a chain's page, directly or through a function's sampler parameter,
+ *  and derivatives taken inside a function that takes a page, in the source as compiled. */
+function chainViolations(glsl: string): string[] {
+  const code = expandedSource(glsl);
+  if (!SAMPLER_CHAIN.test(code)) return [];
+  const functions = functionDefinitions(code);
+  const pageFunctions = functions.filter((definition) => /\bsampler2D\b/.test(definition.parameters));
+  const parameters = new Set(
+    pageFunctions.flatMap((definition) =>
+      Array.from(definition.parameters.matchAll(/\bsampler2D\s+(\w+)/g), (match) => match[1]),
+    ),
+  );
+  const reads = Array.from(code.matchAll(IMPLICIT_LOD_READ), ([, name = '', indexed]) =>
+    (name === 'uTextures' && indexed !== undefined) || /^uPage\d+$/.test(name) || parameters.has(name)
+      ? [`implicit read of ${name}`]
+      : [],
+  ).flat();
+  const derivatives = pageFunctions
+    .filter((definition) => DERIVATIVE.test(definition.body))
+    .map((definition) => `derivative in ${definition.name}`);
+  return [...new Set([...reads, ...derivatives])];
+}
+
+/** A two-page fragment shader whose chain runs `call` (with `$` for the page index) on each page. */
+function pagedShader(declarations: string, call: string): string {
+  return `#version 300 es
+precision highp float;
+uniform sampler2D uPage0;
+uniform sampler2D uPage1;
+flat in float vPage;
+in vec2 vUV;
+out vec4 finalColor;
+${declarations}
+void main(void) {
+  if (vPage < 0.5) { finalColor = ${call.replace('$', '0')}; }
+  else { finalColor = ${call.replace('$', '1')}; }
+}`;
+}
 
 /**
  * The shape that froze the Direct3D compile: main picks the page through an if-chain and every branch

@@ -36,10 +36,15 @@ export interface FragmentCost {
 }
 
 export function fragmentCost(glsl: string, entry = 'main'): FragmentCost {
-  const code = preprocess(stripComments(glsl));
+  const code = expandedSource(glsl);
   const estimator = new InlinedCostEstimator(splitFunctions(code), intConstants(code));
   const cost = estimator.functionCost(entry);
   return { ...cost, unknownLoopBounds: [...new Set(cost.unknownLoopBounds)] };
+}
+
+/** The source a compiler reads: comments stripped and every `#define` expanded. */
+export function expandedSource(glsl: string): string {
+  return preprocess(stripComments(glsl));
 }
 
 /** Comments become whitespace that keeps their line breaks, so directives stay on their own lines. */
@@ -168,21 +173,36 @@ function splitTopLevel(text: string, separator: string, braces = false): string[
 /** Bodies of the top-level function definitions, by name; an overloaded name keeps every body. */
 function splitFunctions(code: string): ReadonlyMap<string, readonly string[]> {
   const functions = new Map<string, string[]>();
+  for (const { name, body } of functionDefinitions(code)) {
+    const bodies = functions.get(name) ?? [];
+    bodies.push(body);
+    functions.set(name, bodies);
+  }
+  return functions;
+}
+
+export interface FunctionDefinition {
+  readonly name: string;
+  /** The text between the parameter list's parentheses. */
+  readonly parameters: string;
+  readonly body: string;
+}
+
+/** The top-level function definitions of expanded source, in order. */
+export function functionDefinitions(code: string): FunctionDefinition[] {
+  const definitions: FunctionDefinition[] = [];
   let declarationStart = 0;
   for (let i = 0; i < code.length; i++) {
     if (code[i] === ';') declarationStart = i + 1;
     if (code[i] !== '{') continue;
     const close = matchingClose(code, i, '{', '}');
-    const header = /([A-Za-z_]\w*)\s*\([^()]*\)\s*$/.exec(code.slice(declarationStart, i));
-    if (header?.[1] !== undefined) {
-      const bodies = functions.get(header[1]) ?? [];
-      bodies.push(code.slice(i + 1, close));
-      functions.set(header[1], bodies);
-    }
+    const header = /([A-Za-z_]\w*)\s*\(([^()]*)\)\s*$/.exec(code.slice(declarationStart, i));
+    if (header?.[1] !== undefined)
+      definitions.push({ name: header[1], parameters: header[2] ?? '', body: code.slice(i + 1, close) });
     i = close;
     declarationStart = close + 1;
   }
-  return functions;
+  return definitions;
 }
 
 /** `const int NAME = <literal>;` at any scope; a name declared twice keeps its last value. */

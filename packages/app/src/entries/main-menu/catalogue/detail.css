@@ -151,7 +151,6 @@
 .catalogue-detail__description .catalogue-desc__heading {
   color: var(--bronze-hi);
   font: 700 calc(var(--u) * 15) / 1.3 var(--font-title);
-  font-variant: small-caps;
 }
 
 .catalogue-detail__description > .catalogue-desc__heading:first-child {

@@ -53,14 +53,23 @@ const reviewedBinaryAssets = new Set([
   'packages/app/public/fonts/alegreyasans-cyrillic-700.woff2',
   'packages/app/public/fonts/tinos-latin-400.woff2',
   'packages/app/public/fonts/tinos-latinext-400.woff2',
-  // The menu's typefaces: Cinzel and Alegreya Sans, subset from Google Fonts releases; SIL OFL
-  // texts sit beside them as LICENSE-*.txt.
+  // The app's typefaces: Cinzel, Alegreya Sans and Alegreya Sans SC, subset from Google Fonts
+  // releases; SIL OFL texts sit beside them as LICENSE-*.txt.
   'packages/app/public/fonts/alegreyasans-latin-400.woff2',
   'packages/app/public/fonts/alegreyasans-latin-500.woff2',
   'packages/app/public/fonts/alegreyasans-latin-700.woff2',
   'packages/app/public/fonts/alegreyasans-latinext-400.woff2',
   'packages/app/public/fonts/alegreyasans-latinext-500.woff2',
   'packages/app/public/fonts/alegreyasans-latinext-700.woff2',
+  'packages/app/public/fonts/alegreyasanssc-latin-400.woff2',
+  'packages/app/public/fonts/alegreyasanssc-latin-500.woff2',
+  'packages/app/public/fonts/alegreyasanssc-latin-700.woff2',
+  'packages/app/public/fonts/alegreyasanssc-latinext-400.woff2',
+  'packages/app/public/fonts/alegreyasanssc-latinext-500.woff2',
+  'packages/app/public/fonts/alegreyasanssc-latinext-700.woff2',
+  'packages/app/public/fonts/alegreyasanssc-cyrillic-400.woff2',
+  'packages/app/public/fonts/alegreyasanssc-cyrillic-500.woff2',
+  'packages/app/public/fonts/alegreyasanssc-cyrillic-700.woff2',
   'packages/app/public/fonts/cinzel-latin.woff2',
   'packages/app/public/fonts/cinzel-latinext.woff2',
   // Original OpenNorthland branding (commissioned art, no original-game material). The masters live

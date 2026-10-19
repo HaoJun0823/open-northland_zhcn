@@ -507,8 +507,7 @@ body.on-drag-scroll * {
   align-items: center;
   gap: 8px;
   margin: 0 0 9px;
-  font: 700 12px var(--font-body);
-  font-variant: small-caps;
+  font: 700 12px var(--font-caps);
   letter-spacing: 0.08em;
   color: var(--ink-muted);
 }
@@ -887,8 +886,7 @@ body.on-drag-scroll * {
   align-items: center;
   gap: 8px;
   margin: 14px 0 6px;
-  font: 700 12px var(--font-body);
-  font-variant: small-caps;
+  font: 700 12px var(--font-caps);
   letter-spacing: 0.1em;
   color: var(--bronze);
 }
@@ -2218,8 +2216,7 @@ body.on-drag-scroll * {
   margin: 0 0 8px;
   padding-bottom: 5px;
   border-bottom: 1px solid #8d754966;
-  font: 700 13px var(--font-body);
-  font-variant: small-caps;
+  font: 700 13px var(--font-caps);
   letter-spacing: 0.06em;
 }
 .on-hud .on-tip__row {
@@ -4123,8 +4120,8 @@ body.on-drag-scroll * {
   background: none;
   color: var(--bronze);
   font: inherit;
+  font-family: var(--font-body);
   font-size: 12px;
-  font-variant: normal;
   letter-spacing: 0;
   text-decoration: underline dotted;
   text-underline-offset: 3px;
@@ -4225,7 +4222,6 @@ body.on-drag-scroll * {
 /* A count or a plain word at the section rule's right end. */
 .on-hud .on-section__count {
   font: 500 12px var(--font-body);
-  font-variant: normal;
   letter-spacing: 0;
   color: var(--muted);
 }
@@ -4241,7 +4237,6 @@ body.on-drag-scroll * {
   border: 1px solid #efbe7066;
   border-radius: 9px;
   font: 500 11px / 16px var(--font-body);
-  font-variant: normal;
   letter-spacing: 0;
   color: var(--warning);
 }
@@ -4777,8 +4772,7 @@ body.on-drag-scroll * {
   align-items: center;
   justify-content: space-between;
   margin: 0 0 6px 2px;
-  font: 700 12px var(--font-body);
-  font-variant: small-caps;
+  font: 700 12px var(--font-caps);
   letter-spacing: 0.1em;
   color: var(--bronze);
 }
@@ -5733,7 +5727,7 @@ body.on-drag-scroll * {
   right: 0;
   bottom: 18px;
   text-align: center;
-  font-variant: small-caps;
+  font-family: var(--font-caps);
   letter-spacing: 0.1em;
 }
 .on-hud .on-book__foot {
@@ -5753,7 +5747,7 @@ body.on-drag-scroll * {
   white-space: nowrap;
 }
 .on-hud .on-book__foot-chapter {
-  font-variant: small-caps;
+  font-family: var(--font-caps);
   letter-spacing: 0.08em;
   font-weight: 700;
 }
@@ -6835,7 +6829,6 @@ body.on-drag-scroll * {
 .on-hud .on-asst-audience-head {
   margin-right: 4px;
   font: 600 10px var(--font-body);
-  font-variant: normal;
   letter-spacing: 0;
   text-align: center;
   color: var(--muted);
@@ -9128,8 +9121,7 @@ body.on-drag-scroll * {
 }
 .on-hud .on-admin__group-title {
   margin: 10px 0 5px;
-  font: 700 12px var(--font-body);
-  font-variant: small-caps;
+  font: 700 12px var(--font-caps);
   letter-spacing: 0.1em;
   color: var(--bronze);
 }

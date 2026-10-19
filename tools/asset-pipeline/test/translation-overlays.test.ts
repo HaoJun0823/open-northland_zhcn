@@ -160,7 +160,7 @@ describe('base maps stage, an edit of a community map', () => {
       data: temp.game,
       corrections,
       overlays: overlays({
-        maps: new Map([[digestOf(dat), new Map<Language, MapOverlay>([['pol', edit]])]]),
+        maps: new Map([[digestOf(dat), new Map<Language, readonly MapOverlay[]>([['pol', [edit]]])]]),
       }),
     };
 

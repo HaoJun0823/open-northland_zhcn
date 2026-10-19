@@ -221,11 +221,16 @@ export const chtSurfaces = {
       worldHeading: '遊戲世界',
       pixelArtFilter: '原版美術濾鏡',
       pixelArtFilterOff: '關閉',
-      pixelArtFilterSoft: '柔和',
-      pixelArtFilterSharp: '銳利',
       pixelArtFilterXbr: 'xBR',
-      pixelArtFilterTip:
-        '原版像素美術的放大方式。xBR 會把斜向邊緣畫成平滑的線條，銳利會保留完整像素並只平滑其邊界，柔和則會模糊畫面。每種濾鏡也會消除鏡頭與角色以整個像素跳動的情形，更細緻地過濾地形，並改善縮小時的建築細節。關閉時會以完整像素繪製未經濾鏡處理的美術。',
+      pixelArtFilterXbrz: 'xBRZ',
+      pixelArtFilterSuperXbr: 'Super-xBR',
+      pixelArtFilterMmpx: 'MMPX',
+      pixelArtFilterTip: '遊戲在放大時如何平滑原版美術。',
+      pixelArtFilterOffTip: '不做平滑，逐像素呈現，與原版一致。',
+      pixelArtFilterXbrTip: '平滑斜向邊緣的鋸齒。效果柔和自然。',
+      pixelArtFilterXbrzTip: '線條銳利乾淨，形狀清晰。',
+      pixelArtFilterSuperXbrTip: '比 xBRZ 更柔和，邊緣更平緩。',
+      pixelArtFilterMmpxTip: '平滑形狀，但保留原版的色彩與像素質感。',
       softShadows: '強化陰影',
       softShadowsTip:
         '加深並柔化建築、樹木與裝飾物的陰影。居民與動物會投下自身輪廓的陰影，並依照建築所用的光線傾斜。關閉時保留原版陰影。',
@@ -436,6 +441,7 @@ export const chtSurfaces = {
       culturesNationDetail: 'Cultures 玩家社群。',
       license: '以 GNU AGPL 3.0 或更新版本授權的自由軟體，不提供任何擔保。',
       licenseLink: '授權條款',
+      thirdPartyLink: '第三方聲明',
       disclaimer:
         'Cultures 及相關名稱屬於其各自的擁有者。本專案為非商業專案，與 Funatics Software 或該系列的任何其他權利人均無關聯。',
     },

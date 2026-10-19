@@ -221,11 +221,16 @@ export const chsSurfaces = {
       worldHeading: '游戏世界',
       pixelArtFilter: '原版美术滤镜',
       pixelArtFilterOff: '关闭',
-      pixelArtFilterSoft: '柔和',
-      pixelArtFilterSharp: '锐利',
       pixelArtFilterXbr: 'xBR',
-      pixelArtFilterTip:
-        '原版像素美术的放大方式。“xBR”将斜边绘制为平滑线条，“锐利”保留完整像素、仅平滑像素之间的边界，“柔和”则使画面模糊。每种滤镜还会消除镜头和角色以整像素为单位的跳动，更细致地过滤地形，并在缩小视图时改善建筑细节。“关闭”则不加滤镜，按整像素绘制。',
+      pixelArtFilterXbrz: 'xBRZ',
+      pixelArtFilterSuperXbr: 'Super-xBR',
+      pixelArtFilterMmpx: 'MMPX',
+      pixelArtFilterTip: '游戏在放大时如何平滑原版美术。',
+      pixelArtFilterOffTip: '不做平滑，像素对像素，与原版一致。',
+      pixelArtFilterXbrTip: '平滑斜向边缘的锯齿。效果柔和自然。',
+      pixelArtFilterXbrzTip: '线条锐利干净，形状清晰。',
+      pixelArtFilterSuperXbrTip: '比 xBRZ 更柔和，边缘更平缓。',
+      pixelArtFilterMmpxTip: '平滑形状，但保留原版的色彩和像素质感。',
       softShadows: '增强阴影',
       softShadowsTip:
         '加深并柔化建筑、树木和装饰物的阴影。居民和动物会投下自身轮廓的阴影，倾斜方向与建筑所用的光照一致。关闭则保留原版阴影。',
@@ -436,6 +441,7 @@ export const chsSurfaces = {
       culturesNationDetail: 'Cultures 玩家社区。',
       license: '自由软件，采用 GNU AGPL 3.0 或更高版本许可证，不提供任何担保。',
       licenseLink: '许可证',
+      thirdPartyLink: '第三方声明',
       disclaimer:
         'Cultures 及相关名称归其各自所有者所有。本项目为非商业项目，与 Funatics Software 或该系列的任何其他版权方均无关联。',
     },

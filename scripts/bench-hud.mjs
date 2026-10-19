@@ -45,6 +45,8 @@ const { seconds, output, viewport } = options;
 /** Panels settle, first figures paint and the hover card rises within this. */
 const WARM_MS = 3000;
 const FAILURE_SHOT_TIMEOUT_MS = 10000;
+/** Playwright's channel for the full Chromium build, whose headless mode renders on the GPU. */
+const HEADLESS_CHANNEL = 'chromium';
 /** The resting pointer sits this far above the window's bottom edge, on the bottom bar. */
 const POINTER_BAR_LIFT = 3;
 /** Every trace category the fold reads: the renderer's frame phases, the compositor and the GPU process. */
@@ -451,7 +453,12 @@ try {
   const previewUrl = new URL(`?${params}`, options.origin);
   progress('verifying development server and content');
   metadata.preview = await verifyDevServer(previewUrl);
-  browser = await openBenchBrowser({ headless: !options.headed });
+  // The full browser's headless mode keeps the GPU; Playwright's default headless shell draws WebGL in
+  // software at about one frame a second.
+  browser = await openBenchBrowser({
+    headless: !options.headed,
+    ...(options.headed ? {} : { channel: HEADLESS_CHANNEL }),
+  });
   const browserCdp = await browser.newBrowserCDPSession();
   page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
   await skipOriginalGameGate(page);

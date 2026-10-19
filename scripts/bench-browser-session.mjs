@@ -53,15 +53,21 @@ export async function unlockAudio(page) {
 }
 
 /**
- * Playwright's own Chromium, a headed one at `ON_BENCH_WINDOW_POSITION`, or with
+ * Playwright's own Chromium (`channel: 'chromium'` for the full build, whose headless mode renders
+ * WebGL on the GPU where the default headless shell draws it in software), a headed one at
+ * `ON_BENCH_WINDOW_POSITION`, or with
  * `ON_BENCH_CDP=<http://host:port>` a running Chromium reached over the DevTools protocol, such as
  * Windows Chrome driven from WSL. A connected browser keeps the flags and the window position it was
  * started with, so it needs `args` of its own; closing it closes only the pages opened here.
  */
-export function openBenchBrowser({ args = BENCH_BROWSER_ARGS, headless = false } = {}) {
+export function openBenchBrowser({ args = BENCH_BROWSER_ARGS, headless = false, channel } = {}) {
   const endpoint = process.env.ON_BENCH_CDP;
   if (endpoint) return chromium.connectOverCDP(endpoint);
-  return chromium.launch({ headless, args: headless ? args : [...args, ...WINDOW_POSITION_ARGS] });
+  return chromium.launch({
+    headless,
+    ...(channel === undefined ? {} : { channel }),
+    args: headless ? args : [...args, ...WINDOW_POSITION_ARGS],
+  });
 }
 
 /** What a report names as its browser: the version, and the DevTools endpoint when one was reached. */

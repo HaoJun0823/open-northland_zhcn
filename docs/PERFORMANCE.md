@@ -250,9 +250,9 @@ group numbers.
 `report.md` lists per rendered frame: layouts and style recalculations with their milliseconds, script
 and task time, DOM mutations, composited layers and their repaints, portrait insets and HUD nodes.
 `report.json` adds the mutations by HUD class and the layers by owner and compositing reason. Counts
-are robust to load; durations are not. The browser is headless unless `ON_BENCH_HUD_HEADED=1`: a
-headless page composites without presenting to a display, so compositor and frame-pacing readings
-need the headed run (with `ON_BENCH_WINDOW_POSITION`).
+are robust to load; durations are not. The browser is the full Chromium build headless, on the GPU at
+60 frames a second, unless `ON_BENCH_HUD_HEADED=1`: a headless page composites without presenting to a
+display, so compositor and frame-pacing readings need the headed run (with `ON_BENCH_WINDOW_POSITION`).
 
 | Variable | Effect |
 | --- | --- |

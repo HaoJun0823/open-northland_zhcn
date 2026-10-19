@@ -378,12 +378,17 @@ interface ClipRun {
 interface AnimatedBin extends Bounds {
   readonly runs: readonly AnimatedRun[];
   readonly clipRuns: readonly ClipRun[];
-  /** The tick the quads were last written for. Per bin, so a bin scrolling into view while the sim is
-   *  paused still catches up to the current tick's frame. */
+  /** The tick and the fog its CPU-written quads were last written for. Per bin, so a bin scrolling into
+   *  view while the sim is paused still catches up to the current tick's frame. */
   lastWrittenTick: number;
-  /** The fog epoch its GPU-played quads were last flagged for; NaN before the first. */
+  writtenFog: number;
+  /** The fog its GPU-played quads were last flagged for. */
   clipEpoch: number;
 }
+
+/** A bin's fog key while the view draws without fog; fog epochs count up from 0. A probe without an
+ *  epoch keys NaN, which matches nothing, so it writes every time. */
+const NO_FOG = Number.NEGATIVE_INFINITY;
 
 /** Rewrite quad `q` of an animated batch for `tick`; a pose without a frame collapses the quad. False
  *  when the quad already shows that pose, which leaves its buffers untouched. */
@@ -602,6 +607,7 @@ function binAnimated(animation: ChunkAnimation): AnimatedBin[] {
     runs: [...runs].map(([batch, quads]) => ({ batch, quads })),
     clipRuns: [...clipRuns].map(([batch, quads]) => ({ batch, quads, cells: cellsOf(batch, quads) })),
     lastWrittenTick: 0,
+    writtenFog: Number.NaN,
     clipEpoch: Number.NaN,
   }));
 }
@@ -648,9 +654,10 @@ export function buildDecorChunk(block: readonly MapObjectSprite[], style: DecorB
 }
 
 /**
- * Bring a visible chunk's animated quads in `vp` to `tick`, each bin once per tick. A quad on ground the
- * viewer does not watch shows its fixed-clock frame: a quad the CPU rewrites is written so, and one the
- * GPU plays is flagged so whenever the fog's answers change (`fogEpoch`; undefined asks every time).
+ * Bring a visible chunk's animated quads in `vp` to `tick`, each bin once per tick and fog answer. A
+ * quad on ground the viewer does not watch shows its fixed-clock frame: a quad the CPU rewrites is
+ * written so, and one the GPU plays is flagged so, whenever the fog's answers change (`fogEpoch`;
+ * undefined asks every time).
  * Quads outside `vp` keep their pose and flags until a frame shows them, so the work follows the
  * screen, not the chunk.
  */
@@ -661,10 +668,13 @@ export function animateDecorChunk(
   fogStateOfCell: ((cellX: number, cellY: number) => number) | undefined,
   fogEpoch?: number,
 ): void {
+  const fog = fogStateOfCell === undefined ? NO_FOG : (fogEpoch ?? Number.NaN);
   for (const bin of chunk.animatedBins) {
     if (!aabbIntersects(vp, bin)) continue;
-    if (bin.lastWrittenTick !== tick) {
+    // A fog change refreezes or thaws the CPU-written quads at once, as it does the GPU-played ones.
+    if (bin.lastWrittenTick !== tick || bin.writtenFog !== fog) {
       bin.lastWrittenTick = tick;
+      bin.writtenFog = fog;
       for (const { batch, quads } of bin.runs) {
         for (const q of quads) {
           const obj = batch.objects[q];
@@ -676,8 +686,8 @@ export function animateDecorChunk(
         }
       }
     }
-    if (fogStateOfCell === undefined || (fogEpoch !== undefined && bin.clipEpoch === fogEpoch)) continue;
-    bin.clipEpoch = fogEpoch ?? Number.NaN;
+    if (fogStateOfCell === undefined || bin.clipEpoch === fog) continue;
+    bin.clipEpoch = fog;
     for (const run of bin.clipRuns) flagWatched(run, fogStateOfCell);
   }
   for (const batch of chunk.animated) {

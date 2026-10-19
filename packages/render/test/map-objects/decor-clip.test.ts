@@ -7,7 +7,7 @@ import { MapObjectLayer, type MapObjectSprite } from '../../src/gpu/map-objects/
 import { objectFrameIndexAt } from '../../src/gpu/map-objects/map-object-sprite.js';
 import { TextureCache } from '../../src/gpu/texture-cache.js';
 import { useHeadlessShaderContext } from '../support/shader-context.js';
-import { drawnDecorQuad, FRAME_0, FRAME_1, WIDE } from './support.js';
+import { decorUVs as decorUVsOf, drawnDecorQuad, FRAME_0, FRAME_1, WIDE } from './support.js';
 
 /**
  * Animated decor of a paged mesh picks its frame on the GPU: the quads carry their clip, a table lists
@@ -159,5 +159,35 @@ describe('GPU-played decor', () => {
       expect(drawnDecorQuad(mesh, 0, tick)).toBeNull();
       expect(shownFrame(mesh, 1, tick)).toBe((tick + PHASE) % LOOP.length);
     }
+  });
+
+  it('refreezes CPU-written bodies and GPU-played shadows together when the fog changes while paused', () => {
+    const shadowPage = new TextureSource({ width: 64, height: 32 });
+    // No brightness: the body draws through a plain mesh, written on the CPU; its shadow plays on the GPU.
+    const plain = shadedLoop(0, {
+      brightness: undefined,
+      shadow: { source: shadowPage, frames: LOOP },
+    });
+    const layer = new MapObjectLayer(new Container(), new TextureCache());
+    layer.set([plain]);
+    const shadow = layer.decorShadowContainer.children[0]?.children[0];
+    if (!(shadow instanceof Mesh)) throw new Error('expected a decor shadow mesh');
+    const tick = 4;
+    const bodyFrame = (): number => {
+      const u0 = decorUVsOf(layer)[0] ?? Number.NaN;
+      return LOOP.findIndex((frame) => frame.x === u0 * PAGE.width);
+    };
+    const shadowFrame = (): number => {
+      const bounds = drawnDecorQuad(shadow, 0, tick, true)?.bounds[0];
+      return LOOP.findIndex((frame) => frame.x === bounds);
+    };
+    layer.update(WIDE, tick, () => FOG_STATE.VISIBLE, 1);
+    expect([bodyFrame(), shadowFrame()]).toEqual([
+      (tick + PHASE) % LOOP.length,
+      (tick + PHASE) % LOOP.length,
+    ]);
+    // The same tick, the cell no longer watched: both show the frame of tick 0 at once.
+    layer.update(WIDE, tick, () => FOG_STATE.EXPLORED, 2);
+    expect([bodyFrame(), shadowFrame()]).toEqual([PHASE % LOOP.length, PHASE % LOOP.length]);
   });
 });

@@ -14,12 +14,14 @@ GPU-bound render loop timed on the wall clock with the option on and off interle
 (`docs/PERFORMANCE.md`, GPU benchmark); the ×3 frame timer is too bimodal for a sub-millisecond option.
 
 - **Direct3D compile time of the paged meshes** (`gpu/shading.ts`, `gpu/map-objects/decor-shadow-shader.ts`,
-  `gpu/page-samplers.ts`). `pageChain` inlines a mesh's whole shading once per page slot (8):
-  `shaded-terrain` 192 and `decor-shadow` 304 inlined texture operations by the shader-budget estimator,
-  which compiled 7 to 9 s each on the GitHub runner's WARP device. The boot's warm-up links them off the
+  `gpu/page-samplers.ts`). The terrain and decor shading run once after `pageChain`; what it still
+  inlines once per page slot (8) is each mesh's sampling path: the terrain's bicubic and four-tap minify
+  taps (`shaded-terrain` 186 inlined texture operations by the shader-budget estimator) and the decor
+  shadow's whole shading with its soft blur (`decor-shadow` 304). Before that restructure the paged
+  meshes compiled 7 to 9 s each on the GitHub runner's WARP device; the boot's warm-up links them off the
   main thread, so the cost is first-start time. Fewer slots on Direct3D or one `sampler2DArray` for
-  same-sized pages would cut the chain; measure with `npm run test:shaders -- --angle=d3d11` before and
-  after.
+  same-sized pages would cut the chain. The Direct3D 11 compile time after the restructure is not
+  measured yet (`npm run test:shaders -- --angle=d3d11`, before and after).
 - **Grounded building overlays** (`gpu/ground-foot/`, `gpu/texture-cache.ts`). In the densest
   `magiczny_las` town at zoom 1 the shade and cover overlays add about 2.0 Mpx of quads over 11.7 Mpx of
   other world sprites and cost 0.20 ms of a 2.4 ms GPU-bound frame (the sunk bodies cost nothing
@@ -31,8 +33,10 @@ GPU-bound render loop timed on the wall clock with the option on and off interle
   binding and in `gpu/map-objects/tall-blocks.ts`.
 - **World batch page size per fragment** (`gpu/world-batch-shader.ts`). With any magnifier on,
   `textureSizeOf()` walks the sampler chain once per fragment, plain fragments included; the page size
-  could ride a vertex attribute. The program's prologue belongs with the magnifier work, so measure it
-  there (the paletted mesh's per-tap query is now one query per fragment).
+  could ride a vertex attribute. That prologue (the page size and the footprint derivatives), forced
+  into the `off` variant, cost 0.27 ms of its 1.9 ms GPU-bound frame (M2, ml6h densest town, 1920x1080,
+  zoom 1), against 1.5-1.6 ms between `off` and bilinear in all. It belongs with the magnifier work
+  (the paletted mesh's per-tap query is now one query per fragment).
 - **Four-tap minify at zoom 1 and below.** A minified fragment samples four clamped taps, which land
   on one point when the footprint is under a texel. At zoom 1 rounding sends some unscaled sprites to
   the xBR magnifier and others to the minifier, and which one can change with any rebuild of the shader.

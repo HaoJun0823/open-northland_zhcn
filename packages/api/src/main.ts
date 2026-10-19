@@ -30,6 +30,7 @@ try {
     store: new ConversionStore(config.dataDir, IR_VERSION),
     fetch,
     converter: new WorkerArchiveConverter(config.convertTimeoutMs, mapOverlays),
+    mapOverlays,
     concurrency: config.convertConcurrency,
     publish: (snapshot) => server?.publish(snapshot),
     log: logLine,

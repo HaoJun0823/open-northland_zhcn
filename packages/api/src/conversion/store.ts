@@ -18,7 +18,7 @@ const TEXT_SUFFIX = '.json';
 const TEMPORARY_SUFFIX = '.tmp';
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 const GENERATION = /^[a-f0-9-]{36}$/;
-const CONVERSION_STORE_VERSION = 1;
+const CONVERSION_STORE_VERSION = 2;
 const gzipAsync = promisify(gzip);
 
 /** A kept catalogue file: `archives/<id>/<sha256>.<ext>` and what it was downloaded for. */
@@ -45,6 +45,9 @@ export interface StoredConversion {
   readonly updatedAt: string;
   /** The SHA-256 of every sidecar by file name, the served `ETag`. */
   readonly files: Readonly<Record<string, string>>;
+  /** The `overlayFingerprints` of every converted map's raw `map.dat` SHA-256 at conversion; none
+   *  for a failed verdict. */
+  readonly overlays: Readonly<Record<string, string>>;
 }
 
 export type ConversionVerdict = Omit<StoredConversion, 'version' | 'generation' | 'files'>;
@@ -53,9 +56,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** `value` when it maps keys that pass `isKey` to SHA-256 hex digests, else null. */
+function hashRecord(value: unknown, isKey: (key: string) => boolean): Record<string, string> | null {
+  if (!isRecord(value)) return null;
+  const hashes: Record<string, string> = {};
+  for (const [key, hash] of Object.entries(value)) {
+    if (!isKey(key) || typeof hash !== 'string' || !SHA256_HEX.test(hash)) return null;
+    hashes[key] = hash;
+  }
+  return hashes;
+}
+
 function parseStored(value: unknown): StoredConversion | null {
   if (!isRecord(value)) return null;
-  const { version, generation, conversion, archiveSha256, updatedAt, files } = value;
+  const { version, generation, conversion, archiveSha256, updatedAt, files, overlays } = value;
   if (version !== CONVERSION_STORE_VERSION || typeof generation !== 'string' || !GENERATION.test(generation))
     return null;
   const parsed = CatalogConversion.safeParse(conversion);
@@ -63,13 +77,18 @@ function parseStored(value: unknown): StoredConversion | null {
   if (archiveSha256 !== null && (typeof archiveSha256 !== 'string' || !SHA256_HEX.test(archiveSha256))) {
     return null;
   }
-  if (typeof updatedAt !== 'string' || !isRecord(files)) return null;
-  const hashes: Record<string, string> = {};
-  for (const [name, hash] of Object.entries(files)) {
-    if (typeof hash !== 'string' || !SHA256_HEX.test(hash)) return null;
-    hashes[name] = hash;
-  }
-  return { version, generation, conversion: parsed.data, archiveSha256, updatedAt, files: hashes };
+  const hashes = hashRecord(files, () => true);
+  const overlayHashes = hashRecord(overlays, (digest) => SHA256_HEX.test(digest));
+  if (typeof updatedAt !== 'string' || hashes === null || overlayHashes === null) return null;
+  return {
+    version,
+    generation,
+    conversion: parsed.data,
+    archiveSha256,
+    updatedAt,
+    files: hashes,
+    overlays: overlayHashes,
+  };
 }
 
 function parseSource(value: unknown): ArchiveSource | null {

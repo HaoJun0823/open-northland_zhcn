@@ -4,7 +4,10 @@ import { gunzipSync } from 'node:zlib';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { convertMapTree, MAP_FILE_SUFFIXES, mapFiles, openArchive } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildMapDat } from '../../formats/test/fixtures/mapdat.js';
 import { sha256Hex } from '../src/catalog/snapshot.js';
+import { type CatalogMapOverlays, NO_MAP_OVERLAYS } from '../src/conversion/overlays.js';
+import type { ConversionService } from '../src/conversion/service.js';
 import { ConversionStore } from '../src/conversion/store.js';
 import * as storeIo from '../src/store.js';
 import {
@@ -27,6 +30,16 @@ const OTHER_IR = IR_VERSION + 1;
 const SMALL_LIMIT = 64;
 const TIMEOUT_MS = 5000;
 const LYING_EXTRA_BYTES = 10;
+/** A 2x1 map.dat whose cells differ from `plaintextMap`'s, so its overlays are filed apart. */
+const OTHER_MAP_DAT = buildMapDat(2, 1, [5, 5, 2, 2, 5, 5, 2, 2]);
+
+/** The strings sidecar the service serves for `mapId`, inflated. */
+async function servedStrings(service: ConversionService, mapId: string): Promise<unknown> {
+  const file = await service.file(mapId, `${mapId}${MAP_FILE_SUFFIXES.strings}`);
+  if (file === null) throw new Error(`no strings sidecar for ${mapId}`);
+  const bytes = await file.handle.readFile().finally(() => file.handle.close());
+  return JSON.parse(gunzipSync(bytes).toString('utf8'));
+}
 
 describe('ConversionService', () => {
   let dir: string;
@@ -93,11 +106,7 @@ describe('ConversionService', () => {
     const conversion = served(ENTRY).conversion;
     if (conversion?.verdict !== 'ok') throw new Error(`not converted: ${JSON.stringify(conversion)}`);
     expect(conversion.maps[0]?.languages).toEqual(['pol', 'eng', 'chs']);
-    const mapId = `${ENTRY}-wyspa`;
-    const file = await service.file(mapId, `${mapId}${MAP_FILE_SUFFIXES.strings}`);
-    if (file === null) throw new Error('no strings sidecar');
-    const bytes = await file.handle.readFile().finally(() => file.handle.close());
-    expect(JSON.parse(gunzipSync(bytes).toString('utf8'))).toEqual({
+    expect(await servedStrings(service, `${ENTRY}-wyspa`)).toEqual({
       pol: { '0': 'Wyspa', '1': 'Opis' },
       eng: { '0': 'Island' },
       chs: { '0': '岛屿', '1': '描述' },
@@ -296,6 +305,40 @@ describe('ConversionService', () => {
     await restarted.service.idle();
     expect(files.requests).toHaveLength(2);
     expect(JSON.parse(await readFile(join(converted(), 'conversion.json'), 'utf8')).updatedAt).toBe(LATER);
+  });
+
+  it('converts again from the kept archive only the entries whose map overlays changed', async () => {
+    const island = zipOf(under('Wyspa', plaintextMap('Wyspa')));
+    const other = zipOf(under('Inna', { ...plaintextMap('Inna'), 'map.dat': OTHER_MAP_DAT }));
+    const otherEntry = 'cn-inna';
+    files.serve(ENTRY, island);
+    files.serve(otherEntry, other);
+    const islandMap = `${ENTRY}-wyspa`;
+    const restart = async (mapOverlays: CatalogMapOverlays) => {
+      const run = await harness(dir, files, { irVersion: IR_VERSION, mapOverlays });
+      run.service.setCatalog(syncedOf([catalogEntry(ENTRY), catalogEntry(otherEntry)]));
+      await run.service.idle();
+      const converted = run.events.filter(({ event }) => event === 'conversion done');
+      return { ...run, converted: converted.map(({ fields }) => fields?.id) };
+    };
+
+    const first = await restart(await overlaysFor(island, 'wyspa', { chs: { '0': '岛屿' } }));
+    expect(first.converted).toEqual([ENTRY, otherEntry]);
+    const unchanged = await restart(await overlaysFor(island, 'wyspa', { chs: { '0': '岛屿' } }));
+    expect(unchanged.converted).toEqual([]);
+
+    const changed = await restart(await overlaysFor(island, 'wyspa', { chs: { '0': '小岛' } }));
+    expect(changed.converted).toEqual([ENTRY]);
+    expect(await servedStrings(changed.service, islandMap)).toMatchObject({ chs: { '0': '小岛' } });
+
+    const removed = await restart(NO_MAP_OVERLAYS);
+    expect(removed.converted).toEqual([ENTRY]);
+    const conversion = removed.served(ENTRY).conversion;
+    expect(conversion?.verdict === 'ok' ? conversion.maps[0]?.languages : null).toEqual(['pol']);
+
+    const filedLater = await restart(await overlaysFor(other, 'inna', { cht: { '0': '其他' } }));
+    expect(filedLater.converted).toEqual([otherEntry]);
+    expect(files.requests).toEqual([fileUrl(ENTRY), fileUrl(otherEntry)]);
   });
 
   it('removes another IR version on start and converts again from the kept archive', async () => {

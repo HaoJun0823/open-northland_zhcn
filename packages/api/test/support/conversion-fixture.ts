@@ -140,6 +140,7 @@ export async function harness(
         convertArchive(bytes, entryId, { unrarWasm: UNRAR_WASM, mapOverlays, onWarning }),
       stop: async () => undefined,
     },
+    mapOverlays,
     concurrency: 1,
     publish: (snapshot) => published.push(snapshot),
     log: (event, fields) => events.push({ event, ...(fields === undefined ? {} : { fields }) }),

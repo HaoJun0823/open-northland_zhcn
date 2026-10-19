@@ -8,6 +8,7 @@ import type { ContentFile, ContentSource, KeptFile, KeptFileSource } from '../ht
 import { isMissing } from '../store.js';
 import type { Fetch } from '../upstream/strapi.js';
 import { DownloadError, type DownloadLimits, downloadArchive } from './download.js';
+import { type CatalogMapOverlays, overlayFingerprints, overlaysUnchanged } from './overlays.js';
 import type {
   ArchiveSource,
   ConversionStore,
@@ -48,6 +49,8 @@ export interface ConversionServiceOptions {
   readonly store: ConversionStore;
   readonly fetch: Fetch;
   readonly converter: ArchiveConverter;
+  /** The overlays the converter applies, against which stored conversions are judged current. */
+  readonly mapOverlays: CatalogMapOverlays;
   readonly concurrency: number;
   /** Receives the catalogue with every entry's `conversion`, after each catalogue and each batch. */
   readonly publish: (snapshot: CatalogSnapshot) => void;
@@ -76,9 +79,9 @@ function messageOf(error: unknown): string {
 
 /**
  * Downloads and converts the catalogue's files in a queue, keeps the verdicts and serves the sidecars
- * of this build's IR version. An entry converts again when its `updatedAt` or kept archive changes,
- * and a stored failure once more per process. A failed download is retried with the next catalogue
- * and keeps an older good conversion serving.
+ * of this build's IR version. An entry converts again when its `updatedAt`, its kept archive or the
+ * translation overlays of one of its maps change, and a stored failure once more per process. A
+ * failed download is retried with the next catalogue and keeps an older good conversion serving.
  */
 export class ConversionService implements ContentSource, KeptFileSource {
   readonly irVersion: number;
@@ -184,6 +187,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
       this.retriedFailures.add(entry.id);
       return true;
     }
+    if (!overlaysUnchanged(this.options.mapOverlays, stored.overlays)) return true;
     const source = this.sources.get(entry.id);
     return source !== undefined && stored.archiveSha256 !== null && source.sha256 !== stored.archiveSha256;
   }
@@ -333,6 +337,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
           conversion: { verdict: 'ok', irVersion: this.irVersion, maps: [...result.maps] },
           archiveSha256,
           updatedAt,
+          overlays: overlayFingerprints(this.options.mapOverlays, result.datDigests),
         },
         files: result.files,
       };
@@ -345,6 +350,7 @@ export class ConversionService implements ContentSource, KeptFileSource {
           conversion: { verdict: 'failed', reason, message: messageOf(error) },
           archiveSha256,
           updatedAt,
+          overlays: {},
         },
         files: new Map(),
       };

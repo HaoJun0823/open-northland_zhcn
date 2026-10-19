@@ -50,3 +50,7 @@ values still equal to the source text.
 `npm run translations:skeleton -- <archive or folder> --lang <lang>` writes `<lang>/maps/<digest>.json`
 for each map it holds, every value the basis text: replace each in place and delete the ones left
 untranslated, which fall back to the source anyway.
+
+The catalogue API loads the overlays when it starts and converts again each catalogue entry whose
+maps gained, changed or lost an overlay, so an overlay reaches catalogue maps with the next API image
+([API](../docs/API.md#translation-overlays)).

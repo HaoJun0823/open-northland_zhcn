@@ -51,6 +51,11 @@ community map, so an overlay in a source language applies too. A converted map's
 every language its string table carries, overlays included. The loader finds `translations/` beside
 `packages/`, in a checkout and in the image alike.
 
+A stored conversion records a fingerprint of the overlays filed under each converted map's `map.dat`
+digest, an empty set included. When the server starts with other overlays under a digest (one added,
+changed or removed), each entry holding that map converts again from its kept archive on the next
+catalogue, without an IR change; the other entries keep their conversions.
+
 ### Request limits
 
 - Automatic downloads allow HTTPS on `culturesnation.pl`, `www.culturesnation.pl` and
@@ -100,7 +105,7 @@ All paths are relative to `ON_API_DATA_DIR`. The default `.api-data/` is gitigno
 | `raw/<page>.json` | Upstream pages |
 | `thumbnails/<id>` and `<id>.json` | Screenshot and metadata: content type, `updatedAt`, SHA-256 |
 | `archives/<id>/<sha256>.<ext>` and `source.json` | Original archive, source URL and `updatedAt` |
-| `converted/<irVersion>/<id>/conversion.json` | Manifest: generation, verdict and file hashes |
+| `converted/<irVersion>/<id>/conversion.json` | Manifest: generation, verdict, file hashes and overlay fingerprints by `map.dat` digest |
 | `converted/<irVersion>/<id>/<generation>/<mapId><suffix>` | Converted files; JSON files have an extra `.gz` suffix |
 
 On an IR version change, the API deletes old converted versions and rebuilds from retained archives.

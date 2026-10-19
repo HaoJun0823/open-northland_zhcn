@@ -18,6 +18,8 @@ export interface ArchiveConversion {
   readonly maps: readonly CatalogConvertedMap[];
   /** Every sidecar by file name, the map id first: `<mapId><suffix>`. */
   readonly files: ReadonlyMap<string, Uint8Array>;
+  /** The raw `map.dat` SHA-256 of every converted map, the name its translation overlays are filed under. */
+  readonly datDigests: readonly string[];
 }
 
 export interface ConvertArchiveOptions {
@@ -77,5 +79,5 @@ export async function convertArchive(
     for (const [name, file] of own) files.set(name, utf8(file));
     for (const [name, png] of map.pictures) files.set(`${mapId}.pictures-${name}`, png);
   }
-  return { maps, files };
+  return { maps, files, datDigests: [...new Set(converted.map((map) => map.datDigest))] };
 }

@@ -97,13 +97,18 @@ describe('Hanging Gardens corrections in the campaign stage', () => {
 
   it('drops the info line past the last slot, retires the refusal at the tunnels and fixes the Polish level page', async () => {
     const level = (await correction('wonder-03-02-briefing-pol', new Uint8Array())).lines[0];
-    const briefing = cp1250(`[blockstart:4_level] \r\nNOWY POZIOM\r\n\r\n${level.from}\r\n[blockend:4_level]\r\n`);
+    const briefing = cp1250(
+      `[blockstart:4_level] \r\nNOWY POZIOM\r\n\r\n${level.from}\r\n[blockend:4_level]\r\n`,
+    );
     const cif = mapCif();
     const map = join(pack, 'campaigns', CAMPAIGN, 'maps', MAP);
     await writeFileWithParents(join(map, 'world/map.dat'), buildMapDat(2, 1, [3, 3, 6, 6, 3, 3, 6, 6]));
     await writeFileWithParents(join(map, 'world/map.cif'), cif);
     await writeFileWithParents(join(map, `locales/pol/${BRIEFING}`), briefing);
-    await writeFileWithParents(join(map, `locales/pol/${LEVEL_PAGE}`), '<include:$local$\\briefings.txt,4_level,1>\r\n');
+    await writeFileWithParents(
+      join(map, `locales/pol/${LEVEL_PAGE}`),
+      '<include:$local$\\briefings.txt,4_level,1>\r\n',
+    );
     await writeFileWithParents(join(map, 'locales/pol/strings.ini'), '[text]\nstringn 0 "Ogrody"\n');
     await writeFileWithParents(join(pack, 'campaigns', CAMPAIGN, 'presentation/map.png'), 'png');
     const dir = join(root, 'corrections');

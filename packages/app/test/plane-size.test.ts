@@ -93,6 +93,17 @@ describe('plane size', () => {
     expect(planeSize(element)).toEqual({ width: 800, height: 600 });
   });
 
+  it('forgets a plane its HUD takes down before the observer reports it', async () => {
+    const { forgetPlane, onPlaneResize } = await loadPlaneSize();
+    const element = plane(1440, 900);
+    const listener = vi.fn();
+    onPlaneResize(element, listener);
+    forgetPlane(element);
+    expect(observed.has(element)).toBe(false);
+    report([element as unknown as FakeElement]);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
   it('reads the box each time on a page without the observer', async () => {
     vi.stubGlobal('ResizeObserver', undefined);
     const { onPlaneResize, planeSize } = await loadPlaneSize();

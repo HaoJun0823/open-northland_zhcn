@@ -1,5 +1,6 @@
 import { uiFoundationArt } from '../../content/ui-foundation.js';
 import './foundation.css';
+import { forgetPlane } from './plane-size.js';
 import { HUD_SYMBOLS } from './symbols.js';
 
 /** Below the system menu (2000). */
@@ -75,6 +76,9 @@ export function mountHudDomRoot(initialScale: number): HudDomRoot {
       if (hidden) plane.element.dataset.chrome = 'hidden';
       else delete plane.element.dataset.chrome;
     },
-    dispose: () => host.remove(),
+    dispose: () => {
+      forgetPlane(plane.element);
+      host.remove();
+    },
   };
 }

@@ -29,8 +29,7 @@ function onResized(entries: readonly ResizeObserverEntry[]): void {
     const watch = watches.get(target);
     if (watch === undefined) continue;
     if (!target.isConnected) {
-      observer?.unobserve(target);
-      watches.delete(target);
+      forgetPlane(target);
       continue;
     }
     watch.size = measure(target);
@@ -48,6 +47,12 @@ function watchOf(plane: HTMLElement): Watch | null {
   observer ??= new ResizeObserver(onResized);
   observer.observe(plane);
   return watch;
+}
+
+/** Forget a plane its HUD takes down, without waiting for the observer's zero-box report. */
+export function forgetPlane(plane: HTMLElement): void {
+  if (!watches.delete(plane)) return;
+  observer?.unobserve(plane);
 }
 
 export function planeSize(plane: HTMLElement): PlaneSize {

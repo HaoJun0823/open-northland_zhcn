@@ -48,6 +48,7 @@ import { armedVehiclePick, vehiclePanelActions, vehiclePeersOf } from './vehicle
 
 const NO_SELECTION: ReadonlySet<number> = new Set();
 const NO_FIGURES: ReadonlySet<number> = new Set();
+const NO_CANVASES: ReadonlySet<HTMLCanvasElement> = new Set();
 /** Goods the warm-up paints icons of, enough to fill every icon slot of the warm model. */
 const WARM_GOOD_ICONS = 12;
 /** An unanswered technology read refuses, as every unanswered rule does. */
@@ -512,7 +513,7 @@ export async function createUnitChrome(
         wellFigures === null ? NO_FIGURES : wellFigures.paint(snapshot, slots, snapshot.tick, alpha);
       buildingPanel.markDrawn(drawn);
       vehiclePanel.markDrawn(drawn);
-      groupPanel.markDrawn(drawn);
+      groupPanel.markDrawn(drawn, wellFigures?.repainted() ?? NO_CANVASES);
     },
     focusedIds: () => {
       const id = groupPanel.focused();

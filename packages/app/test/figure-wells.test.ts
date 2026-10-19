@@ -43,17 +43,15 @@ describe('figure glow colours', () => {
   });
 });
 
-/** A well whose canvas reports a laid-out box of `width` x `height` design px at `scale` client px each. */
+/** A well laid out as a box of `width` x `height` design px at `scale` client px each. */
 function fakeWell(entity: number | null, width = 28, height = 36, scale = 1): FigureWell {
-  const canvas = {
-    width: 56,
+  const canvas = { width: 56 } as unknown as HTMLCanvasElement;
+  const classes = new Set<string>();
+  const node = {
     offsetWidth: width,
     clientWidth: width,
     clientHeight: height,
     getBoundingClientRect: () => ({ width: width * scale }),
-  } as unknown as HTMLCanvasElement;
-  const classes = new Set<string>();
-  const node = {
     classList: {
       contains: (name: string) => classes.has(name),
       toggle: (name: string, on: boolean) => (on ? classes.add(name) : classes.delete(name)),

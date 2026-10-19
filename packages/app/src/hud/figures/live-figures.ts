@@ -74,6 +74,8 @@ export class LiveFigures {
   private readonly scene: FigureScene;
   private readonly contexts = new CanvasContexts();
   private readonly drawn = new Set<number>();
+  /** The canvases the last paint drew on or cleared, for an owner that copies them elsewhere. */
+  private readonly repaintedCanvases = new Set<HTMLCanvasElement>();
   /** Each shown vehicle's box over every frame it has drawn, so its fit holds still as it animates. */
   private readonly vehicleBounds = new Map<number, FigureBounds>();
   /** The slot list last painted and its settlers, so an unchanged list costs no allocation. */
@@ -117,6 +119,7 @@ export class LiveFigures {
     }
     const items = this.scene.items(snapshot, this.subjects);
     this.drawn.clear();
+    this.repaintedCanvases.clear();
     const start = performance.now();
     this.redrawDeadline = start + RECOLOUR_MS_PER_PAINT;
     this.firstDeadline = start + FIRST_PICTURE_MS_PER_PAINT;
@@ -134,6 +137,11 @@ export class LiveFigures {
     return this.drawn;
   }
 
+  /** The canvases the last {@link paint} drew on or cleared; valid until the next call. */
+  repainted(): ReadonlySet<HTMLCanvasElement> {
+    return this.repaintedCanvases;
+  }
+
   /** Draw one slot unless it already shows this picture. A slot whose next picture needs a recolour past
    *  the paint's deadline keeps its last one ('deferred'), or stays empty until a later paint ('waiting');
    *  'clear' leaves it empty. */
@@ -148,20 +156,28 @@ export class LiveFigures {
     const height = Math.max(1, Math.round(box.height * box.pixelScale));
     let shown = this.shown.get(canvas);
     const otherPerson = shown !== undefined && shown.entity !== slot.entity;
+    const resized = canvas.width !== width || canvas.height !== height;
     // A resize clears the canvas; another person's picture is cleared here.
-    if (shown !== undefined && (otherPerson || canvas.width !== width || canvas.height !== height)) {
+    if (resized) this.repaintedCanvases.add(canvas);
+    if (shown !== undefined && (otherPerson || resized)) {
       this.shown.delete(canvas);
       shown = undefined;
     }
     const ctx = this.contexts.sized(canvas, width, height);
     if (ctx === null) return 'clear';
-    if (otherPerson) ctx.clearRect(0, 0, width, height);
+    if (otherPerson) {
+      ctx.clearRect(0, 0, width, height);
+      this.repaintedCanvases.add(canvas);
+    }
     const layers =
       item?.kind === 'settler' || item?.kind === 'vehicle' ? this.scene.layers(item, tick, alpha) : null;
     const place =
       item === undefined || layers === null ? null : this.placement(slot, item, layers, width, height);
     if (item === undefined || layers === null || place === null) {
-      if (shown !== undefined) ctx.clearRect(0, 0, width, height);
+      if (shown !== undefined) {
+        ctx.clearRect(0, 0, width, height);
+        this.repaintedCanvases.add(canvas);
+      }
       this.shown.delete(canvas);
       return 'clear';
     }
@@ -174,6 +190,7 @@ export class LiveFigures {
     if (shown !== undefined && sameDrawKey(shown.key, key)) return 'drawn';
     ctx.clearRect(0, 0, width, height);
     this.frames.paint(ctx, layers, this.images, place.zoom, place.feetX, place.feetY);
+    this.repaintedCanvases.add(canvas);
     if (shown === undefined) {
       shown = { entity: slot.entity, key: [] };
       this.shown.set(canvas, shown);

@@ -57,17 +57,19 @@ export class FigureWellSlots {
     let same = true;
     for (const well of wells) {
       if (well.entity === null) continue;
-      const { canvas } = well;
+      // The canvas fills the well's padding box, so the well is measured: a roster that copies its
+      // canvases onto one of its own keeps them out of the layout.
+      const { canvas, node } = well;
       if (pixelScale === 0) {
-        if (canvas.offsetWidth === 0) break;
-        pixelScale = (canvas.getBoundingClientRect().width / canvas.offsetWidth) * devicePixelRatio;
+        if (node.offsetWidth === 0) break;
+        pixelScale = (node.getBoundingClientRect().width / node.offsetWidth) * devicePixelRatio;
       }
       const slot = this.slots[at++];
       same &&=
         slot?.entity === well.entity &&
         slot.canvas === canvas &&
-        slot.box.width === canvas.clientWidth &&
-        slot.box.height === canvas.clientHeight &&
+        slot.box.width === node.clientWidth &&
+        slot.box.height === node.clientHeight &&
         slot.box.pixelScale === pixelScale;
     }
     if (pixelScale === 0) {
@@ -82,7 +84,7 @@ export class FigureWellSlots {
             {
               entity: well.entity,
               canvas: well.canvas,
-              box: { width: well.canvas.clientWidth, height: well.canvas.clientHeight, pixelScale },
+              box: { width: well.node.clientWidth, height: well.node.clientHeight, pixelScale },
               zoom: well.fit.zoom,
               feetInset: well.fit.feetInset,
             },

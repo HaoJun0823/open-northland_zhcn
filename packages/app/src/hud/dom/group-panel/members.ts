@@ -12,6 +12,7 @@ import {
   showInWell,
   type WellFigureFit,
 } from '../parts/figure-well.js';
+import { createRosterFigures } from './roster-figures.js';
 
 /** A roster well (foundation.css `.on-roster__well`, 32 x 46 design px) shows its person a little larger
  *  than a crew seat, feet above the two bars on its floor; a vehicle fits itself to its double-width well. */
@@ -137,7 +138,9 @@ export interface MemberRoster {
   /** The wells in view, for the panel's figure painter; re-measured only after a scroll, a relist or a
    *  resize. */
   figureSlots(): readonly FigureSlot[];
-  markDrawn(drawn: ReadonlySet<number>): void;
+  /** After the figures' paint: mark the wells drawn and copy the `repainted` canvases onto the
+   *  roster's figure canvas. */
+  markDrawn(drawn: ReadonlySet<number>, repainted: ReadonlySet<HTMLCanvasElement>): void;
   /** The grid moved or changed size: the wells in view are measured again on the next frame. */
   invalidate(): void;
   /** The member under the cursor, whose ring the map lights; null while the cursor is elsewhere. */
@@ -157,6 +160,7 @@ export function createMemberRoster(
   icons: GoodIconPainter,
 ): MemberRoster {
   const root = element('div', 'on-roster');
+  const figures = createRosterFigures();
   const padTop = element('i', 'on-roster__pad');
   const padBottom = element('i', 'on-roster__pad');
   /** The wells built for members still in the group, attached or not. */
@@ -176,6 +180,10 @@ export function createMemberRoster(
   let shownKey = '';
   let inView: readonly FigureWell[] = [];
   let stale = true;
+  /** The attached wells moved, so the figure canvas is placed and filled again after the next paint. */
+  let figuresStale = true;
+  /** The wells laid in the grid, in grid order. */
+  let attachedWells: readonly FigureWell[] = [];
   let pending: { readonly id: number; readonly timer: ReturnType<typeof setTimeout> } | null = null;
   let hovered: number | null = null;
   let compact = false;
@@ -306,12 +314,18 @@ export function createMemberRoster(
     const nodes: HTMLElement[] = [];
     const top = spanRows(padTop, first);
     if (top !== null) nodes.push(top);
+    const laid: FigureWell[] = [];
     listed.forEach((member, index) => {
       const row = rowOf[index] as number;
-      if (row >= first && row <= last) nodes.push(wellOf(member).well.node);
+      if (row < first || row > last) return;
+      const { well } = wellOf(member);
+      laid.push(well);
+      nodes.push(well.node);
     });
+    attachedWells = laid;
     const bottom = spanRows(padBottom, listedRows - last - 1);
     if (bottom !== null) nodes.push(bottom);
+    nodes.push(figures.canvas);
     // Laying a well again drops its focus; hand it back without moving the scroll.
     const focused = document.activeElement;
     root.replaceChildren(...nodes);
@@ -320,6 +334,7 @@ export function createMemberRoster(
     // A well detached under the cursor gets no mouseleave, so its hover ends here.
     if (hovered !== null && !root.contains(wells.get(hovered)?.well.node ?? null)) hovered = null;
     stale = true;
+    figuresStale = true;
   };
 
   root.addEventListener(
@@ -328,6 +343,7 @@ export function createMemberRoster(
       scrollTop = root.scrollTop;
       attach(false);
       stale = true;
+      figuresStale = true;
       updateMore();
     },
     { passive: true },
@@ -390,6 +406,7 @@ export function createMemberRoster(
       setStyleVar(root, '--roster-rows', String(rows));
       attach(false);
       stale = true;
+      figuresStale = true;
       updateMore();
     },
     figureSlots(): readonly FigureSlot[] {
@@ -406,9 +423,16 @@ export function createMemberRoster(
       }
       return slots.of(inView);
     },
-    markDrawn: (drawn) => markDrawnWells(inView, drawn),
+    markDrawn: (drawn, repainted) => {
+      markDrawnWells(inView, drawn);
+      if (figuresStale) {
+        figuresStale = false;
+        figures.place(attachedWells);
+      } else figures.copy(repainted);
+    },
     invalidate(): void {
       stale = true;
+      figuresStale = true;
       updateMore();
     },
     hovered: () => hovered,

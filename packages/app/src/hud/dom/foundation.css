@@ -4490,6 +4490,7 @@ body.on-drag-scroll * {
    what the plane leaves, and as tall in every tab) the grid scrolls in place. A big group turns compact:
    ten 24 x 34 wells, which leave room for the scrollbar. */
 .on-hud .on-roster {
+  position: relative;
   --roster-rows: 4;
   --roster-row: 46px;
   --roster-health: #9fcf72;
@@ -4511,6 +4512,18 @@ body.on-drag-scroll * {
 }
 .on-hud .on-roster--more {
   mask-image: linear-gradient(#000 calc(100% - 14px), transparent);
+}
+/* The wells paint their figures off the page and the roster shows copies on its one canvas over them,
+   under the bars and badges (roster-figures.ts). */
+.on-hud .on-roster .on-seat-well__figure {
+  display: none;
+}
+.on-hud .on-roster__figures {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  z-index: 0;
+  pointer-events: none;
 }
 /* Stands for the rows of wells scrolled out of reach (members.ts), whole rows wide. */
 .on-hud .on-roster__pad {

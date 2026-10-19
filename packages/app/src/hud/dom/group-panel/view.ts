@@ -28,7 +28,8 @@ export interface GroupPanel {
   refresh(): void;
   /** The roster wells in view, which the owner paints live every frame; none while hidden. */
   figureSlots(): readonly FigureSlot[];
-  markDrawn(drawn: ReadonlySet<number>): void;
+  /** After the figures' paint: the members drawn, and the canvases it changed. */
+  markDrawn(drawn: ReadonlySet<number>, repainted: ReadonlySet<HTMLCanvasElement>): void;
   /** The member whose well the cursor is on, for the map to light its ring; null while hidden. */
   focused(): number | null;
   /** Paint once at map start, so the first group costs no first-paint work. */
@@ -243,7 +244,7 @@ export function createGroupPanel(deps: GroupPanelDeps): GroupPanel {
       fit();
     },
     figureSlots: () => (shown === null ? NO_FIGURE_SLOTS : roster.figureSlots()),
-    markDrawn: (drawn) => roster.markDrawn(drawn),
+    markDrawn: (drawn, repainted) => roster.markDrawn(drawn, repainted),
     focused: () => (shown === null ? null : roster.hovered()),
     warm(): void {
       const model = warmModel();

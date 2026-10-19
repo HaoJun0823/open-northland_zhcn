@@ -29,7 +29,7 @@ try {
   const conversions = new ConversionService({
     store: new ConversionStore(config.dataDir, IR_VERSION),
     fetch,
-    converter: new WorkerArchiveConverter(config.convertTimeoutMs, mapOverlays),
+    converter: new WorkerArchiveConverter(config.convertTimeoutMs),
     mapOverlays,
     concurrency: config.convertConcurrency,
     publish: (snapshot) => server?.publish(snapshot),

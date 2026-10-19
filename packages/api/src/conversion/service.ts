@@ -49,7 +49,7 @@ export interface ConversionServiceOptions {
   readonly store: ConversionStore;
   readonly fetch: Fetch;
   readonly converter: ArchiveConverter;
-  /** The overlays the converter applies, against which stored conversions are judged current. */
+  /** The overlays every conversion applies and every stored conversion is judged current against. */
   readonly mapOverlays: CatalogMapOverlays;
   readonly concurrency: number;
   /** Receives the catalogue with every entry's `conversion`, after each catalogue and each batch. */
@@ -328,8 +328,11 @@ export class ConversionService implements ContentSource, KeptFileSource {
     try {
       const archive = await this.archiveFor(entry);
       archiveSha256 = archive.sha256;
-      const result = await this.options.converter.convert(archive.bytes, id, (message) =>
-        this.log('conversion warning', { id, message }),
+      const result = await this.options.converter.convert(
+        archive.bytes,
+        id,
+        this.options.mapOverlays,
+        (message) => this.log('conversion warning', { id, message }),
       );
       return {
         kind: 'converted',

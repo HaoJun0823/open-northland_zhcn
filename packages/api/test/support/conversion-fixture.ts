@@ -12,7 +12,7 @@ import type { CatalogSnapshot } from '../../src/catalog/snapshot.js';
 import type { SyncedCatalog } from '../../src/catalog/sync.js';
 import { convertArchive, loadUnrarWasm } from '../../src/conversion/convert.js';
 import type { DownloadLimits } from '../../src/conversion/download.js';
-import { type CatalogMapOverlays, NO_MAP_OVERLAYS } from '../../src/conversion/overlays.js';
+import type { CatalogMapOverlays } from '../../src/conversion/overlays.js';
 import { ConversionService } from '../../src/conversion/service.js';
 import { ConversionStore } from '../../src/conversion/store.js';
 import type { ArchiveConverter } from '../../src/conversion/worker-converter.js';
@@ -21,6 +21,7 @@ import type { Fetch } from '../../src/upstream/strapi.js';
 export { plaintextMap, under };
 
 export const UPDATED_AT = '2024-03-02T11:00:00.000Z';
+export const NO_MAP_OVERLAYS: CatalogMapOverlays = new Map();
 const FILE_HOST = 'https://culturesnation.pl/downloads';
 const UNRAR_WASM = loadUnrarWasm();
 
@@ -129,18 +130,17 @@ export async function harness(
     mapOverlays?: CatalogMapOverlays;
   },
 ): Promise<Harness> {
-  const mapOverlays = options.mapOverlays ?? NO_MAP_OVERLAYS;
   const published: CatalogSnapshot[] = [];
   const events: Harness['events'] = [];
   const service = new ConversionService({
     store: new ConversionStore(dir, options.irVersion),
     fetch: files.fetch,
     converter: options.converter ?? {
-      convert: (bytes, entryId, onWarning) =>
+      convert: (bytes, entryId, mapOverlays, onWarning) =>
         convertArchive(bytes, entryId, { unrarWasm: UNRAR_WASM, mapOverlays, onWarning }),
       stop: async () => undefined,
     },
-    mapOverlays,
+    mapOverlays: options.mapOverlays ?? NO_MAP_OVERLAYS,
     concurrency: 1,
     publish: (snapshot) => published.push(snapshot),
     log: (event, fields) => events.push({ event, ...(fields === undefined ? {} : { fields }) }),

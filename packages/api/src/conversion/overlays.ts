@@ -6,7 +6,6 @@ import type { TranslationOverlays } from '@open-northland/translations';
  *  conversion worker receives a structured clone. */
 export type CatalogMapOverlays = TranslationOverlays['maps'];
 
-export const NO_MAP_OVERLAYS: CatalogMapOverlays = new Map();
 const NO_LANGUAGES: ReadonlyMap<Language, MapOverlay> = new Map();
 
 /** Every catalogue archive is a community map, so an overlay in a source language applies to it too. */

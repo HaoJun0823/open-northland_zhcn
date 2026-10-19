@@ -6,7 +6,7 @@ import { convertMapTree, MAP_FILE_SUFFIXES, mapFiles, openArchive } from '@open-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildMapDat } from '../../formats/test/fixtures/mapdat.js';
 import { sha256Hex } from '../src/catalog/snapshot.js';
-import { type CatalogMapOverlays, NO_MAP_OVERLAYS } from '../src/conversion/overlays.js';
+import type { CatalogMapOverlays } from '../src/conversion/overlays.js';
 import type { ConversionService } from '../src/conversion/service.js';
 import { ConversionStore } from '../src/conversion/store.js';
 import * as storeIo from '../src/store.js';
@@ -15,6 +15,7 @@ import {
   FakeFiles,
   fileUrl,
   harness,
+  NO_MAP_OVERLAYS,
   overlaysFor,
   plaintextMap,
   syncedOf,

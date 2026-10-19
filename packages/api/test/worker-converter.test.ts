@@ -2,7 +2,6 @@ import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { type CatalogMapOverlays, NO_MAP_OVERLAYS } from '../src/conversion/overlays.js';
 import { type ArchiveConverter, WorkerArchiveConverter } from '../src/conversion/worker-converter.js';
 import { type ApiServer, startApiServer } from '../src/server.js';
 import { DataStore } from '../src/store.js';
@@ -10,6 +9,7 @@ import {
   catalogEntry,
   FakeFiles,
   harness,
+  NO_MAP_OVERLAYS,
   overlaysFor,
   plaintextMap,
   syncedOf,
@@ -29,8 +29,8 @@ const BLOCKED_WORKER_STARTED = 'synthetic worker started';
 const expiringOnBlock = (instance: WorkerArchiveConverter): ArchiveConverter => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   return {
-    convert: (bytes, entryId, onWarning) =>
-      instance.convert(bytes, entryId, (message) => {
+    convert: (bytes, entryId, mapOverlays, onWarning) =>
+      instance.convert(bytes, entryId, mapOverlays, (message) => {
         onWarning(message);
         if (message === BLOCKED_WORKER_STARTED) vi.advanceTimersByTime(TIMEOUT_MS);
       }),
@@ -42,12 +42,8 @@ describe('worker archive conversion', () => {
   const converters: WorkerArchiveConverter[] = [];
   const directories: string[] = [];
   let api: ApiServer | undefined;
-  const converter = (
-    timeoutMs = 5000,
-    worker = SYNTHETIC_WORKER,
-    mapOverlays: CatalogMapOverlays = NO_MAP_OVERLAYS,
-  ): WorkerArchiveConverter => {
-    const instance = new WorkerArchiveConverter(timeoutMs, mapOverlays, worker);
+  const converter = (timeoutMs = 5000, worker = SYNTHETIC_WORKER): WorkerArchiveConverter => {
+    const instance = new WorkerArchiveConverter(timeoutMs, worker);
     converters.push(instance);
     return instance;
   };
@@ -70,19 +66,19 @@ describe('worker archive conversion', () => {
     const instance = converter(5000, WORKER);
     const bytes = mapArchive();
     const before = bytes.slice();
-    const result = await instance.convert(bytes, 'cn-island', () => undefined);
+    const result = await instance.convert(bytes, 'cn-island', NO_MAP_OVERLAYS, () => undefined);
     expect(result.maps[0]?.mapId).toBe('cn-island-island');
     expect(result.files.has('cn-island-island.json')).toBe(true);
     expect(bytes).toEqual(before);
     await expect(
-      instance.convert(new Uint8Array([1, 2, 3]), 'cn-invalid', () => undefined),
+      instance.convert(new Uint8Array([1, 2, 3]), 'cn-invalid', NO_MAP_OVERLAYS, () => undefined),
     ).rejects.toMatchObject({ name: 'MapImportError', kind: 'unsupported-archive' });
   });
 
-  it('applies the translation overlays it was built with inside the production worker', async () => {
+  it("applies the job's translation overlays inside the production worker", async () => {
     const bytes = mapArchive();
-    const instance = converter(5000, WORKER, await overlaysFor(bytes, 'island', { chs: { '0': '岛' } }));
-    const result = await instance.convert(bytes, 'cn-island', () => undefined);
+    const overlays = await overlaysFor(bytes, 'island', { chs: { '0': '岛' } });
+    const result = await converter(5000, WORKER).convert(bytes, 'cn-island', overlays, () => undefined);
     expect(result.maps[0]?.languages).toEqual(['pol', 'chs']);
   });
 
@@ -96,7 +92,7 @@ describe('worker archive conversion', () => {
       markStarted = resolve;
     });
     let settled = false;
-    const job = instance.convert(new Uint8Array(), 'cn-hang', () => markStarted());
+    const job = instance.convert(new Uint8Array(), 'cn-hang', NO_MAP_OVERLAYS, () => markStarted());
     const rejected = expect(job).rejects.toMatchObject({ name: 'ConversionWorkerError', kind: 'stopped' });
     void job.then(
       () => {
@@ -115,17 +111,21 @@ describe('worker archive conversion', () => {
     expect(settled).toBe(false);
     await instance.stop();
     await rejected;
-    await expect(instance.convert(new Uint8Array(), 'cn-after-stop', () => undefined)).rejects.toMatchObject({
+    await expect(
+      instance.convert(new Uint8Array(), 'cn-after-stop', NO_MAP_OVERLAYS, () => undefined),
+    ).rejects.toMatchObject({
       kind: 'stopped',
     });
   });
 
   it('times out a blocked worker and converts the next job in a fresh worker', async () => {
     const instance = expiringOnBlock(converter(TIMEOUT_MS));
-    await expect(instance.convert(new Uint8Array(), 'cn-hang', () => undefined)).rejects.toMatchObject({
+    await expect(
+      instance.convert(new Uint8Array(), 'cn-hang', NO_MAP_OVERLAYS, () => undefined),
+    ).rejects.toMatchObject({
       kind: 'timeout',
     });
-    const result = await instance.convert(mapArchive(), 'cn-next', () => undefined);
+    const result = await instance.convert(mapArchive(), 'cn-next', NO_MAP_OVERLAYS, () => undefined);
     expect(result.maps[0]?.mapId).toBe('cn-next-island');
   });
 

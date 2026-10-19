@@ -8,6 +8,7 @@ export interface ArchiveConverter {
   convert(
     bytes: Uint8Array,
     entryId: string,
+    mapOverlays: CatalogMapOverlays,
     onWarning: (message: string) => void,
   ): Promise<ArchiveConversion>;
   stop(): Promise<void>;
@@ -37,13 +38,13 @@ export class WorkerArchiveConverter implements ArchiveConverter {
 
   constructor(
     private readonly timeoutMs: number,
-    private readonly mapOverlays: CatalogMapOverlays,
     private readonly workerUrl = new URL('./worker.js', import.meta.url),
   ) {}
 
   async convert(
     bytes: Uint8Array,
     entryId: string,
+    mapOverlays: CatalogMapOverlays,
     onWarning: (message: string) => void,
   ): Promise<ArchiveConversion> {
     if (this.stopped) throw new ConversionWorkerError('stopped', 'conversion service stopped');
@@ -52,7 +53,7 @@ export class WorkerArchiveConverter implements ArchiveConverter {
     const worker = new Worker(this.workerUrl, {
       // Compiled workers use package defaults, independent of the caller's TS loaders/conditions.
       execArgv: [],
-      workerData: { bytes: input, entryId, mapOverlays: this.mapOverlays } satisfies ConversionJob,
+      workerData: { bytes: input, entryId, mapOverlays } satisfies ConversionJob,
       transferList: [input.buffer],
     });
     let cancel = (): void => undefined;

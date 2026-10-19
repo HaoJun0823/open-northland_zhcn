@@ -13,7 +13,9 @@ edited by hand ([contract](AGENTS.md)).
 | Permission | The translation's author permitted the project owner to use these Chinese translations in Open Northland. Written form: to be attached by the owner. |
 
 The localization translates the German text, so every overlay's `basis` is our data pack's German
-text of the same map, table or book.
+text of the same map, table or book. `cht` is not a separate translation: the upstream author converted
+the Simplified text to Traditional script with OpenCC (`s2twp`), as its commits `7e04a91` and `ae4f7a9`
+state. Treat it as an automatic conversion, unreviewed.
 
 Imported:
 
@@ -24,6 +26,9 @@ Imported:
   `tutorial_007` and seven community maps). The other 56 XMLs name maps the pack does not ship.
 - `<lang>/objects/`: the `goods`, `houses`, `jobs`, `experiences` and `tribes` name tables. House 22
   and tribe 18 are left out: the localization's German names another object under those ids.
+- Some entries translate German that `tools/asset-pipeline/corrections/` fixes (the tutorials' control
+  instructions, a few goals and object names); the import lists them, and they still follow the
+  original until fixed upstream.
 - `<lang>/books/history.json`: the blocks of `hypertext/history/mythology.txt`.
 - `glossary.csv`: `language_union.csv` with its `ger`, `eng`, `pol`, `l10` (as `chs`) and `l11` (as
   `cht`) columns and the term type, description and references.

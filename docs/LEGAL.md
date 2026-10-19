@@ -25,8 +25,9 @@ serve as a committed copy of the imported text table. Ordinary shared vocabulary
 
 Third-party translations: fan translations are imported as JSON overlays under `translations/`, with
 each set's license and provenance recorded in [`translations/SOURCES.md`](../translations/SOURCES.md).
-An overlay holds the translated text keyed by string id or block label; the repository still carries
-no original text.
+An overlay holds only the translated text keyed by string id or block label, so the repository still
+carries no original text. The one exception is `translations/glossary.csv`: beside each Chinese term it
+keeps the German, English and Polish term it translates (names of characters, places, objects and maps).
 
 Tests use synthetic fixtures created for this project. A test or pull request must not contain an
 original file, decoded asset, extracted text corpus, or other distributable game content.

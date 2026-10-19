@@ -157,31 +157,38 @@ const isFile = (path: string): Promise<boolean> =>
     () => false,
   );
 
-/** The overlay in `path`, or undefined when there is none or it does not read as one. */
-async function existingOverlay(path: string): Promise<MapOverlay | undefined> {
+/** What an overlay's file name holds before the skeleton is written. */
+type ExistingFile =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'overlay'; readonly overlay: MapOverlay }
+  | { readonly kind: 'unreadable' };
+
+async function existingFile(path: string): Promise<ExistingFile> {
+  if (!(await isFile(path))) return { kind: 'absent' };
   try {
-    return await readOverlayFile('maps', path);
+    return { kind: 'overlay', overlay: await readOverlayFile('maps', path) };
   } catch {
-    return undefined;
+    return { kind: 'unreadable' };
   }
 }
 
-/** Where `writeMapOverlay` put an overlay, or would have without `force`. */
+/** Where `writeMapOverlay` put an overlay, or would have. */
 export interface WrittenOverlay {
   readonly file: string;
-  readonly written: boolean;
-  /** The file carries the basis prefix: the plain name holds another map's text, or the variant
-   *  exists already. */
+  /** `exists`: the file holds an overlay of the same basis text, which only `force` replaces.
+   *  `protected`: it holds other text or no readable overlay, and is never replaced. */
+  readonly outcome: 'written' | 'exists' | 'protected';
+  /** The file carries the basis prefix: the plain file holds other text, or the variant exists already. */
   readonly variant: boolean;
   /** The plain file's `map` alias when it was written against other text than this overlay's. */
   readonly otherTextOf: string | undefined;
 }
 
 /**
- * Writes `overlay` to `<out>/<lang>/maps/<digest>.json`. It takes the variant name that adds its basis
- * prefix when that variant exists already, or when the plain file holds the overlay of another map
- * (another `map` alias) with other text. A plain file of the same map with other text is this map's
- * overlay of its older text. Refuses to replace an existing file unless `force` is on.
+ * Writes `overlay` to `<out>/<lang>/maps/<digest>.json`, or to the variant name that adds its basis
+ * prefix when that variant exists already or the plain file holds other text. The alias cannot tell an
+ * older text of this map from a copy sharing its name, so a translated file of other text is never
+ * replaced; `force` replaces only a file of the same basis digest.
  */
 export async function writeMapOverlay(
   out: string,
@@ -193,20 +200,26 @@ export async function writeMapOverlay(
   const dir = join(out, lang, 'maps');
   const plainFile = join(dir, `${mapOverlayFileId(digest)}.json`);
   const variantFile = join(dir, `${mapOverlayFileId(digest, overlay.basis.digest)}.json`);
-  const plain = await existingOverlay(plainFile);
+  const plain = await existingFile(plainFile);
   const otherTextOf =
-    plain !== undefined && plain.basis.digest !== overlay.basis.digest ? plain.map : undefined;
-  const variant = (await isFile(variantFile)) || (otherTextOf !== undefined && otherTextOf !== overlay.map);
+    plain.kind === 'overlay' && plain.overlay.basis.digest !== overlay.basis.digest
+      ? plain.overlay.map
+      : undefined;
+  const variant = otherTextOf !== undefined || (await isFile(variantFile));
   const file = variant ? variantFile : plainFile;
+  const existing = variant ? await existingFile(variantFile) : plain;
+  const placed = { file, variant, otherTextOf };
+  if (
+    existing.kind === 'unreadable' ||
+    (existing.kind === 'overlay' && existing.overlay.basis.digest !== overlay.basis.digest)
+  )
+    return { ...placed, outcome: 'protected' };
+  if (existing.kind === 'overlay' && !force) return { ...placed, outcome: 'exists' };
   await mkdir(dir, { recursive: true });
-  try {
-    await writeFile(file, `${JSON.stringify(overlay, null, 2)}\n`, { flag: force ? 'w' : 'wx' });
-  } catch (err) {
-    if (err instanceof Error && 'code' in err && err.code === 'EEXIST')
-      return { file, written: false, variant, otherTextOf };
-    throw err;
-  }
-  return { file, written: true, variant, otherTextOf };
+  await writeFile(file, `${JSON.stringify(overlay, null, 2)}\n`, {
+    flag: existing.kind === 'absent' ? 'wx' : 'w',
+  });
+  return { ...placed, outcome: 'written' };
 }
 
 const USAGE =
@@ -256,17 +269,13 @@ async function main(): Promise<void> {
       continue;
     }
     const { folder, digest, overlay } = skeleton;
-    const { file, written, variant, otherTextOf } = await writeMapOverlay(
-      out,
-      lang,
-      digest,
-      overlay,
-      values.force,
-    );
-    const olderText = !variant && otherTextOf !== undefined;
-    if (!written) {
-      const older = olderText ? `, written against older ${overlay.basis.lang} text of this map` : '';
-      console.error(`${folder}: refused, ${file} exists${older}; --force replaces it`);
+    const { file, outcome, otherTextOf } = await writeMapOverlay(out, lang, digest, overlay, values.force);
+    if (outcome !== 'written') {
+      console.error(
+        outcome === 'exists'
+          ? `${folder}: refused, ${file} holds an overlay of this text already; --force replaces it`
+          : `${folder}: refused, ${file} holds no readable overlay of this text and is never replaced`,
+      );
       process.exitCode = 1;
       continue;
     }
@@ -274,12 +283,14 @@ async function main(): Promise<void> {
       overlay.basis.lang === lang
         ? `an edit template of the ${lang} text: edit the values to change and delete the rest`
         : `a skeleton for ${lang} from the ${overlay.basis.lang} text: replace each value with its translation, delete the rest`;
+    const older =
+      otherTextOf === overlay.map
+        ? "; if that is this map's older text, carry its translations over and delete it"
+        : '';
     const name =
-      variant && otherTextOf !== undefined
-        ? `, a variant: the plain name holds the overlay of ${otherTextOf}, which ships other text`
-        : olderText
-          ? ', replacing the overlay of older text'
-          : '';
+      otherTextOf === undefined
+        ? ''
+        : `, a variant: the plain name holds the ${otherTextOf} overlay of other text${older}`;
     console.log(`${folder}: wrote ${file}${name}, ${entryCount(overlay)}; ${what}`);
   }
 }

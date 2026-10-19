@@ -66,9 +66,10 @@ values still equal to the source text.
 
 `npm run translations:skeleton -- <archive or folder> --lang <lang>` writes `<lang>/maps/<digest>.json`
 for each map it holds, every value the basis text: replace each in place and delete the ones left
-untranslated, which fall back to the source anyway. When the plain file holds another map's overlay
-(another `map` alias) of other text, the skeleton takes the variant name; when it holds this map's
-overlay of older text, `--force` replaces it. Copies with the same text share one file.
+untranslated, which fall back to the source anyway. When the plain file holds an overlay of other
+text, the skeleton takes the variant name whatever the `map` alias says, since an older text of this
+map and a copy sharing its name look alike; `--force` replaces only a file of the same basis text.
+Copies with the same text share one file.
 
 `npm run translations:derive-cht` writes the `cht/maps/` twin of every project-written `chs/maps/`
 overlay as an OpenCC conversion (mainland to Taiwan script and vocabulary) marked `derived: "chs"`.

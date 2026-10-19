@@ -190,7 +190,8 @@ npm run translations:derive-cht
 ```
 
 The skeleton command writes a map overlay for each map of a `.zip`, `.rar`, `.c2m` or folder into
-`translations/` (or `--out`), refusing to replace an existing one without `--force`. Its basis is
+`translations/` (or `--out`). An existing overlay of the same text is replaced only with `--force`;
+one of other text keeps its file and the skeleton takes a variant name beside it. Its basis is
 `--basis`, else the first source language the map ships, and every value is that language's text, for
 a translator to replace in place. A `--lang` equal to the basis writes an edit template; a `--lang` the
 map ships itself is refused, since the shipped text wins. The check sees only maps of the pack, so it

@@ -41,7 +41,6 @@ export {
   signpostOverlayIndex,
 } from './signposts.js';
 export type { AtlasFrame, SpriteAtlas } from './sprites/atlas.js';
-export { FULL_HEART_FRAME_ID, LIFE_HEART_STEPS } from './sprites/life-heart-frames.js';
 export { GFX_DIR_TO_FACING, subClipKey } from './sprites/settler.js';
 export type {
   CarryingBinding,

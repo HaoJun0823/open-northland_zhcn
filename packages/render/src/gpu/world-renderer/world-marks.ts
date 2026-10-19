@@ -24,7 +24,6 @@ import {
   type ImportMarkerGfx,
   ImportMarkerLayer,
   type LifeHeart,
-  type LifeHeartGfx,
   LifeHeartLayer,
   type LostGoalMarker,
   type OrderMarker,
@@ -199,11 +198,6 @@ export class WorldMarks {
     this.experienceStars.setGfx(gfx === null ? undefined : { ...gfx, textures: this.textures });
   }
 
-  /** `null` leaves the heart layer drawing nothing. */
-  setLifeHeartGfx(gfx: LifeHeartGfx | null): void {
-    this.hearts.setGfx(gfx === null ? undefined : { ...gfx, textures: this.textures });
-  }
-
   /** `null` leaves the import-marker layer drawing nothing. */
   setImportMarkerGfx(gfx: ImportMarkerGfx | null): void {
     this.importMarkers.setGfx(gfx === null ? undefined : { ...gfx, textures: this.textures });
@@ -252,7 +246,7 @@ export class WorldMarks {
         if (star.jobTier > 0) column.wear(star.id, 'jobStar');
       }
     }
-    if (this.hearts.drawsHearts) for (const heart of frame.lifeHearts) column.wear(heart.id, 'heart');
+    for (const heart of frame.lifeHearts) column.wear(heart.id, 'heart');
     if (this.bubbles.drawsBubbles)
       for (const bubble of frame.settlerBubbles) column.wear(bubble.id, 'bubble');
     const exempt = this.importMarkers.exemptJobs;

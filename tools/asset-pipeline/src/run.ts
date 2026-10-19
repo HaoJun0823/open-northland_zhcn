@@ -24,7 +24,7 @@ import { assertStaticVerbsKnown, convertMapDatTree } from './stages/maps/index.j
 import { createMinimapSynthesizer } from './stages/maps/synth-minimap.js';
 import { renderMusicStage } from './stages/music/index.js';
 import { composeMaskedTransitionPages, convertPcxTree } from './stages/pcx.js';
-import { convertIndexedCharacterAtlases, convertPlayerPaletteAtlases } from './stages/player-colors.js';
+import { convertGuidepostPlayerAtlases, convertIndexedCharacterAtlases } from './stages/player-colors.js';
 import { copySoundTree } from './stages/sounds.js';
 import { indexSourceAssets } from './stages/source-files.js';
 import { convertVehiclePaletteFamilies } from './stages/vehicle-colors.js';
@@ -76,8 +76,8 @@ export async function runPipeline(args: Args): Promise<void> {
   );
 
   const indexed = await convertIndexedCharacterAtlases(bindings, args.out, assets);
-  const playerAtlases = await convertPlayerPaletteAtlases(args.out, assets).catch((err: unknown) => {
-    console.warn(`[pipeline] player palette atlases skipped: ${errorMessage(err)}`);
+  const guideAtlases = await convertGuidepostPlayerAtlases(args.out, assets).catch((err: unknown) => {
+    console.warn(`[pipeline] guidepost player atlases skipped: ${errorMessage(err)}`);
     return 0;
   });
   const vehicleColors = await convertVehiclePaletteFamilies(
@@ -88,7 +88,7 @@ export async function runPipeline(args: Args): Promise<void> {
   );
   console.log(
     `[pipeline] player colours: ${indexed.length} indexed character atlas(es)` +
-      `, ${playerAtlases} player palette atlas(es)` +
+      `, ${guideAtlases} guidepost player atlas(es)` +
       `, ${vehicleColors.indexed.length} indexed vehicle atlas(es) over ${vehicleColors.luts.length} palette family LUT(s)`,
   );
 

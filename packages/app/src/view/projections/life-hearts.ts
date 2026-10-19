@@ -11,6 +11,7 @@ import {
   TileBuckets,
   type WorldSnapshot,
 } from '@open-northland/sim';
+import { PLAYER_SWATCH_COLORS } from '../../catalog/roster.js';
 import {
   healthOf,
   isSettler,
@@ -19,6 +20,8 @@ import {
   type SnapshotEntity,
   settlerTribeOf,
 } from '../../game/snapshot.js';
+
+const UNKNOWN_PLAYER_HEART_COLOUR = 0xffffff;
 
 /** Reused output of the box query; the slots past a query's count hold earlier frames' bodies. */
 const boxed: SnapshotEntity[] = [];
@@ -34,7 +37,7 @@ export interface LifeHeartInputs {
 }
 
 /**
- * One heart per unit in its owner's colour slot, filled to its remaining life fraction, ascending by id. Only units
+ * One faction-coloured heart per unit, filled to its remaining life fraction, ascending by id. Only units
  * standing in `box` are read; no box reads the whole map. Source basis: the permanent heart over claimed
  * stock is observed in the original. Original behavior (reading, unconfirmed against the running
  * original): a person wears it only while his own player has him selected, however wounded.
@@ -60,8 +63,9 @@ export function computeLifeHearts(
     if (isIndoorSettler(snapshot, e.components)) continue;
     const pos = positionOf(e);
     if (pos === undefined) continue;
-    const colourSlot = inputs.playerColourOf?.(player) ?? player;
-    out.push({ id: e.id, x: pos.x, y: pos.y, colourSlot, life });
+    const slot = inputs.playerColourOf?.(player) ?? player;
+    const colour = PLAYER_SWATCH_COLORS[slot % PLAYER_SWATCH_COLORS.length] ?? UNKNOWN_PLAYER_HEART_COLOUR;
+    out.push({ id: e.id, x: pos.x, y: pos.y, colour, life });
   }
   return box === undefined ? out : out.sort((a, b) => a.id - b.id);
 }

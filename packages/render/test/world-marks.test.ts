@@ -1,9 +1,8 @@
 import type { Entity, SimEvent } from '@open-northland/sim';
-import { Container, Mesh, type Sprite, TextureSource, UniformGroup } from 'pixi.js';
+import { Container, Mesh, TextureSource, UniformGroup } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { OVERHEAD_STEP } from '../src/data/scene/overhead-column.js';
 import type { AtlasFrame } from '../src/data/sprites/index.js';
-import { LIFE_HEART_STEPS } from '../src/data/sprites/life-heart-frames.js';
 import { NO_WATER } from '../src/data/terrain/index.js';
 import { TextureCache } from '../src/gpu/texture-cache.js';
 import { WorldMarks, type WorldMarksFrame } from '../src/gpu/world-renderer/world-marks.js';
@@ -133,13 +132,10 @@ describe('WorldMarks', () => {
     const source = new TextureSource({ width: 9, height: 9 });
     const at = { id: SETTLER, x: 3 * ONE, y: 4 * ONE };
     const frame = frameOf({
-      lifeHearts: [{ ...at, colourSlot: 0, life: 1 }],
+      lifeHearts: [{ ...at, colour: 0xff0000, life: 1 }],
       experienceStars: [{ ...at, weaponTier: 1, jobTier: 0 }],
     });
-    const heartY = (): number => (marks.slots.hearts.children[0] as Sprite).y;
-    marks.setLifeHeartGfx({
-      byPlayer: [{ source, frames: Array.from({ length: LIFE_HEART_STEPS }, () => bob) }],
-    });
+    const heartY = (): number => marks.slots.hearts.children[0]?.y ?? Number.NaN;
     marks.draw(frame);
     const besideUndrawnStar = heartY();
     marks.setExperienceStarGfx({ source, frameByTier: [bob] });

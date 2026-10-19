@@ -61,8 +61,8 @@ digits of its `basis.digest` to the name. The `map` field is a readable alias, n
 
 `tools/translations/` holds the import from CulturesGameLocalization, the skeleton extractor for a
 map archive, and the audit. `npm run check:translations` validates every overlay against its schema
-and, with the unpacked pack present, reports redundant overlays, stale bases, keys the source lacks and
-values still equal to the source text.
+and, with the unpacked pack present, reports redundant overlays, stale bases, keys the source lacks,
+values that do not keep the source's markup and values still equal to the source text.
 
 `npm run translations:skeleton -- <archive or folder> --lang <lang>` writes `<lang>/maps/<digest>.json`
 for each map it holds, every value the basis text: replace each in place and delete the ones left

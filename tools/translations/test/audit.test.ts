@@ -267,6 +267,40 @@ describe('auditTranslations: against the pack', () => {
     ]);
   });
 
+  it('warns about values that lose or change the goal prefix, placeholders or tags of their source', async () => {
+    const shipped = { 0: '@Znajdz studnie', 1: 'Beczki %d/5', 2: 'Opis' };
+    const blocks = new Map([
+      ['title', '<picture:fjord.bmp>\nNa polnoc'],
+      ['art', '<font:big>Fjord<font:normal>'],
+    ]);
+    const map = packMap({
+      folder: 'maps/community/fjord',
+      text: { datDigest: DIGEST, languages: { pol: { strings: shipped, briefings: blocks } } },
+    });
+    await put(
+      `chs/maps/${DIGEST}.json`,
+      mapOverlay(
+        { '0': '找到水井', '1': '木桶 %s/5', '2': '描述' },
+        { title: '<picture:other.bmp>\n向北', art: '<font:big>峡湾<font:normal>' },
+        basis(mapSourceTextDigest(shipped, blocks)),
+      ),
+    );
+
+    const { warnings } = await auditTranslations(dir, pack([map]));
+
+    expect(warnings).toEqual([
+      {
+        file: `chs/maps/${DIGEST}.json`,
+        message:
+          'maps/community/fjord: string ids whose goal prefix or placeholders differ from the pol source: 0, 1',
+      },
+      {
+        file: `chs/maps/${DIGEST}.json`,
+        message: 'maps/community/fjord: briefing labels whose tags differ from the pol source: title',
+      },
+    ]);
+  });
+
   it('warns about a source-language overlay on every copy of the map that refuses one', async () => {
     await put(`pol/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basis(polDigest)));
     const copies = [

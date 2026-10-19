@@ -30,6 +30,7 @@ import {
   readOverlayFile,
   TRANSLATIONS_ROOT,
 } from '@open-northland/translations';
+import { blockMarkupDiffers, stringMarkupDiffers } from './markup.js';
 import {
   bookSourceDigest,
   objectTableSourceDigest,
@@ -221,6 +222,22 @@ function unchangedKeys(
   };
 }
 
+/** The string ids and briefing labels of `overlay` that do not keep the markup of their basis text. */
+function markupChanges(
+  overlay: MapOverlay,
+  basis: MapLanguageText | undefined,
+): { readonly ids: readonly string[]; readonly labels: readonly string[] } {
+  const ids = Object.entries(overlay.strings).filter(([id, text]) => {
+    const source = basis?.strings[Number(id)];
+    return source !== undefined && stringMarkupDiffers(source, text);
+  });
+  const labels = Object.entries(overlay.briefings).filter(([label, text]) => {
+    const source = basis?.briefings.get(label);
+    return source !== undefined && blockMarkupDiffers(source, text);
+  });
+  return { ids: ids.map(([id]) => id), labels: labels.map(([label]) => label) };
+}
+
 /** Where a warning names a pack map. */
 const whereOf = (map: PackMap): string =>
   map.campaign === undefined ? map.folder : `campaign map ${map.folder}`;
@@ -257,6 +274,19 @@ function auditAppliedOverlay(
   const labels = missingKeys(overlay.briefings, (label) => basis?.briefings.has(label) === true);
   if (labels !== undefined)
     warn(file, `${where}: briefing labels the ${overlay.basis.lang} source lacks: ${labels}`);
+  const remarked = markupChanges(overlay, basis);
+  if (remarked.ids.length > 0)
+    warn(
+      file,
+      `${where}: string ids whose goal prefix or placeholders differ from the ${overlay.basis.lang} ` +
+        `source: ${remarked.ids.join(', ')}`,
+    );
+  if (remarked.labels.length > 0)
+    warn(
+      file,
+      `${where}: briefing labels whose tags differ from the ${overlay.basis.lang} source: ` +
+        remarked.labels.join(', '),
+    );
   // An overlay in its basis language edits that text rather than translating it.
   const kept = lang === overlay.basis.lang ? 'unedited' : 'untranslated';
   const source = `the ${overlay.basis.lang} source text`;

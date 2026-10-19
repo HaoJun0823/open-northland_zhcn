@@ -1,4 +1,5 @@
 import type { MapLanguageText } from '@open-northland/map-import';
+import { stringMarkupDiffers } from '../markup.js';
 import {
   adoptSourceTags,
   briefingBody,
@@ -24,10 +25,6 @@ export interface MapTranslation {
   readonly unframed: readonly string[];
 }
 
-const GOAL_PREFIX = '@';
-/** A printf conversion such as `%d`, `%s` or `%2.1f`. */
-const PLACEHOLDER = /%(?:\d+\$)?[-+ #0]*\d*(?:\.\d+)?[a-zA-Z]/g;
-
 /** The basis string of an XML id; an id spelled other than its number (`07`) names none. */
 function basisString(basis: MapLanguageText, id: string): string | undefined {
   const number = Number(id);
@@ -36,17 +33,6 @@ function basisString(basis: MapLanguageText, id: string): string | undefined {
 
 function isBlank(text: string | undefined): boolean {
   return text === undefined || text.trim() === '';
-}
-
-function sorted(values: Iterable<string>): string {
-  return [...values].sort().join(' ');
-}
-
-function stringMarkupDiffers(source: string, translated: string): boolean {
-  return (
-    source.startsWith(GOAL_PREFIX) !== translated.startsWith(GOAL_PREFIX) ||
-    sorted(source.match(PLACEHOLDER) ?? []) !== sorted(translated.match(PLACEHOLDER) ?? [])
-  );
 }
 
 /**

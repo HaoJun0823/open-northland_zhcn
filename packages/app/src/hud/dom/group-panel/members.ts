@@ -431,6 +431,8 @@ export function createMemberRoster(
       // Measured again only after a change, on another display or until the wells are laid out:
       // measuring reads the layout, which the frame's HUD writes have dirtied by now.
       if (measuredSlots === null || measuredSlots.length === 0 || measuredRatio !== devicePixelRatio) {
+        // Another device scale resizes the wells' canvases, so the figure canvas is laid again too.
+        if (measuredRatio !== devicePixelRatio) figuresStale = true;
         measuredSlots = slots.of(inView);
         measuredRatio = devicePixelRatio;
       }

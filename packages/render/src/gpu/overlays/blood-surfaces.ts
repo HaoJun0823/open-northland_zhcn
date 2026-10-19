@@ -1,5 +1,11 @@
 import { type Container, Matrix, Point, Sprite } from 'pixi.js';
-import { BLOOD_LIFETIME_TICKS, type BloodDrop, bloodDroplet, smoothUnit } from '../../data/effects/blood.js';
+import {
+  BLOOD_LIFETIME_TICKS,
+  type BloodDrop,
+  type BloodDropPose,
+  bloodDroplet,
+  smoothUnit,
+} from '../../data/effects/blood.js';
 import type { BloodPalette } from '../../data/effects/blood-appearance.js';
 import {
   type BloodSurface,
@@ -25,6 +31,19 @@ const BUCKET_PX = 64;
 /** Bucket rows stay far inside half this stride on any map, so a column and row pack into one exact key. */
 const BUCKET_KEY_STRIDE = 2 ** 21;
 const bucketKey = (x: number, y: number): number => x * BUCKET_KEY_STRIDE + y;
+/** The bucket holding world point `(x, y)`. */
+const cellKey = (x: number, y: number): number =>
+  bucketKey(Math.floor(x / BUCKET_PX), Math.floor(y / BUCKET_PX));
+/** A drop's age at sweep step `step` of a trace, the landing point included. */
+const traceAge = (drop: BloodDrop, step: number): number =>
+  drop.delay + Math.min(step * TRACE_STEP, drop.flight);
+
+/** What one prepare's traces can reach: the cells their sweeps read and the ground rows they launch
+ *  from. A trace reads nothing else, so a prepare bucketing only these finds the same contacts. */
+export interface ContactReach {
+  readonly cells: ReadonlySet<number>;
+  readonly rows: readonly number[];
+}
 
 interface Candidate {
   readonly surface: BloodSurface;
@@ -79,6 +98,17 @@ interface Stain {
 /** Contact discovery runs only for a fresh visible burst; ageing visits the capped stained set. */
 export class BloodSurfaces {
   private readonly buckets = new Map<number, Candidate[]>();
+  /** What the running prepare buckets; undefined buckets every candidate in every cell it covers. */
+  private reach: ContactReach | undefined;
+  private readonly sweepPose: BloodDropPose = {
+    x: 0,
+    y: 0,
+    groundY: 0,
+    angle: 0,
+    stretch: 1,
+    landed: false,
+    visible: false,
+  };
   private readonly stack: Matrix[] = [];
   private readonly candidates = new WeakMap<BloodSurface, CachedCandidate>();
   private groundY = 0;
@@ -101,13 +131,30 @@ export class BloodSurfaces {
     sprite.refreshBlood();
   }
 
-  prepare(roots: readonly Container[], groundY = 0): void {
+  /**
+   * Bucket the contact proxies under `roots`. With `reach`, only its cells fill, and a flat or upright
+   * proxy joins only when a launch row lies within its trace's row window: a caller that {@link sweep}s
+   * every drop it will trace first gets the same contacts for a fraction of the walk.
+   */
+  prepare(roots: readonly Container[], groundY = 0, reach?: ContactReach): void {
     this.buckets.clear();
     this.groundY = groundY;
+    this.reach = reach;
     for (const root of roots) {
       root.sortChildren();
       this.stackAt(0).identity();
       this.collect(root, 0);
+    }
+    this.reach = undefined;
+  }
+
+  /** Add the cells {@link trace} reads for `drop` launched at `(x, y)` to `into`. */
+  sweep(drop: BloodDrop, x: number, y: number, into: Set<number>): void {
+    const pose = this.sweepPose;
+    const steps = Math.ceil(drop.flight / TRACE_STEP);
+    for (let step = 1; step <= steps; step++) {
+      bloodDroplet(drop, traceAge(drop, step), pose);
+      into.add(cellKey(x + pose.x, y + pose.y));
     }
   }
 
@@ -127,8 +174,9 @@ export class BloodSurfaces {
     const surface = surfaceOf(node);
     // Roots carry the camera, so only their children's transforms enter world-space contacts.
     for (const child of node.children) {
-      if (isBloodless(child)) continue;
-      if (child.children.length === 0 && surfaceOf(child)?.enabled !== true) continue;
+      if (child.children.length === 0) {
+        if (!this.bucketable(child) || isBloodless(child)) continue;
+      } else if (isBloodless(child) || this.barren(child)) continue;
       child.updateLocalTransform();
       this.stackAt(depth + 1)
         .copyFrom(parent)
@@ -139,11 +187,41 @@ export class BloodSurfaces {
     const cached = this.candidateOf(surface, parent, node.bounds);
     if (cached === undefined) return;
     const { candidate, keys } = cached;
+    const cells = this.reach?.cells;
     for (const key of keys) {
+      if (cells !== undefined && !cells.has(key)) continue;
       const bucket = this.buckets.get(key);
       if (bucket === undefined) this.buckets.set(key, [candidate]);
       else bucket.push(candidate);
     }
+  }
+
+  /** Whether `node` carries an enabled surface a trace from the reach's rows can pass. */
+  private bucketable(node: Container): boolean {
+    const surface = surfaceOf(node);
+    return surface?.enabled === true && this.rowReachable(surface);
+  }
+
+  /** Whether nothing under a container can bucket: neither it nor any of its children, when those are all
+   *  leaves, is {@link bucketable}. Skipping it spares its transform; a container of containers is walked. */
+  private barren(node: Container): boolean {
+    if (this.bucketable(node)) return false;
+    for (const child of node.children) {
+      if (child.children.length > 0 || this.bucketable(child)) return false;
+    }
+    return true;
+  }
+
+  /** Whether a trace from one of the reach's rows can pass a surface's row tests; a facade's front row
+   *  follows its transform, so it always can. */
+  private rowReachable(surface: BloodSurface): boolean {
+    const rows = this.reach?.rows;
+    if (rows === undefined || surface.facade) return true;
+    for (const row of rows) {
+      if (Math.abs(surface.groundY - row) <= MAX_ROW_DISTANCE && (surface.flat || row >= surface.groundY))
+        return true;
+    }
+    return false;
   }
 
   /** Still scenery keeps its transform between bursts, so its contact proxy is rebuilt only on change. */
@@ -217,12 +295,10 @@ export class BloodSurfaces {
     // Walk the swept arc, including the landing point. Reverse painter traversal picks the front face.
     const steps = Math.ceil(drop.flight / TRACE_STEP);
     for (let step = 1; step <= steps; step++) {
-      const age = drop.delay + Math.min(step * TRACE_STEP, drop.flight);
+      const age = traceAge(drop, step);
       bloodDroplet(drop, age, pose);
       point.set(x + pose.x, y + pose.y);
-      const candidates = this.buckets.get(
-        bucketKey(Math.floor(point.x / BUCKET_PX), Math.floor(point.y / BUCKET_PX)),
-      );
+      const candidates = this.buckets.get(cellKey(point.x, point.y));
       if (candidates === undefined) continue;
       for (let i = candidates.length - 1; i >= 0; i--) {
         const candidate = candidates[i];

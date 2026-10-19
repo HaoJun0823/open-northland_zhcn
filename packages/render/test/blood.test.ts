@@ -519,6 +519,49 @@ it('deposits scenery blood at contact, retires caught drops, and clears through 
   }
 });
 
+it('stains each wall its own burst reaches when bursts on different rows share one contact walk', () => {
+  const mask = vi
+    .spyOn(alphaMasks, 'alphaMaskOf')
+    .mockReturnValue({ width: 32, height: 32, bits: new Uint8Array(128).fill(255) });
+  const texture = new Texture({
+    source: new TextureSource({ width: 32, height: 32 }),
+    frame: new Rectangle(0, 0, 32, 32),
+  });
+  const root = new Container();
+  // Each wall sits in a container of its own, so the walk reaches it through a nested transform; the
+  // second stands where the first does relative to its burst, eight nodes right and four rows down.
+  const nearHolder = root.addChild(new Container());
+  nearHolder.position.set(100, 50);
+  const near = nearHolder.addChild(new BloodSurfaceSprite(texture));
+  near.position.set(40, 30);
+  const farHolder = root.addChild(new Container());
+  farHolder.position.set(300, 120);
+  const far = farHolder.addChild(new BloodSurfaceSprite(texture));
+  far.position.set(112, 36);
+  const nearSurface = bloodSurface(near, 114);
+  const farSurface = bloodSurface(far, 190);
+  const layer = new BloodLayer(root);
+  try {
+    const second: SimEvent = { ...hit(5, 3, 12, 10), attacker: 6 as Entity } as SimEvent;
+    layer.ingest(
+      [hit(), second],
+      0,
+      snapshotOf([
+        { id: 1, components: { Position: positionOfNode(3, 6) } },
+        { id: 6, components: { Position: positionOfNode(11, 10) } },
+      ]),
+    );
+    draw(layer, 0);
+    draw(layer, BLOOD_AIR_TICKS);
+    expect(Math.abs(nearSurface.packed[3] ?? 0)).toBeGreaterThan(0);
+    expect(Math.abs(farSurface.packed[3] ?? 0)).toBeGreaterThan(0);
+  } finally {
+    mask.mockRestore();
+    layer.destroy();
+    root.destroy({ children: true });
+  }
+});
+
 it('delivers contacts once when the camera leaves during flight or returns before the burst ends', () => {
   const mask = vi
     .spyOn(alphaMasks, 'alphaMaskOf')

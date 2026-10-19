@@ -80,6 +80,9 @@ export class BloodLayer {
   private visible: BloodMark[] = [];
   private nextVisible: BloodMark[] = [];
   private readonly seenAir = new Set<BloodMark>();
+  /** This reconcile's drops of the bursts that trace their contacts, and what those traces read. */
+  private readonly traced = new Map<BloodMark, readonly BloodDrop[]>();
+  private readonly reach = { cells: new Set<number>(), rows: [] as number[] };
   private textures: BloodTextures | undefined;
   private ground: BloodGround | undefined;
   private revision = -1;
@@ -187,19 +190,14 @@ export class BloodLayer {
       this.nextVisible.length !== this.visible.length ||
       this.nextVisible.some((mark, i) => this.visible[i] !== mark);
     this.seenAir.clear();
-    let preparedSurfaces = false;
+    this.prepareContacts(frame);
     if (rebuild) this.ground?.begin();
     for (const mark of this.nextVisible) {
       const place = this.places.get(mark);
       if (place === undefined) continue;
       const airborne = frame.renderTime - mark.spawnTick < BLOOD_AIR_TICKS;
       if (place.surface >= 1 && !airborne) continue;
-      if (place.rise === undefined) {
-        const bounds = frame.drawn?.boundsOf(mark.target);
-        // Spray starts at the upper torso. Only the first exactly visible frame chooses its height.
-        place.rise =
-          bounds === undefined ? 20 : Math.max(5, Math.min(34, (bounds.maxY - bounds.minY) * 0.62));
-      }
+      place.rise ??= riseOf(mark, frame);
       this.textures ??= new BloodTextures();
       if (place.surface < 1 && this.ground === undefined) {
         this.ground = new BloodGround(this.textures);
@@ -208,20 +206,10 @@ export class BloodLayer {
       }
       let motions: readonly BloodDrop[] | undefined;
       if (airborne && place.contacts === undefined) {
-        motions = bloodDrops(mark, place.rise);
-        const watched =
-          frame.fogVisible === undefined ||
-          frame.fogVisible((mark.hx - rowStagger(mark.hy / 2)) / 2, mark.hy / 2);
-        if (watched) {
-          if (!preparedSurfaces) {
-            this.surfaces.prepare(
-              this.groundSurfaces === undefined
-                ? [this.spriteLayer]
-                : [this.groundSurfaces, this.spriteLayer],
-            );
-            preparedSurfaces = true;
-          }
-          place.contacts = motions.map((drop) => this.surfaces.trace(drop, place.x, place.y, place.baseY));
+        const traced = this.traced.get(mark);
+        motions = traced ?? bloodDrops(mark, place.rise);
+        if (traced !== undefined) {
+          place.contacts = traced.map((drop) => this.surfaces.trace(drop, place.x, place.y, place.baseY));
           if (place.contacts.some((contact) => contact !== undefined))
             this.pending.set(mark, { contacts: place.contacts, delivered: 0 });
         } else place.contacts = [];
@@ -247,6 +235,32 @@ export class BloodLayer {
       node.container.destroy({ children: true });
       this.nodes.delete(mark);
     }
+  }
+
+  /**
+   * Find the watched fresh bursts that trace their contacts this reconcile, with their drops, and bucket
+   * the scenery only in the cells those traces read: the walk's cost follows the bursts, not the scene.
+   */
+  private prepareContacts(frame: BloodFrame): void {
+    this.traced.clear();
+    this.reach.cells.clear();
+    this.reach.rows.length = 0;
+    for (const mark of this.nextVisible) {
+      const place = this.places.get(mark);
+      if (place === undefined || place.contacts !== undefined) continue;
+      if (frame.renderTime - mark.spawnTick >= BLOOD_AIR_TICKS || !watched(mark, frame)) continue;
+      place.rise ??= riseOf(mark, frame);
+      const drops = bloodDrops(mark, place.rise);
+      this.traced.set(mark, drops);
+      this.reach.rows.push(place.baseY);
+      for (const drop of drops) this.surfaces.sweep(drop, place.x, place.y, this.reach.cells);
+    }
+    if (this.traced.size === 0) return;
+    this.surfaces.prepare(
+      this.groundSurfaces === undefined ? [this.spriteLayer] : [this.groundSurfaces, this.spriteLayer],
+      0,
+      this.reach,
+    );
   }
 
   private place(mark: BloodMark, frame: BloodFrame): Place {
@@ -344,6 +358,19 @@ export class BloodLayer {
     this.textures?.destroy();
     this.textures = undefined;
   }
+}
+
+/** Spray starts at the upper torso. Only the first exactly visible frame chooses its height. */
+function riseOf(mark: BloodMark, frame: BloodFrame): number {
+  const bounds = frame.drawn?.boundsOf(mark.target);
+  return bounds === undefined ? 20 : Math.max(5, Math.min(34, (bounds.maxY - bounds.minY) * 0.62));
+}
+
+/** Whether the viewer watches the burst's ground: only a watched burst stains the scenery. */
+function watched(mark: BloodMark, frame: BloodFrame): boolean {
+  return (
+    frame.fogVisible === undefined || frame.fogVisible((mark.hx - rowStagger(mark.hy / 2)) / 2, mark.hy / 2)
+  );
 }
 
 function sameView(a: Viewport | undefined, b: Viewport): boolean {

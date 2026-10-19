@@ -40,6 +40,31 @@ describe('blood meeting scenery', () => {
     root.destroy({ children: true });
   });
 
+  it('finds the same contact bucketing only the cells a sweep of the drop names', () => {
+    vi.spyOn(masks, 'alphaMaskOf').mockReturnValue(solid);
+    const root = new Container();
+    sprite(root, 16);
+    sprite(root, 8);
+    const far = sprite(root, 610, 375);
+    const surfaces = new BloodSurfaces();
+    surfaces.prepare([root], 0);
+    const everywhere = surfaces.trace(drop, 0, 0);
+    expect(everywhere).toBeDefined();
+    expect(surfaces.trace(drop, 600, 400)?.surface.sprite).toBe(far);
+    const cells = new Set<number>();
+    surfaces.sweep(drop, 0, 0, cells);
+    surfaces.prepare([root], 0, { cells, rows: [0] });
+    expect(surfaces.trace(drop, 0, 0)).toEqual(everywhere);
+    // The far sprite fills no swept cell, so a drop launched at it finds nothing in this walk.
+    expect(surfaces.trace(drop, 600, 400)).toBeUndefined();
+    surfaces.prepare([root], 0, { cells: new Set(), rows: [0] });
+    expect(surfaces.trace(drop, 0, 0)).toBeUndefined();
+    // A launch row past the surfaces' row window walks none of them.
+    surfaces.prepare([root], 0, { cells, rows: [500] });
+    expect(surfaces.trace(drop, 0, 0)).toBeUndefined();
+    root.destroy({ children: true });
+  });
+
   it('uses painter order for overlapping faces, including queued depth changes', () => {
     vi.spyOn(masks, 'alphaMaskOf').mockReturnValue(solid);
     const root = new DepthSortedLayer();

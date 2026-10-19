@@ -1,6 +1,10 @@
 import { Sprite } from 'pixi.js';
 
 export class BloodSurfaceSprite extends Sprite {
+  /** The stains this sprite receives, kept on the sprite so the world batch and the contact walk read
+   *  them without a map lookup; unset for a sprite never registered as a surface. */
+  bloodSurface: BloodSurface | undefined = undefined;
+
   refreshBlood(): void {
     this.onViewUpdate();
   }
@@ -22,7 +26,6 @@ export interface BloodSurface {
   height: number;
 }
 
-const surfaces = new WeakMap<object, BloodSurface>();
 const bloodless = new WeakSet<object>();
 
 /** Mark a container whose every sprite refuses blood, so the contact walk skips its whole subtree. */
@@ -37,10 +40,10 @@ export function isBloodless(node: object): boolean {
 
 /** A pooled slot is about to draw another layer. Pending contacts keep the detached receiver. */
 export function detachBloodSurface(sprite: BloodSurfaceSprite): void {
-  const surface = surfaces.get(sprite);
+  const surface = sprite.bloodSurface;
   if (surface === undefined) return;
   surface.enabled = false;
-  surfaces.delete(sprite);
+  sprite.bloodSurface = undefined;
   sprite.refreshBlood();
 }
 
@@ -64,7 +67,7 @@ export function bloodSurface(
   const clipY = facade
     ? Math.max(0.7, 1 - 40 / Math.max(1, sprite.texture.frame.height * Math.abs(sprite.scale.y)))
     : 0;
-  let surface = retained ?? surfaces.get(sprite);
+  let surface = retained ?? sprite.bloodSurface;
   if (surface === undefined) {
     surface = {
       sprite,
@@ -80,7 +83,7 @@ export function bloodSurface(
     };
   }
   surface.sprite = sprite;
-  surfaces.set(sprite, surface);
+  sprite.bloodSurface = surface;
   if (surface.enabled !== enabled || surface.clipY !== clipY) sprite.refreshBlood();
   surface.enabled = enabled;
   surface.groundY = groundY;
@@ -94,5 +97,5 @@ export function bloodSurface(
 }
 
 export function surfaceOf(sprite: object | null): BloodSurface | undefined {
-  return sprite === null ? undefined : surfaces.get(sprite);
+  return sprite instanceof BloodSurfaceSprite ? sprite.bloodSurface : undefined;
 }

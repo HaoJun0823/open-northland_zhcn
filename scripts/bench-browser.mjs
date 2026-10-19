@@ -354,6 +354,7 @@ try {
       metadata.failure.captureError = captureError.message;
     }
   }
+  console.error(`bench:browser ${error.message}`);
   process.exitCode = 1;
 } finally {
   if (metadata.errors.length) {

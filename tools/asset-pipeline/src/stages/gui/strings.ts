@@ -1,3 +1,4 @@
+import { isSourceLanguage, type Language, type ObjectTableOverlay } from '@open-northland/data';
 import {
   cifBytesToSections,
   decodeCifStringTable,
@@ -69,19 +70,28 @@ function normalizeName(text: string): string {
   return text.trim().replace(/\s+/g, ' ');
 }
 
-function normalizedNames(table: StringTable, decode: (text: string) => string): StringTable {
-  return Object.fromEntries(
-    Object.entries(table).map(([id, text]) => [Number(id), normalizeName(decode(text))]),
-  );
+function normalizedNames(table: Readonly<StringTable>): StringTable {
+  return Object.fromEntries(Object.entries(table).map(([id, text]) => [Number(id), normalizeName(text)]));
 }
+
+export type GameObjectTable = (typeof GAME_OBJECT_TABLES)[number];
+
+/** One game-object table as the language ships it: names and plurals by type id, decoded, not normalised. */
+export interface GameObjectNames {
+  readonly names: StringTable;
+  readonly plurals: StringTable;
+}
+
+const decodedNames = (table: StringTable, decode: (text: string) => string): StringTable =>
+  Object.fromEntries(Object.entries(table).map(([id, text]) => [Number(id), decode(text)]));
 
 /** Reads the readable `.ini` when the language ships one (Polish, some English and German tables),
  *  else the encrypted `.cif`. */
-async function readGameObjectTable(
+export async function readGameObjectNames(
   roots: SourceRoots,
   lang: string,
-  table: (typeof GAME_OBJECT_TABLES)[number],
-): Promise<DecodedTables> {
+  table: GameObjectTable,
+): Promise<GameObjectNames> {
   const stem = `Data/text/${lang}/strings/gameobjects/${table}`;
   const encoding = textEncoding(lang);
   let sections: RuleSection[];
@@ -94,10 +104,15 @@ async function readGameObjectTable(
     decode = (text) => decodeDisplayText(text, encoding);
   }
   const { singular, plural } = extractStringnNames(sections);
+  return { names: decodedNames(singular, decode), plurals: decodedNames(plural, decode) };
+}
+
+/** One game-object table's names, and its plurals where {@link PLURAL_TABLES} exports them, normalised. */
+function exportedNames(table: GameObjectTable, { names, plurals }: GameObjectNames): DecodedTables {
   const pluralKey = PLURAL_TABLES[table];
   return {
-    [table]: normalizedNames(singular, decode),
-    ...(pluralKey === undefined ? {} : { [pluralKey]: normalizedNames(plural, decode) }),
+    [table]: normalizedNames(names),
+    ...(pluralKey === undefined ? {} : { [pluralKey]: normalizedNames(plurals) }),
   };
 }
 
@@ -112,7 +127,8 @@ const TABLE_READS: readonly {
   })),
   ...GAME_OBJECT_TABLES.map((table) => ({
     table,
-    read: (roots: SourceRoots, lang: string) => readGameObjectTable(roots, lang, table),
+    read: async (roots: SourceRoots, lang: string) =>
+      exportedNames(table, await readGameObjectNames(roots, lang, table)),
   })),
 ];
 
@@ -121,7 +137,7 @@ const TABLE_READS: readonly {
  * {@link PLURAL_TABLES}) into one
  * `content/gui/strings/<lang>.json` of `{ <table>: { <stringId>: <displayText> } }`, with the string
  * corrections applied. A missing table is absent from that language's JSON, and a language with no
- * tables at all emits nothing.
+ * tables at all emits nothing. An overlay language's object-table overlays become its own JSON.
  */
 export async function convertGuiStrings(
   roots: SourceRoots,
@@ -152,5 +168,44 @@ export async function convertGuiStrings(
     await writeJsonFile(outDir, path, tables);
     done.push({ lang, path, tables: tableCount, strings: stringCount });
   }
+  for (const [lang, overlays] of roots.overlays?.objects ?? []) {
+    const written = await writeObjectOverlays(outDir, lang, overlays);
+    if (written !== undefined) done.push(written);
+  }
   return done;
+}
+
+const isGameObjectTable = (name: string): name is GameObjectTable =>
+  (GAME_OBJECT_TABLES as readonly string[]).includes(name);
+
+/** Writes an overlay language's `gui/strings/<lang>.json` from its object-table overlays, normalised like
+ *  the source tables. A source language's object tables keep the corrections, so its overlay is refused. */
+async function writeObjectOverlays(
+  outDir: string,
+  lang: Language,
+  overlays: ReadonlyMap<string, ObjectTableOverlay>,
+): Promise<GuiStringsResult | undefined> {
+  if (isSourceLanguage(lang)) {
+    console.warn(
+      `[pipeline] gui: refused ${lang} object-table overlays: source-language text belongs in corrections`,
+    );
+    return undefined;
+  }
+  const tables: DecodedTables = {};
+  let stringCount = 0;
+  for (const [table, overlay] of overlays) {
+    if (!isGameObjectTable(table)) {
+      console.warn(`[pipeline] gui: ignored ${lang} object-table overlay ${table}: no such table`);
+      continue;
+    }
+    for (const [key, byId] of Object.entries(exportedNames(table, overlay))) {
+      tables[key] = byId;
+      stringCount += Object.keys(byId).length;
+    }
+  }
+  const tableCount = Object.keys(tables).length;
+  if (tableCount === 0) return undefined;
+  const path = `${GUI_CONTENT_DIR}/strings/${lang}.json`;
+  await writeJsonFile(outDir, path, tables);
+  return { lang, path, tables: tableCount, strings: stringCount };
 }

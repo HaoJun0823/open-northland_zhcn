@@ -8,6 +8,8 @@ import {
   isMapTreePath,
   type MapDatTerrainFile,
   MapImportError,
+  type MapOverlayOutcome,
+  type MapTree,
   mapFileNames,
   mapFiles,
   NO_IMPORT_LIMITS,
@@ -18,6 +20,7 @@ import { collectSourceFiles, readSourceFile, type SourceRoots } from '../../root
 import { correctMapStrings } from '../../string-corrections.js';
 import { MAPS_DIR } from '../content-tree.js';
 import { writePagePictures } from '../hypertext-pictures.js';
+import { mapOverlaySource } from './overlays.js';
 import { mapProvenanceKind } from './provenance.js';
 
 /** One emitted map, summarized for the run log, the listings and the verb check. */
@@ -46,6 +49,10 @@ export interface MapDatConversion {
   readonly strings: boolean;
   /** The `[StaticObjects]` verbs the decoder skipped because it does not know them, sorted. */
   readonly unknownStaticVerbs: readonly string[];
+  /** The raw `map.dat`'s SHA-256, the name its translation overlays are filed under. */
+  readonly datDigest: string;
+  /** What became of each translation overlay filed under `datDigest`. */
+  readonly overlays: readonly MapOverlayOutcome[];
 }
 
 /**
@@ -75,13 +82,27 @@ export function summarizeConversion(map: ConvertedMap): MapDatConversion {
     briefing: map.briefing !== undefined,
     strings: map.strings !== undefined,
     unknownStaticVerbs: map.unknownStaticVerbs,
+    datDigest: map.datDigest,
+    overlays: map.overlays,
   };
+}
+
+/** Every map folder file under the base data root, read through the corrections as the maps stage reads it. */
+export async function readBaseMapTree(roots: SourceRoots): Promise<MapTree> {
+  const found = await collectSourceFiles(roots, isMapTreePath);
+  const pathByRel = new Map(found.map(({ rel, path }) => [rel, path]));
+  return treeFromFolder(
+    found.map(({ rel }) => rel),
+    (rel) => readSourceFile(roots, pathByRel.get(rel) ?? join(roots.data, rel)),
+    NO_IMPORT_LIMITS,
+  );
 }
 
 /**
  * Converts every map folder under the mod root into `<outDir>/maps/<id>.*` and its briefing pictures
  * into `gui/hypertext/`, in path-sorted order so a re-run is reproducible. The map files are read
- * through the corrections, their decoded strings through the map-string corrections. Two folders with
+ * through the corrections, their decoded strings through the map-string corrections, then the
+ * translation overlays; a source-language overlay applies to a community map only. Two folders with
  * one slug write one id, last write wins, sidecars included. A `map.dat` that fails to decode is
  * logged and skipped; a write failure and a missing mod root propagate.
  */
@@ -90,19 +111,15 @@ export async function convertMapDatTree(
   outDir: string,
   synthesizeMinimap?: (terrain: MapDatTerrainFile) => Promise<Uint8Array | undefined>,
 ): Promise<MapDatConversion[]> {
-  const found = await collectSourceFiles(roots, isMapTreePath);
-  const pathByRel = new Map(found.map(({ rel, path }) => [rel, path]));
-  const tree = await treeFromFolder(
-    found.map(({ rel }) => rel),
-    (rel) => readSourceFile(roots, pathByRel.get(rel) ?? join(roots.data, rel)),
-    NO_IMPORT_LIMITS,
-  );
+  const tree = await readBaseMapTree(roots);
   // This stage is the only writer under <outDir>/maps, so a wholesale reset is safe.
   await rm(join(outDir, MAPS_DIR), { recursive: true, force: true });
   const folders = findMapFolders(tree);
   const stringCorrections = roots.mapStringCorrections;
   const done: MapDatConversion[] = [];
   for (const [index, key] of folders.entries()) {
+    // The provenance reads the folder path case-folded, so the lower-cased key classifies it alike.
+    const overlays = mapOverlaySource(roots, mapProvenanceKind(key) !== 'unknown');
     let map: ConvertedMap;
     try {
       map = await convertMapFolder(
@@ -121,6 +138,7 @@ export async function convertMapDatTree(
           ...(stringCorrections === undefined
             ? {}
             : { correctStrings: (id, tables) => correctMapStrings(stringCorrections, id, tables) }),
+          ...(overlays === undefined ? {} : { overlays }),
           onWarning: (message) => console.warn(`[pipeline] ${message}`),
         },
         { index, total: folders.length },

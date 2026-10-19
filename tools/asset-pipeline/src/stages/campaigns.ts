@@ -3,8 +3,10 @@ import { dirname, join } from 'node:path';
 import {
   type Campaign,
   CampaignIndex,
+  isSourceLanguage,
   type LocalizedText,
   type MapTextLanguage,
+  OVERLAY_LANGUAGES,
   SOURCE_LANGUAGES,
 } from '@open-northland/data';
 import {
@@ -12,6 +14,7 @@ import {
   convertMapFolder,
   findMapFolders,
   type MapDatTerrainFile,
+  type MapTree,
   mapFiles,
   NO_IMPORT_LIMITS,
   treeFromFolder,
@@ -22,7 +25,7 @@ import { readSourceFile, type SourceRoots } from '../roots.js';
 import { correctMapStrings } from '../string-corrections.js';
 import { MAPS_DIR } from './content-tree.js';
 import { writePagePictures } from './hypertext-pictures.js';
-import { type MapDatConversion, summarizeConversion } from './maps/index.js';
+import { type MapDatConversion, mapOverlaySource, summarizeConversion } from './maps/index.js';
 
 /** Served at `/campaigns/<id>/`, the root `campaigns-index.json` names its pictures and films under. */
 export const CAMPAIGNS_DIR = 'campaigns';
@@ -41,14 +44,21 @@ export function campaignMapId(campaignId: string, mapId: string): string {
   return `${campaignId}-${mapId}`;
 }
 
-/** Converts one map from its shared files and every language layer, all languages in one map. */
-async function convertCampaignMap(
+/** One campaign map's files as a map tree, read through the corrections: its folder and the key the
+ *  converter takes. */
+export interface CampaignMapTree {
+  readonly folder: string;
+  readonly tree: MapTree;
+  readonly key: string;
+}
+
+/** Reads one campaign map's shared files and every language layer into one map folder. */
+export async function readCampaignMapTree(
   roots: SourceRoots,
   packRoot: string,
   campaign: CampaignSource,
   map: CampaignSource['maps'][number],
-  synthesizeMinimap: ((terrain: MapDatTerrainFile) => Promise<Uint8Array | undefined>) | undefined,
-): Promise<ConvertedMap> {
+): Promise<CampaignMapTree> {
   const folder = `${PACK_CAMPAIGNS_DIR}/${campaign.id}/${map.id}`;
   const mapDir = join(packRoot, PACK_CAMPAIGNS_DIR, campaign.id, 'maps', map.id);
   const sources = new Map<string, string>();
@@ -61,7 +71,21 @@ async function convertCampaignMap(
   );
   const [key, ...others] = findMapFolders(tree);
   if (key === undefined || others.length > 0) throw new Error(`${folder}: expected exactly one map folder`);
+  return { folder, tree, key };
+}
+
+/** Converts one map from its shared files and every language layer, all languages in one map. A
+ *  source-language overlay is refused: campaign text keeps the corrections. */
+async function convertCampaignMap(
+  roots: SourceRoots,
+  packRoot: string,
+  campaign: CampaignSource,
+  map: CampaignSource['maps'][number],
+  synthesizeMinimap: ((terrain: MapDatTerrainFile) => Promise<Uint8Array | undefined>) | undefined,
+): Promise<ConvertedMap> {
+  const { folder, tree, key } = await readCampaignMapTree(roots, packRoot, campaign, map);
   const stringCorrections = roots.mapStringCorrections;
+  const overlays = mapOverlaySource(roots, false);
   const converted = await convertMapFolder(tree, key, {
     id: campaignMapId(campaign.id, map.id),
     provenance: 'mod',
@@ -76,6 +100,7 @@ async function convertCampaignMap(
     ...(stringCorrections === undefined
       ? {}
       : { correctStrings: (id, tables) => correctMapStrings(stringCorrections, id, tables) }),
+    ...(overlays === undefined ? {} : { overlays }),
     onWarning: (message) => console.warn(`[pipeline] ${message}`),
   });
   if (converted.meta.campaign?.campaignId !== campaign.campaignId)
@@ -103,6 +128,44 @@ function stageTitle(map: ConvertedMap, languages: readonly MapTextLanguage[]): L
   );
 }
 
+/**
+ * The campaign's text languages: the pack's, then each overlay language every one of its maps took an
+ * overlay in. A language only some maps carry is left out with a warning, since a campaign plays in one
+ * language throughout.
+ */
+function campaignLanguages(campaign: CampaignSource, maps: readonly ConvertedMap[]): MapTextLanguage[] {
+  const languages: MapTextLanguage[] = [...campaign.languages];
+  for (const lang of OVERLAY_LANGUAGES) {
+    const covered = maps.filter((map) =>
+      map.overlays.some((outcome) => outcome.lang === lang && outcome.status === 'applied'),
+    ).length;
+    if (covered === maps.length) languages.push(lang);
+    else if (covered > 0)
+      console.warn(
+        `[pipeline] campaign ${campaign.id}: ${lang} overlays cover ${covered} of ${maps.length} maps, ` +
+          `so ${lang} is left out of its languages`,
+      );
+  }
+  return languages;
+}
+
+/** The pack's title, with each overlay language's campaign overlay over it. */
+function campaignTitle(roots: SourceRoots, campaign: CampaignSource): LocalizedText {
+  const title: LocalizedText = { ...campaign.title };
+  for (const [lang, overlays] of roots.overlays?.campaigns ?? []) {
+    const overlay = overlays.get(campaign.id);
+    if (overlay === undefined) continue;
+    if (isSourceLanguage(lang)) {
+      console.warn(
+        `[pipeline] campaign ${campaign.id}: refused ${lang} title overlay: source-language text belongs in corrections`,
+      );
+      continue;
+    }
+    title[lang] = overlay.title;
+  }
+  return title;
+}
+
 async function convertCampaign(
   roots: SourceRoots,
   packRoot: string,
@@ -126,6 +189,7 @@ async function convertCampaign(
     height: source.height,
   });
 
+  const languages = campaignLanguages(campaign, maps);
   const stages: Campaign['stages'][number][] = [];
   for (const stage of campaign.stages) {
     const map = maps.find((candidate) => candidate.meta.campaign?.missionId === stage.missionId);
@@ -133,7 +197,7 @@ async function convertCampaign(
     const { route } = stage;
     stages.push({
       mapId: map.id,
-      title: stageTitle(map, campaign.languages),
+      title: stageTitle(map, languages),
       x: stage.x,
       y: stage.y,
       ...(route === undefined
@@ -169,8 +233,8 @@ async function convertCampaign(
       id: campaign.id,
       campaignId: campaign.campaignId,
       order: campaign.order,
-      title: campaign.title,
-      languages: [...campaign.languages],
+      title: campaignTitle(roots, campaign),
+      languages,
       maps: maps.map((map) => {
         const missionId = map.meta.campaign?.missionId;
         if (missionId === undefined) throw new Error(`${map.id}: no mission slot`);

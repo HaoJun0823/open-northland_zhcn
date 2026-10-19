@@ -51,6 +51,8 @@ function converted(id: string, extra: Partial<MapDatConversion> = {}): MapDatCon
     briefing: false,
     strings: false,
     unknownStaticVerbs: [],
+    datDigest: FINGERPRINT,
+    overlays: [],
     ...extra,
   };
 }

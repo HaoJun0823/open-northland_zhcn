@@ -11,6 +11,7 @@
     { "path": "../../packages/data" },
     { "path": "../../packages/formats" },
     { "path": "../../packages/map-import" },
-    { "path": "../../packages/render" }
+    { "path": "../../packages/render" },
+    { "path": "../../packages/translations" }
   ]
 }

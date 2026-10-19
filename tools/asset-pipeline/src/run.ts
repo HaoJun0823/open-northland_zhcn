@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { decodePng } from '@open-northland/formats/png';
+import { loadTranslationOverlays } from '@open-northland/translations';
 import type { Args } from './args.js';
 import { CORRECTIONS_DIR, loadSourceCorrections } from './corrections.js';
 import { errorMessage } from './errors.js';
@@ -19,7 +20,7 @@ import { HYPERTEXT_PICTURES_DIR } from './stages/gui/paths.js';
 import { writeIr } from './stages/ir/index.js';
 import { loadVehicleGraphicsBindings } from './stages/ir/vehicle-graphics.js';
 import { BOBS_INDEX_FILE, CAMPAIGNS_INDEX_FILE, MAPS_INDEX_FILE, writeListings } from './stages/listings.js';
-import { assertStaticVerbsKnown, convertMapDatTree } from './stages/maps/index.js';
+import { assertStaticVerbsKnown, convertMapDatTree, summarizeMapOverlays } from './stages/maps/index.js';
 import { createMinimapSynthesizer } from './stages/maps/synth-minimap.js';
 import { renderMusicStage } from './stages/music/index.js';
 import { composeMaskedTransitionPages, convertPcxTree } from './stages/pcx.js';
@@ -42,9 +43,14 @@ export async function runPipeline(args: Args): Promise<void> {
   const corrections = await loadSourceCorrections(CORRECTIONS_DIR, data);
   const stringCorrections = await loadStringCorrections(STRING_CORRECTIONS_FILE);
   const mapStringCorrections = await loadMapStringCorrections(MAP_STRING_CORRECTIONS_FILE);
-  const roots: SourceRoots = { data, corrections, stringCorrections, mapStringCorrections };
+  const overlays = await loadTranslationOverlays();
+  const roots: SourceRoots = { data, corrections, stringCorrections, mapStringCorrections, overlays };
   console.log(`[pipeline] data=${roots.data} out=${args.out}`);
   for (const { id, file } of corrections.list) console.log(`[pipeline] correction ${id}: ${file}`);
+  console.log(
+    `[pipeline] translations: overlays for ${overlays.maps.size} map(s); object tables, books and campaign ` +
+      `titles in ${overlays.objects.size}, ${overlays.books.size} and ${overlays.campaigns.size} language(s)`,
+  );
 
   await mkdir(args.out, { recursive: true });
 
@@ -200,6 +206,10 @@ export async function runPipeline(args: Args): Promise<void> {
   console.log(
     `[pipeline] corrections: ${corrections.list.length} file(s), ${stringCorrections.list.length} string(s), ` +
       `${mapStringCorrections.list.length} map string(s) applied`,
+  );
+  console.log(
+    `[pipeline] translations: ${summarizeMapOverlays([...terrains, ...campaigns.maps], new Set(overlays.maps.keys()))}; ` +
+      `campaign languages ${campaigns.index.campaigns.map((c) => `${c.id}:${c.languages.join('+')}`).join(' ') || 'none'}`,
   );
   assertStaticVerbsKnown([...terrains, ...campaigns.maps]);
 }

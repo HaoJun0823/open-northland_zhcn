@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
+import type { TranslationOverlays } from '@open-northland/translations';
 import { type CampaignSource, readCampaigns, readDataPack } from '../../../scripts/data-pack.mjs';
 import type { SourceCorrections } from './corrections.js';
 import { walkFiles } from './files.js';
@@ -20,6 +21,8 @@ export interface SourceRoots {
   readonly stringCorrections?: StringCorrections;
   /** Fixes applied to decoded map string tables; without them the maps keep the shipped text. */
   readonly mapStringCorrections?: StringCorrections;
+  /** The repository's translation overlays; without them the outputs carry the pack's languages only. */
+  readonly overlays?: TranslationOverlays;
 }
 
 /** Reads a data file as the run sees it, through the corrections that name it: by its data-relative

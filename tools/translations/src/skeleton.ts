@@ -8,7 +8,7 @@
 import { realpathSync } from 'node:fs';
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
+import { basename, extname, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import {
@@ -18,6 +18,7 @@ import {
   type Language,
   MAP_TEXT_LANGUAGES,
   MapOverlay,
+  mapOverlayFileId,
   OVERLAY_VERSION,
   SOURCE_LANGUAGES,
   type SourceLanguage,
@@ -35,10 +36,10 @@ import {
   readMapSourceText,
   treeFromFolder,
 } from '@open-northland/map-import';
-import { TRANSLATIONS_ROOT } from '@open-northland/translations';
+import { readOverlayFile, TRANSLATIONS_ROOT } from '@open-northland/translations';
 
-/** One map folder's skeleton; or the earlier folder with the same `map.dat`, whose skeleton serves it
- *  too; or why it gets none. */
+/** One map folder's skeleton; or the earlier folder with the same `map.dat` and basis text, whose
+ *  skeleton serves it too; or why it gets none. */
 export type MapSkeleton =
   | {
       readonly kind: 'skeleton';
@@ -80,11 +81,12 @@ function spelledFolder(tree: MapTree, key: string, rootName: string): string {
 const hasEntries = (text: MapLanguageText | undefined): text is MapLanguageText =>
   text !== undefined && (Object.keys(text.strings).length > 0 || text.briefings.size > 0);
 
-/** The skeleton of every map folder in `tree`, in path order; one per `map.dat` digest. */
+/** The skeleton of every map folder in `tree`, in path order; one per `map.dat` digest and basis text. */
 export async function mapSkeletons(tree: MapTree, options: SkeletonOptions): Promise<MapSkeleton[]> {
   const { lang } = options;
   const skeletons: MapSkeleton[] = [];
-  const folderByDigest = new Map<string, string>();
+  /** The first folder of each `map.dat` digest and basis digest. */
+  const folderByText = new Map<string, string>();
   for (const key of findMapFolders(tree)) {
     const folder = spelledFolder(tree, key, options.rootName);
     const refuse = (refusal: string): void => {
@@ -93,11 +95,6 @@ export async function mapSkeletons(tree: MapTree, options: SkeletonOptions): Pro
     const text = await readMapSourceText(tree, key);
     // findMapFolders lists only folders that hold a map.dat.
     if (text === undefined) continue;
-    const twin = folderByDigest.get(text.datDigest);
-    if (twin !== undefined) {
-      skeletons.push({ kind: 'shared', folder, sharesWith: twin });
-      continue;
-    }
     const shipped = MAP_TEXT_LANGUAGES.filter(isSourceLanguage).filter((source) =>
       hasEntries(text.languages[source]),
     );
@@ -118,8 +115,14 @@ export async function mapSkeletons(tree: MapTree, options: SkeletonOptions): Pro
     }
     // A folder name without a Latin letter or digit slugs to nothing.
     const map = mapIdFromPath(`${folder}/${MAP_DAT_FILE}`) || DEFAULT_ROOT_NAME;
-    folderByDigest.set(text.datDigest, folder);
     const overlay = skeletonOverlay(map, basis, source);
+    const textKey = `${text.datDigest}/${overlay.basis.digest}`;
+    const twin = folderByText.get(textKey);
+    if (twin !== undefined) {
+      skeletons.push({ kind: 'shared', folder, sharesWith: twin });
+      continue;
+    }
+    folderByText.set(textKey, folder);
     skeletons.push({ kind: 'skeleton', folder, digest: text.datDigest, overlay });
   }
   return skeletons;
@@ -148,23 +151,47 @@ export async function readMapInput(path: string): Promise<{ tree: MapTree; rootN
   return { tree, rootName: name.slice(0, name.length - extname(name).length) || DEFAULT_ROOT_NAME };
 }
 
-/** Writes `overlay` to `<out>/<lang>/maps/<digest>.json`, unless that file exists and `force` is off. */
+const isFile = (path: string): Promise<boolean> =>
+  stat(path).then(
+    (found) => found.isFile(),
+    () => false,
+  );
+
+/** Whether `path` holds a map overlay written against another basis digest than `digest`. */
+async function holdsOtherText(path: string, digest: string): Promise<boolean> {
+  try {
+    return (await readOverlayFile('maps', path)).basis.digest !== digest;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Writes `overlay` to `<out>/<lang>/maps/<digest>.json`, or to the variant name that adds its basis
+ * prefix when that file holds an overlay of a copy with other text or the variant exists already.
+ * Refuses to replace an existing file unless `force` is on.
+ */
 export async function writeMapOverlay(
   out: string,
   lang: Language,
   digest: string,
   overlay: MapOverlay,
   force: boolean,
-): Promise<{ readonly file: string; readonly written: boolean }> {
-  const file = join(out, lang, 'maps', `${digest}.json`);
-  await mkdir(dirname(file), { recursive: true });
+): Promise<{ readonly file: string; readonly written: boolean; readonly variant: boolean }> {
+  const dir = join(out, lang, 'maps');
+  const plain = join(dir, `${mapOverlayFileId(digest)}.json`);
+  const variantFile = join(dir, `${mapOverlayFileId(digest, overlay.basis.digest)}.json`);
+  const variant = (await isFile(variantFile)) || (await holdsOtherText(plain, overlay.basis.digest));
+  const file = variant ? variantFile : plain;
+  await mkdir(dir, { recursive: true });
   try {
     await writeFile(file, `${JSON.stringify(overlay, null, 2)}\n`, { flag: force ? 'w' : 'wx' });
   } catch (err) {
-    if (err instanceof Error && 'code' in err && err.code === 'EEXIST') return { file, written: false };
+    if (err instanceof Error && 'code' in err && err.code === 'EEXIST')
+      return { file, written: false, variant };
     throw err;
   }
-  return { file, written: true };
+  return { file, written: true, variant };
 }
 
 const USAGE =
@@ -204,7 +231,7 @@ async function main(): Promise<void> {
   for (const skeleton of skeletons) {
     if (skeleton.kind === 'shared') {
       console.log(
-        `${skeleton.folder}: the same map.dat as ${skeleton.sharesWith}, whose overlay serves both`,
+        `${skeleton.folder}: the same map.dat and text as ${skeleton.sharesWith}, whose overlay serves both`,
       );
       continue;
     }
@@ -214,7 +241,7 @@ async function main(): Promise<void> {
       continue;
     }
     const { folder, digest, overlay } = skeleton;
-    const { file, written } = await writeMapOverlay(out, lang, digest, overlay, values.force);
+    const { file, written, variant } = await writeMapOverlay(out, lang, digest, overlay, values.force);
     if (!written) {
       console.error(`${folder}: refused, ${file} exists; --force replaces it`);
       process.exitCode = 1;
@@ -224,7 +251,10 @@ async function main(): Promise<void> {
       overlay.basis.lang === lang
         ? `an edit template of the ${lang} text: edit the values to change and delete the rest`
         : `a skeleton for ${lang} from the ${overlay.basis.lang} text: replace each value with its translation, delete the rest`;
-    console.log(`${folder}: wrote ${file}, ${entryCount(overlay)}; ${what}`);
+    const copy = variant
+      ? ', a variant: another copy of this map.dat with other text has the plain name'
+      : '';
+    console.log(`${folder}: wrote ${file}${copy}, ${entryCount(overlay)}; ${what}`);
   }
 }
 

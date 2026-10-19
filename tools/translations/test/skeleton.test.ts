@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { MapOverlay, OVERLAY_VERSION } from '@open-northland/data';
+import { MAP_OVERLAY_BASIS_PREFIX_LENGTH, MapOverlay, OVERLAY_VERSION } from '@open-northland/data';
 import { mapSourceTextDigest, readMapSourceText } from '@open-northland/map-import';
+import { loadTranslationOverlays } from '@open-northland/translations';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   type MapSkeleton,
@@ -38,7 +39,10 @@ async function put(rel: string, data: string | Uint8Array): Promise<void> {
   await writeFile(path, data);
 }
 
-/** A download of three maps: Fjord with Polish and English text, its copy Kopia, and Cisza without text. */
+/**
+ * A download of four maps: Fjord with Polish and English text, its copy Kopia with the same Polish text,
+ * its copy Wariant with other Polish text, and Cisza without text.
+ */
 async function putDownload(): Promise<string> {
   await put('download/Fjord/map.dat', FJORD_DAT);
   await put('download/Fjord/mission.inc', '[MissionData]\n');
@@ -50,6 +54,13 @@ async function putDownload(): Promise<string> {
   await put('download/Fjord/text/pol/briefings/0000.hlt', 'page');
   await put('download/Fjord/text/eng/strings.ini', '[text]\nstring "Fjord"\n');
   await put('download/Kopia/map.dat', FJORD_DAT);
+  await put('download/Kopia/text/pol/strings.ini', '[text]\nstring "Fjord"\nstring "Opis"\n');
+  await put(
+    'download/Kopia/text/pol/briefings/briefings.txt',
+    '[blockstart:title]\nNa polnoc\n[blockend:title]\n',
+  );
+  await put('download/Wariant/map.dat', FJORD_DAT);
+  await put('download/Wariant/text/pol/strings.ini', '[text]\nstring "Fjord drugi"\nstring "Opis"\n');
   await put('download/Cisza/map.dat', SILENT_DAT);
   return join(dir, 'download');
 }
@@ -60,7 +71,7 @@ async function skeletonsOf(path: string, options: Omit<SkeletonOptions, 'rootNam
 }
 
 describe('mapSkeletons', () => {
-  it('writes every Polish string and block as its own value under the map.dat digest', async () => {
+  it('writes every Polish string and block as its own value, once per map.dat and text', async () => {
     const { tree, skeletons } = await skeletonsOf(await putDownload(), { lang: 'chs' });
 
     const source = await readMapSourceText(tree, 'fjord');
@@ -81,6 +92,12 @@ describe('mapSkeletons', () => {
       },
       { kind: 'skeleton', folder: 'Fjord', digest: source.datDigest, overlay },
       { kind: 'shared', folder: 'Kopia', sharesWith: 'Fjord' },
+      {
+        kind: 'skeleton',
+        folder: 'Wariant',
+        digest: source.datDigest,
+        overlay: expect.objectContaining({ map: 'wariant', strings: { '0': 'Fjord drugi', '1': 'Opis' } }),
+      },
     ]);
     expect(source.datDigest).toBe(createHash('sha256').update(FJORD_DAT).digest('hex'));
     expect(MapOverlay.parse(overlay)).toEqual(overlay);
@@ -138,11 +155,43 @@ describe('writeMapOverlay', () => {
     const forced = await writeMapOverlay(out, 'chs', fjord.digest, fjord.overlay, true);
 
     expect([first, kept, forced]).toEqual([
-      { file: path, written: true },
-      { file: path, written: false },
-      { file: path, written: true },
+      { file: path, written: true, variant: false },
+      { file: path, written: false, variant: false },
+      { file: path, written: true, variant: false },
     ]);
     expect(keptText).toBe('{}');
     expect(MapOverlay.parse(JSON.parse(await readFile(path, 'utf8')))).toEqual(fjord.overlay);
+  });
+
+  it('writes a copy with other text to a variant file beside the plain one, in this run or a later one', async () => {
+    const { skeletons } = await skeletonsOf(await putDownload(), { lang: 'chs' });
+    const written = skeletons.flatMap((skeleton) => (skeleton.kind === 'skeleton' ? [skeleton] : []));
+    const [fjord, wariant] = written;
+    if (fjord === undefined || wariant === undefined) throw new Error('two skeletons expected');
+    const out = join(dir, 'translations');
+    const variant = `${fjord.digest}.${wariant.overlay.basis.digest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}`;
+    const file = (name: string) => join(out, 'chs', 'maps', `${name}.json`);
+
+    // In order, as the command writes them: which name a skeleton takes depends on the files before it.
+    const results: Awaited<ReturnType<typeof writeMapOverlay>>[] = [];
+    for (const _run of ['first', 'again'])
+      for (const { digest, overlay } of written)
+        results.push(await writeMapOverlay(out, 'chs', digest, overlay, false));
+
+    expect(results).toEqual([
+      { file: file(fjord.digest), written: true, variant: false },
+      { file: file(variant), written: true, variant: true },
+      { file: file(fjord.digest), written: false, variant: false },
+      { file: file(variant), written: false, variant: true },
+    ]);
+    const overlays = await loadTranslationOverlays(out);
+    expect(overlays.maps.get(fjord.digest)?.get('chs')).toEqual([wariant.overlay, fjord.overlay]);
+
+    await rm(file(fjord.digest));
+    expect(await writeMapOverlay(out, 'chs', wariant.digest, wariant.overlay, false)).toEqual({
+      file: file(variant),
+      written: false,
+      variant: true,
+    });
   });
 });

@@ -223,8 +223,12 @@ export const enSurfaces = {
       pixelArtFilterXbrz: 'xBRZ',
       pixelArtFilterSuperXbr: 'Super-xBR',
       pixelArtFilterMmpx: 'MMPX',
-      pixelArtFilterTip:
-        'How the original pixel art is magnified. xBR draws diagonal edges as smooth lines, xBRZ, Super-xBR and MMPX redraw the art once at twice its resolution and show it sharp while characters keep xBR (Super-xBR blends edges more softly, MMPX keeps the original colours). Every filter also removes whole-pixel jumps of the camera and of characters, filters the terrain more carefully and improves building detail when zoomed out. Off draws the art unfiltered, at whole pixels.',
+      pixelArtFilterTip: 'How the game smooths the original art when magnified.',
+      pixelArtFilterOffTip: 'No smoothing, pixel for pixel as in the original.',
+      pixelArtFilterXbrTip: 'Smooths the steps on diagonal edges. A gentle, natural look.',
+      pixelArtFilterXbrzTip: 'Sharp, clean lines and crisp shapes.',
+      pixelArtFilterSuperXbrTip: 'Softer than xBRZ, with gentler edges.',
+      pixelArtFilterMmpxTip: 'Smooths shapes but keeps the original colours and the pixel look.',
       softShadows: 'Enhanced shadows',
       softShadowsTip:
         'Deepens and softens the shadows of buildings, trees and decorations. Settlers and animals cast a shadow of their own outline, leaning with the light the buildings use. Off keeps the original shadows.',

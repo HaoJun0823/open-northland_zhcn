@@ -388,8 +388,11 @@ export function createSettingsPage(opts: {
           const tip = row.dataset.tip;
           if (tip === undefined) continue;
           row.classList.remove('main-menu__tip-host');
+          for (const host of row.querySelectorAll('.main-menu__tip-host')) {
+            host.classList.remove('main-menu__tip-host');
+          }
           for (const control of row.querySelectorAll('button, input')) {
-            control.setAttribute('aria-description', tip);
+            control.setAttribute('aria-description', control.getAttribute('data-tip') ?? tip);
           }
         }
       }

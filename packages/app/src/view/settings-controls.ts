@@ -1,6 +1,8 @@
 export interface SegChoice<T extends string> {
   readonly id: T;
   readonly label: string;
+  /** Shown under this choice alone; the row's tip then covers the label and the gaps. */
+  readonly tip?: string;
 }
 
 export interface SegHandle<T extends string> {
@@ -21,6 +23,10 @@ export function segControl<T extends string>(
     button.type = 'button';
     button.className = 'main-menu__seg-btn';
     button.textContent = choice.label;
+    if (choice.tip !== undefined) {
+      button.classList.add('main-menu__tip-host');
+      button.dataset.tip = choice.tip;
+    }
     button.addEventListener('click', () => onPick(choice.id));
     buttons.set(choice.id, button);
     root.append(button);

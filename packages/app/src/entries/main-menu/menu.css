@@ -712,6 +712,13 @@
   transition-delay: var(--tip-delay);
 }
 
+/* A choice with its own tip speaks for itself; the row's tip then stays hidden. */
+.main-menu__tip-host[data-tip]:has(.main-menu__tip-host[data-tip]:hover)::after,
+.main-menu__tip-host[data-tip]:has(.main-menu__tip-host[data-tip]:focus-within)::after {
+  opacity: 0;
+  transition-delay: 0s;
+}
+
 /* The 66x34 design pill; the knob slides right when on. */
 .main-menu__toggle {
   all: unset;

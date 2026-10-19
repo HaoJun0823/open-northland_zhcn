@@ -221,8 +221,12 @@ export const plSurfaces = {
       pixelArtFilterXbrz: 'xBRZ',
       pixelArtFilterSuperXbr: 'Super-xBR',
       pixelArtFilterMmpx: 'MMPX',
-      pixelArtFilterTip:
-        'Sposób powiększania oryginalnej grafiki pikselowej. xBR prowadzi skośne krawędzie jako gładkie linie, xBRZ, Super-xBR i MMPX raz przerysowują grafikę w podwójnej rozdzielczości i pokazują ją ostro, a postacie zostają przy xBR (Super-xBR łagodniej wygładza krawędzie, MMPX zachowuje oryginalne kolory). Każdy filtr usuwa też skoki kamery i postaci o cały piksel, dokładniej filtruje teren i poprawia detal budynków przy oddaleniu. Wyłączony rysuje grafikę bez filtra, w pełnych pikselach.',
+      pixelArtFilterTip: 'Jak gra wygładza oryginalną grafikę przy powiększeniu.',
+      pixelArtFilterOffTip: 'Bez wygładzania, piksel w piksel jak w oryginale.',
+      pixelArtFilterXbrTip: 'Wygładza schodki na skośnych krawędziach. Delikatny, naturalny efekt.',
+      pixelArtFilterXbrzTip: 'Ostre, czyste linie i wyraźne kształty.',
+      pixelArtFilterSuperXbrTip: 'Łagodniejsze niż xBRZ, z miększymi krawędziami.',
+      pixelArtFilterMmpxTip: 'Wygładza kształty, ale zachowuje oryginalne kolory i pikselowy charakter.',
       softShadows: 'Ulepszone cienie',
       softShadowsTip:
         'Pogłębia i zmiękcza cienie budynków, drzew i dekoracji. Osadnicy i zwierzęta rzucają cień własnej sylwetki, pochylony zgodnie ze światłem budynków. Po wyłączeniu zostają cienie oryginału.',

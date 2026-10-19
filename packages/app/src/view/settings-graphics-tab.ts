@@ -117,8 +117,15 @@ export function graphicsSettingsRows(
     superxbr: text.pixelArtFilterSuperXbr,
     mmpx: text.pixelArtFilterMmpx,
   };
+  const filterTips: Readonly<Record<FilterChoice, string>> = {
+    off: text.pixelArtFilterOffTip,
+    xbr: text.pixelArtFilterXbrTip,
+    xbrz: text.pixelArtFilterXbrzTip,
+    superxbr: text.pixelArtFilterSuperXbrTip,
+    mmpx: text.pixelArtFilterMmpxTip,
+  };
   const filter = segControl<FilterChoice>(
-    FILTER_CHOICES.map((id) => ({ id, label: filterLabels[id] })),
+    FILTER_CHOICES.map((id) => ({ id, label: filterLabels[id], tip: filterTips[id] })),
     filterChoiceOf(settings),
     (choice) => {
       void store.update(filterPatchFor(choice));

@@ -177,7 +177,8 @@ source of truth.
 - Do not cache small images as one canvas each. Chrome backs every 2d canvas, `OffscreenCanvas`
   included, with its own GPU surface until garbage collection; thousands of them exhaust macOS
   surfaces and lose the map's WebGL context. Pack them onto a shared page or keep `ImageBitmap`s
-  and `close()` them on eviction.
+  and `close()` them on eviction; a still picture a panel shows (a building thumbnail, an emblem,
+  notice art) goes through `hud/dom/static-picture.ts`, one scratch canvas kept as data-URL images.
 - Keep viewport-driven work screen-bounded.
 - Accumulate events from every sim step in a display frame before handing them to audio or effects.
 - Test pure layout, content joins, and input decisions without a browser where possible.

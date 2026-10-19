@@ -26,7 +26,7 @@ const LOG_STYLE = [
   'justify-content:flex-end',
   'gap:2px',
   'color:#e8dcc0',
-  'font:13px/1.35 ui-serif,Georgia,serif',
+  'font:13px/1.35 var(--font-body)',
   'text-shadow:0 1px 2px rgba(0,0,0,0.9)',
   'pointer-events:none',
   `z-index:${CHAT_Z_INDEX}`,

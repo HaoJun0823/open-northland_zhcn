@@ -6,10 +6,7 @@
 
   min-height: 0;
   color: var(--text);
-  font:
-    calc(var(--u) * 16) / 1.4 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: calc(var(--u) * 16) / 1.4 var(--font-body);
 }
 .network-room h1,
 .network-room h3,

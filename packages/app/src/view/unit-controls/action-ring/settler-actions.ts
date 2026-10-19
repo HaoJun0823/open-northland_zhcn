@@ -41,7 +41,7 @@ const TOOLTIP_STYLE = [
   'padding:2px 7px',
   'background:rgba(20,16,12,0.94)',
   'color:#e8dcc8',
-  'font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace',
+  'font:12px/1.4 var(--font-body)',
   'border:1px solid #5a4a36',
   'border-radius:5px',
   'pointer-events:none',

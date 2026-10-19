@@ -1,6 +1,6 @@
 /* The touch-device notice (device-notice.ts). It must fit a 320 px wide portrait phone and scroll
    rather than clip on a short landscape one; the card's auto margin centres it only while it fits.
-   The faces come from the menu's sheet. */
+   The faces come from fonts.css. */
 .device-notice {
   position: fixed;
   inset: 0;
@@ -11,7 +11,7 @@
   padding: 24px 20px;
   color-scheme: dark;
   color: #dbe8e3;
-  font-family: "Alegreya Sans", system-ui, sans-serif;
+  font-family: var(--font-body);
   text-align: center;
   background: radial-gradient(ellipse at 50% 35%, #1a2738 0%, #0c1420 70%);
 }
@@ -33,11 +33,7 @@
 
 .device-notice__title {
   margin: 0;
-  font:
-    600 clamp(20px, 6vw, 28px) / 1.2 "Cinzel",
-    Tinos,
-    Georgia,
-    serif;
+  font: 600 clamp(20px, 6vw, 28px) / 1.2 var(--font-title);
   color: #f0dcb8;
 }
 

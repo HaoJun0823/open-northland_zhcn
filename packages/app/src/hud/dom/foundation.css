@@ -988,10 +988,7 @@ body.on-drag-scroll * {
   border-radius: 50%;
   background: radial-gradient(circle at 40% 35%, #f0d18f, #9d7a3f 70%);
   color: var(--ink);
-  font:
-    700 11px Cinzel,
-    Tinos,
-    serif;
+  font: 700 11px var(--font-title);
   box-shadow:
     0 0 0 2px var(--deep),
     0 2px 4px #000a,

@@ -9,10 +9,7 @@
   gap: calc(var(--u) * 12);
   padding: calc(var(--u) * 12) calc(var(--u) * 22);
   cursor: var(--cursor-pointer, pointer);
-  font:
-    500 calc(var(--u) * 20) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 20) / 1 var(--font-body);
   letter-spacing: 0.04em;
   color: var(--text-body);
   background: rgba(12, 20, 32, 0.72);

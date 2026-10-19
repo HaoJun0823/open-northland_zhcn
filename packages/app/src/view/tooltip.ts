@@ -45,7 +45,7 @@ export function createTooltip(opts: { readonly zIndex?: number } = {}): Tooltip 
     'border-radius:3px',
     'background:rgba(20,16,10,0.92)',
     'color:#f0e0c0',
-    'font:13px/1.4 system-ui,-apple-system,sans-serif',
+    'font:13px/1.4 var(--font-body)',
     // `pre-line` keeps authored newlines while still wrapping an over-long single line.
     `max-width:${MAX_WIDTH}px`,
     'width:max-content',

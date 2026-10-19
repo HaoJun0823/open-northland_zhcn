@@ -4,10 +4,7 @@
 .main-menu__kicker {
   margin-left: auto;
   align-self: center;
-  font:
-    500 calc(var(--u) * 22) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 22) / 1 var(--font-body);
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--text-label);
@@ -73,10 +70,7 @@
 
 .main-menu__lobby-cols {
   padding: 0 calc(var(--u) * 26);
-  font:
-    500 calc(var(--u) * 19) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 19) / 1 var(--font-body);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(143, 184, 173, 0.7);
@@ -116,10 +110,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font:
-    700 calc(var(--u) * 22) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 700 calc(var(--u) * 22) / 1 var(--font-body);
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
@@ -141,10 +132,7 @@
 }
 
 .main-menu__lobby-name {
-  font:
-    700 calc(var(--u) * 27) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 700 calc(var(--u) * 27) / 1 var(--font-body);
   color: var(--text-body);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -160,10 +148,7 @@
 }
 
 .main-menu__lobby-sub {
-  font:
-    400 calc(var(--u) * 20) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 400 calc(var(--u) * 20) / 1 var(--font-body);
   color: rgba(143, 184, 173, 0.75);
 }
 
@@ -212,10 +197,7 @@
   border-radius: 4px;
   overflow: hidden;
   background: radial-gradient(circle at 50% 40%, rgba(143, 184, 173, 0.22), rgba(8, 16, 26, 0.9));
-  font:
-    700 calc(var(--u) * 26) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 700 calc(var(--u) * 26) / 1 var(--font-body);
   color: var(--accent-bright);
 }
 
@@ -232,10 +214,7 @@
   min-width: 0;
 }
 .lobby-tribe__name {
-  font:
-    700 calc(var(--u) * 24) / 1.1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 700 calc(var(--u) * 24) / 1.1 var(--font-body);
   color: var(--text-body);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -246,10 +225,7 @@
   display: flex;
   align-items: center;
   gap: calc(var(--u) * 5);
-  font:
-    400 calc(var(--u) * 16) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 400 calc(var(--u) * 16) / 1 var(--font-body);
   color: #e8c46a;
   white-space: nowrap;
 }
@@ -319,10 +295,7 @@
   padding: calc(var(--u) * 12) calc(var(--u) * 28);
   border: 2px solid rgb(var(--accent-rgb) / 0.5);
   border-radius: 6px;
-  font:
-    500 calc(var(--u) * 23) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 23) / 1 var(--font-body);
   color: var(--accent-bright);
 }
 
@@ -356,10 +329,7 @@
   text-align: center;
   border: 2px dashed rgb(var(--accent-rgb) / 0.35);
   border-radius: 6px;
-  font:
-    500 calc(var(--u) * 19) / 1.1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 19) / 1.1 var(--font-body);
   color: var(--text-body);
   transition:
     color 150ms ease-out,
@@ -422,10 +392,7 @@
 }
 
 .main-menu__lobby-footnote {
-  font:
-    400 calc(var(--u) * 20) / 1.5 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 400 calc(var(--u) * 20) / 1.5 var(--font-body);
   color: rgba(180, 205, 200, 0.6);
   padding-top: calc(var(--u) * 6);
 }
@@ -441,10 +408,7 @@
 }
 
 .main-menu__lobby-watch-title {
-  font:
-    500 calc(var(--u) * 19) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 19) / 1 var(--font-body);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(143, 184, 173, 0.7);
@@ -474,10 +438,7 @@
 }
 
 .main-menu__watch-name {
-  font:
-    700 calc(var(--u) * 23) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 700 calc(var(--u) * 23) / 1 var(--font-body);
   color: var(--text-body);
 }
 
@@ -531,10 +492,7 @@
 }
 
 .main-menu__lobby-card-title {
-  font:
-    500 calc(var(--u) * 19) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 19) / 1 var(--font-body);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: rgba(143, 184, 173, 0.7);
@@ -554,10 +512,7 @@
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--u) * 20);
-  font:
-    500 calc(var(--u) * 24) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 24) / 1 var(--font-body);
   color: var(--text-body);
 }
 

@@ -78,10 +78,7 @@
   gap: calc(var(--u) * 14);
   padding: calc(var(--u) * 16) calc(var(--u) * 22);
   border-left: 4px solid transparent;
-  font:
-    500 calc(var(--u) * 27) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 27) / 1 var(--font-body);
   color: var(--text-body);
   transition:
     color 150ms ease-out,
@@ -123,10 +120,7 @@
 /* A group title inside one tab; the panel's own gap separates it from the rows around it. */
 .main-menu__settings-heading {
   margin: 0;
-  font:
-    700 calc(var(--u) * 20) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 700 calc(var(--u) * 20) / 1 var(--font-body);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
@@ -152,10 +146,7 @@
   display: flex;
   align-items: center;
   gap: calc(var(--u) * 14);
-  font:
-    500 calc(var(--u) * 26) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 26) / 1 var(--font-body);
   color: var(--text-body);
 }
 
@@ -170,10 +161,7 @@
   white-space: nowrap;
   text-align: right;
   user-select: text;
-  font:
-    400 calc(var(--u) * 22) / 1.3 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 400 calc(var(--u) * 22) / 1.3 var(--font-body);
   color: var(--text-muted);
 }
 
@@ -192,10 +180,7 @@
   cursor: var(--cursor-pointer, pointer);
   min-width: calc(var(--u) * 120);
   text-align: center;
-  font:
-    600 calc(var(--u) * 24) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 600 calc(var(--u) * 24) / 1 var(--font-body);
   color: var(--text-body);
   border: 2px solid rgb(var(--accent-rgb) / 0.35);
   border-radius: 6px;
@@ -302,10 +287,7 @@ button.main-menu__settings-key:focus-visible {
 .main-menu__settings-value {
   width: calc(var(--u) * 64);
   text-align: right;
-  font:
-    500 calc(var(--u) * 23) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 500 calc(var(--u) * 23) / 1 var(--font-body);
   color: var(--text-muted);
 }
 
@@ -321,18 +303,12 @@ button.main-menu__settings-key:focus-visible {
   flex: 1;
   min-height: 1.2em;
   margin: 0;
-  font:
-    400 calc(var(--u) * 21) / 1.2 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 400 calc(var(--u) * 21) / 1.2 var(--font-body);
   color: var(--danger-text, #e8a58a);
 }
 
 .main-menu__settings-autosave {
-  font:
-    400 calc(var(--u) * 21) / 1 "Alegreya Sans",
-    system-ui,
-    sans-serif;
+  font: 400 calc(var(--u) * 21) / 1 var(--font-body);
   color: rgba(180, 205, 200, 0.6);
 }
 

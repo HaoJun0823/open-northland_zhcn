@@ -15,7 +15,7 @@ const BANNER_STYLE = [
   'padding:12px 16px',
   'background:rgba(16,34,44,0.96)',
   'color:#e8dcc0',
-  'font:14px/1.4 ui-serif,Georgia,serif',
+  'font:14px/1.4 var(--font-body)',
   'border:1px solid rgba(96,140,150,0.8)',
   'border-radius:8px',
   'box-shadow:0 8px 32px rgba(0,0,0,0.5)',

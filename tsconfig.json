@@ -4,6 +4,7 @@
     { "path": "packages/data" },
     { "path": "packages/formats" },
     { "path": "packages/map-import" },
+    { "path": "packages/translations" },
     { "path": "packages/api" },
     { "path": "packages/sim" },
     { "path": "packages/lockstep" },

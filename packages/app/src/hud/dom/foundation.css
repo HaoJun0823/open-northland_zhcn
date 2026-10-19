@@ -102,7 +102,9 @@ body.on-drag-scroll * {
     inset 0 0 0 1px color-mix(in srgb, var(--bronze) 75%, transparent),
     inset 0 0 0 3px var(--deep),
     inset 0 0 0 4px color-mix(in srgb, var(--wood-hi) 60%, transparent);
-  backdrop-filter: blur(3px);
+  /* A stacking context of its own, so a panel's raised parts stay inside it. No backdrop filter: the
+     fill is opaque, and a filtered backdrop costs the compositor a pass under every panel each frame. */
+  isolation: isolate;
 }
 .on-hud .on-panel::before {
   content: "";
@@ -4818,8 +4820,6 @@ body.on-drag-scroll * {
 }
 .on-hud .on-window--trade {
   background: none;
-  backdrop-filter: none;
-  isolation: isolate;
 }
 .on-hud .on-window--trade > .on-window__fill {
   position: absolute;

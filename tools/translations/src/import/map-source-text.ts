@@ -1,6 +1,7 @@
-import { jsonFingerprint, LANGUAGE_INFO, type SourceLanguage } from '@open-northland/data';
+import { LANGUAGE_INFO, type SourceLanguage } from '@open-northland/data';
 import { parseBriefingBlocks } from '@open-northland/formats/hypertext';
 import { decodeCifStringTable, extractStringTable, parseIniSections } from '@open-northland/formats/ini';
+import { mapSourceTextDigest as digestOf } from '@open-northland/map-import';
 
 /** A map folder's file by its logical path segments, matched case-insensitively. */
 export type MapFileReader = (segments: readonly string[]) => Promise<Uint8Array | undefined>;
@@ -30,7 +31,8 @@ function decodeMapText(bytes: Uint8Array, lang: SourceLanguage): string {
 }
 
 /**
- * Decodes `text/<lang>/` the way the map importer reads it: `strings.ini` before `strings.cif`, an
+ * Decodes `text/<lang>/` the way the map importer's `loadMapStringTables` reads it, over an async
+ * reader because campaign maps are read through their `campaign.json` path mapping: `strings.ini` before `strings.cif`, an
  * undecodable or empty table falling through to the next form, and the blocks of
  * `briefings/briefings.txt` (none when the file is absent). Undefined when the map ships no string table
  * in `lang`.
@@ -66,7 +68,7 @@ export async function readMapSourceText(
   return { strings, briefings };
 }
 
-/** The `basis.digest` of a map overlay written against `text`. */
+/** The `basis.digest` of a map overlay written against `text`: the map importer's definition. */
 export function mapSourceTextDigest(text: MapSourceText): string {
-  return jsonFingerprint({ strings: text.strings, briefings: text.briefings });
+  return digestOf(text.strings, new Map(Object.entries(text.briefings)));
 }

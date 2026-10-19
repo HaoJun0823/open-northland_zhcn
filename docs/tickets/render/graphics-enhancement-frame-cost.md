@@ -3,15 +3,16 @@
 **Area:** render · **Focus:** performance · **Priority:** P2
 
 The per-option costs are in the [graphics defaults' cost basis](../../GRAPHICS.md#cost-basis): on an
-M2 Pro the screen-sized ones are building grounding (about 8% of a dense town's GPU frame at zoom 1) and
-render scale or DPR above 1, which magnifies every sprite through xBR. Improve frame cost and Direct3D
-compile time without changing simulation speed, population, gameplay rules or the default pictures.
+Apple M2 Pro the screen-sized ones are building grounding (8 to 12% of a dense town's GPU frame at zoom
+1) and render scale or DPR above 1, which magnifies every sprite through xBR. Improve frame cost and
+Direct3D compile time without changing simulation speed, population, gameplay rules or the default
+pictures.
 
 ## Scope
 
-Measure first, then fix only what the numbers justify. GPU milliseconds per option come from a paused,
-GPU-bound render loop timed on the wall clock with the option on and off interleaved
-(`docs/PERFORMANCE.md`, GPU benchmark); the ×3 frame timer is too bimodal for a sub-millisecond option.
+Measure first, then fix only what the numbers justify. GPU milliseconds per option come from the
+paused, GPU-bound [per-setting loop](../../PERFORMANCE.md#per-setting-gpu-cost) with the option on and
+off interleaved; the ×3 frame timer is too bimodal for a sub-millisecond option.
 
 - **Direct3D compile time of the paged meshes** (`gpu/shading.ts`, `gpu/map-objects/decor-shadow-shader.ts`,
   `gpu/page-samplers.ts`). The terrain and decor shading run once after `pageChain`; what it still
@@ -34,9 +35,10 @@ GPU-bound render loop timed on the wall clock with the option on and off interle
 - **World batch page size per fragment** (`gpu/world-batch-shader.ts`). With any magnifier on,
   `textureSizeOf()` walks the sampler chain once per fragment, plain fragments included; the page size
   could ride a vertex attribute. That prologue (the page size and the footprint derivatives), forced
-  into the `off` variant, cost 0.27 ms of its 1.9 ms GPU-bound frame (M2, ml6h densest town, 1920x1080,
-  zoom 1), against 1.5-1.6 ms between `off` and bilinear in all. It belongs with the magnifier work
-  (the paletted mesh's per-tap query is now one query per fragment).
+  into the `off` variant, cost 0.27 ms of its 1.9 ms GPU-bound frame (Apple M2 Pro, the densest town of
+  `magiczny_las` with six hard AI at tick 100000, 1920x1080, zoom 1), against 1.5-1.6 ms between `off`
+  and bilinear in all. It belongs with the magnifier work (the paletted mesh's per-tap query is now one
+  query per fragment).
 - **Four-tap minify at zoom 1 and below.** A minified fragment samples four clamped taps, which land
   on one point when the footprint is under a texel. At zoom 1 rounding sends some unscaled sprites to
   the xBR magnifier and others to the minifier, and which one can change with any rebuild of the shader.

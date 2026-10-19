@@ -46,15 +46,16 @@ HD 4000 match tier 1. These are tested library outputs, not performance measurem
 | Weather | Screen-covering procedural atmosphere, precipitation, ground reactions and cover updates. | See the weather scenarios of `npm run bench:gpu` |
 | Environment motion | Per-frame vegetation updates; visible shore waves also require a screen-sized lift map and ground filter. | No GPU cost above noise, shore waves in view included |
 | Enhanced water | Terrain shader animation and glint arithmetic; shore waves are owned by environment motion. | No GPU cost above noise |
-| Building grounding / damage | Cached source-pixel analysis, baking and uploads; extra overlays or detailed smoke/flame/debris sprites. | Grounding: about 8% of a dense town's GPU frame at zoom 1, all of it the shade and cover overlays' fill; damage: none above noise without fires in view |
+| Building grounding / damage | Cached source-pixel analysis, baking and uploads; extra overlays or detailed smoke/flame/debris sprites. | Grounding: 8 to 12% of a dense town's GPU frame at zoom 1, all of it the shade and cover overlays' fill; damage: none above noise without fires in view |
 | Post effects | One screen-covering vignette sprite, not a separate render of the world. | Under 1% of the GPU frame |
 | Blood | Combat-event history and visible spray/stain rendering; not a constant full-screen workload. | CPU only: about 0.6 ms a frame at ×3 in a battle, mostly the contact walk of fresh bursts |
 | Bone fading | Age-based opacity. Disabling it retains piles indefinitely. | No cost above noise |
 | Render scale | Every world pixel at the scale squared, and at zoom 1 every sprite magnified. | 1.5 costs about 3.6 times the frame and 2 about 6.5 times; a DPR 2 display at scale 1 about 7 times |
 
-The measured column comes from an M2 Pro at 1440×900 with every other option on, `magiczny_las`
-(six hard AI) and `piec_dolin` (fifteen) at tick 100000: GPU time of a paused, GPU-bound render loop
-with the option on against off, interleaved, and renderer CPU time at ×3. It ranks the options; it does
+The measured column comes from an Apple M2 Pro at 1440×900 with every other option on, `magiczny_las`
+(six hard AI) and `piec_dolin` (fifteen) at tick 100000: GPU time of the paused, GPU-bound
+[per-setting loop](PERFORMANCE.md#per-setting-gpu-cost) with the option on against off, interleaved,
+and renderer CPU time at ×3. It ranks the options; it does
 not predict a weak GPU's milliseconds, validate the tier-to-settings mapping or quantify weather.
 Weak-device weather defaults are precautionary.
 

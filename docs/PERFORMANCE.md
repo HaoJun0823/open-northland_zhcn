@@ -228,27 +228,48 @@ and `-z0.5` twins at zoom 0.5, for soft shadows, enhanced water, environment mot
 building damage, post-processing (`postFxEnabled`) and sprite smoothing. Blood and bone fading show only
 where fighting is, so `battle-no-blood-x3` and `battle-no-bonesFade-x3` read against `battle-x3`, framed
 on the densest cluster of fighters holding a target (bone piles when nobody fights). `scale1.5-x3` and
-`scale2-x3` set the render scale. One toggle's milliseconds are a small difference between two runs on
-the M2's bimodal timer, so read them over interleaved runs and check the WebGL counts beside them.
+`scale2-x3` set the render scale. At ×3 a setting that costs under a millisecond sits inside the
+timer's clock-mode noise (below), so these scenarios give each setting's WebGL calls and texture uploads,
+and the milliseconds only of costs as large as render scale; a setting's GPU milliseconds come from the
+[per-setting loop](#per-setting-gpu-cost).
 
 `report.md` has the summary; `report.json` has every repeat. The summary uses the lowest per-repeat
 median and includes WebGL calls, selection/inset counts and adapter. Load, visibility and camera
 checks apply here too. Missing supported GPU readings or incomplete selections fail the scenario.
 Read milliseconds only from an idle machine; WebGL call counts remain useful under load.
 
-A hand-rolled throughput loop (many `renderer.update(frame)` calls between two `readPixels`) must
-call `gl.flush()` once per frame, as a real present does. Without it, ANGLE over Metal stacks the
-frames into one command buffer that runs about 50% slower, and anything that switches the render
-target (a filter, Pixi's `useBackBuffer`) breaks the stack up and looks like a saving it is not.
+### Per-setting GPU cost
+
+The measured column of the cost basis in [GRAPHICS.md](GRAPHICS.md#cost-basis) comes from a paused,
+GPU-bound loop run in the page through `window.__opennorthland`; no command wraps it yet.
+
+1. Restore the checkpoint with every graphics option on, frame the densest buildings (the densest
+   fighting for blood and bones) at the zoom under test, run ten seconds at ×3 so bakes and caches
+   settle, pause, and wait 1.5 s.
+2. Per cycle, set the option on and off in turn (`renderer.setGraphicsEnhancements`, or
+   `renderer.chrome` for post effects and sprite smoothing), alternating which state comes first.
+   After each change wait four animation frames and render 15 frames unmeasured.
+3. Time one state: a 1x1 `gl.readPixels` drains the GPU, then `renderer.app.render()` runs 60 times
+   with `gl.flush()` after each, then a second `readPixels`. The wall-clock span over 60 is that
+   state's milliseconds per frame.
+4. Ten cycles. The setting's cost is the median of the per-cycle on-minus-off differences, reported
+   with their range, beside a control row that sets nothing.
+
+The loop redraws one paused stage, so it measures drawing alone, not baking or uploads.
+
+Any loop that renders many frames between two `readPixels` must call `gl.flush()` once per frame, as
+a real present does. Without it, ANGLE over Metal stacks the frames into one command buffer that runs
+about 50% slower, and anything that switches the render target (a filter, Pixi's `useBackBuffer`)
+breaks the stack up and looks like a saving it is not.
 Time such a loop on the wall clock, from a drained GPU (`readPixels`) to a final drain, with enough
 GPU work per frame that the CPU never waits on it. Timer queries do not fit a loop: one query around
 it counts the GPU's idle gaps, and on Apple GPUs a query per frame overlaps the neighbouring frames' work
 and grows along the run (about 4 ms at the first frame and 17-20 ms by the twentieth, where the
 app's own meter read about 9 ms).
 
-At ×3 on the M2, `perf().gpu.ms` holds one of two clock modes for seconds at a time, about 3.5 ms apart
-in a dense view, so a setting that costs well under a millisecond only shows as a paired on/off delta
-within one mode; a paused, GPU-bound loop as above is steadier for a per-setting cost.
+At ×3 on an Apple M2 Pro, `perf().gpu.ms` holds one of two clock modes for seconds at a time, about
+3.5 ms apart in a dense view, so a setting that costs well under a millisecond only shows as a paired
+on/off delta within one mode; the paused loop above is steadier for a per-setting cost.
 
 Playwright's default headless browser renders on SwiftShader, far below a real frame rate; launching
 with `channel: 'chromium'` runs Chromium's new headless mode on the real GPU, which suits counts and

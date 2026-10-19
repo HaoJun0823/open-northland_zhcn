@@ -1,7 +1,6 @@
-import type { JobType } from '@open-northland/data';
-import { indexesOf, listedWhere, systems, type WorldSnapshot } from '@open-northland/sim';
+import { indexesOf, listedWhere, type WorldSnapshot } from '@open-northland/sim';
 import { readPosition } from '../snapshot/index.js';
-import { readBehaviourImported, readJobType } from './snapshot-readers/index.js';
+import { readBehaviourImported, readJobType, readSettlerTribe } from './snapshot-readers/index.js';
 
 /** A person a campaign script points the player at, at its fixed-point snapshot `Position`. */
 export interface ImportMarker {
@@ -10,35 +9,23 @@ export interface ImportMarker {
   readonly y: number;
 }
 
+/** Whether a person of `tribe` holding `job` never wears the import marker, even with the bit set. */
+export type ImportMarkerExemption = (tribe: number, job: number) => boolean;
+
 /** The humans whose behaviour mask carries the import bit: the few a script marked, so a frame's read
  *  scales with them rather than with the population. */
 const IMPORT_MARKED = listedWhere((e) => readBehaviourImported(e.components), 'import markers', {
   values: ['MissionBehaviour'],
 });
 
-/** The job slug prefix of Xena's hero class. Approximation: the original names her, not a class. */
-const MARKED_HERO_JOB_PREFIX = 'heroine';
-
-/**
- * The jobs whose holder never wears the import marker. Original behavior (reading, unconfirmed against
- * the running original): a hero does not wear it, except Xena, so only the other hero classes are
- * exempt.
- */
-export function importMarkerExemptJobs(jobs: readonly Pick<JobType, 'typeId' | 'id'>[]): ReadonlySet<number> {
-  const exempt = new Set<number>();
-  for (const job of jobs) {
-    if (systems.isHeroJobRow(job) && !job.id.startsWith(MARKED_HERO_JOB_PREFIX)) exempt.add(job.typeId);
-  }
-  return exempt;
-}
-
-/** Every marked person outside `exemptJobs`, ascending by id. Whether he is drawn this frame, and so
- *  whether fog or a roof hides the marker, is the layer's test. */
-export function importMarkersOf(snapshot: WorldSnapshot, exemptJobs: ReadonlySet<number>): ImportMarker[] {
+/** Every marked person `exempt` lets wear the marker, ascending by id. Whether he is drawn this frame,
+ *  and so whether fog or a roof hides the marker, is the layer's test. */
+export function importMarkersOf(snapshot: WorldSnapshot, exempt: ImportMarkerExemption): ImportMarker[] {
   const out: ImportMarker[] = [];
   for (const e of indexesOf(snapshot).get(IMPORT_MARKED)) {
+    const tribe = readSettlerTribe(e.components);
     const job = readJobType(e.components);
-    if (job !== undefined && exemptJobs.has(job)) continue;
+    if (tribe !== undefined && job !== undefined && exempt(tribe, job)) continue;
     const pos = readPosition(e.components);
     if (pos === null) continue;
     out.push({ id: e.id, x: pos.x, y: pos.y });

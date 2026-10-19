@@ -249,7 +249,7 @@ export class WorldMarks {
     for (const heart of frame.lifeHearts) column.wear(heart.id, 'heart');
     if (this.bubbles.drawsBubbles)
       for (const bubble of frame.settlerBubbles) column.wear(bubble.id, 'bubble');
-    const exempt = this.importMarkers.exemptJobs;
+    const exempt = this.importMarkers.exempt;
     const markers = exempt === undefined ? NO_MARKERS : importMarkersOf(frame.snapshot, exempt);
     this.bubbles.draw({ bubbles: frame.settlerBubbles, drawn, elevation, column }, viewport);
     this.experienceStars.draw({ stars: frame.experienceStars, drawn, elevation, column }, viewport);

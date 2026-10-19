@@ -8,7 +8,7 @@ import type {
   SpriteFrameRef,
   SpriteLayer,
 } from '@open-northland/render';
-import { JOB_HEROINE_BOW } from '../../catalog/jobs.js';
+import { isFrankishHeroineSlot } from '../../catalog/jobs.js';
 import {
   attackProgramsBySeq,
   carryWalkSeqs,
@@ -219,13 +219,10 @@ function isHeldFrame(ref: SettlerStateBinding['idle']): boolean {
   return typeof ref === 'object' && 'frameLists' in ref && ref.frameLists.every((list) => list.length <= 1);
 }
 
-/** The Frankish tribe, whose heroine slot's graphics row is Santa Claus rather than a heroine. */
-const FRANK_TRIBE = 2;
-
 /** Original behavior: every hero job glows in its owner's colour, and the Frankish heroine slot never
  *  does, whatever its mission behaviour asks. */
 function heroGlow(tribe: number, job: number): NonNullable<SettlerCharacter['glow']> {
-  return tribe === FRANK_TRIBE && job === JOB_HEROINE_BOW ? 'never' : 'always';
+  return isFrankishHeroineSlot(tribe, job) ? 'never' : 'always';
 }
 
 /** `char` and each appearance variant it picks from, all set to `glow`. */

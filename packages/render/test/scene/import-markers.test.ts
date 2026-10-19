@@ -2,7 +2,7 @@ import { components, packSnapshotDelta, SnapshotMirror } from '@open-northland/s
 import { TextureSource } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { ONE } from '../../src/data/projection/index.js';
-import { importMarkerExemptJobs, importMarkersOf } from '../../src/data/scene/import-markers.js';
+import { type ImportMarkerExemption, importMarkersOf } from '../../src/data/scene/import-markers.js';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
 import { ImportMarkerLayer } from '../../src/gpu/overlays/import-marker-layer.js';
 import { TextureCache } from '../../src/gpu/texture-cache.js';
@@ -11,26 +11,22 @@ import { drawnGeometry, entity, snapshotOf } from '../support/fixtures.js';
 const IMPORTED = components.MISSION_BEHAVIOUR.IMPORTED;
 const STAYS_PUT = components.MISSION_BEHAVIOUR.STAYS_PUT;
 
-/** Job rows shaped like the extracted `jobtypes.ini` ones a marker test needs. */
+const VIKING = 1;
+const BYZANTINE = 3;
 const DRUID_JOB = 20;
-const BJARNI_JOB = 44;
-const XENA_JOB = 47;
-const JOBS = [
-  { typeId: DRUID_JOB, id: 'druid' },
-  { typeId: BJARNI_JOB, id: 'hero_sword_bjarni' },
-  { typeId: XENA_JOB, id: 'heroine_bow_xena' },
-];
-const EXEMPT = importMarkerExemptJobs(JOBS);
+const HERO_JOB = 47;
+/** Exempts one tribe's hero job, so a test sees the exemption read both the tribe and the job. */
+const EXEMPT: ImportMarkerExemption = (tribe, job) => tribe === BYZANTINE && job === HERO_JOB;
 
-const person = (id: number, jobType: number, flags: number) =>
-  entity(id, id, 1, { Settler: { tribe: 0, jobType }, MissionBehaviour: { flags } });
+const person = (id: number, jobType: number, flags: number, tribe = VIKING) =>
+  entity(id, id, 1, { Settler: { tribe, jobType }, MissionBehaviour: { flags } });
 
 describe('importMarkersOf', () => {
-  it('marks a person with the import bit and a non-hero job, never a hero but Xena', () => {
+  it('marks a person with the import bit unless the exemption names his tribe and job', () => {
     const snap = snapshotOf([
       person(1, DRUID_JOB, IMPORTED | STAYS_PUT),
-      person(2, BJARNI_JOB, IMPORTED),
-      person(3, XENA_JOB, IMPORTED),
+      person(2, HERO_JOB, IMPORTED, BYZANTINE),
+      person(3, HERO_JOB, IMPORTED),
       person(4, DRUID_JOB, STAYS_PUT),
     ]);
     expect(importMarkersOf(snap, EXEMPT)).toEqual([
@@ -72,7 +68,7 @@ describe('ImportMarkerLayer', () => {
   const gfx = {
     source: new TextureSource({ width: 64, height: 32 }),
     frame: FRAME,
-    exemptJobs: EXEMPT,
+    exempt: EXEMPT,
     textures: new TextureCache(),
   };
 

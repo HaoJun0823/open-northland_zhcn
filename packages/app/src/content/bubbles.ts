@@ -7,7 +7,9 @@ import {
   type SettlerBubbleKind,
   STAR_TIERS,
 } from '@open-northland/render';
-import { importMarkerExemptJobs } from '@open-northland/render/data';
+import type { ImportMarkerExemption } from '@open-northland/render/data';
+import { systems } from '@open-northland/sim';
+import { isFrankishHeroineSlot } from '../catalog/jobs.js';
 import { loadLayer, MissingAtlasError } from './ir/load.js';
 
 /** The served stem of the `ls_gui_bubbles` over-head icon sheet: the RGBA preview in the sheet's own
@@ -60,14 +62,24 @@ export async function loadExperienceStarGfx(): Promise<ExperienceStarGfx | null>
   return { source: layer.source, frameByTier };
 }
 
-/** The import marker's icon and the jobs exempt from it; `null` without the sheet or its frame. */
+/** The import marker's icon and who is exempt from it; `null` without the sheet or its frame. */
 export async function loadImportMarkerGfx(
   jobs: readonly Pick<JobType, 'typeId' | 'id'>[],
 ): Promise<ImportMarkerGfx | null> {
   const layer = await loadIconSheet();
   const frame = layer?.atlas.frames.get(IMPORT_MARKER_FRAME_ID);
   if (layer === null || frame === undefined) return null;
-  return { source: layer.source, frame, exemptJobs: importMarkerExemptJobs(jobs) };
+  return { source: layer.source, frame, exempt: importMarkerExemption(jobs) };
+}
+
+/** Original behavior (reading, unconfirmed against the running original): no hero wears the import
+ *  marker but the Frankish heroine slot, so a hero placed with the bit, as a campaign places its heroes,
+ *  shows none. */
+export function importMarkerExemption(
+  jobs: readonly Pick<JobType, 'typeId' | 'id'>[],
+): ImportMarkerExemption {
+  const heroJobs = new Set(jobs.filter((job) => systems.isHeroJobRow(job)).map((job) => job.typeId));
+  return (tribe, job) => heroJobs.has(job) && !isFrankishHeroineSlot(tribe, job);
 }
 
 async function loadIconSheet(): Promise<Awaited<ReturnType<typeof loadLayer>> | null> {

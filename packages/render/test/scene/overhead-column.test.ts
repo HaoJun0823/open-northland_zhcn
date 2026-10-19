@@ -59,7 +59,7 @@ describe('the over-head layers read one column', () => {
     expect(jobStar?.position.x).toBe(HEAD_X);
 
     const markers = new ImportMarkerLayer();
-    markers.setGfx({ source, frame: FRAME, exemptJobs: new Set(), textures });
+    markers.setGfx({ source, frame: FRAME, exempt: () => false, textures });
     markers.draw({ markers: [at], drawn, column });
     expect(markers.container.children[0]?.position.y).toBe(base - (16 + 20 + 16));
     stars.destroy();

@@ -1,6 +1,6 @@
 import { Container, Sprite, type TextureSource } from 'pixi.js';
 import type { Viewport } from '../../data/projection/index.js';
-import type { ImportMarker } from '../../data/scene/import-markers.js';
+import type { ImportMarker, ImportMarkerExemption } from '../../data/scene/import-markers.js';
 import { OVERHEAD_BASE_GAP, type OverheadColumn } from '../../data/scene/overhead-column.js';
 import type { AtlasFrame } from '../../data/sprites/index.js';
 import type { TextureCache } from '../texture-cache.js';
@@ -16,11 +16,11 @@ import { retireUndrawn } from './retained-pool.js';
  * bubble he wears.
  */
 
-/** The decoded icon and the jobs that never wear it. */
+/** The decoded icon and who never wears it. */
 export interface ImportMarkerGfx {
   readonly source: TextureSource;
   readonly frame: AtlasFrame;
-  readonly exemptJobs: ReadonlySet<number>;
+  readonly exempt: ImportMarkerExemption;
 }
 
 interface MarkerGfx extends ImportMarkerGfx {
@@ -28,7 +28,7 @@ interface MarkerGfx extends ImportMarkerGfx {
 }
 
 export interface ImportMarkerFrame extends MarkAnchorFrame {
-  /** The marked people outside the exempt jobs (`importMarkersOf`). */
+  /** The marked people the exemption lets wear it (`importMarkersOf`). */
   readonly markers: readonly ImportMarker[];
   readonly column?: OverheadColumn | undefined;
 }
@@ -42,9 +42,9 @@ export class ImportMarkerLayer {
   private readonly seen = new Set<number>();
   private gfx: MarkerGfx | undefined;
 
-  /** The jobs that never wear the marker; undefined while no icon draws. */
-  get exemptJobs(): ReadonlySet<number> | undefined {
-    return this.gfx?.exemptJobs;
+  /** Who never wears the marker; undefined while no icon draws. */
+  get exempt(): ImportMarkerExemption | undefined {
+    return this.gfx?.exempt;
   }
 
   /** Provide (or clear) the decoded icon. Clearing retires every live marker. */

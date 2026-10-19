@@ -68,6 +68,15 @@ export const JOB_HERO_SABER = 45; // hero_saber_hatschi
 export const JOB_HERO_AXE = 46; // hero_axe
 export const JOB_HEROINE_BOW = 47; // heroine_bow_xena
 
+/** The Frankish tribe, whose heroine slot's graphics row is Santa Claus rather than a heroine. */
+const FRANK_TRIBE = 2;
+
+/** Original behavior: the Frankish heroine slot is the one hero job drawn as no hero, without the hero
+ *  glow and with the import marker. */
+export function isFrankishHeroineSlot(tribe: number, job: number): boolean {
+  return tribe === FRANK_TRIBE && job === JOB_HEROINE_BOW;
+}
+
 /** The `jobtypes.ini` soldier band: the unarmed base plus every weapon class. */
 export const SOLDIER_JOB_MIN = JOB_SOLDIER_UNARMED;
 export const SOLDIER_JOB_MAX = JOB_ARCHER_LONG;

@@ -24,7 +24,7 @@ export {
   visibleTileRange,
 } from './projection/index.js';
 export { anchorTileBox } from './scene/entity-source.js';
-export { importMarkerExemptJobs } from './scene/import-markers.js';
+export type { ImportMarkerExemption } from './scene/import-markers.js';
 export {
   indoorHouseOf,
   isIndoorSettler,

@@ -55,6 +55,8 @@ const SHEEN_NOISE_HIGH = 0.85;
 const PUDDLE_SCALE_PX = 24;
 const PUDDLE_SHORE_SCALE_PX = 7;
 const PUDDLE_SHORE_FRAY = 0.1;
+/** Float headroom on the puddle noise's upper bound, so rounding never skips a fragment that holds water. */
+const PUDDLE_BOUND_MARGIN = 0.001;
 /** Noise level at which a puddle's damp rim begins when puddles first form and in a soaking; the rise
  *  from rim to open water. High thresholds keep puddles few and small. */
 const PUDDLE_THRESHOLD_ONSET = 0.68;
@@ -240,6 +242,12 @@ const TAU = 2 * Math.PI;
 
 const f = (value: number): string => value.toFixed(4);
 
+/** Two octaves of value noise: the weights, and the second's frequency and lattice shift. */
+const FBM_FIRST_WEIGHT = 0.65;
+const FBM_SECOND_WEIGHT = 0.35;
+const FBM_LACUNARITY = 2.7;
+const FBM_SHIFT = 17;
+
 /** Value noise, the transition jitter and the snow drift mask, shared by the ground and the decor. */
 const COVER_NOISE = `
   const uvec2 COVER_HASH_SCALE = uvec2(1597334673u, 3812015801u);
@@ -265,8 +273,9 @@ const COVER_NOISE = `
     float e = coverHashScaled(next);
     return mix(mix(a, b, t.x), mix(d, e, t.x), t.y);
   }
-  float coverFbm(vec2 p) {
-    return 0.65 * coverNoise(p) + 0.35 * coverNoise(p * 2.7 + 17.0);
+  // Two octaves at p, the first already drawn there.
+  float coverFbm(float first, vec2 p) {
+    return ${f(FBM_FIRST_WEIGHT)} * first + ${f(FBM_SECOND_WEIGHT)} * coverNoise(p * ${f(FBM_LACUNARITY)} + ${f(FBM_SHIFT)});
   }
   // Ground px with y stretched back to the ground plane.
   vec2 coverPlane(vec2 drawn) {
@@ -397,11 +406,19 @@ export const COVER_FRAGMENT_DECLARATIONS = `
         coverNoise(p / ${f(SHEEN_SCALE_PX)}));
       rgb += ${SHEEN_COLOUR} * (${f(SHEEN_GAIN)} * wet * streak * highlight * alpha);
       float onset = smoothstep(${f(PUDDLE_ONSET)}, 1.0, cover.r);
-      if (onset > 0.0) {
-        float n = coverFbm(p / ${f(PUDDLE_SCALE_PX)})
+      float threshold = mix(${f(PUDDLE_THRESHOLD_ONSET)}, ${f(PUDDLE_THRESHOLD_SOAKED)}, onset);
+      float unlevel = ${f(PUDDLE_UNLEVEL_PENALTY)} * (1.0 - level);
+      float grassy = ${f(GRASS_PUDDLE_PENALTY)} * grass;
+      // The second octave and the fray each add less than their weight, so a fragment whose bound
+      // stays under the threshold holds no water and skips the noise it would not show.
+      float headroom = ${f(FBM_SECOND_WEIGHT + PUDDLE_SHORE_FRAY / 2 + PUDDLE_BOUND_MARGIN)} - unlevel - grassy;
+      vec2 puddle = p / ${f(PUDDLE_SCALE_PX)};
+      float first = 0.0;
+      if (onset > 0.0) first = coverNoise(puddle);
+      if (onset > 0.0 && ${f(FBM_FIRST_WEIGHT)} * first + headroom > threshold) {
+        float n = coverFbm(first, puddle)
           + ${f(PUDDLE_SHORE_FRAY)} * (coverNoise(p / ${f(PUDDLE_SHORE_SCALE_PX)}) - 0.5)
-          - ${f(PUDDLE_UNLEVEL_PENALTY)} * (1.0 - level) - ${f(GRASS_PUDDLE_PENALTY)} * grass;
-        float threshold = mix(${f(PUDDLE_THRESHOLD_ONSET)}, ${f(PUDDLE_THRESHOLD_SOAKED)}, onset);
+          - unlevel - grassy;
         float shore = smoothstep(threshold, threshold + ${f(PUDDLE_EDGE)}, n) * onset;
         float water = smoothstep(threshold + ${f(PUDDLE_EDGE / 2)}, threshold + ${f(PUDDLE_EDGE * 1.5)}, n)
           * onset;
@@ -434,17 +451,20 @@ export const COVER_FRAGMENT_DECLARATIONS = `
         - ${f(SNOW_GRASS_PENALTY)} * nearGrass - ${f(SNOW_ROCK_PENALTY)} * rock;
       float threshold = snowThreshold(cover.g);
       float mask = snowMask(n, threshold) * (1.0 - ${f(SNOWY_KEEP)} * snowy);
-      float body = smoothstep(threshold, threshold + ${f(SNOW_DEEPEN)}, n);
-      float depth = mix(${f(SNOW_THIN_OPACITY)}, mix(${f(SNOW_THIN_OPACITY)}, ${f(SNOW_DEEP_OPACITY)}, cover.g), body);
-      float crest = smoothstep(threshold + ${f(SNOW_CREST_LOW)}, threshold + ${f(SNOW_CREST_HIGH)}, n);
-      float rim = 1.0 - smoothstep(threshold, threshold + ${f(SNOW_RIM_WIDTH)}, n);
-      float tone = (1.0 + ${f(SNOW_RELIEF)} * (luma - nearLuma)) * (1.0 - ${f(SNOW_RIM_DARKEN)} * rim);
-      vec3 colour = mix(${SNOW_HOLLOW_TINT}, ${SNOW_COLOUR}, crest);
-      vec3 shade = mix(${SNOW_SHADE_TINT}, vec3(1.0), smoothstep(${f(SNOW_SHADE_LANE)}, 1.0, lane));
-      // The caller multiplies by the lane afterwards, so divide it back out of the snow's own share.
-      float lit = mix(1.0, lane, ${f(SNOW_LIGHT_RESPONSE)}) / max(lane, ${f(MIN_LANE)});
       rgb = mix(rgb, vec3(dot(rgb, ${LUMA})), ${f(FROST_DESATURATE)} * cover.g) + ${FROST_LIFT} * (cover.g * alpha);
-      rgb = mix(rgb, colour * shade * (tone * lit * alpha), mask * depth);
+      // Bare ground between the drifts takes the frost alone.
+      if (mask > 0.0) {
+        float body = smoothstep(threshold, threshold + ${f(SNOW_DEEPEN)}, n);
+        float depth = mix(${f(SNOW_THIN_OPACITY)}, mix(${f(SNOW_THIN_OPACITY)}, ${f(SNOW_DEEP_OPACITY)}, cover.g), body);
+        float crest = smoothstep(threshold + ${f(SNOW_CREST_LOW)}, threshold + ${f(SNOW_CREST_HIGH)}, n);
+        float rim = 1.0 - smoothstep(threshold, threshold + ${f(SNOW_RIM_WIDTH)}, n);
+        float tone = (1.0 + ${f(SNOW_RELIEF)} * (luma - nearLuma)) * (1.0 - ${f(SNOW_RIM_DARKEN)} * rim);
+        vec3 colour = mix(${SNOW_HOLLOW_TINT}, ${SNOW_COLOUR}, crest);
+        vec3 shade = mix(${SNOW_SHADE_TINT}, vec3(1.0), smoothstep(${f(SNOW_SHADE_LANE)}, 1.0, lane));
+        // The caller multiplies by the lane afterwards, so divide it back out of the snow's own share.
+        float lit = mix(1.0, lane, ${f(SNOW_LIGHT_RESPONSE)}) / max(lane, ${f(MIN_LANE)});
+        rgb = mix(rgb, colour * shade * (tone * lit * alpha), mask * depth);
+      }
     }
     if (cover.b > 0.0) {
       vec3 straight = rgb * inv;
@@ -453,11 +473,14 @@ export const COVER_FRAGMENT_DECLARATIONS = `
       float dust = cover.b * mix(${f(DUST_FLOOR)}, 1.0, streak);
       vec3 coat = ${DUST_COLOUR} * (mix(${f(DUST_LUMA)}, l, ${f(DUST_RELIEF)}) / ${f(DUST_LUMA)});
       straight = mix(straight, coat, dust * ${f(DUST_OPACITY)});
-      float warp = ${f(DUST_RIPPLE_WARP_PX)} * coverNoise(p / ${f(DUST_RIPPLE_WARP_SCALE_PX)} + 13.0);
-      float ripple = sin((p.x + ${f(DUST_RIPPLE_LEAN)} * p.y + warp) * ${f(TAU / DUST_RIPPLE_PX)});
       float drift = smoothstep(${f(DUST_RIPPLE_PATCH_LOW)}, ${f(DUST_RIPPLE_PATCH_HIGH)},
         coverNoise(p / ${f(DUST_RIPPLE_PATCH_SCALE_PX)} + 41.0));
-      straight *= 1.0 + ${f(DUST_RIPPLE_GAIN)} * ripple * drift * (1.0 - grass) * dust;
+      // Ripples lie only in the drift patches off the grass; elsewhere their warp noise goes unused.
+      if (drift * (1.0 - grass) > 0.0) {
+        float warp = ${f(DUST_RIPPLE_WARP_PX)} * coverNoise(p / ${f(DUST_RIPPLE_WARP_SCALE_PX)} + 13.0);
+        float ripple = sin((p.x + ${f(DUST_RIPPLE_LEAN)} * p.y + warp) * ${f(TAU / DUST_RIPPLE_PX)});
+        straight *= 1.0 + ${f(DUST_RIPPLE_GAIN)} * ripple * drift * (1.0 - grass) * dust;
+      }
       rgb = straight * alpha;
     }
     return rgb;

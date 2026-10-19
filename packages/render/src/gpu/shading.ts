@@ -300,7 +300,9 @@ ${pageSamplerDeclarations()}
     if (uCover > 0.5) {
       vec4 cover = texture(uCoverTex, vCoverUV);
       cover.rgb *= 1.0 - clamp(vWater.x, 0.0, 1.0);
-      texel.rgb = weatherCover(texel.rgb, texel.a, lane, cover, cover.g > 0.0 ? groundNeighbourhood(uTexture) : vec3(0.0));
+      // Bare cover (dry ground in view of weather, open water) leaves the texel as it is.
+      if (cover.r + cover.g + cover.b > 0.0)
+        texel.rgb = weatherCover(texel.rgb, texel.a, lane, cover, cover.g > 0.0 ? groundNeighbourhood(uTexture) : vec3(0.0));
     }
     // Unclamped multiply: > 1 brightens (the lane's 128..255 half); the FB write clamps per channel.
     return vec4(texel.rgb * lane * vVertexColor, texel.a) * uColor;

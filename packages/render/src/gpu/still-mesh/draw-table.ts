@@ -4,7 +4,7 @@ import { palettedLutOf } from '../pixel-art-registry.js';
 /** A quad as a table sees it: the texture its sprite draws, and that texture's LUT as last read. */
 export interface TableQuad {
   readonly sprite: { readonly texture: Texture };
-  /** The texture {@link lut} was read for; a rebuild asks again only once the sprite's changes. */
+  /** The texture {@link lut} was read for; a rebuild asks again only once the sprite's texture changes. */
   lutTexture: Texture | null;
   lut: TextureSource | undefined;
 }
@@ -55,8 +55,7 @@ export class DrawTable extends BatchTextureArray {
    */
   finish(): void {
     while (this.count > 0 && this.claimed[this.count - 1] !== this.fill) {
-      const page = this.textures[this.count - 1];
-      if (page !== undefined) this.slots.delete(page);
+      this.forget(this.count - 1);
       this.count--;
     }
     let stand: TextureSource | undefined;
@@ -65,7 +64,7 @@ export class DrawTable extends BatchTextureArray {
     for (let slot = 0; slot < this.count; slot++) {
       const page = this.textures[slot];
       if (stand === undefined || page === undefined || !page.destroyed) continue;
-      this.slots.delete(page);
+      this.forget(slot);
       this.textures[slot] = stand;
     }
   }
@@ -112,9 +111,8 @@ export class DrawTable extends BatchTextureArray {
     if (slot === undefined) {
       const free = this.freeSlot();
       if (free === null) return null;
-      const evicted = this.textures[free];
-      if (evicted !== undefined && free < this.count) this.slots.delete(evicted);
-      if (free === this.count) this.count++;
+      if (free < this.count) this.forget(free);
+      else this.count++;
       this.textures[free] = source;
       this.slots.set(source, free);
       this.joined(source);
@@ -129,6 +127,13 @@ export class DrawTable extends BatchTextureArray {
       this.joined(lut);
     }
     return slot;
+  }
+
+  /** Unlist the page in `slot`. A slot that holds a stand-in for a destroyed page holds a page listed at
+   *  another slot, whose own listing stays. */
+  private forget(slot: number): void {
+    const page = this.textures[slot];
+    if (page !== undefined && this.slots.get(page) === slot) this.slots.delete(page);
   }
 
   /** A slot for a page not listed: past the listed ones while there is room, so no listed page loses its

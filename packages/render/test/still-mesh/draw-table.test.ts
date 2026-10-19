@@ -99,4 +99,22 @@ describe('DrawTable', () => {
     expect(table.count).toBe(PAGES);
     expect(table.textures.slice(0, PAGES)).toEqual([a, a, c]);
   });
+
+  it('keeps a page listed at its own slot when a stand-in copy of it is dropped or reused', () => {
+    const table = new DrawTable(PAGES, () => {});
+    const [a, gone, b, fresh] = [page(), page(), page(), page()];
+    for (const source of [a, gone, b]) table.join(quadOf(frameOn(source)));
+    table.finish();
+    table.begin();
+    for (const source of [a, b]) table.join(quadOf(frameOn(source)));
+    gone.destroy();
+    table.finish();
+    // `a` now also stands in the destroyed page's slot.
+    expect(table.textures.slice(0, PAGES)).toEqual([a, a, b]);
+    table.begin();
+    table.join(quadOf(frameOn(a)));
+    const member = [fresh, a, b].map((source) => quadOf(frameOn(source)));
+    expect(table.fits(member)).toBe(true);
+    expect(member.map((quad) => table.join(quad))).toEqual([1, 0, 2]);
+  });
 });

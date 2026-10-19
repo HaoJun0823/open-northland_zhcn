@@ -369,19 +369,42 @@ describe('StillSpriteMesh', () => {
     expect(h.stale).toEqual([]);
   });
 
-  it('hands Pixi a sprite whose new page outgrows its draw between rebuilds with its new frame', () => {
+  it('hands Pixi a child no draw can take with the frames it now shows', () => {
     const h = harness();
-    const tree = entity(h.layer, 0, 0);
-    entity(h.layer, 1, 0);
-    h.held.add(tree);
-    for (let p = 2; p < MAX_BATCH_TEXTURES; p += 2) h.held.add(entity(h.layer, 1 + p / 100, p));
+    const human = entity(h.layer, 0);
+    h.held.add(human);
+    entity(h.layer, 1);
     h.frame();
-    // A page no table of the band lists, reaching the mesh as the band rebuilds.
-    (tree.children[1] as Sprite).texture = textureOn(MAX_BATCH_TEXTURES + 2);
-    h.held.delete(tree);
-    entity(h.layer, 2, 0);
+    // Two palettes in one child: no draw's table holds both, so it goes to Pixi as its band rebuilds.
+    const [shadow, body] = human.children as [Sprite, Sprite];
+    shadow.texture = palettedOn(2, 0);
+    body.texture = palettedOn(3, 1);
     expect(h.frame()).toEqual(painterOrder(h.layer));
+    expect(h.mesh.quadCount).toBe(0);
+    // Pixi batches both sprites with their new frames, not the ones their meshed records last drew.
     expect(h.stale).toEqual([]);
+  });
+
+  it('keeps Pixi updates reaching the quads a hidden layer re-matched', () => {
+    const h = harness();
+    const tree = entity(h.layer, 0);
+    const crown = worldBatched(new Sprite(textureOn(2)));
+    tree.addChild(crown);
+    h.held.add(tree);
+    h.frame();
+    // Hiding the first layer re-matches the two behind it to fresh quads.
+    (tree.children[0] as Sprite).visible = false;
+    expect(h.frame()).toEqual(painterOrder(h.layer));
+    const band = tree.parent;
+    const state = band === null ? undefined : (h.mesh as unknown as MeshInternals).bands.get(band);
+    if (state === undefined) throw new Error('expected the band’s mesh state');
+    const builds = state.build;
+    // Another frame of the same page: Pixi's update path repacks the quad in place.
+    crown.texture = textureOn(2);
+    crown.tint = 0x808080;
+    expect(h.frame()).toEqual(painterOrder(h.layer));
+    expect(state.build).toBe(builds);
+    expect(packedOf(h, crown)).toEqual(freshPack(h, crown));
   });
 
   it('keeps a quad’s texture slot when a rebuild lists new pages ahead of it', () => {
@@ -539,6 +562,7 @@ describe('StillSpriteMesh', () => {
     entity(h.layer, 5);
     expect(h.frame()).toEqual(painterOrder(h.layer));
     expect(h.mesh.quadCount).toBe(0);
+    expect(h.stale).toEqual([]);
   });
 
   it('uploads the quads Pixi repacks once per frame, however many changed', () => {

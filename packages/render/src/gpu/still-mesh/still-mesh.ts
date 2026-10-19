@@ -805,7 +805,8 @@ export class StillSpriteMesh implements StillBandCollector {
   private free(quad: MeshQuad): void {
     if (!quad.live) return;
     quad.live = false;
-    this.quads.delete(quad.element);
+    // A sprite re-matched to a new quad keeps its one batch record, which now names that quad.
+    if (this.quads.get(quad.element) === quad) this.quads.delete(quad.element);
     this.store?.release(quad.slot);
   }
 }

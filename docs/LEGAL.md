@@ -15,6 +15,11 @@ committed. The one exception is a pipeline correction: it quotes the few script 
 replaces in one mod file, so the pipeline can check that they still match, and never carries prose
 such as briefing or dialogue text.
 
+The app bundles third-party typefaces in `packages/app/public/fonts/`, which keep their own licences:
+Alegreya Sans, Alegreya Sans SC and Cinzel under the SIL Open Font License 1.1, and Tinos, whose
+Cyrillic files are under the same licence and whose Latin files are under the Apache License 2.0.
+Their licence texts sit beside them as `LICENSE-*.txt`.
+
 Text imported from game or mod tables is also generated content, including UI labels. Keep table/id
 bindings in code and load the wording through the pipeline. Project-authored UI text, intentional
 label overrides and independently written fallbacks may stay in the repository; a fallback must not

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { correctedMapKeys, readGermanCorrections } from '../src/import/corrected-keys.js';
 
-const PROBE_MAP = { id: 'probe_map', sha256: 'a'.repeat(64) };
+const PROBE_MAP = { id: 'probe_map', text: { datDigest: 'a'.repeat(64) } };
 const OTHER_DAT = 'b'.repeat(64);
 const BASIS_DIGEST = 'c'.repeat(64);
 
@@ -35,8 +35,15 @@ const germanOverlay = (strings: Record<string, string>, briefings: Record<string
 
 describe('German corrections', () => {
   const basis = {
-    strings: { '1': 'Eins', '2': 'Zwei', '3': 'Drei' },
-    briefings: { a: 'Vorher.\nKlicke mit der RECHTEN Maustaste.', b: 'Nichts.', c: 'Später.' },
+    text: {
+      strings: { 1: 'Eins', 2: 'Zwei', 3: 'Drei' },
+      briefings: new Map([
+        ['a', 'Vorher.\nKlicke mit der RECHTEN Maustaste.'],
+        ['b', 'Nichts.'],
+        ['c', 'Später.'],
+      ]),
+    },
+    digest: BASIS_DIGEST,
   };
   const translation = {
     strings: { '1': '一', '2': '二', '3': '三' },
@@ -84,7 +91,10 @@ describe('German corrections', () => {
     const root = await folder({
       'corrections/strings/tables.json': [],
       'corrections/strings/maps.json': [],
-      [`translations/ger/maps/${PROBE_MAP.sha256}.json`]: germanOverlay({ '3': 'Vier' }, { c: 'Danach.' }),
+      [`translations/ger/maps/${PROBE_MAP.text.datDigest}.json`]: germanOverlay(
+        { '3': 'Vier' },
+        { c: 'Danach.' },
+      ),
       [`translations/ger/maps/${OTHER_DAT}.json`]: germanOverlay({ '1': 'Null' }, { b: 'Alles.' }),
     });
     const read = await readGermanCorrections(join(root, 'corrections'), join(root, 'translations'));

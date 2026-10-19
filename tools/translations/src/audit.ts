@@ -36,7 +36,7 @@ import {
   type PackMap,
   type PackText,
   readPackText,
-} from './audit/pack-text.js';
+} from './pack-text.js';
 
 /** One problem with one overlay file, named relative to the translations root. */
 export interface AuditFinding {

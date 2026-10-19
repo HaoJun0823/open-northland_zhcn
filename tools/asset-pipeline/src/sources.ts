@@ -1,10 +1,10 @@
 /**
  * The pipeline's reading of the source data pack, for tools that check text against what the pipeline
- * converts: the translations audit reads maps, object tables and the history book through these.
+ * converts: the translations audit and import read maps, object tables and the history book through these.
  */
 export { CORRECTIONS_DIR, loadSourceCorrections } from './corrections.js';
-export type { SourceRoots } from './roots.js';
-export { type CampaignMapTree, readCampaignMapTree } from './stages/campaigns.js';
+export { findPathCaseInsensitive, type SourceRoots } from './roots.js';
+export { type CampaignMapTree, campaignMapId, readCampaignMapTree } from './stages/campaigns.js';
 export { HISTORY_BOOK, historyDir, readHistoryBlocks } from './stages/gui/history.js';
 export {
   GAME_OBJECT_TABLES,

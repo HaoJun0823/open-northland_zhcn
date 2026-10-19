@@ -1,11 +1,7 @@
+import type { GameObjectNames } from '@open-northland/asset-pipeline/sources';
 import { describe, expect, it } from 'vitest';
 import { formatCsv, glossaryFromLanguageUnion, parseCsv } from '../src/import/glossary.js';
-import {
-  driftedIds,
-  type ObjectNames,
-  sameGermanName,
-  translateObjectNames,
-} from '../src/import/object-tables.js';
+import { driftedIds, sameGermanName, translateObjectNames } from '../src/import/object-tables.js';
 
 describe('sameGermanName', () => {
   it('reads a Han character of their garbled table as the umlaut and the byte it swallowed', () => {
@@ -18,17 +14,17 @@ describe('sameGermanName', () => {
 });
 
 describe('object names', () => {
-  const basis: ObjectNames = {
-    names: { '1': 'Truhe', '2': 'Grüne Truhe', '3': 'Fass' },
-    plurals: { '1': 'Truhen', '2': 'Grüne Truhen', '3': 'Fässer' },
+  const basis: GameObjectNames = {
+    names: { 1: 'Truhe', 2: 'Grüne Truhe', 3: 'Fass' },
+    plurals: { 1: 'Truhen', 2: 'Grüne Truhen', 3: 'Fässer' },
   };
-  const theirGerman: ObjectNames = {
-    names: { '1': 'Truhe', '2': 'Gr黱e Truhe', '3': 'Kiste' },
-    plurals: { '1': 'Truhen', '2': 'Gr黱e Truhen', '3': 'Kisten' },
+  const theirGerman: GameObjectNames = {
+    names: { 1: 'Truhe', 2: 'Gr黱e Truhe', 3: 'Kiste' },
+    plurals: { 1: 'Truhen', 2: 'Gr黱e Truhen', 3: 'Kisten' },
   };
-  const chinese: ObjectNames = {
-    names: { '1': '箱子', '2': '绿箱子', '3': '木箱', '9': '多余' },
-    plurals: { '1': '箱子', '2': '', '3': '木箱' },
+  const chinese: GameObjectNames = {
+    names: { 1: '箱子', 2: '绿箱子', 3: '木箱', 9: '多余' },
+    plurals: { 1: '箱子', 2: '', 3: '木箱' },
   };
 
   it('finds the ids whose German differs from ours', () => {

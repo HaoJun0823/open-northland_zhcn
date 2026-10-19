@@ -1,12 +1,12 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { MapOverlay, OVERLAY_LANGUAGES, OVERLAY_VERSION, type OverlayLanguage } from '@open-northland/data';
+import { type MapLanguageText, mapSourceTextDigest } from '@open-northland/map-import';
+import type { PackMap } from '../pack-text.js';
 import { BASIS_LANGUAGE, LOCALIZATION_SOURCES } from './columns.js';
 import { correctedMapKeys, type GermanCorrections } from './corrected-keys.js';
-import { type MapSourceText, mapSourceTextDigest, readMapSourceText } from './map-source-text.js';
 import { type GermanRoundTrip, germanRoundTrip, translateMap } from './map-translation.js';
 import { type LocalizationMap, readLocalizationMap } from './map-xml.js';
-import { type PackMap, packMaps } from './pack-maps.js';
 
 const MAP_XML_DIR = ['Localization', 'map_xml'] as const;
 const XML_FILE = /\.xml$/i;
@@ -75,10 +75,13 @@ async function readXmls(source: string): Promise<Map<string, LocalizationMap>> {
 /** One matched pack map with our German text and the corrections that change it. */
 interface Target {
   readonly map: PackMap;
-  readonly basis: MapSourceText;
+  readonly basis: MapLanguageText;
   readonly digest: string;
   readonly corrections: GermanCorrections;
 }
+
+/** The basis digest of `text` in the basis language. */
+const basisDigest = (text: MapLanguageText): string => mapSourceTextDigest(text.strings, text.briefings);
 
 function translateLanguage(
   xml: LocalizationMap,
@@ -93,7 +96,7 @@ function translateLanguage(
     markupMismatches: translation.markupMismatches,
     retagged: translation.retagged,
     unframed: translation.unframed,
-    corrected: correctedMapKeys(corrections, map, basis, translation),
+    corrected: correctedMapKeys(corrections, map, { text: basis, digest }, translation),
   };
   if (result.strings + result.blocks === 0) return { result };
   const overlay = MapOverlay.parse({
@@ -103,7 +106,7 @@ function translateLanguage(
     strings: translation.strings,
     briefings: translation.briefings,
   });
-  return { result, file: { path: `${lang}/maps/${map.sha256}.json`, value: overlay } };
+  return { result, file: { path: `${lang}/maps/${map.text.datDigest}.json`, value: overlay } };
 }
 
 /**
@@ -114,12 +117,13 @@ function translateLanguage(
  */
 export async function importMaps(
   source: string,
-  dataRoot: string,
+  packMaps: ReadonlyMap<string, readonly PackMap[]>,
   corrections: GermanCorrections,
 ): Promise<MapImport> {
   const xmls = await readXmls(source);
-  const byMd5 = new Map<string, PackMap[]>();
-  for (const map of await packMaps(dataRoot)) byMd5.set(map.md5, [...(byMd5.get(map.md5) ?? []), map]);
+  const byMd5 = new Map<string, readonly PackMap[]>();
+  for (const copies of packMaps.values())
+    for (const map of copies) byMd5.set(map.datMd5, [...(byMd5.get(map.datMd5) ?? []), map]);
 
   const unmatched: string[] = [];
   const deprecated: string[] = [];
@@ -148,7 +152,7 @@ export async function importMaps(
   for (const candidate of candidates.values()) {
     const [map, ...copies] = candidate.maps;
     if (map === undefined) continue;
-    const basis = await readMapSourceText(map.read, BASIS_LANGUAGE);
+    const basis = map.text.languages[BASIS_LANGUAGE];
     if (basis === undefined) {
       withoutBasis.push(`${map.id} (${candidate.xmls.map(({ name }) => name).join(', ')})`);
       continue;
@@ -158,12 +162,12 @@ export async function importMaps(
       .sort((a, b) => fit(b.roundTrip) - fit(a.roundTrip));
     const [best, ...others] = ranked;
     if (best === undefined) continue;
-    const digest = mapSourceTextDigest(basis);
+    const digest = basisDigest(basis);
     const aliases: string[] = [];
     const twins: string[] = [];
     for (const copy of copies) {
-      const text = await readMapSourceText(copy.read, BASIS_LANGUAGE);
-      (text !== undefined && mapSourceTextDigest(text) === digest ? aliases : twins).push(copy.id);
+      const text = copy.text.languages[BASIS_LANGUAGE];
+      (text !== undefined && basisDigest(text) === digest ? aliases : twins).push(copy.id);
     }
     const languages: Partial<Record<OverlayLanguage, MapLanguageResult>> = {};
     for (const lang of OVERLAY_LANGUAGES) {

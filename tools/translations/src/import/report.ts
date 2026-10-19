@@ -11,7 +11,7 @@ function rate({ equal, total }: Alignment): string {
 }
 
 function isCampaign(map: MatchedMap): boolean {
-  return map.map.kind === 'campaign';
+  return map.map.campaign !== undefined;
 }
 
 /** The import's plain-text report: what matched, what was written, and how far the keys line up. */

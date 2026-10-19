@@ -1,10 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { MAP_DAT_FILE, mapIdFromPath } from '@open-northland/map-import';
+import { GAME_OBJECT_TABLES } from '@open-northland/asset-pipeline/sources';
+import { MAP_DAT_FILE, type MapLanguageText, mapIdFromPath } from '@open-northland/map-import';
 import { listDirectory, readOverlayFile } from '@open-northland/translations';
 import { BASIS_LANGUAGE } from './columns.js';
-import type { MapSourceText } from './map-source-text.js';
-import { OBJECT_TABLES } from './object-tables.js';
 
 /**
  * The German text the pipeline's corrections (`tools/asset-pipeline/corrections/`) and our German map
@@ -91,7 +90,7 @@ export async function readGermanCorrections(dir: string, translations: string): 
   const tables = new Map<string, Set<string>>();
   const mapStrings = new Map<string, Set<string>>();
   const briefingLines = new Map<string, Set<string>>();
-  const known: readonly string[] = OBJECT_TABLES;
+  const known: readonly string[] = GAME_OBJECT_TABLES;
   for (const entry of await readArray(join(dir, ...STRING_TABLES_FILE))) {
     if (!isRecord(entry) || entry.lang !== BASIS_LANGUAGE || typeof entry.table !== 'string') continue;
     const table = entry.table.replace(PLURAL_TABLE_SUFFIX, '');
@@ -121,21 +120,22 @@ export async function readGermanCorrections(dir: string, translations: string): 
  *  block labels. `map` names the pack map by our id and its `map.dat` SHA-256. */
 export function correctedMapKeys(
   corrections: GermanCorrections,
-  map: { readonly id: string; readonly sha256: string },
-  basis: MapSourceText,
+  map: { readonly id: string; readonly text: { readonly datDigest: string } },
+  basis: { readonly text: MapLanguageText; readonly digest: string },
   overlay: {
     readonly strings: Readonly<Record<string, string>>;
     readonly briefings: Readonly<Record<string, string>>;
   },
 ): string[] {
   const keys: string[] = [];
-  const overlaid = corrections.overlays.get(map.sha256);
+  const overlaid = corrections.overlays.get(map.text.datDigest);
   const ids = new Set([...(corrections.mapStrings.get(map.id) ?? []), ...(overlaid?.strings ?? [])]);
   for (const id of ids) if (overlay.strings[id] !== undefined) keys.push(`string ${id}`);
   const lines = corrections.briefingLines.get(map.id);
   for (const label of Object.keys(overlay.briefings)) {
     const correctedLine =
-      lines !== undefined && (basis.briefings[label] ?? '').split('\n').some((line) => lines.has(line));
+      lines !== undefined &&
+      (basis.text.briefings.get(label) ?? '').split('\n').some((line) => lines.has(line));
     if (correctedLine || overlaid?.briefings.has(label) === true) keys.push(`block ${label}`);
   }
   return keys;

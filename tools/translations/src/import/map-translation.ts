@@ -1,4 +1,4 @@
-import type { MapSourceText } from './map-source-text.js';
+import type { MapLanguageText } from '@open-northland/map-import';
 import {
   adoptSourceTags,
   briefingBody,
@@ -28,6 +28,12 @@ const GOAL_PREFIX = '@';
 /** A printf conversion such as `%d`, `%s` or `%2.1f`. */
 const PLACEHOLDER = /%(?:\d+\$)?[-+ #0]*\d*(?:\.\d+)?[a-zA-Z]/g;
 
+/** The basis string of an XML id; an id spelled other than its number (`07`) names none. */
+function basisString(basis: MapLanguageText, id: string): string | undefined {
+  const number = Number(id);
+  return String(number) === id ? basis.strings[number] : undefined;
+}
+
 function isBlank(text: string | undefined): boolean {
   return text === undefined || text.trim() === '';
 }
@@ -49,7 +55,7 @@ function stringMarkupDiffers(source: string, translated: string): boolean {
  * arguments and tag gaps. Empty entries, and entries that would not keep the basis markup, are left
  * out, so the reader falls back to the source text for them.
  */
-export function translateMap(map: LocalizationMap, column: string, basis: MapSourceText): MapTranslation {
+export function translateMap(map: LocalizationMap, column: string, basis: MapLanguageText): MapTranslation {
   const strings: Record<string, string> = {};
   const briefings: Record<string, string> = {};
   const unknown: string[] = [];
@@ -59,7 +65,7 @@ export function translateMap(map: LocalizationMap, column: string, basis: MapSou
   for (const [id, byColumn] of map.strings) {
     const text = byColumn.get(column);
     if (text === undefined || isBlank(text)) continue;
-    const source = basis.strings[id];
+    const source = basisString(basis, id);
     if (source === undefined) {
       unknown.push(`string ${id}`);
       continue;
@@ -70,7 +76,7 @@ export function translateMap(map: LocalizationMap, column: string, basis: MapSou
   for (const [label, byColumn] of map.briefings) {
     const nodes = byColumn.get(column);
     if (nodes === undefined || !hasText(nodes)) continue;
-    const source = basis.briefings[label];
+    const source = basis.briefings.get(label);
     if (source === undefined) {
       unknown.push(`block ${label}`);
       continue;
@@ -109,7 +115,7 @@ export interface GermanRoundTrip {
   };
 }
 
-export function germanRoundTrip(map: LocalizationMap, basis: MapSourceText): GermanRoundTrip {
+export function germanRoundTrip(map: LocalizationMap, basis: MapLanguageText): GermanRoundTrip {
   let stringTotal = 0;
   let stringEqual = 0;
   const stringMismatches: string[] = [];
@@ -117,7 +123,7 @@ export function germanRoundTrip(map: LocalizationMap, basis: MapSourceText): Ger
     const text = byColumn.get(GERMAN_COLUMN);
     if (isBlank(text)) continue;
     stringTotal++;
-    if (basis.strings[id] === text) stringEqual++;
+    if (basisString(basis, id) === text) stringEqual++;
     else stringMismatches.push(id);
   }
   const untranslated = Object.keys(basis.strings).filter((id) => !map.strings.has(id));
@@ -129,7 +135,7 @@ export function germanRoundTrip(map: LocalizationMap, basis: MapSourceText): Ger
     const nodes = byColumn.get(GERMAN_COLUMN);
     if (nodes === undefined || !hasText(nodes)) continue;
     blockTotal++;
-    const source = basis.briefings[label];
+    const source = basis.briefings.get(label);
     if (source === undefined) {
       mismatches.push(label);
       continue;

@@ -1,6 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  GAME_OBJECT_TABLES,
+  type GameObjectTable,
+  HISTORY_BOOK,
+} from '@open-northland/asset-pipeline/sources';
+import {
   BookOverlay,
   ObjectTableOverlay,
   OVERLAY_LANGUAGES,
@@ -9,26 +14,18 @@ import {
 } from '@open-northland/data';
 import {
   type BookBlocks,
-  bookDigest,
-  HISTORY_BOOK,
-  readLocalizedBook,
-  readPackBook,
-  translateBook,
-} from './books.js';
+  bookSourceDigest,
+  objectTableSourceDigest,
+  type PackText,
+  readPackText,
+} from '../pack-text.js';
+import { readLocalizedBook, translateBook } from './books.js';
 import { BASIS_LANGUAGE, LOCALIZATION_SOURCES } from './columns.js';
 import { type GermanCorrections, readGermanCorrections } from './corrected-keys.js';
 import { formatCsv, glossaryFromLanguageUnion } from './glossary.js';
 import { normalizeWhitespace } from './map-xml.js';
 import { importMaps, type MapImport, type OverlayFile } from './maps.js';
-import {
-  driftedIds,
-  OBJECT_TABLES,
-  type ObjectTable,
-  objectNamesDigest,
-  readLocalizedObjectTable,
-  readPackObjectTable,
-  translateObjectNames,
-} from './object-tables.js';
+import { driftedIds, readLocalizedObjectTable, translateObjectNames } from './object-tables.js';
 
 const TEXT_DIR = ['Localization', 'text'] as const;
 const GLOSSARY_SOURCE = 'language_union.csv';
@@ -36,7 +33,6 @@ const GLOSSARY_SOURCE = 'language_union.csv';
 export const GLOSSARY_FILE = 'glossary.csv';
 /** The project's terms, beside the import's and never written by it. */
 export const PROJECT_GLOSSARY_FILE = 'glossary-project.csv';
-const PACK_BASE = 'base';
 
 export interface ImportOptions {
   /** A CulturesGameLocalization checkout. */
@@ -84,16 +80,15 @@ export interface ImportResult {
 
 async function importTable(
   textRoot: string,
-  baseRoot: string,
-  table: ObjectTable,
+  pack: PackText,
+  table: GameObjectTable,
   corrections: GermanCorrections,
   files: OverlayFile[],
-): Promise<TableResult | undefined> {
-  const basis = await readPackObjectTable(baseRoot, BASIS_LANGUAGE, table);
-  if (basis === undefined) return undefined;
+): Promise<TableResult> {
+  const basis = await pack.objectNames(BASIS_LANGUAGE, table);
   const theirGerman = await readLocalizedObjectTable(textRoot, BASIS_LANGUAGE, table);
   const drifted = theirGerman === undefined ? [] : driftedIds(basis, theirGerman);
-  const digest = objectNamesDigest(basis);
+  const digest = objectTableSourceDigest(basis);
   const languages: Partial<Record<OverlayLanguage, { names: number; plurals: number; unknown: number }>> = {};
   const corrected = new Set<string>();
   for (const lang of OVERLAY_LANGUAGES) {
@@ -119,9 +114,9 @@ async function importTable(
 function bookAlignment(ours: BookBlocks, theirs: BookBlocks | undefined): Alignment {
   let total = 0;
   let equal = 0;
-  for (const [file, labels] of Object.entries(theirs ?? {})) {
-    for (const [label, body] of Object.entries(labels)) {
-      const our = ours[file]?.[label];
+  for (const [file, labels] of theirs ?? []) {
+    for (const [label, body] of labels) {
+      const our = ours.get(file)?.get(label);
       if (our === undefined) continue;
       total++;
       if (normalizeWhitespace(our) === normalizeWhitespace(body)) equal++;
@@ -132,13 +127,13 @@ function bookAlignment(ours: BookBlocks, theirs: BookBlocks | undefined): Alignm
 
 async function importBook(
   textRoot: string,
-  baseRoot: string,
+  pack: PackText,
   files: OverlayFile[],
 ): Promise<BookResult | undefined> {
-  const basis = await readPackBook(baseRoot, BASIS_LANGUAGE, HISTORY_BOOK);
+  const basis = await pack.historyBlocks(BASIS_LANGUAGE);
   if (basis === undefined) return undefined;
   const alignment = bookAlignment(basis, await readLocalizedBook(textRoot, BASIS_LANGUAGE, HISTORY_BOOK));
-  const digest = bookDigest(basis);
+  const digest = bookSourceDigest(basis);
   const languages: Partial<Record<OverlayLanguage, { blocks: number; unknown: readonly string[] }>> = {};
   for (const lang of OVERLAY_LANGUAGES) {
     const translated = await readLocalizedBook(textRoot, LOCALIZATION_SOURCES[lang].textFolder, HISTORY_BOOK);
@@ -163,16 +158,14 @@ async function importBook(
  */
 export async function importCulturesLocalization(options: ImportOptions): Promise<ImportResult> {
   const textRoot = join(options.source, ...TEXT_DIR);
-  const baseRoot = join(options.dataRoot, PACK_BASE);
+  const pack = await readPackText(options.dataRoot);
   const corrections = await readGermanCorrections(options.corrections, options.translations);
-  const maps = await importMaps(options.source, options.dataRoot, corrections);
+  const maps = await importMaps(options.source, await pack.maps(), corrections);
   const files: OverlayFile[] = [...maps.files];
   const tables: TableResult[] = [];
-  for (const table of OBJECT_TABLES) {
-    const result = await importTable(textRoot, baseRoot, table, corrections, files);
-    if (result !== undefined) tables.push(result);
-  }
-  const book = await importBook(textRoot, baseRoot, files);
+  for (const table of GAME_OBJECT_TABLES)
+    tables.push(await importTable(textRoot, pack, table, corrections, files));
+  const book = await importBook(textRoot, pack, files);
   const glossaryRows = glossaryFromLanguageUnion(
     await readFile(join(options.source, GLOSSARY_SOURCE), 'utf8'),
   );

@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  campaignMapId,
   type GameObjectNames,
   type GameObjectTable,
   historyDir,
@@ -12,22 +14,30 @@ import {
   takesSourceLanguageOverlays,
 } from '@open-northland/asset-pipeline/sources';
 import { jsonFingerprint, type SourceLanguage } from '@open-northland/data';
+import { textEncoding } from '@open-northland/formats/text-encoding';
 import {
   findMapFolders,
   isMapTextFile,
+  MAP_DAT_FILE,
   type MapSourceText,
+  type MapTree,
+  mapIdFromPath,
   readMapSourceText,
 } from '@open-northland/map-import';
-import { type CampaignSource, parseDataManifest, readCampaigns } from '../../../../scripts/data-pack.mjs';
+import { type CampaignSource, parseDataManifest, readCampaigns } from '../../../scripts/data-pack.mjs';
 
 /** One map of the pack, as its overlays are checked against it. */
 export interface PackMap {
   /** The lower-cased folder of a base map, or `campaigns/<campaign>/<map>`. */
   readonly folder: string;
+  /** The id the pipeline converts the map under. */
+  readonly id: string;
   /** The campaign the map belongs to, for a campaign map. */
   readonly campaign?: string;
   /** Whether the pipeline applies a source-language overlay to it: a community map only. */
   readonly takesSourceLanguages: boolean;
+  /** The raw `map.dat` MD5 hex digest, which CulturesGameLocalization names a map by. */
+  readonly datMd5: string;
   readonly text: MapSourceText;
 }
 
@@ -65,6 +75,14 @@ function addMap(maps: Map<string, PackMap[]>, map: PackMap): void {
   maps.set(map.text.datDigest, copies);
 }
 
+/** The spelled path of folder `key`'s `map.dat`, which names the map, and its MD5; undefined without one. */
+function mapDat(tree: MapTree, key: string): { readonly path: string; readonly md5: string } | undefined {
+  const dat = key === '' ? MAP_DAT_FILE : `${key}/${MAP_DAT_FILE}`;
+  const bytes = tree.files.get(dat);
+  if (bytes === undefined) return undefined;
+  return { path: tree.names.get(dat) ?? dat, md5: createHash('md5').update(bytes).digest('hex') };
+}
+
 /** The text of every base and campaign map; only map.dat and the text files are read. */
 async function readPackMaps(
   roots: SourceRoots,
@@ -75,15 +93,30 @@ async function readPackMaps(
   const tree = await readBaseMapTree(roots, isMapTextFile);
   for (const key of findMapFolders(tree)) {
     const text = await readMapSourceText(tree, key);
-    if (text !== undefined)
-      addMap(maps, { folder: key, takesSourceLanguages: takesSourceLanguageOverlays(key), text });
+    const dat = mapDat(tree, key);
+    if (text === undefined || dat === undefined) continue;
+    addMap(maps, {
+      folder: key,
+      id: mapIdFromPath(dat.path),
+      takesSourceLanguages: takesSourceLanguageOverlays(key),
+      datMd5: dat.md5,
+      text,
+    });
   }
   for (const campaign of campaigns) {
     for (const map of campaign.maps) {
       const read = await readCampaignMapTree(roots, dataRoot, campaign, map, isMapTextFile);
       const text = await readMapSourceText(read.tree, read.key);
-      if (text !== undefined)
-        addMap(maps, { folder: read.folder, campaign: campaign.id, takesSourceLanguages: false, text });
+      const dat = mapDat(read.tree, read.key);
+      if (text === undefined || dat === undefined) continue;
+      addMap(maps, {
+        folder: read.folder,
+        id: campaignMapId(campaign.id, map.id),
+        campaign: campaign.id,
+        takesSourceLanguages: false,
+        datMd5: dat.md5,
+        text,
+      });
     }
   }
   return maps;
@@ -107,7 +140,7 @@ export async function readPackText(dataRoot: string): Promise<PackText> {
     objectNames: (lang, table) => readGameObjectNames(roots, lang, table),
     historyBlocks: async (lang) => {
       const dir = await historyDir(roots, lang);
-      return dir === undefined ? undefined : readHistoryBlocks(dir, lang);
+      return dir === undefined ? undefined : readHistoryBlocks(dir, textEncoding(lang));
     },
   };
 }

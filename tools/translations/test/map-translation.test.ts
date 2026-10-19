@@ -1,6 +1,6 @@
 import { MapOverlay, OVERLAY_VERSION } from '@open-northland/data';
+import type { MapLanguageText } from '@open-northland/map-import';
 import { describe, expect, it } from 'vitest';
-import type { MapSourceText } from '../src/import/map-source-text.js';
 import { germanRoundTrip, translateMap } from '../src/import/map-translation.js';
 import { readLocalizationMap, SIMPLIFIED_COLUMN, TRADITIONAL_COLUMN } from '../src/import/map-xml.js';
 
@@ -64,9 +64,9 @@ Heute regnet es.
 </localization>
 `;
 
-const BASIS: MapSourceText = {
-  strings: { '0': '@FINDE DEN BRUNNEN!', '1': 'Fässer %d/5 & mehr', '2': 'Nur bei uns' },
-  briefings: { intro: 'DAS DORF AM BRUNNEN\n\n<usericon:2,1>\n\nHeute regnet es.' },
+const BASIS: MapLanguageText = {
+  strings: { 0: '@FINDE DEN BRUNNEN!', 1: 'Fässer %d/5 & mehr', 2: 'Nur bei uns' },
+  briefings: new Map([['intro', 'DAS DORF AM BRUNNEN\n\n<usericon:2,1>\n\nHeute regnet es.']]),
 };
 
 describe('readLocalizationMap', () => {
@@ -118,7 +118,7 @@ describe('translateMap', () => {
   });
 
   it('leaves out a translated string whose goal prefix or placeholders differ from ours', () => {
-    const basis: MapSourceText = { ...BASIS, strings: { ...BASIS.strings, '0': 'FINDE DEN BRUNNEN!' } };
+    const basis: MapLanguageText = { ...BASIS, strings: { ...BASIS.strings, 0: 'FINDE DEN BRUNNEN!' } };
     const translation = translateMap(readLocalizationMap(XML), SIMPLIFIED_COLUMN, basis);
     expect(translation.markupMismatches).toEqual(['string 0']);
     expect(translation.strings['0']).toBeUndefined();

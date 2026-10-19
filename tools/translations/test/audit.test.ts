@@ -6,14 +6,14 @@ import { MAP_OVERLAY_BASIS_PREFIX_LENGTH, OVERLAY_VERSION } from '@open-northlan
 import { mapSourceTextDigest } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
+import { auditTranslations } from '../src/audit.js';
 import {
   bookSourceDigest,
   objectTableSourceDigest,
   type PackMap,
   type PackText,
   readPackText,
-} from '../src/audit/pack-text.js';
-import { auditTranslations } from '../src/audit.js';
+} from '../src/pack-text.js';
 
 /**
  * `npm run check:translations`: the layout and schema of every overlay file, and with the unpacked pack
@@ -22,6 +22,7 @@ import { auditTranslations } from '../src/audit.js';
 
 const DIGEST = 'a'.repeat(64);
 const OTHER = 'b'.repeat(64);
+const DAT_MD5 = 'f'.repeat(32);
 
 /** The file name of a further map overlay of `DIGEST` written against `basisDigest`. */
 const variantOf = (basisDigest: string): string =>
@@ -143,7 +144,9 @@ describe('auditTranslations: against the pack', () => {
 
   function packMap(fields: Partial<PackMap> & Pick<PackMap, 'folder'>): PackMap {
     return {
+      id: 'fjord',
       takesSourceLanguages: true,
+      datMd5: DAT_MD5,
       text: {
         datDigest: DIGEST,
         languages: { pol: { strings, briefings }, eng: { strings: {}, briefings: new Map() } },
@@ -296,7 +299,9 @@ describe('auditTranslations: copies of one map.dat with other text', () => {
     const copies = names.map(
       (name): PackMap => ({
         folder: `maps/community/${name}`,
+        id: name,
         takesSourceLanguages: true,
+        datMd5: DAT_MD5,
         text: { datDigest: DIGEST, languages: { pol: { strings: texts[name], briefings } } },
       }),
     );
@@ -394,6 +399,8 @@ describe('readPackText', () => {
     const digest = createHash('sha256').update(dat).digest('hex');
     const [fjord] = maps.get(digest) ?? [];
     expect(fjord?.folder).toBe('maps/community/fjord');
+    expect(fjord?.id).toBe('fjord');
+    expect(fjord?.datMd5).toBe(createHash('md5').update(dat).digest('hex'));
     expect(fjord?.takesSourceLanguages).toBe(true);
     expect(fjord?.text.languages.pol?.strings).toEqual({ 0: 'Fjord' });
     expect([...(fjord?.text.languages.pol?.briefings.keys() ?? [])]).toEqual(['b']);

@@ -125,15 +125,18 @@ function blockFileName(file: string): string {
   return file.split(/[\\/]/).at(-1)?.toLowerCase() ?? '';
 }
 
-/** Reads every block file of one history folder by lower-cased file name, then label. */
+/** Reads every block file of one history folder in `encoding` by lower-cased file name, in name order,
+ *  then label. */
 export async function readHistoryBlocks(
   dir: string,
-  lang: string,
+  encoding: string,
 ): Promise<Map<string, Map<string, string>>> {
   const blocksByFile = new Map<string, Map<string, string>>();
-  for (const entry of (await readdir(dir, { withFileTypes: true })).filter((e) => e.isFile())) {
-    if (!BLOCKS_EXT.test(entry.name)) continue;
-    const text = decodeIni(await readFile(join(dir, entry.name)), textEncoding(lang));
+  const files = (await readdir(dir, { withFileTypes: true }))
+    .filter((e) => e.isFile() && BLOCKS_EXT.test(e.name))
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  for (const entry of files) {
+    const text = decodeIni(await readFile(join(dir, entry.name)), encoding);
     blocksByFile.set(entry.name.toLowerCase(), parseBriefingBlocks(text));
   }
   return blocksByFile;
@@ -146,7 +149,7 @@ async function renderBook(
   overlay?: BookOverlay['blocks'],
 ): Promise<HypertextBook | undefined> {
   const entries = (await readdir(dir, { withFileTypes: true })).filter((entry) => entry.isFile());
-  const blocksByFile = await readHistoryBlocks(dir, lang);
+  const blocksByFile = await readHistoryBlocks(dir, textEncoding(lang));
   const include: IncludeResolver = (file, label) => {
     const name = blockFileName(file);
     const overlaid = overlay !== undefined && Object.hasOwn(overlay, name) ? overlay[name] : undefined;

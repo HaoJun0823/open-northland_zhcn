@@ -1,67 +1,28 @@
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { jsonFingerprint } from '@open-northland/data';
 import {
-  cifBytesToSections,
-  decodeDisplayText,
-  decodeIni,
-  extractStringnNames,
-  parseIniSections,
-  type RuleSection,
-} from '@open-northland/formats/ini';
-import { textEncoding } from '@open-northland/formats/text-encoding';
-import { readCaseInsensitive } from './pack-files.js';
-
-/** The game-object name tables, `strings/gameobjects/<table>.{ini,cif}`, the GUI strings stage reads. */
-export const OBJECT_TABLES = ['goods', 'houses', 'jobs', 'experiences', 'tribes'] as const;
-export type ObjectTable = (typeof OBJECT_TABLES)[number];
-
-/** A name table by type id: each `stringn` singular and the bare `string` plural after it. */
-export interface ObjectNames {
-  readonly names: Readonly<Record<string, string>>;
-  readonly plurals: Readonly<Record<string, string>>;
-}
+  findPathCaseInsensitive,
+  type GameObjectNames,
+  type GameObjectTable,
+} from '@open-northland/asset-pipeline/sources';
+import { decodeIni, extractStringnNames, parseIniSections } from '@open-northland/formats/ini';
 
 const UTF8 = 'utf-8';
-
-function decodedNames(sections: readonly RuleSection[], decode: (text: string) => string): ObjectNames {
-  const { singular, plural } = extractStringnNames(sections);
-  const decodeAll = (table: Record<number, string>): Record<string, string> =>
-    Object.fromEntries(Object.entries(table).map(([id, text]) => [id, decode(text)]));
-  return { names: decodeAll(singular), plurals: decodeAll(plural) };
-}
-
-/**
- * One table of the pack's `Data/text/<lang>/strings/gameobjects/`, read as the GUI strings stage reads
- * it: the readable `.ini` when the language ships one, else the `.cif`. Undefined when neither exists.
- */
-export async function readPackObjectTable(
-  baseRoot: string,
-  lang: string,
-  table: ObjectTable,
-): Promise<ObjectNames | undefined> {
-  const dir = ['Data', 'text', lang, 'strings', 'gameobjects'];
-  const encoding = textEncoding(lang);
-  const ini = await readCaseInsensitive(baseRoot, [...dir, `${table}.ini`]);
-  if (ini !== undefined) return decodedNames(parseIniSections(decodeIni(ini, encoding)), (text) => text);
-  const cif = await readCaseInsensitive(baseRoot, [...dir, `${table}.cif`]);
-  if (cif === undefined) return undefined;
-  return decodedNames(cifBytesToSections(cif), (text) => decodeDisplayText(text, encoding));
-}
 
 /** One UTF-8 `.ini` table of the localization repository's `text/<folder>/strings/gameobjects/`. */
 export async function readLocalizedObjectTable(
   textRoot: string,
   folder: string,
-  table: ObjectTable,
-): Promise<ObjectNames | undefined> {
-  const bytes = await readCaseInsensitive(join(textRoot, folder), ['strings', 'gameobjects', `${table}.ini`]);
-  return bytes === undefined
-    ? undefined
-    : decodedNames(parseIniSections(decodeIni(bytes, UTF8)), (text) => text);
-}
-
-export function objectNamesDigest(names: ObjectNames): string {
-  return jsonFingerprint({ names: names.names, plurals: names.plurals });
+  table: GameObjectTable,
+): Promise<GameObjectNames | undefined> {
+  const path = await findPathCaseInsensitive(join(textRoot, folder), [
+    'strings',
+    'gameobjects',
+    `${table}.ini`,
+  ]);
+  if (path === undefined) return undefined;
+  const { singular, plural } = extractStringnNames(parseIniSections(decodeIni(await readFile(path), UTF8)));
+  return { names: singular, plurals: plural };
 }
 
 /** The last code point the cp1252 names of their German tables can hold once read back intact. */
@@ -84,11 +45,11 @@ export function sameGermanName(ours: string, garbled: string): boolean {
 }
 
 /** The type ids whose German name or plural differs between their table and ours: a different object. */
-export function driftedIds(basis: ObjectNames, theirGerman: ObjectNames): string[] {
+export function driftedIds(basis: GameObjectNames, theirGerman: GameObjectNames): string[] {
   const drifted = new Set<string>();
   for (const key of ['names', 'plurals'] as const) {
     for (const [id, garbled] of Object.entries(theirGerman[key])) {
-      const ours = basis[key][id];
+      const ours = basis[key][Number(id)];
       if (ours !== undefined && !sameGermanName(ours, garbled)) drifted.add(id);
     }
   }
@@ -100,8 +61,8 @@ export function driftedIds(basis: ObjectNames, theirGerman: ObjectNames): string
  * skipped, with the count of ids the basis lacks.
  */
 export function translateObjectNames(
-  translated: ObjectNames,
-  basis: ObjectNames,
+  translated: GameObjectNames,
+  basis: GameObjectNames,
   drifted: readonly string[],
 ): {
   readonly names: Record<string, string>;
@@ -109,11 +70,11 @@ export function translateObjectNames(
   readonly unknown: number;
 } {
   let unknown = 0;
-  const pick = (from: Readonly<Record<string, string>>, known: Readonly<Record<string, string>>) => {
+  const pick = (from: Readonly<Record<number, string>>, known: Readonly<Record<number, string>>) => {
     const out: Record<string, string> = {};
     for (const [id, text] of Object.entries(from)) {
       if (text.trim() === '' || drifted.includes(id)) continue;
-      if (known[id] === undefined) unknown++;
+      if (known[Number(id)] === undefined) unknown++;
       else out[id] = text;
     }
     return out;

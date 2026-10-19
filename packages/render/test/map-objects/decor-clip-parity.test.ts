@@ -3,6 +3,7 @@ import { Texture, TextureSource } from 'pixi.js';
 import { chromium } from 'playwright';
 import { describe, expect, it } from 'vitest';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
+import { type QuadBuffers, writeObjectQuad } from '../../src/gpu/map-objects/decor-batch.js';
 import {
   CLIP_TABLE_WIDTH,
   DECOR_CLIP_VERTEX_DECLARATIONS,
@@ -247,27 +248,35 @@ function gpuPlacements(input: {
   return error === gl.NO_ERROR ? placed : `GL error ${error}`;
 }
 
-/** The corners the CPU writes for `frame` at the placement anchor and scale: position, UV, bounds and
- *  drawn per corner, (min, min), (max, min), (max, max), (min, max); a pose without a frame draws none. */
+/** The corners the production quad writer puts down for `frame` at the placement anchor and scale:
+ *  position, UV, bounds and drawn per corner, (min, min), (max, min), (max, max), (min, max); a pose
+ *  without a frame draws none. */
 function cpuPlacement(frame: AtlasFrame | undefined): number[] {
-  const f32 = Math.fround;
   if (frame === undefined) return Array.from({ length: CORNERS }, () => [0, 0, 0, 0, 0, 0, 0, 0, 0]).flat();
-  const [ax, ay] = PLACE_ANCHOR;
-  const x0 = f32(ax + (frame.offsetX - PLACE_MARGIN) * PLACE_SCALE);
-  const y0 = f32(ay + (frame.offsetY - PLACE_MARGIN) * PLACE_SCALE);
-  const x1 = f32(x0 + (frame.width + PLACE_MARGIN * 2) * PLACE_SCALE);
-  const y1 = f32(y0 + (frame.height + PLACE_MARGIN * 2) * PLACE_SCALE);
-  const u0 = f32((frame.x - PLACE_MARGIN) / PLACE_PAGE.width);
-  const v0 = f32((frame.y - PLACE_MARGIN) / PLACE_PAGE.height);
-  const u1 = f32((frame.x + frame.width + PLACE_MARGIN) / PLACE_PAGE.width);
-  const v1 = f32((frame.y + frame.height + PLACE_MARGIN) / PLACE_PAGE.height);
-  const bounds = [frame.x, frame.y, frame.x + frame.width, frame.y + frame.height];
-  return [
-    [x0, y0, u0, v0],
-    [x1, y0, u1, v0],
-    [x1, y1, u1, v1],
-    [x0, y1, u0, v1],
-  ].flatMap((corner) => [...corner, ...bounds, 1]);
+  const frameBounds = new Float32Array(CORNERS * 4);
+  const buffers: QuadBuffers = {
+    positions: new Float32Array(CORNERS * 2),
+    uvs: new Float32Array(CORNERS * 2),
+    frameBounds,
+    pageW: PLACE_PAGE.width,
+    pageH: PLACE_PAGE.height,
+  };
+  const placed: MapObjectSprite = {
+    x: PLACE_ANCHOR[0],
+    y: PLACE_ANCHOR[1],
+    source: PLACE_PAGE,
+    frames: [frame],
+    scale: PLACE_SCALE,
+    decor: true,
+    phase: 0,
+  };
+  writeObjectQuad(buffers, 0, placed, frame, PLACE_MARGIN);
+  return Array.from({ length: CORNERS }, (_, corner) => [
+    ...buffers.positions.subarray(corner * 2, corner * 2 + 2),
+    ...buffers.uvs.subarray(corner * 2, corner * 2 + 2),
+    ...frameBounds.subarray(corner * 4, corner * 4 + 4),
+    1,
+  ]).flat();
 }
 
 describe.skipIf(!existsSync(chromium.executablePath()))('decor clip frame pick on the GPU', () => {

@@ -49,7 +49,7 @@ const ANCHOR_FLOATS = 2;
 
 /** What a quad write fills: a batch's buffers, and the page size its UVs divide by. `frameBounds`
  *  exists on the shadow lane only. */
-interface QuadBuffers {
+export interface QuadBuffers {
   readonly positions: Float32Array;
   readonly uvs: Float32Array;
   readonly frameBounds: Float32Array | null;
@@ -57,7 +57,9 @@ interface QuadBuffers {
   readonly pageH: number;
 }
 
-function writeObjectQuad(
+/** Writes `frame` of `obj` as quad `quadIndex`: the placement the GPU clip reproduces, so the parity
+ *  test holds the shader to this writer. */
+export function writeObjectQuad(
   buffers: QuadBuffers,
   quadIndex: number,
   obj: MapObjectSprite,

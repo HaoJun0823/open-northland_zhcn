@@ -35,8 +35,6 @@ export interface DiplomacyWindowDeps {
 
 export interface DiplomacyWindow extends ToolWindow {
   refresh(): void;
-  state(): number | null;
-  restore(player: number | null): void;
   onDismiss(listener: () => void): void;
   dispose(): void;
 }
@@ -279,11 +277,6 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
       }
     },
     refresh,
-    state: () => selected,
-    restore: (player) => {
-      selected = player;
-      refresh();
-    },
     onDismiss: window.onDismiss,
     dispose: () => {
       disposed = true;

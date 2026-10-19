@@ -1,7 +1,7 @@
 import type { BriefingVoice, HypertextCallback } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import type { MissionBriefingAnswer, MissionGoal, MissionReader } from '../src/game/mission-brief.js';
-import type { BookOpening, BookReading, BookWindow } from '../src/hud/dom/mission-book/book-window.js';
+import type { BookOpening, BookWindow } from '../src/hud/dom/mission-book/book-window.js';
 import type { GoalSlip } from '../src/hud/dom/mission-book/goal-slip.js';
 import {
   type BriefingViewTarget,
@@ -10,11 +10,10 @@ import {
 } from '../src/hud/dom/mission-book/index.js';
 
 /** The mission book's contract without a document: the open book holds the game until it closes, a
- *  script's chapter is marked as delivered, a remount carries an open book over, and the briefing
- *  callbacks centre the view once per opening. */
+ *  script's chapter is marked as delivered, and the briefing callbacks centre the view once per
+ *  opening. */
 
 const PAGE = 500;
-const FIRST_READING: BookReading = { tab: 'brief', chapter: 0, spread: 0, table: null, pick: 0 };
 
 /** Lets the beam's briefing answer land. */
 const answered = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -32,11 +31,11 @@ function mount(pauseStopsClock = true, briefing: MissionBriefingAnswer = { histo
   };
   const spoken: (BriefingVoice | 'stop')[] = [];
   const centred: BriefingViewTarget[] = [];
-  let goals: readonly MissionGoal[] = [goal('0', 'open')];
+  const goals: readonly MissionGoal[] = [goal('0', 'open')];
   let briefingHistory: readonly number[] = [PAGE];
   let answersVersion = 0;
   let open = false;
-  let reading: BookReading = { tab: 'brief', chapter: 0, spread: 0, table: null, pick: 0 };
+  let chapters: () => readonly (number | null)[] = () => [];
   const reader: MissionReader = {
     page: () => ({ title: '', blocks: [], lang: null }),
     goals: () => goals,
@@ -47,25 +46,18 @@ function mount(pauseStopsClock = true, briefing: MissionBriefingAnswer = { histo
     isOpen: () => open,
     open: (opening) => {
       open = true;
-      reading = opening.reading;
       openings.push(opening);
     },
     close: () => {
       open = false;
     },
-    reading: () => reading,
     refresh: () => undefined,
     rebuild: () => undefined,
     views: () => [],
     dispose: () => undefined,
   };
-  let folded = false;
   const slip: GoalSlip = {
     update: () => undefined,
-    isFolded: () => folded,
-    setFolded: (next) => {
-      folded = next;
-    },
     dispose: () => undefined,
   };
   const deps: MissionBookDeps = {
@@ -97,30 +89,39 @@ function mount(pauseStopsClock = true, briefing: MissionBriefingAnswer = { histo
   const mission = createMissionBook(deps, {
     book: (bookDeps) => {
       dismiss.run = bookDeps.onDismiss;
+      chapters = bookDeps.chapters;
       fire.callback = (args, chapter = 0) =>
         bookDeps.onCallback(args === null ? null : { args, lang: 'pol', chapter });
       return book;
     },
     slip: () => slip,
   });
-  const setGoals = (next: readonly MissionGoal[]): void => {
-    goals = next;
-  };
   const setBriefingHistory = (history: readonly number[]): void => {
     briefingHistory = history;
     answersVersion++;
   };
-  return { mission, holds, openings, dismiss, setGoals, setBriefingHistory, fire, centred, spoken };
+  return {
+    mission,
+    holds,
+    openings,
+    dismiss,
+    setBriefingHistory,
+    fire,
+    centred,
+    spoken,
+    chapters: () => chapters(),
+  };
 }
 
 describe('the mission book`s pause', () => {
-  it('adds a delivered page after the restored chapters primed before mounting', () => {
-    const { mission, setBriefingHistory } = mount();
+  it('adds a delivered page after the chapters the sim delivered earlier, and speaks it there', () => {
+    const { mission, setBriefingHistory, chapters, openings, fire, spoken } = mount();
     setBriefingHistory([500, 511]);
     mission.showPage(501);
-    expect(mission.state().pages).toEqual([500, 511, 501]);
-    expect(mission.state().reading?.chapter).toBe(2);
-    expect(mission.state().delivery?.chapter).toBe(2);
+    expect(chapters()).toEqual([500, 511, 501]);
+    expect(openings.at(-1)?.reading.chapter).toBe(2);
+    fire.callback([2000, 3, 0], 2);
+    expect(spoken).toEqual([{ lang: 'pol', id: 3 }]);
   });
 
   it('holds the game for a script`s chapter until the book closes, once', () => {
@@ -186,28 +187,6 @@ describe('the mission book`s pause', () => {
     mission.showPage(PAGE);
     expect(openings.at(-1)).toMatchObject({ arrival: true, paused: false });
   });
-
-  it('carries a delivered chapter and the unread goal marks over a remount', () => {
-    const first = mount();
-    first.mission.refresh();
-    first.setGoals([goal('0', 'done')]);
-    first.mission.refresh();
-    first.mission.showPage(PAGE);
-    const state = first.mission.state();
-    expect(state.arrival).toBe(true);
-    first.mission.dispose();
-    expect(first.holds).toEqual([true]);
-
-    const second = mount();
-    second.setGoals([goal('0', 'done')]);
-    second.mission.restore(state);
-    expect(second.mission.unread()).toBe(true);
-    second.mission.toggle();
-    expect(second.holds).toEqual([true]);
-    expect(second.openings.at(-1)).toMatchObject({ arrival: true, reading: state.reading });
-    second.mission.refresh();
-    expect(second.mission.unread()).toBe(true);
-  });
 });
 
 describe('the briefing callbacks', () => {
@@ -253,21 +232,6 @@ describe('the briefing callbacks', () => {
     expect(centred).toHaveLength(1);
   });
 
-  it('keep the spent flag over a remount of the open book', () => {
-    const first = mount();
-    first.mission.showPage(PAGE);
-    first.fire.callback(NODE);
-    const state = first.mission.state();
-    expect(state.viewCentred).toBe(true);
-    first.mission.dispose();
-
-    const second = mount();
-    second.mission.restore(state);
-    second.mission.toggle();
-    second.fire.callback(HUMANS_5);
-    expect(second.centred).toEqual([]);
-  });
-
   it('speak a delivered chapter once, on through its page turns, and silence it on the close', () => {
     const { mission, fire, spoken, centred } = mount();
     mission.showPage(PAGE);
@@ -302,47 +266,6 @@ describe('the briefing callbacks', () => {
     expect(spoken).toEqual([]);
     fire.callback(SOUND);
     expect(spoken).toEqual([{ lang: 'pol', id: 3 }]);
-  });
-
-  it('keep a delivered chapter`s narration playing over a remount, without speaking it again', () => {
-    const first = mount();
-    first.mission.showPage(PAGE);
-    first.fire.callback(SOUND);
-    const state = first.mission.state();
-    expect(state.delivery).toEqual({ chapter: 0, spoken: ['pol:3'] });
-
-    const second = mount();
-    second.mission.restore(state);
-    second.mission.toggle();
-    second.fire.callback(SOUND);
-    first.mission.dispose();
-    expect(first.spoken).toEqual([{ lang: 'pol', id: 3 }]);
-    expect(second.spoken).toEqual([]);
-    second.fire.callback([2000, 4, 0]);
-    expect(second.spoken).toEqual([{ lang: 'pol', id: 4 }]);
-  });
-
-  it('start no narration after a remount on a chapter the reader turned to from the delivered one', () => {
-    const first = mount();
-    first.mission.showPage(PAGE);
-    const state = first.mission.state();
-    const turned = { ...state, reading: { ...(state.reading ?? FIRST_READING), chapter: 1 } };
-
-    const second = mount();
-    second.mission.restore(turned);
-    second.mission.toggle();
-    second.fire.callback(SOUND, 1);
-    expect(second.spoken).toEqual([]);
-  });
-
-  it('carry no delivery for a book the reader opened, nor for a closed one', async () => {
-    const { mission } = mount();
-    mission.showPage(PAGE);
-    mission.close();
-    expect(mission.state().delivery).toBeNull();
-    mission.toggle();
-    await answered();
-    expect(mission.state().delivery).toBeNull();
   });
 
   it('speak a delivered page anew, the chapter already shown included', () => {

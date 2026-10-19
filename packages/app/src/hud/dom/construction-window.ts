@@ -103,8 +103,6 @@ export interface ConstructionWindow extends ToolWindow {
   suspend(): void;
   /** A placement was called off: show the window again as it was, the picked card focused. */
   resume(): void;
-  state(): ConstructionWindowState;
-  restore(state: ConstructionWindowState): void;
   /** The close medallion was pressed; the owner returns focus to the beam. */
   onDismiss(listener: () => void): void;
   dispose(): void;
@@ -724,23 +722,6 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
     },
     suspend,
     resume,
-    state: () => state,
-    restore: (next) => {
-      state = next;
-      search.value = next.query;
-      // The cards were laid out at boot with nothing picked; an unchanged availability lays none out again.
-      setPicked(next.picked);
-      markNation();
-      showView(next.view);
-      showPage(next.page);
-      if (window.isOpen()) {
-        layoutCards();
-        showCategory(next.category);
-        layoutPapers();
-        if (model !== null) markStocks(model);
-        parchment.scrollTop = next.scrollTop;
-      }
-    },
     onDismiss: window.onDismiss,
     dispose: () => {
       disposed = true;

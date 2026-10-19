@@ -1,11 +1,5 @@
 import { BRIEFING_HISTORY_LIMIT } from '@open-northland/sim';
 
-/** The shown page and the pages shown so far, carried across a remount. */
-export interface ShownPagesState {
-  readonly page: number | null;
-  readonly pages: readonly number[];
-}
-
 /**
  * The briefing pages the book has shown, oldest first, which are its chapters, and the one on display.
  * The list drops its oldest page past {@link BRIEFING_HISTORY_LIMIT} (reading).
@@ -27,15 +21,6 @@ export class ShownPages {
   show(page: number): void {
     this.page = page;
     this.add(page);
-  }
-
-  state(): ShownPagesState {
-    return { page: this.page, pages: [...this.pages] };
-  }
-
-  restore(state: ShownPagesState): void {
-    this.page = state.page;
-    this.pages = [...state.pages];
   }
 
   /** A page already in the list stays where it was, a new one goes on the end. */

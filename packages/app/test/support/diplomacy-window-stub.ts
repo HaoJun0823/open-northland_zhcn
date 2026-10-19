@@ -2,7 +2,6 @@ import type { DiplomacyWindow } from '../../src/hud/dom/diplomacy-window/index.j
 
 export function stubDiplomacyWindow(): DiplomacyWindow {
   let open = false;
-  let player: number | null = null;
   return {
     isOpen: () => open,
     toggle: () => {
@@ -12,10 +11,6 @@ export function stubDiplomacyWindow(): DiplomacyWindow {
       open = false;
     },
     refresh: () => undefined,
-    state: () => player,
-    restore: (next) => {
-      player = next;
-    },
     onDismiss: () => undefined,
     dispose: () => undefined,
   };

@@ -3,12 +3,6 @@ import type { MissionGoal } from '../../../game/mission-brief.js';
 /** How a goal changed since the goal page last showed it. */
 export type GoalMark = 'new' | 'done';
 
-/** The states the next list is compared with, and the unread marks, carried across a remount. */
-export interface GoalMarksState {
-  readonly states: readonly (readonly [string, MissionGoal['state']])[] | null;
-  readonly marks: readonly (readonly [string, GoalMark])[];
-}
-
 /**
  * Watches the goal list for changes the player has not read yet: a goal that turns open (revealed or
  * activated) is new, one that turns done is done. The first list is the baseline, so the goals a world
@@ -58,19 +52,6 @@ export class GoalMarks {
   /** Every mark, for the book to show while it stays open. */
   snapshot(): ReadonlyMap<string, GoalMark> {
     return new Map(this.marks);
-  }
-
-  state(): GoalMarksState {
-    return { states: this.states === null ? null : [...this.states], marks: [...this.marks] };
-  }
-
-  /** Continue from a remounted book's marks: the next list is compared with its last one. */
-  restore(state: GoalMarksState): void {
-    this.states = state.states === null ? null : new Map(state.states);
-    this.seen = null;
-    this.marks.clear();
-    for (const [key, mark] of state.marks) this.marks.set(key, mark);
-    this.changes++;
   }
 
   /** A visible list acknowledges its rows; the full goal page acknowledges every change. */

@@ -82,7 +82,6 @@ describe('speed control', () => {
     clock.setPaused(false); // the hold released, restoring the clock as it was
     control.refresh();
     expect(shown).toEqual(['normal', 'normal/paused', 'normal']);
-    expect(control.state()).toEqual({ running: 'normal', paused: false });
   });
 
   it('keeps a pause the player chose after a hold over it releases', () => {
@@ -91,7 +90,6 @@ describe('speed control', () => {
     clock.setPaused(true); // the hold, over a clock already paused
     control.refresh();
     expect(shown).toEqual(['normal/paused']);
-    expect(control.state().paused).toBe(true);
   });
 
   it('steps the speed key on from the shown speed, and from a clock stopped elsewhere back to ×1', () => {
@@ -99,7 +97,7 @@ describe('speed control', () => {
     control.setRunning('fast');
     clock.setPaused(true); // another member paused the relayed game
     expect(control.cycleRunning()).toBe(true);
-    expect(control.state()).toEqual({ running: 'normal', paused: false });
+    expect(clock.state).toEqual({ paused: false, speed: 1 });
     expect(control.cycleRunning()).toBe(true);
     expect(clock.state).toEqual({ paused: false, speed: 2 });
   });
@@ -148,7 +146,6 @@ describe('speed control', () => {
     control.restore({ running: 'faster', paused: true });
     expect(shown).toEqual(['faster/paused']);
     expect(clock.state).toEqual({ paused: false, speed: 0.5 });
-    expect(control.state()).toEqual({ running: 'faster', paused: true });
   });
 });
 

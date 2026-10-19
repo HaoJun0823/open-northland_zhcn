@@ -38,8 +38,6 @@ export interface GoalSlip {
     bookOpen: boolean,
     infoRows: readonly MissionInfoRow[],
   ): void;
-  isFolded(): boolean;
-  setFolded(folded: boolean): void;
   dispose(): void;
 }
 
@@ -166,7 +164,7 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
     lastMarks = marks;
     const read = clock.due(performance.now());
     if (read.length > 0) marks.read(read);
-    // The key is rebound live from the settings, without a remount.
+    // The key is rebound live from the settings.
     const bookKey = deps.bookKey();
     if (
       seen !== null &&
@@ -203,11 +201,6 @@ export function createGoalSlip(deps: GoalSlipDeps): GoalSlip {
 
   return {
     update,
-    isFolded: () => folded,
-    setFolded(next): void {
-      folded = next;
-      repaint();
-    },
     dispose: () => dock.remove(),
   };
 }

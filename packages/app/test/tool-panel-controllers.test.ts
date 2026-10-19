@@ -13,7 +13,6 @@ import {
   createPlacementController,
   PALISADE_LINE_MAX_EDGES,
 } from '../src/hud/tool-panel/placement.js';
-import { INITIAL_RESIDENTS_STATE, NO_RESIDENT_FILTERS } from '../src/hud/tool-panel/residents/rows.js';
 import { createToolWindows } from '../src/hud/tool-panel/windows.js';
 import { formatMessage, messages } from '../src/i18n/index.js';
 import { stubAssistantWindow } from './support/assistant-window-stub.js';
@@ -133,9 +132,7 @@ describe('tool windows registry', () => {
     expect(heldPaper.handleClick(0, 0)).toBe(false); // nothing held: the press is the world's
     heldPaper.hold(anyPlan);
     heldPaper.cancel();
-    expect(windows.state().heldPaper).toBeNull();
-    windows.restore({ ...windows.state(), heldPaper: anyPlan });
-    expect(heldPaper.held()).toEqual(anyPlan);
+    expect(heldPaper.held()).toBeNull();
   });
 
   it("closes every open window at once, keeping a placement's pending return to the catalogue", () => {
@@ -159,59 +156,12 @@ describe('tool windows registry', () => {
     expect(windows.openId()).toBe('knowledge');
   });
 
-  it("hands the tick's figures to the construction and statistics windows and carries the catalogue's state through a remount", () => {
+  it("hands the tick's figures to the construction and statistics windows", () => {
     const { windows, menu, stats } = mountWindows();
     const model = { tick: 1, player: 0, population: 0, jobs: [], stocks: [] };
     windows.presentModel(model);
     expect(menu.models).toEqual([model]);
     expect(stats.models).toEqual([model]);
-
-    menu.toggle();
-    menu.restore({
-      page: 'papers',
-      tribe: FRANK,
-      category: 'home',
-      query: 'Dom',
-      view: 'list',
-      scrollTop: 40,
-      picked: 23,
-      suspended: false,
-    });
-    const saved = windows.state();
-    expect(saved.openIds).toEqual(['menu']);
-    expect(saved.buildings).toEqual({
-      page: 'papers',
-      tribe: FRANK,
-      category: 'home',
-      query: 'Dom',
-      view: 'list',
-      scrollTop: 40,
-      picked: 23,
-      suspended: false,
-    });
-
-    const again = mountWindows();
-    again.windows.restore(saved);
-    expect(again.menu.isOpen()).toBe(true);
-    expect(again.menu.state()).toEqual(saved.buildings);
-  });
-
-  it('keeps an open residents filter through a HUD remount', () => {
-    const { windows } = mountWindows();
-    windows.byId.residents.toggle();
-    windows.restore({
-      ...windows.state(),
-      residents: {
-        ...INITIAL_RESIDENTS_STATE,
-        filters: { ...NO_RESIDENT_FILTERS, query: 'Astrid' },
-        scrollTop: 24,
-      },
-    });
-    const saved = windows.state();
-    const again = mountWindows();
-    again.windows.restore(saved);
-    expect(again.windows.byId.residents.isOpen()).toBe(true);
-    expect(again.windows.state().residents).toEqual(saved.residents);
   });
 });
 
@@ -431,15 +381,6 @@ describe('placement controller', () => {
     expect(commands.slice(1)).toEqual(
       [4, 5].map((x) => ({ kind: 'placeRoadSite', x, y: 2, tribe: VIKING, owner: 0 })),
     );
-  });
-
-  it('keeps the held nation through a HUD remount', () => {
-    const before = mount(() => ({ col: 4, row: 2 }));
-    before.placement.enter(joinery(null, FRANK));
-    const after = mount(() => ({ col: 4, row: 2 }));
-    after.placement.restore(before.placement.state());
-    after.placement.handleClick(10, 10);
-    expect(after.commands).toMatchObject([{ kind: 'placeBuilding', tribe: FRANK }]);
   });
 
   it('a paper held into placement rides the command, and leaves with the mode', () => {
@@ -791,23 +732,16 @@ describe('placement controller', () => {
     expect(placement.activeLine()).toBeNull();
   });
 
-  it('stops a road line at the first refused node and keeps the road tool across a remount', () => {
+  it('stops a road line at the first refused node', () => {
     let tile = { col: 4, row: 2 };
     const { placement, commands } = mount(() => tile, undefined, undefined, undefined, {
       canPlaceRoadAt: (col) => col < 6,
     });
     placement.enterRoad();
-    const held = placement.state();
-    expect(held.road).toEqual({ side: { owner: 0, tribe: VIKING }, standing: false });
     placement.handleClick(0, 0);
     tile = { col: 9, row: 2 };
     placement.handleClick(10, 0);
     expect(commands.map((command) => ('x' in command ? command.x : null))).toEqual([4, 5]);
-
-    const again = mount(() => tile);
-    again.placement.restore(held);
-    expect(again.placement.activeRoad()).toBe(true);
-    expect(again.placement.activePalisade()).toBeNull();
   });
 
   it('lays an admin standing-wall line finished for the chosen owner through the trusted channel', () => {
@@ -842,23 +776,19 @@ describe('placement controller', () => {
     expect([...builtOwners]).toEqual([3]);
   });
 
-  it('lays an admin road line finished for the chosen owner, and keeps it through a remount', () => {
+  it('lays an admin road line finished for the chosen owner', () => {
     let tile = { col: 4, row: 2 };
     const trusted: Command[] = [];
-    const before = mount(() => tile, undefined, undefined, undefined, { canPlaceRoadAt: () => true });
-    before.placement.enterRoad({ owner: 3, tribe: 2 });
-    expect(before.strip.shown?.label).toBe(messages().admin.standingRoad);
-    const saved = before.placement.state();
-
-    const after = mount(() => tile, undefined, undefined, undefined, {
+    const { placement, commands, strip } = mount(() => tile, undefined, undefined, undefined, {
       canPlaceRoadAt: () => true,
       enqueueTrusted: (command) => trusted.push(command),
     });
-    after.placement.restore(saved);
-    after.placement.handleClick(0, 0);
+    placement.enterRoad({ owner: 3, tribe: 2 });
+    expect(strip.shown?.label).toBe(messages().admin.standingRoad);
+    placement.handleClick(0, 0);
     tile = { col: 5, row: 2 };
-    after.placement.handleClick(10, 0);
-    expect(after.commands).toEqual([]);
+    placement.handleClick(10, 0);
+    expect(commands).toEqual([]);
     expect(trusted).toEqual(
       [4, 5].map((x) => ({ kind: 'placeRoadSite', x, y: 2, owner: 3, tribe: 2, laid: true })),
     );
@@ -905,27 +835,6 @@ describe('placement controller', () => {
     expect(placement.activeStanding()).toBe(true);
     placement.enterRoad();
     expect(placement.activeStanding()).toBe(false);
-  });
-
-  it("keeps an admin standing-wall line's chosen side through a HUD remount", () => {
-    let tile = { col: 4, row: 2 };
-    const trusted: Command[] = [];
-    const before = mount(() => tile);
-    before.placement.enterPalisade(691, 'standingWall', { owner: 3, tribe: 2 });
-    const saved = before.placement.state();
-
-    const after = mount(() => tile, undefined, undefined, undefined, {
-      enqueueTrusted: (command) => trusted.push(command),
-    });
-    after.placement.restore(saved);
-    expect(after.placement.activePalisadeMode()).toBe('standingWall');
-    after.placement.handleClick(0, 0);
-    tile = { col: 5, row: 2 };
-    after.placement.handleClick(10, 0);
-    expect(trusted.map((command) => ('owner' in command ? [command.owner, command.tribe] : null))).toEqual([
-      [3, 2],
-      [3, 2],
-    ]);
   });
 
   it('steps back from a started line to the armed tool, then leaves it for the map, not the window', () => {

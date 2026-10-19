@@ -257,7 +257,7 @@ describe('fight notices', () => {
     const later = TICK + FIGHT_QUIET_TICKS - 1;
     c.frame(world(later), [melee(WOLF, WOODCUTTER)]);
     expect(c.feed.live()).toEqual([]);
-    // The dismissed card still follows the fight, so a remount adopts it as standing.
+    // The dismissed card still follows the fight, so a feed adopted from this one keeps it standing.
     expect(c.feed.state().history.map((m) => m.fight?.lastHitTick)).toEqual([later]);
     c.frame(world(later + FIGHT_QUIET_TICKS), []);
     expect(c.feed.state().history).toEqual([]);

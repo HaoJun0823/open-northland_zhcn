@@ -115,7 +115,6 @@ describe('applying a navigation entry', () => {
     expect(open()).toBe('knowledge');
     press('knowledge');
     expect(open()).toBeNull();
-    expect(windows.state().openIds).toEqual([]);
   });
 
   it('keeps a placement running under an informational window but drops it for a pick', () => {

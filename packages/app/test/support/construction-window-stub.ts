@@ -1,5 +1,4 @@
 import type { ConstructionWindow } from '../../src/hud/dom/construction-window.js';
-import { INITIAL_CONSTRUCTION_STATE } from '../../src/hud/tool-panel/building-menu.js';
 import type { ConstructionWindowSeam } from '../../src/hud/tool-panel/windows.js';
 
 /** A construction window without a DOM: the registry's open, close, suspend and resume plumbing,
@@ -12,7 +11,7 @@ export interface ConstructionWindowStub extends ConstructionWindow {
 
 export function stubConstructionWindow(seam: ConstructionWindowSeam): ConstructionWindowStub {
   let open = false;
-  let state = INITIAL_CONSTRUCTION_STATE;
+  let suspended = false;
   const models: unknown[] = [];
   const stub: ConstructionWindowStub = {
     seam,
@@ -20,12 +19,11 @@ export function stubConstructionWindow(seam: ConstructionWindowSeam): Constructi
     isOpen: () => open,
     toggle: () => {
       open = !open;
-      if (!open) state = { ...state, suspended: false };
-      else state = { ...state, page: 'catalog' };
+      if (!open) suspended = false;
     },
     close: () => {
       open = false;
-      state = { ...state, suspended: false };
+      suspended = false;
     },
     place: () => undefined,
     update: (model) => {
@@ -34,16 +32,12 @@ export function stubConstructionWindow(seam: ConstructionWindowSeam): Constructi
     suspend: () => {
       if (!open) return;
       open = false;
-      state = { ...state, suspended: true };
+      suspended = true;
     },
     resume: () => {
-      if (!state.suspended) return;
-      state = { ...state, suspended: false };
+      if (!suspended) return;
+      suspended = false;
       open = true;
-    },
-    state: () => state,
-    restore: (next) => {
-      state = next;
     },
     onDismiss: () => undefined,
     dispose: () => undefined,

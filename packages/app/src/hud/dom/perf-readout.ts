@@ -41,7 +41,7 @@ const VERDICT_HEALTH: Readonly<Record<PerfVerdict, Health>> = {
   gpu: 'bad',
 };
 
-/** Tip ids run across mounts: a HUD rescale builds the next bar before disposing the last. */
+/** Tip ids run across mounts, so no two readouts on one page share an id. */
 let nextTipId = 0;
 
 function frameHealth(reading: PerfReading): Health {

@@ -83,18 +83,6 @@ interface RoadHold {
   readonly standing: boolean;
 }
 
-/** A held placement, carried through a HUD remount. */
-export interface PlacementState {
-  readonly building: BuildingPick | null;
-  readonly palisade: {
-    readonly gfxIndex: number;
-    readonly mode: PalisadePlacementMode;
-    readonly side: PlacementSide;
-  } | null;
-  /** The road tool, when held. */
-  readonly road: RoadHold | null;
-}
-
 /** The walls a gate can go into now, lit span by span. */
 export interface GateSites extends LitNodes {
   /** The centre of the lit span nearest to a node on it, or null off every span. */
@@ -258,9 +246,6 @@ export interface PlacementController {
   lineStarts(): LitNodes | null;
   /** The gate tool's lit spans, for its wash; null outside the gate tool. */
   gateSites(): GateSites | null;
-  state(): PlacementState;
-  /** Hold a placement again as {@link state} took it; a started wall line is not kept. */
-  restore(state: PlacementState): void;
   /** Drop the click still waiting on the sim's answer. */
   dispose(): void;
 }
@@ -686,20 +671,8 @@ export function createPlacementController(deps: PlacementDeps): PlacementControl
       return line !== null && line.active() === null ? line.starts() : null;
     },
     gateSites: () => (palisade?.mode === 'gate' ? (deps.palisadeGateSites?.() ?? null) : null),
-    state: () => ({
-      building,
-      palisade:
-        palisade === null ? null : { gfxIndex: palisade.gfxIndex, mode: palisade.mode, side: palisade.side },
-      road: road === null ? null : { side: road.side, standing: road.standing },
-    }),
     dispose: (): void => {
       disposed = true;
-    },
-    restore: (state): void => {
-      if (state.building !== null) enter(state.building);
-      else if (state.palisade !== null)
-        enterPalisade(state.palisade.gfxIndex, state.palisade.mode, state.palisade.side);
-      else if (state.road !== null) enterRoad(state.road.standing ? state.road.side : undefined);
     },
   };
 }

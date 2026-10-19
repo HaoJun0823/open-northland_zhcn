@@ -78,7 +78,7 @@ export type CatalogueView = 'grid' | 'list';
  *  row's Papers button toggles and a back tab leaves. */
 export type ConstructionPage = 'catalog' | 'papers';
 
-/** Window state across a HUD-scale remount. Fresh openings show the catalogue, while placement
+/** The construction window's state for the game. Fresh openings show the catalogue, while placement
  *  resumes keep the page. The grid or list view and the nation remain a per-game choice, never
  *  browser storage. */
 export interface ConstructionWindowState {

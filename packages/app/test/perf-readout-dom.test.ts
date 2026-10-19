@@ -57,7 +57,7 @@ function feedSecond(readout: ReturnType<typeof mountPerfReadout>): void {
   for (let i = 0; i < 60; i++) readout.record(frame, null);
 }
 
-it('stands first in the bar once switched on, and follows a rebuilt bar after a HUD rescale', () => {
+it('stands first in the bar once switched on', () => {
   const lead = document.createElement('div');
   const first = systemBar(lead);
   const toggle = document.createElement('button');
@@ -83,10 +83,6 @@ it('stands first in the bar once switched on, and follows a rebuilt bar after a 
   expect(lead.firstElementChild?.classList.contains('on-perf')).toBe(true);
   expect(lead.lastElementChild).toBe(toggle);
   expect(first.plane.querySelector('.on-perf__fps b')?.textContent).toBe('60');
-
-  const second = systemBar(lead);
-  feedSecond(readout);
-  expect(second.plane.querySelector('.on-perf')).not.toBeNull();
 
   readout.setShown(false);
   expect(lead.querySelector('.on-perf')).toBeNull();

@@ -3,15 +3,14 @@ import type { Paper } from '@open-northland/sim';
 import type { AssistantWindow } from '../dom/assistant-window/index.js';
 import type { ConstructionWindow } from '../dom/construction-window.js';
 import type { DiplomacyWindow } from '../dom/diplomacy-window/index.js';
-import type { MissionBook, MissionWindowState } from '../dom/mission-book/index.js';
+import type { MissionBook } from '../dom/mission-book/index.js';
 import type { NetworkWindow } from '../dom/network-window.js';
 import type { ResidentsWindow } from '../dom/residents-window.js';
 import type { StatisticsWindow } from '../dom/statistics-window.js';
-import type { ConstructionWindowState, MenuBuildingEntry } from './building-menu.js';
+import type { MenuBuildingEntry } from './building-menu.js';
 import type { HeldPaperController } from './held-paper.js';
 import type { PendingWindow } from './pending-window.js';
 import type { BuildingPick } from './placement.js';
-import type { ResidentsWindowState } from './residents/rows.js';
 import type { ToolWindow } from './window-shell.js';
 
 /** The central windows in mount order. */
@@ -93,19 +92,7 @@ export interface ToolWindows {
   /** The tick's figures, for the construction window's cost marks, the assistant's stock and the
    *  statistics. */
   presentModel(model: HudModel): void;
-  state(): ToolWindowsState;
-  restore(state: ToolWindowsState): void;
   dispose(): void;
-}
-
-export interface ToolWindowsState {
-  readonly openIds: readonly ToolWindowId[];
-  readonly buildings: ConstructionWindowState;
-  readonly residents: ResidentsWindowState;
-  readonly diplomacy: number | null;
-  /** The plan the construction window holds for its next pick, restored with its strip. */
-  readonly heldPaper: Paper | null;
-  readonly mission: MissionWindowState;
 }
 
 export function createToolWindows(deps: ToolWindowsDeps): ToolWindows {
@@ -168,29 +155,6 @@ export function createToolWindows(deps: ToolWindowsDeps): ToolWindows {
       menu.update(model);
       assistant.update(model);
       stats.update(model);
-    },
-    state: () => ({
-      openIds: MOUNT_ORDER.filter((id) => entries[id].window.isOpen()),
-      buildings: menu.state(),
-      residents: residents.state(),
-      diplomacy: diplomacy.state(),
-      heldPaper: heldPaper.held(),
-      mission: mission.state(),
-    }),
-    restore: (state): void => {
-      const open = new Set(state.openIds);
-      if (!open.has('menu')) menu.restore(state.buildings);
-      if (!open.has('residents')) residents.restore(state.residents);
-      diplomacy.restore(state.diplomacy);
-      if (state.heldPaper === null) heldPaper.cancel();
-      else heldPaper.hold(state.heldPaper);
-      mission.restore(state.mission);
-      for (const id of MOUNT_ORDER) {
-        const window = entries[id].window;
-        if (open.has(id) !== window.isOpen()) window.toggle();
-      }
-      if (open.has('menu')) menu.restore(state.buildings);
-      if (open.has('residents')) residents.restore(state.residents);
     },
     dispose: (): void => {
       menu.dispose();

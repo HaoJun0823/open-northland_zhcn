@@ -13,9 +13,9 @@ A save does not carry the notice feed. Loading reboots the page, so the column s
 State notes the sweep reads off the world (needs, dying, lost, family block, stalls, idle) return on
 their own within about ten seconds, and a fight note returns on its next hit.
 
-`MessageFeedState` (`feed.ts`) is already plain data that a HUD remount round-trips through
-`MessageCenter.state()` and `restore()`. Entity ids are never reused and survive the save, so the
-notes' subjects stay valid.
+`MessageFeedState` (`feed.ts`) is already plain data: `MessageCenter.state()` returns it and the
+centre's `initial` option takes it. Entity ids are never reused and survive the save, so the notes'
+subjects stay valid.
 
 ## Scope
 

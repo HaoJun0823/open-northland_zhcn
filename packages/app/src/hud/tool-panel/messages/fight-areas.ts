@@ -215,9 +215,10 @@ export class FightAreas {
   }
 
   /**
-   * The fights a feed's attack notes report, shown or dismissed, for a feed adopted from elsewhere (a HUD
-   * remount, a seat switch), so its cards keep standing and new ids never reuse one of its notes'. A seat
-   * left meanwhile filed no hits, so a fight it still has may read as over and come back as a new card.
+   * The fights a feed's attack notes report, shown or dismissed, for a feed adopted from elsewhere (the
+   * centre's initial feed, a seat switch), so its cards keep standing and new ids never reuse one of its
+   * notes'. A seat left meanwhile filed no hits, so a fight it still has may read as over and come back
+   * as a new card.
    */
   static adopt(state: MessageFeedState | undefined): FightAreas {
     const fights = new FightAreas();

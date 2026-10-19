@@ -552,9 +552,13 @@ describe('the speed bar', () => {
     const plane = mountPlane();
     const sent: GameSpeedState[] = [];
     const bars: HudSystemBar[] = [];
+    const chosen: string[] = [];
     const speed = createSpeedControl({
       onSpeedChange: (spec) => sent.push(spec.state),
-      onShow: (control) => bars[0]?.setSpeed(control),
+      onShow: (control) => {
+        chosen.push(control.running);
+        bars[0]?.setSpeed(control);
+      },
     });
     const bar = createHudSystemBar(plane, {
       summary: { paintGood: () => {}, goodIdOf: () => undefined, goodLabel: (id) => id },
@@ -583,7 +587,7 @@ describe('the speed bar', () => {
       [...plane.querySelectorAll<HTMLButtonElement>('.on-speed > button')].find(
         (button) => button.textContent === label,
       );
-    expect(speed.state().running).toBe('faster');
+    expect(chosen.at(-1)).toBe('faster');
     expect(segment('×2')?.getAttribute('aria-pressed')).toBe('true');
     expect(segment('×3')?.getAttribute('aria-pressed')).toBe('false');
 

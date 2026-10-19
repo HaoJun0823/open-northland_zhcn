@@ -31,8 +31,8 @@ export interface HudSystemBarDeps {
   readonly onPauseToggle: () => void;
   readonly onSpeed: (running: RunningGameSpeed) => void;
   readonly onMenu: () => void;
-  /** The caller's own node standing first in the bar's row (the frame rate, the debug tools); a rebuilt
-   *  bar takes it over, so what it holds survives a HUD rescale. Hidden while empty. */
+  /** The caller's own node standing first in the bar's row (the frame rate, the debug tools). Hidden
+   *  while empty. */
   readonly lead?: HTMLElement;
 }
 

@@ -13,9 +13,9 @@ import {
   type ShownCallback,
 } from './book-window.js';
 import { type BriefingViewTarget, callbackView } from './callbacks.js';
-import { GoalMarks, type GoalMarksState } from './goal-marks.js';
+import { GoalMarks } from './goal-marks.js';
 import { createGoalSlip, type GoalSlip, type GoalSlipDeps } from './goal-slip.js';
-import { ShownPages, type ShownPagesState } from './shown-pages.js';
+import { ShownPages } from './shown-pages.js';
 import type { MissionHumanLookup } from './user-icons.js';
 import type { BriefingVoicePlayer } from './voice-row.js';
 
@@ -23,27 +23,6 @@ export type { BookView } from './book-window.js';
 export type { BriefingViewTarget } from './callbacks.js';
 export type { MissionHumanLookup } from './user-icons.js';
 export type { BriefingVoicePlayer, BriefingVoiceState } from './voice-row.js';
-
-/** The chapter a script delivered and the clips it has spoken since, by `lang:id`. */
-export interface MissionDelivery {
-  readonly chapter: number;
-  readonly spoken: readonly string[];
-}
-
-/** The chapters shown so far, where an open book's reader stands and the slip's fold, carried across
- *  a remount. */
-export interface MissionWindowState extends ShownPagesState {
-  readonly reading: BookReading | null;
-  /** The open book shows a chapter a script delivered. */
-  readonly arrival: boolean;
-  /** The open book's delivered chapter, so the remounted book neither repeats nor cuts its narration. */
-  readonly delivery: MissionDelivery | null;
-  readonly slipFolded: boolean;
-  /** Unread goal changes, so the seals survive a remount. */
-  readonly goalMarks: GoalMarksState;
-  /** A briefing callback has centred the main view since the book opened. */
-  readonly viewCentred: boolean;
-}
 
 /** What a world without a mission reader shows: the book's empty page and no goals. */
 export const NO_MISSION: MissionReader = {
@@ -88,8 +67,6 @@ export interface MissionBook extends ToolWindow {
   showPage(page: number): void;
   /** Open on the goal page. */
   openGoals(): void;
-  state(): MissionWindowState;
-  restore(state: MissionWindowState): void;
   /** Once a frame: follow the goals, the slip and the screen. */
   refresh(): void;
   /** Live script messages and goal counters for the watched seat. */
@@ -104,13 +81,6 @@ export interface MissionBook extends ToolWindow {
 }
 
 const FIRST: BookReading = { tab: 'brief', chapter: 0, spread: 0, table: null, pick: 0 };
-
-/** How the book opens: `delivered` while it shows a page a script played, `resumed` when it reopens
- *  after a remount closed it, which is the same opening. */
-interface MissionOpening {
-  readonly delivered: boolean;
-  readonly resumed?: boolean;
-}
 
 /** The book's two DOM parts; a test hands in stubs to drive the book's state without a document. */
 export interface MissionBookParts {
@@ -132,15 +102,10 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
   /** The original's one-shot flag: one callback centres the view per opening of the window, a page
    *  delivered to the open window included; one that finds nobody stamped spends it too. */
   let viewCentred = false;
-  /** The chapter a script delivered and the clips it has spoken since: its narration starts on its own
-   *  once, where a book the reader opened only shows the player. Null while nothing awaits speaking. */
+  /** The chapter a script delivered and the clips it has spoken since, by `lang:id`: its narration
+   *  starts on its own once, where a book the reader opened only shows the player. Null while nothing
+   *  awaits speaking. */
   let delivery: { readonly chapter: number; readonly spoken: Set<string> } | null = null;
-  /** A restored reading the next opening resumes, whether a script delivered it, and its delivery. */
-  let resume: {
-    readonly reading: BookReading;
-    readonly arrival: boolean;
-    readonly delivery: MissionDelivery | null;
-  } | null = null;
   let answersKey = deps.answersVersion();
   /** Counts openings and closes, so a beam opening still waiting for its answer yields to them. */
   let openings = 0;
@@ -225,9 +190,10 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     voice: deps.voice ?? null,
   });
 
-  const open = (reading: BookReading, { delivered, resumed = false }: MissionOpening): void => {
+  /** `delivered` while the book shows a page a script played. */
+  const open = (reading: BookReading, delivered: boolean): void => {
     openings++;
-    if (!book.isOpen() && !resumed) viewCentred = false;
+    if (!book.isOpen()) viewCentred = false;
     marks.observe(deps.reader.goals());
     arrival = delivered;
     hold();
@@ -238,19 +204,6 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
    *  pages all came without the replay flag opens on the last one shown (approximation). The click
    *  waits for the briefing as of now, since a held answer can be from the previous opening. */
   const openFromBeam = (): void => {
-    const resumed = resume;
-    resume = null;
-    if (resumed !== null) {
-      shown.fold(deps.briefingHistory());
-      // The delivered chapter's narration plays on through a remount, so a clip already spoken is not
-      // started again, nor another chapter the reader turned to.
-      delivery =
-        resumed.delivery === null
-          ? null
-          : { chapter: resumed.delivery.chapter, spoken: new Set(resumed.delivery.spoken) };
-      open(resumed.reading, { delivered: resumed.arrival, resumed: true });
-      return;
-    }
     const asked = openings;
     void deps
       .askBriefing()
@@ -258,7 +211,7 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
       .then(({ history, page }) => {
         if (asked !== openings) return;
         shown.fold(history);
-        open({ ...FIRST, chapter: chapterOf(page ?? shown.page) }, { delivered: false });
+        open({ ...FIRST, chapter: chapterOf(page ?? shown.page) }, false);
       });
   };
 
@@ -274,39 +227,15 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     toggle: () => (book.isOpen() ? close() : openFromBeam()),
     close,
     showPage(page): void {
-      resume = null;
       shown.fold(deps.briefingHistory());
       shown.show(page);
       // A delivered page speaks anew, even where it is the chapter already shown.
       deliver(chapterOf(page));
-      open({ ...FIRST, chapter: chapterOf(page), pick: chapterOf(page) }, { delivered: true });
+      open({ ...FIRST, chapter: chapterOf(page), pick: chapterOf(page) }, true);
     },
     openGoals(): void {
       shown.fold(deps.briefingHistory());
-      resume = null;
-      open({ ...FIRST, tab: 'goals', chapter: chapterOf(shown.page) }, { delivered: arrival });
-    },
-    state: () => ({
-      ...shown.state(),
-      reading: book.isOpen() ? book.reading() : null,
-      arrival,
-      delivery:
-        book.isOpen() && delivery !== null
-          ? { chapter: delivery.chapter, spoken: [...delivery.spoken] }
-          : null,
-      slipFolded: slip.isFolded(),
-      goalMarks: marks.state(),
-      viewCentred,
-    }),
-    restore(state): void {
-      shown.restore(state);
-      resume =
-        state.reading === null
-          ? null
-          : { reading: state.reading, arrival: state.arrival, delivery: state.delivery };
-      slip.setFolded(state.slipFolded);
-      marks.restore(state.goalMarks);
-      viewCentred = state.viewCentred;
+      open({ ...FIRST, tab: 'goals', chapter: chapterOf(shown.page) }, arrival);
     },
     refresh(): void {
       const version = deps.answersVersion();
@@ -333,8 +262,8 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     onDismiss: (listener) => {
       listeners.push(listener);
     },
-    // A remount reopens an open book from the state, so neither the hold is released here nor the
-    // shared narration stopped: the restored book plays it on, and the game's end closes the sound.
+    // The book goes with its game view, whose pause holds and sound driver go too, so neither the
+    // hold nor the narration is undone here.
     dispose(): void {
       openings++;
       book.dispose();

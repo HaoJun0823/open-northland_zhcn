@@ -63,7 +63,7 @@ const PAGE_LANG_TAGS: Readonly<Partial<Record<string, string>>> = {
 
 const TABS: readonly BookTab[] = ['brief', 'goals', 'history'];
 
-/** Where the reader stands in an open book, carried across a remount. */
+/** Where the reader stands in an open book. */
 export interface BookReading {
   readonly tab: BookTab;
   readonly chapter: number;
@@ -112,7 +112,6 @@ export interface BookWindow {
   isOpen(): boolean;
   open(opening: BookOpening): void;
   close(): void;
-  reading(): BookReading;
   /** Once a frame: re-place on a screen change, rebuild the goal tab on a changed list. */
   refresh(): void;
   /** Rebuild the shown page, for a chapter or a named human that landed anew. */
@@ -688,7 +687,6 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
       shownViews = [];
       cutHoles([]);
     },
-    reading: () => reading,
     refresh(): void {
       if (scene.hidden) return;
       if (handed.length > 0) {

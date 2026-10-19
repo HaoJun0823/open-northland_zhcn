@@ -186,8 +186,8 @@ class FoodWaits {
 
 /** Which of this seat's settlers have held a workplace in their current trade, so the note about losing
  *  one can tell a razed post from a trade no workplace employs, such as the builder a former worker was
- *  retrained as. Scoped to this mount, so a reload or a HUD rescale starts the history over and the note
- *  waits for the next post a settler loses. */
+ *  retrained as. Scoped to this mount, so a reload starts the history over and the note waits for the
+ *  next post a settler loses. */
 class PostHistory {
   /** The trade each settler held its last post in. */
   private employed = new Map<number, number | undefined>();

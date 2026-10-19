@@ -269,8 +269,8 @@ export function sortResidents(
   );
 }
 
-/** Window state across a HUD-scale remount. An opening after `FILTER_MEMORY_SECONDS` closed clears
- *  filters and scroll, while the sort remains the player's per-game choice. Never browser storage. */
+/** The residents window's list state. An opening after `FILTER_MEMORY_SECONDS` closed clears filters
+ *  and scroll, while the sort remains the player's per-game choice. Never browser storage. */
 export interface ResidentsWindowState {
   readonly filters: ResidentFilters;
   readonly sort: ResidentSort;

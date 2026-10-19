@@ -31,9 +31,7 @@ export interface SpeedControl {
   cycleRunning(): boolean;
   /** Per frame: show a pause the clock took or dropped by itself, such as a hold's. */
   refresh(): void;
-  /** The player's own choice, which a released hold returns the bar to. */
-  state(): GameSpeedControl;
-  /** Show a control set elsewhere (a restore, a remount) without pushing it to the clock. */
+  /** Show a control set elsewhere, such as a relayed room's clock, without pushing it to the clock. */
   restore(control: GameSpeedControl): void;
 }
 
@@ -76,7 +74,6 @@ export function createSpeedControl(deps: SpeedControlDeps): SpeedControl {
     setRunning,
     cycleRunning: () => setRunning(nextRunningSpeed(current())),
     refresh: show,
-    state: () => control,
     restore: (next) => apply(next, null),
   };
 }

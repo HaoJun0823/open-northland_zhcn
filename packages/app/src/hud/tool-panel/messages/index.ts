@@ -137,9 +137,8 @@ export interface MessageCenter {
    *  the map starts again. It takes the place of an earlier such note, shown or dismissed; no labels
    *  only drops that note. */
   noteSettingsRestart(labels: readonly string[]): void;
+  /** The shown feed as plain data, the shape a centre takes as its `initial` feed. */
   state(): MessageFeedState;
-  /** Adopt another mount's feed, so a HUD rescale keeps the notes and the level. */
-  restore(state: MessageFeedState): void;
   dispose(): void;
 }
 
@@ -466,18 +465,6 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
       restartLabels = labels;
     },
     state: () => feeds.current.state(),
-    restore: (state): void => {
-      feeds.restore(state);
-      fights = FightAreas.adopt(state);
-      retirement = new NoteRetirement(
-        fights,
-        snapshotSource?.stalls,
-        snapshotSource?.shortages,
-        snapshotSource?.idleReasons,
-        deps.prayerNeeds,
-      );
-      renderedVersion = -1;
-    },
     dispose: (): void => {
       column.dispose();
     },

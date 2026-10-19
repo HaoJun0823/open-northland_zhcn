@@ -1,19 +1,10 @@
-import type { MissionBook, MissionWindowState } from '../../src/hud/dom/mission-book/index.js';
+import type { MissionBook } from '../../src/hud/dom/mission-book/index.js';
 
-/** The mission book's registry face without a DOM: it opens, closes and carries its state. */
+/** The mission book's registry face without a DOM: it opens and closes, and keeps the pages a script
+ *  showed. */
 export function stubMissionBook(): MissionBook & { readonly shownPages: readonly number[] } {
   let open = false;
   const shownPages: number[] = [];
-  let state: MissionWindowState = {
-    page: null,
-    pages: [],
-    reading: null,
-    arrival: false,
-    delivery: null,
-    slipFolded: false,
-    goalMarks: { states: null, marks: [] },
-    viewCentred: false,
-  };
   return {
     shownPages,
     isOpen: () => open,
@@ -29,10 +20,6 @@ export function stubMissionBook(): MissionBook & { readonly shownPages: readonly
     },
     openGoals: () => {
       open = true;
-    },
-    state: () => state,
-    restore: (next) => {
-      state = next;
     },
     refresh: () => undefined,
     setInfoLines: () => undefined,

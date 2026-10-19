@@ -16,6 +16,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** The slip's fold as its toggle announces it. */
+const folded = (dock: HTMLElement | null | undefined): boolean =>
+  dock?.querySelector('[data-fold]')?.getAttribute('aria-expanded') === 'false';
+
 function slip() {
   const open = vi.fn();
   const panel = createGoalSlip({ plane: document.body, bookKey: () => 'M', onOpenBook: open, cue: () => {} });
@@ -31,7 +35,7 @@ describe('mission progress on the goal slip', () => {
     expect(dock?.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('3');
     dock?.querySelector<HTMLButtonElement>('[data-fold]')?.click();
     panel.update([], marks, false, count(4));
-    expect(panel.isFolded()).toBe(true);
+    expect(folded(dock)).toBe(true);
     expect(dock?.querySelector('.on-slip__progress')?.textContent).toBe('4/10');
     expect(dock?.querySelector('.on-slip__sheet')).toBeNull();
     dock?.querySelector<HTMLButtonElement>('[data-fold]')?.click();
@@ -67,9 +71,9 @@ describe('mission progress on the goal slip', () => {
     panel.update([], marks, false, count(4));
     expect(dock?.querySelector('.on-slip__content')?.scrollTop).toBe(84);
     expect(document.activeElement).toBe(dock?.querySelector('[data-fold]'));
-    panel.setFolded(true);
+    dock?.querySelector<HTMLButtonElement>('[data-fold]')?.click();
     panel.update([], marks, false, [...count(4), { kind: 'progress', label: 'People', have: 12, need: 20 }]);
-    expect(panel.isFolded()).toBe(true);
+    expect(folded(dock)).toBe(true);
     expect(dock?.querySelector('.on-slip__progress')?.getAttribute('title')).toBe(
       'Diamonds 4/10, People 12/20',
     );

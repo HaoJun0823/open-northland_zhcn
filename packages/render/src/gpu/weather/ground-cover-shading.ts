@@ -533,22 +533,27 @@ export const DECOR_COVER_FRAGMENT_DECLARATIONS = `
   ${COVER_NOISE}
   ${SNOW_CAP}
 
-  // Snow a decor texel (premultiplied rgb): a soft cap on its top surfaces and upper part, its foot
-  // sunk into a snowed drift. uv is its page UV; lane its brightness multiplier.
-  vec3 decorSnow(vec3 rgb, float alpha, vec2 uv, float lane) {
+  // What a snowed decor texel's cap reads off its page at UV uv: the alpha of the three rows above it,
+  // nearest first, and the mean alpha beside it; returns the page texels per screen px there.
+  vec2 decorSnowTaps(vec2 uv, out vec3 above, out float sides) {
     vec2 size = vec2(textureSize(uTexture, 0));
     vec2 texel = 1.0 / size;
+    // The page keeps a one-texel transparent gutter round every frame, so a row further up counts only
+    // while the rows between are filled: past a clear row it could be a neighbour frame.
+    above = vec3(texture(uTexture, uv - vec2(0.0, texel.y)).a, 0.0, 0.0);
+    if (above.x > 0.0) above.y = texture(uTexture, uv - vec2(0.0, 2.0 * texel.y)).a;
+    if (above.y > 0.0) above.z = texture(uTexture, uv - vec2(0.0, 3.0 * texel.y)).a;
+    sides = 0.5 * (texture(uTexture, uv - vec2(texel.x, 0.0)).a + texture(uTexture, uv + vec2(texel.x, 0.0)).a);
     // vSnow is flat across the quad, so the branch around this call keeps derivatives defined.
-    vec2 footprint = fwidth(uv * size);
+    return fwidth(uv * size);
+  }
+
+  // Snow a decor texel (premultiplied rgb) from its taps: a soft cap on its top surfaces and upper
+  // part, its foot sunk into a snowed drift. lane is its brightness multiplier.
+  vec3 decorSnow(vec3 rgb, float alpha, vec2 footprint, vec3 above, float sides, float lane) {
     float minified = smoothstep(${f(CAP_MINIFY_FULL)}, ${f(CAP_MINIFY_GONE)}, max(footprint.x, footprint.y));
     vec3 straight = rgb / max(alpha, ${f(MIN_ALPHA)});
     float luma = dot(straight, ${LUMA});
-    // The page keeps a one-texel transparent gutter round every frame, so a row further up counts only
-    // while the rows between are filled: past a clear row it could be a neighbour frame.
-    vec3 above = vec3(texture(uTexture, uv - vec2(0.0, texel.y)).a, 0.0, 0.0);
-    if (above.x > 0.0) above.y = texture(uTexture, uv - vec2(0.0, 2.0 * texel.y)).a;
-    if (above.y > 0.0) above.z = texture(uTexture, uv - vec2(0.0, 3.0 * texel.y)).a;
-    float sides = 0.5 * (texture(uTexture, uv - vec2(texel.x, 0.0)).a + texture(uTexture, uv + vec2(texel.x, 0.0)).a);
     float upper = smoothstep(1.0 - ${f(DECOR_UPPER_REACH)}, 1.0, vUp);
     float cap = max(snowCap(capClear(above), sides, luma) * mix(1.0, ${f(CAP_MINIFIED_SHARE)}, minified),
       ${f(DECOR_UPPER_GAIN)} * upper) * vSnow;

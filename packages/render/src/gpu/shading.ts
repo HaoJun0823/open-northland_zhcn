@@ -177,8 +177,8 @@ function withPageParameter(glsl: string): string {
     .replace('vec4 sampleTerrain() {', 'vec4 sampleTerrain(sampler2D uTexture) {')
     .replace('vec3 groundNeighbourhood() {', 'vec3 groundNeighbourhood(sampler2D uTexture) {')
     .replace(
-      'vec3 decorSnow(vec3 rgb, float alpha, vec2 uv, float lane) {',
-      'vec3 decorSnow(sampler2D uTexture, vec3 rgb, float alpha, vec2 uv, float lane) {',
+      'vec2 decorSnowTaps(vec2 uv, out vec3 above, out float sides) {',
+      'vec2 decorSnowTaps(sampler2D uTexture, vec2 uv, out vec3 above, out float sides) {',
     );
 }
 
@@ -359,15 +359,25 @@ ${pageSamplerDeclarations()}
   out vec4 finalColor;
   ${withPageParameter(DECOR_COVER_FRAGMENT_DECLARATIONS)}
 
-  vec4 shadeDecor(sampler2D uTexture) {
-    vec4 texel = texture(uTexture, vUV);
+  // Everything that reads the fragment's page; only this runs inside the page chain, so the snow
+  // shading after it compiles once.
+  vec4 decorPage(sampler2D uTexture, out vec2 footprint, out vec3 above, out float sides) {
+    footprint = vec2(0.0);
+    above = vec3(0.0);
+    sides = 0.0;
     // vSnow is 0 unless the cover switch is on, so a dry map keeps its single fetch.
-    if (vSnow > 0.0) texel.rgb = decorSnow(uTexture, texel.rgb, texel.a, vUV, vBrightness);
-    return vec4(texel.rgb * vBrightness, texel.a) * uColor;
+    if (vSnow > 0.0) footprint = decorSnowTaps(uTexture, vUV, above, sides);
+    return texture(uTexture, vUV);
   }
 
   void main(void) {
-${pageChain('finalColor = shadeDecor(uPage$);')}
+    vec4 texel;
+    vec2 footprint;
+    vec3 above;
+    float sides;
+${pageChain('texel = decorPage(uPage$, footprint, above, sides);')}
+    if (vSnow > 0.0) texel.rgb = decorSnow(texel.rgb, texel.a, footprint, above, sides, vBrightness);
+    finalColor = vec4(texel.rgb * vBrightness, texel.a) * uColor;
   }
 `;
 

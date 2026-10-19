@@ -409,15 +409,16 @@ export const COVER_FRAGMENT_DECLARATIONS = `
       float threshold = mix(${f(PUDDLE_THRESHOLD_ONSET)}, ${f(PUDDLE_THRESHOLD_SOAKED)}, onset);
       float unlevel = ${f(PUDDLE_UNLEVEL_PENALTY)} * (1.0 - level);
       float grassy = ${f(GRASS_PUDDLE_PENALTY)} * grass;
-      // The second octave and the fray each add less than their weight, so a fragment whose bound
-      // stays under the threshold holds no water and skips the noise it would not show.
-      float headroom = ${f(FBM_SECOND_WEIGHT + PUDDLE_SHORE_FRAY / 2 + PUDDLE_BOUND_MARGIN)} - unlevel - grassy;
+      // The second octave adds less than its weight, and the fray, centred on the noise mean, at most
+      // half its weight, so a fragment whose bound stays under the threshold holds no water and skips
+      // the noise it would not show.
+      float headroom = ${f(FBM_SECOND_WEIGHT + PUDDLE_SHORE_FRAY * (1 - NOISE_MEAN) + PUDDLE_BOUND_MARGIN)} - unlevel - grassy;
       vec2 puddle = p / ${f(PUDDLE_SCALE_PX)};
       float first = 0.0;
       if (onset > 0.0) first = coverNoise(puddle);
       if (onset > 0.0 && ${f(FBM_FIRST_WEIGHT)} * first + headroom > threshold) {
         float n = coverFbm(first, puddle)
-          + ${f(PUDDLE_SHORE_FRAY)} * (coverNoise(p / ${f(PUDDLE_SHORE_SCALE_PX)}) - 0.5)
+          + ${f(PUDDLE_SHORE_FRAY)} * (coverNoise(p / ${f(PUDDLE_SHORE_SCALE_PX)}) - ${f(NOISE_MEAN)})
           - unlevel - grassy;
         float shore = smoothstep(threshold, threshold + ${f(PUDDLE_EDGE)}, n) * onset;
         float water = smoothstep(threshold + ${f(PUDDLE_EDGE / 2)}, threshold + ${f(PUDDLE_EDGE * 1.5)}, n)

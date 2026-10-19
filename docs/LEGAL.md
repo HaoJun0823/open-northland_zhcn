@@ -11,12 +11,15 @@ The repository contains no file from a *Cultures* installation and no decoded co
 image, font, or 3D-model file must be a reviewed project asset. Review covers
 what the check cannot see, such as a probe dump or a capture in a text format. Decoded maps,
 graphics, rules, and audio are written under the ignored `content/` directory and never
-committed. The one exception is a pipeline correction: it quotes the few script command lines it
-replaces in one mod file, so the pipeline can check that they still match, and never carries prose
-such as briefing or dialogue text.
+committed. The one exception is a pipeline correction: it quotes the few lines it replaces in one
+source file, so the pipeline can check that they still match. Most are script command lines, briefing
+block markers and display strings. A campaign map's text takes no overlay (see below), so a
+correction of a campaign briefing or goal still quotes the few lines of original prose it fixes,
+before and after the fix.
 
-The app bundles third-party typefaces in `packages/app/public/fonts/`: Alegreya Sans, Alegreya Sans SC
-and Cinzel, under the SIL Open Font License 1.1. Their licence texts sit beside them as `LICENSE-*.txt`.
+The app bundles third-party typefaces in `packages/app/public/fonts/`: Alegreya Sans, Alegreya Sans SC,
+Cinzel and Noto Sans SC, under the SIL Open Font License 1.1. Their licence texts sit beside them as
+`LICENSE-*.txt`.
 
 Text imported from game or mod tables is also generated content, including UI labels. Keep table/id
 bindings in code and load the wording through the pipeline. Project-authored UI text, intentional
@@ -26,7 +29,8 @@ serve as a committed copy of the imported text table. Ordinary shared vocabulary
 Third-party translations: fan translations are imported as JSON overlays under `translations/`, with
 each set's license and provenance recorded in [`translations/SOURCES.md`](../translations/SOURCES.md).
 An overlay holds only the translated text keyed by string id or block label, so the repository still
-carries no original text. The one exception is `translations/glossary.csv`: beside each Chinese term it
+carries no original text. An overlay in a source language is the project's edit of a community map's
+text, never of a campaign map's. The one exception is `translations/glossary.csv`: beside each Chinese term it
 keeps the German, English and Polish term it translates (names of characters, places, objects and maps).
 
 Tests use synthetic fixtures created for this project. A test or pull request must not contain an

@@ -31,7 +31,13 @@ every catalogue copy of the same map. The `map` field is a readable alias, never
   the pipeline refuses a source-language overlay on a campaign map, an object table or a book, because
   that would be a committed copy of the original text. Those keep `tools/asset-pipeline/corrections/`.
 - When the pack or archive ships the overlay's language itself, the shipped text wins and the
-  translations audit lists the overlay as redundant.
+  translations audit lists the overlay as redundant, unless the overlay's basis is that language.
+- An overlay whose basis is its own language is the project's edit of a community map's text: a typo,
+  a wrong instruction, a name that disagrees with the rest of the map. It carries only the edited ids
+  and labels, each with its whole corrected string or block body. A structural repair of the
+  `briefings.txt` it rests on (a block marker, a broken tag) stays a correction, as do an added id the
+  source lacks and the edits of a map whose `map.dat` another folder shares: an overlay is filed under
+  that digest and would edit both. `tools/asset-pipeline/AGENTS.md` lists what stays a correction.
 - `basis` records the language and the digest of the decoded source text the overlay was written
   against. A changed source under an unchanged overlay is an audit warning, not a build failure.
 - Imported overlays are never edited by hand: fix them upstream and re-import. `SOURCES.md` names the

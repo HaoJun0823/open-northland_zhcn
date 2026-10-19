@@ -410,8 +410,8 @@ export const COVER_FRAGMENT_DECLARATIONS = `
       float unlevel = ${f(PUDDLE_UNLEVEL_PENALTY)} * (1.0 - level);
       float grassy = ${f(GRASS_PUDDLE_PENALTY)} * grass;
       // The second octave adds less than its weight, and the fray, centred on the noise mean, at most
-      // half its weight, so a fragment whose bound stays under the threshold holds no water and skips
-      // the noise it would not show.
+      // its weight times the room above the mean, so a fragment whose bound stays under the threshold
+      // holds no water and skips the noise it would not show.
       float headroom = ${f(FBM_SECOND_WEIGHT + PUDDLE_SHORE_FRAY * (1 - NOISE_MEAN) + PUDDLE_BOUND_MARGIN)} - unlevel - grassy;
       vec2 puddle = p / ${f(PUDDLE_SCALE_PX)};
       float first = 0.0;

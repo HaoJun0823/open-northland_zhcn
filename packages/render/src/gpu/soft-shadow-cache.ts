@@ -1,6 +1,7 @@
-import { CanvasSource, Rectangle, Texture, type TextureSource } from 'pixi.js';
+import { Rectangle, Texture, type TextureSource } from 'pixi.js';
 import type { AtlasFrame } from '../data/sprites/index.js';
 import { isDrawableResource, readable2dContext } from './drawable-resource.js';
+import { WrittenPageSource } from './written-page-source.js';
 
 /** Binomial blur taps, in source pixels, applied along each axis. */
 export const SHADOW_BLUR_KERNEL = [1, 4, 6, 4, 1] as const;
@@ -22,7 +23,8 @@ interface ShadowRow {
 }
 interface ShadowPage {
   readonly ctx: BakeContext;
-  readonly source: CanvasSource;
+  /** Uploads each bake's own rectangle, not the whole page. */
+  readonly source: WrittenPageSource;
   readonly rows: ShadowRow[];
 }
 /** Pixels one budgeted frame may bake. A bake is synchronous, so without a ceiling, switching the
@@ -149,6 +151,7 @@ export class SoftShadowCache {
       const x = row.x,
         y = row.y;
       page.ctx.putImageData(image, x, y);
+      page.source.markWritten(x, y, width, height);
       page.source.update();
       row.x += width;
       const texture = new Texture({
@@ -190,7 +193,7 @@ export class SoftShadowCache {
     const row = { x: 0, y: 0, height };
     const page: ShadowPage = {
       ctx,
-      source: new CanvasSource({ resource: ctx.canvas, scaleMode: 'linear' }),
+      source: new WrittenPageSource(ctx.canvas),
       rows: [row],
     };
     this.pages.push(page);

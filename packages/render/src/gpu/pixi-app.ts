@@ -1,8 +1,8 @@
 import { Application, Assets, type Texture, type TextureSource } from 'pixi.js';
-import { registerDamagePageUploader } from './building-damage/atlas.js';
 import { registerHumanPaletteUploader } from './human-palette-lut.js';
 import { inheritParentGroupUniforms } from './inherited-group-uniforms.js';
 import { markPixelArtSource } from './pixel-art-registry.js';
+import { registerWrittenPageUploader } from './written-page-source.js';
 
 /**
  * The shared one-time GPU options. WebGL preference and antialias-off cut cross-machine pixel variance.
@@ -36,7 +36,7 @@ export async function createPixiApp(
   height: number,
 ): Promise<Application> {
   registerHumanPaletteUploader();
-  registerDamagePageUploader();
+  registerWrittenPageUploader();
   const app = new Application();
   await app.init({ canvas, width, height, ...APP_OPTIONS });
   inheritParentGroupUniforms(app.renderer);
@@ -111,7 +111,7 @@ export async function createWindowPixiApp(
 ): Promise<Application> {
   const resolutionScale = options?.resolutionScale ?? 1;
   registerHumanPaletteUploader();
-  registerDamagePageUploader();
+  registerWrittenPageUploader();
   const app = new Application();
   await app.init({
     canvas,

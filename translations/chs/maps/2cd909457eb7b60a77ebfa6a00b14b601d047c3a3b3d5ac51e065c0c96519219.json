@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "map": "trybuty_dwoch_swiatow",
+  "basis": {
+    "lang": "pol",
+    "digest": "cd078c9f43b30a497c278a2a921a8bded8237c5cdcbca223087c5e8304515f95"
+  },
+  "strings": {
+    "40": "两界贡品",
+    "41": "2 至 6 人合作多人地图。北方的三名玩家拥有木材、蘑菇和草地，南方的另外三名玩家则拥有黏土、毛石、铁矿和金矿。玩家必须用贡品互相输送资源，才能发展壮大。游戏目标是摧毁地图中央的敌方营地。",
+    "42": "把货物送给该玩家。",
+    "43": "摧毁地图中央的敌方营地",
+    "50": "西北",
+    "51": "北部中央",
+    "52": "东北",
+    "53": "西南",
+    "54": "南部中央",
+    "55": "东南",
+    "56": "中央营地",
+    "60": "西北",
+    "61": "北",
+    "62": "东北",
+    "63": "西南",
+    "64": "南",
+    "65": "东南",
+    "66": "敌人"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n两界贡品\n<font:$local$\\fonts\\font12.fnt>\n来自北方和南方的维京部族联合起来，要摧毁与他们为敌的城市。\n<color:$local$\\palettes\\font_red_dark.pcx>\n注意！在多人游戏菜单中，1、2、3 号席位里至少要有一个由人类玩家占据，4、5、6 号席位里也至少要有一个由人类玩家占据，否则玩家将无法发展科技。\n<color:$local$\\palettes\\font_dark.pcx>\n玩家需要使用外交窗口中的贡品，在科技发展上互通有无。\n<color:$local$\\palettes\\font_blue_dark2.pcx>\n从北方可以向南方送出以下贡品：\n<color:$local$\\palettes\\font_blue.pcx>5 木材 + 5 小麦\n5 水 + 5 蜂蜜\n<color:$local$\\palettes\\font_blue_dark2.pcx>\n从南方可以向北方送出以下贡品：\n<color:$local$\\palettes\\font_blue.pcx>5 毛石 + 5 黏土\n5 铁矿 + 5 金矿\n<color:$local$\\palettes\\font_dark.pcx>\n北方的三名玩家拥有木材、蘑菇和草地，南方的另外三名玩家则拥有黏土、毛石、铁矿和金矿。\n游戏目标是摧毁地图中央的敌方营地。\n<color:$local$\\palettes\\font_green.pcx>\n提示：\n\n地图南部会不断刷出兔子，只要没达到动物数量上限，它们就是可再生的食物来源。\n\n给某些一开始就能分配的职业指派人手，可以推进科技树，尽管这么做看似毫无意义。\n\n有几种职业对某些玩家来说无法正常解锁，但建好学校后就可以在学校里学到。\n<color:$local$\\palettes\\font_dark.pcx>\n~~ 作者：Mikulus ~~\n\nwww.culturesnation.pl",
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n胜利！\n<font:$local$\\fonts\\font12.fnt>\n我们齐心协力，摧毁了敌人的要塞！\n我们赢了！\n\n~~ 作者：Mikulus ~~\n\nwww.culturesnation.pl"
+  }
+}

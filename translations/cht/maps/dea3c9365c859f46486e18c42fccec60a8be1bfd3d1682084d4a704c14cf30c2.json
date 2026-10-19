@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "map": "samotna_gora",
+  "basis": {
+    "lang": "pol",
+    "digest": "cd1806dc3b2743278077a1ac6b834b13cb8c7a79cc3f7e90b6ee15e48ee2db6d"
+  },
+  "strings": {
+    "40": "消滅鄰近的部族，將山中的財富據為己有",
+    "98": "交惡的部族爭奪著肥沃山谷中的資源。1 對 1 對戰。",
+    "99": "孤山",
+    "601": "北方居民",
+    "602": "南方居民",
+    "701": "北方",
+    "702": "南方"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n孤山\n<font:$local$\\fonts\\font12.fnt> \n作者：Proszak\n<font:$local$\\fonts\\font12.fnt>\n在斯堪的納維亞茂密的森林中跋涉時，你的一群族人發現了一座資源豐富、獵物成群的山谷。山谷坐落在一座孤山腳下，山中蘊藏著大量鐵礦和金礦。\n不巧的是，附近出現了一個部族，想搶在你之前奪走這裡的財富。絕不能讓他們得逞！\n\n\nwww.culturesnation.pl\n"
+  },
+  "derived": "chs"
+}

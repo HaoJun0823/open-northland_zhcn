@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "map": "wyspy_polnocy",
+  "basis": {
+    "lang": "pol",
+    "digest": "b73a19a069accca71445b46b4b15cd891237cad9b8341ee7919d0c1d0f646747"
+  },
+  "strings": {
+    "0": "北方群岛",
+    "1": "开拓这片土地。6 人自由游戏。",
+    "30": "开拓这片土地",
+    "56": "商人",
+    "66": "商人",
+    "90": "无需求的工人",
+    "91": "全境地图"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n北方群岛\n\n<font:$local$\\fonts\\font12.fnt>\n造一艘船，到这片严寒之地开拓新的岛屿\n\n\n~~ 作者：Jozenkow ~~\n",
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n游戏时长 4 小时\n\n<font:$local$\\fonts\\font12.fnt>\n已经玩了 4 小时，不错嘛。从现在起，每过一小时，你都会在商人的岛上得到一个幽灵\n"
+  }
+}

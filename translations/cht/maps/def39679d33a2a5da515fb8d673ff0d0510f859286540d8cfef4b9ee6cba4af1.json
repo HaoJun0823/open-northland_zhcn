@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "map": "wielka_kolonizacja",
+  "basis": {
+    "lang": "pol",
+    "digest": "8a0c258b1cf3935db505510aede8d6cdcd5e039db2c2ea0d9b7a0df16c0e29b6"
+  },
+  "strings": {
+    "30": "開拓這片土地！",
+    "98": "與其他玩家一起開拓肥沃的平原！在哪裡定居、與鄰居相處得如何，全由你自己決定！5 人自由遊戲。",
+    "99": "大殖民",
+    "601": "商人",
+    "701": "商人"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n大殖民\n<font:$local$\\fonts\\font12.fnt> \n作者：Proszak\n<font:$local$\\fonts\\font12.fnt>\n\n在遼闊的草地和茂密的森林之間，一位老商人正為他年紀最大的幾個兒子準備遠行。\n他們都已成年，是時候走出家門，去闖出屬於自己的道路了。\n\n而你就是其中之一。\n\n那就向前進發吧。\n獲取這片處女地的財富。建立屬於你自己的社會。\n興建宏偉的建築和城市。\n與你的兄弟們合作，或者向他們宣戰！\n\n如今一切都掌握在你的手中！\n\n記得不時去看看那位老人，他一定會給你一些有趣的交易提議。\n\n\n\nwww.culturesnation.pl\n"
+  },
+  "derived": "chs"
+}

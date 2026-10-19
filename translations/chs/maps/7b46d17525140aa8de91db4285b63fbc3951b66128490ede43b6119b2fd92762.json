@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "map": "straznicypolnocy_sub1",
+  "basis": {
+    "lang": "pol",
+    "digest": "ed4f73f05d0229daebf1792e998a998740d18d311cc8cf3cbac3edcbb99b7060"
+  },
+  "strings": {
+    "0": "怪物巢穴",
+    "1": "龙穴原来是所有怪物躲避严冬的巢穴……",
+    "25": "找到龙之护符",
+    "80": "伊科尔",
+    "81": "蛇战士",
+    "82": "狼人",
+    "83": "龙",
+    "84": "怪物猎人",
+    "90": "伊",
+    "91": "蛇",
+    "92": "狼",
+    "93": "龙",
+    "94": "猎人",
+    "100": "伊科尔"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n怪物巢穴\n<font:$local$\\fonts\\font12.fnt>\n\n越往洞穴深处走，四周就越暗。伸手不见五指的黑暗让每一步都愈发没底。在这里，光就是我们最好的盟友……\n\n原来龙穴是一群可怕怪物的巢穴：有蛇，也有狼。显然它们是躲到这里来避寒的。四面八方传来狼人凄厉的嚎叫，它们已经嗅到了新鲜的血腥味。我们得做好和它们交战的准备，但别忘了我们的目标：龙之护符。在伊科尔戴上它之前，龙也会不惜一切代价要把你赶走。\n\n千万别放松警惕！长夜黑暗，处处险恶。\n\n<usericon:1,54,269>\n",
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n怪物猎人\n<font:$local$\\fonts\\font12.fnt>\n\n<usericon:1,60,36>\n\n“啊，总算见到活人了！”我们在洞里遇到的战士们说，“我们在这儿猎杀这些怪物很久了，可它们好像只会越来越多。再说，整个洞穴就是个该死的迷宫。那些怪物守着的按钮能打开远处的大门，打开了才能继续往里走。我们很乐意帮你完成任务！”\n\n说完，这些维京人便听从了我们的指挥。\n",
+    "502": "<font:$local$\\fonts\\fonthead16bld.fnt>\n失败\n<font:$local$\\fonts\\font12.fnt>\n少了任何一位英雄，我们都无法完成任务……\n\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>",
+    "503": "<font:$local$\\fonts\\fonthead16bld.fnt>\n找到龙之护符了！\n<font:$local$\\fonts\\font12.fnt>\n\n我们一戴上龙之护符，所有的龙立刻停止了攻击。按照斯蒂尔的吩咐，我们只带了一条龙出洞。我们向怪物猎人们道谢，他们说要留在洞里，把在这里滋生的妖物统统清除干净。\n",
+    "504": "<font:$local$\\fonts\\fonthead16bld.fnt>\n援军\n<font:$local$\\fonts\\font12.fnt>\n\n你村里的战士们发现伊科尔进洞后久久未归，便出发前来支援！\n\n<usericon:1,54,23>\n"
+  }
+}

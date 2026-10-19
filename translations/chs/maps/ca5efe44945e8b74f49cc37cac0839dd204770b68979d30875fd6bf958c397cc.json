@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "map": "krwawa_rzeka",
+  "basis": {
+    "lang": "pol",
+    "digest": "a8a511fd1f8a0e7f6b5b238a8ec3ea784a117be7b350845470667affed63827f"
+  },
+  "strings": {
+    "30": "在盟友的帮助下击败敌方队伍，夺取这片土地的控制权",
+    "98": "6 个部族分成了两支相互敌对的队伍。与盟友并肩作战，打败敌对部族，占领河对岸的土地。",
+    "99": "血河",
+    "601": "文兰人",
+    "602": "边地人",
+    "603": "赫鲁兰人",
+    "604": "低地人",
+    "605": "高地人",
+    "606": "幽地人",
+    "607": "亡魂",
+    "608": "亡魂",
+    "701": "文兰",
+    "702": "边地",
+    "703": "赫鲁",
+    "704": "低地",
+    "705": "高地",
+    "706": "幽地",
+    "707": "亡魂",
+    "708": "亡魂"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n血河\n<font:$local$\\fonts\\font12.fnt> \n~~Proszak & Remik~~\n<font:$local$\\fonts\\font12.fnt>\n\n为了寻找新的定居之地，你来到了一片广袤的土地，\n这里的资源和猎物都格外丰富。\n与你相邻的另外两个部族也选中了这个地方，\n他们看上去还算友好。\n不幸的是，河对岸也住下了几个部族，\n他们想要夺走你的土地。\n与盟友携手，把敌人永远赶出去！\n\n\n\nwww.culturesnation.pl\n",
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n北方队伍获胜！\n\n <picture:$local$\\graphics\\People_Dead_F.pcx>  \n\n\n",
+    "502": "<font:$local$\\fonts\\fonthead16bld.fnt>\n南方队伍获胜！\n\n <picture:$local$\\graphics\\People_Dead_F.pcx>  \n\n\n",
+    "503": "<font:$local$\\fonts\\fonthead16bld.fnt>\n幽灵战士\n<font:$local$\\fonts\\font12.fnt> \n <picture:$local$\\graphics\\Duchy.pcx>  \n\n有一个部族被打败后，阵亡的战士们\n从冥界归来，要为他们的同胞复仇。\n"
+  }
+}

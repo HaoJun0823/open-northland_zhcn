@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "map": "battle_for_the_four_hills_multiplayer",
+  "basis": {
+    "lang": "pol",
+    "digest": "5c4ba36e6bf9847d89993319bbdfa101bc384759c7f53cf713fcb09fe41af77f"
+  },
+  "strings": {
+    "0": "四丘之战",
+    "1": "四个部族争夺被石峡隔开的肥沃土地。这场冲突将如何发展，全由你决定。",
+    "40": "打败所有敌人，将这片土地据为己有；或者结成同盟，共同统治！",
+    "50": "西北部族",
+    "51": "西北族",
+    "52": "东北部族",
+    "53": "东北族",
+    "54": "西南部族",
+    "55": "西南族",
+    "56": "东南部族",
+    "57": "东南族"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n四丘之战\n<font:$local$\\fonts\\font12.fnt>\n四丘被一道石峡彼此隔开，傲然耸立。\n千百年来，它们一直是觊觎天然宝藏之人的纷争之源。\n\n这一次，局面会有所改变吗？\n\n你会结成同盟，还是将一切据为己有？\n\n~~ 作者：Jaymer ~~\n",
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n战斗结束！\n<font:$local$\\fonts\\font12.fnt>\n这片土地只能有一个统治者……\n西北部族获胜！\n\n<picture:$local$\\graphics\\People_Dead_F.pcx>",
+    "502": "<font:$local$\\fonts\\fonthead16bld.fnt>\n战斗结束！\n<font:$local$\\fonts\\font12.fnt>\n这片土地只能有一个统治者……\n东北部族获胜！\n\n<picture:$local$\\graphics\\People_Dead_F.pcx>",
+    "503": "<font:$local$\\fonts\\fonthead16bld.fnt>\n战斗结束！\n<font:$local$\\fonts\\font12.fnt>\n这片土地只能有一个统治者……\n西南部族获胜！\n\n<picture:$local$\\graphics\\People_Dead_F.pcx>",
+    "504": "<font:$local$\\fonts\\fonthead16bld.fnt>\n战斗结束！\n<font:$local$\\fonts\\font12.fnt>\n这片土地只能有一个统治者……\n东南部族获胜！\n\n<picture:$local$\\graphics\\People_Dead_F.pcx>",
+    "505": "<font:$local$\\fonts\\fonthead16bld.fnt>\n战斗结束！\n<font:$local$\\fonts\\font12.fnt>\n大家齐心协力，终于打开了通往胜利的道路。\n\n可这个同盟又能维持多久呢？\n\n<picture:$local$\\graphics\\People_Dead_F.pcx>",
+    "506": "<font:$local$\\fonts\\fonthead16bld.fnt>\n这片土地迎来了和平年代……\n<font:$local$\\fonts\\font12.fnt>\n谁能想到事情会这样发展。\n所有部族友好地生活在一起。\n\n可这样的日子又能持续多久呢？\n",
+    "507": "<font:$local$\\fonts\\fonthead16bld.fnt>\n这场战争中，唯一的赢家是死神……\n<font:$local$\\fonts\\font12.fnt>\n谁能想到这场战争会如此血腥。\n所有部族都被消灭了。\n"
+  }
+}

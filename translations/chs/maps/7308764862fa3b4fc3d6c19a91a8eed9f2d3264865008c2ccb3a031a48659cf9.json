@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "map": "wyspa_lupiezcow",
+  "basis": {
+    "lang": "pol",
+    "digest": "6fa31f50eccc7db3807beda0ab419ad23ab6475119a1833bbc6d437ce1a1538f"
+  },
+  "strings": {
+    "0": "劫掠者之岛",
+    "1": "这座岛上的居民都是越狱的逃犯。他们已经一无所有，便为争夺岛屿的控制权展开了较量。1 对 1 对战。",
+    "50": "北方劫掠者",
+    "51": "南方劫掠者",
+    "101": "击败对方的劫掠者，夺取岛屿的控制权。"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n劫掠者之岛\n<font:$local$\\fonts\\font12.fnt> \n\n虽然这些岛屿四周的海水又浅又平静，这里却难得安宁。\n住在这座岛上的人都是越狱的逃犯，他们已经一无所有，于是为争夺岛屿的控制权大打出手。\n\n ~~ Ares ~~\n"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "map": "saracen_1_sub_1",
+  "basis": {
+    "lang": "pol",
+    "digest": "a5b83483740f04ccc3d0e85876181736c74426ac5f031295aa04fc8ca638bdb9"
+  },
+  "strings": {
+    "0": "回到過去 01：嗨翻的哈奇",
+    "1": "支線任務 1-1",
+    "50": "哈奇",
+    "51": "幾個菜鳥",
+    "100": "哈奇"
+  },
+  "briefings": {
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n邪門草藥\n<font:$local$\\fonts\\font12.fnt>\n\n好上頭啊……這是怎麼了？\n"
+  },
+  "derived": "chs"
+}

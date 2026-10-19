@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "map": "w_oku_niepewnosci",
+  "basis": {
+    "lang": "pol",
+    "digest": "abd1f3d752815622e3b5135971213124cc87090e3ccf3d4fcd7b6faebd1a30ae"
+  },
+  "strings": {
+    "0": "未知之眼",
+    "1": "4 人自由游戏。玩家：法兰克人、拜占庭人、维京人、撒拉逊人。",
+    "30": "开拓新的领地，与其他部族建立外交关系",
+    "98": "在这片肥沃的土地上发展壮大，与其他居民结盟，或者征服他们！",
+    "99": "未知之眼",
+    "201": "皇帝比雅尼",
+    "202": "雅尔 Wojak555",
+    "203": "哈里发 Warden",
+    "204": "哈里发赖托"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n未知之眼\n\n<font:$local$\\fonts\\font12.fnt>\n你来到这片肥沃且资源丰富的土地，寻找可供开拓的新领地。远处可以望见其他部族的聚落，他们也是为了同样的目的来到这里的。你可以与他们建立外交关系，共同统治这片土地；也可以消灭他们，把这片土地据为己有。\n\n如何选择，由你决定。祝你好运。\n\nRajTo 协助制作了本地图。\n\n<font:$local$\\fonts\\font12.fnt> \n多人地图，作者：Dzejkaci\n\n献给 www.culturesnation.pl\n"
+  }
+}

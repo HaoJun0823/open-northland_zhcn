@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "map": "cn_2",
+  "basis": {
+    "lang": "pol",
+    "digest": "a8baa63a8a3507fae1f24fd367b950438a0986da29e39f3ec7b0028609e4078a"
+  },
+  "strings": {
+    "0": "CULTURESNATION：阿瑞斯",
+    "1": "阿瑞斯",
+    "30": "擊敗阿瑞斯",
+    "50": "普羅沙克",
+    "51": "阿瑞斯",
+    "52": "阿瑞斯",
+    "62": "加托",
+    "100": "普羅沙克",
+    "101": "阿瑞斯"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n海岸風暴\n<font:$local$\\fonts\\font12.fnt>\n\n是時候再把阿瑞斯干翻一次了……\n"
+  },
+  "derived": "chs"
+}

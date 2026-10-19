@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "map": "upadek_krola_sub",
+  "basis": {
+    "lang": "pol",
+    "digest": "7147935d3c7a06018bedb669a72f89dbaf3d5f92bea9d1a81718b0b9e49311e5"
+  },
+  "strings": {
+    "0": "奥特兰克监狱",
+    "1": "地牢",
+    "20": "解救科尔内利乌斯国王",
+    "50": "玩家",
+    "52": "囚犯",
+    "53": "狱卒",
+    "60": "玩家",
+    "62": "囚犯",
+    "63": "狱卒",
+    "100": "哈奇",
+    "101": "贾迈勒",
+    "102": "科尔内利乌斯国王"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n地牢\n<font:$local$\\fonts\\font12.fnt>\n\n我和贾迈勒一起进了奥特兰克监狱。据说这里不大，所以科尔内利乌斯的牢房应该就在附近。远处传来金属的铿锵声，看来国王并不是这里唯一的囚犯……\n\n<usericon:1,20,123>\n\n***要解救其他囚犯，你必须让哈奇走到他们身边***\n",
+    "521": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一位主要英雄阵亡，我们的任务已无法完成。卡利姆多得不到承诺的援助，举国上下陷入悲痛。",
+    "522": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\People_Dead_F.pcx>\n你的臣民全军覆没，没能完成托付给他们的使命。很遗憾，我们的任务以失败告终。"
+  }
+}

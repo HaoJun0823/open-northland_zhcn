@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "map": "kraina_tysisca_jezior_1_1",
+  "basis": {
+    "lang": "pol",
+    "digest": "d2cf6008ab882e278bdf6abf97f693464b67fa29ede22a89d8bdeecdcaed0ecf"
+  },
+  "strings": {
+    "40": "在这片土地上定居，想玩多久就玩多久，没有任何目标和要求。与邻居开战还是和平共处，由你自己决定。",
+    "98": "在这片风景如画的土地上定居，处理好与邻居的关系。3 人自由游戏。",
+    "99": "千湖之国",
+    "601": "边地人",
+    "602": "文兰人",
+    "701": "边地",
+    "702": "文兰"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n千湖之国\n<font:$local$\\fonts\\font12.fnt> \n作者：Proszak\n<font:$local$\\fonts\\font12.fnt>\n\n你的族人来到了斯堪的纳维亚的东方尽头。\n这片至今无人居住的土地，以丰富的自然资源吸引着人们。\n你决定在此定居，建立一个新的国家。\n不久，又有新的居民来到这里，打算在此长住。\n\n你能否与其他部族和平共处，全看你自己。\n\n建立一个新的文明。\n\n想玩多久就玩多久。\n\n\n\nwww.culturesnation.pl\n"
+  }
+}

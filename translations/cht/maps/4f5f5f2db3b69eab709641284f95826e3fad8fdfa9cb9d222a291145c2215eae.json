@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "map": "the_lake_of_the_mists",
+  "basis": {
+    "lang": "pol",
+    "digest": "7da74ec2f2027c7adb5265898dc972da4fcab7d08f8b9dc12358010623f52782"
+  },
+  "strings": {
+    "0": "迷霧之湖",
+    "1": "一片浩瀚的湖泊在你眼前鋪展開來，四周環繞著繁茂的綠林，林中滿是獵物和珍貴的資源。不過，在這一帶定居的可不止你一個。3 人自由遊戲地圖。",
+    "40": "打敗所有敵人，將這片土地據為己有！",
+    "50": "北方部族",
+    "51": "西南部族",
+    "52": "東南部族"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n迷霧之湖\n<font:$local$\\fonts\\font12.fnt>\n一片浩瀚的湖泊在你眼前鋪展開來，四周環繞著繁茂的綠林，林中滿是獵物和珍貴的資源。\n\n眺望天際，你看到一片奇異的霧氣，霧中隱約有些形影，宛如在水面上起舞的幻影。也許這是一個等著你的部族去揭開的秘密？\n\n不過看樣子，想在這片土地上定居的不止你一個。\n\n你的偵察兵報告說，在湖的對岸發現了其他部族的蹤跡。\n\n你能把這片土地據為己有嗎？\n\n\n~~ 作者：Jaymer ~~\n\n",
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n戰鬥結束！\n<font:$local$\\fonts\\font12.fnt>\n北方部族獲勝！\n\n再也沒人能否認他們的力量和對這片土地的統治。\n\n<picture:$local$\\graphics\\People_Dead_F.pcx>",
+    "502": "<font:$local$\\fonts\\fonthead16bld.fnt>\n戰鬥結束！\n<font:$local$\\fonts\\font12.fnt>\n西南部族獲勝！\n\n再也沒人能否認他們的力量和對這片土地的統治。\n\n<picture:$local$\\graphics\\People_Dead_F.pcx>",
+    "503": "<font:$local$\\fonts\\fonthead16bld.fnt>\n戰鬥結束！\n<font:$local$\\fonts\\font12.fnt>\n東南部族獲勝！\n\n再也沒人能否認他們的力量和對這片土地的統治。\n\n<picture:$local$\\graphics\\People_Dead_F.pcx>"
+  },
+  "derived": "chs"
+}

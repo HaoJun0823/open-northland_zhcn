@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "map": "saracen_1_sub_2",
+  "basis": {
+    "lang": "pol",
+    "digest": "0a2901943e837b7847f308bcfc6924f14fb48d1fbec31a9dc83ed0a00b1b33cb"
+  },
+  "strings": {
+    "0": "回到過去 01：狗頭人礦井（過去）",
+    "1": "支線任務 - 狗頭人礦井",
+    "30": "派三位英雄進入礦井，找到亞倫之籠的第一把鑰匙",
+    "31": "讓三位英雄前往後方出口",
+    "32": "讓三位英雄離開礦井的危險地段",
+    "50": "哈奇",
+    "51": "守衛",
+    "52": "工人",
+    "53": "柵欄",
+    "54": "奴隸",
+    "100": "哈奇",
+    "101": "阿齊姆",
+    "102": "伊德里斯"
+  },
+  "briefings": {
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n狗頭人礦井   300 年前\n\n<font:$local$\\fonts\\font12.fnt>\n阿布拉卡達布拉，天靈靈地靈靈……唸完這句古怪的咒語，我們便穿越到了非常遙遠的過去。礦井入口敞開著。我、阿齊姆和伊德里斯邁著頗為遲疑的步子走了進去。\n\n下面非常冷，霧氣擋住了我們的視線。這裡有大片大片的金礦。遠遠地，我們看見狗頭人部族的工人正在賣力幹活。我們總不至於去殺手無寸鐵的平民吧？\n",
+    "502": "<font:$local$\\fonts\\fonthead16bld.fnt>\n我們找到第一把鑰匙了！\n\n<font:$local$\\fonts\\font12.fnt>\n在礦井盡頭，我們找到了第一枚戒指，它被鎖在一隻藍色的小寶匣裡。好了，該離開這兒了。附近應該還有另一個出口……\n",
+    "503": "<font:$local$\\fonts\\fonthead16bld.fnt>\n後方出口\n\n<font:$local$\\fonts\\font12.fnt>\n我們找到了這些坑道的後方出口。等找到神器，就用得上它了。\n",
+    "504": "<font:$local$\\fonts\\fonthead16bld.fnt>\n奴隸\n\n<font:$local$\\fonts\\font12.fnt>\n我們遇到了一群被關在柵欄後面的奴隸。他們見我們在跟狗頭人作戰，立刻聽從了我們的號令。\n\n<usericon:1,206,180>\n",
+    "505": "「你們在這兒幹什麼？！你們無權待在這座礦井裡！」一個工人「熱情」地招呼我們，「你們是怎麼看門的，一群蠢驢？！」\n",
+    "506": "<font:$local$\\fonts\\fonthead16bld.fnt>\n反抗者\n\n<font:$local$\\fonts\\font12.fnt>\n「我們受夠了待在這些老礦裡！再說大家都知道，這些礦撐不了多久就會塌。求求你帶我們離開這兒！我們寧可戰死，也不願被石頭活埋！」\n\n<usericon:1,20,168>\n",
+    "507": "<font:$local$\\fonts\\fonthead16bld.fnt>\n按鈕\n\n<font:$local$\\fonts\\font12.fnt>\n我們按下了開啟大門的兩個按鈕之一。另一個肯定就在附近。",
+    "508": "我們剛進來，就親眼看見一處支架塌了。支撐構件做工粗劣，這正是這座礦井遲早會塌的主要原因之一。我們得抓緊了！",
+    "509": "<font:$local$\\fonts\\fonthead16bld.fnt>\n危險地段\n\n<font:$local$\\fonts\\font12.fnt>\n穿過大門，我們進入了一段相當不牢靠的坑道。頂上的岩石看起來隨時都會塌下來。我們必須儘快離開這裡。",
+    "510": "<font:$local$\\fonts\\fonthead16bld.fnt>\n礦井坍塌\n\n<font:$local$\\fonts\\font12.fnt>\n支架再也承受不住壓力，轟然倒塌，堵死了通道。任務失敗！",
+    "511": "<font:$local$\\fonts\\fonthead16bld.fnt>\n找到通道\n\n<font:$local$\\fonts\\font12.fnt>\n我們找到了穿過山脈的通道。這下再也不會有東西砸到我們腦袋上了。",
+    "512": "<font:$local$\\fonts\\fonthead16bld.fnt>\n廢棄倉庫\n\n<font:$local$\\fonts\\font12.fnt>\n路上，我們發現荒郊野外有座倉庫，便決定進去看看。結果裡面堆滿了食物和各種有用的東西！\n\n<usericon:1,147,110>",
+    "520": "<font:$local$\\fonts\\fonthead16bld.fnt>\n失敗\n\n<font:$local$\\fonts\\font12.fnt>\n一位英雄戰死沙場。沒有他，任務無法完成……\n\n\n<picture:$local$\\graphics\\People_Dead_F.pcx> \n"
+  },
+  "derived": "chs"
+}

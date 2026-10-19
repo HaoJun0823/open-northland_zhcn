@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "map": "cn_5",
+  "basis": {
+    "lang": "pol",
+    "digest": "10b1559582368ec69d8c5aac749cdf39392b798f1a67908bbc77a1dfb59f7b69"
+  },
+  "strings": {
+    "0": "CULTURESNATION：八角籠",
+    "1": "與阿雷克單挑",
+    "30": "配得上這場戰鬥的人，將得到阿雷克的軍隊",
+    "50": "普羅沙克",
+    "51": "阿雷克",
+    "61": "阿雷克",
+    "100": "普羅沙克",
+    "101": "阿雷克"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n八角籠\n<font:$local$\\fonts\\font12.fnt>\n\n突然，一股莫名其妙的魔法把我們傳送進了八角籠。阿雷克嘀咕著什麼，說誰配得上這場戰鬥，誰就能得到他的軍隊。按照 Culturesnation 的傳統，能在擂臺上撐滿 3 分鐘的人就算配得上，不過我可打算直接把阿雷克的屁股踢開花。\n"
+  },
+  "derived": "chs"
+}

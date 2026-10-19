@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "map": "zdradziecka_mielizna_sub3",
+  "basis": {
+    "lang": "pol",
+    "digest": "f8348fdf3f1c2243e95aa55a8640f83848ac0f3d8e6d6a021dbb8c7d42b9c2e1"
+  },
+  "strings": {
+    "30": "解救奴隶！",
+    "31": "找到开关！",
+    "98": "支线任务 3",
+    "99": "险恶浅滩 - 支线任务 3",
+    "100": "比雅尼",
+    "601": "法兰克人",
+    "602": "维京人",
+    "701": "法兰克",
+    "702": "维京"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n法兰克地下城\n<font:$local$\\fonts\\font12.fnt>\n我去了！一个人去的。我要让那帮无赖知道自己有几斤几两……这是我和他们之间的事。\n\n那个开关应该就在这附近……\n\n<usericon:1,9,114>",
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n法兰克人\n<font:$local$\\fonts\\font12.fnt>\n在一条走廊里，我撞见了法兰克人的部队。看得出来，他们在这地下城里守得相当牢固……这我可没料到。",
+    "502": "<font:$local$\\fonts\\fonthead16bld.fnt>\n维京人\n<font:$local$\\fonts\\font12.fnt>\n法兰克人逼着被掳来的维京人干活。他们从早到晚做苦工，只为满足法兰克人对黄金的贪欲。法兰克人把他们当牲口看待……把食物扔在地上，看着饥肠辘辘的人们扑上去抢……太可怕了！我必须解救他们！我要彻底消灭这些法兰克人！",
+    "503": "<font:$local$\\fonts\\fonthead16bld.fnt>\n法兰克人被打败了！\n<font:$local$\\fonts\\font12.fnt>\n现在再也没人会欺负这些人了……大家都可以安全离开这里了。\n",
+    "504": "<font:$local$\\fonts\\fonthead16bld.fnt>\n黄金宫殿\n<font:$local$\\fonts\\font12.fnt>\n地下竟藏着一整座法兰克人的城市，这里的奢华与富足超出了最大胆的想象。到处都是黄金！就连人们脚下的路都是金子铺的！贪婪总会招致毁灭……",
+    "505": "<font:$local$\\fonts\\fonthead16bld.fnt>\n第三个开关！\n<font:$local$\\fonts\\font12.fnt>\n我找到了最后一个开关。一启动，机关便猛地运转起来。一个残兵大喊：“你都干了些什么？！这地方马上就要被水淹了！”我明白发生了什么……我得赶紧去帮那些维京人！",
+    "506": "<font:$local$\\fonts\\fonthead16bld.fnt>\n失败！\n<font:$local$\\fonts\\font12.fnt>\n\n一位对任务至关重要的英雄阵亡了。没有他，这次远征已不可能成功……\n\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n",
+    "507": "<font:$local$\\fonts\\fonthead16bld.fnt>\n失败！\n<font:$local$\\fonts\\font12.fnt>\n\n你没能赶在水位上涨前逃出去！\n\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n"
+  }
+}

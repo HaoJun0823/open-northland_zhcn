@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "map": "burza_przybzezna_1_2",
+  "basis": {
+    "lang": "pol",
+    "digest": "f7d074f255e027664862c5240f6303d82c2370e604a97ad33221704faa194aa9"
+  },
+  "strings": {
+    "40": "击败对手，夺取整座岛屿的控制权。",
+    "98": "两个维京部族正在争夺一座富饶小岛上的资源。",
+    "99": "海岸风暴",
+    "601": "南方居民",
+    "602": "北方居民",
+    "701": "南方",
+    "702": "北方"
+  },
+  "briefings": {
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n海岸风暴\n<font:$local$\\fonts\\font12.fnt> \n作者：Proszak\n<font:$local$\\fonts\\font12.fnt>\n\n维京人在一座无人居住的小岛上登陆了。\n这片不大的土地物产丰富，猎物众多。\n然而，当维京人决定开拓这座岛时，却发现岛的另一端已经有另一个维京部族定居，而且对方压根就不打算合作。\n\n夺取这座岛，击败对手！\n\n\nwww.culturesnation.pl\n"
+  }
+}

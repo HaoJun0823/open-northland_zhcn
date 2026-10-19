@@ -62,6 +62,7 @@ function fakeLayout(): void {
     placements++;
     return { left: 0, top: 0, width: ROSTER_W, height: VIEW_ROWS * (WELL_H + GAP_PX) } as DOMRect;
   });
+  // The spy types the fake as getContext's last overload; the roster only asks for '2d'.
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
     () =>
       ({
@@ -72,7 +73,7 @@ function fakeLayout(): void {
         roundRect: () => undefined,
         clip: () => undefined,
         drawImage: (_source: unknown, x: number, y: number) => drawn.push([x, y]),
-      }) as unknown as CanvasRenderingContext2D,
+      }) as never,
   );
 }
 

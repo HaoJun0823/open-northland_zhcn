@@ -533,6 +533,15 @@ body.on-drag-scroll * {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+/* The catalog is a stacking context of its own: its cards are positioned, so they would otherwise paint
+   after the window's inset border, which lies over the composited scroll, and the compositor would give
+   each card a layer. The tabs stay over its top edge, where the chosen tab joins it. */
+.on-hud .on-catalog {
+  isolation: isolate;
+}
+.on-hud .on-window--construction .on-tabs {
+  z-index: 1;
+}
 .on-hud .on-bcard {
   position: relative;
   min-width: 0;

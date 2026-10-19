@@ -1,7 +1,7 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { OVERLAY_VERSION } from '@open-northland/data';
+import { MAP_OVERLAY_BASIS_PREFIX_LENGTH, OVERLAY_VERSION } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { deriveTraditionalMaps } from '../src/derive-cht.js';
 
@@ -39,7 +39,7 @@ describe('deriveTraditionalMaps', () => {
   it('writes a derived twin for a chs overlay without one and converts every value', async () => {
     await write('chs', `${DIGEST}.json`, overlay('fjord', '简体'));
     const result = await deriveTraditionalMaps(root, convert);
-    expect(result).toEqual({ written: [`${DIGEST}.json`], kept: [] });
+    expect(result).toEqual({ written: [`${DIGEST}.json`], kept: [], deleted: [], unreadable: [] });
     const twin = await read('cht', `${DIGEST}.json`);
     expect(twin.strings['0']).toBe('簡体');
     expect(twin.briefings.intro).toBe('<picture:a.pcx>\n簡体');
@@ -59,8 +59,38 @@ describe('deriveTraditionalMaps', () => {
     await write('chs', `${OTHER_DIGEST}.json`, overlay('cove', '简'));
     await write('cht', `${OTHER_DIGEST}.json`, overlay('cove', '手写'));
     const result = await deriveTraditionalMaps(root, convert);
-    expect(result).toEqual({ written: [`${DIGEST}.json`], kept: [`${OTHER_DIGEST}.json`] });
+    expect(result).toEqual({
+      written: [`${DIGEST}.json`],
+      kept: [`${OTHER_DIGEST}.json`],
+      deleted: [],
+      unreadable: [],
+    });
     expect((await read('cht', `${DIGEST}.json`)).strings['0']).toBe('簡');
     expect((await read('cht', `${OTHER_DIGEST}.json`)).strings['0']).toBe('手写');
+  });
+
+  it('deletes a derived twin whose chs file is gone or renamed to a variant, and keeps others', async () => {
+    const variant = `${DIGEST}.${'c'.repeat(MAP_OVERLAY_BASIS_PREFIX_LENGTH)}.json`;
+    await write('chs', variant, overlay('fjord', '简'));
+    await write('cht', `${DIGEST}.json`, overlay('fjord', '舊', 'chs'));
+    await write('cht', `${OTHER_DIGEST}.json`, overlay('cove', '手写'));
+    const result = await deriveTraditionalMaps(root, convert);
+    expect(result).toEqual({ written: [variant], kept: [], deleted: [`${DIGEST}.json`], unreadable: [] });
+    expect((await readdir(join(root, 'cht', 'maps'))).sort()).toEqual([variant, `${OTHER_DIGEST}.json`]);
+  });
+
+  it('reports a file that does not read as an overlay and leaves it and its twin alone', async () => {
+    await write('chs', `${DIGEST}.json`, overlay('fjord', '简'));
+    await write('cht', `${DIGEST}.json`, { broken: true });
+    await write('chs', `${OTHER_DIGEST}.json`, { version: OVERLAY_VERSION });
+    await write('cht', `${OTHER_DIGEST}.json`, overlay('cove', '舊', 'chs'));
+    const result = await deriveTraditionalMaps(root, convert);
+    expect(result).toMatchObject({ written: [], kept: [], deleted: [] });
+    expect(result.unreadable.map(({ file }) => file)).toEqual([
+      `cht/maps/${DIGEST}.json`,
+      `chs/maps/${OTHER_DIGEST}.json`,
+    ]);
+    expect(await read('cht', `${DIGEST}.json`)).toEqual({ broken: true });
+    expect((await read('cht', `${OTHER_DIGEST}.json`)).strings['0']).toBe('舊');
   });
 });

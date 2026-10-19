@@ -74,7 +74,7 @@ describe('first-start graphics settings', () => {
     expect(saved.raw()).not.toBeNull();
   });
 
-  it.each(['{}', 'not json', 'null', '42', '{"weather":false,"pixelArtScaler":"sharp"}'])(
+  it.each(['{}', 'not json', 'null', '42', '{"weather":false,"pixelArtScaler":"xbrz"}'])(
     'leaves an existing blob untouched without probing the GPU: %s',
     async (raw) => {
       const saved = storage(raw);
@@ -92,15 +92,15 @@ describe('first-start graphics settings', () => {
     boot(PERFORMANCE_TIER, saved);
     const factory = vi.fn(defaultSettings);
     await initializeStoredSettings(factory);
-    patchStoredSettings({ weather: false, pixelArtScaler: 'bilinear' });
+    patchStoredSettings({ weather: false, pixelArtScaler: 'superxbr' });
     await initializeStoredSettings(factory);
 
     expect(factory).toHaveBeenCalledTimes(1);
-    expect(readStoredSettings()).toMatchObject({ weather: false, pixelArtScaler: 'bilinear' });
+    expect(readStoredSettings()).toMatchObject({ weather: false, pixelArtScaler: 'superxbr' });
   });
 
   it('keeps document defaults without writing when a storage read is denied', async () => {
-    const saved = storage('{"weather":true,"pixelArtScaler":"sharp"}');
+    const saved = storage('{"weather":true,"pixelArtScaler":"xbrz"}');
     saved.getItem.mockImplementation(() => {
       throw new Error('read denied');
     });
@@ -109,7 +109,7 @@ describe('first-start graphics settings', () => {
     await initializeGraphicsSettings();
 
     expect(saved.setItem).not.toHaveBeenCalled();
-    expect(saved.raw()).toBe('{"weather":true,"pixelArtScaler":"sharp"}');
+    expect(saved.raw()).toBe('{"weather":true,"pixelArtScaler":"xbrz"}');
     expect(probe).toHaveBeenCalledTimes(1);
     expect(readStoredSettings()).toMatchObject({ enhancedSampling: false, weather: false });
   });
@@ -123,7 +123,7 @@ describe('first-start graphics settings', () => {
     await initializeGraphicsSettings();
     expect(readStoredSettings()).toMatchObject({ enhancedSampling: false, weather: false });
 
-    patchStoredSettings({ enhancedSampling: true, pixelArtScaler: 'sharp', weather: true });
+    patchStoredSettings({ enhancedSampling: true, pixelArtScaler: 'xbrz', weather: true });
     patchStoredSettings({ soundEnabled: false });
     await initializeGraphicsSettings();
 
@@ -131,7 +131,7 @@ describe('first-start graphics settings', () => {
     expect(probe).toHaveBeenCalledTimes(1);
     expect(readStoredSettings()).toMatchObject({
       enhancedSampling: true,
-      pixelArtScaler: 'sharp',
+      pixelArtScaler: 'xbrz',
       weather: true,
       softShadows: false,
       soundEnabled: false,
@@ -139,8 +139,8 @@ describe('first-start graphics settings', () => {
   });
 
   it.each([
-    { first: QUALITY_TIER, next: PERFORMANCE_TIER, enabled: true, pixelArtScaler: 'bilinear' as const },
-    { first: PERFORMANCE_TIER, next: QUALITY_TIER, enabled: false, pixelArtScaler: 'sharp' as const },
+    { first: QUALITY_TIER, next: PERFORMANCE_TIER, enabled: true, pixelArtScaler: 'superxbr' as const },
+    { first: PERFORMANCE_TIER, next: QUALITY_TIER, enabled: false, pixelArtScaler: 'xbrz' as const },
   ])('preserves manual choices on a new document from tier $first to $next', async (scenario) => {
     const saved = storage();
     boot(scenario.first, saved);
@@ -201,7 +201,7 @@ describe('first-start graphics settings', () => {
     const initializing = initializeGraphicsSettings();
     expect(saved.setItem).not.toHaveBeenCalled();
 
-    const chosen = patchStoredSettings({ enhancedSampling: true, pixelArtScaler: 'sharp', weather: true });
+    const chosen = patchStoredSettings({ enhancedSampling: true, pixelArtScaler: 'xbrz', weather: true });
     const raw = saved.raw();
     release();
     await initializing;
@@ -219,7 +219,7 @@ describe('first-start graphics settings', () => {
     const probe = boot(PERFORMANCE_TIER, saved);
     const release = holdDetection(probe, PERFORMANCE_TIER);
     const initializing = initializeGraphicsSettings();
-    patchStoredSettings({ enhancedSampling: true, pixelArtScaler: 'bilinear', weather: true });
+    patchStoredSettings({ enhancedSampling: true, pixelArtScaler: 'superxbr', weather: true });
     const chosen = patchStoredSettings({ soundEnabled: false });
     release();
     await initializing;
@@ -234,7 +234,7 @@ describe('first-start graphics settings', () => {
     const probe = boot(QUALITY_TIER, saved);
     const release = holdDetection(probe, QUALITY_TIER);
     const initializing = initializeGraphicsSettings();
-    const raw = '{"enhancedSampling":false,"pixelArtScaler":"sharp","weather":false,"renderScale":0.75}';
+    const raw = '{"enhancedSampling":false,"pixelArtScaler":"xbrz","weather":false,"renderScale":0.75}';
     saved.setItem('open-northland.settings', raw);
     release();
     await initializing;
@@ -243,7 +243,7 @@ describe('first-start graphics settings', () => {
     expect(saved.setItem).toHaveBeenCalledTimes(1);
     expect(readStoredSettings()).toMatchObject({
       enhancedSampling: false,
-      pixelArtScaler: 'sharp',
+      pixelArtScaler: 'xbrz',
       weather: false,
       renderScale: 0.75,
     });

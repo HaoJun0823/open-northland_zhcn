@@ -45,7 +45,7 @@ describe('parseStoredSettings', () => {
       postFxEnabled: false,
       spriteSmoothing: false,
       enhancedSampling: false,
-      pixelArtScaler: 'sharp',
+      pixelArtScaler: 'xbrz',
       softShadows: true,
       enhancedWater: false,
       environmentMotion: false,

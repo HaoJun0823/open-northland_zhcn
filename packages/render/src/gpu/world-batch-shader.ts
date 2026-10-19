@@ -165,11 +165,11 @@ flat in float vBlood;
 flat in vec4 vSplashes;
 out vec4 finalColor;
 uniform sampler2D uTextures[${maxTextures}];
-// 0 off (Pixi's default sampling) / 1 sampler filter + frame-clamped minification / 2 sharp / 3 xbr /
-// 4 prescaled: plain pages arrive at twice their texels and magnify sharp, paletted ones take xbr
+// 0 off (Pixi's default sampling) / 3 xbr / 4 prescaled: plain pages arrive at twice their texels and
+// magnify sharp, paletted ones take xbr
 const float WORLD_MAGNIFY = ${mode}.0;
 const float MAGNIFY_XBR = ${WORLD_MAGNIFY_MODES.xbr}.0;
-const float MAGNIFY_PRESCALED = ${WORLD_MAGNIFY_MODES.prescaled}.0;${prescaled ? TWIN_SLOTS_GLSL : ''}
+${prescaled ? TWIN_SLOTS_GLSL : ''}
 const int WORLD_FLAG_MAGNIFY = ${WORLD_FLAG_MAGNIFY};
 const int WORLD_FLAG_SHADOW = ${WORLD_FLAG_SHADOW};
 const int WORLD_FLAG_PALETTED = ${WORLD_FLAG_PALETTED};
@@ -308,7 +308,7 @@ void main(void) {
   vec2 low = vFrame.xy + 0.5 / texSize;
   vec2 high = vFrame.zw - 0.5 / texSize;
   vec4 outColor;
-  if (!filtered || (!paletted && magnified && WORLD_MAGNIFY < 1.5) || (minified && single)) {
+  if (!filtered || (minified && single)) {
     vec4 texel = sampleTexture(minified ? clamp(vUV, low, high) : vUV, uvDx, uvDy);
     outColor = paletted ? vec4(paletteColour(texel.r, lutRow) * texel.a, texel.a) : texel;
   } else if (minified) {
@@ -318,11 +318,11 @@ void main(void) {
                      + sampleTexture(clamp(vUV + vec2(-footprint.x, footprint.y), low, high), uvDx, uvDy)
                      + sampleTexture(clamp(vUV + footprint, low, high), uvDx, uvDy));
   } else {
-    // xBR's window, or one 2x2 at the sample point for sharp and for a paletted element with
-    // magnification off for its page size, else four 2x2 spread over the minified footprint. Only
+    // xBR's window, or one 2x2 at the sample point for a prescaled page's sharp magnification and for
+    // a paletted element at a texel per pixel, else four 2x2 spread over the minified footprint. Only
     // the taps a path blends are gathered.
-    bool xbr = magnified && (WORLD_MAGNIFY == MAGNIFY_XBR || (WORLD_MAGNIFY == MAGNIFY_PRESCALED && paletted));
-    bool sharp = magnified && WORLD_MAGNIFY > 1.5 && !xbr;
+    bool xbr = magnified && (WORLD_MAGNIFY == MAGNIFY_XBR || paletted);
+    bool sharp = magnified && !xbr;
     vec2 p0 = (vUV - footprint) * texSize;
     vec2 p1 = (vUV + vec2(footprint.x, -footprint.y)) * texSize;
     vec2 p2 = (vUV + vec2(-footprint.x, footprint.y)) * texSize;

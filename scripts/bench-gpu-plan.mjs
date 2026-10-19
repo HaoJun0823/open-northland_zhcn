@@ -39,7 +39,7 @@ export const RENDER_SCALES = [1.5, 2];
 const DEFAULT_RENDER_SCALE = 1;
 
 /** The Graphics menu's world magnifications: `off` is enhanced sampling disabled, the rest its scalers. */
-export const MAGNIFIERS = ['off', 'bilinear', 'sharp', 'xbr'];
+export const MAGNIFIERS = ['off', 'xbr', 'xbrz', 'superxbr', 'mmpx'];
 const DEFAULT_MAGNIFIER = 'xbr';
 
 const PAUSED = 0;

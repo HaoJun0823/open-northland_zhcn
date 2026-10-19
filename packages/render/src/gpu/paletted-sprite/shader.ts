@@ -1,6 +1,5 @@
 import { MeshGeometry, Shader, type TextureSource } from 'pixi.js';
 import { PIXEL_ART_MAGNIFY_GLSL } from '../pixel-art-magnify.js';
-import type { PixelArtScaler } from '../pixel-art-registry.js';
 import type { GlslProgramSource } from '../program-source.js';
 
 const VERTEX = `#version 300 es
@@ -41,7 +40,7 @@ uniform vec4 uPlacement;    // .w = player-colour row to read (0 .. N-1)
 uniform vec2 uColorKey;     // .x > 0.5: key magenta; .y: near-black mode (0 off / 1 full band / 2 round corners)
 uniform vec4 uFrameUV;      // the current frame's atlas-UV box (min.xy, max.zw) - for the 'round' corner key
 uniform vec4 uSilhouette;   // .rgb: flat override colour, .w > 0.5: silhouette mode on (see the setter)
-uniform vec2 uSampling;     // .x: world magnification mode (0 nearest / 1 bilinear / 2 sharp / 3 xbr)
+uniform vec2 uSampling;     // .x: 0 nearest / 1 xbr
 uniform vec2 uSelection;   // .x: lift towards white, 0..1
 uniform vec4 uTint;         // .rgb multiplies the LUT colour; white draws it straight
 uniform vec2 uAtlasSize;    // the indexed atlas's size in px
@@ -115,9 +114,9 @@ void main(void) {
     atlasSize = vec2(textureSize(uTexture, 0));
     vec2 p = vUV * atlasSize;
     float texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
-    if (texelsPerPixel < 1.0 && uSampling.x > 1.5) {
-      // Magnified: the mode's own edge treatment. Both converge on bilinear as texels reach pixel size.
-      finalColor = uSampling.x > 2.5 ? magnifyXbr(p, texelsPerPixel) : magnifySharp(p, texelsPerPixel);
+    if (texelsPerPixel < 1.0) {
+      // Magnified: xBR's edge treatment, which converges on bilinear as texels reach pixel size.
+      finalColor = magnifyXbr(p, texelsPerPixel);
       return;
     }
     vec2 footprint = max(fwidth(vUV) - 1.0 / atlasSize, vec2(0.0)) * 0.25;
@@ -170,32 +169,15 @@ void main(void) {
 }`;
 
 /**
- * How a world sprite samples its indexed atlas: `nearest` is the exact original; the others resolve
- * palette colours before blending. `bilinear` softens everything; `sharp` keeps whole texels and
- * anti-aliases only their boundaries; `xbr` additionally redraws diagonal edges as straight cuts.
+ * How a world sprite samples its indexed atlas: `nearest` is the exact original; `xbr` resolves palette
+ * colours before blending and redraws diagonal edges as straight cuts. Every art filter choice draws an
+ * indexed atlas with `xbr`, since a prescaled scaler cannot redraw palette indices.
  */
-export type PalettedSampling = 'nearest' | 'bilinear' | 'sharp' | 'xbr';
+export type PalettedSampling = 'nearest' | 'xbr';
 export const PALETTED_SAMPLING_MODES: Readonly<Record<PalettedSampling, number>> = {
   nearest: 0,
-  bilinear: 1,
-  sharp: 2,
-  xbr: 3,
+  xbr: 1,
 };
-
-/** The sampling a world scaler gives an indexed atlas: a prescaled scaler cannot redraw palette indices,
- *  so its paletted sprites keep xBR. */
-const PALETTED_SAMPLING_OF: Readonly<Record<PixelArtScaler, PalettedSampling>> = {
-  bilinear: 'bilinear',
-  sharp: 'sharp',
-  xbr: 'xbr',
-  xbrz: 'xbr',
-  superxbr: 'xbr',
-  mmpx: 'xbr',
-};
-
-export function palettedSamplingOf(scaler: PixelArtScaler): PalettedSampling {
-  return PALETTED_SAMPLING_OF[scaler];
-}
 
 /** A unit quad's index buffer; positions and UVs are rewritten per frame by the sprite's `setFrame`. */
 const QUAD_INDICES = new Uint32Array([0, 1, 2, 0, 2, 3]);

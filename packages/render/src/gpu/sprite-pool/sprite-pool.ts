@@ -28,7 +28,6 @@ import type { WindSway } from '../../data/weather/climate.js';
 import { BuildingDamage, type FallenBody } from '../building-damage/building-damage.js';
 import { DepthSortedLayer, drawLayerOf } from '../depth-sorted-layer.js';
 import { PalettedQuad } from '../paletted-sprite/index.js';
-import type { PixelArtScaler } from '../pixel-art-registry.js';
 import { PLOT_BOUNDS, type PlanRoadTextures } from '../plan-road.js';
 import type { PlanStakeTextures } from '../plan-stake.js';
 import type { SelectionStyle } from '../selection-style.js';
@@ -88,8 +87,6 @@ export interface PoolFrame {
   readonly selectionStyle?: SelectionStyle;
   readonly selectionTime?: number;
   readonly enhancedSampling?: boolean;
-  /** How original pixel art magnifies under enhanced sampling; the registry default when absent. */
-  readonly pixelArtScaler?: PixelArtScaler;
   readonly environmentMotion?: boolean;
   /** The weather's wind, bending swaying vegetation and filling sails while `environmentMotion` is on;
    *  the same object while it holds still. Absent is still air. */

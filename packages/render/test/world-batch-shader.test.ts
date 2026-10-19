@@ -10,10 +10,8 @@ const xbr = worldBatchFragment(SLOTS, WORLD_MAGNIFY_MODES.xbr, null);
 describe('world batch prescaled program', () => {
   it('magnifies a plain page through the sharp path and a paletted one through xBR', () => {
     expect(prescaled).toContain(`const float WORLD_MAGNIFY = ${WORLD_MAGNIFY_MODES.prescaled}.0;`);
-    expect(prescaled).toContain(
-      'bool xbr = magnified && (WORLD_MAGNIFY == MAGNIFY_XBR || (WORLD_MAGNIFY == MAGNIFY_PRESCALED && paletted));',
-    );
-    expect(prescaled).toContain('bool sharp = magnified && WORLD_MAGNIFY > 1.5 && !xbr;');
+    expect(prescaled).toContain('bool xbr = magnified && (WORLD_MAGNIFY == MAGNIFY_XBR || paletted);');
+    expect(prescaled).toContain('bool sharp = magnified && !xbr;');
   });
 
   it('reads the twin slots and keeps a splash at its page texel scale, in that program alone', () => {

@@ -32,9 +32,9 @@ const LIVE_SETTINGS: readonly LiveSetting[] = [
     applied: { ...enhancementsOf(defaultSettings()), softShadows: false },
   },
   {
-    patch: { enhancedSampling: true, pixelArtScaler: 'sharp' },
+    patch: { enhancedSampling: true, pixelArtScaler: 'xbrz' },
     seam: 'setGraphicsEnhancements',
-    applied: { ...enhancementsOf(defaultSettings()), pixelArtScaler: 'sharp' },
+    applied: { ...enhancementsOf(defaultSettings()), pixelArtScaler: 'xbrz' },
   },
   { patch: { weather: false }, seam: 'setWeatherEnabled', applied: false },
   { patch: { groupNumbers: true }, seam: 'setGroupNumbersShown', applied: true },

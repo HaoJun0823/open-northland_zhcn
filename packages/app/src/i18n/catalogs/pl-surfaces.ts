@@ -217,14 +217,12 @@ export const plSurfaces = {
       worldHeading: 'Świat gry',
       pixelArtFilter: 'Filtr oryginalnej grafiki',
       pixelArtFilterOff: 'Wyłączony',
-      pixelArtFilterSoft: 'Miękki',
-      pixelArtFilterSharp: 'Ostry',
       pixelArtFilterXbr: 'xBR',
       pixelArtFilterXbrz: 'xBRZ',
       pixelArtFilterSuperXbr: 'Super-xBR',
       pixelArtFilterMmpx: 'MMPX',
       pixelArtFilterTip:
-        'Sposób powiększania oryginalnej grafiki pikselowej. xBR prowadzi skośne krawędzie jako gładkie linie, xBRZ, Super-xBR i MMPX raz przerysowują grafikę w podwójnej rozdzielczości i pokazują ją ostro, a postacie zostają przy xBR (Super-xBR łagodniej wygładza krawędzie, MMPX zachowuje oryginalne kolory), Ostry zostawia całe piksele i wygładza tylko ich granice, Miękki rozmywa obraz. Każdy filtr usuwa też skoki kamery i postaci o cały piksel, dokładniej filtruje teren i poprawia detal budynków przy oddaleniu. Wyłączony rysuje grafikę bez filtra, w pełnych pikselach.',
+        'Sposób powiększania oryginalnej grafiki pikselowej. xBR prowadzi skośne krawędzie jako gładkie linie, xBRZ, Super-xBR i MMPX raz przerysowują grafikę w podwójnej rozdzielczości i pokazują ją ostro, a postacie zostają przy xBR (Super-xBR łagodniej wygładza krawędzie, MMPX zachowuje oryginalne kolory). Każdy filtr usuwa też skoki kamery i postaci o cały piksel, dokładniej filtruje teren i poprawia detal budynków przy oddaleniu. Wyłączony rysuje grafikę bez filtra, w pełnych pikselach.',
       softShadows: 'Ulepszone cienie',
       softShadowsTip:
         'Pogłębia i zmiękcza cienie budynków, drzew i dekoracji. Osadnicy i zwierzęta rzucają cień własnej sylwetki, pochylony zgodnie ze światłem budynków. Po wyłączeniu zostają cienie oryginału.',

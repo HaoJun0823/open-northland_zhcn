@@ -77,10 +77,10 @@ test('settings switch every enhancement together and turn the FPS counter on', (
   for (const key of ENHANCEMENT_SETTINGS) assert.equal(offSettings[key], false);
   assert.equal(offSettings.pixelArtScaler, undefined);
   assert.equal(offSettings.fpsCounter, true);
-  const sharp = gpuScenarios().find((entry) => entry.id === 'magnify-sharp-z2');
-  const sharpSettings = scenarioSettings(sharp);
-  for (const key of ENHANCEMENT_SETTINGS) assert.equal(sharpSettings[key], true);
-  assert.equal(sharpSettings.pixelArtScaler, 'sharp');
+  const prescaled = gpuScenarios().find((entry) => entry.id === 'magnify-xbrz-z2');
+  const prescaledSettings = scenarioSettings(prescaled);
+  for (const key of ENHANCEMENT_SETTINGS) assert.equal(prescaledSettings[key], true);
+  assert.equal(prescaledSettings.pixelArtScaler, 'xbrz');
   const unmagnified = scenarioSettings(gpuScenarios().find((entry) => entry.id === 'magnify-off-z1'));
   assert.equal(unmagnified.enhancedSampling, false);
   assert.equal(unmagnified.softShadows, true);

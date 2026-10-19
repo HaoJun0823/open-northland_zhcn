@@ -56,7 +56,6 @@ void main() {
   float footprint = max(fwidth(p.x), fwidth(p.y));
   vec4 colour;
   if (footprint < 1.0 && uDismantle.y > 2.5) colour = magnifyXbr(p, footprint);
-  else if (footprint < 1.0 && uDismantle.y > 1.5) colour = magnifySharp(p, footprint);
   else if (uDismantle.y < 0.5) colour = dismantleTexel(ivec2(floor(p)));
   else {
     vec2 d = max(fwidth(p) - 1.0, vec2(0.0)) * 0.25;

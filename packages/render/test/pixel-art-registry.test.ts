@@ -49,11 +49,7 @@ describe('pixel-art registry', () => {
   it('maps off and each scaler onto the compiled shader mode', () => {
     expect(pixelArtMagnifyMode()).toBe(0);
     setPixelArtMagnification('xbr');
-    expect(pixelArtMagnifyMode()).toBe(3);
-    setPixelArtMagnification('sharp');
-    expect(pixelArtMagnifyMode()).toBe(2);
-    setPixelArtMagnification('bilinear');
-    expect(pixelArtMagnifyMode()).toBe(1);
+    expect(pixelArtMagnifyMode()).toBe(WORLD_MAGNIFY_MODES.xbr);
     setPixelArtMagnification('off');
     expect(pixelArtMagnifyMode()).toBe(0);
   });

@@ -493,7 +493,6 @@ export class WorldRenderer {
       alpha,
       snapResolution,
       enhancedSampling: this.enhancements.enhancedSampling,
-      pixelArtScaler: this.enhancements.pixelArtScaler,
       environmentMotion: this.enhancements.environmentMotion,
       buildingDamage: this.enhancements.buildingDamage,
       wind: this.wind,

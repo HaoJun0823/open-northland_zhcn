@@ -599,13 +599,13 @@ describe('world batcher shader selection', () => {
     const wider = new WorldBatcher({ maxTextures: PAGES_AND_LUT + 1 });
     const plain = batcher.shader;
     expect(batcher.shader).toBe(plain);
-    setPixelArtMagnification('sharp');
-    const sharp = batcher.shader;
-    expect(sharp).not.toBe(plain);
+    setPixelArtMagnification('xbrz');
+    const prescaled = batcher.shader;
+    expect(prescaled).not.toBe(plain);
     const style = { ...DEFAULT_SHADOW_STYLE };
     setWorldShadowStyle(style);
     const shaded = batcher.shader;
-    expect(shaded).not.toBe(sharp);
+    expect(shaded).not.toBe(prescaled);
     style.alphaGain += 0.25;
     const gain = batcher.shader;
     expect(gain).not.toBe(shaded);
@@ -618,7 +618,7 @@ describe('world batcher shader selection', () => {
     expect(wider.shader).not.toBe(tinted);
     expect(batcher.shader).toBe(tinted);
     setWorldShadowStyle(null);
-    expect(batcher.shader).toBe(sharp);
+    expect(batcher.shader).toBe(prescaled);
     setPixelArtMagnification('off');
     expect(batcher.shader).toBe(plain);
     batcher.destroy();

@@ -112,8 +112,6 @@ export function graphicsSettingsRows(
   smoothing.dataset.settingsFocus = 'sprite-smoothing';
   const filterLabels: Readonly<Record<FilterChoice, string>> = {
     off: text.pixelArtFilterOff,
-    bilinear: text.pixelArtFilterSoft,
-    sharp: text.pixelArtFilterSharp,
     xbr: text.pixelArtFilterXbr,
     xbrz: text.pixelArtFilterXbrz,
     superxbr: text.pixelArtFilterSuperXbr,

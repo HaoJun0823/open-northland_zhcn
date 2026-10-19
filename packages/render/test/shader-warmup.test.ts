@@ -123,8 +123,8 @@ const namesOf = (programs: readonly { readonly name: string }[]): string[] =>
 
 describe('boot shader programs', () => {
   it('selects one batch variant for the device limit and settings beside the fixed programs', () => {
-    const names = namesOf(bootShaderPrograms(16, { ...EVERY_EFFECT, magnification: 'sharp', shadow: null }));
-    expect(names[0]).toBe('world-batch/textures16/sharp/no-shadow');
+    const names = namesOf(bootShaderPrograms(16, { ...EVERY_EFFECT, magnification: 'xbr', shadow: null }));
+    expect(names[0]).toBe('world-batch/textures16/xbr/no-shadow');
     expect(names.filter((name) => name.startsWith('world-batch/'))).toHaveLength(1);
     expect(names).toContain('shaded-terrain');
     expect(names).toContain('decor-shadow');

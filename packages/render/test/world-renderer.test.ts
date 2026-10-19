@@ -172,7 +172,7 @@ describe('WorldRenderer scene graph', () => {
     renderer.setGraphicsEnhancements({
       ...BASELINE_ENHANCEMENTS,
       enhancedSampling: true,
-      pixelArtScaler: 'sharp',
+      pixelArtScaler: 'xbrz',
     });
     expect(water.uniforms.uEnhancedSampling).toBe(1);
     expect(worldShadowStyle()).toBeNull();

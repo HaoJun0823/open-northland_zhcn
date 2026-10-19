@@ -5,8 +5,7 @@ import { cameraScreenX, cameraScreenY, snapToDevicePixels } from '../../data/pro
 import type { DrawItem } from '../../data/scene/index.js';
 import { type AtlasFrame, buildTimeThreshold, type SpriteKind } from '../../data/sprites/index.js';
 import { type BloodSurface, bloodSurface, detachBloodSurface, setBloodless } from '../blood-surface.js';
-import { PalettedQuad, PalettedSprite, palettedSamplingOf } from '../paletted-sprite/index.js';
-import { DEFAULT_PIXEL_ART_SCALER } from '../pixel-art-registry.js';
+import { PalettedQuad, PalettedSprite } from '../paletted-sprite/index.js';
 import { mintPlanRoad, PLOT_BOUNDS, type PlanRoadTextures } from '../plan-road.js';
 import { mintPlanStake, type PlanStakeTextures, STAKE_BOUNDS } from '../plan-stake.js';
 import { type ShadowStyle, setCastShadowTransform } from '../shadow-style.js';
@@ -46,14 +45,7 @@ const BLOODLESS_KINDS: ReadonlySet<DrawItem['kind']> = new Set<DrawItem['kind']>
 
 export type BindFrame = Pick<
   PoolFrame,
-  | 'camera'
-  | 'screenW'
-  | 'screenH'
-  | 'highlight'
-  | 'snapResolution'
-  | 'enhancedSampling'
-  | 'pixelArtScaler'
-  | 'shadowStyle'
+  'camera' | 'screenW' | 'screenH' | 'highlight' | 'snapResolution' | 'enhancedSampling' | 'shadowStyle'
 >;
 
 /**
@@ -517,10 +509,7 @@ export class LayerBinder {
     spr.artScale = layer.scale;
     spr.artDx = layer.dx ?? 0;
     spr.artDy = layer.dy ?? 0;
-    spr.sampling =
-      frame.enhancedSampling === true
-        ? palettedSamplingOf(frame.pixelArtScaler ?? DEFAULT_PIXEL_ART_SCALER)
-        : 'nearest';
+    spr.sampling = frame.enhancedSampling === true ? 'xbr' : 'nearest';
     spr.player = lutRow;
     spr.shear = layer.shear ?? 0;
     spr.paletteTint = tint;

@@ -23,7 +23,11 @@ describe('graphics enhancement choices', () => {
     expect(enhancementsOf(parseStoredSettings('{"buildingDamage":false}')).buildingDamage).toBe(false);
   });
 
-  it('keeps a known pixel-art filter', () => {
-    expect(parseStoredSettings('{"pixelArtScaler":"sharp"}').pixelArtScaler).toBe('sharp');
+  it('keeps a known pixel-art filter and reads a retired one as the default', () => {
+    expect(parseStoredSettings('{"pixelArtScaler":"xbrz"}').pixelArtScaler).toBe('xbrz');
+    for (const retired of ['sharp', 'bilinear'])
+      expect(parseStoredSettings(`{"pixelArtScaler":"${retired}"}`).pixelArtScaler).toBe(
+        defaultSettings().pixelArtScaler,
+      );
   });
 });

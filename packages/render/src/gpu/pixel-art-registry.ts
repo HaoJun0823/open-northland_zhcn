@@ -2,12 +2,12 @@ import type { Texture, TextureSource } from 'pixi.js';
 import type { ShadowStyle } from './shadow-style.js';
 
 /**
- * How original pixel art magnifies under enhanced sampling; `bilinear` is the sampler's own filter. The
- * shader scalers run per fragment at any zoom. A prescaled scaler redraws every plain atlas page at
- * twice its size once, on the GPU, and the world batch samples that page through the sharp path; a
- * paletted character keeps xBR there, since an index image cannot be rescaled.
+ * How original pixel art magnifies under enhanced sampling. xBR runs per fragment at any zoom. A
+ * prescaled scaler redraws the plain atlas pages a view draws at twice their size, on the GPU, and the
+ * world batch samples those through the sharp path; a paletted character keeps xBR there, since an
+ * index image cannot be rescaled.
  */
-const SHADER_SCALERS = ['bilinear', 'sharp', 'xbr'] as const;
+const SHADER_SCALERS = ['xbr'] as const;
 export const PRESCALED_SCALERS = ['xbrz', 'superxbr', 'mmpx'] as const;
 export const PIXEL_ART_SCALERS = [...SHADER_SCALERS, ...PRESCALED_SCALERS] as const;
 export type PixelArtScaler = (typeof PIXEL_ART_SCALERS)[number];
@@ -27,14 +27,13 @@ export function prescaledScalerOf(scaler: PixelArtScaler): PrescaledScaler | nul
 /** `off` is enhanced sampling disabled: world sprites sample exactly as Pixi's default batcher. */
 export type WorldMagnification = PixelArtScaler | 'off';
 
-/** The world batch program's compile-time modes. Every prescaled scaler shares one: the program reads
- *  whichever page it is handed, and only the prescaler differs. */
-const WORLD_MAGNIFY_MODE_NAMES = ['off', 'bilinear', 'sharp', 'xbr', 'prescaled'] as const;
+/** The world batch program's compile-time modes, which the dismantle overlay's sampling uniform shares
+ *  (its 1 is a linear page drawn without a magnifier). Every prescaled scaler shares one mode: the
+ *  program reads whichever page it is handed, and only the prescaler differs. */
+const WORLD_MAGNIFY_MODE_NAMES = ['off', 'xbr', 'prescaled'] as const;
 export type WorldMagnifyModeName = (typeof WORLD_MAGNIFY_MODE_NAMES)[number];
 export const WORLD_MAGNIFY_MODES: Readonly<Record<WorldMagnifyModeName, number>> = {
   off: 0,
-  bilinear: 1,
-  sharp: 2,
   xbr: 3,
   prescaled: 4,
 };
@@ -50,8 +49,6 @@ export const WORLD_MAGNIFY_MODE_NUMBERS: readonly number[] = WORLD_MAGNIFY_MODE_
 );
 const MAGNIFY_MODES: Readonly<Record<WorldMagnification, number>> = {
   off: WORLD_MAGNIFY_MODES.off,
-  bilinear: WORLD_MAGNIFY_MODES.bilinear,
-  sharp: WORLD_MAGNIFY_MODES.sharp,
   xbr: WORLD_MAGNIFY_MODES.xbr,
   xbrz: WORLD_MAGNIFY_MODES.prescaled,
   superxbr: WORLD_MAGNIFY_MODES.prescaled,

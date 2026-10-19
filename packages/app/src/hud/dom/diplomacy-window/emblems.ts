@@ -4,9 +4,10 @@ import { JOB_SOLDIER_UNARMED } from '../../../catalog/jobs.js';
 import type { FigureFrames } from '../../figures/figure-frames.js';
 import { growFigureBounds } from '../../figures/vehicle-fit.js';
 import type { BuildingThumbs } from '../building-thumb.js';
+import { createStaticPictures, showPicture } from '../static-picture.js';
 
 export type NationEmblemPainter = (
-  canvas: HTMLCanvasElement,
+  image: HTMLImageElement,
   tribe: number,
   player: number,
   size: number,
@@ -21,9 +22,10 @@ export function createNationEmblems(
   headquarters: number | undefined,
   colourOf: ((player: number) => number) | undefined,
 ): NationEmblemPainter {
-  return (canvas, tribe, player, size) => {
+  const pictures = createStaticPictures();
+  return (image, tribe, player, size) => {
     if (isCivilizationTribe(tribe))
-      return headquarters !== undefined && thumbs.paint(canvas, headquarters, size, tribe);
+      return headquarters !== undefined && thumbs.paint(image, headquarters, size, tribe);
     // An unloaded tribe must not silently acquire the base civilization's character.
     if (
       sheet?.characters?.byTribe?.[tribe] === undefined &&
@@ -47,19 +49,20 @@ export function createNationEmblems(
     const bounds = growFigureBounds(null, layers);
     if (bounds === null) return false;
     const pixels = size * 2;
-    canvas.width = pixels;
-    canvas.height = pixels;
-    const ctx = canvas.getContext('2d');
-    if (ctx === null) return false;
-    const zoom = (pixels - 4) / Math.max(1, bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
-    frames.draw(
-      ctx,
-      layers,
-      item,
-      zoom,
-      (pixels - (bounds.maxX - bounds.minX) * zoom) / 2 - bounds.minX * zoom,
-      (pixels - (bounds.maxY - bounds.minY) * zoom) / 2 - bounds.minY * zoom,
-    );
+    const picture = pictures.picture(`${tribe}:${item.player}:${pixels}`, pixels, pixels, (ctx) => {
+      const zoom = (pixels - 4) / Math.max(1, bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+      frames.draw(
+        ctx,
+        layers,
+        item,
+        zoom,
+        (pixels - (bounds.maxX - bounds.minX) * zoom) / 2 - bounds.minX * zoom,
+        (pixels - (bounds.maxY - bounds.minY) * zoom) / 2 - bounds.minY * zoom,
+      );
+      return true;
+    });
+    if (picture === null) return false;
+    showPicture(image, picture);
     return true;
   };
 }

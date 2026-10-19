@@ -8,6 +8,7 @@ import { createNoticeArt } from '../notice-art.js';
 import { button, element, setAttribute, setClass, setHidden, setStyleVar, write } from '../parts/dom.js';
 import { createSection } from '../parts/section.js';
 import { attachTipLayer, type TipChip } from '../parts/tip-layer.js';
+import { pictureSlot } from '../static-picture.js';
 import { centralWindowPlacer, createHudWindow } from '../window.js';
 import { createOffers, createTributes } from './details.js';
 import type { NationEmblemPainter } from './emblems.js';
@@ -46,7 +47,7 @@ interface NationView {
   readonly stance: HTMLElement;
   readonly tribute: HTMLElement;
   readonly emblem: HTMLElement;
-  readonly canvas: HTMLCanvasElement;
+  readonly picture: HTMLImageElement;
   identity: string;
 }
 
@@ -72,9 +73,8 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
   const detail = element('section', 'on-dip-detail');
   const identity = element('div', 'on-dip-identity');
   const portrait = element('span', 'on-dip-emblem', GLYPH.banner);
-  const portraitCanvas = element('canvas', '');
-  portraitCanvas.setAttribute('aria-hidden', 'true');
-  portrait.append(portraitCanvas);
+  const portraitPicture = pictureSlot();
+  portrait.append(portraitPicture);
   const title = element('h3', '');
   const tribe = element('p', 'on-dip-note');
   const naming = element('div', '');
@@ -123,15 +123,14 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
     STANCES.map((state) => {
       const control = button('on-dip-stance');
       const art = element('span', 'on-dip-stance__art', GLYPH[STANCE_ART[state].glyph]);
-      const canvas = element('canvas', '');
-      canvas.setAttribute('aria-hidden', 'true');
+      const picture = pictureSlot();
       const fallback = art.firstChild;
       if (
-        stanceArt?.paint(canvas, STANCE_ART[state].glyph, STANCE_ART[state].tint, () => {
+        stanceArt?.paint(picture, STANCE_ART[state].glyph, STANCE_ART[state].tint, () => {
           if (fallback !== null) art.replaceChildren(fallback);
         })
       )
-        art.replaceChildren(canvas);
+        art.replaceChildren(picture);
       control.append(art);
       const label = element('span', '');
       write(label, copy.stances[state]);
@@ -163,11 +162,11 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
 
   function paintEmblem(
     node: HTMLElement,
-    canvas: HTMLCanvasElement,
+    picture: HTMLImageElement,
     nation: DiplomacyPanelRow,
     size: number,
   ): void {
-    const drawn = nation.tribe !== undefined && deps.paintEmblem(canvas, nation.tribe, nation.player, size);
+    const drawn = nation.tribe !== undefined && deps.paintEmblem(picture, nation.tribe, nation.player, size);
     setClass(node, 'on-dip-emblem--drawn', drawn);
     setStyleVar(node, '--nation-colour', `#${nation.colour.toString(16).padStart(6, '0')}`);
   }
@@ -176,9 +175,8 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
     const control = button('on-dip-nation');
     control.dataset.player = String(nation.player);
     const emblem = element('span', 'on-dip-emblem', GLYPH.banner);
-    const canvas = element('canvas', '');
-    canvas.setAttribute('aria-hidden', 'true');
-    emblem.append(canvas);
+    const picture = pictureSlot();
+    emblem.append(picture);
     const name = element('strong', '');
     const stance = element('small', '');
     const tribute = element('small', 'on-dip-nation__tribute');
@@ -190,7 +188,7 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
       deps.cue('confirm');
       refresh();
     });
-    return { button: control, name, stance, tribute, emblem, canvas, identity: '' };
+    return { button: control, name, stance, tribute, emblem, picture, identity: '' };
   }
 
   function refresh(): void {
@@ -228,7 +226,7 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
       const identity = `${nation.tribe}:${nation.colour}`;
       if (view.identity !== identity) {
         view.identity = identity;
-        paintEmblem(view.emblem, view.canvas, nation, 52);
+        paintEmblem(view.emblem, view.picture, nation, 52);
       }
     }
     row = rows.find((r) => r.player === selected);
@@ -242,7 +240,7 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
     const emblemKey = `${row.player}:${row.tribe}:${row.colour}`;
     if (portraitKey !== emblemKey) {
       portraitKey = emblemKey;
-      paintEmblem(portrait, portraitCanvas, row, 64);
+      paintEmblem(portrait, portraitPicture, row, 64);
     }
     write(theirState, copy.stances[row.towardYou]);
     setAttribute(theirState, 'data-stance', row.towardYou);

@@ -1,10 +1,11 @@
 import { isDrawableResource, lookupFrame, type SpriteSheet } from '@open-northland/render';
 import { boundBuildingRef } from '../../content/building-gfx/index.js';
+import { createStaticPictures, showPicture } from './static-picture.js';
 
 /**
  * A building's picture for a card: its finished body cut from the sheet's already-loaded building pages, the
- * same frame the map draws for the seat's tribe, so construction shows the actual game building. Painted into
- * the card's own canvas, so it needs no GPU and no second fetch.
+ * same frame the map draws for the seat's tribe, so construction shows the actual game building. Drawn
+ * once per type, tribe and size into a static picture (static-picture.ts), so it needs no second fetch.
  */
 
 /** Backing pixels per design px, so the thumb stays crisp on a scaled plane. */
@@ -34,15 +35,16 @@ export function thumbFit(frame: { readonly width: number; readonly height: numbe
 }
 
 export interface BuildingThumbs {
-  /** Paint the type's body into `canvas` at `boxPx` design px, as `tribe` builds it (the seat's own
-   *  by default); false leaves the canvas untouched (no sheet, no bound frame, or a GPU-only page) and
-   *  the card shows its glyph instead. */
-  paint(canvas: HTMLCanvasElement, typeId: number, boxPx: number, tribe?: number): boolean;
+  /** Show the type's body in `image` at `boxPx` design px, as `tribe` builds it (the seat's own by
+   *  default); false leaves the image empty (no sheet, no bound frame, or a GPU-only page) and the card
+   *  shows its glyph instead. */
+  paint(image: HTMLImageElement, typeId: number, boxPx: number, tribe?: number): boolean;
 }
 
 export function createBuildingThumbs(sheet: SpriteSheet | undefined, seatTribe: number): BuildingThumbs {
+  const pictures = createStaticPictures();
   return {
-    paint: (canvas, typeId, boxPx, tribe = seatTribe) => {
+    paint: (image, typeId, boxPx, tribe = seatTribe) => {
       if (sheet === undefined) return false;
       const ref = boundBuildingRef(sheet.bindings.building, typeId, tribe);
       if (ref === undefined) return false;
@@ -52,24 +54,25 @@ export function createBuildingThumbs(sheet: SpriteSheet | undefined, seatTribe: 
       const resource: unknown = layer?.source.resource;
       if (frame === null || !isDrawableResource(resource)) return false;
       const size = boxPx * THUMB_BACKING_SCALE;
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      if (ctx === null) return false;
-      const fit = thumbFit(frame, size);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(
-        resource,
-        frame.x + fit.sx,
-        frame.y + fit.sy,
-        fit.sw,
-        fit.sh,
-        fit.dx,
-        fit.dy,
-        fit.dw,
-        fit.dh,
-      );
+      const picture = pictures.picture(`${typeId}:${tribe}:${size}`, size, size, (ctx) => {
+        const fit = thumbFit(frame, size);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(
+          resource,
+          frame.x + fit.sx,
+          frame.y + fit.sy,
+          fit.sw,
+          fit.sh,
+          fit.dx,
+          fit.dy,
+          fit.dw,
+          fit.dh,
+        );
+        return true;
+      });
+      if (picture === null) return false;
+      showPicture(image, picture);
       return true;
     },
   };

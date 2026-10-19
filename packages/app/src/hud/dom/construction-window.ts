@@ -30,6 +30,7 @@ import { GLYPH, paintedIcon } from './icons.js';
 import { escapeHtml } from './parts/dom.js';
 import { hasWords, searchWords } from './parts/name-search.js';
 import { quietTextField } from './parts/text-field.js';
+import { PICTURE_SLOT } from './static-picture.js';
 import { centralWindowPlacer, createHudWindow } from './window.js';
 
 /** Design px: the window width, sized so the widest bill in the content (eight goods, the top house) sits in
@@ -132,7 +133,7 @@ export interface BuildingCardView {
   readonly cost: readonly number[];
   /** Indices into `cost` the seat cannot cover. */
   readonly short?: readonly number[];
-  /** The picture box's content: a canvas, or the house glyph. */
+  /** The picture box's content: a picture slot, or the house glyph. */
   readonly thumb: string;
   readonly helpLabel: string;
   /** True for a card waiting on a discovery: it cannot be picked. */
@@ -243,10 +244,10 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
   };
   const nationButton = (tribe: number): HTMLButtonElement => {
     const name = tribeName(tribe);
-    const control = button('on-view__button on-nation', '<canvas></canvas>');
+    const control = button('on-view__button on-nation', PICTURE_SLOT);
     control.setAttribute('aria-label', name);
     control.title = formatMessage(copy.nationHint, { tribe: name });
-    const emblem = control.querySelector('canvas');
+    const emblem = control.querySelector('img');
     if (
       emblem !== null &&
       (deps.emblemType === undefined || !deps.thumbs.paint(emblem, deps.emblemType, NATION_ART_PX, tribe))
@@ -423,11 +424,11 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
     element.innerHTML = buildingCardMarkup({
       title: entry.label,
       cost: entry.cost.map((line) => line.amount),
-      thumb: '<canvas></canvas>',
+      thumb: PICTURE_SLOT,
       helpLabel: formatMessage(copy.help, { name: entry.label }),
     });
     const pick = element.querySelector('.on-bcard__pick');
-    const thumb = element.querySelector('canvas');
+    const thumb = element.querySelector('img');
     const help = element.querySelector('.on-bcard__help');
     if (!(pick instanceof HTMLButtonElement) || thumb === null || !(help instanceof HTMLButtonElement)) {
       throw new Error('construction: card markup');
@@ -479,12 +480,12 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
       title,
       effect: copy.paperEffect[card.paper.kind],
       tally: card.count > 1 ? formatMessage(copy.tally, { count: card.count }) : '',
-      thumb: card.house === null ? GLYPH.house : '<canvas></canvas>',
+      thumb: card.house === null ? GLYPH.house : PICTURE_SLOT,
       ...(houseLabel === null ? {} : { helpLabel: formatMessage(copy.help, { name: houseLabel }) }),
     });
     const pick = element.querySelector('.on-bcard__pick');
     if (!(pick instanceof HTMLButtonElement)) throw new Error('construction: plan card markup');
-    const thumb = element.querySelector('canvas');
+    const thumb = element.querySelector('img');
     if (
       thumb !== null &&
       (card.house === null || !deps.thumbs.paint(thumb, card.house, THUMB_BOX_PX, tribe))

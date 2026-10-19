@@ -54,7 +54,7 @@ describe('notice art painting', () => {
     vi.doUnmock('../src/content/ui-foundation.js');
   });
 
-  it('reads back and recolours a glyph once per tint, then repaints the stored cell', async () => {
+  it('reads back and recolours a glyph once per tint, then shows the kept picture', async () => {
     vi.resetModules();
     vi.doMock('../src/content/ui-foundation.js', () => ({
       uiFoundationArt: () => ({
@@ -69,27 +69,39 @@ describe('notice art painting', () => {
         decode = (): Promise<void> => Promise.resolve();
       },
     );
+    const reads = vi.fn(() => ({ data: new Uint8ClampedArray([255, 0, 255, 255]) }));
+    let drawn = 0;
+    const scratch = {
+      width: 0,
+      height: 0,
+      toDataURL: () => `data:${drawn}`,
+      getContext: () => ({
+        canvas: scratch,
+        drawImage: () => {
+          drawn++;
+        },
+        getImageData: reads,
+        putImageData: () => undefined,
+      }),
+    };
+    vi.stubGlobal('document', { createElement: () => scratch });
     const { createNoticeArt } = await import('../src/hud/dom/notice-art.js');
     const art = createNoticeArt();
-    const reads = vi.fn(() => ({ data: new Uint8ClampedArray([255, 0, 255, 255]) }));
-    const puts: unknown[] = [];
-    const canvas = (): HTMLCanvasElement =>
-      ({
-        width: 0,
-        height: 0,
-        getContext: () => ({
-          clearRect: () => undefined,
-          drawImage: () => undefined,
-          getImageData: reads,
-          putImageData: (cell: unknown) => puts.push(cell),
-        }),
-      }) as unknown as HTMLCanvasElement;
-    for (const tint of [TINT, TINT, 0x00ff00]) art?.paint(canvas(), 'skull', tint, () => undefined);
+    const images = [TINT, TINT, 0x00ff00].map((tint) => {
+      const attributes = new Map<string, string>();
+      const image = {
+        getAttribute: (name: string) => attributes.get(name) ?? null,
+        setAttribute: (name: string, value: string) => attributes.set(name, value),
+      } as unknown as HTMLImageElement;
+      art?.paint(image, 'skull', tint, () => undefined);
+      return attributes;
+    });
     await Promise.resolve();
     await Promise.resolve();
     expect(reads).toHaveBeenCalledTimes(2);
-    expect(puts).toHaveLength(3);
-    expect(puts[1]).toBe(puts[0]);
-    expect(puts[2]).not.toBe(puts[0]);
+    expect(images[0]?.get('src')).toBe('data:1');
+    expect(images[1]?.get('src')).toBe('data:1');
+    expect(images[2]?.get('src')).toBe('data:2');
+    expect(images[0]?.get('width')).toBe('2');
   });
 });

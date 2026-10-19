@@ -1,6 +1,7 @@
 import { PLAYER_SWATCH_COLORS } from '../../catalog/roster.js';
 import { uiFoundationArt } from '../../content/ui-foundation.js';
 import type { NoticeGlyph } from '../tool-panel/messages/cards.js';
+import { createStaticPictures, showPicture } from './static-picture.js';
 
 /** The key colour's tint on a card about no seat: bone ivory, so an own settler's skull reads as bone. */
 const UNTINTED_KEY_COLOUR = 0xe6dcc3;
@@ -48,10 +49,10 @@ export function recolourKey(pixels: Uint8ClampedArray, tint: number): void {
 }
 
 export interface NoticeArt {
-  /** Paint `glyph`'s cell into `canvas` once the atlas has loaded, its key areas in `tint`
-   *  (`0xRRGGBB`); false when the atlas has no such cell or failed to decode. `onFail` runs when the
-   *  decode fails after a true return, so the caller can swap the canvas it already placed. */
-  paint(canvas: HTMLCanvasElement, glyph: NoticeGlyph, tint: number, onFail: () => void): boolean;
+  /** Show `glyph`'s cell in `image` once the atlas has loaded, its key areas in `tint` (`0xRRGGBB`);
+   *  false when the atlas has no such cell or failed to decode. `onFail` runs when the decode fails
+   *  after a true return, so the caller can swap the image it already placed. */
+  paint(image: HTMLImageElement, glyph: NoticeGlyph, tint: number, onFail: () => void): boolean;
 }
 
 /** The delivered notification icons, or null while the pack is unpublished. */
@@ -65,23 +66,17 @@ export function createNoticeArt(): NoticeArt | null {
   const loaded = image.decode().catch(() => {
     failed = true;
   });
-  // A battle raises the same few cards over and over; each glyph and tint is read back and recoloured once.
-  const cells = new Map<string, ImageData>();
+  // A battle raises the same few cards over and over; each glyph and tint is read back, recoloured and
+  // kept once.
+  const pictures = createStaticPictures();
   return {
-    paint: (canvas, glyph, tint, onFail) => {
+    paint: (target, glyph, tint, onFail) => {
       const index = atlas.names.indexOf(glyph);
       if (index < 0 || failed) return false;
-      canvas.width = atlas.cell;
-      canvas.height = atlas.cell;
       const draw = (): void => {
-        const ctx = canvas.getContext('2d');
-        if (ctx === null) return;
-        const key = `${glyph}:${tint}`;
-        let cell = cells.get(key);
-        if (cell === undefined) {
+        const picture = pictures.picture(`${glyph}:${tint}`, atlas.cell, atlas.cell, (ctx) => {
           const column = index % atlas.columns;
           const row = Math.floor(index / atlas.columns);
-          ctx.clearRect(0, 0, atlas.cell, atlas.cell);
           ctx.drawImage(
             image,
             column * atlas.cell,
@@ -93,11 +88,12 @@ export function createNoticeArt(): NoticeArt | null {
             atlas.cell,
             atlas.cell,
           );
-          cell = ctx.getImageData(0, 0, atlas.cell, atlas.cell);
+          const cell = ctx.getImageData(0, 0, atlas.cell, atlas.cell);
           recolourKey(cell.data, tint);
-          cells.set(key, cell);
-        }
-        ctx.putImageData(cell, 0, 0);
+          ctx.putImageData(cell, 0, 0);
+          return true;
+        });
+        if (picture !== null) showPicture(target, picture);
       };
       void loaded.then(() => (failed ? onFail() : draw()));
       return true;

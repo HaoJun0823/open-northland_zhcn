@@ -48,12 +48,12 @@ export interface NoticeStackView {
 }
 
 export interface NoticeThumbPainters {
-  /** Paint a building's body into a canvas; false leaves the house glyph in its place. */
-  readonly paintBuilding: (canvas: HTMLCanvasElement, typeId: number) => boolean;
-  /** Paint a glyph's artwork into a canvas, in `seat`'s colour when the card is about one; false leaves
-   *  the line glyph in its place, and `onFail` asks for it after a true return. */
+  /** Show a building's body in a picture slot; false leaves the house glyph in its place. */
+  readonly paintBuilding: (image: HTMLImageElement, typeId: number) => boolean;
+  /** Show a glyph's artwork in a picture slot, in `seat`'s colour when the card is about one; false
+   *  leaves the line glyph in its place, and `onFail` asks for it after a true return. */
   readonly paintGlyph: (
-    canvas: HTMLCanvasElement,
+    image: HTMLImageElement,
     glyph: NoticeGlyph,
     seat: number | null,
     onFail: () => void,
@@ -94,25 +94,25 @@ export function previewMarkup(thumb: NoticeThumb): string {
     case 'vehicle':
       return '<canvas class="on-notice__preview on-notice__preview--figure" aria-hidden="true"></canvas>';
     case 'building':
-      return '<canvas class="on-notice__preview on-notice__preview--building" aria-hidden="true"></canvas>';
+      return '<img class="on-notice__preview on-notice__preview--building" alt="" draggable="false">';
     case 'glyph':
-      return `<canvas class="on-notice__preview on-notice__preview--art${thumb.dim ? DIM : ''}" aria-hidden="true"></canvas>`;
+      return `<img class="on-notice__preview on-notice__preview--art${thumb.dim ? DIM : ''}" alt="" draggable="false">`;
   }
 }
 
-/** Paint a new thumbnail's building or glyph canvas inside `host`; one the painters cannot draw becomes
- *  a line glyph. A figure is painted every frame instead. */
+/** Paint a new thumbnail's building or glyph picture inside `host`; one the painters cannot draw becomes
+ *  a line glyph. A figure is painted every frame instead, on a canvas. */
 export function paintNoticeThumb(host: Element, thumb: NoticeThumb, painters: NoticeThumbPainters): void {
   if (thumb.kind === 'settler' || thumb.kind === 'vehicle') return;
-  const canvas = host.querySelector('canvas.on-notice__preview');
-  if (!(canvas instanceof HTMLCanvasElement)) return;
+  const picture = host.querySelector('img.on-notice__preview');
+  if (!(picture instanceof HTMLImageElement)) return;
   if (thumb.kind === 'building') {
-    if (!painters.paintBuilding(canvas, thumb.typeId)) canvas.outerHTML = glyphMarkup('house', false);
+    if (!painters.paintBuilding(picture, thumb.typeId)) picture.outerHTML = glyphMarkup('house', false);
   } else {
     const toLineGlyph = (): void => {
-      canvas.outerHTML = glyphMarkup(thumb.glyph, thumb.dim);
+      picture.outerHTML = glyphMarkup(thumb.glyph, thumb.dim);
     };
-    if (!painters.paintGlyph(canvas, thumb.glyph, thumb.seat, toLineGlyph)) toLineGlyph();
+    if (!painters.paintGlyph(picture, thumb.glyph, thumb.seat, toLineGlyph)) toLineGlyph();
   }
 }
 

@@ -306,10 +306,9 @@ export function createMessageCenter(deps: MessageCenterDeps): MessageCenter {
   const column = createNoticeColumn({
     plane: deps.plane,
     bottomInset: deps.bottomInset,
-    paintBuilding: (canvas, typeId) =>
-      deps.buildingThumbs?.paint(canvas, typeId, NOTICE_THUMB_BOX_PX) === true,
-    paintGlyph: (canvas, glyph, seat, onFail) =>
-      art?.paint(canvas, glyph, noticeTint(seat, deps.playerColourOf), onFail) === true,
+    paintBuilding: (image, typeId) => deps.buildingThumbs?.paint(image, typeId, NOTICE_THUMB_BOX_PX) === true,
+    paintGlyph: (image, glyph, seat, onFail) =>
+      art?.paint(image, glyph, noticeTint(seat, deps.playerColourOf), onFail) === true,
     onLevel: (level) => {
       ctx.cue('confirm');
       feeds.current.setLevel(level);

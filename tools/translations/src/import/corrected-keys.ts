@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { GAME_OBJECT_TABLES } from '@open-northland/asset-pipeline/sources';
 import { MAP_DAT_FILE, type MapLanguageText, mapIdFromPath } from '@open-northland/map-import';
-import { listDirectory, readOverlayFile } from '@open-northland/translations';
+import { loadTranslationOverlays, type MapOverlaysByDigest } from '@open-northland/translations';
 import { BASIS_LANGUAGE } from './columns.js';
 
 /**
@@ -17,14 +17,8 @@ export interface GermanCorrections {
   readonly mapStrings: ReadonlyMap<string, ReadonlySet<string>>;
   /** Replaced `briefings.txt` lines by our map id. */
   readonly briefingLines: ReadonlyMap<string, ReadonlySet<string>>;
-  /** The keys a German map overlay (`translations/ger/maps/`) replaces, by `map.dat` SHA-256. */
-  readonly overlays: ReadonlyMap<string, OverlaidKeys>;
-}
-
-/** The string ids and briefing block labels one map overlay replaces. */
-export interface OverlaidKeys {
-  readonly strings: ReadonlySet<string>;
-  readonly briefings: ReadonlySet<string>;
+  /** The translations folder's map overlays, whose German edits (`translations/ger/maps/`) count. */
+  readonly overlays: MapOverlaysByDigest;
 }
 
 const STRING_TABLES_FILE = ['strings', 'tables.json'] as const;
@@ -36,8 +30,6 @@ const COMMUNITY_PREFIX = ['maps', 'community'];
 const CAMPAIGN_PREFIX = 'campaigns';
 const BRIEFINGS_FILE = 'briefings.txt';
 const STRINGS_FILE = 'strings.ini';
-const MAP_OVERLAYS_DIR = 'maps';
-const OVERLAY_EXTENSION = '.json';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -70,21 +62,6 @@ async function readArray(path: string): Promise<unknown[]> {
   return Array.isArray(value) ? value : [];
 }
 
-/** The keys each German map overlay under the translations folder `translations` replaces. */
-async function readGermanOverlays(translations: string): Promise<Map<string, OverlaidKeys>> {
-  const dir = join(translations, BASIS_LANGUAGE, MAP_OVERLAYS_DIR);
-  const overlays = new Map<string, OverlaidKeys>();
-  for (const entry of await listDirectory(dir)) {
-    if (!entry.isFile() || !entry.name.endsWith(OVERLAY_EXTENSION)) continue;
-    const overlay = await readOverlayFile('maps', join(dir, entry.name));
-    overlays.set(entry.name.slice(0, -OVERLAY_EXTENSION.length), {
-      strings: new Set(Object.keys(overlay.strings)),
-      briefings: new Set(Object.keys(overlay.briefings)),
-    });
-  }
-  return overlays;
-}
-
 /** Reads the German edits of the corrections folder `dir` and of the translations folder `translations`. */
 export async function readGermanCorrections(dir: string, translations: string): Promise<GermanCorrections> {
   const tables = new Map<string, Set<string>>();
@@ -113,11 +90,16 @@ export async function readGermanCorrections(dir: string, translations: string): 
       if (id !== undefined) add(mapStrings, map.id, id);
     }
   }
-  return { tables, mapStrings, briefingLines, overlays: await readGermanOverlays(translations) };
+  const { maps: overlays } = await loadTranslationOverlays(translations);
+  return { tables, mapStrings, briefingLines, overlays };
 }
 
-/** The keys of one map overlay whose German our corrections or German overlay change: string ids and
- *  block labels. `map` names the pack map by our id and its `map.dat` SHA-256. */
+/**
+ * The keys of one map overlay whose German our corrections or German overlay change: string ids and
+ * block labels. `map` names the pack map by our id and its `map.dat` SHA-256; `basis` is its German
+ * text and that text's digest. A German edit overlay counts only when written against that digest,
+ * the one case it applies.
+ */
 export function correctedMapKeys(
   corrections: GermanCorrections,
   map: { readonly id: string; readonly text: { readonly datDigest: string } },
@@ -128,15 +110,19 @@ export function correctedMapKeys(
   },
 ): string[] {
   const keys: string[] = [];
-  const overlaid = corrections.overlays.get(map.text.datDigest);
-  const ids = new Set([...(corrections.mapStrings.get(map.id) ?? []), ...(overlaid?.strings ?? [])]);
+  const edit = corrections.overlays
+    .get(map.text.datDigest)
+    ?.get(BASIS_LANGUAGE)
+    ?.find((german) => german.basis.lang === BASIS_LANGUAGE && german.basis.digest === basis.digest);
+  const ids = new Set([...(corrections.mapStrings.get(map.id) ?? []), ...Object.keys(edit?.strings ?? {})]);
   for (const id of ids) if (overlay.strings[id] !== undefined) keys.push(`string ${id}`);
   const lines = corrections.briefingLines.get(map.id);
   for (const label of Object.keys(overlay.briefings)) {
     const correctedLine =
       lines !== undefined &&
       (basis.text.briefings.get(label) ?? '').split('\n').some((line) => lines.has(line));
-    if (correctedLine || overlaid?.briefings.has(label) === true) keys.push(`block ${label}`);
+    if (correctedLine || (edit !== undefined && Object.hasOwn(edit.briefings, label)))
+      keys.push(`block ${label}`);
   }
   return keys;
 }

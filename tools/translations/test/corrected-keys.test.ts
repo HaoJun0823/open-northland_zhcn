@@ -1,12 +1,14 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { MAP_OVERLAY_BASIS_PREFIX_LENGTH } from '@open-northland/data';
 import { afterEach, describe, expect, it } from 'vitest';
 import { correctedMapKeys, readGermanCorrections } from '../src/import/corrected-keys.js';
 
 const PROBE_MAP = { id: 'probe_map', text: { datDigest: 'a'.repeat(64) } };
 const OTHER_DAT = 'b'.repeat(64);
 const BASIS_DIGEST = 'c'.repeat(64);
+const OTHER_BASIS = 'd'.repeat(64);
 
 let dir: string | undefined;
 
@@ -25,10 +27,14 @@ async function folder(files: Record<string, unknown>): Promise<string> {
   return dir;
 }
 
-const germanOverlay = (strings: Record<string, string>, briefings: Record<string, string>): object => ({
+const germanOverlay = (
+  strings: Record<string, string>,
+  briefings: Record<string, string>,
+  digest = BASIS_DIGEST,
+): object => ({
   version: 1,
   map: PROBE_MAP.id,
-  basis: { lang: 'ger', digest: BASIS_DIGEST },
+  basis: { lang: 'ger', digest },
   strings,
   briefings,
 });
@@ -87,14 +93,14 @@ describe('German corrections', () => {
     expect(correctedMapKeys(read, PROBE_MAP, basis, translation)).toEqual(['string 2', 'block a']);
   });
 
-  it('names the keys a German map overlay of the same map.dat replaces', async () => {
+  it('names the keys a German map overlay of the same map.dat and German text replaces', async () => {
+    const dat = PROBE_MAP.text.datDigest;
     const root = await folder({
       'corrections/strings/tables.json': [],
       'corrections/strings/maps.json': [],
-      [`translations/ger/maps/${PROBE_MAP.text.datDigest}.json`]: germanOverlay(
-        { '3': 'Vier' },
-        { c: 'Danach.' },
-      ),
+      [`translations/ger/maps/${dat}.json`]: germanOverlay({ '2': 'Fünf' }, { a: 'Davor.' }, OTHER_BASIS),
+      [`translations/ger/maps/${dat}.${BASIS_DIGEST.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}.json`]:
+        germanOverlay({ '3': 'Vier' }, { c: 'Danach.' }),
       [`translations/ger/maps/${OTHER_DAT}.json`]: germanOverlay({ '1': 'Null' }, { b: 'Alles.' }),
     });
     const read = await readGermanCorrections(join(root, 'corrections'), join(root, 'translations'));

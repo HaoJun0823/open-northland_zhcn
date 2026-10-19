@@ -1,9 +1,6 @@
-import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import type { TextRun } from '../src/hud/text-run.js';
 import type { PanelContext } from '../src/hud/tool-panel/context.js';
 import { createHeldPaperController } from '../src/hud/tool-panel/held-paper.js';
-import { buildToolPanelLayout } from '../src/hud/tool-panel/layout.js';
 import {
   applyNavEntry,
   NAV_ENTRY_IDS,
@@ -22,34 +19,11 @@ import { stubPlacementStrip } from './support/placement-strip-stub.js';
 import { stubResidentsWindow } from './support/residents-window-stub.js';
 import { stubStatisticsWindow } from './support/statistics-window-stub.js';
 
-const SCREEN = { width: 1280, height: 720 };
 const BUILDING_JOINERY = 23;
 const VIKING = 1;
 
 function stubContext(): PanelContext {
-  const layout = buildToolPanelLayout(1);
-  const ctx: PanelContext = {
-    layout,
-    scale: layout.scale,
-    makeText: (): TextRun => ({
-      container: new Container(),
-      width: 0,
-      place: () => undefined,
-      destroy: () => undefined,
-    }),
-    makeParagraph: () => ({
-      container: new Container(),
-      width: 0,
-      height: 0,
-      place: () => undefined,
-      destroy: () => undefined,
-    }),
-    bitmaps: { bg: undefined, button: undefined, buttonHilite: undefined, headline: undefined },
-    uiString: (_table, _id, fallback) => fallback,
-    screen: () => SCREEN,
-    cue: () => undefined,
-  };
-  return ctx;
+  return { uiString: (_table, _id, fallback) => fallback, cue: () => undefined };
 }
 
 /** The window registry plus the held placement the mount wires, over a stubbed context and DOM-less

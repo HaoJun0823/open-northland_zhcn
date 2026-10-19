@@ -18,19 +18,15 @@ import type {
   SimEvent,
   WorldSnapshot,
 } from '@open-northland/sim';
-import { type Application, Texture } from 'pixi.js';
 import { professionDefForJob } from '../../catalog/professions.js';
 import {
-  type GuiBitmapName,
   type GuiStrings,
   hypertextPictureUrl,
-  loadGuiBitmap,
   loadGuiHistory,
   loadGuiStrings,
   type UiString,
   uiStringLookup,
 } from '../../content/gui-gfx.js';
-import { loadUiFont, type UiFont } from '../../content/ui-font.js';
 import type { MissionInfoRow } from '../../game/info-lines.js';
 import type { MissionBriefingAnswer, MissionReader } from '../../game/mission-brief.js';
 import type { ObserverSeatEntry } from '../../game/observer-seats.js';
@@ -67,16 +63,14 @@ import { createHudSystemBar, type SpeedBarLook } from '../dom/system-bar.js';
 import type { CentralWindows } from '../dom/trade-window/window.js';
 import { FigureFrames } from '../figures/figure-frames.js';
 import { LiveFigures } from '../figures/live-figures.js';
-import { clientToCanvas, type Rect } from '../geometry.js';
+import { clientToCanvas } from '../geometry.js';
 import { type KeyBindings, keyDisplayLabel } from '../keybindings.js';
 import type { NetPanelSource } from '../network/model.js';
-import { makeUiParagraph, makeUiTextRun } from '../ui-text.js';
 import { CONSTRUCTION_TOOLS, type ConstructionTool, type MenuBuildingEntry } from './building-menu.js';
-import type { PanelBitmaps, PanelContext } from './context.js';
+import type { PanelContext } from './context.js';
 import type { GameSpeedChangeCause, GameSpeedControl, GameSpeedStateSpec } from './game-speed.js';
 import { createHeldPaperController } from './held-paper.js';
 import { createToolPanelInput, type HeldMode, type ToolPanelInput } from './input.js';
-import { buildToolPanelLayout } from './layout.js';
 import type { ActiveLine, LineNode, LinePreviewNode, LitNodes } from './line-tool.js';
 import {
   createMessageCenter,
@@ -124,14 +118,11 @@ export interface PalisadeTools {
 
 export interface ToolPanelOptions {
   readonly settlerName: (entity: SnapshotEntity) => string;
-  readonly app: Application;
   readonly canvas: HTMLCanvasElement;
   /** The DOM plane the beam, the system bar, the notification column and the pending windows mount on. */
   readonly plane: HTMLElement;
   /** The caller's node standing first in the system bar (`HudSystemBarDeps.lead`). */
   readonly barLead?: HTMLElement;
-  /** The resolved HUD scale; the pinned internal geometry is multiplied by this. May be fractional. */
-  readonly uiscale: number;
   /** The buildings the construction window lists. */
   readonly buildings: readonly MenuBuildingEntry[];
   /** Every building type's localized name, for the notes, the papers and the placement strip. */
@@ -235,8 +226,6 @@ export interface ToolPanelOptions {
   /** True when a higher HUD overlay covers this client point; the panel yields the left click there so
    *  hit priority follows draw order. Right-click (cancel placement) is deliberately not deferred. */
   readonly deferToOverlay?: (clientX: number, clientY: number) => boolean;
-  /** That same overlay's box, which the pop-up lists size against. */
-  readonly overlayReserve?: () => Rect | null;
   readonly onSystemMenu?: () => void;
   /** Open the game menu on its load or save page; load is absent where the session cannot swap worlds. */
   readonly onLoadGame?: () => void;
@@ -386,8 +375,6 @@ export interface ToolPanelState {
 
 interface ToolPanelAssets {
   readonly strings: GuiStrings | null;
-  readonly uiFont: UiFont;
-  readonly bitmaps: PanelBitmaps;
   readonly history: HypertextBook | null;
 }
 
@@ -408,22 +395,8 @@ const assetsByLanguage = new Map<string, Promise<ToolPanelAssets>>();
 function loadToolPanelAssets(lang: string): Promise<ToolPanelAssets> {
   let assets = assetsByLanguage.get(lang);
   if (assets !== undefined) return assets;
-  const loadBitmap = async (name: GuiBitmapName): Promise<Texture | undefined> => {
-    const source = await loadGuiBitmap(name);
-    return source === undefined ? undefined : new Texture({ source });
-  };
-  assets = Promise.all([
-    loadGuiStrings(lang),
-    loadGuiHistory(lang),
-    loadUiFont(),
-    loadBitmap('bg'),
-    loadBitmap('bg_button'),
-    loadBitmap('bg_button_hilite'),
-    loadBitmap('bg_headline'),
-  ]).then(([strings, history, uiFont, bg, button, buttonHilite, headline]) => ({
+  assets = Promise.all([loadGuiStrings(lang), loadGuiHistory(lang)]).then(([strings, history]) => ({
     strings,
-    uiFont,
-    bitmaps: { bg, button, buttonHilite, headline },
     history,
   }));
   assetsByLanguage.set(lang, assets);
@@ -445,13 +418,11 @@ function navEntries(): readonly HudNavEntry<NavEntryId>[] {
 }
 
 /** Mount the tool panel's shell regions and windows on the DOM plane. Async because it loads the
- *  optional decoded GUI art and font. */
+ *  optional decoded GUI strings and history book. */
 export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelController> {
-  const { app, canvas, enqueue, plane, network } = opts;
-  const layout = buildToolPanelLayout(opts.uiscale);
-  const scale = layout.scale;
+  const { canvas, enqueue, plane, network } = opts;
 
-  const { strings, uiFont, bitmaps, history } = await loadToolPanelAssets(opts.lang);
+  const { strings, history } = await loadToolPanelAssets(opts.lang);
 
   const labelByType = opts.buildingLabels;
 
@@ -464,20 +435,8 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
   try {
     const uiString = uiStringLookup(strings);
     const ctx: PanelContext = {
-      layout,
-      scale,
-      makeText: (text, color, px) => makeUiTextRun(uiFont.family, text, color, scale, px),
-      makeParagraph: (text, color, px, wrapWidth) =>
-        makeUiParagraph(uiFont.family, text, color, scale, px, wrapWidth),
-      bitmaps,
       uiString,
-      screen: () => app.screen,
       cue: opts.onUiCue ?? ((): void => undefined),
-      ...(opts.overlayReserve !== undefined ? { overlayReserve: opts.overlayReserve } : {}),
-      toClient: (x, y) => {
-        const { sx, sy, rect } = opts.screenScale(canvas);
-        return { x: rect.left + x / sx, y: rect.top + y / sy };
-      },
     };
 
     const nameOfPaper = (paper: Paper): string =>

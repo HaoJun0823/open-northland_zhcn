@@ -1,9 +1,6 @@
 import type { UiCue } from '@open-northland/audio';
 import type { Command, Entity, Paper } from '@open-northland/sim';
-import { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import type { Rect } from '../src/hud/geometry.js';
-import type { TextRun } from '../src/hud/text-run.js';
 import {
   type BuildingAvailability,
   type MenuBuildingEntry,
@@ -11,7 +8,6 @@ import {
 } from '../src/hud/tool-panel/building-menu.js';
 import type { PanelContext } from '../src/hud/tool-panel/context.js';
 import { createHeldPaperController } from '../src/hud/tool-panel/held-paper.js';
-import { buildToolPanelLayout } from '../src/hud/tool-panel/layout.js';
 import {
   type BuildingPick,
   createPlacementController,
@@ -46,39 +42,16 @@ const joinery = (paper: Paper | null = null, tribe = VIKING): BuildingPick => ({
   paper,
 });
 
-/** A PanelContext whose text factory records what it was asked to build (no Pixi text, no fonts), and
- *  whose GUI cue records every click it was asked to play. */
-function stubContext(overlayReserve?: () => Rect | null): {
-  ctx: PanelContext;
-  made: string[];
-  cues: UiCue[];
-} {
-  const made: string[] = [];
+/** A PanelContext whose GUI cue records every click it was asked to play. */
+function stubContext(): { ctx: PanelContext; cues: UiCue[] } {
   const cues: UiCue[] = [];
-  const layout = buildToolPanelLayout(1);
   const ctx: PanelContext = {
-    layout,
-    scale: layout.scale,
-    makeText: (text): TextRun => {
-      made.push(text);
-      return { container: new Container(), width: 0, place: () => undefined, destroy: () => undefined };
-    },
-    makeParagraph: () => ({
-      container: new Container(),
-      width: 0,
-      height: 0,
-      place: () => undefined,
-      destroy: () => undefined,
-    }),
-    bitmaps: { bg: undefined, button: undefined, buttonHilite: undefined, headline: undefined },
     uiString: (_table, _id, fallback) => fallback,
-    screen: () => SCREEN,
     cue: (cue) => {
       cues.push(cue);
     },
-    ...(overlayReserve !== undefined ? { overlayReserve } : {}),
   };
-  return { ctx, made, cues };
+  return { ctx, cues };
 }
 
 const BUILDINGS: readonly MenuBuildingEntry[] = [

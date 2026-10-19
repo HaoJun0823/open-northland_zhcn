@@ -64,29 +64,3 @@ export function centralWindowBox(
     maxHeight: Math.max(0, floor - y),
   };
 }
-
-/** The lowest y a central window may reach before the navigation beam. */
-export function centralWindowFloor(screen: ScreenSize, scale: number): number {
-  const region = centralRegion(screen, scale);
-  return region.y + region.h;
-}
-
-/** The top a window of `height` takes so its foot stays above `floor`: lifted from `top`, never above
- *  `minTop`. */
-export function liftedTop(top: number, height: number, floor: number, minTop: number): number {
-  return Math.max(minTop, Math.min(top, floor - height));
-}
-
-/** The bottom-edge reserve a window spanning `x..x+w` must keep clear of: the beam, or `overlay` (the
- *  minimap) when the span crosses that instead; the taller one when it crosses both. */
-export function bottomReserveFor(
-  screen: ScreenSize,
-  scale: number,
-  span: { readonly x: number; readonly w: number },
-  overlay: Rect | null,
-): Rect | null {
-  const crosses = (r: Rect): boolean => span.x < r.x + r.w && span.x + span.w > r.x;
-  const candidates = [navBeamRect(screen, scale), ...(overlay === null ? [] : [overlay])].filter(crosses);
-  if (candidates.length === 0) return null;
-  return candidates.reduce((tallest, r) => (r.y < tallest.y ? r : tallest));
-}

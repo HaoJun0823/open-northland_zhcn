@@ -58,8 +58,6 @@ export function uiStringLookup(strings: GuiStrings | null): UiString {
 
 /** The served root for the GUI text/cursor assets (atlases + LUT ride `/bobs/`). */
 const GUI_ROOT = '/gui';
-/** The served root for original GUI bitmap fills (`content/Data/gui/bitmaps/*.png`). */
-const GUI_BITMAP_ROOT = '/gui-bitmaps';
 
 /** The recolourable indexed GUI sheet. Throws `MissingAtlasError` when the decoded files are absent. */
 export function loadGuiWindowIndexed(): Promise<SpriteLayer> {
@@ -73,27 +71,6 @@ export function loadGuiWindowIndexed(): Promise<SpriteLayer> {
  */
 export function loadGuiPaletteLut(): Promise<TextureSource | undefined> {
   return loadTextureIfPresent(`/bobs/${GUI_PALETTE_LUT_STEM}.png`);
-}
-
-/** Original GUI bitmap fills copied/converted from `Data/gui/bitmaps/*.pcx` by the pipeline. */
-export type GuiBitmapName = 'bg' | 'bg_button' | 'bg_button_hilite' | 'bg_headline' | 'bg_selected';
-
-/**
- * The served file per bitmap. Two are baked through an element palette rather than their embedded one:
- * `bg` (the window body's warm brown) and `bg_selected`, whose embedded palette is a warm olive but whose
- * indices land cool through `bg_normal` (avg ≈ #3c4043). The other three keep their embedded palettes.
- */
-const GUI_BITMAP_FILES: Readonly<Record<GuiBitmapName, string>> = {
-  bg: 'bg.bg_normal.png',
-  bg_button: 'bg_button.png',
-  bg_button_hilite: 'bg_button_hilite.png',
-  bg_headline: 'bg_headline.png',
-  bg_selected: 'bg_selected.bg_normal.png',
-};
-
-/** Load one optional GUI bitmap fill. Missing `content/` degrades to `undefined`. */
-export function loadGuiBitmap(name: GuiBitmapName): Promise<TextureSource | undefined> {
-  return loadTextureIfPresent(`${GUI_BITMAP_ROOT}/${GUI_BITMAP_FILES[name]}`);
 }
 
 const guiStringsByLang = new Map<string, Promise<GuiStrings | null>>();

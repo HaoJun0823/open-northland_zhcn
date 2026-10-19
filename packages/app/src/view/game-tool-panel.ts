@@ -18,7 +18,6 @@ import type { ViewerSeat } from '../game/viewer-seat.js';
 import type { AssistantSource } from '../hud/dom/assistant-window/index.js';
 import type { DiplomacySource } from '../hud/dom/diplomacy-window/model.js';
 import type { BriefingViewTarget, BriefingVoicePlayer } from '../hud/dom/mission-book/index.js';
-import type { Rect } from '../hud/geometry.js';
 import type { KeyBindings } from '../hud/keybindings.js';
 import type { NetPanelSource } from '../hud/network/model.js';
 import { createReplaceableMount } from '../hud/replaceable-mount.js';
@@ -61,8 +60,6 @@ export interface GameToolPanelDeps {
   readonly plane: HTMLElement;
   /** The node standing first in the system bar, kept across a rescale's rebuilt bar. */
   readonly barLead?: HTMLElement;
-  /** Shared with the unit controls; may be fractional. */
-  readonly uiscale: number;
   readonly camera: () => Camera;
   /** A closure, so it follows a scene restart. */
   readonly enqueue: (command: PlayerCommand) => void;
@@ -146,8 +143,6 @@ export interface GameToolPanelDeps {
   readonly pauseHeld?: () => boolean;
   /** A higher overlay's claim: the panel yields left clicks it covers, so hit priority follows draw order. */
   readonly deferToOverlay?: (clientX: number, clientY: number) => boolean;
-  /** That overlay's screen-px box, which the panel's pop-up lists size against. */
-  readonly overlayReserve?: () => Rect | null;
   readonly onSystemMenu?: () => void;
   readonly onLoadGame?: () => void;
   readonly onSaveGame?: () => void;
@@ -286,14 +281,12 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
     return { col: t.col, row: t.row };
   };
 
-  const mountController = (uiscale: number) =>
+  const mountController = () =>
     mountToolPanel({
       settlerName: deps.settlerName,
-      app: deps.app,
       canvas: deps.canvas,
       plane: deps.plane,
       ...(deps.barLead !== undefined ? { barLead: deps.barLead } : {}),
-      uiscale,
       buildings: deps.buildings,
       buildingLabels: deps.buildingLabels,
       technologyName: deps.technologyName,
@@ -338,7 +331,6 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
       ...(deps.pauseHeld !== undefined ? { pauseHeld: deps.pauseHeld } : {}),
       screenScale: (c) => screenScale(c, deps.app.renderer.resolution),
       ...(deps.deferToOverlay !== undefined ? { deferToOverlay: deps.deferToOverlay } : {}),
-      ...(deps.overlayReserve !== undefined ? { overlayReserve: deps.overlayReserve } : {}),
       ...(deps.onSystemMenu !== undefined ? { onSystemMenu: deps.onSystemMenu } : {}),
       ...(deps.onLoadGame !== undefined ? { onLoadGame: deps.onLoadGame } : {}),
       ...(deps.onSaveGame !== undefined ? { onSaveGame: deps.onSaveGame } : {}),
@@ -376,10 +368,8 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
       ...(deps.network !== undefined ? { network: deps.network } : {}),
     });
 
-  const mounts = createReplaceableMount(
-    await mountController(deps.uiscale),
-    mountController,
-    (next, previous) => next.restore(previous.state()),
+  const mounts = createReplaceableMount(await mountController(), mountController, (next, previous) =>
+    next.restore(previous.state()),
   );
 
   return {

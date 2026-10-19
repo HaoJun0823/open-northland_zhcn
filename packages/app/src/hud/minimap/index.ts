@@ -77,7 +77,6 @@ export interface MinimapOptions {
 export interface MinimapHandle {
   claimsPointer(clientX: number, clientY: number): boolean;
   dragging(): boolean;
-  panelRect(): Rect | null;
   /** `lostGoals` are the selected lost settlers' refused goals, marked over the dots. */
   update(snapshot: WorldSnapshot, fog?: FogView | null, lostGoals?: readonly GoalNode[]): void;
   /** Ring an attack at half-cell node `at`. */
@@ -274,8 +273,6 @@ export async function mountMinimap(opts: MinimapOptions): Promise<MinimapHandle>
       return pointOverMinimap(layout, point.x, point.y);
     },
     dragging: input.dragging,
-    panelRect: () =>
-      hidden ? null : minimapLayout(bounds, app.screen.height, uiScale, size, app.screen.width).panel,
     update: (snapshot, fog = null, lostGoals = NO_GOALS) => {
       if (hidden) return;
       if (screenKey !== `${app.screen.width},${app.screen.height}`) refreshLayout();

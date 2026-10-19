@@ -1,21 +1,22 @@
 import { terrainWorldBounds } from '@open-northland/render';
 import { describe, expect, it } from 'vitest';
-import { minimapLayout, minimapPanelWidth } from '../src/hud/minimap/model.js';
+import { minimapLayout } from '../src/hud/minimap/model.js';
 import { NAV_BEAM_H, NAV_BEAM_W, navBeamRect } from '../src/hud/nav-beam.js';
 import {
-  bottomReserveFor,
   centralRegion,
   centralWindowBox,
-  centralWindowFloor,
   centralWindowOrigin,
-  liftedTop,
   WINDOW_REGION_TOP,
 } from '../src/hud/regions.js';
-import { buildToolPanelLayout } from '../src/hud/tool-panel/layout.js';
-import { MIN_UI_SCALE } from '../src/hud/ui-scale.js';
 
 /** The reference viewport at 100%: 1280 × 720 design px. */
 const SCREEN = { width: 1280, height: 720 };
+
+/** The lowest y a central window reaches: the region's foot, above the beam. */
+function regionFloor(screen: { width: number; height: number }): number {
+  const region = centralRegion(screen, 1);
+  return region.y + region.h;
+}
 
 describe('navigation beam', () => {
   it('centres the beam on the bottom edge at its design size times the UI scale', () => {
@@ -46,14 +47,6 @@ describe('central window region', () => {
     expect(centralWindowOrigin(narrow, 1, 1000).x).toBe(0);
   });
 
-  it('floors a window at the beam and lifts one that would cross it, never above the top bar', () => {
-    const floor = centralWindowFloor(SCREEN, 1);
-    expect(floor).toBe(navBeamRect(SCREEN, 1).y - 8);
-    expect(liftedTop(WINDOW_REGION_TOP, 200, floor, 0)).toBe(WINDOW_REGION_TOP);
-    expect(liftedTop(WINDOW_REGION_TOP, 600, floor, 0)).toBe(floor - 600);
-    expect(liftedTop(WINDOW_REGION_TOP, 5000, floor, 40)).toBe(40);
-  });
-
   it('slides a central window clear of the minimap instead of covering its presses', () => {
     // The DOM plane takes every press inside a window, so a window over the corner kills the minimap.
     const minimapOf = (screen: { width: number; height: number }) =>
@@ -82,37 +75,13 @@ describe('central window region', () => {
     expect(box(SCREEN, 1100).x).toBe(SCREEN.width - 1100);
     expect(box({ width: 400, height: 720 }, 640).x).toBe(0);
     // A minimap that sits wholly below the region's floor never moves a window.
-    const belowFloor = { x: 0, y: centralWindowFloor(SCREEN, 1) + 1, w: 400, h: 10 };
+    const belowFloor = { x: 0, y: regionFloor(SCREEN) + 1, w: 400, h: 10 };
     expect(centralWindowBox(SCREEN, 1, 1100, belowFloor).x).toBe(centralWindowOrigin(SCREEN, 1, 1100).x);
   });
 
   it('gives a central window the region height to grow into', () => {
     const box = centralWindowBox(SCREEN, 1, 640, null);
     expect(box.y).toBe(WINDOW_REGION_TOP);
-    expect(box.y + box.maxHeight).toBe(centralWindowFloor(SCREEN, 1));
-  });
-
-  it('names the reserve a window must keep clear of: the beam, the minimap, or the taller of both', () => {
-    const beam = navBeamRect(SCREEN, 1);
-    const minimap = { x: 0, y: 520, w: minimapPanelWidth(1), h: 200 };
-    expect(bottomReserveFor(SCREEN, 1, { x: 500, w: 300 }, minimap)).toEqual(beam);
-    expect(bottomReserveFor(SCREEN, 1, { x: 10, w: 100 }, minimap)).toEqual(minimap);
-    expect(bottomReserveFor(SCREEN, 1, { x: 10, w: 900 }, minimap)).toEqual(minimap);
-    expect(bottomReserveFor(SCREEN, 1, { x: 10, w: 100 }, null)).toBeNull();
-    expect(bottomReserveFor(SCREEN, 1, { x: 1000, w: 100 }, minimap)).toBeNull();
-  });
-});
-
-describe('tool panel layout', () => {
-  it('keeps a fractional uiscale and floors a too-small one at the legibility minimum', () => {
-    expect(buildToolPanelLayout(1.2).scale).toBe(1.2);
-    expect(buildToolPanelLayout(0).scale).toBe(MIN_UI_SCALE);
-    expect(buildToolPanelLayout(-3).scale).toBe(MIN_UI_SCALE);
-  });
-
-  it('resolves the region against the live screen at its own scale', () => {
-    const layout = buildToolPanelLayout(2);
-    expect(layout.windowOrigin(SCREEN, 300)).toEqual(centralWindowOrigin(SCREEN, 2, 300));
-    expect(layout.windowFloor(SCREEN)).toBe(centralWindowFloor(SCREEN, 2));
+    expect(box.y + box.maxHeight).toBe(regionFloor(SCREEN));
   });
 });

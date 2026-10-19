@@ -163,9 +163,10 @@ decided as `audioFrames`. `bench:gpu` does the same with sound on.
 The default matrix covers dense views paused and at ×1/×3/×10, wide views paused and at ×3/×10,
 zoom 0.7/0.5 at ×3, an empty view and a repeated dense ×3 window.
 
-`report.json` includes RAF quantiles, performance metrics, WebGL calls/uploads, camera, canvas,
-ticks, hardware and errors. Screenshots identify each view. Diagnostic runs add CPU/allocation/GPU
-profiles; their timings include instrumentation overhead.
+`report.md` tabulates each window's RAF quantiles, delivered speed, app CPU per frame, sim time per
+tick and WebGL calls under the adapter line. `report.json` includes RAF quantiles, performance metrics,
+WebGL calls/uploads, camera, canvas, ticks, hardware and errors. Screenshots identify each view.
+Diagnostic runs add CPU/allocation/GPU profiles; their timings include instrumentation overhead.
 
 Hidden tabs, camera/canvas drift and browser errors invalidate windows and fail the command.
 One-minute OS load per CPU above 1.5 at either boundary also invalidates a window. Platforms without

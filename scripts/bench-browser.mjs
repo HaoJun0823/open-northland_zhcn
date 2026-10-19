@@ -9,6 +9,7 @@ import {
   simWorkerChannel,
   throttleCpu,
 } from './bench-browser-profile.mjs';
+import { browserWindowTable, windowName } from './bench-browser-report.mjs';
 import {
   benchBrowserInfo,
   cameraAt,
@@ -94,6 +95,20 @@ let page;
 const progress = (message) => {
   metadata.lastProgress = { at: new Date().toISOString(), message };
   console.log(`bench:browser ${message}`);
+};
+const writeReport = async () => {
+  await writeFile(resolve(output, 'report.json'), JSON.stringify(metadata, null, 2));
+  const head = [
+    `# bench:browser ${header.mapId} tick ${header.tick}`,
+    '',
+    `Adapter: ${metadata.hardware?.renderer ?? 'unknown'}.`,
+    `Browser: ${metadata.browser?.version ?? 'not started'}${metadata.browser?.cdp ? ` over CDP at ${metadata.browser.cdp}` : ''}.`,
+    `${VIEWPORT.width}x${VIEWPORT.height}, ${seconds} s per window; RAF intervals in ms.${metadata.failure ? ` Failed: ${metadata.failure.message}` : ''}`,
+    '',
+    browserWindowTable(metadata.reports),
+    '',
+  ];
+  await writeFile(resolve(output, 'report.md'), head.join('\n'));
 };
 try {
   progress('verifying development server and content');
@@ -293,8 +308,8 @@ try {
         worker: result.worker,
       }),
     );
-    await page.screenshot({ path: resolve(output, `${cameraName}-x${speed}${suffix}.png`) });
-    await writeFile(resolve(output, 'report.json'), JSON.stringify(metadata, null, 2));
+    await page.screenshot({ path: resolve(output, `${windowName({ cameraName, speed, suffix })}.png`) });
+    await writeReport();
   }
   if (mode !== 'profile' && windowSpec !== undefined) {
     for (const { cameraName, speed } of windowSpec) await windowRun(cameraName, speed);
@@ -348,7 +363,7 @@ try {
   metadata.finishedAt = new Date().toISOString();
   metadata.os.loadAtEnd = loadavg();
   try {
-    await writeFile(resolve(output, 'report.json'), JSON.stringify(metadata, null, 2));
+    await writeReport();
   } finally {
     await browser?.close();
   }

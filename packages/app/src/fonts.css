@@ -7,8 +7,8 @@
   /* Alegreya Sans SC draws lowercase as true small capitals; `font-variant: small-caps` on the body
      face would be synthesized, since its files carry no smcp feature. */
   --font-caps: "Alegreya Sans SC", "Alegreya Sans", system-ui, sans-serif;
-  /* Tinos draws the Cyrillic that Cinzel lacks. */
-  --font-title: Cinzel, Tinos, serif;
+  /* Cinzel has no Cyrillic; the SC face draws those titles in small capitals of the body family. */
+  --font-title: Cinzel, "Alegreya Sans SC", serif;
 }
 
 @font-face {
@@ -256,23 +256,5 @@
   font-weight: 700;
   font-display: swap;
   src: url("/fonts/alegreyasanssc-cyrillic-700.woff2") format("woff2");
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-
-@font-face {
-  font-family: "Tinos";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/tinos-cyrillic-400.woff2") format("woff2");
-  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-
-@font-face {
-  font-family: "Tinos";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/fonts/tinos-cyrillic-700.woff2") format("woff2");
   unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
 }

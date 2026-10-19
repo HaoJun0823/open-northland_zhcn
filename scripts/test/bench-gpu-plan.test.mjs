@@ -63,7 +63,7 @@ test('the matrix covers every magnifier at zoom 1 and 2, and ids are unique', ()
       assert.ok(scenarios.some((entry) => entry.magnifier === magnifier && entry.zoom === zoom));
   assert.deepEqual(
     scenarios.filter((entry) => entry.weather !== null).map((entry) => entry.weather),
-    ['rain', 'clear'],
+    ['rain', 'snow', 'sand', 'rain:100', 'snow:100', 'clear'],
   );
 });
 

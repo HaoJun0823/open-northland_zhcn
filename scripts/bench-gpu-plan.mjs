@@ -25,6 +25,9 @@ const FAST = 3;
 const DENSE_ZOOM = 1;
 const MAGNIFIED_ZOOM = 2;
 const WIDE_ZOOM = 0.35;
+/** A `?weather=<kind>:<percent>` amount past every kind's full storm: a thunderstorm with lightning, a
+ *  blizzard. A bare kind shows the default heavy shower, which is a full storm for sand already. */
+const FULL_STORM_PERCENT = 100;
 /** A single selected settler opens the settler panel and its portrait inset. */
 const PANEL_SELECTION = 1;
 const FEW_SELECTED = 10;
@@ -48,7 +51,7 @@ function scenario(id, overrides = {}) {
 /**
  * Every scenario frames the densest building cluster. Pairs to read together: `off-*` against
  * `magnify-*-z1` and `on-x3`; `panel-*` against `magnify-xbr-z1` and `on-x3`; `select*` against
- * `magnify-xbr-z1`; `weather-rain-x3` against `weather-clear-x3`.
+ * `magnify-xbr-z1`; every `weather-*-x3` against `weather-clear-x3`.
  */
 export function gpuScenarios() {
   return [
@@ -64,6 +67,10 @@ export function gpuScenarios() {
     scenario(`select${MANY_SELECTED}-paused`, { selection: MANY_SELECTED }),
     // A paused field stands still, so the weather pass is compared moving.
     scenario('weather-rain-x3', { weather: 'rain', speed: FAST }),
+    scenario('weather-snow-x3', { weather: 'snow', speed: FAST }),
+    scenario('weather-sand-x3', { weather: 'sand', speed: FAST }),
+    scenario('weather-storm-x3', { weather: `rain:${FULL_STORM_PERCENT}`, speed: FAST }),
+    scenario('weather-blizzard-x3', { weather: `snow:${FULL_STORM_PERCENT}`, speed: FAST }),
     scenario('weather-clear-x3', { weather: 'clear', speed: FAST }),
     scenario('wide-paused', { zoom: WIDE_ZOOM }),
     scenario('wide-x3', { zoom: WIDE_ZOOM, speed: FAST }),

@@ -217,7 +217,8 @@ Arguments: checkpoint, origin, output directory (default `bench-out/gpu`), secon
 counter, warms for three seconds and samples GPU time every half second.
 
 Scenarios cover enhancements off/on, each magnifier at zoom 1/2, pause/×3, a selected settler and
-portrait, groups of 10 and at least 50 settlers, rain/clear weather, and zoom 0.35.
+portrait, groups of 10 and at least 50 settlers, rain, snow, sand, a thunderstorm, a blizzard and clear
+weather, and zoom 0.35.
 `ON_BENCH_GPU_SCENARIOS=panel-x3,on-x3` selects specific scenarios.
 
 `report.md` has the summary; `report.json` has every repeat. The summary uses the lowest per-repeat

@@ -59,6 +59,9 @@ export async function countGlCalls(page) {
       };
       wrap('drawElements', (c) => c.draws++);
       wrap('drawArrays', (c) => c.draws++);
+      // The weather's particles are one instanced draw per kind.
+      wrap('drawElementsInstanced', (c) => c.draws++);
+      wrap('drawArraysInstanced', (c) => c.draws++);
       wrap('bindTexture', (c) => c.textureBinds++);
       wrap('useProgram', (c) => c.programs++);
       // (target, byteOffset, source, sourceOffset, length): a ranged upload names its element count.

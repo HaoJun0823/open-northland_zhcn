@@ -53,8 +53,9 @@ export interface AuditReport {
   /** Overlays the pipeline leaves out or reads against changed source text, and values still the
    *  source text unchanged. */
   readonly warnings: readonly AuditFinding[];
-  /** Map overlays no map of the pack takes: filed under a digest no map of the pack has, or one of
-   *  several of a language whose basis no copy's text matches. A catalogue map's, or a stale identity. */
+  /** Map overlays no map of the pack takes: filed under a digest no map of the pack has, or an edit or
+   *  one of several of a language whose basis no copy's text matches. A catalogue map's, or a stale
+   *  identity. */
   readonly unmatchedMaps: number;
 }
 
@@ -313,6 +314,9 @@ function auditMapOverlays(
   const [first] = files;
   if (first === undefined) return 0;
   const { lang } = first;
+  // An edit, the one overlay of its language in that language, applies only to the text it was written
+  // against; it has no stale fallback.
+  const edit = files.length === 1 && first.overlay.basis.lang === lang ? first.overlay : undefined;
   for (const map of copies) {
     const where = whereOf(map);
     if (isSourceLanguage(lang) && !map.takesSourceLanguages) {
@@ -326,6 +330,17 @@ function auditMapOverlays(
       (basisLang) => textDigest(map, basisLang),
     );
     const applied = files.find(({ overlay }) => overlay === selected?.overlay);
+    if (selected === undefined && edit !== undefined) {
+      const twin = copies.find((other) => textDigest(other, edit.basis.lang) === edit.basis.digest);
+      warn(
+        first.file,
+        twin === undefined
+          ? `${where}: not applied, its ${lang} basis text differs from the one the edit was written against`
+          : `${where}: not applied, its ${lang} text differs from ${whereOf(twin)}'s, which the edit was ` +
+              'written against',
+      );
+      continue;
+    }
     if (selected === undefined || applied === undefined) {
       warn(
         first.file,
@@ -342,7 +357,8 @@ function auditMapOverlays(
     auditAppliedOverlay(applied, map, copies, selected.stale, warn);
   }
   const taken = (overlay: MapOverlay) =>
-    files.length === 1 || copies.some((map) => textDigest(map, overlay.basis.lang) === overlay.basis.digest);
+    (files.length === 1 && edit === undefined) ||
+    copies.some((map) => textDigest(map, overlay.basis.lang) === overlay.basis.digest);
   return files.filter(({ overlay }) => !taken(overlay)).length;
 }
 

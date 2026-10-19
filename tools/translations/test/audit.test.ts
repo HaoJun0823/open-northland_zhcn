@@ -374,6 +374,37 @@ describe('auditTranslations: copies of one map.dat with other text', () => {
     ]);
   });
 
+  it('applies an edit only to the copy whose text it was written against, without a stale fallback', async () => {
+    await put(`pol/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basisOf('fjord')));
+
+    const report = await auditTranslations(dir, copiesOf('fjord', 'twin'));
+
+    expect(report.unmatchedMaps).toBe(0);
+    expect(report.warnings).toEqual([
+      {
+        file: `pol/maps/${DIGEST}.json`,
+        message:
+          "maps/community/twin: not applied, its pol text differs from maps/community/fjord's, which the " +
+          'edit was written against',
+      },
+    ]);
+  });
+
+  it('counts an edit whose basis text changed as taken by no map', async () => {
+    await put(`pol/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basis('e'.repeat(64))));
+
+    const report = await auditTranslations(dir, copiesOf('fjord'));
+
+    expect(report.unmatchedMaps).toBe(1);
+    expect(report.warnings).toEqual([
+      {
+        file: `pol/maps/${DIGEST}.json`,
+        message:
+          'maps/community/fjord: not applied, its pol basis text differs from the one the edit was written against',
+      },
+    ]);
+  });
+
   it('warns about a copy none of several overlays was written for, and counts those no copy takes', async () => {
     const twin = basisOf('twin');
     const lost = basis('e'.repeat(64));

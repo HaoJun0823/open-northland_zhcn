@@ -18,7 +18,6 @@ const CONTENT_ROOTS = new Set([
   'sounds',
   'music',
   'gui',
-  'gui-bitmaps',
   'goods',
   'terrain-palettes',
 ]);

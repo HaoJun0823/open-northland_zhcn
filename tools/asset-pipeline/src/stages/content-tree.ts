@@ -13,8 +13,6 @@ export const BOBS_DIR = 'bobs';
 export const TEXTURES_DIR = 'textures';
 /** The mod's `.wav` tree. */
 export const SOUNDS_DIR = 'sounds';
-/** Menu and HUD backdrop fills. */
-export const GUI_BITMAPS_DIR = 'gui-bitmaps';
 /** Decoded map grids and their sidecars. */
 export const MAPS_DIR = 'maps';
 

@@ -24,7 +24,6 @@ content/
   sounds/                 the mod's wav tree
   music/                  rendered tracks and their manifest
   gui/                    decoded interface assets
-  gui-bitmaps/            window and button fills
   goods/                  decoded goods art
   terrain-palettes/       the vertex colour palette map scripts index
   campaigns/<id>/         the files campaigns-index.json names: map backgrounds, title logos, route

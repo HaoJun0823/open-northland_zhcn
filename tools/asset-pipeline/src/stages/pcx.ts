@@ -4,8 +4,8 @@ import { decodePcx, expandToRgba } from '@open-northland/formats/pcx';
 import { encodePng } from '@open-northland/formats/png';
 import { errorMessage } from '../errors.js';
 import { writeFileWithParents } from '../files.js';
-import { collectSourceFiles, DATA_GUI_BITMAPS_DIR, DATA_TEXTURES_DIR, type SourceRoots } from '../roots.js';
-import { GUI_BITMAPS_DIR, TEXTURES_DIR } from './content-tree.js';
+import { collectSourceFiles, DATA_TEXTURES_DIR, type SourceRoots } from '../roots.js';
+import { TEXTURES_DIR } from './content-tree.js';
 import { readSourceFile } from './source-files.js';
 
 /** A transition overlay's two source pictures: the RGB texture + its separate alpha-mask `.pcx`. */
@@ -73,39 +73,32 @@ export async function composeMaskedTransitionPages(
   return done;
 }
 
-/** The flat mod directories whose `.pcx` pictures the app fetches, and the served directory each lands in. */
-const PICTURE_DIRS: readonly { readonly source: string; readonly output: string }[] = [
-  { source: DATA_TEXTURES_DIR, output: TEXTURES_DIR },
-  { source: DATA_GUI_BITMAPS_DIR, output: GUI_BITMAPS_DIR },
-];
-
 /**
- * Converts every `.pcx` in the {@link PICTURE_DIRS} to a lower-cased `.png` under `outDir`. A picture
- * that fails to read or decode is logged and skipped; an output-write failure or an unreadable root
- * propagates as an environmental error.
+ * Converts every `.pcx` directly in the mod's textures directory, the ground pages the app fetches by
+ * their IR reference, to a lower-cased `.png` under {@link TEXTURES_DIR}. A picture that fails to read
+ * or decode is logged and skipped; an output-write failure or an unreadable root propagates as an
+ * environmental error.
  */
 export async function convertPcxTree(roots: SourceRoots, outDir: string): Promise<PcxConversion[]> {
   const done: PcxConversion[] = [];
-  for (const dir of PICTURE_DIRS) {
-    const prefix = `${dir.source.toLowerCase()}/`;
-    const pictures = await collectSourceFiles(
-      roots,
-      (rel) => rel.startsWith(prefix) && rel.endsWith('.pcx') && !rel.slice(prefix.length).includes('/'),
-    );
-    for (const { rel: input, path } of pictures) {
-      const output = `${dir.output}/${basename(input)
-        .toLowerCase()
-        .replace(/\.pcx$/, '.png')}`;
-      let png: Uint8Array;
-      try {
-        png = await pcxToPng(await readFile(path));
-      } catch (err) {
-        console.warn(`[pipeline] skipped ${input}: ${errorMessage(err)}`);
-        continue;
-      }
-      await writeFileWithParents(join(outDir, output), png);
-      done.push({ input, output });
+  const prefix = `${DATA_TEXTURES_DIR.toLowerCase()}/`;
+  const pictures = await collectSourceFiles(
+    roots,
+    (rel) => rel.startsWith(prefix) && rel.endsWith('.pcx') && !rel.slice(prefix.length).includes('/'),
+  );
+  for (const { rel: input, path } of pictures) {
+    const output = `${TEXTURES_DIR}/${basename(input)
+      .toLowerCase()
+      .replace(/\.pcx$/, '.png')}`;
+    let png: Uint8Array;
+    try {
+      png = await pcxToPng(await readFile(path));
+    } catch (err) {
+      console.warn(`[pipeline] skipped ${input}: ${errorMessage(err)}`);
+      continue;
     }
+    await writeFileWithParents(join(outDir, output), png);
+    done.push({ input, output });
   }
   return done;
 }

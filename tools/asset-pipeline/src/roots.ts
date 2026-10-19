@@ -10,7 +10,6 @@ import type { StringCorrections } from './string-corrections.js';
 export const DATA_BOBS_DIR = 'Data/engine2d/bin/bobs';
 export const DATA_TEXTURES_DIR = 'Data/engine2d/bin/textures';
 export const DATA_SOUNDS_DIR = 'Data/engine2d/bin/sounds';
-export const DATA_GUI_BITMAPS_DIR = 'Data/gui/bitmaps';
 
 /** The base source tree under the validated data pack root. */
 export interface SourceRoots {

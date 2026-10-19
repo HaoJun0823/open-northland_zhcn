@@ -4,7 +4,6 @@ import {
   assertDistinctBobBasenames,
   BOBS_DIR,
   bobAtlasStem,
-  GUI_BITMAPS_DIR,
   MAPS_DIR,
   SOUNDS_DIR,
   TEXTURES_DIR,
@@ -13,13 +12,7 @@ import {
 describe('served directory constants', () => {
   it('spell the URL roots the app fetches, since the tree is served as static files', () => {
     // Pinned as literals: a drift here 404s a whole route silently.
-    expect([BOBS_DIR, TEXTURES_DIR, SOUNDS_DIR, GUI_BITMAPS_DIR, MAPS_DIR]).toEqual([
-      'bobs',
-      'textures',
-      'sounds',
-      'gui-bitmaps',
-      'maps',
-    ]);
+    expect([BOBS_DIR, TEXTURES_DIR, SOUNDS_DIR, MAPS_DIR]).toEqual(['bobs', 'textures', 'sounds', 'maps']);
   });
 });
 

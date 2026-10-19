@@ -5,8 +5,8 @@ import { decodePng } from '@open-northland/formats/png';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rampPalette } from '../../../packages/formats/test/fixtures/palette.js';
 import { samplePcx } from '../../../packages/formats/test/fixtures/pcx.js';
-import { DATA_GUI_BITMAPS_DIR, DATA_TEXTURES_DIR } from '../src/roots.js';
-import { GUI_BITMAPS_DIR, TEXTURES_DIR } from '../src/stages/content-tree.js';
+import { DATA_TEXTURES_DIR } from '../src/roots.js';
+import { TEXTURES_DIR } from '../src/stages/content-tree.js';
 import { composeMaskedTransitionPages, convertPcxTree, pcxToPng } from '../src/stages/pcx.js';
 import { makeTempDir } from './support/game-tree.js';
 
@@ -44,19 +44,18 @@ describe('convertPcxTree', () => {
     await rm(join(game, '..'), { recursive: true, force: true });
   });
 
-  it('converts the texture pages and GUI bitmaps into their served directories as .png', async () => {
+  it('converts the texture pages into their served directory as .png', async () => {
     const { bytes, width, height } = samplePcx();
     await mkdir(join(game, DATA_TEXTURES_DIR), { recursive: true });
-    await mkdir(join(game, DATA_GUI_BITMAPS_DIR), { recursive: true });
     await writeFile(join(game, DATA_TEXTURES_DIR, 'text_000.pcx'), bytes);
-    await writeFile(join(game, DATA_GUI_BITMAPS_DIR, 'bg_button.PCX'), bytes); // case-insensitive match
+    await writeFile(join(game, DATA_TEXTURES_DIR, 'text_001.PCX'), bytes); // case-insensitive match
     await writeFile(join(game, DATA_TEXTURES_DIR, 'notes.txt'), 'ignore me');
 
     const done = await convertPcxTree({ data: game }, out);
 
     expect(done.map((c) => c.output).sort()).toEqual([
-      `${GUI_BITMAPS_DIR}/bg_button.png`,
       `${TEXTURES_DIR}/text_000.png`,
+      `${TEXTURES_DIR}/text_001.png`,
     ]);
     const decoded = await decodePng(await readFile(join(out, TEXTURES_DIR, 'text_000.png')));
     expect(decoded.width).toBe(width);

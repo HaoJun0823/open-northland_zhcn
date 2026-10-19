@@ -9,6 +9,7 @@ import { assertPaletteBytes, paletteToRgba } from '@open-northland/formats/image
 import { DecodeLimitError } from '@open-northland/formats/limit';
 import { decodePcx } from '@open-northland/formats/pcx';
 import { encodePng } from '@open-northland/formats/png';
+import { sha256Hex } from './digest.js';
 import { errorMessage } from './errors.js';
 
 /** Pictures are content-addressed: the corpus repeats the same portraits across map folders and
@@ -18,8 +19,6 @@ const NAME_DIGEST_CHARS = 16;
  *  entry is the key colour (magenta or blue), so that index draws as nothing. */
 const COLOR_KEY_INDEX = 0;
 const OPAQUE = 0xff;
-const HEX = 16;
-const HEX_BYTE_DIGITS = 2;
 
 /** The pictures hypertext pages name: PNG bytes by emitted file name, and the resolver a render uses. */
 export interface PagePictures {
@@ -75,9 +74,7 @@ async function convertPicture(
   const { width, height, pixels, palette } = decodePcx(bytes, maxPixels);
   if (palette === undefined) throw new Error('picture has no palette');
   assertPaletteBytes(palette, 'hypertext picture');
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', Uint8Array.from(bytes)));
-  const name = Array.from(digest, (byte) => byte.toString(HEX).padStart(HEX_BYTE_DIGITS, '0')).join('');
-  const file = `${name.slice(0, NAME_DIGEST_CHARS)}.png`;
+  const file = `${(await sha256Hex(bytes)).slice(0, NAME_DIGEST_CHARS)}.png`;
   const rgba = paletteToRgba(pixels, palette, (i) => (pixels[i] === COLOR_KEY_INDEX ? 0 : OPAQUE));
   return { picture: { kind: 'picture', file, width, height }, png: await encodePng({ width, height, rgba }) };
 }

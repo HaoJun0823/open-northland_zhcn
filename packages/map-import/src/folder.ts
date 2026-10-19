@@ -1,6 +1,9 @@
 import { MAP_DAT_FILE } from './layout.js';
 import type { MapTree } from './tree.js';
 
+/** Stands in for the folder name of a map at the tree root when the caller names none. */
+export const DEFAULT_ROOT_NAME = 'map';
+
 /** One map folder of a tree, read by case-folded segments relative to it. */
 export interface MapFolder {
   /** The spelled `map.dat` path, naming the map in warnings. */

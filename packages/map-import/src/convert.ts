@@ -22,23 +22,27 @@ import {
 } from '@open-northland/formats/ini';
 import { DecodeLimitError } from '@open-northland/formats/limit';
 import { cutsceneIdsOf, type ResolvedBriefing, resolveMapBriefing } from './briefing.js';
+import { sha256Hex } from './digest.js';
 import { errorMessage, MapImportError } from './errors.js';
-import { type MapFolder, mapFolderOf } from './folder.js';
+import { DEFAULT_ROOT_NAME, type MapFolder, mapFolderOf } from './folder.js';
 import { findMapFolders, mapIdFromFolderName } from './folders.js';
 import { mapsIndexEntry } from './index-entry.js';
 import { MAP_CIF_FILE, MAP_DAT_FILE, PICTURE_PATH, STATIC_OBJECT_FILES } from './layout.js';
 import { DEFAULT_IMPORT_LIMITS, type ImportLimits } from './limits.js';
 import { loadMapStringTables, type MapStringTables, resolveMapMeta } from './meta.js';
 import { minimapToPng } from './minimap.js';
+import {
+  type MapOverlayOutcome,
+  type MapOverlaySource,
+  overlayStringTables,
+  planMapOverlays,
+} from './overlays.js';
 import { resolveMapScript } from './script.js';
 import { type MapDatTerrainFile, mapDatToTerrain } from './terrain/index.js';
 import type { MapTree } from './tree.js';
 import { resolveBriefingVoices } from './voices.js';
 
 export type MapProvenanceKind = MapProvenance['kind'];
-
-/** Stands in for the folder name of a map at the tree root when the caller names none. */
-export const DEFAULT_ROOT_NAME = 'map';
 
 /** The steps one map goes through, reported in this order. */
 export type ConvertStage =
@@ -74,6 +78,8 @@ export interface ConvertOptions {
   readonly minimap?: (terrain: MapDatTerrainFile) => Promise<Uint8Array | undefined>;
   /** Rewrites the decoded string tables of map `id` before the meta, script and sidecar read them. */
   readonly correctStrings?: (id: string, tables: MapStringTables) => MapStringTables;
+  /** Translation overlays, applied over the corrected string tables and to the briefing pages. */
+  readonly overlays?: MapOverlaySource;
   /** Corrects decoded map.cif properties using its tree path and original bytes, never its published id.
    * A refusal propagates rather than degrading the map to missing entities or script. */
   readonly correctCifLines?: (
@@ -133,6 +139,10 @@ export interface ConvertedMap {
   readonly index: MapsIndexEntry;
   /** The `[StaticObjects]` verbs the decoder skipped because it does not know them, sorted. */
   readonly unknownStaticVerbs: readonly string[];
+  /** The SHA-256 hex of the raw `map.dat`, the name its translation overlays are filed under. */
+  readonly datDigest: string;
+  /** What became of each translation overlay filed under `datDigest`, in language order. */
+  readonly overlays: readonly MapOverlayOutcome[];
 }
 
 /** A map folder whose `map.dat` did not decode, and why. */
@@ -238,6 +248,7 @@ export async function convertMapFolder(
   report('terrain');
   const dat = folder.read([MAP_DAT_FILE]);
   if (dat === undefined) throw new MapImportError('decode-failed', `${folder.rel}: no ${MAP_DAT_FILE}`);
+  const datDigest = await sha256Hex(dat);
   let terrain: MapDatTerrainFile;
   try {
     terrain = mapDatToTerrain(dat, (message) => folder.warn(message), limits.cells);
@@ -274,7 +285,9 @@ export async function convertMapFolder(
   } catch (err) {
     throw limitFailure(err, folder.rel);
   }
+  const overlays = planMapOverlays(folder, stringTables, datDigest, options.overlays);
   if (options.correctStrings !== undefined) stringTables = options.correctStrings(id, stringTables);
+  stringTables = overlayStringTables(stringTables, overlays.applied);
   const { cifSections, entities } = authored;
   if (entities !== undefined) terrain = { ...terrain, entities };
   const unknownStaticVerbs = [...unknownVerbs].sort();
@@ -311,7 +324,13 @@ export async function convertMapFolder(
     resolved =
       script === undefined
         ? undefined
-        : await resolveMapBriefing(folder, cutsceneIdsOf(script), limits.picturePixels, pageBudget);
+        : await resolveMapBriefing(
+            folder,
+            cutsceneIdsOf(script),
+            limits.picturePixels,
+            pageBudget,
+            overlays.applied,
+          );
   } catch (err) {
     throw limitFailure(err, folder.rel);
   }
@@ -365,6 +384,8 @@ export async function convertMapFolder(
       voices: [...voices.keys()],
     }),
     unknownStaticVerbs,
+    datDigest,
+    overlays: overlays.outcomes,
   };
 }
 

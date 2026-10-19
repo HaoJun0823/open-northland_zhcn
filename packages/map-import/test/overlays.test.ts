@@ -63,6 +63,7 @@ async function convert(
   tree: ReturnType<typeof treeOf>,
   overlays: ReadonlyMap<Language, MapOverlay>,
   allowSourceLanguages = true,
+  corrections: Pick<ConvertOptions, 'correctStrings' | 'shippedFile'> = {},
 ) {
   const warnings: string[] = [];
   const mapOverlays = vi.fn((_digest: string) => overlays);
@@ -71,6 +72,7 @@ async function convert(
     rootName: 'Wyprawa',
     overlays: { mapOverlays, allowSourceLanguages },
     onWarning: (message) => warnings.push(message),
+    ...corrections,
   };
   const map = await convertMapFolder(tree, '', options);
   return { map, warnings, mapOverlays };
@@ -185,6 +187,28 @@ describe('convertMapFolder with translation overlays', () => {
     expect(map.strings?.chs).toEqual({ '1': '说明' });
     expect(map.overlays).toEqual([{ lang: 'chs', status: 'applied', stale: true }]);
     expect(warnings).toEqual([expect.stringContaining('translation overlay chs stale')]);
+  });
+
+  it('hashes the basis as the pack shipped it, while the corrected text still renders', async () => {
+    const briefings = 'text/pol/briefings/briefings.txt';
+    const shipped = briefedMap().files.get(briefings);
+    const corrected = briefedMap({
+      [briefings]:
+        '[blockstart:title]\nNa poludnie\n[blockend:title]\n[blockstart:body]\nStatki czekaja\n[blockend:body]\n',
+    });
+    const chs = await overlay({ strings: { '0': '北行' } });
+    const fixes: Pick<ConvertOptions, 'correctStrings' | 'shippedFile'> = {
+      correctStrings: (_id, tables) => ({ ...tables, pol: { ...tables.pol, 1: 'Opis poprawiony' } }),
+      shippedFile: (file) => (file.toLowerCase() === briefings ? shipped : undefined),
+    };
+
+    const { map } = await convert(corrected, new Map([['chs', chs]]), false, fixes);
+    expect(map.overlays).toEqual([{ lang: 'chs', status: 'applied', stale: false }]);
+    expect(map.strings?.pol).toEqual({ '0': 'Wyprawa', '1': 'Opis poprawiony' });
+    expect(pageText(map.briefing, 'pol')).toBe('Na poludnie\nStatki czekaja');
+
+    const unaware = await convert(corrected, new Map([['chs', chs]]), false);
+    expect(unaware.map.overlays).toEqual([{ lang: 'chs', status: 'applied', stale: true }]);
   });
 
   it('records no outcome for a map without overlays', async () => {

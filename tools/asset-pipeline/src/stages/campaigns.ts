@@ -98,6 +98,7 @@ async function convertCampaignMap(
       : {
           correctCifLines: roots.corrections.correctCifLines,
           correctObjects: roots.corrections.correctObjects,
+          shippedFile: roots.corrections.shipped,
         }),
     ...(synthesizeMinimap === undefined ? {} : { minimap: synthesizeMinimap }),
     ...(stringCorrections === undefined

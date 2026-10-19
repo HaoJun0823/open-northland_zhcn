@@ -6,14 +6,14 @@ import { OVERLAY_VERSION } from '@open-northland/data';
 import { mapSourceTextDigest } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
-import { auditTranslations } from '../src/audit.js';
 import {
   bookSourceDigest,
   objectTableSourceDigest,
   type PackMap,
   type PackText,
   readPackText,
-} from '../src/pack-text.js';
+} from '../src/audit/pack-text.js';
+import { auditTranslations } from '../src/audit.js';
 
 /**
  * `npm run check:translations`: the layout and schema of every overlay file, and with the unpacked pack
@@ -130,7 +130,10 @@ describe('auditTranslations: against the pack', () => {
     return {
       maps: async () => new Map([[DIGEST, maps]]),
       campaigns: new Set(['saga']),
-      objectNames: async (lang, table) => (lang === 'pol' && table === 'goods' ? goods : undefined),
+      objectNames: async (lang, table) => {
+        if (lang === 'pol' && table === 'goods') return goods;
+        throw new Error(`Data/text/${lang}/strings/gameobjects/${table}.cif not found`);
+      },
       historyBlocks: async (lang) => (lang === 'pol' ? history : undefined),
     };
   }
@@ -174,7 +177,10 @@ describe('auditTranslations: against the pack', () => {
         message: 'maps/community/fjord: briefing labels the pol source lacks: ending',
       },
       { file: 'chs/objects/goods.json', message: 'type ids the pol source lacks: 9' },
-      { file: 'chs/objects/houses.json', message: 'the pack has no pol houses table' },
+      {
+        file: 'chs/objects/houses.json',
+        message: 'no readable pol houses table: Data/text/pol/strings/gameobjects/houses.cif not found',
+      },
       { file: 'cht/books/history.json', message: 'the pol basis text changed' },
       { file: `cht/maps/${DIGEST}.json`, message: 'maps/community/fjord: the pol basis text changed' },
       {
@@ -204,7 +210,7 @@ describe('auditTranslations: against the pack', () => {
 });
 
 describe('readPackText', () => {
-  it('reads the maps, object tables and history book as the pipeline does', async () => {
+  it('reads the maps, object tables and history book as the pack shipped them', async () => {
     const dat = buildMapDat(1, 1, [2, 2, 2, 2]);
     const manifest = {
       format: 'open-northland-data',
@@ -248,7 +254,7 @@ describe('readPackText', () => {
       names: { 1: ' Drewno ' },
       plurals: { 1: 'Drewna' },
     });
-    expect(await pack.objectNames('eng', 'goods')).toBeUndefined();
+    await expect(pack.objectNames('eng', 'goods')).rejects.toThrow(/goods\.cif not found/);
     expect(bookSourceDigest((await pack.historyBlocks('pol')) ?? new Map())).toBe(
       bookSourceDigest(new Map([['history.txt', new Map([['00', 'Dawno']])]])),
     );

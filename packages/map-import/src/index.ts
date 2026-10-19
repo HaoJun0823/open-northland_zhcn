@@ -19,7 +19,6 @@ export {
   type MapTreeConversion,
   type SkippedMap,
 } from './convert.js';
-export { sha256Hex } from './digest.js';
 export { MapImportError, type MapImportFailure } from './errors.js';
 export { MAP_FILE_SUFFIXES, mapFileNames, mapFiles } from './files.js';
 export { DEFAULT_ROOT_NAME } from './folder.js';

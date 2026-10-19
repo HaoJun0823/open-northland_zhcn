@@ -58,6 +58,9 @@ describe('source corrections', () => {
       'AI_SoldiersDefaultPosition 1 40 2 50\n',
     );
     expect(() => corrections.assertApplied()).not.toThrow();
+    // The shipped bytes stay reachable by the corrected file's name, any case, for overlay bases.
+    expect(Buffer.from(corrections.shipped(AI_INC.toUpperCase()) ?? []).toString('latin1')).toBe(SHIPPED_AI);
+    expect(corrections.shipped(`${MAP_FOLDER}/player.inc`)).toBeUndefined();
   });
 
   it('reads a changed file as shipped and fails the run until the correction is revisited', async () => {

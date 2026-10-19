@@ -1,9 +1,11 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   GAME_OBJECT_TABLES,
+  type GameObjectNames,
   type GameObjectTable,
   HISTORY_BOOK,
   isGameObjectTable,
@@ -30,7 +32,7 @@ import {
   type PackMap,
   type PackText,
   readPackText,
-} from './pack-text.js';
+} from './audit/pack-text.js';
 
 /** One problem with one overlay file, named relative to the translations root. */
 export interface AuditFinding {
@@ -224,9 +226,14 @@ export async function auditTranslations(root: string, pack?: PackText): Promise<
       else auditMapOverlay(entry, copies, warn);
     }
     for (const { file, table, overlay } of valid.objects) {
-      const source = await pack.objectNames(overlay.basis.lang, table);
-      if (source === undefined) {
-        warn(file, `the pack has no ${overlay.basis.lang} ${table} table`);
+      let source: GameObjectNames;
+      try {
+        source = await pack.objectNames(overlay.basis.lang, table);
+      } catch (err) {
+        warn(
+          file,
+          `no readable ${overlay.basis.lang} ${table} table: ${err instanceof Error ? err.message : String(err)}`,
+        );
         continue;
       }
       if (objectTableSourceDigest(source) !== overlay.basis.digest)
@@ -259,19 +266,44 @@ export async function auditTranslations(root: string, pack?: PackText): Promise<
 
 /** The repository checkout this tool belongs to. */
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
-const DEFAULT_DATA_ROOT = join(REPO_ROOT, '.cache', 'data', 'unpacked');
+const UNPACKED_PACK = ['.cache', 'data', 'unpacked'] as const;
+
+/** The primary checkout of a Git worktree, which keeps the unpacked pack a worktree lacks. */
+function primaryCheckout(): string | undefined {
+  try {
+    const common = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    return dirname(common);
+  } catch {
+    return undefined;
+  }
+}
+
+/** `ON_DATA_ROOT`, else the first checkout, this one then the primary, that holds the unpacked pack. */
+function packRoot(): { readonly root: string | undefined; readonly looked: readonly string[] } {
+  // INIT_CWD is where `npm run` was invoked; a relative ON_DATA_ROOT means that directory.
+  const explicit = process.env.ON_DATA_ROOT;
+  const looked =
+    explicit === undefined
+      ? [REPO_ROOT, primaryCheckout()].flatMap((checkout) =>
+          checkout === undefined ? [] : [join(checkout, ...UNPACKED_PACK)],
+        )
+      : [resolve(process.env.INIT_CWD ?? process.cwd(), explicit)];
+  return { root: looked.find((dir) => existsSync(join(dir, 'manifest.json'))), looked };
+}
 
 async function main(): Promise<void> {
-  // INIT_CWD is where `npm run` was invoked; a relative ON_DATA_ROOT means that directory.
-  const baseDir = process.env.INIT_CWD ?? process.cwd();
-  const dataRoot = resolve(baseDir, process.env.ON_DATA_ROOT ?? DEFAULT_DATA_ROOT);
-  const pack = existsSync(dataRoot) ? await readPackText(dataRoot) : undefined;
+  const { root: dataRoot, looked } = packRoot();
+  const pack = dataRoot === undefined ? undefined : await readPackText(dataRoot);
   const report = await auditTranslations(TRANSLATIONS_ROOT, pack);
   for (const { file, message } of report.errors) console.error(`error   translations/${file}: ${message}`);
   for (const { file, message } of report.warnings) console.warn(`warning translations/${file}: ${message}`);
   const scope =
-    pack === undefined
-      ? `schema and layout only: no unpacked pack at ${dataRoot} (ON_DATA_ROOT)`
+    dataRoot === undefined
+      ? `schema and layout only: no unpacked pack at ${looked.join(' or ')} (ON_DATA_ROOT)`
       : `checked against ${dataRoot}; ${report.unmatchedMaps} map overlay(s) name no map of the pack`;
   console.log(
     `check:translations - ${report.files} overlay file(s), ${report.errors.length} error(s), ` +

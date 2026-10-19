@@ -3,10 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Checks and imports the repository's translation overlays under translations/",
+  "description": "Commands for the repository's translation overlays under translations/",
   "scripts": {
     "build": "tsc --build",
-    "audit": "tsc --build && node ./dist/audit.js",
+    "check:translations": "tsc --build && node ./dist/audit.js",
     "import:cultures-localization": "tsc --build && node ./dist/import-cultures-localization.js"
   },
   "dependencies": {

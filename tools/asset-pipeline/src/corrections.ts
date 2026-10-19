@@ -72,6 +72,9 @@ export interface SourceCorrections {
   /** The bytes at `path`, with the correction naming that mod file applied. `file` names a source
    *  outside the data root by its map tree path instead, as a campaign map's files are. */
   read(path: string, file?: string): Promise<Uint8Array>;
+  /** The bytes the pack shipped for `file`, named as `read` names it, when a read so far corrected
+   *  them; translation overlay bases hash the shipped text. */
+  shipped(file: string): Uint8Array | undefined;
   /** Correct decoded properties against the original bytes, before any map readers consume them. */
   correctCifLines(file: string, bytes: Uint8Array, lines: readonly CifLine[]): readonly CifLine[];
   /** Correct a map.dat's decoded landscape objects against its original bytes. */
@@ -128,6 +131,7 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
 
   const applied = new Set<string>();
   const failures = new Map<string, string>();
+  const shipped = new Map<string, Uint8Array>();
   const unapplied = (): UnappliedCorrection[] =>
     list
       .filter((correction) => !applied.has(correction.id))
@@ -164,8 +168,10 @@ export async function loadSourceCorrections(dir: string, dataRoot: string): Prom
         return bytes;
       }
       applied.add(correction.id);
+      shipped.set(file.toLowerCase(), bytes);
       return corrected;
     },
+    shipped: (file) => shipped.get(file.toLowerCase()),
     correctCifLines(file, bytes, lines) {
       const correction = byFile.get(file.toLowerCase());
       if (correction?.format !== 'cif') return lines;

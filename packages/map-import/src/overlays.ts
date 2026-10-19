@@ -8,7 +8,13 @@ import {
 import { readBriefingBlocks } from './briefing.js';
 import { sha256Hex } from './digest.js';
 import { DEFAULT_ROOT_NAME, type MapFolder, mapFolderOf } from './folder.js';
-import { BRIEFINGS_DIR, BRIEFINGS_FILE, MAP_DAT_FILE, STRING_TABLE_DIR } from './layout.js';
+import {
+  BRIEFINGS_DIR,
+  BRIEFINGS_FILE,
+  MAP_DAT_FILE,
+  STRING_TABLE_DIR,
+  STRING_TABLE_FILES,
+} from './layout.js';
 import { loadMapStringTables, type MapStringTables } from './meta.js';
 import type { MapTree } from './tree.js';
 
@@ -39,9 +45,9 @@ const NO_OVERLAYS: MapOverlayPlan = { applied: new Map(), outcomes: [] };
 
 /**
  * A map overlay's `basis.digest`: `jsonFingerprint({ strings, briefings })` over one language's string
- * table as `loadMapStringTables` decodes it from the converter's tree (whole-file source corrections
- * applied, map-string corrections not) and its `briefings.txt` blocks by label. A language that lacks
- * either contributes an empty object for it.
+ * table as `loadMapStringTables` decodes it and its `briefings.txt` blocks by label, both from the files
+ * as the pack shipped them, before any correction. A language that lacks either contributes an empty
+ * object for it.
  */
 export function mapSourceTextDigest(
   strings: Readonly<Record<number, string>>,
@@ -51,7 +57,7 @@ export function mapSourceTextDigest(
 }
 
 /** Whether the folder ships text in `lang`: a string table or a `briefings.txt`. */
-export function shipsLanguage(folder: MapFolder, tables: MapStringTables, lang: Language): boolean {
+function shipsLanguage(folder: MapFolder, tables: MapStringTables, lang: Language): boolean {
   return (
     tables[lang] !== undefined ||
     folder.read([STRING_TABLE_DIR, lang, BRIEFINGS_DIR, BRIEFINGS_FILE]) !== undefined
@@ -68,8 +74,32 @@ function briefingBlocksOrNone(folder: MapFolder, lang: Language): ReadonlyMap<st
   }
 }
 
-function sourceDigest(folder: MapFolder, tables: MapStringTables, lang: Language): string {
-  return mapSourceTextDigest(tables[lang] ?? {}, briefingBlocksOrNone(folder, lang));
+/** One language's text files, the ones a basis digest reads, by their path under the map folder. */
+function languageTextFiles(lang: Language): string[][] {
+  return [
+    ...STRING_TABLE_FILES.map((form) => [STRING_TABLE_DIR, lang, form]),
+    [STRING_TABLE_DIR, lang, BRIEFINGS_DIR, BRIEFINGS_FILE],
+  ];
+}
+
+/**
+ * One language's basis digest. `shipped` answers the pack's bytes of a file a source correction
+ * changed, by its path under the folder; such a language is decoded again from the shipped bytes.
+ */
+function sourceDigest(
+  folder: MapFolder,
+  tables: MapStringTables,
+  lang: Language,
+  shipped: ((segments: readonly string[]) => Uint8Array | undefined) | undefined,
+): string {
+  if (shipped === undefined || languageTextFiles(lang).every((file) => shipped(file) === undefined))
+    return mapSourceTextDigest(tables[lang] ?? {}, briefingBlocksOrNone(folder, lang));
+  const original: MapFolder = {
+    ...folder,
+    read: (segments) => shipped(segments) ?? folder.read(segments),
+    warn: () => {},
+  };
+  return mapSourceTextDigest(loadMapStringTables(original)[lang] ?? {}, briefingBlocksOrNone(original, lang));
 }
 
 /** One language's text as a map folder ships it, the input of {@link mapSourceTextDigest}. */
@@ -86,7 +116,8 @@ export interface MapSourceText {
 
 /**
  * Reads the overlay identity and source text of folder `key` of a trusted tree without converting the
- * map, for the translations audit. Undefined when the folder holds no `map.dat`.
+ * map, for the translations audit; the tree holds the files as the pack shipped them. Undefined when
+ * the folder holds no `map.dat`.
  */
 export async function readMapSourceText(tree: MapTree, key: string): Promise<MapSourceText | undefined> {
   const folder = mapFolderOf(tree, key, DEFAULT_ROOT_NAME, () => {});
@@ -103,14 +134,16 @@ export async function readMapSourceText(tree: MapTree, key: string): Promise<Map
 
 /**
  * Decides which overlays of `datDigest` the map takes, warning about each one it leaves out or finds
- * stale. `tables` are the folder's decoded tables before any string correction. An overlay whose
- * language is its basis language edits the shipped text and is not redundant.
+ * stale. `tables` are the folder's decoded tables before any string correction, and `shipped` answers
+ * the pack's bytes of a file a source correction changed. An overlay whose language is its basis
+ * language edits the shipped text and is not redundant.
  */
 export function planMapOverlays(
   folder: MapFolder,
   tables: MapStringTables,
   datDigest: string,
   source: MapOverlaySource | undefined,
+  shipped?: (segments: readonly string[]) => Uint8Array | undefined,
 ): MapOverlayPlan {
   const overlays = source?.mapOverlays(datDigest);
   if (source === undefined || overlays === undefined || overlays.size === 0) return NO_OVERLAYS;
@@ -131,7 +164,7 @@ export function planMapOverlays(
       outcomes.push({ lang, status: 'redundant' });
       continue;
     }
-    const stale = sourceDigest(folder, tables, overlay.basis.lang) !== overlay.basis.digest;
+    const stale = sourceDigest(folder, tables, overlay.basis.lang, shipped) !== overlay.basis.digest;
     if (stale) folder.warn(`translation overlay ${lang} stale: its ${overlay.basis.lang} basis text changed`);
     applied.set(lang, overlay);
     outcomes.push({ lang, status: 'applied', stale });

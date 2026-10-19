@@ -80,6 +80,9 @@ export interface ConvertOptions {
   readonly correctStrings?: (id: string, tables: MapStringTables) => MapStringTables;
   /** Translation overlays, applied over the corrected string tables and to the briefing pages. */
   readonly overlays?: MapOverlaySource;
+  /** The pack's bytes of a source file whose read a correction changed, by its tree path, the key
+   *  corrections name it by; an overlay's basis is the shipped text. */
+  readonly shippedFile?: (file: string) => Uint8Array | undefined;
   /** Corrects decoded map.cif properties using its tree path and original bytes, never its published id.
    * A refusal propagates rather than degrading the map to missing entities or script. */
   readonly correctCifLines?: (
@@ -285,7 +288,14 @@ export async function convertMapFolder(
   } catch (err) {
     throw limitFailure(err, folder.rel);
   }
-  const overlays = planMapOverlays(folder, stringTables, datDigest, options.overlays);
+  const { shippedFile } = options;
+  const overlays = planMapOverlays(
+    folder,
+    stringTables,
+    datDigest,
+    options.overlays,
+    shippedFile === undefined ? undefined : (segments) => shippedFile(sourceFile(segments.join('/'))),
+  );
   if (options.correctStrings !== undefined) stringTables = options.correctStrings(id, stringTables);
   stringTables = overlayStringTables(stringTables, overlays.applied);
   const { cifSections, entities } = authored;

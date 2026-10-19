@@ -8,7 +8,7 @@ import type {
 import type { MapViewTarget } from '@open-northland/render';
 import type { MissionInfoRow } from '../../../game/info-lines.js';
 import type { MissionGoal, MissionPage } from '../../../game/mission-brief.js';
-import { bcp47Tag, formatMessage, messages } from '../../../i18n/index.js';
+import { bcp47Tag, formatMessage, isLocale, messages } from '../../../i18n/index.js';
 import { navBeamRect } from '../../nav-beam.js';
 import { NOTICE_COLUMN, TOP_BAR_HEIGHT } from '../../regions.js';
 import { GLYPH } from '../icons.js';
@@ -53,14 +53,6 @@ export interface ShownCallback {
   /** The shown chapter, whose narration the owner speaks only for a page a script delivered. */
   readonly chapter: number;
 }
-/** The HTML language tags of the map text languages, which set the prose's hyphenation. */
-const PAGE_LANG_TAGS: Readonly<Partial<Record<string, string>>> = {
-  pol: 'pl',
-  eng: 'en',
-  ger: 'de',
-  rus: 'ru',
-};
-
 const TABS: readonly BookTab[] = ['brief', 'goals', 'history'];
 
 /** Where the reader stands in an open book. */
@@ -242,10 +234,10 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
       ? FLOURISH
       : `<h3 class="on-book__title">${escapeHtml(displayTitle(title, locale))}</h3>${FLOURISH}`;
 
-  /** `lang` is the page's map text language; without one the prose reads in the app's. */
+  /** `lang` is the page's map text language, whose tag sets the prose's hyphenation, line breaking and
+   *  Han glyph forms; without one the prose reads in the app's. */
   const readingSpread = (head: string, flow: string, foot: string, lang: string | null = null): string => {
-    const tag = lang === null ? undefined : PAGE_LANG_TAGS[lang];
-    const langAttr = tag === undefined ? '' : ` lang="${tag}"`;
+    const langAttr = lang !== null && isLocale(lang) ? ` lang="${bcp47Tag(lang)}"` : '';
     const col = (side: 'left' | 'right'): string =>
       `<div class="on-book__window on-book__window--${side}" data-col="${side}"><div class="on-book__flow"${langAttr}>${head}${flow}<p class="on-book__fin" aria-hidden="true">❦</p></div></div>`;
     return `<div class="on-book__page on-book__page--left">${col('left')}<p class="on-book__folio" data-folio="left"></p>

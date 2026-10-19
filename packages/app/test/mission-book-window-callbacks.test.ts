@@ -62,7 +62,11 @@ function voicePlayer(playing: BriefingVoice | null) {
   return { player, stops };
 }
 
-function mountWindow(blocks: readonly HypertextBlock[], voice: BriefingVoicePlayer | null = null) {
+function mountWindow(
+  blocks: readonly HypertextBlock[],
+  voice: BriefingVoicePlayer | null = null,
+  lang: string | null = 'pol',
+) {
   const shown: (ShownCallback | null)[] = [];
   const fired: HypertextCallback['args'][] = [];
   const book = createBookWindow({
@@ -70,7 +74,7 @@ function mountWindow(blocks: readonly HypertextBlock[], voice: BriefingVoicePlay
     voice,
     plane: document.body,
     chapters: () => [PAGE],
-    page: () => ({ title: '', blocks, lang: 'pol' }),
+    page: () => ({ title: '', blocks, lang }),
     goals: () => [],
     missionName: 'Test',
     history: null,
@@ -87,6 +91,18 @@ function mountWindow(blocks: readonly HypertextBlock[], voice: BriefingVoicePlay
   });
   return { book, fired, shown };
 }
+
+describe('the book window`s page language', () => {
+  it.each([
+    ['pol', 'pl'],
+    ['chs', 'zh-Hans'],
+    ['cht', 'zh-Hant'],
+  ])('tags a %s page with %s, which picks its line breaking and Han glyph forms', (lang, tag) => {
+    const { book } = mountWindow([text('第一章')], null, lang);
+    book.open({ reading: brief, arrival: true, paused: false });
+    expect(document.querySelector('.on-book__flow')?.getAttribute('lang')).toBe(tag);
+  });
+});
 
 describe('the book window`s briefing callbacks', () => {
   it('hands on only the last callback the spread shows, as the original keeps one pending', () => {

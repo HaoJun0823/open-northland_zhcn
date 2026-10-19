@@ -94,9 +94,7 @@ export interface ResidentsWindowDeps {
 }
 
 /** The residents window on the DOM plane: the search and the two profession filters, the group row and the
- *  lacks row as one grid of chips, and the parchment list with sortable heads. It takes part in the window
- *  registry like a legacy pop-up, but the plane routes its own pointer input, so it claims no canvas
- *  point. */
+ *  lacks row as one grid of chips, and the parchment list with sortable heads. */
 export interface ResidentsWindow extends ToolWindow {
   /** Once a frame: re-place an open window, relist on a new tick or selection. */
   refresh(): void;
@@ -729,8 +727,6 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     isOpen: window.isOpen,
     toggle: () => (window.isOpen() ? window.close() : open()),
     close: window.close,
-    claims: () => false,
-    handleClick: () => false,
     refresh: () => {
       if (!window.isOpen()) return;
       lastOpenTick = deps.tick();

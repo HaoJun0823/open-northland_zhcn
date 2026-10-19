@@ -63,7 +63,6 @@ import { createHudSystemBar, type SpeedBarLook } from '../dom/system-bar.js';
 import type { CentralWindows } from '../dom/trade-window/window.js';
 import { FigureFrames } from '../figures/figure-frames.js';
 import { LiveFigures } from '../figures/live-figures.js';
-import { clientToCanvas } from '../geometry.js';
 import { type KeyBindings, keyDisplayLabel } from '../keybindings.js';
 import type { NetPanelSource } from '../network/model.js';
 import { CONSTRUCTION_TOOLS, type ConstructionTool, type MenuBuildingEntry } from './building-menu.js';
@@ -299,11 +298,8 @@ export interface ToolPanelController {
   /** The central windows the beam opens, for a window opened elsewhere that shares the centre (the
    *  trade window): one central window at a time. The building panel opens two of them on its subject. */
   readonly centralWindows: CentralWindows & BuildingPanelWindows;
-  /** True when a client point should be claimed by the HUD (over an open window or in placement). */
-  claimsPointer(clientX: number, clientY: number): boolean;
-  /** True when a client point is over an open pop-up window, which owns the wheel; unlike
-   *  `claimsPointer` this excludes active placement. */
-  claimsWheel(clientX: number, clientY: number): boolean;
+  /** True while a held placement, plan or tool takes every canvas press. */
+  claimsPointer(): boolean;
   /** The building being placed, its nation and paying plan, or null when not in build mode. */
   placementBuilding(): BuildingPick | null;
   /** The source wall/gate graphics row currently held for placement. */
@@ -763,9 +759,6 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
     domParts.push(systemBar);
     speed.refresh();
 
-    const toCanvas = (clientX: number, clientY: number): { x: number; y: number } =>
-      clientToCanvas(opts.screenScale(canvas), clientX, clientY);
-
     const tradesByType = new Map(opts.buildings.map((entry) => [entry.typeId, entry.trades]));
     const messageCenter = createMessageCenter({
       settlerName: opts.settlerName,
@@ -815,8 +808,6 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
 
     input = createToolPanelInput({
       canvas,
-      toCanvas,
-      windows,
       held,
       bindings: opts.bindings,
       closeWindow,
@@ -890,17 +881,6 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       deferToOverlay: (clientX, clientY) => opts.deferToOverlay?.(clientX, clientY) === true,
     });
 
-    const claimsPointer = (clientX: number, clientY: number): boolean => {
-      const { x, y } = toCanvas(clientX, clientY);
-      if (windows.claims(x, y)) return true;
-      return held.some((mode) => mode.isActive());
-    };
-
-    const claimsWheel = (clientX: number, clientY: number): boolean => {
-      const { x, y } = toCanvas(clientX, clientY);
-      return windows.claims(x, y);
-    };
-
     return {
       uiString: ctx.uiString,
       figureFrames,
@@ -938,8 +918,7 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
             if (!windows.byId.knowledge.isOpen()) windows.byId.knowledge.toggle();
           }),
       },
-      claimsPointer,
-      claimsWheel,
+      claimsPointer: () => held.some((mode) => mode.isActive()),
       placementBuilding: () => placement.activeBuilding(),
       palisadeGfxIndex: () => placement.activePalisade(),
       palisadeMode: () => placement.activePalisadeMode(),

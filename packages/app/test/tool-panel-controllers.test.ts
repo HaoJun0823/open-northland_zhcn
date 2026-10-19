@@ -31,7 +31,6 @@ import { stubStatisticsWindow } from './support/statistics-window-stub.js';
  * window at a time, the paper flow and the placement clicks.
  */
 
-const SCREEN = { width: 800, height: 600 };
 const VIKING = 1;
 const FRANK = 2;
 const JOINERY = 23;
@@ -213,15 +212,6 @@ describe('tool windows registry', () => {
     again.windows.restore(saved);
     expect(again.windows.byId.residents.isOpen()).toBe(true);
     expect(again.windows.state().residents).toEqual(saved.residents);
-  });
-
-  it('claims no canvas point and no wheel: every central window routes its own input on the DOM plane', () => {
-    const { windows } = mountWindows();
-    windows.byId.stats.toggle();
-    windows.refresh();
-    expect(windows.openId()).toBe('stats');
-    expect(windows.claims(SCREEN.width / 2, SCREEN.height / 2)).toBe(false);
-    expect(windows.handleWheel(SCREEN.width / 2, SCREEN.height / 2, 120)).toBe(false);
   });
 });
 

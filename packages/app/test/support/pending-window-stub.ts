@@ -11,8 +11,6 @@ export function stubPendingWindow(): PendingWindow {
     close: () => {
       open = false;
     },
-    claims: () => false,
-    handleClick: () => false,
     place: () => undefined,
     onDismiss: () => undefined,
     dispose: () => undefined,

@@ -2,7 +2,6 @@ import type { UiCue } from '@open-northland/audio';
 import { isActionHotkey, isFieldKey } from '../hotkeys.js';
 import { isFunctionKeyCode, type KeyBindings, type KeybindingAction } from '../keybindings.js';
 import { NAV_ENTRY_IDS, type NavEntryId } from './nav-effects.js';
-import type { ToolWindows } from './windows.js';
 
 /** Every branch here that consumes a press stops it reaching world picking behind the panel. */
 
@@ -41,8 +40,6 @@ const NAV_KEYS: Readonly<Record<NavEntryId, KeybindingAction>> = {
 
 export interface ToolPanelInputDeps {
   readonly canvas: HTMLCanvasElement;
-  readonly toCanvas: (clientX: number, clientY: number) => { x: number; y: number };
-  readonly windows: ToolWindows;
   readonly held: readonly HeldMode[];
   readonly bindings: KeyBindings;
   /** Close the open central window; true when one was open. */
@@ -92,7 +89,7 @@ export interface ToolPanelInput {
 }
 
 export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
-  const { canvas, toCanvas, windows, held } = deps;
+  const { canvas, held } = deps;
   const anyHeld = (): boolean => held.some((m) => m.isActive());
   const ctrlClickIsRightButton = deps.ctrlClickIsRightButton ?? platformCtrlClickIsRightButton();
   /** One rung per press: a mode's own step back first, otherwise every held mode is called off. */
@@ -125,7 +122,6 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
 
   const onMouseDown = (e: MouseEvent): void => {
     syncModifiers(e);
-    const { x, y } = toCanvas(e.clientX, e.clientY);
     const consume = (): void => {
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -150,13 +146,9 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
     // A higher overlay covers this point, so its own handler takes the press instead.
     if (deps.deferToOverlay?.(e.clientX, e.clientY) === true) return;
 
-    // Priority: open pop-up > a held mode.
-    let consumed = windows.handleClick(x, y, { bigStep: e.ctrlKey || e.metaKey });
-    for (const mode of held) {
-      if (consumed) break;
-      consumed = mode.handleClick(e.clientX, e.clientY, { keep: e.ctrlKey || e.metaKey });
+    if (held.some((mode) => mode.handleClick(e.clientX, e.clientY, { keep: e.ctrlKey || e.metaKey }))) {
+      e.stopImmediatePropagation();
     }
-    if (consumed) e.stopImmediatePropagation();
   };
 
   const onMouseMove = (e: MouseEvent): void => {
@@ -168,13 +160,6 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
   const onMouseUp = (e: MouseEvent): void => {
     if (e.button !== 0) return;
     for (const mode of held) mode.handleRelease?.();
-  };
-
-  // A wheel over an open pop-up belongs to that window; its default would scroll the page behind the
-  // canvas.
-  const onWheel = (e: WheelEvent): void => {
-    const { x, y } = toCanvas(e.clientX, e.clientY);
-    if (windows.handleWheel(x, y, e.deltaY)) e.preventDefault();
   };
 
   // Escape steps back one level per press: a held mode, then the open central window. It runs in the
@@ -276,7 +261,6 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
   canvas.addEventListener('mousedown', onMouseDown);
   canvas.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
-  canvas.addEventListener('wheel', onWheel, { passive: false });
   window.addEventListener('keydown', onKeyDown, { capture: true });
   window.addEventListener('keydown', onEscapeMenu);
   window.addEventListener('keydown', onModifierKey);
@@ -288,7 +272,6 @@ export function createToolPanelInput(deps: ToolPanelInputDeps): ToolPanelInput {
       canvas.removeEventListener('mousedown', onMouseDown);
       canvas.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
-      canvas.removeEventListener('wheel', onWheel);
       window.removeEventListener('keydown', onKeyDown, { capture: true });
       window.removeEventListener('keydown', onEscapeMenu);
       window.removeEventListener('keydown', onModifierKey);

@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_KEY_BINDINGS } from '../src/hud/keybindings.js';
 import { createToolPanelInput, type HeldMode } from '../src/hud/tool-panel/input.js';
 import type { NavEntryId } from '../src/hud/tool-panel/nav-effects.js';
-import type { ToolWindows } from '../src/hud/tool-panel/windows.js';
 
 /**
  * The tool panel's canvas and key input over a fake canvas and window: which press plays which GUI
@@ -39,12 +38,6 @@ function heldMode(): HeldMode & { active: boolean } {
   };
   return mode;
 }
-
-const CLOSED_WINDOWS = {
-  claims: () => false,
-  handleClick: () => false,
-  handleWheel: () => false,
-} as unknown as ToolWindows;
 
 /** The key listener registers on `window` and its typing-target guard probes DOM classes; the node test
  *  environment has neither, so each test lends empty stand-ins. */
@@ -87,8 +80,6 @@ function mount(keyboardOwned?: () => boolean, escapeClaimed?: () => boolean, ctr
   const closed: number[] = [];
   const input = createToolPanelInput({
     canvas,
-    toCanvas: (x, y) => ({ x, y }),
-    windows: CLOSED_WINDOWS,
     held: [held],
     bindings: DEFAULT_KEY_BINDINGS,
     closeWindow: () => {
@@ -287,8 +278,6 @@ describe('tool panel Escape ladder', () => {
     const bindings = { ...DEFAULT_KEY_BINDINGS, gameMenu: 'KeyM' };
     const other = createToolPanelInput({
       canvas: new EventTarget() as unknown as HTMLCanvasElement,
-      toCanvas: (x, y) => ({ x, y }),
-      windows: CLOSED_WINDOWS,
       held: [],
       bindings,
       closeWindow: () => false,

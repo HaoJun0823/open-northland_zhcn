@@ -12,7 +12,7 @@ import type { HeldPaperController } from './held-paper.js';
 import type { PendingWindow } from './pending-window.js';
 import type { BuildingPick } from './placement.js';
 import type { ResidentsWindowState } from './residents/rows.js';
-import type { ClickModifiers, ToolWindow } from './window-shell.js';
+import type { ToolWindow } from './window-shell.js';
 
 /** The central windows in mount order. */
 const MOUNT_ORDER = [
@@ -36,8 +36,6 @@ const NO_WINDOW: ToolWindow = {
   isOpen: () => false,
   toggle: () => undefined,
   close: () => undefined,
-  claims: () => false,
-  handleClick: () => false,
 };
 
 interface ToolWindowEntry {
@@ -90,12 +88,6 @@ export interface ToolWindows {
   /** The open central window, or null; the beam lights its entry. */
   openId(): ToolWindowId | null;
   closeAll(): void;
-  claims(x: number, y: number): boolean;
-  /** Offer a click to the top-drawn open pop-up over the point; true when it consumed it. */
-  handleClick(x: number, y: number, mods?: ClickModifiers): boolean;
-  /** Scroll a list under the point; true when an open pop-up owns the wheel there, even with nothing
-   *  to scroll. */
-  handleWheel(x: number, y: number, deltaY: number): boolean;
   /** Once a frame: re-place the open windows and redraw what changed. */
   refresh(): void;
   /** The tick's figures, for the construction window's cost marks, the assistant's stock and the
@@ -159,11 +151,6 @@ export function createToolWindows(deps: ToolWindowsDeps): ToolWindows {
     network: { window: networkEntry, perFrame: () => network?.refresh() },
   };
   const mounted = MOUNT_ORDER.map((id) => entries[id]);
-  // Reverse mount order is top-drawn first, so overlapping pop-ups route pointer input to the visible one.
-  const probed = [...mounted].reverse();
-
-  const topAt = (x: number, y: number): ToolWindow | null =>
-    probed.find((e) => e.window.claims(x, y))?.window ?? null;
 
   return {
     byId: { menu, assistant, stats, diplomacy, residents, knowledge, mission, network: networkEntry },
@@ -172,13 +159,6 @@ export function createToolWindows(deps: ToolWindowsDeps): ToolWindows {
     // A suspended construction window reports closed and keeps its placement's resume.
     closeAll: (): void => {
       for (const e of mounted) if (e.window.isOpen()) e.window.close();
-    },
-    claims: (x, y) => topAt(x, y) !== null,
-    handleClick: (x, y, mods): boolean => topAt(x, y)?.handleClick(x, y, mods) ?? false,
-    handleWheel: (x, y, _deltaY): boolean => {
-      const top = topAt(x, y);
-      if (top === null) return false;
-      return true;
     },
     refresh: (): void => {
       if (heldPaper.held() !== null && !menu.isOpen()) heldPaper.cancel();

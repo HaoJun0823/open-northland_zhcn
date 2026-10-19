@@ -936,13 +936,11 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       toScreenPx: clientToScreen,
     });
 
-    // Open windows, the minimap and the DOM regions keep the wheel from zooming under them.
+    // The minimap and the DOM regions, open windows among them, keep the wheel from zooming under them.
     const mountedMinimap = minimap;
     cleanup.push(() => mountedMinimap.dispose());
     const hudClaims = (clientX: number, clientY: number): boolean =>
-      toolPanel.claimsWheel(clientX, clientY) ||
-      mountedMinimap.claimsPointer(clientX, clientY) ||
-      hudDom.claims(clientX, clientY);
+      mountedMinimap.claimsPointer(clientX, clientY) || hudDom.claims(clientX, clientY);
     cameraCtl.setPointerGuard(hudClaims);
     // A minimap drag jumps the camera on every move, which an edge pan in between would fight.
     cameraCtl.setEdgeHold(() => mountedMinimap.dragging());

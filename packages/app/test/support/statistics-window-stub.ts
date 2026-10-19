@@ -18,8 +18,6 @@ export function stubStatisticsWindow(): StatisticsWindowStub {
     close: () => {
       open = false;
     },
-    claims: () => false,
-    handleClick: () => false,
     update: (model) => {
       models.push(model);
     },

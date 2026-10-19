@@ -12,8 +12,6 @@ export function stubAssistantWindow(): AssistantWindow {
     close: () => {
       open = false;
     },
-    claims: () => false,
-    handleClick: () => false,
     refresh: () => undefined,
     update: () => undefined,
     onDismiss: () => undefined,

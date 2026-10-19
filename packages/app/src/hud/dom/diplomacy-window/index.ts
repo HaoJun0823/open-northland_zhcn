@@ -278,8 +278,6 @@ export function createDiplomacyWindow(deps: DiplomacyWindowDeps): DiplomacyWindo
         nations.get(selected ?? -1)?.button.focus({ preventScroll: true });
       }
     },
-    claims: () => false,
-    handleClick: () => false,
     refresh,
     state: () => selected,
     restore: (player) => {

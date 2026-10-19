@@ -3,16 +3,15 @@
 **Area:** app · **Focus:** hud, view/runtime · **Priority:** P3
 
 Two competing mechanisms arbitrate the same canvas mousedown. The tool panel and the minimap each
-register their own listener and win by registration order plus `stopImmediatePropagation` (the
-tool panel comments: "We register first (mounted before unit-controls), so this wins"), while
+register their own listener and win by registration order plus `stopImmediatePropagation`, while
 unit-controls run an explicit claim chain (`claimPointer` → panel → actions → pick mode). Because
 mount order is not draw order, the minimap draws over the strip yet the strip got the click first;
 instead of unifying, a patch predicate `deferToOverlay` was added to the tool panel and wired in
-`game-view.ts` to `minimap.claimsPointer`. There are now five differently named predicates for one
-concept (`claimsPointer`, `claimPointer`, `claimsWheel`, `claims`, `deferToOverlay`), hand-composed
-in `game-view.ts`, plus a sixth seam that hands a press the other way, from a surface back to the
-order layer (`onOrder` → `controls.overviewPress`, the minimap's own orders). Every new HUD surface
-must reason about listener registration order, which is invisible at the call site.
+`game-view.ts` to `minimap.claimsPointer`. There are now four differently named predicates for one
+concept (`claimsPointer`, `claimPointer`, `claims`, `deferToOverlay`), hand-composed in
+`game-view.ts`, plus a fifth seam that hands a press the other way, from a surface back to the order
+layer (`onOrder` → `controls.overviewPress`, the minimap's own orders). Every new HUD surface must
+reason about listener registration order, which is invisible at the call site.
 
 ## Scope
 

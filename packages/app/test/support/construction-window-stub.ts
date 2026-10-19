@@ -27,8 +27,6 @@ export function stubConstructionWindow(seam: ConstructionWindowSeam): Constructi
       open = false;
       state = { ...state, suspended: false };
     },
-    claims: () => false,
-    handleClick: () => false,
     place: () => undefined,
     update: (model) => {
       models.push(model);

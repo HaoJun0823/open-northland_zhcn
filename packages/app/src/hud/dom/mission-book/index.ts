@@ -82,8 +82,7 @@ export interface MissionBookDeps {
   readonly voice?: BriefingVoicePlayer;
 }
 
-/** The mission book (briefing chapters, goals, chronicle) and the goal slip on the map. The plane
- *  routes their pointer input itself, so the book claims no canvas point. */
+/** The mission book (briefing chapters, goals, chronicle) and the goal slip on the map. */
 export interface MissionBook extends ToolWindow {
   /** Open on briefing `page`, a script's `PlayCutscene`, which joins the chapters. */
   showPage(page: number): void;
@@ -274,8 +273,6 @@ export function createMissionBook(deps: MissionBookDeps, parts: MissionBookParts
     isOpen: () => book.isOpen(),
     toggle: () => (book.isOpen() ? close() : openFromBeam()),
     close,
-    claims: () => false,
-    handleClick: () => false,
     showPage(page): void {
       resume = null;
       shown.fold(deps.briefingHistory());

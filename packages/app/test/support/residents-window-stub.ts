@@ -16,8 +16,6 @@ export function stubResidentsWindow(): ResidentsWindow {
     close: () => {
       open = false;
     },
-    claims: () => false,
-    handleClick: () => false,
     refresh: () => undefined,
     figureSlots: () => NO_FIGURE_SLOTS,
     state: () => state,

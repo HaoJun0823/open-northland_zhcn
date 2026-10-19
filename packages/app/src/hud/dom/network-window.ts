@@ -70,8 +70,7 @@ export interface NetworkWindowDeps {
 }
 
 /** The network window: the line about this client's world, the room's players with their link and
- *  pace, the clock and its last two minutes, this client's own link and the room's whole chat. The
- *  plane routes its own pointer input, so it claims no canvas point. */
+ *  pace, the clock and its last two minutes, this client's own link and the room's whole chat. */
 export interface NetworkWindow extends ToolWindow {
   /** Once a frame while open: re-place the window and redraw what changed in the model. */
   refresh(): void;
@@ -605,8 +604,6 @@ export function createNetworkWindow(deps: NetworkWindowDeps): NetworkWindow {
     isOpen: window.isOpen,
     toggle: () => (window.isOpen() ? close() : open()),
     close,
-    claims: () => false,
-    handleClick: () => false,
     refresh: () => {
       if (!window.isOpen()) return;
       place();

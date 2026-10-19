@@ -92,8 +92,7 @@ export interface ConstructionWindowDeps {
 /** The construction window on the DOM plane: the quick row, then either the catalogue page (the category tabs
  *  with the grid or list toggle, the parchment of permit-like cards with the locked entries at the end) or
  *  the papers page (a back tab, the same toggle, the plans as cards). A pick hides the window for the
- *  placement and Esc brings it back as it was. It takes part in the window registry like a legacy pop-up, but
- *  the plane routes its own pointer input, so it claims no canvas point. */
+ *  placement and Esc brings it back as it was. */
 export interface ConstructionWindow extends ToolWindow {
   /** Re-place an open window against the plane's design-px size; call once per frame. */
   place(): void;
@@ -718,8 +717,6 @@ export function createConstructionWindow(deps: ConstructionWindowDeps): Construc
     isOpen: window.isOpen,
     toggle: () => (window.isOpen() ? close() : open()),
     close,
-    claims: () => false,
-    handleClick: () => false,
     place: placeWindow,
     update: (next) => {
       model = next;

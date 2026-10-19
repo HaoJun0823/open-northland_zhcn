@@ -11,8 +11,6 @@ export function stubDiplomacyWindow(): DiplomacyWindow {
     close: () => {
       open = false;
     },
-    claims: () => false,
-    handleClick: () => false,
     refresh: () => undefined,
     state: () => player,
     restore: (next) => {

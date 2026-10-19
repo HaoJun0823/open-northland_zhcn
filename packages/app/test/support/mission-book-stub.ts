@@ -23,8 +23,6 @@ export function stubMissionBook(): MissionBook & { readonly shownPages: readonly
     close: () => {
       open = false;
     },
-    claims: () => false,
-    handleClick: () => false,
     showPage: (page) => {
       open = true;
       shownPages.push(page);

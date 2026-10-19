@@ -194,10 +194,9 @@ export interface GameToolPanelDeps {
 
 export interface GameToolPanelHandle {
   readonly controller: ToolPanelController;
-  /** True over an open window or in active placement; asked before any world picking. */
+  /** True while a held placement, plan or tool takes every canvas press; asked before any world
+   *  picking. */
   claimPointer(clientX: number, clientY: number): boolean;
-  /** True over an open pop-up window, so scrolling its list never also zooms the world behind it. */
-  claimsWheel(clientX: number, clientY: number): boolean;
   /** Shared with the frame loop's build hover, so the ghost and the placement click resolve identically. */
   clientToTile(clientX: number, clientY: number): { col: number; row: number } | null;
   setUiScale(uiscale: number): Promise<void>;
@@ -376,8 +375,7 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
     get controller() {
       return mounts.current();
     },
-    claimPointer: (x, y) => mounts.current().claimsPointer(x, y),
-    claimsWheel: (x, y) => mounts.current().claimsWheel(x, y),
+    claimPointer: () => mounts.current().claimsPointer(),
     clientToTile,
     setUiScale: (uiscale) => mounts.replace(uiscale),
     dispose: () => mounts.dispose(),

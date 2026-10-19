@@ -141,11 +141,4 @@ describe('the statistics window', () => {
     window.update(model({ population: 2, jobs: [{ jobType: BUILDER, count: 2, female: 0 }] }));
     expect(lines(plane)).toEqual(['Population: 2', 'Professions', 'Builder: 2', 'Stocks', 'None']);
   });
-
-  it('claims no canvas point: the plane routes its presses', () => {
-    const { window } = mount();
-    window.toggle();
-    expect(window.claims(1, 1)).toBe(false);
-    expect(window.handleClick(1, 1)).toBe(false);
-  });
 });

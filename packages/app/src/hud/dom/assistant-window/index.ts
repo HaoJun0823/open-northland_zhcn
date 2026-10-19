@@ -93,8 +93,7 @@ export interface AssistantWindowDeps extends AssistantSource {
 }
 
 /** The assistant window on the DOM plane: the drain-down orders on the left (births, training), the
- *  standing orders in two columns on the right (gear and drinks; amulets and work). Like the residents
- *  window it routes its own pointer input, so it claims no canvas point. */
+ *  standing orders in two columns on the right (gear and drinks; amulets and work). */
 export interface AssistantWindow extends ToolWindow {
   /** Once a frame: re-place an open window and show the live state. */
   refresh(): void;
@@ -546,8 +545,6 @@ export function createAssistantWindow(deps: AssistantWindowDeps): AssistantWindo
       show();
     },
     close,
-    claims: () => false,
-    handleClick: () => false,
     refresh: () => {
       if (!window.isOpen()) return;
       placeWindow();

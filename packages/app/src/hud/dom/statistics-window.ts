@@ -98,7 +98,7 @@ export interface StatisticsWindowDeps extends StatisticsNaming {
 }
 
 /** The statistics window: the seat's population, its people by profession and its stock by good, as
- *  plain lists. The plane routes its own pointer input, so it claims no canvas point. */
+ *  plain lists. */
 export interface StatisticsWindow extends ToolWindow {
   /** The tick's figures; drawn into the rows only while the window is open. */
   update(model: HudModel): void;
@@ -146,8 +146,6 @@ export function createStatisticsWindow(deps: StatisticsWindowDeps): StatisticsWi
       draw();
     },
     close: window.close,
-    claims: () => false,
-    handleClick: () => false,
     update: (model) => {
       latest = model;
       draw();

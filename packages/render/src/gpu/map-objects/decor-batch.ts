@@ -6,13 +6,16 @@ import { PAGE_SAMPLER_SLOTS } from '../page-samplers.js';
 import { type DecorCoverBinding, makeShadedDecorShader } from '../shading.js';
 import { SHADOW_BLUR_PADDING } from '../soft-shadow-cache.js';
 import { updateByteRange } from '../world-attribute-buffer.js';
+import { CLIP_FLOATS, CLIP_SCALE, type DecorClipBinding, NO_CLIP } from './decor-clip.js';
 import { type DecorShadowUniforms, makeDecorShadowShader } from './decor-shadow-shader.js';
 import { type MapObjectSprite, objectFrameAt, objectFrameIndexAt } from './map-object-sprite.js';
 
 /**
  * Flat ground decor batched into per-block quad meshes, a block's pages sharing its draw calls. Translucency rides in the atlas texture's own alpha channel; there is no per-object
  * opacity. An object's cast shadow batches the same way from its silhouette page, into a container the
- * layer draws under every decor body, in quads the soft edge's reach wider than their frames.
+ * layer draws under every decor body, in quads the soft edge's reach wider than their frames. An animated
+ * quad of a paged mesh picks its frame on the GPU (`decor-clip.ts`); one of a plain mesh is rewritten here
+ * as the play-head moves.
  */
 
 /** Which of an object's two index-paired frame lists a batch draws. */
@@ -95,10 +98,12 @@ function writeObjectQuad(
   }
 }
 
-/** The uniforms every decor batch of a layer shares: its cast-shadow style and its weather cover. */
+/** The uniforms every decor batch of a layer shares: its cast-shadow style, its weather cover and its
+ *  clip table and clock. */
 export interface DecorBatchStyle {
   readonly shadow: DecorShadowUniforms;
   readonly cover: DecorCoverBinding;
+  readonly clips: DecorClipBinding;
 }
 
 /** The objects of one page on one lane that draw together, still or animated. */
@@ -114,7 +119,8 @@ function paged(lane: DecorLane, objects: readonly MapObjectSprite[]): boolean {
   return lane === 'shadow' || objects.some((obj) => obj.brightness !== undefined);
 }
 
-/** One mesh's buffers, filled run batch by run batch. */
+/** One mesh's buffers, filled run batch by run batch. A paged mesh carries every quad's feet and clip,
+ *  a still quad's clip being {@link NO_CLIP}. */
 interface RunBuffers {
   readonly positions: Float32Array;
   readonly uvs: Float32Array;
@@ -123,6 +129,7 @@ interface RunBuffers {
   readonly brightness: Float32Array | null;
   readonly anchors: Float32Array | null;
   readonly pages: Float32Array | null;
+  readonly clips: Float32Array | null;
 }
 
 /**
@@ -138,7 +145,7 @@ function buildRun(
   lane: DecorLane,
   style: DecorBatchStyle,
   container: Container,
-  animated: AnimatedDecorBatch[],
+  animation: ChunkAnimation,
   placed: (obj: MapObjectSprite, quad: DecorQuadRef) => void,
 ): void {
   const quads = run.reduce((n, spec) => n + spec.objects.length, 0);
@@ -150,8 +157,9 @@ function buildRun(
     frameBounds: lane === 'shadow' ? new Float32Array(quads * FRAME_FLOATS_PER_QUAD) : null,
     indices: new Uint32Array(quads * 6),
     brightness: shaded ? new Float32Array(quads * VERTICES_PER_QUAD) : null,
-    anchors: shaded ? new Float32Array(quads * VERTICES_PER_QUAD * ANCHOR_FLOATS) : null,
+    anchors: isPaged ? new Float32Array(quads * VERTICES_PER_QUAD * ANCHOR_FLOATS) : null,
     pages: isPaged ? new Float32Array(quads * VERTICES_PER_QUAD) : null,
+    clips: isPaged ? new Float32Array(quads * VERTICES_PER_QUAD * CLIP_FLOATS) : null,
   };
   const geometry = new MeshGeometry({
     positions: buffers.positions,
@@ -176,7 +184,11 @@ function buildRun(
     };
     writeBatch(spec, views, buffers, base, pages.indexOf(spec.source), lane);
     let animBatch: AnimatedDecorBatch | null = null;
-    if (spec.moving) {
+    let clipBatch: ClipDecorBatch | null = null;
+    if (spec.moving && buffers.clips !== null) {
+      clipBatch = writeClips(spec, buffers.clips, base, lane, style.clips, geometry);
+      animation.clipped.push(clipBatch);
+    } else if (spec.moving) {
       animBatch = {
         lane,
         objects: spec.objects,
@@ -186,15 +198,17 @@ function buildRun(
         uploadPending: false,
         firstQuad: base,
       };
-      animated.push(animBatch);
+      animation.animated.push(animBatch);
     }
     for (const [q, obj] of spec.objects.entries()) {
       placed(obj, {
         positions: views.positions,
+        clips: buffers.clips,
         geometry,
         quadIndex: q,
         firstQuad: base,
         animated: animBatch,
+        clipped: clipBatch,
       });
     }
     base += spec.objects.length;
@@ -204,12 +218,59 @@ function buildRun(
     geometry.addAttribute('aAnchor', { buffer: buffers.anchors, format: 'float32x2' });
   if (buffers.frameBounds !== null) geometry.addAttribute('aFrame', { buffer: buffers.frameBounds });
   if (buffers.pages !== null) geometry.addAttribute('aPage', { buffer: buffers.pages });
+  if (buffers.clips !== null) geometry.addAttribute('aClip', { buffer: buffers.clips, format: 'float32x4' });
   // A mesh with a shader of its own never reads a texture, so only the plain batch mints one.
   let mesh: Mesh<MeshGeometry, Shader>;
-  if (lane === 'shadow') mesh = new Mesh({ geometry, shader: makeDecorShadowShader(pages, style.shadow) });
-  else if (shaded) mesh = new Mesh({ geometry, shader: makeShadedDecorShader(pages, style.cover) });
+  if (lane === 'shadow')
+    mesh = new Mesh({ geometry, shader: makeDecorShadowShader(pages, style.shadow, style.clips) });
+  else if (shaded)
+    mesh = new Mesh({ geometry, shader: makeShadedDecorShader(pages, style.cover, style.clips) });
   else mesh = new Mesh({ geometry, texture: new Texture({ source: pages[0] ?? Texture.EMPTY.source }) });
   container.addChild(mesh);
+}
+
+/**
+ * List `spec`'s clips in the table and write each quad's `aClip` at `base` of the run: a quad of a
+ * paged mesh plays on the GPU, starting watched.
+ */
+function writeClips(
+  spec: BatchSpec,
+  clips: Float32Array,
+  base: number,
+  lane: DecorLane,
+  binding: DecorClipBinding,
+  geometry: MeshGeometry,
+): ClipDecorBatch {
+  const margin = laneMargin(lane);
+  const objects = spec.objects;
+  for (let q = 0; q < objects.length; q++) {
+    const obj = objects[q];
+    if (obj === undefined) continue;
+    const frames = lane === 'body' ? obj.frames : (obj.shadow?.frames ?? []);
+    const count = obj.frames.length;
+    const entry = binding.table.entryOf({ frames, page: spec.source, margin }, count);
+    writeClip(clips, base + q, [
+      entry,
+      obj.once === undefined ? count : -count,
+      obj.once === undefined ? obj.phase : obj.once.from,
+      obj.scale,
+    ]);
+  }
+  return {
+    objects: [...objects],
+    clips,
+    geometry,
+    firstQuad: base,
+    watched: new Uint8Array(objects.length).fill(WATCHED),
+    uploadFrom: Number.POSITIVE_INFINITY,
+    uploadTo: Number.NEGATIVE_INFINITY,
+  };
+}
+
+/** Write a quad's clip over its four vertices. */
+function writeClip(clips: Float32Array, quad: number, clip: readonly number[]): void {
+  for (let vertex = 0; vertex < VERTICES_PER_QUAD; vertex++)
+    clips.set(clip, (quad * VERTICES_PER_QUAD + vertex) * CLIP_FLOATS);
 }
 
 /** Write one lane batch's quads at `base` of the run: its own views for the quads, the run's buffers for
@@ -232,16 +293,19 @@ function writeBatch(
     );
     buffers.pages?.fill(page, quad * VERTICES_PER_QUAD, (quad + 1) * VERTICES_PER_QUAD);
     const obj = objects[q];
-    const frame = obj === undefined ? undefined : laneFrameAt(obj, lane, 0);
-    if (obj === undefined || frame === undefined) continue;
+    if (obj === undefined) continue;
+    // Whatever the pose of tick 0: an animated quad places every frame of its clip by its feet.
+    if (buffers.anchors !== null) {
+      for (let vertex = 0; vertex < VERTICES_PER_QUAD; vertex++) {
+        const a = (quad * VERTICES_PER_QUAD + vertex) * ANCHOR_FLOATS;
+        buffers.anchors[a] = obj.x;
+        buffers.anchors[a + 1] = obj.y - (obj.lift ?? 0);
+      }
+    }
+    const frame = laneFrameAt(obj, lane, 0);
+    if (frame === undefined) continue;
     writeObjectQuad(views, q, obj, frame, laneMargin(lane));
     buffers.brightness?.fill(obj.brightness ?? 1, quad * VERTICES_PER_QUAD, (quad + 1) * VERTICES_PER_QUAD);
-    if (buffers.anchors === null) continue;
-    for (let vertex = 0; vertex < VERTICES_PER_QUAD; vertex++) {
-      const a = (quad * VERTICES_PER_QUAD + vertex) * ANCHOR_FLOATS;
-      buffers.anchors[a] = obj.x;
-      buffers.anchors[a + 1] = obj.y - (obj.lift ?? 0);
-    }
   }
 }
 
@@ -260,6 +324,35 @@ export interface AnimatedDecorBatch {
   readonly firstQuad: number;
 }
 
+/** A {@link ClipDecorBatch} quad's flag: its cell is watched, so its clip plays. */
+const WATCHED = 1;
+const UNWATCHED = 0;
+
+/**
+ * The animated quads of one batch of a paged mesh, which pick their frames on the GPU: all a frame
+ * rewrites of them is, on a fog change, the sign of each one's clip scale, which says whether its cell is
+ * watched. A removed object's slot is `null` - its quad stays collapsed and the fog loop skips it.
+ */
+export interface ClipDecorBatch {
+  readonly objects: (MapObjectSprite | null)[];
+  /** The mesh's `aClip` data, every quad's. */
+  readonly clips: Float32Array;
+  readonly geometry: MeshGeometry;
+  /** Where the batch's quads start in its mesh. */
+  readonly firstQuad: number;
+  /** Per object, {@link WATCHED} or {@link UNWATCHED}. */
+  readonly watched: Uint8Array;
+  /** The mesh quads the next upload covers, an empty range when nothing changed. */
+  uploadFrom: number;
+  uploadTo: number;
+}
+
+/** A chunk's animated batches as its lanes build them. */
+interface ChunkAnimation {
+  readonly animated: AnimatedDecorBatch[];
+  readonly clipped: ClipDecorBatch[];
+}
+
 /** Animated decor bins partition a chunk into squares of this many tiles a side. */
 const ANIMATED_BIN_TILES = 4;
 const ANIMATED_BIN_PX = ANIMATED_BIN_TILES * TILE_HALF_W * 2;
@@ -270,15 +363,26 @@ interface AnimatedRun {
   readonly quads: readonly number[];
 }
 
+/** The quads of one GPU-played batch that fall in a bin, and the cell each one's fog is read at, as
+ *  column and row pairs. */
+interface ClipRun {
+  readonly batch: ClipDecorBatch;
+  readonly quads: readonly number[];
+  readonly cells: Int32Array;
+}
+
 /**
  * The animated quads of a chunk whose objects anchor in one square, culled as one box over every frame
  * they can show, so a frame rewrites the quads in view rather than the whole chunk.
  */
 interface AnimatedBin extends Bounds {
   readonly runs: readonly AnimatedRun[];
+  readonly clipRuns: readonly ClipRun[];
   /** The tick the quads were last written for. Per bin, so a bin scrolling into view while the sim is
    *  paused still catches up to the current tick's frame. */
   lastWrittenTick: number;
+  /** The fog epoch its GPU-played quads were last flagged for; NaN before the first. */
+  clipEpoch: number;
 }
 
 /** Rewrite quad `q` of an animated batch for `tick`; a pose without a frame collapses the quad. False
@@ -324,24 +428,34 @@ function uploadAnimatedBatch(batch: AnimatedDecorBatch): void {
 /** Where one quad of a decor object lives. */
 interface DecorQuadRef {
   readonly positions: Float32Array;
+  /** The mesh's `aClip` data, or null for a plain mesh. */
+  readonly clips: Float32Array | null;
   readonly geometry: MeshGeometry;
   readonly quadIndex: number;
   /** Where {@link positions} starts in the mesh, in quads. */
   readonly firstQuad: number;
   /** The rewrite batch the quad belongs to, or null for a still (never-rewritten) batch. */
   readonly animated: AnimatedDecorBatch | null;
+  /** The GPU-played batch the quad belongs to, or null. */
+  readonly clipped: ClipDecorBatch | null;
 }
+
+const CLIP_QUAD_BYTES = VERTICES_PER_QUAD * CLIP_FLOATS * Float32Array.BYTES_PER_ELEMENT;
+const STILL_CLIP: readonly number[] = [NO_CLIP, NO_CLIP, NO_CLIP, NO_CLIP];
 
 /** Collapse a quad for good: zeroed in place, and dropped from its batch's rewrite loop. */
 export function retireDecorQuad(quad: DecorQuadRef): void {
   quad.positions.fill(0, quad.quadIndex * FLOATS_PER_QUAD, (quad.quadIndex + 1) * FLOATS_PER_QUAD);
   const quadBytes = FLOATS_PER_QUAD * Float32Array.BYTES_PER_ELEMENT;
-  updateByteRange(
-    quad.geometry.getBuffer('aPosition'),
-    (quad.firstQuad + quad.quadIndex) * quadBytes,
-    quadBytes,
-  );
+  const meshQuad = quad.firstQuad + quad.quadIndex;
+  updateByteRange(quad.geometry.getBuffer('aPosition'), meshQuad * quadBytes, quadBytes);
   if (quad.animated !== null) quad.animated.objects[quad.quadIndex] = null;
+  if (quad.clipped !== null) quad.clipped.objects[quad.quadIndex] = null;
+  // A quad drawn as written draws its zeroed corners: nothing.
+  if (quad.clips !== null) {
+    writeClip(quad.clips, meshQuad, STILL_CLIP);
+    updateByteRange(quad.geometry.getBuffer('aClip'), meshQuad * CLIP_QUAD_BYTES, CLIP_QUAD_BYTES);
+  }
 }
 
 /** A decor object's quads: its body, and its cast shadow when it carries one. */
@@ -365,7 +479,9 @@ export interface DecorChunk {
   readonly maxY: number;
   /** Animated batches to rewrite on an anim-tick advance (empty for an all-static chunk). */
   readonly animated: AnimatedDecorBatch[];
-  /** The {@link animated} quads by where they draw. */
+  /** Animated batches the GPU plays, whose fog flags a fog change rewrites. */
+  readonly clipped: ClipDecorBatch[];
+  /** The {@link animated} and {@link clipped} quads by where they draw. */
   readonly animatedBins: readonly AnimatedBin[];
   readonly quads: Map<MapObjectSprite, DecorObjectQuads>;
 }
@@ -378,7 +494,7 @@ function buildLane(
   lane: DecorLane,
   container: Container,
   style: DecorBatchStyle,
-  animated: AnimatedDecorBatch[],
+  animation: ChunkAnimation,
   placed: (obj: MapObjectSprite, quad: DecorQuadRef) => void,
 ): void {
   const bySource = new Map<TextureSource, { still: MapObjectSprite[]; moving: MapObjectSprite[] }>();
@@ -395,7 +511,7 @@ function buildLane(
   let run: BatchSpec[] = [];
   let pages: TextureSource[] = [];
   const flush = (): void => {
-    if (run.length > 0) buildRun(run, pages, lane, style, container, animated, placed);
+    if (run.length > 0) buildRun(run, pages, lane, style, container, animation, placed);
     run = [];
     pages = [];
   };
@@ -405,7 +521,7 @@ function buildLane(
       const spec: BatchSpec = { source, objects, moving: objects === group.moving };
       if (!paged(lane, objects)) {
         flush();
-        buildRun([spec], [source], lane, style, container, animated, placed);
+        buildRun([spec], [source], lane, style, container, animation, placed);
         continue;
       }
       if (!pages.includes(source) && pages.length === PAGE_SAMPLER_SLOTS) flush();
@@ -452,31 +568,55 @@ function includeObject(bounds: Bounds, obj: MapObjectSprite): void {
 }
 
 /** Sort a chunk's animated quads into bins by their object's anchor. */
-function binAnimated(animated: readonly AnimatedDecorBatch[]): AnimatedBin[] {
-  const bins = new Map<string, { bounds: Bounds; runs: Map<AnimatedDecorBatch, number[]> }>();
-  for (const batch of animated) {
-    for (const [q, obj] of batch.objects.entries()) {
-      if (obj === null) continue;
-      const key = `${Math.floor(obj.x / ANIMATED_BIN_PX)},${Math.floor(obj.y / ANIMATED_BIN_PX)}`;
-      let bin = bins.get(key);
-      if (bin === undefined) {
-        bin = { bounds: emptyBounds(), runs: new Map() };
-        bins.set(key, bin);
-      }
-      includeObject(bin.bounds, obj);
-      let quads = bin.runs.get(batch);
-      if (quads === undefined) {
-        quads = [];
-        bin.runs.set(batch, quads);
-      }
-      quads.push(q);
-    }
+function binAnimated(animation: ChunkAnimation): AnimatedBin[] {
+  interface Gathering {
+    readonly bounds: Bounds;
+    readonly runs: Map<AnimatedDecorBatch, number[]>;
+    readonly clipRuns: Map<ClipDecorBatch, number[]>;
   }
-  return [...bins.values()].map(({ bounds, runs }) => ({
+  const bins = new Map<string, Gathering>();
+  const binOf = (obj: MapObjectSprite): Gathering => {
+    const key = `${Math.floor(obj.x / ANIMATED_BIN_PX)},${Math.floor(obj.y / ANIMATED_BIN_PX)}`;
+    let bin = bins.get(key);
+    if (bin === undefined) {
+      bin = { bounds: emptyBounds(), runs: new Map(), clipRuns: new Map() };
+      bins.set(key, bin);
+    }
+    includeObject(bin.bounds, obj);
+    return bin;
+  };
+  const gather = <B>(runs: Map<B, number[]>, batch: B, q: number): void => {
+    let quads = runs.get(batch);
+    if (quads === undefined) {
+      quads = [];
+      runs.set(batch, quads);
+    }
+    quads.push(q);
+  };
+  for (const batch of animation.animated)
+    for (const [q, obj] of batch.objects.entries()) if (obj !== null) gather(binOf(obj).runs, batch, q);
+  for (const batch of animation.clipped)
+    for (const [q, obj] of batch.objects.entries()) if (obj !== null) gather(binOf(obj).clipRuns, batch, q);
+  return [...bins.values()].map(({ bounds, runs, clipRuns }) => ({
     ...bounds,
     runs: [...runs].map(([batch, quads]) => ({ batch, quads })),
+    clipRuns: [...clipRuns].map(([batch, quads]) => ({ batch, quads, cells: cellsOf(batch, quads) })),
     lastWrittenTick: 0,
+    clipEpoch: Number.NaN,
   }));
+}
+
+/** The fog cells of `quads`' objects, as column and row pairs. */
+function cellsOf(batch: ClipDecorBatch, quads: readonly number[]): Int32Array {
+  const cells = new Int32Array(quads.length * 2);
+  for (const [i, q] of quads.entries()) {
+    const obj = batch.objects[q];
+    if (obj === null || obj === undefined) continue;
+    const cell = screenToCell(obj.x, obj.y);
+    cells[i * 2] = cell.col;
+    cells[i * 2 + 1] = cell.row;
+  }
+  return cells;
 }
 
 /** Batch one decor block. The caller owns attaching the returned chunk's containers to its layers. */
@@ -485,48 +625,93 @@ export function buildDecorChunk(block: readonly MapObjectSprite[], style: DecorB
   for (const obj of block) includeObject(bounds, obj);
   const container = new Container();
   const shadowContainer = new Container();
-  const animated: AnimatedDecorBatch[] = [];
+  const animation: ChunkAnimation = { animated: [], clipped: [] };
   const quads = new Map<MapObjectSprite, DecorObjectQuads>();
-  buildLane(block, 'body', container, style, animated, (obj, body) => {
+  buildLane(block, 'body', container, style, animation, (obj, body) => {
     quads.set(obj, { body, shadow: null });
   });
-  buildLane(block, 'shadow', shadowContainer, style, animated, (obj, shadow) => {
+  buildLane(block, 'shadow', shadowContainer, style, animation, (obj, shadow) => {
     const placed = quads.get(obj);
     if (placed !== undefined) placed.shadow = shadow;
   });
   // Animated quads were written for tick 0 at build; the first update rewrites any other tick.
-  const animatedBins = binAnimated(animated);
-  return { container, shadowContainer, ...bounds, animated, animatedBins, quads };
+  const animatedBins = binAnimated(animation);
+  return {
+    container,
+    shadowContainer,
+    ...bounds,
+    animated: animation.animated,
+    clipped: animation.clipped,
+    animatedBins,
+    quads,
+  };
 }
 
 /**
  * Bring a visible chunk's animated quads in `vp` to `tick`, each bin once per tick. A quad on ground the
- * viewer does not watch shows its fixed-clock frame. Quads outside `vp` keep their pose until a frame
- * shows them, so the work follows the screen, not the chunk.
+ * viewer does not watch shows its fixed-clock frame: a quad the CPU rewrites is written so, and one the
+ * GPU plays is flagged so whenever the fog's answers change (`fogEpoch`; undefined asks every time).
+ * Quads outside `vp` keep their pose and flags until a frame shows them, so the work follows the
+ * screen, not the chunk.
  */
 export function animateDecorChunk(
   chunk: DecorChunk,
   vp: Viewport,
   tick: number,
   fogStateOfCell: ((cellX: number, cellY: number) => number) | undefined,
+  fogEpoch?: number,
 ): void {
   for (const bin of chunk.animatedBins) {
-    if (bin.lastWrittenTick === tick || !aabbIntersects(vp, bin)) continue;
-    bin.lastWrittenTick = tick;
-    for (const { batch, quads } of bin.runs) {
-      for (const q of quads) {
-        const obj = batch.objects[q];
-        if (obj === null || obj === undefined) continue; // removed - its quad stays zeroed
-        const cell = screenToCell(obj.x, obj.y);
-        const watched =
-          fogStateOfCell === undefined || fogStateOfCell(cell.col, cell.row) === FOG_STATE.VISIBLE;
-        if (writeAnimatedQuad(batch, q, obj, watched ? tick : 0)) batch.uploadPending = true;
+    if (!aabbIntersects(vp, bin)) continue;
+    if (bin.lastWrittenTick !== tick) {
+      bin.lastWrittenTick = tick;
+      for (const { batch, quads } of bin.runs) {
+        for (const q of quads) {
+          const obj = batch.objects[q];
+          if (obj === null || obj === undefined) continue; // removed - its quad stays zeroed
+          const cell = screenToCell(obj.x, obj.y);
+          const watched =
+            fogStateOfCell === undefined || fogStateOfCell(cell.col, cell.row) === FOG_STATE.VISIBLE;
+          if (writeAnimatedQuad(batch, q, obj, watched ? tick : 0)) batch.uploadPending = true;
+        }
       }
     }
+    if (fogStateOfCell === undefined || (fogEpoch !== undefined && bin.clipEpoch === fogEpoch)) continue;
+    bin.clipEpoch = fogEpoch ?? Number.NaN;
+    for (const run of bin.clipRuns) flagWatched(run, fogStateOfCell);
   }
   for (const batch of chunk.animated) {
     if (!batch.uploadPending) continue;
     uploadAnimatedBatch(batch);
     batch.uploadPending = false;
+  }
+  for (const batch of chunk.clipped) {
+    if (batch.uploadFrom > batch.uploadTo) continue;
+    updateByteRange(
+      batch.geometry.getBuffer('aClip'),
+      batch.uploadFrom * CLIP_QUAD_BYTES,
+      (batch.uploadTo - batch.uploadFrom + 1) * CLIP_QUAD_BYTES,
+    );
+    batch.uploadFrom = Number.POSITIVE_INFINITY;
+    batch.uploadTo = Number.NEGATIVE_INFINITY;
+  }
+}
+
+/** Flag each quad of `run` watched or not by its cell's fog, flipping its clip scale's sign on a change. */
+function flagWatched(run: ClipRun, fogStateOfCell: (cellX: number, cellY: number) => number): void {
+  const { batch, quads, cells } = run;
+  for (const [i, q] of quads.entries()) {
+    if (batch.objects[q] === null) continue;
+    const watched =
+      fogStateOfCell(cells[i * 2] ?? 0, cells[i * 2 + 1] ?? 0) === FOG_STATE.VISIBLE ? WATCHED : UNWATCHED;
+    if (batch.watched[q] === watched) continue;
+    batch.watched[q] = watched;
+    const quad = batch.firstQuad + q;
+    for (let vertex = 0; vertex < VERTICES_PER_QUAD; vertex++) {
+      const at = (quad * VERTICES_PER_QUAD + vertex) * CLIP_FLOATS + CLIP_SCALE;
+      batch.clips[at] = -(batch.clips[at] ?? 0);
+    }
+    batch.uploadFrom = Math.min(batch.uploadFrom, quad);
+    batch.uploadTo = Math.max(batch.uploadTo, quad);
   }
 }

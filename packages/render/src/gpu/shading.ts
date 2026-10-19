@@ -1,5 +1,10 @@
 import { Shader, type TextureSource, UniformGroup } from 'pixi.js';
 import { BRIGHTNESS_NEUTRAL } from '../data/terrain/index.js';
+import {
+  DECOR_CLIP_HIDDEN_POSITION,
+  DECOR_CLIP_VERTEX_DECLARATIONS,
+  type DecorClipBinding,
+} from './map-objects/decor-clip.js';
 import { pageChain, pageSamplerDeclarations, pageSamplerResources } from './page-samplers.js';
 import { type GlslProgramSource, glProgramFor } from './program-source.js';
 import {
@@ -335,10 +340,18 @@ const VERTEX_VERTEX = `#version 300 es
   out float vBrightness;
   ${matrixBlock}
   ${DECOR_COVER_VERTEX_DECLARATIONS}
+  ${DECOR_CLIP_VERTEX_DECLARATIONS}
   void main(void) {
+    vec2 decorPosition = aPosition;
+    vec2 uv = aUV;
+    vec4 bounds;
+    if (aClip.y != 0.0 && !decorClipVertex(aClip, aAnchor, decorPosition, uv, bounds)) {
+      gl_Position = ${DECOR_CLIP_HIDDEN_POSITION};
+      return;
+    }
     mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
-    gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
-    vUV = aUV;
+    gl_Position = vec4((mvp * vec3(decorPosition, 1.0)).xy, 0.0, 1.0);
+    vUV = uv;
     vBrightness = aBrightness;
     vPage = aPage;
     ${DECOR_COVER_VERTEX_BODY}
@@ -451,7 +464,11 @@ export interface TerrainCoverBinding {
  * anchor cell's value. A flat decal has no cell-space UV lattice to interpolate, so the anchor constant
  * is the recorded approximation.
  */
-export function makeShadedDecorShader(pages: readonly TextureSource[], cover: DecorCoverBinding): Shader {
+export function makeShadedDecorShader(
+  pages: readonly TextureSource[],
+  cover: DecorCoverBinding,
+  clips: DecorClipBinding,
+): Shader {
   const samplers = pageSamplerResources(pages);
   return new Shader({
     glProgram: glProgramFor(SHADED_DECOR_SOURCE),
@@ -460,6 +477,8 @@ export function makeShadedDecorShader(pages: readonly TextureSource[], cover: De
       uSampler: (samplers.uPage0 as TextureSource).style,
       decorCoverVars: cover.uniforms,
       uCoverTex: cover.texture,
+      decorClipVars: clips.uniforms,
+      uDecorFrames: clips.table.source,
     },
   });
 }

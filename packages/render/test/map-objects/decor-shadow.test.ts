@@ -7,7 +7,7 @@ import { DEFAULT_SHADOW_STYLE } from '../../src/gpu/shadow-style.js';
 import { SHADOW_BLUR_PADDING as PAD } from '../../src/gpu/soft-shadow-cache.js';
 import { TextureCache } from '../../src/gpu/texture-cache.js';
 import { useHeadlessShaderContext } from '../support/shader-context.js';
-import { decorPositions, FRAME_0, FRAME_1, WIDE } from './support.js';
+import { decorPositions, drawnDecorQuad, FRAME_0, FRAME_1, WIDE } from './support.js';
 
 /**
  * Flat decor draws its silhouette twin as a quad of its own, in a container the renderer mounts under the
@@ -36,6 +36,12 @@ function decor(x: number, shadowFrames?: readonly (AtlasFrame | undefined)[]): M
     decor: true,
     phase: 0,
   };
+}
+
+/** The tick the GPU-played decor clips show. */
+function clipClock(mesh: Mesh): number | undefined {
+  return (mesh.shader?.resources as { decorClipVars?: { uniforms: { uDecorTick: number } } } | undefined)
+    ?.decorClipVars?.uniforms.uDecorTick;
 }
 
 function shadowMeshes(layer: MapObjectLayer): Mesh[] {
@@ -90,22 +96,28 @@ describe('MapObjectLayer cast shadows (flat decor)', () => {
   it('collapses the shadow quad on a pose without a silhouette and restores it when the pose returns', () => {
     const layer = new MapObjectLayer(new Container(), new TextureCache());
     layer.set([decor(10, [SHADOW_0, undefined])]);
+    const mesh = onlyShadowMesh(layer);
 
     layer.update(WIDE, 1);
-    expect(shadowPositions(layer)).toEqual(COLLAPSED);
+    expect(drawnDecorQuad(mesh, 0, 1)).toBeNull();
 
     layer.update(WIDE, 2);
-    expect(shadowPositions(layer).slice(0, 2)).toEqual([8 - PAD, -4 - PAD]);
+    expect(drawnDecorQuad(mesh, 0, 2)?.positions.slice(0, 2)).toEqual([8 - PAD, -4 - PAD]);
   });
 
-  it("follows an animated silhouette's frame bounds from pose to pose", () => {
+  it("follows an animated silhouette's frame bounds from pose to pose on the GPU, uploading nothing", () => {
     const layer = new MapObjectLayer(new Container(), new TextureCache());
     layer.set([decor(10, [SHADOW_0, SHADOW_1])]);
-    const upload = vi.spyOn(onlyShadowMesh(layer).geometry.getBuffer('aFrame'), 'update');
+    const mesh = onlyShadowMesh(layer);
+    const uploads = ['aFrame', 'aPosition', 'aUV', 'aClip'].map((name) =>
+      vi.spyOn(mesh.geometry.getBuffer(name), 'update'),
+    );
 
     layer.update(WIDE, 1);
-    expect(shadowFrameBounds(layer)).toEqual(new Array(VERTICES_PER_QUAD).fill([32, 8, 38, 10]));
-    expect(upload).toHaveBeenCalledOnce();
+    expect(clipClock(mesh)).toBe(1);
+    expect(drawnDecorQuad(mesh, 0, 1)?.bounds).toEqual([32, 8, 38, 10]);
+    expect(drawnDecorQuad(mesh, 0, 2)?.bounds).toEqual([16, 0, 24, 4]);
+    for (const upload of uploads) expect(upload).not.toHaveBeenCalled();
   });
 
   it('collapses the shadow quad with its removed object and keeps the sibling', () => {
@@ -184,7 +196,7 @@ describe('MapObjectLayer cast shadows (flat decor)', () => {
 });
 
 describe('decor pages share a mesh', () => {
-  it('draws two silhouette pages in one mesh, quads in batch order, animated quads rewritten in place', () => {
+  it('draws two silhouette pages in one mesh, quads in batch order, animated quads played on the GPU', () => {
     const otherPage = new TextureSource({ width: 64, height: 32 });
     const still = decor(10, [SHADOW_0]);
     const moving = decor(20, [SHADOW_0, SHADOW_1]);
@@ -198,16 +210,13 @@ describe('decor pages share a mesh', () => {
     // SHADOW_PAGE's still quad, its animated quad, then the other page's quad.
     expect(Array.from(mesh.geometry.getBuffer('aPage').data)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]);
     expect((mesh.shader?.resources as { uPage1?: unknown } | undefined)?.uPage1).toBe(otherPage);
-    const before = shadowPositions(layer).slice(FLOATS_PER_QUAD, 2 * FLOATS_PER_QUAD);
+    const upload = vi.spyOn(mesh.geometry.getBuffer('aPosition'), 'update');
     layer.update(WIDE, 1); // the animated object's second pose
-    const after = shadowPositions(layer);
-    expect(after.slice(FLOATS_PER_QUAD, 2 * FLOATS_PER_QUAD)).not.toEqual(before);
-    // The neighbours' quads are left as they were, and only the animated quad uploads.
-    expect(after.slice(2 * FLOATS_PER_QUAD)[0]).toBe(30 - 1 - PAD);
-    const uploaded = mesh.geometry.getBuffer('aPosition');
-    expect([uploaded._updateOffset, uploaded._updateSize]).toEqual([
-      FLOATS_PER_QUAD * 4,
-      FLOATS_PER_QUAD * 4,
-    ]);
+    expect(drawnDecorQuad(mesh, 1, 1)?.positions).not.toEqual(drawnDecorQuad(mesh, 1, 0)?.positions);
+    expect(drawnDecorQuad(mesh, 1, 1)?.bounds).toEqual([32, 8, 38, 10]);
+    // The neighbours' quads draw as written, and nothing uploads.
+    expect(drawnDecorQuad(mesh, 2, 1)?.positions[0]).toBe(30 - 1 - PAD);
+    expect(drawnDecorQuad(mesh, 0, 1)?.positions[0]).toBe(10 - 2 - PAD);
+    expect(upload).not.toHaveBeenCalled();
   });
 });

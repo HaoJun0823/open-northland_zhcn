@@ -506,7 +506,8 @@ export const DECOR_COVER_VERTEX_DECLARATIONS = `
   ${COVER_NOISE}
 `;
 
-/** Decor vertex body: the anchor's cover and the ground's drift there, once per vertex. */
+/** Decor vertex body: the anchor's cover and the ground's drift there, once per vertex. It reads the
+ *  vertex's drawn position from `decorPosition`, which the including shader declares in `main`. */
 export const DECOR_COVER_VERTEX_BODY = `
     vSnow = 0.0;
     vCoverSnow = 0.0;
@@ -515,7 +516,7 @@ export const DECOR_COVER_VERTEX_BODY = `
     if (uCover > 0.5) {
       // 1 on the quad's top edge, 0 on its bottom.
       vUp = gl_VertexID % ${QUAD_CORNERS} < ${QUAD_TOP_CORNERS} ? 1.0 : 0.0;
-      vDecorPos = aPosition;
+      vDecorPos = decorPosition;
       vec2 node = vec2(aAnchor.x / ${f(TILE_HALF_W)}, 2.0 * aAnchor.y / ${f(TILE_HALF_H)});
       vec2 p = coverPlane(floor(aAnchor) + 0.5);
       float g = coverJitter(textureLod(uCoverTex, node * uCoverNodeScale, 0.0).rgb, p).g;

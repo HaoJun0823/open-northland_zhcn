@@ -1,6 +1,7 @@
-import type { Container, Texture } from 'pixi.js';
+import type { Container, Mesh, Texture } from 'pixi.js';
 import type { Viewport } from '../../src/data/projection/index.js';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
+import { CLIP_FLOATS, clipFrameIndex, clipTick, NO_CLIP } from '../../src/gpu/map-objects/decor-clip.js';
 import type { MapObjectLayer } from '../../src/gpu/map-objects/index.js';
 
 /**
@@ -64,4 +65,58 @@ export function tallSprites(spriteLayer: Container): TallSprite[] {
       visible: spr.visible,
     };
   });
+}
+
+/** What the GPU draws of one quad of a paged decor mesh at `tick`: its corners, UVs and frame bounds
+ *  as the vertex shader places them, null for a collapsed quad. Mirrors `decorClipVertex`, whose frame
+ *  pick a browser test holds to {@link clipFrameIndex}. */
+export interface DrawnDecorQuad {
+  readonly positions: number[];
+  readonly uvs: number[];
+  readonly bounds: number[];
+}
+
+const QUAD_CORNERS = [
+  [0, 0],
+  [1, 0],
+  [1, 1],
+  [0, 1],
+] as const;
+const CLIP_ENTRY_TEXELS = 3;
+const RGBA = 4;
+
+export function drawnDecorQuad(mesh: Mesh, quad: number, tick: number, fogOn = false): DrawnDecorQuad | null {
+  const geometry = mesh.geometry;
+  const clipData = geometry.getBuffer('aClip').data as Float32Array;
+  const at = quad * QUAD_CORNERS.length * CLIP_FLOATS;
+  const [entry = 0, count = 0, start = 0, scale = 0] = clipData.slice(at, at + CLIP_FLOATS);
+  const positions = [...(geometry.getBuffer('aPosition').data as Float32Array).slice(quad * 8, quad * 8 + 8)];
+  const uvs = [...(geometry.getBuffer('aUV').data as Float32Array).slice(quad * 8, quad * 8 + 8)];
+  const frames =
+    geometry.attributes.aFrame === undefined ? null : (geometry.getBuffer('aFrame').data as Float32Array);
+  const bounds = frames === null ? [] : [...frames.slice(quad * 16, quad * 16 + 4)];
+  if (count === NO_CLIP) return positions.every((value) => value === 0) ? null : { positions, uvs, bounds };
+  const table = (mesh.shader?.resources as { uDecorFrames?: { resource: Float32Array } } | undefined)
+    ?.uDecorFrames?.resource;
+  if (table === undefined) throw new Error('expected a clip table');
+  const frame = clipFrameIndex(count, start, clipTick(scale, tick, fogOn));
+  const texel = (entry + frame) * CLIP_ENTRY_TEXELS * RGBA;
+  const [x, y, w, h] = [...table.slice(texel, texel + RGBA)] as [number, number, number, number];
+  if (w <= 0) return null;
+  const uvRect = [...table.slice(texel + RGBA, texel + 2 * RGBA)] as [number, number, number, number];
+  const anchors = geometry.getBuffer('aAnchor').data as Float32Array;
+  const [ax = 0, ay = 0] = anchors.slice(quad * 8, quad * 8 + 2);
+  const size = Math.abs(scale);
+  const toF32 = Math.fround;
+  return {
+    positions: QUAD_CORNERS.flatMap(([fx, fy]) => [
+      toF32(toF32(ax + x * size) + fx * w * size),
+      toF32(toF32(ay + y * size) + fy * h * size),
+    ]),
+    uvs: QUAD_CORNERS.flatMap(([fx, fy]) => [
+      fx === 0 ? uvRect[0] : uvRect[2],
+      fy === 0 ? uvRect[1] : uvRect[3],
+    ]),
+    bounds: [...table.slice(texel + 2 * RGBA, texel + 3 * RGBA)],
+  };
 }

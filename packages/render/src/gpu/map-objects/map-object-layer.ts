@@ -15,6 +15,7 @@ import {
   type DecorChunk,
   retireDecorQuad,
 } from './decor-batch.js';
+import { DecorClipTable, makeDecorClipUniforms, writeDecorClipUniforms } from './decor-clip.js';
 import { makeDecorShadowUniforms, writeDecorShadowStyle } from './decor-shadow-shader.js';
 import { type MapObjectSprite, type OneShotClip, oneShotEndTick } from './map-object-sprite.js';
 import { TallObjectLayer } from './tall-blocks.js';
@@ -57,6 +58,7 @@ export class MapObjectLayer {
   private decorStyle: DecorBatchStyle = {
     shadow: makeDecorShadowUniforms(),
     cover: { texture: makeGroundCoverTexture(1, 1), uniforms: makeDecorCoverUniforms() },
+    clips: { table: new DecorClipTable(), uniforms: makeDecorClipUniforms() },
   };
   /** The style the decor shadow uniforms hold; it starts as the authored silhouette, which is `null`. */
   private writtenShadowStyle: ShadowStyle | null = null;
@@ -234,6 +236,8 @@ export class MapObjectLayer {
     weatherWind?: WindSway,
   ): void {
     if (tick >= this.nextClipEnd) this.finishClips(tick);
+    // The GPU-played decor reads the clock and the fog switch of whichever view draws next.
+    writeDecorClipUniforms(this.decorStyle.clips.uniforms, tick, fogStateOfCell !== undefined);
     const motionTime = this.environmentMotion ? timeTicks : tick;
     const wind = this.environmentMotion ? weatherWind : undefined;
     const shadowStyle = worldShadowStyle();
@@ -277,7 +281,7 @@ export class MapObjectLayer {
       const visible = aabbIntersects(vp, chunk);
       chunk.container.visible = visible;
       chunk.shadowContainer.visible = visible;
-      if (visible) animateDecorChunk(chunk, vp, tick, fogStateOfCell);
+      if (visible) animateDecorChunk(chunk, vp, tick, fogStateOfCell, fogEpoch);
     }
     this.tall.update(vp, tick, fogStateOfCell, motionTime, this.environmentMotion, wind);
   }
@@ -301,6 +305,7 @@ export class MapObjectLayer {
   destroy(): void {
     for (const chunk of this.decorChunks.values()) destroyDecorChunk(chunk);
     this.decorChunks.clear();
+    this.decorStyle.clips.table.clear();
     this.decorByObject.clear();
     this.objects.clear();
     this.playing.length = 0;
@@ -310,10 +315,11 @@ export class MapObjectLayer {
     this.lastInputs = null;
   }
 
-  /** {@link destroy} for good: also frees the weather cover texture every map shares. */
+  /** {@link destroy} for good: also frees the weather cover texture and the clip table every map shares. */
   dispose(): void {
     this.destroy();
     this.decorStyle.cover.texture.destroy();
+    this.decorStyle.clips.table.destroy();
   }
 }
 

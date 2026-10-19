@@ -3,6 +3,11 @@ import { pageChain, pageSamplerDeclarations, pageSamplerResources } from '../pag
 import { type GlslProgramSource, glProgramFor } from '../program-source.js';
 import { type ShadowStyle, shadowTintChannels } from '../shadow-style.js';
 import { SHADOW_BLUR_KERNEL, SHADOW_BLUR_KERNEL_SUM, SHADOW_BLUR_RADIUS } from '../soft-shadow-cache.js';
+import {
+  DECOR_CLIP_HIDDEN_POSITION,
+  DECOR_CLIP_VERTEX_DECLARATIONS,
+  type DecorClipBinding,
+} from './decor-clip.js';
 
 /**
  * The mesh shader for a batch of flat-decor cast shadows. Decor quads are plain meshes, so they miss both
@@ -19,17 +24,26 @@ const SHADOW_VERTEX = `#version 300 es
   in vec2 aUV;
   in vec4 aFrame;
   in float aPage;
+  in vec2 aAnchor;
   out vec2 vUV;
   flat out vec4 vFrame;
   flat out float vPage;
   uniform mat3 uProjectionMatrix;
   uniform mat3 uWorldTransformMatrix;
   uniform mat3 uTransformMatrix;
+  ${DECOR_CLIP_VERTEX_DECLARATIONS}
   void main(void) {
+    vec2 position = aPosition;
+    vec2 uv = aUV;
+    vec4 bounds = aFrame;
+    if (aClip.y != 0.0 && !decorClipVertex(aClip, aAnchor, position, uv, bounds)) {
+      gl_Position = ${DECOR_CLIP_HIDDEN_POSITION};
+      return;
+    }
     mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
-    gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
-    vUV = aUV;
-    vFrame = aFrame;
+    gl_Position = vec4((mvp * vec3(position, 1.0)).xy, 0.0, 1.0);
+    vUV = uv;
+    vFrame = bounds;
     vPage = aPage;
   }
 `;
@@ -135,10 +149,20 @@ export function writeDecorShadowStyle(group: DecorShadowUniforms, style: ShadowS
   group.update();
 }
 
-export function makeDecorShadowShader(pages: readonly TextureSource[], style: DecorShadowUniforms): Shader {
+export function makeDecorShadowShader(
+  pages: readonly TextureSource[],
+  style: DecorShadowUniforms,
+  clips: DecorClipBinding,
+): Shader {
   const samplers = pageSamplerResources(pages);
   return new Shader({
     glProgram: glProgramFor(DECOR_SHADOW_SOURCE),
-    resources: { ...samplers, uSampler: (samplers.uPage0 as TextureSource).style, shadowStyle: style },
+    resources: {
+      ...samplers,
+      uSampler: (samplers.uPage0 as TextureSource).style,
+      shadowStyle: style,
+      decorClipVars: clips.uniforms,
+      uDecorFrames: clips.table.source,
+    },
   });
 }

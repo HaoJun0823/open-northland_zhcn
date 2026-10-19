@@ -20,8 +20,8 @@ export interface InstalledMapRecord {
   readonly fingerprint: string;
   /** The content version the files were converted for; another build rebuilds from its source or downloads it again. */
   readonly irVersion: number;
-  /** The stored string table's languages, as the catalogue listed them for a download; a catalogue map
-   *  that gained or lost one since (a translation overlay) is an update. */
+  /** The languages the catalogue listed for a download, a local import's converted table's otherwise; a
+   *  catalogue map whose listing gained or lost one since (a translation overlay) is an update. */
   readonly languages: readonly MapTextLanguage[];
   /** The `maps-index.json` row, with its `catalog` or `user` provenance. */
   readonly index: MapsIndexEntry;

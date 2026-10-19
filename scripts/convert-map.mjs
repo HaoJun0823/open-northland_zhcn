@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Re-converts one base map from the unpacked data pack into an existing content directory, through
-// the pipeline's source and map-string corrections, and refreshes its maps-index.json row. This is
+// the pipeline's source and map-string corrections and the translation overlays, and refreshes its
+// maps-index.json row. This is
 // the fast path for checking a correction on the map it fixes: a full `npm run build:content`
 // converts every map and all other lanes. Campaign maps come from the campaigns stage and need the
 // full build. Only the map's own files and index row change: `ir.json` keeps the map headers the full
@@ -23,17 +24,20 @@ import { readDataPack } from './data-pack.mjs';
 let pipeline;
 let mapImport;
 let formats;
+let translations;
 try {
   pipeline = {
     corrections: await import('../tools/asset-pipeline/dist/corrections.js'),
     roots: await import('../tools/asset-pipeline/dist/roots.js'),
     strings: await import('../tools/asset-pipeline/dist/string-corrections.js'),
     provenance: await import('../tools/asset-pipeline/dist/stages/maps/provenance.js'),
+    overlays: await import('../tools/asset-pipeline/dist/stages/maps/overlays.js'),
     minimap: await import('../tools/asset-pipeline/dist/stages/maps/synth-minimap.js'),
     pictures: await import('../tools/asset-pipeline/dist/stages/hypertext-pictures.js'),
   };
   mapImport = await import('../packages/map-import/dist/index.js');
   formats = await import('../packages/formats/dist/png.js');
+  translations = await import('../packages/translations/dist/index.js');
 } catch (err) {
   console.error(`convert-map needs the workspace built (npx tsc --build): ${String(err)}`);
   process.exit(1);
@@ -128,7 +132,8 @@ const corrections = await pipeline.corrections.loadSourceCorrections(
 const mapStringCorrections = await pipeline.strings.loadMapStringCorrections(
   pipeline.strings.MAP_STRING_CORRECTIONS_FILE,
 );
-const roots = { data: base, corrections, mapStringCorrections };
+const overlays = await translations.loadTranslationOverlays();
+const roots = { data: base, corrections, mapStringCorrections, overlays };
 const found = await pipeline.roots.collectSourceFiles(roots, mapImport.isMapTreePath);
 const { folder, files } = mapFolder(found);
 const pathByRel = new Map(files.map(({ rel, path }) => [rel, path]));
@@ -170,10 +175,15 @@ const map = await mapImport.convertMapFolder(tree, key, {
   limits: mapImport.NO_IMPORT_LIMITS,
   correctCifLines: corrections.correctCifLines,
   correctObjects: corrections.correctObjects,
+  shippedFile: corrections.shipped,
   minimap: synthesizeMinimap,
   correctStrings: (id, tables) => pipeline.strings.correctMapStrings(mapStringCorrections, id, tables),
+  overlays: pipeline.overlays.mapOverlaySource(roots, pipeline.provenance.takesSourceLanguageOverlays(key)),
   onWarning: (message) => console.warn(`[convert-map] ${message}`),
 });
+console.log(
+  `[convert-map] translation overlays: ${map.overlays.map((row) => `${row.lang} ${row.status}`).join(', ') || 'none'}`,
+);
 if (map.id !== mapId) throw new Error(`folder ${folder} converted to id ${map.id}, not ${mapId}`);
 
 // Only this map's sources were read, so only the corrections naming them can have applied.

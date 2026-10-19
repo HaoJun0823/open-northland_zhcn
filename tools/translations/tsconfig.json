@@ -3,12 +3,15 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
   "references": [
     { "path": "../../packages/data" },
     { "path": "../../packages/formats" },
-    { "path": "../../packages/map-import" }
+    { "path": "../../packages/map-import" },
+    { "path": "../../packages/translations" },
+    { "path": "../asset-pipeline" }
   ]
 }

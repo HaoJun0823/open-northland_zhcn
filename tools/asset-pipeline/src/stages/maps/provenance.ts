@@ -11,6 +11,12 @@ export function mapProvenanceKind(folder: string): MapProvenanceKind {
   return 'unknown';
 }
 
+/** Whether a source-language translation overlay may apply to the map in `folder`: a community map's
+ *  text is the pack's to edit, a loose map's may be the original's. */
+export function takesSourceLanguageOverlays(folder: string): boolean {
+  return mapProvenanceKind(folder) !== 'unknown';
+}
+
 /** The provenance of the map whose file sits at mod-relative `rel`. */
 export function mapProvenance(rel: string): MapProvenance {
   const folder = dirname(rel);

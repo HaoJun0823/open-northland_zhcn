@@ -61,6 +61,19 @@ const LANGUAGES: ReadonlySet<string> = new Set(MAP_TEXT_LANGUAGES);
 const STRING_TABLES: ReadonlySet<string> = new Set(STRING_TABLE_FILES);
 const HLT_PAGE = new RegExp(`^\\d{${HLT_PAGE_DIGITS},}\\${HLT_EXTENSION}$`);
 
+/** Whether a lower-cased, `/`-separated path names a map's `map.dat` or one of its text files a
+ *  translation overlay is checked against: a string table or a `briefings.txt`. */
+export function isMapTextFile(path: string): boolean {
+  const parts = path.split('/');
+  const n = parts.length;
+  if (parts[n - 1] === MAP_DAT_FILE) return true;
+  const text = parts.lastIndexOf(STRING_TABLE_DIR);
+  if (text < 0 || !LANGUAGES.has(parts[text + 1] ?? '')) return false;
+  const rest = parts.slice(text + 2);
+  if (rest.length === 1) return STRING_TABLES.has(rest[0] ?? '');
+  return rest.length === 2 && rest[0] === BRIEFINGS_DIR && rest[1] === BRIEFINGS_FILE;
+}
+
 /** Whether a lower-cased, `/`-separated path names a file some map folder's conversion reads. */
 export function isMapFile(path: string): boolean {
   const parts = path.split('/');

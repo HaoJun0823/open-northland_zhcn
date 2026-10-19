@@ -175,7 +175,7 @@ export async function convertGuiStrings(
   return done;
 }
 
-const isGameObjectTable = (name: string): name is GameObjectTable =>
+export const isGameObjectTable = (name: string): name is GameObjectTable =>
   (GAME_OBJECT_TABLES as readonly string[]).includes(name);
 
 /** Writes an overlay language's `gui/strings/<lang>.json` from its object-table overlays, normalised like

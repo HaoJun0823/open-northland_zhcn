@@ -9,6 +9,7 @@ import {
 } from '@open-northland/data';
 import { describe, expect, it, vi } from 'vitest';
 import { type ConvertOptions, convertMapFolder } from '../src/convert.js';
+import { isMapTextFile } from '../src/layout.js';
 import { mapSourceTextDigest, readMapSourceText } from '../src/overlays.js';
 import { treeOf } from './support/folder.js';
 import { mapDat, plaintextMap } from './support/maps.js';
@@ -92,6 +93,25 @@ describe('readMapSourceText', () => {
     expect(Object.keys(source?.languages ?? {})).toEqual(['pol', 'eng']);
     expect(source?.languages.eng?.briefings.size).toBe(0);
     expect(source?.languages.pol?.briefings.get('title')).toContain('Na polnoc');
+  });
+});
+
+describe('isMapTextFile', () => {
+  it('keeps a map.dat and the text an overlay basis reads, and nothing else', () => {
+    const kept = [
+      'x/map.dat',
+      'x/text/pol/strings.ini',
+      'x/text/chs/strings.cif',
+      'x/text/eng/briefings/briefings.txt',
+    ];
+    const left = [
+      'x/text/pol/briefings/0000.hlt',
+      'x/sfx/pol/0001.wav',
+      'x/mission.inc',
+      'x/text/xyz/strings.ini',
+    ];
+    expect(kept.filter(isMapTextFile)).toEqual(kept);
+    expect(left.filter(isMapTextFile)).toEqual([]);
   });
 });
 

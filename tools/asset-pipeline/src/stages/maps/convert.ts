@@ -21,7 +21,7 @@ import { correctMapStrings } from '../../string-corrections.js';
 import { MAPS_DIR } from '../content-tree.js';
 import { writePagePictures } from '../hypertext-pictures.js';
 import { mapOverlaySource } from './overlays.js';
-import { mapProvenanceKind } from './provenance.js';
+import { mapProvenanceKind, takesSourceLanguageOverlays } from './provenance.js';
 
 /** One emitted map, summarized for the run log, the listings and the verb check. */
 export interface MapDatConversion {
@@ -87,9 +87,13 @@ export function summarizeConversion(map: ConvertedMap): MapDatConversion {
   };
 }
 
-/** Every map folder file under the base data root, read through the corrections as the maps stage reads it. */
-export async function readBaseMapTree(roots: SourceRoots): Promise<MapTree> {
-  const found = await collectSourceFiles(roots, isMapTreePath);
+/** Every map folder file under the base data root, read through the corrections as the maps stage reads
+ *  it; `include` narrows the lower-cased paths read. */
+export async function readBaseMapTree(
+  roots: SourceRoots,
+  include: (path: string) => boolean = isMapTreePath,
+): Promise<MapTree> {
+  const found = await collectSourceFiles(roots, (path) => isMapTreePath(path) && include(path));
   const pathByRel = new Map(found.map(({ rel, path }) => [rel, path]));
   return treeFromFolder(
     found.map(({ rel }) => rel),
@@ -119,7 +123,7 @@ export async function convertMapDatTree(
   const done: MapDatConversion[] = [];
   for (const [index, key] of folders.entries()) {
     // The provenance reads the folder path case-folded, so the lower-cased key classifies it alike.
-    const overlays = mapOverlaySource(roots, mapProvenanceKind(key) !== 'unknown');
+    const overlays = mapOverlaySource(roots, takesSourceLanguageOverlays(key));
     let map: ConvertedMap;
     try {
       map = await convertMapFolder(

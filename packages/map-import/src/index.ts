@@ -25,7 +25,7 @@ export { MAP_FILE_SUFFIXES, mapFileNames, mapFiles } from './files.js';
 export { DEFAULT_ROOT_NAME } from './folder.js';
 export { excludeStringTableCopies, findMapFolders, mapIdFromPath } from './folders.js';
 export { type MapsIndexSource, mapsIndexEntry } from './index-entry.js';
-export { HYPERTEXT_GRAPHICS_DIR, MAP_CIF_FILE, MAP_DAT_FILE } from './layout.js';
+export { HYPERTEXT_GRAPHICS_DIR, isMapTextFile, MAP_CIF_FILE, MAP_DAT_FILE } from './layout.js';
 export {
   DEFAULT_ARCHIVE_BYTES,
   DEFAULT_CELLS,

@@ -3,6 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./sources": {
+      "source": "./src/sources.ts",
+      "default": "./dist/sources.js"
+    }
+  },
   "bin": {
     "open-northland-pipeline": "./dist/cli.js"
   },

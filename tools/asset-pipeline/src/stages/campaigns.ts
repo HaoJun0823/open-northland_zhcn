@@ -52,18 +52,21 @@ export interface CampaignMapTree {
   readonly key: string;
 }
 
-/** Reads one campaign map's shared files and every language layer into one map folder. */
+/** Reads one campaign map's shared files and every language layer into one map folder; `include`
+ *  narrows the lower-cased logical paths read. */
 export async function readCampaignMapTree(
   roots: SourceRoots,
   packRoot: string,
   campaign: CampaignSource,
   map: CampaignSource['maps'][number],
+  include: (path: string) => boolean = () => true,
 ): Promise<CampaignMapTree> {
   const folder = `${PACK_CAMPAIGNS_DIR}/${campaign.id}/${map.id}`;
   const mapDir = join(packRoot, PACK_CAMPAIGNS_DIR, campaign.id, 'maps', map.id);
   const sources = new Map<string, string>();
   for (const files of [map.shared, ...Object.values(map.locales)])
-    for (const [logical, source] of Object.entries(files)) sources.set(`${folder}/${logical}`, source);
+    for (const [logical, source] of Object.entries(files))
+      if (include(`${folder}/${logical}`.toLowerCase())) sources.set(`${folder}/${logical}`, source);
   const tree = await treeFromFolder(
     sources.keys(),
     (rel) => readSourceFile(roots, join(mapDir, sources.get(rel) ?? rel), rel),

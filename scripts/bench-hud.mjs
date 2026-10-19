@@ -104,9 +104,26 @@ const SETUPS = {
   mission: ({ page }) => openByKey(page, 'F1'),
   diplomacy: ({ page }) => openByKey(page, 'F5'),
   build: ({ page }) => openByKey(page, 'KeyB'),
+  // A restored game starts with an empty column; a few minutes of game time fill it as a player's does.
   notices: async ({ page }) => {
-    const shown = await page.evaluate(() => document.querySelectorAll('.on-hud .on-notice').length);
-    return { ready: shown > 0, note: `${shown} notice cards` };
+    await page.evaluate(async (speed) => {
+      const d = window.__opennorthland;
+      d.setSpeed(speed);
+      await d.setPaused(false);
+    }, NOTICE_FILL_SPEED);
+    await page
+      .waitForFunction(
+        (cards) => document.querySelectorAll('.on-hud .on-notice').length >= cards,
+        NOTICE_FILL_CARDS,
+        { timeout: NOTICE_FILL_TIMEOUT_MS },
+      )
+      .catch(() => undefined);
+    await page.evaluate(() => window.__opennorthland.setPaused(true));
+    const shown = await page.evaluate(() => ({
+      cards: document.querySelectorAll('.on-hud .on-notice').length,
+      stacks: document.querySelectorAll('.on-hud .on-notice--stack').length,
+    }));
+    return { ready: shown.cards > 0, note: `${shown.cards} notice cards, ${shown.stacks} stacks` };
   },
   select50: async ({ page, area }) => {
     await drag(page, area);
@@ -129,6 +146,11 @@ const SETUPS = {
 };
 /** The group-list scenario's selection floor. */
 const MANY_SELECTED = 50;
+/** The notices scenario runs the game at this speed until the column holds this many cards, or gives up
+ *  after the timeout and measures what came. */
+const NOTICE_FILL_SPEED = 10;
+const NOTICE_FILL_CARDS = 7;
+const NOTICE_FILL_TIMEOUT_MS = 30000;
 
 const saveText = await readFile(options.checkpoint, 'utf8');
 const abCss = options.abCss === null ? null : await readFile(options.abCss, 'utf8');

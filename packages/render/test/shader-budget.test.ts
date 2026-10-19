@@ -35,6 +35,8 @@ const SAMPLER_CHAIN = /\buTextures\s*\[|\buniform\s+sampler2D\s+uPage0\b/;
 const IMPLICIT_LOD_READ =
   /\b(?:texture|textureOffset|textureProj|textureProjOffset)\s*\(\s*([A-Za-z_]\w*)\s*(\[)?/g;
 const DERIVATIVE = /\b(?:dFdx|dFdy|fwidth)\s*\(/;
+/** A read of a chain's page by name: the world batch's slots or a paged mesh's `uPage<n>`. */
+const PAGE_READ = /\buTextures\s*\[|\buPage\d+\b/;
 
 const catalogue = shaderCatalog();
 
@@ -93,23 +95,36 @@ describe('sampler chains', () => {
     expect(violations).toEqual([]);
   });
 
-  it('catches a read through a macro or a renamed parameter, and a derivative inside a page function', () => {
+  it('catches a read through a macro or a renamed parameter, and a derivative in a page function, in a chain branch or in a helper the branch calls', () => {
     const fetch =
       '#define FETCH(page, uv) texture(page, uv)\nvec4 shade(sampler2D page) { return FETCH(page, vUV); }';
     const derivative = 'vec4 shade(sampler2D page) { return textureGrad(page, vUV, dFdx(vUV), dFdy(vUV)); }';
+    const helper =
+      'vec2 foot() { return dFdx(vUV); }\nvec4 shade(sampler2D page, vec2 dy) { return textureGrad(page, vUV, foot(), dy); }';
     const clean = 'vec4 shade(sampler2D page, vec2 dx, vec2 dy) { return textureGrad(page, vUV, dx, dy); }';
+    const before = 'vec2 dx = dFdx(vUV); vec2 dy = dFdy(vUV);';
     expect(chainViolations(pagedShader(fetch, 'shade(uPage$)'))).toEqual(['implicit read of page']);
     expect(chainViolations(pagedShader(derivative, 'shade(uPage$)'))).toEqual(['derivative in shade']);
-    expect(chainViolations(pagedShader(clean, 'shade(uPage$, dFdx(vUV), dFdy(vUV))'))).toEqual([]);
+    expect(chainViolations(pagedShader(clean, 'textureGrad(uPage$, vUV, dFdx(vUV), dFdy(vUV))'))).toEqual([
+      'derivative in a chain branch',
+    ]);
+    expect(chainViolations(pagedShader(helper, 'shade(uPage$, dy)', 'vec2 dy = dFdy(vUV);'))).toEqual([
+      'derivative in foot',
+    ]);
+    expect(chainViolations(pagedShader(clean, 'shade(uPage$, dx, dy)', before))).toEqual([]);
   });
 });
 
-/** Implicit-derivative reads of a chain's page, directly or through a function's sampler parameter,
- *  and derivatives taken inside a function that takes a page, in the source as compiled. */
+/**
+ * Implicit-derivative reads of a chain's page, directly or through a function's sampler parameter, and
+ * derivatives taken inside a function that takes a page, inside a chain's branch (a block that reads a
+ * page itself) or inside any function such a branch reaches, in the source as compiled.
+ */
 function chainViolations(glsl: string): string[] {
   const code = expandedSource(glsl);
   if (!SAMPLER_CHAIN.test(code)) return [];
   const functions = functionDefinitions(code);
+  const byName = new Map(functions.map((definition) => [definition.name, definition]));
   const pageFunctions = functions.filter((definition) => /\bsampler2D\b/.test(definition.parameters));
   const parameters = new Set(
     pageFunctions.flatMap((definition) =>
@@ -121,14 +136,56 @@ function chainViolations(glsl: string): string[] {
       ? [`implicit read of ${name}`]
       : [],
   ).flat();
-  const derivatives = pageFunctions
-    .filter((definition) => DERIVATIVE.test(definition.body))
-    .map((definition) => `derivative in ${definition.name}`);
-  return [...new Set([...reads, ...derivatives])];
+  const violations = new Set(reads);
+  const branches = functions.flatMap((definition) =>
+    braceBlocks(definition.body).filter((block) => PAGE_READ.test(ownStatements(block))),
+  );
+  if (branches.some((block) => DERIVATIVE.test(block))) violations.add('derivative in a chain branch');
+  const visited = new Set<string>();
+  const visit = (body: string): void => {
+    for (const [, callee = ''] of body.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) {
+      const definition = byName.get(callee);
+      if (definition === undefined || visited.has(callee)) continue;
+      visited.add(callee);
+      if (DERIVATIVE.test(definition.body)) violations.add(`derivative in ${callee}`);
+      visit(definition.body);
+    }
+  };
+  for (const block of branches) visit(block);
+  for (const definition of pageFunctions)
+    if (DERIVATIVE.test(definition.body)) violations.add(`derivative in ${definition.name}`);
+  return [...violations];
 }
 
-/** A two-page fragment shader whose chain runs `call` (with `$` for the page index) on each page. */
-function pagedShader(declarations: string, call: string): string {
+/** Every balanced `{ ... }` block of `text`, nested ones included, with its braces. */
+function braceBlocks(text: string): string[] {
+  const blocks: string[] = [];
+  const opens: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') opens.push(i);
+    else if (text[i] === '}') {
+      const open = opens.pop();
+      if (open !== undefined) blocks.push(text.slice(open, i + 1));
+    }
+  }
+  return blocks;
+}
+
+/** A block's text without its nested blocks: what the block does itself. */
+function ownStatements(block: string): string {
+  let depth = 0;
+  let own = '';
+  for (const char of block) {
+    if (char === '{') depth++;
+    else if (char === '}') depth--;
+    else if (depth === 1) own += char;
+  }
+  return own;
+}
+
+/** A two-page fragment shader whose chain runs `call` (with `$` for the page index) on each page, after
+ *  `prelude` in main. */
+function pagedShader(declarations: string, call: string, prelude = ''): string {
   return `#version 300 es
 precision highp float;
 uniform sampler2D uPage0;
@@ -138,6 +195,7 @@ in vec2 vUV;
 out vec4 finalColor;
 ${declarations}
 void main(void) {
+  ${prelude}
   if (vPage < 0.5) { finalColor = ${call.replace('$', '0')}; }
   else { finalColor = ${call.replace('$', '1')}; }
 }`;

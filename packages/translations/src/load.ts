@@ -10,6 +10,7 @@ import {
   MapOverlay,
   ObjectTableOverlay,
 } from '@open-northland/data';
+import { MapOverlayFiling, type MapOverlaysByDigest } from './map-filing.js';
 
 /** The repository's `translations/` directory, resolved from this package so any working directory works. */
 export const TRANSLATIONS_ROOT = fileURLToPath(new URL('../../../translations/', import.meta.url));
@@ -49,7 +50,7 @@ const SCHEMAS: { readonly [K in OverlayKind]: Schema<OverlayByKind[K]> } = {
 /** Every overlay of the repository, validated, keyed the way the stages look them up. */
 export interface TranslationOverlays {
   /** Map overlays by the raw `map.dat` SHA-256 hex digest, then language. */
-  readonly maps: ReadonlyMap<string, ReadonlyMap<Language, MapOverlay>>;
+  readonly maps: MapOverlaysByDigest;
   /** Game-object name tables by language, then table (`goods`, `houses`, `jobs`, ...). */
   readonly objects: ReadonlyMap<Language, ReadonlyMap<string, ObjectTableOverlay>>;
   /** Hypertext books by language, then book (`history`). */
@@ -105,6 +106,14 @@ async function readKind<K extends OverlayKind>(
   return files;
 }
 
+/** Files one language's map overlays; a misnamed file or a second one of the same basis throws. */
+async function readMaps(root: string, lang: Language, filing: MapOverlayFiling): Promise<void> {
+  for (const [name, overlay] of await readKind(root, lang, 'maps')) {
+    const refusal = filing.file(lang, name, overlay);
+    if (refusal !== undefined) throw new Error(`${join(root, lang, 'maps', name)}.json: ${refusal}`);
+  }
+}
+
 /**
  * Loads every overlay under `root` (`<lang>/<kind>/<id>.json`). Only known languages and kinds are read;
  * `npm run check:translations` reports anything else. A missing root holds no overlays.
@@ -112,18 +121,14 @@ async function readKind<K extends OverlayKind>(
 export async function loadTranslationOverlays(
   root: string = TRANSLATIONS_ROOT,
 ): Promise<TranslationOverlays> {
-  const maps = new Map<string, Map<Language, MapOverlay>>();
+  const maps = new MapOverlayFiling();
   const objects = new Map<Language, ReadonlyMap<string, ObjectTableOverlay>>();
   const books = new Map<Language, ReadonlyMap<string, BookOverlay>>();
   const campaigns = new Map<Language, ReadonlyMap<string, CampaignOverlay>>();
   const present = new Set((await listDirectory(root)).filter((e) => e.isDirectory()).map((e) => e.name));
   for (const lang of LANGUAGES) {
     if (!present.has(lang)) continue;
-    for (const [digest, overlay] of await readKind(root, lang, 'maps')) {
-      const byLanguage = maps.get(digest) ?? new Map<Language, MapOverlay>();
-      byLanguage.set(lang, overlay);
-      maps.set(digest, byLanguage);
-    }
+    await readMaps(root, lang, maps);
     const put = <T>(into: Map<Language, ReadonlyMap<string, T>>, files: ReadonlyMap<string, T>): void => {
       if (files.size > 0) into.set(lang, files);
     };
@@ -131,5 +136,5 @@ export async function loadTranslationOverlays(
     put(books, await readKind(root, lang, 'books'));
     put(campaigns, await readKind(root, lang, 'campaigns'));
   }
-  return { maps, objects, books, campaigns };
+  return { maps: maps.maps, objects, books, campaigns };
 }

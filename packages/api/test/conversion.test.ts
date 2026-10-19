@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { jsonFingerprint } from '@open-northland/data';
+import { jsonFingerprint, type Language } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { convertMapTree, MAP_FILE_SUFFIXES, mapFiles, openArchive } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,6 +34,18 @@ const TIMEOUT_MS = 5000;
 const LYING_EXTRA_BYTES = 10;
 /** A 2x1 map.dat whose cells differ from `plaintextMap`'s, so its overlays are filed apart. */
 const OTHER_MAP_DAT = buildMapDat(2, 1, [5, 5, 2, 2, 5, 5, 2, 2]);
+
+/** `overlays` with a further `lang` overlay under each digest, written against a copy's other text. */
+function withVariant(overlays: CatalogMapOverlays, lang: Language): CatalogMapOverlays {
+  return new Map(
+    [...overlays].map(([digest, byLanguage]) => {
+      const [filed] = byLanguage.get(lang) ?? [];
+      if (filed === undefined) return [digest, byLanguage];
+      const variant = { ...filed, basis: { ...filed.basis, digest: 'f'.repeat(64) }, strings: {} };
+      return [digest, new Map([...byLanguage, [lang, [filed, variant]]])];
+    }),
+  );
+}
 
 /** The strings sidecar the service serves for `mapId`, inflated. */
 async function servedStrings(service: ConversionService, mapId: string): Promise<unknown> {
@@ -329,9 +341,14 @@ describe('ConversionService', () => {
     const unchanged = await restart(await overlaysFor(island, 'wyspa', { chs: { '0': '岛屿' } }));
     expect(unchanged.converted).toEqual([]);
 
-    const changed = await restart(await overlaysFor(island, 'wyspa', { chs: { '0': '小岛' } }));
+    const changedOverlays = await overlaysFor(island, 'wyspa', { chs: { '0': '小岛' } });
+    const changed = await restart(changedOverlays);
     expect(changed.converted).toEqual([ENTRY]);
     expect(await servedStrings(changed.service, islandMap)).toMatchObject({ chs: { '0': '小岛' } });
+
+    const variantFiled = await restart(withVariant(changedOverlays, 'chs'));
+    expect(variantFiled.converted).toEqual([ENTRY]);
+    expect(await servedStrings(variantFiled.service, islandMap)).toMatchObject({ chs: { '0': '小岛' } });
 
     const removed = await restart(NO_MAP_OVERLAYS);
     expect(removed.converted).toEqual([ENTRY]);

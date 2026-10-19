@@ -3,6 +3,7 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import {
   jsonFingerprint,
   type Language,
+  MAP_OVERLAY_BASIS_PREFIX_LENGTH,
   type MapBriefing,
   type MapOverlay,
   OVERLAY_VERSION,
@@ -61,7 +62,7 @@ async function overlay(
 
 async function convert(
   tree: ReturnType<typeof treeOf>,
-  overlays: ReadonlyMap<Language, MapOverlay>,
+  overlays: ReadonlyMap<Language, readonly MapOverlay[]>,
   allowSourceLanguages = true,
   corrections: Pick<ConvertOptions, 'correctStrings' | 'shippedFile'> = {},
 ) {
@@ -120,7 +121,7 @@ describe('isMapTextFile', () => {
 describe('convertMapFolder with translation overlays', () => {
   it('adds an overlay language: its strings, and the basis pages rendered with its blocks', async () => {
     const chs = await overlay({ strings: { '0': '北行' }, briefings: { body: '船在等待' } });
-    const { map, warnings, mapOverlays } = await convert(briefedMap(), new Map([['chs', chs]]), false);
+    const { map, warnings, mapOverlays } = await convert(briefedMap(), new Map([['chs', [chs]]]), false);
     expect(mapOverlays).toHaveBeenCalledOnce();
     expect(mapOverlays).toHaveBeenCalledWith(bytesToHex(sha256(mapDat())));
     expect(map.datDigest).toBe(bytesToHex(sha256(mapDat())));
@@ -141,7 +142,7 @@ describe('convertMapFolder with translation overlays', () => {
       basis: { lang: 'eng', digest: mapSourceTextDigest(eng.strings, eng.briefings) },
       briefings: { title: '北方' },
     });
-    const { map } = await convert(tree, new Map([['cht', cht]]));
+    const { map } = await convert(tree, new Map([['cht', [cht]]]));
     expect(pageText(map.briefing, 'cht')).toBe('北方\nStatki czekaja');
     expect(map.overlays).toEqual([{ lang: 'cht', status: 'applied', stale: false }]);
   });
@@ -149,7 +150,7 @@ describe('convertMapFolder with translation overlays', () => {
   it('keeps the shipped text of a language over a translation into it, and names the overlay redundant', async () => {
     const tree = briefedMap({ 'text/eng/strings.ini': '[text]\nstring "Voyage"\n' });
     const eng = await overlay({ strings: { '0': 'North' } });
-    const { map, warnings } = await convert(tree, new Map([['eng', eng]]));
+    const { map, warnings } = await convert(tree, new Map([['eng', [eng]]]));
     expect(map.strings?.eng).toEqual({ '0': 'Voyage' });
     expect(map.overlays).toEqual([{ lang: 'eng', status: 'redundant' }]);
     expect(warnings).toEqual([expect.stringContaining('translation overlay eng redundant')]);
@@ -160,12 +161,12 @@ describe('convertMapFolder with translation overlays', () => {
       strings: { '0': 'Wyprawa na polnoc' },
       briefings: { body: 'Statki juz czekaja' },
     });
-    const refused = await convert(briefedMap(), new Map([['pol', pol]]), false);
+    const refused = await convert(briefedMap(), new Map([['pol', [pol]]]), false);
     expect(refused.map.strings?.pol).toEqual({ '0': 'Wyprawa', '1': 'Opis' });
     expect(refused.map.overlays).toEqual([{ lang: 'pol', status: 'refused' }]);
     expect(refused.warnings).toEqual([expect.stringContaining('translation overlay pol refused')]);
 
-    const allowed = await convert(briefedMap(), new Map([['pol', pol]]));
+    const allowed = await convert(briefedMap(), new Map([['pol', [pol]]]));
     expect(allowed.map.overlays).toEqual([{ lang: 'pol', status: 'applied', stale: false }]);
     expect(allowed.warnings).toEqual([]);
   });
@@ -175,7 +176,7 @@ describe('convertMapFolder with translation overlays', () => {
       strings: { '0': 'Wyprawa na polnoc' },
       briefings: { body: 'Statki juz czekaja' },
     });
-    const { map } = await convert(briefedMap(), new Map([['pol', pol]]));
+    const { map } = await convert(briefedMap(), new Map([['pol', [pol]]]));
     expect(map.strings?.pol).toEqual({ '0': 'Wyprawa na polnoc', '1': 'Opis' });
     expect(map.meta.description).toEqual({ pol: 'Opis' });
     expect(pageText(map.briefing, 'pol')).toBe('Na polnoc\nStatki juz czekaja');
@@ -183,7 +184,7 @@ describe('convertMapFolder with translation overlays', () => {
 
   it('applies an overlay written against other source text and reports its basis stale', async () => {
     const chs = await overlay({ basis: { lang: 'pol', digest: '0'.repeat(64) }, strings: { '1': '说明' } });
-    const { map, warnings } = await convert(briefedMap(), new Map([['chs', chs]]));
+    const { map, warnings } = await convert(briefedMap(), new Map([['chs', [chs]]]));
     expect(map.strings?.chs).toEqual({ '1': '说明' });
     expect(map.overlays).toEqual([{ lang: 'chs', status: 'applied', stale: true }]);
     expect(warnings).toEqual([expect.stringContaining('translation overlay chs stale')]);
@@ -202,12 +203,12 @@ describe('convertMapFolder with translation overlays', () => {
       shippedFile: (file) => (file.toLowerCase() === briefings ? shipped : undefined),
     };
 
-    const { map } = await convert(corrected, new Map([['chs', chs]]), false, fixes);
+    const { map } = await convert(corrected, new Map([['chs', [chs]]]), false, fixes);
     expect(map.overlays).toEqual([{ lang: 'chs', status: 'applied', stale: false }]);
     expect(map.strings?.pol).toEqual({ '0': 'Wyprawa', '1': 'Opis poprawiony' });
     expect(pageText(map.briefing, 'pol')).toBe('Na poludnie\nStatki czekaja');
 
-    const unaware = await convert(corrected, new Map([['chs', chs]]), false);
+    const unaware = await convert(corrected, new Map([['chs', [chs]]]), false);
     expect(unaware.map.overlays).toEqual([{ lang: 'chs', status: 'applied', stale: true }]);
   });
 
@@ -215,5 +216,82 @@ describe('convertMapFolder with translation overlays', () => {
     const { map } = await convert(briefedMap(), new Map());
     expect(map.overlays).toEqual([]);
     expect(Object.keys(map.strings ?? {})).toEqual(['pol']);
+  });
+});
+
+describe('convertMapFolder with copies of one map.dat that ship other text', () => {
+  /** The briefed map's `map.dat` under another Polish name. */
+  const copy = (name: string) =>
+    briefedMap({ 'text/pol/strings.ini': `[text]\nstring "${name}"\nstring "Opis"\n` });
+
+  async function polishBasis(tree: ReturnType<typeof treeOf>): Promise<MapOverlay['basis']> {
+    const pol = (await readMapSourceText(tree, ''))?.languages.pol;
+    if (pol === undefined) throw new Error('no Polish text');
+    return { lang: 'pol', digest: mapSourceTextDigest(pol.strings, pol.briefings) };
+  }
+
+  it('gives each copy the overlay written against its own text', async () => {
+    const second = copy('Druga wyprawa');
+    const overlays = new Map<Language, readonly MapOverlay[]>([
+      [
+        'chs',
+        [
+          await overlay({ strings: { '0': '北行' } }),
+          await overlay({ basis: await polishBasis(second), strings: { '0': '第二次北行' } }),
+        ],
+      ],
+    ]);
+
+    const first = await convert(briefedMap(), overlays);
+    const other = await convert(second, overlays);
+
+    expect(first.map.datDigest).toBe(other.map.datDigest);
+    expect([first.map.strings?.chs, other.map.strings?.chs]).toEqual([
+      { '0': '北行' },
+      { '0': '第二次北行' },
+    ]);
+    expect([first.map.overlays, other.map.overlays]).toEqual([
+      [{ lang: 'chs', status: 'applied', stale: false }],
+      [{ lang: 'chs', status: 'applied', stale: false }],
+    ]);
+    expect([...first.warnings, ...other.warnings]).toEqual([]);
+  });
+
+  it('applies the only overlay of a language to every copy, stale on a copy with other text', async () => {
+    const overlays = new Map<Language, readonly MapOverlay[]>([
+      ['chs', [await overlay({ strings: { '0': '北行' } })]],
+    ]);
+
+    const first = await convert(briefedMap(), overlays);
+    const other = await convert(copy('Druga wyprawa'), overlays);
+
+    expect([first.map.strings?.chs, other.map.strings?.chs]).toEqual([{ '0': '北行' }, { '0': '北行' }]);
+    expect(first.map.overlays).toEqual([{ lang: 'chs', status: 'applied', stale: false }]);
+    expect(other.map.overlays).toEqual([{ lang: 'chs', status: 'applied', stale: true }]);
+    expect(other.warnings).toEqual([expect.stringContaining('translation overlay chs stale')]);
+  });
+
+  it('leaves out a language whose several overlays were all written against other text', async () => {
+    const bases: MapOverlay['basis'][] = [
+      { lang: 'pol', digest: await POLISH_DIGEST },
+      await polishBasis(copy('Druga wyprawa')),
+    ];
+    const named = bases.map(
+      ({ lang, digest }) => `${lang} ${digest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}`,
+    );
+    const overlays = new Map<Language, readonly MapOverlay[]>([
+      ['chs', await Promise.all(bases.map((basis) => overlay({ basis, strings: { '0': '北行' } })))],
+    ]);
+
+    const { map, warnings } = await convert(copy('Trzecia wyprawa'), overlays);
+
+    expect(map.strings?.chs).toBeUndefined();
+    expect(map.overlays).toEqual([{ lang: 'chs', status: 'ambiguous', candidates: bases }]);
+    expect(warnings).toEqual([
+      expect.stringContaining(
+        'translation overlay chs left out: none of the 2 filed under its map.dat was written against ' +
+          `its text (bases ${named.join(', ')})`,
+      ),
+    ]);
   });
 });

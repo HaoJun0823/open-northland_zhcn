@@ -76,9 +76,9 @@ describe('base maps stage', () => {
     await temp.write('Data/maps/loose/map.dat', loose);
     await temp.write('Data/maps/loose/text/pol/strings.ini', utf8('[text]\nstring "Luzna"\n'));
     const both = (name: string) =>
-      new Map<Language, MapOverlay>([
-        ['eng', mapOverlay({ '0': name })],
-        ['chs', mapOverlay({ '0': '峡湾' })],
+      new Map<Language, readonly MapOverlay[]>([
+        ['eng', [mapOverlay({ '0': name })]],
+        ['chs', [mapOverlay({ '0': '峡湾' })]],
       ]);
     const roots: SourceRoots = {
       data: temp.game,
@@ -106,7 +106,8 @@ describe('base maps stage', () => {
       { lang: 'chs', status: 'applied', stale: true },
     ]);
     expect(summarizeMapOverlays(done, new Set(roots.overlays?.maps.keys()))).toBe(
-      'map overlays applied eng:1 chs:2, 0 redundant, 1 refused, 3 stale, 1 filed for no map of this pack',
+      'map overlays applied eng:1 chs:2, 0 redundant, 1 refused, 0 ambiguous, 3 stale, ' +
+        '1 filed for no map of this pack',
     );
   });
 });
@@ -321,13 +322,13 @@ describe('campaigns stage', () => {
         maps: new Map([
           [
             first,
-            new Map<Language, MapOverlay>([
-              ['chs', mapOverlay({ '0': '第一阶段' })],
-              ['cht', mapOverlay({ '0': '第一階段' })],
-              ['eng', mapOverlay({ '0': 'Stage one' })],
+            new Map<Language, readonly MapOverlay[]>([
+              ['chs', [mapOverlay({ '0': '第一阶段' })]],
+              ['cht', [mapOverlay({ '0': '第一階段' })]],
+              ['eng', [mapOverlay({ '0': 'Stage one' })]],
             ]),
           ],
-          [second, new Map<Language, MapOverlay>([['chs', mapOverlay({ '0': '第二阶段' })]])],
+          [second, new Map<Language, readonly MapOverlay[]>([['chs', [mapOverlay({ '0': '第二阶段' })]]])],
         ]),
         campaigns: new Map<Language, ReadonlyMap<string, CampaignOverlay>>([
           ['chs', new Map([[CAMPAIGN, title('覆盖')]])],

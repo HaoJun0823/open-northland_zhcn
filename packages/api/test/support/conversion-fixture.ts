@@ -47,9 +47,9 @@ export async function overlaysFor(
   const pol = source?.languages.pol;
   if (source === undefined || pol === undefined) throw new Error(`no Polish map in ${key}`);
   const basis = { lang: 'pol', digest: mapSourceTextDigest(pol.strings, pol.briefings) } as const;
-  const byLanguage = new Map<Language, MapOverlay>();
+  const byLanguage = new Map<Language, readonly MapOverlay[]>();
   for (const [lang, table] of Object.entries(strings) as [Language, Record<string, string>][])
-    byLanguage.set(lang, { version: OVERLAY_VERSION, map: key, basis, strings: table, briefings: {} });
+    byLanguage.set(lang, [{ version: OVERLAY_VERSION, map: key, basis, strings: table, briefings: {} }]);
   return new Map([[source.datDigest, byLanguage]]);
 }
 

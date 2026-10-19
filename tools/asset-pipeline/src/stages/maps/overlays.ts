@@ -3,7 +3,7 @@ import type { MapOverlaySource } from '@open-northland/map-import';
 import type { SourceRoots } from '../../roots.js';
 import type { MapDatConversion } from './convert.js';
 
-const NO_OVERLAYS: ReadonlyMap<Language, MapOverlay> = new Map();
+const NO_OVERLAYS: ReadonlyMap<Language, readonly MapOverlay[]> = new Map();
 
 /** The run's map overlays as a converter reads them, or undefined when the run loaded none. */
 export function mapOverlaySource(
@@ -20,14 +20,25 @@ export function summarizeMapOverlays(maps: readonly MapDatConversion[], filed: R
   const applied = new Map<Language, number>();
   let redundant = 0;
   let refused = 0;
+  let ambiguous = 0;
   let stale = 0;
   for (const map of maps) {
     for (const outcome of map.overlays) {
-      if (outcome.status === 'applied') {
-        applied.set(outcome.lang, (applied.get(outcome.lang) ?? 0) + 1);
-        if (outcome.stale) stale++;
-      } else if (outcome.status === 'redundant') redundant++;
-      else refused++;
+      switch (outcome.status) {
+        case 'applied':
+          applied.set(outcome.lang, (applied.get(outcome.lang) ?? 0) + 1);
+          if (outcome.stale) stale++;
+          break;
+        case 'redundant':
+          redundant++;
+          break;
+        case 'refused':
+          refused++;
+          break;
+        case 'ambiguous':
+          ambiguous++;
+          break;
+      }
     }
   }
   const converted = new Set(maps.map((map) => map.datDigest));
@@ -38,7 +49,7 @@ export function summarizeMapOverlays(maps: readonly MapDatConversion[], filed: R
       return count === undefined ? [] : [`${lang}:${count}`];
     }).join(' ') || 'none';
   return (
-    `map overlays applied ${perLanguage}, ${redundant} redundant, ${refused} refused, ${stale} stale, ` +
-    `${unmatched} filed for no map of this pack`
+    `map overlays applied ${perLanguage}, ${redundant} redundant, ${refused} refused, ` +
+    `${ambiguous} ambiguous, ${stale} stale, ${unmatched} filed for no map of this pack`
   );
 }

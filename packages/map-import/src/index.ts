@@ -46,6 +46,7 @@ export {
   type MapSourceText,
   mapSourceTextDigest,
   readMapSourceText,
+  selectMapOverlay,
 } from './overlays.js';
 export { collectPagePictures, type PagePictures } from './pictures.js';
 export { type MapDatTerrainFile, mapDatToTerrain } from './terrain/index.js';

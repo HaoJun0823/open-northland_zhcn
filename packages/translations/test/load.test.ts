@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { OVERLAY_VERSION } from '@open-northland/data';
+import { MAP_OVERLAY_BASIS_PREFIX_LENGTH, OVERLAY_VERSION } from '@open-northland/data';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadTranslationOverlays, TRANSLATIONS_ROOT } from '../src/load.js';
 
@@ -25,9 +25,13 @@ async function put(rel: string, value: unknown): Promise<void> {
   await writeFile(path, typeof value === 'string' ? value : JSON.stringify(value));
 }
 
-function mapOverlay(strings: Record<string, string>) {
-  return { version: OVERLAY_VERSION, map: 'wyprawa', basis: BASIS, strings };
+function mapOverlay(strings: Record<string, string>, basis: { lang: string; digest: string } = BASIS) {
+  return { version: OVERLAY_VERSION, map: 'wyprawa', basis, strings };
 }
+
+/** Another basis than `BASIS`, of a copy of the map with other text, and its variant file's name. */
+const OTHER_BASIS = { lang: 'pol', digest: 'd'.repeat(64) } as const;
+const VARIANT = `${DIGEST_A}.${OTHER_BASIS.digest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}`;
 
 describe('loadTranslationOverlays', () => {
   it('keys map overlays by digest across languages, and the rest by language then file id', async () => {
@@ -46,12 +50,47 @@ describe('loadTranslationOverlays', () => {
 
     expect([...overlays.maps.keys()].sort()).toEqual([DIGEST_A, DIGEST_B]);
     expect([...(overlays.maps.get(DIGEST_A)?.keys() ?? [])]).toEqual(['chs', 'cht']);
-    expect(overlays.maps.get(DIGEST_B)?.get('eng')?.strings).toEqual({ '0': 'Voyage' });
-    expect(overlays.maps.get(DIGEST_A)?.get('chs')?.briefings).toEqual({});
+    expect(overlays.maps.get(DIGEST_B)?.get('eng')?.[0]?.strings).toEqual({ '0': 'Voyage' });
+    expect(overlays.maps.get(DIGEST_A)?.get('chs')?.[0]?.briefings).toEqual({});
     expect(overlays.objects.get('chs')?.get('goods')).toMatchObject({ names: { '1': '木头' }, plurals: {} });
     expect(overlays.books.get('chs')?.get('history')?.blocks).toEqual({ 'history.txt': { '00': '历史' } });
     expect(overlays.campaigns.get('cht')?.get('saga')?.title).toBe('傳奇');
     expect(overlays.objects.has('cht')).toBe(false);
+  });
+
+  it('lists every overlay of one language and map.dat, a further one named by its basis prefix', async () => {
+    await put(`chs/maps/${DIGEST_A}.json`, mapOverlay({ '0': '北行' }));
+    await put(`chs/maps/${VARIANT}.json`, mapOverlay({ '0': '第二次北行' }, OTHER_BASIS));
+
+    const overlays = await loadTranslationOverlays(root);
+
+    expect([...overlays.maps.keys()]).toEqual([DIGEST_A]);
+    expect(
+      overlays.maps
+        .get(DIGEST_A)
+        ?.get('chs')
+        ?.map((overlay) => overlay.basis),
+    ).toEqual([OTHER_BASIS, BASIS]);
+  });
+
+  it('refuses a map overlay name of neither form, or a basis prefix its basis does not begin with', async () => {
+    await put('chs/maps/fjord.json', mapOverlay({}));
+    await expect(loadTranslationOverlays(root)).rejects.toThrow(
+      /chs\/maps\/fjord\.json: a map overlay is named by the SHA-256 hex of its map\.dat/,
+    );
+    await rm(join(root, 'chs/maps/fjord.json'));
+    await put(`chs/maps/${VARIANT}.json`, mapOverlay({}));
+    await expect(loadTranslationOverlays(root)).rejects.toThrow(
+      new RegExp(`${VARIANT}\\.json: the name's basis prefix d+ does not begin basis\\.digest c+`),
+    );
+  });
+
+  it('refuses a second overlay of one language and map.dat written against the same text', async () => {
+    await put(`chs/maps/${DIGEST_A}.json`, mapOverlay({ '0': '北行' }, OTHER_BASIS));
+    await put(`chs/maps/${VARIANT}.json`, mapOverlay({ '0': '第二次北行' }, OTHER_BASIS));
+    await expect(loadTranslationOverlays(root)).rejects.toThrow(
+      new RegExp(`chs/maps/${DIGEST_A}\\.json: ${VARIANT}\\.json has the same map\\.dat and basis\\.digest`),
+    );
   });
 
   it('reads only known languages, kinds and JSON files', async () => {

@@ -2,8 +2,11 @@ import {
   isSourceLanguage,
   jsonFingerprint,
   type Language,
+  MAP_OVERLAY_BASIS_PREFIX_LENGTH,
   MAP_TEXT_LANGUAGES,
   type MapOverlay,
+  type OverlayBasis,
+  type SourceLanguage,
 } from '@open-northland/data';
 import { readBriefingBlocks } from './briefing.js';
 import { sha256Hex } from './digest.js';
@@ -20,20 +23,24 @@ import type { MapTree } from './tree.js';
 
 /** The repository's translation overlays as a converter reads them, keyed by the raw `map.dat` digest. */
 export interface MapOverlaySource {
-  /** The overlays filed under one `map.dat` SHA-256 hex digest, by language; empty for none. */
-  readonly mapOverlays: (datDigest: string) => ReadonlyMap<Language, MapOverlay>;
+  /** The overlays filed under one `map.dat` SHA-256 hex digest, by language, one per basis text; empty
+   *  for none. */
+  readonly mapOverlays: (datDigest: string) => ReadonlyMap<Language, readonly MapOverlay[]>;
   /** Whether an overlay in a source language may apply: a community map's, never a campaign map's. */
   readonly allowSourceLanguages: boolean;
 }
 
 /**
- * What became of one language's overlay on a map. `redundant`: a translation into a language the folder
+ * What became of one language's overlays on a map. `redundant`: a translation into a language the folder
  * ships itself, whose shipped text wins. `refused`: a source-language overlay the caller does not allow.
- * `stale`: the overlay's basis digest differs from the folder's current text in the basis language.
+ * `ambiguous`: several overlays share the `map.dat` and none was written against the folder's text;
+ * `candidates` are their bases. `stale`: the applied overlay, the only one of its language, was written
+ * against other text than the folder's in its basis language.
  */
 export type MapOverlayOutcome =
   | { readonly lang: Language; readonly status: 'applied'; readonly stale: boolean }
-  | { readonly lang: Language; readonly status: 'redundant' | 'refused' };
+  | { readonly lang: Language; readonly status: 'redundant' | 'refused' }
+  | { readonly lang: Language; readonly status: 'ambiguous'; readonly candidates: readonly OverlayBasis[] };
 
 /** The overlays a map takes, and what became of every overlay filed under it. */
 export interface MapOverlayPlan {
@@ -133,6 +140,26 @@ export async function readMapSourceText(tree: MapTree, key: string): Promise<Map
 }
 
 /**
+ * The overlay of one language a map takes among `candidates`, those filed under its `map.dat`: the one
+ * whose `basis.digest` is `sourceDigest` of its basis language, else the only one, which is then stale.
+ * Undefined when several were filed and none matches, since none can be told to be this map's.
+ */
+export function selectMapOverlay(
+  candidates: readonly MapOverlay[],
+  sourceDigest: (lang: SourceLanguage) => string,
+): { readonly overlay: MapOverlay; readonly stale: boolean } | undefined {
+  const matching = candidates.find((overlay) => sourceDigest(overlay.basis.lang) === overlay.basis.digest);
+  if (matching !== undefined) return { overlay: matching, stale: false };
+  const [only, ...others] = candidates;
+  return only === undefined || others.length > 0 ? undefined : { overlay: only, stale: true };
+}
+
+/** A basis as a warning names it: its language and the digest prefix a variant file name carries. */
+function basisLabel({ lang, digest }: OverlayBasis): string {
+  return `${lang} ${digest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}`;
+}
+
+/**
  * Decides which overlays of `datDigest` the map takes, warning about each one it leaves out or finds
  * stale. `tables` are the folder's decoded tables before any string correction, and `shipped` answers
  * the pack's bytes of a file a source correction changed. An overlay whose language is its basis
@@ -147,11 +174,19 @@ export function planMapOverlays(
 ): MapOverlayPlan {
   const overlays = source?.mapOverlays(datDigest);
   if (source === undefined || overlays === undefined || overlays.size === 0) return NO_OVERLAYS;
+  const digests = new Map<SourceLanguage, string>();
+  const digestOf = (lang: SourceLanguage): string => {
+    const known = digests.get(lang);
+    if (known !== undefined) return known;
+    const digest = sourceDigest(folder, tables, lang, shipped);
+    digests.set(lang, digest);
+    return digest;
+  };
   const applied = new Map<Language, MapOverlay>();
   const outcomes: MapOverlayOutcome[] = [];
   for (const lang of MAP_TEXT_LANGUAGES) {
-    const overlay = overlays.get(lang);
-    if (overlay === undefined) continue;
+    const candidates = overlays.get(lang) ?? [];
+    if (candidates.length === 0) continue;
     if (isSourceLanguage(lang) && !source.allowSourceLanguages) {
       folder.warn(
         `translation overlay ${lang} refused: a source-language overlay applies to community maps only`,
@@ -159,12 +194,21 @@ export function planMapOverlays(
       outcomes.push({ lang, status: 'refused' });
       continue;
     }
+    const selected = selectMapOverlay(candidates, digestOf);
+    if (selected === undefined) {
+      folder.warn(
+        `translation overlay ${lang} left out: none of the ${candidates.length} filed under its map.dat ` +
+          `was written against its text (bases ${candidates.map((overlay) => basisLabel(overlay.basis)).join(', ')})`,
+      );
+      outcomes.push({ lang, status: 'ambiguous', candidates: candidates.map((overlay) => overlay.basis) });
+      continue;
+    }
+    const { overlay, stale } = selected;
     if (lang !== overlay.basis.lang && shipsLanguage(folder, tables, lang)) {
       folder.warn(`translation overlay ${lang} redundant: the map ships ${lang} text itself`);
       outcomes.push({ lang, status: 'redundant' });
       continue;
     }
-    const stale = sourceDigest(folder, tables, overlay.basis.lang, shipped) !== overlay.basis.digest;
     if (stale) folder.warn(`translation overlay ${lang} stale: its ${overlay.basis.lang} basis text changed`);
     applied.set(lang, overlay);
     outcomes.push({ lang, status: 'applied', stale });

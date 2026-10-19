@@ -144,7 +144,7 @@ export interface ConvertedMap {
   readonly unknownStaticVerbs: readonly string[];
   /** The SHA-256 hex of the raw `map.dat`, the name its translation overlays are filed under. */
   readonly datDigest: string;
-  /** What became of each translation overlay filed under `datDigest`, in language order. */
+  /** What became of each language's translation overlays filed under `datDigest`, in language order. */
   readonly overlays: readonly MapOverlayOutcome[];
 }
 

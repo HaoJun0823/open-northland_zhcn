@@ -1,7 +1,7 @@
 import type { Container, Mesh, Texture } from 'pixi.js';
 import type { Viewport } from '../../src/data/projection/index.js';
 import type { AtlasFrame } from '../../src/data/sprites/index.js';
-import { CLIP_FLOATS, clipFrameIndex, clipTick, NO_CLIP } from '../../src/gpu/map-objects/decor-clip.js';
+import { CLIP_FLOATS, NO_CLIP } from '../../src/gpu/map-objects/decor-clip.js';
 import type { MapObjectLayer } from '../../src/gpu/map-objects/index.js';
 
 /**
@@ -67,9 +67,20 @@ export function tallSprites(spriteLayer: Container): TallSprite[] {
   });
 }
 
+/** The frame `decorClipFrame` picks: `count` is signed as in `aClip`. */
+function clipFrameIndex(count: number, start: number, tick: number): number {
+  const frames = Math.abs(count);
+  return count < 0 ? Math.min(Math.max(tick - start, 0), frames - 1) : (tick + start) % frames;
+}
+
+/** The tick a clip plays at: the frame tick while its cell is watched or the fog is off, else 0. */
+function clipTick(scale: number, tick: number, fogOn: boolean): number {
+  return scale > 0 || !fogOn ? tick : 0;
+}
+
 /** What the GPU draws of one quad of a paged decor mesh at `tick`: its corners, UVs and frame bounds
- *  as the vertex shader places them, null for a collapsed quad. Mirrors `decorClipVertex`, whose frame
- *  pick a browser test holds to {@link clipFrameIndex}. */
+ *  as the vertex shader places them, null for a collapsed quad. Mirrors `decorClipVertex`, which a
+ *  browser test runs against the CPU's frame pick and placement. */
 export interface DrawnDecorQuad {
   readonly positions: number[];
   readonly uvs: number[];

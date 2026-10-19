@@ -22,19 +22,14 @@ const PAGE = Texture.WHITE.source;
 /** Entries one table row holds, at three texels each. */
 const ROW_ENTRIES = CLIP_TABLE_WIDTH / 3;
 
+/** A decor loop; without brightness its body draws through a plain mesh, written on the CPU. */
+function loop(x: number, overrides: Partial<MapObjectSprite> = {}): MapObjectSprite {
+  return { x, y: 0, source: PAGE, frames: LOOP, scale: 1, decor: true, phase: PHASE, ...overrides };
+}
+
 /** A shaded decor loop, so it draws through a paged mesh. */
 function shadedLoop(x: number, overrides: Partial<MapObjectSprite> = {}): MapObjectSprite {
-  return {
-    x,
-    y: 0,
-    source: PAGE,
-    frames: LOOP,
-    scale: 1,
-    decor: true,
-    phase: PHASE,
-    brightness: 1,
-    ...overrides,
-  };
+  return loop(x, { brightness: 1, ...overrides });
 }
 
 function bodyMesh(layer: MapObjectLayer): Mesh {
@@ -163,11 +158,8 @@ describe('GPU-played decor', () => {
 
   it('refreezes CPU-written bodies and GPU-played shadows together when the fog changes while paused', () => {
     const shadowPage = new TextureSource({ width: 64, height: 32 });
-    // No brightness: the body draws through a plain mesh, written on the CPU; its shadow plays on the GPU.
-    const plain = shadedLoop(0, {
-      brightness: undefined,
-      shadow: { source: shadowPage, frames: LOOP },
-    });
+    // The body is written on the CPU; its shadow plays on the GPU.
+    const plain = loop(0, { shadow: { source: shadowPage, frames: LOOP } });
     const layer = new MapObjectLayer(new Container(), new TextureCache());
     layer.set([plain]);
     const shadow = layer.decorShadowContainer.children[0]?.children[0];

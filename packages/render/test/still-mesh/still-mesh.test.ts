@@ -38,6 +38,8 @@ const SWAYING = 50;
 const PAGE_SIZE = 64;
 /** Frames a handed-back band is watched for further rebuilds. */
 const QUIET_FRAMES = 200;
+/** Renders a hot quad stays unpacked before its band's next rebuild moves it back to a cold block. */
+const COOL_RENDERS = 240;
 /** An interval estimate and run whose paid interval a rebuild after `BOUNDARY_ELAPSED` renders meets
  *  exactly. */
 const BOUNDARY_INTERVAL = 17 / 3;
@@ -563,6 +565,31 @@ describe('StillSpriteMesh', () => {
     expect(h.frame()).toEqual(painterOrder(h.layer));
     expect(h.mesh.quadCount).toBe(0);
     expect(h.stale).toEqual([]);
+  });
+
+  it('moves a quad repacked every few renders to a hot block, and back once it rests', () => {
+    const h = harness();
+    const tree = entity(h.layer, 0);
+    h.held.add(tree);
+    h.frame();
+    const body = tree.children[1] as Sprite;
+    const band = tree.parent;
+    const store = (h.mesh as unknown as MeshInternals).store;
+    if (band === null || store === null) throw new Error('expected a meshed band');
+    expect(store.isHot(quadOf(h, body).slot)).toBe(false);
+    // Repacked in place a render after its first pack: the next rebuild carries it to a hot block.
+    body.position.set(3, 1);
+    h.frame();
+    band.renderGroup.structureDidChange = true;
+    expect(h.frame()).toEqual(painterOrder(h.layer));
+    expect(store.isHot(quadOf(h, body).slot)).toBe(true);
+    expect(packedOf(h, body)).toEqual(freshPack(h, body));
+    // Left unpacked past the cool-down, the next rebuild carries it back.
+    for (let i = 0; i <= COOL_RENDERS; i++) h.frame();
+    band.renderGroup.structureDidChange = true;
+    expect(h.frame()).toEqual(painterOrder(h.layer));
+    expect(store.isHot(quadOf(h, body).slot)).toBe(false);
+    expect(packedOf(h, body)).toEqual(freshPack(h, body));
   });
 
   it('uploads the quads Pixi repacks once per frame, however many changed', () => {

@@ -71,17 +71,6 @@ export const DECOR_CLIP_VERTEX_DECLARATIONS = /* glsl */ `
 /** Where a collapsed vertex goes: outside the clip volume, every vertex of the quad at one point. */
 export const DECOR_CLIP_HIDDEN_POSITION = 'vec4(2.0, 2.0, 2.0, 1.0)';
 
-/** The frame `decorClipFrame` picks, for the CPU side and tests: `count` is signed as in `aClip`. */
-export function clipFrameIndex(count: number, start: number, tick: number): number {
-  const frames = Math.abs(count);
-  return count < 0 ? Math.min(Math.max(tick - start, 0), frames - 1) : (tick + start) % frames;
-}
-
-/** The tick a clip plays at: the frame tick while its cell is watched or the fog is off, else 0. */
-export function clipTick(scale: number, tick: number, fogOn: boolean): number {
-  return scale > 0 || !fogOn ? tick : 0;
-}
-
 /** The uniforms every animated decor program shares: the tick the clips play at and whether the fog
  *  freezes the ones on unwatched ground. */
 export type DecorClipUniforms = UniformGroup & {

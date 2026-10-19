@@ -105,7 +105,7 @@ ${pageSamplerDeclarations()}
   vec4 shadeShadow(sampler2D uTexture) {
     // Atlas pages load at resolution 1, so the page's pixel size is the size the UVs were divided by.
     vec2 texel = vUV * vec2(textureSize(uTexture, 0));
-    float authored = texture(uTexture, vUV).a;
+    float authored = textureGrad(uTexture, vUV, dFdx(vUV), dFdy(vUV)).a;
     bool inFrame = all(greaterThanEqual(texel, vFrame.xy)) && all(lessThan(texel, vFrame.zw));
     float coverage = uShadowSoft > 0.5 ? softCoverage(uTexture, texel) : (inFrame ? authored : 0.0);
     float alpha = min(coverage * uShadowAlpha.x, uShadowAlpha.y);

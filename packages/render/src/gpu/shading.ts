@@ -52,9 +52,11 @@ const TERRAIN_SAMPLE = `
   uniform float uManualSampling;
   vec4 sampleTerrain() {
     // Both gates are uniforms, so this branch is uniform across the draw and the derivatives below
-    // stay well defined. Returning first keeps the baseline path to a single sampler fetch.
+    // stay well defined. Returning first keeps the baseline path to a single sampler fetch: a
+    // single-level page reads its level, a mipmapped one passes its derivatives (see pageChain).
     if (uEnhancedSampling < 0.5 || uManualSampling < 0.5)
-      return texture(uTexture, vUV);
+      return uManualSampling > 0.5 ? textureLod(uTexture, vUV, 0.0)
+        : textureGrad(uTexture, vUV, dFdx(vUV), dFdy(vUV));
     vec2 size = vec2(textureSize(uTexture, 0));
     vec2 dx = dFdx(vUV);
     vec2 dy = dFdy(vUV);
@@ -106,7 +108,7 @@ const TERRAIN_SAMPLE = `
       textureLod(uTexture, clamp(vUV + b, low, high), 0.0) +
       textureLod(uTexture, clamp(vUV - b, low, high), 0.0));
     if (footprint >= ${MINIFY_FULL_FOOTPRINT.toFixed(4)}) return filtered;
-    return mix(texture(uTexture, vUV), filtered, smoothstep(1.0, ${MINIFY_FULL_FOOTPRINT.toFixed(4)}, footprint));
+    return mix(textureLod(uTexture, vUV, 0.0), filtered, smoothstep(1.0, ${MINIFY_FULL_FOOTPRINT.toFixed(4)}, footprint));
   }
 `;
 
@@ -380,7 +382,7 @@ ${pageSamplerDeclarations()}
     sides = 0.0;
     // vSnow is 0 unless the cover switch is on, so a dry map keeps its single fetch.
     if (vSnow > 0.0) footprint = decorSnowTaps(uTexture, vUV, above, sides);
-    return texture(uTexture, vUV);
+    return textureGrad(uTexture, vUV, dFdx(vUV), dFdy(vUV));
   }
 
   void main(void) {

@@ -28,6 +28,12 @@ const PAGED_PROGRAM_CALL_BUDGETS: Readonly<Record<string, number>> = {
 /** Sampler slots in the synthetic regression, the count WebGL 2 guarantees. */
 const REGRESSION_SLOTS = 16;
 
+/** A fragment shader that picks its page through an if-chain on a varying: the world batch's
+ *  `uTextures[]`, or a paged mesh's `uPage<n>`, handed to its functions as `uTexture`. */
+const SAMPLER_CHAIN = /\buTextures\[|\buniform\s+sampler2D\s+uPage0\b/;
+/** A read of a chain's page with implicit derivatives. */
+const IMPLICIT_PAGE_SAMPLE = /\btexture(?:Offset|Proj|ProjOffset)?\s*\(\s*(?:uTextures\[|uPage\d|uTexture\b)/;
+
 const catalogue = shaderCatalog();
 
 describe('shader catalogue', () => {
@@ -72,6 +78,17 @@ describe('fragment texture-operation budget', () => {
     expect(fragmentCost(pageInEveryBranchShader(REGRESSION_SLOTS)).textureOps).toBeGreaterThan(
       FRAGMENT_TEXTURE_OP_BUDGET,
     );
+  });
+});
+
+describe('sampler chains', () => {
+  // Direct3D's compiler may hoist an implicit-derivative sample out of the chain's branches, which
+  // fetches every page for each fragment.
+  it('read a page only with explicit derivatives, an explicit level or texelFetch', () => {
+    const implicit = catalogue
+      .filter((entry) => SAMPLER_CHAIN.test(entry.fragment) && IMPLICIT_PAGE_SAMPLE.test(entry.fragment))
+      .map((entry) => entry.name);
+    expect(implicit).toEqual([]);
   });
 });
 

@@ -12,7 +12,9 @@ export function pageSamplerDeclarations(): string {
   return Array.from({ length: PAGE_SAMPLER_SLOTS }, (_, i) => `  uniform sampler2D uPage${i};`).join('\n');
 }
 
-/** `statement` run with the fragment's page sampler in place of `$`, through one if-chain on `vPage`. */
+/** `statement` run with the fragment's page sampler in place of `$`, through one if-chain on `vPage`.
+ *  Inside it a page is read with explicit derivatives, an explicit level or texelFetch: Direct3D's
+ *  compiler may hoist an implicit-derivative sample out of the chain and fetch every page per fragment. */
 export function pageChain(statement: string): string {
   return Array.from({ length: PAGE_SAMPLER_SLOTS }, (_, i) => {
     const guard = i < PAGE_SAMPLER_SLOTS - 1 ? `if (vPage < ${i}.5) ` : '';

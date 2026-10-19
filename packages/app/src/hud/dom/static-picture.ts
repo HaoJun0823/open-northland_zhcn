@@ -17,13 +17,13 @@ export interface StaticPicture {
 export interface StaticPictures {
   /**
    * The picture under `key`, drawn by `draw` into a cleared `width` x `height` context the first time it
-   * is asked for; null when `draw` drew nothing.
+   * is asked for; null when the page gives no 2d context.
    */
   picture(
     key: string,
     width: number,
     height: number,
-    draw: (ctx: CanvasRenderingContext2D) => boolean,
+    draw: (ctx: CanvasRenderingContext2D) => void,
   ): StaticPicture | null;
 }
 
@@ -37,7 +37,7 @@ function scratchContext(): CanvasRenderingContext2D | null {
 
 /** A cache of pictures by key; each owner keys by what its pictures depend on. */
 export function createStaticPictures(): StaticPictures {
-  const pictures = new Map<string, StaticPicture | null>();
+  const pictures = new Map<string, StaticPicture>();
   return {
     picture: (key, width, height, draw) => {
       const known = pictures.get(key);
@@ -47,7 +47,8 @@ export function createStaticPictures(): StaticPictures {
       // Setting the size clears the canvas and resets its state, so each picture starts blank.
       ctx.canvas.width = width;
       ctx.canvas.height = height;
-      const drawn = draw(ctx) ? { url: ctx.canvas.toDataURL(), width, height } : null;
+      draw(ctx);
+      const drawn = { url: ctx.canvas.toDataURL(), width, height };
       pictures.set(key, drawn);
       return drawn;
     },

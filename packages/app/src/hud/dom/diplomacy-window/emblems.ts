@@ -59,7 +59,6 @@ export function createNationEmblems(
         (pixels - (bounds.maxX - bounds.minX) * zoom) / 2 - bounds.minX * zoom,
         (pixels - (bounds.maxY - bounds.minY) * zoom) / 2 - bounds.minY * zoom,
       );
-      return true;
     });
     if (picture === null) return false;
     showPicture(image, picture);

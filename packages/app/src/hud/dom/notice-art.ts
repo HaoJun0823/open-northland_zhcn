@@ -91,7 +91,6 @@ export function createNoticeArt(): NoticeArt | null {
           const cell = ctx.getImageData(0, 0, atlas.cell, atlas.cell);
           recolourKey(cell.data, tint);
           ctx.putImageData(cell, 0, 0);
-          return true;
         });
         if (picture !== null) showPicture(target, picture);
       };

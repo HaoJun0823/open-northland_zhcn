@@ -69,7 +69,6 @@ export function createBuildingThumbs(sheet: SpriteSheet | undefined, seatTribe: 
           fit.dw,
           fit.dh,
         );
-        return true;
       });
       if (picture === null) return false;
       showPicture(image, picture);

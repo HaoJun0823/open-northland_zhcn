@@ -33,6 +33,8 @@ export const LANGUAGE_CODES: Readonly<Record<MapTextLanguage, string>> = {
   eng: 'EN',
   ger: 'DE',
   rus: 'RU',
+  chs: 'ZH',
+  cht: 'ZH-T',
 };
 
 export function languageCodes(languages: readonly MapTextLanguage[]): string {

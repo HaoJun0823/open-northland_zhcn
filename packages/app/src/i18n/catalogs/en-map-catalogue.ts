@@ -81,7 +81,14 @@ export const enMapCatalogue = {
   anyPlayers: 'Any number of players',
   playerBucketPlus: '{min}+',
   anyLanguage: 'Any language',
-  languageNames: { pol: 'Polish', eng: 'English', ger: 'German', rus: 'Russian' },
+  languageNames: {
+    pol: 'Polish',
+    eng: 'English',
+    ger: 'German',
+    rus: 'Russian',
+    chs: 'Chinese (Simplified)',
+    cht: 'Chinese (Traditional)',
+  },
   sizes: { any: 'Any size', small: 'Small', medium: 'Medium', large: 'Large', huge: 'Very large' },
   downloadModes: {
     any: 'All maps',

@@ -14,3 +14,4 @@ export * from './maps/index.js';
 // The id primitives (`TypeId`/`AtomicId`/`ClassId`) stay internal: they all infer to bare `number`.
 // `Provenance` is exported because it has a shape.
 export { Provenance } from './record.js';
+export * from './translations/index.js';

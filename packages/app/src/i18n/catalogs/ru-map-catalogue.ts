@@ -80,7 +80,14 @@ export const ruMapCatalogue = {
   anyPlayers: 'Любое число игроков',
   playerBucketPlus: '{min}+',
   anyLanguage: 'Любой язык',
-  languageNames: { pol: 'Польский', eng: 'Английский', ger: 'Немецкий', rus: 'Русский' },
+  languageNames: {
+    pol: 'Польский',
+    eng: 'Английский',
+    ger: 'Немецкий',
+    rus: 'Русский',
+    chs: 'Китайский (упрощённый)',
+    cht: 'Китайский (традиционный)',
+  },
   sizes: {
     any: 'Любой размер',
     small: 'Маленькая',

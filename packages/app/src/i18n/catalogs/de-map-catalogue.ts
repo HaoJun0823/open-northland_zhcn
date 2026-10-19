@@ -82,7 +82,14 @@ export const deMapCatalogue = {
   anyPlayers: 'Beliebig viele Spieler',
   playerBucketPlus: '{min}+',
   anyLanguage: 'Jede Sprache',
-  languageNames: { pol: 'Polnisch', eng: 'Englisch', ger: 'Deutsch', rus: 'Russisch' },
+  languageNames: {
+    pol: 'Polnisch',
+    eng: 'Englisch',
+    ger: 'Deutsch',
+    rus: 'Russisch',
+    chs: 'Chinesisch (vereinfacht)',
+    cht: 'Chinesisch (traditionell)',
+  },
   sizes: { any: 'Jede Größe', small: 'Klein', medium: 'Mittel', large: 'Groß', huge: 'Sehr groß' },
   downloadModes: {
     any: 'Alle Karten',

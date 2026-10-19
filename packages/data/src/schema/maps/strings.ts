@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { LANGUAGES, type Language } from '../../languages.js';
 
-/** The languages a map folder ships under `text/<lang>/`, most preferred first: a text missing in the
- *  reader's language falls back in this order, and the culturesnation mod is Polish-authored. */
-export const MAP_TEXT_LANGUAGES = ['pol', 'eng', 'ger', 'rus'] as const;
-export type MapTextLanguage = (typeof MAP_TEXT_LANGUAGES)[number];
+/** The languages a map's text can be served in, most preferred first: the registry's fallback order.
+ *  A source language comes from the map folder's `text/<lang>/`, an overlay language from the
+ *  repository's translation overlays. */
+export const MAP_TEXT_LANGUAGES = LANGUAGES;
+export type MapTextLanguage = Language;
 
 /**
  * `maps/<id>.strings.json`: one map's own string table per shipped language, keyed by string id.

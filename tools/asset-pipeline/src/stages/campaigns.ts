@@ -4,8 +4,8 @@ import {
   type Campaign,
   CampaignIndex,
   type LocalizedText,
-  MAP_TEXT_LANGUAGES,
   type MapTextLanguage,
+  SOURCE_LANGUAGES,
 } from '@open-northland/data';
 import {
   type ConvertedMap,
@@ -151,7 +151,8 @@ async function convertCampaign(
   }
   const logo: Partial<Record<MapTextLanguage, string>> = {};
   const movies: Campaign['movies'] = {};
-  for (const language of MAP_TEXT_LANGUAGES) {
+  // The pack ships presentation and films only in the languages its maps carry.
+  for (const language of SOURCE_LANGUAGES) {
     const file = campaign.logo?.[language];
     if (file !== undefined) logo[language] = await asset(file);
     const films = campaign.movies[language];

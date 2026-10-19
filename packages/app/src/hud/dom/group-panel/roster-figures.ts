@@ -10,13 +10,14 @@ interface Place {
 
 /**
  * The roster's one canvas for its members' figures. Each well still paints its figure on its own canvas,
- * kept off the page (members.ts), and this canvas over the laid wells takes a copy at the well's place. Chrome composites every canvas on the page as a layer of its own, so a big army's wells cost
- * the compositor a layer each, and the scroll's fade a pass over them, every frame.
+ * kept off the page (members.ts), and this canvas over the laid wells takes a copy at the well's place.
+ * Chrome composites every canvas on the page as a layer of its own, so a big army's wells cost the
+ * compositor a layer each, and the scroll's fade a pass over them, every frame.
  */
 export interface RosterFigures {
   readonly canvas: HTMLCanvasElement;
-  /** Lay the canvas over `wells` and copy every one: after a relist, a scroll or a resize. Reads the
-   *  layout. */
+  /** Lay the canvas over `wells` and copy every one: after a relist, a re-attach, a resize or a new
+   *  device scale. Reads the layout. */
   place(wells: readonly FigureWell[]): void;
   /** Copy again the wells whose canvases the figures' paint changed. */
   copy(repainted: ReadonlySet<HTMLCanvasElement>): void;

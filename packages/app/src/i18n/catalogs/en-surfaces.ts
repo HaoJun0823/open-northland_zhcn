@@ -436,6 +436,7 @@ export const enSurfaces = {
       culturesNationDetail: 'The Cultures player community.',
       license: 'Free software under the GNU AGPL 3.0 or later, with no warranty.',
       licenseLink: 'License',
+      thirdPartyLink: 'Third-party notices',
       disclaimer:
         'Cultures and related names belong to their owners. A non-commercial project, not affiliated with Funatics Software or any other rights holder of the series.',
     },

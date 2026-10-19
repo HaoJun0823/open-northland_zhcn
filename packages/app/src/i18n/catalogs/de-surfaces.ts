@@ -479,6 +479,7 @@ export const deSurfaces = {
       culturesNationDetail: 'Die Community der Cultures-Spieler.',
       license: 'Freie Software unter der GNU AGPL 3.0 oder neuer, ohne jede Gewährleistung.',
       licenseLink: 'Lizenz',
+      thirdPartyLink: 'Drittanbieter-Hinweise',
       disclaimer:
         'Cultures und zugehörige Namen gehören ihren Inhabern. Ein nicht kommerzielles Projekt ohne Verbindung zu Funatics Software oder anderen Rechteinhabern der Reihe.',
     },

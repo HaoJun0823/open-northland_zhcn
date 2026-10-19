@@ -46,10 +46,12 @@ const NOTICE = `/*
 // * do so, delete this exception statement from your version.                *
 // ****************************************************************************`;
 
-// Modified for Open Northland: this file is the libretro xbrz-freescale shader ported to a GLSL ES 3.00
-// pass that redraws an atlas page at twice its texels. The taps read the page by texelFetch, transparent
-// outside it; colours are premultiplied RGBA, so the distance adds the coverage difference and every
-// blend carries alpha. The corner rules, constants and line geometry are the original's.
+// Modified for Open Northland, 2026-10-19 (GPL-3.0 section 5(a) asks for the date): this file is the
+// libretro xbrz-freescale shader ported to a GLSL ES 3.00 pass that redraws an atlas page at twice its
+// texels. The taps read the page by texelFetch, transparent outside it; colours are premultiplied RGBA,
+// so the distance adds the coverage difference and every blend carries alpha. The corner rules,
+// constants and line geometry are the original's. The GPL-3.0 text ships as licenses/GPL-3.0.txt
+// (packages/app/public/licenses/).
 
 export const XBRZ_2X_SOURCE: GlslProgramSource = {
   name: 'prescale/xbrz-2x',

@@ -432,6 +432,7 @@ export const plSurfaces = {
       culturesNationDetail: 'Społeczność graczy Cultures.',
       license: 'Wolne oprogramowanie na licencji GNU AGPL 3.0 lub nowszej, bez żadnej gwarancji.',
       licenseLink: 'Licencja',
+      thirdPartyLink: 'Licencje zewnętrzne',
       disclaimer:
         'Cultures i powiązane nazwy należą do ich właścicieli. Projekt niekomercyjny, niezwiązany z Funatics Software ani innymi posiadaczami praw do serii.',
     },

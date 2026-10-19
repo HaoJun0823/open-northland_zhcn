@@ -473,6 +473,7 @@ export const ruSurfaces = {
       culturesNationDetail: 'Сообщество игроков в Cultures.',
       license: 'Свободное ПО под лицензией GNU AGPL 3.0 или новее, без каких-либо гарантий.',
       licenseLink: 'Лицензия',
+      thirdPartyLink: 'Сторонние лицензии',
       disclaimer:
         'Cultures и связанные названия принадлежат их владельцам. Некоммерческий проект, не связанный с Funatics Software и другими правообладателями серии.',
     },

@@ -72,6 +72,7 @@ the canonical legal wording.
   or focused reference. Avoid module essays, caller inventories and chains of `{@link}` references.
 - Describe the current contract, not dates, authors, conversations, tickets, PRs or revisions. Preserve
   source basis and uncertainty when shortening. Rewrite obsolete comments instead of appending updates.
+  A third-party license notice keeps the dates its license asks for, such as a GPL modification date.
 - When extracting code, count source and destination comments together. Moving prose or adding a header
   to every new module is not an improvement; add prose only for a previously unstated necessary fact.
 - Markdown should answer a reader's task with verified facts and runnable examples. Omit repeated

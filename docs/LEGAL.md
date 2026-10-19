@@ -58,19 +58,25 @@ When exact behavior is unknown, the implementation and its tests must identify t
 
 The art filter's prescaled scalers port GPU shaders from the libretro shader collection
 (<https://github.com/libretro/glsl-shaders>). Each ported file keeps its original copyright and
-license notice and says what was changed:
+license notice and says what was changed; the notice also opens the shader source it builds, so every
+copy of the program carries it. `packages/app/public/licenses/` ships with the web and desktop builds
+as `licenses/`: `THIRD-PARTY-NOTICES.txt` lists the ports with their notices and `GPL-3.0.txt` holds
+the GPL text, and the credits screen links the notices beside the AGPL license.
 
 - `packages/render/src/gpu/prescale/xbrz-2x.ts`, from `xbrz/shaders/xbrz-freescale.glsl`: Hyllian's
   xBR texel mapping, Copyright (C) 2011/2016 Hyllian, MIT license; the xBRZ rules, Copyright (C)
-  Zenju, GNU General Public License version 3, whose text is `LICENSE-GPL-3.0.txt` beside the file.
-  The file stays under GPL-3.0. Section 13 of the GPL-3.0 permits combining it with this AGPL-3.0
-  work, and the combined program is distributed under the AGPL-3.0. Distributing Open Northland under
-  any other license, a later AGPL version included, requires removing or replacing this file. The
-  file's linking exception names MAME only and gives this project nothing.
+  Zenju, GNU General Public License version 3. The file stays under GPL-3.0. Section 13 of the GPL-3.0
+  permits combining it with this AGPL-3.0 work, and the combined program is distributed under the
+  AGPL-3.0. Distributing Open Northland under any other license, a later AGPL version included,
+  requires removing or replacing this file. The file's linking exception names MAME only and gives
+  this project nothing. Its modification notice carries a date, as GPL-3.0 section 5(a) asks.
 - `packages/render/src/gpu/prescale/super-xbr-2x.ts`, from
   `xbr/shaders/super-xbr/super-xbr-pass{0,1,2}.glsl`: Copyright (c) 2015 Hyllian, MIT license.
 - `packages/render/src/gpu/prescale/mmpx-2x.ts`, from `scalenx/shaders/mmpx.glsl`: Copyright 2020
   Morgan McGuire and Mara Gagiu, MIT license.
+
+The root and desktop `package.json` therefore declare `AGPL-3.0-or-later AND GPL-3.0-only`: the
+project's own code stays under the AGPL version 3 or later, and the xBRZ file under the GPL version 3.
 
 ## Names and trademarks
 

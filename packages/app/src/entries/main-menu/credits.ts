@@ -14,6 +14,8 @@ const CONTACT_EMAIL = 'contact@opennorthland.org';
 const REPO_URL = 'https://github.com/s-nems/open-northland';
 const ISSUES_URL = `${REPO_URL}/issues`;
 const LICENSE_URL = `${REPO_URL}/blob/main/LICENSE`;
+/** The notices of the third-party code in the program; the builds also ship them as `licenses/`. */
+const THIRD_PARTY_URL = `${REPO_URL}/blob/main/packages/app/public/licenses/THIRD-PARTY-NOTICES.txt`;
 const DISCORD_URL = 'https://discord.gg/MYtDK2C';
 const CULTURES_NATION_URL = 'https://culturesnation.pl/';
 
@@ -107,7 +109,8 @@ function communityPanel(): HTMLElement {
   return box;
 }
 
-/** The copyright, no-warranty and license notice AGPL section 5(d) asks an interactive interface to show. */
+/** The copyright, no-warranty and license notice AGPL section 5(d) asks an interactive interface to show,
+ *  with the third-party notices beside the license. */
 function legalNotice(): HTMLElement {
   const copy = messages().mainMenu.credits;
   const legal = node('footer', 'main-menu__about-legal');
@@ -115,6 +118,8 @@ function legalNotice(): HTMLElement {
   license.append(
     `© ${COPYRIGHT_YEARS} ${AUTHOR} · ${copy.license} `,
     externalLink(copy.licenseLink, LICENSE_URL, 'main-menu__about-legal-link'),
+    ' · ',
+    externalLink(copy.thirdPartyLink, THIRD_PARTY_URL, 'main-menu__about-legal-link'),
     ` · alpha ${GAME_VERSION}`,
   );
   legal.append(license, node('p', '', copy.disclaimer));

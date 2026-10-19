@@ -1,0 +1,42 @@
+Open Northland: third-party notices
+
+Open Northland is free software under the GNU Affero General Public License, version 3 or later
+(LICENSE in the source repository). The art filter's prescaled scalers include GPU shaders ported
+from the libretro shader collection, https://github.com/libretro/glsl-shaders. Each ported shader
+also carries its original notice in its own source text.
+
+xBRZ (packages/render/src/gpu/prescale/xbrz-2x.ts, from xbrz/shaders/xbrz-freescale.glsl)
+  Hyllian's xBR-vertex code and texel mapping:
+    Copyright (C) 2011/2016 Hyllian - sergiogdb@gmail.com, MIT license (below).
+  xBRZ: Copyright (C) Zenju (zenju AT gmx DOT de), distributed under the GNU General Public
+    License version 3, whose text is GPL-3.0.txt beside this file. That file stays under the
+    GPL-3.0; the combined program is distributed under the GNU AGPL version 3 (GPL-3.0 section 13).
+    Its source is the source repository, https://github.com/s-nems/open-northland.
+
+Super-xBR (packages/render/src/gpu/prescale/super-xbr-2x.ts, from xbr/shaders/super-xbr/)
+  Copyright (c) 2015 Hyllian - sergiogdb@gmail.com, MIT license (below).
+
+MMPX (packages/render/src/gpu/prescale/mmpx-2x.ts, from scalenx/shaders/mmpx.glsl)
+  Copyright 2020 Morgan McGuire & Mara Gagiu, MIT license (below).
+
+MIT license, as granted by each copyright holder above:
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+
+The bundled fonts carry their own licenses beside them, under /fonts/ in the same bundle.

@@ -372,7 +372,7 @@ async function captureTrace(browserCdp, page) {
   await browserCdp.send('Tracing.start', {
     traceConfig: {
       includedCategories: options.invalidations
-        ? [...TRACE_CATEGORIES, INVALIDATION_CATEGORY]
+        ? [...TRACE_CATEGORIES, INVALIDATION_CATEGORY, 'disabled-by-default-devtools.timeline.stack']
         : TRACE_CATEGORIES,
       recordMode: 'recordAsMuchAsPossible',
     },

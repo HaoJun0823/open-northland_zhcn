@@ -73,7 +73,6 @@ import { createToolPanelInput, type HeldMode, type ToolPanelInput } from './inpu
 import type { ActiveLine, LineNode, LinePreviewNode, LitNodes } from './line-tool.js';
 import {
   createMessageCenter,
-  type MessageFeedState,
   type MessageTarget,
   type MetSeat,
   type NoticeGallery,
@@ -93,7 +92,6 @@ import {
   type PalisadeGateProbeView,
   type PalisadePlacementMode,
   type PlacementClickAsks,
-  type PlacementState,
   type RoadPreview,
   type StandingStructure,
 } from './placement.js';
@@ -102,7 +100,7 @@ import { NO_RESIDENT_FILTERS } from './residents/rows.js';
 import type { ResidentsSeam } from './residents/seam.js';
 import { createSpeedControl } from './speed-control.js';
 import { type ClientPoint, createWallDemolishBrush } from './wall-demolish.js';
-import { createToolWindows, type ToolWindowsState } from './windows.js';
+import { createToolWindows } from './windows.js';
 
 /** Painted-icon size in a window head (design px). */
 const TITLE_ART_PX = 43;
@@ -343,8 +341,6 @@ export interface ToolPanelController {
   /** Tell the player, in the notification column, that the settings named by `labels` take effect when
    *  the map starts again; no labels withdraws that note. */
   noteSettingsRestart(labels: readonly string[]): void;
-  state(): ToolPanelState;
-  restore(state: ToolPanelState): void;
   /** Show the session's clock as it stands, without pushing to the loop: a change made elsewhere. */
   syncSpeed(control: GameSpeedControl): void;
   /** How the speed segments read beside the control; while `held`, the pause and speed presses are
@@ -359,14 +355,6 @@ export interface ToolPanelController {
   /** Hang `node` just left of the top-right bar; null takes it down. */
   hangBesideBar(node: HTMLElement | null): void;
   dispose(): void;
-}
-
-export interface ToolPanelState {
-  readonly speed: GameSpeedControl;
-  readonly windows: ToolWindowsState;
-  readonly placement: PlacementState;
-  readonly messages: MessageFeedState;
-  readonly hudHidden: boolean;
 }
 
 interface ToolPanelAssets {
@@ -795,8 +783,6 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
     });
     domParts.push(messageCenter);
 
-    let hudHidden = false;
-
     // Esc closes the open window and hands focus back to its beam entry.
     const closeWindow = (): boolean => {
       const open = windows.openId();
@@ -891,7 +877,6 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       setInfoLines: (lines) => windows.mission.setInfoLines(lines),
       setHudHidden: (hidden) => {
         if (hidden) windows.closeAll();
-        hudHidden = hidden;
       },
       centralWindows: {
         isOpen: () => windows.openId() !== null,
@@ -968,13 +953,6 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       presentFigures: (snapshot, alpha): void => {
         residentFigures.paint(snapshot, windows.byId.residents.figureSlots(), snapshot.tick, alpha);
       },
-      state: () => ({
-        speed: speed.state(),
-        windows: windows.state(),
-        placement: placement.state(),
-        messages: messageCenter.state(),
-        hudHidden,
-      }),
       syncSpeed: (control) => speed.restore(control),
       setSpeedLook(look): void {
         speedHeld = look?.kind === 'held';
@@ -984,13 +962,6 @@ export async function mountToolPanel(opts: ToolPanelOptions): Promise<ToolPanelC
       closeNetwork: () => windows.byId.network.close(),
       networkOpen: () => windows.byId.network.isOpen(),
       hangBesideBar: (node) => systemBar.setAside(node),
-      restore(state): void {
-        speed.restore(state.speed);
-        windows.restore(state.windows);
-        placement.restore(state.placement);
-        messageCenter.restore(state.messages);
-        hudHidden = state.hudHidden;
-      },
       dispose(): void {
         placement.dispose();
         disposeAll();

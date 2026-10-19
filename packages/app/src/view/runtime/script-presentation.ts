@@ -218,7 +218,7 @@ export function createScriptPresentation(deps: ScriptPresentationDeps): ScriptPr
                 ),
               `${linesTick}`,
             ) ?? NO_LINES);
-      // Pushed every frame: the panel remounts on a scale change and starts blank.
+      // Pushed every frame; the book keeps an unchanged list as it is.
       toolPanel.controller.setInfoLines(lines);
       const screen = deps.screen();
       markers.update(camera, screen, nowMs);

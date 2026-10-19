@@ -20,7 +20,6 @@ import type { DiplomacySource } from '../hud/dom/diplomacy-window/model.js';
 import type { BriefingViewTarget, BriefingVoicePlayer } from '../hud/dom/mission-book/index.js';
 import type { KeyBindings } from '../hud/keybindings.js';
 import type { NetPanelSource } from '../hud/network/model.js';
-import { createReplaceableMount } from '../hud/replaceable-mount.js';
 import { CATALOGUE_KINDS, type MenuBuildingEntry } from '../hud/tool-panel/building-menu.js';
 import type { GameSpeedChangeCause, GameSpeedStateSpec } from '../hud/tool-panel/game-speed.js';
 import {
@@ -58,7 +57,7 @@ export interface GameToolPanelDeps {
   readonly canvas: HTMLCanvasElement;
   /** The DOM HUD plane the shell regions mount on. */
   readonly plane: HTMLElement;
-  /** The node standing first in the system bar, kept across a rescale's rebuilt bar. */
+  /** The node standing first in the system bar. */
   readonly barLead?: HTMLElement;
   readonly camera: () => Camera;
   /** A closure, so it follows a scene restart. */
@@ -199,7 +198,6 @@ export interface GameToolPanelHandle {
   claimPointer(clientX: number, clientY: number): boolean;
   /** Shared with the frame loop's build hover, so the ghost and the placement click resolve identically. */
   clientToTile(clientX: number, clientY: number): { col: number; row: number } | null;
-  setUiScale(uiscale: number): Promise<void>;
   dispose(): void;
 }
 
@@ -280,104 +278,96 @@ export async function mountGameToolPanel(deps: GameToolPanelDeps): Promise<GameT
     return { col: t.col, row: t.row };
   };
 
-  const mountController = () =>
-    mountToolPanel({
-      settlerName: deps.settlerName,
-      canvas: deps.canvas,
-      plane: deps.plane,
-      ...(deps.barLead !== undefined ? { barLead: deps.barLead } : {}),
-      buildings: deps.buildings,
-      buildingLabels: deps.buildingLabels,
-      technologyName: deps.technologyName,
-      goodLabel: deps.goodLabel,
-      goods: deps.goods,
-      pack: deps.pack,
-      vehicleLabel: deps.vehicleLabel,
-      lang: deps.lang ?? currentLocale(),
-      bindings: deps.bindings,
-      tribe: deps.tribe,
-      buildTribes: deps.buildTribes,
-      constructionAnswersVersion: deps.constructionAnswersVersion,
-      ...(deps.nationEmblemType !== undefined ? { nationEmblemType: deps.nationEmblemType } : {}),
-      owner: deps.owner,
-      viewer: deps.viewer,
-      ...(deps.observer !== undefined ? { observer: deps.observer } : {}),
-      enqueue: deps.enqueue,
-      ...(deps.enqueueTrusted !== undefined ? { enqueueTrusted: deps.enqueueTrusted } : {}),
-      assistant: deps.assistant,
-      papers: deps.papers,
-      residents: deps.residents,
-      diplomacy: deps.diplomacy,
-      metSeats: deps.metSeats,
-      fogView: deps.fogView,
-      ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
-      screenToTile: clientToTile,
-      canPlaceAt: deps.canPlaceAt,
-      canPlacePalisadeAt: deps.canPlacePalisadeAt,
-      palisadeBuiltAt: deps.palisadeBuiltAt,
-      palisadeAnswersKey: deps.palisadeAnswersKey,
-      palisadeGateProbe: deps.palisadeGateProbe,
-      palisadeGateSites: deps.palisadeGateSites,
-      canPlaceRoadAt: deps.canPlaceRoadAt,
-      roadBuiltAt: deps.roadBuiltAt,
-      roadAnswersKey: deps.roadAnswersKey,
-      ownRoadSiteAt: deps.ownRoadSiteAt,
-      ownWallsAt: deps.ownWallsAt,
-      placementClickAsks: deps.placementClickAsks,
-      palisadeTools: deps.palisadeTools,
-      onSpeedChange: deps.onSpeed,
-      ...(deps.clockPaused !== undefined ? { clockPaused: deps.clockPaused } : {}),
-      ...(deps.pauseHeld !== undefined ? { pauseHeld: deps.pauseHeld } : {}),
-      screenScale: (c) => screenScale(c, deps.app.renderer.resolution),
-      ...(deps.deferToOverlay !== undefined ? { deferToOverlay: deps.deferToOverlay } : {}),
-      ...(deps.onSystemMenu !== undefined ? { onSystemMenu: deps.onSystemMenu } : {}),
-      ...(deps.onLoadGame !== undefined ? { onLoadGame: deps.onLoadGame } : {}),
-      ...(deps.onSaveGame !== undefined ? { onSaveGame: deps.onSaveGame } : {}),
-      ...(deps.onToggleHud !== undefined ? { onToggleHud: deps.onToggleHud } : {}),
-      ...(deps.modalOpen !== undefined ? { modalOpen: deps.modalOpen } : {}),
-      ...(deps.escapeClaimed !== undefined ? { escapeClaimed: deps.escapeClaimed } : {}),
-      ...(deps.mission !== undefined ? { mission: deps.mission } : {}),
-      ...(deps.missionBriefingHistory !== undefined
-        ? { missionBriefingHistory: deps.missionBriefingHistory }
-        : {}),
-      ...(deps.askMissionBriefing !== undefined ? { askMissionBriefing: deps.askMissionBriefing } : {}),
-      ...(deps.missionHuman !== undefined ? { missionHuman: deps.missionHuman } : {}),
-      ...(deps.missionAnswersVersion !== undefined
-        ? { missionAnswersVersion: deps.missionAnswersVersion }
-        : {}),
-      ...(deps.missionPictureUrl !== undefined ? { missionPictureUrl: deps.missionPictureUrl } : {}),
-      ...(deps.onMissionHold !== undefined ? { onMissionHold: deps.onMissionHold } : {}),
-      ...(deps.pauseStopsClock !== undefined ? { pauseStopsClock: deps.pauseStopsClock } : {}),
-      ...(deps.onShowOnMap !== undefined ? { onShowOnMap: deps.onShowOnMap } : {}),
-      ...(deps.onCentreView !== undefined ? { onCentreView: deps.onCentreView } : {}),
-      ...(deps.missionVoice !== undefined ? { missionVoice: deps.missionVoice } : {}),
-      ...(deps.sheet !== undefined ? { sheet: deps.sheet } : {}),
-      ...(deps.playerColourOf !== undefined ? { playerColourOf: deps.playerColourOf } : {}),
-      ...(deps.onSelectMessageTarget !== undefined
-        ? { onSelectMessageTarget: deps.onSelectMessageTarget }
-        : {}),
-      ...(deps.onAttackShown !== undefined ? { onAttackShown: deps.onAttackShown } : {}),
-      ...(deps.onNoteShown !== undefined ? { onNoteShown: deps.onNoteShown } : {}),
-      ...(deps.noticeGallery !== undefined ? { noticeGallery: deps.noticeGallery } : {}),
-      prayerNeeds: deps.prayerNeeds,
-      ...(deps.workshops !== undefined ? { workshops: deps.workshops } : {}),
-      ...(deps.sites !== undefined ? { sites: deps.sites } : {}),
-      ...(deps.isVehicleSite !== undefined ? { isVehicleSite: deps.isVehicleSite } : {}),
-      ...(deps.onUiCue !== undefined ? { onUiCue: deps.onUiCue } : {}),
-      ...(deps.network !== undefined ? { network: deps.network } : {}),
-    });
-
-  const mounts = createReplaceableMount(await mountController(), mountController, (next, previous) =>
-    next.restore(previous.state()),
-  );
+  const controller = await mountToolPanel({
+    settlerName: deps.settlerName,
+    canvas: deps.canvas,
+    plane: deps.plane,
+    ...(deps.barLead !== undefined ? { barLead: deps.barLead } : {}),
+    buildings: deps.buildings,
+    buildingLabels: deps.buildingLabels,
+    technologyName: deps.technologyName,
+    goodLabel: deps.goodLabel,
+    goods: deps.goods,
+    pack: deps.pack,
+    vehicleLabel: deps.vehicleLabel,
+    lang: deps.lang ?? currentLocale(),
+    bindings: deps.bindings,
+    tribe: deps.tribe,
+    buildTribes: deps.buildTribes,
+    constructionAnswersVersion: deps.constructionAnswersVersion,
+    ...(deps.nationEmblemType !== undefined ? { nationEmblemType: deps.nationEmblemType } : {}),
+    owner: deps.owner,
+    viewer: deps.viewer,
+    ...(deps.observer !== undefined ? { observer: deps.observer } : {}),
+    enqueue: deps.enqueue,
+    ...(deps.enqueueTrusted !== undefined ? { enqueueTrusted: deps.enqueueTrusted } : {}),
+    assistant: deps.assistant,
+    papers: deps.papers,
+    residents: deps.residents,
+    diplomacy: deps.diplomacy,
+    metSeats: deps.metSeats,
+    fogView: deps.fogView,
+    ...(deps.seatNameOf !== undefined ? { seatNameOf: deps.seatNameOf } : {}),
+    screenToTile: clientToTile,
+    canPlaceAt: deps.canPlaceAt,
+    canPlacePalisadeAt: deps.canPlacePalisadeAt,
+    palisadeBuiltAt: deps.palisadeBuiltAt,
+    palisadeAnswersKey: deps.palisadeAnswersKey,
+    palisadeGateProbe: deps.palisadeGateProbe,
+    palisadeGateSites: deps.palisadeGateSites,
+    canPlaceRoadAt: deps.canPlaceRoadAt,
+    roadBuiltAt: deps.roadBuiltAt,
+    roadAnswersKey: deps.roadAnswersKey,
+    ownRoadSiteAt: deps.ownRoadSiteAt,
+    ownWallsAt: deps.ownWallsAt,
+    placementClickAsks: deps.placementClickAsks,
+    palisadeTools: deps.palisadeTools,
+    onSpeedChange: deps.onSpeed,
+    ...(deps.clockPaused !== undefined ? { clockPaused: deps.clockPaused } : {}),
+    ...(deps.pauseHeld !== undefined ? { pauseHeld: deps.pauseHeld } : {}),
+    screenScale: (c) => screenScale(c, deps.app.renderer.resolution),
+    ...(deps.deferToOverlay !== undefined ? { deferToOverlay: deps.deferToOverlay } : {}),
+    ...(deps.onSystemMenu !== undefined ? { onSystemMenu: deps.onSystemMenu } : {}),
+    ...(deps.onLoadGame !== undefined ? { onLoadGame: deps.onLoadGame } : {}),
+    ...(deps.onSaveGame !== undefined ? { onSaveGame: deps.onSaveGame } : {}),
+    ...(deps.onToggleHud !== undefined ? { onToggleHud: deps.onToggleHud } : {}),
+    ...(deps.modalOpen !== undefined ? { modalOpen: deps.modalOpen } : {}),
+    ...(deps.escapeClaimed !== undefined ? { escapeClaimed: deps.escapeClaimed } : {}),
+    ...(deps.mission !== undefined ? { mission: deps.mission } : {}),
+    ...(deps.missionBriefingHistory !== undefined
+      ? { missionBriefingHistory: deps.missionBriefingHistory }
+      : {}),
+    ...(deps.askMissionBriefing !== undefined ? { askMissionBriefing: deps.askMissionBriefing } : {}),
+    ...(deps.missionHuman !== undefined ? { missionHuman: deps.missionHuman } : {}),
+    ...(deps.missionAnswersVersion !== undefined
+      ? { missionAnswersVersion: deps.missionAnswersVersion }
+      : {}),
+    ...(deps.missionPictureUrl !== undefined ? { missionPictureUrl: deps.missionPictureUrl } : {}),
+    ...(deps.onMissionHold !== undefined ? { onMissionHold: deps.onMissionHold } : {}),
+    ...(deps.pauseStopsClock !== undefined ? { pauseStopsClock: deps.pauseStopsClock } : {}),
+    ...(deps.onShowOnMap !== undefined ? { onShowOnMap: deps.onShowOnMap } : {}),
+    ...(deps.onCentreView !== undefined ? { onCentreView: deps.onCentreView } : {}),
+    ...(deps.missionVoice !== undefined ? { missionVoice: deps.missionVoice } : {}),
+    ...(deps.sheet !== undefined ? { sheet: deps.sheet } : {}),
+    ...(deps.playerColourOf !== undefined ? { playerColourOf: deps.playerColourOf } : {}),
+    ...(deps.onSelectMessageTarget !== undefined
+      ? { onSelectMessageTarget: deps.onSelectMessageTarget }
+      : {}),
+    ...(deps.onAttackShown !== undefined ? { onAttackShown: deps.onAttackShown } : {}),
+    ...(deps.onNoteShown !== undefined ? { onNoteShown: deps.onNoteShown } : {}),
+    ...(deps.noticeGallery !== undefined ? { noticeGallery: deps.noticeGallery } : {}),
+    prayerNeeds: deps.prayerNeeds,
+    ...(deps.workshops !== undefined ? { workshops: deps.workshops } : {}),
+    ...(deps.sites !== undefined ? { sites: deps.sites } : {}),
+    ...(deps.isVehicleSite !== undefined ? { isVehicleSite: deps.isVehicleSite } : {}),
+    ...(deps.onUiCue !== undefined ? { onUiCue: deps.onUiCue } : {}),
+    ...(deps.network !== undefined ? { network: deps.network } : {}),
+  });
 
   return {
-    get controller() {
-      return mounts.current();
-    },
-    claimPointer: () => mounts.current().claimsPointer(),
+    controller,
+    claimPointer: () => controller.claimsPointer(),
     clientToTile,
-    setUiScale: (uiscale) => mounts.replace(uiscale),
-    dispose: () => mounts.dispose(),
+    dispose: () => controller.dispose(),
   };
 }

@@ -1229,7 +1229,6 @@ export async function startGameView(deps: GameViewDeps): Promise<GameViewHandle>
       stored: storedSettings,
       pinnedUiScale,
       camera: cameraCtl,
-      toolPanel,
       minimap: mountedMinimap,
       controls,
       hudDom,

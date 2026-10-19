@@ -23,7 +23,6 @@ export type NetOverlaysController = Pick<
 export interface NetOverlaysDeps {
   readonly source: NetPanelSource;
   readonly scale: () => number;
-  /** The current tool panel controller; a HUD rescale replaces it. */
   readonly controller: () => NetOverlaysController;
   readonly cue: (cue: UiCue) => void;
   /** Rings a notification: a chat line arriving, a player coming or going, the world out of sync. */
@@ -111,13 +110,13 @@ export function mountNetOverlays(deps: NetOverlaysDeps): NetOverlays {
       const model = source.model();
       if (model !== null) {
         followHold(controller, model.clock.held);
-        // A rescaled HUD's new bar starts plain and bare, so it takes the clock and the line again.
-        const rescaled = controller !== syncedController;
-        if (rescaled) controller.hangBesideBar(statusLine.element);
-        if (rescaled || clockMoved(syncedClock, model.clock)) {
+        // A bar not yet synced starts plain and bare, so it takes the clock and the line.
+        const fresh = controller !== syncedController;
+        if (fresh) controller.hangBesideBar(statusLine.element);
+        if (fresh || clockMoved(syncedClock, model.clock)) {
           controller.syncSpeed(speedControlFor(model.clock));
         }
-        if (rescaled || model.clock !== syncedClock || model.players !== syncedPlayers) {
+        if (fresh || model.clock !== syncedClock || model.players !== syncedPlayers) {
           controller.setSpeedLook(speedBarLook(model.clock, model.players));
         }
         syncedClock = model.clock;

@@ -5,7 +5,6 @@ import type { MinimapHandle } from '../../hud/minimap/index.js';
 import { displayViewOf, uiScaleFor } from '../../hud/ui-scale.js';
 import { defaultLocale, localeParam } from '../../i18n/index.js';
 import type { CameraController } from '../camera/index.js';
-import type { GameToolPanelHandle } from '../game-tool-panel.js';
 import { replaceEntryUrl } from '../navigation-guard.js';
 import { type MenuSettings, patchStoredSettings } from '../settings-store.js';
 import type { UnitControls } from '../unit-controls/index.js';
@@ -20,7 +19,6 @@ export interface LiveGameSettingsDeps {
   readonly stored: MenuSettings;
   readonly pinnedUiScale: number | null;
   readonly camera: CameraController;
-  readonly toolPanel: GameToolPanelHandle;
   readonly minimap: MinimapHandle;
   readonly controls: UnitControls;
   /** The DOM HUD plane, scaled with the Pixi parts. */
@@ -54,7 +52,7 @@ export function createLiveGameSettings(deps: LiveGameSettingsDeps): LiveGameSett
     );
   const hudScale = createGameHudScaleCoordinator({
     initialScale: initialUiScale,
-    targets: [deps.toolPanel, deps.minimap, deps.controls, deps.hudDom],
+    targets: [deps.minimap, deps.controls, deps.hudDom],
     onError: (error) => diag.warn('ui', `HUD scale rebuild failed: ${String(error)}`),
   });
   const viewport = createGameViewportCoordinator({

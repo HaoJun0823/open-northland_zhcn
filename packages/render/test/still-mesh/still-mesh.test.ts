@@ -14,6 +14,7 @@ import {
 } from 'pixi.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DepthSortedLayer } from '../../src/gpu/depth-sorted-layer.js';
+import type { DrawTable } from '../../src/gpu/still-mesh/draw-table.js';
 import { QUAD_FLOATS, QuadStore, VERTICES_PER_QUAD } from '../../src/gpu/still-mesh/quad-store.js';
 import { INDICES_PER_QUAD, quietRebuildAfter, StillSpriteMesh } from '../../src/gpu/still-mesh/still-mesh.js';
 import { installWorldBatcher, worldBatched } from '../../src/gpu/world-batcher.js';
@@ -27,6 +28,8 @@ import { installWorldBatcher, worldBatched } from '../../src/gpu/world-batcher.j
 
 /** The texture slots a world batch binds, the renderer limit a world batcher is built for. */
 const MAX_BATCH_TEXTURES = 16;
+/** Pages one mesh draw lists: every batch slot but the palette LUT's. */
+const DRAW_PAGES = MAX_BATCH_TEXTURES - 1;
 /** Depths this far apart always file into different bands. */
 const FAR = 10_000;
 /** Held children changing every frame in one band. */
@@ -112,6 +115,9 @@ interface Harness {
   frame(): Container[];
   /** The mesh draws of the last frame. */
   meshDraws(): number;
+  /** The texture tables of the last frame's mesh draws, in painter order. */
+  drawTables(): DrawTable[];
+
   /** The buffer uploads of the last frame. */
   uploads(): number;
   /** Sprites Pixi batched from an out-of-date record so far. */
@@ -126,7 +132,12 @@ afterEach(() => {
 interface MeshInternals {
   readonly bands: Map<
     Container,
-    { build: number; members: { quads: { slot: number; sprite: Sprite; live: boolean }[] }[] }
+    {
+      build: number;
+      members: {
+        quads: { slot: number; sprite: Sprite; live: boolean; table: DrawTable | null; textureId: number }[];
+      }[];
+    }
   >;
   readonly store: QuadStore | null;
 }
@@ -145,11 +156,13 @@ function harness(runPayoff = 0): Harness {
   const mesh = new StillSpriteMesh((child) => held.has(child), runPayoff);
   layer.stills = mesh;
   let draws = 0;
+  let tables: DrawTable[] = [];
   const h: Harness = {
     layer,
     mesh,
     held,
     meshDraws: () => draws,
+    drawTables: () => tables,
     uploads: () => uploads.count,
     stale,
     frame() {
@@ -161,6 +174,7 @@ function harness(runPayoff = 0): Harness {
           for (const quad of member.quads) bySlot.set(quad.slot, quad.sprite);
       const drawn: Container[] = [];
       draws = 0;
+      tables = [];
       for (const band of layer.renderGroup.instructionSet.instructions.slice(
         0,
         layer.renderGroup.instructionSet.instructionSize,
@@ -172,11 +186,13 @@ function harness(runPayoff = 0): Harness {
           const instruction = set.instructions[i] as unknown as Recorded & {
             start?: number;
             size?: number;
+            textures?: DrawTable;
             batcher?: { indices: Uint32Array; geometry: unknown };
           };
           if (instruction.renderPipeId === 'pixiBatch') drawn.push(...(instruction.sprites ?? []));
           else if (instruction.batcher !== undefined && instruction.start !== undefined) {
             draws++;
+            if (instruction.textures !== undefined) tables.push(instruction.textures);
             // The batch pipe reads the geometry as it binds a draw.
             void instruction.batcher.geometry;
             const indices = instruction.batcher.indices;
@@ -226,6 +242,17 @@ function painterOrder(layer: DepthSortedLayer): Container[] {
   };
   for (const band of layer.children) walk(band);
   return out;
+}
+
+/** The meshed quad of `sprite`. */
+function quadOf(h: Harness, sprite: Sprite): { slot: number; table: DrawTable | null; textureId: number } {
+  const internals = h.mesh as unknown as MeshInternals;
+  const quad = [...internals.bands.values()]
+    .flatMap((state) => state.members)
+    .flatMap((member) => member.quads)
+    .find((q) => q.sprite === sprite && q.live);
+  if (quad === undefined) throw new Error('expected a meshed sprite');
+  return quad;
 }
 
 /** A world batcher packing as the batches do, to compare a slot with. */
@@ -298,17 +325,58 @@ describe('StillSpriteMesh', () => {
     expect(packedOf(h, body)).toEqual(freshPack(h, body));
   });
 
-  it('moves a sprite to Pixi when its new page does not fit the band table', () => {
+  it('draws a band whose pages outgrow one draw from several, each sprite on its own page', () => {
     const h = harness();
     const tree = entity(h.layer, 0, 0);
     h.held.add(tree);
-    // Fill the band's table with pages of other stills.
+    // Fill the first draw's table with pages of other stills, one of them sharing the tree's body page.
+    for (let p = 1; p < DRAW_PAGES - 1; p += 2) h.held.add(entity(h.layer, 1 + p / 100, p));
+    h.frame();
+    expect(h.meshDraws()).toBe(1);
+    expect(h.drawTables()[0]?.count).toBe(DRAW_PAGES);
+    const body = tree.children[1] as Sprite;
+    body.texture = textureOn(MAX_BATCH_TEXTURES + 2);
+    expect(h.frame()).toEqual(painterOrder(h.layer));
+    expect(h.meshDraws()).toBe(2);
+    expect(h.mesh.quadCount).toBe(DRAW_PAGES + 1);
+    expect(packedOf(h, body)).toEqual(freshPack(h, body));
+    // Every quad samples its own page through its draw's table.
+    for (const sprite of painterOrder(h.layer) as Sprite[]) {
+      const quad = quadOf(h, sprite);
+      expect(quad.table?.textures[quad.textureId]).toBe(sprite.texture.source);
+    }
+    expect(h.stale).toEqual([]);
+  });
+
+  it('hands Pixi a sprite whose new page outgrows its draw between rebuilds with its new frame', () => {
+    const h = harness();
+    const tree = entity(h.layer, 0, 0);
+    entity(h.layer, 1, 0);
+    h.held.add(tree);
     for (let p = 2; p < MAX_BATCH_TEXTURES; p += 2) h.held.add(entity(h.layer, 1 + p / 100, p));
     h.frame();
+    // A page no table of the band lists, reaching the mesh as the band rebuilds.
     (tree.children[1] as Sprite).texture = textureOn(MAX_BATCH_TEXTURES + 2);
+    h.held.delete(tree);
+    entity(h.layer, 2, 0);
     expect(h.frame()).toEqual(painterOrder(h.layer));
-    // Pixi batches the sprite with its new frame, not the one its meshed record last drew.
     expect(h.stale).toEqual([]);
+  });
+
+  it('points a quad at its page’s new slot when a rebuild lists the pages in another order', () => {
+    const h = harness();
+    const later = entity(h.layer, 5, 2);
+    h.held.add(later);
+    h.frame();
+    const body = later.children[1] as Sprite;
+    const before = quadOf(h, body).textureId;
+    // A still in front takes the first slots.
+    h.held.add(entity(h.layer, 1, 6));
+    expect(h.frame()).toEqual(painterOrder(h.layer));
+    const quad = quadOf(h, body);
+    expect(quad.textureId).not.toBe(before);
+    expect(quad.table?.textures[quad.textureId]).toBe(body.texture.source);
+    expect(packedOf(h, body)).toEqual(freshPack(h, body));
   });
 
   it('applies several deltas between two frames without dropping or doubling a sprite', () => {

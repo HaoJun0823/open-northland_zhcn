@@ -1,7 +1,11 @@
 import { Buffer, BufferUsage } from 'pixi.js';
-import { WORLD_VERTEX_SIZE } from '../world-batcher.js';
+import { WORLD_ATTRIBUTE_OFFSETS, WORLD_VERTEX_SIZE } from '../world-batcher.js';
 
 export const VERTICES_PER_QUAD = 4;
+/** A vertex's `aTextureIdAndRound` word: a uint16 pair of the round flag, then the texture slot. */
+const TEXTURE_ID_WORD = WORLD_ATTRIBUTE_OFFSETS.aTextureIdAndRound / Uint32Array.BYTES_PER_ELEMENT;
+const TEXTURE_ID_SHIFT = 16;
+const ROUND_MASK = 0xffff;
 /** World-vertex floats one quad slot holds. */
 export const QUAD_FLOATS = VERTICES_PER_QUAD * WORLD_VERTEX_SIZE;
 const QUAD_BYTES = QUAD_FLOATS * Float32Array.BYTES_PER_ELEMENT;
@@ -68,6 +72,15 @@ export class QuadStore {
 
   markDirty(slot: number): void {
     this.dirty.push(slot);
+  }
+
+  /** Point a slot's quad at another texture slot of its draw, keeping the rest of it as packed. */
+  retarget(slot: number, textureId: number): void {
+    const u32 = this.u32;
+    let at = QuadStore.start(slot) + TEXTURE_ID_WORD;
+    for (let v = 0; v < VERTICES_PER_QUAD; v++, at += WORLD_VERTEX_SIZE)
+      u32[at] = (textureId << TEXTURE_ID_SHIFT) | ((u32[at] ?? 0) & ROUND_MASK);
+    this.markDirty(slot);
   }
 
   /** Upload every slot packed since the last flush, merged into a few byte ranges. */

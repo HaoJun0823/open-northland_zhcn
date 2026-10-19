@@ -26,9 +26,9 @@ npm run build
 npm test
 ```
 
-The normal development setup does not need game files. You only need the Open Northland source data pack
-to generate playable content or test the asset pipeline. Those steps are in
-[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+The normal development setup does not need game files. `npm run build` and `npm run dev` offer to
+download the Open Northland source data pack, which only playable content and asset pipeline tests
+need; answer `n` to build without it. Those steps are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 ## Before opening a pull request
 

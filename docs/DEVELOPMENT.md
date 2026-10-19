@@ -7,10 +7,10 @@ and the test strategy in [`TESTING.md`](TESTING.md).
 
 ```bash
 npm ci                  # install the locked dependency set
-npm run dev             # browser development server
+npm run dev             # browser development server (builds missing or stale content first)
 npm run desktop         # Electron development build
 npm run relay           # lockstep relay server on PORT (default 8765)
-npm run build           # typecheck and build the browser app, then report per-mode JS size
+npm run build           # content step, typecheck and browser app build with per-mode JS size
 npm test                # normal Vitest suite (fast tier)
 npm run test:slow       # slow tier: scale, long-run and real-time tests
 npm test -- scenario    # test files matching a path fragment (includes full typecheck)
@@ -89,11 +89,16 @@ primary server and must not be used to start a worktree preview.
 A release builds `content/` from the pinned source data pack and ships the converted tree inside
 installers and the web image. Player-selected local maps are converted separately in a Worker.
 
-```bash
-npm run build:content
-```
+`npm run dev` and `npm run build` start with `node scripts/build-content.mjs --if-stale`, which
+builds `content/` when the tree is missing or its `build-stamp.json` names another archive hash or
+IR version, and otherwise returns at once. The stamp does not track the converter itself: after a
+pipeline change that keeps the IR version, run `npm run build:content`, which always rebuilds.
 
-Without local configuration this downloads `https://opennorthland.org/data.zip`. To use a local
+Without local configuration the build downloads `https://opennorthland.org/data.zip` after
+describing the archive and asking for confirmation; Enter accepts. When the download is declined,
+or cannot be asked for because there is no terminal (CI, an agent), nothing is downloaded:
+`--if-stale` skips the content step with a note and `build:content` fails. `ON_DATA_ACCEPT=1` in
+the process environment (it is not read from `.env`) grants the consent. To use a local
 archive, set `ON_DATA_ZIP=/absolute/path/to/data.zip` in the ignored root `.env`; `.env.example`
 shows the setting. Process environment wins, followed by this checkout's `.env`, then the primary
 checkout's `.env` for a Git worktree. Relative paths resolve against their configuration file (or

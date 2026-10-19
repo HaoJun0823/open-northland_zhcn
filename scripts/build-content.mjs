@@ -2,9 +2,11 @@
 /** Download or reuse data.zip, validate it, and replace generated content after conversion succeeds. */
 
 import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { createWriteStream, existsSync } from 'node:fs';
 import { cp, lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
@@ -20,11 +22,20 @@ const OUT_DIR = resolve(repoRoot, 'content');
 const CACHE_DIR = resolve(repoRoot, '.cache', 'data');
 const UNPACKED_DIR_NAME = 'unpacked';
 const UNPACKED_STAMP_NAME = 'unpacked.sha256';
+/** Records which archive and IR version a content tree was converted from; `--if-stale` compares it. */
+const BUILD_STAMP_NAME = 'build-stamp.json';
+// Read from source: the pipeline compiles packages/data itself, so dist/ may not exist yet.
+const IR_VERSION_SOURCE = resolve(repoRoot, 'packages/data/src/schema/content/ir-version.ts');
+const IF_STALE_FLAG = '--if-stale';
+/** Grants the download consent where no terminal can answer the prompt. */
+const ACCEPT_ENV = 'ON_DATA_ACCEPT';
+const HEAD_TIMEOUT_MS = 5000;
 const LOG_PREFIX = '[build-content]';
 
 function run(command, args, cwd) {
   return new Promise((done, fail) => {
-    const child = spawn(command, args, { cwd, stdio: 'inherit' });
+    // npm is npm.cmd on Windows, which only a shell resolves.
+    const child = spawn(command, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' });
     child.on('error', fail);
     child.on('exit', (code, signal) => {
       if (code === 0) done();
@@ -54,6 +65,72 @@ function formatDownloadProgress(receivedBytes, totalBytes) {
   if (totalBytes === undefined) return `downloaded ${formatBytes(receivedBytes)}`;
   const percent = totalBytes === 0 ? 100 : (receivedBytes / totalBytes) * 100;
   return `download progress: ${formatBytes(receivedBytes)} / ${formatBytes(totalBytes)} (${percent.toFixed(1)}%)`;
+}
+
+async function remoteSize(url, fetchImpl) {
+  try {
+    const response = await fetchImpl(url, { method: 'HEAD', signal: AbortSignal.timeout(HEAD_TIMEOUT_MS) });
+    return response.ok ? parseContentLength(response.headers.get('content-length')) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function downloadNotice(archiveUrl, expectedDigest, sizeBytes) {
+  const size = sizeBytes === undefined ? 'size unknown' : `about ${formatBytes(sizeBytes)}`;
+  return `
+The game needs converted content, which this repository does not contain. It is built
+from the Open Northland source data pack:
+
+  source    ${archiveUrl} (${size})
+  sha256    ${expectedDigest}
+  contents  game data derived from CNMod 1.3.2 for Cultures - 8th Wonder of the World:
+            rules, graphics, sounds, music, maps and the campaigns with their films and
+            translations. The files remain the property of their rights holders
+            (docs/LEGAL.md); playing requires an installed original game.
+  stored    .cache/data/ (archive) and content/ (converted), both ignored by Git
+
+`;
+}
+
+/**
+ * Asks before the first network download. Resolves to `accepted`, `declined` (answered no) or
+ * `unattended` (no terminal to ask and no ON_DATA_ACCEPT=1).
+ */
+export async function askDownloadConsent({
+  archiveUrl,
+  expectedDigest,
+  sizeOf,
+  env = process.env,
+  input = process.stdin,
+  output = process.stderr,
+}) {
+  if (env[ACCEPT_ENV] === '1') return 'accepted';
+  if (!input.isTTY || env.CI !== undefined) return 'unattended';
+  output.write(downloadNotice(archiveUrl, expectedDigest, await sizeOf()));
+  const rl = createInterface({ input, output, terminal: false });
+  try {
+    // End of input (Ctrl-D) closes the interface before any answer; that is a refusal, not a hang.
+    const answer = await Promise.race([
+      rl.question('Download it now? [Y/n] '),
+      once(rl, 'close').then(() => null),
+    ]);
+    if (answer === null) return 'declined';
+    return answer.trim() === '' || /^y(es)?$/i.test(answer.trim()) ? 'accepted' : 'declined';
+  } finally {
+    rl.close();
+  }
+}
+
+export class DownloadNotAccepted extends Error {
+  constructor(reason) {
+    super(
+      reason === 'declined'
+        ? 'download declined; the game has no content until a run accepts it or ON_DATA_ZIP names a local archive'
+        : `downloading data.zip needs a terminal to confirm, ${ACCEPT_ENV}=1, or ON_DATA_ZIP`,
+    );
+    this.reason = reason;
+  }
 }
 
 async function download(url, target, log, fetchImpl = fetch) {
@@ -107,26 +184,48 @@ function createLogger(out = process.stderr) {
   };
 }
 
-async function buildContent(zip, log) {
-  const dataRoot = await obtainPinnedDataRoot(zip, log);
-  if (existsSync(OUT_DIR) && (await lstat(OUT_DIR)).isSymbolicLink())
+export async function currentIrVersion(source = IR_VERSION_SOURCE) {
+  const match = /export const IR_VERSION = (\d+) as const;/.exec(await readFile(source, 'utf8'));
+  if (match === null) throw new Error(`cannot read IR_VERSION from ${source}`);
+  return Number(match[1]);
+}
+
+/** True when the tree carries a stamp naming the pinned archive and the current IR version. */
+export async function contentIsCurrent(outDir, stamp) {
+  if (!existsSync(join(outDir, 'ir.json'))) return false;
+  try {
+    const found = JSON.parse(await readFile(join(outDir, BUILD_STAMP_NAME), 'utf8'));
+    return found.archiveSha256 === stamp.archiveSha256 && found.irVersion === stamp.irVersion;
+  } catch {
+    return false;
+  }
+}
+
+function runPipeline(dataRoot, out) {
+  return run('npm', ['run', 'pipeline', '--', '--data-root', dataRoot, '--out', out], repoRoot);
+}
+
+export async function buildContent(zip, log, stamp, { outDir, dataRootOptions, convert = runPipeline }) {
+  const dataRoot = await obtainPinnedDataRoot(zip, log, dataRootOptions);
+  if (existsSync(outDir) && (await lstat(outDir)).isSymbolicLink())
     throw new Error('Refusing to replace content through a symlink');
   const staging = await mkdtemp(resolve(repoRoot, '.cache', 'content-'));
   const previous = `${staging}-previous`;
   try {
-    if (existsSync(join(OUT_DIR, 'music')))
-      await cp(join(OUT_DIR, 'music'), join(staging, 'music'), { recursive: true });
+    if (existsSync(join(outDir, 'music')))
+      await cp(join(outDir, 'music'), join(staging, 'music'), { recursive: true });
     log(`running asset pipeline into ${staging}`);
-    await run('npm', ['run', 'pipeline', '--', '--data-root', dataRoot, '--out', staging], repoRoot);
-    if (existsSync(OUT_DIR)) await rename(OUT_DIR, previous);
+    await convert(dataRoot, staging);
+    await writeFile(join(staging, BUILD_STAMP_NAME), `${JSON.stringify(stamp, null, 2)}\n`);
+    if (existsSync(outDir)) await rename(outDir, previous);
     try {
-      await rename(staging, OUT_DIR);
+      await rename(staging, outDir);
     } catch (error) {
-      if (existsSync(previous)) await rename(previous, OUT_DIR);
+      if (existsSync(previous)) await rename(previous, outDir);
       throw error;
     }
     await rm(previous, { recursive: true, force: true });
-    log(`${OUT_DIR} built from data.zip`);
+    log(`${outDir} built from data.zip`);
   } finally {
     await rm(staging, { recursive: true, force: true });
   }
@@ -177,7 +276,13 @@ async function cachedDataRoot(outDir, expectedDigest) {
 export async function obtainPinnedArchive(
   zip,
   log,
-  { outDir = CACHE_DIR, archiveUrl = ARCHIVE_URL, expectedDigest = ARCHIVE_SHA256, fetchImpl = fetch } = {},
+  {
+    outDir = CACHE_DIR,
+    archiveUrl = ARCHIVE_URL,
+    expectedDigest = ARCHIVE_SHA256,
+    fetchImpl = fetch,
+    consent = askDownloadConsent,
+  } = {},
 ) {
   if (zip !== undefined) {
     log(`using local archive ${zip}`);
@@ -185,20 +290,29 @@ export async function obtainPinnedArchive(
     return zip;
   }
 
+  const downloadWithConsent = async (archive, why) => {
+    const verdict = await consent({
+      archiveUrl,
+      expectedDigest,
+      sizeOf: () => remoteSize(archiveUrl, fetchImpl),
+    });
+    if (verdict !== 'accepted') throw new DownloadNotAccepted(verdict);
+    log(`${why}, downloading ${archiveUrl} into ${archive}`);
+    await download(archiveUrl, archive, log, fetchImpl);
+  };
+
   const archive = cachedArchivePath(outDir, archiveUrl);
   await mkdir(outDir, { recursive: true });
-  if (!existsSync(archive)) {
-    log(`cached archive missing, downloading ${archiveUrl} into ${archive}`);
-    await download(archiveUrl, archive, log, fetchImpl);
-  } else {
-    log(`using cached archive ${archive}`);
-  }
+  const cached = existsSync(archive);
+  if (cached) log(`using cached archive ${archive}`);
+  else await downloadWithConsent(archive, 'cached archive missing');
 
   try {
     await verifyArchiveSha256(archive, expectedDigest, log);
-  } catch (_error) {
-    log(`cached archive failed verification, re-downloading ${archiveUrl}`);
-    await download(archiveUrl, archive, log, fetchImpl);
+  } catch (error) {
+    // A fresh download that fails the pin would fail again; only a stale cache earns a retry.
+    if (!cached) throw error;
+    await downloadWithConsent(archive, 'cached archive failed verification');
     await verifyArchiveSha256(archive, expectedDigest, log);
   }
   return archive;
@@ -213,9 +327,16 @@ export async function obtainPinnedDataRoot(
     expectedDigest = ARCHIVE_SHA256,
     fetchImpl = fetch,
     extractImpl = extractZip,
+    consent = askDownloadConsent,
   } = {},
 ) {
-  const archive = await obtainPinnedArchive(zip, log, { outDir, archiveUrl, expectedDigest, fetchImpl });
+  const archive = await obtainPinnedArchive(zip, log, {
+    outDir,
+    archiveUrl,
+    expectedDigest,
+    fetchImpl,
+    consent,
+  });
   const cached = await cachedDataRoot(outDir, expectedDigest);
   if (cached !== undefined) {
     log(`using cached unpacked data ${cached}`);
@@ -242,11 +363,42 @@ export async function obtainPinnedDataRoot(
   }
 }
 
-export async function main({ args = process.argv.slice(2), env = process.env, log = createLogger() } = {}) {
-  if (args.length)
-    throw new Error('build:content takes no arguments; set ON_DATA_ZIP in .env for local data');
+/**
+ * Builds `content/`. With `--if-stale` a current tree is kept, and a download that is declined or
+ * cannot be asked for ends with a note instead of an error, so CI and agent builds stay offline.
+ */
+export async function main({
+  args = process.argv.slice(2),
+  env = process.env,
+  log = createLogger(),
+  outDir = OUT_DIR,
+  cacheDir = CACHE_DIR,
+  fetchImpl = fetch,
+  consent = (request) => askDownloadConsent({ ...request, env }),
+  convert = runPipeline,
+} = {}) {
+  const ifStale = args.includes(IF_STALE_FLAG);
+  if (args.some((arg) => arg !== IF_STALE_FLAG))
+    throw new Error(`build:content takes only ${IF_STALE_FLAG}; set ON_DATA_ZIP in .env for local data`);
+  const stamp = { archiveSha256: ARCHIVE_SHA256, irVersion: await currentIrVersion() };
+  if (ifStale && (await contentIsCurrent(outDir, stamp))) {
+    log(`${outDir} is current`);
+    return;
+  }
   log('starting content build');
-  await buildContent(localDataArchive(repoRoot, env), log);
+  try {
+    await buildContent(localDataArchive(repoRoot, env), log, stamp, {
+      outDir,
+      dataRootOptions: { outDir: cacheDir, fetchImpl, consent },
+      convert,
+    });
+  } catch (error) {
+    if (ifStale && error instanceof DownloadNotAccepted) {
+      log(`content build skipped: ${error.message}`);
+      return;
+    }
+    throw error;
+  }
 }
 
 const isMain = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

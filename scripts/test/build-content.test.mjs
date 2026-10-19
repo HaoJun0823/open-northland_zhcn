@@ -1,16 +1,27 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import { Readable } from 'node:stream';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { obtainPinnedArchive, obtainPinnedDataRoot } from '../build-content.mjs';
-import { syntheticPack } from './support/data-pack.mjs';
+import {
+  askDownloadConsent,
+  buildContent,
+  contentIsCurrent,
+  currentIrVersion,
+  main,
+  obtainPinnedArchive,
+  obtainPinnedDataRoot,
+} from '../build-content.mjs';
+import { hash, syntheticPack } from './support/data-pack.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const pinnedSha256 = JSON.parse(await readFile(join(repoRoot, 'scripts/data-release.json'), 'utf8')).sha256;
 
 test('prints stage logs to stderr before rejecting a non-pinned archive', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'build-content-test-'));
@@ -52,14 +63,21 @@ test('caches the downloaded archive in content and reports progress', async (t) 
 
   const archiveUrl = `http://127.0.0.1:${server.address().port}/data-test.zip`;
   const firstLogs = [];
+  let consents = 0;
+  const consent = async () => {
+    consents++;
+    return 'accepted';
+  };
   const archive = await obtainPinnedArchive(undefined, (message) => firstLogs.push(message), {
     outDir: dir,
     archiveUrl,
     expectedDigest,
+    consent,
   });
 
   assert.equal(archive, join(dir, 'data-test.zip'));
   assert.equal(requests, 1);
+  assert.equal(consents, 1);
   assert.match(firstLogs.join('\n'), /cached archive missing, downloading /);
   assert.match(firstLogs.join('\n'), new RegExp(`download progress: 0 B / ${payload.length} B \\(0\\.0%\\)`));
   assert.match(
@@ -72,10 +90,12 @@ test('caches the downloaded archive in content and reports progress', async (t) 
     outDir: dir,
     archiveUrl,
     expectedDigest,
+    consent,
   });
 
   assert.equal(cached, archive);
   assert.equal(requests, 1);
+  assert.equal(consents, 1);
   assert.match(secondLogs.join('\n'), /using cached archive /);
   assert.doesNotMatch(secondLogs.join('\n'), /cached archive missing, downloading /);
 });
@@ -147,4 +167,177 @@ test('repairs a modified unpacked cache and rejects a mismatching explicit archi
     obtainPinnedDataRoot(archive, () => {}, options),
     /not the pinned data archive/,
   );
+});
+
+function ttyInput(answer) {
+  const input = Readable.from([`${answer}\n`]);
+  input.isTTY = true;
+  return input;
+}
+
+function memoryOutput() {
+  const chunks = [];
+  return { write: (chunk) => chunks.push(String(chunk)), text: () => chunks.join('') };
+}
+
+const consentRequest = {
+  archiveUrl: 'https://example.invalid/data.zip',
+  expectedDigest: 'abc123',
+  sizeOf: async () => 2 * 1024 ** 3,
+};
+
+test('asks before a download and treats Enter as yes', async () => {
+  const output = memoryOutput();
+  const verdict = await askDownloadConsent({ ...consentRequest, env: {}, input: ttyInput(''), output });
+  assert.equal(verdict, 'accepted');
+  assert.match(output.text(), /https:\/\/example\.invalid\/data\.zip \(about 2\.0 GiB\)/);
+  assert.match(output.text(), /sha256\s+abc123/);
+  assert.match(output.text(), /rights holders/);
+  assert.match(output.text(), /Download it now\? \[Y\/n\]/);
+  assert.equal(
+    await askDownloadConsent({ ...consentRequest, env: {}, input: ttyInput('n'), output: memoryOutput() }),
+    'declined',
+  );
+  const closed = Readable.from([]);
+  closed.isTTY = true;
+  assert.equal(
+    await askDownloadConsent({ ...consentRequest, env: {}, input: closed, output: memoryOutput() }),
+    'declined',
+  );
+});
+
+test('skips the prompt with ON_DATA_ACCEPT and reports an unattended run', async () => {
+  const silent = ttyInput('n');
+  const output = memoryOutput();
+  assert.equal(
+    await askDownloadConsent({ ...consentRequest, env: { ON_DATA_ACCEPT: '1' }, input: silent, output }),
+    'accepted',
+  );
+  assert.equal(output.text(), '');
+  const piped = Readable.from(['\n']);
+  assert.equal(await askDownloadConsent({ ...consentRequest, env: {}, input: piped, output }), 'unattended');
+  assert.equal(
+    await askDownloadConsent({ ...consentRequest, env: { CI: 'true' }, input: ttyInput(''), output }),
+    'unattended',
+  );
+  assert.equal(output.text(), '');
+});
+
+test('--if-stale keeps a tree stamped with the pinned archive and current IR version', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'content-stamp-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const outDir = join(dir, 'content');
+  const stamp = { archiveSha256: pinnedSha256, irVersion: await currentIrVersion() };
+  assert.equal(await contentIsCurrent(outDir, stamp), false);
+  await mkdir(outDir);
+  await writeFile(join(outDir, 'ir.json'), '{}');
+  await writeFile(join(outDir, 'build-stamp.json'), JSON.stringify(stamp));
+  assert.equal(await contentIsCurrent(outDir, stamp), true);
+  assert.equal(await contentIsCurrent(outDir, { ...stamp, irVersion: stamp.irVersion + 1 }), false);
+
+  const logs = [];
+  const mustNotFetch = () => {
+    throw new Error('must not fetch');
+  };
+  await main({
+    args: ['--if-stale'],
+    env: { ON_DATA_ZIP: '' },
+    log: (message) => logs.push(message),
+    outDir,
+    cacheDir: join(dir, 'cache'),
+    fetchImpl: mustNotFetch,
+  });
+  assert.match(logs.join('\n'), /is current$/);
+  assert.doesNotMatch(logs.join('\n'), /starting content build/);
+});
+
+test('--if-stale skips the build when the download is declined or cannot be asked for', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'content-unattended-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const options = {
+    env: { ON_DATA_ZIP: '' },
+    outDir: join(dir, 'content'),
+    cacheDir: join(dir, 'cache'),
+    fetchImpl: () => {
+      throw new Error('must not fetch');
+    },
+  };
+
+  const logs = [];
+  await main({
+    ...options,
+    args: ['--if-stale'],
+    log: (message) => logs.push(message),
+    consent: async () => 'unattended',
+  });
+  assert.match(logs.join('\n'), /content build skipped: downloading data\.zip needs a terminal/);
+  assert.equal(existsSync(options.outDir), false);
+
+  const declinedLogs = [];
+  await main({
+    ...options,
+    args: ['--if-stale'],
+    log: (message) => declinedLogs.push(message),
+    consent: async () => 'declined',
+  });
+  assert.match(declinedLogs.join('\n'), /content build skipped: download declined/);
+
+  await assert.rejects(
+    main({ ...options, args: [], log: () => {}, consent: async () => 'declined' }),
+    /download declined/,
+  );
+  await assert.rejects(
+    main({ ...options, args: [], log: () => {}, consent: async () => 'unattended' }),
+    /needs a terminal to confirm, ON_DATA_ACCEPT=1/,
+  );
+});
+
+test('a fresh download that fails the pin is not downloaded again', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'content-bad-download-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  let requests = 0;
+  let consents = 0;
+  await assert.rejects(
+    obtainPinnedArchive(undefined, () => {}, {
+      outDir: dir,
+      archiveUrl: 'http://127.0.0.1:9/data.zip',
+      expectedDigest: hash('expected'),
+      fetchImpl: async () => {
+        requests++;
+        return new Response('served something else', { status: 200 });
+      },
+      consent: async () => {
+        consents++;
+        return 'accepted';
+      },
+    }),
+    /not the pinned data archive/,
+  );
+  assert.equal(requests, 1);
+  assert.equal(consents, 1);
+});
+
+test('buildContent stamps the converted tree and replaces the previous one', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'content-build-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const archive = join(dir, 'data.zip');
+  await writeFile(archive, 'source');
+  const outDir = join(dir, 'content');
+  await mkdir(outDir);
+  await writeFile(join(outDir, 'stale.txt'), 'old tree');
+  const stamp = { archiveSha256: hash('source'), irVersion: 7 };
+
+  await buildContent(archive, () => {}, stamp, {
+    outDir,
+    dataRootOptions: {
+      outDir: join(dir, 'cache'),
+      expectedDigest: hash('source'),
+      extractImpl: (_archive, root) => syntheticPack(root),
+    },
+    convert: (_dataRoot, out) => writeFile(join(out, 'ir.json'), '{}'),
+  });
+
+  assert.deepEqual(JSON.parse(await readFile(join(outDir, 'build-stamp.json'), 'utf8')), stamp);
+  assert.equal(existsSync(join(outDir, 'stale.txt')), false);
+  assert.equal(await contentIsCurrent(outDir, stamp), true);
 });

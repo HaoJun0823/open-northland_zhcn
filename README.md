@@ -29,33 +29,28 @@ It can load decoded maps and render terrain, buildings, settlers, effects, and t
 ## Requirements
 
 - Node.js `>=22.12.0`
-- For playable content, the pinned Open Northland source pack (`data.zip`), which
-  `npm run build:content` downloads and converts.
+- For playable content, the pinned Open Northland source pack (`data.zip`), which the first
+  `npm run dev` downloads and converts after asking.
 
 ## Starting the project
 
-#### Installing dependencies
 ```bash
 npm ci
-npm run build
-```
-
-#### Generating local content and starting dev server
-```bash
-npm run build:content
 npm run dev
 ```
 
-#### Running local tests
+The first `npm run dev` (or `npm run build`) describes the data pack, asks before downloading it,
+verifies its SHA-256 and converts it into `content/`. Later runs skip this while the pack and the
+content format version are unchanged; `npm run build:content` rebuilds it anyway, for example after
+a pipeline fix. To convert a local copy of the archive instead of downloading, set `ON_DATA_ZIP` in
+`.env`. `docs/DEVELOPMENT.md` covers the cache, runs without a terminal and the pipeline itself.
+
+Tests and checks:
+
 ```bash
 npm test
 npm run check
 ```
-
-`build:content` verifies the archive's SHA-256, unpacks it, replaces `content/`, and runs the
-pipeline; `-- --zip <file>` converts a local copy of the archive instead
-of downloading it. While working on the pipeline itself, run `npm run pipeline` directly against an
-unpacked mod (see `docs/DEVELOPMENT.md`).
 
 Converted content is ignored by Git. Never commit it; it remains the property of its rights holders
 (see `docs/LEGAL.md`).

@@ -34,7 +34,9 @@ test('each window is one row of RAF quantiles, throughput and GL calls', () => {
 
 test('a window without a reading shows a dash', () => {
   const [, , row] = browserWindowTable([
-    windowReport({ raf: { frames: 0, p50: undefined, p95: undefined, p99: undefined, max: undefined, over30: 0 } }),
+    windowReport({
+      raf: { frames: 0, p50: undefined, p95: undefined, p99: undefined, max: undefined, over30: 0 },
+    }),
   ]).split('\n');
   assert.match(row, /^\| dense-x3 \| yes \| 0 \| - \| - \| - \| - \| 0 \|/);
 });

@@ -12,6 +12,7 @@ import {
   FakeFiles,
   fileUrl,
   harness,
+  overlaysFor,
   plaintextMap,
   syncedOf,
   temporaryDir,
@@ -76,6 +77,31 @@ describe('ConversionService', () => {
       `${stored.archiveSha256}.zip`,
       'source.json',
     ]);
+  });
+
+  it('applies the overlays filed under an archive map digest, a source language included', async () => {
+    const archive = zipOf(under('Wyspa', plaintextMap('Wyspa')));
+    files.serve(ENTRY, archive);
+    const mapOverlays = await overlaysFor(archive, 'wyspa', {
+      eng: { '0': 'Island' },
+      chs: { '0': '岛屿', '1': '描述' },
+    });
+    const { service, served } = await harness(dir, files, { irVersion: IR_VERSION, mapOverlays });
+    service.setCatalog(syncedOf([catalogEntry(ENTRY)]));
+    await service.idle();
+
+    const conversion = served(ENTRY).conversion;
+    if (conversion?.verdict !== 'ok') throw new Error(`not converted: ${JSON.stringify(conversion)}`);
+    expect(conversion.maps[0]?.languages).toEqual(['pol', 'eng', 'chs']);
+    const mapId = `${ENTRY}-wyspa`;
+    const file = await service.file(mapId, `${mapId}${MAP_FILE_SUFFIXES.strings}`);
+    if (file === null) throw new Error('no strings sidecar');
+    const bytes = await file.handle.readFile().finally(() => file.handle.close());
+    expect(JSON.parse(gunzipSync(bytes).toString('utf8'))).toEqual({
+      pol: { '0': 'Wyspa', '1': 'Opis' },
+      eng: { '0': 'Island' },
+      chs: { '0': '岛屿', '1': '描述' },
+    });
   });
 
   it('serves a campaign pack as two maps and numbers a repeated folder slug', async () => {

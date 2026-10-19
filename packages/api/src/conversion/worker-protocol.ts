@@ -1,9 +1,11 @@
 import type { MapImportFailure } from '@open-northland/map-import';
 import type { ArchiveConversion } from './convert.js';
+import type { CatalogMapOverlays } from './overlays.js';
 
 export interface ConversionJob {
   readonly bytes: Uint8Array;
   readonly entryId: string;
+  readonly mapOverlays: CatalogMapOverlays;
 }
 
 export type ConversionReply =

@@ -1,4 +1,5 @@
 import { IR_VERSION } from '@open-northland/data/ir-version';
+import { loadTranslationOverlays } from '@open-northland/translations';
 import { normalizeRecords } from './catalog/normalize.js';
 import { parseCatalog } from './catalog/snapshot.js';
 import { CatalogSync, downloadsOf } from './catalog/sync.js';
@@ -23,11 +24,12 @@ try {
   const config = apiConfigFromEnvironment(process.env, process.cwd());
   const store = new DataStore(config.dataDir);
   await store.init();
+  const { maps: mapOverlays } = await loadTranslationOverlays();
   let server: ApiServer | null = null;
   const conversions = new ConversionService({
     store: new ConversionStore(config.dataDir, IR_VERSION),
     fetch,
-    converter: new WorkerArchiveConverter(config.convertTimeoutMs),
+    converter: new WorkerArchiveConverter(config.convertTimeoutMs, mapOverlays),
     concurrency: config.convertConcurrency,
     publish: (snapshot) => server?.publish(snapshot),
     log: logLine,
@@ -61,6 +63,7 @@ try {
     syncIntervalMs: config.syncIntervalMs,
     convertConcurrency: config.convertConcurrency,
     irVersion: IR_VERSION,
+    overlaidMaps: mapOverlays.size,
   });
   const running = server;
   stopAll = async () => {

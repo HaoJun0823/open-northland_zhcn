@@ -1,8 +1,9 @@
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { CatalogEntry, CatalogFile } from '@open-northland/data';
-import { CatalogEntry as CatalogEntrySchema } from '@open-northland/data';
+import type { CatalogEntry, CatalogFile, Language, MapOverlay } from '@open-northland/data';
+import { CatalogEntry as CatalogEntrySchema, OVERLAY_VERSION } from '@open-northland/data';
+import { mapSourceTextDigest, openArchive, readMapSourceText } from '@open-northland/map-import';
 import { zipSync } from 'fflate';
 // The map-import fixtures author a decodable map.dat and plaintext map files; reused rather than copied.
 import { latin1 } from '../../../map-import/test/support/folder.js';
@@ -11,6 +12,7 @@ import type { CatalogSnapshot } from '../../src/catalog/snapshot.js';
 import type { SyncedCatalog } from '../../src/catalog/sync.js';
 import { convertArchive, loadUnrarWasm } from '../../src/conversion/convert.js';
 import type { DownloadLimits } from '../../src/conversion/download.js';
+import { type CatalogMapOverlays, NO_MAP_OVERLAYS } from '../../src/conversion/overlays.js';
 import { ConversionService } from '../../src/conversion/service.js';
 import { ConversionStore } from '../../src/conversion/store.js';
 import type { ArchiveConverter } from '../../src/conversion/worker-converter.js';
@@ -29,6 +31,25 @@ export function zipOf(files: Readonly<Record<string, string | Uint8Array>>): Uin
       Object.entries(files).map(([path, data]) => [path, typeof data === 'string' ? latin1(data) : data]),
     ),
   );
+}
+
+/**
+ * Map overlays filing each language's `strings` under the `map.dat` digest of the map in folder `key`
+ * (lower-cased) of `archive`, every one written against its Polish text.
+ */
+export async function overlaysFor(
+  archive: Uint8Array,
+  key: string,
+  strings: Partial<Record<Language, Record<string, string>>>,
+): Promise<CatalogMapOverlays> {
+  const source = await readMapSourceText(await openArchive(archive), key);
+  const pol = source?.languages.pol;
+  if (source === undefined || pol === undefined) throw new Error(`no Polish map in ${key}`);
+  const basis = { lang: 'pol', digest: mapSourceTextDigest(pol.strings, pol.briefings) } as const;
+  const byLanguage = new Map<Language, MapOverlay>();
+  for (const [lang, table] of Object.entries(strings) as [Language, Record<string, string>][])
+    byLanguage.set(lang, { version: OVERLAY_VERSION, map: key, basis, strings: table, briefings: {} });
+  return new Map([[source.datDigest, byLanguage]]);
 }
 
 export function fileUrl(id: string): string {
@@ -101,8 +122,14 @@ export interface Harness {
 export async function harness(
   dir: string,
   files: { readonly fetch: Fetch },
-  options: { irVersion: number; downloadLimits?: DownloadLimits; converter?: ArchiveConverter },
+  options: {
+    irVersion: number;
+    downloadLimits?: DownloadLimits;
+    converter?: ArchiveConverter;
+    mapOverlays?: CatalogMapOverlays;
+  },
 ): Promise<Harness> {
+  const mapOverlays = options.mapOverlays ?? NO_MAP_OVERLAYS;
   const published: CatalogSnapshot[] = [];
   const events: Harness['events'] = [];
   const service = new ConversionService({
@@ -110,7 +137,7 @@ export async function harness(
     fetch: files.fetch,
     converter: options.converter ?? {
       convert: (bytes, entryId, onWarning) =>
-        convertArchive(bytes, entryId, { unrarWasm: UNRAR_WASM, onWarning }),
+        convertArchive(bytes, entryId, { unrarWasm: UNRAR_WASM, mapOverlays, onWarning }),
       stop: async () => undefined,
     },
     concurrency: 1,

@@ -12,8 +12,8 @@ export const CatalogConvertedMap = z.strictObject({
   folder: z.string().min(1),
   /** Equals `index.fingerprint`, kept here for the client's install check. */
   fingerprint: z.string().regex(MAP_FINGERPRINT),
-  /** The languages the map's own string table carries; the client falls back along
-   *  `MAP_TEXT_LANGUAGES` for the rest. */
+  /** The languages the map's string table carries, translation overlays included; the client falls
+   *  back along `MAP_TEXT_LANGUAGES` for the rest. */
   languages: z.array(z.enum(MAP_TEXT_LANGUAGES)),
   /** The terrain grid in cells, for size filters without fetching the terrain. */
   cells: z.strictObject({ width: z.number().int().positive(), height: z.number().int().positive() }),

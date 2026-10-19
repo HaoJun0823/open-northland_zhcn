@@ -19,6 +19,7 @@
   "dependencies": {
     "@open-northland/data": "*",
     "@open-northland/map-import": "*",
+    "@open-northland/translations": "*",
     "node-unrar-js": "2.0.2"
   },
   "devDependencies": {

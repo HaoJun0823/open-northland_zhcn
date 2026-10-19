@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { CATALOG_MAP_ID, type CatalogConvertedMap, MAP_TEXT_LANGUAGES } from '@open-northland/data';
 import { type ConvertedMap, convertMapTree, mapFiles, openArchive } from '@open-northland/map-import';
+import { type CatalogMapOverlays, catalogOverlaySource } from './overlays.js';
 
 const UNRAR_WASM_PATH = 'node-unrar-js/esm/js/unrar.wasm';
 /** The first repeat of a map id inside one entry gets this suffix, the next one more. */
@@ -21,6 +22,7 @@ export interface ArchiveConversion {
 
 export interface ConvertArchiveOptions {
   readonly unrarWasm: ArrayBuffer;
+  readonly mapOverlays: CatalogMapOverlays;
   readonly onWarning?: (message: string) => void;
 }
 
@@ -51,7 +53,11 @@ export async function convertArchive(
 ): Promise<ArchiveConversion> {
   const onWarning = options.onWarning ?? (() => undefined);
   const tree = await openArchive(bytes, { unrarWasm: options.unrarWasm, name: entryId });
-  const { maps: converted, skipped } = await convertMapTree(tree, { provenance: 'catalog', onWarning });
+  const { maps: converted, skipped } = await convertMapTree(tree, {
+    provenance: 'catalog',
+    overlays: catalogOverlaySource(options.mapOverlays),
+    onWarning,
+  });
   for (const { folder, message } of skipped) onWarning(`${folder} skipped: ${message}`);
   const taken = new Set<string>();
   const maps: CatalogConvertedMap[] = [];

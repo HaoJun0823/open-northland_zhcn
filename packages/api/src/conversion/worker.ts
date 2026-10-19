@@ -9,6 +9,7 @@ const job = workerData as ConversionJob;
 try {
   const conversion = await convertArchive(job.bytes, job.entryId, {
     unrarWasm: loadUnrarWasm(),
+    mapOverlays: job.mapOverlays,
     onWarning: (message) => port.postMessage({ kind: 'warning', message } satisfies ConversionReply),
   });
   const buffers = new Set<ArrayBuffer>();

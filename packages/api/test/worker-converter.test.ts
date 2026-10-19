@@ -2,6 +2,7 @@ import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { type CatalogMapOverlays, NO_MAP_OVERLAYS } from '../src/conversion/overlays.js';
 import { type ArchiveConverter, WorkerArchiveConverter } from '../src/conversion/worker-converter.js';
 import { type ApiServer, startApiServer } from '../src/server.js';
 import { DataStore } from '../src/store.js';
@@ -9,6 +10,7 @@ import {
   catalogEntry,
   FakeFiles,
   harness,
+  overlaysFor,
   plaintextMap,
   syncedOf,
   temporaryDir,
@@ -40,8 +42,12 @@ describe('worker archive conversion', () => {
   const converters: WorkerArchiveConverter[] = [];
   const directories: string[] = [];
   let api: ApiServer | undefined;
-  const converter = (timeoutMs = 5000, worker = SYNTHETIC_WORKER): WorkerArchiveConverter => {
-    const instance = new WorkerArchiveConverter(timeoutMs, worker);
+  const converter = (
+    timeoutMs = 5000,
+    worker = SYNTHETIC_WORKER,
+    mapOverlays: CatalogMapOverlays = NO_MAP_OVERLAYS,
+  ): WorkerArchiveConverter => {
+    const instance = new WorkerArchiveConverter(timeoutMs, mapOverlays, worker);
     converters.push(instance);
     return instance;
   };
@@ -71,6 +77,13 @@ describe('worker archive conversion', () => {
     await expect(
       instance.convert(new Uint8Array([1, 2, 3]), 'cn-invalid', () => undefined),
     ).rejects.toMatchObject({ name: 'MapImportError', kind: 'unsupported-archive' });
+  });
+
+  it('applies the translation overlays it was built with inside the production worker', async () => {
+    const bytes = mapArchive();
+    const instance = converter(5000, WORKER, await overlaysFor(bytes, 'island', { chs: { '0': '岛' } }));
+    const result = await instance.convert(bytes, 'cn-island', () => undefined);
+    expect(result.maps[0]?.languages).toEqual(['pol', 'chs']);
   });
 
   it('keeps HTTP responsive during a blocked conversion and terminates jobs on shutdown', async () => {

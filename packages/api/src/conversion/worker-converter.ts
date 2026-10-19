@@ -1,6 +1,7 @@
 import { Worker } from 'node:worker_threads';
 import { MapImportError } from '@open-northland/map-import';
 import type { ArchiveConversion } from './convert.js';
+import type { CatalogMapOverlays } from './overlays.js';
 import type { ConversionJob, ConversionReply } from './worker-protocol.js';
 
 export interface ArchiveConverter {
@@ -36,6 +37,7 @@ export class WorkerArchiveConverter implements ArchiveConverter {
 
   constructor(
     private readonly timeoutMs: number,
+    private readonly mapOverlays: CatalogMapOverlays,
     private readonly workerUrl = new URL('./worker.js', import.meta.url),
   ) {}
 
@@ -50,7 +52,7 @@ export class WorkerArchiveConverter implements ArchiveConverter {
     const worker = new Worker(this.workerUrl, {
       // Compiled workers use package defaults, independent of the caller's TS loaders/conditions.
       execArgv: [],
-      workerData: { bytes: input, entryId } satisfies ConversionJob,
+      workerData: { bytes: input, entryId, mapOverlays: this.mapOverlays } satisfies ConversionJob,
       transferList: [input.buffer],
     });
     let cancel = (): void => undefined;

@@ -13,12 +13,13 @@ RUN --mount=type=cache,target=/root/.npm \
     && mkdir -p /app/node_modules/@open-northland /app/node_modules/@noble /app/packages \
     && for dep in fflate node-unrar-js zod; do cp -R node_modules/$dep /app/node_modules/$dep; done \
     && cp -R node_modules/@noble/hashes /app/node_modules/@noble/hashes \
-    && for pkg in api map-import formats data; do \
+    && for pkg in api map-import formats data translations; do \
          mkdir -p /app/packages/$pkg \
          && cp packages/$pkg/package.json /app/packages/$pkg/ \
          && cp -R packages/$pkg/dist /app/packages/$pkg/dist \
          && ln -s ../../packages/$pkg /app/node_modules/@open-northland/$pkg; \
-       done
+       done \
+    && cp -R translations /app/translations
 
 FROM node:22-alpine
 

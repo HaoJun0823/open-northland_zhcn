@@ -29,8 +29,9 @@ the app, or use `?api=http://127.0.0.1:8790` for one session. Electron uses the 
 1. At startup and each sync interval, fetch all upstream catalogue pages and normalize map/campaign
    metadata. This refreshes the list, not every archive.
 2. Download new or changed archives (`updatedAt`). Keep unchanged archives and conversions.
-3. Convert each eligible `archive` or `c2m` in a disposable Node worker. External hosts stay as manual
-   download links. A timeout or crash stops that worker; the queue continues with a fresh one.
+3. Convert each eligible `archive` or `c2m` in a disposable Node worker, with the repository's
+   translation overlays. External hosts stay as manual download links. A timeout or crash stops that
+   worker; the queue continues with a fresh one.
 4. Publish conversion results after the batch. The catalogue ETag changes with its contents.
 
 Conversions are `pending`, `ok` or `failed`. Failure reasons are `no-map`, `too-large`,
@@ -41,6 +42,14 @@ A failed replacement keeps the previous good conversion and retries on a later s
 A failed sync keeps the last good catalogue. An empty upstream result cannot replace a non-empty
 catalogue. Logs are JSON lines and include reasons for rejected records. Shutdown aborts downloads,
 stops workers and waits for storage operations.
+
+### Translation overlays
+
+The server loads `translations/<lang>/maps/<map.dat sha256>.json` once at start
+([contract](../translations/AGENTS.md)) and hands every worker a copy. A catalogue archive counts as a
+community map, so an overlay in a source language applies too. A converted map's `languages` lists
+every language its string table carries, overlays included. The loader finds `translations/` beside
+`packages/`, in a checkout and in the image alike.
 
 ### Request limits
 
@@ -173,8 +182,9 @@ curl -s http://127.0.0.1:8790/healthz
 ```
 
 `packages/api/Dockerfile` supports `linux/amd64` and `linux/arm64`. It includes compiled API,
-map-import, formats and data packages plus runtime dependencies. It contains no Pixi
-or game content. Archives and converted maps stay in `/data`.
+map-import, formats, data and translations packages, the repository's `translations/` overlays at
+`/app/translations`, and runtime dependencies. It contains no Pixi or game content. Archives and
+converted maps stay in `/data`. A new overlay reaches the catalogue with the next image.
 
 Defaults: `PORT=8790`, `ON_API_DATA_DIR=/data`. The `API_BUILD` build argument sets the reported build.
 Health becomes ready after the first catalogue sync; conversion continues in the background.

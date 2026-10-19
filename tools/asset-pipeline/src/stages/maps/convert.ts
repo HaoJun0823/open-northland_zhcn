@@ -91,7 +91,7 @@ export function summarizeConversion(map: ConvertedMap): MapDatConversion {
  *  it; `include` narrows the lower-cased paths read. */
 export async function readBaseMapTree(
   roots: SourceRoots,
-  include: (path: string) => boolean = isMapTreePath,
+  include: (path: string) => boolean = () => true,
 ): Promise<MapTree> {
   const found = await collectSourceFiles(roots, (path) => isMapTreePath(path) && include(path));
   const pathByRel = new Map(found.map(({ rel, path }) => [rel, path]));

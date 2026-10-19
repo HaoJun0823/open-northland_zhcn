@@ -11,6 +11,8 @@ export const OVERLAY_VERSION = 1;
 
 /** A SHA-256 hex digest. */
 const Digest = z.string().regex(/^[0-9a-f]{64}$/);
+/** A string id or type id as its decimal key, without leading zeros, so it names the id it parses to. */
+const IdKey = z.string().regex(/^(0|[1-9]\d*)$/);
 
 /**
  * The source text the overlay was written against: the language it translates or edits, and the
@@ -29,7 +31,7 @@ export const MapOverlay = z.strictObject({
   /** The map id the overlay was written for, for readers; the file name is the identity. */
   map: z.string().min(1),
   basis: OverlayBasis,
-  strings: z.record(z.string().regex(/^\d+$/), z.string()).default({}),
+  strings: z.record(IdKey, z.string()).default({}),
   /** `briefings.txt` block bodies by label, with the tags a block body carries (`<picture:…>` and so on). */
   briefings: z.record(z.string().min(1), z.string()).default({}),
 });
@@ -42,8 +44,8 @@ export type MapOverlay = z.infer<typeof MapOverlay>;
 export const ObjectTableOverlay = z.strictObject({
   version: z.literal(OVERLAY_VERSION),
   basis: OverlayBasis,
-  names: z.record(z.string().regex(/^\d+$/), z.string()),
-  plurals: z.record(z.string().regex(/^\d+$/), z.string()).default({}),
+  names: z.record(IdKey, z.string()),
+  plurals: z.record(IdKey, z.string()).default({}),
 });
 export type ObjectTableOverlay = z.infer<typeof ObjectTableOverlay>;
 

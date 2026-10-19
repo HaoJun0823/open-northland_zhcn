@@ -73,6 +73,11 @@ describe('loadTranslationOverlays', () => {
     );
   });
 
+  it('refuses an id key with leading zeros, which would not name the id it parses to', async () => {
+    await put(`chs/maps/${DIGEST_A}.json`, mapOverlay({ '07': '北行' }));
+    await expect(loadTranslationOverlays(root)).rejects.toThrow(/invalid maps overlay at strings\.07/);
+  });
+
   it('fails on a file that is not JSON, naming its path', async () => {
     await put('chs/objects/goods.json', '{ not json');
     await expect(loadTranslationOverlays(root)).rejects.toThrow(/chs\/objects\/goods\.json: /);

@@ -179,6 +179,9 @@ export function createMemberRoster(
   let pitch: RosterPitch | null = null;
   let shownKey = '';
   let inView: readonly FigureWell[] = [];
+  /** The in-view wells' slots as last measured, and the device scale they were measured at. */
+  let measuredSlots: readonly FigureSlot[] | null = null;
+  let measuredRatio = 0;
   let stale = true;
   /** The attached wells moved, so the figure canvas is placed and filled again after the next paint. */
   let figuresStale = true;
@@ -252,6 +255,9 @@ export function createMemberRoster(
       `on-seat-well on-roster__well${vehicle ? ' on-roster__well--vehicle' : ''}`,
       compact ? COMPACT_FIT : ROSTER_FIT,
     );
+    // The figure is painted off the page and copied onto the roster's canvas; a canvas left in the
+    // document would make each paint bring the page's style up to date first.
+    well.canvas.remove();
     well.glyph.innerHTML = vehicle ? GLYPH.wheel : FIGURE.man;
     const mead = element('span', 'on-roster__mead');
     mead.innerHTML = goodIconMarkup(compact ? COMPACT_MEAD_BADGE_PX : MEAD_BADGE_PX);
@@ -420,8 +426,15 @@ export function createMemberRoster(
           if (entry !== undefined) shown.push(entry.well);
         });
         inView = shown;
+        measuredSlots = null;
       }
-      return slots.of(inView);
+      // Measured again only after a change, on another display or until the wells are laid out:
+      // measuring reads the layout, which the frame's HUD writes have dirtied by now.
+      if (measuredSlots === null || measuredSlots.length === 0 || measuredRatio !== devicePixelRatio) {
+        measuredSlots = slots.of(inView);
+        measuredRatio = devicePixelRatio;
+      }
+      return measuredSlots;
     },
     markDrawn: (drawn, repainted) => {
       markDrawnWells(inView, drawn);

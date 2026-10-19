@@ -10,8 +10,7 @@ interface Place {
 
 /**
  * The roster's one canvas for its members' figures. Each well still paints its figure on its own canvas,
- * kept off the page (foundation.css), and this canvas over the laid wells takes a copy at the well's
- * place. Chrome composites every canvas on the page as a layer of its own, so a big army's wells cost
+ * kept off the page (members.ts), and this canvas over the laid wells takes a copy at the well's place. Chrome composites every canvas on the page as a layer of its own, so a big army's wells cost
  * the compositor a layer each, and the scroll's fade a pass over them, every frame.
  */
 export interface RosterFigures {

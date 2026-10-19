@@ -4,6 +4,7 @@ import { GLYPH } from './icons.js';
 import { button, element, setAttribute, setClass, setHidden, setTip, write } from './parts/dom.js';
 import { quietTextField } from './parts/text-field.js';
 import { attachTipLayer, type TipChip } from './parts/tip-layer.js';
+import { planeSize } from './plane-size.js';
 import { type ClientRect, closePortraitHole, cutPortraitHole } from './portrait-hole.js';
 import { WINDOW_ORNAMENTS } from './symbols.js';
 
@@ -194,7 +195,7 @@ export function createSelectionPanel(
   let placed = '';
   /** Stand above the beam when it reaches under the panel, and stop under the summary bar. */
   const place = (): void => {
-    const bottom = selectionBottomInset({ width: plane.clientWidth, height: plane.clientHeight });
+    const bottom = selectionBottomInset(planeSize(plane));
     const key = `${bottom}`;
     if (key === placed) return;
     placed = key;

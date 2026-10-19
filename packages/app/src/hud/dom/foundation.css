@@ -4515,9 +4515,6 @@ body.on-drag-scroll * {
 }
 /* The wells paint their figures off the page and the roster shows copies on its one canvas over them,
    under the bars and badges (roster-figures.ts). */
-.on-hud .on-roster .on-seat-well__figure {
-  display: none;
-}
 .on-hud .on-roster__figures {
   position: absolute;
   left: 0;

@@ -228,7 +228,9 @@ export async function buildContent(zip, log, stamp, { outDir, dataRootOptions, c
   const dataRoot = await obtainPinnedDataRoot(zip, log, dataRootOptions);
   if (existsSync(outDir) && (await lstat(outDir)).isSymbolicLink())
     throw new Error('Refusing to replace content through a symlink');
-  const staging = await mkdtemp(resolve(repoRoot, '.cache', 'content-'));
+  const stagingRoot = resolve(repoRoot, '.cache');
+  await mkdir(stagingRoot, { recursive: true });
+  const staging = await mkdtemp(join(stagingRoot, 'content-'));
   const previous = `${staging}-previous`;
   try {
     if (existsSync(join(outDir, 'music')))

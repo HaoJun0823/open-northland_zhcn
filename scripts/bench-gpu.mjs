@@ -1,6 +1,15 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { cpus, loadavg, platform, release } from 'node:os';
 import { resolve } from 'node:path';
+import {
+  boxAround,
+  drag,
+  drawnOnScreen,
+  SETTLE_MS,
+  selectOneSettler,
+  watchFrameInputs,
+  worldArea,
+} from './bench-browser-input.mjs';
 import { countGlCalls, guardCamera } from './bench-browser-profile.mjs';
 import {
   benchBrowserInfo,
@@ -38,29 +47,8 @@ const { seconds, repeats, output } = options;
 const WARM_MS = 3000;
 /** The FPS counter folds half-second windows; sampling at that rate sees each reading about once. */
 const READING_MS = 500;
-/** A click holds the button this long, as a player's does; a bare click can miss DOM swapped under it. */
-const CLICK_HOLD_MS = 120;
-const SETTLE_MS = 500;
-/** Box drag steps, so the HUD sees a drag rather than a jump. */
-const DRAG_STEPS = 10;
-/** A settler's anchor is its feet; a click this far above lands on its body. */
-const SETTLER_BODY_LIFT = 14;
-/** The HUD bars' reach from each window edge at UI scale 1, by observation at 1440x900; the bars hold
- *  to the edges at any window size. */
-const HUD_INSETS = { left: 225, top: 145, right: 225, bottom: 185 };
-/** The world area clear of the HUD bars. */
-const WORLD_AREA = {
-  left: HUD_INSETS.left,
-  top: HUD_INSETS.top,
-  right: VIEWPORT.width - HUD_INSETS.right,
-  bottom: VIEWPORT.height - HUD_INSETS.bottom,
-};
 /** The pointer rests on the bottom HUD bar, where no world hover card can rise. */
 const POINTER_REST = { x: VIEWPORT.width / 2, y: VIEWPORT.height - 3 };
-/** Settlers tried for a single selection before giving up. */
-const SINGLE_PICK_TRIES = 30;
-/** Box half-size increment, in screen pixels. */
-const BOX_STEP = 5;
 const FAILURE_SHOT_TIMEOUT_MS = 10000;
 
 const saveText = await readFile(options.checkpoint, 'utf8');
@@ -111,90 +99,11 @@ const writeReport = async () => {
   await writeFile(resolve(output, 'report.md'), head.join('\n'));
 };
 
-/** Record what each frame hands the renderer: selection size and portrait insets. */
-function watchFrameInputs(page) {
-  return page.evaluate(() => {
-    const renderer = window.__opennorthland.renderer;
-    const inputs = { selection: 0, selectedId: null, insets: 0 };
-    window.__frameInputs = inputs;
-    const update = renderer.update.bind(renderer);
-    renderer.update = (frame) => {
-      inputs.selection = frame.selection?.size ?? 0;
-      inputs.selectedId = inputs.selection > 0 ? frame.selection.values().next().value : null;
-      update(frame);
-    };
-    const setInsets = renderer.setPortraitInsets.bind(renderer);
-    renderer.setPortraitInsets = (frames) => {
-      inputs.insets = frames.length;
-      setInsets(frames);
-    };
-  });
-}
-
-/** Screen points of drawn settlers inside the world area. */
-function settlersOnScreen(page) {
-  return page.evaluate((area) => {
-    const d = window.__opennorthland;
-    const camera = d.cameraCtl.camera();
-    const scale = camera.scale ?? 1;
-    return d.renderer
-      .drawnItems()
-      .filter((item) => item.kind === 'settler')
-      .map((item) => ({ x: item.x * scale + camera.offsetX, y: item.y * scale + camera.offsetY }))
-      .filter((p) => p.x > area.left && p.x < area.right && p.y > area.top && p.y < area.bottom);
-  }, WORLD_AREA);
-}
-
-async function click(page, point) {
-  await page.mouse.move(point.x, point.y);
-  await page.mouse.down();
-  await page.waitForTimeout(CLICK_HOLD_MS);
-  await page.mouse.up();
-  await page.waitForTimeout(SETTLE_MS);
-}
-
-async function drag(page, box) {
-  await page.mouse.move(box.left, box.top);
-  await page.mouse.down();
-  await page.waitForTimeout(CLICK_HOLD_MS);
-  for (let step = 1; step <= DRAG_STEPS; step++)
-    await page.mouse.move(
-      box.left + ((box.right - box.left) * step) / DRAG_STEPS,
-      box.top + ((box.bottom - box.top) * step) / DRAG_STEPS,
-    );
-  await page.waitForTimeout(CLICK_HOLD_MS);
-  await page.mouse.up();
-  await page.waitForTimeout(SETTLE_MS);
-}
-
-function selectedSettler(page) {
-  return page.evaluate(() => {
-    const { selection, selectedId } = window.__frameInputs;
-    if (selection !== 1) return false;
-    const entity = window.__opennorthland.host.snapshot().entities.find((e) => e.id === selectedId);
-    return entity !== undefined && !entity.components.Building && !entity.components.Vehicle;
-  });
-}
-
-/** The smallest square centred on the view holding `target` settlers, or null. */
-function boxAround(points, target) {
-  const center = { x: VIEWPORT.width / 2, y: VIEWPORT.height / 2 };
-  const reach = Math.min(center.x - WORLD_AREA.left, center.y - WORLD_AREA.top);
-  for (let half = BOX_STEP; half <= reach; half += BOX_STEP) {
-    const inside = points.filter((p) => Math.abs(p.x - center.x) <= half && Math.abs(p.y - center.y) <= half);
-    if (inside.length >= target)
-      return { left: center.x - half, top: center.y - half, right: center.x + half, bottom: center.y + half };
-  }
-  return null;
-}
-
 /** Select `target` settlers with the player's own input: a click for one, a box drag for more. */
 async function select(page, target, dense) {
+  const area = worldArea();
   if (target === 1) {
-    for (const settler of (await settlersOnScreen(page)).slice(0, SINGLE_PICK_TRIES)) {
-      await click(page, { x: settler.x, y: settler.y - SETTLER_BODY_LIFT });
-      if (await selectedSettler(page)) return;
-    }
+    await selectOneSettler(page, area);
     return;
   }
   if (target >= MANY_SELECTED) {
@@ -203,10 +112,10 @@ async function select(page, target, dense) {
       cameraAt(dense, MANY_SELECTION_ZOOM),
     );
     await page.waitForTimeout(SETTLE_MS);
-    await drag(page, WORLD_AREA);
+    await drag(page, area);
     return;
   }
-  const box = boxAround(await settlersOnScreen(page), target);
+  const box = boxAround(await drawnOnScreen(page, 'settler', area), target, area);
   if (box !== null) await drag(page, box);
 }
 

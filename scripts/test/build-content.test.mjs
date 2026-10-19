@@ -10,6 +10,7 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  archiveUrlFor,
   askDownloadConsent,
   buildContent,
   contentIsCurrent,
@@ -44,6 +45,27 @@ test('prints stage logs to stderr before rejecting a non-pinned archive', async 
   assert.match(result.stderr, /failed: .*is not the pinned data archive: sha256 /);
 });
 
+test('downloads the pinned digest from its own URL and names the cache after it', () => {
+  const digest = 'a'.repeat(64);
+  assert.equal(archiveUrlFor(digest), `https://opennorthland.org/data/${digest}.zip`);
+});
+
+test('fails before downloading when the pinned pack is not published', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'build-content-unpublished-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const expectedDigest = 'b'.repeat(64);
+  const fetchImpl = async () => new Response('not found', { status: 404, statusText: 'Not Found' });
+
+  await assert.rejects(
+    obtainPinnedArchive(undefined, () => {}, { outDir: dir, expectedDigest, fetchImpl }),
+    new RegExp(`pinned data pack ${expectedDigest} is not published at ${archiveUrlFor(expectedDigest)}`),
+  );
+  await assert.rejects(
+    obtainPinnedArchive(undefined, () => {}, { outDir: dir, expectedDigest, fetchImpl }),
+    /scripts\/data-release\.json is ahead of the publication/,
+  );
+});
+
 test('caches the downloaded archive in content and reports progress', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'build-content-cache-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
@@ -51,8 +73,9 @@ test('caches the downloaded archive in content and reports progress', async (t) 
   const payload = Buffer.from('cultures-nation-archive');
   const expectedDigest = createHash('sha256').update(payload).digest('hex');
   let requests = 0;
-  const server = createServer((_req, res) => {
-    requests++;
+  const server = createServer((req, res) => {
+    // The HEAD before the consent prompt is not a download.
+    if (req.method === 'GET') requests++;
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Length', String(payload.length));
     res.write(payload.subarray(0, 7));
@@ -302,8 +325,8 @@ test('a fresh download that fails the pin is not downloaded again', async (t) =>
       outDir: dir,
       archiveUrl: 'http://127.0.0.1:9/data.zip',
       expectedDigest: hash('expected'),
-      fetchImpl: async () => {
-        requests++;
+      fetchImpl: async (_url, init) => {
+        if (init?.method !== 'HEAD') requests++;
         return new Response('served something else', { status: 200 });
       },
       consent: async () => {

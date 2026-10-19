@@ -94,8 +94,9 @@ builds `content/` when the tree is missing or its `build-stamp.json` names anoth
 IR version, and otherwise returns at once. The stamp does not track the converter itself: after a
 pipeline change that keeps the IR version, run `npm run build:content`, which always rebuilds.
 
-Without local configuration the build downloads `https://opennorthland.org/data.zip` after
-describing the archive and asking for confirmation; Enter accepts. When the download is declined,
+Without local configuration the build downloads the pinned pack from
+`https://opennorthland.org/data/<sha256>.zip` after describing the archive and asking for
+confirmation; Enter accepts. When the download is declined,
 or cannot be asked for because there is no terminal (CI, an agent), nothing is downloaded:
 `--if-stale` skips the content step with a note and `build:content` fails. `ON_DATA_ACCEPT=1` in
 the process environment (it is not read from `.env`) grants the consent. To use a local
@@ -106,11 +107,12 @@ the checkout root for an environment value). An empty value selects the normal d
 No other dotenv settings are loaded by this command. An invalid explicit archive fails without
 falling back to the network.
 
-The archive hash in `scripts/data-release.json` pins the input. Downloaded archives and the unpacked
-tree live under ignored `.cache/data/`, outside the served `content/`. Every build verifies the
-archive and the manifest's file inventory and hashes; a damaged unpacked cache is rebuilt. A stale
-downloaded archive is replaced, while a local archive must match the pin. Publishing a new pack
-requires updating the pin with it; historical checkouts may need their matching archive locally.
+The archive hash in `scripts/data-release.json` pins the input and names its download URL. Downloaded
+archives (`<sha256>.zip`) and the unpacked tree live under ignored `.cache/data/`, outside the served
+`content/`. Every build verifies the archive and the manifest's file inventory and hashes; a damaged
+unpacked cache is rebuilt and a damaged download is fetched again, while a local archive must match
+the pin. Published packs stay available under their hash, so any checkout builds its own pin. A pin
+whose pack is not published yet fails before downloading anything: publish first, then commit the pin.
 
 Conversion runs in a temporary tree and replaces `content/` only after success. Existing rendered
 music is reused when its own source fingerprint and render version still match. To run the pipeline

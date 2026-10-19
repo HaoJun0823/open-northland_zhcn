@@ -16,8 +16,9 @@ import { localDataArchive } from './local-data-env.mjs';
 import { extractZip } from './unzip.mjs';
 
 const pin = JSON.parse(await readFile(new URL('./data-release.json', import.meta.url), 'utf8'));
-const ARCHIVE_URL = 'https://opennorthland.org/data.zip';
 const ARCHIVE_SHA256 = pin.sha256;
+/** Every published pack stays downloadable under its own SHA-256; `data.zip` beside it is only the current one. */
+const ARCHIVE_BASE_URL = 'https://opennorthland.org/data/';
 const OUT_DIR = resolve(repoRoot, 'content');
 const CACHE_DIR = resolve(repoRoot, '.cache', 'data');
 const UNPACKED_DIR_NAME = 'unpacked';
@@ -67,13 +68,25 @@ function formatDownloadProgress(receivedBytes, totalBytes) {
   return `download progress: ${formatBytes(receivedBytes)} / ${formatBytes(totalBytes)} (${percent.toFixed(1)}%)`;
 }
 
-async function remoteSize(url, fetchImpl) {
+/** The archive's HEAD response, or undefined when the server cannot be asked; the download reports that. */
+async function remoteHead(url, fetchImpl) {
   try {
-    const response = await fetchImpl(url, { method: 'HEAD', signal: AbortSignal.timeout(HEAD_TIMEOUT_MS) });
-    return response.ok ? parseContentLength(response.headers.get('content-length')) : undefined;
+    return await fetchImpl(url, { method: 'HEAD', signal: AbortSignal.timeout(HEAD_TIMEOUT_MS) });
   } catch {
     return undefined;
   }
+}
+
+function remoteSize(head) {
+  return head?.ok ? parseContentLength(head.headers.get('content-length')) : undefined;
+}
+
+/** The hashed URL answers 404 only when the pin is ahead of the publication. */
+function unpublishedPackError(expectedDigest, archiveUrl) {
+  return new Error(
+    `the pinned data pack ${expectedDigest} is not published at ${archiveUrl}; ` +
+      'scripts/data-release.json is ahead of the publication',
+  );
 }
 
 function downloadNotice(archiveUrl, expectedDigest, sizeBytes) {
@@ -133,10 +146,16 @@ export class DownloadNotAccepted extends Error {
   }
 }
 
+export function archiveUrlFor(digest) {
+  return `${ARCHIVE_BASE_URL}${digest}.zip`;
+}
+
 async function download(url, target, log, fetchImpl = fetch) {
   const response = await fetchImpl(url);
   if (!response.ok || response.body === null) {
-    throw new Error(`${url} answered ${response.status} ${response.statusText}`);
+    throw Object.assign(new Error(`${url} answered ${response.status} ${response.statusText}`), {
+      status: response.status,
+    });
   }
   const totalBytes = parseContentLength(response.headers.get('content-length'));
   const partial = `${target}.part`;
@@ -237,6 +256,16 @@ function cachedArchivePath(outDir, archiveUrl) {
   return join(outDir, archiveName);
 }
 
+async function downloadPinnedArchive(archiveUrl, archive, expectedDigest, log, fetchImpl) {
+  try {
+    await download(archiveUrl, archive, log, fetchImpl);
+  } catch (error) {
+    if (error instanceof Error && 'status' in error && error.status === 404)
+      throw unpublishedPackError(expectedDigest, archiveUrl);
+    throw error;
+  }
+}
+
 function sha256MismatchError(path, actualDigest, expectedDigest) {
   return new Error(
     `${path} is not the pinned data archive: sha256 ${actualDigest}, expected ${expectedDigest}`,
@@ -278,8 +307,8 @@ export async function obtainPinnedArchive(
   log,
   {
     outDir = CACHE_DIR,
-    archiveUrl = ARCHIVE_URL,
     expectedDigest = ARCHIVE_SHA256,
+    archiveUrl = archiveUrlFor(expectedDigest),
     fetchImpl = fetch,
     consent = askDownloadConsent,
   } = {},
@@ -291,14 +320,13 @@ export async function obtainPinnedArchive(
   }
 
   const downloadWithConsent = async (archive, why) => {
-    const verdict = await consent({
-      archiveUrl,
-      expectedDigest,
-      sizeOf: () => remoteSize(archiveUrl, fetchImpl),
-    });
+    // Nobody is asked to download a pack that does not exist yet.
+    const head = await remoteHead(archiveUrl, fetchImpl);
+    if (head?.status === 404) throw unpublishedPackError(expectedDigest, archiveUrl);
+    const verdict = await consent({ archiveUrl, expectedDigest, sizeOf: () => remoteSize(head) });
     if (verdict !== 'accepted') throw new DownloadNotAccepted(verdict);
     log(`${why}, downloading ${archiveUrl} into ${archive}`);
-    await download(archiveUrl, archive, log, fetchImpl);
+    await downloadPinnedArchive(archiveUrl, archive, expectedDigest, log, fetchImpl);
   };
 
   const archive = cachedArchivePath(outDir, archiveUrl);
@@ -310,7 +338,8 @@ export async function obtainPinnedArchive(
   try {
     await verifyArchiveSha256(archive, expectedDigest, log);
   } catch (error) {
-    // A fresh download that fails the pin would fail again; only a stale cache earns a retry.
+    // The URL names the digest, so a fresh download that fails the pin would fail again; only a
+    // stale cache earns a retry.
     if (!cached) throw error;
     await downloadWithConsent(archive, 'cached archive failed verification');
     await verifyArchiveSha256(archive, expectedDigest, log);
@@ -323,8 +352,8 @@ export async function obtainPinnedDataRoot(
   log,
   {
     outDir = CACHE_DIR,
-    archiveUrl = ARCHIVE_URL,
     expectedDigest = ARCHIVE_SHA256,
+    archiveUrl = archiveUrlFor(expectedDigest),
     fetchImpl = fetch,
     extractImpl = extractZip,
     consent = askDownloadConsent,

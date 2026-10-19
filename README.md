@@ -30,7 +30,7 @@ It can load decoded maps and render terrain, buildings, settlers, effects, and t
 
 - Node.js `>=22.12.0`
 - For playable content, the pinned Open Northland source pack (`data.zip`), which the first
-  `npm run dev` downloads and converts after asking.
+  `npm run dev` downloads by its pinned hash and converts after asking.
 
 ## Starting the project
 

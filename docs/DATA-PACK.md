@@ -95,8 +95,9 @@ maps' own scripts, never from sorting file names.
 
 ## Publication identity
 
-`scripts/data-release.json` pins the entire ZIP SHA-256. A new archive requires a matching engine
-pin. The public URL serves the current pack; indefinite historical downloads are not a contract.
+`scripts/data-release.json` pins the entire ZIP SHA-256, and the engine downloads exactly that archive
+from `https://opennorthland.org/data/<sha256>.zip`. Every published pack stays available under its hash;
+`https://opennorthland.org/data.zip` is the current one. A pack is published before the engine pins it.
 The pack schema version and runtime IR version are independent. Change the former for an input
 layout change and the latter when generated runtime schemas change.
 

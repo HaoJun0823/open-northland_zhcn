@@ -43,8 +43,8 @@ const FRAME_BOUND_FLOATS = 4;
 const FRAME_FLOATS_PER_QUAD = FRAME_BOUND_FLOATS * VERTICES_PER_QUAD;
 /** `aAnchor` is a vec2 per vertex: the object's drawn feet, which the weather cover reads and an animated
  *  quad places its clip frames by. Every quad of a paged mesh carries it and `aClip`, 32 and 64 bytes a
- *  quad, weather or not: magiczny_las has 88,710 such quads, 2.7 and 5.4 MB, held on the GPU and again in
- *  the CPU copy. */
+ *  quad, with or without weather: magiczny_las has 88,710 such quads, 2.7 and 5.4 MB, held on the GPU
+ *  and again in the CPU copy. */
 const ANCHOR_FLOATS = 2;
 
 /** What a quad write fills: a batch's buffers, and the page size its UVs divide by. `frameBounds`

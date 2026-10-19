@@ -196,12 +196,11 @@ bool hasFlag(int flags, int bit) {
   return (flags & bit) != 0;
 }
 
-// Mode off samples as Pixi's default batcher does, mipmaps included, so world art the fork ships with
-// mipmaps keeps them. The other modes sample off the viewport's edge of the frame and pass the
-// fragment's own uv derivatives explicitly: a sample with implicit derivatives inside this chain may
-// make Direct3D's compiler flatten it into a sample from every slot (unverified on that hardware).
+// Every mode passes the fragment's own uv derivatives, taken in main before any branch, so mipmapped
+// world art still picks its level. A sample with implicit derivatives inside this chain may make
+// Direct3D's compiler hoist it out of the branches and fetch from every slot.
 vec4 sampleTexture(vec2 uv, vec2 uvDx, vec2 uvDy) {
-${textureChain(maxTextures, 'vTextureId', (i) => (MODE_NAMES[mode] === 'off' ? `return texture(uTextures[${i}], uv);` : `return textureGrad(uTextures[${i}], uv, uvDx, uvDy);`))}
+${textureChain(maxTextures, 'vTextureId', (i) => `return textureGrad(uTextures[${i}], uv, uvDx, uvDy);`)}
 }
 
 ivec2 textureSizeOf() {
@@ -243,20 +242,18 @@ vec4 windowSharp(XbrNeighbours n, vec2 p, float texelsPerPixel, ivec2 windowStep
 
 void main(void) {
   vec2 texSize = vec2(0.0);
-  vec2 uvDx = vec2(0.0);
-  vec2 uvDy = vec2(0.0);
   vec2 p = vec2(0.0);
   float texelsPerPixel = 0.0;
   vec2 uvFootprint = vec2(0.0);
-  // Derivatives before any branch, where they are defined; mode off needs neither them nor the page
-  // size, except a splash's size below. The condition is a compile-time constant.
+  // Derivatives before any branch, where they are defined; mode off needs the page size only for a
+  // splash below. The condition is a compile-time constant.
+  vec2 uvDx = dFdx(vUV);
+  vec2 uvDy = dFdy(vUV);
   if (WORLD_MAGNIFY > 0.5) {
     texSize = vec2(textureSizeOf());
     p = vUV * texSize;
     texelsPerPixel = max(fwidth(p.x), fwidth(p.y));
     uvFootprint = fwidth(vUV);
-    uvDx = dFdx(vUV);
-    uvDy = dFdy(vUV);
   }
   if (vSelection < 0.0) {
     // A selection outline draws its colour over the body's coverage alone, which plain taps give: no

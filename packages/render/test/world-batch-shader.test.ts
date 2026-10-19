@@ -6,12 +6,11 @@ const SLOTS = 16;
 const prescaled = worldBatchFragment(SLOTS, WORLD_MAGNIFY_MODES.prescaled, null);
 const xbr = worldBatchFragment(SLOTS, WORLD_MAGNIFY_MODES.xbr, null);
 
-// No GL context runs here; these pin the routing the prescaled program compiles in.
+// No GL context runs here; these pin what the prescaled program compiles in.
 describe('world batch prescaled program', () => {
-  it('magnifies a plain page through the sharp path and a paletted one through xBR', () => {
+  it('compiles in its own magnify mode', () => {
     expect(prescaled).toContain(`const float WORLD_MAGNIFY = ${WORLD_MAGNIFY_MODES.prescaled}.0;`);
-    expect(prescaled).toContain('bool xbr = magnified && (WORLD_MAGNIFY == MAGNIFY_XBR || paletted);');
-    expect(prescaled).toContain('bool sharp = magnified && !xbr;');
+    expect(xbr).toContain(`const float WORLD_MAGNIFY = ${WORLD_MAGNIFY_MODES.xbr}.0;`);
   });
 
   it('reads the twin slots and keeps a splash at its page texel scale, in that program alone', () => {

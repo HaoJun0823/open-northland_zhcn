@@ -23,6 +23,7 @@ test('arguments default the output, window, view and seat', () => {
   assert.equal(options.seat, 0);
   assert.equal(options.trace, false);
   assert.equal(options.abCss, null);
+  assert.equal(options.headed, false);
   assert.equal(options.scenarios.length, hudScenarios().length);
 });
 

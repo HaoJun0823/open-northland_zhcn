@@ -91,6 +91,7 @@ export function parseHudBenchArgs(argv, env = {}) {
     keepTraces: env.ON_BENCH_HUD_TRACE === 'keep',
     invalidations: env.ON_BENCH_HUD_INVALIDATIONS === '1',
     abCss: env.ON_BENCH_HUD_AB_CSS ?? null,
+    headed: env.ON_BENCH_HUD_HEADED === '1',
     profile: env.ON_BENCH_HUD_PROFILE === '1',
     scenarios: names === undefined ? all : all.filter((entry) => names.includes(entry.id)),
   };

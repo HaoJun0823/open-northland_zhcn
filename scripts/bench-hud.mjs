@@ -142,6 +142,7 @@ const metadata = {
   trace: options.trace,
   profile: options.profile,
   abCss: options.abCss,
+  headed: options.headed,
   os: {
     platform: platform(),
     release: release(),
@@ -450,7 +451,7 @@ try {
   const previewUrl = new URL(`?${params}`, options.origin);
   progress('verifying development server and content');
   metadata.preview = await verifyDevServer(previewUrl);
-  browser = await openBenchBrowser();
+  browser = await openBenchBrowser({ headless: !options.headed });
   const browserCdp = await browser.newBrowserCDPSession();
   page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
   await skipOriginalGameGate(page);

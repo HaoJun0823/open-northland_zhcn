@@ -9,6 +9,7 @@ Read the root contract first, then only the references needed for the task:
 | Change generated content or joins | Package contract, then [DATA-FORMAT.md](DATA-FORMAT.md) |
 | Choose checks or reproduce a defect | [TESTING.md](TESTING.md) |
 | Run the app, content conversion or diagnostics | Relevant section of [DEVELOPMENT.md](DEVELOPMENT.md) |
+| Add or check a translation overlay | [`translations/AGENTS.md`](../translations/AGENTS.md), then [DEVELOPMENT.md](DEVELOPMENT.md#translation-overlays) |
 | Select backlog work | `npm run tickets:list`, then the selected ticket |
 
 Package trees, manifests and test files are the source of truth for file locations and executable

@@ -19,6 +19,7 @@ npm run check           # Biome formatting and lint checks
 npm run check:fix       # apply safe formatting and lint fixes
 npm run check:assets    # reject original, decoded, or unreviewed binary files
 npm run check:docs      # validate Markdown and ticket links/contracts
+npm run check:translations # validate the translation overlays under translations/
 npm run tickets:list    # priority-sorted ticket view
 ```
 
@@ -162,6 +163,23 @@ base map from the unpacked pack through the corrections into this checkout's own
 refreshes its `maps-index.json` row; it refuses a shared primary content directory, so a worktree
 first clones it (`cp -R <primary>/content content`; `cp -Rc` clones in seconds on APFS). Campaign maps need the full `build:content`.
 Both need the workspace built (`npx tsc --build`).
+
+## Translation overlays
+
+`translations/<lang>/` holds text the data pack does not ship: imported fan translations and the
+project's own translations and edits, as JSON overlays the pipeline applies while it converts. A map
+overlay is filed under the SHA-256 of the map's raw `map.dat`. [`translations/AGENTS.md`](../translations/AGENTS.md)
+owns the layout and the rules.
+
+```bash
+npm run check:translations
+```
+
+The check validates every overlay against its schema and the layout, and fails only on those. With
+the unpacked pack at `ON_DATA_ROOT` (`.cache/data/unpacked` by default) it also warns about overlays
+whose basis text changed, translations into a language the pack ships, string ids, labels and type
+ids the source lacks, and source-language overlays on maps that refuse them. The pipeline log's
+`[pipeline] translations:` lines count the overlays each run applied, left out or found stale.
 
 ## Browser entries
 

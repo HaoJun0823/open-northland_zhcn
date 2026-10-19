@@ -422,6 +422,7 @@ area the fix touched.
   `npm run test:slow`.
 - Sim behavior: standard gates plus a focused determinism or scenario test.
 - Pipeline or schema: standard gates plus `npm run test:pipeline`.
+- Translation overlays (`translations/`): `npm run check:translations` with the unpacked pack present.
 - Real-content consumers: standard gates plus `npm run test:content` when local content exists;
   relay or lockstep-seam changes with `ON_RELAY_PARITY=on`.
 - Sort comparators, the local float allowance, or the state hash: standard gates plus

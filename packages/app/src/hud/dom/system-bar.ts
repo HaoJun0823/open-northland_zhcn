@@ -4,7 +4,7 @@ import { formatSimClock } from '../summary/model.js';
 import { GAME_SPEED_STATES, type GameSpeedControl, type RunningGameSpeed } from '../tool-panel/game-speed.js';
 import { menuArt } from './icons.js';
 import { createObserverPicker, type ObserverPickerDeps } from './observer-picker.js';
-import { setClass, setTitle } from './parts/dom.js';
+import { setAttribute, setClass, setTitle } from './parts/dom.js';
 import { createHudSummary, type HudSummaryDeps } from './summary.js';
 
 const MENU_MEDALLION_PX = 34;
@@ -124,13 +124,13 @@ export function createHudSystemBar(plane: HTMLElement, deps: HudSystemBarDeps): 
     const held = look?.kind === 'held';
     const paused = held || control.paused;
     const pressed = look?.kind === 'slowed' && look.pressed !== null ? look.pressed : control.running;
-    pause.setAttribute('aria-pressed', String(paused));
+    setAttribute(pause, 'aria-pressed', String(paused));
     for (const [state, button] of running) {
-      button.setAttribute('aria-pressed', String(!paused && pressed === state));
+      setAttribute(button, 'aria-pressed', String(!paused && pressed === state));
     }
     setClass(speed, 'on-speed--slowed', look?.kind === 'slowed');
     setClass(speed, 'on-speed--held', held);
-    if (held) speed.setAttribute('aria-disabled', 'true');
+    if (held) setAttribute(speed, 'aria-disabled', 'true');
     else speed.removeAttribute('aria-disabled');
     setTitle(speed, look?.title ?? '');
   };

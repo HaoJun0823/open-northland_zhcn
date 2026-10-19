@@ -17,6 +17,7 @@ import {
 } from './notice-card.js';
 import { driveStackHover } from './notice-hover.js';
 import { createNoticeMembers, MEMBERS_ID } from './notice-members.js';
+import { setAttribute, setHidden, setTitle, write } from './parts/dom.js';
 
 export type { NoticeCardView, NoticeMemberView, NoticeStackView } from './notice-card.js';
 
@@ -669,9 +670,9 @@ export function createNoticeColumn(deps: NoticeColumnDeps): NoticeColumn {
         if (back instanceof HTMLElement) back.focus();
       }
       const total = tally.reduce((sum, n) => sum + n, 0);
-      count.textContent = formatMessage(copy.count, { count: total });
-      empty.hidden = total > 0;
-      clear.disabled = stacks.length === 0;
+      write(count, formatMessage(copy.count, { count: total }));
+      setHidden(empty, total > 0);
+      if (clear.disabled !== (stacks.length === 0)) clear.disabled = stacks.length === 0;
       filterButtons.forEach((button, i) => {
         const filter = filterNames[i] ?? '';
         const label = formatMessage(copy.tally, {
@@ -679,11 +680,11 @@ export function createNoticeColumn(deps: NoticeColumnDeps): NoticeColumn {
           weight: weightNames[i] ?? '',
           count: tally[i] ?? 0,
         });
-        button.setAttribute('aria-pressed', String(i === level));
-        button.setAttribute('aria-label', label);
-        button.title = label;
+        setAttribute(button, 'aria-pressed', String(i === level));
+        setAttribute(button, 'aria-label', label);
+        setTitle(button, label);
         const value = button.firstElementChild;
-        if (value !== null) value.textContent = String(tally[i] ?? 0);
+        if (value !== null) write(value, String(tally[i] ?? 0));
       });
       if (moved) layoutAfterFrame();
     },

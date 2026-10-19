@@ -3,6 +3,7 @@ import type { NoticeGlyph, NoticeThumb } from '../tool-panel/messages/cards.js';
 import { MIN_STACK_MEMBERS } from '../tool-panel/messages/groups.js';
 import type { MessagePriorityLevel } from '../tool-panel/messages/types.js';
 import { GLYPH } from './icons.js';
+import { setAttribute, write } from './parts/dom.js';
 
 type NoticesCopy = Messages['hud']['notices'];
 
@@ -163,30 +164,30 @@ export function fillCard(li: HTMLLIElement, stack: NoticeStackView, open: boolea
   li.classList.toggle(STACK, stacked);
   li.classList.toggle(PAIR, stack.count === MIN_STACK_MEMBERS);
   li.classList.toggle('on-notice--open', open);
-  li.dataset.key = stack.key;
-  li.dataset.id = String(lead.id);
+  setAttribute(li, 'data-key', stack.key);
+  setAttribute(li, 'data-id', String(lead.id));
   const entity = figureEntity(lead.thumb);
   if (entity === undefined) delete li.dataset.entity;
-  else li.dataset.entity = String(entity);
+  else setAttribute(li, 'data-entity', String(entity));
   const face = li.querySelector('.on-notice__card');
   const event = li.querySelector('.on-notice__event');
   const dismiss = li.querySelector('.on-notice__dismiss');
   if (face === null || event === null || dismiss === null)
     throw new Error('notice column: card markup incomplete');
-  event.textContent = lead.short;
-  face.setAttribute('aria-label', stacked ? `${stack.breakdown}. ${lead.full}` : lead.full);
+  write(event, lead.short);
+  setAttribute(face, 'aria-label', stacked ? `${stack.breakdown}. ${lead.full}` : lead.full);
   // A card with no target is a disclosure: a press pins its whole message.
   if (!lead.canGo && !face.hasAttribute('aria-expanded')) face.setAttribute('aria-expanded', 'false');
-  dismiss.setAttribute('aria-label', stacked ? `${copy.groupDismiss} (${stack.breakdown})` : copy.dismiss);
+  setAttribute(dismiss, 'aria-label', stacked ? `${copy.groupDismiss} (${stack.breakdown})` : copy.dismiss);
   const toggle = li.querySelector('.on-notice__toggle');
   if (toggle !== null) {
-    toggle.setAttribute('aria-expanded', String(open));
+    setAttribute(toggle, 'aria-expanded', String(open));
     const label = open ? copy.groupClose : formatMessage(copy.groupOpen, { count: stack.count });
-    toggle.setAttribute('aria-label', label);
-    toggle.setAttribute('title', `${label} (${open ? '←' : '→'})`);
+    setAttribute(toggle, 'aria-label', label);
+    setAttribute(toggle, 'title', `${label} (${open ? '←' : '→'})`);
     const count = toggle.firstElementChild;
     if (count !== null) {
-      count.textContent = String(stack.count);
+      write(count, String(stack.count));
       count.classList.toggle('on-seal--wide', stack.count >= WIDE_COUNT);
     }
   }

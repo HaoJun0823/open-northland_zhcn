@@ -18,11 +18,13 @@ off interleaved; the ×3 frame timer is too bimodal for a sub-millisecond option
   `gpu/page-samplers.ts`). The terrain and decor shading run once after `pageChain`; what it still
   inlines once per page slot (8) is each mesh's sampling path: the terrain's bicubic and four-tap minify
   taps (`shaded-terrain` 178 inlined texture operations by the shader-budget estimator) and the decor
-  shadow's whole shading with its soft blur (`decor-shadow` 304). Before that restructure the paged
-  meshes compiled 7 to 9 s each on the GitHub runner's WARP device; the boot's warm-up links them off the
-  main thread, so the cost is first-start time. Fewer slots on Direct3D or one `sampler2DArray` for
-  same-sized pages would cut the chain. The Direct3D 11 compile time after the restructure is not
-  measured yet (`npm run test:shaders -- --angle=d3d11`, before and after).
+  shadow's whole shading with its soft blur (`decor-shadow` 304). Measured with
+  `npm run test:shaders -- --angle=d3d11 --relink` in a fresh Chrome on an RTX 4090, the restructure took
+  `shaded-terrain` from 2417 to 535 ms and `shaded-decor` from 236 to 78 ms, while `decor-shadow` stayed
+  at about 2.7 s (2659 to 2714 ms), the one paged mesh still compiling like the world batch's xBR
+  variant; the catalogue's total went from 28.5 to 24.1 s. The boot's warm-up links them off the main
+  thread, so the cost is first-start time. Fewer slots on Direct3D or one `sampler2DArray` for same-sized
+  pages would cut the decor shadow's chain.
 - **Grounded building overlays** (`gpu/ground-foot/`, `gpu/texture-cache.ts`). In the densest
   `magiczny_las` town at zoom 1 the shade and cover overlays add about 2.0 Mpx of quads over 11.7 Mpx of
   other world sprites and cost 0.20 ms of a 2.4 ms GPU-bound frame (the sunk bodies cost nothing
@@ -65,9 +67,12 @@ off interleaved; the ×3 frame timer is too bimodal for a sub-millisecond option
 - The Direct3D sampling rule (a page in a sampler chain is read with derivatives taken before the
   chain, an explicit level or `texelFetch`; see `pageChain` and the shader-budget test) rests on one
   Windows measurement: on an Intel UHD 770 at 1920x1080, in the densest town of `magiczny_las` (six
-  hard AI, tick 100000), `magnify-off-z1` drew in 14.38 ms against 11.02 ms for `magnify-bilinear-z1`
-  with the world batch's off mode still reading with implicit derivatives. The same pair after the
-  explicit reads, same machine and view: `magnify-off-z1` 10.43 ms, `magnify-off-z2` 14.89 to 9.42 ms,
-  bilinear unchanged at 11.03 and 12.04 ms, so hoisting out of the chain was the cause and the rule
-  stands. A change to a sampler chain repeats that pair with `npm run bench:gpu` on Direct3D.
+  hard AI, tick 100000), `magnify-off-z1` drew in 14.38 ms against 11.02 ms for the since removed
+  bilinear magnifier, with the world batch's off mode still reading with implicit derivatives. The same
+  pair after the explicit reads, same machine and view: `magnify-off-z1` 10.43 ms, `magnify-off-z2`
+  14.89 to 9.42 ms, bilinear unchanged at 11.03 and 12.04 ms, so hoisting out of the chain was the cause
+  and the rule stands. A change to a sampler chain repeats `magnify-off-z1` and `magnify-off-z2` beside
+  `magnify-xbr-z1` with `npm run bench:gpu` on Direct3D: the off mode must stay below xBR, as on that
+  machine at the branch's end (9.89 and 10.36 ms against 12.22 ms), not above it as before the explicit
+  reads.
 - `npm run check`, `npm run build`, `npm test`.

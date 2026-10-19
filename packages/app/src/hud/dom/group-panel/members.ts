@@ -347,9 +347,9 @@ export function createMemberRoster(
     'scroll',
     () => {
       scrollTop = root.scrollTop;
+      // The figure canvas scrolls with the wells; only a re-attach (which marks it) lays it again.
       attach(false);
       stale = true;
-      figuresStale = true;
       updateMore();
     },
     { passive: true },

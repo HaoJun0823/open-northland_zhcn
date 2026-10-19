@@ -34,6 +34,7 @@ function wellBox(well: HTMLElement): { left: number; top: number } {
   };
 }
 
+let placements = 0;
 const drawn: [number, number][] = [];
 
 /** jsdom lays nothing out: the wells report their grid boxes, the figure canvas its own box, and every
@@ -58,6 +59,7 @@ function fakeLayout(): void {
     return { left, top, width: WELL_W, height: WELL_H } as DOMRect;
   });
   vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockImplementation(() => {
+    placements++;
     return { left: 0, top: 0, width: ROSTER_W, height: VIEW_ROWS * (WELL_H + GAP_PX) } as DOMRect;
   });
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
@@ -107,6 +109,7 @@ const figureCanvas = (roster: MemberRoster): HTMLCanvasElement | null =>
 
 describe('roster figure canvas', () => {
   beforeEach(() => {
+    placements = 0;
     drawn.length = 0;
     fakeLayout();
     vi.stubGlobal('devicePixelRatio', 1);
@@ -130,5 +133,20 @@ describe('roster figure canvas', () => {
     frame(roster);
     expect(figureCanvas(roster)?.width).toBe(2 * ROSTER_W);
     expect(drawn[1]).toEqual([2 * (WELL_W + GAP_PX), 0]);
+  });
+
+  it('keeps its place through a scroll that leaves the laid rows as they were', () => {
+    const roster = laidRoster();
+    frame(roster);
+    const laid = placements;
+    roster.element.scrollTop = 1;
+    roster.element.dispatchEvent(new Event('scroll'));
+    frame(roster, false);
+    expect(placements).toBe(laid);
+    // Far enough that other rows are laid: the canvas follows them.
+    roster.element.scrollTop = 3 * VIEW_ROWS * (WELL_H + GAP_PX);
+    roster.element.dispatchEvent(new Event('scroll'));
+    frame(roster, false);
+    expect(placements).toBeGreaterThan(laid);
   });
 });

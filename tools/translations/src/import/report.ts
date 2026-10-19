@@ -30,6 +30,7 @@ export function formatReport(result: ImportResult, sourceCommit: string): string
   for (const map of maps.matched) {
     const extra = [
       ...(map.aliases.length > 0 ? [`also serves ${map.aliases.join(', ')}`] : []),
+      ...(map.twins.length > 0 ? [`same map.dat, other German text: ${map.twins.join(', ')}`] : []),
       ...(map.passedOver.length > 0 ? [`passed over ${map.passedOver.join(', ')}`] : []),
     ];
     add(`  ${map.map.id} <- ${map.xml}${extra.length > 0 ? ` (${extra.join('; ')})` : ''}`);

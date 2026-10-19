@@ -32,8 +32,11 @@ export interface MapLanguageResult {
 export interface MatchedMap {
   readonly map: PackMap;
   readonly xml: string;
-  /** Other pack folders shipping the same `map.dat`, which the overlay serves as well. */
+  /** Other pack folders shipping the same `map.dat` and German text, which the overlay serves as well. */
   readonly aliases: readonly string[];
+  /** Other pack folders shipping the same `map.dat` with other German text: the overlay reaches them as
+   *  a stale fallback until each has a variant of its own. */
+  readonly twins: readonly string[];
   /** XMLs that matched the same `map.dat` but whose German column fits our text less well. */
   readonly passedOver: readonly string[];
   readonly roundTrip: GermanRoundTrip;
@@ -106,7 +109,8 @@ function translateLanguage(
 /**
  * Matches every map XML to the pack's maps by `map.dat` MD5 and turns each match into one map overlay
  * per overlay language, named by the `map.dat` SHA-256. When several XMLs match one `map.dat`, the one
- * whose German column fits our German text best is taken.
+ * whose German column fits our German text best is taken. When several pack maps ship that `map.dat`,
+ * the overlay is written against the first one's German text: the upstream has one text per map.
  */
 export async function importMaps(
   source: string,
@@ -142,7 +146,7 @@ export async function importMaps(
   const withoutBasis: string[] = [];
   const files: OverlayFile[] = [];
   for (const candidate of candidates.values()) {
-    const [map, ...aliases] = candidate.maps;
+    const [map, ...copies] = candidate.maps;
     if (map === undefined) continue;
     const basis = await readMapSourceText(map.read, BASIS_LANGUAGE);
     if (basis === undefined) {
@@ -155,6 +159,12 @@ export async function importMaps(
     const [best, ...others] = ranked;
     if (best === undefined) continue;
     const digest = mapSourceTextDigest(basis);
+    const aliases: string[] = [];
+    const twins: string[] = [];
+    for (const copy of copies) {
+      const text = await readMapSourceText(copy.read, BASIS_LANGUAGE);
+      (text !== undefined && mapSourceTextDigest(text) === digest ? aliases : twins).push(copy.id);
+    }
     const languages: Partial<Record<OverlayLanguage, MapLanguageResult>> = {};
     for (const lang of OVERLAY_LANGUAGES) {
       const { result, file } = translateLanguage(best.xml, lang, { map, basis, digest, corrections });
@@ -164,7 +174,8 @@ export async function importMaps(
     matched.push({
       map,
       xml: best.name,
-      aliases: aliases.map((alias) => alias.id),
+      aliases,
+      twins,
       passedOver: others.map((other) => other.name),
       roundTrip: best.roundTrip,
       languages,

@@ -22,7 +22,6 @@ const LANGUAGE_SUBTAGS: Readonly<Record<LocaleCode, string>> = {
   cht: 'zh',
 };
 
-const CHINESE = 'zh';
 /** A Chinese tag that names Traditional script, or no script and a region that writes it (CLDR likely
  *  subtags); every other Chinese tag reads Simplified, as in the app. */
 const TRADITIONAL_CHINESE = /^zh-(?:hant|tw|hk|mo)(?:-|$)/;
@@ -75,8 +74,8 @@ function localeOf(value: string | null | undefined): LocaleCode | undefined {
   const code = LOCALE_CODES.find((locale) => locale === wanted);
   if (code !== undefined) return code;
   const language = wanted.split('-')[0];
-  if (language === CHINESE) return TRADITIONAL_CHINESE.test(wanted) ? 'cht' : 'chs';
-  return LOCALE_CODES.find((locale) => LANGUAGE_SUBTAGS[locale] === language);
+  const match = LOCALE_CODES.find((locale) => LANGUAGE_SUBTAGS[locale] === language);
+  return match === 'chs' && TRADITIONAL_CHINESE.test(wanted) ? 'cht' : match;
 }
 
 /** The page's `?lang=` wins, as it does in the app; the system language stands in when it has none. */

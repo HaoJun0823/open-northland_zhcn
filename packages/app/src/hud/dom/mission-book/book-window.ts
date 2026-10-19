@@ -13,6 +13,7 @@ import { navBeamRect } from '../../nav-beam.js';
 import { NOTICE_COLUMN, TOP_BAR_HEIGHT } from '../../regions.js';
 import { GLYPH } from '../icons.js';
 import { escapeHtml, setClass, setHidden } from '../parts/dom.js';
+import { planeSize } from '../plane-size.js';
 import type { ClientRect } from '../portrait-hole.js';
 import { WINDOW_KNOT } from '../symbols.js';
 import { shownCallbacks } from './callbacks.js';
@@ -467,8 +468,7 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
   };
 
   const place = (): boolean => {
-    const width = deps.plane.clientWidth;
-    const height = deps.plane.clientHeight;
+    const { width, height } = planeSize(deps.plane);
     const key = `${width}x${height}`;
     if (key === placed) return false;
     placed = key;

@@ -3,6 +3,7 @@ import type { ScreenSize } from '../nav-beam.js';
 import { centralWindowBox } from '../regions.js';
 import { GLYPH } from './icons.js';
 import { minimapReserve } from './minimap-reserve.js';
+import { planeSize } from './plane-size.js';
 import { WINDOW_ORNAMENTS } from './symbols.js';
 
 export interface HudWindowSpec {
@@ -114,8 +115,7 @@ export function centralWindowPlacer(
   let placed = '';
   return () => {
     if (!window.isOpen()) return false;
-    // The plane's client box is the design-px screen (foundation.css sizes it by 1 / scale).
-    const screen = { width: plane.clientWidth, height: plane.clientHeight };
+    const screen = planeSize(plane);
     const overlay = minimapReserve(plane);
     const drawn = typeof width === 'number' ? width : width(screen, overlay);
     const box = centralWindowBox(screen, 1, drawn, overlay);

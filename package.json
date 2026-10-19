@@ -68,6 +68,7 @@
     "shot": "npm run shot --workspace @open-northland/app --",
     "pipeline": "npm run start --workspace @open-northland/asset-pipeline --",
     "import:cultures-localization": "npm run import:cultures-localization --workspace @open-northland/translation-tools --",
+    "translations:skeleton": "npm run translations:skeleton --workspace @open-northland/translation-tools --",
     "build:content": "node scripts/build-content.mjs",
     "test:desktop": "npm run build && npm run test:e2e --workspace @open-northland/desktop",
     "test:gate": "npm run test:e2e --workspace @open-northland/app"

@@ -45,3 +45,7 @@ every catalogue copy of the same map. The `map` field is a readable alias, never
 `tools/translations/` holds the import from CulturesGameLocalization, the skeleton extractor for a
 map archive, and the audit. `npm run check:translations` validates every overlay against its schema
 and, with the unpacked pack present, reports redundant overlays, stale bases and keys the source lacks.
+
+`npm run translations:skeleton -- <archive or folder> --lang <lang>` writes `<lang>/maps/<digest>.json`
+for each map it holds, every value the basis text: replace each in place and delete the ones left
+untranslated, which fall back to the source anyway.

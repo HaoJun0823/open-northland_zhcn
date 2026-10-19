@@ -182,6 +182,17 @@ translations into a language the pack ships, string ids, labels and type ids the
 source-language overlays on maps that refuse them. The pipeline log's
 `[pipeline] translations:` lines count the overlays each run applied, left out or found stale.
 
+```bash
+npm run translations:skeleton -- path/to/map.rar --lang chs
+npm run translations:skeleton -- path/to/MapFolder --lang eng --basis eng --force
+```
+
+The skeleton command writes a map overlay for each map of a `.zip`, `.rar`, `.c2m` or folder into
+`translations/` (or `--out`), refusing to replace an existing one without `--force`. Its basis is
+`--basis`, else the first source language the map ships, and every value is that language's text, for
+a translator to replace in place. A `--lang` equal to the basis writes an edit template; a `--lang` the
+map ships itself is refused, since the shipped text wins.
+
 ## Browser entries
 
 See [Browser entries](BROWSER-DEVELOPMENT.md#browser-entries).

@@ -4,7 +4,12 @@ import type { AtlasFrame, BuildTimeSheet } from '../data/sprites/index.js';
 import { BuildingTextureCache } from './building-texture-cache.js';
 import { isDrawableResource, readable2dContext } from './drawable-resource.js';
 import { type GroundColours, GroundedFootCache, type GroundFootPart, sinkBody } from './ground-foot/index.js';
-import { markMagnifiedTexture, markPalettedTexture, markShadowTexture } from './pixel-art-registry.js';
+import {
+  isPixelArtSource,
+  markMagnifiedTexture,
+  markPalettedTexture,
+  markShadowTexture,
+} from './pixel-art-registry.js';
 import { SoftShadowCache } from './soft-shadow-cache.js';
 
 /**
@@ -259,18 +264,12 @@ export class TextureCache {
     return this.pages;
   }
 
-  /** The pages and enhanced building bakes a page prescaler redraws: the body pages and the bakes cut
-   *  from them, never a silhouette page. */
-  *prescalableSources(): Generator<TextureSource> {
-    for (const page of this.pages) if (!this.shadowPages.has(page)) yield page;
-    yield* this.buildings.bakedSources();
-    yield* this.groundedEnhanced.bakedSources();
-  }
-
-  /** Grows whenever {@link prescalableSources} may have gained a member: pages and bakes only grow
-   *  until {@link clear}. */
-  get prescalableRevision(): number {
-    return this.pages.size + this.buildings.size + this.groundedEnhanced.size;
+  /** Whether a page prescaler may redraw `source`: a body page loaded as pixel art (never a silhouette
+   *  page, and never art a presentation pack loaded with its own sampling) or an enhanced building bake
+   *  cut from such a page. */
+  isPrescalable(source: TextureSource): boolean {
+    if (this.pages.has(source)) return !this.shadowPages.has(source) && isPixelArtSource(source);
+    return this.buildings.isPixelArtBake(source) || this.groundedEnhanced.isPixelArtBake(source);
   }
 
   /** A twin of a view served here, on the same page and frame but without the magnification mark: the

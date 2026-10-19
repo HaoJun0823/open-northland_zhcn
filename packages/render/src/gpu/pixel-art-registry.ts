@@ -107,6 +107,36 @@ export function prescaledPageOf(page: TextureSource): TextureSource | undefined 
 }
 
 /**
+ * The pages world batches listed since the prescaler last took them, gathered only while a prescaled
+ * scaler is selected: the working set it redraws and keeps. Two sets swap so a frame allocates none.
+ */
+let drawnPages: Set<TextureSource> | null = null;
+let takenPages = new Set<TextureSource>();
+
+export function collectDrawnPages(collect: boolean): void {
+  drawnPages = collect ? (drawnPages ?? new Set()) : null;
+  takenPages.clear();
+}
+
+export function isCollectingDrawnPages(): boolean {
+  return drawnPages !== null;
+}
+
+export function noteDrawnPage(page: TextureSource): void {
+  drawnPages?.add(page);
+}
+
+/** The pages drawn since the last call; the set is reused, so read it before the next call. */
+export function takeDrawnPages(): ReadonlySet<TextureSource> {
+  if (drawnPages === null) return takenPages;
+  const drawn = drawnPages;
+  takenPages.clear();
+  drawnPages = takenPages;
+  takenPages = drawn;
+  return drawn;
+}
+
+/**
  * Textures the world batch shader shades as shadow silhouettes: it keeps only their coverage and paints
  * them in the style's own colour and depth. A silhouette atlas page serves nothing else, so its frame
  * views mark straight through; a body frame drawn as a cast silhouette needs a texture view of its own,

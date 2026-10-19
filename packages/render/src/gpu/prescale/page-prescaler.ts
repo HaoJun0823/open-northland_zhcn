@@ -7,7 +7,12 @@ import {
   type TextureSource,
   WebGLRenderer,
 } from 'pixi.js';
-import { type PrescaledScaler, setPrescaledPage } from '../pixel-art-registry.js';
+import {
+  collectDrawnPages,
+  type PrescaledScaler,
+  setPrescaledPage,
+  takeDrawnPages,
+} from '../pixel-art-registry.js';
 import { type GlslProgramSource, glProgramFor } from '../program-source.js';
 import { MMPX_2X_SOURCE } from './mmpx-2x.js';
 import { PRESCALE_FACTOR } from './prescale-pass.js';
@@ -33,157 +38,344 @@ export const PRESCALE_RECIPES: Readonly<Record<PrescaledScaler, readonly Prescal
   mmpx: [{ program: MMPX_2X_SOURCE, scale: PRESCALE_FACTOR, inputs: { uPage: 'page' } }],
 };
 
-/** Pages prescaled per frame, so switching a scaler on spreads its work over frames instead of
- *  stalling one; a page not yet done magnifies through the sharp path meanwhile. */
-const PAGES_PER_FRAME = 1;
+/** Output texels the prescaler draws in one frame, across passes: a pass draws a band of rows at a
+ *  time, so a tall page's twin spreads over frames instead of stalling one. */
+const PRESCALE_TEXELS_PER_FRAME = 4 * 1024 * 1024;
+/** Texture memory the twins may hold, mip levels included. A page that would pass it keeps the sharp
+ *  path until twins of pages no longer drawn free their memory. */
+const PRESCALE_BUDGET_BYTES = 1536 * 1024 * 1024;
+/** Frames a twin outlives its page's last draw before its memory goes back. */
+const PRESCALE_IDLE_FRAMES = 1800;
+/** A twin drawn within this many frames is in view and never evicted to make room. */
+const IN_VIEW_FRAMES = 60;
+/** Frames between sweeps for idle twins. */
+const IDLE_SWEEP_FRAMES = 60;
+/** A page twin keeps one mip level below its own: the page's resolution, which minifies as the page
+ *  did and never averages a neighbouring frame across the atlas gutter. */
+const PAGE_TWIN_MIP_LEVELS = 2;
 const BYTES_PER_TEXEL = 4;
 const QUAD_INDICES = new Uint32Array([0, 1, 2, 0, 2, 3]);
-const QUAD_UVS = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
 const TRANSPARENT: [number, number, number, number] = [0, 0, 0, 0];
 
-/** Where a prescaler finds its pages: `prescalableRevision` changes whenever `prescalableSources` may
- *  have gained a member. */
+/** How much a prescaler may draw per frame and keep. */
+export interface PrescaleLimits {
+  readonly texelsPerFrame: number;
+  readonly budgetBytes: number;
+  readonly idleFrames: number;
+}
+
+export const PRESCALE_LIMITS: PrescaleLimits = {
+  texelsPerFrame: PRESCALE_TEXELS_PER_FRAME,
+  budgetBytes: PRESCALE_BUDGET_BYTES,
+  idleFrames: PRESCALE_IDLE_FRAMES,
+};
+
+/** Which of the pages world batches draw a prescaler may redraw. */
 export interface PrescalableSources {
-  prescalableSources(): Iterable<TextureSource>;
-  readonly prescalableRevision: number;
+  isPrescalable(source: TextureSource): boolean;
 }
 
 export interface PrescaleStats {
   readonly scaler: PrescaledScaler | null;
   readonly pages: number;
-  /** Pages whose twin would exceed the device's largest texture; they keep the sharp path. */
+  /** Drawn pages whose twin would exceed the device's largest texture or viewport; they keep the
+   *  sharp path. */
   readonly oversized: number;
+  /** Drawn pages waiting for a twin, the one being drawn included. */
   readonly pending: number;
-  /** Texture memory the twins hold. */
+  /** Of {@link pending}, the pages the memory budget holds back. */
+  readonly overBudget: number;
+  /** Texture memory the twins hold, mip levels included. */
   readonly bytes: number;
 }
 
+interface Twin {
+  readonly target: RenderTexture;
+  readonly bytes: number;
+  lastDrawn: number;
+}
+
+/** A page's passes in progress: the pass being drawn, its next row and the outputs drawn so far. */
+interface PrescaleJob {
+  readonly page: TextureSource;
+  readonly recipe: readonly PrescalePass[];
+  readonly outputs: RenderTexture[];
+  readonly bytes: number;
+  pass: number;
+  row: number;
+}
+
+function mipLevelsOf(width: number, height: number): number {
+  return Math.floor(Math.log2(Math.max(width, height))) + 1;
+}
+
+function chainBytes(width: number, height: number, levels: number): number {
+  let bytes = 0;
+  for (let level = 0; level < levels; level++)
+    bytes += Math.max(width >> level, 1) * Math.max(height >> level, 1) * BYTES_PER_TEXEL;
+  return bytes;
+}
+
 /**
- * Redraws the world's plain pixel-art pages through a prescaled scaler into twins of twice their size,
- * which the world batch binds in their place. A twin lives while its scaler is selected and its page
- * exists; paletted pages never come here, since their texels are palette indices.
+ * Redraws the plain pixel-art pages the world batches draw through a prescaled scaler into twins of
+ * twice their size, which the world batch binds in their place. Only drawn pages get a twin, a few
+ * rows a frame; a twin goes when its page has not been drawn for a while, when its page goes, when the
+ * scaler changes and when the GL context is restored, which leaves every render texture blank.
  */
 export class PagePrescaler {
   private scaler: PrescaledScaler | null = null;
-  private readonly twins = new Map<TextureSource, RenderTexture>();
+  private readonly twins = new Map<TextureSource, Twin>();
+  /** Drawn pages without a twin, with the frame each was last drawn. */
+  private readonly queue = new Map<TextureSource, number>();
   private readonly oversized = new Set<TextureSource>();
-  private pending = 0;
-  private seenRevision = -1;
-  private readonly maxTextureSize: number;
+  private job: PrescaleJob | null = null;
+  private overBudget = 0;
+  private bytes = 0;
+  private frame = 0;
+  private readonly maxTargetSize: number;
+  private readonly onContextChange = {
+    contextChange: (): void => this.withdraw(),
+  };
 
-  constructor(private readonly renderer: Renderer) {
-    this.maxTextureSize =
-      renderer instanceof WebGLRenderer ? Number(renderer.gl.getParameter(renderer.gl.MAX_TEXTURE_SIZE)) : 0;
+  constructor(
+    private readonly renderer: Renderer,
+    private readonly limits: PrescaleLimits = PRESCALE_LIMITS,
+  ) {
+    let maxTargetSize = 0;
+    if (renderer instanceof WebGLRenderer) {
+      const gl = renderer.gl;
+      const viewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as ArrayLike<number> | null;
+      maxTargetSize = Math.min(
+        Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)),
+        viewport?.[0] ?? 0,
+        viewport?.[1] ?? 0,
+      );
+    }
+    this.maxTargetSize = maxTargetSize;
+    renderer.runners.contextChange.add(this.onContextChange);
   }
 
   setScaler(scaler: PrescaledScaler | null): void {
     if (scaler === this.scaler) return;
-    this.clear();
+    this.withdraw();
     this.scaler = scaler;
+    collectDrawnPages(scaler !== null);
   }
 
-  /** Prescales up to {@link PAGES_PER_FRAME} pages still without a twin; a frame with no new page and
-   *  none pending walks nothing. */
+  /** Takes the pages drawn since the last frame, frees idle twins and draws up to the frame's texels
+   *  of twins still missing. */
   update(from: PrescalableSources): void {
-    const revision = from.prescalableRevision;
-    if (this.scaler === null || (revision === this.seenRevision && this.pending === 0)) return;
-    const recipe = PRESCALE_RECIPES[this.scaler];
-    let budget = PAGES_PER_FRAME;
-    let pending = 0;
-    for (const source of from.prescalableSources()) {
-      if (this.twins.has(source) || this.oversized.has(source) || source.destroyed) continue;
-      if (budget === 0) {
-        pending++;
-        continue;
-      }
-      if (Math.max(source.pixelWidth, source.pixelHeight) * PRESCALE_FACTOR > this.maxTextureSize) {
-        this.oversized.add(source);
-        continue;
-      }
-      budget--;
-      this.prescale(source, recipe);
+    if (this.scaler === null) return;
+    this.frame++;
+    for (const page of takeDrawnPages()) {
+      const twin = this.twins.get(page);
+      if (twin !== undefined) twin.lastDrawn = this.frame;
+      else if (this.job?.page !== page && !this.oversized.has(page) && from.isPrescalable(page))
+        this.queue.set(page, this.frame);
     }
-    this.pending = pending;
-    this.seenRevision = revision;
+    for (const [page, drawn] of this.queue) if (this.frame - drawn > IN_VIEW_FRAMES) this.queue.delete(page);
+    if (this.frame % IDLE_SWEEP_FRAMES === 0) this.dropIdle(this.limits.idleFrames);
+    this.overBudget = 0;
+    let texels = this.limits.texelsPerFrame;
+    while (texels > 0) {
+      const job = this.job ?? this.nextJob();
+      if (job === null) break;
+      texels -= this.advance(job, texels);
+    }
   }
 
   stats(): PrescaleStats {
-    let bytes = 0;
-    for (const twin of this.twins.values())
-      bytes += twin.source.pixelWidth * twin.source.pixelHeight * BYTES_PER_TEXEL;
     return {
       scaler: this.scaler,
       pages: this.twins.size,
       oversized: this.oversized.size,
-      pending: this.pending,
-      bytes,
+      pending: this.queue.size + (this.job === null ? 0 : 1),
+      overBudget: this.overBudget,
+      bytes: this.bytes,
     };
   }
 
-  clear(): void {
-    for (const [page, twin] of this.twins) {
-      page.off('destroy', this.drop, this);
-      setPrescaledPage(page, null);
-      twin.destroy(true);
-    }
-    this.twins.clear();
+  destroy(): void {
+    this.setScaler(null);
+    this.renderer.runners.contextChange.remove(this.onContextChange);
+  }
+
+  /** Frees every twin and the job in progress; drawn pages queue again from the next frame. */
+  private withdraw(): void {
+    for (const page of [...this.twins.keys()]) this.drop(page);
+    this.abortJob();
+    this.queue.clear();
+    for (const page of this.oversized) page.off('destroy', this.forget, this);
     this.oversized.clear();
-    this.pending = 0;
-    this.seenRevision = -1;
   }
 
-  private prescale(page: TextureSource, recipe: readonly PrescalePass[]): void {
-    const outputs: RenderTexture[] = [];
-    for (const pass of recipe) outputs.push(this.draw(page, pass, outputs));
-    const twin = outputs.pop();
-    for (const intermediate of outputs) intermediate.destroy(true);
-    if (twin === undefined) return;
-    // A mipmapped bake keeps its minification on the twin.
-    if (page.mipLevelCount > 1 || page.autoGenerateMipmaps) {
-      twin.source.autoGenerateMipmaps = true;
-      twin.source.updateMipmaps();
+  /** The next queued page that fits the device and the budget, its job begun; null for none. A page
+   *  that left the view has left the queue already and joins it again when it is next drawn. */
+  private nextJob(): PrescaleJob | null {
+    for (const page of this.queue.keys()) {
+      if (page.destroyed || this.twins.has(page)) {
+        this.queue.delete(page);
+        continue;
+      }
+      if (Math.max(page.pixelWidth, page.pixelHeight) * PRESCALE_FACTOR > this.maxTargetSize) {
+        this.queue.delete(page);
+        this.oversized.add(page);
+        page.once('destroy', this.forget, this);
+        continue;
+      }
+      const width = page.pixelWidth * PRESCALE_FACTOR;
+      const height = page.pixelHeight * PRESCALE_FACTOR;
+      const bytes = chainBytes(width, height, this.twinMipLevels(page, width, height));
+      if (!this.makeRoom(bytes)) {
+        this.overBudget = this.queue.size;
+        return null;
+      }
+      this.queue.delete(page);
+      const recipe = PRESCALE_RECIPES[this.scaler ?? 'xbrz'];
+      this.job = { page, recipe, outputs: [], bytes, pass: 0, row: 0 };
+      return this.job;
     }
-    this.twins.set(page, twin);
-    setPrescaledPage(page, twin.source);
-    page.once('destroy', this.drop, this);
+    return null;
   }
 
-  private draw(page: TextureSource, pass: PrescalePass, outputs: readonly RenderTexture[]): RenderTexture {
-    const width = page.pixelWidth * pass.scale;
-    const height = page.pixelHeight * pass.scale;
-    const target = RenderTexture.create({
-      width,
-      height,
-      resolution: 1,
-      antialias: false,
-      scaleMode: 'linear',
-    });
+  /** Frees the least recently drawn twins out of view until `bytes` more fit the budget. */
+  private makeRoom(bytes: number): boolean {
+    if (this.bytes + bytes <= this.limits.budgetBytes) return true;
+    const idle = [...this.twins].filter(([, twin]) => this.frame - twin.lastDrawn > IN_VIEW_FRAMES);
+    idle.sort(([, a], [, b]) => a.lastDrawn - b.lastDrawn);
+    for (const [page] of idle) {
+      this.drop(page);
+      if (this.bytes + bytes <= this.limits.budgetBytes) return true;
+    }
+    return false;
+  }
+
+  /** A bake keeps its whole mip chain; a page twin keeps {@link PAGE_TWIN_MIP_LEVELS}. */
+  private twinMipLevels(page: TextureSource, width: number, height: number): number {
+    return page.mipLevelCount > 1 || page.autoGenerateMipmaps
+      ? mipLevelsOf(width, height)
+      : PAGE_TWIN_MIP_LEVELS;
+  }
+
+  /** A twin's mip levels, and a sampler key of its own: Pixi shares one sampler per style and sets
+   *  its mip filtering from the first texture bound with it, which for a twin's style would be a page
+   *  without mips. */
+  private twinMipOptions(
+    page: TextureSource,
+    width: number,
+    height: number,
+  ): { mipLevelCount: number; lodMaxClamp: number } {
+    const levels = this.twinMipLevels(page, width, height);
+    return { mipLevelCount: levels, lodMaxClamp: levels - 1 };
+  }
+
+  /** Draws up to `texels` of `job`'s current pass; the texels drawn. */
+  private advance(job: PrescaleJob, texels: number): number {
+    try {
+      const pass = job.recipe[job.pass];
+      if (pass === undefined) throw new Error(`prescale job ran past its last pass`);
+      const last = job.pass === job.recipe.length - 1;
+      const width = job.page.pixelWidth * pass.scale;
+      const height = job.page.pixelHeight * pass.scale;
+      let target = job.outputs[job.pass];
+      if (target === undefined) {
+        target = RenderTexture.create({
+          width,
+          height,
+          resolution: 1,
+          antialias: false,
+          scaleMode: 'linear',
+          ...(last ? this.twinMipOptions(job.page, width, height) : {}),
+        });
+        job.outputs.push(target);
+      }
+      const rows = Math.min(height - job.row, Math.max(1, Math.floor(texels / width)));
+      this.drawRows(job, pass, target, job.row, rows);
+      job.row += rows;
+      if (job.row >= height) {
+        job.pass++;
+        job.row = 0;
+        if (last) this.finish(job, target);
+      }
+      return rows * width;
+    } catch (error) {
+      // A pass the device refuses: the page keeps the sharp path rather than retrying every frame.
+      const page = job.page;
+      this.abortJob();
+      this.oversized.add(page);
+      page.once('destroy', this.forget, this);
+      throw error;
+    }
+  }
+
+  private finish(job: PrescaleJob, twin: RenderTexture): void {
+    for (const intermediate of job.outputs) if (intermediate !== twin) intermediate.destroy(true);
+    this.job = null;
+    twin.source.autoGenerateMipmaps = true;
+    twin.source.updateMipmaps();
+    this.twins.set(job.page, { target: twin, bytes: job.bytes, lastDrawn: this.frame });
+    this.bytes += job.bytes;
+    setPrescaledPage(job.page, twin.source);
+    job.page.once('destroy', this.drop, this);
+  }
+
+  private abortJob(): void {
+    if (this.job === null) return;
+    for (const output of this.job.outputs) output.destroy(true);
+    this.job = null;
+  }
+
+  /** Draws rows `[row, row + rows)` of `pass` into `target`: one quad whose UVs span the same rows. */
+  private drawRows(
+    job: PrescaleJob,
+    pass: PrescalePass,
+    target: RenderTexture,
+    row: number,
+    rows: number,
+  ): void {
+    const width = target.source.pixelWidth;
+    const height = target.source.pixelHeight;
     const resources: Record<string, TextureSource> = {};
     for (const [name, input] of Object.entries(pass.inputs)) {
-      const source = input === 'page' ? page : outputs[input]?.source;
+      const source = input === 'page' ? job.page : job.outputs[input]?.source;
       if (source === undefined) throw new Error(`prescale pass ${pass.program.name} reads a later pass`);
       resources[name] = source;
     }
+    const top = row / height;
+    const bottom = (row + rows) / height;
     const geometry = new MeshGeometry({
-      positions: new Float32Array([0, 0, width, 0, width, height, 0, height]),
-      uvs: QUAD_UVS,
+      positions: new Float32Array([0, row, width, row, width, row + rows, 0, row + rows]),
+      uvs: new Float32Array([0, top, 1, top, 1, bottom, 0, bottom]),
       indices: QUAD_INDICES,
     });
     const shader = new Shader({ glProgram: glProgramFor(pass.program), resources });
     const quad = new Mesh({ geometry, shader });
     quad.blendMode = 'none';
-    this.renderer.render({ container: quad, target, clear: true, clearColor: TRANSPARENT });
-    quad.destroy();
-    geometry.destroy();
-    shader.destroy();
-    return target;
+    try {
+      this.renderer.render({ container: quad, target, clear: row === 0, clearColor: TRANSPARENT });
+    } finally {
+      quad.destroy();
+      geometry.destroy();
+      shader.destroy();
+    }
+  }
+
+  /** Frees twins whose page has not been drawn for `frames`. */
+  private dropIdle(frames: number): void {
+    for (const [page, twin] of [...this.twins]) if (this.frame - twin.lastDrawn > frames) this.drop(page);
   }
 
   private drop(page: TextureSource): void {
     const twin = this.twins.get(page);
     if (twin === undefined) return;
     this.twins.delete(page);
+    this.bytes -= twin.bytes;
+    page.off('destroy', this.drop, this);
     setPrescaledPage(page, null);
-    twin.destroy(true);
+    twin.target.destroy(true);
+  }
+
+  private forget(page: TextureSource): void {
+    this.oversized.delete(page);
   }
 }

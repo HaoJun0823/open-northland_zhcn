@@ -203,6 +203,27 @@ describe('building frame cache', () => {
     pixelArt.destroy();
   });
 
+  it('hands a prescaler pixel-art body pages and their bakes, never a silhouette page or own art', () => {
+    mockCanvas();
+    const cache = new TextureCache();
+    const body = new TextureSource({ width: 64, height: 64 });
+    const silhouette = new TextureSource({ width: 64, height: 64 });
+    const ownArt = new TextureSource({ width: 64, height: 64 });
+    for (const source of [body, silhouette]) markPixelArtSource(source);
+    cache.get(body, FRAME);
+    cache.getShadow(silhouette, { ...FRAME });
+    cache.get(ownArt, { ...FRAME });
+    const bake = cache.getBuilding(body, { ...FRAME });
+    const ownBake = cache.getBuilding(ownArt, { ...FRAME });
+    expect(cache.isPrescalable(body)).toBe(true);
+    expect(cache.isPrescalable(bake.source)).toBe(true);
+    expect(cache.isPrescalable(silhouette)).toBe(false);
+    expect(cache.isPrescalable(ownArt)).toBe(false);
+    expect(cache.isPrescalable(ownBake.source)).toBe(false);
+    cache.clear();
+    for (const source of [body, silhouette, ownArt]) source.destroy();
+  });
+
   it('caps GPU storage including the mip chain without evicting textures retained by sprites', () => {
     const drawImage = mockCanvas();
     const cache = new TextureCache();

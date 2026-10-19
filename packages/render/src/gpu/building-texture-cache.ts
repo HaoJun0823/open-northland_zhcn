@@ -1,7 +1,7 @@
 import { CanvasSource, Rectangle, Texture, type TextureSource } from 'pixi.js';
 import type { AtlasFrame } from '../data/sprites/index.js';
 import { isDrawableResource, readable2dContext } from './drawable-resource.js';
-import { markMagnifiedTexture } from './pixel-art-registry.js';
+import { isPixelArtSource, markMagnifiedTexture } from './pixel-art-registry.js';
 
 const PADDING = 2;
 const MAX_GPU_BYTES = 32 * 1024 * 1024;
@@ -102,6 +102,7 @@ export interface BuildingBake {
  * No eviction: even detached pooled sprites can retain a texture until they next enter the viewport. */
 export class BuildingTextureCache {
   private readonly textures = new Map<AtlasFrame, Texture>();
+  private readonly pixelArtBakes = new WeakSet<TextureSource>();
   private unavailable = new WeakSet<AtlasFrame>();
   private gpuBytes = 0;
 
@@ -160,6 +161,7 @@ export class BuildingTextureCache {
         frame: new Rectangle(PADDING, PADDING, frame.width, frame.height),
       });
       markMagnifiedTexture(texture, source);
+      if (isPixelArtSource(source)) this.pixelArtBakes.add(baked);
       this.textures.set(frame, texture);
       this.gpuBytes += bytes;
       return texture;
@@ -169,13 +171,9 @@ export class BuildingTextureCache {
     }
   }
 
-  /** Bakes made so far. */
-  get size(): number {
-    return this.textures.size;
-  }
-
-  *bakedSources(): Generator<TextureSource> {
-    for (const texture of this.textures.values()) yield texture.source;
+  /** Whether `source` is a bake of this cache cut from a pixel-art page. */
+  isPixelArtBake(source: TextureSource): boolean {
+    return this.pixelArtBakes.has(source);
   }
 
   clear(): void {

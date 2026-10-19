@@ -24,8 +24,10 @@ import {
 import { surfaceOf } from './blood-surface.js';
 import {
   hasPrescaledPages,
+  isCollectingDrawnPages,
   isMagnifiedTexture,
   isShadowTexture,
+  noteDrawnPage,
   palettedLutOf,
   pixelArtMagnifyMode,
   prescaledPageOf,
@@ -134,7 +136,10 @@ export function bindWorldBatchPagesAndLut(renderer: Renderer): void {
     }
     const textures = batch.textures;
     const listed = textures.count;
-    const swaps = twins && hasPrescaledPages() ? swapInPrescaledPages(textures.textures, listed) : 0;
+    const swaps =
+      twins && (hasPrescaledPages() || isCollectingDrawnPages())
+        ? swapInPrescaledPages(textures.textures, listed)
+        : 0;
     if (binding !== null) {
       renderer.texture.bind(binding.lut, binding.slot);
       textures.count = binding.pages;
@@ -143,21 +148,27 @@ export function bindWorldBatchPagesAndLut(renderer: Renderer): void {
       execute(batch);
     } finally {
       textures.count = listed;
-      if (swaps > 0) restoreListedPages(textures.textures, listed);
+      if (swaps !== 0) restoreListedPages(textures.textures, listed);
     }
   };
 }
 
-/** Puts each listed page's prescaled twin in its slot, keeping the page in {@link listedPages}; how many. */
+/** Notes each listed page as drawn and puts its prescaled twin in its slot, keeping the page in
+ *  {@link listedPages}; a bit per slot swapped. */
 function swapInPrescaledPages(slots: TextureSource[], count: number): number {
   let swaps = 0;
   for (let slot = 0; slot < count; slot++) {
     const page = slots[slot];
-    const twin = page === undefined ? undefined : prescaledPageOf(page);
+    if (page === undefined) {
+      listedPages[slot] = undefined;
+      continue;
+    }
+    noteDrawnPage(page);
+    const twin = prescaledPageOf(page);
     listedPages[slot] = twin === undefined ? undefined : page;
     if (twin === undefined) continue;
     slots[slot] = twin;
-    swaps++;
+    swaps |= 1 << slot;
   }
   return swaps;
 }

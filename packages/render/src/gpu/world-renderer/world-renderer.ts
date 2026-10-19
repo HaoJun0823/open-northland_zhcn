@@ -682,7 +682,7 @@ export class WorldRenderer {
     this.worldLayer.destroy({ children: true });
     this.hud.destroy();
     this.chrome.destroy();
-    this.prescaler.clear();
+    this.prescaler.destroy();
     this.textureCache.clear();
   }
 

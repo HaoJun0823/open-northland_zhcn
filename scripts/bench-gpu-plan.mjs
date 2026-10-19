@@ -51,8 +51,8 @@ const WIDE_ZOOM = 0.35;
  *  blizzard. A bare kind shows the default heavy shower, which is a full storm for sand already. */
 const FULL_STORM_PERCENT = 100;
 const TOGGLE_ZOOMS = [DENSE_ZOOM, 0.5];
-/** The magnifier comparison's zooms: 0.5 and 0.7 minify, where every magnifier takes the same
- *  minification path, 1 draws a texel per pixel and 2 magnifies. */
+/** The magnifier comparison's zooms: 0.5 and 0.7 minify, 1 draws a texel per pixel and 2 magnifies.
+ *  xBR minifies its pages there, a prescaled scaler its twins at four times the texels. */
 const MAGNIFY_ZOOMS = [0.5, 0.7, DENSE_ZOOM, MAGNIFIED_ZOOM];
 /** A single selected settler opens the settler panel and its portrait inset. */
 const PANEL_SELECTION = 1;
@@ -226,16 +226,25 @@ export function summarizeRepeats(repeats) {
 
 const fixed = (value, digits) => (value === null || value === undefined ? '-' : value.toFixed(digits));
 
+const BYTES_PER_MB = 1024 * 1024;
+
+/** A scenario's prescaled twins as `pages (MB)`, with the pages the memory budget held back. */
+function prescaledCell(prescale) {
+  if (prescale === null || prescale === undefined) return '-';
+  const held = prescale.overBudget > 0 ? `, ${prescale.overBudget} over budget` : '';
+  return `${prescale.pages} (${fixed(prescale.bytes / BYTES_PER_MB, 0)}${held})`;
+}
+
 /** The markdown table `report.md` holds, one row per measured scenario. */
 export function markdownTable(results) {
   const rows = [
-    '| scenario | zoom | speed | selected | insets | GPU ms (min p50) | p50 per repeat | draws | texture binds | programs | uploads (KB) | texture uploads (KB) | void because |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| scenario | zoom | speed | selected | insets | prescaled pages (MB) | GPU ms (min p50) | p50 per repeat | draws | texture binds | programs | uploads (KB) | texture uploads (KB) | void because |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   for (const result of results) {
     const { gl, gpuMs } = result.summary;
     rows.push(
-      `| ${result.id} | ${result.zoom} | ${result.speed === PAUSED ? 'paused' : `x${result.speed}`} | ${result.selected} | ${result.insets} | ${fixed(gpuMs.minP50, 2)} | ${gpuMs.p50s.map((p50) => fixed(p50, 2)).join(' / ')} | ${fixed(gl.drawsPerFrame, 0)} | ${fixed(gl.textureBindsPerFrame, 0)} | ${fixed(gl.programsPerFrame, 0)} | ${fixed(gl.uploadsPerFrame, 0)} (${fixed(gl.uploadKbPerFrame, 0)}) | ${fixed(gl.textureUploadsPerFrame, 1)} (${fixed(gl.textureUploadKbPerFrame, 0)}) | ${result.summary.invalid.join(', ') || '-'} |`,
+      `| ${result.id} | ${result.zoom} | ${result.speed === PAUSED ? 'paused' : `x${result.speed}`} | ${result.selected} | ${result.insets} | ${prescaledCell(result.prescale)} | ${fixed(gpuMs.minP50, 2)} | ${gpuMs.p50s.map((p50) => fixed(p50, 2)).join(' / ')} | ${fixed(gl.drawsPerFrame, 0)} | ${fixed(gl.textureBindsPerFrame, 0)} | ${fixed(gl.programsPerFrame, 0)} | ${fixed(gl.uploadsPerFrame, 0)} (${fixed(gl.uploadKbPerFrame, 0)}) | ${fixed(gl.textureUploadsPerFrame, 1)} (${fixed(gl.textureUploadKbPerFrame, 0)}) | ${result.summary.invalid.join(', ') || '-'} |`,
     );
   }
   return rows.join('\n');

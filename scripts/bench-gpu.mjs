@@ -47,6 +47,10 @@ const options = parseGpuBenchArgs(process.argv.slice(2), process.env);
 const { seconds, repeats, output } = options;
 /** Shader compiles and the FPS counter's first readings settle within this. */
 const WARM_MS = 3000;
+/** A prescaled scaler redraws the pages a view draws over the following frames; a scenario waits this
+ *  long for it to finish before its window is void. */
+const PRESCALE_SETTLE_MS = 30000;
+const PRESCALE_POLL_MS = 100;
 /** The FPS counter folds half-second windows; sampling at that rate sees each reading about once. */
 const READING_MS = 500;
 /** The pointer rests on the bottom HUD bar, where no world hover card can rise. */
@@ -120,6 +124,30 @@ async function select(page, target, dense) {
   }
   const box = boxAround(await drawnOnScreen(page, 'settler', area), target, area);
   if (box !== null) await drag(page, box);
+}
+
+/** The prescaler's state once two consecutive frames found no page waiting for a twin, or the last
+ *  state read with `settled: false` after {@link PRESCALE_SETTLE_MS}; null without a prescaled scaler. */
+async function settlePrescale(page) {
+  const started = Date.now();
+  for (;;) {
+    const stats = await page.evaluate(async () => {
+      const renderer = window.__opennorthland.renderer;
+      const frame = () => new Promise((done) => requestAnimationFrame(done));
+      const first = renderer.prescaleStats();
+      await frame();
+      const second = renderer.prescaleStats();
+      return {
+        ...second,
+        quiet: first.pending - first.overBudget === 0 && second.pending - second.overBudget === 0,
+      };
+    });
+    if (stats.scaler === null) return null;
+    const settled = stats.quiet;
+    if (settled || Date.now() - started > PRESCALE_SETTLE_MS)
+      return { pages: stats.pages, bytes: stats.bytes, overBudget: stats.overBudget, settled };
+    await page.waitForTimeout(PRESCALE_POLL_MS);
+  }
 }
 
 async function measureRepeat(page) {
@@ -234,12 +262,17 @@ try {
       await d.setPaused(speed === 0);
     }, scenario.speed);
     await page.waitForTimeout(WARM_MS);
+    let prescale = await settlePrescale(page);
     const runs = [];
     for (let repeat = 1; repeat <= repeats; repeat++) {
       progress(`measuring ${scenario.id} ${repeat}/${repeats} for ${seconds}s`);
       const run = await measureRepeat(page);
       if (run.selected < scenario.selection)
         run.invalid.push(`selected ${run.selected} of ${scenario.selection}`);
+      // A window that drew prescale passes measured them, not the scaler's steady state.
+      if (prescale !== null && !prescale.settled) run.invalid.push('prescaling');
+      prescale = await settlePrescale(page);
+      if (prescale !== null && !prescale.settled) run.invalid.push('prescaling');
       runs.push(run);
     }
     await page.screenshot({ path: resolve(output, `${scenario.id}.png`) });
@@ -249,6 +282,7 @@ try {
       settings,
       selected: Math.max(...runs.map((run) => run.selected)),
       insets: Math.max(...runs.map((run) => run.insets)),
+      prescale,
       summary,
       runs,
     };

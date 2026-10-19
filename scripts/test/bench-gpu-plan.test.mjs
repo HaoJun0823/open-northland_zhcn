@@ -155,6 +155,15 @@ test('the table prints one row per scenario with its void reasons', () => {
   assert.equal(lines.length, 3);
   assert.equal(
     lines[2],
-    '| panel-x3 | 1 | x3 | 1 | 1 | 5.00 | 5.00 | 100 | 200 | 1 | 0 (0) | 0.5 (64) | load, hidden |',
+    '| panel-x3 | 1 | x3 | 1 | 1 | - | 5.00 | 5.00 | 100 | 200 | 1 | 0 (0) | 0.5 (64) | load, hidden |',
   );
+});
+
+test('a prescaled scenario prints its twins, their memory and the pages over budget', () => {
+  const summary = summarizeRepeats([repeat([5], 100, 10)]);
+  const prescale = { pages: 99, bytes: 1515929588, overBudget: 3, settled: true };
+  const table = markdownTable([
+    { id: 'magnify-xbrz-z1', zoom: 1, speed: 0, selected: 0, insets: 0, prescale, summary },
+  ]);
+  assert.match(table.split('\n')[2], /\| 99 \(1446, 3 over budget\) \|/);
 });

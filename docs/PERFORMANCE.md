@@ -216,7 +216,9 @@ npm run bench:gpu -- bench-out/late.t100000.checkpoint http://127.0.0.1:5174 ben
 
 Arguments: checkpoint, origin, output directory (default `bench-out/gpu`), seconds per repeat
 (default 5), repeats (default 3). Each scenario restores the checkpoint/settings, enables the FPS
-counter, warms for three seconds and samples GPU time every half second.
+counter, warms for three seconds and samples GPU time every half second. With a prescaled art filter it
+then waits until no drawn page waits for its twin, up to 30 s; a window in which prescale passes ran
+is void as `prescaling`, and the table lists the twins, their memory and the pages over budget.
 
 Scenarios cover enhancements off/on, each magnifier at zoom 0.5/0.7/1/2, pause/×3, a selected settler
 and portrait, groups of 10 and at least 50 settlers, rain, snow, sand, a thunderstorm, a blizzard and

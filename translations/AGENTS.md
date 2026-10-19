@@ -67,6 +67,11 @@ untranslated, which fall back to the source anyway. When the plain file holds an
 (another `map` alias) of other text, the skeleton takes the variant name; when it holds this map's
 overlay of older text, `--force` replaces it. Copies with the same text share one file.
 
+`npm run translations:derive-cht` writes the `cht/maps/` twin of every project-written `chs/maps/`
+overlay as an OpenCC conversion (mainland to Taiwan script and vocabulary) marked `derived: "chs"`.
+It rewrites only files carrying that mark; an imported or hand-written `cht` file is kept. Edit the
+`chs` file and rerun the command, never the derived file.
+
 The catalogue API loads the overlays when it starts and converts again each catalogue entry whose
 maps gained, changed or lost an overlay, so an overlay reaches catalogue maps with the next API image
 ([API](../docs/API.md#translation-overlays)).

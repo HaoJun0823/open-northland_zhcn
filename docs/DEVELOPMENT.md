@@ -186,6 +186,7 @@ applied, left out or found stale.
 ```bash
 npm run translations:skeleton -- path/to/map.rar --lang chs
 npm run translations:skeleton -- path/to/MapFolder --lang eng --basis eng --force
+npm run translations:derive-cht
 ```
 
 The skeleton command writes a map overlay for each map of a `.zip`, `.rar`, `.c2m` or folder into

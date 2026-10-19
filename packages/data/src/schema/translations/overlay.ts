@@ -38,6 +38,9 @@ export const MapOverlay = z.strictObject({
   strings: z.record(IdKey, z.string()).default({}),
   /** `briefings.txt` block bodies by label, with the tags a block body carries (`<picture:…>` and so on). */
   briefings: z.record(z.string().min(1), z.string()).default({}),
+  /** Set on a file a tool converted from the named language's overlay of the same name (Traditional
+   *  from Simplified Chinese); the tool rewrites it and nobody edits it by hand. */
+  derived: z.enum(LANGUAGES).optional(),
 });
 export type MapOverlay = z.infer<typeof MapOverlay>;
 

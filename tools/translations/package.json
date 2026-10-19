@@ -8,7 +8,8 @@
     "build": "tsc --build",
     "check:translations": "tsc --build && node ./dist/audit.js",
     "import:cultures-localization": "tsc --build && node ./dist/import-cultures-localization.js",
-    "translations:skeleton": "tsc --build && node ./dist/skeleton.js"
+    "translations:skeleton": "tsc --build && node ./dist/skeleton.js",
+    "translations:derive-cht": "tsc --build && node ./dist/derive-cht.js"
   },
   "dependencies": {
     "@open-northland/asset-pipeline": "*",
@@ -16,7 +17,8 @@
     "@open-northland/formats": "*",
     "@open-northland/map-import": "*",
     "@open-northland/translations": "*",
-    "node-unrar-js": "2.0.2"
+    "node-unrar-js": "2.0.2",
+    "opencc-js": "^1.4.2"
   },
   "devDependencies": {
     "@types/node": "^26.6.3"

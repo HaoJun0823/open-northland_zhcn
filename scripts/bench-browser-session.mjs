@@ -189,9 +189,15 @@ export async function restoreCheckpoint(page, { saveText, header, stateHash, url
     { text: saveText, patch: settings },
   );
   await page.goto(url);
-  await page.waitForFunction((tick) => window.__opennorthland?.host.tick === tick, header.tick, {
-    timeout: RESTORE_TIMEOUT_MS,
-  });
+  await page
+    .waitForFunction((tick) => window.__opennorthland?.host.tick === tick, header.tick, {
+      timeout: RESTORE_TIMEOUT_MS,
+    })
+    .catch((error) => {
+      throw new Error(
+        `Checkpoint did not reach tick ${header.tick} within ${RESTORE_TIMEOUT_MS} ms at ${url}: ${error.message}`,
+      );
+    });
   await page.evaluate(async () => {
     await window.__opennorthland.setPaused(true);
     if (document.fullscreenElement) await document.exitFullscreen();

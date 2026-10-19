@@ -158,6 +158,7 @@ decided as `audioFrames`. `bench:gpu` does the same with sound on.
 | `ON_BENCH_BROWSER_CPU_THROTTLE` | DevTools main-thread slowdown; workers are not throttled |
 | `ON_BENCH_BROWSER_SEAT` | Watch a seat with its fog and HUD |
 | `ON_BENCH_BROWSER_WORKER_PROFILE=1` | Profile the worker per baseline window; use a separate unprofiled run for timings |
+| `ON_BENCH_WINDOW_POSITION` | `x,y` screen position of the browser window (every browser benchmark), to keep it on a display nobody works on; a covered window keeps its frame rate, a minimized one does not |
 
 The default matrix covers dense views paused and at ×1/×3/×10, wide views paused and at ×3/×10,
 zoom 0.7/0.5 at ×3, an empty view and a repeated dense ×3 window.

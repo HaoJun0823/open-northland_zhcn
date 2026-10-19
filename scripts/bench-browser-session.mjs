@@ -9,9 +9,20 @@ import { skipOriginalGameGate } from './original-game-gate.mjs';
 /** The browser benchmarks' window, at device scale 1. */
 export const VIEWPORT = { width: 1440, height: 900 };
 
+/** `ON_BENCH_WINDOW_POSITION=x,y` opens the browser window at that screen position, so a measuring run
+ *  can sit on a display nobody works on. A window behind other windows keeps its frame rate; a minimized
+ *  one does not, so never minimize a measuring browser. */
+const windowPosition = process.env.ON_BENCH_WINDOW_POSITION;
+if (windowPosition !== undefined && !/^-?\d+,-?\d+$/.test(windowPosition))
+  throw new Error('ON_BENCH_WINDOW_POSITION must be x,y');
+
 /** Muted, yet free to start audio without a real gesture, so every window pays the sound driver's work
  *  as a player's game does. */
-export const BENCH_BROWSER_ARGS = ['--mute-audio', '--autoplay-policy=no-user-gesture-required'];
+export const BENCH_BROWSER_ARGS = [
+  '--mute-audio',
+  '--autoplay-policy=no-user-gesture-required',
+  ...(windowPosition === undefined ? [] : [`--window-position=${windowPosition}`]),
+];
 /** The gesture the game's audio start listens for: a modifier the game only tracks while held, so a
  *  press and release selects and orders nothing. */
 const AUDIO_UNLOCK_KEY = 'Shift';

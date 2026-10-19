@@ -48,7 +48,16 @@ export async function countGlCalls(page) {
   await page.evaluate(() => {
     const app = window.__opennorthland.renderer.app;
     const gl = app.renderer.gl;
-    const counts = { frames: 0, draws: 0, textureBinds: 0, programs: 0, uploads: 0, uploadBytes: 0 };
+    const counts = {
+      frames: 0,
+      draws: 0,
+      textureBinds: 0,
+      programs: 0,
+      uploads: 0,
+      uploadBytes: 0,
+      textureUploads: 0,
+      textureUploadBytes: 0,
+    };
     if (window.__glCalls === undefined) {
       const wrap = (name, count) => {
         const original = gl[name].bind(gl);
@@ -76,6 +85,48 @@ export async function countGlCalls(page) {
         c.uploads++;
         c.uploadBytes += a[1]?.byteLength ?? 0;
       });
+      // A texture upload's bytes: its rectangle at the texel size its format and type name, since a
+      // sub-upload may read a few rows of a much larger array; an allocation without pixels is a call of
+      // no bytes. Formats outside the table count four bytes a texel.
+      const CHANNELS = {
+        [gl.RED]: 1,
+        [gl.RED_INTEGER]: 1,
+        [gl.ALPHA]: 1,
+        [gl.LUMINANCE]: 1,
+        [gl.RG]: 2,
+        [gl.RG_INTEGER]: 2,
+        [gl.LUMINANCE_ALPHA]: 2,
+        [gl.RGB]: 3,
+        [gl.RGB_INTEGER]: 3,
+      };
+      const CHANNEL_BYTES = { [gl.FLOAT]: 4, [gl.HALF_FLOAT]: 2, [gl.UNSIGNED_SHORT]: 2, [gl.SHORT]: 2 };
+      const RGBA_CHANNELS = 4;
+      const texelBytes = (width, height, format, type, pixels) =>
+        pixels === null || pixels === undefined
+          ? 0
+          : width * height * (CHANNELS[format] ?? RGBA_CHANNELS) * (CHANNEL_BYTES[type] ?? 1);
+      const sourceSize = (source) => [
+        source?.width ?? source?.videoWidth ?? 0,
+        source?.height ?? source?.videoHeight ?? 0,
+      ];
+      // texImage2D(target, level, internal, width, height, border, format, type, pixels) or, from an image
+      // source, (target, level, internal, format, type, source).
+      wrap('texImage2D', (c, a) => {
+        c.textureUploads++;
+        c.textureUploadBytes +=
+          a.length >= 9
+            ? texelBytes(a[3], a[4], a[6], a[7], a[8])
+            : texelBytes(...sourceSize(a[5]), a[3], a[4], a[5]);
+      });
+      // texSubImage2D(target, level, x, y, width, height, format, type, pixels) or, from an image source,
+      // (target, level, x, y, format, type, source).
+      wrap('texSubImage2D', (c, a) => {
+        c.textureUploads++;
+        c.textureUploadBytes +=
+          a.length >= 9
+            ? texelBytes(a[4], a[5], a[6], a[7], a[8])
+            : texelBytes(...sourceSize(a[6]), a[4], a[5], a[6]);
+      });
       const render = app.render;
       app.render = function (...args) {
         window.__glCalls.counts.frames++;
@@ -94,6 +145,8 @@ export async function countGlCalls(page) {
           programsPerFrame: per(c.programs),
           uploadsPerFrame: per(c.uploads),
           uploadKbPerFrame: per(c.uploadBytes) / 1024,
+          textureUploadsPerFrame: per(c.textureUploads),
+          textureUploadKbPerFrame: per(c.textureUploadBytes) / 1024,
         };
       },
     };

@@ -15,6 +15,8 @@ import {
   benchBrowserInfo,
   cameraAt,
   checkpointSession,
+  DEVICE_SCALE,
+  densestBattle,
   densestBuildings,
   loadGateNote,
   MAX_LOAD_PER_CPU,
@@ -59,6 +61,7 @@ const metadata = {
   checkpoint: resolve(options.checkpoint),
   header,
   viewport: VIEWPORT,
+  deviceScale: DEVICE_SCALE,
   seconds,
   repeats,
   os: {
@@ -91,7 +94,7 @@ const writeReport = async () => {
     '',
     `Adapter: ${metadata.adapter ?? 'unknown'}; GPU timer ${metadata.gpuTimer ? 'available' : 'unavailable'}.`,
     `Browser: ${metadata.browser?.version ?? 'not started'}${metadata.browser?.cdp ? ` over CDP at ${metadata.browser.cdp}` : ''}.`,
-    `${VIEWPORT.width}x${VIEWPORT.height}, ${repeats} x ${seconds} s per scenario; one-minute load per CPU at start ${startLoadText}, gate ${MAX_LOAD_PER_CPU}.`,
+    `${VIEWPORT.width}x${VIEWPORT.height} at device scale ${DEVICE_SCALE}, ${repeats} x ${seconds} s per scenario; one-minute load per CPU at start ${startLoadText}, gate ${MAX_LOAD_PER_CPU}.`,
     '',
     markdownTable(metadata.scenarios),
     '',
@@ -179,6 +182,7 @@ try {
   });
   await page.goto(options.origin.origin);
   let dense = null;
+  let battle = null;
   for (const scenario of options.scenarios) {
     progress(`restoring for ${scenario.id}`);
     const url = new URL(previewUrl);
@@ -207,8 +211,14 @@ try {
       metadata.adapter = gpu.adapter;
       metadata.gpuTimer = gpu.timer;
     }
+    if (scenario.view === 'battle' && battle === null) {
+      const found = await densestBattle(page);
+      if (found.count <= 0) throw new Error(`No fighting or bone piles to frame for ${scenario.id}`);
+      battle = found.point;
+      metadata.battle = found;
+    }
     await watchFrameInputs(page);
-    const camera = cameraAt(dense, scenario.zoom);
+    const camera = cameraAt(scenario.view === 'battle' ? battle : dense, scenario.zoom);
     await page.evaluate((c) => {
       const d = window.__opennorthland;
       d.cameraCtl.setSuspended(true);

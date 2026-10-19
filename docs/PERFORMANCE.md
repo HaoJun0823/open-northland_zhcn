@@ -144,7 +144,7 @@ npm run bench:browser -- bench-out/late.t100000.checkpoint http://127.0.0.1:5174
 
 Arguments: checkpoint, origin, output directory (default `bench-out/browser`), seconds per window
 (default 15). The probe verifies checkout/content and restores the checkpoint hash before each window.
-It uses muted headed Chromium at 1440×900 ([browser and window](#browser-and-window)), device scale 1,
+It uses muted headed Chromium at 1440×900 and device scale 1 ([browser and window](#browser-and-window)),
 fullscreen off, no frame cap and five seconds of warm-up, with the pointer resting over the middle of
 the world so each window pays the hover the same way. Input is blocked while measuring. Audio runs as in a player's game: Chromium stays muted but may
 start audio without a gesture, a press of Shift (a modifier the game only tracks while held, so it selects
@@ -179,7 +179,8 @@ Failures retain completed results before closing the browser.
 
 | Variable | Effect |
 | --- | --- |
-| `ON_BENCH_VIEWPORT` | Window as `WxH` at device scale 1; default `1440x900`. Numbers compare only at one size |
+| `ON_BENCH_VIEWPORT` | Window as `WxH`; default `1440x900`. Numbers compare only at one size; `1920x1080` is the players' resolution |
+| `ON_BENCH_DEVICE_SCALE` | Device pixel ratio; default 1; `2` measures a Retina display |
 | `ON_BENCH_WINDOW_POSITION` | `x,y` screen position of a headed browser window, to keep it on a display nobody works on; a covered window keeps its frame rate, a minimized one does not |
 | `ON_BENCH_CDP` | DevTools endpoint, e.g. `http://127.0.0.1:9333`, of a running Chromium to drive instead of launching Playwright's |
 
@@ -221,6 +222,14 @@ Scenarios cover enhancements off/on, each magnifier at zoom 1/2, pause/×3, a se
 portrait, groups of 10 and at least 50 settlers, rain, snow, sand, a thunderstorm, a blizzard and clear
 weather, and zoom 0.35.
 `ON_BENCH_GPU_SCENARIOS=panel-x3,on-x3` selects specific scenarios.
+
+Toggle scenarios run at ×3 with every graphics setting on but one: `no-<setting>-x3` against `on-x3`,
+and `-z0.5` twins at zoom 0.5, for soft shadows, enhanced water, environment motion, grounded buildings,
+building damage, post-processing (`postFxEnabled`) and sprite smoothing. Blood and bone fading show only
+where fighting is, so `battle-no-blood-x3` and `battle-no-bonesFade-x3` read against `battle-x3`, framed
+on the densest cluster of fighters holding a target (bone piles when nobody fights). `scale1.5-x3` and
+`scale2-x3` set the render scale. One toggle's milliseconds are a small difference between two runs on
+the M2's bimodal timer, so read them over interleaved runs and check the WebGL counts beside them.
 
 `report.md` has the summary; `report.json` has every repeat. The summary uses the lowest per-repeat
 median and includes WebGL calls, selection/inset counts and adapter. Load, visibility and camera

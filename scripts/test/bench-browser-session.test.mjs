@@ -5,6 +5,7 @@ import {
   checkpointSession,
   MAX_LOAD_PER_CPU,
   overloaded,
+  parseDeviceScale,
   parseViewport,
 } from '../bench-browser-session.mjs';
 
@@ -66,4 +67,11 @@ test('a bench viewport is WxH, the default window when unset', () => {
   assert.deepEqual(parseViewport('1920x1080'), { width: 1920, height: 1080 });
   for (const text of ['1920', '1920x', '0x900', '1920X1080', '1920x1080.5'])
     assert.throws(() => parseViewport(text), /ON_BENCH_VIEWPORT must be WxH/);
+});
+
+test('a bench device scale is a positive ratio, 1 when unset', () => {
+  assert.equal(parseDeviceScale(undefined), 1);
+  assert.equal(parseDeviceScale('2'), 2);
+  for (const text of ['0', '-1', 'retina'])
+    assert.throws(() => parseDeviceScale(text), /ON_BENCH_DEVICE_SCALE must be a positive number/);
 });

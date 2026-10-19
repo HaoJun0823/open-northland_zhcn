@@ -18,8 +18,18 @@ export function parseViewport(text) {
   return { width: Number(match[1]), height: Number(match[2]) };
 }
 
-/** The browser benchmarks' window, at device scale 1. */
+/** `ON_BENCH_DEVICE_SCALE`, the page's device pixel ratio (2 is a Retina display); unset is 1. */
+export function parseDeviceScale(text) {
+  if (text === undefined || text === '') return 1;
+  const scale = Number(text);
+  if (!Number.isFinite(scale) || scale <= 0)
+    throw new Error(`ON_BENCH_DEVICE_SCALE must be a positive number, not '${text}'`);
+  return scale;
+}
+
+/** The browser benchmarks' window and device pixel ratio. */
 export const VIEWPORT = parseViewport(process.env.ON_BENCH_VIEWPORT);
+export const DEVICE_SCALE = parseDeviceScale(process.env.ON_BENCH_DEVICE_SCALE);
 
 /** `ON_BENCH_WINDOW_POSITION=x,y` opens the browser window at that screen position, so a measuring run
  *  can sit on a display nobody works on. A window behind other windows keeps its frame rate; a minimized
@@ -75,9 +85,10 @@ export function benchBrowserInfo(browser) {
   return { version: browser.version(), cdp: process.env.ON_BENCH_CDP || null };
 }
 
-/** A bench page at device scale 1 that skips the original-game gate, which would otherwise hold `?map=`. */
+/** A bench page at the bench window and device scale that skips the original-game gate, which would
+ *  otherwise hold `?map=`. */
 export async function openBenchPage(browser) {
-  const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+  const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: DEVICE_SCALE });
   await skipOriginalGameGate(page);
   return page;
 }
@@ -85,6 +96,8 @@ export async function openBenchPage(browser) {
 export const MAX_LOAD_PER_CPU = 1.5;
 /** Buildings this close on screen count toward a dense view: about half the window each way. */
 const DENSE_REACH = { x: 650, y: 380 };
+/** Fighters this close on screen count toward a battle view: about a zoom-1 screen. */
+const BATTLE_REACH = { x: 500, y: 300 };
 /** A restore of a late-game checkpoint can take minutes on a loaded machine. */
 const RESTORE_TIMEOUT_MS = 180000;
 
@@ -225,6 +238,50 @@ export function densestBuildings(page, seat = null) {
       },
       seat,
       reach: DENSE_REACH,
+    },
+  );
+}
+
+/**
+ * The world-screen point with the most fighters holding a target nearby, where fresh blood sprays, and
+ * that count; without any fighting, the densest bone piles. The GPU benchmark's battle view frames it.
+ */
+export function densestBattle(page) {
+  return page.evaluate(
+    async ({ modules, reach }) => {
+      const { ONE } = await import(modules.fixed);
+      const { positionOfNode } = await import(modules.halfcell);
+      const { tileToScreen } = await import(modules.projection);
+      const fighters = [];
+      const bones = [];
+      for (const entity of window.__opennorthland.host.snapshot().entities) {
+        const { Engagement, Position, BonePile } = entity.components;
+        if (Engagement?.target !== undefined && Position)
+          fighters.push(tileToScreen(Position.x / ONE, Position.y / ONE));
+        if (BonePile) {
+          const at = positionOfNode(BonePile.hx, BonePile.hy);
+          bones.push(tileToScreen(at.x / ONE, at.y / ONE));
+        }
+      }
+      const points = fighters.length > 0 ? fighters : bones;
+      let point = points[0] ?? { x: 0, y: 0 };
+      let count = -1;
+      for (const p of points) {
+        const near = points.filter((q) => Math.abs(q.x - p.x) < reach.x && Math.abs(q.y - p.y) < reach.y);
+        if (near.length > count) {
+          count = near.length;
+          point = p;
+        }
+      }
+      return { point: { x: point.x, y: point.y }, count, of: fighters.length > 0 ? 'fighters' : 'bones' };
+    },
+    {
+      modules: {
+        fixed: `/@fs${resolve(repoRoot, 'packages/sim/src/core/fixed.ts')}`,
+        halfcell: `/@fs${resolve(repoRoot, 'packages/sim/src/nav/halfcell.ts')}`,
+        projection: `/@fs${resolve(repoRoot, 'packages/render/src/data/projection/iso.ts')}`,
+      },
+      reach: BATTLE_REACH,
     },
   );
 }

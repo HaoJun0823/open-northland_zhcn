@@ -16,6 +16,28 @@ export const ENHANCEMENT_SETTINGS = [
   'weather',
   'postFxEnabled',
 ];
+/**
+ * The settings a toggle scenario switches off alone with every other one on: the startup profile's
+ * effects plus the presentation settings it leaves to the player. Every scenario pins them (on, unless
+ * its patch says otherwise), since a patch stays stored for the next scenario's restore.
+ */
+export const TOGGLED_SETTINGS = [
+  'softShadows',
+  'enhancedWater',
+  'environmentMotion',
+  'groundedBuildings',
+  'buildingDamage',
+  'blood',
+  'bonesFade',
+  'postFxEnabled',
+  'spriteSmoothing',
+];
+/** Blood and bone piles show only where fighting is, so their toggles frame the densest battle. */
+const BATTLE_SETTINGS = ['blood', 'bonesFade'];
+/** The backing-resolution multipliers the render-scale scenarios set; 1 is the default. */
+export const RENDER_SCALES = [1.5, 2];
+const DEFAULT_RENDER_SCALE = 1;
+
 /** The Graphics menu's world magnifications: `off` is enhanced sampling disabled, the rest its scalers. */
 export const MAGNIFIERS = ['off', 'bilinear', 'sharp', 'xbr'];
 const DEFAULT_MAGNIFIER = 'xbr';
@@ -28,6 +50,7 @@ const WIDE_ZOOM = 0.35;
 /** A `?weather=<kind>:<percent>` amount past every kind's full storm: a thunderstorm with lightning, a
  *  blizzard. A bare kind shows the default heavy shower, which is a full storm for sand already. */
 const FULL_STORM_PERCENT = 100;
+const TOGGLE_ZOOMS = [DENSE_ZOOM, 0.5];
 /** A single selected settler opens the settler panel and its portrait inset. */
 const PANEL_SELECTION = 1;
 const FEW_SELECTED = 10;
@@ -44,12 +67,14 @@ function scenario(id, overrides = {}) {
     speed: PAUSED,
     selection: 0,
     weather: null,
+    view: 'dense',
+    patch: {},
     ...overrides,
   };
 }
 
 /**
- * Every scenario frames the densest building cluster. Pairs to read together: `off-*` against
+ * Every scenario frames the densest building cluster, a `battle` view the densest fighting. Pairs to read together: `off-*` against
  * `magnify-*-z1` and `on-x3`; `panel-*` against `magnify-xbr-z1` and `on-x3`; `select*` against
  * `magnify-xbr-z1`; every `weather-*-x3` against `weather-clear-x3`.
  */
@@ -74,15 +99,55 @@ export function gpuScenarios() {
     scenario('weather-clear-x3', { weather: 'clear', speed: FAST }),
     scenario('wide-paused', { zoom: WIDE_ZOOM }),
     scenario('wide-x3', { zoom: WIDE_ZOOM, speed: FAST }),
+    ...toggleScenarios(),
+    ...renderScaleScenarios(),
   ];
+}
+
+const zoomSuffix = (zoom) => (zoom === DENSE_ZOOM ? '' : `-z${zoom}`);
+
+/**
+ * Everything on against each toggled setting off alone, at x3 and zoom 1 and 0.5: read `no-<setting>-x3`
+ * against `on-x3`, and `battle-no-<setting>-x3` against `battle-x3`, at the same zoom suffix.
+ */
+function toggleScenarios() {
+  return TOGGLE_ZOOMS.flatMap((zoom) => {
+    const z = zoomSuffix(zoom);
+    const battle = { speed: FAST, zoom, view: 'battle' };
+    return [
+      ...(zoom === DENSE_ZOOM ? [] : [scenario(`on-x3${z}`, { speed: FAST, zoom })]),
+      ...TOGGLED_SETTINGS.filter((key) => !BATTLE_SETTINGS.includes(key)).map((key) =>
+        scenario(`no-${key}-x3${z}`, { speed: FAST, zoom, patch: { [key]: false } }),
+      ),
+      scenario(`battle-x3${z}`, battle),
+      ...BATTLE_SETTINGS.map((key) =>
+        scenario(`battle-no-${key}-x3${z}`, { ...battle, patch: { [key]: false } }),
+      ),
+    ];
+  });
+}
+
+/** Everything on at a higher backing resolution: read `scale<n>-x3` against `on-x3`. */
+function renderScaleScenarios() {
+  return RENDER_SCALES.map((renderScale) =>
+    scenario(`scale${renderScale}-x3`, { speed: FAST, patch: { renderScale } }),
+  );
 }
 
 /** The player-settings patch a scenario loads under; the FPS counter feeds `perf().gpu.ms`. */
 export function scenarioSettings(entry) {
-  const settings = Object.fromEntries(ENHANCEMENT_SETTINGS.map((key) => [key, entry.enhancements]));
+  const settings = Object.fromEntries(TOGGLED_SETTINGS.map((key) => [key, true]));
+  for (const key of ENHANCEMENT_SETTINGS) settings[key] = entry.enhancements;
   settings.enhancedSampling = entry.magnifier !== 'off';
   if (entry.magnifier !== 'off') settings.pixelArtScaler = entry.magnifier;
-  return { ...settings, fpsCounter: true, soundEnabled: true, edgeScrollEnabled: false };
+  return {
+    ...settings,
+    renderScale: DEFAULT_RENDER_SCALE,
+    ...entry.patch,
+    fpsCounter: true,
+    soundEnabled: true,
+    edgeScrollEnabled: false,
+  };
 }
 
 function positiveNumber(text, name, integer) {
@@ -128,6 +193,8 @@ const GL_FIELDS = [
   'programsPerFrame',
   'uploadsPerFrame',
   'uploadKbPerFrame',
+  'textureUploadsPerFrame',
+  'textureUploadKbPerFrame',
 ];
 
 /**
@@ -159,13 +226,13 @@ const fixed = (value, digits) => (value === null || value === undefined ? '-' : 
 /** The markdown table `report.md` holds, one row per measured scenario. */
 export function markdownTable(results) {
   const rows = [
-    '| scenario | zoom | speed | selected | insets | GPU ms (min p50) | p50 per repeat | draws | texture binds | programs | uploads (KB) | void because |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| scenario | zoom | speed | selected | insets | GPU ms (min p50) | p50 per repeat | draws | texture binds | programs | uploads (KB) | texture uploads (KB) | void because |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   for (const result of results) {
     const { gl, gpuMs } = result.summary;
     rows.push(
-      `| ${result.id} | ${result.zoom} | ${result.speed === PAUSED ? 'paused' : `x${result.speed}`} | ${result.selected} | ${result.insets} | ${fixed(gpuMs.minP50, 2)} | ${gpuMs.p50s.map((p50) => fixed(p50, 2)).join(' / ')} | ${fixed(gl.drawsPerFrame, 0)} | ${fixed(gl.textureBindsPerFrame, 0)} | ${fixed(gl.programsPerFrame, 0)} | ${fixed(gl.uploadsPerFrame, 0)} (${fixed(gl.uploadKbPerFrame, 0)}) | ${result.summary.invalid.join(', ') || '-'} |`,
+      `| ${result.id} | ${result.zoom} | ${result.speed === PAUSED ? 'paused' : `x${result.speed}`} | ${result.selected} | ${result.insets} | ${fixed(gpuMs.minP50, 2)} | ${gpuMs.p50s.map((p50) => fixed(p50, 2)).join(' / ')} | ${fixed(gl.drawsPerFrame, 0)} | ${fixed(gl.textureBindsPerFrame, 0)} | ${fixed(gl.programsPerFrame, 0)} | ${fixed(gl.uploadsPerFrame, 0)} (${fixed(gl.uploadKbPerFrame, 0)}) | ${fixed(gl.textureUploadsPerFrame, 1)} (${fixed(gl.textureUploadKbPerFrame, 0)}) | ${result.summary.invalid.join(', ') || '-'} |`,
     );
   }
   return rows.join('\n');

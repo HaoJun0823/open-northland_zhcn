@@ -190,6 +190,51 @@ describe('auditTranslations: against the pack', () => {
     ]);
   });
 
+  it('warns about values still the source text, a skeleton nobody translated as a whole', async () => {
+    const shipped = { 0: 'Fjord', 1: 'Opis', 2: '...' };
+    const blocks = new Map([
+      ['title', 'Na polnoc'],
+      ['art', '<picture:fjord.bmp>'],
+    ]);
+    const shippedDigest = mapSourceTextDigest(shipped, blocks);
+    const map = packMap({
+      folder: 'maps/community/fjord',
+      text: { datDigest: DIGEST, languages: { pol: { strings: shipped, briefings: blocks } } },
+    });
+    const skeleton = { '0': 'Fjord', '1': 'Opis', '2': '...' };
+    const blockSkeleton = { title: 'Na polnoc', art: '<picture:fjord.bmp>' };
+    await put(`chs/maps/${DIGEST}.json`, mapOverlay(skeleton, blockSkeleton, basis(shippedDigest)));
+    await put(
+      `cht/maps/${DIGEST}.json`,
+      mapOverlay({ ...skeleton, '1': '描述' }, blockSkeleton, basis(shippedDigest)),
+    );
+    await put(
+      `pol/maps/${DIGEST}.json`,
+      mapOverlay({ '0': 'Fjord', '1': 'Nowy opis', '2': '...' }, {}, basis(shippedDigest)),
+    );
+
+    const { warnings } = await auditTranslations(dir, pack([map]));
+
+    expect(warnings).toEqual([
+      {
+        file: `chs/maps/${DIGEST}.json`,
+        message: 'maps/community/fjord: untranslated, every value is still the pol source text',
+      },
+      {
+        file: `cht/maps/${DIGEST}.json`,
+        message: 'maps/community/fjord: untranslated string ids, still the pol source text: 0',
+      },
+      {
+        file: `cht/maps/${DIGEST}.json`,
+        message: 'maps/community/fjord: untranslated briefing labels, still the pol source text: title',
+      },
+      {
+        file: `pol/maps/${DIGEST}.json`,
+        message: 'maps/community/fjord: unedited string ids, still the pol source text: 0',
+      },
+    ]);
+  });
+
   it('warns about a source-language overlay on every copy of the map that refuses one', async () => {
     await put(`pol/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord polnocny' }, {}, basis(polDigest)));
     const copies = [

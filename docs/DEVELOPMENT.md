@@ -178,9 +178,10 @@ npm run check:translations
 The check validates every overlay against its schema and the layout, and fails only on those. With
 the unpacked pack at `ON_DATA_ROOT` (by default `.cache/data/unpacked` of this checkout, else of the
 primary checkout) it also warns about overlays whose basis text changed since the pack shipped it,
-translations into a language the pack ships, string ids, labels and type ids the source lacks, and
-source-language overlays on maps that refuse them. The pipeline log's
-`[pipeline] translations:` lines count the overlays each run applied, left out or found stale.
+translations into a language the pack ships, string ids, labels and type ids the source lacks,
+source-language overlays on maps that refuse them, and values still equal to the source text: an
+unfinished skeleton. The pipeline log's `[pipeline] translations:` lines count the overlays each run
+applied, left out or found stale.
 
 ```bash
 npm run translations:skeleton -- path/to/map.rar --lang chs
@@ -191,7 +192,8 @@ The skeleton command writes a map overlay for each map of a `.zip`, `.rar`, `.c2
 `translations/` (or `--out`), refusing to replace an existing one without `--force`. Its basis is
 `--basis`, else the first source language the map ships, and every value is that language's text, for
 a translator to replace in place. A `--lang` equal to the basis writes an edit template; a `--lang` the
-map ships itself is refused, since the shipped text wins.
+map ships itself is refused, since the shipped text wins. The check sees only maps of the pack, so it
+cannot flag an unfinished skeleton of a catalogue map.
 
 ## Browser entries
 

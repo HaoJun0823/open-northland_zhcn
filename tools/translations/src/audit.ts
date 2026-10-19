@@ -18,7 +18,7 @@ import {
   type MapOverlay,
   type ObjectTableOverlay,
 } from '@open-northland/data';
-import { mapSourceTextDigest } from '@open-northland/map-import';
+import { type MapLanguageText, mapSourceTextDigest } from '@open-northland/map-import';
 import {
   listDirectory,
   OVERLAY_KINDS,
@@ -45,7 +45,8 @@ export interface AuditReport {
   readonly files: number;
   /** Schema and layout violations: the check fails on any. */
   readonly errors: readonly AuditFinding[];
-  /** Overlays the pipeline leaves out or reads against changed source text. */
+  /** Overlays the pipeline leaves out or reads against changed source text, and values still the
+   *  source text unchanged. */
   readonly warnings: readonly AuditFinding[];
   /** Map overlays filed under a digest no map of the pack has: a catalogue map's, or a stale identity. */
   readonly unmatchedMaps: number;
@@ -178,6 +179,30 @@ function missingKeys(
   return missing.length === 0 ? undefined : missing.join(', ');
 }
 
+const MARKUP_TAG = /<[^>]*>/g;
+const LETTER = /\p{L}/u;
+
+/** Whether a value has a letter outside its tags; one without, such as `...` or a lone picture, reads
+ *  the same in every language. */
+const hasWords = (text: string): boolean => LETTER.test(text.replace(MARKUP_TAG, ''));
+
+/** How many values of `overlay` have words, and the string ids and briefing labels of those that are
+ *  still the basis text unchanged. */
+function unchangedKeys(
+  overlay: MapOverlay,
+  basis: MapLanguageText | undefined,
+): { readonly worded: number; readonly ids: readonly string[]; readonly labels: readonly string[] } {
+  const worded = (entries: Readonly<Record<string, string>>) =>
+    Object.entries(entries).filter(([, text]) => hasWords(text));
+  const strings = worded(overlay.strings);
+  const blocks = worded(overlay.briefings);
+  return {
+    worded: strings.length + blocks.length,
+    ids: strings.filter(([id, text]) => basis?.strings[Number(id)] === text).map(([id]) => id),
+    labels: blocks.filter(([label, text]) => basis?.briefings.get(label) === text).map(([label]) => label),
+  };
+}
+
 /** The warnings of one map overlay against every pack copy of its map. */
 function auditMapOverlay(
   { file, lang, overlay }: ValidOverlays['maps'][number],
@@ -202,6 +227,18 @@ function auditMapOverlay(
     const labels = missingKeys(overlay.briefings, (label) => basis?.briefings.has(label) === true);
     if (labels !== undefined)
       warn(file, `${where}: briefing labels the ${overlay.basis.lang} source lacks: ${labels}`);
+    // An overlay in its basis language edits that text rather than translating it.
+    const kept = lang === overlay.basis.lang ? 'unedited' : 'untranslated';
+    const source = `the ${overlay.basis.lang} source text`;
+    const unchanged = unchangedKeys(overlay, basis);
+    if (unchanged.worded > 0 && unchanged.ids.length + unchanged.labels.length === unchanged.worded) {
+      warn(file, `${where}: ${kept}, every value is still ${source}`);
+    } else {
+      if (unchanged.ids.length > 0)
+        warn(file, `${where}: ${kept} string ids, still ${source}: ${unchanged.ids.join(', ')}`);
+      if (unchanged.labels.length > 0)
+        warn(file, `${where}: ${kept} briefing labels, still ${source}: ${unchanged.labels.join(', ')}`);
+    }
   }
 }
 

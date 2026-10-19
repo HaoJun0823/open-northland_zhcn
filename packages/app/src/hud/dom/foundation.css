@@ -8522,14 +8522,20 @@ body.on-drag-scroll * {
   min-width: 0;
   font: 500 14px / 1.25 var(--font-body);
 }
+/* The HUD's tip layer shows a choice's tip, so the control clips its end buttons as before. */
 .on-hud .on-settings .main-menu__seg {
   flex-shrink: 0;
+  overflow: hidden;
   border: 1px solid var(--bronze-lo);
   border-radius: 2px;
   background: #0003;
 }
 .on-hud .on-settings .main-menu__seg-btn {
   color: var(--muted);
+}
+.on-hud .on-settings .main-menu__seg:not(.main-menu__cursor-themes) .main-menu__seg-btn:first-child,
+.on-hud .on-settings .main-menu__seg:not(.main-menu__cursor-themes) .main-menu__seg-btn:last-child {
+  border-radius: 0;
 }
 .on-hud .on-settings .main-menu__seg-btn.is-active {
   color: var(--ink);

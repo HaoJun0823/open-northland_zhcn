@@ -101,7 +101,8 @@ const lutBoundPipes = new WeakSet<object>();
 /**
  * A paletted world batch lists its LUT in every slot between its pages and the LUT's own, so the list has
  * no holes; no element samples those slots, so its draw binds only the pages and the LUT, and the slots a
- * neighbouring batch's pages hold stay bound. Idempotent per renderer.
+ * neighbouring batch's pages hold stay bound. Any batcher that names its batches' LUT binding draws this
+ * way, the still mesh's bands among them. Idempotent per renderer.
  *
  * Undocumented Pixi behaviour, verified on pixi.js 8.21, re-verify on a bump: the WebGL batch adaptor
  * binds every slot below `batch.textures.count` before it draws and reads the list nowhere else.
@@ -115,7 +116,7 @@ export function bindWorldBatchPagesAndLut(renderer: Renderer): void {
   const execute = pipe.execute.bind(pipe);
   pipe.execute = (batch: Batch) => {
     const batcher: unknown = batch.batcher;
-    const binding = isWorldBatcher(batcher) ? batcher.lutBinding(batch) : null;
+    const binding = listsLut(batcher) ? batcher.lutBinding(batch) : null;
     if (binding === null) {
       execute(batch);
       return;
@@ -172,22 +173,28 @@ function glowOf(element: BatchableElement): boolean {
 }
 
 /** A paletted world batch's LUT, the slot it is listed at, and the page slots listed below it. */
-interface LutBinding {
+export interface LutBinding {
   lut: TextureSource;
   slot: number;
   pages: number;
 }
-interface WorldBatcherApi extends Batcher {
+/** A batcher whose batches may draw through a palette LUT bound past their pages. */
+export interface LutListingBatcher {
   /** Where `batch` lists its LUT, or null for a batch without one; valid until the next call. */
   lutBinding(batch: Batch): LutBinding | null;
 }
+interface WorldBatcherApi extends Batcher, LutListingBatcher {}
 /** The batcher class, its geometry and shaders are defined on first install, not at import, so a
  *  test that mocks `pixi.js` can still load this module. */
 type WorldBatcherClass = new (options: BatcherOptions) => WorldBatcherApi;
 let worldBatcherClass: WorldBatcherClass | undefined;
 
-function isWorldBatcher(batcher: unknown): batcher is WorldBatcherApi {
-  return worldBatcherClass !== undefined && batcher instanceof worldBatcherClass;
+function listsLut(batcher: unknown): batcher is LutListingBatcher {
+  return (
+    typeof batcher === 'object' &&
+    batcher !== null &&
+    typeof (batcher as Partial<LutListingBatcher>).lutBinding === 'function'
+  );
 }
 
 /** The world vertex layout over `attributeBuffer`, drawn through `indexBuffer`: the geometry a world batch

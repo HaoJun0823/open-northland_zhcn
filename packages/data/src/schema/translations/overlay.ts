@@ -3,9 +3,11 @@ import { LANGUAGES, SOURCE_LANGUAGES } from '../../languages.js';
 
 /**
  * The repository's translation overlays, `translations/<lang>/...`: text the data pack and the
- * catalogue archives do not carry. An overlay entry replaces the source entry of the same key; a key
- * the overlay lacks falls back to the source text of that language, else to the language the overlay
- * was written against. Overlays are UTF-8 JSON validated by these schemas before any stage reads them.
+ * catalogue archives do not carry. An overlay entry replaces the source entry of the same key. A string
+ * the overlay lacks keeps the source's text in the overlay's language, else is read along
+ * `textReadingOrder`; a briefing or book block it lacks keeps the block of the pages it renders into,
+ * the basis language's when the source ships them. Overlays are UTF-8 JSON validated by these schemas
+ * before any stage reads them.
  */
 export const OVERLAY_VERSION = 1;
 
@@ -100,5 +102,3 @@ export const CampaignOverlay = z.strictObject({
   title: z.string().min(1),
 });
 export type CampaignOverlay = z.infer<typeof CampaignOverlay>;
-
-export const OverlayLanguageCode = z.enum(LANGUAGES);

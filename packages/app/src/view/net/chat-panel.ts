@@ -200,10 +200,7 @@ export function mountChatPanel(deps: ChatPanelDeps): ChatPanel {
 }
 
 function lineRow(line: NetChatLine): HTMLDivElement {
-  const row = el(
-    'div',
-    `overflow-wrap:anywhere;${line.from === null ? 'opacity:0.75;font-style:italic' : ''}`,
-  );
+  const row = el('div', `overflow-wrap:anywhere;${line.from === null ? 'opacity:0.75' : ''}`);
   row.append(el('span', TIME_STYLE, formatClockTime(line.at)));
   if (line.from !== null) row.append(el('span', 'font-weight:700', `${line.from}: `));
   row.append(document.createTextNode(line.text));

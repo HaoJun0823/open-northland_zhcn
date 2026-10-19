@@ -3858,7 +3858,6 @@ body.on-drag-scroll * {
 .on-hud .on-prod-row__locked {
   padding-right: 6px;
   font-size: 11px;
-  font-style: italic;
   color: var(--danger);
   opacity: 0.85;
 }
@@ -5588,7 +5587,6 @@ body.on-drag-scroll * {
 .on-hud .on-book__sign {
   margin: 0.8em 0 0;
   text-align: right;
-  font-style: italic;
   color: var(--ink-muted);
 }
 .on-hud .on-book__fin {
@@ -5992,7 +5990,6 @@ body.on-drag-scroll * {
 }
 .on-hud .on-book__empty {
   margin: 0;
-  font-style: italic;
   font-size: 13.5px;
   color: var(--ink-muted);
 }
@@ -6264,7 +6261,6 @@ body.on-drag-scroll * {
 }
 .on-hud .on-slip__row--empty {
   display: block;
-  font-style: italic;
   color: var(--ink-muted);
 }
 .on-hud .on-slip__row .on-book__box {
@@ -7480,7 +7476,7 @@ body.on-drag-scroll * {
   grid-row: 1;
   grid-column: 2;
   margin-left: 5px;
-  font: italic 700 11px var(--font-body);
+  font: 700 11px var(--font-body);
   color: var(--bronze-lo);
 }
 .on-hud .on-net-you[hidden] {
@@ -7747,7 +7743,6 @@ body.on-drag-scroll * {
 }
 .on-hud .on-net-chat__line--system {
   color: var(--ink-muted);
-  font-style: italic;
 }
 .on-hud .on-net-chat__time {
   margin-right: 6px;
@@ -7758,7 +7753,6 @@ body.on-drag-scroll * {
 .on-hud .on-net-chat__empty {
   margin: 0;
   color: var(--ink-muted);
-  font-style: italic;
 }
 .on-hud .on-net-chat__empty[hidden] {
   display: none;

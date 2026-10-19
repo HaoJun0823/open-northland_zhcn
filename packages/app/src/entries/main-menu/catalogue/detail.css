@@ -133,7 +133,6 @@
 
 .catalogue-detail__description.is-empty {
   color: var(--muted);
-  font-style: italic;
 }
 
 .catalogue-detail__description > * {

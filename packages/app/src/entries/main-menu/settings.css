@@ -202,7 +202,6 @@ button.main-menu__settings-key:focus-visible {
 }
 
 .main-menu__settings-key.is-unassigned {
-  font-style: italic;
   font-weight: 400;
   color: rgba(219, 232, 227, 0.35);
 }

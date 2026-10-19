@@ -47,3 +47,9 @@ npm run import:cultures-localization -- \
 
 The command prints what matched, what it left out and how the localization's German compares with
 ours. Update the commit above when importing a newer one.
+
+## Project translations
+
+Overlays the project wrote itself, edited in place:
+
+- `chs/campaigns/` and `cht/campaigns/`: the four campaign titles.

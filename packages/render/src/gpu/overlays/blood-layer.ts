@@ -146,7 +146,7 @@ export class BloodLayer {
 
   draw(frame: BloodFrame): void {
     if (!this.enabled) return;
-    const { renderTime: tick, fogVisible, elevation, water } = frame;
+    const { renderTime: tick, elevation, water } = frame;
     this.history.expire(tick);
     const view = frame.screenViewport ?? frame.viewport;
     if (
@@ -171,8 +171,7 @@ export class BloodLayer {
         this.nodes.delete(mark);
         continue;
       }
-      node.container.visible =
-        fogVisible === undefined || fogVisible((mark.hx - rowStagger(mark.hy / 2)) / 2, mark.hy / 2);
+      node.container.visible = watched(mark, frame);
       this.animate(node, age);
     }
   }

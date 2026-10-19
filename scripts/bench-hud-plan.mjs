@@ -1,3 +1,5 @@
+import { MANY_SELECTION_ZOOM } from './bench-gpu-plan.mjs';
+
 /** The scenario list, settings and report folds of `npm run bench:hud`; pure, so it unit-tests. */
 
 const USAGE = 'usage: npm run bench:hud -- checkpoint origin [output-dir] [window-seconds]';
@@ -7,8 +9,6 @@ const DEFAULT_SECONDS = 5;
  *  counters of its own. */
 const DEFAULT_SEAT = 0;
 const DENSE_ZOOM = 1;
-/** The many-selection box is drawn at this zoom, where enough settlers fit on screen. */
-const MANY_SELECTION_ZOOM = 0.5;
 
 function scenario(id, setup, overrides = {}) {
   return {

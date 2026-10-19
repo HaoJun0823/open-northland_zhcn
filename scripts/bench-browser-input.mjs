@@ -22,13 +22,13 @@ const SINGLE_PICK_TRIES = 30;
 /** Box half-size increment, in screen pixels. */
 const BOX_STEP = 5;
 
-/** The world area clear of the HUD bars in a `viewport`-sized window. */
-export function worldArea(viewport = VIEWPORT) {
+/** The world area clear of the HUD bars in a `viewport`-sized window at HUD scale `scale`. */
+export function worldArea(viewport = VIEWPORT, scale = 1) {
   return {
-    left: HUD_INSET.left,
-    top: HUD_INSET.top,
-    right: viewport.width - HUD_INSET.right,
-    bottom: viewport.height - HUD_INSET.bottom,
+    left: HUD_INSET.left * scale,
+    top: HUD_INSET.top * scale,
+    right: viewport.width - HUD_INSET.right * scale,
+    bottom: viewport.height - HUD_INSET.bottom * scale,
   };
 }
 

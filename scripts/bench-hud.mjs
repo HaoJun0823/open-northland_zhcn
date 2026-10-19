@@ -11,17 +11,20 @@ import {
 } from './bench-browser-input.mjs';
 import { guardCamera } from './bench-browser-profile.mjs';
 import {
+  benchBrowserInfo,
   cameraAt,
   checkpointSession,
   densestBuildings,
   machineLoad,
   openBenchBrowser,
+  openBenchPage,
   overloaded,
   restoreCheckpoint,
   unlockAudio,
   VIEWPORT,
   verifyDevServer,
 } from './bench-browser-session.mjs';
+import { MANY_SELECTED } from './bench-gpu-plan.mjs';
 import {
   foldCpuProfile,
   foldInvalidations,
@@ -34,7 +37,6 @@ import {
   metricDeltas,
   parseHudBenchArgs,
 } from './bench-hud-plan.mjs';
-import { skipOriginalGameGate } from './original-game-gate.mjs';
 
 /**
  * The in-game interface's main-thread and compositor cost per HUD scenario, from a `bench:map`
@@ -146,8 +148,6 @@ const SETUPS = {
     return { ready: grouped > 0, note: `${grouped} in group 1` };
   },
 };
-/** The group-list scenario's selection floor. */
-const MANY_SELECTED = 50;
 /** The notices scenario runs the game at this speed until the column holds this many cards, or gives up
  *  after the timeout and measures what came. */
 const NOTICE_FILL_SPEED = 10;
@@ -192,7 +192,8 @@ const writeReport = async () => {
   const head = [
     `# bench:hud ${header.mapId} tick ${header.tick}`,
     '',
-    `${viewport.width}x${viewport.height} DPR 1, UI scale 1, x3, seat ${options.seat}; ${seconds} s per scenario; one-minute load per CPU now ${load.available ? load.loadPerCpu.toFixed(1) : 'unavailable'}.`,
+    `Browser: ${metadata.browser?.version ?? 'not started'}${metadata.browser?.cdp ? ` over CDP at ${metadata.browser.cdp}` : ''}, ${options.headed ? 'headed' : 'headless'}.`,
+    `${viewport.width}x${viewport.height} DPR 1, UI scale ${metadata.hudScale ?? '-'}, x3, seat ${options.seat}; ${seconds} s per scenario; one-minute load per CPU now ${load.available ? load.loadPerCpu.toFixed(1) : 'unavailable'}.`,
     '',
     markdownTable(metadata.scenarios),
     '',
@@ -484,8 +485,8 @@ try {
     ...(options.headed ? {} : { channel: HEADLESS_CHANNEL }),
   });
   const browserCdp = await browser.newBrowserCDPSession();
-  page = await browser.newPage({ viewport, deviceScaleFactor: 1 });
-  await skipOriginalGameGate(page);
+  metadata.browser = benchBrowserInfo(browser);
+  page = await openBenchPage(browser);
   page.on('pageerror', (e) => metadata.errors.push(e.message));
   page.on('console', (m) => {
     if (m.type() === 'error') metadata.errors.push(m.text());
@@ -513,7 +514,12 @@ try {
       d.cameraCtl.jumpTo(c);
     }, camera);
     await page.waitForTimeout(SETTLE_MS);
-    const context = { page, dense, viewport, area: worldArea(viewport), camera };
+    // The session pins the HUD scale (checkpointSession), read back so the world area and the report
+    // follow what the page drew.
+    metadata.hudScale = await page.evaluate(() =>
+      Number(getComputedStyle(document.querySelector('.on-hud')).getPropertyValue('--hud-scale')),
+    );
+    const context = { page, dense, viewport, area: worldArea(viewport, metadata.hudScale), camera };
     const setup = await SETUPS[scenario.setup](context);
     const pointer = setup.pointer ?? { x: viewport.width / 2, y: viewport.height - POINTER_BAR_LIFT };
     await page.mouse.move(pointer.x, pointer.y);

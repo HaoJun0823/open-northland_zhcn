@@ -97,7 +97,7 @@ describe('the book window`s page language', () => {
     ['pol', 'pl'],
     ['chs', 'zh-Hans'],
     ['cht', 'zh-Hant'],
-  ])('tags a %s page with %s, which picks its line breaking and Han glyph forms', (lang, tag) => {
+  ])('tags a %s page with %s, which picks its line breaking', (lang, tag) => {
     const { book } = mountWindow([text('第一章')], null, lang);
     book.open({ reading: brief, arrival: true, paused: false });
     expect(document.querySelector('.on-book__flow')?.getAttribute('lang')).toBe(tag);

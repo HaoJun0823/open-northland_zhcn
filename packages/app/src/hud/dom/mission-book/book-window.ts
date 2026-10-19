@@ -234,8 +234,8 @@ export function createBookWindow(deps: BookWindowDeps): BookWindow {
       ? FLOURISH
       : `<h3 class="on-book__title">${escapeHtml(displayTitle(title, locale))}</h3>${FLOURISH}`;
 
-  /** `lang` is the page's map text language, whose tag sets the prose's hyphenation, line breaking and
-   *  Han glyph forms; without one the prose reads in the app's. */
+  /** `lang` is the page's map text language, whose tag sets the prose's hyphenation and line breaking;
+   *  without one the prose reads in the app's. */
   const readingSpread = (head: string, flow: string, foot: string, lang: string | null = null): string => {
     const langAttr = lang !== null && isLocale(lang) ? ` lang="${bcp47Tag(lang)}"` : '';
     const col = (side: 'left' | 'right'): string =>

@@ -12,16 +12,15 @@ export interface LeavePrompt {
 const LOCALE_CODES = ['pol', 'eng', 'ger', 'rus', 'chs', 'cht'] as const;
 type LocaleCode = (typeof LOCALE_CODES)[number];
 
-/** Each locale's primary language subtag; the two Chinese locales share theirs and split by script. */
-const LANGUAGE_SUBTAGS: Readonly<Record<LocaleCode, string>> = {
-  pol: 'pl',
-  eng: 'en',
-  ger: 'de',
-  rus: 'ru',
-  chs: 'zh',
-  cht: 'zh',
-};
+/** The locale of each primary language subtag but Chinese, whose two locales split by script. */
+const LOCALE_OF_LANGUAGE: ReadonlyMap<string, LocaleCode> = new Map([
+  ['pl', 'pol'],
+  ['en', 'eng'],
+  ['de', 'ger'],
+  ['ru', 'rus'],
+]);
 
+const CHINESE = 'zh';
 /** A Chinese tag that names Traditional script, or no script and a region that writes it (CLDR likely
  *  subtags); every other Chinese tag reads Simplified, as in the app. */
 const TRADITIONAL_CHINESE = /^zh-(?:hant|tw|hk|mo)(?:-|$)/;
@@ -73,9 +72,9 @@ function localeOf(value: string | null | undefined): LocaleCode | undefined {
   if (wanted === undefined) return undefined;
   const code = LOCALE_CODES.find((locale) => locale === wanted);
   if (code !== undefined) return code;
-  const language = wanted.split('-')[0];
-  const match = LOCALE_CODES.find((locale) => LANGUAGE_SUBTAGS[locale] === language);
-  return match === 'chs' && TRADITIONAL_CHINESE.test(wanted) ? 'cht' : match;
+  const language = wanted.split('-')[0] ?? '';
+  if (language === CHINESE) return TRADITIONAL_CHINESE.test(wanted) ? 'cht' : 'chs';
+  return LOCALE_OF_LANGUAGE.get(language);
 }
 
 /** The page's `?lang=` wins, as it does in the app; the system language stands in when it has none. */

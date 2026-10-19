@@ -5,16 +5,20 @@ import {
   type BookOverlay,
   type CampaignOverlay,
   type Language,
+  MapBriefing,
   type MapOverlay,
   MapStrings,
   type ObjectTableOverlay,
   OVERLAY_VERSION,
 } from '@open-northland/data';
+import { parseBriefingBlocks } from '@open-northland/formats/hypertext';
+import { mapSourceTextDigest } from '@open-northland/map-import';
 import type { TranslationOverlays } from '@open-northland/translations';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildStringCif } from '../../../packages/formats/test/fixtures/cif.js';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
 import type { CampaignSource } from '../../../scripts/data-pack.mjs';
+import { loadSourceCorrections } from '../src/corrections.js';
 import { writeFileWithParents } from '../src/files.js';
 import type { SourceRoots } from '../src/roots.js';
 import { campaignMapId, convertCampaignStage } from '../src/stages/campaigns.js';
@@ -104,6 +108,72 @@ describe('base maps stage', () => {
     expect(summarizeMapOverlays(done, new Set(roots.overlays?.maps.keys()))).toBe(
       'map overlays applied eng:1 chs:2, 0 redundant, 1 refused, 3 stale, 1 filed for no map of this pack',
     );
+  });
+});
+
+describe('base maps stage, an edit of a community map', () => {
+  const folder = 'maps/community/samouczek';
+  const briefings = `${folder}/text/pol/briefings/briefings.txt`;
+  const page = '<include:$local$\\briefings.txt,title,1>\n<include:$local$\\briefings.txt,body,1>\n';
+  // A typo in the title, and a body block opened twice whose second marker would show as text.
+  const shipped =
+    '[blockstart:title]\nSamouczk\n[blockend:title]\n' +
+    '[blockstart:body]\n[blockstart:body]\nZbuduj farme.\n[blockend:body]\n';
+  const shippedStrings = { 0: 'Samouczk', 1: 'Zbuduj farme.' };
+
+  it('takes the text edit from the overlay and the marker repair from the correction', async () => {
+    const dat = buildMapDat(1, 1, [2, 2, 2, 2]);
+    await temp.write(`${folder}/map.dat`, dat);
+    await temp.write(
+      `${folder}/mission.inc`,
+      utf8('[MissionData]\ndebuginfo "Briefing"\nresult "PlayCutscene" 0 1\n'),
+    );
+    await temp.write(
+      `${folder}/text/pol/strings.ini`,
+      utf8('[text]\nstring "Samouczk"\nstring "Zbuduj farme."\n'),
+    );
+    await temp.write(`${folder}/text/pol/briefings/0000.hlt`, utf8(page));
+    await temp.write(briefings, utf8(shipped));
+    const correctionsDir = join(temp.out, '..', 'corrections');
+    const repeatedMarker = { line: 5, from: '[blockstart:body]', to: [] };
+    await writeFileWithParents(
+      join(correctionsDir, 'samouczek-briefing-pol.json'),
+      utf8(
+        JSON.stringify({
+          reason: 'test',
+          file: briefings,
+          sha256: digestOf(utf8(shipped)),
+          lines: [repeatedMarker],
+        }),
+      ),
+    );
+    const edit: MapOverlay = {
+      version: OVERLAY_VERSION,
+      map: 'samouczek',
+      basis: { lang: 'pol', digest: mapSourceTextDigest(shippedStrings, parseBriefingBlocks(shipped)) },
+      strings: { '0': 'Samouczek' },
+      briefings: { title: 'Samouczek' },
+    };
+    const corrections = await loadSourceCorrections(correctionsDir, temp.game);
+    const roots: SourceRoots = {
+      data: temp.game,
+      corrections,
+      overlays: overlays({
+        maps: new Map([[digestOf(dat), new Map<Language, MapOverlay>([['pol', edit]])]]),
+      }),
+    };
+
+    const [map] = await convertMapDatTree(roots, temp.out);
+
+    corrections.assertApplied();
+    expect(map?.overlays).toEqual([{ lang: 'pol', status: 'applied', stale: false }]);
+    const strings = MapStrings.parse(await readJson(join(temp.out, 'maps', 'samouczek.strings.json')));
+    expect(strings).toEqual({ pol: { '0': 'Samouczek', '1': 'Zbuduj farme.' } });
+    const briefing = MapBriefing.parse(await readJson(join(temp.out, 'maps', 'samouczek.briefing.json')));
+    const text = (briefing.texts.pol?.['0'] ?? []).flatMap((block) =>
+      block.kind === 'text' ? [block.text] : [],
+    );
+    expect(text).toEqual(['Samouczek\nZbuduj farme.']);
   });
 });
 

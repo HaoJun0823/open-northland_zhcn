@@ -18,6 +18,7 @@ import {
   main,
   obtainPinnedArchive,
   obtainPinnedDataRoot,
+  translationsDigest,
 } from '../build-content.mjs';
 import { hash, syntheticPack } from './support/data-pack.mjs';
 
@@ -253,7 +254,7 @@ test('--if-stale keeps a tree stamped with the pinned archive and current IR ver
   const stamp = {
     archiveSha256: pinnedSha256,
     irVersion: await currentIrVersion(),
-    translations: 'a'.repeat(64),
+    translations: await translationsDigest(),
   };
   assert.equal(await contentIsCurrent(outDir, stamp), false);
   await mkdir(outDir);

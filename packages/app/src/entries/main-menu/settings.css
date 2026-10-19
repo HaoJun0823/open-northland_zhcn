@@ -180,7 +180,7 @@
   cursor: var(--cursor-pointer, pointer);
   min-width: calc(var(--u) * 120);
   text-align: center;
-  font: 600 calc(var(--u) * 24) / 1 var(--font-body);
+  font: 700 calc(var(--u) * 24) / 1 var(--font-body);
   color: var(--text-body);
   border: 2px solid rgb(var(--accent-rgb) / 0.35);
   border-radius: 6px;

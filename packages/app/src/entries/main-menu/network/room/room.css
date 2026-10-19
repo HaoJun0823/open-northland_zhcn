@@ -384,7 +384,7 @@
   gap: calc(var(--u) * 4);
 }
 .network-room__map-card .main-menu__map-name {
-  font: 600 calc(var(--u) * 16) / 1.3 var(--font-body);
+  font: 700 calc(var(--u) * 16) / 1.3 var(--font-body);
 }
 .network-room__map-card .main-menu__map-meta {
   font: calc(var(--u) * 13) / 1.3 var(--font-body);

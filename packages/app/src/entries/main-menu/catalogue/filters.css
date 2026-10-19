@@ -144,7 +144,7 @@
 .catalogue .catalogue-pill.is-set .main-menu__dropdown-btn {
   padding-right: calc(var(--u) * 10);
   color: var(--bronze-hi);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .catalogue .catalogue-pill.is-set .main-menu__dropdown-btn::after {
@@ -226,7 +226,7 @@
   border-color: var(--bronze);
   background: rgb(var(--accent-rgb, 201 162 98) / 0.14);
   color: var(--bronze-hi);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .catalogue-toggle[aria-pressed="true"]::before {

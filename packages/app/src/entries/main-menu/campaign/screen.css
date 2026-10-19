@@ -306,7 +306,7 @@
   background: #182521f2;
   box-shadow: 0 4px 12px #0009;
   color: var(--text-hi);
-  font: 600 calc(var(--u) * 14) / 1.25 var(--font-body);
+  font: 700 calc(var(--u) * 14) / 1.25 var(--font-body);
   text-align: center;
   opacity: 0;
   pointer-events: none;
@@ -360,7 +360,7 @@
   border-radius: 3px;
   background: linear-gradient(135deg, #273832f5, #182521fa);
   color: var(--text-hi);
-  font: 600 calc(var(--u) * 14) / 1.2 var(--font-body);
+  font: 700 calc(var(--u) * 14) / 1.2 var(--font-body);
   text-align: center;
   cursor: var(--cursor-pointer, pointer);
 }

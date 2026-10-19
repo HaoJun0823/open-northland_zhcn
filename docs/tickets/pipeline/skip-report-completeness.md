@@ -5,8 +5,8 @@
 Every extraction stage degrades by logging and continuing, which is the right policy for a batch tool
 over a possibly-partial install. The run's own output does not record that it happened.
 
-`runPipeline` returns `void`, so a conversion that skipped fonts, cursors, and maps ends exactly like
-a clean run. Nothing that later loads the content can tell the two apart.
+`runPipeline` returns `void`, so a conversion that skipped atlases, cursors, and maps ends exactly
+like a clean run. Nothing that later loads the content can tell the two apart.
 
 The same missing seam makes the stage tests brittle: seventeen sites across ten test files spy on
 `console.warn` and assert on English prose, so rewording a warning breaks tests that are not about

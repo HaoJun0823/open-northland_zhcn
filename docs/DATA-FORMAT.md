@@ -65,7 +65,7 @@ English-locale conversion of CnMod 1.3.2; state a different input beside any cla
 | `.c2m` | the map editor's single-file export of one user map | `packages/formats/src/c2m.ts` and its tests |
 | `.bmd` | palette-indexed sprite frames and animations | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
 | `.pcx` | palette-indexed pictures and palette carriers | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
-| `.fnt` | bitmap-font wrapper around a bob container | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
+| `.fnt` | bitmap-font wrapper around a bob container; documented only, no stage reads it | [`formats/GRAPHICS.md`](formats/GRAPHICS.md) |
 | `.cur` | Windows cursor resource | `packages/formats/src/cur.ts` and its tests |
 | `.wav` | sound effects and voices | browser-native playback |
 | `.sgt` / `.dls` | DirectMusic soundtrack | `packages/formats/src/sgt.ts`, `dls.ts`, performed by the pipeline's `stages/music/interpret.ts` |

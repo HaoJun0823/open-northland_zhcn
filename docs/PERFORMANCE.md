@@ -175,7 +175,7 @@ Failures retain completed results before closing the browser.
 
 ### Browser and window
 
-`bench:browser`, `bench:gpu` and `bench:browser-shots` share these:
+`bench:browser`, `bench:gpu`, `bench:hud` and `bench:browser-shots` share these:
 
 | Variable | Effect |
 | --- | --- |
@@ -188,7 +188,9 @@ A browser reached over CDP keeps the flags and window position it started with, 
 with a fresh profile, `--mute-audio` and `--autoplay-policy=no-user-gesture-required`, plus the ANGLE
 backend to measure (`--use-gl=angle --use-angle=d3d11` for Windows Chrome driven from WSL). Its load is
 outside the load gate's host, which then reads only the dev server and the script; the report says so
-and names the browser version and endpoint beside the adapter.
+and names the browser version and endpoint beside the adapter. Over CDP, `ON_BENCH_VIEWPORT` is emulated
+on the page rather than applied to the window, so the page renders at `WxH` whatever the window's frame
+shows.
 
 ### Reading frame metrics
 
@@ -298,6 +300,8 @@ and task time, DOM mutations, composited layers and their repaints, portrait ins
 are robust to load; durations are not. The browser is the full Chromium build headless, on the GPU at
 60 frames a second, unless `ON_BENCH_HUD_HEADED=1`: a headless page composites without presenting to a
 display, so compositor and frame-pacing readings need the headed run (with `ON_BENCH_WINDOW_POSITION`).
+The [browser and window](#browser-and-window) variables apply, `ON_BENCH_DEVICE_SCALE` and `ON_BENCH_CDP`
+included; the report's header names the device scale and, over CDP, the endpoint.
 
 | Variable | Effect |
 | --- | --- |

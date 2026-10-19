@@ -14,6 +14,7 @@ import {
   benchBrowserInfo,
   cameraAt,
   checkpointSession,
+  DEVICE_SCALE,
   densestBuildings,
   machineLoad,
   openBenchBrowser,
@@ -148,6 +149,8 @@ const SETUPS = {
     return { ready: grouped > 0, note: `${grouped} in group 1` };
   },
 };
+/** Every scenario measures at the game speed players run at. */
+const SCENARIO_SPEED = 3;
 /** The notices scenario runs the game at this speed until the column holds this many cards, or gives up
  *  after the timeout and measures what came. */
 const NOTICE_FILL_SPEED = 10;
@@ -163,6 +166,7 @@ const metadata = {
   checkpoint: resolve(options.checkpoint),
   header,
   viewport,
+  deviceScale: DEVICE_SCALE,
   seconds,
   seat: options.seat,
   trace: options.trace,
@@ -192,8 +196,8 @@ const writeReport = async () => {
   const head = [
     `# bench:hud ${header.mapId} tick ${header.tick}`,
     '',
-    `Browser: ${metadata.browser?.version ?? 'not started'}${metadata.browser?.cdp ? ` over CDP at ${metadata.browser.cdp}` : ''}, ${options.headed ? 'headed' : 'headless'}.`,
-    `${viewport.width}x${viewport.height} DPR 1, UI scale ${metadata.hudScale ?? '-'}, x3, seat ${options.seat}; ${seconds} s per scenario; one-minute load per CPU now ${load.available ? load.loadPerCpu.toFixed(1) : 'unavailable'}.`,
+    `Browser: ${metadata.browser?.version ?? 'not started'}, ${metadata.browser?.cdp ? `over CDP at ${metadata.browser.cdp}` : options.headed ? 'headed' : 'headless'}.`,
+    `${viewport.width}x${viewport.height} at device scale ${DEVICE_SCALE}, UI scale ${metadata.hudScale ?? '-'}, x${SCENARIO_SPEED}, seat ${options.seat}; ${seconds} s per scenario; one-minute load per CPU now ${load.available ? load.loadPerCpu.toFixed(1) : 'unavailable'}.`,
     '',
     markdownTable(metadata.scenarios),
     '',
@@ -524,11 +528,11 @@ try {
     const pointer = setup.pointer ?? { x: viewport.width / 2, y: viewport.height - POINTER_BAR_LIFT };
     await page.mouse.move(pointer.x, pointer.y);
     await guardCamera(page, camera);
-    await page.evaluate(async () => {
+    await page.evaluate(async (speed) => {
       const d = window.__opennorthland;
-      d.setSpeed(3);
+      d.setSpeed(speed);
       await d.setPaused(false);
-    });
+    }, SCENARIO_SPEED);
     await page.waitForTimeout(WARM_MS);
     progress(`measuring ${scenario.id} for ${seconds}s`);
     const run = await measure(page, cdp, layers);

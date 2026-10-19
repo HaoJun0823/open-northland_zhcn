@@ -6,6 +6,8 @@ import {
   foldLayers,
   foldTrace,
   hudScenarios,
+  hudSettings,
+  markdownTable,
   meanOfWindows,
   metricDeltas,
   parseHudBenchArgs,
@@ -14,6 +16,63 @@ import {
 const ORIGIN = 'http://127.0.0.1:5174';
 const MAIN = { pid: 1, tid: 10 };
 const VIZ = { pid: 2, tid: 20 };
+
+test('scenario ids are unique and only the counter scenarios turn their readouts on', () => {
+  const scenarios = hudScenarios();
+  const ids = scenarios.map((entry) => entry.id);
+  assert.equal(new Set(ids).size, ids.length);
+  const fps = scenarios.find((entry) => entry.id === 'fps');
+  const settings = hudSettings(fps);
+  assert.deepEqual(settings, {
+    fpsLimit: null,
+    fpsCounter: true,
+    groupNumbers: false,
+    soundEnabled: true,
+    edgeScrollEnabled: false,
+  });
+  assert.equal(hudSettings(scenarios.find((entry) => entry.id === 'none')).fpsCounter, false);
+  assert.equal(hudSettings(scenarios.find((entry) => entry.id === 'groups')).groupNumbers, true);
+});
+
+test('the table shows each scenario with its setup, its void reasons and a dash for a missing reading', () => {
+  const result = (id, overrides) => ({
+    id,
+    setupNote: '',
+    frames: { frames: 100, rafP50: 8.25, rafP95: 16.7 },
+    metrics: {
+      layoutsPerFrame: 0.5,
+      styleRecalcsPerFrame: 1,
+      layoutMsPerFrame: 0.0125,
+      styleMsPerFrame: 0.2,
+      scriptMsPerFrame: 1.5,
+      taskMsPerFrame: 2,
+    },
+    mutations: { records: 250 },
+    layers: { count: 22, drawing: 9, paintedPerFrame: 1.25 },
+    insets: 1,
+    hudNodes: 1234,
+    invalid: [],
+    ...overrides,
+  });
+  const lines = markdownTable([
+    result('none'),
+    result('notices', { setupNote: '7 notice cards, 2 stacks', invalid: ['setup: no card'] }),
+    result('fps', { frames: { frames: 0, rafP50: null, rafP95: null }, mutations: { records: 0 } }),
+  ]).split('\n');
+  assert.equal(lines.length, 5);
+  assert.equal(
+    lines[2],
+    '| none | - | 100 | 8.3/16.7 | 0.50 | 1.00 | 0.013 | 0.200 | 1.50 | 2.00 | 2.5 | 22 (9) | 1.25 | 1 | 1234 | - |',
+  );
+  assert.equal(
+    lines[3],
+    '| notices | 7 notice cards, 2 stacks | 100 | 8.3/16.7 | 0.50 | 1.00 | 0.013 | 0.200 | 1.50 | 2.00 | 2.5 | 22 (9) | 1.25 | 1 | 1234 | setup: no card |',
+  );
+  assert.equal(
+    lines[4],
+    '| fps | - | 0 | -/- | 0.50 | 1.00 | 0.013 | 0.200 | 1.50 | 2.00 | 0.0 | 22 (9) | 1.25 | 1 | 1234 | - |',
+  );
+});
 
 test('arguments default the output, window and seat', () => {
   const options = parseHudBenchArgs(['late.checkpoint', ORIGIN]);

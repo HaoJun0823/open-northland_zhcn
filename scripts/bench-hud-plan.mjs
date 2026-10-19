@@ -110,6 +110,9 @@ export function metricDeltas(before, after, frames) {
  * The composited layers at a window's end with each one's repaints per frame over the window, most
  * repainted first. `before` is the layer list at the window's start, matched by layer id.
  */
+/** The most repainted layers `report.json` lists per scenario. */
+const LAYER_TOP = 12;
+
 export function foldLayers(after, before, frames) {
   const paintsBefore = new Map(before.map((layer) => [layer.layerId, layer.paintCount ?? 0]));
   const rows = after.map((layer) => ({
@@ -131,7 +134,7 @@ export function foldLayers(after, before, frames) {
     drawing: after.filter((layer) => layer.drawsContent).length,
     byOwner: Object.fromEntries(Object.entries(owners).sort((a, b) => b[1] - a[1])),
     paintedPerFrame: rows.reduce((sum, row) => sum + row.paintsPerFrame, 0),
-    top: rows.slice(0, 12),
+    top: rows.slice(0, LAYER_TOP),
   };
 }
 
@@ -351,14 +354,14 @@ const fixed = (value, digits) => (value === null || value === undefined ? '-' : 
 /** The markdown table `report.md` holds, one row per measured scenario. */
 export function markdownTable(results) {
   const rows = [
-    '| scenario | frames | RAF p50/p95 ms | layouts/f | recalcs/f | layout ms/f | style ms/f | script ms/f | task ms/f | mutations/f | layers (drawing) | layer paints/f | insets | HUD nodes | void because |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| scenario | setup | frames | RAF p50/p95 ms | layouts/f | recalcs/f | layout ms/f | style ms/f | script ms/f | task ms/f | mutations/f | layers (drawing) | layer paints/f | insets | HUD nodes | void because |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   for (const result of results) {
     const { metrics, frames, layers } = result;
     const mutations = frames.frames === 0 ? 0 : result.mutations.records / frames.frames;
     rows.push(
-      `| ${result.id} | ${frames.frames} | ${fixed(frames.rafP50, 1)}/${fixed(frames.rafP95, 1)} | ${fixed(metrics.layoutsPerFrame, 2)} | ${fixed(metrics.styleRecalcsPerFrame, 2)} | ${fixed(metrics.layoutMsPerFrame, 3)} | ${fixed(metrics.styleMsPerFrame, 3)} | ${fixed(metrics.scriptMsPerFrame, 2)} | ${fixed(metrics.taskMsPerFrame, 2)} | ${fixed(mutations, 1)} | ${layers.count} (${layers.drawing}) | ${fixed(layers.paintedPerFrame, 2)} | ${result.insets} | ${result.hudNodes} | ${result.invalid.join(', ') || '-'} |`,
+      `| ${result.id} | ${result.setupNote || '-'} | ${frames.frames} | ${fixed(frames.rafP50, 1)}/${fixed(frames.rafP95, 1)} | ${fixed(metrics.layoutsPerFrame, 2)} | ${fixed(metrics.styleRecalcsPerFrame, 2)} | ${fixed(metrics.layoutMsPerFrame, 3)} | ${fixed(metrics.styleMsPerFrame, 3)} | ${fixed(metrics.scriptMsPerFrame, 2)} | ${fixed(metrics.taskMsPerFrame, 2)} | ${fixed(mutations, 1)} | ${layers.count} (${layers.drawing}) | ${fixed(layers.paintedPerFrame, 2)} | ${result.insets} | ${result.hudNodes} | ${result.invalid.join(', ') || '-'} |`,
     );
   }
   return rows.join('\n');

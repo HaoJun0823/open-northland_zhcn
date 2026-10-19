@@ -51,6 +51,9 @@ const WIDE_ZOOM = 0.35;
  *  blizzard. A bare kind shows the default heavy shower, which is a full storm for sand already. */
 const FULL_STORM_PERCENT = 100;
 const TOGGLE_ZOOMS = [DENSE_ZOOM, 0.5];
+/** The magnifier comparison's zooms: 0.5 and 0.7 minify, where every magnifier takes the same
+ *  minification path, 1 draws a texel per pixel and 2 magnifies. */
+const MAGNIFY_ZOOMS = [0.5, 0.7, DENSE_ZOOM, MAGNIFIED_ZOOM];
 /** A single selected settler opens the settler panel and its portrait inset. */
 const PANEL_SELECTION = 1;
 const FEW_SELECTED = 10;
@@ -82,7 +85,7 @@ export function gpuScenarios() {
   return [
     scenario('off-paused', { enhancements: false, magnifier: 'off' }),
     scenario('off-x3', { enhancements: false, magnifier: 'off', speed: FAST }),
-    ...[DENSE_ZOOM, MAGNIFIED_ZOOM].flatMap((zoom) =>
+    ...MAGNIFY_ZOOMS.flatMap((zoom) =>
       MAGNIFIERS.map((magnifier) => scenario(`magnify-${magnifier}-z${zoom}`, { magnifier, zoom })),
     ),
     scenario('on-x3', { speed: FAST }),

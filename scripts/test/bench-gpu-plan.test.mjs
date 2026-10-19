@@ -58,12 +58,12 @@ test('a scenario filter keeps the named scenarios and refuses unknown names', ()
   );
 });
 
-test('the matrix covers every magnifier at zoom 1 and 2, and ids are unique', () => {
+test('the matrix covers every magnifier at zoom 0.5, 0.7, 1 and 2, and ids are unique', () => {
   const scenarios = gpuScenarios();
   const ids = scenarios.map((entry) => entry.id);
   assert.equal(new Set(ids).size, ids.length);
   for (const magnifier of MAGNIFIERS)
-    for (const zoom of [1, 2])
+    for (const zoom of [0.5, 0.7, 1, 2])
       assert.ok(scenarios.some((entry) => entry.magnifier === magnifier && entry.zoom === zoom));
   assert.deepEqual(
     scenarios.filter((entry) => entry.weather !== null).map((entry) => entry.weather),

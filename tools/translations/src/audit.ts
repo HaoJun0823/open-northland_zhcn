@@ -17,10 +17,14 @@ import {
   type Language,
   type MapOverlay,
   type ObjectTableOverlay,
+  parseMapOverlayFileId,
+  type SourceLanguage,
 } from '@open-northland/data';
-import { type MapLanguageText, mapSourceTextDigest } from '@open-northland/map-import';
+import { type MapLanguageText, mapSourceTextDigest, selectMapOverlay } from '@open-northland/map-import';
 import {
   listDirectory,
+  MAP_OVERLAY_NAMING,
+  MapOverlayFiling,
   OVERLAY_KINDS,
   type OverlayKind,
   readOverlayFile,
@@ -48,14 +52,14 @@ export interface AuditReport {
   /** Overlays the pipeline leaves out or reads against changed source text, and values still the
    *  source text unchanged. */
   readonly warnings: readonly AuditFinding[];
-  /** Map overlays filed under a digest no map of the pack has: a catalogue map's, or a stale identity. */
+  /** Map overlays no map of the pack takes: filed under a digest no map of the pack has, or one of
+   *  several of a language whose basis no copy's text matches. A catalogue map's, or a stale identity. */
   readonly unmatchedMaps: number;
 }
 
 /** The files the contract keeps at the translations root beside the language folders. */
 const ROOT_FILES: ReadonlySet<string> = new Set(['AGENTS.md', 'SOURCES.md', 'glossary.csv']);
 const OVERLAY_EXTENSION = '.json';
-const MAP_FILE = /^[0-9a-f]{64}$/;
 /** The campaign id spelling the campaign index accepts. */
 const CAMPAIGN_FILE = /^[a-z0-9][a-z0-9_-]*$/;
 
@@ -63,7 +67,7 @@ const CAMPAIGN_FILE = /^[a-z0-9][a-z0-9_-]*$/;
 function misnamed(kind: OverlayKind, id: string): string | undefined {
   switch (kind) {
     case 'maps':
-      return MAP_FILE.test(id) ? undefined : 'a map overlay is named by the SHA-256 hex of its map.dat';
+      return parseMapOverlayFileId(id) === undefined ? MAP_OVERLAY_NAMING : undefined;
     case 'objects':
       return isGameObjectTable(id) ? undefined : `an object table is one of ${GAME_OBJECT_TABLES.join(', ')}`;
     case 'books':
@@ -78,14 +82,17 @@ const isOverlayKind = (name: string): name is OverlayKind =>
 /** Dot files are the file system's, not the layout's. */
 const isHidden = (name: string): boolean => name.startsWith('.');
 
+/** One map overlay file that passed its schema and layout. */
+interface MapOverlayFile {
+  readonly file: string;
+  readonly lang: Language;
+  readonly digest: string;
+  readonly overlay: MapOverlay;
+}
+
 /** Every overlay file that passed its schema and layout, by kind. */
 interface ValidOverlays {
-  readonly maps: {
-    readonly file: string;
-    readonly lang: Language;
-    readonly digest: string;
-    readonly overlay: MapOverlay;
-  }[];
+  readonly maps: MapOverlayFile[];
   readonly objects: {
     readonly file: string;
     readonly table: GameObjectTable;
@@ -98,6 +105,7 @@ interface ValidOverlays {
 /** Walks `root`, reporting layout and schema violations and collecting the valid overlays. */
 async function readLayout(root: string, errors: AuditFinding[]): Promise<ValidOverlays> {
   const valid: ValidOverlays = { maps: [], objects: [], books: [], campaigns: [] };
+  const filing = new MapOverlayFiling();
   for (const top of await listDirectory(root)) {
     if (isHidden(top.name)) continue;
     if (!top.isDirectory()) {
@@ -143,9 +151,14 @@ async function readLayout(root: string, errors: AuditFinding[]): Promise<ValidOv
         const path = join(root, lang, kind, entry.name);
         try {
           switch (kind) {
-            case 'maps':
-              valid.maps.push({ file, lang, digest: id, overlay: await readOverlayFile('maps', path) });
+            case 'maps': {
+              const overlay = await readOverlayFile('maps', path);
+              const refusal = filing.file(lang, id, overlay);
+              const digest = parseMapOverlayFileId(id)?.datDigest;
+              if (refusal !== undefined) errors.push({ file, message: refusal });
+              else if (digest !== undefined) valid.maps.push({ file, lang, digest, overlay });
               break;
+            }
             case 'objects':
               if (isGameObjectTable(id))
                 valid.objects.push({ file, table: id, overlay: await readOverlayFile('objects', path) });
@@ -203,43 +216,109 @@ function unchangedKeys(
   };
 }
 
-/** The warnings of one map overlay against every pack copy of its map. */
-function auditMapOverlay(
-  { file, lang, overlay }: ValidOverlays['maps'][number],
+/** Where a warning names a pack map. */
+const whereOf = (map: PackMap): string =>
+  map.campaign === undefined ? map.folder : `campaign map ${map.folder}`;
+
+/** The basis digest of `map`'s text in `lang`, none when it ships no such text. */
+function textDigest(map: PackMap, lang: SourceLanguage): string {
+  const text = map.text.languages[lang];
+  return mapSourceTextDigest(text?.strings ?? {}, text?.briefings ?? new Map());
+}
+
+/** The warnings of one overlay, which the pipeline applies to `map`, one of `copies` of its map.dat;
+ *  `stale` when it was written against other text than the map's. */
+function auditAppliedOverlay(
+  { file, lang, overlay }: MapOverlayFile,
+  map: PackMap,
   copies: readonly PackMap[],
+  stale: boolean,
   warn: (file: string, message: string) => void,
 ): void {
-  for (const map of copies) {
-    const where = map.campaign === undefined ? map.folder : `campaign map ${map.folder}`;
-    if (isSourceLanguage(lang) && !map.takesSourceLanguages) {
-      warn(file, `${where} takes no source-language overlay; the pipeline refuses it`);
-      continue;
-    }
-    if (lang !== overlay.basis.lang && map.text.languages[lang] !== undefined) {
-      warn(file, `${where} ships ${lang} text itself, which wins; the overlay is redundant`);
-      continue;
-    }
-    const basis = map.text.languages[overlay.basis.lang];
-    const digest = mapSourceTextDigest(basis?.strings ?? {}, basis?.briefings ?? new Map());
-    if (digest !== overlay.basis.digest) warn(file, `${where}: the ${overlay.basis.lang} basis text changed`);
-    const ids = missingKeys(overlay.strings, (id) => basis?.strings[Number(id)] !== undefined);
-    if (ids !== undefined) warn(file, `${where}: string ids the ${overlay.basis.lang} source lacks: ${ids}`);
-    const labels = missingKeys(overlay.briefings, (label) => basis?.briefings.has(label) === true);
-    if (labels !== undefined)
-      warn(file, `${where}: briefing labels the ${overlay.basis.lang} source lacks: ${labels}`);
-    // An overlay in its basis language edits that text rather than translating it.
-    const kept = lang === overlay.basis.lang ? 'unedited' : 'untranslated';
-    const source = `the ${overlay.basis.lang} source text`;
-    const unchanged = unchangedKeys(overlay, basis);
-    if (unchanged.worded > 0 && unchanged.ids.length + unchanged.labels.length === unchanged.worded) {
-      warn(file, `${where}: ${kept}, every value is still ${source}`);
-    } else {
-      if (unchanged.ids.length > 0)
-        warn(file, `${where}: ${kept} string ids, still ${source}: ${unchanged.ids.join(', ')}`);
-      if (unchanged.labels.length > 0)
-        warn(file, `${where}: ${kept} briefing labels, still ${source}: ${unchanged.labels.join(', ')}`);
-    }
+  const where = whereOf(map);
+  const basis = map.text.languages[overlay.basis.lang];
+  if (stale) {
+    const twin = copies.find((other) => textDigest(other, overlay.basis.lang) === overlay.basis.digest);
+    warn(
+      file,
+      twin === undefined
+        ? `${where}: the ${overlay.basis.lang} basis text changed`
+        : `${where}: its ${overlay.basis.lang} text differs from ${whereOf(twin)}'s, which the overlay ` +
+            'was written against; a variant file gives it its own',
+    );
   }
+  const ids = missingKeys(overlay.strings, (id) => basis?.strings[Number(id)] !== undefined);
+  if (ids !== undefined) warn(file, `${where}: string ids the ${overlay.basis.lang} source lacks: ${ids}`);
+  const labels = missingKeys(overlay.briefings, (label) => basis?.briefings.has(label) === true);
+  if (labels !== undefined)
+    warn(file, `${where}: briefing labels the ${overlay.basis.lang} source lacks: ${labels}`);
+  // An overlay in its basis language edits that text rather than translating it.
+  const kept = lang === overlay.basis.lang ? 'unedited' : 'untranslated';
+  const source = `the ${overlay.basis.lang} source text`;
+  const unchanged = unchangedKeys(overlay, basis);
+  if (unchanged.worded > 0 && unchanged.ids.length + unchanged.labels.length === unchanged.worded) {
+    warn(file, `${where}: ${kept}, every value is still ${source}`);
+  } else {
+    if (unchanged.ids.length > 0)
+      warn(file, `${where}: ${kept} string ids, still ${source}: ${unchanged.ids.join(', ')}`);
+    if (unchanged.labels.length > 0)
+      warn(file, `${where}: ${kept} briefing labels, still ${source}: ${unchanged.labels.join(', ')}`);
+  }
+}
+
+/**
+ * The warnings of one language's overlays of a `map.dat` against every pack copy of the map, each copy
+ * taking the overlay the pipeline selects for it. Answers how many of the files no copy takes.
+ */
+function auditMapOverlays(
+  files: readonly MapOverlayFile[],
+  copies: readonly PackMap[],
+  warn: (file: string, message: string) => void,
+): number {
+  const [first] = files;
+  if (first === undefined) return 0;
+  const { lang } = first;
+  for (const map of copies) {
+    const where = whereOf(map);
+    if (isSourceLanguage(lang) && !map.takesSourceLanguages) {
+      for (const { file } of files)
+        warn(file, `${where} takes no source-language overlay; the pipeline refuses it`);
+      continue;
+    }
+    const selected = selectMapOverlay(
+      files.map(({ overlay }) => overlay),
+      (basisLang) => textDigest(map, basisLang),
+    );
+    const applied = files.find(({ overlay }) => overlay === selected?.overlay);
+    if (selected === undefined || applied === undefined) {
+      warn(
+        first.file,
+        `${where} takes none of the ${files.length} ${lang} overlays of its map.dat: its text matches the ` +
+          `basis of none of ${files.map(({ file }) => file).join(', ')}`,
+      );
+      continue;
+    }
+    const { overlay } = applied;
+    if (lang !== overlay.basis.lang && map.text.languages[lang] !== undefined) {
+      warn(applied.file, `${where} ships ${lang} text itself, which wins; the overlay is redundant`);
+      continue;
+    }
+    auditAppliedOverlay(applied, map, copies, selected.stale, warn);
+  }
+  const taken = (overlay: MapOverlay) =>
+    files.length === 1 || copies.some((map) => textDigest(map, overlay.basis.lang) === overlay.basis.digest);
+  return files.filter(({ overlay }) => !taken(overlay)).length;
+}
+
+/** The valid map overlays by `map.dat` digest, then language, in file order. */
+function mapOverlaysByDigest(maps: readonly MapOverlayFile[]): Map<string, Map<Language, MapOverlayFile[]>> {
+  const byDigest = new Map<string, Map<Language, MapOverlayFile[]>>();
+  for (const entry of maps) {
+    const byLanguage = byDigest.get(entry.digest) ?? new Map<Language, MapOverlayFile[]>();
+    byLanguage.set(entry.lang, [...(byLanguage.get(entry.lang) ?? []), entry]);
+    byDigest.set(entry.digest, byLanguage);
+  }
+  return byDigest;
 }
 
 /**
@@ -257,10 +336,10 @@ export async function auditTranslations(root: string, pack?: PackText): Promise<
   let unmatchedMaps = 0;
   if (pack !== undefined) {
     const maps = valid.maps.length === 0 ? new Map<string, readonly PackMap[]>() : await pack.maps();
-    for (const entry of valid.maps) {
-      const copies = maps.get(entry.digest);
-      if (copies === undefined) unmatchedMaps++;
-      else auditMapOverlay(entry, copies, warn);
+    for (const [digest, byLanguage] of mapOverlaysByDigest(valid.maps)) {
+      const copies = maps.get(digest);
+      for (const files of byLanguage.values())
+        unmatchedMaps += copies === undefined ? files.length : auditMapOverlays(files, copies, warn);
     }
     for (const { file, table, overlay } of valid.objects) {
       let source: GameObjectNames;

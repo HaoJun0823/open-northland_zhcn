@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { OVERLAY_VERSION } from '@open-northland/data';
+import { MAP_OVERLAY_BASIS_PREFIX_LENGTH, OVERLAY_VERSION } from '@open-northland/data';
 import { mapSourceTextDigest } from '@open-northland/map-import';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildMapDat } from '../../../packages/formats/test/fixtures/mapdat.js';
@@ -22,6 +22,10 @@ import { auditTranslations } from '../src/audit.js';
 
 const DIGEST = 'a'.repeat(64);
 const OTHER = 'b'.repeat(64);
+
+/** The file name of a further map overlay of `DIGEST` written against `basisDigest`. */
+const variantOf = (basisDigest: string): string =>
+  `${DIGEST}.${basisDigest.slice(0, MAP_OVERLAY_BASIS_PREFIX_LENGTH)}`;
 
 let dir: string;
 
@@ -104,6 +108,30 @@ describe('auditTranslations: layout and schema', () => {
       /^invalid maps overlay at basis\.digest/,
     );
     expect(errors.find((finding) => finding.file.startsWith('pol/'))?.message).toMatch(/community maps/);
+  });
+});
+
+describe('auditTranslations: map overlays of one map.dat', () => {
+  it('refuses a variant name its basis does not begin, and a second file of one basis', async () => {
+    const shared = basis('c'.repeat(64));
+    await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }, {}, shared));
+    await put(`chs/maps/${variantOf(shared.digest)}.json`, mapOverlay({ '0': '峡湾' }, {}, shared));
+    await put(`cht/maps/${variantOf('d'.repeat(64))}.json`, mapOverlay({ '0': '峽灣' }, {}, shared));
+    await put(`cht/maps/${DIGEST}.json`, mapOverlay({ '0': '峽灣' }, {}, shared));
+
+    const { errors, files } = await auditTranslations(dir);
+
+    expect(files).toBe(2);
+    expect(errors).toEqual([
+      {
+        file: `chs/maps/${DIGEST}.json`,
+        message: `${variantOf(shared.digest)}.json has the same map.dat and basis.digest`,
+      },
+      {
+        file: `cht/maps/${variantOf('d'.repeat(64))}.json`,
+        message: `the name's basis prefix ${'d'.repeat(MAP_OVERLAY_BASIS_PREFIX_LENGTH)} does not begin basis.digest ${shared.digest}`,
+      },
+    ]);
   });
 });
 
@@ -249,6 +277,82 @@ describe('auditTranslations: against the pack', () => {
         file: `pol/maps/${DIGEST}.json`,
         message:
           'campaign map campaigns/saga/saga_01 takes no source-language overlay; the pipeline refuses it',
+      },
+    ]);
+  });
+});
+
+describe('auditTranslations: copies of one map.dat with other text', () => {
+  const briefings = new Map([['title', 'Na polnoc']]);
+  const texts = {
+    fjord: { 0: 'Fjord', 1: 'Opis' },
+    twin: { 0: 'Fjord drugi', 1: 'Opis' },
+    third: { 0: 'Fjord trzeci', 1: 'Opis' },
+  } as const;
+  const basisOf = (name: keyof typeof texts) => basis(mapSourceTextDigest(texts[name], briefings));
+
+  function copiesOf(...names: (keyof typeof texts)[]): PackText {
+    const copies = names.map(
+      (name): PackMap => ({
+        folder: `maps/community/${name}`,
+        takesSourceLanguages: true,
+        text: { datDigest: DIGEST, languages: { pol: { strings: texts[name], briefings } } },
+      }),
+    );
+    return {
+      maps: async () => new Map([[DIGEST, copies]]),
+      campaigns: new Set(),
+      objectNames: async () => {
+        throw new Error('no object tables');
+      },
+      historyBlocks: async () => undefined,
+    };
+  }
+
+  it('takes for each copy the overlay written against its own text, and warns about none', async () => {
+    await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }, {}, basisOf('fjord')));
+    const twin = basisOf('twin');
+    await put(`chs/maps/${variantOf(twin.digest)}.json`, mapOverlay({ '0': '第二峡湾' }, {}, twin));
+
+    const report = await auditTranslations(dir, copiesOf('fjord', 'twin'));
+
+    expect(report).toEqual({ files: 2, errors: [], warnings: [], unmatchedMaps: 0 });
+  });
+
+  it('names the copy that shares a file written against its twin', async () => {
+    await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }, {}, basisOf('fjord')));
+
+    const { warnings } = await auditTranslations(dir, copiesOf('fjord', 'twin'));
+
+    expect(warnings).toEqual([
+      {
+        file: `chs/maps/${DIGEST}.json`,
+        message:
+          "maps/community/twin: its pol text differs from maps/community/fjord's, which the overlay was " +
+          'written against; a variant file gives it its own',
+      },
+    ]);
+  });
+
+  it('warns about a copy none of several overlays was written for, and counts those no copy takes', async () => {
+    const twin = basisOf('twin');
+    const lost = basis('e'.repeat(64));
+    await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }, {}, basisOf('fjord')));
+    await put(`chs/maps/${variantOf(twin.digest)}.json`, mapOverlay({ '0': '第二峡湾' }, {}, twin));
+    await put(`chs/maps/${variantOf(lost.digest)}.json`, mapOverlay({ '0': '失落' }, {}, lost));
+
+    const { warnings, unmatchedMaps } = await auditTranslations(dir, copiesOf('fjord', 'twin', 'third'));
+
+    const files = [variantOf(twin.digest), variantOf(lost.digest), DIGEST]
+      .map((name) => `chs/maps/${name}.json`)
+      .sort();
+    expect(unmatchedMaps).toBe(1);
+    expect(warnings).toEqual([
+      {
+        file: files[0],
+        message:
+          'maps/community/third takes none of the 3 chs overlays of its map.dat: its text matches the ' +
+          `basis of none of ${files.join(', ')}`,
       },
     ]);
   });

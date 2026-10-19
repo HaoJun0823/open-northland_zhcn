@@ -32,7 +32,7 @@ Imported:
   they still follow the original until fixed upstream.
 - `<lang>/books/history.json`: the blocks of `hypertext/history/mythology.txt`.
 - `glossary.csv`: `language_union.csv` with its `ger`, `eng`, `pol`, `l10` (as `chs`) and `l11` (as
-  `cht`) columns and the term type, description and references.
+  `cht`) columns and the term type, description and references. The import rewrites the whole file.
 
 Not imported: the German, English and Polish text of the XMLs and text folders (the pack carries that
 text), the other language columns, `Localization/map_xml_user/` (its maps are not in the pack),
@@ -54,8 +54,8 @@ ours. Update the commit above when importing a newer one.
 Overlays the project wrote itself, edited in place:
 
 - `chs/campaigns/` and `cht/campaigns/`: the four campaign titles.
-- `glossary.csv` rows without a `ger` value: the names and terms of the community maps, written for
-  the project's own translation of those maps.
+- `glossary-project.csv`: the names and terms of the community maps, written for the project's own
+  translation of those maps, in the columns of `glossary.csv`.
 - `chs/maps/` files for community maps the import did not cover: the project's translation from the
   Polish text, machine-translated with the glossary and edited by a reviewer; unreviewed by a native
   speaker. Their `cht/maps/` twins are OpenCC conversions (`npm run translations:derive-cht`).

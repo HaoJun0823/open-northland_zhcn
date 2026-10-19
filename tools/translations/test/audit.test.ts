@@ -65,6 +65,7 @@ describe('auditTranslations: layout and schema', () => {
     await put('AGENTS.md', '# contract');
     await put('SOURCES.md', '# sources');
     await put('glossary.csv', 'term');
+    await put('glossary-project.csv', 'term');
     await put('.DS_Store', 'finder');
     await put(`chs/maps/${DIGEST}.json`, mapOverlay({ '0': '峡湾' }));
     await put(`eng/maps/${DIGEST}.json`, mapOverlay({ '0': 'Fjord' }));

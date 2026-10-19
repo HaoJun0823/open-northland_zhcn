@@ -32,7 +32,10 @@ import {
 
 const TEXT_DIR = ['Localization', 'text'] as const;
 const GLOSSARY_SOURCE = 'language_union.csv';
+/** The import's own term table, rewritten whole by each run. */
 export const GLOSSARY_FILE = 'glossary.csv';
+/** The project's terms, beside the import's and never written by it. */
+export const PROJECT_GLOSSARY_FILE = 'glossary-project.csv';
 const PACK_BASE = 'base';
 
 export interface ImportOptions {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Imports the Chinese text of CulturesGameLocalization into `translations/{chs,cht}/` as JSON overlays
- * against the data pack's German text, plus `translations/glossary.csv`. Usage and provenance:
+ * against the data pack's German text, and rewrites `translations/glossary.csv`. Usage and provenance:
  * `translations/SOURCES.md`.
  */
 

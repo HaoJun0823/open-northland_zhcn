@@ -1,6 +1,6 @@
 import { OVERLAY_LANGUAGES } from '@open-northland/data';
 import type { MatchedMap } from './maps.js';
-import type { Alignment, ImportResult } from './run.js';
+import { type Alignment, GLOSSARY_FILE, type ImportResult, PROJECT_GLOSSARY_FILE } from './run.js';
 
 const PERCENT = 100;
 const PERCENT_DIGITS = 1;
@@ -133,7 +133,10 @@ export function formatReport(result: ImportResult, sourceCommit: string): string
       );
     }
   }
-  add(`Glossary: ${result.glossaryTerms} terms`);
-  add(`Files written: ${result.files.length} overlays and the glossary`);
+  add(
+    `Glossary: rewrote ${GLOSSARY_FILE} with the ${result.glossaryTerms} upstream terms; the project's ` +
+      `terms are in ${PROJECT_GLOSSARY_FILE}, which the import leaves alone`,
+  );
+  add(`Files written: ${result.files.length} overlays and ${GLOSSARY_FILE}`);
   return lines.join('\n');
 }

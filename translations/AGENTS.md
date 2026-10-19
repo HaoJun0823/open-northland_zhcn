@@ -13,7 +13,9 @@ translations/
   AGENTS.md                      this contract
   SOURCES.md                     where each imported overlay set comes from: repository, commit,
                                  license, permission; or "machine translation, unreviewed"
-  glossary.csv                   one term table for every language (names, goods, buildings, tribes)
+  glossary.csv                   the imported term table (names, goods, buildings, tribes); each import
+                                 rewrites it whole
+  glossary-project.csv           the project's own terms, same columns, edited in place
   <lang>/
     maps/<map.dat sha256>.json   strings by id, briefing blocks by label  (MapOverlay)
     maps/<map.dat sha256>.<basis prefix>.json

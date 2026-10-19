@@ -14,7 +14,7 @@ every such entry in its report (`corrected-keys`).
 ## Scope
 
 - Translate the project's rewritten text for those entries into `chs` and `cht` (machine translation
-  with `translations/glossary.csv`, marked unreviewed in `SOURCES.md`) and store it so the next
+  with the glossaries under `translations/`, marked unreviewed in `SOURCES.md`) and store it so the next
   import does not overwrite it: either the import skips entries the project owns (a list in the
   tool, or a per-file `owner` field in the overlay), or the project's entries live in a second file
   the loader merges over the import. Record the rule in `translations/AGENTS.md`.

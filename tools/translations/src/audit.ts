@@ -58,7 +58,12 @@ export interface AuditReport {
 }
 
 /** The files the contract keeps at the translations root beside the language folders. */
-const ROOT_FILES: ReadonlySet<string> = new Set(['AGENTS.md', 'SOURCES.md', 'glossary.csv']);
+const ROOT_FILES: ReadonlySet<string> = new Set([
+  'AGENTS.md',
+  'SOURCES.md',
+  'glossary.csv',
+  'glossary-project.csv',
+]);
 const OVERLAY_EXTENSION = '.json';
 /** The campaign id spelling the campaign index accepts. */
 const CAMPAIGN_FILE = /^[a-z0-9][a-z0-9_-]*$/;

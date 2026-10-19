@@ -14,6 +14,17 @@ import { fragmentCost } from './support/glsl-cost.js';
  */
 const FRAGMENT_TEXTURE_OP_BUDGET = 1500;
 
+/**
+ * Inlined function calls the paged ground programs may hold. Each picks its page through an eight-way
+ * if-chain; only the page reads run inside it and the shading, weather cover included, runs once
+ * after. Shading inside every branch measured 672 calls for `shaded-terrain` and 192 for
+ * `shaded-decor`; the split shape measures 106 and 39. Each budget is about half again its figure.
+ */
+const PAGED_PROGRAM_CALL_BUDGETS: Readonly<Record<string, number>> = {
+  'shaded-terrain': 160,
+  'shaded-decor': 60,
+};
+
 /** Sampler slots in the synthetic regression, the count WebGL 2 guarantees. */
 const REGRESSION_SLOTS = 16;
 
@@ -45,6 +56,16 @@ describe('fragment texture-operation budget', () => {
     expect(costs.flatMap((cost) => cost.unknownLoopBounds.map((loop) => `${cost.name}: ${loop}`))).toEqual(
       [],
     );
+  });
+
+  it('keeps the paged ground programs shading once after their page chain', () => {
+    const over = Object.entries(PAGED_PROGRAM_CALL_BUDGETS).flatMap(([name, budget]) => {
+      const entry = catalogue.find((program) => program.name === name);
+      if (entry === undefined) return [`${name}: missing from the catalogue`];
+      const calls = fragmentCost(entry.fragment).inlinedFunctionCalls;
+      return calls > budget ? [`${name}: ${calls} inlined calls, budget ${budget}`] : [];
+    });
+    expect(over).toEqual([]);
   });
 
   it('rejects the whole magnify path sampled inside every branch of a sampler chain', () => {

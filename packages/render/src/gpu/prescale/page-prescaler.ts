@@ -56,6 +56,12 @@ const PAGE_TWIN_MIP_LEVELS = 2;
 const BYTES_PER_TEXEL = 4;
 const QUAD_INDICES = new Uint32Array([0, 1, 2, 0, 2, 3]);
 const TRANSPARENT: [number, number, number, number] = [0, 0, 0, 0];
+/** Context restores under one scaler after which the prescaler holds: a loss that memory causes
+ *  would repeat as the twins come back. */
+const CONTEXT_LOSSES_TO_HOLD = 2;
+
+/** Why a set scaler draws no twins. */
+export type PrescaleHold = 'unlinked program' | 'context losses';
 
 /** How much a prescaler may draw per frame and keep. */
 export interface PrescaleLimits {
@@ -87,6 +93,11 @@ export interface PrescaleStats {
   readonly overBudget: number;
   /** Texture memory the twins hold, mip levels included. */
   readonly bytes: number;
+  /** Drawn pages whose prescale pass failed in script; they keep the sharp path. */
+  readonly failed: number;
+  /** Why the prescaler draws no twins although a scaler is set: a recipe program the device did not
+   *  link, or repeated context losses under this scaler; null while it works. */
+  readonly held: PrescaleHold | null;
 }
 
 interface Twin {
@@ -128,13 +139,19 @@ export class PagePrescaler {
   /** Drawn pages without a twin, with the frame each was last drawn. */
   private readonly queue = new Map<TextureSource, number>();
   private readonly oversized = new Set<TextureSource>();
+  private readonly failedPages = new Set<TextureSource>();
   private job: PrescaleJob | null = null;
   private overBudget = 0;
   private bytes = 0;
   private frame = 0;
+  private losses = 0;
+  private held: PrescaleHold | null = null;
   private readonly maxTargetSize: number;
   private readonly onContextChange = {
-    contextChange: (): void => this.withdraw(),
+    contextChange: (): void => {
+      this.withdraw();
+      if (this.scaler !== null && ++this.losses >= CONTEXT_LOSSES_TO_HOLD) this.hold('context losses');
+    },
   };
 
   constructor(
@@ -159,18 +176,25 @@ export class PagePrescaler {
     if (scaler === this.scaler) return;
     this.withdraw();
     this.scaler = scaler;
-    collectDrawnPages(scaler !== null);
+    this.losses = 0;
+    this.held = scaler !== null && !this.linked(PRESCALE_RECIPES[scaler]) ? 'unlinked program' : null;
+    collectDrawnPages(scaler !== null && this.held === null);
   }
 
   /** Takes the pages drawn since the last frame, frees idle twins and draws up to the frame's texels
    *  of twins still missing. */
   update(from: PrescalableSources): void {
-    if (this.scaler === null) return;
+    if (this.scaler === null || this.held !== null) return;
     this.frame++;
     for (const page of takeDrawnPages()) {
       const twin = this.twins.get(page);
       if (twin !== undefined) twin.lastDrawn = this.frame;
-      else if (this.job?.page !== page && !this.oversized.has(page) && from.isPrescalable(page))
+      else if (
+        this.job?.page !== page &&
+        !this.oversized.has(page) &&
+        !this.failedPages.has(page) &&
+        from.isPrescalable(page)
+      )
         this.queue.set(page, this.frame);
     }
     for (const [page, drawn] of this.queue) if (this.frame - drawn > IN_VIEW_FRAMES) this.queue.delete(page);
@@ -192,6 +216,8 @@ export class PagePrescaler {
       pending: this.queue.size + (this.job === null ? 0 : 1),
       overBudget: this.overBudget,
       bytes: this.bytes,
+      failed: this.failedPages.size,
+      held: this.held,
     };
   }
 
@@ -207,6 +233,26 @@ export class PagePrescaler {
     this.queue.clear();
     for (const page of this.oversized) page.off('destroy', this.forget, this);
     this.oversized.clear();
+    for (const page of this.failedPages) page.off('destroy', this.forget, this);
+    this.failedPages.clear();
+  }
+
+  private hold(reason: PrescaleHold): void {
+    this.held = reason;
+    this.withdraw();
+    collectDrawnPages(false);
+  }
+
+  /** Whether the device linked every pass of `recipe`. Pixi only logs a failed link and draws nothing
+   *  through the program, which would publish transparent twins and blank the page's sprites. */
+  private linked(recipe: readonly PrescalePass[]): boolean {
+    const renderer = this.renderer;
+    if (!(renderer instanceof WebGLRenderer)) return true;
+    const gl = renderer.gl;
+    return recipe.every((pass) => {
+      const data = renderer.shader._getProgramData(glProgramFor(pass.program));
+      return gl.getProgramParameter(data.program, gl.LINK_STATUS) === true;
+    });
   }
 
   /** The next queued page that fits the device and the budget, its job begun; null for none. A page
@@ -298,13 +344,14 @@ export class PagePrescaler {
         if (last) this.finish(job, target);
       }
       return rows * width;
-    } catch (error) {
-      // A pass the device refuses: the page keeps the sharp path rather than retrying every frame.
+    } catch {
+      // A pass that failed in script, a page destroyed under its job included: the page keeps the
+      // sharp path rather than retrying every frame, the frame goes on and the stats count it.
       const page = job.page;
       this.abortJob();
-      this.oversized.add(page);
+      this.failedPages.add(page);
       page.once('destroy', this.forget, this);
-      throw error;
+      return 0;
     }
   }
 
@@ -377,5 +424,6 @@ export class PagePrescaler {
 
   private forget(page: TextureSource): void {
     this.oversized.delete(page);
+    this.failedPages.delete(page);
   }
 }

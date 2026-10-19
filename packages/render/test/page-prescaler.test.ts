@@ -18,11 +18,13 @@ import { useHeadlessShaderContext } from './support/shader-context.js';
 const MAX_TEXTURE_SIZE = 64;
 const GL_MAX_TEXTURE_SIZE = 0x0d33;
 const GL_MAX_VIEWPORT_DIMS = 0x0d3a;
+const GL_LINK_STATUS = 0x8b82;
 /** Frames past which an idle twin is swept: the sweep runs every sixty frames. */
 const SWEEP_FRAMES = 60;
 
-/** A WebGL renderer that only records what each prescale draw targets. */
-function recordingRenderer() {
+/** A WebGL renderer that only records what each prescale draw targets; `linked` is what it answers for
+ *  every program's link status and `refuse` a target width whose draw throws. */
+function recordingRenderer({ linked = true, refuse = 0 } = {}) {
   const targets: { width: number; height: number }[] = [];
   const renderer = Object.create(WebGLRenderer.prototype) as WebGLRenderer;
   const contextChange = new SystemRunner('contextChange');
@@ -36,10 +38,15 @@ function recordingRenderer() {
           : name === GL_MAX_VIEWPORT_DIMS
             ? [MAX_TEXTURE_SIZE, MAX_TEXTURE_SIZE]
             : 0,
+      LINK_STATUS: GL_LINK_STATUS,
+      getProgramParameter: (_program: unknown, name: number) => (name === GL_LINK_STATUS ? linked : null),
     },
+    shader: { _getProgramData: () => ({ program: {} }) },
     runners: { contextChange },
-    render: ({ target }: { target: { source: TextureSource } }) =>
-      targets.push({ width: target.source.pixelWidth, height: target.source.pixelHeight }),
+    render: ({ target }: { target: { source: TextureSource } }) => {
+      if (target.source.pixelWidth === refuse) throw new Error('pass refused');
+      targets.push({ width: target.source.pixelWidth, height: target.source.pixelHeight });
+    },
   });
   return { renderer: renderer as Renderer, targets, contextChange };
 }
@@ -145,6 +152,58 @@ describe('page prescaler', () => {
     expect(prescaler.stats().scaler).toBe('xbrz');
     frame(prescaler, [source]);
     expect(prescaledPageOf(source)).toBeDefined();
+  });
+
+  it('holds after a second context loss under one scaler, until the scaler changes', () => {
+    const { renderer, contextChange } = recordingRenderer();
+    prescaler = new PagePrescaler(renderer, ROOMY);
+    const source = page(8, 8);
+    prescaler.setScaler('xbrz');
+    frame(prescaler, [source]);
+    contextChange.emit();
+    frame(prescaler, [source]);
+    expect(prescaledPageOf(source)).toBeDefined();
+    contextChange.emit();
+    expect(prescaler.stats()).toMatchObject({ scaler: 'xbrz', pages: 0, held: 'context losses' });
+    expect(isCollectingDrawnPages()).toBe(false);
+    frame(prescaler, [source]);
+    expect(prescaledPageOf(source)).toBeUndefined();
+    prescaler.setScaler('mmpx');
+    expect(prescaler.stats().held).toBeNull();
+    frame(prescaler, [source]);
+    expect(prescaledPageOf(source)).toBeDefined();
+  });
+
+  it('holds under a recipe program the device did not link', () => {
+    const { renderer, targets } = recordingRenderer({ linked: false });
+    prescaler = new PagePrescaler(renderer, ROOMY);
+    prescaler.setScaler('xbrz');
+    expect(isCollectingDrawnPages()).toBe(false);
+    frame(prescaler, [page(8, 8)]);
+    expect(targets).toEqual([]);
+    expect(prescaler.stats()).toMatchObject({
+      scaler: 'xbrz',
+      pages: 0,
+      pending: 0,
+      held: 'unlinked program',
+    });
+    prescaler.setScaler(null);
+    expect(prescaler.stats().held).toBeNull();
+  });
+
+  it('keeps a page whose pass failed on the sharp path and goes on to the next page in the same frame', () => {
+    const { renderer } = recordingRenderer({ refuse: 4 * PRESCALE_FACTOR });
+    prescaler = new PagePrescaler(renderer, ROOMY);
+    const [failing, fine] = [page(4, 4), page(8, 8)];
+    prescaler.setScaler('xbrz');
+    expect(() => frame(prescaler as PagePrescaler, [failing, fine])).not.toThrow();
+    expect(prescaledPageOf(failing)).toBeUndefined();
+    expect(prescaledPageOf(fine)).toBeDefined();
+    expect(prescaler.stats()).toMatchObject({ pages: 1, pending: 0, failed: 1 });
+    frame(prescaler, [failing]);
+    expect(prescaler.stats()).toMatchObject({ pending: 0, failed: 1 });
+    failing.destroy();
+    expect(prescaler.stats().failed).toBe(0);
   });
 
   it('leaves a page whose twin would outgrow the device, and a page the cache does not hand over', () => {

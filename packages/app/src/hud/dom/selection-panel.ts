@@ -4,7 +4,7 @@ import { GLYPH } from './icons.js';
 import { button, element, setAttribute, setClass, setHidden, setTip, write } from './parts/dom.js';
 import { quietTextField } from './parts/text-field.js';
 import { attachTipLayer, type TipChip } from './parts/tip-layer.js';
-import { planeSize } from './plane-size.js';
+import { onPlaneResize, planeSize } from './plane-size.js';
 import { type ClientRect, closePortraitHole, cutPortraitHole } from './portrait-hole.js';
 import { WINDOW_ORNAMENTS } from './symbols.js';
 
@@ -202,6 +202,12 @@ export function createSelectionPanel(
     root.style.bottom = `${bottom}px`;
     root.style.maxHeight = `calc(100% - ${TOP_BAR_HEIGHT + SELECTION_TOP_GAP_PX + bottom}px)`;
   };
+  // A new plane size can take the beam under the panel or away: placed from the plane's observer,
+  // before the frame that resized the plane paints, and the hole measured again.
+  const stopPlacing = onPlaneResize(plane, () => {
+    place();
+    invalidate();
+  });
   const measure = (): ClientRect | null => {
     place();
     if (holeFrame === null || root.hidden) return null;
@@ -307,6 +313,7 @@ export function createSelectionPanel(
       tips.dispose();
       window.removeEventListener('resize', invalidate);
       resizes.disconnect();
+      stopPlacing();
       root.remove();
     },
   };

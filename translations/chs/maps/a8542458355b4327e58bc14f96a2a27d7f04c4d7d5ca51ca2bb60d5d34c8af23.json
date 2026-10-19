@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "map": "wonder-campaign_03_03_sub3",
+  "basis": {
+    "lang": "ger",
+    "digest": "2fa1d72ed7dbcf4dc66781ecb3f258b22fe9c1cf991bd54e60ac4b44270af5b3"
+  },
+  "strings": {
+    "0": "简短说明 0",
+    "1": "简短说明 1",
+    "50": "玩家",
+    "51": "守卫",
+    "60": "玩家",
+    "61": "守卫",
+    "71": "比雅尼",
+    "98": "巨像神谕",
+    "99": "巨像神谕",
+    "100": "与神谕者交谈。大胆走近他！",
+    "110": "再度离开神谕者……"
+  },
+  "briefings": {
+    "10": "\n\n喀耳刻\n\n当我们立于喀耳刻面前，女神以神秘之声向我们开口：\n\n\"借我之口，太阳神赫利俄斯、罗德之守护者如此说。\n听者，外乡人，须知你们的危难我已尽知。德米特里奥斯这卑劣狂徒，连同其部众，必当倾覆！\n凡招惹神怒者，必遭恶报！\n\n作为代价，为我立一尊雕像。巍峨而辉煌，使我名永享尊荣！\n它须妆点罗德城，使之长记我之助！\n\n去吧，上行观看！\"\n\n离开神谕。\n        ",
+    "20": "\n\n神谕守卫\n\n此劫终难幸免……\n一个巨魔自黑暗中现身，正是守护神谕者！\n\n愿众神垂怜于我们！\n        ",
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n是英勇还是鲁莽？当比雅尼倒下时，众神为之落泪……失去这位英雄，你将无缘见到任务的结局。\n        ",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时的疏忽，人生便会急转直下！你的女英雄希拉因你的大意而丧命！失去这位英雄，你将无缘见到任务的结局。\n        ",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时的疏忽，人生便会急转直下！你的挚友与英雄哈奇因你的大意而丧命！失去这位英雄，你将无缘见到任务的结局。\n        ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时的疏忽，人生便会急转直下！你的挚友与英雄西格德因你的大意而丧命！失去这位英雄，你将无缘见到任务的结局。\n        ",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\People_Dead_F.pcx>\n\n\n尽管已有人警告于你，你竟攻击了自己最好的朋友！\n\n如此你将无法完成使命！\n        ",
+    "600": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n神谕守卫比你更加强大。\n\n如今你再无缘知晓，神谕究竟藏着何种秘密！\n        ",
+    "00_start": "神庙穹窿之下，一条小径向下通入神谕的圣地。\n\n眼前所见，令我们屏息！\n\n这神谕--竟非旁人，而是喀耳刻！太阳神赫利俄斯与珀耳塞之女，\n\n曾令无数英雄折腰--如今，她就在我们面前。",
+    "09_end_text1": "\n\n出口\n\n说来，这比我们预想的容易得多。\n\n我们忐忑地踏出户外，想看众神的怒火将如何显现……\n        ",
+    "header": "\n\n神谕\n        "
+  }
+}

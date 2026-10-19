@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "map": "wonder-campaign_03_05_sub1",
+  "basis": {
+    "lang": "ger",
+    "digest": "f1c3a2c904c574096eaa23e191e04ad685a32bb1de27eefc1f715322090d1325"
+  },
+  "strings": {
+    "0": "@尋找年幼的希羅斯特拉特斯，將其關入地牢！",
+    "1": "尋找地牢！",
+    "2": "設法繞過希羅斯特拉特斯的隨從！",
+    "3": "與英雄一同返回入口！",
+    "55": "希羅斯特拉特斯的繼承者",
+    "56": "希羅斯特拉特斯",
+    "65": "繼承者",
+    "66": "希羅斯特拉特斯",
+    "71": "比雅尼",
+    "72": "希拉",
+    "73": "哈奇",
+    "74": "西格德",
+    "75": "諾伯特",
+    "76": "瑪尼",
+    "77": "希羅斯特拉特斯",
+    "99": "希羅斯特拉特斯繼承者"
+  },
+  "briefings": {
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n英雄氣概，還是魯莽？當比雅尼殞命，眾神落淚……失此英雄，你便無緣得見任務終局。\n        ",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！你的女英雄希拉因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！你的摯友與英雄哈奇因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！你的摯友與英雄西格德因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！你的摯友與英雄--巨龍諾伯特--因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "600": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！瑪尼--比雅尼與希拉之子--因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "00_start": "為消弭神廟之危，我們循那夥縱火賊穿過山道，竟入一似是另一世界之境。此地方可自那唯一入口進入。若非親眼所見，我們絕不會相信--這火山內部竟別有洞天！\n        <usericon:1,40,298>",
+    "00_start1": "\n\n欲治住\"希羅斯特拉特斯之裔\"，須避開其門徒與吐火之龍！\n\n唯尋得幼者希羅斯特拉特斯，將其囚於地牢，使他再不能煽惑眾人，攻擊方止。\n\n尋得幼者希羅斯特拉特斯，將其囚入地牢！當心秘道！\n\n        ",
+    "01": "\n\n希羅斯特拉特斯之裔\n\n\"嘿，你們！誰準你們踏入我等領地？\"\n\n        ",
+    "02": "\n\n希羅斯特拉特斯之裔秘窟\n\n\"你們想把我們的首領希羅斯特拉特斯關進地牢？我們絕不容許！\"\n\n        ",
+    "03": "\n\n地牢看守\n\n\"幸會！我候你們多時了。希羅斯特拉特斯之裔縱火行惡，於人無益。\n\n\n        \n        <usericon:1,43,175>\n\n\n\n此地神聖，希羅斯特拉特斯之裔從不至此。將他囚於此間，我自會看管。\"\n\n        ",
+    "04": "\n\n希羅斯特拉特斯\n\n\"你們要把我關進地牢？休想我會乖乖跟你們走！\"\n\n\n        \n        <usericon:2,7>\n\n\n\n將希羅斯特拉特斯押入地牢！\n\n        ",
+    "05": "\n\n希羅斯特拉特斯身陷地牢！\n\n我們成功了！希羅斯特拉特斯困於地牢，自此由地牢看守看管。其門徒再不能將他救出。\n\n\n        \n        <usericon:2,7>\n\n\n\n率眾英雄返回入口！\n\n        ",
+    "50_end": "\n\n我們將希羅斯特拉特斯交予地牢看守後，便返回山界入口。在那裡他備受看管，再不能煽人縱火。\n\n\n        \n        <usericon:1,24,287>",
+    "50_endheader": "\n\n任務成功！\n\n        ",
+    "header": "\n\n希羅斯特拉特斯之裔\n\n        "
+  }
+}

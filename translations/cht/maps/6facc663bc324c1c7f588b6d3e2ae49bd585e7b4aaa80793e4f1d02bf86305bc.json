@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "map": "wonder-campaign_03_05_sub2",
+  "basis": {
+    "lang": "ger",
+    "digest": "e45fefeec9852d221df141736bd4572357f68c45fd392d396a86becc9aeca343"
+  },
+  "strings": {
+    "0": "@尋一條穿越沼澤之路！",
+    "51": "沼澤部族",
+    "61": "沼澤部族",
+    "71": "比雅尼",
+    "72": "希拉",
+    "73": "哈奇",
+    "74": "西格德",
+    "75": "諾伯特",
+    "76": "瑪尼",
+    "99": "迷失沼澤"
+  },
+  "briefings": {
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n英雄氣概，還是魯莽？當比雅尼殞命，眾神落淚……失此英雄，你便無緣得見任務終局。\n        ",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！你的女英雄希拉因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！你的摯友與英雄哈奇因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！你的摯友與英雄西格德因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！你的摯友與英雄--巨龍諾伯特--因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "600": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時疏忽，人生便急轉直下！瑪尼--比雅尼與希拉之子--因你大意而殞命！失此英雄，你便無緣得見任務終局。\n        ",
+    "00_start": "我們尚不知如何在沼澤中找到遏制其蔓延之法。\n        <usericon:1,208,156>\n以弗所居民說起\"沼澤智者\"，據說他們藏身於沼澤深處。\n\n或許他們能為我們指明道路。我們的希望全寄託於此……",
+    "00_start1": "\n\n尋訪沼澤智者！\n\n        ",
+    "01": "\n\n沼澤部族\n\n\"你們是來尋沼澤智者的？我等部族雖可入內，你們卻斷難透過沼澤之孔的試煉！\"沼澤女子言道。\n\n\n        \n        <usericon:1,409,47>\n\n\n\n\"然仍祝你們好運！穿過下一孔時，睜大眼睛，細察四周！\"\n\n        ",
+    "02": "\n\n沼澤之孔\n\n此地名為沼澤之孔。據聞人行其間極易迷途，因它將人送至全然異地。然我們須善加利用……\n\n        ",
+    "03": "\n\n重返起點\n\n我們穿過此孔，竟回到任務之初。這斷非正途！\n\n        ",
+    "04": "\n\n當心！\n\n我們無疑也須穿過此孔，心中卻隱隱不安。對面究竟有何在候？\n\n        ",
+    "05": "\n\n生命能量\n\n一種奇異魔法籠罩此地……\n\n\n        \n        <usericon:1,268,116>\n\n\n\n我等眾人，皆覺如獲新生！\n\n        ",
+    "06": "\n\n哈奇\n\n\"你們可回來了！什麼事耽擱這麼久？\n\n此處雖有入路，卻無歸途！\"\n\n\n        \n        <usericon:2,3 >",
+    "50_end": "\n\n我們踏過橋，見沼澤智者迎面而來。他們以輕柔而低沉之聲對我們言道：\n\n        ",
+    "50_end1": "\n\n沼澤智者\n\n\"勇毅的英雄們！你們竟穿透重重險阻，來到我等沼澤智者面前！此等勇毅與壯志，當有所酬。\n\n\n        \n        <usericon:1,120,15>\n\n\n\n我們知你們所請，願暫止沼澤蔓延。時日足夠，只要你等用心，必能畢其工……\n\n然你等英雄哈奇，須留我等處些時日--我等沼澤智者，欲從他身上習知諸多異鄉風物。\"\n\n        ",
+    "50_endheader": "\n\n任務成功！\n\n        ",
+    "header": "\n\n迷失沼澤\n\n        "
+  }
+}

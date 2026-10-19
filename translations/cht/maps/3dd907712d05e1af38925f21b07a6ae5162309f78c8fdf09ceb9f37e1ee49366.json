@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "map": "asgard-campaign_01_11",
+  "basis": {
+    "lang": "ger",
+    "digest": "4d484208fd380e9561af1ee373ee05715f6c522452a8cf658848d92dd1451ba2"
+  },
+  "strings": {
+    "0": "率領全部四位英雄，迎戰強大的米德加德之蛇。",
+    "51": "蛇族",
+    "98": "歷經漫長漂泊，維京人彷彿被魔法指引，於某個清晨擱淺在一片死寂焦黑的海岸。這必是終點--米德加德之蛇的領地，維格里德城牆！",
+    "99": "維格里德城牆",
+    "101": "比雅尼",
+    "102": "西格德",
+    "103": "希拉",
+    "104": "哈奇"
+  },
+  "briefings": {
+    "0": "穿越奇異濃霧，漫長漂泊之後，一日清晨我們如被魔手牽引，擱淺於一片死寂焦黑的海岸。這必是我們的目標--世界蛇之域，傳說中名為耶夢加得！\n\n是，我的幻象正是如此！一切將在此決斷！世界蛇，諸神宿敵、眾生之敵，早於其時便從海中升起--因諸神黃昏，那最後的神戰，尚未開始！\n\n因尚未備戰，諸神只得緊閉阿斯加德神堡之門，無法助我們凡人一臂。\n\n世界蛇狂怒滔天，以其瘟疫之息籠罩人間。米德加爾特之命運，此刻獨系我們手中……\n\n尋找世界蛇，將其摧毀！",
+    "1": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務成功！\n        <font:$local$\\fonts\\font12.fnt>\n伴隨震耳欲聾的咆哮，世界蛇殞滅。這壓倒性的威脅終被除去！\n\n我們合力成就諸神未能之事--我們勝利了！\n\n阿斯加德之門重開！金光迸湧，刺破蛇之永夜。已籠罩部分世界的陰影消散，枯萎中毒之物重煥生機。\n\n剎那間，西方四大文明稍稍靠近，攜手免除了眾人的覆滅之災。至於這新得的情誼將導向何方，且待未來見證……",
+    "2": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n英雄氣概，還是魯莽輕率？當比雅尼倒下，諸神也在慟哭……他們的命運已定，人類的末日隨之降臨。",
+    "3": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，便釀成千古恨！預言中的英雄西格德因你的輕率而殞命。世界就此傾覆。",
+    "4": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，便釀成千古恨！預言中的女英雄希拉因你的輕率而殞命。世界就此傾覆。",
+    "5": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，便釀成千古恨！預言中的英雄哈奇因你的輕率而殞命。世界就此傾覆。",
+    "header": "維格里德牆"
+  }
+}

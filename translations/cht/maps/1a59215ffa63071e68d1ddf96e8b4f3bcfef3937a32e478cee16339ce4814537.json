@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "map": "saga-campaign_04_02_sub1",
+  "basis": {
+    "lang": "ger",
+    "digest": "6d605f5df99d4c2adeece8c7d24e4cad2a37143bf7b7e656b55abb179b04facc"
+  },
+  "strings": {
+    "71": "比雅尼",
+    "72": "希拉",
+    "73": "派羅",
+    "99": "幽暗之塵"
+  },
+  "briefings": {
+    "00_start": "洞窟深處一片幽暗。若無火把，我們幾乎寸步難行，儘管遠方似有一點微光閃爍。",
+    "00_start1": "我們須向一條火龍求助，請它助我們探勘洞穴！",
+    "header": "幽暗洞穴"
+  }
+}

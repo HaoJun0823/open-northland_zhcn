@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "map": "asgard-campaign_01_10_sub",
+  "basis": {
+    "lang": "ger",
+    "digest": "7958df005e9fb924e121091e66a5e05a37dcfdf7d9a23bcaa926a4873960384f"
+  },
+  "strings": {
+    "0": "解答神諭者的謎題，直抵沙漠神殿最隱秘的寶藏。",
+    "51": "蛇衛",
+    "52": "蛇衛",
+    "99": "巴格達 - 支線",
+    "101": "比雅尼",
+    "102": "西格德",
+    "103": "希拉",
+    "104": "哈奇"
+  },
+  "briefings": {
+    "3": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n片刻的疏忽，人生便如此急轉直下！預言中的英雄西格德因你的大意而隕落！世界已淪喪。",
+    "4": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n一時的疏忽，便釀成千古恨！預言中的女英雄希拉因你的輕率而殞命。世界就此傾覆。\n        ",
+    "5": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n一時的疏忽，便釀成千古恨！預言中的英雄哈奇因你的輕率而殞命。世界就此傾覆。\n        ",
+    "bjarnitot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n英雄氣概，還是魯莽輕率？當比雅尼倒下，諸神也在慟哭……他們的命運已定，人類的末日隨之降臨。\n        ",
+    "erklärung1": "\n\"此乃開關甲。\"\n        ",
+    "erklärung2": "\n\"此乃開關乙。\"\n        ",
+    "erklärung3": "\n\"此乃開關丙。\"\n        ",
+    "falsch": "\n錯了！\n\n你答錯了神諭！每錯一答，通關便更難！\n        ",
+    "frage1": "\n\"第一問：\n你最愛的顏色是？\"\n\nA) 紅……呃……不，綠……不，藍！\nB) 鼻涕黃\nC) 鼻屎綠……還是黴藍？\n        ",
+    "frage2": "\n\"第二問：\n何者更重：一磅羽毛，或一磅鐵？\"\n\nA) 不知，大概是一樣重！\nB) 羽毛\nC) 鐵\n        ",
+    "frage3": "\n\"第三問：\n法蘭克王比拜占庭皇帝更貧。巴格達哈里發比法蘭克王更富。拜占庭皇帝與巴格達哈里發一樣富。誰最貧？\"\n\nA) 巴格達哈里發\nB) 拜占庭皇帝\nC) 法蘭克王\n        ",
+    "frage4": "\n\"第四問：\n斥候快於鐵匠。鐵匠慢於農夫。斥候慢於農夫。誰最快？\"\n\nA) 農夫\nB) 斥候\nC) 鐵匠\n        ",
+    "frage5": "\n\"第五問：\n你於異邦建總部，其中所有窗皆朝北。你在何處？\"\n\nA) 北極\nB) 南極\nC) 赤道\n        ",
+    "frage6": "\n\"第六問：\n此為何物：添之則小，減之則大！\"\n\nA) 一杯蜜酒\nB) 比雅尼的襪子\nC) 一個土坑\n        ",
+    "frage7": "\n\"第七問：\n若比雅尼之子乃我父之子，我者何人？\"\n\nA) 我是比雅尼\nB) 我是比雅尼之子\nC) 我是比雅尼之父\n        ",
+    "header": "\n神諭\n        ",
+    "orakel": "\n\"來者何人？\"一聲如自巖中轟鳴的巨響。\n\n\"不速之徒！我是沙漠神廟之神諭！想過我這一關，須答七問，並敗我蛇衛！\n\n每問有三答。扳動相應之開關以作答！謹記符號，我僅解說這一次！\"\n        ",
+    "richtig": "\n對了！\n\n神諭對你的回答感到滿意。一名守衛消失了！\n        ",
+    "schalterbesetzt": "\n你必須離開開關，否則神諭將沉默！\n        ",
+    "start": "\n我們愈深入寶藏神廟的幽暗，直至哈奇尋得一支舊火炬並點燃。\n\n繼而，在梯腳我們發現一段風化古銘，由我們本地的友人譯出：\n\n我們已至神廟最深處，由遠古殿衛把守。唯直面神諭方能過關。在此處既顯智勇者，方得最後之賞……\n        ",
+    "won": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n任務成功！\n        \n        <font:$local$\\fonts\\font12.fnt>\n\n憑勇智我們克服了可怖的守門者，直入被詛咒沙漠神廟的最深處。\n\n一小室中，我們撞見一口遠古箱匣。蓋吱呀緩啟。我們探頭細看，呼吸為之一窒：\n那裡既無奇物，亦無魔法珍寶……塵埃覆蓋的箱底，靜臥著我們遍尋半世所得的第三塊地圖碎片，它勝過一切瑰寶！\n\n當它終入手，我們喜不自勝。若空手回見哈里發，他必不悅。我們遂取了碎片，以最快之路離此國境。\n\n哈奇自請助我們一臂……\n        "
+  }
+}

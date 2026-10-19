@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "map": "wonder-campaign_03_01_sub",
+  "basis": {
+    "lang": "ger",
+    "digest": "b267ce254e3ebf2d7e1d7f3f71c5a7aa44bfab00633309509d19f1b6146b5f20"
+  },
+  "strings": {
+    "0": "@寻得圣火！",
+    "1": "设法打开闸门！",
+    "56": "山地部族矿工",
+    "57": "守卫",
+    "66": "工人",
+    "67": "守卫",
+    "71": "比雅尼",
+    "72": "希拉",
+    "73": "哈奇",
+    "74": "西格德",
+    "99": "圣火"
+  },
+  "briefings": {
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n是英勇还是鲁莽？当比雅尼倒下时，众神为之落泪……失去这位英雄，你将无缘见到任务的结局。\n        ",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时的疏忽，人生便会急转直下！你的女英雄希拉因你的大意而丧命！失去这位英雄，你将无缘见到任务的结局。\n        ",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时的疏忽，人生便会急转直下！你的挚友与英雄哈奇因你的大意而丧命！失去这位英雄，你将无缘见到任务的结局。\n        ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时的疏忽，人生便会急转直下！你的挚友与英雄西格德因你的大意而丧命！失去这位英雄，你将无缘见到任务的结局。\n        ",
+    "00_start": "矿井深处，沙漠那无情的炎热几乎感受不到了。\n        <usericon:1,38,49>\n霉腐的气味钻进我们的肺里，附近传来矿工们响亮的锤击声。他们到底把圣火藏在了哪里？",
+    "00_start1": "\n\n寻找圣火。\n        ",
+    "01": "\n\n山地部族\n\n“喂，你们这些人！是谁准许你们进入我们的矿场的？”\n        ",
+    "02": "\n\n矿工\n\n“别伤害我们！我们只是在这里干自己的活儿，矿场上头发生了什么，我们几乎一无所知！”\n        \n        <usericon:1,23,62>",
+    "03": "\n\n你还无法通过这道大门！\n        \n        <usericon:1,121,52>\n\n想办法把大门打开！\n        ",
+    "04": "\n\n你的维京人现在可以通过这道大门了！但要提防躲在门后守护圣火的卫兵！\n        \n        <usericon:1,121,52>",
+    "05": "\n\n生命能量\n\n一股奇异的魔力笼罩着这个地方……\n        \n        <usericon:1,96,77>\n\n我们所有的战士都感到脱胎换骨、焕然一新！\n        ",
+    "50_end": "\n\n我们终于夺回了法罗斯灯塔所需的圣火。撒拉逊山地部族可没让我们轻易得手。\n        \n        <usericon:1,137,14>",
+    "50_endheader": "\n\n任务成功！\n        ",
+    "header": "\n\n圣火\n        "
+  }
+}

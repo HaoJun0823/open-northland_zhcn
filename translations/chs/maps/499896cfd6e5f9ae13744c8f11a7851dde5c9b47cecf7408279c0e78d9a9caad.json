@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "map": "wonder-campaign_03_06_sub1",
+  "basis": {
+    "lang": "ger",
+    "digest": "fd4e7842d94fa50f807a70f90dd8c28ee09c77d2affd3db58c6e46eb13b20bad"
+  },
+  "strings": {
+    "0": "@在竞技中击败长跑者！",
+    "53": "伊利斯的长跑者",
+    "63": "赛跑者",
+    "74": "西格德",
+    "77": "赛跑者",
+    "99": "竞技之争"
+  },
+  "briefings": {
+    "00_start": "\n埃利斯赛跑者状态正佳，西格德要胜过他，绝非易事！\n\n\n        <usericon:1,22,119>\n\n\n然他必须一试，因若胜此赛，奥林匹亚人与埃利斯人之助便稳了……\n",
+    "00_start1": "\n于竞速中击败赛跑者！\n",
+    "01": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n任务失败！\n        <font:$local$\\fonts\\font12.fnt>\n\n赛跑者殒命！这可不是裁定胜负的正当之法！",
+    "02": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n任务失败！\n        <font:$local$\\fonts\\font12.fnt>\n\n真不走运！赛跑者分明快过你的挚友与英雄西格德。\n\n\n        <usericon:2,7>\n\n\n再试一回！\n",
+    "50_end": "\n恭喜！这谁能料到西格德竟能做到！\n\n\n        <usericon:2,4>\n\n\n然他体育精神与意志极是坚卓，终得击败埃利斯赛跑者！\n",
+    "50_endheader": "\n任务成功！\n",
+    "header": "\n竞速之赛\n"
+  }
+}

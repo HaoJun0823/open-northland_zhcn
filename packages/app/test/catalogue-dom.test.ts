@@ -183,6 +183,7 @@ function importedMap(n: number, sub = false): InstalledMapRecord {
     entryId: 'user-pack',
     fingerprint: TINY_FINGERPRINT,
     irVersion: IR_VERSION,
+    languages: ['pol'],
     index: {
       id: mapId,
       fingerprint: TINY_FINGERPRINT,

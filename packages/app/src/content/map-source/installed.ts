@@ -1,10 +1,10 @@
-import { MAP_FINGERPRINT, MapsIndexEntry } from '@open-northland/data';
+import { isLanguage, MAP_FINGERPRINT, MapsIndexEntry, type MapTextLanguage } from '@open-northland/data';
 import type { LocalSourceRecord } from '../local-import/source.js';
 import { isMapId } from '../transfer/documents.js';
 import { isMapFileSuffix, type MapFileSuffix } from './files.js';
 
 /** The stored record layout; a reader accepts exactly this version and drops every other record. */
-export const INSTALLED_MAP_RECORD_VERSION = 2;
+export const INSTALLED_MAP_RECORD_VERSION = 3;
 
 /** The web budget includes retained sources. Only catalogue downloads are evictable; local maps
  *  stay until removed. The desktop keeps its files on disk without an aggregate budget. */
@@ -20,6 +20,9 @@ export interface InstalledMapRecord {
   readonly fingerprint: string;
   /** The content version the files were converted for; another build rebuilds from its source or downloads it again. */
   readonly irVersion: number;
+  /** The stored string table's languages, as the catalogue listed them for a download; a catalogue map
+   *  that gained or lost one since (a translation overlay) is an update. */
+  readonly languages: readonly MapTextLanguage[];
   /** The `maps-index.json` row, with its `catalog` or `user` provenance. */
   readonly index: MapsIndexEntry;
   readonly installedAt: number;
@@ -52,6 +55,8 @@ export function installedRecord(raw: unknown): InstalledMapRecord | null {
     typeof r.fingerprint !== 'string' ||
     !MAP_FINGERPRINT.test(r.fingerprint) ||
     !isCount(r.irVersion) ||
+    !Array.isArray(r.languages) ||
+    !r.languages.every(isLanguage) ||
     !isCount(r.installedAt) ||
     !isCount(r.size) ||
     !Array.isArray(r.suffixes) ||
@@ -73,6 +78,7 @@ export function installedRecord(raw: unknown): InstalledMapRecord | null {
     entryId: r.entryId,
     fingerprint: r.fingerprint,
     irVersion: r.irVersion,
+    languages: r.languages as MapTextLanguage[],
     index: index.data,
     installedAt: r.installedAt,
     size: r.size,

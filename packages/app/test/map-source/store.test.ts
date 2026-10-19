@@ -18,6 +18,7 @@ function record(mapId: string, entryId: string, installedAt: number, size: numbe
     entryId,
     fingerprint: TINY_FINGERPRINT,
     irVersion: 1,
+    languages: ['pol'],
     index: {
       id: mapId,
       fingerprint: TINY_FINGERPRINT,
@@ -37,7 +38,9 @@ describe('installed map records', () => {
   it('reads exactly its own layout', () => {
     const good = record('cn-a', 'cn-a', 1, 1);
     expect(installedRecord(structuredClone(good))).toEqual(good);
-    expect(installedRecord({ ...good, version: 1 })).toBeNull();
+    expect(installedRecord({ ...good, version: INSTALLED_MAP_RECORD_VERSION - 1 })).toBeNull();
+    expect(installedRecord({ ...good, languages: undefined })).toBeNull();
+    expect(installedRecord({ ...good, languages: ['pol', 'xx'] })).toBeNull();
     expect(installedRecord({ ...good, revision: undefined })).toBeNull();
     expect(installedRecord({ ...good, mapId: '../x' })).toBeNull();
     expect(installedRecord({ ...good, suffixes: ['.meta.json'] })).toBeNull();

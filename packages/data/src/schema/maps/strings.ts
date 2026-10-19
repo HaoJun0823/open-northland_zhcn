@@ -14,6 +14,11 @@ export type MapTextLanguage = Language;
 export const MapStrings = z.partialRecord(z.enum(MAP_TEXT_LANGUAGES), z.record(z.string(), z.string()));
 export type MapStrings = z.infer<typeof MapStrings>;
 
+/** The languages a map's string table carries, in `MAP_TEXT_LANGUAGES` order. */
+export function mapStringLanguages(strings: MapStrings | undefined): MapTextLanguage[] {
+  return MAP_TEXT_LANGUAGES.filter((language) => strings?.[language] !== undefined);
+}
+
 /** One map text (name, description, seat name) in every shipped language that carries it. */
 export const MapText = z.partialRecord(z.enum(MAP_TEXT_LANGUAGES), z.string());
 export type MapText = z.infer<typeof MapText>;

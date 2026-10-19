@@ -130,9 +130,11 @@ maps, including campaign submaps, briefing text and images. The API uses files o
 
 Web installs use IndexedDB; desktop installs use files on disk. Both publish source and converted
 files atomically. After an IR change, old maps stay listed but cannot play: catalogue maps need a
-new download; local maps need an explicit reload from their retained input. Opening the library
-does not start conversions. Desktop file selection uses validated IPC and rejects symlinks. Import limits apply
-on both hosts; desktop storage has no aggregate budget.
+new download; local maps need an explicit reload from their retained input. An installed catalogue
+map is current while the catalogue lists its `fingerprint` and `languages`: a language a translation
+overlay added or removed offers the entry as an update, a text changed within a listed language does
+not. Opening the library does not start conversions. Desktop file selection uses validated IPC and
+rejects symlinks. Import limits apply on both hosts; desktop storage has no aggregate budget.
 
 Map ids use `<entry id>-<folder slug>`, with `-2`, `-3` for duplicate slugs. `folder` and the terrain/script
 `fingerprint` let the client detect maps already shipped with the game. Exact matches play the shipped

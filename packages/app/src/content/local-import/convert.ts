@@ -1,4 +1,4 @@
-import { jsonFingerprint } from '@open-northland/data';
+import { jsonFingerprint, mapStringLanguages } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import {
   type ConvertProgress,
@@ -132,6 +132,7 @@ export async function prepareLocalImport(
         entryId,
         fingerprint: index.fingerprint,
         irVersion: options.irVersion ?? IR_VERSION,
+        languages: mapStringLanguages(map.strings),
         index,
         installedAt: options.installedAt,
         size: [...files.values()].reduce((sum, bytes) => sum + bytes.byteLength, 0),

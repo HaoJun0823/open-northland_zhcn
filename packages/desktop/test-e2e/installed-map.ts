@@ -5,6 +5,7 @@ import { MAP_FILE_SUFFIXES } from '../../app/src/content/map-source/files.js';
 import { INSTALLED_MAP_RECORD_VERSION } from '../../app/src/content/map-source/installed.js';
 import { IR_VERSION } from '../../data/src/schema/content/ir-version.js';
 import { MapsIndexEntry } from '../../data/src/schema/maps/listing.js';
+import { MapStrings, mapStringLanguages } from '../../data/src/schema/maps/strings.js';
 
 /** An installed copy, so the boot check cannot accidentally read the shipped map's static URL. */
 export async function installedMapFixture(content: string) {
@@ -23,6 +24,11 @@ export async function installedMapFixture(content: string) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
   }
+  const strings = files.some(([suffix]) => suffix === '.strings.json')
+    ? MapStrings.parse(
+        JSON.parse(await readFile(join(content, 'maps', `${originalId}.strings.json`), 'utf8')),
+      )
+    : undefined;
   return {
     record: {
       version: INSTALLED_MAP_RECORD_VERSION,
@@ -31,6 +37,7 @@ export async function installedMapFixture(content: string) {
       entryId: mapId,
       fingerprint: original.fingerprint,
       irVersion: IR_VERSION,
+      languages: mapStringLanguages(strings),
       index: { ...original, id: mapId, minimap: false, provenance: { kind: 'catalog', folder: originalId } },
       installedAt: Date.now(),
       size: files.reduce((bytes, [, file]) => bytes + file, 0),

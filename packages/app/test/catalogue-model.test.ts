@@ -1,4 +1,9 @@
-import type { CatalogConvertedMap, CatalogEntry, MapsIndexPlayerSlot } from '@open-northland/data';
+import type {
+  CatalogConvertedMap,
+  CatalogEntry,
+  MapsIndexPlayerSlot,
+  MapTextLanguage,
+} from '@open-northland/data';
 import { catalogBrowseEntry } from '@open-northland/data';
 import { describe, expect, it } from 'vitest';
 import { INSTALLED_MAP_RECORD_VERSION, type InstalledMapRecord } from '../src/content/map-source/index.js';
@@ -54,6 +59,7 @@ function installed(
   entryId: string,
   irVersion = IR,
   fingerprint = TINY_FINGERPRINT,
+  languages: readonly MapTextLanguage[] = ['pol'],
 ): InstalledMapRecord {
   return {
     version: INSTALLED_MAP_RECORD_VERSION,
@@ -62,6 +68,7 @@ function installed(
     entryId,
     fingerprint,
     irVersion,
+    languages,
     index: {
       id: mapId,
       fingerprint: TINY_FINGERPRINT,
@@ -139,6 +146,16 @@ describe('catalogue rows', () => {
     expect(status(converted('x'))).toBe('available');
     expect(status(converted('x'), [installed('x', 'x')])).toBe('installed');
     expect(status(converted('x'), [installed('x', 'x', IR, 'e'.repeat(64))])).toBe('updatable');
+    // A translation overlay added a language on the server: same documents, new text.
+    expect(status(mapEntry('x', {}, { languages: ['pol', 'chs'] }), [installed('x', 'x')])).toBe('updatable');
+    expect(
+      status(mapEntry('x', {}, { languages: ['pol', 'chs'] }), [
+        installed('x', 'x', IR, TINY_FINGERPRINT, ['pol', 'chs']),
+      ]),
+    ).toBe('installed');
+    expect(status(converted('x'), [installed('x', 'x', IR, TINY_FINGERPRINT, ['pol', 'chs'])])).toBe(
+      'updatable',
+    );
     expect(status(converted('x'), [installed('x', 'x', IR - 1)])).toBe('redownload');
     // Installed for this build, the map stays playable while the server re-converts it.
     expect(status(catalogEntry('x', [], { conversion: { verdict: 'pending' } }), [installed('x', 'x')])).toBe(

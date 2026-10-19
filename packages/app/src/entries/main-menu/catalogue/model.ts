@@ -163,6 +163,16 @@ function serverStatus(entry: CatalogBrowseEntry, irVersion: number): CatalogueSt
   return 'available';
 }
 
+/** An installed copy is current while the server's map has its documents and its text languages. */
+function isCurrentCopy(record: InstalledMapRecord, map: CatalogBrowseMap): boolean {
+  return (
+    record.mapId === map.mapId &&
+    record.fingerprint === map.fingerprint &&
+    record.languages.length === map.languages.length &&
+    record.languages.every((language) => map.languages.includes(language))
+  );
+}
+
 function packFacts(maps: readonly CatalogBrowseMap[]) {
   const counts = new Set(maps.map((map) => map.playerCount).filter((count) => count > 0));
   const languages = new Set(maps.flatMap((map) => map.languages));
@@ -201,10 +211,7 @@ export function catalogueRow(
     const differs =
       served === 'available' &&
       (maps.length !== current.length ||
-        maps.some(
-          (map) =>
-            !current.some((record) => record.mapId === map.mapId && record.fingerprint === map.fingerprint),
-        ));
+        maps.some((map) => !current.some((record) => isCurrentCopy(record, map))));
     return {
       ...base,
       status: differs ? 'updatable' : 'installed',

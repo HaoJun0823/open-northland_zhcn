@@ -270,6 +270,7 @@ export async function installCatalogEntry(
         entryId: entry.id,
         fingerprint,
         irVersion,
+        languages: map.languages,
         index: installedIndex(
           entry,
           map.mapId,

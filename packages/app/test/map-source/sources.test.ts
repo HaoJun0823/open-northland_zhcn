@@ -38,6 +38,7 @@ function record(
     entryId,
     fingerprint: TINY_FINGERPRINT,
     irVersion,
+    languages: ['pol'],
     index: {
       id: mapId,
       fingerprint: TINY_FINGERPRINT,

@@ -57,6 +57,7 @@ describe('local conversion and retained sources', () => {
       const result = await prepareLocalImport(source, { installedAt: 1 });
       expect(result.maps).toHaveLength(1);
       expect(result.maps[0]?.record.index.provenance?.kind).toBe('user');
+      expect(result.maps[0]?.record.languages).toEqual(['pol']);
       expect(JSON.parse(new TextDecoder().decode(result.maps[0]?.files.get('.json')))).toMatchObject({
         width: 2,
         height: 1,

@@ -1,4 +1,4 @@
-import { catalogBrowseEntry } from '@open-northland/data';
+import { catalogBrowseEntry, type MapTextLanguage } from '@open-northland/data';
 import { IR_VERSION } from '@open-northland/data/ir-version';
 import { encodePng } from '@open-northland/formats/png';
 import { describe, expect, it, vi } from 'vitest';
@@ -228,6 +228,24 @@ describe('installing a catalogue entry', () => {
     expect([...records.keys()]).toEqual(['cn-pack', 'cn-pack-2']);
     expect(files.has('cn-pack.png')).toBe(true);
     expect(progress).toHaveBeenLastCalledWith({ done: 12, total: 12 });
+  });
+
+  it('records the languages the catalogue lists, the ones an update compares', async () => {
+    const base = catalogEntry('cn-tr');
+    if (base.conversion?.verdict !== 'ok') throw new Error('fixture');
+    const languages: MapTextLanguage[] = ['pol', 'chs'];
+    const maps = base.conversion.maps.map((map) => ({ ...map, languages }));
+    const entry = { ...base, conversion: { ...base.conversion, maps } };
+    const { store: target } = store();
+    const installed = await installCatalogEntry(entry, {
+      api: API,
+      store: target,
+      fetchImpl: catalogServer([entry], {
+        'cn-tr.strings.json': { pol: { '0': 'Wyspa' }, chs: { '0': '岛屿' } },
+      }),
+    });
+    expect(installed.map((record) => record.languages)).toEqual([['pol', 'chs']]);
+    expect((await target.list()).map((record) => record.languages)).toEqual([['pol', 'chs']]);
   });
 
   it('refuses a conversion for another game version, a mismatched fingerprint and a broken sidecar', async () => {

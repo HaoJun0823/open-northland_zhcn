@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { CATALOG_MAP_ID, type CatalogConvertedMap, MAP_TEXT_LANGUAGES } from '@open-northland/data';
+import { CATALOG_MAP_ID, type CatalogConvertedMap, mapStringLanguages } from '@open-northland/data';
 import { type ConvertedMap, convertMapTree, mapFiles, openArchive } from '@open-northland/map-import';
 import { type CatalogMapOverlays, catalogOverlaySource } from './overlays.js';
 
@@ -42,10 +42,6 @@ function utf8(file: string | Uint8Array): Uint8Array {
   return typeof file === 'string' ? Buffer.from(file, 'utf8') : file;
 }
 
-function languagesOf(map: ConvertedMap): CatalogConvertedMap['languages'] {
-  return MAP_TEXT_LANGUAGES.filter((language) => map.strings?.[language] !== undefined);
-}
-
 /** Opens a catalogue file and converts every map in it, each renamed into the entry's id space. Throws
  *  `MapImportError` for an archive or tree that yields no map. */
 export async function convertArchive(
@@ -72,7 +68,7 @@ export async function convertArchive(
       mapId,
       folder: map.id,
       fingerprint: renamed.index.fingerprint,
-      languages: languagesOf(renamed),
+      languages: mapStringLanguages(renamed.strings),
       cells: { width: renamed.terrain.width, height: renamed.terrain.height },
       index: renamed.index,
     });

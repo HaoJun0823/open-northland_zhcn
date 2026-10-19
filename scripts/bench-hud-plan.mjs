@@ -4,7 +4,8 @@ const USAGE = 'usage: npm run bench:hud -- checkpoint origin [output-dir] [windo
 const DEFAULT_OUTPUT = 'bench-out/hud';
 const DEFAULT_SECONDS = 5;
 const DEFAULT_VIEWPORT = { width: 1440, height: 900 };
-/** The seat whose HUD the scenarios show; the residents' whole-map scenario watches every seat. */
+/** The seat whose HUD the scenarios show: a spectator watching the whole map has no residents, notices or
+ *  counters of its own. */
 const DEFAULT_SEAT = 0;
 const DENSE_ZOOM = 1;
 /** The many-selection box is drawn at this zoom, where enough settlers fit on screen. */
@@ -15,7 +16,6 @@ function scenario(id, setup, overrides = {}) {
     id,
     setup,
     zoom: DENSE_ZOOM,
-    wholeMap: false,
     fpsCounter: false,
     groupNumbers: false,
     ...overrides,
@@ -30,9 +30,9 @@ export function hudScenarios() {
     scenario('settler', 'settler'),
     scenario('building', 'building'),
     scenario('residents', 'residents'),
-    scenario('residents-all', 'residents', { wholeMap: true }),
     scenario('mission', 'mission'),
     scenario('diplomacy', 'diplomacy'),
+    scenario('build', 'build'),
     scenario('notices', 'notices'),
     scenario('select50', 'select50', { zoom: MANY_SELECTION_ZOOM }),
     scenario('hover', 'hover'),
@@ -87,7 +87,8 @@ export function parseHudBenchArgs(argv, env = {}) {
     viewport:
       env.ON_BENCH_HUD_VIEWPORT === undefined ? DEFAULT_VIEWPORT : parseViewport(env.ON_BENCH_HUD_VIEWPORT),
     seat,
-    trace: env.ON_BENCH_HUD_TRACE === '1' || env.ON_BENCH_HUD_INVALIDATIONS === '1',
+    trace: ['1', 'keep'].includes(env.ON_BENCH_HUD_TRACE) || env.ON_BENCH_HUD_INVALIDATIONS === '1',
+    keepTraces: env.ON_BENCH_HUD_TRACE === 'keep',
     invalidations: env.ON_BENCH_HUD_INVALIDATIONS === '1',
     abCss: env.ON_BENCH_HUD_AB_CSS ?? null,
     profile: env.ON_BENCH_HUD_PROFILE === '1',

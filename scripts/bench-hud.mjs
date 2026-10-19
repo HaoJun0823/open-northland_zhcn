@@ -101,6 +101,7 @@ const SETUPS = {
   residents: ({ page }) => openByKey(page, 'F2'),
   mission: ({ page }) => openByKey(page, 'F1'),
   diplomacy: ({ page }) => openByKey(page, 'F5'),
+  build: ({ page }) => openByKey(page, 'KeyB'),
   notices: async ({ page }) => {
     const shown = await page.evaluate(() => document.querySelectorAll('.on-hud .on-notice').length);
     return { ready: shown > 0, note: `${shown} notice cards` };
@@ -164,7 +165,7 @@ const writeReport = async () => {
   const head = [
     `# bench:hud ${header.mapId} tick ${header.tick}`,
     '',
-    `${viewport.width}x${viewport.height} DPR 1, UI scale 1, x3, seat ${options.seat ?? 'whole map'}; ${seconds} s per scenario; one-minute load per CPU now ${load.available ? load.loadPerCpu.toFixed(1) : 'unavailable'}.`,
+    `${viewport.width}x${viewport.height} DPR 1, UI scale 1, x3, seat ${options.seat}; ${seconds} s per scenario; one-minute load per CPU now ${load.available ? load.loadPerCpu.toFixed(1) : 'unavailable'}.`,
     '',
     markdownTable(metadata.scenarios),
     '',
@@ -469,8 +470,7 @@ try {
     await restoreCheckpoint(page, { saveText, header, stateHash, url: previewUrl.href, settings });
     await layers.restart();
     metadata.audio = (await unlockAudio(page)) ? 'audible' : 'no sound bank';
-    const seat = scenario.wholeMap ? null : options.seat;
-    if (seat !== null) await page.evaluate((s) => window.__opennorthland.watchSeat(s), seat);
+    await page.evaluate((s) => window.__opennorthland.watchSeat(s), options.seat);
     // The watched seat's own cluster: another seat's lies in its fog, where nothing takes a click.
     if (dense === null) dense = (await densestBuildings(page, options.seat)).point;
     await watchFrameInputs(page);
@@ -500,10 +500,11 @@ try {
       progress(`tracing ${scenario.id} for ${TRACE_SECONDS}s`);
       const trace = await captureTrace(browserCdp, page);
       // The whole trace opens in Perfetto or the DevTools performance panel.
-      await writeFile(
-        resolve(output, `${scenario.id}.trace.json`),
-        JSON.stringify({ traceEvents: trace.events }),
-      );
+      if (options.keepTraces)
+        await writeFile(
+          resolve(output, `${scenario.id}.trace.json`),
+          JSON.stringify({ traceEvents: trace.events }),
+        );
       run.trace = foldTrace(trace.events, trace.frames);
       if (options.invalidations) {
         run.invalidations = foldInvalidations(trace.events, trace.frames);

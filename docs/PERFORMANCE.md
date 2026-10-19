@@ -243,9 +243,9 @@ Arguments: checkpoint, origin, output directory (default `bench-out/hud`), secon
 5). Each scenario restores the checkpoint with every graphics setting at its default, watches one seat
 over its own densest cluster, reaches its HUD state with the player's input (a click, a box drag, a
 window's key) and measures at x3 with the pointer resting on the bottom bar. Scenarios: nothing open,
-a settler or a building selected, the residents window for the seat and for the whole map, the mission
-book, diplomacy, the notices, 50 or more settlers selected, the pointer over the world, the FPS counter
-and group numbers.
+a settler or a building selected, the residents window, the mission book, diplomacy, the construction
+window, the notices, 50 or more settlers selected, the pointer over the world, the FPS counter and
+group numbers.
 
 `report.md` lists per rendered frame: layouts and style recalculations with their milliseconds, script
 and task time, DOM mutations, composited layers and their repaints, portrait insets and HUD nodes.
@@ -257,7 +257,7 @@ are robust to load; durations are not.
 | `ON_BENCH_HUD_SCENARIOS` | Comma-separated scenario ids |
 | `ON_BENCH_HUD_VIEWPORT` | Window size, e.g. `1920x1080`; default `1440x900`, device scale 1 |
 | `ON_BENCH_HUD_SEAT` | The watched seat; default 0 |
-| `ON_BENCH_HUD_TRACE=1` | A 3 s trace after each window: the renderer's frame phases, the compositor, raster and the GPU process per frame; the trace is kept as `<scenario>.trace.json` |
+| `ON_BENCH_HUD_TRACE=1` | A 3 s trace after each window: the renderer's frame phases, the compositor, raster and the GPU process per frame; `keep` also writes the whole trace as `<scenario>.trace.json` (about 100 MB) |
 | `ON_BENCH_HUD_INVALIDATIONS=1` | The trace also names what restyles, relayouts and repaints (node, cause, script frame), with a census of running CSS animations |
 | `ON_BENCH_HUD_PROFILE=1` | A CPU profile after each window, self time by source area and function |
 | `ON_BENCH_HUD_AB_CSS` | A stylesheet traced interleaved without (A) and with (B) it, four rounds ABBA, each side's frame pacing, app frame cost and phases averaged: a pure style change measured in one session |

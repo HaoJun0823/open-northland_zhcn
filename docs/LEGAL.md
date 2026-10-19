@@ -23,6 +23,11 @@ bindings in code and load the wording through the pipeline. Project-authored UI 
 label overrides and independently written fallbacks may stay in the repository; a fallback must not
 serve as a committed copy of the imported text table. Ordinary shared vocabulary is not excluded.
 
+Third-party translations: fan translations are imported as JSON overlays under `translations/`, with
+each set's license and provenance recorded in [`translations/SOURCES.md`](../translations/SOURCES.md).
+An overlay holds the translated text keyed by string id or block label; the repository still carries
+no original text.
+
 Tests use synthetic fixtures created for this project. A test or pull request must not contain an
 original file, decoded asset, extracted text corpus, or other distributable game content.
 

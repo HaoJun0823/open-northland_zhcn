@@ -16,13 +16,17 @@ translations/
   glossary.csv                   one term table for every language (names, goods, buildings, tribes)
   <lang>/
     maps/<map.dat sha256>.json   strings by id, briefing blocks by label  (MapOverlay)
+    maps/<map.dat sha256>.<basis prefix>.json
+                                 a further overlay of that map.dat, for a copy with other text
     objects/<table>.json         goods, houses, jobs, experiences, tribes by type id  (ObjectTableOverlay)
     books/<book>.json            hypertext books: history  (BookOverlay)
     campaigns/<campaign>.json    campaign title  (CampaignOverlay)
 ```
 
 A map overlay is named by the SHA-256 of the raw `map.dat`, so one file serves the pack's copy and
-every catalogue copy of the same map. The `map` field is a readable alias, never the identity.
+every catalogue copy of the same map. Copies of one `map.dat` can ship different text (tribe variants
+of one map, a renamed tutorial): each further overlay of the same language adds the first 12 hex
+digits of its `basis.digest` to the name. The `map` field is a readable alias, never the identity.
 
 ## Rules
 
@@ -40,6 +44,10 @@ every catalogue copy of the same map. The `map` field is a readable alias, never
   that digest and would edit both. `tools/asset-pipeline/AGENTS.md` lists what stays a correction.
 - `basis` records the language and the digest of the decoded source text the overlay was written
   against. A changed source under an unchanged overlay is an audit warning, not a build failure.
+- A map takes, per language, the overlay of its `map.dat` whose `basis.digest` matches its own text
+  in the basis language. Without a match, the only overlay of that language applies, reported stale;
+  among several, none applies. A variant name's prefix must begin its `basis.digest`, and two files
+  of one language and `map.dat` with the same basis digest fail the load.
 - Imported overlays are never edited by hand: fix them upstream and re-import. `SOURCES.md` names the
   upstream commit. The project's own overlays are edited in place.
 - Overlays are JSON only. Never commit `.ini`, `.hlt`, `.txt` or `.cif` copies of a map's text.
@@ -55,7 +63,8 @@ values still equal to the source text.
 
 `npm run translations:skeleton -- <archive or folder> --lang <lang>` writes `<lang>/maps/<digest>.json`
 for each map it holds, every value the basis text: replace each in place and delete the ones left
-untranslated, which fall back to the source anyway.
+untranslated, which fall back to the source anyway. A copy whose `map.dat` already has an overlay of
+other text gets the variant name; a copy with the same text is reported as served by that file.
 
 The catalogue API loads the overlays when it starts and converts again each catalogue entry whose
 maps gained, changed or lost an overlay, so an overlay reaches catalogue maps with the next API image

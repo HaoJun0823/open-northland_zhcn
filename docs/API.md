@@ -45,16 +45,17 @@ stops workers and waits for storage operations.
 
 ### Translation overlays
 
-The server loads `translations/<lang>/maps/<map.dat sha256>.json` once at start
-([contract](../translations/AGENTS.md)) and hands every worker a copy. A catalogue archive counts as a
-community map, so an overlay in a source language applies too. A converted map's `languages` lists
-every language its string table carries, overlays included. The loader finds `translations/` beside
-`packages/`, in a checkout and in the image alike.
+The server loads the map overlays under `translations/<lang>/maps/` once at start
+([contract](../translations/AGENTS.md)) and hands every worker a copy. A catalogue map takes the
+overlay of its `map.dat` written against its text, as the pipeline does. A catalogue archive counts
+as a community map, so an overlay in a source language applies too. A converted map's `languages`
+lists every language its string table carries, overlays included. The loader finds `translations/`
+beside `packages/`, in a checkout and in the image alike.
 
 A stored conversion records a fingerprint of the overlays filed under each converted map's `map.dat`
-digest, an empty set included. When the server starts with other overlays under a digest (one added,
-changed or removed), each entry holding that map converts again from its kept archive on the next
-catalogue, without an IR change; the other entries keep their conversions.
+digest, every variant file and an empty set included. When the server starts with other overlays
+under a digest (one added, changed or removed), each entry holding that map converts again from its
+kept archive on the next catalogue, without an IR change; the other entries keep their conversions.
 
 ### Request limits
 

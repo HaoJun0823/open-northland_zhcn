@@ -1,0 +1,113 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { MAP_DAT_FILE, mapIdFromPath } from '@open-northland/map-import';
+import { BASIS_LANGUAGE } from './columns.js';
+import type { MapSourceText } from './map-source-text.js';
+import { OBJECT_TABLES } from './object-tables.js';
+
+/**
+ * The German text the pipeline's corrections (`tools/asset-pipeline/corrections/`) change. A translation
+ * of such a key still follows the uncorrected original, so the import names those keys for review.
+ */
+export interface GermanCorrections {
+  /** Object-table type ids by table. */
+  readonly tables: ReadonlyMap<string, ReadonlySet<string>>;
+  /** String ids by our map id. */
+  readonly mapStrings: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Replaced `briefings.txt` lines by our map id. */
+  readonly briefingLines: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+const STRING_TABLES_FILE = ['strings', 'tables.json'] as const;
+const MAP_STRINGS_FILE = ['strings', 'maps.json'] as const;
+/** The table key a plural correction names (`jobsPlural`), mapped onto its table. */
+const PLURAL_TABLE_SUFFIX = /Plural$/;
+const STRINGN_LINE = /^\s*stringn\s+(\d+)\s/;
+const COMMUNITY_PREFIX = ['maps', 'community'];
+const CAMPAIGN_PREFIX = 'campaigns';
+const BRIEFINGS_FILE = 'briefings.txt';
+const STRINGS_FILE = 'strings.ini';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function add(map: Map<string, Set<string>>, key: string, value: string): void {
+  const set = map.get(key) ?? new Set<string>();
+  set.add(value);
+  map.set(key, set);
+}
+
+/** Our map id for a correction's data-relative file path, when it names a map's German text. */
+function correctedMap(file: string): { readonly id: string; readonly name: string } | undefined {
+  const parts = file.split('/');
+  const name = parts.at(-1) ?? '';
+  if (!parts.includes('text') || parts[parts.indexOf('text') + 1] !== BASIS_LANGUAGE) return undefined;
+  if (parts[0] === COMMUNITY_PREFIX[0] && parts[1] === COMMUNITY_PREFIX[1] && parts[2] !== undefined)
+    return { id: mapIdFromPath(`${parts.slice(0, 3).join('/')}/${MAP_DAT_FILE}`), name };
+  if (parts[0] === CAMPAIGN_PREFIX && parts[1] !== undefined && parts[2] !== undefined)
+    return { id: `${parts[1]}-${parts[2]}`, name };
+  return undefined;
+}
+
+async function readJson(path: string): Promise<unknown> {
+  return JSON.parse(await readFile(path, 'utf8'));
+}
+
+async function readArray(path: string): Promise<unknown[]> {
+  const value = await readJson(path);
+  return Array.isArray(value) ? value : [];
+}
+
+export async function readGermanCorrections(dir: string): Promise<GermanCorrections> {
+  const tables = new Map<string, Set<string>>();
+  const mapStrings = new Map<string, Set<string>>();
+  const briefingLines = new Map<string, Set<string>>();
+  const known: readonly string[] = OBJECT_TABLES;
+  for (const entry of await readArray(join(dir, ...STRING_TABLES_FILE))) {
+    if (!isRecord(entry) || entry.lang !== BASIS_LANGUAGE || typeof entry.table !== 'string') continue;
+    const table = entry.table.replace(PLURAL_TABLE_SUFFIX, '');
+    if (known.includes(table)) add(tables, table, String(entry.id));
+  }
+  for (const entry of await readArray(join(dir, ...MAP_STRINGS_FILE))) {
+    if (isRecord(entry) && entry.lang === BASIS_LANGUAGE && typeof entry.map === 'string')
+      add(mapStrings, entry.map, String(entry.id));
+  }
+  for (const name of (await readdir(dir)).filter((n) => n.endsWith('.json')).sort()) {
+    const correction = await readJson(join(dir, name));
+    if (!isRecord(correction) || typeof correction.file !== 'string' || !Array.isArray(correction.lines))
+      continue;
+    const map = correctedMap(correction.file);
+    if (map === undefined) continue;
+    for (const line of correction.lines) {
+      if (!isRecord(line) || typeof line.from !== 'string') continue;
+      if (map.name === BRIEFINGS_FILE) add(briefingLines, map.id, line.from);
+      const id = map.name === STRINGS_FILE ? STRINGN_LINE.exec(line.from)?.[1] : undefined;
+      if (id !== undefined) add(mapStrings, map.id, id);
+    }
+  }
+  return { tables, mapStrings, briefingLines };
+}
+
+/** The keys of one map overlay whose German our corrections change: string ids and block labels. */
+export function correctedMapKeys(
+  corrections: GermanCorrections,
+  mapId: string,
+  basis: MapSourceText,
+  overlay: {
+    readonly strings: Readonly<Record<string, string>>;
+    readonly briefings: Readonly<Record<string, string>>;
+  },
+): string[] {
+  const keys: string[] = [];
+  for (const id of corrections.mapStrings.get(mapId) ?? [])
+    if (overlay.strings[id] !== undefined) keys.push(`string ${id}`);
+  const lines = corrections.briefingLines.get(mapId);
+  if (lines !== undefined) {
+    for (const label of Object.keys(overlay.briefings)) {
+      if ((basis.briefings[label] ?? '').split('\n').some((line) => lines.has(line)))
+        keys.push(`block ${label}`);
+    }
+  }
+  return keys;
+}

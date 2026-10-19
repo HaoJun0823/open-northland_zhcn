@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { MapOverlay, OVERLAY_LANGUAGES, OVERLAY_VERSION, type OverlayLanguage } from '@open-northland/data';
 import { BASIS_LANGUAGE, LOCALIZATION_SOURCES } from './columns.js';
+import { correctedMapKeys, type GermanCorrections } from './corrected-keys.js';
 import { type MapSourceText, mapSourceTextDigest, readMapSourceText } from './map-source-text.js';
 import { type GermanRoundTrip, germanRoundTrip, translateMap } from './map-translation.js';
 import { type LocalizationMap, readLocalizationMap } from './map-xml.js';
@@ -22,6 +23,9 @@ export interface MapLanguageResult {
   readonly unknown: readonly string[];
   readonly markupMismatches: readonly string[];
   readonly retagged: readonly string[];
+  readonly unframed: readonly string[];
+  /** Written keys whose German our corrections change, so the translation follows the original. */
+  readonly corrected: readonly string[];
 }
 
 /** One pack map the import matched, with the XML it took the text from. */
@@ -65,12 +69,18 @@ async function readXmls(source: string): Promise<Map<string, LocalizationMap>> {
   return xmls;
 }
 
+/** One matched pack map with our German text and the corrections that change it. */
+interface Target {
+  readonly map: PackMap;
+  readonly basis: MapSourceText;
+  readonly digest: string;
+  readonly corrections: GermanCorrections;
+}
+
 function translateLanguage(
   xml: LocalizationMap,
   lang: OverlayLanguage,
-  map: PackMap,
-  basis: MapSourceText,
-  digest: string,
+  { map, basis, digest, corrections }: Target,
 ): { readonly result: MapLanguageResult; readonly file?: OverlayFile } {
   const translation = translateMap(xml, LOCALIZATION_SOURCES[lang].column, basis);
   const result: MapLanguageResult = {
@@ -79,6 +89,8 @@ function translateLanguage(
     unknown: translation.unknown,
     markupMismatches: translation.markupMismatches,
     retagged: translation.retagged,
+    unframed: translation.unframed,
+    corrected: correctedMapKeys(corrections, map.id, basis, translation),
   };
   if (result.strings + result.blocks === 0) return { result };
   const overlay = MapOverlay.parse({
@@ -96,7 +108,11 @@ function translateLanguage(
  * per overlay language, named by the `map.dat` SHA-256. When several XMLs match one `map.dat`, the one
  * whose German column fits our German text best is taken.
  */
-export async function importMaps(source: string, dataRoot: string): Promise<MapImport> {
+export async function importMaps(
+  source: string,
+  dataRoot: string,
+  corrections: GermanCorrections,
+): Promise<MapImport> {
   const xmls = await readXmls(source);
   const byMd5 = new Map<string, PackMap[]>();
   for (const map of await packMaps(dataRoot)) byMd5.set(map.md5, [...(byMd5.get(map.md5) ?? []), map]);
@@ -141,7 +157,7 @@ export async function importMaps(source: string, dataRoot: string): Promise<MapI
     const digest = mapSourceTextDigest(basis);
     const languages: Partial<Record<OverlayLanguage, MapLanguageResult>> = {};
     for (const lang of OVERLAY_LANGUAGES) {
-      const { result, file } = translateLanguage(best.xml, lang, map, basis, digest);
+      const { result, file } = translateLanguage(best.xml, lang, { map, basis, digest, corrections });
       languages[lang] = result;
       if (file !== undefined) files.push(file);
     }

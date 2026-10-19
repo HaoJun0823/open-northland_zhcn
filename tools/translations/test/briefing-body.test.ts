@@ -1,6 +1,12 @@
 import { parseBriefingBlocks } from '@open-northland/formats/hypertext';
 import { describe, expect, it } from 'vitest';
-import { type BriefingNode, briefingBody, normalizeWhitespace, tagGaps } from '../src/import/map-xml.js';
+import {
+  type BriefingNode,
+  briefingBody,
+  normalizeWhitespace,
+  tagGaps,
+  takeRunEdges,
+} from '../src/import/map-xml.js';
 
 /** A block file authored for this test: blank lines and tags between paragraphs, framing whitespace. */
 const BLOCK_FILE = [
@@ -73,5 +79,40 @@ describe('briefingBody', () => {
   it('ends the body at an end-tag line the stored run swallowed', () => {
     const nodes: BriefingNode[] = [{ kind: 'text', text: '\nLetzte Zeile.\n[blockend: 08]\n\n\n' }];
     expect(briefingBody(nodes)).toBe('Letzte Zeile.');
+  });
+});
+
+describe('takeRunEdges', () => {
+  const german: BriefingNode[] = [
+    { kind: 'text', text: ' \nKOPF\n\n' },
+    { kind: 'tag', name: 'usericon', args: '2,1' },
+    { kind: 'text', text: '\nRumpf\n' },
+  ];
+
+  it('frames each translated run like the German run at its place and drops line-end spaces', () => {
+    const padded: BriefingNode[] = [
+      { kind: 'text', text: '\n\n\n头\n        ' },
+      { kind: 'tag', name: 'usericon', args: '2,9' },
+      { kind: 'text', text: '\n身  \n        \n尾\n\n        ' },
+    ];
+    expect(takeRunEdges(padded, german)).toEqual([
+      { kind: 'text', text: ' \n头\n\n' },
+      { kind: 'tag', name: 'usericon', args: '2,9' },
+      { kind: 'text', text: '\n身\n\n尾\n' },
+    ]);
+  });
+
+  it('refuses columns of another shape', () => {
+    expect(takeRunEdges([{ kind: 'text', text: '头' }], german)).toBeUndefined();
+    expect(
+      takeRunEdges(
+        [
+          { kind: 'text', text: '头' },
+          { kind: 'tag', name: 'picture', args: 'a.pcx' },
+          { kind: 'text', text: '身' },
+        ],
+        german,
+      ),
+    ).toBeUndefined();
   });
 });

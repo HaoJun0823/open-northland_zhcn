@@ -33,12 +33,15 @@ const XML = `<?xml version="1.0" encoding="UTF-8"?>
     <block id="intro">
       <lang code="CHN">
         <text>
+
+
 井边的村子
-</text>
+        </text>
         <usericon>2,9</usericon>
         <text>
-今天下雨。
-</text>
+　今天下雨。  
+
+        </text>
       </lang>
       <lang code="ger">
         <text>
@@ -69,7 +72,6 @@ const BASIS: MapSourceText = {
 describe('readLocalizationMap', () => {
   it('reads the map identity, every string column and the block nodes', () => {
     const map = readLocalizationMap(XML);
-    expect(map.mapId).toBe('probe_map');
     expect(map.mapMd5).toBe('0123456789abcdef0123456789abcdef');
     expect(map.deprecated).toBe(false);
     expect(map.strings.get('1')?.get('ger')).toBe('Fässer %d/5 & mehr');
@@ -90,10 +92,12 @@ describe('readLocalizationMap', () => {
 });
 
 describe('translateMap', () => {
-  it('keeps goal prefixes and placeholders, skips empty and unknown entries, and takes our tag arguments', () => {
+  it('keeps goal prefixes and placeholders, skips empty and unknown entries, and frames blocks like ours', () => {
     const translation = translateMap(readLocalizationMap(XML), SIMPLIFIED_COLUMN, BASIS);
     expect(translation.strings).toEqual({ '0': '@找到水井！', '1': '木桶 %d/5 & 更多' });
-    expect(translation.briefings).toEqual({ intro: '井边的村子\n<usericon:2,1>\n今天下雨。' });
+    // Run edges come from the German column, tag arguments from our German block; the ideographic
+    // space that indents the second run is text and stays.
+    expect(translation.briefings).toEqual({ intro: '井边的村子\n\n<usericon:2,1>\n\n　今天下雨。' });
     expect(translation.unknown).toEqual(['string 7']);
     expect(translation.retagged).toEqual(['block intro']);
     expect(translation.markupMismatches).toEqual([]);
@@ -113,11 +117,11 @@ describe('translateMap', () => {
     expect(translation.briefings).toEqual({});
   });
 
-  it('reports a translated string whose goal prefix or placeholders differ from ours', () => {
+  it('leaves out a translated string whose goal prefix or placeholders differ from ours', () => {
     const basis: MapSourceText = { ...BASIS, strings: { ...BASIS.strings, '0': 'FINDE DEN BRUNNEN!' } };
-    expect(translateMap(readLocalizationMap(XML), SIMPLIFIED_COLUMN, basis).markupMismatches).toEqual([
-      'string 0',
-    ]);
+    const translation = translateMap(readLocalizationMap(XML), SIMPLIFIED_COLUMN, basis);
+    expect(translation.markupMismatches).toEqual(['string 0']);
+    expect(translation.strings['0']).toBeUndefined();
   });
 });
 

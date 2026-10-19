@@ -7,6 +7,7 @@ import {
   type LocalizationMap,
   normalizeWhitespace,
   tagGaps,
+  takeRunEdges,
 } from './map-xml.js';
 
 /** One language column of a localization map, keyed as our basis text keys it. */
@@ -15,15 +16,18 @@ export interface MapTranslation {
   readonly briefings: Record<string, string>;
   /** Translated ids and labels our basis text lacks, left out. */
   readonly unknown: readonly string[];
-  /** Kept entries whose goal prefix, placeholders or tag names differ from the basis text. */
+  /** Entries whose goal prefix, placeholders or tag names differ from the basis text, left out. */
   readonly markupMismatches: readonly string[];
   /** Blocks whose tag arguments differed from the basis text and were taken from it. */
   readonly retagged: readonly string[];
+  /** Blocks shaped unlike the XML's German column, whose text runs keep their own edge whitespace. */
+  readonly unframed: readonly string[];
 }
 
 const GOAL_PREFIX = '@';
 /** A printf conversion such as `%d`, `%s` or `%2.1f`. */
 const PLACEHOLDER = /%(?:\d+\$)?[-+ #0]*\d*(?:\.\d+)?[a-zA-Z]/g;
+
 function isBlank(text: string | undefined): boolean {
   return text === undefined || text.trim() === '';
 }
@@ -41,8 +45,9 @@ function stringMarkupDiffers(source: string, translated: string): boolean {
 
 /**
  * Takes one language column of `map` for the ids and labels `basis` carries: strings verbatim, block
- * bodies rebuilt in `briefings.txt` syntax with the basis block's tag arguments and tag gaps. Empty
- * entries are skipped, so the reader falls back to the source text for them.
+ * bodies rebuilt in `briefings.txt` syntax with the German column's run edges and the basis block's tag
+ * arguments and tag gaps. Empty entries, and entries that would not keep the basis markup, are left
+ * out, so the reader falls back to the source text for them.
  */
 export function translateMap(map: LocalizationMap, column: string, basis: MapSourceText): MapTranslation {
   const strings: Record<string, string> = {};
@@ -50,6 +55,7 @@ export function translateMap(map: LocalizationMap, column: string, basis: MapSou
   const unknown: string[] = [];
   const markupMismatches: string[] = [];
   const retagged: string[] = [];
+  const unframed: string[] = [];
   for (const [id, byColumn] of map.strings) {
     const text = byColumn.get(column);
     if (text === undefined || isBlank(text)) continue;
@@ -58,8 +64,8 @@ export function translateMap(map: LocalizationMap, column: string, basis: MapSou
       unknown.push(`string ${id}`);
       continue;
     }
-    strings[id] = text;
     if (stringMarkupDiffers(source, text)) markupMismatches.push(`string ${id}`);
+    else strings[id] = text;
   }
   for (const [label, byColumn] of map.briefings) {
     const nodes = byColumn.get(column);
@@ -69,12 +75,17 @@ export function translateMap(map: LocalizationMap, column: string, basis: MapSou
       unknown.push(`block ${label}`);
       continue;
     }
-    const adopted = adoptSourceTags(nodes, source);
-    briefings[label] = briefingBody(adopted?.nodes ?? nodes, tagGaps(source));
-    if (adopted === undefined) markupMismatches.push(`block ${label}`);
-    else if (adopted.retagged) retagged.push(`block ${label}`);
+    const framed = takeRunEdges(nodes, byColumn.get(GERMAN_COLUMN) ?? []);
+    if (framed === undefined) unframed.push(`block ${label}`);
+    const adopted = adoptSourceTags(framed ?? nodes, source);
+    if (adopted === undefined) {
+      markupMismatches.push(`block ${label}`);
+      continue;
+    }
+    briefings[label] = briefingBody(adopted.nodes, tagGaps(source));
+    if (adopted.retagged) retagged.push(`block ${label}`);
   }
-  return { strings, briefings, unknown, markupMismatches, retagged };
+  return { strings, briefings, unknown, markupMismatches, retagged, unframed };
 }
 
 /** How the XML's German column compares with our basis text: the proof the body rebuild is sound. */

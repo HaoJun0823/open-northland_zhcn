@@ -16,6 +16,7 @@ import {
   translateBook,
 } from './books.js';
 import { BASIS_LANGUAGE, LOCALIZATION_SOURCES } from './columns.js';
+import { type GermanCorrections, readGermanCorrections } from './corrected-keys.js';
 import { formatCsv, glossaryFromLanguageUnion } from './glossary.js';
 import { normalizeWhitespace } from './map-xml.js';
 import { importMaps, type MapImport, type OverlayFile } from './maps.js';
@@ -39,6 +40,8 @@ export interface ImportOptions {
   readonly source: string;
   /** The unpacked data pack. */
   readonly dataRoot: string;
+  /** The asset pipeline's corrections folder, whose German fixes the report names. */
+  readonly corrections: string;
 }
 
 /** How many of the localization's German entries equal ours, of the keys both carry. */
@@ -51,6 +54,8 @@ export interface TableResult {
   readonly table: string;
   /** Type ids whose German name differs between the localization's table and ours, left out. */
   readonly drifted: readonly string[];
+  /** Written type ids whose German our corrections change, so the translation follows the original. */
+  readonly corrected: readonly string[];
   readonly languages: Readonly<
     Partial<Record<OverlayLanguage, { names: number; plurals: number; unknown: number }>>
   >;
@@ -76,6 +81,7 @@ async function importTable(
   textRoot: string,
   baseRoot: string,
   table: ObjectTable,
+  corrections: GermanCorrections,
   files: OverlayFile[],
 ): Promise<TableResult | undefined> {
   const basis = await readPackObjectTable(baseRoot, BASIS_LANGUAGE, table);
@@ -84,10 +90,13 @@ async function importTable(
   const drifted = theirGerman === undefined ? [] : driftedIds(basis, theirGerman);
   const digest = objectNamesDigest(basis);
   const languages: Partial<Record<OverlayLanguage, { names: number; plurals: number; unknown: number }>> = {};
+  const corrected = new Set<string>();
   for (const lang of OVERLAY_LANGUAGES) {
     const translated = await readLocalizedObjectTable(textRoot, LOCALIZATION_SOURCES[lang].textFolder, table);
     if (translated === undefined) continue;
     const { names, plurals, unknown } = translateObjectNames(translated, basis, drifted);
+    for (const id of corrections.tables.get(table) ?? [])
+      if (names[id] !== undefined || plurals[id] !== undefined) corrected.add(id);
     languages[lang] = { names: Object.keys(names).length, plurals: Object.keys(plurals).length, unknown };
     if (Object.keys(names).length + Object.keys(plurals).length === 0) continue;
     const overlay = ObjectTableOverlay.parse({
@@ -98,7 +107,7 @@ async function importTable(
     });
     files.push({ path: `${lang}/objects/${table}.json`, value: overlay });
   }
-  return { table, drifted, languages };
+  return { table, drifted, corrected: [...corrected].sort((a, b) => Number(a) - Number(b)), languages };
 }
 
 /** How many of the localization's German blocks equal ours once whitespace is normalised. */
@@ -150,11 +159,12 @@ async function importBook(
 export async function importCulturesLocalization(options: ImportOptions): Promise<ImportResult> {
   const textRoot = join(options.source, ...TEXT_DIR);
   const baseRoot = join(options.dataRoot, PACK_BASE);
-  const maps = await importMaps(options.source, options.dataRoot);
+  const corrections = await readGermanCorrections(options.corrections);
+  const maps = await importMaps(options.source, options.dataRoot, corrections);
   const files: OverlayFile[] = [...maps.files];
   const tables: TableResult[] = [];
   for (const table of OBJECT_TABLES) {
-    const result = await importTable(textRoot, baseRoot, table, files);
+    const result = await importTable(textRoot, baseRoot, table, corrections, files);
     if (result !== undefined) tables.push(result);
   }
   const book = await importBook(textRoot, baseRoot, files);

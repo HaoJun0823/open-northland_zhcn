@@ -7,7 +7,6 @@ import { parseXml, type XmlElement } from './xml.js';
  * named after the tag holding its arguments, dropping a run that is only whitespace.
  */
 export interface LocalizationMap {
-  readonly mapId: string;
   /** MD5 of the `map.dat` the text belongs to, lower-case hex. */
   readonly mapMd5: string;
   readonly deprecated: boolean;
@@ -69,7 +68,6 @@ export function readLocalizationMap(xml: string): LocalizationMap {
     briefings.set(requiredAttribute(block, 'id'), byColumn);
   }
   return {
-    mapId: requiredAttribute(root, 'map_id'),
     mapMd5: requiredAttribute(root, 'map_md5').toLowerCase(),
     deprecated: root.attributes.deprecated === 'true',
     strings,
@@ -98,6 +96,48 @@ export function tagGaps(body: string): string[] {
     previousEnd = match.index + match[0].length;
   }
   return gaps;
+}
+
+/** Line-end and indentation whitespace at the edges of a text run; an ideographic space is text. */
+const RUN_LEADING = /^[ \t\r\n]*/;
+const RUN_TRAILING = /[ \t\r\n]*$/;
+const LINE_TRAILING_SPACE = /[ \t]+$/gm;
+
+function sameShape(a: readonly BriefingNode[], b: readonly BriefingNode[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((node, i) => {
+      const other = b[i];
+      return (
+        node.kind === other?.kind &&
+        (node.kind === 'text' || (other.kind === 'tag' && node.name === other.name))
+      );
+    })
+  );
+}
+
+/**
+ * `nodes` with each text run framed by the whitespace that frames the run at the same place in
+ * `reference`, the German column of the same block, and without the spaces that end its lines: the
+ * translated runs carry the XML writer's indentation and extra line ends, which a block included line
+ * by line would show as blank lines. Undefined when the two columns differ in shape.
+ */
+export function takeRunEdges(
+  nodes: readonly BriefingNode[],
+  reference: readonly BriefingNode[],
+): readonly BriefingNode[] | undefined {
+  if (!sameShape(nodes, reference)) return undefined;
+  return nodes.map((node, i): BriefingNode => {
+    const model = reference[i];
+    if (node.kind !== 'text' || model?.kind !== 'text') return node;
+    const leading = RUN_LEADING.exec(model.text)?.[0] ?? '';
+    const trailing = WHITESPACE_ONLY.test(model.text) ? '' : (RUN_TRAILING.exec(model.text)?.[0] ?? '');
+    const core = node.text
+      .replace(RUN_LEADING, '')
+      .replace(RUN_TRAILING, '')
+      .replace(LINE_TRAILING_SPACE, '');
+    return { kind: 'text', text: `${leading}${core}${trailing}` };
+  });
 }
 
 /**

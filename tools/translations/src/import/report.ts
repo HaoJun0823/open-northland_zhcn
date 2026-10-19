@@ -76,6 +76,8 @@ export function formatReport(result: ImportResult, sourceCommit: string): string
     const unknown: string[] = [];
     const markup: string[] = [];
     const retagged: string[] = [];
+    const unframed: string[] = [];
+    const corrected: string[] = [];
     for (const map of maps.matched) {
       const result = map.languages[lang];
       if (result === undefined) continue;
@@ -85,14 +87,24 @@ export function formatReport(result: ImportResult, sourceCommit: string): string
       unknown.push(...result.unknown.map((key) => `${map.map.id} ${key}`));
       markup.push(...result.markupMismatches.map((key) => `${map.map.id} ${key}`));
       retagged.push(...result.retagged.map((key) => `${map.map.id} ${key}`));
+      unframed.push(...result.unframed.map((key) => `${map.map.id} ${key}`));
+      if (result.corrected.length > 0) corrected.push(`${map.map.id} ${result.corrected.join(', ')}`);
     }
     add(`${lang}: ${files} map overlays, ${stringCount} strings, ${blockCount} briefing blocks`);
     if (unknown.length > 0)
       add(`  left out, our German lacks the key (${unknown.length}): ${unknown.join('; ')}`);
     if (markup.length > 0)
-      add(`  goal prefix, placeholders or tag names differ (${markup.length}): ${markup.join('; ')}`);
+      add(
+        `  left out, goal prefix, placeholders or tag names differ (${markup.length}): ${markup.join('; ')}`,
+      );
     if (retagged.length > 0)
       add(`  tag arguments differed, taken from our German (${retagged.length}): ${retagged.join('; ')}`);
+    if (unframed.length > 0)
+      add(`  shaped unlike the German column, run edges kept (${unframed.length}): ${unframed.join('; ')}`);
+    if (corrected.length > 0)
+      add(
+        `  our German of these keys is corrected, the translation follows the original: ${corrected.join('; ')}`,
+      );
   }
   add();
 
@@ -105,7 +117,9 @@ export function formatReport(result: ImportResult, sourceCommit: string): string
         : `${lang} ${counts.names} names, ${counts.plurals} plurals${counts.unknown > 0 ? `, ${counts.unknown} unknown ids left out` : ''}`;
     });
     const drifted = table.drifted.length > 0 ? `; German differs for ids ${table.drifted.join(', ')}` : '';
-    add(`  ${table.table}: ${parts.join('; ')}${drifted}`);
+    const corrected =
+      table.corrected.length > 0 ? `; our German corrected for ids ${table.corrected.join(', ')}` : '';
+    add(`  ${table.table}: ${parts.join('; ')}${drifted}${corrected}`);
   }
   if (result.book !== undefined) {
     const { book } = result;

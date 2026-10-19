@@ -11,8 +11,6 @@ export interface PackMap {
   readonly kind: 'campaign' | 'base';
   /** `<campaign>-<map>` for a campaign map (docs/DATA-PACK.md), the folder slug for a base map. */
   readonly id: string;
-  /** The `map.dat` path under the pack root. */
-  readonly source: string;
   readonly md5: string;
   readonly sha256: string;
   readonly read: MapFileReader;
@@ -44,7 +42,6 @@ async function campaignMaps(dataRoot: string): Promise<PackMap[]> {
       maps.push({
         kind: 'campaign',
         id: `${campaign.id}-${map.id}`,
-        source: [CAMPAIGNS_DIR, campaign.id, 'maps', map.id, dat].join('/'),
         ...digests(await readFile(join(mapDir, dat))),
         read: async (segments) => {
           const file = files.get(segments.join('/').toLowerCase());
@@ -79,7 +76,6 @@ async function baseMaps(dataRoot: string): Promise<PackMap[]> {
     maps.push({
       kind: 'base',
       id: mapIdFromPath(rel),
-      source: [...COMMUNITY_MAPS_DIR, rel].join('/'),
       ...digests(await readFile(path)),
       read: (segments) => readCaseInsensitive(folder, segments),
     });

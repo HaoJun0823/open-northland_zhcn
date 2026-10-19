@@ -16,19 +16,19 @@
     "99": "扎彭杜施泰斯特"
   },
   "briefings": {
-    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n是英勇，還是魯莽？比雅尼隕落之時，諸神落淚……少了這位英雄，任務的結局將永遠對你隱藏。",
-    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！你的女英雄希拉，因你的疏忽而殞命！少了這位英雄，任務的結局將永遠對你隱藏。",
-    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！你的摯友派羅因你的疏忽而殞命！少了它，任務的結局將永遠對你隱藏。",
-    "00_start": "洞裡依舊漆黑一片。無論我們怎樣努力，都無法前進半步。一道奇異的能量場環繞著高大的石柱，不讓我們深入洞穴內部。",
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇，還是魯莽？比雅尼隕落之時，諸神落淚……少了這位英雄，任務的結局將永遠對你隱藏。",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！你的女英雄希拉，因你的疏忽而殞命！少了這位英雄，任務的結局將永遠對你隱藏。",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！你的摯友派羅因你的疏忽而殞命！少了它，任務的結局將永遠對你隱藏。",
+    "00_start": "洞裡依舊漆黑一片。無論我們怎樣努力，都無法前進半步。一道奇異的能量場環繞著高大的石柱，不讓我們深入洞穴內部。 ",
     "00_start1": "我們把希望寄託於火龍派羅。它定能重新點燃熄滅的火把……\n\n點燃火把，尋得通往水晶之路。",
     "01": "所有火把已點燃！\n\n洞穴入口處的火把盡數點亮！彷彿有魔法作祟，其中一根奇柱消失無蹤，能量場隨之瓦解。我們如今得以深入探勘洞穴！此處想必還有不少火把待人點燃。",
     "02": "所有火把已點燃！\n\n我們之友派羅點燃了所有火把。通往火水晶的道路已然暢通！",
-    "03": "暗龍\n\n透過柵牆，我們望見黑色巨龍，它們看似危險，多半正守衛著水晶入口。\n\n<usericon:2,4>\n\n我們須設法將它們引離此處。或許能把它們誘入彩虹之廳困住？\n<usericon:1,43,61>",
+    "03": "暗龍\n\n透過柵牆，我們望見黑色巨龍，它們看似危險，多半正守衛著水晶入口。\n\n<usericon:2,4>\n\n我們須設法將它們引離此處。或許能把它們誘入彩虹之廳困住？\n\n<usericon:1,43,61>",
     "04": "巨龍已敗北！\n\n我們擊潰了這些無色的造物，可這當真必要嗎？難道不能將他們誘入彩虹之廳的陷阱？",
     "05": "巨龍已困入！\n\n<usericon:2,4>\n\n我們做到了，所有暗龍都身陷彩虹之廳！",
     "06": "密閉之廳\n\n只要不是所有火把都已點燃，這間廳堂的內部便始終對你隱藏！",
     "50_end": "我們在洞穴深處找到了水晶！現在必須把它帶給森林守護者博肯扎恩。\n\n<usericon:1,49,21>",
-    "50_endheader": "任務成功！",
-    "header": "幽暗洞穴\n"
+    "50_endheader": "任務成功！ ",
+    "header": "幽暗洞穴"
   }
 }

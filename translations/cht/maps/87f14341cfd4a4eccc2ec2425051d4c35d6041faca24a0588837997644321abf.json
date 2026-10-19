@@ -19,19 +19,19 @@
     "99": "聖火"
   },
   "briefings": {
-    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n是英勇還是魯莽？當比雅尼倒下時，眾神為之落淚……失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時的疏忽，人生便會急轉直下！你的女英雄希拉因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時的疏忽，人生便會急轉直下！你的摯友與英雄哈奇因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時的疏忽，人生便會急轉直下！你的摯友與英雄西格德因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "00_start": "礦井深處，沙漠那無情的炎熱幾乎感受不到了。\n        <usericon:1,38,49>\n黴腐的氣味鑽進我們的肺裡，附近傳來礦工們響亮的錘擊聲。他們到底把聖火藏在了哪裡？",
-    "00_start1": "\n\n尋找聖火。\n        ",
-    "01": "\n\n山地部族\n\n“喂，你們這些人！是誰准許你們進入我們的礦場的？”\n        ",
-    "02": "\n\n礦工\n\n“別傷害我們！我們只是在這裡幹自己的活兒，礦場上頭髮生了什麼，我們幾乎一無所知！”\n        \n        <usericon:1,23,62>",
-    "03": "\n\n你還無法透過這道大門！\n        \n        <usericon:1,121,52>\n\n想辦法把大門開啟！\n        ",
-    "04": "\n\n你的維京人現在可以透過這道大門了！但要提防躲在門後守護聖火的衛兵！\n        \n        <usericon:1,121,52>",
-    "05": "\n\n生命能量\n\n一股奇異的魔力籠罩著這個地方……\n        \n        <usericon:1,96,77>\n\n我們所有的戰士都感到脫胎換骨、煥然一新！\n        ",
-    "50_end": "\n\n我們終於奪回了法羅斯燈塔所需的聖火。撒拉遜山地部族可沒讓我們輕易得手。\n        \n        <usericon:1,137,14>",
-    "50_endheader": "\n\n任務成功！\n        ",
-    "header": "\n\n聖火\n        "
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇還是魯莽？當比雅尼倒下時，眾神為之落淚……失去這位英雄，你將無緣見到任務的結局。",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，人生便會急轉直下！你的女英雄希拉因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，人生便會急轉直下！你的摯友與英雄哈奇因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。 ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，人生便會急轉直下！你的摯友與英雄西格德因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。",
+    "00_start": "礦井深處，沙漠那無情的炎熱幾乎感受不到了。\n\n<usericon:1,38,49>\n\n黴腐的氣味鑽進我們的肺裡，附近傳來礦工們響亮的錘擊聲。他們到底把聖火藏在了哪裡？",
+    "00_start1": "尋找聖火。",
+    "01": "山地部族\n\n“喂，你們這些人！是誰准許你們進入我們的礦場的？”",
+    "02": "礦工\n\n“別傷害我們！我們只是在這裡幹自己的活兒，礦場上頭髮生了什麼，我們幾乎一無所知！” \n\n<usericon:1,23,62>",
+    "03": "你還無法透過這道大門！\n\n<usericon:1,121,52>\n\n想辦法把大門開啟！",
+    "04": "你的維京人現在可以透過這道大門了！但要提防躲在門後守護聖火的衛兵！\n\n<usericon:1,121,52>",
+    "05": "生命能量\n\n一股奇異的魔力籠罩著這個地方…… \n\n<usericon:1,96,77>\n\n我們所有的戰士都感到脫胎換骨、煥然一新！",
+    "50_end": "我們終於奪回了法羅斯燈塔所需的聖火。撒拉遜山地部族可沒讓我們輕易得手。\n\n<usericon:1,137,14>",
+    "50_endheader": "任務成功！ ",
+    "header": "聖火"
   }
 }

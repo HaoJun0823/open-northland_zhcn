@@ -24,21 +24,21 @@
     "99": "希罗斯特拉特斯继承者"
   },
   "briefings": {
-    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n英雄气概，还是鲁莽？当比雅尼殒命，众神落泪……失此英雄，你便无缘得见任务终局。\n        ",
-    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时疏忽，人生便急转直下！你的女英雄希拉因你大意而殒命！失此英雄，你便无缘得见任务终局。\n        ",
-    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时疏忽，人生便急转直下！你的挚友与英雄哈奇因你大意而殒命！失此英雄，你便无缘得见任务终局。\n        ",
-    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时疏忽，人生便急转直下！你的挚友与英雄西格德因你大意而殒命！失此英雄，你便无缘得见任务终局。\n        ",
-    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时疏忽，人生便急转直下！你的挚友与英雄--巨龙诺伯特--因你大意而殒命！失此英雄，你便无缘得见任务终局。\n        ",
-    "600": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任务失败！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一时疏忽，人生便急转直下！玛尼--比雅尼与希拉之子--因你大意而殒命！失此英雄，你便无缘得见任务终局。\n        ",
-    "00_start": "为消弭神庙之危，我们循那伙纵火贼穿过山道，竟入一似是另一世界之境。此地方可自那唯一入口进入。若非亲眼所见，我们绝不会相信--这火山内部竟别有洞天！\n        <usericon:1,40,298>",
-    "00_start1": "\n\n欲治住\"希罗斯特拉特斯之裔\"，须避开其门徒与吐火之龙！\n\n唯寻得幼者希罗斯特拉特斯，将其囚于地牢，使他再不能煽惑众人，攻击方止。\n\n寻得幼者希罗斯特拉特斯，将其囚入地牢！当心秘道！\n\n        ",
-    "01": "\n\n希罗斯特拉特斯之裔\n\n\"嘿，你们！谁准你们踏入我等领地？\"\n\n        ",
-    "02": "\n\n希罗斯特拉特斯之裔秘窟\n\n\"你们想把我们的首领希罗斯特拉特斯关进地牢？我们绝不容许！\"\n\n        ",
-    "03": "\n\n地牢看守\n\n\"幸会！我候你们多时了。希罗斯特拉特斯之裔纵火行恶，于人无益。\n\n\n        \n        <usericon:1,43,175>\n\n\n\n此地神圣，希罗斯特拉特斯之裔从不至此。将他囚于此间，我自会看管。\"\n\n        ",
-    "04": "\n\n希罗斯特拉特斯\n\n\"你们要把我关进地牢？休想我会乖乖跟你们走！\"\n\n\n        \n        <usericon:2,7>\n\n\n\n将希罗斯特拉特斯押入地牢！\n\n        ",
-    "05": "\n\n希罗斯特拉特斯身陷地牢！\n\n我们成功了！希罗斯特拉特斯困于地牢，自此由地牢看守看管。其门徒再不能将他救出。\n\n\n        \n        <usericon:2,7>\n\n\n\n率众英雄返回入口！\n\n        ",
-    "50_end": "\n\n我们将希罗斯特拉特斯交予地牢看守后，便返回山界入口。在那里他备受看管，再不能煽人纵火。\n\n\n        \n        <usericon:1,24,287>",
-    "50_endheader": "\n\n任务成功！\n\n        ",
-    "header": "\n\n希罗斯特拉特斯之裔\n\n        "
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n英雄气概，还是鲁莽？当比雅尼殒命，众神落泪……失此英雄，你便无缘得见任务终局。",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一时疏忽，人生便急转直下！你的女英雄希拉因你大意而殒命！失此英雄，你便无缘得见任务终局。",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一时疏忽，人生便急转直下！你的挚友与英雄哈奇因你大意而殒命！失此英雄，你便无缘得见任务终局。 ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一时疏忽，人生便急转直下！你的挚友与英雄西格德因你大意而殒命！失此英雄，你便无缘得见任务终局。",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一时疏忽，人生便急转直下！你的挚友与英雄--巨龙诺伯特--因你大意而殒命！失此英雄，你便无缘得见任务终局。",
+    "600": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一时疏忽，人生便急转直下！玛尼--比雅尼与希拉之子--因你大意而殒命！失此英雄，你便无缘得见任务终局。",
+    "00_start": "为消弭神庙之危，我们循那伙纵火贼穿过山道，竟入一似是另一世界之境。此地方可自那唯一入口进入。若非亲眼所见，我们绝不会相信--这火山内部竟别有洞天！\n\n<usericon:1,40,298>",
+    "00_start1": "欲治住\"希罗斯特拉特斯之裔\"，须避开其门徒与吐火之龙！\n\n唯寻得幼者希罗斯特拉特斯，将其囚于地牢，使他再不能煽惑众人，攻击方止。\n\n寻得幼者希罗斯特拉特斯，将其囚入地牢！当心秘道！",
+    "01": "希罗斯特拉特斯之裔\n\n\"嘿，你们！谁准你们踏入我等领地？\"",
+    "02": "希罗斯特拉特斯之裔秘窟\n\n\"你们想把我们的首领希罗斯特拉特斯关进地牢？我们绝不容许！\"",
+    "03": "地牢看守\n\n\"幸会！我候你们多时了。希罗斯特拉特斯之裔纵火行恶，于人无益。\n\n<usericon:1,43,175>\n\n此地神圣，希罗斯特拉特斯之裔从不至此。将他囚于此间，我自会看管。\"",
+    "04": "希罗斯特拉特斯\n\n\"你们要把我关进地牢？休想我会乖乖跟你们走！\"\n\n<usericon:2,7>\n\n将希罗斯特拉特斯押入地牢！",
+    "05": "希罗斯特拉特斯身陷地牢！\n\n我们成功了！希罗斯特拉特斯困于地牢，自此由地牢看守看管。其门徒再不能将他救出。\n\n<usericon:2,7>\n\n率众英雄返回入口！ ",
+    "50_end": "我们将希罗斯特拉特斯交予地牢看守后，便返回山界入口。在那里他备受看管，再不能煽人纵火。\n\n<usericon:1,24,287>",
+    "50_endheader": "任务成功！ ",
+    "header": "希罗斯特拉特斯之裔"
   }
 }

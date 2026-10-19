@@ -18,27 +18,27 @@
     "99": "沉默者之島 - 芬里爾之鏈 - 支線2"
   },
   "briefings": {
-    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇，還是魯莽？比雅尼死時，諸神也為之落淚……少了這位英雄，你便無從知曉任務的結局。",
-    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的女英雄希拉因你的疏忽而殞命！少了這位女英雄，你便無從知曉任務的結局。",
-    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的朋友與英雄哈奇因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
-    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的朋友與英雄西格德因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
-    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！伊科爾因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
-    "00_start": "霧氣散去，一座小巧靜謐的島嶼海岸在眼前浮現。",
-    "00_start1": "這是為異族生靈所造的所在，其安寧與和諧於我們人類而言陌生，卻仍迷人……\n\n尋找一處登陸點！",
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇，還是魯莽？比雅尼死時，諸神也為之落淚……少了這位英雄，你便無從知曉任務的結局。",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的女英雄希拉因你的疏忽而殞命！少了這位女英雄，你便無從知曉任務的結局。",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的朋友與英雄哈奇因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。 ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的朋友與英雄西格德因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！伊科爾因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
+    "00_start": "霧氣散去，一座小巧靜謐的島嶼海岸在眼前浮現。 ",
+    "00_start1": "這是為異族生靈所造的所在，其安寧與和諧於我們人類而言陌生，卻仍迷人……\n\n尋找一處登陸點！ ",
     "01_landed": "島嶼海岸提供了良好的登陸條件，我們便在西側一處小灣登島。一切如此靜謐平和，一種無聲的魔法籠罩此地……\n\n靠岸停船，讓人們下船，去探索周邊！",
     "02_unicorn": "\n獨角獸\n\n在一片林間空地，我們遇見一道明亮閃耀的身影。它如童話般美麗，耀得人目眩。獨角獸以平靜友善的言語示意，我們備受歡迎，若解開此地謎題，它便贈我們一根獨角獸的魔法之角。一切如夢--我們雖不通其語，卻字字聽懂……\n\n解開神諭！",
     "03_besetzt": "你們必須從開關上下來，否則獨角獸不會開口！",
     "04_erklärung1": "“要回答我的謎題，”獨角獸說道，“請站上三個開關之一。牢記下列記號！若解不開謎題，須重訪此島！”\n\n“你們看，這是開關 A”",
     "05_erklärung2": "\n“你們看，這是開關 B”",
-    "06_erklärung3": "\n“而這，是開關 C”\n\n我的每個謎題都有 3 個可能的答案，但只有一個正確。按下對應開關來回答我！你們準備好猜謎了嗎？",
+    "06_erklärung3": "\n“而這，是開關 C”\n\n我的每個謎題都有 3 個可能的答案，但只有一個正確。按下對應開關來回答我！你們準備好猜謎了嗎？ ",
     "10_frage3": "謎題 3\n\n“比雅尼是誰之子？”\n\nA) 斯努裡・斯圖拉松\nB) 埃裡克・貢納松\nC) 萊夫・埃裡克松",
     "11_right": "\n答對了！！",
-    "50_end": "我們答對了謎題，從那生靈手中獲贈一截獸角，其中蘊藏獨角獸全部的魔法本領。",
+    "50_end": "我們答對了謎題，從那生靈手中獲贈一截獸角，其中蘊藏獨角獸全部的魔法本領。   ",
     "50_end1": "至此，第二種魔法原料也已尋得，我們可返回修道院。任務途中，還有更多驚險冒險等著我們……",
-    "50_endheader": "\n任務成功！",
+    "50_endheader": "\n任務成功！ ",
     "7_falsch": "噗！\n\n答錯了！",
     "8_frage1": "謎題 1\n\n“駱駝有何別稱？”\n\nA) 沙漠之舟\nB) 貝都因搖床\nC) 餅屎客",
     "9_frage2": "謎題 2\n\n“大惡狼吞下了幾隻小羊？”\n\nA) 7\nB) 6\nC) 5",
-    "header": "\n寂靜之島\n\n"
+    "header": "\n寂靜之島\n"
   }
 }

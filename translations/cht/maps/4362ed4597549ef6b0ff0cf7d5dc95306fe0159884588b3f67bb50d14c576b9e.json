@@ -19,17 +19,17 @@
     "100": "將滿載蜂蜜酒的推車運至隧道出口。已完全裝滿！"
   },
   "briefings": {
-    "10": "\n\n治癒之霧\n\n這些奇異的霧氣顯然有療愈之效。\n\n只需在其間駐足片刻，傷勢便迅速痊癒。\n        ",
-    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n是英勇還是魯莽？當比雅尼倒下時，眾神為之落淚……失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "110": "\n\n任務受挫\n\n載蜜酒的車被毀了！你的任務宣告失敗。\n        ",
-    "120": "\n\n增援\n\n佩特羅斯又派來幾名部下作為增援。\n        ",
-    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時的疏忽，人生便會急轉直下！你的女英雄希拉因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時的疏忽，人生便會急轉直下！你的摯友與英雄哈奇因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時的疏忽，人生便會急轉直下！你的摯友與英雄西格德因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\People_Dead_F.pcx>\n\n\n儘管已有人警告於你，你竟攻擊了自己最好的朋友！\n\n如此你將無法完成使命！\n        ",
-    "00_start": "把這車蜜酒安全送到出口。士兵們負責護送，抵禦隧道中可能出現的敵人。\n        <usericon:1,91,129>\n記住：到達出口時，車必須是滿的！\n所以別偷喝蜜酒！那不是給你的！\n\n祝你好運！",
-    "09_end_header": "\n\n幹得漂亮！\n        ",
-    "09_end_text1": "\n\n你將那輛載有 10 瓶蜜酒的手推車安然送過密道。\n\n在外等候，直至梅特羅斯前來與你接頭。\n        ",
-    "header": "\n\n密道\n        "
+    "10": "治癒之霧\n\n這些奇異的霧氣顯然有療愈之效。\n\n只需在其間駐足片刻，傷勢便迅速痊癒。",
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇還是魯莽？當比雅尼倒下時，眾神為之落淚……失去這位英雄，你將無緣見到任務的結局。",
+    "110": "任務受挫\n\n載蜜酒的車被毀了！你的任務宣告失敗。",
+    "120": "增援\n\n佩特羅斯又派來幾名部下作為增援。",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，人生便會急轉直下！你的女英雄希拉因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，人生便會急轉直下！你的摯友與英雄哈奇因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。 ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，人生便會急轉直下！你的摯友與英雄西格德因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\People_Dead_F.pcx>\n儘管已有人警告於你，你竟攻擊了自己最好的朋友！\n\n如此你將無法完成使命！",
+    "00_start": "把這車蜜酒安全送到出口。士兵們負責護送，抵禦隧道中可能出現的敵人。\n\n<usericon:1,91,129>\n\n記住：到達出口時，車必須是滿的！\n所以別偷喝蜜酒！那不是給你的！\n\n祝你好運！",
+    "09_end_header": "幹得漂亮！ ",
+    "09_end_text1": "你將那輛載有 10 瓶蜜酒的手推車安然送過密道。\n\n在外等候，直至梅特羅斯前來與你接頭。",
+    "header": "密道"
   }
 }

@@ -15,11 +15,11 @@
     "103": "希拉"
   },
   "briefings": {
-    "bjarnitot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n英雄氣概，還是魯莽輕率？當比雅尼倒下，諸神也在慟哭……他們的命運已定，人類的末日隨之降臨。",
-    "header": "地牢",
-    "heldtot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n全完了！預言中的景象再無實現之日！\n\n儘管拼死抵抗，預言裡的一位英雄仍被敵軍優勢兵力擊倒！",
+    "bjarnitot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n英雄氣概，還是魯莽輕率？當比雅尼倒下，諸神也在慟哭……他們的命運已定，人類的末日隨之降臨。",
+    "header": "\n地牢\n",
+    "heldtot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n全完了！預言中的景象再無實現之日！\n\n儘管拼死抵抗，預言裡的一位英雄仍被敵軍優勢兵力擊倒！",
     "knopf": "一聲刺耳的吱呀巨響驟然響起……\n\n……繼而是一陣金屬碰撞的嘩啦聲！\n\n這必有深意！",
     "verließ": "我們終於尋得那秘牢的隱蔽後門，皇帝的女兒正囚於其中。因不知敵方虛實，悄然潛入此刻至關重要。\n\n於是我決意獨往，可我們的法蘭克英雄執意相隨，無可勸阻。一條幽暗的地下通道在我們眼前展開……前方會有什麼等著我們？\n\n解救皇帝的女兒！",
-    "wachen": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務成功！\n        <font:$local$\\fonts\\font12.fnt>\n憑智謀與些許運氣，我們制服守衛，救出了拜占庭皇帝的女兒。\n\n我們循原路匆匆回到地面，早有不耐煩的同伴在入口處迎候，如釋重負。此刻還須將疲憊而惶惑的公主安然送回其父王身邊。\n\n護送皇帝的女兒安全回到其父王身邊。"
+    "wachen": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務成功！\n<font:$local$\\fonts\\font12.fnt>\n\n憑智謀與些許運氣，我們制服守衛，救出了拜占庭皇帝的女兒。\n\n我們循原路匆匆回到地面，早有不耐煩的同伴在入口處迎候，如釋重負。此刻還須將疲憊而惶惑的公主安然送回其父王身邊。\n\n護送皇帝的女兒安全回到其父王身邊。"
   }
 }

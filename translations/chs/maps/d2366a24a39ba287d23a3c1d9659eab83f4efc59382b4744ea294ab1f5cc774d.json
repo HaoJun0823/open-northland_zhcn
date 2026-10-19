@@ -18,27 +18,27 @@
     "99": "沉默者之岛 - 芬里尔之链 - 支线2"
   },
   "briefings": {
-    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇，还是鲁莽？比雅尼死时，诸神也为之落泪……少了这位英雄，你便无从知晓任务的结局。",
-    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的鲁莽，转瞬即至！你的女英雄希拉因你的疏忽而殒命！少了这位女英雄，你便无从知晓任务的结局。",
-    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的鲁莽，转瞬即至！你的朋友与英雄哈奇因你的疏忽而殒命！少了这位英雄，你便无从知晓任务的结局。",
-    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的鲁莽，转瞬即至！你的朋友与英雄西格德因你的疏忽而殒命！少了这位英雄，你便无从知晓任务的结局。",
-    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的鲁莽，转瞬即至！伊科尔因你的疏忽而殒命！少了这位英雄，你便无从知晓任务的结局。",
-    "00_start": "雾气散去，一座小巧静谧的岛屿海岸在眼前浮现。",
-    "00_start1": "这是为异族生灵所造的所在，其安宁与和谐于我们人类而言陌生，却仍迷人……\n\n寻找一处登陆点！",
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇，还是鲁莽？比雅尼死时，诸神也为之落泪……少了这位英雄，你便无从知晓任务的结局。",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的鲁莽，转瞬即至！你的女英雄希拉因你的疏忽而殒命！少了这位女英雄，你便无从知晓任务的结局。",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的鲁莽，转瞬即至！你的朋友与英雄哈奇因你的疏忽而殒命！少了这位英雄，你便无从知晓任务的结局。 ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的鲁莽，转瞬即至！你的朋友与英雄西格德因你的疏忽而殒命！少了这位英雄，你便无从知晓任务的结局。",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任务失败！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的鲁莽，转瞬即至！伊科尔因你的疏忽而殒命！少了这位英雄，你便无从知晓任务的结局。",
+    "00_start": "雾气散去，一座小巧静谧的岛屿海岸在眼前浮现。 ",
+    "00_start1": "这是为异族生灵所造的所在，其安宁与和谐于我们人类而言陌生，却仍迷人……\n\n寻找一处登陆点！ ",
     "01_landed": "岛屿海岸提供了良好的登陆条件，我们便在西侧一处小湾登岛。一切如此静谧平和，一种无声的魔法笼罩此地……\n\n靠岸停船，让人们下船，去探索周边！",
     "02_unicorn": "\n独角兽\n\n在一片林间空地，我们遇见一道明亮闪耀的身影。它如童话般美丽，耀得人目眩。独角兽以平静友善的言语示意，我们备受欢迎，若解开此地谜题，它便赠我们一根独角兽的魔法之角。一切如梦--我们虽不通其语，却字字听懂……\n\n解开神谕！",
     "03_besetzt": "你们必须从开关上下来，否则独角兽不会开口！",
     "04_erklärung1": "“要回答我的谜题，”独角兽说道，“请站上三个开关之一。牢记下列记号！若解不开谜题，须重访此岛！”\n\n“你们看，这是开关 A”",
     "05_erklärung2": "\n“你们看，这是开关 B”",
-    "06_erklärung3": "\n“而这，是开关 C”\n\n我的每个谜题都有 3 个可能的答案，但只有一个正确。按下对应开关来回答我！你们准备好猜谜了吗？",
+    "06_erklärung3": "\n“而这，是开关 C”\n\n我的每个谜题都有 3 个可能的答案，但只有一个正确。按下对应开关来回答我！你们准备好猜谜了吗？ ",
     "10_frage3": "谜题 3\n\n“比雅尼是谁之子？”\n\nA) 斯努里・斯图拉松\nB) 埃里克・贡纳松\nC) 莱夫・埃里克松",
     "11_right": "\n答对了！！",
-    "50_end": "我们答对了谜题，从那生灵手中获赠一截兽角，其中蕴藏独角兽全部的魔法本领。",
+    "50_end": "我们答对了谜题，从那生灵手中获赠一截兽角，其中蕴藏独角兽全部的魔法本领。   ",
     "50_end1": "至此，第二种魔法原料也已寻得，我们可返回修道院。任务途中，还有更多惊险冒险等着我们……",
-    "50_endheader": "\n任务成功！",
+    "50_endheader": "\n任务成功！ ",
     "7_falsch": "噗！\n\n答错了！",
     "8_frage1": "谜题 1\n\n“骆驼有何别称？”\n\nA) 沙漠之舟\nB) 贝都因摇床\nC) 饼屎客",
     "9_frage2": "谜题 2\n\n“大恶狼吞下了几只小羊？”\n\nA) 7\nB) 6\nC) 5",
-    "header": "\n寂静之岛\n\n"
+    "header": "\n寂静之岛\n"
   }
 }

@@ -19,16 +19,16 @@
     "110": "再度離開神諭者……"
   },
   "briefings": {
-    "10": "\n\n喀耳刻\n\n當我們立於喀耳刻面前，女神以神秘之聲向我們開口：\n\n\"借我之口，太陽神赫利俄斯、羅德之守護者如此說。\n聽者，外鄉人，須知你們的危難我已盡知。德米特里奧斯這卑劣狂徒，連同其部眾，必當傾覆！\n凡招惹神怒者，必遭惡報！\n\n作為代價，為我立一尊雕像。巍峨而輝煌，使我名永享尊榮！\n它須妝點羅德城，使之長記我之助！\n\n去吧，上行觀看！\"\n\n離開神諭。\n        ",
-    "20": "\n\n神諭守衛\n\n此劫終難倖免……\n一個巨魔自黑暗中現身，正是守護神諭者！\n\n願眾神垂憐於我們！\n        ",
-    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n是英勇還是魯莽？當比雅尼倒下時，眾神為之落淚……失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時的疏忽，人生便會急轉直下！你的女英雄希拉因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時的疏忽，人生便會急轉直下！你的摯友與英雄哈奇因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n一時的疏忽，人生便會急轉直下！你的摯友與英雄西格德因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。\n        ",
-    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\People_Dead_F.pcx>\n\n\n儘管已有人警告於你，你竟攻擊了自己最好的朋友！\n\n如此你將無法完成使命！\n        ",
-    "600": "<font:$local$\\fonts\\fonthead16bld.fnt>\n\n\n任務失敗！\n        \n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n\n神諭守衛比你更加強大。\n\n如今你再無緣知曉，神諭究竟藏著何種秘密！\n        ",
+    "10": "喀耳刻\n\n當我們立於喀耳刻面前，女神以神秘之聲向我們開口：\n\n\"借我之口，太陽神赫利俄斯、羅德之守護者如此說。\n聽者，外鄉人，須知你們的危難我已盡知。德米特里奧斯這卑劣狂徒，連同其部眾，必當傾覆！\n凡招惹神怒者，必遭惡報！\n\n作為代價，為我立一尊雕像。巍峨而輝煌，使我名永享尊榮！\n它須妝點羅德城，使之長記我之助！\n\n去吧，上行觀看！\"\n\n離開神諭。",
+    "20": "神諭守衛\n\n此劫終難倖免……\n一個巨魔自黑暗中現身，正是守護神諭者！\n\n願眾神垂憐於我們！",
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇還是魯莽？當比雅尼倒下時，眾神為之落淚……失去這位英雄，你將無緣見到任務的結局。",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，人生便會急轉直下！你的女英雄希拉因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，人生便會急轉直下！你的摯友與英雄哈奇因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。 ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，人生便會急轉直下！你的摯友與英雄西格德因你的大意而喪命！失去這位英雄，你將無緣見到任務的結局。",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\People_Dead_F.pcx>\n儘管已有人警告於你，你竟攻擊了自己最好的朋友！\n\n如此你將無法完成使命！",
+    "600": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n神諭守衛比你更加強大。\n\n如今你再無緣知曉，神諭究竟藏著何種秘密！",
     "00_start": "神廟穹窿之下，一條小徑向下通入神諭的聖地。\n\n眼前所見，令我們屏息！\n\n這神諭--竟非旁人，而是喀耳刻！太陽神赫利俄斯與珀耳塞之女，\n\n曾令無數英雄折腰--如今，她就在我們面前。",
-    "09_end_text1": "\n\n出口\n\n說來，這比我們預想的容易得多。\n\n我們忐忑地踏出戶外，想看眾神的怒火將如何顯現……\n        ",
-    "header": "\n\n神諭\n        "
+    "09_end_text1": "出口\n\n說來，這比我們預想的容易得多。\n\n我們忐忑地踏出戶外，想看眾神的怒火將如何顯現……",
+    "header": "神諭"
   }
 }

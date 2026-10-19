@@ -12,14 +12,14 @@
     "102": "西格德"
   },
   "briefings": {
-    "bjarnitot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n英雄氣概，還是魯莽輕率？當比雅尼倒下，諸神也在慟哭……他們的命運已定，人類的末日隨之降臨。",
+    "bjarnitot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n英雄氣概，還是魯莽輕率？當比雅尼倒下，諸神也在慟哭……他們的命運已定，人類的末日隨之降臨。",
     "bonisonstig": "我們尋得一枚不起眼的護符，其上刻著奇異紋樣，隱隱透出詭譎微光。\n\n那必是至高魔法無疑！",
     "bonitrank": "一隻怪味撲鼻的奇異瓶子落入我們手中。\n\n這定是魔法藥劑無疑！",
     "boniwaffe": "我們找到了傳說中吟遊詩人傳唱的魔法兵器之一。若用之得法，它能在戰鬥中助我們大忙。",
     "frankenheld": "當我攀下深淵之口，很快便尋到聲響的源頭！洞口近旁蜷著一名全副武裝的巨漢，臉上寫滿驚怖。\n\n他聲音發顫地警告我：\"洞穴深處盤踞著一頭邪惡可怖的怪物，乃我屠龍生涯中所見最駭人之物！它猙獰不堪，任誰瞥見都要魂飛魄散！\"\n\n雖則牙齒打顫，當我憂心忡忡繼續前行時，他仍執意相隨……\n\n在迷宮中尋得怪物，與之決戰！",
     "hasenareal": "這必是法蘭克人恐懼的那頭怪物無疑！\n\n……\n\n一隻雙眼赤紅、佈滿血絲的兔子死死瞪著我們！！！",
-    "header": "怪物洞穴",
-    "heldtot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，便釀成千古恨！預言中的一位英雄因你的輕率而殞命，世界就此傾覆！",
-    "monsterbesiegt": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務成功！\n        <font:$local$\\fonts\\font12.fnt>\n法蘭克人聞之色變的那頭巨獸，終被斬除！\n\n鎮民們如今方能安眠。我向那位臨危顯出真英雄本色的法蘭克人致謝，並邀他來到我們的村莊。\n\n入夜篝火升騰，我向他道出我們的使命。他頓時熱血沸騰，執意隨行--畢竟他可是貨真價實的屠龍者！\n\n我眯起眼，藉著火光將他細看--果然是他！他正是我在幻象中見過的英雄之一！"
+    "header": "\n怪物洞穴\n",
+    "heldtot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的疏忽，便釀成千古恨！預言中的一位英雄因你的輕率而殞命，世界就此傾覆！",
+    "monsterbesiegt": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務成功！\n<font:$local$\\fonts\\font12.fnt>\n法蘭克人聞之色變的那頭巨獸，終被斬除！\n\n鎮民們如今方能安眠。我向那位臨危顯出真英雄本色的法蘭克人致謝，並邀他來到我們的村莊。\n\n入夜篝火升騰，我向他道出我們的使命。他頓時熱血沸騰，執意隨行--畢竟他可是貨真價實的屠龍者！\n\n我眯起眼，藉著火光將他細看--果然是他！他正是我在幻象中見過的英雄之一！"
   }
 }

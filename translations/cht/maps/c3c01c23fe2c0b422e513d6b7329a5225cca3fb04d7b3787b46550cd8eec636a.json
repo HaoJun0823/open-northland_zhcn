@@ -17,15 +17,15 @@
     "103": "牧師"
   },
   "briefings": {
-    "bjarnietot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇還是魯莽？比雅尼隕落之時，諸神為之垂淚……他們的命運就此註定，人間世界也隨之終結。",
-    "end": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務成功！\n        <font:$local$\\fonts\\font12.fnt>\n有情人重逢，欣喜若狂。王子對我說道：“高貴的維京首領啊，多謝你將公主安然無恙地帶到我們面前。我們的愛，將成為北方人與法蘭克人和解的基石。若你的部族有難，我們必鼎力相助！”婚禮簡樸，卻動人心絃。至今我仍樂意回想那一刻。\n\n我們作為證婚人見證了他們的結合，獻上最誠摯的祝福。隨後我們離開這對新人，返回了自己的村莊。",
+    "bjarnietot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇還是魯莽？比雅尼隕落之時，諸神為之垂淚……他們的命運就此註定，人間世界也隨之終結。",
+    "end": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務成功！\n<font:$local$\\fonts\\font12.fnt>\n有情人重逢，欣喜若狂。王子對我說道：“高貴的維京首領啊，多謝你將公主安然無恙地帶到我們面前。我們的愛，將成為北方人與法蘭克人和解的基石。若你的部族有難，我們必鼎力相助！”婚禮簡樸，卻動人心絃。至今我仍樂意回想那一刻。\n\n我們作為證婚人見證了他們的結合，獻上最誠摯的祝福。隨後我們離開這對新人，返回了自己的村莊。",
     "freunde": "行至岔路口，我們撞見一隊形容粗野的諾曼戰士，顯然正在搜尋我們！\n\n“喂！你就是人稱比雅尼的那位？”為首的喊道。“可算找到你們了！諾曼王子派我們來相助，護你們平安穿過山谷。”",
-    "header": "\n\n聖皮埃爾\n\n",
+    "header": "\n聖皮埃爾\n",
     "katapult": "奪取這座投石機輕而易舉。或許日後能派上用場。",
     "neuesoldaten": "王子派來的五名士兵來得正是時候--我們一路上已然損失慘重……",
-    "priestertot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\People_Dead_F.pcx>\n你的維京人給牧師帶去的只有火與死亡！何其恥辱！殺害無辜，便是自絕於友誼與和平之路。",
-    "prinzessintot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n你失手了！公主死了！她曾信賴你的守護，你卻讓她失望！法蘭克人與諾曼人皆要你為她的死負責！",
-    "prinztot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n你失手了！王子死了！他曾信賴你的守護，你卻背叛了他。法蘭克人與北方人皆要你為他的死負責！",
+    "priestertot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\People_Dead_F.pcx>\n你的維京人給牧師帶去的只有火與死亡！何其恥辱！殺害無辜，便是自絕於友誼與和平之路。",
+    "prinzessintot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n你失手了！公主死了！她曾信賴你的守護，你卻讓她失望！法蘭克人與諾曼人皆要你為她的死負責！",
+    "prinztot": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n你失手了！王子死了！他曾信賴你的守護，你卻背叛了他。法蘭克人與北方人皆要你為他的死負責！",
     "start": "穿過幽暗通道短行片刻，狹窄的巖隙豁然開朗，化作一片廣闊的綠色山谷。遠處坐落著古老的聖皮埃爾修道院，王子與牧師正在那裡等候我們。\n\n國王的對手定是探知了我們的計劃！谷中四處遊蕩著劫掠維京人的哨兵，也有法蘭克領主坦克雷德計程車兵--他們顯然不願錯失擒獲我們的良機。多年來，他們似乎一直在等這樣一個重創法蘭克王的機會！\n\n護送公主安全抵達修道院！"
   }
 }

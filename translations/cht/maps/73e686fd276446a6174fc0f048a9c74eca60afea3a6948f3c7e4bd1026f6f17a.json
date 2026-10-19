@@ -25,23 +25,23 @@
     "99": "解放眾龍"
   },
   "briefings": {
-    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n\n是英勇，還是魯莽？比雅尼隕落之時，諸神落淚……少了這位英雄，任務的結局將永遠對你隱藏。",
-    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！你的女英雄希拉，因你的疏忽而殞命！少了這位英雄，任務的結局將永遠對你隱藏。",
-    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！比雅尼與希拉之子瑪尼，因你的疏忽而殞命！少了這位英雄，任務的結局將永遠對你隱藏。",
-    "600": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！比雅尼與希拉之子瑪尼，因你的疏忽而殞命！若無此英雄，這世界便將永遠失落……",
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇，還是魯莽？比雅尼隕落之時，諸神落淚……少了這位英雄，任務的結局將永遠對你隱藏。",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！你的女英雄希拉，因你的疏忽而殞命！少了這位英雄，任務的結局將永遠對你隱藏。",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！比雅尼與希拉之子瑪尼，因你的疏忽而殞命！少了這位英雄，任務的結局將永遠對你隱藏。",
+    "600": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n一時的輕率，生命便轉瞬即逝！比雅尼與希拉之子瑪尼，因你的疏忽而殞命！若無此英雄，這世界便將永遠失落……",
     "00_start": "我們再次置身於納帕利亞人這些陰溼發黴的地牢之中……地下世界裡，蘑菇與蘆葦在泥濘的景色中叢生。",
     "00_start1": "囚犯們看守森嚴。但納帕利亞人的建築裡常有許多秘道，我們正可借之而行。\n\n尋找被囚的龍，將他們解放！",
     "01": "納帕利亞人\n\n<usericon:1,66,88>\n\n“你們竟敢闖進地牢？找死！”",
-    "02": "地龍\n        <usericon:2,11>\n我們終於尋得地龍！諾伯特喜不自勝！",
-    "03": "魔法龍\n        <usericon:2,12>\n“納帕利亞人四處作惡。我們魔法龍本以為能躲過他們，卻也被俘。多謝你們救了我們。”",
-    "04": "水龍\n        <usericon:2,13>\n“我們本是納帕利亞人易擒的獵物。多謝你們救了我們。”",
-    "05": "開關已啟動！\n        <usericon:1,36,136>\n隨著一聲巨響，近處兩扇沉重的木門豁然開啟。",
-    "06": "納帕利亞人已殞命！\n\n納帕利亞人已被擊敗！\n<usericon:2,1>",
+    "02": "地龍\n\n<usericon:2,11>\n\n我們終於尋得地龍！諾伯特喜不自勝！ ",
+    "03": "魔法龍\n\n<usericon:2,12>\n\n“納帕利亞人四處作惡。我們魔法龍本以為能躲過他們，卻也被俘。多謝你們救了我們。”",
+    "04": "水龍\n\n<usericon:2,13>\n\n“我們本是納帕利亞人易擒的獵物。多謝你們救了我們。”",
+    "05": "開關已啟動！\n\n<usericon:1,36,136>\n\n隨著一聲巨響，近處兩扇沉重的木門豁然開啟。",
+    "06": "納帕利亞人已殞命！\n\n納帕利亞人已被擊敗！\n\n<usericon:2,1>",
     "07": "水龍已殞命！\n\n所有水龍都已死去！如此任務的結局將永遠對你隱藏！",
     "08": "地龍已殞命！\n\n所有地龍都已死去！如此任務的結局將永遠對你隱藏！",
     "09": "魔法龍已殞命！\n\n所有魔法龍都已死去！如此任務的結局將永遠對你隱藏！",
     "50_end": "我們終於從納帕利亞人地牢中救出了所有的龍，並以最快的速度離開了這昏暗的城牆！",
-    "50_endheader": "任務成功！",
+    "50_endheader": "任務成功！ ",
     "header": "龍的解放"
   }
 }

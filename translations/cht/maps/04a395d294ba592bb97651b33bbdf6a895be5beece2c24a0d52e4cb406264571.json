@@ -36,11 +36,11 @@
     "99": "芬里爾部落"
   },
   "briefings": {
-    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇，還是魯莽？比雅尼死時，諸神也為之落淚……少了這位英雄，你便無從知曉任務的結局。",
-    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的女英雄希拉因你的疏忽而殞命！少了這位女英雄，你便無從知曉任務的結局。",
-    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的朋友與英雄哈奇因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
-    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的朋友與英雄西格德因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
-    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n        <font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！伊科爾因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
+    "100": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n是英勇，還是魯莽？比雅尼死時，諸神也為之落淚……少了這位英雄，你便無從知曉任務的結局。",
+    "200": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的女英雄希拉因你的疏忽而殞命！少了這位女英雄，你便無從知曉任務的結局。",
+    "300": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的朋友與英雄哈奇因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。 ",
+    "400": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！你的朋友與英雄西格德因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
+    "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗！\n<font:$local$\\fonts\\font12.fnt>\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n生命中片刻的魯莽，轉瞬即至！伊科爾因你的疏忽而殞命！少了這位英雄，你便無從知曉任務的結局。",
     "00_start": "眼前這片土地肥沃多林--正適宜狩獵，並補充我們幾乎耗盡的補給。我們要以備戰之姿，迎戰芬里爾狼及其子嗣……",
     "00_start1": "藉助魔法箱子建立你的村莊，並用藥劑與護符武裝你計程車兵。",
     "01_player_1_seen_franken": "我們在西方遇上了友善的法蘭克人。他們大體躲過了狼患，向我們提出了優厚的貿易契約。\n\n繳納少許貢品，我們或許還能從他們處招募僱傭兵，以助後續任務……",
@@ -52,9 +52,9 @@
     "07_cyrafenris": "希拉已殺出重圍，直抵芬里爾狼！她能否將鎖鏈套上它？",
     "08_tribut_franken": "法蘭克人在沼澤上方派駐了 5 名最勇敢的長劍士作為僱傭兵，並願以同等貢品提供更多增援。\n\n若你的維京人需要，請向法蘭克人繳納所索貢品，換取更多僱傭兵。",
     "09": "芬里爾部眾\n\n這片地界有無數兇狼。我們初次遭遇，它們便成群結隊，齜牙咧嘴地撲來！",
-    "50_end": "可究竟發生了什麼？？？\n\n為何是希拉？我嘶吼著，感到自己正向內崩塌……\n\n",
-    "50_end1": "許久，我才明白髮生了什麼。唯有希拉能夠給芬里爾狼套上鎖鏈。可當她這麼做時，竟與他一同被拽入了瓦爾哈拉！\n\n無邊的哀傷，籠罩了我的一生……",
-    "50_endheader": "\n任務成功！",
-    "header": "\n芬里爾部眾"
+    "50_end": "可究竟發生了什麼？？？\n\n為何是希拉？我嘶吼著，感到自己正向內崩塌……\n",
+    "50_end1": "許久，我才明白髮生了什麼。唯有希拉能夠給芬里爾狼套上鎖鏈。可當她這麼做時，竟與他一同被拽入了瓦爾哈拉！\n\n無邊的哀傷，籠罩了我的一生…… ",
+    "50_endheader": "\n任務成功！ ",
+    "header": "\n芬里爾部眾 "
   }
 }

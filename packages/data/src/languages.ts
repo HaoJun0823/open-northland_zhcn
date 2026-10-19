@@ -22,6 +22,9 @@ export interface LanguageInfo {
   readonly wrap: LineWrap;
   /** The legacy code page its source text files use; an overlay language ships only UTF-8 JSON. */
   readonly codePage?: 'windows-1250' | 'windows-1251';
+  /** Languages read before the registry order when a text lacks this one: a Chinese reader is more
+   *  likely to read English than the mod's Polish. */
+  readonly fallbacks?: readonly Language[];
 }
 
 export const LANGUAGE_INFO: Readonly<Record<Language, LanguageInfo>> = {
@@ -29,8 +32,8 @@ export const LANGUAGE_INFO: Readonly<Record<Language, LanguageInfo>> = {
   eng: { code: 'eng', tag: 'en', wrap: 'word', codePage: 'windows-1250' },
   ger: { code: 'ger', tag: 'de', wrap: 'word', codePage: 'windows-1250' },
   rus: { code: 'rus', tag: 'ru', wrap: 'word', codePage: 'windows-1251' },
-  chs: { code: 'chs', tag: 'zh-Hans', wrap: 'character' },
-  cht: { code: 'cht', tag: 'zh-Hant', wrap: 'character' },
+  chs: { code: 'chs', tag: 'zh-Hans', wrap: 'character', fallbacks: ['eng'] },
+  cht: { code: 'cht', tag: 'zh-Hant', wrap: 'character', fallbacks: ['chs', 'eng'] },
 };
 
 export function isLanguage(value: unknown): value is Language {
@@ -39,4 +42,10 @@ export function isLanguage(value: unknown): value is Language {
 
 export function isSourceLanguage(value: unknown): value is SourceLanguage {
   return typeof value === 'string' && (SOURCE_LANGUAGES as readonly string[]).includes(value);
+}
+
+/** The languages a reader of `lang` reads a text in, most preferred first: `lang`, its own fallbacks,
+ *  then every language in registry order. */
+export function textReadingOrder(lang: Language): readonly Language[] {
+  return [...new Set([lang, ...(LANGUAGE_INFO[lang].fallbacks ?? []), ...LANGUAGES])];
 }

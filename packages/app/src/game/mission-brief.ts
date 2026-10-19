@@ -1,9 +1,9 @@
 import {
   type HypertextBlock,
-  MAP_TEXT_LANGUAGES,
   type MapBriefing,
   type MapMeta,
   type MapTextLanguage,
+  textReadingOrder,
 } from '@open-northland/data';
 import {
   type MatchOutcome,
@@ -99,17 +99,15 @@ export function mapBriefFallback(
 
 /** A goal description starting with this is printed without it, in the window's emphasis colour. */
 const GOAL_EMPHASIS_MARK = '@';
-/** The mission window's language order: the app locale, then the mod's authoring language. */
-const BRIEFING_LANG_FALLBACKS = MAP_TEXT_LANGUAGES;
 
 /** The briefing page for `id` in `lang`, falling back through the authoring languages. */
 export function briefingPage(
   briefing: MapBriefing | null,
-  lang: string,
+  lang: MapTextLanguage,
   id: number | null,
 ): BriefingText | null {
   if (briefing === null || id === null) return null;
-  for (const candidate of [lang, ...BRIEFING_LANG_FALLBACKS]) {
+  for (const candidate of textReadingOrder(lang)) {
     const page = briefing.texts[candidate]?.[String(id)];
     if (page !== undefined && page.length > 0) return { blocks: page, lang: candidate };
   }

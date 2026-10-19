@@ -1,15 +1,8 @@
-import {
-  MAP_TEXT_LANGUAGES,
-  type MapStrings,
-  type MapText,
-  type MapTextLanguage,
-} from '@open-northland/data';
+import { type MapStrings, type MapText, type MapTextLanguage, textReadingOrder } from '@open-northland/data';
 
-/** `lang` first, then the shipped languages in their preference order, so a map authored in one
- *  language still reads under another. */
-function readingOrder(lang: MapTextLanguage): readonly MapTextLanguage[] {
-  return [...new Set([lang, ...MAP_TEXT_LANGUAGES])];
-}
+/** `lang` first, then the languages its readers fall back to, so a map authored in one language
+ *  still reads under another. */
+const readingOrder = textReadingOrder;
 
 /** A map's name, description or seat name in `lang`, else in the first shipped language that has it. */
 export function localizedMapText(text: MapText | undefined, lang: MapTextLanguage): string | undefined {

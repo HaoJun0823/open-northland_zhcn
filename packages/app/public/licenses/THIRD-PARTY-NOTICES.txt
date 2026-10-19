@@ -10,7 +10,9 @@ xBRZ (packages/render/src/gpu/prescale/xbrz-2x.ts, from xbrz/shaders/xbrz-freesc
     Copyright (C) 2011/2016 Hyllian - sergiogdb@gmail.com, MIT license (below).
   xBRZ: Copyright (C) Zenju (zenju AT gmx DOT de), distributed under the GNU General Public
     License version 3, whose text is GPL-3.0.txt beside this file. That file stays under the
-    GPL-3.0; the combined program is distributed under the GNU AGPL version 3 (GPL-3.0 section 13).
+    GPL-3.0; the combination is conveyed with Open Northland's code under the GNU AGPL version 3
+    and this file under the GPL-3.0 (GPL-3.0 section 13), and the AGPL's network clause applies to
+    the combination as a whole.
     Its source is the source repository, https://github.com/s-nems/open-northland.
 
 Super-xBR (packages/render/src/gpu/prescale/super-xbr-2x.ts, from xbr/shaders/super-xbr/)

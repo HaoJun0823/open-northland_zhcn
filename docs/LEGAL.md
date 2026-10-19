@@ -66,8 +66,9 @@ the GPL text, and the credits screen links the notices beside the AGPL license.
 - `packages/render/src/gpu/prescale/xbrz-2x.ts`, from `xbrz/shaders/xbrz-freescale.glsl`: Hyllian's
   xBR texel mapping, Copyright (C) 2011/2016 Hyllian, MIT license; the xBRZ rules, Copyright (C)
   Zenju, GNU General Public License version 3. The file stays under GPL-3.0. Section 13 of the GPL-3.0
-  permits combining it with this AGPL-3.0 work, and the combined program is distributed under the
-  AGPL-3.0. Distributing Open Northland under any other license, a later AGPL version included,
+  permits combining it with this AGPL-3.0 work: the combination is conveyed with the project's code
+  under the AGPL-3.0 and this file under the GPL-3.0, and the AGPL's network clause (its section 13)
+  applies to the combination as a whole. Distributing Open Northland under any other license, a later AGPL version included,
   requires removing or replacing this file. The file's linking exception names MAME only and gives
   this project nothing. Its modification notice carries a date, as GPL-3.0 section 5(a) asks.
 - `packages/render/src/gpu/prescale/super-xbr-2x.ts`, from

@@ -1,8 +1,8 @@
 import type { GlslProgramSource } from '../program-source.js';
 import { PRESCALE_VERTEX } from './prescale-pass.js';
 
-/** The original copyright and license notice, verbatim. It opens every shader source in this file, so
- *  each copy of the program carries it. */
+/** The libretro header and, since that header carries no grant, the authors' MIT notice from their
+ *  reference release. It opens every shader source in this file, so each copy of the program carries it. */
 const NOTICE = `// MMPX
 // by Morgan McGuire and Mara Gagiu
 // https://casual-effects.com/research/McGuire2021PixelArt/

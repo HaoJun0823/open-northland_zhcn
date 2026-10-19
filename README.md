@@ -88,7 +88,8 @@ read [`AGENTS.md`](AGENTS.md).
 ## License and trademarks
 
 Open Northland, including its HUD chrome, logo and icons, is licensed under AGPL-3.0-or-later. See
-[`LICENSE`](LICENSE).
+[`LICENSE`](LICENSE). The prescaled art filters port three GPU shaders, one of them GPL-3.0-only;
+[`docs/LEGAL.md`](docs/LEGAL.md#third-party-code) lists them with their notices.
 
 This is an independent project. It is not affiliated with or endorsed by Funatics Software, Daedalic
 Entertainment, or another rights holder of the *Cultures* series. Game names are used only to

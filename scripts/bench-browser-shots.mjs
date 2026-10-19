@@ -1,11 +1,11 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { chromium } from 'playwright';
 import { countGlCalls } from './bench-browser-profile.mjs';
 import {
   cameraAt,
   checkpointSession,
   densestBuildings,
+  openBenchBrowser,
   openBenchPage,
   restoreCheckpoint,
   VIEWPORT,
@@ -38,7 +38,7 @@ async function capture(checkpoint, origin, outDir) {
     process.env.ON_BENCH_BROWSER_SEAT === undefined ? null : Number(process.env.ON_BENCH_BROWSER_SEAT);
   if (seat !== null && !Number.isInteger(seat)) throw new Error('ON_BENCH_BROWSER_SEAT must be a seat');
   await mkdir(outDir, { recursive: true });
-  const browser = await chromium.launch({ headless: false, args: ['--mute-audio'] });
+  const browser = await openBenchBrowser({ args: ['--mute-audio'] });
   const report = { checkpoint: resolve(checkpoint), steps, seat, views: {}, errors: [] };
   try {
     const page = await openBenchPage(browser);
@@ -78,7 +78,7 @@ async function capture(checkpoint, origin, outDir) {
 }
 
 async function compare(dirA, dirB) {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await openBenchBrowser({ headless: true, args: [] });
   try {
     const page = await browser.newPage();
     for (const view of Object.keys(VIEWS)) {

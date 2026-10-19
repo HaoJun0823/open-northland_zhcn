@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { cpus, loadavg, platform, release } from 'node:os';
 import { resolve } from 'node:path';
-import { chromium } from 'playwright';
 import {
   busyShare,
   countGlCalls,
@@ -11,11 +10,13 @@ import {
   throttleCpu,
 } from './bench-browser-profile.mjs';
 import {
-  BENCH_BROWSER_ARGS,
+  benchBrowserInfo,
   cameraAt,
   checkpointSession,
   densestBuildings,
+  loadGateNote,
   machineLoad,
+  openBenchBrowser,
   openBenchPage,
   overloaded,
   restoreCheckpoint,
@@ -83,6 +84,7 @@ const metadata = {
     'No CPU calibration or idle-machine certification; compare OS load and repeat condition before interpreting timing.',
     'perf.frame CPU/draw fields are recent EMAs; RAF quantiles cover each whole measurement window.',
     'perf.frame.gpuMs is RAF interval minus app CPU, including idle/vsync/compositor; it is not measured GPU execution.',
+    ...[loadGateNote()].filter((note) => note !== null),
   ],
   reports: [],
   errors: [],
@@ -96,7 +98,8 @@ const progress = (message) => {
 try {
   progress('verifying development server and content');
   metadata.preview = await verifyDevServer(previewUrl);
-  browser = await chromium.launch({ headless: false, args: BENCH_BROWSER_ARGS });
+  browser = await openBenchBrowser();
+  metadata.browser = benchBrowserInfo(browser);
   const browserSession = await browser.newBrowserCDPSession();
   const system = await browserSession.send('SystemInfo.getInfo');
   page = await openBenchPage(browser);

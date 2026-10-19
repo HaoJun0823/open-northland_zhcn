@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cameraAt, checkpointSession, MAX_LOAD_PER_CPU, overloaded } from '../bench-browser-session.mjs';
+import {
+  cameraAt,
+  checkpointSession,
+  MAX_LOAD_PER_CPU,
+  overloaded,
+  parseViewport,
+} from '../bench-browser-session.mjs';
 
 const SEARCH =
   'map=krwawa_rzeka&player=overseer&tribes=1:2&difficulty=1:hard&computer=1,2&seed=7&fog=classic&needs=off';
@@ -53,4 +59,11 @@ test('the load gate trips above the limit and ignores an unavailable reading', (
   assert.equal(overloaded(load(MAX_LOAD_PER_CPU), load(1)), false);
   assert.equal(overloaded(load(1), load(MAX_LOAD_PER_CPU + 0.1)), true);
   assert.equal(overloaded(load(null, false)), false);
+});
+
+test('a bench viewport is WxH, the default window when unset', () => {
+  assert.deepEqual(parseViewport(undefined), { width: 1440, height: 900 });
+  assert.deepEqual(parseViewport('1920x1080'), { width: 1920, height: 1080 });
+  for (const text of ['1920', '1920x', '0x900', '1920X1080', '1920x1080.5'])
+    assert.throws(() => parseViewport(text), /ON_BENCH_VIEWPORT must be WxH/);
 });

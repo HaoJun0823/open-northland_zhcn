@@ -1,13 +1,25 @@
 import { realpath } from 'node:fs/promises';
 import { cpus, loadavg, platform } from 'node:os';
 import { resolve } from 'node:path';
+import { chromium } from 'playwright';
 import { loadConfigFromFile } from 'vite';
 import { verifyPreview } from '../packages/app/scripts/dev-verify.mjs';
 import { repoRoot } from './content-dir.mjs';
 import { skipOriginalGameGate } from './original-game-gate.mjs';
 
+/** The previous render pass's window, which the reference numbers in docs/PERFORMANCE.md use. */
+const DEFAULT_VIEWPORT = { width: 1440, height: 900 };
+
+/** `ON_BENCH_VIEWPORT`'s `WxH`, or the default window when unset. */
+export function parseViewport(text) {
+  if (text === undefined || text === '') return DEFAULT_VIEWPORT;
+  const match = /^([1-9]\d*)x([1-9]\d*)$/.exec(text);
+  if (match === null) throw new Error(`ON_BENCH_VIEWPORT must be WxH, e.g. 1920x1080, not '${text}'`);
+  return { width: Number(match[1]), height: Number(match[2]) };
+}
+
 /** The browser benchmarks' window, at device scale 1. */
-export const VIEWPORT = { width: 1440, height: 900 };
+export const VIEWPORT = parseViewport(process.env.ON_BENCH_VIEWPORT);
 
 /** `ON_BENCH_WINDOW_POSITION=x,y` opens the browser window at that screen position, so a measuring run
  *  can sit on a display nobody works on. A window behind other windows keeps its frame rate; a minimized
@@ -42,6 +54,21 @@ export async function unlockAudio(page) {
   return true;
 }
 
+/**
+ * Playwright's own Chromium, or with `ON_BENCH_CDP=<http://host:port>` a running Chromium reached over
+ * the DevTools protocol, such as Windows Chrome driven from WSL. A connected browser keeps the flags it
+ * was started with, so it needs `args` of its own; closing it closes only the pages opened here.
+ */
+export function openBenchBrowser({ args = BENCH_BROWSER_ARGS, headless = false } = {}) {
+  const endpoint = process.env.ON_BENCH_CDP;
+  return endpoint ? chromium.connectOverCDP(endpoint) : chromium.launch({ headless, args });
+}
+
+/** What a report names as its browser: the version, and the DevTools endpoint when one was reached. */
+export function benchBrowserInfo(browser) {
+  return { version: browser.version(), cdp: process.env.ON_BENCH_CDP || null };
+}
+
 /** A bench page at device scale 1 that skips the original-game gate, which would otherwise hold `?map=`. */
 export async function openBenchPage(browser) {
   const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
@@ -55,11 +82,19 @@ const DENSE_REACH = { x: 650, y: 380 };
 /** A restore of a late-game checkpoint can take minutes on a loaded machine. */
 const RESTORE_TIMEOUT_MS = 180000;
 
+/** This host's load; a browser reached over CDP runs elsewhere, so its load is not in the reading. */
 export function machineLoad() {
   const cpuCount = cpus().length;
   const loads = loadavg();
   const available = platform() !== 'win32' && cpuCount > 0;
   return { available, cpuCount, loads, loadPerCpu: available ? loads[0] / cpuCount : null };
+}
+
+/** The report's note on a browser outside the load gate's reach; null when the gate covers it. */
+export function loadGateNote() {
+  return process.env.ON_BENCH_CDP
+    ? "The browser runs over CDP, outside this host's load reading: the gate covers the dev server and this script only."
+    : null;
 }
 
 /** True when any of `loads` (from {@link machineLoad}) breaks the load gate. */

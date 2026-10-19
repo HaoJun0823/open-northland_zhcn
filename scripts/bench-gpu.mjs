@@ -1,15 +1,16 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { cpus, loadavg, platform, release } from 'node:os';
 import { resolve } from 'node:path';
-import { chromium } from 'playwright';
 import { countGlCalls, guardCamera } from './bench-browser-profile.mjs';
 import {
-  BENCH_BROWSER_ARGS,
+  benchBrowserInfo,
   cameraAt,
   checkpointSession,
   densestBuildings,
+  loadGateNote,
   MAX_LOAD_PER_CPU,
   machineLoad,
+  openBenchBrowser,
   openBenchPage,
   overloaded,
   restoreCheckpoint,
@@ -44,8 +45,16 @@ const SETTLE_MS = 500;
 const DRAG_STEPS = 10;
 /** A settler's anchor is its feet; a click this far above lands on its body. */
 const SETTLER_BODY_LIFT = 14;
-/** The world area clear of the HUD bars at 1440x900 and UI scale 1, by observation. */
-const WORLD_AREA = { left: 225, top: 145, right: 1215, bottom: 715 };
+/** The HUD bars' reach from each window edge at UI scale 1, by observation at 1440x900; the bars hold
+ *  to the edges at any window size. */
+const HUD_INSETS = { left: 225, top: 145, right: 225, bottom: 185 };
+/** The world area clear of the HUD bars. */
+const WORLD_AREA = {
+  left: HUD_INSETS.left,
+  top: HUD_INSETS.top,
+  right: VIEWPORT.width - HUD_INSETS.right,
+  bottom: VIEWPORT.height - HUD_INSETS.bottom,
+};
 /** The pointer rests on the bottom HUD bar, where no world hover card can rise. */
 const POINTER_REST = { x: VIEWPORT.width / 2, y: VIEWPORT.height - 3 };
 /** Settlers tried for a single selection before giving up. */
@@ -75,6 +84,7 @@ const metadata = {
     'The figure per scenario is the lowest per-repeat median; GL counts are per rendered frame over every repeat.',
     'Repeats of a scenario run back to back from one restore, so a running scenario measures later ticks each repeat.',
     'One selected settler always opens the settler panel, so the single-selection case is panel-*.',
+    ...[loadGateNote()].filter((note) => note !== null),
   ],
   scenarios: [],
   errors: [],
@@ -92,6 +102,7 @@ const writeReport = async () => {
     `# bench:gpu ${header.mapId} tick ${header.tick}`,
     '',
     `Adapter: ${metadata.adapter ?? 'unknown'}; GPU timer ${metadata.gpuTimer ? 'available' : 'unavailable'}.`,
+    `Browser: ${metadata.browser?.version ?? 'not started'}${metadata.browser?.cdp ? ` over CDP at ${metadata.browser.cdp}` : ''}.`,
     `${VIEWPORT.width}x${VIEWPORT.height}, ${repeats} x ${seconds} s per scenario; one-minute load per CPU at start ${startLoadText}, gate ${MAX_LOAD_PER_CPU}.`,
     '',
     markdownTable(metadata.scenarios),
@@ -250,7 +261,8 @@ try {
   const previewUrl = new URL(`?${params}`, options.origin);
   progress('verifying development server and content');
   metadata.preview = await verifyDevServer(previewUrl);
-  browser = await chromium.launch({ headless: false, args: BENCH_BROWSER_ARGS });
+  browser = await openBenchBrowser();
+  metadata.browser = benchBrowserInfo(browser);
   page = await openBenchPage(browser);
   page.on('pageerror', (e) => metadata.errors.push(e.message));
   page.on('console', (m) => {

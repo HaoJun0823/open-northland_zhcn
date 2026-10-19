@@ -143,9 +143,9 @@ npm run bench:browser -- bench-out/late.t100000.checkpoint http://127.0.0.1:5174
 
 Arguments: checkpoint, origin, output directory (default `bench-out/browser`), seconds per window
 (default 15). The probe verifies checkout/content and restores the checkpoint hash before each window.
-It uses muted headed Chromium at 1440×900, device scale 1, fullscreen off, no frame cap and five seconds
-of warm-up, with the pointer resting over the middle of the world so each window pays the hover the same
-way. Input is blocked while measuring. Audio runs as in a player's game: Chromium stays muted but may
+It uses muted headed Chromium at 1440×900 ([browser and window](#browser-and-window)), device scale 1,
+fullscreen off, no frame cap and five seconds of warm-up, with the pointer resting over the middle of
+the world so each window pays the hover the same way. Input is blocked while measuring. Audio runs as in a player's game: Chromium stays muted but may
 start audio without a gesture, a press of Shift (a modifier the game only tracks while held, so it selects
 and orders nothing) starts the sound driver after each restore, and each window reports the frames it
 decided as `audioFrames`. `bench:gpu` does the same with sound on.
@@ -171,6 +171,21 @@ Hidden tabs, camera/canvas drift and browser errors invalidate windows and fail 
 One-minute OS load per CPU above 1.5 at either boundary also invalidates a window. Platforms without
 load averages mark that check unavailable. Passing these checks alone does not prove an idle machine.
 Failures retain completed results before closing the browser.
+
+### Browser and window
+
+`bench:browser`, `bench:gpu` and `bench:browser-shots` share these:
+
+| Variable | Effect |
+| --- | --- |
+| `ON_BENCH_VIEWPORT` | Window as `WxH` at device scale 1; default `1440x900`, the size earlier numbers were taken at |
+| `ON_BENCH_CDP` | DevTools endpoint, e.g. `http://127.0.0.1:9333`, of a running Chromium to drive instead of launching Playwright's |
+
+A browser reached over CDP keeps the flags it started with, so start it windowed with a fresh profile,
+`--mute-audio` and `--autoplay-policy=no-user-gesture-required`, plus the ANGLE backend to measure
+(`--use-gl=angle --use-angle=d3d11` for Windows Chrome driven from WSL). Its load is outside the load
+gate's host, which then reads only the dev server and the script; the report says so and names the
+browser version and endpoint beside the adapter.
 
 ### Reading frame metrics
 

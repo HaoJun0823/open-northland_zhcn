@@ -27,14 +27,15 @@ import {
   needLevel,
 } from '../../lifecycle/needs/index.js';
 import { atomicDuration } from '../../readviews/animations.js';
-import { isFood, jobNeedsReligion } from '../../readviews/index.js';
+import { isEdibleFoodIn, jobNeedsReligion } from '../../readviews/index.js';
 import type { NavigationLimit } from '../../signposts/index.js';
 import type { SupplyTally } from '../../stores/index.js';
 import { MEAL_UNITS } from '../atomics/effects/goods/index.js';
 import { atOrWalk, PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic, startMeal } from '../atomics/start.js';
+import { enterBuilding } from '../indoors.js';
 import type { PlannerSpacing } from '../planner/spacing.js';
-import { interactionCell, nearestFood, nearestPrayerSite, type TargetCandidates } from '../targets/index.js';
-import { eatAtHome, homeMealFor, prayAtHome, sleepAtHome } from './home-errands.js';
+import { nearestFood, nearestPrayerSite, type TargetCandidates } from '../targets/index.js';
+import { prayAtHome, sleepAtHome } from './home-errands.js';
 import { prayerStand } from './prayer-stand.js';
 import { restingCell } from './rest-spot.js';
 import { eatAtPost, sleepAtPost } from './tower-post.js';
@@ -145,7 +146,7 @@ function eatCarried(
   settler: SettlerIdentity,
   load: { goodType: number; amount: number } | undefined,
 ): boolean {
-  if (load === undefined || load.amount <= 0 || !isFood(ctx, load.goodType)) return false;
+  if (load === undefined || load.amount <= 0 || !isEdibleFoodIn(ctx.content, load.goodType)) return false;
   startMeal(world, ctx, e, settler, { kind: 'eat', goodType: load.goodType, from: null }, e);
   return true;
 }
@@ -311,19 +312,8 @@ function seekMeal(
   const seek = maySeek(world, e, ordered, 'hunger');
   if (seek && eatCarried(world, ctx, e, settler, load)) return true;
   if (seek && eatAtPost(world, ctx, e, settler)) return true;
-  // Original behavior: the family larder comes first, then the nearest food elsewhere. Named addition:
-  // a home beyond HOME_ERRAND_RANGE_NODES gives way to nearer food. A store and a wild berry bush share
-  // the walk-or-act tail; only the meal's effect differs.
   const walks = seek && (hunger >= NEED_CRITICAL_THRESHOLD || !onAlert());
-  const homeMeal = walks ? homeMealFor(world, ctx, terrain, supply, e, here, limit) : null;
-  const food =
-    walks && homeMeal?.near !== true
-      ? nearestFood(targets, world, ctx, supply, terrain, here, e, limit ?? undefined)
-      : null;
-  if (homeMeal !== null && (homeMeal.near || food === null || food.distance >= homeMeal.distance)) {
-    eatAtHome(world, ctx, supply, e, settler, here, homeMeal);
-    return true;
-  }
+  const food = walks ? nearestFood(targets, world, ctx, supply, terrain, here, e, limit ?? undefined) : null;
   if (food !== null) {
     const target = food.kind === 'store' ? food.store : food.bush;
     if (food.kind === 'store') {
@@ -333,9 +323,12 @@ function seekMeal(
       food.kind === 'store'
         ? ({ kind: 'eat', goodType: food.goodType, from: food.store } as const)
         : ({ kind: 'forage', bush: food.bush } as const);
-    atOrWalk(world, e, here, interactionCell(world, ctx, terrain, target, here), () =>
-      startMeal(world, ctx, e, settler, effect, target),
-    );
+    const serve = (): void => startMeal(world, ctx, e, settler, effect, target);
+    if (food.kind === 'store' && food.atHome) {
+      enterBuilding(world, e, food.store, here, food.cell, serve);
+    } else {
+      atOrWalk(world, e, here, food.cell, serve);
+    }
     return true;
   }
   // Hungry with no reachable food, or forbidden to look: a human seat's settler falls through to

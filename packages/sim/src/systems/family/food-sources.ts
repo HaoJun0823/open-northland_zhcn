@@ -12,7 +12,7 @@ import { contentIndex } from '../../core/content-index.js';
 import { JournaledCaptures } from '../../ecs/journaled-captures.js';
 import type { Entity, World } from '../../ecs/world.js';
 import { nodeHxOfPosition, nodeHyOfPosition } from '../../nav/halfcell.js';
-import { edibleGoodFormOf, isFoodIn } from '../readviews/index.js';
+import { isEdibleFoodIn } from '../readviews/index.js';
 import { NodeBuckets } from '../spatial/nodes.js';
 import { accessibleStockAmounts } from '../stores/index.js';
 import { SidedCandidates, sidesMatch } from './candidate-sides.js';
@@ -147,7 +147,7 @@ export function lowestStockedFood(
   let lowest: number | null = null;
   for (const goodType of amounts.keys()) {
     if ((amounts.get(goodType) ?? 0) <= 0 || (lowest !== null && goodType >= lowest)) continue;
-    if (!isFoodIn(content, edibleGoodFormOf(content, goodType))) continue;
+    if (!isEdibleFoodIn(content, goodType)) continue;
     if (accepts === undefined || accepts(goodType)) lowest = goodType;
   }
   return lowest;

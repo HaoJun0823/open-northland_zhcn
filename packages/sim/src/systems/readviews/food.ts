@@ -103,6 +103,11 @@ export function edibleGoodFormOf(content: ContentSet, goodType: number): number 
   return edibleForms(content).get(goodType) ?? goodType;
 }
 
+/** Whether a good can serve as a meal, including a dish before its conversion to a food-slot good. */
+export function isEdibleFoodIn(content: ContentSet, goodType: number): boolean {
+  return isFoodIn(content, edibleGoodFormOf(content, goodType));
+}
+
 const NO_GOODS: readonly number[] = [];
 
 /** Resolved `edible goodType -> the goods that count as it`: the edible first, then the dishes that

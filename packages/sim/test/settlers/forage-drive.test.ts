@@ -16,7 +16,6 @@ import { type Fixed, fx, ONE, Simulation } from '../../src/index.js';
 import {
   anchorOnlyFootprint,
   atomicSystem,
-  BERRY_FORAGE_RADIUS,
   BERRY_REGROW_TICKS,
   BERRY_STAGE_TICKS,
   berryGrowthSystem,
@@ -32,7 +31,7 @@ import { cellOf, ctxOf, grassMap, justAbove, NEED_DRIVE_THRESHOLD, needsSettlerA
 
 /**
  * Unit + integration tests for the FORAGE DRIVE - a hungry settler eating a wild {@link BerryBush} as the
- * eat drive's nearest-food fallback (the `forage` effect on the eat animation, id 10). A bush is wild
+ * eat drive's nearest-food choice (the `forage` effect on the eat animation, id 10). A bush is wild
  * food anyone grazes: no job/tool, no stored good consumed. It regrows its one serving over
  * {@link BERRY_REGROW_TICKS} ticks (the BerryGrowthSystem). The eat drive picks the NEAREST food overall,
  * so a nearer store still wins over a farther bush (and vice-versa). Source basis for the bush cycle is on
@@ -120,21 +119,15 @@ describe('forageDrive - the planner choosing to forage a wild bush', () => {
     expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 3, 0));
   });
 
-  it('does not forage a ripe bush beyond the forage radius', () => {
-    // A bush at tile 33 sits at node distance 66 > BERRY_FORAGE_RADIUS (64) from the settler at tile 0.
-    const beyond = Math.floor(BERRY_FORAGE_RADIUS / 2) + 1; // 33 tiles ⇒ 66 nodes
-    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(beyond + 2, 1) });
+  it('compares a bush beyond the former forage radius with farther stocked food', () => {
+    const sim = new Simulation({ seed: 1, content: testContent(), map: grassMap(40, 1) });
     const settler = settlerAt(sim, 0, 0, HUNGRY);
-    bushAt(sim, beyond, 0); // ripe, but out of reach
-    const tree = sim.world.create();
-    sim.world.add(tree, Position, { x: fx.fromInt(1), y: fx.fromInt(0) });
-    sim.world.add(tree, Resource, { goodType: WOOD, remaining: 5, harvestAtomic: 24 });
-    stampResourceFootprintData(sim.world, tree, anchorOnlyFootprint());
+    bushAt(sim, 33, 0); // 66 nodes: the old bush-only cap was 64.
+    storeAt(sim, 36, 0, 5);
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    // The far bush is ignored; the settler works the nearby tree instead.
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 1, 0));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(cellOf(sim, 33, 0));
   });
 });
 

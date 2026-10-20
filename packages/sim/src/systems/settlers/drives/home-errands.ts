@@ -7,13 +7,11 @@ import { builtHomeType, homeUsedBy } from '../../family/households.js';
 import { atomicDuration } from '../../readviews/animations.js';
 import { ATOMIC_EVENT_CHANNEL } from '../../readviews/index.js';
 import type { NavigationLimit } from '../../signposts/index.js';
-import { hexNodeDistance, manhattan } from '../../spatial/metric.js';
-import type { SupplyTally } from '../../stores/index.js';
-import { MEAL_UNITS } from '../atomics/effects/goods/index.js';
-import { atOrWalk, PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic, startMeal } from '../atomics/start.js';
+import { hexNodeDistance } from '../../spatial/metric.js';
+import { atOrWalk, PRAY_ATOMIC_ID, SLEEP_ATOMIC_ID, startAtomic } from '../atomics/start.js';
 import { enterBuilding, isInside } from '../indoors.js';
 import type { PlannerSpacing } from '../planner/spacing.js';
-import { interactionCell, storedFoodGood } from '../targets/index.js';
+import { interactionCell } from '../targets/index.js';
 import { isUnreachableGoal, unreachableGoals } from '../unreachable-goals.js';
 import { homeClipServes } from './at-home.js';
 import { prayerStand } from './prayer-stand.js';
@@ -30,17 +28,13 @@ import { prayerStand } from './prayer-stand.js';
 // Praying at home: original behavior, a settler whose house keeps its holy fire burning prays there before
 // it looks for a temple.
 //
-// Eating at home: original behavior, a hungry settler eats from its own larder before it looks for the
-// nearest food, and a meal there counts double. Approximation: it steps inside to eat, as it does to
-// sleep, so the at-home top-up serves its other bars after the meal.
-//
-// Named addition: a home beyond HOME_ERRAND_RANGE_NODES is too far to walk to for a bed or a meal, so a
-// settler working across the map sleeps where it stands and eats at nearer food. With nothing nearer to
-// eat it still walks home rather than starve.
+// Eating at home: a meal there counts double. Approximation: the settler steps inside to eat, as it
+// does to sleep, so the at-home top-up serves its other bars after the meal. Meal selection lives in
+// targets/food: the larder competes with all other food by distance.
 
 /**
  * The farthest a settler's home door may lie, in map points ({@link hexNodeDistance}, one per walked
- * step), for it to walk home to eat or sleep. Approximation: an unshod walker on default ground spends
+ * step), for it to walk home to sleep. Approximation: an unshod walker on default ground spends
  * about 10 hunger units a step (8 ticks of drain plus 2 for the step), so 50 steps cost half the 1000
  * units a meal break leaves it.
  */
@@ -109,63 +103,6 @@ export function prayAtHome(
     ),
   );
   return true;
-}
-
-/** A meal in `e`'s family larder: the home, the good to eat and the door the walk ends at. */
-export interface HomeMeal {
-  readonly home: Entity;
-  readonly goodType: number;
-  readonly door: NodeId;
-  /** Whether the door lies within {@link HOME_ERRAND_RANGE_NODES}. */
-  readonly near: boolean;
-  /** Manhattan half-cell nodes from the settler to the door, the measure food targets compare by. */
-  readonly distance: number;
-}
-
-/**
- * The meal `e` could walk home for, or null when it uses no built home, the larder holds nothing edible
- * a housemate has not already claimed, or the door is out of reach - the caller then looks for the
- * nearest food.
- */
-export function homeMealFor(
-  world: World,
-  ctx: SystemContext,
-  terrain: TerrainGraph,
-  supply: SupplyTally,
-  e: Entity,
-  here: NodeId,
-  limit: NavigationLimit | null,
-): HomeMeal | null {
-  const home = homeUsedBy(world, ctx, e);
-  if (home === undefined || builtHomeType(world, ctx, home) === undefined) return null;
-  const goodType = storedFoodGood(world, ctx, home, supply);
-  if (goodType === null) return null;
-  const door = homeDoorFor(world, ctx, terrain, e, home, here, limit);
-  if (door === null) return null;
-  return {
-    home,
-    goodType,
-    door,
-    near: hexNodeDistance(terrain, here, door) <= HOME_ERRAND_RANGE_NODES,
-    distance: manhattan(terrain, here, door),
-  };
-}
-
-/** Send `e` home to eat one unit of `meal` off its family larder, claiming it. */
-export function eatAtHome(
-  world: World,
-  ctx: SystemContext,
-  supply: SupplyTally,
-  e: Entity,
-  settler: SettlerIdentity,
-  here: NodeId,
-  meal: HomeMeal,
-): void {
-  const { home, goodType, door } = meal;
-  enterBuilding(world, e, home, here, door, () =>
-    startMeal(world, ctx, e, settler, { kind: 'eat', goodType, from: home }, home),
-  );
-  supply.stampPickupClaim(e, { source: home, goodType, amount: MEAL_UNITS });
 }
 
 /** The door `e` would walk in by, or null when it is barred to it. */

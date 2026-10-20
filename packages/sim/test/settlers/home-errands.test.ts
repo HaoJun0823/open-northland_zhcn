@@ -386,8 +386,8 @@ describe('the at-home top-up - a settler home for one need serves the rest befor
   });
 });
 
-describe('eatAtHome - a hungry settler eats off its own larder first', () => {
-  it('walks home to eat even with a store nearer', () => {
+describe('eatAtHome - the family larder competes with other meals', () => {
+  it('chooses a nearer store over its stocked home', () => {
     const sim = simWithHomes();
     const settler = needsSettlerAt(sim, 1, 2, { hunger: HUNGRY });
     const home = homeAt(sim, 6, 2);
@@ -397,7 +397,7 @@ describe('eatAtHome - a hungry settler eats off its own larder first', () => {
 
     plannerSystem(sim.world, ctxOf(sim));
 
-    expect(sim.world.get(settler, MoveGoal).cell).toBe(nodeAt(sim, 6, 2));
+    expect(sim.world.get(settler, MoveGoal).cell).toBe(nodeAt(sim, 2, 2));
   });
 
   it('eats at a nearer store when its home is too far to walk to', () => {
@@ -409,19 +409,17 @@ describe('eatAtHome - a hungry settler eats off its own larder first', () => {
     expect(sim.world.get(settler, MoveGoal).cell).toBe(nodeAt(sim, 6, 2));
   });
 
-  it('walks home at exactly the range even with a store nearer, and not one cell past it', () => {
-    const atRange = awayFromHome({ hunger: HUNGRY }, HOME_AT_RANGE, HOME_ERRAND_RANGE_NODES);
-    storeAt(atRange.sim, 6, 2, 2);
-    plannerSystem(atRange.sim.world, ctxOf(atRange.sim));
-    expect(atRange.sim.world.get(atRange.settler, MoveGoal).cell).toBe(nodeAt(atRange.sim, HOME_AT_RANGE, 2));
+  it.each([HOME_AT_RANGE, HOME_AT_RANGE + 1])(
+    'chooses nearer food regardless of whether its home at %i lies within the sleep errand range',
+    (homeCell) => {
+      const { sim, settler } = awayFromHome({ hunger: HUNGRY }, homeCell, 2 * (homeCell - 1));
+      storeAt(sim, 6, 2, 2);
+      plannerSystem(sim.world, ctxOf(sim));
+      expect(sim.world.get(settler, MoveGoal).cell).toBe(nodeAt(sim, 6, 2));
+    },
+  );
 
-    const past = awayFromHome({ hunger: HUNGRY }, HOME_AT_RANGE + 1, HOME_ERRAND_RANGE_NODES + 2);
-    storeAt(past.sim, 6, 2, 2);
-    plannerSystem(past.sim.world, ctxOf(past.sim));
-    expect(past.sim.world.get(past.settler, MoveGoal).cell).toBe(nodeAt(past.sim, 6, 2));
-  });
-
-  it('walks a far home rather than a store just as far', () => {
+  it('breaks an equal-distance tie by cell id, including its home', () => {
     const from = FAR_MAP_WIDTH / 2;
     const { sim, settler } = awayFromHome({ hunger: HUNGRY }, from - FAR_HOME, 2 * FAR_HOME, from);
     storeAt(sim, from + FAR_HOME, 2, 2);
@@ -452,18 +450,18 @@ describe('eatAtHome - a hungry settler eats off its own larder first', () => {
     const sim = simWithHomes();
     const first = needsSettlerAt(sim, 1, 2, { hunger: HUNGRY });
     const second = needsSettlerAt(sim, 1, 2, { hunger: HUNGRY });
-    const home = homeAt(sim, 6, 2);
+    const home = homeAt(sim, 2, 2);
     sim.world.add(first, Residence, { home });
     sim.world.add(second, Residence, { home });
     stock(sim, home, 1);
-    const store = storeAt(sim, 2, 2, 1);
+    const store = storeAt(sim, 6, 2, 1);
 
     plannerSystem(sim.world, ctxOf(sim));
 
     expect(sim.world.get(first, PickupClaim)).toEqual({ source: home, goodType: FOOD, amount: 1 });
-    expect(sim.world.get(first, MoveGoal).cell).toBe(nodeAt(sim, 6, 2));
+    expect(sim.world.get(first, MoveGoal).cell).toBe(nodeAt(sim, 2, 2));
     expect(sim.world.get(second, PickupClaim)).toEqual({ source: store, goodType: FOOD, amount: 1 });
-    expect(sim.world.get(second, MoveGoal).cell).toBe(nodeAt(sim, 2, 2));
+    expect(sim.world.get(second, MoveGoal).cell).toBe(nodeAt(sim, 6, 2));
   });
 
   it('eats indoors at its door, and the meal counts double', () => {

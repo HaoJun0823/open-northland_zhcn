@@ -24,6 +24,7 @@ import { constructionSiteCells, isServedConstructionSite } from './construction-
 import { cropsByFarm } from './crops-by-farm.js';
 import { fieldZones, type NodeMembership } from './field-zones.js';
 import { harvesterMarks } from './harvester-marks.js';
+import { mealCells } from './meal-cells.js';
 import { roadSiteCells as roadSiteCellsOf } from './road-site-cells.js';
 import { stockpileCells } from './stockpile-cells.js';
 import { SinkAvailability } from './stores/sinks.js';
@@ -44,6 +45,8 @@ export interface TargetCandidates {
    *  ring index keyed by interaction cell for the nearest-store picks. Kept across ticks and caught up
    *  here, so it holds the stockpiles standing at the pass's start. */
   readonly stockpileCells: InteractionCellIndex;
+  /** Stocks and wild fruit in one nearest-meal search, built lazily and kept across ticks. */
+  readonly mealCells: InteractionCellIndex;
   /** Building-keyed targets (prayer sites): entities with {@link Building} + {@link Position}. */
   readonly buildings: readonly Entity[];
   /** Building construction sites builders and haulers serve, kept separate so an idle world scans an
@@ -124,6 +127,7 @@ class TickTargets implements TargetCandidates {
   readonly sinks: SinkAvailability;
   readonly bands: TargetBands;
   readonly yard: YardTargets;
+  private mealCellsMemo: InteractionCellIndex | undefined;
   private resourcesMemo: readonly Entity[] | undefined;
   private sites: SiteSplit | undefined;
   private cropsByFarmMemo: ReadonlyMap<Entity, readonly Entity[]> | undefined;
@@ -150,6 +154,11 @@ class TickTargets implements TargetCandidates {
       blocked: dynamicBlockOverlay(world, ctx, terrain),
       occupied: yardOccupancy(world, terrain),
     };
+  }
+
+  get mealCells(): InteractionCellIndex {
+    this.mealCellsMemo ??= mealCells(this.world, this.ctx.content, this.terrain);
+    return this.mealCellsMemo;
   }
 
   /** Read on first ask: the canonical list is copied for its readers whenever a resource comes or goes,

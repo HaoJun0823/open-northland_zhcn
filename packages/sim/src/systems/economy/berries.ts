@@ -23,16 +23,6 @@ export const BERRY_REGROW_TICKS = 1200;
  */
 export const BERRY_STAGE_TICKS = BERRY_REGROW_TICKS / 2;
 
-/**
- * The largest Manhattan node-distance a hungry settler will look for a ripe {@link BerryBush} to forage:
- * 64 half-cell nodes, about 32 tiles, so a lone bush across the map cannot drag a starving settler on a
- * suicidal march.
- *
- * Approximation: the original's food-search extent is unknown. This flat radius caps only the wild-bush
- * fallback; under signpost navigation the settler's `NavigationLimit` gates both paths further.
- */
-export const BERRY_FORAGE_RADIUS = 64;
-
 /** The resolved shape of a berry bush to place: its half-cell node and an optional render variant. */
 export interface BerryBushSpec {
   readonly landscapeId?: number;

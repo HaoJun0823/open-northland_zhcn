@@ -200,7 +200,7 @@ export function spawnSettler(
 ): Entity | null {
   // A map whose script says its authored units are men (`authoredForm`) spawns the human form.
   const spec =
-    ctx.missions?.authoredForm === 'human' && command.humanForm !== true
+    ctx.missions?.authoredForm === 'human' && command.humanForm === undefined
       ? { ...command, humanForm: true }
       : command;
   const e = createSettler(world, ctx.content, ctx.rng, spec, ctx.names);

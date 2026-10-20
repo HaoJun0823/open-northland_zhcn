@@ -130,6 +130,7 @@ describe('admin spawn command mapping', () => {
         jobType: preset.jobType,
         tribe: preset.tribe,
         owner: 1,
+        humanForm: false,
         x: 7,
         y: 9,
       });

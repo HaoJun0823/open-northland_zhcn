@@ -3,18 +3,9 @@ import { removeCurrentAtomic, Settler, setSettlerForm, setSettlerTribe } from '.
 import type { Entity, World } from '../../ecs/world.js';
 import { resizeUnitHealth, unitHitpoints } from './unit-health.js';
 
-/**
- * The native form is what the map places and a script spawns: the map's author meant the creature,
- * unless the map's script says its author knew no creature (`MissionScript.authoredForm`, read by the
- * spawn handler). The human form is what training gives, by a human or a computer player alike: a trade
- * taken up at a school, by a profession order or by a weapon (`economy/jobs/trade-change.ts`), and the
- * people chosen for a seat (below). The form stays with the unit through every change of owner, so a
- * script's gift keeps the shape the script gave it. Named addition: the original has one form per class.
- */
-/** A settler moved to another people by the seat's people choice: the choice turns the map's soldiers
- *  into soldiers of the chosen people, never into its creatures, so the unit takes the human form where
- *  the new class has one. The health fraction is kept; a change of variant drops the running action,
- *  since its pending strike cannot survive it. */
+/** A seat's people choice gives soldiers the chosen people's human form, keeping their health fraction.
+ *  A changed variant drops the old action and its pending strike.
+ *  Named addition: the original has one form per class. */
 export function changeUnitTribe(world: World, content: ContentSet, e: Entity, tribe: number): void {
   const identity = world.get(e, Settler);
   const previousHitpoints = unitHitpoints(content, identity);

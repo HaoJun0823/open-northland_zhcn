@@ -171,12 +171,10 @@ export function setSettlerTribe(world: World, entity: Entity, tribe: number): vo
   for (const log of tradeLogs.get(world)?.values() ?? []) log.add(entity);
 }
 
-/** The write path for a settler's form: present for the human form, deleted for the native one, so
- *  the native form serializes as no field at all. */
+/** The native form leaves the flag undefined, so it serializes as no field at all. */
 export function setSettlerForm(world: World, entity: Entity, humanForm: boolean): void {
   const s = world.mut(entity, Settler) as SettlerFormWrite;
-  if (humanForm) s.humanForm = true;
-  else delete s.humanForm;
+  s.humanForm = humanForm ? true : undefined;
 }
 
 /**

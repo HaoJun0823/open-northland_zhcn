@@ -214,6 +214,7 @@ export function creatureSpawnCommand(
     y: opts.y,
     tribe: preset.tribe,
     owner: opts.player,
+    humanForm: false,
     ...(opts.hitpoints > 0 ? { hitpoints: opts.hitpoints } : {}),
   };
 }

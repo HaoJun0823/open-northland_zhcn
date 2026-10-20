@@ -414,6 +414,21 @@ describe('unit forms', () => {
     expectSpearman(restored, later);
   });
 
+  it('honors an explicit creature spawn on a map authored for human forms', () => {
+    const sim = fresh('human');
+    const dragon = spawnSettler(sim.world, ctxOf(sim), {
+      kind: 'spawnSettler',
+      tribe: TRIBE,
+      jobType: WOOD,
+      owner: HUMAN,
+      humanForm: false,
+      x: 0,
+      y: 0,
+    });
+    if (dragon === null) throw new Error('creature spawn missing');
+    expectDragon(sim, dragon);
+  });
+
   it('retains each form in a save and across controller changes; a later spawn is still native', () => {
     const sim = fresh();
     const dragon = spawn(sim, MACHINE);

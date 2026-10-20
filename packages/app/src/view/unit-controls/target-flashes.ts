@@ -1,7 +1,7 @@
 import type { TargetFlash, TargetFlashTone } from '@open-northland/render';
 
 /** How long one flash plays. Wall-clock, so an order given while paused still lands visibly. */
-export const TARGET_FLASH_MS = 400;
+export const TARGET_FLASH_MS = 200;
 
 const NONE: ReadonlyMap<number, TargetFlash> = new Map();
 

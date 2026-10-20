@@ -31,7 +31,7 @@ const vec3 LIFT_COLOURS[LIFT_TONES] = vec3[LIFT_TONES](${LIFT_COLOURS.join(', ')
 
 /** Artistic choice: one short, faint swell and fade, above the selection pulse so it reads as the
  *  order's reply without covering the sprite. */
-const TARGET_FLASH_PEAK = 0.25;
+const TARGET_FLASH_PEAK = 0.15;
 
 export function targetFlashLight(progress: number): number {
   return TARGET_FLASH_PEAK * Math.sin(Math.PI * Math.min(1, Math.max(0, progress)));

@@ -15,12 +15,14 @@ export function mapOverlaySource(
   return { mapOverlays: (digest) => maps.get(mapOverlayDatKey(digest)) ?? NO_OVERLAYS, allowSourceLanguages };
 }
 
-/** The run-log line of the map overlays: applied per language, then the ones left out or stale. */
+/** The run-log line of the map overlays: applied per language, then the ones left out (refused, ambiguous,
+ *  an edit whose basis text changed) or stale. */
 export function summarizeMapOverlays(maps: readonly MapDatConversion[], filed: ReadonlySet<string>): string {
   const applied = new Map<Language, number>();
   let redundant = 0;
   let refused = 0;
   let ambiguous = 0;
+  let outdated = 0;
   let stale = 0;
   for (const map of maps) {
     for (const outcome of map.overlays) {
@@ -36,8 +38,10 @@ export function summarizeMapOverlays(maps: readonly MapDatConversion[], filed: R
           refused++;
           break;
         case 'ambiguous':
-        case 'outdated':
           ambiguous++;
+          break;
+        case 'outdated':
+          outdated++;
           break;
       }
     }
@@ -51,6 +55,7 @@ export function summarizeMapOverlays(maps: readonly MapDatConversion[], filed: R
     }).join(' ') || 'none';
   return (
     `map overlays applied ${perLanguage}, ${redundant} redundant, ${refused} refused, ` +
-    `${ambiguous} ambiguous, ${stale} stale, ${unmatched} filed for no map of this pack`
+    `${ambiguous} ambiguous, ${outdated} edits outdated, ${stale} stale, ` +
+    `${unmatched} filed for no map of this pack`
   );
 }

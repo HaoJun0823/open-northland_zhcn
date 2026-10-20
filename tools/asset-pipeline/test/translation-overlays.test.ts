@@ -110,7 +110,7 @@ describe('base maps stage', () => {
       { lang: 'chs', status: 'applied', stale: true },
     ]);
     expect(summarizeMapOverlays(done, new Set(roots.overlays?.maps.keys()))).toBe(
-      'map overlays applied eng:1 chs:2, 0 redundant, 1 refused, 0 ambiguous, 3 stale, ' +
+      'map overlays applied eng:1 chs:2, 0 redundant, 1 refused, 0 ambiguous, 0 edits outdated, 3 stale, ' +
         '1 filed for no map of this pack',
     );
   });

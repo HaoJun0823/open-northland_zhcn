@@ -73,7 +73,7 @@ const SHIP_DOOR_DISTANCE = 4;
 const MAP_CELLS = 16;
 const GRASS = 0;
 const WATER = 1;
-/** A hut whose one blocked cell and reserved ring make a parked vehicle a placement obstacle. */
+/** A one-node hut for probing placement over a vehicle disc. */
 const HUT = 50;
 /** Headroom for a settler's walk of a few nodes around a cart. */
 const WALK_TICKS = 200;
@@ -293,14 +293,14 @@ describe('crew slots', () => {
 });
 
 describe('footprint', () => {
-  it('blocks the whole disc for walking and refuses a house over a parked vehicle', () => {
+  it('covers the whole vehicle disc without refusing house placement', () => {
     const s = sim();
     const terrain = s.terrain;
     if (terrain === undefined) throw new Error('map missing');
     const cart = spawn(s, HANDCART, 4, 4);
     spawn(s, CATAPULT, 12, 12);
     const blocked = vehicleBlockedCells(s.world, ctxOf(s), terrain);
-    expect(blocked.has(terrain.nodeAt(4, 4))).toBe(true); // a settler walks around a parked cart
+    expect(blocked.has(terrain.nodeAt(4, 4))).toBe(true); // vehicle occupancy; settlers can walk through it
     expect(blocked.has(terrain.nodeAt(12, 12))).toBe(true);
     expect(blocked.has(terrain.nodeAt(13, 12))).toBe(true);
     expect(blocked.size).toBe(1 + 7);
@@ -322,8 +322,8 @@ describe('footprint', () => {
       ],
     });
     const ctx = { ...ctxOf(s), content };
-    expect(canPlaceBuilding(s.world, ctx, terrain, HUT, undefined, 4, 4)).toBe(false);
-    expect(canPlaceBuilding(s.world, ctx, terrain, HUT, undefined, 13, 12)).toBe(false);
+    expect(canPlaceBuilding(s.world, ctx, terrain, HUT, undefined, 4, 4)).toBe(true);
+    expect(canPlaceBuilding(s.world, ctx, terrain, HUT, undefined, 13, 12)).toBe(true);
     expect(canPlaceBuilding(s.world, ctx, terrain, HUT, undefined, 8, 8)).toBe(true);
     removeVehicle(s.world, ctxOf(s), cart, 'script');
     expect(canPlaceBuilding(s.world, ctx, terrain, HUT, undefined, 4, 4)).toBe(true);

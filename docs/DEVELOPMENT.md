@@ -184,6 +184,11 @@ differ from the source, and values still equal to the source text: an unfinished
 pipeline log's `[pipeline] translations:` lines count the overlays each run applied, left out or found
 stale.
 
+The check also fails on a Han character that an overlay or a Chinese app catalog uses and the bundled
+Noto Sans SC subset lacks. After an import adds such characters, rerun
+`tools/translations/subset-han-font.sh <dir with NotoSansSC-Regular.otf and NotoSansSC-Bold.otf>` to
+rebuild both weights.
+
 ```bash
 npm run translations:skeleton -- path/to/map.rar --lang chs
 npm run translations:skeleton -- path/to/MapFolder --lang eng --basis eng --force

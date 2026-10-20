@@ -3,10 +3,11 @@ Source: https://github.com/notofonts/noto-cjk/releases/download/Sans2.004/18_Not
   (NotoSansSC-Regular.otf and NotoSansSC-Bold.otf, release Sans2.004)
 Upstream: https://github.com/notofonts/noto-cjk
 
-The woff2 files are subsets made with fontTools pyftsubset: the GB 2312 hanzi, the Big5 level-1
-(frequently used) hanzi, CJK Symbols and Punctuation (U+3000-303F) and Halfwidth and Fullwidth Forms
-(U+FF00-FFEF), with hinting kept and the vertical metrics tables (vhea, vmtx, VORG) dropped. Latin
-and Cyrillic text keeps the other bundled faces.
+The woff2 files are subsets made with fontTools pyftsubset by tools/translations/subset-han-font.sh:
+the GB 2312 hanzi, the Big5 hanzi (levels 1 and 2), every other Han character the translations and the
+app catalogs use, CJK Symbols and Punctuation (U+3000-303F), the katakana middle dot (U+30FB) and
+Halfwidth and Fullwidth Forms (U+FF00-FFEF), with hinting kept and the vertical metrics tables (vhea,
+vmtx, VORG) dropped. Latin and Cyrillic text keeps the other bundled faces.
 
 One face serves both Chinese locales. Approximation: Traditional text takes the mainland (SC) glyph
 forms; Noto Sans TC would follow Taiwan's conventions.

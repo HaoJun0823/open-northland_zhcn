@@ -4,8 +4,9 @@
    the subsets its text uses. Cinzel is the variable font: one file per subset covers 400-900.
    Noto Sans SC (LICENSE-NotoSansSC.txt) draws the Han text of the Chinese locales: every token names it
    after its Latin faces, and its unicode-range keeps the files unfetched until a page shows a Han
-   character. It is subset to the GB 2312 and Big5 level-1 hanzi with CJK punctuation and full-width
-   forms, about 1.8 MB per weight. */
+   character. It is subset to the GB 2312 and Big5 hanzi plus every Han character the translations use,
+   with CJK punctuation, the katakana middle dot and full-width forms, about 3.3 MB per weight
+   (tools/translations/subset-han-font.sh). */
 :root {
   --font-body: "Alegreya Sans", "Noto Sans SC", system-ui, sans-serif;
   /* Alegreya Sans SC draws lowercase as true small capitals; `font-variant: small-caps` on the body
@@ -269,7 +270,7 @@
   font-weight: 400;
   font-display: swap;
   src: url("/fonts/notosanssc-han-400.woff2") format("woff2");
-  unicode-range: U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+  unicode-range: U+2E80-303F, U+30FB, U+3400-9FFF, U+F900-FAFF, U+FF00-FFEF, U+20000-2FFFF;
 }
 
 @font-face {
@@ -278,5 +279,5 @@
   font-weight: 700;
   font-display: swap;
   src: url("/fonts/notosanssc-han-700.woff2") format("woff2");
-  unicode-range: U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+  unicode-range: U+2E80-303F, U+30FB, U+3400-9FFF, U+F900-FAFF, U+FF00-FFEF, U+20000-2FFFF;
 }

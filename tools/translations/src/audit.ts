@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { readdir, readFile } from 'node:fs/promises';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   GAME_OBJECT_TABLES,
@@ -31,6 +32,7 @@ import {
   readOverlayFile,
   TRANSLATIONS_ROOT,
 } from '@open-northland/translations';
+import { woff2CodePoints } from './font-coverage.js';
 import { blockMarkupDiffers, stringMarkupDiffers } from './markup.js';
 import {
   bookSourceDigest,
@@ -511,6 +513,78 @@ export async function auditTranslations(root: string, pack?: PackText): Promise<
   return { files, errors: errors.sort(byFile), warnings: warnings.sort(byFile), unmatchedMaps };
 }
 
+/** The bundled Han face the Chinese locales draw with; the bold weight shares its subset. */
+export const HAN_FONT = 'packages/app/public/fonts/notosanssc-han-400.woff2';
+/** The script that rebuilds both weights of `HAN_FONT` from the text in use. */
+export const HAN_FONT_SUBSET_SCRIPT = 'tools/translations/subset-han-font.sh';
+/** The app's string catalogs, of which the Chinese ones are named `chs-*.ts` and `cht-*.ts`. */
+export const APP_CATALOG_DIR = 'packages/app/src/i18n/catalogs';
+const CHINESE_CATALOG = /^ch[st]-.*\.ts$/;
+/** The Han-script blocks the subset script keeps when the text uses them: CJK radicals through the
+ *  unified ideographs, compatibility ideographs, and the supplementary ideographic plane. */
+const HAN_RANGES: readonly (readonly [number, number])[] = [
+  [0x2e80, 0x9fff],
+  [0xf900, 0xfaff],
+  [0x20000, 0x2ffff],
+];
+const isHan = (codePoint: number): boolean =>
+  HAN_RANGES.some(([low, high]) => codePoint >= low && codePoint <= high);
+
+/** Every string value of a parsed JSON document. */
+function* jsonStrings(value: unknown): Generator<string> {
+  if (typeof value === 'string') yield value;
+  else if (Array.isArray(value)) for (const item of value) yield* jsonStrings(item);
+  else if (typeof value === 'object' && value !== null)
+    for (const item of Object.values(value)) yield* jsonStrings(item);
+}
+
+/**
+ * One error per Han-script code point that the overlay values under `repoRoot`'s `translations/` or
+ * its Chinese app catalogs use and `covered` lacks, naming the first file, repository-relative, that
+ * uses it. A file that does not parse is left to the layout check.
+ */
+export async function auditHanCoverage(
+  repoRoot: string,
+  covered: ReadonlySet<number>,
+): Promise<AuditFinding[]> {
+  const firstUse = new Map<number, string>();
+  const scan = (file: string, text: string): void => {
+    for (const char of text) {
+      const codePoint = char.codePointAt(0);
+      if (codePoint !== undefined && isHan(codePoint) && !firstUse.has(codePoint))
+        firstUse.set(codePoint, file);
+    }
+  };
+  const translations = join(repoRoot, 'translations');
+  const overlays = (await readdir(translations, { recursive: true }))
+    .filter((path) => path.endsWith(OVERLAY_EXTENSION))
+    .sort();
+  for (const path of overlays) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await readFile(join(translations, path), 'utf8'));
+    } catch {
+      continue;
+    }
+    const file = relative(repoRoot, join(translations, path)).split(sep).join('/');
+    for (const text of jsonStrings(parsed)) scan(file, text);
+  }
+  const catalogs = (await readdir(join(repoRoot, APP_CATALOG_DIR)))
+    .filter((name) => CHINESE_CATALOG.test(name))
+    .sort();
+  for (const name of catalogs)
+    scan(`${APP_CATALOG_DIR}/${name}`, await readFile(join(repoRoot, APP_CATALOG_DIR, name), 'utf8'));
+  return [...firstUse]
+    .filter(([codePoint]) => !covered.has(codePoint))
+    .sort(([a], [b]) => a - b)
+    .map(([codePoint, file]) => ({
+      file,
+      message:
+        `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')} ${String.fromCodePoint(codePoint)} ` +
+        `is missing from ${HAN_FONT}; rerun ${HAN_FONT_SUBSET_SCRIPT}`,
+    }));
+}
+
 /** The repository checkout this tool belongs to. */
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const UNPACKED_PACK = ['.cache', 'data', 'unpacked'] as const;
@@ -546,17 +620,19 @@ async function main(): Promise<void> {
   const { root: dataRoot, looked } = packRoot();
   const pack = dataRoot === undefined ? undefined : await readPackText(dataRoot);
   const report = await auditTranslations(TRANSLATIONS_ROOT, pack);
+  const uncovered = await auditHanCoverage(REPO_ROOT, await woff2CodePoints(join(REPO_ROOT, HAN_FONT)));
   for (const { file, message } of report.errors) console.error(`error   translations/${file}: ${message}`);
+  for (const { file, message } of uncovered) console.error(`error   ${file}: ${message}`);
   for (const { file, message } of report.warnings) console.warn(`warning translations/${file}: ${message}`);
   const scope =
     dataRoot === undefined
       ? `schema and layout only: no unpacked pack at ${looked.join(' or ')} (ON_DATA_ROOT)`
       : `checked against ${dataRoot}; ${report.unmatchedMaps} map overlay(s) no map of the pack takes`;
   console.log(
-    `check:translations - ${report.files} overlay file(s), ${report.errors.length} error(s), ` +
+    `check:translations - ${report.files} overlay file(s), ${report.errors.length + uncovered.length} error(s), ` +
       `${report.warnings.length} warning(s); ${scope}`,
   );
-  if (report.errors.length > 0) process.exitCode = 1;
+  if (report.errors.length + uncovered.length > 0) process.exitCode = 1;
 }
 
 // Runs only as the entry point, not when a test imports this module.

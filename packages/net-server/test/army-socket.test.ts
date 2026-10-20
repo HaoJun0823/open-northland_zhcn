@@ -8,6 +8,7 @@ import { HeadlessClient } from './support/headless-client.js';
 
 const STEP_TIMEOUT_MS = 10_000;
 const POLL_MS = 10;
+const TICKS_AFTER_REDIRECT = 12;
 
 it('carries a 1000-soldier move, paused redirects and a reconnect through real WebSockets', async () => {
   const host = await startRelayHost({ port: 0, host: '127.0.0.1' });
@@ -161,7 +162,10 @@ it('carries a 1000-soldier move, paused redirects and a reconnect through real W
     expect(b.tick).toBe(pauseTick);
     a.setPaused(false);
 
-    const target = pauseTick + 12;
+    // Past the paused commands' apply tick, which a slow runner's input lead pushes further out.
+    const redirectTick = pending?.[0]?.applyTick;
+    if (redirectTick === undefined) throw new Error('no pending apply tick');
+    const target = Math.max(pauseTick, redirectTick) + TICKS_AFTER_REDIRECT;
     const captures = new Map<HeadlessClient, string>();
     const deadline = performance.now() + STEP_TIMEOUT_MS;
     let previous = performance.now();

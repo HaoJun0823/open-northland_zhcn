@@ -12,26 +12,22 @@ export type SourceLanguage = (typeof SOURCE_LANGUAGES)[number];
 export type OverlayLanguage = (typeof OVERLAY_LANGUAGES)[number];
 export type Language = (typeof LANGUAGES)[number];
 
-/** How a language's text wraps: at spaces, or between any two characters (Han script has no spaces). */
-export type LineWrap = 'word' | 'character';
-
 export interface LanguageInfo {
   readonly code: Language;
   /** The BCP-47 tag the UI claims for it (`lang` attributes, `navigator.languages` matching). */
   readonly tag: string;
-  readonly wrap: LineWrap;
   /** Languages read before the registry order when a text lacks this one: a Chinese reader is more
    *  likely to read English than the mod's Polish. */
   readonly fallbacks?: readonly Language[];
 }
 
 export const LANGUAGE_INFO: Readonly<Record<Language, LanguageInfo>> = {
-  pol: { code: 'pol', tag: 'pl', wrap: 'word' },
-  eng: { code: 'eng', tag: 'en', wrap: 'word' },
-  ger: { code: 'ger', tag: 'de', wrap: 'word' },
-  rus: { code: 'rus', tag: 'ru', wrap: 'word' },
-  chs: { code: 'chs', tag: 'zh-Hans', wrap: 'character', fallbacks: ['eng'] },
-  cht: { code: 'cht', tag: 'zh-Hant', wrap: 'character', fallbacks: ['chs', 'eng'] },
+  pol: { code: 'pol', tag: 'pl' },
+  eng: { code: 'eng', tag: 'en' },
+  ger: { code: 'ger', tag: 'de' },
+  rus: { code: 'rus', tag: 'ru' },
+  chs: { code: 'chs', tag: 'zh-Hans', fallbacks: ['eng'] },
+  cht: { code: 'cht', tag: 'zh-Hant', fallbacks: ['chs', 'eng'] },
 };
 
 export function isLanguage(value: unknown): value is Language {

@@ -1098,15 +1098,18 @@ export const enGame = {
       who: 'Who',
       without: 'No',
       lacksLabel: 'Lacking',
-      weaponLabel: 'Weapon',
+      gearLabel: 'Gear',
       anyWeapon: 'Any',
       weapons: {
         unarmed: 'Unarmed',
         spear: 'Spear',
         sword: 'Sword',
-        saber: 'Sabre',
-        axe: 'Axe',
         bow: 'Bow',
+      },
+      armors: {
+        light: 'Light armour',
+        none: 'No armour',
+        heavy: 'Heavy armour',
       },
       groups: {
         all: 'Everyone',

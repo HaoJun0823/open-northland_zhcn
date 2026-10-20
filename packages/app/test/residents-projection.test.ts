@@ -16,6 +16,8 @@ import {
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
 import {
   BUILDING_JOINERY,
+  GOOD_ARMOR_LEATHER,
+  GOOD_ARMOR_PLATE,
   GOOD_GOLD,
   GOOD_IRON,
   GOOD_MEAD,
@@ -126,12 +128,12 @@ describe('residents projection', () => {
     expect(rows.get(1)?.ageYears).toBeNull();
   });
 
-  it('names a soldier by its class and files it under its weapon family', () => {
+  it('names a soldier by its class and files it under its weapon family and armour', () => {
     const classes = messages().hud.groupPanel.soldierClass;
     const rows = rowsById([
       person(1, JOB_SOLDIER),
-      person(2, JOB_SOLDIER_SPEAR),
-      person(3, JOB_SOLDIER_BROADSWORD),
+      person(2, JOB_SOLDIER_SPEAR, { Equipment: { ...NO_GEAR, armor: held(GOOD_ARMOR_LEATHER) } }),
+      person(3, JOB_SOLDIER_BROADSWORD, { Equipment: { ...NO_GEAR, armor: held(GOOD_ARMOR_PLATE) } }),
       person(4, JOB_ARCHER_LONG),
       person(5, JOB_COLLECTOR),
       person(6, JOB_HERO_UNARMED),
@@ -144,7 +146,15 @@ describe('residents projection', () => {
       null,
       null,
     ]);
+    expect([1, 2, 3, 4, 5].map((id) => rows.get(id)?.armor)).toEqual([
+      'none',
+      'light',
+      'heavy',
+      'none',
+      null,
+    ]);
     expect(rows.get(2)?.profession).toBe(classes.soldier_spear_iron);
+    expect(rows.get(2)?.trade).toBe(rows.get(1)?.trade); // every class searches as the one soldier trade
     expect(rows.get(4)?.profession).toBe(classes.soldier_bow_long);
   });
 

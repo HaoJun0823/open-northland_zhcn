@@ -1182,15 +1182,18 @@ export const ruGame = {
       who: 'Кто',
       without: 'Без',
       lacksLabel: 'Не хватает',
-      weaponLabel: 'Оружие',
+      gearLabel: 'Снаряжение',
       anyWeapon: 'Любое',
       weapons: {
         unarmed: 'Без оружия',
         spear: 'Копьё',
         sword: 'Меч',
-        saber: 'Сабля',
-        axe: 'Топор',
         bow: 'Лук',
+      },
+      armors: {
+        light: 'Лёгкая броня',
+        none: 'Без брони',
+        heavy: 'Тяжёлая броня',
       },
       groups: {
         all: 'Все',

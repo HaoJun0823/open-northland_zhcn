@@ -21,17 +21,20 @@ const GOOD_IRON = 6;
 const SMITH: TradePick = { jobType: JOB_SMITH, goodType: null };
 
 function row(id: number, over: Partial<ResidentRow>): ResidentRow {
+  const profession = over.profession ?? 'Piekarz';
   return {
     id,
     name: `Osadnik ${id}`,
     kind: 'worker',
     female: false,
     jobType: JOB_BAKER,
-    profession: 'Piekarz',
+    profession,
+    trade: profession,
     ageYears: null,
     workplace: '',
     products: null,
     weapon: null,
+    armor: null,
     lacks: [],
     ...over,
   };
@@ -172,33 +175,67 @@ describe('residents list filters', () => {
   });
 });
 
-describe('residents weapon filter', () => {
+describe('residents gear filter', () => {
+  const soldier = 'soldier' as const;
   const army = [
-    row(1, { kind: 'soldier', jobType: 31, profession: 'Żołnierz', weapon: 'unarmed', lacks: ['weapon'] }),
-    row(2, { kind: 'soldier', jobType: 32, profession: 'Włócznik', weapon: 'spear' }),
-    row(3, { kind: 'soldier', jobType: 33, profession: 'Włócznik z żelazną włócznią', weapon: 'spear' }),
-    row(4, { kind: 'soldier', jobType: 40, profession: 'Łucznik', weapon: 'bow', lacks: ['shoes'] }),
+    row(1, { kind: soldier, jobType: 31, profession: 'Żołnierz', weapon: 'unarmed', armor: 'none' }),
+    row(2, { kind: soldier, jobType: 32, profession: 'Włócznik', weapon: 'spear', armor: 'light' }),
+    row(3, {
+      kind: soldier,
+      jobType: 33,
+      profession: 'Włócznik z żel. włócznią',
+      weapon: 'spear',
+      armor: 'heavy',
+    }),
+    row(4, {
+      kind: soldier,
+      jobType: 40,
+      profession: 'Łucznik',
+      weapon: 'bow',
+      armor: 'light',
+      lacks: ['shoes'],
+    }),
     row(5, { name: 'Arne' }),
   ];
   const listing = (filters: Partial<typeof NO_RESIDENT_FILTERS>) =>
     listResidents(army, { ...NO_RESIDENT_FILTERS, ...filters }, LOCALE, nobodyRetrains);
+  const ids = (filters: Partial<typeof NO_RESIDENT_FILTERS>): number[] =>
+    listing(filters).shown.map((p) => p.id);
 
-  it('keeps the soldiers of the picked weapon family', () => {
-    expect(listing({ group: 'soldiers', weapon: 'spear' }).shown.map((p) => p.id)).toEqual([2, 3]);
-    expect(listing({ group: 'soldiers', weapon: 'unarmed' }).shown.map((p) => p.id)).toEqual([1]);
-    expect(listing({ group: 'soldiers', weapon: 'axe' }).shown).toEqual([]);
-    expect(filtersActive({ ...NO_RESIDENT_FILTERS, weapon: 'bow' })).toBe(true);
+  it('finds every soldier class by the generic trade it belongs to', () => {
+    const soldiers = army.map((person) =>
+      person.kind === 'soldier' ? { ...person, trade: 'Żołnierz' } : person,
+    );
+    const searched = listResidents(
+      soldiers,
+      { ...NO_RESIDENT_FILTERS, query: 'zolnierz' },
+      LOCALE,
+      nobodyRetrains,
+    );
+    expect(searched.shown.map((p) => p.id)).toEqual([1, 2, 3, 4]);
   });
 
-  it('counts each family under the other filters and leaves the group chips whole', () => {
+  it('keeps the soldiers of the picked weapon and armour', () => {
+    expect(ids({ group: 'soldiers', weapon: 'spear' })).toEqual([2, 3]);
+    expect(ids({ group: 'soldiers', armor: 'light' })).toEqual([2, 4]);
+    expect(ids({ group: 'soldiers', weapon: 'spear', armor: 'heavy' })).toEqual([3]);
+    expect(ids({ group: 'soldiers', weapon: 'unarmed', armor: 'heavy' })).toEqual([]);
+    expect(filtersActive({ ...NO_RESIDENT_FILTERS, armor: 'none' })).toBe(true);
+  });
+
+  it('counts each weapon under the armour pick and each armour under the weapon pick', () => {
     const { counts, professions } = listing({ group: 'soldiers', weapon: 'spear' });
-    expect(counts.weapons).toEqual({ unarmed: 1, spear: 2, sword: 0, saber: 0, axe: 0, bow: 1 });
-    expect(counts.groups).toMatchObject({ all: 5, soldiers: 4, workers: 1 });
-    expect(counts.lacks.weapon).toBe(0); // the lacks count the spearmen listed
-    expect(professions.map((entry) => entry.profession)).toEqual(['Włócznik', 'Włócznik z żelazną włócznią']);
-    expect(listing({ group: 'soldiers', lacks: ['shoes'] }).counts.weapons).toMatchObject({
+    expect(counts.weapons).toEqual({ unarmed: 1, spear: 2, sword: 0, bow: 1 });
+    expect(counts.armors).toEqual({ light: 1, none: 0, heavy: 1 });
+    expect(counts.anyWeapon).toBe(4);
+    // The soldiers chip holds the gear picks; the others drop them.
+    expect(counts.groups).toMatchObject({ all: 5, soldiers: 2, workers: 1 });
+    expect(professions.map((entry) => entry.profession)).toEqual(['Włócznik', 'Włócznik z żel. włócznią']);
+    expect(listing({ group: 'soldiers', armor: 'light' }).counts.weapons).toEqual({
+      unarmed: 0,
+      spear: 1,
+      sword: 0,
       bow: 1,
-      spear: 0,
     });
   });
 });

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createResidentsWindow, type ResidentsWindow } from '../src/hud/dom/residents-window.js';
 import type { ResidentRow } from '../src/hud/tool-panel/residents/rows.js';
-import { currentLocale, setActiveLocale } from '../src/i18n/index.js';
+import { currentLocale, messages, setActiveLocale } from '../src/i18n/index.js';
 
 /** The row height and list height the stubbed layout reports, layout px. */
 const ROW_PX = 34;
@@ -19,10 +19,12 @@ function people(count: number): ResidentRow[] {
     female: false,
     jobType: null,
     profession: 'Civilian',
+    trade: 'Civilian',
     ageYears: null,
     workplace: '',
     products: null,
     weapon: null,
+    armor: null,
     lacks: [],
   }));
 }
@@ -226,31 +228,63 @@ describe('residents list', () => {
     expect(list.querySelector('.on-res-row')?.textContent).toContain('Sawmill');
   });
 
-  it('offers the weapon row under the soldiers group only, and drops its pick with another group', () => {
-    const weapons = ['spear', 'bow', 'spear'] as const;
-    const soldiers = people(weapons.length).map((row, at) => ({
+  it('offers the gear row under the lacks for the soldiers group only, and drops its picks with another group', () => {
+    const gear = [
+      ['spear', 'light'],
+      ['bow', 'heavy'],
+      ['spear', 'none'],
+    ] as const;
+    const soldiers = people(gear.length).map((row, at) => ({
       ...row,
       kind: 'soldier' as const,
-      weapon: weapons[at] ?? null,
+      weapon: gear[at]?.[0] ?? null,
+      armor: gear[at]?.[1] ?? null,
     }));
     const { list } = openWindow(() => soldiers);
-    const weaponRow = document.querySelector<HTMLElement>('.on-res-chips--weapons');
-    const chipOf = (row: Element | null, label: string): HTMLButtonElement => {
+    const rows = [...document.querySelectorAll<HTMLElement>('.on-res-chips')];
+    const [groupRow, lackRow, gearRow] = rows;
+    expect(lackRow?.classList.contains('on-res-chips--lacks')).toBe(true);
+    expect(gearRow?.classList.contains('on-res-chips--gear')).toBe(true);
+    const chipOf = (row: Element | undefined, label: string): HTMLButtonElement => {
       const chip = [...(row?.querySelectorAll<HTMLButtonElement>('.on-res-chip') ?? [])].find(
         (control) => control.querySelector('.on-res-chip__label')?.textContent === label,
       );
       if (chip === undefined) throw new Error(`no ${label} chip`);
       return chip;
     };
-    const groupRow = document.querySelector('.on-res-chips');
-    expect(weaponRow?.hidden).toBe(true);
+    expect(gearRow?.hidden).toBe(true);
+    expect(gearRow?.querySelectorAll('.on-res-chip')).toHaveLength(8); // as many as the rows above
     chipOf(groupRow, 'Soldiers').click();
-    expect(weaponRow?.hidden).toBe(false);
-    expect(chipOf(weaponRow, 'Spear').textContent).toContain('2');
-    chipOf(weaponRow, 'Spear').click();
+    expect(gearRow?.hidden).toBe(false);
+    expect(chipOf(gearRow, 'Spear').textContent).toContain('2');
+    chipOf(gearRow, 'Spear').click();
     expect(shownNames(list)).toEqual(['Settler 0001', 'Settler 0003']);
+    chipOf(gearRow, 'No armour').click();
+    expect(shownNames(list)).toEqual(['Settler 0003']);
+    chipOf(gearRow, 'No armour').click(); // pressed again, it lets every armour through
+    expect(shownNames(list)).toHaveLength(2);
+    chipOf(gearRow, 'Light armour').click();
     chipOf(groupRow, 'Everyone').click();
-    expect(weaponRow?.hidden).toBe(true);
+    expect(gearRow?.hidden).toBe(true);
     expect(shownNames(list)).toHaveLength(3);
+  });
+
+  it('files the soldier classes under the military group of the Profession filter', () => {
+    const ironSpearman = messages().hud.groupPanel.soldierClass.soldier_spear_iron;
+    const [settler, hero] = people(2);
+    if (settler === undefined || hero === undefined) throw new Error('two people');
+    openWindow(() => [
+      { ...settler, kind: 'soldier', profession: ironSpearman, trade: 'Soldier', weapon: 'spear' },
+      { ...hero, kind: 'hero', profession: 'Hero', trade: 'Hero' },
+    ]);
+    const options = [...document.querySelectorAll('.on-res-select-list')][0]?.querySelectorAll(
+      '.on-res-select-option',
+    );
+    const optionOf = (name: string): Element | undefined =>
+      [...(options ?? [])].find((option) => option.textContent?.startsWith(name));
+    // A class the picker knows sits in a category; a profession it does not leads the list ungrouped.
+    expect(optionOf(ironSpearman)?.closest('.on-res-select-group')).toBeInstanceOf(HTMLElement);
+    expect(optionOf('Hero')).toBeDefined();
+    expect(optionOf('Hero')?.closest('.on-res-select-group')).toBeNull();
   });
 });

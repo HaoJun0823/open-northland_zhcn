@@ -1077,6 +1077,19 @@ export const chtGame = {
       who: '對象',
       without: '缺少',
       lacksLabel: '缺少',
+      gearLabel: '裝備',
+      anyWeapon: '任意',
+      weapons: {
+        unarmed: '徒手',
+        spear: '矛',
+        sword: '劍',
+        bow: '弓',
+      },
+      armors: {
+        light: '輕甲',
+        none: '無護甲',
+        heavy: '重甲',
+      },
       groups: {
         all: '所有人',
         men: '男人',
@@ -1107,6 +1120,7 @@ export const chtGame = {
       everyone: '所有臣民 · {count}',
       shown: '顯示 {shown} / {count}',
       filterJob: '職業：{name}',
+      filterWeapon: '武器：{name}',
       filterCanBecome: '可成為：{name}',
       filterQuery: '「{query}」',
       clear: '清除篩選',

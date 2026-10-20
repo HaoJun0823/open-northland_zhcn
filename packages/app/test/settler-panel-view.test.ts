@@ -37,10 +37,12 @@ function resident(id: number, jobType: number | null): ResidentRow {
     female: false,
     jobType,
     profession: '',
+    trade: '',
     ageYears: null,
     workplace: '',
     products: null,
     weapon: null,
+    armor: null,
     lacks: [],
   };
 }

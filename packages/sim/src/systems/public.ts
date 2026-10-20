@@ -149,6 +149,9 @@ export {
   atomicEventChannelDelta,
 } from './readviews/animations.js';
 export { HEADQUARTERS_BUILDING_ID, isBarracksType, isSchoolType } from './readviews/buildings.js';
+// The weapon and armour classes the data's `mainType` carries, which the HUD groups soldiers by.
+export { ARMOR_MAIN_TYPE } from './readviews/classes/armor.js';
+export { WEAPON_MAIN_TYPE } from './readviews/combat.js';
 export { heroMayChangeSlot } from './readviews/equip-pick.js';
 export { EDIBLE_FORM_BY_DISH, edibleGoodFormOf, isFoodIn } from './readviews/food.js';
 // The content-derived job roles, so the profession picker and the action ring offer exactly what the

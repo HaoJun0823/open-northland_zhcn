@@ -1187,15 +1187,18 @@ export const deGame = {
       who: 'Wer',
       without: 'Ohne',
       lacksLabel: 'Fehlt',
-      weaponLabel: 'Waffe',
+      gearLabel: 'Ausrüstung',
       anyWeapon: 'Alle',
       weapons: {
         unarmed: 'Ohne',
         spear: 'Speer',
         sword: 'Schwert',
-        saber: 'Säbel',
-        axe: 'Axt',
         bow: 'Bogen',
+      },
+      armors: {
+        light: 'Leichte Rüstung',
+        none: 'Ohne Rüstung',
+        heavy: 'Schwere Rüstung',
       },
       groups: {
         all: 'Alle',

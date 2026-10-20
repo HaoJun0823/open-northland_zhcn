@@ -1077,6 +1077,19 @@ export const chsGame = {
       who: '对象',
       without: '缺少',
       lacksLabel: '缺少',
+      gearLabel: '装备',
+      anyWeapon: '任意',
+      weapons: {
+        unarmed: '徒手',
+        spear: '矛',
+        sword: '剑',
+        bow: '弓',
+      },
+      armors: {
+        light: '轻甲',
+        none: '无护甲',
+        heavy: '重甲',
+      },
       groups: {
         all: '所有人',
         men: '男人',
@@ -1107,6 +1120,7 @@ export const chsGame = {
       everyone: '全部臣民 · {count}',
       shown: '显示 {shown} / {count}',
       filterJob: '职业：{name}',
+      filterWeapon: '武器：{name}',
       filterCanBecome: '可成为：{name}',
       filterQuery: '“{query}”',
       clear: '清除筛选',

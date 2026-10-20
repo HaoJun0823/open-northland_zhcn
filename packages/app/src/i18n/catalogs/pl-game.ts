@@ -1082,15 +1082,18 @@ export const plGame = {
       who: 'Kto',
       without: 'Bez',
       lacksLabel: 'Braki',
-      weaponLabel: 'Broń',
+      gearLabel: 'Uzbrojenie',
       anyWeapon: 'Każda',
       weapons: {
         unarmed: 'Bez broni',
         spear: 'Włócznia',
         sword: 'Miecz',
-        saber: 'Szabla',
-        axe: 'Topór',
         bow: 'Łuk',
+      },
+      armors: {
+        light: 'Lekki pancerz',
+        none: 'Bez pancerza',
+        heavy: 'Ciężki pancerz',
       },
       groups: {
         all: 'Wszyscy',

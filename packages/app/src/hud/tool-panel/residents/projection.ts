@@ -2,8 +2,9 @@ import type { ContentSet } from '@open-northland/data';
 import { entityById, systems, type WorldSnapshot } from '@open-northland/sim';
 import { JOB_CIVILIST, JOB_IDLE } from '../../../catalog/jobs.js';
 import {
+  SOLDIER_ARMOR_OF_MAIN_TYPE,
   SOLDIER_CLASS_OF_JOB,
-  SOLDIER_FAMILY_OF_MAIN_TYPE,
+  type SoldierArmor,
   type SoldierFamily,
 } from '../../../catalog/soldier-classes.js';
 import { settlerName } from '../../../game/character-names/index.js';
@@ -24,7 +25,6 @@ import {
   workFlagOf,
   workplaceOf,
 } from '../../../game/snapshot.js';
-import { soldierWeaponFamily } from '../../../game/unit-kind.js';
 import { messages } from '../../../i18n/index.js';
 import { buildingTitle, jobDisplayName } from '../../details-panel/model/context.js';
 import type { ProductSelection } from '../../details-panel/model/settler-work.js';
@@ -49,12 +49,14 @@ interface WornSlots {
   readonly boots: boolean;
   readonly tool: boolean;
   readonly weapon: boolean;
+  /** The worn armour's good type. */
+  readonly armor: number | undefined;
   readonly misc: readonly number[];
 }
 
 function wornSlots(ent: SnapshotEntity): WornSlots {
   const eq = ent.components.Equipment as
-    | { boots?: unknown; tool?: unknown; weapon?: unknown; misc?: unknown }
+    | { boots?: unknown; tool?: unknown; weapon?: unknown; armor?: unknown; misc?: unknown }
     | undefined;
   const held = (slot: unknown): boolean => slot !== null && slot !== undefined;
   const misc = Array.isArray(eq?.misc) ? eq.misc : [];
@@ -62,6 +64,7 @@ function wornSlots(ent: SnapshotEntity): WornSlots {
     boots: held(eq?.boots),
     tool: held(eq?.tool),
     weapon: held(eq?.weapon),
+    armor: num((eq?.armor as { goodType?: unknown } | null | undefined)?.goodType),
     misc: misc.flatMap((slot: unknown) => {
       const goodType = num((slot as { goodType?: unknown } | null)?.goodType);
       return goodType === undefined ? [] : [goodType];
@@ -126,17 +129,27 @@ function lacksOf(
   return lacks;
 }
 
-/** A soldier's weapon family: its class's, else the extracted weapon row's for a class the catalog
- *  does not name. The class comes first because `weapons.ini` lists no axe soldier. */
-function weaponFamilyOf(
-  content: ContentSet,
-  ent: SnapshotEntity,
-  jobType: number | null,
-): SoldierFamily | null {
-  const byClass = jobType === null ? undefined : SOLDIER_CLASS_OF_JOB.get(jobType)?.family;
-  if (byClass !== undefined) return byClass;
-  const mainType = soldierWeaponFamily(content.weapons, ent);
-  return (mainType === undefined ? undefined : SOLDIER_FAMILY_OF_MAIN_TYPE.get(mainType)) ?? null;
+/** A soldier's weapon family, by its class: `weapons.ini` gives some tribes' wooden spearman a fist. */
+function weaponFamilyOf(jobType: number | null): SoldierFamily | null {
+  return (jobType === null ? undefined : SOLDIER_CLASS_OF_JOB.get(jobType)?.family) ?? null;
+}
+
+const armorByGoodByContent = new WeakMap<ContentSet, ReadonlyMap<number, SoldierArmor>>();
+
+/** What a soldier wears, read off the armour good's `armortypes.ini` row. */
+function armorOf(content: ContentSet, ent: SnapshotEntity): SoldierArmor {
+  let byGood = armorByGoodByContent.get(content);
+  if (byGood === undefined) {
+    byGood = new Map(
+      content.armor.flatMap((row) => {
+        const armor = row.mainType === undefined ? undefined : SOLDIER_ARMOR_OF_MAIN_TYPE.get(row.mainType);
+        return row.goodType === undefined || armor === undefined ? [] : [[row.goodType, armor] as const];
+      }),
+    );
+    armorByGoodByContent.set(content, byGood);
+  }
+  const good = wornSlots(ent).armor;
+  return (good === undefined ? undefined : byGood.get(good)) ?? 'none';
 }
 
 /** The profession column's text: a soldier reads as its class ("Iron Spearman"), so the Profession
@@ -198,7 +211,9 @@ export function residentRows(snapshot: WorldSnapshot, ctx: ResidentsProjectionCo
       female: isFemale(ent),
       jobType,
       profession: professionOf(nameCtx, kind, jobType),
-      weapon: kind === 'soldier' ? weaponFamilyOf(ctx.content, ent, jobType) : null,
+      trade: jobDisplayName(nameCtx, jobType ?? undefined),
+      weapon: kind === 'soldier' ? weaponFamilyOf(jobType) : null,
+      armor: kind === 'soldier' ? armorOf(ctx.content, ent) : null,
       ageYears: ageYears ?? null,
       workplace: workplaceEnt === undefined ? '' : buildingTitle(ctx.content, buildingTypeOf(workplaceEnt)),
       products: kind === 'worker' ? (ctx.products?.(snapshot, ent) ?? null) : null,

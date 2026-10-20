@@ -2677,15 +2677,23 @@ body.on-drag-scroll * {
   position: absolute;
   left: 10px;
 }
-/* Both chip rows share one grid, so the cells line up and fill the window edge to edge. */
+/* The chip rows share one grid, so the cells line up and fill the window edge to edge. */
 .on-hud .on-res-chips {
   flex-shrink: 0;
   display: grid;
   grid-template-columns: 30px repeat(8, minmax(0, 1fr));
   padding: 5px 12px 0;
 }
-.on-hud .on-res-chips--lacks {
+.on-hud .on-res-chips[hidden] {
+  display: none;
+}
+/* The last chip row shown keeps the gap above the parchment: the lacks, or the soldiers' gear under them. */
+.on-hud .on-res-chips--lacks,
+.on-hud .on-res-chips--gear {
   padding-bottom: 9px;
+}
+.on-hud .on-res-chips--lacks:has(+ .on-res-chips--gear:not([hidden])) {
+  padding-bottom: 0;
 }
 .on-hud .on-res-chips__label {
   align-self: center;

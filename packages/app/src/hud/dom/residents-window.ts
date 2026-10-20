@@ -1,7 +1,12 @@
 import type { UiCue } from '@open-northland/audio';
 import { JOB_SOLDIER } from '../../catalog/jobs.js';
 import { pickerEntries } from '../../catalog/professions.js';
-import { SOLDIER_FAMILIES, type SoldierFamily } from '../../catalog/soldier-classes.js';
+import {
+  SOLDIER_ARMORS,
+  SOLDIER_FAMILIES,
+  type SoldierArmor,
+  type SoldierFamily,
+} from '../../catalog/soldier-classes.js';
 import { bcp47Tag, formatMessage, messages } from '../../i18n/index.js';
 import { productSelectionLabel } from '../details-panel/model/settler-work.js';
 import { type FigureBox, type FigureSlot, NO_FIGURE_SLOTS } from '../figures/live-figures.js';
@@ -95,8 +100,8 @@ export interface ResidentsWindowDeps {
   readonly icons?: GoodIconPainter;
 }
 
-/** The residents window on the DOM plane: the search and the two profession filters, the group row and the
- *  lacks row as one grid of chips, and the parchment list with sortable heads. */
+/** The residents window on the DOM plane: the search and the two profession filters, the group, lacks and
+ *  soldiers' gear rows as one grid of chips, and the parchment list with sortable heads. */
 export interface ResidentsWindow extends ToolWindow {
   /** Once a frame: re-place an open window, relist on a new tick or selection. */
   refresh(): void;
@@ -213,7 +218,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     ),
   ]);
 
-  // Both chip rows share one grid, so their cells line up edge to edge.
+  // The chip rows share one grid, so their cells line up edge to edge.
   const chipRow = (caption: string, label: string): HTMLElement => {
     const row = element(
       'div',
@@ -241,27 +246,17 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     const view = chip(copy.groups[id], '');
     view.button.addEventListener('click', () => {
       deps.cue('confirm');
-      // The weapon narrows the soldiers only, so another group drops it.
-      setFilters({ ...state.filters, group: id, weapon: id === 'soldiers' ? state.filters.weapon : null });
+      // The gear narrows the soldiers only, so another group drops it.
+      const soldiers = id === 'soldiers';
+      setFilters({
+        ...state.filters,
+        group: id,
+        weapon: soldiers ? state.filters.weapon : null,
+        armor: soldiers ? state.filters.armor : null,
+      });
     });
     groupChips.set(id, view);
     groupRow.append(view.button);
-  }
-  // Under the soldiers group: their weapon, one family at a time. The caption is a glyph, since the word
-  // outgrows the label column in most languages.
-  const weaponRow = chipRow('', copy.weaponLabel);
-  weaponRow.classList.add('on-res-chips--weapons');
-  if (weaponRow.firstElementChild !== null) weaponRow.firstElementChild.innerHTML = GLYPH.swords;
-  weaponRow.title = copy.weaponLabel;
-  const weaponChips = new Map<SoldierFamily | null, { button: HTMLButtonElement; count: HTMLElement }>();
-  for (const id of [null, ...SOLDIER_FAMILIES]) {
-    const view = chip(id === null ? copy.anyWeapon : copy.weapons[id], '');
-    view.button.addEventListener('click', () => {
-      deps.cue('confirm');
-      setFilters({ ...state.filters, weapon: id });
-    });
-    weaponChips.set(id, view);
-    weaponRow.append(view.button);
   }
   const lackRow = chipRow(copy.without, copy.lacksLabel);
   lackRow.classList.add('on-res-chips--lacks');
@@ -278,6 +273,36 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     });
     lackChips.set(id, view);
     lackRow.append(view.button);
+  }
+  // Under the lacks while the soldiers group is picked: their weapon, then their armour, one of each at
+  // a time. The caption is a glyph, since the word outgrows the label column in most languages.
+  const gearRow = chipRow('', copy.gearLabel);
+  gearRow.classList.add('on-res-chips--gear');
+  const gearCaption = gearRow.firstElementChild;
+  if (gearCaption instanceof HTMLElement) {
+    gearCaption.innerHTML = GLYPH.swords;
+    gearCaption.title = copy.gearLabel;
+  }
+  const weaponChips = new Map<SoldierFamily | null, { button: HTMLButtonElement; count: HTMLElement }>();
+  for (const id of [null, ...SOLDIER_FAMILIES]) {
+    const view = chip(id === null ? copy.anyWeapon : copy.weapons[id], '');
+    view.button.addEventListener('click', () => {
+      deps.cue('confirm');
+      setFilters({ ...state.filters, weapon: id });
+    });
+    weaponChips.set(id, view);
+    gearRow.append(view.button);
+  }
+  // An armour chip pressed again lets every armour through.
+  const armorChips = new Map<SoldierArmor, { button: HTMLButtonElement; count: HTMLElement }>();
+  for (const id of SOLDIER_ARMORS) {
+    const view = chip(copy.armors[id], GLYPH.armor);
+    view.button.addEventListener('click', () => {
+      deps.cue('confirm');
+      setFilters({ ...state.filters, armor: state.filters.armor === id ? null : id });
+    });
+    armorChips.set(id, view);
+    gearRow.append(view.button);
   }
 
   // The parchment: the summary line, the sortable heads, the list, and the two empty notes.
@@ -344,7 +369,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
   }
   selectShownLabel.textContent = copy.selectShown;
   foot.append(selectShown);
-  window.body.append(find, groupRow, weaponRow, lackRow, sheet, foot);
+  window.body.append(find, groupRow, lackRow, gearRow, sheet, foot);
 
   // One row view per listed person met on screen, kept while they live. Only the rows in and near the
   // visible strip are in the list, between two spacers that keep the scroll height of the whole: a tick
@@ -478,9 +503,11 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     const { filters } = state;
     for (const [id, view] of groupChips)
       setAttribute(view.button, 'aria-pressed', String(id === filters.group));
-    setHidden(weaponRow, filters.group !== 'soldiers');
+    setHidden(gearRow, filters.group !== 'soldiers');
     for (const [id, view] of weaponChips)
       setAttribute(view.button, 'aria-pressed', String(id === filters.weapon));
+    for (const [id, view] of armorChips)
+      setAttribute(view.button, 'aria-pressed', String(id === filters.armor));
     for (const [id, view] of lackChips) {
       setAttribute(view.button, 'aria-pressed', String(filters.lacks.includes(id)));
     }
@@ -494,6 +521,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     const parts = [
       filters.group === 'all' ? '' : copy.groups[filters.group],
       filters.weapon === null ? '' : formatMessage(copy.filterWeapon, { name: copy.weapons[filters.weapon] }),
+      filters.armor === null ? '' : copy.armors[filters.armor].toLocaleLowerCase(locale),
       ...filters.lacks.map((id) =>
         formatMessage(copy.lackTitle, { what: copy.lacks[id] }).toLocaleLowerCase(locale),
       ),
@@ -527,11 +555,13 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
       write(view.count, String(counts.groups[id]));
       view.button.classList.toggle('on-res-chip--zero', counts.groups[id] === 0);
     }
-    for (const [id, view] of weaponChips) {
-      const count = id === null ? counts.groups.soldiers : counts.weapons[id];
+    const showCount = (view: { button: HTMLButtonElement; count: HTMLElement }, count: number): void => {
       write(view.count, String(count));
       view.button.classList.toggle('on-res-chip--zero', count === 0);
-    }
+    };
+    for (const [id, view] of weaponChips)
+      showCount(view, id === null ? counts.anyWeapon : counts.weapons[id]);
+    for (const [id, view] of armorChips) showCount(view, counts.armors[id]);
     for (const [id, view] of lackChips) {
       const count = counts.lacks[id];
       write(view.count, String(count));

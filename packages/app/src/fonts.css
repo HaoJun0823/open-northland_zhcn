@@ -1,14 +1,18 @@
 /* The app's typefaces and the tokens every screen sets type with; index.html links this sheet first.
    All are bundled from Google Fonts releases with their licences beside them in public/fonts/.
    unicode-range values are Google Fonts' latin / latin-ext / cyrillic splits, so a page fetches only
-   the subsets its text uses. Cinzel is the variable font: one file per subset covers 400-900. */
+   the subsets its text uses. Cinzel is the variable font: one file per subset covers 400-900.
+   Noto Sans SC (LICENSE-NotoSansSC.txt) draws the Han text of the Chinese locales: every token names it
+   after its Latin faces, and its unicode-range keeps the files unfetched until a page shows a Han
+   character. It is subset to the GB 2312 and Big5 level-1 hanzi with CJK punctuation and full-width
+   forms, about 1.8 MB per weight. */
 :root {
-  --font-body: "Alegreya Sans", system-ui, sans-serif;
+  --font-body: "Alegreya Sans", "Noto Sans SC", system-ui, sans-serif;
   /* Alegreya Sans SC draws lowercase as true small capitals; `font-variant: small-caps` on the body
      face would be synthesized, since its files carry no smcp feature. */
-  --font-caps: "Alegreya Sans SC", "Alegreya Sans", system-ui, sans-serif;
+  --font-caps: "Alegreya Sans SC", "Alegreya Sans", "Noto Sans SC", system-ui, sans-serif;
   /* Cinzel has no Cyrillic; the SC face draws those titles in small capitals of the body family. */
-  --font-title: Cinzel, "Alegreya Sans SC", serif;
+  --font-title: Cinzel, "Alegreya Sans SC", "Noto Sans SC", serif;
 }
 
 @font-face {
@@ -257,4 +261,22 @@
   font-display: swap;
   src: url("/fonts/alegreyasanssc-cyrillic-700.woff2") format("woff2");
   unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: "Noto Sans SC";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/notosanssc-han-400.woff2") format("woff2");
+  unicode-range: U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "Noto Sans SC";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/notosanssc-han-700.woff2") format("woff2");
+  unicode-range: U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
 }

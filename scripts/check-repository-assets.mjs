@@ -70,6 +70,10 @@ const reviewedBinaryAssets = new Set([
   'packages/app/public/fonts/alegreyasanssc-cyrillic-700.woff2',
   'packages/app/public/fonts/cinzel-latin.woff2',
   'packages/app/public/fonts/cinzel-latinext.woff2',
+  // The Han face for the Chinese locales: Noto Sans SC subset from the notofonts release; source,
+  // subset and SIL OFL text in LICENSE-NotoSansSC.txt.
+  'packages/app/public/fonts/notosanssc-han-400.woff2',
+  'packages/app/public/fonts/notosanssc-han-700.woff2',
   // Original OpenNorthland branding (commissioned art, no original-game material). The masters live
   // in tools/brand/source; `npm run brand` derives the rest, including the README logo above. The
   // Open Graph image and the manifest screenshot also use docs/images/settlement.webp, a capture of

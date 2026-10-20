@@ -2,7 +2,7 @@
 
 **Area:** app, sim · **Priority:** P3 · **Focus:** `hud/tool-panel/messages/`, save header
 
-A save does not carry the notice feed. Loading reboots the page, so the column starts empty:
+A save does not carry the notice feed. Rebuilding the game on load starts the column empty:
 
 - every event note is gone for good: deaths, finished or upgraded houses, unlocks, diplomacy, found
   papers;

@@ -32,5 +32,5 @@ Two consumers already approximate what these state outright:
 
 ## Verify
 
-`npm run test:pipeline` against the owned copy, plus a unit test pinning the extracted flag of a job
+`npm run test:pipeline` against the selected data pack, plus a unit test pinning the extracted flag of a job
 that sets it. `npm test`, `npm run check`, `npm run build`.

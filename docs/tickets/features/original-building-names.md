@@ -17,5 +17,5 @@ source labels can also overflow the fixed name column.
 
 ## Verify
 
-- `npm test`; pipeline run against the local mod.
+- `npm test`; pipeline run against the selected data pack.
 - Details panel shows original names without overflow - **user's eyes**.

@@ -18,7 +18,7 @@ relative to the exported sound root.
 | `ambient/ice_cracking4`-`6` | Further wavs for the `Ice cracks` object ambience |
 | `ambient/owl_01`, `owl_02`, `mysticcircle` | No obvious trigger: there is no time of day, and no mystic circle object |
 | `humantalk/talk_f10`, `talk_m10` | Further SocialTalk lines |
-| `misc/teleporter` | No teleport in the game |
+| `misc/teleporter` | Scripted unit teleport exists, but no audio binding uses this sample; audition before choosing a trigger |
 | `static/fisthit04`, `hammer03` | Further wavs for `Weapon Fist Hit` and `Hammer Wood` |
 
 ### Bank groups without an event

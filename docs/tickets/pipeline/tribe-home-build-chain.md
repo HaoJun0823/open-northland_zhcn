@@ -1,15 +1,16 @@
 # Give saracen and egyptian homes their own build chain and cost
 
 **Area:** pipeline, data, sim · **Priority:** P2
-**Needs user:** the deciding evidence is the running original.
+**Needs user:** observe Saracen and Egyptian home construction in the running original.
 
 Footprints and hitpoints already resolve per `(tribe, typeId)` (`BuildingType.tribeVariants`). The
 construction cost and the upgrade chain still collapse to the lowest `LogicTribeType`
 (`extractConstructionCosts`, `extractUpgradeTargets` in
-`tools/asset-pipeline/src/decoders/ini/buildings-gfx/structure.ts`), so every civilization builds homes
+`packages/formats/src/ini/buildings-gfx/structure.ts`), so every civilization builds homes
 the viking way.
 
-That is wrong for two civilizations in the mod's `DataCnmd/budynki12/houses/houses.ini`. Viking, frank
+That differs from the authored structure for two civilizations in `budynki12/houses/houses.ini`.
+Confirm the resulting build behavior in the running original before changing it. Viking, frank
 and byzantine homes are one `[GfxHouse]` record chaining `LogicType 0 2` to `4 6`, each level costing
 only its step. Saracen (`saracen tent 01`, `saracen residence 02/04/05/06`) and egyptian
 (`Egypt Residence 01/02/03/05/06`) homes describe each of the typeIds 2 to 6 in a record of its own,

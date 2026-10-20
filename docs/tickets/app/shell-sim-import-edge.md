@@ -2,30 +2,22 @@
 
 **Area:** app · **Focus:** entries · **Priority:** P3
 
-`main.ts` now loads one entry module per URL mode, so the galleries no longer ship on a menu boot. What
-every mode still pays before the URL is read is the shell's own static closure: 155.5 kB gzip, of which
-133.4 kB is one chunk holding `@open-northland/sim`, `zod`, and `@open-northland/data`.
-
-`main.ts` imports the `diag/index.js` barrel, which re-exports `bundle.ts` → `session.ts` →
-`import { HashTrace } from '@open-northland/sim'`. `frame-stats.ts` pulls the same package in for
-`TICKS_PER_SECOND`. Both are value imports, so all of sim lands in the first download even for
-`?icons`. Stubbing the two edges measured the shell at 25.5 kB gzip.
-
-Route totals do not change, since a playable mode needs sim either way. What improves is how soon the
-boot progress card and the crash banner can paint on a cold connection.
+The shell's `diag/index.js` barrel reaches `session.ts`, which value-imports `HashTrace` from
+`@open-northland/sim`; `frame-stats.ts` value-imports `TICKS_PER_SECOND` from the same package.
+These static edges pull simulation code into the first download before URL dispatch, even for
+`?icons`. They delay the boot card and crash handling on a cold connection.
 
 ## Scope
 
-- Break both value edges without moving hash tracing or frame statistics out of `diag/`. `hashTraceFor`
-  has two callers (`entries/map.ts`, `entries/scene.ts`), both of which already own a sim; either they
-  construct the trace, or `sim` grows a side-effect-free subpath export for the constants.
-- Keep `installCrashCapture` and `logBootHeader` behaving as they do now, including the diagnostics
-  bundle a crash offers to download.
-- Do not add manual chunk groups. Forcing `sim`, `render`, `data`, and `zod` into named chunks was
-  measured and made every mode worse (shell 155.5 → 329.0 kB gzip, menu 341.4 → 382.3 kB).
+- Break both value edges without moving hash tracing or frame statistics out of `diag/`.
+  `hashTraceFor` is called by `entries/map/boot.ts` and `entries/scene.ts`, whose hosts own the world;
+  inject the trace at that seam or expose a suitably small, side-effect-free sim subpath.
+- Preserve crash capture, the boot header and downloadable diagnostic bundles.
+- Keep route loading automatic; do not add manual chunk groups to hide the static dependency.
 
 ## Verify
 
-- The size table `npm run build` prints shows a shell row well under 155.5 kB gzip, route rows unchanged.
+- Compare current build bundle rows before and after: the shell sheds simulation code without
+  increasing total playable-route downloads.
 - `npm test` and `npm run check`.
-- Boot `?icons` with the network cache disabled and confirm no sim chunk is requested.
+- Boot `?icons` with network cache disabled and confirm no simulation implementation chunk is fetched.

@@ -1,34 +1,26 @@
-# Interleave one-shot idle fidgets with the base wait
+# Bind the human body's authored idle fidgets
 
-**Area:** app · **Priority:** P3
+**Area:** app, render · **Priority:** P3
 
-A standing body loops only its `gfxanimmode 1` base wait. The source authors more: per wait bobseq,
-several one-shot fidget programs on the wait-action ladder (actions 2..6 - stretch, look around,
-scratch) beside the looping base wait, and the original interleaves them - mostly base wait, an
-occasional fidget, back to base wait. `gfxWaitProgramsBySeq` currently collapses that ladder to the
-single winning program, so the fidget lists are extracted but never played.
-
-Implement the interleave render-side:
-
-- Widen the wait join to keep the whole ladder per seq (base wait + the one-shot fidget programs),
-  not just the winner.
-- Schedule fidgets in the presentation layer. Deterministic per entity - derive from `item.ref` and
-  the tick (the existing `IDLE_PHASE_STEP` desync shows the pattern); no `Math.random`, no sim state.
-- A fidget plays once, then the clock returns to the base-wait loop. Bodies with no fidget programs
-  behave exactly as now.
-- Animals author no `gfxanimmode 1` row, so `animalBinding` (`content/animal-gfx/bindings.ts`) loops
-  the first one-shot of their actions 2..6 (chickens only peck, wolves never howl). Give them the same
-  interleave, using the first program as the base.
-- The interleave cadence (how often a fidget fires) is unobserved - pick a rate, name it an
-  approximation.
+`gfxWaitProgramsBySeq` (`packages/app/src/content/ir/joins.ts`) keeps one standing-wait program per
+bobseq, preferring `gfxanimmode 1`. The human binding (`content/settler-gfx/bindings-character.ts`)
+therefore loses the other authored one-shot wait actions (2..7): a standing human cannot show those
+stretch, glance and scratch programs.
 
 ## Scope
 
-- `packages/app/src/content/ir/joins.ts` (wait join shape), the settler binding, and the sprite-pool
-  frame selection. No sim changes, no schema changes (the programs are already in the IR).
+- Preserve the human wait ladder per bobseq: a base wait plus its authored one-shot programs.
+- Bind those programs to the existing `idleFidgets` presentation scheduler in
+  `packages/render/src/data/sprites/settler.ts`; reuse its deterministic per-entity timing and named
+  cadence approximation. A fidget plays once before returning to the base wait.
+- Preserve bodies without fidget programs and matching head frames. Animal `idleChoices` and extra
+  gestures already have their own binding; keep this task to the missing human join.
+- No simulation or IR schema changes; the programs already exist in the IR.
 
 ## Verify
 
-- Unit: the scheduler is a pure function of (ref, tick) - same inputs, same fidget choice.
-- Human pass: a standing crowd mostly breathes, individuals occasionally stretch or glance, no two
-  neighbours in lockstep.
+- Synthetic join/binding tests retain the base wait and all valid one-shot choices, including bodies
+  with no fidgets. Frame-selection tests show one complete gesture followed by the base wait and equal
+  output for equal entity/tick input.
+- Browser: a standing crowd mostly breathes, with occasional complete gestures and neighbouring
+  settlers out of step. Run the applicable gates from `docs/TESTING.md`.

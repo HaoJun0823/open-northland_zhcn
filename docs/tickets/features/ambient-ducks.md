@@ -2,9 +2,10 @@
 
 **Area:** app, sim · **Priority:** P2
 
-Ducks already spawn through `spawnAnimalHerd`, navigate water, swim and flee. The current decoded
-corpus has 100 maps with animal placements, but none places ducks. Consequently ordinary maps
-show them only when a mission explicitly spawns them; the wildlife acceptance scene supplies its own.
+Ducks already spawn through `spawnAnimalHerd`, navigate water, swim and flee. The map builder
+only seeds authored animal placements; it does not populate suitable water with ducks. An earlier
+corpus check found no authored ducks; recount placements before selecting a real-map acceptance case.
+The wildlife acceptance scene supplies its own.
 
 ## Scope
 

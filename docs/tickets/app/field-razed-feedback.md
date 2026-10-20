@@ -1,37 +1,29 @@
-# Signal the crops a building site will destroy
+# Establish crop clearing behavior and show a building site's cost
 
 **Area:** app, render · **Priority:** P2
 **Needs user:** observe whether the original destroys, keeps, or warns about wheat under a new building.
 
-A field declares no build area, so a building site over standing wheat is accepted like any other. The
-plants under the new walls are then destroyed (`destroyFieldsUnderBuilding`,
-`packages/sim/src/systems/economy/fields.ts`). That is the intended mechanic - but nothing tells the
-player it happened:
+A building site over standing wheat is accepted. `destroyFieldsUnderBuilding`
+(`packages/sim/src/systems/economy/fields.ts`) then destroys crops beneath its footprint without an
+event, unlike `berryBushRazed` in `berries.ts`. The allowed/refused build ghost does not distinguish
+crops from bare grass, so the player loses farming labor without seeing the cost before the click.
 
-- `destroyFieldsUnderBuilding` emits no event, unlike its sibling `destroyBerryBushesInReserved`, which
-  emits `berryBushRazed` (`packages/sim/src/systems/economy/berries.ts`).
-- The build ghost (`packages/app/src/view/placement-overlay.ts`) is binary allowed/refused, so a plot node
-  reads plain green - identical to bare grass.
-- There is no confirmation and no undo.
-
-Sowing a field is farmer labor the player paid for, and this is the one thing on the map a player's own
-build click destroys silently.
+The intended crop behavior is unconfirmed. Readable `landscapetypes.ini` data establishes that the
+field does not refuse the site; it does not establish whether the original removes the plants,
+leaves them harvestable, or gives feedback.
 
 ## Scope
 
-- Emit a `fieldRazed` event from `destroyFieldsUnderBuilding` so render/audio can hook it (mirror
-  `berryBushRazed`'s shape).
-- Mark the fields a candidate site would take in the build ghost, so the cost is visible BEFORE the click.
-
-## Source basis
-
-What the original does here is not established. `landscapetypes.ini` and `landscapeGfx 864` prove only that
-it does not REFUSE the site; whether the plants vanish, survive under the building, or survive and stay
-harvestable, and whether any sound or message fires, needs an observation pass on the owned copy. If the
-original is silently destructive, a quiet ghost highlight is faithful and a confirmation dialog is not.
+- Observe building placement over standing wheat in the owned original, including plant survival,
+  harvestability and any warning or sound. Record that basis before choosing the behavior.
+- If crop destruction is confirmed, emit one `fieldRazed` event per cleared field and distinguish
+  affected crops in the placement preview. Match observed feedback or name a quiet preview highlight
+  as an approximation; do not assume a confirmation dialog.
+- If crops survive, correct the destructive path and update the preview to match the established
+  behavior instead of adding feedback for a disproved mechanic.
 
 ## Verify
 
-- Placing a building over a plot emits one `fieldRazed` per destroyed field.
-- The build ghost distinguishes a site that would take crops from one that would not.
-- No registered acceptance scene covers building over farmland today; add one with this work.
+A registered building-over-farmland scene and focused tests exercise the established behavior. If
+clearing remains, each destroyed field emits one event and the ghost distinguishes the crop cost
+before placement. Check the running preview against the recorded observation.

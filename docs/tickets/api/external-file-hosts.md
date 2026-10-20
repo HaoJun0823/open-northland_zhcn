@@ -2,7 +2,7 @@
 
 **Area:** api · **Priority:** P3
 
-23 of the 329 catalogue entries point at a file on another host (upstream `mapLauncherFileType`
+The catalogue audit found 23 of 329 entries pointing at a file on another host (upstream `mapLauncherFileType`
 is null, `/v1/catalog` serves them as `file.kind: 'external'`): hostuje.net (14), moddb.com (5),
 Google Drive (2), mediafire.com (2). The API cannot fetch a download page, so these maps never
 convert and the client lists them as "download yourself" with the page link. Among them are the
@@ -33,11 +33,11 @@ host more often than the catalogue sync itself.
 
 - Tests with recorded page fixtures per host: resolved URL, failed-closed on an unrecognized page,
   HTML-instead-of-archive is `download-failed`.
-- One sync against the upstream converts the resolvable entries; report which of the 23 still fail
-  and why.
+- Refresh the external-entry inventory, then run one sync against the upstream; report which entries
+  convert and which still fail, with reasons.
 - The client shows a resolved entry as downloadable and a failed one as a manual download.
 
-- Include War of the Sands Legend of the Golden Pharaoh: its downloaded archive is 69,814,638
-  bytes, exceeding the deliberate 64 MiB default web import cap. Verify the server/desktop route
+- Include War of the Sands Legend of the Golden Pharaoh: the audit downloaded a 69,814,638-byte
+  archive, exceeding the deliberate 64 MiB default web import cap. Verify the server/desktop route
   under its applicable limits and clearly explain a refusal; do not raise the browser cap merely
   to admit this archive. Download success alone does not establish conversion or startup success.

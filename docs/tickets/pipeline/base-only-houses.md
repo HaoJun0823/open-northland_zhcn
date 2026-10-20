@@ -1,7 +1,7 @@
 # Confirm the base-only houses on mod maps
 
 **Area:** pipeline · **Priority:** P3
-**Needs user:** the deciding evidence is the running CulturesNation original.
+**Needs user:** observe the base-only town in the running CulturesNation original.
 
 The pipeline layers the base `Data/engine2d/inis/houses/houses.cif` under the mod's
 `rules/buildings/houses.ini` by `EditName` (`tools/asset-pipeline/src/stages/base-houses.ts`). The 15

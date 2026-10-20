@@ -2,7 +2,8 @@
 
 **Area:** pipeline · **Priority:** P3
 
-`decoders/palette.ts` implements and tests the standalone `CPalette` storable, but no pipeline stage or
+`packages/formats/src/palette.ts` implements the standalone `CPalette` storable, tested in
+`packages/formats/test/palette.test.ts`, but no pipeline stage or
 other decoder imports it. Live palette paths use PCX trailers and player-palette data. No scheduled
 `.hlt` or standalone-palette consumer justifies keeping a speculative codec.
 

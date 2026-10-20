@@ -1,46 +1,49 @@
-# Curate, correct and translate catalogue maps
+# Curate catalogue maps and prepare reviewed corrections and translations
 
 **Area:** api, data · **Priority:** P3
-**Needs user:** which categories ship at launch (the "Mapy z serii Cultures" ones carry maps from
-the original series); review of each correction and translation batch
+**Needs user:** choose the categories to publish from a concrete catalogue list; approve correction
+and translation batches before publication.
 
-The converted catalogue will contain maps that fail in our engine for a reason a single-file fix
-would cure, maps the owner does not want listed, and maps with text in one language only
-(`MAP_TEXT_LANGUAGES` falls back `pol`, `eng`, `ger`, `rus`). The pipeline has the mechanism for
-the first problem (`tools/asset-pipeline/corrections/`, keyed by mod path and file hash); the API
-needs the same keyed by archive fingerprint. Reference: [API architecture and flow](../../API.md).
+The catalogue has no owner-reviewed allow/deny policy. Some archives need structural repair or
+contain mislabeled text languages; others may not belong in the published selection. Recheck the
+current archives before classifying an old conversion failure as an upstream defect.
+
+Map translations already use the shared overlays under `translations/`, applied by both the pipeline
+and catalogue conversion. Their identity, text precedence and source-language editing rules belong to
+[the translation contract](../../../translations/AGENTS.md); the API's conversion invalidation and
+language list are described in [API](../../API.md#translation-overlays).
 
 ## Scope
 
-- Allow/deny list in the repository (`packages/api/curation/`), by `source.documentId` with a
-  Polish reason, applied at sync; denied entries never leave `/v1`.
-- Corrections keyed by archive sha256 and in-archive path, same swap format and same "unapplied
-  correction fails" rule as the pipeline, applied by `map-import` before conversion so the client's
-  local import of the same archive gets them too.
-- Translations: an offline script in `packages/api` that takes a converted map's `strings` and
-  `briefing` in its source language and writes the missing `MAP_TEXT_LANGUAGES` through an LLM, with
-  the key from the environment (`--env-file`, never in the image), into a review queue. Approved
-  translations are stored by fingerprint and language and merged into the served `.strings.json` and
-  `.briefing.json` with the authored text taking precedence. This is the first relational state, so
-  it introduces Postgres (compose service, schema in `packages/api/db/`) rather than another JSON file.
-- `/v1/maps/:id` exposes `languages` as authored plus translated, marked apart.
+- Present current catalogue categories and representative entries for the owner's launch selection,
+  including the categories carrying maps from the original series. Implement the selection by
+  `source.documentId` with a Polish reason; excluded entries must not appear in public catalogue reads.
+- Prepare hash-pinned structural archive corrections, shared by catalogue and local map import.
+  Reuse the existing correction conventions and fail on changed input or an unapplied correction.
+  Community-map prose edits and translations use overlays, not structural corrections.
+- Add offline draft translation generation for missing languages using the existing overlay schema,
+  source basis and glossary. Provider keys stay in the invoking process's environment. Drafts go to a
+  review location, never directly to served files; approved overlays follow the existing conversion
+  path. Do not add a second translation store or database.
+- Expose authored versus translated language provenance if the current API's combined `languages`
+  list cannot express it. Preserve existing clients and authored-text precedence.
 
-## Known upstream defects to report or correct
+## Cases to recheck
 
-Found converting the whole catalogue; each needs the upstream author or an allow/deny or correction
-entry, not engine work:
+Earlier catalogue conversion found these cases; inspect the current archives before applying a policy:
 
-- "TAJEMNICZA ŚCIANA MGŁY": the uploaded rar is cut short (the upstream serves 644646 bytes, its
-  listing says about 1 MB); the main map is intact, the sub-mission's `map.dat` is missing its tail.
-- "The King of Norway": a Cultures 1 map (`.map` file, `C1_txt` folder), never playable here; deny.
-- "Grobowiec Króla": a three-part campaign whose parts 2 and 3 are passworded inside the rar (the
-  password is meant to be earned by finishing the earlier part); only part 1 can convert.
-- 53 maps carry Polish text in their `ger` string slot, so the client reports them as German.
+- "TAJEMNICZA ŚCIANA MGŁY": a truncated archive with an incomplete sub-mission `map.dat`.
+- "The King of Norway": a Cultures 1 `.map` archive rather than a supported game map.
+- "Grobowiec Króla": later campaign parts password-protected until earlier parts are completed.
+- Maps with Polish prose in a `ger` slot: identify the affected copies and correct language reporting
+  without mistaking a mislabeled source for a German translation.
 
 ## Verify
 
-- Tests: a denied entry is absent from `/v1/catalog`; a correction applies and its hash drift fails
-  the sync; a merged `.strings.json` keeps the authored text; the translation script never runs without
-  the key and never writes to the served tree directly.
-- Owner reviews the first translated map in game in all four languages.
-- `npm run check`, `npm run build`, `npm test`.
+- Denied entries are absent from the public catalogue; approved maps remain discoverable.
+- A structural correction applies to the same archive in API and local import; input drift fails
+  explicitly. Overlay edits follow their own source-basis rules.
+- Draft generation preserves markup and glossary terms, fails without credentials and never writes to
+  the served tree. Approved translations appear through the existing overlay conversion path.
+- Review a concrete corrected/translated map in game with the owner before publishing the batch.
+- `npm run check`, `npm run build`, `npm test` and the affected import/translation tests.

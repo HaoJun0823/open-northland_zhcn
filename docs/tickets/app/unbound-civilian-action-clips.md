@@ -11,15 +11,11 @@ Verified against the generated IR, tribe 1:
 | --- | --- | --- |
 | 16 jest | 28 | `human_man_generic_beeing_satisfied` |
 
-The road and wall swings (41, 42 on job 7, `human_man_constructionworker_Work_Hammer`) are in the same
-position, but no sim mechanic drives them yet.
-
 Consequence: a jesting settler stands in its idle.
 
 ## Scope
 
 - Transcribe the action into the civilian spec, the way the collector, farmer and herb rows already are.
-- Leave the road/wall swings out until a mechanic drives them.
 
 ## Verify
 

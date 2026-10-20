@@ -9,13 +9,13 @@ URLs are the main consumer of these flags, which makes a silent wrong value expe
 
 ## Scope
 
-- On an unrecognized value for an enumerated flag, emit one console warning naming the flag, the
+- On an unrecognized value for an enumerated flag, emit one `diag.warn` entry naming the flag, the
   rejected value, and the accepted values; keep the null fallback behaviour itself.
 - Cover the enumerated parsers reachable from the playable entries; a shared helper is justified
   only if it does not obscure each flag's accepted set.
 
 ## Verify
 
-- A unit test per parser: unrecognized value warns once and falls back; recognized values stay
-  silent.
+- A unit test per parser: unrecognized value adds one diagnostic and falls back; recognized values add
+  none.
 - `npm test`, `npm run check`, `npm run build`.

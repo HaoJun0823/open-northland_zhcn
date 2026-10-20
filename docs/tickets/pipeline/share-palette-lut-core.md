@@ -9,7 +9,8 @@ different input shapes, which is why the current fixed `PaletteLutSource[]` help
 ## Scope
 
 - Let `buildPaletteLut` accept a resolver callback.
-- Route the goods and vehicle-colour LUTs through the shared builder and writer.
+- Route the goods and vehicle-colour LUTs through the shared builder, and the vehicle-colour LUT
+  through the shared writer; goods already uses the writer.
 - Keep warnings, fallbacks, row order, and emitted bytes unchanged.
 
 ## Verify

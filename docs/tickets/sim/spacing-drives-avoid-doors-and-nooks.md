@@ -2,33 +2,26 @@
 
 **Area:** sim · **Focus:** movement/settlers · **Priority:** P3
 
-The footprint eviction pass now refuses to LAND a displaced settler on a building's door node or on a
-sealed nook (a walkable cell whose every orthogonal neighbour is walk-blocked) - see
-`nearestFreeCellOutside` in `packages/sim/src/systems/movement/evict.ts` and `buildingDoorNodes` in
-`systems/footprint/blocked.ts`. The idle spacing drives still can: `deStackIdle`'s `nearestFreeCell`
-and `loiterCell`'s yard scan (`systems/settlers/drives/spacing.ts`) accept any unblocked unoccupied cell, so a
-de-stacked or loitering unit can come to rest on another building's door (visually inside the
-building; a stray body on the node `presentOperatorCount` reads) or wedged in a nook between bodies.
+`nearestFreeCellOutside` (`packages/sim/src/systems/movement/evict.ts`) excludes building door nodes
+and landings with no free joined neighbor. Idle spacing does neither: `deStackIdle`'s `nearestFreeCell`
+and `loiterCell` (`systems/settlers/drives/spacing.ts`) accept unblocked, unoccupied cells, with loiter
+excluding only its own anchor. A displaced idler can therefore stop on another building's door or in
+an isolated nook.
 
 ## Scope
 
-Apply the same two target rules to both drives: exclude `buildingDoorNodes` (loiterCell already
-excludes only its OWN anchor) and require at least one unblocked orthogonal neighbour. Both sets are
-already built per planner tick in `PlannerSpacing` consumers, so memoise them on `PlannerSpacing`
-beside its `blockedCells()` view. Keep canonical search order; expect no golden movement unless a scenario actually
-rests a unit on a door/nook (if one moves, that is the intended behavior change - name it in the
-commit). Test like `evict.test.ts`'s nook cases: a stack beside a doored/U-walled fixture must fan
-out onto open cells only.
-
-The rest-spot rung (`systems/settlers/drives/rest-spot.ts` `isOpenGround`) has a third version of the
-"require an unblocked neighbour" clearance - for choosing where a tired settler lies down. There are
-now three "where may a unit come to rest" rules in the tree: `evict.ts`, the two drives this ticket
-names, and rest-spot. The BFS underneath them is already shared (`ringSearch`, `nav/ring-search.ts`);
-what is still duplicated is the `accept` predicate each one passes it, so fold those onto one shared
-clearance test as part of this work rather than adding a fourth. Note that rest-spot traverses blocked
-nodes while refusing to land on them, which the others may or may not want.
+- Exclude `buildingDoorNodes` (`systems/footprint/blocked.ts`) and require a free traversable joined
+  neighbor for both spacing drives, including a loitering worker's decision to remain in place.
+  Reuse the planner's blocked view and memoize the door view per `PlannerSpacing` pass.
+- Share the matching landing checks with eviction where useful, preserving canonical search order
+  and each caller's traversal rules.
+- Preserve the stronger sleep clearance in `drives/rest-spot.ts`: `isOpenGround` requires every
+  walkable neighbor to be clear, so a sleeper does not lie against a footprint. It is not the same
+  predicate as the one-free-neighbor eviction rule and must not be weakened by sharing code.
 
 ## Verify
 
-A stack beside a doored or U-walled fixture fans out onto open cells only; rest-spot, eviction, and
-spacing suites agree on legal landing cells. Run `npm test`, `npm run check`, and `npm run build`.
+A stack beside a doored or U-walled fixture fans out onto open cells with an exit; a loiterer already
+on an invalid landing moves off it. Eviction coverage remains intact, and rest-spot tests retain the
+stronger sleeper clearance. Run `npm test`, `npm run check`, and `npm run build`; name intentional
+golden movement when a fixture previously rested on a door or nook.

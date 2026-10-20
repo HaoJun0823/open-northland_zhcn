@@ -1,23 +1,26 @@
-# AI joinery upgrade opens a vehicle yard nobody fills
+# Prevent an AI joinery upgrade from opening an unselected vehicle yard
 
 **Area:** sim · **Priority:** P3
 
+Employment clears `ProductionCounters`, and the computer player's craft selection is restored only
+on its workforce decision (`packages/sim/src/systems/economy/jobs/binding.ts` and
+`systems/computer-player/workforce/craft.ts`). A newly hired joiner can therefore start with every
+product selected before the next decision restricts its role.
 
-When an AI seat's joinery finishes its level-3 upgrade, its new hires start with the default
-product selection, which covers every product. One craft cycle can land on the handcart before the
-next craft decision narrows the seats back to tools and furniture, and that cycle opens a hidden
-handcart yard site beside the workshop. The AI never returns to the cart good and nothing demolishes
-the yard, so it stands at 0% for the rest of the game. Seen headless on `magiczny_las` with six AI
-seats around tick 86000 (the yard no longer holds a build-order site slot).
+An earlier six-seat `magiczny_las` run showed an unfinished handcart yard after a joinery upgrade.
+Reproduce it against the current tier and role plans first: top-tier joineries now intentionally
+produce catapults or ships, so the defect is a yard for a product outside the owner's plan, not vehicle
+production itself. No orphan-yard cleanup exists in the craft allocator.
 
 ## Scope
 
-- Keep the seat's craft selection across an upgrade, or narrow it on the tier change before the
-  first cycle runs (`packages/sim/src/systems/computer-player/workforce/craft.ts`).
-- Let the AI demolish a yard site whose good no craft plan of its owner selects.
+- Preserve the seat's selected products across an upgrade, or apply the current tier/role selection
+  before the first craft cycle.
+- Demolish a yard site whose vehicle good no craft plan of its owner selects, preserving yards for
+  intentionally selected vehicles.
 
 ## Verify
 
-A case in `packages/sim/test/systems/computer-player/garrison-and-craft.cases.ts`: a joinery upgraded to
-the tier that offers a vehicle never opens a yard under the AI's selection, and an orphan yard is
-torn down at the next craft decision.
+In `packages/sim/test/systems/computer-player/garrison-and-craft.cases.ts`, upgrade a joinery and
+verify its first cycle respects the new role's selection. An unselected handcart yard is torn down
+at the next craft decision, while a selected catapult or ship yard remains.

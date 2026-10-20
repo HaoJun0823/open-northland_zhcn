@@ -2,13 +2,11 @@
 
 **Area:** app · **Priority:** P3
 
-Every registered scene builds its map from `grassTerrain` (`packages/app/src/scenes/*.ts`), except
-`berries.ts`. No scene therefore has two static walk components, so the whole combat-reachability
-family - the chase's cross-bank release (`conflict/chase.ts`), the acquisition gate that now rejects a
-candidate whose reach band lies entirely on the far bank (`conflict/target-node.ts`
-`reachableTargetGate`), and the archer that walks up its own bank to shoot over the water - has
-headless coverage only. Those three rules decide what a player sees a shore rank do, and nobody has
-watched them.
+`packages/app/src/scenes/battle.ts` uses `grassTerrain`. The water and shore vehicle scenes do not
+exercise combat across two disconnected land components. The chase's cross-bank release
+(`conflict/chase.ts`), the acquisition gate (`conflict/target-node.ts` `reachableTargetGate`), and the
+archer walking up its bank to shoot over water have focused headless coverage, but no registered
+acceptance setup shows these three behaviors together. They decide what a player sees a shore rank do.
 
 ## Scope
 

@@ -1,49 +1,36 @@
-# Resolve a settler's atomic clip through the data's `baseatomics` chain
+# Resolve atomic clips through the job's `baseatomics` chain
 
 **Area:** sim, app · **Focus:** clip join · **Priority:** P2
 
-`atomicClipName` and `atomicDuration` (`packages/sim/src/systems/readviews/animations.ts`) resolve an
-atomic's animation as "the settler's own `setatomic` row, else the tribe's civilist row". The original's
-rule is a per-job parent chain: `jobtypes.ini` `baseatomics` is 6 only for the civilian trades, 31 for
-armed soldiers, 33-41 for the hero bodies, and **48 (`adult_animal`) for wildlife**. The IR already
-carries it as `JobType.baseJob`, `@open-northland/data` already walks it (`resolveJobAtomics`,
-covered by `packages/app/test/content/job-atomics.test.ts`), and the render-side clip join walks it too
-(`tribeJobSeqs` in `packages/app/src/content/ir/joins.ts`).
+`atomicClipName` and `atomicDuration` (`packages/sim/src/systems/readviews/animations.ts`) try the
+settler's own `setatomic` row and then the tribe's civilist row. This skips the per-job parent in
+`jobtypes.ini` `baseatomics`: armed soldiers inherit from job 31 and hero bodies have their own
+parents. A missing direct binding can therefore select the wrong clip or the unresolved default.
 
-Original behavior: the tribe table is
-read for `(tribe, job, atomic)`; on a miss the job record's base job is loaded, its allow flag for the
-atomic is required, and the lookup retries up the chain. A chain that never resolves starts no
-animation at all, where the sim runs `DEFAULT_ATOMIC_DURATION` instead.
-
-Two consequences, verified against the owned copy:
-
-- **No animal resolves any clip.** `addWildlife` mints wildlife as a `Settler` with `jobType: null`, so
-  `boundAtomicAnimation` returns nothing and the civilist fallback is deliberately withheld from beasts.
-  The mod binds animal atomics under jobs 48/49 (`content/ir.json` tribe 20 `wolves` carries
-  `{jobType: 48|49, atomicId: 81, animation: 'animal_bear_attack'|'animal_wolve_attack'}`). So a wolf's
-  attack takes the 4-tick unresolved default instead of its clip's length, and its authored roar
-  (`Wolve Attack` 104, `Bear Attack` 101, `Lion Attack` 107) never sounds - the generic
-  `byEvent.combatSwing` swoosh covers it instead.
-- **The sandbox binds no animal atomics at all** (`packages/app/src/game/sandbox/content/catalog/tribes.ts`
-  registers animal tribes with `typeId`/`id` only), so the scene cannot exercise the fix.
-- **A struck working trade never flinches.** The stagger gate
-  (`packages/sim/src/systems/settlers/atomics/effects/combat/hit/reaction.ts`) requires the trade's own
-  `attacked` (82) row, which only jobs 5-6 carry; under the chain a builder or carrier would resolve the
-  civilist's. Whether the original issues 82 to a hit civilian trade still needs observation.
-- The sandbox binds the store pick-up and pile-up (22/23) for every job, unlike the real data (22 on
-  jobs 1-6, 23 on 5-6), so no scene walks the fallback the real content depends on; binding them on the
-  civilist only, as the talk and eat rows already do, would make scenarios follow the real path.
+The IR already carries `JobType.baseJob`; `resolveJobAtomics` and the render-side `tribeJobSeqs`
+(`packages/app/src/content/ir/joins.ts`) already walk parent chains. Original behavior: on a missing
+tribe/job/atomic binding, the parent's allow flag gates the retry up the chain; an unresolved chain
+starts no animation. The sim's nonzero `DEFAULT_ATOMIC_DURATION` remains an approximation for that miss.
 
 ## Scope
 
-- Give the sim the job's real atomic parent chain instead of the civilist flattening, and a wildlife body
-  the job its tribe binds its clips under.
-- Add the sandbox animal attack clips and their tribe bindings so `?scene=wildlife` can be judged. Their
-  lengths are a swing-cadence change, so check the combat tests that pin animal attack timing.
-- Drop the approximation note on `atomicClipName` once the chain is real.
+- Resolve clip names, durations and timed events through the actual job parent chain, with cycle and
+  missing-parent protection. Keep unit-variant animation-job selection intact.
+- Reuse wildlife's existing `boundAnimalAtomicAnimation` path and sandbox `CREATURE_ATTACKS` bindings;
+  preserve authored animal attack timing and sound cues while unifying any shared lookup.
+- Bind sandbox store pickup/pileup rows only where real content supplies them, so the scenarios test
+  inherited bindings instead of giving every job a direct row.
+- Inspect the hit-reaction gate in `settlers/atomics/effects/combat/hit/reaction.ts`, which still uses
+  direct bindings for `attacked` (82). Whether the original issues that action to a working civilian
+  trade needs observation before changing its stagger behavior.
+- Replace the civilist-flattening approximation note once the parent lookup is implemented; keep the
+  unresolved-duration approximation explicit.
 
 ## Verify
 
-- Unit: a soldier resolves through job 31, a hero through its own parent, and a bear through 48 - each to
-  the clip the data names, not the civilist's.
-- Human ear on `?scene=wildlife`: a bear and a wolf attack with their own roars, at their own cadence.
+- Synthetic tests resolve a soldier and hero through distinct parents, enforce parent allow flags,
+  and terminate missing or cyclic chains without choosing the civilist's unrelated clip.
+- Real-content tests (`packages/app/test/content/job-atomics.test.ts`) and sandbox scenarios exercise
+  inherited store actions. Animal attack tests retain authored cadence and timed sound cues.
+- Listen to bear and wolf attacks in `?scene=wildlife`; their existing roars and cadence must survive.
+  Run the applicable gates from `docs/TESTING.md`.

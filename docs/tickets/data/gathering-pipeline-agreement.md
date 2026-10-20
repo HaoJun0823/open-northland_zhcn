@@ -30,5 +30,5 @@ drop is the durable fix and needs the sim read sites costed first.
 
 New reject rows in the `REJECT_CASES` table of `packages/data/test/cross-references.test.ts`, one per
 duplicated field, plus an accept case for a consistent set. `npm test`, `npm run check`,
-`npm run build`. Regenerating from the owned copy must stay clean, since the extractor derives both
+`npm run build`. Regenerating from the selected data pack must stay clean, since the extractor derives both
 sides from the same source.

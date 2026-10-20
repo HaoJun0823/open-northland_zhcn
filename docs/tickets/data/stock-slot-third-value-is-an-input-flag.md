@@ -2,7 +2,7 @@
 
 **Area:** data, sim, app · **Priority:** P2
 
-`extractBuildings` (`tools/asset-pipeline/src/decoders/ini/types/buildings.ts`) reads
+`extractBuildings` (`packages/formats/src/ini/types/buildings.ts`) reads
 `logicstock <good> <capacity> <third>` and names the third value `initial`; `StockSlot.initial`
 (`packages/data/src/schema/economy/buildings.ts`) carries it, and `placeBuilding`
 (`packages/sim/src/systems/command/placement.ts`) seeds that many units into a building as it is

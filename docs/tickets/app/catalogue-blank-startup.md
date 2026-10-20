@@ -2,22 +2,23 @@
 
 **Area:** app, sim, render · **Priority:** P2
 
-Seven imported maps completed loading and advanced at least 360 simulation ticks while retaining a
-blank initial view, without a JavaScript error. Reproduction cases:
+A catalogue audit recorded seven imported maps completing loading and advancing at least 360
+simulation ticks while retaining a blank initial view, without a JavaScript error. Reproduction cases:
 
 - Shadow of Imperial Glory: main map and Shadow of Imperial GlorySub1.
 - Stealing the Heart: sub1, sub2 and Sub3.
 - Battle for Antiochia: folder Battle for Antiohia.
 - MZ1-Okup-Zejtar.
 
-The audit used seed 7 and the first visible claimable seat (otherwise player 0). Several cases have
+The audit used seed 7 and the first visible claimable seat (otherwise player 0). Several cases had
 no player-0-owned entities and unconsumed capitalized mission fields. A single shared cause is not
-established.
+established; the starts have not been rechecked against the current map/campaign boot paths.
 
 ## Scope
 
-- Retest after [mission field compatibility](../data/mission-field-case-compatibility.md). Trace
-  initial camera, fog/visibility, seat selection, scripted spawning and campaign transfer state.
+- Retest on current code after
+  [mission field compatibility](../data/mission-field-case-compatibility.md). Trace initial camera,
+  fog/visibility, seat selection, scripted spawning and campaign transfer state.
 - Distinguish supported standalone starts from submaps that require a campaign predecessor;
   reproduce the latter through a valid transition before classifying an engine failure.
 - Fix confirmed startup defects. Where standalone entry is invalid, make the supported entry path

@@ -4,17 +4,21 @@
 **Needs user:** observe whether the original permits mining a covered deposit from an exposed side.
 
 Sandbox clay includes its anchor in the full-state work area, while extracted clay/mud use adjacent
-full-state cells. `resourceWorkCell` also filters resource blockers but not building blockers. The same
-house-over-deposit case is therefore skipped in sandbox content but can be side-mined, or falsely skipped
-despite another open work cell, with real content.
+full-state cells. `resourceWorkCell` (`packages/sim/src/systems/footprint/interaction.ts`) already
+filters the stance pool against building, resource and landscape blockers, then skips stances sealed
+from the origin. The remaining uncertainty is which stance the source work area should permit: a
+house covering the sandbox anchor leaves no stance, while an extracted deposit can retain exposed
+side cells. Ordinary clay mining on its anchor does not establish the covered-deposit rule.
 
 ## Scope
 
-After observing the original, make work-cell selection apply one rule to every candidate and every
-consumer. Add an anchor-excluded fixture matching extracted content. Player feedback for ignored deposits
-is out of scope unless the observation shows the original provides it.
+Observe covered, partly exposed and exposed deposits in the original. Apply the confirmed rule to
+source work areas and all their consumers, with an anchor-excluded fixture matching extracted
+content. Keep the existing blocker and pocket filtering. Player feedback for ignored deposits is out
+of scope unless the observation establishes it.
 
 ## Verify
 
-A focused test pins covered, partially exposed, and fully exposed deposits. Run `npm test`; name any
-intentional pick/golden movement.
+Focused tests pin the confirmed behavior for covered, partially exposed and fully exposed deposits
+using both anchor-included and anchor-excluded work areas. Run `npm test`; name intentional
+pick/golden movement.

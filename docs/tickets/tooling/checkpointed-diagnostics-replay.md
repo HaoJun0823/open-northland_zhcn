@@ -10,9 +10,9 @@ snapshot into persistence state.
 
 ## Scope
 
-- Extend the versioned diagnostics schema with an optional validated save checkpoint, its checkpoint tick,
-  and the command-attempt tail after that tick. Keep the existing seed/world replay form readable for
-  older bundles.
+- Extend the diagnostics schema with an optional validated save checkpoint, its checkpoint tick,
+  and the command-attempt tail after that tick. Bump the diagnostics version and replace its fixtures;
+  accept only that version. Support checkpoint and seed/world replay forms within the current version.
 - Make the CLI restore the checkpoint and replay only its tail to the recorded final tick. Reject content,
   map, save-schema, or command-envelope mismatches before stepping.
 - Bound automatic bundle size with one checkpoint and a configured recent command window. If a report
@@ -25,7 +25,7 @@ snapshot into persistence state.
 
 - A long fixture session replayed from a mid-session checkpoint reaches the same final hash as replay from
   tick 1 while stepping only the tail interval.
-- The CLI reads a legacy seed/log bundle, rejects a mismatched checkpoint, and reports a deliberately
-  truncated tail as incomplete.
+- The CLI reads both current-version replay forms, rejects other diagnostics versions and mismatched
+  checkpoints, and reports a deliberately truncated tail as incomplete.
 - Serialized bundles remain bounded under a fixed command rate; `npm test`, `npm run check`, and
   `npm run build`.

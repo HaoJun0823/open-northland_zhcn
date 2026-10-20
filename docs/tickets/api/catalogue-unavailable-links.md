@@ -3,7 +3,7 @@
 **Area:** api, app · **Priority:** P2
 
 The catalogue audit could not download seven external entries. Hostuje pages for Leśne Wzgórza
-and Leśna Wojna report that the file is absent. ModDB returns HTTP 403 with a challenge page for
+and Leśna Wojna reported that the file was absent. ModDB returned HTTP 403 with a challenge page for
 8-MY CUD - FINAŁOWA BITWA, Legenda Sześciu Synów v1.0, Bitwa o Cztery Wzgorza, Jezioro Mgieł
 and Miasto portowe Kalos. A blocked request is not evidence that the file has expired.
 

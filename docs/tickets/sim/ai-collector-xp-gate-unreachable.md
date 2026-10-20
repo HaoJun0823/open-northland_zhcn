@@ -1,37 +1,31 @@
-# Drop the dead XP gate from AI collector staffing
+# Remove XP-only veteran reposting from AI collector staffing
 
 **Area:** sim · **Priority:** P3
 
-AI seats skip the experience tree for gathering and crafting alike: a bot's smith forges long swords
-and its collector digs iron from the first day.
+`experienceGatesApply` (`packages/sim/src/systems/progression/unlocks.ts`) exempts machine seats
+from civilian experience requirements. The collector allocator still reads the tribe's XP rows in
+`needsVeteran` (`computer-player/workforce/collectors/wanted-goods.ts`) and can move a collector from
+an ungated good to a supposedly veteran-only post (`collectors/allocate.ts`). Fresh machine-seat
+workers already qualify for that post's XP requirement, so that distinction cannot guide staffing.
 
-`experienceGatesApply` (`packages/sim/src/systems/progression/unlocks.ts`) exempts every AI seat
-from the experience tree on civilian targets, so `settlerMeetsNeed(..., 'good', ...)` is constant
-`true` for the settlers the workforce allocator governs. The discovery gates carry the same
-exemption (`tribeUnlockEnabled` in `availability.ts` and the house loop of `discoveries.ts`), which
-the original's behavior corroborates for its AI seats. That makes two gates no-ops:
-
-- `meetsNeed` in `computer-player/workforce/collectors/wanted-goods.ts` at both its call sites: the first
-  post and the veteran repost accept any spare man, iron included.
-- the `settlerMeetsNeed` term of `gathererReach(...).takes` in `computer-player/live-resources.ts`, which
-  never turns a resource down.
-
-The surrounding machinery still runs. `needsVeteran` reads the tribe's requirement rows directly, so
-the veteran repost still fires for iron when the spare pool is dry, moving an ungated good's
-collector onto it - currently harmless but pointless, since the same fresh man `meetsNeed` accepts
-could have taken the iron post directly.
-
-Three cases in `packages/sim/test/systems/computer-player/workforce-allocation.cases.ts` pin the gated
-behaviour against a fixture seat that carries no `AiControl` entity, so they pass while describing
-behaviour a real seat cannot reach: "hires the iron collector only once the build order reaches its
-gated entry", "gates the iron post on accrued XP" and "moves a generic flag whose circle holds only
-a good the holder lacks the experience for".
+The surrounding admission checks still matter. `settlerMeetsNeed` checks `typeAllowed` before the
+AI exemption, preserving map and tribe permissions. `gathererReach` (`computer-player/live-resources.ts`)
+also serves the assistant's flag follow for human players, whose experience requirements still apply.
+Neither predicate is unconditionally true.
 
 ## Scope
 
-Delete `meetsNeed`, `needsVeteran`, the veteran repost and the reach's need term, and rewrite the
-three cases against what an AI seat actually does.
+- Remove the XP-only veteran distinction and repost path from machine-seat collector allocation.
+  Preserve permission checks and existing build-order entry gates.
+- Review the three XP-oriented cases in
+  `packages/sim/test/systems/computer-player/workforce-allocation.cases.ts`: the gated-entry hire,
+  veteran repost, and generic flag holding only a good the holder lacks XP for. Use a real `AiControl`
+  seat for machine-player expectations; retain any independent build-order coverage.
+- Keep the shared reach predicate's human experience behavior and every seat's permission refusal.
+  Remove a wrapper only when those checks remain at its callers.
 
 ## Verify
 
-`npm test`, `npm run check`, `npm run build`.
+A fresh machine-seat collector can take an allowed XP-gated good, but not a forbidden one; a human
+assistant still refuses a good its holder lacks XP for. The allocator does not move a collector solely
+because the target good declares an XP threshold. Run `npm test`, `npm run check`, and `npm run build`.

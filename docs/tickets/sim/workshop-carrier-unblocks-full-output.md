@@ -1,25 +1,34 @@
-# Make a bound carrier service a blocked workshop first
+# Have a bound carrier clear a blocking output before fetching inputs
 
 **Area:** sim · **Priority:** P3
 
-A carrier bound to a recipe workshop reaches `planWorkshopSupplier` only occasionally because general
-porter work wins most replans: a measured bakery run reached its own supplier drive 73 times in 20,000
-ticks and not once in the final 500. When the drive does run, it fills inputs before hauling a full
-output shelf. Craftsmen currently mask most stalls by hauling their own output, but a workshop whose
-craftsmen are absent or seated can remain blocked while its assigned carrier works elsewhere or makes
-an input trip that cannot unblock production.
+`planWorkshopSupplier` (`packages/sim/src/systems/settlers/drives/economy/workshop/index.ts`) tops up
+inputs before hauling output. With a full output shelf and an under-capacity input, its bound carrier
+can make an input trip that leaves production blocked. Craftsmen can haul their own blocked output,
+but this does not help while they are absent or seated.
+
+The bound supplier already runs before general porter work in `drives/ladder.ts`, but that rung
+always claims the carrier. When the supplier has no work it waits at its pickup flag or loiters,
+preventing the wider settlement's hauling fallback. Both output-first unblocking and availability
+for general hauling remain to implement. Original trip scheduling is unconfirmed; this priority is
+an approximation.
 
 ## Scope
 
-- Instrument which drive claims the bound carrier before changing priority.
-- When its own workshop has a shelf-blocking output, let the supplier drive win over general porter
-  work and call the existing `shelfBlockedOutput`/`startOutputHaul` path before the input scan.
-- Keep a carrier available to the wider settlement when its workshop has no blocking work. The
-  priority is an approximation because the original's trip scheduling is not established.
+- When the workshop has shelf-blocking output that can be delivered, use `shelfBlockedOutput` and
+  the existing `walkPickupBatch`/delivery path before searching for missing inputs, as the craftsman
+  drive already does. Preserve ordinary supply and pickup-flag source preference.
+- Keep the bound carrier available to the wider settlement when its workshop has no blocking work.
+  Let it take useful general hauling rather than always claiming the planner rung and idling locally;
+  reuse the existing hauling fallback. Cover any operator-presence and pickup-flag constraints.
 
 ## Verify
 
 - Planner test: a blocked workshop with no craftsman and an under-capacity input makes its bound
-  carrier pick up output before fetching or taking a general haul.
-- Re-measure supplier-drive frequency and shelf levels on a real-map run of comparable length.
-- `npm test`, `npm run check`, and `npm run build`; existing goldens stay unchanged.
+  carrier lift the blocking output before fetching input. No available output destination leaves
+  ordinary input supply working.
+- With no blocking workshop work and a useful settlement haul waiting, the bound carrier takes that
+  haul. Cover pickup-flag and carrier-as-operator cases so general work respects their constraints.
+- Compare shelf levels and blocked-production duration on a comparable real-map run; the former
+  supplier-drive frequency observation does not describe the current ladder.
+- `npm test`, `npm run check`, and `npm run build`; name any intentional golden movement.

@@ -11,7 +11,7 @@ they are the project's own edits of community maps.
 | Repository | <https://github.com/HaoJun0823/CulturesGameLocalization> |
 | Commit | `f4e4ec6041ca0931b4a7417076e73c7fc05cd038` |
 | License | GPL-3.0-or-later; section 13 of the GNU GPL version 3 allows combining it with this repository's AGPL-3.0-or-later code |
-| Permission | The translation's author permitted the project owner to use these Chinese translations in Open Northland. Written form: to be attached by the owner. |
+| Permission | The project owner confirms that the translation's author gave verbal permission to use these Chinese translations in Open Northland. |
 
 The localization translates the German text, so every overlay's `basis` is our data pack's German
 text of the same map, table or book. `cht` is not a separate translation: the upstream author converted

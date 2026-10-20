@@ -24,6 +24,6 @@ real content.
 
 ## Verify
 
-- `npm test`; a real pipeline run against the local mod (extraction changed).
+- `npm test`; a real pipeline run against the selected data pack (extraction changed).
 - The generated `ir.json` carries `equip` on the equippable goods, and the equip window, draught
   effects and the `amulets` scene's real-content test still work.

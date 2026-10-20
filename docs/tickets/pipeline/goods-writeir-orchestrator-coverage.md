@@ -2,9 +2,10 @@
 
 **Area:** pipeline · **Focus:** tests · **Priority:** P3
 
-Two pipeline orchestrators have no direct test coverage. Their pure inner joins are tested, but the
-emit/assembly wrappers around them are only exercised by a full `npm run pipeline` run against the
-local mod (not by CI, which has no game assets):
+Two pipeline orchestrators have no direct tests protecting the validity and completeness of their
+generated outputs. Their pure inner joins are tested, but the emit/assembly wrappers are only
+exercised by a full `npm run pipeline` run against the selected data pack (not by CI, which has no
+game assets):
 
 - `convertGoodsStage` (`tools/asset-pipeline/src/stages/goods/index.ts`) - only the pure join
   `resolveGoodIcons` is unit-tested. The stage's atlas + palette-LUT + manifest

@@ -2,77 +2,54 @@
 
 **Area:** render · **Focus:** performance · **Priority:** P2
 
-The per-option costs are in the [graphics defaults' cost basis](../../GRAPHICS.md#cost-basis): on an
-Apple M2 Pro the screen-sized ones are building grounding (8 to 12% of a dense town's GPU frame at zoom
-1) and render scale or DPR above 1, which magnifies every sprite through xBR. Improve frame cost and
-Direct3D compile time without changing simulation speed, population, gameplay rules or the default
-pictures.
+The [graphics defaults' cost basis](../../GRAPHICS.md#cost-basis) records material costs for building
+grounding and magnification. The paged sampling chains and grounding overlays remain current code
+paths, but the reference measurements predate the current prescale path and near-one-texel single-tap
+minification branch. Remeasure before selecting a change; the old numbers are investigation leads,
+not current performance guarantees.
 
 ## Scope
 
-Measure first, then fix only what the numbers justify. GPU milliseconds per option come from the
-paused, GPU-bound [per-setting loop](../../PERFORMANCE.md#per-setting-gpu-cost) with the option on and
-off interleaved; the ×3 frame timer is too bimodal for a sub-millisecond option.
+Use the paused, GPU-bound [per-setting loop](../../PERFORMANCE.md#per-setting-gpu-cost) with options
+interleaved. Improve only costs the new measurements justify, preserving default pictures and
+simulation behavior. Bound the implementation to one measured bottleneck:
 
-- **Direct3D compile time of the paged meshes** (`gpu/shading.ts`, `gpu/map-objects/decor-shadow-shader.ts`,
-  `gpu/page-samplers.ts`). The terrain and decor shading run once after `pageChain`; what it still
-  inlines once per page slot (8) is each mesh's sampling path: the terrain's bicubic and four-tap minify
-  taps (`shaded-terrain` 178 inlined texture operations by the shader-budget estimator) and the decor
-  shadow's whole shading with its soft blur (`decor-shadow` 304). Measured with
-  `npm run test:shaders -- --angle=d3d11 --relink` in a fresh Chrome on an RTX 4090, the restructure took
-  `shaded-terrain` from 2417 to 535 ms and `shaded-decor` from 236 to 78 ms, while `decor-shadow` stayed
-  at about 2.7 s (2659 to 2714 ms), the one paged mesh still compiling like the world batch's xBR
-  variant; the catalogue's total went from 28.5 to 24.1 s. The boot's warm-up links them off the main
-  thread, so the cost is first-start time. Fewer slots on Direct3D or one `sampler2DArray` for same-sized
-  pages would cut the decor shadow's chain.
-- **Grounded building overlays** (`gpu/ground-foot/`, `gpu/texture-cache.ts`). In the densest
-  `magiczny_las` town at zoom 1 the shade and cover overlays add about 2.0 Mpx of quads over 11.7 Mpx of
-  other world sprites and cost 0.20 ms of a 2.4 ms GPU-bound frame (the sunk bodies cost nothing
-  measurable). Each overlay is its own texture (60 + 60 in that view) and every overlay fragment pays the
-  world program's magnifier preamble although it samples once. Only 17-20% of the overlay quads'
-  texels have any alpha; cutting each band of four rows to its non-transparent span plus a texel of
-  margin keeps about 42% of the area, so drawing an overlay as a few band quads or a small batched mesh
-  would roughly halve the cost with identical pixels. The overlays bind in the sprite pool's layer
-  binding and in `gpu/map-objects/tall-blocks.ts`.
-- **World batch page size per fragment** (`gpu/world-batch-shader.ts`). With any magnifier on,
-  `textureSizeOf()` walks the sampler chain once per fragment, plain fragments included; the page size
-  could ride a vertex attribute. That prologue (the page size and the footprint derivatives), forced
-  into the `off` variant, cost 0.27 ms of its 1.9 ms GPU-bound frame (Apple M2 Pro, the densest town of
-  `magiczny_las` with six hard AI at tick 100000, 1920x1080, zoom 1), against 1.5-1.6 ms between `off`
-  and bilinear in all. It belongs with the magnifier work (the paletted mesh's per-tap query is now one
-  query per fragment).
-- **Four-tap minify at zoom 1 and below.** A minified fragment samples four clamped taps, which land
-  on one point when the footprint is under a texel. At zoom 1 rounding sends some unscaled sprites to
-  the xBR magnifier and others to the minifier, and which one can change with any rebuild of the shader.
-  Taking every footprint within 0.001 of one texel per pixel through a single 1:1 tap makes zoom 1
-  deterministic and cheaper but moves about 1% of the zoom-1 pixels; it needs an owner ruling on the
-  pictures before it lands.
-- **Per-frame allocation** (`gpu/sprite-pool`, `data/scene`). At t80000, x3, the main thread allocated
-  about 600 KB per frame in the dense view and 770 KB in the widest (allocation sampling with collected
-  objects, before the still-frame and combat-mark changes). The render share: the pool's `reconcile`
-  25 KB (dense) and 145 KB (widest), `presentItem` about 24 KB and `assembleItem` about 25 KB per frame;
-  the rest is the snapshot delta path and Pixi. Trace the stacks before retaining further reveal and
-  layer-offset records on `PresentationTrack`, and keep the binder's stamp semantics: a mutable retained
-  record must not make a changed layer look unchanged.
+- **Paged shader compile time** (`packages/render/src/gpu/shading.ts`,
+  `gpu/map-objects/decor-shadow-shader.ts`, `gpu/page-samplers.ts`). Sampling still sits inside the
+  page chain, including the decor shadow's soft blur. A prior fresh Direct3D relink measured that
+  shadow at about 2.7 seconds on an RTX 4090. Measure the current shader variants and inlined texture
+  budget before reducing duplicated sampling or page slots.
+- **Grounded overlays** (`gpu/ground-foot/`, `gpu/texture-cache.ts`, `gpu/map-objects/tall-blocks.ts`).
+  A prior `magiczny_las` dense-town capture at zoom 1 measured 2.0 Mpx of mostly transparent overlays
+  and about 0.20 ms of a 2.4 ms GPU frame on Apple M2 Pro. Test tighter band quads or meshes only if
+  the current overlays retain a material cost; preserve identical coverage and edges.
+- **Page-size queries** (`gpu/world-batch-shader.ts`). `textureSizeOf()` still walks the sampler chain
+  per fragment. The page-size/derivative prologue, forced into the off variant, previously cost
+  0.27 ms of a 1.9 ms GPU-bound frame: Apple M2 Pro, the densest `magiczny_las` town with six hard AI
+  at tick 100000, 1920×1080, zoom 1. Compare passing size as vertex data against the current prescaled
+  and plain paths; retain it only if the measured gain outweighs the attribute cost.
+- **Per-frame allocations** (`gpu/sprite-pool`, `data/scene`). Allocation sampling with collected
+  objects at tick 80000, ×3, before the still-frame and combat-mark changes measured about 600 KB per
+  dense-view frame and 770 KB in the widest view. Pool reconciliation accounted for 25/145 KB,
+  `presentItem` about 24 KB and `assembleItem` about 25 KB. This partial scenario description is not a
+  repeatable current baseline: profile current retained tracks before removing allocations. Keep binder
+  stamps correct: mutating a retained layer record must not make a changed layer look unchanged.
+
+The existing `SINGLE_TAP_FOOTPRINT` branch already avoids nearly coincident minification taps. Do not
+repeat that optimization; any wider threshold is a visual change requiring an owner ruling on the
+comparison pictures.
 
 ## Verify
 
-- The GPU-bound on/off loop for grounding (and any other option a change touches) at zoom 1 and 0.5,
-  before and after, with the paired per-cycle deltas reported.
-- Paused screenshots compared pixel by pixel (`npm run bench:browser-shots`): identical to the control
-  capture unless an owner ruling accepts the change. The dev FPS readout in the top bar differs between
-  captures on a loaded machine; read the world.
-- `npm run test:shaders -- --angle=d3d11` on Windows or through the CI workflow's `shaders` input,
-  before and after, for the paged meshes.
-- The Direct3D sampling rule (a page in a sampler chain is read with derivatives taken before the
-  chain, an explicit level or `texelFetch`; see `pageChain` and the shader-budget test) rests on one
-  Windows measurement: on an Intel UHD 770 at 1920x1080, in the densest town of `magiczny_las` (six
-  hard AI, tick 100000), `magnify-off-z1` drew in 14.38 ms against 11.02 ms for the since removed
-  bilinear magnifier, with the world batch's off mode still reading with implicit derivatives. The same
-  pair after the explicit reads, same machine and view: `magnify-off-z1` 10.43 ms, `magnify-off-z2`
-  14.89 to 9.42 ms, bilinear unchanged at 11.03 and 12.04 ms, so hoisting out of the chain was the cause
-  and the rule stands. A change to a sampler chain repeats `magnify-off-z1` and `magnify-off-z2` beside
-  `magnify-xbr-z1` with `npm run bench:gpu` on Direct3D: the off mode must stay below xBR, as on that
-  machine at the branch's end (9.89 and 10.36 ms against 12.22 ms), not above it as before the explicit
-  reads.
+- Report before/after paired GPU measurements at zoom 1 and 0.5 for each touched option; CPU allocation
+  work also reports its current profile and frame cost. Include scenario, hardware, resolution and
+  prescale settings.
+- Compare paused screenshots pixel by pixel (`npm run bench:browser-shots`); world pixels stay
+  identical unless the owner accepts a specific visual change.
+- For paged shaders, run `npm run test:shaders -- --angle=d3d11` on Windows or through the CI shaders
+  input, including fresh relink timings and the shader-budget check.
+- Preserve the Direct3D sampling rule in `pageChain`: reads inside sampler selection use derivatives
+  computed before the chain, an explicit level or `texelFetch`. A sampler-chain change repeats
+  `magnify-off-z1`, `magnify-off-z2` and `magnify-xbr-z1` with `npm run bench:gpu` on Direct3D;
+  off mode must not regress above xBR as implicit-derivative sampling previously did.
 - `npm run check`, `npm run build`, `npm test`.

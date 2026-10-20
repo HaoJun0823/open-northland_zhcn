@@ -4,7 +4,8 @@
 
 All 35 IR `animals` records ship `name: null` and a fallback id `animal_<tribeType>`:
 `animaltypes.ini` has no `name` key (species appear only as `//` comments), so
-`extractAnimals` finds nothing. The species name is recoverable at extract time by joining
+`extractAnimals` (`packages/formats/src/ini/types/actors.ts`) finds nothing.
+The species name is recoverable at extract time by joining
 `tribeType` onto the tribes table (every animal tribe 8..41 has a readable slug: `bears`,
 `stags`, ...), and the display name lives in `Data/text/eng/strings/gameobjects/tribes.ini`
 (`stringn <tribetype> "Bear"`). Consumers currently re-do the tribes join ad hoc (e.g. the

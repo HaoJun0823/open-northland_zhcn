@@ -14,7 +14,7 @@ That is an action that neither succeeds nor explains its refusal - the same defe
 
 ## Scope
 
-- Read the local seat's defeat once per frame from `Simulation.matchOutcome` and carry it into the HUD
+- Read the local seat's defeat once per frame through `SessionHost.matchOutcome` and carry it into the HUD
   as one state, rather than testing it at each call site.
 - In that state the order-issuing surfaces refuse visibly: the build and goods menus and the unit
   command controls read as unavailable, and placement mode cannot be entered.

@@ -6,15 +6,16 @@ The AI's own collector searches drop a resource whose every stance cell lies sea
 base's walk cannot enter (`unsealedResourceTest`, `computer-player/workforce/flag-spots.ts`). The assistant's
 flag follow (`assistant/flag-follow.ts`) does not: its nearest-resource test is `reachableResourceTest`
 alone, so a re-plant still spends one of its `REPLANT_ATTEMPTS` spot searches on a sealed deposit that
-`GathererReach.canWork` then rejects. On `magiczny_las` with 6 AI seats these misses still occur late
-in the game, all from the flag follow.
+`GathererReach.canWork` then rejects. An earlier `magiczny_las` run with six AI seats recorded these misses late in the game, all from
+flag follow; repeat the measurement on current code.
 
 ## Scope
 
 - The flag follow's nearest-resource test drops a resource sealed from the re-plant's origin, as the AI
   collectors' does, fail-open on a pocketed origin.
-- Player-visible: the assistant switch serves human players too, so a moved flag can land on another
-  deposit. Confirm with the owner before changing it.
+- Apply the same filter to human-player assistant use: automatic flag follow skips an inaccessible
+  deposit in favor of the next workable one. Preserve manual flag placement and fail-open handling
+  when the origin itself is pocketed; do not exclude a deposit with a reachable working stance.
 
 ## Verify
 

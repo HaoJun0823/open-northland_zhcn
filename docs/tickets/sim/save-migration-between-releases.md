@@ -1,36 +1,41 @@
-# Load saves from the previous release
+# Preserve saves across releases with tested migration scripts
 
-**Area:** sim, app · **Focus:** save/load · **Priority:** P3
-**Needs user:** the owner decides which release first promises that its saves survive the next one
+**Area:** sim, app · **Focus:** save/load and release preparation · **Priority:** P3
 
-Every release breaks every player's saves. `parseSaveGame` accepts exactly `SAVE_FORMAT_VERSION`, which
-moves many times between two release tags, and `restoreSimulation` also rejects a save whose `irVersion` or
-`contentFingerprint` differs from the loaded content. A save made in `v0.3.0` cannot be loaded in the
-next release.
+Implement save compatibility between releases. Before each release, prepare and test the migration
+from its predecessor; intermediate development formats do not need migration steps. This is the
+agreed target of this ticket, not a capability or contract the current implementation already provides.
 
-Migrate between releases, not between commits. Format bumps between two tags stay free, as the
-"Persisted state" rule in `AGENTS.md` says today; the release that ships them adds one step from the
-previous release's format to its own.
+Currently, `parseSaveGame` accepts only the current
+`SAVE_FORMAT_VERSION`, and `restoreSimulation` rejects mismatched IR, content and mission-script
+fingerprints. A format-only rewrite cannot by itself make an old world compatible with changed data.
 
 ## Scope
 
-- A migration chain in `packages/sim/src/save/` that lifts a save from the previous release's format
-  version to the current one before `parseSaveGame` checks it. One step per release, keyed by format
-  version.
-- A committed save fixture taken from each supported release tag, so a test loads it in the current
-  build.
-- Decide the content gate for migrated saves: a release that changes the data pack or the IR also
-  changes `contentFingerprint` and possibly `irVersion`, which today rejects the save even when its
-  format migrates. Investigate what changed between `v0.2.3` and `v0.3.0` before choosing.
-- A save a step cannot lift faithfully (state the new rules cannot rebuild) is rejected with a message
-  naming the release it came from, never loaded half-converted.
-- Rewrite "Persisted state" in `AGENTS.md` and the save section of `docs/DATA-FORMAT.md` to the new
-  rule, and add the step to the release procedure so writing it is part of cutting a release.
+- Implement release-to-release migration scripts and the load-path integration that runs the required
+  chain before strict current-format parsing and restore. Identify source release formats explicitly;
+  do not guess from a similar shape or accept arbitrary development versions.
+- Retain a synthetic save fixture and version/content metadata for each release in the chain. Map
+  release tags to the formats they actually shipped. Each release contributes its necessary transition,
+  not one migration per development commit.
+- Research changes to simulation state, content ids, map identity and mission scripts between release
+  baselines. Migrate affected state explicitly and validate it against destination content; do not
+  merely overwrite fingerprints to bypass restore checks. Generated content itself is rebuilt.
+- Preserve the source save and write the migrated result only after full validation. An unknown,
+  corrupt or newer save fails clearly without modifying the original. A previous-release save that
+  cannot be migrated is a release blocker to resolve, not a routine compatibility exemption.
+- When the migration path is implemented and verified, update the persisted-state section of
+  `AGENTS.md`, the save-format reference, fixture instructions and release checklist to describe the
+  implemented compatibility policy. Until then, keep those documents describing current behavior.
+  Document the migration entry point, release chain and recovery on failure; keep the core parser
+  strict about its own version.
 
 ## Verify
 
-- The previous release's fixture loads in the current build, runs a few hundred ticks with no
-  invariant failures, and saves again in the current format.
-- A save from two releases back either migrates through both steps or is rejected with the clear
-  message, as the chosen policy says.
-- `npm run check`, `npm run build`, `npm test`.
+- Each previous-release fixture migrates, restores, runs several hundred ticks without invariant
+  failures, and saves and reloads in the current format. An older fixture traverses consecutive steps.
+- Cover changed content and mission fingerprints with real semantic transformations, not disabled
+  gates; corrupt, newer and unknown development formats are rejected without source mutation.
+- Repeated migration of the same input gives identical state; an already-current save needs no step.
+- Run focused migration/save tests and the applicable gates in [TESTING.md](../../TESTING.md).
+  Add this validation to [Release checks](../../BUILDING.md#release-checks) as part of completion.

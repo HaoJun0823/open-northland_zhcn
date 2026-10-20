@@ -1,32 +1,30 @@
-# Bound the AI's tower garrison against its field army
+# Bound the computer player's tower garrison against its field army
 
 **Area:** sim · **Priority:** P2
 
-Every standing tower the AI seat owns takes `TOWER_GARRISON_ARCHERS = 3` archers permanently out of
-its field army (`packages/sim/src/systems/computer-player/military/defence/posts.ts`; `takeCensus` drops a
-posted man, so he never rejoins a wave). Nothing ever releases a garrison: no rung lowers a post, and
-the men are spent for the rest of the game.
+Every standing tower a strategic computer seat owns takes up to `TOWER_GARRISON_ARCHERS = 3` archers
+out of its field army (`packages/sim/src/systems/ai-shared/military/defence/posts.ts`).
+`takeCensus` (`ai-shared/military/census.ts`) excludes posted men, and the `computer-player` tower
+rule never releases them. The shared `map-ai` rule does release surplus posts; this task concerns the
+strategic rule only.
 
-The build order's tower entry is perpetual (`{ kind: 'towerCoverage' }` in
-`packages/sim/src/systems/computer-player/build-order/entries.ts`), placing a tower per uncovered stretch of
-settlement inside `TOWER_DEFENCE_RADIUS_NODES = 19`, and the late tail repeats it at the denser
-`DENSE_TOWER_RADIUS_NODES = 14`. A sprawling seat therefore keeps raising towers and keeps paying three
-archers each. The draft (`workforce/garrison.ts`) leaves posted archers out of its field count, so it
-replaces them, but every one is a man the waves never get: six towers take 18 men before the field army
-gains a single one, so the campaign stalls while the walls fill.
+The perpetual `towerCoverage` entries in `computer-player/build-order/entries.ts` keep placing towers
+as a settlement grows, first within `TOWER_DEFENCE_RADIUS_NODES = 19` and later at
+`DENSE_TOWER_RADIUS_NODES = 14`. The draft (`computer-player/workforce/garrison.ts`) replaces posted
+archers without returning them to the field: six full garrisons reserve 18 men from marching waves.
+There is no seat-wide bound linking those posts to the available army.
 
 ## Scope
 
-Pick a rule that keeps the walls manned without eating the army, and name it as the rule:
-
-- a seat-wide cap on posted archers as a fraction of the bow half of the draft;
-- posting only towers inside some radius of the seat, leaving outlying ones empty;
-- releasing a garrison when the seat's free band falls under `WAVE_MIN_SOLDIERS`, so a tower is manned
-  out of surplus rather than out of the wave.
+Bound strategic garrison staffing so expanding tower coverage preserves a marchable field band.
+Specify the chosen rule and its source basis: a share of the archer draft, a bounded set of towers,
+or release below `WAVE_MIN_SOLDIERS`. Keep the scripted `map-ai` staffing and release rule intact.
 
 ## Verify
 
-- Headless: a seat with N towers and a fixed draft keeps a marchable band above the wave minimum as N
-  grows, instead of falling to zero.
-- The existing garrison cases still pass: three archers per tower while men are spare, and a posted
-  man still leaves the census.
+- Headless: increase the number of towers against a fixed draft and confirm the rule preserves the
+  required field band instead of reserving every available archer. Recheck the campaign impact on a
+  developed computer seat.
+- Existing garrison cases retain three archers per tower when the chosen rule admits spare men;
+  posted men remain outside the field census. Cover release/reassignment and save/restore if the
+  rule requires them.

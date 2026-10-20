@@ -1,6 +1,7 @@
 import type { EntitySnapshot } from '@open-northland/sim';
 import { describe, expect, it } from 'vitest';
 import {
+  JOB_ARCHER_LONG,
   JOB_BUILDER,
   JOB_CHILD_FEMALE,
   JOB_CIVILIST,
@@ -8,6 +9,8 @@ import {
   JOB_HERO_UNARMED,
   JOB_SCOUT,
   JOB_SOLDIER,
+  JOB_SOLDIER_BROADSWORD,
+  JOB_SOLDIER_SPEAR,
   JOB_WOMAN,
 } from '../src/catalog/jobs.js';
 import { HUMAN_PLAYER, PRIMARY_TRIBE } from '../src/game/rules.js';
@@ -26,6 +29,7 @@ import {
 import { createProductSelectionCache } from '../src/hud/details-panel/model/settler-work.js';
 import { type ResidentsProjectionContext, residentRows } from '../src/hud/tool-panel/residents/projection.js';
 import type { ResidentRow } from '../src/hud/tool-panel/residents/rows.js';
+import { messages } from '../src/i18n/index.js';
 import { createSceneSim } from '../src/scenes/index.js';
 import { sandboxScene } from '../src/scenes/sandbox/index.js';
 import { buildingEntity, sandboxCtx, snapshotOf } from './support/sandbox.js';
@@ -120,6 +124,28 @@ describe('residents projection', () => {
     ]);
     expect(rows.get(3)?.ageYears).toBe(0);
     expect(rows.get(1)?.ageYears).toBeNull();
+  });
+
+  it('names a soldier by its class and files it under its weapon family', () => {
+    const classes = messages().hud.groupPanel.soldierClass;
+    const rows = rowsById([
+      person(1, JOB_SOLDIER),
+      person(2, JOB_SOLDIER_SPEAR),
+      person(3, JOB_SOLDIER_BROADSWORD),
+      person(4, JOB_ARCHER_LONG),
+      person(5, JOB_COLLECTOR),
+      person(6, JOB_HERO_UNARMED),
+    ]);
+    expect([1, 2, 3, 4, 5, 6].map((id) => rows.get(id)?.weapon)).toEqual([
+      'unarmed',
+      'spear',
+      'sword',
+      'bow',
+      null,
+      null,
+    ]);
+    expect(rows.get(2)?.profession).toBe(classes.soldier_spear_iron);
+    expect(rows.get(4)?.profession).toBe(classes.soldier_bow_long);
   });
 
   it('reads the lacks off the worn gear, the home and the family', () => {

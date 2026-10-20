@@ -1,19 +1,7 @@
 import type { VehicleType } from '@open-northland/data';
 import { components, systems, type WorldSnapshot } from '@open-northland/sim';
-import {
-  JOB_ARCHER,
-  JOB_ARCHER_LONG,
-  JOB_SOLDIER_AXE_BIG,
-  JOB_SOLDIER_AXE_SMALL,
-  JOB_SOLDIER_BROADSWORD,
-  JOB_SOLDIER_SABER_LONG,
-  JOB_SOLDIER_SABER_SHORT,
-  JOB_SOLDIER_SPEAR,
-  JOB_SOLDIER_SPEAR_WOODEN,
-  JOB_SOLDIER_SWORD,
-  JOB_SOLDIER_UNARMED,
-} from '../../../catalog/jobs.js';
 import { professionDefForJob } from '../../../catalog/professions.js';
+import { SOLDIER_CLASS_OF_JOB, SOLDIER_FAMILY_OF_MAIN_TYPE } from '../../../catalog/soldier-classes.js';
 import { settlerName } from '../../../game/character-names/index.js';
 import {
   healthOf,
@@ -143,31 +131,6 @@ const STANCE_OF_MODE: ReadonlyMap<number, GroupStance> = new Map([
   [systems.MILITARY_MODE.IGNORE, 'ignore'],
 ]);
 
-/** Each soldier class's name, by its `jobtypes.ini` id: the profession list names every class "Soldier". */
-const SOLDIER_CLASS: ReadonlyMap<number, keyof GroupCopy['soldierClasses']> = new Map([
-  [JOB_SOLDIER_UNARMED, 'soldier_unarmed'],
-  [JOB_SOLDIER_SPEAR_WOODEN, 'soldier_spear_wooden'],
-  [JOB_SOLDIER_SPEAR, 'soldier_spear_iron'],
-  [JOB_SOLDIER_SWORD, 'soldier_sword_short'],
-  [JOB_SOLDIER_BROADSWORD, 'soldier_sword_long'],
-  [JOB_SOLDIER_SABER_SHORT, 'soldier_saber_short'],
-  [JOB_SOLDIER_SABER_LONG, 'soldier_saber_long'],
-  [JOB_SOLDIER_AXE_SMALL, 'soldier_axe_small'],
-  [JOB_SOLDIER_AXE_BIG, 'soldier_axe_big'],
-  [JOB_ARCHER, 'soldier_bow_short'],
-  [JOB_ARCHER_LONG, 'soldier_bow_long'],
-]);
-
-/** Labels for the extracted weapon families, independent of their equipment tier. */
-const FAMILY_LABEL: ReadonlyMap<number, keyof GroupCopy['soldierFamilies']> = new Map([
-  [1, 'unarmed'],
-  [2, 'spear'],
-  [3, 'sword'],
-  [4, 'saber'],
-  [5, 'axe'],
-  [6, 'bow'],
-]);
-
 const ROLE_GLYPH: Readonly<Record<Exclude<SettlerRole, 'soldier'>, GroupKindIcon>> = {
   hero: { glyph: 'banner' },
   worker: { glyph: 'tool' },
@@ -261,7 +224,7 @@ function settlerFacts(
   const role = settlerRole(ctx, ent);
   const jobType = settlerJobType(ent);
   const fighter = role === 'soldier' || role === 'hero';
-  const soldierClass = jobType === undefined ? undefined : SOLDIER_CLASS.get(jobType);
+  const soldierClass = jobType === undefined ? undefined : SOLDIER_CLASS_OF_JOB.get(jobType)?.soldierClass;
   const profession = professionDefForJob(jobType)?.key;
   let kind: string;
   let plural: string;
@@ -269,7 +232,7 @@ function settlerFacts(
   switch (role) {
     case 'soldier': {
       const family = soldierWeaponFamily(ctx.weapons ?? [], ent);
-      const label = family === undefined ? undefined : FAMILY_LABEL.get(family);
+      const label = family === undefined ? undefined : SOLDIER_FAMILY_OF_MAIN_TYPE.get(family);
       kind = family === undefined ? `job:${jobType ?? ''}` : `soldier:${family}`;
       plural =
         label === undefined

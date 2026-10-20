@@ -1,5 +1,7 @@
 import type { UiCue } from '@open-northland/audio';
+import { JOB_SOLDIER } from '../../catalog/jobs.js';
 import { pickerEntries } from '../../catalog/professions.js';
+import { SOLDIER_FAMILIES, type SoldierFamily } from '../../catalog/soldier-classes.js';
 import { bcp47Tag, formatMessage, messages } from '../../i18n/index.js';
 import { productSelectionLabel } from '../details-panel/model/settler-work.js';
 import { type FigureBox, type FigureSlot, NO_FIGURE_SLOTS } from '../figures/live-figures.js';
@@ -186,6 +188,9 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     () => true,
     () => true,
   );
+  const soldierClassLabels: ReadonlySet<string> = new Set(
+    Object.values(messages().hud.groupPanel.soldierClass),
+  );
   const optionGroups = (groups: readonly ChoiceGroup[]): DropdownEntry<string>[] =>
     groups
       .filter((group) => group.rows.length > 0)
@@ -236,10 +241,27 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     const view = chip(copy.groups[id], '');
     view.button.addEventListener('click', () => {
       deps.cue('confirm');
-      setFilters({ ...state.filters, group: id });
+      // The weapon narrows the soldiers only, so another group drops it.
+      setFilters({ ...state.filters, group: id, weapon: id === 'soldiers' ? state.filters.weapon : null });
     });
     groupChips.set(id, view);
     groupRow.append(view.button);
+  }
+  // Under the soldiers group: their weapon, one family at a time. The caption is a glyph, since the word
+  // outgrows the label column in most languages.
+  const weaponRow = chipRow('', copy.weaponLabel);
+  weaponRow.classList.add('on-res-chips--weapons');
+  if (weaponRow.firstElementChild !== null) weaponRow.firstElementChild.innerHTML = GLYPH.swords;
+  weaponRow.title = copy.weaponLabel;
+  const weaponChips = new Map<SoldierFamily | null, { button: HTMLButtonElement; count: HTMLElement }>();
+  for (const id of [null, ...SOLDIER_FAMILIES]) {
+    const view = chip(id === null ? copy.anyWeapon : copy.weapons[id], '');
+    view.button.addEventListener('click', () => {
+      deps.cue('confirm');
+      setFilters({ ...state.filters, weapon: id });
+    });
+    weaponChips.set(id, view);
+    weaponRow.append(view.button);
   }
   const lackRow = chipRow(copy.without, copy.lacksLabel);
   lackRow.classList.add('on-res-chips--lacks');
@@ -322,7 +344,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
   }
   selectShownLabel.textContent = copy.selectShown;
   foot.append(selectShown);
-  window.body.append(find, groupRow, lackRow, sheet, foot);
+  window.body.append(find, groupRow, weaponRow, lackRow, sheet, foot);
 
   // One row view per listed person met on screen, kept while they live. Only the rows in and near the
   // visible strip are in the list, between two spacers that keep the scroll height of the whole: a tick
@@ -456,6 +478,9 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     const { filters } = state;
     for (const [id, view] of groupChips)
       setAttribute(view.button, 'aria-pressed', String(id === filters.group));
+    setHidden(weaponRow, filters.group !== 'soldiers');
+    for (const [id, view] of weaponChips)
+      setAttribute(view.button, 'aria-pressed', String(id === filters.weapon));
     for (const [id, view] of lackChips) {
       setAttribute(view.button, 'aria-pressed', String(filters.lacks.includes(id)));
     }
@@ -468,6 +493,7 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     const active = filtersActive(filters);
     const parts = [
       filters.group === 'all' ? '' : copy.groups[filters.group],
+      filters.weapon === null ? '' : formatMessage(copy.filterWeapon, { name: copy.weapons[filters.weapon] }),
       ...filters.lacks.map((id) =>
         formatMessage(copy.lackTitle, { what: copy.lacks[id] }).toLocaleLowerCase(locale),
       ),
@@ -501,6 +527,11 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
       write(view.count, String(counts.groups[id]));
       view.button.classList.toggle('on-res-chip--zero', counts.groups[id] === 0);
     }
+    for (const [id, view] of weaponChips) {
+      const count = id === null ? counts.groups.soldiers : counts.weapons[id];
+      write(view.count, String(count));
+      view.button.classList.toggle('on-res-chip--zero', count === 0);
+    }
     for (const [id, view] of lackChips) {
       const count = counts.lacks[id];
       write(view.count, String(count));
@@ -517,7 +548,10 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
     const key = entries.map((entry) => `${entry.profession}:${entry.count}`).join('|');
     if (shownProfessions !== key) {
       shownProfessions = key;
-      const known = new Set(professionGroups.flatMap((group) => group.rows.map((row) => row.label)));
+      const known = new Set([
+        ...professionGroups.flatMap((group) => group.rows.map((row) => row.label)),
+        ...soldierClassLabels,
+      ]);
       const optionLabel = (entry: (typeof entries)[number]): string =>
         formatMessage(copy.jobOption, { name: entry.profession, count: entry.count });
       professionSelect.setEntries([
@@ -528,10 +562,16 @@ export function createResidentsWindow(deps: ResidentsWindowDeps): ResidentsWindo
         ...optionGroups(
           professionGroups.map((group) => ({
             label: group.label,
-            rows: group.rows.flatMap((row) => {
-              const entry = entries.find((entry) => entry.profession === row.label);
-              return entry === undefined ? [] : [{ key: entry.profession, label: optionLabel(entry) }];
-            }),
+            // The soldier profession stands for its classes, which the soldiers' rows read as.
+            rows: group.rows.flatMap((row) =>
+              entries
+                .filter((entry) =>
+                  row.key === String(JOB_SOLDIER)
+                    ? soldierClassLabels.has(entry.profession)
+                    : entry.profession === row.label,
+                )
+                .map((entry) => ({ key: entry.profession, label: optionLabel(entry) })),
+            ),
           })),
         ),
       ]);

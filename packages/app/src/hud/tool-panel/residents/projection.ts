@@ -1,6 +1,11 @@
 import type { ContentSet } from '@open-northland/data';
 import { entityById, systems, type WorldSnapshot } from '@open-northland/sim';
 import { JOB_CIVILIST, JOB_IDLE } from '../../../catalog/jobs.js';
+import {
+  SOLDIER_CLASS_OF_JOB,
+  SOLDIER_FAMILY_OF_MAIN_TYPE,
+  type SoldierFamily,
+} from '../../../catalog/soldier-classes.js';
 import { settlerName } from '../../../game/character-names/index.js';
 import {
   buildingTypeOf,
@@ -19,6 +24,8 @@ import {
   workFlagOf,
   workplaceOf,
 } from '../../../game/snapshot.js';
+import { soldierWeaponFamily } from '../../../game/unit-kind.js';
+import { messages } from '../../../i18n/index.js';
 import { buildingTitle, jobDisplayName } from '../../details-panel/model/context.js';
 import type { ProductSelection } from '../../details-panel/model/settler-work.js';
 import type { ResidentKind, ResidentLack, ResidentRow } from './rows.js';
@@ -119,6 +126,32 @@ function lacksOf(
   return lacks;
 }
 
+/** A soldier's weapon family: its class's, else the extracted weapon row's for a class the catalog
+ *  does not name. The class comes first because `weapons.ini` lists no axe soldier. */
+function weaponFamilyOf(
+  content: ContentSet,
+  ent: SnapshotEntity,
+  jobType: number | null,
+): SoldierFamily | null {
+  const byClass = jobType === null ? undefined : SOLDIER_CLASS_OF_JOB.get(jobType)?.family;
+  if (byClass !== undefined) return byClass;
+  const mainType = soldierWeaponFamily(content.weapons, ent);
+  return (mainType === undefined ? undefined : SOLDIER_FAMILY_OF_MAIN_TYPE.get(mainType)) ?? null;
+}
+
+/** The profession column's text: a soldier reads as its class ("Iron Spearman"), so the Profession
+ *  filter can pick one class. */
+function professionOf(
+  nameCtx: Parameters<typeof jobDisplayName>[0],
+  kind: ResidentKind,
+  jobType: number | null,
+): string {
+  const soldierClass =
+    kind === 'soldier' && jobType !== null ? SOLDIER_CLASS_OF_JOB.get(jobType)?.soldierClass : undefined;
+  if (soldierClass !== undefined) return messages().hud.groupPanel.soldierClass[soldierClass];
+  return jobDisplayName(nameCtx, jobType ?? undefined);
+}
+
 /** The sim's own test of a couple's child: the id lingers on the marriage after the child grew up
  *  or died, so only a living minor counts. */
 function hasGrowingChild(snapshot: WorldSnapshot, ent: SnapshotEntity): boolean {
@@ -164,7 +197,8 @@ export function residentRows(snapshot: WorldSnapshot, ctx: ResidentsProjectionCo
       kind,
       female: isFemale(ent),
       jobType,
-      profession: jobDisplayName(nameCtx, jobType ?? undefined),
+      profession: professionOf(nameCtx, kind, jobType),
+      weapon: kind === 'soldier' ? weaponFamilyOf(ctx.content, ent, jobType) : null,
       ageYears: ageYears ?? null,
       workplace: workplaceEnt === undefined ? '' : buildingTitle(ctx.content, buildingTypeOf(workplaceEnt)),
       products: kind === 'worker' ? (ctx.products?.(snapshot, ent) ?? null) : null,

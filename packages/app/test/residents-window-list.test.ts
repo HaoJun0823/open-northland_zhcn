@@ -22,6 +22,7 @@ function people(count: number): ResidentRow[] {
     ageYears: null,
     workplace: '',
     products: null,
+    weapon: null,
     lacks: [],
   }));
 }
@@ -223,5 +224,33 @@ describe('residents list', () => {
     window?.refresh();
     expect(reads).toBe(before + 1);
     expect(list.querySelector('.on-res-row')?.textContent).toContain('Sawmill');
+  });
+
+  it('offers the weapon row under the soldiers group only, and drops its pick with another group', () => {
+    const weapons = ['spear', 'bow', 'spear'] as const;
+    const soldiers = people(weapons.length).map((row, at) => ({
+      ...row,
+      kind: 'soldier' as const,
+      weapon: weapons[at] ?? null,
+    }));
+    const { list } = openWindow(() => soldiers);
+    const weaponRow = document.querySelector<HTMLElement>('.on-res-chips--weapons');
+    const chipOf = (row: Element | null, label: string): HTMLButtonElement => {
+      const chip = [...(row?.querySelectorAll<HTMLButtonElement>('.on-res-chip') ?? [])].find(
+        (control) => control.querySelector('.on-res-chip__label')?.textContent === label,
+      );
+      if (chip === undefined) throw new Error(`no ${label} chip`);
+      return chip;
+    };
+    const groupRow = document.querySelector('.on-res-chips');
+    expect(weaponRow?.hidden).toBe(true);
+    chipOf(groupRow, 'Soldiers').click();
+    expect(weaponRow?.hidden).toBe(false);
+    expect(chipOf(weaponRow, 'Spear').textContent).toContain('2');
+    chipOf(weaponRow, 'Spear').click();
+    expect(shownNames(list)).toEqual(['Settler 0001', 'Settler 0003']);
+    chipOf(groupRow, 'Everyone').click();
+    expect(weaponRow?.hidden).toBe(true);
+    expect(shownNames(list)).toHaveLength(3);
   });
 });

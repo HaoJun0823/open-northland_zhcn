@@ -31,6 +31,7 @@ function row(id: number, over: Partial<ResidentRow>): ResidentRow {
     ageYears: null,
     workplace: '',
     products: null,
+    weapon: null,
     lacks: [],
     ...over,
   };
@@ -168,6 +169,37 @@ describe('residents list filters', () => {
       { profession: 'Kowal', count: 1 },
       { profession: 'Piekarz', count: 1 },
     ]);
+  });
+});
+
+describe('residents weapon filter', () => {
+  const army = [
+    row(1, { kind: 'soldier', jobType: 31, profession: 'Żołnierz', weapon: 'unarmed', lacks: ['weapon'] }),
+    row(2, { kind: 'soldier', jobType: 32, profession: 'Włócznik', weapon: 'spear' }),
+    row(3, { kind: 'soldier', jobType: 33, profession: 'Włócznik z żelazną włócznią', weapon: 'spear' }),
+    row(4, { kind: 'soldier', jobType: 40, profession: 'Łucznik', weapon: 'bow', lacks: ['shoes'] }),
+    row(5, { name: 'Arne' }),
+  ];
+  const listing = (filters: Partial<typeof NO_RESIDENT_FILTERS>) =>
+    listResidents(army, { ...NO_RESIDENT_FILTERS, ...filters }, LOCALE, nobodyRetrains);
+
+  it('keeps the soldiers of the picked weapon family', () => {
+    expect(listing({ group: 'soldiers', weapon: 'spear' }).shown.map((p) => p.id)).toEqual([2, 3]);
+    expect(listing({ group: 'soldiers', weapon: 'unarmed' }).shown.map((p) => p.id)).toEqual([1]);
+    expect(listing({ group: 'soldiers', weapon: 'axe' }).shown).toEqual([]);
+    expect(filtersActive({ ...NO_RESIDENT_FILTERS, weapon: 'bow' })).toBe(true);
+  });
+
+  it('counts each family under the other filters and leaves the group chips whole', () => {
+    const { counts, professions } = listing({ group: 'soldiers', weapon: 'spear' });
+    expect(counts.weapons).toEqual({ unarmed: 1, spear: 2, sword: 0, saber: 0, axe: 0, bow: 1 });
+    expect(counts.groups).toMatchObject({ all: 5, soldiers: 4, workers: 1 });
+    expect(counts.lacks.weapon).toBe(0); // the lacks count the spearmen listed
+    expect(professions.map((entry) => entry.profession)).toEqual(['Włócznik', 'Włócznik z żelazną włócznią']);
+    expect(listing({ group: 'soldiers', lacks: ['shoes'] }).counts.weapons).toMatchObject({
+      bow: 1,
+      spear: 0,
+    });
   });
 });
 

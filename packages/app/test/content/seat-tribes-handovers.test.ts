@@ -124,7 +124,10 @@ function seatCases(): SeatCase[] {
         { mapId, label: 'its second seat', person: second.player, retribed: [away(second)] },
         { mapId, label: 'two re-tribed seats', person: first.player, retribed: [away(first), away(second)] },
       );
-      if (!handsThroughThirdSeat(script, first.player, second.player)) {
+      if (
+        !handsThroughThirdSeat(script, first.player, second.player) &&
+        !handsPeopleToBoth(mapId, script, first.player, second.player, swappedPeople)
+      ) {
         cases.push({
           mapId,
           label: "two seats playing each other's people",
@@ -157,6 +160,43 @@ function handsThroughThirdSeat(script: MapScript, a: number, b: number): boolean
       third !== b &&
       ((handed(a, third) && handed(third, b)) || (handed(b, third) && handed(third, a))),
   );
+}
+
+/** Whether a by-id line hands one id to each of the two seats while a third seat's human or vehicle of
+ *  that id carries `people`. The world build moves such a thing for one seat only, so the net corrects
+ *  it when the other seat's handover delivers it instead. */
+function handsPeopleToBoth(mapId: string, script: MapScript, a: number, b: number, people: number): boolean {
+  const receivers = new Map<string, Set<number>>();
+  const hand = (key: string, player: number): void => {
+    const seats = receivers.get(key) ?? new Set<number>();
+    seats.add(player);
+    receivers.set(key, seats);
+  };
+  for (const line of linesOf(script, HANDOVERS)) {
+    const op = decodeMissionResult(line);
+    if (op.opcode === 'ChangeHumanPlayerId') hand(`human ${op.humanId}`, op.player);
+    else if (op.opcode === 'ChangeVehiclesPlayerId') hand(`vehicle ${op.vehicleId}`, op.player);
+  }
+  const both = new Set(
+    [...receivers].filter(([, seats]) => seats.has(a) && seats.has(b)).map(([key]) => key),
+  );
+  if (both.size === 0) return false;
+  const name = (rawIrUnderTest() as ContentIr).tribes?.find((tribe) => tribe.typeId === people)?.id;
+  const { entities } = TerrainMapFile.parse(
+    JSON.parse(readFileSync(resolve(mapsDir(), `${mapId}.json`), 'utf8')),
+  );
+  const carries = (
+    kind: string,
+    things: readonly { player: number; tribe: string; missionId?: number | undefined }[],
+  ) =>
+    things.some(
+      (thing) =>
+        thing.player !== a &&
+        thing.player !== b &&
+        thing.tribe === name &&
+        both.has(`${kind} ${thing.missionId}`),
+    );
+  return carries('human', entities?.humans ?? []) || carries('vehicle', entities?.vehicles ?? []);
 }
 
 /** The script with `swapped`'s roster row authored as its other people. */

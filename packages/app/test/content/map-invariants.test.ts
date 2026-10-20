@@ -164,7 +164,7 @@ describe.runIf(hasRealIr() && existsSync(resolve(contentDir(), 'maps')))('decode
         }
       }
       expect(counts).toEqual({
-        base: { maps: 57, vehicles: 633, crews: 23, boarded: 20 },
+        base: { maps: 57, vehicles: 637, crews: 125, boarded: 122 },
         campaigns: { maps: 32, vehicles: 310, crews: 87, boarded: 42 },
       });
     },

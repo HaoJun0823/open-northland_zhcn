@@ -40,6 +40,11 @@ export interface InstallableMap {
 const isCount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 
+const isLanguageList = (value: unknown): value is MapTextLanguage[] =>
+  Array.isArray(value) && value.every(isLanguage);
+const isSuffixList = (value: unknown): value is MapFileSuffix[] =>
+  Array.isArray(value) && value.every(isMapFileSuffix) && value.includes('.json');
+
 /** A stored record this build reads, or null. */
 export function installedRecord(raw: unknown): InstalledMapRecord | null {
   if (typeof raw !== 'object' || raw === null) return null;
@@ -55,13 +60,10 @@ export function installedRecord(raw: unknown): InstalledMapRecord | null {
     typeof r.fingerprint !== 'string' ||
     !MAP_FINGERPRINT.test(r.fingerprint) ||
     !isCount(r.irVersion) ||
-    !Array.isArray(r.languages) ||
-    !r.languages.every(isLanguage) ||
+    !isLanguageList(r.languages) ||
     !isCount(r.installedAt) ||
     !isCount(r.size) ||
-    !Array.isArray(r.suffixes) ||
-    !r.suffixes.every(isMapFileSuffix) ||
-    !r.suffixes.includes('.json')
+    !isSuffixList(r.suffixes)
   )
     return null;
   const index = MapsIndexEntry.safeParse(r.index);
@@ -78,11 +80,11 @@ export function installedRecord(raw: unknown): InstalledMapRecord | null {
     entryId: r.entryId,
     fingerprint: r.fingerprint,
     irVersion: r.irVersion,
-    languages: r.languages as MapTextLanguage[],
+    languages: r.languages,
     index: index.data,
     installedAt: r.installedAt,
     size: r.size,
-    suffixes: r.suffixes as MapFileSuffix[],
+    suffixes: r.suffixes,
   };
 }
 

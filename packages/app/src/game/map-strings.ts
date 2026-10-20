@@ -1,13 +1,9 @@
 import { type MapStrings, type MapText, type MapTextLanguage, textReadingOrder } from '@open-northland/data';
 
-/** `lang` first, then the languages its readers fall back to, so a map authored in one language
- *  still reads under another. */
-const readingOrder = textReadingOrder;
-
 /** A map's name, description or seat name in `lang`, else in the first shipped language that has it. */
 export function localizedMapText(text: MapText | undefined, lang: MapTextLanguage): string | undefined {
   if (text === undefined) return undefined;
-  for (const code of readingOrder(lang)) {
+  for (const code of textReadingOrder(lang)) {
     const value = text[code];
     if (value !== undefined) return value;
   }
@@ -16,7 +12,8 @@ export function localizedMapText(text: MapText | undefined, lang: MapTextLanguag
 
 /**
  * A map's own strings by id (`CreateTribute`'s description, `SetHumanName`, the info lines), read in
- * {@link readingOrder}. Undefined for an id no table carries.
+ * {@link textReadingOrder}: `lang` first, then the languages its readers fall back to. Undefined for an
+ * id no table carries.
  */
 export function mapStringLookup(
   strings: MapStrings | null,
@@ -24,7 +21,7 @@ export function mapStringLookup(
 ): (stringId: number) => string | undefined {
   if (strings === null) return () => undefined;
   const tables: Readonly<Record<string, string>>[] = [];
-  for (const code of readingOrder(lang)) {
+  for (const code of textReadingOrder(lang)) {
     const table = strings[code];
     if (table !== undefined) tables.push(table);
   }

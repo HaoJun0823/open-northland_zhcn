@@ -140,7 +140,7 @@ function advanceWallSite(
 ): void {
   const labor = world.get(e, UnderConstruction).labor;
   if (labor >= ONE && constructionMaterialsPresent(world, ctx, e)) {
-    if (ctx.terrain !== undefined && travellerOnClosing(world, ctx, ctx.terrain, e)) return;
+    if (ctx.terrain !== undefined && travellerOnClosing(world, ctx.terrain, e)) return;
     consumeMaterials(world, e, cost);
     finishWall(world, ctx, e);
     return;

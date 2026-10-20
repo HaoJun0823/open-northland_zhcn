@@ -163,14 +163,11 @@ export function walkBodyOf(
 interface BuildingCells {
   /** The building bodies, doors and their passages carved out. */
   readonly blocked: ReadonlySet<NodeId>;
-  /** Each door node and the passage cleared from it to exterior ground. */
-  readonly openings: ReadonlySet<NodeId>;
 }
 
 /** Every building carved afresh: the verifiers' reference for {@link BuildingCellsIndex}. */
 function deriveBuildingCells(world: World, content: ContentSet, terrain: TerrainGraph): BuildingCells {
   const blocked = new Set<NodeId>();
-  const openings = new Set<NodeId>();
   // The exact door point stays open even if another building's reserved margin overlaps it.
   const doors = new Set<NodeId>();
   for (const e of world.query(Building, Position)) {
@@ -178,18 +175,12 @@ function deriveBuildingCells(world: World, content: ContentSet, terrain: Terrain
     const footprint = buildingFootprintOf(content, b.buildingType, b.tribe);
     if (footprint === undefined || footprint.blocked.length === 0) continue;
     const p = world.get(e, Position);
-    const { body, door, passage } = walkBodyOf(
-      terrain,
-      footprint,
-      nodeHxOfPosition(p.x, p.y),
-      nodeHyOfPosition(p.y),
-    );
+    const { body, door } = walkBodyOf(terrain, footprint, nodeHxOfPosition(p.x, p.y), nodeHyOfPosition(p.y));
     if (door !== null) doors.add(door);
-    for (const cell of passage) openings.add(cell);
     for (const cell of body) blocked.add(cell);
   }
   for (const cell of doors) blocked.delete(cell);
-  return { blocked, openings };
+  return { blocked };
 }
 
 /** Walls go in after the door subtraction, so an authored overlap cannot punch a door-shaped hole through
@@ -235,18 +226,15 @@ interface PlacedBody {
 
 /**
  * The buildings' cells without walls, kept across ticks: per node, how many walk bodies cover it, how many
- * doors sit on it and how many passages cross it, so a building placed, razed or retyped re-stamps only its
+ * doors sit on it, so a building placed, razed or retyped re-stamps only its
  * own body. Building membership and value journals name the changed buildings; positions are immutable once
  * placed. A journal gap re-stamps every building. Construction progress and wall changes keep it.
  */
 class BuildingCellsIndex implements BuildingCells {
   /** Nodes some body covers and no door sits on. */
   readonly blocked = new Set<NodeId>();
-  /** Nodes some door passage crosses. */
-  readonly openings = new Set<NodeId>();
-  /** Moves whenever {@link blocked} or {@link openings} changes, and on every full re-stamp. */
+  /** Moves whenever {@link blocked} changes, and on every full re-stamp. */
   revision = 0;
-  /** Moves whenever {@link openings} changes, and on every full re-stamp. */
   /** The nodes that entered or left {@link blocked} since {@link takeBlockedFlips} last drained them, for
    *  its one reader, the blocked layer; a node may repeat. */
   private readonly blockedFlips: NodeId[] = [];
@@ -255,7 +243,6 @@ class BuildingCellsIndex implements BuildingCells {
   private valueGeneration = 0;
   private readonly bodyCounts: Uint16Array;
   private readonly doorCounts: Uint16Array;
-  private readonly passageCounts: Uint16Array;
   private readonly placed = new Map<Entity, PlacedBody>();
 
   constructor(
@@ -264,7 +251,6 @@ class BuildingCellsIndex implements BuildingCells {
   ) {
     this.bodyCounts = new Uint16Array(terrain.nodeCount);
     this.doorCounts = new Uint16Array(terrain.nodeCount);
-    this.passageCounts = new Uint16Array(terrain.nodeCount);
   }
 
   /** Whether the stamps still describe the world: no building joined or left, and no value write since the
@@ -358,14 +344,6 @@ class BuildingCellsIndex implements BuildingCells {
       this.doorCounts[walk.door] = (this.doorCounts[walk.door] ?? 0) + delta;
       this.settleBlocked(walk.door);
     }
-    for (const cell of walk.passage) {
-      const count = (this.passageCounts[cell] ?? 0) + delta;
-      this.passageCounts[cell] = count;
-      if (count > 0 === this.openings.has(cell)) continue;
-      if (count > 0) this.openings.add(cell);
-      else this.openings.delete(cell);
-      this.revision++;
-    }
   }
 
   private settleBlocked(cell: NodeId): void {
@@ -404,18 +382,8 @@ function verifyBuildingCells(world: World): string[] {
   const index = buildingCellsIndexes.get(world);
   if (index === undefined || !index.current(world)) return [];
   const fresh = deriveBuildingCells(world, index.content, index.terrain);
-  if (sameCells(index.blocked, fresh.blocked) && sameCells(index.openings, fresh.openings)) return [];
+  if (sameCells(index.blocked, fresh.blocked)) return [];
   return ['buildingCells diverge from a fresh carve - a building change went unseen'];
-}
-
-/** Every building's door node and the passage cleared from it to exterior ground. The live index's set: read it, never keep it past a building change. Derived state,
- *  never hashed. */
-export function buildingOpenings(
-  world: World,
-  content: ContentSet,
-  terrain: TerrainGraph,
-): ReadonlySet<NodeId> {
-  return buildingCells(world, content, terrain).openings;
 }
 
 function palisadesUnchanged(world: World, cached: BuildingBlockedCache): boolean {

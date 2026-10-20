@@ -71,7 +71,7 @@ function build(sim: Simulation): void {
 }
 
 /** What a fresh run of the scene shows tick by tick: the most men swinging at one living enemy in any tick
- *  while the red band still outnumbers {@link MAX_STRIKERS_ON_ONE}, the red men who fought, and the tick
+ *  with a nearby ally while the red band still outnumbers {@link MAX_STRIKERS_ON_ONE}, the red men who fought, and the tick
  *  the fight ended. */
 interface MeleeFrontObservation {
   readonly maxStrikersOnOne: number;
@@ -143,7 +143,10 @@ export const meleeFrontScene: SceneDefinition = {
   checks: [
     {
       label: 'no enemy has more than four men striking it in one tick while the smaller band holds a front',
-      predicate: () => observation().maxStrikersOnOne <= MAX_STRIKERS_ON_ONE,
+      predicate: () => {
+        const observed = observation().maxStrikersOnOne;
+        return observed > 0 && observed <= MAX_STRIKERS_ON_ONE;
+      },
     },
     {
       label: 'most of the smaller band fought: landed a blow or took one',

@@ -47,12 +47,11 @@ const WALL: ScriptLandscapeType = {
   },
 };
 
-/** A line splitting north from south that steps down a half-row between columns 11 and 12, so the joint
- *  (11,9)-(12,10) takes its seal on (12,9). */
+/** A line splitting north from south that steps down a half-row between columns 11 and 12. */
 const WEST_ROW = 9;
 const EAST_ROW = 10;
 const STEP_HX = 12;
-const SEAL = { hx: STEP_HX, hy: WEST_ROW };
+const CORNER = { hx: STEP_HX, hy: WEST_ROW };
 const SITE = { hx: STEP_HX, hy: EAST_ROW };
 
 function lineRow(hx: number): number {
@@ -118,15 +117,15 @@ describe('a wall site that rises', () => {
     for (let hx = 0; hx < WIDTH; hx++) placeWall(sim, hx, lineRow(hx), hx === SITE.hx);
     sim.step();
     const site = siteAt(sim, SITE.hx, SITE.hy);
-    const fighter = standing(sim, SEAL.hx, SEAL.hy);
+    const fighter = standing(sim, CORNER.hx, CORNER.hy);
 
     hammer(sim, site);
     constructionSystem(sim.world, ctxOf(sim));
     expect(sim.world.has(site, PalisadeBlocking)).toBe(true);
     const blocked = dynamicBlockOverlay(sim.world, ctxOf(sim), terrain);
-    expect(blocked.has(terrain.nodeAt(SEAL.hx, SEAL.hy))).toBe(false);
+    expect(blocked.has(terrain.nodeAt(CORNER.hx, CORNER.hy))).toBe(false);
     const landed = nodeOf(sim, fighter);
-    expect(landed).toEqual(SEAL);
+    expect(landed).toEqual(CORNER);
     expect(blocked.has(terrain.nodeAt(landed.hx, landed.hy))).toBe(false);
 
     const north = landed.hy < lineRow(landed.hx);

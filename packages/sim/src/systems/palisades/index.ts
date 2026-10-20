@@ -186,7 +186,7 @@ export function setPalisadeGate(
   }
   const target = palisadeType(terrain, current.gate.counterpartGfxIndex);
   if (target?.wall?.gate === undefined || target.wall.gate.open !== command.open) return false;
-  if (!command.open && gateClosingOccupied(world, ctx, terrain, command.palisade, target.walk)) return false;
+  if (!command.open && gateClosingOccupied(world, terrain, command.palisade, target.walk)) return false;
 
   recordMode();
   // Remove + add so footprint journals see the source-record swap as a topology change.
@@ -248,12 +248,7 @@ export function settleClosedWall(world: World, ctx: SystemContext, terrain: Terr
 }
 
 /** Whether a traveller stands where wall site `e` would close, which the finish waits out. */
-export function travellerOnClosing(
-  world: World,
-  ctx: SystemContext,
-  terrain: TerrainGraph,
-  e: Entity,
-): boolean {
+export function travellerOnClosing(world: World, terrain: TerrainGraph, e: Entity): boolean {
   const byNode = settlersByNode(world);
   for (const cell of closingCellsOf(world, terrain, e, world.get(e, Palisade).walk)) {
     for (const settler of byNode.at(terrain.xOf(cell), terrain.yOf(cell))) {
@@ -302,7 +297,6 @@ function moverOnCells(world: World, terrain: TerrainGraph, cells: ReadonlySet<No
  */
 function gateClosingOccupied(
   world: World,
-  ctx: SystemContext,
   terrain: TerrainGraph,
   gate: Entity,
   walk: readonly FootprintCell[],

@@ -18,10 +18,7 @@ import {
   type ScriptLandscapeType,
   Simulation,
 } from '../../src/index.js';
-import {
-  buildingBlockedLayer,
-  buildingOpenings,
-} from '../../src/systems/footprint/building-blocked-cache.js';
+import { buildingBlockedLayer } from '../../src/systems/footprint/building-blocked-cache.js';
 import { walkBlockMask } from '../../src/systems/footprint/walk-block-mask.js';
 import { buildingBlockedCells, constructionSystem } from '../../src/systems/index.js';
 import { TEST_MANIFEST } from '../fixtures/content.js';
@@ -211,44 +208,20 @@ describe('building cells index', () => {
     const other = sim.world.create();
     sim.world.add(other, Position, positionOfNode(10, 10));
     sim.world.add(other, Building, { buildingType: HOME_S, tribe: VIKING, built: ONE, level: 0 });
-    const openings = buildingOpenings(sim.world, sim.content, terrain);
     expect(buildingBlockedCells(sim.world, ctxOf(sim), terrain).has(terrain.nodeAt(10, 10))).toBe(true);
     sim.world.destroy(other);
     expect(buildingBlockedCells(sim.world, ctxOf(sim), terrain).has(terrain.nodeAt(10, 10))).toBe(false);
     sim.world.mut(home, Building).buildingType = HOME_L;
-    expect(buildingOpenings(sim.world, sim.content, terrain)).toBe(openings); // one live set, kept in place
     buildingBlockedCells(sim.world, ctxOf(sim), terrain);
     expect(sim.world.verifyCaches()).toEqual([]);
   });
 
   it('the verifier flags a building moved outside the tracked seams', () => {
     const { sim, home } = twoTierHome();
-    buildingOpenings(sim.world, sim.content, terrainOf(sim));
+    buildingBlockedCells(sim.world, ctxOf(sim), terrainOf(sim));
     // Positions are immutable once placed; defeating that is the bug the verifier exists to catch.
     (sim.world.get(home, Position) as { x: Fixed }).x = positionOfNode(12, 12).x;
     expect(sim.world.verifyCaches().join('\n')).toContain('buildingCells');
-  });
-});
-
-describe('buildingOpenings memo', () => {
-  it('construction progress keeps the openings', () => {
-    const { sim, home } = twoTierHome();
-    sim.world.mut(home, UnderConstruction).labor = HALF;
-    const terrain = terrainOf(sim);
-    const before = buildingOpenings(sim.world, sim.content, terrain);
-
-    constructionSystem(sim.world, ctxOf(sim));
-    expect(sim.world.get(home, Building).built).toBe(HALF);
-    expect(buildingOpenings(sim.world, sim.content, terrain)).toBe(before);
-  });
-
-  it('a tier swap re-derives the openings with the new tier door', () => {
-    const { sim, door } = twoTierHome();
-    const terrain = terrainOf(sim);
-    expect(buildingOpenings(sim.world, sim.content, terrain).has(door)).toBe(false);
-
-    constructionSystem(sim.world, ctxOf(sim)); // upgrades in place
-    expect(buildingOpenings(sim.world, sim.content, terrain).has(door)).toBe(true);
   });
 });
 
@@ -312,7 +285,7 @@ function twoTierHome() {
 
 /** A wall on an even row: its slanted joint partner stands one row down and one node west. */
 const SEAL_WALL = { x: 8, y: 8 };
-/** The joint's corners: the seal goes below the wall unless that corner is a building opening. */
+/** The two open corners beside the slanted wall joint. */
 const ODD_CORNER = { x: 8, y: 9 };
 const EVEN_CORNER = { x: 7, y: 8 };
 const GATE = { x: 20, y: 20 };

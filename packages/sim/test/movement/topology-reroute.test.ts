@@ -12,7 +12,7 @@ import { exportSaveGame, fx, positionOfNode, restoreSimulation, Simulation } fro
 import { positionXOfWorld } from '../../src/nav/halfcell.js';
 import { findPath } from '../../src/nav/pathfinding/index.js';
 import { dynamicBlockOverlay, stampResourceFootprintData } from '../../src/systems/footprint/index.js';
-import { invalidateLandscapeRoutes } from '../../src/systems/landscape/routes.js';
+import { invalidateLandscapeRoutes, invalidateRoutesThrough } from '../../src/systems/landscape/routes.js';
 import { pathfindingSystem } from '../../src/systems/movement/routing.js';
 import { placePalisade } from '../../src/systems/palisades/index.js';
 import { navigationPlanner } from '../../src/systems/settlers/planner/navigation.js';
@@ -157,3 +157,91 @@ describe('topology reroutes', () => {
     );
   });
 });
+
+const closureCases = [4, 5].flatMap((row) =>
+  [-1, 1].flatMap((dx) =>
+    [-2, 2].flatMap((dy) =>
+      [0.2, 0.5, 0.8].flatMap((progress) =>
+        (['midpoint', 'opposite', 'destination'] as const).map((closing) => ({
+          row,
+          dx,
+          dy,
+          progress,
+          closing,
+        })),
+      ),
+    ),
+  ),
+);
+
+it.each(closureCases)(
+  'closes $closing at progress $progress along ($dx,$dy) from row $row across a restore',
+  ({ row, dx, dy, progress, closing }) => {
+    const options = { seed: 1, content: testContent(), map: grassNodeMap(14, 14) };
+    const sim = new Simulation(options);
+    const terrain = sim.terrain;
+    if (terrain === undefined) throw new Error('expected terrain');
+    const world = sim.world;
+    const e = world.create();
+    const x = 6;
+    const start = terrain.nodeAt(x, row);
+    const endX = x + dx,
+      endY = row + dy;
+    const goal = terrain.nodeAt(endX, endY);
+    const midX = x + (row & 1) - (dx < 0 ? 1 : 0),
+      midY = row + dy / 2;
+    const midpoint = terrain.nodeAt(midX, midY);
+    addPerson(world, e, {
+      tribe: 1,
+      jobType: 1,
+      hunger: fx.fromInt(0),
+      fatigue: fx.fromInt(0),
+      piety: fx.fromInt(0),
+      enjoyment: fx.fromInt(0),
+    });
+    world.add(e, Owner, { player: 0 });
+    world.add(e, Position, positionOfNode(x, row));
+    world.add(e, MoveGoal, { cell: goal });
+    world.add(e, PathRequest, { start, goal, failed: false });
+    pathfindingSystem(world, ctxOf(sim));
+    const oldStops = world.get(e, PathRoute).waypoints;
+    expect(oldStops).toHaveLength(3);
+    expect(oldStops[1]?.node).toBe(midpoint);
+
+    // At exactly half the diagonal the midpoint has been reached; the destination is next.
+    world.mut(e, PathFollow).index = progress < 0.5 ? 1 : 2;
+    const y = fx.fromFloat((row + dy * progress) / 2);
+    world.add(e, Position, {
+      x: positionXOfWorld(fx.fromFloat((x + dx * progress) / 2), y),
+      y,
+    });
+    const closed =
+      closing === 'midpoint'
+        ? { x: midX, y: midY }
+        : closing === 'opposite'
+          ? { x: 2 * x + dx - midX, y: midY }
+          : { x: endX, y: endY };
+    const obstacle = world.create();
+    world.add(obstacle, Position, positionOfNode(closed.x, closed.y));
+    stampResourceFootprintData(world, obstacle, {
+      walk: [{ dx: 0, dy: 0 }],
+      build: [],
+      work: [],
+    });
+    invalidateRoutesThrough(world, terrain, new Set([terrain.nodeAt(closed.x, closed.y)]));
+
+    const unaffected = closing === 'opposite' || (closing === 'midpoint' && progress >= 0.5);
+    if (unaffected) expect(world.get(e, PathRoute).waypoints).toBe(oldStops);
+    else {
+      expect(world.get(e, PathRoute).waypoints.at(-1)?.node).toBe(start);
+      expect(world.get(e, PathRequest).retainRoute).toBe(true);
+    }
+    const restored = restoreSimulation(exportSaveGame(sim), options);
+    expect(restored.hashState()).toBe(sim.hashState());
+    for (let tick = 0; tick < 30; tick++) {
+      sim.step();
+      restored.step();
+      expect(restored.hashState()).toBe(sim.hashState());
+    }
+  },
+);

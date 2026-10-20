@@ -580,6 +580,17 @@ describe('walls as targets', () => {
       expect(wall).toBeDefined();
       expect(sealed(sim, start, goal)).toBe(true);
       expect(barring(sim, raider, goal)).toBe(wall);
+      if (wall === undefined) throw new Error('expected the midpoint wall');
+      sim.world.mut(wall, Health).hitpoints = 1;
+      attackMoveUnit(sim.world, ctxOf(sim), {
+        kind: 'attackMoveUnit',
+        entity: raider,
+        x: goal.hx,
+        y: goal.hy,
+      });
+      sim.run(400);
+      expect(sim.world.has(wall, Palisade)).toBe(false);
+      expect(nodeRow(sim, raider)).toEqual(goal);
     },
   );
 

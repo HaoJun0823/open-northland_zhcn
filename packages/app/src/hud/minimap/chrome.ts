@@ -395,6 +395,7 @@ export function createMinimapChrome(
       setDisabled(less, state.zoom <= 1);
       setDisabled(more, state.zoom >= 4);
       write(size, state.size.toUpperCase());
+      setAttribute(size, 'data-size', state.size);
       const sizeLabel = formatMessage(copy.sizeState, { size: copy.sizes[state.size] });
       setTip(size, copy.size);
       setAttribute(size, 'aria-label', sizeLabel);

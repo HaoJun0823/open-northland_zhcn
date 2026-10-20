@@ -20,11 +20,16 @@ async function scratchRepo() {
   return dir;
 }
 
-/** Runs `node -e script` through the gate; resolves with its exit code. */
-function gated(cwd, script, env = {}) {
+let scriptCount = 0;
+
+/** Runs `script` through the gate from a file, since Windows passes the command through cmd.exe,
+ *  which mangles quotes in an inline `-e` argument; resolves with its exit code. */
+async function gated(cwd, script, env = {}) {
   const { CI: _ci, ON_GATE_HELD: _held, ...base } = process.env;
+  const file = join(cwd, `script-${scriptCount++}.cjs`);
+  await writeFile(file, script);
   return new Promise((done, fail) => {
-    const child = spawn(process.execPath, [GATE, process.execPath, '-e', script], {
+    const child = spawn(process.execPath, [GATE, process.execPath, file], {
       cwd,
       env: { ...base, ...env },
       stdio: ['ignore', 'ignore', 'pipe'],

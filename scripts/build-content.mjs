@@ -256,7 +256,8 @@ export async function buildContent(zip, log, stamp, { outDir, dataRootOptions, c
   const dataRoot = await obtainPinnedDataRoot(zip, log, dataRootOptions);
   if (existsSync(outDir) && (await lstat(outDir)).isSymbolicLink())
     throw new Error('Refusing to replace content through a symlink');
-  const stagingRoot = resolve(repoRoot, '.cache');
+  // Staged beside the output: a rename across drives (EXDEV) cannot swap the trees.
+  const stagingRoot = join(dirname(resolve(outDir)), '.cache');
   await mkdir(stagingRoot, { recursive: true });
   const staging = await mkdtemp(join(stagingRoot, 'content-'));
   const previous = `${staging}-previous`;

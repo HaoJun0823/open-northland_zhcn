@@ -18,11 +18,11 @@
   },
   "briefings": {
     "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n法蘭克地下城\n<font:$local$\\fonts\\font12.fnt>\n我去了！一個人去的。我要讓那幫無賴知道自己有幾斤幾兩……這是我和他們之間的事。\n\n那個開關應該就在這附近……\n\n<usericon:1,9,114>",
-    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n法蘭克人\n<font:$local$\\fonts\\font12.fnt>\n在一條走廊裡，我撞見了法蘭克人的部隊。看得出來，他們在這地下城里守得相當牢固……這我可沒料到。",
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n法蘭克人\n<font:$local$\\fonts\\font12.fnt>\n在一條走廊裡，我撞見了法蘭克人的部隊。看得出來，他們在這地下城裡守得相當牢固……這我可沒料到。",
     "502": "<font:$local$\\fonts\\fonthead16bld.fnt>\n維京人\n<font:$local$\\fonts\\font12.fnt>\n法蘭克人逼著被擄來的維京人幹活。他們從早到晚做苦工，只為滿足法蘭克人對黃金的貪慾。法蘭克人把他們當牲口看待……把食物扔在地上，看著飢腸轆轆的人們撲上去搶……太可怕了！我必須解救他們！我要徹底消滅這些法蘭克人！",
     "503": "<font:$local$\\fonts\\fonthead16bld.fnt>\n法蘭克人被打敗了！\n<font:$local$\\fonts\\font12.fnt>\n現在再也沒人會欺負這些人了……大家都可以安全離開這裡了。\n",
     "504": "<font:$local$\\fonts\\fonthead16bld.fnt>\n黃金宮殿\n<font:$local$\\fonts\\font12.fnt>\n地下竟藏著一整座法蘭克人的城市，這裡的奢華與富足超出了最大膽的想像。到處都是黃金！就連人們腳下的路都是金子鋪的！貪婪總會招致毀滅……",
-    "505": "<font:$local$\\fonts\\fonthead16bld.fnt>\n第三個開關！\n<font:$local$\\fonts\\font12.fnt>\n我找到了最後一個開關。一啟動，機關便猛地運轉起來。一個殘兵大喊：「你都幹了些什麼？！這地方馬上就要被水淹了！」我明白髮生了什麼……我得趕緊去幫那些維京人！",
+    "505": "<font:$local$\\fonts\\fonthead16bld.fnt>\n第三個開關！\n<font:$local$\\fonts\\font12.fnt>\n我找到了最後一個開關。一啟動，機關便猛地運轉起來。一個殘兵大喊：「你都幹了些什麼？！這地方馬上就要被水淹了！」我明白發生了什麼……我得趕緊去幫那些維京人！",
     "506": "<font:$local$\\fonts\\fonthead16bld.fnt>\n失敗！\n<font:$local$\\fonts\\font12.fnt>\n\n一位對任務至關重要的英雄陣亡了。沒有他，這次遠征已不可能成功……\n\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n",
     "507": "<font:$local$\\fonts\\fonthead16bld.fnt>\n失敗！\n<font:$local$\\fonts\\font12.fnt>\n\n你沒能趕在水位上漲前逃出去！\n\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n"
   },

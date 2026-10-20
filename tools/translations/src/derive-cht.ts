@@ -37,6 +37,105 @@ function traditionalPunctuation(text: string): string {
 
 type Convert = (text: string) => string;
 
+/** Phrases OpenCC's `cn` to `twp` conversion gets wrong in our text (a wrong word split, a computing
+ *  term, a name, the HUD's wording), each with the Traditional text it must become. */
+export const PHRASE_OVERRIDES: readonly (readonly [string, string])[] = [
+  // Word splits and computing vocabulary.
+  ['的士兵', '的士兵'],
+  ['的士气', '的士氣'],
+  ['找对象', '找對象'],
+  ['接口道', '接口道'],
+  ['远程贸易', '遠程貿易'],
+  ['伙伴', '夥伴'],
+  ['复杂', '複雜'],
+  ['质量', '品質'],
+  ['扩展', '擴展'],
+  ['连接', '連接'],
+  ['高级', '高級'],
+  ['局部', '局部'],
+  ['类型', '類型'],
+  ['调制', '調製'],
+  ['溢出', '溢出'],
+  ['重装', '重裝'],
+  ['驱散', '驅散'],
+  ['命令行', '命令行'],
+  ['卸载', '卸載'],
+  ['脚本', '腳本'],
+  ['设备', '設備'],
+  ['打采', '打采'],
+  // One Simplified character for two Traditional ones.
+  ['这只意味', '這只意味'],
+  ['这只说明', '這只說明'],
+  ['这只有', '這只有'],
+  ['是只有', '是只有'],
+  ['那只能', '那只能'],
+  ['半只能', '半只能'],
+  ['一只只病', '一隻隻病'],
+  ['头发生', '頭發生'],
+  ['白发生', '白發生'],
+  ['落发展', '落發展'],
+  ['直发颤', '直發顫'],
+  ['被发配', '被發配'],
+  ['伊面前', '伊面前'],
+  ['群后', '群後'],
+  ['系在岸', '繫在岸'],
+  ['那卷', '那卷'],
+  ['光明了', '光明了'],
+  ['干翻', '幹翻'],
+  ['干的事', '幹的事'],
+  ['白干', '白幹'],
+  ['他们干的', '他們幹的'],
+  ['扎尔干的', '扎爾幹的'],
+  ['河干涸', '河乾涸'],
+  ['建筑里', '建築裡'],
+  ['废墟里', '廢墟裡'],
+  ['地牢里', '地牢裡'],
+  ['地道里', '地道裡'],
+  ['地下城里', '地下城裡'],
+  ['知道里面', '知道裡面'],
+  ['往日里', '往日裡'],
+  ['海里', '海裡'],
+  // Names.
+  ['布尔', '布爾'],
+  ['布雷尼', '布雷尼'],
+  ['采罗夫', '采羅夫'],
+  ['范达尔', '范達爾'],
+  ['哈希', '哈希'],
+  // The HUD's wording (`cht-game.ts`).
+  ['点击', '點擊'],
+  ['空格键', '空白鍵'],
+  ['列表', '清單'],
+  ['滚动', '捲動'],
+];
+
+/** The first of the private-use code points that stand in for an override phrase while OpenCC runs. */
+const PLACEHOLDER_BASE = 0xe000;
+
+/** `convert` with each `phrases` entry held out of it behind a private-use placeholder, longest
+ *  phrase first, and its Traditional text put in afterwards. */
+export function withPhraseOverrides(
+  convert: Convert,
+  phrases: readonly (readonly [string, string])[] = PHRASE_OVERRIDES,
+): Convert {
+  const ordered = phrases
+    .map(([simplified, traditional], index) => ({
+      simplified,
+      traditional,
+      placeholder: String.fromCodePoint(PLACEHOLDER_BASE + index),
+    }))
+    .sort((a, b) => b.simplified.length - a.simplified.length);
+  return (text) => {
+    const held = ordered.reduce(
+      (out, { simplified, placeholder }) => out.replaceAll(simplified, placeholder),
+      text,
+    );
+    return ordered.reduce(
+      (out, { placeholder, traditional }) => out.replaceAll(placeholder, traditional),
+      convert(held),
+    );
+  };
+}
+
 /** Each value of `record` converted; hypertext tags and markers carry no Chinese, so converting the whole
  *  value is safe. */
 function convertedValues(record: Readonly<Record<string, string>>, convert: Convert): Record<string, string> {
@@ -167,7 +266,7 @@ async function main(): Promise<void> {
   const { values } = parseArgs({ options: { root: { type: 'string' } }, strict: true });
   const baseDir = process.env.INIT_CWD ?? process.cwd();
   const root = values.root === undefined ? TRANSLATIONS_ROOT : resolve(baseDir, values.root);
-  const convert = Converter({ from: 'cn', to: 'twp' });
+  const convert = withPhraseOverrides(Converter({ from: 'cn', to: 'twp' }));
   const { written, kept, deleted, unreadable } = await deriveTraditionalOverlays(root, convert);
   for (const file of deleted)
     console.log(`deleted ${TARGET_LANGUAGE}/${file}: its ${SOURCE_LANGUAGE} file is gone`);

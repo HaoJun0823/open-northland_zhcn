@@ -18,7 +18,7 @@
   },
   "briefings": {
     "500": "<font:$local$\\fonts\\fonthead16bld.fnt>\n蛇巢\n<font:$local$\\fonts\\font12.fnt>\n\n進入地下墓穴後，我們得先穿過一條又長又窄的隧道。可隧道盡頭的景象遠遠超出了我們的預料！\n\n<usericon:1,197,56>\n\n那裡不是我們以為的一片隧道網，而是一個巨大的洞穴，裡面甚至還長著些植物！當然，到處都覆蓋著一種特別的黏液，這讓我們更加確信，蛇戰士們一定在這兒找了塊風水寶地。\n\n「這黏液……怎麼這麼多……」伊瓦爾說。\n\n「蛇一定把巢穴築在這兒了，沒有別的可能。黏液太多了，而且這地方格外開闊。」赫林斷定。\n\n於是我們一點一點地探查這個洞穴，尋找這處巢穴最薄弱的環節。\n",
-    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n蛇群已被消滅\n<font:$local$\\fonts\\font12.fnt>\n\n我們把整個蛇巢清剿乾淨了。這下它們應該不會再繁衍了。\n\n「這些雜碎真他媽的厲害……」赫林說。\n\n「都過去了，再也不會有怪物從這個洞裡爬出來了。」伊瓦爾介面道。\n\n「是啊……我們趕緊去出口吧，這洞穴讓我心裡發堵。」我最後說。",
+    "501": "<font:$local$\\fonts\\fonthead16bld.fnt>\n蛇群已被消滅\n<font:$local$\\fonts\\font12.fnt>\n\n我們把整個蛇巢清剿乾淨了。這下它們應該不會再繁衍了。\n\n「這些雜碎真他媽的厲害……」赫林說。\n\n「都過去了，再也不會有怪物從這個洞裡爬出來了。」伊瓦爾接口道。\n\n「是啊……我們趕緊去出口吧，這洞穴讓我心裡發堵。」我最後說。",
     "502": "<font:$local$\\fonts\\fonthead16bld.fnt>\n任務失敗\n<font:$local$\\fonts\\font12.fnt>\n\n一位主要英雄陣亡了，沒有他，任務無法完成……\n\n<picture:$local$\\graphics\\Hero_Dead_F.pcx>\n"
   },
   "derived": "chs"

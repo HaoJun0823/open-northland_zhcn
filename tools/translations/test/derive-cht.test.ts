@@ -2,8 +2,9 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MAP_OVERLAY_BASIS_PREFIX_LENGTH, OVERLAY_VERSION } from '@open-northland/data';
+import { Converter } from 'opencc-js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { deriveTraditionalOverlays } from '../src/derive-cht.js';
+import { deriveTraditionalOverlays, withPhraseOverrides } from '../src/derive-cht.js';
 
 /** `npm run translations:derive-cht`: a `cht` twin for each project `chs` map overlay. The converter
  *  here is a stand-in, so the test proves the file rules, not OpenCC. */
@@ -124,5 +125,34 @@ describe('deriveTraditionalOverlays', () => {
     ]);
     expect(await read('cht', `${DIGEST}.json`)).toEqual({ broken: true });
     expect((await read('cht', `${OTHER_DIGEST}.json`)).strings['0']).toBe('舊');
+  });
+});
+
+describe('withPhraseOverrides', () => {
+  // The stand-in mangles every 士 and 里, so only a held-out phrase keeps them.
+  const mangle = (text: string): string => text.replaceAll('士', '計程車').replaceAll('里', '裏');
+  const convertHeld = withPhraseOverrides(mangle, [
+    ['的士兵', '的士兵'],
+    ['建筑里', '建築裡'],
+  ]);
+
+  it('puts the Traditional phrase in at the start, in the middle and twice in one value', () => {
+    expect(convertHeld('的士兵来了')).toBe('的士兵来了');
+    expect(convertHeld('选中的士兵进攻')).toBe('选中的士兵进攻');
+    expect(convertHeld('建筑里的士兵和建筑里的人')).toBe('建築裡的士兵和建築裡的人');
+  });
+
+  it('converts a value without a phrase as the converter does', () => {
+    expect(convertHeld('士兵在里面')).toBe('計程車兵在裏面');
+  });
+
+  it('fixes the phrases OpenCC gets wrong in our text', () => {
+    const convert = withPhraseOverrides(Converter({ from: 'cn', to: 'twp' }));
+    expect(convert('分配给选中的士兵或英雄')).toBe('分配給選中的士兵或英雄');
+    expect(convert('他该去找对象了')).toBe('他該去找對象了');
+    expect(convert('与另一个民族进行远程贸易')).toBe('與另一個民族進行遠程貿易');
+    expect(convert('选择新的贸易伙伴，建造更复杂的建筑')).toBe('選擇新的貿易夥伴，建造更複雜的建築');
+    expect(convert('按空格键打开装备列表，画面会自动滚动')).toBe('按空白鍵開啟裝備清單，畫面會自動捲動');
+    expect(convert('所有在这座建筑里居住的人')).toBe('所有在這座建築裡居住的人');
   });
 });
